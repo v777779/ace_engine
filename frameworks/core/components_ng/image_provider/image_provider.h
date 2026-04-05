@@ -68,6 +68,11 @@ struct UriDownLoadConfig {
     bool hasProgressCallback = false;
 };
 
+struct ImageLoadResultInfo {
+    ImageErrorInfo errorInfo;
+    size_t fileSize = 0; // size of file in bytes
+};
+
 class ImageObject;
 
 // load & decode images
@@ -81,7 +86,8 @@ public:
      *    @param ctxWp                ImageLoadingContext that initiates the task, to be stored in the map
      *    @param sync                 if true, run task synchronously
      */
-    static void CreateImageObject(const ImageSourceInfo& src, const WeakPtr<ImageLoadingContext>& ctxWp, bool sync);
+    static void CreateImageObject(
+        const ImageSourceInfo& src, const WeakPtr<ImageLoadingContext>& ctxWp, bool sync, bool isSceneBoardWindow);
 
     /** Decode image data and make CanvasImage from ImageObject.
      *
@@ -133,7 +139,7 @@ private:
     static RefPtr<ImageObject> QueryThumbnailCache(const ImageSourceInfo& src);
 
     // helper function to create image object from ImageSourceInfo
-    static void CreateImageObjHelper(const ImageSourceInfo& src, bool sync = false);
+    static void CreateImageObjHelper(const ImageSourceInfo& src, bool sync = false, bool isSceneBoardWindow = false);
 
     static void DownLoadSuccessCallback(
         const RefPtr<ImageObject>& imageObj, const std::string& key, bool sync = false, int32_t containerId = 0);
@@ -144,11 +150,24 @@ private:
     static void MakeCanvasImageHelper(const RefPtr<ImageObject>& obj, const SizeF& targetSize, const std::string& key,
         const ImageDecoderOptions& imagedecoderOptions);
 
+    // Process network image: prepare data (cache check/download) then decode
+    static void ProcessNetworkImage(const RefPtr<ImageObject>& obj, const WeakPtr<ImageLoadingContext>& ctxWp,
+        const SizeF& size, const std::string& key, const ImageDecoderOptions& imageDecoderOptions);
+
+    // Process normal image: decode directly (data already ready)
+    static void ProcessNormalImage(const RefPtr<ImageObject>& obj, const WeakPtr<ImageLoadingContext>& ctxWp,
+        const SizeF& size, const std::string& key, const ImageDecoderOptions& imageDecoderOptions);
+
     // helper functions to end task and callback to LoadingContexts
     static void SuccessCallback(
         const RefPtr<CanvasImage>& canvasImage, const std::string& key, bool sync = false, int32_t containerId = 0);
     static void FailCallback(const std::string& key, const std::string& errorMsg, const ImageErrorInfo& errorInfo,
         bool sync = false, int32_t containerId = 0);
+
+    // Helper function for preparing network image data (cache check + download)
+    // Will trigger MakeCanvasImageHelper in success callback after data is ready
+    static void PrepareNetworkImageData(const RefPtr<ImageObject>& obj, const SizeF& size, const std::string& key,
+        const ImageDecoderOptions& imageDecoderOptions);
 
     struct Task {
         CancelableCallback<void()> bgTask_;

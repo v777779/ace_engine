@@ -18,6 +18,7 @@
 #include "base/log/ace_scoring_log.h"
 #include "base/memory/ace_type.h"
 #include "base/utils/utils.h"
+#include "bridge/common/utils/engine_helper.h"
 #include "bridge/declarative_frontend/engine/functions/js_function.h"
 #include "bridge/declarative_frontend/engine/js_converter.h"
 #include "bridge/declarative_frontend/engine/js_ref_ptr.h"
@@ -27,27 +28,21 @@
 #include "frameworks/core/components_ng/pattern/navigation/navigation_route.h"
 
 namespace OHOS::Ace::Framework {
+JSNavPathInfoScope::JSNavPathInfoScope(const EcmaVM* vm)
+{
+    if (vm) {
+        scope_ = std::make_shared<LocalScope>(vm);
+    }
+}
+
 napi_value JSNavPathInfo::GetParamObj() const
 {
     return JsConverter::ConvertJsValToNapiValue(param_);
 }
 
-void JSNavPathInfo::OpenScope()
+std::shared_ptr<NG::NavPathInfoScope> JSNavPathInfo::Scope()
 {
-    if (param_->IsEmpty()) {
-        return;
-    }
-    if (!scope_) {
-        scope_ = new LocalScope(param_->GetEcmaVM());
-    }
-}
-
-void JSNavPathInfo::CloseScope()
-{
-    if (scope_) {
-        delete scope_;
-        scope_ = nullptr;
-    }
+    return std::make_shared<JSNavPathInfoScope>(param_->GetEcmaVM());
 }
 
 void JSNavDestinationContext::GetPathInfo(const JSCallbackInfo& info)
@@ -142,6 +137,19 @@ void JSNavDestinationContext::GetNavDestinationId(const JSCallbackInfo& info)
     info.SetReturnValue(idStr);
 }
 
+void JSNavDestinationContext::SetNavDestinationMode(const JSCallbackInfo& info)
+{
+    TAG_LOGI(AceLogTag::ACE_NAVIGATION, "navdestination context not support set NavDestinationMode");
+}
+
+void JSNavDestinationContext::GetNavDestinationMode(const JSCallbackInfo& info)
+{
+    if (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        return;
+    }
+    info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(static_cast<int8_t>(context_->GetMode()))));
+}
+
 void JSNavDestinationContext::JSBind(BindingTarget target)
 {
     JSClass<JSNavDestinationContext>::Declare("NavDestinationContext");
@@ -151,6 +159,8 @@ void JSNavDestinationContext::JSBind(BindingTarget target)
         &JSNavDestinationContext::SetPathStack);
     JSClass<JSNavDestinationContext>::CustomProperty("navDestinationId", &JSNavDestinationContext::GetNavDestinationId,
         &JSNavDestinationContext::SetNavDestinationId);
+    JSClass<JSNavDestinationContext>::CustomProperty(
+        "mode", &JSNavDestinationContext::GetNavDestinationMode, &JSNavDestinationContext::SetNavDestinationMode);
     JSClass<JSNavDestinationContext>::CustomMethod("getConfigInRouteMap", &JSNavDestinationContext::GetRouteInfo);
     JSClass<JSNavDestinationContext>::Bind(
         target, &JSNavDestinationContext::Constructor, &JSNavDestinationContext::Destructor);
@@ -179,5 +189,45 @@ void JSNavPathInfo::UpdateNavPathInfo(const RefPtr<NG::NavPathInfo>& info)
     }
     param_ = jsPathInfo->GetParam();
     onPop_ = jsPathInfo->GetOnPop();
+    auto initParam = jsPathInfo->GetInitParam();
+    if (!initParam->IsEmpty()) {
+        initParam_ = initParam;
+    }
+}
+
+std::string JSNavPathInfo::GetInitParamString() const
+{
+    std::string undefinedVal = "undefined";
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_RETURN(engine, undefinedVal);
+    auto env = reinterpret_cast<napi_env>(engine->GetNativeEngine());
+    if (!env) {
+        return undefinedVal;
+    }
+    napi_handle_scope scope = nullptr;
+    napi_open_handle_scope(env, &scope);
+    if (scope == nullptr) {
+        return undefinedVal;
+    }
+    napi_value param = JsConverter::ConvertJsValToNapiValue(initParam_);
+    napi_value globalValue;
+    napi_get_global(env, &globalValue);
+    napi_value jsonClass;
+    napi_get_named_property(env, globalValue, "JSON", &jsonClass);
+    napi_value stringifyFunc;
+    napi_get_named_property(env, jsonClass, "stringify", &stringifyFunc);
+    napi_value stringifyParam;
+    if (napi_call_function(env, jsonClass, stringifyFunc, 1, &param, &stringifyParam) != napi_ok) {
+        TAG_LOGI(AceLogTag::ACE_NAVIGATION, "Can not stringify current param!");
+        napi_get_and_clear_last_exception(env, &stringifyParam);
+        napi_close_handle_scope(env, scope);
+        return undefinedVal;
+    }
+    size_t len = 0;
+    napi_get_value_string_utf8(env, stringifyParam, nullptr, 0, &len);
+    std::unique_ptr<char[]> paramChar = std::make_unique<char[]>(len + 1);
+    napi_get_value_string_utf8(env, stringifyParam, paramChar.get(), len + 1, &len);
+    napi_close_handle_scope(env, scope);
+    return paramChar.get();
 }
 } // namespace OHOS::Ace::Framework

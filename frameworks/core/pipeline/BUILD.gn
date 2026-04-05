@@ -52,6 +52,7 @@ template("ace_core_pipeline_source_set") {
       "base/render_context_creator.cpp",
       "base/render_element.cpp",
       "base/render_node.cpp",
+      "base/rs_node_adapter.cpp",
       "base/sole_child_element.cpp",
 
       # factories
@@ -60,7 +61,7 @@ template("ace_core_pipeline_source_set") {
 
     configs = [ "$ace_root:ace_config" ]
 
-    deps = [ "$ace_root/frameworks/core/components/theme:build_theme_code" ]
+    deps = []
     external_deps = []
     if (use_hilog) {
       external_deps += [ "hilog:libhilog" ]
@@ -71,6 +72,9 @@ template("ace_core_pipeline_source_set") {
         deps += [ "//foundation/graphic/graphic_2d/rosen/modules/render_service_client:librender_service_client_static" ]
       } else {
         external_deps += [ "graphic_2d:librender_service_client" ]
+        if (current_os == "ohos") {
+          external_deps += [ "eventhandler:libeventhandler" ]
+        }
         if (ace_use_rosen_drawing) {
           external_deps += [ "graphic_2d:2d_graphics" ]
         }

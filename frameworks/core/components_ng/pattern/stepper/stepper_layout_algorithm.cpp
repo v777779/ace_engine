@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,6 +15,7 @@
 
 #include "core/components_ng/pattern/stepper/stepper_layout_algorithm.h"
 
+#include "core/components_ng/pattern/stepper/stepper_constants.h"
 #include "core/components_ng/pattern/stepper/stepper_node.h"
 #include "core/components_ng/pattern/swiper/swiper_layout_property.h"
 #include "core/components_ng/pattern/text/text_layout_property.h"
@@ -51,7 +52,7 @@ void StepperLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
 
     auto childLayoutConstraint = layoutProperty->CreateChildConstraint();
     childLayoutConstraint.parentIdealSize = OptionalSizeF(idealSize);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto hostNode = layoutWrapper->GetHostNode();
     CHECK_NULL_VOID(hostNode);
@@ -77,7 +78,7 @@ void StepperLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
 void StepperLayoutAlgorithm::MeasureSwiper(LayoutWrapper* layoutWrapper, LayoutConstraintF swiperLayoutConstraint,
     float rightButtonHeight, float leftButtonHeight)
 {
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto stepperTheme = pipeline->GetTheme<StepperTheme>();
     CHECK_NULL_VOID(stepperTheme);
@@ -120,7 +121,7 @@ void StepperLayoutAlgorithm::MeasureLeftButton(LayoutWrapper* layoutWrapper, Lay
     auto hostNode = AceType::DynamicCast<StepperNode>(layoutWrapper->GetHostNode());
     CHECK_NULL_VOID(hostNode);
     CHECK_NULL_VOID(hostNode->HasLeftButtonNode());
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto stepperTheme = pipeline->GetTheme<StepperTheme>();
     CHECK_NULL_VOID(stepperTheme);
@@ -161,7 +162,7 @@ void StepperLayoutAlgorithm::MeasureRightButton(LayoutWrapper* layoutWrapper, La
     CHECK_NULL_VOID(hostNode);
     CHECK_NULL_VOID(hostNode->HasRightButtonNode());
 
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto stepperTheme = pipeline->GetTheme<StepperTheme>();
     CHECK_NULL_VOID(stepperTheme);
@@ -210,13 +211,13 @@ void StepperLayoutAlgorithm::MeasureRightButton(LayoutWrapper* layoutWrapper, La
 void StepperLayoutAlgorithm::MeasureText(
     const RefPtr<LayoutWrapper>& layoutWrapper, const LayoutConstraintF& buttonLayoutConstraint, bool isLeft)
 {
-    CHECK_NULL_VOID(layoutWrapper->GetHostTag() == std::string(V2::BUTTON_ETS_TAG));
+    CHECK_NULL_VOID(layoutWrapper->GetHostTag() == std::string(BUTTON_ETS_TAG));
     auto rowWrapper = layoutWrapper->GetOrCreateChildByIndex(0);
-    CHECK_NULL_VOID(rowWrapper->GetHostTag() == std::string(V2::ROW_ETS_TAG));
+    CHECK_NULL_VOID(rowWrapper->GetHostTag() == std::string(ROW_ETS_TAG));
     auto textWrapper = rowWrapper->GetOrCreateChildByIndex(isLeft ? 1 : 0);
-    CHECK_NULL_VOID(textWrapper->GetHostTag() == std::string(V2::TEXT_ETS_TAG));
+    CHECK_NULL_VOID(textWrapper->GetHostTag() == std::string(TEXT_ETS_TAG));
 
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto stepperTheme = pipeline->GetTheme<StepperTheme>();
     CHECK_NULL_VOID(stepperTheme);
@@ -265,14 +266,16 @@ void StepperLayoutAlgorithm::ReCalcStepperSize(
     totalSize.AddHeight(controlHeight);
     const auto& padding = stepperLayoutProperty->CreatePaddingAndBorder();
     AddPaddingToSize(padding, totalSize);
-
+    auto realSize = UpdateOptionSizeByCalcLayoutConstraint(OptionalSizeF(totalSize.Width(), totalSize.Height()),
+        layoutWrapper->GetLayoutProperty()->GetCalcLayoutConstraint(),
+        layoutWrapper->GetLayoutProperty()->GetLayoutConstraint()->percentReference);
     auto stepperGeometryNode = stepperNode->GetGeometryNode();
-    stepperGeometryNode->SetFrameSize(totalSize);
+    stepperGeometryNode->SetFrameSize(realSize.ConvertToSizeT());
 }
 
 void StepperLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
 {
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto stepperTheme = pipeline->GetTheme<StepperTheme>();
     CHECK_NULL_VOID(stepperTheme);
@@ -324,7 +327,7 @@ void StepperLayoutAlgorithm::SuitAgeLayoutButton(
                                : hostNode->GetChildIndexById(hostNode->GetLeftButtonId());
     auto ButtonWrapper = layoutWrapper->GetOrCreateChildByIndex(buttonIndex);
     CHECK_NULL_VOID(ButtonWrapper);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto stepperTheme = pipeline->GetTheme<StepperTheme>();
     CHECK_NULL_VOID(stepperTheme);
@@ -399,7 +402,7 @@ void StepperLayoutAlgorithm::LayoutLeftButton(LayoutWrapper* layoutWrapper)
     CHECK_NULL_VOID(hostNode->HasLeftButtonNode());
     auto index = hostNode->GetChildIndexById(hostNode->GetLeftButtonId());
     auto leftButtonWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto stepperTheme = pipeline->GetTheme<StepperTheme>();
     CHECK_NULL_VOID(stepperTheme);
@@ -435,7 +438,7 @@ void StepperLayoutAlgorithm::LayoutRightButton(LayoutWrapper* layoutWrapper)
     CHECK_NULL_VOID(hostNode->HasRightButtonNode());
     auto index = hostNode->GetChildIndexById(hostNode->GetRightButtonId());
     auto rightButtonWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto stepperTheme = pipeline->GetTheme<StepperTheme>();
     CHECK_NULL_VOID(stepperTheme);

@@ -21,51 +21,50 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_foldable_window.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/window/mock_foldable_window.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_window.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
-#include "core/components/common/properties/shadow_config.h"
-#include "core/components_ng/pattern/button/button_pattern.h"
+#include "core/common/ace_engine.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/overlay/sheet_drag_bar_pattern.h"
 #include "core/components_ng/pattern/overlay/sheet_presentation_pattern.h"
+#include "core/components_ng/pattern/overlay/sheet_style.h"
 #include "core/components_ng/pattern/overlay/sheet_view.h"
 #include "core/components_ng/pattern/overlay/sheet_wrapper_pattern.h"
 #include "core/components_ng/pattern/root/root_pattern.h"
 #include "core/components_ng/pattern/scroll/scroll_pattern.h"
 #include "core/components_ng/pattern/stage/page_pattern.h"
+#include "core/components_ng/pattern/text/text_layout_property.h"
+#include "core/components_ng/pattern/text_field/text_field_manager.h"
 
 using namespace testing;
 using namespace testing::ext;
 namespace OHOS::Ace::NG {
 namespace {
+const int32_t fingerId = 1;
 } // namespace
 
 class SheetPresentationTestFourNg : public testing::Test {
 public:
-    static RefPtr<SheetTheme> sheetTheme_;
     static void SetUpTestCase();
     static void TearDownTestCase();
-    static void SetSheetTheme(RefPtr<SheetTheme> sheetTheme);
-    static void SetSheetType(RefPtr<SheetPresentationPattern> sheetPattern, SheetType sheetType);
-
-    // static int32_t lastPlatformVersion_;
 };
-
-// int32_t SheetPresentationTestFourNg::lastPlatformVersion_ = 12;
-
-RefPtr<SheetTheme> SheetPresentationTestFourNg::sheetTheme_ = nullptr;
 
 void SheetPresentationTestFourNg::SetUpTestCase()
 {
     MockPipelineContext::SetUp();
     MockContainer::SetUp();
-    sheetTheme_ = AceType::MakeRefPtr<SheetTheme>();
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([](ThemeType type) -> RefPtr<Theme> {
         if (type == SheetTheme::TypeId()) {
-            return sheetTheme_;
+            auto sheetTheme = AceType::MakeRefPtr<SheetTheme>();
+            sheetTheme->closeIconButtonWidth_ = SHEET_CLOSE_ICON_WIDTH;
+            sheetTheme->centerDefaultWidth_ = SHEET_LANDSCAPE_WIDTH;
+            sheetTheme->sheetCloseIconTitleSpaceNew_ = SHEET_CLOSE_ICON_TITLE_SPACE_NEW;
+            return sheetTheme;
         } else {
             return nullptr;
         }
@@ -79,1785 +78,2129 @@ void SheetPresentationTestFourNg::TearDownTestCase()
     MockContainer::TearDown();
 }
 
-void SheetPresentationTestFourNg::SetSheetType(RefPtr<SheetPresentationPattern> sheetPattern, SheetType sheetType)
-{
-    PipelineBase::GetCurrentContext()->minPlatformVersion_ = static_cast<int32_t>(PlatformVersion::VERSION_TWELVE);
-    auto pipelineContext = PipelineContext::GetCurrentContext();
-    pipelineContext->displayWindowRectInfo_.width_ = SHEET_DEVICE_WIDTH_BREAKPOINT.ConvertToPx();
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    SheetStyle sheetStyle;
-    sheetStyle.sheetType = sheetType;
-    layoutProperty->propSheetStyle_ = sheetStyle;
-    sheetPattern->sheetThemeType_ = "popup";
-    Rect windowRect = { 0.0f, 0.0f, SHEET_PC_DEVICE_WIDTH_BREAKPOINT.ConvertToPx(), 0.0f };
-    MockPipelineContext::SetCurrentWindowRect(windowRect);
-    sheetPattern->sheetKey_.hasValidTargetNode = true;
-    auto sheetTheme = AceType::MakeRefPtr<SheetTheme>();
-    sheetTheme->sheetType_ = "popup";
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    SheetPresentationTestFourNg::SetSheetTheme(sheetTheme);
-}
-
-void SheetPresentationTestFourNg::SetSheetTheme(RefPtr<SheetTheme> sheetTheme)
-{
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(
-        [sheetTheme = AceType::WeakClaim(AceType::RawPtr(sheetTheme))](ThemeType type) -> RefPtr<Theme> {
-        if (type == SheetTheme::TypeId()) {
-            return sheetTheme.Upgrade();
-        } else {
-            return nullptr;
-        }
-    });
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-}
-
-/**
- * @tc.name: SetSheetBorderWidth001
- * @tc.desc: Branch:  else if (renderContext->GetBorderWidth().has_value() && !isPartialUpdate)
- *           Condition: (renderContext->GetBorderWidth().has_value() && !isPartialUpdate) = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, SetSheetBorderWidth001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->targetTag_ = "Sheet";
-    sheetPattern->targetId_ = 101;
-    auto targetNode = FrameNode::GetFrameNode(sheetPattern->targetTag_, sheetPattern->targetId_);
-    ASSERT_NE(targetNode, nullptr);
-
-    /**
-     * @tc.steps: step2. create sheet object.
-     */
-    sheetPattern->InitSheetObject();
-    ASSERT_NE(sheetPattern->sheetObject_, nullptr);
-
-    /**
-     * @tc.steps: step3. set borderWidth.
-     */
-    BorderWidthProperty borderWidthProperty = { 1.0_vp, 1.0_vp, 1.0_vp, 1.0_vp };
-    auto renderContext = sheetNode->GetRenderContext();
-    ASSERT_NE(renderContext, nullptr);
-    renderContext->UpdateBorderWidth(borderWidthProperty);
-
-    /**
-     * @tc.steps: step4. test SetSheetBorderWidth.
-     */
-    sheetPattern->SetSheetBorderWidth(false);
-    EXPECT_EQ(renderContext->GetBorderWidth().has_value(), true);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-
-/**
- * @tc.name: SetSheetBorderWidth001
- * @tc.desc: Branch:  else if (renderContext->GetBorderWidth().has_value() && !isPartialUpdate)
- *           Condition: (renderContext->GetBorderWidth().has_value() && !isPartialUpdate) = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, SetSheetBorderWidth002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->targetTag_ = "Sheet";
-    sheetPattern->targetId_ = 101;
-    auto targetNode = FrameNode::GetFrameNode(sheetPattern->targetTag_, sheetPattern->targetId_);
-    ASSERT_NE(targetNode, nullptr);
-
-    /**
-     * @tc.steps: step2. create sheet object.
-     */
-    sheetPattern->InitSheetObject();
-    ASSERT_NE(sheetPattern->sheetObject_, nullptr);
-
-    /**
-     * @tc.steps: step3. set borderWidth.
-     */
-    BorderWidthProperty borderWidthProperty = { 1.0_vp, 1.0_vp, 1.0_vp, 1.0_vp };
-    auto renderContext = sheetNode->GetRenderContext();
-    ASSERT_NE(renderContext, nullptr);
-    renderContext->UpdateBorderWidth(borderWidthProperty);
-
-    /**
-     * @tc.steps: step4. test SetSheetBorderWidth.
-     */
-    sheetPattern->SetSheetBorderWidth(true);
-    EXPECT_EQ(renderContext->GetBorderWidth().has_value(), true);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-
-/**
- * @tc.name: SetSheetBorderWidth001
- * @tc.desc: Branch:  else if (renderContext->GetBorderWidth().has_value() && !isPartialUpdate)
- *           Condition: (renderContext->GetBorderWidth().has_value() && !isPartialUpdate) = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, SetSheetBorderWidth003, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->targetTag_ = "Sheet";
-    sheetPattern->targetId_ = 101;
-    auto targetNode = FrameNode::GetFrameNode(sheetPattern->targetTag_, sheetPattern->targetId_);
-    ASSERT_NE(targetNode, nullptr);
-
-    /**
-     * @tc.steps: step2. create sheet object.
-     */
-    sheetPattern->InitSheetObject();
-    ASSERT_NE(sheetPattern->sheetObject_, nullptr);
-
-    // /**
-    //  * @tc.steps: step3. set borderWidth.
-    //  */
-    auto renderContext = sheetNode->GetRenderContext();
-    ASSERT_NE(renderContext, nullptr);
-
-    /**
-     * @tc.steps: step4. test SetSheetBorderWidth.
-     */
-    sheetPattern->SetSheetBorderWidth(true);
-    EXPECT_EQ(renderContext->GetBorderWidth().has_value(), false);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: SetSheetBorderWidth001
- * @tc.desc: Branch:  else if (renderContext->GetBorderWidth().has_value() && !isPartialUpdate)
- *           Condition: (renderContext->GetBorderWidth().has_value() && !isPartialUpdate) = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, SetSheetBorderWidth004, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->targetTag_ = "Sheet";
-    sheetPattern->targetId_ = 101;
-    auto targetNode = FrameNode::GetFrameNode(sheetPattern->targetTag_, sheetPattern->targetId_);
-    ASSERT_NE(targetNode, nullptr);
-
-    /**
-     * @tc.steps: step2. create sheet object.
-     */
-    sheetPattern->InitSheetObject();
-    ASSERT_NE(sheetPattern->sheetObject_, nullptr);
-
-    /**
-     * @tc.steps: step3. set borderWidth.
-     */
-    auto renderContext = sheetNode->GetRenderContext();
-    ASSERT_NE(renderContext, nullptr);
-
-    /**
-     * @tc.steps: step4. test SetSheetBorderWidth.
-     */
-    sheetPattern->SetSheetBorderWidth(false);
-    EXPECT_EQ(renderContext->GetBorderWidth().has_value(), false);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: SetShadowStyle001
- * @tc.desc: Branch:  if (sheetStyle.shadow.has_value())
- *           Condition: if (sheetStyle.shadow.has_value()) = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, SetShadowStyle001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->targetTag_ = "Sheet";
-    sheetPattern->targetId_ = 101;
-    auto targetNode = FrameNode::GetFrameNode(sheetPattern->targetTag_, sheetPattern->targetId_);
-    ASSERT_NE(targetNode, nullptr);
-
-    /**
-     * @tc.steps: step2. set sheetStyle.
-     */
-    SheetStyle sheetStyle;
-    layoutProperty->propSheetStyle_ = sheetStyle;
-
-    /**
-     * @tc.steps: step3. test SetShadowStyle.
-     */
-    sheetPattern->SetShadowStyle(false);
-    EXPECT_EQ(layoutProperty->GetSheetStyleValue().shadow.has_value(), false);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: SetShadowStyle002
- * @tc.desc: Branch:  if (sheetStyle.shadow.has_value())
- *                    if (!isFocused)
- *           Condition: if (sheetStyle.shadow.has_value()) = true
- *                      if (!isFocused) = fasle
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, SetShadowStyle002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->targetTag_ = "Sheet";
-    sheetPattern->targetId_ = 101;
-    auto targetNode = FrameNode::GetFrameNode(sheetPattern->targetTag_, sheetPattern->targetId_);
-    ASSERT_NE(targetNode, nullptr);
-
-    /**
-     * @tc.steps: step2. set shadow.
-     */
-    Shadow shadow = ShadowConfig::DefaultShadowL;
-    SheetStyle sheetStyle;
-    sheetStyle.shadow = shadow;
-    layoutProperty->propSheetStyle_ = sheetStyle;
-
-    /**
-     * @tc.steps: step3. test SetShadowStyle.
-     */
-    sheetPattern->SetShadowStyle(false);
-    EXPECT_EQ(layoutProperty->GetSheetStyleValue().shadow.has_value(), true);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: SetShadowStyle003
- * @tc.desc: Branch:  if (sheetStyle.shadow.has_value())
- *                    if (!isFocused)
- *           Condition: if (sheetStyle.shadow.has_value()) = false
- *                      if (!isFocused) = fasle
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, SetShadowStyle003, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->targetTag_ = "Sheet";
-    sheetPattern->targetId_ = 101;
-    auto targetNode = FrameNode::GetFrameNode(sheetPattern->targetTag_, sheetPattern->targetId_);
-    ASSERT_NE(targetNode, nullptr);
-
-    /**
-     * @tc.steps: step2. set shadow.
-     */
-    SheetStyle sheetStyle;
-    sheetStyle.shadow.reset();
-    layoutProperty->propSheetStyle_ = sheetStyle;
-
-    /**
-     * @tc.steps: step3. test SetShadowStyle.
-     */
-    sheetPattern->SetShadowStyle(true);
-    EXPECT_EQ(layoutProperty->GetSheetStyleValue().shadow.has_value(), false);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: HandleFocusEvent001
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, HandleFocusEvent001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->targetTag_ = "Sheet";
-    sheetPattern->targetId_ = 101;
-    auto targetNode = FrameNode::GetFrameNode(sheetPattern->targetTag_, sheetPattern->targetId_);
-    ASSERT_NE(targetNode, nullptr);
-
-    /**
-     * @tc.steps: step2. set shadow.
-     */
-    SheetStyle sheetStyle;
-    sheetStyle.shadow.reset();
-    layoutProperty->propSheetStyle_ = sheetStyle;
-
-    /**
-     * @tc.steps: step3. test HandleFocusEvent.
-     */
-    sheetPattern->HandleFocusEvent();
-    EXPECT_EQ(sheetNode->GetId(), 101);
-    EXPECT_EQ(layoutProperty->GetSheetStyleValue().shadow.has_value(), false);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: HandleBlurEvent001
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, HandleBlurEvent001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->targetTag_ = "Sheet";
-    sheetPattern->targetId_ = 101;
-    auto targetNode = FrameNode::GetFrameNode(sheetPattern->targetTag_, sheetPattern->targetId_);
-    ASSERT_NE(targetNode, nullptr);
-
-    /**
-     * @tc.steps: step2. reset shadow.
-     */
-    SheetStyle sheetStyle;
-    sheetStyle.shadow.reset();
-    layoutProperty->propSheetStyle_ = sheetStyle;
-
-    /**
-     * @tc.steps: step3. test HandleFocusEvent.
-     */
-    sheetPattern->HandleBlurEvent();
-    EXPECT_EQ(sheetPattern->keyboardHeight_, 0);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: SendTextUpdateEvent001
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, SendTextUpdateEvent001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->targetTag_ = "Sheet";
-    sheetPattern->targetId_ = 101;
-    auto targetNode = FrameNode::GetFrameNode(sheetPattern->targetTag_, sheetPattern->targetId_);
-    ASSERT_NE(targetNode, nullptr);
-
-    /**
-     * @tc.steps: step2. test SendTextUpdateEvent.
-     */
-    sheetPattern->SendTextUpdateEvent();
-    EXPECT_EQ(sheetPattern->keyboardHeight_, 0);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
 /**
  * @tc.name: UpdateAccessibilityDetents001
- * @tc.desc: Branch:  sheetDetentsSize < 2 || !IsSheetBottomStyle()
- *                    if (NearEqual(height, sheetDetentHeight_[i]))
- *           Condition: sheetDetentsSize < 2 || !IsSheetBottomStyle() = fasle
- *           if (NearEqual(height, sheetDetentHeight_[i])) = false
+ * @tc.desc: UpdateAccessibilityDetents true
  * @tc.type: FUNC
  */
 HWTEST_F(SheetPresentationTestFourNg, UpdateAccessibilityDetents001, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
     SheetPresentationTestFourNg::SetUpTestCase();
     auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
     ASSERT_NE(sheetNode, nullptr);
     auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
     ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. Init height and type.
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM);
-    sheetPattern->sheetDetentHeight_.emplace_back(20);
-    sheetPattern->sheetDetentHeight_.emplace_back(30);
-
-    /**
-     * @tc.steps: step3. test UpdateAccessibilityDetents.
-     */
-    auto ret = sheetPattern->UpdateAccessibilityDetents(10);
-    EXPECT_EQ(ret, false);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    auto count = sheetPattern->sheetDetentHeight_.size();
+    EXPECT_EQ(count, 5);
+    sheetPattern->sheetType_ = SheetType::SHEET_BOTTOM;
+    auto res = sheetPattern->UpdateAccessibilityDetents(10.0f);
+    EXPECT_TRUE(res);
     SheetPresentationTestFourNg::TearDownTestCase();
 }
 
 /**
- * @tc.name: UpdateAccessibilityDetents002
- * @tc.desc: Branch:  sheetDetentsSize < 2 || !IsSheetBottomStyle()
- *           Condition: sheetDetentsSize < 2 || !IsSheetBottomStyle() = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, UpdateAccessibilityDetents002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. Init height and type.
-     */
-    sheetPattern->sheetDetentHeight_.emplace_back(20);
-
-    /**
-     * @tc.steps: step3. test UpdateAccessibilityDetents.
-     */
-    auto ret = sheetPattern->UpdateAccessibilityDetents(10);
-    EXPECT_EQ(ret, false);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: UpdateAccessibilityDetents003
- * @tc.desc: Branch:  sheetDetentsSize < 2 || !IsSheetBottomStyle()
- *                    if (NearEqual(height, sheetDetentHeight_[i]))
- *           Condition: sheetDetentsSize < 2 || !IsSheetBottomStyle() = false
- *           if (NearEqual(height, sheetDetentHeight_[i])) = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, UpdateAccessibilityDetents003, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. Init height and type.
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM);
-    sheetPattern->sheetDetentHeight_.emplace_back(10);
-    sheetPattern->sheetDetentHeight_.emplace_back(20);
-    sheetPattern->sheetDetentHeight_.emplace_back(30);
-
-    /**
-     * @tc.steps: step3. test UpdateAccessibilityDetents.
-     */
-    auto ret = sheetPattern->UpdateAccessibilityDetents(10);
-    EXPECT_EQ(ret, true);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: GetCurrentBroadcastDetentsIndex001
- * @tc.desc: Branch:  sheetDetentsSize < 2 || !IsSheetBottomStyle()
- *                    if (it != sheetDetentHeight_.end())
- *           Condition: sheetDetentsSize < 2 || !IsSheetBottomStyle() = false
- *          if (it != sheetDetentHeight_.end()) = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, GetCurrentBroadcastDetentsIndex001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. Init height and type.
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM);
-    sheetPattern->height_ = 30.0f;
-    sheetPattern->sheetDetentHeight_.emplace_back(10);
-    sheetPattern->sheetDetentHeight_.emplace_back(20);
-    sheetPattern->sheetDetentHeight_.emplace_back(2);
-
-    /**
-     * @tc.steps: step3. test UpdateAccessibilityDetents.
-     */
-    auto ret = sheetPattern->GetCurrentBroadcastDetentsIndex();
-    EXPECT_EQ(ret, 0);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: GetCurrentBroadcastDetentsIndex002
- * @tc.desc: Branch:  sheetDetentsSize < 2 || !IsSheetBottomStyle()
- *           Condition: sheetDetentsSize < 2 || !IsSheetBottomStyle() = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, GetCurrentBroadcastDetentsIndex002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. Init height and type.
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM);
-    sheetPattern->height_ = 30.0f;
-    sheetPattern->broadcastPreDetentsIndex_ = 30;
-    sheetPattern->sheetDetentHeight_.emplace_back(10);
-
-    /**
-     * @tc.steps: step3. test UpdateAccessibilityDetents.
-     */
-    auto ret = sheetPattern->GetCurrentBroadcastDetentsIndex();
-    EXPECT_EQ(ret, 30);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: GetCurrentBroadcastDetentsIndex003
- * @tc.desc: Branch:  sheetDetentsSize < 2 || !IsSheetBottomStyle()
- *                    if (it != sheetDetentHeight_.end())
- *           Condition: sheetDetentsSize < 2 || !IsSheetBottomStyle() = false
- *          if (it != sheetDetentHeight_.end()) = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, GetCurrentBroadcastDetentsIndex003, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. Init height and type.
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM);
-    sheetPattern->height_ = 10.0f;
-    sheetPattern->broadcastPreDetentsIndex_ = 30;
-    sheetPattern->sheetDetentHeight_.emplace_back(10);
-    sheetPattern->sheetDetentHeight_.emplace_back(20);
-    sheetPattern->sheetDetentHeight_.emplace_back(30);
-
-    /**
-     * @tc.steps: step3. test UpdateAccessibilityDetents.
-     */
-    auto ret = sheetPattern->GetCurrentBroadcastDetentsIndex();
-    EXPECT_EQ(ret, 0);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:HandleFollowAccessibilityEvent001
- * @tc.desc: Branch: invalid
- *           Condition: invalid = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, HandleFollowAccessibilityEvent001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. Init height and type.
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_CENTER);
-    sheetPattern->sheetDetentHeight_.emplace_back(1);
-
-    /**
-     * @tc.steps: step3. test HandleFollowAccessibilityEvent.
-     */
-    sheetPattern->HandleFollowAccessibilityEvent(1.0f);
-    EXPECT_EQ(sheetPattern->broadcastPreDetentsIndex_, 0);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:HandleFollowAccessibilityEvent002
- * @tc.desc: Branch: invalid
- *                   if (currHeight < sheetDetentHeight_[0] || currHeight > sheetDetentHeight_[sheetDetentsSize - 1])
- *                      if (GreatNotEqual(std::abs(currHeight - upHeight), std::abs(currHeight - downHeight)))
- *           Condition: invalid = false
- *             (currHeight < sheetDetentHeight_[0] || currHeight > sheetDetentHeight_[sheetDetentsSize - 1]) = false
- *             GreatNotEqual(std::abs(currHeight - upHeight), std::abs(currHeight - downHeight)) == true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, HandleFollowAccessibilityEvent002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. Init height and type.
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM);
-    sheetPattern->sheetDetentHeight_.emplace_back(100);
-    sheetPattern->sheetDetentHeight_.emplace_back(300);
-    sheetPattern->broadcastPreDetentsIndex_ = 30;
-
-    /**
-     * @tc.steps: step3. test HandleFollowAccessibilityEvent.
-     */
-    sheetPattern->HandleFollowAccessibilityEvent(150.0f);
-    EXPECT_EQ(sheetPattern->broadcastPreDetentsIndex_, 0);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:HandleFollowAccessibilityEvent003
- * @tc.desc: Branch: invalid
- *                   if (currHeight < sheetDetentHeight_[0] || currHeight > sheetDetentHeight_[sheetDetentsSize - 1])
- *                      else if (LessNotEqual(std::abs(currHeight - upHeight), std::abs(currHeight - downHeight)))
- *           Condition: invalid = false
- *             (currHeight < sheetDetentHeight_[0] || currHeight > sheetDetentHeight_[sheetDetentsSize - 1]) = false
- *             LessNotEqual(std::abs(currHeight - upHeight), std::abs(currHeight - downHeight)) == true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, HandleFollowAccessibilityEvent003, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. Init height and type.
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM);
-    sheetPattern->sheetDetentHeight_.emplace_back(100);
-    sheetPattern->sheetDetentHeight_.emplace_back(300);
-    sheetPattern->broadcastPreDetentsIndex_ = 30;
-
-    /**
-     * @tc.steps: step3. test HandleFollowAccessibilityEvent.
-     */
-    sheetPattern->HandleFollowAccessibilityEvent(250.0f);
-    EXPECT_EQ(sheetPattern->broadcastPreDetentsIndex_, 1);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:ChangeSheetPage001
- * @tc.desc: Branch: if (IsAvoidingKeyboard() && keyboardAvoidMode_ == SheetKeyboardAvoidMode::TRANSLATE_AND_SCROLL)
- *           Condition:
-                IsAvoidingKeyboard() && keyboardAvoidMode_ == SheetKeyboardAvoidMode::TRANSLATE_AND_SCROLL = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, ChangeSheetPage001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set keyboardHeight and keyboardAvoidMode_.
-     */
-    sheetPattern->SetKeyboardHeight(100);
-    sheetPattern->keyboardAvoidMode_ = SheetKeyboardAvoidMode::TRANSLATE_AND_SCROLL;
-
-    /**
-     * @tc.steps: step3. test ChangeSheetPage.
-     */
-    sheetPattern->ChangeSheetPage(200.0f);
-    EXPECT_EQ(sheetPattern->GetKeyboardHeight(), 100);
-    EXPECT_EQ(sheetPattern->GetKeyboardAvoidMode(), SheetKeyboardAvoidMode::TRANSLATE_AND_SCROLL);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate001
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *           Condition:  if (!GetShowState() || !IsScrollable()) = true
+ * @tc.name: OnCoordScrollUpdate001
+ * @tc.desc: OnCoordScrollUpdate false
  * @tc.type: FUNC
  */
 HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate001, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
     SheetPresentationTestFourNg::SetUpTestCase();
     auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
     ASSERT_NE(sheetNode, nullptr);
     auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
     ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState
-     */
-    sheetPattern->SetShowState(false);
-
-    /**
-     * @tc.steps: step3. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(200.0f);
-    EXPECT_EQ(ret, false);
-    EXPECT_EQ(sheetPattern->GetShowState(), false);
-    EXPECT_EQ(sheetPattern->IsScrollable(), false);
+    auto count = sheetPattern->sheetDetentHeight_.size();
+    EXPECT_EQ(count, 0);
+    auto scrollNode = sheetPattern->GetSheetScrollNode();
+    CHECK_NULL_VOID(scrollNode);
+    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
+    CHECK_NULL_VOID(scrollPattern);
+    scrollPattern->scrollableDistance_ = 10.0f;
+    auto res = sheetPattern->OnCoordScrollUpdate(10.0f);
+    EXPECT_FALSE(res);
     SheetPresentationTestFourNg::TearDownTestCase();
 }
 
 /**
- * @tc.name:OnCoordScrollUpdate002
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *           Condition:  if (!GetShowState() || !IsScrollable()) = true
+ * @tc.name: OnCoordScrollUpdate002
+ * @tc.desc: OnCoordScrollUpdate false
  * @tc.type: FUNC
  */
 HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate002, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
     SheetPresentationTestFourNg::SetUpTestCase();
     auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
     ASSERT_NE(sheetNode, nullptr);
     auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
     ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(0.0f);
+    auto count = sheetPattern->sheetDetentHeight_.size();
+    EXPECT_EQ(count, 5);
+    sheetPattern->currentOffset_ = 0.0f;
+    auto scrollNode = sheetPattern->GetSheetScrollNode();
+    CHECK_NULL_VOID(scrollNode);
     auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 60.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(false);
-
-    /**
-     * @tc.steps: step3. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(200.0f);
-    EXPECT_EQ(ret, false);
-    EXPECT_EQ(sheetPattern->GetShowState(), false);
-    EXPECT_EQ(sheetPattern->IsScrollable(), true);
-    EXPECT_EQ(scrollPattern->IsPositiveScrollableDistance(), true);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 60.0f);
+    CHECK_NULL_VOID(scrollPattern);
+    scrollPattern->scrollableDistance_ = 10.0f;
+    auto res = sheetPattern->OnCoordScrollUpdate(0.0f);
+    EXPECT_FALSE(res);
     SheetPresentationTestFourNg::TearDownTestCase();
 }
 
 /**
- * @tc.name:OnCoordScrollUpdate003
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
+ * @tc.name: OnCoordScrollUpdate003
+ * @tc.desc: OnCoordScrollUpdate false
  * @tc.type: FUNC
  */
 HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate003, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
     SheetPresentationTestFourNg::SetUpTestCase();
     auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    EXPECT_NE(sheetNode, nullptr);
     auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
+    EXPECT_NE(sheetPattern, nullptr);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    auto count = sheetPattern->sheetDetentHeight_.size();
+    EXPECT_EQ(count, 5);
+    sheetPattern->pageHeight_ = 10.0f;
+    sheetPattern->height_ = 10.0f;
+    auto scrollNode = sheetPattern->GetSheetScrollNode();
+    CHECK_NULL_VOID(scrollNode);
     auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 70.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-
-    /**
-     * @tc.steps: step3. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(200.0f);
-    EXPECT_EQ(ret, false);
-    EXPECT_EQ(sheetPattern->GetShowState(), true);
-    EXPECT_EQ(sheetPattern->IsScrollable(), true);
-    EXPECT_EQ(scrollPattern->IsPositiveScrollableDistance(), true);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 70.0f);
+    CHECK_NULL_VOID(scrollPattern);
+    scrollPattern->scrollableDistance_ = 10.0f;
+    auto res = sheetPattern->OnCoordScrollUpdate(10.0f);
+    EXPECT_TRUE(sheetPattern->GetShowState());
+    EXPECT_TRUE(sheetPattern->IsScrollable());
+    EXPECT_TRUE(res);
     SheetPresentationTestFourNg::TearDownTestCase();
 }
 
 /**
- * @tc.name:OnCoordScrollUpdate004
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *           Condition:  if (!GetShowState() || !IsScrollable()) = true
+ * @tc.name: HandleDragEndAccessibilityEvent001
+ * @tc.desc: HandleDragEndAccessibilityEvent event.beforeText
  * @tc.type: FUNC
  */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate004, TestSize.Level1)
+HWTEST_F(SheetPresentationTestFourNg, HandleDragEndAccessibilityEvent001, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
     SheetPresentationTestFourNg::SetUpTestCase();
     auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
     ASSERT_NE(sheetNode, nullptr);
     auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
     ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState
-     */
-    sheetPattern->SetShowState(true);
-
-    /**
-     * @tc.steps: step3. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(200.0f);
-    EXPECT_EQ(ret, false);
-    EXPECT_EQ(sheetPattern->GetShowState(), true);
-    EXPECT_EQ(sheetPattern->IsScrollable(), false);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    auto count = sheetPattern->sheetDetentHeight_.size();
+    EXPECT_EQ(count, 5);
+    sheetPattern->height_ = 10.0f;
+    sheetPattern->sheetType_ = SheetType::SHEET_BOTTOM;
+    auto res = sheetPattern->UpdateAccessibilityDetents(sheetPattern->GetSheetHeightBeforeDragUpdate());
+    EXPECT_TRUE(res);
+    AceApplicationInfo::GetInstance().SetAccessibilityEnabled(true);
+    sheetPattern->HandleDragEndAccessibilityEvent();
+    AccessibilityEvent event;
+    EXPECT_EQ(event.beforeText, "");
     SheetPresentationTestFourNg::TearDownTestCase();
 }
 
 /**
- * @tc.name:OnCoordScrollUpdate005
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = false
+ * @tc.name: GetWindowButtonRect001
+ * @tc.desc: GetWindowButtonRect EXPECT TRUE
  * @tc.type: FUNC
  */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate005, TestSize.Level1)
+HWTEST_F(SheetPresentationTestFourNg, GetWindowButtonRect001, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
     SheetPresentationTestFourNg::SetUpTestCase();
     auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
     ASSERT_NE(sheetNode, nullptr);
     auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
     ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 90.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 1
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM);
-    sheetPattern->sheetDetentHeight_.emplace_back(20);
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(200.0f);
-    EXPECT_EQ(ret, true);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_BOTTOM);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 1);
-    EXPECT_EQ(sheetPattern->GetShowState(), true);
-    EXPECT_EQ(sheetPattern->IsScrollable(), true);
-    EXPECT_EQ(scrollPattern->IsPositiveScrollableDistance(), true);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 90.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate006
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate006, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 90.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 0
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM);
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(200.0f);
-    EXPECT_EQ(ret, false);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_BOTTOM);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 0);
-    EXPECT_EQ(sheetPattern->GetShowState(), true);
-    EXPECT_EQ(sheetPattern->IsScrollable(), true);
-    EXPECT_EQ(scrollPattern->IsPositiveScrollableDistance(), true);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 90.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate007
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate007, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    PipelineBase::GetCurrentContext()->minPlatformVersion_ = static_cast<int32_t>(PlatformVersion::VERSION_TWELVE);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 90.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 3
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_POPUP);
-    sheetPattern->sheetDetentHeight_.emplace_back(10);
-    sheetPattern->sheetDetentHeight_.emplace_back(20);
-    sheetPattern->sheetDetentHeight_.emplace_back(30);
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(200.0f);
-    EXPECT_EQ(ret, false);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_POPUP);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 3);
-    EXPECT_EQ(sheetPattern->GetShowState(), true);
-    EXPECT_EQ(sheetPattern->IsScrollable(), true);
-    EXPECT_EQ(scrollPattern->IsPositiveScrollableDistance(), true);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 90.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate008
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate008, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 90.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 0
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_POPUP);
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(200.0f);
-    EXPECT_EQ(ret, false);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_POPUP);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 0);
-    EXPECT_EQ(sheetPattern->GetShowState(), true);
-    EXPECT_EQ(sheetPattern->IsScrollable(), true);
-    EXPECT_EQ(scrollPattern->IsPositiveScrollableDistance(), true);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 90.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate009
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *                    if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *                    (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate())))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = false
-*            if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *            (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate()))) = true
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate009, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 100.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 1
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM_OFFSET);
-    sheetPattern->sheetDetentHeight_.emplace_back(0);
-    sheetPattern->currentOffset_ = 0.0f;
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(-200.0f);
-    EXPECT_EQ(ret, false);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_BOTTOM_OFFSET);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 1);
-    EXPECT_EQ(sheetPattern->GetShowState(), true);
-    EXPECT_EQ(sheetPattern->IsScrollable(), true);
-    EXPECT_EQ(scrollPattern->IsPositiveScrollableDistance(), true);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 100.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate010
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *                    if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *                    (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate())))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = false
-*            if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *            (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate()))) = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate010, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 110.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 1
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM_OFFSET);
-    sheetPattern->sheetDetentHeight_.emplace_back(1000);
-    sheetPattern->currentOffset_ = 1.0f;
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(200.0f);
-    EXPECT_EQ(ret, true);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_BOTTOM_OFFSET);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 1);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 110.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate011
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *                    if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *                    (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate())))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = false
-*            if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *            (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate()))) = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate011, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 120.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 1
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM_OFFSET);
-    sheetPattern->sheetDetentHeight_.emplace_back(0);
-    sheetPattern->currentOffset_ = 1.0f;
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(200.0f);
-    EXPECT_EQ(ret, true);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_BOTTOM_OFFSET);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 1);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 120.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate012
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *                    if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *                    (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate())))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = false
-*            if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *            (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate()))) = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate012, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 130.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 1
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM_OFFSET);
-    sheetPattern->sheetDetentHeight_.emplace_back(150);
-    sheetPattern->currentOffset_ = 1.0f;
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(-100.0f);
-    EXPECT_EQ(ret, true);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_BOTTOM_OFFSET);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 1);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 130.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate013
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *                    if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *                    (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate())))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = false
-*            if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *            (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate()))) = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate013, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 140.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 1
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM_OFFSET);
-    sheetPattern->sheetDetentHeight_.emplace_back(0);
-    sheetPattern->currentOffset_ = 123.0f;
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(-100.0f);
-    EXPECT_EQ(ret, true);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_BOTTOM_OFFSET);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 1);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 140.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate014
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *                    if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *                    (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate())))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = false
-*            if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *            (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate()))) = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate014, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 150.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 1
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM_OFFSET);
-    sheetPattern->sheetDetentHeight_.emplace_back(456);
-    sheetPattern->currentOffset_ = 0.0f;
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(100.0f);
-    EXPECT_EQ(ret, true);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_BOTTOM_OFFSET);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 1);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 150.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate015
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *                    if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *                    (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate())))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = false
-*            if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *            (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate()))) = false
- * @tc.type: FUNC
- */
-
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate015, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 150.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 1
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM_OFFSET);
-    sheetPattern->sheetDetentHeight_.emplace_back(0);
-    sheetPattern->currentOffset_ = 0.0f;
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(789.0f);
-    EXPECT_EQ(ret, true);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_BOTTOM_OFFSET);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 1);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 150.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:OnCoordScrollUpdate016
- * @tc.desc: Branch:  if (!GetShowState() || !IsScrollable())
- *                    if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0))
- *                    if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *                    (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate())))
- *           Condition:  if (!GetShowState() || !IsScrollable()) = false
- *           if ((sheetType == SheetType::SHEET_POPUP) || (sheetDetentsSize == 0)) = false
-*            if ((NearZero(currentOffset_)) && (LessNotEqual(scrollOffset, 0.0f)) &&
- *            (GreatOrEqual(height, GetMaxSheetHeightBeforeDragUpdate()))) = false
- * @tc.type: FUNC
- */
-
-HWTEST_F(SheetPresentationTestFourNg, OnCoordScrollUpdate016, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. set showState and scrollable
-     */
-    auto scrollNode = FrameNode::GetOrCreateFrameNode(
-        V2::SCROLL_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ScrollPattern>(); });
-    ASSERT_NE(scrollNode, nullptr);
-    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
-    ASSERT_NE(scrollPattern, nullptr);
-    scrollPattern->scrollableDistance_ = 160.0f;
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetShowState(true);
-    
-    /**
-     * @tc.steps: step3. set sheetType and sheetDetentsSize = 1
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_BOTTOM_OFFSET);
-    sheetPattern->sheetDetentHeight_.emplace_back(135);
-    sheetPattern->currentOffset_ = 0.0f;
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto ret  = sheetPattern->OnCoordScrollUpdate(-246.0f);
-    EXPECT_EQ(ret, true);
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_BOTTOM_OFFSET);
-    EXPECT_EQ(sheetPattern->sheetDetentHeight_.size(), 1);
-    EXPECT_EQ(scrollPattern->GetScrollableDistance(), 160.0f);
-    SheetPresentationTestFourNg::TearDownTestCase();
-}
-
-/**
- * @tc.name:GetWindowButtonRectForAllAPI001
- * @tc.desc: Branch:  if (avoidInfoMgr->NeedAvoidContainerModal() &&
-        avoidInfoMgr->GetContainerModalButtonsRect(floatContainerModal, floatButtons))
- *           Condition:  avoidInfoMgr->NeedAvoidContainerModal() = false
-        avoidInfoMgr->GetContainerModalButtonsRect(floatContainerModal, floatButtons) = true
- * @tc.type: FUNC
- */
-
-HWTEST_F(SheetPresentationTestFourNg, GetWindowButtonRectForAllAPI001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestFourNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. init avoidInfoManager
-     */
-    auto mockContainer = MockContainer::Current();
-    ASSERT_NE(mockContainer, nullptr);
-    auto pipelineContext = MockPipelineContext::GetCurrent();
-    mockContainer->pipelineContext_ = pipelineContext;
-    pipelineContext->SetContainerModalButtonsRect(true);
-    AceEngine::Get().containerMap_.emplace(1, mockContainer);
-    AceEngine::Get().containerMap_.emplace(2, MockContainer::Current());
-    auto avoidInfoMgr = pipelineContext->GetAvoidInfoManager();
+    AceApplicationInfo::GetInstance().apiVersion_ = 1019;
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto avoidInfoMgr = pipeline->GetAvoidInfoManager();
     ASSERT_NE(avoidInfoMgr, nullptr);
+    avoidInfoMgr->instanceId_ = 1001;
     avoidInfoMgr->avoidInfo_.needAvoid = true;
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto rect = RectF(0.0f, 0.0f, 1800.0f, 1020.0f);
-    auto ret  = sheetPattern->GetWindowButtonRectForAllAPI(rect);
-    EXPECT_EQ(ret, true);
+    NG::RectF floatButtons;
+    floatButtons.SetHeight(10.0f);
+    floatButtons.SetWidth(10.0f);
+    auto res = sheetPattern->GetWindowButtonRect(floatButtons);
+    EXPECT_TRUE(res);
     SheetPresentationTestFourNg::TearDownTestCase();
 }
 
 /**
- * @tc.name:GetWindowButtonRectForAllAPI002
- * @tc.desc: Branch:  if (avoidInfoMgr->NeedAvoidContainerModal() &&
-        avoidInfoMgr->GetContainerModalButtonsRect(floatContainerModal, floatButtons))
- *           Condition:  avoidInfoMgr->NeedAvoidContainerModal() =false
-        avoidInfoMgr->GetContainerModalButtonsRect(floatContainerModal, floatButtons) = false
+ * @tc.name: InitialSingleGearHeight001
+ * @tc.desc: InitialSingleGearHeight sheetHeight
  * @tc.type: FUNC
  */
-
-HWTEST_F(SheetPresentationTestFourNg, GetWindowButtonRectForAllAPI002, TestSize.Level1)
+HWTEST_F(SheetPresentationTestFourNg, InitialSingleGearHeight001, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
     SheetPresentationTestFourNg::SetUpTestCase();
     auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 101,
-        AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
     ASSERT_NE(sheetNode, nullptr);
     auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
     ASSERT_NE(sheetPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. init avoidInfoManager
-     */
-    auto mockContainer = MockContainer::Current();
-    ASSERT_NE(mockContainer, nullptr);
-    auto pipelineContext = MockPipelineContext::GetCurrent();
-    mockContainer->pipelineContext_ = pipelineContext;
-    pipelineContext->SetContainerModalButtonsRect(true);
-    AceEngine::Get().containerMap_.emplace(1, mockContainer);
-    AceEngine::Get().containerMap_.emplace(2, MockContainer::Current());
-    auto avoidInfoMgr = pipelineContext->GetAvoidInfoManager();
-    ASSERT_NE(avoidInfoMgr, nullptr);
-    avoidInfoMgr->avoidInfo_.needAvoid = false;
-
-    /**
-     * @tc.steps: step4. test OnCoordScrollUpdate.
-     */
-    auto rect = RectF(0.0f, 0.0f, 1000.0f, 500.0f);
-    auto ret  = sheetPattern->GetWindowButtonRectForAllAPI(rect);
-    EXPECT_EQ(ret, false);
+    NG::SheetStyle sheetStyle;
+    sheetStyle.sheetHeight.sheetMode = SheetMode::MEDIUM;
+    Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_EIGHTEEN);
+    sheetPattern->pageHeight_ = 10.0f;
+    auto sheetHeight = sheetPattern->InitialSingleGearHeight(sheetStyle);
+    EXPECT_EQ(sheetHeight, 5.0f);
     SheetPresentationTestFourNg::TearDownTestCase();
 }
 
 /**
- * @tc.name: ChangeScrollHeight001
- * @tc.desc: Branch: if (sheetType == SheetType::SHEET_POPUP || sheetType == SheetType::SHEET_CENTER ||
- *       sheetType == SheetType::SHEET_BOTTOM_OFFSET)
- *           Condition:  sheetType == SheetType::SHEET_POPUP =true
+ * @tc.name: UpdateSheetTransitionOffset001
+ * @tc.desc: UpdateSheetTransitionOffset sheetHeightUp_
  * @tc.type: FUNC
  */
-HWTEST_F(SheetPresentationTestFourNg, ChangeScrollHeight001, TestSize.Level1)
+HWTEST_F(SheetPresentationTestFourNg, UpdateSheetTransitionOffset001, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
     SheetPresentationTestFourNg::SetUpTestCase();
-    auto rootNode = FrameNode::CreateFrameNode("Root", 11, AceType::MakeRefPtr<RootPattern>());
-    ASSERT_NE(rootNode, nullptr);
     auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 12,
-        AceType::MakeRefPtr<SheetPresentationPattern>(13, "SheetPresentation", std::move(callback)));
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
     ASSERT_NE(sheetNode, nullptr);
-    sheetNode->MountToParent(rootNode);
-    auto operationColumn =
-        FrameNode::CreateFrameNode("Column", 14, AceType::MakeRefPtr<LinearLayoutPattern>(true));
-    ASSERT_NE(operationColumn, nullptr);
-    operationColumn->MountToParent(sheetNode);
-    auto dragBarNode =
-        FrameNode::CreateFrameNode("SheetDragBar", 15, AceType::MakeRefPtr<SheetDragBarPattern>());
-    ASSERT_NE(dragBarNode, nullptr);
-    dragBarNode->MountToParent(sheetNode);
-    auto scrollNode = FrameNode::CreateFrameNode("Scroll", 16, AceType::MakeRefPtr<ScrollPattern>());
-    ASSERT_NE(scrollNode, nullptr);
-    auto contentNode = FrameNode::GetOrCreateFrameNode("SheetContent", 17,
-        []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
-    ASSERT_NE(contentNode, nullptr);
-    contentNode->MountToParent(scrollNode);
-    scrollNode->MountToParent(sheetNode);
-    
-    /**
-     * @tc.steps: step2. Get sheetPattern and set scroll node.
-     */
     auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    sheetPattern->isSpringBack_ = true;
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    sheetPattern->sheetDetentHeight_.push_back(10.0f);
+    auto count = sheetPattern->sheetDetentHeight_.size();
+    EXPECT_EQ(count, 5);
+    sheetPattern->UpdateSheetTransitionOffset();
+    EXPECT_EQ(sheetPattern->sheetHeightUp_, 0.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: SheetHeightNeedChanged001
+ * @tc.desc: SheetHeightNeedChanged EXPECT TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, SheetHeightNeedChanged001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto sheetGeometryNode = sheetNode->GetGeometryNode();
+    CHECK_NULL_VOID(sheetGeometryNode);
+
+    auto size = sheetGeometryNode->GetFrameSize();
+    size.SetHeight(100.0f);
+    sheetGeometryNode->SetFrameSize(size);
+
+    CHECK_NULL_VOID(sheetPattern->sheetObject_);
+    sheetPattern->sheetObject_->SetSheetHeight(50.0f);
+
+    auto res = sheetPattern->SheetHeightNeedChanged();
+    EXPECT_TRUE(res);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckSheetHeightChange001
+ * @tc.desc: isRenderDirtyMarked_ EXPECT TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckSheetHeightChange001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    sheetPattern->typeChanged_ = true;
+    sheetPattern->isFirstInit_ = false;
+    sheetPattern->sheetType_ = SheetType::SHEET_POPUP;
+    sheetNode->isRenderDirtyMarked_ = false;
+    sheetNode->isLayoutDirtyMarked_ = false;
+    auto sheetGeometryNode = sheetNode->GetGeometryNode();
+    sheetGeometryNode->SetFrameSize(SizeF(100.0f, 200.0f));
+    CHECK_NULL_VOID(sheetPattern->sheetObject_);
+    sheetPattern->CheckSheetHeightChange();
+    EXPECT_TRUE(sheetNode->isRenderDirtyMarked_);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckSheetHeightChange002
+ * @tc.desc: CheckSheetHeightChange PROPERTY_UPDATE_LAYOUT | PROPERTY_UPDATE_MEASURE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckSheetHeightChange002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    sheetPattern->typeChanged_ = true;
+    sheetPattern->sheetType_ = SheetType::SHEET_BOTTOM;
     auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
     ASSERT_NE(layoutProperty, nullptr);
-    sheetPattern->SetScrollNode(WeakPtr<FrameNode>(scrollNode));
-    sheetPattern->SetTitleBuilderNode(WeakPtr<FrameNode>(operationColumn));
-
-    /**
-     * @tc.steps: step3. init sheetStyle.
-     */
-    SheetPresentationTestFourNg::SetSheetType(sheetPattern, SheetType::SHEET_POPUP);
-    SheetStyle sheetStyle;
-    sheetStyle.isTitleBuilder = false;
-    layoutProperty->propSheetStyle_ = sheetStyle;
-    
-    /**
-     * @tc.steps: step4. test "ChangeScrollHeight".
-     */
-    sheetPattern->ChangeScrollHeight(300);
-    sheetPattern->resizeDecreasedHeight_ = 200.0f;
-    auto scrollLayoutProperty = scrollNode->GetLayoutProperty<ScrollLayoutProperty>();
-    ASSERT_NE(scrollLayoutProperty, nullptr);
-    EXPECT_EQ(scrollLayoutProperty->GetCalcLayoutConstraint()->selfIdealSize,
-        CalcSize(std::nullopt, CalcLength(0)));
+    auto sheetGeometryNode = sheetNode->GetGeometryNode();
+    sheetGeometryNode->SetFrameSize(SizeF(100.0f, 200.0f));
+    CHECK_NULL_VOID(sheetPattern->sheetObject_);
+    sheetPattern->CheckSheetHeightChange();
+    EXPECT_EQ(layoutProperty->propertyChangeFlag_, PROPERTY_UPDATE_LAYOUT | PROPERTY_UPDATE_MEASURE);
     SheetPresentationTestFourNg::TearDownTestCase();
 }
+
+/**
+ * @tc.name: IsCustomDetentsChanged001
+ * @tc.desc: IsCustomDetentsChanged
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, IsCustomDetentsChanged001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    sheetPattern->detentsFinalIndex_ = 1;
+    SheetHeight detent;
+    detent.sheetMode = SheetMode::MEDIUM;
+    SheetStyle sheetStyle;
+
+    SheetHeight preDetents;
+    preDetents.sheetMode = SheetMode::LARGE;
+    sheetStyle.detents.emplace_back(detent);
+    sheetPattern->preDetents_.emplace_back(preDetents);
+    unsigned int preDetentsSize = sheetPattern->preDetents_.size();
+    unsigned int userSetDetentsSize = sheetStyle.detents.size();
+    EXPECT_EQ(preDetentsSize, 1);
+    EXPECT_EQ(userSetDetentsSize, 1);
+    sheetPattern->IsCustomDetentsChanged(sheetStyle);
+    EXPECT_EQ(sheetPattern->detentsFinalIndex_, 0);
+    SheetPresentationTestFourNg::TearDownTestCase();
 }
+
+/**
+ * @tc.name: IsCustomDetentsChanged002
+ * @tc.desc: IsCustomDetentsChanged
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, IsCustomDetentsChanged002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    sheetPattern->detentsFinalIndex_ = 1;
+    ASSERT_NE(sheetPattern, nullptr);
+    SheetHeight detent;
+    detent.sheetMode = SheetMode::MEDIUM;
+    SheetStyle sheetStyle;
+
+    SheetHeight preDetents;
+    preDetents.sheetMode = SheetMode::MEDIUM;
+    sheetStyle.detents.emplace_back(detent);
+    sheetPattern->preDetents_.emplace_back(preDetents);
+    unsigned int preDetentsSize = sheetPattern->preDetents_.size();
+    unsigned int userSetDetentsSize = sheetStyle.detents.size();
+    EXPECT_EQ(preDetentsSize, 1);
+    EXPECT_EQ(userSetDetentsSize, 1);
+    sheetPattern->IsCustomDetentsChanged(sheetStyle);
+    EXPECT_EQ(sheetPattern->detentsFinalIndex_, 1);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetSubWindowId001
+ * @tc.desc: GetSubWindowId INVALID_SUBWINDOW_ID
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetSubWindowId001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(
+            ElementRegister::GetInstance()->MakeUniqueId(), V2::TEXT_ETS_TAG, std::move(callback)));
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto sheetWrapperNode = FrameNode::CreateFrameNode(V2::SHEET_WRAPPER_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<SheetWrapperPattern>());
+    auto sheetWrapperPattern = sheetWrapperNode->GetPattern<SheetWrapperPattern>();
+    ASSERT_NE(sheetWrapperPattern, nullptr);
+    EXPECT_EQ(sheetWrapperPattern->GetSubWindowId(), INVALID_SUBWINDOW_ID);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: OnWindowSizeChangedTest001
+ * @tc.desc: OnWindowSizeChanged EXPECT TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, OnWindowSizeChangedTest001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(
+            ElementRegister::GetInstance()->MakeUniqueId(), V2::TEXT_ETS_TAG, std::move(callback)));
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    sheetPattern->windowSize_ = SizeT<int32_t>(1600, 800);
+    sheetPattern->OnWindowSizeChanged(100, 100, WindowSizeChangeReason::UNDEFINED);
+    EXPECT_TRUE(sheetPattern->windowChanged_);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: AdditionalScrollTo001
+ * @tc.desc: AdditionalScrollTo EXPECT TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, AdditionalScrollTo001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(
+            ElementRegister::GetInstance()->MakeUniqueId(), V2::TEXT_ETS_TAG, std::move(callback)));
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto scrollNode = FrameNode::CreateFrameNode("Scroll", 501, AceType::MakeRefPtr<ScrollPattern>());
+    ASSERT_NE(scrollNode, nullptr);
+
+    auto scrollGeometryNode = scrollNode->GetGeometryNode();
+    ASSERT_NE(scrollGeometryNode, nullptr);
+    auto size = scrollGeometryNode->GetFrameSize();
+    size.SetHeight(100.0f);
+    scrollGeometryNode->SetFrameSize(size);
+
+    auto buildContent = sheetPattern->GetFirstFrameNodeOfBuilder();
+    CHECK_NULL_VOID(buildContent);
+    auto buildContentGeometryNode = buildContent->GetGeometryNode();
+    ASSERT_NE(buildContentGeometryNode, nullptr);
+    auto size1 = buildContentGeometryNode->GetFrameSize();
+    size1.SetHeight(50.0f);
+    buildContentGeometryNode->SetFrameSize(size1);
+    auto res = sheetPattern->AdditionalScrollTo(scrollNode, 10.0f);
+    EXPECT_TRUE(res);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetOverlayManagertest001
+ * @tc.desc: GetOverlayManager OverlayManager
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetOverlayManagertest001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(
+            ElementRegister::GetInstance()->MakeUniqueId(), V2::TEXT_ETS_TAG, std::move(callback)));
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto layoutProperty = sheetPattern->GetLayoutProperty<SheetPresentationProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+
+    SheetStyle currentStyle = layoutProperty->GetSheetStyleValue(SheetStyle());
+    currentStyle.showInSubWindow = false;
+    auto OverlayManager = sheetPattern->GetOverlayManager();
+    ASSERT_NE(OverlayManager, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetCurrentScrollHeight001
+ * @tc.desc: GetCurrentScrollHeight scrollHeight_
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetCurrentScrollHeight001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(
+            ElementRegister::GetInstance()->MakeUniqueId(), V2::TEXT_ETS_TAG, std::move(callback)));
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto scrollNode = sheetPattern->GetSheetScrollNode();
+    CHECK_NULL_VOID(scrollNode);
+    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
+    CHECK_NULL_VOID(scrollPattern);
+    scrollPattern->currentOffset_ = -100.0f;
+    sheetPattern->scrollHeight_ = 200.0f;
+
+    sheetPattern->GetCurrentScrollHeight();
+    EXPECT_EQ(sheetPattern->scrollHeight_, 100.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: UpdateSheetWhenSheetTypeChanged001
+ * @tc.desc: UpdateSheetWhenSheetTypeChanged
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, UpdateSheetWhenSheetTypeChanged001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(
+            ElementRegister::GetInstance()->MakeUniqueId(), V2::TEXT_ETS_TAG, std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    sheetPattern->sheetType_ = SheetType::SHEET_POPUP;
+    sheetNode->isRenderDirtyMarked_ = false;
+    sheetNode->isLayoutDirtyMarked_ = false;
+
+    CHECK_NULL_VOID(sheetPattern->sheetObject_);
+    sheetPattern->UpdateSheetWhenSheetTypeChanged();
+    EXPECT_TRUE(sheetNode->isRenderDirtyMarked_);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragStart001
+ * @tc.desc: HandleDragStart
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragStart001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetObject = sheetPattern->GetSheetObject();
+    CHECK_NULL_VOID(sheetObject);
+
+    sheetPattern->isAnimationProcess_ = false;
+    sheetObject->HandleDragStart();
+    EXPECT_TRUE(sheetPattern->IsDragging());
+    EXPECT_FLOAT_EQ(sheetPattern->currentOffset_, 0.0f);
+    EXPECT_TRUE(sheetPattern->GetIsDirectionUp());
+    EXPECT_FALSE(sheetPattern->GetAnimationBreak());
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragStart002
+ * @tc.desc: HandleDragStart
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragStart002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetObject = sheetPattern->GetSheetObject();
+    CHECK_NULL_VOID(sheetObject);
+
+    AnimationOption option;
+    auto propertyCallback = []() {};
+    sheetPattern->animation_ = AnimationUtils::StartAnimation(option, propertyCallback);
+    sheetPattern->isAnimationProcess_ = true;
+    sheetObject->HandleDragStart();
+    EXPECT_TRUE(sheetPattern->IsDragging());
+    EXPECT_FLOAT_EQ(sheetPattern->currentOffset_, 0.0f);
+    EXPECT_TRUE(sheetPattern->GetIsDirectionUp());
+    EXPECT_TRUE(sheetPattern->GetAnimationBreak());
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionBottom001
+ * @tc.desc: CheckDirectionBottom EXPECT TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionBottom001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 1200);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionBottom(targetSize, targetOffset);
+    EXPECT_TRUE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionBottom002
+ * @tc.desc: CheckDirectionBottom EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionBottom002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 800);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionBottom(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionBottom003
+ * @tc.desc: CheckDirectionBottom EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionBottom003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 800);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 500.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionBottom(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionTop001
+ * @tc.desc: CheckDirectionTop EXPECT TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionTop001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 1200);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 50.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionTop(targetSize, targetOffset);
+    EXPECT_TRUE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionTop002
+ * @tc.desc: CheckDirectionTop EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionTop002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 800);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 500.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionTop(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionTop003
+ * @tc.desc: CheckDirectionTop EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionTop003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 1200);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionTop(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionRight001
+ * @tc.desc: CheckDirectionRight EXPECT TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionRight001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 800);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionRight(targetSize, targetOffset);
+    EXPECT_TRUE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionRight002
+ * @tc.desc: CheckDirectionRight EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionRight002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 800);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 500.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 300.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionRight(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionRight003
+ * @tc.desc: CheckDirectionRight EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionRight003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 500);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 500.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionRight(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionRight001
+ * @tc.desc: CheckDirectionLeft EXPECT TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionLeft001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(150.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 800);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 500.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionLeft(targetSize, targetOffset);
+    EXPECT_TRUE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionRight001
+ * @tc.desc: CheckDirectionLeft EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionLeft002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 500);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 500.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionLeft(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckDirectionRight001
+ * @tc.desc: CheckDirectionLeft EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckDirectionLeft003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(150.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 500);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 500.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckDirectionLeft(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckPlacementBottom001
+ * @tc.desc: CheckPlacementBottom EXPECT TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckPlacementBottom001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(150.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 500);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 450.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckPlacementBottom(targetSize, targetOffset);
+    EXPECT_TRUE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckPlacementBottom002
+ * @tc.desc: CheckPlacementBottom EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckPlacementBottom002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(300.0f, 400.0f);
+    OffsetF targetOffset(150.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 300, 500);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 450.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckPlacementBottom(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckPlacementBottom003
+ * @tc.desc: CheckPlacementBottom EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckPlacementBottom003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(10.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 500);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 450.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckPlacementBottom(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckPlacementBottomRight001
+ * @tc.desc: CheckPlacementBottomRight EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckPlacementBottomRight001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(60.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 500);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 450.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckPlacementBottomRight(targetSize, targetOffset);
+    EXPECT_TRUE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckPlacementBottomRight001
+ * @tc.desc: CheckPlacementBottomRight EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckPlacementBottomRight002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(40.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 500, 500);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 450.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckPlacementBottomRight(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: CheckPlacementBottomRight001
+ * @tc.desc: CheckPlacementBottomRight EXPECT FLASE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, CheckPlacementBottomRight003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(60.0f, 400.0f);
+    OffsetF targetOffset(50.0f, 100.0f);
+
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->windowGlobalRect_ = Rect(0, 0, 100, 500);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 100.0f;
+    sheetWrapperLayoutAlgorithm->sheetHeight_ = 450.0f;
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopLeft = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->sheetRadius_.radiusTopRight = Dimension(10.0f);
+    sheetWrapperLayoutAlgorithm->windowEdgeWidth_ = 5.0f;
+
+    bool result = sheetWrapperLayoutAlgorithm->CheckPlacementBottomRight(targetSize, targetOffset);
+    EXPECT_FALSE(result);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: SetArrowOffsetInBottomOrTop001
+ * @tc.desc: SetArrowOffsetInBottomOrTop
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, SetArrowOffsetInBottomOrTop001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(200.0f, 100.0f);
+    OffsetF targetOffset(400.0f, 0.0f);
+    float sheetOffset = 150.0f;
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 300.0f;
+
+    sheetWrapperLayoutAlgorithm->SetArrowOffsetInBottomOrTop(targetSize, targetOffset, sheetOffset);
+    EXPECT_FLOAT_EQ(sheetWrapperLayoutAlgorithm->sheetPopupInfo_.arrowOffsetX, 292.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: SetArrowOffsetInRightOrLeft001
+ * @tc.desc: SetArrowOffsetInRightOrLeft
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, SetArrowOffsetInRightOrLeft001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SizeF targetSize(200.0f, 100.0f);
+    OffsetF targetOffset(400.0f, 0.0f);
+    float sheetOffset = 150.0f;
+    auto sheetWrapperLayoutAlgorithm = AceType::MakeRefPtr<SheetWrapperLayoutAlgorithm>();
+    ASSERT_NE(sheetWrapperLayoutAlgorithm, nullptr);
+    sheetWrapperLayoutAlgorithm->sheetWidth_ = 300.0f;
+
+    sheetWrapperLayoutAlgorithm->SetArrowOffsetInRightOrLeft(targetSize, targetOffset, sheetOffset);
+    EXPECT_FLOAT_EQ(sheetWrapperLayoutAlgorithm->sheetPopupInfo_.arrowOffsetY, 8.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: IsSingleDetents001
+ * @tc.desc: IsSingleDetents FALSE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, IsSingleDetents001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    NG::SheetStyle sheetStyle;
+    SheetHeight detent;
+    detent.sheetMode = SheetMode::MEDIUM;
+    sheetStyle.detents.emplace_back(detent);
+    detent.sheetMode = SheetMode::LARGE;
+    sheetStyle.detents.emplace_back(detent);
+    auto res = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_FALSE(res);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: IsSingleDetents002
+ * @tc.desc: IsSingleDetents TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, IsSingleDetents002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    NG::SheetStyle sheetStyle;
+    SheetHeight detent;
+    detent.sheetMode = SheetMode::MEDIUM;
+    sheetStyle.detents.emplace_back(detent);
+    detent.sheetMode = SheetMode::MEDIUM;
+    sheetStyle.detents.emplace_back(detent);
+    auto res = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_TRUE(res);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: IsSingleDetents003
+ * @tc.desc: IsSingleDetents FALSE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, IsSingleDetents003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    NG::SheetStyle sheetStyle;
+    SheetHeight detent;
+    detent.sheetMode = SheetMode::MEDIUM;
+    sheetStyle.detents.emplace_back(detent);
+    detent.sheetMode = SheetMode::MEDIUM;
+    sheetStyle.detents.emplace_back(detent);
+    detent.sheetMode = SheetMode::LARGE;
+    sheetStyle.detents.emplace_back(detent);
+    auto res = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_FALSE(res);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: IsSingleDetents004
+ * @tc.desc: IsSingleDetents TRUE
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, IsSingleDetents004, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    NG::SheetStyle sheetStyle;
+    SheetHeight detent;
+    detent.sheetMode = SheetMode::MEDIUM;
+    sheetStyle.detents.emplace_back(detent);
+    detent.sheetMode = SheetMode::MEDIUM;
+    sheetStyle.detents.emplace_back(detent);
+    detent.sheetMode = SheetMode::MEDIUM;
+    sheetStyle.detents.emplace_back(detent);
+    auto res = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_TRUE(res);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: MinusSubwindowDistance001
+ * @tc.desc: MinusSubwindowDistance
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, MinusSubwindowDistance001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto sheetPageLayoutAlgorithm = AceType::MakeRefPtr<SheetPresentationLayoutAlgorithm>();
+    ASSERT_NE(sheetPageLayoutAlgorithm, nullptr);
+    auto sheetWrapperNode = FrameNode::CreateFrameNode(V2::SHEET_WRAPPER_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<SheetWrapperPattern>());
+    auto sheetWrapperPattern = sheetWrapperNode->GetPattern<SheetWrapperPattern>();
+    ASSERT_NE(sheetWrapperPattern, nullptr);
+    auto subContainer = AceEngine::Get().GetContainer(sheetWrapperPattern->GetSubWindowId());
+    CHECK_NULL_VOID(subContainer);
+    auto subWindowContext = AceType::DynamicCast<NG::PipelineContext>(subContainer->GetPipelineContext());
+    CHECK_NULL_VOID(subWindowContext);
+    subWindowContext->displayWindowRectInfo_ = Rect(0, 0, 100.0f, 100.0f);
+
+    sheetPageLayoutAlgorithm->sheetOffsetX_ = 100.0f;
+    sheetPageLayoutAlgorithm->sheetOffsetY_ = 100.0f;
+    sheetPageLayoutAlgorithm->MinusSubwindowDistance(sheetWrapperNode);
+    EXPECT_FLOAT_EQ(sheetPageLayoutAlgorithm->sheetOffsetX_, 100.0f);
+    EXPECT_FLOAT_EQ(sheetPageLayoutAlgorithm->sheetOffsetY_, 100.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleTouchDown001
+ * @tc.desc: HandleTouchDown
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleTouchDown001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    TouchLocationInfo info(fingerId);
+    info.globalLocation_ = Offset(100.0f, 100.0f);
+    auto dragBarNode =
+        FrameNode::CreateFrameNode("SheetDragBarNode", 04, AceType::MakeRefPtr<SheetDragBarPattern>());
+    ASSERT_NE(dragBarNode, nullptr);
+        auto dragBarPattern = dragBarNode->GetPattern<SheetDragBarPattern>();
+    ASSERT_NE(dragBarPattern, nullptr);
+    dragBarPattern->HandleTouchDown(info);
+    EXPECT_FLOAT_EQ(dragBarPattern->downPoint_.GetX(), 100.0f);
+    EXPECT_FLOAT_EQ(dragBarPattern->downPoint_.GetY(), 100.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetContentDrawFunction001
+ * @tc.desc: GetContentDrawFunction
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetContentDrawFunction001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    SheetDragBarPaintMethod sheetdragbarpaintmethod;
+    auto paintFunc = sheetdragbarpaintmethod.GetContentDrawFunction(nullptr);
+    EXPECT_EQ(paintFunc, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetContentDrawFunction001
+ * @tc.desc: GetContentDrawFunction
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetContentDrawFunction002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto columnNode =
+        FrameNode::GetOrCreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+            []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(
+            ElementRegister::GetInstance()->MakeUniqueId(), V2::TEXT_ETS_TAG, std::move(callback)));
+    columnNode->AddChild(sheetNode);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto sheetPaintWrapper = new PaintWrapper(
+        columnNode->GetRenderContext(), sheetNode->GetGeometryNode(), sheetNode->GetPaintProperty<PaintProperty>());
+        SheetDragBarPaintMethod sheetdragbarpaintmethod;
+        auto paintFunc = sheetdragbarpaintmethod.GetContentDrawFunction(sheetPaintWrapper);
+        EXPECT_NE(paintFunc, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetAvoidKeyboardModeByDefault001
+ * @tc.desc: GetAvoidKeyboardModeByDefault
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetAvoidKeyboardModeByDefault001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    sheetPattern->animation_ = nullptr;
+    EXPECT_EQ(sheetPattern->animation_, nullptr);
+    sheetPattern->InitSheetObject();
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+
+    sheetObject->sheetType_ = SheetType::SHEET_POPUP;
+    auto sheetKeyboardAvoidMode = sheetObject->GetAvoidKeyboardModeByDefault();
+    EXPECT_EQ(sheetKeyboardAvoidMode, SheetKeyboardAvoidMode::NONE);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetAvoidKeyboardModeByDefault001
+ * @tc.desc: GetAvoidKeyboardModeByDefault
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetAvoidKeyboardModeByDefault002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(
+        "Sheet", 101, AceType::MakeRefPtr<SheetPresentationPattern>(201, "SheetPresentation", std::move(callback)));
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    sheetPattern->animation_ = nullptr;
+    EXPECT_EQ(sheetPattern->animation_, nullptr);
+    sheetPattern->InitSheetObject();
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+
+    sheetObject->sheetType_ = SheetType::SHEET_CENTER;
+    auto sheetKeyboardAvoidMode = sheetObject->GetAvoidKeyboardModeByDefault();
+    EXPECT_EQ(sheetKeyboardAvoidMode, SheetKeyboardAvoidMode::TRANSLATE_AND_SCROLL);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: DirtyLayoutProcess001
+ * @tc.desc: DirtyLayoutProcess
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, DirtyLayoutProcess001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+        auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto dirty = sheetNode->CreateLayoutWrapper();
+    ASSERT_NE(dirty, nullptr);
+    auto layoutAlgorithmWrapper = AceType::DynamicCast<LayoutAlgorithmWrapper>(dirty->GetLayoutAlgorithm());
+    ASSERT_NE(layoutAlgorithmWrapper, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    auto algorithm = AceType::MakeRefPtr<SheetPresentationSideLayoutAlgorithm>();
+    algorithm->sheetMaxWidth_ = 1.0f;
+    algorithm->sheetHeight_ = 100.0f;
+    object->DirtyLayoutProcess(layoutAlgorithmWrapper);
+    EXPECT_EQ(sheetPattern->centerHeight_, 100.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: DirtyLayoutProcess002
+ * @tc.desc: DirtyLayoutProcess
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, DirtyLayoutProcess002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+        auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto dirty = sheetNode->CreateLayoutWrapper();
+    ASSERT_NE(dirty, nullptr);
+    auto layoutAlgorithmWrapper = AceType::DynamicCast<LayoutAlgorithmWrapper>(dirty->GetLayoutAlgorithm());
+    ASSERT_NE(layoutAlgorithmWrapper, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    auto algorithm = AceType::MakeRefPtr<SheetPresentationSideLayoutAlgorithm>();
+    algorithm->sheetMaxWidth_ = 0.0f;
+    algorithm->sheetHeight_ = 50.0f;
+    sheetPattern->centerHeight_ = 100.0f;
+    object->DirtyLayoutProcess(layoutAlgorithmWrapper);
+    EXPECT_EQ(sheetPattern->centerHeight_, 100.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: UpdateSidePosition001
+ * @tc.desc: UpdateSidePosition
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, UpdateSidePosition001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto context = sheetNode->GetRenderContext();
+    CHECK_NULL_VOID(context);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    sheetPattern->isOnAppearing_ = false;
+    sheetPattern->isOnDisappearing_ = false;
+    sheetPattern->isDrag_ = false;
+
+    AceApplicationInfo::GetInstance().isRightToLeft_ = false;
+    object->sheetMaxWidth_ = 100.0f;
+    object->sheetWidth_ = 50.0f;
+    object->UpdateSidePosition();
+    const auto& transform = context->GetTransform();
+    auto translation = transform->GetTransformTranslate();
+    EXPECT_EQ(translation->x.Value(), 50.0f);
+    EXPECT_EQ(translation->y.Value(), 0.0f);
+    EXPECT_EQ(translation->z.Value(), 0.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: UpdateSidePosition002
+ * @tc.desc: UpdateSidePosition
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, UpdateSidePosition002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto context = sheetNode->GetRenderContext();
+    CHECK_NULL_VOID(context);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    sheetPattern->isOnAppearing_ = false;
+    sheetPattern->isOnDisappearing_ = false;
+    sheetPattern->isDrag_ = false;
+
+    AceApplicationInfo::GetInstance().isRightToLeft_ = true;
+    object->sheetMaxWidth_ = 100.0f;
+    object->sheetWidth_ = 50.0f;
+    object->UpdateSidePosition();
+    const auto& transform = context->GetTransform();
+    auto translation = transform->GetTransformTranslate();
+    EXPECT_EQ(translation->x.Value(), 0.0f);
+    EXPECT_EQ(translation->y.Value(), 0.0f);
+    EXPECT_EQ(translation->z.Value(), 0.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetSheetTransitionCurve001
+ * @tc.desc: GetSheetTransitionCurve
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetSheetTransitionCurve001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    float dragVelocity = 100.0f;
+    auto curve = object->GetSheetTransitionCurve(dragVelocity);
+
+    EXPECT_FLOAT_EQ(curve->GetMass(), CURVE_MASS);
+    EXPECT_FLOAT_EQ(curve->GetStiffness(), CURVE_STIFFNESS);
+    EXPECT_FLOAT_EQ(curve->GetDamping(), CURVE_DAMPING);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetSheetTransitionFinishEvent001
+ * @tc.desc: GetSheetTransitionFinishEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetSheetTransitionFinishEvent001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    bool isTransitionIn = false;
+    auto event = object->GetSheetTransitionFinishEvent(isTransitionIn);
+    EXPECT_NE(event, nullptr);
+    EXPECT_FALSE(sheetPattern->isAnimationProcess_);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetSheetTransitionFinishEvent002
+ * @tc.desc: GetSheetTransitionFinishEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetSheetTransitionFinishEvent002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    bool isTransitionIn = true;
+    sheetPattern->isAnimationBreak_ = false;
+    auto event = object->GetSheetTransitionFinishEvent(isTransitionIn);
+    EXPECT_NE(event, nullptr);
+    EXPECT_FALSE(sheetPattern->isAnimationProcess_);
+    EXPECT_EQ(sheetPattern->GetSheetObject()->currentOffset_, 0.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetSheetTransitionFinishEvent003
+ * @tc.desc: GetSheetTransitionFinishEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetSheetTransitionFinishEvent003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    bool isTransitionIn = true;
+    sheetPattern->isAnimationBreak_ = true;
+    auto event = object->GetSheetTransitionFinishEvent(isTransitionIn);
+    EXPECT_NE(event, nullptr);
+    EXPECT_FALSE(sheetPattern->isAnimationBreak_);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetSheetAnimationEvent001
+ * @tc.desc: GetSheetAnimationEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetSheetAnimationEvent001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto context = sheetNode->GetRenderContext();
+    CHECK_NULL_VOID(context);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    bool isTransitionIn = true;
+    float offset = 100.0f;
+    object->sheetMaxWidth_ = 100.0f;
+    object->sheetWidth_ = 50.0f;
+    const auto& transform = context->GetTransform();
+    auto translation = transform->GetTransformTranslate();
+    AceApplicationInfo::GetInstance().isRightToLeft_ = false;
+    auto event = object->GetSheetAnimationEvent(isTransitionIn, offset);
+    EXPECT_NE(event, nullptr);
+    EXPECT_EQ(translation->x.Value(), 50.0f);
+    EXPECT_EQ(translation->y.Value(), 0.0f);
+    EXPECT_EQ(translation->z.Value(), 0.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetSheetAnimationEvent002
+ * @tc.desc: GetSheetAnimationEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetSheetAnimationEvent002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto context = sheetNode->GetRenderContext();
+    CHECK_NULL_VOID(context);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    bool isTransitionIn = false;
+    float offset = 100.0f;
+    object->sheetMaxWidth_ = 100.0f;
+    const auto& transform = context->GetTransform();
+    auto translation = transform->GetTransformTranslate();
+    AceApplicationInfo::GetInstance().isRightToLeft_ = false;
+    auto event = object->GetSheetAnimationEvent(isTransitionIn, offset);
+    EXPECT_NE(event, nullptr);
+    EXPECT_EQ(translation->x.Value(), 100.0f);
+    EXPECT_EQ(translation->y.Value(), 0.0f);
+    EXPECT_EQ(translation->z.Value(), 0.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: SetFinishEventForAnimationOption001
+ * @tc.desc: SetFinishEventForAnimationOption
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, SetFinishEventForAnimationOption001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    AnimationOption option;
+    bool isTransitionIn = true;
+    bool isFirstTransition = true;
+    object->SetFinishEventForAnimationOption(option, isTransitionIn, isFirstTransition);
+    EXPECT_NE(option.onFinishEvent_, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragUpdateForLTR001
+ * @tc.desc: HandleDragUpdateForLTR
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragUpdateForLTR001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    GestureEvent event;
+    event.mainDelta_ = 10.0;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = -20.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    object->HandleDragUpdateForLTR(event);
+
+    EXPECT_EQ(sheetPattern->onWidthDidChange_, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragUpdateForLTR002
+ * @tc.desc: HandleDragUpdateForLTR
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragUpdateForLTR002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    GestureEvent event;
+    event.mainDelta_ = 10.0;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = 10.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    object->HandleDragUpdateForLTR(event);
+
+    EXPECT_NE(sheetPattern->onWidthDidChange_, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragUpdateForRTL001
+ * @tc.desc: HandleDragUpdateForRTL
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragUpdateForRTL001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    GestureEvent event;
+    event.mainDelta_ = 10.0;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = 10.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    object->HandleDragUpdateForRTL(event);
+
+    EXPECT_EQ(sheetPattern->onWidthDidChange_, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragUpdateForRTL002
+ * @tc.desc: HandleDragUpdateForRTL
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragUpdateForRTL002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    GestureEvent event;
+    event.mainDelta_ = 10.0;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = -20.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    object->HandleDragUpdateForRTL(event);
+
+    EXPECT_NE(sheetPattern->onWidthDidChange_, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragEndForLTR001
+ * @tc.desc: HandleDragEndForLTR
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragEndForLTR001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    float dragVelocity = 500.0f;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = 10.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    object->HandleDragEndForLTR(dragVelocity);
+    EXPECT_TRUE(sheetPattern->isDirectionUp_);
+    EXPECT_NE(sheetPattern->onWidthDidChange_, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragEndForLTR002
+ * @tc.desc: HandleDragEndForLTR
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragEndForLTR002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    float dragVelocity = 500.0f;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = 1.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    AnimationOption option;
+    object->HandleDragEndForLTR(dragVelocity);
+    EXPECT_EQ(option.fillMode_, FillMode::FORWARDS);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragEndForLTR003
+ * @tc.desc: HandleDragEndForLTR
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragEndForLTR003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    float dragVelocity = -1500.0f;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = 1.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    AnimationOption option;
+    object->HandleDragEndForLTR(dragVelocity);
+    EXPECT_EQ(option.fillMode_, FillMode::FORWARDS);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragEndForLTR004
+ * @tc.desc: HandleDragEndForLTR
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragEndForLTR004, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    float dragVelocity = 1500.0f;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = 10.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    AnimationOption option;
+    object->HandleDragEndForLTR(dragVelocity);
+    EXPECT_TRUE(sheetPattern->isDirectionUp_);
+    EXPECT_NE(sheetPattern->onWidthDidChange_, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragEndForRTL001
+ * @tc.desc: HandleDragEndForRTL
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragEndForRTL001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    float dragVelocity = 500.0f;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = 10.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    AnimationOption option;
+    object->HandleDragEndForRTL(dragVelocity);
+    EXPECT_TRUE(sheetPattern->isDirectionUp_);
+    EXPECT_NE(sheetPattern->onWidthDidChange_, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragEndForRTL002
+ * @tc.desc: HandleDragEndForRTL
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragEndForRTL002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    float dragVelocity = 500.0f;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = 1.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    AnimationOption option;
+    object->HandleDragEndForRTL(dragVelocity);
+    EXPECT_EQ(option.fillMode_, FillMode::FORWARDS);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragEndForRTL003
+ * @tc.desc: HandleDragEndForRTL
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragEndForRTL003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    float dragVelocity = -1500.0f;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = 10.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    AnimationOption option;
+    object->HandleDragEndForRTL(dragVelocity);
+    EXPECT_TRUE(sheetPattern->isDirectionUp_);
+    EXPECT_NE(sheetPattern->onWidthDidChange_, nullptr);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: HandleDragEndForRTL004
+ * @tc.desc: HandleDragEndForRTL
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, HandleDragEndForRTL004, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+
+    float dragVelocity = 1500.0f;
+    auto sheetObject = sheetPattern->GetSheetObject();
+    ASSERT_NE(sheetObject, nullptr);
+    sheetObject->currentOffset_ = 10.0f;
+    sheetObject->sheetWidth_ = 10.0f;
+    AnimationOption option;
+    object->HandleDragEndForRTL(dragVelocity);
+    EXPECT_EQ(option.fillMode_, FillMode::FORWARDS);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetUpOffsetCaretNeed001
+ * @tc.desc: GetUpOffsetCaretNeed
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetUpOffsetCaretNeed001, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto manager = pipeline->GetSafeAreaManager();
+    ASSERT_NE(manager, nullptr);
+    manager->keyboardAvoidMode_ = KeyBoardAvoidMode::OFFSET;
+    manager->keyboardInset_.start = 0;
+    manager->keyboardInset_.end = 0;
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    auto height = object->GetUpOffsetCaretNeed();
+    EXPECT_EQ(height, 0.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetUpOffsetCaretNeed002
+ * @tc.desc: GetUpOffsetCaretNeed
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetUpOffsetCaretNeed002, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto manager = pipeline->GetSafeAreaManager();
+    ASSERT_NE(manager, nullptr);
+    manager->keyboardAvoidMode_ = KeyBoardAvoidMode::OFFSET_WITH_CARET;
+    manager->keyboardInset_.start = 0;
+    manager->keyboardInset_.end = 10;
+    manager->systemSafeArea_.bottom_.start = 0;
+    manager->systemSafeArea_.bottom_.end = 10;
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    auto height = object->GetUpOffsetCaretNeed();
+    EXPECT_EQ(height, 20);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetUpOffsetCaretNeed003
+ * @tc.desc: GetUpOffsetCaretNeed
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetUpOffsetCaretNeed003, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto manager = pipeline->GetSafeAreaManager();
+    ASSERT_NE(manager, nullptr);
+    manager->keyboardAvoidMode_ = KeyBoardAvoidMode::OFFSET;
+    manager->keyboardInset_.start = 0;
+    manager->keyboardInset_.end = 10;
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    auto textFieldManager = AceType::DynamicCast<TextFieldManagerNG>(pipeline->GetTextFieldManager());
+    auto height = object->GetUpOffsetCaretNeed();
+    EXPECT_EQ(height, 0.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetUpOffsetCaretNeed003
+ * @tc.desc: GetUpOffsetCaretNeed
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetUpOffsetCaretNeed004, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto manager = pipeline->GetSafeAreaManager();
+    ASSERT_NE(manager, nullptr);
+    manager->keyboardAvoidMode_ = KeyBoardAvoidMode::OFFSET_WITH_CARET;
+    manager->keyboardInset_.start = 0;
+    manager->keyboardInset_.end = 10;
+    manager->systemSafeArea_.bottom_.start = 0;
+    manager->systemSafeArea_.bottom_.end = 10;
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    auto textFieldManager = AceType::DynamicCast<TextFieldManagerNG>(pipeline->GetTextFieldManager());
+    textFieldManager->optionalPosition_ = Offset { 10.0f, 20.0f };
+    auto height = object->GetUpOffsetCaretNeed();
+    EXPECT_EQ(height, 20);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: GetUpOffsetCaretNeed003
+ * @tc.desc: GetUpOffsetCaretNeed
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetPresentationTestFourNg, GetUpOffsetCaretNeed005, TestSize.Level1)
+{
+    SheetPresentationTestFourNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(0, "", std::move(callback)));
+    ASSERT_NE(sheetNode, nullptr);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto manager = pipeline->GetSafeAreaManager();
+    ASSERT_NE(manager, nullptr);
+    manager->keyboardAvoidMode_ = KeyBoardAvoidMode::OFFSET_WITH_CARET;
+    manager->keyboardInset_.start = 0;
+    manager->keyboardInset_.end = 10;
+    manager->systemSafeArea_.bottom_.start = 0;
+    manager->systemSafeArea_.bottom_.end = 10;
+    auto object = AceType::DynamicCast<SheetSideObject>(sheetPattern->GetSheetObject());
+    CHECK_NULL_VOID(object);
+    auto textFieldManager = AceType::DynamicCast<TextFieldManagerNG>(pipeline->GetTextFieldManager());
+    textFieldManager->optionalPosition_ = Offset { 10.0f, 20.0f };
+    pipeline->rootHeight_ = 100;
+    textFieldManager->height_ = 10;
+    auto height = object->GetUpOffsetCaretNeed();
+    EXPECT_EQ(height, 0.0f);
+    SheetPresentationTestFourNg::TearDownTestCase();
+}
+} // namespace OHOS::Ace::NG

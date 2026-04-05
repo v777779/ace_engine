@@ -15,14 +15,15 @@
 
 #include "test_ng.h"
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 #include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
 #include "core/components_ng/base/view_stack_processor.h"
 #undef private
@@ -174,6 +175,18 @@ RefPtr<FrameNode> TestNG::CreateColumn(const std::function<void(ColumnModelNG)>&
 {
     ColumnModelNG model;
     model.Create(std::nullopt, nullptr, "");
+    if (callback) {
+        callback(model);
+    }
+    RefPtr<UINode> element = ViewStackProcessor::GetInstance()->GetMainElementNode();
+    ViewStackProcessor::GetInstance()->PopContainer();
+    return AceType::DynamicCast<FrameNode>(element);
+}
+
+RefPtr<FrameNode> TestNG::CreateStack(const std::function<void(StackModelNG)>& callback)
+{
+    StackModelNG model;
+    model.Create();
     if (callback) {
         callback(model);
     }

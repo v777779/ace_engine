@@ -28,6 +28,7 @@
 
 namespace OHOS::Ace::NG {
 namespace {
+constexpr int32_t CALL_ARG_3 = 3;
 ColorMode MapJsColorModeToColorMode(int32_t jsColorMode)
 {
     switch (jsColorMode) {
@@ -69,14 +70,15 @@ ArkUINativeModuleValue ResourceBridge::UpdateColorMode(ArkUIRuntimeCallInfo* run
         colorModeValue = MapJsColorModeToColorMode(firstArgValue);
     }
     if (colorModeValue != ColorMode::COLOR_MODE_UNDEFINED) {
+        auto pipeline = NG::PipelineContext::GetCurrentContextSafely();
+        CHECK_NULL_RETURN(pipeline, panda::JSValueRef::Undefined(vm));
 #if defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)
         UpdateColorModeForThemeConstants(colorModeValue);
 #else
-        ResourceManager::GetInstance().UpdateColorMode(colorModeValue);
+        ResourceManager::GetInstance().UpdateColorMode(
+            pipeline->GetBundleName(), pipeline->GetModuleName(), pipeline->GetInstanceId(), colorModeValue);
 #endif
-        auto pipelineContext = NG::PipelineContext::GetCurrentContext();
-        CHECK_NULL_RETURN(pipelineContext, panda::JSValueRef::Undefined(vm));
-        pipelineContext->SetLocalColorMode(colorModeValue);
+        pipeline->SetLocalColorMode(colorModeValue);
     }
     return panda::JSValueRef::Undefined(vm);
 }
@@ -86,15 +88,16 @@ ArkUINativeModuleValue ResourceBridge::Restore(ArkUIRuntimeCallInfo* runtimeCall
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
 
-    auto pipelineContext = NG::PipelineContext::GetCurrentContext();
-    CHECK_NULL_RETURN(pipelineContext, panda::JSValueRef::Undefined(vm));
-    pipelineContext->SetLocalColorMode(ColorMode::COLOR_MODE_UNDEFINED);
+    auto pipeline = NG::PipelineContext::GetCurrentContextSafely();
+    CHECK_NULL_RETURN(pipeline, panda::JSValueRef::Undefined(vm));
+    pipeline->SetLocalColorMode(ColorMode::COLOR_MODE_UNDEFINED);
 
-    auto colorModeValue = pipelineContext->GetColorMode();
+    auto colorModeValue = pipeline->GetColorMode();
 #if defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)
     UpdateColorModeForThemeConstants(colorModeValue);
 #else
-    ResourceManager::GetInstance().UpdateColorMode(colorModeValue);
+    ResourceManager::GetInstance().UpdateColorMode(
+        pipeline->GetBundleName(), pipeline->GetModuleName(), pipeline->GetInstanceId(), colorModeValue);
 #endif
     return panda::JSValueRef::Undefined(vm);
 }
@@ -142,5 +145,73 @@ ArkUINativeModuleValue ResourceBridge::ClearCache(ArkUIRuntimeCallInfo* runtimeC
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     ResourceManager::GetInstance().Reset();
     return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue ResourceBridge::SetResourceManagerCacheMaxCountForHSP(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    auto taskExecutor = Container::CurrentTaskExecutorSafelyWithCheck();
+    CHECK_NULL_RETURN(taskExecutor, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    size_t cacheSize = 0;
+    if (firstArg->IsNumber()) {
+        if (taskExecutor->WillRunOnCurrentThread(TaskExecutor::TaskType::UI)) {
+            auto realValue = firstArg->ToNumber(vm)->Value();
+            auto value = firstArg->Int32Value(vm);
+            if (!NearEqual(realValue, value)) {
+                ArkTSUtils::ThrowBusinessError(vm,
+                    "cache count cannot be a floating-point number, but the input is " + std::to_string(realValue),
+                    ERROR_CODE_PARAMETER_TYPE_ERROR);
+                return panda::JSValueRef::Undefined(vm);
+            }
+            if (value < 0) {
+                ArkTSUtils::ThrowBusinessError(vm,
+                    "cache count cannot be negative, but the input is " + std::to_string(realValue),
+                    ERROR_CODE_PARAMETER_LESS_THAN_ZERO);
+                return panda::JSValueRef::Undefined(vm);
+            }
+            cacheSize = static_cast<size_t>(value);
+            ResourceManager::GetInstance().SetResourceCacheSize(cacheSize);
+        } else {
+            ArkTSUtils::ThrowBusinessError(
+                vm, "The function cannot be called from a non-main thread", ERROR_CODE_NOT_RUN_ON_UI_THREAD);
+            return panda::JSValueRef::Undefined(vm);
+        }
+    }
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue ResourceBridge::GetResourceId(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    int32_t argCount = static_cast<int32_t>(runtimeCallInfo->GetArgsNumber());
+    if (argCount != CALL_ARG_3) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    if (!firstArg->IsString(vm)) {
+        return panda::NumberRef::New(vm, -1);
+    }
+    auto resName = firstArg->ToString(vm)->ToString(vm);
+
+    Local<JSValueRef> secondArg = runtimeCallInfo->GetCallArgRef(1);
+    if (!secondArg->IsString(vm)) {
+        return panda::NumberRef::New(vm, -1);
+    }
+    auto bundleName = secondArg->ToString(vm)->ToString(vm);
+
+    Local<JSValueRef> thirdArg = runtimeCallInfo->GetCallArgRef(2); // 2 means the arg of moduleName
+    if (!thirdArg->IsString(vm)) {
+        return panda::NumberRef::New(vm, -1);
+    }
+    auto moduleName = thirdArg->ToString(vm)->ToString(vm);
+
+    int32_t resId = -1;
+    if (!ArkTSUtils::GetResourceId(resName, bundleName, moduleName, resId)) {
+        return panda::NumberRef::New(vm, -1);
+    }
+    return panda::NumberRef::New(vm, resId);
 }
 } // namespace OHOS::Ace::NG

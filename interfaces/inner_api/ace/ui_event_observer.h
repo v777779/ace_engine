@@ -23,8 +23,14 @@
 
 #include "macros.h"
 
-namespace OHOS::Ace {
+namespace OHOS {
+namespace Media {
+class PixelMap;
+} // namespace Media
+
+namespace Ace {
 using OnInspectorTreeResult = std::function<void(const std::shared_ptr<std::string>)>;
+using UICommandResult = std::function<void(const std::shared_ptr<std::string>)>;
 
 enum class InspectorInfoType: int32_t {
     CONTENT = 0,
@@ -36,6 +42,10 @@ enum class InspectorInfoType: int32_t {
 enum class InspectorPageType: int32_t {
     FOCUS = 0,
     FOREGROUND,
+};
+
+struct ACE_FORCE_EXPORT UICommandParams {
+    std::string params;
 };
 
 struct ACE_FORCE_EXPORT TreeParams {
@@ -51,6 +61,18 @@ struct ACE_FORCE_EXPORT TreeParams {
     InspectorPageType inspectorType { InspectorPageType::FOCUS };
     InspectorInfoType infoType { InspectorInfoType::CONTENT };
     int32_t webId = 0;
+    bool enableCacheNode = false;
+    bool webAccessibility = false;
+};
+
+struct ACE_FORCE_EXPORT ComponentParams {
+    int32_t mode { 0 };
+    int32_t aceId { 0 };
+};
+
+struct ACE_FORCE_EXPORT ComponentResult {
+    bool isOk { false };
+    std::function<void(const std::pair<int32_t, std::shared_ptr<Media::PixelMap>>&)> callback;
 };
 
 class ACE_FORCE_EXPORT UIEventObserver {
@@ -62,5 +84,6 @@ public:
         int32_t eventType, const std::shared_ptr<std::unordered_map<std::string, std::string>>& eventParams)
     {}
 };
-} // namespace OHOS::Ace
+} // namespace Ace
+} // namespace OHOS
 #endif // FOUNDATION_ACE_INTERFACE_INNERKITS_ACE_UI_EVENT_OBSERVER_H

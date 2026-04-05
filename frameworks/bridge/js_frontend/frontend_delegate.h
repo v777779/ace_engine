@@ -39,13 +39,6 @@
 namespace OHOS::Ace::Framework {
 enum class AlertState { USER_CANCEL = 0, USER_CONFIRM, RECOVERY };
 
-typedef struct RouterStateInfo {
-    int32_t index = -1;
-    std::string name;
-    std::string path;
-    std::string params;
-} StateInfo;
-
 class JsAcePage;
 
 // A virtual interface which must be implemented as a backing for
@@ -119,6 +112,11 @@ public:
     virtual int32_t GetIndexByUrl(const std::string& url)
     {
         return -1;
+    }
+    // Gets current page's init params
+    virtual std::string GetInitParams()
+    {
+        return "";
     }
     // Gets current page's params
     virtual std::string GetParams()
@@ -249,6 +247,11 @@ public:
     // ----------------
     virtual void RequestAnimationFrame(const std::string& callbackId) = 0;
     virtual void CancelAnimationFrame(const std::string& callbackId) = 0;
+    // ----------------
+    // system.digitalCrown
+    // ----------------
+    virtual void SetMonitorForCrownEvents(const std::string& callbackId) = 0;
+    virtual void ClearMonitorForCrownEvents() = 0;
 
     virtual void GetSnapshot(const std::string& componentId,
         std::function<void(std::shared_ptr<Media::PixelMap>, int32_t, std::function<void()>)>&& callback,
@@ -282,11 +285,16 @@ public:
         return {};
     }
 
-    virtual void GetSnapshotWithRange(const NG::NodeIdentity startID, const NG::NodeIdentity endID,
+    virtual void GetSnapshotWithRange(const NG::NodeIdentity& startID, const NG::NodeIdentity& endID,
         const bool isStartRect,
         std::function<void(std::shared_ptr<Media::PixelMap>, int32_t, std::function<void()>)>&& callback,
         const NG::SnapshotOptions& options)
     {}
+
+    virtual NG::SnapshotSizeLimitation GetSizeLimitation()
+    {
+        return {};
+    }
 
     virtual void CreateSnapshotFromComponent(const RefPtr<NG::UINode>& nodeWk,
         std::function<void(std::shared_ptr<Media::PixelMap>, int32_t, std::function<void()>)>&& callback,
@@ -379,13 +387,16 @@ public:
 
     virtual void CallNativeHandler(const std::string& event, const std::string& params) {}
 
-    virtual void GetBackgroundBlurStyleOption(napi_value value, BlurStyleOption& styleOption)
+    virtual void GetBackgroundBlurStyleOption(
+        napi_value value, BlurStyleOption& styleOption, bool& hasBlurStyleOptionInactiveColor)
     {
-        JSViewAbstractBridge::GetBackgroundBlurStyleOption(value, styleOption);
+        JSViewAbstractBridge::GetBackgroundBlurStyleOption(value, styleOption, hasBlurStyleOptionInactiveColor);
     }
-    virtual void GetBackgroundEffect(napi_value value, EffectOption& styleOption)
+    virtual void GetBackgroundEffect(
+        napi_value value, EffectOption& styleOption, bool& hasEffectOptionColor, bool& hasEffectOptionInactiveColor)
     {
-        JSViewAbstractBridge::GetBackgroundEffect(value, styleOption);
+        JSViewAbstractBridge::GetBackgroundEffect(
+            value, styleOption, hasEffectOptionColor, hasEffectOptionInactiveColor);
     }
 
 protected:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,7 +19,6 @@
 #include <functional>
 
 #include "base/utils/macros.h"
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/list/list_item_event_hub.h"
 #include "core/components_ng/pattern/list/list_item_model.h"
 
@@ -38,6 +37,7 @@ public:
     void SetSelectable(bool selectable) override;
     void SetSelected(bool selected) override;
     void SetSelectChangeEvent(std::function<void(bool)>&& changeEvent) override;
+    void BindContextMenu() override;
     void SetSwiperAction(std::function<void()>&& startAction, std::function<void()>&& endAction,
         OnOffsetChangeFunc&& onOffsetChangeFunc, V2::SwipeEdgeEffect edgeEffect,
         NG::FrameNode* node = nullptr) override;
@@ -47,27 +47,29 @@ public:
         OnEnterDeleteAreaEvent&& onEnterDeleteArea, OnExitDeleteAreaEvent&& onExitDeleteArea,
         OnStateChangedEvent&& onStateChangeEvent, const Dimension& length, bool isStartArea,
         NG::FrameNode* node = nullptr) override;
+    void SetAutoScale(bool autoScale) override;
     void SetDeleteAreaWithFrameNode(const RefPtr<NG::UINode>& builderComponent, OnDeleteEvent&& onDelete,
         OnEnterDeleteAreaEvent&& onEnterDeleteArea, OnExitDeleteAreaEvent&& onExitDeleteArea,
         OnStateChangedEvent&& onStateChange, const Dimension& length, bool isStartArea,
         NG::FrameNode* node = nullptr) override;
-    void SetAutoScale(bool autoScale) override;
-        
-    static void SetDeleteArea(FrameNode* frameNode, UINode* footerNode, OnDeleteEvent&& onDelete,
+    void ParseResObjStartArea(const RefPtr<ResourceObject>& resObj) override;
+    void ParseResObjEndArea(const RefPtr<ResourceObject>& resObj) override;
+
+    static void SetDeleteArea(FrameNode* frameNode, FrameNode* footerNode, OnDeleteEvent&& onDelete,
         OnEnterDeleteAreaEvent&& onEnterDeleteArea, OnExitDeleteAreaEvent&& onExitDeleteArea,
-        OnStateChangedEvent&& onStateChangeEvent, const std::optional<Dimension>& length, bool isStartArea);
+        OnStateChangedEvent&& onStateChangeEvent, const Dimension& length, bool isStartArea);
     static void SetSwiperAction(FrameNode* frameNode, std::function<void()>&& startAction,
         std::function<void()>&& endAction, OnOffsetChangeFunc&& onOffsetChangeFunc,
-        const std::optional<V2::SwipeEdgeEffect>& edgeEffect);
+        V2::SwipeEdgeEffect edgeEffect);
     static void SetSelected(FrameNode* frameNode, bool selected);
     static void SetSelectable(FrameNode* frameNode, bool selectable);
     static void SetAutoScale(FrameNode* frameNode, bool autoScale);
     static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId, bool isCreateArc = false);
     static void SetSelectCallback(FrameNode* frameNode, OnSelectFunc&& selectCallback);
-    static void SetSelectChangeEvent(FrameNode* frameNode, OnSelectFunc&& changeEvent);
-    static void SetSticky(FrameNode* frameNode, const std::optional<V2::StickyMode>& stickyMode);
-    static void SetEditMode(FrameNode* frameNode, uint32_t editMode);
-    static void SetStyle(FrameNode* frameNode, const std::optional<V2::ListItemStyle>& style);
+    static void SetStyle(FrameNode* frameNode, V2::ListItemStyle style);
+    static void ExpandSwipeAction(const NG::FrameNode* listItem, ListItemSwipeActionDirection direction);
+    static void CollapseSwipeAction(const NG::FrameNode* listItem);
+
 private:
     void InstallSwiperCallBack(RefPtr<ListItemEventHub> eventHub,
                                OnDeleteEvent&& onDelete,
@@ -75,7 +77,6 @@ private:
                                OnExitDeleteAreaEvent&& onExitDeleteArea,
                                OnStateChangedEvent&& onStateChangeEvent,
                                bool isStartArea);
-    static RefPtr<FrameNode> CreateListItem(int32_t nodeId);
 };
 } // namespace OHOS::Ace::NG
 

@@ -16,6 +16,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_SYNTAX_REPEAT_VIRTUAL_SCROLL_2_MODEL_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_SYNTAX_REPEAT_VIRTUAL_SCROLL_2_MODEL_H
 
+#include <climits>
 #include <cstdint>
 #include <functional>
 #include <list>
@@ -37,10 +38,11 @@ public:
 
     static RepeatVirtualScroll2Model* GetInstance();
     virtual void Create(uint32_t arrLen, uint32_t totalCount,
-        const std::function<std::pair<uint32_t, uint32_t>(int32_t)>& onGetRid4Index,
+        const std::function<std::pair<uint32_t, uint32_t>(int32_t, bool)>& onGetRid4Index,
         const std::function<void(int32_t, int32_t)>& onRecycleItems,
         const std::function<void(int32_t, int32_t, int32_t, int32_t, bool, bool)>& onActiveRange,
-        const std::function<void(int32_t, int32_t)>& onMoveFromTo, const std::function<void()>& onPurge) = 0;
+        const std::function<void(int32_t, int32_t)>& onMoveFromTo, const std::function<void()>& onPurge,
+        const std::function<void()>& onUpdateDirty) = 0;
 
     virtual void RemoveNode(uint32_t rid) = 0;
     virtual void SetInvalid(int32_t repeatElmtId, uint32_t rid) = 0;
@@ -57,6 +59,10 @@ public:
         std::function<void(int32_t)>&& onDragStart, std::function<void(int32_t, int32_t)>&& onMoveThrough,
         std::function<void(int32_t)>&& onDrop) = 0;
     virtual void SetCreateByTemplate(bool isCreatedByTemplate) = 0;
+    virtual bool IsAllowAnimation(int32_t repeatElmtId) = 0;
+    virtual bool IsImplicitAnimationOpen() = 0;
+    virtual bool IsChildInAnimation(int32_t repeatElmtId, uint32_t rid) = 0;
+    virtual bool IsChildOnMainTree(int32_t repeatElmtId, uint32_t rid) = 0;
 
 private:
     static std::unique_ptr<RepeatVirtualScroll2Model> instance_;

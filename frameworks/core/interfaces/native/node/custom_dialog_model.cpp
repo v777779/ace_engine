@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "core/common/resource/resource_parse_utils.h"
 #include "core/interfaces/native/node/custom_dialog_model.h"
 
 #include "interfaces/native/node/dialog_model.h"
@@ -59,6 +60,40 @@ namespace {
     constexpr int32_t DEFAULT_BORDER_STYLE = static_cast<int32_t>(OHOS::Ace::BorderStyle::SOLID);
     DialogProperties g_dialogProperties;
 } // namespace
+
+static void UnregisterOnWillDialogDismiss(FrameNode* dialogNode)
+{
+    CHECK_NULL_VOID(dialogNode);
+    auto pattern = dialogNode->GetPattern<DialogPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetOnWillDismiss(nullptr);
+    pattern->SetOnWillDismissByNDK(nullptr);
+    pattern->SetIsDialogDisposed(true);
+}
+
+static void CloseDialogHandle(void* dialogHandle)
+{
+    CHECK_NULL_VOID(dialogHandle);
+    auto* dialogNode = reinterpret_cast<FrameNode*>(dialogHandle);
+    CHECK_NULL_VOID(dialogNode);
+    ACE_UINODE_TRACE(dialogNode);
+    UnregisterOnWillDialogDismiss(dialogNode);
+    CustomDialogControllerModelNG::SetCloseDialogForNDK(dialogNode);
+    if (dialogNode) {
+        dialogNode->DecRefCount();
+    }
+}
+
+static void CloseHistoryDialog(ArkUIDialogHandle controllerHandler)
+{
+    CHECK_NULL_VOID(controllerHandler);
+    if (!controllerHandler->historyDialogHandle.empty()) {
+        for (const auto& dialogHandle : controllerHandler->historyDialogHandle) {
+            CloseDialogHandle(dialogHandle);
+        }
+        controllerHandler->historyDialogHandle.clear();
+    }
+}
 
 ArkUIDialogHandle CreateDialog()
 {
@@ -116,23 +151,26 @@ ArkUIDialogHandle CreateDialog()
         .effectOption = std::nullopt,
         .keyboardAvoidMode = OHOS::Ace::KeyboardAvoidMode::DEFAULT,
         .enableHoverMode = std::nullopt,
-        .hoverModeAreaType = OHOS::Ace::HoverModeAreaType::TOP_SCREEN,
+        .hoverModeAreaType = std::nullopt,
         .focusable = true,
         .dialogState = nullptr,
     });
 }
 
+// DisposeDialog方法用于释放controller控制器，建议调用本方法前先调用CloseDialog方法关闭正在显示的Dialog
+// 如果没有调用CloseDialog方法直接调用DisposeDialog，则最新一次创建的Dialog不会被关闭，非最新一次的Dialog会被统一关闭
 void DisposeDialog(ArkUIDialogHandle controllerHandler)
 {
     CHECK_NULL_VOID(controllerHandler);
     auto* dialog = reinterpret_cast<FrameNode*>(controllerHandler->dialogHandle);
     if (dialog) {
-        auto dialogPattern = dialog->GetPattern<DialogPattern>();
-        if (dialogPattern) {
-            dialogPattern->SetIsDialogDisposed(true);
-        }
+        // 解绑Dialog节点的OnWillDismiss方法，防止回调时触发悬空指针，用户可通过侧滑等方式关闭Dialog
+        UnregisterOnWillDialogDismiss(dialog);
         dialog->DecRefCount();
     }
+    ACE_UINODE_TRACE(dialog);
+    // 关闭非最新一次创建的Dialog
+    CloseHistoryDialog(controllerHandler);
     controllerHandler->dialogHandle = nullptr;
     auto* content = reinterpret_cast<FrameNode*>(controllerHandler->contentHandle);
     if (content) {
@@ -187,6 +225,7 @@ void ParseDialogMask(DialogProperties& dialogProperties, ArkUIDialogHandle contr
     if (!controllerHandler->maskRect) {
         return;
     }
+    dialogProperties.hasInvertColor.hasMaskColor = controllerHandler->hasCustomMaskColor;
     DimensionRect maskRect;
     maskRect.SetOffset(DimensionOffset(Dimension(controllerHandler->maskRect->x, DimensionUnit::VP),
         Dimension(controllerHandler->maskRect->y, DimensionUnit::VP)));
@@ -303,6 +342,10 @@ void ParseDialogBorderColor(DialogProperties& dialogProperties, ArkUIDialogHandl
     if (!controllerHandler->borderColors) {
         return;
     }
+    dialogProperties.hasInvertColor.hasBorderTopColor = controllerHandler->hasCustomBorderColor;
+    dialogProperties.hasInvertColor.hasBorderBottomColor = controllerHandler->hasCustomBorderColor;
+    dialogProperties.hasInvertColor.hasBorderLeftColor = controllerHandler->hasCustomBorderColor;
+    dialogProperties.hasInvertColor.hasBorderRightColor = controllerHandler->hasCustomBorderColor;
     NG::BorderColorProperty color;
     color.topColor = Color(controllerHandler->borderColors->top);
     color.rightColor = Color(controllerHandler->borderColors->right);
@@ -363,6 +406,7 @@ void ParseDialogProperties(DialogProperties& dialogProperties, ArkUIDialogHandle
     dialogProperties.isShowInSubWindow = controllerHandler->showInSubWindow;
     dialogProperties.isModal = controllerHandler->isModal;
     dialogProperties.backgroundColor = Color(controllerHandler->backgroundColor);
+    dialogProperties.hasInvertColor.hasBackgroundColor = controllerHandler->hasCustomBackgroundColor;
     dialogProperties.customStyle = controllerHandler->enableCustomStyle;
     dialogProperties.gridCount = controllerHandler->gridCount;
     dialogProperties.dialogLevelMode = static_cast<LevelMode>(controllerHandler->levelMode);
@@ -370,11 +414,17 @@ void ParseDialogProperties(DialogProperties& dialogProperties, ArkUIDialogHandle
     dialogProperties.dialogImmersiveMode = static_cast<ImmersiveMode>(controllerHandler->immersiveMode);
     dialogProperties.backgroundBlurStyle = controllerHandler->blurStyle;
     dialogProperties.blurStyleOption = controllerHandler->blurStyleOption;
+    dialogProperties.hasInvertColor.hasBlurStyleOptionInactiveColor =
+        controllerHandler->hasCustomBlurStyleOptionInactiveColor;
     dialogProperties.effectOption = controllerHandler->effectOption;
+    dialogProperties.hasInvertColor.hasEffectOptionColor = controllerHandler->hasCustomEffectOptionColor;
+    dialogProperties.hasInvertColor.hasEffectOptionInactiveColor =
+        controllerHandler->hasCustomEffectOptionInactiveColor;
     dialogProperties.keyboardAvoidMode = controllerHandler->keyboardAvoidMode;
     dialogProperties.hoverModeArea = controllerHandler->hoverModeAreaType;
     if (controllerHandler->customShadow.has_value()) {
         dialogProperties.shadow = controllerHandler->customShadow;
+        dialogProperties.hasInvertColor.hasShadowColor = controllerHandler->hasCustomShadowColor;
     }
     if (!dialogProperties.isShowInSubWindow) {
         dialogProperties.levelOrder = std::make_optional(controllerHandler->levelOrder);
@@ -637,6 +687,7 @@ ArkUI_Int32 SetDialogMask(ArkUIDialogHandle controllerHandler, ArkUI_Uint32 mask
 {
     CHECK_NULL_RETURN(controllerHandler, ERROR_CODE_PARAM_INVALID);
     controllerHandler->maskColor = maskColor;
+    controllerHandler->hasCustomMaskColor = true;
     if (rect) {
         controllerHandler->maskRect = new ArkUIRect({ .x = rect->x, .y = rect->y,
             .width = rect->width, .height = rect->height });
@@ -648,6 +699,7 @@ ArkUI_Int32 SetDialogBackgroundColor(ArkUIDialogHandle controllerHandler, ArkUI_
 {
     CHECK_NULL_RETURN(controllerHandler, ERROR_CODE_PARAM_INVALID);
     controllerHandler->backgroundColor = backgroundColor;
+    controllerHandler->hasCustomBackgroundColor = true;
     return ERROR_CODE_NO_ERROR;
 }
 
@@ -681,6 +733,7 @@ ArkUI_Int32 EnableDialogCustomAnimation(ArkUIDialogHandle controllerHandler, boo
     return ERROR_CODE_NO_ERROR;
 }
 
+// 基于传入的控制器可以多次显示Dialog，但需注意Close只会关闭最新一次创建的Dialog
 ArkUI_Int32 ShowDialog(ArkUIDialogHandle controllerHandler, bool showInSubWindow)
 {
     CHECK_NULL_RETURN(controllerHandler, ERROR_CODE_PARAM_INVALID);
@@ -691,8 +744,12 @@ ArkUI_Int32 ShowDialog(ArkUIDialogHandle controllerHandler, bool showInSubWindow
     CHECK_NULL_RETURN(contentNode, ERROR_CODE_PARAM_INVALID);
     auto contentPtr = AceType::Claim<FrameNode>(contentNode);
     auto dialogNode = CustomDialogControllerModelNG::SetOpenDialogWithNode(dialogProperties, contentPtr);
+    ACE_UINODE_TRACE(dialogNode);
     if (dialogNode) {
         dialogNode->IncRefCount();
+    }
+    if (controllerHandler->dialogHandle) {
+        controllerHandler->historyDialogHandle.push_back(controllerHandler->dialogHandle);
     }
     controllerHandler->dialogHandle = AceType::RawPtr(dialogNode);
     return ERROR_CODE_NO_ERROR;
@@ -703,7 +760,10 @@ ArkUI_Int32 CloseDialog(ArkUIDialogHandle controllerHandler)
     CHECK_NULL_RETURN(controllerHandler, ERROR_CODE_PARAM_INVALID);
     auto* dialogNode = reinterpret_cast<FrameNode*>(controllerHandler->dialogHandle);
     CHECK_NULL_RETURN(dialogNode, ERROR_CODE_PARAM_INVALID);
+    ACE_UINODE_TRACE(dialogNode);
     CustomDialogControllerModelNG::SetCloseDialogForNDK(dialogNode);
+    // 关闭Dialog时同步解绑节点上的OnWillDismiss事件，防止悬空指针回调
+    UnregisterOnWillDialogDismiss(dialogNode);
     if (dialogNode) {
         dialogNode->DecRefCount();
     }
@@ -732,6 +792,7 @@ ArkUI_Int32 GetDialogState(ArkUIDialogHandle controllerHandler, ArkUI_Int32* dia
     CHECK_NULL_RETURN(controllerHandler, ERROR_CODE_PARAM_INVALID);
     auto* dialogNode = reinterpret_cast<FrameNode*>(controllerHandler->dialogHandle);
     CHECK_NULL_RETURN(dialogNode, ERROR_CODE_PARAM_INVALID);
+    ACE_UINODE_TRACE(dialogNode);
     *dialogState = static_cast<int32_t>(CustomDialogControllerModelNG::GetStateWithNode(dialogNode));
     return ERROR_CODE_NO_ERROR;
 }
@@ -902,6 +963,7 @@ ArkUI_Int32 SetDialogBorderColor(
     CHECK_NULL_RETURN(controllerHandler, ERROR_CODE_PARAM_INVALID);
     controllerHandler->borderColors =
         new ArkUIBorderColor({ .top = top, .right = right, .bottom = bottom, .left = left });
+    controllerHandler->hasCustomBorderColor = true;
     return ERROR_CODE_NO_ERROR;
 }
 
@@ -957,6 +1019,7 @@ ArkUI_Int32 SetShadow(ArkUIDialogHandle controllerHandler, ArkUI_Int32 shadow)
         Shadow shadows;
         GetShadowFromTheme(static_cast<OHOS::Ace::ShadowStyle>(shadow), shadows);
         controllerHandler->customShadow = shadows;
+        controllerHandler->hasCustomShadowColor= false;
     }
     return ERROR_CODE_NO_ERROR;
 }
@@ -995,6 +1058,7 @@ ArkUI_Int32 SetDialogCustomShadow(
     shadow.SetShadowType(static_cast<ShadowType>(shadowType));
     shadow.SetIsFilled(static_cast<bool>(isFilled));
     controllerHandler->customShadow = shadow;
+    controllerHandler->hasCustomShadowColor= true;
     return ERROR_CODE_NO_ERROR;
 }
 
@@ -1046,6 +1110,9 @@ ArkUI_Int32 SetBackgroundBlurStyleOptions(ArkUIDialogHandle controllerHandler, A
     blurStyleOption.blurOption.grayscale = greyVec;
     blurStyleOption.inactiveColor = Color((*uintArray)[NUM_2]);
     blurStyleOption.isValidColor = isValidColor;
+    if (isValidColor) {
+        controllerHandler->hasCustomBlurStyleOptionInactiveColor = true;
+    }
     if (!controllerHandler->blurStyleOption.has_value()) {
         controllerHandler->blurStyleOption.emplace();
     }
@@ -1054,7 +1121,7 @@ ArkUI_Int32 SetBackgroundBlurStyleOptions(ArkUIDialogHandle controllerHandler, A
 }
 
 ArkUI_Int32 SetBackgroundEffect(ArkUIDialogHandle controllerHandler, ArkUI_Float32 (*floatArray)[3],
-    ArkUI_Int32 (*intArray)[2], ArkUI_Uint32 (*uintArray)[4], ArkUI_Bool isValidColor)
+    ArkUI_Int32 (*intArray)[2], ArkUI_Uint32 (*uintArray)[4], ArkUI_Bool (*boolArray)[2])
 {
     CHECK_NULL_RETURN(controllerHandler, ERROR_CODE_PARAM_INVALID);
     CalcDimension radius((*floatArray)[NUM_0], DimensionUnit::VP);
@@ -1065,10 +1132,12 @@ ArkUI_Int32 SetBackgroundEffect(ArkUIDialogHandle controllerHandler, ArkUI_Float
     effectOption.adaptiveColor = static_cast<AdaptiveColor>((*intArray)[NUM_0]);
     effectOption.policy = static_cast<BlurStyleActivePolicy>((*intArray)[NUM_1]);
     effectOption.color = Color((*uintArray)[NUM_0]);
+    controllerHandler->hasCustomEffectOptionColor = boolArray[NUM_0];
     std::vector<float> greyVec = { (*uintArray)[NUM_0], (*uintArray)[NUM_1] };
     effectOption.blurOption.grayscale = greyVec;
     effectOption.inactiveColor = Color((*uintArray)[NUM_3]);
-    effectOption.isValidColor = isValidColor;
+    effectOption.isValidColor = boolArray[NUM_1];
+    controllerHandler->hasCustomEffectOptionInactiveColor = boolArray[NUM_1];
     if (!controllerHandler->effectOption.has_value()) {
         controllerHandler->effectOption.emplace();
     }

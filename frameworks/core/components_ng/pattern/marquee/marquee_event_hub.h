@@ -23,7 +23,7 @@ namespace OHOS::Ace::NG {
 using ChangeEvent = std::function<void()>;
 
 class MarqueeEventHub : public EventHub {
-    DECLARE_ACE_TYPE(MarqueeEventHub, EventHub)
+    DECLARE_ACE_TYPE(MarqueeEventHub, EventHub);
 
 public:
     MarqueeEventHub() = default;
@@ -42,6 +42,11 @@ public:
     void SetOnFinish(ChangeEvent&& changeEvent)
     {
         finishEvent_ = std::move(changeEvent);
+    }
+
+    void SetOnStop(ChangeEvent&& changeEvent)
+    {
+        stopEvent_ = std::move(changeEvent);
     }
 
     void FireStartEvent() const
@@ -65,10 +70,18 @@ public:
         }
     }
 
+    void FireStopEvent()
+    {
+        if (stopEvent_) {
+            stopEvent_();
+        }
+    }
+
 private:
     ChangeEvent startEvent_;
     ChangeEvent bounceEvent_;
     ChangeEvent finishEvent_;
+    ChangeEvent stopEvent_;
 };
 
 } // namespace OHOS::Ace::NG

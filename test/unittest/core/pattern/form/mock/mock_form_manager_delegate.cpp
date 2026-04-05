@@ -50,7 +50,7 @@ void FormManagerDelegate::AddFormUninstallCallback(const OnFormUninstallCallback
 
 void FormManagerDelegate::AddUnTrustFormCallback(const UnTrustFormCallback& callback) {}
 
-void FormManagerDelegate::OnActionEvent(const std::string& action) {}
+void FormManagerDelegate::OnActionEvent(const std::string& action, bool isManuallyClick) {}
 
 void FormManagerDelegate::SetRSUIContext(std::shared_ptr<Rosen::RSUIContext> &rsUIContext) {}
 
@@ -74,7 +74,7 @@ void FormManagerDelegate::SetAllowUpdate(bool allowUpdate) {}
 void FormManagerDelegate::DispatchPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent,
     SerializedGesture& serializedGesture) {}
 
-void FormManagerDelegate::NotifySurfaceChange(float width, float height, float borderWidth) {}
+void FormManagerDelegate::NotifySurfaceChange(const OHOS::AppExecFwk::FormSurfaceInfo &formSurfaceInfo) {}
 
 void FormManagerDelegate::AddFormSurfaceChangeCallback(OnFormSurfaceChangeCallback&& callback) {}
 
@@ -90,6 +90,8 @@ void FormManagerDelegate::AddEnableFormCallback(EnableFormCallback&& callback) {
 
 void FormManagerDelegate::AddLockFormCallback(LockFormCallback&& callback) {}
 
+void FormManagerDelegate::AddFormRenderDiedCallback(FormRenderDiedCallback&& callback) {}
+
 void FormManagerDelegate::ResetForm() {}
 
 void FormManagerDelegate::ReleaseForm() {}
@@ -102,15 +104,25 @@ void FormManagerDelegate::OnGetRectRelativeToWindow(AccessibilityParentRectInfo&
 
 void FormManagerDelegate::SetObscured(bool isObscured) {}
 
-void FormManagerDelegate::OnAccessibilityChildTreeRegister(
-    uint32_t windowId, int32_t treeId, int64_t accessibilityId) {}
+void FormManagerDelegate::SetColorMode(int32_t colorMode) {}
+
+bool FormManagerDelegate::OnAccessibilityChildTreeRegister(
+    uint32_t windowId, int32_t treeId, int64_t accessibilityId)
+{
+    return true;
+}
+
 void FormManagerDelegate::OnAccessibilityChildTreeDeregister() {}
+
 void FormManagerDelegate::OnAccessibilityDumpChildInfo(
     const std::vector<std::string>& params, std::vector<std::string>& info) {}
+
 void FormManagerDelegate::OnAccessibilityTransferHoverEvent(float pointX, float pointY, int32_t sourceType,
     int32_t eventType, int64_t timeMs) {}
+
 void FormManagerDelegate::NotifyFormDump(const std::vector<std::string>& params,
     std::vector<std::string>& info) {}
+
 void FormManagerDelegate::HandleCachedClickEvents() {}
 
 #if OHOS_STANDARD_SYSTEM
@@ -139,7 +151,32 @@ bool FormManagerDelegate::IsFormBundleProtected(const std::string &bundleName, i
     return false;
 }
 
-void FormManagerDelegate::AddFormUpdateDoneCallback(UpdateFormDoneCallback&& callback) {}
+bool FormManagerDelegate::IsFormBundleDebugSignature(const std::string &bundleName)
+{
+    return false;
+}
 
+void FormManagerDelegate::AddFormUpdateDoneCallback(UpdateFormDoneCallback&& callback) {}
 void FormManagerDelegate::OnFormUpdateDone(const int64_t formId) {}
+void FormManagerDelegate::ReAddForm() {}
+
+void FormManagerDelegate::AddDueControlFormCallback(DueControlFormCallback &&callback) {}
+bool FormManagerDelegate::CheckFormDueControl(const std::string &bundleName, const std::string &moduleName,
+    const std::string &abilityName, const std::string &formName,
+    const int32_t dimension, const bool isDisablePolicy)
+{
+    return false;
+}
+
+void FormManagerDelegate::SendNonTransparencyRatio(int32_t ratio)
+{}
+
+void SetFormRendererDispatcher(sptr<IFormRendererDispatcher> &rendererDispatcher) {}
+
+void ClearFormRendererDispatcher() {}
+
+sptr<IFormRendererDispatcher> GetFormRendererDispatcher()
+{
+    return nullptr;
+}
 } // namespace OHOS::Ace

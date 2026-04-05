@@ -14,12 +14,15 @@
  */
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_native_select_bridge.h"
 
+#include "base/log/ace_scoring_log.h"
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_native_common_bridge.h"
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_utils.h"
+#include "bridge/declarative_frontend/jsview/js_utils.h"
 #include "bridge/declarative_frontend/jsview/js_view_abstract.h"
 #include "bridge/declarative_frontend/jsview/js_symbol_modifier.h"
 #include "core/components_ng/base/frame_node.h"
 #include "interfaces/inner_api/ui_session/ui_session_manager.h"
+#include "core/components/select/select_theme.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -36,30 +39,45 @@ const std::string DEFAULT_STR = "-1";
 const char* SELECT_NODEPTR_OF_UINODE = "nodePtr_";
 const Dimension invalidDimension = Dimension(0.0, DimensionUnit::INVALID);
 
-ArkUIMenuDividerOptions BuildSelectDividerStyleOptions(
-    EcmaVM* vm, Local<JSValueRef> strokeWidthArg, Local<JSValueRef> startMarginArg, Local<JSValueRef> endMarginArg)
+struct SelectDividerStyleParseResult {
+    RefPtr<ResourceObject> strokeWidthResObj;
+    RefPtr<ResourceObject> startMarginResObj;
+    RefPtr<ResourceObject> endMarginResObj;
+    bool hasStrokeWidth = false;
+    bool hasStartMargin = false;
+    bool hasEndMargin = false;
+};
+
+ArkUIMenuDividerOptions BuildSelectDividerStyleOptions(EcmaVM* vm, Local<JSValueRef> strokeWidthArg,
+    Local<JSValueRef> startMarginArg, Local<JSValueRef> endMarginArg, SelectDividerStyleParseResult& result)
 {
     ArkUIDimensionType strokeWidthOption;
     ArkUIDimensionType startMarginOption;
     ArkUIDimensionType endMarginOption;
 
     CalcDimension strokeWidth;
-    if (!ArkTSUtils::ParseJsLengthMetrics(vm, strokeWidthArg, strokeWidth)) {
+    if (!ArkTSUtils::ParseJsLengthMetrics(vm, strokeWidthArg, strokeWidth, result.strokeWidthResObj)) {
         strokeWidth = invalidDimension;
+    } else {
+        result.hasStrokeWidth = true;
     }
     strokeWidthOption.value = strokeWidth.Value();
     strokeWidthOption.units = static_cast<int32_t>(strokeWidth.Unit());
 
     CalcDimension startMargin;
-    if (!ArkTSUtils::ParseJsLengthMetrics(vm, startMarginArg, startMargin)) {
+    if (!ArkTSUtils::ParseJsLengthMetrics(vm, startMarginArg, startMargin, result.startMarginResObj)) {
         startMargin = invalidDimension;
+    } else {
+        result.hasStartMargin = true;
     }
     startMarginOption.value = startMargin.Value();
     startMarginOption.units = static_cast<int32_t>(startMargin.Unit());
 
     CalcDimension endMargin;
-    if (!ArkTSUtils::ParseJsLengthMetrics(vm, endMarginArg, endMargin)) {
+    if (!ArkTSUtils::ParseJsLengthMetrics(vm, endMarginArg, endMargin, result.endMarginResObj)) {
         endMargin = invalidDimension;
+    } else {
+        result.hasEndMargin = true;
     }
     endMarginOption.value = endMargin.Value();
     endMarginOption.units = static_cast<int32_t>(endMargin.Unit());
@@ -72,11 +90,13 @@ ArkUIMenuDividerOptions BuildSelectDividerStyleOptions(
 }
 
 constexpr int32_t ARG_GROUP_LENGTH = 3;
-bool ParseDividerDimension(const EcmaVM* vm, const Local<JSValueRef>& value, CalcDimension& valueDim)
+bool ParseDividerDimension(
+    const EcmaVM* vm, const Local<JSValueRef>& value, CalcDimension& valueDim, RefPtr<ResourceObject>& resourceObject)
 {
-    return !ArkTSUtils::ParseJsDimensionVpNG(vm, value, valueDim, false) || LessNotEqual(valueDim.Value(), 0.0f) ||
+    return !ArkTSUtils::ParseJsDimensionVpNG(vm, value, valueDim, resourceObject, false) ||
+           LessNotEqual(valueDim.Value(), 0.0f) ||
            (valueDim.Unit() != DimensionUnit::PX && valueDim.Unit() != DimensionUnit::VP &&
-           valueDim.Unit() != DimensionUnit::LPX && valueDim.Unit() != DimensionUnit::FP);
+               valueDim.Unit() != DimensionUnit::LPX && valueDim.Unit() != DimensionUnit::FP);
 }
 
 void PopulateValues(const CalcDimension& dividerStrokeWidth, const CalcDimension& dividerStartMargin,
@@ -845,13 +865,13 @@ ArkUINativeModuleValue SelectBridge::SetContentModifierBuilder(ArkUIRuntimeCallI
         [vm, frameNode, obj = std::move(obj), containerId = Container::CurrentId()](
             MenuItemConfiguration config) -> RefPtr<FrameNode> {
             ContainerScope scope(containerId);
+            LocalScope pandaScope(vm);
             auto context = ArkTSUtils::GetContext(vm);
             CHECK_EQUAL_RETURN(context->IsUndefined(), true, nullptr);
             auto select = ConstructSelect(vm, frameNode, config);
             select->SetNativePointerFieldCount(vm, 1);
             select->SetNativePointerField(vm, 0, static_cast<void*>(frameNode));
             panda::Local<panda::JSValueRef> params[] = { context, select };
-            LocalScope pandaScope(vm);
             panda::TryCatch trycatch(vm);
             auto jsObject = obj.ToLocal();
             auto makeFunc = jsObject->Get(vm, panda::StringRef::NewFromUtf8(vm, "makeContentModifierNode"));
@@ -939,6 +959,16 @@ ArkUINativeModuleValue SelectBridge::SetDivider(ArkUIRuntimeCallInfo* runtimeCal
     CalcDimension dividerStartMargin;
     CalcDimension dividerEndMargin;
     Color colorObj;
+
+    bool hasStrokeWidth = false;
+    bool hasColor = false;
+    bool hasStartMargin = false;
+    bool hasEndMargin = false;
+    RefPtr<ResourceObject> strokeWidthResObj;
+    RefPtr<ResourceObject> colorResObj;
+    RefPtr<ResourceObject> startMarginResObj;
+    RefPtr<ResourceObject> endMarginResObj;
+
     auto frameNode = reinterpret_cast<FrameNode*>(nativeNode);
     CHECK_NULL_RETURN(frameNode, panda::NativePointerRef::New(vm, nullptr));
     auto context = frameNode->GetContext();
@@ -947,33 +977,60 @@ ArkUINativeModuleValue SelectBridge::SetDivider(ArkUIRuntimeCallInfo* runtimeCal
     CHECK_NULL_RETURN(themeManager, panda::NativePointerRef::New(vm, nullptr));
     auto selectTheme = themeManager->GetTheme<SelectTheme>();
     CHECK_NULL_RETURN(selectTheme, panda::NativePointerRef::New(vm, nullptr));
-    if (ParseDividerDimension(vm, dividerStrokeWidthArgs, dividerStrokeWidth)) {
+    if (ParseDividerDimension(vm, dividerStrokeWidthArgs, dividerStrokeWidth, strokeWidthResObj)) {
         if (selectTheme) {
             dividerStrokeWidth = selectTheme->GetDefaultDividerWidth();
         } else {
             dividerStrokeWidth = 0.0_vp;
         }
+    } else {
+        hasStrokeWidth = true;
     }
-    if (!ArkTSUtils::ParseJsColorAlpha(vm, colorArg, colorObj)) {
+    auto nodeInfo = ArkTSUtils::MakeNativeNodeInfo(nativeNode);
+    if (!ArkTSUtils::ParseJsColorAlpha(vm, colorArg, colorObj, colorResObj, nodeInfo)) {
         if (selectTheme) {
             colorObj = selectTheme->GetLineColor();
         } else {
             colorObj = Color::TRANSPARENT;
         }
+    } else {
+        hasColor = true;
     }
-    if (ParseDividerDimension(vm, dividerStartMarginArgs, dividerStartMargin)) {
+    if (ParseDividerDimension(vm, dividerStartMarginArgs, dividerStartMargin, startMarginResObj)) {
         dividerStartMargin = -1.0_vp;
+    } else {
+        hasStartMargin = true;
     }
-    if (ParseDividerDimension(vm, dividerEndMarginArgs, dividerEndMargin)) {
+    if (ParseDividerDimension(vm, dividerEndMarginArgs, dividerEndMargin, endMarginResObj)) {
         dividerEndMargin = -1.0_vp;
+    } else {
+        hasEndMargin = true;
     }
     uint32_t size = ARG_GROUP_LENGTH;
     ArkUI_Float32 values[size];
     int32_t units[size];
     PopulateValues(dividerStrokeWidth, dividerStartMargin, dividerEndMargin, values, size);
     PopulateUnits(dividerStrokeWidth, dividerStartMargin, dividerEndMargin, units, size);
-    GetArkUINodeModifiers()->getSelectModifier()->setSelectDivider(
-        nativeNode, colorObj.GetValue(), values, units, size);
+    auto strokeWidthRawPtr = AceType::RawPtr(strokeWidthResObj);
+    auto colorRawPtr = AceType::RawPtr(colorResObj);
+    auto startMarginRawPtr = AceType::RawPtr(startMarginResObj);
+    auto endMarginRawPtr = AceType::RawPtr(endMarginResObj);
+
+    ArkUISelectDividerArgs dividerArgs;
+    dividerArgs.color = colorObj.GetValue();
+    dividerArgs.values = values;
+    dividerArgs.units = units;
+    dividerArgs.length = static_cast<ArkUI_Int32>(size);
+    dividerArgs.strokeWidthRawPtr = strokeWidthRawPtr;
+    dividerArgs.colorRawPtr = colorRawPtr;
+    dividerArgs.startMarginRawPtr = startMarginRawPtr;
+    dividerArgs.endMarginRawPtr = endMarginRawPtr;
+    dividerArgs.hasStrokeWidth = hasStrokeWidth;
+    dividerArgs.hasColor = hasColor;
+    dividerArgs.hasStartMargin = hasStartMargin;
+    dividerArgs.hasEndMargin = hasEndMargin;
+
+    GetArkUINodeModifiers()->getSelectModifier()->setSelectDivider(nativeNode, &dividerArgs);
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -1003,12 +1060,15 @@ ArkUINativeModuleValue SelectBridge::SetDividerStyle(ArkUIRuntimeCallInfo* runti
     Local<JSValueRef> endMarginArg = runtimeCallInfo->GetCallArgRef(NUM_4);
     Local<JSValueRef> modeArg = runtimeCallInfo->GetCallArgRef(NUM_5);
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
-    if (strokeWidthArg->IsUndefined() && colorArg->IsUndefined() && startMarginArg->IsUndefined()
-        && endMarginArg->IsUndefined() && modeArg->IsUndefined()) {
+    if (strokeWidthArg->IsUndefined() && colorArg->IsUndefined() && startMarginArg->IsUndefined() &&
+        endMarginArg->IsUndefined() && modeArg->IsUndefined()) {
         GetArkUINodeModifiers()->getSelectModifier()->resetSelectDividerStyle(nativeNode);
         return panda::JSValueRef::Undefined(vm);
     }
-    auto dividerOptions = BuildSelectDividerStyleOptions(vm, strokeWidthArg, startMarginArg, endMarginArg);
+    RefPtr<ResourceObject> colorResObj;
+    bool hasColor = false;
+    SelectDividerStyleParseResult parseResult;
+    auto dividerOptions = BuildSelectDividerStyleOptions(vm, strokeWidthArg, startMarginArg, endMarginArg, parseResult);
     auto frameNode = reinterpret_cast<FrameNode*>(nativeNode);
     CHECK_NULL_RETURN(frameNode, panda::NativePointerRef::New(vm, nullptr));
     auto context = frameNode->GetContext();
@@ -1031,8 +1091,11 @@ ArkUINativeModuleValue SelectBridge::SetDividerStyle(ArkUIRuntimeCallInfo* runti
         dividerOptions.endMargin.units = static_cast<int32_t>(DimensionUnit::VP);
     }
     Color color;
-    if (!ArkTSUtils::ParseJsColorAlpha(vm, colorArg, color)) {
+    auto nodeInfo = ArkTSUtils::MakeNativeNodeInfo(nativeNode);
+    if (!ArkTSUtils::ParseJsColorAlpha(vm, colorArg, color, colorResObj, nodeInfo)) {
         color = selectTheme->GetLineColor();
+    } else {
+        hasColor = true;
     }
     dividerOptions.color = color.GetValue();
     int32_t mode = 0;
@@ -1040,7 +1103,22 @@ ArkUINativeModuleValue SelectBridge::SetDividerStyle(ArkUIRuntimeCallInfo* runti
         mode = modeArg->Int32Value(vm);
     }
     dividerOptions.mode = mode;
-    GetArkUINodeModifiers()->getSelectModifier()->setSelectDividerStyle(nativeNode, &dividerOptions);
+    auto strokeWidthRawPtr = AceType::RawPtr(parseResult.strokeWidthResObj);
+    auto colorRawPtr = AceType::RawPtr(colorResObj);
+    auto startMarginRawPtr = AceType::RawPtr(parseResult.startMarginResObj);
+    auto endMarginRawPtr = AceType::RawPtr(parseResult.endMarginResObj);
+
+    ArkUISelectDividerStyleArgs styleArgs;
+    styleArgs.dividerInfo = &dividerOptions;
+    styleArgs.strokeWidthRawPtr = strokeWidthRawPtr;
+    styleArgs.colorRawPtr = colorRawPtr;
+    styleArgs.startMarginRawPtr = startMarginRawPtr;
+    styleArgs.endMarginRawPtr = endMarginRawPtr;
+    styleArgs.hasStrokeWidth = parseResult.hasStrokeWidth;
+    styleArgs.hasColor = hasColor;
+    styleArgs.hasStartMargin = parseResult.hasStartMargin;
+    styleArgs.hasEndMargin = parseResult.hasEndMargin;
+    GetArkUINodeModifiers()->getSelectModifier()->setSelectDividerStyle(nativeNode, &styleArgs);
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -1146,77 +1224,6 @@ ArkUINativeModuleValue SelectBridge::ResetSelectDirection(ArkUIRuntimeCallInfo* 
     return panda::JSValueRef::Undefined(vm);
 }
 
-void PushOuterBorderColorVector(const std::optional<Color>& valueColor, std::vector<uint32_t> &options)
-{
-    options.push_back(static_cast<uint32_t>(valueColor.has_value()));
-    if (valueColor.has_value()) {
-        options.push_back(static_cast<uint32_t>(valueColor.value().GetValue()));
-    } else {
-        options.push_back(0x19FFFFFF);
-    }
-}
-
-void ParseOuterBorderColor(
-    ArkUIRuntimeCallInfo* runtimeCallInfo, EcmaVM* vm, std::vector<uint32_t>& values, int32_t argsIndex)
-{
-    Local<JSValueRef> leftArg = runtimeCallInfo->GetCallArgRef(argsIndex);
-    Local<JSValueRef> rightArg = runtimeCallInfo->GetCallArgRef(argsIndex + 1);
-    Local<JSValueRef> topArg = runtimeCallInfo->GetCallArgRef(argsIndex + 2);
-    Local<JSValueRef> bottomArg = runtimeCallInfo->GetCallArgRef(argsIndex + 3);
-
-    std::optional<Color> leftColor;
-    std::optional<Color> rightColor;
-    std::optional<Color> topColor;
-    std::optional<Color> bottomColor;
-
-    Color left;
-    if (!leftArg->IsUndefined() && ArkTSUtils::ParseJsColorAlpha(vm, leftArg, left)) {
-        leftColor = left;
-    }
-    Color right;
-    if (!rightArg->IsUndefined() && ArkTSUtils::ParseJsColorAlpha(vm, rightArg, right)) {
-        rightColor = right;
-    }
-    Color top;
-    if (!topArg->IsUndefined() && ArkTSUtils::ParseJsColorAlpha(vm, topArg, top)) {
-        topColor = top;
-    }
-    Color bottom;
-    if (!bottomArg->IsUndefined() && ArkTSUtils::ParseJsColorAlpha(vm, bottomArg, bottom)) {
-        bottomColor = bottom;
-    }
-
-    PushOuterBorderColorVector(leftColor, values);
-    PushOuterBorderColorVector(rightColor, values);
-    PushOuterBorderColorVector(topColor, values);
-    PushOuterBorderColorVector(bottomColor, values);
-}
-
-ArkUINativeModuleValue SelectBridge::SetMenuOutline(ArkUIRuntimeCallInfo* runtimeCallInfo)
-{
-    EcmaVM* vm = runtimeCallInfo->GetVM();
-    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
-    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
-    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
-    std::vector<ArkUI_Float32> width;
-    std::vector<uint32_t> color;
-    CommonBridge::ParseOuterBorderWidth(runtimeCallInfo, vm, width);
-    ParseOuterBorderColor(runtimeCallInfo, vm, color, OFFSET_OF_COLOR);
-    GetArkUINodeModifiers()->getSelectModifier()->setMenuOutline(
-        nativeNode, width.data(), width.size(), color.data(), color.size());
-    return panda::JSValueRef::Undefined(vm);
-}
-
-ArkUINativeModuleValue SelectBridge::ResetMenuOutline(ArkUIRuntimeCallInfo* runtimeCallInfo)
-{
-    EcmaVM* vm = runtimeCallInfo->GetVM();
-    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
-    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(0);
-    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
-    GetArkUINodeModifiers()->getSelectModifier()->resetMenuOutline(nativeNode);
-    return panda::JSValueRef::Undefined(vm);
-}
-
 ArkUINativeModuleValue SelectBridge::SetAvoidance(ArkUIRuntimeCallInfo* runtimeCallInfo)
 {
     EcmaVM* vm = runtimeCallInfo->GetVM();
@@ -1244,6 +1251,146 @@ ArkUINativeModuleValue SelectBridge::ResetAvoidance(ArkUIRuntimeCallInfo* runtim
     return panda::JSValueRef::Undefined(vm);
 }
 
+ArkUINativeModuleValue SelectBridge::SetBackgroundColor(ArkUIRuntimeCallInfo *runtimeCallInfo)
+{
+    EcmaVM *vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    Local<JSValueRef> secondArg = runtimeCallInfo->GetCallArgRef(1);
+    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+    Color color;
+    RefPtr<ResourceObject> colorResObj;
+    auto nodeInfo = ArkTSUtils::MakeNativeNodeInfo(nativeNode);
+    if (!ArkTSUtils::ParseJsColorAlpha(vm, secondArg, color, colorResObj, nodeInfo)) {
+        GetArkUINodeModifiers()->getSelectModifier()->resetSelectBackgroundColor(nativeNode);
+    } else {
+        auto colorRawPtr = AceType::RawPtr(colorResObj);
+        GetArkUINodeModifiers()->getSelectModifier()->setSelectBackgroundColorWithColorSpacePtr(
+            nativeNode, color.GetValue(), color.GetColorSpace(), colorRawPtr);
+    }
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue SelectBridge::ResetBackgroundColor(ArkUIRuntimeCallInfo *runtimeCallInfo)
+{
+    EcmaVM *vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+    GetArkUINodeModifiers()->getSelectModifier()->resetSelectBackgroundColor(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+void PushOuterBorderColorVector(const std::optional<Color>& valueColor, std::vector<uint32_t> &options)
+{
+    options.push_back(static_cast<uint32_t>(valueColor.has_value()));
+    if (valueColor.has_value()) {
+        options.push_back(static_cast<uint32_t>(valueColor.value().GetValue()));
+    } else {
+        options.push_back(0x19FFFFFF);
+    }
+}
+
+void SetOutLineResObjs(std::vector<void*>& resObjs, RefPtr<ResourceObject>& leftResObj,
+    RefPtr<ResourceObject>& rightResObj, RefPtr<ResourceObject>& topResObj, RefPtr<ResourceObject>& bottomResObj)
+{
+    if (leftResObj) {
+        leftResObj->IncRefCount();
+    }
+    if (rightResObj) {
+        rightResObj->IncRefCount();
+    }
+    if (topResObj) {
+        topResObj->IncRefCount();
+    }
+    if (bottomResObj) {
+        bottomResObj->IncRefCount();
+    }
+    resObjs.push_back(AceType::RawPtr(leftResObj));
+    resObjs.push_back(AceType::RawPtr(rightResObj));
+    resObjs.push_back(AceType::RawPtr(topResObj));
+    resObjs.push_back(AceType::RawPtr(bottomResObj));
+}
+
+void ParseOuterBorderColor(ArkUIRuntimeCallInfo* runtimeCallInfo, EcmaVM* vm, std::vector<uint32_t>& values,
+    int32_t argsIndex, std::vector<void*>& resObjs)
+{
+    Local<JSValueRef> leftArg = runtimeCallInfo->GetCallArgRef(argsIndex);
+    Local<JSValueRef> rightArg = runtimeCallInfo->GetCallArgRef(argsIndex + 1);
+    Local<JSValueRef> topArg = runtimeCallInfo->GetCallArgRef(argsIndex + 2);
+    Local<JSValueRef> bottomArg = runtimeCallInfo->GetCallArgRef(argsIndex + 3);
+
+    std::optional<Color> leftColor;
+    std::optional<Color> rightColor;
+    std::optional<Color> topColor;
+    std::optional<Color> bottomColor;
+
+    Color left;
+    RefPtr<ResourceObject> leftResObj;
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+    auto nodeInfo = ArkTSUtils::MakeNativeNodeInfo(nativeNode);
+    if (!leftArg->IsUndefined() && ArkTSUtils::ParseJsColorAlpha(vm, leftArg, left, leftResObj, nodeInfo)) {
+        leftColor = left;
+    }
+    Color right;
+    RefPtr<ResourceObject> rightResObj;
+    if (!rightArg->IsUndefined() && ArkTSUtils::ParseJsColorAlpha(vm, rightArg, right, rightResObj, nodeInfo)) {
+        rightColor = right;
+    }
+    Color top;
+    RefPtr<ResourceObject> topResObj;
+    if (!topArg->IsUndefined() && ArkTSUtils::ParseJsColorAlpha(vm, topArg, top, topResObj, nodeInfo)) {
+        topColor = top;
+    }
+    Color bottom;
+    RefPtr<ResourceObject> bottomResObj;
+    if (!bottomArg->IsUndefined() && ArkTSUtils::ParseJsColorAlpha(vm, bottomArg, bottom, bottomResObj, nodeInfo)) {
+        bottomColor = bottom;
+    }
+
+    PushOuterBorderColorVector(leftColor, values);
+    PushOuterBorderColorVector(rightColor, values);
+    PushOuterBorderColorVector(topColor, values);
+    PushOuterBorderColorVector(bottomColor, values);
+    if (SystemProperties::ConfigChangePerform()) {
+        SetOutLineResObjs(resObjs, leftResObj, rightResObj, topResObj, bottomResObj);
+    }
+}
+
+ArkUINativeModuleValue SelectBridge::SetMenuOutline(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+    std::vector<ArkUI_Float32> width;
+    std::vector<uint32_t> color;
+    std::vector<void*> outlineResObjs;
+    CommonBridge::ParseOuterBorderWidth(runtimeCallInfo, vm, width);
+    ParseOuterBorderColor(runtimeCallInfo, vm, color, OFFSET_OF_COLOR, outlineResObjs);
+
+    ArkUISelectOutlineArgs outlineArgs;
+    outlineArgs.width = width.data();
+    outlineArgs.widthSize = static_cast<ArkUI_Int32>(width.size());
+    outlineArgs.color = color.data();
+    outlineArgs.colorSize = static_cast<ArkUI_Int32>(color.size());
+    outlineArgs.resObjs = outlineResObjs.data();
+    outlineArgs.unitSize = static_cast<ArkUI_Int32>(outlineResObjs.size());
+    GetArkUINodeModifiers()->getSelectModifier()->setMenuOutline(nativeNode, &outlineArgs);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue SelectBridge::ResetMenuOutline(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(0);
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    GetArkUINodeModifiers()->getSelectModifier()->resetMenuOutline(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
 ArkUINativeModuleValue SelectBridge::SetOnSelect(ArkUIRuntimeCallInfo* runtimeCallInfo)
 {
     EcmaVM *vm = runtimeCallInfo->GetVM();
@@ -1259,20 +1406,20 @@ ArkUINativeModuleValue SelectBridge::SetOnSelect(ArkUIRuntimeCallInfo* runtimeCa
         return panda::JSValueRef::Undefined(vm);
     }
     auto jsFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(), JSRef<JSFunc>::Cast(info[NUM_1]));
-    WeakPtr<NG::FrameNode> targetNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
-    auto onSelect = [execCtx = info.GetExecutionContext(), func = std::move(jsFunc), node = targetNode](
+    auto onSelect = [execCtx = info.GetExecutionContext(), func = std::move(jsFunc), frameNode](
                         int32_t index, const std::string& value) {
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("Select.onSelect");
         TAG_LOGD(AceLogTag::ACE_SELECT_COMPONENT, "fire change event %{public}d %{public}s", index, value.c_str());
-        PipelineContext::SetCallBackNode(node);
+        PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
         JSRef<JSVal> params[NUM_2];
         params[NUM_0] = JSRef<JSVal>::Make(ToJSValue(index));
         params[NUM_1] = JSRef<JSVal>::Make(ToJSValue(value));
         func->ExecuteJS(NUM_2, params);
-        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Select.onSelect");
+        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Select.onSelect",
+            ComponentEventType::COMPONENT_EVENT_SELECT);
     };
-    SelectModel::GetInstance()->SetOnSelect(std::move(onSelect));
+    SelectModelNG::SetOnSelect(frameNode, std::move(onSelect));
     info.ReturnSelf();
     return panda::JSValueRef::Undefined(vm);
 }
@@ -1286,7 +1433,100 @@ ArkUINativeModuleValue SelectBridge::ResetOnSelect(ArkUIRuntimeCallInfo* runtime
     auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
     auto nodeModifiers = GetArkUINodeModifiers();
     CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
-    nodeModifiers->getSelectModifier()->setOnSelect(nativeNode, nullptr);
+    auto callback = [](ArkUINodeHandle node, int32_t index, ArkUI_CharPtr text) {};
+    nodeModifiers->getSelectModifier()->setOnSelect(nativeNode, callback);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue SelectBridge::SetMenuKeyboardAvoidMode(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(0);
+    CHECK_NULL_RETURN(!nodeArg.IsNull(), panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> modeArg = runtimeCallInfo->GetCallArgRef(1);
+    CHECK_NULL_RETURN(!modeArg.IsNull(), panda::NativePointerRef::New(vm, nullptr));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    int32_t mode = 0;
+    if (modeArg->IsNumber()) {
+        mode = modeArg->Int32Value(vm);
+    }
+    GetArkUINodeModifiers()->getSelectModifier()->setMenuKeyboardAvoidMode(nativeNode, mode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue SelectBridge::ResetMenuKeyboardAvoidMode(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(0);
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    GetArkUINodeModifiers()->getSelectModifier()->resetMenuKeyboardAvoidMode(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue SelectBridge::SetMinKeyboardAvoidDistance(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(0);
+    CHECK_NULL_RETURN(!nodeArg.IsNull(), panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> distanceArg = runtimeCallInfo->GetCallArgRef(1);
+    CHECK_NULL_RETURN(!distanceArg.IsNull(), panda::NativePointerRef::New(vm, nullptr));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    if (distanceArg->IsUndefined()) {
+        GetArkUINodeModifiers()->getSelectModifier()->resetMinKeyboardAvoidDistance(nativeNode);
+        return panda::JSValueRef::Undefined(vm);
+    }
+
+    CalcDimension result;
+    if (!ArkTSUtils::ParseJsLengthMetrics(vm, distanceArg, result)) {
+        result = invalidDimension;
+    }
+    GetArkUINodeModifiers()->getSelectModifier()->setMinKeyboardAvoidDistance(
+        nativeNode, result.Value(), static_cast<int32_t>(result.Unit()));
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue SelectBridge::ResetMinKeyboardAvoidDistance(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(0);
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    GetArkUINodeModifiers()->getSelectModifier()->resetMinKeyboardAvoidDistance(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue SelectBridge::SetMenuSystemMaterial(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(!nodeArg.IsNull(), panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> menuSystemMaterialArg = runtimeCallInfo->GetCallArgRef(NUM_1);
+    CHECK_NULL_RETURN(!menuSystemMaterialArg.IsNull(), panda::NativePointerRef::New(vm, nullptr));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    if (!menuSystemMaterialArg->IsObject(vm)) {
+        GetArkUINodeModifiers()->getSelectModifier()->resetMenuSystemMaterial(nativeNode);
+        return panda::JSValueRef::Undefined(vm);
+    }
+
+    Framework::JsiCallbackInfo info = Framework::JsiCallbackInfo(runtimeCallInfo);
+    auto jsValMenuSystemMaterial = info[NUM_1];
+    auto* menuSystemMaterial = Framework::UnwrapNapiValue(jsValMenuSystemMaterial);
+    GetArkUINodeModifiers()->getSelectModifier()->setMenuSystemMaterial(nativeNode, menuSystemMaterial);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue SelectBridge::ResetMenuSystemMaterial(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(!nodeArg.IsNull(), panda::NativePointerRef::New(vm, nullptr));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    GetArkUINodeModifiers()->getSelectModifier()->resetMenuSystemMaterial(nativeNode);
     return panda::JSValueRef::Undefined(vm);
 }
 } // namespace OHOS::Ace::NG

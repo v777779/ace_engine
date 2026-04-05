@@ -14,6 +14,7 @@
  */
 
 #include "core/components_ng/pattern/navigation/navdestination_node_base.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 
 #include "base/utils/utf_helper.h"
 #include "base/json/json_util.h"
@@ -295,7 +296,15 @@ LayoutConstraintF NavDestinationNodeBase::AdjustLayoutConstarintIfNeeded(const L
         return originConstraint;
     }
     auto layoutConstraint = viewportConfig_->CreateRootLayoutConstraint();
-    ApplySafeArea(safeAreaInsets_, layoutConstraint);
+    auto ctx = GetContext();
+    bool isIgnoreSafeArea = false;
+    if (ctx) {
+        auto mgr = ctx->GetSafeAreaManager();
+        isIgnoreSafeArea = mgr && mgr->IsIgnoreSafeArea();
+    }
+    if (!isIgnoreSafeArea) {
+        ApplySafeArea(safeAreaInsets_, layoutConstraint);
+    }
     return layoutConstraint;
 }
 
@@ -353,19 +362,27 @@ void NavDestinationNodeBase::AdjustRenderContextIfNeeded()
 }
 
 OffsetF NavDestinationNodeBase::CalcTranslateForSlideTransition(
-    const SizeF& frameSize, bool isRight, bool isEnter, bool isEnd)
+    const SizeF& paintRect, bool isRight, bool isEnter, bool isEnd)
 {
     if ((isEnd && isEnter) || (!isEnd && !isEnter)) {
         return OffsetF{ 0.0f, 0.0f };
     }
     auto angle = rotateAngle_.has_value() ? rotateAngle_.value() : ROTATION_0;
-    float width = frameSize.Width();
-    float height = frameSize.Height();
+    float width = paintRect.Width();
+    float height = paintRect.Height();
     if (angle == ROTATION_90 || angle == ROTATION_270) {
         std::swap(width, height);
     }
 
     auto translate = OffsetF{ isRight ? width : 0.0f, isRight ? 0.0f : height };
     return translate;
+}
+
+void NavDestinationNodeBase::SetNodeFreeze(bool isFreeze)
+{
+    if (isUserSetFreeze_) {
+        return;
+    }
+    FrameNode::SetNodeFreeze(isFreeze);
 }
 } // namespace OHOS::Ace::NG

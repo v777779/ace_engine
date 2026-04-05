@@ -41,8 +41,8 @@ build_component("web") {
       "ability_runtime:abilitykit_native",
       "ability_runtime:app_context",
       "ability_runtime:app_manager",
+      "ability_runtime:napi_common",
       "c_utils:utils",
-      "egl:libEGL",
       "graphic_2d:EGL",
       "graphic_2d:GLESv3",
       "graphic_2d:librender_service_client",
@@ -50,9 +50,13 @@ build_component("web") {
       "ipc:ipc_core",
       "napi:ace_napi",
       "opengles:libGLES",
-      "webview:libnweb",
       "webview:cj_webview_ffi",
+      "webview:libnweb",
+      "webview:ohos_base_glue_source",
       "window_manager:libwm",
     ]
+    if (defined(global_parts_info) && defined(global_parts_info.web_webview)) {
+      external_deps += [ "webview:libarkweb_utils" ]
+    }
   }
 }

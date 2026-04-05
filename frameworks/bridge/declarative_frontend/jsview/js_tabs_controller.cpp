@@ -22,6 +22,10 @@
 #include "bridge/declarative_frontend/engine/jsi/js_ui_index.h"
 #include "bridge/declarative_frontend/jsview/js_utils.h"
 #include "bridge/declarative_frontend/jsview/js_view_abstract.h"
+#ifndef NG_BUILD
+#include "core/common/dynamic_module_helper.h"
+#include "compatible/components/tab_bar/modifier/tab_modifier_api.h"
+#endif
 
 namespace OHOS::Ace::Framework {
 namespace {
@@ -81,6 +85,19 @@ void ReturnPromise(const JSCallbackInfo& info, napi_value result)
     }
     info.SetReturnValue(JSRef<JSObject>::Cast(jsPromise));
 }
+
+#ifndef NG_BUILD
+const ArkUIInnerTabsModifier* GetTabsInnerModifier()
+{
+    static const ArkUIInnerTabsModifier* cachedModifier = nullptr;
+    if (cachedModifier == nullptr) {
+        auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("tabs");
+        CHECK_NULL_RETURN(loader, nullptr);
+        cachedModifier = reinterpret_cast<const ArkUIInnerTabsModifier*>(loader->GetCustomModifier());
+    }
+    return cachedModifier;
+}
+#endif
 } // namespace
 
 JSTabsController::JSTabsController()
@@ -112,12 +129,17 @@ void JSTabsController::Destructor(JSTabsController* controller)
     }
 }
 
-RefPtr<TabController> JSTabsController::CreateController()
+RefPtr<AceType> JSTabsController::CreateController()
 {
 #ifdef NG_BUILD
     return nullptr;
 #else
-    return TabController::GetController(++g_tabControllerId);
+    if (!Container::IsCurrentUseNewPipeline()) {
+        if (auto modifier = GetTabsInnerModifier()) {
+            return modifier->getController(++g_tabControllerId);
+        }
+    }
+    return nullptr;
 #endif
 }
 
@@ -132,14 +154,13 @@ void JSTabsController::ChangeIndex(int32_t index)
         }
         TAG_LOGI(AceLogTag::ACE_TABS, "changeIndex %{public}d", index);
         tabsController->SwipeTo(index);
-    } else {
-        EventReport::ReportScrollableErrorEvent(
-            "Tabs", ScrollableErrorType::CONTROLLER_NOT_BIND, "changeIndex: Tabs controller not bind.");
     }
 
 #ifndef NG_BUILD
     if (controller_) {
-        controller_->SetIndexByController(index, false);
+        if (auto modifier = GetTabsInnerModifier()) {
+            modifier->setIndexByController(controller_, index, false);
+        }
     }
 #endif
 }
@@ -157,8 +178,6 @@ void JSTabsController::PreloadItems(const JSCallbackInfo& args)
     napi_create_promise(env, &asyncContext->deferred, &promise);
     auto tabsController = tabsControllerWeak_.Upgrade();
     if (!tabsController) {
-        EventReport::ReportScrollableErrorEvent(
-            "Tabs", ScrollableErrorType::CONTROLLER_NOT_BIND, "preloadItems: Tabs controller not bind.");
         ReturnPromise(args, promise);
         return;
     }
@@ -188,11 +207,7 @@ void JSTabsController::SetTabBarTranslate(const JSCallbackInfo& args)
 {
     ContainerScope scope(instanceId_);
     auto tabsController = tabsControllerWeak_.Upgrade();
-    if (!tabsController) {
-        EventReport::ReportScrollableErrorEvent(
-            "Tabs", ScrollableErrorType::CONTROLLER_NOT_BIND, "setTabBarTranslate: Tabs controller not bind.");
-        return;
-    }
+    CHECK_NULL_VOID(tabsController);
 
     if (args.Length() <= 0) {
         return;
@@ -228,11 +243,7 @@ void JSTabsController::SetTabBarOpacity(const JSCallbackInfo& args)
 {
     ContainerScope scope(instanceId_);
     auto tabsController = tabsControllerWeak_.Upgrade();
-    if (!tabsController) {
-        EventReport::ReportScrollableErrorEvent(
-            "Tabs", ScrollableErrorType::CONTROLLER_NOT_BIND, "setTabBarOpacity: Tabs controller not bind.");
-        return;
-    }
+    CHECK_NULL_VOID(tabsController);
 
     if (args.Length() <= 0) {
         return;

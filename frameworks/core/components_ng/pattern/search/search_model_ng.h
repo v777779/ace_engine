@@ -25,7 +25,7 @@
 
 namespace OHOS::Ace::NG {
 
-class ACE_EXPORT SearchModelNG : public OHOS::Ace::SearchModel {
+class ACE_FORCE_EXPORT SearchModelNG : public OHOS::Ace::SearchModel {
 public:
     RefPtr<TextFieldControllerBase> Create(const std::optional<std::u16string>& value,
         const std::optional<std::u16string>& placeholder, const std::optional<std::string>& icon) override;
@@ -36,7 +36,6 @@ public:
     void ResetCaretColor() override;
     void SetSearchIconSize(const Dimension& value) override;
     void SetSearchIconColor(const Color& color) override;
-    void ResetSearchIconColor() override;
     void SetSearchSrcPath(
         const std::string& src, const std::string& bundleName, const std::string& moduleName) override;
     void SetSearchSymbolIcon(std::function<void(WeakPtr<NG::FrameNode>)> iconSymbol) override;
@@ -47,17 +46,16 @@ public:
     void SetCancelImageIcon(NG::IconOptions& iconOptions) override;
     void SetRightIconSrcPath(const std::string& src) override;
     void SetCancelButtonStyle(CancelButtonStyle cancelButtonStyle) override;
-    void SetCancelIconSize(const Dimension& value) override;
     void SetCancelIconColor(const Color& color) override;
-    void ResetCancelIconColor() override;
     void SetSearchButtonFontSize(const Dimension& value) override;
-    void SetSearchButtonFontColor(const Color& color) override;
-    void ResetSearchButtonFontColor() override;
+    void SetSearchButtonFontColor(const Color& color, bool isTheme = false) override;
     void SetSearchButtonAutoDisable(bool needToDisable) override;
     void SetPlaceholderColor(const Color& color) override;
     void ResetPlaceholderColor() override;
     void SetPlaceholderFont(const Font& font) override;
     void SetTextFont(const Font& font) override;
+    void SetSelectDetectEnable(bool value) override;
+    void ResetSelectDetectEnable() override;
     void SetMinFontScale(const float value) override;
     void SetMaxFontScale(const float value) override;
     void SetTextColor(const Color& color) override;
@@ -72,7 +70,9 @@ public:
     void SetOnChange(std::function<void(const ChangeValueInfo&)>&& onChange) override;
     void SetOnTextSelectionChange(std::function<void(int32_t, int32_t)>&& func) override;
     void SetOnScroll(std::function<void(float, float)>&& func) override;
+    void SetOnWillCopy(std::function<bool(const std::u16string&)>&& func) override;
     void SetOnCopy(std::function<void(const std::u16string&)>&& func) override;
+    void SetOnWillCut(std::function<bool(const std::u16string&)>&& func) override;
     void SetOnCut(std::function<void(const std::u16string&)>&& func) override;
     void SetOnWillInsertValueEvent(std::function<bool(const InsertValueInfo&)>&& func) override;
     void SetOnDidInsertValueEvent(std::function<void(const InsertValueInfo&)>&& func) override;
@@ -84,6 +84,7 @@ public:
     void SetOnChangeEvent(std::function<void(const std::u16string&)>&& onChangeEvent) override;
     void SetSelectionMenuHidden(bool selectionMenuHidden) override;
     void SetCustomKeyboard(const std::function<void ()> &&buildFunc, bool supportAvoidance = false) override;
+    void SetCustomKeyboardWithNode(FrameNode* customKeyboard, bool supportAvoidance = false) override;
     void SetSearchEnterKeyType(TextInputAction value) override;
     void SetSearchCapitalizationMode(AutoCapitalizationMode value) override;
     void SetInputFilter(const std::string& value, const std::function<void(const std::u16string&)>& onError) override;
@@ -95,6 +96,8 @@ public:
     void SetLetterSpacing(const Dimension& value) override;
     void SetLineHeight(const Dimension& value) override;
     void SetHalfLeading(bool value) override;
+    void SetDividerColor(const Color& color) override;
+    void ResetDividerColor() override;
     void SetAdaptMinFontSize(const Dimension& value) override;
     void SetAdaptMaxFontSize(const Dimension& value) override;
     void SetTextDecoration(Ace::TextDecoration value) override;
@@ -117,13 +120,22 @@ public:
     void SetStrokeColor(const Color& value) override;
     void ResetStrokeColor() override;
     void SetEnableAutoSpacing(bool enabled) override;
-    void SetOnWillAttachIME(std::function<void(const IMEClient&)>&& func) override;
+    void SetCompressLeadingPunctuation(bool enabled) override;
+    void SetIncludeFontPadding(bool enabled) override;
+    void SetFallbackLineSpacing(bool enabled) override;
+    void SetOnWillAttachIME(IMEAttachCallback&& func) override;
     void SetUserMargin() override;
+    void SetTextDirection(TextDirection value) override;
+    void ResetTextDirection() override;
+    void SetSelectedDragPreviewStyle(const Color& value) override;
+    void ResetSelectedDragPreviewStyle() override;
     static RefPtr<SearchNode> CreateFrameNode(int32_t nodeId);
     static void SetTextValue(FrameNode* frameNode, const std::optional<std::string>& value);
     static void SetPlaceholder(FrameNode* frameNode, const std::optional<std::string>& placeholder);
     static void SetIcon(FrameNode* frameNode, const std::optional<std::string>& icon);
     static void SetCaretPosition(FrameNode* frameNode, const int32_t& value);
+    static void SetDividerColor(FrameNode* frameNode, const Color& color);
+    static void ResetDividerColor(FrameNode* frameNode);
     static void SetAdaptMinFontSize(FrameNode* frameNode, const Dimension& value);
     static void SetInputFilter(
         FrameNode* frameNode, const std::string& value, const std::function<void(const std::u16string&)>& onError);
@@ -131,13 +143,16 @@ public:
     static void SetTextIndent(FrameNode* frameNode, const Dimension& value);
     static void RequestKeyboardOnFocus(FrameNode* frameNode, bool needToRequest);
     static void SetPlaceholderFont(FrameNode* frameNode, const Font& font);
+    static void SetCustomKeyboard(
+        FrameNode* frameNode, const std::function<void()>&& buildFunc, bool supportAvoidance = false);
+    static void SetCustomKeyboardWithNode(
+        FrameNode* frameNode, FrameNode* customKeyboard, bool supportAvoidance = false);
     static void SetSearchIconSize(FrameNode* frameNode, const Dimension& value);
     static void SetSearchSrcPath(FrameNode* frameNode, const std::string& src);
-    static void SetSearchIconColor(FrameNode* frameNode, const Color& color);
     static void SetSearchImageIcon(FrameNode* frameNode, IconOptions& iconOptions);
-    static void SetSearchButton(FrameNode* frameNode, const std::string& text);
+    static void SetSearchButton(FrameNode* frameNode, const std::string& text, bool isJsView = false);
     static void SetSearchButtonFontSize(FrameNode* frameNode, const Dimension& value);
-    static void SetSearchButtonFontColor(FrameNode* frameNode, const Color& color);
+    static void SetSearchButtonFontColor(FrameNode* frameNode, const Color& color, bool isTheme = false);
     static void SetSearchButtonAutoDisable(FrameNode* frameNode, bool needToDisable);
     static void SetTextColor(FrameNode* frameNode, const Color& color);
     static void ResetTextColor(FrameNode* frameNode);
@@ -149,12 +164,11 @@ public:
     static void SetCaretWidth(FrameNode* frameNode, const Dimension& value);
     static void SetCaretColor(FrameNode* frameNode, const Color& color);
     static void ResetCaretColor(FrameNode* frameNode);
+    static void SetSearchDefaultIcon(FrameNode* frameNode);
     static void SetTextAlign(FrameNode* frameNode, const TextAlign& textAlign);
     static void SetMinFontScale(FrameNode* frameNode, const float value);
     static void SetMaxFontScale(FrameNode* frameNode, const float value);
     static void SetRightIconSrcPath(FrameNode* frameNode, const std::string& src);
-    static void SetCancelIconColor(FrameNode* frameNode, const Color& color);
-    static void SetCancelIconSize(FrameNode* frameNode, const Dimension& value);
     static void SetCancelButtonStyle(FrameNode* frameNode, CancelButtonStyle style);
     static void SetCancelImageIcon(FrameNode* frameNode, IconOptions& iconOptions);
     static void SetHeight(FrameNode* frameNode, const Dimension& height);
@@ -174,7 +188,9 @@ public:
         std::function<void(const std::u16string&, NG::TextFieldCommonEvent&)>&& onSubmit);
     static void SetOnWillChangeEvent(FrameNode* frameNode, std::function<bool(const ChangeValueInfo&)>&& func);
     static void SetOnChange(FrameNode* frameNode, std::function<void(const ChangeValueInfo&)>&& onChange);
+    static void SetOnWillCopy(FrameNode* frameNode, std::function<bool(const std::u16string&)>&& func);
     static void SetOnCopy(FrameNode* frameNode, std::function<void(const std::u16string&)>&& func);
+    static void SetOnWillCut(FrameNode* frameNode, std::function<bool(const std::u16string&)>&& func);
     static void SetOnCut(FrameNode* frameNode, std::function<void(const std::u16string&)>&& func);
     static void SetOnPasteWithEvent(FrameNode* frameNode,
                                     std::function<void(const std::u16string&, NG::TextCommonEvent&)>&& func);
@@ -186,6 +202,9 @@ public:
     static void SetOnContentScroll(FrameNode* frameNode, std::function<void(float, float)>&& func);
     static void SetShowCounter(FrameNode* frameNode, bool value);
     static void SetCounterType(FrameNode* frameNode, int32_t value);
+    static void SetSelectDetectEnable(FrameNode* frameNode, bool value);
+    static bool GetSelectDetectEnable(FrameNode* frameNode);
+    static void ResetSelectDetectEnable(FrameNode* frameNode);
     static void SetShowCounterBorder(FrameNode* frameNode, bool value);
     static RefPtr<TextFieldControllerBase> GetSearchController(FrameNode* frameNode);
     static void SetOnWillInsertValueEvent(FrameNode* frameNode, std::function<bool(const InsertValueInfo&)>&& func);
@@ -208,8 +227,29 @@ public:
     static void ResetStrokeColor(FrameNode* frameNode);
     static void SetEnableAutoSpacing(FrameNode* frameNode, bool enabled);
     static bool GetEnableAutoSpacing(FrameNode* frameNode);
+    static void SetCompressLeadingPunctuation(FrameNode* frameNode, bool enabled);
+    static bool GetCompressLeadingPunctuation(FrameNode* frameNode);
+    static void SetIncludeFontPadding(FrameNode* frameNode, bool enabled);
+    static bool GetIncludeFontPadding(FrameNode* frameNode);
+    static void SetFallbackLineSpacing(FrameNode* frameNode, bool enabled);
+    static bool GetFallbackLineSpacing(FrameNode* frameNode);
     static void SetKeyboardAppearanceConfig(FrameNode* frameNode, KeyboardAppearanceConfig config);
     static void SetUserMargin(FrameNode* frameNode);
+    static void SetOnWillAttachIME(FrameNode* frameNode, IMEAttachCallback&& func);
+    static void SetTextDirection(FrameNode* frameNode, TextDirection value);
+    static void ResetTextDirection(FrameNode* frameNode);
+    static TextDirection GetTextDirection(FrameNode* frameNode);
+    static Color GetSelectedDragPreviewStyle(FrameNode* frameNode);
+    static void SetSelectedDragPreviewStyle(FrameNode* frameNode, const Color& value);
+    static void ResetSelectedDragPreviewStyle(FrameNode* frameNode);
+    static void SetBorderRadius(FrameNode* frameNode);
+    static void SetBackgroundColor(FrameNode* frameNode, const Color& color);
+    static void ResetBackgroundColorStatic();
+    static void SetSearchSymbolIcon(FrameNode* frameNode, std::function<void(WeakPtr<NG::FrameNode>)> iconSymbol);
+    static void SetCancelSymbolIcon(FrameNode* frameNode, std::function<void(WeakPtr<NG::FrameNode>)> iconSymbol);
+    static void SetDragPreviewOptions(FrameNode* frameNode, const NG::DragPreviewOption option);
+    static void SetCancelDefaultIcon(FrameNode* frameNode);
+    static void SetOnChangeEvent(FrameNode* frameNode, std::function<void(const std::u16string&)>&& onChangeEvent);
 
 private:
     static RefPtr<SearchTheme> GetTheme(const RefPtr<SearchNode>& frameNode);
@@ -234,6 +274,7 @@ private:
     static void TextFieldUpdateContext(const RefPtr<FrameNode>& frameNode);
     static void TextFieldUpdateContextMultiThread(const RefPtr<FrameNode>& frameNode);
     static void CreateDivider(const RefPtr<SearchNode>& parentNode, bool hasDividerNode);
+    static void CreateDividerMultiThread(const RefPtr<SearchNode>& parentNode, bool hasDividerNode);
 };
 
 } // namespace OHOS::Ace::NG

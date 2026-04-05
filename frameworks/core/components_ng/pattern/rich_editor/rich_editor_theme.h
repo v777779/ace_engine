@@ -20,7 +20,6 @@
 #include "core/components/text/text_theme.h"
 #include "core/components/theme/theme.h"
 #include "core/components/theme/theme_constants.h"
-#include "core/components/theme/theme_constants_defines.h"
 
 namespace OHOS::Ace::NG {
 /**
@@ -32,6 +31,8 @@ namespace {
 constexpr Color DEFAULT_TEXT_COLOR = Color(0xe5000000);
 constexpr float DRAG_BACKGROUND_OPACITY = 0.95f;
 constexpr float DEFAULT_TEXT_SIZE = 16.0f;
+constexpr Dimension DEFAULT_PADDING_HORIZONTAL = 16.0_vp;
+constexpr Dimension DEFAULT_PADDING_VERTICAL = 8.0_vp;
 } // namespace
 
 class RichEditorTheme : public virtual Theme {
@@ -58,39 +59,20 @@ public:
         void InitThemeDefaults(const RefPtr<ThemeConstants>& themeConstants, const RefPtr<RichEditorTheme>& theme) const
         {
             CHECK_NULL_VOID(theme && themeConstants);
-            theme->padding_ = Edge(themeConstants->GetDimension(THEME_TEXTFIELD_PADDING_HORIZONTAL),
-                themeConstants->GetDimension(THEME_TEXTFIELD_PADDING_VERTICAL),
-                themeConstants->GetDimension(THEME_TEXTFIELD_PADDING_HORIZONTAL),
-                themeConstants->GetDimension(THEME_TEXTFIELD_PADDING_VERTICAL));
+            theme->padding_ = Edge(DEFAULT_PADDING_HORIZONTAL, DEFAULT_PADDING_VERTICAL,
+                DEFAULT_PADDING_HORIZONTAL, DEFAULT_PADDING_VERTICAL);
         }
 
         void ParsePattern(const RefPtr<ThemeConstants>& themeConstants, const RefPtr<RichEditorTheme>& theme) const
         {
-            if (!theme) {
-                return;
-            }
+            CHECK_NULL_VOID(theme);
             RefPtr<ThemeStyle> pattern = themeConstants->GetPatternByName(THEME_PATTERN_RICH_EDITOR);
-            if (!pattern) {
-                return;
-            }
+            CHECK_NULL_VOID(pattern);
             auto draggable = pattern->GetAttr<std::string>("draggable", "0");
             theme->draggable_ = StringUtils::StringToInt(draggable);
-            auto dragBackgroundColor = pattern->GetAttr<Color>("drag_background_color", Color::WHITE);
-            if (Container::CurrentColorMode() == ColorMode::DARK) {
-                dragBackgroundColor = dragBackgroundColor.ChangeOpacity(DRAG_BACKGROUND_OPACITY);
-            }
-            theme->dragBackgroundColor_ = dragBackgroundColor;
             theme->dragCornerRadius_ = pattern->GetAttr<Dimension>("drag_corner_radius", 18.0_vp);
             theme->defaultCaretHeight_ = pattern->GetAttr<Dimension>("default_caret_height", 18.5_vp);
             theme->disabledAlpha_ = static_cast<float>(pattern->GetAttr<double>("text_color_disabled_alpha", 0.0));
-            theme->placeholderColor_ = pattern->GetAttr<Color>("tips_text_color", Color(0x99000000));
-            theme->caretColor_ = pattern->GetAttr<Color>("caret_color", Color(0xff007dff));
-            theme->selectedBackgroundColor_ = pattern->GetAttr<Color>("selected_background_color", Color(0xff007dff));
-            theme->previewUnderlineColor_ = pattern->GetAttr<Color>("preview_underline_color", Color(0xff007dff));
-            theme->popIconColor_ = pattern->GetAttr<Color>("pop_icon_color", Color(0x99000000));
-            theme->menuTitleColor_ = pattern->GetAttr<Color>("menu_title_color", Color(0x99000000));
-            theme->menuTextColor_ = pattern->GetAttr<Color>("menu_text_color", Color(0x99000000));
-            theme->menuIconColor_ = pattern->GetAttr<Color>("menu_icon_color", Color(0x99000000));
             theme->previewUnderlineWidth_ = pattern->GetAttr<Dimension>("preview_underline_width", 2.0_vp);
             auto showHandle = pattern->GetAttr<std::string>("rich_editor_show_handle", "0");
             theme->richeditorShowHandle_ = StringUtils::StringToInt(showHandle);
@@ -104,16 +86,38 @@ public:
             theme->translateIsSupport_ = StringUtils::StringToInt(translateIsSupport);
             auto searchIsSupport = pattern->GetAttr<std::string>("richeditor_menu_search_is_support", "0");
             theme->searchIsSupport_ = StringUtils::StringToInt(searchIsSupport);
-            theme->urlDisabledOpacity_ = pattern->GetAttr<double>("interactive_disable", URL_DISA_OPACITY);
-            theme->urlDefaultColor_ = pattern->GetAttr<Color>("font_emphasize", Color(0xff007dff));
-            theme->urlDisabledColor_ = theme->urlDefaultColor_.BlendOpacity(theme->urlDisabledOpacity_);
-            theme->urlHoverColor_ = pattern->GetAttr<Color>("interactive_hover", Color(0x0C182431));
-            theme->urlPressColor_ = pattern->GetAttr<Color>("interactive_pressed", Color(0x19182431));
             theme->cameraSymbolId_ = themeConstants->GetSymbolByName("sys.symbol.camera");
             theme->scanSymbolId_ = themeConstants->GetSymbolByName("sys.symbol.line_viewfinder");
             theme->imageSymbolId_ = themeConstants->GetSymbolByName("sys.symbol.picture");
             theme->chevronRightSymbolId_ = themeConstants->GetSymbolByName("sys.symbol.chevron_right");
             theme->borderRadius_ = Radius(pattern->GetAttr<Dimension>("rich_editor_border_radius", 0.0_vp));
+            ParsePatternColor(themeConstants, theme);
+        }
+
+        void ParsePatternColor(const RefPtr<ThemeConstants>& themeConstants, const RefPtr<RichEditorTheme>& theme) const
+        {
+            CHECK_NULL_VOID(theme);
+            RefPtr<ThemeStyle> pattern = themeConstants->GetPatternByName(THEME_PATTERN_RICH_EDITOR);
+            CHECK_NULL_VOID(pattern);
+            auto dragBackgroundColor = pattern->GetAttr<Color>("drag_background_color", Color::WHITE);
+            if (Container::CurrentColorMode() == ColorMode::DARK) {
+                dragBackgroundColor = dragBackgroundColor.ChangeOpacity(DRAG_BACKGROUND_OPACITY);
+            }
+            theme->dragBackgroundColor_ = dragBackgroundColor;
+            theme->placeholderColor_ = pattern->GetAttr<Color>("tips_text_color", Color(0x99000000));
+            theme->caretColor_ = pattern->GetAttr<Color>("caret_color", Color(0xff007dff));
+            theme->selectedBackgroundColor_ = pattern->GetAttr<Color>("selected_background_color", Color(0xff007dff));
+            theme->previewUnderlineColor_ = pattern->GetAttr<Color>("preview_underline_color", Color(0xff007dff));
+            theme->popIconColor_ = pattern->GetAttr<Color>("pop_icon_color", Color(0x99000000));
+            theme->menuTitleColor_ = pattern->GetAttr<Color>("menu_title_color", Color(0x99000000));
+            theme->menuTextColor_ = pattern->GetAttr<Color>("menu_text_color", Color(0x99000000));
+            theme->menuIconColor_ = pattern->GetAttr<Color>("menu_icon_color", Color(0x99000000));
+            theme->urlDefaultColor_ = pattern->GetAttr<Color>("font_emphasize", Color(0xff007dff));
+            auto disabledOpacity = pattern->GetAttr<double>("interactive_disable", URL_DISA_OPACITY);
+            theme->urlDisabledColor_ = theme->urlDefaultColor_.BlendOpacity(disabledOpacity);
+            theme->urlHoverColor_ = pattern->GetAttr<Color>("interactive_hover", Color(0x0C182431));
+            theme->urlPressColor_ = pattern->GetAttr<Color>("interactive_pressed", Color(0x19182431));
+            theme->bgColor_ = pattern->GetAttr<Color>(PATTERN_BG_COLOR, Color::WHITE);
         }
     };
 
@@ -281,6 +285,11 @@ public:
     {
         return borderRadius_;
     }
+
+    const Color& GetBgColor() const
+    {
+        return bgColor_;
+    }
 protected:
     RichEditorTheme() = default;
     TextStyle textStyle_;
@@ -321,6 +330,7 @@ private:
     uint32_t imageSymbolId_;
     uint32_t chevronRightSymbolId_;
     Radius borderRadius_;
+    Color bgColor_;
 };
 } // namespace OHOS::Ace::NG
 

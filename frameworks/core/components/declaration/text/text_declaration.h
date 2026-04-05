@@ -17,6 +17,7 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_DECLARATION_TEXT_TEXT_DECLARATION_H
 
 #include "core/components/declaration/common/declaration.h"
+#include "core/components/common/properties/text_style.h"
 #include "frameworks/bridge/common/dom/dom_type.h"
 
 namespace OHOS::Ace {
@@ -39,7 +40,7 @@ enum class TextShadowSettings {
     OFFSET_BLUR_CLOR,
 };
 
-class TextDeclaration : public Declaration {
+class ACE_FORCE_EXPORT TextDeclaration : public Declaration {
     DECLARE_ACE_TYPE(TextDeclaration, Declaration);
 
 public:

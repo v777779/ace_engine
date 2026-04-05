@@ -17,15 +17,15 @@ class InteropConfigureStateMgmt {
     private static interopInUse_: boolean = false;
 
     public static needsInterop(): boolean {
-        return InteropConfigureStateMgmt.interopInUse_;
+        return this.interopInUse_;
     }
 
     public static openInterop(): void {
-        InteropConfigureStateMgmt.interopInUse_ = true;
+        this.interopInUse_ = true;
     }
     
     public static closeInterop(): void {
-        InteropConfigureStateMgmt.interopInUse_ = false;
+        this.interopInUse_ = false;
     }
 }
 

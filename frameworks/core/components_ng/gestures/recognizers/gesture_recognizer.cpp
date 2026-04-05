@@ -14,8 +14,11 @@
  */
 
 #include "core/components_ng/gestures/recognizers/gesture_recognizer.h"
+#include "core/components_ng/event/gesture_info.h"
+#include "ui/base/referenced.h"
 
 #include "core/components_ng/base/observer_handler.h"
+#include "core/components_ng/gestures/recognizers/click_recognizer.h"
 #include "core/components_ng/gestures/recognizers/swipe_recognizer.h"
 #include "core/components_ng/manager/event/json_report.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_behavior_reporter/drag_drop_behavior_reporter.h"
@@ -38,6 +41,11 @@ RefPtr<GestureReferee> GetCurrentGestureReferee(const RefPtr<NGGestureRecognizer
 }
 
 } // namespace
+
+RefPtr<Gesture> NGGestureRecognizer::CreateGestureFromRecognizer() const
+{
+    return nullptr;
+}
 
 bool NGGestureRecognizer::ShouldResponse()
 {
@@ -131,12 +139,15 @@ bool NGGestureRecognizer::ProcessTouchEvent(const TouchEvent& point)
             break;
         case TouchType::DOWN:
             HandleTouchDown(point);
+            CheckCurrentFingers();
             break;
         case TouchType::UP:
             HandleTouchUp(point);
+            CheckCurrentFingers();
             break;
         case TouchType::CANCEL:
             HandleTouchCancel(point);
+            CheckCurrentFingers();
             break;
         default:
             break;
@@ -151,6 +162,7 @@ void NGGestureRecognizer::HandleTouchDown(const TouchEvent& point)
     deviceType_ = point.sourceType;
     deviceTool_ = point.sourceTool;
     inputEventType_ = (deviceType_ == SourceType::MOUSE) ? InputEventType::MOUSE_BUTTON : InputEventType::TOUCH_SCREEN;
+
     auto result = AboutToAddCurrentFingers(point);
     if (result) {
         HandleTouchDownEvent(point);
@@ -323,6 +335,12 @@ void NGGestureRecognizer::BatchAdjudicate(const RefPtr<NGGestureRecognizer>& rec
     }
 
     auto referee = GetCurrentGestureReferee(recognizer);
+    if (recognizer) {
+        auto refereeWithStrategy = recognizer->GetRefereeWithStrategy().Upgrade();
+        if (refereeWithStrategy) {
+            referee = refereeWithStrategy;
+        }
+    }
     if (!referee) {
         recognizer->OnRejected();
         return;
@@ -357,7 +375,6 @@ std::vector<Matrix4> NGGestureRecognizer::GetTransformMatrix(const WeakPtr<Frame
     while (host) {
         auto localMat = getLocalMatrix();
         vTrans.emplace_back(localMat);
-        //when the InjectPointerEvent is invoked, need to enter the lowest windowscene.
         if (host->GetTag() == V2::WINDOW_SCENE_ETS_TAG) {
             TAG_LOGD(AceLogTag::ACE_GESTURE, "need to break when inject WindowsScene, id:"
                 SEC_PLD(%{public}d) ".", SEC_PARAM(host->GetId()));
@@ -574,33 +591,38 @@ bool NGGestureRecognizer::IsInAttachedNode(const TouchEvent& event, bool isRealT
     }
 
     PointF localPoint(event.x, event.y);
-    bool isPostEventResult = isPostEventResult_ || event.passThrough;
     if (isRealTime) {
-        NGGestureRecognizer::Transform(localPoint, frameNode, !isPostEventResult,
-            isPostEventResult, event.postEventNodeId);
+        NGGestureRecognizer::Transform(localPoint, frameNode, !isPostEventResult_ && !event.passThrough,
+            isPostEventResult_ || event.passThrough, event.postEventNodeId);
     } else {
         TransformForRecognizer(
-            localPoint, frameNode, false, isPostEventResult, event.postEventNodeId);
+            localPoint, frameNode, false, isPostEventResult_ || event.passThrough, event.postEventNodeId);
     }
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_RETURN(renderContext, false);
     auto paintRect = renderContext->GetPaintRectWithoutTransform();
     localPoint = localPoint + paintRect.GetOffset();
-    auto responseRegion = host->GetResponseRegionListForRecognizer(static_cast<int32_t>(event.sourceType));
+    auto responseRegion = host->GetResponseRegionListForRecognizer(
+        static_cast<int32_t>(event.sourceType), static_cast<int32_t>(event.sourceTool));
     auto result = host->InResponseRegionList(localPoint, responseRegion);
     if (!result) {
         std::string responseInfo = std::string("responseRegionList = ");
         for (const auto& item : responseRegion) {
             responseInfo.append(item.ToString()).append("; ");
         }
-        TAG_LOGW(AceLogTag::ACE_GESTURE, SEC_PLD(,
-            "%{public}s IsInAttachedNode result is negative, node tag = %{public}s, id = %{public}s, point = "
-            "%{public}s, frameRect = %{public}s, %{public}s"),
-            SEC_PARAM(AceType::TypeName(this), host->GetTag().c_str(), std::to_string(host->GetId()).c_str(),
+        TAG_LOGW(AceLogTag::ACE_GESTURE, "%{public}s IsInAttachedNode result is negative" SEC_PLD(,
+            ", node tag = %{public}s, id = %{public}s, point = "
+            "%{public}s, frameRect = %{public}s, %{public}s"), AceType::TypeName(this),
+            SEC_PARAM(host->GetTag().c_str(), std::to_string(host->GetId()).c_str(),
             localPoint.ToString().c_str(), host->GetFrameRectWithoutSafeArea().ToString().c_str(),
             responseInfo.c_str()));
     }
     return result;
+}
+
+void NGGestureRecognizer::UpdateGestureReferee(const WeakPtr<GestureReferee>& gestureReferee)
+{
+    referee_ = gestureReferee;
 }
 
 void NGGestureRecognizer::SetResponseLinkRecognizers(const ResponseLinkResult& responseLinkResult)
@@ -611,7 +633,12 @@ void NGGestureRecognizer::SetResponseLinkRecognizers(const ResponseLinkResult& r
 bool NGGestureRecognizer::IsInResponseLinkRecognizers()
 {
     return std::any_of(responseLinkRecognizer_.begin(), responseLinkRecognizer_.end(),
-        [recognizer = Claim(this)](const RefPtr<NGGestureRecognizer>& item) { return item == recognizer; });
+        [recognizer = Claim(this)](const WeakPtr<NGGestureRecognizer>& item) {
+            if (item.Invalid()) {
+                return false;
+            }
+            return item.Upgrade() == recognizer;
+        });
 }
 
 bool NGGestureRecognizer::AboutToAddCurrentFingers(const TouchEvent& event)
@@ -700,11 +727,15 @@ std::string NGGestureRecognizer::GetCallbackName(const std::unique_ptr<GestureEv
     return "";
 }
 
+void NGGestureRecognizer::ResetResponseLinkRecognizer()
+{
+    responseLinkRecognizer_.clear();
+}
+
 void NGGestureRecognizer::HandleGestureAccept(
     const GestureEvent& info, GestureCallbackType type, GestureListenerType listenerType)
 {
-    auto gestureInfo = GetGestureInfo();
-    CHECK_NULL_VOID(gestureInfo);
+    CHECK_EQUAL_VOID(GetRecognizerType(), GestureTypeName::CLICK);
     auto node = GetAttachedNode().Upgrade();
     CHECK_NULL_VOID(node);
     if (listenerType == GestureListenerType::UNKNOWN) {
@@ -742,5 +773,102 @@ GestureActionPhase NGGestureRecognizer::GetActionPhase(
         default:
             return GestureActionPhase::UNKNOWN;
     }
+}
+
+std::string NGGestureRecognizer::GetGestureInfoString() const
+{
+    constexpr int32_t MAX_GESTURE_INFO_STR_LENGTH = 320;
+    auto node = GetAttachedNode().Upgrade();
+    std::string gestureInfoStr = node ? node->GetTag() : "";
+    gestureInfoStr.reserve(gestureInfoStr.size() + MAX_GESTURE_INFO_STR_LENGTH);
+    gestureInfoStr.append(",LST:");
+    gestureInfoStr.append(TransRefereeState(lastRefereeState_));
+    gestureInfoStr.append(",ST:");
+    gestureInfoStr.append(TransRefereeState(refereeState_));
+    gestureInfoStr.append(",DSP:").append(std::to_string(static_cast<int32_t>(disposal_)));
+    gestureInfoStr.append(",PRI:").append(std::to_string(static_cast<int32_t>(priority_)));
+    gestureInfoStr.append(",CCST:").append(std::to_string(static_cast<int32_t>(currentCallbackState_)));
+    gestureInfoStr.append(",FCOU:").append(std::to_string(fromCardOrUIExtension_));
+    gestureInfoStr.append(",CF:").append(std::to_string(currentFingers_));
+    gestureInfoStr.append(",FID:[");
+    if (!fingersId_.empty()) {
+        for (const auto& item : fingersId_) {
+            gestureInfoStr.push_back(',');
+            gestureInfoStr.append(std::to_string(item));
+        }
+    }
+    gestureInfoStr.push_back(']');
+    gestureInfoStr.append(",ITEF:").append(std::to_string(isTouchEventFinished_));
+    gestureInfoStr.append(",BM:").append(std::to_string(bridgeMode_));
+    gestureInfoStr.append(",ENB:").append(std::to_string(enabled_));
+    gestureInfoStr.append(",NRV:").append(std::to_string(isNeedResetVoluntarily_));
+    gestureInfoStr.append(",NRRS:").append(std::to_string(isNeedResetRecognizerState_));
+    gestureInfoStr.append(",PB:").append(std::to_string(preventBegin_));
+    return gestureInfoStr;
+}
+
+bool NGGestureRecognizer::IsSystemGesture() const
+{
+    if (!gestureInfo_) {
+        return false;
+    }
+    return gestureInfo_->IsSystemGesture();
+}
+
+GestureTypeName NGGestureRecognizer::GetRecognizerType() const
+{
+    if (!gestureInfo_) {
+        return GestureTypeName::UNKNOWN;
+    }
+    return gestureInfo_->GetRecognizerType();
+}
+
+void NGGestureRecognizer::SetRecognizerType(GestureTypeName trueType)
+{
+    if (!gestureInfo_) {
+        gestureInfo_ = MakeRefPtr<GestureInfo>();
+    }
+    gestureInfo_->SetRecognizerType(trueType);
+}
+
+RefPtr<GestureInfo> NGGestureRecognizer::GetOrCreateGestureInfo()
+{
+    if (!gestureInfo_) {
+        gestureInfo_ = MakeRefPtr<GestureInfo>();
+    }
+    return gestureInfo_;
+}
+
+void NGGestureRecognizer::SetIsSystemGesture(bool isSystemGesture)
+{
+    if (gestureInfo_) {
+        gestureInfo_->SetIsSystemGesture(isSystemGesture);
+    } else {
+        gestureInfo_ = MakeRefPtr<GestureInfo>(isSystemGesture);
+    }
+}
+
+void NGGestureRecognizer::SetUserData(void* userData)
+{
+    if (gestureInfo_) {
+        gestureInfo_->SetUserData(userData);
+    }
+}
+
+void NGGestureRecognizer::SetDisposeNotifyCallback(std::function<void(void*)>&& callback)
+{
+    if (gestureInfo_) {
+        gestureInfo_->SetDisposeNotifyFunc(std::move(callback));
+    }
+}
+
+void NGGestureRecognizer::SetGestureInfo(const RefPtr<GestureInfo>& gestureInfo)
+{
+    gestureInfo_ = gestureInfo;
+}
+
+RefPtr<GestureInfo> NGGestureRecognizer::GetGestureInfo()
+{
+    return gestureInfo_;
 }
 } // namespace OHOS::Ace::NG

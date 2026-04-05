@@ -19,7 +19,7 @@
 #include "gtest/gtest.h"
 #define protected public
 #define private public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/core/pattern/relative_container/old_cases/relative_container_common_ng.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
@@ -29,6 +29,7 @@
 #include "core/components/common/layout/position_param.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/layout/layout_wrapper.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/relative_container/relative_container_layout_property.h"
 #include "core/components_ng/pattern/relative_container/relative_container_model_ng.h"
@@ -122,7 +123,8 @@ void RelativeContainerBiasRulesTest::CreateInstance(const std::function<void(Rel
     layoutProperty_ = frameNode_->GetLayoutProperty<RelativeContainerLayoutProperty>();
 }
 
-void RelativeContainerBiasRulesTest::SetComponentParam(TextModelNG& textModelNG, std::string id, float width, float height)
+void RelativeContainerBiasRulesTest::SetComponentParam(
+    TextModelNG& textModelNG, std::string id, float width, float height)
 {
     textModelNG.Create(StringUtils::Str8ToStr16(id));
     ViewAbstract::SetWidth(CalcLength(width));
@@ -142,7 +144,7 @@ void RelativeContainerBiasRulesTest::SetContainerParam(std::string id, float wid
  * @tc.desc: Set an item with bias with RelativeContainer and check it.
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest001, TestSize.Level1)
+HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest001, TestSize.Level0)
 {
     auto frameNode = FrameNode::GetOrCreateFrameNode(V2::RELATIVE_CONTAINER_ETS_TAG, 0,
         []() { return AceType::MakeRefPtr<OHOS::Ace::NG::RelativeContainerPattern>(); });
@@ -200,22 +202,11 @@ HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest001, TestSize.Level1)
      * set align rules for first node
      */
     firstItemFrameNode->GetLayoutProperty()->UpdateAlignRules(firstItemAlignRules);
-    std::vector<std::pair<float, float>> biasPairs = {
-        std::make_pair(-1.0f, -1.0f),
-        std::make_pair(0.0f, 0.0f),
-        std::make_pair(0.3f, 0.3f),
-        std::make_pair(0.5f, 0.5f),
-        std::make_pair(1.0f, 1.0f),
-        std::make_pair(1.5f, 1.5f)
-    };
-    std::vector<OffsetF> offsets = {
-        OffsetF(75.0f, 75.0f),
-        OffsetF(0.0f, 0.0f),
-        OffsetF(45.0f, 45.0f),
-        OffsetF(75.0f, 75.0f),
-        OffsetF(150.0f, 150.0f),
-        OffsetF(225.0f, 225.0f)
-    };
+    std::vector<std::pair<float, float>> biasPairs = { std::make_pair(-1.0f, -1.0f), std::make_pair(0.0f, 0.0f),
+        std::make_pair(0.3f, 0.3f), std::make_pair(0.5f, 0.5f), std::make_pair(1.0f, 1.0f),
+        std::make_pair(1.5f, 1.5f) };
+    std::vector<OffsetF> offsets = { OffsetF(75.0f, 75.0f), OffsetF(0.0f, 0.0f), OffsetF(45.0f, 45.0f),
+        OffsetF(75.0f, 75.0f), OffsetF(150.0f, 150.0f), OffsetF(225.0f, 225.0f) };
     for (int i = 0; i < 6; i++) {
         firstItemFrameNode->GetLayoutProperty()->UpdateBias(biasPairs[i]);
         auto boxLayoutAlgorithm = firstItemFrameNode->GetPattern<Pattern>()->CreateLayoutAlgorithm();
@@ -238,7 +229,7 @@ HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest001, TestSize.Level1)
  * @tc.desc: Set one child item to auto, at the top/left
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest002, TestSize.Level1)
+HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest002, TestSize.Level0)
 {
     auto relativeContainerFrameNode = FrameNode::GetOrCreateFrameNode(V2::RELATIVE_CONTAINER_ETS_TAG, 0,
         []() { return AceType::MakeRefPtr<OHOS::Ace::NG::RelativeContainerPattern>(); });
@@ -277,7 +268,7 @@ HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest002, TestSize.Level1)
 
     /**
      * add first child
-    */
+     */
     MeasureProperty layoutConstraint1;
     layoutConstraint1.selfIdealSize = CalcSize(CalcLength(CONTAINER_WIDTH), CalcLength(CONTAINER_HEIGHT));
     firstFrameNode->UpdateLayoutConstraint(layoutConstraint1);
@@ -306,7 +297,7 @@ HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest002, TestSize.Level1)
  * @tc.desc: Set two child item to auto, one at top/left, the other at top/right
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest003, TestSize.Level1)
+HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest003, TestSize.Level0)
 {
     auto relativeContainerFrameNode = FrameNode::GetOrCreateFrameNode(V2::RELATIVE_CONTAINER_ETS_TAG, 0,
         []() { return AceType::MakeRefPtr<OHOS::Ace::NG::RelativeContainerPattern>(); });
@@ -374,7 +365,7 @@ HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest003, TestSize.Level1)
 
     /**
      * add second child, set align rules
-    */
+     */
     auto secondFrameNode = FrameNode::CreateFrameNode(V2::BLANK_ETS_TAG, 2, AceType::MakeRefPtr<Pattern>());
     MeasureProperty layoutConstraint2;
     layoutConstraint2.selfIdealSize = CalcSize(CalcLength(CONTAINER_WIDTH), CalcLength(CONTAINER_HEIGHT));
@@ -417,7 +408,7 @@ HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest003, TestSize.Level1)
  * @tc.desc: Set two child item to auto, one at top/left, the other at bottom/left
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest004, TestSize.Level1)
+HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest004, TestSize.Level0)
 {
     auto relativeContainerFrameNode = FrameNode::GetOrCreateFrameNode(V2::RELATIVE_CONTAINER_ETS_TAG, 0,
         []() { return AceType::MakeRefPtr<OHOS::Ace::NG::RelativeContainerPattern>(); });
@@ -516,7 +507,7 @@ HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest004, TestSize.Level1)
  * @tc.desc: Set two child item to auto, one at top/left, the other at bottom/right
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest005, TestSize.Level1)
+HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest005, TestSize.Level0)
 {
     auto relativeContainerFrameNode = FrameNode::GetOrCreateFrameNode(V2::RELATIVE_CONTAINER_ETS_TAG, 0,
         []() { return AceType::MakeRefPtr<OHOS::Ace::NG::RelativeContainerPattern>(); });
@@ -611,35 +602,25 @@ HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTest005, TestSize.Level1)
     EXPECT_EQ(secondLayoutWrapper->GetGeometryNode()->GetFrameOffset(), OffsetF(300.0f, 300.0f));
 }
 
-static void AddAlignRule(const std::string& id, const AlignDirection& direction,
-    const HorizontalAlign& horizontalRule, std::map<AlignDirection, AlignRule>& alignRules)
+static void AddAlignRule(const std::string& id, const AlignDirection& direction, const HorizontalAlign& horizontalRule,
+    std::map<AlignDirection, AlignRule>& alignRules)
 {
     RelativeContainerTestUtilsNG::AddAlignRule(id, direction, horizontalRule, alignRules);
 }
 
-static void AddAlignRule(const std::string& id, const AlignDirection& direction,
-    const VerticalAlign& verticalRule, std::map<AlignDirection, AlignRule>& alignRules)
+static void AddAlignRule(const std::string& id, const AlignDirection& direction, const VerticalAlign& verticalRule,
+    std::map<AlignDirection, AlignRule>& alignRules)
 {
     RelativeContainerTestUtilsNG::AddAlignRule(id, direction, verticalRule, alignRules);
 }
 
-std::vector<std::pair<float, float>> biasPairs = {
-    std::make_pair(-1.0f, -1.0f),
-    std::make_pair(0.0f, 0.0f),
-    std::make_pair(0.3f, 0.3f),
-    std::make_pair(0.5f, 0.5f),
-    std::make_pair(1.0f, 1.0f),
-    std::make_pair(1.5f, 1.5f)
-};
+std::vector<std::pair<float, float>> biasPairs = { std::make_pair(-1.0f, -1.0f), std::make_pair(0.0f, 0.0f),
+    std::make_pair(0.3f, 0.3f), std::make_pair(0.5f, 0.5f), std::make_pair(1.0f, 1.0f), std::make_pair(1.5f, 1.5f) };
 
-std::vector<OffsetF> offsets = {
-    OffsetF(CONTAINER_WIDTH - 150.0f - 75.0f, 75.0f),
-    OffsetF(CONTAINER_WIDTH - 150.0f - 0.0f, 0.0f),
-    OffsetF(CONTAINER_WIDTH - 150.0f - 45.0f, 45.0f),
-    OffsetF(CONTAINER_WIDTH - 150.0f - 75.0f, 75.0f),
-    OffsetF(CONTAINER_WIDTH - 150.0f - 150.0f, 150.0f),
-    OffsetF(CONTAINER_WIDTH - 150.0f - 225.0f, 225.0f)
-};
+std::vector<OffsetF> offsets = { OffsetF(CONTAINER_WIDTH - 150.0f - 75.0f, 75.0f),
+    OffsetF(CONTAINER_WIDTH - 150.0f - 0.0f, 0.0f), OffsetF(CONTAINER_WIDTH - 150.0f - 45.0f, 45.0f),
+    OffsetF(CONTAINER_WIDTH - 150.0f - 75.0f, 75.0f), OffsetF(CONTAINER_WIDTH - 150.0f - 150.0f, 150.0f),
+    OffsetF(CONTAINER_WIDTH - 150.0f - 225.0f, 225.0f) };
 
 static void LayoutConstraint(RefPtr<LayoutWrapperNode> layoutWrapper, SizeF containerSize)
 {
@@ -657,7 +638,7 @@ static void LayoutConstraint(RefPtr<LayoutWrapperNode> layoutWrapper, SizeF cont
  * @tc.desc: Set an item with bias with RelativeContainer and check it, direction::RTL.
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTestRtl001, TestSize.Level1)
+HWTEST_F(RelativeContainerBiasRulesTest, BiasRulesTestRtl001, TestSize.Level0)
 {
     auto frameNode = FrameNode::GetOrCreateFrameNode(V2::RELATIVE_CONTAINER_ETS_TAG, 0,
         []() { return AceType::MakeRefPtr<OHOS::Ace::NG::RelativeContainerPattern>(); });

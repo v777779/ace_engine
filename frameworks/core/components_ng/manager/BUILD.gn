@@ -46,15 +46,18 @@ build_component_ng("manager_ng") {
     "event/json_child_report.cpp",
     "focus/focus_manager.cpp",
     "focus/focus_view.cpp",
+    "force_split/force_split_manager.cpp",
     "form_event/form_event_manager.cpp",
     "form_gesture/form_gesture_manager.cpp",
     "form_visible/form_visible_manager.cpp",
     "frame_rate/frame_rate_manager.cpp",
     "full_screen/full_screen_manager.cpp",
+    "load_complete/load_complete_manager.cpp",
     "memory/memory_manager.cpp",
     "navigation/navigation_manager.cpp",
     "post_event/post_event_manager.cpp",
     "safe_area/safe_area_manager.cpp",
+    "scroll_adjust/scroll_adjust_manager.cpp",
     "select_content_overlay/select_content_overlay_manager.cpp",
     "select_overlay/select_overlay_client.cpp",
     "select_overlay/select_overlay_manager.cpp",
@@ -62,6 +65,6 @@ build_component_ng("manager_ng") {
     "shared_overlay/shared_overlay_manager.cpp",
     "shared_overlay/shared_transition_effect.cpp",
     "toolbar/toolbar_manager.cpp",
-    "scroll_adjust/scroll_adjust_manager.cpp"
+    "content_change_manager/content_change_manager.cpp",
   ]
 }

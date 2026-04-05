@@ -24,11 +24,11 @@
 #include "bridge/declarative_frontend/engine/js_converter.h"
 #include "bridge/declarative_frontend/jsview/models/action_sheet_model_impl.h"
 #include "core/common/container.h"
+#include "core/components/common/properties/ui_material.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/action_sheet/action_sheet_model_ng.h"
 #include "core/components_ng/pattern/overlay/level_order.h"
-#include "bridge/declarative_frontend/jsview/js_view_abstract.h"
-#include "core/components_ng/pattern/action_sheet/action_sheet_model.h"
+#include "frameworks/bridge/declarative_frontend/jsview/js_utils.h"
 
 namespace OHOS::Ace {
 std::unique_ptr<ActionSheetModel> ActionSheetModel::instance_ = nullptr;
@@ -114,50 +114,25 @@ ActionSheetInfo ParseSheetInfo(const JsiExecutionContext& execContext, JSRef<JSV
 
 void ParseTitleAndMessage(DialogProperties& properties, JSRef<JSObject> obj)
 {
-    if (SystemProperties::ConfigChangePerform()) {
-        auto titleValue = obj->GetProperty("title");
-        RefPtr<ResourceObject> titleResObj;
-        std::string title;
-        if (JSViewAbstract::ParseJsString(titleValue, title, titleResObj)) {
-            properties.resourceTitleObj = titleResObj;
-            properties.title = title;
-        }
+    // Parse title.
+    auto titleValue = obj->GetProperty("title");
+    std::string title;
+    if (JSActionSheet::ParseJsString(titleValue, title)) {
+        properties.title = title;
+    }
 
-        auto subtitleValue = obj->GetProperty("subtitle");
-        RefPtr<ResourceObject> subtitleResObj;
-        std::string subtitle;
-        if (JSViewAbstract::ParseJsString(subtitleValue, subtitle, subtitleResObj)) {
-            properties.resourceSubTitleObj = subtitleResObj;
-            properties.subtitle = subtitle;
-        }
+    // Parse subtitle.
+    auto subtitleValue = obj->GetProperty("subtitle");
+    std::string subtitle;
+    if (JSActionSheet::ParseJsString(subtitleValue, subtitle)) {
+        properties.subtitle = subtitle;
+    }
 
-        auto messageValue = obj->GetProperty("message");
-        RefPtr<ResourceObject> messageResObj;
-        std::string message;
-        if (JSViewAbstract::ParseJsString(messageValue, message, messageResObj)) {
-            properties.resourceContentObj = messageResObj;
-            properties.content = message;
-        }
-    } else {
-        // Parse title.
-        auto titleValue = obj->GetProperty("title");
-        std::string title;
-        if (JSActionSheet::ParseJsString(titleValue, title)) {
-            properties.title = title;
-        }
-        // Parse subtitle.
-        auto subtitleValue = obj->GetProperty("subtitle");
-        std::string subtitle;
-        if (JSActionSheet::ParseJsString(subtitleValue, subtitle)) {
-            properties.subtitle = subtitle;
-        }
-
-        // Parses message.
-        auto messageValue = obj->GetProperty("message");
-        std::string message;
-        if (JSActionSheet::ParseJsString(messageValue, message)) {
-            properties.content = message;
-        }
+    // Parses message.
+    auto messageValue = obj->GetProperty("message");
+    std::string message;
+    if (JSActionSheet::ParseJsString(messageValue, message)) {
+        properties.content = message;
     }
 }
 
@@ -389,6 +364,15 @@ void ParseLevelOrder(DialogProperties& properties, JSRef<JSObject> obj)
     properties.levelOrder = std::make_optional(order);
 }
 
+void ParseSystemMaterial(DialogProperties& properties, JSRef<JSObject> obj)
+{
+    auto systemMaterialValue = obj->GetProperty("systemMaterial");
+    if (systemMaterialValue->IsObject()) {
+        auto systemUiMaterial = static_cast<UiMaterial*>(UnwrapNapiValue(systemMaterialValue));
+        properties.systemMaterial = systemUiMaterial ? systemUiMaterial->Copy() : nullptr;
+    }
+}
+
 void JSActionSheet::Show(const JSCallbackInfo& args)
 {
     auto scopedDelegate = EngineHelper::GetCurrentDelegateSafely();
@@ -408,6 +392,7 @@ void JSActionSheet::Show(const JSCallbackInfo& args)
     auto obj = JSRef<JSObject>::Cast(args[0]);
     auto execContext = args.GetExecutionContext();
     auto dialogNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ACE_UINODE_TRACE(dialogNode);
 
     ParseTitleAndMessage(properties, obj);
     ParseConfirmButton(execContext, properties, obj);
@@ -419,11 +404,13 @@ void JSActionSheet::Show(const JSCallbackInfo& args)
     ParseMaskRect(properties, obj);
     ParseDialogLevelMode(properties, obj);
 
-    auto onLanguageChange =
-        [execContext, obj, parseContent = ParseTitleAndMessage, parseButton = ParseConfirmButton,
-            parseShadow = ParseShadow, parseBorderProps = ParseBorderWidthAndColor, parseRadius = ParseRadius,
-            parseAlignment = ParseDialogAlignment, parseOffset = ParseOffset, parseMaskRect = ParseMaskRect,
-            parseDialogLevelMode = ParseDialogLevelMode, node = dialogNode](DialogProperties& dialogProps) {
+    auto onLanguageChange = [execContext, obj, parseContent = ParseTitleAndMessage, parseButton = ParseConfirmButton,
+                                parseShadow = ParseShadow, parseBorderProps = ParseBorderWidthAndColor,
+                                parseRadius = ParseRadius, parseAlignment = ParseDialogAlignment,
+                                parseOffset = ParseOffset,  parseMaskRect = ParseMaskRect,
+                                parseDialogLevelMode = ParseDialogLevelMode,
+                                parseSystemMaterial = ParseSystemMaterial,
+                                node = dialogNode](DialogProperties& dialogProps) {
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execContext);
         ACE_SCORING_EVENT("ActionSheet.property.onLanguageChange");
         auto pipelineContext = PipelineContext::GetCurrentContextSafely();
@@ -438,6 +425,7 @@ void JSActionSheet::Show(const JSCallbackInfo& args)
         parseOffset(dialogProps, obj);
         parseMaskRect(dialogProps, obj);
         parseDialogLevelMode(dialogProps, obj);
+        parseSystemMaterial(dialogProps, obj);
         // Parse sheets
         auto sheetsVal = obj->GetProperty("sheets");
         if (sheetsVal->IsArray()) {
@@ -473,7 +461,7 @@ void JSActionSheet::Show(const JSCallbackInfo& args)
     }
 
     std::function<void(const int32_t& info, const int32_t& instanceId)> onWillDismissFunc = nullptr;
-    ParseDialogCallback(obj, onWillDismissFunc);
+    ParseDialogCallback(args, obj, onWillDismissFunc);
     ActionSheetModel::GetInstance()->SetOnWillDismiss(std::move(onWillDismissFunc), properties);
 
     JSViewAbstract::ParseAppearDialogCallback(args, properties);
@@ -515,16 +503,12 @@ void JSActionSheet::Show(const JSCallbackInfo& args)
 
     auto backgroundColorValue = obj->GetProperty("backgroundColor");
     Color backgroundColor;
-    if (SystemProperties::ConfigChangePerform()) {
-        RefPtr<ResourceObject> backGroundColorResObj;
-        if (JSViewAbstract::ParseJsColor(backgroundColorValue, backgroundColor, backGroundColorResObj)) {
-            properties.resourceBgColorObj = backGroundColorResObj;
-            properties.backgroundColor = backgroundColor;
+    RefPtr<ResourceObject> backgroundColorResObj;
+    if (JSViewAbstract::ParseJsColor(backgroundColorValue, backgroundColor, backgroundColorResObj)) {
+        if (SystemProperties::ConfigChangePerform() && !JSViewAbstract::CheckDarkResource(backgroundColorResObj)) {
+            properties.hasInvertColor.hasBackgroundColor = true;
         }
-    } else {
-        if (JSViewAbstract::ParseJsColor(backgroundColorValue, backgroundColor)) {
-            properties.backgroundColor = backgroundColor;
-        }
+        properties.backgroundColor = backgroundColor;
     }
 
     auto backgroundBlurStyle = obj->GetProperty("backgroundBlurStyle");
@@ -538,6 +522,7 @@ void JSActionSheet::Show(const JSCallbackInfo& args)
     // Parse transition.
     properties.transitionEffect = ParseJsTransitionEffect(args);
     ParseLevelOrder(properties, obj);
+    ParseSystemMaterial(properties, obj);
     JSViewAbstract::SetDialogProperties(obj, properties);
     JSViewAbstract::SetDialogHoverModeProperties(obj, properties);
     JSViewAbstract::SetDialogBlurStyleOption(obj, properties);

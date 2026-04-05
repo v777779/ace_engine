@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,9 +19,6 @@
 #include <cstdint>
 #include <optional>
 
-#include "base/geometry/axis.h"
-#include "base/geometry/ng/offset_t.h"
-#include "base/memory/referenced.h"
 #include "core/components_ng/layout/layout_algorithm.h"
 #include "core/components_ng/layout/layout_wrapper.h"
 #include "core/components_ng/pattern/swiper/swiper_layout_property.h"
@@ -192,6 +189,11 @@ public:
         customAnimationToIndex_ = customAnimationToIndex;
     }
 
+    void SetCustomAnimationPrevIndex(std::optional<int32_t> customAnimationPrevIndex)
+    {
+        customAnimationPrevIndex_ = customAnimationPrevIndex;
+    }
+
     void SetRemoveFromRSTreeIndex(std::optional<int32_t> removeFromRSTreeIndex)
     {
         removeFromRSTreeIndex_ = removeFromRSTreeIndex;
@@ -312,6 +314,16 @@ public:
         cachedShow_ = cachedShow;
     }
 
+    void SetCachedIndependent(bool cachedIndependent)
+    {
+        cachedIndependent_ = cachedIndependent;
+    }
+
+    void SetIsFakeDragging(bool isFakeDragging)
+    {
+        isFakeDragging_ = isFakeDragging;
+    }
+
 private:
     void LayoutForward(LayoutWrapper* layoutWrapper, const LayoutConstraintF& layoutConstraint, int32_t startIndex,
         float startPos, bool cachedLayout = false);
@@ -373,6 +385,14 @@ private:
     void AdjustOffsetOnBackward(float currentStartPos);
     float GetHeightForDigit(LayoutWrapper* layoutWrapper, float height) const;
 
+    void MeasureSwiperInFakeDrag(LayoutWrapper* layoutWrapper, const LayoutConstraintF& layoutConstraint);
+    void MeasureBackwardFakeDrag(LayoutWrapper* layoutWrapper, const LayoutConstraintF& layoutConstraint);
+    void MeasureForwardFakeDrag(LayoutWrapper* layoutWrapper, const LayoutConstraintF& layoutConstraint);
+    void MeasureBackwardItemFakeDrag(LayoutWrapper* layoutWrapper, const LayoutConstraintF& layoutConstraint,
+        int32_t forwardMeasureIndex, float& measureStartPos);
+    void MeasureForwardItemFakeDrag(LayoutWrapper* layoutWrapper, const LayoutConstraintF& layoutConstraint,
+        int32_t backwardMeasureIndex, float& measureEndPos);
+
     bool isLoop_ = true;
     float prevMargin_ = 0.0f;
     float nextMargin_ = 0.0f;
@@ -390,8 +410,10 @@ private:
     float contentMainSize_ = 0.0f;
     float oldContentMainSize_ = 0.0f;
     float contentCrossSize_ = 0.0f;
+    float mainSizeWithoutMargin_ = 0.0f;
     int32_t totalItemCount_ = 0;
     bool mainSizeIsDefined_ = false;
+    bool isPixelRoundAfterMeasure_ = false;
 
     float spaceWidth_ = 0.0f;
     bool overScrollFeature_ = false;
@@ -407,6 +429,7 @@ private:
     std::optional<int32_t> currentJumpIndex_;
     std::optional<int32_t> currentTargetIndex_;
     std::optional<int32_t> customAnimationToIndex_;
+    std::optional<int32_t> customAnimationPrevIndex_;
     std::optional<int32_t> removeFromRSTreeIndex_;
     std::optional<SizeF> leftCaptureSize_ = std::nullopt;
     std::optional<SizeF> rightCaptureSize_ = std::nullopt;
@@ -434,10 +457,12 @@ private:
     float targetStartPos_ = 0.0f;
     int32_t cachedCount_ = 0;
     bool cachedShow_ = false;
+    bool cachedIndependent_ = false;
     int32_t cachedStartIndex_ = 0;
     int32_t cachedEndIndex_ = 0;
     LayoutConstraintF childLayoutConstraint_;
     Axis axis_ = Axis::HORIZONTAL;
+    bool isFakeDragging_ = false;
 
     std::mutex swiperMutex_;
 };

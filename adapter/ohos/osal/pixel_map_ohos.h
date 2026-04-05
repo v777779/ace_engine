@@ -23,7 +23,7 @@
 namespace OHOS::Ace {
 
 class PixelMapOhos : public PixelMap {
-    DECLARE_ACE_TYPE(PixelMapOhos, PixelMap)
+    DECLARE_ACE_TYPE(PixelMapOhos, PixelMap);
 
 public:
     explicit PixelMapOhos(std::shared_ptr<Media::PixelMap> pixmap) : pixmap_(std::move(pixmap)) {}
@@ -32,6 +32,7 @@ public:
     static Media::PixelFormat ConvertToMediaPixelFormat(Ace::PixelFormat pixelFormat);
     static AlphaType AlphaTypeConverter(Media::AlphaType alphaType);
     static Media::AlphaType ConvertToMediaAlphaType(Ace::AlphaType alphaType);
+    static Media::AllocatorType ConvertToMediaAllocatorType(Ace::AllocatorType allocatorType);
     static AllocatorType AllocatorTypeConverter(Media::AllocatorType allocatorType);
     static Media::ScaleMode ConvertToMediaScaleMode(Ace::ScaleMode scaleMode);
     int32_t GetWidth() const override;
@@ -48,6 +49,7 @@ public:
     void* GetPixelManager() const override;
     void* GetRawPixelMapPtr() const override;
     std::string GetId() override;
+    uint32_t GetUniqueId() override;
     std::string GetModifyId() override;
     std::shared_ptr<Media::PixelMap> GetPixelMapSharedPtr() override;
     void* GetWritablePixels() const override;

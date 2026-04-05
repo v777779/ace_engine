@@ -29,10 +29,39 @@ namespace {
 constexpr NavigationMode INITIAL_MODE = NavigationMode::AUTO;
 constexpr int32_t MODE_SWITCH_ANIMATION_DURATION = 500; // ms
 const RefPtr<CubicCurve> MODE_SWITCH_CURVE = AceType::MakeRefPtr<CubicCurve>(0.2f, 0.2f, 0.1f, 1.0f);
+constexpr float AUTO_WITH_ASPECT_RATIO_THRESHOLD = 1.2f;
 constexpr Dimension DIVIDER_DRAG_BAR_WIDTH = 12.0_vp;
 constexpr Dimension DIVIDER_DRAG_BAR_HEIGHT = 48.0_vp;
 constexpr Dimension DRAG_BAR_ITEM_WIDTH = 2.0_vp;
 constexpr Dimension DRAG_BAR_ITEM_HEIGHT = 24.0_vp;
+
+bool IsForceSplitSupported(PipelineContext* context)
+{
+    CHECK_NULL_RETURN(context, false);
+    auto mgr = context->GetForceSplitManager();
+    CHECK_NULL_RETURN(mgr, false);
+    return mgr->IsForceSplitSupported(false);
+}
+
+bool IsNavBarVisible(const RefPtr<NavigationGroupNode>& navigation)
+{
+    CHECK_NULL_RETURN(navigation, false);
+    auto navBar = AceType::DynamicCast<FrameNode>(navigation->GetNavBarNode());
+    CHECK_NULL_RETURN(navBar, false);
+    auto navBarProperty = navBar->GetLayoutProperty();
+    CHECK_NULL_RETURN(navBarProperty, false);
+    return navBarProperty->GetVisibilityValue(VisibleType::INVISIBLE) == VisibleType::VISIBLE;
+}
+
+bool IsDividerDisabled(const RefPtr<FrameNode>& host)
+{
+    CHECK_NULL_RETURN(host, false);
+    auto context = host->GetContext();
+    CHECK_NULL_RETURN(context, false);
+    auto mgr = context->GetNavigationManager();
+    CHECK_NULL_RETURN(mgr, false);
+    return mgr->IsDividerDisabled();
+}
 
 void MeasureDivider(LayoutWrapper* layoutWrapper, const RefPtr<NavigationGroupNode>& hostNode,
     const RefPtr<NavigationLayoutProperty>& navigationLayoutProperty, const SizeF& dividerSize)
@@ -43,7 +72,14 @@ void MeasureDivider(LayoutWrapper* layoutWrapper, const RefPtr<NavigationGroupNo
     auto dividerWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
     CHECK_NULL_VOID(dividerWrapper);
     auto constraint = navigationLayoutProperty->CreateChildConstraint();
-    constraint.selfIdealSize = OptionalSizeF(dividerSize.Width(), dividerSize.Height());
+    auto layoutProperty = hostNode->GetLayoutProperty<NavigationLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    auto marginStart = layoutProperty->GetDividerStartMargin().value_or(Dimension(0.0, DimensionUnit::VP));
+    auto dividerStartMarginPx = marginStart.ConvertToPx();
+    auto marginEnd = layoutProperty->GetDividerEndMargin().value_or(Dimension(0.0f, DimensionUnit::VP));
+    auto dividerEndMarginPx = marginEnd.ConvertToPx();
+    auto dividerHeight = dividerSize.Height() - dividerStartMarginPx - dividerEndMarginPx;
+    constraint.selfIdealSize = OptionalSizeF(dividerSize.Width(), dividerHeight);
     dividerWrapper->Measure(constraint);
 }
 
@@ -219,6 +255,8 @@ float LayoutDivider(LayoutWrapper* layoutWrapper, const RefPtr<NavigationGroupNo
     const auto& padding = navigationLayoutProperty->CreatePaddingAndBorder();
     dividerOffset.AddX(padding.left.value_or(0));
     dividerOffset.AddY(padding.top.value_or(0));
+    auto marginStart = navigationLayoutProperty->GetDividerStartMargin()->ConvertToPx();
+    dividerOffset.AddY(marginStart);
     geometryNode->SetMarginFrameOffset(dividerOffset);
     dividerWrapper->Layout();
     return geometryNode->GetFrameSize().Width();
@@ -230,8 +268,12 @@ void LayoutContent(LayoutWrapper* layoutWrapper, const RefPtr<NavigationGroupNod
 {
     auto pattern = hostNode->GetPattern<NavigationPattern>();
     CHECK_NULL_VOID(pattern);
-    auto contentNode = hostNode->GetContentNode();
+    auto contentNode = AceType::DynamicCast<FrameNode>(hostNode->GetContentNode());
     CHECK_NULL_VOID(contentNode);
+    auto context = contentNode->GetContext();
+    if (IsForceSplitSupported(context) && !contentNode->IsVisible()) {
+        return;
+    }
     auto index = hostNode->GetChildIndexById(contentNode->GetId());
     auto contentWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
     CHECK_NULL_VOID(contentWrapper);
@@ -322,7 +364,7 @@ void LayoutSplitPalceholderContent(LayoutWrapper* layoutWrapper, const RefPtr<Na
 
 void FitScrollFullWindow(SizeF& frameSize)
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     if (frameSize.Width() == Infinity<float>()) {
         frameSize.SetWidth(pipeline->GetRootWidth());
@@ -346,13 +388,16 @@ void SwitchModeWithAnimation(const RefPtr<NavigationGroupNode>& hostNode)
         CHECK_NULL_VOID(hostNode);
         hostNode->ReduceModeSwitchAnimationCnt();
         if (hostNode->GetModeSwitchAnimationCnt() == 0) {
-            auto dividerNode = AceType::DynamicCast<FrameNode>(hostNode->GetDividerNode());
-            CHECK_NULL_VOID(dividerNode);
-            auto layoutProperty = dividerNode->GetLayoutProperty();
-            CHECK_NULL_VOID(layoutProperty);
-            layoutProperty->UpdateVisibility(VisibleType::VISIBLE);
             auto pattern = hostNode->GetPattern<NavigationPattern>();
             CHECK_NULL_VOID(pattern);
+            auto userSetDividerInvisible = pattern->GetUserSetDividerInvisibleFlag();
+            if (!userSetDividerInvisible) {
+                auto dividerNode = AceType::DynamicCast<FrameNode>(hostNode->GetDividerNode());
+                CHECK_NULL_VOID(dividerNode);
+                auto layoutProperty = dividerNode->GetLayoutProperty();
+                CHECK_NULL_VOID(layoutProperty);
+                layoutProperty->UpdateVisibility(VisibleType::VISIBLE);
+            }
             auto lastStandardIndex = hostNode->GetLastStandardIndex();
             auto navigationLayoutProperty = hostNode->GetLayoutProperty<NavigationLayoutProperty>();
             CHECK_NULL_VOID(navigationLayoutProperty);
@@ -360,21 +405,29 @@ void SwitchModeWithAnimation(const RefPtr<NavigationGroupNode>& hostNode)
                                   navigationLayoutProperty->GetHideNavBar().value_or(false);
             hostNode->SetNeedSetInvisible(navbarIsHidden);
             hostNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+            if (pattern->GetIsTargetForceSplitNav()) {
+                pattern->UpdateForceSplitHomeDestVisibility();
+            }
         }
     });
     AnimationUtils::Animate(option, [weakHost = WeakPtr<NavigationGroupNode>(hostNode)]() {
         auto hostNode = weakHost.Upgrade();
         CHECK_NULL_VOID(hostNode);
-        auto dividerNode = AceType::DynamicCast<FrameNode>(hostNode->GetDividerNode());
-        CHECK_NULL_VOID(dividerNode);
-        auto layoutProperty = dividerNode->GetLayoutProperty();
-        CHECK_NULL_VOID(layoutProperty);
-        layoutProperty->UpdateVisibility(VisibleType::INVISIBLE);
+        auto pattern = hostNode->GetPattern<NavigationPattern>();
+        CHECK_NULL_VOID(pattern);
+        auto userSetDividerInvisible = pattern->GetUserSetDividerInvisibleFlag();
+        if (!userSetDividerInvisible) {
+            auto dividerNode = AceType::DynamicCast<FrameNode>(hostNode->GetDividerNode());
+            CHECK_NULL_VOID(dividerNode);
+            auto layoutProperty = dividerNode->GetLayoutProperty();
+            CHECK_NULL_VOID(layoutProperty);
+            layoutProperty->UpdateVisibility(VisibleType::INVISIBLE);
+        }
         hostNode->IncreaseModeSwitchAnimationCnt();
         hostNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
         hostNode->GetContext()->FlushUITasks();
         hostNode->SetDoingModeSwitchAnimationFlag(false);
-    }, option.GetOnFinishEvent());
+    }, option.GetOnFinishEvent(), nullptr /* repeatCallback */, hostNode->GetContextRefPtr());
 }
 
 } // namespace
@@ -422,7 +475,7 @@ void NavigationLayoutAlgorithm::RangeCalculation(
     auto frameSize = parentSize.ConvertToSizeT();
     float frameSizeWidth = frameSize.Width();
     Dimension defaultValue = Dimension(-1.0);
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
 
     minContentWidthValue_ = navigationLayoutProperty->GetMinContentWidthValue(defaultValue);
@@ -450,15 +503,22 @@ void NavigationLayoutAlgorithm::RangeCalculation(
     }
     maxNavBarWidthValue_ = Dimension(Dimension(std::max(maxNavBarWidth, minNavBarWidth)).ConvertToVp(),
         DimensionUnit::VP);
+    auto navigationPattern = AceType::DynamicCast<NavigationPattern>(hostNode->GetPattern());
+    CHECK_NULL_VOID(navigationPattern);
     auto currentPlatformVersion = pipeline->GetMinPlatformVersion();
+    if (navigationPattern->GetIsNavBarWidthChange()) {
+        auto navBarWidthValue = navigationLayoutProperty->GetNavBarWidthValue(DEFAULT_NAV_BAR_WIDTH);
+        auto navBarWidth = navBarWidthValue.ConvertToPxWithSize(parentSize.Width().value_or(0.0f));
+        realNavBarWidth_ = navBarWidth;
+        navigationPattern->SetRealNavBarWidthValue(realNavBarWidth_);
+        navigationPattern->SetIsNavBarWidthChange(false);
+    }
     if (currentPlatformVersion >= PLATFORM_VERSION_TEN) {
         auto minNavBarWidth = minNavBarWidthValue_.ConvertToPxWithSize(parentSize.Width().value_or(0.0f));
         auto maxNavBarWidth = maxNavBarWidthValue_.ConvertToPxWithSize(parentSize.Width().value_or(0.0f));
         realNavBarWidth_ = std::max(realNavBarWidth_, static_cast<float>(minNavBarWidth));
         realNavBarWidth_ = std::min(realNavBarWidth_, static_cast<float>(maxNavBarWidth));
     }
-    auto navigationPattern = AceType::DynamicCast<NavigationPattern>(hostNode->GetPattern());
-    CHECK_NULL_VOID(navigationPattern);
     navigationPattern->SetMinNavBarWidthValue(minNavBarWidthValue_);
     navigationPattern->SetMaxNavBarWidthValue(maxNavBarWidthValue_);
     navigationPattern->SetMinContentWidthValue(minContentWidthValue_);
@@ -505,8 +565,10 @@ void NavigationLayoutAlgorithm::UpdateNavigationMode(const RefPtr<NavigationLayo
     auto usrNavigationMode = navigationLayoutProperty->GetUsrNavigationModeValue(NavigationMode::AUTO);
     auto navigationPattern = AceType::DynamicCast<NavigationPattern>(hostNode->GetPattern());
     CHECK_NULL_VOID(navigationPattern);
+    bool isSplitDisplay = false;
     if (navigationPattern->IsForceSplitSuccess()) {
         usrNavigationMode = NavigationMode::SPLIT;
+        isSplitDisplay = true;
     }
     if (usrNavigationMode == NavigationMode::AUTO) {
         if (frameSize.Width() >= CalculateNavigationWidth(hostNode)) {
@@ -518,12 +580,31 @@ void NavigationLayoutAlgorithm::UpdateNavigationMode(const RefPtr<NavigationLayo
         } else {
             usrNavigationMode = NavigationMode::STACK;
         }
+    } else if (usrNavigationMode == NavigationMode::AUTO_WITH_ASPECT_RATIO) {
+        if (frameSize.Width() >= CalculateNavigationWidth(hostNode) &&
+            frameSize.Height() / frameSize.Width() <= AUTO_WITH_ASPECT_RATIO_THRESHOLD) {
+            usrNavigationMode = NavigationMode::SPLIT;
+            auto targetNode = hostNode->GetNavBarOrHomeDestinationNode();
+            if (targetNode) {
+                targetNode->SetJSViewActive(true);
+            }
+        } else {
+            usrNavigationMode = NavigationMode::STACK;
+        }
     }
     bool modeChange = navigationPattern->GetNavigationMode() != usrNavigationMode;
+    bool isSplitDisplayChange = navigationPattern->IsSplitDisplay() != isSplitDisplay;
     bool isFirstTimeLayout = (navigationPattern->GetNavigationMode() == INITIAL_MODE);
     bool enableModeChangeAnimation = navigationLayoutProperty->GetEnableModeChangeAnimation().value_or(true);
     bool doModeSwitchAnimationInAnotherTask =
         enableModeChangeAnimation && modeChange && !isFirstTimeLayout && !hostNode->IsOnModeSwitchAnimation();
+    auto pipeline = hostNode->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    auto forceSplitMgr = pipeline->GetForceSplitManager();
+    if (forceSplitMgr && forceSplitMgr->IsForceSplitEnable(false) && navigationPattern->IsTopFullScreenPage()) {
+        // disable animation of mode switch when force-split changed with full screen page
+        doModeSwitchAnimationInAnotherTask = false;
+    }
     if (doModeSwitchAnimationInAnotherTask) {
         auto container = Container::Current();
         CHECK_NULL_VOID(container);
@@ -536,28 +617,45 @@ void NavigationLayoutAlgorithm::UpdateNavigationMode(const RefPtr<NavigationLayo
     }
     if (!doModeSwitchAnimationInAnotherTask) {
         navigationPattern->SetNavigationMode(usrNavigationMode);
+        navigationPattern->SetIsSplitDisplay(isSplitDisplay);
         navigationPattern->SetNavigationModeChange(modeChange);
     }
-
-    auto pipeline = hostNode->GetContext();
-    CHECK_NULL_VOID(pipeline);
+    if (navigationPattern->GetIsTargetForceSplitNav() && isSplitDisplayChange &&
+        !doModeSwitchAnimationInAnotherTask && !hostNode->IsOnModeSwitchAnimation()) {
+        // When switching the forceSplit display mode, we need udpate visibility of HomeType NavDestination.
+        pipeline->AddAfterLayoutTask([weakPattern = WeakPtr<NavigationPattern>(navigationPattern)]() {
+            auto pattern = weakPattern.Upgrade();
+            CHECK_NULL_VOID(pattern);
+            pattern->UpdateForceSplitHomeDestVisibility();
+        });
+    }
     pipeline->AddAfterLayoutTask([weakNavigationPattern = WeakPtr<NavigationPattern>(navigationPattern),
-        modeChange, doModeSwitchAnimationInAnotherTask]() {
+        modeChange, doModeSwitchAnimationInAnotherTask, isSplitDisplayChange]() {
         auto navigationPattern = weakNavigationPattern.Upgrade();
         CHECK_NULL_VOID(navigationPattern);
         if (doModeSwitchAnimationInAnotherTask) {
             navigationPattern->OnNavBarStateChange(false);
             SwitchModeWithAnimation(AceType::DynamicCast<NavigationGroupNode>(navigationPattern->GetHost()));
         } else {
-            if (navigationPattern->IsHomeDestinationVisible()) {
+            bool isHomeDestinationOrNavBarVisible = navigationPattern->IsHomeDestinationOrNavBarVisible();
+            if (isHomeDestinationOrNavBarVisible) {
                 navigationPattern->FireHomeDestinationLifeCycleIfNeeded(NavDestinationLifecycle::ON_SHOW, true);
                 navigationPattern->FireHomeDestinationLifeCycleIfNeeded(NavDestinationLifecycle::ON_ACTIVE, true);
             } else {
                 navigationPattern->FireHomeDestinationLifeCycleIfNeeded(NavDestinationLifecycle::ON_INACTIVE, true);
                 navigationPattern->FireHomeDestinationLifeCycleIfNeeded(NavDestinationLifecycle::ON_HIDE, true);
             }
+            auto host = navigationPattern->GetHost();
+            if (host && IsForceSplitSupported(host->GetContext()) && isSplitDisplayChange) {
+                navigationPattern->FireRelatedDestinationLifecycleForModeChange();
+            }
             navigationPattern->OnNavBarStateChange(modeChange);
             navigationPattern->OnNavigationModeChange(modeChange);
+            if (modeChange) {
+                auto hostNode = AceType::DynamicCast<NavigationGroupNode>(navigationPattern->GetHost());
+                CHECK_NULL_VOID(hostNode);
+                hostNode->SetNeedSetInvisible(!isHomeDestinationOrNavBarVisible);
+            }
         }
     });
 }
@@ -566,18 +664,22 @@ void NavigationLayoutAlgorithm::SizeCalculationForForceSplit(
     LayoutWrapper* layoutWrapper, const RefPtr<NavigationGroupNode>& hostNode,
     const RefPtr<NavigationLayoutProperty>& navigationLayoutProperty, const SizeF& frameSize)
 {
-    auto dividerWidth = static_cast<float>(DIVIDER_WIDTH.ConvertToPx());
+    auto dividerWidth = IsDividerDisabled(hostNode) ? 0.0f : static_cast<float>(DIVIDER_WIDTH.ConvertToPx());
     dividerSize_ = SizeF(dividerWidth, frameSize.Height());
     auto halfWidth = (frameSize.Width() - dividerWidth) / 2.0f;
+    navBarSize_ = SizeF(halfWidth, frameSize.Height());
     primaryNodeSize_ = SizeF(halfWidth, frameSize.Height());
     contentSize_ = SizeF(halfWidth, frameSize.Height());
+    realNavBarWidth_ = halfWidth;
+    realContentWidth_ = halfWidth;
+    realDividerWidth_ = halfWidth;
 }
 
 void NavigationLayoutAlgorithm::SizeCalculation(LayoutWrapper* layoutWrapper,
     const RefPtr<NavigationGroupNode>& hostNode, const RefPtr<NavigationLayoutProperty>& navigationLayoutProperty,
     const SizeF& frameSize)
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto constraint = navigationLayoutProperty->GetLayoutConstraint();
     auto parentSize = CreateIdealSizeByPercentRef(constraint.value(), Axis::HORIZONTAL, MeasureType::MATCH_PARENT);
@@ -614,7 +716,7 @@ void NavigationLayoutAlgorithm::SizeCalculationSplit(const RefPtr<NavigationGrou
         navigationLayoutProperty->GetLayoutConstraint().value(), Axis::HORIZONTAL, MeasureType::MATCH_PARENT);
     auto navBarWidthValue = navigationLayoutProperty->GetNavBarWidthValue(DEFAULT_NAV_BAR_WIDTH);
     auto userSetNavBarWidth = navBarWidthValue.ConvertToPxWithSize(parentSize.Width().value_or(0.0f));
-    auto dividerWidth = static_cast<float>(DIVIDER_WIDTH.ConvertToPx());
+    auto dividerWidth = IsDividerDisabled(hostNode) ? 0.0f : static_cast<float>(DIVIDER_WIDTH.ConvertToPx());
     auto minNavBarWidth = minNavBarWidthValue_.ConvertToPxWithSize(parentSize.Width().value_or(0.0f));
     auto minContentWidth = minContentWidthValue_.ConvertToPxWithSize(parentSize.Width().value_or(0.0f));
     realContentWidth_ = minContentWidth;
@@ -754,8 +856,12 @@ void NavigationLayoutAlgorithm::MeasureContentChild(LayoutWrapper* layoutWrapper
     const RefPtr<NavigationGroupNode>& hostNode, const RefPtr<NavigationLayoutProperty>& navigationLayoutProperty,
     const SizeF& contentSize)
 {
-    auto contentNode = hostNode->GetContentNode();
+    auto contentNode = AceType::DynamicCast<FrameNode>(hostNode->GetContentNode());
     CHECK_NULL_VOID(contentNode);
+    auto context = contentNode->GetContext();
+    if (IsForceSplitSupported(context) && !contentNode->IsVisible()) {
+        return;
+    }
     auto index = hostNode->GetChildIndexById(contentNode->GetId());
     auto contentWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
     CHECK_NULL_VOID(contentWrapper);
@@ -794,6 +900,52 @@ void NavigationLayoutAlgorithm::MeasureForceSplitPlaceHolderNode(
     phWrapper->Measure(constraint);
 }
 
+void NavigationLayoutAlgorithm::MeasureRelatedPageNode(
+    LayoutWrapper* layoutWrapper, const RefPtr<NavigationGroupNode>& hostNode,
+    const RefPtr<NavigationLayoutProperty>& navigationLayoutProperty, const SizeF& phSize)
+{
+    auto node = AceType::DynamicCast<FrameNode>(hostNode->GetRelatedPageDestNode());
+    CHECK_NULL_VOID(node);
+    if (!node->IsVisible()) {
+        return;
+    }
+    auto index = hostNode->GetChildIndexById(node->GetId());
+    auto wrapper = layoutWrapper->GetOrCreateChildByIndex(index);
+    CHECK_NULL_VOID(wrapper);
+    auto constraint = navigationLayoutProperty->CreateChildConstraint();
+    if (IsAutoHeight(navigationLayoutProperty)) {
+        constraint.selfIdealSize.SetWidth(phSize.Width());
+    } else {
+        constraint.selfIdealSize = OptionalSizeF(phSize.Width(), phSize.Height());
+    }
+    wrapper->Measure(constraint);
+}
+
+void NavigationLayoutAlgorithm::LayoutRelatedPageNode(
+    LayoutWrapper* layoutWrapper, const RefPtr<NavigationGroupNode>& hostNode,
+    const RefPtr<NavigationLayoutProperty>& navigationLayoutProperty, float navBarWidth, float dividerWidth)
+{
+    auto node = AceType::DynamicCast<FrameNode>(hostNode->GetRelatedPageDestNode());
+    CHECK_NULL_VOID(node);
+    if (!node->IsVisible()) {
+        return;
+    }
+    auto index = hostNode->GetChildIndexById(node->GetId());
+    auto wrapper = layoutWrapper->GetOrCreateChildByIndex(index);
+    CHECK_NULL_VOID(wrapper);
+    auto geometryNode = wrapper->GetGeometryNode();
+    CHECK_NULL_VOID(geometryNode);
+    auto offset = OffsetT<float>(0.0f, 0.0f);
+    if (!AceApplicationInfo::GetInstance().IsRightToLeft()) {
+        offset = OffsetF(navBarWidth + dividerWidth, 0.0f);
+    }
+    const auto& padding = navigationLayoutProperty->CreatePaddingAndBorder();
+    offset.AddX(padding.left.value_or(0));
+    offset.AddY(padding.top.value_or(0));
+    geometryNode->SetMarginFrameOffset(offset);
+    wrapper->Layout();
+}
+
 void NavigationLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
 {
     auto hostNode = AceType::DynamicCast<NavigationGroupNode>(layoutWrapper->GetHostNode());
@@ -808,12 +960,13 @@ void NavigationLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     auto size =
         CreateIdealSizeByPercentRef(constraint.value(), Axis::HORIZONTAL, MeasureType::MATCH_PARENT).ConvertToSizeT();
     FitScrollFullWindow(size);
+    ifNeedInit_ |= pattern->CheckNeedInitRangeCalculation(size);
     pattern->SetNavigationSize(size);
 
     const auto& padding = layoutWrapper->GetLayoutProperty()->CreatePaddingAndBorder();
     MinusPaddingToSize(padding, size);
 
-    pattern->TryForceSplitIfNeeded(size);
+    pattern->TryForceSplitIfNeeded();
     if (ifNeedInit_) {
         RangeCalculation(hostNode, navigationLayoutProperty);
     }
@@ -829,6 +982,9 @@ void NavigationLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
 
     if (pattern->IsForceSplitSuccess() && !pattern->IsForceSplitUseNavBar()) {
         SizeCalculationForForceSplit(layoutWrapper, hostNode, navigationLayoutProperty, size);
+        if (IsNavBarVisible(hostNode)) {
+            MeasureNavBarOrHomeDestination(layoutWrapper, hostNode, navigationLayoutProperty, navBarSize_);
+        }
         MeasurePrimaryContentNode(layoutWrapper, hostNode, navigationLayoutProperty, primaryNodeSize_);
     } else {
         SizeCalculation(layoutWrapper, hostNode, navigationLayoutProperty, size);
@@ -836,27 +992,17 @@ void NavigationLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     }
     if (pattern->IsForceSplitSuccess()) {
         MeasureForceSplitPlaceHolderNode(layoutWrapper, hostNode, navigationLayoutProperty, contentSize_);
+        MeasureRelatedPageNode(layoutWrapper, hostNode, navigationLayoutProperty, contentSize_);
     }
 
     MeasureContentChild(layoutWrapper, hostNode, navigationLayoutProperty, contentSize_);
-    MeasureDivider(layoutWrapper, hostNode, navigationLayoutProperty, dividerSize_);
+    if (!IsDividerDisabled(hostNode)) {
+        MeasureDivider(layoutWrapper, hostNode, navigationLayoutProperty, dividerSize_);
+    }
     MeasureDragBar(layoutWrapper, hostNode, navigationLayoutProperty, dividerSize_);
     MeasureSplitPlaceholder(layoutWrapper, hostNode, navigationLayoutProperty, contentSize_);
-
-    auto layoutPolicy = navigationLayoutProperty->GetLayoutPolicyProperty();
-    bool isHeightWrapOrFix =
-        layoutPolicy.has_value() ? (layoutPolicy->IsHeightWrap() || layoutPolicy->IsHeightFix()) : false;
-    bool isWidthWrapOrFix =
-        layoutPolicy.has_value() ? (layoutPolicy->IsWidthWrap() || layoutPolicy->IsWidthFix()) : false;
-    if (IsAutoHeight(navigationLayoutProperty) || isHeightWrapOrFix) {
-        SetNavigationHeight(layoutWrapper, size);
-    }
-    if (isWidthWrapOrFix) {
-        SetNavigationWidth(layoutWrapper, size);
-    }
-    size.AddWidth(padding.left.value_or(0.0f) + padding.right.value_or(0.0f));
-    size.AddHeight(padding.top.value_or(0.0f) + padding.bottom.value_or(0.0f));
-    layoutWrapper->GetGeometryNode()->SetFrameSize(size);
+    
+    ReCalcNavigationSize(layoutWrapper, size);
 }
 
 void NavigationLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
@@ -875,6 +1021,11 @@ void NavigationLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     NavBarPosition navBarPosition = NavBarPosition::START;
     float navBarOrPrimarNodeWidth = 0.0f;
     if (pattern->IsForceSplitSuccess() && !pattern->IsForceSplitUseNavBar()) {
+        if (IsNavBarVisible(hostNode)) {
+            OffsetF navBarOffset(0.0, 0.0);
+            LayoutNavBarOrHomeDestination(
+                layoutWrapper, hostNode, navigationLayoutProperty, navBarPosition, navBarOffset);
+        }
         navBarOrPrimarNodeWidth = LayoutPrimaryContentNode(layoutWrapper, hostNode, navigationLayoutProperty);
     } else {
         navBarPosition = pattern->IsForceSplitUseNavBar() ? NavBarPosition::START :
@@ -884,8 +1035,11 @@ void NavigationLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
             layoutWrapper, hostNode, navigationLayoutProperty, navBarPosition, navBarOffset);
     }
 
-    float dividerWidth = LayoutDivider(
-        layoutWrapper, hostNode, navigationLayoutProperty, navBarOrPrimarNodeWidth, navBarPosition);
+    float dividerWidth = 0.0f;
+    if (!IsDividerDisabled(hostNode)) {
+        dividerWidth = LayoutDivider(
+            layoutWrapper, hostNode, navigationLayoutProperty, navBarOrPrimarNodeWidth, navBarPosition);
+    }
     auto splitPlaceholderOffsetX = navBarOrPrimarNodeWidth + dividerWidth;
     LayoutSplitPalceholderContent(
         layoutWrapper, hostNode, navigationLayoutProperty, splitPlaceholderOffsetX, navBarPosition);
@@ -894,6 +1048,8 @@ void NavigationLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     LayoutDragBar(layoutWrapper, hostNode, navigationLayoutProperty, navBarOrPrimarNodeWidth, navBarPosition);
     if (pattern->IsForceSplitSuccess()) {
         LayoutForceSplitPlaceHolderNode(
+            layoutWrapper, hostNode, navigationLayoutProperty, navBarOrPrimarNodeWidth, dividerWidth);
+        LayoutRelatedPageNode(
             layoutWrapper, hostNode, navigationLayoutProperty, navBarOrPrimarNodeWidth, dividerWidth);
     }
 
@@ -944,6 +1100,33 @@ void NavigationLayoutAlgorithm::SetNavigationWidth(LayoutWrapper* layoutWrapper,
         size.SetWidth(navWidth);
         size.AddWidth(realDividerWidth_);
     }
+}
+
+void NavigationLayoutAlgorithm::ReCalcNavigationSize(LayoutWrapper* layoutWrapper, SizeF& size)
+{
+    auto navigationLayoutProperty = AceType::DynamicCast<NavigationLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    CHECK_NULL_VOID(navigationLayoutProperty);
+    const auto& padding = navigationLayoutProperty->CreatePaddingAndBorder();
+
+    auto layoutPolicy = navigationLayoutProperty->GetLayoutPolicyProperty();
+    bool isHeightWrapOrFix =
+        layoutPolicy.has_value() ? (layoutPolicy->IsHeightWrap() || layoutPolicy->IsHeightFix()) : false;
+    bool isWidthWrapOrFix =
+        layoutPolicy.has_value() ? (layoutPolicy->IsWidthWrap() || layoutPolicy->IsWidthFix()) : false;
+    if (IsAutoHeight(navigationLayoutProperty) || isHeightWrapOrFix) {
+        SetNavigationHeight(layoutWrapper, size);
+    }
+    if (isWidthWrapOrFix) {
+        SetNavigationWidth(layoutWrapper, size);
+    }
+    size.AddWidth(padding.left.value_or(0.0f) + padding.right.value_or(0.0f));
+    size.AddHeight(padding.top.value_or(0.0f) + padding.bottom.value_or(0.0f));
+
+    auto realSize = UpdateOptionSizeByCalcLayoutConstraint(OptionalSizeF(size.Width(), size.Height()),
+        navigationLayoutProperty->GetCalcLayoutConstraint(),
+        navigationLayoutProperty->GetLayoutConstraint()->percentReference);
+
+    layoutWrapper->GetGeometryNode()->SetFrameSize(realSize.ConvertToSizeT());
 }
 
 } // namespace OHOS::Ace::NG

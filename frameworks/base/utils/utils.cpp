@@ -13,19 +13,24 @@
  * limitations under the License.
  */
 
-#include <climits>
 #include "base/utils/utils.h"
+
+#include <climits>
+
+#include "base/log/log.h"
+#include "core/components_ng/base/frame_node.h"
+
 #ifdef WINDOWS_PLATFORM
 #include <shlwapi.h>
 #endif
 namespace OHOS::Ace {
 constexpr int64_t MAX_FILE_SIZE = 20 * 1024 * 1024;
-    bool RealPath(const std::string& fileName, char* realPath)
+bool RealPath(const std::string& fileName, char* realPath)
 {
 #if defined(WINDOWS_PLATFORM)
-        return PathCanonicalize(realPath, fileName.c_str()) != 0;
+    return PathCanonicalize(realPath, fileName.c_str()) != 0;
 #else
-        return realpath(fileName.c_str(), realPath) != nullptr;
+    return realpath(fileName.c_str(), realPath) != nullptr;
 #endif
 }
 
@@ -58,7 +63,7 @@ std::string ReadFileToString(const std::string& packagePathStr, const std::strin
     }
 
     int64_t size = std::ftell(file.get());
-    if (size == -1L || size <= 0L || size > MAX_FILE_SIZE) {
+    if (size <= 0L || size > MAX_FILE_SIZE) {
         return "";
     }
 
@@ -78,4 +83,36 @@ std::string ReadFileToString(const std::string& packagePathStr, const std::strin
 
     return fileData;
 }
+
+namespace NG {
+RefPtr<FrameNode> FindSameParentComponent(const RefPtr<FrameNode>& nodeA, const RefPtr<FrameNode>& nodeB)
+{
+    if (!nodeA || !nodeB) {
+        return nullptr;
+    }
+    std::vector<RefPtr<FrameNode>> ancestorsA;
+    RefPtr<FrameNode> current = nodeA;
+
+    while (current) {
+        ancestorsA.push_back(current);
+        if (current->CheckTopWindowBoundary()) {
+            break;
+        }
+        current = current->GetAncestorNodeOfFrame(false);
+    }
+    current = nodeB;
+    while (current) {
+        for (const auto& ancestor : ancestorsA) {
+            if (ancestor == current) {
+                return current;
+            }
+        }
+        if (current->CheckTopWindowBoundary()) {
+            break;
+        }
+        current = current->GetAncestorNodeOfFrame(false);
+    }
+    return nullptr;
 }
+} // namespace NG
+} // namespace OHOS::Ace

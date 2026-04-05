@@ -29,7 +29,7 @@ namespace OHOS::Ace::NG {
 using OnStateChangeEvent = std::function<void(bool)>;
 using namespace Framework;
 class NavDestinationEventHub : public NavBarEventHub {
-    DECLARE_ACE_TYPE(NavDestinationEventHub, EventHub)
+    DECLARE_ACE_TYPE(NavDestinationEventHub, EventHub);
 public:
     void SetOnStateChange(const OnStateChangeEvent& changeEvent)
     {
@@ -53,19 +53,19 @@ public:
         isActivated_ = isActivated;
     }
 
-    void SetOnShown(const std::function<void()>& onShown)
+    void SetOnShown(const std::function<void(int32_t)>& onShown)
     {
         onShownEvent_ = onShown;
     }
 
-    void FireOnShownEvent(const std::string& name, const std::string& param);
+    void FireOnShownEvent(const std::string& name, const std::string& param, NavDestVisibilityChangeReason reason);
 
-    void SetOnHidden(const std::function<void()>& onHidden)
+    void SetOnHidden(const std::function<void(int32_t)>& onHidden)
     {
         onHiddenEvent_ = onHidden;
     }
 
-    void FireOnHiddenEvent(const std::string& name);
+    void FireOnHiddenEvent(const std::string& name, NavDestVisibilityChangeReason reason);
 
     void SetOnBackPressed(const std::function<bool()>& onBackPressed)
     {
@@ -201,6 +201,18 @@ public:
         }
     }
 
+    void SetOnNewParamStatic(const std::function<void(const RefPtr<NavPathInfo>&)>&& onNewParamCallbackStatic)
+    {
+        onNewParamCallbackStatic_ = onNewParamCallbackStatic;
+    }
+
+    void FireOnNewParamStatic(const RefPtr<NavPathInfo>& info)
+    {
+        if (onNewParamCallbackStatic_) {
+            onNewParamCallbackStatic_(info);
+        }
+    }
+
 private:
     WeakPtr<AceType> GetNavDestinationPattern() const
     {
@@ -212,17 +224,18 @@ private:
     void FireAutoSave();
 
     OnStateChangeEvent onStateChangeEvent_;
-    std::function<void()> onShownEvent_;
-    std::function<void()> onHiddenEvent_;
     std::function<void()> onWillAppear_;
     std::function<void()> onWillShow_;
     std::function<void()> onWillHide_;
     std::function<void()> onWillDisAppear_;
     std::function<bool()> onBackPressedEvent_;
-    std::function<void(int32_t)> onInactive_;
     std::function<void(int32_t)> onActive_;
+    std::function<void(int32_t)> onInactive_;
+    std::function<void(int32_t)> onShownEvent_;
+    std::function<void(int32_t)> onHiddenEvent_;
     NavDestinationOnNewParamCallback onNewParamCallback_;
     std::function<void(RefPtr<NavDestinationContext>)> onReadyEvent_;
+    std::function<void(const RefPtr<NavPathInfo>&)> onNewParamCallbackStatic_;
     std::unordered_map<int32_t, OnStateChangeEvent> onHiddenChange_;
     std::string name_;
     bool isActivated_ = false;

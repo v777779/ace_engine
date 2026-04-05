@@ -53,10 +53,11 @@ LayoutConstraintF GridLayoutAlgorithm::CreateChildConstraint(const SizeF& idealS
     if (!childLayoutProperty || !childLayoutProperty->GetCalcLayoutConstraint()) {
         layoutConstraint.selfIdealSize.UpdateIllegalSizeWithCheck(layoutConstraint.maxSize);
     }
+    layoutConstraint.parentIdealSize = OptionalSizeF(colLen, rowLen);
     return layoutConstraint;
 }
 
-void GridLayoutAlgorithm::InitGridCeils(LayoutWrapper* layoutWrapper, const SizeF& idealSize)
+void GridLayoutAlgorithm::InitGridCeils(LayoutWrapper* layoutWrapper, const SizeF& idealSize, double originalWidth)
 {
     auto layoutProperty = DynamicCast<GridLayoutProperty>(layoutWrapper->GetLayoutProperty());
     CHECK_NULL_VOID(layoutProperty);
@@ -65,8 +66,9 @@ void GridLayoutAlgorithm::InitGridCeils(LayoutWrapper* layoutWrapper, const Size
     columnsGap_ = ConvertToPx(layoutProperty->GetColumnsGap().value_or(0.0_vp), scale, idealSize.Width()).value_or(0);
     auto rows = ParseTemplateArgs(GridUtils::ParseArgs(layoutProperty->GetRowsTemplate().value_or("")),
         idealSize.Height(), rowsGap_, layoutWrapper->GetTotalChildCount());
-    auto cols = ParseTemplateArgs(GridUtils::ParseArgs(layoutProperty->GetColumnsTemplate().value_or("")),
-        idealSize.Width(), columnsGap_, layoutWrapper->GetTotalChildCount());
+    auto cols =
+        ParseTemplateArgs(GridUtils::ParseArgs(layoutProperty->GetFinalColumnsTemplate(originalWidth).value_or("")),
+            idealSize.Width(), columnsGap_, layoutWrapper->GetTotalChildCount());
     auto rowsLen = rows.first;
     auto colsLen = cols.first;
     if (rowsLen.empty()) {
@@ -199,15 +201,16 @@ OffsetF GridLayoutAlgorithm::ComputeItemPosition(LayoutWrapper* layoutWrapper, i
     }
     colLen += (colSpan - 1) * columnsGap_;
 
+    // If RTL, place the item from right.
+    if (rightToLeft_) {
+        positionX = frameSize.Width() - positionX - colLen;
+    }
+
     if (childLayoutWrapper) {
         auto childSize = childLayoutWrapper->GetGeometryNode()->GetMarginFrameSize();
         OffsetByAlign(childSize, rowLen, colLen, positionX, positionY);
     }
 
-    // If RTL, place the item from right.
-    if (rightToLeft_) {
-        positionX = frameSize.Width() - positionX - colLen;
-    }
     return OffsetF(positionX, positionY);
 }
 
@@ -253,15 +256,16 @@ void GridLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     Axis axis = info_.axis_;
     auto idealSize =
         CreateIdealSize(gridLayoutProperty->GetLayoutConstraint().value(), axis, MeasureType::MATCH_PARENT, true);
-    if (GreatOrEqual(GetMainAxisSize(idealSize, axis), Infinity<float>())) {
+    if (GreatOrEqual(GetMainAxisSize(idealSize, axis), LayoutInfinity<float>())) {
         idealSize = gridLayoutProperty->GetLayoutConstraint().value().percentReference;
         TAG_LOGI(AceLogTag::ACE_GRID, "size of main axis value is infinity, use percent reference");
     }
     rightToLeft_ = layoutWrapper->GetLayoutProperty()->GetNonAutoLayoutDirection() == TextDirection::RTL;
 
     layoutWrapper->GetGeometryNode()->SetFrameSize(idealSize);
+    double originalWidth = idealSize.Width();
     MinusPaddingToSize(gridLayoutProperty->CreatePaddingAndBorder(), idealSize);
-    InitGridCeils(layoutWrapper, idealSize);
+    InitGridCeils(layoutWrapper, idealSize, originalWidth);
 
     int32_t rowIndex = 0;
     int32_t colIndex = 0;
@@ -271,7 +275,7 @@ void GridLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     info_.startIndex_ = 0;
     info_.hasBigItem_ = false;
     for (int32_t index = 0; index < mainCount_ * crossCount_; ++index) {
-        auto childLayoutWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
+        auto childLayoutWrapper = GetGridItem(layoutWrapper, index);
         if (!childLayoutWrapper) {
             break;
         }
@@ -346,7 +350,7 @@ void GridLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
         OffsetF childOffset;
         auto childPosition = itemsPosition_.find(index);
         if (childPosition != itemsPosition_.end()) {
-            auto childWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
+            auto childWrapper = GetGridItem(layoutWrapper, index);
             if (!childWrapper) {
                 break;
             }
@@ -364,7 +368,7 @@ void GridLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
                 continue;
             }
             itemIndex = crossLine.second;
-            auto wrapper = layoutWrapper->GetOrCreateChildByIndex(itemIndex);
+            auto wrapper = GetGridItem(layoutWrapper, itemIndex);
             if (!wrapper) {
                 break;
             }

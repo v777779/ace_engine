@@ -76,10 +76,20 @@ struct EdgesParam {
         this->right = right;
     }
 
+    void SetStart(const CalcDimension& start)
+    {
+        this->start = start;
+    }
+
+    void SetEnd(const CalcDimension& end)
+    {
+        this->end = end;
+    }
+
     bool operator==(const EdgesParam& rhs) const
     {
         return ((this->top == rhs.top) && (this->left == rhs.left) && (this->bottom == rhs.bottom) &&
-                (this->right == rhs.right));
+                (this->right == rhs.right) && (this->start == rhs.start) && (this->end == rhs.end));
     }
 
     std::string ToString() const

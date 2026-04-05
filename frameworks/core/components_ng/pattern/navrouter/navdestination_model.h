@@ -68,11 +68,11 @@ public:
     virtual void SetSubtitle(const std::string& subtitle) = 0;
     virtual void SetCustomTitle(const RefPtr<AceType>& customNode) = 0;
     virtual void SetTitleHeight(const Dimension& titleHeight, bool isValid = true) = 0;
-    virtual void SetTitleHeight(const RefPtr<ResourceObject>& resObj, bool isValid = true) = 0;
+    virtual void SetTitleHeight(const Dimension& height, const RefPtr<ResourceObject>& resObj) {}
     virtual void UpdateTitleHeight(
         const RefPtr<NG::TitleBarNode>& titleBarNode, const RefPtr<ResourceObject>& resObj) = 0;
-    virtual void SetOnShown(std::function<void()>&& onShow) = 0;
-    virtual void SetOnHidden(std::function<void()>&& onHidden) = 0;
+    virtual void SetOnShown(std::function<void(int32_t)>&& onShow) = 0;
+    virtual void SetOnHidden(std::function<void(int32_t)>&& onHidden) = 0;
     virtual void SetOnWillAppear(std::function<void()>&& willAppear) = 0;
     virtual void SetOnWillShow(std::function<void()>&& willShow) = 0;
     virtual void SetOnWillHide(std::function<void()>&& willHide) = 0;
@@ -94,7 +94,8 @@ public:
     virtual void SetMenuItems(std::vector<NG::BarItem>&& menuItems) {};
     virtual void SetMenuOptions(NG::NavigationMenuOptions&& opt) {};
     virtual void SetCustomMenu(const RefPtr<AceType>& customNode) = 0;
-    virtual void SetBackgroundColor(const Color& color, bool isVaild = true) = 0;
+    virtual void SetBackgroundColor(
+        const Color& color, bool isVaild = true, const RefPtr<ResourceObject>& backgroundColorResObj = nullptr) = 0;
     virtual void SetNavDestinationPathInfo(const std::string& moduleName, const std::string& pagePath) {};
     virtual RefPtr<AceType> CreateEmpty()
     {
@@ -125,6 +126,7 @@ public:
         const RefPtr<NG::TitleBarNode>& titleBarNode, const RefPtr<ResourceObject>& mainResObj) {};
     virtual void UpdateSubTitle(
         const RefPtr<NG::TitleBarNode>& titleBarNode, const RefPtr<ResourceObject>& subResObj) {};
+    virtual void SetFreeze(bool freeze, bool isValid) {}
 
 private:
     static std::unique_ptr<NavDestinationModel> instance_;

@@ -29,6 +29,8 @@
  * But endMainLineIndex_ corresponds to the last line in viewport.
  */
 namespace OHOS::Ace::NG {
+class GridLayoutProperty;
+
 class GridIrregularLayoutAlgorithm : public GridLayoutBaseAlgorithm {
     DECLARE_ACE_TYPE(GridIrregularLayoutAlgorithm, GridLayoutBaseAlgorithm);
 
@@ -110,7 +112,7 @@ private:
     // ========================================== MeasureOnJump functions =====================================
 
     void MeasureOnJump(float mainSize);
-    void Jump(float mainSize);
+    void Jump(float mainSize, bool considerContentOffset = false);
 
     /**
      * @brief Find the line the jumpIdx item resides in. If not in matrix, fill the matrix up to [jumpIdx].
@@ -173,7 +175,7 @@ private:
     bool canOverScrollEnd_ = false;
 
     SizeF frameSize_;
-
+    double originalWidth_ = 0.0;
     ACE_DISALLOW_COPY_AND_MOVE(GridIrregularLayoutAlgorithm);
 };
 

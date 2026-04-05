@@ -33,7 +33,7 @@ HWTEST_F(KeyEventTest, KeyEvent_GetUnicode002, TestSize.Level0)
         .inputType = ARKUI_UIINPUTEVENT_TYPE_KEY,
         .eventTypeId = C_KEY_EVENT_ID,
         .inputEvent = nullptr,
-        .isCloned = false,
+        .isCreatedByUser = false,
         .apiVersion = 0,
     };
     auto result = OH_ArkUI_KeyEvent_GetUnicode(&event);
@@ -50,7 +50,7 @@ HWTEST_F(KeyEventTest, KeyEvent_GetUnicode003, TestSize.Level0)
             .inputType = ARKUI_UIINPUTEVENT_TYPE_KEY,
             .eventTypeId = C_KEY_EVENT_ID,
             .inputEvent = &keyEvent,
-            .isCloned = false,
+            .isCreatedByUser = false,
             .apiVersion = 0,
         };
         auto result = OH_ArkUI_KeyEvent_GetUnicode(&event);
@@ -59,4 +59,16 @@ HWTEST_F(KeyEventTest, KeyEvent_GetUnicode003, TestSize.Level0)
     }
 }
 
+HWTEST_F(KeyEventTest, KeyEvent_GetUnicode004, TestSize.Level0)
+{
+    ArkUI_UIInputEvent event = {
+        .inputType = ARKUI_UIINPUTEVENT_TYPE_KEY,
+        .eventTypeId = AXIS_EVENT_ID,
+        .inputEvent = nullptr,
+        .isCreatedByUser = false,
+        .apiVersion = 0,
+    };
+    auto result = OH_ArkUI_KeyEvent_GetUnicode(&event);
+    EXPECT_EQ(result, 0u);
+}
 } // namespace OHOS::Ace

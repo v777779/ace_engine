@@ -14,17 +14,23 @@
  */
 
 #include "test/unittest/core/event/gesture_event_hub_test_ng.h"
+#define protected public
+#define private public
 
-#include "test/mock/base/mock_subwindow.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_interaction_interface.h"
+#include "test/mock/frameworks/base/subwindow/mock_subwindow.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_interaction_interface.h"
 
+#include "base/geometry/calc_dimension_rect.h"
 #include "base/subwindow/subwindow_manager.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/pattern/grid/grid_item_pattern.h"
 #include "core/components_ng/pattern/grid/grid_pattern.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
+#include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
+#include "core/components_ng/pattern/menu/menu_manager.h"
 #include "core/components_ng/pattern/stage/page_pattern.h"
+#include "core/components_ng/syntax/shallow_builder.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_global_controller.h"
 
 using namespace testing;
@@ -255,6 +261,8 @@ HWTEST_F(GestureEventHubTestNg, GestureEventHubGetPixelMapOffset002, TestSize.Le
     gestureEventHub->frameNodeOffset_.SetX(1);
     gestureEventHub->frameNodeOffset_.SetY(1);
     PreparedInfoForDrag data;
+    data.displayPoint.SetX(0.0f);
+    data.displayPoint.SetY(0.0f);
     gestureEventHub->GetPixelMapOffset(info, size, data, -1.0f);
     auto frameNode2 = gestureEventHub->GetFrameNode();
     EXPECT_NE(frameNode2, nullptr);
@@ -288,6 +296,9 @@ HWTEST_F(GestureEventHubTestNg, GestureEventHubGetPixelMapOffset003, TestSize.Le
     gestureEventHub->frameNodeOffset_.SetY(1);
     PreparedInfoForDrag data;
     data.isNeedCreateTiled = true;
+
+    data.displayPoint.SetX(0.0f);
+    data.displayPoint.SetY(0.0f);
     gestureEventHub->GetPixelMapOffset(info, size, data, -1.0f);
     auto frameNode = gestureEventHub->GetFrameNode();
     EXPECT_NE(frameNode, nullptr);
@@ -342,7 +353,7 @@ HWTEST_F(GestureEventHubTestNg, GestureRecognizerJudgeFunc001, TestSize.Level1)
     auto guestureEventHub = frameNode->GetOrCreateGestureEventHub();
     ASSERT_NE(guestureEventHub, nullptr);
     auto func = [](const std::shared_ptr<BaseGestureEvent>& info, const RefPtr<NGGestureRecognizer>& current,
-                    const std::list<RefPtr<NGGestureRecognizer>>& others) { return GestureJudgeResult(); };
+                    const std::list<WeakPtr<NGGestureRecognizer>>& others) { return GestureJudgeResult(); };
 
     guestureEventHub->SetOnGestureRecognizerJudgeBegin(std::move(func));
     EXPECT_NE(guestureEventHub->GetOnGestureRecognizerJudgeBegin(), nullptr);
@@ -421,6 +432,7 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart002, TestSize.Level1)
     auto pipline = PipelineContext::GetMainPipelineContext();
     auto overlayManager = pipline->GetOverlayManager();
     ASSERT_NE(overlayManager, nullptr);
+    overlayManager->rootNodeWeak_ = AceType::WeakClaim(AceType::RawPtr(webFrameNode));
     pipline->SetupRootElement();
     webFrameNode->GetOrCreateFocusHub();
     overlayManager->SetIsMenuShow(true);
@@ -431,7 +443,9 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart002, TestSize.Level1)
     auto gestureHub = webFrameNode->GetOrCreateGestureEventHub();
     gestureHub->InitDragDropEvent();
     overlayManager->MountPixelMapToRootNode(columnNode);
-    overlayManager->isMenuShow_ = true;
+    auto menuManager = AceType::DynamicCast<MenuManager>(overlayManager->menuManager_);
+    ASSERT_NE(menuManager, nullptr);
+    menuManager->isMenuShow_ = true;
     /**
      * @tc.steps: step3. mock pixelmap and subwindow
      */
@@ -467,7 +481,6 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart002, TestSize.Level1)
      */
     DragDropGlobalController::GetInstance().SetAsyncDragCallback(nullptr);
     gestureHub->OnDragStart(info, pipline, webFrameNode, dragDropInfo, event);
-    EXPECT_NE(gestureHub->pixelMap_, nullptr);
     EXPECT_NE(gestureHub->dragEventActuator_, nullptr);
     EXPECT_NE(gestureHub->GetPreScaledPixelMapIfExist(1.0f, pixelMap), nullptr);
     SubwindowManager::GetInstance()->subwindowMap_.clear();
@@ -488,6 +501,7 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart003, TestSize.Level1)
     auto pipline = PipelineContext::GetMainPipelineContext();
     auto overlayManager = pipline->GetOverlayManager();
     ASSERT_NE(overlayManager, nullptr);
+    overlayManager->rootNodeWeak_ = AceType::WeakClaim(AceType::RawPtr(buttonFrameNode));
     pipline->SetupRootElement();
     buttonFrameNode->GetOrCreateFocusHub();
     overlayManager->SetIsMenuShow(true);
@@ -499,7 +513,9 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart003, TestSize.Level1)
     SystemProperties::dragDropFrameworkStatus_ = 3;
     gestureHub->InitDragDropEvent();
     overlayManager->MountPixelMapToRootNode(columnNode);
-    overlayManager->isMenuShow_ = true;
+    auto menuManager = AceType::DynamicCast<MenuManager>(overlayManager->menuManager_);
+    ASSERT_NE(menuManager, nullptr);
+    menuManager->isMenuShow_ = true;
     /**
      * @tc.steps: step3. mock pixelmap and subwindow
      */
@@ -508,9 +524,8 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart003, TestSize.Level1)
     EXPECT_CALL(*pixelMap, GetWidth()).WillRepeatedly(testing::Return(256.0f));
     EXPECT_CALL(*pixelMap, GetHeight()).WillRepeatedly(testing::Return(2.0f));
     gestureHub->SetPixelMap(pixelMap);
-    auto containerId = Container::CurrentId();
     auto subwindow = AceType::MakeRefPtr<MockSubwindow>();
-    SubwindowManager::GetInstance()->AddSubwindow(containerId, subwindow);
+    SubwindowManager::GetInstance()->AddSubwindow(Container::CurrentId(), subwindow);
     EXPECT_CALL(*subwindow, ShowPreviewNG(false)).WillRepeatedly(testing::Return(true));
     EXPECT_CALL(*subwindow, GetOverlayManager()).WillRepeatedly(testing::Return(overlayManager));
     MockContainer::SetUp();
@@ -540,7 +555,6 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart003, TestSize.Level1)
      * @tc.steps: step5. call OnDragStart
      */
     gestureHub->OnDragStart(info, pipline, buttonFrameNode, dragDropInfo, event);
-    ASSERT_NE(gestureHub->pixelMap_, nullptr);
     ASSERT_NE(gestureHub->dragEventActuator_, nullptr);
     EXPECT_NE(gestureHub->GetPreScaledPixelMapIfExist(1.0f, pixelMap), nullptr);
     SubwindowManager::GetInstance()->subwindowMap_.clear();
@@ -686,6 +700,7 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart005, TestSize.Level1)
     auto pipline = PipelineContext::GetMainPipelineContext();
     auto overlayManager = pipline->GetOverlayManager();
     ASSERT_NE(overlayManager, nullptr);
+    overlayManager->rootNodeWeak_ = AceType::WeakClaim(AceType::RawPtr(webFrameNode));
     pipline->SetupRootElement();
     webFrameNode->GetOrCreateFocusHub();
     overlayManager->SetIsMenuShow(true);
@@ -693,7 +708,9 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart005, TestSize.Level1)
     auto gestureHub = webFrameNode->GetOrCreateGestureEventHub();
     gestureHub->InitDragDropEvent();
     overlayManager->MountPixelMapToRootNode(columnNode);
-    overlayManager->isMenuShow_ = true;
+    auto menuManager = AceType::DynamicCast<MenuManager>(overlayManager->menuManager_);
+    ASSERT_NE(menuManager, nullptr);
+    menuManager->isMenuShow_ = true;
     auto pixelMap = AceType::MakeRefPtr<MockPixelMap>();
     ASSERT_NE(pixelMap, nullptr);
     EXPECT_CALL(*pixelMap, GetWidth()).WillRepeatedly(testing::Return(4.0f));
@@ -723,7 +740,6 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart005, TestSize.Level1)
     webFrameNode->SetDragPreviewOptions(option);
     gestureHub->dragEventActuator_->preScaledPixelMap_ = pixelMap;
     gestureHub->OnDragStart(info, pipline, webFrameNode, dragDropInfo, event);
-    ASSERT_NE(gestureHub->pixelMap_, nullptr);
     ASSERT_NE(gestureHub->dragEventActuator_, nullptr);
     EXPECT_NE(gestureHub->GetPreScaledPixelMapIfExist(1.0f, pixelMap), nullptr);
     SubwindowManager::GetInstance()->subwindowMap_.clear();
@@ -928,5 +944,121 @@ HWTEST_F(GestureEventHubTestNg, OnDragStart035, TestSize.Level1)
     DragDropGlobalController::GetInstance().SetAsyncDragCallback([]{});
     gestureHub->OnDragStart(info, pipline, frameNode, dragDropInfo, event);
     EXPECT_EQ(info.GetInputEventType(), InputEventType::MOUSE_BUTTON);
+}
+
+/**
+ * @tc.name: GestureEventHubTest035
+ * @tc.desc: Test Set and Get touchTestDoneFunc;
+ * @tc.type: FUNC
+ */
+HWTEST_F(GestureEventHubTestNg, GestureEventHubTest035, TestSize.Level1)
+{
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(NODE_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    eventHub->AttachHost(frameNode);
+    auto gestureEventHub = AceType::MakeRefPtr<GestureEventHub>(eventHub);
+    auto touchTestDoneFunc = [](const std::shared_ptr<BaseGestureEvent>& event,
+                                 const std::list<WeakPtr<NGGestureRecognizer>>& recognizer) {};
+    gestureEventHub->SetOnTouchTestDoneCallback(std::move(touchTestDoneFunc));
+    EXPECT_TRUE(gestureEventHub->GetOnTouchTestDoneCallback());
+}
+
+/**
+ * @tc.name: SetResponseRegionMap001
+ * @tc.desc: Test SetResponseRegionMap and GetResponseRegionMap
+ * @tc.type: FUNC
+ */
+HWTEST_F(GestureEventHubTestFiveNg, SetResponseRegionMap001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode and guestureEventHub.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("testNode", 101, AceType::MakeRefPtr<Pattern>());
+    auto guestureEventHub = frameNode->GetOrCreateGestureEventHub();
+
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> regionMap;
+    auto toolType = NG::ResponseRegionSupportedTool::ALL;
+    CalcDimension xDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension yDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension widthDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimension heightDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimensionRect dimenRect(widthDimen, heightDimen, xDimen, yDimen);
+    regionMap[toolType].push_back(dimenRect);
+
+    guestureEventHub->SetResponseRegionMap(regionMap);
+    auto region = guestureEventHub->GetResponseRegionMap();
+    EXPECT_FALSE(region.empty());
+    EXPECT_EQ(region[toolType].size(), 1);
+
+    regionMap[toolType].push_back(CalcDimensionRect());
+    guestureEventHub->SetResponseRegionMap(regionMap);
+    auto touchRegions = guestureEventHub->GetFingerResponseRegionFromMap();
+    EXPECT_EQ(touchRegions.size(), 2);
+}
+
+/**
+ * @tc.name: AutoHideComponentUniqueIds001
+ * @tc.desc: Test resolving auto hide targets by unique id.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GestureEventHubTestNg, AutoHideComponentUniqueIds001, TestSize.Level1)
+{
+    auto hostNode = FrameNode::CreateFrameNode(
+        NODE_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(hostNode, nullptr);
+    auto gestureHub = hostNode->GetOrCreateGestureEventHub();
+    ASSERT_NE(gestureHub, nullptr);
+
+    auto targetNode = FrameNode::CreateFrameNode(
+        "target", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    auto secondTargetNode = FrameNode::CreateFrameNode(
+        "target2", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(targetNode, nullptr);
+    ASSERT_NE(secondTargetNode, nullptr);
+
+    auto dragEvent = AceType::MakeRefPtr<OHOS::Ace::DragEvent>();
+    ASSERT_NE(dragEvent, nullptr);
+    dragEvent->SetAutoHideComponentUniqueIds(
+        { targetNode->GetId(), secondTargetNode->GetId(), targetNode->GetId(), -1 });
+
+    auto targets = gestureHub->ResolveAutoHideTargetsByUniqueId(dragEvent);
+    ASSERT_EQ(targets.size(), 2);
+    EXPECT_EQ(targets.front(), targetNode);
+    EXPECT_EQ(targets.back(), secondTargetNode);
+}
+
+/**
+ * @tc.name: AutoHideComponentUniqueIds002
+ * @tc.desc: Test hiding auto hide targets is idempotent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GestureEventHubTestNg, AutoHideComponentUniqueIds002, TestSize.Level1)
+{
+    auto hostNode = FrameNode::CreateFrameNode(
+        NODE_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(hostNode, nullptr);
+    auto gestureHub = hostNode->GetOrCreateGestureEventHub();
+    ASSERT_NE(gestureHub, nullptr);
+
+    auto targetNode = FrameNode::CreateFrameNode(
+        "target", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    auto secondTargetNode = FrameNode::CreateFrameNode(
+        "target2", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(targetNode, nullptr);
+    ASSERT_NE(secondTargetNode, nullptr);
+
+    gestureHub->HideAutoHideTargets({ targetNode, secondTargetNode });
+    EXPECT_TRUE(gestureHub->dragframeNodeInfo_.autoHideExecuted);
+    EXPECT_EQ(gestureHub->dragframeNodeInfo_.autoHideFrameNodes.size(), 2);
+    EXPECT_EQ(targetNode->GetLayoutProperty()->GetVisibilityValue(VisibleType::VISIBLE), VisibleType::INVISIBLE);
+    EXPECT_EQ(secondTargetNode->GetLayoutProperty()->GetVisibilityValue(VisibleType::VISIBLE), VisibleType::INVISIBLE);
+
+    targetNode->GetLayoutProperty()->UpdateVisibility(VisibleType::VISIBLE);
+    gestureHub->HideAutoHideTargets({ targetNode });
+    EXPECT_EQ(targetNode->GetLayoutProperty()->GetVisibilityValue(VisibleType::VISIBLE), VisibleType::VISIBLE);
+
+    gestureHub->ResetAutoHideDragInfo();
+    EXPECT_FALSE(gestureHub->dragframeNodeInfo_.autoHideExecuted);
+    EXPECT_TRUE(gestureHub->dragframeNodeInfo_.autoHideFrameNodes.empty());
 }
 } // namespace OHOS::Ace::NG

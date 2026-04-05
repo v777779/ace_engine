@@ -43,13 +43,20 @@ public:
     static void SetTextShadow(const JSCallbackInfo& info);
     static void SetTextOverflow(const JSCallbackInfo& info);
     static void SetMaxLines(const JSCallbackInfo& info);
+    static void SetMinLines(const JSCallbackInfo& info);
     static void SetTextIndent(const JSCallbackInfo& info);
     static void SetFontStyle(int32_t value);
     static void SetAlign(const JSCallbackInfo& info);
+    static void SetTextContentAlign(const JSCallbackInfo& info);
     static void SetTextAlign(int32_t value);
+    static void SetTextDirection(const JSCallbackInfo& info);
     static void SetLineHeight(const JSCallbackInfo& info);
+    static void SetLineHeightMultiply(const JSCallbackInfo& info);
+    static void SetMinimumLineHeight(const JSCallbackInfo& info);
+    static void SetMaximumLineHeight(const JSCallbackInfo& info);
     static void SetLineSpacing(const JSCallbackInfo& info);
     static void SetOptimizeTrailingSpace(const JSCallbackInfo& info);
+    static void SetCompressLeadingPunctuation(const JSCallbackInfo& info);
     static void SetShaderStyle(const JSCallbackInfo& info);
     static void SetFontFamily(const JSCallbackInfo& info);
     static void SetMinFontSize(const JSCallbackInfo& info);
@@ -57,15 +64,17 @@ public:
     static void SetLetterSpacing(const JSCallbackInfo& info);
     static void SetWordBreak(const JSCallbackInfo& info);
     static void SetLineBreakStrategy(const JSCallbackInfo& info);
-    static void SetEllipsisMode(const JSCallbackInfo& info);
     static void SetTextSelection(const JSCallbackInfo& info);
     static void SetTextCaretColor(const JSCallbackInfo& info);
     static void SetSelectedBackgroundColor(const JSCallbackInfo& info);
+    static void SetEllipsisMode(const JSCallbackInfo& info);
     static void SetTextSelectableMode(const JSCallbackInfo& info);
     static void SetTextCase(int32_t value);
     static void SetBaselineOffset(const JSCallbackInfo& info);
     static void SetDecoration(const JSCallbackInfo& info);
     static void SetCopyOption(const JSCallbackInfo& info);
+    static void SetOnWillCopy(const JSCallbackInfo& info);
+    static JSRef<JSVal> CreateSimpleJsOnWillObj(const std::u16string& value);
     static void SetOnCopy(const JSCallbackInfo& info);
     static void SetHeightAdaptivePolicy(int32_t value);
     static void SetContentTransition(const JSCallbackInfo& info);
@@ -75,8 +84,8 @@ public:
     static void JsOnDragStart(const JSCallbackInfo& info);
     static void JsFocusable(const JSCallbackInfo& info);
     static void JsDraggable(const JSCallbackInfo& info);
-    static void JsMenuOptionsExtension(const JSCallbackInfo& info);
     static void JsEnableDataDetector(const JSCallbackInfo& info);
+    static void SetSelectDetectEnable(const JSCallbackInfo& info);
     static void JsDataDetectorConfig(const JSCallbackInfo& info);
     static void BindSelectionMenu(const JSCallbackInfo& info);
     static void SetOnTextSelectionChange(const JSCallbackInfo& info);
@@ -87,10 +96,11 @@ public:
         const JSRef<JSObject>& menuOptions, const JSCallbackInfo& info, const std::string& name);
     static NG::PreviewMenuOptions ParsePreviewMenuOptions(const JSRef<JSObject>& menuOptions);
     static void JsClip(const JSCallbackInfo& info);
-    static void SetFontFeature(const JSCallbackInfo &info);
     static void SetForegroundColor(const JSCallbackInfo& info);
+    static void SetFontFeature(const JSCallbackInfo &info);
     static void SetMarqueeOptions(const JSCallbackInfo& info);
     static void SetOnMarqueeStateChange(const JSCallbackInfo& info);
+    static void SetOrphanCharOptimization(const JSCallbackInfo& info);
     static void ParseMarqueeParam(const JSRef<JSObject>& paramObject, NG::TextMarqueeOptions& options);
     static void EditMenuOptions(const JSCallbackInfo& info);
     static void JsResponseRegion(const JSCallbackInfo& info);
@@ -98,9 +108,13 @@ public:
     static void SetEnableHapticFeedback(const JSCallbackInfo& info);
     static void SetEnableAutoSpacing(const JSCallbackInfo& info);
     static void SetTextVerticalAlign(const JSCallbackInfo& info);
+    static void SetIncludeFontPadding(const JSCallbackInfo& info);
+    static void SetFallbackLineSpacing(const JSCallbackInfo& info);
+    static void SetSelectedDragPreviewStyle(const JSCallbackInfo& info);
 
 private:
     static RefPtr<TextComponentV2> GetComponent();
+    static void SetMarqueeSpacing(const JSRef<JSObject>& paramObject, NG::TextMarqueeOptions& options);
 };
 
 class JSTextController final : public Referenced {
@@ -141,6 +155,7 @@ public:
 
     void CloseSelectionMenu();
 
+    void SetTextSelection(const JSCallbackInfo& info);
     void SetStyledString(const JSCallbackInfo& info);
     void GetLayoutManager(const JSCallbackInfo& args);
 private:

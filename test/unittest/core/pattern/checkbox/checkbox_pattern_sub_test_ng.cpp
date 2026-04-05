@@ -18,9 +18,9 @@
 // Add the following two macro definitions to test the private and protected method.
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "core/components/checkable/checkable_theme.h"
 #include "core/components_ng/base/view_abstract.h"
@@ -577,6 +577,9 @@ HWTEST_F(CheckBoxPatternSubTestNG, CheckBoxPatternTest061, TestSize.Level1)
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     frameNode->MarkModifyDone();
+    auto pipeline = frameNode->GetContext();
+    ASSERT_NE(pipeline, nullptr);
+    pipeline->FlushBuildFinishCallbacks();
     auto pattern = frameNode->GetPattern<CheckBoxPattern>();
     ASSERT_NE(pattern, nullptr);
     pattern->isFirstCreated_ = true;
@@ -631,6 +634,9 @@ HWTEST_F(CheckBoxPatternSubTestNG, CheckBoxPatternTest062, TestSize.Level1)
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     frameNode->MarkModifyDone();
+    auto pipeline = frameNode->GetContext();
+    ASSERT_NE(pipeline, nullptr);
+    pipeline->FlushBuildFinishCallbacks();
     auto pattern = frameNode->GetPattern<CheckBoxPattern>();
     ASSERT_NE(pattern, nullptr);
     pattern->isFirstCreated_ = false;
@@ -685,6 +691,9 @@ HWTEST_F(CheckBoxPatternSubTestNG, CheckBoxPatternTest063, TestSize.Level1)
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     frameNode->MarkModifyDone();
+    auto pipeline = frameNode->GetContext();
+    ASSERT_NE(pipeline, nullptr);
+    pipeline->FlushBuildFinishCallbacks();
     auto pattern = frameNode->GetPattern<CheckBoxPattern>();
     ASSERT_NE(pattern, nullptr);
     pattern->isFirstCreated_ = true;
@@ -717,6 +726,37 @@ HWTEST_F(CheckBoxPatternSubTestNG, CheckBoxPatternTest063, TestSize.Level1)
     RoundRect paintRect;
     eventHub->getInnerFocusRectFunc_(paintRect);
     EXPECT_EQ(paintRect.GetRect().ToString(), "RectT (-100.00, -100.00) - [400.00 x 400.00]");
+}
+
+/**
+ * @tc.name: SetModifierBoundsRect001
+ * @tc.desc: test SetModifierBoundsRect
+ * @tc.type: FUNC
+ */
+HWTEST_F(CheckBoxPatternSubTestNG, SetModifierBoundsRect001, TestSize.Level1)
+{
+    CheckBoxPaintMethod checkBoxPaintMethod;
+    checkBoxPaintMethod.checkboxModifier_ = AceType::MakeRefPtr<CheckBoxModifier>(true, Color::BLACK, Color::BLUE,
+        Color::GRAY, Color::TRANSPARENT, SizeF(20.0f, 20.0f), OffsetF(0.0f, 0.0f), 2.0f, 1.0f);
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto checkBoxTheme = AceType::MakeRefPtr<CheckboxTheme>();
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(checkBoxTheme));
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(checkBoxTheme));
+    checkBoxTheme->hotZoneHorizontalPadding_ = Dimension(0.0f);
+    checkBoxTheme->hotZoneVerticalPadding_ = Dimension(0.0f);
+    checkBoxPaintMethod.checkboxModifier_->rect_->x_ = 0.0f;
+    checkBoxPaintMethod.checkboxModifier_->rect_->y_ = 0.0f;
+    checkBoxPaintMethod.checkboxModifier_->rect_->width_ = SIZE_WIDTH_NEW;
+    checkBoxPaintMethod.checkboxModifier_->rect_->height_ = 0.0f;
+    SizeF size(SIZE_WIDTH_NEW, SIZE_HEIGHT);
+    OffsetF offset(0.0f, 0.0f);
+    RefPtr<CheckBoxPaintProperty> paintProperty = AceType::MakeRefPtr<CheckBoxPaintProperty>();
+    WeakPtr<RenderContext> renderContext;
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    PaintWrapper* paintWrapper = new PaintWrapper(renderContext, geometryNode, paintProperty);
+    checkBoxPaintMethod.SetModifierBoundsRect(checkBoxTheme, size, offset, paintWrapper);
+    EXPECT_EQ(checkBoxPaintMethod.checkboxModifier_->rect_->height_, SIZE_HEIGHT);
 }
 
 /**
@@ -772,33 +812,32 @@ HWTEST_F(CheckBoxPatternSubTestNG, OnInjectionEvent001, TestSize.Level1)
 }
 
 /**
- * @tc.name: SetModifierBoundsRect001
- * @tc.desc: test SetModifierBoundsRect
+ * @tc.name: UpdateGroupManager001
+ * @tc.desc: test UpdateGroupManager
  * @tc.type: FUNC
  */
-HWTEST_F(CheckBoxPatternSubTestNG, SetModifierBoundsRect001, TestSize.Level1)
+HWTEST_F(CheckBoxPatternSubTestNG, UpdateGroupManager001, TestSize.Level1)
 {
-    CheckBoxPaintMethod checkBoxPaintMethod;
-    checkBoxPaintMethod.checkboxModifier_ = AceType::MakeRefPtr<CheckBoxModifier>(true, Color::BLACK, Color::BLUE,
-        Color::GRAY, Color::TRANSPARENT, SizeF(20.0f, 20.0f), OffsetF(0.0f, 0.0f), 2.0f, 1.0f);
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    auto checkBoxTheme = AceType::MakeRefPtr<CheckboxTheme>();
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(checkBoxTheme));
-    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(checkBoxTheme));
-    checkBoxTheme->hotZoneHorizontalPadding_ = Dimension(0.0f);
-    checkBoxTheme->hotZoneVerticalPadding_ = Dimension(0.0f);
-    checkBoxPaintMethod.checkboxModifier_->rect_->x_ = 0.0f;
-    checkBoxPaintMethod.checkboxModifier_->rect_->y_ = 0.0f;
-    checkBoxPaintMethod.checkboxModifier_->rect_->width_ = SIZE_WIDTH_NEW;
-    checkBoxPaintMethod.checkboxModifier_->rect_->height_ = 0.0f;
-    SizeF size(SIZE_WIDTH_NEW, SIZE_HEIGHT);
-    OffsetF offset(0.0f, 0.0f);
-    RefPtr<CheckBoxPaintProperty> paintProperty = AceType::MakeRefPtr<CheckBoxPaintProperty>();
-    WeakPtr<RenderContext> renderContext;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    PaintWrapper* paintWrapper = new PaintWrapper(renderContext, geometryNode, paintProperty);
-    checkBoxPaintMethod.SetModifierBoundsRect(checkBoxTheme, size, offset, paintWrapper);
-    EXPECT_EQ(checkBoxPaintMethod.checkboxModifier_->rect_->height_, SIZE_HEIGHT);
+    auto stageNode = FrameNode::CreateFrameNode(V2::STAGE_ETS_TAG, 1, AIWriteAdapter::MakeRefPtr<StagePattern>());
+    ASSERT_NE(stageNode, nullptr);
+    auto pageNode = FrameNode::CreateFrameNode(V2::PAGE_ETS_TAG, 2, AceType::MakeRefPtr<Pattern>(), true);
+    ASSERT_NE(pageNode, nullptr);
+    auto pageEventHub = AceType::MakeRefPtr<NG::PageEventHub>();
+    ASSERT_NE(pageEventHub, nullptr);
+    pageNode->eventHub_ = pageEventHub;
+    pageNode->MountToParent(stageNode);
+    auto context = PipelineContext::GetCurrentContext();
+    ASSERT_NE(context, nullptr);
+    auto stageManager = context->GetStageManager();
+    ASSERT_NE(stageManager, nullptr);
+    stageManager->stageNode_ = stageNode;
+    auto checkboxNode = FrameNode::CreateFrameNode(V2::CHECK_BOX_ETS_TAG, 3, AceType::MakeRefPtr<CheckBoxPattern>());
+    ASSERT_NE(checkboxNode, nullptr);
+    auto pattern = checkboxNode->GetPattern<CheckBoxPattern>();
+    ASSERT_NE(pattern, nullptr);
+    ASSERT_EQ(pattern->groupManager_.Upgrade(), nullptr);
+
+    pattern->UpdateGroupManager();
+    EXPECT_NE(pattern->groupManager_.Upgrade(), nullptr);
 }
 } // namespace OHOS::Ace::NG

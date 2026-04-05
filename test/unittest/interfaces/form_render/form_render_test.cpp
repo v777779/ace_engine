@@ -16,16 +16,17 @@
 #include <thread>
 #include <chrono>
 #include "gtest/gtest.h"
+#include "form_mgr_errors.h"
 #include "test/mock/interfaces/mock_uicontent.h"
+#include "test/unittest/interfaces/form_render/mock/mock_form_render_delegate_stub.h"
 #include "ui_content.h"
 
 #define private public
 #include "interfaces/inner_api/form_render/include/form_renderer.h"
 #include "interfaces/inner_api/form_render/include/form_renderer_delegate_impl.h"
 #include "interfaces/inner_api/form_render/include/form_renderer_group.h"
-#include "interfaces/inner_api/form_render/include/form_renderer_event_report.h"
 #include "interfaces/inner_api/ace/serialized_gesture.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -45,6 +46,7 @@ const std::string FORM_COMPONENT_ID_3 = "333333";
 const std::string CHECK_KEY = "CHECK_KEY";
 constexpr double FORM_WIDTH = 100.0f;
 constexpr double FORM_HEIGHT = 100.0f;
+constexpr double FORM_VIEW_SCALE = 1.0f;
 constexpr double FORM_WIDTH_2 = 200.0f;
 constexpr double FORM_HEIGHT_2 = 200.0f;
 } // namespace
@@ -59,6 +61,8 @@ public:
     {
         NG::MockPipelineContext::TearDown();
     }
+
+    std::shared_ptr<FormRenderer> CreateFormRenderer(const std::string &test);
 };
 
 std::shared_ptr<FormRenderer> GetInstance(std::string eventName)
@@ -85,7 +89,7 @@ std::shared_ptr<FormRenderer> GetInstance(std::string eventName)
  * @tc.desc: test AddForm -> UpdateForm -> ReloadForm -> DeleteForm(comp_id) -> DeleteForm
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest001, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create formRenderGroup and prepare want
@@ -124,8 +128,10 @@ HWTEST_F(FormRenderTest, FormRenderTest001, TestSize.Level1)
     EXPECT_TRUE(formRenderer);
     formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
     EXPECT_TRUE(formRenderer->uiContent_);
-    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), SetFormWidth(FORM_WIDTH)).WillOnce(Return());
-    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), SetFormHeight(FORM_HEIGHT)).WillOnce(Return());
+    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), SetFormWidth(FORM_WIDTH)).Times(Exactly(2));
+    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), SetFormHeight(FORM_HEIGHT)).Times(Exactly(2));
+    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), SetFormViewScale(FORM_WIDTH, FORM_HEIGHT,
+        FORM_VIEW_SCALE)).Times(Exactly(2));
     EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), UpdateFormSharedImage(_)).WillOnce(Return());
     EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), UpdateFormData(_)).WillOnce(Return());
 
@@ -135,7 +141,12 @@ HWTEST_F(FormRenderTest, FormRenderTest001, TestSize.Level1)
 
     EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), SetActionEventHandler(_)).WillOnce(Return());
     EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), SetErrorEventHandler(_)).WillOnce(Return());
-    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), GetFormRootNode()).Times(Exactly(2));
+    std::string surfaceNodeName = "ArkTSCardNode";
+    struct Rosen::RSSurfaceNodeConfig surfaceNodeConfig = { .SurfaceNodeName = surfaceNodeName };
+    std::shared_ptr<Rosen::RSSurfaceNode> rsNode = OHOS::Rosen::RSSurfaceNode::Create(surfaceNodeConfig, true);
+    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), GetFormRootNode())
+        .Times(Exactly(2))
+        .WillOnce(Return(rsNode));
     // call AddForm manually
     formRenderer->AddForm(want, formJsInfo);
     EXPECT_EQ(formRenderer->allowUpdate_, true);
@@ -199,7 +210,7 @@ HWTEST_F(FormRenderTest, FormRenderTest001, TestSize.Level1)
  * @tc.desc: delegate & dispatcher is not null
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest002, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create formRenderGroup and add new formRenderer with delegate & dispatcher
@@ -228,9 +239,12 @@ HWTEST_F(FormRenderTest, FormRenderTest002, TestSize.Level1)
      * @tc.steps: step2. register callback for rendererDelegate
      */
     std::string onSurfaceCreateKey;
-    auto onSurfaceCreate = [&onSurfaceCreateKey](const std::shared_ptr<Rosen::RSSurfaceNode>& /* surfaceNode */,
-                               const OHOS::AppExecFwk::FormJsInfo& /* info */,
-                               const AAFwk::Want& /* want */) { onSurfaceCreateKey = CHECK_KEY; };
+    auto onSurfaceCreate = [&onSurfaceCreateKey](const std::shared_ptr<Rosen::RSSurfaceNode> & /* surfaceNode */,
+                               const OHOS::AppExecFwk::FormJsInfo & /* info */,
+                               const AAFwk::Want & /* want */) -> int32_t {
+        onSurfaceCreateKey = CHECK_KEY;
+        return ERR_OK;
+    };
     renderDelegate->SetSurfaceCreateEventHandler(std::move(onSurfaceCreate));
 
     std::string onActionEventKey;
@@ -265,10 +279,8 @@ HWTEST_F(FormRenderTest, FormRenderTest002, TestSize.Level1)
     std::string surfaceNodeName = "ArkTSCardNode";
     struct Rosen::RSSurfaceNodeConfig surfaceNodeConfig = { .SurfaceNodeName = surfaceNodeName };
     std::shared_ptr<Rosen::RSSurfaceNode> rsNode = OHOS::Rosen::RSSurfaceNode::Create(surfaceNodeConfig, true);
-    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), GetFormRootNode())
-        .WillOnce(Return(rsNode))
-        .WillOnce(Return(rsNode))
-        .WillOnce(Return(rsNode));
+    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), GetFormRootNode()).Times(Exactly(4))
+        .WillRepeatedly(Return(rsNode));
     EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), Foreground()).WillOnce(Return());
     formRenderer->AddForm(want, formJsInfo);
     EXPECT_EQ(onSurfaceCreateKey, CHECK_KEY);
@@ -292,7 +304,10 @@ HWTEST_F(FormRenderTest, FormRenderTest002, TestSize.Level1)
     EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), SetFormHeight(FORM_HEIGHT_2)).WillOnce(Return());
     EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), OnFormSurfaceChange(FORM_WIDTH_2, FORM_HEIGHT_2,
         _, _)).WillOnce(Return());
-    formRendererDispatcher->DispatchSurfaceChangeEvent(FORM_WIDTH_2, FORM_HEIGHT_2);
+    OHOS::AppExecFwk::FormSurfaceInfo formSurfaceInfo;
+    formSurfaceInfo.width = FORM_WIDTH_2;
+    formSurfaceInfo.height = FORM_HEIGHT_2;
+    formRendererDispatcher->DispatchSurfaceChangeEvent(formSurfaceInfo);
     std::this_thread::sleep_for(std::chrono::seconds(1));
     EXPECT_EQ(onSurfaceChangeEventKey, CHECK_KEY);
     // formRenderer is null
@@ -302,7 +317,7 @@ HWTEST_F(FormRenderTest, FormRenderTest002, TestSize.Level1)
     EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), OnFormSurfaceChange(FORM_WIDTH_2, FORM_HEIGHT_2,
         _, _)).WillOnce(Return());
     onSurfaceChangeEventKey = "";
-    formRendererDispatcher->DispatchSurfaceChangeEvent(FORM_WIDTH_2, FORM_HEIGHT_2);
+    formRendererDispatcher->DispatchSurfaceChangeEvent(formSurfaceInfo);
     std::this_thread::sleep_for(std::chrono::seconds(1));
     EXPECT_NE(onSurfaceChangeEventKey, CHECK_KEY);
 
@@ -325,7 +340,7 @@ HWTEST_F(FormRenderTest, FormRenderTest002, TestSize.Level1)
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDelegateImpl
  */
-HWTEST_F(FormRenderTest, FormRenderTest003, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest003, TestSize.Level0)
 {
     std::string action = "action";
     auto fun = [](const std::string&) {};
@@ -343,14 +358,14 @@ HWTEST_F(FormRenderTest, FormRenderTest003, TestSize.Level1)
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDelegateImpl
  */
-HWTEST_F(FormRenderTest, FormRenderTest004, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest004, TestSize.Level0)
 {
     std::string code = "code";
     std::string msg = "msg";
     auto fun = [](const std::string&, const std::string&) {};
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
     renderDelegate->SetErrorEventHandler(nullptr);
-    EXPECT_EQ(renderDelegate->OnError(code, msg), ERR_INVALID_DATA);
+    EXPECT_EQ(renderDelegate->OnError(code, msg), ERR_APPEXECFWK_FORM_COMMON_CODE);
     renderDelegate->SetErrorEventHandler(fun);
     EXPECT_EQ(renderDelegate->OnError(code, msg), ERR_OK);
 }
@@ -362,7 +377,7 @@ HWTEST_F(FormRenderTest, FormRenderTest004, TestSize.Level1)
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDelegateImpl
  */
-HWTEST_F(FormRenderTest, FormRenderTest005, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest005, TestSize.Level0)
 {
     float width = 1.1;
     float height = 2.2;
@@ -381,13 +396,13 @@ HWTEST_F(FormRenderTest, FormRenderTest005, TestSize.Level1)
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDelegateImpl
  */
-HWTEST_F(FormRenderTest, FormRenderTest006, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest006, TestSize.Level0)
 {
     uint64_t surfaceId = 1;
     auto fun = []() {};
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
     renderDelegate->SetSurfaceDetachEventHandler(nullptr);
-    EXPECT_EQ(renderDelegate->OnSurfaceDetach(surfaceId), ERR_INVALID_DATA);
+    EXPECT_EQ(renderDelegate->OnSurfaceDetach(surfaceId), ERR_APPEXECFWK_FORM_COMMON_CODE);
     renderDelegate->SetSurfaceDetachEventHandler(fun);
     EXPECT_EQ(renderDelegate->OnSurfaceDetach(surfaceId), ERR_OK);
 }
@@ -399,7 +414,7 @@ HWTEST_F(FormRenderTest, FormRenderTest006, TestSize.Level1)
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDelegateImpl
  */
-HWTEST_F(FormRenderTest, FormRenderTest007, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest007, TestSize.Level0)
 {
     std::vector<std::string> formLinkInfos;
     auto fun = [](const std::vector<std::string>&) {};
@@ -417,7 +432,7 @@ HWTEST_F(FormRenderTest, FormRenderTest007, TestSize.Level1)
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDelegateImpl
  */
-HWTEST_F(FormRenderTest, FormRenderTest008, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest008, TestSize.Level0)
 {
     AccessibilityParentRectInfo parentRectInfo;
     parentRectInfo.top = 50;
@@ -435,7 +450,7 @@ HWTEST_F(FormRenderTest, FormRenderTest008, TestSize.Level1)
  * @tc.desc: test RunFormPage
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest010, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest010, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest010");
     ASSERT_TRUE(formRenderer);
@@ -459,7 +474,7 @@ HWTEST_F(FormRenderTest, FormRenderTest010, TestSize.Level1)
  * @tc.desc: test OnFormLinkInfoUpdate
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest011, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest011, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest011");
     ASSERT_TRUE(formRenderer);
@@ -478,13 +493,12 @@ HWTEST_F(FormRenderTest, FormRenderTest011, TestSize.Level1)
  * @tc.desc: test ResetRenderDelegate
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest012, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest012, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest012");
     ASSERT_TRUE(formRenderer);
     formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
     EXPECT_TRUE(formRenderer->uiContent_);
-    formRenderer->ResetRenderDelegate();
 }
 
 /**
@@ -492,7 +506,7 @@ HWTEST_F(FormRenderTest, FormRenderTest012, TestSize.Level1)
  * @tc.desc: test UpdateConfiguration
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest013, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest013, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest013");
     ASSERT_TRUE(formRenderer);
@@ -506,7 +520,7 @@ HWTEST_F(FormRenderTest, FormRenderTest013, TestSize.Level1)
  * @tc.desc: test OnRemoteDied
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest014, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest014, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest014");
     ASSERT_TRUE(formRenderer);
@@ -524,7 +538,7 @@ HWTEST_F(FormRenderTest, FormRenderTest014, TestSize.Level1)
  * @tc.desc: test GetRectRelativeToWindow
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest015, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest015, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest015");
     ASSERT_TRUE(formRenderer);
@@ -545,7 +559,7 @@ HWTEST_F(FormRenderTest, FormRenderTest015, TestSize.Level1)
  * @tc.desc: test RecycleForm
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest016, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest016, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest016");
     ASSERT_TRUE(formRenderer);
@@ -561,7 +575,7 @@ HWTEST_F(FormRenderTest, FormRenderTest016, TestSize.Level1)
  * @tc.desc: test RecoverForm
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest017, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest017, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest017");
     ASSERT_TRUE(formRenderer);
@@ -603,7 +617,7 @@ HWTEST_F(FormRenderTest, FormRenderTest018, TestSize.Level1)
  * @tc.desc: test AttachForm
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest019, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest019, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest019");
     ASSERT_TRUE(formRenderer);
@@ -625,7 +639,7 @@ HWTEST_F(FormRenderTest, FormRenderTest019, TestSize.Level1)
  * @tc.desc: test AttachUIContent
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest020, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest020, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest020");
     ASSERT_TRUE(formRenderer);
@@ -638,10 +652,15 @@ HWTEST_F(FormRenderTest, FormRenderTest020, TestSize.Level1)
     want.SetParam(FORM_RENDERER_PROCESS_ON_ADD_SURFACE, renderDelegate->AsObject());
     formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
     EXPECT_TRUE(formRenderer->uiContent_);
-    std::string surfaceNodeName = "ArkTSCardNode";
-    struct Rosen::RSSurfaceNodeConfig surfaceNodeConfig = { .SurfaceNodeName = surfaceNodeName };
-    std::shared_ptr<Rosen::RSSurfaceNode> rsNode = OHOS::Rosen::RSSurfaceNode::Create(surfaceNodeConfig, true);
-    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), GetFormRootNode()).WillOnce(Return(rsNode));
+    
+    std::string transparentColor = "#00000000";
+    std::string transparentColor1 = "#00FFFFFF";
+    want.SetParam(OHOS::AppExecFwk::Constants::PARAM_FORM_TRANSPARENCY_KEY, transparentColor);
+    formRenderer->backgroundColor_ = transparentColor1;
+    formRenderer->renderingMode_ = OHOS::AppExecFwk::Constants::RenderingMode::SINGLE_COLOR;
+    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), SetFormBackgroundColor(transparentColor)).Times(1);
+    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), SetFormBackgroundColor(transparentColor1))
+        .Times(1);
     formRenderer->AttachUIContent(want, formJsInfo);
 }
 
@@ -650,7 +669,7 @@ HWTEST_F(FormRenderTest, FormRenderTest020, TestSize.Level1)
  * @tc.desc: test OnSurfaceReuse
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderTest, FormRenderTest021, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest021, TestSize.Level0)
 {
     auto eventRunner = OHOS::AppExecFwk::EventRunner::Create("formRenderTest021");
     ASSERT_TRUE(eventRunner);
@@ -676,8 +695,19 @@ HWTEST_F(FormRenderTest, FormRenderTest021, TestSize.Level1)
     std::string surfaceNodeName = "ArkTSCardNode";
     struct Rosen::RSSurfaceNodeConfig surfaceNodeConfig = { .SurfaceNodeName = surfaceNodeName };
     std::shared_ptr<Rosen::RSSurfaceNode> rsNode = OHOS::Rosen::RSSurfaceNode::Create(surfaceNodeConfig, true);
-    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), GetFormRootNode()).Times(Exactly(2))
-        .WillOnce(Return(rsNode));
+    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), GetFormRootNode()).WillOnce(Return(rsNode));
+    formRenderer->OnSurfaceReuse(formJsInfo);
+
+    sptr<MockFormRenderDelegateStub> renderDelegateStub = new MockFormRenderDelegateStub();
+    formRenderer->formRendererDelegate_ = renderDelegateStub;
+    EXPECT_CALL(*((MockUIContent*)(formRenderer->uiContent_.get())), GetFormRootNode()).WillRepeatedly(Return(rsNode));
+    EXPECT_CALL(*renderDelegateStub, OnSurfaceReuse(_, _, _)).WillOnce(Return(ERR_OK));
+    EXPECT_CALL(*renderDelegateStub, OnSurfaceCreate(_, _, _)).Times(0);
+    formRenderer->OnSurfaceReuse(formJsInfo);
+
+    EXPECT_CALL(*renderDelegateStub, OnSurfaceReuse(_, _, _))
+        .WillOnce(Return(ERR_APPEXECFWK_FORM_SURFACE_NODE_NOT_FOUND));
+    EXPECT_CALL(*renderDelegateStub, OnSurfaceCreate(_, _, _)).Times(1);
     formRenderer->OnSurfaceReuse(formJsInfo);
 }
 
@@ -720,7 +750,7 @@ HWTEST_F(FormRenderTest, FormRenderTest022, TestSize.Level1)
 * @tc.desc: test SetVisibleChange
 * @tc.type: FUNC
 */
-HWTEST_F(FormRenderTest, FormRenderTest023, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest023, TestSize.Level0)
 {
     auto formRenderer = GetInstance("formRenderTest023");
     ASSERT_TRUE(formRenderer);
@@ -757,70 +787,25 @@ HWTEST_F(FormRenderTest, FormRenderTest025, TestSize.Level1)
     float borderWidth = 1.0f;
     float width = 1.0f;
     float height = 1.0f;
-    formRenderer->UpdateFormSize(width, height, borderWidth);
+    float formViewScale = 1.0f;
+    formRenderer->UpdateFormSize(width, height, borderWidth, formViewScale);
     formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
     EXPECT_TRUE(formRenderer->uiContent_);
-    formRenderer->UpdateFormSize(width, height, borderWidth);
+    formRenderer->UpdateFormSize(width, height, borderWidth, formViewScale);
 }
 
 /**
 * @tc.name: FormRenderTest026
-* @tc.desc: test CheckWhetherNeedResizeFormAgain
+* @tc.desc: test SetRenderGroupEnableFlag
 * @tc.type: FUNC
 */
 HWTEST_F(FormRenderTest, FormRenderTest026, TestSize.Level1)
 {
-    auto formRenderer = GetInstance("formRenderTest026");
+    auto formRenderer = GetInstance("FormRenderTest026");
     ASSERT_TRUE(formRenderer);
-    float borderWidth = 1.0f;
-    float width = 1.0f;
-    float height = 1.0f;
-    formRenderer->CheckWhetherNeedResizeFormAgain(borderWidth, width, height);
-}
-
-/**
-* @tc.name: FormRenderTest027
-* @tc.desc: test ResizeFormAgain
-* @tc.type: FUNC
-*/
-HWTEST_F(FormRenderTest, FormRenderTest027, TestSize.Level1)
-{
-    auto formRenderer = GetInstance("formRenderTest027");
-    ASSERT_TRUE(formRenderer);
-    float borderWidth = 1.0f;
-    float width = 1.0f;
-    float height = 1.0f;
-    formRenderer->ResizeFormAgain(borderWidth, width, height);
     formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
     EXPECT_TRUE(formRenderer->uiContent_);
-    formRenderer->ResizeFormAgain(borderWidth, width, height);
-}
-
-/**
-* @tc.name: FormRenderTest028
-* @tc.desc: test GetRunFormPageInnerTimeStamp
-* @tc.type: FUNC
-*/
-HWTEST_F(FormRenderTest, FormRenderTest028, TestSize.Level1)
-{
-    auto formRenderer = GetInstance("formRenderTest028");
-    ASSERT_TRUE(formRenderer);
-    int64_t res = formRenderer->GetRunFormPageInnerTimeStamp();
-    EXPECT_EQ(res, -1);
-}
-
-/**
-* @tc.name: FormRenderTest029
-* @tc.desc: test SetRunFormPageInnerTimeStamp
-* @tc.type: FUNC
-*/
-HWTEST_F(FormRenderTest, FormRenderTest029, TestSize.Level1)
-{
-    auto formRenderer = GetInstance("formRenderTest029");
-    ASSERT_TRUE(formRenderer);
-    formRenderer->SetRunFormPageInnerTimeStamp(0);
-    int64_t res = formRenderer->GetRunFormPageInnerTimeStamp();
-    EXPECT_EQ(res, 0);
+    formRenderer->SetRenderGroupEnableFlag(true);
 }
 
 /**
@@ -844,30 +829,251 @@ HWTEST_F(FormRenderTest, FormRenderTest030, TestSize.Level1)
     EXPECT_EQ(res, true);
 }
 
-HWTEST_F(FormRenderTest, FormRenderTest031, TestSize.Level1)
+HWTEST_F(FormRenderTest, FormRenderTest033, TestSize.Level1)
 {
-    int64_t formId = 100;
-    std::string bundleName = "testBundleName";
-    std::string formName = "testFormName";
-    FormRenderEventReport::StartSurfaceNodeTimeoutReportTimer(formId, bundleName, formName);
-    EXPECT_NE(FormRenderEventReport::waitSurfaceNodeTimerMap_.find(formId),
-        FormRenderEventReport::waitSurfaceNodeTimerMap_.end());
+    auto eventRunner = OHOS::AppExecFwk::EventRunner::Create("FormRenderTest033");
+    ASSERT_TRUE(eventRunner);
+    auto eventHandler = std::make_shared<OHOS::AppExecFwk::EventHandler>(eventRunner);
+    auto formRendererGroup = FormRendererGroup::Create(nullptr, nullptr, eventHandler);
+    EXPECT_TRUE(formRendererGroup);
+    OHOS::AAFwk::Want want;
+    want.SetParam(FORM_RENDERER_COMP_ID, FORM_COMPONENT_ID_1);
+    want.SetParam(FORM_RENDERER_ALLOW_UPDATE, false);
+    want.SetParam(FORM_RENDER_STATE, true);
+    sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
+    want.SetParam(FORM_RENDERER_PROCESS_ON_ADD_SURFACE, renderDelegate->AsObject());
+    OHOS::AppExecFwk::FormJsInfo formJsInfo;
+    formRendererGroup->AddForm(want, formJsInfo);
+    auto formRenderer = formRendererGroup->formRenderer_;;
+    EXPECT_TRUE(formRenderer);
+    formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(formRenderer->uiContent_);
 
-    FormRenderEventReport::StopTimer(formId);
-    EXPECT_EQ(FormRenderEventReport::waitSurfaceNodeTimerMap_.find(formId),
-        FormRenderEventReport::waitSurfaceNodeTimerMap_.end());
+    OHOS::AppExecFwk::FormJsInfo newFormJsInfo;
+    auto onSurfaceCreate = [&newFormJsInfo](const std::shared_ptr<Rosen::RSSurfaceNode> & /* surfaceNode */,
+                               const OHOS::AppExecFwk::FormJsInfo &info,
+                               const AAFwk::Want & /* want */) -> int32_t {
+        newFormJsInfo = info;
+        return ERR_OK;
+    };
+    renderDelegate->SetSurfaceCreateEventHandler(std::move(onSurfaceCreate));
+
+    formJsInfo.uiSyntax = OHOS::AppExecFwk::FormType::ETS;
+    formJsInfo.formData = "testData";
+    formJsInfo.formId = 10;
+    formRenderer->OnSurfaceCreate(formJsInfo, want);
+    EXPECT_EQ(newFormJsInfo.formData, "");
 }
 
-HWTEST_F(FormRenderTest, FormRenderTest032, TestSize.Level1)
+std::shared_ptr<FormRenderer> FormRenderTest::CreateFormRenderer(const std::string &threadName)
 {
-    int64_t formId = 100;
-    std::string bundleName = "testBundleName";
-    std::string formName = "testFormName";
-
-    FormRenderEventReport::waitSurfaceNodeTimerMap_[formId] = 100;
-    FormRenderEventReport::StopTimer(formId);
-    EXPECT_EQ(FormRenderEventReport::waitSurfaceNodeTimerMap_.find(formId),
-        FormRenderEventReport::waitSurfaceNodeTimerMap_.end());
+    auto eventRunner = OHOS::AppExecFwk::EventRunner::Create(threadName);
+    if (!eventRunner) {
+        return nullptr;
+    }
+    auto eventHandler = std::make_shared<OHOS::AppExecFwk::EventHandler>(eventRunner);
+    auto formRenderer = std::make_shared<FormRenderer>(nullptr, nullptr, eventHandler);
+    return formRenderer;
 }
 
+/**
+ * @tc.name: FormRenderTestSetUIContentProperty001
+ * @tc.desc: test SetUIContentProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(FormRenderTest, FormRenderTestSetUIContentProperty001, TestSize.Level0)
+{
+    auto formRenderer = CreateFormRenderer("FormRenderTestSetUIContentProperty001");
+    EXPECT_TRUE(formRenderer);
+    formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(formRenderer->uiContent_);
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormRenderingMode(_)).Times(0);
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormEnableBlurBackground(_)).Times(0);
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormBackgroundColor(_)).Times(0);
+    OHOS::AAFwk::Want want;
+    formRenderer->SetUIContentProperty(want);
+}
+
+/**
+ * @tc.name: FormRenderTestSetUIContentProperty002
+ * @tc.desc: test SetUIContentProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(FormRenderTest, FormRenderTestSetUIContentProperty002, TestSize.Level0)
+{
+    auto formRenderer = CreateFormRenderer("FormRenderTestSetUIContentProperty002");
+    EXPECT_TRUE(formRenderer);
+    formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(formRenderer->uiContent_);
+
+    formRenderer->renderingMode_ = AppExecFwk::Constants::RenderingMode::SINGLE_COLOR;
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormRenderingMode(_)).Times(Exactly(1));
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormEnableBlurBackground(_)).Times(0);
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormBackgroundColor(_)).Times(Exactly(1));
+    OHOS::AAFwk::Want want;
+    formRenderer->SetUIContentProperty(want);
+}
+
+/**
+ * @tc.name: FormRenderTestSetUIContentProperty003
+ * @tc.desc: test SetUIContentProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(FormRenderTest, FormRenderTestSetUIContentProperty003, TestSize.Level0)
+{
+    auto formRenderer = CreateFormRenderer("FormRenderTestSetUIContentProperty003");
+    EXPECT_TRUE(formRenderer);
+    formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(formRenderer->uiContent_);
+
+    formRenderer->enableBlurBackground_ = true;
+    formRenderer->deleteBackgroundImage_ = true;
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormRenderingMode(_)).Times(0);
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormEnableBlurBackground(_)).Times(Exactly(1));
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormBackgroundColor(_)).Times(Exactly(1));
+    OHOS::AAFwk::Want want;
+    formRenderer->SetUIContentProperty(want);
+}
+
+/**
+ * @tc.name: FormRenderTestSetUIContentProperty004
+ * @tc.desc: test SetUIContentProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(FormRenderTest, FormRenderTestSetUIContentProperty004, TestSize.Level0)
+{
+    auto formRenderer = CreateFormRenderer("FormRenderTestSetUIContentProperty004");
+    EXPECT_TRUE(formRenderer);
+    formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(formRenderer->uiContent_);
+
+    formRenderer->enableBlurBackground_ = true;
+    formRenderer->deleteBackgroundImage_ = false;
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormRenderingMode(_)).Times(0);
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormEnableBlurBackground(_)).Times(Exactly(1));
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormBackgroundColor(_)).Times(Exactly(1));
+    OHOS::AAFwk::Want want;
+    formRenderer->SetUIContentProperty(want);
+}
+
+/**
+ * @tc.name: FormRenderTestSetUIContentProperty005
+ * @tc.desc: test SetUIContentProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(FormRenderTest, FormRenderTestSetUIContentProperty005, TestSize.Level0)
+{
+    auto formRenderer = CreateFormRenderer("FormRenderTestSetUIContentProperty005");
+    EXPECT_TRUE(formRenderer);
+    formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(formRenderer->uiContent_);
+
+    formRenderer->enableBlurBackground_ = false;
+    formRenderer->deleteBackgroundImage_ = true;
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormRenderingMode(_)).Times(0);
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormEnableBlurBackground(_)).Times(Exactly(1));
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormBackgroundColor(_)).Times(Exactly(1));
+    OHOS::AAFwk::Want want;
+    formRenderer->SetUIContentProperty(want);
+}
+
+/**
+ * @tc.name: FormRenderTestSetUIContentProperty006
+ * @tc.desc: test SetUIContentProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(FormRenderTest, FormRenderTestSetUIContentProperty006, TestSize.Level0)
+{
+    auto formRenderer = CreateFormRenderer("FormRenderTestSetUIContentProperty006");
+    EXPECT_TRUE(formRenderer);
+    formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(formRenderer->uiContent_);
+
+    OHOS::AAFwk::Want want;
+    const std::string transparentColor = "#00000000";
+    want.SetParam(OHOS::AppExecFwk::Constants::PARAM_FORM_TRANSPARENCY_KEY, transparentColor);
+    formRenderer->renderingMode_ = AppExecFwk::Constants::RenderingMode::FULL_COLOR;
+    formRenderer->enableBlurBackground_ = false;
+    formRenderer->deleteBackgroundImage_ = true;
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormRenderingMode(_)).Times(0);
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormEnableBlurBackground(_)).Times(Exactly(1));
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormBackgroundColor(_)).Times(Exactly(1));
+    formRenderer->SetUIContentProperty(want);
+}
+
+/**
+ * @tc.name: FormRenderTestSetUIContentProperty007
+ * @tc.desc: test SetUIContentProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(FormRenderTest, FormRenderTestSetUIContentProperty007, TestSize.Level0)
+{
+    auto formRenderer = CreateFormRenderer("FormRenderTestSetUIContentProperty007");
+    EXPECT_TRUE(formRenderer);
+    formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(formRenderer->uiContent_);
+
+    OHOS::AAFwk::Want want;
+    const std::string transparentColor = "#00000000";
+    want.SetParam(OHOS::AppExecFwk::Constants::PARAM_FORM_TRANSPARENCY_KEY, transparentColor);
+    formRenderer->renderingMode_ = AppExecFwk::Constants::RenderingMode::FULL_COLOR;
+    formRenderer->enableBlurBackground_ = false;
+    formRenderer->deleteBackgroundImage_ = false;
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormRenderingMode(_)).Times(0);
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormEnableBlurBackground(_)).Times(0);
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), SetFormBackgroundColor(_)).Times(Exactly(1));
+    formRenderer->SetUIContentProperty(want);
+}
+
+/**
+ * @tc.name: FormRenderTest_SetUiContentParams_001
+ * @tc.desc: test SetUiContentParams
+ * @tc.type: FUNC
+ */
+HWTEST_F(FormRenderTest, FormRenderTest_SetUiContentParams_001, TestSize.Level0)
+{
+    auto eventRunner = OHOS::AppExecFwk::EventRunner::Create("FormRenderTest_SetUiContentParams_001");
+    ASSERT_TRUE(eventRunner);
+    auto eventHandler = std::make_shared<OHOS::AppExecFwk::EventHandler>(eventRunner);
+    auto formRendererGroup = FormRendererGroup::Create(nullptr, nullptr, eventHandler);
+    EXPECT_TRUE(formRendererGroup);
+    OHOS::AAFwk::Want want;
+    want.SetParam(FORM_RENDERER_COMP_ID, FORM_COMPONENT_ID_1);
+    want.SetParam(FORM_RENDERER_ALLOW_UPDATE, false);
+    want.SetParam(FORM_RENDER_STATE, true);
+    sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
+    want.SetParam(FORM_RENDERER_PROCESS_ON_ADD_SURFACE, renderDelegate->AsObject());
+    OHOS::AppExecFwk::FormJsInfo formJsInfo;
+    formRendererGroup->AddForm(want, formJsInfo);
+    auto formRenderer = formRendererGroup->formRenderer_;
+    EXPECT_TRUE(formRenderer);
+    OHOS::AAFwk::Want renderWant;
+    formRenderer->SetUiContentParams(renderWant);
+    formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(formRenderer->uiContent_);
+    std::string transparentColor = "#FFFFFFFF";
+    renderWant.SetParam(OHOS::AppExecFwk::Constants::PARAM_FORM_TRANSPARENCY_KEY, transparentColor);
+    renderWant.SetParam(OHOS::AppExecFwk::Constants::PARAM_FORM_ENABLE_BLUR_BACKGROUND_KEY, true);
+    formRenderer->SetUiContentParams(renderWant);
+}
+
+/**
+ * @tc.name: FormRenderTest_UpdateConfiguration_001
+ * @tc.desc: test SetUIContentProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(FormRenderTest, FormRenderTest_UpdateConfiguration_001, TestSize.Level0)
+{
+    auto formRenderer = CreateFormRenderer("FormRenderTest_UpdateConfiguration_001");
+    EXPECT_TRUE(formRenderer);
+    formRenderer->uiContent_ = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(formRenderer->uiContent_);
+
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), UpdateConfiguration(_)).Times(0);
+    formRenderer->UpdateConfiguration(nullptr);
+
+    EXPECT_CALL(*((MockUIContent *)(formRenderer->uiContent_.get())), UpdateConfiguration(_)).Times(Exactly(1));
+    std::shared_ptr<AppExecFwk::Configuration> config = std::make_shared<AppExecFwk::Configuration>();
+    formRenderer->UpdateConfiguration(config);
+}
 } // namespace OHOS::Ace

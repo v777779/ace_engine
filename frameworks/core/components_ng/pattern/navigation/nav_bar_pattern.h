@@ -54,16 +54,19 @@ public:
 
     RefPtr<LayoutProperty> CreateLayoutProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<NavBarLayoutProperty>();
     }
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<NavBarLayoutAlgorithm>();
     }
     
     RefPtr<EventHub> CreateEventHub() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<NavBarEventHub>();
     }
 
@@ -73,6 +76,9 @@ public:
     bool CanCoordScrollUp(float offset) const override;
 
     void OnAttachToFrameNode() override;
+    void OnAttachToFrameNodeMultiThread();
+    void OnAttachToMainTree() override;
+    void OnAttachToMainTreeMultiThread();
 
     bool NeedCoordWithScroll() override
     {
@@ -94,6 +100,9 @@ public:
 
 protected:
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
+    void OnDetachFromFrameNodeMultiThread(FrameNode* frameNode);
+    void OnDetachFromMainTree() override;
+    void OnDetachFromMainTreeMultiThread();
 
     void MountTitleBar(const RefPtr<FrameNode>& host, bool& needRunTitleBarAnimation);
 

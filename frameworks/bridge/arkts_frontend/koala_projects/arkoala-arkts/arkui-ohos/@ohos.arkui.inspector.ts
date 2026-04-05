@@ -1,7 +1,6 @@
-import { Callback } from '@ohos.base';
-import { VoidCallback } from 'arkui/component/units';
+import { VoidCallback, ArrayIntCallback } from 'arkui/component/units';
 declare namespace inspector {
-    export interface ComponentObserver {
+    export class ComponentObserver {
         on(type: 'layout' | 'draw' | 'drawChildren', callback: VoidCallback): void;
 
         off(type: 'layout' | 'draw' | 'drawChildren', callback?: VoidCallback): void;
@@ -17,8 +16,16 @@ declare namespace inspector {
         onDrawChildren(callback: VoidCallback): void;
 
         offDrawChildren(callback?: VoidCallback): void;
+
+        onDrawChildren(callback: ArrayIntCallback): void;
+
+        offDrawChildren(callback?: ArrayIntCallback): void;
+        
+        onLayoutChildren(callback: VoidCallback): void;
+
+        offLayoutChildren(callback?: VoidCallback): void;
     }
-    export function createComponentObserver(id: string): ComponentObserver | undefined;
+    export function createComponentObserver(id: string | int): ComponentObserver;
     export function getFilteredInspectorTree(filters?: Array<string>): string;
     export function getFilteredInspectorTreeById(id: string, depth: int, filters?: Array<string>): string;
 }

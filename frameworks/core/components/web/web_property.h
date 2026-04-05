@@ -26,7 +26,6 @@
 #include "core/components/web/web_event.h"
 #include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/pattern/text/text_menu_extension.h"
-#include "core/components_ng/pattern/text/text_model.h"
 #include "core/components_v2/common/common_def.h"
 #include "core/event/key_event.h"
 #include "core/event/mouse_event.h"
@@ -35,9 +34,12 @@ namespace OHOS::Ace {
 
 class WebDelegate;
 using ScriptItems = std::map<std::string, std::vector<std::string>>;
+using ScriptRegexItems = std::map<std::string, std::vector<std::pair<std::string, std::string>>>;
 using ScriptItemsByOrder = std::vector<std::string>;
 using OnMouseCallback = std::function<void(MouseInfo& info)>;
 using OnKeyEventCallback = std::function<void(KeyEventInfo& keyEventInfo)>;
+using AISessionCallback = std::function<bool(
+    const std::string&, const std::string&, const std::function<void(uint32_t, const std::string&)>&&)>;
 
 enum MixedModeContent {
     MIXED_CONTENT_ALWAYS_ALLOW = 0,
@@ -78,20 +80,30 @@ enum class WebLayoutMode {
     FIT_CONTENT,
 };
 
+enum class BlankScreenDetectionMethod : int32_t {
+    DETECTION_CONTENTFUL_NODES_SEVENTEEN = 0,
+};
+
 enum class WebKeyboardAvoidMode : int32_t {
     RESIZE_VISUAL = 0,
     RESIZE_CONTENT,
     OVERLAYS_CONTENT,
+    RETURN_TO_UICONTEXT,
     DEFAULT
 };
 
 enum class WebElementType : int32_t {
-    TEXT = 0,
-    IMAGE,
-    LINK,
+    IMAGE = 1,
+    LINK = 2,
+    TEXT = 3,
     MIXED,
     AILINK,
     NONE,
+};
+
+enum class WebResponseType : int32_t {
+    LONG_PRESS = 1,
+    RIGHT_CLICK = 2
 };
 
 enum class WebBypassVsyncCondition : int32_t {
@@ -104,19 +116,49 @@ enum class GestureFocusMode : int32_t {
     GESTURE_TAP_AND_LONG_PRESS = 1
 };
 
-struct WebPreviewSelectionMenuParam {
-    WebElementType type;
-    ResponseType responseType;
-    std::function<void()> menuBuilder;
-    std::function<void()> previewBuilder;
-    NG::MenuParam menuParam;
+enum class WebRotateEffect : int32_t {
+    TOPLEFT_EFFECT = 0,
+    RESIZE_COVER_EFFECT = 1
+};
 
+enum class ScrollDirectionalLockType : int32_t {
+    ALL = 0,
+    NESTED_SCROLL = 1
+};
+
+enum class ScrollbarLayoutPolicy : int32_t {
+    CONTENT = 0,
+    SYSTEM = 1
+};
+
+struct WebPreviewSelectionMenuParam {
+    WebElementType type = WebElementType::NONE;
+    ResponseType responseType = ResponseType::LONG_PRESS;
+    std::function<void()> menuBuilder = nullptr;
+    std::function<void()> previewBuilder = nullptr;
+    NG::MenuParam menuParam;
+    std::function<void()> onMenuShow = nullptr;
+    std::function<void()> onMenuHide = nullptr;
+
+    WebPreviewSelectionMenuParam() = default;
     WebPreviewSelectionMenuParam(const WebElementType& _type, const ResponseType& _responseType,
         const std::function<void()>& _menuBuilder, const std::function<void()>& _previewBuilder,
         const NG::MenuParam& _menuParam)
         : type(_type), responseType(_responseType), menuBuilder(_menuBuilder), previewBuilder(_previewBuilder),
           menuParam(_menuParam)
     {}
+};
+
+struct BlankScreenDetectionConfig {
+    bool enable;
+    std::vector<double> detectionTiming;
+    std::vector<int32_t> detectionMethods;
+    int32_t contentfulNodesCountThreshold;
+    bool operator==(const BlankScreenDetectionConfig& config) const
+    {
+        return enable == config.enable && contentfulNodesCountThreshold == config.contentfulNodesCountThreshold &&
+               detectionTiming == config.detectionTiming && detectionMethods == config.detectionMethods;
+    }
 };
 
 struct WebMenuOptionsParam {
@@ -139,6 +181,8 @@ const std::string DEFAULT_SANS_SERIF_FONT_FAMILY = "sans-serif";
 const std::string DEFAULT_SERIF_FONT_FAMILY = "serif";
 const std::string DEFAULT_STANDARD_FONT_FAMILY = "sans-serif";
 const std::string DEFAULT_SCROLLBAR_COLOR = "sys.color.ohos_id_color_foreground";
+
+constexpr uint32_t MAX_AI_SESSION_TYPE = 7;
 
 class HitTestResult : public virtual AceType {
     DECLARE_ACE_TYPE(HitTestResult, AceType);
@@ -256,6 +300,13 @@ class WebController : public virtual AceType {
     DECLARE_ACE_TYPE(WebController, AceType);
 
 public:
+    ~WebController() override
+    {
+        if (cookieManager_ != nullptr) {
+            delete cookieManager_;
+            cookieManager_ = nullptr;
+        }
+    }
     using LoadUrlImpl = std::function<void(std::string, const std::map<std::string, std::string>&)>;
     using AccessBackwardImpl = std::function<bool()>;
     using AccessForwardImpl = std::function<bool()>;
@@ -274,7 +325,7 @@ public:
         }
     }
 
-    virtual bool AccessStep(int32_t step)
+    bool AccessStep(int32_t step)
     {
         if (accessStepImpl_) {
             return accessStepImpl_(step);
@@ -289,7 +340,7 @@ public:
         }
     }
 
-    virtual bool AccessBackward()
+    bool AccessBackward()
     {
         if (accessBackwardImpl_) {
             return accessBackwardImpl_();
@@ -297,7 +348,7 @@ public:
         return false;
     }
 
-    virtual bool AccessForward()
+    bool AccessForward()
     {
         if (accessForwardImpl_) {
             return accessForwardImpl_();
@@ -305,21 +356,21 @@ public:
         return false;
     }
 
-    virtual void Backward()
+    void Backward()
     {
         if (backwardImpl_) {
             backwardImpl_();
         }
     }
 
-    virtual void Forward()
+    void Forward()
     {
         if (forwardimpl_) {
             forwardimpl_();
         }
     }
 
-    virtual void ClearHistory()
+    void ClearHistory()
     {
         if (clearHistoryImpl_) {
             clearHistoryImpl_();
@@ -404,7 +455,7 @@ public:
 
     using LoadDataWithBaseUrlImpl = std::function<void(
         std::string, std::string, std::string, std::string, std::string)>;
-    virtual void LoadDataWithBaseUrl(std::string baseUrl, std::string data, std::string mimeType, std::string encoding,
+    void LoadDataWithBaseUrl(std::string baseUrl, std::string data, std::string mimeType, std::string encoding,
         std::string historyUrl) const
     {
         if (loadDataWithBaseUrlImpl_) {
@@ -430,7 +481,7 @@ public:
     }
 
     using OnInactiveImpl = std::function<void()>;
-    virtual void OnInactive() const
+    void OnInactive() const
     {
         if (onInactiveImpl_) {
             onInactiveImpl_();
@@ -443,7 +494,7 @@ public:
     }
 
     using OnActiveImpl = std::function<void()>;
-    virtual void OnActive() const
+    void OnActive() const
     {
         if (onActiveImpl_) {
             onActiveImpl_();
@@ -456,7 +507,7 @@ public:
     }
 
     using ZoomImpl = std::function<void(float)>;
-    virtual void Zoom(float factor) const
+    void Zoom(float factor) const
     {
         if (zoomImpl_) {
             zoomImpl_(factor);
@@ -497,7 +548,7 @@ public:
     }
 
     using RefreshImpl = std::function<void()>;
-    virtual void Refresh() const
+    void Refresh() const
     {
         if (refreshImpl_) {
             refreshImpl_();
@@ -509,7 +560,7 @@ public:
     }
 
     using StopLoadingImpl = std::function<void()>;
-    virtual void StopLoading() const
+    void StopLoading() const
     {
         if (stopLoadingImpl_) {
             stopLoadingImpl_();
@@ -521,7 +572,7 @@ public:
     }
 
     using GetHitTestResultImpl = std::function<int()>;
-    virtual int GetHitTestResult()
+    int GetHitTestResult()
     {
         if (getHitTestResultImpl_) {
             return getHitTestResultImpl_();
@@ -559,16 +610,6 @@ public:
         cookieManager_->SetGetCookieImpl(std::move(getCookieImpl_));
         cookieManager_->SetDeleteEntirelyCookieImpl(std::move(deleteEntirelyCookieImpl_));
         return cookieManager_;
-    }
-
-    using GetProgressImpl = std::function<int()>;
-    int GetProgress()
-    {
-        return getProgressImpl_ ? getProgressImpl_() : 0;
-    }
-    void SetGetProgressImpl(GetProgressImpl&& getProgressImpl)
-    {
-        getProgressImpl_ = getProgressImpl;
     }
 
     using GetPageHeightImpl = std::function<int()>;
@@ -701,7 +742,7 @@ public:
     using AddJavascriptInterfaceImpl = std::function<void(
         const std::string&,
         const std::vector<std::string>&)>;
-    virtual void AddJavascriptInterface(
+    void AddJavascriptInterface(
         const std::string& objectName,
         const std::vector<std::string>& methodList)
     {
@@ -715,7 +756,7 @@ public:
     }
 
     using RemoveJavascriptInterfaceImpl = std::function<void(std::string, const std::vector<std::string>&)>;
-    virtual void RemoveJavascriptInterface(std::string objectName, const std::vector<std::string>& methodList)
+    void RemoveJavascriptInterface(std::string objectName, const std::vector<std::string>& methodList)
     {
         if (removeJavascriptInterfaceImpl_) {
             removeJavascriptInterfaceImpl_(objectName, methodList);
@@ -744,7 +785,7 @@ public:
     }
 
     using RequestFocusImpl = std::function<void()>;
-    virtual void RequestFocus()
+    void RequestFocus()
     {
         if (requestFocusImpl_) {
             return requestFocusImpl_();
@@ -839,7 +880,6 @@ private:
     StopLoadingImpl stopLoadingImpl_;
     GetHitTestResultImpl getHitTestResultImpl_;
     GetHitTestValueImpl getHitTestValueImpl_;
-    GetProgressImpl getProgressImpl_;
     GetPageHeightImpl getPageHeightImpl_;
     GetWebIdImpl getWebIdImpl_;
     GetTitleImpl getTitleImpl_;

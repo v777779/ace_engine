@@ -17,8 +17,10 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMMON_EVENT_DUMP_H
 
 #include <cstdint>
+#include <deque>
 #include <list>
 #include <map>
+#include <set>
 #include <string>
 
 #include "base/memory/ace_type.h"
@@ -41,6 +43,8 @@ struct FrameNodeSnapshot {
     int32_t hitTestMode = 0;
     std::vector<RectF> responseRegionList;
     bool active = false;
+    TouchTestStrategy strategy;
+    std::string id;
 };
 
 struct TouchPointSnapshot {
@@ -93,6 +97,8 @@ struct EventTreeRecord {
 
     void AddFrameNodeSnapshot(FrameNodeSnapshot&& node);
 
+    void UpdateFrameNodeSnapshot(int32_t nodeId, const TouchTestStrategy& strategy, const std::string& id);
+
     void AddGestureSnapshot(int32_t finger, RefPtr<GestureSnapshot>&& gesture);
 
     void AddGestureProcedure(uint64_t id, const std::string& procedure, const std::string& extraInfo,
@@ -117,6 +123,23 @@ struct EventTreeRecord {
         std::vector<std::pair<std::string, std::pair<std::string, std::unique_ptr<JsonValue>>>> stateInfoList,
         std::unique_ptr<JsonValue>& json) const;
     std::list<EventTree> eventTreeList;
+};
+
+struct EventTouchInfo {
+    int32_t pointerID;
+    TimeStamp creatTime;
+    TimeStamp processTime;
+    TimeStamp dispatchTime;
+};
+
+struct EventTouchInfoRecord {
+    void AddTouchPoint(const TouchEvent& event, TimeStamp dispatchTime);
+    void ClearDumpDeque();
+    void DumpAndClear(std::list<std::string>& dumpList);
+    void DumpAndClear(std::unique_ptr<JsonValue>& json);
+    std::deque<EventTouchInfo> touchHistory_;
+    int dequeMaxCnt_ = 0;
+    bool isUseDumpTouchInfo_ = false;
 };
 }
 #endif

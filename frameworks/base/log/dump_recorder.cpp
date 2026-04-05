@@ -29,6 +29,8 @@ constexpr char REC_FILE_NAME[] = "/arkui_dump.rec";
 const std::vector<std::string> SKIP_COMPARE_PARAMS = { "time", "children" };
 } // namespace
 
+SINGLETON_INSTANCE_IMPL(DumpRecorder);
+
 DumpRecorder::DumpRecorder() = default;
 DumpRecorder::~DumpRecorder() = default;
 
@@ -117,7 +119,7 @@ void DumpRecorder::Diff(int64_t timestamp)
         auto infoJson = JsonUtil::ParseJsonString(diff);
         info->PutRef("info", std::move(infoJson));
     }
-    std::string infoContent = info->ToString();
+    auto infoContent = info->ToString();
     fileSize_ += static_cast<uint32_t>(infoContent.size());
     auto infos = recordTree_->GetValue("infos");
     infos->PutRef(std::move(info));

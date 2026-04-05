@@ -14,8 +14,8 @@
  */
 
 #include "swiper_test_ng.h"
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 
 #include "core/components/swiper/swiper_indicator_theme.h"
 #include "core/components_ng/pattern/swiper_indicator/indicator_common/swiper_arrow_pattern.h"
@@ -1478,5 +1478,35 @@ HWTEST_F(SwiperArrowTestNg, SetLayoutDisplayCount001, TestSize.Level1)
     EXPECT_EQ(leftArrowPattern->displayCount_, 3);
     rightArrowPattern->SetLayoutDisplayCount(5);
     EXPECT_EQ(rightArrowPattern->displayCount_, 3);
+}
+
+/**
+ * @tc.name: NotifySwiperTouchState001
+ * @tc.desc: Test NotifySwiperTouchState
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperArrowTestNg, NotifySwiperTouchState001, TestSize.Level1)
+{
+    CreateWithArrow();
+    EXPECT_EQ(pattern_->isArrowTouched_, false);
+    auto leftArrowPattern = leftArrowNode_->GetPattern<SwiperArrowPattern>();
+    leftArrowPattern->NotifySwiperTouchState(TouchType::DOWN);
+    EXPECT_EQ(pattern_->isArrowTouched_, true);
+    EXPECT_EQ(pattern_->isTouchDown_, false);
+    TouchLocationInfo touch(0);
+    pattern_->HandleTouchDown({ touch });
+    EXPECT_EQ(pattern_->isTouchDown_, false);
+
+    leftArrowPattern->NotifySwiperTouchState(TouchType::UP);
+    EXPECT_EQ(pattern_->isArrowTouched_, false);
+    EXPECT_EQ(pattern_->isTouchDown_, false);
+    pattern_->HandleTouchDown({ touch });
+    EXPECT_EQ(pattern_->isTouchDown_, true);
+
+    leftArrowPattern->NotifySwiperTouchState(TouchType::CANCEL);
+    EXPECT_EQ(pattern_->isArrowTouched_, false);
+    pattern_->isTouchDown_ = false;
+    pattern_->HandleTouchDown({ touch });
+    EXPECT_EQ(pattern_->isTouchDown_, true);
 }
 } // namespace OHOS::Ace::NG

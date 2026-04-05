@@ -22,7 +22,7 @@
 
 namespace OHOS::Ace::NG {
 
-class OnTextChangedListenerImpl : public MiscServices::OnTextChangedListener {
+class ACE_FORCE_EXPORT OnTextChangedListenerImpl : public MiscServices::OnTextChangedListener {
 public:
     explicit OnTextChangedListenerImpl(const WeakPtr<TextInputClient>& pattern) : pattern_(pattern)
     {
@@ -38,7 +38,7 @@ public:
     void SetKeyboardStatus(bool status) override;
     void SendKeyEventFromInputMethod(const MiscServices::KeyEvent& event) override;
     void SendKeyboardStatus(const MiscServices::KeyboardStatus& keyboardStatus) override;
-    void NotifyKeyboardHeight(uint32_t height) override;
+    ACE_FORCE_EXPORT void NotifyKeyboardHeight(uint32_t height) override;
     void SendFunctionKey(const MiscServices::FunctionKey& functionKey) override;
     void MoveCursor(MiscServices::Direction direction) override;
     void HandleSetSelection(int32_t start, int32_t end) override;
@@ -63,6 +63,8 @@ private:
     void HandleKeyboardStatus(MiscServices::KeyboardStatus status);
     void HandleFunctionKey(MiscServices::FunctionKey functionKey);
     int32_t CheckPreviewTextParams(const std::u16string &text, const MiscServices::Range &range);
+    int32_t HandlePrivateCommand(
+        const std::unordered_map<std::string, MiscServices::PrivateDataValue>& privateCommand);
 
     WeakPtr<TextInputClient> pattern_;
     int32_t patternInstanceId_ = -1;

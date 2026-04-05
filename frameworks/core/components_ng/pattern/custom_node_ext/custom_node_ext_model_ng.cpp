@@ -50,6 +50,14 @@ void CustomNodeExtModelNG::SetMeasureCallback(
     pattern->SetMeasureCallback(std::move(onMeasure));
 }
 
+RefPtr<FrameNode> CustomNodeExtModelNG::CreateFrameNodeWithParam(const std::string& tag,
+    const RenderContext::ContextParam& param)
+{
+    auto nodeId = ElementRegister::GetInstance()->MakeUniqueId();
+    auto frameNode = FrameNode::CreateFrameNode(tag, nodeId, AceType::MakeRefPtr<CustomNodeExtPattern>(param));
+    return frameNode;
+}
+
 void CustomNodeExtModelNG::SetLayoutCallback(FrameNode* frameNode, std::function<void(RectF rect)>&& onLayout)
 {
     CHECK_NULL_VOID(frameNode);
@@ -115,6 +123,23 @@ void CustomNodeExtModelNG::SetOnWindowUnfocusedCallback(FrameNode* frameNode, st
     pattern->SetOnWindowUnfocusedCallback(std::move(onWindowUnfocused));
 }
 
+void CustomNodeExtModelNG::SetOnWindowActivatedCallback(FrameNode* frameNode, std::function<void()>&& onWindowActivated)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<CustomNodeExtPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetOnWindowActivatedCallback(std::move(onWindowActivated));
+}
+
+void CustomNodeExtModelNG::SetOnWindowDeactivatedCallback(
+    FrameNode* frameNode, std::function<void()>&& onWindowDeactivated)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<CustomNodeExtPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetOnWindowDeactivatedCallback(std::move(onWindowDeactivated));
+}
+
 void CustomNodeExtModelNG::SetOnAttachToMainTreeCallback(
     FrameNode* frameNode, std::function<void()>&& onAttachToMainTree)
 {
@@ -174,5 +199,14 @@ void CustomNodeExtModelNG::SetBeforeCreateLayoutWrapperCallback(
     auto pattern = frameNode->GetPattern<CustomNodeExtPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetBeforeCreateLayoutWrapperCallback(std::move(beforeCreateLayoutWrapper));
+}
+
+void CustomNodeExtModelNG::SetOnWindowSizeChangedCallback(FrameNode* frameNode,
+    std::function<void(int32_t width, int32_t height, WindowSizeChangeReason type)>&& onWindowSizeChanged)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<CustomNodeExtPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetOnWindowSizeChangedCallback(std::move(onWindowSizeChanged));
 }
 } // OHOS::Ace::NG

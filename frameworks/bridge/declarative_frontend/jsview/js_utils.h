@@ -38,8 +38,12 @@ class WantWrap;
 namespace OHOS::Rosen {
 class VisualEffect;
 class Filter;
-class BrightnessBlender;
+class Blender;
 }
+
+namespace OHOS::Ace {
+class UiMaterial;
+} // namespace OHOS::Ace
 
 namespace OHOS::Ace::Framework {
 class ScopeRAII {
@@ -64,22 +68,21 @@ RefPtr<OHOS::Ace::WantWrap> CreateWantWrapFromNapiValue(JSRef<JSVal> obj);
 #ifdef PIXEL_MAP_SUPPORTED
 JSRef<JSVal> ConvertPixmap(const RefPtr<PixelMap>& pixelMap);
 napi_value ConvertPixmapNapi(const RefPtr<PixelMap>& pixelMap);
-bool GetPixelMapListFromAnimatedDrawable(JSRef<JSVal> obj, std::vector<RefPtr<PixelMap>>& pixelMaps,
-    int32_t& duration, int32_t& iterations);
 #endif
 
 const Rosen::VisualEffect* CreateRSEffectFromNapiValue(JSRef<JSVal> obj);
 const Rosen::Filter* CreateRSFilterFromNapiValue(JSRef<JSVal> obj);
-const Rosen::BrightnessBlender* CreateRSBrightnessBlenderFromNapiValue(JSRef<JSVal> obj);
+const Rosen::Blender* CreateRSBlenderFromNapiValue(JSRef<JSVal> obj);
+const UiMaterial* CreateUiMaterialFromNapiValue(JSRef<JSVal> obj);
 std::optional<NG::BorderRadiusProperty> HandleDifferentRadius(JsiRef<JSVal> args);
 std::optional<NG::BorderRadiusProperty> ParseBorderRadiusAttr(JsiRef<JSVal> args);
 bool IsDisableEventVersion();
-void ParseTextShadowFromShadowObject(const JSRef<JSVal>& shadowObject, std::vector<Shadow>& shadows);
+void ParseTextShadowFromShadowObject(
+    const JSRef<JSVal>& shadowObject, std::vector<Shadow>& shadows, bool needResObj = false);
 bool IsDrawable(const JSRef<JSVal>& jsValue);
 RefPtr<PixelMap> GetDrawablePixmap(JSRef<JSVal> obj);
 RefPtr<PixelMap> CreatePixelMapFromNapiValue(const JSRef<JSVal>& obj, NativeEngine* localNativeEngine = nullptr);
 RefPtr<DrawingColorFilter> CreateDrawingColorFilter(JSRef<JSVal> obj);
-RefPtr<DrawingLattice> CreateDrawingLattice(JSRef<JSVal> obj);
 bool CheckRegexValid(const std::string& pattern);
 napi_env GetCurrentEnv();
 void* UnwrapNapiValue(const JSRef<JSVal>& obj);

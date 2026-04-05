@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,35 +15,60 @@
 
 #include "image_source_ohos.h"
 
-#include "pixel_map_ohos.h"
-
+#include "base/log/log_wrapper.h"
 #include "media_errors.h"
+#include "pixel_map_ohos.h"
 
 namespace OHOS::Ace {
 namespace {
-void InitDecodeOptions(Media::DecodeOptions& options, const std::pair<int32_t, int32_t>& size,
-    AIImageQuality imageQuality, bool isHdrDecoderNeed, PixelFormat photoDecodeFormat)
+void InitDecodeOptions(
+    Media::DecodeOptions& options, const std::pair<int32_t, int32_t>& size, const PixelMapConfig& config)
 {
     options.preferDma = true;
     // only hdr image need to decoder in hdr mode
-    if (isHdrDecoderNeed) {
+    if (config.isHdrDecoderNeed) {
         options.desiredDynamicRange = Media::DecodeDynamicRange::AUTO;
     }
-    if (photoDecodeFormat == PixelFormat::NV21) {
-        options.photoDesiredPixelFormat  = Media::PixelFormat::NV21;
-    } else if (photoDecodeFormat == PixelFormat::RGBA_8888) {
-        options.photoDesiredPixelFormat  = Media::PixelFormat::RGBA_8888;
-    } else if (photoDecodeFormat == PixelFormat::RGBA_1010102) {
-        options.photoDesiredPixelFormat  = Media::PixelFormat::RGBA_1010102;
-    } else if (photoDecodeFormat == PixelFormat::YCBCR_P010) {
-        options.photoDesiredPixelFormat  = Media::PixelFormat::YCBCR_P010;
-    } else if (photoDecodeFormat == PixelFormat::YCRCB_P010) {
-        options.photoDesiredPixelFormat  = Media::PixelFormat::YCRCB_P010;
+    if (config.photoDecodeFormat == PixelFormat::NV21) {
+        options.photoDesiredPixelFormat = Media::PixelFormat::NV21;
+    } else if (config.photoDecodeFormat == PixelFormat::RGBA_8888) {
+        options.photoDesiredPixelFormat = Media::PixelFormat::RGBA_8888;
+    } else if (config.photoDecodeFormat == PixelFormat::RGBA_1010102) {
+        options.photoDesiredPixelFormat = Media::PixelFormat::RGBA_1010102;
+    } else if (config.photoDecodeFormat == PixelFormat::YCBCR_P010) {
+        options.photoDesiredPixelFormat = Media::PixelFormat::YCBCR_P010;
+    } else if (config.photoDecodeFormat == PixelFormat::YCRCB_P010) {
+        options.photoDesiredPixelFormat = Media::PixelFormat::YCRCB_P010;
     }
+    options.desiredPixelFormat = PixelMapOhos::ConvertToMediaPixelFormat(config.desiredDecodeFormat);
+    options.allocatorType = PixelMapOhos::ConvertToMediaAllocatorType(config.allocatorType);
     // Pass imageQuality to imageFramework
-    options.resolutionQuality = static_cast<Media::ResolutionQuality>(imageQuality);
+    options.resolutionQuality = static_cast<Media::ResolutionQuality>(config.imageQuality);
     if (size.first > 0 && size.second > 0) {
         options.desiredSize = { size.first, size.second };
+    }
+}
+
+ImageRotateOrientation GetImageSourceRotateOrientation(std::string origin)
+{
+    if (origin == "Top-right") {
+        return ImageRotateOrientation::UP_MIRRORED;
+    } else if (origin == "Bottom-right") {
+        return ImageRotateOrientation::DOWN;
+    } else if (origin == "Bottom-left") {
+        return ImageRotateOrientation::DOWN_MIRRORED;
+    } else if (origin == "Left-top") {
+        return ImageRotateOrientation::LEFT_MIRRORED;
+    } else if (origin == "Right-top") {
+        return ImageRotateOrientation::RIGHT;
+    } else if (origin == "Right-bottom") {
+        return ImageRotateOrientation::RIGHT_MIRRORED;
+    } else if (origin == "Left-bottom") {
+        return ImageRotateOrientation::LEFT;
+    } else if (origin == "Top-left") {
+        return ImageRotateOrientation::UP;
+    } else {
+        return ImageRotateOrientation::UP;
     }
 }
 } // namespace
@@ -53,6 +78,18 @@ RefPtr<ImageSource> ImageSource::Create(int32_t fd)
     uint32_t errorCode;
     Media::SourceOptions options;
     auto src = Media::ImageSource::CreateImageSource(fd, options, errorCode);
+    if (errorCode != Media::SUCCESS) {
+        TAG_LOGW(AceLogTag::ACE_IMAGE, "create image source failed, errorCode = %{public}u", errorCode);
+        return nullptr;
+    }
+    return MakeRefPtr<ImageSourceOhos>(std::move(src));
+}
+
+RefPtr<ImageSource> ImageSource::Create(const uint8_t* data, uint32_t size)
+{
+    uint32_t errorCode = 0;
+    Media::SourceOptions options;
+    auto src = Media::ImageSource::CreateImageSource(data, size, options, errorCode);
     if (errorCode != Media::SUCCESS) {
         TAG_LOGW(AceLogTag::ACE_IMAGE, "create image source failed, errorCode = %{public}u", errorCode);
         return nullptr;
@@ -100,7 +137,7 @@ std::string ImageSourceOhos::GetProperty(const std::string& key)
     std::string value;
     uint32_t res = imageSource_->GetImagePropertyString(0, key, value);
     if (res != Media::SUCCESS) {
-        TAG_LOGW(AceLogTag::ACE_IMAGE, "Get ImageSource property %{public}s failed, errorCode = %{public}u",
+        TAG_LOGD(AceLogTag::ACE_IMAGE, "Get ImageSource property %{public}s failed, errorCode = %{public}u",
             key.c_str(), res);
     }
     return value;
@@ -116,8 +153,7 @@ RefPtr<PixelMap> ImageSourceOhos::CreatePixelMap(
     uint32_t index, const Size& size, uint32_t& errorCode, const PixelMapConfig& pixelMapConfig)
 {
     Media::DecodeOptions options;
-    InitDecodeOptions(
-        options, size, pixelMapConfig.imageQuality, pixelMapConfig.isHdrDecoderNeed, pixelMapConfig.photoDecodeFormat);
+    InitDecodeOptions(options, size, pixelMapConfig);
     auto pixmap = imageSource_->CreatePixelMapEx(index, options, errorCode);
     if (errorCode != Media::SUCCESS) {
         TAG_LOGW(AceLogTag::ACE_IMAGE,
@@ -133,11 +169,21 @@ RefPtr<PixelMap> ImageSourceOhos::CreatePixelMap()
     Media::DecodeOptions decodeOpts;
     auto pixelMap = imageSource_->CreatePixelMap(decodeOpts, errorCode);
     if (errorCode != Media::SUCCESS) {
-        TAG_LOGW(AceLogTag::ACE_IMAGE,
-            "create PixelMap from ImageSource failed, errorCode = %{public}u", errorCode);
+        TAG_LOGW(AceLogTag::ACE_IMAGE, "create PixelMap from ImageSource failed, errorCode = %{public}u", errorCode);
         return nullptr;
     }
     return PixelMap::Create(std::move(pixelMap));
+}
+
+ImageSource::Size ImageSourceOhos::GetImageSize()
+{
+    Media::ImageInfo info;
+    auto errorCode = imageSource_->GetImageInfo(info);
+    if (errorCode != Media::SUCCESS) {
+        TAG_LOGW(AceLogTag::ACE_IMAGE, "Get ImageSource info failed, errorCode = %{public}u", errorCode);
+        return { 0, 0 };
+    }
+    return { info.size.width, info.size.height };
 }
 
 RefPtr<PixelMap> ImageSourceOhos::CreatePixelMap(const DecodeOptions& options)
@@ -153,17 +199,6 @@ RefPtr<PixelMap> ImageSourceOhos::CreatePixelMap(const DecodeOptions& options)
     return PixelMap::Create(std::move(pixelmap));
 }
 
-ImageSource::Size ImageSourceOhos::GetImageSize()
-{
-    Media::ImageInfo info;
-    auto errorCode = imageSource_->GetImageInfo(info);
-    if (errorCode != Media::SUCCESS) {
-        TAG_LOGW(AceLogTag::ACE_IMAGE, "Get ImageSource info failed, errorCode = %{public}u", errorCode);
-        return { 0, 0 };
-    }
-    return { info.size.width, info.size.height };
-}
-
 uint32_t ImageSourceOhos::GetFrameCount()
 {
     uint32_t errorCode;
@@ -175,6 +210,27 @@ uint32_t ImageSourceOhos::GetFrameCount()
     return frameCount;
 }
 
+int32_t ImageSourceOhos::GetLoopCount()
+{
+    uint32_t errorCode;
+    auto loopCount = imageSource_->GetLoopCount(errorCode);
+    if (errorCode != Media::SUCCESS) {
+        TAG_LOGW(AceLogTag::ACE_IMAGE, "Get image loop count failed, errorCode = %{public}u", errorCode);
+        return 0;
+    }
+    return loopCount;
+}
+std::vector<int32_t> ImageSourceOhos::GetDelayTime()
+{
+    uint32_t errorCode;
+    auto delayTime = imageSource_->GetDelayTime(errorCode);
+    if (errorCode != Media::SUCCESS) {
+        TAG_LOGW(AceLogTag::ACE_IMAGE, "Get image delay time failed, errorCode = %{public}u", errorCode);
+        return {};
+    }
+    return std::move(*delayTime.release());
+}
+
 std::string ImageSourceOhos::GetEncodedFormat()
 {
     uint32_t errorCode;
@@ -184,5 +240,16 @@ std::string ImageSourceOhos::GetEncodedFormat()
         return "";
     }
     return sourceInfo.encodedFormat;
+}
+
+bool ImageSourceOhos::IsHeifWithoutAlpha()
+{
+    return imageSource_->IsHeifWithoutAlpha();
+}
+
+ImageRotateOrientation ImageSourceOhos::GetImageOrientation()
+{
+    auto origin = GetProperty("Orientation");
+    return GetImageSourceRotateOrientation(origin);
 }
 } // namespace OHOS::Ace

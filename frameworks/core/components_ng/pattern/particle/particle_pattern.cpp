@@ -15,6 +15,7 @@
 
 #include "core/components_ng/pattern/particle/particle_pattern.h"
 
+#include "base/utils/utils.h"
 #include "core/components_ng/render/adapter/rosen_particle_context.h"
 
 namespace OHOS::Ace::NG {
@@ -41,7 +42,9 @@ void ParticlePattern::OnVisibleChange(bool isVisible)
     SetHaveUnVisibleParent(!isVisible);
     if (isVisible) {
         auto host = GetHost();
+        CHECK_NULL_VOID(host);
         auto context = host->GetRenderContext();
+        CHECK_NULL_VOID(context);
         context->OnParticleOptionArrayUpdate(context->GetParticleOptionArray().value());
     }
 }
@@ -49,6 +52,7 @@ void ParticlePattern::OnVisibleChange(bool isVisible)
 void ParticlePattern::OnAttachToMainTree()
 {
     auto host = GetHost();
+    CHECK_NULL_VOID(host);
     auto parent = host->GetParent();
     while (parent) {
         if (InstanceOf<FrameNode>(parent)) {
@@ -62,20 +66,18 @@ void ParticlePattern::OnAttachToMainTree()
     }
 }
 
-std::unique_ptr<JsonValue> ParticlePattern::ParseAnnulusRegionJson(const ParticleOption& particleOption,
-    const ParticleAnnulusRegion& annulusRegion) const
+std::unique_ptr<JsonValue> ParticlePattern::ParseAnnulusRegionJson(const ParticleAnnulusRegion& annulusRegion) const
 {
-    auto emitterOptionOpt = particleOption.GetEmitterOption();
     auto objectAnnulusRegionJson = JsonUtil::Create(true);
-    auto center = annulusRegion.center_;
+    auto center = annulusRegion.GetCenter();
     auto centerObj = JsonUtil::Create(true);
     centerObj->Put("x", center.first.ToString().c_str());
     centerObj->Put("y", center.second.ToString().c_str());
     objectAnnulusRegionJson->Put("center", centerObj);
-    objectAnnulusRegionJson->Put("innerRadius", std::to_string(annulusRegion.innerRadius_.ConvertToPx()).c_str());
-    objectAnnulusRegionJson->Put("outerRadius", std::to_string(annulusRegion.outerRadius_.ConvertToPx()).c_str());
-    objectAnnulusRegionJson->Put("startAngle", std::to_string(annulusRegion.startAngle_).c_str());
-    objectAnnulusRegionJson->Put("endAngle", std::to_string(annulusRegion.endAngle_).c_str());
+    objectAnnulusRegionJson->Put("innerRadius", std::to_string(annulusRegion.GetInnerRadius().ConvertToPx()).c_str());
+    objectAnnulusRegionJson->Put("outerRadius", std::to_string(annulusRegion.GetOuterRadius().ConvertToPx()).c_str());
+    objectAnnulusRegionJson->Put("startAngle", std::to_string(annulusRegion.GetStartAngle()).c_str());
+    objectAnnulusRegionJson->Put("endAngle", std::to_string(annulusRegion.GetEndAngle()).c_str());
     return objectAnnulusRegionJson;
 }
 
@@ -167,7 +169,7 @@ void ParticlePattern::GetEmitterJson(const std::unique_ptr<JsonValue>& objectPar
     }
     auto annulusRegionOpt = emitterOptionOpt.GetAnnulusRegion();
     if (annulusRegionOpt.has_value()) {
-        auto objectAnnulusRegionJson = ParseAnnulusRegionJson(particleOption, annulusRegionOpt.value());
+        auto objectAnnulusRegionJson = ParseAnnulusRegionJson(annulusRegionOpt.value());
         objectEmitterJson->Put("annulusRegion", objectAnnulusRegionJson);
     }
     objectParticlesJson->Put("emitter", objectEmitterJson);
@@ -400,29 +402,73 @@ void ParticlePattern::ParseParticleObject(std::unique_ptr<JsonValue>& json,
     json->PutExtAttr("particles", objectParticlesArrayJson, filter);
 }
 
+void ParticlePattern::ParseRippleFields(std::unique_ptr<JsonValue>& json) const
+{
+    auto rippleFields = GetRippleField();
+    if (rippleFields.size() > 0) {
+        auto rippleFieldsArray = JsonUtil::CreateArray(true);
+        for (size_t i = 0; i < rippleFields.size(); i++) {
+            auto object = JsonUtil::Create(true);
+            object->Put("amplitude", rippleFields[i].amplitude);
+            object->Put("wavelength", rippleFields[i].wavelength);
+            object->Put("waveSpeed", rippleFields[i].waveSpeed);
+            object->Put("attenuation", rippleFields[i].attenuation);
+            auto center = JsonUtil::Create(true);
+            center->Put("x", rippleFields[i].center.first.ToString().c_str());
+            center->Put("y", rippleFields[i].center.second.ToString().c_str());
+            object->Put("center", center);
+            auto region = JsonUtil::Create(true);
+            region->Put("shape", ShapeTypeToString(rippleFields[i].region.shape).c_str());
+            auto size = JsonUtil::Create(true);
+            size->Put("width", rippleFields[i].region.size.first.ToString().c_str());
+            size->Put("height", rippleFields[i].region.size.second.ToString().c_str());
+            region->Put("size", size);
+            auto position = JsonUtil::Create(true);
+            position->Put("x", rippleFields[i].region.position.first.ToString().c_str());
+            position->Put("y", rippleFields[i].region.position.second.ToString().c_str());
+            region->Put("position", position);
+            object->Put("region", region);
+            rippleFieldsArray->Put(std::to_string(i).c_str(), object);
+        }
+        json->Put("rippleFields", rippleFieldsArray);
+    }
+}
+
+void ParticlePattern::ParseVelocityFields(std::unique_ptr<JsonValue>& json) const
+{
+    auto velocityFields = GetVelocityField();
+    if (velocityFields.size() > 0) {
+        auto velocityFieldsArray = JsonUtil::CreateArray(true);
+        for (size_t i = 0; i < velocityFields.size(); i++) {
+            auto object = JsonUtil::Create(true);
+            auto velocity = JsonUtil::Create(true);
+            velocity->Put("x", velocityFields[i].velocity.first);
+            velocity->Put("y", velocityFields[i].velocity.second);
+            object->Put("velocity", velocity);
+            auto region = JsonUtil::Create(true);
+            region->Put("shape", ShapeTypeToString(velocityFields[i].region.shape).c_str());
+            auto size = JsonUtil::Create(true);
+            size->Put("width", velocityFields[i].region.size.first.ToString().c_str());
+            size->Put("height", velocityFields[i].region.size.second.ToString().c_str());
+            region->Put("size", size);
+            auto position = JsonUtil::Create(true);
+            position->Put("x", velocityFields[i].region.position.first.ToString().c_str());
+            position->Put("y", velocityFields[i].region.position.second.ToString().c_str());
+            region->Put("position", position);
+            object->Put("region", region);
+            velocityFieldsArray->Put(std::to_string(i).c_str(), object);
+        }
+        json->Put("velocityFields", velocityFieldsArray);
+    }
+}
+
 void ParticlePattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
 {
     auto props = GetEmitterProperty();
     if (props.size() > 0) {
         auto array = JsonUtil::CreateArray(true);
         for (size_t i = 0; i < props.size(); i++) {
-            auto object = JsonUtil::Create(true);
-            object->Put("index", std::to_string(props[i].index).c_str());
-            if (props[i].emitRate.has_value()) {
-                object->Put("emitRate", std::to_string(*props[i].emitRate).c_str());
-            }
-            if (props[i].position.has_value()) {
-                auto positionObj = JsonUtil::Create(true);
-                positionObj->Put("x", std::to_string(props[i].position->x).c_str());
-                positionObj->Put("y", std::to_string(props[i].position->y).c_str());
-                object->Put("position", positionObj);
-            }
-            if (props[i].size.has_value()) {
-                auto sizeObj = JsonUtil::Create(true);
-                sizeObj->Put("x", std::to_string(props[i].size->x).c_str());
-                sizeObj->Put("y", std::to_string(props[i].size->y).c_str());
-                object->Put("size", sizeObj);
-            }
+            auto object = ToEmitterPropertyJsonValue(props[i]);
             array->Put(std::to_string(i).c_str(), object);
         }
         json->Put("emitter", array);
@@ -449,7 +495,35 @@ void ParticlePattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const Inspec
         }
         json->Put("disturbanceFields", disturbanceFieldsArray);
     }
+    ParseRippleFields(json);
+    ParseVelocityFields(json);
     ParseParticleObject(json, filter);
+}
+
+std::unique_ptr<JsonValue> ParticlePattern::ToEmitterPropertyJsonValue(const EmitterProperty& emitterProperty) const
+{
+    auto object = JsonUtil::Create(true);
+    object->Put("index", std::to_string(emitterProperty.index).c_str());
+    if (emitterProperty.emitRate.has_value()) {
+        object->Put("emitRate", std::to_string(*emitterProperty.emitRate).c_str());
+    }
+    if (emitterProperty.position.has_value()) {
+        auto positionObj = JsonUtil::Create(true);
+        positionObj->Put("x", std::to_string(emitterProperty.position->x).c_str());
+        positionObj->Put("y", std::to_string(emitterProperty.position->y).c_str());
+        object->Put("position", positionObj);
+    }
+    if (emitterProperty.size.has_value()) {
+        auto sizeObj = JsonUtil::Create(true);
+        sizeObj->Put("x", std::to_string(emitterProperty.size->x).c_str());
+        sizeObj->Put("y", std::to_string(emitterProperty.size->y).c_str());
+        object->Put("size", sizeObj);
+    }
+    if (emitterProperty.annulusRegion.has_value()) {
+        auto annulusRegionObj = ParseAnnulusRegionJson(emitterProperty.annulusRegion.value());
+        object->Put("annulusRegion", annulusRegionObj);
+    }
+    return object;
 }
 
 void ParticlePattern::UpdateDisturbance(const std::vector<ParticleDisturbance>& disturbanceArray)
@@ -481,17 +555,47 @@ void ParticlePattern::UpdateDisturbance(const std::vector<ParticleDisturbance>& 
     RosenRenderParticle::UpdateDisturbance(frameNode, disturbanceArray);
 }
 
+void ParticlePattern::UpdateRippleFields(const std::vector<ParticleRippleField>& rippleArray)
+{
+    const std::vector<ParticleRippleField>& currentRipple = GetRippleField();
+
+    /*
+     * No Update "RippleFields" is necessary,
+     * when the incoming rippleArray is equal to the stored rippleArray.
+     */
+    if (NearEqual(currentRipple, rippleArray)) {
+        return;
+    }
+
+    SetRippleField(rippleArray);
+    auto frameNode = GetHost();
+    CHECK_NULL_VOID(frameNode);
+    RosenRenderParticle::UpdateRippleFields(frameNode, rippleArray);
+}
+
+void ParticlePattern::UpdateVelocityFields(const std::vector<ParticleVelocityField>& velocityArray)
+{
+    const std::vector<ParticleVelocityField>& currentVelocity = GetVelocityField();
+
+    /*
+     * No Update "VelocityFields" is necessary,
+     * when the incoming velocityArray is equal to the stored velocityArray.
+     */
+    if (NearEqual(currentVelocity, velocityArray)) {
+        return;
+    }
+
+    SetVelocityField(velocityArray);
+    auto frameNode = GetHost();
+    CHECK_NULL_VOID(frameNode);
+    RosenRenderParticle::UpdateVelocityFields(frameNode, velocityArray);
+}
+
 void ParticlePattern::updateEmitterPosition(std::vector<EmitterProperty>& props)
 {
     auto frameNode = GetHost();
-    CHECK_NULL_VOID(frameNode);
-    auto renderContext = frameNode->GetRenderContext();
-    uint32_t emitterCount = 0;
-    if (renderContext->HasParticleOptionArray()) {
-        emitterCount = static_cast<uint32_t>(renderContext->GetParticleOptionArrayValue().size());
-    }
     for (EmitterProperty& prop : props) {
-        prop.index = prop.index >= emitterCount ? 0 : prop.index;
+        prop.index = prop.index >= GetEmitterCount() ? 0 : prop.index;
     }
     SetEmitterProperty(props);
     RosenRenderParticle::updateEmitterPosition(frameNode, props);

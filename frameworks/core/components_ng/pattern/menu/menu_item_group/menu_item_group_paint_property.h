@@ -16,12 +16,11 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_MENU_MENU_ITEM_GROUP_MENU_ITEM_GROUP_PAINT_PROPERTY_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_MENU_MENU_ITEM_GROUP_MENU_ITEM_GROUP_PAINT_PROPERTY_H
 
-#include "core/components/common/properties/text_style.h"
 #include "core/components_ng/render/paint_property.h"
 
 namespace OHOS::Ace::NG {
 class ACE_EXPORT MenuItemGroupPaintProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(MenuItemGroupPaintProperty, PaintProperty)
+    DECLARE_ACE_TYPE(MenuItemGroupPaintProperty, PaintProperty);
 
 public:
     MenuItemGroupPaintProperty() = default;

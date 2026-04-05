@@ -30,34 +30,44 @@
 class InteropStorage extends Map<string, ObservedPropertyAbstract<any>> {
     originStorage_: Map<string, ObservedPropertyAbstract<any>> = new Map<string, ObservedPropertyAbstract<any>>();
 
+    private proxy?: Object;
+
+    public getProxy(): Object | undefined {
+        return this.proxy;
+    }
+
+    public setProxy(proxy: Object): void {
+        this.proxy = proxy;
+    }
+
     totalKeys_ = new Set<string>();
 
     // get value from AppStorage in ArkTS1.2
     getStaticValue_: (value: string) => ObservedPropertyAbstract<any> = () => {
-        throw new Error('not implement');
+        throw new BusinessError(NOT_IMPLEMENT, `getStaticValue_ method does not implement in InteropStorage`)
     };
     removeStaticValue_: (value: string) => boolean = () => {
-        throw new Error('not implement');
+        throw new BusinessError(NOT_IMPLEMENT, `removeStaticValue_ method does not implement in InteropStorage`)
     };
     getStaticValueSize_: () => number = () => {
-        throw new Error('not implement');
+        throw new BusinessError(NOT_IMPLEMENT, `getStaticValueSize_ method does not implement in InteropStorage`)
     };
     getStaticTotalKeys_: () => IterableIterator<string> = () => {
-        throw new Error('not implement');
+        throw new BusinessError(NOT_IMPLEMENT, `getStaticTotalKeys_ method does not implement in InteropStorage`)
     };
 
     // call ArkTS1.2 to update interop key map.
     addKeyFunc_: (key: string) => void = (key: string) => {
-        throw new Error('not implement');
+        throw new BusinessError(NOT_IMPLEMENT, `addKeyFunc_ method does not implement in InteropStorage`)
     };
     removeKeyFunc_: (key: string) => void = (key: string) => {
-        throw new Error('not implement');
+        throw new BusinessError(NOT_IMPLEMENT, `removeKeyFunc_ method does not implement in InteropStorage`)
     };
     clearKeyFunc_: () => boolean = () => {
-        throw new Error('not implement');
+        throw new BusinessError(NOT_IMPLEMENT, `clearKeyFunc_ method does not implement in InteropStorage`)
     };
     checkClearKeyFunc_: () => boolean = () => {
-        throw new Error('not implement');
+        throw new BusinessError(NOT_IMPLEMENT, `checkClearKeyFunc_ method does not implement in InteropStorage`)
     };
 
     constructor() {
@@ -217,6 +227,7 @@ function bindStaticAppStorage(
 }
 
 function bindStaticLocalStorage(
+    localStorage: LocalStorage,
     getStaticValue: (value: string) => ObservedPropertyAbstract<any>,
     removeStaticValue: (value: string) => boolean,
     getStaticValueSize: () => number,
@@ -233,10 +244,7 @@ function bindStaticLocalStorage(
     setRemoveValueFunc: (event: (value: string) => boolean) => void,
     setClearValueFunc: (event: () => boolean) => void,
     setCheckCanClearValueFunc:  (event: () => boolean) => void
-) : LocalStorage {
-
-    const localStorage = new LocalStorage();
-
+) : void {
     // use interop storage replace origin map.
     const interopStorage = new InteropStorage();
     interopStorage.originStorage_ = localStorage._getOriginStorageByInterop_();
@@ -297,6 +305,4 @@ function bindStaticLocalStorage(
         }
         return true;
     });
-
-    return localStorage;
 }

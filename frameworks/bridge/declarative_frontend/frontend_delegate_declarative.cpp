@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -62,7 +62,10 @@ void MainWindowOverlay(std::function<void(RefPtr<NG::OverlayManager>)>&& task, c
     auto currentId = Container::CurrentId();
     ContainerScope scope(currentId);
     auto context = NG::PipelineContext::GetCurrentContext();
-    CHECK_NULL_VOID(context);
+    if (!context) {
+        TAG_LOGE(AceLogTag::ACE_OVERLAY, "context is null in MainWindowOverlay.");
+        return ;
+    }
     auto overlayManager = context->GetOverlayManager();
     if (overlay) {
         overlayManager = overlay;
@@ -123,6 +126,11 @@ FrontendDelegateDeclarative::FrontendDelegateDeclarative(const RefPtr<TaskExecut
     const MediaQueryCallback& mediaQueryCallback, const LayoutInspectorCallback& layoutInpsectorCallback,
     const DrawInspectorCallback& drawInpsectorCallback,
     const DrawChildrenInspectorCallback& drawChildrenInspectorCallback,
+    const LayoutChildrenInspectorCallback& layoutChildrenInspectorCallback,
+    const LayoutInspectorUniqueIdCallback& layoutInspectorUniqueIdCallback,
+    const DrawInspectorUniqueIdCallback& drawInspectorUniqueIdCallback,
+    const DrawChildrenInspectorUniqueIdCallback& drawChildrenInspectorUniqueIdCallback,
+    const LayoutChildrenInspectorUniqueIdCallback& layoutChildrenInspectorUniqueIdCallback,
     const RequestAnimationCallback& requestAnimationCallback,
     const JsCallback& jsCallback, const OnWindowDisplayModeChangedCallBack& onWindowDisplayModeChangedCallBack,
     const OnConfigurationUpdatedCallBack& onConfigurationUpdatedCallBack,
@@ -138,6 +146,11 @@ FrontendDelegateDeclarative::FrontendDelegateDeclarative(const RefPtr<TaskExecut
       destroyApplication_(destroyApplicationCallback), updateApplicationState_(updateApplicationStateCallback),
       timer_(timerCallback), mediaQueryCallback_(mediaQueryCallback), layoutInspectorCallback_(layoutInpsectorCallback),
       drawInspectorCallback_(drawInpsectorCallback), drawChildrenInspectorCallback_(drawChildrenInspectorCallback),
+      layoutChildrenInspectorCallback_(layoutChildrenInspectorCallback),
+      layoutInspectorUniqueIdCallback_(layoutInspectorUniqueIdCallback),
+      drawInspectorUniqueIdCallback_(drawInspectorUniqueIdCallback),
+      drawChildrenInspectorUniqueIdCallback_(drawChildrenInspectorUniqueIdCallback),
+      layoutChildrenInspectorUniqueIdCallback_(layoutChildrenInspectorUniqueIdCallback),
       requestAnimationCallback_(requestAnimationCallback),
       jsCallback_(jsCallback), onWindowDisplayModeChanged_(onWindowDisplayModeChangedCallBack),
       onConfigurationUpdated_(onConfigurationUpdatedCallBack), onSaveAbilityState_(onSaveAbilityStateCallBack),
@@ -229,6 +242,9 @@ void FrontendDelegateDeclarative::RunPage(
         [delegate = Claim(this), weakPtr = WeakPtr<NG::PageRouterManager>(pageRouterManager_), content, params]() {
             auto pageRouterManager = weakPtr.Upgrade();
             CHECK_NULL_VOID(pageRouterManager);
+            if (delegate) {
+                NG::AppBarView::BuildAppbar(delegate->GetPipelineContext());
+            }
             pageRouterManager->RunPage(content, params);
             auto pipeline = delegate->GetPipelineContext();
         },
@@ -570,7 +586,7 @@ void FrontendDelegateDeclarative::OnConfigurationUpdated(const std::string& data
     taskExecutor_->PostSyncTask(
         [onConfigurationUpdated = onConfigurationUpdated_, data] { onConfigurationUpdated(data); },
         TaskExecutor::TaskType::JS, "ArkUIConfigurationUpdated");
-    OnMediaQueryUpdate();
+    OnMediaQueryUpdate(true);
 }
 
 bool FrontendDelegateDeclarative::OnStartContinuation()
@@ -913,6 +929,31 @@ void FrontendDelegateDeclarative::PushWithCallback(const std::string& uri, const
     Push(PageTarget(uri, static_cast<RouterMode>(routerMode)), params, errorCallback);
 }
 
+void* FrontendDelegateDeclarative::CreateDynamicPage(
+    int32_t pageId, const std::string& url, const std::string& params, bool recoverable)
+{
+    if (!Container::IsCurrentUseNewPipeline()) {
+        return nullptr;
+    }
+    CHECK_NULL_RETURN(pageRouterManager_, nullptr);
+    auto currentId = GetEffectiveContainerId();
+    CHECK_EQUAL_RETURN(currentId.has_value(), false, nullptr);
+    ContainerScope scope(currentId.value());
+    NG::RouterPageInfo routerPageInfo;
+    routerPageInfo.url = url;
+    routerPageInfo.params = params;
+    routerPageInfo.recoverable = recoverable;
+    routerPageInfo.routerMode = NG::RouterMode::STANDARD;
+    routerPageInfo.errorCallback = [](const std::string& errorMsg, int32_t errorCode) {
+        LOGI("AceRouter failed to create dynamic page, code:%{public}d, msg:%{public}s",
+            errorCode, errorMsg.c_str());
+    };
+    auto pageNode = pageRouterManager_->CreateDynamicPage(pageId, routerPageInfo);
+    CHECK_NULL_RETURN(pageNode, nullptr);
+    pageNode->IncRefCount();
+    return pageNode.GetRawPtr();
+}
+
 void FrontendDelegateDeclarative::PushNamedRoute(const std::string& uri, const std::string& params,
     bool recoverable, const std::function<void(const std::string&, int32_t)>& errorCallback, uint32_t routerMode)
 {
@@ -1096,8 +1137,26 @@ int32_t FrontendDelegateDeclarative::GetStackSize() const
     return static_cast<int32_t>(pageRouteStack_.size());
 }
 
+bool FrontendDelegateDeclarative::GetCurrentPageIndexForStaticIfNeeded(int32_t& index) const
+{
+    auto container = Container::CurrentSafely();
+    CHECK_NULL_RETURN(container, false);
+    auto frontend = container->GetFrontend();
+    CHECK_NULL_RETURN(frontend, false);
+    auto type = frontend->GetType();
+    if (type != FrontendType::ARK_TS) {
+        return false;
+    }
+    index = frontend->GetCurrentPageIndex();
+    return true;
+}
+
 int32_t FrontendDelegateDeclarative::GetCurrentPageIndex() const
 {
+    int32_t index = -1;
+    if (GetCurrentPageIndexForStaticIfNeeded(index)) {
+        return index;
+    }
     if (Container::IsCurrentUseNewPipeline()) {
         CHECK_NULL_RETURN(pageRouterManager_, 0);
         auto currentId = GetEffectiveContainerId();
@@ -1234,6 +1293,18 @@ void FrontendDelegateDeclarative::GetRouterStateByUrl(std::string& url, std::vec
             counter++;
         }
     }
+}
+
+std::string FrontendDelegateDeclarative::GetInitParams()
+{
+    if (!Container::IsCurrentUseNewPipeline()) {
+        return "";
+    }
+    CHECK_NULL_RETURN(pageRouterManager_, "");
+    auto currentId = GetEffectiveContainerId();
+    CHECK_EQUAL_RETURN(currentId.has_value(), false, "");
+    ContainerScope scope(currentId.value());
+    return pageRouterManager_->GetInitParams();
 }
 
 std::string FrontendDelegateDeclarative::GetParams()
@@ -1709,7 +1780,7 @@ void FrontendDelegateDeclarative::ShowDialogInner(DialogProperties& dialogProper
     TAG_LOGD(AceLogTag::ACE_OVERLAY, "show dialog inner enter");
     auto pipelineContext = pipelineContextHolder_.Get();
     if (Container::IsCurrentUseNewPipeline()) {
-        LOGI("Dialog IsCurrentUseNewPipeline.");
+        LOGD("Dialog IsCurrentUseNewPipeline.");
         dialogProperties.onSuccess = std::move(callback);
         dialogProperties.onCancel = [callback, taskExecutor = taskExecutor_] {
             taskExecutor->PostTask([callback]() { callback(CALLBACK_ERRORCODE_CANCEL, CALLBACK_DATACODE_ZERO); },
@@ -1834,6 +1905,7 @@ void FrontendDelegateDeclarative::ShowDialog(const PromptDialogAttr& dialogAttr,
         .enableHoverMode = dialogAttr.enableHoverMode,
         .blurStyleOption = dialogAttr.blurStyleOption,
         .effectOption = dialogAttr.effectOption,
+        .hasInvertColor = dialogAttr.hasInvertColor,
         .maskRect = dialogAttr.maskRect,
         .onDidAppear = dialogAttr.onDidAppear,
         .onDidDisappear = dialogAttr.onDidDisappear,
@@ -1842,7 +1914,7 @@ void FrontendDelegateDeclarative::ShowDialog(const PromptDialogAttr& dialogAttr,
         .levelOrder = dialogAttr.levelOrder,
         .dialogLevelMode = dialogAttr.dialogLevelMode,
         .dialogLevelUniqueId = dialogAttr.dialogLevelUniqueId,
-        .dialogImmersiveMode = dialogAttr.dialogImmersiveMode
+        .dialogImmersiveMode = dialogAttr.dialogImmersiveMode, .systemMaterial = dialogAttr.systemMaterial
     };
 #if defined(PREVIEW)
     if (dialogProperties.isShowInSubWindow) {
@@ -1944,7 +2016,8 @@ DialogProperties FrontendDelegateDeclarative::ParsePropertiesFromAttr(const Prom
 {
     DialogProperties dialogProperties = {
         .autoCancel = dialogAttr.autoCancel, .customStyle = dialogAttr.customStyle,
-        .onWillDismiss = dialogAttr.customOnWillDismiss, .maskColor = dialogAttr.maskColor,
+        .onWillDismiss = dialogAttr.customOnWillDismiss,
+        .onWillDismissRelease = dialogAttr.customOnWillDismissRelease, .maskColor = dialogAttr.maskColor,
         .backgroundColor = dialogAttr.backgroundColor, .borderRadius = dialogAttr.borderRadius,
         .isShowInSubWindow = dialogAttr.showInSubWindow, .isModal = dialogAttr.isModal,
         .enableHoverMode = dialogAttr.enableHoverMode, .customBuilder = dialogAttr.customBuilder,
@@ -1954,6 +2027,7 @@ DialogProperties FrontendDelegateDeclarative::ParsePropertiesFromAttr(const Prom
         .borderWidth = dialogAttr.borderWidth,
         .borderColor = dialogAttr.borderColor, .borderStyle = dialogAttr.borderStyle, .shadow = dialogAttr.shadow,
         .width = dialogAttr.width, .height = dialogAttr.height,
+        .hasInvertColor = dialogAttr.hasInvertColor,
         .isUserCreatedDialog = dialogAttr.isUserCreatedDialog,
         .maskRect = dialogAttr.maskRect,
         .transitionEffect = dialogAttr.transitionEffect, .dialogTransitionEffect = dialogAttr.dialogTransitionEffect,
@@ -1966,7 +2040,8 @@ DialogProperties FrontendDelegateDeclarative::ParsePropertiesFromAttr(const Prom
         .focusable = dialogAttr.focusable,
         .dialogLevelMode = dialogAttr.dialogLevelMode,
         .dialogLevelUniqueId = dialogAttr.dialogLevelUniqueId,
-        .dialogImmersiveMode = dialogAttr.dialogImmersiveMode
+        .dialogImmersiveMode = dialogAttr.dialogImmersiveMode,
+        .systemMaterial = dialogAttr.systemMaterial
     };
     ParsePartialPropertiesFromAttr(dialogProperties, dialogAttr);
     return dialogProperties;
@@ -2006,8 +2081,8 @@ void FrontendDelegateDeclarative::OpenCustomDialog(const PromptDialogAttr &dialo
 void FrontendDelegateDeclarative::CloseCustomDialog(const int32_t dialogId)
 {
     auto task = [dialogId](const RefPtr<NG::OverlayManager>& overlayManager) {
-        CHECK_NULL_VOID(overlayManager);
         TAG_LOGI(AceLogTag::ACE_OVERLAY, "begin to close custom dialog.");
+        CHECK_NULL_VOID(overlayManager);
         overlayManager->CloseCustomDialog(dialogId);
         SubwindowManager::GetInstance()->CloseCustomDialogNG(dialogId);
     };
@@ -2062,6 +2137,13 @@ void FrontendDelegateDeclarative::UpdateCustomDialog(
     auto context = nodePtr->GetContextWithCheck();
     CHECK_NULL_VOID(context);
     auto overlayManager = context->GetOverlayManager();
+    auto parent = NG::DialogManager::GetInstance().GetDialogNodeByContentNode(nodePtr);
+    if (parent) {
+        auto currentOverlay = NG::DialogManager::GetInstance().GetEmbeddedOverlayWithNode(parent);
+        if (currentOverlay) {
+            overlayManager = currentOverlay;
+        }
+    }
     context->GetTaskExecutor()->PostTask(
         [dialogProperties, node, callback, weak = WeakPtr<NG::OverlayManager>(overlayManager)]() mutable {
             auto overlayManager = weak.Upgrade();
@@ -2229,6 +2311,7 @@ void FrontendDelegateDeclarative::ShowActionMenu(const PromptDialogAttr& dialogA
         .dialogLevelMode = dialogAttr.dialogLevelMode,
         .dialogLevelUniqueId = dialogAttr.dialogLevelUniqueId,
         .dialogImmersiveMode = dialogAttr.dialogImmersiveMode,
+        .systemMaterial = dialogAttr.systemMaterial,
     };
 #if defined(PREVIEW)
     if (dialogProperties.isShowInSubWindow) {
@@ -2567,7 +2650,8 @@ void FrontendDelegateDeclarative::OnDrawCompleted(const std::string& componentId
         TaskExecutor::TaskType::JS, "ArkUIInspectorDrawCompleted");
 }
 
-void FrontendDelegateDeclarative::OnDrawChildrenCompleted(const std::string& componentId)
+void FrontendDelegateDeclarative::OnDrawChildrenCompleted(const std::string& componentId,
+    const std::vector<int32_t>& childIds)
 {
     auto engine = EngineHelper::GetCurrentEngine();
     CHECK_NULL_VOID(engine);
@@ -2576,12 +2660,30 @@ void FrontendDelegateDeclarative::OnDrawChildrenCompleted(const std::string& com
     }
 
     taskExecutor_->PostTask(
+        [weak = AceType::WeakClaim(this), componentId, childIds] {
+            auto delegate = weak.Upgrade();
+            if (!delegate) {
+                return;
+            }
+            delegate->drawChildrenInspectorCallback_(componentId, childIds);
+        },
+        TaskExecutor::TaskType::JS, "ArkUIInspectorDrawChildrenCompleted");
+}
+
+void FrontendDelegateDeclarative::OnLayoutChildrenCompleted(const std::string& componentId)
+{
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_VOID(engine);
+    if (!engine->IsLayoutChildrenCallbackFuncExist(componentId)) {
+        return;
+    }
+    taskExecutor_->PostTask(
         [weak = AceType::WeakClaim(this), componentId] {
             auto delegate = weak.Upgrade();
             if (!delegate) {
                 return;
             }
-            delegate->drawChildrenInspectorCallback_(componentId);
+            delegate->layoutChildrenInspectorCallback_(componentId);
         },
         TaskExecutor::TaskType::JS, "ArkUIInspectorDrawChildrenCompleted");
 }
@@ -2592,6 +2694,105 @@ bool FrontendDelegateDeclarative::IsDrawChildrenCallbackFuncExist(const std::str
     CHECK_NULL_RETURN(engine, false);
 
     return engine->IsDrawChildrenCallbackFuncExist(componentId);
+}
+
+bool FrontendDelegateDeclarative::IsLayoutChildrenCallbackFuncExist(const std::string& componentId)
+{
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_RETURN(engine, false);
+
+    return engine->IsLayoutChildrenCallbackFuncExist(componentId);
+}
+
+void FrontendDelegateDeclarative::OnLayoutCompleted(int32_t uniqueId)
+{
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_VOID(engine);
+    if (!engine->IsLayoutCallBackFuncExist(uniqueId)) {
+        return;
+    }
+
+    taskExecutor_->PostTask(
+        [weak = AceType::WeakClaim(this), uniqueId] {
+            auto delegate = weak.Upgrade();
+            if (!delegate) {
+                return;
+            }
+            delegate->layoutInspectorUniqueIdCallback_(uniqueId);
+        },
+        TaskExecutor::TaskType::JS, "ArkUIInspectorLayoutUniqueIdCompleted");
+}
+
+void FrontendDelegateDeclarative::OnDrawCompleted(int32_t uniqueId)
+{
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_VOID(engine);
+    if (!engine->IsDrawCallBackFuncExist(uniqueId)) {
+        return;
+    }
+
+    taskExecutor_->PostTask(
+        [weak = AceType::WeakClaim(this), uniqueId] {
+            auto delegate = weak.Upgrade();
+            if (!delegate) {
+                return;
+            }
+            delegate->drawInspectorUniqueIdCallback_(uniqueId);
+        },
+        TaskExecutor::TaskType::JS, "ArkUIInspectorDrawUniqueIdCompleted");
+}
+
+void FrontendDelegateDeclarative::OnDrawChildrenCompleted(int32_t uniqueId)
+{
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_VOID(engine);
+    if (!engine->IsDrawChildrenCallbackFuncExist(uniqueId)) {
+        return;
+    }
+
+    taskExecutor_->PostTask(
+        [weak = AceType::WeakClaim(this), uniqueId] {
+            auto delegate = weak.Upgrade();
+            if (!delegate) {
+                return;
+            }
+            delegate->drawChildrenInspectorUniqueIdCallback_(uniqueId);
+        },
+        TaskExecutor::TaskType::JS, "ArkUIInspectorDrawChildrenUniqueIdCompleted");
+}
+
+void FrontendDelegateDeclarative::OnLayoutChildrenCompleted(int32_t uniqueId)
+{
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_VOID(engine);
+    if (!engine->IsLayoutChildrenCallbackFuncExist(uniqueId)) {
+        return;
+    }
+    taskExecutor_->PostTask(
+        [weak = AceType::WeakClaim(this), uniqueId] {
+            auto delegate = weak.Upgrade();
+            if (!delegate) {
+                return;
+            }
+            delegate->layoutChildrenInspectorUniqueIdCallback_(uniqueId);
+        },
+        TaskExecutor::TaskType::JS, "ArkUIInspectorDrawChildrenUniqueIdCompleted");
+}
+
+bool FrontendDelegateDeclarative::IsDrawChildrenCallbackFuncExist(int32_t uniqueId)
+{
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_RETURN(engine, false);
+
+    return engine->IsDrawChildrenCallbackFuncExist(uniqueId);
+}
+
+bool FrontendDelegateDeclarative::IsLayoutChildrenCallbackFuncExist(int32_t uniqueId)
+{
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_RETURN(engine, false);
+
+    return engine->IsLayoutChildrenCallbackFuncExist(uniqueId);
 }
 
 void FrontendDelegateDeclarative::OnPageReady(
@@ -3417,6 +3618,17 @@ void FrontendDelegateDeclarative::CancelAnimationFrame(const std::string& callba
     }
 }
 
+
+void FrontendDelegateDeclarative::SetMonitorForCrownEvents(const std::string& callbackId)
+{
+    LOGW("Not supported in declarative frontend.");
+}
+
+void FrontendDelegateDeclarative::ClearMonitorForCrownEvents()
+{
+    LOGW("Not supported in declarative frontend.");
+}
+
 void FrontendDelegateDeclarative::FlushAnimationTasks()
 {
     while (!animationFrameTaskIds_.empty()) {
@@ -3636,13 +3848,22 @@ std::pair<int32_t, std::shared_ptr<Media::PixelMap>> FrontendDelegateDeclarative
     return {ERROR_CODE_INTERNAL_ERROR, nullptr};
 }
 
-void FrontendDelegateDeclarative::GetSnapshotWithRange(const NG::NodeIdentity startID, const NG::NodeIdentity endID,
+void FrontendDelegateDeclarative::GetSnapshotWithRange(const NG::NodeIdentity& startID, const NG::NodeIdentity& endID,
     const bool isStartRect,
     std::function<void(std::shared_ptr<Media::PixelMap>, int32_t, std::function<void()>)>&& callback,
     const NG::SnapshotOptions& options)
 {
 #ifdef ENABLE_ROSEN_BACKEND
     NG::ComponentSnapshot::GetWithRange(startID, endID, isStartRect, std::move(callback), options);
+#endif
+}
+
+NG::SnapshotSizeLimitation FrontendDelegateDeclarative::GetSizeLimitation()
+{
+#ifdef ENABLE_ROSEN_BACKEND
+    return NG::ComponentSnapshot::GetSizeLimitation();
+#else
+    return {};
 #endif
 }
 

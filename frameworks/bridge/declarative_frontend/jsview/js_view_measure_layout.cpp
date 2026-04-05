@@ -21,6 +21,7 @@
 #include "frameworks/bridge/declarative_frontend/jsview/js_view_abstract.h"
 #include "frameworks/core/components_ng/base/frame_node.h"
 #include "frameworks/core/components_ng/pattern/custom/custom_measure_layout_node.h"
+#include "frameworks/core/components_ng/property/measure_utils.h"
 
 namespace OHOS::Ace::Framework {
 
@@ -127,7 +128,7 @@ JSRef<JSObject> GenEdgeWidths(const std::unique_ptr<NG::BorderWidthProperty>& ed
     return edgeWidths;
 }
 
-JSRef<JSObject> GenEdgesGlobalized(const NG::PaddingPropertyT<float>& edgeNative, TextDirection direction)
+JSRef<JSObject> GenEdgesGlobalized(const NG::PaddingPropertyF& edgeNative, TextDirection direction)
 {
     JSRef<JSObject> edges = JSRef<JSObject>::New();
     auto pipeline = PipelineBase::GetCurrentContext();
@@ -254,7 +255,10 @@ void FillSubComponentProperty(
 {
     info->SetProperty<std::string>("name", layoutWrapper->GetHostNode()->GetTag());
     info->SetProperty<std::string>("id", std::to_string(layoutWrapper->GetHostNode()->GetId()));
-    info->SetPropertyObject("constraint", GenConstraint(layoutWrapper->GetLayoutProperty()->GetLayoutConstraint()));
+    const auto& layoutProperty = layoutWrapper->GetLayoutProperty();
+    if (layoutProperty) {
+        info->SetPropertyObject("constraint", GenConstraint(layoutProperty->GetLayoutConstraint()));
+    }
     info->SetPropertyObject("borderInfo", GenBorderInfo(layoutWrapper));
     info->SetPropertyObject("position", GenPositionInfo(layoutWrapper));
 }
@@ -417,6 +421,12 @@ JSRef<JSObject> JSMeasureLayoutParamNG::GetSelfLayoutInfo()
 
 void JSMeasureLayoutParamNG::UpdateSize(int32_t index, const NG::SizeF& size)
 {
+    if (childArray_.IsEmpty()) {
+        return;
+    }
+    auto vm = const_cast<EcmaVM*>(childArray_->GetEcmaVM());
+    CHECK_NULL_VOID(vm);
+    panda::LocalScope socpe(vm);
     auto info = JSRef<JSObjTemplate>::Cast(childArray_->GetValueAt(index));
     auto layoutWrapper = GetChildByIndex(index);
     FillPlaceSizeProperty(info, size);

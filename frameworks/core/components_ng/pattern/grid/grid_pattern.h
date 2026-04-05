@@ -16,28 +16,29 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_GRID_GRID_PATTERN_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_GRID_GRID_PATTERN_H
 
-#include "core/components_ng/pattern/grid/grid_accessibility_property.h"
-#include "core/components_ng/pattern/grid/grid_content_modifier.h"
-#include "core/components_ng/pattern/grid/grid_event_hub.h"
+#include <list>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "core/components_ng/pattern/grid/grid_focus.h"
 #include "core/components_ng/pattern/grid/grid_layout_info.h"
-#include "core/components_ng/pattern/grid/grid_layout_property.h"
-#include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
+#include "core/components_ng/pattern/scrollable/selectable_container_pattern.h"
 
 namespace OHOS::Ace::NG {
 class InspectorFilter;
+class GridContentModifier;
 
-
-class ACE_EXPORT GridPattern : public ScrollablePattern {
-    DECLARE_ACE_TYPE(GridPattern, ScrollablePattern);
+class ACE_EXPORT GridPattern : public SelectableContainerPattern {
+    DECLARE_ACE_TYPE(GridPattern, SelectableContainerPattern);
 
 public:
-    GridPattern() = default;
+    GridPattern();
+    ~GridPattern() override;
 
-    RefPtr<LayoutProperty> CreateLayoutProperty() override
-    {
-        return MakeRefPtr<GridLayoutProperty>();
-    }
+    RefPtr<LayoutProperty> CreateLayoutProperty() override;
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override;
 
@@ -47,10 +48,7 @@ public:
 
     RefPtr<NodePaintMethod> CreateNodePaintMethod() override;
 
-    RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override
-    {
-        return MakeRefPtr<GridAccessibilityProperty>();
-    }
+    RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override;
 
     bool IsScrollable() const override
     {
@@ -96,10 +94,7 @@ public:
 
     bool ScrollToNode(const RefPtr<FrameNode>& focusFrameNode) override;
 
-    RefPtr<EventHub> CreateEventHub() override
-    {
-        return MakeRefPtr<GridEventHub>();
-    }
+    RefPtr<EventHub> CreateEventHub() override;
 
     bool UsResRegion() override
     {
@@ -133,6 +128,11 @@ public:
         irregular_ = value;
     }
 
+    void SetUserDefined(bool userDefined)
+    {
+        userDefined_ = userDefined;
+    }
+
     void ResetPositionFlags()
     {
         info_.ResetPositionFlags();
@@ -141,6 +141,8 @@ public:
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
 
     bool UpdateCurrentOffset(float offset, int32_t source) override;
+
+    void PostAsyncLoadTask();
 
     bool IsAtTop() const override
     {
@@ -154,12 +156,15 @@ public:
 
     bool IsAtTopWithDelta() const override
     {
-        return info_.reachStart_ || LessNotEqual(EstimateHeight(), 0);
+        return (info_.reachStart_ && GreatOrEqual(info_.currentOffset_, info_.contentStartOffset_)) ||
+               LessNotEqual(EstimateHeight(), -info_.contentStartOffset_);
     }
 
     bool IsAtBottomWithDelta() const override
     {
-        return info_.offsetEnd_ || GreatNotEqual(EstimateHeight() + info_.lastMainSize_, GetTotalHeight());
+        return info_.offsetEnd_ || GreatNotEqual(EstimateHeight() + info_.lastMainSize_ + info_.contentStartOffset_ +
+                                                     info_.contentEndOffset_,
+                                       GetTotalHeight());
     }
 
     bool IsFadingBottom() const override;
@@ -174,7 +179,7 @@ public:
 
     bool UpdateStartIndex(int32_t index, ScrollAlign align);
 
-    float GetTotalOffset() const override
+    double GetTotalOffset() const override
     {
         return EstimateHeight();
     }
@@ -209,12 +214,15 @@ public:
     float EstimateHeight() const;
     float GetAverageHeight() const;
 
+    void DumpInfo() override;
+    void DumpInfo(std::unique_ptr<JsonValue>& json) override;
     void DumpAdvanceInfo() override;
     void DumpAdvanceInfo(std::unique_ptr<JsonValue>& json) override;
     void GetEventDumpInfo() override;
     void GetEventDumpInfo(std::unique_ptr<JsonValue>& json) override;
     void BuildGridLayoutInfo(std::unique_ptr<JsonValue>& json);
     void BuildScrollAlignInfo(std::unique_ptr<JsonValue>& json);
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override;
 
     std::string ProvideRestoreInfo() override;
     void OnRestoreInfo(const std::string& restoreInfo) override;
@@ -229,6 +237,11 @@ public:
     std::list<GridPreloadItem> MovePreloadItemList()
     {
         return std::move(preloadItemList_);
+    }
+
+    void ClearPreloadItemList()
+    {
+        preloadItemList_.clear();
     }
 
     void SetPreloadItemList(std::list<GridPreloadItem>&& list)
@@ -266,7 +279,22 @@ public:
 
     SizeF GetChildrenExpandedSize() override;
 
+    bool GetIsAllowMouse() const override;
+
     void HandleOnItemFocus(int32_t index);
+
+    void OnColorModeChange(uint32_t colorMode) override;
+
+    float GetContentStartOffset() const override
+    {
+        return info_.contentStartOffset_;
+    }
+    float GetContentEndOffset() const override
+    {
+        return info_.contentEndOffset_;
+    }
+
+    int32_t GetFirstIndex() const override;
 
 private:
     /**
@@ -285,6 +313,8 @@ private:
 
     void InitOnKeyEvent(const RefPtr<FocusHub>& focusHub);
     bool OnKeyEvent(const KeyEvent& event);
+    void InitFocusEvent(const RefPtr<FocusHub>& focusHub);
+    void HandleBlurEvent();
 
     void ClearMultiSelect() override;
     bool IsItemSelected(float offsetX, float offsetY) override;
@@ -313,6 +343,9 @@ private:
     inline bool UseIrregularLayout() const;
 
     std::string GetIrregularIndexesString() const;
+    float GetOffsetWithLimit(float offset) const override;
+
+    std::string GetLayoutMode() const;
 
     bool supportAnimation_ = false;
     bool isConfigScrollable_ = false;
@@ -320,6 +353,8 @@ private:
     bool preSpring_ = false; // true if during SyncLayoutBeforeSpring task.
     bool isSmoothScrolling_ = false;
     bool irregular_ = false; // true if LayoutOptions require running IrregularLayout
+    bool userDefined_ = false; // true if onGetStartIndex
+    bool prevMeasureBreak_ = false;
 
     RefPtr<GridContentModifier> gridContentModifier_;
 

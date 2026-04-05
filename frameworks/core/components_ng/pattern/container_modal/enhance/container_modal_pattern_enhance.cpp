@@ -26,14 +26,18 @@
 #include "base/utils/system_properties.h"
 #include "base/utils/utils.h"
 #include "core/components/common/layout/constants.h"
+#include "core/components/list/list_theme.h"
+#include "core/components/list/list_item_theme.h"
 #include "core/components_ng/pattern/container_modal/container_modal_theme.h"
 #include "core/components_ng/pattern/container_modal/container_modal_toolbar.h"
 #include "core/components_ng/pattern/container_modal/enhance/container_modal_view_enhance.h"
+#include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/list/list_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
+#include "core/components_ng/gestures/tap_gesture.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "core/components/select/select_theme.h"
 #include "core/common/resource/resource_manager.h"
-#include "base/subwindow/subwindow_manager.h"
 namespace OHOS::Ace::NG {
 namespace {
 
@@ -328,6 +332,20 @@ void ContainerModalPatternEnhance::SetContainerButtonHide(
     controlButtonsNode->FireCustomCallback(EVENT_NAME_CLOSE_VISIBILITY, hideClose);
 }
 
+void ContainerModalPatternEnhance::InitMenuDefaultRadius()
+{
+    auto containerNode = GetHost();
+    CHECK_NULL_VOID(containerNode);
+    auto pipeline = containerNode->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    auto customButtonNode = GetCustomButtonNode();
+    CHECK_NULL_VOID(customButtonNode);
+    auto theme = pipeline->GetTheme<SelectTheme>();
+    CHECK_NULL_VOID(theme);
+    auto defaultRadius = theme->GetMenuDefaultRadius().Value();
+    customButtonNode->FireCustomCallback(EVENT_NAME_BUTTON_MENU_DEFAULT_RADIUS, std::to_string(defaultRadius));
+}
+
 void ContainerModalPatternEnhance::UpdateTitleInTargetPos(bool isShow, int32_t height)
 {
     auto floatingTitleNode = GetFloatingTitleRow();
@@ -356,17 +374,17 @@ void ContainerModalPatternEnhance::UpdateTitleInTargetPos(bool isShow, int32_t h
         AnimationUtils::Animate(option, [floatingContext, height]() {
             auto rect = floatingContext->GetPaintRectWithoutTransform();
             floatingContext->OnTransformTranslateUpdate({ 0.0f, static_cast<float>(height - rect.GetY()), 0.0f });
-        });
+        }, nullptr, nullptr, GetContextRefPtr());
         buttonsContext->OnTransformTranslateUpdate({ 0.0f, height - static_cast<float>(titlePopupDistance), 0.0f });
         controlButtonVisibleBeforeAnim_ = controlButtonsLayoutProperty->GetVisibilityValue(VisibleType::VISIBLE);
         controlButtonsLayoutProperty->UpdateVisibility(VisibleType::VISIBLE);
         auto buttonPopupDistance =
             floatTitleMgr_ ? 0.0f : ((titlePopupDistance - CONTAINER_TITLE_HEIGHT.ConvertToPx()) / 2);
-        AnimationUtils::Animate(option, [buttonsContext, height, buttonPopupDistance]() {
+        AnimationUtils::Animate(option, [buttonsContext, titlePopupDistance, height, buttonPopupDistance]() {
             auto rect = buttonsContext->GetPaintRectWithoutTransform();
             buttonsContext->OnTransformTranslateUpdate(
                 { 0.0f, static_cast<float>(height - buttonPopupDistance - rect.GetY()), 0.0f });
-        });
+        }, nullptr, nullptr, GetContextRefPtr());
     }
 
     if (!isShow && CanHideFloatingTitle()) {
@@ -383,9 +401,11 @@ void ContainerModalPatternEnhance::UpdateTitleInTargetPos(bool isShow, int32_t h
                 CHECK_NULL_VOID(pattern);
                 floatingLayoutProperty->UpdateVisibility(VisibleType::GONE);
                 controlButtonsLayoutProperty->UpdateVisibility(pattern->controlButtonVisibleBeforeAnim_);
-            });
+            }, nullptr, GetContextRefPtr());
     }
 }
+
+void ContainerModalPatternEnhance::AddPointLight() {}
 
 RefPtr<FrameNode> ContainerModalPatternEnhance::GetOrCreateMenuList(const RefPtr<FrameNode>& targetNode)
 {
@@ -393,7 +413,7 @@ RefPtr<FrameNode> ContainerModalPatternEnhance::GetOrCreateMenuList(const RefPtr
     auto pipelineContext = PipelineContext::GetCurrentContext();
     CHECK_NULL_RETURN(pipelineContext, nullptr);
     auto theme = pipelineContext->GetTheme<ContainerModalTheme>();
-    textCtx.textContent = theme->GetWindowScreen(true);
+    textCtx.textContent = theme->GetWindowScreen(false);
 
     textCtx.fontSize = TITLE_TEXT_FONT_SIZE;
     auto textSize = MeasureUtil::MeasureTextSize(textCtx);
@@ -586,7 +606,9 @@ void ContainerModalPatternEnhance::OnMaxBtnHoverEvent(bool hover, WeakPtr<FrameN
         CHECK_NULL_VOID(pattern);
         pattern->ShowMaxMenu(maximizeBtn);
     };
-    auto pipeline = GetHost()->GetContextRefPtr();
+    auto frameNode = GetHost();
+    CHECK_NULL_VOID(frameNode);
+    auto pipeline = frameNode->GetContextRefPtr();
     CHECK_NULL_VOID(pipeline);
     contextTimer_.Reset(callback);
     pipeline->GetTaskExecutor()->PostDelayedTask(
@@ -878,6 +900,12 @@ bool ContainerModalPatternEnhance::GetContainerModalButtonsRect(RectF& container
 
     auto controlButtonsRow = GetButtonRowByInspectorId();
     CHECK_NULL_RETURN(controlButtonsRow, false);
+    auto controlButtonsRowLayoutProperty = controlButtonsRow->GetLayoutProperty();
+    CHECK_NULL_RETURN(controlButtonsRowLayoutProperty, false);
+    if (controlButtonsRowLayoutProperty->GetVisibilityValue(VisibleType::VISIBLE) != VisibleType::VISIBLE) {
+        TAG_LOGW(AceLogTag::ACE_APPBAR, "Get rect of buttons row failed, buttonRow are hidden");
+        return false;
+    }
     auto buttonRect = controlButtonsRow->GetGeometryNode()->GetFrameRect();
     buttons = buttonRect;
     if (buttons.Width() == 0) {
@@ -936,6 +964,7 @@ void ContainerModalPatternEnhance::CallMenuWidthChange(int32_t resId)
     CalcDimension widthDimension(textSize.Width(), DimensionUnit::PX);
     auto width = widthDimension.ConvertToVp();
     TAG_LOGI(AceLogTag::ACE_APPBAR, "GetMenuWidth width = %{public}f", width);
+    InitMenuDefaultRadius();
     controlButtonsNode->FireCustomCallback(EVENT_NAME_MENU_WIDTH_CHANGE, std::to_string(width));
 }
 
@@ -957,6 +986,10 @@ void ContainerModalPatternEnhance::RemoveButtonsRectChangeListener(int32_t id)
 void ContainerModalPatternEnhance::NotifyButtonsRectChange(const RectF& containerModal, const RectF& buttonsRect)
 {
     for (auto& pair : rectChangeListeners_) {
+        if (GetFloatingTitleVisible()) {
+            TAG_LOGI(AceLogTag::ACE_APPBAR, "floating tile is show, not notify rect change.");
+            break;
+        }
         if (pair.second) {
             pair.second(containerModal, buttonsRect);
         }

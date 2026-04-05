@@ -22,19 +22,11 @@
 
 namespace OHOS::Ace::NG {
 
-class ToggleConfiguration : public CommonConfiguration {
-    public:
-        ToggleConfiguration(bool enabled, bool isOn)
-            : CommonConfiguration(enabled), isOn_(isOn)
-        {}
-        bool isOn_;
-};
 class ArkUI_Toggle_Params final : public ArkUI_Params {
 public:
     ToggleType toggleType;
     bool isOn;
 };
-using SwitchMakeCallback = std::function<RefPtr<FrameNode>(const ToggleConfiguration& toggleConfiguration)>;
 class ACE_EXPORT ToggleModelNG : public OHOS::Ace::ToggleModel {
 public:
     void Create(ToggleType toggleType, bool isOn) override;
@@ -84,6 +76,7 @@ public:
     static void SetBuilderFunc(FrameNode* frameNode, NG::SwitchMakeCallback&& jsMake);
     static void SetChangeValue(FrameNode* frameNode, bool value);
     static void SetToggleState(FrameNode* frameNode, bool isOn = false);
+    static bool GetToggleState(FrameNode* frameNode);
 
     static Color GetSelectedColor(FrameNode* frameNode);
     static Color GetSwitchPointColor(FrameNode* frameNode);
@@ -115,6 +108,8 @@ private:
     static void UpdateSwitchIsOn(const RefPtr<FrameNode>& frameNode, bool isOn);
     static void UpdateCheckboxIsOn(const RefPtr<FrameNode>& frameNode, bool isOn);
     static void UpdateToggleButtonIsOn(const RefPtr<FrameNode>& frameNode, bool isOn);
+    static bool GetCheckboxIsOn(FrameNode* frameNode);
+    static bool GetToggleButtonIsOn(FrameNode* frameNode);
     static void ReplaceAllChild(const RefPtr<FrameNode>& oldFrameNode);
     static std::string ColorTypeToString(const ToggleColorType toggleColorType);
     static std::string DimensionTypeToString(const ToggleDimensionType toggleDimensionType);

@@ -27,7 +27,7 @@
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
-class ACE_EXPORT ContainerModalPattern : public Pattern {
+class ACE_FORCE_EXPORT ContainerModalPattern : public Pattern {
     DECLARE_ACE_TYPE(ContainerModalPattern, Pattern);
 
 public:
@@ -242,6 +242,7 @@ public:
     bool IsContainerModalTransparent() const;
 
     Dimension titleHeight_ = CONTAINER_TITLE_HEIGHT;
+    Dimension toolBarTitleHeight_ = CONTAINER_TITLE_HEIGHT;
 
     RefPtr<ContainerModalToolBar> GetTitleManager()
     {
@@ -252,7 +253,20 @@ public:
     {
         return isTitleShow_ && customTitleSettedShow_ && IsContainerModalTransparent();
     }
+    bool CheckNodeOnContainerModalTitle(const RefPtr<FrameNode>& node);
 
+    void SetToolbarTitleHeight();
+    void SetControlButtonsRowHeight();
+
+    void IsSetContainerModalTitleHeight(bool isSetHeight)
+    {
+        isSetContainerModalTitleHeight_ = isSetHeight;
+    }
+
+    bool GetIsSetContainerModalTitleHeight() const
+    {
+        return isSetContainerModalTitleHeight_;
+    }
 protected:
     virtual RefPtr<UINode> GetTitleItemByIndex(const RefPtr<FrameNode>& controlButtonsNode, int32_t originIndex)
     {
@@ -310,11 +324,13 @@ protected:
     void InitContainerEvent();
     void InitLayoutProperty();
     void InitContainerColor();
+    RefPtr<PipelineContext> GetContextRefPtr();
 
     virtual void InitButtonsLayoutProperty();
     virtual void NotifyButtonsRectChange(const RectF& containerModal, const RectF& buttonsRect) {}
 
     void UpdateContainerBgColor();
+    void SetContainerWindowTransparent();
     std::string appLabel_;
     RefPtr<PanEvent> panEvent_ = nullptr;
 
@@ -331,6 +347,7 @@ protected:
     RefPtr<ContainerModalToolBar> titleMgr_;
     RefPtr<ContainerModalToolBar> floatTitleMgr_;
     bool isHaveToolBar_ = false;
+    bool isSetContainerModalTitleHeight_ = false;
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_CONTAINER_MODAL_CONTAINER_MODAL_PATTERN_H

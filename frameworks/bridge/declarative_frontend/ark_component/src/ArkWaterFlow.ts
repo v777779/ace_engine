@@ -38,8 +38,8 @@ class ItemConstraintSizeModifier extends ModifierWithKey<ArkConstraintSizeOption
   }
 }
 
-class ColumnsTemplateModifier extends ModifierWithKey<string> {
-  constructor(value: string) {
+class ColumnsTemplateModifier extends ModifierWithKey<string | ItemFillPolicy> {
+  constructor(value: string | ItemFillPolicy) {
     super(value);
   }
   static identity: Symbol = Symbol('columnsTemplate');
@@ -375,6 +375,20 @@ class WaterFlowOnScrollIndexModifier extends ModifierWithKey<(first: number, las
   }
 }
 
+class WaterFlowSupportLazyLoadingEmptyBranchModifier extends ModifierWithKey<boolean> {
+  constructor(value) {
+ 	super(value);
+  }
+  static identity: Symbol = Symbol('waterFlowSupportLazyLoadingEmptyBranch');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+ 	  getUINativeModule().waterFlow.setSupportLazyLoadingEmptyBranch(node, false);
+ 	} else {
+ 	  getUINativeModule().waterFlow.setSupportLazyLoadingEmptyBranch(node, this.value);
+ 	}
+  }
+}
+
 class WaterFlowInitializeModifier extends ModifierWithKey<WaterFlowParam> {
   constructor(value: WaterFlowParam) {
     super(value);
@@ -402,7 +416,7 @@ class ArkWaterFlowComponent extends ArkScrollable<WaterFlowAttribute> implements
   constructor(nativePtr: KNode, classType?: ModifierType) {
     super(nativePtr, classType);
   }
-  columnsTemplate(value: string): this {
+  columnsTemplate(value: string | ItemFillPolicy): this {
     modifierWithKey(this._modifiersWithKeys, ColumnsTemplateModifier.identity, ColumnsTemplateModifier, value);
     return this;
   }
@@ -520,6 +534,10 @@ class ArkWaterFlowComponent extends ArkScrollable<WaterFlowAttribute> implements
     modifierWithKey(this._modifiersWithKeys, WaterFlowOnScrollIndexModifier.identity, WaterFlowOnScrollIndexModifier, event);
     return this;
   }
+  supportEmptyBranchInLazyLoading(value): this {
+    modifierWithKey(this._modifiersWithKeys, WaterFlowSupportLazyLoadingEmptyBranchModifier.identity, WaterFlowSupportLazyLoadingEmptyBranchModifier, value);
+    return this;
+  }
   initialize(value: Object[]): this {
     if (value[0] !== undefined) {
       modifierWithKey(this._modifiersWithKeys, WaterFlowInitializeModifier.identity,
@@ -544,7 +562,27 @@ globalThis.WaterFlow.attributeModifier = function (modifier: ArkComponent): void
   });
 };
 
-globalThis.WaterFlow.onWillStopDragging = function (value: (velocity: number) => void) {
+globalThis.WaterFlow.onWillStopDragging = function (value: (velocity: number) => void): void {
   let nodePtr = getUINativeModule().frameNode.getStackTopNode();
   getUINativeModule().scrollable.setOnWillStopDragging(nodePtr, value);
+};
+
+globalThis.WaterFlow.onWillStartDragging = function (value: () => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnWillStartDragging(nodePtr, value);
+};
+
+globalThis.WaterFlow.onDidStopDragging = function (value: (isWillFling: boolean) => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnDidStopDragging(nodePtr, value);
+};
+
+globalThis.WaterFlow.onWillStartFling = function (value: () => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnWillStartFling(nodePtr, value);
+};
+
+globalThis.WaterFlow.onDidStopFling = function (value: () => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnDidStopFling(nodePtr, value);
 };

@@ -34,9 +34,11 @@ class NodeContent extends Content {
         if (this.nodeArray_.includes(node)) {
             return;
         }
-        if (getUINativeModule().frameNode.addFrameNodeToNodeContent(node.getNodePtr(), this.nativePtr_)) {
-            getUINativeModule().frameNode.addBuilderNode(this.nativePtr_, node.getNodePtr());
+        let result = getUINativeModule().frameNode.addFrameNodeToNodeContent(node.getNodePtr(), this.nativePtr_);
+        if (result === 0) {
             this.nodeArray_.push(node);
+        } else if (result === ERROR_CODE_NODE_IS_ADOPTED) {
+            throw { message: "The parameter 'node' is invalid: the node has already been adopted.", code: 100025 };
         }
     }
 
@@ -44,7 +46,6 @@ class NodeContent extends Content {
         if (!this.nodeArray_.includes(node)) {
             return;
         }
-        getUINativeModule().frameNode.removeBuilderNode(this.nativePtr_, node.getNodePtr());
         if (getUINativeModule().frameNode.removeFrameNodeFromNodeContent(node.getNodePtr(), this.nativePtr_)) {
             let index = this.nodeArray_.indexOf(node);
             if (index > -1) {

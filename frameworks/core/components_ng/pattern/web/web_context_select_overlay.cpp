@@ -33,7 +33,9 @@ bool WebContextSelectOverlay::PreProcessOverlay(const OverlayRequest& request)
     auto host = pattern->GetHost();
     CHECK_NULL_RETURN(host, false);
     pipeline->AddOnAreaChangeNode(host->GetId());
+    SetEnableHandleLevel(true);
     SetEnableSubWindowMenu(true);
+    CheckEnableContainerModal();
     return true;
 }
 
@@ -143,6 +145,7 @@ void WebContextSelectOverlay::OnCloseOverlay(OptionMenuType menuType, CloseReaso
     CHECK_NULL_VOID(pattern);
     CHECK_NULL_VOID(pattern->contextMenuResult_);
     pattern->contextMenuResult_->Cancel();
+    pattern->curContextMenuResult_ = false;
 }
 
 void WebContextSelectOverlay::OnHandleGlobalTouchEvent(SourceType sourceType, TouchType touchType, bool touchInside)
@@ -157,6 +160,7 @@ void WebContextSelectOverlay::OnUpdateSelectOverlayInfo(SelectOverlayInfo& selec
     auto pattern = GetPattern<WebPattern>();
     CHECK_NULL_VOID(pattern);
     CHECK_NULL_VOID(pattern->contextMenuParam_);
+    BaseTextSelectOverlay::OnUpdateSelectOverlayInfo(selectInfo, requestCode);
     selectInfo.handlerColor = Color(0xff007dff);
     selectInfo.handleReverse = IsHandleReverse();
     auto offset = pattern->GetCoordinatePoint().value_or(OffsetF());
@@ -173,5 +177,6 @@ void WebContextSelectOverlay::OnUpdateSelectOverlayInfo(SelectOverlayInfo& selec
         selectInfo.isSingleHandle = true;
     }
     selectInfo.recreateOverlay = requestCode == REQUEST_RECREATE;
+    pattern->CopySelectionMenuParams(selectInfo, elementType_, responseType_);
 }
 } // namespace OHOS::Ace::NG

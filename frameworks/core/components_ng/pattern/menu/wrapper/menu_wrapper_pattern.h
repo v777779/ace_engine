@@ -18,6 +18,7 @@
 
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
+#include "base/subwindow/subwindow_manager.h"
 #include "base/utils/string_utils.h"
 #include "base/utils/utils.h"
 #include "core/components/common/properties/color.h"
@@ -35,7 +36,6 @@
 #include "core/pipeline_ng/ui_task_scheduler.h"
 
 namespace OHOS::Ace::NG {
-
 enum class MenuStatus {
     INIT,              // Neither exists in the menuMap_ nor on the tree
     ON_SHOW_ANIMATION, // Exists in the menuMap_ also exists on the tree
@@ -46,7 +46,7 @@ enum class MenuStatus {
 
 // has full screen size
 // used for detecting clicks outside Menu area
-class MenuWrapperPattern : public PopupBasePattern {
+class ACE_FORCE_EXPORT MenuWrapperPattern : public PopupBasePattern {
     DECLARE_ACE_TYPE(MenuWrapperPattern, Pattern);
 
 public:
@@ -78,7 +78,7 @@ public:
         return AceType::MakeRefPtr<MenuWrapperPaintMethod>();
     }
 
-    void HandleMouseEvent(const MouseInfo& info, RefPtr<MenuItemPattern>& menuItem);
+    void HandleMouseEvent(const MouseInfo& info, const RefPtr<FrameNode>& menuItemNode);
 
     int32_t GetTargetId() const override
     {
@@ -92,32 +92,9 @@ public:
         return menuStatus_ == MenuStatus::ON_HIDE_ANIMATION || menuStatus_ == MenuStatus::HIDE;
     }
 
-    bool IsContextMenu() const
-    {
-        auto menu = GetMenu();
-        CHECK_NULL_RETURN(menu, false);
-        auto menuPattern = menu->GetPattern<MenuPattern>();
-        CHECK_NULL_RETURN(menuPattern, false);
-        return menuPattern->IsContextMenu();
-    }
-
-    MenuPreviewMode GetPreviewMode() const
-    {
-        auto menu = GetMenu();
-        CHECK_NULL_RETURN(menu, MenuPreviewMode::NONE);
-        auto menuPattern = menu->GetPattern<MenuPattern>();
-        CHECK_NULL_RETURN(menuPattern, MenuPreviewMode::NONE);
-        return menuPattern->GetPreviewMode();
-    }
-
-    bool IsSelectMenu() const
-    {
-        auto menu = GetMenu();
-        CHECK_NULL_RETURN(menu, false);
-        auto menuPattern = menu->GetPattern<MenuPattern>();
-        CHECK_NULL_RETURN(menuPattern, false);
-        return menuPattern->IsSelectMenu();
-    }
+    bool IsContextMenu() const;
+    MenuPreviewMode GetPreviewMode() const;
+    bool IsSelectMenu() const;
 
     void HideSubMenu();
     void ShowSubMenuDisappearAnimation(const RefPtr<FrameNode>& host, const RefPtr<UINode>& subMenu);
@@ -130,84 +107,17 @@ public:
         CHECK_NULL_RETURN(host, nullptr);
         auto menu = AceType::DynamicCast<FrameNode>(host->GetChildAtIndex(0));
         CHECK_NULL_RETURN(menu, nullptr);
+        ACE_UINODE_TRACE(menu);
         return menu;
     }
 
-    RefPtr<FrameNode> GetHoverImageFlexNode() const
-    {
-        auto host = GetHost();
-        CHECK_NULL_RETURN(host, nullptr);
-        auto node = AceType::DynamicCast<FrameNode>(host->GetChildAtIndex(1));
-        CHECK_NULL_RETURN(node, nullptr);
-        if (node->GetTag() != V2::FLEX_ETS_TAG) {
-            return nullptr;
-        }
-        return node;
-    }
-
-    RefPtr<FrameNode> GetHoverImageStackNode() const
-    {
-        auto hoverImageFlexNode = GetHoverImageFlexNode();
-        CHECK_NULL_RETURN(hoverImageFlexNode, nullptr);
-        auto node = AceType::DynamicCast<FrameNode>(hoverImageFlexNode->GetChildAtIndex(0));
-        CHECK_NULL_RETURN(node, nullptr);
-        if (node->GetTag() != V2::STACK_ETS_TAG) {
-            return nullptr;
-        }
-        return node;
-    }
-
-    RefPtr<FrameNode> GetHoverImagePreview() const
-    {
-        auto hoverImageStackNode = GetHoverImageStackNode();
-        CHECK_NULL_RETURN(hoverImageStackNode, nullptr);
-        auto node = AceType::DynamicCast<FrameNode>(hoverImageStackNode->GetChildAtIndex(0));
-        CHECK_NULL_RETURN(node, nullptr);
-        if (node->GetTag() != V2::IMAGE_ETS_TAG) {
-            return nullptr;
-        }
-        return node;
-    }
-
-    RefPtr<FrameNode> GetHoverImageCustomPreview() const
-    {
-        auto hoverImageStackNode = GetHoverImageStackNode();
-        CHECK_NULL_RETURN(hoverImageStackNode, nullptr);
-        auto node = AceType::DynamicCast<FrameNode>(hoverImageStackNode->GetChildAtIndex(1));
-        CHECK_NULL_RETURN(node, nullptr);
-        if (node->GetTag() != V2::MENU_PREVIEW_ETS_TAG) {
-            return nullptr;
-        }
-        return node;
-    }
-
-    RefPtr<FrameNode> GetPreview() const
-    {
-        auto host = GetHost();
-        CHECK_NULL_RETURN(host, nullptr);
-        auto preview = AceType::DynamicCast<FrameNode>(host->GetChildAtIndex(1));
-        CHECK_NULL_RETURN(preview, nullptr);
-        if (preview->GetTag() == V2::FLEX_ETS_TAG) {
-            auto hoverImageCustomPreview = GetHoverImageCustomPreview();
-            CHECK_NULL_RETURN(hoverImageCustomPreview, preview);
-            return hoverImageCustomPreview;
-        }
-        return preview;
-    }
-
+    RefPtr<FrameNode> GetHoverImageFlexNode();
+    RefPtr<FrameNode> GetHoverImageStackNode();
+    RefPtr<FrameNode> GetHoverImagePreview();
+    RefPtr<FrameNode> GetHoverImageCustomPreview();
+    RefPtr<FrameNode> GetPreview();
     // used to obtain the Badge node and delete it.
-    RefPtr<FrameNode> GetBadgeNode() const
-    {
-        auto host = GetHost();
-        CHECK_NULL_RETURN(host, nullptr);
-        for (const auto& child : host->GetChildren()) {
-            auto node = DynamicCast<FrameNode>(child);
-            if (node && node->GetTag() == V2::TEXT_ETS_TAG) {
-                return node;
-            }
-        }
-        return nullptr;
-    }
+    RefPtr<FrameNode> GetBadgeNode();
 
     OffsetT<Dimension> GetAnimationOffset();
     void SetAniamtinOption(const AnimationOption& animationOption);
@@ -339,6 +249,7 @@ public:
         if (onAppearCallback_) {
             onAppearCallback_();
         }
+        NotifyMenuLifeCycleEventToTarget(MenuLifeCycleEvent::ON_APPEAR);
     }
 
     void CallMenuDisappearCallback()
@@ -346,6 +257,7 @@ public:
         if (onDisappearCallback_) {
             onDisappearCallback_();
         }
+        NotifyMenuLifeCycleEventToTarget(MenuLifeCycleEvent::ON_DISAPPEAR);
     }
 
     void CallMenuAboutToAppearCallback()
@@ -353,6 +265,7 @@ public:
         if (aboutToAppearCallback_) {
             aboutToAppearCallback_();
         }
+        NotifyMenuLifeCycleEventToTarget(MenuLifeCycleEvent::ABOUT_TO_APPEAR);
     }
 
     void CallMenuAboutToDisappearCallback()
@@ -360,6 +273,7 @@ public:
         if (aboutToDisappearCallback_) {
             aboutToDisappearCallback_();
         }
+        NotifyMenuLifeCycleEventToTarget(MenuLifeCycleEvent::ABOUT_TO_DISAPPEAR);
     }
 
    void CallMenuOnWillAppearCallback()
@@ -367,28 +281,32 @@ public:
        if (onWillAppearCallback_) {
            onWillAppearCallback_();
        }
-   }
+        NotifyMenuLifeCycleEventToTarget(MenuLifeCycleEvent::ON_WILL_APPEAR);
+    }
 
    void CallMenuOnDidAppearCallback()
    {
        if (onDidAppearCallback_) {
            onDidAppearCallback_();
        }
-   }
+        NotifyMenuLifeCycleEventToTarget(MenuLifeCycleEvent::ON_DID_APPEAR);
+    }
 
    void CallMenuOnWillDisappearCallback()
    {
        if (onWillDisappearCallback_) {
            onWillDisappearCallback_();
        }
-   }
+        NotifyMenuLifeCycleEventToTarget(MenuLifeCycleEvent::ON_WILL_DISAPPEAR);
+    }
 
    void CallMenuOnDidDisappearCallback()
    {
        if (onDidDisappearCallback_) {
            onDidDisappearCallback_();
        }
-   }
+        NotifyMenuLifeCycleEventToTarget(MenuLifeCycleEvent::ON_DID_DISAPPEAR);
+    }
 
     void CallMenuStateChangeCallback(const std::string& value)
     {
@@ -429,6 +347,8 @@ public:
     }
 
     void SetMenuTransitionEffect(const RefPtr<FrameNode>& menuWrapperNode, const MenuParam& menuParam);
+    void SetMenuTransitionEffectMultiThread(const RefPtr<FrameNode>& frameNode, const MenuParam& menuParam);
+    void SetMenuTransitionEffectImpl(const RefPtr<FrameNode>& menuWrapperNode, const MenuParam& menuParam);
 
     bool HasPreviewTransitionEffect() const
     {
@@ -471,8 +391,8 @@ public:
     }
 
     void DumpInfo() override;
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
 
     MenuDumpInfo GetDumpInfo() const
     {
@@ -488,6 +408,8 @@ public:
         dumpInfo_.targetNode = dumpInfo.targetNode;
         dumpInfo_.targetOffset = dumpInfo.targetOffset;
         dumpInfo_.targetSize = dumpInfo.targetSize;
+        dumpInfo_.showInSubWindow = dumpInfo.showInSubWindow;
+        dumpInfo_.canExpandCurrentWindow = dumpInfo.canExpandCurrentWindow;
         dumpInfo_.menuWindowRect = dumpInfo.menuWindowRect;
         dumpInfo_.wrapperRect = dumpInfo.wrapperRect;
         dumpInfo_.previewBeginScale = dumpInfo.previewBeginScale;
@@ -524,6 +446,22 @@ public:
         lastTouchItem_ = lastTouchItem;
     }
 
+    void SetForceUpdateEmbeddedMenu(bool forceUpdate)
+    {
+        forceUpdateEmbeddedMenu_ = forceUpdate;
+    }
+
+    bool GetForceUpdateEmbeddedMenu() const
+    {
+        return forceUpdateEmbeddedMenu_;
+    }
+
+    RefPtr<FrameNode> GetMenuChild(const RefPtr<UINode>& node);
+    RefPtr<FrameNode> GetShowedSubMenu();
+    bool IsSelectOverlayCustomMenu(const RefPtr<FrameNode>& menu) const;
+    bool IsSelectOverlayRightClickMenu(const RefPtr<FrameNode>& menu) const;
+    bool HasStackSubMenu();
+
     int IncreaseEmbeddedSubMenuCount()
     {
         ++embeddedSubMenuExpandTotalCount_;
@@ -540,23 +478,13 @@ public:
         return embeddedSubMenuExpandTotalCount_;
     }
 
-    void SetForceUpdateEmbeddedMenu(bool forceUpdate)
+    void SetEmbeddedSubMenuExpandTotalCount(int cnt)
     {
-        forceUpdateEmbeddedMenu_ = forceUpdate;
+        embeddedSubMenuExpandTotalCount_ = cnt;
     }
 
-    bool GetForceUpdateEmbeddedMenu() const
-    {
-        return forceUpdateEmbeddedMenu_;
-    }
-
-    RefPtr<FrameNode> GetMenuChild(const RefPtr<UINode>& node);
-    RefPtr<FrameNode> GetShowedSubMenu();
-    bool IsSelectOverlayCustomMenu(const RefPtr<FrameNode>& menu) const;
-    bool IsSelectOverlayRightClickMenu(const RefPtr<FrameNode>& menu) const;
     bool HasEmbeddedSubMenu();
     void UpdateMenuAnimation(const RefPtr<FrameNode>& host);
-    bool HasStackSubMenu();
     void ClearAllSubMenu();
     int embeddedSubMenuCount_ = 0;
 
@@ -615,8 +543,6 @@ public:
         previewDisappearStartOffset_ = offset;
     }
 
-    bool IsMenuPreviewNode(const RefPtr<FrameNode>& frameNode) const;
-
     void SetIsOpenMenu(bool isOpenMenu)
     {
         isOpenMenu_ = isOpenMenu;
@@ -672,11 +598,30 @@ public:
         hasCustomOutlineColor_ = hasCustomOutlineColor;
     }
 
+    void CheckAndShowAnimation();
     bool GetMenuMaskEnable() const;
     Color GetMenuMaskColor() const;
     BlurStyle GetMenuMaskBlurStyle() const;
     void UpdateFilterMaskType();
-    void CheckAndShowAnimation();
+    
+    bool IsDragMenuLiftAnimationFinish() const
+    {
+        return dragMenuLiftAnimationFinish_;
+    }
+
+    void SetDragMenuLiftAnimationFinishState(bool state)
+    {
+        dragMenuLiftAnimationFinish_ = state;
+    }
+    
+    void SetMenuWindowRect(const Rect& menuWindowRect)
+    {
+        menuWindowRect_ = menuWindowRect;
+    }
+    Rect GetMenuWindowRect() const
+    {
+        return menuWindowRect_;
+    }
 
 protected:
     void OnTouchEvent(const TouchEventInfo& info);
@@ -693,7 +638,14 @@ private:
     void OnModifyDone() override;
     void InitFocusEvent();
     void OnAttachToFrameNode() override;
+    void OnAttachToFrameNodeMultiThread();
+    void OnAttachToMainTree() override;
+    void OnAttachToMainTreeMultiThread();
     void OnDetachFromMainTree() override;
+    void OnDetachFromMainTreeMultiThread();
+    void OnDetachFromMainTreeImpl();
+    void RegisterDetachCallback();
+    void UnRegisterDetachCallback();
     void RegisterOnTouch();
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config) override;
     // mark self and all children no-draggable
@@ -710,8 +662,8 @@ private:
     bool IsNeedSetHotAreas(const RefPtr<LayoutWrapper>& layoutWrapper);
 
     void HideMenu(const RefPtr<FrameNode>& menu, const HideMenuType& reason = HideMenuType::NORMAL);
-    void HideMenu(const RefPtr<MenuPattern>& menuPattern, const RefPtr<FrameNode>& menu, const PointF& position,
-        const HideMenuType& reason = HideMenuType::NORMAL);
+    void HideMenu(
+        const RefPtr<FrameNode>& menu, const PointF& position, const HideMenuType& reason = HideMenuType::NORMAL);
     void SetExitAnimation(const RefPtr<FrameNode>& host);
     void SendToAccessibility(const RefPtr<UINode>& subMenu, bool isShow);
     bool CheckPointInMenuZone(const RefPtr<FrameNode>& node, const PointF& point);
@@ -723,6 +675,18 @@ private:
     void AddTargetWindowHotArea(std::vector<Rect>& rects);
     void AddWrapperChildHotArea(std::vector<Rect>& rects, const RefPtr<LayoutWrapper>& layoutWrapper);
     void AddFilterHotArea(std::vector<Rect>& rects);
+    void NotifyMenuLifeCycleEventToTarget(const NG::MenuLifeCycleEvent& menuLifeCycleEvent)
+    {
+        auto targetNode = FrameNode::GetFrameNode(targetTag_, targetId_);
+        CHECK_NULL_VOID(targetNode);
+        auto pipeline = targetNode->GetContext();
+        CHECK_NULL_VOID(pipeline);
+        auto overlayManager = pipeline->GetOverlayManager();
+        CHECK_NULL_VOID(overlayManager);
+        auto menuLifeCycleCallback = overlayManager->GetMenuLifeCycleCallback(targetId_);
+        CHECK_NULL_VOID(menuLifeCycleCallback);
+        menuLifeCycleCallback(menuLifeCycleEvent);
+    }
     std::function<void()> onAppearCallback_ = nullptr;
     std::function<void()> onDisappearCallback_ = nullptr;
     std::function<void()> aboutToAppearCallback_ = nullptr;
@@ -772,6 +736,8 @@ private:
     bool hasCustomOutlineWidth_ = false;
     bool hasCustomOutlineColor_ = false;
     bool isClearLastMenuItem_ = true;
+    bool dragMenuLiftAnimationFinish_ = true;
+    Rect menuWindowRect_;
     ACE_DISALLOW_COPY_AND_MOVE(MenuWrapperPattern);
 };
 } // namespace OHOS::Ace::NG

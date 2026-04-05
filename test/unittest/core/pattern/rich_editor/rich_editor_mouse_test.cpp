@@ -14,11 +14,11 @@
  */
 
 #include "test/unittest/core/pattern/rich_editor/rich_editor_common_test_ng.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_theme.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_undo_manager.h"
 
@@ -74,7 +74,7 @@ void RichEditorMouseTest::TearDownTestSuite()
  * @tc.desc: test HandleMouseLeftButton
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -84,7 +84,6 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton001, TestSize.Level1)
     ASSERT_NE(focusHub, nullptr);
     focusHub->RequestFocusImmediately();
 
-    richEditorPattern->mouseStatus_ = MouseStatus::NONE;
     richEditorPattern->leftMousePress_ = false;
     richEditorPattern->HandleMouseLeftButton(mouseInfo);
     EXPECT_EQ(richEditorPattern->mouseStatus_, MouseStatus::NONE);
@@ -115,7 +114,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton001, TestSize.Level1)
  * @tc.desc: test HandleMouseLeftButton
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton002, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     AddSpan(INIT_VALUE_1);
@@ -172,7 +171,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton002, TestSize.Level1)
  * @tc.desc: test HandleMouseLeftButton
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton003, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -181,6 +180,10 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton003, TestSize.Level1)
     auto focusHub = richEditorNode_->GetOrCreateFocusHub();
     ASSERT_NE(focusHub, nullptr);
     focusHub->RequestFocusImmediately();
+
+    mouseInfo.action_ = MouseAction::NONE;
+    richEditorPattern->HandleMouseLeftButton(mouseInfo);
+    EXPECT_EQ(richEditorPattern->mouseStatus_, MouseStatus::NONE);
 
     mouseInfo.action_ = MouseAction::PRESS;
     richEditorPattern->mouseStatus_ = MouseStatus::NONE;
@@ -202,11 +205,6 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton003, TestSize.Level1)
     richEditorPattern->mouseStatus_ = MouseStatus::NONE;
     richEditorPattern->HandleMouseLeftButton(mouseInfo);
     EXPECT_EQ(richEditorPattern->mouseStatus_, MouseStatus::RELEASED);
-
-    mouseInfo.action_ = MouseAction::NONE;
-    richEditorPattern->mouseStatus_ = MouseStatus::NONE;
-    richEditorPattern->HandleMouseLeftButton(mouseInfo);
-    EXPECT_EQ(richEditorPattern->mouseStatus_, MouseStatus::NONE);
 }
 
 /**
@@ -214,7 +212,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButton003, TestSize.Level1)
  * @tc.desc: test on hover
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, OnHover001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, OnHover001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -225,10 +223,10 @@ HWTEST_F(RichEditorMouseTest, OnHover001, TestSize.Level1)
     auto pipeline = PipelineContext::GetCurrentContext();
     ASSERT_NE(pipeline, nullptr);
     HoverInfo hoverInfo;
-    richEditorPattern->OnHover(true, hoverInfo);
+    richEditorPattern->OnHover(true);
     auto mouseStyleManager = pipeline->eventManager_->GetMouseStyleManager();
     EXPECT_EQ(mouseStyleManager->mouseStyleNodeId_.value(), id);
-    richEditorPattern->OnHover(false, hoverInfo);
+    richEditorPattern->OnHover(false);
     EXPECT_FALSE(mouseStyleManager->mouseStyleNodeId_.has_value());
 }
 
@@ -237,7 +235,7 @@ HWTEST_F(RichEditorMouseTest, OnHover001, TestSize.Level1)
  * @tc.desc: test MouseRightFocus
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, MouseRightFocus001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, MouseRightFocus001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -260,7 +258,7 @@ HWTEST_F(RichEditorMouseTest, MouseRightFocus001, TestSize.Level1)
  * @tc.desc: test MouseRightFocus
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, MouseRightFocus002, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, MouseRightFocus002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -273,11 +271,128 @@ HWTEST_F(RichEditorMouseTest, MouseRightFocus002, TestSize.Level1)
 }
 
 /**
+ * @tc.name: MouseRightFocus003
+ * @tc.desc: test MouseRightFocus
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorMouseTest, MouseRightFocus003, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    AddSpan(u"test1");
+    AddImageSpan();
+    richEditorPattern->spans_.push_front(AceType::MakeRefPtr<SpanItem>());
+    richEditorPattern->spans_.push_front(AceType::MakeRefPtr<SpanItem>());
+    richEditorPattern->caretPosition_ = richEditorPattern->GetTextContentLength();
+    richEditorPattern->moveLength_ = 0;
+    MouseInfo info;
+    richEditorPattern->textSelector_.baseOffset = 0;
+    richEditorPattern->textSelector_.destinationOffset = 0;
+    richEditorPattern->MouseRightFocus(info);
+    EXPECT_TRUE(richEditorPattern->HasFocus());
+}
+
+/**
+ * @tc.name: MouseRightFocus004
+ * @tc.desc: test MouseRightFocus
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorMouseTest, MouseRightFocus004, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    RefPtr<SpanItem> spanItem = AceType::MakeRefPtr<SpanItem>();
+    spanItem->content = PREVIEW_TEXT_VALUE2;
+    spanItem->spanItemType = SpanItemType::IMAGE;
+    spanItem->position = 0;
+    richEditorPattern->spans_.push_back(spanItem);
+    richEditorPattern->spans_.push_back(spanItem);
+    richEditorPattern->spans_.push_back(spanItem);
+    MouseInfo info;
+    info.SetGlobalLocation({ 0, 0 });
+    richEditorPattern->MouseRightFocus(info);
+    EXPECT_NE(richEditorPattern->selectedType_, TextSpanType::IMAGE);
+}
+
+/**
+ * @tc.name: MouseRightFocus005
+ * @tc.desc: test MouseRightFocus
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorMouseTest, MouseRightFocus005, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    RefPtr<SpanItem> spanItem = AceType::MakeRefPtr<SpanItem>();
+    spanItem->content = PREVIEW_TEXT_VALUE2;
+    spanItem->spanItemType = SpanItemType::NORMAL;
+    spanItem->position = 0;
+    richEditorPattern->spans_.push_back(spanItem);
+    richEditorPattern->spans_.push_back(spanItem);
+    richEditorPattern->spans_.push_back(spanItem);
+    MouseInfo info;
+    info.SetGlobalLocation({ 0, 0 });
+    auto focusHub = richEditorPattern->GetFocusHub();
+    ASSERT_NE(focusHub, nullptr);
+    richEditorPattern->previewLongPress_ = true;
+    focusHub->RequestFocusImmediately();
+    EXPECT_EQ(richEditorPattern->isEditing_, false);
+    richEditorPattern->MouseRightFocus(info);
+    EXPECT_EQ(richEditorPattern->isEditing_, false);
+}
+
+/**
+ * @tc.name: MouseRightFocus006
+ * @tc.desc: test MouseRightFocus
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorMouseTest, MouseRightFocus006, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    AddSpan(u"test1");
+    AddImageSpan();
+    richEditorPattern->spans_.push_front(AceType::MakeRefPtr<SpanItem>());
+    richEditorPattern->spans_.push_front(AceType::MakeRefPtr<SpanItem>());
+    richEditorPattern->textSelector_.Update(4, 5);
+    MouseInfo info;
+    richEditorPattern->MouseRightFocus(info);
+    EXPECT_TRUE(richEditorPattern->textSelector_.SelectNothing());
+}
+
+/**
+ * @tc.name: MouseRightFocus007
+ * @tc.desc: test MouseRightFocus
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorMouseTest, MouseRightFocus007, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    AddSpan(u"test1");
+    AddImageSpan();
+    richEditorPattern->spans_.push_front(AceType::MakeRefPtr<SpanItem>());
+    richEditorPattern->spans_.push_front(AceType::MakeRefPtr<SpanItem>());
+    richEditorPattern->caretPosition_ = richEditorPattern->GetTextContentLength();
+    richEditorPattern->moveLength_ = 0;
+    MouseInfo info;
+    richEditorPattern->textSelector_.baseOffset = 0;
+    richEditorPattern->textSelector_.destinationOffset = 0;
+    richEditorPattern->MouseRightFocus(info);
+    EXPECT_EQ(richEditorPattern->isEditing_, false);
+}
+
+/**
  * @tc.name: RichEditorPatternTestInitMouseEvent001
  * @tc.desc: test InitMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, RichEditorPatternTestInitMouseEvent001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, RichEditorPatternTestInitMouseEvent001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -316,7 +431,7 @@ HWTEST_F(RichEditorMouseTest, RichEditorPatternTestInitMouseEvent001, TestSize.L
  * @tc.desc: test HandleMouseRightButton
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseRightButton001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseRightButton001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -357,7 +472,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseRightButton001, TestSize.Level1)
  * @tc.desc: test HandleMouseRightButton
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseRightButton002, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseRightButton002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables.
@@ -379,7 +494,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseRightButton002, TestSize.Level1)
  * @tc.desc: test HandleMouseRightButton
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseRightButton003, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseRightButton003, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables.
@@ -424,7 +539,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseRightButton003, TestSize.Level1)
  * @tc.desc: test HandleMouseRightButton
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseRightButton004, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseRightButton004, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -455,7 +570,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseRightButton004, TestSize.Level1)
  * @tc.desc: test HandleMouseLeftButtonMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonMove001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonMove001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables.
@@ -514,7 +629,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonMove001, TestSize.Level1)
  * @tc.desc: test HandleAISpanHoverEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -529,7 +644,7 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent001, TestSize.Level1)
  * @tc.desc: test HandleAISpanHoverEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent002, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -545,7 +660,7 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent002, TestSize.Level1)
  * @tc.desc: test HandleAISpanHoverEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent003, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -566,7 +681,7 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent003, TestSize.Level1)
  * @tc.desc: test HandleAISpanHoverEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent004, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent004, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -589,7 +704,7 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent004, TestSize.Level1)
  * @tc.desc: test HandleAISpanHoverEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent005, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent005, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -612,7 +727,7 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent005, TestSize.Level1)
  * @tc.desc: test HandleAISpanHoverEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent006, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent006, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -624,9 +739,8 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent006, TestSize.Level1)
     RefPtr<SpanItem> spanItem = AceType::MakeRefPtr<SpanItem>();
     richEditorPattern->spans_.push_back(spanItem);
     richEditorPattern->textDetectEnable_ = true;
-    richEditorPattern->scrollBar_ = nullptr;
     richEditorPattern->HandleAISpanHoverEvent(info);
-    EXPECT_EQ(richEditorPattern->scrollBar_, nullptr);
+    EXPECT_EQ(richEditorPattern->currentMouseStyle_, MouseFormat::TEXT_CURSOR);
 }
 
 /**
@@ -634,7 +748,7 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent006, TestSize.Level1)
  * @tc.desc: test HandleAISpanHoverEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent007, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent007, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -658,7 +772,7 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent007, TestSize.Level1)
  * @tc.desc: test HandleAISpanHoverEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent008, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent008, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -682,7 +796,7 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent008, TestSize.Level1)
  * @tc.desc: test HandleAISpanHoverEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent009, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent009, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -697,7 +811,6 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent009, TestSize.Level1)
     richEditorPattern->dataDetectorAdapter_->aiSpanRects_.push_back(NG::RectF { 0.0f, 0.0f, 100.0f, 200.0f });
     richEditorPattern->dataDetectorAdapter_->aiSpanRects_.push_back(NG::RectF { 100.0f, 200.0f, 300.0f, 400.0f });
     richEditorPattern->dataDetectorAdapter_->aiSpanRects_.push_back(NG::RectF { 200.0f, 300.0f, 400.0f, 500.0f });
-    richEditorPattern->currentMouseStyle_ = MouseFormat::HAND_POINTING;
     richEditorPattern->HandleAISpanHoverEvent(info);
     EXPECT_EQ(richEditorPattern->currentMouseStyle_, MouseFormat::HAND_POINTING);
 }
@@ -707,7 +820,7 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent009, TestSize.Level1)
  * @tc.desc: test HandleAISpanHoverEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent010, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent010, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -719,7 +832,6 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent010, TestSize.Level1)
     RefPtr<SpanItem> spanItem = AceType::MakeRefPtr<SpanItem>();
     richEditorPattern->spans_.push_back(spanItem);
     richEditorPattern->textDetectEnable_ = true;
-    richEditorPattern->currentMouseStyle_ = MouseFormat::TEXT_CURSOR;
     richEditorPattern->HandleAISpanHoverEvent(info);
     EXPECT_EQ(richEditorPattern->currentMouseStyle_, MouseFormat::TEXT_CURSOR);
 }
@@ -729,7 +841,7 @@ HWTEST_F(RichEditorMouseTest, HandleAISpanHoverEvent010, TestSize.Level1)
  * @tc.desc: test HandleMouseLeftButtonPress
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonPress001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonPress001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -744,7 +856,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonPress001, TestSize.Level1)
  * @tc.desc: test HandleMouseLeftButtonPress
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonPress002, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonPress002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -767,7 +879,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonPress002, TestSize.Level1)
  * @tc.desc: test HandleMouseLeftButtonPress
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonPress003, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonPress003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -788,7 +900,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonPress003, TestSize.Level1)
  * @tc.desc: test HandleMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseEvent001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseEvent001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -816,7 +928,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseEvent001, TestSize.Level1)
  * @tc.desc: test handle mouse event
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseEvent002, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseEvent002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -849,7 +961,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseEvent002, TestSize.Level1)
  * @tc.desc: test HandleMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseEvent003, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseEvent003, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables.
@@ -877,7 +989,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseEvent003, TestSize.Level1)
  * @tc.desc: test HandleMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseEvent004, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseEvent004, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -901,7 +1013,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseEvent004, TestSize.Level1)
  * @tc.desc: test HandleMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseEvent005, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseEvent005, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -930,7 +1042,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseEvent005, TestSize.Level1)
  * @tc.desc: test HandleMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseEvent006, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseEvent006, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -946,7 +1058,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseEvent006, TestSize.Level1)
  * @tc.desc: test HandleMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseEvent007, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseEvent007, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -962,7 +1074,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseEvent007, TestSize.Level1)
  * @tc.desc: test HandleMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseEvent008, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseEvent008, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -978,7 +1090,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseEvent008, TestSize.Level1)
  * @tc.desc: test HandleMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseEvent009, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseEvent009, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1014,7 +1126,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseEvent009, TestSize.Level1)
  * @tc.desc: test RichEditorPattern MouseDoubleClickParagraphEnd
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, MouseDoubleClickParagraphEnd001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, MouseDoubleClickParagraphEnd001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1045,7 +1157,7 @@ HWTEST_F(RichEditorMouseTest, MouseDoubleClickParagraphEnd001, TestSize.Level1)
  * @tc.desc: test OnPlaceholderHover
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, OnPlaceholderHover001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, OnPlaceholderHover001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1063,7 +1175,7 @@ HWTEST_F(RichEditorMouseTest, OnPlaceholderHover001, TestSize.Level1)
  * @tc.desc: test HandleMouseLeftButtonRelease
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables.
@@ -1084,7 +1196,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease001, TestSize.Level1)
  * @tc.desc: test HandleMouseLeftButtonRelease
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease002, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1100,7 +1212,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease002, TestSize.Level1)
  * @tc.desc: test HandleMouseLeftButtonRelease
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease003, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1118,7 +1230,7 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease003, TestSize.Level1)
  * @tc.desc: test HandleMouseLeftButtonRelease
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease004, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease004, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1132,11 +1244,34 @@ HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease004, TestSize.Level1)
 }
 
 /**
+ * @tc.name: HandleMouseLeftButtonRelease005
+ * @tc.desc: test HandleMouseLeftButtonRelease
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorMouseTest, HandleMouseLeftButtonRelease005, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    richEditorPattern->dataDetectorAdapter_->pressedByLeftMouse_ = true;
+    richEditorPattern->mouseStatus_ = MouseStatus::MOVE;
+    richEditorPattern->status_ = Status::DRAGGING;
+    richEditorPattern->isEditing_ = false;
+    auto focusHub = richEditorPattern->GetFocusHub();
+    ASSERT_NE(focusHub, nullptr);
+    focusHub->currentFocus_ = true;
+    MouseInfo info;
+    richEditorPattern->HandleMouseLeftButtonRelease(info);
+
+    EXPECT_TRUE(richEditorPattern->isEditing_);
+}
+
+/**
  * @tc.name: OnHandleMouseEvent001
  * @tc.desc: test OnHandleMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, OnHandleMouseEvent001, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, OnHandleMouseEvent001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1152,7 +1287,7 @@ HWTEST_F(RichEditorMouseTest, OnHandleMouseEvent001, TestSize.Level1)
  * @tc.desc: test OnHandleMouseEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, OnHandleMouseEvent002, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, OnHandleMouseEvent002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1168,7 +1303,7 @@ HWTEST_F(RichEditorMouseTest, OnHandleMouseEvent002, TestSize.Level1)
  * @tc.desc: test AdjustMouseLocalOffset
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorMouseTest, AdjustMouseLocalOffset, TestSize.Level1)
+HWTEST_F(RichEditorMouseTest, AdjustMouseLocalOffset, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1205,5 +1340,128 @@ HWTEST_F(RichEditorMouseTest, AdjustMouseLocalOffset, TestSize.Level1)
     richEditorPattern->HandleMouseLeftButtonMove(info);
     EXPECT_EQ(richEditorPattern->textSelector_.GetTextStart(), 3);
     EXPECT_EQ(richEditorPattern->textSelector_.GetTextEnd(), 6);
+}
+
+/**
+ * @tc.name: HandleImageHoverEventTest001
+ * @tc.desc: test HandleImageHoverEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorMouseTest, HandleImageHoverEvent001, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    MouseInfo mouseInfo;
+    mouseInfo.SetAction(MouseAction::MOVE);
+    mouseInfo.SetLocalLocation(MOUSE_LOCAL_LOCATION);
+    richEditorPattern->isMousePressed_ = false;
+    OffsetF frameOffset{ 0.0f, 0.0f };
+    SizeF frameSize{ 10.0f, 10.0f };
+
+    WeakPtr<ImageSpanNode> hoverableNode1;
+
+    auto imageSpanNode2 = AceType::MakeRefPtr<ImageSpanNode>(V2::IMAGE_ETS_TAG, 0);
+    WeakPtr<ImageSpanNode> hoverableNode2 = imageSpanNode2;
+
+    auto imageSpanNode3 = AceType::MakeRefPtr<ImageSpanNode>(V2::IMAGE_ETS_TAG, 0);
+    imageSpanNode3->SetImageItem(nullptr);
+    WeakPtr<ImageSpanNode> hoverableNode3 = imageSpanNode3;
+    
+    auto imageSpanNode4 = AceType::MakeRefPtr<ImageSpanNode>(V2::IMAGE_ETS_TAG, 0);
+    imageSpanNode4->GetSpanItem()->onHover_ = [](bool inHover, HoverInfo& info) {};
+    WeakPtr<ImageSpanNode> hoverableNode4 = imageSpanNode4;
+    
+    auto imageSpanNode5 = AceType::MakeRefPtr<ImageSpanNode>(V2::IMAGE_ETS_TAG, 0);
+    imageSpanNode5->GetSpanItem()->onHover_ = [](bool inHover, HoverInfo& info) {};
+    imageSpanNode5->GetGeometryNode()->SetFrameOffset(frameOffset);
+    imageSpanNode5->GetGeometryNode()->SetFrameSize(frameSize);
+    WeakPtr<ImageSpanNode> hoverableNode5 = imageSpanNode5;
+
+    richEditorPattern->hoverableNodes.push_back(hoverableNode1);
+    richEditorPattern->hoverableNodes.push_back(hoverableNode2);
+    richEditorPattern->hoverableNodes.push_back(hoverableNode3);
+    richEditorPattern->hoverableNodes.push_back(hoverableNode4);
+    richEditorPattern->hoverableNodes.push_back(hoverableNode5);
+
+    richEditorPattern->lastHoverSpanItem_ = nullptr;
+    richEditorPattern->HandleImageHoverEvent(mouseInfo);
+
+    richEditorPattern->lastHoverSpanItem_ = imageSpanNode4->GetSpanItem();
+    richEditorPattern->HandleImageHoverEvent(mouseInfo);
+}
+
+/**
+ * @tc.name: HandleImageHoverEventTest002
+ * @tc.desc: test HandleImageHoverEvent when imageRect.IsInRegion returns false
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorMouseTest, HandleImageHoverEvent002, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    MouseInfo mouseInfo;
+    mouseInfo.SetAction(MouseAction::MOVE);
+    mouseInfo.SetLocalLocation({ 20.0f, 20.0f });
+    richEditorPattern->isMousePressed_ = false;
+    OffsetF frameOffset { 0.0f, 0.0f };
+    SizeF frameSize { 5.0f, 5.0f };
+
+    auto imageSpanNode = AceType::MakeRefPtr<ImageSpanNode>(V2::IMAGE_ETS_TAG, 0);
+    imageSpanNode->GetSpanItem()->onHover_ = [](bool inHover, HoverInfo& info) {};
+    imageSpanNode->GetGeometryNode()->SetFrameOffset(frameOffset);
+    imageSpanNode->GetGeometryNode()->SetFrameSize(frameSize);
+    WeakPtr<ImageSpanNode> hoverableNode = imageSpanNode;
+
+    richEditorPattern->hoverableNodes.clear();
+    richEditorPattern->hoverableNodes.push_back(hoverableNode);
+    richEditorPattern->lastHoverSpanItem_ = nullptr;
+    richEditorPattern->HandleImageHoverEvent(mouseInfo);
+
+    EXPECT_EQ(richEditorPattern->lastHoverSpanItem_, nullptr);
+}
+
+/**
+ * @tc.name: HandleImageHoverEventTest003
+ * @tc.desc: test HandleImageHoverEvent to cover branches in the later part of the function
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorMouseTest, HandleImageHoverEvent003, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    MouseInfo mouseInfo;
+    mouseInfo.SetAction(MouseAction::MOVE);
+    mouseInfo.SetLocalLocation({ 2.0f, 2.0f });
+    richEditorPattern->isMousePressed_ = false;
+    OffsetF frameOffset { 0.0f, 0.0f };
+    SizeF frameSize { 10.0f, 10.0f };
+
+    auto imageSpanNode1 = AceType::MakeRefPtr<ImageSpanNode>(V2::IMAGE_ETS_TAG, 0);
+    imageSpanNode1->GetSpanItem()->onHover_ = [](bool inHover, HoverInfo& info) {};
+    imageSpanNode1->GetGeometryNode()->SetFrameOffset(frameOffset);
+    imageSpanNode1->GetGeometryNode()->SetFrameSize(frameSize);
+    WeakPtr<ImageSpanNode> hoverableNode1 = imageSpanNode1;
+
+    auto imageSpanNode2 = AceType::MakeRefPtr<ImageSpanNode>(V2::IMAGE_ETS_TAG, 0);
+    imageSpanNode2->GetSpanItem()->onHover_ = [](bool inHover, HoverInfo& info) {};
+    imageSpanNode2->GetGeometryNode()->SetFrameOffset({ 15.0f, 15.0f });
+    imageSpanNode2->GetGeometryNode()->SetFrameSize(frameSize);
+    WeakPtr<ImageSpanNode> hoverableNode2 = imageSpanNode2;
+
+    richEditorPattern->hoverableNodes.clear();
+    richEditorPattern->hoverableNodes.push_back(hoverableNode1);
+    richEditorPattern->hoverableNodes.push_back(hoverableNode2);
+    richEditorPattern->lastHoverSpanItem_ = imageSpanNode1->GetSpanItem();
+    richEditorPattern->HandleImageHoverEvent(mouseInfo);
+    mouseInfo.SetLocalLocation({ 17.0f, 17.0f });
+    richEditorPattern->HandleImageHoverEvent(mouseInfo);
+
+    EXPECT_EQ(richEditorPattern->lastHoverSpanItem_, imageSpanNode2->GetSpanItem());
 }
 }

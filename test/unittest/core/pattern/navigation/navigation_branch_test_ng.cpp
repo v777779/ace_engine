@@ -26,7 +26,9 @@
 #define private public
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/ui_node.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
+#include "core/components_ng/pattern/navigation/nav_bar_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/navigation/navigation_content_layout_algorithm.h"
 #include "core/components_ng/pattern/navigation/navigation_group_node.h"
@@ -34,11 +36,12 @@
 #include "core/components_ng/pattern/navigation/navigation_model_ng.h"
 #include "core/components_ng/pattern/navigation/navigation_pattern.h"
 #include "core/components_ng/pattern/navigation/navigation_stack.h"
+#include "core/components_ng/pattern/overlay/sheet_presentation_pattern.h"
 #include "core/components_ng/pattern/scroll/scroll_pattern.h"
-#include "test/mock/base/mock_system_bar_style.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/base/system_bar/mock_system_bar_style.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -396,7 +399,7 @@ HWTEST_F(NavigationBranchTestNg, NavigationPatternTest006, TestSize.Level1)
     auto curDestination = AceType::DynamicCast<NavDestinationGroupNode>(
         hostNode->GetNavDestinationNode(tempNode));
     curDestination->layoutProperty_ = nullptr;
-    pattern->FireNavigationInner(frameNode, true);
+    pattern->FireNavigationInner(frameNode, true, true);
 }
 
 /**
@@ -426,7 +429,7 @@ HWTEST_F(NavigationBranchTestNg, NavigationPatternTest007, TestSize.Level1)
     NavPathList navPathList;
     navPathList.emplace_back(std::make_pair("pageOne", nullptr));
     pattern->navigationStack_->SetNavPathList(navPathList);
-    pattern->FireNavigationInner(frameNode, true);
+    pattern->FireNavigationInner(frameNode, true, true);
 }
 
 /**
@@ -467,7 +470,7 @@ HWTEST_F(NavigationBranchTestNg, NavigationPatternTest008, TestSize.Level1)
     // set navDestinationPattern->GetIsOnShow() is false
     auto navDestinationPattern = curDestination->GetPattern<NavDestinationPattern>();
     navDestinationPattern->SetIsOnShow(false);
-    pattern->FireNavigationInner(frameNode, true);
+    pattern->FireNavigationInner(frameNode, true, true);
 }
 
 /**
@@ -508,7 +511,7 @@ HWTEST_F(NavigationBranchTestNg, NavigationPatternTest009, TestSize.Level1)
     // set navDestinationPattern->GetIsOnShow() is true
     auto navDestinationPattern = curDestination->GetPattern<NavDestinationPattern>();
     navDestinationPattern->SetIsOnShow(true);
-    pattern->FireNavigationInner(frameNode, true);
+    pattern->FireNavigationInner(frameNode, true, true);
 }
 
 /**
@@ -544,7 +547,7 @@ HWTEST_F(NavigationBranchTestNg, NavigationPatternTest010, TestSize.Level1)
     auto curDestination = AceType::DynamicCast<NavDestinationGroupNode>(
         hostNode->GetNavDestinationNode(tempNode));
     curDestination->layoutProperty_ = nullptr;
-    pattern->FireNavigationInner(frameNode, false);
+    pattern->FireNavigationInner(frameNode, false, true);
 }
 
 /**
@@ -574,7 +577,7 @@ HWTEST_F(NavigationBranchTestNg, NavigationPatternTest011, TestSize.Level1)
     NavPathList navPathList;
     navPathList.emplace_back(std::make_pair("pageOne", nullptr));
     pattern->navigationStack_->SetNavPathList(navPathList);
-    pattern->FireNavigationInner(frameNode, false);
+    pattern->FireNavigationInner(frameNode, false, true);
 }
 
 /**
@@ -615,7 +618,7 @@ HWTEST_F(NavigationBranchTestNg, NavigationPatternTest012, TestSize.Level1)
     // set navDestinationPattern->GetIsOnShow() is false
     auto navDestinationPattern = curDestination->GetPattern<NavDestinationPattern>();
     navDestinationPattern->SetIsOnShow(false);
-    pattern->FireNavigationInner(frameNode, false);
+    pattern->FireNavigationInner(frameNode, false, true);
 }
 
 /**
@@ -656,7 +659,7 @@ HWTEST_F(NavigationBranchTestNg, NavigationPatternTest013, TestSize.Level1)
     // set navDestinationPattern->GetIsOnShow() is true
     auto navDestinationPattern = curDestination->GetPattern<NavDestinationPattern>();
     navDestinationPattern->SetIsOnShow(true);
-    pattern->FireNavigationInner(frameNode, false);
+    pattern->FireNavigationInner(frameNode, false, true);
 }
 
 /**
@@ -684,7 +687,7 @@ HWTEST_F(NavigationBranchTestNg, NavigationPatternTest014, TestSize.Level1)
     ASSERT_NE(pattern->navigationStack_, nullptr);
     pattern->OnModifyDone();
     // test FireNavigationChange function if isFirst is true
-    pattern->FireNavigationChange(frameNode, true, true);
+    pattern->FireNavigationChange(frameNode, true, true, true);
 }
 
 /**
@@ -712,7 +715,7 @@ HWTEST_F(NavigationBranchTestNg, NavigationPatternTest015, TestSize.Level1)
     ASSERT_NE(pattern->navigationStack_, nullptr);
     pattern->OnModifyDone();
     // test FireNavigationChange function if isFirst is false
-    pattern->FireNavigationChange(frameNode, true, false);
+    pattern->FireNavigationChange(frameNode, true, false, true);
 }
 
 /**

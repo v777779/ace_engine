@@ -15,17 +15,19 @@
 
 #include "list_test_ng.h"
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
+#include "core/common/statistic_event_reporter.h"
 #include "core/components/button/button_theme.h"
 #include "core/components/list/list_theme.h"
 #include "core/components_ng/pattern/custom_frame_node/custom_frame_node.h"
 #include "core/components_ng/pattern/linear_layout/column_model_ng.h"
 #include "core/components_ng/pattern/linear_layout/row_model_ng.h"
 #include "core/components_ng/pattern/list/list_position_controller.h"
+#include "core/components_ng/pattern/scrollable/scrollable_theme.h"
 #include "core/components_ng/syntax/lazy_for_each_model_ng.h"
 #include "core/components_ng/syntax/repeat_virtual_scroll_model_ng.h"
 
@@ -40,6 +42,7 @@ void ListTestNg::SetUpTestSuite()
     MockAnimationManager::Enable(true);
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    MockPipelineContext::GetCurrent()->statisticEventReporter_ = std::make_shared<StatisticEventReporter>();
     auto buttonThemeConstants = CreateThemeConstants(THEME_PATTERN_BUTTON);
     auto buttonTheme = ButtonTheme::Builder().Build(buttonThemeConstants);
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(buttonTheme));
@@ -335,20 +338,6 @@ void ListTestNg::CreateItemsInLazyForEach(
     lazyForEachModelNG.OnMove(std::move(onMove));
 }
 
-RefPtr<ListItemMockLazy> ListTestNg::CreateItemsInLazyForEachWithHandle(
-    int32_t itemNumber, float itemMainSize, std::function<void(int32_t, int32_t)> onMove)
-{
-    RefPtr<ListItemMockLazy> mockLazy = AceType::MakeRefPtr<ListItemMockLazy>(itemNumber, itemMainSize);
-    RefPtr<LazyForEachActuator> mockActuator = mockLazy;
-    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(GetElmtId());
-    LazyForEachModelNG lazyForEachModelNG;
-    lazyForEachModelNG.Create(mockActuator);
-    lazyForEachModelNG.OnMove(std::move(onMove));
-    ViewStackProcessor::GetInstance()->Pop();
-    ViewStackProcessor::GetInstance()->StopGetAccessRecording();
-    return mockLazy;
-}
-
 LazyForEachModelNG ListTestNg::CreateItemsInForLazyEachForItemDragEvent(int32_t itemNumber, float itemMainSize)
 {
     RefPtr<LazyForEachActuator> mockForEach = AceType::MakeRefPtr<ListItemMockLazy>(itemNumber, itemMainSize);
@@ -383,6 +372,20 @@ ForEachModelNG ListTestNg::CreateForEachListForItemDragEvent(int32_t itemNumber,
         forEachModelNG.CreateNewChildFinish(std::to_string(index));
     }
     return forEachModelNG;
+}
+
+RefPtr<ListItemMockLazy> ListTestNg::CreateItemsInLazyForEachWithHandle(
+    int32_t itemNumber, float itemMainSize, std::function<void(int32_t, int32_t)> onMove)
+{
+    RefPtr<ListItemMockLazy> mockLazy = AceType::MakeRefPtr<ListItemMockLazy>(itemNumber, itemMainSize);
+    RefPtr<LazyForEachActuator> mockActuator = mockLazy;
+    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(GetElmtId());
+    LazyForEachModelNG lazyForEachModelNG;
+    lazyForEachModelNG.Create(mockActuator);
+    lazyForEachModelNG.OnMove(std::move(onMove));
+    ViewStackProcessor::GetInstance()->Pop();
+    ViewStackProcessor::GetInstance()->StopGetAccessRecording();
+    return mockLazy;
 }
 
 void ListTestNg::CreateItemGroupsInLazyForEach(int32_t itemNumber, std::function<void(int32_t, int32_t)> onMove)

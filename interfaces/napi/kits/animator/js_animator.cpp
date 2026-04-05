@@ -13,10 +13,13 @@
  * limitations under the License.
  */
 
-
 #include "animator_option.h"
 #include "interfaces/napi/kits/utils/napi_utils.h"
+
+#include "base/log/log_wrapper.h"
 #include "base/thread/frame_trace_adapter.h"
+#include "core/animation/animation.h"
+#include "core/animation/curve_animation.h"
 
 namespace OHOS::Ace::Napi {
 
@@ -47,10 +50,10 @@ static void ParseString(napi_env env, napi_value propertyNapi, std::string& prop
         napi_valuetype valueType = napi_undefined;
         napi_typeof(env, propertyNapi, &valueType);
         if (valueType == napi_undefined) {
-            NapiThrow(env, "Required input parameters are missing.", ERROR_CODE_PARAM_INVALID);
+            NapiThrow(env, "Mandatory parameters are left unspecified.", ERROR_CODE_PARAM_INVALID);
             return;
         } else if (valueType != napi_string) {
-            NapiThrow(env, "The type of parameters is incorrect.", ERROR_CODE_PARAM_INVALID);
+            NapiThrow(env, "Incorrect parameters types.", ERROR_CODE_PARAM_INVALID);
             return;
         }
 
@@ -72,10 +75,10 @@ static void ParseInt(napi_env env, napi_value propertyNapi, int32_t& property)
         napi_valuetype valueType = napi_undefined;
         napi_typeof(env, propertyNapi, &valueType);
         if (valueType == napi_undefined) {
-            NapiThrow(env, "Required input parameters are missing.", ERROR_CODE_PARAM_INVALID);
+            NapiThrow(env, "Mandatory parameters are left unspecified.", ERROR_CODE_PARAM_INVALID);
             return;
         } else if (valueType != napi_number) {
-            NapiThrow(env, "The type of parameters is incorrect.", ERROR_CODE_PARAM_INVALID);
+            NapiThrow(env, "Incorrect parameters types.", ERROR_CODE_PARAM_INVALID);
             return;
         }
         napi_get_value_int32(env, propertyNapi, &property);
@@ -88,10 +91,10 @@ static void ParseDouble(napi_env env, napi_value propertyNapi, double& property)
         napi_valuetype valueType = napi_undefined;
         napi_typeof(env, propertyNapi, &valueType);
         if (valueType == napi_undefined) {
-            NapiThrow(env, "Required input parameters are missing.", ERROR_CODE_PARAM_INVALID);
+            NapiThrow(env, "Mandatory parameters are left unspecified.", ERROR_CODE_PARAM_INVALID);
             return;
         } else if (valueType != napi_number) {
-            NapiThrow(env, "The type of parameters is incorrect.", ERROR_CODE_PARAM_INVALID);
+            NapiThrow(env, "Incorrect parameters types.", ERROR_CODE_PARAM_INVALID);
             return;
         }
         napi_get_value_double(env, propertyNapi, &property);
@@ -252,7 +255,7 @@ static void ParseAnimatorOption(napi_env env, napi_callback_info info, std::shar
     napi_value argv;
     napi_get_cb_info(env, info, &argc, &argv, NULL, NULL);
     if (argc != 1) {
-        NapiThrow(env, "The number of parameters must be equal to 1.", ERROR_CODE_PARAM_INVALID);
+        NapiThrow(env, "Mandatory parameters are left unspecified.", ERROR_CODE_PARAM_INVALID);
         return;
     }
     if (IsSimpleAnimatorOptions(env, argv)) {
@@ -279,7 +282,7 @@ static void ParseAnimatorOption(napi_env env, napi_callback_info info, std::shar
         napi_get_named_property(env, argv, "begin", &beginNapi);
         napi_get_named_property(env, argv, "end", &endNapi);
     } else {
-        NapiThrow(env, "The type of parameters is incorrect.", ERROR_CODE_PARAM_INVALID);
+        NapiThrow(env, "Incorrect parameters types.", ERROR_CODE_PARAM_INVALID);
         return;
     }
 
@@ -343,7 +346,8 @@ static napi_value JSReset(napi_env env, napi_callback_info info)
     }
     auto option = animatorResult->GetAnimatorOption();
     if (!option) {
-        NapiThrow(env, "Internal error. Option is null in AnimatorResult.", ERROR_CODE_INTERNAL_ERROR);
+        NapiThrow(env, "Internal error. Object property list is not obtained. Option is null in AnimatorResult.",
+            ERROR_CODE_INTERNAL_ERROR);
         return nullptr;
     }
     ParseAnimatorOption(env, info, option);
@@ -852,8 +856,13 @@ static napi_value SetOnRepeat(napi_env env, napi_callback_info info)
     return SetOnrepeat(env, info);
 }
 
-static napi_value CreateAnimator(napi_env env, AnimatorResult* animatorResult)
+static napi_value JSCreate(napi_env env, napi_callback_info info)
 {
+    auto option = std::make_shared<AnimatorOption>();
+    ParseAnimatorOption(env, info, option);
+    auto animator = CREATE_ANIMATOR("ohos.animator");
+    animator->AttachSchedulerOnContainer();
+    AnimatorResult* animatorResult = new AnimatorResult(animator, option);
     napi_value jsAnimator = nullptr;
     napi_create_object(env, &jsAnimator);
     napi_wrap(
@@ -886,48 +895,6 @@ static napi_value CreateAnimator(napi_env env, AnimatorResult* animatorResult)
 
     NAPI_CALL(env, napi_define_properties(env, jsAnimator, sizeof(resultFuncs) / sizeof(resultFuncs[0]), resultFuncs));
     return jsAnimator;
-}
-
-static napi_value JSCreate(napi_env env, napi_callback_info info)
-{
-    auto option = std::make_shared<AnimatorOption>();
-    ParseAnimatorOption(env, info, option);
-    auto animator = CREATE_ANIMATOR("ohos.animator");
-    animator->AttachSchedulerOnContainer();
-    AnimatorResult* animatorResult = new AnimatorResult(animator, option);
-    return CreateAnimator(env, animatorResult);
-}
-
-static napi_value JSCreateAnimatorTransfer(napi_env env, napi_callback_info info)
-{
-    size_t argc = 1;
-    napi_value argv;
-    napi_get_cb_info(env, info, &argc, &argv, NULL, NULL);
-    if (argc != 1) {
-        NapiThrow(env, "The number of parameters must be equal to 1.", ERROR_CODE_PARAM_INVALID);
-        return nullptr;
-    }
-    napi_valuetype valueType = napi_undefined;
-    napi_typeof(env, argv, &valueType);
-    if (valueType != napi_number) {
-        return nullptr;
-    }
-
-    int64_t addr = 0;
-    napi_get_value_int64(env, argv, &addr);
-    auto animatorResultPre = reinterpret_cast<AnimatorResultBase*>(addr);
-    if (animatorResultPre == nullptr) {
-        TAG_LOGE(AceLogTag::ACE_ANIMATION, "jsAnimator null animatorResult");
-        return nullptr;
-    }
-    auto option = animatorResultPre->GetAnimatorOption();
-    auto motion = animatorResultPre->GetMotion();
-    auto animator = animatorResultPre->GetAnimator();
-    auto animatorResult = new AnimatorResult();
-    animatorResult->SetMotion(motion);
-    animatorResult->SetAnimatorOption(option);
-    animatorResult->SetAnimator(animator);
-    return CreateAnimator(env, animatorResult);
 }
 
 // since API 9 deprecated
@@ -1191,7 +1158,6 @@ static napi_value AnimatorExport(napi_env env, napi_value exports)
     napi_property_descriptor animatorDesc[] = {
         DECLARE_NAPI_FUNCTION("create", JSCreate),
         DECLARE_NAPI_FUNCTION("createAnimator", JSCreateAnimator),
-        DECLARE_NAPI_FUNCTION("__createTransfer__", JSCreateAnimatorTransfer),
     };
     NAPI_CALL(env, napi_define_properties(env, exports, sizeof(animatorDesc) / sizeof(animatorDesc[0]), animatorDesc));
     InitSimpleAnimatorOptions(env, exports);
@@ -1234,11 +1200,12 @@ void AnimatorResult::ApplyOption()
 void AnimatorResult::Destroy(napi_env env)
 {
     if (animator_) {
-        if (!animator_->IsStopped()) {
+        if (animator_->IsRunning()) {
             animator_->Stop();
             TAG_LOGI(AceLogTag::ACE_ANIMATION, "jsAnimator force stopping done when destroying, id:%{public}d",
                 animator_->GetId());
         }
+        animator_ = nullptr;
     }
     if (onframe_ != nullptr) {
         napi_delete_reference(env, onframe_);

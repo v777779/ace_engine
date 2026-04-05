@@ -15,9 +15,60 @@
 
 #include "core/components_ng/pattern/grid/grid_layout_base_algorithm.h"
 
+#include "core/components_ng/pattern/grid/grid_item_model_ng.h"
+#include "core/components_ng/pattern/grid/grid_item_layout_property.h"
+#include "core/components_ng/pattern/grid/grid_item_pattern.h"
+#include "core/components_ng/pattern/grid/grid_layout_property.h"
 #include "core/components_ng/pattern/grid/grid_pattern.h"
+#include "core/components_ng/pattern/scrollable/scrollable_paint_property.h"
+#include "core/components_ng/pattern/grid/grid_layout_base_algorithm.h"
 
 namespace OHOS::Ace::NG {
+namespace {
+RefPtr<LayoutWrapper> CreateDummyGridItemChild()
+{
+    auto wrapper = GridItemModelNG::CreateFrameNode(ElementRegister::GetInstance()->MakeUniqueId());
+    wrapper->GetLayoutProperty()->UpdateUserDefinedIdealSize(CalcSize(CalcLength(0), CalcLength(0)));
+    return wrapper;
+}
+} // namespace
+
+void GridLayoutBaseAlgorithm::UpdateRealGridItemPositionInfo(
+    const RefPtr<LayoutWrapper>& itemLayoutWrapper, int32_t mainIndex, int32_t crossIndex)
+{
+    auto gridItemLayoutProperty = AceType::DynamicCast<GridItemLayoutProperty>(itemLayoutWrapper->GetLayoutProperty());
+    CHECK_NULL_VOID(gridItemLayoutProperty);
+    bool isItemAtExpectedPosition = gridItemLayoutProperty->CheckWhetherCurrentItemAtExpectedPosition(info_.axis_);
+    auto gridItemNode = itemLayoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(gridItemNode);
+    auto gridItemPattern = gridItemNode->GetPattern<GridItemPattern>();
+    CHECK_NULL_VOID(gridItemPattern);
+    if (isItemAtExpectedPosition) {
+        gridItemPattern->ResetGridItemInfo();
+    }
+    if (!isItemAtExpectedPosition && info_.hasBigItem_) {
+        GridItemIndexInfo itemInfo;
+        itemInfo.mainIndex = mainIndex;
+        itemInfo.crossIndex = crossIndex;
+        itemInfo.mainSpan = gridItemLayoutProperty->GetRealMainSpan(info_.axis_);
+        itemInfo.crossSpan = gridItemLayoutProperty->GetRealCrossSpan(info_.axis_);
+        itemInfo.mainStart = mainIndex - itemInfo.mainSpan + 1;
+        itemInfo.mainEnd = mainIndex;
+        itemInfo.crossStart = crossIndex;
+        itemInfo.crossEnd = crossIndex + itemInfo.crossSpan - 1;
+        gridItemPattern->ResetGridItemInfo();
+        gridItemPattern->SetIrregularItemInfo(itemInfo);
+    }
+}
+
+void GridLayoutBaseAlgorithm::ResetFocusedIndex(LayoutWrapper* layoutWrapper)
+{
+    auto grid = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(grid);
+    auto pattern = grid->GetPattern<GridPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->ResetFocusedIndex();
+}
 
 void GridLayoutBaseAlgorithm::AdjustChildrenHeight(LayoutWrapper* layoutWrapper)
 {
@@ -85,9 +136,8 @@ void GridLayoutBaseAlgorithm::UpdateOverlay(LayoutWrapper* layoutWrapper)
     CHECK_NULL_VOID(geometryNode);
     auto overlayGeometryNode = overlayNode->GetGeometryNode();
     CHECK_NULL_VOID(overlayGeometryNode);
-    overlayGeometryNode->SetFrameSize(geometryNode->GetFrameSize());
+    overlayGeometryNode->SetFrameSize(geometryNode->GetFrameSize(true));
 }
-
 
 void GridLayoutBaseAlgorithm::LostChildFocusToSelf(LayoutWrapper* layoutWrapper, int32_t start, int32_t end)
 {
@@ -107,5 +157,53 @@ void GridLayoutBaseAlgorithm::LostChildFocusToSelf(LayoutWrapper* layoutWrapper,
     if (childFocusHub->IsCurrentFocus()) {
         focusHub->LostChildFocusToSelf();
     }
+}
+
+void GridLayoutBaseAlgorithm::CalcContentOffset(LayoutWrapper* layoutWrapper, float mainSize)
+{
+    CHECK_NULL_VOID(layoutWrapper);
+    auto property = AceType::DynamicCast<GridLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    CHECK_NULL_VOID(property);
+    auto startOffset = property->GetContentStartOffset();
+    if (!startOffset.has_value()) {
+        info_.contentStartOffset_ = 0;
+    }
+    auto endOffset = property->GetContentEndOffset();
+    if (!endOffset.has_value()) {
+        info_.contentEndOffset_ = 0;
+    }
+    if (!endOffset && !startOffset) {
+        return;
+    }
+    auto host = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    if (startOffset) {
+        info_.contentStartOffset_ =
+            std::max(pipeline->NormalizeToPx(Dimension(startOffset.value(), DimensionUnit::VP)), 0.0);
+    }
+    if (endOffset) {
+        info_.contentEndOffset_ =
+            std::max(pipeline->NormalizeToPx(Dimension(endOffset.value(), DimensionUnit::VP)), 0.0);
+    }
+    if (GreatOrEqual(info_.contentStartOffset_ + info_.contentEndOffset_, mainSize)) {
+        info_.contentStartOffset_ = 0.0f;
+        info_.contentEndOffset_ = 0.0f;
+    }
+}
+
+RefPtr<LayoutWrapper> GridLayoutBaseAlgorithm::GetGridItem(
+    LayoutWrapper* layoutWrapper, int32_t index, bool addToRenderTree, bool isCache)
+{
+    const auto& layoutProperty = DynamicCast<GridLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    if (layoutProperty->GetSupportLazyLoadingEmptyBranch().value_or(false)) {
+        auto wrapper = layoutWrapper->GetOrCreateChildByIndex(index, addToRenderTree, isCache);
+        if (!wrapper) {
+            wrapper = CreateDummyGridItemChild();
+        }
+        return wrapper;
+    }
+    return layoutWrapper->GetOrCreateChildByIndex(index, addToRenderTree, isCache);
 }
 } // namespace OHOS::Ace::NG

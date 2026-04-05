@@ -50,8 +50,10 @@ RefPtr<Modifier> CheckBoxPaintMethod::GetContentModifier(PaintWrapper* paintWrap
         auto isSelect = paintProperty->GetCheckBoxSelectValue(false);
         auto boardColor = isSelect ? paintProperty->GetCheckBoxSelectedColorValue(checkBoxTheme->GetActiveColor())
                                    : checkBoxTheme->GetInactivePointColor();
-        auto checkColor = isSelect ? checkBoxTheme->GetPointColor() : Color::TRANSPARENT;
-        auto borderColor = isSelect ? Color::TRANSPARENT : checkBoxTheme->GetInactiveColor();
+        auto checkColor = isSelect ? paintProperty->GetCheckBoxCheckMarkColorValue(checkBoxTheme->GetPointColor())
+                                   : Color::TRANSPARENT;
+        auto borderColor = isSelect ? Color::TRANSPARENT
+                                    : paintProperty->GetCheckBoxUnSelectedColorValue(checkBoxTheme->GetInactiveColor());
         auto shadowColor = isSelect ? checkBoxTheme->GetShadowColor() : Color::TRANSPARENT;
         float strokePaintSize = size.Width();
         auto checkStroke = static_cast<float>(checkBoxTheme->GetCheckStroke().ConvertToPx());
@@ -130,7 +132,7 @@ void CheckBoxPaintMethod::UpdateContentModifier(PaintWrapper* paintWrapper)
     checkboxModifier_->SetOffset(offset);
     checkboxModifier_->SetEnabled(enabled_);
     checkboxModifier_->SetTouchHoverAnimationType(touchHoverType_);
-    checkboxModifier_->UpdateAnimatableProperty(needAnimation_);
+    checkboxModifier_->UpdateAnimatableProperty(needAnimation_, host->GetContextRefPtr());
     auto context = host->GetContext();
     CHECK_NULL_VOID(context);
     auto checkBoxTheme = context->GetTheme<CheckboxTheme>(host->GetThemeScopeId());
@@ -221,7 +223,7 @@ CheckBoxModifier::CheckBoxModifier(bool isSelect, const Color& boardColor, const
 
 void CheckBoxModifier::InitializeParam(TokenThemeScopeId themeScopeId)
 {
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto checkBoxTheme = pipeline->GetTheme<CheckboxTheme>(themeScopeId);
     CHECK_NULL_VOID(checkBoxTheme);

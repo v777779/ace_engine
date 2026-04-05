@@ -16,9 +16,11 @@
 #define private public
 #include "interfaces/inner_api/form_render/include/form_renderer_delegate_impl.h"
 #undef private
+#include "appexecfwk_errors.h"
+#include "form_mgr_errors.h"
 #include "interfaces/inner_api/form_render/include/form_renderer_delegate_stub.h"
-#include "test/mock/interfaces/mock_form_render_delegate_stub.h"
-#include "test/mock/interfaces/mock_i_remote_object_form.h"
+#include "test/unittest/interfaces/form_render/mock/mock_form_render_delegate_stub.h"
+#include "test/unittest/interfaces/form_render/mock/mock_i_remote_object_form.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -39,7 +41,7 @@ public:
  * @tc.desc: Test OnRemoteRequest() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_001, TestSize.Level1)
+HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_001, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateStubTest_001 start";
     MockFormRenderDelegateStub renderDelegate;
@@ -64,23 +66,23 @@ HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_001, TestSize.Le
  * @tc.desc: Test HandleOnSurfaceCreate(), HandleOnSurfaceReuse() function formJsInfo is nullptr.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_002, TestSize.Level1)
+HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_002, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateStubTest_002 start";
     MockFormRenderDelegateStub renderDelegate;
     MessageParcel data;
     MessageParcel reply;
-    EXPECT_EQ(renderDelegate.HandleOnSurfaceCreate(data, reply), ERR_INVALID_VALUE);
-    EXPECT_EQ(renderDelegate.HandleOnSurfaceReuse(data, reply), ERR_INVALID_VALUE);
+    EXPECT_EQ(renderDelegate.HandleOnSurfaceCreate(data, reply), ERR_APPEXECFWK_PARCEL_ERROR);
+    EXPECT_EQ(renderDelegate.HandleOnSurfaceReuse(data, reply), ERR_APPEXECFWK_FORM_SURFACE_NODE_NOT_FOUND);
 
     std::string surfaceNodeName = "ArkTSCardNode";
     struct Rosen::RSSurfaceNodeConfig surfaceNodeConfig = { .SurfaceNodeName = surfaceNodeName };
     std::shared_ptr<Rosen::RSSurfaceNode> rsNode = OHOS::Rosen::RSSurfaceNode::Create(surfaceNodeConfig, true);
     ASSERT_NE(rsNode, nullptr);
     rsNode->Marshalling(data);
-    EXPECT_EQ(renderDelegate.HandleOnSurfaceCreate(data, reply), ERR_INVALID_VALUE);
+    EXPECT_EQ(renderDelegate.HandleOnSurfaceCreate(data, reply), ERR_APPEXECFWK_PARCEL_ERROR);
     data.WriteUint64(rsNode->GetId());
-    EXPECT_EQ(renderDelegate.HandleOnSurfaceReuse(data, reply), ERR_INVALID_VALUE);
+    EXPECT_EQ(renderDelegate.HandleOnSurfaceReuse(data, reply), ERR_APPEXECFWK_PARCEL_ERROR);
     GTEST_LOG_(INFO) << "FormRenderDelegateStubTest_002 end";
 }
 
@@ -89,7 +91,7 @@ HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_002, TestSize.Le
  * @tc.desc: Test HandleOnSurfaceCreate(), HandleOnSurfaceReuse() function wan is nullptr.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_003, TestSize.Level1)
+HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_003, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateStubTest_003 start";
     MockFormRenderDelegateStub renderDelegate;
@@ -106,12 +108,12 @@ HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_003, TestSize.Le
     formJsInfo.bundleName = "bundleName";
     formJsInfo.moduleName = "moduleName";
     data.WriteParcelable(&formJsInfo);
-    EXPECT_EQ(renderDelegate.HandleOnSurfaceCreate(data, reply), ERR_INVALID_VALUE);
+    EXPECT_EQ(renderDelegate.HandleOnSurfaceCreate(data, reply), ERR_APPEXECFWK_PARCEL_ERROR);
     data.WriteUint64(rsNode->GetId());
     formJsInfo.bundleName = "bundleName";
     formJsInfo.moduleName = "moduleName";
     data.WriteParcelable(&formJsInfo);
-    EXPECT_EQ(renderDelegate.HandleOnSurfaceReuse(data, reply), ERR_INVALID_VALUE);
+    EXPECT_EQ(renderDelegate.HandleOnSurfaceReuse(data, reply), ERR_APPEXECFWK_PARCEL_ERROR);
     GTEST_LOG_(INFO) << "FormRenderDelegateStubTest_003 end";
 }
 
@@ -120,7 +122,7 @@ HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_003, TestSize.Le
  * @tc.desc: Test HandleOnSurfaceCreate(), HandleOnSurfaceReuse() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_004, TestSize.Level1)
+HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_004, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateStubTest_004 start";
     MockFormRenderDelegateStub renderDelegate;
@@ -155,7 +157,7 @@ HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_004, TestSize.Le
  * @tc.desc: Test HandleOnSurfaceRelease() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_005, TestSize.Level1)
+HWTEST_F(FormRenderDelegateStubTest, FormRenderDelegateStubTest_005, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateStubTest_005 start";
     MockFormRenderDelegateStub renderDelegate;

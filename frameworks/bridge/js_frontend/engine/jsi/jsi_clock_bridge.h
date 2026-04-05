@@ -18,12 +18,13 @@
 
 #include "jsi_engine.h"
 
-#include "frameworks/bridge/common/dom/dom_clock.h"
+#include "base/memory/ace_type.h"
+#include "frameworks/bridge/common/dom/dom_configs.h"
 
 namespace OHOS::Ace::Framework {
 
 class JsiClockBridge : virtual public AceType {
-    DECLARE_ACE_TYPE(JsiClockBridge, AceType)
+    DECLARE_ACE_TYPE(JsiClockBridge, AceType);
 
 public:
     void ParseClockConfig(const shared_ptr<JsRuntime>& runtime, const shared_ptr<JsValue>& valObject);

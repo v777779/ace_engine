@@ -29,11 +29,13 @@
 #ifdef OHOS_STANDARD_SYSTEM
 #include "form_info.h"
 #include "form_js_info.h"
+#include "form_surface_info.h"
 #include "ui/rs_surface_node.h"
 #include "want.h"
 #include "want_params_wrapper.h"
 
 #include "core/components/form/resource/form_utils.h"
+#include "core/components_ng/pattern/form/form_layout_wrapper.h"
 #endif
 
 namespace OHOS::Rosen {
@@ -72,6 +74,8 @@ public:
     using EnableFormCallback = std::function<void(const bool enable)>;
     using LockFormCallback = std::function<void(const bool lock)>;
     using UpdateFormDoneCallback = std::function<void(const int64_t formId)>;
+    using DueControlFormCallback = std::function<void(const bool isDisablePolicy, const bool isControl)>;
+    using FormRenderDiedCallback = std::function<void()>;
 
     enum class State : char {
         WAITINGFORSIZE,
@@ -92,6 +96,7 @@ public:
         float expectedWidth = 0.0f;
         float expectedHeight = 0.0f;
         float expectedBorderWidth = 0.0f;
+        float expectedFormViewScale = 1.0f;
     };
 
     FormManagerDelegate() = delete;
@@ -108,6 +113,10 @@ public:
 #endif
     void ReleasePlatformResource();
 
+    void SetFormLayoutWrapper(WeakPtr<NG::FormLayoutWrapper> formPattern)
+    {
+        formPattern_ = formPattern;
+    };
     void AddFormAcquireCallback(const OnFormAcquiredCallback& callback);
     void AddFormUpdateCallback(const OnFormUpdateCallback& callback);
     void AddFormErrorCallback(const OnFormErrorCallback& callback);
@@ -123,9 +132,11 @@ public:
     void AddEnableFormCallback(EnableFormCallback&& callback);
     void AddLockFormCallback(LockFormCallback&& callback);
     void AddFormUpdateDoneCallback(UpdateFormDoneCallback&& callback);
+    void AddDueControlFormCallback(DueControlFormCallback&& callback);
+    void AddFormRenderDiedCallback(FormRenderDiedCallback&& callback);
     void OnActionEventHandle(const std::string& action);
     void SetAllowUpdate(bool allowUpdate);
-    void OnActionEvent(const std::string& action);
+    void OnActionEvent(const std::string& action, bool isManuallyClick);
     void DispatchPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent,
         SerializedGesture& serializedGesture);
     void AddRenderDelegate();
@@ -136,9 +147,10 @@ public:
     void OnFormUpdateDone(const int64_t formId);
     void ReleaseRenderer();
     void SetObscured(bool isObscured);
+    void SetColorMode(int32_t colorMode);
     void OnAccessibilityTransferHoverEvent(float pointX, float pointY, int32_t sourceType,
         int32_t eventType, int64_t timeMs);
-    void OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId, int64_t accessibilityId);
+    bool OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId, int64_t accessibilityId);
     void OnAccessibilityChildTreeDeregister();
     void OnAccessibilityDumpChildInfo(const std::vector<std::string>& params, std::vector<std::string>& info);
     bool CheckFormBundleForbidden(const std::string& bundleName);
@@ -147,29 +159,37 @@ public:
     void SetMultiInstanceFlag(bool isMultiInstanceEnable);
     bool IsFormBundleExempt(int64_t formId);
     bool IsFormBundleProtected(const std::string &bundleName, int64_t formId);
+    bool IsFormBundleDebugSignature(const std::string &bundleName);
 #ifdef OHOS_STANDARD_SYSTEM
     void ProcessFormUpdate(const AppExecFwk::FormJsInfo& formJsInfo);
     void ProcessFormUninstall(const int64_t formId);
     void OnDeathReceived();
     void SetFormUtils(const std::shared_ptr<FormUtils>& formUtils);
-    void OnSurfaceCreate(const AppExecFwk::FormJsInfo& formInfo,
+    int32_t OnSurfaceCreate(const AppExecFwk::FormJsInfo& formInfo,
         const std::shared_ptr<Rosen::RSSurfaceNode>& rsSurfaceNode, const AAFwk::Want& want);
     void OnFormSurfaceChange(float width, float height, float borderWidth = 0.0);
     void OnFormSurfaceDetach();
     void ResetForm();
     void ReleaseForm();
-    void NotifySurfaceChange(float width, float height, float borderWidth = 0.0);
+    void NotifySurfaceChange(const OHOS::AppExecFwk::FormSurfaceInfo &formSurfaceInfo);
     static bool GetFormInfo(const std::string& bundleName, const std::string& moduleName,
         const std::string& cardName, AppExecFwk::FormInfo& formInfo);
     void ProcessRecycleForm();
     void ProcessEnableForm(bool enable);
     void ProcessLockForm(bool lock);
+    void ProcessDueControlForm(bool isDisablePolicy, bool isControl);
+    void ProcessCheckForm();
 #endif
     void HandleCachedClickEvents();
+    void ReAddForm();
     std::mutex& GetRecycleMutex()
     {
         return this->recycleMutex_;
     }
+    bool CheckFormDueControl(const std::string &bundleName, const std::string &moduleName,
+        const std::string &abilityName, const std::string &formName,
+        const int32_t dimension, const bool isDisablePolicy);
+    void SendNonTransparencyRatio(int32_t ratio);
 
 private:
     void CreatePlatformResource(const WeakPtr<PipelineBase>& context, const RequestFormInfo& info);
@@ -181,7 +201,6 @@ private:
     void OnFormAcquired(const std::string& param);
     void OnFormUpdate(const std::string& param);
     void OnFormError(const std::string& param);
-    void ReAddForm();
     void HandleUnTrustFormCallback();
     void HandleSnapshotCallback(const uint32_t& delayTime);
     bool ParseAction(const std::string& action, const std::string& type, AAFwk::Want& want);
@@ -189,6 +208,26 @@ private:
     void HandleLockFormCallback(bool lock);
     void SetGestureInnerFlag();
     void CheckWhetherSurfaceChangeFailed();
+    void UpdateFormSizeWantCache(float width, float height, float formViewScale, float borderWidth);
+    void HandleDueControlForm(bool isDisablePolicy, bool isControl);
+    
+    inline void SetFormRendererDispatcher(sptr<IFormRendererDispatcher> &rendererDispatcher)
+    {
+        std::lock_guard<std::mutex> lock(formRenderDispatcherMutex_);
+        formRendererDispatcher_ = rendererDispatcher;
+    }
+
+    inline void ClearFormRendererDispatcher()
+    {
+        std::lock_guard<std::mutex> lock(formRenderDispatcherMutex_);
+        formRendererDispatcher_ = nullptr;
+    }
+
+    inline sptr<IFormRendererDispatcher> GetFormRendererDispatcher()
+    {
+        std::lock_guard<std::mutex> lock(formRenderDispatcherMutex_);
+        return formRendererDispatcher_;
+    }
 
     onFormAcquiredCallbackForJava onFormAcquiredCallbackForJava_;
     OnFormUpdateCallbackForJava onFormUpdateCallbackForJava_;
@@ -207,6 +246,9 @@ private:
     EnableFormCallback enableFormCallback_;
     LockFormCallback lockFormCallback_;
     UpdateFormDoneCallback updateFormDoneCallback_;
+    DueControlFormCallback dueControlFormCallback_;
+    FormRenderDiedCallback onFormRenderDiedCallback_;
+    WeakPtr<NG::FormLayoutWrapper> formPattern_;
 
     State state_ { State::WAITINGFORSIZE };
     bool isDynamic_ = true;
@@ -220,7 +262,7 @@ private:
     bool isMultiInstanceEnable_ = false;
 #ifdef OHOS_STANDARD_SYSTEM
     void OnRouterActionEvent(const std::string& action);
-    void OnCallActionEvent(const std::string& action);
+    void OnCallActionEvent(const std::string& action, bool isManuallyClick);
     int64_t runningCardId_ = -1;
     std::string runningCompId_;
     std::mutex wantCacheMutex_;
@@ -232,6 +274,7 @@ private:
     sptr<FormRendererDelegateImpl> renderDelegate_;
     sptr<IFormRendererDispatcher> formRendererDispatcher_;
     AppExecFwk::FormJsInfo formJsInfo_;
+    std::mutex formRenderDispatcherMutex_;
 #endif
 };
 

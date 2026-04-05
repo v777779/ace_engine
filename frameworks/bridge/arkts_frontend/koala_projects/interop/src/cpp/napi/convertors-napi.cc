@@ -310,7 +310,7 @@ const std::vector<std::pair<std::string, napi_type_t>>& Exports::getMethods(cons
     auto it = implementations.find(module);
     if (it == implementations.end()) {
         LOGE("Module %s is not registered", module.c_str());
-        INTEROP_FATAL("Fatal error");
+        abort();
     }
     return it->second;
 }
@@ -318,7 +318,8 @@ const std::vector<std::pair<std::string, napi_type_t>>& Exports::getMethods(cons
 //
 // Callback dispatcher
 //
-// Improve: Should we get rid of explicit Node_* declrations and hide the naming convention behind the macro definitions?
+// Improve: Should we get rid of explicit Node_* declrations \
+    and hide the naming convention behind the macro definitions?
 
 static napi_ref g_koalaNapiCallbackDispatcher = nullptr;
 
@@ -378,7 +379,6 @@ ModuleRegisterCallback ProvideModuleRegisterCallback(ModuleRegisterCallback valu
 static constexpr bool splitModules = true;
 
 static napi_value InitModule(napi_env env, napi_value exports) {
-    // LOG("InitModule: " QUOTE(INTEROP_LIBRARY_NAME));
     Exports* inst = Exports::getInstance();
     napi_status status;
     napi_value target = exports;

@@ -21,8 +21,8 @@
 #include "pixel_map_napi.h"
 #endif
 
-
 #include "core/common/ace_engine.h"
+#include "core/common/container_scope.h"
 
 #include "frameworks/bridge/common/utils/engine_helper.h"
 
@@ -46,12 +46,18 @@ void OnComplete(SnapshotAsyncCtx* asyncCtx, std::function<void()> finishCallback
     auto container = AceEngine::Get().GetContainer(asyncCtx->instanceId);
     if (!container) {
         LOGW("container is null. %{public}d", asyncCtx->instanceId);
+        if (asyncCtx) {
+            delete asyncCtx;
+        }
         return;
     }
 
     auto taskExecutor = container->GetTaskExecutor();
     if (!taskExecutor) {
         LOGW("taskExecutor is null.");
+        if (asyncCtx) {
+            delete asyncCtx;
+        }
         return;
     }
     taskExecutor->PostTask(
@@ -278,6 +284,22 @@ void JsComponentSnapshot::ParseOptions(int32_t idx, NG::SnapshotOptions& options
     }
 
     result = false;
+    napi_has_named_property(env_, argv_[idx], "colorMode", &result);
+    if (result) {
+        napi_value colorModeObject = nullptr;
+        napi_get_named_property(env_, argv_[idx], "colorMode", &colorModeObject);
+        ParseColorMode(&colorModeObject, options);
+    }
+
+    result = false;
+    napi_has_named_property(env_, argv_[idx], "dynamicRangeMode", &result);
+    if (result) {
+        napi_value dynamicRangeModeObject = nullptr;
+        napi_get_named_property(env_, argv_[idx], "dynamicRangeMode", &dynamicRangeModeObject);
+        ParseDynamicRangeMode(&dynamicRangeModeObject, options);
+    }
+
+    result = false;
     napi_has_named_property(env_, argv_[idx], "region", &result);
     if (!result) {
         options.regionMode = NG::SnapshotRegionMode::NO_REGION;
@@ -382,6 +404,92 @@ bool JsComponentSnapshot::ParseLocalizedRegion(napi_value* regionObject, NG::Sna
     return true;
 }
 
+void JsComponentSnapshot::ParseColorMode(napi_value* colorModeObject, NG::SnapshotOptions& options)
+{
+    bool getColorModeResult = false;
+    napi_has_named_property(env_, *colorModeObject, "colorSpace", &getColorModeResult);
+    if (getColorModeResult) {
+        napi_value colorSpaceNapi = nullptr;
+        auto colorSpaceMode = NG::DEFAULT_COLORSPACE_VALUE_SRGB;
+        napi_get_named_property(env_, *colorModeObject, "colorSpace", &colorSpaceNapi);
+        if (colorSpaceNapi) {
+            napi_get_value_uint32(env_, colorSpaceNapi, &colorSpaceMode);
+        }
+        options.colorSpaceModeOptions.colorSpaceMode = static_cast<NG::ColorSpaceMode>(colorSpaceMode);
+    }
+
+    napi_has_named_property(env_, *colorModeObject, "isAuto", &getColorModeResult);
+    if (getColorModeResult) {
+        napi_value isAutoNapi = nullptr;
+        bool isAuto = false;
+        napi_get_named_property(env_, *colorModeObject, "isAuto", &isAutoNapi);
+        if (isAutoNapi) {
+            napi_get_value_bool(env_, isAutoNapi, &isAuto);
+        }
+        options.colorSpaceModeOptions.isAuto = isAuto;
+    }
+}
+
+void JsComponentSnapshot::ParseDynamicRangeMode(napi_value* dynamicRangeModeObject, NG::SnapshotOptions& options)
+{
+    bool getDynamicRangeModeResult = false;
+    napi_has_named_property(env_, *dynamicRangeModeObject, "dynamicRangeMode", &getDynamicRangeModeResult);
+    if (getDynamicRangeModeResult) {
+        napi_value dynamicRangeNapi = nullptr;
+        napi_get_named_property(env_, *dynamicRangeModeObject, "dynamicRangeMode", &dynamicRangeNapi);
+        auto dynamicRangeMode = NG::DEFAULT_DYNAMICRANGE_VALUE_STANDARD;
+        if (dynamicRangeNapi) {
+            napi_get_value_uint32(env_, dynamicRangeNapi, &dynamicRangeMode);
+        }
+        options.dynamicRangeModeOptions.dynamicRangeMode = static_cast<NG::DynamicRange>(dynamicRangeMode);
+    }
+
+    napi_has_named_property(env_, *dynamicRangeModeObject, "isAuto", &getDynamicRangeModeResult);
+    if (getDynamicRangeModeResult) {
+        napi_value isAutoNapi = nullptr;
+        bool isAuto = false;
+        napi_get_named_property(env_, *dynamicRangeModeObject, "isAuto", &isAutoNapi);
+        if (isAutoNapi) {
+            napi_get_value_bool(env_, isAutoNapi, &isAuto);
+        }
+        options.dynamicRangeModeOptions.isAuto = isAuto;
+    }
+}
+
+static void HandleSyncSnapshotResult(
+    napi_env env, const std::pair<int32_t, std::shared_ptr<Media::PixelMap>>& pair, napi_value& result)
+{
+    switch (pair.first) {
+        case ERROR_CODE_NO_ERROR:
+#ifdef PIXEL_MAP_SUPPORTED
+            result = Media::PixelMapNapi::CreatePixelMap(env, pair.second);
+#endif
+            break;
+        case ERROR_CODE_INTERNAL_ERROR:
+            napi_get_null(env, &result);
+            NapiThrow(env, "Internal error!", ERROR_CODE_INTERNAL_ERROR);
+            break;
+        case ERROR_CODE_COMPONENT_SNAPSHOT_TIMEOUT:
+            napi_get_null(env, &result);
+            NapiThrow(env, "ComponentSnapshot timeout!", ERROR_CODE_COMPONENT_SNAPSHOT_TIMEOUT);
+            break;
+        case ERROR_CODE_PARAM_INVALID:
+            napi_get_null(env, &result);
+            NapiThrow(env, "Snapshot region is invalid or out of range!", ERROR_CODE_PARAM_INVALID);
+            break;
+        case ERROR_CODE_COMPONENT_SNAPSHOT_MODE_NOT_SUPPORTED:
+            napi_get_null(env, &result);
+            NapiThrow(env, "Unsupported color space or dynamic range mode in snapshot options!",
+                ERROR_CODE_COMPONENT_SNAPSHOT_MODE_NOT_SUPPORTED);
+            break;
+        case ERROR_CODE_COMPONENT_SNAPSHOT_AUTO_NOT_SUPPORTED:
+            napi_get_null(env, &result);
+            NapiThrow(env, "isAuto(true) is not supported for offscreen node snapshots!",
+                ERROR_CODE_COMPONENT_SNAPSHOT_AUTO_NOT_SUPPORTED);
+            break;
+    }
+}
+
 static napi_value JSSnapshotGet(napi_env env, napi_callback_info info)
 {
     napi_escapable_handle_scope scope = nullptr;
@@ -451,6 +559,16 @@ static napi_value JSSnapshotFromBuilder(napi_env env, napi_callback_info info)
     NG::SnapshotParam param;
     helper.ParseParamForBuilder(param);
 
+    // not support auto mode for colorMode and dynamicRangeMode
+    if (param.options.colorSpaceModeOptions.isAuto || param.options.dynamicRangeModeOptions.isAuto) {
+        TAG_LOGW(AceLogTag::ACE_COMPONENT_SNAPSHOT,
+            "isAuto(true) is not supported for offscreen node snapshots.");
+        auto callback = helper.CreateCallback(&result);
+        callback(nullptr, ERROR_CODE_COMPONENT_SNAPSHOT_AUTO_NOT_SUPPORTED, nullptr);
+        napi_close_escapable_handle_scope(env, scope);
+        return result;
+    }
+
     delegate->CreateSnapshot(builder, helper.CreateCallback(&result), true, param);
 
     napi_escape_handle(env, scope, result, &result);
@@ -478,12 +596,14 @@ static napi_value JSSnapshotGetSync(napi_env env, napi_callback_info info)
     napi_valuetype valueType = napi_null;
     GetNapiString(env, helper.GetArgv(0), componentId, valueType);
 
+    auto reason = ContainerScope::CurrentIdWithReason().second;
+    auto instanceId = Container::CurrentIdSafely();
     auto delegate = EngineHelper::GetCurrentDelegateSafely();
     if (!delegate) {
-        TAG_LOGW(AceLogTag::ACE_COMPONENT_SNAPSHOT,
-            "Can't get delegate of ace_engine. param: " SEC_PLD(%{public}s),
-            SEC_PARAM(componentId.c_str()));
-        NapiThrow(env, "Delegate is null", ERROR_CODE_INTERNAL_ERROR);
+        TAG_LOGW(AceLogTag::ACE_COMPONENT_SNAPSHOT, "Can't get delegate of ace_engine. ");
+        std::string message = AceEngine::GetEnhancedContextBNotFoundMessage(
+            reason, instanceId);
+        NapiThrow(env, "Delegate is null. " + message, ERROR_CODE_INTERNAL_ERROR);
         napi_close_escapable_handle_scope(env, scope);
         return result;
     }
@@ -492,22 +612,7 @@ static napi_value JSSnapshotGetSync(napi_env env, napi_callback_info info)
     helper.ParseParamForGet(options);
 
     auto pair = delegate->GetSyncSnapshot(componentId,  options);
-    
-    switch (pair.first) {
-        case ERROR_CODE_NO_ERROR :
-#ifdef PIXEL_MAP_SUPPORTED
-            result = Media::PixelMapNapi::CreatePixelMap(env, pair.second);
-#endif
-            break;
-        case ERROR_CODE_INTERNAL_ERROR :
-            napi_get_null(env, &result);
-            NapiThrow(env, "Internal error!", ERROR_CODE_INTERNAL_ERROR);
-            break;
-        case ERROR_CODE_COMPONENT_SNAPSHOT_TIMEOUT :
-            napi_get_null(env, &result);
-            NapiThrow(env, "ComponentSnapshot timeout!", ERROR_CODE_COMPONENT_SNAPSHOT_TIMEOUT);
-            break;
-    }
+    HandleSyncSnapshotResult(env, pair, result);
     napi_escape_handle(env, scope, result, &result);
     napi_close_escapable_handle_scope(env, scope);
     return result;
@@ -537,8 +642,8 @@ static napi_value JSSnapshotGetWithUniqueId(napi_env env, napi_callback_info inf
     auto delegate = EngineHelper::GetCurrentDelegateSafely();
     if (!delegate) {
         TAG_LOGW(AceLogTag::ACE_COMPONENT_SNAPSHOT,
-            "Can't get delegate of ace_engine. param: " SEC_PLD(%{public}d),
-            SEC_PARAM(uniqueId));
+            "Can't get delegate of ace_engine. param: %{public}d",
+            uniqueId);
         auto callback = helper.CreateCallback(&result);
         callback(nullptr, ERROR_CODE_INTERNAL_ERROR, nullptr);
         napi_close_escapable_handle_scope(env, scope);
@@ -576,11 +681,15 @@ static napi_value JSSnapshotGetSyncWithUniqueId(napi_env env, napi_callback_info
     int32_t uniqueId;
     napi_get_value_int32(env, helper.GetArgv(0), &uniqueId);
 
+    auto reason = ContainerScope::CurrentIdWithReason().second;
+    auto instanceId = Container::CurrentIdSafely();
     auto delegate = EngineHelper::GetCurrentDelegateSafely();
     if (!delegate) {
         TAG_LOGW(AceLogTag::ACE_COMPONENT_SNAPSHOT,
-            "Can't get delegate of ace_engine. param: " SEC_PLD(%{public}d), SEC_PARAM(uniqueId));
-        NapiThrow(env, "Delegate is null", ERROR_CODE_INTERNAL_ERROR);
+            "Can't get delegate of ace_engine. param: %{public}d", uniqueId);
+        std::string message = AceEngine::GetEnhancedContextBNotFoundMessage(
+            reason, instanceId);
+        NapiThrow(env, "Delegate is null. " + message, ERROR_CODE_INTERNAL_ERROR);
         napi_close_escapable_handle_scope(env, scope);
         return result;
     }
@@ -589,22 +698,7 @@ static napi_value JSSnapshotGetSyncWithUniqueId(napi_env env, napi_callback_info
     helper.ParseParamForGet(options);
 
     auto pair = delegate->GetSyncSnapshotByUniqueId(uniqueId,  options);
-    
-    switch (pair.first) {
-        case ERROR_CODE_NO_ERROR :
-#ifdef PIXEL_MAP_SUPPORTED
-            result = Media::PixelMapNapi::CreatePixelMap(env, pair.second);
-#endif
-            break;
-        case ERROR_CODE_INTERNAL_ERROR :
-            napi_get_null(env, &result);
-            NapiThrow(env, "Internal error!", ERROR_CODE_INTERNAL_ERROR);
-            break;
-        case ERROR_CODE_COMPONENT_SNAPSHOT_TIMEOUT :
-            napi_get_null(env, &result);
-            NapiThrow(env, "ComponentSnapshot timeout!", ERROR_CODE_COMPONENT_SNAPSHOT_TIMEOUT);
-            break;
-    }
+    HandleSyncSnapshotResult(env, pair, result);
     napi_escape_handle(env, scope, result, &result);
     napi_close_escapable_handle_scope(env, scope);
     return result;
@@ -623,10 +717,14 @@ static napi_value JSSnapshotFromComponent(napi_env env, napi_callback_info info)
     }
 
     napi_value result = nullptr;
+    auto reason = ContainerScope::CurrentIdWithReason().second;
+    auto instanceId = Container::CurrentIdSafely();
     auto delegate = EngineHelper::GetCurrentDelegateSafely();
     if (!delegate) {
         TAG_LOGW(AceLogTag::ACE_COMPONENT_SNAPSHOT, "Can't get delegate of ace_engine. ");
-        NapiThrow(env, "Delegate is null", ERROR_CODE_INTERNAL_ERROR);
+        std::string message = AceEngine::GetEnhancedContextBNotFoundMessage(
+            reason, instanceId);
+        NapiThrow(env, "Delegate is null. " + message, ERROR_CODE_INTERNAL_ERROR);
         napi_close_escapable_handle_scope(env, scope);
         return nullptr;
     }
@@ -657,6 +755,16 @@ static napi_value JSSnapshotFromComponent(napi_env env, napi_callback_info info)
     NG::SnapshotParam param;
     helper.ParseParamForBuilder(param);
 
+    // not support auto mode for colorMode and dynamicRangeMode
+    if (param.options.colorSpaceModeOptions.isAuto || param.options.dynamicRangeModeOptions.isAuto) {
+        TAG_LOGW(AceLogTag::ACE_COMPONENT_SNAPSHOT,
+            "isAuto(true) is not supported for offscreen node snapshots.");
+        auto callback = helper.CreateCallback(&result);
+        callback(nullptr, ERROR_CODE_COMPONENT_SNAPSHOT_AUTO_NOT_SUPPORTED, nullptr);
+        napi_close_escapable_handle_scope(env, scope);
+        return result;
+    }
+
     delegate->CreateSnapshotFromComponent(nodeWk.Upgrade(), helper.CreateCallback(&result), false, param);
 
     napi_escape_handle(env, scope, result, &result);
@@ -672,13 +780,19 @@ bool JudgeRangeType(napi_env env, napi_callback_info info, int32_t argNum)
     JsComponentSnapshot helper(env, info);
 
     napi_valuetype type = napi_undefined;
-    napi_typeof(env, helper.GetArgv(argNum), &type);
+    napi_value argv = helper.GetArgv(argNum);
+    if (argv == nullptr) {
+        napi_close_escapable_handle_scope(env, scope);
+        return false;
+    }
+    napi_typeof(env, argv, &type);
     if (type != napi_valuetype::napi_number && type != napi_valuetype::napi_string) {
         TAG_LOGW(AceLogTag::ACE_COMPONENT_SNAPSHOT, "Parsing argument failed, not of number or string type.");
         NapiThrow(env, "parameter uniqueId is not of type number or string", ERROR_CODE_PARAM_INVALID);
         napi_close_escapable_handle_scope(env, scope);
         return false;
     }
+    napi_close_escapable_handle_scope(env, scope);
     return true;
 }
 
@@ -689,16 +803,18 @@ bool JudgeRectValue(napi_env env, napi_callback_info info)
 
     JsComponentSnapshot helper(env, info);
 
-    if (GETWITHRANGE_ISSTARTRECT_NUMBER >= JsComponentSnapshot::ARGC_MAX) {
+    napi_valuetype type = napi_undefined;
+    napi_value argv = helper.GetArgv(GETWITHRANGE_ISSTARTRECT_NUMBER);
+    if (argv == nullptr) {
+        napi_close_escapable_handle_scope(env, scope);
         return true;
     }
-
-    napi_valuetype type = napi_undefined;
-    napi_typeof(env, helper.GetArgv(GETWITHRANGE_ISSTARTRECT_NUMBER), &type);
+    napi_typeof(env, argv, &type);
     bool isRect = true;
     if (type == napi_valuetype::napi_boolean) {
-        napi_get_value_bool(env, helper.GetArgv(GETWITHRANGE_ISSTARTRECT_NUMBER), &isRect);
+        napi_get_value_bool(env, argv, &isRect);
     }
+    napi_close_escapable_handle_scope(env, scope);
     return isRect;
 }
 
@@ -711,14 +827,51 @@ NG::NodeIdentity GetNodeIdentity(napi_env env, napi_callback_info info, int32_t 
 
     NG::NodeIdentity nodeIdentity;
     napi_valuetype type = napi_undefined;
-    napi_typeof(env, helper.GetArgv(index), &type);
+    napi_value argv = helper.GetArgv(index);
+    if (argv == nullptr) {
+        napi_close_escapable_handle_scope(env, scope);
+        return nodeIdentity;
+    }
+    napi_typeof(env, argv, &type);
     if (type == napi_valuetype::napi_number) {
-        napi_get_value_int32(env, helper.GetArgv(index), &nodeIdentity.second);
+        napi_get_value_int32(env, argv, &nodeIdentity.second);
     } else {
         napi_valuetype valueType = napi_null;
-        GetNapiString(env, helper.GetArgv(index), nodeIdentity.first, valueType);
+        GetNapiString(env, argv, nodeIdentity.first, valueType);
     }
+    napi_close_escapable_handle_scope(env, scope);
     return nodeIdentity;
+}
+
+static napi_value JSSnapshotGetSizeLimitation(napi_env env, napi_callback_info info)
+{
+    auto delegate = EngineHelper::GetCurrentDelegateSafely();
+    if (!delegate) {
+        auto currentIdAndReason = ContainerScope::CurrentIdWithReason();
+        std::string message = AceEngine::GetEnhancedContextBNotFoundMessage(
+            currentIdAndReason.second, Container::CurrentIdSafely());
+        NapiThrow(env, "Delegate is null. " + message, ERROR_CODE_INTERNAL_ERROR);
+        return nullptr;
+    }
+
+    auto limitation = delegate->GetSizeLimitation();
+
+    napi_value result = nullptr;
+    napi_status status = napi_create_object(env, &result);
+    if (status != napi_ok) {
+        NapiThrow(env, "Failed to create result object", ERROR_CODE_INTERNAL_ERROR);
+        return nullptr;
+    }
+    napi_value maxWidthVal = nullptr;
+    napi_value maxHeightVal = nullptr;
+    if (napi_create_int32(env, limitation.maxWidth, &maxWidthVal) != napi_ok ||
+        napi_create_int32(env, limitation.maxHeight, &maxHeightVal) != napi_ok) {
+        NapiThrow(env, "Failed to create int values", ERROR_CODE_INTERNAL_ERROR);
+        return nullptr;
+    }
+    napi_set_named_property(env, result, "maxWidth", maxWidthVal);
+    napi_set_named_property(env, result, "maxHeight", maxHeightVal);
+    return result;
 }
 
 static napi_value JSSnapshotGetWithRange(napi_env env, napi_callback_info info)
@@ -738,10 +891,14 @@ static napi_value JSSnapshotGetWithRange(napi_env env, napi_callback_info info)
     auto endID = GetNodeIdentity(env, info, 1);
     bool isStartRect = JudgeRectValue(env, info);
 
+    auto reason = ContainerScope::CurrentIdWithReason().second;
+    auto instanceId = Container::CurrentIdSafely();
     auto delegate = EngineHelper::GetCurrentDelegateSafely();
     if (!delegate) {
         TAG_LOGW(AceLogTag::ACE_COMPONENT_SNAPSHOT, "Can't get delegate of ace_engine. ");
-        NapiThrow(env, "Delegate is null", ERROR_CODE_INTERNAL_ERROR);
+        std::string message = AceEngine::GetEnhancedContextBNotFoundMessage(
+            reason, instanceId);
+        NapiThrow(env, "Delegate is null. " + message, ERROR_CODE_INTERNAL_ERROR);
         napi_close_escapable_handle_scope(env, scope);
         return result;
     }
@@ -764,6 +921,7 @@ static napi_value ComponentSnapshotExport(napi_env env, napi_value exports)
         DECLARE_NAPI_FUNCTION("getSyncWithUniqueId", JSSnapshotGetSyncWithUniqueId),
         DECLARE_NAPI_FUNCTION("createFromComponent", JSSnapshotFromComponent),
         DECLARE_NAPI_FUNCTION("getWithRange", JSSnapshotGetWithRange),
+        DECLARE_NAPI_FUNCTION("getSizeLimitation", JSSnapshotGetSizeLimitation),
     };
     NAPI_CALL(env, napi_define_properties(env, exports, sizeof(snapshotDesc) / sizeof(snapshotDesc[0]), snapshotDesc));
 

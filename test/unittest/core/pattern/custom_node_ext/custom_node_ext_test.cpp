@@ -20,7 +20,7 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "base/memory/ace_type.h"
 #include "core/components_ng/pattern/custom_node_ext/custom_node_ext_layout_algorithm.h"
 #include "core/components_ng/pattern/custom_node_ext/custom_node_ext_model_ng.h"
@@ -74,6 +74,38 @@ HWTEST_F(CustomNodeExtTestNg, CustomNodeExtCreator001, TestSize.Level1)
      */
     RefPtr<FrameNode> customExtFrameNode = CreateNode();
     ASSERT_NE(customExtFrameNode, nullptr);
+}
+
+/**
+ * @tc.name: CustomNodeExtCreator002
+ * @tc.desc: Test the create of CustomNodeExt.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CustomNodeExtTestNg, CustomNodeExtCreator002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Invoke CustomNodeExt Create function.
+     * @tc.expected: Create CustomNodeExt.
+     */
+    auto frameNode = CustomNodeExtModelNG::CreateFrameNode(TEST_TAG, 1);
+    ASSERT_NE(frameNode, nullptr);
+}
+
+/**
+ * @tc.name: CustomNodeExtCreator003
+ * @tc.desc: Test the create of CustomNodeExt.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CustomNodeExtTestNg, CustomNodeExtCreator003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Invoke CustomNodeExt Create function.
+     * @tc.expected: Create CustomNodeExt.
+     */
+    RenderContext::ContextParam param;
+    param.type = RenderContext::ContextType::EFFECT;
+    auto frameNode = CustomNodeExtModelNG::CreateFrameNodeWithParam(TEST_TAG, param);
+    ASSERT_NE(frameNode, nullptr);
 }
 
 /**
@@ -406,4 +438,77 @@ HWTEST_F(CustomNodeExtTestNg, CustomNodeExtGetModifier001, TestSize.Level1)
     ASSERT_NE(overlayModifier, nullptr);
 }
 
+/**
+ * @tc.name: CustomNodeExtSetBeforeCreateLayoutWrapperCallback001
+ * @tc.desc: Test the set of BeforeCreateLayoutWrapperCallback in CustomNodeExt.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CustomNodeExtTestNg, CustomNodeExtSetBeforeCreateLayoutWrapperCallback001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Invoke CustomNodeExt Create function.
+     * @tc.expected: Create CustomNodeExt.
+     */
+    auto customExtFrameNode = CreateNode();
+    ASSERT_NE(customExtFrameNode, nullptr);
+    auto pattern = customExtFrameNode->GetPattern<CustomNodeExtPattern>();
+
+    /**
+     * @tc.steps: step2. CustomNodeExtPattern set BeforeCreateLayoutWrapperCallback.
+     * @tc.expected: beforeCreateLayoutWrapperCallback_ has value.
+     */
+    auto beforeCreateLayoutWrapperCallbackfunction = [](){};
+    CustomNodeExtModelNG::SetBeforeCreateLayoutWrapperCallback(AceType::RawPtr(customExtFrameNode),
+        std::move(beforeCreateLayoutWrapperCallbackfunction));
+    ASSERT_NE(pattern->beforeCreateLayoutWrapperCallback_, nullptr);
+}
+
+/**
+ * @tc.name: CustomNodeExtSetOnWindowSizeChangedCallback001
+ * @tc.desc: Test the set of OnWindowSizeChangedCallback in CustomNodeExt.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CustomNodeExtTestNg, CustomNodeExtSetOnWindowSizeChangedCallback001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Invoke CustomNodeExt Create function.
+     * @tc.expected: Create CustomNodeExt.
+     */
+    auto customExtFrameNode = CreateNode();
+    ASSERT_NE(customExtFrameNode, nullptr);
+    auto pattern = customExtFrameNode->GetPattern<CustomNodeExtPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. CustomNodeExtPattern set OnWindowSizeChangedCallback.
+     * @tc.expected: onWindowSizeChangedCallback_ has value.
+     */
+    auto onWindowSizeChangedCallbackFunction = [](int32_t width, int32_t height, WindowSizeChangeReason type){};
+    CustomNodeExtModelNG::SetOnWindowSizeChangedCallback(AceType::RawPtr(customExtFrameNode),
+        std::move(onWindowSizeChangedCallbackFunction));
+    ASSERT_NE(pattern->onWindowSizeChangedCallback_, nullptr);
+}
+
+/**
+ * @tc.name: CustomNodeExtSetOnWindowSizeChangedCallback002
+ * @tc.desc: Test the set of OnWindowSizeChangedCallback in CustomNodeExt.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CustomNodeExtTestNg, CustomNodeExtSetOnWindowSizeChangedCallback002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Invoke CustomNodeExt Create function.
+     * @tc.expected: Create CustomNodeExt.
+     */
+    auto customExtFrameNode = CreateNode();
+    ASSERT_NE(customExtFrameNode, nullptr);
+    auto pattern = customExtFrameNode->GetPattern<CustomNodeExtPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. CustomNodeExtPattern init status
+     * @tc.expected: onWindowSizeChangedCallback_ doesn't have value.
+     */
+    ASSERT_EQ(pattern->onWindowSizeChangedCallback_, nullptr);
+}
 } // namespace OHOS::Ace::NG

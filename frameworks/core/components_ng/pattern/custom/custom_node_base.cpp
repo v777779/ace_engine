@@ -31,8 +31,15 @@ CustomNodeBase::~CustomNodeBase()
     }
     if (destroyFunc_) {
         ACE_SCOPED_TRACE("CustomNodeBase:Destroy [%s]", GetJSViewName().c_str());
+        FireTriggerLifecycleFunc(LifeCycleEvent::ON_DISAPPEAR);
         destroyFunc_();
     }
+}
+
+bool CustomNodeBase::FireTriggerLifecycleFunc(int32_t eventId)
+{
+    ACE_SCOPED_TRACE("FireTriggerLifecycleFunc, eventId = [%d], name = [%s]", eventId, GetJSViewName().c_str());
+    return triggerLifecycleFunc_ && triggerLifecycleFunc_(eventId);
 }
 
 void CustomNodeBase::FireOnAppear()
@@ -46,6 +53,7 @@ void CustomNodeBase::FireOnAppear()
 void CustomNodeBase::FireOnDisappear()
 {
     if (destroyFunc_) {
+        FireTriggerLifecycleFunc(LifeCycleEvent::ON_DISAPPEAR);
         destroyFunc_();
     }
 }
@@ -55,6 +63,11 @@ void CustomNodeBase::FireDidBuild()
     if (didBuildFunc_) {
         didBuildFunc_();
     }
+}
+
+void CustomNodeBase::SetTriggerLifecycleFunction(std::function<bool(int32_t)>&& triggerLifecycleFunc)
+{
+    triggerLifecycleFunc_ = std::move(triggerLifecycleFunc);
 }
 
 void CustomNodeBase::SetAppearFunction(std::function<void()>&& appearFunc)
@@ -268,7 +281,7 @@ bool CustomNodeBase::CheckFireOnAppear()
 
 void CustomNodeBase::MarkNeedUpdate()
 {
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = PipelineContext::GetCurrentContext();
     if (!context) {
         TAG_LOGW(AceLogTag::ACE_STATE_MGMT, "context no longer exist when [%{public}s] call markNeedUpdate",
             GetJSViewName().c_str());
@@ -296,7 +309,6 @@ void CustomNodeBase::FireRecycleSelf()
 void CustomNodeBase::FireRecycleRenderFunc()
 {
     if (recycleRenderFunc_) {
-        ACE_SCOPED_TRACE("CustomNode:BuildRecycle %s", GetJSViewName().c_str());
         auto node = AceType::DynamicCast<UINode>(Claim(this));
         recycleInfo_.Reuse();
         RecycleManager::Pop(node->GetId());
@@ -323,6 +335,26 @@ void CustomNodeBase::SetOnDumpInspectorFunc(std::function<std::string()>&& func)
 void CustomNodeBase::SetClearAllRecycleFunc(std::function<void()>&& func)
 {
     clearAllRecycleFunc_ = func;
+}
+
+void CustomNodeBase::SetCreatorId(const std::string& creatorId)
+{
+    creatorId_ = creatorId;
+}
+
+const std::string& CustomNodeBase::GetCreatorId() const
+{
+    return creatorId_;
+}
+
+void CustomNodeBase::SetReuseId(const std::string& reuseId)
+{
+    reuseId_ = reuseId;
+}
+
+const std::string& CustomNodeBase::GetReuseId() const
+{
+    return reuseId_;
 }
 
 void CustomNodeBase::SetOnRecycleFunc(std::function<void()>&& func)

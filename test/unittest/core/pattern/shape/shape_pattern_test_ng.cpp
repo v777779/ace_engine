@@ -21,7 +21,7 @@
 #define protected public
 
 #include "base_shape_pattern_test_ng.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "base/geometry/axis.h"
 #include "base/geometry/dimension.h"
@@ -30,6 +30,7 @@
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/base/ui_node.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/shape/circle_model_ng.h"
 #include "core/components_ng/pattern/shape/circle_pattern.h"
 #include "core/components_ng/pattern/shape/ellipse_model_ng.h"
@@ -76,7 +77,7 @@ public:
  * @tc.type: FUNC
  */
 
-HWTEST_F(ShapePatternTestNg, LayoutAlgorithm001, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, LayoutAlgorithm001, TestSize.Level0)
 {
     ShapeModelNG().Create();
     auto width = Dimension(WIDTH);
@@ -117,7 +118,7 @@ HWTEST_F(ShapePatternTestNg, LayoutAlgorithm001, TestSize.Level1)
  * @tc.type: FUNC
  */
 
-HWTEST_F(ShapePatternTestNg, ContainerPaintProperty001, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, ContainerPaintProperty001, TestSize.Level0)
 {
     auto shapeModel = ShapeModelNG();
     shapeModel.Create();
@@ -146,7 +147,7 @@ HWTEST_F(ShapePatternTestNg, ContainerPaintProperty001, TestSize.Level1)
  * @tc.type: FUNC
  */
 
-HWTEST_F(ShapePatternTestNg, ContainerPaintProperty002, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, ContainerPaintProperty002, TestSize.Level0)
 {
     auto shapeModel = ShapeModelNG();
     shapeModel.Create();
@@ -174,7 +175,7 @@ HWTEST_F(ShapePatternTestNg, ContainerPaintProperty002, TestSize.Level1)
  * @tc.type: FUNC
  */
 
-HWTEST_F(ShapePatternTestNg, InheritedProperty001, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, InheritedProperty001, TestSize.Level0)
 {
     auto shapeModel1 = ShapeModelNG();
     shapeModel1.Create();
@@ -250,7 +251,7 @@ HWTEST_F(ShapePatternTestNg, InheritedProperty001, TestSize.Level1)
  * @tc.type: FUNC
  */
 
-HWTEST_F(ShapePatternTestNg, MeasureContent001, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, MeasureContent001, TestSize.Level0)
 {
     auto shapeModel = ShapeModelNG();
     shapeModel.Create();
@@ -283,7 +284,7 @@ HWTEST_F(ShapePatternTestNg, MeasureContent001, TestSize.Level1)
  * @tc.type: FUNC
  */
 
-HWTEST_F(ShapePatternTestNg, MeasureContent002, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, MeasureContent002, TestSize.Level0)
 {
     auto shapeModel = ShapeModelNG();
     shapeModel.Create();
@@ -319,7 +320,7 @@ HWTEST_F(ShapePatternTestNg, MeasureContent002, TestSize.Level1)
  * @tc.type: FUNC
  */
 
-HWTEST_F(ShapePatternTestNg, MeasureContent003, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, MeasureContent003, TestSize.Level0)
 {
     auto shapeModel = ShapeModelNG();
     shapeModel.Create();
@@ -374,7 +375,7 @@ HWTEST_F(ShapePatternTestNg, MeasureContent003, TestSize.Level1)
  * @tc.desc: check ShapeContainerLayoutAlgorithm MeasureContent when layoutPolicy is vaild/invaild
  * @tc.type: FUNC
  */
-HWTEST_F(ShapePatternTestNg, MeasureContent005, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, MeasureContent005, TestSize.Level0)
 {
     auto shapeModel = ShapeModelNG();
     shapeModel.Create();
@@ -441,7 +442,7 @@ HWTEST_F(ShapePatternTestNg, MeasureContent005, TestSize.Level1)
  * @tc.desc: check ShapeContainerLayoutAlgorithm GetChildrenSize
  * @tc.type: FUNC
  */
-HWTEST_F(ShapePatternTestNg, GetChildrenSize002, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, GetChildrenSize002, TestSize.Level0)
 {
     ShapeModelNG().Create();
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
@@ -517,7 +518,7 @@ HWTEST_F(ShapePatternTestNg, GetChildrenSize002, TestSize.Level1)
  * @tc.desc: check ShapePattern IsEnableMatchParent
  * @tc.type: FUNC
  */
-HWTEST_F(ShapePatternTestNg, IsEnableMatchParentTest, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, IsEnableMatchParentTest, TestSize.Level0)
 {
     /**
      * @tc.steps1: initialize parameters.
@@ -540,7 +541,7 @@ HWTEST_F(ShapePatternTestNg, IsEnableMatchParentTest, TestSize.Level1)
  * @tc.desc: check ShapeLayoutAlgorithm MeasureContent
  * @tc.type: FUNC
  */
-HWTEST_F(ShapePatternTestNg, MeasureContent004, TestSize.Level1)
+HWTEST_F(ShapePatternTestNg, MeasureContent004, TestSize.Level0)
 {
     /**
      * @tc.steps1: initialize parameters.
@@ -584,45 +585,381 @@ HWTEST_F(ShapePatternTestNg, MeasureContent004, TestSize.Level1)
     size = layoutAlgorithm->MeasureContent(contentConstraint, &layoutWrapper);
     ASSERT_TRUE(size.has_value());
     EXPECT_EQ(size.value(), SizeF(500, 600));
+}
+
+/**
+ * @tc.name: SetStroke001
+ * @tc.desc: test SetStroke
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(ShapePatternTestNg, SetStroke001, TestSize.Level0)
+{
+    auto shapeAbstractModelNG = ShapeAbstractModelNG();
+    CircleModelNG().Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<ShapePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto pattern = frameNode->GetPattern<ShapePattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    shapeAbstractModelNG.SetStroke(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasStroke());
+    EXPECT_EQ(paintProperty->GetStrokeValue(), Color::TRANSPARENT);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_COLOR, Color::BLUE);
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_COLOR, static_cast<int32_t>(ResourceType::COLOR), params, "", "", Container::CurrentIdSafely());
+    shapeAbstractModelNG.SetStroke(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasStroke());
+    EXPECT_EQ(paintProperty->GetStrokeValue(), Color::BLUE);
+
+    shapeAbstractModelNG.SetStroke(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetFill001
+ * @tc.desc: test SetFill
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(ShapePatternTestNg, SetFill001, TestSize.Level0)
+{
+    auto shapeAbstractModelNG = ShapeAbstractModelNG();
+    CircleModelNG().Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<ShapePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto pattern = frameNode->GetPattern<ShapePattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    shapeAbstractModelNG.SetFill(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasFill());
+    EXPECT_EQ(paintProperty->GetFillValue(), Color::BLACK);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_COLOR, Color::BLUE);
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_COLOR, static_cast<int32_t>(ResourceType::COLOR), params, "", "", Container::CurrentIdSafely());
+    shapeAbstractModelNG.SetFill(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasFill());
+    EXPECT_EQ(paintProperty->GetFillValue(), Color::BLUE);
+
+    shapeAbstractModelNG.SetFill(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetForegroundColor001
+ * @tc.desc: test SetForegroundColor
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(ShapePatternTestNg, SetForegroundColor001, TestSize.Level0)
+{
+    auto shapeAbstractModelNG = ShapeAbstractModelNG();
+    CircleModelNG().Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<ShapePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto pattern = frameNode->GetPattern<ShapePattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    shapeAbstractModelNG.SetForegroundColor(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasFill());
+    EXPECT_EQ(paintProperty->GetFillValue(), Color::BLACK);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_COLOR, Color::BLUE);
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_COLOR, static_cast<int32_t>(ResourceType::COLOR), params, "", "", Container::CurrentIdSafely());
+    shapeAbstractModelNG.SetForegroundColor(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasFill());
+    EXPECT_EQ(paintProperty->GetFillValue(), Color::BLUE);
+
+    shapeAbstractModelNG.SetForegroundColor(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetStrokeOpacity001
+ * @tc.desc: test SetStrokeOpacity
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(ShapePatternTestNg, SetStrokeOpacity001, TestSize.Level0)
+{
+    auto shapeAbstractModelNG = ShapeAbstractModelNG();
+    CircleModelNG().Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<ShapePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto pattern = frameNode->GetPattern<ShapePattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    shapeAbstractModelNG.SetStrokeOpacity(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasStrokeOpacity());
+    EXPECT_FLOAT_EQ(static_cast<float>(paintProperty->GetStrokeOpacityValue()), 1.0);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_OPACITY, OPACITY);
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_OPACITY, static_cast<int32_t>(ResourceType::FLOAT), params, "", "", Container::CurrentIdSafely());
+    shapeAbstractModelNG.SetStrokeOpacity(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasStrokeOpacity());
+    EXPECT_FLOAT_EQ(static_cast<float>(paintProperty->GetStrokeOpacityValue()), OPACITY);
+
+    shapeAbstractModelNG.SetStrokeOpacity(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetFillOpacity001
+ * @tc.desc: test SetFillOpacity
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(ShapePatternTestNg, SetFillOpacity001, TestSize.Level0)
+{
+    auto shapeAbstractModelNG = ShapeAbstractModelNG();
+    CircleModelNG().Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<ShapePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto pattern = frameNode->GetPattern<ShapePattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    shapeAbstractModelNG.SetFillOpacity(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasFillOpacity());
+    EXPECT_FLOAT_EQ(static_cast<float>(paintProperty->GetFillOpacityValue()), 1.0);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_OPACITY, OPACITY);
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_OPACITY, static_cast<int32_t>(ResourceType::FLOAT), params, "", "", Container::CurrentIdSafely());
+    shapeAbstractModelNG.SetFillOpacity(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasFillOpacity());
+    EXPECT_FLOAT_EQ(static_cast<float>(paintProperty->GetFillOpacityValue()), OPACITY);
+
+    shapeAbstractModelNG.SetFillOpacity(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetStrokeWidth001
+ * @tc.desc: test SetStrokeWidth
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(ShapePatternTestNg, SetStrokeWidth001, TestSize.Level0)
+{
+    auto shapeAbstractModelNG = ShapeAbstractModelNG();
+    CircleModelNG().Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<ShapePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto pattern = frameNode->GetPattern<ShapePattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    shapeAbstractModelNG.SetStrokeWidth(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasStrokeWidth());
+    EXPECT_FLOAT_EQ(static_cast<float>(paintProperty->GetStrokeWidthValue().ConvertToVp()), 1.0);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_STROKE_WIDTH, Dimension(STROKE_WIDTH));
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_STROKE_WIDTH, static_cast<int32_t>(ResourceType::FLOAT), params, "", "", Container::CurrentIdSafely());
+    shapeAbstractModelNG.SetStrokeWidth(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(paintProperty->HasStrokeWidth());
+    EXPECT_FLOAT_EQ(static_cast<float>(paintProperty->GetStrokeWidthValue().ConvertToPx()), STROKE_WIDTH);
+
+    shapeAbstractModelNG.SetStrokeWidth(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetWidth001
+ * @tc.desc: test SetWidth
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(ShapePatternTestNg, SetWidth001, TestSize.Level0)
+{
+    auto shapeAbstractModelNG = ShapeAbstractModelNG();
+    CircleModelNG().Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    auto pattern = frameNode->GetPattern<ShapePattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    shapeAbstractModelNG.SetWidth(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(layoutProperty->GetCalcLayoutConstraint() == nullptr);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_WIDTH, Dimension(WIDTH));
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_WIDTH, static_cast<int32_t>(ResourceType::FLOAT), params, "", "", Container::CurrentIdSafely());
+    shapeAbstractModelNG.SetWidth(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    auto mesureLayout = layoutProperty->GetCalcLayoutConstraint()->selfIdealSize;
+    EXPECT_TRUE(mesureLayout.has_value());
+    EXPECT_TRUE(mesureLayout->Width().has_value());
+
+    shapeAbstractModelNG.SetWidth(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetHeight001
+ * @tc.desc: test SetHeight001
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(ShapePatternTestNg, SetHeight001, TestSize.Level0)
+{
+    auto shapeAbstractModelNG = ShapeAbstractModelNG();
+    CircleModelNG().Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    auto pattern = frameNode->GetPattern<ShapePattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    shapeAbstractModelNG.SetHeight(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_TRUE(layoutProperty->GetCalcLayoutConstraint() == nullptr);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_HEIGHT, Dimension(HEIGHT));
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_HEIGHT, static_cast<int32_t>(ResourceType::FLOAT), params, "", "", Container::CurrentIdSafely());
+    shapeAbstractModelNG.SetHeight(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    auto mesureLayout = layoutProperty->GetCalcLayoutConstraint()->selfIdealSize;
+    EXPECT_TRUE(mesureLayout.has_value());
+    EXPECT_TRUE(mesureLayout->Height().has_value());
+
+    shapeAbstractModelNG.SetHeight(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: ShapePatternUINodeTraceTest001
+ * @tc.desc: Verify ACE_UINODE_TRACE is called in ShapePattern::CreateLayoutAlgorithm
+ * @tc.type: FUNC
+ */
+HWTEST_F(ShapePatternTestNg, ShapePatternUINodeTraceTest001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create Shape node.
+     * @tc.expected: Shape node created successfully.
+     */
+    ResetLastTraceId();
+    CircleModelNG().Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<ShapePattern>();
+    ASSERT_NE(pattern, nullptr);
 
     /**
-     * @tc.steps4: Width is matchParent
-     * @tc.expected: the return value of MeasureContent is (100, 50)
+     * @tc.steps: step2. Call CreateLayoutAlgorithm which should trigger ACE_UINODE_TRACE.
+     * @tc.expected: Trace ID is updated.
      */
-    layoutProperty->measureType_ = MeasureType::MATCH_CONTENT;
-    contentConstraint.parentIdealSize = OptionalSizeF(100, 200);
-    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
-    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::NO_MATCH, false);
-    size = layoutAlgorithm->MeasureContent(contentConstraint, &layoutWrapper);
-    ASSERT_TRUE(size.has_value());
-    EXPECT_EQ(size.value(), SizeF(100, 50));
+    auto layoutAlgorithm = pattern->CreateLayoutAlgorithm();
+    ASSERT_NE(layoutAlgorithm, nullptr);
+    uint64_t traceId = GetLastTraceId();
+    EXPECT_EQ(traceId, static_cast<uint64_t>(frameNode->GetId()));
+}
+
+/**
+ * @tc.name: ShapePatternUINodeTraceTest002
+ * @tc.desc: Verify ACE_UINODE_TRACE is called in ShapePattern::CreatePaintProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(ShapePatternTestNg, ShapePatternUINodeTraceTest002, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create Shape node.
+     * @tc.expected: Shape node created successfully.
+     */
+    ResetLastTraceId();
+    CircleModelNG().Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<ShapePattern>();
+    ASSERT_NE(pattern, nullptr);
 
     /**
-     * @tc.steps5: Height is matchParent
-     * @tc.expected: the return value of MeasureContent is (50, 200)
+     * @tc.steps: step2. Call CreatePaintProperty which should trigger ACE_UINODE_TRACE.
+     * @tc.expected: Trace ID is updated.
      */
-    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::NO_MATCH, true);
-    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, false);
-    size = layoutAlgorithm->MeasureContent(contentConstraint, &layoutWrapper);
-    ASSERT_TRUE(size.has_value());
-    EXPECT_EQ(size.value(), SizeF(50, 200));
-
-    /**
-     * @tc.steps6: Width and Height is not matchParent
-     * @tc.expected: the return value of MeasureContent is (50, 50)
-     */
-    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::NO_MATCH, false);
-    size = layoutAlgorithm->MeasureContent(contentConstraint, &layoutWrapper);
-    ASSERT_TRUE(size.has_value());
-    EXPECT_EQ(size.value(), SizeF(50, 50));
-
-    /**
-     * @tc.steps7: layoutPolicy has no value
-     * @tc.expected: the return value of MeasureContent is (50, 50)
-     */
-    layoutProperty->layoutPolicy_ = std::nullopt;
-    size = layoutAlgorithm->MeasureContent(contentConstraint, &layoutWrapper);
-    ASSERT_TRUE(size.has_value());
-    EXPECT_EQ(size.value(), SizeF(50, 50));
+    auto paintProperty = pattern->CreatePaintProperty();
+    ASSERT_NE(paintProperty, nullptr);
+    uint64_t traceId = GetLastTraceId();
+    EXPECT_EQ(traceId, static_cast<uint64_t>(frameNode->GetId()));
 }
 } // namespace OHOS::Ace::NG

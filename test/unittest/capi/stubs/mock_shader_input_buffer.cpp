@@ -14,7 +14,7 @@
  */
 #include <string>
 #include <vector>
-#include "mock_shader_input_buffer.h"
+#include "custom/shader_input_buffer.h"
 
 namespace OHOS::Render3D {
 bool ShaderInputBuffer::Alloc(uint32_t floatlength)

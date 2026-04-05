@@ -28,7 +28,9 @@ public:
     static void OnUpdateOnCreateMenuCallback(SelectOverlayInfo& selectInfo, const T& pattern)
     {
         if (pattern) {
+#ifdef WRONG_PRIVATE
             pattern->selectOverlay_->OnUpdateOnCreateMenuCallback(selectInfo);
+#endif
         }
     }
 };

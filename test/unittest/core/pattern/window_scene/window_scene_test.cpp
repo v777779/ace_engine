@@ -18,12 +18,12 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_resource_register.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_rosen_render_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_resource_register.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+
 #include "test/unittest/core/common/asset/mock_asset.h"
 
 #include "common/include/window_session_property.h"
@@ -32,7 +32,9 @@
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/pattern/window_scene/scene/mirror_window_scene.h"
 #include "core/components_ng/pattern/window_scene/scene/window_node.h"
+#include "core/components_ng/pattern/window_scene/scene/window_pattern.h"
 #include "core/components_ng/pattern/window_scene/scene/window_scene.h"
 #include "core/components_ng/pattern/window_scene/scene/window_scene_model.h"
 
@@ -122,7 +124,7 @@ RefPtr<WindowScene> WindowSceneTest::CreateWindowSceneForStartingWindowTest(Rose
  * @tc.desc: Create WindowNode with invalid persistentId
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, WindowSceneTest01, TestSize.Level1)
+HWTEST_F(WindowSceneTest, WindowSceneTest01, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Create WindowNode.
@@ -142,7 +144,7 @@ HWTEST_F(WindowSceneTest, WindowSceneTest01, TestSize.Level1)
  * @tc.desc: Create WindowScene with valid persistentId
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, WindowSceneTest02, TestSize.Level1)
+HWTEST_F(WindowSceneTest, WindowSceneTest02, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Request scene session.
@@ -172,7 +174,7 @@ HWTEST_F(WindowSceneTest, WindowSceneTest02, TestSize.Level1)
  * @tc.desc: Buffer aviliable callback when enable app remove starting window and app not ready
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, BufferAvailableCallback01, TestSize.Level1)
+HWTEST_F(WindowSceneTest, BufferAvailableCallback01, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Create windowScene.
@@ -283,6 +285,38 @@ HWTEST_F(WindowSceneTest, BufferAvailableCallback04, TestSize.Level1)
     ASSERT_NE(windowScene->GetHost(), nullptr);
     windowScene->session_->enableRemoveStartingWindow_ = false;
     windowScene->session_->appBufferReady_ = false;
+    /**
+     * @tc.steps: step2. Test and check starting window.
+     */
+    windowScene->BufferAvailableCallback();
+    usleep(WAIT_SYNC_IN_NS);
+    EXPECT_EQ(windowScene->startingWindow_, nullptr);
+}
+
+/**
+ * @tc.name: BufferAvailableCallback05
+ * @tc.desc: Buffer aviliable callback for prelaunch
+ * @tc.type: FUNC
+ */
+HWTEST_F(WindowSceneTest, BufferAvailableCallback05, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create windowScene.
+     */
+    Rosen::SessionInfo sessionInfo = {
+        .abilityName_ = ABILITY_NAME,
+        .bundleName_ = BUNDLE_NAME,
+        .moduleName_ = MODULE_NAME,
+        .isPrelaunch_ = true,
+    };
+    auto windowScene = CreateWindowSceneForStartingWindowTest(sessionInfo);
+    ASSERT_NE(windowScene, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
+    windowScene->session_->enableRemoveStartingWindow_ = true;
+    windowScene->session_->appBufferReady_ = true;
     /**
      * @tc.steps: step2. Test and check starting window.
      */
@@ -420,16 +454,164 @@ HWTEST_F(WindowSceneTest, OnAppRemoveStartingWindow04, TestSize.Level1)
 }
 
 /**
- * @tc.name: OnPreLoadStartingWindowFinished
- * @tc.desc: preload starting window finished
+ * @tc.name: OnPreLoadStartingWindowFinished_WithValidPreloadPixelMap
+ * @tc.desc: Test OnPreLoadStartingWindowFinished when valid preload PixelMap is set
  * @tc.type: FUNC
+ * @tc.level: Level1
  */
-HWTEST_F(WindowSceneTest, OnPreLoadStartingWindowFinished, TestSize.Level1)
+HWTEST_F(WindowSceneTest, OnPreLoadStartingWindowFinished_WithValidPreloadPixelMap, TestSize.Level1)
 {
     Rosen::SessionInfo sessionInfo = {
         .abilityName_ = ABILITY_NAME,
         .bundleName_ = BUNDLE_NAME,
         .moduleName_ = MODULE_NAME,
+    };
+    auto sceneSession_ = ssm_->RequestSceneSession(sessionInfo);
+    ASSERT_NE(sceneSession_, nullptr);
+
+    auto windowScene = CreateWindowSceneForStartingWindowTest(sessionInfo);
+    ASSERT_NE(windowScene, nullptr);
+
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
+    sceneSession_->ResetPreloadStartingWindow();
+    std::shared_ptr<Media::PixelMap> pixelMap;
+    std::pair<std::shared_ptr<uint8_t[]>, size_t> bufferInfo;
+    pixelMap = nullptr;
+    bufferInfo = {nullptr, 0};
+    std::shared_ptr<Media::PixelMap> validPixelMap = std::make_shared<Media::PixelMap>();
+    sceneSession_->SetPreloadStartingWindow(validPixelMap);
+    sceneSession_->GetPreloadStartingWindow(pixelMap, bufferInfo);
+    EXPECT_NE(pixelMap, nullptr);
+    EXPECT_EQ(bufferInfo.first, nullptr);
+    EXPECT_EQ(bufferInfo.second, 0);
+    windowScene->OnPreLoadStartingWindowFinished();
+    usleep(WAIT_SYNC_IN_NS);
+    ASSERT_NE(windowScene->startingWindow_, nullptr);
+}
+
+/**
+ * @tc.name: OnPreLoadStartingWindowFinished_WithValidPreloadSvgBuffer
+ * @tc.desc: Test OnPreLoadStartingWindowFinished when valid preload SVG buffer is set
+ * @tc.type: FUNC
+ * @tc.level: Level1
+ */
+HWTEST_F(WindowSceneTest, OnPreLoadStartingWindowFinished_WithValidPreloadSvgBuffer, TestSize.Level1)
+{
+    Rosen::SessionInfo sessionInfo = {
+        .abilityName_ = ABILITY_NAME,
+        .bundleName_ = BUNDLE_NAME,
+        .moduleName_ = MODULE_NAME,
+    };
+    auto sceneSession_ = ssm_->RequestSceneSession(sessionInfo);
+    ASSERT_NE(sceneSession_, nullptr);
+
+    auto windowScene = CreateWindowSceneForStartingWindowTest(sessionInfo);
+    ASSERT_NE(windowScene, nullptr);
+
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
+    sceneSession_->ResetPreloadStartingWindow();
+    std::shared_ptr<Media::PixelMap> pixelMap;
+    std::pair<std::shared_ptr<uint8_t[]>, size_t> bufferInfo;
+    pixelMap = nullptr;
+    bufferInfo = {nullptr, 0};
+    auto svgBufferVec = std::make_shared<std::vector<uint8_t>>(10);
+    std::shared_ptr<uint8_t[]> validSvgBuffer(svgBufferVec->data(), [](uint8_t*) {});
+    std::pair<std::shared_ptr<uint8_t[]>, size_t> validBufferInfo = {validSvgBuffer, 10};
+    sceneSession_->SetPreloadStartingWindow(validBufferInfo);
+    sceneSession_->GetPreloadStartingWindow(pixelMap, bufferInfo);
+    EXPECT_EQ(pixelMap, nullptr);
+    EXPECT_NE(bufferInfo.first, nullptr);
+    EXPECT_NE(bufferInfo.second, 0);
+    windowScene->OnPreLoadStartingWindowFinished();
+    usleep(WAIT_SYNC_IN_NS);
+    ASSERT_NE(windowScene->startingWindow_, nullptr);
+}
+
+/**
+ * @tc.name: OnPreLoadStartingWindowFinished_WithNoPreloadData
+ * @tc.desc: Test OnPreLoadStartingWindowFinished when no preload data is set
+ * @tc.type: FUNC
+ * @tc.level: Level1
+ */
+HWTEST_F(WindowSceneTest, OnPreLoadStartingWindowFinished_WithNoPreloadData, TestSize.Level1)
+{
+    Rosen::SessionInfo sessionInfo = {
+        .abilityName_ = ABILITY_NAME,
+        .bundleName_ = BUNDLE_NAME,
+        .moduleName_ = MODULE_NAME,
+    };
+    auto sceneSession_ = ssm_->RequestSceneSession(sessionInfo);
+    ASSERT_NE(sceneSession_, nullptr);
+
+    auto windowScene = CreateWindowSceneForStartingWindowTest(sessionInfo);
+    ASSERT_NE(windowScene, nullptr);
+
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
+    sceneSession_->ResetPreloadStartingWindow();
+    std::shared_ptr<Media::PixelMap> pixelMap;
+    std::pair<std::shared_ptr<uint8_t[]>, size_t> bufferInfo;
+    pixelMap = nullptr;
+    bufferInfo = {nullptr, 0};
+    sceneSession_->GetPreloadStartingWindow(pixelMap, bufferInfo);
+    EXPECT_EQ(pixelMap, nullptr);
+    EXPECT_EQ(bufferInfo.first, nullptr);
+    EXPECT_EQ(bufferInfo.second, 0);
+    windowScene->OnPreLoadStartingWindowFinished();
+    usleep(WAIT_SYNC_IN_NS);
+    ASSERT_NE(windowScene->startingWindow_, nullptr);
+}
+
+/**
+ * @tc.name: OnPreLoadStartingWindowFinished_WithNoStartingWindow
+ * @tc.desc: Test OnPreLoadStartingWindowFinished with no starting window
+ * @tc.type: FUNC
+ * @tc.level: Level1
+ */
+HWTEST_F(WindowSceneTest, OnPreLoadStartingWindowFinished_WithNoStartingWindow, TestSize.Level1)
+{
+    Rosen::SessionInfo sessionInfo = {
+        .abilityName_ = "ABILITY_NAME",
+        .bundleName_ = "BUNDLE_NAME",
+        .moduleName_ = "MODULE_NAME",
+    };
+    auto session = ssm_->RequestSceneSession(sessionInfo);
+    ASSERT_NE(session, nullptr);
+    session->scenePersistence_ = sptr<Rosen::ScenePersistence>::MakeSptr("bundleName", 1);
+    auto windowScene = AceType::MakeRefPtr<WindowScene>(session);
+    ASSERT_NE(windowScene, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
+    std::shared_ptr<Media::PixelMap> pixelMap;
+    std::pair<std::shared_ptr<uint8_t[]>, size_t> bufferInfo;
+    pixelMap = nullptr;
+    bufferInfo = {nullptr, 0};
+    session->GetPreloadStartingWindow(pixelMap, bufferInfo);
+    ASSERT_EQ(pixelMap, nullptr);
+}
+
+/**
+ * @tc.name: OnRestart
+ * @tc.desc: notify restart app
+ * @tc.type: FUNC
+ */
+HWTEST_F(WindowSceneTest, OnRestart, TestSize.Level1)
+{
+    Rosen::SessionInfo sessionInfo = {
+        .abilityName_ = ABILITY_NAME,
+        .bundleName_ = BUNDLE_NAME,
+        .moduleName_ = MODULE_NAME,
+        .isRestartInSameProcess_ = false,
     };
     auto windowScene = CreateWindowSceneForStartingWindowTest(sessionInfo);
     ASSERT_NE(windowScene, nullptr);
@@ -437,10 +619,15 @@ HWTEST_F(WindowSceneTest, OnPreLoadStartingWindowFinished, TestSize.Level1)
         ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
     windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
     ASSERT_NE(windowScene->GetHost(), nullptr);
-
-    windowScene->OnPreLoadStartingWindowFinished();
-    usleep(WAIT_SYNC_IN_NS);
     ASSERT_NE(windowScene->startingWindow_, nullptr);
+    ASSERT_EQ(windowScene->snapshotWindow_, nullptr);
+
+    windowScene->OnRestart();
+    sessionInfo.isRestartInSameProcess_ = true;
+    windowScene->session_->SetSessionInfo(sessionInfo);
+    windowScene->OnRestart();
+    usleep(WAIT_SYNC_IN_NS);
+    ASSERT_EQ(windowScene->snapshotWindow_, nullptr);
 }
 
 /**
@@ -475,29 +662,90 @@ HWTEST_F(WindowSceneTest, OnUpdateSnapshotWindow, TestSize.Level1)
 }
 
 /**
- * @tc.name: OnAddRemoveSnapshot
- * @tc.desc: add and remove snapshot
+ * @tc.name: OnAddSnapshot
+ * @tc.desc: add snapshot
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, OnAddRemoveSnapshot, TestSize.Level1)
+HWTEST_F(WindowSceneTest, OnAddSnapshot, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1. Create windowScene.
-     */
     Rosen::SessionInfo sessionInfo = {
-        .abilityName_ = ABILITY_NAME,
-        .bundleName_ = BUNDLE_NAME,
-        .moduleName_ = MODULE_NAME,
+        .abilityName_ = "ABILITY_NAME",
+        .bundleName_ = "BUNDLE_NAME",
+        .moduleName_ = "MODULE_NAME",
     };
-    auto windowScene = CreateWindowSceneForStartingWindowTest(sessionInfo);
+    auto session = ssm_->RequestSceneSession(sessionInfo);
+    ASSERT_NE(session, nullptr);
+    session->scenePersistence_ = sptr<Rosen::ScenePersistence>::MakeSptr("bundleName", 1);
+    auto windowScene = AceType::MakeRefPtr<WindowScene>(session);
     ASSERT_NE(windowScene, nullptr);
-    /**
-     * @tc.steps: step2. Test and check
-     */
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
+    auto subFrameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->startingWindow_ = AceType::RawPtr(subFrameNode);
+    windowScene->snapshotWindow_ = AceType::RawPtr(subFrameNode);
+    windowScene->blankWindow_ = AceType::RawPtr(subFrameNode);
+
+    bool addSnapshotDone = false;
+    auto callback = [&addSnapshotDone]() {
+        addSnapshotDone = true;
+    };
     windowScene->OnAddSnapshot();
+    usleep(WAIT_SYNC_IN_NS);
+    EXPECT_EQ(addSnapshotDone, false);
+    windowScene->OnAddSnapshot(callback);
+    usleep(WAIT_SYNC_IN_NS);
+    EXPECT_EQ(addSnapshotDone, true);
+    addSnapshotDone = false;
+    windowScene->snapshotWindow_ = nullptr;
+    windowScene->OnAddSnapshot(callback);
+    usleep(WAIT_SYNC_IN_NS);
+    EXPECT_EQ(addSnapshotDone, false);
+    windowScene->startingWindow_ = nullptr;
+    windowScene->OnAddSnapshot(callback);
+    usleep(WAIT_SYNC_IN_NS);
+    EXPECT_EQ(addSnapshotDone, false);
+    windowScene->blankWindow_ = nullptr;
+    windowScene->OnAddSnapshot();
+    usleep(WAIT_SYNC_IN_NS);
+    EXPECT_EQ(addSnapshotDone, false);
+    windowScene->OnAddSnapshot(callback);
+    usleep(WAIT_SYNC_IN_NS);
+    EXPECT_EQ(addSnapshotDone, true);
+}
+
+/**
+ * @tc.name: OnRemoveSnapshot
+ * @tc.desc: remove snapshot
+ * @tc.type: FUNC
+ */
+HWTEST_F(WindowSceneTest, OnRemoveSnapshot, TestSize.Level1)
+{
+    Rosen::SessionInfo sessionInfo = {
+        .abilityName_ = "ABILITY_NAME",
+        .bundleName_ = "BUNDLE_NAME",
+        .moduleName_ = "MODULE_NAME",
+    };
+    auto session = ssm_->RequestSceneSession(sessionInfo);
+    ASSERT_NE(session, nullptr);
+    session->scenePersistence_ = sptr<Rosen::ScenePersistence>::MakeSptr("bundleName", 1);
+    auto windowScene = AceType::MakeRefPtr<WindowScene>(session);
+    ASSERT_NE(windowScene, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
+    auto snapshotWindowNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->snapshotWindow_ = AceType::RawPtr(snapshotWindowNode);
+    ASSERT_NE(windowScene->snapshotWindow_, nullptr);
+
+    session->snapshot_ = std::make_shared<Media::PixelMap>();
     windowScene->OnRemoveSnapshot();
     usleep(WAIT_SYNC_IN_NS);
-    EXPECT_EQ(windowScene->session_->GetSnapshot(), nullptr);
+    ASSERT_NE(session->GetSnapshot(), nullptr);
 }
 
 /**
@@ -505,7 +753,7 @@ HWTEST_F(WindowSceneTest, OnAddRemoveSnapshot, TestSize.Level1)
  * @tc.desc: check main session recent
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, IsMainSessionRecent, TestSize.Level1)
+HWTEST_F(WindowSceneTest, IsMainSessionRecent, TestSize.Level0)
 {
     Rosen::SessionInfo sessionInfo = {
         .abilityName_ = "ABILITY_NAME",
@@ -516,13 +764,43 @@ HWTEST_F(WindowSceneTest, IsMainSessionRecent, TestSize.Level1)
     ASSERT_NE(session, nullptr);
     auto windowScene = AceType::MakeRefPtr<WindowScene>(session);
     ASSERT_NE(windowScene, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
 
-    Rosen::RSSurfaceNodeConfig config = {
-        .SurfaceNodeName = "SurfaceNode"
+    Rosen::SessionInfo subSessionInfo = {
+        .abilityName_ = "SUB_ABILITY_NAME",
+        .bundleName_ = "SUB_BUNDLE_NAME",
+        .moduleName_ = "SUB_MODULE_NAME",
     };
-    session->surfaceNode_ = Rosen::RSSurfaceNode::Create(config);
-    ASSERT_NE(session->surfaceNode_, nullptr);
-    ASSERT_EQ(windowScene->IsMainSessionRecent(), false);
+    auto subSession = ssm_->RequestSceneSession(subSessionInfo);
+    ASSERT_NE(subSession, nullptr);
+    auto subWindowScene = AceType::MakeRefPtr<WindowScene>(subSession);
+    ASSERT_NE(subWindowScene, nullptr);
+    auto subFrameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), subWindowScene);
+    subWindowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(subFrameNode));
+    ASSERT_NE(subWindowScene->GetHost(), nullptr);
+    windowScene->AddChild(windowScene->GetHost(), subFrameNode, "subWindow");
+
+    auto ret = subWindowScene->IsMainSessionRecent();
+    EXPECT_EQ(ret, false);
+
+    session->SetShowRecent(true);
+    auto snapshotWindowNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->snapshotWindow_ = AceType::RawPtr(snapshotWindowNode);
+    ASSERT_NE(windowScene->snapshotWindow_, nullptr);
+    ret = subWindowScene->IsMainSessionRecent();
+    EXPECT_EQ(ret, true);
+
+    auto startingWindowNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->startingWindow_ = AceType::RawPtr(startingWindowNode);
+    ASSERT_NE(windowScene->startingWindow_, nullptr);
+    ret = subWindowScene->IsMainSessionRecent();
+    EXPECT_EQ(ret, false);
 }
 
 /**
@@ -554,15 +832,15 @@ HWTEST_F(WindowSceneTest, HideStartingWindowInvisible, TestSize.Level1)
     /**
      * @tc.steps: step3. Test and check
      */
-    ASSERT_EQ(windowScene->session_->GetHidingStartingWindow(), true);
+    EXPECT_EQ(windowScene->session_->GetHidingStartingWindow(), true);
 }
 
 /**
- * @tc.name: HideStartingWindow
- * @tc.desc: HideStartingWindow
+ * @tc.name: HideStartingWindow01
+ * @tc.desc: HideStartingWindow01
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, HideStartingWindowDefalut, TestSize.Level1)
+HWTEST_F(WindowSceneTest, HideStartingWindowDefault01, TestSize.Level1)
 {
     /**
      * @tc.steps: step1. Create windowScene.
@@ -586,7 +864,39 @@ HWTEST_F(WindowSceneTest, HideStartingWindowDefalut, TestSize.Level1)
     /**
      * @tc.steps: step3. Test and check
      */
-    ASSERT_EQ(windowScene->session_->GetHidingStartingWindow(), false);
+    EXPECT_EQ(windowScene->session_->GetHidingStartingWindow(), false);
+}
+
+/**
+ * @tc.name: HideStartingWindow02
+ * @tc.desc: HideStartingWindow02
+ * @tc.type: FUNC
+ */
+HWTEST_F(WindowSceneTest, HideStartingWindowDefault02, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create windowScene.
+     */
+    Rosen::SessionInfo sessionInfo = {
+        .abilityName_ = ABILITY_NAME,
+        .bundleName_ = BUNDLE_NAME,
+        .moduleName_ = MODULE_NAME,
+        .startWindowType_ = Rosen::StartWindowType::DEFAULT,
+    };
+    auto session = ssm_->RequestSceneSession(sessionInfo);
+    ASSERT_NE(session, nullptr);
+    auto windowScene = AceType::MakeRefPtr<WindowScene>(session);
+    ASSERT_NE(windowScene, nullptr);
+
+    /**
+     * @tc.steps: step2. Set default.
+     */
+    windowScene->HideStartingWindow();
+
+    /**
+     * @tc.steps: step3. Test and check
+     */
+    EXPECT_EQ(windowScene->session_->GetHidingStartingWindow(), true);
 }
 
 /**
@@ -594,7 +904,7 @@ HWTEST_F(WindowSceneTest, HideStartingWindowDefalut, TestSize.Level1)
  * @tc.desc: set sub session visible
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, SetSubSessionVisible, TestSize.Level1)
+HWTEST_F(WindowSceneTest, SetSubSessionVisible, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Create windowScene.
@@ -635,7 +945,7 @@ HWTEST_F(WindowSceneTest, SetSubSessionVisible, TestSize.Level1)
  * @tc.desc: OnLayoutFinished Test
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, OnLayoutFinished, TestSize.Level1)
+HWTEST_F(WindowSceneTest, OnLayoutFinished, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Create windowScene.
@@ -658,35 +968,34 @@ HWTEST_F(WindowSceneTest, OnLayoutFinished, TestSize.Level1)
 }
 
 /**
- * @tc.name: CreateSnapshotWindow
- * @tc.desc: CreateSnapshotWindow Test
+ * @tc.name: OnRemovePrelaunchStartingWindow
+ * @tc.desc: OnRemovePrelaunchStartingWindow Test
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, CreateSnapshotWindow, TestSize.Level1)
+HWTEST_F(WindowSceneTest, OnRemovePrelaunchStartingWindow, TestSize.Level0)
 {
+    /**
+     * @tc.steps: step1. Create windowScene.
+     */
     Rosen::SessionInfo sessionInfo = {
-        .abilityName_ = "ABILITY_NAME",
-        .bundleName_ = "BUNDLE_NAME",
-        .moduleName_ = "MODULE_NAME",
+        .abilityName_ = ABILITY_NAME,
+        .bundleName_ = BUNDLE_NAME,
+        .moduleName_ = MODULE_NAME,
     };
-    auto session = ssm_->RequestSceneSession(sessionInfo);
-    ASSERT_NE(session, nullptr);
-    session->scenePersistence_ = sptr<Rosen::ScenePersistence>::MakeSptr("bundleName", 1);
-    auto windowScene = AceType::MakeRefPtr<WindowScene>(session);
+    auto windowScene = CreateWindowSceneForStartingWindowTest(sessionInfo);
     ASSERT_NE(windowScene, nullptr);
     auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
     windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
     ASSERT_NE(windowScene->GetHost(), nullptr);
-    windowScene->isBlankForSnapshot_ = true;
-    windowScene->CreateSnapshotWindow();
-    auto key = Rosen::defaultStatus;
-    session->scenePersistence_->SetHasSnapshot(true, key);
-    windowScene->CreateSnapshotWindow();
 
-    session->scenePersistence_->isSavingSnapshot_[key.first][key.second] = true;
-    windowScene->CreateSnapshotWindow();
-    EXPECT_EQ(windowScene->isBlankForSnapshot_, false);
+    windowScene->session_->SetShowRecent(true);
+    windowScene->OnRemovePrelaunchStartingWindow();
+    EXPECT_EQ(windowScene->session_->GetShowRecent(), true);
+
+    windowScene->session_->SetShowRecent(false);
+    windowScene->OnRemovePrelaunchStartingWindow();
+    EXPECT_EQ(windowScene->session_->GetShowRecent(), false);
 }
 
 /**
@@ -694,7 +1003,7 @@ HWTEST_F(WindowSceneTest, CreateSnapshotWindow, TestSize.Level1)
  * @tc.desc: OnAttachToFrameNode Test
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, OnAttachToFrameNode, TestSize.Level1)
+HWTEST_F(WindowSceneTest, OnAttachToFrameNode, TestSize.Level0)
 {
     Rosen::SessionInfo sessionInfo = {
         .abilityName_ = "ABILITY_NAME",
@@ -711,20 +1020,119 @@ HWTEST_F(WindowSceneTest, OnAttachToFrameNode, TestSize.Level1)
     windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
     ASSERT_NE(windowScene->GetHost(), nullptr);
 
-    session->state_ == Rosen::SessionState::STATE_DISCONNECT;
+    session->state_ = Rosen::SessionState::STATE_DISCONNECT;
     session->SetShowRecent(true);
     auto key = Rosen::defaultStatus;
-    session->scenePersistence_->isSavingSnapshot_[key.first][key.second] = true;
-    windowScene->OnAttachToFrameNode();
+    session->scenePersistence_->isSavingSnapshot_ = true;
+    windowScene->WindowPattern::OnAttachToFrameNode();
     EXPECT_EQ(session->GetShowRecent(), true);
+
+    session->state_ = Rosen::SessionState::STATE_BACKGROUND;
+    session->SetShowRecent(false);
+    usleep(WAIT_SYNC_IN_NS);
+    session->isAppLockControl_.store(false);
+    session->scenePersistence_->hasSnapshot_[key] = true;
+    windowScene->WindowPattern::OnAttachToFrameNode();
+    EXPECT_EQ(windowScene->attachToFrameNodeFlag_, true);
+
+    session->SetShowRecent(false);
+    usleep(WAIT_SYNC_IN_NS);
+    session->isAppLockControl_.store(true);
+    windowScene->WindowPattern::OnAttachToFrameNode();
+    EXPECT_EQ(windowScene->attachToFrameNodeFlag_, true);
+
+    session->SetShowRecent(true);
+    session->isAppLockControl_.store(false);
+    windowScene->WindowPattern::OnAttachToFrameNode();
+    EXPECT_EQ(windowScene->attachToFrameNodeFlag_, true);
+
+    session->SetShowRecent(true);
+    session->isAppLockControl_.store(true);
+    windowScene->WindowPattern::OnAttachToFrameNode();
+    EXPECT_EQ(windowScene->attachToFrameNodeFlag_, true);
+
+    session->state_ = Rosen::SessionState::STATE_ACTIVE;
+    session->SetShowRecent(false);
+    usleep(WAIT_SYNC_IN_NS);
+    session->isAppLockControl_.store(false);
+    windowScene->WindowPattern::OnAttachToFrameNode();
+    EXPECT_EQ(windowScene->attachToFrameNodeFlag_, true);
+
+    session->isAppLockControl_.store(true);
+    windowScene->WindowPattern::OnAttachToFrameNode();
+    EXPECT_EQ(windowScene->attachToFrameNodeFlag_, true);
+    usleep(WAIT_SYNC_IN_NS);
 }
 
 /**
- * @tc.name: TransformOrientationForMatchSnapshot
- * @tc.desc: TransformOrientationForMatchSnapshot Test
+ * @tc.name: OnAttachToFrameNodeForPrelaunch01
+ * @tc.desc: OnAttachToFrameNodeForPrelaunch test snapshot
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, TransformOrientationForMatchSnapshot, TestSize.Level1)
+HWTEST_F(WindowSceneTest, OnAttachToFrameNodeForPrelaunch01, TestSize.Level0)
+{
+    Rosen::SessionInfo sessionInfo = {
+        .abilityName_ = "ABILITY_NAME",
+        .bundleName_ = "BUNDLE_NAME",
+        .moduleName_ = "MODULE_NAME",
+        .isPrelaunch_ = true,
+    };
+    auto session = ssm_->RequestSceneSession(sessionInfo);
+    ASSERT_NE(session, nullptr);
+    session->scenePersistence_ = sptr<Rosen::ScenePersistence>::MakeSptr("bundleName", 1);
+    auto windowScene = AceType::MakeRefPtr<WindowScene>(session);
+    ASSERT_NE(windowScene, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
+
+    session->SetSessionState(Rosen::SessionState::STATE_DISCONNECT);
+    session->SetShowRecent(true);
+    windowScene->WindowPattern::OnAttachToFrameNode();
+    EXPECT_TRUE(session->GetShowRecent());
+}
+
+/**
+ * @tc.name: OnAttachToFrameNodeForPrelaunch02
+ * @tc.desc: OnAttachToFrameNodeForPrelaunch test buffer available
+ * @tc.type: FUNC
+ */
+HWTEST_F(WindowSceneTest, OnAttachToFrameNodeForPrelaunch02, TestSize.Level0)
+{
+    Rosen::SessionInfo sessionInfo = {
+        .abilityName_ = "ABILITY_NAME",
+        .bundleName_ = "BUNDLE_NAME",
+        .moduleName_ = "MODULE_NAME",
+        .isPrelaunch_ = true,
+    };
+    auto session = ssm_->RequestSceneSession(sessionInfo);
+    ASSERT_NE(session, nullptr);
+    session->scenePersistence_ = sptr<Rosen::ScenePersistence>::MakeSptr("bundleName", 1);
+    auto windowScene = AceType::MakeRefPtr<WindowScene>(session);
+    ASSERT_NE(windowScene, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
+
+    Rosen::RSSurfaceNodeConfig config = {
+        .SurfaceNodeName = "SurfaceNode"
+    };
+    session->SetSurfaceNode(Rosen::RSSurfaceNode::Create(config));
+
+    session->SetSessionState(Rosen::SessionState::STATE_CONNECT);
+    windowScene->WindowPattern::OnAttachToFrameNode();
+    EXPECT_FALSE(windowScene->session_->surfaceNode_->bufferAvailable_);
+}
+
+/**
+ * @tc.name: OnBoundsChanged
+ * @tc.desc: OnBoundsChanged Test
+ * @tc.type: FUNC
+ */
+HWTEST_F(WindowSceneTest, OnBoundsChanged, TestSize.Level0)
 {
     Rosen::SessionInfo sessionInfo = {
         .abilityName_ = "ABILITY_NAME",
@@ -736,19 +1144,35 @@ HWTEST_F(WindowSceneTest, TransformOrientationForMatchSnapshot, TestSize.Level1)
     session->scenePersistence_ = sptr<Rosen::ScenePersistence>::MakeSptr("bundleName", 1);
     auto windowScene = AceType::MakeRefPtr<WindowScene>(session);
     ASSERT_NE(windowScene, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
 
-    uint32_t lastRotation = 2;
-    uint32_t windowRotation = 0;
-    auto ret = windowScene->TransformOrientationForMatchSnapshot(lastRotation, windowRotation);
-    EXPECT_EQ(ret, ImageRotateOrientation::UP);
+    Rosen::Vector4f bounds {1.0, 1.0, 1.0, 1.0};
+    session->SetShowRecent(true);
+    windowScene->OnBoundsChanged(bounds);
+    EXPECT_EQ(session->GetShowRecent(), true);
+    session->SetShowRecent(false);
+    usleep(WAIT_SYNC_IN_NS);
+    windowScene->OnBoundsChanged(bounds);
+    usleep(WAIT_SYNC_IN_NS);
+    EXPECT_EQ(session->GetShowRecent(), false);
+    bounds.x_ = 0.0;
+    bounds.y_ = 2.0;
+    windowScene->frameNode_.Reset();
+    session->SetShowRecent(true);
+    windowScene->OnBoundsChanged(bounds);
+    EXPECT_EQ(session->GetShowRecent(), true);
+    usleep(WAIT_SYNC_IN_NS);
 }
 
 /**
- * @tc.name: TransformOrientationForDisMatchSnapshot
- * @tc.desc: TransformOrientationForDisMatchSnapshot Test
+ * @tc.name: DisposeSnapshotAndBlankWindow
+ * @tc.desc: DisposeSnapshotAndBlankWindow Test
  * @tc.type: FUNC
  */
-HWTEST_F(WindowSceneTest, TransformOrientationForDisMatchSnapshot, TestSize.Level1)
+HWTEST_F(WindowSceneTest, DisposeSnapshotAndBlankWindow, TestSize.Level0)
 {
     Rosen::SessionInfo sessionInfo = {
         .abilityName_ = "ABILITY_NAME",
@@ -760,23 +1184,23 @@ HWTEST_F(WindowSceneTest, TransformOrientationForDisMatchSnapshot, TestSize.Leve
     session->scenePersistence_ = sptr<Rosen::ScenePersistence>::MakeSptr("bundleName", 1);
     auto windowScene = AceType::MakeRefPtr<WindowScene>(session);
     ASSERT_NE(windowScene, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->frameNode_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
+    ASSERT_NE(windowScene->GetHost(), nullptr);
+    auto snapshotWindowNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), windowScene);
+    windowScene->snapshotWindow_ = AceType::RawPtr(snapshotWindowNode);
+    ASSERT_NE(windowScene->snapshotWindow_, nullptr);
 
-    uint32_t lastRotation = 3;
-    uint32_t windowRotation = 0;
-    uint32_t snapshotRotation = 0;
-    auto ret = windowScene->TransformOrientationForDisMatchSnapshot(lastRotation, windowRotation, snapshotRotation);
-    EXPECT_EQ(ret, ImageRotateOrientation::LEFT);
+    windowScene->isScaledSnapshot_ = false;
+    windowScene->DisposeSnapshotAndBlankWindow();
+    ASSERT_NE(windowScene->snapshotWindow_, nullptr);
 
-    windowRotation = 1;
-    ret = windowScene->TransformOrientationForDisMatchSnapshot(lastRotation, windowRotation, snapshotRotation);
-    EXPECT_EQ(ret, ImageRotateOrientation::RIGHT);
-
-    lastRotation = 2;
-    ret = windowScene->TransformOrientationForDisMatchSnapshot(lastRotation, windowRotation, snapshotRotation);
-    EXPECT_EQ(ret, ImageRotateOrientation::DOWN);
-
-    lastRotation = 0;
-    ret = windowScene->TransformOrientationForDisMatchSnapshot(lastRotation, windowRotation, snapshotRotation);
-    EXPECT_EQ(ret, ImageRotateOrientation::UP);
+    windowScene->isScaledSnapshot_ = false;
+    windowScene->DisposeSnapshotAndBlankWindow();
+    ASSERT_NE(windowScene->snapshotWindow_, nullptr);
+    windowScene->frameNode_ = nullptr;
+    windowScene->snapshotWindow_ = nullptr;
 }
 } // namespace OHOS::Ace::NG

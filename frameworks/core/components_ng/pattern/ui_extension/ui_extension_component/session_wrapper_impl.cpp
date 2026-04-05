@@ -20,7 +20,9 @@
 
 #include "accessibility_event_info.h"
 #include "extension/extension_business_info.h"
+#include "int_wrapper.h"
 #include "interfaces/include/ws_common.h"
+#include "parameters.h"
 #include "refbase.h"
 #include "session_manager/include/extension_session_manager.h"
 #include "transaction/rs_sync_transaction_controller.h"
@@ -37,12 +39,14 @@
 #include "base/utils/utils.h"
 #include "core/common/container.h"
 #include "core/common/container_scope.h"
+#include "core/components_ng/pattern/ui_extension/platform_container_handler.h"
 #include "core/components_ng/pattern/ui_extension/session_wrapper.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_container_handler.h"
 #include "core/components_ng/pattern/window_scene/helper/window_scene_helper.h"
 #include "core/components_ng/pattern/window_scene/scene/system_window_scene.h"
 #include "core/pipeline_ng/pipeline_context.h"
 #include "pointer_event.h"
+#include "bool_wrapper.h"
 #include "string_wrapper.h"
 #include "render_service_client/core/ui/rs_ui_director.h"
 #include "render_service_client/core/ui/rs_ui_context.h"
@@ -69,9 +73,15 @@ constexpr char EVENT_TIMEOUT_MESSAGE[] = "the extension ability has timed out pr
 constexpr char UIEXTENSION_HOST_UICONTENT_TYPE[] = "ohos.ace.uiextension.hostUicontentType";
 // Defines the want parameter to control the soft-keyboard area change of the provider.
 constexpr char OCCUPIED_AREA_CHANGE_KEY[] = "ability.want.params.IsNotifyOccupiedAreaChange";
+constexpr char PROPERTY_DEVICE_TYPE[] = "const.product.devicetype";
+constexpr char PROPERTY_DEVICE_TYPE_DEFAULT[] = "default";
 // Set the UIExtension type of the EmbeddedComponent.
 constexpr char UI_EXTENSION_TYPE_KEY[] = "ability.want.params.uiExtensionType";
+constexpr char UIEXTENSION_HOST_UICONTENT_ALLOW_CROSS_PROCESS_NESTING[] =
+    "ohos.ace.uiextension.allowCrossProcessNesting";
 constexpr const char* const UIEXTENSION_CONFIG_FIELD = "ohos.system.window.uiextension.params";
+constexpr const char* const UIEXTENSION_CONFIG_MENUBAR = "ohos.system.atomicservice.menubar.params";
+constexpr const char* const UIEXTENSION_CONFIG_WINDOW_MODE = "ohos.system.window.mode";
 const std::string EMBEDDED_UI("embeddedUI");
 constexpr int32_t AVOID_DELAY_TIME = 30;
 constexpr int32_t INVALID_WINDOW_ID = -1;
@@ -641,9 +651,11 @@ Rosen::SessionViewportConfig ConvertToRosenSessionViewportConfig(const SessionVi
 
 void SessionWrapperImpl::CreateSession(const AAFwk::Want& want, const SessionConfig& config)
 {
+    ACE_UINODE_TRACE(GetFrameNodeId());
     ContainerScope scope(instanceId_);
-    UIEXT_LOGI("The session is created with bundle=%{public}s, ability=%{public}s, componentId=%{public}d.",
-        want.GetElement().GetBundleName().c_str(), want.GetElement().GetAbilityName().c_str(), GetFrameNodeId());
+    UIEXT_LOGI("The session is created with bundle=%{public}s, ability=%{public}s,"
+        " componentId=%{public}d, sessionType=%{public}d.", want.GetElement().GetBundleName().c_str(),
+        want.GetElement().GetAbilityName().c_str(), GetFrameNodeId(), static_cast<int32_t>(sessionType_));
     auto container = Platform::AceContainer::GetContainer(instanceId_);
     CHECK_NULL_VOID(container);
     auto pipeline = container->GetPipelineContext();
@@ -689,7 +701,7 @@ void SessionWrapperImpl::CreateSession(const AAFwk::Want& want, const SessionCon
         isNotifyOccupiedAreaChange_, realHostWindowId, parentWindowType);
     auto callerToken = container->GetToken();
     auto parentToken = container->GetParentToken();
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
     auto pattern = hostPattern_.Upgrade();
     CHECK_NULL_VOID(pattern);
@@ -723,7 +735,7 @@ void SessionWrapperImpl::CreateSession(const AAFwk::Want& want, const SessionCon
 void SessionWrapperImpl::UpdateSessionConfig()
 {
     auto extConfig = session_->GetSystemConfig();
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto hostConfig = pipeline->GetKeyboardAnimationConfig();
     extConfig.animationIn_ = {
@@ -756,9 +768,51 @@ void SessionWrapperImpl::UpdateWantPtr(std::shared_ptr<AAFwk::Want>& wantPtr)
     container->GetExtensionConfig(configParam);
     auto str = UIExtensionContainerHandler::FromUIContentTypeToStr(container->GetUIContentType());
     configParam.SetParam(UIEXTENSION_HOST_UICONTENT_TYPE, AAFwk::String::Box(str));
+    UpdateConfigParamByContainerHandler(configParam);
+    AAFwk::WantParams menuBarWantParam;
+    UpdateMenuBarWantPtr(wantPtr, menuBarWantParam);
+    configParam.SetParam(UIEXTENSION_CONFIG_MENUBAR, AAFwk::WantParamWrapper::Box(menuBarWantParam));
+    auto mode = container->GetWindowMode();
+    configParam.SetParam(UIEXTENSION_CONFIG_WINDOW_MODE, AAFwk::Integer::Box(static_cast<int32_t>(mode)));
     AAFwk::WantParams wantParam(wantPtr->GetParams());
     wantParam.SetParam(UIEXTENSION_CONFIG_FIELD, AAFwk::WantParamWrapper::Box(configParam));
     wantPtr->SetParams(wantParam);
+}
+
+void SessionWrapperImpl::UpdateConfigParamByContainerHandler(AAFwk::WantParams& configParam)
+{
+    auto container = Platform::AceContainer::GetContainer(GetInstanceId());
+    CHECK_NULL_VOID(container);
+    auto containerHandler = container->GetContainerHandler();
+    CHECK_NULL_VOID(containerHandler);
+    if (container->GetUIContentType() == UIContentType::DYNAMIC_COMPONENT) {
+        auto platformContainerHandler = AceType::DynamicCast<NG::PlatformContainerHandler>(containerHandler);
+        CHECK_NULL_VOID(platformContainerHandler);
+        auto allowCrossProcessNesting = platformContainerHandler->IsAllowCrossProcessNesting();
+        configParam.SetParam(UIEXTENSION_HOST_UICONTENT_ALLOW_CROSS_PROCESS_NESTING,
+            AAFwk::Boolean::Box(allowCrossProcessNesting));
+    }
+    if (container->IsUIExtensionWindow()) {
+        auto uIExtensionContainerHandler = AceType::DynamicCast<NG::UIExtensionContainerHandler>(containerHandler);
+        CHECK_NULL_VOID(uIExtensionContainerHandler);
+        auto allowCrossProcessNesting = uIExtensionContainerHandler->IsAllowCrossProcessNesting();
+        configParam.SetParam(UIEXTENSION_HOST_UICONTENT_ALLOW_CROSS_PROCESS_NESTING,
+            AAFwk::Boolean::Box(allowCrossProcessNesting));
+    }
+}
+
+void SessionWrapperImpl::UpdateMenuBarWantPtr(std::shared_ptr<AAFwk::Want>& wantPtr, AAFwk::WantParams& wantParam)
+{
+    CHECK_NULL_VOID(wantPtr);
+    std::map<std::string, sptr<AAFwk::IInterface>> params = wantPtr->GetParams().GetParams();
+    auto copyParams = params;
+    const std::string prefix = "com.atomicservice.";
+    for (const auto& [key, value] : copyParams) {
+        if (key.find(prefix) != std::string::npos) {
+            wantParam.SetParam(key, value);
+            params.erase(key);
+        }
+    }
 }
 
 void SessionWrapperImpl::ReDispatchWantParams()
@@ -968,11 +1022,12 @@ RectF SessionWrapperImpl::GetDisplayAreaWithWindowScene()
 
 void SessionWrapperImpl::NotifyForeground()
 {
+    ACE_UINODE_TRACE(GetFrameNodeId());
     ContainerScope scope(instanceId_);
     CHECK_NULL_VOID(session_);
     auto container = Platform::AceContainer::GetContainer(instanceId_);
     CHECK_NULL_VOID(container);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto hostWindowId = pipeline->GetFocusWindowId();
     int32_t windowSceneId = GetWindowSceneId();
@@ -1198,7 +1253,7 @@ void SessionWrapperImpl::NotifyDisplayArea(const RectF& displayArea)
     CHECK_NULL_VOID(session_);
     auto instanceId = GetInstanceId();
     ContainerScope scope(instanceId);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     displayAreaWindow_ = pipeline->GetCurrentWindowRect();
     displayArea_ = displayArea + OffsetF(displayAreaWindow_.Left(), displayAreaWindow_.Top());
@@ -1213,8 +1268,10 @@ void SessionWrapperImpl::NotifyDisplayArea(const RectF& displayArea)
     if (window) {
         rsUIDirector = window->GetRSUIDirector();
     }
+    bool isNeedSyncTransaction = reason == Rosen::SizeChangeReason::ROTATION ||
+        reason == Rosen::SizeChangeReason::SNAPSHOT_ROTATION;
     if (!rsUIDirector) {
-        if (reason == Rosen::SizeChangeReason::ROTATION) {
+        if (isNeedSyncTransaction) {
             if (transaction_.lock()) {
                 transaction = transaction_.lock();
                 transaction_.reset();
@@ -1228,7 +1285,7 @@ void SessionWrapperImpl::NotifyDisplayArea(const RectF& displayArea)
         }
     } else {
         auto rsUIContext = rsUIDirector->GetRSUIContext();
-        if (reason == Rosen::SizeChangeReason::ROTATION) {
+        if (isNeedSyncTransaction) {
             if (transaction_.lock()) {
                 transaction = transaction_.lock();
                 transaction_.reset();
@@ -1251,13 +1308,14 @@ void SessionWrapperImpl::NotifyDisplayArea(const RectF& displayArea)
     }
     ACE_SCOPED_TRACE("NotifyDisplayArea displayArea[%s], curWindow[%s], reason[%d], duration[%d], componentId[%d]",
         displayArea_.ToString().c_str(), displayAreaWindow_.ToString().c_str(), reason, duration, GetFrameNodeId());
-    UIEXT_LOGD("NotifyDisplayArea displayArea=%{public}s, curWindow=%{public}s, "
+    UIEXT_LOGI("NotifyDisplayArea displayArea=%{public}s, curWindow=%{public}s, "
         "reason=%{public}d, duration=%{public}d, persistentId=%{public}d, componentId=%{public}d.",
         displayArea_.ToString().c_str(), displayAreaWindow_.ToString().c_str(),
         reason, duration, persistentId, GetFrameNodeId());
     session_->UpdateRect({ std::round(displayArea_.Left()), std::round(displayArea_.Top()),
         std::round(displayArea_.Width()), std::round(displayArea_.Height()) }, reason, "NotifyDisplayArea",
         transaction);
+    RefreshOccupiedAreaChangeInfo();
 }
 
 void SessionWrapperImpl::NotifySizeChangeReason(
@@ -1266,7 +1324,8 @@ void SessionWrapperImpl::NotifySizeChangeReason(
     CHECK_NULL_VOID(session_);
     auto reason = static_cast<Rosen::SizeChangeReason>(type);
     session_->UpdateSizeChangeReason(reason);
-    if (rsTransaction && (type == WindowSizeChangeReason::ROTATION)) {
+    if (rsTransaction && (type == WindowSizeChangeReason::ROTATION ||
+        type == WindowSizeChangeReason::SNAPSHOT_ROTATION)) {
         transaction_ = rsTransaction;
     }
 }
@@ -1287,6 +1346,33 @@ void SessionWrapperImpl::NotifyOriginAvoidArea(const Rosen::AvoidArea& avoidArea
     session_->UpdateAvoidArea(sptr<Rosen::AvoidArea>::MakeSptr(avoidArea), static_cast<Rosen::AvoidAreaType>(type));
 }
 
+bool SessionWrapperImpl::RefreshOccupiedAreaChangeInfo()
+{
+    static std::once_flag onceFlag;
+    static bool isDeviceTypeDefault = false;
+    std::call_once(onceFlag, []() {
+        std::string deviceType = OHOS::system::GetParameter(PROPERTY_DEVICE_TYPE, PROPERTY_DEVICE_TYPE_DEFAULT);
+        isDeviceTypeDefault = deviceType == PROPERTY_DEVICE_TYPE_DEFAULT;
+    });
+    CHECK_NULL_RETURN(taskExecutor_, false);
+    CHECK_NULL_RETURN(occupiedAreaChangeInfo_, false);
+    int32_t keyboardHeight = static_cast<int32_t>(occupiedAreaChangeInfo_->rect_.height_);
+    if (keyboardHeight > 0 && isDeviceTypeDefault) {
+        int64_t curTime = GetCurrentTimestamp();
+        taskExecutor_->PostTask(
+            [weak = AceType::WeakClaim(this), curTime] {
+                auto session = weak.Upgrade();
+                if (session) {
+                    session->InnerNotifyOccupiedAreaChangeInfo(session->occupiedAreaChangeInfo_, false, curTime);
+                }
+            },
+            TaskExecutor::TaskType::UI, "ArkUIVirtualKeyboardAreaRefresh",
+            TaskExecutor::GetPriorityTypeWithCheck(PriorityType::VIP));
+        return true;
+    }
+    return false;
+}
+
 bool SessionWrapperImpl::NotifyOccupiedAreaChangeInfo(
     sptr<Rosen::OccupiedAreaChangeInfo> info, bool needWaitLayout)
 {
@@ -1295,11 +1381,11 @@ bool SessionWrapperImpl::NotifyOccupiedAreaChangeInfo(
     CHECK_NULL_RETURN(isNotifyOccupiedAreaChange_, false);
     CHECK_NULL_RETURN(taskExecutor_, false);
     ContainerScope scope(instanceId_);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_RETURN(pipeline, false);
     auto curWindow = pipeline->GetCurrentWindowRect();
     int64_t curTime = GetCurrentTimestamp();
-    if (displayAreaWindow_ != curWindow && needWaitLayout) {
+    if ((displayAreaWindow_ != curWindow && needWaitLayout)) {
         UIEXT_LOGI("OccupiedArea wait layout, displayAreaWindow: %{public}s,"
             " curWindow=%{public}s, componentId=%{public}d.",
             displayAreaWindow_.ToString().c_str(), curWindow.ToString().c_str(), GetFrameNodeId());
@@ -1340,7 +1426,7 @@ bool SessionWrapperImpl::InnerNotifyOccupiedAreaChangeInfo(
     CHECK_NULL_RETURN(isNotifyOccupiedAreaChange_, false);
     int32_t keyboardHeight = static_cast<int32_t>(info->rect_.height_);
     ContainerScope scope(instanceId_);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_RETURN(pipeline, false);
     auto curWindow = pipeline->GetCurrentWindowRect();
     auto container = Platform::AceContainer::GetContainer(GetInstanceId());
@@ -1362,6 +1448,7 @@ bool SessionWrapperImpl::InnerNotifyOccupiedAreaChangeInfo(
     sptr<Rosen::OccupiedAreaChangeInfo> newInfo = new Rosen::OccupiedAreaChangeInfo(
         info->type_, info->rect_, info->safeHeight_, info->textFieldPositionY_, info->textFieldHeight_);
     newInfo->rect_.height_ = static_cast<uint32_t>(keyboardHeight);
+    occupiedAreaChangeInfo_ = static_cast<int32_t>(info->rect_.height_) == 0 ? nullptr : info;
     UIEXT_LOGI("OccupiedArea keyboardHeight = %{public}d, displayOffset = %{public}s, displayArea = %{public}s, "
                "curWindow = %{public}s, persistentid = %{public}d, componentId=%{public}d.",
         keyboardHeight, displayArea.GetOffset().ToString().c_str(), displayArea_.ToString().c_str(),

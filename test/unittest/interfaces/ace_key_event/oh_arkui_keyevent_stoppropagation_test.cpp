@@ -46,7 +46,7 @@ HWTEST_F(KeyEventTest, OH_ArkUI_KeyEvent_StopPropagation002, TestSize.Level0)
         .inputType = ARKUI_UIINPUTEVENT_TYPE_KEY,
         .eventTypeId = C_KEY_EVENT_ID,
         .inputEvent = &keyEvent,
-        .isCloned = false,
+        .isCreatedByUser = false,
         .apiVersion = 0,
     };
 
@@ -57,4 +57,23 @@ HWTEST_F(KeyEventTest, OH_ArkUI_KeyEvent_StopPropagation002, TestSize.Level0)
     EXPECT_FALSE(keyEvent.stopPropagation);
 }
 
+HWTEST_F(KeyEventTest, OH_ArkUI_KeyEvent_StopPropagation003, TestSize.Level0)
+{
+    ArkUIKeyEvent keyEvent = {
+        .stopPropagation = false
+    };
+    ArkUI_UIInputEvent event = {
+        .inputType = ARKUI_UIINPUTEVENT_TYPE_KEY,
+        .eventTypeId = AXIS_EVENT_ID,
+        .inputEvent = &keyEvent,
+        .isCreatedByUser = false,
+        .apiVersion = 0,
+    };
+
+    OH_ArkUI_KeyEvent_StopPropagation(&event, true);
+    EXPECT_FALSE(keyEvent.stopPropagation);
+
+    OH_ArkUI_KeyEvent_StopPropagation(&event, false);
+    EXPECT_FALSE(keyEvent.stopPropagation);
+}
 } // namespace OHOS::Ace

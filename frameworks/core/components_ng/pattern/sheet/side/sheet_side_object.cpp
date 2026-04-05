@@ -14,9 +14,7 @@
  */
 
 #include "core/components_ng/pattern/sheet/side/sheet_side_object.h"
-
-#include "ui/base/ace_type.h"
-#include "ui/base/utils/utils.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 
 #include "base/geometry/dimension.h"
 #include "base/memory/ace_type.h"
@@ -51,8 +49,10 @@ void SheetSideObject::DirtyLayoutProcess(const RefPtr<LayoutAlgorithmWrapper>& l
     if (sideSheetLayoutAlgorithm->GetSideSheetMaxWidth() > 0) {
         sheetMaxWidth_ = sideSheetLayoutAlgorithm->GetSideSheetMaxWidth();
         sheetWidth_ = sideSheetLayoutAlgorithm->GetSideSheetWidth();
-        pattern->SetCenterHeight(sideSheetLayoutAlgorithm->GetCenterHeight());
         pattern->SetSheetMaxHeight(sideSheetLayoutAlgorithm->GetSideSheetMaxHeight());
+    }
+    if (GreatNotEqual(sideSheetLayoutAlgorithm->GetSheetHeight(), 0.0f)) {
+        SetSheetHeight(sideSheetLayoutAlgorithm->GetSheetHeight());
     }
     UpdateDragBarStatus();
     UpdateSidePosition();
@@ -65,15 +65,14 @@ void SheetSideObject::UpdateDragBarStatus()
     auto host = pattern->GetHost();
     CHECK_NULL_VOID(host);
 
-    auto titleColumn = AceType::DynamicCast<FrameNode>(host->GetFirstChild());
-    CHECK_NULL_VOID(titleColumn);
-    auto sheetDragBar = AceType::DynamicCast<FrameNode>(titleColumn->GetFirstChild());
+    auto sheetPattern = host->GetPattern<SheetPresentationPattern>();
+    CHECK_NULL_VOID(sheetPattern);
+    auto sheetDragBar = sheetPattern->GetDragBarNode();
     CHECK_NULL_VOID(sheetDragBar);
     auto dragBarLayoutProperty = sheetDragBar->GetLayoutProperty();
     CHECK_NULL_VOID(dragBarLayoutProperty);
 
     dragBarLayoutProperty->UpdateVisibility(VisibleType::INVISIBLE);
-    sheetDragBar->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
 }
 
 void SheetSideObject::UpdateSidePosition()
@@ -88,7 +87,7 @@ void SheetSideObject::UpdateSidePosition()
     if (!sheetPattern->IsOnAppearing()
         && !sheetPattern->IsOnDisappearing() && !sheetPattern->IsDragging()) {
         sheetPattern->FireOnWidthDidChange();
-        sheetPattern->FireOnHeightDidChange();
+        FireHeightDidChange();
         bool isRTL = AceApplicationInfo::GetInstance().IsRightToLeft();
         if (!isRTL) {
             context->UpdateTransformTranslate({ sheetMaxWidth_ - sheetWidth_, 0.0f, 0.0f });
@@ -141,27 +140,49 @@ std::function<void()> SheetSideObject::GetSheetAnimationEvent(bool isTransitionI
     CHECK_NULL_RETURN(sheetNode, nullptr);
     auto context = sheetNode->GetRenderContext();
     CHECK_NULL_RETURN(context, nullptr);
+    auto layoutProperty = sheetNode->GetLayoutProperty<SheetPresentationProperty>();
+    CHECK_NULL_RETURN(layoutProperty, nullptr);
+    auto sheetStyle = layoutProperty->GetSheetStyleValue(SheetStyle());
 
     std::function<void()> event;
-    if (isTransitionIn) {
-        event = [weak = WeakClaim(this)]() {
-            auto sheetObject = weak.Upgrade();
-            CHECK_NULL_VOID(sheetObject);
-            sheetObject->TransformTranslateEnter();
-        };
+    if (!sheetStyle.interactive.value_or(false)) {
+        if (isTransitionIn) {
+            event = [weak = WeakClaim(this)]() {
+                auto sheetObject = weak.Upgrade();
+                CHECK_NULL_VOID(sheetObject);
+                sheetObject->TransformTranslateEnter();
+            };
+        } else {
+            event = [context, weak = pattern_, objWeak = WeakClaim(this)]() {
+                auto pattern = weak.Upgrade();
+                CHECK_NULL_VOID(pattern);
+                auto sheetObject = objWeak.Upgrade();
+                CHECK_NULL_VOID(sheetObject);
+                sheetObject->TransformTranslateExit();
+                pattern->DismissSheetShadow(context);
+            };
+        }
     } else {
-        event = [context, weak = pattern_, objWeak = WeakClaim(this)]() {
+        CreatePropertyCallback();
+        auto property = sheetPattern->GetProperty();
+        CHECK_NULL_RETURN(property, nullptr);
+        context->AttachNodeAnimatableProperty(property);
+        property->SetPropertyUnit(PropertyUnit::PIXEL_POSITION);
+        if (AceApplicationInfo::GetInstance().IsRightToLeft()) {
+            property->Set(sheetWidth_ + currentOffset_);
+        } else {
+            property->Set(sheetWidth_ - currentOffset_);
+        }
+        event = [weak = pattern_, isTransitionIn, objWeak = WeakClaim(this)]() {
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
             auto sheetObject = objWeak.Upgrade();
             CHECK_NULL_VOID(sheetObject);
-            sheetObject->TransformTranslateExit();
-            pattern->DismissSheetShadow(context);
+            pattern->GetProperty()->Set(isTransitionIn ? sheetObject->GetSideSheetWidth() : 0);
         };
     }
     return event;
 }
-
 
 void SheetSideObject::ClipSheetNode()
 {
@@ -193,6 +214,9 @@ void SheetSideObject::ClipSheetNode()
     }
     renderContext->UpdateBorderRadius(borderRadius);
     // innerBorder need to adapt
+    if (sheetStyle.radiusRenderStrategy.has_value()) {
+        renderContext->UpdateRenderStrategy(sheetStyle.radiusRenderStrategy.value());
+    }
 }
 
 void SheetSideObject::InitAnimationForOverlay(bool isTransitionIn, bool isFirstTransition)
@@ -209,8 +233,21 @@ void SheetSideObject::InitAnimationForOverlay(bool isTransitionIn, bool isFirstT
             sheetPattern->GetBuilderInitHeight();
         }
         sheetPattern->FireOnTypeDidChange();
-        sheetPattern->FireOnHeightDidChange();
         ACE_SCOPED_TRACE("Side Sheet starts the entrance animation");
+    }
+    auto layoutProperty = sheetNode->GetLayoutProperty<SheetPresentationProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    auto sheetStyle = layoutProperty->GetSheetStyleValue(SheetStyle());
+    if (sheetStyle.interactive.value_or(false)) {
+        CreatePropertyCallback();
+        auto property = sheetPattern->GetProperty();
+        CHECK_NULL_VOID(property);
+        auto renderContext = sheetNode->GetRenderContext();
+        CHECK_NULL_VOID(renderContext);
+        renderContext->AttachNodeAnimatableProperty(property);
+        property->SetPropertyUnit(PropertyUnit::PIXEL_POSITION);
+        sheetPattern->SetAnimationProcess(true);
+        property->Set(isTransitionIn ? 0 : sheetWidth_);
     }
 }
 
@@ -223,13 +260,16 @@ void SheetSideObject::SetFinishEventForAnimationOption(
     CHECK_NULL_VOID(sheetNode);
     if (isTransitionIn) {
         option.SetOnFinishEvent(
-            [sheetWK = WeakClaim(RawPtr(sheetNode))] {
+            [sheetWK = WeakClaim(RawPtr(sheetNode)), isFirst = isFirstTransition, objWeak = WeakClaim(this)] {
+                auto sheetObject = objWeak.Upgrade();
+                CHECK_NULL_VOID(sheetObject);
                 auto sheetNode = sheetWK.Upgrade();
                 CHECK_NULL_VOID(sheetNode);
                 auto pattern = sheetNode->GetPattern<SheetPresentationPattern>();
                 CHECK_NULL_VOID(pattern);
                 pattern->OnAppear();
                 pattern->AvoidAiBar();
+                sheetObject->FireHeightDidChange();
                 pattern->FireOnWidthDidChange();
             });
     } else {
@@ -302,22 +342,35 @@ std::function<void()> SheetSideObject::GetAnimationPropertyCallForOverlay(bool i
     CHECK_NULL_RETURN(sheetNode, nullptr);
     auto context = sheetNode->GetRenderContext();
     CHECK_NULL_RETURN(context, nullptr);
+    auto layoutProperty = sheetNode->GetLayoutProperty<SheetPresentationProperty>();
+    CHECK_NULL_RETURN(layoutProperty, nullptr);
+    auto sheetStyle = layoutProperty->GetSheetStyleValue(SheetStyle());
 
     std::function<void()> event;
-    if (isTransitionIn) {
-        event = [weak = WeakClaim(this)]() {
-            auto sheetObject = weak.Upgrade();
-            CHECK_NULL_VOID(sheetObject);
-            sheetObject->TransformTranslateEnter();
-        };
+    if (!sheetStyle.interactive.value_or(false)) {
+        if (isTransitionIn) {
+            event = [weak = WeakClaim(this)]() {
+                auto sheetObject = weak.Upgrade();
+                CHECK_NULL_VOID(sheetObject);
+                sheetObject->TransformTranslateEnter();
+            };
+        } else {
+            event = [context, weak = pattern_, objWeak = WeakClaim(this)]() {
+                auto pattern = weak.Upgrade();
+                CHECK_NULL_VOID(pattern);
+                auto sheetObject = objWeak.Upgrade();
+                CHECK_NULL_VOID(sheetObject);
+                sheetObject->TransformTranslateExit();
+                pattern->DismissSheetShadow(context);
+            };
+        }
     } else {
-        event = [context, weak = pattern_, objWeak = WeakClaim(this)]() {
+        event = [weak = pattern_, isTransitionIn, objWeak = WeakClaim(this)]() {
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
             auto sheetObject = objWeak.Upgrade();
             CHECK_NULL_VOID(sheetObject);
-            sheetObject->TransformTranslateExit();
-            pattern->DismissSheetShadow(context);
+            pattern->GetProperty()->Set(isTransitionIn ? sheetObject->GetSideSheetWidth() : 0);
         };
     }
     return event;
@@ -355,7 +408,7 @@ void SheetSideObject::HandleDragStart()
 {
     auto sheetPattern = GetPattern();
     CHECK_NULL_VOID(sheetPattern);
-    sheetPattern->InitScrollProps();
+    InitScrollProps();
     sheetPattern->SetIsDragging(true);
     if (sheetPattern->GetAnimation() && sheetPattern->GetAnimationProcess()) {
         AnimationUtils::StopAnimation(sheetPattern->GetAnimation());
@@ -426,6 +479,9 @@ void SheetSideObject::HandleDragEnd(float dragVelocity)
     sheetPattern->SetIsNeedProcessHeight(true);
     sheetPattern->SetIsDragging(false);
 
+    if (NearEqual(currentOffset_, 0)) {
+        return;
+    }
     if (AceApplicationInfo::GetInstance().IsRightToLeft()) {
         HandleDragEndForRTL(dragVelocity);
     } else {
@@ -508,38 +564,45 @@ void SheetSideObject::ModifyFireSheetTransition(float dragVelocity)
     renderContext->AttachNodeAnimatableProperty(property);
     property->SetPropertyUnit(PropertyUnit::PIXEL_POSITION);
 
-    auto finishCallback = [weak = AceType::WeakClaim(RawPtr(sheetPattern))]() {
-        auto ref = weak.Upgrade();
-        CHECK_NULL_VOID(ref);
-        if (!ref->GetAnimationBreak()) {
-            ref->SetAnimationProcess(false);
-            ref->GetSheetObject()->SetCurrentOffset(0.0f);
-        } else {
-            ref->SetAnimationBreak(false);
-        }
-
-        ref->AvoidAiBar();
-        ref->SetSpringBack(false);
-    };
-
     auto layoutProperty = host->GetLayoutProperty<SheetPresentationProperty>();
     CHECK_NULL_VOID(layoutProperty);
     auto sheetStyle = layoutProperty->GetSheetStyleValue(SheetStyle());
     auto interactive = sheetStyle.interactive.value_or(false);
+    auto finishCallback =
+        [weak = AceType::WeakClaim(RawPtr(sheetPattern)), interactive, offsetX, objWeak = WeakClaim(this)]() {
+            auto ref = weak.Upgrade();
+            CHECK_NULL_VOID(ref);
+            if (!ref->GetAnimationBreak()) {
+                ref->SetAnimationProcess(false);
+                ref->GetSheetObject()->SetCurrentOffset(0.0f);
+            } else {
+                ref->SetAnimationBreak(false);
+            }
+            auto sheetObject = objWeak.Upgrade();
+            CHECK_NULL_VOID(sheetObject);
+            if (!interactive && !NearEqual(sheetObject->GetSideSheetWidth(), 0)) {
+                ref->onWidthDidChange(sheetObject->GetSideSheetWidth());
+            }
+            ref->AvoidAiBar();
+            ref->SetSpringBack(false);
+        };
+
     sheetPattern->SetAnimationProcess(true);
     property->Set(width - std::abs(currentOffset_));
-    std::shared_ptr<AnimationUtils::Animation> animation = AnimationUtils::StartAnimation(option,
-        [weak = AceType::WeakClaim(RawPtr(sheetPattern)),
-            renderContext, offsetX, width, interactive]() {
+    auto pipeline = host->GetContextRefPtr();
+    std::shared_ptr<AnimationUtils::Animation> animation = AnimationUtils::StartAnimation(
+        option,
+        [weak = AceType::WeakClaim(RawPtr(sheetPattern)), renderContext, offsetX, width, interactive]() {
             auto ref = weak.Upgrade();
             CHECK_NULL_VOID(ref);
             if (interactive) {
                 ref->GetProperty()->Set(width);
             }
-            if (renderContext) {
+            if (renderContext && !interactive) {
                 renderContext->UpdateTransformTranslate({ offsetX, 0.0, 0.0f });
             }
-        }, finishCallback);
+        },
+        finishCallback, nullptr, pipeline);
     sheetPattern->SetAnimation(animation);
 }
 
@@ -550,11 +613,27 @@ void SheetSideObject::CreatePropertyCallback()
     if (sheetPattern->GetProperty()) {
         return;
     }
-    auto propertyCallback = [weak = AceType::WeakClaim(RawPtr(sheetPattern))](float position) {
+    auto propertyCallback = [weak = AceType::WeakClaim(RawPtr(sheetPattern)), objWeak = WeakClaim(this)](
+                                float position) {
+        // The position is the displayed size
         auto ref = weak.Upgrade();
         CHECK_NULL_VOID(ref);
         ref->onWidthDidChange(static_cast<int>(position));
+
+        auto sheetNode = ref->GetHost();
+        CHECK_NULL_VOID(sheetNode);
+        auto context = sheetNode->GetRenderContext();
+        CHECK_NULL_VOID(context);
+        bool isRTL = AceApplicationInfo::GetInstance().IsRightToLeft();
+        auto sheetObject = objWeak.Upgrade();
+        CHECK_NULL_VOID(sheetObject);
+        if (isRTL) {
+            context->UpdateTransformTranslate({ position - sheetObject->GetSideSheetWidth(), 0.0f, 0.0f });
+        } else {
+            context->UpdateTransformTranslate({ sheetObject->GetSideSheetMaxWidth() - position, 0.0f, 0.0f });
+        }
     };
+    ACE_UINODE_TRACE(sheetPattern->GetHost());
     auto property = AceType::MakeRefPtr<NodeAnimatablePropertyFloat>(0.0, std::move(propertyCallback));
     sheetPattern->SetProperty(property);
 }
@@ -567,6 +646,14 @@ SheetKeyboardAvoidMode SheetSideObject::GetAvoidKeyboardModeByDefault() const
 void SheetSideObject::BeforeCreateLayoutWrapper()
 {
     AvoidKeyboard(false);
+
+    auto sheetPattern = GetPattern();
+    CHECK_NULL_VOID(sheetPattern);
+    auto scrollNode = sheetPattern->GetSheetScrollNode();
+    CHECK_NULL_VOID(scrollNode);
+    auto scrollablePattern = scrollNode->GetPattern<ScrollablePattern>();
+    CHECK_NULL_VOID(scrollablePattern);
+    scrollablePattern->SetNeedFullSafeArea(false);
 }
 
 void SheetSideObject::AvoidKeyboard(bool forceAvoid)
@@ -587,18 +674,18 @@ void SheetSideObject::AvoidKeyboard(bool forceAvoid)
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
     auto manager = pipelineContext->GetSafeAreaManager();
-    auto keyboradHeight = manager->GetKeyboardInset().Length();
-    if (sheetPattern->GetKeyboardHeight() == keyboradHeight && !forceAvoid) {
+    auto keyboardHeight = manager->GetKeyboardInset().Length();
+    if (sheetPattern->GetKeyboardHeight() == keyboardHeight && !forceAvoid) {
         return;
     }
-    sheetPattern->SetKeyboardHeight(keyboradHeight);
+    sheetPattern->SetKeyboardHeight(keyboardHeight);
     if (sheetPattern->GetDismissProcess()) {
         TAG_LOGD(AceLogTag::ACE_SHEET,
             "The sheet will disappear, so there's no need to handle canceling keyboard avoidance here.");
         return;
     }
     // 1.handle non upward logic: avoidKeyboardMode::RESIZE_ONLY or avoidKeyboardMode::TRANSLATE_AND_RESIZE
-    resizeDecreasedHeight_ = keyboradHeight;
+    resizeDecreasedHeight_ = keyboardHeight;
     auto heightUp = isCurrentFocus ? GetUpOffsetCaretNeed() : 0.0f;
     // 2.Side Sheet is not to handle upward logic
 
@@ -637,7 +724,7 @@ float SheetSideObject::GetUpOffsetCaretNeed()
     auto manager = pipelineContext->GetSafeAreaManager();
     auto keyboardHeight = manager->GetKeyboardInset().Length();
     if (keyboardHeight == 0) {
-        return 0.f;
+        return 0.0f;
     }
     auto textFieldManager = DynamicCast<TextFieldManagerNG>(pipelineContext->GetTextFieldManager());
     // inputH : Distance from input component's Caret to bottom of screen
@@ -645,7 +732,7 @@ float SheetSideObject::GetUpOffsetCaretNeed()
     if (textFieldManager && !textFieldManager->GetOptionalClickPosition().has_value() &&
         !pipelineContext->UsingCaretAvoidMode()) {
         TAG_LOGD(AceLogTag::ACE_SHEET, "illegal caret position, don't calc height this time");
-        return .0f;
+        return 0.0f;
     }
     float inputH = textFieldManager ? (pipelineContext->GetRootHeight() -
         textFieldManager->GetFocusedNodeCaretRect().Top() - textFieldManager->GetHeight()) : 0.f;
@@ -656,9 +743,21 @@ float SheetSideObject::GetUpOffsetCaretNeed()
     if (inputH >= inputMinH) {
         // Caret needs not up
         TAG_LOGD(AceLogTag::ACE_SHEET, "Caret witch in Sheet needs not up");
-        return .0f;
+        return 0.0f;
     }
     // The expected height of the Caret to be lifted
     return inputMinH - inputH;
+}
+
+void SheetSideObject::FireHeightDidChange()
+{
+    auto pattern = GetPattern();
+    CHECK_NULL_VOID(pattern);
+    auto preDidHeight = pattern->GetPreDidHeight();
+    if (NearEqual(preDidHeight, sheetHeight_)) {
+        return;
+    }
+    pattern->OnHeightDidChange(sheetHeight_);
+    pattern->SetPreDidHeight(sheetHeight_);
 }
 } // namespace OHOS::Ace::NG

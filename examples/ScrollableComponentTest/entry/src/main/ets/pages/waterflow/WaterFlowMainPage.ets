@@ -39,6 +39,18 @@ struct WaterFlowMainPage {
     new TextList(5, '设置边缘渐隐效果', 'pages/waterflow/demo01/WaterFlowWithFading'),
     new TextList(6, 'WaterFlowNodeFooter', 'pages/waterflow/demo01/WaterFlowNodeFooter'),
     new TextList(7, 'WaterFlowNodeFooterContent', 'pages/waterflow/demo01/WaterFlowNodeFooterContent'),
+    new TextList(8, 'lazyVGrid-ori', 'pages/waterflow/lazyVGrid/lazyVGrid-ori'),
+    new TextList(9, 'lazyVGrid-seg', 'pages/waterflow/lazyVGrid/lazyVGrid-seg'),
+    new TextList(10, 'waterFlowFriction', 'pages/waterflow/demo01/waterFlowFriction'),
+    new TextList(11, 'waterFlowFrictionModifier', 'pages/waterflow/waterFlowModifier/waterFlowFrictionModifier'),
+    new TextList(12, 'waterFlowModifierIndex', 'pages/waterflow/waterFlowModifier/waterFlowModifierIndex'),
+    new TextList(13, 'waterFlowIndex', 'pages/waterflow/waterFlowIndex'),
+    new TextList(14, 'scrollBarColor', 'pages/waterflow/demo01/scrollBarColor'),
+    new TextList(15, 'scrollBarColor', 'pages/waterflow/waterFlowModifier/scrollBarColor'),
+    new TextList(16, 'WaterFlowInfiniteScrollingEarly', 'pages/waterflow/CAPI/WaterFlowInfiniteScrollingEarly'),
+    new TextList(17, 'BindControllerDeclare', 'pages/waterflow/bindController/WaterFlowDeclare'),
+    new TextList(18, 'BindControllerCommand', 'pages/waterflow/bindController/WaterFlowCommand'),
+    new TextList(19, 'BindControllerDestroy', 'pages/waterflow/bindController/WaterFlowDestroyDeclare')
   ]
   @State fontSize: Resource | undefined = undefined
   build() {

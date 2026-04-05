@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -12,10 +12,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// <reference path="../../state_mgmt/distRelease/stateMgmt.d.ts" />
+/// <reference path="../types/state_mgmt.d.ts" />
+/// <reference path="../types/ace_console.native.d.ts" />
+enum LogTag {
+  ARK_COMPONENT = 1,
+}
+class JSXNodeLogConsole {
+  static warn(...args: any) {
+    aceConsole.warn(LogTag.ARK_COMPONENT, ...args);
+  }
+}
 enum NodeRenderType {
   RENDER_TYPE_DISPLAY = 0,
   RENDER_TYPE_TEXTURE,
+}
+
+enum CompetitionStrategy {
+  DEFAULT = 0,
+  COMPETITION,
 }
 
 declare interface RenderOptions {
@@ -30,9 +44,12 @@ declare class __JSBaseNode__ {
   constructor(options?: RenderOptions);
   create(builder: (...args: Object[]) => void, params: Object, update: (instanceId: number, nodePtr: NodePtr) => void,
     updateConfiguration, supportLazyBuild: boolean, baseNode: BaseNode): NodePtr;
+  createReactive(builder: (...args: Object[]) => void, params: Array<Object>, update: (instanceId: number, nodePtr: NodePtr) => void,
+    updateConfiguration, supportLazyBuild: boolean, baseNode: BaseNode): NodePtr;
   finishUpdateFunc(): void;
   postTouchEvent(touchEvent: TouchEvent): boolean;
   postInputEvent(event: InputEventType): boolean;
+  postInputEventWithStrategy(event: InputEventType, competitionStrategy?: CompetitionStrategy): boolean;
   disposeNode(): void;
   updateStart(): void;
   updateEnd(): void;
@@ -49,12 +66,10 @@ abstract class BaseNode extends ViewBuildNodeBase {
     this.builderBaseNode_ = baseNode;
 
     if (uiContext === undefined) {
-      throw Error('Node constructor error, param uiContext error');
+      throw new BusinessError(401, 'Node constructor error, param uiContext error');
     } else {
       if (!(typeof uiContext === 'object') || !('instanceId_' in uiContext)) {
-        throw Error(
-          'Node constructor error, param uiContext is invalid'
-        );
+        throw new BusinessError(401, 'Node constructor error, param uiContext is invalid');
       }
     }
     this.instanceId_ = uiContext.instanceId_;
@@ -63,12 +78,16 @@ abstract class BaseNode extends ViewBuildNodeBase {
     return this.instanceId_;
   }
   updateInstance(uiContext: UIContext): void {
-      this.instanceId_ = uiContext.instanceId_;
+    this.instanceId_ = uiContext.instanceId_;
   }
   create(builder: (...args: Object[]) => void, params: Object, update: (instanceId: number, nodePtr: NodePtr) => void,
-    updateConfiguration, supportLazyBuild: boolean): NodePtr {
-      return this.builderBaseNode_.create(builder.bind(this), params, update.bind(this), updateConfiguration.bind(this), supportLazyBuild, this);
-    }
+    updateConfiguration:()=>void, supportLazyBuild: boolean): NodePtr {
+    return this.builderBaseNode_.create(builder.bind(this), params, update.bind(this), updateConfiguration.bind(this), supportLazyBuild, this);
+  }
+  createReactive(builder: (...args: Object[]) => void, params: Array<Object>, update: (instanceId: number, nodePtr: NodePtr) => void,
+    updateConfiguration:()=>void, supportLazyBuild: boolean): NodePtr {
+    return this.builderBaseNode_.createReactive(builder.bind(this), params, update.bind(this), updateConfiguration.bind(this), supportLazyBuild, this)
+  }
   finishUpdateFunc(): void {
     return this.builderBaseNode_.finishUpdateFunc();
   }
@@ -77,6 +96,9 @@ abstract class BaseNode extends ViewBuildNodeBase {
   }
   postInputEvent(event: InputEventType): boolean {
     return this.builderBaseNode_.postInputEvent(event);
+  }
+  postInputEventWithStrategy(event: InputEventType, competitionStrategy?: CompetitionStrategy): boolean {
+    return this.builderBaseNode_.postInputEventWithStrategy(event, competitionStrategy);
   }
   disposeNode(): void {
     return this.builderBaseNode_.disposeNode();

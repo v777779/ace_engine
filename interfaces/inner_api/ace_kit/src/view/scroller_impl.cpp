@@ -21,6 +21,7 @@
 
 #include "view/frame_node_impl.h"
 
+#include "core/components_ng/event/touch_event.h"
 #include "core/components_ng/pattern/grid/grid_pattern.h"
 #include "core/components_ng/pattern/list/list_pattern.h"
 #include "core/components_ng/pattern/scroll/scroll_pattern.h"
@@ -34,12 +35,17 @@ ScrollerImpl::ScrollerImpl(const RefPtr<ScrollerData>& scrollerData) : scrollerD
 void ScrollerImpl::AddObserver(const Observer& observer, int32_t id)
 {
     ScrollerObserver scrollerObserver;
+    if (observer.onTouchEvent) {
+        scrollerObserver.onTouchEvent = AceType::MakeRefPtr<NG::TouchEventImpl>(observer.onTouchEvent);
+    }
     scrollerObserver.onReachStartEvent = observer.onReachStartEvent;
     scrollerObserver.onReachEndEvent = observer.onReachEndEvent;
     scrollerObserver.onScrollStartEvent = observer.onScrollStartEvent;
     scrollerObserver.onScrollStopEvent = observer.onScrollStopEvent;
     scrollerObserver.onDidScrollEvent = observer.onDidScrollEvent;
     scrollerObserver.onScrollerAreaChangeEvent = observer.onScrollerAreaChangeEvent;
+    scrollerObserver.onWillScrollEventEx = observer.onWillScrollEventEx;
+    scrollerObserver.twoDimensionOnWillScrollEvent = observer.twoDimensionOnWillScrollEvent;
     scrollerData_->AddObserver(scrollerObserver, id);
 }
 
@@ -233,7 +239,13 @@ double ScrollerImpl::GetContentTop(const RefPtr<FrameNode>& node)
     CHECK_NULL_RETURN(scrollablePattern, 0.0);
     auto scrollPattern = AceType::DynamicCast<NG::ScrollPattern>(scrollablePattern);
     auto waterFlowPattern = AceType::DynamicCast<NG::WaterFlowPattern>(scrollablePattern);
-
+    auto listPattern = AceType::DynamicCast<NG::ListPattern>(scrollablePattern);
+    if (listPattern) {
+        auto scrollableEdge = GetScrollableEdge<Edge::TOP>(scrollerData_, node);
+        auto contentEdge = GetContentEdge<Edge::TOP>(scrollerData_, node);
+        APP_LOGD("[HDS_TABS] scrollableEdge %{public}f contentEdge %{public}f", scrollableEdge, contentEdge);
+        return std::max(scrollableEdge, contentEdge);
+    }
     bool isNeedGetScrollableEdge = (waterFlowPattern && !waterFlowPattern->GetItemStart()) ||
         (!waterFlowPattern && !scrollPattern && !IsAtStart());
     if (isNeedGetScrollableEdge) {
@@ -248,7 +260,13 @@ double ScrollerImpl::GetContentBottom(const RefPtr<FrameNode>& node)
     CHECK_NULL_RETURN(scrollablePattern, 0.0);
     auto scrollPattern = AceType::DynamicCast<NG::ScrollPattern>(scrollablePattern);
     auto waterFlowPattern = AceType::DynamicCast<NG::WaterFlowPattern>(scrollablePattern);
-
+    auto listPattern = AceType::DynamicCast<NG::ListPattern>(scrollablePattern);
+    if (listPattern) {
+        auto scrollableEdge = GetScrollableEdge<Edge::BOTTOM>(scrollerData_, node);
+        auto contentEdge = GetContentEdge<Edge::BOTTOM>(scrollerData_, node);
+        APP_LOGD("[HDS_TABS] scrollableEdge %{public}f contentEdge %{public}f", scrollableEdge, contentEdge);
+        return std::min(scrollableEdge, contentEdge);
+    }
     bool isNeedGetScrollableEdge = (waterFlowPattern && !waterFlowPattern->GetItemEnd()) ||
         (!waterFlowPattern && !scrollPattern && !IsAtEnd());
     if (isNeedGetScrollableEdge) {
@@ -274,4 +292,28 @@ bool ScrollerImpl::operator==(const Ace::RefPtr<Scroller>& other) const
     return scrollerData_->operator==(impl->scrollerData_);
 }
 
+RefPtr<FrameNode> ScrollerImpl::GetBindingFrameNode()
+{
+    auto pattern = GetScrollablePattern(scrollerData_);
+    CHECK_NULL_RETURN(pattern, nullptr);
+    auto host = pattern->GetHost();
+    CHECK_NULL_RETURN(host, nullptr);
+    auto kitNode = host->GetKitNode();
+    if (kitNode) {
+        return kitNode;
+    }
+
+    kitNode = AceType::MakeRefPtr<FrameNodeImpl>(AceType::RawPtr(host));
+    host->SetKitNode(kitNode);
+    return kitNode;
+}
+
+void ScrollerImpl::SetCanOverScroll(bool canOverScroll)
+{
+    auto scrollablePattern = GetScrollablePattern(scrollerData_);
+    if (!scrollablePattern) {
+        return;
+    }
+    scrollablePattern->SetCanOverScroll(canOverScroll);
+}
 } // namespace OHOS::Ace::Kit

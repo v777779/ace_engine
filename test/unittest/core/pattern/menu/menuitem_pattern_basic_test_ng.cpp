@@ -19,12 +19,12 @@
 #define private public
 #define protected public
 
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/rosen/testing_canvas.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas.h"
 
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/layout/grid_system_manager.h"
@@ -323,6 +323,8 @@ HWTEST_F(MenuItemPatternBasicTestNg, AddSelectIcon003, TestSize.Level1)
     ASSERT_NE(imagePattern, nullptr);
     auto imageLayoutProperty = selectIconNode->GetLayoutProperty<ImageLayoutProperty>();
     ASSERT_NE(imageLayoutProperty, nullptr);
+    auto sourceInfo = imageLayoutProperty->GetImageSourceInfo();
+    ASSERT_TRUE(sourceInfo.has_value());
 }
 
 /**
@@ -364,6 +366,44 @@ HWTEST_F(MenuItemPatternBasicTestNg, AddSelectIcon004, TestSize.Level1)
     // call AddSelectIcon
     itemPattern->OnModifyDone();
     ASSERT_EQ(leftRow->GetChildren().size(), 0u);
+}
+
+/**
+ * @tc.name: AddSelectIcon005
+ * @tc.desc: Verify AddSelectIcon On TV.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, AddSelectIcon005, TestSize.Level1)
+{
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto selectTheme = AceType::MakeRefPtr<SelectTheme>();
+    selectTheme->menuSelectedIconAlign_ = HorizontalAlign::END;
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(selectTheme));
+
+    MenuItemModelNG MenuItemModelInstance;
+    MenuItemProperties itemOption;
+    itemOption.content = "content";
+    MenuItemModelInstance.Create(itemOption);
+    MenuItemModelInstance.SetSelectIcon(true);
+    MenuItemModelInstance.SetSelectIconSrc("selectIcon.png");
+    MenuItemModelInstance.SetSelected(true);
+    auto itemNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(itemNode, nullptr);
+    auto itemPattern = itemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(itemPattern, nullptr);
+
+    ASSERT_EQ(itemNode->GetChildren().size(), 2u);
+    auto leftRow = AceType::DynamicCast<FrameNode>(itemNode->GetChildAtIndex(0));
+    EXPECT_EQ(leftRow->GetChildren().size(), 1u);
+    auto rightRow = AceType::DynamicCast<FrameNode>(itemNode->GetChildAtIndex(1));
+    EXPECT_EQ(rightRow->GetChildren().size(), 1u);
+    // call AddSelectIcon
+    itemPattern->OnModifyDone();
+    EXPECT_EQ(rightRow->GetChildren().size(), 1u);
+    auto selectIconNode = AceType::DynamicCast<FrameNode>(rightRow->GetChildAtIndex(0));
+    ASSERT_NE(selectIconNode, nullptr);
+    EXPECT_EQ(selectIconNode->GetTag(), V2::IMAGE_ETS_TAG);
 }
 
 /**
@@ -1249,6 +1289,44 @@ HWTEST_F(MenuItemPatternBasicTestNg, MenuItemPatternBasicTestNg030, TestSize.Lev
 }
 
 /**
+ * @tc.name: MenuItemPatternBasicTestNg031
+ * @tc.desc: Get theme value.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, MenuItemPatternBasicTestNg031, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create menu node
+     * @tc.expected: itemPattern is not null
+     */
+    MenuItemModelNG MenuItemModelInstance;
+    MenuItemProperties itemOption;
+    itemOption.content = "content";
+    MenuItemModelInstance.Create(itemOption);
+    auto itemNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(itemNode, nullptr);
+    auto itemPattern = itemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(itemPattern, nullptr);
+
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto selectTheme = AceType::MakeRefPtr<SelectTheme>();
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([=](ThemeType type) -> RefPtr<Theme> {
+        return selectTheme;
+    });
+    selectTheme->menuFontColor_ = Color::RED;
+    itemPattern->OnModifyDone();
+    EXPECT_EQ(itemPattern->GetCurrentSelectTheme()->GetMenuFontColor(), Color::RED);
+
+    /**
+     * @tc.steps: step2. execute theme change.
+     * @tc.expected: result as expected
+     */
+    selectTheme->menuFontColor_ = Color::BLACK;
+    EXPECT_EQ(itemPattern->GetCurrentSelectTheme()->GetMenuFontColor(), Color::BLACK);
+}
+
+/**
  * @tc.name: RegisterAccessibilityChildActionNotify001
  * @tc.desc: Test callback function.
  * @tc.type: FUNC
@@ -1301,5 +1379,647 @@ HWTEST_F(MenuItemPatternBasicTestNg, RegisterAccessibilityChildActionNotify001, 
     ASSERT_NE(callback, nullptr);
     auto reuslt = callback(menuItemNode, NotifyChildActionType::ACTION_CLICK);
     EXPECT_EQ(reuslt, AccessibilityActionResult::ACTION_RISE);
+}
+
+/**
+ * @tc.name: RegisterAccessibilityClickAction001
+ * @tc.desc: Test callback function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, RegisterAccessibilityClickAction001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 1, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+
+    menuItemPattern->RegisterAccessibilityClickAction();
+    auto accessibilityProperty = menuItemNode->GetAccessibilityProperty<AccessibilityProperty>();
+    EXPECT_NE(accessibilityProperty, nullptr);
+    auto actionClickImpl = accessibilityProperty->actionClickImpl_;
+    EXPECT_NE(actionClickImpl, nullptr);
+    auto result = accessibilityProperty->ActActionClick();
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: ClearFocusStyle001
+ * @tc.desc: Verify ClearFocusStyle when selectTheme_ is nullptr.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, ClearFocusStyle001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->selectTheme_ = nullptr;
+    menuItemPattern->ClearFocusStyle();
+    EXPECT_EQ(menuItemPattern->selectTheme_, nullptr);
+}
+
+/**
+ * @tc.name: ClearFocusStyle002
+ * @tc.desc: Verify ClearFocusStyle when GetoptionApplyFocusedStyle returns false.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, ClearFocusStyle002, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    auto selectTheme = AceType::MakeRefPtr<SelectTheme>();
+    selectTheme->optionApplyFocusedStyle_ = false;
+    menuItemPattern->selectTheme_ = selectTheme;
+    menuItemPattern->ClearFocusStyle();
+    EXPECT_FALSE(menuItemPattern->selectTheme_->GetoptionApplyFocusedStyle());
+}
+
+/**
+ * @tc.name: ClearFocusStyle003
+ * @tc.desc: Verify ClearFocusStyle when isFocusShadowSet_ is true.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, ClearFocusStyle003, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    auto selectTheme = AceType::MakeRefPtr<SelectTheme>();
+    selectTheme->optionApplyFocusedStyle_ = true;
+    menuItemPattern->selectTheme_ = selectTheme;
+    menuItemPattern->isFocusShadowSet_ = true;
+    auto renderContext = menuItemNode->GetRenderContext();
+    ASSERT_NE(renderContext, nullptr);
+    menuItemPattern->ClearFocusStyle();
+    EXPECT_FALSE(menuItemPattern->isFocusShadowSet_);
+}
+
+/**
+ * @tc.name: GetSubMenu001
+ * @tc.desc: Verify GetSubMenu when customNode is nullptr.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, GetSubMenu001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    RefPtr<UINode> customNode = nullptr;
+    auto result = menuItemPattern->GetSubMenu(customNode);
+    EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @tc.name: GetSubMenu002
+ * @tc.desc: Verify GetSubMenu when customNode tag is MENU_ETS_TAG.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, GetSubMenu002, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    auto menuNode = FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 5, AceType::MakeRefPtr<MenuPattern>(1, "", TYPE));
+    RefPtr<UINode> customNode = menuNode;
+    auto result = menuItemPattern->GetSubMenu(customNode);
+    EXPECT_NE(result, nullptr);
+    EXPECT_EQ(result->GetTag(), V2::MENU_ETS_TAG);
+}
+
+/**
+ * @tc.name: UpdatePreviewPosition001
+ * @tc.desc: Verify UpdatePreviewPosition when menuWrapper is nullptr.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, UpdatePreviewPosition001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    SizeF oldMenuSize(100.0f, 100.0f);
+    SizeF menuSize(100.0f, 150.0f);
+    menuItemPattern->UpdatePreviewPosition(oldMenuSize, menuSize);
+    EXPECT_TRUE(true);
+}
+
+/**
+ * @tc.name: HandleCloseSubMenu001
+ * @tc.desc: Verify HandleCloseSubMenu when expandingMode_ is EMBEDDED.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, HandleCloseSubMenu001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->expandingMode_ = SubMenuExpandingMode::EMBEDDED;
+    menuItemPattern->embeddedMenu_ = nullptr;
+    menuItemPattern->HandleCloseSubMenu();
+    EXPECT_EQ(menuItemPattern->embeddedMenu_, nullptr);
+}
+
+/**
+ * @tc.name: HandleCloseSubMenu002
+ * @tc.desc: Verify HandleCloseSubMenu when expandingMode_ is STACK.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, HandleCloseSubMenu002, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->expandingMode_ = SubMenuExpandingMode::STACK;
+    menuItemPattern->HandleCloseSubMenu();
+    EXPECT_TRUE(true);
+}
+
+/**
+ * @tc.name: DoCloseSubMenu001
+ * @tc.desc: Verify DoCloseSubMenu when HasDetachedFreeRootProxy returns false.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, DoCloseSubMenu001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->detachedProxy_ = nullptr;
+    menuItemPattern->DoCloseSubMenu();
+    EXPECT_EQ(menuItemPattern->detachedProxy_, nullptr);
+}
+
+/**
+ * @tc.name: DoCloseSubMenu002
+ * @tc.desc: Verify DoCloseSubMenu when expandingMode_ is STACK.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, DoCloseSubMenu002, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->expandingMode_ = SubMenuExpandingMode::STACK;
+    menuItemPattern->detachedProxy_ = FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 5,
+        AceType::MakeRefPtr<MenuPattern>(1, "", TYPE));
+    menuItemPattern->DoCloseSubMenu();
+    EXPECT_FALSE(menuItemPattern->isSubMenuShowed_);
+    EXPECT_EQ(menuItemPattern->subMenuId_, -1);
+}
+
+/**
+ * @tc.name: DoCloseSubMenu003
+ * @tc.desc: Verify DoCloseSubMenu when expandingMode_ is SIDE.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, DoCloseSubMenu003, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->expandingMode_ = SubMenuExpandingMode::SIDE;
+    menuItemPattern->detachedProxy_ = FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 5,
+        AceType::MakeRefPtr<MenuPattern>(1, "", TYPE));
+    menuItemPattern->DoCloseSubMenu();
+    EXPECT_FALSE(menuItemPattern->isSubMenuShowed_);
+    EXPECT_EQ(menuItemPattern->subMenuId_, -1);
+}
+
+/**
+ * @tc.name: UpdateTextMarquee001
+ * @tc.desc: Verify UpdateTextMarquee when content_ is nullptr.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, UpdateTextMarquee001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->content_ = nullptr;
+    menuItemPattern->UpdateTextMarquee(true);
+    EXPECT_EQ(menuItemPattern->content_, nullptr);
+}
+
+/**
+ * @tc.name: UpdateTextMarquee002
+ * @tc.desc: Verify UpdateTextMarquee when isTextFadeOut_ is false.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, UpdateTextMarquee002, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    auto textNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 5, AceType::MakeRefPtr<TextPattern>());
+    menuItemPattern->content_ = textNode;
+    menuItemPattern->isTextFadeOut_ = false;
+    menuItemPattern->UpdateTextMarquee(true);
+    EXPECT_TRUE(true);
+}
+
+/**
+ * @tc.name: NeedPerformHideSubMenuImmediately001
+ * @tc.desc: Verify NeedPerformHideSubMenuImmediately when lastInnerPosition_ has no value.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedPerformHideSubMenuImmediately001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_.reset();
+    PointF mousePoint(10.0f, 10.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedPerformHideSubMenuImmediately(mousePoint, menuZone);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: NeedPerformHideSubMenuImmediately002
+ * @tc.desc: Verify NeedPerformHideSubMenuImmediately when lastOutterPosition_ has no value.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedPerformHideSubMenuImmediately002, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_ = PointF(50.0f, 50.0f);
+    menuItemPattern->lastOutterPosition_.reset();
+    PointF mousePoint(10.0f, 10.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedPerformHideSubMenuImmediately(mousePoint, menuZone);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: NeedPerformHideSubMenuImmediately003
+ * @tc.desc: Verify NeedPerformHideSubMenuImmediately when leaveFromBottom_ is true and exit from left side.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedPerformHideSubMenuImmediately003, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_ = PointF(-10.0f, 50.0f);
+    menuItemPattern->lastOutterPosition_ = PointF(20.0f, 30.0f);
+    menuItemPattern->leaveFromBottom_ = true;
+    PointF mousePoint(10.0f, 40.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedPerformHideSubMenuImmediately(mousePoint, menuZone);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: NeedPerformHideSubMenuImmediately004
+ * @tc.desc: Verify NeedPerformHideSubMenuImmediately when leaveFromBottom_ is false and exit from left side.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedPerformHideSubMenuImmediately004, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_ = PointF(-10.0f, 50.0f);
+    menuItemPattern->lastOutterPosition_ = PointF(20.0f, 60.0f);
+    menuItemPattern->leaveFromBottom_ = false;
+    PointF mousePoint(10.0f, 40.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedPerformHideSubMenuImmediately(mousePoint, menuZone);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: NeedPerformHideSubMenuImmediately005
+ * @tc.desc: Verify NeedPerformHideSubMenuImmediately when leaveFromBottom_ is true and exit from right side.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedPerformHideSubMenuImmediately005, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_ = PointF(110.0f, 50.0f);
+    menuItemPattern->lastOutterPosition_ = PointF(80.0f, 30.0f);
+    menuItemPattern->leaveFromBottom_ = true;
+    PointF mousePoint(90.0f, 40.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedPerformHideSubMenuImmediately(mousePoint, menuZone);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: NeedPerformHideSubMenuImmediately006
+ * @tc.desc: Verify NeedPerformHideSubMenuImmediately when leaveFromBottom_ is false and exit from right side.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedPerformHideSubMenuImmediately006, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_ = PointF(110.0f, 50.0f);
+    menuItemPattern->lastOutterPosition_ = PointF(80.0f, 60.0f);
+    menuItemPattern->leaveFromBottom_ = false;
+    PointF mousePoint(90.0f, 40.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedPerformHideSubMenuImmediately(mousePoint, menuZone);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: NeedPerformHideSubMenuImmediately007
+ * @tc.desc: Verify NeedPerformHideSubMenuImmediately when condition not met returns false.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedPerformHideSubMenuImmediately007, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_ = PointF(50.0f, 50.0f);
+    menuItemPattern->lastOutterPosition_ = PointF(50.0f, 50.0f);
+    menuItemPattern->leaveFromBottom_ = true;
+    PointF mousePoint(50.0f, 50.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedPerformHideSubMenuImmediately(mousePoint, menuZone);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideMenuTask001
+ * @tc.desc: Verify NeedStartHideMenuTask when lastInnerPosition_ has no value.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideMenuTask001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_.reset();
+    PointF mousePoint(10.0f, 10.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideMenuTask(mousePoint, menuZone);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideMenuTask002
+ * @tc.desc: Verify NeedStartHideMenuTask when inner point is on left side of menu.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideMenuTask002, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_ = PointF(-10.0f, 50.0f);
+    menuItemPattern->leaveFromBottom_ = true;
+    PointF mousePoint(10.0f, 60.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideMenuTask(mousePoint, menuZone);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideMenuTask003
+ * @tc.desc: Verify NeedStartHideMenuTask when inner point is on right side of menu.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideMenuTask003, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_ = PointF(110.0f, 50.0f);
+    menuItemPattern->leaveFromBottom_ = true;
+    PointF mousePoint(90.0f, 60.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideMenuTask(mousePoint, menuZone);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideMenuTask004
+ * @tc.desc: Verify NeedStartHideMenuTask when inner point is inside menu zone.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideMenuTask004, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->lastInnerPosition_ = PointF(50.0f, 50.0f);
+    PointF mousePoint(50.0f, 60.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideMenuTask(mousePoint, menuZone);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideRightSubMenuTask001
+ * @tc.desc: Verify NeedStartHideRightSubMenuTask when leaveFromBottom_ is true and ratios meet condition.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideRightSubMenuTask001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->leaveFromBottom_ = true;
+    PointF lastInnerPoint(-10.0f, 50.0f);
+    PointF mousePoint(5.0f, 55.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideRightSubMenuTask(lastInnerPoint, mousePoint, menuZone);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideRightSubMenuTask002
+ * @tc.desc: Verify NeedStartHideRightSubMenuTask when leaveFromBottom_ is true and NearEqual for menuZone.Bottom.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideRightSubMenuTask002, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->leaveFromBottom_ = true;
+    PointF lastInnerPoint(-10.0f, 100.0f);
+    PointF mousePoint(5.0f, 55.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideRightSubMenuTask(lastInnerPoint, mousePoint, menuZone);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideRightSubMenuTask003
+ * @tc.desc: Verify NeedStartHideRightSubMenuTask when leaveFromBottom_ is false and ratios meet condition.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideRightSubMenuTask003, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->leaveFromBottom_ = false;
+    PointF lastInnerPoint(-10.0f, 50.0f);
+    PointF mousePoint(5.0f, 45.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideRightSubMenuTask(lastInnerPoint, mousePoint, menuZone);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideRightSubMenuTask004
+ * @tc.desc: Verify NeedStartHideRightSubMenuTask when leaveFromBottom_ is false and NearEqual for menuZone.Top.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideRightSubMenuTask004, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->leaveFromBottom_ = false;
+    PointF lastInnerPoint(-10.0f, 0.0f);
+    PointF mousePoint(5.0f, 45.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideRightSubMenuTask(lastInnerPoint, mousePoint, menuZone);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideLeftSubMenuTask001
+ * @tc.desc: Verify NeedStartHideLeftSubMenuTask when leaveFromBottom_ is true and ratios meet condition.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideLeftSubMenuTask001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->leaveFromBottom_ = true;
+    PointF lastInnerPoint(110.0f, 50.0f);
+    PointF mousePoint(95.0f, 55.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideLeftSubMenuTask(lastInnerPoint, mousePoint, menuZone);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideLeftSubMenuTask002
+ * @tc.desc: Verify NeedStartHideLeftSubMenuTask when leaveFromBottom_ is true and NearEqual for menuZone.Bottom.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideLeftSubMenuTask002, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->leaveFromBottom_ = true;
+    PointF lastInnerPoint(110.0f, 100.0f);
+    PointF mousePoint(95.0f, 55.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideLeftSubMenuTask(lastInnerPoint, mousePoint, menuZone);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideLeftSubMenuTask003
+ * @tc.desc: Verify NeedStartHideLeftSubMenuTask when leaveFromBottom_ is false and ratios meet condition.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideLeftSubMenuTask003, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->leaveFromBottom_ = false;
+    PointF lastInnerPoint(110.0f, 50.0f);
+    PointF mousePoint(95.0f, 45.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideLeftSubMenuTask(lastInnerPoint, mousePoint, menuZone);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: NeedStartHideLeftSubMenuTask004
+ * @tc.desc: Verify NeedStartHideLeftSubMenuTask when leaveFromBottom_ is false and NearEqual for menuZone.Top.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, NeedStartHideLeftSubMenuTask004, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->leaveFromBottom_ = false;
+    PointF lastInnerPoint(110.0f, 0.0f);
+    PointF mousePoint(95.0f, 45.0f);
+    RectF menuZone(0.0f, 0.0f, 100.0f, 100.0f);
+    auto result = menuItemPattern->NeedStartHideLeftSubMenuTask(lastInnerPoint, mousePoint, menuZone);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: InitLongPressEvent001
+ * @tc.desc: Verify InitLongPressEvent when host is nullptr.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, InitLongPressEvent001, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->InitLongPressEvent();
+    EXPECT_NE(menuItemPattern->longPressEvent_, nullptr);
+}
+
+/**
+ * @tc.name: InitLongPressEvent002
+ * @tc.desc: Verify InitLongPressEvent creates longPressEvent_.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemPatternBasicTestNg, InitLongPressEvent002, TestSize.Level1)
+{
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    menuItemPattern->longPressEvent_ = nullptr;
+    menuItemPattern->InitLongPressEvent();
+    EXPECT_NE(menuItemPattern->longPressEvent_, nullptr);
 }
 } // namespace OHOS::Ace::NG

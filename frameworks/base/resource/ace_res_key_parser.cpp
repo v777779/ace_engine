@@ -21,6 +21,8 @@
 #include "securec.h"
 #endif
 #include <regex>
+
+#include "base/log/log_wrapper.h"
 #include "base/utils/string_utils.h"
 
 namespace OHOS::Ace {
@@ -70,6 +72,8 @@ const std::unordered_map<std::string, LongScreenType> RES_LONG_SCREEN = {
 };
 
 } // namespace
+
+SINGLETON_INSTANCE_IMPL(AceResKeyParser);
 
 AceResKeyParser::AceResKeyParser() = default;
 AceResKeyParser::~AceResKeyParser() = default;

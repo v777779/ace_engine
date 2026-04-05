@@ -18,10 +18,11 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
+#include "accessibility_def.h"
 #include "accessibility_system_ability_client.h"
 #include "frameworks/core/accessibility/accessibility_manager.h"
 #include "adapter/ohos/osal/js_third_provider_interaction_operation.h"
@@ -100,10 +101,20 @@ public:
         mockRequestId = requestId;
     }
 
+    void SetFocusMoveSearchWithConditionResult(const std::list<AccessibilityElementInfo> &info,
+        const Accessibility::FocusMoveResult &result, const int32_t requestId) override
+    {
+        mockInfos_ = info;
+        mockResult_ = result;
+        mockRequestId = requestId;
+    }
+
     std::list<Accessibility::AccessibilityElementInfo> mockInfos_;
     Accessibility::AccessibilityElementInfo mockInfo_;
+    Accessibility::FocusMoveResult mockResult_;
     int32_t mockRequestId = 0;
     bool mockSucceeded_ = false;
+    bool mockFocusable_ = false;
     int32_t mockCursorPosition_ = 0;
 };
 } // namespace OHOS::Ace
@@ -151,7 +162,7 @@ HWTEST_F(JsThirdProviderInteractionOperationTest, JsThirdProviderInteractionOper
     auto jsInteractionOperation = AceType::MakeRefPtr<Framework::JsThirdProviderInteractionOperation>(
         ohAccessibilityProvider, jsAccessibilityManager, frameNode);
 
-    auto ret =jsInteractionOperation->ClearFocusFromProvider();
+    auto ret = jsInteractionOperation->ClearFocusFromProvider();
     jsInteractionOperation->ClearFocus();
     EXPECT_EQ(ret, true);
     EXPECT_EQ(ohAccessibilityProvider->providerMockResult_.receiveClear_, true);
@@ -202,7 +213,7 @@ HWTEST_F(JsThirdProviderInteractionOperationTest, JsThirdProviderInteractionOper
 
 /**
  * @tc.name: JsThirdProviderInteractionOperationTest003
- * @tc.desc: earchElementInfosByText
+ * @tc.desc: SearchElementInfosByText
  * @tc.type: FUNC
  */
 HWTEST_F(JsThirdProviderInteractionOperationTest, JsThirdProviderInteractionOperationTest003, TestSize.Level1)
@@ -221,7 +232,7 @@ HWTEST_F(JsThirdProviderInteractionOperationTest, JsThirdProviderInteractionOper
 
     int64_t elementId = -1;
     int32_t requestId = 2;
-    std::string& text = TEST_CONTENT_STR;
+    const std::string text = TEST_CONTENT_STR;
     MockAccessibilityElementOperatorCallback operatorCallback;
 
     // 1 provider abnormal, callback should receive same request id and empty infos
@@ -412,7 +423,7 @@ HWTEST_F(JsThirdProviderInteractionOperationTest, JsThirdProviderInteractionOper
 
 /**
  * @tc.name: JsThirdProviderInteractionOperationTest008
- * @tc.desc: GetCursorPosition
+ * @tc.desc: SendAccessibilityAsyncEvent
  * @tc.type: FUNC
  */
 HWTEST_F(JsThirdProviderInteractionOperationTest, JsThirdProviderInteractionOperationTest008, TestSize.Level1)
@@ -552,7 +563,7 @@ HWTEST_F(JsThirdProviderInteractionOperationTest, JsThirdProviderInteractionOper
 
 /**
  * @tc.name: JsThirdProviderInteractionOperationTest011
- * @tc.desc: HandleEventByFramework ARKUI_ACCESSIBILITY_NATIVE_EVENT_TYPE_FOCUS_NODE_UPDATE
+ * @tc.desc: HandleEventByFramework FOCUS_NODE_UPDATE
  * @tc.type: FUNC
  */
 HWTEST_F(JsThirdProviderInteractionOperationTest, JsThirdProviderInteractionOperationTest011, TestSize.Level1)
@@ -691,8 +702,8 @@ HWTEST_F(JsThirdProviderInteractionOperationTest, FrameNodeAccessibilityVisible0
 HWTEST_F(JsThirdProviderInteractionOperationTest, GetNodeConfig01, TestSize.Level1)
 {
     /**
-    * @tc.steps: step1. create jsInteractionOperation.
-    */
+     * @tc.steps: step1. create jsInteractionOperation.
+     */
     auto ohAccessibilityProvider
         = AceType::MakeRefPtr<MockOhAccessibilityProvider>();
     auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
@@ -705,7 +716,7 @@ HWTEST_F(JsThirdProviderInteractionOperationTest, GetNodeConfig01, TestSize.Leve
         ohAccessibilityProvider, jsAccessibilityManager, frameNode);
 
     /**
-     * @tc.steps: step2. test func .
+     * @tc.steps: step2. test func.
      */
     Framework::NodeConfig config;
     jsInteractionOperation->GetNodeConfig(config);
@@ -807,4 +818,46 @@ HWTEST_F(JsThirdProviderInteractionOperationTest, JsThirdProviderInteractionOper
         operatorCallback, mode, 2);
     EXPECT_EQ(operatorCallback.mockRequestId, requestId);
 }
+
+
+/**
+ * @tc.name: FindNativeInfoById001
+ * @tc.desc: FindNativeInfoById
+ * @tc.type: FUNC
+ */
+HWTEST_F(JsThirdProviderInteractionOperationTest, FindNativeInfoById001, TestSize.Level1)
+{
+    auto ohAccessibilityProvider
+        = AceType::MakeRefPtr<MockOhAccessibilityProvider>();
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    auto jsAccessibilityManager = AceType::MakeRefPtr<Framework::JsAccessibilityManager>();
+    auto context = NG::PipelineContext::GetCurrentContext();
+    jsAccessibilityManager->SetPipelineContext(context);
+    jsAccessibilityManager->Register(true);
+
+    auto jsInteractionOperation = std::make_shared<Framework::JsThirdProviderInteractionOperation>(
+        ohAccessibilityProvider, jsAccessibilityManager, frameNode);
+    jsInteractionOperation->SetBelongTreeId(0);
+
+    bool ret;
+
+    int64_t elementId = 0;
+    auto nativeInfo = std::make_shared<ArkUI_AccessibilityElementInfo>();
+
+    // 1 FindAccessibilityNodeInfosById get error result
+    ohAccessibilityProvider->SetInjectResult(-1);
+    ret = jsInteractionOperation->FindNativeInfoById(ohAccessibilityProvider, elementId, nativeInfo);
+    EXPECT_EQ(ret, false);
+ 
+    // 2 FindAccessibilityNodeInfosById get empty infos
+    ohAccessibilityProvider->SetInjectResult(INJECT_EMPTY_INFOS);
+    ret = jsInteractionOperation->FindNativeInfoById(ohAccessibilityProvider, elementId, nativeInfo);
+    EXPECT_EQ(ret, false);
+
+    // 3 FindAccessibilityNodeInfosByIdFromProvider ok, info equals to mock element info
+    ohAccessibilityProvider->providerMockResult_.Reset();
+    ret = jsInteractionOperation->FindNativeInfoById(ohAccessibilityProvider, elementId, nativeInfo);
+    EXPECT_EQ(ret, true);
+}
+
 } // namespace OHOS::Ace::NG

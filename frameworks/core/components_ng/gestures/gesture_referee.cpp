@@ -232,12 +232,22 @@ bool GestureScope::IsAnySucceedRecognizerExist()
     return false;
 }
 
+void GestureScope::UpdateGestureReferee(size_t touchId, const WeakPtr<GestureReferee>& gestureReferee)
+{
+    for (const auto& weak : recognizers_) {
+        auto recognizer = weak.Upgrade();
+        if (recognizer) {
+            recognizer->UpdateGestureReferee(gestureReferee);
+        }
+    }
+}
+
 void GestureScope::ForceCleanGestureScope()
 {
     for (const auto& weak : recognizers_) {
         auto recognizer = weak.Upgrade();
         if (recognizer) {
-            recognizer->ForceCleanRecognizer();
+            recognizer->ForceCleanRecognizerWithGroup();
         }
     }
     recognizers_.clear();
@@ -259,7 +269,7 @@ void GestureScope::CleanGestureScopeState()
         auto recognizer = weak.Upgrade();
         auto multiFingerRecognizer = AceType::DynamicCast<MultiFingersRecognizer>(recognizer);
         if (multiFingerRecognizer && multiFingerRecognizer->CheckTouchId(touchId_) &&
-            multiFingerRecognizer->GetTouchPointsSize() == 1) {
+            multiFingerRecognizer->GetOriginalTouchPointsSize() == 1) {
             multiFingerRecognizer->CleanRecognizerState();
         }
     }
@@ -314,6 +324,19 @@ void GestureReferee::CleanGestureStateVoluntarily(size_t touchId)
         const auto& scope = iter->second;
         CHECK_NULL_VOID(scope);
         scope->CleanGestureScopeStateVoluntarily();
+    }
+}
+
+void GestureReferee::UpdateGestureReferee(size_t touchId)
+{
+    RefPtr<GestureScope> scope;
+    const auto iter = gestureScopes_.find(touchId);
+    if (iter == gestureScopes_.end()) {
+        return;
+    }
+    scope = iter->second;
+    if (scope) {
+        scope->UpdateGestureReferee(touchId, AceType::WeakClaim(this));
     }
 }
 
@@ -461,8 +484,35 @@ void GestureReferee::Adjudicate(const RefPtr<NGGestureRecognizer>& recognizer, G
     }
 }
 
+void GestureReferee::RecallOnAcceptGesture()
+{
+    if (recognizerDelayStatus_ == RecognizerDelayStatus::START) {
+        delayRecognizer_.Reset();
+        return;
+    }
+    auto recognizer = delayRecognizer_.Upgrade();
+    CHECK_NULL_VOID(recognizer);
+    HandleAcceptDisposal(recognizer);
+    delayRecognizer_.Reset();
+}
+
+bool GestureReferee::CheckRecognizerInInnerContainer(const RefPtr<NGGestureRecognizer>& recognizer)
+{
+    constexpr size_t MIN_POSTINPUTEVENT_MOUSE_ID = 100000;
+    for (auto iter = gestureScopes_.begin(); iter != gestureScopes_.end(); iter++) {
+        if (iter->second->Existed(recognizer) && iter->first < MIN_POSTINPUTEVENT_MOUSE_ID) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void GestureReferee::HandleAcceptDisposal(const RefPtr<NGGestureRecognizer>& recognizer)
 {
+    if (recognizerDelayStatus_ == RecognizerDelayStatus::START && CheckRecognizerInInnerContainer(recognizer)) {
+        delayRecognizer_ = recognizer;
+        return;
+    }
     CHECK_NULL_VOID(recognizer);
 
     if (recognizer->GetRefereeState() == RefereeState::SUCCEED) {
@@ -557,4 +607,11 @@ bool GestureReferee::IsScopesEmpty() const
     return gestureScopes_.empty();
 }
 
+void GestureReferee::SetRecognizerDelayStatus(const RecognizerDelayStatus& recognizerDelayStatus)
+{
+    recognizerDelayStatus_ = recognizerDelayStatus;
+    if (recognizerDelayStatus_ == RecognizerDelayStatus::END) {
+        RecallOnAcceptGesture();
+    }
+}
 } // namespace OHOS::Ace::NG

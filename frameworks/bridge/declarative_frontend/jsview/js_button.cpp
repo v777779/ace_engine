@@ -25,6 +25,7 @@
 #include "base/utils/utils.h"
 #include "core/components/button/button_component.h"
 #include "core/components/button/button_theme.h"
+#include "core/components/common/layout/common_text_constants.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/button/button_model_ng.h"
 #include "frameworks/bridge/declarative_frontend/ark_theme/theme_apply/js_button_theme.h"
@@ -169,7 +170,7 @@ void JSButton::SetTextColor(const JSCallbackInfo& info)
 {
     Color textColor;
     RefPtr<ResourceObject> resObj;
-    if (!ParseJsColor(info[0], textColor, resObj)) {
+    if (!ParseJsColorForMaterial(info[0], textColor, resObj)) {
         auto buttonTheme = PipelineBase::GetCurrentContext()->GetTheme<ButtonTheme>();
         textColor = buttonTheme->GetTextStyle().GetTextColor();
     }
@@ -208,6 +209,8 @@ void JSButton::SetButtonStyle(const JSCallbackInfo& info)
     auto buttonStyleMode = static_cast<ButtonStyleMode>(value);
     if (!JSButtonTheme::ApplyTheme(buttonStyleMode, isLabelButton_)) {
         ButtonModel::GetInstance()->SetButtonStyle(buttonStyleMode);
+    } else {
+        ButtonModel::GetInstance()->SetButtonStyleOnly(buttonStyleMode);
     }
 }
 
@@ -235,6 +238,8 @@ void JSButton::SetRole(const JSCallbackInfo& info)
     auto buttonRole = static_cast<ButtonRole>(value);
     if (!JSButtonTheme::ApplyTheme(buttonRole, isLabelButton_)) {
         ButtonModel::GetInstance()->SetRole(buttonRole);
+    } else {
+        ButtonModel::GetInstance()->SetRoleOnly(buttonRole);
     }
 }
 
@@ -347,6 +352,18 @@ void JSButton::CompleteParameters(ButtonParameters& buttonParameters)
     }
 }
 
+bool JSButton::SetTextAlign(JSRef<JSVal>& textAlign, ButtonParameters& buttonParameters)
+{
+    if (!textAlign->IsNull() && textAlign->IsNumber()) {
+        auto textAlignValue = textAlign->ToNumber<int32_t>();
+        if (textAlignValue >= 0 && textAlignValue < static_cast<int32_t>(TEXT_ALIGNS.size())) {
+            buttonParameters.textAlign = TEXT_ALIGNS[textAlignValue];
+            return true;
+        }
+    }
+    return false;
+}
+
 void JSButton::SetLableStyle(const JSCallbackInfo& info)
 {
     if (!info[0]->IsObject()) {
@@ -385,6 +402,11 @@ void JSButton::SetLableStyle(const JSCallbackInfo& info)
 
     JSRef<JSVal> font = obj->GetProperty("font");
     GetFontContent(font, buttonParameters);
+
+    JSRef<JSVal> textAlign = obj->GetProperty("textAlign");
+    if (!SetTextAlign(textAlign, buttonParameters)) {
+        ButtonModel::GetInstance()->ResetTextAlign();
+    }
 
     CompleteParameters(buttonParameters);
     ButtonModel::GetInstance()->SetLabelStyle(buttonParameters);
@@ -604,7 +626,7 @@ void JSButton::JsOnClick(const JSCallbackInfo& info)
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("onClick");
         PipelineContext::SetCallBackNode(node);
-        func->Execute(info);
+        func->Execute(execCtx.vm_, info);
 #if !defined(PREVIEW) && defined(OHOS_PLATFORM)
         JSInteractableView::ReportClickEvent(node);
 #endif
@@ -640,6 +662,9 @@ void JSButton::JsBackgroundColor(const JSCallbackInfo& info)
         }
     }
     if (SystemProperties::ConfigChangePerform()) {
+        if (!NG::ViewStackProcessor::GetInstance()->IsCurrentVisualStateProcess()) {
+            return;
+        }
         ButtonModel::GetInstance()->CreateWithColorResourceObj(resObj, ButtonColorType::BACKGROUND_COLOR);
     }
     ButtonModel::GetInstance()->BackgroundColor(backgroundColor, colorFlag);
@@ -694,6 +719,7 @@ void JSButton::JsSize(const JSCallbackInfo& info)
 void JSButton::JsRadius(const JSCallbackInfo& info)
 {
     JsRadius(info[0]);
+    SetRenderStrategy(info);
 }
 
 void JSButton::JsRadius(const JSRef<JSVal>& jsValue)

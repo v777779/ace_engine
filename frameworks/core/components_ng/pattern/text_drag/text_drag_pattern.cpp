@@ -20,6 +20,7 @@
 #include "base/utils/utils.h"
 #include "core/components/container_modal/container_modal_constants.h"
 #include "core/components/text/text_theme.h"
+#include "core/components_ng/pattern/container_modal/container_modal_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/text_drag/text_drag_base.h"
 #include "core/components_ng/render/drawing.h"
@@ -37,8 +38,10 @@ bool TextDragPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirt
     return true;
 }
 
-const RectF GetFirstBoxRect(const std::vector<RectF>& boxes, const RectF& contentRect, const float textStartY)
+const RectF TextDragPattern::GetFirstBoxRect(const std::vector<RectF>& boxes, const RectF& contentRect,
+    const float textStartY)
 {
+    CHECK_NULL_RETURN(!boxes.empty(), RectF{});
     for (const auto& box : boxes) {
         if (box.Bottom() + textStartY > contentRect.Top() + BOX_EPSILON) {
             return box;
@@ -47,12 +50,19 @@ const RectF GetFirstBoxRect(const std::vector<RectF>& boxes, const RectF& conten
     return boxes.front();
 } // Obtains the first line in the visible area of the text box, including the truncated part.
 
-const RectF GetLastBoxRect(const std::vector<RectF>& boxes, const RectF& contentRect, const float textStartY)
+const RectF TextDragPattern::GetLastBoxRect(const std::vector<RectF>& boxes, const RectF& contentRect,
+    const float textStartY)
 {
+    CHECK_NULL_RETURN(!boxes.empty(), RectF{});
     bool hasResult = false;
     RectF result;
     RectF preBox;
-    auto maxBottom = contentRect.GetY() + SystemProperties::GetDevicePhysicalHeight();
+    auto deviceHeight = SystemProperties::GetDevicePhysicalHeight();
+    auto container = Container::CurrentSafely();
+    if (container && container->GetDisplayInfo()) {
+        deviceHeight = container->GetDisplayInfo()->GetHeight();
+    }
+    auto maxBottom = contentRect.GetY() + deviceHeight;
     for (const auto& box : boxes) {
         auto caculateBottom = box.Bottom() + textStartY;
         bool isReachingBottom = (caculateBottom >= maxBottom) || (caculateBottom >= contentRect.Bottom());
@@ -81,6 +91,7 @@ const RectF GetLastBoxRect(const std::vector<RectF>& boxes, const RectF& content
 RefPtr<FrameNode> TextDragPattern::CreateDragNode(const RefPtr<FrameNode>& hostNode)
 {
     CHECK_NULL_RETURN(hostNode, nullptr);
+    ACE_UINODE_TRACE(hostNode);
     auto hostPattern = hostNode->GetPattern<TextDragBase>();
     const auto nodeId = ElementRegister::GetInstance()->MakeUniqueId();
     auto dragNode = FrameNode::GetOrCreateFrameNode(
@@ -94,7 +105,7 @@ RefPtr<FrameNode> TextDragPattern::CreateDragNode(const RefPtr<FrameNode>& hostN
         dragContext->UpdateForegroundColorStrategy(hostContext->GetForegroundColorStrategy().value());
     }
     auto dragPattern = dragNode->GetPattern<TextDragPattern>();
-    auto data = CalculateTextDragData(hostPattern, dragNode);
+    auto data = CalculateTextDragData(hostPattern, dragNode, hostNode);
     TAG_LOGI(AceLogTag::ACE_TEXT, "CreateDragNode SelectPositionInfo startX = %{public}f, startY = %{public}f,\
              endX = %{public}f, endY = %{public}f, globalX = %{public}f, globalY = %{public}f",
              data.selectPosition_.startX_, data.selectPosition_.startY_,
@@ -115,13 +126,21 @@ RefPtr<FrameNode> TextDragPattern::CreateDragNode(const RefPtr<FrameNode>& hostN
     return dragNode;
 }
 
-void TextDragPattern::CalculateOverlayOffset(RefPtr<FrameNode>& dragNode, OffsetF& offset)
+void TextDragPattern::CalculateOverlayOffset(
+    RefPtr<FrameNode>& dragNode, OffsetF& offset, const RefPtr<FrameNode>& hostNode)
 {
     auto pipeline = dragNode->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto overlayManager = pipeline->GetOverlayManager();
     CHECK_NULL_VOID(overlayManager);
     auto rootNode = overlayManager->GetRootNode().Upgrade();
+    auto containerModalNode = pipeline->GetContainerModalNode();
+    if (containerModalNode) {
+        auto containerModalPattern = containerModalNode->GetPattern<ContainerModalPattern>();
+        if (containerModalPattern && containerModalPattern->CheckNodeOnContainerModalTitle(hostNode)) {
+            rootNode = containerModalNode;
+        }
+    }
     CHECK_NULL_VOID(rootNode);
     auto rootGeometryNode = AceType::DynamicCast<FrameNode>(rootNode)->GetGeometryNode();
     CHECK_NULL_VOID(rootGeometryNode);
@@ -139,7 +158,8 @@ void TextDragPattern::DropBlankLines(std::vector<RectF>& boxes)
     }
 }
 
-TextDragData TextDragPattern::CalculateTextDragData(RefPtr<TextDragBase>& pattern, RefPtr<FrameNode>& dragNode)
+TextDragData TextDragPattern::CalculateTextDragData(RefPtr<TextDragBase>& pattern, RefPtr<FrameNode>& dragNode,
+    const RefPtr<FrameNode>& hostNode)
 {
     auto dragContext = dragNode->GetRenderContext();
     auto dragPattern = dragNode->GetPattern<TextDragPattern>();
@@ -151,7 +171,7 @@ TextDragData TextDragPattern::CalculateTextDragData(RefPtr<TextDragBase>& patter
     CHECK_NULL_RETURN(!boxes.empty(), {});
     DropBlankLines(boxes);
     auto globalOffset = pattern->GetParentGlobalOffset();
-    CalculateOverlayOffset(dragNode, globalOffset);
+    CalculateOverlayOffset(dragNode, globalOffset, hostNode);
     RectF leftHandler = GetHandler(true, boxes, contentRect, globalOffset, textStartOffset);
     RectF rightHandler = GetHandler(false, boxes, contentRect, globalOffset, textStartOffset);
     AdjustHandlers(contentRect, leftHandler, rightHandler);
@@ -222,6 +242,10 @@ void TextDragPattern::AdjustHandlers(const RectF contentRect, RectF& leftHandler
 
 std::shared_ptr<RSPath> TextDragPattern::GenerateClipPath()
 {
+    auto host = GetHost();
+    if (host) {
+        ACE_UINODE_TRACE(host);
+    }
     std::shared_ptr<RSPath> path = std::make_shared<RSPath>();
     auto selectPosition = GetSelectPosition();
     float startX = selectPosition.startX_;
@@ -254,6 +278,10 @@ std::shared_ptr<RSPath> TextDragPattern::GenerateClipPath()
 
 std::shared_ptr<RSPath> TextDragPattern::GenerateBackgroundPath(float offset, float radiusRatio)
 {
+    auto host = GetHost();
+    if (host) {
+        ACE_UINODE_TRACE(host);
+    }
     std::shared_ptr<RSPath> path = std::make_shared<RSPath>();
     std::vector<TextPoint> points;
     GenerateBackgroundPoints(points, offset);
@@ -263,6 +291,10 @@ std::shared_ptr<RSPath> TextDragPattern::GenerateBackgroundPath(float offset, fl
 
 std::shared_ptr<RSPath> TextDragPattern::GenerateSelBackgroundPath(float offset)
 {
+    auto host = GetHost();
+    if (host) {
+        ACE_UINODE_TRACE(host);
+    }
     std::shared_ptr<RSPath> path = std::make_shared<RSPath>();
     std::vector<TextPoint> points;
     GenerateBackgroundPoints(points, offset);
@@ -397,6 +429,7 @@ Dimension TextDragPattern::GetDragCornerRadius()
 
 void TextDragPattern::OnDetachFromMainTree()
 {
+    ResetAnimatingParagraph();
     CHECK_NULL_VOID(onDetachFromMainTree_);
     onDetachFromMainTree_();
 }

@@ -18,13 +18,12 @@
 
 #include "base/memory/ace_type.h"
 #include "base/utils/macros.h"
-#include "core/components_ng/render/drawing.h"
 #include "core/components_ng/render/node_paint_method.h"
 
 namespace OHOS::Ace::NG {
 
 class SwiperPaintMethod : public NodePaintMethod {
-    DECLARE_ACE_TYPE(SwiperPaintMethod, NodePaintMethod)
+    DECLARE_ACE_TYPE(SwiperPaintMethod, NodePaintMethod);
 
 public:
     SwiperPaintMethod(Axis axis, float mainDelta) : axis_(axis), mainDelta_(mainDelta) {};

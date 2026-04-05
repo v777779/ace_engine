@@ -23,6 +23,7 @@
 #include "core/common/event_dump.h"
 #include "core/common/key_event_manager.h"
 #include "core/components/common/layout/constants.h"
+#include "core/components_ng/event/input_event_hub.h"
 #include "core/components_ng/event/response_ctrl.h"
 #include "core/components_ng/gestures/gesture_referee.h"
 #include "core/components_ng/gestures/recognizers/gesture_recognizer.h"
@@ -51,6 +52,7 @@ public:
 class RenderNode;
 class Element;
 class TextOverlayManager;
+class CoastingAxisEventGenerator;
 using MouseHoverTestList = std::list<WeakPtr<RenderNode>>;
 using OutOfRectGetRectCallback = std::function<void(std::vector<Rect>&)>;
 using OutOfRectTouchCallback = std::function<void(void)>;
@@ -80,6 +82,27 @@ struct TouchDelegateHdl {
 struct MarkProcessedEventInfo {
     int32_t eventId = -1;
     int64_t lastLogTimeStamp = 0;
+};
+
+struct NodeGeneralInfo {
+    int32_t nodeId = -1;
+    std::string tag = "";
+};
+struct HitNodeInfos {
+    int32_t pointerId = -1;
+    float positionX = 0.0f;
+    float positionY = 0.0f;
+    uint64_t timeStamp = 0;
+    std::vector<NodeGeneralInfo> hitNodeInfos;
+};
+
+struct HitTestRecordInfo {
+    bool isRealTouch = false;
+    float screenX = 0.0f;
+    float screenY = 0.0f;
+    int32_t fingerId = -1;
+    TimeStamp timeStamp;
+    TouchType type;
 };
 
 class EventManager : virtual public NG::KeyEventManager {
@@ -256,6 +279,19 @@ public:
 
     void DumpEventWithCount(const std::vector<std::string>& params, NG::EventTreeType type, bool hasJson = false);
 
+    NG::EventTouchInfoRecord& GetEventTouchInfoRecord()
+    {
+        return eventTouchInfo_;
+    }
+
+    void DoDumpTouchInfo(bool hasJson);
+
+    void DumpTouchInfo(const std::vector<std::string>& params, bool hasJson = false);
+
+    void AddDumpTouchInfo(const TouchEvent& event);
+
+    bool CheckTouchInfoDump();
+
     void AddGestureSnapshot(
         int32_t finger, int32_t depth, const RefPtr<TouchEventTarget>& target, NG::EventTreeType type);
 
@@ -320,6 +356,11 @@ public:
         return downFingerIds_;
     }
 
+    inline void DeleteDoubleDownEvent(int32_t eventId)
+    {
+        downFingerIds_.erase(eventId);
+    }
+
     inline const std::unordered_map<int32_t, TouchEvent>& GetIdToTouchPoint() const
     {
         return idToTouchPoints_;
@@ -351,27 +392,22 @@ public:
 
     void CleanHoverStatusForDragBegin();
 
+    void AddToMousePendingRecognizers(const WeakPtr<NG::NGGestureRecognizer>& recognizer);
+
     void RegisterDragTouchEventListener(int32_t uniqueIdentify, std::function<void(const TouchEvent&)> callback);
 
     void UnRegisterDragTouchEventListener(int32_t uniqueIdentify);
 
     void NotifyDragTouchEventListener(const TouchEvent& dragPointerEvent);
 
-    void AddToMousePendingRecognizers(const WeakPtr<NG::NGGestureRecognizer>& recognizer);
-
-    bool GetPassThroughResult() const
-    {
-        return passThroughResult_;
-    }
-
     template<typename T>
     bool CheckDifferentTargetDisplay(const std::vector<T>& historyEvents, const std::vector<T>& events);
 
     std::unordered_map<int32_t, TouchDelegates> touchDelegatesMap_;
 
-    TouchDelegateHdl AddTouchDelegate(const int32_t touchId, const RefPtr<NG::TouchDelegate> delegater);
+    TouchDelegateHdl AddTouchDelegate(const int32_t touchId, const RefPtr<NG::TouchDelegate>& delegater);
 
-    TouchDelegateHdl ReplaceTouchDelegate(const int32_t touchId, const RefPtr<NG::TouchDelegate> delegater);
+    TouchDelegateHdl UpdateTouchDelegate(const int32_t touchId, const RefPtr<NG::TouchDelegate>& delegater);
 
     void UnregisterTouchDelegate(TouchDelegateHdl handler);
 
@@ -379,19 +415,63 @@ public:
 
     void DelegateTouchEvent(const TouchEvent& point);
 
-    void AddTouchDoneFrameNode(const WeakPtr<NG::FrameNode>& frameNode);
-
     MouseFormat GetCurrentMouseStyle()
     {
         CHECK_NULL_RETURN(mouseStyleManager_, MouseFormat::DEFAULT);
         return mouseStyleManager_->GetCurrentMouseStyle();
     }
 
+    void AddTouchDoneFrameNode(const WeakPtr<NG::FrameNode>& frameNode);
+
+    bool IsDragCancelPending() const
+    {
+        return isDragCancelPending_;
+    }
+    bool IsUseDumpTouchInfo() const
+    {
+        return eventTouchInfo_.isUseDumpTouchInfo_;
+    }
+    void SetIsUseDumpTouchInfo(bool isUseDumpTouchInfo)
+    {
+        eventTouchInfo_.isUseDumpTouchInfo_ = isUseDumpTouchInfo;
+    }
+    TouchEvent& GetLastTouchEvent()
+    {
+        return lastTouchEvent_;
+    }
+    MouseEvent& GetLastMouseEvent()
+    {
+        return lastMouseEvent_;
+    }
+    AxisEvent& GetLastAxisEvent()
+    {
+        return lastAxisEvent_;
+    }
 #if defined(SUPPORT_TOUCH_TARGET_TEST)
     bool TouchTargetHitTest(const TouchEvent& touchPoint, const RefPtr<NG::FrameNode>& frameNode,
         TouchRestrict& touchRestrict, const Offset& offset = Offset(), float viewScale = 1.0f,
         bool needAppend = false, const std::string& target = "");
 #endif
+
+    bool GetPassThroughResult()
+    {
+        return passThroughResult_;
+    }
+    void FalsifyCancelEventWithDifferentDeviceId(const AxisEvent& axisEvent, int32_t deviceId, bool sendOnTouch = true);
+    bool HandleAxisEventWithDifferentDeviceId(const AxisEvent& event, const RefPtr<NG::FrameNode>& frameNode);
+    void NotifyAxisEvent(const AxisEvent& event, const RefPtr<NG::FrameNode>& node = nullptr) const;
+    bool OnTouchpadInteractionBegin();
+    void NotifyCoastingAxisEventStop() const;
+    std::string GetLastHitTestNodeInfosForTouch(bool isTopMost);
+    void AddHitTestInfoRecord(const RefPtr<NG::FrameNode>& frameNode);
+    void LogHitTestInfoRecord(const TouchEvent& touchPoint);
+    void ClearHitTestInfoRecord(const TouchEvent& touchPoint);
+    void RegisterHitTestFrameNodeListener(int32_t uniqueIdentify, std::function<void(const TouchEvent&)> callback);
+    void UnRegisterHitTestFrameNodeListener(int32_t uniqueIdentify);
+    void NotifyHitTestFrameNodeListener(const TouchEvent& touchEvent);
+    void AddTouchpadInteractionListenerInner(int32_t frameNodeId, NG::TouchpadInteractionListener&& listener);
+    void UnregisterTouchpadInteractionListenerInner(int32_t frameNodeId);
+    void NotifyTouchpadInteraction();
 private:
     void SetHittedFrameNode(const std::list<RefPtr<NG::NGGestureRecognizer>>& touchTestResults);
     void CleanGestureEventHub();
@@ -399,6 +479,8 @@ private:
         bool& isMousePressAtSelectedNode, int32_t selectedNodeId);
     void CheckMouseTestResults(bool& isMousePressAtSelectedNode, int32_t selectedNodeId, int32_t fingerId);
     void CleanRefereeBeforeTouchTest(TouchEvent touchPoint, bool needAppend);
+    void CleanRefereeBeforeTouchTestForPost(
+        TouchEvent touchPoint, const RefPtr<NG::GestureReferee>& currentReferee);
     void LogTouchTestResultInfo(const TouchEvent& touchPoint, const RefPtr<NG::FrameNode>& frameNode,
         TouchRestrict& touchRestrict, const Offset& offset = Offset(),
         float viewScale = 1.0f, bool needAppend = false);
@@ -412,9 +494,8 @@ private:
     void DispatchTouchEventInOldPipeline(const TouchEvent& point, bool dispatchSuccess);
     void DispatchTouchEventToTouchTestResult(const TouchEvent& touchEvent, TouchTestResult touchTestResult,
         bool sendOnTouch);
-    void SetResponseLinkRecognizers(const TouchTestResult& result, const ResponseLinkResult& responseLinkRecognizers);
-    void FalsifyCancelEventAndDispatch(const TouchEvent& touchPoint, bool sendOnTouch = true);
-    void FalsifyCancelEventAndDispatch(const AxisEvent& axisEvent, bool sendOnTouch = true);
+    void SetResponseLinkRecognizers(
+        const TouchTestResult& result, const ResponseLinkResult& responseLinkRecognizers, bool isPostEvent = false);
     void FalsifyHoverCancelEventAndDispatch(const TouchEvent& touchPoint);
     void UpdateDragInfo(TouchEvent& point);
     void UpdateInfoWhenFinishDispatch(const TouchEvent& point, bool sendOnTouch);
@@ -430,6 +511,14 @@ private:
     void CheckMousePendingRecognizersState(const TouchEvent& event);
     void ExecuteTouchTestDoneCallback(const TouchEvent& touchEvent, const ResponseLinkResult& responseLinkRecognizers);
     void ExecuteTouchTestDoneCallback(const AxisEvent& axisEvent, const ResponseLinkResult& responseLinkRecognizers);
+    void InitCoastingAxisEventGenerator();
+    void FalsifyCancelEventAndDispatch(const TouchEvent& touchPoint, bool sendOnTouch = true);
+    void FalsifyCancelEventAndDispatch(const AxisEvent& axisEvent, bool sendOnTouch = true);
+    RefPtr<NG::GestureReferee> GetCurrentReferee(bool isNewReferee, int32_t eventHandleId);
+    void ProcessRefereeWithAxisEnd(const AxisEvent& even, const RefPtr<NG::GestureReferee>& currentReferee);
+    void ProcessTouchTestWithReferee(const TouchEvent& touchPoint, const RefPtr<NG::FrameNode>& frameNode,
+      TouchRestrict& touchRestrict, const Offset& offset, float viewScale, bool needAppend,
+      const TouchTestResult& hitTestResult);
     bool innerEventWin_ = false;
     std::unordered_map<size_t, TouchTestResult> mouseTestResults_;
     std::unordered_map<int32_t, MouseTestResult> currMouseTestResultsMap_;
@@ -469,27 +558,42 @@ private:
     RefPtr<GestureReferee> referee_;
     RefPtr<NG::GestureReferee> refereeNG_;
     RefPtr<NG::GestureReferee> postEventRefereeNG_;
+    std::unordered_map<int32_t, RefPtr<NG::GestureReferee>> postEventRefereeWithStrategyNG_;
     RefPtr<MouseStyleManager> mouseStyleManager_;
+    RefPtr<CoastingAxisEventGenerator> coastingAxisEventGenerator_;
     NG::EventTreeRecord eventTree_;
     NG::EventTreeRecord postEventTree_;
+    NG::EventTouchInfoRecord eventTouchInfo_;
     RefPtr<NG::ResponseCtrl> responseCtrl_;
     TimeStamp lastEventTime_;
     int64_t lastTouchEventEndTimestamp_ = 0;
     std::unordered_map<int32_t, int32_t> downFingerIds_;
+    std::unordered_map<int32_t, bool> isNewRefereeMap_;
+    std::unordered_map<int32_t, int32_t> downTargetDisplayIds_;
+    int32_t downEventErrorCnt_ = 0;
+    int32_t upEventErrorCnt_ = 0;
     std::set<WeakPtr<NG::FrameNode>> hittedFrameNode_;
     MarkProcessedEventInfo lastReceivedEvent_;
     MarkProcessedEventInfo lastConsumedEvent_;
     int32_t lastDownFingerNumber_ = 0;
     SourceTool lastSourceTool_ = SourceTool::UNKNOWN;
+    std::unordered_map<int32_t, NG::TouchpadInteractionListener> touchpadInteractionListeners_;
     // used to pseudo cancel event.
     TouchEvent lastTouchEvent_;
     // used to pseudo hover out event.
     MouseEvent lastMouseEvent_;
+    AxisEvent lastAxisEvent_;
     std::unordered_map<int32_t, TouchEvent> idToTouchPoints_;
     std::unordered_map<int32_t, uint64_t> lastDispatchTime_;
+    std::unordered_map<int32_t, int32_t> deviceIdChecker_;
     std::vector<WeakPtr<NG::NGGestureRecognizer>> mousePendingRecognizers_;
     std::vector<WeakPtr<NG::FrameNode>> onTouchTestDoneFrameNodeList_;
     bool passThroughResult_ = false;
+    bool isDragCancelPending_ = false;
+    std::map<int32_t, HitNodeInfos> touchHitTestInfos_;
+    // Only used in TouchTest
+    std::optional<HitTestRecordInfo> hitTestRecordInfo_ = std::nullopt;
+    std::unordered_map<int32_t, std::function<void(const TouchEvent&)>> hitTestFrameNodeListener_;
 };
 
 } // namespace OHOS::Ace

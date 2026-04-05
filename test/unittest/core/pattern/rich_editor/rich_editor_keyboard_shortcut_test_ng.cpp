@@ -15,14 +15,15 @@
 
 #include "gtest/gtest.h"
 #include "test/unittest/core/pattern/rich_editor/rich_editor_common_test_ng.h"
-#include "test/mock/core/common/mock_udmf.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_theme.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_model_ng.h"
+#include "core/components_ng/pattern/text_field/text_field_manager.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -83,7 +84,7 @@ void RichEditorKeyboardShortcutTestNg::TearDownTestSuite()
  * @tc.desc: test OnKeyEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, OnKeyEvent001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, OnKeyEvent001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -118,7 +119,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, OnKeyEvent001, TestSize.Level1)
  * @tc.desc: test the cursor move line start
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern
@@ -170,7 +171,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts001, TestS
  * @tc.desc: test the cursor move line end and down
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts002, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern
@@ -212,7 +213,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts002, TestS
  * @tc.desc: test the select move position
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts101, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts101, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern
@@ -256,7 +257,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts101, TestS
  * @tc.desc: test the select move position, up
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts102, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts102, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern
@@ -291,6 +292,13 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts102, TestS
     richEditorPattern->paragraphs_.minParagraphFontSize = style.GetFontSize().ConvertToPx();
     richEditorPattern->HandleSelect(CaretMoveIntent::Up);
     EXPECT_EQ(richEditorPattern->textSelector_.GetTextStart(), 0);
+
+    // during move caret
+    richEditorPattern->floatingCaretState_.isFloatingCaretVisible = true;
+    richEditorPattern->moveCaretState_.isMoveCaret = true;
+    richEditorPattern->HandleSelect(CaretMoveIntent::Up);
+    EXPECT_FALSE(richEditorPattern->floatingCaretState_.isFloatingCaretVisible);
+    EXPECT_FALSE(richEditorPattern->moveCaretState_.isMoveCaret);
 }
 
 /**
@@ -298,7 +306,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts102, TestS
  * @tc.desc: test the delete comb
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts201, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts201, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern
@@ -330,7 +338,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts201, TestS
  * @tc.desc: test the text font style
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts202, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts202, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern
@@ -365,7 +373,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts202, TestS
  * @tc.desc: test the text font style
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts203, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts203, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern
@@ -400,7 +408,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts203, TestS
  * @tc.desc: test the text font style
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts204, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts204, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern
@@ -434,7 +442,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts204, TestS
  * @tc.desc: test BeforeAddImage
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeAddImage101, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeAddImage101, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -466,7 +474,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeAddImage101, TestSize.Level1)
  * @tc.desc: test BeforeChangeText
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeChangeText101, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeChangeText101, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -496,7 +504,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeChangeText101, TestSize.Level1)
  * @tc.desc: test GetTextThemeFontSize
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, GetTextThemeFontSize101, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, GetTextThemeFontSize101, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -521,7 +529,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, GetTextThemeFontSize101, TestSize.Lev
  * @tc.desc: test HandleSelectWrapper
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, HandleSelectWrapper101, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, HandleSelectWrapper101, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -540,7 +548,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, HandleSelectWrapper101, TestSize.Leve
  * @tc.desc: test HandleTripleClickEvent001
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, HandleTripleClickEvent001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, HandleTripleClickEvent001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -571,7 +579,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, HandleTripleClickEvent001, TestSize.L
  * @tc.desc: test PreferredParagraph
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, PreferredParagraph001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, PreferredParagraph001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -611,7 +619,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, PreferredParagraph001, TestSize.Level
  * @tc.desc: test GetTextColorInJson
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, GetTextColorInJson001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, GetTextColorInJson001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -634,7 +642,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, GetTextColorInJson001, TestSize.Level
  * @tc.desc: test GetPlaceHolderInJson
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, GetPlaceHolderInJson001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, GetPlaceHolderInJson001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -659,7 +667,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, GetPlaceHolderInJson001, TestSize.Lev
  * @tc.desc: test CheckTripClickEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, CheckTripClickEvent001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, CheckTripClickEvent001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -685,7 +693,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, CheckTripClickEvent001, TestSize.Leve
  * @tc.desc: test HandleSelectPosition
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, HandleSelectPosition001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, HandleSelectPosition001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -707,7 +715,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, HandleSelectPosition001, TestSize.Lev
  * @tc.desc: test CalcLineEndPosition
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, CalcLineEndPosition001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, CalcLineEndPosition001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables.
@@ -732,7 +740,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, CalcLineEndPosition001, TestSize.Leve
  * @tc.desc: test GetDeletedSpan
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDeletedSpan001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDeletedSpan001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables.
@@ -759,7 +767,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDeletedSpan001, TestSize.Level1)
  * @tc.desc: test BeforeAddImage
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeAddImage102, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeAddImage102, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -803,7 +811,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeAddImage102, TestSize.Level1)
  * @tc.desc: test BeforeChangeText
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeChangeText102, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeChangeText102, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -834,7 +842,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, BeforeChangeText102, TestSize.Level1)
  * @tc.desc: test GetDelPartiallySpanItem
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDelPartiallySpanItem002, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDelPartiallySpanItem002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -864,7 +872,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDelPartiallySpanItem002, TestSize.
     int32_t firstLength = static_cast<int32_t>(firstInfo.GetValue().length());
     firstInfo.SetEraseLength(firstLength);
     auto ret = richEditorPattern->GetDelPartiallySpanItem(changeValue, originalStr, originalPos);
-    EXPECT_NE(ret, nullptr);
+    EXPECT_EQ(ret.first, nullptr);
     /**
      * @tc.steps: step3. change parameter and call function.
      */
@@ -872,13 +880,13 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDelPartiallySpanItem002, TestSize.
     spanItem3->unicode = 0;
     richEditorPattern->spans_.emplace_back(spanItem3);
     ret = richEditorPattern->GetDelPartiallySpanItem(changeValue, originalStr, originalPos);
-    EXPECT_NE(ret, nullptr);
+    EXPECT_EQ(ret.first, nullptr);
     /**
      * @tc.steps: step4. change parameter and call function.
      */
     firstInfo.SetSpanIndex(1);
     ret = richEditorPattern->GetDelPartiallySpanItem(changeValue, originalStr, originalPos);
-    EXPECT_NE(ret, nullptr);
+    EXPECT_EQ(ret.first, nullptr);
 }
 
 /**
@@ -886,7 +894,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDelPartiallySpanItem002, TestSize.
  * @tc.desc: test GetDeletedSpan
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDeletedSpan002, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDeletedSpan002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables.
@@ -911,7 +919,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDeletedSpan002, TestSize.Level1)
     richEditorPattern->textSelector_.baseOffset = 2;
     richEditorPattern->textSelector_.destinationOffset = 2;
     richEditorPattern->GetDeletedSpan(changeValue, innerPosition, length, direction);
-    EXPECT_EQ(length, 1);
+    EXPECT_EQ(changeValue.GetRichEditorOriginalSpans().size(), 0);
 }
 
 /**
@@ -919,7 +927,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, GetDeletedSpan002, TestSize.Level1)
  * @tc.desc: test GetSelectArea
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, GetSelectArea101, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, GetSelectArea101, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -949,7 +957,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, GetSelectArea101, TestSize.Level1)
  * @tc.desc: test SetCustomKeyboard
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, SetCustomKeyboard001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, SetCustomKeyboard001, TestSize.Level0)
 {
     RichEditorModelNG richEditorModel;
     richEditorModel.Create();
@@ -961,11 +969,195 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, SetCustomKeyboard001, TestSize.Level1
 }
 
 /**
+ * @tc.name: SetCustomKeyboard002
+ * @tc.desc: test static SetCustomKeyboard
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorKeyboardShortcutTestNg, SetCustomKeyboard002, TestSize.Level0)
+{
+    RichEditorModelNG richEditorModel;
+    richEditorModel.Create(true);
+
+    auto func = []() {};
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    RichEditorModelNG::SetCustomKeyboard(frameNode, func, true);
+
+    auto richEditorNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(richEditorNode, nullptr);
+    auto pattern = richEditorNode->GetPattern<RichEditorPattern>();
+    ASSERT_NE(pattern, nullptr);
+    bool result = pattern->keyboardAvoidance_;
+    EXPECT_EQ(result, true);
+}
+
+/**
+ * @tc.name: SetCustomKeyboardWithNode001
+ * @tc.desc: test SetCustomKeyboardWithNode
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorKeyboardShortcutTestNg, SetCustomKeyboardWithNode001, TestSize.Level0)
+{
+    RichEditorModelNG richEditorModel;
+    richEditorModel.Create();
+
+    auto customKeyboardPtr = AceType::MakeRefPtr<FrameNode>("frameNode", 1, AceType::MakeRefPtr<RichEditorPattern>());
+    FrameNode* customKeyboard = Referenced::RawPtr(customKeyboardPtr);
+    richEditorModel.SetCustomKeyboardWithNode(customKeyboard, true);
+
+    auto richEditorNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(richEditorNode, nullptr);
+    auto pattern = richEditorNode->GetPattern<RichEditorPattern>();
+    ASSERT_NE(pattern, nullptr);
+    bool result = pattern->keyboardAvoidance_;
+    EXPECT_EQ(result, true);
+}
+
+/**
+ * @tc.name: SetCustomKeyboardWithNode002
+ * @tc.desc: test SetCustomKeyboardWithNode
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorKeyboardShortcutTestNg, SetCustomKeyboardWithNode002, TestSize.Level0)
+{
+    RichEditorModelNG richEditorModel;
+    richEditorModel.Create(true);
+
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto customKeyboardPtr = AceType::MakeRefPtr<FrameNode>("frameNode", 1, AceType::MakeRefPtr<RichEditorPattern>());
+    FrameNode* customKeyboard = Referenced::RawPtr(customKeyboardPtr);
+    RichEditorModelNG::SetCustomKeyboardWithNode(frameNode, customKeyboard, true);
+
+    auto richEditorNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(richEditorNode, nullptr);
+    auto pattern = richEditorNode->GetPattern<RichEditorPattern>();
+    ASSERT_NE(pattern, nullptr);
+    bool result = pattern->keyboardAvoidance_;
+    EXPECT_EQ(result, true);
+}
+
+/**
+ * @tc.name: SetCustomKeyboardWithNode003
+ * @tc.desc: test SetCustomKeyboardWithNode with customKeyboardNode_ && isCustomKeyboardAttached_ && !keyboardBuilder
+ * condition
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorKeyboardShortcutTestNg, SetCustomKeyboardWithNode003, TestSize.Level0)
+{
+    RichEditorModelNG richEditorModel;
+    richEditorModel.Create(true);
+
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    auto customKeyboardPtr = AceType::MakeRefPtr<FrameNode>("frameNode", 1, AceType::MakeRefPtr<RichEditorPattern>());
+    FrameNode* customKeyboard = Referenced::RawPtr(customKeyboardPtr);
+    RichEditorModelNG::SetCustomKeyboardWithNode(frameNode, customKeyboard, true);
+
+    auto richEditorNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(richEditorNode, nullptr);
+    auto pattern = richEditorNode->GetPattern<RichEditorPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->isCustomKeyboardAttached_ = true;
+
+    EXPECT_TRUE(pattern->isCustomKeyboardAttached_);
+    EXPECT_NE(pattern->customKeyboardNode_, nullptr);
+
+    RichEditorModelNG::SetCustomKeyboardWithNode(frameNode, nullptr, false);
+    EXPECT_EQ(pattern->customKeyboardNode_, 0);
+}
+
+/**
+ * @tc.name: SetCustomKeyboardWithNode004
+ * @tc.desc: test SetCustomKeyboardWithNode covering all branches
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorKeyboardShortcutTestNg, SetCustomKeyboardWithNode004, TestSize.Level0)
+{
+    RichEditorModelNG richEditorModel;
+    richEditorModel.Create(true);
+
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    auto customKeyboardPtr = AceType::MakeRefPtr<FrameNode>("frameNode", 1, AceType::MakeRefPtr<RichEditorPattern>());
+    FrameNode* customKeyboard = Referenced::RawPtr(customKeyboardPtr);
+    RichEditorModelNG::SetCustomKeyboardWithNode(frameNode, customKeyboard, true);
+
+    auto richEditorNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(richEditorNode, nullptr);
+    auto pattern = richEditorNode->GetPattern<RichEditorPattern>();
+    ASSERT_NE(pattern, nullptr);
+    EXPECT_NE(pattern->customKeyboardNode_, nullptr);
+
+    RichEditorModelNG::SetCustomKeyboardWithNode(frameNode, nullptr, false);
+    EXPECT_EQ(pattern->customKeyboardNode_, nullptr);
+}
+
+/**
+ * @tc.name: SetCustomKeyboardWithNode005
+ * @tc.desc: test SetCustomKeyboardWithNode with customKeyboardNode_ && !isCustomKeyboardAttached_ && !keyboardBuilder
+ * condition
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorKeyboardShortcutTestNg, SetCustomKeyboardWithNode005, TestSize.Level0)
+{
+    RichEditorModelNG richEditorModel;
+    richEditorModel.Create(true);
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto customKeyboardPtr = AceType::MakeRefPtr<FrameNode>("frameNode", 1, AceType::MakeRefPtr<RichEditorPattern>());
+    FrameNode* customKeyboard = Referenced::RawPtr(customKeyboardPtr);
+    RichEditorModelNG::SetCustomKeyboardWithNode(frameNode, customKeyboard, true);
+
+    auto richEditorNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(richEditorNode, nullptr);
+    auto pattern = richEditorNode->GetPattern<RichEditorPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    EXPECT_NE(pattern->customKeyboardNode_, nullptr);
+    pattern->isCustomKeyboardAttached_ = false;
+
+    RichEditorModelNG::SetCustomKeyboardWithNode(frameNode, nullptr, false);
+    EXPECT_EQ(pattern->customKeyboardNode_, nullptr);
+}
+
+/**
+ * @tc.name: SetCustomKeyboardWithNode006
+ * @tc.desc: test SetCustomKeyboardWithNode with customKeyboardNode_ && !isCustomKeyboardAttached_ && !keyboardBuilder
+ * condition
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorKeyboardShortcutTestNg, SetCustomKeyboardWithNode006, TestSize.Level0)
+{
+    RichEditorModelNG richEditorModel;
+    richEditorModel.Create(true);
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto richEditorNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(richEditorNode, nullptr);
+    auto pattern = richEditorNode->GetPattern<RichEditorPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->isEditing_ = true;
+
+    auto customKeyboardPtr = AceType::MakeRefPtr<FrameNode>("frameNode", 1, AceType::MakeRefPtr<RichEditorPattern>());
+    FrameNode* customKeyboard = Referenced::RawPtr(customKeyboardPtr);
+    RichEditorModelNG::SetCustomKeyboardWithNode(frameNode, customKeyboard, true);
+
+    EXPECT_NE(pattern->customKeyboardNode_, nullptr);
+    pattern->isCustomKeyboardAttached_ = false;
+
+    RichEditorModelNG::SetCustomKeyboardWithNode(frameNode, nullptr, false);
+    EXPECT_EQ(pattern->customKeyboardNode_, nullptr);
+}
+
+/**
  * @tc.name: SetEnterKeyType
  * @tc.desc: test SetEnterKeyType
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, SetEnterKeyType, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, SetEnterKeyType, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor controller
@@ -992,7 +1184,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, SetEnterKeyType, TestSize.Level1)
  * @tc.desc: test HandleSelectFontStyle
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts205, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts205, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern and controller
@@ -1054,7 +1246,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts205, TestS
  * @tc.desc: test HandleSelectFontStyle
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts206, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts206, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern and controller
@@ -1092,7 +1284,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts206, TestS
  * @tc.desc: test the text font style
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts207, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts207, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern and controller
@@ -1144,7 +1336,7 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, RichEditorKeyBoardShortCuts207, TestS
  * @tc.desc: test richEditor shift multiple selection function
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorKeyboardShortcutTestNg, ShiftMultipleSelection001, TestSize.Level1)
+HWTEST_F(RichEditorKeyboardShortcutTestNg, ShiftMultipleSelection001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1197,5 +1389,112 @@ HWTEST_F(RichEditorKeyboardShortcutTestNg, ShiftMultipleSelection001, TestSize.L
     keyEvent.pressedCodes.pop_back();
     richEditorPattern->UpdateShiftFlag(keyEvent);
     EXPECT_FALSE(richEditorPattern->shiftFlag_);
+}
+
+/**
+ * @tc.name: OnFocusCustomKeyboardChange
+ * @tc.desc: test OnFocusCustomKeyboardChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorKeyboardShortcutTestNg, OnFocusCustomKeyboardChange, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. get richEditor pattern
+     */
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto pipeline = richEditorPattern->GetContext();
+    auto textFieldManager = AceType::MakeRefPtr<TextFieldManagerNG>();
+    auto refPattern = AceType::MakeRefPtr<RichEditorPattern>();
+    refPattern->customKeyboardBuilder_ = []() {};
+    refPattern->isCustomKeyboardAttached_ = true;
+    auto frameNode = FrameNode::CreateFrameNode("tag", 2, refPattern, false);
+    WeakPtr<FrameNode> weakNode(frameNode);
+    textFieldManager->SetPreNode(weakNode);
+    pipeline->SetTextFieldManager(textFieldManager);
+    /**
+     * @tc.steps: step2. get richEditor controller
+     */
+    richEditorPattern->OnFocusCustomKeyboardChange();
+    richEditorPattern->customKeyboardBuilder_ = []() {};
+    richEditorPattern->isCustomKeyboardAttached_ = true;
+    RefPtr<UINode> customNode = AceType::MakeRefPtr<FrameNode>("node", 2002, AceType::MakeRefPtr<Pattern>());
+    richEditorPattern->customKeyboardNode_ = customNode;
+    richEditorPattern->keyboardOverlay_ = pipeline->GetOverlayManager();
+    richEditorPattern->OnFocusCustomKeyboardChange();
+    EXPECT_FALSE(richEditorPattern->isCustomKeyboardAttached_);
+
+    textFieldManager->SetPreNode(weakNode);
+    textFieldManager->SetCustomKeyboardContinueFeature(true);
+    pipeline->SetTextFieldManager(textFieldManager);
+    richEditorPattern->OnFocusCustomKeyboardChange();
+    EXPECT_FALSE(richEditorPattern->isCustomKeyboardAttached_);
+
+    richEditorPattern->customKeyboardNode_ =
+        AceType::MakeRefPtr<FrameNode>("node", 2003, AceType::MakeRefPtr<Pattern>());
+    EXPECT_TRUE(richEditorPattern->customKeyboardBuilder_);
+    pipeline->SetTextFieldManager(textFieldManager);
+    richEditorPattern->OnFocusCustomKeyboardChange();
+    EXPECT_FALSE(textFieldManager->NeedCloseKeyboard());
+}
+
+/**
+ * @tc.name: HandleDelKeyOnDragging
+ * @tc.desc: test the shortcut for deletion on dragging status
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorKeyboardShortcutTestNg, HandleDelKeyOnDragging, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. get richEditor pattern
+     */
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    /**
+     * @tc.steps: step2. get richEditor controller
+     */
+    auto richEditorController = richEditorPattern->GetRichEditorController();
+    ASSERT_NE(richEditorController, nullptr);
+    /**
+     * @tc.steps: step2. add text span
+     */
+    TextSpanOptions textOptions;
+    textOptions.value = INIT_VALUE_3;
+    richEditorController->AddTextSpan(textOptions);
+    EXPECT_EQ(textOptions.value.length(), richEditorPattern->GetTextContentLength());
+    richEditorPattern->SetCaretPosition(20);
+    KeyEvent keyEvent;
+    keyEvent.code = KeyCode::KEY_DEL;
+    keyEvent.action = KeyAction::DOWN;
+    richEditorPattern->OnKeyEvent(keyEvent);
+    EXPECT_EQ(richEditorPattern->GetCaretPosition(), 19);
+    richEditorPattern->status_ = Status::DRAGGING;
+    EXPECT_TRUE(richEditorPattern->IsShortCutBlocked());
+    richEditorPattern->OnKeyEvent(keyEvent);
+    EXPECT_EQ(richEditorPattern->GetCaretPosition(), 19);
+}
+
+/**
+ * @tc.name: SetEnterKeyType001
+ * @tc.desc: test SetEnterKeyType
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorKeyboardShortcutTestNg, SetEnterKeyType001, TestSize.Level0)
+{
+    RichEditorModelNG richEditorModel;
+    richEditorModel.Create();
+
+    auto richEditorNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(richEditorNode, nullptr);
+    auto richEditorPattern = richEditorNode->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    richEditorModel.SetEnterKeyType(richEditorNode, TextInputAction::NEW_LINE);
+    richEditorNode->MarkModifyDone();
+    EXPECT_EQ(richEditorPattern->GetTextInputActionValue(richEditorPattern->GetDefaultTextInputAction()),
+        TextInputAction::NEW_LINE);
+    ClearSpan();
 }
 } // namespace OHOS::Ace::NG

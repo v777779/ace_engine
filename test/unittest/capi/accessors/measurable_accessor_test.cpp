@@ -154,40 +154,43 @@ public:
 };
 
 /**
- * @tc.name: MeasureTestNoConstraint
+ * @tc.name: measureTestNoConstraint
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(MeasurableAccessorTest, MeasureTestNoConstraint, TestSize.Level1)
+HWTEST_F(MeasurableAccessorTest, measureTestNoConstraint, TestSize.Level1)
 {
-    Ark_ConstraintSizeOptions constraint = {
+    Opt_ConstraintSizeOptions constraint = Converter::ArkValue<Opt_ConstraintSizeOptions>(Ark_ConstraintSizeOptions {
         .minWidth = Converter::ArkValue<Opt_Length>(),
         .maxWidth = Converter::ArkValue<Opt_Length>(),
         .minHeight = Converter::ArkValue<Opt_Length>(),
         .maxHeight = Converter::ArkValue<Opt_Length>(),
-    };
+    });
 
     EXPECT_CALL(*layoutWrapper_->childLayoutWrapper_->GetMockLayoutProperty(), UpdateCalcMinSize(_)).Times(0);
     EXPECT_CALL(*layoutWrapper_->childLayoutWrapper_->GetMockLayoutProperty(), UpdateCalcMaxSize(_)).Times(0);
 
-    Ark_MeasureResult measureResult = accessor_->measure(peer_, &constraint);
+    auto measure = accessor_->measure(peer_, &constraint);
+    auto managerOpt = Converter::GetOpt(measure);
+    ASSERT_TRUE(managerOpt.has_value());
+    auto measureResult = managerOpt.value();
     EXPECT_FLOAT_EQ(Converter::Convert<float>(measureResult.width), 12.0f);
     EXPECT_FLOAT_EQ(Converter::Convert<float>(measureResult.height), 13.0f);
 }
 
 /**
- * @tc.name: MeasureTest
+ * @tc.name: measureTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(MeasurableAccessorTest, MeasureTest, TestSize.Level1)
+HWTEST_F(MeasurableAccessorTest, measureTest, TestSize.Level1)
 {
-    Ark_ConstraintSizeOptions constraint = {
+    Opt_ConstraintSizeOptions constraint = Converter::ArkValue<Opt_ConstraintSizeOptions>(Ark_ConstraintSizeOptions {
         .minWidth = Converter::ArkValue<Opt_Length>("45vp"),
         .maxWidth = Converter::ArkValue<Opt_Length>("60vp"),
         .minHeight = Converter::ArkValue<Opt_Length>("30.5vp"),
         .maxHeight = Converter::ArkValue<Opt_Length>("100vp"),
-    };
+    });
 
     {
         auto expected = CalcSize();
@@ -214,17 +217,20 @@ HWTEST_F(MeasurableAccessorTest, MeasureTest, TestSize.Level1)
             .Times(1);
     }
 
-    Ark_MeasureResult measureResult = accessor_->measure(peer_, &constraint);
+    auto measure = accessor_->measure(peer_, &constraint);
+    auto managerOpt = Converter::GetOpt(measure);
+    ASSERT_TRUE(managerOpt.has_value());
+    auto measureResult = managerOpt.value();
     EXPECT_FLOAT_EQ(Converter::Convert<float>(measureResult.width), 12.0f);
     EXPECT_FLOAT_EQ(Converter::Convert<float>(measureResult.height), 13.0f);
 }
 
 /**
- * @tc.name: GetMarginTest
+ * @tc.name: getMarginTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(MeasurableAccessorTest, GetMarginTest, TestSize.Level1)
+HWTEST_F(MeasurableAccessorTest, getMarginTest, TestSize.Level1)
 {
     MarginProperty margin = {
         .top = CalcLength(70.0f, DimensionUnit::VP),
@@ -233,7 +239,11 @@ HWTEST_F(MeasurableAccessorTest, GetMarginTest, TestSize.Level1)
         .right = CalcLength(60.25f, DimensionUnit::VP),
     };
     layoutWrapper_->childLayoutWrapper_->GetMockLayoutProperty()->UpdateMargin(margin);
-    Ark_DirectionalEdgesT result = accessor_->getMargin(peer_);
+    auto directional = accessor_->getMargin(peer_);
+    auto directionalOpt = Converter::GetOpt(directional);
+    ASSERT_TRUE(directionalOpt.has_value());
+    auto result = directionalOpt.value();
+
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.top), 70.0f);
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.bottom), 100.0f);
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.start), 40.0f);
@@ -241,11 +251,11 @@ HWTEST_F(MeasurableAccessorTest, GetMarginTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetMarginTestRTL
+ * @tc.name: getMarginTestRTL
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(MeasurableAccessorTest, GetMarginTestRTL, TestSize.Level1)
+HWTEST_F(MeasurableAccessorTest, getMarginTestRTL, TestSize.Level1)
 {
     MarginProperty margin = {
         .left = CalcLength(40.0f, DimensionUnit::VP),
@@ -253,17 +263,20 @@ HWTEST_F(MeasurableAccessorTest, GetMarginTestRTL, TestSize.Level1)
     };
     layoutWrapper_->childLayoutWrapper_->GetMockLayoutProperty()->UpdateLayoutDirection(TextDirection::RTL);
     layoutWrapper_->childLayoutWrapper_->GetMockLayoutProperty()->UpdateMargin(margin);
-    Ark_DirectionalEdgesT result = accessor_->getMargin(peer_);
+    auto directional = accessor_->getMargin(peer_);
+    auto directionalOpt = Converter::GetOpt(directional);
+    ASSERT_TRUE(directionalOpt.has_value());
+    auto result = directionalOpt.value();
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.end), 40.0f);
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.start), 60.25f);
 }
 
 /**
- * @tc.name: GetPaddingTest
+ * @tc.name: getPaddingTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(MeasurableAccessorTest, GetPaddingTest, TestSize.Level1)
+HWTEST_F(MeasurableAccessorTest, getPaddingTest, TestSize.Level1)
 {
     PaddingProperty padding = {
         .top = CalcLength(70.0f, DimensionUnit::VP),
@@ -272,7 +285,10 @@ HWTEST_F(MeasurableAccessorTest, GetPaddingTest, TestSize.Level1)
         .right = CalcLength(60.25f, DimensionUnit::VP),
     };
     layoutWrapper_->childLayoutWrapper_->GetMockLayoutProperty()->UpdatePadding(padding);
-    Ark_DirectionalEdgesT result = accessor_->getPadding(peer_);
+    auto directional = accessor_->getPadding(peer_);
+    auto paddingOpt = Converter::GetOpt(directional);
+    ASSERT_TRUE(paddingOpt.has_value());
+    auto result = paddingOpt.value();
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.top), 70.0f);
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.bottom), 100.0f);
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.start), 40.0f);
@@ -280,11 +296,11 @@ HWTEST_F(MeasurableAccessorTest, GetPaddingTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetBorderWidthTest
+ * @tc.name: getBorderWidthTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(MeasurableAccessorTest, GetBorderWidthTest, TestSize.Level1)
+HWTEST_F(MeasurableAccessorTest, getBorderWidthTest, TestSize.Level1)
 {
     BorderWidthProperty borderWidth = {
         .topDimen = Dimension(6.0, DimensionUnit::VP),
@@ -293,7 +309,10 @@ HWTEST_F(MeasurableAccessorTest, GetBorderWidthTest, TestSize.Level1)
         .rightDimen = Dimension(3.5, DimensionUnit::VP),
     };
     layoutWrapper_->childLayoutWrapper_->GetMockLayoutProperty()->UpdateBorderWidth(borderWidth);
-    Ark_DirectionalEdgesT result = accessor_->getBorderWidth(peer_);
+    auto directional = accessor_->getBorderWidth(peer_);
+    auto borderWidthOpt = Converter::GetOpt(directional);
+    ASSERT_TRUE(borderWidthOpt.has_value());
+    auto result = borderWidthOpt.value();
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.top), 6.0f);
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.bottom), 4.0f);
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.start), 10.0f);
@@ -301,11 +320,11 @@ HWTEST_F(MeasurableAccessorTest, GetBorderWidthTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetBorderWidthTestRTL
+ * @tc.name: getBorderWidthTestRTL
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(MeasurableAccessorTest, GetBorderWidthTestRTL, TestSize.Level1)
+HWTEST_F(MeasurableAccessorTest, getBorderWidthTestRTL, TestSize.Level1)
 {
     BorderWidthProperty borderWidth = {
         .leftDimen = Dimension(10.0, DimensionUnit::VP),
@@ -313,22 +332,25 @@ HWTEST_F(MeasurableAccessorTest, GetBorderWidthTestRTL, TestSize.Level1)
     };
     layoutWrapper_->childLayoutWrapper_->GetMockLayoutProperty()->UpdateLayoutDirection(TextDirection::RTL);
     layoutWrapper_->childLayoutWrapper_->GetMockLayoutProperty()->UpdateBorderWidth(borderWidth);
-    Ark_DirectionalEdgesT result = accessor_->getBorderWidth(peer_);
+    auto directional = accessor_->getBorderWidth(peer_);
+    auto borderWidthOpt = Converter::GetOpt(directional);
+    ASSERT_TRUE(borderWidthOpt.has_value());
+    auto result = borderWidthOpt.value();
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.end), 10.0f);
     EXPECT_FLOAT_EQ(Converter::Convert<float>(result.start), 3.5f);
 }
 
 /**
- * @tc.name: GetUniqueIdTest
+ * @tc.name: getUniqueIdTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(MeasurableAccessorTest, GetUniqueIdTest, TestSize.Level1)
+HWTEST_F(MeasurableAccessorTest, getUniqueIdTest, TestSize.Level1)
 {
-    Opt_Number id = accessor_->getUniqueId(peer_);
+    auto id = accessor_->getUniqueId(peer_);
     auto res = Converter::OptConvert<int32_t>(id);
     ASSERT_TRUE(res.has_value());
-    EXPECT_EQ(res.value(), CHILD_NODE_ID);
+    EXPECT_EQ(res.value(), static_cast<int32_t>(CHILD_NODE_ID));
 }
 
 } // namespace OHOS::Ace::NG

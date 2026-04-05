@@ -47,10 +47,10 @@
 
 namespace OHOS::Ace::NG {
 namespace {
-constexpr uint16_t PIXEL_ROUND = static_cast<uint16_t>(PixelRoundPolicy::NO_FORCE_ROUND_START) |
-                                static_cast<uint16_t>(PixelRoundPolicy::NO_FORCE_ROUND_TOP) |
-                                static_cast<uint16_t>(PixelRoundPolicy::NO_FORCE_ROUND_END) |
-                                static_cast<uint16_t>(PixelRoundPolicy::NO_FORCE_ROUND_BOTTOM);
+constexpr uint16_t PIXEL_ROUND = static_cast<uint16_t>(PixelRoundPolicy::FORCE_FLOOR_START) |
+                                static_cast<uint16_t>(PixelRoundPolicy::FORCE_FLOOR_TOP) |
+                                static_cast<uint16_t>(PixelRoundPolicy::FORCE_CEIL_END) |
+                                static_cast<uint16_t>(PixelRoundPolicy::FORCE_CEIL_BOTTOM);
 
 constexpr int32_t SWIPER_Z_INDEX = 0;
 constexpr int32_t DIVIDER_Z_INDEX = 2;
@@ -58,12 +58,12 @@ constexpr int32_t TAB_BAR_Z_INDEX = 3;
 constexpr int32_t EFFECT_Z_INDEX = 1;
 } // namespace
 
-void TabsModelNG::Create(BarPosition barPosition, int32_t index, const RefPtr<TabController>& /*tabController*/,
-    const RefPtr<SwiperController>& swiperController)
+void TabsModelNG::Create(BarPosition barPosition, int32_t index, const RefPtr<SwiperController>& swiperController)
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d][index:%d]", V2::TABS_ETS_TAG, nodeId, index);
+    ACE_UINODE_TRACE(nodeId);
     auto tabsNode = GetOrCreateTabsNode(V2::TABS_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<TabsPattern>(); });
     InitTabsNode(tabsNode, swiperController);
     ViewStackProcessor::GetInstance()->Push(tabsNode);
@@ -139,6 +139,7 @@ void TabsModelNG::InitUnselectedMaskNode(const RefPtr<FrameNode>& unselectedMask
 
 RefPtr<OHOS::Ace::NG::FrameNode> InitEffectNode(RefPtr<TabsNode> tabsNode)
 {
+    ACE_UINODE_TRACE(tabsNode);
     auto effectNode = FrameNode::GetOrCreateFrameNode(
         V2::STACK_ETS_TAG, tabsNode->GetEffectId(), []() { return AceType::MakeRefPtr<StackPattern>(); });
 
@@ -158,6 +159,15 @@ RefPtr<OHOS::Ace::NG::FrameNode> InitEffectNode(RefPtr<TabsNode> tabsNode)
     return effectNode;
 }
 
+void TabsModelNG::InitImageIndicatorNode(const RefPtr<FrameNode>& indicatorNode)
+{
+    CHECK_NULL_VOID(indicatorNode);
+    auto pattern = indicatorNode->GetPattern<ImagePattern>();
+    CHECK_NULL_VOID(pattern);
+    indicatorNode->SetDraggable(false);
+    pattern->SetNeedLoadAlt(false);
+}
+
 void TabsModelNG::InitTabsNode(RefPtr<TabsNode> tabsNode, const RefPtr<SwiperController>& swiperController)
 {
     bool hasSwiperNode = tabsNode->HasSwiperNode();
@@ -165,6 +175,7 @@ void TabsModelNG::InitTabsNode(RefPtr<TabsNode> tabsNode, const RefPtr<SwiperCon
     bool hasDividerNode = tabsNode->HasDividerNode();
     bool hasSelectedMaskNode = tabsNode->HasSelectedMaskNode();
     bool hasUnselectedMaskNode = tabsNode->HasUnselectedMaskNode();
+    bool hasIndicatorNode = tabsNode->HasIndicatorNode();
 
     // Create Swiper node to contain TabContent.
     auto swiperNode = FrameNode::GetOrCreateFrameNode(
@@ -191,6 +202,9 @@ void TabsModelNG::InitTabsNode(RefPtr<TabsNode> tabsNode, const RefPtr<SwiperCon
     auto unselectedMaskNode = FrameNode::GetOrCreateFrameNode(V2::COLUMN_ETS_TAG, tabsNode->GetUnselectedMaskId(),
         []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
 
+    auto indicatorNode = FrameNode::GetOrCreateFrameNode(V2::IMAGE_ETS_TAG, tabsNode->GetIndicatorId(),
+        []() { return AceType::MakeRefPtr<ImagePattern>(); });
+
     if (!hasSwiperNode) {
         swiperNode->MountToParent(tabsNode);
     }
@@ -208,10 +222,16 @@ void TabsModelNG::InitTabsNode(RefPtr<TabsNode> tabsNode, const RefPtr<SwiperCon
         unselectedMaskNode->MountToParent(tabBarNode);
         InitUnselectedMaskNode(unselectedMaskNode);
     }
+
+    if (!hasIndicatorNode) {
+        indicatorNode->MountToParent(tabBarNode);
+        InitImageIndicatorNode(indicatorNode);
+    }
 }
 
 RefPtr<FrameNode> TabsModelNG::CreateFrameNode(int32_t nodeId)
 {
+    ACE_UINODE_TRACE(nodeId);
     auto tabsNode = GetOrCreateTabsNode(V2::TABS_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<TabsPattern>(); });
     InitTabsNode(tabsNode, nullptr);
     auto tabBarNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabBar());
@@ -456,6 +476,13 @@ void TabsModelNG::SetOnUnselected(std::function<void(const BaseEventInfo* info)>
     tabPattern->SetOnUnselectedEvent(std::move(onUnselected));
 }
 
+void TabsModelNG::SetOnContentDidScroll(ContentDidScrollEvent&& onContentDidScroll)
+{
+    auto tabsNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(tabsNode);
+    SetOnContentDidScroll(tabsNode, std::move(onContentDidScroll));
+}
+
 void TabsModelNG::SetOnAnimationStart(AnimationStartEvent&& onAnimationStart)
 {
     auto tabsNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
@@ -596,13 +623,7 @@ RefPtr<SwiperPaintProperty> TabsModelNG::GetSwiperPaintProperty()
 
 void TabsModelNG::Pop()
 {
-    HandleApplyAttributesFinish(ViewStackProcessor::GetInstance()->GetMainFrameNode());
-    ViewStackProcessor::GetInstance()->PopContainer();
-}
-
-void TabsModelNG::HandleApplyAttributesFinish(FrameNode* frameNode)
-{
-    auto tabsNode = AceType::DynamicCast<TabsNode>(frameNode);
+    auto tabsNode = AceType::DynamicCast<TabsNode>(ViewStackProcessor::GetInstance()->GetMainFrameNode());
     CHECK_NULL_VOID(tabsNode);
     auto tabsLayoutProperty = tabsNode->GetLayoutProperty<TabsLayoutProperty>();
     CHECK_NULL_VOID(tabsLayoutProperty);
@@ -642,6 +663,8 @@ void TabsModelNG::HandleApplyAttributesFinish(FrameNode* frameNode)
 
     swiperNode->MarkModifyDone();
     swiperNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
+
+    ViewStackProcessor::GetInstance()->PopContainer();
 }
 
 RefPtr<TabsNode> TabsModelNG::GetOrCreateTabsNode(
@@ -779,6 +802,16 @@ void TabsModelNG::SetOnUnselected(FrameNode* frameNode, std::function<void(const
     auto pattern = frameNode->GetPattern<TabsPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetOnUnselectedEvent(std::move(onUnselected));
+}
+
+void TabsModelNG::SetOnContentDidScroll(FrameNode* frameNode, ContentDidScrollEvent&& onContentDidScroll)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto tabsNode = AceType::DynamicCast<TabsNode>(frameNode);
+    CHECK_NULL_VOID(tabsNode);
+    auto tabPattern = tabsNode->GetPattern<TabsPattern>();
+    CHECK_NULL_VOID(tabPattern);
+    tabPattern->SetOnContentDidScroll(std::move(onContentDidScroll));
 }
 
 void TabsModelNG::SetDivider(FrameNode* frameNode, const TabsItemDivider& divider)
@@ -1146,6 +1179,32 @@ void TabsModelNG::SetEdgeEffect(FrameNode* frameNode, int32_t edgeEffect)
     swiperPaintProperty->UpdateEdgeEffect(static_cast<EdgeEffect>(edgeEffect));
 }
 
+void TabsModelNG::SetNestedScroll(FrameNode* frameNode, int32_t nestedOpt)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto tabsNode = AceType::DynamicCast<TabsNode>(frameNode);
+    CHECK_NULL_VOID(tabsNode);
+    auto swiperNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabs());
+    CHECK_NULL_VOID(swiperNode);
+    auto swiperPattern = swiperNode->GetPattern<SwiperPattern>();
+    CHECK_NULL_VOID(swiperPattern);
+    NestedScrollOptions option;
+    option.forward = static_cast<NestedScrollMode>(nestedOpt);
+    option.backward = static_cast<NestedScrollMode>(nestedOpt);
+    swiperPattern->SetNestedScroll(option);
+}
+
+void TabsModelNG::SetNestedScroll(const NestedScrollOptions& nestedOpt)
+{
+    auto tabsNode = AceType::DynamicCast<TabsNode>(ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    CHECK_NULL_VOID(tabsNode);
+    auto swiperNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabs());
+    CHECK_NULL_VOID(swiperNode);
+    auto swiperPattern = swiperNode->GetPattern<SwiperPattern>();
+    CHECK_NULL_VOID(swiperPattern);
+    swiperPattern->SetNestedScroll(nestedOpt);
+}
+
 void TabsModelNG::SetTabBarIndex(FrameNode* frameNode, int32_t index)
 {
     CHECK_NULL_VOID(frameNode);
@@ -1165,6 +1224,7 @@ void TabsModelNG::SetTabBarIndex(FrameNode* frameNode, int32_t index)
 void TabsModelNG::SetTabsController(FrameNode* frameNode, const RefPtr<SwiperController>& tabsController)
 {
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto nodeId = frameNode->GetId();
     auto tabsNode = GetOrCreateTabsNode(V2::TABS_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<TabsPattern>(); });
     CHECK_NULL_VOID(tabsNode);
@@ -1242,7 +1302,13 @@ void TabsModelNG::SetCachedMaxCount(std::optional<int32_t> cachedMaxCount, TabsC
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
-    SetCachedMaxCount(frameNode, cachedMaxCount, cacheMode);
+    if (cachedMaxCount.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TabsLayoutProperty, CachedMaxCount, cachedMaxCount.value(), frameNode);
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TabsLayoutProperty, CacheMode, cacheMode, frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(TabsLayoutProperty, CachedMaxCount, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY(TabsLayoutProperty, CacheMode, frameNode);
+    }
 }
 
 void TabsModelNG::SetCachedMaxCount(
@@ -1252,6 +1318,11 @@ void TabsModelNG::SetCachedMaxCount(
     if (cachedMaxCount.has_value()) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(TabsLayoutProperty, CachedMaxCount, cachedMaxCount.value(), frameNode);
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(TabsLayoutProperty, CacheMode, cacheMode, frameNode);
+        auto tabsNode = AceType::DynamicCast<TabsNode>(frameNode);
+        CHECK_NULL_VOID(tabsNode);
+        auto swiperNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabs());
+        CHECK_NULL_VOID(swiperNode);
+        swiperNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
     } else {
         ACE_RESET_NODE_LAYOUT_PROPERTY(TabsLayoutProperty, CachedMaxCount, frameNode);
         ACE_RESET_NODE_LAYOUT_PROPERTY(TabsLayoutProperty, CacheMode, frameNode);
@@ -1666,13 +1737,12 @@ void TabsModelNG::HandleBackgroundEffectColor(FrameNode* frameNode, const RefPtr
         CHECK_NULL_VOID(tabBarNode);
         auto target = tabBarNode->GetRenderContext();
         CHECK_NULL_VOID(target);
-        if (target->GetBackgroundEffect().has_value()) {
-            EffectOption option = target->GetBackgroundEffect().value();
-            Color result;
-            ResourceParseUtils::ParseResColor(resObj, result);
-            option.color = result;
-            TabsModelNG::SetBarBackgroundEffect(AceType::RawPtr(tabsNode), option);
-        }
+        EffectOption option = target->GetBackgroundEffect().value_or(EffectOption{});
+        option.isWindowFocused = true; // set to default value
+        Color result = Color::TRANSPARENT;
+        ResourceParseUtils::ParseResColor(resObj, result);
+        option.color = result;
+        TabsModelNG::SetBarBackgroundEffect(AceType::RawPtr(tabsNode), option);
     };
     pattern->AddResObj(key, resObj, std::move(updateFunc));
 }
@@ -1685,25 +1755,26 @@ void TabsModelNG::HandleBackgroundEffectInactiveColor(FrameNode* frameNode, cons
     CHECK_NULL_VOID(pattern);
     const std::string key = "tabsBackGroundEffectInactiveColor";
     pattern->RemoveResObj(key);
-    CHECK_NULL_VOID(resObj);
-    auto&& updateFunc = [weak = AceType::WeakClaim(frameNode),
-                                        weakPattern = AceType::WeakClaim(AceType::RawPtr(pattern))](
-                                        const RefPtr<ResourceObject>& resObj) {
+    auto&& updateFunc = [weak = AceType::WeakClaim(frameNode), resObj](const RefPtr<ResourceObject>& dummyResObj) {
         auto tabsNode = AceType::DynamicCast<TabsNode>(weak.Upgrade());
         CHECK_NULL_VOID(tabsNode);
         auto tabBarNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabBar());
         CHECK_NULL_VOID(tabBarNode);
         auto target = tabBarNode->GetRenderContext();
         CHECK_NULL_VOID(target);
-        if (target->GetBackgroundEffect().has_value()) {
-            EffectOption option = target->GetBackgroundEffect().value();
-            Color result;
-            ResourceParseUtils::ParseResColor(resObj, result);
-            option.inactiveColor = result;
+        EffectOption option = target->GetBackgroundEffect().value_or(EffectOption{});
+        option.isWindowFocused = true; // set to default value
+        if (!resObj) {
             TabsModelNG::SetBarBackgroundEffect(AceType::RawPtr(tabsNode), option);
+            return;
         }
+        Color result = Color::TRANSPARENT;
+        option.isValidColor = ResourceParseUtils::ParseResColor(resObj, result);
+        option.inactiveColor = result;
+        TabsModelNG::SetBarBackgroundEffect(AceType::RawPtr(tabsNode), option);
     };
-    pattern->AddResObj(key, resObj, std::move(updateFunc));
+    RefPtr<ResourceObject> dummyResObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
+    pattern->AddResObj(key, dummyResObj, std::move(updateFunc));
 }
 
 void TabsModelNG::HandleBackgroundBlurStyleInactiveColor(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj,
@@ -1714,24 +1785,25 @@ void TabsModelNG::HandleBackgroundBlurStyleInactiveColor(FrameNode* frameNode, c
     CHECK_NULL_VOID(pattern);
     const std::string key = "tabsBackGroundBlurStyle";
     pattern->RemoveResObj(key);
-    CHECK_NULL_VOID(resObj);
-    auto&& updateFunc = [weak = AceType::WeakClaim(frameNode),
-                                        weakPattern = AceType::WeakClaim(AceType::RawPtr(pattern))](
-                                        const RefPtr<ResourceObject>& resObj) {
+    auto&& updateFunc = [weak = AceType::WeakClaim(frameNode), resObj](const RefPtr<ResourceObject>& dummyResObj) {
         auto tabsNode = AceType::DynamicCast<TabsNode>(weak.Upgrade());
         CHECK_NULL_VOID(tabsNode);
         auto tabBarNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabBar());
         CHECK_NULL_VOID(tabBarNode);
         auto target = tabBarNode->GetRenderContext();
         CHECK_NULL_VOID(target);
-        if (target->GetBackBlurStyle().has_value()) {
-            BlurStyleOption styleOption = target->GetBackBlurStyle().value();
-            Color result;
-            ResourceParseUtils::ParseResColor(resObj, result);
-            styleOption.inactiveColor = result;
+        BlurStyleOption styleOption = target->GetBackBlurStyle().value_or(BlurStyleOption{});
+        styleOption.isWindowFocused = true; // set to default value
+        if (!resObj) {
             TabsModelNG::SetBarBackgroundBlurStyle(AceType::RawPtr(tabsNode), styleOption);
+            return;
         }
+        Color result = Color::TRANSPARENT;
+        styleOption.isValidColor = ResourceParseUtils::ParseResColor(resObj, result);
+        styleOption.inactiveColor = result;
+        TabsModelNG::SetBarBackgroundBlurStyle(AceType::RawPtr(tabsNode), styleOption);
     };
-    pattern->AddResObj(key, resObj, std::move(updateFunc));
+    RefPtr<ResourceObject> dummyResObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
+    pattern->AddResObj(key, dummyResObj, std::move(updateFunc));
 }
 } // namespace OHOS::Ace::NG

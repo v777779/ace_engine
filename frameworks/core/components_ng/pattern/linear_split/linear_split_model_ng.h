@@ -20,6 +20,7 @@
 #include "core/components_ng/pattern/linear_split/linear_split_model.h"
 
 namespace OHOS::Ace::NG {
+
 class  ACE_EXPORT LinearSplitModelNG : public OHOS::Ace::LinearSplitModel {
 public:
     void Create(SplitType splitType) override;
@@ -29,6 +30,8 @@ public:
     static void SetResizable(FrameNode* frameNode, NG::SplitType splitType, bool resizable);
     static void SetDivider(FrameNode* frameNode, NG::SplitType splitType, const NG::ColumnSplitDivider& divider);
     static void ResetResObj(FrameNode* frameNode, const std::string& key);
+    static void RegisterResObj(
+        const RefPtr<ResourceObject>& resObj, NG::ColumnSplitDivider& divider, const std::string key);
 };
 
 } // namespace OHOS::Ace::NG

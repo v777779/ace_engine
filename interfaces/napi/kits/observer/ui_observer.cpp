@@ -37,6 +37,8 @@ std::unordered_map<napi_ref, NG::AbilityContextInfo> UIObserver::infosForRouterP
 
 std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>>
     UIObserver::specifiedDensityListeners_;
+std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>>
+    UIObserver::specifiedWinSizeLayoutBreakpointListeners_;
 std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>> UIObserver::specifiedDrawListeners_;
 std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>> UIObserver::specifiedLayoutListeners_;
 
@@ -59,6 +61,10 @@ std::unordered_map<napi_ref, NG::AbilityContextInfo> UIObserver::didClickInfos_;
 std::list<std::shared_ptr<UIObserverListener>> UIObserver::tabContentStateListeners_;
 std::unordered_map<std::string, std::list<std::shared_ptr<UIObserverListener>>>
     UIObserver::specifiedTabContentStateListeners_;
+
+std::list<std::shared_ptr<UIObserverListener>> UIObserver::tabChangeListeners_;
+std::unordered_map<std::string, std::list<std::shared_ptr<UIObserverListener>>>
+    UIObserver::specifiedTabChangeListeners_;
 
 std::unordered_map<napi_ref, std::list<std::shared_ptr<UIObserverListener>>>
     UIObserver::abilityContextBeforePanStartListeners_;
@@ -86,7 +92,28 @@ std::unordered_map<napi_ref, NG::AbilityContextInfo> UIObserver::PanGestureInfos
 std::unordered_map<NG::FrameNode*, std::shared_ptr<UIObserver::NodeRenderListener>>
     UIObserver::specifiedNodeRenderStateListeners_;
 
-// UIObserver.on(type: "navDestinationUpdate", callback)
+std::list<std::shared_ptr<UIObserverListener>> UIObserver::textChangeEventListeners_;
+std::unordered_map<std::string, std::list<std::shared_ptr<UIObserverListener>>>
+    UIObserver::specifiedTextChangeEventListeners_;
+
+std::list<std::shared_ptr<UIObserverListener>> UIObserver::unspecifiedSwiperContentListeners_;
+std::unordered_map<std::string, std::list<std::shared_ptr<UIObserverListener>>>
+    UIObserver::specifiedSwiperContentListeners_;
+
+std::list<std::shared_ptr<UIObserverListener>> UIObserver::routerPageSizeChangeListeners_;
+std::list<std::shared_ptr<UIObserverListener>> UIObserver::unspecifiedNavDestinationSizeChangeListeners_;
+std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>>
+    UIObserver::specifiedNavDestinationSizeChangeListeners_;
+
+template<typename ListenerList, typename... Args>
+void SafeIterateListeners(const ListenerList& listeners, void (UIObserverListener::*callback)(Args...), Args... args)
+{
+    ListenerList listenersCopy = listeners;
+    for (const auto& listener : listenersCopy) {
+        (listener.get()->*callback)(std::forward<Args>(args)...);
+    }
+}
+
 // register a global listener without options
 void UIObserver::RegisterNavigationCallback(const std::shared_ptr<UIObserverListener>& listener)
 {
@@ -299,7 +326,9 @@ void UIObserver::UnRegisterScrollEventCallback(const std::string& id, napi_value
 void UIObserver::HandleScrollEventStateChange(const std::string& id, int32_t uniqueId,
     NG::ScrollEventType eventType, float offset, Ace::Axis axis)
 {
-    for (const auto& listener : scrollEventListeners_) {
+    // copy value to avoid developer call off while execute callback of on
+    auto scrollEventListeners = scrollEventListeners_;
+    for (const auto& listener : scrollEventListeners) {
         listener->OnScrollEventStateChange(id, uniqueId, eventType, offset, axis);
     }
 
@@ -308,7 +337,8 @@ void UIObserver::HandleScrollEventStateChange(const std::string& id, int32_t uni
         return;
     }
 
-    auto& holder = iter->second;
+    // copy value to avoid developer call off while execute callback of on
+    auto holder = iter->second;
 
     for (const auto& listener : holder) {
         listener->OnScrollEventStateChange(id, uniqueId, eventType, offset, axis);
@@ -513,19 +543,23 @@ void UIObserver::UnRegisterLayoutCallback(int32_t uiContextInstanceId, napi_valu
 
 void UIObserver::HandleRouterPageStateChange(NG::AbilityContextInfo& info, const NG::RouterPageInfoNG& pageInfo)
 {
+    auto env = GetCurrentNapiEnv();
+    napi_handle_scope scope = nullptr;
+    auto status = napi_open_handle_scope(env, &scope);
+    if (status != napi_ok) {
+        return;
+    }
     for (auto listenerPair : abilityContextRouterPageListeners_) {
         auto ref = listenerPair.first;
         auto localInfo = infosForRouterPage_[ref];
         if (info.IsEqual(localInfo)) {
-            auto env = GetCurrentNapiEnv();
             napi_value abilityContext = nullptr;
             napi_get_reference_value(env, ref, &abilityContext);
-
             NG::RouterPageInfoNG abilityPageInfo(
-                abilityContext, pageInfo.index, pageInfo.name, pageInfo.path, pageInfo.state, pageInfo.pageId);
+                pageInfo.index, pageInfo.name, pageInfo.path, pageInfo.state, pageInfo.pageId, pageInfo.size);
             auto holder = abilityContextRouterPageListeners_[ref];
             for (const auto& listener : holder) {
-                listener->OnRouterPageStateChange(abilityPageInfo);
+                listener->OnRouterPageStateChange(abilityPageInfo, abilityContext);
             }
             break;
         }
@@ -534,12 +568,15 @@ void UIObserver::HandleRouterPageStateChange(NG::AbilityContextInfo& info, const
     auto currentId = Container::CurrentId();
     auto iter = specifiedRouterPageListeners_.find(currentId);
     if (iter == specifiedRouterPageListeners_.end()) {
+        napi_close_handle_scope(env, scope);
         return;
     }
+    auto context = GetContextValue();
     auto holder = iter->second;
     for (const auto& listener : holder) {
-        listener->OnRouterPageStateChange(pageInfo);
+        listener->OnRouterPageStateChange(pageInfo, context);
     }
+    napi_close_handle_scope(env, scope);
 }
 
 // UIObserver.on(type: "densityUpdate", uiContext | null, callback)
@@ -595,10 +632,59 @@ void UIObserver::HandleDensityChange(NG::AbilityContextInfo& info, double densit
     if (iter == specifiedDensityListeners_.end()) {
         return;
     }
-    auto holder = iter->second;
-    for (const auto& listener : holder) {
-        listener->OnDensityChange(density);
+    SafeIterateListeners(iter->second, &UIObserverListener::OnDensityChange, density);
+}
+
+void UIObserver::RegisterWinSizeLayoutBreakpointCallback(
+    int32_t uiContextInstanceId, const std::shared_ptr<UIObserverListener>& listener)
+{
+    if (uiContextInstanceId == 0) {
+        uiContextInstanceId = Container::CurrentId();
     }
+    auto iter = specifiedWinSizeLayoutBreakpointListeners_.find(uiContextInstanceId);
+    if (iter == specifiedWinSizeLayoutBreakpointListeners_.end()) {
+        specifiedWinSizeLayoutBreakpointListeners_.emplace(
+            uiContextInstanceId, std::list<std::shared_ptr<UIObserverListener>>({ listener }));
+        return;
+    }
+    auto& holder = iter->second;
+    if (std::find(holder.begin(), holder.end(), listener) != holder.end()) {
+        return;
+    }
+    holder.emplace_back(listener);
+}
+
+void UIObserver::UnRegisterWinSizeLayoutBreakpointCallback(int32_t uiContextInstanceId, napi_value callback)
+{
+    if (uiContextInstanceId == 0) {
+        uiContextInstanceId = Container::CurrentId();
+    }
+    auto iter = specifiedWinSizeLayoutBreakpointListeners_.find(uiContextInstanceId);
+    if (iter == specifiedWinSizeLayoutBreakpointListeners_.end()) {
+        return;
+    }
+    auto& holder = iter->second;
+    if (callback == nullptr) {
+        holder.clear();
+        return;
+    }
+    holder.erase(
+        std::remove_if(
+            holder.begin(),
+            holder.end(),
+            [callback](const std::shared_ptr<UIObserverListener>& registeredListener) {
+                return registeredListener->NapiEqual(callback);
+            }),
+        holder.end());
+}
+
+void UIObserver::HandleWinSizeLayoutBreakpointChange(int32_t instanceId, const WindowSizeBreakpoint& info)
+{
+    auto iter = specifiedWinSizeLayoutBreakpointListeners_.find(instanceId);
+    if (iter == specifiedWinSizeLayoutBreakpointListeners_.end()) {
+        return;
+    }
+    SafeIterateListeners(iter->second, &UIObserverListener::OnWinSizeLayoutBreakpointChange, info);
 }
 
 void UIObserver::HandDrawCommandSendChange()
@@ -607,10 +693,7 @@ void UIObserver::HandDrawCommandSendChange()
     if (specifiedDrawListeners_.find(currentId) == specifiedDrawListeners_.end()) {
         return;
     }
-    auto holder = specifiedDrawListeners_[currentId];
-    for (const auto& listener : holder) {
-        listener->OnDrawOrLayout();
-    }
+    SafeIterateListeners(specifiedDrawListeners_[currentId], &UIObserverListener::OnDrawOrLayout);
 }
 
 void UIObserver::HandLayoutDoneChange()
@@ -619,10 +702,7 @@ void UIObserver::HandLayoutDoneChange()
     if (specifiedLayoutListeners_.find(currentId) == specifiedLayoutListeners_.end()) {
         return;
     }
-    auto holder = specifiedLayoutListeners_[currentId];
-    for (const auto& listener : holder) {
-        listener->OnDrawOrLayout();
-    }
+    SafeIterateListeners(specifiedLayoutListeners_[currentId], &UIObserverListener::OnDrawOrLayout);
 }
 
 /**
@@ -780,14 +860,20 @@ void UIObserver::UnRegisterNavDestinationSwitchCallback(int32_t uiContextInstanc
 void UIObserver::HandleNavDestinationSwitch(
     const NG::AbilityContextInfo& info, NG::NavDestinationSwitchInfo& switchInfo)
 {
+    auto env = GetCurrentNapiEnv();
+    napi_handle_scope scope = nullptr;
+    auto status = napi_open_handle_scope(env, &scope);
+    if (status != napi_ok) {
+        return;
+    }
     HandleAbilityUIContextNavDestinationSwitch(info, switchInfo);
     HandleUIContextNavDestinationSwitch(switchInfo);
+    napi_close_handle_scope(env, scope);
 }
 
 void UIObserver::HandleAbilityUIContextNavDestinationSwitch(
     const NG::AbilityContextInfo& info, NG::NavDestinationSwitchInfo& switchInfo)
 {
-    napi_value uiContextBackup = switchInfo.context;
     for (auto listenerPair : abilityUIContextNavDesSwitchListeners_) {
         auto ref = listenerPair.first;
         auto localInfo = infosForNavDesSwitch_[ref];
@@ -799,13 +885,11 @@ void UIObserver::HandleAbilityUIContextNavDestinationSwitch(
         napi_value abilityContext = nullptr;
         napi_get_reference_value(env, ref, &abilityContext);
 
-        switchInfo.context = abilityContext;
         auto listenersMap = listenerPair.second;
-        HandleListenersWithEmptyNavigationId(listenersMap, switchInfo);
-        HandleListenersWithSpecifiedNavigationId(listenersMap, switchInfo);
+        HandleListenersWithEmptyNavigationId(listenersMap, switchInfo, abilityContext);
+        HandleListenersWithSpecifiedNavigationId(listenersMap, switchInfo, abilityContext);
         break;
     }
-    switchInfo.context = uiContextBackup;
 }
 
 void UIObserver::HandleUIContextNavDestinationSwitch(const NG::NavDestinationSwitchInfo& switchInfo)
@@ -816,25 +900,26 @@ void UIObserver::HandleUIContextNavDestinationSwitch(const NG::NavDestinationSwi
         return;
     }
     auto listenersMap = listenersMapIter->second;
-    HandleListenersWithEmptyNavigationId(listenersMap, switchInfo);
-    HandleListenersWithSpecifiedNavigationId(listenersMap, switchInfo);
+    auto context = GetContextValue();
+    HandleListenersWithEmptyNavigationId(listenersMap, switchInfo, context);
+    HandleListenersWithSpecifiedNavigationId(listenersMap, switchInfo, context);
 }
 
 void UIObserver::HandleListenersWithEmptyNavigationId(
-    const NavIdAndListenersMap& listenersMap, const NG::NavDestinationSwitchInfo& switchInfo)
+    const NavIdAndListenersMap& listenersMap, const NG::NavDestinationSwitchInfo& switchInfo, napi_value context)
 {
     std::optional<std::string> navId;
     auto it = listenersMap.find(navId);
     if (it != listenersMap.end()) {
         const auto listeners = it->second;
         for (const auto& listener : listeners) {
-            listener->OnNavDestinationSwitch(switchInfo);
+            listener->OnNavDestinationSwitch(switchInfo, context);
         }
     }
 }
 
 void UIObserver::HandleListenersWithSpecifiedNavigationId(
-    const NavIdAndListenersMap& listenersMap, const NG::NavDestinationSwitchInfo& switchInfo)
+    const NavIdAndListenersMap& listenersMap, const NG::NavDestinationSwitchInfo& switchInfo, napi_value context)
 {
     std::string navigationId;
     if (switchInfo.from.has_value()) {
@@ -848,7 +933,7 @@ void UIObserver::HandleListenersWithSpecifiedNavigationId(
         if (it != listenersMap.end()) {
             const auto listeners = it->second;
             for (const auto& listener : listeners) {
-                listener->OnNavDestinationSwitch(switchInfo);
+                listener->OnNavDestinationSwitch(switchInfo, context);
             }
         }
     }
@@ -995,7 +1080,7 @@ void UIObserver::HandleWillClick(NG::AbilityContextInfo& info, const GestureEven
         napi_close_handle_scope(env, scope);
         return;
     }
-    auto& holder = iter->second;
+    auto holder = iter->second;
     for (const auto& listener : holder) {
         listener->OnWillClick(gestureEventInfo, clickInfo, frameNode);
     }
@@ -1143,7 +1228,7 @@ void UIObserver::HandleDidClick(NG::AbilityContextInfo& info, const GestureEvent
         napi_close_handle_scope(env, scope);
         return;
     }
-    auto& holder = iter->second;
+    auto holder = iter->second;
     for (const auto& listener : holder) {
         listener->OnDidClick(gestureEventInfo, clickInfo, frameNode);
     }
@@ -1631,7 +1716,7 @@ void UIObserver::HandlePanGestureAccept(NG::AbilityContextInfo& info, const Gest
         napi_close_handle_scope(env, scope);
         return;
     }
-    auto& holder = iter->second;
+    auto holder = iter->second;
     for (const auto& listener : holder) {
         listener->OnPanGestureStateChange(gestureEventInfo, current, frameNode);
     }
@@ -1713,11 +1798,12 @@ void UIObserver::UnRegisterNodeRenderStateChangeCallback(
         return;
     }
     CHECK_NULL_VOID(iter->second);
+    auto id = iter->second->id;
     auto& holder = iter->second->listeners;
     if (callback == nullptr) {
         holder.clear();
-        specifiedNodeRenderStateListeners_.erase(AceType::RawPtr(frameNode));
-        monitor->UnRegisterNodeRenderStatusListener(frameNodePtr, iter->second->id);
+        specifiedNodeRenderStateListeners_.erase(iter);
+        monitor->UnRegisterNodeRenderStatusListener(frameNodePtr, id);
         return;
     }
     holder.erase(
@@ -1729,8 +1815,8 @@ void UIObserver::UnRegisterNodeRenderStateChangeCallback(
             }),
         holder.end());
     if (holder.empty()) {
-        specifiedNodeRenderStateListeners_.erase(AceType::RawPtr(frameNode));
-        monitor->UnRegisterNodeRenderStatusListener(frameNodePtr, iter->second->id);
+        specifiedNodeRenderStateListeners_.erase(iter);
+        monitor->UnRegisterNodeRenderStatusListener(frameNodePtr, id);
     }
 }
 
@@ -1822,6 +1908,382 @@ void UIObserver::HandleTabContentStateChange(const NG::TabContentInfo& tabConten
     }
 }
 
+void UIObserver::RegisterTabChangeCallback(const std::shared_ptr<UIObserverListener>& listener)
+{
+    if (std::find(tabChangeListeners_.begin(), tabChangeListeners_.end(), listener) != tabChangeListeners_.end()) {
+        return;
+    }
+    tabChangeListeners_.emplace_back(listener);
+}
+
+void UIObserver::RegisterTabChangeCallback(
+    const std::string& id, const std::shared_ptr<UIObserverListener>& listener)
+{
+    auto iter = specifiedTabChangeListeners_.find(id);
+    if (iter == specifiedTabChangeListeners_.end()) {
+        specifiedTabChangeListeners_.emplace(id, std::list<std::shared_ptr<UIObserverListener>>({ listener }));
+        return;
+    }
+    auto& holder = iter->second;
+    if (std::find(holder.begin(), holder.end(), listener) != holder.end()) {
+        return;
+    }
+    holder.emplace_back(listener);
+}
+
+void UIObserver::UnRegisterTabChangeCallback(napi_value cb)
+{
+    if (cb == nullptr) {
+        tabChangeListeners_.clear();
+        return;
+    }
+    tabChangeListeners_.erase(
+        std::remove_if(
+            tabChangeListeners_.begin(),
+            tabChangeListeners_.end(),
+            [cb](const std::shared_ptr<UIObserverListener>& registeredListener) {
+                return registeredListener->NapiEqual(cb);
+            }),
+        tabChangeListeners_.end()
+    );
+}
+
+void UIObserver::UnRegisterTabChangeCallback(const std::string& id, napi_value cb)
+{
+    auto iter = specifiedTabChangeListeners_.find(id);
+    if (iter == specifiedTabChangeListeners_.end()) {
+        return;
+    }
+    auto& holder = iter->second;
+    if (cb == nullptr) {
+        holder.clear();
+        return;
+    }
+    holder.erase(
+        std::remove_if(
+            holder.begin(),
+            holder.end(),
+            [cb](const std::shared_ptr<UIObserverListener>& registeredListener) {
+                return registeredListener->NapiEqual(cb);
+            }),
+        holder.end()
+    );
+}
+
+void UIObserver::HandleTabChange(const NG::TabContentInfo& tabContentInfo)
+{
+    for (const auto& listener : tabChangeListeners_) {
+        listener->OnTabChange(tabContentInfo);
+    }
+    auto iter = specifiedTabChangeListeners_.find(tabContentInfo.id);
+    if (iter == specifiedTabChangeListeners_.end()) {
+        return;
+    }
+    auto& holder = iter->second;
+    for (const auto& listener : holder) {
+        listener->OnTabChange(tabContentInfo);
+    }
+}
+
+// UIObserver.on(type: "textChange", callback)
+// register a global listener without options
+void UIObserver::RegisterTextChangeEventCallback(const std::shared_ptr<UIObserverListener>& listener)
+{
+    if (std::find(textChangeEventListeners_.begin(), textChangeEventListeners_.end(), listener) !=
+        textChangeEventListeners_.end()) {
+        return;
+    }
+    textChangeEventListeners_.emplace_back(listener);
+}
+
+// UIObserver.on(type: "textChange", options, callback)
+// register a listener on a specified textChange
+void UIObserver::RegisterTextChangeEventCallback(
+    const std::string& id, const std::shared_ptr<UIObserverListener>& listener)
+{
+    auto iter = specifiedTextChangeEventListeners_.find(id);
+    if (iter == specifiedTextChangeEventListeners_.end()) {
+        specifiedTextChangeEventListeners_.emplace(id, std::list<std::shared_ptr<UIObserverListener>>({ listener }));
+        return;
+    }
+    auto& holder = iter->second;
+    if (std::find(holder.begin(), holder.end(), listener) != holder.end()) {
+        return;
+    }
+    holder.emplace_back(listener);
+}
+
+// UIObserver.off(type: "textChange", callback)
+void UIObserver::UnRegisterTextChangeEventCallback(napi_value cb)
+{
+    if (cb == nullptr) {
+        textChangeEventListeners_.clear();
+        return;
+    }
+
+    textChangeEventListeners_.erase(
+        std::remove_if(
+            textChangeEventListeners_.begin(),
+            textChangeEventListeners_.end(),
+            [cb](const std::shared_ptr<UIObserverListener>& registeredListener) {
+                return registeredListener->NapiEqual(cb);
+            }),
+        textChangeEventListeners_.end()
+    );
+}
+
+// UIObserver.off(type: "textChange", options, callback)
+void UIObserver::UnRegisterTextChangeEventCallback(const std::string& id, napi_value cb)
+{
+    auto iter = specifiedTextChangeEventListeners_.find(id);
+    if (iter == specifiedTextChangeEventListeners_.end()) {
+        return;
+    }
+    auto& holder = iter->second;
+    if (cb == nullptr) {
+        holder.clear();
+        return;
+    }
+    holder.erase(
+        std::remove_if(
+            holder.begin(),
+            holder.end(),
+            [cb](const std::shared_ptr<UIObserverListener>& registeredListener) {
+                return registeredListener->NapiEqual(cb);
+            }),
+        holder.end()
+    );
+}
+
+void UIObserver::RegisterSwiperContentUpdateCallback(const std::shared_ptr<UIObserverListener>& listener)
+{
+    if (std::find(unspecifiedSwiperContentListeners_.begin(), unspecifiedSwiperContentListeners_.end(), listener) !=
+        unspecifiedSwiperContentListeners_.end()) {
+        return;
+    }
+    unspecifiedSwiperContentListeners_.emplace_back(listener);
+}
+
+void UIObserver::RegisterSwiperContentUpdateCallback(
+    const std::string& id, const std::shared_ptr<UIObserverListener>& listener)
+{
+    auto iter = specifiedSwiperContentListeners_.find(id);
+    if (iter == specifiedSwiperContentListeners_.end()) {
+        specifiedSwiperContentListeners_.emplace(
+            id, std::list<std::shared_ptr<UIObserverListener>>({ listener }));
+        return;
+    }
+    auto& holder = iter->second;
+    if (std::find(holder.begin(), holder.end(), listener) != holder.end()) {
+        return;
+    }
+    holder.emplace_back(listener);
+}
+
+void UIObserver::UnRegisterSwiperContentUpdateCallback(napi_value callback)
+{
+    // remove all anonymous callback in unspecifiedSwiperContentListeners_
+    if (callback == nullptr) {
+        unspecifiedSwiperContentListeners_.clear();
+        return;
+    }
+    // remove specified callback in unspecifiedSwiperContentListeners_
+    unspecifiedSwiperContentListeners_.erase(
+        std::remove_if(
+            unspecifiedSwiperContentListeners_.begin(),
+            unspecifiedSwiperContentListeners_.end(),
+            [callback](const std::shared_ptr<UIObserverListener>& registeredListener) {
+                return registeredListener->NapiEqual(callback);
+            }
+        ),
+        unspecifiedSwiperContentListeners_.end()
+    );
+}
+
+void UIObserver::UnRegisterSwiperContentUpdateCallback(const std::string& id, napi_value callback)
+{
+    auto iter = specifiedSwiperContentListeners_.find(id);
+    if (iter == specifiedSwiperContentListeners_.end()) {
+        return;
+    }
+    if (callback == nullptr) {
+        specifiedSwiperContentListeners_.erase(iter);
+        TAG_LOGI(AceLogTag::ACE_SWIPER, "erase all observer of id: %{public}s", id.c_str());
+        return;
+    }
+    auto& holder = iter->second;
+    holder.erase(
+        std::remove_if(
+            holder.begin(),
+            holder.end(),
+            [callback](const std::shared_ptr<UIObserverListener>& registeredListener) {
+                return registeredListener->NapiEqual(callback);
+            }),
+        holder.end()
+    );
+}
+
+void UIObserver::HandleSwiperContentUpdate(const NG::SwiperContentInfo& info)
+{
+    // use copy instead of origin listeners to avoid listeners_ change during callback executing
+    auto unspecifiedSwiperContentListeners = unspecifiedSwiperContentListeners_;
+    auto specifiedSwiperContentListeners = specifiedSwiperContentListeners_;
+    for (const auto& listener : unspecifiedSwiperContentListeners) {
+        listener->HandleSwiperContentUpdate(info);
+    }
+
+    auto iter = specifiedSwiperContentListeners.find(info.id);
+    if (iter == specifiedSwiperContentListeners.end()) {
+        return;
+    }
+
+    auto holder = iter->second;
+    for (const auto& listener : holder) {
+        listener->HandleSwiperContentUpdate(info);
+    }
+}
+
+void UIObserver::RegisterRouterPageSizeChangeCallback(const std::shared_ptr<UIObserverListener>& listener)
+{
+    if (std::find(routerPageSizeChangeListeners_.begin(), routerPageSizeChangeListeners_.end(), listener) !=
+        routerPageSizeChangeListeners_.end()) {
+        return;
+    }
+    routerPageSizeChangeListeners_.emplace_back(listener);
+}
+
+void UIObserver::UnRegisterRouterPageSizeChangeCallback(napi_value callback)
+{
+    if (callback == nullptr) {
+        routerPageSizeChangeListeners_.clear();
+        return;
+    }
+    routerPageSizeChangeListeners_.erase(
+        std::remove_if(routerPageSizeChangeListeners_.begin(), routerPageSizeChangeListeners_.end(),
+            [callback](const std::shared_ptr<UIObserverListener>& registeredListener) {
+                return registeredListener->NapiEqual(callback);
+            }),
+        routerPageSizeChangeListeners_.end());
+}
+
+void UIObserver::HandleRouterPageSizeChange(const NG::RouterPageInfoNG& info)
+{
+    auto env = GetCurrentNapiEnv();
+    CHECK_NULL_VOID(env);
+    napi_handle_scope scope = nullptr;
+    auto status = napi_open_handle_scope(env, &scope);
+    if (status != napi_ok) {
+        return;
+    }
+    auto context = GetContextValue();
+    auto listener = routerPageSizeChangeListeners_;
+    for (const auto& listener : listener) {
+        listener->OnRouterPageSizeChange(info, context);
+    }
+    napi_close_handle_scope(env, scope);
+}
+
+void UIObserver::RegisterNavDestinationSizeChangeCallback(const std::shared_ptr<UIObserverListener>& listener)
+{
+    if (std::find(unspecifiedNavDestinationSizeChangeListeners_.begin(),
+        unspecifiedNavDestinationSizeChangeListeners_.end(), listener) !=
+        unspecifiedNavDestinationSizeChangeListeners_.end()) {
+        return;
+    }
+    unspecifiedNavDestinationSizeChangeListeners_.emplace_back(listener);
+}
+
+void UIObserver::UnRegisterNavDestinationSizeChangeCallback(napi_value callback)
+{
+    if (callback == nullptr) {
+        unspecifiedNavDestinationSizeChangeListeners_.clear();
+        return;
+    }
+    unspecifiedNavDestinationSizeChangeListeners_.erase(
+        std::remove_if(unspecifiedNavDestinationSizeChangeListeners_.begin(),
+            unspecifiedNavDestinationSizeChangeListeners_.end(),
+            [callback](const std::shared_ptr<UIObserverListener>& registeredListener) {
+                return registeredListener->NapiEqual(callback);
+            }),
+        unspecifiedNavDestinationSizeChangeListeners_.end());
+}
+
+void UIObserver::HandleNavDestinationSizeChange(const NG::NavDestinationInfo& info)
+{
+    auto listeners = unspecifiedNavDestinationSizeChangeListeners_;
+    for (const auto& listener : listeners) {
+        listener->OnNavDestinationSizeChange(info);
+    }
+}
+
+void UIObserver::RegisterNavDestinationSizeChangeByUniqueIdCallback(
+    int32_t navigationUniqueId, const std::shared_ptr<UIObserverListener>& listener)
+{
+    auto iter = specifiedNavDestinationSizeChangeListeners_.find(navigationUniqueId);
+    if (iter == specifiedNavDestinationSizeChangeListeners_.end()) {
+        specifiedNavDestinationSizeChangeListeners_.emplace(
+            navigationUniqueId, std::list<std::shared_ptr<UIObserverListener>>({ listener }));
+        return;
+    }
+    auto& holder = iter->second;
+    if (std::find(holder.begin(), holder.end(), listener) != holder.end()) {
+        return;
+    }
+    holder.emplace_back(listener);
+}
+
+void UIObserver::UnRegisterNavDestinationSizeChangeByUniqueIdCallback(int32_t navigationUniqueId, napi_value callback)
+{
+    auto iter = specifiedNavDestinationSizeChangeListeners_.find(navigationUniqueId);
+    if (iter == specifiedNavDestinationSizeChangeListeners_.end()) {
+        return;
+    }
+    auto& holder = iter->second;
+    if (callback == nullptr) {
+        holder.clear();
+        return;
+    }
+    holder.erase(std::remove_if(holder.begin(), holder.end(),
+        [callback](const std::shared_ptr<UIObserverListener>& registeredListener) {
+            return registeredListener->NapiEqual(callback);
+        }),
+        holder.end());
+}
+
+void UIObserver::HandleNavDestinationSizeChangeByUniqueId(const NG::NavDestinationInfo& info)
+{
+    auto navigationdUniqueIdIter = specifiedNavDestinationSizeChangeListeners_.find(info.navigationUniqueId);
+    if (navigationdUniqueIdIter != specifiedNavDestinationSizeChangeListeners_.end()) {
+        auto holder = navigationdUniqueIdIter->second;
+        for (const auto& listener : holder) {
+            listener->OnNavDestinationSizeChange(info);
+        }
+    }
+}
+
+bool UIObserver::IsSwiperContentObserverEmpty()
+{
+    return unspecifiedSwiperContentListeners_.empty() && specifiedSwiperContentListeners_.empty();
+}
+
+
+void UIObserver::HandleTextChangeEvent(const NG::TextChangeEventInfo& info)
+{
+    for (const auto& listener : textChangeEventListeners_) {
+        listener->OnTextChangeEvent(info);
+    }
+
+    auto iter = specifiedTextChangeEventListeners_.find(info.id);
+    if (iter == specifiedTextChangeEventListeners_.end()) {
+        return;
+    }
+
+    auto holder = iter->second;
+    for (const auto& listener : holder) {
+        listener->OnTextChangeEvent(info);
+    }
+}
+
 void UIObserver::GetAbilityInfos(napi_env env, napi_value abilityContext, NG::AbilityContextInfo& info)
 {
     if (!env || !abilityContext) {
@@ -1866,5 +2328,14 @@ napi_env UIObserver::GetCurrentNapiEnv()
     NativeEngine* nativeEngine = engine->GetNativeEngine();
     CHECK_NULL_RETURN(nativeEngine, nullptr);
     return reinterpret_cast<napi_env>(nativeEngine);
+}
+
+napi_value UIObserver::GetContextValue()
+{
+    auto container = Container::CurrentSafely();
+    CHECK_NULL_RETURN(container, nullptr);
+    auto frontend = container->GetFrontend();
+    CHECK_NULL_RETURN(frontend, nullptr);
+    return frontend->GetContextValue();
 }
 } // namespace OHOS::Ace::Napi

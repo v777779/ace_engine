@@ -14,6 +14,7 @@
  */
 
 #include "core/pipeline_ng/ui_task_scheduler.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 
 #include <unistd.h>
 
@@ -55,9 +56,13 @@ void UITaskScheduler::AddDirtyLayoutNode(const RefPtr<FrameNode>& dirty)
     dirtyLayoutNodes_.emplace_back(dirty);
 }
 
-void UITaskScheduler::AddIgnoreLayoutSafeAreaBundle(IgnoreLayoutSafeAreaBundle&& bundle)
+void UITaskScheduler::AddIgnoreLayoutSafeAreaBundle(IgnoreLayoutSafeAreaBundle&& bundle, bool postByTraverse)
 {
     CHECK_RUN_ON(UI);
+    if (postByTraverse) {
+        traverseSafeAreaBundles_.emplace_back(bundle.second);
+        return;
+    }
     ignoreLayoutSafeAreaBundles_.emplace_back(std::move(bundle));
 }
 
@@ -162,13 +167,12 @@ void UITaskScheduler::FlushLayoutTask(bool forceUseMainThread)
         if (frameInfo_ != nullptr) {
             frameInfo_->AddTaskInfo(node->GetTag(), node->GetId(), time, FrameInfo::TaskType::LAYOUT);
         }
+        while (!ignoreLayoutSafeAreaBundles_.empty() || !traverseSafeAreaBundles_.empty()) {
+            FlushPostponedLayoutTask(forceUseMainThread);
+        }
 #ifndef IS_RELEASE_VERSION
         duration += time;
 #endif
-    }
-
-    while (!ignoreLayoutSafeAreaBundles_.empty()) {
-        FlushPostponedLayoutTask(forceUseMainThread);
     }
 
     FlushSyncGeometryNodeTasks();
@@ -189,6 +193,20 @@ void UITaskScheduler::FlushLayoutTask(bool forceUseMainThread)
 
 void UITaskScheduler::FlushPostponedLayoutTask(bool forceUseMainThread)
 {
+    ACE_FUNCTION_TRACE_COMMERCIAL();
+    auto traverseSafeAreaBundles = std::move(traverseSafeAreaBundles_);
+    for (auto&& rit = traverseSafeAreaBundles.rbegin(); rit != traverseSafeAreaBundles.rend(); ++rit) {
+        auto& container = *rit;
+        if (!container || container->IsInDestroying()) {
+            continue;
+        }
+        const auto& layoutProperty = container->GetLayoutProperty();
+        CHECK_NULL_CONTINUE(layoutProperty);
+        //Mark container dirty to prevent skipMeasure or skipLayout.
+        layoutProperty->UpdatePropertyChangeFlag(PROPERTY_UPDATE_MEASURE);
+        container->CreateLayoutTask(forceUseMainThread, LayoutType::TRAVERSE_FOR_IGNORE);
+        continue;
+    }
     auto ignoreLayoutSafeAreaBundles = std::move(ignoreLayoutSafeAreaBundles_);
     for (auto&& bundle = ignoreLayoutSafeAreaBundles.rbegin(); bundle != ignoreLayoutSafeAreaBundles.rend();
         ++bundle) {
@@ -202,7 +220,9 @@ void UITaskScheduler::FlushPostponedLayoutTask(bool forceUseMainThread)
         if (!container || container->IsInDestroying()) {
             continue;
         }
-        container->CreateLayoutTask(forceUseMainThread, LayoutType::LAYOUT_FOR_IGNORE);
+        if (!container->PostponedTaskForIgnore()) {
+            container->CreateLayoutTask(forceUseMainThread, LayoutType::LAYOUT_FOR_IGNORE);
+        }
     }
 }
 
@@ -457,6 +477,16 @@ void UITaskScheduler::FlushAfterLayoutTask()
     FlushPersistAfterLayoutTask();
 }
 
+void UITaskScheduler::FlushAfterModifierTask()
+{
+    decltype(afterModifierTasks_) tasks(std::move(afterModifierTasks_));
+    for (const auto& task : tasks) {
+        if (task) {
+            task();
+        }
+    }
+}
+
 void UITaskScheduler::FlushAfterLayoutCallbackInImplicitAnimationTask()
 {
     decltype(afterLayoutCallbacksInImplicitAnimationTask_) tasks(
@@ -485,6 +515,11 @@ void UITaskScheduler::FlushPersistAfterLayoutTask()
 void UITaskScheduler::AddAfterRenderTask(std::function<void()>&& task)
 {
     afterRenderTasks_.emplace_back(std::move(task));
+}
+
+void UITaskScheduler::AddAfterModifierTask(std::function<void()>&& task)
+{
+    afterModifierTasks_.emplace_back(std::move(task));
 }
 
 void UITaskScheduler::FlushAfterRenderTask()

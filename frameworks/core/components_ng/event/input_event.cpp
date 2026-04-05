@@ -15,6 +15,7 @@
 
 #include "core/components_ng/event/input_event.h"
 
+#include "base/log/ace_trace.h"
 #include "core/components_ng/base/frame_node.h"
 
 namespace OHOS::Ace::NG {
@@ -25,13 +26,10 @@ InputEventActuator::InputEventActuator(const WeakPtr<InputEventHub>& inputEventH
     CHECK_NULL_VOID(refInputEventHub);
     auto frameNode = refInputEventHub->GetFrameNode();
     CHECK_NULL_VOID(frameNode);
-    mouseEventTarget_ = MakeRefPtr<MouseEventTarget>(frameNode->GetTag(), frameNode->GetId());
-    hoverEventTarget_ = MakeRefPtr<HoverEventTarget>(frameNode->GetTag(), frameNode->GetId());
-    hoverEffectTarget_ = MakeRefPtr<HoverEffectTarget>(frameNode->GetTag(), frameNode->GetId());
-    accessibilityHoverEventTarget_ = MakeRefPtr<HoverEventTarget>(frameNode->GetTag(), frameNode->GetId());
-    penHoverEventTarget_ = MakeRefPtr<HoverEventTarget>(frameNode->GetTag(), frameNode->GetId());
-    penHoverMoveEventTarget_ = MakeRefPtr<HoverEventTarget>(frameNode->GetTag(), frameNode->GetId());
+    auto nodeId = frameNode->GetId();
+    ACE_UINODE_TRACE(nodeId);
     axisEventTarget_ = MakeRefPtr<AxisEventTarget>(frameNode->GetTag(), frameNode->GetId());
+    coastingAxisEventTarget_ = MakeRefPtr<AxisEventTarget>(frameNode->GetTag(), frameNode->GetId());
 }
 
 void InputEventActuator::OnCollectMouseEvent(
@@ -63,6 +61,9 @@ void InputEventActuator::OnCollectMouseEvent(
             (*userJSFrameNodeCallback)(info);
         }
     };
+    if (mouseEventTarget_ == nullptr) {
+        mouseEventTarget_ = MakeRefPtr<MouseEventTarget>(frameNode->GetTag(), frameNode->GetId());
+    }
     mouseEventTarget_->AttachFrameNode(frameNode);
     mouseEventTarget_->SetCallback(onMouseCallback);
     mouseEventTarget_->SetCoordinateOffset(Offset(coordinateOffset.GetX(), coordinateOffset.GetY()));
@@ -91,6 +92,9 @@ void InputEventActuator::OnCollectMouseEventForTips(
             }
         }
     };
+    if (mouseEventTarget_ == nullptr) {
+        mouseEventTarget_ = MakeRefPtr<MouseEventTarget>(frameNode->GetTag(), frameNode->GetId());
+    }
     mouseEventTarget_->AttachFrameNode(frameNode);
     mouseEventTarget_->SetCallback(onMouseCallback);
     mouseEventTarget_->SetCoordinateOffset(Offset(coordinateOffset.GetX(), coordinateOffset.GetY()));
@@ -103,6 +107,14 @@ void InputEventActuator::OnCollectHoverEvent(
 {
     if (inputEvents_.empty() && !userCallback_ && !userJSFrameNodeCallback_) {
         return;
+    }
+
+    if (hoverEventTarget_ == nullptr) {
+        auto inputEventHub = inputEventHub_.Upgrade();
+        CHECK_NULL_VOID(inputEventHub);
+        auto frameNode = inputEventHub->GetFrameNode();
+        CHECK_NULL_VOID(frameNode);
+        hoverEventTarget_ = MakeRefPtr<HoverEventTarget>(frameNode->GetTag(), frameNode->GetId());
     }
     auto inputEventHub = inputEventHub_.Upgrade();
     if (inputEventHub && inputEventHub->GetFrameNode()) {
@@ -139,6 +151,14 @@ void InputEventActuator::OnCollectHoverEventForTips(
 {
     if (inputEvents_.empty()) {
         return;
+    }
+ 
+    if (hoverEventTarget_ == nullptr) {
+        auto inputEventHub = inputEventHub_.Upgrade();
+        CHECK_NULL_VOID(inputEventHub);
+        auto frameNode = inputEventHub->GetFrameNode();
+        CHECK_NULL_VOID(frameNode);
+        hoverEventTarget_ = MakeRefPtr<HoverEventTarget>(frameNode->GetTag(), frameNode->GetId());
     }
     auto inputEventHub = inputEventHub_.Upgrade();
     if (inputEventHub && inputEventHub->GetFrameNode()) {
@@ -189,6 +209,14 @@ void InputEventActuator::OnCollectPenHoverEvent(const OffsetF& coordinateOffset,
             (*userJSCallback)(isHover, penHoverInfo);
         }
     };
+    auto refInputEventHub = inputEventHub_.Upgrade();
+    CHECK_NULL_VOID(refInputEventHub);
+    auto frameNode = refInputEventHub->GetFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    if (penHoverEventTarget_ == nullptr) {
+        penHoverEventTarget_ = MakeRefPtr<HoverEventTarget>(frameNode->GetTag(), frameNode->GetId());
+    }
+ 
     penHoverEventTarget_->AttachFrameNode(host);
     penHoverEventTarget_->SetPenHoverCallback(penHoverCallback);
     penHoverEventTarget_->SetCoordinateOffset(Offset(coordinateOffset.GetX(), coordinateOffset.GetY()));
@@ -222,6 +250,15 @@ void InputEventActuator::OnCollectPenHoverMoveEvent(const OffsetF& coordinateOff
             (*userJSCallback)(penHoverMoveInfo);
         }
     };
+    auto refInputEventHub = inputEventHub_.Upgrade();
+    CHECK_NULL_VOID(refInputEventHub);
+    auto frameNode = refInputEventHub->GetFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    
+    if (penHoverMoveEventTarget_ == nullptr) {
+        penHoverMoveEventTarget_ = MakeRefPtr<HoverEventTarget>(frameNode->GetTag(), frameNode->GetId());
+    }
+
     penHoverMoveEventTarget_->AttachFrameNode(host);
     penHoverMoveEventTarget_->SetPenHoverMoveCallback(penHoverMoveCallback);
     penHoverMoveEventTarget_->SetCoordinateOffset(Offset(coordinateOffset.GetX(), coordinateOffset.GetY()));
@@ -236,6 +273,10 @@ void InputEventActuator::OnCollectHoverEffect(
     CHECK_NULL_VOID(inputEventHub);
     auto frameNode = inputEventHub->GetFrameNode();
     CHECK_NULL_VOID(frameNode);
+
+    if (hoverEffectTarget_ == nullptr) {
+        hoverEffectTarget_ = MakeRefPtr<HoverEffectTarget>(frameNode->GetTag(), frameNode->GetId());
+    }
 
     hoverEffectTarget_->SetCoordinateOffset(Offset(coordinateOffset.GetX(), coordinateOffset.GetY()));
     hoverEffectTarget_->SetGetEventTargetImpl(getEventTargetImpl);
@@ -259,6 +300,16 @@ void InputEventActuator::OnCollectAccessibilityHoverEvent(const OffsetF& coordin
             (*userEvent)(info, accessibilityHoverInfo);
         }
     };
+
+    auto refInputEventHub = inputEventHub_.Upgrade();
+    CHECK_NULL_VOID(refInputEventHub);
+    auto frameNode = refInputEventHub->GetFrameNode();
+    CHECK_NULL_VOID(frameNode);
+ 
+    if (accessibilityHoverEventTarget_ == nullptr) {
+        accessibilityHoverEventTarget_ = MakeRefPtr<HoverEventTarget>(frameNode->GetTag(), frameNode->GetId());
+    }
+
     accessibilityHoverEventTarget_->AttachFrameNode(host);
     accessibilityHoverEventTarget_->SetAccessibilityHoverCallback(onAccessibilityHoverCallback);
     accessibilityHoverEventTarget_->SetCoordinateOffset(Offset(coordinateOffset.GetX(), coordinateOffset.GetY()));
@@ -292,10 +343,32 @@ void InputEventActuator::OnCollectAxisEvent(
             (*userEvent)(info);
         }
     };
+
+    if (axisEventTarget_ == nullptr) {
+        axisEventTarget_ = MakeRefPtr<AxisEventTarget>(frameNode->GetTag(), frameNode->GetId());
+    }
+
     axisEventTarget_->SetOnAxisCallback(onAxisCallback);
     axisEventTarget_->SetCoordinateOffset(coordinateOffset);
     axisEventTarget_->SetGetEventTargetImpl(getEventTargetImpl);
     onAxisResult.emplace_back(axisEventTarget_);
 }
 
+void InputEventActuator::OnCollectCoastingAxisEvent(AxisTestResult& onAxisResult)
+{
+    if (!userCallback_) {
+        return;
+    }
+
+    auto onCoastingAxisCallback = [weak = WeakClaim(this)](CoastingAxisInfo& info) {
+        auto actuator = weak.Upgrade();
+        CHECK_NULL_VOID(actuator);
+        auto userEvent = actuator->userCallback_;
+        if (userEvent) {
+            (*userEvent)(info);
+        }
+    };
+    coastingAxisEventTarget_->SetOnCoastingAxisCallback(onCoastingAxisCallback);
+    onAxisResult.emplace_back(coastingAxisEventTarget_);
+}
 } // namespace OHOS::Ace::NG

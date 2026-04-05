@@ -13,19 +13,18 @@
  * limitations under the License.
  */
 
-#ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_MENU_MENU_DIVIER_MENU_DIVIDER_PAINT_PROPERTY_H
-#define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_MENU_MENU_DIVIER_MENU_DIVIDER_PAINT_PROPERTY_H
+#ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_MENU_MENU_DIVIDER_MENU_DIVIDER_PAINT_PROPERTY_H
+#define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_MENU_MENU_DIVIDER_MENU_DIVIDER_PAINT_PROPERTY_H
 
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/base/inspector_filter.h"
 #include "core/components_ng/render/paint_property.h"
-#include "core/components_ng/pattern/select/select_properties.h"
 
 namespace OHOS::Ace::NG {
 // PaintProperty are used to set render properties.
 class MenuDividerPaintProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(MenuDividerPaintProperty, PaintProperty)
+    DECLARE_ACE_TYPE(MenuDividerPaintProperty, PaintProperty);
 public:
     MenuDividerPaintProperty() = default;
     ~MenuDividerPaintProperty() override = default;
@@ -79,4 +78,4 @@ public:
     ACE_DISALLOW_COPY_AND_MOVE(MenuDividerPaintProperty);
 };
 } // namespace OHOS::Ace::NG
-#endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_DIVIDER_DIVIDER_RENDER_PROPERTY_H
+#endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_MENU_MENU_DIVIDER_MENU_DIVIDER_RENDER_PROPERTY_H

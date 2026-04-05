@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,25 +13,61 @@
  * limitations under the License.
  */
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_native_grid_bridge.h"
+
 #include "base/utils/string_utils.h"
 #include "base/utils/utils.h"
 #include "bridge/declarative_frontend/engine/functions/js_function.h"
+#include "frameworks/bridge/declarative_frontend/engine/functions/js_drag_function.h"
 #include "bridge/declarative_frontend/jsview/js_grid.h"
 #include "bridge/declarative_frontend/jsview/js_scroller.h"
 #include "core/components_ng/pattern/grid/grid_model_ng.h"
+#include "core/components_ng/pattern/scrollable/selectable_container_pattern.h"
 #include "core/components_ng/pattern/scroll_bar/proxy/scroll_bar_proxy.h"
 #include "core/components_ng/pattern/scrollable/scrollable_controller.h"
+#include "frameworks/bridge/declarative_frontend/engine/functions/js_drag_function.h"
 #include "frameworks/bridge/declarative_frontend/engine/jsi/nativeModule/arkts_utils.h"
+
 using namespace OHOS::Ace::Framework;
 
 namespace OHOS::Ace::NG {
 constexpr int32_t CALL_ARG_0 = 0;
 constexpr int32_t CALL_ARG_1 = 1;
 constexpr int32_t CALL_ARG_2 = 2;
+constexpr int32_t CALL_ARG_3 = 3;
 constexpr int32_t DEFAULT_CACHED_COUNT = 1;
+constexpr int32_t BREAKPOINT_DEFAULT = 0;
+constexpr int32_t BREAKPOINT_SM2MD3LG5 = 2;
 constexpr size_t GRID_ITEM_SIZE_RESULT_LENGTH = 2;
 constexpr size_t GRID_ITEM_RECT_RESULT_LENGTH = 4;
+constexpr size_t GRID_START_LINE_INFO_RESULT_LENGTH = 4;
 namespace {
+void ParseGridStartLineInfo(const Framework::JSRef<Framework::JSVal>& value, GridStartLineInfo& gridStartLineInfo)
+{
+    if (value->IsArray()) {
+        auto array = Framework::JSRef<Framework::JSArray>::Cast(value);
+        auto length = array->Length();
+        if (length != GRID_START_LINE_INFO_RESULT_LENGTH) {
+            return;
+        }
+        Framework::JSRef<Framework::JSVal> startIndex = array->GetValueAt(CALL_ARG_0);
+        if (startIndex->IsNumber()) {
+            gridStartLineInfo.startIndex = startIndex->ToNumber<int32_t>();
+        }
+        Framework::JSRef<Framework::JSVal> startLine = array->GetValueAt(CALL_ARG_1);
+        if (startLine->IsNumber()) {
+            gridStartLineInfo.startLine = startLine->ToNumber<int32_t>();
+        }
+        Framework::JSRef<Framework::JSVal> startOffset = array->GetValueAt(CALL_ARG_2);
+        if (startOffset->IsNumber()) {
+            gridStartLineInfo.startOffset = startOffset->ToNumber<double>();
+        }
+        Framework::JSRef<Framework::JSVal> totalOffset = array->GetValueAt(CALL_ARG_3);
+        if (totalOffset->IsNumber()) {
+            gridStartLineInfo.totalOffset = totalOffset->ToNumber<double>();
+        }
+    }
+}
+
 void ParseGridItemSize(const Framework::JSRef<Framework::JSVal>& value, GridItemSize& gridItemSize)
 {
     if (value->IsArray()) {
@@ -83,8 +119,9 @@ void ParseGetGridItemSize(const EcmaVM* vm, const Local<JSValueRef>& getSizeByIn
     if (getSizeByIndex->IsFunction(vm)) {
         Local<panda::FunctionRef> functionRef = getSizeByIndex->ToObject(vm);
         auto onGetIrregularSizeByIndex =
-            [func = AceType::MakeRefPtr<Framework::JsFunction>(Framework::JSRef<Framework::JSObject>(),
+            [vm, func = AceType::MakeRefPtr<Framework::JsFunction>(Framework::JSRef<Framework::JSObject>(),
                  Framework::JSRef<Framework::JSFunc>(Framework::JSFunc(functionRef)))](int32_t index) {
+                panda::LocalScope scope(vm);
                 GridItemSize gridItemSize;
                 auto itemIndex = Framework::JSRef<Framework::JSVal>::Make(Framework::ToJSValue(index));
                 auto result = func->ExecuteJS(1, &itemIndex);
@@ -103,8 +140,9 @@ void ParseGetGridItemRect(const EcmaVM* vm, const Local<JSValueRef>& getRectByIn
     if (getRectByIndex->IsFunction(vm)) {
         Local<panda::FunctionRef> functionRef = getRectByIndex->ToObject(vm);
         auto onGetRectByIndex =
-            [func = AceType::MakeRefPtr<Framework::JsFunction>(Framework::JSRef<Framework::JSObject>(),
+            [vm, func = AceType::MakeRefPtr<Framework::JsFunction>(Framework::JSRef<Framework::JSObject>(),
                  Framework::JSRef<Framework::JSFunc>(Framework::JSFunc(functionRef)))](int32_t index) {
+                panda::LocalScope scope(vm);
                 GridItemRect gridItemRect;
                 auto itemIndex = Framework::JSRef<Framework::JSVal>::Make(Framework::ToJSValue(index));
                 auto result = func->ExecuteJS(1, &itemIndex);
@@ -117,6 +155,68 @@ void ParseGetGridItemRect(const EcmaVM* vm, const Local<JSValueRef>& getRectByIn
         option.getRectByIndex = std::move(onGetRectByIndex);
     }
 }
+
+void ParseGetStartIndexByOffset(const EcmaVM* vm, const Local<JSValueRef>& getStartIndexByOffset,
+    GridLayoutOptions& option)
+{
+    if (getStartIndexByOffset->IsFunction(vm)) {
+        Local<panda::FunctionRef> functionRef = getStartIndexByOffset->ToObject(vm);
+        auto onGetStartIndexByOffset =
+            [vm, func = AceType::MakeRefPtr<Framework::JsFunction>(Framework::JSRef<Framework::JSObject>(),
+                 Framework::JSRef<Framework::JSFunc>(Framework::JSFunc(functionRef)))](float offset) {
+                panda::LocalScope scope(vm);
+                GridStartLineInfo gridStartLineInfo;
+                auto offsetValue = Framework::JSRef<Framework::JSVal>::Make(Framework::ToJSValue(offset));
+                auto result = func->ExecuteJS(1, &offsetValue);
+                if (!result->IsArray()) {
+                    return gridStartLineInfo;
+                }
+                ParseGridStartLineInfo(result, gridStartLineInfo);
+                return gridStartLineInfo;
+            };
+        option.getStartIndexByOffset = std::move(onGetStartIndexByOffset);
+    }
+}
+
+void ParseGetStartIndexByIndex(const EcmaVM* vm, const Local<JSValueRef>& getStartIndexByIndex,
+    GridLayoutOptions& option)
+{
+    if (getStartIndexByIndex->IsFunction(vm)) {
+        Local<panda::FunctionRef> functionRef = getStartIndexByIndex->ToObject(vm);
+        auto onGetStartIndexByIndex =
+            [vm, func = AceType::MakeRefPtr<Framework::JsFunction>(Framework::JSRef<Framework::JSObject>(),
+                 Framework::JSRef<Framework::JSFunc>(Framework::JSFunc(functionRef)))](int32_t index) {
+                panda::LocalScope scope(vm);
+                GridStartLineInfo gridStartLineInfo;
+                auto itemIndex = Framework::JSRef<Framework::JSVal>::Make(Framework::ToJSValue(index));
+                auto result = func->ExecuteJS(1, &itemIndex);
+                if (!result->IsArray()) {
+                    return gridStartLineInfo;
+                }
+                ParseGridStartLineInfo(result, gridStartLineInfo);
+                return gridStartLineInfo;
+            };
+        option.getStartIndexByIndex = std::move(onGetStartIndexByIndex);
+    }
+}
+
+void ParsePreviewBadge(const Framework::JSRef<Framework::JSVal>& result, PreviewBadge& badge)
+{
+    if (result->IsEmpty()) {
+        return;
+    }
+    if (result->IsNumber()) {
+        int64_t number = result->ToNumber<int64_t>();
+        if (number < 0 || number > INT_MAX) {
+            badge.mode = PreviewBadgeMode::AUTO;
+        } else {
+            badge.mode = PreviewBadgeMode::USER_SET;
+            badge.count = result->ToNumber<int32_t>();
+        }
+    } else if (result->IsBoolean()) {
+        badge.mode = result->ToBoolean() ? PreviewBadgeMode::AUTO : PreviewBadgeMode::NO_BADGE;
+    }
+}
 } // namespace
 
 ArkUINativeModuleValue GridBridge::SetColumnsTemplate(ArkUIRuntimeCallInfo* runtimeCallInfo)
@@ -127,7 +227,17 @@ ArkUINativeModuleValue GridBridge::SetColumnsTemplate(ArkUIRuntimeCallInfo* runt
     Local<JSValueRef> arg_columnsTemplate = runtimeCallInfo->GetCallArgRef(CALL_ARG_1);
     CHECK_NULL_RETURN(node->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(node->ToNativePointer(vm)->Value());
-    if (arg_columnsTemplate->IsUndefined() || !arg_columnsTemplate->IsString(vm)) {
+    if (arg_columnsTemplate->IsObject(vm)) {
+        auto value = BREAKPOINT_DEFAULT;
+        GetArkUINodeModifiers()->getGridModifier()->resetGridColumnsTemplate(nativeNode);
+        GetArkUINodeModifiers()->getGridModifier()->setItemFillPolicy(nativeNode, value);
+        JSRef<JSVal> fillTypeArg = JSRef<JSObject>::Make(arg_columnsTemplate)->GetProperty("fillType");
+        if (!fillTypeArg->IsNull() && JSViewAbstract::ParseJsInt32(fillTypeArg, value)) {
+            if (InRegion(BREAKPOINT_DEFAULT, BREAKPOINT_SM2MD3LG5, value)) {
+                GetArkUINodeModifiers()->getGridModifier()->setItemFillPolicy(nativeNode, value);
+            }
+        }
+    } else if (arg_columnsTemplate->IsUndefined() || !arg_columnsTemplate->IsString(vm)) {
         GetArkUINodeModifiers()->getGridModifier()->resetGridColumnsTemplate(nativeNode);
     } else {
         std::string columnsTemplate = arg_columnsTemplate->ToString(vm)->ToString(vm);
@@ -186,21 +296,22 @@ ArkUINativeModuleValue GridBridge::SetColumnsGap(ArkUIRuntimeCallInfo* runtimeCa
 
     CalcDimension size;
     std::string calcStr;
+    RefPtr<ResourceObject> columnGapResObj;
     struct ArkUIResourceLength columnGap = { 0.0, 0, nullptr };
-    if (arg_size->IsUndefined() || !ArkTSUtils::ParseJsDimensionVpNG(vm, arg_size, size, true)) {
+    if (arg_size->IsUndefined() || !ArkTSUtils::ParseJsDimensionVpNG(vm, arg_size, size, columnGapResObj, true)) {
         GetArkUINodeModifiers()->getGridModifier()->resetGridColumnsGap(nativeNode);
     } else {
+        auto columnGapRawPtr = AceType::RawPtr(columnGapResObj);
         if (size.Unit() == DimensionUnit::CALC) {
             columnGap.unit = static_cast<int32_t>(DimensionUnit::CALC);
             calcStr = size.CalcValue();
             columnGap.string = calcStr.c_str();
-            GetArkUINodeModifiers()->getGridModifier()->setGridColumnsGap(nativeNode, &columnGap);
         } else {
             columnGap.value = size.Value();
             columnGap.unit = static_cast<int32_t>(size.Unit());
             columnGap.string = calcStr.c_str();
-            GetArkUINodeModifiers()->getGridModifier()->setGridColumnsGap(nativeNode, &columnGap);
         }
+        GetArkUINodeModifiers()->getGridModifier()->setGridColumnsGap(nativeNode, &columnGap, columnGapRawPtr);
     }
     return panda::JSValueRef::Undefined(vm);
 }
@@ -227,21 +338,22 @@ ArkUINativeModuleValue GridBridge::SetRowsGap(ArkUIRuntimeCallInfo* runtimeCallI
 
     CalcDimension size;
     std::string calcStr;
+    RefPtr<ResourceObject> rowGapResObj;
     struct ArkUIResourceLength rowsGap = { 0.0, 0, nullptr };
-    if (arg_size->IsUndefined() || !ArkTSUtils::ParseJsDimensionVpNG(vm, arg_size, size, true)) {
+    if (arg_size->IsUndefined() || !ArkTSUtils::ParseJsDimensionVpNG(vm, arg_size, size, rowGapResObj, true)) {
         GetArkUINodeModifiers()->getGridModifier()->resetGridRowsGap(nativeNode);
     } else {
+        auto rowGapRawPtr = AceType::RawPtr(rowGapResObj);
         if (size.Unit() == DimensionUnit::CALC) {
             rowsGap.unit = static_cast<int32_t>(DimensionUnit::CALC);
             calcStr = size.CalcValue();
             rowsGap.string = calcStr.c_str();
-            GetArkUINodeModifiers()->getGridModifier()->setGridRowsGap(nativeNode, &rowsGap);
         } else {
             rowsGap.value = size.Value();
             rowsGap.unit = static_cast<int32_t>(size.Unit());
             rowsGap.string = calcStr.c_str();
-            GetArkUINodeModifiers()->getGridModifier()->setGridRowsGap(nativeNode, &rowsGap);
         }
+        GetArkUINodeModifiers()->getGridModifier()->setGridRowsGap(nativeNode, &rowsGap, rowGapRawPtr);
     }
     return panda::JSValueRef::Undefined(vm);
 }
@@ -343,11 +455,17 @@ ArkUINativeModuleValue GridBridge::SetScrollBarColor(ArkUIRuntimeCallInfo* runti
         }
     }
     Color color;
-    if (ArkTSUtils::ParseJsColorAlpha(vm, arg_color, color)) {
+    RefPtr<ResourceObject> resObj;
+    auto nodeInfo = ArkTSUtils::MakeNativeNodeInfo(nativeNode);
+    if (ArkTSUtils::ParseJsColorAlpha(vm, arg_color, color, resObj, nodeInfo)) {
         GetArkUINodeModifiers()->getGridModifier()->setGridScrollBarColor(
             nativeNode, color.GetValue());
     } else {
         GetArkUINodeModifiers()->getGridModifier()->resetGridScrollBarColor(nativeNode);
+    }
+    if (SystemProperties::ConfigChangePerform()) {
+        GetArkUINodeModifiers()->getGridModifier()->createWithResourceObjScrollBarColor(
+            nativeNode, reinterpret_cast<void*>(AceType::RawPtr(resObj)));
     }
     return panda::JSValueRef::Undefined(vm);
 }
@@ -360,6 +478,9 @@ ArkUINativeModuleValue GridBridge::ResetScrollBarColor(ArkUIRuntimeCallInfo* run
     CHECK_NULL_RETURN(node->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(node->ToNativePointer(vm)->Value());
     GetArkUINodeModifiers()->getGridModifier()->resetGridScrollBarColor(nativeNode);
+    if (SystemProperties::ConfigChangePerform()) {
+        GetArkUINodeModifiers()->getGridModifier()->createWithResourceObjScrollBarColor(nativeNode, nullptr);
+    }
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -764,7 +885,7 @@ ArkUINativeModuleValue GridBridge::SetSyncLoad(ArkUIRuntimeCallInfo* runtimeCall
 
     CHECK_NULL_RETURN(node->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(node->ToNativePointer(vm)->Value());
-    bool syncLoad = false;
+    bool syncLoad = true;
     if (!argSyncLoad->IsUndefined() && !argSyncLoad->IsNull()) {
         syncLoad = argSyncLoad->BooleaValue(vm);
     }
@@ -784,12 +905,66 @@ ArkUINativeModuleValue GridBridge::ResetSyncLoad(ArkUIRuntimeCallInfo* runtimeCa
     return panda::JSValueRef::Undefined(vm);
 }
 
+ArkUINativeModuleValue GridBridge::SetEditModeOptions(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> node = runtimeCallInfo->GetCallArgRef(CALL_ARG_0);
+    CHECK_NULL_RETURN(node->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(node->ToNativePointer(vm)->Value());
+    auto frameNode = reinterpret_cast<FrameNode*>(nativeNode);
+    EditModeOptions options;
+    Local<JSValueRef> argOptions = runtimeCallInfo->GetCallArgRef(CALL_ARG_1);
+    if (argOptions->IsObject(vm)) {
+        auto optionsObj = argOptions->ToObject(vm);
+        auto gather = optionsObj->Get(vm, panda::StringRef::NewFromUtf8(vm, "enableGatherSelectedItemsAnimation"));
+        if (gather->IsBoolean()) {
+            options.enableGatherSelectedItemsAnimation = gather->ToBoolean(vm)->Value();
+        }
+        auto getPreviewBadge = optionsObj->Get(vm, panda::StringRef::NewFromUtf8(vm, "onGetPreviewBadge"));
+        if (getPreviewBadge->IsFunction(vm)) {
+            Framework::JsiCallbackInfo info = Framework::JsiCallbackInfo(runtimeCallInfo);
+            Local<panda::FunctionRef> functionRef = getPreviewBadge->ToObject(vm);
+            auto onGetPreviewBadge =
+                [func = AceType::MakeRefPtr<Framework::JsFunction>(Framework::JSRef<Framework::JSObject>(),
+                     Framework::JSRef<Framework::JSFunc>(Framework::JSFunc(functionRef))),
+                    execCtx = info.GetExecutionContext(), node = AceType::WeakClaim(frameNode)]() {
+                    JAVASCRIPT_EXECUTION_SCOPE(execCtx);
+                    PipelineContext::SetCallBackNode(node);
+                    NG::PreviewBadge badge;
+                    auto result = func->ExecuteJS();
+                    ParsePreviewBadge(result, badge);
+                    return badge;
+                };
+            options.getPreviewBadge = std::move(onGetPreviewBadge);
+        }
+    }
+    GridModelNG::SetEditModeOptions(frameNode, options);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue GridBridge::ResetEditModeOptions(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> node = runtimeCallInfo->GetCallArgRef(CALL_ARG_0);
+    CHECK_NULL_RETURN(node->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(node->ToNativePointer(vm)->Value());
+    GetArkUINodeModifiers()->getGridModifier()->resetEditModeOptions(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
 ArkUINativeModuleValue GridBridge::SetGridScroller(ArkUIRuntimeCallInfo* runtimeCallInfo)
 {
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> nodeVal = runtimeCallInfo->GetCallArgRef(CALL_ARG_0);
     Local<JSValueRef> scrollerVal = runtimeCallInfo->GetCallArgRef(CALL_ARG_1);
+    bool isBindController = false;
+    if (runtimeCallInfo->GetArgsNumber() > CALL_ARG_2) {
+        Local<JSValueRef> bindArg = runtimeCallInfo->GetCallArgRef(CALL_ARG_2);
+        isBindController = bindArg->IsBoolean() && bindArg->ToBoolean(vm)->Value();
+    }
     RefPtr<ScrollControllerBase> positionController;
     RefPtr<ScrollProxy> scrollBarProxy;
     CHECK_NULL_RETURN(nodeVal->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
@@ -799,12 +974,22 @@ ArkUINativeModuleValue GridBridge::SetGridScroller(ArkUIRuntimeCallInfo* runtime
                                ->Unwrap<Framework::JSScroller>();
         if (jsScroller) {
             jsScroller->SetInstanceId(Container::CurrentIdSafely());
-            positionController = AceType::MakeRefPtr<ScrollableController>();
+            if (isBindController) {
+                auto controller = GetArkUINodeModifiers()->getGridModifier()->getController(nativeNode);
+                positionController = AceType::Claim(reinterpret_cast<ScrollControllerBase*>(controller));
+            } else {
+                positionController = AceType::MakeRefPtr<ScrollableController>();
+            }
             jsScroller->SetController(positionController);
             scrollBarProxy = jsScroller->GetScrollBarProxy();
             if (!scrollBarProxy) {
                 scrollBarProxy = AceType::MakeRefPtr<NG::ScrollBarProxy>();
                 jsScroller->SetScrollBarProxy(scrollBarProxy);
+            }
+            if (isBindController) {
+                auto proxyPtr = reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(scrollBarProxy));
+                GetArkUINodeModifiers()->getGridModifier()->setScrollBarProxy(nativeNode, proxyPtr);
+                return panda::JSValueRef::Undefined(vm);
             }
         }
     }
@@ -844,6 +1029,8 @@ ArkUINativeModuleValue GridBridge::SetGridLayoutOptions(ArkUIRuntimeCallInfo* ru
     irregularIndexes.reset();
     ParseGetGridItemSize(vm, runtimeCallInfo->GetCallArgRef(4), options); // 4: parameter index
     ParseGetGridItemRect(vm, runtimeCallInfo->GetCallArgRef(5), options); // 5: parameter index
+    ParseGetStartIndexByOffset(vm, runtimeCallInfo->GetCallArgRef(6), options); // 6: parameter index
+    ParseGetStartIndexByIndex(vm, runtimeCallInfo->GetCallArgRef(7), options); // 7: parameter index
     GridModelNG::SetLayoutOptions(reinterpret_cast<FrameNode*>(nativeNode), options);
     return panda::JSValueRef::Undefined(vm);
 }
@@ -1164,11 +1351,27 @@ ArkUINativeModuleValue GridBridge::SetOnGridItemDrop(ArkUIRuntimeCallInfo* runti
 ArkUINativeModuleValue GridBridge::ResetOnGridItemDrop(ArkUIRuntimeCallInfo* runtimeCallInfo)
 {
     EcmaVM* vm = runtimeCallInfo->GetVM();
-    CHECK_NULL_RETURN(vm, panda::JSValueRef::Undefined(vm));
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
     CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     GetArkUINodeModifiers()->getGridModifier()->resetOnGridItemDrop(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue GridBridge::SetSupportLazyLoadingEmptyBranch(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> node = runtimeCallInfo->GetCallArgRef(CALL_ARG_0);
+    Local<JSValueRef> arg_support = runtimeCallInfo->GetCallArgRef(CALL_ARG_1);
+
+    CHECK_NULL_RETURN(node->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(node->ToNativePointer(vm)->Value());
+
+    GetArkUINodeModifiers()->getGridModifier()->setSupportLazyLoadingEmptyBranch(
+        nativeNode, arg_support->IsBoolean() ? arg_support->ToBoolean(vm)->Value() : false);
+
     return panda::JSValueRef::Undefined(vm);
 }
 } // namespace OHOS::Ace::NG

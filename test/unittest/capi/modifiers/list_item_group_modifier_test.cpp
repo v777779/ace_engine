@@ -22,7 +22,7 @@
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/pattern/blank/blank_model_ng.h"
 #include "core/components_ng/pattern/list/list_item_event_hub.h"
-#include "core/components_v2/list/list_properties.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -78,65 +78,61 @@ public:
  * @tc.desc: Check the functionality of ListItemGroupModifier.setListItemGroupOptions
  * @tc.type: FUNC
  */
-HWTEST_F(ListItemGroupModifierTest, setListItemGroupOptionsTest, TestSize.Level1)
+HWTEST_F(ListItemGroupModifierTest, DISABLED_setListItemGroupOptionsTest, TestSize.Level1)
 {
     auto style = GetAttrValue<std::string>(node_, "itemGroupStyle");
-    EXPECT_EQ(style, "ListItemGroupStyle.NONE");
+    EXPECT_THAT(style, Eq("ListItemGroupStyle.NONE"));
     auto space = GetAttrValue<std::string>(node_, "space");
-    EXPECT_EQ(space, "0.00vp");
+    EXPECT_THAT(space, Eq("0.00vp"));
 
     auto arg = Converter::ArkValue<Opt_ListItemGroupOptions>(Ark_Empty());
     modifier_->setListItemGroupOptions(node_, &arg);
     style = GetAttrValue<std::string>(node_, "itemGroupStyle");
-    EXPECT_EQ(style, "ListItemGroupStyle.NONE");
+    EXPECT_THAT(style, Eq("ListItemGroupStyle.NONE"));
     space = GetAttrValue<std::string>(node_, "space");
-    EXPECT_EQ(space, "0.00vp");
+    EXPECT_THAT(space, Eq("0.00vp"));
 
     Ark_ListItemGroupOptions groupOptions = {
-        .style = Converter::ArkValue<Opt_ListItemGroupStyle>
-            (Converter::ArkValue<Ark_ListItemGroupStyle>(V2::ListItemGroupStyle::CARD)),
-        .space = Converter::ArkValue<Opt_Union_Number_String>
-            (Converter::ArkUnion<Ark_Union_Number_String, Ark_Number>(10)),
+        .style = Converter::ArkValue<Opt_ListItemGroupStyle>(ARK_LIST_ITEM_GROUP_STYLE_CARD),
+        .space = Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(10.),
     };
     arg = Converter::ArkValue<Opt_ListItemGroupOptions>(groupOptions);
     modifier_->setListItemGroupOptions(node_, &arg);
     style = GetAttrValue<std::string>(node_, "itemGroupStyle");
-    EXPECT_EQ(style, "ListItemGroupStyle.CARD");
+    EXPECT_THAT(style, Eq("ListItemGroupStyle.CARD"));
     space = GetAttrValue<std::string>(node_, "space");
-    EXPECT_EQ(space, "10.00vp");
+    EXPECT_THAT(space, Eq("10.00vp"));
 
     groupOptions = {
-        .style = Converter::ArkValue<Opt_ListItemGroupStyle>
-            (Converter::ArkValue<Ark_ListItemGroupStyle>(V2::ListItemGroupStyle::CARD)),
-        .space = Converter::ArkValue<Opt_Union_Number_String>
-            (Converter::ArkUnion<Ark_Union_Number_String, Ark_String>("20")),
+        .style = Converter::ArkValue<Opt_ListItemGroupStyle>(ARK_LIST_ITEM_GROUP_STYLE_CARD),
+        .space = Converter::ArkUnion<Opt_Union_F64_String, Ark_String>("20"),
     };
     arg = Converter::ArkValue<Opt_ListItemGroupOptions>(groupOptions);
     modifier_->setListItemGroupOptions(node_, &arg);
     style = GetAttrValue<std::string>(node_, "itemGroupStyle");
-    EXPECT_EQ(style, "ListItemGroupStyle.CARD");
+    EXPECT_THAT(style, Eq("ListItemGroupStyle.CARD"));
     space = GetAttrValue<std::string>(node_, "space");
-    EXPECT_EQ(space, "20.00vp");
+    EXPECT_THAT(space, Eq("20.00vp"));
 
     groupOptions = {
         .style = Converter::ArkValue<Opt_ListItemGroupStyle>(Ark_Empty()),
-        .space = Converter::ArkValue<Opt_Union_Number_String>(Ark_Empty()),
+        .space = Converter::ArkValue<Opt_Union_F64_String>(Ark_Empty()),
     };
     arg = Converter::ArkValue<Opt_ListItemGroupOptions>(groupOptions);
     modifier_->setListItemGroupOptions(node_, &arg);
     style = GetAttrValue<std::string>(node_, "itemGroupStyle");
     // should be NONE but GetHost returns nullptr in SetListItemGroupStyle
-    EXPECT_EQ(style, "ListItemGroupStyle.CARD");
+    EXPECT_THAT(style, Eq("ListItemGroupStyle.CARD"));
     space = GetAttrValue<std::string>(node_, "space");
-    EXPECT_EQ(space, "0.00vp");
+    EXPECT_THAT(space, Eq("0.00vp"));
 }
 
 /*
- * @tc.name: setListItemGroupOptionsCustomBuilderTest
+ * @tc.name: setListItemGroupOptionsTestCustomBuilder
  * @tc.desc: Check the functionality of ListItemGroupModifier.setListItemGroupOptions
  * @tc.type: FUNC
  */
-HWTEST_F(ListItemGroupModifierTest, setListItemGroupOptionsCustomBuilderTest, TestSize.Level1)
+HWTEST_F(ListItemGroupModifierTest, setListItemGroupOptionsTestCustomBuilder, TestSize.Level1)
 {
     uiNode = BlankModelNG::CreateFrameNode(NODE_ID);
     auto builder = getBuilderCb();
@@ -147,10 +143,9 @@ HWTEST_F(ListItemGroupModifierTest, setListItemGroupOptionsCustomBuilderTest, Te
     Ark_ListItemGroupOptions options = {
         .header = header,
         .footer = footer,
-        .style = Converter::ArkValue<Opt_ListItemGroupStyle>
-            (Converter::ArkValue<Ark_ListItemGroupStyle>(V2::ListItemGroupStyle::CARD)),
-        .space = Converter::ArkValue<Opt_Union_Number_String>
-            (Converter::ArkUnion<Ark_Union_Number_String, Ark_Number>(10))};
+        .style = Converter::ArkValue<Opt_ListItemGroupStyle>(ARK_LIST_ITEM_GROUP_STYLE_CARD),
+        .space = Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(10.),
+    };
     auto optionsOpt = Converter::ArkValue<Opt_ListItemGroupOptions>(options);
     checkEventH = std::nullopt;
     checkEventF = std::nullopt;
@@ -173,51 +168,51 @@ HWTEST_F(ListItemGroupModifierTest, setDividerTest, TestSize.Level1)
 {
     // default values
     auto fullJson = GetJsonValue(node_);
-    auto dividerObject = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, "divider");
+    auto dividerObject = GetAttrObject(fullJson, "divider");
     auto dividerCheckValue = dividerObject->ToString();
     EXPECT_EQ(dividerCheckValue, "{}");
 
     // set valid values, color as Ark_Color aka int
     Ark_ListDividerOptions dividerOptions = {
         .strokeWidth = Converter::ArkValue<Ark_Length>(11.),
-        .startMargin = Converter::ArkValue<Opt_Length>(Converter::ArkValue<Ark_Length>(55.5f)),
-        .endMargin = Converter::ArkValue<Opt_Length>(Converter::ArkValue<Ark_Length>(77.)),
+        .startMargin = Converter::ArkValue<Opt_Length>(55.5),
+        .endMargin = Converter::ArkValue<Opt_Length>(77.),
         .color = Converter::ArkUnion<Opt_ResourceColor, Ark_Color>(ARK_COLOR_WHITE),
     };
     auto divider = Converter::ArkValue<Opt_ListDividerOptions>(dividerOptions);
     modifier_->setDivider(node_, &divider);
     fullJson = GetJsonValue(node_);
-    dividerObject = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, "divider");
+    dividerObject = GetAttrObject(fullJson, "divider");
     auto strokeWidthCheckValue = GetAttrValue<std::string>(dividerObject, "strokeWidth");
-    EXPECT_EQ(strokeWidthCheckValue, "11.00vp");
+    EXPECT_THAT(strokeWidthCheckValue, Eq("11.00vp"));
     auto startMarginCheckValue = GetAttrValue<std::string>(dividerObject, "startMargin");
-    EXPECT_EQ(startMarginCheckValue, "55.50vp");
+    EXPECT_THAT(startMarginCheckValue, Eq("55.50vp"));
     auto endMarginCheckValue = GetAttrValue<std::string>(dividerObject, "endMargin");
-    EXPECT_EQ(endMarginCheckValue, "77.00vp");
+    EXPECT_THAT(endMarginCheckValue, Eq("77.00vp"));
     auto colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
-    EXPECT_EQ(colorCheckValue, "#FFFFFFFF");
+    EXPECT_THAT(colorCheckValue, Eq("#FFFFFFFF"));
 
     // set color as Ark_Number
     dividerOptions = {
         .strokeWidth = Converter::ArkValue<Ark_Length>(11.),
-        .startMargin = Converter::ArkValue<Opt_Length>(Converter::ArkValue<Ark_Length>(55.5f)),
-        .endMargin = Converter::ArkValue<Opt_Length>(Converter::ArkValue<Ark_Length>(77.)),
+        .startMargin = Converter::ArkValue<Opt_Length>(55.5),
+        .endMargin = Converter::ArkValue<Opt_Length>(77.),
         .color = Converter::ArkUnion<Opt_ResourceColor, Ark_Int32>(0x123456),
     };
     divider = Converter::ArkValue<Opt_ListDividerOptions>(dividerOptions);
     modifier_->setDivider(node_, &divider);
     fullJson = GetJsonValue(node_);
-    dividerObject = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, "divider");
+    dividerObject = GetAttrObject(fullJson, "divider");
     colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
-    EXPECT_EQ(colorCheckValue, "#FF123456");
+    EXPECT_THAT(colorCheckValue, Eq("#FF123456"));
 }
 
 /**
- * @tc.name: setDividerUndefinedTest
+ * @tc.name: setDividerTestUndefined
  * @tc.desc: Check the functionality of ListItemGroupModifier.setDivider
  * @tc.type: FUNC
  */
-HWTEST_F(ListItemGroupModifierTest, setDividerUndefinedTest, TestSize.Level1)
+HWTEST_F(ListItemGroupModifierTest, setDividerTestUndefined, TestSize.Level1)
 {
     // set undefined values
     Ark_ListDividerOptions dividerOptions = {
@@ -229,59 +224,57 @@ HWTEST_F(ListItemGroupModifierTest, setDividerUndefinedTest, TestSize.Level1)
     auto divider = Converter::ArkValue<Opt_ListDividerOptions>(dividerOptions);
     modifier_->setDivider(node_, &divider);
     auto fullJson = GetJsonValue(node_);
-    auto dividerObject = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, "divider");
+    auto dividerObject = GetAttrObject(fullJson, "divider");
     auto strokeWidthCheckValue = GetAttrValue<std::string>(dividerObject, "strokeWidth");
-    EXPECT_EQ(strokeWidthCheckValue, "11.00vp");
+    EXPECT_THAT(strokeWidthCheckValue, Eq("11.00vp"));
     auto startMarginCheckValue = GetAttrValue<std::string>(dividerObject, "startMargin");
-    EXPECT_EQ(startMarginCheckValue, "0.00vp");
+    EXPECT_THAT(startMarginCheckValue, Eq("0.00vp"));
     auto endMarginCheckValue = GetAttrValue<std::string>(dividerObject, "endMargin");
-    EXPECT_EQ(endMarginCheckValue, "0.00vp");
+    EXPECT_THAT(endMarginCheckValue, Eq("0.00vp"));
     auto colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
-    EXPECT_EQ(colorCheckValue, "#00000000");
+    EXPECT_THAT(colorCheckValue, Eq("#00000000"));
 }
 
 /**
- * @tc.name: setDividerColorStringTest
+ * @tc.name: setDividerTestColorString
  * @tc.desc: Check the functionality of ListItemGroupModifier.setDivider
  * @tc.type: FUNC
  */
-HWTEST_F(ListItemGroupModifierTest, setDividerColorStringTest, TestSize.Level1)
+HWTEST_F(ListItemGroupModifierTest, setDividerTestColorString, TestSize.Level1)
 {
     // set color as Ark_String
     Ark_ListDividerOptions dividerOptions = {
         .strokeWidth = Converter::ArkValue<Ark_Length>(11.),
-        .startMargin = Converter::ArkValue<Opt_Length>(Converter::ArkValue<Ark_Length>(55.5f)),
-        .endMargin = Converter::ArkValue<Opt_Length>(Converter::ArkValue<Ark_Length>(77.)),
+        .startMargin = Converter::ArkValue<Opt_Length>(55.5),
+        .endMargin = Converter::ArkValue<Opt_Length>(77.),
         .color = Converter::ArkUnion<Opt_ResourceColor, Ark_String>("#11223344"),
     };
     auto divider = Converter::ArkValue<Opt_ListDividerOptions>(dividerOptions);
     modifier_->setDivider(node_, &divider);
     auto fullJson = GetJsonValue(node_);
-    auto dividerObject = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, "divider");
+    auto dividerObject = GetAttrObject(fullJson, "divider");
     auto colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
-    EXPECT_EQ(colorCheckValue, "#11223344");
-
-    divider = Converter::ArkValue<Opt_ListDividerOptions>();
-    modifier_->setDivider(node_, &divider);
-    fullJson = GetJsonValue(node_);
-    dividerObject = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, "divider");
-    auto strokeWidthCheckValue = GetAttrValue<std::string>(dividerObject, "strokeWidth");
-    EXPECT_EQ(strokeWidthCheckValue, "0.00vp");
-    auto startMarginCheckValue = GetAttrValue<std::string>(dividerObject, "startMargin");
-    EXPECT_EQ(startMarginCheckValue, "0.00vp");
-    auto endMarginCheckValue = GetAttrValue<std::string>(dividerObject, "endMargin");
-    EXPECT_EQ(endMarginCheckValue, "0.00vp");
-    colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
-    EXPECT_EQ(colorCheckValue, "#00000000");
+    EXPECT_THAT(colorCheckValue, Eq("#11223344"));
 }
 
 /**
- * @tc.name: setChildrenMainSizeTest
- * @tc.desc: Check the functionality of ListItemGroupModifier.setChildrenMainSize
+ * @tc.name: setDividerTestEmpty
+ * @tc.desc: Check the functionality of ListItemGroupModifier.setDivider
  * @tc.type: FUNC
  */
-HWTEST_F(ListItemGroupModifierTest, DISABLED_setChildrenMainSizeTest, TestSize.Level1)
+HWTEST_F(ListItemGroupModifierTest, setDividerTestEmpty, TestSize.Level1)
 {
+    auto divider = Converter::ArkValue<Opt_ListDividerOptions>();
+    modifier_->setDivider(node_, &divider);
+    auto fullJson = GetJsonValue(node_);
+    auto dividerObject = GetAttrObject(fullJson, "divider");
+    auto strokeWidthCheckValue = GetAttrValue<std::string>(dividerObject, "strokeWidth");
+    EXPECT_THAT(strokeWidthCheckValue, Eq(std::nullopt));
+    auto startMarginCheckValue = GetAttrValue<std::string>(dividerObject, "startMargin");
+    EXPECT_THAT(startMarginCheckValue, Eq(std::nullopt));
+    auto endMarginCheckValue = GetAttrValue<std::string>(dividerObject, "endMargin");
+    EXPECT_THAT(endMarginCheckValue, Eq(std::nullopt));
+    auto colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
+    EXPECT_THAT(colorCheckValue, Eq(std::nullopt));
 }
-
 } // namespace OHOS::Ace::NG

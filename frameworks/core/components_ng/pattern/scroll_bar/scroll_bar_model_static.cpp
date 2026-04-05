@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "core/components_ng/pattern/scroll_bar/scroll_bar_model_static.h"
+#include "core/components_ng/pattern/arc_scroll_bar/arc_scroll_bar_pattern.h"
 #include "core/components_ng/pattern/scroll_bar/scroll_bar_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -22,6 +23,13 @@ RefPtr<FrameNode> ScrollBarModelStatic::CreateFrameNode(int32_t nodeId)
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::SCROLL_BAR_ETS_TAG, nodeId);
     return FrameNode::GetOrCreateFrameNode(
         V2::SCROLL_BAR_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<ScrollBarPattern>(); });
+}
+
+RefPtr<FrameNode> ScrollBarModelStatic::CreateArcScrollBarFrameNode(int32_t nodeId)
+{
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::ARC_SCROLL_BAR_ETS_TAG, nodeId);
+    return FrameNode::GetOrCreateFrameNode(
+        V2::ARC_SCROLL_BAR_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<ArcScrollBarPattern>(); });
 }
 
 RefPtr<ScrollProxy> ScrollBarModelStatic::SetScrollBarProxy(FrameNode* frameNode, const RefPtr<ScrollProxy>& proxy)
@@ -96,6 +104,26 @@ void ScrollBarModelStatic::UnSetNestedScroll(RefPtr<FrameNode>& frameNode, RefPt
     CHECK_NULL_VOID(frameNode);
     if (frameNode->IsOnMainTree()) {
         pattern->SearchAndUnsetParentNestedScroll(frameNode);
+    }
+}
+
+void ScrollBarModelStatic::SetScrollBarColor(FrameNode* frameNode, const std::optional<Color>& color)
+{
+    if (color.has_value()) {
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ScrollBarPaintProperty, ScrollBarColor, color.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
+            ScrollBarPaintProperty, ScrollBarColor, PROPERTY_UPDATE_RENDER, frameNode);
+        auto pipeline = frameNode->GetContext();
+        CHECK_NULL_VOID(pipeline);
+        auto scrollBarTheme = pipeline->GetTheme<ScrollBarTheme>();
+        CHECK_NULL_VOID(scrollBarTheme);
+        Color foregroundColor = scrollBarTheme->GetForegroundColor();
+        auto pattern = frameNode->GetPattern<ScrollBarPattern>();
+        CHECK_NULL_VOID(pattern);
+        auto scrollBar = pattern->GetScrollBar();
+        CHECK_NULL_VOID(scrollBar);
+        scrollBar->SetForegroundColor(foregroundColor);
     }
 }
 } // namespace OHOS::Ace::NG

@@ -16,6 +16,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_GAUGE_GAUGE_PATTERN_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_GAUGE_GAUGE_PATTERN_H
 
+#include "base/utils/multi_thread.h"
 #include "core/common/container.h"
 #include "core/components_ng/image_provider/image_loading_context.h"
 #include "core/components_ng/pattern/gauge/gauge_accessibility_property.h"
@@ -79,10 +80,7 @@ public:
         return MakeRefPtr<GaugeAccessibilityProperty>();
     }
 
-    FocusPattern GetFocusPattern() const override
-    {
-        return { FocusType::NODE, false, FocusStyleType::OUTER_BORDER };
-    }
+    FocusPattern GetFocusPattern() const override;
 
     bool HasDescriptionNode() const
     {
@@ -146,6 +144,8 @@ public:
         return indicatorIconCanvasImage_;
     }
 
+    bool OnThemeScopeUpdate(int32_t themeScopeId) override;
+
     void OnModifyDone() override;
     void OnSensitiveStyleChange(bool isSensitive) override;
 
@@ -153,11 +153,16 @@ public:
     {
         if (makeFunc == nullptr) {
             makeFunc_ = std::nullopt;
+            auto host = GetHost();
+            CHECK_NULL_VOID(host);
+            FREE_NODE_CHECK(host, SetBuilderFunc);
             OnModifyDone();
             return;
         }
         makeFunc_ = std::move(makeFunc);
     }
+
+    void SetBuilderFuncMultiThread();
 
     const RefPtr<FrameNode>& GetContentModifierNode() const
     {
@@ -167,6 +172,16 @@ public:
     bool UseContentModifier() const
     {
         return contentModifierNode_ != nullptr;
+    }
+
+    bool IsEnableMatchParent() override
+    {
+        return true;
+    }
+
+    bool IsEnableFix() override
+    {
+        return true;
     }
 
     void UpdateStrokeWidth(const CalcDimension& strokeWidth, bool isFirstLoad = false);
@@ -198,6 +213,11 @@ private:
     void OnImageLoadFail();
 
     Color GetMaxValueColor(const RefPtr<GaugePaintProperty>& gaugePaintProperty) const;
+    bool CheckDarkResource(uint32_t resId);
+    bool ProcessGradientColors(std::vector<std::vector<std::pair<Color, Dimension>>>& gradientColors,
+        std::function<uint32_t(uint32_t)>& invertFunc);
+    bool ProcessSingleColorStop(Color& color, std::function<uint32_t(uint32_t)>& invertFunc);
+
     std::optional<int32_t> descriptionNodeId_;
     std::optional<int32_t> minValueTextId_;
     std::optional<int32_t> maxValueTextId_;

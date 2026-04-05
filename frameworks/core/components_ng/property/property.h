@@ -37,6 +37,10 @@ inline constexpr FrameNodeChangeInfoFlag FRAME_NODE_CHANGE_GEOMETRY_CHANGE = 1 <
 inline constexpr FrameNodeChangeInfoFlag FRAME_NODE_CHANGE_TRANSFORM_CHANGE = 1 << 5;
 inline constexpr FrameNodeChangeInfoFlag FRAME_NODE_CHANGE_TRANSITION_START = 1 << 6;
 inline constexpr FrameNodeChangeInfoFlag FRAME_NODE_CONTENT_CLIP_CHANGE = 1 << 7;
+inline constexpr FrameNodeChangeInfoFlag FRAME_NODE_CHANGE_ALL =
+    FRAME_NODE_CHANGE_INFO_NONE | FRAME_NODE_CHANGE_START_SCROLL | FRAME_NODE_CHANGE_END_SCROLL |
+    FRAME_NODE_CHANGE_START_ANIMATION | FRAME_NODE_CHANGE_GEOMETRY_CHANGE | FRAME_NODE_CHANGE_TRANSFORM_CHANGE |
+    FRAME_NODE_CHANGE_TRANSITION_START | FRAME_NODE_CONTENT_CLIP_CHANGE;
 
 inline bool CheckNeedMakePropertyDiff(PropertyChangeFlag flag)
 {
@@ -53,13 +57,13 @@ bool CheckNeedMeasure(PropertyChangeFlag propertyChangeFlag);
 
 bool CheckNeedLayout(PropertyChangeFlag propertyChangeFlag);
 
-bool CheckMeasureFlag(PropertyChangeFlag propertyChangeFlag);
+ACE_FORCE_EXPORT bool CheckMeasureFlag(PropertyChangeFlag propertyChangeFlag);
 
 bool CheckForceParentMeasureFlag(PropertyChangeFlag propertyChangeFlag);
 
-bool CheckLayoutFlag(PropertyChangeFlag propertyChangeFlag);
+ACE_FORCE_EXPORT bool CheckLayoutFlag(PropertyChangeFlag propertyChangeFlag);
 
-bool CheckMeasureSelfFlag(PropertyChangeFlag propertyChangeFlag);
+ACE_FORCE_EXPORT bool CheckMeasureSelfFlag(PropertyChangeFlag propertyChangeFlag);
 
 bool CheckMeasureSelfAndParentFlag(PropertyChangeFlag propertyChangeFlag);
 
@@ -67,7 +71,7 @@ bool CheckMeasureSelfAndChildFlag(PropertyChangeFlag propertyChangeFlag);
 
 bool CheckUpdateByChildRequest(PropertyChangeFlag propertyChangeFlag);
 
-bool CheckNoChanged(PropertyChangeFlag propertyChangeFlag);
+ACE_FORCE_EXPORT bool CheckNoChanged(PropertyChangeFlag propertyChangeFlag);
 
 // For XXXProperty Class
 #define ACE_DEFINE_PROPERTY_GROUP(group, type)              \

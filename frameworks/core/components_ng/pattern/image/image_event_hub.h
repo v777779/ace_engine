@@ -27,7 +27,7 @@ using ErrorEvent = std::function<void(const LoadImageFailEvent& info)>;
 using FinishEvent = std::function<void()>;
 
 class ImageEventHub : public EventHub {
-    DECLARE_ACE_TYPE(ImageEventHub, EventHub)
+    DECLARE_ACE_TYPE(ImageEventHub, EventHub);
 
 public:
     ImageEventHub() = default;
@@ -47,6 +47,11 @@ public:
 
     void SetOnComplete(CompleteEvent&& completeEvent)
     {
+#if defined(IOS_PLATFORM)
+        if (completeEvent_) {
+            return;
+        }
+#endif
         completeEvent_ = std::move(completeEvent);
     }
 

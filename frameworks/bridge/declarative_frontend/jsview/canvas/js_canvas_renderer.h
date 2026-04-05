@@ -22,6 +22,7 @@
 #include "bridge/declarative_frontend/jsview/canvas/js_canvas_gradient.h"
 #include "bridge/declarative_frontend/jsview/canvas/js_canvas_image_data.h"
 #include "bridge/declarative_frontend/jsview/canvas/js_canvas_path.h"
+#include "bridge/declarative_frontend/jsview/canvas/js_canvas_util.h"
 #include "bridge/declarative_frontend/jsview/canvas/js_matrix2d.h"
 #include "bridge/declarative_frontend/jsview/canvas/js_path2d.h"
 #include "bridge/declarative_frontend/jsview/canvas/js_rendering_context_base.h"
@@ -33,7 +34,7 @@
 namespace OHOS::Ace::Framework {
 
 class JSCanvasRenderer : public JSRenderingContextBase {
-    DECLARE_ACE_TYPE(JSCanvasRenderer, JSRenderingContextBase)
+    DECLARE_ACE_TYPE(JSCanvasRenderer, JSRenderingContextBase);
 public:
     JSCanvasRenderer();
     ~JSCanvasRenderer() override;
@@ -123,9 +124,13 @@ public:
     void JsSetDirection(const JSCallbackInfo& info);
     void JsReset(const JSCallbackInfo& info);
     void JsSetLetterSpacing(const JSCallbackInfo& info);
+    void JsGetAntialias(const JSCallbackInfo& info);
+    void JsSetAntialias(const JSCallbackInfo& info);
 
+    template<StatisticEventType T>
     void JSGetEmpty(const JSCallbackInfo& info)
     {
+        SendStatisticEvent(T);
         return;
     }
 
@@ -155,7 +160,7 @@ public:
         anti_ = anti;
     }
 
-    bool GetAnti()
+    bool GetAnti() const
     {
         return anti_;
     }
@@ -184,6 +189,11 @@ public:
         instanceId_ = id;
     }
 
+    int32_t GetInstanceId() override
+    {
+        return instanceId_;
+    }
+
     void SetTransform(unsigned int id, const TransformParam&);
 
     void ResetPaintState();
@@ -194,7 +204,7 @@ protected:
     void ParseFillPattern(const JSCallbackInfo& info);
     void ParseStorkeGradient(const JSCallbackInfo& info);
     void ParseStrokePattern(const JSCallbackInfo& info);
-    JSRenderImage* UnwrapNapiImage(const JSRef<JSObject> jsObject);
+    JSRenderImage* UnwrapNapiImage(const JSRef<JSObject> jsObject, bool isUnion);
 
 protected:
     bool isJudgeSpecialValue_ = false;
@@ -216,11 +226,6 @@ private:
 
     PaintState paintState_;
     std::vector<PaintState> savePaintState_;
-    static std::unordered_map<int32_t, std::shared_ptr<Pattern>> pattern_;
-    static unsigned int patternCount_;
-    std::weak_ptr<Ace::Pattern> GetPatternNG(int32_t id);
-    Pattern GetPattern(unsigned int id);
-    std::shared_ptr<Pattern> GetPatternPtr(int32_t id);
     bool isInitializeShadow_ = false;
     bool isOffscreenInitializeShadow_ = false;
     Dimension GetDimensionValue(const std::string& str);

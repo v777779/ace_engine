@@ -478,6 +478,85 @@ void ParseFloatOption(JSRef<JSObject>& floatJsObject, OHOS::Ace::NG::ParticleFlo
     floatOption.SetUpdater(updater);
 }
 
+template<typename T>
+void AnnulusRegisterResourceObject(T& annulusRegionValue,
+    const RefPtr<ResourceObject>& centerXResObj, const RefPtr<ResourceObject>& centerYResObj,
+    const RefPtr<ResourceObject>& innerRadiusResObj, const RefPtr<ResourceObject>& outerRadiusResObj)
+{
+    if (centerXResObj) {
+        auto&& centerXUpdateFunc = [](const RefPtr<ResourceObject>& centerXResObj,
+            OHOS::Ace::NG::ParticleAnnulusRegion& annulusRegion) {
+            CalcDimension centerXValue;
+            ResourceParseUtils::ParseResDimensionVpNG(centerXResObj, centerXValue);
+            annulusRegion.SetCenterX(centerXValue);
+        };
+        annulusRegionValue.AddResource(
+            "annulusRegion.centerX", centerXResObj, std::move(centerXUpdateFunc));
+    } else {
+        annulusRegionValue.RemoveResource("annulusRegion.centerX");
+    }
+    if (centerYResObj) {
+        auto&& centerYUpdateFunc = [](const RefPtr<ResourceObject>& centerYResObj,
+            OHOS::Ace::NG::ParticleAnnulusRegion& annulusRegion) {
+            CalcDimension centerYValue;
+            ResourceParseUtils::ParseResDimensionVpNG(centerYResObj, centerYValue);
+            annulusRegion.SetCenterY(centerYValue);
+        };
+        annulusRegionValue.AddResource(
+            "annulusRegion.centerY", centerYResObj, std::move(centerYUpdateFunc));
+    } else {
+        annulusRegionValue.RemoveResource("annulusRegion.centerY");
+    }
+    if (innerRadiusResObj) {
+        auto&& innerRadiusUpdateFunc = [](const RefPtr<ResourceObject>& innerRadiusResObj,
+            OHOS::Ace::NG::ParticleAnnulusRegion& annulusRegion) {
+            CalcDimension innerRadiusValue;
+            ResourceParseUtils::ParseResDimensionVpNG(innerRadiusResObj, innerRadiusValue);
+            annulusRegion.SetInnerRadius(innerRadiusValue);
+        };
+        annulusRegionValue.AddResource(
+            "annulusRegion.innerRadius", innerRadiusResObj, std::move(innerRadiusUpdateFunc));
+    } else {
+        annulusRegionValue.RemoveResource("annulusRegion.innerRadius");
+    }
+    if (outerRadiusResObj) {
+        auto&& outerRadiusUpdateFunc = [](const RefPtr<ResourceObject>& outerRadiusResObj,
+            OHOS::Ace::NG::ParticleAnnulusRegion& annulusRegion) {
+            CalcDimension outerRadiusValue;
+            ResourceParseUtils::ParseResDimensionVpNG(outerRadiusResObj, outerRadiusValue);
+            annulusRegion.SetOuterRadius(outerRadiusValue);
+        };
+        annulusRegionValue.AddResource(
+            "annulusRegion.outerRadius", outerRadiusResObj, std::move(outerRadiusUpdateFunc));
+    } else {
+        annulusRegionValue.RemoveResource("annulusRegion.outerRadius");
+    }
+}
+
+void ParseAnnulusCenter(const JSRef<JSObject>& centerJson, std::pair<CalcDimension, CalcDimension>& center,
+    RefPtr<ResourceObject>& centerXResObj, RefPtr<ResourceObject>& centerYResObj)
+{
+    CalcDimension centerXValue;
+    CalcDimension centerYValue;
+    if (SystemProperties::ConfigChangePerform()) {
+        if (JSViewAbstract::ParseLengthMetricsToDimension(centerJson->GetProperty("x"),
+            centerXValue, centerXResObj)) {
+            center.first = centerXValue;
+        }
+        if (JSViewAbstract::ParseLengthMetricsToDimension(centerJson->GetProperty("y"),
+            centerYValue, centerYResObj)) {
+            center.second = centerYValue;
+        }
+    } else {
+        if (JSViewAbstract::ParseLengthMetricsToDimension(centerJson->GetProperty("x"), centerXValue)) {
+            center.first = centerXValue;
+        }
+        if (JSViewAbstract::ParseLengthMetricsToDimension(centerJson->GetProperty("y"), centerYValue)) {
+            center.second = centerYValue;
+        }
+    }
+}
+
 void ParseEmitterPropertyAnnulus(const JSRef<JSObject>& paramObj, EmitterProperty& emitterProperty)
 {
     auto annulusRegionProperty = paramObj->GetProperty("annulusRegion");
@@ -522,27 +601,40 @@ void ParseEmitterOptionAnnulus(JSRef<JSObject>& emitterJsObject, OHOS::Ace::NG::
         std::pair<CalcDimension, CalcDimension> center = {
             DEFAULT_CENTER_VALUE, DEFAULT_CENTER_VALUE
             };
+        RefPtr<ResourceObject> centerXResObj;
+        RefPtr<ResourceObject> centerYResObj;
         if (centerProperty->IsObject()) {
             auto centerJson = JSRef<JSObject>::Cast(centerProperty);
-            CalcDimension centerXValue;
-            CalcDimension centerYValue;
-            if (JSViewAbstract::ParseLengthMetricsToDimension(centerJson->GetProperty("x"), centerXValue)) {
-                center.first = centerXValue;
-            }
-            if (JSViewAbstract::ParseLengthMetricsToDimension(centerJson->GetProperty("y"), centerYValue)) {
-                center.second = centerYValue;
-            }
+            ParseAnnulusCenter(centerJson, center, centerXResObj, centerYResObj);
         }
         CalcDimension innerRadiusValue;
+        RefPtr<ResourceObject> innerRadiusResObj;
+        if (SystemProperties::ConfigChangePerform()) {
+            JSViewAbstract::ParseLengthMetricsToDimension(
+                annulusRegion->GetProperty("innerRadius"), innerRadiusValue, innerRadiusResObj);
+        } else {
+            JSViewAbstract::ParseLengthMetricsToDimension(
+                annulusRegion->GetProperty("innerRadius"), innerRadiusValue);
+        }
         CalcDimension outerRadiusValue;
-        JSViewAbstract::ParseLengthMetricsToDimension(annulusRegion->GetProperty("innerRadius"), innerRadiusValue);
-        JSViewAbstract::ParseLengthMetricsToDimension(annulusRegion->GetProperty("outerRadius"), outerRadiusValue);
+        RefPtr<ResourceObject> outerRadiusResObj;
+        if (SystemProperties::ConfigChangePerform()) {
+            JSViewAbstract::ParseLengthMetricsToDimension(
+                annulusRegion->GetProperty("outerRadius"), outerRadiusValue, outerRadiusResObj);
+        } else {
+            JSViewAbstract::ParseLengthMetricsToDimension(
+                annulusRegion->GetProperty("outerRadius"), outerRadiusValue);
+        }
         auto startAngle = annulusRegion->GetProperty("startAngle");
         auto startAngleValue = startAngle->IsNumber() ? startAngle->ToNumber<float>() : DEFAULT_START_ANGLE_VALUE;
         auto endAngle = annulusRegion->GetProperty("endAngle");
         auto endAngleValue = endAngle->IsNumber() ? endAngle->ToNumber<float>() : DEFAULT_END_ANGLE_VALUE;
         auto annulusRegionValue =
             NG::ParticleAnnulusRegion(center, innerRadiusValue, outerRadiusValue, startAngleValue, endAngleValue);
+        if (SystemProperties::ConfigChangePerform()) {
+            AnnulusRegisterResourceObject(annulusRegionValue, centerXResObj,
+                centerYResObj, innerRadiusResObj, outerRadiusResObj);
+        }
         emitterOption.SetAnnulusRegion(annulusRegionValue);
     }
 }
@@ -1064,6 +1156,81 @@ void ParseParticleArray(JSRef<JSArray>& paramArray, std::list<OHOS::Ace::NG::Par
         arrayValue.emplace_back(option);
     }
 }
+
+template<typename T>
+void GetSizeAndPositionValues(
+    const JSRef<JSObject>& paramObj, T& sizeXValue, T& sizeYValue,
+    T& positionXValue, T& positionYValue)
+{
+    JSRef<JSVal> sizeJsValue = paramObj->GetProperty("size");
+    if (sizeJsValue->IsObject()) {
+        JSRef<JSObject> sizeJsObject = JSRef<JSObject>::Cast(sizeJsValue);
+        auto widthJsObject = sizeJsObject->GetProperty("width");
+        if (widthJsObject->IsNumber()) {
+            sizeXValue = widthJsObject->ToNumber<T>();
+        }
+        auto heightJsObject = sizeJsObject->GetProperty("height");
+        if (heightJsObject->IsNumber()) {
+            sizeYValue = heightJsObject->ToNumber<T>();
+        }
+    }
+
+    JSRef<JSVal> positionJsValue = paramObj->GetProperty("position");
+    if (positionJsValue->IsObject()) {
+        JSRef<JSObject> positionJsObject = JSRef<JSObject>::Cast(positionJsValue);
+        auto positionXJsObject = positionJsObject->GetProperty("x");
+        if (positionXJsObject->IsNumber()) {
+            positionXValue = positionXJsObject->ToNumber<T>();
+        }
+        auto positionYJsObject = positionJsObject->GetProperty("y");
+        if (positionYJsObject->IsNumber()) {
+            positionYValue = positionYJsObject->ToNumber<T>();
+        }
+    }
+}
+
+bool InRange(const float& value, const float& low, const float& high)
+{
+    return value >= low && value <= high;
+}
+
+template<typename T>
+void ParseFieldRegion(const JSRef<JSObject>& paramObj, T& field)
+{
+    ParticleFieldRegion region;
+    auto fieldRegion = paramObj->GetProperty("region");
+    if (!fieldRegion->IsObject()) {
+        return;
+    }
+    auto fieldRegionObj = Framework::JSRef<Framework::JSObject>::Cast(fieldRegion);
+
+    // parse shape: [RECT, MAX]
+    auto shapeValue = fieldRegionObj->GetProperty("shape");
+    if (shapeValue->IsNumber()) {
+        int shape = shapeValue->ToNumber<int>();
+        region.shape =
+            ((shape >= static_cast<int>(ParticleDisturbanceShapeType::RECT)
+            && shape < static_cast<int>(ParticleDisturbanceShapeType::MAX))
+            ? static_cast<ParticleDisturbanceShapeType>(shape)
+            : ParticleDisturbanceShapeType::RECT);
+    }
+
+    // parse position and size
+    // size: [sizeWidth >= 0.0f, sizeHeight >= 0.0f]
+    float sizeXValue = 0;
+    float sizeYValue = 0;
+    float positionXValue = 0;
+    float positionYValue = 0;
+    GetSizeAndPositionValues(fieldRegionObj,
+        sizeXValue, sizeYValue, positionXValue, positionYValue);
+    sizeXValue = GreatOrEqual(sizeXValue, 0.0f) ? sizeXValue : 0.0f;
+    sizeYValue = GreatOrEqual(sizeYValue, 0.0f) ? sizeYValue : 0.0f;
+    region.size.first = Dimension(sizeXValue, DimensionUnit::VP);
+    region.size.second = Dimension(sizeYValue, DimensionUnit::VP);
+    region.position.first = Dimension(positionXValue, DimensionUnit::VP);
+    region.position.second = Dimension(positionYValue, DimensionUnit::VP);
+    field.region = region;
+}
 } // namespace
 void JSParticle::Create(const JSCallbackInfo& args)
 {
@@ -1083,15 +1250,27 @@ void JSParticle::Create(const JSCallbackInfo& args)
 }
 void JSParticle::AddDisturbance(std::vector<OHOS::Ace::ParticleDisturbance>& dataArray, const JSRef<JSObject>& paramObj)
 {
-    float strength = paramObj->GetProperty("strength")->ToNumber<float>();
-    int shape = paramObj->GetProperty("shape")->ToNumber<int>();
+    float strength = 0.0f;
+    auto strengthPrp = paramObj->GetProperty("strength");
+    if (strengthPrp->IsNumber()) {
+        strength = strengthPrp->ToNumber<float>();
+    }
+    int shape = 0;
+    auto shapePrp = paramObj->GetProperty("shape");
+    if (shapePrp->IsNumber()) {
+        shape = shapePrp->ToNumber<int>();
+    }
     int sizeXValue = 0;
     int sizeYValue = 0;
     int positionXValue = 0;
     int positionYValue = 0;
     GetSizeAndPositionValues(paramObj, sizeXValue, sizeYValue, positionXValue, positionYValue);
-    int feather = paramObj->GetProperty("feather")->ToNumber<int>();
-    feather = std::clamp(feather, 0, 100);
+    int feather = 0;
+    auto featherPrp = paramObj->GetProperty("feather");
+    if (featherPrp->IsNumber()) {
+        feather = featherPrp->ToNumber<int>();
+        feather = std::clamp(feather, 0, 100);
+    }
     float noiseScale = 1.0f;
     if (paramObj->GetProperty("noiseScale")->IsNumber()) {
         noiseScale = paramObj->GetProperty("noiseScale")->ToNumber<float>();
@@ -1127,24 +1306,6 @@ void JSParticle::AddDisturbance(std::vector<OHOS::Ace::ParticleDisturbance>& dat
     dataArray.push_back(disturbanceField);
 }
 
-void JSParticle::GetSizeAndPositionValues(
-    const JSRef<JSObject>& paramObj, int& sizeXValue, int& sizeYValue, int& positionXValue, int& positionYValue)
-{
-    JSRef<JSVal> sizeJsValue = paramObj->GetProperty("size");
-    if (sizeJsValue->IsObject()) {
-        JSRef<JSObject> sizeJsObject = JSRef<JSObject>::Cast(sizeJsValue);
-        sizeXValue = sizeJsObject->GetProperty("width")->ToNumber<int>();
-        sizeYValue = sizeJsObject->GetProperty("height")->ToNumber<int>();
-    }
-
-    JSRef<JSVal> positionJsValue = paramObj->GetProperty("position");
-    if (positionJsValue->IsObject()) {
-        JSRef<JSObject> positionJsObject = JSRef<JSObject>::Cast(positionJsValue);
-        positionXValue = positionJsObject->GetProperty("x")->ToNumber<int>();
-        positionYValue = positionJsObject->GetProperty("y")->ToNumber<int>();
-    }
-}
-
 void JSParticle::JsDisturbanceFields(const JSCallbackInfo& args)
 {
     if (args.Length() != 1 || !args[0]->IsArray()) {
@@ -1160,6 +1321,123 @@ void JSParticle::JsDisturbanceFields(const JSCallbackInfo& args)
     }
 
     ParticleModel::GetInstance()->DisturbanceField(dataArray);
+}
+
+void JSParticle::JsVelocityFields(const JSCallbackInfo& args)
+{
+    if (args.Length() != 1 || !args[0]->IsArray()) {
+        return;
+    }
+    std::vector<ParticleVelocityField> dataArray;
+    JSRef<JSArray> dataJsArray = JSRef<JSArray>::Cast(args[0]);
+    for (size_t i = 0; i < dataJsArray->Length(); i++) {
+        auto item = dataJsArray->GetValueAt(i);
+        if (item->IsObject()) {
+            auto jsObject = JSRef<JSObject>::Cast(item);
+            AddVelocity(dataArray, jsObject);
+        }
+    }
+
+    ParticleModel::GetInstance()->VelocityFields(dataArray);
+}
+
+void JSParticle::AddVelocity(std::vector<OHOS::Ace::ParticleVelocityField>& dataArray,
+    const JSRef<JSObject>& paramObj)
+{
+    ParticleVelocityField velocityField;
+    
+    // Parse velocity
+    JSRef<JSVal> velocityValue = paramObj->GetProperty("velocity");
+    if (velocityValue->IsObject()) {
+        auto velocityJsObject = JSRef<JSObject>::Cast(velocityValue);
+        auto velocityXJsObject = velocityJsObject->GetProperty("x");
+        if (velocityXJsObject->IsNumber()) {
+            velocityField.velocity.first = velocityXJsObject->ToNumber<float>();
+        }
+        auto velocityYJsObject = velocityJsObject->GetProperty("y");
+        if (velocityYJsObject->IsNumber()) {
+            velocityField.velocity.second = velocityYJsObject->ToNumber<float>();
+        }
+    }
+    
+    // Parse region
+    ParseFieldRegion(paramObj, velocityField);
+    dataArray.push_back(velocityField);
+}
+
+void JSParticle::JsRippleFields(const JSCallbackInfo& args)
+{
+    if (args.Length() != 1 || !args[0]->IsArray()) {
+        return;
+    }
+    std::vector<ParticleRippleField> dataArray;
+    JSRef<JSArray> dataJsArray = JSRef<JSArray>::Cast(args[0]);
+    for (size_t i = 0; i < dataJsArray->Length(); i++) {
+        auto item = dataJsArray->GetValueAt(i);
+        if (item->IsObject()) {
+            auto jsObject = JSRef<JSObject>::Cast(item);
+            AddRipple(dataArray, jsObject);
+        }
+    }
+    ParticleModel::GetInstance()->RippleFields(dataArray);
+}
+
+void JSParticle::AddRipple(std::vector<OHOS::Ace::ParticleRippleField>& dataArray,
+    const JSRef<JSObject>& paramObj)
+{
+    ParticleRippleField rippleField;
+
+    // parse amplitude: amplitude >= 0.0f
+    auto amplitudeValue = paramObj->GetProperty("amplitude");
+    if (amplitudeValue->IsNumber()) {
+        auto amplitude = amplitudeValue->ToNumber<float>();
+        rippleField.amplitude =
+            GreatOrEqual(amplitude, 0.0f) ? amplitude : 0.0f;
+    }
+
+    // parse wavelength: wavelength >= 0.0f
+    auto waveLengthValue = paramObj->GetProperty("wavelength");
+    if (waveLengthValue->IsNumber()) {
+        auto wavelength = waveLengthValue->ToNumber<float>();
+        rippleField.wavelength =
+            GreatOrEqual(wavelength, 0.0f) ? wavelength : 0.0f;
+    }
+
+    // parse waveSpeed: waveSpeed >= 0.0f
+    auto waveSpeedValue = paramObj->GetProperty("waveSpeed");
+    if (waveSpeedValue->IsNumber()) {
+        auto waveSpeed = waveSpeedValue->ToNumber<float>();
+        rippleField.waveSpeed =
+            GreatOrEqual(waveSpeed, 0.0f) ? waveSpeed : 0.0f;
+    }
+
+    // parse attenuation:[0.0f, 1.0f]
+    auto attenuationValue = paramObj->GetProperty("attenuation");
+    if (attenuationValue->IsNumber()) {
+        auto attenuation = attenuationValue->ToNumber<float>();
+        rippleField.attenuation =
+            InRange(attenuation, 0.0f, 1.0f) ? attenuation : 0.0f;
+    }
+    
+    // parse center(x ,y)
+    JSRef<JSVal> centerJsValue = paramObj->GetProperty("center");
+    if (centerJsValue->IsObject()) {
+        auto centerJsObject = JSRef<JSObject>::Cast(centerJsValue);
+        auto centerXJsObject = centerJsObject->GetProperty("x");
+        if (centerXJsObject->IsNumber()) {
+            rippleField.center.first =
+                Dimension(centerXJsObject->ToNumber<float>(), DimensionUnit::VP);
+        }
+        auto centerYJsObject = centerJsObject->GetProperty("y");
+        if (centerYJsObject->IsNumber()) {
+            rippleField.center.second =
+                Dimension(centerYJsObject->ToNumber<float>(), DimensionUnit::VP);
+        }
+    }
+
+    // Parse region
+    ParseFieldRegion(paramObj, rippleField);
+    dataArray.push_back(rippleField);
 }
 
 void JSParticle::ParseEmitterProperty(
@@ -1190,10 +1468,12 @@ void JSParticle::ParseEmitterProperty(
     auto sizeProperty = paramObj->GetProperty("size");
     if (sizeProperty->IsObject()) {
         auto sizeValue = Framework::JSRef<Framework::JSObject>::Cast(sizeProperty);
-        auto sizeXValue = sizeValue->GetProperty("width")->ToNumber<float>();
-        auto sizeYValue = sizeValue->GetProperty("height")->ToNumber<float>();
-        if (sizeXValue > 0 && sizeYValue > 0) {
-            emitterProperty.size = { sizeXValue, sizeYValue };
+        if (sizeValue->GetProperty("width")->IsNumber() && sizeValue->GetProperty("height")->IsNumber()) {
+            auto sizeXValue = sizeValue->GetProperty("width")->ToNumber<float>();
+            auto sizeYValue = sizeValue->GetProperty("height")->ToNumber<float>();
+            if (sizeXValue > 0 && sizeYValue > 0) {
+                emitterProperty.size = { sizeXValue, sizeYValue };
+            }
         }
     }
 
@@ -1224,6 +1504,8 @@ void JSParticle::JSBind(BindingTarget globalObj)
     JSClass<JSParticle>::StaticMethod("create", &JSParticle::Create);
     JSClass<JSParticle>::StaticMethod("disturbanceFields", &JSParticle::JsDisturbanceFields);
     JSClass<JSParticle>::StaticMethod("emitter", &JSParticle::JsEmitter);
+    JSClass<JSParticle>::StaticMethod("rippleFields", &JSParticle::JsRippleFields);
+    JSClass<JSParticle>::StaticMethod("velocityFields", &JSParticle::JsVelocityFields);
     JSClass<JSParticle>::InheritAndBind<JSViewAbstract>(globalObj);
 }
 } // namespace OHOS::Ace::Framework

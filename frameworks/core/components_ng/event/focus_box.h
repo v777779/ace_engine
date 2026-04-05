@@ -18,6 +18,7 @@
 
 #include <functional>
 #include <optional>
+#include <unordered_map>
 
 #include "base/geometry/calc_dimension.h"
 #include "base/json/json_util.h"
@@ -64,7 +65,7 @@ struct FocusBoxStyle {
 };
 
 class ACE_EXPORT FocusBox : public virtual AceType {
-    DECLARE_ACE_TYPE(FocusBox, AceType)
+    DECLARE_ACE_TYPE(FocusBox, AceType);
 
 public:
     friend class FocusHub;

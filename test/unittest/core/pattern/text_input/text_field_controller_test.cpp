@@ -18,10 +18,10 @@
 
 #include "text_input_base.h"
 
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_data_detector_mgr.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_data_detector_mgr.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 
 #include "core/components/common/properties/text_style_parser.h"
 
@@ -41,6 +41,7 @@ public:
     MOCK_METHOD(void, DataDetect, (const TextDataDetectInfo& info, const TextDetectResultFunc& resultFunc), (override));
     MOCK_METHOD(int8_t, GetCursorPosition, (const std::string& text, int8_t offset), (override));
     MOCK_METHOD(std::vector<int8_t>, GetWordSelection, (const std::string& text, int8_t offset), (override));
+    MOCK_METHOD(bool, IsAskCeliaSupported, (), (override));
 };
 
 class TextAdjustObject : public TextInputBases {
@@ -538,6 +539,7 @@ HWTEST_F(TextFieldControllerTest, OnModifyDone001, TestSize.Level1)
     pattern_->OnModifyDone();
     GetFocus();
     EXPECT_TRUE(layoutProperty_->GetShowUnderlineValue(false));
+    EXPECT_FALSE(pattern_->IsShowUnit());
     layoutProperty_->UpdateShowUnderline(false);
     pattern_->OnModifyDone();
     pattern_->HandleBlurEvent();
@@ -758,7 +760,7 @@ HWTEST_F(TextFieldControllerTest, TextFieldControllerTest003, TestSize.Level1)
     /**
      * @tc.steps: Initialize textarea node.
      */
-    auto frameNode = TextFieldModelNG::CreateFrameNode(-1, u"", u"", true);
+    auto frameNode = TextFieldModelNG::CreateTextAreaNode(-1, u"", u"");
     ASSERT_NE(frameNode, nullptr);
     auto node = AceType::RawPtr(frameNode);
 
@@ -1771,5 +1773,56 @@ HWTEST_F(TextFieldControllerTest, GetGraphemeClusterLength003, TestSize.Level1)
     bool checkPrev = false;
     auto result = controller->GetGraphemeClusterLength(text, extend, checkPrev);
     EXPECT_EQ(result, 2);
+}
+
+/**
+ * @tc.name: GetAlignParentSize001
+ * @tc.desc: test GetAlignParentSize.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldControllerTest, GetAlignParentSize001, TestSize.Level1)
+{
+    CreateTextField(DEFAULT_TEXT, "", [](TextFieldModelNG model) { model.SetLineHeight(30.0_px); });
+
+    auto controller = pattern_->GetTextSelectController();
+    ASSERT_NE(controller, nullptr);
+    ASSERT_NE(controller->paragraph_, nullptr);
+    layoutProperty_->UpdateMinLines(3);
+    FlushLayoutTask(frameNode_);
+    auto size = controller->GetAlignParentSize();
+    EXPECT_EQ(size.Height(), controller->paragraph_->GetHeight());
+}
+
+/**
+ * @tc.name: TextFiledControllerScrollToVisible
+ * @tc.desc: Test TextFieldController ScrollToVisible
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldControllerTest, TextFiledControllerScrollToVisible, TestSize.Level1)
+{
+    /**
+     * @tc.steps: Initialize text filed node
+     */
+    CreateTextField();
+
+    /**
+     * @tc.expected: Check if the number of lines meets the expectation
+     */
+    auto controller = pattern_->GetTextFieldController();
+    ASSERT_NE(controller, nullptr);
+    auto textFiled = AceType::DynamicCast<TextFieldPattern>(pattern_);
+    ASSERT_NE(textFiled, nullptr);
+    layoutProperty_->CleanDirty();
+    textFiled->contentRect_ = RectF(0, 0, 10, 10);
+    textFiled->textRect_ = RectF(0, 0, 20, 10);
+    textFiled->contentController_->SetTextValueOnly(u"Hello World");
+    auto mockParagraph = MockParagraph::GetOrCreateMockParagraph();
+    textFiled->selectController_->paragraph_ = mockParagraph;
+    std::vector<RectF> expectedRects = { RectF(6, 6, 10, 5) };
+    EXPECT_CALL(*mockParagraph, GetRectsForRange(_, _, _)).WillRepeatedly(SetArgReferee<2>(expectedRects));
+    const OHOS::Ace::NG::ParagraphStyle expectedStyle;
+    EXPECT_CALL(*mockParagraph, GetParagraphStyle()).WillRepeatedly(ReturnRef(expectedStyle));
+    controller->ScrollToVisible({ .start = 5, .end = 6 });
+    EXPECT_EQ(textFiled->textRect_.GetOffset().GetX(), -6.0f);
 }
 }

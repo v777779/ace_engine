@@ -186,6 +186,18 @@ void OffscreenCanvasPattern::SetAntiAlias(bool isEnabled)
     offscreenPaintMethod_->SetAntiAlias(isEnabled);
 }
 
+std::optional<bool> OffscreenCanvasPattern::GetAntialiasExt() const
+{
+    CHECK_NULL_RETURN(offscreenPaintMethod_, std::nullopt);
+    return offscreenPaintMethod_->GetAntialiasExt();
+}
+
+void OffscreenCanvasPattern::SetAntialiasExt(std::optional<bool> isEnabled)
+{
+    CHECK_NULL_VOID(offscreenPaintMethod_);
+    offscreenPaintMethod_->SetAntialiasExt(isEnabled);
+}
+
 void OffscreenCanvasPattern::SetFillColor(const Color& color)
 {
     offscreenPaintMethod_->SetFillColor(color);
@@ -275,7 +287,7 @@ void OffscreenCanvasPattern::Translate(double x, double y)
     offscreenPaintMethod_->Translate(x, y);
 }
 
-void OffscreenCanvasPattern::SetFillPattern(const std::weak_ptr<Ace::Pattern>& pattern)
+void OffscreenCanvasPattern::SetFillPattern(const std::shared_ptr<Ace::Pattern>& pattern)
 {
     offscreenPaintMethod_->SetFillPatternNG(pattern);
 }
@@ -360,7 +372,7 @@ void OffscreenCanvasPattern::SetShadowColor(const Color& color)
     offscreenPaintMethod_->SetShadowColor(color);
 }
 
-void OffscreenCanvasPattern::SetStrokePattern(const std::weak_ptr<Ace::Pattern>& pattern)
+void OffscreenCanvasPattern::SetStrokePattern(const std::shared_ptr<Ace::Pattern>& pattern)
 {
     offscreenPaintMethod_->SetStrokePatternNG(pattern);
 }

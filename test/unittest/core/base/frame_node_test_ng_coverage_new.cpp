@@ -14,8 +14,12 @@
  */
 #include "test/unittest/core/base/frame_node_test_ng.h"
 
+#include "base/geometry/calc_dimension_rect.h"
 #include "core/event/touch_event.h"
-#include "frameworks/core/components_ng/pattern/text_field/text_field_pattern.h"
+#include "core/common/recorder/exposure_processor.h"
+#include "core/common/resource/resource_parse_utils.h"
+#include "core/components_ng/pattern/stage/page_pattern.h"
+#include "core/components_ng/pattern/text_field/text_field_pattern.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -417,6 +421,20 @@ HWTEST_F(FrameNodeTestNg, CalculateCachedTransformRelativeOffsetTest, TestSize.L
     frameNode->RecordExposureInner();
     EXPECT_EQ(child->CalculateCachedTransformRelativeOffset(0), OffsetF(0, 0));
     EXPECT_EQ(child->CalculateCachedTransformRelativeOffset(10), OffsetF(0, 0));
+}
+
+/**
+ * @tc.name: RecordExposureInnerTest
+ * @tc.desc: Test the function RecordExposureInner
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, RecordExposureInnerTest, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    frameNode->CalculateCachedTransformRelativeOffset(0);
+    frameNode->exposureProcessor_ = AceType::MakeRefPtr<Recorder::ExposureProcessor>("test", "");
+    frameNode->RecordExposureInner();
+    EXPECT_FALSE(frameNode->exposureProcessor_->IsNeedRecord());
 }
 
 /**
@@ -1060,12 +1078,59 @@ HWTEST_F(FrameNodeTestNg, FrameNodeTriggerOnSizeChangeCallback04, TestSize.Level
     OnSizeChangedFunc onJsFrameNodeSizeChanged = [node = frameNode](const RectF& oldRect, const RectF& rect) {
         node->lastFrameNodeRect_ = nullptr;
     };
-    eventHub->SetJSFrameNodeOnSizeChangeCallback(std::move(onJsFrameNodeSizeChanged));
+    eventHub->SetFrameNodeCommonOnSizeChangeCallback(std::move(onJsFrameNodeSizeChanged));
     /**
      * @tc.steps: step3. call the function TriggerOnSizeChangeCallback.
      */
     frameNode->TriggerOnSizeChangeCallback();
     EXPECT_EQ(frameNode->lastFrameNodeRect_, nullptr);
+}
+
+/**
+ * @tc.name: FrameNodeTriggerOnSizeChangeCallback05
+ * @tc.desc: Test the function TriggerOnSizeChangeCallback
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeTriggerOnSizeChangeCallback05, TestSize.Level1)
+{
+    NG::RectF testLastFrameRect = { 10.0f, 10.0f, 10.0f, 10.0f }; // 10.0f is the x, y, width and height of rect
+    NG::RectF testCurrFrameRect = { 10.0f, 10.0f, 10.0f, 10.0f }; // 10.0f is the x, y, width and height of rect
+    FrameNode::onSizeChangeDumpInfo dumpInfoOne { 1, testLastFrameRect, testCurrFrameRect };
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("page", 1, AceType::MakeRefPtr<PagePattern>(nullptr), true);
+    ASSERT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode->pattern_, nullptr);
+    frameNode->isActive_ = true;
+    auto pattern = frameNode->GetPattern<PagePattern>();
+    pattern->isOnShow_ = true;
+    OnSizeChangedFunc onSizeChanged = [](const RectF& oldRect, const RectF& rect) {};
+    auto eventHub = frameNode->GetEventHub<EventHub>();
+    eventHub->AddInnerOnSizeChanged(1, std::move(onSizeChanged));
+    // auto
+    frameNode->lastFrameNodeRect_ =
+        std::make_unique<RectF>(RectF(OffsetF(50.0f, 50.0f), SizeF(50.0f, 50.0f))); // 50.0f is ths offset and size
+    frameNode->onSizeChangeDumpInfos.push_back(dumpInfoOne);
+    OnSizeChangedFunc onJsFrameNodeSizeChanged = [node = frameNode](const RectF& oldRect, const RectF& rect) {
+        node->lastFrameNodeRect_ = nullptr;
+    };
+    eventHub->SetFrameNodeCommonOnSizeChangeCallback(std::move(onJsFrameNodeSizeChanged));
+    /**
+     * @tc.steps: step3. call the function TriggerOnSizeChangeCallback.
+     */
+    frameNode->isActive_ = false;
+    frameNode->TriggerOnSizeChangeCallback();
+    EXPECT_TRUE(eventHub->IsCompensateOnSizeChangeEvent());
+    frameNode->SetActive(true, false);
+    EXPECT_FALSE(eventHub->IsCompensateOnSizeChangeEvent());
+    frameNode->isActive_ = false;
+    frameNode->SetActive(true, false);
+    EXPECT_FALSE(eventHub->IsCompensateOnSizeChangeEvent());
+    frameNode->eventHub_ = nullptr;
+    frameNode->isActive_ = false;
+    frameNode->SetActive(true, false);
+    EXPECT_TRUE(frameNode->isActive_);
 }
 
 /**
@@ -1089,6 +1154,54 @@ HWTEST_F(FrameNodeTestNg, FrameNodeNotifyColorModeChange01, TestSize.Level1)
      */
     childNode->NotifyColorModeChange(1);
     EXPECT_TRUE(childNode->GetRerenderable());
+}
+
+/**
+ * @tc.name: FrameNodeNotifyColorModeChange02
+ * @tc.desc: Test the function NotifyColorModeChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeNotifyColorModeChange02, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("page", 1, AceType::MakeRefPtr<PagePattern>(nullptr), true);
+    auto childNode = FrameNode::CreateFrameNode("child", 2, AceType::MakeRefPtr<PagePattern>(nullptr), true);
+    ResourceParseUtils::SetNeedReload(true);
+    frameNode->AddChild(childNode);
+    frameNode->AllowForceDark(true);
+    childNode->AllowForceDark(false);
+    /**
+     * @tc.steps: step2. call the function NotifyColorModeChange.
+     * @tc.expected: expect ResourceParseUtils  isReloading_ is true.
+     */
+    childNode->NotifyColorModeChange(1);
+    EXPECT_TRUE(ResourceParseUtils::NeedReload());
+}
+
+/**
+ * @tc.name: FrameNodeNotifyColorModeChange03
+ * @tc.desc: Test the function NotifyColorModeChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeNotifyColorModeChange03, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("page", 1, AceType::MakeRefPtr<PagePattern>(nullptr), true);
+    auto childNode = FrameNode::CreateFrameNode("child", 2, AceType::MakeRefPtr<PagePattern>(nullptr), true);
+    ResourceParseUtils::SetNeedReload(false);
+    frameNode->AddChild(childNode);
+    frameNode->AllowForceDark(true);
+    childNode->AllowForceDark(false);
+    /**
+     * @tc.steps: step2. call the function NotifyColorModeChange.
+     * @tc.expected: expect ResourceParseUtils  isReloading_ is false.
+     */
+    childNode->NotifyColorModeChange(1);
+    EXPECT_FALSE(ResourceParseUtils::NeedReload());
 }
 
 /**
@@ -1408,5 +1521,583 @@ HWTEST_F(FrameNodeTestNg, FrameNodeHitTestMode005, TestSize.Level1)
     EXPECT_EQ(test, HitTestResult::BUBBLING);
     EXPECT_EQ(result.size(), 2);
     EXPECT_TRUE(onChildTouchTestTriggerd);
+    FRAME_NODE_PARENT->renderContext_ = nullptr;
+}
+
+/**
+ * @tc.name: FrameNodeSetFocusDependenceTestMode001
+ * @tc.desc: Test the function SetFocusDependence
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeSetFocusDependenceTestMode001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    auto childNode = FrameNode::CreateFrameNode("childNode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    /**
+     * @tc.steps: step2. call the function SetFocusDependence.
+     */
+    auto focusHub = frameNode->GetOrCreateFocusHub();
+    CHECK_NULL_VOID(focusHub);
+    focusHub->SetFocusDependence(FocusDependence::SELF);
+    /**
+     * @tc.steps: step3. getFocusDependence.
+     * @tc.expected: expect The function return value is SELF.
+     */
+    EXPECT_EQ(focusHub->GetFocusDependence(), FocusDependence::SELF);
+}
+
+/**
+ * @tc.name: FrameNodeGetIgnoreLayoutSafeAreaOptsTest001
+ * @tc.desc: Test the function GetIgnoreLayoutSafeAreaOpts
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeGetIgnoreLayoutSafeAreaOptsTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+
+    /**
+     * @tc.steps: step2. call the function UpdateIgnoreLayoutSafeAreaOpts.
+     */
+    auto layoutProperty = frameNode->GetLayoutProperty();
+    EXPECT_NE(layoutProperty, nullptr);
+    NG::IgnoreLayoutSafeAreaOpts ignoreOpts { .type = NG::SAFE_AREA_TYPE_SYSTEM, .edges = NG::SAFE_AREA_EDGE_ALL };
+    layoutProperty->UpdateIgnoreLayoutSafeAreaOpts(ignoreOpts);
+    auto isIgnoreOptsValid = layoutProperty->IsIgnoreOptsValid();
+    EXPECT_EQ(isIgnoreOptsValid, true);
+
+    /**
+     * @tc.steps: step3. GetIgnoreLayoutSafeAreaOpts.
+     * @tc.expected: expect The function return value is valid.
+     */
+    NG::IgnoreLayoutSafeAreaOpts& opts = *(layoutProperty->GetIgnoreLayoutSafeAreaOpts());
+    EXPECT_EQ(opts.type, NG::SAFE_AREA_TYPE_SYSTEM);
+    EXPECT_EQ(opts.edges, NG::SAFE_AREA_EDGE_ALL);
+}
+
+std::vector<CalcDimensionRect> inputsWithPercent1 = {
+    CalcDimensionRect { CalcDimension("calc(10% - 0vp)", DimensionUnit::CALC),
+        CalcDimension("calc(100% + 100PX)", DimensionUnit::CALC), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension("calc(20% - 0vp)", DimensionUnit::CALC),
+        CalcDimension("calc(100% + percent(10))", DimensionUnit::CALC), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension("calc(30% - 0vp)", DimensionUnit::CALC),
+        CalcDimension("calc(100% * 100px)", DimensionUnit::CALC), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension("calc(40% - 0vp)", DimensionUnit::CALC),
+        CalcDimension("calc(100% / 100px)", DimensionUnit::CALC), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension("calc(50% - 0vp)", DimensionUnit::CALC),
+        CalcDimension("calc(0.1 + 100px)", DimensionUnit::CALC), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension("calc(60% - 0vp)", DimensionUnit::CALC),
+        CalcDimension("calc(100% + 100)", DimensionUnit::CALC), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension("calc(70% - 0vp)", DimensionUnit::CALC),
+        CalcDimension("calc(100%+100px)", DimensionUnit::CALC), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension("calc(80% - 0vp)", DimensionUnit::CALC),
+        CalcDimension("calc(100% + 100s)", DimensionUnit::CALC), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension("calc(90% - 0vp)", DimensionUnit::CALC),
+        CalcDimension("calc（100% + 100px）", DimensionUnit::CALC), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension("calc(100% - 0vp)", DimensionUnit::CALC), CalcDimension("", DimensionUnit::CALC),
+        CalcDimension(0.0, DimensionUnit::PERCENT), CalcDimension(0.0, DimensionUnit::PERCENT) },
+
+    CalcDimensionRect { CalcDimension(0.0, DimensionUnit::PERCENT), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT), CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension(1.0, DimensionUnit::PERCENT), CalcDimension(1.0, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT), CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension(1.5, DimensionUnit::PERCENT), CalcDimension(1.5, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT), CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension(-0.5, DimensionUnit::PERCENT), CalcDimension(-0.5, DimensionUnit::PERCENT),
+        CalcDimension(0.0, DimensionUnit::PERCENT), CalcDimension(0.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension(0.0, DimensionUnit::PERCENT), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(-1.0, DimensionUnit::PERCENT), CalcDimension(-1.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension(0.0, DimensionUnit::PERCENT), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(-1.0, DimensionUnit::PERCENT), CalcDimension(1.0, DimensionUnit::PERCENT) },
+    CalcDimensionRect { CalcDimension(0.0, DimensionUnit::PERCENT), CalcDimension(0.0, DimensionUnit::PERCENT),
+        CalcDimension(1.0, DimensionUnit::PERCENT), CalcDimension(-1.0, DimensionUnit::PERCENT) }
+};
+
+std::vector<RectF> resultsToDuplicate1 = {
+    RectF { 0.0, 0.0, 0.1, 1.0 },
+    RectF { 0.0, 0.0, 0.2, 1.0 },
+    RectF { 0.0, 0.0, 0.3, 1.0 },
+    RectF { 0.0, 0.0, 0.4, 1.0 },
+    RectF { 0.0, 0.0, 0.5, 1.0 },
+    RectF { 0.0, 0.0, 0.6, 1.0 },
+    RectF { 0.0, 0.0, 0.7, 1.0 },
+    RectF { 0.0, 0.0, 0.8, 1.0 },
+    RectF { 0.0, 0.0, 0.9, 1.0 },
+    RectF { 0.0, 0.0, 1.0, 1.0 },
+
+    RectF { 0.0, 0.0, 1.0, 1.0 },
+    RectF { 0.0, 0.0, 1.0, 1.0 },
+    RectF { 0.0, 0.0, 1.5, 1.5 },
+    RectF { 0.0, 0.0, 1.0, 1.0 },
+    RectF { -1.0, -1.0, 1.0, 1.0 },
+    RectF { -1.0, 1.0, 1.0, 1.0 },
+    RectF { 1.0, -1.0, 1.0, 1.0 }
+};
+
+/**
+ * @tc.name: FrameNodeParseRegionAndAdd001
+ * @tc.desc: Test method ParseRegionAndAdd
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeParseRegionAndAdd001, TestSize.Level1)
+{
+    EXPECT_EQ(inputsWithPercent1.size(), resultsToDuplicate1.size());
+
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    auto n = inputsWithPercent1.size();
+
+    auto gestureEventHub = frameNode->GetEventHub<EventHub>()->GetOrCreateGestureEventHub();
+    auto rect = frameNode->renderContext_->GetPaintRectWithoutTransform();
+
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> regionMap;
+    auto toolType = NG::ResponseRegionSupportedTool::FINGER;
+
+    for (auto i = 0; i < n; ++i) {
+        auto dimenRect = inputsWithPercent1[i];
+        regionMap[toolType].push_back(dimenRect);
+        gestureEventHub->SetResponseRegionMap(regionMap);
+        auto region = frameNode->GetResponseRegionList(rect, 1, 1);
+        EXPECT_EQ(region.size(), 1);
+        EXPECT_EQ(region[0].Width(), resultsToDuplicate1[i].Width() * rect.Width());
+        EXPECT_EQ(region[0].Height(), resultsToDuplicate1[i].Height() * rect.Height());
+        EXPECT_EQ(region[0].GetX(), resultsToDuplicate1[i].GetX() * rect.Width() + rect.GetX());
+        EXPECT_EQ(region[0].GetY(), resultsToDuplicate1[i].GetY() * rect.Height() + rect.GetY());
+        regionMap[toolType].clear();
+    }
+}
+
+/**
+ * @tc.name: FrameNodeInResponseRegionListTest001
+ * @tc.desc: Test the function InResponseRegionList
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeInResponseRegionListTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    auto mockRenderContext = AceType::MakeRefPtr<MockRenderContext>();
+    frameNode->renderContext_ = mockRenderContext;
+
+    mockRenderContext->rect_ = RectF(0, 0, 10, 10);
+    mockRenderContext->paintRect_ = RectF(0, 10, 0, 10);
+
+    /**
+     * @tc.steps: step2. callback InResponseRegionList.
+     * @tc.expected: expect The function return value is true.
+     */
+    NG::PointF point { 1.0, 1.0 };
+    NG::RectF responseRect = { 0.0f, 0.0f, 10.0f, 10.0f };
+    std::vector<RectF> responseRegionList;
+    responseRegionList.emplace_back(responseRect);
+    auto test1 = frameNode->InResponseRegionList(point, responseRegionList, false);
+    EXPECT_TRUE(test1);
+    auto test2 = frameNode->InResponseRegionList(point, responseRegionList, true);
+    EXPECT_TRUE(test2);
+
+    mockRenderContext->rect_ = RectF(0, 0, 0, 10);
+    mockRenderContext->paintRect_ = RectF(0, 0, 0, 10);
+    auto test3 = frameNode->InResponseRegionList(point, responseRegionList, true);
+    EXPECT_FALSE(test3);
+}
+
+/**
+ * @tc.name: FrameNodeGetResponseRegionList001
+ * @tc.desc: Test method GetResponseRegionList
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeGetResponseRegionList001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    EXPECT_NE(frameNode->pattern_, nullptr);
+    frameNode->isActive_ = true;
+    frameNode->GetEventHub<EventHub>()->SetEnabled(true);
+
+    /**
+     * @tc.steps: step2. call GetResponseRegionList.
+     * @tc.expected: expect GetResponseRegionList is not empty.
+     */
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> regionMap;
+    auto toolType = NG::ResponseRegionSupportedTool::ALL;
+    CalcDimension xDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension yDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension widthDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimension heightDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimensionRect dimenRect(widthDimen, heightDimen, xDimen, yDimen);
+    regionMap[toolType].push_back(dimenRect);
+
+    auto gestureEventHub = FRAME_NODE2->GetEventHub<EventHub>()->GetOrCreateGestureEventHub();
+    gestureEventHub->SetResponseRegionMap(regionMap);
+    auto paintRect = FRAME_NODE2->renderContext_->GetPaintRectWithoutTransform();
+    auto region = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 0);
+    EXPECT_FALSE(region.empty());
+
+    auto region1 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 1);
+    EXPECT_FALSE(region1.empty());
+
+    auto region2 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 2);
+    EXPECT_FALSE(region2.empty());
+}
+
+/**
+ * @tc.name: FrameNodeGetResponseRegionList002
+ * @tc.desc: Test method GetResponseRegionList
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeGetResponseRegionList002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    EXPECT_NE(frameNode->pattern_, nullptr);
+    frameNode->isActive_ = true;
+    frameNode->GetEventHub<EventHub>()->SetEnabled(true);
+
+    /**
+     * @tc.steps: step2. call GetResponseRegionList.
+     * @tc.expected: expect GetResponseRegionList is not empty.
+     */
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> regionMap;
+    auto toolType = NG::ResponseRegionSupportedTool::FINGER;
+    CalcDimension xDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension yDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension widthDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimension heightDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimensionRect dimenRect(widthDimen, heightDimen, xDimen, yDimen);
+    regionMap[toolType].push_back(dimenRect);
+
+    auto gestureEventHub = FRAME_NODE2->GetEventHub<EventHub>()->GetOrCreateGestureEventHub();
+    gestureEventHub->SetResponseRegionMap(regionMap);
+    auto paintRect = FRAME_NODE2->renderContext_->GetPaintRectWithoutTransform();
+    auto region = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 0);
+    EXPECT_FALSE(region.empty());
+
+    auto region1 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 1);
+    EXPECT_FALSE(region1.empty());
+
+    auto region2 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 2);
+    EXPECT_FALSE(region2.empty());
+}
+
+/**
+ * @tc.name: FrameNodeGetResponseRegionList003
+ * @tc.desc: Test method GetResponseRegionList
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeGetResponseRegionList003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    EXPECT_NE(frameNode->pattern_, nullptr);
+    frameNode->isActive_ = true;
+    frameNode->GetEventHub<EventHub>()->SetEnabled(true);
+
+    /**
+     * @tc.steps: step2. call GetResponseRegionList.
+     * @tc.expected: expect GetResponseRegionList is not empty.
+     */
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> regionMap;
+    auto toolType = NG::ResponseRegionSupportedTool::PEN;
+    CalcDimension xDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension yDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension widthDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimension heightDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimensionRect dimenRect(widthDimen, heightDimen, xDimen, yDimen);
+    regionMap[toolType].push_back(dimenRect);
+
+    auto gestureEventHub = FRAME_NODE2->GetEventHub<EventHub>()->GetOrCreateGestureEventHub();
+    gestureEventHub->SetResponseRegionMap(regionMap);
+    auto paintRect = FRAME_NODE2->renderContext_->GetPaintRectWithoutTransform();
+    auto region = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 0);
+    EXPECT_FALSE(region.empty());
+
+    auto region1 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 1);
+    EXPECT_FALSE(region1.empty());
+
+    auto region2 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 2);
+    EXPECT_FALSE(region2.empty());
+}
+
+/**
+ * @tc.name: FrameNodeGetResponseRegionList004
+ * @tc.desc: Test method GetResponseRegionList
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeGetResponseRegionList004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    EXPECT_NE(frameNode->pattern_, nullptr);
+    frameNode->isActive_ = true;
+    frameNode->GetEventHub<EventHub>()->SetEnabled(true);
+
+    /**
+     * @tc.steps: step2. call GetResponseRegionList.
+     * @tc.expected: expect GetResponseRegionList is not empty.
+     */
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> regionMap;
+    auto toolType = NG::ResponseRegionSupportedTool::ALL;
+    CalcDimension xDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension yDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension widthDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimension heightDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimensionRect dimenRect(widthDimen, heightDimen, xDimen, yDimen);
+    regionMap[toolType].push_back(dimenRect);
+    auto gestureEventHub = FRAME_NODE2->GetEventHub<EventHub>()->GetOrCreateGestureEventHub();
+    gestureEventHub->SetResponseRegionMap(regionMap);
+
+    DimensionRect responseRect(Dimension(0), Dimension(0), DimensionOffset(OFFSETF));
+    std::vector<DimensionRect> responseRegion;
+    responseRegion.emplace_back(responseRect);
+    gestureEventHub->SetResponseRegion(responseRegion);
+
+    auto paintRect = FRAME_NODE2->renderContext_->GetPaintRectWithoutTransform();
+    auto region = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 0);
+    EXPECT_EQ(region.size(), 1);
+
+    auto region1 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 1);
+    EXPECT_EQ(region1.size(), 1);
+
+    auto region2 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 2);
+    EXPECT_EQ(region2.size(), 1);
+}
+
+/**
+ * @tc.name: FrameNodeGetResponseRegionList005
+ * @tc.desc: Test method GetResponseRegionList
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeGetResponseRegionList005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    EXPECT_NE(frameNode->pattern_, nullptr);
+    frameNode->isActive_ = true;
+    frameNode->GetEventHub<EventHub>()->SetEnabled(true);
+
+    /**
+     * @tc.steps: step2. call GetResponseRegionList.
+     * @tc.expected: expect GetResponseRegionList is not empty.
+     */
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> regionMap;
+    auto toolType = NG::ResponseRegionSupportedTool::FINGER;
+    CalcDimension xDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension yDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension widthDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimension heightDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimensionRect dimenRect(widthDimen, heightDimen, xDimen, yDimen);
+    regionMap[toolType].push_back(dimenRect);
+    auto gestureEventHub = FRAME_NODE2->GetEventHub<EventHub>()->GetOrCreateGestureEventHub();
+    gestureEventHub->SetResponseRegionMap(regionMap);
+
+    DimensionRect responseRect(Dimension(0), Dimension(0), DimensionOffset(OFFSETF));
+    std::vector<DimensionRect> responseRegion;
+    responseRegion.emplace_back(responseRect);
+    gestureEventHub->SetResponseRegion(responseRegion);
+
+    auto paintRect = FRAME_NODE2->renderContext_->GetPaintRectWithoutTransform();
+    auto region = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 0);
+    EXPECT_EQ(region.size(), 1);
+
+    auto region1 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 1);
+    EXPECT_EQ(region1.size(), 1);
+
+    auto region2 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 2);
+    EXPECT_EQ(region2.size(), 1);
+}
+
+/**
+ * @tc.name: FrameNodeGetResponseRegionList006
+ * @tc.desc: Test method GetResponseRegionList
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeGetResponseRegionList006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    EXPECT_NE(frameNode->pattern_, nullptr);
+    frameNode->isActive_ = true;
+    frameNode->GetEventHub<EventHub>()->SetEnabled(true);
+
+    /**
+     * @tc.steps: step2. call GetResponseRegionList.
+     * @tc.expected: expect GetResponseRegionList is not empty.
+     */
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> regionMap;
+    auto toolType = NG::ResponseRegionSupportedTool::FINGER;
+    CalcDimension xDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension yDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension widthDimen = CalcDimension(0.0, DimensionUnit::CALC);
+    CalcDimension heightDimen = CalcDimension(0.0, DimensionUnit::CALC);
+    CalcDimensionRect dimenRect(widthDimen, heightDimen, xDimen, yDimen);
+    regionMap[toolType].push_back(dimenRect);
+    auto gestureEventHub = FRAME_NODE2->GetEventHub<EventHub>()->GetOrCreateGestureEventHub();
+    gestureEventHub->SetResponseRegionMap(regionMap);
+
+    DimensionRect responseRect(Dimension(0), Dimension(0), DimensionOffset(OFFSETF));
+    std::vector<DimensionRect> responseRegion;
+    responseRegion.emplace_back(responseRect);
+    gestureEventHub->SetResponseRegion(responseRegion);
+
+    auto paintRect = FRAME_NODE2->renderContext_->GetPaintRectWithoutTransform();
+    frameNode->GetResponseRegionListForTouch(paintRect);
+
+    auto region = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 0);
+    EXPECT_EQ(region.size(), 1);
+
+    auto region1 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 1);
+    EXPECT_EQ(region1.size(), 1);
+
+    auto region2 = FRAME_NODE2->GetResponseRegionList(paintRect, 1, 2);
+    EXPECT_EQ(region2.size(), 1);
+}
+
+/**
+ * @tc.name: FrameNodeTouchToJsonValue03
+ * @tc.desc: Test the function TouchToJsonValue
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeTouchToJsonValue03, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    EXPECT_NE(frameNode->pattern_, nullptr);
+    frameNode->isActive_ = true;
+    frameNode->GetEventHub<EventHub>()->SetEnabled(true);
+
+    /**
+     * @tc.steps: step2. update the regionMap.
+     */
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> regionMap;
+    auto toolType = NG::ResponseRegionSupportedTool::ALL;
+    CalcDimension xDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension yDimen = CalcDimension(0.0, DimensionUnit::VP);
+    CalcDimension widthDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimension heightDimen = CalcDimension(1, DimensionUnit::PERCENT);
+    CalcDimensionRect dimenRect(widthDimen, heightDimen, xDimen, yDimen);
+    regionMap[toolType].push_back(dimenRect);
+    auto gestureEventHub = frameNode->GetEventHub<EventHub>()->GetOrCreateGestureEventHub();
+    gestureEventHub->SetResponseRegionMap(regionMap);
+
+    /**
+     * @tc.steps: step3. call the function TouchToJsonValue.
+     */
+    InspectorFilter testFilter;
+    auto jsonValue = std::make_unique<JsonValue>();
+    frameNode->TouchToJsonValue(jsonValue, testFilter);
+    EXPECT_FALSE(jsonValue->GetBool("enabled", false));
+}
+
+/**
+ * @tc.name: FrameNodeSetEnableClickSoundEffect001
+ * @tc.desc: Test method SetEnableClickSoundEffect
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeSetEnableClickSoundEffect001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    EXPECT_NE(frameNode->pattern_, nullptr);
+    frameNode->isActive_ = true;
+    frameNode->GetEventHub<EventHub>()->SetEnabled(true);
+
+    /**
+     * @tc.steps: step2. call SetEnableClickSoundEffect.
+     * @tc.expected: expect GetEnableClickSoundEffect is true.
+     */
+    bool enable = frameNode->GetEnableClickSoundEffect();
+    EXPECT_EQ(enable, true);
+
+    frameNode->SetEnableClickSoundEffect(false);
+    enable = frameNode->GetEnableClickSoundEffect();
+    EXPECT_EQ(enable, false);
+
+    frameNode->SetEnableClickSoundEffect(true);
+    enable = frameNode->GetEnableClickSoundEffect();
+    EXPECT_EQ(enable, true);
+}
+
+/**
+ * @tc.name: FrameNodeUpdateBackground005
+ * @tc.desc: Test UpdateBackground with various branch conditions
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTestNg, FrameNodeUpdateBackground005, TestSize.Level1)
+{
+    struct TestCase {
+        bool hasBuilderBackgroundFlag;
+        bool isBuilderBackground;
+        bool hasBuilderFunc;
+        bool isNeedRefresh;
+        bool builderFuncReturnsValid;
+        uint32_t refreshCallbackId;
+        bool expectedIsNeedRefreshAfterCall;
+    };
+
+    std::vector<TestCase> testCases = {
+        { false, false, false, false, false, 0, false },
+        { true, false, false, false, false, 0, false },
+        { true, true, false, true, false, 0, true },
+        { true, true, true, false, false, 0, false },
+        { true, true, true, false, false, 0, false },
+        { true, true, true, true, 0, false },
+        { true, true, true, true, 123, false }
+    };
+
+    for (const auto& testCase : testCases) {
+        auto frameNode = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), true);
+        ASSERT_NE(frameNode, nullptr);
+        auto mockRenderContext = AceType::DynamicCast<MockRenderContext>(frameNode->GetRenderContext());
+        ASSERT_NE(mockRenderContext, nullptr);
+
+        if (testCase.hasBuilderBackgroundFlag) {
+            mockRenderContext->UpdateBuilderBackgroundFlag(testCase.isBuilderBackground);
+        }
+
+        frameNode->builderFunc_ = nullptr;
+        if (testCase.hasBuilderFunc && testCase.builderFuncReturnsValid) {
+            frameNode->builderFunc_ = []() -> RefPtr<UINode> {
+                return FrameNode::CreateFrameNode("builderNode", 100, AceType::MakeRefPtr<Pattern>(), true);
+            };
+        }
+        if (testCase.hasBuilderFunc && !testCase.builderFuncReturnsValid) {
+            frameNode->builderFunc_ = []() -> RefPtr<UINode> { return nullptr; };
+        }
+        frameNode->isNeedRefreshBackgroundBuilder_ = testCase.isNeedRefresh;
+        frameNode->refreshBackgroundBuilderId_ = testCase.refreshCallbackId;
+        frameNode->UpdateBackground();
+        EXPECT_EQ(frameNode->isNeedRefreshBackgroundBuilder_, testCase.expectedIsNeedRefreshAfterCall);
+    }
 }
 } // namespace OHOS::Ace::NG

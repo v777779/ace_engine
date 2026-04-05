@@ -30,6 +30,7 @@ RefPtr<FrameNode> ContainerModalStaticView::Create(RefPtr<FrameNode>& content)
 {
     auto containerModalNode = FrameNode::CreateFrameNode("ContainerModal",
         ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ContainerModalStaticPattern>());
+    ACE_UINODE_TRACE(containerModalNode);
     auto stack = FrameNode::CreateFrameNode(
         V2::STACK_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StackPattern>());
     auto column = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
@@ -79,7 +80,7 @@ RefPtr<FrameNode> ContainerModalStaticView::BuildTitleContainer(RefPtr<FrameNode
     } else {
         auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
         CHECK_NULL_RETURN(containerTitleRow, nullptr);
-        std::shared_ptr<XbarComponent> xbarComponent = nullptr;
+        RefPtr<XbarComponent> xbarComponent = nullptr;
         if (isFloatingTitle) {
             TAG_LOGI(AceLogTag::ACE_APPBAR, "BuildTitleContainer isFloatingTitle");
             xbarComponent = XbarProxyWrapper::GetInstance()->CreateXBarComponent(0, pipeline->GetInstanceId());

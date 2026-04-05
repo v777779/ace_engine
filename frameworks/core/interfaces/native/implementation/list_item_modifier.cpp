@@ -16,11 +16,12 @@
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/list/list_item_model_ng.h"
 #include "core/components_ng/pattern/list/list_item_model_static.h"
+#include "core/interfaces/native/implementation/frame_node_peer_impl.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/implementation/lazy_build_accessor.h"
-#include "core/components_v2/list/list_properties.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -45,7 +46,7 @@ void AssignOnStateChangedEventCallback(OnStateChangedEvent& dst, const Opt_Callb
     }
 }
 
-void SetDeleteArea(const Opt_Union_CustomBuilder_SwipeActionItem& arg, bool isStartArea, FrameNode* frameNode,
+void SetDeleteArea(const Opt_Union_CustomNodeBuilder_SwipeActionItem& arg, bool isStartArea, FrameNode* frameNode,
     Ark_NativePointer node)
 {
     CHECK_NULL_VOID(frameNode);
@@ -62,6 +63,7 @@ void SetDeleteArea(const Opt_Union_CustomBuilder_SwipeActionItem& arg, bool isSt
         [isStartArea, frameNode, node](const Ark_SwipeActionItem& value) {
             auto length = Converter::OptConvert<Dimension>(value.actionAreaDistance);
             auto builder = Converter::OptConvert<CustomNodeBuilder>(value.builder);
+            auto builderComponent = value.builderComponent.value;
             OnDeleteEvent onActionCallback;
             AssignVoidCallback(onActionCallback, value.onAction);
 
@@ -73,7 +75,16 @@ void SetDeleteArea(const Opt_Union_CustomBuilder_SwipeActionItem& arg, bool isSt
 
             OnStateChangedEvent onStateChangeCallback;
             AssignOnStateChangedEventCallback(onStateChangeCallback, value.onStateChange);
-            if (builder.has_value()) {
+            if (builderComponent) {
+                auto contentPeer = reinterpret_cast<FrameNodePeer*>(builderComponent);
+                CHECK_NULL_VOID(contentPeer);
+                auto componentNode = FrameNodePeer::GetFrameNodeByPeer(contentPeer);
+                if (componentNode) {
+                    ListItemModelStatic::SetDeleteArea(frameNode, static_cast<UINode*>(AceType::RawPtr(componentNode)),
+                        std::move(onActionCallback), std::move(onEnterActionAreaCallback),
+                        std::move(onExitActionAreaCallback), std::move(onStateChangeCallback), length, isStartArea);
+                }
+            } else if (builder.has_value()) {
                 CallbackHelper(builder.value()).BuildAsync([
                     frameNode, length, isStartArea,
                     onAction = std::move(onActionCallback),
@@ -95,7 +106,7 @@ void SetDeleteArea(const Opt_Union_CustomBuilder_SwipeActionItem& arg, bool isSt
     );
 }
 
-std::optional<bool> ProcessBindableSelected(FrameNode* frameNode, const Opt_Union_Boolean_Bindable *value)
+std::optional<bool> ProcessBindableSelected(FrameNode* frameNode, const Opt_Union_Boolean_Bindable_Boolean *value)
 {
     std::optional<bool> result;
     Converter::VisitUnionPtr(value,
@@ -167,7 +178,7 @@ void SetSelectableImpl(Ark_NativePointer node,
     ListItemModelStatic::SetSelectable(frameNode, *convValue);
 }
 void SetSelectedImpl(Ark_NativePointer node,
-                     const Opt_Union_Boolean_Bindable* value)
+                     const Opt_Union_Boolean_Bindable_Boolean* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -197,7 +208,7 @@ void SetSwipeActionImpl(Ark_NativePointer node,
 
     using OnOffsetChangeType = std::function<void(int32_t)>;
     OnOffsetChangeType onOffsetChangeCallback;
-    auto arkOnOffsetChange = Converter::OptConvert<Callback_F64_Void>(optValue->onOffsetChange);
+    auto arkOnOffsetChange = Converter::OptConvert<synthetic_Callback_F64_Void>(optValue->onOffsetChange);
     if (arkOnOffsetChange) {
         onOffsetChangeCallback = [arkCallback = CallbackHelper(*arkOnOffsetChange)](int32_t offset) {
             auto arkOffset = Converter::ArkValue<Ark_Float64>(offset);
@@ -210,7 +221,7 @@ void SetSwipeActionImpl(Ark_NativePointer node,
         std::move(onOffsetChangeCallback), edgeEffect);
 }
 void SetOnSelectImpl(Ark_NativePointer node,
-                     const Opt_Callback_Boolean_Void* value)
+                     const Opt_synthetic_Callback_Boolean_Void* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);

@@ -24,11 +24,11 @@
 #include "core/components_ng/pattern/select_overlay/select_overlay_property.h"
 #include "core/components_ng/pattern/web/web_pattern.h"
 #include "core/components_v2/inspector/inspector_constants.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #define private public
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 #undef private
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -96,6 +96,7 @@ public:
 
     MOCK_METHOD(void, Cancel, (), (const, override));
     MOCK_METHOD(void, CopyImage, (), (const, override));
+    MOCK_METHOD(void, SaveImage, (), (const, override));
     MOCK_METHOD(void, Copy, (), (const, override));
     MOCK_METHOD(void, Paste, (), (const, override));
     MOCK_METHOD(void, Cut, (), (const, override));
@@ -103,6 +104,7 @@ public:
     MOCK_METHOD(void, Undo, (), (const, override));
     MOCK_METHOD(void, Redo, (), (const, override));
     MOCK_METHOD(void, PasteAndMatchStyle, (), (const, override));
+    MOCK_METHOD(void, RequestPasswordAutoFill, (), (const, override));
 };
 
 class WebContextSelectOverlayTest : public testing::Test {
@@ -830,6 +832,7 @@ HWTEST_F(WebContextSelectOverlayTest, OnUpdateSelectOverlayInfo_003, TestSize.Le
     SelectOverlayInfo selectInfo;
     int32_t requestCode = 0;
     overlay.SetIsSingleHandle(false);
+    overlay.SetEnableSubWindowMenu(true);
     overlay.OnUpdateSelectOverlayInfo(selectInfo, requestCode);
     EXPECT_TRUE(selectInfo.handlerColor.has_value());
     EXPECT_FALSE(selectInfo.handleReverse);
@@ -839,6 +842,7 @@ HWTEST_F(WebContextSelectOverlayTest, OnUpdateSelectOverlayInfo_003, TestSize.Le
     EXPECT_TRUE(selectInfo.isHandleLineShow);
     EXPECT_FALSE(selectInfo.isSingleHandle);
     EXPECT_FALSE(selectInfo.recreateOverlay);
+    EXPECT_TRUE(selectInfo.enableSubWindowMenu);
 }
 
 /**

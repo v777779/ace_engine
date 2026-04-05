@@ -48,7 +48,6 @@ void DragDropInitiatingStateIdle::Init(int32_t currentState)
         !gestureHub->GetTextDraggable()) {
         DragEventActuator::ExecutePreDragAction(PreDragStatus::ACTION_CANCELED_BEFORE_DRAG, frameNode);
     }
-
     AsyncDragEnd();
     ResetBorderRadiusAnimation();
     UnRegisterDragListener();

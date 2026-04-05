@@ -25,6 +25,7 @@ constexpr std::size_t DEFAULT_DRAG_INDEX = -1;
 constexpr std::size_t SPLIT_INDEX_INC_ONE = 1;
 constexpr std::size_t SPLIT_INDEX_INC_TWO = 2;
 const std::string SPLIT_DRAG_SCENE = "split_drag_scene";
+const double DEFAULT_SPLIT_HEIGHT = 2.0;
 } // namespace
 
 void LinearSplitPattern::InitPanEvent(const RefPtr<GestureEventHub>& gestureHub)
@@ -94,7 +95,6 @@ void LinearSplitPattern::HandlePanStart(const GestureEvent& info)
     if (dragedSplitIndex_ == DEFAULT_DRAG_INDEX) {
         return;
     }
-    CHECK_NULL_VOID(CheckChildrenConstrains());
 
     isDragedMoving_ = true;
 
@@ -258,8 +258,6 @@ void LinearSplitPattern::HandlePanUpdate(const GestureEvent& info)
         return;
     }
 
-    CHECK_NULL_VOID(CheckChildrenConstrains());
-
     if (splitType_ == SplitType::ROW_SPLIT) {
         float locationDiff = childrenDragPos_[dragedSplitIndex_ + 1] - gestureOffsetX;
         float offsetDiff = xOffset - preOffset_;
@@ -371,6 +369,7 @@ void LinearSplitPattern::InitMouseEvent(const RefPtr<InputEventHub>& inputHub)
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     CHECK_NULL_VOID(inputHub);
 
     if (!mouseEvent_) {
@@ -528,30 +527,12 @@ void LinearSplitPattern::UpdateDragFRCSceneInfo(const GestureEvent& info, SceneS
     }
 }
 
-bool LinearSplitPattern::CheckChildrenConstrains()
-{
-    // If the minimum size of the child is greater than the split line interval, return false.
-    auto preInterval = childrenDragPos_[dragedSplitIndex_ + SPLIT_INDEX_INC_ONE] - childrenDragPos_[dragedSplitIndex_] -
-                       static_cast<float>(DEFAULT_SPLIT_HEIGHT);
-    float curInterval = 0.0f;
-    if (dragedSplitIndex_ + SPLIT_INDEX_INC_TWO == childrenDragPos_.size() - 1) {
-        curInterval = childrenDragPos_[dragedSplitIndex_ + SPLIT_INDEX_INC_TWO] -
-                      childrenDragPos_[dragedSplitIndex_ + SPLIT_INDEX_INC_ONE];
-    } else {
-        curInterval = childrenDragPos_[dragedSplitIndex_ + SPLIT_INDEX_INC_TWO] -
-                      childrenDragPos_[dragedSplitIndex_ + SPLIT_INDEX_INC_ONE] -
-                      static_cast<float>(DEFAULT_SPLIT_HEIGHT);
-    }
-
-    return !(GreatNotEqual(childrenConstrains_[dragedSplitIndex_], preInterval) ||
-             GreatNotEqual(childrenConstrains_[dragedSplitIndex_ + SPLIT_INDEX_INC_ONE], curInterval));
-}
-
 void LinearSplitPattern::OnModifyDone()
 {
     Pattern::OnModifyDone();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto hub = host->GetEventHub<EventHub>();
     CHECK_NULL_VOID(hub);
     auto gestureHub = hub->GetOrCreateGestureEventHub();
@@ -587,6 +568,8 @@ bool LinearSplitPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& d
     splitLength_ = linearSplitLayoutAlgorithm->GetSplitLength();
     splitRects_ = linearSplitLayoutAlgorithm->GetSplitRects();
     parentOffset_ = linearSplitLayoutAlgorithm->GetParentOffset();
+    auto host = GetHost();
+    ACE_UINODE_TRACE(host);
     if (dragSplitOffset_.empty()) {
         dragSplitOffset_ = std::vector<float>(splitRects_.size(), 0.0);
     }

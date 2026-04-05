@@ -20,6 +20,7 @@
 
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
+#include "core/common/udmf/udmf_client.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/gestures/gesture_info.h"
 
@@ -43,6 +44,8 @@ public:
     static void SetDraggingPointerAndPressedState(int32_t currentPointerId, int32_t containerId);
     static int32_t RequestDragEndPending();
     static int32_t NotifyDragResult(int32_t requestId, int32_t result);
+    static int32_t NotifySuggestedDropOperation(int32_t requestId, int32_t operation);
+    static int32_t NotifyDisableDropAnimation(int32_t requestId, bool disable);
     static int32_t NotifyDragEndPendingDone(int32_t requestId);
     static void DecideWhetherToStopDragging(const DragPointerEvent& pointerEvent,
         const std::string& extraParams, int32_t currentPointerId, int32_t containerId);
@@ -55,6 +58,7 @@ public:
     static void PrepareShadowParametersForDragData(std::unique_ptr<JsonValue>& arkExtraInfoJson,
         DragPreviewOption& option);
     static void ParseShadowInfo(Shadow& shadow, std::unique_ptr<JsonValue>& arkExtraInfoJson);
+    static int32_t ParseUiMaterial(const DragPreviewOption& option);
     static std::optional<Shadow> GetDefaultShadow();
     static std::optional<BorderRadiusProperty> GetDefaultBorderRadius();
     static float RadiusToSigma(float radius);
@@ -69,6 +73,8 @@ public:
     static OffsetF GetPaintRectCenterToScreen(const RefPtr<FrameNode>& frameNode);
     static OffsetF GetFrameNodeOffsetToScreen(const RefPtr<FrameNode>& frameNode);
     static RectF GetPaintRectToScreen(const RefPtr<FrameNode>& frameNode);
+    static RectF GetPaintRectToWindowWithoutRotate(const RefPtr<FrameNode>& frameNode);
+    static RectF GetPaintRectToScreenWithoutRotate(const RefPtr<FrameNode>& frameNode);
     static void UpdateNodePositionToScreen(const RefPtr<FrameNode>& frameNode, OffsetF offset);
     static void UpdateNodePositionToWindow(const RefPtr<FrameNode>& frameNode, OffsetF offset);
     static void UpdatePositionFromFrameNode(const RefPtr<FrameNode>& targetNode, const RefPtr<FrameNode>& frameNode,
@@ -82,10 +88,11 @@ public:
     static void HandleOnDragEvent(const std::shared_ptr<OHOS::Ace::NG::ArkUIInteralDragAction> dragAction);
     static bool IsTextCategoryComponent(const std::string& frameTag);
     static RefPtr<DragDropManager> GetDragDropManagerForDragAnimation(const RefPtr<PipelineBase>& context,
-        const RefPtr<PipelineBase>& nodeContext, const RefPtr<Subwindow>& subWindow,
-        bool isExpandDisplay, int32_t instanceId);
+        const RefPtr<PipelineBase>& nodeContext, const RefPtr<Subwindow>& subWindow);
     static void SetMenuSubWindowTouchable(bool touchable);
     static void HandleBackPressHideMenu();
+    static std::vector<RefPtr<FrameNode>> ResolveAutoHideTargetsByUniqueId(const std::vector<int32_t>& uniqueIds);
+    static bool UpdateAutoHideTargetVisibility(const RefPtr<FrameNode>& frameNode);
 
     // multi drag
     static bool IsSelectedItemNode(const RefPtr<UINode>& uiNode);
@@ -107,7 +114,6 @@ public:
         const RefPtr<FrameNode>& frameNode, const TouchRestrict& touchRestrict);
     static void RecordMenuWrapperNodeForDrag(int32_t targetId);
     static RefPtr<FrameNode> GetFrameNodeByInspectorId(const std::string& inspectorId);
-    static void TrySetDraggableStateAsync(const RefPtr<FrameNode>& frameNode, const TouchRestrict& touchRestrict);
 
     // modifier
     static BorderRadiusProperty GetDragFrameNodeBorderRadius(const RefPtr<FrameNode>& frameNode);
@@ -132,9 +138,13 @@ public:
         const RefPtr<GestureEventHub>& gestureHub, PixelMapFinishCallback pixelMapCallback);
     static float GetPixelMapScale(const RefPtr<FrameNode>& frameNode);
     static void ProcessDragDropData(const RefPtr<OHOS::Ace::DragEvent>& dragEvent, std::string& udKey,
-        std::map<std::string, int64_t>& summary, std::map<std::string, int64_t>& detailedSummary, int32_t& ret);
-    static void EnvelopedDataLoadParams(
-        std::shared_ptr<OHOS::Ace::NG::ArkUIInteralDragAction> dragAction, std::string& udKey);
+        DragSummaryInfo& dragSummaryInfo, int32_t& ret);
+    static void EnvelopedData(std::shared_ptr<OHOS::Ace::NG::ArkUIInteralDragAction> dragAction, std::string& udKey,
+        DragSummaryInfo& dragSummaryInfo, int32_t& dataSize);
+
+    static void TrySetDraggableStateAsync(const RefPtr<FrameNode>& frameNode, const TouchRestrict& touchRestrict);
+    static RefPtr<UINode> FindWindowScene(RefPtr<FrameNode>& targetNode);
+    static bool CheckInSceneBoardWindow();
 
 private:
     static void GetPointerEventAction(const TouchEvent& touchPoint, DragPointerEvent& event);

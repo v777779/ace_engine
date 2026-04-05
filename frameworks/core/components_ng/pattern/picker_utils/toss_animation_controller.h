@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,13 +16,14 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_PICKER_UTILS_TOSS_ANIMATION_CONTROLLER_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_PICKER_UTILS_TOSS_ANIMATION_CONTROLLER_H
 
-#include "core/components/picker/picker_animation.h"
+#include "compatible/components/picker/picker_animation.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/pipeline_ng/pipeline_context.h"
 #include "frameworks/base/memory/ace_type.h"
 
 namespace OHOS::Ace::NG {
 class PickerColumnPattern;
-class TossAnimationController : public virtual AceType {
+class ACE_FORCE_EXPORT TossAnimationController : public virtual AceType {
     DECLARE_ACE_TYPE(TossAnimationController, AceType);
 
 public:
@@ -60,6 +61,12 @@ public:
     {
         return end_;
     }
+
+    RefPtr<PickerTheme> GetPickerTheme();
+
+    double GetPickerSpringMass();
+
+    int32_t GetPickerMaxSlidingDistance();
 
 private:
     double GetCurrentTime() const;

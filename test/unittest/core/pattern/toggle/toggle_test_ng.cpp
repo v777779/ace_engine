@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,22 +19,25 @@
 #include "core/components/checkable/checkable_theme.h"
 #include "core/components/toggle/toggle_theme.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/toggle_button_event_hub.h"
 #include "core/components_ng/pattern/button/toggle_button_paint_property.h"
 #include "core/components_ng/pattern/button/toggle_button_pattern.h"
 #include "core/components_ng/pattern/checkbox/checkbox_event_hub.h"
 #include "core/components_ng/pattern/checkbox/checkbox_paint_property.h"
 #include "core/components_ng/pattern/checkbox/checkbox_pattern.h"
+#include "core/components_ng/pattern/checkbox/toggle_checkbox_pattern.h"
 #include "core/components_ng/pattern/toggle/switch_event_hub.h"
 #include "core/components_ng/pattern/toggle/switch_paint_method.h"
 #include "core/components_ng/pattern/toggle/switch_paint_property.h"
 #include "core/components_ng/pattern/toggle/switch_pattern.h"
 #include "core/components_ng/pattern/toggle/toggle_model.h"
 #include "core/components_ng/pattern/toggle/toggle_model_ng.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/common/mock_theme_manager.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
 #include "core/components_v2/inspector/inspector_constants.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "core/components_ng/pattern/root/root_pattern.h"
 
 using namespace testing;
@@ -925,6 +928,12 @@ HWTEST_F(ToggleTestNg, TogglePaintTest001, TestSize.Level1)
  */
 HWTEST_F(ToggleTestNg, TogglePaintTest002, TestSize.Level1)
 {
+    /**
+     * @tc.steps: step1. create switch and get frameNode.
+     */
+    ToggleModelNG toggleModelNG;
+    toggleModelNG.Create(TOGGLE_TYPE[2], IS_ON);
+    auto switchFrameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     auto switchModifier =
         AceType::MakeRefPtr<SwitchModifier>(SizeF(), OffsetF(), 0.0, false, SELECTED_COLOR, SWITCH_POINT_COLOR, 0.0f);
     SizeF toggleSize(SWITCH_WIDTH, SWITCH_HEIGHT);
@@ -932,25 +941,36 @@ HWTEST_F(ToggleTestNg, TogglePaintTest002, TestSize.Level1)
     switchModifier->hoverColor_ = Color::RED;
     switchModifier->clickEffectColor_ = Color::BLUE;
     switchModifier->touchHoverType_ = TouchHoverAnimationType::HOVER;
-    switchModifier->UpdateAnimatableProperty();
+    switchModifier->UpdateAnimatableProperty(switchFrameNode);
     switchModifier->animateTouchHoverColor_ =
         AceType::MakeRefPtr<AnimatablePropertyColor>(LinearColor(Color::TRANSPARENT));
     switchModifier->touchHoverType_ = TouchHoverAnimationType::PRESS_TO_HOVER;
-    switchModifier->UpdateAnimatableProperty();
+    switchModifier->UpdateAnimatableProperty(switchFrameNode);
     EXPECT_EQ(switchModifier->animateTouchHoverColor_->Get(), LinearColor(Color::RED));
     switchModifier->touchHoverType_ = TouchHoverAnimationType::NONE;
-    switchModifier->UpdateAnimatableProperty();
+    switchModifier->UpdateAnimatableProperty(switchFrameNode);
     EXPECT_EQ(switchModifier->animateTouchHoverColor_->Get(), LinearColor(Color::RED.BlendOpacity(0)));
     switchModifier->touchHoverType_ = TouchHoverAnimationType::HOVER_TO_PRESS;
-    switchModifier->UpdateAnimatableProperty();
+    switchModifier->UpdateAnimatableProperty(switchFrameNode);
     EXPECT_EQ(switchModifier->animateTouchHoverColor_->Get(), LinearColor(Color::BLUE));
     switchModifier->touchHoverType_ = TouchHoverAnimationType::PRESS;
-    switchModifier->UpdateAnimatableProperty();
+    switchModifier->UpdateAnimatableProperty(switchFrameNode);
     EXPECT_EQ(switchModifier->animateTouchHoverColor_->Get(), LinearColor(Color::BLUE));
     switchModifier->isDragEvent_ = true;
     switchModifier->SetDragOffsetX(0.0f);
-    switchModifier->UpdateAnimatableProperty();
+    switchModifier->UpdateAnimatableProperty(switchFrameNode);
     EXPECT_EQ(switchModifier->pointOffset_->Get(), 0.0f);
+
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto switchTheme = AceType::MakeRefPtr<SwitchTheme>();
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(switchTheme));
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(switchTheme));
+    switchModifier->isCancelAnimation_ = true;
+    switchModifier->isFocusOrBlur_ = true;
+    switchModifier->isSelect_ = AceType::MakeRefPtr<PropertyBool>(true);
+    switchModifier->UpdateAnimatableProperty(switchFrameNode);
+    EXPECT_EQ(switchModifier->animatableBoardColor_->Get(), LinearColor(switchTheme->GetActiveColor()));
 }
 
 /**
@@ -1032,6 +1052,12 @@ HWTEST_F(ToggleTestNg, TogglePaintTest003, TestSize.Level1)
  */
 HWTEST_F(ToggleTestNg, TogglePaintTest005, TestSize.Level1)
 {
+    /**
+     * @tc.steps: step1. create switch and get frameNode.
+     */
+    ToggleModelNG toggleModelNG;
+    toggleModelNG.Create(TOGGLE_TYPE[2], IS_ON);
+    auto switchFrameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     auto switchModifier =
         AceType::MakeRefPtr<SwitchModifier>(SizeF(), OffsetF(), 0.0, false, SELECTED_COLOR, SWITCH_POINT_COLOR, 0.0f);
     SizeF toggleSize(SWITCH_WIDTH, SWITCH_HEIGHT);
@@ -1045,7 +1071,7 @@ HWTEST_F(ToggleTestNg, TogglePaintTest005, TestSize.Level1)
     switchModifier->isDragEvent_ = false;
     switchModifier->isFirstCreated_ = true;
     switchModifier->SetDragOffsetX(0.0f);
-    switchModifier->UpdateAnimatableProperty();
+    switchModifier->UpdateAnimatableProperty(switchFrameNode);
     if (AceApplicationInfo::GetInstance().IsRightToLeft()) {
         EXPECT_EQ(switchModifier->pointOffset_->Get(),
             switchModifier->actualSize_.Width() - switchModifier->actualSize_.Height());
@@ -1059,7 +1085,7 @@ HWTEST_F(ToggleTestNg, TogglePaintTest005, TestSize.Level1)
     switchModifier->isDragEvent_ = false;
     switchModifier->isFirstCreated_ = true;
     switchModifier->SetDragOffsetX(0.0f);
-    switchModifier->UpdateAnimatableProperty();
+    switchModifier->UpdateAnimatableProperty(switchFrameNode);
     EXPECT_EQ(switchModifier->pointOffset_->Get(), 0.0f);
     /**
      * @tc.steps: step3. direction is rtl
@@ -1068,7 +1094,7 @@ HWTEST_F(ToggleTestNg, TogglePaintTest005, TestSize.Level1)
     switchModifier->isDragEvent_ = false;
     switchModifier->isFirstCreated_ = true;
     switchModifier->SetDragOffsetX(0.0f);
-    switchModifier->UpdateAnimatableProperty();
+    switchModifier->UpdateAnimatableProperty(switchFrameNode);
     EXPECT_EQ(switchModifier->pointOffset_->Get(),
         switchModifier->actualSize_.Width() - switchModifier->actualSize_.Height());
 }
@@ -1458,441 +1484,11 @@ HWTEST_F(ToggleTestNg, ToggleModelTest002, TestSize.Level1)
 }
 
 /**
- * @tc.name: ToggleModelTest003
- * @tc.desc: Test toggle create.
+ * @tc.name: ToggleModelTestSetAndGetToggleState
+ * @tc.desc: Test ToggleModelNG::SetToggleState and ToggleModelNG::GetToggleState
  * @tc.type: FUNC
  */
-HWTEST_F(ToggleTestNg, ToggleModelTest003, TestSize.Level1)
-{
-    const RefPtr<FrameNode> frameParent = FrameNode::CreateFrameNode("parent", 0, AceType::MakeRefPtr<Pattern>(), true);
-    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(100);
-    /**
-     * @tc.steps: step1. create ToggleButton and get frameNode.
-     */
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(TOGGLE_TYPE[1], IS_ON);
-    auto switchFrameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(switchFrameNode, nullptr);
-    EXPECT_EQ(switchFrameNode->GetId(), 100);
-    switchFrameNode->SetParent(frameParent);
-    /**
-     * Create again,cover all branches in function Create for ToggleButton
-     */
-    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(100);
-    toggleModelNG.Create(TOGGLE_TYPE[1], IS_ON);
-    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(100);
-    toggleModelNG.Create(TOGGLE_TYPE[0], IS_ON);
-    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(100);
-    toggleModelNG.Create(TOGGLE_TYPE[1], IS_ON);
-    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(100);
-    toggleModelNG.Create(TOGGLE_TYPE[2], IS_ON);
-}
-
-/**
- * @tc.name: TogglePatternTest0019
- * @tc.desc: Test toggle HandleDragEnd.
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, TogglePatternTest0019, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create switch and get frameNode.
-     */
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(TOGGLE_TYPE[2], IS_ON);
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-    auto pattern = frameNode->GetPattern<SwitchPattern>();
-    ASSERT_NE(pattern, nullptr);
-    auto geometryNode = frameNode->GetGeometryNode();
-    geometryNode->SetContentSize(SizeF(SWITCH_WIDTH, SWITCH_HEIGHT));
-    /**
-     * @tc.steps: step2. call function HandleDragEnd.
-     */
-    pattern->dragOffsetX_ = 0;
-    pattern->HandleDragEnd();
-    pattern->dragOffsetX_ = SWITCH_WIDTH;
-    pattern->HandleDragEnd();
-    EXPECT_FALSE(pattern->isDragEvent_);
-    /**
-     * cover isOn_ == false branch.
-     */
-    pattern->isOn_ = false;
-    pattern->HandleDragEnd();
-    pattern->dragOffsetX_ = 0;
-    pattern->HandleDragEnd();
-    EXPECT_FALSE(pattern->isDragEvent_);
-}
-
-/**
- * @tc.name: TogglePatternTest020
- * @tc.desc: Switch test Select and ClearSelection.
- */
-HWTEST_F(ToggleTestNg, TogglePatternTest020, TestSize.Level1)
-{
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(TOGGLE_TYPE[2], IS_ON);
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-    auto pattern = frameNode->GetPattern<SwitchPattern>();
-    ASSERT_NE(pattern, nullptr);
-    pattern->isOn_ = false;
-    pattern->SetAccessibilityAction();
-
-    auto accessibilityProperty = frameNode->GetAccessibilityProperty<SwitchAccessibilityProperty>();
-    ASSERT_NE(accessibilityProperty, nullptr);
-    EXPECT_TRUE(accessibilityProperty->ActActionSelect());
-
-    bool isSelected = true;
-    pattern->isOn_ = false;
-    pattern->UpdateSelectStatus(isSelected);
-    EXPECT_TRUE(accessibilityProperty->ActActionClearSelection());
-}
-
-/**
- * @tc.name: ToggleModelTest004
- * @tc.desc: Test checkbox create twice.
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleModelTest004, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create the first checkbox.
-     */
-    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(100);
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(TOGGLE_TYPE[0], IS_ON);
-    auto checkboxNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(checkboxNode, nullptr);
-    EXPECT_EQ(checkboxNode->GetId(), 100);
-    /**
-     * @tc.steps: step2. create the second checkbox.
-     */
-    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(100);
-    toggleModelNG.Create(TOGGLE_TYPE[0], IS_ON);
-}
-
-/**
- * @tc.name: ToggleModelTest005
- * @tc.desc: Test ToggleButton create twice.
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleModelTest005, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create the first ToggleButton.
-     */
-    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(100);
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(TOGGLE_TYPE[1], IS_ON);
-    auto buttonNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(buttonNode, nullptr);
-    EXPECT_EQ(buttonNode->GetId(), 100);
-    /**
-     * @tc.steps: step2. create the second ToggleButton.
-     */
-    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(100);
-    toggleModelNG.Create(TOGGLE_TYPE[1], IS_ON);
-}
-
-/**
- * @tc.name: ToggleModelTest006
- * @tc.desc: Test OnChangeEvent.
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleModelTest006, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. generate ChangeEvent.
-     */
-    ChangeEvent changeEvent;
-    /**
-     * @tc.steps: step2. create checkbox toggle and trigger OnChangeEvent.
-     */
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(TOGGLE_TYPE[0], IS_ON);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-    toggleModelNG.OnChangeEvent(std::move(changeEvent));
-    /**
-     * @tc.steps: step3. create ToggleButton and trigger OnChangeEvent.
-     */
-    ToggleModelNG toggleModelNG2;
-    toggleModelNG2.Create(TOGGLE_TYPE[1], IS_ON);
-    frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-    toggleModelNG2.OnChangeEvent(std::move(changeEvent));
-    /**
-     * @tc.steps: step4. create switch toggle and trigger OnChangeEvent.
-     */
-    ToggleModelNG toggleModelNG3;
-    toggleModelNG3.Create(TOGGLE_TYPE[2], IS_ON);
-    frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-    toggleModelNG3.OnChangeEvent(std::move(changeEvent));
-}
-
-/**
- * @tc.name: ToggleModelDistributedTest001
- * @tc.desc: Test the distributed capability of Toggle
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleModelDistributedTest001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create switch and get frameNode.
-     */
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(TOGGLE_TYPE[2], IS_ON);
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-    auto pattern = frameNode->GetPattern<SwitchPattern>();
-    ASSERT_NE(pattern, nullptr);
-    auto switchPaintProperty = pattern->GetPaintProperty<SwitchPaintProperty>();
-    ASSERT_NE(switchPaintProperty, nullptr);
-
-    /**
-     * @tc.expected: Function ProvideRestoreInfo is called.
-     */
-    pattern->isOn_ = false;
-    std::string ret = pattern->ProvideRestoreInfo();
-    EXPECT_TRUE(ret == R"({"IsOn":false})");
-
-    /**
-     * @tc.steps: step3. Function OnRestoreInfo is called.
-     * @tc.expected: Passing invalid & valid JSON format.
-     */
-    std::string restoreInfo_ = R"({"IsOn":true})";
-    pattern->OnRestoreInfo(restoreInfo_);
-    EXPECT_TRUE(switchPaintProperty->GetIsOnValue(false));
-    restoreInfo_ = "invalid_json_string";
-    pattern->OnRestoreInfo(restoreInfo_);
-    ASSERT_NE(switchPaintProperty, nullptr);
-    EXPECT_TRUE(switchPaintProperty->GetIsOnValue(false));
-}
-
-/**
- * @tc.name: ToggleAccessibilityPropertyTestNg001
- * @tc.desc: Test the IsCheckable and IsChecked properties of ToggleButton.
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleAccessibilityPropertyTestNg001, TestSize.Level1)
-{
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(ToggleType::BUTTON, true);
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-
-    auto accessibility = frameNode->GetAccessibilityProperty<ToggleButtonAccessibilityProperty>();
-    ASSERT_NE(accessibility, nullptr);
-    EXPECT_TRUE(accessibility->IsCheckable());
-    EXPECT_TRUE(accessibility->IsChecked());
-
-    auto paintProperty = frameNode->GetPaintProperty<ToggleButtonPaintProperty>();
-    ASSERT_NE(paintProperty, nullptr);
-    paintProperty->UpdateIsOn(false);
-    EXPECT_FALSE(accessibility->IsChecked());
-}
-
-/**
- * @tc.name: ToggleAccessibilityPropertyTestNg002
- * @tc.desc: Test the IsCheckable and IsChecked properties of Switch.
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleAccessibilityPropertyTestNg002, TestSize.Level1)
-{
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(ToggleType::SWITCH, true);
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-
-    auto accessibility = frameNode->GetAccessibilityProperty<SwitchAccessibilityProperty>();
-    ASSERT_NE(accessibility, nullptr);
-    EXPECT_TRUE(accessibility->IsCheckable());
-
-    auto pattern = AceType::DynamicCast<SwitchPattern>(frameNode->GetPattern());
-    ASSERT_NE(pattern, nullptr);
-    pattern->isOn_ = false;
-    EXPECT_FALSE(accessibility->IsChecked());
-
-    pattern->isOn_ = true;
-    EXPECT_TRUE(accessibility->IsChecked());
-}
-
-/**
- * @tc.name: SwitchPatternTest001
- * @tc.desc: Test the IsCheckable and IsChecked properties of Switch.
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, SwitchPatternTest001, TestSize.Level1)
-{
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(ToggleType::SWITCH, true);
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-
-    auto accessibility = frameNode->GetAccessibilityProperty<SwitchAccessibilityProperty>();
-    ASSERT_NE(accessibility, nullptr);
-    EXPECT_TRUE(accessibility->IsCheckable());
-
-    auto pattern = AceType::DynamicCast<SwitchPattern>(frameNode->GetPattern());
-    ASSERT_NE(pattern, nullptr);
-    pattern->isOn_ = false;
-    EXPECT_FALSE(accessibility->IsChecked());
-
-    pattern->isOn_ = true;
-    EXPECT_TRUE(accessibility->IsChecked());
-
-    pattern->OnAfterModifyDone();
-}
-
-/**
- * @tc.name: ToggleModelTest007
- * @tc.desc: Test ToggleModelNG::ReplaceAllChild
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleModelTest007, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create toggle and get frameNode.
-     */
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.CreateFrameNode(0, ToggleType::CHECKBOX, true);
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-    /**
-     * @tc.steps: step2. create oldframenode with RootPattern and call ReplaceAllChild.
-     */
-    auto oldFrameNodeRoot = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
-    auto childRootNode = FrameNode::CreateFrameNode(V2::BUTTON_ETS_TAG, 1, AceType::MakeRefPtr<ButtonPattern>());
-    childRootNode->MountToParent(oldFrameNodeRoot);
-    toggleModelNG.ReplaceAllChild(oldFrameNodeRoot);
-    auto children = oldFrameNodeRoot->GetChildren();
-    EXPECT_EQ(children.size(), 1);
-}
-
-/**
- * @tc.name: ToggleModelTest008
- * @tc.desc: Test ToggleModelNG::ReplaceAllChild
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleModelTest008, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create toggle and get frameNode.
-     */
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.CreateFrameNode(1, ToggleType::CHECKBOX, true);
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-    /**
-     * @tc.steps: step2 - 1. create oldframenode with switchPattern and call ReplaceAllChild.
-     */
-    auto oldFrameNodeSwitch = FrameNode::CreateFrameNode(V2::SWITCH_ETS_TAG, 1, AceType::MakeRefPtr<SwitchPattern>());
-    auto childNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 1, AceType::MakeRefPtr<ButtonPattern>());
-    childNode->MountToParent(oldFrameNodeSwitch);
-    auto switchPattern = oldFrameNodeSwitch->GetPattern<SwitchPattern>();
-    ASSERT_NE(switchPattern, nullptr);
-    auto modifierNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
-    switchPattern->contentModifierNode_ = modifierNode;
-    switchPattern->nodeId_ = childNode->GetId();
-    toggleModelNG.ReplaceAllChild(oldFrameNodeSwitch);
-    auto children = oldFrameNodeSwitch->GetChildren();
-    EXPECT_EQ(children.size(), 1);
-}
-
-/**
- * @tc.name: ToggleModelTest009
- * @tc.desc: Test ToggleModelNG::ReplaceAllChild
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleModelTest009, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create toggle and get frameNode.
-     */
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.CreateFrameNode(0, ToggleType::SWITCH, true);
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-    /**
-     * @tc.steps: step2 - 2. create oldframenode with checkboxPattern and call ReplaceAllChild.
-     */
-    auto oldFrameNodeCheckbox =
-        FrameNode::CreateFrameNode(V2::CHECKBOX_ETS_TAG, 1, AceType::MakeRefPtr<CheckBoxPattern>());
-    auto childCheckboxNode = FrameNode::CreateFrameNode(V2::BUTTON_ETS_TAG, 1, AceType::MakeRefPtr<ButtonPattern>());
-    childCheckboxNode->MountToParent(oldFrameNodeCheckbox);
-    auto checkboxPattern = oldFrameNodeCheckbox->GetPattern<CheckBoxPattern>();
-    ASSERT_NE(checkboxPattern, nullptr);
-    auto modifierNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
-    checkboxPattern->contentModifierNode_ = modifierNode;
-    toggleModelNG.ReplaceAllChild(oldFrameNodeCheckbox);
-    auto children = oldFrameNodeCheckbox->GetChildren();
-    EXPECT_EQ(children.size(), 1);
-}
-
-/**
- * @tc.name: ToggleModelTest010
- * @tc.desc: Test ToggleModelNG::ReplaceAllChild
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleModelTest010, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create toggle and get frameNode.
-     */
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.CreateFrameNode(0, ToggleType::SWITCH, true);
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-    /**
-     * @tc.steps: step2 - 3. create oldframenode with toggleButtonPattern and call ReplaceAllChild.
-     */
-    auto oldFrameNodeToggle =
-        FrameNode::CreateFrameNode(V2::TOGGLE_ETS_TAG, 1, AceType::MakeRefPtr<ToggleButtonPattern>());
-    auto childToggleNode = FrameNode::CreateFrameNode(V2::BUTTON_ETS_TAG, 1, AceType::MakeRefPtr<ButtonPattern>());
-    childToggleNode->MountToParent(oldFrameNodeToggle);
-    auto togglePattern = oldFrameNodeToggle->GetPattern<ToggleButtonPattern>();
-    ASSERT_NE(togglePattern, nullptr);
-    auto modifierNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
-    togglePattern->contentModifierNode_ = modifierNode;
-    togglePattern->nodeId_ = childToggleNode->GetId();
-    toggleModelNG.ReplaceAllChild(oldFrameNodeToggle);
-    auto children = oldFrameNodeToggle->GetChildren();
-    EXPECT_EQ(children.size(), 1);
-}
-
-/**
- * @tc.name: ToggleModelTest011
- * @tc.desc: Test ToggleModelNG::SetUnselectedColor
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleModelTest011, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create toggle and get frameNode.
-     */
-    ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(TOGGLE_TYPE[2], IS_ON);
-    auto switchFrameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(switchFrameNode, nullptr);
-    /**
-     * @tc.steps: step2. set Modifer.
-     */
-    ToggleModelNG toggleModelNGEx;
-    toggleModelNGEx.SetUnselectedColor(AceType::RawPtr(switchFrameNode), SELECTED_COLOR);
-    toggleModelNGEx.SetTrackBorderRadius(AceType::RawPtr(switchFrameNode), TOGGLE_WIDTH);
-    toggleModelNGEx.ResetTrackBorderRadius(AceType::RawPtr(switchFrameNode));
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: ToggleModelTest012
- * @tc.desc: Test ToggleModelNG::CreateTypeNode and ToggleModelNG::SetToggleState
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleTestNg, ToggleModelTest012, TestSize.Level1)
+HWTEST_F(ToggleTestNg, ToggleModelTestSetAndGetToggleState, TestSize.Level1)
 {
     /**
      * @tc.steps: step1. Init Toggle node.
@@ -1912,64 +1508,253 @@ HWTEST_F(ToggleTestNg, ToggleModelTest012, TestSize.Level1)
     /**
      * @tc.steps: step3. assert ToggleState.
      */
-    auto paintProperty = frameNode->GetPaintProperty<CheckBoxPaintProperty>();
-    ASSERT_NE(paintProperty, nullptr);
-    EXPECT_EQ(paintProperty->GetCheckBoxSelectValue(), true);
+    auto isOn = ToggleModelNG::GetToggleState(node);
+    EXPECT_EQ(isOn, true);
 }
 
 /**
- * @tc.name: ToggleModelTest013
- * @tc.desc: Test InitOnKeyEvent().
+ * @tc.name: ParseCommand001
+ * @tc.desc: Test SwitchPattern ParseCommand.
  * @tc.type: FUNC
  */
-HWTEST_F(ToggleTestNg, ToggleModelTest013, TestSize.Level1)
+HWTEST_F(ToggleTestNg, ParseCommand001, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1. create switch and get frameNode.
-     */
+    bool isOn = false;
+    std::string command = "";
+    SwitchPattern switchPattern;
+    EXPECT_FALSE(switchPattern.ParseCommand(command, isOn));
+    command = "{";
+    EXPECT_FALSE(switchPattern.ParseCommand(command, isOn));
+    command = "{}";
+    EXPECT_FALSE(switchPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"SetValue\"}";
+    EXPECT_FALSE(switchPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\"}";
+    EXPECT_FALSE(switchPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{}}";
+    EXPECT_FALSE(switchPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":\"abc\"}}";
+    EXPECT_FALSE(switchPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":1}}";
+    EXPECT_FALSE(switchPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":true}}";
+    EXPECT_TRUE(switchPattern.ParseCommand(command, isOn));
+    EXPECT_EQ(isOn, true);
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":false}}";
+    EXPECT_TRUE(switchPattern.ParseCommand(command, isOn));
+    EXPECT_EQ(isOn, false);
+}
+
+/**
+ * @tc.name: OnInjectionEvent001
+ * @tc.desc: Test SwitchPattern OnInjectionEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ToggleTestNg, OnInjectionEvent001, TestSize.Level1)
+{
     ToggleModelNG toggleModelNG;
-    toggleModelNG.Create(TOGGLE_TYPE[2], IS_ON);
-    auto switchFrameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(switchFrameNode, nullptr);
-    switchFrameNode->MarkModifyDone();
-    auto eventHub = switchFrameNode->GetFocusHub();
+    toggleModelNG.Create(TOGGLE_TYPE[2], false);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    EXPECT_NE(frameNode, nullptr);
+    auto switchPattern = frameNode->GetPattern<SwitchPattern>();
+    ASSERT_NE(switchPattern, nullptr);
+    auto switchPaintProperty = frameNode->GetPaintProperty<SwitchPaintProperty>();
+    ASSERT_NE(switchPaintProperty, nullptr);
+    ASSERT_EQ(switchPaintProperty->GetIsOnValue(false), false);
+
+    std::string command = "abc";
+    EXPECT_EQ(switchPattern->OnInjectionEvent(command), RET_FAILED);
+
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":true}}";
+    EXPECT_EQ(switchPattern->OnInjectionEvent(command), RET_SUCCESS);
+    EXPECT_EQ(switchPaintProperty->GetIsOnValue(false), true);
+
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":false}}";
+    EXPECT_EQ(switchPattern->OnInjectionEvent(command), RET_SUCCESS);
+    EXPECT_EQ(switchPaintProperty->GetIsOnValue(true), false);
+}
+
+/**
+ * @tc.name: ParseCommand002
+ * @tc.desc: Test ToggleButtonPattern ParseCommand.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ToggleTestNg, ParseCommand002, TestSize.Level1)
+{
+    bool isOn = false;
+    std::string command = "";
+    ToggleButtonPattern toggleButtonPattern;
+    EXPECT_FALSE(toggleButtonPattern.ParseCommand(command, isOn));
+    command = "{";
+    EXPECT_FALSE(toggleButtonPattern.ParseCommand(command, isOn));
+    command = "{}";
+    EXPECT_FALSE(toggleButtonPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"SetValue\"}";
+    EXPECT_FALSE(toggleButtonPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\"}";
+    EXPECT_FALSE(toggleButtonPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{}}";
+    EXPECT_FALSE(toggleButtonPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":\"abc\"}}";
+    EXPECT_FALSE(toggleButtonPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":1}}";
+    EXPECT_FALSE(toggleButtonPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":true}}";
+    EXPECT_TRUE(toggleButtonPattern.ParseCommand(command, isOn));
+    EXPECT_EQ(isOn, true);
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":false}}";
+    EXPECT_TRUE(toggleButtonPattern.ParseCommand(command, isOn));
+    EXPECT_EQ(isOn, false);
+}
+
+/**
+ * @tc.name: OnInjectionEvent002
+ * @tc.desc: Test ToggleButtonPattern OnInjectionEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ToggleTestNg, OnInjectionEvent002, TestSize.Level1)
+{
+    ToggleModelNG toggleModelNG;
+    toggleModelNG.Create(TOGGLE_TYPE[1], false);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    EXPECT_NE(frameNode, nullptr);
+    auto toggleButtonPattern = frameNode->GetPattern<ToggleButtonPattern>();
+    ASSERT_NE(toggleButtonPattern, nullptr);
+    auto toggleButtonPaintProperty = frameNode->GetPaintProperty<ToggleButtonPaintProperty>();
+    ASSERT_NE(toggleButtonPaintProperty, nullptr);
+    ASSERT_EQ(toggleButtonPaintProperty->GetIsOnValue(false), false);
+
+    std::string command = "abc";
+    EXPECT_EQ(toggleButtonPattern->OnInjectionEvent(command), RET_FAILED);
+
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":true}}";
+    EXPECT_EQ(toggleButtonPattern->OnInjectionEvent(command), RET_SUCCESS);
+    EXPECT_EQ(toggleButtonPaintProperty->GetIsOnValue(false), true);
+
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":false}}";
+    EXPECT_EQ(toggleButtonPattern->OnInjectionEvent(command), RET_SUCCESS);
+    EXPECT_EQ(toggleButtonPaintProperty->GetIsOnValue(true), false);
+}
+
+/**
+ * @tc.name: ParseCommand003
+ * @tc.desc: Test ParseCommand.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ToggleTestNg, ParseCommand003, TestSize.Level1)
+{
+    bool isOn = false;
+    std::string command = "";
+    ToggleCheckBoxPattern toggleCheckBoxPattern;
+    EXPECT_FALSE(toggleCheckBoxPattern.ParseCommand(command, isOn));
+    command = "{";
+    EXPECT_FALSE(toggleCheckBoxPattern.ParseCommand(command, isOn));
+    command = "{}";
+    EXPECT_FALSE(toggleCheckBoxPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"SetValue\"}";
+    EXPECT_FALSE(toggleCheckBoxPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\"}";
+    EXPECT_FALSE(toggleCheckBoxPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{}}";
+    EXPECT_FALSE(toggleCheckBoxPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":\"abc\"}}";
+    EXPECT_FALSE(toggleCheckBoxPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":1}}";
+    EXPECT_FALSE(toggleCheckBoxPattern.ParseCommand(command, isOn));
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":true}}";
+    EXPECT_TRUE(toggleCheckBoxPattern.ParseCommand(command, isOn));
+    EXPECT_EQ(isOn, true);
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":false}}";
+    EXPECT_TRUE(toggleCheckBoxPattern.ParseCommand(command, isOn));
+    EXPECT_EQ(isOn, false);
+}
+
+/**
+ * @tc.name: OnInjectionEvent003
+ * @tc.desc: Test OnInjectionEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ToggleTestNg, OnInjectionEvent003, TestSize.Level1)
+{
+    ToggleModelNG toggleModelNG;
+    toggleModelNG.Create(TOGGLE_TYPE[0], false);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    EXPECT_NE(frameNode, nullptr);
+    auto toggleCheckBoxPattern = frameNode->GetPattern<ToggleCheckBoxPattern>();
+    ASSERT_NE(toggleCheckBoxPattern, nullptr);
+    auto checkBoxPaintProperty = frameNode->GetPaintProperty<CheckBoxPaintProperty>();
+    ASSERT_NE(checkBoxPaintProperty, nullptr);
+    ASSERT_EQ(checkBoxPaintProperty->GetCheckBoxSelectValue(false), false);
+
+    std::string command = "abc";
+    EXPECT_EQ(toggleCheckBoxPattern->OnInjectionEvent(command), RET_FAILED);
+
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":true}}";
+    EXPECT_EQ(toggleCheckBoxPattern->OnInjectionEvent(command), RET_SUCCESS);
+    EXPECT_EQ(checkBoxPaintProperty->GetCheckBoxSelectValue(false), true);
+
+    command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":false}}";
+    EXPECT_EQ(toggleCheckBoxPattern->OnInjectionEvent(command), RET_SUCCESS);
+    EXPECT_EQ(checkBoxPaintProperty->GetCheckBoxSelectValue(true), false);
+}
+
+/**
+ * @tc.name: OnInjectionEvent004
+ * @tc.desc: Test SwitchPattern OnInjectionEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ToggleTestNg, OnInjectionEvent004, TestSize.Level1)
+{
+    ToggleModelNG toggleModelNG;
+    toggleModelNG.Create(TOGGLE_TYPE[2], false);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    EXPECT_NE(frameNode, nullptr);
+    auto switchPattern = frameNode->GetPattern<SwitchPattern>();
+    ASSERT_NE(switchPattern, nullptr);
+    auto eventHub = frameNode->GetEventHub<EventHub>();
     ASSERT_NE(eventHub, nullptr);
-    /**
-     * @tc.steps: step2. test event.action != KeyAction::DOWN and event.code == KeyCode::KEY_FUNCTION
-     * @tc.expected: step3. check the switch checked status
-     */
-    KeyEvent keyEventOne(KeyCode::KEY_FUNCTION, KeyAction::UP);
-    bool ret = eventHub->ProcessOnKeyEventInternal(keyEventOne);
-    auto pattern = AceType::DynamicCast<SwitchPattern>(switchFrameNode->GetPattern());
-    EXPECT_FALSE(ret);
-    bool isChecked = pattern->IsChecked();
-    EXPECT_EQ(isChecked, IS_ON);
-    /**
-     * @tc.steps: step4. test event.action == KeyAction::DOWN and event.code != KeyCode::KEY_FUNCTION
-     * @tc.expected: step5. check the checked status
-     */
-    KeyEvent keyEventTwo(KeyCode::KEY_A, KeyAction::DOWN);
-    ret = eventHub->ProcessOnKeyEventInternal(keyEventTwo);
-    EXPECT_FALSE(ret);
-    isChecked = pattern->IsChecked();
-    EXPECT_EQ(isChecked, IS_ON);
-    /**
-     * @tc.steps: step4. test event.action != KeyAction::DOWN and event.code != KeyCode::KEY_FUNCTION
-     * @tc.expected: step5. check the checked status
-     */
-    KeyEvent keyEventThree(KeyCode::KEY_F1, KeyAction::UP);
-    ret = eventHub->ProcessOnKeyEventInternal(keyEventThree);
-    EXPECT_FALSE(ret);
-    isChecked = pattern->IsChecked();
-    EXPECT_EQ(isChecked, IS_ON);
-    /**
-     * @tc.steps: step4. test event.action == KeyAction::DOWN and event.code == KeyCode::KEY_FUNCTION
-     * @tc.expected: step5. check the checked status
-     */
-    KeyEvent keyEventFour(KeyCode::KEY_FUNCTION, KeyAction::DOWN);
-    ret = eventHub->ProcessOnKeyEventInternal(keyEventFour);
-    EXPECT_TRUE(ret);
-    isChecked = pattern->IsChecked();
-    EXPECT_EQ(isChecked, !IS_ON);
+    eventHub->SetEnabled(false);
+    std::string command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":true}}";
+    EXPECT_EQ(switchPattern->OnInjectionEvent(command), RET_FAILED);
+}
+
+/**
+ * @tc.name: OnInjectionEvent005
+ * @tc.desc: Test ToggleButtonPattern OnInjectionEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ToggleTestNg, OnInjectionEvent005, TestSize.Level1)
+{
+    ToggleModelNG toggleModelNG;
+    toggleModelNG.Create(TOGGLE_TYPE[1], false);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    EXPECT_NE(frameNode, nullptr);
+    auto toggleButtonPattern = frameNode->GetPattern<ToggleButtonPattern>();
+    ASSERT_NE(toggleButtonPattern, nullptr);
+    auto eventHub = frameNode->GetEventHub<EventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    eventHub->SetEnabled(false);
+    std::string command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":true}}";
+    EXPECT_EQ(toggleButtonPattern->OnInjectionEvent(command), RET_FAILED);
+}
+
+/**
+ * @tc.name: OnInjectionEvent006
+ * @tc.desc: Test OnInjectionEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ToggleTestNg, OnInjectionEvent006, TestSize.Level1)
+{
+    ToggleModelNG toggleModelNG;
+    toggleModelNG.Create(TOGGLE_TYPE[0], false);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    EXPECT_NE(frameNode, nullptr);
+    auto toggleCheckBoxPattern = frameNode->GetPattern<ToggleCheckBoxPattern>();
+    ASSERT_NE(toggleCheckBoxPattern, nullptr);
+    auto eventHub = frameNode->GetEventHub<EventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    eventHub->SetEnabled(false);
+    std::string command = "{\"cmd\":\"onToggleChange\",\"params\":{\"isOn\":true}}";
+    EXPECT_EQ(toggleCheckBoxPattern->OnInjectionEvent(command), RET_FAILED);
 }
 } // namespace OHOS::Ace::NG

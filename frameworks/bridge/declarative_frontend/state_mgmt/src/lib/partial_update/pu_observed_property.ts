@@ -29,8 +29,6 @@ class ObservedPropertyPU<T> extends ObservedPropertyAbstractPU<T>
 
   private wrappedValue_: T;
 
-  public staticWatchFunc?: Object;
-
   constructor(localInitValue: T, owningView: IPropertySubscriber, propertyName: PropertyInfo) {
     super(owningView, propertyName);
    
@@ -48,14 +46,15 @@ class ObservedPropertyPU<T> extends ObservedPropertyAbstractPU<T>
    * Called by a SynchedPropertyObjectTwoWayPU (@Link, @Consume) that uses this as sync peer when it has changed
    * @param eventSource 
    */
-  public syncPeerHasChanged(eventSource?: ObservedPropertyAbstractPU<T>) : void {
+  public syncPeerHasChanged(eventSource : ObservedPropertyAbstractPU<T>, isSync: boolean = false) : void {
     stateMgmtConsole.debug(`${this.debugInfo()}: syncPeerHasChanged: from peer ${eventSource && eventSource.debugInfo && eventSource.debugInfo()}'.`);
-    this.notifyPropertyHasChangedPU();
+    this.notifyPropertyHasChangedPU(isSync);
   }
 
-  public syncPeerTrackedPropertyHasChanged(eventSource: ObservedPropertyAbstractPU<T>, changedTrackedObjectPropertyName: string): void {
+  public syncPeerTrackedPropertyHasChanged(eventSource: ObservedPropertyAbstractPU<T>,
+    changedTrackedObjectPropertyName: string, isSync: boolean = false): void {
     stateMgmtConsole.debug(`${this.debugInfo()}: syncPeerTrackedPropertyHasChanged: from peer ${eventSource && eventSource.debugInfo && eventSource.debugInfo()}', changed property '${changedTrackedObjectPropertyName}'.`);
-    this.notifyTrackedObjectPropertyHasChanged(changedTrackedObjectPropertyName);
+    this.notifyTrackedObjectPropertyHasChanged(changedTrackedObjectPropertyName, isSync);
   }
 
   /**
@@ -176,7 +175,7 @@ class ObservedPropertyPU<T> extends ObservedPropertyAbstractPU<T>
     if (renderingElmtId >= 0) {
       if (!isTracked) {
         stateMgmtConsole.applicationError(`${this.debugInfo()}: onOptimisedObjectPropertyRead read NOT TRACKED property '${readPropertyName}' during rendering!`);
-        throw new Error(`Illegal usage of not @Track'ed property '${readPropertyName}' on UI!`);
+        throw new BusinessError(NON_TRACK_PROPERTY_ON_UI, `Illegal usage of not @Track'ed property '${readPropertyName}' on UI!`);
       } else {
         stateMgmtConsole.debug(`${this.debugInfo()}: onOptimisedObjectPropertyRead: ObservedObject property '@Track ${readPropertyName}' read.`);
         // only record dependency when

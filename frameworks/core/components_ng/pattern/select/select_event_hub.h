@@ -18,7 +18,6 @@
 
 #include "base/memory/ace_type.h"
 #include "core/components_ng/event/event_hub.h"
-#include "core/components_ng/event/gesture_event_hub.h"
 
 namespace OHOS::Ace::NG {
 
@@ -27,7 +26,7 @@ using SelectChangeEvent = std::function<void(int32_t)>;
 using ValueChangeEvent = std::function<void(const std::string&)>;
 
 class SelectEventHub : public EventHub {
-    DECLARE_ACE_TYPE(SelectEventHub, EventHub)
+    DECLARE_ACE_TYPE(SelectEventHub, EventHub);
 public:
     SelectEventHub() = default;
 

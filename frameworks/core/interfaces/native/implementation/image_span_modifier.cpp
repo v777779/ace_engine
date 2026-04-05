@@ -19,6 +19,7 @@
 #include "core/components_ng/pattern/text/image_span_view.h"
 #include "core/components_ng/pattern/text/image_span_view_static.h"
 #include "core/components_ng/pattern/image/image_model_ng.h"
+#include "core/components_ng/pattern/image/image_model_static.h"
 #include "core/interfaces/native/implementation/image_common_methods.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "pixel_map_peer.h"
@@ -41,10 +42,6 @@ namespace ImageSpanModifier {
 Ark_NativePointer ConstructImpl(Ark_Int32 id,
                                 Ark_Int32 flags)
 {
-    if (MultiThreadBuildManager::IsParallelScope()) {
-        LOGF_ABORT("Unsupported UI components ImageSpan used in ParallelizeUI");
-    }
-
     auto imageSpanNode = FrameNode::CreateFrameNode(V2::IMAGE_ETS_TAG, id, AceType::MakeRefPtr<ImagePattern>());
     CHECK_NULL_RETURN(imageSpanNode, nullptr);
     imageSpanNode->SetDraggable(false);
@@ -64,7 +61,7 @@ Ark_NativePointer ConstructImpl(Ark_Int32 id,
 } // ImageSpanModifier
 namespace ImageSpanInterfaceModifier {
 void SetImageSpanOptionsImpl(Ark_NativePointer node,
-                             const Ark_Union_ResourceStr_PixelMap* value)
+                             const Ark_Union_ResourceStr_image_PixelMap* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -82,14 +79,10 @@ void SetVerticalAlignImpl(Ark_NativePointer node,
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     auto convValue = Converter::OptConvertPtr<VerticalAlign>(value);
-    if (!convValue) {
-        ImageSpanViewStatic::SetVerticalAlign(frameNode, VerticalAlign::BOTTOM);
-        return;
-    }
     ImageSpanViewStatic::SetVerticalAlign(frameNode, convValue);
 }
 void SetColorFilterImpl(Ark_NativePointer node,
-                        const Opt_Union_ColorFilter_DrawingColorFilter* value)
+                        const Opt_Union_ColorFilter_drawing_ColorFilter* value)
 {
     ImageCommonMethods::ApplyColorFilterValues(node, value);
 }
@@ -99,10 +92,6 @@ void SetObjectFitImpl(Ark_NativePointer node,
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     auto convValue = Converter::OptConvertPtr<ImageFit>(value);
-    if (!convValue) {
-        ImageSpanViewStatic::SetObjectFit(frameNode, ImageFit::COVER);
-        return;
-    }
     ImageSpanViewStatic::SetObjectFit(frameNode, convValue);
 }
 void SetOnCompleteImpl(Ark_NativePointer node,
@@ -152,6 +141,14 @@ void SetAltImpl(Ark_NativePointer node,
         ImageModelNG::SetAlt(frameNode, ImageSourceInfo(pixelMapPeer->pixelMap));
     }
 }
+void SetSupportSvg2Impl(Ark_NativePointer node,
+                        const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto convValue = Converter::OptConvertPtr<bool>(value);
+    ImageModelStatic::SetSupportSvg2(frameNode, convValue.value_or(false));
+}
 } // ImageSpanAttributeModifier
 const GENERATED_ArkUIImageSpanModifier* GetImageSpanModifier()
 {
@@ -164,6 +161,7 @@ const GENERATED_ArkUIImageSpanModifier* GetImageSpanModifier()
         ImageSpanAttributeModifier::SetOnCompleteImpl,
         ImageSpanAttributeModifier::SetOnErrorImpl,
         ImageSpanAttributeModifier::SetAltImpl,
+        ImageSpanAttributeModifier::SetSupportSvg2Impl,
     };
     return &ArkUIImageSpanModifierImpl;
 }

@@ -27,11 +27,11 @@ namespace {
     const auto ATTRIBUTE_TRANSFORM_NAME = "transform";
     const auto ATTRIBUTE_TRANSFORM_DEFAULT_VALUE = "{}";
     const auto ATTRIBUTE_CLICK_EFFECT_NAME = "clickEffect";
-    const auto ATTRIBUTE_CLICK_EFFECT_DEFAULT_VALUE = "";
+    const auto ATTRIBUTE_CLICK_EFFECT_DEFAULT_VALUE = std::nullopt;
     const auto ATTRIBUTE_DRAGGABLE_NAME = "draggable";
-    const auto ATTRIBUTE_DRAGGABLE_DEFAULT_VALUE = "";
+    const auto ATTRIBUTE_DRAGGABLE_DEFAULT_VALUE = std::nullopt;
     const auto ATTRIBUTE_MOTION_PATH_NAME = "motionPath";
-    const auto ATTRIBUTE_MOTION_PATH_DEFAULT_VALUE = "";
+    const auto ATTRIBUTE_MOTION_PATH_DEFAULT_VALUE = std::nullopt;
     const auto ATTRIBUTE_KEY_NAME = "id";
     const auto ATTRIBUTE_KEY_DEFAULT_VALUE = "";
 
@@ -67,183 +67,189 @@ void AssignArkValue(Ark_CustomObject& dst, const double (&value)[4][4])
 }
 
 namespace OHOS::Ace::NG {
-using AllowDropTestStep = std::tuple<Ark_UniformDataType, std::string>;
+using AllowDropTestStep = std::tuple<Ark_uniformTypeDescriptor_UniformDataType, std::string>;
 static const std::vector<AllowDropTestStep> ALLOW_DROP_TEST_PLAN = {
-    {ARK_UNIFORM_DATA_TYPE_ENTITY, "general.entity"},
-    {ARK_UNIFORM_DATA_TYPE_OBJECT, "general.object"},
-    {ARK_UNIFORM_DATA_TYPE_COMPOSITE_OBJECT, "general.composite-object"},
-    {ARK_UNIFORM_DATA_TYPE_TEXT, "general.text"},
-    {ARK_UNIFORM_DATA_TYPE_PLAIN_TEXT, "general.plain-text"},
-    {ARK_UNIFORM_DATA_TYPE_HTML, "general.html"},
-    {ARK_UNIFORM_DATA_TYPE_HYPERLINK, "general.hyperlink"},
-    {ARK_UNIFORM_DATA_TYPE_XML, "general.xml"},
-    {ARK_UNIFORM_DATA_TYPE_XHTML, "general.xhtml"},
-    {ARK_UNIFORM_DATA_TYPE_RSS, "general.rss"},
-    {ARK_UNIFORM_DATA_TYPE_SMIL, "com.real.smil"},
-    {ARK_UNIFORM_DATA_TYPE_SOURCE_CODE, "general.source-code"},
-    {ARK_UNIFORM_DATA_TYPE_SCRIPT, "general.script"},
-    {ARK_UNIFORM_DATA_TYPE_SHELL_SCRIPT, "general.shell-script"},
-    {ARK_UNIFORM_DATA_TYPE_CSH_SCRIPT, "general.csh-script"},
-    {ARK_UNIFORM_DATA_TYPE_PERL_SCRIPT, "general.perl-script"},
-    {ARK_UNIFORM_DATA_TYPE_PHP_SCRIPT, "general.php-script"},
-    {ARK_UNIFORM_DATA_TYPE_PYTHON_SCRIPT, "general.python-script"},
-    {ARK_UNIFORM_DATA_TYPE_RUBY_SCRIPT, "general.ruby-script"},
-    {ARK_UNIFORM_DATA_TYPE_TYPE_SCRIPT, "general.type-script"},
-    {ARK_UNIFORM_DATA_TYPE_JAVA_SCRIPT, "general.java-script"},
-    {ARK_UNIFORM_DATA_TYPE_CSS, "general.css"},
-    {ARK_UNIFORM_DATA_TYPE_C_HEADER, "general.c-header"},
-    {ARK_UNIFORM_DATA_TYPE_C_SOURCE, "general.c-source"},
-    {ARK_UNIFORM_DATA_TYPE_C_PLUS_PLUS_HEADER, "general.c-plus-plus-header"},
-    {ARK_UNIFORM_DATA_TYPE_C_PLUS_PLUS_SOURCE, "general.c-plus-plus-source"},
-    {ARK_UNIFORM_DATA_TYPE_JAVA_SOURCE, "general.java-source"},
-    {ARK_UNIFORM_DATA_TYPE_TEX, "general.tex"},
-    {ARK_UNIFORM_DATA_TYPE_MARKDOWN, "general.markdown"},
-    {ARK_UNIFORM_DATA_TYPE_ASC_TEXT, "general.asc-text"},
-    {ARK_UNIFORM_DATA_TYPE_RICH_TEXT, "general.rich-text"},
-    {ARK_UNIFORM_DATA_TYPE_DELIMITED_VALUES_TEXT, "general.delimited-values-text"},
-    {ARK_UNIFORM_DATA_TYPE_COMMA_SEPARATED_VALUES_TEXT, "general.comma-separated-values-text"},
-    {ARK_UNIFORM_DATA_TYPE_TAB_SEPARATED_VALUES_TEXT, "general.tab-separated-values-text"},
-    {ARK_UNIFORM_DATA_TYPE_EBOOK, "general.ebook"},
-    {ARK_UNIFORM_DATA_TYPE_EPUB, "general.epub"},
-    {ARK_UNIFORM_DATA_TYPE_AZW, "com.amazon.azw"},
-    {ARK_UNIFORM_DATA_TYPE_AZW3, "com.amazon.azw3"},
-    {ARK_UNIFORM_DATA_TYPE_KFX, "com.amazon.kfx"},
-    {ARK_UNIFORM_DATA_TYPE_MOBI, "com.amazon.mobi"},
-    {ARK_UNIFORM_DATA_TYPE_MEDIA, "general.media"},
-    {ARK_UNIFORM_DATA_TYPE_IMAGE, "general.image"},
-    {ARK_UNIFORM_DATA_TYPE_JPEG, "general.jpeg"},
-    {ARK_UNIFORM_DATA_TYPE_PNG, "general.png"},
-    {ARK_UNIFORM_DATA_TYPE_RAW_IMAGE, "general.raw-image"},
-    {ARK_UNIFORM_DATA_TYPE_TIFF, "general.tiff"},
-    {ARK_UNIFORM_DATA_TYPE_BMP, "com.microsoft.bmp"},
-    {ARK_UNIFORM_DATA_TYPE_ICO, "com.microsoft.ico"},
-    {ARK_UNIFORM_DATA_TYPE_PHOTOSHOP_IMAGE, "com.adobe.photoshop-image"},
-    {ARK_UNIFORM_DATA_TYPE_AI_IMAGE, "com.adobe.illustrator.ai-image"},
-    {ARK_UNIFORM_DATA_TYPE_FAX, "general.fax"},
-    {ARK_UNIFORM_DATA_TYPE_JFX_FAX, "com.j2.jfx-fax"},
-    {ARK_UNIFORM_DATA_TYPE_EFX_FAX, "com.js.efx-fax"},
-    {ARK_UNIFORM_DATA_TYPE_XBITMAP_IMAGE, "general.xbitmap-image"},
-    {ARK_UNIFORM_DATA_TYPE_GIF, "general.gif"},
-    {ARK_UNIFORM_DATA_TYPE_TGA_IMAGE, "com.truevision.tga-image"},
-    {ARK_UNIFORM_DATA_TYPE_SGI_IMAGE, "com.sgi.sgi-image"},
-    {ARK_UNIFORM_DATA_TYPE_OPENEXR_IMAGE, "com.ilm.openexr-image"},
-    {ARK_UNIFORM_DATA_TYPE_FLASHPIX_IMAGE, "com.kodak.flashpix.image"},
-    {ARK_UNIFORM_DATA_TYPE_WORD_DOC, "com.microsoft.word.doc"},
-    {ARK_UNIFORM_DATA_TYPE_EXCEL, "com.microsoft.excel.xls"},
-    {ARK_UNIFORM_DATA_TYPE_PPT, "com.microsoft.powerpoint.ppt"},
-    {ARK_UNIFORM_DATA_TYPE_WORD_DOT, "com.microsoft.word.dot"},
-    {ARK_UNIFORM_DATA_TYPE_POWERPOINT_PPS, "com.microsoft.powerpoint.pps"},
-    {ARK_UNIFORM_DATA_TYPE_EXCEL_XLT, "com.microsoft.excel.xlt"},
-    {ARK_UNIFORM_DATA_TYPE_POWERPOINT_POT, "com.microsoft.powerpoint.pot"},
-    {ARK_UNIFORM_DATA_TYPE_VISIO_VSD, "com.microsoft.visio.vsd"},
-    {ARK_UNIFORM_DATA_TYPE_PDF, "com.adobe.pdf"},
-    {ARK_UNIFORM_DATA_TYPE_POSTSCRIPT, "com.adobe.postscript"},
-    {ARK_UNIFORM_DATA_TYPE_ENCAPSULATED_POSTSCRIPT, "com.adobe.encapsulated-postscript"},
-    {ARK_UNIFORM_DATA_TYPE_VIDEO, "general.video"},
-    {ARK_UNIFORM_DATA_TYPE_AVI, "general.avi"},
-    {ARK_UNIFORM_DATA_TYPE_MPEG, "general.mpeg"},
-    {ARK_UNIFORM_DATA_TYPE_MPEG4, "general.mpeg-4"},
-    {ARK_UNIFORM_DATA_TYPE_VIDEO_3GPP, "general.3gpp"},
-    {ARK_UNIFORM_DATA_TYPE_VIDEO_3GPP2, "general.3gpp2"},
-    {ARK_UNIFORM_DATA_TYPE_TS, "general.ts"},
-    {ARK_UNIFORM_DATA_TYPE_MPEGURL_VIDEO, "general.mpegurl-video"},
-    {ARK_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WM, "com.microsoft.windows-media-wm"},
-    {ARK_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WMV, "com.microsoft.windows-media-wmv"},
-    {ARK_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WMP, "com.microsoft.windows-media-wmp"},
-    {ARK_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WVX, "com.microsoft.windows-media-wvx"},
-    {ARK_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WMX, "com.microsoft.windows-media-wmx"},
-    {ARK_UNIFORM_DATA_TYPE_REALMEDIA, "com.real.realmedia"},
-    {ARK_UNIFORM_DATA_TYPE_MATROSKA_VIDEO, "org.matroska.mkv"},
-    {ARK_UNIFORM_DATA_TYPE_FLASH, "com.adobe.flash"},
-    {ARK_UNIFORM_DATA_TYPE_AUDIO, "general.audio"},
-    {ARK_UNIFORM_DATA_TYPE_AAC, "general.aac"},
-    {ARK_UNIFORM_DATA_TYPE_AIFF, "general.aiff"},
-    {ARK_UNIFORM_DATA_TYPE_ALAC, "general.alac"},
-    {ARK_UNIFORM_DATA_TYPE_FLAC, "general.flac"},
-    {ARK_UNIFORM_DATA_TYPE_MP3, "general.mp3"},
-    {ARK_UNIFORM_DATA_TYPE_OGG, "general.ogg"},
-    {ARK_UNIFORM_DATA_TYPE_PCM, "general.pcm"},
-    {ARK_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WMA, "com.microsoft.windows-media-wma"},
-    {ARK_UNIFORM_DATA_TYPE_WAVEFORM_AUDIO, "com.microsoft.waveform-audio"},
-    {ARK_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WAX, "com.microsoft.windows-media-wax"},
-    {ARK_UNIFORM_DATA_TYPE_AU_AUDIO, "general.au-audio"},
-    {ARK_UNIFORM_DATA_TYPE_AIFC_AUDIO, "general.aifc-audio"},
-    {ARK_UNIFORM_DATA_TYPE_MPEGURL_AUDIO, "general.mpegurl-audio"},
-    {ARK_UNIFORM_DATA_TYPE_MPEG_4_AUDIO, "general.mpeg-4-audio"},
-    {ARK_UNIFORM_DATA_TYPE_MP2, "general.mp2"},
-    {ARK_UNIFORM_DATA_TYPE_MPEG_AUDIO, "general.mpeg-audio"},
-    {ARK_UNIFORM_DATA_TYPE_ULAW_AUDIO, "general.ulaw-audio"},
-    {ARK_UNIFORM_DATA_TYPE_SD2_AUDIO, "com.digidesign.sd2-audio"},
-    {ARK_UNIFORM_DATA_TYPE_REALAUDIO, "com.real.realaudio"},
-    {ARK_UNIFORM_DATA_TYPE_MATROSKA_AUDIO, "org.matroska.mka"},
-    {ARK_UNIFORM_DATA_TYPE_FILE, "general.file"},
-    {ARK_UNIFORM_DATA_TYPE_DIRECTORY, "general.directory"},
-    {ARK_UNIFORM_DATA_TYPE_FOLDER, "general.folder"},
-    {ARK_UNIFORM_DATA_TYPE_SYMLINK, "general.symlink"},
-    {ARK_UNIFORM_DATA_TYPE_ARCHIVE, "general.archive"},
-    {ARK_UNIFORM_DATA_TYPE_BZ2_ARCHIVE, "general.bz2-archive"},
-    {ARK_UNIFORM_DATA_TYPE_OPG, "general.opg"},
-    {ARK_UNIFORM_DATA_TYPE_TAZ_ARCHIVE, "general.taz-archive"},
-    {ARK_UNIFORM_DATA_TYPE_WEB_ARCHIVE, "general.web-archive"},
-    {ARK_UNIFORM_DATA_TYPE_DISK_IMAGE, "general.disk-image"},
-    {ARK_UNIFORM_DATA_TYPE_ISO, "general.iso"},
-    {ARK_UNIFORM_DATA_TYPE_TAR_ARCHIVE, "general.tar-archive"},
-    {ARK_UNIFORM_DATA_TYPE_ZIP_ARCHIVE, "general.zip-archive"},
-    {ARK_UNIFORM_DATA_TYPE_JAVA_ARCHIVE, "com.sun.java-archive"},
-    {ARK_UNIFORM_DATA_TYPE_GNU_TAR_ARCHIVE, "org.gnu.gnu-tar-archive"},
-    {ARK_UNIFORM_DATA_TYPE_GNU_ZIP_ARCHIVE, "org.gnu.gnu-zip-archive"},
-    {ARK_UNIFORM_DATA_TYPE_GNU_ZIP_TAR_ARCHIVE, "org.gnu.gnu-zip-tar-archive"},
-    {ARK_UNIFORM_DATA_TYPE_OPENXML, "org.openxmlformats.openxml"},
-    {ARK_UNIFORM_DATA_TYPE_WORDPROCESSINGML_DOCUMENT, "org.openxmlformats.wordprocessingml.document"},
-    {ARK_UNIFORM_DATA_TYPE_SPREADSHEETML_SHEET, "org.openxmlformats.spreadsheetml.sheet"},
-    {ARK_UNIFORM_DATA_TYPE_PRESENTATIONML_PRESENTATION, "org.openxmlformats.presentationml.presentation"},
-    {ARK_UNIFORM_DATA_TYPE_DRAWINGML_VISIO, "org.openxmlformats.drawingml.visio"},
-    {ARK_UNIFORM_DATA_TYPE_DRAWINGML_TEMPLATE, "org.openxmlformats.drawingml.template"},
-    {ARK_UNIFORM_DATA_TYPE_WORDPROCESSINGML_TEMPLATE, "org.openxmlformats.wordprocessingml.template"},
-    {ARK_UNIFORM_DATA_TYPE_PRESENTATIONML_TEMPLATE, "org.openxmlformats.presentationml.template"},
-    {ARK_UNIFORM_DATA_TYPE_PRESENTATIONML_SLIDESHOW, "org.openxmlformats.presentationml.slideshow"},
-    {ARK_UNIFORM_DATA_TYPE_SPREADSHEETML_TEMPLATE, "org.openxmlformats.spreadsheetml.template"},
-    {ARK_UNIFORM_DATA_TYPE_OPENDOCUMENT, "org.oasis.opendocument"},
-    {ARK_UNIFORM_DATA_TYPE_OPENDOCUMENT_TEXT, "org.oasis.opendocument.text"},
-    {ARK_UNIFORM_DATA_TYPE_OPENDOCUMENT_SPREADSHEET, "org.oasis.opendocument.spreadsheet"},
-    {ARK_UNIFORM_DATA_TYPE_OPENDOCUMENT_PRESENTATION, "org.oasis.opendocument.presentation"},
-    {ARK_UNIFORM_DATA_TYPE_OPENDOCUMENT_GRAPHICS, "org.oasis.opendocument.graphics"},
-    {ARK_UNIFORM_DATA_TYPE_OPENDOCUMENT_FORMULA, "org.oasis.opendocument.formula"},
-    {ARK_UNIFORM_DATA_TYPE_STUFFIT_ARCHIVE, "com.allume.stuffit-archive"},
-    {ARK_UNIFORM_DATA_TYPE_RAR_ARCHIVE, "com.rarlab.rar-archive"},
-    {ARK_UNIFORM_DATA_TYPE_SEVEN_ZIP_ARCHIVE, "org.7-zip.7-zip-archive"},
-    {ARK_UNIFORM_DATA_TYPE_CALENDAR, "general.calendar"},
-    {ARK_UNIFORM_DATA_TYPE_VCS, "general.vcs"},
-    {ARK_UNIFORM_DATA_TYPE_ICS, "general.ics"},
-    {ARK_UNIFORM_DATA_TYPE_CONTACT, "general.contact"},
-    {ARK_UNIFORM_DATA_TYPE_DATABASE, "general.database"},
-    {ARK_UNIFORM_DATA_TYPE_MESSAGE, "general.message"},
-    {ARK_UNIFORM_DATA_TYPE_EXECUTABLE, "general.executable"},
-    {ARK_UNIFORM_DATA_TYPE_PORTABLE_EXECUTABLE, "com.microsoft.portable-executable"},
-    {ARK_UNIFORM_DATA_TYPE_SUN_JAVA_CLASS, "com.sun.java-class"},
-    {ARK_UNIFORM_DATA_TYPE_VCARD, "general.vcard"},
-    {ARK_UNIFORM_DATA_TYPE_NAVIGATION, "general.navigation"},
-    {ARK_UNIFORM_DATA_TYPE_LOCATION, "general.location"},
-    {ARK_UNIFORM_DATA_TYPE_FONT, "general.font"},
-    {ARK_UNIFORM_DATA_TYPE_TRUETYPE_FONT, "general.truetype-font"},
-    {ARK_UNIFORM_DATA_TYPE_TRUETYPE_COLLECTION_FONT, "general.truetype-collection-font"},
-    {ARK_UNIFORM_DATA_TYPE_OPENTYPE_FONT, "general.opentype-font"},
-    {ARK_UNIFORM_DATA_TYPE_POSTSCRIPT_FONT, "com.adobe.postscript-font"},
-    {ARK_UNIFORM_DATA_TYPE_POSTSCRIPT_PFB_FONT, "com.adobe.postscript-pfb-font"},
-    {ARK_UNIFORM_DATA_TYPE_POSTSCRIPT_PFA_FONT, "com.adobe.postscript-pfa-font"},
-    {ARK_UNIFORM_DATA_TYPE_OPENHARMONY_FORM, "openharmony.form"},
-    {ARK_UNIFORM_DATA_TYPE_OPENHARMONY_APP_ITEM, "openharmony.app-item"},
-    {ARK_UNIFORM_DATA_TYPE_OPENHARMONY_PIXEL_MAP, "openharmony.pixel-map"},
-    {ARK_UNIFORM_DATA_TYPE_OPENHARMONY_ATOMIC_SERVICE, "openharmony.atomic-service"},
-    {ARK_UNIFORM_DATA_TYPE_OPENHARMONY_PACKAGE, "openharmony.package"},
-    {ARK_UNIFORM_DATA_TYPE_OPENHARMONY_HAP, "openharmony.hap"},
-    {ARK_UNIFORM_DATA_TYPE_OPENHARMONY_HDOC, "openharmony.hdoc"},
-    {ARK_UNIFORM_DATA_TYPE_OPENHARMONY_HINOTE, "openharmony.hinote"},
-    {ARK_UNIFORM_DATA_TYPE_OPENHARMONY_STYLED_STRING, "openharmony.styled-string"},
-    {ARK_UNIFORM_DATA_TYPE_OPENHARMONY_WANT, "openharmony.want"},
-    {ARK_UNIFORM_DATA_TYPE_OFD, "general.ofd"},
-    {ARK_UNIFORM_DATA_TYPE_CAD, "general.cad"},
-    {ARK_UNIFORM_DATA_TYPE_OCTET_STREAM, "general.octet-stream"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_ENTITY, "general.entity"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OBJECT, "general.object"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_COMPOSITE_OBJECT, "general.composite-object"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TEXT, "general.text"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PLAIN_TEXT, "general.plain-text"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_HTML, "general.html"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_HYPERLINK, "general.hyperlink"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_XML, "general.xml"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_XHTML, "general.xhtml"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_RSS, "general.rss"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SMIL, "com.real.smil"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SOURCE_CODE, "general.source-code"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SCRIPT, "general.script"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SHELL_SCRIPT, "general.shell-script"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_CSH_SCRIPT, "general.csh-script"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PERL_SCRIPT, "general.perl-script"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PHP_SCRIPT, "general.php-script"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PYTHON_SCRIPT, "general.python-script"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_RUBY_SCRIPT, "general.ruby-script"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TYPE_SCRIPT, "general.type-script"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_JAVA_SCRIPT, "general.java-script"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_CSS, "general.css"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_C_HEADER, "general.c-header"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_C_SOURCE, "general.c-source"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_C_PLUS_PLUS_HEADER, "general.c-plus-plus-header"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_C_PLUS_PLUS_SOURCE, "general.c-plus-plus-source"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_JAVA_SOURCE, "general.java-source"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TEX, "general.tex"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MARKDOWN, "general.markdown"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_ASC_TEXT, "general.asc-text"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_RICH_TEXT, "general.rich-text"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_DELIMITED_VALUES_TEXT, "general.delimited-values-text"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_COMMA_SEPARATED_VALUES_TEXT, "general.comma-separated-values-text"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TAB_SEPARATED_VALUES_TEXT, "general.tab-separated-values-text"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_EBOOK, "general.ebook"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_EPUB, "general.epub"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_AZW, "com.amazon.azw"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_AZW3, "com.amazon.azw3"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_KFX, "com.amazon.kfx"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MOBI, "com.amazon.mobi"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MEDIA, "general.media"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_IMAGE, "general.image"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_JPEG, "general.jpeg"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PNG, "general.png"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_RAW_IMAGE, "general.raw-image"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TIFF, "general.tiff"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_BMP, "com.microsoft.bmp"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_ICO, "com.microsoft.ico"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PHOTOSHOP_IMAGE, "com.adobe.photoshop-image"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_AI_IMAGE, "com.adobe.illustrator.ai-image"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_FAX, "general.fax"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_JFX_FAX, "com.j2.jfx-fax"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_EFX_FAX, "com.js.efx-fax"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_XBITMAP_IMAGE, "general.xbitmap-image"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_GIF, "general.gif"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TGA_IMAGE, "com.truevision.tga-image"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SGI_IMAGE, "com.sgi.sgi-image"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENEXR_IMAGE, "com.ilm.openexr-image"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_FLASHPIX_IMAGE, "com.kodak.flashpix.image"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WORD_DOC, "com.microsoft.word.doc"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_EXCEL, "com.microsoft.excel.xls"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PPT, "com.microsoft.powerpoint.ppt"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WORD_DOT, "com.microsoft.word.dot"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_POWERPOINT_PPS, "com.microsoft.powerpoint.pps"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_EXCEL_XLT, "com.microsoft.excel.xlt"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_POWERPOINT_POT, "com.microsoft.powerpoint.pot"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_VISIO_VSD, "com.microsoft.visio.vsd"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PDF, "com.adobe.pdf"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_POSTSCRIPT, "com.adobe.postscript"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_ENCAPSULATED_POSTSCRIPT, "com.adobe.encapsulated-postscript"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_VIDEO, "general.video"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_AVI, "general.avi"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MPEG, "general.mpeg"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MPEG4, "general.mpeg-4"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_VIDEO_3GPP, "general.3gpp"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_VIDEO_3GPP2, "general.3gpp2"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TS, "general.ts"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MPEGURL_VIDEO, "general.mpegurl-video"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WM, "com.microsoft.windows-media-wm"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WMV, "com.microsoft.windows-media-wmv"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WMP, "com.microsoft.windows-media-wmp"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WVX, "com.microsoft.windows-media-wvx"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WMX, "com.microsoft.windows-media-wmx"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_REALMEDIA, "com.real.realmedia"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MATROSKA_VIDEO, "org.matroska.mkv"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_FLASH, "com.adobe.flash"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_AUDIO, "general.audio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_AAC, "general.aac"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_AIFF, "general.aiff"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_ALAC, "general.alac"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_FLAC, "general.flac"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MP3, "general.mp3"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OGG, "general.ogg"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PCM, "general.pcm"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WMA, "com.microsoft.windows-media-wma"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WAVEFORM_AUDIO, "com.microsoft.waveform-audio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WINDOWS_MEDIA_WAX, "com.microsoft.windows-media-wax"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_AU_AUDIO, "general.au-audio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_AIFC_AUDIO, "general.aifc-audio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MPEGURL_AUDIO, "general.mpegurl-audio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MPEG_4_AUDIO, "general.mpeg-4-audio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MP2, "general.mp2"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MPEG_AUDIO, "general.mpeg-audio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_ULAW_AUDIO, "general.ulaw-audio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SD2_AUDIO, "com.digidesign.sd2-audio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_REALAUDIO, "com.real.realaudio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MATROSKA_AUDIO, "org.matroska.mka"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_FILE, "general.file"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_DIRECTORY, "general.directory"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_FOLDER, "general.folder"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SYMLINK, "general.symlink"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_ARCHIVE, "general.archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_BZ2_ARCHIVE, "general.bz2-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPG, "general.opg"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TAZ_ARCHIVE, "general.taz-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WEB_ARCHIVE, "general.web-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_DISK_IMAGE, "general.disk-image"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_ISO, "general.iso"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TAR_ARCHIVE, "general.tar-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_ZIP_ARCHIVE, "general.zip-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_JAVA_ARCHIVE, "com.sun.java-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_GNU_TAR_ARCHIVE, "org.gnu.gnu-tar-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_GNU_ZIP_ARCHIVE, "org.gnu.gnu-zip-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_GNU_ZIP_TAR_ARCHIVE, "org.gnu.gnu-zip-tar-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENXML, "org.openxmlformats.openxml"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WORDPROCESSINGML_DOCUMENT,
+        "org.openxmlformats.wordprocessingml.document"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SPREADSHEETML_SHEET, "org.openxmlformats.spreadsheetml.sheet"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PRESENTATIONML_PRESENTATION,
+        "org.openxmlformats.presentationml.presentation"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_DRAWINGML_VISIO, "org.openxmlformats.drawingml.visio"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_DRAWINGML_TEMPLATE, "org.openxmlformats.drawingml.template"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_WORDPROCESSINGML_TEMPLATE,
+        "org.openxmlformats.wordprocessingml.template"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PRESENTATIONML_TEMPLATE,
+        "org.openxmlformats.presentationml.template"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PRESENTATIONML_SLIDESHOW,
+        "org.openxmlformats.presentationml.slideshow"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SPREADSHEETML_TEMPLATE,
+        "org.openxmlformats.spreadsheetml.template"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENDOCUMENT, "org.oasis.opendocument"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENDOCUMENT_TEXT, "org.oasis.opendocument.text"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENDOCUMENT_SPREADSHEET, "org.oasis.opendocument.spreadsheet"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENDOCUMENT_PRESENTATION, "org.oasis.opendocument.presentation"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENDOCUMENT_GRAPHICS, "org.oasis.opendocument.graphics"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENDOCUMENT_FORMULA, "org.oasis.opendocument.formula"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_STUFFIT_ARCHIVE, "com.allume.stuffit-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_RAR_ARCHIVE, "com.rarlab.rar-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SEVEN_ZIP_ARCHIVE, "org.7-zip.7-zip-archive"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_CALENDAR, "general.calendar"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_VCS, "general.vcs"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_ICS, "general.ics"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_CONTACT, "general.contact"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_DATABASE, "general.database"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_MESSAGE, "general.message"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_EXECUTABLE, "general.executable"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PORTABLE_EXECUTABLE, "com.microsoft.portable-executable"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_SUN_JAVA_CLASS, "com.sun.java-class"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_VCARD, "general.vcard"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_NAVIGATION, "general.navigation"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_LOCATION, "general.location"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_FONT, "general.font"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TRUETYPE_FONT, "general.truetype-font"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_TRUETYPE_COLLECTION_FONT, "general.truetype-collection-font"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENTYPE_FONT, "general.opentype-font"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_POSTSCRIPT_FONT, "com.adobe.postscript-font"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_POSTSCRIPT_PFB_FONT, "com.adobe.postscript-pfb-font"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_POSTSCRIPT_PFA_FONT, "com.adobe.postscript-pfa-font"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENHARMONY_FORM, "openharmony.form"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENHARMONY_APP_ITEM, "openharmony.app-item"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENHARMONY_PIXEL_MAP, "openharmony.pixel-map"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENHARMONY_ATOMIC_SERVICE, "openharmony.atomic-service"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENHARMONY_PACKAGE, "openharmony.package"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENHARMONY_HAP, "openharmony.hap"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENHARMONY_HDOC, "openharmony.hdoc"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENHARMONY_HINOTE, "openharmony.hinote"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENHARMONY_STYLED_STRING, "openharmony.styled-string"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OPENHARMONY_WANT, "openharmony.want"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OFD, "general.ofd"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_CAD, "general.cad"},
+    {ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_OCTET_STREAM, "general.octet-stream"},
 };
 
 struct ClickEffect {
@@ -253,7 +259,7 @@ struct ClickEffect {
 void AssignArkValue(Ark_ClickEffect& dst, const ClickEffect& value)
 {
     dst.level = value.level;
-    dst.scale = Converter::ArkValue<Opt_Number>(value.scale);
+    dst.scale = Converter::ArkValue<Opt_Float64>(value.scale);
 }
 struct MotionPathOptionTest {
     std::string path = "";
@@ -264,8 +270,8 @@ struct MotionPathOptionTest {
 void AssignArkValue(Ark_MotionPathOptions& dst, const MotionPathOptionTest& src)
 {
     dst.path = Converter::ArkValue<Ark_String>(src.path);
-    dst.from = Converter::ArkValue<Opt_Number>(src.from);
-    dst.to = Converter::ArkValue<Opt_Number>(src.to);
+    dst.from = Converter::ArkValue<Opt_Float64>(src.from);
+    dst.to = Converter::ArkValue<Opt_Float64>(src.to);
     dst.rotatable = Converter::ArkValue<Opt_Boolean>(src.rotatable);
 }
 class CommonMethodModifierTest6 : public ModifierTestBase<GENERATED_ArkUICommonMethodModifier,
@@ -289,8 +295,8 @@ public:
  */
 HWTEST_F(CommonMethodModifierTest6, setTransformTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_TRANSFORM_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_TRANSFORM_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_TRANSFORM_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_TRANSFORM_DEFAULT_VALUE));
 }
 
 /*
@@ -300,6 +306,8 @@ HWTEST_F(CommonMethodModifierTest6, setTransformTestDefaultValues, TestSize.Leve
  */
 HWTEST_F(CommonMethodModifierTest6, DISABLED_setTransformTestValidValues, TestSize.Level1)
 {
+    ASSERT_NE(modifier_->setTransform, nullptr);
+    FAIL() << "Test is not implemented yet";
 }
 
 /*
@@ -307,8 +315,10 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setTransformTestValidValues, TestSi
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest6, DISABLED_setTransformTestInvalidValues2, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest6, DISABLED_setTransformTestInvalidValues, TestSize.Level1)
 {
+    ASSERT_NE(modifier_->setTransform, nullptr);
+    FAIL() << "Test is not implemented yet";
 }
 
 //////////// ClickEffect
@@ -319,8 +329,8 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setTransformTestInvalidValues2, Tes
  */
 HWTEST_F(CommonMethodModifierTest6, setClickEffectTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_CLICK_EFFECT_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_CLICK_EFFECT_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_CLICK_EFFECT_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_CLICK_EFFECT_DEFAULT_VALUE));
 }
 
 /*
@@ -330,9 +340,9 @@ HWTEST_F(CommonMethodModifierTest6, setClickEffectTestDefaultValues, TestSize.Le
  */
 HWTEST_F(CommonMethodModifierTest6, DISABLED_setClickEffectTestValidValues, TestSize.Level1)
 {
-    ASSERT_NE(modifier_->setClickEffect0, nullptr);
+    ASSERT_NE(modifier_->setClickEffect, nullptr);
     using OneTestStep = std::tuple<Opt_ClickEffect, std::string>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_ClickEffect>(ClickEffect({.level = ARK_CLICK_EFFECT_LEVEL_LIGHT, .scale = 0.5f})),
             "{\"level\":\"0\",\"scale\":\"0.500000\"}"},
         {Converter::ArkValue<Opt_ClickEffect>(ClickEffect({.level = ARK_CLICK_EFFECT_LEVEL_MIDDLE, .scale = 1.5f})),
@@ -341,10 +351,10 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setClickEffectTestValidValues, Test
             "{\"level\":\"2\",\"scale\":\"2.500000\"}"},
     };
     for (auto [inputValue, expectedValue]: testPlan) {
-        modifier_->setClickEffect0(node_, &inputValue);
+        modifier_->setClickEffect(node_, &inputValue);
         auto fullJson = GetJsonValue(node_);
         auto resultValue = GetAttrValue<std::string>(fullJson, ATTRIBUTE_CLICK_EFFECT_NAME);
-        EXPECT_EQ(resultValue, expectedValue) << "Passed value is: " << expectedValue;
+        EXPECT_THAT(resultValue, Eq(expectedValue)) << "Passed value is: " << expectedValue;
     }
 }
 
@@ -355,9 +365,9 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setClickEffectTestValidValues, Test
  */
 HWTEST_F(CommonMethodModifierTest6, DISABLED_setClickEffectTestInvalidValues, TestSize.Level1)
 {
-    ASSERT_NE(modifier_->setClickEffect0, nullptr);
+    ASSERT_NE(modifier_->setClickEffect, nullptr);
     using OneTestStep = std::tuple<Opt_ClickEffect, std::string>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_ClickEffect>(), ""},
         {Converter::ArkValue<Opt_ClickEffect>(ClickEffect({.level = static_cast<Ark_ClickEffectLevel>(-1),
             .scale = 1.5f})),
@@ -366,16 +376,16 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setClickEffectTestInvalidValues, Te
             "{\"level\":\"2\",\"scale\":\"-2.500000\"}"},
     };
     for (auto [inputValue, expectedValue]: testPlan) {
-        modifier_->setClickEffect0(node_, &inputValue);
+        modifier_->setClickEffect(node_, &inputValue);
         auto fullJson = GetJsonValue(node_);
         auto resultValue = GetAttrValue<std::string>(fullJson, ATTRIBUTE_CLICK_EFFECT_NAME);
-        EXPECT_EQ(resultValue, expectedValue) << "Passed value is: " << expectedValue;
+        EXPECT_THAT(resultValue, Eq(expectedValue)) << "Passed value is: " << expectedValue;
     }
-    modifier_->setClickEffect0(node_, nullptr);
+    modifier_->setClickEffect(node_, nullptr);
     auto fullJson = GetJsonValue(node_);
     auto resultValue = GetAttrValue<std::string>(fullJson, ATTRIBUTE_CLICK_EFFECT_NAME);
     auto expectedValue = "";
-    EXPECT_EQ(resultValue, expectedValue) << "Passed value is: " << expectedValue;
+    EXPECT_THAT(resultValue, Eq(expectedValue)) << "Passed value is: " << expectedValue;
 }
 
 //////////// AllowDrop
@@ -398,6 +408,7 @@ HWTEST_F(CommonMethodModifierTest6, setAllowDropTestDefaultValues, TestSize.Leve
  */
 HWTEST_F(CommonMethodModifierTest6, DISABLED_setAllowDropTestValidValues, TestSize.Level1)
 {
+#ifdef WRONG_GEN
     ASSERT_NE(modifier_->setAllowDrop, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     ASSERT_NE(frameNode, nullptr);
@@ -410,6 +421,7 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setAllowDropTestValidValues, TestSi
         resultValue = frameNode->GetAllowDrop();
         EXPECT_TRUE(resultValue.find(expectedValue) != resultValue.end()) << "Passed value is: " << expectedValue;
     }
+#endif
 }
 
 /*
@@ -419,13 +431,14 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setAllowDropTestValidValues, TestSi
  */
 HWTEST_F(CommonMethodModifierTest6, DISABLED_setAllowDropTestInvalidValues, TestSize.Level1)
 {
+#ifdef WRONG_GEN
     ASSERT_NE(modifier_->setAllowDrop, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     ASSERT_NE(frameNode, nullptr);
     const std::string expectedValidValue = "com.adobe.pdf";
     // set valid value and check
     auto optArray = Converter::ArkValue<Opt_Array_UniformDataType>(
-        std::vector{Ark_UniformDataType::ARK_UNIFORM_DATA_TYPE_PDF}, Converter::FC);
+        std::vector{Ark_UniformDataType::ARK_UNIFORM_TYPE_DESCRIPTOR_UNIFORM_DATA_TYPE_PDF}, Converter::FC);
     modifier_->setAllowDrop(node_, &optArray);
     auto resultValue = frameNode->GetAllowDrop();
     EXPECT_TRUE(resultValue.find(expectedValidValue) != resultValue.end()) << "Passed value is: " << expectedValidValue;
@@ -433,6 +446,7 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setAllowDropTestInvalidValues, Test
     modifier_->setAllowDrop(node_, nullptr);
     resultValue = frameNode->GetAllowDrop();
     EXPECT_TRUE(resultValue.empty()) << "Passed value -- empty set is true";
+#endif
 }
 
 //////////// Draggable
@@ -443,8 +457,8 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setAllowDropTestInvalidValues, Test
  */
 HWTEST_F(CommonMethodModifierTest6, setDraggableTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_DRAGGABLE_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_DRAGGABLE_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_DRAGGABLE_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_DRAGGABLE_DEFAULT_VALUE));
 }
 
 /*
@@ -456,7 +470,7 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setDraggableTestValidValues, TestSi
 {
     ASSERT_NE(modifier_->setDraggable, nullptr);
     using OneTestStep = std::tuple<Opt_Boolean, std::string>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_Boolean>(true), "true"},
         {Converter::ArkValue<Opt_Boolean>(false), "false"},
     };
@@ -464,7 +478,7 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setDraggableTestValidValues, TestSi
         modifier_->setDraggable(node_, &inputValue);
         auto fullJson = GetJsonValue(node_);
         auto resultValue = GetAttrValue<std::string>(fullJson, ATTRIBUTE_DRAGGABLE_NAME);
-        EXPECT_EQ(resultValue, expectedValue) << "Passed value is: " << expectedValue;
+        EXPECT_THAT(resultValue, Eq(expectedValue)) << "Passed value is: " << expectedValue;
     }
 }
 
@@ -476,8 +490,8 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setDraggableTestValidValues, TestSi
  */
 HWTEST_F(CommonMethodModifierTest6, setMotionPathTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_MOTION_PATH_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_MOTION_PATH_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_MOTION_PATH_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_MOTION_PATH_DEFAULT_VALUE));
 }
 
 /*
@@ -491,15 +505,15 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setMotionPathTestValidValues, TestS
     using OneTestStep = std::tuple<Opt_MotionPathOptions, std::string>;
     MotionPathOptionTest defaultValue;
     MotionPathOptionTest validValue = {.path = "path", .from = 1.0f, .to = 2.0f, .rotatable = true};
-    static const std::vector<OneTestStep> testPlan = {
-        {Converter::ArkValue<Opt_MotionPathOptions>(defaultValue), ATTRIBUTE_MOTION_PATH_DEFAULT_VALUE},
+    const std::vector<OneTestStep> testPlan = {
+        {Converter::ArkValue<Opt_MotionPathOptions>(defaultValue), ""},
         {Converter::ArkValue<Opt_MotionPathOptions>(validValue), ""},
     };
     for (auto [inputValue, expectedValue]: testPlan) {
         modifier_->setMotionPath(node_, &inputValue);
         auto fullJson = GetJsonValue(node_);
         auto resultValue = GetAttrValue<std::string>(fullJson, ATTRIBUTE_MOTION_PATH_NAME);
-        EXPECT_EQ(resultValue, expectedValue) << "Passed value is: " << expectedValue;
+        EXPECT_THAT(resultValue, Eq(expectedValue)) << "Passed value is: " << expectedValue;
     }
 }
 
@@ -514,7 +528,7 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setMotionPathTestInvalidValues, Tes
     using OneTestStep = std::tuple<Opt_MotionPathOptions, std::string>;
     MotionPathOptionTest invalidValue1 = {.path = "path", .from = 2.0f, .to = 1.0f, .rotatable = true};
     MotionPathOptionTest invalidValue2 = {.path = "path", .from = -2.0f, .to = -1.0f, .rotatable = true};
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_MotionPathOptions>(invalidValue1), ""},
         {Converter::ArkValue<Opt_MotionPathOptions>(invalidValue2), ""},
     };
@@ -522,7 +536,7 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setMotionPathTestInvalidValues, Tes
         modifier_->setMotionPath(node_, &inputValue);
         auto fullJson = GetJsonValue(node_);
         auto resultValue = GetAttrValue<std::string>(fullJson, ATTRIBUTE_MOTION_PATH_NAME);
-        EXPECT_EQ(resultValue, expectedValue) << "Passed value is: " << expectedValue;
+        EXPECT_THAT(resultValue, Eq(expectedValue)) << "Passed value is: " << expectedValue;
     }
 }
 
@@ -534,8 +548,8 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setMotionPathTestInvalidValues, Tes
  */
 HWTEST_F(CommonMethodModifierTest6, setKeyTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_KEY_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_KEY_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_KEY_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_KEY_DEFAULT_VALUE));
 }
 
 /*
@@ -547,7 +561,7 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setKeyTestValidValues, TestSize.Lev
 {
     ASSERT_NE(modifier_->setKey, nullptr);
     using OneTestStep = std::tuple<Opt_String, std::string>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_String>("1"), "1"},
         {Converter::ArkValue<Opt_String>("2"), "2"},
     };
@@ -555,7 +569,7 @@ HWTEST_F(CommonMethodModifierTest6, DISABLED_setKeyTestValidValues, TestSize.Lev
         modifier_->setKey(node_, &inputValue);
         auto fullJson = GetJsonValue(node_);
         auto resultValue = GetAttrValue<std::string>(fullJson, ATTRIBUTE_KEY_NAME);
-        EXPECT_EQ(resultValue, expectedValue) << "Passed value is: " << expectedValue;
+        EXPECT_THAT(resultValue, Eq(expectedValue)) << "Passed value is: " << expectedValue;
     }
 }
 
@@ -568,7 +582,7 @@ HWTEST_F(CommonMethodModifierTest6, setKeyTestInvalidValues, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setKey, nullptr);
     using OneTestStep = std::tuple<Opt_String, std::string>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_String>(""), ATTRIBUTE_KEY_DEFAULT_VALUE},
     };
     for (auto [inputValue, expectedValue]: testPlan) {
@@ -576,7 +590,7 @@ HWTEST_F(CommonMethodModifierTest6, setKeyTestInvalidValues, TestSize.Level1)
         auto fullJson = GetJsonValue(node_);
         ASSERT_NE(fullJson, nullptr);
         auto resultValue = GetAttrValue<std::string>(fullJson, ATTRIBUTE_KEY_NAME);
-        EXPECT_EQ(resultValue, expectedValue) << "Passed value is: " << expectedValue;
+        EXPECT_THAT(resultValue, Eq(expectedValue)) << "Passed value is: " << expectedValue;
     }
 }
 // GENERATED_ArkUICommonMethodModifier

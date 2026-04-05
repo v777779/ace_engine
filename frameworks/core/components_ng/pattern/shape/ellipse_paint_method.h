@@ -28,7 +28,7 @@
 namespace OHOS::Ace::NG {
 
 class ACE_EXPORT EllipsePaintMethod : public ShapePaintMethod {
-    DECLARE_ACE_TYPE(EllipsePaintMethod, ShapePaintMethod)
+    DECLARE_ACE_TYPE(EllipsePaintMethod, ShapePaintMethod);
 public:
     EllipsePaintMethod() = default;
     EllipsePaintMethod(
@@ -41,7 +41,9 @@ public:
     CanvasDrawFunction GetContentDrawFunction(PaintWrapper* paintWrapper) override
     {
         CHECK_NULL_RETURN(paintWrapper, nullptr);
-        auto shapePaintProperty = DynamicCast<ShapePaintProperty>(paintWrapper->GetPaintProperty()->Clone());
+        auto paintProperty = paintWrapper->GetPaintProperty();
+        CHECK_NULL_RETURN(paintProperty, nullptr);
+        auto shapePaintProperty = DynamicCast<ShapePaintProperty>(paintProperty->Clone());
         CHECK_NULL_RETURN(shapePaintProperty, nullptr);
 
         if (propertiesFromAncestor_) {
@@ -65,9 +67,7 @@ public:
         RectF rect(dx, dy, width, height);
         return [rect, shapePaintProperty, paintWrapper](RSCanvas& canvas) {
                     EllipsePainter::DrawEllipse(canvas, rect, *shapePaintProperty);
-                    if (paintWrapper) {
-                        paintWrapper->FlushOverlayModifier();
-                    }
+                    paintWrapper->FlushOverlayModifier();
                 };
     }
 

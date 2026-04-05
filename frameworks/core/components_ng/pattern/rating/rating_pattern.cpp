@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,6 +17,8 @@
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
+
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 #include "base/log/dump_log.h"
 #include "base/memory/ace_type.h"
@@ -40,11 +42,14 @@ constexpr int32_t RATING_IMAGE_SUCCESS_CODE = 0b111;
 constexpr int32_t RATING_IMAGE_SUCCESS_FOCUS_CODE = 0b1111;
 constexpr int32_t DEFAULT_RATING_TOUCH_STAR_NUMBER = 0;
 constexpr int32_t HALF_DIVIDE = 2;
+const std::string INJECTION_CMD_FORMAT_ERROR = "Invalid injection command format.";
+const std::string COMPONENT_IN_READONLY = "The component is in read-only state.";
 
 void RatingPattern::OnAttachToFrameNode()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
     renderContext->SetAlphaOffscreen(true);
@@ -186,6 +191,7 @@ void RatingPattern::UpdatePaintConfig()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto layoutProperty = GetLayoutProperty<RatingLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
     auto starsNum = layoutProperty->GetStarsValue(themeStarNum_);
@@ -256,6 +262,7 @@ RefPtr<NodePaintMethod> RatingPattern::CreateNodePaintMethod()
     ratingModifier_->SetImageInfoFromTheme(isForegroundImageInfoFromTheme_ &&
         isSecondaryImageInfoFromTheme_ && isBackgroundImageInfoFromTheme_);
     ratingModifier_->SetUseContentModifier(UseContentModifier());
+    ratingModifier_->SetIsNeedFocusStyle(isNeedFocusStyle_);
     auto direction = ratingLayoutProperty->GetLayoutDirection();
     auto reverse = direction == TextDirection::AUTO ? AceApplicationInfo::GetInstance().IsRightToLeft() :
         direction == TextDirection::RTL;
@@ -273,6 +280,7 @@ bool RatingPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty,
 {
     auto host = GetHost();
     CHECK_NULL_RETURN(host, false);
+    ACE_UINODE_TRACE(host);
     std::optional<SizeF> contentSize = GetHostContentSize();
     CHECK_NULL_RETURN(contentSize, false);
     auto layoutProperty = GetLayoutProperty<RatingLayoutProperty>();
@@ -332,6 +340,7 @@ void RatingPattern::RecalculatedRatingScoreBasedOnEventPoint(double eventPointX,
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto ratingLayoutProperty = GetLayoutProperty<RatingLayoutProperty>();
     CHECK_NULL_VOID(ratingLayoutProperty);
     auto ratingRenderProperty = GetPaintProperty<RatingRenderProperty>();
@@ -360,7 +369,7 @@ void RatingPattern::RecalculatedRatingScoreBasedOnEventPoint(double eventPointX,
     ratingScore = (ratingScore < 0.0) ? 0.0 : ratingScore;
     const double newDrawScore = fmin(ceil(ratingScore / stepSize) * stepSize, starNum);
     // step3.2: Determine whether the old and new ratingScores are same or not.
-    const double oldRatingScore = ratingRenderProperty->GetRatingScoreValue();
+    const double oldRatingScore = ratingRenderProperty->GetRatingScoreValue(0.0);
     const double oldDrawScore = fmin(Round(oldRatingScore / stepSize) * stepSize, static_cast<double>(starNum));
 
     CHECK_NULL_VOID(!NearEqual(newDrawScore, oldDrawScore));
@@ -400,9 +409,10 @@ void RatingPattern::FireChangeEvent()
     auto ratingRenderProperty = GetPaintProperty<RatingRenderProperty>();
     CHECK_NULL_VOID(ratingRenderProperty);
     std::stringstream ss;
-    ss << std::setprecision(2) << ratingRenderProperty->GetRatingScoreValue();
+    ss << std::setprecision(2) << ratingRenderProperty->GetRatingScoreValue(0.0);
     ratingEventHub->FireChangeEvent(ss.str());
-    lastRatingScore_ = ratingRenderProperty->GetRatingScoreValue();
+    ReportChangeEvent(ss.str());
+    lastRatingScore_ = ratingRenderProperty->GetRatingScoreValue(0.0);
 
     if (!Recorder::EventRecorder::Get().IsComponentRecordEnable()) {
         return;
@@ -495,6 +505,7 @@ void RatingPattern::HandleTouchDown(const Offset& localPosition)
     CHECK_NULL_VOID(ratingRenderProperty);
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     const auto& content = host->GetGeometryNode()->GetContent();
     CHECK_NULL_VOID(content);
     auto contentOffset = content->GetRect().GetOffset();
@@ -531,6 +542,7 @@ void RatingPattern::GetInnerFocusPaintRect(RoundRect& paintRect)
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     const auto& content = host->GetGeometryNode()->GetContent();
     CHECK_NULL_VOID(content);
     auto singleStarHeight = content->GetRect().Height();
@@ -608,6 +620,7 @@ void RatingPattern::PaintFocusState(double ratingScore)
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     isfocus_ = true;
     focusRatingScore_ = ratingScore;
     RoundRect focusRect;
@@ -697,7 +710,7 @@ void RatingPattern::SetModifierFocus(bool isFocus)
     if (ratingTheme->GetFocusAndBlurCancleAnimation()) {
         ratingModifier_->SetFocusOrBlurColor(isfocus_ ? ratingTheme->GetFocusColor() : Color::TRANSPARENT);
     }
-    ratingModifier_->SetIsFocus(isFocus);
+    ratingModifier_->SetIsFocus(isFocus, GetHost());
     ratingModifier_->SetNeedDraw(true);
     MarkDirtyNode(PROPERTY_UPDATE_RENDER);
 }
@@ -717,7 +730,7 @@ void RatingPattern::OnBlurEvent()
     RemoveIsFocusActiveUpdateEvent();
     auto ratingRenderProperty = GetPaintProperty<RatingRenderProperty>();
     CHECK_NULL_VOID(ratingRenderProperty);
-    focusRatingScore_ = ratingRenderProperty->GetRatingScoreValue();
+    focusRatingScore_ = ratingRenderProperty->GetRatingScoreValue(0.0);
     MarkDirtyNode(PROPERTY_UPDATE_RENDER);
 }
 
@@ -744,6 +757,7 @@ void RatingPattern::SetRatingScore(double ratingScore)
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto eventHub = host->GetEventHub<EventHub>();
     CHECK_NULL_VOID(eventHub);
     auto enabled = eventHub->IsEnabled();
@@ -808,6 +822,7 @@ void RatingPattern::HandleMouseEvent(MouseInfo& info)
     CHECK_NULL_VOID(!IsIndicator() && isHover_);
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     const auto& content = host->GetGeometryNode()->GetContent();
     CHECK_NULL_VOID(content);
     auto contentOffset = content->GetRect().GetOffset();
@@ -949,6 +964,7 @@ void RatingPattern::OnModifyDone()
     FireBuilder();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto ratingTheme = pipeline->GetTheme<RatingTheme>();
@@ -969,6 +985,20 @@ void RatingPattern::OnModifyDone()
     if (IsNeedFocusStyle()) {
         LoadFocusBackground(layoutProperty, ratingTheme, iconTheme);
     }
+    auto callback = [weak = WeakClaim(this)]() {
+        auto pattern = weak.Upgrade();
+        if (pattern) {
+            pattern->InitEvent();
+        }
+    };
+    pipeline->AddBuildFinishCallBack(callback);
+}
+
+void RatingPattern::InitEvent()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto hub = host->GetEventHub<EventHub>();
     CHECK_NULL_VOID(hub);
     auto gestureHub = hub->GetOrCreateGestureEventHub();
@@ -993,6 +1023,7 @@ void RatingPattern::HandleEnabled()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto eventHub = host->GetEventHub<EventHub>();
     CHECK_NULL_VOID(eventHub);
     auto enabled = eventHub->IsEnabled();
@@ -1069,6 +1100,7 @@ void RatingPattern::SetRedrawCallback(const RefPtr<CanvasImage>& image)
     image->SetRedrawCallback([weak = WeakPtr(GetHost())] {
         auto ratingNode = weak.Upgrade();
         CHECK_NULL_VOID(ratingNode);
+        ACE_UINODE_TRACE(ratingNode);
         ratingNode->MarkNeedRenderOnly();
     });
 }
@@ -1112,8 +1144,10 @@ void RatingPattern::FireBuilder()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     if (!makeFunc_.has_value()) {
-        host->RemoveChildAtIndex(0);
+        host->RemoveChildAndReturnIndex(contentModifierNode_);
+        contentModifierNode_ = nullptr;
         host->MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE);
         return;
     }
@@ -1121,11 +1155,14 @@ void RatingPattern::FireBuilder()
     if (contentModifierNode_ == node) {
         return;
     }
-    host->RemoveChildAtIndex(0);
+    host->RemoveChildAndReturnIndex(contentModifierNode_);
     contentModifierNode_ = node;
     CHECK_NULL_VOID(contentModifierNode_);
     host->AddChild(contentModifierNode_, 0);
     host->MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE);
+    if (ratingModifier_) {
+        ratingModifier_->SetUseContentModifier(UseContentModifier());
+    }
 }
 
 RefPtr<FrameNode> RatingPattern::BuildContentModifierNode()
@@ -1135,6 +1172,7 @@ RefPtr<FrameNode> RatingPattern::BuildContentModifierNode()
     }
     auto host = GetHost();
     CHECK_NULL_RETURN(host, nullptr);
+    ACE_UINODE_TRACE(host);
     auto property = GetLayoutProperty<RatingLayoutProperty>();
     CHECK_NULL_RETURN(property, nullptr);
     auto renderProperty = GetPaintProperty<RatingRenderProperty>();
@@ -1148,5 +1186,153 @@ RefPtr<FrameNode> RatingPattern::BuildContentModifierNode()
     auto enabled = eventHub->IsEnabled();
     RatingConfiguration ratingConfiguration(starNum, isIndicator, ratingScore, stepSize, enabled);
     return (makeFunc_.value())(ratingConfiguration);
+}
+
+void RatingPattern::OnColorModeChange(uint32_t colorMode)
+{
+    Pattern::OnColorModeChange(colorMode);
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    auto ratingTheme = pipeline->GetTheme<RatingTheme>();
+    CHECK_NULL_VOID(ratingTheme);
+    auto iconTheme = pipeline->GetTheme<IconTheme>();
+    CHECK_NULL_VOID(iconTheme);
+    auto layoutProperty = host->GetLayoutProperty<RatingLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+
+    // Move resetting the successful image loading status code from onModifyDone
+    imageSuccessStateCode_ = 0;
+    LoadForeground(layoutProperty, ratingTheme, iconTheme);
+    LoadSecondary(layoutProperty, ratingTheme, iconTheme);
+    LoadBackground(layoutProperty, ratingTheme, iconTheme);
+    if (IsNeedFocusStyle()) {
+        LoadFocusBackground(layoutProperty, ratingTheme, iconTheme);
+    }
+}
+
+void RatingPattern::ReportChangeEvent(const std::string& index)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto nodeId = host->GetId();
+    auto params = JsonUtil::Create();
+    CHECK_NULL_VOID(params);
+    params->Put("nodeId", nodeId);
+    params->Put("value", StringUtils::StringToDouble(index));
+    auto json = JsonUtil::Create();
+    CHECK_NULL_VOID(json);
+    json->Put("event", "onRatingChange");
+    json->Put("params", params);
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent(
+        "result", json->ToString(), ComponentEventType::COMPONENT_EVENT_SELECT);
+}
+
+int32_t RatingPattern::OnInjectionEvent(const std::string& command)
+{
+    auto commandObj = JsonUtil::ParseJsonString(command);
+    if (!commandObj->IsValid() || !commandObj->IsObject()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return RET_FAILED;
+    }
+
+    auto cmdObj = commandObj->GetValue("cmd");
+    if (!cmdObj->IsValid() || !cmdObj->IsString()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return RET_FAILED;
+    }
+
+    std::string cmd = cmdObj->GetString();
+    if (cmd == "onRatingChange") {
+        return HandleRatingChangeInjection(commandObj);
+    } else {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return RET_FAILED;
+    }
+}
+
+bool RatingPattern::ReportInjectionResult(bool isSuccess, const std::string& reason)
+{
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    auto nodeId = host->GetId();
+    CHECK_NULL_RETURN(nodeId, false);
+    auto result = JsonUtil::Create();
+    CHECK_NULL_RETURN(result, false);
+    result->Put("nodeId", nodeId);
+    result->Put("event", "onRatingChange");
+    result->Put("result", isSuccess ? "success" : "failed");
+    result->Put("reason", reason.c_str());
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent(
+        "RatingResult", result->ToString(), ComponentEventType::COMPONENT_EVENT_SELECT);
+    return true;
+}
+
+double RatingPattern::AdjustedRatingScore(double value)
+{
+    if (value < 0.0) {
+        value = 0.0;
+        return value;
+    }
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, value);
+    auto layoutProperty = host->GetLayoutProperty<RatingLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, value);
+    auto maxStars = layoutProperty->GetStarsValue(themeStarNum_);
+    if (value > static_cast<double>(maxStars)) {
+        value = static_cast<double>(maxStars);
+        return value;
+    }
+    auto ratingRenderProperty = GetPaintProperty<RatingRenderProperty>();
+    CHECK_NULL_RETURN(ratingRenderProperty, value);
+    auto stepSize = ratingRenderProperty->GetStepSizeValue(themeStepSize_);
+    if (stepSize > 0.0 && stepSize <= static_cast<double>(maxStars)) {
+        double adjustedValue = std::round(value / stepSize) * stepSize;
+        adjustedValue = std::max(0.0, std::min(adjustedValue, static_cast<double>(maxStars)));
+        if (value != adjustedValue) {
+            value = adjustedValue;
+        }
+    }
+    return value;
+}
+
+int32_t RatingPattern::HandleRatingChangeInjection(const std::unique_ptr<JsonValue>& commandObj)
+{
+    auto paramsObj = commandObj->GetValue("params");
+    if (!paramsObj->IsValid() || !paramsObj->IsObject()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return RET_FAILED;
+    }
+
+    auto valueObj = paramsObj->GetValue("value");
+    if (!valueObj->IsValid() || !valueObj->IsNumber()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return RET_FAILED;
+    }
+
+    auto frameNode = GetHost();
+    CHECK_NULL_RETURN(frameNode, RET_FAILED);
+    auto eventHub = frameNode->GetEventHub<EventHub>();
+    CHECK_NULL_RETURN(eventHub, RET_FAILED);
+    auto enabled = eventHub->IsEnabled();
+    if (!enabled) {
+        ReportInjectionResult(false, COMPONENT_IN_READONLY);
+        return RET_FAILED;
+    }
+
+    if (IsIndicator()) {
+        ReportInjectionResult(false, COMPONENT_IN_READONLY);
+        return RET_FAILED;
+    }
+
+    double value = valueObj->GetDouble();
+    SetRatingScore(AdjustedRatingScore(value));
+    ReportInjectionResult(true, "");
+    return RET_SUCCESS;
 }
 } // namespace OHOS::Ace::NG

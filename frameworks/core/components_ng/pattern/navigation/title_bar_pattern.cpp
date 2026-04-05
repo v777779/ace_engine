@@ -18,9 +18,12 @@
 #include <sstream>
 
 #include "base/i18n/localization.h"
+#include "base/utils/multi_thread.h"
 #include "core/common/agingadapation/aging_adapation_dialog_theme.h"
 #include "core/common/agingadapation/aging_adapation_dialog_util.h"
 #include "core/components/button/button_theme.h"
+#include "core/components_ng/pattern/navigation/nav_bar_layout_property.h"
+#include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/navigation/nav_bar_node.h"
 #include "core/components_ng/pattern/navigation/navigation_declaration.h"
 #include "core/components_ng/pattern/navigation/navigation_group_node.h"
@@ -120,12 +123,10 @@ void SetBackButtonImgAboveVersionTen(const RefPtr<FrameNode>& backButtonNode,
         return;
     }
 
-    if (titleBarLayoutProperty->HasImageSource()) {
-        ImageSourceInfo imageSourceInfo = titleBarLayoutProperty->GetImageSourceValue();
-        SetImageSourceInfoFillColor(imageSourceInfo);
-        backButtonImageLayoutProperty->UpdateImageSourceInfo(imageSourceInfo);
-        backButtonNode->MarkModifyDone();
-    }
+    ImageSourceInfo imageSourceInfo = titleBarLayoutProperty->GetImageSourceValue();
+    SetImageSourceInfoFillColor(imageSourceInfo);
+    backButtonImageLayoutProperty->UpdateImageSourceInfo(imageSourceInfo);
+    backButtonNode->MarkModifyDone();
 }
 
 void SetBackButtonImgBelowVersionTen(const RefPtr<FrameNode>& backButtonNode,
@@ -136,13 +137,10 @@ void SetBackButtonImgBelowVersionTen(const RefPtr<FrameNode>& backButtonNode,
     if (!backButtonNode || !titleBarLayoutProperty || !backButtonImageLayoutProperty) {
         return;
     }
-
-    if (titleBarLayoutProperty->HasImageSource()) {
-        ImageSourceInfo imageSourceInfo = titleBarLayoutProperty->GetImageSourceValue();
-        SetImageSourceInfoFillColor(imageSourceInfo);
-        backButtonImageLayoutProperty->UpdateImageSourceInfo(imageSourceInfo);
-        backButtonNode->MarkModifyDone();
-    }
+    ImageSourceInfo imageSourceInfo = titleBarLayoutProperty->GetImageSourceValue();
+    SetImageSourceInfoFillColor(imageSourceInfo);
+    backButtonImageLayoutProperty->UpdateImageSourceInfo(imageSourceInfo);
+    backButtonNode->MarkModifyDone();
 }
 
 void HandleDefaultIconForNavDestination(
@@ -309,6 +307,7 @@ void UpdateImageBackButton(const RefPtr<FrameNode>& backButtonNode, const RefPtr
         auto backButtonImageNode = FrameNode::CreateFrameNode(V2::BACK_BUTTON_IMAGE_ETS_TAG,
             ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ImagePattern>());
         CHECK_NULL_VOID(backButtonImageNode);
+        ImageSourceInfo imageSourceInfo = titleBarLayoutProperty->GetImageSourceValue();
         auto backButtonImageLayoutProperty = backButtonImageNode->GetLayoutProperty<ImageLayoutProperty>();
         CHECK_NULL_VOID(backButtonImageLayoutProperty);
         backButtonImageLayoutProperty->UpdateMeasureType(MeasureType::MATCH_PARENT);
@@ -583,15 +582,18 @@ void TitleBarPattern::ResetMainTitleProperty(const RefPtr<FrameNode>& textNode,
         titleLayoutProperty->UpdateAdaptMaxFontSize(miniTitleFontSizeMin);
         titleLayoutProperty->UpdateHeightAdaptivePolicy(hasSubTitle ? TextHeightAdaptivePolicy::MAX_LINES_FIRST :
             TextHeightAdaptivePolicy::MIN_FONT_SIZE_FIRST);
+        titleLayoutProperty->UpdateAdaptMinFontSize(theme->NavigationMiniMinFontSize());
     } else if (titleMode == NavigationTitleMode::MINI) {
         auto hideBackButtonValid = titleBarLayoutProperty->HasHideBackButton() &&
             titleBarLayoutProperty->GetHideBackButtonValue();
         titleLayoutProperty->UpdateFontSize(hideBackButtonValid ? miniTitleFontSize : miniTitleFontSizeMin);
         titleLayoutProperty->UpdateAdaptMaxFontSize(hideBackButtonValid ? miniTitleFontSize : miniTitleFontSizeMin);
+        titleLayoutProperty->UpdateAdaptMinFontSize(theme->NavigationMiniMinFontSize());
         UpdateSubTitleOpacity(1.0);
     } else if (titleMode == NavigationTitleMode::FULL) {
         titleLayoutProperty->UpdateFontSize(titleFontSize);
         titleLayoutProperty->UpdateAdaptMaxFontSize(maxFontSize);
+        titleLayoutProperty->UpdateAdaptMinFontSize(theme->NavigationFullMinFontSize());
         UpdateSubTitleOpacity(1.0);
     } else {
         titleLayoutProperty->UpdateFontSize(fontSize_.has_value() ? fontSize_.value() : titleFontSize);
@@ -653,6 +655,7 @@ void TitleBarPattern::MountTitle(const RefPtr<TitleBarNode>& hostNode)
 
 RefPtr<LayoutAlgorithm> TitleBarPattern::CreateLayoutAlgorithm()
 {
+    ACE_UINODE_TRACE(GetHost());
     auto titleBarLayoutAlgorithm = MakeRefPtr<TitleBarLayoutAlgorithm>();
     titleBarLayoutAlgorithm->SetInitialTitleOffsetY(initialTitleOffsetY_);
     titleBarLayoutAlgorithm->MarkIsInitialTitle(isInitialTitle_);
@@ -670,6 +673,7 @@ void TitleBarPattern::OnModifyDone()
     }
     auto hostNode = AceType::DynamicCast<TitleBarNode>(GetHost());
     CHECK_NULL_VOID(hostNode);
+    ACE_UINODE_TRACE(hostNode);
     MountBackButton(hostNode);
     MountTitle(hostNode);
     MountSubTitle(hostNode);
@@ -845,7 +849,7 @@ void TitleBarPattern::SpringAnimation(float startPos, float endPos)
     SetTempTitleBarHeightVp(maxTitleBarHeight_ + overDragOffset_ / 6.0f);
     UpdateScaleByDragOverDragOffset(overDragOffset_);
     host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     if (pipeline) {
         pipeline->FlushUITasks();
     }
@@ -871,7 +875,7 @@ void TitleBarPattern::SpringAnimation(float startPos, float endPos)
             pattern->tempTitleOffsetY_ = 0.0f;
             pattern->isFreeTitleUpdated_ = false;
             host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
-            auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+            auto pipeline = PipelineContext::GetCurrentContext();
             if (pipeline) {
                 pipeline->FlushUITasks();
             }
@@ -879,7 +883,7 @@ void TitleBarPattern::SpringAnimation(float startPos, float endPos)
             auto pattern = weakPattern.Upgrade();
             CHECK_NULL_VOID(pattern);
             pattern->CleanSpringAnimation();
-        });
+        }, nullptr /* repeatCallback */, host->GetContextRefPtr());
 }
 
 void TitleBarPattern::ClearDragState()
@@ -927,6 +931,8 @@ void TitleBarPattern::TransformScale(float overDragOffset, const RefPtr<FrameNod
 
 void TitleBarPattern::AnimateTo(float offset, bool isFullTitleMode)
 {
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
     AnimationOption option;
     option.SetCurve(Curves::FAST_OUT_SLOW_IN);
     option.SetDuration(DEFAULT_ANIMATION_DURATION);
@@ -944,7 +950,7 @@ void TitleBarPattern::AnimateTo(float offset, bool isFullTitleMode)
                 pattern->isFreeTitleUpdated_ = false;
             }
             host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
-            auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+            auto pipeline = PipelineContext::GetCurrentContext();
             if (pipeline) {
                 pipeline->FlushUITasks();
             }
@@ -952,7 +958,7 @@ void TitleBarPattern::AnimateTo(float offset, bool isFullTitleMode)
             auto pattern = weakPattern.Upgrade();
             CHECK_NULL_VOID(pattern);
             pattern->CleanAnimation();
-        });
+        }, nullptr /* repeatCallback */, host->GetContextRefPtr());
 }
 
 void TitleBarPattern::SetMaxTitleBarHeight()
@@ -1127,6 +1133,7 @@ void TitleBarPattern::OnAttachToFrameNode()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    THREAD_SAFE_NODE_CHECK(host, OnAttachToFrameNode);
     host->GetRenderContext()->SetClipToFrame(true);
     host->GetRenderContext()->UpdateClipEdge(true);
 
@@ -1135,7 +1142,7 @@ void TitleBarPattern::OnAttachToFrameNode()
             .edges = SAFE_AREA_EDGE_TOP };
         host->GetLayoutProperty()->UpdateSafeAreaExpandOpts(opts);
     }
-    auto pipelineContext = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipelineContext = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipelineContext);
 
     auto halfFoldHoverCallbackId = pipelineContext->RegisterHalfFoldHoverChangedCallback(
@@ -1145,6 +1152,20 @@ void TitleBarPattern::OnAttachToFrameNode()
             NavigationTitleUtil::FoldStatusChangedAnimation(host);
         });
     UpdateHalfFoldHoverChangedCallbackId(halfFoldHoverCallbackId);
+}
+
+void TitleBarPattern::OnAttachToMainTree()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    THREAD_SAFE_NODE_CHECK(host, OnAttachToMainTree);
+}
+
+void TitleBarPattern::OnDetachFromMainTree()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    THREAD_SAFE_NODE_CHECK(host, OnDetachFromMainTree);
 }
 
 void TitleBarPattern::InitFoldCreaseRegion()
@@ -1422,6 +1443,8 @@ void TitleBarPattern::SetTitlebarOptions(NavigationTitlebarOptions& opt)
 
 void TitleBarPattern::UpdateBackgroundStyle(RefPtr<FrameNode>& host)
 {
+    CHECK_NULL_VOID(host);
+    FREE_NODE_CHECK(host, UpdateBackgroundStyle, host);
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
     if (options_.bgOptions.color.has_value()) {
@@ -1444,7 +1467,8 @@ void TitleBarPattern::UpdateBackgroundStyle(RefPtr<FrameNode>& host)
 void TitleBarPattern::OnDetachFromFrameNode(FrameNode* frameNode)
 {
     CHECK_NULL_VOID(frameNode);
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    THREAD_SAFE_NODE_CHECK(frameNode, OnDetachFromFrameNode, frameNode);
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
 
     if (HasHalfFoldHoverChangedCallbackId()) {
@@ -1540,6 +1564,7 @@ void TitleBarPattern::HandleLongPressActionEnd()
 
 void TitleBarPattern::InitBackButtonLongPressEvent(const RefPtr<FrameNode>& backButtonNode)
 {
+    ACE_UINODE_TRACE(GetHost());
     auto gestureHub = backButtonNode->GetOrCreateGestureEventHub();
     CHECK_NULL_VOID(gestureHub);
 
@@ -1588,6 +1613,7 @@ void TitleBarPattern::OnFontScaleConfigurationUpdate()
 void TitleBarPattern::InitMenuDragAndLongPressEvent(
     const RefPtr<FrameNode>& menuNode, const std::vector<NG::BarItem>& menuItems)
 {
+    ACE_UINODE_TRACE(GetHost());
     CHECK_NULL_VOID(menuNode);
     auto hostNode = AceType::DynamicCast<TitleBarNode>(GetHost());
     CHECK_NULL_VOID(hostNode);

@@ -24,8 +24,9 @@
 #include <unordered_map>
 #include <atomic>
 #include <utility>
+#include <mutex>
 
-static bool needReleaseFront = false;
+static std::recursive_mutex g_eventQueueMutex;
 static std::deque<CallbackEventKind> callbackEventsQueue;
 static std::deque<std::pair<int, CallbackBuffer>> callbackCallSubqueue;
 static std::deque<InteropInt32> callbackResourceSubqueue;
@@ -66,24 +67,35 @@ void impl_UnblockCallbackWait(KNativePointer waitContext) {
 KOALA_INTEROP_V1(UnblockCallbackWait, KNativePointer)
 
 void enqueueCallback(int apiKind, const CallbackBuffer* event) {
-    callbackEventsQueue.push_back(Event_CallCallback);
-    callbackCallSubqueue.push_back({ apiKind, *event });
+    {
+        std::lock_guard<std::recursive_mutex> _lock {g_eventQueueMutex};
+        callbackEventsQueue.push_back(Event_CallCallback);
+        callbackCallSubqueue.push_back({ apiKind, *event });
+    }
     notifyWaiter();
 }
 
 void holdManagedCallbackResource(InteropInt32 resourceId) {
-    callbackEventsQueue.push_back(Event_HoldManagedResource);
-    callbackResourceSubqueue.push_back(resourceId);
+    {
+        std::lock_guard<std::recursive_mutex> _lock {g_eventQueueMutex};
+        callbackEventsQueue.push_back(Event_HoldManagedResource);
+        callbackResourceSubqueue.push_back(resourceId);
+    }
     notifyWaiter();
 }
 
 void releaseManagedCallbackResource(InteropInt32 resourceId) {
-    callbackEventsQueue.push_back(Event_ReleaseManagedResource);
-    callbackResourceSubqueue.push_back(resourceId);
+    {
+        std::lock_guard<std::recursive_mutex> _lock {g_eventQueueMutex};
+        callbackEventsQueue.push_back(Event_ReleaseManagedResource);
+        callbackResourceSubqueue.push_back(resourceId);
+    }
     notifyWaiter();
 }
 
 KInt impl_CheckCallbackEvent(KSerializerBuffer buffer, KInt size) {
+    std::lock_guard<std::recursive_mutex> _lock {g_eventQueueMutex};
+    static bool needReleaseFront = false;
     KByte* result = (KByte*)buffer;
     if (needReleaseFront)
     {
@@ -116,13 +128,16 @@ KInt impl_CheckCallbackEvent(KSerializerBuffer buffer, KInt size) {
         case Event_CallCallback: {
             std::pair<int, CallbackBuffer> &callback = callbackCallSubqueue.front();
             serializer.writeInt32(callback.first);
-            interop_memcpy(result + serializer.length(), size - serializer.length(), callback.second.buffer, sizeof(CallbackBuffer::buffer));
+            interop_memory_copy(result + serializer.length(), size - serializer.length(),
+                callback.second.buffer, sizeof(CallbackBuffer::buffer));
             break;
         }
         case Event_HoldManagedResource:
         case Event_ReleaseManagedResource: {
             const InteropInt32 resourceId = callbackResourceSubqueue.front();
-            interop_memcpy(result + serializer.length(), size - serializer.length(), &resourceId, sizeof(InteropInt32));
+            interop_memory_copy(
+                result + serializer.length(), size - serializer.length(), &resourceId, sizeof(InteropInt32)
+            );
             break;
         }
         default:

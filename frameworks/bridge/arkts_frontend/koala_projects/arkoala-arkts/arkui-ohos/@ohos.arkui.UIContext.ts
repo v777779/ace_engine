@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,15 +16,20 @@
 
 // WARNING! THIS FILE IS AUTO-GENERATED, DO NOT MAKE CHANGES, THEY WILL BE LOST ON NEXT GENERATION!
 
-import { FrameNode } from 'arkui/FrameNode';
+import { FrameNode, FrameNodeUtils } from 'arkui/FrameNode';
 import { default as font } from '@ohos/font';
 import { MeasureOptions } from '@ohos/measure';
-import { SizeOptions } from 'arkui/framework';
+import { SizeOptions, GestureEvent, GestureRecognizer, ClickEvent } from 'arkui/framework';
 import { AnimateParam } from 'arkui/framework';
 import { AnimatorResult, AnimatorOptions, Animator, SimpleAnimatorOptions} from '@ohos/animator';
 import { Context, PointerStyle, PixelMap } from '#external';
+import { UIAbilityContext, ExtensionContext } from "#external"
+import { UIObserverGestureEventOps, DetachedRootEntryManager, FocusControllerImpl, ComponentUtilsImpl,
+    ComponentSnapshotImpl, DragControllerImpl, AtomicServiceBarInternal, UIInspectorImpl, ContextMenuControllerImpl,
+    CursorControllerImpl, OverlayManagerImpl, PromptActionImpl, FontImpl, MeasureUtilsImpl, MagnifierImpl,
+    TextMenuControllerImpl, RouterImpl, MediaQueryImpl } from "arkui/base/UIContextImpl"
 import { componentUtils } from '@ohos/arkui/componentUtils';
-import { componentSnapshot } from '@ohos/arkui/componentSnapshot';
+import { componentSnapshot, NodeIdentity } from '@ohos/arkui/componentSnapshot';
 import { dragController } from '@ohos/arkui/dragController';
 import { focusController } from '@ohos/arkui/focusController';
 import { Frame } from 'arkui/Graphics';
@@ -37,25 +42,63 @@ import { default as mediaquery } from '@ohos/mediaquery';
 import { AlertDialogParamWithConfirm, AlertDialogParamWithButtons, AlertDialogParamWithOptions } from 'arkui/framework';
 import { ActionSheetOptions } from 'arkui/framework';
 import { TimePickerDialogOptions } from 'arkui/framework';
-import { TextPickerDialogOptions } from 'arkui/framework';
+import { TextPickerDialogOptions, TextPickerDialogOptionsExt } from 'arkui/framework';
 import { DatePickerDialogOptions } from 'arkui/framework';
+import { SheetOptions } from 'arkui/framework';
 import inspector from '@ohos/arkui/inspector';
 import router from '@ohos/router';
-import { ComponentContent } from 'arkui/ComponentContent';
+import { ComponentContent, ComponentContentBase } from 'arkui/ComponentContent';
 import overlayManager from '@ohos/overlayManager';
 import promptAction, { LevelOrder } from '@ohos/promptAction';
 import { LocalStorage } from 'arkui/stateManagement/storage/localStorage';
 import { CustomBuilder, CustomBuilderT, DragItemInfo, Callback } from 'arkui/framework';
 import { Router as RouterExt, AsyncCallback } from 'arkui/base';
-import { ComputableState, IncrementalNode } from '@koalaui/runtime';
+import { ComputableState, IncrementalNode, GlobalStateManager, GlobalUIStateManager } from '@koalaui/runtime';
 import { PeerNode } from 'arkui/PeerNode';
 import { ArkUIAniModule } from 'arkui.ani';
 import { UIContextUtil } from 'arkui/base/UIContextUtil';
-import { int32 } from '@koalaui/compat';
-import { KPointer } from "@koalaui/interop"
+import { int32, int64 } from "@koalaui/common";
+import { KPointer, KSerializerBuffer, KBuffer, DeserializerBase, nullptr, wrapSystemCallback } from '@koalaui/interop';
+import { TabsController } from 'arkui/component/tabs';
+import { Scroller } from 'arkui/component/scroll';
+import { TextLayoutOptions, Paragraph, StyledString, ContextMenu, FrameNodeExtender, AnimationExtender, AlertDialog, ActionSheet, DialogExtender } from 'arkui/framework';
+import { InnerGestureObserverConfigs, InnerGestureTriggerInfo, IUIContext, UIContextGetInfo, SystemOps } from 'arkui/component/idlize';
+import { BusinessError } from "@ohos.base"
+import { ArkUIGeneratedNativeModule } from '#components';
+import { GlobalScopeUicontextFontScale } from "#generated"
+import { deserializeAndCallCallback } from 'arkui/framework/peers/CallbackDeserializeCall';
+import { RawInputEventType } from 'arkui/component/enums';
+
+export const enum GestureActionPhase {
+    WILL_START = 0,
+    WILL_END = 1
+}
+
+export const enum  GestureListenerType {
+    TAP = 0,
+    LONG_PRESS = 1,
+    PAN = 2,
+    PINCH = 3,
+    SWIPE = 4,
+    ROTATION = 5
+}
+
+export interface GestureTriggerInfo {
+    event: GestureEvent;
+    current: GestureRecognizer;
+    currentPhase: GestureActionPhase;
+    node?: FrameNode;
+}
+
+export interface GestureObserverConfigs {
+    actionPhases: Array<GestureActionPhase>;
+}
 
 export class UIInspector {
-    public createComponentObserver(id: string): inspector.ComponentObserver | undefined {
+    public createComponentObserver(id: string | int): inspector.ComponentObserver {
+        throw Error("createComponentObserver not implemented in UIInspector!")
+    }
+    public createComponentObserver(id: string): inspector.ComponentObserver {
         throw Error("createComponentObserver not implemented in UIInspector!")
     }
 }
@@ -89,6 +132,9 @@ export class MeasureUtils {
     }
     public measureTextSize(options: MeasureOptions) : SizeOptions {
         throw Error("measureTextSize not implemented in MeasureUtils!")
+    }
+    public getParagraphs(styledString: StyledString, options?: TextLayoutOptions): Array<Paragraph> {
+        throw Error("getParagraphs not implemented in MeasureUtils!")
     }
 }
 
@@ -170,7 +216,7 @@ export class Router {
         throw Error("replaceNamedRoute not implemented in Router!");
     }
 
-    public back(options?:router.RouterOptions): void {
+    public back(options?: router.RouterOptions): void {
         throw Error("back not implemented in Router!");
     }
 
@@ -183,6 +229,9 @@ export class Router {
     }
     public getLength(): string {
         throw Error("getLength not implemented in Router!");
+    }
+    public getStackSize(): int {
+        throw Error("getStackSize not implemented in Router!")
     }
 
     public getParams(): Object {
@@ -248,6 +297,9 @@ export class FocusController {
     public setKeyProcessingMode(mode: KeyProcessingMode): void {
         throw Error("setKeyProcessingMode not implemented in FocusController!")
     }
+    public isActive(): boolean {
+        throw Error('isActive not implemented in FocusController!')
+    }
 }
 
 export class ComponentSnapshot {
@@ -257,33 +309,43 @@ export class ComponentSnapshot {
         throw Error("get with callback not implemented in ComponentSnapshot!")
     }
     //@ts-ignore
-    public get(id: string, options?: componentSnapshot.SnapshotOptions): Promise<PixelMap> {
+    public get(id: string, options?: componentSnapshot.SnapshotOptions): Promise<PixelMap> | null {
         throw Error("get with promise not implemented in ComponentSnapshot!")
     }
     //@ts-ignore
     public createFromBuilder(builder: CustomBuilder, callback: AsyncCallback<PixelMap>,
-                             delay?: number, checkImageStatus?: boolean,
+                             delay?: int32, checkImageStatus?: boolean,
                              options?: componentSnapshot.SnapshotOptions): void {
         throw Error("createFromBuilder with callback not implemented in ComponentSnapshot!")
     }
     //@ts-ignore
-    public createFromBuilder(builder: CustomBuilder, delay?: number, checkImageStatus?: boolean,
-                             options?: componentSnapshot.SnapshotOptions): Promise<PixelMap> {
+    public createFromBuilder(builder: CustomBuilder, delay?: int32, checkImageStatus?: boolean,
+                             options?: componentSnapshot.SnapshotOptions): Promise<PixelMap> | null {
         throw Error("createFromBuilder with promise not implemented in ComponentSnapshot!")
     }
-    public getSync(id: string, options?: componentSnapshot.SnapshotOptions): PixelMap {
+    public getSync(id: string, options?: componentSnapshot.SnapshotOptions): PixelMap | null {
         throw Error("getSync not implemented in ComponentSnapshot!")
     }
-    public getWithUniqueId(uniqueId: number, options?: componentSnapshot.SnapshotOptions): Promise<PixelMap> {
+    public getWithUniqueId(uniqueId: int32, options?: componentSnapshot.SnapshotOptions): Promise<PixelMap> | null {
         throw Error("getWithUniqueId not implemented in ComponentSnapshot!")
     }
 
-    public getSyncWithUniqueId(uniqueId: number, options?: componentSnapshot.SnapshotOptions): PixelMap {
+    public getSyncWithUniqueId(uniqueId: int32, options?: componentSnapshot.SnapshotOptions): PixelMap {
         throw Error("getSyncWithUniqueId not implemented in ComponentSnapshot!")
     }
 
-    public createFromComponent<T extends Object>(content: ComponentContent<T>, delay?: number, checkImageStatus?: boolean, options?: componentSnapshot.SnapshotOptions): Promise<PixelMap> {
+    public createFromComponent<T extends Object>(content: ComponentContent<T>, delay?: int32, checkImageStatus?: boolean,
+        options?: componentSnapshot.SnapshotOptions): Promise<PixelMap> | null {
         throw Error("getSyncWithUniqueId not implemented in ComponentSnapshot!")
+    }
+
+    public getWithRange(start: NodeIdentity, end: NodeIdentity, isStartRect: boolean,
+        options?: componentSnapshot.SnapshotOptions): Promise<PixelMap> | null {
+        throw Error('getWithRange not implemented in ComponentSnapshot!')
+    }
+
+    public getSizeLimitation(): componentSnapshot.SnapshotSizeLimitation {
+        throw Error('getSizeLimitation not implemented in ComponentSnapshot!')
     }
 }
 
@@ -295,7 +357,7 @@ export class DragController {
     }
     //@ts-ignore
     public executeDrag(custom: CustomBuilder | DragItemInfo, dragInfo: dragController.DragInfo):
-        Promise<dragController.DragEventParam> {
+        Promise<dragController.DragEventParam> | null {
         throw Error("executeDrag with promise not implemented in DragController!")
     }
     public createDragAction(customArray: Array<CustomBuilder | DragItemInfo>,
@@ -313,6 +375,9 @@ export class DragController {
     }
     public notifyDragStartRequest(requestStatus: dragController.DragStartRequestStatus): void {
         throw Error("setDragEventStrictReportingEnabled not implemented in DragController!")
+    }
+    public enableDropDisallowedBadge(enabled: boolean): void {
+        throw Error('enableDropDisallowedBadge not implemented in DragController!')
     }
 }
 
@@ -492,237 +557,785 @@ export const enum KeyboardAvoidMode {
     NONE = 4,
 }
 
+export class ResolvedUIContext extends UIContext {
+    public strategy: ResolveStrategy = ResolveStrategy.UNDEFINED;
+    constructor(instanceId: int32, strategy: ResolveStrategy) {
+        super(instanceId);
+        this.strategy = strategy;
+    }
+}
+
+export const enum ResolveStrategy {
+    CALLING_SCOPE = 0,
+    LAST_FOCUS = 1,
+    MAX_INSTANCE_ID = 2,
+    UNIQUE = 3,
+    LAST_FOREGROUND = 4,
+    UNDEFINED = 5
+}
+
 export class UIContext {
+    instanceId_: int32 = -1;
+    observer_ :UIObserver |null = null;
+    router_: Router;
+    focusController_: FocusControllerImpl;
+    componentUtils_: ComponentUtilsImpl;
+    componentSnapshot_: ComponentSnapshotImpl;
+    dragController_: DragControllerImpl;
+    atomicServiceBar_: AtomicServiceBarInternal;
+    uiInspector_: UIInspectorImpl | null = null;
+    contextMenuController_: ContextMenuControllerImpl;
+    overlayManager_: OverlayManagerImpl | null = null;
+    promptAction_: PromptActionImpl | null = null;
+    keyboardAvoidMode_: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
+    cursorController_: CursorControllerImpl;
+    font_: FontImpl;
+    measureUtils_: MeasureUtilsImpl;
+    magnifier_: MagnifierImpl;
+    textMenuController_: TextMenuControllerImpl;
+    detachedRootEntryManager_: DetachedRootEntryManager;
+    isDebugMode_: boolean = false;
+    updateParallelizeItemNodeCallback_?:() => void;
+    callbacks: Array<() => void>;
+    isUpdateConfiguration_ = false;
+    workerThreadId_: int32  = -1;
+
+    bufferSize = 4096
+    buffer: KBuffer = new KBuffer(this.bufferSize)
+    position: int64 = 0
+    deserializer: DeserializerBase = new DeserializerBase(this.buffer.buffer, this.bufferSize)
+    static windowFreeInstanceId: int32 = -1
+    static initFlag_ = false
+
+    constructor(instanceId: int32) {
+        this.instanceId_ = instanceId;
+        this.focusController_ = new FocusControllerImpl(this.instanceId_);
+        this.componentUtils_ = new ComponentUtilsImpl(this.instanceId_);
+        this.componentSnapshot_ = new ComponentSnapshotImpl(this.instanceId_);
+        this.dragController_ = new DragControllerImpl(this.instanceId_);
+        this.atomicServiceBar_ = new AtomicServiceBarInternal(this.instanceId_);
+        this.contextMenuController_ = new ContextMenuControllerImpl(this.instanceId_);
+        this.cursorController_ = new CursorControllerImpl(this.instanceId_);
+        this.font_ = new FontImpl(this.instanceId_);
+        this.measureUtils_ = new MeasureUtilsImpl(this.instanceId_);
+        this.magnifier_ = new MagnifierImpl(this.instanceId_);
+        this.textMenuController_ = new TextMenuControllerImpl(this.instanceId_);
+        this.detachedRootEntryManager_ = new DetachedRootEntryManager(this);
+        this.isDebugMode_ = ArkUIAniModule._IsDebugMode(this.instanceId_) !== 0;
+        this.router_ = new RouterImpl(this.instanceId_);
+        this.callbacks = new Array<() => void>();
+    }
     constructor() {
+        this.focusController_ = new FocusControllerImpl(this.instanceId_);
+        this.componentUtils_ = new ComponentUtilsImpl(this.instanceId_);
+        this.componentSnapshot_ = new ComponentSnapshotImpl(this.instanceId_);
+        this.dragController_ = new DragControllerImpl(this.instanceId_);
+        this.atomicServiceBar_ = new AtomicServiceBarInternal(this.instanceId_);
+        this.contextMenuController_ = new ContextMenuControllerImpl(this.instanceId_);
+        this.cursorController_ = new CursorControllerImpl(this.instanceId_);
+        this.font_ = new FontImpl(this.instanceId_);
+        this.measureUtils_ = new MeasureUtilsImpl(this.instanceId_);
+        this.magnifier_ = new MagnifierImpl(this.instanceId_);
+        this.textMenuController_ = new TextMenuControllerImpl(this.instanceId_);
+        this.detachedRootEntryManager_ = new DetachedRootEntryManager(this);
+        this.isDebugMode_ = ArkUIAniModule._IsDebugMode(this.instanceId_) !== 0;
+        this.router_ = new RouterImpl(this.instanceId_);
+        this.callbacks = new Array<() => void>();
     }
-    static getFocusedUIContext(): UIContext | undefined {
-        const instanceId = ArkUIAniModule._Common_GetFocused_InstanceId();
-        if (instanceId === -1) {
-            return undefined;
+    
+    public getInstanceId() : int32 {
+        return this.instanceId_;
+    }
+    public getDetachedRootEntryManager() : DetachedRootEntryManager {
+        return this.detachedRootEntryManager_;
+    }
+    dispatchCallback(buffer: KSerializerBuffer, length: int32): void {
+    }
+
+    callCallbacks(): void {
+        if (this.position === 0) {
+            return
         }
-        return UIContextUtil.getOrCreateUIContextById(instanceId);
+        this.deserializer.resetCurrentPosition()
+        this.runScopedTask(() => {
+            while (this.deserializer.currentPosition() < this.position) {
+                deserializeAndCallCallback(this.deserializer)
+            }
+        })
+        this.position = 0;
     }
+
+    static getCallingScopeUIContext(): UIContext | undefined {
+        const instanceId = ArkUIAniModule._GetCallingScopeUIContext();
+        if (instanceId < 0) {
+            return undefined
+        }
+        let uiContext = UIContextUtil.getOrCreateUIContextById(instanceId)
+        return uiContext
+    }
+
+    static getLastFocusedUIContext(): UIContext | undefined {
+        const instanceId = ArkUIAniModule._GetLastFocusedUIContext();
+        if (instanceId < 0) {
+            return undefined
+        }
+        let uiContext = UIContextUtil.getOrCreateUIContextById(instanceId)
+        return uiContext
+    }
+
+    static getLastForegroundUIContext(): UIContext | undefined {
+        const instanceId = ArkUIAniModule._GetLastForegroundUIContext();
+        if (instanceId < 0) {
+            return undefined
+        }
+        let uiContext = UIContextUtil.getOrCreateUIContextById(instanceId)
+        return uiContext
+    }
+
+    static getAllUIContexts(): Array<UIContext> {
+        let allContainerIds = ArkUIAniModule._GetAllUIContexts();
+        let contextArray = new Array<UIContext>();
+        for (let item of allContainerIds) {
+            if (item >= 0) {
+                contextArray.push(UIContextUtil.getOrCreateUIContextById(item));
+            }
+        }
+        return contextArray;
+    }
+
+    static resolveUIContext(): ResolvedUIContext {
+        let instance = UIContextUtil.resolveUIContext();
+        return new ResolvedUIContext(instance[0] as int32, ResolveStrategy.fromValue(instance[1]));
+    }
+    public isAvailable() : boolean {
+        return UIContextUtil.availableInstanceIds_.has(this.instanceId_);
+    }
+
     public getFont() : Font {
-        throw Error("getFont not implemented in UIContext!")
+        return this.font_;
     }
 
     public getMediaQuery(): MediaQuery {
-        throw Error("getMediaQuery not implemented in UIContext!")
+        return new MediaQueryImpl(this.instanceId_);
     }
 
     public getMeasureUtils() : MeasureUtils {
-        throw Error("getMeasureUtils not implemented in UIContext!")
+        return this.measureUtils_;
     }
     public getTextMenuController() : TextMenuController {
-        throw Error("getTextMenuController not implemented in UIContext!")
+        return this.textMenuController_;
     }
     public isFollowingSystemFontScale() : boolean {
-        throw Error("isFollowingSystemFontScale not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let follow = GlobalScopeUicontextFontScale.isFollowingSystemFontScale();
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return follow;
+    }
+    public setCustomKeyboardContinueFeature(feature: CustomKeyboardContinueFeature): void {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_)
+        // TODO: remove after regeneration
+        // instructive change start
+        // IUIContext.setCustomKeyboardContinueFeature(feature);
+        // instructive change end
+        ArkUIAniModule._Common_Restore_InstanceId()
     }
     public getMaxFontScale() : number {
-        throw Error("getMaxFontScale not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let fontScale = GlobalScopeUicontextFontScale.getMaxFontScale();
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return fontScale;
     }
     public getFrameNodeById(id: string): FrameNode | null {
-        throw Error("getFrameNodeById not implemented in UIContext!")
+        const id_casted = id as (string);
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        const retval = FrameNodeExtender.getFrameNodeByKey(id_casted);
+        if (retval === nullptr) {
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return null;
+        }
+        let node = FrameNodeUtils.searchNodeInRegisterProxy(retval);
+        if (!node) {
+            node = FrameNodeUtils.createFrameNode(this, retval);
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return node;
     }
     public getSharedLocalStorage(): LocalStorage | undefined {
-        throw Error('getFrameNodeById not implemented in UIContext!');
+        return ArkUIAniModule._Common_GetSharedLocalStorage();
     }
     getAttachedFrameNodeById(id: string): FrameNode | null {
-        throw Error("getAttachedFrameNodeById not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        const retval = FrameNodeExtender.getAttachedFrameNodeById(id);
+        if (retval === nullptr) {
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return null;
+        }
+        let node = FrameNodeUtils.searchNodeInRegisterProxy(retval);
+        if (!node) {
+            node = FrameNodeUtils.createFrameNode(this, retval);
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return node;
     }
     getFrameNodeByNodeId(id: number): FrameNode | null {
-        throw Error("getFrameNodeByNodeId not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        const retval = FrameNodeExtender.getFrameNodeById(id);
+        if (retval === nullptr) {
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return null;
+        }
+        let node = FrameNodeUtils.searchNodeInRegisterProxy(retval);
+        if (!node) {
+            node = FrameNodeUtils.createFrameNode(this, retval);
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return node;
     }
-    getFrameNodeByUniqueId(id: long): FrameNode | null {
-        throw Error("getFrameNodeByUniqueId not implemented in UIContext!")
+    getFrameNodeByUniqueId(id: int): FrameNode | null {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        const retval = FrameNodeExtender.getFrameNodeByUniqueId(id);
+        if (retval === nullptr) {
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return null;
+        }
+        let node = FrameNodeUtils.searchNodeInRegisterProxy(retval);
+        if (!node) {
+            node = FrameNodeUtils.createFrameNode(this, retval);
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return node;
+    }
+    getNavigationInfoByUniqueId(id: int): uiObserver.NavigationInfo | undefined {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let navigationInfo = UIContextGetInfo.getNavigationInfoByUniqueId(id);
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return navigationInfo;
     }
     getHostContext(): Context | undefined {
-        throw Error("getHostContext not implemented in UIContext!")
+        return ArkUIAniModule._Common_GetHostContext(this.instanceId_);
     }
 
     public getKeyboardAvoidMode(): KeyboardAvoidMode {
-        throw Error("getKeyboardAvoidMode not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let mode:KeyboardAvoidMode = ArkUIAniModule._GetKeyboardAvoidMode();
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return mode;
     }
 
     public setKeyboardAvoidMode(mode: KeyboardAvoidMode) {
-        throw Error("setKeyboardAvoidMode not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        ArkUIAniModule._SetKeyboardAvoidMode(mode);
+        this.keyboardAvoidMode_ = mode;
+        ArkUIAniModule._Common_Restore_InstanceId();
     }
 
     public getAtomicServiceBar(): Nullable<AtomicServiceBar> {
-        throw Error("getAtomicServiceBar not implemented in UIContext!")
+        return this.atomicServiceBar_;
     }
 
-    public dispatchKeyEvent(node: number | string, event: KeyEvent): boolean {
-        throw Error("dispatchKeyEvent not implemented in UIContext!")
+    public dispatchKeyEvent(node: int | string, event: KeyEvent): boolean {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let result = IUIContext.dispatchKeyEvent(node, event);
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return result;
     }
 
     public getFocusController(): FocusController {
-        throw Error("getFocusController not implemented in UIContext!")
+        return this.focusController_;
     }
 
     public getContextMenuController(): ContextMenuController {
-        throw Error("getContextMenuController not implemented in UIContext!")
+        return this.contextMenuController_;
     }
 
     public getComponentUtils(): ComponentUtils {
-        throw Error("getComponentUtils not implemented in UIContext!")
+        return this.componentUtils_;
     }
 
     public getCursorController(): CursorController {
-        throw Error("getCursorController not implemented in UIContext!")
+        return this.cursorController_;
     }
     
     public getComponentSnapshot(): ComponentSnapshot {
-        throw Error("getComponentSnapshot not implemented in UIContext!")
+        return this.componentSnapshot_;
     }
 
     public getDragController(): DragController {
-        throw Error("getDragController not implemented in UIContext!")
+        return this.dragController_;
     }
 
     public getRouter(): Router {
-        throw Error("getRouter not implemented in UIContext!")
+        if (this.router_ === undefined) {
+            this.router_ = new RouterImpl(this.instanceId_)
+        }
+        return this.router_
     }
 
     public keyframeAnimateTo(param: KeyframeAnimateParam, keyframes: Array<KeyframeState>): void {
-        throw Error("animateTo not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        AnimationExtender.KeyframeAnimationImpl(param, keyframes);
+        ArkUIAniModule._Common_Restore_InstanceId();
     }
 
     public animateTo(param: AnimateParam, event: (() => void)): void {
-        throw Error("animateTo not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_)
+        AnimationExtender.AnimateToImmediatelyImpl(param, event, false)
+        ArkUIAniModule._Common_Restore_InstanceId();
     }
 
-    public animateToImmediately(value: AnimateParam, event: Callback<void>): void {
-        throw Error("animateToImmediately not implemented in UIContext!")
+    public animateToImmediately(value: AnimateParam, event: () => void): void {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        AnimationExtender.AnimateToImmediatelyImpl(value, () => {
+            event();
+        }, true);
+        ArkUIAniModule._Common_Restore_InstanceId();
     }
 
     public createAnimator(options: AnimatorOptions | SimpleAnimatorOptions): AnimatorResult {
-        throw Error("createAnimator not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_)
+        let animatorRet = Animator.create(options);
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return animatorRet;
     }
     public setFrameCallback(onFrameCallback: ((index: long) => void), onIdleCallback: ((index: long) => void),
                                               delayTime: long): void {
-        throw Error("setFrameCallback not implemented in UIContext!")
+        SystemOps.setFrameCallback(onFrameCallback, onIdleCallback, delayTime);
+        return
     }
     runScopedTask(callback: () => void): void {
-        throw Error("runScopedTask not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_)
+        if (callback !== undefined) {
+            callback()
+        }
+        ArkUIAniModule._Common_Restore_InstanceId()
     }
     clearResourceCache(): void {
-        throw Error("clearResourceCache not implemented in UIContext!")
+        ArkUIGeneratedNativeModule._SystemOps_resourceManagerReset()
     }
     postFrameCallback(frameCallback: FrameCallback): void {
-        throw Error("postFrameCallback not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_)
+        const onFrameFunc = frameCallback.onFrame
+        const onIdleFunc = frameCallback.onIdle
+        this.setFrameCallback(onFrameFunc, onIdleFunc, 0)
+        ArkUIAniModule._Common_Restore_InstanceId()
     }
     postDelayedFrameCallback(frameCallback: FrameCallback, delayTime: long): void {
-        throw Error("postDelayedFrameCallback not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_)
+        const onFrameFunc = frameCallback.onFrame
+        const onIdleFunc = frameCallback.onIdle
+        this.setFrameCallback(onFrameFunc, onIdleFunc, delayTime)
+        ArkUIAniModule._Common_Restore_InstanceId()
     }
     public getUIInspector(): UIInspector {
-        throw Error("getUIInspector not implemented in UIContext!")
+        if (!this.uiInspector_) {
+            this.uiInspector_ = new UIInspectorImpl(this.instanceId_);
+        }
+        return this.uiInspector_ as UIInspector;
     }
     public getUIObserver(): UIObserver {
-        throw Error("getUIObserver not implemented in UIContext!")
+        if (!this.observer_) {
+            this.observer_ = new UIObserver(this.instanceId_);
+        }
+        return this.observer_ as UIObserver;
     }
 
     public getOverlayManager(): OverlayManager {
-        throw Error("getOverlayManager not implemented in UIContext!")
+        if (!this.overlayManager_) {
+            this.overlayManager_ = new OverlayManagerImpl(this.instanceId_);
+        }
+        if (this.overlayManager_) {
+            const options: OverlayManagerOptions = { renderRootOverlay: true, enableBackPressedEvent: false };
+            this.overlayManager_!.setOverlayManagerOptions(options);
+        }
+        return this.overlayManager_ as OverlayManager;
+    }
+
+    public getMagnifier(): Magnifier {
+        return this.magnifier_;
     }
 
     public setOverlayManagerOptions(options: OverlayManagerOptions): boolean {
-        throw Error("setOverlayManagerOptions not implemented in UIContext!")
+        if (!this.overlayManager_) {
+            this.overlayManager_ = new OverlayManagerImpl(this.instanceId_);
+        }
+        if (this.overlayManager_) {
+            return this.overlayManager_!.setOverlayManagerOptions(options);
+        }
+        return false;
     }
 
     public getOverlayManagerOptions(): OverlayManagerOptions {
-        throw Error("getOverlayManagerOptions not implemented in UIContext!")
+        if (!this.overlayManager_) {
+            this.overlayManager_ = new OverlayManagerImpl(this.instanceId_);
+        }
+        if (this.overlayManager_) {
+            return this.overlayManager_!.getOverlayManagerOptions();
+        }
+        return {};
     }
 
     public getPromptAction(): PromptAction {
-        throw Error("getPromptAction not implemented in UIContext!")
+        if (!this.promptAction_) {
+            this.promptAction_ = new PromptActionImpl(this.instanceId_);
+        }
+        return this.promptAction_ as PromptAction;
     }
 
     public showAlertDialog(options: AlertDialogParamWithConfirm | AlertDialogParamWithButtons |
         AlertDialogParamWithOptions): void {
-        throw Error("showAlertDialog not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        AlertDialog.show(options);
+        ArkUIAniModule._Common_Restore_InstanceId();
     }
 
     public showActionSheet(options: ActionSheetOptions): void {
-        throw Error("showActionSheet not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        ActionSheet.show(options);
+        ArkUIAniModule._Common_Restore_InstanceId();
     }
 
     public showTimePickerDialog(options: TimePickerDialogOptions): void {
-        throw Error("showTimePickerDialog not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        DialogExtender.showTimePickerDialog(options);
+        ArkUIAniModule._Common_Restore_InstanceId();
     }
 
-    public showTextPickerDialog(options: TextPickerDialogOptions): void {
-        throw Error("showTextPickerDialog not implemented in UIContext!")
+    public showTextPickerDialog(options: TextPickerDialogOptions | TextPickerDialogOptionsExt): void {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        DialogExtender.showTextPickerDialog(options);
+        ArkUIAniModule._Common_Restore_InstanceId();
     }
 
     public showDatePickerDialog(options: DatePickerDialogOptions): void {
-        throw Error("showDatePickerDialog not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        DialogExtender.showDatePickerDialog(options);
+        ArkUIAniModule._Common_Restore_InstanceId();
     }
     // @ts-ignore
-    public freezeUINode(id: long, isFrozen: boolean): void {
-        throw Error("freezeUINode not implemented in UIContext!")
+    public freezeUINode(id: int, isFrozen: boolean): void {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_)
+        IUIContext.freezeUINode(id, isFrozen);
+        ArkUIAniModule._Common_Restore_InstanceId()
     }
 
     // @ts-ignore
     public freezeUINode(id: string, isFrozen: boolean): void {
-        throw Error("freezeUINode not implemented in UIContext!")
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_)
+        IUIContext.freezeUINode(id, isFrozen);
+        ArkUIAniModule._Common_Restore_InstanceId()
+    }
+
+    public enableSwipeBack(enabled: boolean | undefined): void {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_)
+        UIContextGetInfo.enableSwipeBack(enabled);
+        ArkUIAniModule._Common_Restore_InstanceId()
     }
 
     public getWindowName(): string | undefined {
-        throw Error("getWindowName not implemented in UIContext!")
+        return ArkUIAniModule._Common_getWindowName(this.instanceId_);
     }
-    public getWindowWidthBreakpoint(): WidthBreakpoint {
-        throw Error("getWindowWidthBreakpoint not implemented in UIContext!")
-    }
-    public getWindowHeightBreakpoint(): HeightBreakpoint {
-        throw Error("getWindowHeightBreakpoint not implemented in UIContext!")
-    }
-    public vp2px(value: double): double {
-        throw Error("vp2px not implemented in UIContext!")
-    }
-    public px2vp(value: double): double {
-        throw Error("px2vp not implemented in UIContext!")
-    }
-    public fp2px(value: double): double {
-        throw Error("fp2px not implemented in UIContext!")
-    }
-    public px2fp(value: double): double {
-        throw Error("px2fp not implemented in UIContext!")
-    }
-    public lpx2px(value: double): double {
-        throw Error("lpx2px not implemented in UIContext!")
-    }
-    public px2lpx(value: double): double {
-        throw Error("px2lpx not implemented in UIContext!")
+    public getWindowId(): int32 | undefined {
+        let ret = ArkUIAniModule._Common_getWindowId(this.instanceId_);
+        if (ret === -1) {
+            return undefined;
+        }
+        return ret;
     }
 
-    public setUIStates(callback: () => void): void {
-        throw Error("setUIStates not implemented in UIContext!")
+    private handleBreakpointError(ret: int32, type: string) {
+        if (ret === -1) {
+            console.error("some error occurred while initializing the ANI environment, return default value: ${type}.");
+        }
+        if (ret === -2) {
+            console.error("failed to retrieve the current container, return default value: ${type}.");
+        }
+        if (ret === -3) {
+            console.error("failed to retrieve the current window, return default value: ${type}.");
+        }
     }
+    public getWindowWidthBreakpoint(): WidthBreakpoint {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let ret = ArkUIAniModule._Common_getWindowWidthBreakpoint();
+        if (ret < 0) {
+            this.handleBreakpointError(ret, "WidthBreakpoint.WIDTH_XS");
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return WidthBreakpoint.WIDTH_XS;
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return WidthBreakpoint.fromValue(ret);
+    }
+    public getWindowHeightBreakpoint(): HeightBreakpoint {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let ret = ArkUIAniModule._Common_getWindowHeightBreakpoint();
+        if (ret < 0) {
+            this.handleBreakpointError(ret, "HeightBreakpoint.HEIGHT_SM");
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return HeightBreakpoint.HEIGHT_SM;
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return HeightBreakpoint.fromValue(ret);
+    }
+    public vp2px(value: double): double {
+        return ArkUIAniModule._Common_vp2px(value, this.instanceId_);
+    }
+    public px2vp(value: double): double {
+        return ArkUIAniModule._Common_px2vp(value, this.instanceId_);
+    }
+    public fp2px(value: double): double {
+        return ArkUIAniModule._Common_fp2px(value, this.instanceId_);
+    }
+    public px2fp(value: double): double {
+        return ArkUIAniModule._Common_px2fp(value, this.instanceId_);
+    }
+    public lpx2px(value: double): double {
+        return ArkUIAniModule._Common_lpx2px(value, this.instanceId_);
+    }
+    public px2lpx(value: double): double {
+        return ArkUIAniModule._Common_px2lpx(value, this.instanceId_);
+    }
+
+    public getId() : int32 {
+        return this.instanceId_;
+    }
+    public setUIStates(callback: () => void): void {
+        if (this.checkThread(this.instanceId_)) {
+            callback();
+        } else {
+            const manager = GlobalUIStateManager.getStateManagerForThread(this.workerThreadId_);
+            manager.scheduleCallback(callback);
+        }
+    }
+
+    public checkThread(id: int32) : boolean {
+        return ArkUIAniModule._CheckIsUIThread(id) !== 0;
+    }
+
+    static createUIContextWithoutWindow(context: UIAbilityContext | ExtensionContext) : UIContext | undefined {
+        if (!UIContext.initFlag_) {
+            UIContext.initFlag_ = true;
+            wrapSystemCallback(1, (buff : KSerializerBuffer, len : int32) => {
+                deserializeAndCallCallback(new DeserializerBase(buff, len))
+                return 0
+            })
+        }
+        if (UIContext.windowFreeInstanceId > 0) {
+            return UIContextUtil.getOrCreateUIContextById(UIContext.windowFreeInstanceId)
+        }
+        const instanceId = ArkUIAniModule._CreateWindowFreeContainer(context)
+        if (instanceId < 0) {
+            return undefined
+        }
+        UIContext.windowFreeInstanceId = instanceId;
+        let uiContext = UIContextUtil.getOrCreateUIContextById(instanceId)
+        return uiContext
+    }
+    static destroyUIContextWithoutWindow() {
+        if (UIContext.windowFreeInstanceId > 0) {
+            ArkUIAniModule._DestroyWindowFreeContainer(UIContext.windowFreeInstanceId)
+            UIContextUtil.removeUIContext(UIContext.windowFreeInstanceId)
+            UIContext.windowFreeInstanceId = -1
+        }
+    }
+    public getPageInfoByUniqueId(id: int): PageInfo {
+        const navDestinationInfo = ArkUIAniModule._CustomNode_QueryNavDestinationInfo1(id);
+        const routerPageInfo = ArkUIAniModule._CustomNode_QueryRouterPageInfo1(id);
+        if (routerPageInfo) {
+            routerPageInfo.context = this;
+        }
+        let pageInfo: PageInfo = {
+            navDestinationInfo: navDestinationInfo,
+            routerPageInfo: routerPageInfo
+        }
+        return pageInfo;
+    }
+
+    public getPageInfoByUniqueId(id: number): PageInfo {
+        throw Error("getPageInfoByUniqueId(number) not implemented in UIContext!")
+    }
+
+    public getPageRootNode(): FrameNode | null {
+        if (!this.isAvailable()) {
+            throw new BusinessError(120007, 'The UIContext is not available');
+        }
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let node: FrameNode | null = null;
+        try {
+            const retval = ArkUIAniModule._GetPageRootNode();
+            if (retval !== nullptr && retval !== 0) {
+                const peer = FrameNodeExtender.createByRawPtr(retval as KPointer);
+                if (!peer) {
+                    ArkUIAniModule._Common_Restore_InstanceId();
+                    return null;
+                }
+                node = FrameNodeUtils.searchNodeInRegisterProxy(peer);
+                if (!node) {
+                    node = FrameNodeUtils.createFrameNode(this, peer);
+                }
+            }
+        } catch (e) {
+            ArkUIAniModule._Common_Restore_InstanceId();
+            throw e;
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return node;
+    }
+
     public getFilteredInspectorTree(filters?: Array<string>): string {
-        throw Error("getFilteredInspectorTree not implemented in UIContext!")
+        return inspector.getFilteredInspectorTree(filters);
     }
  
     public getFilteredInspectorTreeById(id: string, depth: int, filters?: Array<string>): string {
-        throw Error("getFilteredInspectorTreeById not implemented in UIContext!")
+        return inspector.getFilteredInspectorTreeById(id, depth, filters);
     }
     public setImageCacheCount(value: int): void {
-        throw Error("setImageCacheCount not implemented in UIContext!")
+        ArkUIAniModule._Common_SetImageCacheCount(value, this.instanceId_);
     }
 
     public setImageRawDataCacheSize(value: int): void {
-        throw Error("setImageRawDataCacheSize not implemented in UIContext!")
+        ArkUIAniModule._Common_SetImageRawDataCacheSize(value, this.instanceId_);
     }
 
     public requireDynamicSyncScene(id: string): Array<DynamicSyncScene> {
-        throw Error("requireDynamicSyncScene not implemented in UIContext!");
+        const id_casted = id as (string);
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let nodePtr = FrameNodeExtender.getFrameNodeByKey(id_casted);
+        if (!nodePtr) {
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return [];
+        }
+        const retval  = ArkUIGeneratedNativeModule._FrameNodeExtender_getNodeType(nodePtr)
+        let retvalDeserializer : DeserializerBase = new DeserializerBase(retval, retval.length)
+        const tag : string = (retvalDeserializer.readString() as string)
+        if (tag === 'Swiper') {
+            let ret: Array<SwiperDynamicSyncScene> =
+                [new SwiperDynamicSyncScene(SwiperDynamicSyncSceneType.GESTURE, nodePtr),
+                new SwiperDynamicSyncScene(SwiperDynamicSyncSceneType.ANIMATION, nodePtr)];
+            let result: Array<DynamicSyncScene> = [ret[0], ret[1]];
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return result;
+        } else if (tag === 'Marquee') {
+            let ret: MarqueeDynamicSyncScene[] = [
+                new MarqueeDynamicSyncScene(MarqueeDynamicSyncSceneType.ANIMATION, nodePtr)];
+            let result: DynamicSyncScene[] = [ret[0]];
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return result;
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return [];
+    }
+
+    public openBindSheet(bindSheetContent: ComponentContentBase, sheetOptions?: SheetOptions, targetId?: int): Promise<void> {
+        let ptr: KPointer = 0;
+        if (bindSheetContent.getNodePtr() != undefined) {
+            ptr = bindSheetContent.getNodePtr() as KPointer;
+        }
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let result = IUIContext.openBindSheet(ptr, sheetOptions, targetId);
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return result;
+    }
+
+    public updateBindSheet(bindSheetContent: ComponentContentBase, sheetOptions: SheetOptions, partialUpdate?: boolean): Promise<void> {
+        let ptr: KPointer = 0;
+        if (bindSheetContent.getNodePtr() != undefined) {
+            ptr = bindSheetContent.getNodePtr() as KPointer;
+        }
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let result = IUIContext.updateBindSheet(ptr, sheetOptions, partialUpdate);
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return result;
+    }
+
+    public closeBindSheet(bindSheetContent: ComponentContentBase): Promise<void> {
+        let ptr: KPointer = 0;
+        if (bindSheetContent.getNodePtr() != undefined) {
+            ptr = bindSheetContent.getNodePtr() as KPointer;
+        }
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        let result = IUIContext.closeBindSheet(ptr);
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return result;
+    }
+
+    public recycleInvisibleImageMemory(enabled: boolean): void {
+        ArkUIAniModule._Common_setIsRecycleInvisibleImageMemory(enabled ? 1 : 0, this.instanceId_);
+    }
+
+    public bindTabsToScrollable(tabsController: TabsController, scroller: Scroller): void {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        IUIContext.bindTabsToScrollable(tabsController, scroller);
+        ArkUIAniModule._Common_Restore_InstanceId();
+    }
+
+    public unbindTabsFromScrollable(tabsController: TabsController, scroller: Scroller): void {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        IUIContext.unbindTabsFromScrollable(tabsController, scroller);
+        ArkUIAniModule._Common_Restore_InstanceId();
+    }
+
+    public bindTabsToNestedScrollable(tabsController: TabsController, parentScroller: Scroller,
+        childScroller: Scroller): void {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        IUIContext.bindTabsToNestedScrollable(tabsController, parentScroller, childScroller);
+        ArkUIAniModule._Common_Restore_InstanceId();
+    }
+
+    public unbindTabsFromNestedScrollable(tabsController: TabsController, parentScroller: Scroller,
+        childScroller: Scroller): void {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        IUIContext.unbindTabsFromNestedScrollable(tabsController, parentScroller, childScroller);
+        ArkUIAniModule._Common_Restore_InstanceId();
+    }
+
+    public enableEventPassthrough(enabled: boolean | undefined, eventType: RawInputEventType): void {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_);
+        IUIContext.enableEventPassthrough(enabled, eventType);
+        ArkUIAniModule._Common_Restore_InstanceId();
+    }
+
+    public setRouter(router: RouterExt) {
+        if (this.router_ === undefined) {
+            this.router_ = new RouterImpl(this.instanceId_)
+        }
+        this.router_.setRouter(router);
+    }
+
+    public updateParallelizeItemNode() {
+        this.updateParallelizeItemNodeCallback_?.()
+    }
+    public scheduleCallback(callback: () => void) {
+        this.callbacks.push(callback)
+    }
+    public flushCallback() {
+        for(const callback of this.callbacks ) {
+            callback?.()
+        }
+        this.callbacks.length = 0
+    }
+
+    public isUpdateConfiguration(): boolean {
+        return this.isUpdateConfiguration_;
+    }
+
+    public setUpdateConfiguration(value: boolean) {
+        this.isUpdateConfiguration_ = value;
+    }
+
+    public isEasySplit(): boolean {
+        return ArkUIAniModule._Common_IsEasySplit(this.instanceId_);
     }
 }
 export abstract class FrameCallback {
     onFrame(frameTimeInNano: long): void {}
     onIdle(timeLeftInNano: long): void {}
 }
+
+export declare type PanListenerCallback = (event: GestureEvent, current: GestureRecognizer, node?: FrameNode) => void;
+export declare type ClickEventListenerCallback = (event: ClickEvent, node?: FrameNode) => void;
+export declare type GestureEventListenerCallback = (event: GestureEvent, node?: FrameNode) => void;
+
+// Global gesture listener callback type
+export declare type GestureListenerCallback = (triggerInfo: GestureTriggerInfo) => void;
 
 export class UIObserver {
     private instanceId_: number = 100000;
@@ -839,7 +1452,16 @@ export class UIObserver {
             this.observerImpl!.offNavDestinationSwitch(callback);
         }
     }
-
+    public onWindowSizeLayoutBreakpointChange(callback: Callback<uiObserver.WindowSizeLayoutBreakpointInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.onWindowSizeLayoutBreakpointChange(callback);
+        }
+    }
+    public offWindowSizeLayoutBreakpointChange(callback?: Callback<uiObserver.WindowSizeLayoutBreakpointInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.offWindowSizeLayoutBreakpointChange(callback);
+        }
+    }
     public onNavDestinationSwitch(
         observerOptions: uiObserver.NavDestinationSwitchObserverOptions,
         callback: Callback<uiObserver.NavDestinationSwitchInfo>
@@ -855,6 +1477,54 @@ export class UIObserver {
     ): void {
         if (this.observerImpl) {
             this.observerImpl!.offNavDestinationSwitch(observerOptions, callback);
+        }
+    }
+
+    public onTabChange(callback: Callback<uiObserver.TabContentInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.onTabChange(callback);
+        }
+    }
+
+    public offTabChange(callback?: Callback<uiObserver.TabContentInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.offTabChange(callback);
+        }
+    }
+
+    public onTabChange(options: uiObserver.ObserverOptions, callback: Callback<uiObserver.TabContentInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.onTabChange(options, callback);
+        }
+    }
+
+    public offTabChange(options: uiObserver.ObserverOptions, callback?: Callback<uiObserver.TabContentInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.offTabChange(options, callback);
+        }
+    }
+
+    public onTabContentUpdate(callback: Callback<uiObserver.TabContentInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.onTabContentUpdate(callback);
+        }
+    }
+
+    public offTabContentUpdate(callback?: Callback<uiObserver.TabContentInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.offTabContentUpdate(callback);
+        }
+    }
+
+    public onTabContentUpdate(options: uiObserver.ObserverOptions, callback: Callback<uiObserver.TabContentInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.onTabContentUpdate(options, callback);
+        }
+    }
+
+    public offTabContentUpdate(options: uiObserver.ObserverOptions, callback?: Callback<uiObserver.TabContentInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.offTabContentUpdate(options, callback);
         }
     }
 
@@ -894,32 +1564,172 @@ export class UIObserver {
         }
     }
 
-    public onTabContentUpdate(callback: Callback<uiObserver.TabContentInfo>): void {
+    public onRouterPageSizeChange(callback: Callback<uiObserver.RouterPageInfo>): void {
         if (this.observerImpl) {
-            this.observerImpl!.onTabContentUpdate(callback);
+            this.observerImpl!.onRouterPageSizeChange(callback);
         }
     }
 
-    public offTabContentUpdate(callback?: Callback<uiObserver.TabContentInfo>): void {
+    public offRouterPageSizeChange(callback?: Callback<uiObserver.RouterPageInfo>): void {
         if (this.observerImpl) {
-            this.observerImpl!.offTabContentUpdate(callback);
+            this.observerImpl!.offRouterPageSizeChange(callback);
         }
     }
 
-    public onTabContentUpdate(options: uiObserver.ObserverOptions, callback: Callback<uiObserver.TabContentInfo>): void {
+    public onNavDestinationSizeChange(callback: Callback<uiObserver.NavDestinationInfo>): void {
         if (this.observerImpl) {
-            this.observerImpl!.onTabContentUpdate(options, callback);
+            this.observerImpl!.onNavDestinationSizeChange(callback);
         }
     }
 
-    public offTabContentUpdate(options: uiObserver.ObserverOptions, callback?: Callback<uiObserver.TabContentInfo>): void {
+    public offNavDestinationSizeChange(callback?: Callback<uiObserver.NavDestinationInfo>): void {
         if (this.observerImpl) {
-            this.observerImpl!.offTabContentUpdate(options, callback);
+            this.observerImpl!.offNavDestinationSizeChange(callback);
         }
+    }
+
+    public onNavDestinationSizeChangeByUniqueId(
+        navigationUniqueId: int, callback: Callback<uiObserver.NavDestinationInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.onNavDestinationSizeChangeByUniqueId(navigationUniqueId, callback);
+        }
+    }
+
+    public offNavDestinationSizeChangeByUniqueId(
+        navigationUniqueId: int, callback?: Callback<uiObserver.NavDestinationInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.offNavDestinationSizeChangeByUniqueId(navigationUniqueId, callback);
+        }
+    }
+
+    public onTextChange(callback: Callback<uiObserver.TextChangeEventInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.onTextChange(callback);
+        }
+    }
+    public offTextChange(callback?: Callback<uiObserver.TextChangeEventInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.offTextChange(callback);
+        }
+    }
+    public onTextChange(
+        identity: uiObserver.ObserverOptions, callback: Callback<uiObserver.TextChangeEventInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.onTextChange(identity, callback);
+        }
+    }
+    public offTextChange(
+        identity: uiObserver.ObserverOptions, callback?: Callback<uiObserver.TextChangeEventInfo>): void {
+        if (this.observerImpl) {
+            this.observerImpl!.offTextChange(identity, callback);
+        }
+    }
+
+    public onBeforePanStart(callback: PanListenerCallback): void {
+        let resourceId = UIObserverGestureEventOps.setOnBeforePanStart(this.instanceId_.toInt(), callback);
+        ArkUIAniModule._GestureEventUIObserver_SetPanListenerCallback(this.instanceId_.toInt(), resourceId, 'beforePanStart', callback);
+ 	}
+
+    public offBeforePanStart(callback?: PanListenerCallback): void {
+        ArkUIAniModule._GestureEventUIObserver_RemovePanListenerCallback(this.instanceId_.toInt(), 'beforePanStart', callback);
+    }
+
+    public onBeforePanEnd(callback: PanListenerCallback): void {
+        let resourceId = UIObserverGestureEventOps.setOnBeforePanEnd(this.instanceId_.toInt(), callback);
+        ArkUIAniModule._GestureEventUIObserver_SetPanListenerCallback(this.instanceId_.toInt(), resourceId, 'beforePanEnd', callback);
+ 	}
+
+    public offBeforePanEnd(callback?: PanListenerCallback): void {
+        ArkUIAniModule._GestureEventUIObserver_RemovePanListenerCallback(this.instanceId_.toInt(), 'beforePanEnd', callback);
+    }
+
+    public onAfterPanStart(callback: PanListenerCallback): void {
+        let resourceId = UIObserverGestureEventOps.setOnAfterPanStart(this.instanceId_.toInt(), callback);
+        ArkUIAniModule._GestureEventUIObserver_SetPanListenerCallback(this.instanceId_.toInt(), resourceId, 'afterPanStart', callback);
+ 	}
+
+    public offAfterPanStart(callback?: PanListenerCallback): void {
+        ArkUIAniModule._GestureEventUIObserver_RemovePanListenerCallback(this.instanceId_.toInt(), 'afterPanStart', callback);
+    }
+
+    public onAfterPanEnd(callback: PanListenerCallback): void {
+        let resourceId = UIObserverGestureEventOps.setOnAfterPanEnd(this.instanceId_.toInt(), callback);
+        ArkUIAniModule._GestureEventUIObserver_SetPanListenerCallback(this.instanceId_.toInt(), resourceId, 'afterPanEnd', callback);
+ 	}
+
+    public offAfterPanEnd(callback?: PanListenerCallback): void {
+        ArkUIAniModule._GestureEventUIObserver_RemovePanListenerCallback(this.instanceId_.toInt(), 'afterPanEnd', callback);
+    }
+
+    public onWillClick(callback: ClickEventListenerCallback): void {
+        let resourceId = UIObserverGestureEventOps.setOnWillClick(this.instanceId_.toInt(), callback);
+        ArkUIAniModule._GestureEventUIObserver_SetClickListenerCallback(this.instanceId_.toInt(), resourceId, 'willClick', callback);
+ 	}
+
+    public offWillClick(callback?: ClickEventListenerCallback): void {
+        ArkUIAniModule._GestureEventUIObserver_RemoveClickListenerCallback(this.instanceId_.toInt(), 'willClick', callback);
+    }
+
+    public onDidClick(callback: ClickEventListenerCallback): void {
+        let resourceId = UIObserverGestureEventOps.setOnDidClick(this.instanceId_.toInt(), callback);
+        ArkUIAniModule._GestureEventUIObserver_SetClickListenerCallback(this.instanceId_.toInt(), resourceId, 'didClick', callback);
+ 	}
+
+    public offDidClick(callback?: ClickEventListenerCallback): void {
+        ArkUIAniModule._GestureEventUIObserver_RemoveClickListenerCallback(this.instanceId_.toInt(), 'didClick', callback);
+    }
+
+    public onWillTap(callback: GestureEventListenerCallback): void {
+        let resourceId = UIObserverGestureEventOps.setOnWillTap(this.instanceId_.toInt(), callback);
+        ArkUIAniModule._GestureEventUIObserver_SetTapListenerCallback(this.instanceId_.toInt(), resourceId, 'willTap', callback);
+ 	}
+
+    public offWillTap(callback?: GestureEventListenerCallback): void {
+        ArkUIAniModule._GestureEventUIObserver_RemoveTapListenerCallback(this.instanceId_.toInt(), 'willTap', callback);
+    }
+
+    public onDidTap(callback: GestureEventListenerCallback): void {
+        let resourceId = UIObserverGestureEventOps.setOnDidTap(this.instanceId_.toInt(), callback);
+        ArkUIAniModule._GestureEventUIObserver_SetTapListenerCallback(this.instanceId_.toInt(), resourceId, 'didTap', callback);
+ 	}
+
+    public offDidTap(callback?: GestureEventListenerCallback): void {
+        ArkUIAniModule._GestureEventUIObserver_RemoveTapListenerCallback(this.instanceId_.toInt(), 'didTap', callback);
+    }
+
+    public addGlobalGestureListener(type: GestureListenerType, option: GestureObserverConfigs, callback: GestureListenerCallback): void
+    {
+        let observer_callback = (info: InnerGestureTriggerInfo,frameNode?: FrameNode) => {
+            let triggerInfo : GestureTriggerInfo = {
+                event: info.event,
+                current: info.current,
+                currentPhase: info.currentPhase,
+                node: frameNode
+            }
+            callback(triggerInfo)
+        }
+        let innerConfig : InnerGestureObserverConfigs = {
+            actionPhases: option.actionPhases
+        }
+        let resourceId = UIObserverGestureEventOps.addGlobalGestureListener(type, innerConfig, observer_callback);
+        ArkUIAniModule._GestureEventUIObserver_AddGlobalGestureListener(resourceId, type, callback);
+    }
+
+    public removeGlobalGestureListener(type: GestureListenerType, callback?: GestureListenerCallback): void {
+        ArkUIAniModule._GestureEventUIObserver_RemoveGlobalGestureListener(type.valueOf(), callback);
     }
 }
-export interface PageInfo {}
+export interface PageInfo {
+        routerPageInfo?: uiObserver.RouterPageInfo;
+        navDestinationInfo?: uiObserver.NavDestinationInfo;
+}
 export interface ContentCoverController {}
+
+export class Magnifier {
+    bind(id: string): void {}
+    show(x: double, y: double): void {}
+    unbind(): void {}
+}
 export class DynamicSyncScene {
     private range: ExpectedFrameRateRange;
     constructor(range: ExpectedFrameRateRange) {
@@ -953,4 +1763,28 @@ export class SwiperDynamicSyncScene extends DynamicSyncScene {
         super.setFrameRateRange(range);
         ArkUIAniModule._Common_SetFrameRateRange(this.nodePtr, range, this.type);
     }
+}
+
+export const enum MarqueeDynamicSyncSceneType {
+  ANIMATION = 1
+}
+
+export class MarqueeDynamicSyncScene extends DynamicSyncScene {
+    readonly type: MarqueeDynamicSyncSceneType;
+    nodePtr: KPointer;
+    constructor(type: MarqueeDynamicSyncSceneType, nodePtr: KPointer) {
+        super({ min: 0, max: 120, expected: 120 } as ExpectedFrameRateRange);
+        this.type = type;
+        this.nodePtr = nodePtr;
+    }
+
+    setFrameRateRange(range: ExpectedFrameRateRange): void {
+        super.setFrameRateRange(range);
+        ArkUIAniModule._Common_SetFrameRateRange(this.nodePtr, range, this.type);
+    }
+}
+
+export const enum CustomKeyboardContinueFeature {
+    ENABLED = 0,
+    DISABLED = 1,
 }

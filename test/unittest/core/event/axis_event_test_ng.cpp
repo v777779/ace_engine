@@ -26,7 +26,7 @@
 #define protected public
  
 #include "frameworks/core/event/axis_event.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
  
 using namespace testing;
 using namespace testing::ext;
@@ -241,5 +241,50 @@ HWTEST_F(AxisEventTestNg, AxisEventConvertToOffsetTest001, TestSize.Level1)
         EXPECT_EQ(offset.GetX(), testCase.exceptOffsetX * mouseScale);
         EXPECT_EQ(offset.GetY(), testCase.exceptOffsetY * mouseScale);
     }
+}
+
+/**
+ * @tc.name: AxisEventCreateScaleEventTest001
+ * @tc.desc: Test function HasAxis.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AxisEventTestNg, AxisEventCreateScaleEventTest001, TestSize.Level1)
+{
+    AxisEvent axisEvent;
+    axisEvent.x = 100.0f;
+    axisEvent.passThrough = true;
+    axisEvent.postEventNodeId = 100;
+    auto axisEventOne = axisEvent.CreateScaleEvent(0.0f);
+    EXPECT_TRUE(NearEqual(axisEventOne.x, 100.0));
+    EXPECT_EQ(axisEventOne.postEventNodeId, 100);
+    axisEvent.passThrough = false;
+    auto axisEventTwo = axisEvent.CreateScaleEvent(10.0f);
+    EXPECT_TRUE(NearEqual(axisEventTwo.x, 10.0));
+    EXPECT_EQ(axisEventTwo.postEventNodeId, 0);
+    auto axisEventThree = axisEvent.CloneWith(0.0f);
+    EXPECT_TRUE(NearZero(axisEventThree.x));
+}
+
+/**
+ * @tc.name: AxisEventHasAxisTest001
+ * @tc.desc: Test function HasAxis.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AxisEventTestNg, AxisEventHasAxisTest001, TestSize.Level1)
+{
+    AxisInfo axisInfo;
+    axisInfo.axes_ = 0;
+    EXPECT_FALSE(axisInfo.HasAxis(AxisType::HORIZONTAL_AXIS));
+    EXPECT_FALSE(axisInfo.HasAxis(AxisType::VERTICAL_AXIS));
+    EXPECT_FALSE(axisInfo.HasAxis(AxisType::PINCH_AXIS));
+    EXPECT_FALSE(axisInfo.HasAxis(static_cast<AxisType>(-1)));
+    EXPECT_FALSE(axisInfo.HasAxis(static_cast<AxisType>(3)));
+    axisInfo.axes_ = 7;
+    EXPECT_EQ(axisInfo.GetAxes(), axisInfo.axes_);
+    EXPECT_TRUE(axisInfo.HasAxis(AxisType::HORIZONTAL_AXIS));
+    EXPECT_TRUE(axisInfo.HasAxis(AxisType::VERTICAL_AXIS));
+    EXPECT_TRUE(axisInfo.HasAxis(AxisType::PINCH_AXIS));
+    EXPECT_FALSE(axisInfo.HasAxis(static_cast<AxisType>(-1)));
+    EXPECT_FALSE(axisInfo.HasAxis(static_cast<AxisType>(3)));
 }
 } // namespace OHOS::Ace::NG

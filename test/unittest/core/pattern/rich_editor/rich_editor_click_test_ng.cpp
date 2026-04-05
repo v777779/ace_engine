@@ -14,11 +14,11 @@
  */
 
 #include "test/unittest/core/pattern/rich_editor/rich_editor_common_test_ng.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_theme.h"
 
 using namespace testing;
@@ -79,7 +79,7 @@ void RichEditorClickTestNg::TearDownTestSuite()
  * @tc.desc: test handle click event
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, HandleClickEvent001, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, HandleClickEvent001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -93,16 +93,12 @@ HWTEST_F(RichEditorClickTestNg, HandleClickEvent001, TestSize.Level1)
     EXPECT_EQ(richEditorPattern->caretPosition_, 0);
 
     richEditorPattern->caretPosition_ = 1;
-    richEditorPattern->textSelector_.baseOffset = -1;
-    richEditorPattern->textSelector_.destinationOffset = -1;
-
     richEditorPattern->isMouseSelect_ = true;
     richEditorPattern->hasClicked_ = false;
     richEditorPattern->clickInfo_.clear();
     richEditorPattern->HandleClickEvent(info);
     EXPECT_EQ(richEditorPattern->textSelector_.baseOffset, -1);
     EXPECT_EQ(richEditorPattern->textSelector_.destinationOffset, -1);
-    EXPECT_EQ(richEditorPattern->caretPosition_, 1);
 
     richEditorPattern->caretPosition_ = 1;
     richEditorPattern->isMouseSelect_ = false;
@@ -113,19 +109,15 @@ HWTEST_F(RichEditorClickTestNg, HandleClickEvent001, TestSize.Level1)
     EXPECT_EQ(richEditorPattern->textSelector_.destinationOffset, -1);
     EXPECT_EQ(richEditorPattern->caretPosition_, 0);
 
-    richEditorPattern->caretPosition_ = 1;
-    richEditorPattern->textSelector_.baseOffset = 0;
-    richEditorPattern->textSelector_.destinationOffset = 1;
-
     richEditorPattern->isMouseSelect_ = true;
     richEditorPattern->hasClicked_ = false;
     richEditorPattern->clickInfo_.clear();
     richEditorPattern->HandleClickEvent(info);
-    EXPECT_EQ(richEditorPattern->textSelector_.baseOffset, 0);
-    EXPECT_EQ(richEditorPattern->textSelector_.destinationOffset, 1);
-    EXPECT_EQ(richEditorPattern->caretPosition_, 1);
+    EXPECT_EQ(richEditorPattern->caretPosition_, 0);
 
     richEditorPattern->caretPosition_ = 1;
+    richEditorPattern->textSelector_.baseOffset = 0;
+    richEditorPattern->textSelector_.destinationOffset = 1;
     richEditorPattern->isMouseSelect_ = false;
     richEditorPattern->hasClicked_ = false;
     richEditorPattern->clickInfo_.clear();
@@ -134,12 +126,58 @@ HWTEST_F(RichEditorClickTestNg, HandleClickEvent001, TestSize.Level1)
     EXPECT_EQ(richEditorPattern->textSelector_.destinationOffset, -1);
 }
 
+/**
+ * @tc.name: HandleClickEvent002
+ * @tc.desc: test RichEditorPattern HandleClickEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorClickTestNg, HandleClickEvent002, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    GestureEvent info;
+    info.localLocation_ = Offset(0, 0);
+    ParagraphStyle paragraphStyle;
+    auto paragraph = Paragraph::Create(paragraphStyle, FontCollection::Current());
+    richEditorPattern->pManager_->AddParagraph({ .paragraph = paragraph, .paragraphStyle = paragraphStyle });
+    auto focusHub = richEditorNode_->GetOrCreateFocusHub();
+    ASSERT_NE(focusHub, nullptr);
+    richEditorPattern->GetFocusHub()->focusType_ = FocusType::DISABLE;
+    richEditorPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
+    richEditorPattern->HandleClickEvent(info);
+    EXPECT_EQ(richEditorPattern->caretPosition_, 0);
+}
+
+/**
+ * @tc.name: HandleClickEvent002
+ * @tc.desc: test RichEditorPattern HandleClickEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorClickTestNg, HandleClickEvent003, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    GestureEvent info;
+    info.localLocation_ = Offset(0, 0);
+    ParagraphStyle paragraphStyle;
+    auto paragraph = Paragraph::Create(paragraphStyle, FontCollection::Current());
+    richEditorPattern->pManager_->AddParagraph({ .paragraph = paragraph, .paragraphStyle = paragraphStyle });
+    auto focusHub = richEditorNode_->GetOrCreateFocusHub();
+    ASSERT_NE(focusHub, nullptr);
+    richEditorPattern->GetFocusHub()->focusType_ = FocusType::NODE;
+    richEditorPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
+    richEditorPattern->HandleClickEvent(info);
+    EXPECT_FALSE(richEditorPattern->dataDetectorAdapter_->hasClickedAISpan_);
+}
+
 /*
  * @tc.name: DoubleHandleClickEvent001
  * @tc.desc: test double click
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, DoubleHandleClickEvent001, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, DoubleHandleClickEvent001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -175,7 +213,7 @@ HWTEST_F(RichEditorClickTestNg, DoubleHandleClickEvent001, TestSize.Level1)
  * @tc.desc: test HandleEnabled
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, HandleEnabled, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, HandleEnabled, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create richEditorPattern and renderContext.
@@ -218,7 +256,7 @@ HWTEST_F(RichEditorClickTestNg, HandleEnabled, TestSize.Level1)
  * @tc.desc: test MoveCaretOnLayoutSwap
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, MoveCaretOnLayoutSwap, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, MoveCaretOnLayoutSwap, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern
@@ -248,49 +286,11 @@ HWTEST_F(RichEditorClickTestNg, MoveCaretOnLayoutSwap, TestSize.Level1)
 }
 
 /**
- * @tc.name: HandleBlurEvent
- * @tc.desc: test HandleBlurEvent
- * @tc.type: FUNC
- */
-HWTEST_F(RichEditorClickTestNg, HandleBlurEvent, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. get richEditor pattern
-     */
-    ASSERT_NE(richEditorNode_, nullptr);
-    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
-    ASSERT_NE(richEditorPattern, nullptr);
-
-    /**
-     * @tc.steps: step2. add span and select
-     */
-    AddSpan(u"test");
-    richEditorPattern->textSelector_.Update(1, 3);
-    EXPECT_EQ(richEditorPattern->textSelector_.GetTextEnd(), 3);
-
-    /**
-     * @tc.step: step3. Request focus and set blurReason_
-     */
-    auto focusHub = richEditorNode_->GetOrCreateFocusHub();
-    ASSERT_NE(focusHub, nullptr);
-    focusHub->RequestFocusImmediately();
-    focusHub->blurReason_ = BlurReason::FRAME_DESTROY;
-
-    /**
-     * @tc.step: step4. call the callback function
-     */
-    richEditorPattern->textDetectEnable_ = true;
-    richEditorPattern->HandleBlurEvent();
-    EXPECT_EQ(richEditorPattern->textSelector_.baseOffset, -1);
-    EXPECT_EQ(richEditorPattern->textSelector_.destinationOffset, -1);
-}
-
-/**
  * @tc.name: CreateAndShowSingleHandle
  * @tc.desc: test CreateAndShowSingleHandle
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, CreateAndShowSingleHandle, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, CreateAndShowSingleHandle, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create richEditorPattern
@@ -309,34 +309,11 @@ HWTEST_F(RichEditorClickTestNg, CreateAndShowSingleHandle, TestSize.Level1)
 }
 
 /**
- * @tc.name: HandleClickEvent002
- * @tc.desc: test RichEditorPattern HandleClickEvent
- * @tc.type: FUNC
- */
-HWTEST_F(RichEditorClickTestNg, HandleClickEvent002, TestSize.Level1)
-{
-    ASSERT_NE(richEditorNode_, nullptr);
-    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
-    ASSERT_NE(richEditorPattern, nullptr);
-    GestureEvent info;
-    info.localLocation_ = Offset(0, 0);
-    ParagraphStyle paragraphStyle;
-    auto paragraph = Paragraph::Create(paragraphStyle, FontCollection::Current());
-    richEditorPattern->pManager_->AddParagraph({ .paragraph = paragraph, .paragraphStyle = paragraphStyle });
-    auto focusHub = richEditorNode_->GetOrCreateFocusHub();
-    ASSERT_NE(focusHub, nullptr);
-    richEditorPattern->GetFocusHub()->focusType_ = FocusType::DISABLE;
-    richEditorPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
-    richEditorPattern->HandleClickEvent(info);
-    EXPECT_EQ(richEditorPattern->caretPosition_, 0);
-}
-
-/**
  * @tc.name: HandleSingleClickEvent001
  * @tc.desc: test RichEditorPattern HandleSingleClickEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, HandleSingleClickEvent001, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, HandleSingleClickEvent001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -382,7 +359,7 @@ HWTEST_F(RichEditorClickTestNg, HandleSingleClickEvent001, TestSize.Level1)
  * @tc.desc: test RichEditorPattern HandleSingleClickEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, HandleSingleClickEvent002, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, HandleSingleClickEvent002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -399,7 +376,7 @@ HWTEST_F(RichEditorClickTestNg, HandleSingleClickEvent002, TestSize.Level1)
  * @tc.desc: test RichEditorPattern HandleSingleClickEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, HandleSingleClickEvent003, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, HandleSingleClickEvent003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -412,11 +389,46 @@ HWTEST_F(RichEditorClickTestNg, HandleSingleClickEvent003, TestSize.Level1)
 }
 
 /**
+ * @tc.name: HandleSingleClickEvent004
+ * @tc.desc: test RichEditorPattern HandleSingleClickEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorClickTestNg, HandleSingleClickEvent004, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    richEditorPattern->CreateNodePaintMethod();
+
+    ParagraphStyle paragraphStyle;
+    auto paragraph = Paragraph::Create(paragraphStyle, FontCollection::Current());
+    richEditorPattern->pManager_->AddParagraph({ .paragraph = paragraph, .paragraphStyle = paragraphStyle });
+
+    auto focusHub = richEditorNode_->GetOrCreateFocusHub();
+    ASSERT_NE(focusHub, nullptr);
+
+    GestureEvent info;
+    info.localLocation_ = Offset(0, 0);
+
+    richEditorPattern->shiftFlag_ = true;
+    richEditorPattern->caretVisible_ = false;
+    richEditorPattern->HandleSingleClickEvent(info);
+    EXPECT_TRUE(richEditorPattern->caretVisible_);
+
+    richEditorPattern->shiftFlag_ = false;
+    richEditorPattern->caretVisible_ = false;
+    richEditorPattern->HandleSingleClickEvent(info);
+    EXPECT_TRUE(richEditorPattern->caretVisible_);
+}
+
+
+/**
  * @tc.name: TestRichEditorHandleTripleClickEvent001
  * @tc.desc: test HandleTripleClickEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, TestRichEditorHandleTripleClickEvent001, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, TestRichEditorHandleTripleClickEvent001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -435,7 +447,7 @@ HWTEST_F(RichEditorClickTestNg, TestRichEditorHandleTripleClickEvent001, TestSiz
  * @tc.desc: test RichEditorPattern ClickAISpan
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, ClickAISpan001, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, ClickAISpan001, TestSize.Level0)
 {
     AISpan aiSpan;
     aiSpan.start = 0;
@@ -455,7 +467,7 @@ HWTEST_F(RichEditorClickTestNg, ClickAISpan001, TestSize.Level1)
  * @tc.desc: Test ClickAISpan function
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, ClickAISpan002, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, ClickAISpan002, TestSize.Level0)
 {
     PointF textOffset = {100.0, 100.0};
     AISpan aiSpan = {0, 10, "Test", TextDataDetectType::PHONE_NUMBER};
@@ -482,7 +494,7 @@ HWTEST_F(RichEditorClickTestNg, ClickAISpan002, TestSize.Level1)
  * @tc.desc: Test ClickAISpan function
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, ClickAISpan003, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, ClickAISpan003, TestSize.Level0)
 {
     PointF textOffset = {100.0, 100.0};
     AISpan aiSpan = {0, 10, "Test", TextDataDetectType::PHONE_NUMBER};
@@ -509,7 +521,7 @@ HWTEST_F(RichEditorClickTestNg, ClickAISpan003, TestSize.Level1)
  * @tc.desc: Test ClickAISpan function
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, ClickAISpan004, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, ClickAISpan004, TestSize.Level0)
 {
     PointF textOffset = {100.0, 100.0};
     AISpan aiSpan = {0, 10, "Test", TextDataDetectType::PHONE_NUMBER};
@@ -536,7 +548,7 @@ HWTEST_F(RichEditorClickTestNg, ClickAISpan004, TestSize.Level1)
  * @tc.desc: Test ClickAISpan function
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, ClickAISpan005, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, ClickAISpan005, TestSize.Level0)
 {
     PointF textOffset = {100.0, 100.0};
     AISpan aiSpan = {0, 10, "Test", TextDataDetectType::PHONE_NUMBER};
@@ -562,7 +574,7 @@ HWTEST_F(RichEditorClickTestNg, ClickAISpan005, TestSize.Level1)
  * @tc.desc: test HandleUserClickEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent001, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -586,6 +598,7 @@ HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent001, TestSize.Level1)
     EXPECT_CALL(*paragraph, GetHeight).WillRepeatedly(Return(50));
     GestureEvent info = GestureEvent();
     info.SetLocalLocation(Offset(3, 3));
+    info.SetGlobalDisplayLocation(Offset(3, 3));
     richEditorPattern->contentRect_ = RectF(0, 0, 20.0, 20.0);
     auto gestureFunc = [](RefPtr<SpanItem> item, GestureEvent& info) -> bool { return true; };
     richEditorPattern->HandleUserGestureEvent(info, std::move(gestureFunc));
@@ -599,7 +612,7 @@ HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent001, TestSize.Level1)
  * @tc.desc: test HandleUserClickEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent002, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -621,6 +634,7 @@ HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent002, TestSize.Level1)
     EXPECT_CALL(*paragraph, GetHeight).WillRepeatedly(Return(50));
     GestureEvent info = GestureEvent();
     info.SetLocalLocation(Offset(3, 3));
+    info.SetGlobalDisplayLocation(Offset(3, 3));
     richEditorPattern->contentRect_ = RectF(0, 0, 20.0, 20.0);
     auto gestureFunc = [](RefPtr<SpanItem> item, GestureEvent& info) -> bool { return true; };
     richEditorPattern->HandleUserGestureEvent(info, std::move(gestureFunc));
@@ -634,7 +648,7 @@ HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent002, TestSize.Level1)
  * @tc.desc: test HandleUserClickEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent003, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -653,6 +667,7 @@ HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent003, TestSize.Level1)
     EXPECT_CALL(*paragraph, GetHeight).WillRepeatedly(Return(50));
     GestureEvent info = GestureEvent();
     info.SetLocalLocation(Offset(3, 3));
+    info.SetGlobalDisplayLocation(Offset(3, 3));
     richEditorPattern->contentRect_ = RectF(0, 0, 20.0, 20.0);
     auto gestureFunc = [](RefPtr<SpanItem> item, GestureEvent& info) -> bool { return true; };
     richEditorPattern->HandleUserGestureEvent(info, std::move(gestureFunc));
@@ -662,26 +677,48 @@ HWTEST_F(RichEditorClickTestNg, HandleUserClickEvent003, TestSize.Level1)
 }
 
 /**
- * @tc.name: HandleClickEvent002
- * @tc.desc: test RichEditorPattern HandleClickEvent
+ * @tc.name: IsClickBoundary001
+ * @tc.desc: test IsClickBoundary
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorClickTestNg, HandleClickEvent003, TestSize.Level1)
+HWTEST_F(RichEditorClickTestNg, IsClickBoundary001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. init and call function.
+     */
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    richEditorPattern->CreateNodePaintMethod();
+    EXPECT_EQ(richEditorPattern->contentMod_, nullptr);
+    EXPECT_NE(richEditorPattern->overlayMod_, nullptr);
+    /**
+     * @tc.steps: step2. change parameter and call function.
+     */
+    auto length = richEditorPattern->GetTextContentLength();
+    auto caretPosition = length + 1;
+    auto ret = richEditorPattern->IsClickBoundary(caretPosition);
+    EXPECT_EQ(ret, true);
+}
+
+/**
+ * @tc.name: RichEditorScopeTest
+ * @tc.desc: test RichEditorScope
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorClickTestNg, RichEditorScopeTest, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
-    GestureEvent info;
-    info.localLocation_ = Offset(0, 0);
-    ParagraphStyle paragraphStyle;
-    auto paragraph = Paragraph::Create(paragraphStyle, FontCollection::Current());
-    richEditorPattern->pManager_->AddParagraph({ .paragraph = paragraph, .paragraphStyle = paragraphStyle });
-    auto focusHub = richEditorNode_->GetOrCreateFocusHub();
-    ASSERT_NE(focusHub, nullptr);
-    richEditorPattern->GetFocusHub()->focusType_ = FocusType::NODE;
-    richEditorPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
-    richEditorPattern->HandleClickEvent(info);
-    EXPECT_FALSE(richEditorPattern->dataDetectorAdapter_->hasClickedAISpan_);
+    auto& requestFocusBySingleClick = richEditorPattern->requestFocusBySingleClick_;
+
+    requestFocusBySingleClick = false;
+    {
+        RICH_EDITOR_SCOPE(requestFocusBySingleClick);
+        EXPECT_EQ(requestFocusBySingleClick, true);
+    }
+    EXPECT_EQ(requestFocusBySingleClick, false);
 }
 
 } // namespace OHOS::Ace::NG

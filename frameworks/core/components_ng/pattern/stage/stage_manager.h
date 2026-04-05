@@ -51,6 +51,8 @@ public:
 
     void PageChangeCloseKeyboard();
     void UpdateColorModeForPage(const RefPtr<FrameNode>& page);
+    // ace performance check
+    void PerformanceCheck(const RefPtr<FrameNode>& pageNode, int64_t vsyncTimeout, std::string path);
 
     static void FirePageHide(const RefPtr<UINode>& node, PageTransitionType transitionType = PageTransitionType::NONE);
     static void FirePageShow(const RefPtr<UINode>& node, PageTransitionType transitionType = PageTransitionType::NONE,
@@ -75,29 +77,6 @@ public:
 
     void SetStageInTrasition (bool stageInTrasition) {
         stageInTrasition_ = stageInTrasition;
-    }
-
-    void SetForceSplitEnable(bool isForceSplit, const std::string& homePage);
-
-    bool GetForceSplitEnable() const
-    {
-        return isForceSplit_;
-    }
-
-    std::string GetHomePageConfig() const
-    {
-        return homePageConfig_;
-    }
-
-    bool GetDetectPrimaryPageEnable() const
-    {
-        return isDetectPrimaryPage_;
-    }
-
-    void OnForceSplitConfigUpdate()
-    {
-        CHECK_NULL_VOID(stagePattern_);
-        stagePattern_->OnForceSplitConfigUpdate();
     }
 
 #if defined(ENABLE_SPLIT_MODE)
@@ -148,9 +127,17 @@ public:
         return false;
     }
 
+    virtual bool IsTopFullScreenPage() const
+    {
+        return false;
+    }
+
+    virtual bool IsDisplaySplitMode() const
+    {
+        return false;
+    }
+
 protected:
-    // ace performance check
-    void PerformanceCheck(const RefPtr<FrameNode>& pageNode, int64_t vsyncTimeout, std::string path);
     void FireAutoSave(const RefPtr<FrameNode>& outPageNode, const RefPtr<FrameNode>& inPageNode);
     void AddPageTransitionTrace(const RefPtr<FrameNode>& srcPage, const RefPtr<FrameNode>& destPage);
     std::string GetSrcPageInfo(const RefPtr<FrameNode>& srcPage);
@@ -176,11 +163,6 @@ protected:
     std::function<std::string(const std::string& url)> getPagePathCallback_;
 
     ACE_DISALLOW_COPY_AND_MOVE(StageManager);
-
-private:
-    bool isForceSplit_ = false;
-    std::string homePageConfig_;
-    bool isDetectPrimaryPage_ = false;
 };
 } // namespace OHOS::Ace::NG
 

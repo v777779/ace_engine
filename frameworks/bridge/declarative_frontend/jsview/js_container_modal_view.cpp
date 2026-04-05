@@ -14,11 +14,13 @@
  */
 
 #include "frameworks/bridge/declarative_frontend/jsview/js_container_modal_view.h"
+
 #include <cstdint>
 
 #include "base/memory/ace_type.h"
 #include "base/utils/utils.h"
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_native_common_bridge.h"
+#include "bridge/declarative_frontend/jsview/js_view_common_def.h"
 #include "core/common/ace_engine.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/container_modal/enhance/container_modal_pattern_enhance.h"
@@ -38,14 +40,25 @@ const std::string EVENT_NAME_MENU_WIDTH_CHANGE = "arkui_custom_menu_width_change
 
 const int32_t EVENT_NAME_MENU_WIDTH_CHANGE_PARAM_COUNT = 2;
 
-static std::map<std::string, std::function<void(const JSCallbackInfo& info)>> g_nativeFuncMap;
 } // namespace
+
+const std::map<std::string, std::function<void(const JSCallbackInfo& info)>> JSContainerModal::nativeFuncMap_ = {
+    { EVENT_NAME_CUSTOM_MAX_CLICK, JSContainerModal::OnMaxBtnClick },
+    { EVENT_NAME_MIN_CLICK, JSContainerModal::OnMinBtnClick },
+    { EVENT_NAME_CLOSE_CLICK, JSContainerModal::OnCloseBtnClick },
+    { EVENT_NAME_LEFT_SPLIT_CLICK, JSContainerModal::OnLeftSplitClick },
+    { EVENT_NAME_RIGHT_SPLIT_CLICK, JSContainerModal::OnRightSplitClick },
+    { EVENT_NAME_BUTTON_POINT_LIGHT_ANIM, JSContainerModal::AddButtonPointLightAnim },
+    { EVENT_NAME_BUTTON_RECT_CHANGE, JSContainerModal::CallButtonsRectChange },
+    { EVENT_NAME_MENU_WIDTH_CHANGE, JSContainerModal::CallMenuWidthChange },
+};
 
 void JSContainerModal::OnMaxBtnClick(const JSCallbackInfo& info)
 {
     TAG_LOGI(AceLogTag::ACE_APPBAR, "OnMaxBtnClick");
     auto pattern = GetContainerModalPattern();
     CHECK_NULL_VOID(pattern);
+    ACE_UINODE_TRACE(pattern->GetHost());
     pattern->OnMaxButtonClick();
 }
 
@@ -54,6 +67,7 @@ void JSContainerModal::OnMinBtnClick(const JSCallbackInfo& info)
     TAG_LOGI(AceLogTag::ACE_APPBAR, "OnMinBtnClick");
     auto pattern = GetContainerModalPattern();
     CHECK_NULL_VOID(pattern);
+    ACE_UINODE_TRACE(pattern->GetHost());
     pattern->OnMinButtonClick();
 }
 
@@ -62,6 +76,7 @@ void JSContainerModal::OnCloseBtnClick(const JSCallbackInfo& info)
     TAG_LOGI(AceLogTag::ACE_APPBAR, "OnCloseBtnClick");
     auto pattern = GetContainerModalPattern();
     CHECK_NULL_VOID(pattern);
+    ACE_UINODE_TRACE(pattern->GetHost());
     pattern->OnCloseButtonClick();
 }
 
@@ -74,6 +89,7 @@ void JSContainerModal::OnLeftSplitClick(const JSCallbackInfo& info)
     CHECK_NULL_VOID(rootNode);
     auto containerMode = AceType::DynamicCast<NG::FrameNode>(rootNode->GetChildren().front());
     CHECK_NULL_VOID(containerMode);
+    ACE_UINODE_TRACE(containerMode);
     auto pattern = containerMode->GetPattern<NG::ContainerModalPatternEnhance>();
     CHECK_NULL_VOID(pattern);
     pattern->OnMenuItemClickGesture(true);
@@ -88,6 +104,7 @@ void JSContainerModal::OnRightSplitClick(const JSCallbackInfo& info)
     CHECK_NULL_VOID(rootNode);
     auto containerMode = AceType::DynamicCast<NG::FrameNode>(rootNode->GetChildren().front());
     CHECK_NULL_VOID(containerMode);
+    ACE_UINODE_TRACE(containerMode);
     auto pattern = containerMode->GetPattern<NG::ContainerModalPatternEnhance>();
     CHECK_NULL_VOID(pattern);
     pattern->OnMenuItemClickGesture(false);
@@ -98,6 +115,8 @@ void JSContainerModal::AddButtonPointLightAnim(const JSCallbackInfo& info)
     TAG_LOGI(AceLogTag::ACE_APPBAR, "AddButtonPointLightAnim");
     auto pattern = GetContainerModalPattern();
     CHECK_NULL_VOID(pattern);
+    ACE_UINODE_TRACE(pattern->GetHost());
+    pattern->AddPointLight();
 }
 
 void JSContainerModal::CallButtonsRectChange(const JSCallbackInfo& info)
@@ -105,6 +124,7 @@ void JSContainerModal::CallButtonsRectChange(const JSCallbackInfo& info)
     TAG_LOGI(AceLogTag::ACE_APPBAR, "CallButtonsRectChange");
     auto pattern = GetContainerModalPattern();
     CHECK_NULL_VOID(pattern);
+    ACE_UINODE_TRACE(pattern->GetHost());
     pattern->CallButtonsRectChange();
     pattern->InitAllTitleRowLayoutProperty();
 }
@@ -121,6 +141,7 @@ void JSContainerModal::CallMenuWidthChange(const JSCallbackInfo& info)
     ConvertFromJSValue(info[1], resId);
     auto pattern = GetContainerModalPattern();
     CHECK_NULL_VOID(pattern);
+    ACE_UINODE_TRACE(pattern->GetHost());
     pattern->CallMenuWidthChange(resId);
 }
 
@@ -159,6 +180,7 @@ void JSContainerModal::CallWindowNative(const JSCallbackInfo& info)
     CHECK_NULL_VOID(rootNode);
     auto containerMode = AceType::DynamicCast<NG::FrameNode>(rootNode->GetChildren().front());
     CHECK_NULL_VOID(containerMode);
+    ACE_UINODE_TRACE(containerMode);
     auto pattern = containerMode->GetPattern<NG::ContainerModalPatternEnhance>();
     CHECK_NULL_VOID(pattern);
     std::string eventName = info[0]->ToString();
@@ -168,17 +190,6 @@ void JSContainerModal::CallWindowNative(const JSCallbackInfo& info)
 
 void JSContainerModal::CallNative(const JSCallbackInfo& info)
 {
-    g_nativeFuncMap = {
-        { EVENT_NAME_CUSTOM_MAX_CLICK, JSContainerModal::OnMaxBtnClick },
-        { EVENT_NAME_MIN_CLICK, JSContainerModal::OnMinBtnClick },
-        { EVENT_NAME_CLOSE_CLICK, JSContainerModal::OnCloseBtnClick },
-        { EVENT_NAME_LEFT_SPLIT_CLICK, JSContainerModal::OnLeftSplitClick },
-        { EVENT_NAME_RIGHT_SPLIT_CLICK, JSContainerModal::OnRightSplitClick },
-        { EVENT_NAME_BUTTON_POINT_LIGHT_ANIM, JSContainerModal::AddButtonPointLightAnim },
-        { EVENT_NAME_BUTTON_RECT_CHANGE, JSContainerModal::CallButtonsRectChange },
-        { EVENT_NAME_MENU_WIDTH_CHANGE, JSContainerModal::CallMenuWidthChange },
-    };
-
     TAG_LOGI(AceLogTag::ACE_APPBAR, "callNative");
     if (info.Length() < 1) {
         TAG_LOGI(AceLogTag::ACE_APPBAR, "callNative param erro");
@@ -190,8 +201,8 @@ void JSContainerModal::CallNative(const JSCallbackInfo& info)
     }
     std::string eventName = info[0]->ToString();
     if (eventName.rfind("arkui", 0) == 0) {
-        auto it = g_nativeFuncMap.find(eventName);
-        if (it == g_nativeFuncMap.end()) {
+        auto it = nativeFuncMap_.find(eventName);
+        if (it == nativeFuncMap_.end()) {
             TAG_LOGI(AceLogTag::ACE_APPBAR, "Event not found: %{public}s", eventName.c_str());
             return;
         }

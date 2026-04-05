@@ -44,7 +44,7 @@ constexpr Dimension LANDSCAPE_BOTTOM_SECURITY = 24.0_vp;
 constexpr Dimension PREVIEW_INNER_SECURITY = 24.0_vp;
 } // namespace
 class ACE_EXPORT MenuPaintProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(MenuPaintProperty, PaintProperty)
+    DECLARE_ACE_TYPE(MenuPaintProperty, PaintProperty);
 
 public:
     MenuPaintProperty() = default;
@@ -58,6 +58,7 @@ public:
         paintProperty->propArrowPosition_ = CloneArrowPosition();
         paintProperty->propArrowPlacement_ = CloneArrowPlacement();
         paintProperty->propClipPath_ = CloneClipPath();
+        paintProperty->propIsUserSetMaterial_ = CloneIsUserSetMaterial();
         return paintProperty;
     }
 
@@ -69,6 +70,7 @@ public:
         ResetArrowPosition();
         ResetArrowPlacement();
         ResetClipPath();
+        ResetIsUserSetMaterial();
     }
 
     std::string ConvertPlacementToString(const Placement& place) const
@@ -114,6 +116,7 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ArrowPosition, OffsetF, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ArrowPlacement, Placement, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ClipPath, std::string, PROPERTY_UPDATE_RENDER);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(IsUserSetMaterial, bool, PROPERTY_UPDATE_RENDER);
     ACE_DISALLOW_COPY_AND_MOVE(MenuPaintProperty);
 };
 } // namespace OHOS::Ace::NG

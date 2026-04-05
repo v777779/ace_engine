@@ -64,11 +64,6 @@ float ScreenPattern::screenMaxHeight_;
 
 ScreenPattern::ScreenPattern(const sptr<Rosen::ScreenSession>& screenSession)
 {
-    SetScreenSession(screenSession);
-}
-
-void ScreenPattern::SetScreenSession(const sptr<Rosen::ScreenSession>& screenSession)
-{
     screenSession_ = screenSession;
     if (screenSession_ != nullptr) {
         screenSession_->SetUpdateToInputManagerCallback(std::bind(&ScreenPattern::UpdateToInputManager,
@@ -87,7 +82,7 @@ void ScreenPattern::OnAttachToFrameNode()
     auto host = GetHost();
     CHECK_NULL_VOID(host);
 
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     pipeline->SetScreenNode(host);
 
@@ -102,16 +97,11 @@ void ScreenPattern::OnAttachToFrameNode()
 
 void ScreenPattern::OnDetachFromFrameNode(FrameNode* frameNode)
 {
-    if (screenSession_) {
-        auto instance = WindowSceneLayoutManager::GetInstance();
-        if (instance) {
-            instance->UnregisterScreenNode(screenSession_->GetScreenId());
-        }
+    CHECK_NULL_VOID(screenSession_);
+    auto instance = WindowSceneLayoutManager::GetInstance();
+    if (instance) {
+        instance->UnregisterScreenNode(screenSession_->GetScreenId());
     }
-    CHECK_NULL_VOID(frameNode);
-    auto context = AceType::DynamicCast<NG::RosenRenderContext>(frameNode->GetRenderContext());
-    CHECK_NULL_VOID(context);
-    context->ClearModifiers();
 }
 
 void ScreenPattern::UpdateDisplayInfo()
@@ -234,14 +224,18 @@ bool ScreenPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty,
         CHECK_NULL_RETURN(rootScene, false);
         rootScene->SetDisplayDensity(density);
         int32_t orientation = static_cast<int32_t>(screenSession_->GetScreenProperty().GetDisplayOrientation());
+        uint64_t displayId = screenSession_->GetScreenId();
         rootScene->SetDisplayOrientation(orientation);
-        rootScene->UpdateViewportConfig(rect, Rosen::WindowSizeChangeReason::UNDEFINED);
+        rootScene->SetDisplayId(displayId);
+        rootScene->UpdateViewportConfig(rect, Rosen::WindowSizeChangeReason::ROOT_SCENE_CHANGE);
     } else if (rsWindow->GetClassType() == "ScreenScene") {
         auto screenScene = static_cast<Rosen::ScreenScene*>(rsWindow.GetRefPtr());
         CHECK_NULL_RETURN(screenScene, false);
         screenScene->SetDisplayDensity(density);
         int32_t orientation = static_cast<int32_t>(screenSession_->GetScreenProperty().GetDisplayOrientation());
+        uint64_t displayId = screenSession_->GetScreenId();
         screenScene->SetDisplayOrientation(orientation);
+        screenScene->SetDisplayId(displayId);
         screenScene->UpdateViewportConfig(rect, Rosen::WindowSizeChangeReason::UNDEFINED);
     } else {
         LOGE("others type");

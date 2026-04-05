@@ -39,8 +39,9 @@ public:
     static void SetNestedScroll(FrameNode* frameNode, const NestedScrollOptions& nestedOpt);
     static void SetFriction(FrameNode* frameNode, const std::optional<double>& friction);
     static void SetCachedCount(FrameNode* frameNode, const std::optional<int32_t>& value);
-    static void SetShowCached(FrameNode* frameNode, const std::optional<bool>& show);
     static RefPtr<WaterFlowSections> GetOrCreateWaterFlowSections(FrameNode* frameNode);
+    static void SetCachedCount(
+        FrameNode* frameNode, const std::optional<int32_t>& count, const std::optional<bool>& show);
     static void ResetSections(FrameNode* frameNode);
     static void SetOnScrollFrameBegin(FrameNode* frameNode, OnScrollFrameBeginEvent&& ScrollFrameBegin);
     static void SetOnScrollIndex(FrameNode* frameNode, ScrollIndexFunc&& onScrollIndex);
@@ -49,6 +50,10 @@ public:
     static void SetLayoutMode(FrameNode* frameNode, WaterFlowLayoutMode mode);
     static void SetFooter(FrameNode* frameNode, const RefPtr<NG::UINode>& footer);
     static void ResetFooter(FrameNode* frameNode);
+    static void ResetItemLayoutConstraint(FrameNode* frameNode);
+    static void SetItemFillPolicy(FrameNode* frameNode, PresetFillType fillType);
+    static void SetSyncLoad(FrameNode* frameNode, bool syncLoad);
+    static void SetSupportEmptyBranchInLazyLoading(FrameNode* frameNode, bool enabled);
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_WATERFLOW_WATER_FLOW_MODEL_STATIC_H

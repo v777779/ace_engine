@@ -75,11 +75,20 @@ public:
     void SetCompositingFilter(const OHOS::Rosen::Filter* compositingFilter) override;
     void ResetCompositingFilter() override;
     bool NeedAvoidContainerModal() override;
+    NG::OffsetF GetParentGlobalOffsetDuringLayout() override;
+    int32_t GetContainerModalTitleHeight() override;
+    NG::OffsetF GetContainerModalButtonsOffset() override;
+    NG::SizeF GetContainerModalButtonsSize() override;
+    LayoutConstraintInfo GetLayoutConstraint() const override;
 
     void SetMeasureCallback(const std::function<void(RefPtr<FrameNode>)>& callback) override;
     int32_t GetMeasureWidth() override;
     int32_t GetMeasureHeight() override;
     NodeHandle GetParentHandle() override;
+
+    void SetAICallerHelper(const std::shared_ptr<AICallerHelper>& aiCallerHelper) override;
+
+    ColorMode GetLocalColorMode() const override;
 
 private:
     void PushAceNode(const RefPtr<AceNode>& node);

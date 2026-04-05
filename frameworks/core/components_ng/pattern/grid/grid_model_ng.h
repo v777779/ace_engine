@@ -16,16 +16,12 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_GRID_GRID_MODEL_NG_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_GRID_GRID_MODEL_NG_H
 
-#include <string>
-
-#include "base/geometry/dimension.h"
 #include "base/utils/macros.h"
-#include "core/components/common/layout/constants.h"
-#include "core/components/common/properties/scroll_bar.h"
-#include "core/components_ng/pattern/grid/grid_event_hub.h"
+#include "core/components_ng/pattern/grid/grid_properties.h"
 #include "core/components_ng/pattern/grid/grid_model.h"
 
 namespace OHOS::Ace::NG {
+class FrameNode;
 
 class ACE_EXPORT GridModelNG : public OHOS::Ace::GridModel {
 public:
@@ -34,12 +30,14 @@ public:
     void Pop() override;
     void SetLayoutOptions(GridLayoutOptions options) override;
     void SetColumnsTemplate(const std::string& value) override;
+    void SetItemFillPolicy(PresetFillType policy) override;
     void SetRowsTemplate(const std::string& value) override;
     void SetColumnsGap(const Dimension& value) override;
     void SetRowsGap(const Dimension& value) override;
     void SetGridHeight(const Dimension& value) override;
     void SetScrollBarMode(DisplayMode value) override;
     void SetScrollBarColor(const std::string& value) override;
+    void SetScrollBarColor(const std::optional<Color>& scrollBarColor) override;
     void SetScrollBarWidth(const std::string& value) override;
     void SetCachedCount(int32_t value, bool show = false) override;
     void SetIsRTL(TextDirection direction) override;
@@ -72,9 +70,14 @@ public:
     void SetOnReachStart(OnReachEvent&& onReachStart) override;
     void SetOnReachEnd(OnReachEvent&& onReachEnd) override;
     void SetSyncLoad(bool syncLoad) override;
+    void SetEditModeOptions(EditModeOptions& editModeOptions) override;
     RefPtr<ScrollControllerBase> CreatePositionController() override;
     RefPtr<ScrollProxy> CreateScrollBarProxy() override;
+    void ParseResObjRowsGap(const RefPtr<ResourceObject>& resObj) override;
+    void ParseResObjColumnsGap(const RefPtr<ResourceObject>& resObj) override;
     void CreateWithResourceObjFriction(const RefPtr<ResourceObject>& resObj) override;
+    void CreateWithResourceObjScrollBarColor(const RefPtr<ResourceObject>& resObj) override;
+    void SetSupportLazyLoadingEmptyBranch(bool enable) override;
 
     DisplayMode GetDisplayMode() const override;
 
@@ -87,8 +90,11 @@ public:
     static void SetColumnsGap(FrameNode* frameNode, const Dimension& columnsGap);
     static void SetRowsGap(FrameNode* frameNode, const Dimension& rowsGap);
     static void SetScrollBarMode(FrameNode* frameNode, const std::optional<DisplayMode>& scrollBarMode);
+    static int32_t GetScrollBarMode(FrameNode* frameNode);
     static void SetScrollBarWidth(FrameNode* frameNode, const std::optional<Dimension>& scrollBarWidth);
+    static float GetScrollBarWidth(FrameNode* frameNode);
     static void SetScrollBarColor(FrameNode* frameNode, const std::optional<Color>& scrollBarColor);
+    static uint32_t GetScrollBarColor(FrameNode* frameNode);
     static void SetCachedCount(FrameNode* frameNode, int32_t cachedCount);
     static void SetShowCached(FrameNode* frameNode, bool show);
     static void SetLayoutDirection(FrameNode* frameNode, const std::optional<FlexDirection>& layoutDirection);
@@ -96,18 +102,27 @@ public:
     static void SetMinCount(FrameNode* frameNode, int32_t minCount);
     static void SetCellLength(FrameNode* frameNode, int32_t cellLength);
     static void SetEditable(FrameNode* frameNode, bool editMode);
+    static bool GetEditable(FrameNode* frameNode);
     static void SetMultiSelectable(FrameNode* frameNode, bool multiSelectable);
+    static bool GetMultiSelectable(FrameNode* frameNode);
     static void SetSupportAnimation(FrameNode* frameNode, bool supportAnimation);
+    static bool GetSupportAnimation(FrameNode* frameNode);
     static EdgeEffect GetEdgeEffect(FrameNode* frameNode);
     static bool GetAlwaysEnabled(FrameNode* frameNode);
+    static EffectEdge GetEffectEdge(FrameNode* frameNode);
     static void SetEdgeEffect(
         FrameNode* frameNode, const std::optional<EdgeEffect>& edgeEffect, const std::optional<bool>& alwaysEnabled,
         EffectEdge edge = EffectEdge::ALL);
     static void SetNestedScroll(FrameNode* frameNode, const NestedScrollOptions& nestedOpt);
+    static NestedScrollOptions GetNestedScroll(FrameNode* frameNode);
     static void SetScrollEnabled(FrameNode* frameNode, bool scrollEnabled);
+    static bool GetScrollEnabled(FrameNode* frameNode);
     static void SetFriction(FrameNode* frameNode, const std::optional<double>& value);
+    static double GetFriction(FrameNode* frameNode);
     static void SetFocusWrapMode(FrameNode* frameNode, const std::optional<FocusWrapMode>& focusWrapMode);
+    static FocusWrapMode GetFocusWrapMode(FrameNode* frameNode);
     static void SetAlignItems(FrameNode* frameNode, const std::optional<GridItemAlignment>& itemAlign);
+    static GridItemAlignment GetAlignItems(FrameNode* frameNode);
     static std::string GetColumnsTemplate(FrameNode* frameNode);
     static std::string GetRowsTemplate(FrameNode* frameNode);
     static float GetColumnsGap(FrameNode* frameNode);
@@ -117,12 +132,22 @@ public:
     static void InitScroller(FrameNode* frameNode, const RefPtr<ScrollControllerBase>& positionController,
         const RefPtr<ScrollProxy>& scrollProxy);
     static void SetLayoutOptions(FrameNode* frameNode, GridLayoutOptions& options);
+    static std::optional<GridLayoutOptions> GetLayoutOptions(FrameNode* frameNode);
+    static void ResetLayoutOptions(FrameNode* frameNode);
     static void SetOnScrollBarUpdate(FrameNode* frameNode, ScrollBarUpdateFunc&& value);
     static void SetOnItemDragStart(FrameNode* frameNode, std::function<void(const ItemDragInfo&, int32_t)>&& value);
     static void SetOnItemDragEnter(FrameNode* frameNode, ItemDragEnterFunc&& value);
     static void SetOnItemDragMove(FrameNode* frameNode, ItemDragMoveFunc&& value);
     static void SetOnItemDragLeave(FrameNode* frameNode, ItemDragLeaveFunc&& value);
     static void SetOnItemDrop(FrameNode* frameNode, ItemDropFunc&& value);
+    static void CreateWithResourceObjFriction(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void ParseResObjRowsGap(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void ParseResObjColumnsGap(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+
+    static void SetSyncLoad(FrameNode* frameNode, bool syncLoad);
+    static bool GetSyncLoad(FrameNode* frameNode);
+    static void SetEditModeOptions(FrameNode* frameNode, EditModeOptions& editModeOptions);
+    static EditModeOptions GetEditModeOptions(FrameNode* frameNode);
 
     static void SetGridItemTotalCount(FrameNode* frameNode, int totalCount);
 
@@ -137,10 +162,17 @@ public:
     static void SetOnScrollStart(FrameNode* frameNode, OnScrollStartEvent&& onScrollStart);
     static void SetOnScrollStop(FrameNode* frameNode, OnScrollStopEvent&& onScrollStop);
     static void SetOnScroll(FrameNode* frameNode, OnScrollEvent&& onScroll);
-    static void CreateWithResourceObjFriction(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
-
-    static void SetSyncLoad(FrameNode* frameNode, bool syncLoad);
-    static bool GetSyncLoad(FrameNode* frameNode);
+    static void CreateWithResourceObjScrollBarColor(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void SetItemFillPolicy(FrameNode* frameNode, PresetFillType policy);
+    static void ResetItemFillPolicy(FrameNode* frameNode);
+    static int32_t GetItemFillPolicy(FrameNode* frameNode);
+    static void SetOnGridItemDragStart(FrameNode* frameNode, ItemDragStartFunc&& value);
+    static void SetScrollToIndex(FrameNode* frameNode, int32_t index, int32_t animation, int32_t alignment,
+        std::optional<float> extraOffset = std::nullopt);
+    static void SetScrollToIndexMultiThread(FrameNode* frameNode, int32_t index, int32_t animation, int32_t alignment,
+        std::optional<float> extraOffset = std::nullopt);
+    static void SetSupportLazyLoadingEmptyBranch(FrameNode* frameNode, bool enable);
+    static bool GetSupportLazyLoadingEmptyBranch(FrameNode* frameNode);
 private:
     static void AddDragFrameNodeToManager(FrameNode* frameNode);
 };

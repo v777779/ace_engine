@@ -19,7 +19,7 @@
 #include "interfaces/inner_api/form_render/include/form_renderer.h"
 #include "interfaces/inner_api/form_render/include/form_renderer_dispatcher_stub.h"
 #undef private
-#include "test/mock/interfaces/mock_form_renderer_dispatcher_stub.h"
+#include "test/unittest/interfaces/form_render/mock/mock_form_renderer_dispatcher_stub.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -38,13 +38,13 @@ public:
  * @tc.name: OnRemoteRequest
  * @tc.desc:
  */
-HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_001, TestSize.Level1)
+HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_001, TestSize.Level0)
 {
     sptr<AppExecFwk::MockFormRendererDispatherStub> renderDispather = new AppExecFwk::MockFormRendererDispatherStub();
     MessageParcel data;
     MessageParcel reply;
     MessageOption option;
-    uint32_t code = 11;
+    uint32_t code = IFormRendererDispatcher::Message::MESSAGE_END;
     std::u16string name = u"form_render_dispatcher_stub";
     data.WriteInterfaceToken(name);
     EXPECT_EQ(renderDispather->OnRemoteRequest(code, data, reply, option), ERR_INVALID_VALUE);
@@ -61,7 +61,7 @@ HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_001, Tes
     }
     EXPECT_FALSE(flag);
 
-    code = 3;
+    code = IFormRendererDispatcher::Message::DISPATCH_SURFACE_CHANGE_EVENT;
     itFunc = renderDispather->memberFuncMap_.find(code);
     if (itFunc != renderDispather->memberFuncMap_.end()) {
         auto memberFunc = itFunc->second;
@@ -88,7 +88,7 @@ HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_001, Tes
  * @tc.name: HandleDispatchPointerEvent
  * @tc.desc:
  */
-HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_002, TestSize.Level1)
+HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_002, TestSize.Level0)
 {
     sptr<AppExecFwk::MockFormRendererDispatherStub> renderDispather = new AppExecFwk::MockFormRendererDispatherStub();
     MessageParcel data;
@@ -114,14 +114,14 @@ HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_002, Tes
  *           HandleOnAccessibilityDumpChildInfo
  * @tc.desc:
  */
-HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_003, TestSize.Level1)
+HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_003, TestSize.Level0)
 {
     sptr<AppExecFwk::MockFormRendererDispatherStub> renderDispather = new AppExecFwk::MockFormRendererDispatherStub();
     MessageParcel data;
     MessageParcel reply;
     
     EXPECT_EQ(renderDispather->HandleSetAllowUpdate(data, reply), ERR_OK);
-    EXPECT_EQ(renderDispather->HandleDispatchSurfaceChangeEvent(data, reply), ERR_OK);
+    EXPECT_EQ(renderDispather->HandleDispatchSurfaceChangeEvent(data, reply), ERR_INVALID_VALUE);
     EXPECT_EQ(renderDispather->HandleSetObscured(data, reply), ERR_OK);
     EXPECT_EQ(renderDispather->HandleOnAccessibilityChildTreeRegister(data, reply), ERR_OK);
     EXPECT_EQ(renderDispather->HandleOnAccessibilityChildTreeDeregister(data, reply), ERR_OK);
@@ -133,7 +133,7 @@ HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_003, Tes
  * @tc.name: HandleOnAccessibilityTransferHoverEvent
  * @tc.desc:
  */
-HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_004, TestSize.Level1)
+HWTEST_F(FormRendererDispatcherStubTest, FormRendererDispatcherStubTest_004, TestSize.Level0)
 {
     sptr<AppExecFwk::MockFormRendererDispatherStub> renderDispather = new AppExecFwk::MockFormRendererDispatherStub();
     MessageParcel data;

@@ -31,7 +31,6 @@
 #include "base/thread/task_executor.h"
 #include "core/common/ace_view.h"
 #include "core/common/js_message_dispatcher.h"
-#include "core/components/dialog/dialog_properties.h"
 #include "core/components/select_popup/select_popup_component.h"
 #include "core/components/stack/stack_element.h"
 #include "core/components/tween/tween_component.h"
@@ -47,9 +46,12 @@ class RSUIDirector;
 } // namespace OHOS::Rosen
 
 namespace OHOS::Ace {
+struct DialogProperties;
+struct PromptDialogAttr;
+struct ButtonInfo;
 
 class SubwindowOhos : public Subwindow {
-    DECLARE_ACE_TYPE(SubwindowOhos, Subwindow)
+    DECLARE_ACE_TYPE(SubwindowOhos, Subwindow);
 
 public:
     explicit SubwindowOhos(int32_t instanceId);
@@ -190,15 +192,25 @@ public:
     bool ShowSelectOverlay(const RefPtr<NG::FrameNode>& overlayNode) override;
 
     void ShowBindSheetNG(bool isShow, std::function<void(const std::string&)>&& callback,
-        std::function<RefPtr<NG::UINode>()>&& buildNodeFunc, std::function<RefPtr<NG::UINode>()>&& buildtitleNodeFunc,
-        NG::SheetStyle& sheetStyle, std::function<void()>&& onAppear, std::function<void()>&& onDisappear,
-        std::function<void()>&& shouldDismiss, std::function<void(const int32_t)>&& onWillDismiss,
-        std::function<void()>&& onWillAppear, std::function<void()>&& onWillDisappear,
-        std::function<void(const float)>&& onHeightDidChange,
-        std::function<void(const float)>&& onDetentsDidChange,
-        std::function<void(const float)>&& onWidthDidChange,
-        std::function<void(const float)>&& onTypeDidChange,
-        std::function<void()>&& sheetSpringBack, const RefPtr<NG::FrameNode>& targetNode) override;
+        std::function<RefPtr<NG::UINode>(int32_t)>&& buildNodeFunc,
+        std::function<RefPtr<NG::UINode>()>&& buildtitleNodeFunc, NG::SheetStyle& sheetStyle,
+        std::function<void()>&& onAppear, std::function<void()>&& onDisappear, std::function<void()>&& shouldDismiss,
+        std::function<void(const int32_t)>&& onWillDismiss, std::function<void()>&& onWillAppear,
+        std::function<void()>&& onWillDisappear, std::function<void(const float)>&& onHeightDidChange,
+        std::function<void(const float)>&& onDetentsDidChange, std::function<void(const float)>&& onWidthDidChange,
+        std::function<void(const float)>&& onTypeDidChange, std::function<void()>&& sheetSpringBack,
+        const RefPtr<NG::FrameNode>& targetNode) override;
+    int32_t ShowBindSheetByUIContext(const RefPtr<NG::FrameNode>& sheetContentNode,
+        std::function<void()>&& buildtitleNodeFunc, NG::SheetStyle& sheetStyle, std::function<void()>&& onAppear,
+        std::function<void()>&& onDisappear, std::function<void()>&& shouldDismiss,
+        std::function<void(const int32_t)>&& onWillDismiss, std::function<void()>&& onWillAppear,
+        std::function<void()>&& onWillDisappear, std::function<void(const float)>&& onHeightDidChange,
+        std::function<void(const float)>&& onDetentsDidChange, std::function<void(const float)>&& onWidthDidChange,
+        std::function<void(const float)>&& onTypeDidChange, std::function<void()>&& sheetSpringBack,
+        int32_t targetId) override;
+    int32_t UpdateBindSheetByUIContext(
+        const RefPtr<NG::FrameNode>& sheetContentNode, const NG::SheetStyle& sheetStyle, bool isPartialUpdate) override;
+    int32_t CloseBindSheetByUIContext(const RefPtr<NG::FrameNode>& sheetContentNode) override;
 
     MenuWindowState GetAttachState() override
     {
@@ -227,6 +239,7 @@ public:
     }
     void AddFollowParentWindowLayoutNode(int32_t nodeId) override;
     void RemoveFollowParentWindowLayoutNode(int32_t nodeId) override;
+    bool SetReceiveDragEventEnabled(bool enabled) override;
     void SetNodeId(int32_t nodeId) override
     {
         nodeId_ = nodeId;
@@ -235,6 +248,9 @@ public:
     {
         return nodeId_;
     }
+    void SetWindowAnchorInfo(const NG::OffsetF& offset, SubwindowType type, int32_t nodeId) override;
+    Rosen::WindowAnchorInfo WindowAnchorInfoConverter(const NG::OffsetF& offset, SubwindowType type);
+    void ResizeWindowForDialog(const DialogProperties& dialogProps);
 
     // ArkTS 1.2
     void ShowToastStatic(const NG::ToastInfo& toastInfo, std::function<void(int32_t)>&& callback) override;
@@ -244,6 +260,12 @@ public:
         std::function<void(int32_t, int32_t)>&& callback) override;
     void OpenCustomDialogStatic(DialogProperties& dialogProps,
         std::function<void(int32_t)>&& callback) override;
+    bool GetIsReceiveDragEventEnabled() override
+    {
+        return window_->IsReceiveDragEventEnabled();
+    }
+    bool GetDestroyInHide() override;
+    void SetDestroyInHide(bool destroyInHide) override;
 
 private:
     RefPtr<StackElement> GetStack();
@@ -293,6 +315,8 @@ private:
 
     void InitDialogWindowRSUIDirector(const RefPtr<Platform::AceContainer>& container);
     void InitWindowRSUIDirector(const RefPtr<Platform::AceContainer>& container);
+    void ResizeWindow(double width, double height);
+    void ResizeWindowForToast(const NG::ToastInfo& toastInfo);
 
     static int32_t id_;
     int32_t windowId_ = 0;
@@ -315,6 +339,7 @@ private:
     bool isClosing_ = false;
     bool needAvoidKeyboard_ = false;
     bool ifNeedSetCurrentWindow_ = true;
+    bool destroyInHide_ = false;
     sptr<OHOS::Rosen::Window> parentWindow_ = nullptr;
     int32_t callbackId_ = 0;
     sptr<OHOS::Rosen::ISwitchFreeMultiWindowListener> freeMultiWindowListener_ = nullptr;
@@ -340,6 +365,7 @@ private:
         std::function<void(int32_t)>&& callback);
     void OpenCustomDialogForServiceStatic(DialogProperties& dialogProps,
         std::function<void(int32_t)>&& callback);
+    void SetSubWindowVsyncListener(RefPtr<PipelineBase> parentPipeline, RefPtr<PipelineBase> childPipeline);
 };
 
 class MenuWindowSceneListener : public OHOS::Rosen::IWindowAttachStateChangeListner {

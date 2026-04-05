@@ -14,13 +14,19 @@
  */
 
 #include "list_test_ng.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
+#include "core/common/multi_thread_build_manager.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
+#include "core/components_ng/pattern/list/list_layout_algorithm.h"
 #include "core/components_ng/pattern/scrollable/scrollable_model_ng.h"
 #include "core/components_ng/syntax/repeat_virtual_scroll_node.h"
+#include "core/components_ng/pattern/lazy_layout/grid_layout/lazy_grid_layout_model.h"
+#include "core/components_ng/pattern/lazy_layout/grid_layout/lazy_grid_layout_pattern.h"
+#include "core/components_ng/pattern/stack/stack_model_ng.h"
 
 #define private public
 #define protected public
@@ -52,6 +58,7 @@ void ListLayoutTestNg::CreateGroupWithSettingWithComponentContent(
         ViewStackProcessor::GetInstance()->Pop();
         ViewStackProcessor::GetInstance()->StopGetAccessRecording();
     }
+    ViewStackProcessor::GetInstance()->Pop();
 }
 
 RefPtr<ListPaintMethod> ListLayoutTestNg::UpdateOverlayModifier()
@@ -106,6 +113,33 @@ void ListLayoutTestNg::GroupPaintDivider(RefPtr<PaintWrapper> paintWrapper, int3
     EXPECT_CALL(canvas, DetachPen()).WillRepeatedly(ReturnRef(canvas));
     EXPECT_CALL(canvas, DrawLine(_, _)).Times(expectLineNumber); // DrawLine
     paintMethod->PaintDivider(AceType::RawPtr(paintWrapper), canvas);
+}
+
+/**
+ * @tc.name: GetListDriection001
+ * @tc.desc: Test GetListDirection
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, GetListDriection001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create list, default direction is vertical.
+     */
+    CreateList();
+    CreateDone();
+    EXPECT_EQ(ListModelNG::GetListDirection(AceType::RawPtr(frameNode_)), static_cast<int32_t>(Axis::VERTICAL));
+
+    /**
+     * @tc.steps: step2. Set direction to horizontal.
+     */
+    ListModelNG::SetListDirection(AceType::RawPtr(frameNode_), static_cast<int32_t>(Axis::HORIZONTAL));
+    EXPECT_EQ(ListModelNG::GetListDirection(AceType::RawPtr(frameNode_)), static_cast<int32_t>(Axis::HORIZONTAL));
+
+    /**
+     * @tc.steps: step3. Set direction to vertical.
+     */
+    ListModelNG::SetListDirection(AceType::RawPtr(frameNode_), static_cast<int32_t>(Axis::VERTICAL));
+    EXPECT_EQ(ListModelNG::GetListDirection(AceType::RawPtr(frameNode_)), static_cast<int32_t>(Axis::VERTICAL));
 }
 
 /**
@@ -322,6 +356,53 @@ HWTEST_F(ListLayoutTestNg, ContentEndOffset001, TestSize.Level1)
     EXPECT_TRUE(pattern_->UpdateCurrentOffset(-100, SCROLL_FROM_UPDATE));
     FlushUITasks();
     EXPECT_TRUE(pattern_->IsAtBottom());
+}
+
+/**
+ * @tc.name: ListReMeasureTest001
+ * @tc.desc: Test List noLayoutItems_ performance
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListReMeasureTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create list
+     * @tc.expected: List index range is 0-3
+     */
+    ListModelNG model = CreateList();
+    CreateListItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->startIndex_, 0);
+    EXPECT_EQ(pattern_->endIndex_, 3);
+
+    /**
+     * @tc.steps: step2. call measure of List for first time
+     * @tc.expected: List itemPosition_ index range is 0-3, layouted is false
+     */
+    auto layoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    EXPECT_TRUE(layoutAlgorithm);
+    layoutAlgorithm->Measure(AceType::RawPtr(frameNode_));
+    EXPECT_EQ(layoutAlgorithm->GetStartIndex(), 0); // 0: start index
+    EXPECT_EQ(layoutAlgorithm->GetEndIndex(), 3); // 3: end index
+    EXPECT_FALSE(layoutAlgorithm->isLayouted_);
+
+    /**
+     * @tc.steps: step3. change list mainSize to half and call measure of List for second time
+     * @tc.expected: check item 2 and item 3 in noLayoutedItems
+     */
+    EXPECT_TRUE(layoutAlgorithm);
+    EXPECT_TRUE(layoutAlgorithm->noLayoutedItems_.empty());
+    std::optional<float> width = 240.f; // 240.f: origin width
+    std::optional<float> height = 200.f; // 200.f: half of origin contentMainSize
+    OptionalSizeF selfIdealSizeTemp(width, height);
+    LayoutConstraintF contentConstraint;
+    contentConstraint.selfIdealSize = selfIdealSizeTemp;
+    layoutProperty_->layoutConstraint_ = contentConstraint;
+    layoutProperty_->contentConstraint_ = contentConstraint;
+    layoutAlgorithm->Measure(AceType::RawPtr(frameNode_));
+    EXPECT_FALSE(layoutAlgorithm->noLayoutedItems_.empty());
+    EXPECT_EQ(layoutAlgorithm->noLayoutedItems_.begin()->first, 2); // 2: start index
+    EXPECT_EQ(layoutAlgorithm->noLayoutedItems_.rbegin()->first, 3); // 3: end index
 }
 
 /**
@@ -562,7 +643,7 @@ HWTEST_F(ListLayoutTestNg, ContentOffset005, TestSize.Level1)
     EXPECT_EQ(header0Rect.Top(), contentStartOffset - groupPos);
 
     auto group1 = GetChildFrameNode(frameNode_, 1);
-    auto footerIndex = 1/*HeaderCount*/ + GROUP_ITEM_NUMBER;
+    auto footerIndex = 1 + GROUP_ITEM_NUMBER; // HeaderCount + GroupItemNumber
     auto footer1Rect = GetChildRect(group1, footerIndex);
     EXPECT_EQ(footer1Rect.Bottom(), 100.f); 
 
@@ -1947,6 +2028,52 @@ HWTEST_F(ListLayoutTestNg, PostListItemPressStyleTask003, TestSize.Level1)
      */
     ListModelNG model = CreateList();
     model.SetDivider(ITEM_DIVIDER);
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    int cur = 0;
+    for (auto& child : pattern_->itemPosition_) {
+        child.second.id += cur;
+        cur++;
+    }
+    auto renderContext = frameNode_->GetRenderContext();
+    renderContext->UpdatePaintRect(frameNode_->GetGeometryNode()->GetFrameRect());
+    UpdateContentModifier();
+    auto dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    auto lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    auto dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+
+    auto listItemNode = GetChildFrameNode(frameNode_, 0);
+    auto listItemNodeId = listItemNode->GetId();
+    auto stateStyleMgr = AceType::MakeRefPtr<StateStyleManager>(listItemNode);
+    stateStyleMgr->PostListItemPressStyleTask(UI_STATE_PRESSED | UI_STATE_SELECTED);
+    RefPtr<NodePaintMethod> paint = pattern_->CreateNodePaintMethod();
+    RefPtr<ListPaintMethod> listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+}
+
+/**
+ * @tc.name: PostListItemPressStyleTask004
+ * @tc.desc: Test listItemGroup layout with PostListItemPressStyleTask.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, PostListItemPressStyleTask004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init List.
+     */
+    ListModelNG model = CreateList();
+    model.SetDivider(ITEM_DIVIDER);
     CreateListItemGroups(TOTAL_ITEM_NUMBER);
     CreateDone();
     auto groupFrameNode = GetChildFrameNode(frameNode_, 0);
@@ -1968,6 +2095,542 @@ HWTEST_F(ListLayoutTestNg, PostListItemPressStyleTask003, TestSize.Level1)
             EXPECT_TRUE(child.second.isPressed);
         }
     }
+}
+
+/**
+ * @tc.name: NotifyListItemFocused001
+ * @tc.desc: Test list layout with NotifyListItemFocused.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, NotifyListItemFocused001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init List.
+     */
+    ListModelNG model = CreateList();
+    model.SetDivider(ITEM_DIVIDER);
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    int cur = 0;
+    for (auto& child : pattern_->itemPosition_) {
+        child.second.id += cur;
+        cur++;
+    }
+    auto renderContext = frameNode_->GetRenderContext();
+    renderContext->UpdatePaintRect(frameNode_->GetGeometryNode()->GetFrameRect());
+    UpdateContentModifier();
+    auto dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    auto lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    auto dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+
+    auto listItemNode = GetChildFrameNode(frameNode_, 0);
+    auto listItemNodeId = listItemNode->GetId();
+    auto focusHub = listItemNode->GetFocusHub();
+
+    focusHub->OnPaintFocusState(true);
+    RefPtr<NodePaintMethod> paint = pattern_->CreateNodePaintMethod();
+    RefPtr<ListPaintMethod> listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+
+    focusHub->OnPaintFocusState(false);
+    paint = pattern_->CreateNodePaintMethod();
+    listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        EXPECT_FALSE(child.second.isPressed);
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+}
+
+/**
+ * @tc.name: NotifyListItemFocused002
+ * @tc.desc: Test listItemGroup layout with PostListItemPressStyleTask.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, NotifyListItemFocused002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init List.
+     */
+    ListModelNG model = CreateList();
+    model.SetDivider(ITEM_DIVIDER);
+    CreateListItemGroups(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    auto groupFrameNode = GetChildFrameNode(frameNode_, 0);
+    auto groupPattern = groupFrameNode->GetPattern<ListItemGroupPattern>();
+    int cur = 0;
+    for (auto& child : groupPattern->itemPosition_) {
+        child.second.id += cur;
+        cur++;
+    }
+
+    auto listItemNode = GetChildFrameNode(groupFrameNode, 0);
+    auto listItemNodeId = listItemNode->GetId();
+    auto focusHub = listItemNode->GetFocusHub();
+    focusHub->OnPaintFocusState(true);
+    RefPtr<NodePaintMethod> paint = groupPattern->CreateNodePaintMethod();
+    RefPtr<ListItemGroupPaintMethod> groupPaint = AceType::DynamicCast<ListItemGroupPaintMethod>(paint);
+    for (auto child : groupPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+
+    focusHub->OnPaintFocusState(false);
+    paint = groupPattern->CreateNodePaintMethod();
+    groupPaint = AceType::DynamicCast<ListItemGroupPaintMethod>(paint);
+    for (auto child : groupPaint->itemPosition_) {
+        EXPECT_FALSE(child.second.isPressed);
+    }
+}
+
+ /**
+ * @tc.name: NotifyListItemFocused003
+ * @tc.desc: Test list layout with NotifyListItemFocused.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, NotifyListItemFocused003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init List.
+     */
+    ListModelNG model = CreateList();
+    model.SetDivider(ITEM_DIVIDER);
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    int cur = 0;
+    for (auto& child : pattern_->itemPosition_) {
+        child.second.id += cur;
+        cur++;
+    }
+    auto renderContext = frameNode_->GetRenderContext();
+    renderContext->UpdatePaintRect(frameNode_->GetGeometryNode()->GetFrameRect());
+    UpdateContentModifier();
+    auto dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    auto lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    auto dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+
+    auto listItemNode = GetChildFrameNode(frameNode_, 0);
+    auto listItemNodeId = listItemNode->GetId();
+    auto focusHub = listItemNode->GetFocusHub();
+
+    focusHub->OnPaintFocusState(true);
+    RefPtr<NodePaintMethod> paint = pattern_->CreateNodePaintMethod();
+    RefPtr<ListPaintMethod> listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+    
+    frameNode_->RemoveChildAtIndex(0);
+    FlushUITasks();
+    paint = pattern_->CreateNodePaintMethod();
+    listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        EXPECT_FALSE(child.second.isPressed);
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+}
+
+/**
+ * @tc.name: NotifyListItemHovered
+ * @tc.desc: Test list layout with NotifyListItemHovered.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, NotifyListItemHovered001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init List.
+     */
+    ListModelNG model = CreateList();
+    model.SetDivider(ITEM_DIVIDER);
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    int cur = 0;
+    for (auto& child : pattern_->itemPosition_) {
+        child.second.id += cur;
+        cur++;
+    }
+    auto renderContext = frameNode_->GetRenderContext();
+    renderContext->UpdatePaintRect(frameNode_->GetGeometryNode()->GetFrameRect());
+    UpdateContentModifier();
+    auto dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    auto lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    auto dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+
+    auto listItemNode = GetChildFrameNode(frameNode_, 0);
+    auto listItemNodeId = listItemNode->GetId();
+
+    listItemNode->OnHoverWithHightLight(true);
+    RefPtr<NodePaintMethod> paint = pattern_->CreateNodePaintMethod();
+    RefPtr<ListPaintMethod> listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+
+    listItemNode->OnHoverWithHightLight(false);
+    paint = pattern_->CreateNodePaintMethod();
+    listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        EXPECT_FALSE(child.second.isPressed);
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+}
+
+/**
+ * @tc.name: NotifyListItemHovered002
+ * @tc.desc: Test listItemGroup layout with NotifyListItemHovered.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, NotifyListItemHovered002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init List.
+     */
+    ListModelNG model = CreateList();
+    model.SetDivider(ITEM_DIVIDER);
+    CreateListItemGroups(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    auto groupFrameNode = GetChildFrameNode(frameNode_, 0);
+    auto groupPattern = groupFrameNode->GetPattern<ListItemGroupPattern>();
+    int cur = 0;
+    for (auto& child : groupPattern->itemPosition_) {
+        child.second.id += cur;
+        cur++;
+    }
+
+    auto listItemNode = GetChildFrameNode(groupFrameNode, 0);
+    auto listItemNodeId = listItemNode->GetId();
+
+    listItemNode->OnHoverWithHightLight(true);
+    RefPtr<NodePaintMethod> paint = groupPattern->CreateNodePaintMethod();
+    RefPtr<ListItemGroupPaintMethod> groupPaint = AceType::DynamicCast<ListItemGroupPaintMethod>(paint);
+    for (auto child : groupPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+
+    listItemNode->OnHoverWithHightLight(false);
+    paint = groupPattern->CreateNodePaintMethod();
+    groupPaint = AceType::DynamicCast<ListItemGroupPaintMethod>(paint);
+    for (auto child : groupPaint->itemPosition_) {
+        EXPECT_FALSE(child.second.isPressed);
+    }
+}
+
+ /**
+ * @tc.name: NotifyListItemHovered003
+ * @tc.desc: Test list layout with NotifyListItemHovered.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, NotifyListItemHovered003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init List.
+     */
+    ListModelNG model = CreateList();
+    model.SetDivider(ITEM_DIVIDER);
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    int cur = 0;
+    for (auto& child : pattern_->itemPosition_) {
+        child.second.id += cur;
+        cur++;
+    }
+    auto renderContext = frameNode_->GetRenderContext();
+    renderContext->UpdatePaintRect(frameNode_->GetGeometryNode()->GetFrameRect());
+    UpdateContentModifier();
+    auto dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    auto lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    auto dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+
+    auto listItemNode = GetChildFrameNode(frameNode_, 0);
+    auto listItemNodeId = listItemNode->GetId();
+
+    listItemNode->OnHoverWithHightLight(true);
+    RefPtr<NodePaintMethod> paint = pattern_->CreateNodePaintMethod();
+    RefPtr<ListPaintMethod> listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+    
+    frameNode_->RemoveChildAtIndex(0);
+    FlushUITasks();
+    paint = pattern_->CreateNodePaintMethod();
+    listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        EXPECT_FALSE(child.second.isPressed);
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+}
+
+/**
+ * @tc.name: NotifyListItemMixed001
+ * @tc.desc: Test list layout with Focused and Hovered.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, NotifyListItemMixed001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init List.
+     */
+    ListModelNG model = CreateList();
+    model.SetDivider(ITEM_DIVIDER);
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    int cur = 0;
+    for (auto& child : pattern_->itemPosition_) {
+        child.second.id += cur;
+        cur++;
+    }
+    auto renderContext = frameNode_->GetRenderContext();
+    renderContext->UpdatePaintRect(frameNode_->GetGeometryNode()->GetFrameRect());
+    UpdateContentModifier();
+    auto dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    auto lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    auto dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+
+    auto listItemNode = GetChildFrameNode(frameNode_, 0);
+    auto listItemNodeId = listItemNode->GetId();
+    auto focusHub = listItemNode->GetFocusHub();
+
+    focusHub->OnPaintFocusState(true);
+    listItemNode->OnHoverWithHightLight(true);
+    RefPtr<NodePaintMethod> paint = pattern_->CreateNodePaintMethod();
+    RefPtr<ListPaintMethod> listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+
+    listItemNode->OnHoverWithHightLight(false);
+    paint = pattern_->CreateNodePaintMethod();
+    listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+
+    focusHub->OnPaintFocusState(false);
+    paint = pattern_->CreateNodePaintMethod();
+    listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        EXPECT_FALSE(child.second.isPressed);
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+}
+
+/**
+ * @tc.name: NotifyListItemMixed002
+ * @tc.desc: Test list layout with Focused and Pressed.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, NotifyListItemMixed002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init List.
+     */
+    ListModelNG model = CreateList();
+    model.SetDivider(ITEM_DIVIDER);
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    int cur = 0;
+    for (auto& child : pattern_->itemPosition_) {
+        child.second.id += cur;
+        cur++;
+    }
+    auto renderContext = frameNode_->GetRenderContext();
+    renderContext->UpdatePaintRect(frameNode_->GetGeometryNode()->GetFrameRect());
+    UpdateContentModifier();
+    auto dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    auto lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    auto dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+
+    auto listItemNode = GetChildFrameNode(frameNode_, 0);
+    auto listItemNodeId = listItemNode->GetId();
+    auto focusHub = listItemNode->GetFocusHub();
+    auto stateStyleMgr = AceType::MakeRefPtr<StateStyleManager>(listItemNode);
+    
+    stateStyleMgr->PostListItemPressStyleTask(UI_STATE_PRESSED);
+    focusHub->OnPaintFocusState(true);
+    RefPtr<NodePaintMethod> paint = pattern_->CreateNodePaintMethod();
+    RefPtr<ListPaintMethod> listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+
+    stateStyleMgr->PostListItemPressStyleTask(UI_STATE_NORMAL);
+    paint = pattern_->CreateNodePaintMethod();
+    listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+
+    focusHub->OnPaintFocusState(false);
+    paint = pattern_->CreateNodePaintMethod();
+    listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        EXPECT_FALSE(child.second.isPressed);
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+}
+
+/**
+ * @tc.name: NotifyListItemMixed003
+ * @tc.desc: Test list layout with Hovered and Pressed.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, NotifyListItemMixed003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init List.
+     */
+    ListModelNG model = CreateList();
+    model.SetDivider(ITEM_DIVIDER);
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    int cur = 0;
+    for (auto& child : pattern_->itemPosition_) {
+        child.second.id += cur;
+        cur++;
+    }
+    auto renderContext = frameNode_->GetRenderContext();
+    renderContext->UpdatePaintRect(frameNode_->GetGeometryNode()->GetFrameRect());
+    UpdateContentModifier();
+    auto dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    auto lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    auto dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
+
+    auto listItemNode = GetChildFrameNode(frameNode_, 0);
+    auto listItemNodeId = listItemNode->GetId();
+    auto stateStyleMgr = AceType::MakeRefPtr<StateStyleManager>(listItemNode);
+    
+    stateStyleMgr->PostListItemPressStyleTask(UI_STATE_PRESSED);
+    listItemNode->OnHoverWithHightLight(true);
+    RefPtr<NodePaintMethod> paint = pattern_->CreateNodePaintMethod();
+    RefPtr<ListPaintMethod> listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+
+    listItemNode->OnHoverWithHightLight(false);
+    paint = pattern_->CreateNodePaintMethod();
+    listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        if (child.second.id == listItemNodeId) {
+            EXPECT_TRUE(child.second.isPressed);
+        }
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 3);
+
+    stateStyleMgr->PostListItemPressStyleTask(UI_STATE_NORMAL);
+    paint = pattern_->CreateNodePaintMethod();
+    listPaint = AceType::DynamicCast<ListPaintMethod>(paint);
+    for (auto child : listPaint->itemPosition_) {
+        EXPECT_FALSE(child.second.isPressed);
+    }
+    UpdateContentModifier();
+    dividerList_ = pattern_->listContentModifier_->dividerList_->Get();
+    lda = AceType::DynamicCast<ListDividerArithmetic>(dividerList_);
+    dividerMap = lda->GetDividerMap();
+    EXPECT_EQ(dividerMap.size(), 4);
 }
 
 /**
@@ -2045,6 +2708,160 @@ HWTEST_F(ListLayoutTestNg, ChildrenMainSize006, TestSize.Level1)
     EXPECT_TRUE(Position(-450.f));
     ScrollToIndex(9, false, ScrollAlign::END);
     EXPECT_TRUE(Position(-650.f));
+}
+
+/**
+ * @tc.name: ListIsAtBottom001
+ * @tc.desc: test func IsAtBottom when List is at bottom and chain animation opened
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListIsAtBottom001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. init List then slide List by Scroller to bottom.
+       @tc.expected: List is at bottom and startIndex_ is 1.
+     */
+    ListModelNG model = CreateList();
+    model.SetSpace(Dimension(SPACE));
+    model.SetInitialIndex(0);
+    CreateListItems(TOTAL_ITEM_NUMBER / 2); // 2: half of the total
+    CreateDone();
+    pattern_->ScrollToIndex(LAST_ITEM);
+    FlushUITasks();
+    EXPECT_TRUE(pattern_->IsAtBottom());
+    EXPECT_EQ(pattern_->startIndex_, 1); // 1: current start index.
+
+    /**
+     * @tc.steps: step2. slide List over bottom.
+     * @tc.expected: isAtBottom also return true and startIndex_ maintain 1.
+     */
+    UpdateCurrentOffset(-100.f);
+    EXPECT_TRUE(pattern_->IsAtBottom());
+    EXPECT_EQ(pattern_->startIndex_, 1); // 1: current start index.
+
+    /**
+     * @tc.steps: step3. simulate chain animation and item 1 out of screen for chain delta.
+     * @tc.expected: startIndex_ change to 2 and isAtBottom also return true.
+     */
+    pattern_->itemPosition_.erase(1);
+    pattern_->startMainPos_ = pattern_->itemPosition_[2].startPos - pattern_->spaceWidth_;
+    EXPECT_TRUE(pattern_->IsAtBottom());
+}
+
+/**
+ * @tc.name: ListIsAtBottom002
+ * @tc.desc: test func IsAtBottom when List last item hight is zero.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListIsAtBottom002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List, last item hight is zero.
+       @tc.expected: List is at bottom and not scrollable.
+     */
+    ListModelNG model = CreateList();
+    ListItemModelNG itemModel1;
+    itemModel1.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    ViewAbstract::SetWidth(CalcLength(WIDTH));
+    ViewAbstract::SetHeight(CalcLength(HEIGHT));
+    ViewStackProcessor::GetInstance()->Pop();
+    ListItemModelNG itemModel2;
+    itemModel2.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    ViewAbstract::SetHeight(CalcLength(0));
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+    FlushUITasks();
+    FlushIdleTask(pattern_);
+    EXPECT_TRUE(pattern_->IsAtBottom());
+    EXPECT_FALSE(pattern_->IsScrollable());
+}
+
+/**
+ * @tc.name: ListIsAtBottom003
+ * @tc.desc: test func IsAtBottom when List with leans and last item hight is zero.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListIsAtBottom003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List, last item hight is zero.
+       @tc.expected: List is at bottom and not scrollable.
+     */
+    ListModelNG model = CreateList();
+    model.SetLanes(1);
+    ListItemModelNG itemModel1;
+    itemModel1.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    ViewAbstract::SetWidth(CalcLength(WIDTH));
+    ViewAbstract::SetHeight(CalcLength(HEIGHT));
+    ViewStackProcessor::GetInstance()->Pop();
+    ListItemModelNG itemModel2;
+    itemModel2.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    ViewAbstract::SetHeight(CalcLength(0));
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+    FlushUITasks();
+    FlushIdleTask(pattern_);
+    EXPECT_TRUE(pattern_->IsAtBottom());
+    EXPECT_FALSE(pattern_->IsScrollable());
+}
+
+/**
+ * @tc.name: ListIsAtTop001
+ * @tc.desc: test func IsAtTop when List first item hight is zero.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListIsAtTop001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List, first item hight is zero.
+       @tc.expected: List is at top and not scrollable.
+     */
+    ListModelNG model = CreateList();
+    model.SetInitialIndex(1);
+    ListItemModelNG itemModel1;
+    itemModel1.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    ViewAbstract::SetHeight(CalcLength(0));
+    ViewStackProcessor::GetInstance()->Pop();
+    ListItemModelNG itemModel2;
+    itemModel2.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    ViewAbstract::SetWidth(CalcLength(WIDTH));
+    ViewAbstract::SetHeight(CalcLength(HEIGHT));
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+    FlushUITasks();
+    FlushIdleTask(pattern_);
+    EXPECT_TRUE(pattern_->IsAtTop());
+    EXPECT_FALSE(pattern_->IsScrollable());
+}
+
+/**
+ * @tc.name: ListIsAtTop002
+ * @tc.desc: test func IsAtTop when List with leans and first item hight is zero.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListIsAtTop002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List, first item hight is zero.
+       @tc.expected: List is at top and not scrollable.
+     */
+    ListModelNG model = CreateList();
+    model.SetLanes(1);
+    model.SetInitialIndex(1);
+    ListItemModelNG itemModel1;
+    itemModel1.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    ViewAbstract::SetHeight(CalcLength(0));
+    ViewStackProcessor::GetInstance()->Pop();
+    ListItemModelNG itemModel2;
+    itemModel2.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    ViewAbstract::SetWidth(CalcLength(WIDTH));
+    ViewAbstract::SetHeight(CalcLength(HEIGHT));
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+    FlushUITasks();
+    FlushIdleTask(pattern_);
+    EXPECT_TRUE(pattern_->IsAtTop());
+    EXPECT_FALSE(pattern_->IsScrollable());
 }
 
 /**
@@ -2280,6 +3097,151 @@ HWTEST_F(ListLayoutTestNg, ListRepeatCacheCount004, TestSize.Level1)
 }
 
 /**
+ * @tc.name: ListRepeatCacheCount005
+ * @tc.desc: List cacheCount
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListRepeatCacheCount005, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetCachedCount(1, true);
+    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(GetElmtId());
+    CreateRepeatVirtualScrollNode(10, [this](int32_t idx) {
+        CreateListItem();
+        ViewStackProcessor::GetInstance()->Pop();
+        ViewStackProcessor::GetInstance()->StopGetAccessRecording();
+    });
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Check Repeat frameCount
+     * @tc.expected: ListItem 4 is cached
+     */
+    auto repeat = AceType::DynamicCast<RepeatVirtualScrollNode>(frameNode_->GetChildAtIndex(0));
+    EXPECT_NE(repeat, nullptr);
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    const int64_t time = GetSysTimestamp();
+    auto pipeline = listPattern->GetContext();
+    pipeline->OnIdle(time + 16 * 1000000); // 16 * 1000000: 16ms
+    int32_t childrenCount = repeat->GetChildren().size();
+    EXPECT_EQ(childrenCount, 5);
+    auto cachedItem = frameNode_->GetChildByIndex(4)->GetHostNode();
+    EXPECT_EQ(cachedItem->IsActive(), true);
+
+    /**
+     * @tc.steps: step2. Update item4 size
+     * @tc.expected: force sync geometry.
+     */
+    bool sizeChanged = false;
+    cachedItem->SetOnSizeChangeCallback(
+        [&sizeChanged](const RectF& oldRect, const RectF& rect) { sizeChanged = true; });
+    cachedItem->GetLayoutProperty()->UpdateUserDefinedIdealSize(
+        CalcSize(CalcLength(1.0, DimensionUnit::PERCENT), CalcLength(150)));
+    cachedItem->SetLayoutDirtyMarked(true);
+    FlushUITasks();
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(sizeChanged, true);
+    EXPECT_EQ(cachedItem->GetGeometryNode()->GetFrameOffset().GetY(), 400);
+    EXPECT_EQ(cachedItem->GetGeometryNode()->GetFrameSize().Height(), 150);
+}
+
+/**
+ * @tc.name: ListRepeatCacheCount006
+ * @tc.desc: List cacheCount
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListRepeatCacheCount006, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetCachedCount(2);
+    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(GetElmtId());
+    CreateRepeatVirtualScrollNode(10, [this](int32_t idx) {
+        CreateListItem();
+        ViewStackProcessor::GetInstance()->Pop();
+        ViewStackProcessor::GetInstance()->StopGetAccessRecording();
+    });
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Check Repeat frameCount
+     */
+    auto repeat = AceType::DynamicCast<RepeatVirtualScrollNode>(frameNode_->GetChildAtIndex(0));
+    EXPECT_NE(repeat, nullptr);
+    int32_t frameCount = repeat->FrameCount();
+    EXPECT_EQ(frameCount, 10);
+
+    /**
+     * @tc.steps: step2. Flush Idle Task
+     * @tc.expected: ListItem 4 is cached
+     */
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    FlushIdleTask(listPattern);
+    int32_t childrenCount = repeat->GetChildren().size();
+    EXPECT_EQ(childrenCount, 6);
+    auto cachedItem = frameNode_->GetChildByIndex(4)->GetHostNode();
+    EXPECT_EQ(cachedItem->IsActive(), false);
+    EXPECT_EQ(GetChildY(frameNode_, 4), HEIGHT);
+
+    /**
+     * @tc.steps: step3. Flush UI Task
+     * @tc.expected: After ListItem 4 is marked as dirty， ListItem 5 and 6 still remains cached.
+     */
+    cachedItem->SetLayoutDirtyMarked(true);
+    FlushUITasks();
+    childrenCount = repeat->GetChildren().size();
+    EXPECT_EQ(childrenCount, 6);
+}
+
+/**
+ * @tc.name: ListRepeatCacheCount007
+ * @tc.desc: List cacheCount
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListRepeatCacheCount007, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetSpace(Dimension(SPACE));
+    model.SetCachedCount(2, true);
+    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(GetElmtId());
+    CreateRepeatVirtualScrollNode(10, [this](int32_t idx) {
+        CreateListItem();
+        ViewStackProcessor::GetInstance()->Pop();
+        ViewStackProcessor::GetInstance()->StopGetAccessRecording();
+    });
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Check Repeat frameCount
+     * @tc.expected: ListItem 4 is cached
+     */
+    auto repeat = AceType::DynamicCast<RepeatVirtualScrollNode>(frameNode_->GetChildAtIndex(0));
+    EXPECT_NE(repeat, nullptr);
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    FlushIdleTask(listPattern);
+    int32_t childrenCount = repeat->GetChildren().size();
+    EXPECT_EQ(childrenCount, 6);
+    auto cachedItem = frameNode_->GetChildByIndex(4)->GetHostNode();
+    auto cachedItem5 = frameNode_->GetChildByIndex(5)->GetHostNode();
+    EXPECT_EQ(cachedItem->IsActive(), true);
+    EXPECT_EQ(GetChildY(frameNode_, 4), HEIGHT + 4 * SPACE);
+
+    /**
+     * @tc.steps: step2. Update item4 size
+     * @tc.expected: force sync geometry.
+     */
+    bool sizeChanged = false;
+    cachedItem->SetOnSizeChangeCallback(
+        [&sizeChanged](const RectF& oldRect, const RectF& rect) { sizeChanged = true; });
+    cachedItem->GetLayoutProperty()->UpdateUserDefinedIdealSize(
+        CalcSize(CalcLength(1.0, DimensionUnit::PERCENT), CalcLength(150)));
+    cachedItem->SetLayoutDirtyMarked(true);
+    cachedItem->CreateLayoutTask();
+    EXPECT_EQ(cachedItem5->GetGeometryNode()->GetFrameOffset().GetY(), 550);
+    FlushUITasks(frameNode_);
+    EXPECT_EQ(cachedItem5->GetGeometryNode()->GetFrameOffset().GetY(), 600);
+}
+
+/**
  * @tc.name: GetRepeatCountInfo001
  * @tc.desc: Test the GetRepeatCountInfo when the child of List is Repeat.
  * @tc.type: FUNC
@@ -2457,6 +3419,67 @@ HWTEST_F(ListLayoutTestNg, ListCacheCount001, TestSize.Level1)
     EXPECT_EQ(cachedItem->IsActive(), false);
     EXPECT_EQ(GetChildY(frameNode_, 1), -150.0f);
     EXPECT_EQ(GetChildY(frameNode_, 7), 450.0f);
+}
+
+/**
+ * @tc.name: ListCacheCount002
+ * @tc.desc: Window size drag not load cached node
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListCacheCount002, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetCachedCount(2);
+    CreateItemsInLazyForEach(10, 100.0f, nullptr); /* 10: item count */
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. SetCacheRange
+     * @tc.expected: 1 ListItem cached.
+     */
+    ListModelNG::SetCacheRange(AceType::RawPtr(frameNode_), 1, 3);
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(listPattern->cachedItemPosition_.size(), 3);
+
+    /**
+     * @tc.steps: step2. ResetCacheRange
+     * @tc.expected: 2 ListItem cached.
+     */
+    ListModelNG::ResetCacheRange(AceType::RawPtr(frameNode_));
+    FlushUITasks(frameNode_);
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(listPattern->cachedItemPosition_.size(), 2);
+
+    /**
+     * @tc.steps: step3. SetCachedCount 4
+     * @tc.expected: 4 ListItem cached.
+     */
+    ListModelNG::SetCachedCount(AceType::RawPtr(frameNode_), 4);
+    FlushUITasks(frameNode_);
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(listPattern->cachedItemPosition_.size(), 4);
+
+    /**
+     * @tc.steps: step4. SetCacheRange
+     * @tc.expected: 3 ListItem cached.
+     */
+    ListModelNG::SetCacheRange(AceType::RawPtr(frameNode_), 1, 3);
+    FlushUITasks(frameNode_);
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(listPattern->cachedItemPosition_.size(), 3);
+
+    /**
+     * @tc.steps: step5. UpdateCurrentOffset
+     * @tc.expected: 5 ListItem cached.
+     */
+    UpdateCurrentOffset(-250);
+    FlushUITasks(frameNode_);
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(listPattern->cachedItemPosition_.size(), 5);
+    EXPECT_EQ(listPattern->cachedItemPosition_.count(0), 1);
+    EXPECT_EQ(listPattern->cachedItemPosition_.count(1), 1);
+    EXPECT_EQ(listPattern->cachedItemPosition_.count(7), 1);
 }
 
 /**
@@ -3003,6 +4026,39 @@ HWTEST_F(ListLayoutTestNg, ListAddDelChildTest003, TestSize.Level1)
 }
 
 /**
+ * @tc.name: ListAddDelChildTest004
+ * @tc.desc: Test list delete item with List size change and layout backward.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListAddDelChildTest004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List
+     */
+    ListModelNG model = CreateList();
+    CreateListItems(2); /* 2: item count */
+    CreateItemWithSize(1, SizeT<Dimension>(FILL_LENGTH, Dimension(300)));
+    CreateDone();
+
+    /**
+     * @tc.steps: step2. update offset.
+     * @tc.expected: offset is 80.
+     */
+    UpdateCurrentOffset(-80.f);
+    EXPECT_EQ(pattern_->GetTotalOffset(), 80.f);
+
+    /**
+     * @tc.steps: step3. Remove child and List size change and scroll backward.
+     * @tc.expected: offset is 0.
+     */
+    layoutProperty_->UpdateUserDefinedIdealSize(CalcSize(CalcLength(WIDTH), CalcLength(50.f)));
+    frameNode_->RemoveChildAtIndex(0);
+    frameNode_->RemoveChildAtIndex(0);
+    UpdateCurrentOffset(80.f);
+    EXPECT_EQ(pattern_->GetTotalOffset(), 0);
+}
+
+/**
  * @tc.name: FadingEdge001
  * @tc.desc: Test FadingEdge property
  * @tc.type: FUNC
@@ -3076,6 +4132,382 @@ HWTEST_F(ListLayoutTestNg, FadingEdge002, TestSize.Level1)
     paintMethod = UpdateContentModifier();
     EXPECT_TRUE(paintMethod->isFadingTop_);
     EXPECT_FALSE(paintMethod->isFadingBottom_);
+}
+
+/**
+ * @tc.name: FadingEdge003
+ * @tc.desc: Test FadingEdge property with safe area
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, FadingEdge003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set FadingEdge
+     * @tc.expected: Would create a overlayNode attach to list
+     */
+    const Dimension fadingEdgeLength = Dimension(10.0f);
+    ListModelNG model = CreateList();
+    ScrollableModelNG::SetFadingEdge(true, fadingEdgeLength);
+    CreateListItems(10);
+    CreateDone();
+    EXPECT_TRUE(frameNode_->GetOverlayNode());
+    auto geo = frameNode_->GetOverlayNode()->GetGeometryNode();
+    EXPECT_EQ(geo->GetFrameSize().Height(), 400.f);
+
+    /**
+     * @tc.steps: step2. Update Safe Area
+     * @tc.expected: overlay frame size expand safe area.
+     */
+    frameNode_->GetGeometryNode()->SetSelfAdjust(RectF(0, 0, 0, 10.f));
+    FlushUITasks(frameNode_);
+    geo = frameNode_->GetOverlayNode()->GetGeometryNode();
+    EXPECT_EQ(geo->GetFrameSize().Height(), 410.f);
+}
+
+/**
+ * @tc.name: FadingEdge004
+ * @tc.desc: Test FadingEdge property
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, FadingEdge004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set FadingEdge
+     * @tc.expected: Would create a overlayNode attach to list
+     */
+    const Dimension fadingEdgeLength = Dimension(10.0f);
+    ListModelNG model = CreateList();
+    ScrollableModelNG::SetFadingEdge(true, fadingEdgeLength);
+    CreateListItems(10);
+    CreateDone();
+    EXPECT_TRUE(frameNode_->GetOverlayNode());
+
+    /**
+     * @tc.steps: step2. The list at top
+     * @tc.expected: Fading bottom and both top and bottom have gradient
+     */
+    auto paintMethod = UpdateContentModifier();
+    EXPECT_FALSE(paintMethod->isFadingTop_);
+    EXPECT_TRUE(paintMethod->isFadingBottom_);
+    auto renderContext = paintMethod->overlayRenderContext_;
+    EXPECT_TRUE(renderContext);
+    auto& gradientProp = renderContext->GetOrCreateGradient();
+    EXPECT_TRUE(gradientProp);
+    NG::Gradient gradient;
+    if (gradientProp->HasLastGradientType() || gradientProp->HasLinearGradient()) {
+        gradient = gradientProp->GetLinearGradientValue();
+    }
+    EXPECT_EQ(gradient.GetColors().size(), 4); // 4: both top and bottom have gradient
+
+    /**
+     * @tc.steps: step3. The list at middle
+     * @tc.expected: Fading both and both top and bottom have gradient
+     */
+    ScrollTo(100.0f);
+    paintMethod = UpdateContentModifier();
+    EXPECT_TRUE(paintMethod->isFadingTop_);
+    EXPECT_TRUE(paintMethod->isFadingBottom_);
+    if (gradientProp->HasLastGradientType() || gradientProp->HasLinearGradient()) {
+        gradient = gradientProp->GetLinearGradientValue();
+    }
+    EXPECT_EQ(gradient.GetColors().size(), 4); // 4: both top and bottom have gradient
+
+    /**
+     * @tc.steps: step4. The list at bottom
+     * @tc.expected: Fading top and both top and bottom have gradient
+     */
+    ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, false);
+    paintMethod = UpdateContentModifier();
+    EXPECT_TRUE(paintMethod->isFadingTop_);
+    EXPECT_FALSE(paintMethod->isFadingBottom_);
+    if (gradientProp->HasLastGradientType() || gradientProp->HasLinearGradient()) {
+        gradient = gradientProp->GetLinearGradientValue();
+    }
+    EXPECT_EQ(gradient.GetColors().size(), 4); // 4: both top and bottom have gradient
+}
+
+/**
+ * @tc.name: FadingEdge005
+ * @tc.desc: Test fadingEdge change from user
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, FadingEdge005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create List with fadingEdge
+     * @tc.expected: Would create a overlayNode attach to list and list blend mode is src_over
+     */
+    const Dimension fadingEdgeLength = Dimension(10.0f);
+    ListModelNG model = CreateList();
+    ScrollableModelNG::SetFadingEdge(true, fadingEdgeLength);
+    CreateListItems(10);
+    CreateDone();
+    auto renderContext = frameNode_->GetRenderContext();
+    EXPECT_TRUE(renderContext);
+    auto& graphicProps = renderContext->GetOrCreateGraphics();
+    EXPECT_TRUE(graphicProps);
+    auto blendMode = graphicProps->GetBackBlendMode();
+    EXPECT_EQ(blendMode, BlendMode::SRC_OVER);
+    auto paintWrapper = frameNode_->CreatePaintWrapper();
+    RefPtr<ListPaintMethod> paintMethod = AceType::DynamicCast<ListPaintMethod>(paintWrapper->nodePaintImpl_);
+    EXPECT_TRUE(paintMethod);
+    auto overlayRenderContext = paintMethod->overlayRenderContext_;
+    EXPECT_TRUE(overlayRenderContext);
+    auto& gradientProp = overlayRenderContext->GetOrCreateGradient();
+    EXPECT_TRUE(gradientProp);
+    NG::Gradient gradient;
+    if (gradientProp->HasLastGradientType() || gradientProp->HasLinearGradient()) {
+        gradient = gradientProp->GetLinearGradientValue();
+    }
+    EXPECT_EQ(gradient.GetColors().size(), 4); // 4: both top and bottom have gradient
+
+    /**
+     * @tc.steps: step2. user close fadingEdge
+     * @tc.expected: blend mode none is set to render context
+     */
+    ScrollableModelNG::SetFadingEdge(AceType::RawPtr(frameNode_), false);
+    frameNode_->MarkModifyDone();
+    FlushUITasks();
+    blendMode = graphicProps->GetBackBlendMode();
+    EXPECT_EQ(blendMode, BlendMode::NONE);
+    if (gradientProp->HasLastGradientType() || gradientProp->HasLinearGradient()) {
+        gradient = gradientProp->GetLinearGradientValue();
+    }
+    EXPECT_EQ(gradient.GetColors().size(), 0); // 4: both top and bottom have gradient
+
+    /**
+     * @tc.steps: step3. user re-open fadingEdge
+     * @tc.expected: blend mode src_over is set to render context
+     */
+    ScrollableModelNG::SetFadingEdge(AceType::RawPtr(frameNode_), true);
+    frameNode_->MarkModifyDone();
+    FlushUITasks();
+    blendMode = graphicProps->GetBackBlendMode();
+    EXPECT_EQ(blendMode, BlendMode::SRC_OVER);
+}
+
+/**
+ * @tc.name: FadingEdge006
+ * @tc.desc: Test fadingEdge change from user
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, FadingEdge006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create List without fadingEdge
+     * @tc.expected: Would create a overlayNode attach to list and list blend mode is null
+     */
+    ListModelNG model = CreateList();
+    CreateListItems(10);
+    CreateDone();
+    auto renderContext = frameNode_->GetRenderContext();
+    EXPECT_TRUE(renderContext);
+    auto& graphicProps = renderContext->GetOrCreateGraphics();
+    EXPECT_TRUE(graphicProps);
+    auto blendMode = graphicProps->GetBackBlendMode();
+    EXPECT_FALSE(blendMode);
+
+    /**
+     * @tc.steps: step2. user open fadingEdge
+     * @tc.expected: blend mode src_over is set to render context
+     */
+    ScrollableModelNG::SetFadingEdge(AceType::RawPtr(frameNode_), true);
+    frameNode_->MarkModifyDone();
+    FlushUITasks();
+    blendMode = graphicProps->GetBackBlendMode();
+    EXPECT_EQ(blendMode, BlendMode::SRC_OVER);
+
+    /**
+     * @tc.steps: step3. user re-close fadingEdge
+     * @tc.expected: blend mode none is set to render context
+     */
+    ScrollableModelNG::SetFadingEdge(AceType::RawPtr(frameNode_), false);
+    frameNode_->MarkModifyDone();
+    FlushUITasks();
+    blendMode = graphicProps->GetBackBlendMode();
+    EXPECT_EQ(blendMode, BlendMode::NONE);
+}
+
+/**
+ * @tc.name: FadingEdge007
+ * @tc.desc: Test fadingEdge change from itemTotalSize less than contentSize
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, FadingEdge007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create List with fadingEdge
+     * @tc.expected: Would create a overlayNode attach to list and list blend mode is src_over
+     */
+    const Dimension fadingEdgeLength = Dimension(10.0f);
+    ListModelNG model = CreateList();
+    ScrollableModelNG::SetFadingEdge(true, fadingEdgeLength);
+    CreateListItems(10);
+    CreateDone();
+    auto renderContext = frameNode_->GetRenderContext();
+    EXPECT_TRUE(renderContext);
+    auto& graphicProps = renderContext->GetOrCreateGraphics();
+    EXPECT_TRUE(graphicProps);
+    auto blendMode = graphicProps->GetBackBlendMode();
+    EXPECT_EQ(blendMode, BlendMode::SRC_OVER);
+
+    /**
+     * @tc.steps: step2. change itemTotalSize less than contentSize
+     * @tc.expected: blend mode maintain SRC_OVER and gradient color size is 4
+     */
+    pattern_->contentMainSize_ = FLT_MAX;
+    auto paintWrapper = frameNode_->CreatePaintWrapper();
+    RefPtr<ListPaintMethod> paintMethod = AceType::DynamicCast<ListPaintMethod>(paintWrapper->nodePaintImpl_);
+    pattern_->UpdateFadingEdge(paintMethod);
+    paintMethod->UpdateFadingGradient(renderContext);
+    EXPECT_EQ(blendMode, BlendMode::SRC_OVER);
+    EXPECT_FALSE(paintMethod->isFadingTop_);
+    auto overlayRenderContext = paintMethod->overlayRenderContext_;
+    EXPECT_TRUE(overlayRenderContext);
+    auto& gradientProp = overlayRenderContext->GetOrCreateGradient();
+    EXPECT_TRUE(gradientProp);
+    NG::Gradient gradient;
+    if (gradientProp->HasLastGradientType() || gradientProp->HasLinearGradient()) {
+        gradient = gradientProp->GetLinearGradientValue();
+    }
+    EXPECT_EQ(gradient.GetColors().size(), 4); // 4: both top and bottom have gradient
+}
+
+/**
+ * @tc.name: FadingEdge008
+ * @tc.desc: Test FadingEdge with padding, content less than list.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, FadingEdge008, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set FadingEdge and padding
+     * @tc.expected: Would create a overlayNode attach to list
+     */
+    const Dimension fadingEdgeLength = Dimension(10.0f);
+    ListModelNG model = CreateList();
+    ViewAbstract::SetPadding(AceType::RawPtr(frameNode_), CalcLength(10.f));
+    ScrollableModelNG::SetFadingEdge(true, fadingEdgeLength);
+    CreateListItems(2);
+    CreateDone();
+    EXPECT_TRUE(frameNode_->GetOverlayNode());
+
+    /**
+     * @tc.steps: step2. UpdateContentModifier
+     * @tc.expected: no linear gradient.
+     */
+    auto paintMethod = UpdateContentModifier();
+    EXPECT_FALSE(paintMethod->isFadingTop_);
+    EXPECT_FALSE(paintMethod->isFadingBottom_);
+    auto renderContext = paintMethod->overlayRenderContext_;
+    EXPECT_TRUE(renderContext);
+    auto& gradientProp = renderContext->GetOrCreateGradient();
+    EXPECT_TRUE(gradientProp);
+    NG::Gradient gradient;
+    if (gradientProp->HasLastGradientType() || gradientProp->HasLinearGradient()) {
+        gradient = gradientProp->GetLinearGradientValue();
+    }
+    EXPECT_EQ(gradient.GetColors().size(), 0);
+}
+
+/**
+ * @tc.name: FadingEdge009
+ * @tc.desc: Test FadingEdge with padding, content large than list.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, FadingEdge009, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set FadingEdge and padding
+     * @tc.expected: Would create a overlayNode attach to list
+     */
+    const Dimension fadingEdgeLength = Dimension(10.0f);
+    ListModelNG model = CreateList();
+    ViewAbstract::SetPadding(AceType::RawPtr(frameNode_), CalcLength(10.f));
+    ScrollableModelNG::SetFadingEdge(true, fadingEdgeLength);
+    CreateListItems(10);
+    CreateDone();
+    EXPECT_TRUE(frameNode_->GetOverlayNode());
+
+    /**
+     * @tc.steps: step2. UpdateContentModifier
+     * @tc.expected: Fading top and both top and bottom have gradient.
+     */
+    auto paintMethod = UpdateContentModifier();
+    EXPECT_FALSE(paintMethod->isFadingTop_);
+    EXPECT_TRUE(paintMethod->isFadingBottom_);
+    auto renderContext = paintMethod->overlayRenderContext_;
+    EXPECT_TRUE(renderContext);
+    auto& gradientProp = renderContext->GetOrCreateGradient();
+    EXPECT_TRUE(gradientProp);
+    NG::Gradient gradient;
+    if (gradientProp->HasLastGradientType() || gradientProp->HasLinearGradient()) {
+        gradient = gradientProp->GetLinearGradientValue();
+    }
+    EXPECT_EQ(gradient.GetColors().size(), 4);
+    EXPECT_EQ(gradient.GetColors()[0].GetDimension().Value(), 0);
+    EXPECT_TRUE(gradient.GetColors()[0].GetColor() == Color::TRANSPARENT);
+    EXPECT_EQ(gradient.GetColors()[1].GetDimension().Value(), 0);
+    EXPECT_TRUE(gradient.GetColors()[1].GetColor() == Color::WHITE);
+}
+
+/**
+ * @tc.name: FadingEdge010
+ * @tc.desc: Test FadingEdge with animation.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, FadingEdge010, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set FadingEdge
+     * @tc.expected: List overlay has no LinearGradient color
+     */
+    const Dimension fadingEdgeLength = Dimension(10.0f);
+    ListModelNG model = CreateList();
+    ScrollableModelNG::SetFadingEdge(true, fadingEdgeLength);
+    CreateListItems(3);
+    CreateDone();
+    EXPECT_TRUE(frameNode_->GetOverlayNode());
+    auto paintMethod = UpdateContentModifier();
+    EXPECT_FALSE(paintMethod->isFadingTop_);
+    EXPECT_FALSE(paintMethod->isFadingBottom_);
+    auto renderContext = paintMethod->overlayRenderContext_;
+    ASSERT_TRUE(renderContext);
+    auto gradientOpt = renderContext->GetLinearGradient();
+    ASSERT_TRUE(gradientOpt.has_value());
+    EXPECT_EQ(gradientOpt.value().GetColors().size(), 0);
+
+    /**
+     * @tc.steps: step2. add child with animation
+     * @tc.expected: List overlay update LinearGradient color without animation
+     */
+    NG::MockAnimationManager::GetInstance().OpenAnimation();
+    for (int32_t i = 0; i < 2; i++) {
+        CreateListItem(V2::ListItemStyle::NONE);
+        RefPtr<UINode> currentNode = ViewStackProcessor::GetInstance()->Finish();
+        auto currentFrameNode = AceType::DynamicCast<FrameNode>(currentNode);
+        currentFrameNode->MountToParent(frameNode_);
+    }
+    FlushUITasks();
+    UpdateContentModifier();
+    EXPECT_FALSE(NG::MockAnimationManager::GetInstance().IsAnimationOpen());
+    gradientOpt = renderContext->GetLinearGradient();
+    ASSERT_TRUE(gradientOpt.has_value());
+    EXPECT_EQ(gradientOpt.value().GetColors().size(), 4);
+
+    /**
+     * @tc.steps: step3. update fadingEdge length with animation
+     * @tc.expected: List overlay update LinearGradient color with animation
+     */
+    NG::MockAnimationManager::GetInstance().OpenAnimation();
+    ScrollableModelNG::SetFadingEdge(AceType::RawPtr(frameNode_), true, Dimension(30.0f));
+    FlushUITasks();
+    UpdateContentModifier();
+    EXPECT_TRUE(NG::MockAnimationManager::GetInstance().IsAnimationOpen());
+    gradientOpt = renderContext->GetLinearGradient();
+    ASSERT_TRUE(gradientOpt.has_value());
+    EXPECT_EQ(gradientOpt.value().GetColors().size(), 4);
+    NG::MockAnimationManager::GetInstance().CloseAnimation();
 }
 
 /**
@@ -3165,4 +4597,1008 @@ HWTEST_F(ListLayoutTestNg, LayoutPolicyTest001, TestSize.Level1)
     EXPECT_EQ(size, SizeF(500.0f, 300.0f));
     EXPECT_EQ(offset, OffsetF(0.0f, 0.0f));
 }
+
+/**
+ * @tc.name: LayoutPolicyTest002
+ * @tc.desc: test the measure result when setting matchParent and padding.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, LayoutPolicyTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default list
+     */
+    RefPtr<FrameNode> list;
+    auto column = CreateColumn([this, &list](ColumnModelNG model) {
+        ViewAbstract::SetWidth(CalcLength(500));
+        ViewAbstract::SetHeight(CalcLength(300));
+        ListModelNG listModel;
+        listModel.Create();
+        ViewAbstractModelNG model1;
+        model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
+        model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, false);
+        RefPtr<UINode> element = ViewStackProcessor::GetInstance()->GetMainElementNode();
+        ViewStackProcessor::GetInstance()->PopContainer();
+        list = AceType::DynamicCast<FrameNode>(element);
+    });
+    ViewAbstract::SetPadding(AceType::RawPtr(list), CalcLength(10.f));
+    ASSERT_NE(column, nullptr);
+    ASSERT_EQ(column->GetChildren().size(), 1);
+    CreateLayoutTask(column);
+
+    // Expect list's height is 280.
+    auto listPattern = list->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    auto height = listPattern->contentMainSize_;
+    EXPECT_EQ(height, 280.0f);
+}
+
+/**
+ * @tc.name: LayoutPolicyTest001
+ * @tc.desc: test the measure result when setting matchParent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, LayoutPolicyTestWithIgnore001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default list
+     */
+    RefPtr<FrameNode> list;
+    auto column = CreateColumn([this, &list](ColumnModelNG model) {
+        ViewAbstract::SetWidth(CalcLength(500));
+        ViewAbstract::SetHeight(CalcLength(300));
+        ViewAbstract::SetSafeAreaPadding(CalcLength(10.0f, DimensionUnit::PX));
+        ListModelNG listModel;
+        listModel.Create();
+        ViewAbstractModelNG model1;
+        model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
+        model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, false);
+        RefPtr<UINode> element = ViewStackProcessor::GetInstance()->GetMainElementNode();
+        ViewStackProcessor::GetInstance()->PopContainer();
+        list = AceType::DynamicCast<FrameNode>(element);
+    });
+    ASSERT_NE(column, nullptr);
+    ASSERT_EQ(column->GetChildren().size(), 1);
+    CreateLayoutTask(column);
+
+    IgnoreLayoutSafeAreaOpts opts = {.type = NG::LAYOUT_SAFE_AREA_TYPE_SYSTEM, .edges = NG::LAYOUT_SAFE_AREA_EDGE_ALL};
+    list->GetLayoutProperty()->UpdateIgnoreLayoutSafeAreaOpts(opts);
+
+    // Expect list's width is 500, height is 300 land offset is [0.0, 0.0].
+    auto geometryNode = list->GetGeometryNode();
+    ASSERT_NE(geometryNode, nullptr);
+    auto size = geometryNode->GetFrameSize();
+    auto offset = geometryNode->GetFrameOffset();
+    EXPECT_EQ(size, SizeF(500.0f, 300.0f));
+    EXPECT_EQ(offset, OffsetF(0.0f, 10.0f));
+}
+
+/**
+ * @tc.name: LayoutPolicyTestWithIgnore002
+ * @tc.desc: test the measure result when setting matchParent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, LayoutPolicyTestWithIgnore002, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetSpace(Dimension(SPACE));
+    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(GetElmtId());
+    CreateRepeatVirtualScrollNode(10, [this](int32_t idx) {
+        CreateListItem();
+        ViewStackProcessor::GetInstance()->Pop();
+        ViewStackProcessor::GetInstance()->StopGetAccessRecording();
+    });
+    CreateDone();
+
+    PaddingProperty paddingProperty;
+    paddingProperty.start = std::make_optional<CalcLength>(5.0);
+    layoutProperty_->UpdateSafeAreaPadding(paddingProperty);
+
+    /**
+     * @tc.steps: step1. Check Repeat frameCount
+     * @tc.expected: ListItem 4 is cached
+     */
+    auto repeat = AceType::DynamicCast<RepeatVirtualScrollNode>(frameNode_->GetChildAtIndex(0));
+    EXPECT_NE(repeat, nullptr);
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    FlushIdleTask(listPattern);
+    int32_t childrenCount = repeat->GetChildren().size();
+    EXPECT_EQ(childrenCount, 5);
+    auto cachedItem = frameNode_->GetChildByIndex(4)->GetHostNode();
+    IgnoreLayoutSafeAreaOpts opts = { .type = NG::LAYOUT_SAFE_AREA_TYPE_SYSTEM,
+        .edges = NG::LAYOUT_SAFE_AREA_EDGE_ALL };
+    cachedItem->GetLayoutProperty()->UpdateIgnoreLayoutSafeAreaOpts(opts);
+
+    // Expect list's width is 500, height is 300 land offset is [0.0, 0.0].
+    auto geometryNode = cachedItem->GetGeometryNode();
+    ASSERT_NE(geometryNode, nullptr);
+    auto size = geometryNode->GetFrameSize();
+    auto offset = geometryNode->GetFrameOffset();
+    EXPECT_EQ(size, SizeF(240.0f, 100.0f));
+    EXPECT_EQ(offset, OffsetF(0.0f, 440.0f));
+}
+
+/**
+ * @tc.name: BigJumpAccuracyTest001
+ * @tc.desc: jump with big offset and check position
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, BigJumpAccuracyTest001, TestSize.Level1)
+{
+    /**
+    * @tc.steps: step1. Create List with big ListItem height
+    * @tc.expected: currentOffset_ is 0.
+    */
+    auto model = CreateList();
+    model.SetInitialIndex(0);
+    ListItemModelNG itemModel;
+    itemModel.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    ViewAbstract::SetWidth(CalcLength(FILL_LENGTH));
+    ViewAbstract::SetHeight(CalcLength(10000));
+    CreateDone();
+    EXPECT_EQ(pattern_->currentOffset_, 0.f);
+
+    /**
+    * @tc.steps: step2. UpdateCurrentOffset big offset with ScrollBar
+    * @tc.expected: Scroll to bottom
+    */
+    UpdateCurrentOffset(-10000.f, SCROLL_FROM_BAR);
+    EXPECT_EQ(pattern_->currentOffset_, 9600.f);
+}
+
+/**
+ * @tc.name: UpdateChildrenMainSizeRoundingMode001
+ * @tc.desc: Test UpdateChildrenMainSizeRoundingMode sets rounding mode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, UpdateChildrenMainSizeRoundingMode001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create thread safe uinode
+     */
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 1, AceType::MakeRefPtr<ListPattern>());
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(false);
+
+    /**
+     * @tc.steps: step2. thread safe uinode GetOrCreateListChildrenMainSize
+     * @tc.expected: afterAttachMainTreeTasks_ size + 1
+     */
+    int32_t taskSize = listNode->afterAttachMainTreeTasks_.size();
+    auto listPattern = listNode->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    listPattern->GetOrCreateListChildrenMainSize();
+    EXPECT_EQ(listNode->afterAttachMainTreeTasks_.size(), taskSize + 1);
+}
+
+/**
+ * @tc.name: SupportEmptyBranchInLazyLoading001
+ * @tc.desc: Test SupportEmptyBranchInLazyLoading.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, SupportEmptyBranchInLazyLoading001, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+
+    auto layoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    auto wrapper0 = layoutAlgorithm->GetListItem(AceType::RawPtr(frameNode_), 0);
+    EXPECT_EQ(wrapper0, nullptr);
+
+    model.SetSupportEmptyBranchInLazyLoading(true);
+    auto layoutProperty = frameNode_->GetLayoutProperty<ListLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    EXPECT_EQ(layoutProperty->GetSupportLazyLoadingEmptyBranch().value_or(false), true);
+
+    auto wrapper1 = layoutAlgorithm->GetListItem(AceType::RawPtr(frameNode_), 0);
+    EXPECT_NE(wrapper1, nullptr);
+
+    int32_t itemCount = 5;
+    float mainSize = 100.0f;
+    CreateItemsInLazyForEach(itemCount, mainSize);
+    CreateDone();
+
+    auto wrapper2 = layoutAlgorithm->GetListItem(AceType::RawPtr(frameNode_), 0);
+    EXPECT_NE(wrapper2, nullptr);
+
+    // set value of SupportLazyLoadingEmptyBranch only affects the first time setting
+    model.SetSupportEmptyBranchInLazyLoading(false);
+    EXPECT_EQ(layoutProperty->GetSupportLazyLoadingEmptyBranch().value_or(false), true);
+}
+
+/**
+ * @tc.name: TestLanesCacheRangeInBusy
+ * @tc.desc: Test List cached node with lanes
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, TestLanesCacheRangeInBusy, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetCachedCount(2);
+    model.SetLanes(1);
+    CreateItemsInLazyForEach(10, 100.0f, nullptr); /* 10: item count */
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. SetCacheRange
+     * @tc.expected: 1 ListItem cached.
+     */
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    FlushUITasks(frameNode_);
+    ASSERT_NE(listPattern->GetPredictLayoutParamV2(), std::nullopt);
+    auto param = listPattern->GetPredictLayoutParamV2().value();
+    for (auto it : param.items) {
+        EXPECT_EQ(it.forceCache, true);
+    }
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutBasicLayout001
+ * @tc.desc: Test List with LazyVGridLayout basic layout functionality
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutBasicLayout001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with LazyVGridLayout child
+     * @tc.expected: List frameNode created successfully
+     */
+    ListModelNG listModel = CreateList();
+
+    /**
+     * @tc.steps: step2. Create LazyVGridLayout with columns template
+     * @tc.expected: LazyVGridLayout created successfully
+     */
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+
+    /**
+     * @tc.steps: step3. Add 30 Stack items to LazyVGridLayout
+     * @tc.expected: Items added successfully
+     */
+    for (int i = 0; i < 30; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+
+    /**
+     * @tc.steps: step4. Finalize layout and verify
+     * @tc.expected: frameNode created and has children
+     */
+    CreateDone();
+    ASSERT_NE(frameNode_, nullptr);
+    auto children = frameNode_->GetChildren();
+    EXPECT_GE(children.size(), 1);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutBasicLayout002
+ * @tc.desc: Test List with LazyVGridLayout different columns templates
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutBasicLayout002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with multi-column LazyVGridLayout
+     * @tc.expected: LazyVGridLayout created with correct template
+     */
+    ListModelNG listModel = CreateList();
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr 1fr");
+    for (int i = 0; i < 20; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(80));
+        ViewAbstract::SetHeight(CalcLength(80));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+    ASSERT_NE(frameNode_, nullptr);
+    auto children = frameNode_->GetChildren();
+    EXPECT_GE(children.size(), 1);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutWithSpacing001
+ * @tc.desc: Test List with LazyVGridLayout row and column spacing
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutWithSpacing001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with LazyVGridLayout
+     * @tc.expected: Basic layout created
+     */
+    ListModelNG listModel = CreateList();
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+
+    /**
+     * @tc.steps: step2. Set row gap and column gap
+     * @tc.expected: Spacing properties set correctly
+     */
+    gridModel.SetRowGap(Dimension(10.0));
+    gridModel.SetColumnGap(Dimension(20.0));
+
+    /**
+     * @tc.steps: step3. Add items and finalize
+     * @tc.expected: Items added with spacing
+     */
+    for (int i = 0; i < 15; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+    ASSERT_NE(frameNode_, nullptr);
+    auto children = frameNode_->GetChildren();
+    EXPECT_GE(children.size(), 1);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutWithListItem001
+ * @tc.desc: Test List with mixed ListItem and LazyVGridLayout children
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutWithListItem001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List
+     */
+    ListModelNG listModel = CreateList();
+
+    /**
+     * @tc.steps: step2. Add first ListItem
+     * @tc.expected: ListItem added
+     */
+    ListItemModelNG itemModel1;
+    itemModel1.Create();
+    ViewAbstract::SetWidth(CalcLength(100.0));
+    ViewAbstract::SetHeight(CalcLength(50.0));
+    ViewStackProcessor::GetInstance()->Pop();
+
+    /**
+     * @tc.steps: step3. Add LazyVGridLayout with multiple items
+     * @tc.expected: LazyVGridLayout added
+     */
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 30; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+
+    /**
+     * @tc.steps: step4. Add two more ListItems
+     * @tc.expected: All children present
+     */
+    ListItemModelNG itemModel2;
+    itemModel2.Create();
+    ViewAbstract::SetWidth(CalcLength(100.0));
+    ViewAbstract::SetHeight(CalcLength(50.0));
+    ViewStackProcessor::GetInstance()->Pop();
+
+    ListItemModelNG itemModel3;
+    itemModel3.Create();
+    ViewAbstract::SetWidth(CalcLength(100.0));
+    ViewAbstract::SetHeight(CalcLength(50.0));
+    ViewStackProcessor::GetInstance()->Pop();
+
+    CreateDone();
+    ASSERT_NE(frameNode_, nullptr);
+    auto children = frameNode_->GetChildren();
+    EXPECT_EQ(children.size(), 4);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutVertical001
+ * @tc.desc: Test vertical List with LazyVGridLayout
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutVertical001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create vertical List
+     * @tc.expected: List created with VERTICAL axis
+     */
+    ListModelNG model;
+    model.Create();
+    model.SetListDirection(Axis::VERTICAL);
+    ViewAbstract::SetWidth(CalcLength(500.0));
+    ViewAbstract::SetHeight(CalcLength(500.0));
+    ViewStackProcessor::GetInstance()->Pop();
+    frameNode_ = AceType::DynamicCast<FrameNode>(
+        ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode_, nullptr);
+
+    /**
+     * @tc.steps: step2. Add LazyVGridLayout
+     * @tc.expected: LazyVGridLayout added to vertical list
+     */
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 20; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+
+    FlushUITasks(frameNode_);
+    auto children = frameNode_->GetChildren();
+    EXPECT_GE(children.size(), 1);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutNestedLazy001
+ * @tc.desc: Test CanSupportNestedLazy returns true for default List
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutNestedLazy001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default List without special properties
+     * @tc.expected: CanSupportNestedLazy returns true
+     */
+    ListModelNG listModel = CreateList();
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 10; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+
+    auto layoutAlgorithm = listPattern->CreateLayoutAlgorithm();
+    auto listLayoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(layoutAlgorithm);
+    ASSERT_NE(listLayoutAlgorithm, nullptr);
+
+    auto children = frameNode_->GetChildren();
+    ASSERT_GT(children.size(), 0);
+    auto lazyVGridNode = AceType::DynamicCast<FrameNode>(children.front());
+    ASSERT_NE(lazyVGridNode, nullptr);
+
+    EXPECT_TRUE(listLayoutAlgorithm->CanSupportNestedLazy(lazyVGridNode, frameNode_));
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutWithLanes001
+ * @tc.desc: Test CanSupportNestedLazy returns false when lanes is set
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutWithLanes001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with lanes property
+     * @tc.expected: CanSupportNestedLazy returns false
+     */
+    ListModelNG listModel = CreateList();
+    listModel.SetLanes(2);
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 10; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+
+    auto layoutAlgorithm = listPattern->CreateLayoutAlgorithm();
+    auto listLayoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(layoutAlgorithm);
+    ASSERT_NE(listLayoutAlgorithm, nullptr);
+
+    auto children = frameNode_->GetChildren();
+    ASSERT_GT(children.size(), 0);
+    auto lazyVGridNode = AceType::DynamicCast<FrameNode>(children.front());
+    ASSERT_NE(lazyVGridNode, nullptr);
+
+    EXPECT_FALSE(listLayoutAlgorithm->CanSupportNestedLazy(lazyVGridNode, frameNode_));
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutWithChainAnimation001
+ * @tc.desc: Test CanSupportNestedLazy returns false when chainAnimation is set
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutWithChainAnimation001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with chainAnimation property
+     * @tc.expected: CanSupportNestedLazy returns false
+     */
+    ListModelNG listModel = CreateList();
+    ChainAnimationOptions option;
+    option.minSpace = Dimension(10);
+    option.maxSpace = Dimension(30);
+    listModel.SetChainAnimation(true);
+    listModel.SetChainAnimationOptions(option);
+
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 10; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+
+    auto layoutAlgorithm = listPattern->CreateLayoutAlgorithm();
+    auto listLayoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(layoutAlgorithm);
+    ASSERT_NE(listLayoutAlgorithm, nullptr);
+
+    auto children = frameNode_->GetChildren();
+    ASSERT_GT(children.size(), 0);
+    auto lazyVGridNode = AceType::DynamicCast<FrameNode>(children.front());
+    ASSERT_NE(lazyVGridNode, nullptr);
+
+    EXPECT_FALSE(listLayoutAlgorithm->CanSupportNestedLazy(lazyVGridNode, frameNode_));
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutWithScrollSnapAlign001
+ * @tc.desc: Test CanSupportNestedLazy returns false when scrollSnapAlign is set
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutWithScrollSnapAlign001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with scrollSnapAlign property
+     * @tc.expected: CanSupportNestedLazy returns false
+     */
+    ListModelNG listModel = CreateList();
+    listModel.SetScrollSnapAlign(ScrollSnapAlign::CENTER);
+
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 10; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+
+    auto layoutAlgorithm = listPattern->CreateLayoutAlgorithm();
+    auto listLayoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(layoutAlgorithm);
+    ASSERT_NE(listLayoutAlgorithm, nullptr);
+
+    auto children = frameNode_->GetChildren();
+    ASSERT_GT(children.size(), 0);
+    auto lazyVGridNode = AceType::DynamicCast<FrameNode>(children.front());
+    ASSERT_NE(lazyVGridNode, nullptr);
+
+    EXPECT_FALSE(listLayoutAlgorithm->CanSupportNestedLazy(lazyVGridNode, frameNode_));
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutViewPosRef001
+ * @tc.desc: Test ViewPosReference parameters are correctly passed
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutViewPosRef001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with viewport size
+     */
+    ListModelNG listModel = CreateList();
+
+    /**
+     * @tc.steps: step2. Add ListItem before LazyVGridLayout
+     */
+    ListItemModelNG itemModel;
+    itemModel.Create();
+    ViewAbstract::SetWidth(CalcLength(100.0));
+    ViewAbstract::SetHeight(CalcLength(100.0));
+    ViewStackProcessor::GetInstance()->Pop();
+
+    /**
+     * @tc.steps: step3. Add LazyVGridLayout
+     */
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 10; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+
+    CreateDone();
+    FlushUITasks(frameNode_);
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    EXPECT_EQ(listPattern->GetAxis(), Axis::VERTICAL);
+
+    auto children = frameNode_->GetChildren();
+    EXPECT_GE(children.size(), 1);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutViewPosRef002
+ * @tc.desc: Test ViewPosReference for backward layout
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutViewPosRef002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List
+     */
+    ListModelNG listModel = CreateList();
+
+    /**
+     * @tc.steps: step2. Add LazyVGridLayout
+     */
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 10; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    EXPECT_EQ(listPattern->GetAxis(), Axis::VERTICAL);
+
+    auto children = frameNode_->GetChildren();
+    EXPECT_GE(children.size(), 1);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutLayoutConstraint001
+ * @tc.desc: Test LayoutConstraint contains viewPosRef
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutLayoutConstraint001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default List supporting nested lazy
+     */
+    ListModelNG listModel = CreateList();
+
+    /**
+     * @tc.steps: step2. Add LazyVGridLayout
+     */
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 10; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    auto layoutAlgorithm = listPattern->CreateLayoutAlgorithm();
+    auto listLayoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(layoutAlgorithm);
+    ASSERT_NE(listLayoutAlgorithm, nullptr);
+
+    EXPECT_FALSE(listLayoutAlgorithm->childLayoutConstraint_.viewPosRef.has_value());
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutAdjustOffset001
+ * @tc.desc: Test GetAdjustOffset method
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutAdjustOffset001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with LazyVGridLayout
+     */
+    ListModelNG listModel = CreateList();
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 10; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    auto layoutAlgorithm = listPattern->CreateLayoutAlgorithm();
+    auto listLayoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(layoutAlgorithm);
+    ASSERT_NE(listLayoutAlgorithm, nullptr);
+
+    auto children = frameNode_->GetChildren();
+    ASSERT_GT(children.size(), 0);
+    auto lazyVGridNode = AceType::DynamicCast<FrameNode>(children.front());
+    ASSERT_NE(lazyVGridNode, nullptr);
+
+    auto lazyVGridPattern = lazyVGridNode->GetPattern<LazyGridLayoutPattern>();
+    ASSERT_NE(lazyVGridPattern, nullptr);
+
+    AdjustOffset offset = lazyVGridPattern->GetAdjustOffset();
+    EXPECT_EQ(offset.start, 0.0f);
+    EXPECT_EQ(offset.end, 0.0f);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutApplyAdjustOffset001
+ * @tc.desc: Test ApplyLazyVGridAdjustOffset for forward layout
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutApplyAdjustOffset001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with LazyVGridLayout
+     */
+    ListModelNG listModel = CreateList();
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 10; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    auto layoutAlgorithm = listPattern->CreateLayoutAlgorithm();
+    auto listLayoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(layoutAlgorithm);
+    ASSERT_NE(listLayoutAlgorithm, nullptr);
+
+    auto children = frameNode_->GetChildren();
+    ASSERT_GT(children.size(), 0);
+    auto lazyVGridNode = AceType::DynamicCast<FrameNode>(children.front());
+    ASSERT_NE(lazyVGridNode, nullptr);
+
+    auto lazyVGridPattern = lazyVGridNode->GetPattern<LazyGridLayoutPattern>();
+    ASSERT_NE(lazyVGridPattern, nullptr);
+
+    AdjustOffset testOffset;
+    testOffset.start = 50.0f;
+    testOffset.end = 30.0f;
+
+    AdjustOffset currentOffset = lazyVGridPattern->GetAdjustOffset();
+    EXPECT_FLOAT_EQ(currentOffset.start, 0.0f);
+    EXPECT_FLOAT_EQ(currentOffset.end, 0.0f);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutApplyAdjustOffset002
+ * @tc.desc: Test ApplyLazyVGridAdjustOffset for backward layout
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutApplyAdjustOffset002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with LazyVGridLayout
+     */
+    ListModelNG listModel = CreateList();
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 10; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    auto layoutAlgorithm = listPattern->CreateLayoutAlgorithm();
+    auto listLayoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(layoutAlgorithm);
+    ASSERT_NE(listLayoutAlgorithm, nullptr);
+
+    auto children = frameNode_->GetChildren();
+    ASSERT_GT(children.size(), 0);
+    auto lazyVGridNode = AceType::DynamicCast<FrameNode>(children.front());
+    ASSERT_NE(lazyVGridNode, nullptr);
+
+    auto lazyVGridPattern = lazyVGridNode->GetPattern<LazyGridLayoutPattern>();
+    ASSERT_NE(lazyVGridPattern, nullptr);
+
+    AdjustOffset testOffset;
+    testOffset.start = 50.0f;
+    testOffset.end = 30.0f;
+
+    AdjustOffset currentOffset = lazyVGridPattern->GetAdjustOffset();
+    EXPECT_FLOAT_EQ(currentOffset.start, 0.0f);
+    EXPECT_FLOAT_EQ(currentOffset.end, 0.0f);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutScroll001
+ * @tc.desc: Test LazyVGridLayout remeasure after scroll
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutScroll001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with LazyVGridLayout
+     */
+    ListModelNG listModel = CreateList();
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 30; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    FlushUITasks(frameNode_);
+
+    auto layoutAlgorithm = listPattern->CreateLayoutAlgorithm();
+    auto listLayoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(layoutAlgorithm);
+    ASSERT_NE(listLayoutAlgorithm, nullptr);
+
+    /**
+     * @tc.steps: step2. Scroll the list
+     * @tc.expected: Layout algorithm position updated
+     */
+    pattern_->UpdateCurrentOffset(-200.0f, SCROLL_FROM_UPDATE);
+    FlushUITasks(frameNode_);
+
+    auto newLayoutAlgorithm = listPattern->CreateLayoutAlgorithm();
+    auto newlistLayoutAlgorithm = AceType::DynamicCast<ListLayoutAlgorithm>(newLayoutAlgorithm);
+    ASSERT_NE(newlistLayoutAlgorithm, nullptr);
+
+    EXPECT_EQ(newlistLayoutAlgorithm->axis_, Axis::VERTICAL);
+    EXPECT_GE(newlistLayoutAlgorithm->endMainPos_, newlistLayoutAlgorithm->startMainPos_);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutPredictBuild001
+ * @tc.desc: Test ProcessPredictBuildLazyVGrid is called
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutPredictBuild001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with LazyVGridLayout
+     */
+    ListModelNG listModel = CreateList();
+    listModel.SetCachedCount(2);
+
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 20; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    FlushUITasks(frameNode_);
+
+    /**
+     * @tc.steps: step2. Verify LazyVGridLayout created successfully
+     * @tc.expected: Children exist
+     */
+    auto children = frameNode_->GetChildren();
+    EXPECT_GE(children.size(), 1);
+}
+
+/**
+ * @tc.name: ListWithLazyVGridLayoutCacheRange001
+ * @tc.desc: Test LazyVGridLayout with cached count
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListLayoutTestNg, ListWithLazyVGridLayoutCacheRange001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with cached count
+     */
+    ListModelNG listModel = CreateList();
+    listModel.SetCachedCount(2);
+
+    /**
+     * @tc.steps: step2. Add LazyVGridLayout
+     */
+    LazyVGridLayoutModel gridModel;
+    gridModel.Create();
+    gridModel.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 20; i++) {
+        StackModelNG stackModel;
+        stackModel.Create();
+        ViewAbstract::SetWidth(CalcLength(100));
+        ViewAbstract::SetHeight(CalcLength(100));
+        ViewStackProcessor::GetInstance()->Pop();
+    }
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    FlushUITasks(frameNode_);
+
+    /**
+     * @tc.steps: step3. Verify LazyVGridLayout created successfully
+     * @tc.expected: Children exist
+     */
+    auto children = frameNode_->GetChildren();
+    EXPECT_GE(children.size(), 1);
+}
+
 } // namespace OHOS::Ace::NG

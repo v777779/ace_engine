@@ -14,7 +14,9 @@
  */
 
 #include "interfaces/inner_api/ace/ui_content.h"
+#include <string>
 
+#include "arkui_log.h"
 #include "constants.h"
 #include "utils.h"
 #include "ace_forward_compatibility.h"
@@ -30,12 +32,17 @@ using CreateFunc = UIContent* (*)(void*, void*, int32_t);
 using CreateFunction = UIContent* (*)(void*);
 using GetUIContentFunc = UIContent* (*)(int32_t);
 using GetCurrentUIStackInfoFunction = char* (*)();
+using  GetWindowIdFuction = int32_t (*)(int32_t);
 constexpr char UI_CONTENT_CREATE_FUNC[] = "OHOS_ACE_CreateUIContent";
 constexpr char Card_CREATE_FUNC[] = "OHOS_ACE_CreateFormContent";
 constexpr char SUB_WINDOW_UI_CONTENT_CREATE_FUNC[] = "OHOS_ACE_CreateSubWindowUIContent";
 constexpr char GET_UI_CONTENT_CREATE_FUNC[] = "OHOS_ACE_GetUIContent";
+constexpr char OHOS_ACE_GET_UI_CONTENT_WINDOW_ID[] = "OHOS_ACE_GetUIContentWindowID";
 
 OHOS::AbilityRuntime::Context* context_ = nullptr;
+std::atomic<bool> UIContent::successFlag_{false};
+std::mutex UIContent::mtx_;
+std::string UIContent::angleConfigJson_ = "";
 
 UIContent* CreateUIContent(void* context, void* runtime, bool isFormRender)
 {
@@ -155,6 +162,47 @@ UIContent* UIContent::GetUIContent(int32_t instanceId)
 
     auto content = entry(instanceId);
     return content;
+}
+
+int32_t UIContent::GetUIContentWindowID(int32_t instanceId)
+{
+    LIBHANDLE handle = LOADLIB(AceForwardCompatibility::GetAceLibName());
+    if (handle == nullptr) {
+        return -1;
+    }
+    auto entry = reinterpret_cast<GetWindowIdFuction>(LOADSYM(handle, OHOS_ACE_GET_UI_CONTENT_WINDOW_ID));
+    if (entry == nullptr) {
+        FREELIB(handle);
+        return -1;
+    }
+    auto windowId = entry(instanceId);
+    return windowId;
+}
+
+bool UIContent::SetXComponentCompensationAngle(const std::string& configStr)
+{
+    if (successFlag_.load(std::memory_order_acquire)) {
+        LOGI("UIContent set compensasion angle has successed!");
+        return true;
+    }
+        
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (successFlag_.load(std::memory_order_relaxed)) {
+        return true;
+    }
+    if (configStr.empty()) {
+        LOGE("can not set empty compensasion angle!");
+        return false;
+    }
+    UIContent::angleConfigJson_ = configStr;
+    LOGI("get angle info: %{public}s", configStr.c_str());
+    successFlag_.store(true, std::memory_order_release);
+    return true;
+}
+
+const std::string& UIContent::GetXComponentCompensationAngle()
+{
+    return UIContent::angleConfigJson_;
 }
 
 std::string UIContent::GetCurrentUIStackInfo()

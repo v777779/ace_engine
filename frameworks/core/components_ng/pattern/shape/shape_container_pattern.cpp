@@ -14,6 +14,8 @@
  */
 
 #include "core/components_ng/pattern/shape/shape_container_pattern.h"
+
+#include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/shape/shape_container_paint_method.h"
 
 namespace OHOS::Ace::NG {
@@ -30,6 +32,7 @@ bool ShapeContainerPattern::OnDirtyLayoutWrapperSwap(
 void ShapeContainerPattern::ViewPortTransform()
 {
     auto curFrameNode = GetHost();
+    CHECK_NULL_VOID(curFrameNode);
     auto renderContext = curFrameNode->GetRenderContext();
     auto geoNode = curFrameNode->GetGeometryNode();
     CHECK_NULL_VOID(geoNode);
@@ -108,5 +111,20 @@ RefPtr<NodePaintMethod> ShapeContainerPattern::CreateNodePaintMethod()
         shapeContainerModifier_ = MakeRefPtr<ShapeContainerModifier>();
     }
     return MakeRefPtr<ShapeContainerPaintMethod>(shapeContainerModifier_);
+}
+
+void ShapeContainerPattern::UpdateProperty()
+{
+    auto frameNode = GetHost();
+    CHECK_NULL_VOID(frameNode);
+    if (frameNode->GetRerenderable()) {
+        for (auto childNode : ChildNodes_) {
+            auto child = childNode.Upgrade();
+            if (!child) {
+                continue;
+            }
+            child->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
+        }
+    }
 }
 } // namespace OHOS::Ace::NG

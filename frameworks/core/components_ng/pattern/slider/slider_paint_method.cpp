@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,14 +23,15 @@ constexpr float HALF = 0.5f;
 void SliderPaintMethod::UpdateContentModifier(PaintWrapper* paintWrapper)
 {
     CHECK_NULL_VOID(sliderContentModifier_);
-    auto paintProperty = DynamicCast<SliderPaintProperty>(paintWrapper->GetPaintProperty());
-    CHECK_NULL_VOID(paintProperty);
-    auto pipeline = PipelineBase::GetCurrentContext();
-    CHECK_NULL_VOID(pipeline);
     auto renderContext = paintWrapper->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
     auto host = renderContext->GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
+    auto paintProperty = DynamicCast<SliderPaintProperty>(paintWrapper->GetPaintProperty());
+    CHECK_NULL_VOID(paintProperty);
+    auto pipeline = PipelineBase::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
     auto sliderTheme = pipeline->GetTheme<SliderTheme>(host->GetThemeScopeId());
     CHECK_NULL_VOID(sliderTheme);
     sliderContentModifier_->UpdateData(parameters_);
@@ -42,8 +43,8 @@ void SliderPaintMethod::UpdateContentModifier(PaintWrapper* paintWrapper)
     }
 
     sliderContentModifier_->JudgeNeedAnimate(reverse);
-    SetAttrParameters();
-    sliderContentModifier_->SetBoardColor();
+    SetAttrParameters(host);
+    sliderContentModifier_->SetBoardColor(host);
     sliderContentModifier_->SetSliderMode(paintProperty->GetSliderModeValue(SliderModelNG::SliderMode::OUTSET));
     UpdateBorderRadius(paintProperty);
     auto stepSize = paintProperty->GetStepSizeValue(sliderTheme->GetMarkerSize());
@@ -68,14 +69,28 @@ void SliderPaintMethod::UpdateContentModifier(PaintWrapper* paintWrapper)
     sliderContentModifier_->UpdateContentDirtyRect(paintWrapper->GetGeometryNode()->GetFrameSize());
 }
 
-void SliderPaintMethod::SetAttrParameters()
+void SliderPaintMethod::SetAttrParameters(const RefPtr<FrameNode>& host)
 {
     sliderContentModifier_->SetBackgroundSize(parameters_.backStart, parameters_.backEnd);
-    sliderContentModifier_->SetSelectSize(parameters_.selectStart, parameters_.selectEnd);
-    sliderContentModifier_->SetCircleCenter(parameters_.circleCenter);
+    sliderContentModifier_->SetSelectSize(parameters_.selectStart, parameters_.selectEnd, host);
+    sliderContentModifier_->SetCircleCenter(parameters_.circleCenter, host);
     sliderContentModifier_->SetSelectColor(parameters_.selectGradientColor);
     sliderContentModifier_->SetTrackBackgroundColor(parameters_.trackBackgroundColor);
-    sliderContentModifier_->SetBlockColor(parameters_.blockColor);
+    if (parameters_.blockColor.has_value()) {
+        sliderContentModifier_->SetLinearGradientBlockColor(
+            SliderModelNG::CreateSolidGradient(parameters_.blockColor.value()));
+    } else if (parameters_.blockGradientColor.has_value()) {
+        sliderContentModifier_->SetLinearGradientBlockColor(parameters_.blockGradientColor.value());
+    } else {
+        CHECK_NULL_VOID(host);
+        auto pipeline = host->GetContext();
+        CHECK_NULL_VOID(pipeline);
+        auto sliderTheme = pipeline->GetTheme<SliderTheme>(host->GetThemeScopeId());
+        CHECK_NULL_VOID(sliderTheme);
+        sliderContentModifier_->SetLinearGradientBlockColor(
+            SliderModelNG::CreateSolidGradient(sliderTheme->GetBlockColor()));
+    }
+
     sliderContentModifier_->SetTrackThickness(parameters_.trackThickness);
     sliderContentModifier_->SetStepRatio(parameters_.stepRatio);
 }
@@ -98,5 +113,45 @@ void SliderPaintMethod::UpdateBorderRadius(RefPtr<SliderPaintProperty>& paintPro
         selectedBorderRadius = Dimension(parameters_.trackThickness * HALF);
     }
     sliderContentModifier_->SetSelectedBorderRadius(selectedBorderRadius.ConvertToPx());
+}
+
+void SliderPaintMethod::UpdateOverlayModifier(PaintWrapper* paintWrapper)
+{
+    CHECK_NULL_VOID(sliderTipModifier_);
+    auto renderContext = paintWrapper->GetRenderContext();
+    CHECK_NULL_VOID(renderContext);
+    auto host = renderContext->GetHost();
+    CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
+    auto pipeline = host->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    auto theme = pipeline->GetTheme<SliderTheme>(host->GetThemeScopeId());
+    CHECK_NULL_VOID(theme);
+
+    auto paintProperty = DynamicCast<SliderPaintProperty>(paintWrapper->GetPaintProperty());
+    CHECK_NULL_VOID(paintProperty);
+    sliderTipModifier_->UpdateThemeParams(theme);
+    sliderTipModifier_->SetDirection(paintProperty->GetDirectionValue(Axis::HORIZONTAL));
+    sliderTipModifier_->SetTipColor(paintProperty->GetTipColorValue(theme->GetTipColor()));
+    sliderTipModifier_->SetTextFont(paintProperty->GetFontSizeValue(theme->GetTipFontSize()));
+    sliderTipModifier_->SetTextColor(paintProperty->GetTextColorValue(theme->GetTipTextColor()));
+    sliderTipModifier_->SetContent(paintProperty->GetCustomContent().value_or(paintProperty->GetContentValue("")));
+    sliderTipModifier_->SetSliderMode(paintProperty->GetSliderModeValue(SliderModelNG::SliderMode::OUTSET));
+    auto blockSize = parameters_.blockSize;
+    if (paintProperty->GetSliderModeValue(SliderModelNG::SliderMode::OUTSET) != SliderModelNG::SliderMode::OUTSET) {
+        blockSize = SizeF(std::min(blockSize.Width(), parameters_.trackThickness),
+            std::min(blockSize.Height(), parameters_.trackThickness));
+    }
+    sliderTipModifier_->SetBlockSize(blockSize);
+    sliderTipModifier_->SetTipFlag(tipParameters_.isDrawTip_, host);
+    sliderTipModifier_->SetContentOffset(paintWrapper->GetContentOffset());
+    sliderTipModifier_->SetContentSize(paintWrapper->GetContentSize());
+    sliderTipModifier_->SetBubbleVertex(tipParameters_.bubbleVertex_);
+    sliderTipModifier_->SetSliderGlobalOffset(tipParameters_.sliderGlobalOffset_);
+    sliderTipModifier_->BuildParagraph();
+    sliderTipModifier_->UpdateBubbleSize();
+    if (sliderTipModifier_->UpdateOverlayRect(paintWrapper->GetGeometryNode()->GetFrameSize())) {
+        paintWrapper->FlushOverlayModifier();
+    }
 }
 } // namespace OHOS::Ace::NG

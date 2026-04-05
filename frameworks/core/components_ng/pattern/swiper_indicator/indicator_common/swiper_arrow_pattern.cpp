@@ -27,6 +27,7 @@
 namespace OHOS::Ace::NG {
 void SwiperArrowPattern::OnModifyDone()
 {
+    ACE_UINODE_TRACE(GetHost());
     Pattern::OnModifyDone();
     if (isFirstCreate_) {
         InitNavigationArrow();
@@ -248,11 +249,7 @@ void SwiperArrowPattern::InitNavigationArrow()
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
     BorderRadiusProperty radius;
-    auto pipelineContext = PipelineBase::GetCurrentContextSafely();
-    CHECK_NULL_VOID(pipelineContext);
-    auto theme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
-    CHECK_NULL_VOID(theme);
-    radius.SetRadius(swiperArrowLayoutProperty->GetBackgroundSizeValue(theme->GetSmallArrowBackgroundSize()));
+    radius.SetRadius(swiperArrowLayoutProperty->GetBackgroundSizeValue());
     renderContext->UpdateBorderRadius(radius);
     host->AddChild(buttonNode);
     buttonNode->AddChild(imageNode);
@@ -276,11 +273,12 @@ int32_t SwiperArrowPattern::TotalCount() const
 
 void SwiperArrowPattern::ButtonTouchEvent(RefPtr<FrameNode> buttonNode, TouchType touchType)
 {
+    NotifySwiperTouchState(touchType);
     auto swiperArrowLayoutProperty = GetSwiperArrowLayoutProperty();
     CHECK_NULL_VOID(swiperArrowLayoutProperty);
     const auto& renderContext = buttonNode->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
-    auto pipelineContext = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipelineContext = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipelineContext);
     auto swiperIndicatorTheme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
     CHECK_NULL_VOID(swiperIndicatorTheme);
@@ -330,7 +328,7 @@ void SwiperArrowPattern::ButtonOnHover(RefPtr<FrameNode> buttonNode, bool isHove
     isHover_ = isHovered;
     const auto& renderContext = buttonNode->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
-    auto pipelineContext = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipelineContext = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipelineContext);
     auto swiperIndicatorTheme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
     CHECK_NULL_VOID(swiperIndicatorTheme);
@@ -471,19 +469,21 @@ void SwiperArrowPattern::UpdateArrowContentBySymbol(RefPtr<FrameNode>& buttonNod
     CHECK_NULL_VOID(symbolLayoutProperty);
     auto swiperLayoutProperty = GetSwiperArrowLayoutProperty();
     CHECK_NULL_VOID(swiperLayoutProperty);
-    auto pipelineContext = PipelineBase::GetCurrentContextSafely();
+    auto pipelineContext = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipelineContext);
     auto swiperIndicatorTheme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
     CHECK_NULL_VOID(swiperIndicatorTheme);
     bool isRtl = swiperLayoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
-    if (V2::SWIPER_LEFT_ARROW_ETS_TAG == GetHost()->GetTag()) {
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    if (V2::SWIPER_LEFT_ARROW_ETS_TAG == host->GetTag()) {
         if (swiperLayoutProperty->GetDirection().value_or(Axis::HORIZONTAL) == Axis::HORIZONTAL) {
             symbolLayoutProperty->UpdateSymbolSourceInfo(SymbolSourceInfo(
                 isRtl ? swiperIndicatorTheme->GetRightSymbolId() : swiperIndicatorTheme->GetLeftSymbolId()));
         } else {
             symbolLayoutProperty->UpdateSymbolSourceInfo(SymbolSourceInfo(swiperIndicatorTheme->GetUpSymbolId()));
         }
-    } else if (V2::SWIPER_RIGHT_ARROW_ETS_TAG == GetHost()->GetTag()) {
+    } else if (V2::SWIPER_RIGHT_ARROW_ETS_TAG == host->GetTag()) {
         if (swiperLayoutProperty->GetDirection().value_or(Axis::HORIZONTAL) == Axis::HORIZONTAL) {
             symbolLayoutProperty->UpdateSymbolSourceInfo(SymbolSourceInfo(
                 isRtl ? swiperIndicatorTheme->GetLeftSymbolId() : swiperIndicatorTheme->GetRightSymbolId()));
@@ -491,15 +491,12 @@ void SwiperArrowPattern::UpdateArrowContentBySymbol(RefPtr<FrameNode>& buttonNod
             symbolLayoutProperty->UpdateSymbolSourceInfo(SymbolSourceInfo(swiperIndicatorTheme->GetDownSymbolId()));
         }
     }
-    symbolLayoutProperty->UpdateFontSize(swiperArrowLayoutProperty->GetArrowSizeValue(
-        swiperIndicatorTheme->GetSmallArrowSize()));
-    symbolLayoutProperty->UpdateSymbolColorList({ swiperArrowLayoutProperty->GetArrowColorValue(
-        swiperIndicatorTheme->GetSmallArrowColor()) });
+    symbolLayoutProperty->UpdateFontSize(swiperArrowLayoutProperty->GetArrowSizeValue());
+    symbolLayoutProperty->UpdateSymbolColorList({ swiperArrowLayoutProperty->GetArrowColorValue() });
     if (!swiperArrowLayoutProperty->GetEnabledValue(true)) {
         buttonNode->GetRenderContext()->UpdateBackgroundColor(
             backgroundColor_.BlendOpacity(swiperIndicatorTheme->GetArrowDisabledAlpha()));
-        symbolLayoutProperty->UpdateSymbolColorList({ swiperArrowLayoutProperty->GetArrowColorValue(
-            swiperIndicatorTheme->GetSmallArrowColor()).BlendOpacity(
+        symbolLayoutProperty->UpdateSymbolColorList({ swiperArrowLayoutProperty->GetArrowColorValue().BlendOpacity(
             swiperIndicatorTheme->GetArrowDisabledAlpha()) });
     }
     symbolNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
@@ -513,24 +510,21 @@ void SwiperArrowPattern::UpdateArrowContentByImage(RefPtr<FrameNode>& buttonNode
     CHECK_NULL_VOID(imageNode);
     auto imageLayoutProperty = imageNode->GetLayoutProperty<ImageLayoutProperty>();
     CHECK_NULL_VOID(imageLayoutProperty);
-    auto pipelineContext = PipelineBase::GetCurrentContextSafely();
-    CHECK_NULL_VOID(pipelineContext);
-    auto swiperIndicatorTheme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
-    CHECK_NULL_VOID(swiperIndicatorTheme);
-    imageLayoutProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(
-        swiperArrowLayoutProperty->GetArrowSizeValue(swiperIndicatorTheme->GetSmallArrowSize())),
-        CalcLength(swiperArrowLayoutProperty->GetArrowSizeValue(swiperIndicatorTheme->GetSmallArrowSize()))));
+    imageLayoutProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(swiperArrowLayoutProperty->GetArrowSizeValue()),
+        CalcLength(swiperArrowLayoutProperty->GetArrowSizeValue())));
     imageLayoutProperty->UpdateImageFit(ImageFit::FILL);
     ImageSourceInfo imageSourceInfo;
     auto swiperLayoutProperty = GetSwiperArrowLayoutProperty();
     CHECK_NULL_VOID(swiperLayoutProperty);
-    if (V2::SWIPER_LEFT_ARROW_ETS_TAG == GetHost()->GetTag()) {
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    if (V2::SWIPER_LEFT_ARROW_ETS_TAG == host->GetTag()) {
         if (swiperLayoutProperty->GetDirection().value_or(Axis::HORIZONTAL) == Axis::HORIZONTAL) {
             imageSourceInfo.SetResourceId(InternalResource::ResourceId::IC_PUBLIC_ARROW_LEFT_SVG);
         } else {
             imageSourceInfo.SetResourceId(InternalResource::ResourceId::IC_PUBLIC_ARROW_UP_SVG);
         }
-    } else if (V2::SWIPER_RIGHT_ARROW_ETS_TAG == GetHost()->GetTag()) {
+    } else if (V2::SWIPER_RIGHT_ARROW_ETS_TAG == host->GetTag()) {
         if (swiperLayoutProperty->GetDirection().value_or(Axis::HORIZONTAL) == Axis::HORIZONTAL) {
             imageSourceInfo.SetResourceId(InternalResource::ResourceId::IC_PUBLIC_ARROW_RIGHT_SVG);
         } else {
@@ -539,10 +533,13 @@ void SwiperArrowPattern::UpdateArrowContentByImage(RefPtr<FrameNode>& buttonNode
     }
     imageSourceInfo.SetFillColor(swiperArrowLayoutProperty->GetArrowColorValue());
     if (!swiperArrowLayoutProperty->GetEnabledValue(true)) {
+        auto pipelineContext = PipelineBase::GetCurrentContext();
+        CHECK_NULL_VOID(pipelineContext);
+        auto swiperIndicatorTheme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
+        CHECK_NULL_VOID(swiperIndicatorTheme);
         buttonNode->GetRenderContext()->UpdateBackgroundColor(
             backgroundColor_.BlendOpacity(swiperIndicatorTheme->GetArrowDisabledAlpha()));
-        imageSourceInfo.SetFillColor(swiperArrowLayoutProperty->GetArrowColorValue(
-            swiperIndicatorTheme->GetSmallArrowColor()).BlendOpacity(
+        imageSourceInfo.SetFillColor(swiperArrowLayoutProperty->GetArrowColorValue().BlendOpacity(
             swiperIndicatorTheme->GetArrowDisabledAlpha()));
     }
     imageLayoutProperty->UpdateImageSourceInfo(imageSourceInfo);
@@ -565,15 +562,9 @@ void SwiperArrowPattern::UpdateArrowContent()
             : Color::TRANSPARENT);
     auto buttonLayoutProperty = buttonNode->GetLayoutProperty<ButtonLayoutProperty>();
     CHECK_NULL_VOID(buttonLayoutProperty);
-    auto pipelineContext = PipelineBase::GetCurrentContextSafely();
-    CHECK_NULL_VOID(pipelineContext);
-    auto swiperIndicatorTheme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
-    CHECK_NULL_VOID(swiperIndicatorTheme);
     buttonLayoutProperty->UpdateUserDefinedIdealSize(
-        CalcSize(CalcLength(swiperArrowLayoutProperty->GetBackgroundSizeValue(
-            swiperIndicatorTheme->GetSmallArrowBackgroundSize())),
-            CalcLength(swiperArrowLayoutProperty->GetBackgroundSizeValue(
-                swiperIndicatorTheme->GetSmallArrowBackgroundSize()))));
+        CalcSize(CalcLength(swiperArrowLayoutProperty->GetBackgroundSizeValue()),
+            CalcLength(swiperArrowLayoutProperty->GetBackgroundSizeValue())));
     backgroundColor_ = buttonRenderContext->GetBackgroundColorValue(Color::TRANSPARENT);
     if (SystemProperties::IsNeedSymbol()) {
         UpdateArrowContentBySymbol(buttonNode, swiperArrowLayoutProperty);
@@ -604,5 +595,17 @@ RefPtr<SwiperPattern> SwiperArrowPattern::GetSwiperPattern() const
     auto swiperNode = GetSwiperNode();
     CHECK_NULL_RETURN(swiperNode, nullptr);
     return swiperNode->GetPattern<SwiperPattern>();
+}
+
+void SwiperArrowPattern::NotifySwiperTouchState(TouchType touchType) const
+{
+    auto swiperPattern = GetSwiperPattern();
+    CHECK_NULL_VOID(swiperPattern);
+    if (touchType == TouchType::DOWN) {
+        swiperPattern->SetArrowTouched(true);
+    }
+    if (touchType == TouchType::UP || touchType == TouchType::CANCEL) {
+        swiperPattern->SetArrowTouched(false);
+    }
 }
 } // namespace OHOS::Ace::NG

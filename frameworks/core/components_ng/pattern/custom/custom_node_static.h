@@ -39,7 +39,10 @@ public:
     static CustomNode* ConstructCustomNode(int32_t id, NodeKoalaInfo&& info);
     static CustomMeasureLayoutNode* ConstructCustomNode(int32_t id,
         std::function<void(NG::LayoutWrapper* layoutWrapper)>&& onMeasureSize,
-        std::function<void(NG::LayoutWrapper* layoutWrapper)>&& onPlaceChildren);
+        std::function<void(NG::LayoutWrapper* layoutWrapper)>&& onPlaceChildren,
+        std::function<void(NG::LayoutWrapper* layoutWrapper)>&& updateParamFunc);
+    static SizeF DidDefaultMeasure(const RefPtr<OHOS::Ace::NG::CustomMeasureLayoutNode>& frameNode);
+    static void DidDefaultLayout(const RefPtr<OHOS::Ace::NG::CustomMeasureLayoutNode>& frameNode);
 };
 
 } // namespace OHOS::Ace::NG

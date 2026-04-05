@@ -16,13 +16,14 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_BRIDGE_JS_FRONTEND_ENGINE_JSI_BADGE_BRIDGE_H
 #define FOUNDATION_ACE_FRAMEWORKS_BRIDGE_JS_FRONTEND_ENGINE_JSI_BADGE_BRIDGE_H
 
-#include "frameworks/bridge/common/dom/dom_badge.h"
+#include "base/memory/ace_type.h"
+#include "frameworks/bridge/common/dom/dom_configs.h"
 #include "frameworks/bridge/js_frontend/engine/jsi/js_value.h"
 
 namespace OHOS::Ace::Framework {
 
 class JsiBadgeBridge : public virtual AceType {
-    DECLARE_ACE_TYPE(JsiBadgeBridge, AceType)
+    DECLARE_ACE_TYPE(JsiBadgeBridge, AceType);
 public:
     void ParseBadgeConfig(const shared_ptr<JsRuntime>& runtime, const shared_ptr<JsValue>& valObject);
 

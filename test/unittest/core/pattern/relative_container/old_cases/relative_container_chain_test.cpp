@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/core/pattern/relative_container/old_cases/relative_container_common_ng.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
@@ -140,7 +140,7 @@ void RelativeContainerChainTest::SetContainerParam(std::string id, float width, 
  * @tc.desc: chainMode direction LineDirection::HORIZONTAL style ChainStyle::SPREAD
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest001, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest001, TestSize.Level0)
 {
     /**
      * set pipeline: api = 11
@@ -205,7 +205,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest001, TestSize.Level1)
  * @tc.desc: chainMode direction LineDirection::HORIZONTAL style ChainStyle::SPREAD_INSIDE
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest002, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest002, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -264,7 +264,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest002, TestSize.Level1)
  * @tc.desc: chainMode direction LineDirection::HORIZONTAL style ChainStyle::PACKED
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest003, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest003, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -323,7 +323,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest003, TestSize.Level1)
  * @tc.desc: chainMode direction LineDirection::HORIZONTAL style ChainStyle::PACKED bias(0,0)
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest004, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest004, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -383,7 +383,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest004, TestSize.Level1)
  * @tc.desc: chainMode direction LineDirection::VERTICAL style ChainStyle::SPREAD
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest005, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest005, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -442,7 +442,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest005, TestSize.Level1)
  * @tc.desc: chainMode direction LineDirection::VERTICAL style ChainStyle::SPREAD_INSIDE
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest006, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest006, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -501,7 +501,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest006, TestSize.Level1)
  * @tc.desc: chainMode direction LineDirection::VERTICAL style ChainStyle::PACKED
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest007, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest007, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -560,7 +560,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest007, TestSize.Level1)
  * @tc.desc: chainMode direction LineDirection::VERTICAL style ChainStyle::PACKED bias(0,0)
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest008, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest008, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -620,7 +620,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest008, TestSize.Level1)
  * @tc.desc: chainMode without chain relationship
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest009, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest009, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -668,7 +668,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest009, TestSize.Level1)
  * @tc.desc: chain without start anchor
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest010, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest010, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -726,7 +726,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest010, TestSize.Level1)
  * @tc.desc: chain without end anchor
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest011, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest011, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -784,7 +784,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest011, TestSize.Level1)
  * @tc.desc: chainMode with broken chain relationship
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest012, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest012, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -842,7 +842,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest012, TestSize.Level1)
  * @tc.desc: content of spread chain is outside the constraints of the anchor
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest0013, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest0013, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -901,7 +901,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest0013, TestSize.Level1)
  * @tc.desc: content of spread_inside chain is outside the constraints of the anchor
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest0014, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest0014, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -960,7 +960,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest0014, TestSize.Level1)
  * @tc.desc: content of packed chain is outside the constraints of the anchor
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest0015, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest0015, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -1019,7 +1019,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest0015, TestSize.Level1)
  * @tc.desc: content of packed chain with bias is outside the constraints of the anchor
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest0016, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest0016, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -1079,7 +1079,7 @@ HWTEST_F(RelativeContainerChainTest, ChainTest0016, TestSize.Level1)
  * @tc.desc: component in chain has margin
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTest0017, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTest0017, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);
@@ -1149,7 +1149,7 @@ static void AddAlignRule(const std::string& id, const AlignDirection& direction,
  * @tc.desc: content of packed chain with bias is outside the constraints of the anchor, direction::RTL.
  * @tc.type: FUNC
  */
-HWTEST_F(RelativeContainerChainTest, ChainTestRtl001, TestSize.Level1)
+HWTEST_F(RelativeContainerChainTest, ChainTestRtl001, TestSize.Level0)
 {
     CreateInstance([=](RelativeContainerModelNG model) {
         SetContainerParam(CONTAINER_ID, CONTAINER_WIDTH, CONTAINER_HEIGHT);

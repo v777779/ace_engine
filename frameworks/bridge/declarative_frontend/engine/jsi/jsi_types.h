@@ -18,10 +18,7 @@
 
 #include <string>
 
-#include "ecmascript/napi/include/jsnapi.h"
-
 #include "frameworks/bridge/declarative_frontend/engine/jsi/jsi_declarative_engine.h"
-#include "frameworks/bridge/declarative_frontend/engine/jsi/jsi_fwd.h"
 #include "frameworks/bridge/declarative_frontend/engine/jsi/jsi_value_conversions.h"
 
 #define FAKE_PTR_FOR_FUNCTION_ACCESS(klass) \
@@ -31,6 +28,12 @@
     }
 
 namespace OHOS::Ace::Framework {
+
+template<typename T>
+class JsiRef;
+
+template<typename T>
+class JsiWeak;
 
 using JsiFunctionCallback = panda::Local<panda::JSValueRef> (*)(panda::JsiRuntimeCallInfo*);
 using EcmaVM = panda::ecmascript::EcmaVM;
@@ -220,7 +223,7 @@ public:
  * @brief A wrapper around panda::ObjectRef
  *
  */
-class JsiObject : public JsiType<panda::ObjectRef> {
+class ACE_FORCE_EXPORT JsiObject : public JsiType<panda::ObjectRef> {
 public:
     JsiObject();
     explicit JsiObject(panda::Local<panda::ObjectRef> val);
@@ -265,6 +268,8 @@ public:
         }
         return JsiObject(that.GetHandle());
     }
+
+    bool HasGetter(int32_t propertyIndex) const;
 
     FAKE_PTR_FOR_FUNCTION_ACCESS(JsiObject)
 };
@@ -421,6 +426,8 @@ public:
     static void Throw(const char* format, Args... args);
     template<typename... Args>
     static void Throw(int32_t code, const char* format, Args... args);
+    template<typename... Args>
+    static void ThrowBusinessError(int32_t code, const char* format, Args... args);
     template<typename... Args>
     static void ThrowRangeError(const char* format, Args... args);
     template<typename... Args>

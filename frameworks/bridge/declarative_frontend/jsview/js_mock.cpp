@@ -50,6 +50,11 @@ void JSMockScopeUtil::JSBind(BindingTarget globalObj)
     JSClass<JSMockScopeUtil>::Declare("__JSScopeUtil__");
     JSClass<JSMockScopeUtil>::StaticMethod("syncInstanceId", &JSMockScopeUtil::SyncInstanceId);
     JSClass<JSMockScopeUtil>::StaticMethod("restoreInstanceId", &JSMockScopeUtil::RestoreInstanceId);
+    JSClass<JSMockScopeUtil>::StaticMethod("getCallingScopeUIContext", &JSMockScopeUtil::GetCallingScopeUIContext);
+    JSClass<JSMockScopeUtil>::StaticMethod("getLastFocusedUIContext", &JSMockScopeUtil::GetLastFocusedUIContext);
+    JSClass<JSMockScopeUtil>::StaticMethod("getLastForegroundUIContext", &JSMockScopeUtil::GetLastForegroundUIContext);
+    JSClass<JSMockScopeUtil>::StaticMethod("getAllUIContexts", &JSMockScopeUtil::GetAllUIContexts);
+    JSClass<JSMockScopeUtil>::StaticMethod("resolveUIContext", &JSMockScopeUtil::ResolveUIContext);
 
     JSClass<JSMockScopeUtil>::Bind(globalObj);
 }
@@ -69,6 +74,12 @@ void JSMockNativeCustomSpan::JSBind(BindingTarget globalObj)
     JSClass<JSMockNativeCustomSpan>::Declare("NativeCustomSpan");
     JSClass<JSMockNativeCustomSpan>::CustomMethod("invalidate", &JSMockNativeCustomSpan::Invalidate);
     JSClass<JSMockNativeCustomSpan>::Bind(globalObj);
+}
+
+void JSMockNativeLeadingMarginSpan::JSBind(BindingTarget globalObj)
+{
+    JSClass<JSMockNativeLeadingMarginSpan>::Declare("NativeLeadingMarginSpan");
+    JSClass<JSMockNativeLeadingMarginSpan>::Bind(globalObj);
 }
 
 void JSMockViewBuildNodeBase::JSBind(BindingTarget globalObj)
@@ -107,6 +118,7 @@ void JSMock::JSBind(BindingTarget globalObj)
     JSMockScopeUtil::JSBind(globalObj);
     MockCustomDialogController::JSBind(globalObj);
     JSMockNativeCustomSpan::JSBind(globalObj);
+    JSMockNativeLeadingMarginSpan::JSBind(globalObj);
     JSMockViewBuildNodeBase::JSBind(globalObj);
 }
 

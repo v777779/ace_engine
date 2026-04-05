@@ -23,12 +23,14 @@
 #include "test/unittest/core/syntax/mock_lazy_for_each_builder.h"
 
 #include "core/components/button/button_theme.h"
+#include "core/components_ng/pattern/scrollable/scrollable_model_ng.h"
 #include "core/components_ng/pattern/waterflow/water_flow_item_model_ng.h"
 #include "core/components_ng/pattern/waterflow/water_flow_item_node.h"
 #include "core/components_ng/pattern/waterflow/water_flow_item_pattern.h"
 #include "core/components_ng/pattern/waterflow/water_flow_model_ng.h"
 #include "core/components_ng/pattern/waterflow/water_flow_paint_method.h"
 #include "core/components_ng/pattern/waterflow/water_flow_pattern.h"
+#include "core/components_ng/pattern/waterflow/water_flow_accessibility_property.h"
 #undef private
 #undef protected
 

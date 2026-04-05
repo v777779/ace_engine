@@ -114,11 +114,10 @@ void ImagePaintMethod::UpdatePaintConfig(PaintWrapper* paintWrapper)
     config.svgFillColor_ = renderProps->GetSvgFillColor();
     config.resizableSlice_ = renderProps->GetImageResizableSliceValue({});
     config.resizableLattice_ = renderProps->GetImageResizableLatticeValue(nullptr);
-
+    config.antiAlias_ = renderProps->GetAntiAliasValue(false);
     bool isRightToLeft = AceApplicationInfo::GetInstance().IsRightToLeft();
     config.flipHorizontally_ = isRightToLeft && renderProps->GetMatchTextDirection().value_or(false);
     config.colorFilter_.Reset();
-
     auto colorFilterMatrix = renderProps->GetColorFilter();
     if (colorFilterMatrix.has_value()) {
         config.colorFilter_.colorFilterMatrix_ = std::make_shared<std::vector<float>>(colorFilterMatrix.value());
@@ -131,13 +130,11 @@ void ImagePaintMethod::UpdatePaintConfig(PaintWrapper* paintWrapper)
     if (renderCtx) {
         config.obscuredReasons_ = renderCtx->GetObscured().value_or(std::vector<ObscuredReasons>());
     }
-
     if (renderProps->HasHdrBrightness() && canvasImage_->IsHdrPixelMap() && renderCtx) {
         renderCtx->SetImageHDRBrightness(renderProps->GetHdrBrightnessValue(DEFAULT_HDR_BRIGHTNESS));
         renderCtx->SetImageHDRPresent(true);
         config.dynamicMode = DynamicRangeMode::HIGH;
     }
-
     if (renderProps->GetNeedBorderRadiusValue(false)) {
         UpdateBorderRadius(paintWrapper, canvasImage_->GetImageDfxConfig());
     }
@@ -158,13 +155,37 @@ void ImagePaintMethod::UpdatePaintConfig(PaintWrapper* paintWrapper)
     }
 }
 
+void ImagePaintMethod::UpdateCanvasImage(const RefPtr<CanvasImage>& canvasImage)
+{
+    if (contentTransitionType_ == ContentTransitionType::IDENTITY || !canvasImage) {
+        canvasImage_ = canvasImage;
+        needContentTransition_ = false;
+        return;
+    }
+    auto&& config = canvasImage->GetPaintConfig();
+    if ((config.isSvg_ && !canvasImage->IsStatic()) || config.frameCount_ > 1) {
+        canvasImage_ = canvasImage;
+        needContentTransition_ = false;
+        return;
+    }
+    if (!canvasImage_) {
+        needContentTransition_ = true;
+    } else {
+        auto originalSrc = canvasImage_->GetImageSourceInfo();
+        auto newSrc = canvasImage->GetImageSourceInfo();
+        needContentTransition_ = (originalSrc != newSrc);
+    }
+    canvasImage_ = canvasImage;
+}
+
 void ImagePaintMethod::UpdatePaintMethod(
     const RefPtr<CanvasImage>& canvasImage, const ImagePaintMethodConfig& imagePainterMethodConfig)
 {
     selected_ = imagePainterMethodConfig.selected;
     selected_ = imagePainterMethodConfig.selected;
     sensitive_ = imagePainterMethodConfig.sensitive;
-    canvasImage_ = canvasImage;
+    contentTransitionType_ = imagePainterMethodConfig.contentTransitionType;
+    UpdateCanvasImage(canvasImage);
     interpolationDefault_ = imagePainterMethodConfig.interpolation;
     imageOverlayModifier_ = imagePainterMethodConfig.imageOverlayModifier;
     imageContentModifier_ = imagePainterMethodConfig.imageContentModifier;
@@ -201,5 +222,10 @@ void ImagePaintMethod::UpdateContentModifier(PaintWrapper* paintWrapper)
     imageContentModifier_->SetSize(size);
     imageContentModifier_->SetSensitive(sensitive_);
     imageContentModifier_->SetCanvasImageWrapper(CanvasImageModifierWrapper(canvasImage_));;
+}
+
+bool ImagePaintMethod::NeedsContentTransition()
+{
+    return needContentTransition_;
 }
 } // namespace OHOS::Ace::NG

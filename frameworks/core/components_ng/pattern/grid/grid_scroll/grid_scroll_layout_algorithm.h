@@ -23,12 +23,13 @@
 #include "core/components_ng/pattern/scrollable/scrollable_properties.h"
 
 namespace OHOS::Ace::NG {
+
 class ACE_EXPORT GridScrollLayoutAlgorithm : public GridLayoutBaseAlgorithm {
     DECLARE_ACE_TYPE(GridScrollLayoutAlgorithm, GridLayoutBaseAlgorithm);
 
 public:
-    GridScrollLayoutAlgorithm(GridLayoutInfo gridLayoutInfo, uint32_t crossCount, uint32_t mainCount)
-        : GridLayoutBaseAlgorithm(std::move(gridLayoutInfo)), crossCount_(crossCount), mainCount_(mainCount) {};
+    GridScrollLayoutAlgorithm(GridLayoutInfo gridLayoutInfo)
+        : GridLayoutBaseAlgorithm(std::move(gridLayoutInfo)) {};
     ~GridScrollLayoutAlgorithm() override = default;
 
     void Measure(LayoutWrapper* layoutWrapper) override;
@@ -129,8 +130,8 @@ private:
     LayoutConstraintF CreateChildConstraint(float mainSize, float crossSize,
         const RefPtr<GridLayoutProperty>& gridLayoutProperty, int32_t crossStart, int32_t crossSpan) const;
     void ModifyCurrentOffsetWhenReachEnd(float mainSize, LayoutWrapper* layoutWrapper);
-    void InitialItemsCrossSize(
-        const RefPtr<GridLayoutProperty>& layoutProperty, const SizeF& frameSize, int32_t childrenCount);
+    void InitialItemsCrossSize(const RefPtr<GridLayoutProperty>& layoutProperty, const SizeF& frameSize,
+        int32_t childrenCount, double originalWidth);
     bool IsIndexInMatrix(int32_t index, int32_t& startLine);
     void UpdateGridLayoutInfo(LayoutWrapper* layoutWrapper, float mainSize);
     virtual void GetTargetIndexInfoWithBenchMark(
@@ -158,6 +159,7 @@ private:
     void ScrollToIndexAuto(LayoutWrapper* layoutWrapper, float mainSize, int32_t targetIndex);
     bool IsScrollToEndLine() const;
     bool IsEndLineInScreenWithGap(int32_t targetLine, float totalViewHeight, float mainSize) const;
+    void CalcScrollToIndexAutoWithContentOffset(int32_t startLine, float mainSize);
     void UpdateCurrentOffsetForJumpTo(float mainSize);
     void SupplyAllData2ZeroIndex(float mainSize, float crossSize, LayoutWrapper* layoutWrapper);
 
@@ -202,7 +204,7 @@ private:
 
     virtual std::pair<int32_t, int32_t> CalculateCachedCount(LayoutWrapper* layoutWrapper, int32_t cachedCount)
     {
-        return std::make_pair(cachedCount * crossCount_, cachedCount * crossCount_);
+        return std::make_pair(cachedCount * info_.crossCount_, cachedCount * info_.crossCount_);
     }
 
     std::string GetReloadReasonStr(GridReloadReason reason)
@@ -229,9 +231,10 @@ private:
 
     void ClearUnlayoutedItems(LayoutWrapper* layoutWrapper);
 
+    void UpdateUnlayoutedItems();
+
 protected:
-    uint32_t crossCount_ = 0;
-    uint32_t mainCount_ = 0;
+    uint32_t mainCount_ = Infinity<int32_t>();
     int32_t currentItemRowSpan_ = 0;
     int32_t currentItemColSpan_ = 0;
     int32_t currentItemRowStart_ = -1;
@@ -244,7 +247,7 @@ protected:
     std::map<int32_t, float> itemsCrossSize_; // grid item's size in cross axis.
     std::list<GridPreloadItem> predictBuildList_;
     LayoutConstraintF cachedChildConstraint_;
-    std::set<int32_t> measuredItems_;
+    std::map<int32_t, float> unLayoutedItems_;
 
 private:
     /**
@@ -253,24 +256,39 @@ private:
      * @param line index of line to measure
      * updates @param mainLength by adding this line's measured height
      * updates @param endIdx with max item index in this line
+     * updates @param isScrollableSpringMotionRunning spring effect is runnning
      * @return false if line isn't recorded.
      */
-    bool MeasureExistingLine(int32_t line, float& mainLength, int32_t& endIdx);
+    bool MeasureExistingLine(
+        int32_t line, float& mainLength, int32_t& endIdx, bool isScrollableSpringMotionRunning = false);
+
+    bool HaveToMeasureInNextFrame(bool reverse, LayoutWrapper* layoutWrapper) const;
+    
+    /**
+     * @brief Check next line(previously recorded) height is zero
+     *
+     * @param currentLine index of current line, next line is (currentLine + 1)
+     * @return true if next line is recorded and line height is zero, false if next line isn't recorded
+     */
+    bool IsNextExistLineHeightZero(const int32_t currentLine) const;
+
+    float GetContentHeight(LayoutWrapper* layoutWrapper);
 
     LayoutWrapper* wrapper_;
     SizeF frameSize_;
     int32_t currentMainLineIndex_ = 0;        // it equals to row index in vertical grid
     int32_t moveToEndLineIndex_ = -1;         // place index in the last line when scroll to index after matrix
-    Axis axis_ = Axis::VERTICAL;
 
     float crossPaddingOffset_ = 0;
     int32_t lastCross_ = 0;
+    int32_t cacheEnd_ = 0;
     bool isChildrenUpdated_ = false;
 
     bool expandSafeArea_ = false;
     bool canOverScrollStart_ = false;
     bool canOverScrollEnd_ = false;
     bool enableSkipping_ = true;               // enables skipping lines on a large offset change.
+    bool isLayouted_ = true;
     std::unique_ptr<GridLayoutInfo> infoCopy_; // legacy impl to save independent data for animation.
 
     // Map structure: [index, crossPosition], store cross position of each item.

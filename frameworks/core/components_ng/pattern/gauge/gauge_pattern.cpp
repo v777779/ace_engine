@@ -13,18 +13,36 @@
  * limitations under the License.
  */
 #include "core/components_ng/pattern/gauge/gauge_pattern.h"
+#include "ui/base/versions.h"
 
 #include "core/components_ng/layout/layout_wrapper.h"
 #include "core/components_ng/pattern/gauge/gauge_layout_algorithm.h"
 #include "core/components_ng/pattern/gauge/gauge_theme.h"
+#include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
+#include "core/components_ng/property/position_property.h"
 
 namespace OHOS::Ace::NG {
+
+constexpr const char* GAUGE_DESCRIPTION_TAG = "GaugeDescription";
+constexpr const char* TEXT_ETS_TAG = "Text";
+
 bool GaugePattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, bool skipMeasure, bool /*skipLayout*/)
 {
     if (skipMeasure || dirty->SkipMeasureContent()) {
         return false;
     }
+    return true;
+}
+
+bool GaugePattern::OnThemeScopeUpdate(int32_t themeScopeId)
+{
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    if (!host->GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWENTY_SIX)) {
+        return false;
+    }
+    host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
     return true;
 }
 
@@ -34,6 +52,7 @@ void GaugePattern::OnModifyDone()
     FireBuilder();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
 
     auto layoutProperty = host->GetLayoutProperty();
     CHECK_NULL_VOID(layoutProperty);
@@ -123,7 +142,7 @@ void GaugePattern::InitTitleContent()
     if ((host->TotalChildCount() > 0) && (!titleChildId_.has_value())) {
         auto firstChild = host->GetFirstChild();
         CHECK_NULL_VOID(firstChild);
-        if (firstChild->GetTag() == V2::GAUGE_DESCRIPTION_TAG) {
+        if (firstChild->GetTag() == GAUGE_DESCRIPTION_TAG) {
             return;
         }
 
@@ -139,7 +158,7 @@ void GaugePattern::InitDescriptionNode()
 {
     auto frameNode = GetHost();
     CHECK_NULL_VOID(frameNode);
-    auto linearNode = FrameNode::GetOrCreateFrameNode(V2::GAUGE_DESCRIPTION_TAG, GetDescriptionNodeId(),
+    auto linearNode = FrameNode::GetOrCreateFrameNode(GAUGE_DESCRIPTION_TAG, GetDescriptionNodeId(),
         []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
     CHECK_NULL_VOID(linearNode);
     linearNode->Clean();
@@ -163,7 +182,7 @@ void GaugePattern::InitLimitValueText(int32_t valueTextId, bool isMin)
     auto gaugePaintProperty = GetPaintProperty<GaugePaintProperty>();
     CHECK_NULL_VOID(gaugePaintProperty);
     auto textNode = FrameNode::GetOrCreateFrameNode(
-        V2::TEXT_ETS_TAG, valueTextId, []() { return AceType::MakeRefPtr<TextPattern>(); });
+        TEXT_ETS_TAG, valueTextId, []() { return AceType::MakeRefPtr<TextPattern>(); });
     CHECK_NULL_VOID(textNode);
 
     auto limitValue =
@@ -204,7 +223,7 @@ void GaugePattern::HideLimitValueText(int32_t valueTextId, bool isMin)
     auto frameNode = GetHost();
     CHECK_NULL_VOID(frameNode);
     auto textNode = FrameNode::GetOrCreateFrameNode(
-        V2::TEXT_ETS_TAG, valueTextId, []() { return AceType::MakeRefPtr<TextPattern>(); });
+        TEXT_ETS_TAG, valueTextId, []() { return AceType::MakeRefPtr<TextPattern>(); });
     CHECK_NULL_VOID(textNode);
     auto geometryNode = textNode->GetGeometryNode();
     CHECK_NULL_VOID(geometryNode);
@@ -328,7 +347,7 @@ void GaugePattern::ObscureLimitValueText(bool isSensitive)
 
 void GaugePattern::ObscureText(int32_t valueTextId, bool isSensitive)
 {
-    auto textNode = FrameNode::GetFrameNode(V2::TEXT_ETS_TAG, valueTextId);
+    auto textNode = FrameNode::GetFrameNode(TEXT_ETS_TAG, valueTextId);
     CHECK_NULL_VOID(textNode);
     auto textPattern = textNode->GetPattern<TextPattern>();
     CHECK_NULL_VOID(textPattern);
@@ -371,7 +390,7 @@ void GaugePattern::UpdateIndicatorIconPath(
     CHECK_NULL_VOID(pipelineContext);
     auto paintProperty = host->GetPaintProperty<GaugePaintProperty>();
     CHECK_NULL_VOID(paintProperty);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         paintProperty->UpdateIndicatorIconSourceInfo(ImageSourceInfo(iconPath, bundleName, moduleName));
     }
     if (host->GetRerenderable()) {
@@ -387,7 +406,7 @@ void GaugePattern::UpdateIndicatorSpace(const CalcDimension& space, bool isFirst
     CHECK_NULL_VOID(pipelineContext);
     auto paintProperty = host->GetPaintProperty<GaugePaintProperty>();
     CHECK_NULL_VOID(paintProperty);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         paintProperty->UpdateIndicatorSpace(space);
     }
     if (host->GetRerenderable()) {
@@ -408,6 +427,52 @@ void GaugePattern::OnColorModeChange(uint32_t colorMode)
     }
 }
 
+bool GaugePattern::CheckDarkResource(uint32_t resId)
+{
+    auto colorMode = Container::CurrentColorMode();
+    if (colorMode != ColorMode::DARK) {
+        return true;
+    }
+    auto resourceAdapter = ResourceManager::GetInstance().GetResourceAdapter(Container::CurrentIdSafely());
+    CHECK_NULL_RETURN(resourceAdapter, false);
+    bool hasDarkRes = false;
+    hasDarkRes = resourceAdapter->ExistDarkResById(std::to_string(resId));
+    return hasDarkRes;
+}
+
+bool GaugePattern::ProcessSingleColorStop(Color& color, std::function<uint32_t(uint32_t)>& invertFunc)
+{
+    uint32_t resId = color.GetResourceId();
+    if (resId != 0) {
+        if (CheckDarkResource(resId)) {
+            color.UpdateColorByResourceId();
+            return true;
+        } else if (invertFunc) {
+            color = Color(invertFunc(color.GetValue()));
+            return true;
+        }
+    } else if (invertFunc) {
+        color = Color(invertFunc(color.GetValue()));
+        return true;
+    }
+    return false;
+}
+
+bool GaugePattern::ProcessGradientColors(std::vector<std::vector<std::pair<Color, Dimension>>>& gradientColors,
+    std::function<uint32_t(uint32_t)>& invertFunc)
+{
+    bool isGradientColorsResEmpty = true;
+    for (auto& colorStopArray : gradientColors) {
+        for (auto& colorStop : colorStopArray) {
+            Color& color = colorStop.first;
+            if (ProcessSingleColorStop(color, invertFunc)) {
+                isGradientColorsResEmpty = false;
+            }
+        }
+    }
+    return isGradientColorsResEmpty;
+}
+
 void GaugePattern::OnColorConfigurationUpdate()
 {
     if (!SystemProperties::ConfigChangePerform()) {
@@ -419,23 +484,37 @@ void GaugePattern::OnColorConfigurationUpdate()
     CHECK_NULL_VOID(pipelineContext);
     auto paintProperty = host->GetPaintProperty<GaugePaintProperty>();
     CHECK_NULL_VOID(paintProperty);
-    bool isGradientColorsResEmpty = true;
     if (paintProperty->GetUseJsLinearGradientValue(false) || !paintProperty->HasGradientColors()) {
         return;
     }
+    bool isGradientColorsResEmpty = true;
+    auto instanceId = Container::CurrentIdSafely();
+    auto nodeTag = host->GetTag();
+    auto invertFunc = ColorInverter::GetInstance().GetInvertFunc(instanceId, nodeTag);
+    auto colorMode = Container::CurrentColorMode();
     auto gradientColors = paintProperty->GetGradientColorsValue();
-    for (auto& colorStopArray : gradientColors) {
-        for (auto& colorStop : colorStopArray) {
-            Color& color = colorStop.first;
-            if (color.GetResourceId() != 0) {
-                color.UpdateColorByResourceId();
-                isGradientColorsResEmpty = false;
-            }
-        }
+    bool needInitRevert = false;
+    if (!paintProperty->GetColorModeInit().has_value()) {
+        return;
     }
-    if (!isGradientColorsResEmpty) {
+    auto colorModeInit = paintProperty->GetColorModeInitValue();
+    if (colorModeInit == static_cast<int>(colorMode)) {
+        needInitRevert = true;
+    } else {
+        isGradientColorsResEmpty = ProcessGradientColors(gradientColors, invertFunc);
+    }
+    if (needInitRevert) {
+        if (paintProperty->GetGradientColorsInit().has_value()) {
+            paintProperty->UpdateGradientColors(paintProperty->GetGradientColorsInitValue());
+        }
+    } else if (!isGradientColorsResEmpty) {
         paintProperty->UpdateGradientColors(gradientColors);
     }
     host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
+}
+
+FocusPattern GaugePattern::GetFocusPattern() const
+{
+    return { FocusType::NODE, false, FocusStyleType::OUTER_BORDER };
 }
 } // namespace OHOS::Ace::NG

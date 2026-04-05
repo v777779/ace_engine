@@ -187,6 +187,7 @@ const d1 = '8vp';
 const e1 = '12vp';
 const f1 = '10vp';
 const g1 = '16vp';
+const y1 = '224vp';
 const h1 = 1000;
 const i1 = 2000;
 const j1 = 1000;
@@ -212,6 +213,7 @@ const h2 = 'arkui_color_mode_locked';
 const i2 = 'arkui_button_right_offset_change';
 const k2 = 'arkui_button_icon_size_change';
 const p2 = 'arkui_button_background_corner_radius_change';
+const a9 = 'arkui_button_menu_default_radius';
 const PC_TITLE_BAR_MAXIMIZE = 'pc_title_bar_maximize';
 const PC_TITLE_BAR_MINIMIZE = 'pc_title_bar_minimize';
 const PC_TITLE_BAR_RESTORE = 'pc_title_bar_restore';
@@ -385,6 +387,7 @@ class c3 extends ViewPU {
         this.colorConfigurationLocked = false;
         this.n4 = new ObservedPropertySimplePU(20, this, 'buttonIconSize');
         this.o4 = new ObservedPropertySimplePU(4, this, 'buttonBackgroundCornerRadius');
+        this.t4 = new ObservedPropertySimplePU(4, this, 'buttonMenuRadius');
         this.isFocused = true;
         this.isDark = false;
         this.isHoverShowMenu = false;
@@ -554,6 +557,7 @@ class c3 extends ViewPU {
         this.m4.purgeDependencyOnElmtId(rmElmtId);
         this.n4.purgeDependencyOnElmtId(rmElmtId);
         this.o4.purgeDependencyOnElmtId(rmElmtId);
+        this.t4.purgeDependencyOnElmtId(rmElmtId);
     }
     aboutToBeDeleted() {
         this.f3.aboutToBeDeleted();
@@ -588,6 +592,7 @@ class c3 extends ViewPU {
         this.m4.aboutToBeDeleted();
         this.n4.aboutToBeDeleted();
         this.o4.aboutToBeDeleted();
+        this.t4.aboutToBeDeleted();
         SubscriberManager.Get().delete(this.id__());
         this.aboutToBeDeletedInternal();
     }
@@ -807,6 +812,12 @@ class c3 extends ViewPU {
     set buttonBackgroundCornerRadius(newValue) {
         this.o4.set(newValue);
     }
+    get buttonMenuRadius() {
+        return this.t4.get();
+    }
+    set buttonMenuRadius(newValue) {
+        this.t4.set(newValue);
+    }
     onWindowFocused() {
         this.rowOpacity = 1.0;
         this.isFocused = true;
@@ -864,6 +875,9 @@ class c3 extends ViewPU {
         else if (eventName === p2) {
             this.setButtonBackgroundCornerRadius(param);
         }
+        else if (eventName === a9) {
+            this.setButtonMenuRadius(param);
+        }
     }
     setButtonSpacing(param) {
         this.buttonSpacing = parseInt(param);
@@ -900,6 +914,9 @@ class c3 extends ViewPU {
     }
     setButtonBackgroundCornerRadius(param) {
         this.buttonBackgroundCornerRadius = parseInt(param);
+    }
+    setButtonMenuRadius(param) {
+        this.buttonMenuRadius = parseInt(param) - 4;
     }
     onMaximizeButtonClick() {
         this.onCancelMenuTimer();
@@ -973,7 +990,10 @@ class c3 extends ViewPU {
         }
     }
     setMenuWidth(width) {
-        this.menuWidth = (80 + parseInt(width)) + 'vp';
+        let widthNumber = (80 + parseInt(width)) + 'vp';
+        if (widthNumber > this.menuWidth) {
+            this.menuWidth = widthNumber;
+        }
     }
     setRowVisibility() {
         if (this.maximizeVisibility === Visibility.None && this.minimizeVisibility === Visibility.None &&
@@ -1161,6 +1181,7 @@ class c3 extends ViewPU {
         this.observeComponentCreation2((elmtId, isInitialRender) => {
             Row.create({ space: this.buttonSpacing });
             Row.id('containerModalButtonRowId');
+            Row.visibility(this.rowVisibility);
             Row.height('100%');
             Row.padding({ left: m, right: this.buttonRightOffset + 'vp' });
             Row.onAreaChange((oldValue, newValue) => {
@@ -1192,7 +1213,7 @@ class c3 extends ViewPU {
                 height: b1
             });
             Button.visibility(this.maximizeVisibility);
-            Button.bindMenu(this.isShowMenu, { builder: this.MenuBuilder.bind(this) }, {
+            Button.bindContextMenu(this.isShowMenu, { builder: this.MenuBuilder.bind(this) }, {
                 placement: Placement.BottomRight, aboutToDisappear: () => {
                     this.isShowMenu = false;
                     this.cancelMenuDisappearTimer();
@@ -1202,6 +1223,7 @@ class c3 extends ViewPU {
             GestureGroup.create(GestureMode.Exclusive);
             LongPressGesture.create({ repeat: false });
             LongPressGesture.onAction(() => {
+                this.menuWidth = y1;
                 this.onMenuWidthChange();
                 this.isShowMenu = !this.hideSplit;
                 this.menuDisappearTimer(i1);

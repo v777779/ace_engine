@@ -17,6 +17,7 @@
 
 #include "modifier_test_base.h"
 #include "modifiers_test_utils.h"
+#include "core/interfaces/native/implementation/base_gesture_event_peer.h"
 #include "core/interfaces/native/implementation/drag_event_peer.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -114,11 +115,11 @@ public:
 };
 
 /*
- * @tc.name: SetOnPreDrag
+ * @tc.name: setOnPreDragTest
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnPreDragTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, DISABLED_setOnPreDragTest, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     auto eventHub = frameNode->GetEventHub<EventHub>();
@@ -170,11 +171,11 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnPreDragTest, TestSize.Level1)
 }
 
 /*
- * @tc.name: SetOnDragEnter
+ * @tc.name: setOnDragEnterTest
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragEnterTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, DISABLED_setOnDragEnterTest, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     auto eventHub = frameNode->GetEventHub<EventHub>();
@@ -217,11 +218,11 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragEnterTest, TestSize.Level1
 }
 
 /*
- * @tc.name: SetOnDragMove
+ * @tc.name: setOnDragMoveTest
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragMoveTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, DISABLED_setOnDragMoveTest, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     auto eventHub = frameNode->GetEventHub<EventHub>();
@@ -264,11 +265,11 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragMoveTest, TestSize.Level1)
 }
 
 /*
- * @tc.name: SetOnDragLeave
+ * @tc.name: setOnDragLeaveTest
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragLeaveTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, DISABLED_setOnDragLeaveTest, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     auto eventHub = frameNode->GetEventHub<EventHub>();
@@ -311,11 +312,11 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragLeaveTest, TestSize.Level1
 }
 
 /*
- * @tc.name: SetOnDrop
+ * @tc.name: setOnDrop0Test
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDrop0Test, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, DISABLED_setOnDrop0Test, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     auto eventHub = frameNode->GetEventHub<EventHub>();
@@ -358,11 +359,11 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDrop0Test, TestSize.Level1)
 }
 
 /*
- * @tc.name: SetOnDragEnd
+ * @tc.name: setOnDragEndTest
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragEndTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, DISABLED_setOnDragEndTest, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     auto eventHub = frameNode->GetEventHub<EventHub>();
@@ -404,11 +405,11 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragEndTest, TestSize.Level1)
 }
 
 /*
- * @tc.name: SetOnDragStartTestCOPY
+ * @tc.name: setOnDragStartTestCOPY
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragStartTestCOPY, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, DISABLED_setOnDragStartTestCOPY, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setOnDragStart, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -464,11 +465,11 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragStartTestCOPY, TestSize.Le
 }
 
 /*
- * @tc.name: SetOnDragStartTestMOVE
+ * @tc.name: setOnDragStartTestMOVE
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragStartTestMOVE, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, DISABLED_setOnDragStartTestMOVE, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setOnDragStart, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -524,11 +525,11 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnDragStartTestMOVE, TestSize.Le
 }
 
 /*
- * @tc.name: SetOnChildTouchTest
+ * @tc.name: setOnChildTouchTestTestSetOnChildTouch
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, SetOnChildTouchTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, setOnChildTouchTestTestSetOnChildTouch, TestSize.Level1)
 {
     using namespace Converter;
     ASSERT_NE(modifier_->setOnChildTouchTest, nullptr);
@@ -572,11 +573,11 @@ HWTEST_F(CommonMethodModifierTest7, SetOnChildTouchTest, TestSize.Level1)
 }
 
 /*
- * @tc.name: SetOnOnGestureJudgeBeginTest
+ * @tc.name: setOnGestureJudgeBeginTestSetOnOnGestureJudgeBegin
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, SetOnOnGestureJudgeBeginTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, setOnGestureJudgeBeginTestSetOnOnGestureJudgeBegin, TestSize.Level1)
 {
     using namespace Converter;
     ASSERT_NE(modifier_->setOnGestureJudgeBegin, nullptr);
@@ -617,11 +618,11 @@ HWTEST_F(CommonMethodModifierTest7, SetOnOnGestureJudgeBeginTest, TestSize.Level
 }
 
 /*
- * @tc.name: SetOnGestureRecognizerJudgeBegin0Test
+ * @tc.name: setOnGestureRecognizerJudgeBegin0Test
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnGestureRecognizerJudgeBegin0Test, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, DISABLED_setOnGestureRecognizerJudgeBegin0Test, TestSize.Level1)
 {
     using namespace Converter;
     ASSERT_NE(modifier_->setOnGestureRecognizerJudgeBegin0, nullptr);
@@ -630,6 +631,7 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnGestureRecognizerJudgeBegin0Te
 
     auto callSyncFunc = [](Ark_VMContext context, const Ark_Int32 resourceId, const Ark_BaseGestureEvent event,
         const Ark_GestureRecognizer current, const Array_GestureRecognizer recognizers,
+        const Array_TouchRecognizer touchRecognizers,
         const Callback_GestureJudgeResult_Void continuation)
     {
         auto info = event ? event->GetBaseGestureInfo() : nullptr;
@@ -639,7 +641,7 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnGestureRecognizerJudgeBegin0Te
         Ark_GestureJudgeResult arkResult = isOk ? ARK_GESTURE_JUDGE_RESULT_CONTINUE : ARK_GESTURE_JUDGE_RESULT_REJECT;
         CallbackHelper(continuation).InvokeSync(arkResult);
     };
-    auto arkCallback = Converter::ArkValue<GestureRecognizerJudgeBeginCallback>(nullptr, callSyncFunc);
+    auto arkCallback = Converter::ArkValue<GestureRecognizerJudgeBeginCallback>(callSyncFunc);
     auto optCallback = Converter::ArkValue<Opt_GestureRecognizerJudgeBeginCallback>(arkCallback);
     modifier_->setOnGestureRecognizerJudgeBegin0(node_, &optCallback);
 
@@ -660,11 +662,11 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnGestureRecognizerJudgeBegin0Te
 }
 
 /*
- * @tc.name: SetOnGestureRecognizerJudgeBegin1Test
+ * @tc.name: setOnGestureRecognizerJudgeBegin1Test
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnGestureRecognizerJudgeBegin1Test, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, DISABLED_setOnGestureRecognizerJudgeBegin1Test, TestSize.Level1)
 {
     using namespace Converter;
     ASSERT_NE(modifier_->setOnGestureRecognizerJudgeBegin1, nullptr);
@@ -673,6 +675,7 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnGestureRecognizerJudgeBegin1Te
 
     auto callSyncFunc = [](Ark_VMContext context, const Ark_Int32 resourceId, const Ark_BaseGestureEvent event,
         const Ark_GestureRecognizer current, const Array_GestureRecognizer recognizers,
+        const Array_TouchRecognizer touchRecognizers,
         const Callback_GestureJudgeResult_Void continuation)
     {
         auto info = event ? event->GetBaseGestureInfo() : nullptr;
@@ -682,7 +685,7 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnGestureRecognizerJudgeBegin1Te
         Ark_GestureJudgeResult arkResult = isOk ? ARK_GESTURE_JUDGE_RESULT_CONTINUE : ARK_GESTURE_JUDGE_RESULT_REJECT;
         CallbackHelper(continuation).InvokeSync(arkResult);
     };
-    auto arkCallback = Converter::ArkValue<GestureRecognizerJudgeBeginCallback>(nullptr, callSyncFunc);
+    auto arkCallback = Converter::ArkValue<GestureRecognizerJudgeBeginCallback>(callSyncFunc);
     auto optCallback = Converter::ArkValue<Opt_GestureRecognizerJudgeBeginCallback>(arkCallback);
     auto exposeInnerGesture = Converter::ArkValue<Opt_Boolean>(false);
     modifier_->setOnGestureRecognizerJudgeBegin1(node_, &optCallback, &exposeInnerGesture);
@@ -704,11 +707,11 @@ HWTEST_F(CommonMethodModifierTest7, DISABLED_SetOnGestureRecognizerJudgeBegin1Te
 }
 
 /*
- * @tc.name: SetShouldBuiltInRecognizerParallelWithTest
+ * @tc.name: setShouldBuiltInRecognizerParallelWithTest
  * @tc.desc: Checking the callback operation for a change in breakpoint.
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest7, SetShouldBuiltInRecognizerParallelWithTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest7, setShouldBuiltInRecognizerParallelWithTest, TestSize.Level1)
 {
     using namespace Converter;
     ASSERT_NE(modifier_->setShouldBuiltInRecognizerParallelWith, nullptr);

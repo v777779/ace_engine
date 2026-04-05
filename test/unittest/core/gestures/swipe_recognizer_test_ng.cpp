@@ -689,7 +689,7 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerTest007, TestSize.Level1)
      */
     swipeRecognizer->fingers_ = swipeRecognizerPtr->fingers_;
     swipeRecognizer->direction_.type = swipeRecognizerPtr->direction_.type;
-    swipeRecognizer->speed_ = 1;
+    swipeRecognizer->speed_ = Dimension(1, DimensionUnit::PX);
     result = swipeRecognizer->ReconcileFrom(swipeRecognizerPtr);
     EXPECT_EQ(result, false);
 }
@@ -855,21 +855,21 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeGestureTest001, TestSize.Level1)
     double speedNum = DEFAULT_SLIDE_SPEED;
     SwipeDirection slideDirection;
     SwipeGestureModelNG swipeGestureModelNG;
-    swipeGestureModelNG.Create(fingersNum, slideDirection, speedNum);
+    swipeGestureModelNG.Create(fingersNum, slideDirection, Dimension(speedNum, DimensionUnit::PX));
 
     RefPtr<GestureProcessor> gestureProcessor;
     gestureProcessor = NG::ViewStackProcessor::GetInstance()->GetOrCreateGestureProcessor();
     auto swipeGestureNG = AceType::DynamicCast<NG::SwipeRecognizer>(gestureProcessor->TopGestureNG());
 
-    SwipeGesture swipeGesture = SwipeGesture(fingersNum, slideDirection, speedNum);
-    EXPECT_EQ(swipeGesture.speed_, DEFAULT_SLIDE_SPEED);
+    SwipeGesture swipeGesture = SwipeGesture(fingersNum, slideDirection, Dimension(speedNum, DimensionUnit::PX));
+    EXPECT_EQ(swipeGesture.speed_, Dimension(DEFAULT_SLIDE_SPEED, DimensionUnit::PX));
 
     /**
      * @tc.steps: step2. call CreateRecognizer function and compare result
      * @tc.steps: case1: onActionId, onActionEndId, onActionCancelId not existed
      */
     auto swipeRecognizer = AceType::DynamicCast<SwipeRecognizer>(swipeGesture.CreateRecognizer());
-    EXPECT_EQ(swipeGesture.speed_, DEFAULT_SLIDE_SPEED);
+    EXPECT_EQ(swipeGesture.speed_, Dimension(DEFAULT_SLIDE_SPEED, DimensionUnit::PX));
 
     /**
      * @tc.steps: step2. call CreateRecognizer function and compare result
@@ -882,7 +882,7 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeGestureTest001, TestSize.Level1)
     swipeGesture.onActionEndId_ = std::move(onActionEndId);
     swipeGesture.onActionCancelId_ = std::move(onActionCancelId);
     swipeRecognizer = AceType::DynamicCast<SwipeRecognizer>(swipeGesture.CreateRecognizer());
-    EXPECT_EQ(swipeGesture.speed_, DEFAULT_SLIDE_SPEED);
+    EXPECT_EQ(swipeGesture.speed_, Dimension(DEFAULT_SLIDE_SPEED, DimensionUnit::PX));
 }
 
 /**
@@ -898,21 +898,21 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeGestureCreateRecognizerTest001, TestSize.Le
     double speedNum = DEFAULT_SLIDE_SPEED;
     SwipeDirection slideDirection;
     SwipeGestureModelNG swipeGestureModelNG;
-    swipeGestureModelNG.Create(fingersNum, slideDirection, speedNum);
+    swipeGestureModelNG.Create(fingersNum, slideDirection, Dimension(speedNum, DimensionUnit::PX));
 
     RefPtr<GestureProcessor> gestureProcessor;
     gestureProcessor = NG::ViewStackProcessor::GetInstance()->GetOrCreateGestureProcessor();
     auto swipeGestureNG = AceType::DynamicCast<NG::SwipeRecognizer>(gestureProcessor->TopGestureNG());
 
-    SwipeGesture swipeGesture = SwipeGesture(fingersNum, slideDirection, speedNum);
-    EXPECT_EQ(swipeGesture.speed_, DEFAULT_SLIDE_SPEED);
+    SwipeGesture swipeGesture = SwipeGesture(fingersNum, slideDirection, Dimension(speedNum, DimensionUnit::PX));
+    EXPECT_EQ(swipeGesture.speed_, Dimension(DEFAULT_SLIDE_SPEED, DimensionUnit::PX));
 
     /**
      * @tc.steps: step2. call CreateRecognizer function and compare result
      * @tc.steps: case1: onActionId, onActionEndId, onActionCancelId not existed
      */
     auto swipeRecognizer = AceType::DynamicCast<SwipeRecognizer>(swipeGesture.CreateRecognizer());
-    EXPECT_EQ(swipeGesture.speed_, DEFAULT_SLIDE_SPEED);
+    EXPECT_EQ(swipeGesture.speed_, Dimension(DEFAULT_SLIDE_SPEED, DimensionUnit::PX));
 
     /**
      * @tc.steps: step2. call CreateRecognizer function and compare result
@@ -927,7 +927,7 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeGestureCreateRecognizerTest001, TestSize.Le
     auto onActionStart = [](GestureEvent& info) { return true; };
     swipeGesture.SetOnActionId(onActionStart);
     swipeRecognizer = AceType::DynamicCast<SwipeRecognizer>(swipeGesture.CreateRecognizer());
-    EXPECT_EQ(swipeGesture.speed_, DEFAULT_SLIDE_SPEED);
+    EXPECT_EQ(swipeGesture.speed_, Dimension(DEFAULT_SLIDE_SPEED, DimensionUnit::PX));
 }
 
 /**
@@ -1199,7 +1199,7 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerPtrHandleTouchUpEventTest001, Tes
      * @tc.expected: step2. result equals REJECT.
      */
     swipeRecognizerPtr->refereeState_ = RefereeState::DETECTING;
-    swipeRecognizerPtr->speed_ = -1;
+    swipeRecognizerPtr->speed_ = Dimension(-1, DimensionUnit::PX);
     swipeRecognizerPtr->fingers_ = 1;
     swipeRecognizerPtr->HandleTouchUpEvent(touchEvent);
     EXPECT_EQ(swipeRecognizerPtr->disposal_, GestureDisposal::REJECT);
@@ -1208,6 +1208,25 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerPtrHandleTouchUpEventTest001, Tes
     swipeRecognizerPtr->deviceType_ = SourceType::MOUSE;
     swipeRecognizerPtr->HandleTouchUpEvent(axisEvent);
     EXPECT_EQ(swipeRecognizerPtr->disposal_, GestureDisposal::REJECT);
+}
+
+/**
+ * @tc.name: SwipeRecognizerTypeTest001
+ * @tc.desc: Test SwipeRecognizerType
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerTypeTest001, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto frameNode = FrameNode::CreateFrameNode("myButton", 100, AceType::MakeRefPtr<Pattern>());
+    swipeRecognizerPtr->AttachFrameNode(frameNode);
+    swipeRecognizerPtr->SetRecognizerType(GestureTypeName::SWIPE_GESTURE);
+    
+    GestureEvent info;
+    swipeRecognizerPtr->HandleReports(info, GestureCallbackType::END);
+    EXPECT_EQ(swipeRecognizerPtr->GetRecognizerType(), GestureTypeName::SWIPE_GESTURE);
 }
 
 /**
@@ -1223,7 +1242,8 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeGestureLimitFingerTest001, TestSize.Level1)
     double speedNum = DEFAULT_SLIDE_SPEED;
     SwipeDirection slideDirection;
     SwipeGestureModelNG swipeGestureModelNG;
-    swipeGestureModelNG.Create(fingersNum, slideDirection, speedNum, IS_LIMIT_FINGER_COUNT);
+    swipeGestureModelNG.Create(
+        fingersNum, slideDirection, Dimension(speedNum, DimensionUnit::PX), IS_LIMIT_FINGER_COUNT);
 
     RefPtr<GestureProcessor> gestureProcessor;
     gestureProcessor = NG::ViewStackProcessor::GetInstance()->GetOrCreateGestureProcessor();
@@ -1231,8 +1251,9 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeGestureLimitFingerTest001, TestSize.Level1)
     EXPECT_EQ(swipeGestureNG->isLimitFingerCount_, IS_LIMIT_FINGER_COUNT);
     
 
-    SwipeGesture swipeGesture = SwipeGesture(fingersNum, slideDirection, speedNum, IS_LIMIT_FINGER_COUNT);
-    EXPECT_EQ(swipeGesture.speed_, DEFAULT_SLIDE_SPEED);
+    SwipeGesture swipeGesture = SwipeGesture(
+        fingersNum, slideDirection, Dimension(speedNum, DimensionUnit::PX), IS_LIMIT_FINGER_COUNT);
+    EXPECT_EQ(swipeGesture.speed_, Dimension(DEFAULT_SLIDE_SPEED, DimensionUnit::PX));
     EXPECT_EQ(swipeGesture.isLimitFingerCount_, IS_LIMIT_FINGER_COUNT);
 
     /**
@@ -1278,7 +1299,8 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeGestureLimitFingerTest002, TestSize.Level1)
     double speedNum = DEFAULT_SLIDE_SPEED;
     SwipeDirection slideDirection;
     SwipeGestureModelNG swipeGestureModelNG;
-    swipeGestureModelNG.Create(fingersNum, slideDirection, speedNum, IS_NOT_LIMIT_FINGER_COUNT);
+    swipeGestureModelNG.Create(
+        fingersNum, slideDirection, Dimension(speedNum, DimensionUnit::PX), IS_NOT_LIMIT_FINGER_COUNT);
 
     RefPtr<GestureProcessor> gestureProcessor;
     gestureProcessor = NG::ViewStackProcessor::GetInstance()->GetOrCreateGestureProcessor();
@@ -1286,8 +1308,9 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeGestureLimitFingerTest002, TestSize.Level1)
     EXPECT_EQ(swipeGestureNG->isLimitFingerCount_, IS_NOT_LIMIT_FINGER_COUNT);
     
 
-    SwipeGesture swipeGesture = SwipeGesture(fingersNum, slideDirection, speedNum, IS_NOT_LIMIT_FINGER_COUNT);
-    EXPECT_EQ(swipeGesture.speed_, DEFAULT_SLIDE_SPEED);
+    SwipeGesture swipeGesture = SwipeGesture(
+        fingersNum, slideDirection, Dimension(speedNum, DimensionUnit::PX), IS_NOT_LIMIT_FINGER_COUNT);
+    EXPECT_EQ(swipeGesture.speed_, Dimension(DEFAULT_SLIDE_SPEED, DimensionUnit::PX));
     EXPECT_EQ(swipeGesture.isLimitFingerCount_, IS_NOT_LIMIT_FINGER_COUNT);
 
     /**
@@ -1319,22 +1342,288 @@ HWTEST_F(SwipeRecognizerTestNg, SwipeGestureLimitFingerTest002, TestSize.Level1)
     EXPECT_EQ(swipeRecognizer->priorityMask_, swipeGesture.gestureMask_);
     EXPECT_EQ(swipeRecognizer->isLimitFingerCount_, IS_NOT_LIMIT_FINGER_COUNT);
 }
+
 /**
- * @tc.name: SwipeRecognizerTypeTest001
- * @tc.desc: Test SwipeRecognizerType
+ * @tc.name: GetGestureInfoString001
+ * @tc.desc: Test SwipeRecognizer function: GetGestureInfoString
  * @tc.type: FUNC
  */
-HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerTypeTest001, TestSize.Level1)
+HWTEST_F(SwipeRecognizerTestNg, GetGestureInfoString001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create and set Recognizer、TargetComponent.
+     */
+    SwipeDirection swipeDirection;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+
+    swipeRecognizerPtr->prevAngle_ = 45;
+    swipeRecognizerPtr->resultSpeed_ = 1.5;
+
+    std::string result = swipeRecognizerPtr->GetGestureInfoString();
+    EXPECT_THAT(result, HasSubstr("PAG:45"));
+    EXPECT_THAT(result, HasSubstr("RESPD:1.5"));
+    EXPECT_THAT(result, HasSubstr("DE:[]"));
+    EXPECT_THAT(result, HasSubstr("MT:[]"));
+}
+
+/**
+ * @tc.name: GetGestureInfoString002
+ * @tc.desc: Test SwipeRecognizer function: GetGestureInfoString
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, GetGestureInfoString002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create and set Recognizer、TargetComponent.
+     */
+    SwipeDirection swipeDirection;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+
+    TouchEvent event;
+    event.id = 1;
+    event.originalId = 2;
+    swipeRecognizerPtr->downEvents_[0] = event;
+    swipeRecognizerPtr->matchedTouch_.insert(1);
+
+    std::string result = swipeRecognizerPtr->GetGestureInfoString();
+    EXPECT_THAT(result, HasSubstr("RESPD:0"));
+    EXPECT_THAT(result, HasSubstr("DE:[,0->(1,2)]"));
+    EXPECT_THAT(result, HasSubstr("MT:[,1]"));
+}
+
+/**
+ * @tc.name: SwipeRecognizerDumpTest001
+ * @tc.desc: Test SwipeRecognizer function: Dump
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerDumpTest001, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    swipeDirection.type = SwipeDirection::HORIZONTAL;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto dump = swipeRecognizerPtr->Dump();
+    EXPECT_NE(dump, nullptr);
+    EXPECT_THAT(dump->customInfo, HasSubstr("direction:"));
+    EXPECT_THAT(dump->customInfo, HasSubstr("speed:"));
+    EXPECT_THAT(dump->customInfo, HasSubstr("fingers:"));
+}
+
+/**
+ * @tc.name: SwipeRecognizerDumpTest002
+ * @tc.desc: Test SwipeRecognizer function: Dump with VERTICAL direction
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerDumpTest002, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    swipeDirection.type = SwipeDirection::VERTICAL;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto dump = swipeRecognizerPtr->Dump();
+    EXPECT_NE(dump, nullptr);
+    EXPECT_THAT(dump->customInfo, HasSubstr("direction: 2"));
+    EXPECT_THAT(dump->customInfo, HasSubstr("fingers:"));
+}
+
+/**
+ * @tc.name: SwipeRecognizerDumpTest003
+ * @tc.desc: Test SwipeRecognizer function: Dump with ALL direction
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerDumpTest003, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    swipeDirection.type = SwipeDirection::ALL;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto dump = swipeRecognizerPtr->Dump();
+    EXPECT_NE(dump, nullptr);
+    EXPECT_THAT(dump->customInfo, HasSubstr("direction: 3"));
+}
+
+/**
+ * @tc.name: SwipeRecognizerHandleReportsTest001
+ * @tc.desc: Test SwipeRecognizer function: HandleReports with ACTION callback type
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerHandleReportsTest001, TestSize.Level1)
 {
     SwipeDirection swipeDirection;
     RefPtr<SwipeRecognizer> swipeRecognizerPtr =
         AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
-    auto frameNode = FrameNode::CreateFrameNode("myButton", 100, AceType::MakeRefPtr<Pattern>());
+    auto frameNode = FrameNode::CreateFrameNode("test", 1, AceType::MakeRefPtr<Pattern>());
     swipeRecognizerPtr->AttachFrameNode(frameNode);
-    swipeRecognizerPtr->SetRecognizerType(GestureTypeName::SWIPE_GESTURE);
-    
     GestureEvent info;
-    swipeRecognizerPtr->HandleReports(info, GestureCallbackType::END);
-    EXPECT_EQ(swipeRecognizerPtr->GetRecognizerType(), GestureTypeName::SWIPE_GESTURE);
+    swipeRecognizerPtr->HandleReports(info, GestureCallbackType::ACTION);
+}
+
+/**
+ * @tc.name: SwipeRecognizerUpdateGestureEventInfoTest002
+ * @tc.desc: Test SwipeRecognizer function: UpdateGestureEventInfo with TOUCH device type
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerUpdateGestureEventInfoTest002, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    swipeRecognizerPtr->deviceType_ = SourceType::TOUCH;
+    swipeRecognizerPtr->resultSpeed_ = 100.0;
+    swipeRecognizerPtr->inputEventType_ = InputEventType::TOUCH_SCREEN;
+    swipeRecognizerPtr->lastTouchEvent_.sourceTool = SourceTool::FINGER;
+    auto info = std::make_shared<SwipeGestureEvent>();
+    swipeRecognizerPtr->UpdateGestureEventInfo(info);
+    EXPECT_EQ(info->GetSpeed(), 100.0);
+}
+
+/**
+ * @tc.name: SwipeRecognizerUpdateGestureEventInfoTest003
+ * @tc.desc: Test SwipeRecognizer function: UpdateGestureEventInfo with tiltX and tiltY
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerUpdateGestureEventInfoTest003, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    swipeRecognizerPtr->lastTouchEvent_.tiltX = 10.0;
+    swipeRecognizerPtr->lastTouchEvent_.tiltY = 20.0;
+    swipeRecognizerPtr->lastTouchEvent_.rollAngle = 30.0;
+    auto info = std::make_shared<SwipeGestureEvent>();
+    swipeRecognizerPtr->UpdateGestureEventInfo(info);
+    EXPECT_TRUE(info->GetTiltX().has_value());
+    EXPECT_TRUE(info->GetTiltY().has_value());
+    EXPECT_TRUE(info->GetRollAngle().has_value());
+}
+
+/**
+ * @tc.name: SwipeRecognizerCheckAngleTest001
+ * @tc.desc: Test SwipeRecognizer function: CheckAngle with ALL direction
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerCheckAngleTest001, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    swipeDirection.type = SwipeDirection::ALL;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto result = swipeRecognizerPtr->CheckAngle(0);
+    EXPECT_EQ(result, true);
+    result = swipeRecognizerPtr->CheckAngle(45);
+    EXPECT_EQ(result, true);
+    result = swipeRecognizerPtr->CheckAngle(90);
+    EXPECT_EQ(result, true);
+}
+
+/**
+ * @tc.name: SwipeRecognizerCheckAngleTest002
+ * @tc.desc: Test SwipeRecognizer function: CheckAngle with negative angles
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerCheckAngleTest002, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    swipeDirection.type = SwipeDirection::HORIZONTAL;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto result = swipeRecognizerPtr->CheckAngle(-30);
+    EXPECT_EQ(result, true);
+    result = swipeRecognizerPtr->CheckAngle(-50);
+    EXPECT_EQ(result, false);
+}
+
+/**
+ * @tc.name: SwipeRecognizerCheckAngleTest003
+ * @tc.desc: Test SwipeRecognizer function: CheckAngle with VERTICAL direction and angle near 90
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerCheckAngleTest003, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    swipeDirection.type = SwipeDirection::VERTICAL;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    swipeRecognizerPtr->prevAngle_ = std::nullopt;
+    auto result = swipeRecognizerPtr->CheckAngle(80);
+    EXPECT_EQ(result, true);
+    result = swipeRecognizerPtr->CheckAngle(-80);
+    EXPECT_EQ(result, true);
+}
+
+/**
+ * @tc.name: SwipeRecognizerTriggerGestureJudgeCallbackTest001
+ * @tc.desc: Test SwipeRecognizer function: TriggerGestureJudgeCallback with null callback
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerTriggerGestureJudgeCallbackTest001, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto result = swipeRecognizerPtr->TriggerGestureJudgeCallback();
+    EXPECT_EQ(result, GestureJudgeResult::CONTINUE);
+}
+
+/**
+ * @tc.name: SwipeRecognizerGetAxisDirectionTest001
+ * @tc.desc: Test SwipeRecognizer function: GetAxisDirection with HORIZONTAL direction
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerGetAxisDirectionTest001, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    swipeDirection.type = SwipeDirection::HORIZONTAL;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto axis = swipeRecognizerPtr->GetAxisDirection();
+    EXPECT_EQ(axis, Axis::HORIZONTAL);
+}
+
+/**
+ * @tc.name: SwipeRecognizerGetAxisDirectionTest002
+ * @tc.desc: Test SwipeRecognizer function: GetAxisDirection with VERTICAL direction
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerGetAxisDirectionTest002, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    swipeDirection.type = SwipeDirection::VERTICAL;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto axis = swipeRecognizerPtr->GetAxisDirection();
+    EXPECT_EQ(axis, Axis::VERTICAL);
+}
+
+/**
+ * @tc.name: SwipeRecognizerGetAxisDirectionTest003
+ * @tc.desc: Test SwipeRecognizer function: GetAxisDirection with ALL direction
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerGetAxisDirectionTest003, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    swipeDirection.type = SwipeDirection::ALL;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto axis = swipeRecognizerPtr->GetAxisDirection();
+    EXPECT_EQ(axis, Axis::FREE);
+}
+
+/**
+ * @tc.name: SwipeRecognizerGetAxisDirectionTest004
+ * @tc.desc: Test SwipeRecognizer function: GetAxisDirection with NONE direction
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwipeRecognizerTestNg, SwipeRecognizerGetAxisDirectionTest004, TestSize.Level1)
+{
+    SwipeDirection swipeDirection;
+    swipeDirection.type = SwipeDirection::NONE;
+    RefPtr<SwipeRecognizer> swipeRecognizerPtr =
+        AceType::MakeRefPtr<SwipeRecognizer>(SINGLE_FINGER_NUMBER, swipeDirection, SWIPE_SPEED);
+    auto axis = swipeRecognizerPtr->GetAxisDirection();
+    EXPECT_EQ(axis, Axis::NONE);
 }
 } // namespace OHOS::Ace::NG

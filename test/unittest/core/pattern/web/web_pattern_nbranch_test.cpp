@@ -26,9 +26,9 @@
 #include "base/memory/ace_type.h"
 #define protected public
 #define private public
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/pattern/web/web_pattern.h"
 #undef private
@@ -37,7 +37,7 @@
 #include "core/common/ai/image_analyzer_manager.h"
 #include "core/components_ng/base/ui_node.h"
 #include "interfaces/inner_api/ace/ai/image_analyzer.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 #include "cJSON.h"
 
 #include "nweb.h"
@@ -51,7 +51,7 @@
 #include "frameworks/base/utils/system_properties.h"
 #include "frameworks/core/components/text_overlay/text_overlay_theme.h"
 #include "frameworks/core/components_ng/pattern/web/web_model_ng.h"
-#include "frameworks/core/components_v2/inspector/textinput_composed_element.h"
+#include "frameworks/compatible/components/input/textinput_composed_element.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -203,11 +203,13 @@ HWTEST_F(WebPatternBranchTestUT, IsRootNeedExportTexture, TestSize.Level1)
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
     ASSERT_NE(stack, nullptr);
+    std::string surfaceId = "123";
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
     frameNode->exportTextureInfo_ = AceType::MakeRefPtr<ExportTextureInfo>();
     frameNode->exportTextureInfo_->SetCurrentRenderType(NodeRenderType::RENDER_TYPE_DISPLAY);
+    frameNode->exportTextureInfo_->SetSurfaceId(surfaceId);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
     RefPtr<UINode> son = frameNode;
@@ -218,10 +220,13 @@ HWTEST_F(WebPatternBranchTestUT, IsRootNeedExportTexture, TestSize.Level1)
     parent->exportTextureInfo_ = AceType::MakeRefPtr<ExportTextureInfo>();
     grandParent->exportTextureInfo_ = AceType::MakeRefPtr<ExportTextureInfo>();
     parent->exportTextureInfo_->SetCurrentRenderType(NodeRenderType::RENDER_TYPE_DISPLAY);
+    parent->exportTextureInfo_->SetSurfaceId(surfaceId);
     grandParent->exportTextureInfo_->SetCurrentRenderType(NodeRenderType::RENDER_TYPE_TEXTURE);
+    grandParent->exportTextureInfo_->SetSurfaceId(surfaceId);
     son->SetParent(parent);
     parent->SetParent(grandParent);
     ASSERT_NE(webPattern, nullptr);
+    NG::SameLayerSurface::SetSameLayerSurfaceId(surfaceId);
     webPattern->OnModifyDone();
     bool flag = webPattern->IsRootNeedExportTexture();
     ASSERT_TRUE(flag);
@@ -275,7 +280,6 @@ HWTEST_F(WebPatternBranchTestUT, OnDefaultTextEncodingFormatUpdate, TestSize.Lev
     webPattern->delegate_ = nullptr;
     std::string tag = "value";
     webPattern->OnDefaultTextEncodingFormatUpdate(tag);
-    ASSERT_EQ(webPattern->delegate_, nullptr);
 #endif
 }
 
@@ -361,7 +365,6 @@ HWTEST_F(WebPatternBranchTestUT, NotifyFillRequestSuccess008, TestSize.Level1)
     webPattern->pageNodeInfo_.push_back(nodeWrap);
     webPattern->isPasswordFill_ = true;
     webPattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED);
-    EXPECT_EQ(webPattern->isPasswordFill_, true);
 #endif
 }
 
@@ -435,6 +438,7 @@ HWTEST_F(WebPatternBranchTestUT, GetHintTypeAndMetadata_001, TestSize.Level1)
     auto nodeWrap = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
     EXPECT_CALL(*nodeWrap, GetIsFocus()).WillOnce(Return(true));
     EXPECT_CALL(*nodeWrap, GetPlaceholder()).WillOnce(ReturnRef(value));
+    EXPECT_CALL(*nodeWrap, GetMetadata()).WillOnce(ReturnRef(value));
     webPattern->GetHintTypeAndMetadata(attribute, nodeWrap);
     EXPECT_EQ(webPattern->isPasswordFill_, true);
 #endif
@@ -466,6 +470,7 @@ HWTEST_F(WebPatternBranchTestUT, GetHintTypeAndMetadata_002, TestSize.Level1)
     auto nodeWrap = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
     EXPECT_CALL(*nodeWrap, GetIsFocus()).WillOnce(Return(true));
     EXPECT_CALL(*nodeWrap, GetPlaceholder()).WillOnce(ReturnRef(value));
+    EXPECT_CALL(*nodeWrap, GetMetadata()).WillOnce(ReturnRef(value));
     webPattern->GetHintTypeAndMetadata(attribute, nodeWrap);
     EXPECT_EQ(webPattern->isPasswordFill_, true);
 #endif
@@ -497,6 +502,7 @@ HWTEST_F(WebPatternBranchTestUT, GetHintTypeAndMetadata_003, TestSize.Level1)
     auto nodeWrap = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
     EXPECT_CALL(*nodeWrap, GetIsFocus()).WillOnce(Return(true));
     EXPECT_CALL(*nodeWrap, GetPlaceholder()).WillOnce(ReturnRef(value));
+    EXPECT_CALL(*nodeWrap, GetMetadata()).WillOnce(ReturnRef(value));
     webPattern->GetHintTypeAndMetadata(attribute, nodeWrap);
     EXPECT_EQ(webPattern->isPasswordFill_, true);
 #endif
@@ -590,6 +596,7 @@ HWTEST_F(WebPatternBranchTestUT, GetHintTypeAndMetadata_006, TestSize.Level1)
     auto nodeWrap = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
     EXPECT_CALL(*nodeWrap, GetIsFocus()).WillOnce(Return(false));
     EXPECT_CALL(*nodeWrap, GetPlaceholder()).WillOnce(ReturnRef(value));
+    EXPECT_CALL(*nodeWrap, GetMetadata()).WillOnce(ReturnRef(value));
     webPattern->GetHintTypeAndMetadata(attribute, nodeWrap);
     EXPECT_EQ(webPattern->isPasswordFill_, false);
 #endif

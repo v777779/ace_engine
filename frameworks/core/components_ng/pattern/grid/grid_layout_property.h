@@ -19,12 +19,13 @@
 #include "core/components_ng/layout/layout_property.h"
 #include "core/components_ng/pattern/grid/grid_constants.h"
 #include "core/components_ng/pattern/grid/grid_layout_options.h"
+#include "core/components_ng/pattern/scrollable/scrollable_layout_property.h"
 
 namespace OHOS::Ace::NG {
 class InspectorFilter;
 
-class ACE_EXPORT GridLayoutProperty : public LayoutProperty {
-    DECLARE_ACE_TYPE(GridLayoutProperty, LayoutProperty);
+class ACE_EXPORT GridLayoutProperty : public ScrollableLayoutProperty {
+    DECLARE_ACE_TYPE(GridLayoutProperty, ScrollableLayoutProperty);
 
 public:
     GridLayoutProperty() = default;
@@ -33,27 +34,13 @@ public:
     RefPtr<LayoutProperty> Clone() const override
     {
         auto value = MakeRefPtr<GridLayoutProperty>();
-        value->LayoutProperty::UpdateLayoutProperty(DynamicCast<LayoutProperty>(this));
-        value->propRowsTemplate_ = CloneRowsTemplate();
-        value->propColumnsTemplate_ = CloneColumnsTemplate();
-        value->propRowsGap_ = CloneRowsGap();
-        value->propColumnsGap_ = CloneColumnsGap();
-        value->propCachedCount_ = CloneCachedCount();
-        value->propShowCachedItems_ = CloneShowCachedItems();
-        value->propGridDirection_ = CloneGridDirection();
-        value->propFocusWrapMode_ = CloneFocusWrapMode();
-        value->propMaxCount_ = CloneMaxCount();
-        value->propMinCount_ = CloneMinCount();
-        value->propCellLength_ = CloneCellLength();
-        value->propScrollEnabled_ = CloneScrollEnabled();
-        value->propLayoutOptions_ = CloneLayoutOptions();
-        value->propSyncLoad_ = CloneSyncLoad();
+        Clone(value);
         return value;
     }
 
     void Reset() override
     {
-        LayoutProperty::Reset();
+        ScrollableLayoutProperty::Reset();
         ResetColumnsTemplate();
         ResetRowsTemplate();
         ResetColumnsGap();
@@ -68,21 +55,22 @@ public:
         ResetScrollEnabled();
         ResetLayoutOptions();
         ResetSyncLoad();
+        ResetItemFillPolicy();
     }
 
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
 
     bool IsVertical() const
     {
-        bool columnsTemplateValid = propColumnsTemplate_.has_value() && !propColumnsTemplate_.value().empty();
+        bool columnsTemplateValid = (propColumnsTemplate_.has_value() && !propColumnsTemplate_.value().empty()) ||
+                                    propItemFillPolicy_.has_value();
         bool rowsTemplateValid = propRowsTemplate_.has_value() && !propRowsTemplate_.value().empty();
-        return columnsTemplateValid ||
-               (!columnsTemplateValid && !rowsTemplateValid);
+        return columnsTemplateValid || !rowsTemplateValid;
     }
 
     bool IsConfiguredScrollable() const
     {
-        bool columnsTemplateSet = !propColumnsTemplate_.value_or("").empty();
+        bool columnsTemplateSet = !propColumnsTemplate_.value_or("").empty() || propItemFillPolicy_.has_value();
         bool rowsTemplateSet = !propRowsTemplate_.value_or("").empty();
         bool verticalScrollable = (columnsTemplateSet && !rowsTemplateSet);
         bool horizontalScrollable = (!columnsTemplateSet && rowsTemplateSet);
@@ -91,7 +79,7 @@ public:
 
     bool IsReverse() const
     {
-        bool columnsTemplateSet = !propColumnsTemplate_.value_or("").empty();
+        bool columnsTemplateSet = !propColumnsTemplate_.value_or("").empty() || propItemFillPolicy_.has_value();
         bool rowsTemplateSet = !propRowsTemplate_.value_or("").empty();
         auto isRtl = GetNonAutoLayoutDirection() == TextDirection::RTL;
         return isRtl && !columnsTemplateSet && rowsTemplateSet;
@@ -99,6 +87,12 @@ public:
 
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(ColumnsTemplate, std::string);
     void OnColumnsTemplateUpdate(const std::string& /* columnsTemplate */) const
+    {
+        ResetGridLayoutInfoAndMeasure();
+    }
+
+    ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(ItemFillPolicy, PresetFillType);
+    void OnItemFillPolicyUpdate(PresetFillType /* presetFillType */) const
     {
         ResetGridLayoutInfoAndMeasure();
     }
@@ -152,7 +146,6 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(Editable, bool, PROPERTY_UPDATE_LAYOUT);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ScrollEnabled, bool, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(SyncLoad, bool, PROPERTY_UPDATE_NORMAL);
-
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(AlignItems, GridItemAlignment);
     void OnAlignItemsUpdate(GridItemAlignment /* alignItems */) const
     {
@@ -162,6 +155,33 @@ public:
     std::pair<bool, bool> GetPercentSensitive() override
     {
         return {true, true};
+    }
+
+    void OnContentStartOffsetUpdate(float /* contentStartOffset */) const override;
+
+    void OnContentEndOffsetUpdate(float /* contentEndOffset */) const override;
+
+    std::optional<std::string> GetFinalColumnsTemplate(double width);
+protected:
+    void Clone(RefPtr<LayoutProperty> property) const override
+    {
+        auto value = DynamicCast<GridLayoutProperty>(property);
+        ScrollableLayoutProperty::Clone(value);
+        value->propRowsTemplate_ = CloneRowsTemplate();
+        value->propColumnsTemplate_ = CloneColumnsTemplate();
+        value->propRowsGap_ = CloneRowsGap();
+        value->propColumnsGap_ = CloneColumnsGap();
+        value->propCachedCount_ = CloneCachedCount();
+        value->propShowCachedItems_ = CloneShowCachedItems();
+        value->propGridDirection_ = CloneGridDirection();
+        value->propFocusWrapMode_ = CloneFocusWrapMode();
+        value->propMaxCount_ = CloneMaxCount();
+        value->propMinCount_ = CloneMinCount();
+        value->propCellLength_ = CloneCellLength();
+        value->propScrollEnabled_ = CloneScrollEnabled();
+        value->propLayoutOptions_ = CloneLayoutOptions();
+        value->propSyncLoad_ = CloneSyncLoad();
+        value->propItemFillPolicy_ = CloneItemFillPolicy();
     }
 
 private:
@@ -176,6 +196,7 @@ private:
     Dimension GetBarWidth() const;
 
     void UpdateIrregularFlag(const GridLayoutOptions& layoutOptions) const;
+    std::string GetItemFillPolicyString() const;
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_GRID_GRID_LAYOUT_PROPERTY_H

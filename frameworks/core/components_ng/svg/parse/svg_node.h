@@ -27,6 +27,7 @@
 #include "core/components_ng/svg/svg_context.h"
 #include "core/components_ng/svg/base/svg_bounding_box_context.h"
 #include "core/components_ng/svg/parse/svg_attributes_parser.h"
+#include "frameworks/core/components_ng/svg/svg_utils.h"
 
 namespace OHOS::Ace::NG {
 
@@ -75,7 +76,8 @@ public:
 
     void InheritAttr(const SvgBaseAttribute& parent)
     {
-        attributes_.Inherit(parent);
+        auto featureEnable = SvgUtils::IsFeatureEnable(SVG_FEATURE_SUPPORT_TWO, GetUsrConfigVersion());
+        attributes_.Inherit(parent, !featureEnable);
     }
 
     void InheritUseAttr(const SvgBaseAttribute& parent)
@@ -177,6 +179,7 @@ public:
     float GetMeasuredPosition(Dimension origin, const SvgLengthScaleRule& boxMeasureRule, SvgLengthType lengthType);
     Rect GetSvgContainerRect() const;
     void ApplyTransform(RSRecordingPath& path, const SvgLengthScaleRule& contentRule);
+    uint32_t GetUsrConfigVersion();
     bool drawTraversed_ = true; // enable OnDraw, TAGS mask/defs/pattern/filter = false
 protected:
     // override as need by derived class

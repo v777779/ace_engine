@@ -153,7 +153,7 @@ void AceContainer::Destroy()
             context->Destroy();
         },
         TaskExecutor::TaskType::UI, "ArkUIPipelineDestroy");
-    
+
     RefPtr<Frontend> frontend;
     frontend_.Swap(frontend);
     if (frontend && taskExecutor_) {
@@ -400,6 +400,16 @@ void AceContainer::InitializeCallback()
     };
     aceView_->RegisterCrownEventCallback(crownEventCallback);
 
+    auto&& touchpadInteractionBeginCallback = [weak, id = instanceId_](const NonPointerEvent& event,
+                                                  const std::function<void()>& ignoreMark) {
+        ContainerScope scope(id);
+        auto context = weak.Upgrade();
+        CHECK_NULL_VOID(context);
+        context->GetTaskExecutor()->PostTask([context, event]() { context->OnNonPointerEvent(event); },
+            TaskExecutor::TaskType::UI, "ArkUITouchpadInteractionBegin");
+    };
+    aceView_->RegisterTouchpadInteractionBeginCallback(touchpadInteractionBeginCallback);
+
     auto&& rotationEventCallback = [weak, id = instanceId_](const RotationEvent& event) {
         ContainerScope scope(id);
         auto context = weak.Upgrade();
@@ -509,6 +519,7 @@ void AceContainer::CreateContainer(
 {
     auto aceContainer = AceType::MakeRefPtr<AceContainer>(instanceId, type, useNewPipeline, useCurrentEventRunner);
     AceEngine::Get().AddContainer(aceContainer->GetInstanceId(), aceContainer);
+    ContainerScope::Add(instanceId);
     aceContainer->Initialize();
     ContainerScope scope(instanceId);
     auto front = aceContainer->GetFrontend();
@@ -588,7 +599,7 @@ void AceContainer::UpdateResourceConfiguration(const std::string& jsonStr)
     }
     themeManager->UpdateConfig(resConfig);
     if (SystemProperties::GetResourceDecoupling()) {
-        ResourceManager::GetInstance().UpdateResourceConfig(resConfig);
+        ResourceManager::GetInstance().UpdateResourceConfig(GetBundleName(), GetModuleName(), instanceId_, resConfig);
     }
     taskExecutor_->PostTask(
         [weakThemeManager = WeakPtr<ThemeManager>(themeManager), colorScheme = colorScheme_, config = resConfig,
@@ -787,9 +798,10 @@ void AceContainer::UpdateDeviceConfig(const DeviceConfig& deviceConfig)
     SystemProperties::SetResolution(deviceConfig.density);
     SetColorMode(deviceConfig.colorMode);
     auto resConfig = resourceInfo_.GetResourceConfiguration();
-    if (resConfig.GetDeviceType() == deviceConfig.deviceType &&
-        resConfig.GetOrientation() == deviceConfig.orientation && resConfig.GetDensity() == deviceConfig.density &&
-        resConfig.GetColorMode() == deviceConfig.colorMode && resConfig.GetFontRatio() == deviceConfig.fontRatio) {
+    if (resConfig.GetDeviceType() == deviceConfig.deviceType && resConfig.GetColorMode() == deviceConfig.colorMode &&
+        resConfig.GetOrientation() == deviceConfig.orientation &&
+        NearEqual(resConfig.GetDensity(), deviceConfig.density) &&
+        NearEqual(resConfig.GetFontRatio(), deviceConfig.fontRatio)) {
         return;
     } else {
         resConfig.SetDeviceType(deviceConfig.deviceType);
@@ -811,7 +823,7 @@ void AceContainer::UpdateDeviceConfig(const DeviceConfig& deviceConfig)
     }
     themeManager->UpdateConfig(resConfig);
     if (SystemProperties::GetResourceDecoupling()) {
-        ResourceManager::GetInstance().UpdateResourceConfig(resConfig);
+        ResourceManager::GetInstance().UpdateResourceConfig(GetBundleName(), GetModuleName(), instanceId_, resConfig);
     }
     taskExecutor_->PostTask(
         [weakThemeManager = WeakPtr<ThemeManager>(themeManager), colorScheme = colorScheme_,
@@ -963,7 +975,6 @@ void AceContainer::AttachView(
     AceEngine::Get().RegisterToWatchDog(instanceId, taskExecutor_, GetSettings().useUIAsJSThread);
 }
 #else
-
 void AceContainer::AttachView(std::shared_ptr<Window> window, AceViewPreview* view, double density, int32_t width,
     int32_t height, UIEnvCallback callback)
 {

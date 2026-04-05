@@ -16,16 +16,19 @@
 #include "core/components_ng/pattern/hyperlink/hyperlink_pattern.h"
 
 #include "base/utils/utf_helper.h"
+#include "base/utils/multi_thread.h"
 #include "core/components/hyperlink/hyperlink_theme.h"
 #include "core/common/font_manager.h"
 #include "core/common/udmf/udmf_client.h"
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 namespace OHOS::Ace::NG {
 void HyperlinkPattern::OnAttachToFrameNode()
 {
+    auto host = GetHost();
+    THREAD_SAFE_NODE_CHECK(host, OnAttachToFrameNode);
     auto pipeline = PipelineContext::GetCurrentContextSafely();
     CHECK_NULL_VOID(pipeline);
-    auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto fontManager = pipeline->GetFontManager();
     if (fontManager) {
@@ -35,10 +38,54 @@ void HyperlinkPattern::OnAttachToFrameNode()
 
 void HyperlinkPattern::OnDetachFromFrameNode(FrameNode* node)
 {
+    THREAD_SAFE_NODE_CHECK(node, OnDetachFromFrameNode, node);
     auto pipeline = PipelineContext::GetCurrentContextSafely();
     CHECK_NULL_VOID(pipeline);
     auto frameNode = WeakClaim(node);
     pipeline->RemoveFontNodeNG(frameNode);
+}
+
+void HyperlinkPattern::OnAttachToMainTree()
+{
+    auto host = GetHost();
+    THREAD_SAFE_NODE_CHECK(host, OnAttachToMainTree);
+}
+
+void HyperlinkPattern::OnDetachFromMainTree()
+{
+    auto host = GetHost();
+    THREAD_SAFE_NODE_CHECK(host, OnDetachFromMainTree);
+}
+
+void HyperlinkPattern::OnAttachToFrameNodeMultiThread()
+{
+    // nothing, thread unsafe
+}
+
+void HyperlinkPattern::OnDetachFromFrameNodeMultiThread(FrameNode* frameNode)
+{
+    // nothing, thread unsafe
+}
+
+void HyperlinkPattern::OnAttachToMainTreeMultiThread()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = PipelineContext::GetCurrentContextSafely();
+    CHECK_NULL_VOID(pipeline);
+    auto fontManager = pipeline->GetFontManager();
+    if (fontManager) {
+        fontManager->AddFontNodeNG(host);
+    }
+}
+
+void HyperlinkPattern::OnDetachFromMainTreeMultiThread()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    pipeline->RemoveFontNodeNG(host);
 }
 
 void HyperlinkPattern::EnableDrag()
@@ -68,7 +115,9 @@ void HyperlinkPattern::EnableDrag()
         event->SetData(unifiedData);
         return info;
     };
-    auto eventHub = GetHost()->GetEventHub<EventHub>();
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto eventHub = host->GetEventHub<EventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetDefaultOnDragStart(std::move(dragStart));
 }
@@ -78,6 +127,7 @@ void HyperlinkPattern::OnModifyDone()
     TextPattern::OnModifyDone();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto hub = host->GetEventHub<EventHub>();
     CHECK_NULL_VOID(hub);
 
@@ -328,31 +378,35 @@ void HyperlinkPattern::UpdatePropertyImpl(const std::string& key, RefPtr<Propert
     CHECK_NULL_VOID(frameNode);
     auto property = frameNode->GetLayoutPropertyPtr<HyperlinkLayoutProperty>();
     CHECK_NULL_VOID(property);
+    CHECK_NULL_VOID(value);
     using Handler = std::function<void(HyperlinkLayoutProperty*, RefPtr<PropertyValueBase>)>;
-    static const std::unordered_map<std::string, Handler> handlers = {
+    const std::unordered_map<std::string, Handler> handlers = {
         { "Color",
             [node = WeakClaim(RawPtr((frameNode))), weak = WeakClaim(this)](
                 HyperlinkLayoutProperty* prop, RefPtr<PropertyValueBase> value) {
-                if (auto intVal = DynamicCast<PropertyValue<Color>>(value)) {
+                if (auto realValue = std::get_if<Color>(&(value->GetValue()))) {
                     auto frameNode = node.Upgrade();
                     CHECK_NULL_VOID(frameNode);
-                    prop->UpdateTextColor(intVal->value);
-                    prop->UpdateColor(intVal->value);
-                    ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColor, intVal->value, frameNode);
+                    prop->UpdateTextColor(*realValue);
+                    prop->UpdateColor(*realValue);
+                    ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColor, *realValue, frameNode);
                 }
-            } },
+            }
+        },
         { "Content",
             [](HyperlinkLayoutProperty* prop, RefPtr<PropertyValueBase> value) {
-                if (auto intVal = DynamicCast<PropertyValue<std::string>>(value)) {
-                    prop->UpdateContent(intVal->value);
+                if (auto realValue = std::get_if<std::string>(&(value->GetValue()))) {
+                    prop->UpdateContent(*realValue);
                 }
-            } },
+            }
+        },
         { "Address",
             [](HyperlinkLayoutProperty* prop, RefPtr<PropertyValueBase> value) {
-                if (auto intVal = DynamicCast<PropertyValue<std::string>>(value)) {
-                    prop->UpdateAddress(intVal->value);
+                if (auto realValue = std::get_if<std::string>(&(value->GetValue()))) {
+                    prop->UpdateAddress(*realValue);
                 }
-            } },
+            }
+        },
     };
     auto it = handlers.find(key);
     if (it != handlers.end()) {
@@ -361,5 +415,20 @@ void HyperlinkPattern::UpdatePropertyImpl(const std::string& key, RefPtr<Propert
     if (frameNode->GetRerenderable()) {
         frameNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
     }
+}
+
+int32_t HyperlinkPattern::OnInjectionEvent(const std::string& command)
+{
+    auto json = JsonUtil::ParseJsonString(command);
+    if (!json || json->IsNull()) {
+        return RET_FAILED;
+    }
+
+    auto cmdType = json->GetString("cmd");
+    if (cmdType != "click") {
+        TAG_LOGD(AceLogTag::ACE_HYPERLINK, "unknown cmd: %{public}s", cmdType.c_str());
+        return RET_FAILED;
+    }
+    return RET_SUCCESS;
 }
 } // namespace OHOS::Ace::NG

@@ -322,8 +322,10 @@ public:
     {
         isNeedRemove_ = isNeedRemove;
     }
-    void CheckIsNeedForceExitWindow(bool result);
     void RemoveJsChildImmediately(const RefPtr<FrameNode>& page, PageTransitionType transactionType);
+    bool CheckEnableCustomNodeDel() const {
+        return false;
+    }
 
     bool IsNeedCallbackBackPressed();
 
@@ -334,15 +336,22 @@ public:
         }
     }
 
+    const std::optional<SizeF>& GetCurrentPageSize() const
+    {
+        return currentPageSize_;
+    }
+
 protected:
     void OnAttachToFrameNode() override;
     void BeforeCreateLayoutWrapper() override;
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& wrapper, const DirtySwapConfig& config) override;
     void BeforeSyncGeometryProperties(const DirtySwapConfig& config) override;
+    void FirePageTransitionStart();
     void FirePageTransitionFinish();
 
     void OnAttachToMainTree() override;
     void OnDetachFromMainTree() override;
+    void ContentChangeByDetaching(PipelineContext* pipeline) override;
 
     bool AvoidKeyboard() const override;
     bool AvoidTop() const override
@@ -382,6 +391,10 @@ protected:
 
     void RecordPageEvent(bool isShow);
 
+    void SetPageIndexForStatic();
+    void NotifyRouterPageSizeChange();
+    void OnVisibleChange(bool isVisible) override;
+
     RefPtr<PageInfo> pageInfo_;
     RefPtr<OverlayManager> overlayManager_;
 
@@ -406,6 +419,7 @@ protected:
     bool isRenderDone_ = false;
     bool isModalCovered_ = false;
     bool isNeedRemove_ = false;
+    bool isCustomTransition_ = false;
 
 #if defined(ENABLE_SPLIT_MODE)
     bool needFireObserver_ = true;
@@ -415,6 +429,8 @@ protected:
     JSAnimatorMap jsAnimatorMap_;
     RouterPageState state_ = RouterPageState::ABOUT_TO_APPEAR;
     std::shared_ptr<AnimationUtils::Animation> currCustomAnimation_;
+    std::optional<SizeF> currentPageSize_;
+    bool needNotifySizeChangeWhenVisible_ = false;
 
     ACE_DISALLOW_COPY_AND_MOVE(PagePattern);
 };

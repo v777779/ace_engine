@@ -17,7 +17,7 @@
 
 #include "core/components_ng/manager/display_sync/ui_display_sync.h"
 #include "core/components_ng/manager/display_sync/ui_display_sync_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -683,5 +683,22 @@ HWTEST_F(DisplaySyncManagerTestNg, DisplaySyncManagerTest012, TestSize.Level1)
     int64_t vsyncPeriod1 = 0;
     auto result = displaySyncManager->SetVsyncPeriod(vsyncPeriod1);
     EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: DisplaySyncType2FrameRateTypeTest01
+ * @tc.desc: test DisplaySyncType2FrameRateType.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DisplaySyncManagerTestNg, DisplaySyncType2FrameRateTypeTest01, TestSize.Level1)
+{
+    UIDisplaySync displaySync(static_cast<UIObjectType>(999));
+    EXPECT_EQ(displaySync.GetDisplaySyncData()->rateRange_->type_, OTHER_DISPLAY_SYNC_FRAME_RATE_TYPE);
+    UIDisplaySync displaySync2(UIObjectType::DISPLAYSYNC_OTHERS);
+    EXPECT_EQ(displaySync2.GetDisplaySyncData()->rateRange_->type_, OTHER_DISPLAY_SYNC_FRAME_RATE_TYPE);
+    UIDisplaySync displaySync3(UIObjectType::DISPLAYSYNC_ANIMATOR);
+    EXPECT_EQ(displaySync3.GetDisplaySyncData()->rateRange_->type_, ANIMATOR_DISPLAY_SYNC_FRAME_RATE_TYPE);
+    UIDisplaySync displaySync4(UIObjectType::DISPLAYSYNC_XCOMPONENT);
+    EXPECT_EQ(displaySync4.GetDisplaySyncData()->rateRange_->type_, XCOMPONENT_FRAME_RATE_TYPE);
 }
 } // namespace OHOS::Ace::NG

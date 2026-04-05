@@ -243,11 +243,6 @@ public:
         return blurRadius_ > 0.0 || spreadRadius_ > 0.0 || offset_ != Offset::Zero();
     }
 
-    void UpdateColorByResourceId()
-    {
-        color_.UpdateColorByResourceId();
-    }
-
     void AddResource(
         const std::string& key,
         const RefPtr<ResourceObject>& resObj,
@@ -264,6 +259,20 @@ public:
         for (const auto& [key, resourceUpdater] : resMap_) {
             resourceUpdater.updateFunc(resourceUpdater.resObj, *this);
         }
+    }
+
+    void ReloadResourcesByKey(const std::string& key)
+    {
+        auto res = resMap_.find(key);
+        if (res != resMap_.end()) {
+            auto resourceUpdater = res->second;
+            resourceUpdater.updateFunc(resourceUpdater.resObj, *this);
+        }
+    }
+
+    bool HasKey(const std::string& key) const
+    {
+        return resMap_.find(key) != resMap_.end();
     }
 
 private:

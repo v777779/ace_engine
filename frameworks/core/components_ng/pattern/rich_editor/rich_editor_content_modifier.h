@@ -21,7 +21,7 @@
 
 namespace OHOS::Ace::NG {
 class RichEditorContentModifier : public TextContentModifier {
-    DECLARE_ACE_TYPE(RichEditorContentModifier, TextContentModifier)
+    DECLARE_ACE_TYPE(RichEditorContentModifier, TextContentModifier);
 
 public:
     explicit RichEditorContentModifier(const std::optional<TextStyle>& textStyle,
@@ -30,29 +30,14 @@ public:
     ~RichEditorContentModifier() override = default;
 
     void onDraw(DrawingContext& drawingContext) override;
-
-    void SetRichTextRectX(float value)
-    {
-        richTextRectX_->Set(value);
-    }
-
-    void SetRichTextRectY(float value)
-    {
-        richTextRectY_->Set(value);
-    }
-
-    void SetClipOffset(OffsetF offset)
-    {
-        clipOffset_->Set(offset);
-    }
-
-    void SetClipSize(SizeF size)
-    {
-        clipSize_->Set(size);
-    }
+    void SetRichTextRectX(float value);
+    void SetRichTextRectY(float value);
+    void SetClipOffset(OffsetF offset);
+    void SetClipSize(SizeF size);
 
 private:
     void PaintCustomSpan(DrawingContext& drawingContext);
+    float AdjustParagraphX(const ParagraphManager::ParagraphInfo& info, const RectF& contentRect);
     RichEditorParagraphManager* const pManager_;
     WeakPtr<OHOS::Ace::NG::Pattern> pattern_;
     RefPtr<PropertyFloat> richTextRectX_;

@@ -16,6 +16,7 @@
 
 #include <ani.h>
 
+#include "ets_ani_expo.h"
 #include "interfaces/inner_api/ace/constants.h"
 #include "bridge/arkts_frontend/entry/arkts_entry_loader.h"
 #include "core/pipeline/pipeline_context.h"
@@ -50,7 +51,7 @@ const AppInfo KOALA_APP_INFO = {
     "C{std.core.String}C{std.core.String}zC{std.core.String}C{arkui.UserView.UserView}"
     "C{arkui.component.customComponent.EntryPoint}:C{arkui.ArkUIEntry.Application}",
     "start",
-    ":l",
+    "z:l",
     "enter",
     "iil:z",
     "emitEvent",
@@ -111,6 +112,7 @@ void RunArkoalaEventLoop(ani_env* env, ani_ref app)
         LOGE("[%{public}s] Cannot load main class %{public}s, status: %{public}d, \nerrorMsg: %{public}s, \nerrorName: "
              "%{public}s, \nerrorStack: %{public}s",
             __func__, KOALA_APP_INFO.className, status, errorMsg.c_str(), errorName.c_str(), errorStack.c_str());
+        ark::ets::ETSAni::HandleUncaughtException(aniError);
         return;
     }
 
@@ -242,7 +244,7 @@ UIContentErrorCode ArktsDynamicFrontend::RunDynamicPage(
         return UIContentErrorCode::INVALID_URL);
 
     ani_long result;
-    ANI_CALL(env, Object_CallMethod_Long(static_cast<ani_object>(app_), start, &result),
+    ANI_CALL(env, Object_CallMethod_Long(static_cast<ani_object>(app_), start, &result, ANI_FALSE),
         return UIContentErrorCode::INVALID_URL);
 
     CHECK_NULL_RETURN(pipeline_, UIContentErrorCode::NULL_POINTER);

@@ -22,10 +22,10 @@
 #include "base/utils/string_utils.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/scroll_bar.h"
-#include "core/components/declaration/swiper/swiper_declaration.h"
 #include "core/components_ng/base/inspector_filter.h"
 #include "core/components_ng/layout/layout_property.h"
 #include "core/components_ng/property/property.h"
+#include "core/components_ng/pattern/swiper/swiper_constants.h"
 
 namespace OHOS::Ace::NG {
 class ACE_EXPORT SwiperLayoutProperty : public LayoutProperty {
@@ -69,6 +69,9 @@ public:
         value->propLoop_ = CloneLoop();
         value->propIndicatorInteractive_ = CloneIndicatorInteractive();
         value->propDisableSwipe_ = CloneDisableSwipe();
+        value->propSwipeByGroup_ = CloneSwipeByGroup();
+        value->propMaintainVisibleContentPosition_ = CloneMaintainVisibleContentPosition();
+        value->propFillType_ = CloneFillType();
         value->ignoreItemSpace_ = ignoreItemSpace_;
         return value;
     }
@@ -105,6 +108,9 @@ public:
         ResetLoop();
         ResetIndicatorInteractive();
         ResetDisableSwipe();
+        ResetSwipeByGroup();
+        ResetMaintainVisibleContentPosition();
+        ResetFillType();
         ignoreItemSpace_ = false;
     }
 
@@ -123,7 +129,6 @@ public:
         json->PutExtAttr("itemSpace",
             propItemSpace_.value_or(Dimension(0, DimensionUnit::VP)).ToString().c_str(), filter);
         json->PutExtAttr("cachedCount", propCachedCount_.value_or(1), filter);
-        json->PutExtAttr("cachedIsShown", GetCachedIsShownValue(false) ? "true" : "false", filter);
         json->PutExtAttr("displayMode",
             propDisplayMode_.value_or(SwiperDisplayMode::STRETCH) == SwiperDisplayMode::AUTO_LINEAR ?
             "SwiperDisplayMode.AutoLinear" : "SwiperDisplayMode.Stretch", filter);
@@ -155,8 +160,11 @@ public:
         json->PutExtAttr("arrowColor",
             propArrowColor_.value_or(Color::TRANSPARENT).ColorToString().c_str(), filter);
         json->PutExtAttr("loop", propLoop_.value_or(true) ? "true" : "false", filter);
+        json->PutExtAttr("indicatorInteractive", propIndicatorInteractive_.value_or(true) ? "true" : "false", filter);
         json->PutExtAttr("disableSwipe", GetDisableSwipe().value_or(false) ? "true" : "false", filter);
         json->PutExtAttr("swipeByGroup", propSwipeByGroup_.value_or(false) ? "true" : "false", filter);
+        json->PutExtAttr("maintainVisibleContentPosition",
+            propMaintainVisibleContentPosition_.value_or(false) ? "true" : "false", filter);
     }
 
     void FromJson(const std::unique_ptr<JsonValue>& json) override
@@ -275,6 +283,7 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(SwipeByGroup, bool, PROPERTY_UPDATE_MEASURE_SELF);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(CachedIsShown, bool, PROPERTY_UPDATE_MEASURE_SELF);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(MaintainVisibleContentPosition, bool, PROPERTY_UPDATE_NORMAL);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(FillType, int32_t, PROPERTY_UPDATE_NORMAL);
 
 private:
     bool ignoreItemSpace_ = false; // displayCount and prevMargin/nextMargin have higher priorities, so itemSpace might

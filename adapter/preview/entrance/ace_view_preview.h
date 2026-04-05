@@ -82,6 +82,12 @@ public:
         crownEventCallBack_ = std::move(callback);
     }
 
+    void RegisterTouchpadInteractionBeginCallback(TouchpadInteractionBeginCallback&& callback) override
+    {
+        ACE_DCHECK(callback);
+        touchpadInteractionBeginCallback_ = std::move(callback);
+    }
+
     void RegisterDragEventCallback(DragEventCallBack&& callback) override {}
 
     void RegisterCardViewPositionCallback(CardViewPositionCallBack&& callback) override
@@ -214,8 +220,9 @@ private:
     SurfaceDestroyCallback surfaceDestroyCallback_;
     IdleCallback idleCallback_;
     KeyEventCallback keyEventCallback_;
-    CrownEventCallback crownEventCallBack_;
     KeyEventRecognizer keyEventRecognizer_;
+    CrownEventCallback crownEventCallBack_;
+    TouchpadInteractionBeginCallback touchpadInteractionBeginCallback_;
     std::unique_ptr<ThreadModelImpl> threadModelImpl_;
 
     ACE_DISALLOW_COPY_AND_MOVE(AceViewPreview);

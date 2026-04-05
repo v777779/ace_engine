@@ -21,6 +21,7 @@
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
 #include "core/components_ng/pattern/text/base_text_select_overlay.h"
+#include "core/components_ng/pattern/text_field/text_select_controller.h"
 
 namespace OHOS::Ace::NG {
 
@@ -56,6 +57,9 @@ public:
     std::string GetSelectedText() override;
     bool IsStopBackPress() const override;
 
+    void OnMenuItemAction(OptionMenuActionId id, OptionMenuType type, const std::string& labelInfo) override;
+    void UpdateAISelectMenu();
+
     // override SelectOverlayCallback
     void OnMenuItemAction(OptionMenuActionId id, OptionMenuType type) override;
     void OnHandleMove(const RectF& rect, bool isFirst) override;
@@ -67,6 +71,10 @@ public:
     void OnHandleMoveStart(const GestureEvent& event, bool isFirst) override;
 
     void HandleOnShowMenu();
+    void UpdatePasteMenu()
+    {
+        needRefreshPasteButton_ = !IsShowPaste();
+    }
 
     void ProcessSelectAllOverlay(const OverlayRequest& request);
 
@@ -94,12 +102,16 @@ public:
     }
     std::optional<Color> GetHandleColor() override;
     void BeforeOnPrepareMenu() override;
+    void ProcessOverlayAfterLayout(const OverlayRequest& request);
+    void IsAIMenuOptionChanged(SelectMenuInfo& menuInfo) override;
+    void OnHandleMarkInfoChange(const std::shared_ptr<SelectOverlayInfo> info, SelectOverlayDirtyFlag flag) override;
+    bool OnHandleBeforeMenuVisibiltyChanged(bool isVisible) override;
 
 protected:
     bool AllowTranslate() override;
     bool AllowSearch() override;
-    bool AllowShare() override;
     RectF GetSelectAreaFromRects(SelectRectsType pos) override;
+    bool AllowShare() override;
 
 private:
     std::optional<SelectHandleInfo> GetHandleInfo(const RectF& handlePaintRect);
@@ -108,8 +120,13 @@ private:
     int32_t GetTextInputCaretPosition(const OffsetF& localOffset, bool isFirst);
     void CloseMagnifier();
     void TriggerContentToScroll(const OffsetF& localOffset, bool isEnd);
+    void UpdateMagnifier(const OffsetF& offset, bool updateOnScroll);
+    bool CheckIfInterruptProcessing(const OverlayRequest& request);
+    void RefreshPasteButton();
+    void UpdateHandlesPosition(RefPtr<TextSelectController> selectController, bool isFirst);
+    bool needRefreshPasteButton_ = false;
     SourceType lastSourceType_ = SourceType::NONE;
-    std::vector<std::string> pasteMimeTypes_ = { "text/plain", "text/html" };
+    std::vector<std::string> pasteMimeTypes_ = { "text/plain", "text/html", "autofill/secure" };
 };
 
 } // namespace OHOS::Ace::NG

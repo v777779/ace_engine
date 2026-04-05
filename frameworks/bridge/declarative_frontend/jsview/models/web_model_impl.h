@@ -26,11 +26,12 @@ class WebModelImpl : public OHOS::Ace::WebModel {
 public:
     void Create(const std::string& src, const RefPtr<WebController>& webController,
         RenderMode renderMode = RenderMode::ASYNC_RENDER, bool incognitoMode = false,
-        const std::string& sharedRenderProcessToken = "") override;
+        const std::string& sharedRenderProcessToken = "", bool emulateTouchFromMouseEvent = false) override;
     void Create(const std::string& src, std::function<void(int32_t)>&& setWebIdCallback,
         std::function<void(const std::string&)>&& setHapPathCallback,
         int32_t parentWebId, bool popup, RenderMode renderMode = RenderMode::ASYNC_RENDER,
-        bool incognitoMode = false, const std::string& sharedRenderProcessToken = "") override;
+        bool incognitoMode = false, const std::string& sharedRenderProcessToken = "",
+        bool emulateTouchFromMouseEvent = false) override;
     void SetCustomScheme(const std::string& cmdLine) override;
     void SetFocusable(bool focusable) override;
     void SetFocusNode(bool isFocusNode) override;
@@ -102,6 +103,7 @@ public:
 
     void SetPinchSmoothModeEnabled(bool isPinchSmoothModeEnabled) override;
     void SetWindowNewEvent(std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& jsCallback) override;
+    void SetWindowNewExtEvent(std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& jsCallback) override;
     void SetActivateContentEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback) override;
     void SetWindowExitEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback) override;
     void SetMultiWindowAccessEnabled(bool isMultiWindowAccessEnable) override;
@@ -117,6 +119,8 @@ public:
     void SetNativeEmbedLifecycleChangeId(std::function<void(const BaseEventInfo* info)>&& jsCallback) override;
     void SetNativeEmbedVisibilityChangeId(std::function<void(const BaseEventInfo* info)>&& jsCallback) override;
     void SetNativeEmbedGestureEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback) override;
+    void SetNativeEmbedMouseEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback) override {};
+    void SetNativeEmbedObjectParamChangeId(std::function<void(const BaseEventInfo* info)>&& jsCallback) override;
     void SetOnOverrideUrlLoading(std::function<bool(const BaseEventInfo* info)>&& jsCallback) override;
     void SetNativeVideoPlayerConfig(bool enable, bool shouldOverlay) override;
     void SetRenderProcessNotRespondingId(std::function<void(const BaseEventInfo* info)> && jsCallback) override;
@@ -125,7 +129,11 @@ public:
     void SetAdsBlockedEventId(std::function<void(const BaseEventInfo* info)> && jsCallback) override;
     void SetUpdateInstanceIdCallback(std::function<void(int32_t)> &&callback) override;
     void SetOptimizeParserBudgetEnabled(bool enable) override;
+    void SetOnLoadStarted(std::function<void(const BaseEventInfo* info)>&& jsCallback) override;
+    void SetOnLoadFinished(std::function<void(const BaseEventInfo* info)>&& jsCallback) override;
     void SetBypassVsyncCondition(WebBypassVsyncCondition condition) override;
+    void SetForceEnableZoom(bool isForceEnableZoom) override;
+    void SetOnVerifyPinRequest(std::function<bool(const BaseEventInfo* info)>&& jsCallback) override;
 };
 } // namespace OHOS::Ace::Framework
 #endif // FRAMEWORKS_BRIDGE_DECLARATIVE_FRONTEND_JS_VIEW_MODELS_WEB_MODEL_IMPL_H

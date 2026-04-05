@@ -14,7 +14,6 @@
  */
 
 #include "accessor_test_base.h"
-#include "node_api.h"
 #include "test/unittest/capi/stubs/mock_component_snapshot.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -33,11 +32,11 @@ class ComponentSnapshotAccessorTest :
 };
 
 /**
- * @tc.name: getMethodTest
+ * @tc.name: getTest
  * @tc.desc: Check the functionality of get
  * @tc.type: FUNC
  */
-HWTEST_F(ComponentSnapshotAccessorTest, getMethodTest, TestSize.Level1)
+HWTEST_F(ComponentSnapshotAccessorTest, getTest, TestSize.Level1)
 {
     static bool called = false;
     ASSERT_NE(accessor_->get, nullptr);

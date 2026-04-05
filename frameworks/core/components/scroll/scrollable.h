@@ -34,21 +34,6 @@
 #include "core/pipeline/base/render_node.h"
 
 namespace OHOS::Ace {
-enum class NestedState {
-    GESTURE = 0,
-    CHILD_SCROLL,
-    CHILD_OVER_SCROLL,
-};
-
-struct OverScrollOffset {
-    double start;
-    double end;
-};
-
-struct ScrollResult {
-    double remain;
-    bool reachEdge;
-};
 
 using ScrollEventCallback = std::function<void()>;
 using OutBoundaryCallback = std::function<bool()>;
@@ -68,7 +53,7 @@ using NestableScrollCallback = std::function<ScrollResult(float, int32_t, Nested
 using DragFRCSceneCallback = std::function<void(double velocity, NG::SceneStatus sceneStatus)>;
 using ScrollMotionFRCSceneCallback = std::function<void(double velocity, NG::SceneStatus sceneStatus)>;
 
-class Scrollable : public TouchEventTarget, public RelatedChild {
+class ACE_FORCE_EXPORT Scrollable : public TouchEventTarget, public RelatedChild {
     DECLARE_ACE_TYPE(Scrollable, TouchEventTarget);
 
 public:
@@ -474,6 +459,11 @@ public:
         scrollMotionFRCSceneCallback_ = std::move(scrollMotionFRCSceneCallback);
     }
 
+    void SetMaxFlingVelocity(double max)
+    {
+        maxFlingVelocity_ = max;
+    }
+
 private:
     bool UpdateScrollPosition(double offset, int32_t source) const;
     void ProcessSpringMotion(double position);
@@ -521,6 +511,7 @@ private:
     WeakPtr<RenderNode> scrollableNode_;
     double currentPos_ = 0.0;
     double currentVelocity_ = 0.0;
+    double maxFlingVelocity_ = 0.0;
     bool scrollPause_ = false;
     bool touchUp_ = false;
     bool moved_ = false;

@@ -43,7 +43,7 @@ bool SideBarContainerModelNG::sideBarWidthDoubleBind_ = false;
 
 void SideBarContainerModelNG::Create()
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     if (pipeline->GetMinPlatformVersion() >= PLATFORM_VERSION_TEN) {
         DEFAULT_SIDE_BAR_WIDTH = 240.0_vp;
@@ -52,9 +52,33 @@ void SideBarContainerModelNG::Create()
     }
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
-    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::SIDE_BAR_ETS_TAG, nodeId);
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", SIDE_BAR_ETS_TAG, nodeId);
+    ACE_UINODE_TRACE(nodeId);
     auto sideBarContainerNode = FrameNode::GetOrCreateFrameNode(
-        V2::SIDE_BAR_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<SideBarContainerPattern>(); });
+        SIDE_BAR_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<SideBarContainerPattern>(); });
+
+    CHECK_NULL_VOID(sideBarContainerNode);
+
+    stack->Push(sideBarContainerNode);
+    auto pattern = sideBarContainerNode->GetPattern<SideBarContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetRightToLeftMode(AceApplicationInfo::GetInstance().IsRightToLeft());
+}
+
+void SideBarContainerModelNG::CreateStatic()
+{
+    auto pipeline = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    if (pipeline->GetMinPlatformVersion() >= PLATFORM_VERSION_TEN) {
+        DEFAULT_SIDE_BAR_WIDTH = 240.0_vp;
+        DEFAULT_MIN_SIDE_BAR_WIDTH = 240.0_vp;
+        DEFAULT_MIN_CONTENT_WIDTH = 360.0_vp;
+    }
+    auto* stack = ViewStackProcessor::GetInstance();
+    auto nodeId = stack->ClaimNodeId();
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", SIDE_BAR_ETS_TAG, nodeId);
+    auto sideBarContainerNode = FrameNode::GetOrCreateFrameNode(
+        SIDE_BAR_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<SideBarContainerPattern>(); });
 
     CHECK_NULL_VOID(sideBarContainerNode);
 
@@ -65,6 +89,11 @@ void SideBarContainerModelNG::Create()
 }
 
 void SideBarContainerModelNG::SetSideBarContainerType(SideBarContainerType type)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarContainerType, type);
+}
+
+void SideBarContainerModelNG::SetSideBarContainerTypeStatic(SideBarContainerType type)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarContainerType, type);
 }
@@ -96,6 +125,24 @@ void SideBarContainerModelNG::ParseAndSetWidth(WidthType widthType, Dimension& w
     }
 }
 
+void SideBarContainerModelNG::ParseAndSetWidthStatic(WidthType widthType, Dimension& width, bool isDoubleBind)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    switch (widthType) {
+        case WidthType::SIDEBAR_WIDTH:
+            SetSideBarWidthStatic(width.IsNonNegative() ? width : DEFAULT_SIDE_BAR_WIDTH, isDoubleBind);
+            break;
+        case WidthType::MIN_SIDEBAR_WIDTH:
+            SetMinSideBarWidth(frameNode, width.IsNonNegative() ? width : DEFAULT_MIN_SIDE_BAR_WIDTH);
+            break;
+        case WidthType::MAX_SIDEBAR_WIDTH:
+            SetMaxSideBarWidth(frameNode, width.IsNonNegative() ? width : DEFAULT_MAX_SIDE_BAR_WIDTH);
+            break;
+        default:
+            break;
+    }
+}
+
 void SideBarContainerModelNG::SetSideBarWidth(const Dimension& sideBarWidth, bool isDoubleBind)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
@@ -107,6 +154,20 @@ void SideBarContainerModelNG::SetSideBarWidth(const Dimension& sideBarWidth, boo
         return;
     }
     MarkNeedInitRealSideBarWidth();
+    ACE_UPDATE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarWidth, sideBarWidth);
+}
+
+void SideBarContainerModelNG::SetSideBarWidthStatic(const Dimension& sideBarWidth, bool isDoubleBind)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    sideBarWidthDoubleBind_ = isDoubleBind;
+    if (IsDoubleBindBlock(pattern)) {
+        return;
+    }
+    MarkNeedInitRealSideBarWidth(frameNode);
     ACE_UPDATE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarWidth, sideBarWidth);
 }
 
@@ -156,6 +217,27 @@ void SideBarContainerModelNG::ParseAndSetWidth(WidthType widthType, const RefPtr
     }
 }
 
+void SideBarContainerModelNG::ParseAndSetWidthStatic(WidthType widthType, const RefPtr<ResourceObject>& resObj)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CalcDimension sideBarWidth;
+    ResourceParseUtils::ParseResDimensionVpNG(resObj, sideBarWidth);
+    ParseAndSetWidthStatic(widthType, sideBarWidth, false);
+    switch (widthType) {
+        case WidthType::SIDEBAR_WIDTH:
+            SetSideBarWidth(frameNode, resObj);
+            break;
+        case WidthType::MIN_SIDEBAR_WIDTH:
+            SetMinSideBarWidth(frameNode, resObj);
+            break;
+        case WidthType::MAX_SIDEBAR_WIDTH:
+            SetMaxSideBarWidth(frameNode, resObj);
+            break;
+        default:
+            break;
+    }
+}
+
 void SideBarContainerModelNG::SetSideBarWidth(const RefPtr<ResourceObject>& resObj)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
@@ -182,7 +264,11 @@ void SideBarContainerModelNG::SetSideBarWidth(const RefPtr<ResourceObject>& resO
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, resObj, std::move(updateSideBarWidthFunc));
+    if (resObj) {
+        pattern->AddResObj(key, resObj, std::move(updateSideBarWidthFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetMinSideBarWidth(const RefPtr<ResourceObject>& resObj)
@@ -211,7 +297,11 @@ void SideBarContainerModelNG::SetMinSideBarWidth(const RefPtr<ResourceObject>& r
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, resObj, std::move(updateMinSideBarWidthFunc));
+    if (resObj) {
+        pattern->AddResObj(key, resObj, std::move(updateMinSideBarWidthFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetMaxSideBarWidth(const RefPtr<ResourceObject>& resObj)
@@ -241,7 +331,11 @@ void SideBarContainerModelNG::SetMaxSideBarWidth(const RefPtr<ResourceObject>& r
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj("sideBarContainer.maxSideBarWidth", resObj, std::move(updateMaxSideBarWidthFunc));
+    if (resObj) {
+        pattern->AddResObj("sideBarContainer.maxSideBarWidth", resObj, std::move(updateMaxSideBarWidthFunc));
+    } else {
+        pattern->RemoveResObj("sideBarContainer.maxSideBarWidth");
+    }
 }
 
 void SideBarContainerModelNG::SetAutoHide(bool autoHide)
@@ -341,7 +435,11 @@ void SideBarContainerModelNG::SetControlButtonShowIconInfo(
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, showIconResObj, std::move(updateShowIconFunc));
+    if (showIconResObj) {
+        pattern->AddResObj(key, showIconResObj, std::move(updateShowIconFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetControlButtonHiddenIconInfo(
@@ -376,7 +474,11 @@ void SideBarContainerModelNG::SetControlButtonHiddenIconInfo(
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, hiddenIconResObj, std::move(updateHiddenIconFunc));
+    if (hiddenIconResObj) {
+        pattern->AddResObj(key, hiddenIconResObj, std::move(updateHiddenIconFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetControlButtonSwitchingIconInfo(
@@ -411,7 +513,11 @@ void SideBarContainerModelNG::SetControlButtonSwitchingIconInfo(
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, switchingIconResObj, std::move(updateSwitchingIconFunc));
+    if (switchingIconResObj) {
+        pattern->AddResObj(key, switchingIconResObj, std::move(updateSwitchingIconFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::ResetControlButtonIconInfo()
@@ -495,7 +601,11 @@ void SideBarContainerModelNG::SetDividerStrokeWidth(const RefPtr<ResourceObject>
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, strokeWidthResObj, std::move(updateDividerStrokeWidthFunc));
+    if (strokeWidthResObj) {
+        pattern->AddResObj(key, strokeWidthResObj, std::move(updateDividerStrokeWidthFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetDividerColor(const RefPtr<ResourceObject>& colorResObj)
@@ -526,7 +636,11 @@ void SideBarContainerModelNG::SetDividerColor(const RefPtr<ResourceObject>& colo
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, colorResObj, std::move(updateDividerColorFunc));
+    if (colorResObj) {
+        pattern->AddResObj(key, colorResObj, std::move(updateDividerColorFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetDividerStartMargin(const RefPtr<ResourceObject>& startMarginResObj)
@@ -557,7 +671,11 @@ void SideBarContainerModelNG::SetDividerStartMargin(const RefPtr<ResourceObject>
     };
     auto pattern = frameNode->GetPattern<Pattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, startMarginResObj, std::move(updateDividerStartMarginFunc));
+    if (startMarginResObj) {
+        pattern->AddResObj(key, startMarginResObj, std::move(updateDividerStartMarginFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetDividerEndMargin(const RefPtr<ResourceObject>& endMarginResObj)
@@ -588,11 +706,16 @@ void SideBarContainerModelNG::SetDividerEndMargin(const RefPtr<ResourceObject>& 
     };
     auto pattern = frameNode->GetPattern<Pattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, endMarginResObj, std::move(updateDividerEndMarginFunc));
+    if (endMarginResObj) {
+        pattern->AddResObj(key, endMarginResObj, std::move(updateDividerEndMarginFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetMinContentWidth(const Dimension& minContentWidth)
 {
+    MarkNeedInitRealSideBarWidth();
     if (minContentWidth.IsNonNegative()) {
         ACE_UPDATE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MinContentWidth, minContentWidth);
     } else {
@@ -635,7 +758,11 @@ void SideBarContainerModelNG::SetMinContentWidth(const RefPtr<ResourceObject>& r
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, resObj, std::move(updateMinContentFunc));
+    if (resObj) {
+        pattern->AddResObj(key, resObj, std::move(updateMinContentFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetOnChange(std::function<void(const bool)>&& onChange)
@@ -665,31 +792,20 @@ void SideBarContainerModelNG::SetOnChangeEvent(std::function<void(const bool)>&&
     eventHub->SetOnChangeEvent(std::move(onChangeEvent));
 }
 
-// void SideBarContainerModelNG::SetOnChange(FrameNode* frameNode, std::function<void(const bool)>&& onChange)
-// {
-//     auto eventHub = frameNode->GetEventHub<SideBarContainerEventHub>();
-//     CHECK_NULL_VOID(eventHub);
-//     eventHub->SetOnChange(std::move(onChange));
-// }
-RefPtr<FrameNode> SideBarContainerModelNG::CreateFrameNode(int32_t nodeId)
+void SideBarContainerModelNG::SetOnChangeEventModifier(std::function<void(const bool)>&& onChangeEvent)
 {
-    DEFAULT_SIDE_BAR_WIDTH = 240.0_vp;
-    DEFAULT_MIN_SIDE_BAR_WIDTH = 240.0_vp;
-    DEFAULT_MIN_CONTENT_WIDTH = 360.0_vp;
-    auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::SIDE_BAR_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<SideBarContainerPattern>(); });
-    CHECK_NULL_RETURN(frameNode, frameNode);
-    return frameNode;
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<SideBarContainerEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnChangeEvent(std::move(onChangeEvent));
 }
 
-void SideBarContainerModelNG::SetSideBarContainerType(FrameNode* frameNode,
-    const std::optional<SideBarContainerType>& type)
+void SideBarContainerModelNG::SetOnChange(FrameNode* frameNode, std::function<void(const bool)>&& onChange)
 {
-    if (type.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarContainerType, type.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarContainerType, frameNode);
-    }
+    auto eventHub = frameNode->GetEventHub<SideBarContainerEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnChange(std::move(onChange));
 }
 
 void SideBarContainerModelNG::SetOnSideBarWidthChangeEvent(OnSideBarWidthChangeEvent&& event)
@@ -701,23 +817,16 @@ void SideBarContainerModelNG::SetOnSideBarWidthChangeEvent(OnSideBarWidthChangeE
     eventHub->SetOnSideBarWidthChangeEvent(std::move(event));
 }
 
-void SideBarContainerModelNG::SetSideBarWidth(FrameNode* frameNode, const std::optional<Dimension>& sideBarWidth)
+void SideBarContainerModelNG::SetOnSideBarWidthChangeEventStatic(OnSideBarWidthChangeEvent&& event)
 {
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
-    auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
-    CHECK_NULL_VOID(pattern);
-    if (IsDoubleBindBlock(pattern)) {
-        return;
-    }
-    MarkNeedInitRealSideBarWidth(frameNode);
-    if (sideBarWidth.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarWidth, sideBarWidth.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarWidth, frameNode);
-    }
+    auto eventHub = frameNode->GetEventHub<SideBarContainerEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnSideBarWidthChangeEvent(std::move(event));
 }
 
-void SideBarContainerModelNG::SetMinSideBarWidth(FrameNode* frameNode, const std::optional<Dimension>& minSideBarWidth)
+void SideBarContainerModelNG::SetSideBarWidth(FrameNode* frameNode, const Dimension& sideBarWidth)
 {
     CHECK_NULL_VOID(frameNode);
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
@@ -726,12 +835,19 @@ void SideBarContainerModelNG::SetMinSideBarWidth(FrameNode* frameNode, const std
         return;
     }
     MarkNeedInitRealSideBarWidth(frameNode);
-    if (minSideBarWidth.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MinSideBarWidth,
-            minSideBarWidth.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MinSideBarWidth, frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarWidth, sideBarWidth, frameNode);
+}
+
+void SideBarContainerModelNG::SetMinSideBarWidth(FrameNode* frameNode, const Dimension& minSideBarWidth)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    if (IsDoubleBindBlock(pattern)) {
+        return;
     }
+    MarkNeedInitRealSideBarWidth(frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MinSideBarWidth, minSideBarWidth, frameNode);
 }
 
 void SideBarContainerModelNG::SetSideBarWidth(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
@@ -765,7 +881,11 @@ void SideBarContainerModelNG::SetSideBarWidth(FrameNode* frameNode, const RefPtr
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, resObj, std::move(updateSideBarWidthFunc));
+    if (resObj) {
+        pattern->AddResObj(key, resObj, std::move(updateSideBarWidthFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetMinSideBarWidth(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
@@ -800,7 +920,11 @@ void SideBarContainerModelNG::SetMinSideBarWidth(FrameNode* frameNode, const Ref
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, resObj, std::move(updateSideBarWidthFunc));
+    if (resObj) {
+        pattern->AddResObj(key, resObj, std::move(updateSideBarWidthFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetMaxSideBarWidth(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
@@ -831,7 +955,11 @@ void SideBarContainerModelNG::SetMaxSideBarWidth(FrameNode* frameNode, const Ref
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, resObj, std::move(updateMaxSideBarWidthFunc));
+    if (resObj) {
+        pattern->AddResObj(key, resObj, std::move(updateMaxSideBarWidthFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetMinContentWidth(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
@@ -868,25 +996,21 @@ void SideBarContainerModelNG::SetMinContentWidth(FrameNode* frameNode, const Ref
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, resObj, std::move(updateMinContentFunc));
-}
-
-void SideBarContainerModelNG::SetControlButtonWidth(FrameNode* frameNode, const std::optional<Dimension>& width)
-{
-    if (width.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonWidth, width.value(), frameNode);
+    if (resObj) {
+        pattern->AddResObj(key, resObj, std::move(updateMinContentFunc));
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonWidth, frameNode);
+        pattern->RemoveResObj(key);
     }
 }
 
-void SideBarContainerModelNG::SetControlButtonHeight(FrameNode* frameNode, const std::optional<Dimension>& height)
+void SideBarContainerModelNG::SetControlButtonWidth(FrameNode* frameNode, const Dimension& width)
 {
-    if (height.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonHeight, height.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonHeight, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonWidth, width, frameNode);
+}
+
+void SideBarContainerModelNG::SetControlButtonHeight(FrameNode* frameNode, const Dimension& height)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonHeight, height, frameNode);
 }
 
 void SideBarContainerModelNG::SetControlButtonLeft(FrameNode* frameNode, const Dimension& left)
@@ -930,7 +1054,11 @@ void SideBarContainerModelNG::SetControlButtonShowIconInfo(
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, showIconResObj, std::move(updateShowIconFunc));
+    if (showIconResObj) {
+        pattern->AddResObj(key, showIconResObj, std::move(updateShowIconFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetControlButtonHiddenIconInfo(
@@ -964,7 +1092,11 @@ void SideBarContainerModelNG::SetControlButtonHiddenIconInfo(
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, hiddenIconResObj, std::move(updateHiddenIconFunc));
+    if (hiddenIconResObj) {
+        pattern->AddResObj(key, hiddenIconResObj, std::move(updateHiddenIconFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetControlButtonSwitchingIconInfo(
@@ -998,7 +1130,11 @@ void SideBarContainerModelNG::SetControlButtonSwitchingIconInfo(
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, switchingIconResObj, std::move(updateSwitchingIconFunc));
+    if (switchingIconResObj) {
+        pattern->AddResObj(key, switchingIconResObj, std::move(updateSwitchingIconFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetControlButtonShowIconInfo(
@@ -1049,7 +1185,7 @@ void SideBarContainerModelNG::SetAutoHide(FrameNode* frameNode, bool autoHide)
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, AutoHide, autoHide, frameNode);
 }
 
-void SideBarContainerModelNG::SetMaxSideBarWidth(FrameNode* frameNode, const std::optional<Dimension>& maxSideBarWidth)
+void SideBarContainerModelNG::SetMaxSideBarWidth(FrameNode* frameNode, const Dimension& maxSideBarWidth)
 {
     CHECK_NULL_VOID(frameNode);
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
@@ -1058,38 +1194,23 @@ void SideBarContainerModelNG::SetMaxSideBarWidth(FrameNode* frameNode, const std
         return;
     }
     MarkNeedInitRealSideBarWidth(frameNode);
-    if (maxSideBarWidth.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MaxSideBarWidth,
-            maxSideBarWidth.value(), frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MaxSideBarWidth, maxSideBarWidth, frameNode);
+}
+
+void SideBarContainerModelNG::SetMinContentWidth(FrameNode* frameNode, const Dimension& minContentWidth)
+{
+    MarkNeedInitRealSideBarWidth(frameNode);
+    if (minContentWidth.IsNonNegative()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MinContentWidth, minContentWidth, frameNode);
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MaxSideBarWidth, frameNode);
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+            SideBarContainerLayoutProperty, MinContentWidth, DEFAULT_MIN_CONTENT_WIDTH, frameNode);
     }
 }
 
-void SideBarContainerModelNG::SetMinContentWidth(FrameNode* frameNode, const std::optional<Dimension>& minContentWidth)
+void SideBarContainerModelNG::SetSideBarPosition(FrameNode* frameNode, SideBarPosition sideBarPosition)
 {
-    if (minContentWidth.has_value()) {
-        if (minContentWidth->IsNonNegative()) {
-            ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MinContentWidth,
-                minContentWidth.value(), frameNode);
-        } else {
-            ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MinContentWidth,
-                DEFAULT_MIN_CONTENT_WIDTH, frameNode);
-        }
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, MinContentWidth, frameNode);
-    }
-}
-
-void SideBarContainerModelNG::SetSideBarPosition(FrameNode* frameNode,
-    const std::optional<SideBarPosition>& sideBarPosition)
-{
-    if (sideBarPosition.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarPosition,
-            sideBarPosition.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarPosition, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, SideBarPosition, sideBarPosition, frameNode);
 }
 
 void SideBarContainerModelNG::SetShowSideBar(FrameNode* frameNode, bool isShow)
@@ -1125,7 +1246,11 @@ void SideBarContainerModelNG::SetDividerStrokeWidth(
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, strokeWidthResObj, std::move(updateDividerStrokeWidthFunc));
+    if (strokeWidthResObj) {
+        pattern->AddResObj(key, strokeWidthResObj, std::move(updateDividerStrokeWidthFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetDividerColor(FrameNode* frameNode, const RefPtr<ResourceObject>& colorResObj)
@@ -1155,7 +1280,11 @@ void SideBarContainerModelNG::SetDividerColor(FrameNode* frameNode, const RefPtr
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, colorResObj, std::move(updateDividerColorFunc));
+    if (colorResObj) {
+        pattern->AddResObj(key, colorResObj, std::move(updateDividerColorFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetDividerStartMargin(
@@ -1186,7 +1315,11 @@ void SideBarContainerModelNG::SetDividerStartMargin(
     };
     auto pattern = frameNode->GetPattern<SideBarContainerPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, startMarginResObj, std::move(updateDividerStartMarginFunc));
+    if (startMarginResObj) {
+        pattern->AddResObj(key, startMarginResObj, std::move(updateDividerStartMarginFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
 void SideBarContainerModelNG::SetDividerEndMargin(FrameNode* frameNode, const RefPtr<ResourceObject>& endMarginResObj)
@@ -1216,17 +1349,16 @@ void SideBarContainerModelNG::SetDividerEndMargin(FrameNode* frameNode, const Re
     };
     auto pattern = frameNode->GetPattern<Pattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj(key, endMarginResObj, std::move(updateDividerEndMarginFunc));
+    if (endMarginResObj) {
+        pattern->AddResObj(key, endMarginResObj, std::move(updateDividerEndMarginFunc));
+    } else {
+        pattern->RemoveResObj(key);
+    }
 }
 
-void SideBarContainerModelNG::SetDividerStrokeWidth(FrameNode* frameNode, const std::optional<Dimension>& strokeWidth)
+void SideBarContainerModelNG::SetDividerStrokeWidth(FrameNode* frameNode, const Dimension& strokeWidth)
 {
-    if (strokeWidth.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, DividerStrokeWidth,
-            strokeWidth.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, DividerStrokeWidth, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, DividerStrokeWidth, strokeWidth, frameNode);
 }
 
 void SideBarContainerModelNG::SetDividerColor(FrameNode* frameNode, const Color& color)
@@ -1242,22 +1374,6 @@ void SideBarContainerModelNG::SetDividerStartMargin(FrameNode* frameNode, const 
 void SideBarContainerModelNG::SetDividerEndMargin(FrameNode* frameNode, const Dimension& endMargin)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, DividerEndMargin, endMargin, frameNode);
-}
-
-void SideBarContainerModelNG::SetOnChange(FrameNode* frameNode, std::function<void(const bool)>&& onChange)
-{
-    CHECK_NULL_VOID(frameNode);
-    auto eventHub = frameNode->GetEventHub<SideBarContainerEventHub>();
-    CHECK_NULL_VOID(eventHub);
-    eventHub->SetOnChange(std::move(onChange));
-}
-
-void SideBarContainerModelNG::SetOnChangeEvent(FrameNode* frameNode, std::function<void(const bool)>&& onChangeEvent)
-{
-    CHECK_NULL_VOID(frameNode);
-    auto eventHub = frameNode->GetEventHub<SideBarContainerEventHub>();
-    CHECK_NULL_VOID(eventHub);
-    eventHub->SetOnChangeEvent(std::move(onChangeEvent));
 }
 
 void SideBarContainerModelNG::ResetControlButtonLeft(FrameNode* frameNode)
@@ -1277,6 +1393,20 @@ void SideBarContainerModelNG::ResetControlButtonIconInfo(FrameNode* frameNode)
 }
 
 void SideBarContainerModelNG::ResetControlButton()
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonWidth, DEFAULT_CONTROL_BUTTON_WIDTH);
+    ACE_UPDATE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonHeight, DEFAULT_CONTROL_BUTTON_HEIGHT);
+    ACE_UPDATE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonTop, DEFAULT_CONTROL_BUTTON_TOP);
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(SideBarContainerLayoutProperty, ControlButtonLeft, PROPERTY_UPDATE_LAYOUT);
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(
+        SideBarContainerLayoutProperty, ControlButtonShowIconInfo, PROPERTY_UPDATE_LAYOUT);
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(
+        SideBarContainerLayoutProperty, ControlButtonHiddenIconInfo, PROPERTY_UPDATE_LAYOUT);
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(
+        SideBarContainerLayoutProperty, ControlButtonSwitchingIconInfo, PROPERTY_UPDATE_LAYOUT);
+}
+
+void SideBarContainerModelNG::ResetControlButtonStatic()
 {
     ACE_UPDATE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonWidth, DEFAULT_CONTROL_BUTTON_WIDTH);
     ACE_UPDATE_LAYOUT_PROPERTY(SideBarContainerLayoutProperty, ControlButtonHeight, DEFAULT_CONTROL_BUTTON_HEIGHT);

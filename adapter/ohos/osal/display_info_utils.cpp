@@ -16,6 +16,8 @@
 #include "core/common/display_info_utils.h"
 
 #include "display_manager.h"
+#include "display_info.h"
+#include "base/log/log.h"
 
 namespace OHOS::Ace {
 constexpr uint64_t DEFAULT_DISPLAY_ID = 0;
@@ -26,15 +28,28 @@ RefPtr<DisplayInfo> DisplayInfoUtils::GetDisplayInfo(int32_t displayId)
         displayManager = Rosen::DisplayManager::GetInstance().GetDefaultDisplay();
     }
     CHECK_NULL_RETURN(displayManager, nullptr);
-    displayInfo_->SetWidth(displayManager->GetWidth());
-    displayInfo_->SetHeight(displayManager->GetHeight());
-    displayInfo_->SetDisplayId(displayManager->GetId());
-    auto dmRotation = displayManager->GetRotation();
+    auto dmDisplayInfo = displayManager->GetDisplayInfo();
+    CHECK_NULL_RETURN(dmDisplayInfo, nullptr);
+    displayInfo_->SetWidth(dmDisplayInfo->GetWidth());
+    displayInfo_->SetHeight(dmDisplayInfo->GetHeight());
+    displayInfo_->SetDisplayId(dmDisplayInfo->GetDisplayId());
+    auto dmRotation = dmDisplayInfo->GetRotation();
     displayInfo_->SetRotation(static_cast<Rotation>(static_cast<uint32_t>(dmRotation)));
+    auto dmDisplaySourceMode = dmDisplayInfo->GetDisplaySourceMode();
+    displayInfo_->SetDisplaySourceMode(static_cast<DisplaySourceMode>(static_cast<uint32_t>(dmDisplaySourceMode)));
     GetIsFoldable();
     GetCurrentFoldStatus();
     GetCurrentFoldCreaseRegion();
     return displayInfo_;
+}
+
+void DisplayInfoUtils::UpdateDisplaySourceMode(const sptr<Rosen::Display>& display)
+{
+    CHECK_NULL_VOID(display);
+    auto dmDisplayInfo = display->GetDisplayInfo();
+    CHECK_NULL_VOID(dmDisplayInfo);
+    auto dmDisplaySourceMode = dmDisplayInfo->GetDisplaySourceMode();
+    displayInfo_->SetDisplaySourceMode(static_cast<DisplaySourceMode>(static_cast<uint32_t>(dmDisplaySourceMode)));
 }
 
 void DisplayInfoUtils::InitIsFoldable()
@@ -86,6 +101,11 @@ std::vector<Rect> DisplayInfoUtils::GetCurrentFoldCreaseRegion()
     displayInfo_->SetCurrentFoldCreaseRegion(rects);
     hasInitFoldCreaseRegion_ = true;
     return rects;
+}
+
+DisplaySourceMode DisplayInfoUtils::GetDisplaySourceMode()
+{
+    return displayInfo_->GetDisplaySourceMode();
 }
 
 Rect DisplayInfoUtils::GetDisplayAvailableRect(int32_t displayId) const

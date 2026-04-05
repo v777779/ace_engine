@@ -33,6 +33,7 @@
 #include "core/components_ng/layout/layout_wrapper.h"
 #include "core/components_ng/pattern/custom/custom_measure_layout_param.h"
 #include "core/pipeline/base/composed_element.h"
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 namespace OHOS::Ace::Framework {
 const std::string EMPTY_STATUS_DATA = "empty_status_data";
@@ -78,6 +79,7 @@ void ViewFunctions::ExecutePlaceChildren(NG::LayoutWrapper* layoutWrapper)
 
 void ViewFunctions::InitJsParam(NG::LayoutWrapper* layoutWrapper)
 {
+    JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(context_)
     JSMeasureLayoutParamNG::GetInstance(layoutWrapper);
 }
 
@@ -380,6 +382,10 @@ void ViewFunctions::InitViewFunctions(
             jsSetPrebuildPhase_ = JSRef<JSFunc>::Cast(jsSetPrebuildPhase);
         }
     }
+    JSRef<JSVal> jsTriggerLifecycleFunc = jsObject->GetProperty("__triggerLifecycle__Internal");
+    if (jsTriggerLifecycleFunc->IsFunction()) {
+        jsTriggerLifecycleFunc_ = JSRef<JSFunc>::Cast(jsTriggerLifecycleFunc);
+    }
 
     JSRef<JSVal> jsAppearFunc = jsObject->GetProperty("aboutToAppear");
     if (jsAppearFunc->IsFunction()) {
@@ -521,11 +527,14 @@ void ViewFunctions::ExecuteRender()
 void ViewFunctions::ExecuteAppear()
 {
     ExecuteFunction(jsAppearFunc_, "aboutToAppear");
+    UiSessionManager::GetInstance()->ReportLifeCycleEvent("aboutToAppear");
 }
 
 void ViewFunctions::ExecuteDisappear()
 {
     JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(context_)
+    UiSessionManager::GetInstance()->ReportLifeCycleEvent("aboutToDisappear");
+
     if (jsDisappearFunc_.IsEmpty()) {
         return;
     }
@@ -543,6 +552,7 @@ void ViewFunctions::ExecuteDisappear()
 void ViewFunctions::ExecuteDidBuild()
 {
     ExecuteFunction(jsDidBuildFunc_, "onDidBuild");
+    UiSessionManager::GetInstance()->ReportLifeCycleEvent("onDidBuild");
 }
 
 void ViewFunctions::ExecuteAboutToRecycle()
@@ -610,6 +620,24 @@ void ViewFunctions::ExecuteAboutToBeDeleted()
     }
 }
 
+bool ViewFunctions::ExecuteTriggerLifecycle(int32_t eventId)
+{
+    JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(context_, false);
+    auto func = jsTriggerLifecycleFunc_.Lock();
+    if (func->IsEmpty()) {
+        return false;
+    }
+    JSRef<JSVal> jsObject = jsObject_.Lock();
+    if (jsObject->IsUndefined()) {
+        LOGE("jsView Object is undefined and will not execute jsTriggerLifecycleFunc function");
+        return false;
+    }
+    JSRef<JSVal> params[1];
+    params[0] = JSRef<JSVal>(JSVal(JsiValueConvertor::toJsiValue(eventId)));
+    auto result = func->Call(jsObject, 1, params);
+    return result->IsBoolean() && result->ToBoolean();
+}
+
 void ViewFunctions::ExecuteAboutToRender()
 {
     // for developer callback.
@@ -624,6 +652,7 @@ void ViewFunctions::ExecuteOnRenderDone()
     ExecuteFunction(jsRenderDoneFunc_, "onRenderDone");
     // for developer callback.
     ExecuteFunction(jsBuildDoneFunc_, "onBuildDone");
+    UiSessionManager::GetInstance()->ReportLifeCycleEvent("onBuildDone");
 }
 
 void ViewFunctions::ExecuteTransition()
@@ -639,11 +668,13 @@ bool ViewFunctions::HasPageTransition() const
 void ViewFunctions::ExecuteShow()
 {
     ExecuteFunction(jsOnShowFunc_, "onPageShow");
+    UiSessionManager::GetInstance()->ReportLifeCycleEvent("onPageShow");
 }
 
 void ViewFunctions::ExecuteHide()
 {
     ExecuteFunction(jsOnHideFunc_, "onPageHide");
+    UiSessionManager::GetInstance()->ReportLifeCycleEvent("onPageHide");
 }
 
 void ViewFunctions::ExecuteInitiallyProvidedValue(const std::string& jsonData)
@@ -770,11 +801,7 @@ void ViewFunctions::Destroy()
 // Partial update method
 void ViewFunctions::ExecuteRerender()
 {
-    int32_t id = -1;
-    if (SystemProperties::GetAcePerformanceMonitorEnabled()) {
-        id = Container::CurrentId();
-    }
-    COMPONENT_UPDATE_DURATION(id);
+    COMPONENT_UPDATE_DURATION();
     JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(context_)
     if (jsRerenderFunc_.IsEmpty()) {
         LOGE("no rerender function in View!");

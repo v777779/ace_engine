@@ -14,6 +14,8 @@
  */
 
 #include "core/components_ng/pattern/plugin/plugin_pattern.h"
+#include "mock_plugin_sub_container.h"
+#include "mock_plugin_manager_delegate.h"
 
 namespace OHOS::Ace::NG {
 PluginPattern::~PluginPattern()
@@ -36,6 +38,7 @@ void PluginPattern::DumpInfo(std::unique_ptr<JsonValue>& json)
 {
 }
 
+#ifdef WRONG_DEF
 void PluginPattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
 {
     Pattern::ToJsonValue(json, filter);
@@ -55,6 +58,7 @@ void PluginPattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const Inspecto
     auto data = pluginLayoutProperty->GetData();
     json->PutExtAttr("data", data ? data->c_str() : "", filter);
 }
+#endif
 
 void PluginPattern::FlushReload() const
 {

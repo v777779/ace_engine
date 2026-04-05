@@ -17,6 +17,7 @@
 
 #include "base/geometry/dimension.h"
 #include "core/components_ng/pattern/text_field/text_field_pattern.h"
+#include "core/components_ng/render/drawing.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -26,7 +27,9 @@ TextFieldForegroundModifier::TextFieldForegroundModifier(const WeakPtr<OHOS::Ace
     : pattern_(pattern)
 {
     innerBorderWidth_ = AceType::MakeRefPtr<PropertyFloat>(0.0f);
+    innerBorderColor_ = AceType::MakeRefPtr<PropertyColor>(Color());
     AttachProperty(innerBorderWidth_);
+    AttachProperty(innerBorderColor_);
 }
 
 void TextFieldForegroundModifier::onDraw(DrawingContext& context)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -27,13 +27,12 @@
 #include "core/components/dialog/dialog_properties.h"
 #include "core/components/dialog/dialog_theme.h"
 #include "core/components_ng/manager/focus/focus_view.h"
-#include "core/components_ng/pattern/dialog//dialog_event_hub.h"
+#include "core/components_ng/pattern/dialog/dialog_event_hub.h"
+#include "core/components_ng/manager/avoid_info/avoid_info_manager.h"
 #include "core/components_ng/pattern/dialog/dialog_accessibility_property.h"
 #include "core/components_ng/pattern/dialog/dialog_layout_algorithm.h"
 #include "core/components_ng/pattern/dialog/dialog_layout_property.h"
 #include "core/components_ng/pattern/overlay/popup_base_pattern.h"
-#include "core/components_ng/pattern/dialog/alert_dialog_model.h"
-#include "core/components_ng/pattern/action_sheet/action_sheet_model.h"
 
 namespace OHOS::Ace::NG {
 class InspectorFilter;
@@ -50,8 +49,12 @@ enum class DialogDismissReason {
     DIALOG_TOUCH_OUTSIDE,
     DIALOG_CLOSE_BUTTON,
 };
-class DialogPattern : public PopupBasePattern, public FocusView, public AutoFillTriggerStateHolder {
-    DECLARE_ACE_TYPE(DialogPattern, PopupBasePattern, FocusView, AutoFillTriggerStateHolder);
+class DialogPattern : public PopupBasePattern,
+                      public FocusView,
+                      public AutoFillTriggerStateHolder,
+                      public IAvoidInfoListener {
+    DECLARE_ACE_TYPE(DialogPattern, PopupBasePattern, FocusView,
+        AutoFillTriggerStateHolder, IAvoidInfoListener);
 
 public:
     DialogPattern(const RefPtr<DialogTheme>& dialogTheme, const RefPtr<UINode>& customNode)
@@ -67,6 +70,11 @@ public:
     void SetOnWillDismiss(const std::function<void(const int32_t& info, const int32_t& instanceId)>& onWillDismiss)
     {
         onWillDismiss_ = onWillDismiss;
+    }
+
+    void SetOnWillDismissRelease(const std::function<void()>& onWillDismissRelease)
+    {
+        onWillDismissRelease_ = onWillDismissRelease;
     }
 
     bool ShouldDismiss() const
@@ -175,6 +183,8 @@ public:
         InitHostWindowRect();
     }
 
+    bool GetWindowButtonRect(NG::RectF& floatButtons);
+
     const DialogProperties& GetDialogProperties() const
     {
         return dialogProperties_;
@@ -186,7 +196,6 @@ public:
 
     void DumpInfo() override;
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override;
     bool AvoidBottom() const override
     {
         return false;
@@ -219,6 +228,7 @@ public:
         }
         SetState(PromptActionCommonState::APPEARED);
         TAG_LOGI(AceLogTag::ACE_DIALOG, "The current state of the dialog is APPEARED.");
+        ReportShow();
     }
 
     void CallDialogDidDisappearCallback()
@@ -228,6 +238,7 @@ public:
         }
         SetState(PromptActionCommonState::DISAPPEARED);
         TAG_LOGI(AceLogTag::ACE_DIALOG, "The current state of the dialog is DISAPPEARED.");
+        ReportDestroyAutoCancel();
     }
 
     void CallDialogWillAppearCallback()
@@ -347,25 +358,43 @@ public:
         transitionNodeCount_++;
     }
 
+    int32_t getMaskNodeId()
+    {
+        return maskNodeId_;
+    }
+
+    void setMaskNodeId(int32_t maskNodeId)
+    {
+        maskNodeId_ = maskNodeId;
+    }
+
+    void SetNeedRefreshOnWindowShow(bool refreshOnWindowShow)
+    {
+        refreshOnWindowShow_ = refreshOnWindowShow;
+    }
+
+    void SetDialogThemeNode(const RefPtr<UINode>& themeNode)
+    {
+        dialogThemeNode_ = themeNode;
+    }
+
+    void UpdateDialogTheme();
+
+    RefPtr<DialogTheme> GetDialogTheme() const
+    {
+        return dialogTheme_;
+    }
+
     void OverlayDismissDialog(const RefPtr<FrameNode>& dialogNode);
     RefPtr<OverlayManager> GetEmbeddedOverlay(const RefPtr<OverlayManager>& context);
-    void UpdateDialogColor(const Color& color, const DialogResourceType type);
-    void UpdateContentValue(std::string& text, const DialogResourceType type);
-    void UpdateLayoutContent(const CalcDimension& value, const DialogResourceType type);
-    void UpdateBackShadow(const Shadow& shadow);
-    void UpdateEffect(const EffectOption& option);
-    void UpdateBlurStyle(const BlurStyleOption& option);
-    void UpdateMaskRect(const DimensionRect& rect);
-    void UpdateBackGroundColor(std::string& content);
-    void UpdateBorderColor(std::string& content);
-    void UpdateContent(std::string& text, ActionSheetType type);
-    void UpdateContent(const Color& color, ActionSheetType type);
-    void UpdateBorderWidth(const NG::BorderWidthProperty& width);
-    void UpdateBorderColor(const NG::BorderColorProperty& color);
-    void UpdateCornerRadius(NG::BorderRadiusProperty& radius);
-    void UpdateButtonBackgroundColor(const Color& color, int32_t buttonIndex);
-    void UpdateButtonFontColor(const std::string colorStr, int32_t buttonIndex);
-    void UpdateButtonText(const std::string text, int32_t buttonIndex);
+
+    RefPtr<FrameNode> GetExtraMaskNode()
+    {
+        return extraMaskNode_;
+    }
+    RefPtr<FrameNode> GetMaskNode();
+
+    bool OnThemeScopeUpdate(int32_t themeScopeId) override;
 
 private:
     bool AvoidKeyboard() const override
@@ -375,7 +404,11 @@ private:
     void OnModifyDone() override;
 
     void OnAttachToFrameNode() override;
+    void OnAttachToFrameNodeMultiThread();
+    void OnAttachToFrameNodeImpl();
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
+    void OnDetachFromFrameNodeMultiThread(FrameNode* frameNode);
+    void OnDetachFromFrameNodeImpl(FrameNode* frameNode);
     void RegisterHoverModeChangeCallback();
     void OnWindowSizeChanged(int32_t width, int32_t height, WindowSizeChangeReason type) override;
     void InitClickEvent(const RefPtr<GestureEventHub>& gestureHub);
@@ -386,6 +419,9 @@ private:
     void InitFocusEvent(const RefPtr<FocusHub>& focusHub);
     void HandleBlurEvent();
     void HandleFocusEvent();
+    void OnAvoidInfoChange(const ContainerModalAvoidInfo& info) override;
+    void RegisterAvoidInfoChangeListener(const RefPtr<FrameNode>& hostNode);
+    void UnRegisterAvoidInfoChangeListener(FrameNode* hostNode);
 
     void PopDialog(int32_t buttonIdx);
     bool NeedUpdateHostWindowRect();
@@ -429,6 +465,7 @@ private:
     void UpdateButtonsProperty();
     void UpdateNodeContent(const RefPtr<FrameNode>& node, std::string& text);
     void UpdateTitleAndContentColor();
+    void UpdateMaskColor();
     void UpdateDialogTextColor(const RefPtr<FrameNode>& textNode, const TextStyle& textStyle);
     void UpdateAlignmentAndOffset();
     void DumpBoolProperty();
@@ -447,11 +484,35 @@ private:
     void CheckScrollHeightIsNegative(const RefPtr<UINode>& contentColumn, const DialogProperties& props);
     RefPtr<OverlayManager> GetOverlayManager(const RefPtr<FrameNode>& host);
     void OnAttachToMainTree() override;
+    void OnAttachToMainTreeMultiThread();
+    void OnAttachToMainTreeImpl();
     void OnDetachFromMainTree() override;
+    void OnDetachFromMainTreeMultiThread();
+    void OnDetachFromMainTreeImpl();
     void AddFollowParentWindowLayoutNode();
     void RemoveFollowParentWindowLayoutNode();
     void RegisterButtonOnKeyEvent(const ButtonInfo& params, RefPtr<FrameNode>& buttonNode, int32_t buttonIdx);
+    Shadow GetDefaultShadow(ShadowStyle style, const RefPtr<FrameNode>& frameNode);
+    bool InvertShadowColor();
+    void OnWindowShow() override;
+    void ReportActionSheetOnInjectionEvent(bool result,
+        std::string reason, int32_t sheetIndex = -1, int32_t buttonIndex = -1);
+    int32_t OnInjectionEvent(const std::string& command) override;
+    std::vector<RefPtr<FrameNode>> GetButtons();
+    bool HandleAlertDialogButtonClickCmd(const std::unique_ptr<JsonValue>& json);
+    void ReportAlertDialogOnInjectionEvent(bool result, std::string reason,
+        int32_t btnIndex, RefPtr<FrameNode> btnNode = nullptr);
+    void ReportShow();
+    void ReportDestroy(int32_t buttonIdx);
+    void ReportDestroyAutoCancel();
+    void ReportDestroyActionMenu(int32_t buttonIdx);
+    int32_t HandleActionSheetClick(int32_t index);
+    int32_t HandleActionButtonClick(int32_t index);
+    int32_t HandleActionSheetClickCmd(const std::unique_ptr<JsonValue>& json);
+    int32_t HandleActionMenuButtonClickCmd(const std::unique_ptr<JsonValue>& json);
+    void ReportActionMenuOnInjectionEvent(bool result, const std::string& reason, const std::string& text);
     RefPtr<DialogTheme> dialogTheme_;
+    RefPtr<UINode> dialogThemeNode_;
     WeakPtr<UINode> customNode_;
     RefPtr<ClickEvent> onClick_;
 
@@ -465,7 +526,10 @@ private:
     std::string message_;
     std::string title_;
     std::string subtitle_;
+    std::string storedSheetTitle_;
+    bool hasReportDestroy = false;
     std::function<void(const int32_t& info, const int32_t& instanceId)> onWillDismiss_;
+    std::function<void()> onWillDismissRelease_;
     std::function<bool(const int32_t& info)> onWillDismissByNDK_;
 
     DialogProperties dialogProperties_;
@@ -473,6 +537,7 @@ private:
     bool isFirstDefaultFocus_ = true;
     RefPtr<FrameNode> buttonContainer_;
     RefPtr<FrameNode> contentColumn_;
+    RefPtr<FrameNode> extraMaskNode_;
     RefPtr<RenderContext> contentRenderContext_;
     bool isSuitableForElderly_ = false;
     bool isPickerDialog_ = false;
@@ -484,6 +549,7 @@ private:
     DeviceOrientation deviceOrientation_ = DeviceOrientation::PORTRAIT;
     RefPtr<FrameNode> titleContainer_;
     int32_t transitionNodeCount_ = 0;
+    int32_t maskNodeId_ = -1;
 
     ACE_DISALLOW_COPY_AND_MOVE(DialogPattern);
 
@@ -494,6 +560,7 @@ private:
     std::unordered_map<DialogContentNode, RefPtr<FrameNode>> contentNodeMap_;
     bool isUIExtensionSubWindow_ = false;
     bool isDialogDisposed_ = false;
+    bool refreshOnWindowShow_ = false;
     RectF hostWindowRect_;
 };
 } // namespace OHOS::Ace::NG

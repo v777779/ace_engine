@@ -28,6 +28,16 @@
 #include "core/components_ng/pattern/menu/menu_paint_property.h"
 #include "core/components_ng/property/border_property.h"
 #include "core/components_ng/property/menu_property.h"
+#include "core/components_ng/pattern/menu/wrapper/menu_wrapper_paint_method.h"
+
+#if defined(ENABLE_ROSEN_BACKEND)
+namespace OHOS::Rosen {
+    class RSNGShapeBase;
+    template<typename T>
+    class Vector2;
+    typedef Vector2<float> Vector2f;
+}
+#endif
 
 namespace OHOS::Ace::NG {
 struct PreviewMenuParam {
@@ -56,6 +66,8 @@ struct MenuDumpInfo {
     std::string targetNode;
     OffsetF targetOffset;
     SizeF targetSize;
+    bool showInSubWindow = false;
+    bool canExpandCurrentWindow = false;
     Rect menuWindowRect;
     Rect wrapperRect;
     float previewBeginScale = 0.0f;
@@ -74,7 +86,7 @@ struct MenuDumpInfo {
 class MenuLayoutProperty;
 class MenuPattern;
 class MenuLayoutAlgorithm : public BoxLayoutAlgorithm {
-    DECLARE_ACE_TYPE(MenuLayoutAlgorithm, BoxLayoutAlgorithm)
+    DECLARE_ACE_TYPE(MenuLayoutAlgorithm, BoxLayoutAlgorithm);
 public:
     MenuLayoutAlgorithm(int32_t id, const std::string& tag,
         const std::optional<OffsetF>& lastPosition = std::nullopt);
@@ -96,10 +108,15 @@ public:
         return clipPath_;
     }
 
+    // true on two conditions
+    // 1. menu showed in subwindow for PC can show expand main window
+    // 2. menu showed in subwindow from UIExtension can show expand UIExtension window
     bool canExpandCurrentWindow_ = false;
-    void InitCanExpandCurrentWindow(bool isShowInSubWindow, LayoutWrapper* layoutWrapper);
+    void InitCanExpandCurrentWindow(bool isContextMenu, const RefPtr<MenuLayoutProperty>& menuLayoutProperty,
+        const RefPtr<MenuPattern>& menuPattern);
     bool HoldEmbeddedMenuPosition(LayoutWrapper* layoutWrapper);
     Rect GetMenuWindowRectInfo(const RefPtr<MenuPattern>& menuPattern);
+    bool IsExpandDisplay();
 
 protected:
     float VerticalLayout(const SizeF& size, float clickPosition, bool IsContextMenu = false);
@@ -113,6 +130,7 @@ protected:
     float GetMenuBottomPositionY(const RefPtr<FrameNode>& menu);
     bool isContainerModal(const RefPtr<FrameNode>& node);
     float GetContainerModalOffsetY(const RefPtr<FrameNode>& node);
+    float CalcVerticalPosition(const SizeF& size);
 
     // position input is relative to main window left top point,
     // menu show position is relative to menuWrapper.
@@ -141,12 +159,12 @@ private:
     void InitializePadding(LayoutWrapper* layoutWrapper);
     void InitializePaddingAPI12(LayoutWrapper* layoutWrapper);
     void InitializeSecurityPadding();
-    void InitializeParam(LayoutWrapper* layoutWrapper, const RefPtr<MenuPattern>& menuPattern);
+    void InitializeParam(const RefPtr<MenuPattern>& menuPattern);
     void InitializeLayoutRegionMargin(const RefPtr<MenuPattern>& menuPattern);
     void InitWrapperRect(const RefPtr<MenuLayoutProperty>& props, const RefPtr<MenuPattern>& menuPattern);
-    void CalcWrapperRectForHoverMode(const RefPtr<MenuPattern>& menuPattern);
-    void UpdateWrapperRectForHoverMode(
-        const RefPtr<MenuLayoutProperty>& props, const RefPtr<MenuPattern>& menuPattern, double creaseHeightOffset);
+    void CalcWrapperRectForHoverMode(const RefPtr<MenuPattern>& menuPattern, bool isAvoidKeyboard);
+    void UpdateWrapperRectForHoverMode(const RefPtr<MenuLayoutProperty>& props, const RefPtr<MenuPattern>& menuPattern,
+        double creaseHeightOffset, bool isAvoidKeyboard);
     uint32_t GetBottomBySafeAreaManager(const RefPtr<SafeAreaManager>& safeAreaManager,
         const RefPtr<MenuLayoutProperty>& props, const RefPtr<MenuPattern>& menuPattern);
     void InitSpace(const RefPtr<MenuLayoutProperty>& props, const RefPtr<MenuPattern>& menuPattern);
@@ -155,6 +173,8 @@ private:
     void UpdateConstraintWidth(LayoutWrapper* layoutWrapper, LayoutConstraintF& constraint);
     void UpdateConstraintHeight(LayoutWrapper* layoutWrapper, LayoutConstraintF& constraint);
     void UpdateConstraintSelectHeight(LayoutWrapper* layoutWrapper, LayoutConstraintF& LayoutConstraintF);
+    void UpdateMaxSpaceHeightByMenuMaxHeight(const RefPtr<MenuPattern>& menuPattern,
+        const RefPtr<MenuLayoutProperty>& menuLayoutProps, float maxAvailableHeight, float& maxSpaceHeight);
     void UpdateConstraintBaseOnOptions(LayoutWrapper* layoutWrapper, LayoutConstraintF& constraint);
     void UpdateOptionConstraint(std::list<RefPtr<LayoutWrapper>>& options, float width);
     float GetMenuMaxBottom(const RefPtr<MenuPattern>& menuPattern);
@@ -190,6 +210,7 @@ private:
         LayoutWrapper* layoutWrapper = nullptr);
     OffsetF FitToScreen(const OffsetF& position, const SizeF& childSize, bool didNeedArrow = false);
     bool CheckPosition(const OffsetF& position, const SizeF& childSize);
+    bool NeedHoldTargetOffset(const RefPtr<FrameNode>& targetNode, const RefPtr<MenuPattern>& menuPattern);
 
     OffsetF GetPositionWithPlacementTop(const SizeF&, const OffsetF&, const OffsetF&);
     OffsetF GetPositionWithPlacementTopLeft(const SizeF&, const OffsetF&, const OffsetF&);
@@ -268,7 +289,7 @@ private:
     void CheckPreviewConstraint(const RefPtr<FrameNode>& frameNode, const Rect& menuWindowRect);
     void CheckPreviewConstraintForConstant(const RefPtr<GeometryNode>& previewGeometryNode);
     void CheckPreviewSize(const RefPtr<LayoutWrapper>& previewLayoutWrapper, const RefPtr<MenuPattern>& menuPattern);
-    void ModifyTargetOffset();
+    void ModifyOffset(OffsetF& offset, const RefPtr<MenuPattern>& menuPattern);
     OffsetF UpdateMenuPosition(LayoutWrapper* layoutWrapper, const RefPtr<FrameNode>& menuNode,
         RefPtr<MenuPattern> menuPattern, const RefPtr<MenuLayoutProperty>& menuProp);
     bool IsSelectMenuShowInSubWindow(LayoutWrapper* layoutWrapper, const RefPtr<FrameNode>& menuNode);
@@ -280,6 +301,28 @@ private:
     void BuildTopArrowPath(float arrowX, float arrowY, std::string& path);
     void BuildRightArrowPath(float arrowX, float arrowY, std::string& path);
     void BuildLeftArrowPath(float arrowX, float arrowY, std::string& path);
+#if defined(ENABLE_ROSEN_BACKEND)
+    std::shared_ptr<OHOS::Rosen::RSNGShapeBase> GetMenuSDFShape(bool didNeedArrow);
+
+    std::shared_ptr<OHOS::Rosen::RSNGShapeBase> CreateSDFRRectShape();
+    void CalculateArrowVertices(
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1, OHOS::Rosen::Vector2f& vertex2);
+    void CalculateBottomArrowVertices(
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1, OHOS::Rosen::Vector2f& vertex2);
+    void CalculateLeftArrowVertices(
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1, OHOS::Rosen::Vector2f& vertex2);
+    void CalculateTopArrowVertices(
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1, OHOS::Rosen::Vector2f& vertex2);
+    void CalculateRightArrowVertices(
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1, OHOS::Rosen::Vector2f& vertex2);
+
+    std::shared_ptr<OHOS::Rosen::RSNGShapeBase> CreateSDFTriangleShape(
+        const OHOS::Rosen::Vector2f& vertex0, const OHOS::Rosen::Vector2f& vertex1,
+        const OHOS::Rosen::Vector2f& vertex2);
+    std::shared_ptr<OHOS::Rosen::RSNGShapeBase> CreateSmoothUnionShape(
+        const std::shared_ptr<OHOS::Rosen::RSNGShapeBase>& shapeX,
+        const std::shared_ptr<OHOS::Rosen::RSNGShapeBase>& shapeY);
+#endif
     std::string BuildTopLinePath(const OffsetF& arrowPosition, float radiusPx,
         Placement arrowBuildPlacement, bool didNeedArrow);
     std::string BuildRightLinePath(const OffsetF& arrowPosition, float radiusPx,
@@ -294,11 +337,15 @@ private:
     bool UpdateSelectOverlayMenuColumnInfo(
         const RefPtr<MenuPattern>& menuPattern, const RefPtr<GridColumnInfo>& columnInfo);
     float CalcSubMenuMaxHeightConstraint(LayoutConstraintF& childConstraint, RefPtr<FrameNode> parentItem);
-    float CalcSubMenuMaxHeightWithPreview(RefPtr<FrameNode> parentMenu, LayoutConstraintF& childConstraint,
+    float CalcSubMenuMaxHeightWithPreview(const RefPtr<FrameNode>& parentMenu, LayoutConstraintF& childConstraint,
         float lastItemTopPositionY, float firstItemBottomPositionY, float parentMenuPositionY);
-    float CalcSubMenuMaxHeightNoPreview(RefPtr<FrameNode> parentItem, LayoutConstraintF& childConstraint,
+    float CalcSubMenuMaxHeightNoPreview(const RefPtr<FrameNode>& parentItem, LayoutConstraintF& childConstraint,
         float lastItemTopPositionY, float firstItemBottomPositionY, float parentMenuPositionY);
     RefPtr<SelectTheme> GetCurrentSelectTheme(const RefPtr<FrameNode>& frameNode);
+    bool InitializeMenuAvoidKeyboard(const RefPtr<FrameNode>& menuNode);
+    bool MenuAvoidKeyboard(const RefPtr<FrameNode>& menuNode, const std::optional<Dimension>& minKeyboardAvoidDistance,
+        float keyboardTopPosition);
+    std::optional<float> GetKeyboardTopPosition(const RefPtr<FrameNode>& menuNode);
 
     std::optional<OffsetF> lastPosition_;
     OffsetF targetOffset_;
@@ -333,14 +380,14 @@ private:
     float paddingTop_ = 0.0f;
     float paddingBottom_ = 0.0f;
     float optionPadding_ = 0.0f;
-
+    float selectMenuAdditionX_ = 0.0f;
+    float selectMenuAdditionY_ = 0.0f;
     float top_ = 0.0;
     float bottom_ = 0.0;
     float left_ = 0.0;
     float right_ = 0.0;
     double width_ = 0.0;
     double height_ = 0.0;
-
     OffsetF targetCenterOffset_;
     OffsetF previewOriginOffset_;
     OffsetF previewOffset_;
@@ -352,14 +399,16 @@ private:
     bool flag_ = false;
     // previewScale_ must be greater than 0
     float previewScale_ = 1.0f;
+    std::optional<float> maxSpaceHeight_ = std::nullopt;
     MenuDumpInfo dumpInfo_;
     MarginPropertyF layoutRegionMargin_;
-    bool isTargetNodeInSubwindow_ = false;
     bool isExpandDisplay_ = false;
     bool isFreeMultiWindow_ = false;
     bool isUIExtensionSubWindow_ = false;
     RectF displayWindowRect_;
     RectF UIExtensionHostWindowRect_;
+    bool isContainerModal_ = false;
+    bool showInSubWindow_ = false;
 
     OffsetF childOffset_;
     SizeF childMarginFrameSize_;
@@ -369,9 +418,12 @@ private:
     bool didNeedArrow_ = false;
     std::optional<PreviewScaleMode> previewScaleMode_ = std::nullopt;
     std::optional<AvailableLayoutAreaMode> availableLayoutAreaMode_ = std::nullopt;
+    std::optional<MenuPathParams> pathParams_ = std::nullopt;
 
     using PlacementFunc = OffsetF (MenuLayoutAlgorithm::*)(const SizeF&, const OffsetF&, const OffsetF&);
     std::map<Placement, PlacementFunc> placementFuncMap_;
+
+    std::optional<OffsetF> anchorPosition_;
 
     ACE_DISALLOW_COPY_AND_MOVE(MenuLayoutAlgorithm);
 };

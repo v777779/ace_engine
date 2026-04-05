@@ -61,10 +61,16 @@ void AddBuilderNode(ArkUINodeHandle node, ArkUINodeHandle child)
     CHECK_NULL_VOID(currentNode);
     auto* childNode = reinterpret_cast<UINode*>(child);
     CHECK_NULL_VOID(childNode);
+    if (childNode->IsAdopted()) {
+        return;
+    }
     auto childRef = Referenced::Claim<UINode>(childNode);
+    CHECK_NULL_VOID(childRef);
+    auto parentNode = childRef->GetParent();
+    CHECK_NULL_VOID(parentNode && parentNode == currentNode);
     std::list<RefPtr<UINode>> nodes;
     BuilderUtils::GetBuilderNodes(childRef, nodes);
-    BuilderUtils::AddBuilderToParent(childRef, nodes);
+    BuilderUtils::AddBuilderToParent(parentNode, nodes);
 }
 
 void AppendChild(ArkUINodeHandle node, ArkUINodeHandle child)
@@ -94,9 +100,12 @@ void RemoveBuilderNode(ArkUINodeHandle node, ArkUINodeHandle child)
     auto* childNode = reinterpret_cast<UINode*>(child);
     CHECK_NULL_VOID(childNode);
     auto childRef = Referenced::Claim<UINode>(childNode);
+    CHECK_NULL_VOID(childRef);
+    auto parentNode = childRef->GetParent();
+    CHECK_NULL_VOID(parentNode && parentNode == currentNode);
     std::list<RefPtr<UINode>> nodes;
     BuilderUtils::GetBuilderNodes(childRef, nodes);
-    BuilderUtils::RemoveBuilderFromParent(childRef, nodes);
+    BuilderUtils::RemoveBuilderFromParent(parentNode, nodes);
 }
 
 void RemoveChild(ArkUINodeHandle node, ArkUINodeHandle child)
@@ -112,7 +121,12 @@ void ClearBuilderNode(ArkUINodeHandle node)
     auto* currentNode = reinterpret_cast<UINode*>(node);
     CHECK_NULL_VOID(currentNode);
     auto currentRef = Referenced::Claim<UINode>(currentNode);
-    BuilderUtils::ClearBuilder(currentRef);
+    std::list<RefPtr<NG::UINode>> nodes;
+    CHECK_NULL_VOID(currentRef);
+    for (const auto& child : currentRef->GetChildren()) {
+        BuilderUtils::GetBuilderNodes(child, nodes);
+    }
+    BuilderUtils::RemoveBuilderFromParent(currentRef, nodes);
 }
 
 void ClearChildren(ArkUINodeHandle node)
@@ -574,9 +588,10 @@ void SetTransformScale(ArkUINodeHandle node, ArkUI_Float32 xF, ArkUI_Float32 yF)
 
 ArkUI_CharPtr GetNodeTypeInRenderNode(ArkUINodeHandle node)
 {
-    auto* currentNode = reinterpret_cast<NG::FrameNode*>(node);
+    auto* currentNode = reinterpret_cast<UINode*>(node);
     CHECK_NULL_RETURN(currentNode, "");
-    return currentNode->GetTag().c_str();
+    static std::string nodeType = currentNode->GetTag();
+    return nodeType.c_str();
 }
 
 namespace NodeModifier {

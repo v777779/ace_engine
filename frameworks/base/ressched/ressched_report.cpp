@@ -30,10 +30,12 @@ constexpr uint32_t RES_TYPE_AXIS_EVENT      = 123;
 constexpr uint32_t RES_TYPE_PAGE_TRANSITION = 140;
 constexpr uint32_t RES_TYPE_ABILITY_OR_PAGE_SWITCH = 156;
 constexpr uint32_t RES_TYPE_CHECK_APP_IS_IN_SCHEDULE_LIST = 504;
+constexpr uint32_t SYNC_RES_TYPE_APP_IS_IN_CLICK_REPORT_EXT_LIST = 511;
 #ifdef FFRT_EXISTS
 constexpr uint32_t RES_TYPE_LONG_FRAME     = 71;
 #endif
 constexpr uint32_t RES_TYPE_OVERLAY        = 151;
+constexpr uint32_t RES_TYPE_BACKPRESSED_EVENT = 184;
 constexpr int32_t TOUCH_DOWN_EVENT          = 1;
 constexpr int32_t CLICK_EVENT               = 2;
 constexpr int32_t TOUCH_UP_EVENT            = 3;
@@ -45,6 +47,7 @@ constexpr int32_t SLIDE_DETECTING = 2;
 constexpr int32_t AUTO_PLAY_ON_EVENT = 5;
 constexpr int32_t AUTO_PLAY_OFF_EVENT = 6;
 constexpr int32_t MOVE_DETECTING = 7;
+constexpr int32_t SWIPER_SLIDE_OFF_EVENT = 8;
 constexpr int32_t PUSH_PAGE_START_EVENT = 0;
 constexpr int32_t PUSH_PAGE_COMPLETE_EVENT = 1;
 constexpr int32_t POP_PAGE_EVENT = 0;
@@ -55,6 +58,7 @@ constexpr int64_t TIME_INTERVAL = 300;
 constexpr int32_t ABILITY_OR_PAGE_SWITCH_START_EVENT = 0;
 constexpr int32_t ABILITY_OR_PAGE_SWITCH_END_EVENT = 1;
 constexpr int32_t MODULE_SERIALIZER_COUNT = 3;
+constexpr int32_t RSS_VSYNC_SCENE_LIST_VAULE = 2;
 #ifdef FFRT_EXISTS
 constexpr int32_t LONG_FRAME_START_EVENT = 0;
 constexpr int32_t LONG_FRAME_END_EVENT = 1;
@@ -68,13 +72,14 @@ constexpr char SCRTID[] = "scrTid";
 constexpr char BUNDLE_NAME[] = "bundleName";
 constexpr char ABILITY_NAME[] = "abilityName";
 constexpr char CLICK[] = "click";
-constexpr char KEY_EVENT[] = "key_event";
+constexpr char RSS_KEY_EVENT[] = "key_event";
 constexpr char PUSH_PAGE[] = "push_page";
 constexpr char POP_PAGE[] = "pop_page";
 constexpr char PAGE_END_FLUSH[] = "page_end_flush";
 constexpr char AUTO_PLAY_ON[] = "auto_play_on";
 constexpr char AUTO_PLAY_OFF[] = "auto_play_off";
 constexpr char SLIDE_OFF[] = "slide_off";
+constexpr char SWIPER_SLIDE_OFF[] = "swiper_slide_off";
 constexpr char OVERLAY_ADD[] = "overlay_add";
 constexpr char OVERLAY_REMOVE[] = "overlay_remove";
 constexpr char TOUCH[] = "touch";
@@ -94,6 +99,7 @@ constexpr char ABILITY_OR_PAGE_SWITCH_END[] = "ability_or_page_switch_end";
 constexpr char LONG_FRAME_START[] = "long_frame_start";
 constexpr char LONG_FRAME_END[] = "long_frame_end";
 #endif
+constexpr char BACKPRESSED[] = "backpressed";
 
 void LoadAceApplicationContext(std::unordered_map<std::string, std::string>& payload)
 {
@@ -147,14 +153,14 @@ void ResSchedReport::TriggerModuleSerializer()
         container->TriggerModuleSerializer();
     };
     if (createPageCount == MODULE_SERIALIZER_COUNT) {
-        taskExecutor->PostTask(serializerTask, TaskExecutor::TaskType::UI, "TriggerModuleSerializer");
+        taskExecutor->PostTask(std::move(serializerTask), TaskExecutor::TaskType::UI, "TriggerModuleSerializer");
         triggerExecuted = true;
         delayTask_.Cancel();
         return;
     }
-    auto task = [taskExecutor, serializerTask]() {
+    auto task = [taskExecutor, originTask = std::move(serializerTask)]() {
         if (!triggerExecuted) {
-            taskExecutor->PostTask(serializerTask, TaskExecutor::TaskType::UI, "TriggerModuleSerializer");
+            taskExecutor->PostTask(originTask, TaskExecutor::TaskType::UI, "TriggerModuleSerializer");
             triggerExecuted = true;
         }
     };
@@ -164,10 +170,20 @@ void ResSchedReport::TriggerModuleSerializer()
     taskExecutor->PostDelayedTask(delayTask_, TaskExecutor::TaskType::UI, delay, "TriggerModuleSerializer");
 }
 
-void ResSchedReport::ResSchedDataReport(const char* name, const std::unordered_map<std::string, std::string>& param)
+void ResSchedReport::ResSchedDataReport(const char* name, const std::unordered_map<std::string, std::string>& param,
+    int64_t tid)
 {
     std::unordered_map<std::string, std::string> payload = param;
     payload[Ressched::NAME] = name;
+#if !defined(MAC_PLATFORM) && !defined(IOS_PLATFORM) && defined(OHOS_PLATFORM)
+    if (tid == ResDefine::INVALID_DATA) {
+        tid = GetTid();
+    }
+    int64_t pid = GetPid();
+    if (pid != tid) {
+        payload["scrTid"] = std::to_string(static_cast<uint64_t>(GetPthreadSelf()));
+    }
+#endif
     if (!reportDataFunc_) {
         reportDataFunc_ = LoadReportDataFunc();
     }
@@ -194,6 +210,11 @@ void ResSchedReport::ResSchedDataReport(const char* name, const std::unordered_m
             { SLIDE_OFF,
                 [this](std::unordered_map<std::string, std::string>& payload) {
                     reportDataFunc_(RES_TYPE_SLIDE, SLIDE_OFF_EVENT, payload);
+                }
+            },
+            { SWIPER_SLIDE_OFF,
+                [this](std::unordered_map<std::string, std::string>& payload) {
+                    reportDataFunc_(RES_TYPE_SLIDE, SWIPER_SLIDE_OFF_EVENT, payload);
                 }
             },
             { POP_PAGE,
@@ -255,6 +276,12 @@ void ResSchedReport::ResSchedDataReport(const char* name, const std::unordered_m
                     reportDataFunc_(RES_TYPE_ABILITY_OR_PAGE_SWITCH, ABILITY_OR_PAGE_SWITCH_END_EVENT, payload);
                 }
             },
+            { BACKPRESSED,
+                [this](std::unordered_map<std::string, std::string>& payload) {
+                    LoadAceApplicationContext(payload);
+                    reportDataFunc_(RES_TYPE_BACKPRESSED_EVENT, 0, payload);
+                }
+            },
         };
     auto it = functionMap.find(name);
     if (it == functionMap.end()) {
@@ -287,14 +314,36 @@ bool ResSchedReport::AppWhiteListCheck(const std::unordered_map<std::string, std
     std::unordered_map<std::string, std::string>& reply)
 {
     ResScheSyncEventReport(RES_TYPE_CHECK_APP_IS_IN_SCHEDULE_LIST, 0, payload, reply);
-    return reply["result"] == "\"true\"" ? true : false;
+    return reply["result"] == "\"true\"";
+}
+
+void ResSchedReport::AppVsyncEnableScene(const std::unordered_map<std::string, std::string>& payload,
+    std::unordered_map<std::string, std::string>& reply)
+{
+    ResScheSyncEventReport(RES_TYPE_CHECK_APP_IS_IN_SCHEDULE_LIST, RSS_VSYNC_SCENE_LIST_VAULE, payload, reply);
+}
+
+bool ResSchedReport::AppRVSEnableCheck(const std::unordered_map<std::string, std::string>& payload,
+    std::unordered_map<std::string, std::string>& reply)
+{
+    ResScheSyncEventReport(RES_TYPE_CHECK_APP_IS_IN_SCHEDULE_LIST, 1, payload, reply);
+    return reply["result"] == "\"true\"";
+}
+
+bool ResSchedReport::AppClickExtEnableCheck(const std::unordered_map<std::string, std::string>& payload,
+    std::unordered_map<std::string, std::string>& reply)
+{
+    ResScheSyncEventReport(SYNC_RES_TYPE_APP_IS_IN_CLICK_REPORT_EXT_LIST, 0, payload, reply);
+    return reply["result"] == "\"true\"";
 }
 
 void ResSchedReport::OnTouchEvent(const TouchEvent& touchEvent, const ReportConfig& config)
 {
     if (!triggerExecuted) {
         auto curContainer = Container::Current();
+        CHECK_NULL_VOID(curContainer);
         auto taskExecutor = curContainer->GetTaskExecutor();
+        CHECK_NULL_VOID(taskExecutor);
         auto serializerTask = [weak = WeakPtr<Container>(curContainer)]() {
             auto container = weak.Upgrade();
             if (!container) {
@@ -303,7 +352,7 @@ void ResSchedReport::OnTouchEvent(const TouchEvent& touchEvent, const ReportConf
             }
             container->TriggerModuleSerializer();
         };
-        taskExecutor->PostTask(serializerTask, TaskExecutor::TaskType::UI, "TriggerModuleSerializer");
+        taskExecutor->PostTask(std::move(serializerTask), TaskExecutor::TaskType::UI, "TriggerModuleSerializer");
         triggerExecuted = true;
     }
     switch (touchEvent.type) {
@@ -414,7 +463,7 @@ void ResSchedReport::HandleTouchDown(const TouchEvent& touchEvent, const ReportC
 void ResSchedReport::HandleKeyDown(const KeyEvent& event)
 {
     std::unordered_map<std::string, std::string> payload;
-    payload[Ressched::NAME] = KEY_EVENT;
+    payload[Ressched::NAME] = RSS_KEY_EVENT;
     payload[KEY_CODE] = std::to_string(static_cast<int>(event.code));
     ResSchedDataReport(RES_TYPE_KEY_EVENT, KEY_DOWN_EVENT, payload);
 }
@@ -436,7 +485,7 @@ void ResSchedReport::HandleTouchUp(const TouchEvent& touchEvent, const ReportCon
 void ResSchedReport::HandleKeyUp(const KeyEvent& event)
 {
     std::unordered_map<std::string, std::string> payload;
-    payload[Ressched::NAME] = KEY_EVENT;
+    payload[Ressched::NAME] = RSS_KEY_EVENT;
     payload[KEY_CODE] = std::to_string(static_cast<int>(event.code));
     ResSchedDataReport(RES_TYPE_KEY_EVENT, KEY_UP_EVENT, payload);
 }
@@ -458,7 +507,7 @@ void ResSchedReport::HandleTouchMove(const TouchEvent& touchEvent, const ReportC
     auto now = std::chrono::steady_clock::now();
     uint64_t curMs = static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
-    if (isInSlide_ && curMs - lastTime >= TIME_INTERVAL) {
+    if (isInSlide_ && curMs > lastTime && curMs - lastTime >= TIME_INTERVAL) {
         lastTime = curMs;
         std::unordered_map<std::string, std::string> payload;
         LoadAceApplicationContext(payload);

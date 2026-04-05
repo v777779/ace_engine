@@ -15,9 +15,9 @@
 
 #include "core/components_ng/pattern/image_animator/image_animator_model_ng.h"
 
+#include "base/image/controlled_animator.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
-#include "core/components_ng/pattern/image_animator/controlled_animator.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -60,7 +60,9 @@ void ImageAnimatorModelNG::SetAutoMonitorInvisibleArea(bool autoMonitorInvisible
 void ImageAnimatorModelNG::SetImages(const std::vector<ImageProperties>& images)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    InitImageNodeInImageAnimator(frameNode);
+    if (!images.empty()) {
+        InitImageNodeInImageAnimator(frameNode);
+    }
     std::vector<ImageProperties> imageList = images;
     GetImageAnimatorPattern()->SetImages(std::move(imageList));
 }
@@ -181,7 +183,9 @@ RefPtr<FrameNode> ImageAnimatorModelNG::CreateFrameNode(int32_t nodeId)
 void ImageAnimatorModelNG::SetImages(FrameNode* frameNode, const std::vector<ImageProperties>& images)
 {
     CHECK_NULL_VOID(frameNode);
-    InitImageNodeInImageAnimator(frameNode);
+    if (!images.empty()) {
+        InitImageNodeInImageAnimator(frameNode);
+    }
     std::vector<ImageProperties> imageList = images;
     auto imageAnimatorPattern = AceType::DynamicCast<ImageAnimatorPattern>(frameNode->GetPattern());
     imageAnimatorPattern->SetImages(std::move(imageList));

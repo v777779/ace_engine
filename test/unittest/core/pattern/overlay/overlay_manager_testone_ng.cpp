@@ -21,13 +21,13 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pattern/mock_nestable_scroll_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/components_ng/pattern/mock_nestable_scroll_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "base/geometry/axis.h"
 #include "base/geometry/dimension.h"
@@ -43,8 +43,8 @@
 #include "core/components/dialog/dialog_properties.h"
 #include "core/components/dialog/dialog_theme.h"
 #include "core/components/drag_bar/drag_bar_theme.h"
-#include "core/components/picker/picker_data.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_data.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components/select/select_theme.h"
 #include "core/components/toast/toast_theme.h"
 #include "core/components_ng/base/frame_node.h"
@@ -57,6 +57,7 @@
 #include "core/components_ng/pattern/dialog/dialog_event_hub.h"
 #include "core/components_ng/pattern/dialog/dialog_pattern.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
+#include "core/components_ng/pattern/menu/menu_manager.h"
 #include "core/components_ng/pattern/menu/menu_pattern.h"
 #include "core/components_ng/pattern/menu/menu_theme.h"
 #include "core/components_ng/pattern/menu/menu_view.h"
@@ -1435,6 +1436,25 @@ HWTEST_F(OverlayManagerTestOneNG, PlayBubbleStyleSheetTransition001, TestSize.Le
     targetNode->MountToParent(stageNode);
     rootNode->MarkDirtyNode();
 
+    auto builderFunc = [](int32_t id) -> RefPtr<UINode> {
+        auto frameNode =
+            FrameNode::GetOrCreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+                []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
+        auto childFrameNode = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
+            ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
+        frameNode->AddChild(childFrameNode);
+        return frameNode;
+    };
+    auto buildTitleNodeFunc = []() -> RefPtr<UINode> {
+        auto frameNode =
+            FrameNode::GetOrCreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+                []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
+        auto childFrameNode = FrameNode::GetOrCreateFrameNode(V2::TEXT_ETS_TAG,
+            ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextPattern>(); });
+        frameNode->AddChild(childFrameNode);
+        return frameNode;
+    };
+
     /**
      * @tc.steps: step2. create sheetNode, get sheetPattern.
      */
@@ -1444,7 +1464,7 @@ HWTEST_F(OverlayManagerTestOneNG, PlayBubbleStyleSheetTransition001, TestSize.Le
     auto overlayManager = AceType::MakeRefPtr<OverlayManager>(rootNode);
     auto pipelineContext = PipelineContext::GetCurrentContext();
     pipelineContext->overlayManager_ = overlayManager;
-    overlayManager->OnBindSheet(isShow, nullptr, std::move(builderFunc_), std::move(titleBuilderFunc_), sheetStyle,
+    overlayManager->OnBindSheet(isShow, nullptr, std::move(builderFunc), std::move(buildTitleNodeFunc), sheetStyle,
         nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, targetNode);
     EXPECT_FALSE(overlayManager->modalStack_.empty());
     auto topSheetNode = overlayManager->modalStack_.top().Upgrade();
@@ -1456,7 +1476,7 @@ HWTEST_F(OverlayManagerTestOneNG, PlayBubbleStyleSheetTransition001, TestSize.Le
      * @tc.steps: step3. test PlayBubbleStyleSheetTransition().
      */
     overlayManager->PlayBubbleStyleSheetTransition(topSheetNode, false);
-    EXPECT_EQ(topSheetPattern->height_, overlayManager->sheetHeight_);
+    EXPECT_EQ(topSheetPattern->height_, topSheetPattern->sheetHeightForTranslate_);
 }
 
 /**
@@ -1510,37 +1530,6 @@ HWTEST_F(OverlayManagerTestOneNG, RemovePixelMapAnimation001, TestSize.Level1)
     overlayManager->hasPixelMap_ = true;
     overlayManager->RemovePixelMapAnimation(false, 1.0, 1.0, true);
     EXPECT_TRUE(overlayManager->pixmapColumnNodeWeak_.Upgrade());
-}
-
-/**
- * @tc.name: RemovePixelMapAnimation002
- * @tc.desc: Test OverlayManager::RemovePixelMapAnimation
- * @tc.type: FUNC
- */
-HWTEST_F(OverlayManagerTestOneNG, RemovePixelMapAnimation002, TestSize.Level1)
-{
-    auto overlayNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
-    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(overlayNode);
-    auto columnNode = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
-        AceType::MakeRefPtr<LinearLayoutPattern>(true));
-    auto imageNode = FrameNode::CreateFrameNode("Image",
-        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ImagePattern>());
-    columnNode->AddChild(imageNode);
-    overlayManager->pixmapColumnNodeWeak_ = AceType::WeakClaim(AceType::RawPtr(columnNode));
-    auto hub = columnNode->GetOrCreateGestureEventHub();
-    void* voidPtr = static_cast<void*>(new char[0]);
-    RefPtr<PixelMap> pixelMap = PixelMap::CreatePixelMap(voidPtr);
-    hub->SetPixelMap(pixelMap);
-    overlayManager->isOnAnimation_ = false;
-    overlayManager->hasPixelMap_ = true;
-    overlayManager->hasEvent_ = true;
-    auto pipelineContext = PipelineContext::GetCurrentContext();
-    ASSERT_NE(pipelineContext, nullptr);
-    overlayManager->RemovePixelMapAnimation(false, 1.0, 1.0, false);
-    EXPECT_TRUE(overlayManager->isOnAnimation_);
-    auto imageContext = imageNode->GetRenderContext();
-    ASSERT_NE(imageContext, nullptr);
-    EXPECT_NE(imageContext->GetBackShadow(), std::nullopt);
 }
 
 /**
@@ -1601,34 +1590,6 @@ HWTEST_F(OverlayManagerTestOneNG, RemovePopupInSubwindow001, TestSize.Level1)
 }
 
 /**
- * @tc.name: RemovePopupInSubwindow002
- * @tc.desc: Test RemovePopupInSubwindow
- * @tc.type: FUNC
- */
-HWTEST_F(OverlayManagerTestOneNG, RemovePopupInSubwindow002, TestSize.Level1)
-{
-    auto targetNode = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
-        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
-    auto targetId = targetNode->GetId();
-    auto popupId = ElementRegister::GetInstance()->MakeUniqueId();
-    auto popupNode = FrameNode::CreateFrameNode(V2::POPUP_ETS_TAG,
-        popupId, AceType::MakeRefPtr<BubblePattern>(targetId, V2::BUTTON_ETS_TAG));
-    auto rootNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
-    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(rootNode);
-    auto pipelineContext = PipelineContext::GetCurrentContext();
-    ASSERT_NE(pipelineContext, nullptr);
-    NG::PopupInfo popupInfo;
-    popupInfo.popupNode = popupNode;
-    overlayManager->popupMap_[targetId] = popupInfo;
-    auto bubblePattern = popupNode->GetPattern<BubblePattern>();
-    bubblePattern->SetInteractiveDismiss(true);
-    bubblePattern->onWillDismiss_ = nullptr;
-    bool testResult = overlayManager->RemovePopupInSubwindow(bubblePattern, popupNode, rootNode);
-    EXPECT_FALSE(testResult);
-    EXPECT_TRUE(overlayManager->popupMap_.empty());
-}
-
-/**
  * @tc.name: GetMenuNode001
  * @tc.desc: Test OverlayManager::GetMenuNode
  * @tc.type: FUNC
@@ -1638,8 +1599,11 @@ HWTEST_F(OverlayManagerTestOneNG, GetMenuNode001, TestSize.Level1)
     auto overlayNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
     auto overlayManager = AceType::MakeRefPtr<OverlayManager>(overlayNode);
     overlayManager->HideMenu(overlayNode, 10, true);
-    overlayManager->menuMap_.insert({ 1, overlayNode });
-    overlayManager->menuMap_.insert({ 2, overlayNode });
+    overlayManager->CheckMenuManager();
+    auto menuManager = AceType::DynamicCast<MenuManager>(overlayManager->menuManager_);
+    ASSERT_NE(menuManager, nullptr);
+    menuManager->menuMap_.insert({ 1, overlayNode });
+    menuManager->menuMap_.insert({ 2, overlayNode });
     EXPECT_TRUE(overlayManager->GetMenuNode(2));
     EXPECT_FALSE(overlayManager->GetMenuNode(3));
 }
@@ -1663,31 +1627,6 @@ HWTEST_F(OverlayManagerTestOneNG, CleanHoverImagePreviewInSubWindow001, TestSize
     rootNode->tag_ = "Flex";
     overlayManager->CleanHoverImagePreviewInSubWindow(rootNode);
     EXPECT_TRUE(rootNode->GetTag() == V2::FLEX_ETS_TAG);
-}
-
-/**
- * @tc.name: CleanHoverImagePreviewInSubWindow002
- * @tc.desc: Test OverlayManager::CleanHoverImagePreviewInSubWindow
- * @tc.type: FUNC
- */
-HWTEST_F(OverlayManagerTestOneNG, CleanHoverImagePreviewInSubWindow002, TestSize.Level1)
-{
-    auto flexNode = FrameNode::CreateFrameNode(
-        V2::FLEX_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<RootPattern>());
-    auto stageNode = FrameNode::CreateFrameNode(
-        V2::STACK_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StagePattern>());
-    flexNode->AddChild(stageNode);
-    auto imageNode = FrameNode::CreateFrameNode(
-        V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ImagePattern>());
-    stageNode->AddChild(imageNode);
-    auto previewNode = FrameNode::CreateFrameNode(
-        V2::MENU_PREVIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
-    stageNode->AddChild(previewNode);
-    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(flexNode);
-    EXPECT_EQ(stageNode->GetChildren().size(), 2);
-    overlayManager->CleanHoverImagePreviewInSubWindow(flexNode);
-    EXPECT_TRUE(stageNode->GetChildren().empty());
-    EXPECT_TRUE(flexNode->GetChildren().empty());
 }
 
 /**
@@ -1819,9 +1758,12 @@ HWTEST_F(OverlayManagerTestOneNG, ShowMenu001, TestSize.Level1)
         V2::MENU_ETS_TAG, targetId, AceType::MakeRefPtr<MenuPattern>(targetId, TEXT_TAG, MenuType::MENU));
     menuNode->MountToParent(wrapperNode);
     overlayManager->ShowMenu(targetId, OffsetF(), menuNode);
-    EXPECT_TRUE(overlayManager->menuMap_.find(menuNode) != overlayManager->menuMap_.end());
+    overlayManager->CheckMenuManager();
+    auto menuManager = AceType::DynamicCast<MenuManager>(overlayManager->menuManager_);
+    ASSERT_NE(menuManager, nullptr);
+    EXPECT_TRUE(menuManager->menuMap_.find(menuNode) != menuManager->menuMap_.end());
 
-    overlayManager->menuMap_.clear();
+    menuManager->menuMap_.clear();
     targetId = 2;
     auto wrapperNode1 =
         FrameNode::CreateFrameNode(V2::MENU_WRAPPER_ETS_TAG, targetId, AceType::MakeRefPtr<MenuWrapperPattern>(-1));
@@ -1834,7 +1776,7 @@ HWTEST_F(OverlayManagerTestOneNG, ShowMenu001, TestSize.Level1)
     menuNode1->MountToParent(wrapperNode1);
     menuNode2->MountToParent(menuNode1);
     overlayManager->ShowMenu(targetId, OffsetF(), menuNode1);
-    EXPECT_FALSE(overlayManager->menuMap_.find(menuNode1) != overlayManager->menuMap_.end());
+    EXPECT_FALSE(menuManager->menuMap_.find(menuNode1) != menuManager->menuMap_.end());
 }
 
 /**

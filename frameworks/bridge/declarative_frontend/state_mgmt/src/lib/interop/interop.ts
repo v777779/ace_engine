@@ -15,6 +15,10 @@
 
 
 function isStaticProxy<T extends Object>(obj: T): boolean {
+    const proto = Object.getPrototypeOf(obj);
+    if (proto && proto._isStaticProxy === true) {
+        return true;
+    }
     const prototype = obj?.constructor?.prototype;
     if (prototype === null || prototype === undefined) {
         return false;
@@ -23,9 +27,101 @@ function isStaticProxy<T extends Object>(obj: T): boolean {
             prototype._isStaticProxy === true;
 }
 
+function isStaticArrayProxy(obj: Object): boolean {
+    const proto = Object.getPrototypeOf(obj);
+    if (proto && Object.prototype.hasOwnProperty.call(proto, 'isStaticArrayProxy_')) {
+        return true;
+    }
+    const prototype = obj?.constructor?.prototype;
+    if (prototype === null || prototype === undefined) {
+        return false;
+    }
+    return Object.prototype.hasOwnProperty.call(prototype, 'isStaticArrayProxy_');
+}
+
+function isStaticMapProxy(obj: Object): boolean {
+    const proto = Object.getPrototypeOf(obj);
+    if (proto && Object.prototype.hasOwnProperty.call(proto, 'isStaticMapProxy_')) {
+        return true;
+    }
+    const prototype = obj?.constructor?.prototype;
+    if (prototype === null || prototype === undefined) {
+        return false;
+    }
+    return Object.prototype.hasOwnProperty.call(prototype, 'isStaticMapProxy_');
+}
+
+function isStaticSetProxy(obj: Object): boolean {
+      const proto = Object.getPrototypeOf(obj);
+    if (proto && Object.prototype.hasOwnProperty.call(proto, 'isStaticSetProxy_')) {
+        return true;
+    }
+    const prototype = obj?.constructor?.prototype;
+    if (prototype === null || prototype === undefined) {
+        return false;
+    }
+    return Object.prototype.hasOwnProperty.call(prototype, 'isStaticSetProxy_');
+}
+
+function deepCopyStaticProxy(
+    obj: any,
+    recursiveCopy: (value: any) => any,
+    copiedObjects: Map<Object, Object>
+): any {
+    if (!isStaticProxy(obj)) {
+        return undefined;
+    }
+
+    let copy: any;
+
+    if (isStaticArrayProxy(obj)) {
+        copy = [];
+        copiedObjects.set(obj, copy);
+        obj.forEach((item: any, index: number) => {
+            copy[index] = recursiveCopy(item);
+        });
+    } else if (isStaticMapProxy(obj)) {
+        copy = new Map<any, any>();
+        copiedObjects.set(obj, copy);
+        obj.forEach((mapValue: any, mapKey: any) => {
+            copy.set(mapKey, recursiveCopy(mapValue));
+        });
+    } else if (isStaticSetProxy(obj)) {
+        copy = new Set<any>();
+        copiedObjects.set(obj, copy);
+        obj.forEach((setValue: any) => {
+            copy.add(recursiveCopy(setValue));
+        });
+    } else {
+        const toJSON: Function | undefined = globalThis.Panda?.STValue?.toJSON;
+        const err: Error = new Error(`Illegal usage of Static object assignment to @Prop is not allowed.`);
+        if (typeof toJSON === 'function') {
+            const json: string = toJSON(obj);
+            if (typeof json === 'string') {
+                const jsonObj: Object = JSON.parse(json);
+                if (typeof jsonObj === 'object' && jsonObj !== null) {
+                    copy = {};
+                    copiedObjects.set(obj, copy);
+                    Object.keys(jsonObj).forEach((objKey: any) => {
+                        copy[objKey] = recursiveCopy(obj[objKey]);
+                    });
+                } else {
+                    throw err;
+                }
+            } else {
+                throw err;
+            }
+        } else {
+            throw err;
+        }
+    }
+
+    return copy;
+}
+
 class SubscribeInterop implements ISinglePropertyChangeSubscriber<Object>{
     private id_: number;
-    constructor(callback: () => void) {
+    constructor(callback: (property: string) => void) {
         this.notifyInterop = callback;
         this.id_ = SubscriberManager.MakeStateVariableId();
         SubscriberManager.Add(this);
@@ -43,26 +139,26 @@ class SubscribeInterop implements ISinglePropertyChangeSubscriber<Object>{
         return;
     }
 
-    public notifyInterop: () => void
+    public notifyInterop: (property: string) => void;
 
     // @Observed no @Track   set to ObservedObject
-    onTrackedObjectPropertyCompatModeHasChangedPU<T>(sourceObject: ObservedObject<T>, changedPropertyName: string)  {
-        this.notifyInterop();
+    onTrackedObjectPropertyCompatModeHasChangedPU<T>(sourceObject: ObservedObject<T>, changedPropertyName: string): void {
+        this.notifyInterop(changedPropertyName);
     }
     
     // @Observed has @Track
-    onTrackedObjectPropertyHasChangedPU<T>(sourceObject: ObservedObject<T>, changedPropertyName: string) {
-        this.notifyInterop();
+    onTrackedObjectPropertyHasChangedPU<T>(sourceObject: ObservedObject<T>, changedPropertyName: string): void {
+        this.notifyInterop(changedPropertyName);
     }
 }
 
 type setValue<T> = (value: T) => void;
 type WatchFuncType = (propertyName: string) => void;
 
-function createStateVariable<T>(value: T, setValueCallback: setValue<T>, notifyCallback: () => void): ObservedPropertyPU<T> {
+function createStateVariable<T>(staticState: Object, value: T, setValueCallback: setValue<T>): ObservedPropertyPU<T> {
     const proxy = new ObservedPropertyPU(value, undefined, 'proxy');
     proxy._setInteropValueForStaticState = setValueCallback;
-    proxy._notifyInteropFireChange = notifyCallback;
+    proxy.setProxy(staticState);
     return proxy;
 }
 
@@ -70,33 +166,6 @@ function updateSetValueCallback(observedProperty, setValueCallback): void {
     observedProperty._setInteropValueForStaticState = setValueCallback;
 }
 
-function updateNotifyCallback(observedProperty, notifyCallback): void {
-    observedProperty._notifyInteropFireChange = notifyCallback;
-}
-
-function resetViewPUFindProvideInterop(): void {
-    ViewPU._resetFindProvide_ViewPU_Interop();
-}
-
-function setFindProvideInterop(callback: (providedPropName: string) => any, view?: ViewPU): void {
-    if (view == null) {
-        ViewPU._findProvide_ViewPU_Interop = callback;
-    } else {
-        view.findProvideInterop = callback;
-    }
-}
-
-function setFindLocalStorageInterop(callback: () => any, view?: ViewPU): void {
-    if (view == null) {
-        ViewPU._findLocalStorage_ViewPU_Interop = callback;
-    } else {
-        view.findLocalStorageInterop = callback;
-    }
-}
-
-function resetViewPUFindLocalStorageInterop(): void {
-    ViewPU._resetFindLocalStorage_ViewPU_Interop();
-}
 
 function viewPUCreate(component: ViewPU): void {
     ViewPU.create(component);
@@ -114,13 +183,25 @@ function getRawObjectForInterop(value: Object): Object {
     return value;
 }
 
-function staticStateBindObservedObject(value: Object, staticCallback: () => void): Object {
-    if (!ObservedObject.IsObservedObject(value)) {
-        value = ObservedObject.createNew(value, null);
+function staticStateBindObservedObject(
+    value: Object,
+    onPropertyChange: () => void,
+    onTrackPropertyRead:(readPropName: string, isTracked: boolean) => void,
+    onTrackPropertyChange: (readPropName: string) => void
+): void {
+    if (TrackedObject.isCompatibilityMode(value)) {
+        const subscribeInterop = new SubscribeInterop((property: string) => {
+            onPropertyChange()
+        });
+        ObservedObject.addOwningProperty(value, subscribeInterop);
+        return;
     }
-    const subscirbeInterop = new SubscribeInterop(staticCallback);
-    ObservedObject.addOwningProperty(value, subscirbeInterop);
-    return value;
+    const subscribeInterop = new SubscribeInterop(onTrackPropertyChange);
+    const observedObject = new ObservedPropertyObjectPU<Object>(value, undefined, undefined);
+    ObservedObject.addOwningProperty(value, subscribeInterop);
+    ObservedObject.registerPropertyReadCb(value, (readObject: Object, readPropName: string, isTracked: boolean) => {
+        onTrackPropertyRead(readPropName, isTracked)
+    }, observedObject)
 }
 
 function __Interop_CreateStaticComponent_Internal(
@@ -129,42 +210,85 @@ function __Interop_CreateStaticComponent_Internal(
     content?: () => void
 ): [() => void, number] {
     if (InteropExtractorModule.compatibleStaticComponent === undefined) {
-        throw new Error('Non Method For Create StaticComponent');
+        // only happened in toolchain error, internal error
+        throw new BusinessError(NOT_IMPLEMENT, 'No compatibleStaticComponent Method For Create StaticComponent');
     }
     return InteropExtractorModule.compatibleStaticComponent(factory, options, content);
 }
 
 function __Interop_UpdateInteropExtendableComponent_Internal(dynamicComponent: Object): void {
     if (InteropExtractorModule.updateInteropExtendableComponent === undefined) {
-        throw new Error('Non Method For update InteropExtendableComponent');
+        // only happened in toolchain error, internal error
+        throw new BusinessError(NOT_IMPLEMENT, 'No updateInteropExtendableComponent method For update InteropExtendableComponent');
     }
     return InteropExtractorModule.updateInteropExtendableComponent(dynamicComponent);
 }
 
 function __Interop_ResetInteropExtendableComponent_Internal(): void {
     if (InteropExtractorModule.resetInteropExtendableComponent === undefined) {
-        throw new Error('Non Method For reset InteropExtendableComponent');
+        // only happened in toolchain error, internal error
+        throw new BusinessError(NOT_IMPLEMENT, 'No resetInteropExtendableComponent method For reset InteropExtendableComponent');
     }
     return InteropExtractorModule.resetInteropExtendableComponent();
 }
 
 function __Interop_TransferCompatibleBuilder_Internal(builder: (...args: any[]) => void): (...args: any[]) => void {
     if(InteropExtractorModule.transferCompatibleBuilder === undefined) {
-        throw new Error('Non Method For Transfer CompatibleBuilder');
+        // only happened in toolchain error, internal error
+        throw new BusinessError(NOT_IMPLEMENT, 'No transferCompatibleBuilder method For Transfer CompatibleBuilder');
     }
     return InteropExtractorModule.transferCompatibleBuilder(builder);
 }
 
 function __Interop_transferCompatibleDynamicBuilder_Internal(builder: (...args: any[]) => void): (...args: any[]) => void {
     if(InteropExtractorModule.transferCompatibleDynamicBuilder === undefined) {
-        throw new Error('Non Method For Transfer Compatible Dynamic Builder');
+        // only happened in toolchain error, internal error
+        throw new BusinessError(NOT_IMPLEMENT, 'No transferCompatibleDynamicBuilder method For Transfer Compatible Dynamic Builder');
     }
     return InteropExtractorModule.transferCompatibleDynamicBuilder(builder);
 }
 
-function __Interop_createCompatibleStaticState_Internal(value: Object) {
+function __Interop_createCompatibleStaticState_Internal(value: Object): Object {
     if(InteropExtractorModule.createCompatibleStaticState === undefined) {
-        throw new Error('Non Method For createCompatibleStaticState');
+        // only happened in toolchain error, internal error
+        throw new BusinessError(NOT_IMPLEMENT, 'No createCompatibleStaticState method For createCompatibleStaticState');
+    }
+    if (value instanceof SynchedPropertyTwoWayPU<Object>) {
+        value = value.getRootSource();
     }
     return InteropExtractorModule.createCompatibleStaticState(value);
+}
+
+function __Interop_TransferCompatibleUpdatableBuilder_Internal(builder: (...args: any[]) => void): (...args: any[]) => void {
+    if(InteropExtractorModule.transferCompatibleUpdatableBuilder === undefined) {
+        // only happened in toolchain error, internal error
+        throw new BusinessError(NOT_IMPLEMENT, 'No transferCompatibleUpdatableBuilder method For Transfer CompatibleUpdatableBuilder');
+    }
+    return InteropExtractorModule.transferCompatibleUpdatableBuilder(builder);
+}
+
+function createObservedObject(value: Object): Object {
+    if (!ObservedObject.IsObservedObject(value)) {
+        value = ObservedObject.createNew(value, null);
+    }
+    return value;
+}
+
+function createV2ObservedObject(value: Object): Object {
+    if (!ObserveV2.IsObservedObjectV2(value) && !ObserveV2.IsMakeObserved(value) && !ObserveV2.IsProxiedObservedV2(value)) {
+        value = ObserveV2.autoProxyObject({ interopV2Value: value }, 'interopV2Value');
+    }
+    return value;
+}
+
+function invokeObserveFireChange(target: Object, key: string): void {
+    ObserveV2.getObserve().fireChange(RefInfo.get(UIUtilsImpl.instance().getTarget(target)), key);
+}
+
+function createMutableBinding(getter: () => Object, setter: (newValue: Object) => void): MutableBinding<Object> {
+    return UIUtilsImpl.instance().makeBinding(getter, setter);
+}
+
+function createBinding(getter: () => Object): Binding<Object> {
+    return UIUtilsImpl.instance().makeBinding(getter);
 }

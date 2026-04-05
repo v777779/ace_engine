@@ -18,15 +18,43 @@
 #include "native_node.h"
 #include "native_type.h"
 #include "node_component_snapshot.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/interfaces/arkoala/arkoala_api.h"
+#include "node/node_model.h"
+
+namespace {
+struct MockDelegate {
+    int32_t GetSizeLimitation(int32_t* maxWidth, int32_t* maxHeight)
+    {
+        return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+    }
+};
+
+class ScopedDelegate {
+public:
+    ScopedDelegate() : delegate_(new MockDelegate()) {}
+    ~ScopedDelegate() { delete delegate_; }
+    MockDelegate* operator->() { return delegate_; }
+
+private:
+    MockDelegate* delegate_;
+};
+
+ArkUISnapshotAPI g_mockSnapshotAPI;
+} // namespace
 
 using namespace testing;
 using namespace testing::ext;
 
 namespace OHOS::Ace {
+namespace {
+const int DEFAULT_COLORSPACE_VALUE = 4;
+const int DEFAULT_DYNAMICRANGE_VALUE = 2;
+const int TEST_COLORSPACE_VALUE = 1;
+const int TEST_DYNAMICRANGE_VALUE = 1;
+} // namespace
 class SnapshotTest : public testing::Test {
 public:
     static void SetUpTestSuite()
@@ -140,4 +168,282 @@ HWTEST_F(SnapshotTest, SnapshotTest005, TestSize.Level1)
     EXPECT_EQ(result, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
 }
 
+/**
+ * @tc.name: SnapshotTest006
+ * @tc.desc: Test OH_ArkUI_SnapshotOptions_SetScale function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SnapshotTest, SnapshotTest006, TestSize.Level1)
+{
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto node = nodeAPI->createNode(ARKUI_NODE_COLUMN);
+    auto button = nodeAPI->createNode(ARKUI_NODE_BUTTON);
+    ArkUI_NumberValue value[] = { { .f32 = 150 } };
+    ArkUI_AttributeItem item = { value, 1 };
+    nodeAPI->setAttribute(button, NODE_WIDTH, &item);
+    nodeAPI->setAttribute(button, NODE_HEIGHT, &item);
+    nodeAPI->addChild(node, button);
+    auto options = OH_ArkUI_CreateSnapshotOptions();
+    ASSERT_NE(options, nullptr);
+    EXPECT_EQ(OH_ArkUI_SnapshotOptions_SetScale(options, -1.0f), ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+}
+
+/**
+ * @tc.name: SnapshotTestColorMode001
+ * @tc.desc: Test OH_ArkUI_SnapshotOptions_SetColorMode function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SnapshotTest, SnapshotTestColorMode001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. init node and snapshot options.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto node = nodeAPI->createNode(ARKUI_NODE_COLUMN);
+    auto button = nodeAPI->createNode(ARKUI_NODE_BUTTON);
+    ArkUI_NumberValue value[] = { { .f32 = 150 } };
+    ArkUI_AttributeItem item = { value, 1 };
+    nodeAPI->setAttribute(button, NODE_WIDTH, &item);
+    nodeAPI->setAttribute(button, NODE_HEIGHT, &item);
+    nodeAPI->addChild(node, button);
+    auto options = OH_ArkUI_CreateSnapshotOptions();
+    ASSERT_NE(options, nullptr);
+
+    /**
+     * @tc.steps: step2. check default color mode value.
+     */
+    auto opt = reinterpret_cast<ArkUISnapshotOptions*>(options);
+    EXPECT_EQ(opt->colorSpaceModeOptions.colorSpaceMode, DEFAULT_COLORSPACE_VALUE);
+    EXPECT_EQ(opt->colorSpaceModeOptions.isAuto, false);
+}
+
+/**
+ * @tc.name: SnapshotTestColorMode002
+ * @tc.desc: Test OH_ArkUI_SnapshotOptions_SetColorMode function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SnapshotTest, SnapshotTestColorMode002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. init node and snapshot options.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto node = nodeAPI->createNode(ARKUI_NODE_COLUMN);
+    auto button = nodeAPI->createNode(ARKUI_NODE_BUTTON);
+    ArkUI_NumberValue value[] = { { .f32 = 150 } };
+    ArkUI_AttributeItem item = { value, 1 };
+    nodeAPI->setAttribute(button, NODE_WIDTH, &item);
+    nodeAPI->setAttribute(button, NODE_HEIGHT, &item);
+    nodeAPI->addChild(node, button);
+    auto options = OH_ArkUI_CreateSnapshotOptions();
+    ASSERT_NE(options, nullptr);
+
+    /**
+     * @tc.steps: step2. set color mode value with TEST_COLORSPACE_VALUE and false.
+     */
+    auto opt = reinterpret_cast<ArkUISnapshotOptions*>(options);
+    auto result = OH_ArkUI_SnapshotOptions_SetColorMode(options, TEST_COLORSPACE_VALUE, false);
+
+    /**
+     * @tc.steps: step3. check set color mode value.
+     */
+    ASSERT_EQ(result, ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_EQ(opt->colorSpaceModeOptions.colorSpaceMode, TEST_COLORSPACE_VALUE);
+    EXPECT_EQ(opt->colorSpaceModeOptions.isAuto, false);
+}
+
+/**
+ * @tc.name: SnapshotTestColorMode003
+ * @tc.desc: Test OH_ArkUI_SnapshotOptions_SetColorMode function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SnapshotTest, SnapshotTestColorMode003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. init node and snapshot options.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto node = nodeAPI->createNode(ARKUI_NODE_COLUMN);
+    auto button = nodeAPI->createNode(ARKUI_NODE_BUTTON);
+    ArkUI_NumberValue value[] = { { .f32 = 150 } };
+    ArkUI_AttributeItem item = { value, 1 };
+    nodeAPI->setAttribute(button, NODE_WIDTH, &item);
+    nodeAPI->setAttribute(button, NODE_HEIGHT, &item);
+    nodeAPI->addChild(node, button);
+    auto options = OH_ArkUI_CreateSnapshotOptions();
+    ASSERT_NE(options, nullptr);
+
+    /**
+    * @tc.steps: step2. set color mode value with TEST_COLORSPACE_VALUE and true.
+    */
+    auto opt = reinterpret_cast<ArkUISnapshotOptions*>(options);
+    auto result = OH_ArkUI_SnapshotOptions_SetColorMode(options, TEST_COLORSPACE_VALUE, true);
+
+    /**
+    * @tc.steps: step3. check set color mode value.
+    */
+    ASSERT_EQ(result, ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_EQ(opt->colorSpaceModeOptions.colorSpaceMode, TEST_COLORSPACE_VALUE);
+    EXPECT_EQ(opt->colorSpaceModeOptions.isAuto, true);
+}
+
+/**
+ * @tc.name: SnapshotTestDynamicRange001
+ * @tc.desc: Test OH_ArkUI_SnapshotOptions_SetColorMode function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SnapshotTest, SnapshotTestDynamicRange001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. init node and snapshot options.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto node = nodeAPI->createNode(ARKUI_NODE_COLUMN);
+    auto button = nodeAPI->createNode(ARKUI_NODE_BUTTON);
+    ArkUI_NumberValue value[] = { { .f32 = 150 } };
+    ArkUI_AttributeItem item = { value, 1 };
+    nodeAPI->setAttribute(button, NODE_WIDTH, &item);
+    nodeAPI->setAttribute(button, NODE_HEIGHT, &item);
+    nodeAPI->addChild(node, button);
+    auto options = OH_ArkUI_CreateSnapshotOptions();
+    ASSERT_NE(options, nullptr);
+
+    /**
+     * @tc.steps: step2. check default dynamic range mode value.
+     */
+    auto opt = reinterpret_cast<ArkUISnapshotOptions*>(options);
+    EXPECT_EQ(opt->dynamicRangeModeOptions.dynamicRangeMode, DEFAULT_DYNAMICRANGE_VALUE);
+    EXPECT_EQ(opt->dynamicRangeModeOptions.isAuto, false);
+}
+
+/**
+ * @tc.name: SnapshotTestDynamicRange002
+ * @tc.desc: Test OH_ArkUI_SnapshotOptions_SetColorMode function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SnapshotTest, SnapshotTestDynamicRange002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. init node and snapshot options.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto node = nodeAPI->createNode(ARKUI_NODE_COLUMN);
+    auto button = nodeAPI->createNode(ARKUI_NODE_BUTTON);
+    ArkUI_NumberValue value[] = { { .f32 = 150 } };
+    ArkUI_AttributeItem item = { value, 1 };
+    nodeAPI->setAttribute(button, NODE_WIDTH, &item);
+    nodeAPI->setAttribute(button, NODE_HEIGHT, &item);
+    nodeAPI->addChild(node, button);
+    auto options = OH_ArkUI_CreateSnapshotOptions();
+    ASSERT_NE(options, nullptr);
+
+    /**
+     * @tc.steps: step2. set dynamic range mode value with TEST_DYNAMICRANGE_VALUE and false.
+     */
+    auto opt = reinterpret_cast<ArkUISnapshotOptions*>(options);
+    auto result = OH_ArkUI_SnapshotOptions_SetDynamicRangeMode(options, TEST_DYNAMICRANGE_VALUE, false);
+
+    /**
+     * @tc.steps: step3. check set dynamic range mode value.
+     */
+    ASSERT_EQ(result, ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_EQ(opt->dynamicRangeModeOptions.dynamicRangeMode, TEST_DYNAMICRANGE_VALUE);
+    EXPECT_EQ(opt->dynamicRangeModeOptions.isAuto, false);
+}
+
+/**
+ * @tc.name: SnapshotTestDynamicRange003
+ * @tc.desc: Test OH_ArkUI_SnapshotOptions_SetDynamicRange function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SnapshotTest, SnapshotTestDynamicRange003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. init node and snapshot options.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto node = nodeAPI->createNode(ARKUI_NODE_COLUMN);
+    auto button = nodeAPI->createNode(ARKUI_NODE_BUTTON);
+    ArkUI_NumberValue value[] = { { .f32 = 150 } };
+    ArkUI_AttributeItem item = { value, 1 };
+    nodeAPI->setAttribute(button, NODE_WIDTH, &item);
+    nodeAPI->setAttribute(button, NODE_HEIGHT, &item);
+    nodeAPI->addChild(node, button);
+    auto options = OH_ArkUI_CreateSnapshotOptions();
+    ASSERT_NE(options, nullptr);
+
+    /**
+     * @tc.steps: step2. set dynamic range mode value with TEST_DYNAMICRANGE_VALUE and true.
+     */
+    auto opt = reinterpret_cast<ArkUISnapshotOptions*>(options);
+    auto result = OH_ArkUI_SnapshotOptions_SetDynamicRangeMode(options, TEST_DYNAMICRANGE_VALUE, true);
+
+    /**
+     * @tc.steps: step3. check set dynamic range mode value.
+     */
+    ASSERT_EQ(result, ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_EQ(opt->dynamicRangeModeOptions.dynamicRangeMode, TEST_DYNAMICRANGE_VALUE);
+    EXPECT_EQ(opt->dynamicRangeModeOptions.isAuto, true);
+}
+
+/**
+ * @tc.name: SnapshotTest007
+ * @tc.desc: Test OH_ArkUI_GetNodeSnapshot function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SnapshotTest, SnapshotTest007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. init node and snapshot options.
+     */
+    OH_PixelmapNative* pixelmap = nullptr;
+    auto options = OH_ArkUI_CreateSnapshotOptions();
+    ASSERT_NE(options, nullptr);
+    OH_ArkUI_SnapshotOptions_SetScale(options, 1.5f);
+    /**
+     * @tc.steps: step2. call OH_ArkUI_GetNodeSnapshot with null node.
+     * @tc.expected: step2. result is ARKUI_ERROR_CODE_PARAM_INVALID.
+     */
+    auto result = OH_ArkUI_GetNodeSnapshot(nullptr, options, &pixelmap);
+    EXPECT_EQ(result, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+}
+
+/**
+ * @tc.name: SnapshotTest008
+ * @tc.desc: Test OH_ArkUI_GetNodeSnapshotSizeLimitation function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SnapshotTest, SnapshotTest008, TestSize.Level1)
+{
+    auto fullImpl = const_cast<ArkUIFullNodeAPI*>(OHOS::Ace::NodeModel::GetFullImpl());
+    auto originGetSnapshotAPI = fullImpl->getSnapshotAPI;
+    if (originGetSnapshotAPI) {
+        g_mockSnapshotAPI = *originGetSnapshotAPI();
+    }
+    g_mockSnapshotAPI.getSizeLimitation = [](int32_t* maxWidth, int32_t* maxHeight) -> int32_t {
+        ScopedDelegate delegate;
+        return delegate->GetSizeLimitation(maxWidth, maxHeight);
+    };
+    fullImpl->getSnapshotAPI = []() -> const ArkUISnapshotAPI* {
+        return &g_mockSnapshotAPI;
+    };
+    int32_t maxWidth = 0;
+    int32_t maxHeight = 0;
+    EXPECT_EQ(OH_ArkUI_GetNodeSnapshotSizeLimitation(&maxWidth, nullptr),
+        ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    EXPECT_EQ(OH_ArkUI_GetNodeSnapshotSizeLimitation(nullptr, &maxHeight),
+        ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    EXPECT_EQ(OH_ArkUI_GetNodeSnapshotSizeLimitation(nullptr, nullptr),
+        ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    EXPECT_EQ(OH_ArkUI_GetNodeSnapshotSizeLimitation(&maxWidth, &maxHeight),
+        ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR);
+    fullImpl->getSnapshotAPI = originGetSnapshotAPI;
+}
 } // namespace OHOS::Ace

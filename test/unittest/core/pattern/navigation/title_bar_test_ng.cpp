@@ -37,11 +37,12 @@
 #include "core/components_ng/pattern/navigation/bar_item_event_hub.h"
 #include "core/components_ng/pattern/navigation/navigation_declaration.h"
 #include "core/components_ng/pattern/navigation/navigation_title_util.h"
+#include "core/components_ng/pattern/overlay/sheet_presentation_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_v2/inspector/inspector_constants.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -2449,6 +2450,8 @@ HWTEST_F(TitleBarTestNg, CreateBarItemIconNode, TestSize.Level1)
     ASSERT_NE(navigationTheme, nullptr);
     BarItem barItem;
     barItem.icon = "icon";
+    barItem.bundleName = "com.example.test";
+    barItem.moduleName = "entry";
     bool isButtonEnable = true;
     AceApplicationInfo::GetInstance().SetApiTargetVersion(static_cast<int32_t>(PlatformVersion::VERSION_TWELVE));
 
@@ -2462,6 +2465,8 @@ HWTEST_F(TitleBarTestNg, CreateBarItemIconNode, TestSize.Level1)
     ASSERT_NE(imageLayoutProperty, nullptr);
     auto info = imageLayoutProperty->GetImageSourceInfo().value();
     EXPECT_EQ(navigationTheme->GetIconColor(), info.GetFillColor());
+    EXPECT_EQ(info.GetBundleName(), "com.example.test");
+    EXPECT_EQ(info.GetModuleName(), "entry");
 }
 
 /**
@@ -2822,14 +2827,14 @@ HWTEST_F(TitleBarTestNg, CreateOrUpdateMainTitle1, TestSize.Level1)
 HWTEST_F(TitleBarTestNg, CreateOrUpdateMainTitle2, TestSize.Level1)
 {
     /**
-     * @tc.steps: step1. create titleBarNode
+     * @tc.steps: step1. create titleBarNode.
      */
     auto titleBarNode = TitleBarNode::GetOrCreateTitleBarNode(V2::TITLE_BAR_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TitleBarPattern>(); });
     ASSERT_NE(titleBarNode, nullptr);
 
     /**
-     * @tc.steps: step2. createtitle and check it
+     * @tc.steps: step2. createtitle and check it.
      */
     NG::NavigationTitleInfo info = { false, true, "sub", "main" };
 
@@ -2840,5 +2845,70 @@ HWTEST_F(TitleBarTestNg, CreateOrUpdateMainTitle2, TestSize.Level1)
     ASSERT_NE(textLayout, nullptr);
     auto value = textLayout->GetContent().value_or(u"");
     EXPECT_EQ(value, UtfUtils::Str8DebugToStr16("main"));
+}
+
+/**
+ * @tc.name: test ToJsonValue
+ * @tc.desc: nobranch
+ * @tc.type: FUNC
+ */
+HWTEST_F(TitleBarTestNg, ToJsonValue, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create titleBarNode.
+     */
+    auto titleBarNode = TitleBarNode::GetOrCreateTitleBarNode(V2::TITLE_BAR_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TitleBarPattern>(); });
+    ASSERT_NE(titleBarNode, nullptr);
+
+    /**
+     * @tc.steps: step2. setcolor and test
+     */
+    auto ctx = titleBarNode->GetRenderContext();
+    ASSERT_NE(ctx, nullptr);
+    ctx->UpdateBackgroundColor(Color::RED);
+
+    std::unique_ptr<JsonValue> json = JsonUtil::Create(true);
+    InspectorFilter filter;
+    titleBarNode->ToJsonValue(json, filter);
+    ASSERT_NE(json->GetString("backgroundColor"), "0xffff0000");
+}
+
+/**
+ * @tc.name: IsChildEmpty001
+ * @tc.desc: Test IsChildEmpty when all elements are empty
+ * @tc.type: FUNC
+ */
+HWTEST_F(TitleBarTestNg, IsChildEmpty001, TestSize.Level1)
+{
+    auto titleBarNode = TitleBarNode::GetOrCreateTitleBarNode(V2::TITLE_BAR_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TitleBarPattern>(); });
+    ASSERT_NE(titleBarNode, nullptr);
+    EXPECT_TRUE(titleBarNode->IsChildEmpty());
+
+    auto titleNode = FrameNode::GetOrCreateFrameNode(V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<TextPattern>(); });
+    titleBarNode->SetTitle(titleNode);
+    EXPECT_FALSE(titleBarNode->IsChildEmpty());
+}
+
+/**
+ * @tc.name: OnAttachToMainTree
+ * @tc.desc: Test isParentModalOrSheet value
+ * @tc.type: FUNC
+ */
+HWTEST_F(TitleBarTestNg, OnAttachToMainTree001, TestSize.Level1)
+{
+    auto titleBarNode = TitleBarNode::GetOrCreateTitleBarNode(V2::TITLE_BAR_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TitleBarPattern>(); });
+    ASSERT_NE(titleBarNode, nullptr);
+
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(-1, V2::BUTTON_ETS_TAG, nullptr));
+    EXPECT_FALSE(titleBarNode->isParentModalOrSheet_);
+
+    sheetNode->AddChild(titleBarNode);
+    titleBarNode->OnAttachToMainTree(false);
+    EXPECT_TRUE(titleBarNode->isParentModalOrSheet_);
 }
 } // namespace OHOS::Ace::NG

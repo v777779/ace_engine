@@ -75,12 +75,14 @@ struct DragPointerEvent final : public PointerEvent {
     SourceTool sourceTool = SourceTool::UNKNOWN;
     int32_t targetWindowId = -1;
     std::shared_ptr<MMI::PointerEvent> rawPointerEvent;
-    std::vector<KeyCode> pressedKeyCodes;
     PointerAction action = PointerAction::UNKNOWN;
+    std::vector<KeyCode> pressedKeyCodes;
     std::vector<DragPointerEvent> history;
     int32_t displayId = 0;
     int32_t sourceType = 0;
     int32_t originId = 0;
+    std::string signature;
+    DragEventData dragEventData;
 
     DragPointerEvent() = default;
     DragPointerEvent(float x, float y)
@@ -106,9 +108,9 @@ struct DragPointerEvent final : public PointerEvent {
     Point GetPoint() const
     {
         if (!x && !y) {
-            return Point(windowX, windowY, displayX, displayY);
+            return Point(windowX, windowY, displayX, displayY, globalDisplayX, globalDisplayY);
         } else {
-            return Point(x, y, x, y);
+            return Point(x, y, x, y, globalDisplayX, globalDisplayY);
         }
     }
 
@@ -144,7 +146,16 @@ struct DragPointerEvent final : public PointerEvent {
 
     int32_t GetTargetDisplayId() const
     {
-        return targetWindowId;
+        return displayId;
+    }
+
+    void reset()
+    {
+        sourceTool = SourceTool::UNKNOWN;
+        action = PointerAction::UNKNOWN;
+        rawPointerEvent = nullptr;
+        pressedKeyCodes.clear();
+        history.clear();
     }
 };
 } // namespace OHOS::Ace

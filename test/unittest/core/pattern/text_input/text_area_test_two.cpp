@@ -666,6 +666,24 @@ HWTEST_F(TextAreaTestTwo, UpdateHoverStyle006, TestSize.Level1)
 }
 
 /**
+ * @tc.name: UpdateHoverStyle007
+ * @tc.desc: Test is textarea, UpdateHoverStyle(), case set HoverEffectType
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextAreaTestTwo, UpdateHoverStyle007, TestSize.Level1)
+{
+    CreateTextField(DEFAULT_TEXT, "", [](TextFieldModelNG model) { model.SetBackgroundColor(Color::RED, false); });
+    pattern_->hoverAndPressBgColorEnabled_ = true;
+    bool isHover = true;
+    auto eventHub = frameNode_->GetEventHub<EventHub>();
+    auto inputEventHub = eventHub->GetOrCreateInputEventHub();
+    inputEventHub->SetHoverEffect(HoverEffectType::SCALE);
+    pattern_->UpdateHoverStyle(isHover);
+    auto renderContext = frameNode_->GetRenderContext();
+    EXPECT_EQ(renderContext->GetBackgroundColorValue(), Color::RED);
+}
+
+/**
  * @tc.name: UpdatePressStyle001
  * @tc.desc: Test is textarea, UpdatePressStyle(), case hoverAndPressBgColorEnabled_ = false, branch 1-1
  * @tc.type: FUNC
@@ -844,5 +862,96 @@ HWTEST_F(TextAreaTestTwo, CalcMeasureContentWithMinLines003, TestSize.Level1)
     FlushLayoutTask(frameNode_);
     minLinesContentSize = geometryNode->GetContentSize();
     EXPECT_EQ(minLinesContentSize.Height(), 200);
+}
+
+/**
+ * @tc.name: TextAreaReMeasureContentForPlaceHolder
+ * @tc.desc: test should re-measure placeholder when counter is visible.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextAreaTestTwo, ShouldReMeasurePlaceholder, TestSize.Level1)
+{
+    CreateTextField(DEFAULT_TEXT, "", [](TextFieldModelNG model) {});
+    layoutProperty_->UpdateShowCounter(true);
+    layoutProperty_->UpdateMaxLength(100);
+    auto localParagraph = MockParagraph::GetOrCreateMockParagraph();
+    EXPECT_CALL(*localParagraph, GetLineCount()).WillRepeatedly([]() { return 5; });
+    auto textAreaLayoutAlgorithm = AccessibilityManager::MakeRefPtr<TextAreaLayoutAlgorithm>();
+    textAreaLayoutAlgorithm->paragraph_ = localParagraph;
+    textAreaLayoutAlgorithm->isPlaceHolderOverSize_ = true;
+    auto counterDecorator = AccessibilityManager::MakeRefPtr<CounterDecorator>(pattern_->GetHost());
+    pattern_->counterDecorator_ = counterDecorator;
+    counterDecorator->BuildDecorator();
+    auto textNode = counterDecorator->textNode_.Upgrade();
+    ASSERT_NE(textNode, nullptr);
+    auto textLayoutProperty = AceType::DynamicCast<TextLayoutProperty>(textNode->GetLayoutProperty());
+    ASSERT_NE(textLayoutProperty, nullptr);
+    textLayoutProperty->UpdateContent("1/10");
+    auto ret = textAreaLayoutAlgorithm->ShouldReMeasurePlaceholder(pattern_);
+    EXPECT_TRUE(ret);
+}
+
+/**
+ * @tc.name: ToJsonValue112
+ * @tc.desc: Test TextFieldLayoutProperty ToJsonValue.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextAreaTestTwo, ToJsonValue112, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create textFrameNode.
+     */
+    CreateTextField(DEFAULT_TEXT, "", [](TextFieldModelNG model) { model.SetIsOnlyBetweenLines(true); });
+
+    /**
+     * @tc.steps: step2. run ToJsonValue().
+     */
+    InspectorFilter filter;
+    auto json = JsonUtil::Create(true);
+    layoutProperty_->ToJsonValue(json, filter);
+    EXPECT_EQ(json->GetString("selectedDragPreviewStyle"), "#FFFFFFFF");
+}
+
+/**
+ * @tc.name: CloseHandleAndSelect002
+ * @tc.desc: Test CloseHandleAndSelect.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextAreaTestTwo, CloseHandleAndSelect002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create textFrameNode.
+     */
+    CreateTextField(DEFAULT_TEXT, "", [](TextFieldModelNG model) { model.SetIsOnlyBetweenLines(true); });
+
+    /**
+     * @tc.steps: step2. run CloseHandleAndSelect().
+     */
+    auto showSelect = true;
+    ASSERT_NE(pattern_, nullptr);
+    pattern_->CloseHandleAndSelect();
+    showSelect = pattern_->showSelect_;
+    EXPECT_EQ(showSelect, false);
+}
+
+/**
+ * @tc.name: TextPatternGetWindowIdFromPipeline002
+ * @tc.desc: Test TextPattern GetWindowIdFromPipeline
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextAreaTestTwo, TextPatternGetWindowIdFromPipeline002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode and test pattern IsShowHandle
+     */
+    CreateTextField();
+    auto textFieldNode = FrameNode::GetOrCreateFrameNode(V2::TEXTINPUT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextFieldPattern>(); });
+    ASSERT_NE(textFieldNode, nullptr);
+    textFieldNode->SetParent(frameNode_);
+    RefPtr<TextFieldPattern> pattern = textFieldNode->GetPattern<TextFieldPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto windowId = pattern->GetWindowIdFromPipeline();
+    EXPECT_EQ(windowId, 0);
 }
 } // namespace OHOS::Ace::NG

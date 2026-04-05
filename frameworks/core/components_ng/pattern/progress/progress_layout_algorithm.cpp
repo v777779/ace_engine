@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2022 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -33,6 +33,7 @@ namespace OHOS::Ace::NG {
 namespace {
 const Dimension DEFALT_RING_DIAMETER = 72.0_vp;
 const Dimension DEFALT_CAPSULE_WIDTH = 28.0_vp;
+constexpr float ZERO_MEASURE_CONTENT_SIZE = 0.0f;
 } // namespace
 ProgressLayoutAlgorithm::ProgressLayoutAlgorithm() = default;
 
@@ -44,7 +45,7 @@ std::optional<SizeF> ProgressLayoutAlgorithm::MeasureContent(
     auto pattern = host->GetPattern<ProgressPattern>();
     CHECK_NULL_RETURN(pattern, std::nullopt);
     if (pattern->UseContentModifier()) {
-        if (host->GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_EIGHTEEN)) {
+        if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_EIGHTEEN)) {
             host->GetGeometryNode()->ResetContent();
         } else {
             host->GetGeometryNode()->Reset();
@@ -56,9 +57,15 @@ std::optional<SizeF> ProgressLayoutAlgorithm::MeasureContent(
     if (Container::LessThanAPIVersion(PlatformVersion::VERSION_TEN)) {
         return MeasureContentForApiNine(contentConstraint, layoutWrapper);
     }
-    auto progressTheme = pipeline->GetTheme<ProgressTheme>(host->GetThemeScopeId());
+    auto progressTheme = pipeline->GetTheme<ProgressTheme>();
     auto progressLayoutProperty = DynamicCast<ProgressLayoutProperty>(layoutWrapper->GetLayoutProperty());
     CHECK_NULL_RETURN(progressLayoutProperty, std::nullopt);
+    auto layoutProperty = AceType::DynamicCast<LayoutProperty>(layoutWrapper->GetLayoutProperty());
+    CHECK_NULL_RETURN(layoutProperty, std::nullopt);
+    auto layoutPolicy = layoutProperty->GetLayoutPolicyProperty();
+    if (layoutPolicy.has_value() && (layoutPolicy->IsWrap() || layoutPolicy->IsFix())) {
+        return SizeF(ZERO_MEASURE_CONTENT_SIZE, ZERO_MEASURE_CONTENT_SIZE);
+    }
     type_ = progressLayoutProperty->GetType().value_or(ProgressType::LINEAR);
     Dimension defaultThickness;
     if (progressTheme) {
@@ -73,7 +80,22 @@ std::optional<SizeF> ProgressLayoutAlgorithm::MeasureContent(
         progressTheme ? progressTheme->GetRingDiameter().ConvertToPx() : DEFALT_RING_DIAMETER.ConvertToPx();
     auto selfIdealWidth = contentConstraint.selfIdealSize.Width();
     auto selfIdealHeight = contentConstraint.selfIdealSize.Height();
-    float width_ = selfIdealWidth.value_or(contentConstraint.percentReference.Width());
+    if (layoutPolicy.has_value()) {
+        if (layoutPolicy->IsWidthMatch()) {
+            selfIdealWidth = contentConstraint.parentIdealSize.Width();
+        }
+        if (layoutPolicy->IsHeightMatch()) {
+            selfIdealHeight = contentConstraint.parentIdealSize.Height();
+        }
+    }
+    float width_ = 0.0f;
+    if (selfIdealWidth) {
+        width_ = selfIdealWidth.value();
+    } else {
+        auto percentReference = contentConstraint.percentReference;
+        percentReference.Constrain(contentConstraint.minSize, contentConstraint.maxSize, true);
+        width_ = percentReference.Width();
+    }
     float height_ = selfIdealHeight.value_or(strokeWidth_);
     if (type_ == ProgressType::RING || type_ == ProgressType::SCALE || type_ == ProgressType::MOON) {
         if (!selfIdealHeight) {
@@ -94,10 +116,6 @@ std::optional<SizeF> ProgressLayoutAlgorithm::MeasureContent(
         if (!selfIdealHeight) {
             height_ = contentConstraint.parentIdealSize.Height().value_or(GetChildHeight(layoutWrapper, width_));
         }
-        auto renderContext = host->GetRenderContext();
-        CHECK_NULL_RETURN(renderContext, std::nullopt);
-        float minSize = std::min(width_, height_);
-        renderContext->UpdateBorderRadius(BorderRadiusProperty(Dimension(minSize / 2.0f)));
     } else if (type_ == ProgressType::LINEAR) {
         if (width_ >= height_) {
             height_ = std::min(height_, strokeWidth_);

@@ -22,7 +22,6 @@
 #include "base/memory/ace_type.h"
 #include "core/common/ace_application_info.h"
 #include "core/components_ng/base/frame_node.h"
-#include "core/components_ng/pattern/text_field/text_selector.h"
 #include "interfaces/inner_api/ace/modal_ui_extension_config.h"
 
 namespace OHOS::AAFwk {
@@ -44,7 +43,7 @@ struct AIWriteInfo {
     std::string componentType;
     std::string firstHandle;
     std::string secondHandle;
-    PlatformVersion apiVersion = PlatformVersion::VERSION_THIRTEEN;
+    PlatformVersion apiVersion = PlatformVersion::VERSION_TWELVE;
     std::vector<uint8_t> selectBuffer;
     std::vector<uint8_t> sentenceBuffer;
 };
@@ -56,13 +55,13 @@ public:
     AIWriteAdapter() = default;
     ~AIWriteAdapter() override = default;
 
-    bool IsSentenceBoundary(const char16_t value);
-    void CloseModalUIExtension();
-    void ShowModalUIExtension(const AIWriteInfo& info,
+    ACE_FORCE_EXPORT bool IsSentenceBoundary(const char16_t value);
+    ACE_FORCE_EXPORT void CloseModalUIExtension();
+    ACE_FORCE_EXPORT void ShowModalUIExtension(const AIWriteInfo& info,
         std::function<void(std::vector<uint8_t>&)> resultCallback);
     std::vector<uint8_t> GetBufferParam(const std::string& key, const AAFwk::WantParams& wantParams);
     bool GetBoolParam(const std::string& key, const AAFwk::WantParams& wantParams);
-    uint32_t GetSelectLengthOnlyText(const std::u16string& content);
+    ACE_FORCE_EXPORT uint32_t GetSelectLengthOnlyText(const std::u16string& content);
     void SetPipelineContext(const WeakPtr<NG::PipelineContext>& pipelineContext)
     {
         pipelineContext_ = pipelineContext;

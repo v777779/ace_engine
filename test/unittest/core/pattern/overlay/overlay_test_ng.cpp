@@ -20,10 +20,10 @@
 
 #define private public
 #define protected public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/error/error_code.h"
 #include "base/geometry/dimension.h"
@@ -38,8 +38,8 @@
 #include "core/components/dialog/dialog_properties.h"
 #include "core/components/dialog/dialog_theme.h"
 #include "core/components/drag_bar/drag_bar_theme.h"
-#include "core/components/picker/picker_data.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_data.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components/select/select_theme.h"
 #include "core/components/toast/toast_theme.h"
 #include "core/components_ng/base/view_abstract.h"
@@ -67,6 +67,7 @@
 #include "core/components_ng/pattern/picker/picker_type_define.h"
 #include "core/components_ng/pattern/root/root_pattern.h"
 #include "core/components_ng/pattern/scroll/scroll_pattern.h"
+#include "core/components_ng/pattern/stack/stack_pattern.h"
 #include "core/components_ng/pattern/stage/stage_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/text_field/text_field_pattern.h"
@@ -1002,6 +1003,38 @@ HWTEST_F(OverlayTestNg, RemoveOverlayTest004, TestSize.Level1)
 }
 
 /**
+ * @tc.name: RemoveOverlayTest005
+ * @tc.desc: Test OverlayManager::RemoveNonKeyboardOverlay.
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayTestNg, RemoveOverlayTest005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create gather node.
+     */
+    auto gatherNode = FrameNode::CreateFrameNode(
+        V2::STACK_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StackPattern>());
+    ASSERT_NE(gatherNode, nullptr);
+
+    /**
+     * @tc.steps: step2. create overlayManager and set gather node.
+     * @tc.expected: overlayManager is not null.
+     */
+    auto rootNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
+    ASSERT_NE(rootNode, nullptr);
+    rootNode->AddChild(gatherNode);
+    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(rootNode);
+    ASSERT_NE(overlayManager, nullptr);
+    overlayManager->gatherNodeWeak_ = gatherNode;
+
+    /**
+     * @tc.steps: step3. call RemoveNonKeyboardOverlay when child is gather node.
+     * @tc.expected: return true
+     */
+    EXPECT_TRUE(overlayManager->RemoveNonKeyboardOverlay(gatherNode));
+}
+
+/**
  * @tc.name: GetOverlayFrameNode001
  * @tc.desc: Test OverlayManager::GetOverlayFrameNode.
  * @tc.type: FUNC
@@ -1602,6 +1635,7 @@ HWTEST_F(OverlayTestNg, DialogTest008, TestSize.Level1)
     dialogParamNew.alignment = DialogAlignment::BOTTOM_END;
     dialogParamNew.offset = DimensionOffset(Dimension(10.0), Dimension(10.0));
     dialogParamNew.autoCancel = true;
+    dialogParamNew.isModal = true;
 
     /**
      * @tc.steps: step3. call OpenCustomDialog and then check dialogLayoutProp.
@@ -1641,6 +1675,14 @@ HWTEST_F(OverlayTestNg, DialogTest008, TestSize.Level1)
     EXPECT_EQ(dialogLayoutProp->propDialogAlignment_, DialogAlignment::BOTTOM_END);
     EXPECT_EQ(dialogLayoutProp->propDialogOffset_, DimensionOffset(Dimension(10.0), Dimension(10.0)));
     EXPECT_EQ(dialogLayoutProp->propAutoCancel_, true);
+
+    /**
+     * @tc.steps: step6. call OpenCustomDialog and UpdateCustomDialog.
+     * @tc.expected: The size of dialogMap is 2.
+     */
+    overlayManager->OpenCustomDialog(dialogParamNew, openCallback);
+    overlayManager->UpdateCustomDialog(contentNodeNew, dialogParamNew, updateCallbackSnd);
+    EXPECT_EQ(overlayManager->dialogMap_.size(), 2);
 }
 
 /**
@@ -2398,9 +2440,7 @@ HWTEST_F(OverlayTestNg, AddFrameNodeWithOrder003, TestSize.Level1)
     auto overlayManager = AceType::MakeRefPtr<OverlayManager>(rootNode);
     ASSERT_NE(overlayManager, nullptr);
 
-    auto prevNode1 = overlayManager->GetPrevNodeWithOrder(std::nullopt);
-    EXPECT_EQ(prevNode1, nullptr);
-    auto nextNode1 = overlayManager->GetBottomOrderFirstNode(std::nullopt);
+    auto nextNode1 = overlayManager->GetNextNodeWithOrder(std::nullopt);
     EXPECT_EQ(nextNode1, nullptr);
 }
 
@@ -2440,10 +2480,8 @@ HWTEST_F(OverlayTestNg, AddFrameNodeWithOrder004, TestSize.Level1)
     EXPECT_EQ(overlayManager->orderNodesMap_.size(), 1);
 
     auto overlayNode = frameNode->GetParent();
-    auto prevNode2 = overlayManager->GetPrevNodeWithOrder(std::make_optional(0.0f));
-    EXPECT_EQ(prevNode2->GetId(), overlayNode->GetId());
-    auto nextNode2 = overlayManager->GetBottomOrderFirstNode(std::make_optional(-1.0f));
-    EXPECT_EQ(nextNode2->GetId(), overlayNode->GetId());
+    auto nextNode = overlayManager->GetNextNodeWithOrder(std::make_optional(-1.0f));
+    EXPECT_EQ(nextNode->GetId(), overlayNode->GetId());
 }
 
 /**
@@ -2811,12 +2849,21 @@ HWTEST_F(OverlayTestNg, BeforeCreateLayoutWrapperTest002, TestSize.Level1)
     auto topModalPattern = topModalNode->GetPattern<ModalPresentationPattern>();
     topModalPattern->SetEnableSafeArea(true);
     EXPECT_TRUE(topModalPattern->enableSafeArea_);
+    auto host = topModalPattern->GetHost();
+    EXPECT_NE(host, nullptr);
+    auto context = host->GetContext();
+    EXPECT_NE(context, nullptr);
+    auto inset = context->GetSafeAreaWithoutProcess();
+    NG::CalcLength safeAreaPaddingLeft(inset.left_.Length());
+    NG::CalcLength safeAreaPaddingRight(inset.right_.Length());
     topModalPattern->BeforeCreateLayoutWrapper();
     auto modalNodeLayoutProperty = topModalNode->layoutProperty_;
     ASSERT_NE(modalNodeLayoutProperty, nullptr);
     const std::unique_ptr<PaddingProperty>& modalSafeAreaPaddingProp =
         modalNodeLayoutProperty->GetSafeAreaPaddingProperty();
     ASSERT_NE(modalSafeAreaPaddingProp, nullptr);
+    EXPECT_EQ(modalSafeAreaPaddingProp->left, safeAreaPaddingLeft);
+    EXPECT_EQ(modalSafeAreaPaddingProp->right, safeAreaPaddingRight);
 }
 
 /**
@@ -2918,5 +2965,34 @@ HWTEST_F(OverlayTestNg, OverlayManagerContetx001, TestSize.Level1)
     ASSERT_EQ(overlayManager->context_.Upgrade(), nullptr);
     context = overlayManager->GetPipelineContext();
     ASSERT_NE(context, nullptr);
+}
+
+/**
+ * @tc.name: DialogTransitionTest006
+ * @tc.desc: Test OverlayManager::ShowDialog->Set no transition effect.
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayTestNg, DialogTransitionTest006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create root node and dialogProperties.
+     */
+    auto rootNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
+    DialogProperties dialogProperties;
+    /**
+     * @tc.steps: step2. create overlayManager and call ShowDialog.
+     * @tc.expected: DialogNode created successfully
+     */
+    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(rootNode);
+    auto dialog = overlayManager->ShowDialog(dialogProperties, nullptr, false);
+    ASSERT_NE(dialog, nullptr);
+    EXPECT_EQ(overlayManager->dialogMap_.size(), 1);
+    /**
+     * @tc.steps: step3. get transitionEffect from dialog.
+     * @tc.expected: transitionEffect is nullptr.
+     */
+    auto dialogPattern = dialog->GetPattern<DialogPattern>();
+    auto transitionEffect = dialogPattern->GetDialogProperties().transitionEffect;
+    EXPECT_EQ(transitionEffect, nullptr);
 }
 } // namespace OHOS::Ace::NG

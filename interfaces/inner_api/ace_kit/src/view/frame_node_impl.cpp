@@ -15,6 +15,7 @@
 
 #include "interfaces/inner_api/ace_kit/src/view/frame_node_impl.h"
 
+#include "base/geometry/ng/rect_t.h"
 #include "ui/base/ace_type.h"
 #include "ui/base/referenced.h"
 #include "ui/base/utils/utils.h"
@@ -38,9 +39,6 @@ RefPtr<FrameNode> FrameNode::GetFrameNode(ArkUINodeHandle node)
     auto kitNode = frameNode->GetKitNode();
     if (!kitNode) {
         kitNode = MakeRefPtr<FrameNodeImpl>(Claim(frameNode));
-        auto nodeImpl = AceType::DynamicCast<FrameNodeImpl>(kitNode);
-        CHECK_NULL_RETURN(nodeImpl, nullptr);
-        nodeImpl->MoveOwnershipAndGetAceNode();
     }
     return kitNode;
 }
@@ -145,8 +143,32 @@ void FrameNodeImpl::Measure(const Kit::LayoutConstraintInfo& parentContraint)
     constraint->percentReference.SetWidth(parentContraint.percentReferWidth);
     //percentReferenceHeight
     constraint->percentReference.SetHeight(parentContraint.percentReferHeight);
+
+    if (parentContraint.parentIdealSizeWidth) {
+        constraint->parentIdealSize.SetWidth(parentContraint.parentIdealSizeWidth.value());
+    }
+    if (parentContraint.parentIdealSizeHeight) {
+        constraint->parentIdealSize.SetHeight(parentContraint.parentIdealSizeHeight.value());
+    }
+
     frameNode_->SetActive(true);
     frameNode_->Measure(constraint);
+}
+
+LayoutConstraintInfo FrameNodeImpl::GetLayoutConstraint() const
+{
+    LayoutConstraintInfo out;
+    CHECK_NULL_RETURN(frameNode_, out);
+    auto tmp = frameNode_->GetLayoutConstraint();
+    out.minWidth = tmp.minSize.Width();
+    out.maxWidth = tmp.maxSize.Width();
+    out.minHeight = tmp.minSize.Height();
+    out.maxHeight = tmp.maxSize.Height();
+    out.percentReferWidth = tmp.percentReference.Width();
+    out.percentReferHeight = tmp.percentReference.Height();
+    out.parentIdealSizeWidth = tmp.parentIdealSize.Width();
+    out.parentIdealSizeHeight = tmp.parentIdealSize.Height();
+    return out;
 }
 
 void FrameNodeImpl::Layout()
@@ -263,11 +285,18 @@ int32_t FrameNodeImpl::GetId() const
     return frameNode_->GetId();
 }
 
+void FrameNodeImpl::SetAICallerHelper(const std::shared_ptr<AICallerHelper>& aiCallerHelper)
+{
+    CHECK_NULL_VOID(frameNode_);
+    frameNode_->SetAICallerHelper(aiCallerHelper);
+}
+
 void FrameNodeImpl::SetMeasureCallback(const std::function<void(RefPtr<FrameNode>)>& measureCallback)
 {
     CHECK_NULL_VOID(frameNode_);
-    auto frameNode = frameNode_;
-    auto onMeasureCallback = [frameNode, measureCallback](int32_t nodeId) {
+    auto onMeasureCallback = [weakNode = WeakClaim(frameNode_), measureCallback](int32_t nodeId) {
+        auto frameNode = weakNode.Upgrade();
+        CHECK_NULL_VOID(frameNode);
         RefPtr<FrameNode> node = frameNode->GetKitNode();
         if (!node) {
             node = AceType::MakeRefPtr<FrameNodeImpl>(frameNode);
@@ -305,13 +334,9 @@ NodeHandle FrameNodeImpl::GetParentHandle()
 void FrameNodeImpl::SetOnNodeDestroyCallback(const std::function<void(RefPtr<FrameNode>)>& destroyCallback)
 {
     CHECK_NULL_VOID(frameNode_);
-    auto frameNode = frameNode_;
-    auto onDestroyCallback = [frameNode, destroyCallback](int32_t nodeId) {
-        RefPtr<FrameNode> node = frameNode->GetKitNode();
-        if (!node) {
-            node = AceType::MakeRefPtr<FrameNodeImpl>(frameNode);
-        }
-        destroyCallback(node);
+    auto onDestroyCallback = [frameNode = Claim(this), destroyCallback](int32_t nodeId) {
+        CHECK_NULL_VOID(frameNode);
+        destroyCallback(frameNode);
     };
     frameNode_->SetOnNodeDestroyCallback(std::move(onDestroyCallback));
 }
@@ -390,5 +415,63 @@ bool FrameNodeImpl::NeedAvoidContainerModal()
     auto avoidInfoMgr = pipeline->GetAvoidInfoManager();
     CHECK_NULL_RETURN(avoidInfoMgr, false);
     return avoidInfoMgr->NeedAvoidContainerModal();
+}
+
+int32_t FrameNodeImpl::GetContainerModalTitleHeight()
+{
+    CHECK_NULL_RETURN(frameNode_, 0);
+    auto pipeline = frameNode_->GetContext();
+    CHECK_NULL_RETURN(pipeline, 0);
+    auto avoidInfoMgr = pipeline->GetAvoidInfoManager();
+    CHECK_NULL_RETURN(avoidInfoMgr, 0);
+    return avoidInfoMgr->GetContainerModalTitleHeight();
+}
+
+NG::OffsetF FrameNodeImpl::GetContainerModalButtonsOffset()
+{
+    NG::OffsetF offset = NG::OffsetF(0.0, 0.0);
+    CHECK_NULL_RETURN(frameNode_, offset);
+    auto pipeline = frameNode_->GetContext();
+    CHECK_NULL_RETURN(pipeline, offset);
+    auto avoidInfoMgr = pipeline->GetAvoidInfoManager();
+    CHECK_NULL_RETURN(avoidInfoMgr, offset);
+    Ace::NG::RectF containerModal;
+    Ace::NG::RectF buttonsRect;
+    auto isSuccess = avoidInfoMgr->GetContainerModalButtonsRect(containerModal, buttonsRect);
+    if (!isSuccess) {
+        return offset;
+    }
+    return buttonsRect.GetOffset();
+}
+
+NG::SizeF FrameNodeImpl::GetContainerModalButtonsSize()
+{
+    NG::SizeF buttonsSize = NG::SizeF(0.0, 0.0);
+    CHECK_NULL_RETURN(frameNode_, buttonsSize);
+    auto pipeline = frameNode_->GetContext();
+    CHECK_NULL_RETURN(pipeline, buttonsSize);
+    auto avoidInfoMgr = pipeline->GetAvoidInfoManager();
+    CHECK_NULL_RETURN(avoidInfoMgr, buttonsSize);
+    Ace::NG::RectF containerModal;
+    Ace::NG::RectF buttonsRect;
+    auto isSuccess = avoidInfoMgr->GetContainerModalButtonsRect(containerModal, buttonsRect);
+    if (!isSuccess) {
+        return buttonsSize;
+    }
+    return NG::SizeF(buttonsRect.Width(), buttonsRect.Height());
+}
+
+NG::OffsetF FrameNodeImpl::GetParentGlobalOffsetDuringLayout()
+{
+    NG::OffsetF offset {};
+    CHECK_NULL_RETURN(frameNode_, offset);
+    offset = frameNode_->GetParentGlobalOffsetDuringLayout();
+    return offset;
+}
+
+ColorMode FrameNodeImpl::GetLocalColorMode() const
+{
+    CHECK_NULL_RETURN(frameNode_, ColorMode::COLOR_MODE_UNDEFINED);
+    return static_cast<ColorMode>(frameNode_->GetLocalColorMode());
 }
 } // namespace OHOS::Ace::Kit

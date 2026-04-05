@@ -15,7 +15,7 @@
 
 import { FrameNode, LayoutConstraint } from '../FrameNode';
 import { KPointer } from '@koalaui/interop'
-import { UIContextImpl } from '../base/UIContextImpl';
+import { UIContext } from "@ohos/arkui/UIContext"
 import { int32 } from '@koalaui/compat';
 import { UIContextTransfer } from '../handwritten/transfer/UIContextTransfer'
 import { UIContext } from '@ohos.arkui.UIContext';
@@ -42,17 +42,18 @@ export class FrameNodeTransfer {
         if (nodeTypeESValue.isString()) {
             nodeType = nodeTypeESValue.toString();
         }
-        let uiContext = new UIContextImpl(instanceId as int32);
-        let arkUINode = ESValue.load('@ohos.arkui.node');
+        let uiContext = new UIContext(instanceId.toInt());
+        let arkUINode = ESValue.load('@ohos.arkui.node').getProperty('default');
         let frameNodeTrans = arkUINode.getProperty('getFrameNodeRawPtr');
-        let point = frameNodeTrans.invoke(input! as Object);
+        let nodePtr = ESValue.wrap(input).getProperty('nodePtr_');
+        let point = frameNodeTrans.invoke(nodePtr! as Object);
         if (point.isUndefined()) {
             throw Error("The FrameNode point is undefined object convert fail.");
         }
         const pointStr = point.toNumber();
         // todo 
-        let frameNodePeerPont = FrameNodeExtender.createByRawPtr(pointStr as KPointer);
-        let node: FrameNode = new TransFrameNode(uiContext, nodeType, frameNodePeerPont);
+        let frameNodePeerPont = FrameNodeExtender.createByRawPtr(pointStr.toLong());
+        let node: FrameNode = new TransFrameNode(uiContext, nodeType!, frameNodePeerPont);
         return node;
     }
     static transferDynamic(input: Object): Any {
@@ -68,7 +69,7 @@ export class FrameNodeTransfer {
         //todo 
         let frameNodeRaw = FrameNodeExtender.unWrapRawPtr(point!);
         let nodeType: string | undefined = frameNodeStatic.nodeType_;
-        let arkUINode = ESValue.load('@ohos.arkui.node');
+        let arkUINode = ESValue.load('@ohos.arkui.node').getProperty('default');
         let frameNodeTrans = arkUINode.getProperty('createFrameNodeByTrans');
         let uiContext = UIContextTransfer.createDynamic(instanceId);
         if (nodeType) {
@@ -84,7 +85,7 @@ export class FrameNodeTransfer {
 
 export class TransFrameNode extends FrameNode {
     constructor(uiContext?: UIContext, type?: string, ptr?: KPointer) {
-        super(uiContext, type, ptr);
+        super(uiContext, undefined, type, ptr);
     }
     public isTransferred(): boolean {
         return true;

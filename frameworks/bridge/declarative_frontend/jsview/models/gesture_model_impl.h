@@ -38,7 +38,8 @@ public:
 
 class LongPressGestureModelImpl : public OHOS::Ace::LongPressGestureModel {
 public:
-    void Create(int32_t fingersNum, bool repeatResult, int32_t durationNum, bool isLimitFingerCount) override;
+    void Create(int32_t fingersNum, bool repeatResult, int32_t durationNum, bool isLimitFingerCount,
+        double allowableMovementNum = 15.0) override;
 };
 
 class PanGestureModelImpl : public OHOS::Ace::PanGestureModel {
@@ -52,8 +53,8 @@ public:
 
 class SwipeGestureModelImpl : public OHOS::Ace::SwipeGestureModel {
 public:
-    void Create(
-        int32_t fingersNum, const SwipeDirection& slideDirection, double speedNum, bool isLimitFingerCount) override;
+    void Create(int32_t fingersNum, const SwipeDirection& slideDirection,
+        const Dimension& speedNum, bool isLimitFingerCount) override;
 };
 
 class PinchGestureModelImpl : public OHOS::Ace::PinchGestureModel {

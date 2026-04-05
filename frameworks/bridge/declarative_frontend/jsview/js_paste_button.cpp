@@ -21,7 +21,7 @@
 #include "bridge/common/utils/utils.h"
 #include "bridge/declarative_frontend/engine/functions/js_common_utils.h"
 #include "core/common/container.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/pattern/security_component/paste_button/paste_button_model_ng.h"
 #include "core/components_ng/pattern/security_component/security_component_theme.h"
@@ -208,6 +208,7 @@ void JSPasteButton::JSBind(BindingTarget globalObj)
     JSClass<JSPasteButton>::StaticMethod("minFontSize", &JSSecButtonBase::SetMinFontSize);
     JSClass<JSPasteButton>::StaticMethod("heightAdaptivePolicy", &JSSecButtonBase::SetHeightAdaptivePolicy);
     JSClass<JSPasteButton>::StaticMethod("enabled", &JSViewAbstract::JsEnabled);
+    JSClass<JSPasteButton>::StaticMethod("focusBox", &JSSecButtonBase::SetFocusBox);
     JSClass<JSPasteButton>::Bind<>(globalObj);
 }
 } // namespace OHOS::Ace::Framework

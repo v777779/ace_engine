@@ -125,7 +125,7 @@ void SetPointLightImpl(Ark_NativePointer node,
 void SetReverseImpl(Ark_NativePointer node,
                     const Opt_Boolean* value)
 {
-    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     auto reversed = Converter::OptConvertPtr<bool>(value);
     if (reversed) {
@@ -142,6 +142,7 @@ const GENERATED_ArkUIRowModifier* GetRowModifier()
         RowInterfaceModifier::SetRowOptionsImpl,
         RowAttributeModifier::SetAlignItemsImpl,
         RowAttributeModifier::SetJustifyContentImpl,
+        RowAttributeModifier::SetPointLightImpl,
         RowAttributeModifier::SetReverseImpl,
     };
     return &ArkUIRowModifierImpl;

@@ -17,17 +17,13 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PAINTS_ADAPTER_ROSEN_TRANSITION_EFFECT_IMPL_H
 
 #include "modifier/rs_property.h"
-#ifndef MODIFIER_NG
-#include "modifier/rs_property_modifier.h"
-#endif
 
 #include "core/components_ng/render/adapter/rosen_transition_effect.h"
+#include "core/pipeline/pipeline_base.h"
 #include "core/components_ng/render/animation_utils.h"
 
 namespace OHOS::Ace::NG {
-#if defined(MODIFIER_NG)
 using RSPropertyType = Rosen::ModifierNG::RSPropertyType;
-#endif
 
 // Identity transition effect, do nothing and execute immediately.
 class RosenIdentityTransitionEffect final : public RosenTransitionEffect {
@@ -48,11 +44,7 @@ private:
 };
 
 // Template class for single property transition effect, applying identity and active value to target property/modifier.
-#if defined(MODIFIER_NG)
 template <typename Modifier, RSPropertyType PropertyType, typename ValueType>
-#else
-template <typename Modifier, typename ValueType>
-#endif
 class PropertyTransitionEffectTemplate : public RosenTransitionEffect {
 public:
     PropertyTransitionEffectTemplate() : RosenTransitionEffect() {}
@@ -74,6 +66,10 @@ protected:
     void OnDetach(RosenRenderContext* context) override;
     void OnAppear() override
     {
+        if (property_ == nullptr) {
+            TAG_LOGE(AceLogTag::ACE_ANIMATION, "transitionEffect property_ is nullptr in OnAppear");
+            return;
+        }
         isActive_ = false;
         if (keyframes_.empty()) {
             property_->Set(identityValue_);
@@ -86,6 +82,10 @@ protected:
     }
     void OnDisappear(bool activeTransition) override
     {
+        if (property_ == nullptr) {
+            TAG_LOGE(AceLogTag::ACE_ANIMATION, "transitionEffect property_ is nullptr in OnDisappear");
+            return;
+        }
         if (!activeTransition) {
             return;
         }
@@ -113,12 +113,8 @@ private:
     ACE_DISALLOW_COPY_AND_MOVE(PropertyTransitionEffectTemplate);
 };
 
-#if defined(MODIFIER_NG)
 using RosenOpacityTransitionEffect =
     PropertyTransitionEffectTemplate<Rosen::ModifierNG::RSAlphaModifier, RSPropertyType::ALPHA, float>;
-#else
-using RosenOpacityTransitionEffect = PropertyTransitionEffectTemplate<Rosen::RSAlphaModifier, float>;
-#endif
 template <>
 RosenOpacityTransitionEffect::PropertyTransitionEffectTemplate();
 
@@ -180,12 +176,8 @@ private:
     ACE_DISALLOW_COPY_AND_MOVE(RosenAsymmetricTransitionEffect);
 };
 
-#if defined(MODIFIER_NG)
 using InternalTranslateEffect = PropertyTransitionEffectTemplate<Rosen::ModifierNG::RSTransformModifier,
     RSPropertyType::TRANSLATE, Rosen::Vector2f>;
-#else
-using InternalTranslateEffect = PropertyTransitionEffectTemplate<Rosen::RSTranslateModifier, Rosen::Vector2f>;
-#endif
 template <>
 InternalTranslateEffect::PropertyTransitionEffectTemplate();
 
@@ -271,12 +263,8 @@ private:
     ACE_DISALLOW_COPY_AND_MOVE(RosenCompositeTransitionEffect);
 };
 
-#if defined(MODIFIER_NG)
 using InternalTranslateZEffect = PropertyTransitionEffectTemplate<Rosen::ModifierNG::RSTransformModifier,
     RSPropertyType::TRANSLATE_Z, float>;
-#else
-using InternalTranslateZEffect = PropertyTransitionEffectTemplate<Rosen::RSTranslateZModifier, float>;
-#endif
 template <>
 InternalTranslateZEffect::PropertyTransitionEffectTemplate();
 // 3D Translate effect that accepts Dimension.
@@ -297,18 +285,12 @@ private:
 };
 
 // 3D rotation composite effect with pivot.
-#if defined(MODIFIER_NG)
 using InternalRotationXEffect = PropertyTransitionEffectTemplate<Rosen::ModifierNG::RSTransformModifier,
     RSPropertyType::ROTATION_X, float>;
 using InternalRotationYEffect = PropertyTransitionEffectTemplate<Rosen::ModifierNG::RSTransformModifier,
     RSPropertyType::ROTATION_Y, float>;
 using InternalRotationZEffect = PropertyTransitionEffectTemplate<Rosen::ModifierNG::RSTransformModifier,
     RSPropertyType::ROTATION, float>;
-#else
-using InternalRotationXEffect = PropertyTransitionEffectTemplate<Rosen::RSRotationXModifier, float>;
-using InternalRotationYEffect = PropertyTransitionEffectTemplate<Rosen::RSRotationYModifier, float>;
-using InternalRotationZEffect = PropertyTransitionEffectTemplate<Rosen::RSRotationModifier, float>;
-#endif
 template <>
 InternalRotationXEffect::PropertyTransitionEffectTemplate();
 template <>
@@ -329,12 +311,8 @@ private:
     ACE_DISALLOW_COPY_AND_MOVE(RosenRotation3DTransitionEffect);
 };
 
-#if defined(MODIFIER_NG)
 using InternalScaleEffect = PropertyTransitionEffectTemplate<Rosen::ModifierNG::RSTransformModifier,
     RSPropertyType::SCALE, Rosen::Vector2f>;
-#else
-using InternalScaleEffect = PropertyTransitionEffectTemplate<Rosen::RSScaleModifier, Rosen::Vector2f>;
-#endif
 template <>
 InternalScaleEffect::PropertyTransitionEffectTemplate();
 // 2D scale composite effect with pivot.

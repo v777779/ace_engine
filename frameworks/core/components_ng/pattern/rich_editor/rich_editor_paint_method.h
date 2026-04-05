@@ -16,14 +16,13 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_RICH_EDITOR_RICH_EDITOR_PAINT_METHOD_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_RICH_EDITOR_RICH_EDITOR_PAINT_METHOD_H
 
-#include "core/components_ng/pattern/rich_editor/paragraph_manager.h"
-#include "core/components_ng/pattern/text/text_content_modifier.h"
-#include "core/components_ng/pattern/text/text_overlay_modifier.h"
 #include "core/components_ng/pattern/text/text_paint_method.h"
 
 namespace OHOS::Ace::NG {
+class ParagraphManager;
+
 class ACE_EXPORT RichEditorPaintMethod : public TextPaintMethod {
-    DECLARE_ACE_TYPE(RichEditorPaintMethod, TextPaintMethod)
+    DECLARE_ACE_TYPE(RichEditorPaintMethod, TextPaintMethod);
 public:
     RichEditorPaintMethod(const WeakPtr<Pattern>& pattern, const ParagraphManager* pManager, float baselineOffset,
         const RefPtr<TextContentModifier>& contentMod, const RefPtr<TextOverlayModifier>& overlayMod);
@@ -31,6 +30,7 @@ public:
     ~RichEditorPaintMethod() override = default;
     void UpdateContentModifier(PaintWrapper* paintWrapper) override;
     void UpdateOverlayModifier(PaintWrapper* paintWrapper) override;
+    void UpdateContentOverlayModifier(PaintWrapper* paintWrapper);
     void SetCaretState(PaintWrapper* paintWrapper);
     void SetPreviewTextDecoration(PaintWrapper* paintWrapper);
     void SetCaretOffsetAndHeight(PaintWrapper* paintWrapper);

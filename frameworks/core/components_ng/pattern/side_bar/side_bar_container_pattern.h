@@ -23,7 +23,24 @@
 #include "core/components_ng/pattern/side_bar/side_bar_container_layout_property.h"
 #include "core/components_ng/pattern/side_bar/side_bar_theme.h"
 
+namespace OHOS::Ace {
+class Animator;
+template<typename T>
+class CurveAnimation;
+}
+
 namespace OHOS::Ace::NG {
+
+inline constexpr char SIDE_BAR_ETS_TAG[] = "SideBarContainer";
+inline constexpr char IMAGE_ETS_TAG[] = "Image";
+inline constexpr char BUTTON_ETS_TAG[] = "Button";
+inline constexpr char DIVIDER_ETS_TAG[] = "Divider";
+
+enum class SideBarControlButtonType {
+    SHOWN = 0,
+    HIDDEN,
+    SWITCHING,
+};
 
 enum class SideBarAnimationDirection {
     LTR,
@@ -33,8 +50,8 @@ class SideBarContainerPattern : public Pattern {
     DECLARE_ACE_TYPE(SideBarContainerPattern, Pattern);
 
 public:
-    SideBarContainerPattern() = default;
-    ~SideBarContainerPattern() override = default;
+    SideBarContainerPattern();
+    ~SideBarContainerPattern() override;
 
     bool IsAtomicNode() const override
     {
@@ -176,16 +193,7 @@ public:
 
     bool OnThemeScopeUpdate(int32_t themeScopeId) override;
 
-    void InitToolBarManager()
-    {
-        if (!toolbarManager_) {
-            auto pipeline = GetHost()->GetContext();
-            CHECK_NULL_VOID(pipeline);
-            toolbarManager_ = pipeline->GetToolbarManager();
-            UpdateSideBarStatus();
-            UpdateSideBarColorToToolbarManager();
-        }
-    }
+    void InitToolBarManager();
 
     RefPtr<ToolbarManager> GetToolBarManager()
     {
@@ -195,7 +203,13 @@ public:
 private:
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config) override;
     void OnAttachToFrameNode() override;
+    void OnAttachToFrameNodeMultiThread();
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
+    void OnDetachFromFrameNodeMultiThread(FrameNode* frameNode);
+    void OnAttachToMainTree() override;
+    void OnAttachToMainTreeMultiThread();
+    void OnDetachFromMainTree() override;
+    void OnDetachFromMainTreeMultiThread();
     void OnModifyDone() override;
     void OnHostChildUpdateDone() override;
     void UpdateAnimDir();

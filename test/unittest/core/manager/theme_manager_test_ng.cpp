@@ -19,8 +19,8 @@
 #define private public
 #define protected public
 
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "frameworks/core/components/theme/theme_manager_impl.h"
 #include "core/components/button/button_theme.h"
@@ -59,6 +59,36 @@ HWTEST_F(ThemeManagerTestNg, ThemeManagerTestNg001, TestSize.Level1)
      */
     auto themeManager = AceType::MakeRefPtr<ThemeManagerImpl>();
     auto theme = themeManager->GetThemeOrigin(ButtonTheme::TypeId());
+    EXPECT_TRUE(AceType::InstanceOf<ButtonTheme>(theme));
+}
+
+/**
+ * @tc.name: GetThemesMultiThread001
+ * @tc.desc: GetThemesMapKey
+ * @tc.type: FUNC
+ */
+HWTEST_F(ThemeManagerTestNg, GetThemesMultiThread001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: create themeManager
+     */
+    auto themeManager = AceType::MakeRefPtr<ThemeManagerImpl>();
+    auto theme = themeManager->GetThemeMultiThread(ButtonTheme::TypeId());
+    EXPECT_TRUE(AceType::InstanceOf<ButtonTheme>(theme));
+}
+
+/**
+ * @tc.name: GetThemesMultiThread001
+ * @tc.desc: GetThemesMapKey
+ * @tc.type: FUNC
+ */
+HWTEST_F(ThemeManagerTestNg, GetThemesMultiThread002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: create themeManager
+     */
+    auto themeManager = AceType::MakeRefPtr<ThemeManagerImpl>();
+    auto theme = themeManager->GetThemeMultiThread(ButtonTheme::TypeId(), 0);
     EXPECT_TRUE(AceType::InstanceOf<ButtonTheme>(theme));
 }
 }

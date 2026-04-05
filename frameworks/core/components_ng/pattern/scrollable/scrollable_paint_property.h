@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,12 +16,14 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_SCROLLABLE_PAINT_PROPERTY_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_SCROLLABLE_PAINT_PROPERTY_H
 
-#include "core/animation/curve.h"
-#include "core/animation/curves.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/color.h"
-#include "core/components_ng/pattern/scroll/inner/scroll_bar.h"
+#include "core/components_ng/pattern/scrollable/scrollable_properties.h"
 #include "core/components_ng/render/paint_property.h"
+
+namespace OHOS::Ace {
+class ShapeRect;
+}
 
 namespace OHOS::Ace::NG {
 class InspectorFilter;
@@ -31,6 +33,7 @@ struct ScrollBarProperty {
     ACE_DEFINE_PROPERTY_GROUP_ITEM(ScrollBarWidth, Dimension);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(ScrollBarColor, Color);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(ScrollBarMargin, ScrollBarMargin);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(AutoAdjustScrollBarMargin, bool);
 };
 struct FadingEdgeProperty {
     ACE_DEFINE_PROPERTY_GROUP_ITEM(FadingEdge, bool);
@@ -47,8 +50,8 @@ enum class ContentClipMode {
 };
 using ContentClip = std::pair<ContentClipMode, RefPtr<ShapeRect>>;
 
-class ScrollablePaintProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(ScrollablePaintProperty, PaintProperty)
+class ACE_FORCE_EXPORT ScrollablePaintProperty : public PaintProperty {
+    DECLARE_ACE_TYPE(ScrollablePaintProperty, PaintProperty);
 
 public:
     ScrollablePaintProperty() = default;
@@ -69,6 +72,10 @@ public:
         ResetContentClip();
     }
 
+    void DumpInfo();
+
+    void DumpInfo(std::unique_ptr<JsonValue>& json);
+
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
 
     ACE_DEFINE_PROPERTY_GROUP(ScrollBarProperty, ScrollBarProperty);
@@ -76,13 +83,14 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(ScrollBarProperty, ScrollBarWidth, Dimension, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(ScrollBarProperty, ScrollBarColor, Color, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(ScrollBarProperty, ScrollBarMargin, ScrollBarMargin, PROPERTY_UPDATE_RENDER);
+    ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(ScrollBarProperty, AutoAdjustScrollBarMargin, bool, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_GROUP(FadingEdgeProperty, FadingEdgeProperty);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FadingEdgeProperty, FadingEdge, bool, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FadingEdgeProperty, DefaultFadingEdge, bool, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FadingEdgeProperty, FadingEdgeLength, Dimension, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ContentClip, ContentClip, PROPERTY_UPDATE_RENDER);
     Dimension GetBarWidth() const;
-    Color GetBarColor() const;
+    ACE_FORCE_EXPORT Color GetBarColor() const;
 
     /**
      * @brief Return the default content clip mode.
@@ -95,13 +103,10 @@ public:
 private:
     std::string ContentClipToStr() const;
     std::string GetBarStateString() const;
-    std::string GetClipContentString() const;
-    std::unique_ptr<JsonValue> GetClipContentRectString() const;
-    std::unique_ptr<JsonValue> GetDimensionOffsetJSON(const DimensionOffset& offset) const;
 };
 
 class GridPaintProperty : public ScrollablePaintProperty {
-    DECLARE_ACE_TYPE(GridPaintProperty, ScrollablePaintProperty)
+    DECLARE_ACE_TYPE(GridPaintProperty, ScrollablePaintProperty);
 public:
     RefPtr<PaintProperty> Clone() const override;
 
@@ -112,7 +117,7 @@ public:
 };
 
 class ScrollPaintProperty : public ScrollablePaintProperty {
-    DECLARE_ACE_TYPE(ScrollPaintProperty, ScrollablePaintProperty)
+    DECLARE_ACE_TYPE(ScrollPaintProperty, ScrollablePaintProperty);
 public:
     RefPtr<PaintProperty> Clone() const override;
 

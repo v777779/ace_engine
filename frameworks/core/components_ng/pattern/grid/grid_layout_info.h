@@ -303,6 +303,7 @@ struct GridLayoutInfo {
      */
     float GetContentHeight(const GridLayoutOptions& options, int32_t endIdx, float mainGap) const;
     void SkipStartIndexByOffset(const GridLayoutOptions& options, float mainGap);
+    void SkipRegularLines(bool forward, float mainGap, float averageHeight);
     float GetCurrentLineHeight() const;
 
     /**
@@ -371,8 +372,8 @@ struct GridLayoutInfo {
 
     Axis axis_ = Axis::VERTICAL;
 
-    float currentOffset_ = 0.0f; // offset on the current top GridItem on [startMainLineIndex_]
-    float prevOffset_ = 0.0f;
+    double currentOffset_ = 0.0; // offset on the current top GridItem on [startMainLineIndex_]
+    double prevOffset_ = 0.0;
     float currentHeight_ = 0.0f; // height from first item to current top GridItem on [startMainLineIndex_]
     float prevHeight_ = 0.0f;
     float lastMainSize_ = 0.0f;
@@ -382,6 +383,10 @@ struct GridLayoutInfo {
 
     // additional padding to accommodate navigation bar when SafeArea is expanded
     float contentEndPadding_ = 0.0f;
+    float contentStartOffset_ = 0.0f;
+    float contentEndOffset_ = 0.0f;
+    float totalOffset_ = 0.0f;
+    float currentDelta_ = 0.0f;
 
     std::optional<int32_t> lastCrossCount_;
     // index of first and last GridItem in viewport
@@ -393,7 +398,8 @@ struct GridLayoutInfo {
     int32_t endMainLineIndex_ = 0;
 
     int32_t jumpIndex_ = EMPTY_JUMP_INDEX;
-    std::optional<float> extraOffset_;
+    int32_t jumpForRecompose_ = EMPTY_JUMP_INDEX; // new mark index to notify frontend recomposition
+    std::optional<double> extraOffset_;
     int32_t crossCount_ = 0;
     int32_t childrenCount_ = 0;
     int32_t firstRepeatCount_ = 0;
@@ -418,14 +424,15 @@ struct GridLayoutInfo {
     bool offsetEnd_ = false; // true if content bottom is truly reached
 
     // Grid has GridItem whose columnEnd - columnStart > 0
-    bool hasBigItem_;
+    bool hasBigItem_ = false;
 
     // Grid has GridItem whose rowEnd - rowStart > 0
-    bool hasMultiLineItem_;
+    bool hasMultiLineItem_ = false;
     // false when offset is updated but layout hasn't happened, so data is out of sync
     bool synced_ = false;
 
     std::optional<int32_t> targetIndex_;
+    std::optional<float> targetPos_;
 
     std::map<int32_t, bool> irregularLines_;
 
@@ -445,6 +452,7 @@ private:
     void MoveItemsForward(int32_t from, int32_t to, int32_t itemIndex);
     void GetLineHeights(
         const GridLayoutOptions& options, float mainGap, float& regularHeight, float& irregularHeight) const;
+    void MakeLineHeightsAvailable(float& regularHeight, float& irregularHeight);
 
     /**
      * @brief Find the number of GridItems in range [startLine, endLine].

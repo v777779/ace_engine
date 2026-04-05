@@ -17,11 +17,11 @@
 
 #include "base/log/log_wrapper.h"
 #include "bridge/common/utils/engine_helper.h"
+#include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_native_common_bridge.h"
 #include "bridge/declarative_frontend/jsview/models/gesture_model_impl.h"
 #include "core/components_ng/base/view_stack_model.h"
 #include "core/components_ng/pattern/gesture/gesture_model_ng.h"
 #include "frameworks/base/log/ace_scoring_log.h"
-#include "frameworks/bridge/declarative_frontend/engine/functions/js_gesture_function.h"
 #include "frameworks/core/gestures/timeout_gesture.h"
 
 namespace OHOS::Ace {
@@ -222,6 +222,7 @@ constexpr int32_t DEFAULT_TAP_COUNT = 1;
 constexpr double DEFAULT_TAP_DISTANCE = std::numeric_limits<double>::infinity();
 constexpr int32_t DEFAULT_LONG_PRESS_FINGER = 1;
 constexpr int32_t DEFAULT_LONG_PRESS_DURATION = 500;
+constexpr double DEFAULT_LONG_PRESS_ALLOWABLE_MOVEMENT = 15.0;
 constexpr int32_t DEFAULT_PINCH_FINGER = 2;
 constexpr int32_t DEFAULT_MAX_PINCH_FINGER = 5;
 constexpr double DEFAULT_PINCH_DISTANCE = 5.0;
@@ -245,6 +246,7 @@ constexpr char SWIPE_DIRECTION[] = "direction";
 constexpr char ROTATION_ANGLE[] = "angle";
 constexpr char LIMIT_FINGER_COUNT[] = "isFingerCountLimited";
 constexpr char GESTURE_DISTANCE_MAP[] = "distanceMap";
+constexpr char ALLOWABLE_MOVEMENT[] = "allowableMovement";
 } // namespace
 
 void JSGesture::Create(const JSCallbackInfo& info)
@@ -324,12 +326,14 @@ void JSLongPressGesture::Create(const JSCallbackInfo& args)
     bool repeatResult = false;
     int32_t durationNum = DEFAULT_LONG_PRESS_DURATION;
     bool isLimitFingerCount = false;
+    double allowableMovementNum = DEFAULT_LONG_PRESS_ALLOWABLE_MOVEMENT;
     if (args.Length() > 0 && args[0]->IsObject()) {
         JSRef<JSObject> obj = JSRef<JSObject>::Cast(args[0]);
         JSRef<JSVal> fingers = obj->GetProperty(GESTURE_FINGERS);
         JSRef<JSVal> repeat = obj->GetProperty(LONG_PRESS_REPEAT);
         JSRef<JSVal> duration = obj->GetProperty(LONG_PRESS_DURATION);
         JSRef<JSVal> limitFingerCount = obj->GetProperty(LIMIT_FINGER_COUNT);
+        JSRef<JSVal> allowableMovement = obj->GetProperty(ALLOWABLE_MOVEMENT);
 
         if (fingers->IsNumber()) {
             int32_t fingersNumber = fingers->ToNumber<int32_t>();
@@ -345,8 +349,14 @@ void JSLongPressGesture::Create(const JSCallbackInfo& args)
         if (limitFingerCount->IsBoolean()) {
             isLimitFingerCount = limitFingerCount->ToBoolean();
         }
+        if (allowableMovement->IsNumber()) {
+            double allowableMoveNumber = allowableMovement->ToNumber<double>();
+            allowableMovementNum =
+                allowableMoveNumber <= 0 ? DEFAULT_LONG_PRESS_ALLOWABLE_MOVEMENT : allowableMoveNumber;
+        }
     }
-    LongPressGestureModel::GetInstance()->Create(fingersNum, repeatResult, durationNum, isLimitFingerCount);
+    LongPressGestureModel::GetInstance()->Create(
+        fingersNum, repeatResult, durationNum, isLimitFingerCount, allowableMovementNum);
 }
 
 napi_value GetIteratorNext(const napi_env env, napi_value iterator, napi_value func, bool *done)
@@ -479,7 +489,7 @@ void JSPanGesture::Create(const JSCallbackInfo& args)
 void JSSwipeGesture::Create(const JSCallbackInfo& args)
 {
     int32_t fingersNum = DEFAULT_SLIDE_FINGER;
-    double speedNum = DEFAULT_SLIDE_SPEED;
+    Dimension speedNum = Dimension(DEFAULT_SLIDE_SPEED, DimensionUnit::VP);
     SwipeDirection slideDirection;
     bool isLimitFingerCount = false;
 
@@ -500,7 +510,9 @@ void JSSwipeGesture::Create(const JSCallbackInfo& args)
     }
     if (speed->IsNumber()) {
         double speedNumber = speed->ToNumber<double>();
-        speedNum = LessOrEqual(speedNumber, 0.0) ? DEFAULT_SLIDE_SPEED : speedNumber;
+        speedNum = LessOrEqual(speedNumber, 0.0) ?
+            Dimension(DEFAULT_SLIDE_SPEED, DimensionUnit::VP) :
+            Dimension(speedNumber, DimensionUnit::VP);
     }
     if (directionNum->IsNumber()) {
         uint32_t directNum = directionNum->ToNumber<uint32_t>();
@@ -590,23 +602,44 @@ void JSGesture::JsHandlerOnGestureEvent(Ace::GestureEventAction action, const JS
         return;
     }
 
-    RefPtr<JsGestureFunction> handlerFunc = AceType::MakeRefPtr<JsGestureFunction>(JSRef<JSFunc>::Cast(args[0]));
+    EcmaVM* vm = args.GetVm();
+    CHECK_NULL_VOID(vm);
+    auto jsFunc = JSRef<JSFunc>::Cast(args[0]);
+    if (jsFunc->IsEmpty()) {
+        return;
+    }
+    auto jsFuncLocalHandle = jsFunc->GetLocalHandle();
+    auto execCtx = args.GetExecutionContext();
+    WeakPtr<NG::FrameNode> frameNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
 
     if (action == Ace::GestureEventAction::CANCEL) {
-        auto onActionCancelFunc = [execCtx = args.GetExecutionContext(), func = std::move(handlerFunc)](
+        auto onActionCancelFunc = [vm, execCtx, func = panda::CopyableGlobal(vm, jsFuncLocalHandle), node = frameNode](
                                       GestureEvent& info) {
             JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             ACE_SCORING_EVENT("Gesture.onCancel");
-            func->Execute(info);
+            PipelineContext::SetCallBackNode(node);
+            // The infoPtr can only be bound to a JS object, and its lifetime belongs to that object.
+            // It is not allowed to hold this address elsewhere.
+            auto infoPtr = new GestureEvent(info);
+            auto eventObj = NG::CommonBridge::CreateCommonGestureEventInfo(vm, infoPtr);
+            panda::Local<panda::JSValueRef> params[1] = { eventObj };
+            func->Call(vm, func.ToLocal(), params, 1);
         };
         GestureModel::GetInstance()->SetOnGestureEvent(onActionCancelFunc);
         return;
     }
 
-    auto onActionFunc = [execCtx = args.GetExecutionContext(), func = std::move(handlerFunc)](GestureEvent& info) {
+    auto onActionFunc = [vm, execCtx, func = panda::CopyableGlobal(vm, jsFuncLocalHandle), node = frameNode](
+                            GestureEvent& info) {
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("Gesture.onActionCancel");
-        func->Execute(info);
+        PipelineContext::SetCallBackNode(node);
+        // The infoPtr can only be bound to a JS object, and its lifetime belongs to that object.
+        // It is not allowed to hold this address elsewhere.
+        auto infoPtr = new GestureEvent(info);
+        auto eventObj = NG::CommonBridge::CreateCommonGestureEventInfo(vm, infoPtr);
+        panda::Local<panda::JSValueRef> params[1] = { eventObj };
+        func->Call(vm, func.ToLocal(), params, 1);
     };
 
     GestureModel::GetInstance()->SetOnActionFunc(onActionFunc, action);

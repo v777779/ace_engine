@@ -16,6 +16,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_INTERFACES_NATIVE_NODE_NODE_EXTENED_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_INTERFACES_NATIVE_NODE_NODE_EXTENED_H
 
+#include <vector>
 #include "drawable_descriptor.h"
 #include "native_node.h"
 #include "native_type.h"
@@ -86,6 +87,10 @@ struct ArkUI_OptionalFloat {
     float value;
 };
 
+struct ArkUI_SelectedDataDetectorConfig {
+    std::vector<uint32_t> types;
+};
+
 struct ArkUI_OptionalInt {
     int32_t isSet;
     int32_t value;
@@ -99,6 +104,25 @@ struct ArkUI_OptionalUint {
 struct ArkUI_OptionalCharPtr {
     int32_t isSet;
     const char* value;
+};
+
+struct ArkUI_PositionEdges {
+    ArkUI_OptionalFloat top;
+    ArkUI_OptionalFloat left;
+    ArkUI_OptionalFloat bottom;
+    ArkUI_OptionalFloat right;
+};
+
+struct ArkUI_OptionalCalcPolicy {
+    int32_t isSet;
+    ArkUI_PixelRoundCalcPolicy value;
+};
+
+struct ArkUI_PixelRoundPolicy {
+    ArkUI_OptionalCalcPolicy start;
+    ArkUI_OptionalCalcPolicy top;
+    ArkUI_OptionalCalcPolicy end;
+    ArkUI_OptionalCalcPolicy bottom;
 };
 
 struct ArkUI_SwiperIndicator {
@@ -149,7 +173,6 @@ struct ArkUI_DrawableDescriptor {
     ArkUI_Int32 size;
     void* newDrawableDescriptor;
     std::shared_ptr<OHOS::Ace::Napi::DrawableDescriptor> drawableDescriptor;
-    std::shared_ptr<OHOS::Ace::Napi::AnimatedDrawableDescriptor> animatedDrawableDescriptor;
     std::shared_ptr<OHOS::Ace::Napi::LayeredDrawableDescriptor> layeredDrawableDescriptor;
     std::shared_ptr<ArkUI_Resource> resource;
 };
@@ -206,6 +229,70 @@ struct ArkUI_CrossLanguageOption {
 struct ArkUI_VisibleAreaEventOptions {
     std::vector<float> ratios;
     int32_t expectedUpdateInterval;
+    bool measureFromViewport;
+};
+
+struct ArkUI_ContentTransitionEffect {
+    int32_t contentTransitionType;
+};
+
+struct ArkUI_DrawableDescriptor_AnimationController {
+    void* drawableDescriptor;
+    void* controller;
+};
+
+struct ArkUI_ShowCounterConfig {
+    ArkUI_OptionalUint counterTextColor;
+    ArkUI_OptionalUint counterTextOverflowColor;
+};
+
+struct ArkUI_SelectionOptions {
+    ArkUI_MenuPolicy menuPolicy;
+};
+
+struct ArkUI_TextContentBaseController {
+    ArkUI_NodeHandle node;
+    ArkUI_NodeAttributeType textFieldType;
+};
+
+struct ArkUI_TextLayoutManager {
+    ArkUI_NodeHandle node;
+};
+
+struct OH_ArkUI_DecorationStyleOptions {
+    ArkUI_TextDecorationType type;
+    uint32_t color;
+    ArkUI_TextDecorationStyle style;
+    float thicknessScale;
+};
+
+struct OH_ArkUI_DecorationStyle : public OH_ArkUI_DecorationStyleOptions {
+    bool enableMultiType;
+};
+
+struct OH_ArkUI_TextDataDetectorConfig {
+    std::vector<ArkUI_TextDataDetectorType> types;
+    void* onDetectResultUpdate;
+    void* onDetectResultUpdateUserData;
+    uint32_t color;
+    OH_ArkUI_DecorationStyleOptions decoration;
+    bool enablePreviewMenu;
+};
+
+struct OH_ArkUI_TextEditorSelectionMenuOptions  {
+    OH_ArkUI_TextEditorSpanType richEditorSpanType;
+    ArkUI_NodeHandle contentNode;
+    OH_ArkUI_TextEditorResponseType responseType;
+    void* onMenuAppear;
+    void* onMenuAppearUserData;
+    void* onMenuDisappear;
+    void* onMenuDisappearUserData;
+    OH_ArkUI_TextMenuType menuType;
+    void* onMenuShow;
+    void* onMenuShowUserData;
+    void* onMenuHide;
+    void* onMenuHideUserData;
+    OH_ArkUI_HapticFeedbackMode hapticFeedbackMode;
 };
 
 #ifdef __cplusplus

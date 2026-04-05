@@ -18,9 +18,7 @@
 
 #include <string>
 
-#include "base/utils/macros.h"
 #include "core/components/common/properties/color.h"
-#include "core/components_ng/base/frame_node.h"
 
 namespace OHOS::Ace::NG {
 class ACE_EXPORT ToggleButtonModelNG {
@@ -29,8 +27,10 @@ public:
     static void SetSelectedColor(const Color& selectedColor);
     static void ResetSelectedColor();
     static void SetBackgroundColor(const Color& backgroundColor, bool flag);
+    static void SetBackgroundColor(FrameNode* frameNode, const Color& backgroundColor, bool flag);
     static void SetIsOn(bool isOn);
     static void SetSelectedColor(FrameNode* frameNode, const Color& selectedColor);
+    static void SetSelectedColorSetByUser(FrameNode* frameNode, const bool isByUser);
     static void ResetSelectedColor(FrameNode* frameNode);
     static void SetBackgroundColor(FrameNode* frameNode, const Color& backgroundColor);
 };

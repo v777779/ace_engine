@@ -30,11 +30,15 @@
 #include "base/utils/noncopyable.h"
 #include "core/common/ace_application_info.h"
 #include "core/common/ace_page.h"
-#include "core/components/xcomponent/native_interface_xcomponent_impl.h"
 #include "core/components_ng/base/ui_node.h"
 #include "frameworks/bridge/js_frontend/engine/common/js_engine.h"
 #include "frameworks/bridge/js_frontend/engine/jsi/js_runtime.h"
 #include "frameworks/bridge/js_frontend/js_ace_page.h"
+
+struct OH_NativeXComponent;
+namespace OHOS::Ace {
+class NativeXComponentImpl;
+}
 
 namespace OHOS::Ace::Framework {
 
@@ -46,8 +50,15 @@ struct NamedRouterProperty {
     std::string ohmUrl;
 };
 
+// ArkTsCard load config
+enum class FormJsXNodeLoadMode {
+    NONE,
+    LITE,
+    FULL
+};
+
 class JsiDeclarativeEngineInstance final : public AceType, public JsEngineInstance {
-    DECLARE_ACE_TYPE(JsiDeclarativeEngineInstance, AceType)
+    DECLARE_ACE_TYPE(JsiDeclarativeEngineInstance, AceType);
 public:
     explicit JsiDeclarativeEngineInstance(const RefPtr<FrontendDelegate>& delegate) : frontendDelegate_(delegate) {}
     ~JsiDeclarativeEngineInstance() override;
@@ -85,6 +96,9 @@ public:
     static void PreloadAceModuleForCustomRuntime(void* runtime);
     static void RemoveInvalidEnv(void* env);
     static void PreloadAceModuleWorker(void* runtime);
+#ifdef ENABLE_PRELOAD_DYNAMIC_MODULE
+    static void PreLoadDynamicModule(const shared_ptr<JsRuntime>& runtime);
+#endif
     // crossPlatform Resets the module pre-load flag
     static void ResetModulePreLoadFlag();
     // crossPlatform Prepares for resetting the module pre-load flag
@@ -211,6 +225,7 @@ public:
     // ArkTsCard start
     static void PreloadAceModuleCard(void* runtime, const std::unordered_set<std::string>& formModuleList);
     static void ReloadAceModuleCard(void* runtime, const std::unordered_set<std::string>& formModuleList);
+    static void LoadJsXNodeForm(void* runtime, FormJsXNodeLoadMode mode);
     // ArkTsCard end
     static bool IsPlugin();
     static bool RegisterStringCacheTable(const EcmaVM* vm, int32_t size);
@@ -220,7 +235,9 @@ public:
         const shared_ptr<JsRuntime>& runtime, const std::vector<shared_ptr<JsValue>>& argv);
     void CallRemoveAvailableInstanceIdFunc(
         const shared_ptr<JsRuntime>& runtime, const std::vector<shared_ptr<JsValue>>& argv);
-
+    void CallStateMgmtCleanUpIdleTaskFunc(int64_t maxTimeInNs);
+    std::vector<std::optional<std::string>> CallGetStateMgmtInfo(const std::vector<int32_t>& nodeIds,
+        const std::string& propertyName, const std::string& jsonPath);
 private:
     void InitGlobalObjectTemplate();
     void InitConsoleModule();  // add Console object to global
@@ -271,16 +288,18 @@ private:
     static bool isModuleInitialized_;
     static shared_ptr<JsRuntime> globalRuntime_;
     shared_ptr<JsValue> uiContext_;
+    shared_ptr<JsValue> uiNodeCleanUpIdleFunc_;
+    shared_ptr<JsValue> getStateMgmtInfoFunc_;
     static std::shared_mutex globalRuntimeMutex_;
 
     ACE_DISALLOW_COPY_AND_MOVE(JsiDeclarativeEngineInstance);
 };
 
 class JsiDeclarativeEngine : public JsEngine {
-    DECLARE_ACE_TYPE(JsiDeclarativeEngine, JsEngine)
+    DECLARE_ACE_TYPE(JsiDeclarativeEngine, JsEngine);
 public:
-    JsiDeclarativeEngine(int32_t instanceId, void* runtime) : instanceId_(instanceId), runtime_(runtime) {}
-    explicit JsiDeclarativeEngine(int32_t instanceId) : instanceId_(instanceId) {}
+    JsiDeclarativeEngine(int32_t instanceId, void* runtime);
+    explicit JsiDeclarativeEngine(int32_t instanceId);
     ~JsiDeclarativeEngine() override;
 
     bool Initialize(const RefPtr<FrontendDelegate>& delegate) override;
@@ -364,6 +383,8 @@ public:
     void MediaQueryCallback(const std::string& callbackId, const std::string& args) override;
 
     void RequestAnimationCallback(const std::string& callbackId, uint64_t timeStamp) override;
+
+    bool OnMonitorForCrownEvents(const std::string& callbackId, const std::string& args) override;
 
     void JsCallback(const std::string& callbackId, const std::string& args) override;
 
@@ -455,9 +476,22 @@ public:
         return engineInstance_->GetFrameNodeValueByNodeId(nodeId);
     }
 
+    void CallStateMgmtCleanUpIdleTaskFunc(int64_t maxTimeInNs) override
+    {
+        engineInstance_->CallStateMgmtCleanUpIdleTaskFunc(maxTimeInNs);
+    }
+
+    std::vector<std::optional<std::string>> CallGetStateMgmtInfo(const std::vector<int32_t>& nodeIds,
+        const std::string& propertyName, const std::string& jsonPath) override
+    {
+        return engineInstance_->CallGetStateMgmtInfo(nodeIds, propertyName, jsonPath);
+    }
+
     void JsStateProfilerResgiter();
 
     void JsSetAceDebugMode();
+
+    void JsUnregisterInstanceId();
 
 #if defined(PREVIEW)
     void ReplaceJSContent(const std::string& url, const std::string componentName) override;
@@ -481,6 +515,9 @@ public:
 #endif
     static void AddToNamedRouterMap(const EcmaVM* vm, panda::Global<panda::FunctionRef> pageGenerator,
         const std::string& namedRoute, panda::Local<panda::ObjectRef> params);
+    static bool ParseNamedRouterParams(
+        const EcmaVM* vm, const panda::Local<panda::ObjectRef>& params, std::string& bundleName,
+        std::string& moduleName, std::string& pagePath, std::string& pageFullPath, std::string& ohmUrl);
     static void AddToNavigationBuilderMap(std::string name,
         panda::Global<panda::ObjectRef> builderFunc);
     /**
@@ -569,6 +606,7 @@ private:
     std::string pluginBundleName_;
     std::string pluginModuleName_;
     static thread_local std::unordered_map<std::string, NamedRouterProperty> namedRouterRegisterMap_;
+    static thread_local std::unordered_map<std::string, NamedRouterProperty> emptyNamedRouterRegisterMap_;
     static thread_local std::unordered_map<std::string, std::string> routerPathInfoMap_;
     static thread_local std::unordered_map<std::string, panda::Global<panda::ObjectRef>> builderMap_;
     bool isFirstCallShow_ = true;

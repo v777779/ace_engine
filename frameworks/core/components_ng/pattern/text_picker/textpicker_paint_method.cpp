@@ -16,7 +16,7 @@
 #include "core/components_ng/pattern/text_picker/textpicker_paint_method.h"
 
 #include "core/components/common/properties/color.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/text_picker/textpicker_layout_property.h"
 #include "core/components_ng/pattern/text_picker/textpicker_pattern.h"
@@ -27,7 +27,19 @@ namespace OHOS::Ace::NG {
 
 namespace {
 constexpr uint8_t DOUBLE = 2;
-const Dimension PICKER_DIALOG_DIVIDER_MARGIN = 24.0_vp;
+
+void UpdateDividerColor(ItemDivider& divider)
+{
+    if (SystemProperties::ConfigChangePerform() && divider.isDefaultColor) {
+        auto pipelineContext = PipelineContext::GetCurrentContext();
+        if (pipelineContext && pipelineContext->IsSystemColorChange()) {
+            auto pickerTheme = pipelineContext->GetTheme<PickerTheme>();
+            if (pickerTheme) {
+                divider.color = pickerTheme->GetDividerColor();
+            }
+        }
+    }
+}
 } // namespace
 
 CanvasDrawFunction TextPickerPaintMethod::GetContentDrawFunction(PaintWrapper* paintWrapper)
@@ -95,6 +107,7 @@ CanvasDrawFunction TextPickerPaintMethod::GetForegroundDrawFunction(PaintWrapper
             if (contentRect.Width() >= 0.0f && (contentRect.Height() >= dividerHeight)) {
                 if (textPickerPattern->GetCustomDividerFlag()) {
                     auto divider = textPickerPattern->GetDivider();
+                    UpdateDividerColor(divider);
                     auto textDirection = layoutProperty->GetNonAutoLayoutDirection();
                     divider.isRtl = (textDirection == TextDirection::RTL) ? true : false;
                     picker->PaintCustomDividerLines(canvas, contentRect, frameRect, divider, dividerHeight);
@@ -124,11 +137,12 @@ void TextPickerPaintMethod::PaintDefaultDividerLines(RSCanvas& canvas, const Rec
     auto dividerLineWidth = theme->GetDividerThickness().ConvertToPx();
     auto dividerLength = contentRect.Width();
     auto dividerMargin = contentRect.GetX();
+    auto pickerDialogDividerMargin = theme->GetPickerDialogDividerMargin();
     auto textPickerPattern = DynamicCast<TextPickerPattern>(pattern_.Upgrade());
     CHECK_NULL_VOID(textPickerPattern);
     if (textPickerPattern->GetIsShowInDialog()) {
-        dividerLength -= PICKER_DIALOG_DIVIDER_MARGIN.ConvertToPx() * DOUBLE;
-        dividerMargin += PICKER_DIALOG_DIVIDER_MARGIN.ConvertToPx();
+        dividerLength -= pickerDialogDividerMargin.ConvertToPx() * DOUBLE;
+        dividerMargin += pickerDialogDividerMargin.ConvertToPx();
     }
 
     DividerInfo info;
@@ -173,6 +187,11 @@ bool TextPickerPaintMethod::NeedPaintDividerLines(const RectF &contentRect, cons
     info.startMargin = std::max(0.0, divider.startMargin.ConvertToPx());
     info.endMargin = std::max(0.0, divider.endMargin.ConvertToPx());
     info.dividerColor = divider.color;
+    auto pipeline = PipelineContext::GetCurrentContext();
+    CHECK_NULL_RETURN(pipeline, false);
+    auto theme = pipeline->GetTheme<PickerTheme>();
+    CHECK_NULL_RETURN(theme, false);
+    auto pickerDialogDividerMargin = theme->GetPickerDialogDividerMargin();
 
     auto dividerLength = contentRect.Width();
     auto dividerMargin = contentRect.GetX();
@@ -181,8 +200,8 @@ bool TextPickerPaintMethod::NeedPaintDividerLines(const RectF &contentRect, cons
         return false;
     }
     if (textPickerPattern->GetIsShowInDialog()) {
-        dividerLength -= PICKER_DIALOG_DIVIDER_MARGIN.ConvertToPx() * DOUBLE;
-        dividerMargin += PICKER_DIALOG_DIVIDER_MARGIN.ConvertToPx();
+        dividerLength -= pickerDialogDividerMargin.ConvertToPx() * DOUBLE;
+        dividerMargin += pickerDialogDividerMargin.ConvertToPx();
     }
 
     float checkMargin = dividerLength - info.startMargin - info.endMargin;
@@ -229,7 +248,7 @@ void TextPickerPaintMethod::PaintLine(const OffsetF& offset, const DividerInfo &
     RSBrush brush;
     brush.SetColor(info.dividerColor.GetValue());
     canvas.AttachBrush(brush);
-    
+
     auto startPointX = offset.GetX();
     auto startPointY = offset.GetY();
     auto endPointX = offset.GetX() + info.dividerLength;

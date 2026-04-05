@@ -16,7 +16,10 @@
 #include "cj_badge_ffi.h"
 
 #include "bridge/common/utils/utils.h"
+#include "core/common/container.h"
+#include "core/components/badge/badge_theme.h"
 #include "core/components_ng/pattern/badge/badge_model_ng.h"
+#include "bridge/cj_frontend/interfaces/cj_ffi/cj_view_abstract_ffi.h"
 
 using namespace OHOS::Ace;
 using namespace OHOS::Ace::Framework;
@@ -96,6 +99,55 @@ BadgeParameters CreateBaseV2(CJBadgeStyleV2 style, int32_t position)
     badgeParameters.badgeBorderWidth = Dimension(style.borderWidth, DimensionUnit(style.borderWidthUnit));
     return badgeParameters;
 }
+
+BadgeParameters CreateBaseV3(CJBadgeStyleV3 style, int32_t position)
+{
+    BadgeParameters badgeParameters {};
+    badgeParameters.badgePosition = position;
+    badgeParameters.badgeTextColor = Color(style.color);
+    
+    auto badgeTheme = GetTheme<BadgeTheme>();
+    if (!badgeTheme) {
+        return badgeParameters;
+    }
+    
+    auto fontSize = Dimension(style.fontSize, static_cast<DimensionUnit>(style.fontSizeUnit));
+    if (fontSize.IsNonNegative() && fontSize.Unit() != DimensionUnit::PERCENT) {
+        badgeParameters.badgeFontSize = fontSize;
+    } else {
+        badgeParameters.badgeFontSize = badgeTheme->GetBadgeFontSize();
+    }
+    
+    auto badgeSize = Dimension(style.badgeSize, static_cast<DimensionUnit>(style.badgeSizeUnit));
+    if (badgeSize.IsNonNegative() && badgeSize.Unit() != DimensionUnit::PERCENT) {
+        badgeParameters.badgeCircleSize = badgeSize;
+    } else {
+        badgeParameters.badgeCircleSize = badgeTheme->GetBadgeCircleSize();
+    }
+    
+    badgeParameters.badgeColor = Color(style.badgeColor);
+    std::string fontWeight = style.fontWeight;
+    badgeParameters.badgeFontWeight = ConvertStrToFontWeight(fontWeight);
+    badgeParameters.badgeBorderColor = Color(style.borderColor);
+    
+    auto borderWidth = Dimension(style.borderWidth, DimensionUnit(style.borderWidthUnit));
+    if (borderWidth.IsNonNegative() && borderWidth.Unit() != DimensionUnit::PERCENT) {
+        badgeParameters.badgeBorderWidth = borderWidth;
+    } else {
+        badgeParameters.badgeBorderWidth = badgeTheme->GetBadgeBorderWidth();
+    }
+    
+    auto outerBorderWidth = Dimension(style.outerBorderWidth, DimensionUnit(style.outerBorderWidthUnit));
+    if (outerBorderWidth.IsNonNegative() && outerBorderWidth.Unit() != DimensionUnit::PERCENT) {
+        badgeParameters.badgeOuterBorderWidth = outerBorderWidth;
+    } else {
+        badgeParameters.badgeOuterBorderWidth = badgeTheme->GetBadgeOuterBorderWidth();
+    }
+    
+    badgeParameters.badgeOuterBorderColor = Color(style.outerBorderColor);
+    badgeParameters.isEnableAutoAvoidance = style.enableAutoAvoidance;
+    return badgeParameters;
+}
 } // namespace
 
 extern "C" {
@@ -112,7 +164,24 @@ void FfiOHOSAceFrameworkBadgeCreateV2(int32_t count, CJBadgeStyleV2 style, int32
     BadgeParameters badgeParameters = CreateBaseV2(style, position);
     badgeParameters.badgeCount = count;
     badgeParameters.badgeMaxCount = maxCount;
-    BadgeModel::GetInstance()->Create(badgeParameters);
+    if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        auto frameNode = BadgeModel::GetInstance()->CreateBadgeFrameNode();
+        BadgeModel::GetInstance()->SetIsDefault(false, false);
+        BadgeModel::GetInstance()->CreateByFrameNode(frameNode, badgeParameters);
+    } else {
+        BadgeModel::GetInstance()->Create(badgeParameters);
+    }
+}
+
+void FfiOHOSAceFrameworkBadgeCreateV3(int32_t count, CJBadgeStyleV3 style, int32_t position, int32_t maxCount)
+{
+    BadgeParameters badgeParameters = CreateBaseV3(style, position);
+    badgeParameters.badgeCount = count;
+    badgeParameters.badgeMaxCount = maxCount;
+    
+    auto frameNode = BadgeModel::GetInstance()->CreateBadgeFrameNode();
+    BadgeModel::GetInstance()->SetIsDefault(false, false);
+    BadgeModel::GetInstance()->CreateByFrameNode(frameNode, badgeParameters);
 }
 
 void FfiOHOSAceFrameworkBadgeCreateText(const char* value, CJBadgeStyle style, int32_t position)
@@ -126,6 +195,22 @@ void FfiOHOSAceFrameworkBadgeCreateTextV2(const char* value, CJBadgeStyleV2 styl
 {
     BadgeParameters badgeParameters = CreateBaseV2(style, position);
     badgeParameters.badgeValue = value;
-    BadgeModel::GetInstance()->Create(badgeParameters);
+    if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        auto frameNode = BadgeModel::GetInstance()->CreateBadgeFrameNode();
+        BadgeModel::GetInstance()->SetIsDefault(false, false);
+        BadgeModel::GetInstance()->CreateByFrameNode(frameNode, badgeParameters);
+    } else {
+        BadgeModel::GetInstance()->Create(badgeParameters);
+    }
+}
+
+void FfiOHOSAceFrameworkBadgeCreateTextV3(const char* value, CJBadgeStyleV3 style, int32_t position)
+{
+    BadgeParameters badgeParameters = CreateBaseV3(style, position);
+    badgeParameters.badgeValue = value;
+
+    auto frameNode = BadgeModel::GetInstance()->CreateBadgeFrameNode();
+    BadgeModel::GetInstance()->SetIsDefault(false, false);
+    BadgeModel::GetInstance()->CreateByFrameNode(frameNode, badgeParameters);
 }
 }

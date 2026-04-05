@@ -363,6 +363,9 @@ void UpdateNavigationTitlebarOptions(FrameNode* frameNode, ArkUINavigationTitleb
         if (options.enableHoverMode.isSet) {
             finalOptions.enableHoverMode = options.enableHoverMode.value;
         }
+        if (options.enableCustomTitlePaddingCheck.isSet) {
+            finalOptions.enableCustomTitlePaddingCheck = options.enableCustomTitlePaddingCheck.value;
+        }
         auto localFinalOptions = finalOptions;
         auto frameNode = wekNode.Upgrade();
         CHECK_NULL_VOID(frameNode);
@@ -419,6 +422,9 @@ void SetNavTitle(ArkUINodeHandle node, ArkUINavigationTitleInfo titleInfo, ArkUI
     if (options.enableHoverMode.isSet) {
         finalOptions.enableHoverMode = options.enableHoverMode.value;
     }
+    if (options.enableCustomTitlePaddingCheck.isSet) {
+        finalOptions.enableCustomTitlePaddingCheck = options.enableCustomTitlePaddingCheck.value;
+    }
     NavigationModelNG::SetTitlebarOptions(frameNode, std::move(finalOptions));
     if (SystemProperties::ConfigChangePerform()) {
         UpdateNavigationTitlebarOptions(frameNode, options);
@@ -438,13 +444,30 @@ void ResetNavTitle(ArkUINodeHandle node)
     NavigationModelNG::SetTitlebarOptions(frameNode, std::move(options));
 }
 
+void UpdateSymbolAndAction(const RefPtr<FrameNode>& frameNode, std::vector<NG::BarItem>& menuItems)
+{
+    auto navigationGroupNode = AceType::DynamicCast<NavigationGroupNode>(frameNode);
+    CHECK_NULL_VOID(navigationGroupNode);
+    auto navBarNode = AceType::DynamicCast<NavBarNode>(navigationGroupNode->GetNavBarNode());
+    CHECK_NULL_VOID(navBarNode);
+    auto navBarPattern = navBarNode->GetPattern<NavBarPattern>();
+    CHECK_NULL_VOID(navBarPattern);
+    auto titleBarMenuItems = navBarPattern->GetTitleBarMenuItems();
+    for (size_t i = 0; i < menuItems.size() && i < titleBarMenuItems.size(); i++) {
+        menuItems[i].action = titleBarMenuItems[i].action;
+        if (titleBarMenuItems[i].iconSymbol.has_value()) {
+            menuItems[i].iconSymbol = titleBarMenuItems[i].iconSymbol.value();
+        }
+    }
+}
+
 void UpdateNavigationMenuItem(FrameNode* frameNode, ArkUIBarItem* items, ArkUI_Uint32 length)
 {
     CHECK_NULL_VOID(frameNode);
     RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
-    auto&& updateFunc = [wekNode = AceType::WeakClaim(frameNode),
-                            items = std::vector<ArkUIBarItem>(items, items + length)](
-                            const RefPtr<ResourceObject>& resObj) mutable {
+    auto updateFunc = [wekNode = AceType::WeakClaim(frameNode),
+                          items = std::vector<ArkUIBarItem>(items, items + length)](
+                          const RefPtr<ResourceObject>& resObj) mutable {
         for (uint32_t i = 0; i < items.size(); i++) {
             items[i].ReloadResources();
         }
@@ -470,9 +493,10 @@ void UpdateNavigationMenuItem(FrameNode* frameNode, ArkUIBarItem* items, ArkUI_U
                 items[i].icon.value = nullptr;
             }
         }
-        auto localMenuItems = menuItems;
         auto frameNode = wekNode.Upgrade();
         CHECK_NULL_VOID(frameNode);
+        UpdateSymbolAndAction(frameNode, menuItems);
+        auto localMenuItems = menuItems;
         NavigationModelNG::SetMenuItems(AceType::RawPtr(frameNode), std::move(localMenuItems));
         frameNode->MarkModifyDone();
         frameNode->MarkDirtyNode();
@@ -620,8 +644,15 @@ void SetTitlebarOptions(ArkUINodeHandle node, ArkUINavigationTitlebarOptions opt
     if (opts.barStyle.isSet) {
         finalOptions.brOptions.barStyle = static_cast<NG::BarStyle>(opts.barStyle.value);
     }
+    if (opts.paddingEnd.isSet) {
+        finalOptions.brOptions.paddingEnd = CalcDimension(static_cast<double>(opts.paddingEnd.dimension.value),
+            static_cast<DimensionUnit>(opts.paddingEnd.dimension.units));
+    }
     if (opts.enableHoverMode.isSet) {
         finalOptions.enableHoverMode = opts.enableHoverMode.value;
+    }
+    if (opts.enableCustomTitlePaddingCheck.isSet) {
+        finalOptions.enableCustomTitlePaddingCheck = opts.enableCustomTitlePaddingCheck.value;
     }
     NavigationModelNG::SetTitlebarOptions(frameNode, std::move(finalOptions));
 }
@@ -632,24 +663,42 @@ void SetOnCoordScrollStartAction(ArkUINodeHandle node, void (*onCoordScrollStart
     CHECK_NULL_VOID(frameNode);
     auto onCoordScrollStartActionCallBack = [node = AceType::WeakClaim(frameNode), onCoordScrollStartAction]() {
         auto frameNode = node.Upgrade();
+        CHECK_NULL_VOID(frameNode);
         auto nodeHandle = reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(frameNode));
+        CHECK_NULL_VOID(onCoordScrollStartAction);
         onCoordScrollStartAction(nodeHandle);
     };
     NavigationModelNG::SetOnCoordScrollStartAction(frameNode, std::move(onCoordScrollStartActionCallBack));
 }
 
+void ResetOnCoordScrollStartAction(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavigationModelNG::SetOnCoordScrollStartAction(frameNode, nullptr);
+}
+
 void SetOnCoordScrollUpdateAction(ArkUINodeHandle node,
-    void (*onCoordScrollUpdateAction)(ArkUINodeHandle node, ArkUI_Float32 currentOffset))
+    void (*onCoordScrollUpdateAction)(ArkUINodeHandle node, ArkUI_Float32 offset, ArkUI_Float32 currentOffset))
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     auto onCoordScrollUpdateActionCallBack =
-        [node = AceType::WeakClaim(frameNode), onCoordScrollUpdateAction](float currentOffset)->void {
+        [node = AceType::WeakClaim(frameNode), onCoordScrollUpdateAction](float offset, float currentOffset)->void {
             auto frameNode = node.Upgrade();
+            CHECK_NULL_VOID(frameNode);
             auto nodeHandle = reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(frameNode));
-            onCoordScrollUpdateAction(nodeHandle, currentOffset);
+            CHECK_NULL_VOID(onCoordScrollUpdateAction);
+            onCoordScrollUpdateAction(nodeHandle, offset, currentOffset);
         };
     NavigationModelNG::SetOnCoordScrollUpdateAction(frameNode, std::move(onCoordScrollUpdateActionCallBack));
+}
+
+void ResetOnCoordScrollUpdateAction(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavigationModelNG::SetOnCoordScrollUpdateAction(frameNode, nullptr);
 }
 
 void SetOnCoordScrollEndAction(ArkUINodeHandle node, void (*onCoordScrollEndAction)(ArkUINodeHandle node))
@@ -658,10 +707,19 @@ void SetOnCoordScrollEndAction(ArkUINodeHandle node, void (*onCoordScrollEndActi
     CHECK_NULL_VOID(frameNode);
     auto onCoordScrollEndActionCallBack = [node = AceType::WeakClaim(frameNode), onCoordScrollEndAction]() {
         auto frameNode = node.Upgrade();
+        CHECK_NULL_VOID(frameNode);
         auto nodeHandle = reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(frameNode));
+        CHECK_NULL_VOID(onCoordScrollEndAction);
         onCoordScrollEndAction(nodeHandle);
     };
     NavigationModelNG::SetOnCoordScrollEndAction(frameNode, std::move(onCoordScrollEndActionCallBack));
+}
+
+void ResetOnCoordScrollEndAction(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavigationModelNG::SetOnCoordScrollEndAction(frameNode, nullptr);
 }
 
 void SetSystemBarStyle(ArkUINodeHandle node, ArkUI_Uint32 value)
@@ -800,6 +858,20 @@ void ResetOnNavBarStateChange(ArkUINodeHandle node)
     NavigationModelNG::SetOnNavBarStateChange(frameNode, nullptr);
 }
 
+void SetIsCustomTitleBarSize(ArkUINodeHandle node, ArkUI_Bool isCustom)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavigationModelNG::SetIsCustomTitleBarSize(frameNode, isCustom);
+}
+
+void ResetIsCustomTitleBarSize(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavigationModelNG::SetIsCustomTitleBarSize(frameNode, false);
+}
+
 void SetBeforeCreateLayoutWrapperCallBack(ArkUINodeHandle node, void (*beforeCreateLayoutWrapper)(ArkUINodeHandle node))
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -811,6 +883,68 @@ void SetBeforeCreateLayoutWrapperCallBack(ArkUINodeHandle node, void (*beforeCre
     };
     NavigationModelNG::SetBeforeCreateLayoutWrapperCallBack(frameNode, std::move(beforeCreateLayoutWrapperCallBack));
 }
+
+void SetNavBackButtonText(ArkUINodeHandle node, ArkUI_CharPtr text, ArkUI_VoidPtr textResource)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto resource = AceType::Claim(reinterpret_cast<ResourceObject*>(textResource));
+    NavigationModelNG::SetBackButtonTitleResource(frameNode, text, resource);
+}
+
+void ResetNavBackButtonText(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavigationModelNG::ResetResObj(frameNode, NavigationPatternType::TITLE_BAR,
+        "navigation.backButtonIcon.accessibilityText");
+}
+
+void HideDivider(ArkUINodeHandle node)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavigationModelNG::UpdateDividerVisibility(frameNode, false);
+}
+
+void SetDividerColor(ArkUINodeHandle node, ArkUI_CharPtr colorStr, ArkUI_VoidPtr colorRes, ArkUI_Bool definedColor)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (!definedColor) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(NavigationLayoutProperty, DefinedDividerColor, false, frameNode);
+        return;
+    }
+    Color color = Color::FromString(colorStr);
+    auto resource = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRes));
+    NavigationModelNG::UpdateDividerColor(frameNode, color, resource);
+}
+
+void SetDividerStartMargin(ArkUINodeHandle node, ArkUI_CharPtr startStr, ArkUI_VoidPtr startRes)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    CalcDimension start = StringUtils::StringToCalcDimension(startStr);
+    auto resource = AceType::Claim(reinterpret_cast<ResourceObject*>(startRes));
+    NavigationModelNG::UpdateDividerStartMargin(frameNode, start, resource);
+}
+
+void SetDividerEndMargin(ArkUINodeHandle node, ArkUI_CharPtr endStr, ArkUI_VoidPtr endRes)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    CalcDimension end = StringUtils::StringToCalcDimension(endStr);
+    auto resource = AceType::Claim(reinterpret_cast<ResourceObject*>(endRes));
+    NavigationModelNG::UpdateDividerEndMargin(frameNode, end, resource);
+}
+
+void ResetDividerStyle(ArkUINodeHandle node)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavigationModelNG::ResetDividerStyle(frameNode);
+}
+
 namespace NodeModifier {
 const ArkUINavigationModifier* GetNavigationModifier()
 {
@@ -859,8 +993,11 @@ const ArkUINavigationModifier* GetNavigationModifier()
         .setTitleHeight = SetTitleHeight,
         .setTitlebarOptions = SetTitlebarOptions,
         .setOnCoordScrollStartAction = SetOnCoordScrollStartAction,
+        .resetOnCoordScrollStartAction = ResetOnCoordScrollStartAction,
         .setOnCoordScrollUpdateAction = SetOnCoordScrollUpdateAction,
+        .resetOnCoordScrollUpdateAction = ResetOnCoordScrollUpdateAction,
         .setOnCoordScrollEndAction = SetOnCoordScrollEndAction,
+        .resetOnCoordScrollEndAction = ResetOnCoordScrollEndAction,
         .setSystemBarStyle = SetSystemBarStyle,
         .resetSystemBarStyle = ResetSystemBarStyle,
         .setSplitPlaceholder = SetSplitPlaceholder,
@@ -877,7 +1014,16 @@ const ArkUINavigationModifier* GetNavigationModifier()
         .resetToolBar = ResetToolBar,
         .setOnNavBarStateChange = SetOnNavBarStateChange,
         .resetOnNavBarStateChange = ResetOnNavBarStateChange,
+        .setIsCustomTitleBarSize = SetIsCustomTitleBarSize,
+        .resetIsCustomTitleBarSize = ResetIsCustomTitleBarSize,
         .setBeforeCreateLayoutWrapperCallBack = SetBeforeCreateLayoutWrapperCallBack,
+        .setNavBackButtonText = SetNavBackButtonText,
+        .resetNavBackButtonText = ResetNavBackButtonText,
+        .hideDivider = HideDivider,
+        .setDividerColor = SetDividerColor,
+        .setDividerStartMargin = SetDividerStartMargin,
+        .setDividerEndMargin = SetDividerEndMargin,
+        .resetDividerStyle = ResetDividerStyle,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
 

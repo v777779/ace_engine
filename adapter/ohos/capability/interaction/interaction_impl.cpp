@@ -16,7 +16,9 @@
 #include "interaction_impl.h"
 
 #include "interaction_manager.h"
-#include "start_drag_listener_impl.h"
+
+#include "adapter/ohos/capability/interaction/start_drag_listener_impl.h"
+#include "base/log/log_wrapper.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_behavior_reporter/drag_drop_behavior_reporter.h"
 
 using namespace OHOS::Msdp::DeviceStatus;
@@ -37,13 +39,12 @@ InteractionInterface* InteractionInterface::GetInstance()
 
 int32_t InteractionImpl::UpdateShadowPic(const OHOS::Ace::ShadowInfoCore& shadowInfo)
 {
-    auto pixelMap = shadowInfo.pixelMap;
-    if (!pixelMap) {
+    auto pixelSharedPtr = shadowInfo.GetPixelMapSharedPtr();
+    if (!pixelSharedPtr) {
         Msdp::DeviceStatus::ShadowInfo msdpShadowInfo { nullptr, shadowInfo.x, shadowInfo.y };
         return InteractionManager::GetInstance()->UpdateShadowPic(msdpShadowInfo);
     }
-    Msdp::DeviceStatus::ShadowInfo msdpShadowInfo { shadowInfo.pixelMap->GetPixelMapSharedPtr(), shadowInfo.x,
-        shadowInfo.y };
+    Msdp::DeviceStatus::ShadowInfo msdpShadowInfo { pixelSharedPtr, shadowInfo.x, shadowInfo.y };
     return InteractionManager::GetInstance()->UpdateShadowPic(msdpShadowInfo);
 }
 
@@ -71,14 +72,11 @@ int32_t InteractionImpl::StartDrag(const DragDataCore& dragData,
     Msdp::DeviceStatus::DragData msdpDragData { {}, dragData.buffer, dragData.udKey, dragData.extraInfo,
     dragData.filterInfo, dragData.sourceType, dragData.dragNum, dragData.pointerId, dragData.displayX,
     dragData.displayY, dragData.displayId, dragData.mainWindow, dragData.hasCanceledAnimation,
-    dragData.hasCoordinateCorrected, dragData.summarys, dragData.isDragDelay, dragData.detailedSummarys };
+    dragData.hasCoordinateCorrected, dragData.summarys, dragData.isDragDelay, dragData.detailedSummarys,
+    dragData.summaryFormat, dragData.version, dragData.totalSize, dragData.summaryTag, dragData.materialId };
     for (auto& shadowInfo: dragData.shadowInfos) {
-        if (shadowInfo.pixelMap) {
-            msdpDragData.shadowInfos.push_back({ shadowInfo.pixelMap->GetPixelMapSharedPtr(),
-                shadowInfo.x, shadowInfo.y });
-        } else {
-            msdpDragData.shadowInfos.push_back({ nullptr, shadowInfo.x, shadowInfo.y });
-        }
+        auto pixelSharedPtr = shadowInfo.GetPixelMapSharedPtr();
+        msdpDragData.shadowInfos.push_back({ pixelSharedPtr, shadowInfo.x, shadowInfo.y });
     }
     return InteractionManager::GetInstance()->StartDrag(msdpDragData,
         std::make_shared<StartDragListenerImpl>(callbackCore));
@@ -134,9 +132,21 @@ int32_t InteractionImpl::GetShadowOffset(ShadowOffsetData& shadowOffsetData)
         shadowOffsetData.offsetX, shadowOffsetData.offsetY, shadowOffsetData.width, shadowOffsetData.height);
 }
 
-int32_t InteractionImpl::GetDragSummary(std::map<std::string, int64_t>& summary)
+int32_t InteractionImpl::GetDragSummary(std::map<std::string, int64_t>& summary,
+    std::map<std::string, int64_t>& detailedSummary, std::map<std::string, std::vector<int32_t>>& summaryFormat,
+    int32_t& version, int64_t& totalSize, std::string& tag)
 {
-    return InteractionManager::GetInstance()->GetDragSummary(summary);
+    Msdp::DeviceStatus::DragSummaryInfo dragSummary;
+    auto ret = InteractionManager::GetInstance()->GetDragSummaryInfo(dragSummary);
+    if (ret != 0) {
+        return ret;
+    }
+    summary = dragSummary.summarys;
+    detailedSummary = dragSummary.detailedSummarys;
+    summaryFormat = dragSummary.summaryFormat;
+    version = dragSummary.version;
+    totalSize = dragSummary.totalSize;
+    return ret;
 }
 
 int32_t InteractionImpl::GetDragExtraInfo(std::string& extraInfo)
@@ -144,14 +154,19 @@ int32_t InteractionImpl::GetDragExtraInfo(std::string& extraInfo)
     return InteractionManager::GetInstance()->GetExtraInfo(extraInfo);
 }
 
+int32_t InteractionImpl::AddPrivilege(const std::string& signature, const DragEventData& dragEventData)
+{
+    Msdp::DeviceStatus::DragEventData msdpDragEventData = {
+        .timestampMs = dragEventData.timestampMs,
+        .coordinateX = dragEventData.coordinateX,
+        .coordinateY = dragEventData.coordinateY,
+    };
+    return InteractionManager::GetInstance()->AddPrivilege(signature, msdpDragEventData);
+}
+
 int32_t InteractionImpl::EnterTextEditorArea(bool enable)
 {
     return InteractionManager::GetInstance()->EnterTextEditorArea(enable);
-}
-
-int32_t InteractionImpl::AddPrivilege()
-{
-    return InteractionManager::GetInstance()->AddPrivilege();
 }
 
 int32_t InteractionImpl::RegisterCoordinationListener(std::function<void()> dragOutCallback)
@@ -192,7 +207,7 @@ void InteractionImpl::SetDraggableStateAsync(bool state, int64_t downTime)
     InteractionManager::GetInstance()->SetDraggableStateAsync(state, downTime);
 }
 
-int32_t InteractionImpl::EnableInternalDropAnimation(const std::string& animationInfo)
+int32_t InteractionImpl::EnableInternalDropAnimation(const std::string &animationInfo)
 {
     return InteractionManager::GetInstance()->EnableInternalDropAnimation(animationInfo);
 }

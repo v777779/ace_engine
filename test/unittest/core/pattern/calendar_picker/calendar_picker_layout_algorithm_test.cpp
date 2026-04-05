@@ -16,15 +16,16 @@
 #include "gtest/gtest.h"
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_default.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_default.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components/theme/icon_theme.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components/button/button_theme.h"
 #include "core/components/dialog/dialog_theme.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/calendar_picker/calendar_picker_model_ng.h"
 #include "core/components_ng/pattern/calendar_picker/calendar_picker_layout_algorithm.h"
 #include "core/components_ng/pattern/calendar/calendar_pattern.h"
@@ -44,6 +45,9 @@ const SizeF CONTAINER_SIZE(720.0f, 1136.f);
 const SizeF PARENT_IDEAL_SIZE(720.0f, 1136.f);
 const SizeF SELF_IDEAL_SIZE(600.0f, 1000.f);
 const Dimension ENTRY_BUTTON_WIDTH = Dimension(100.0, DimensionUnit::PX);
+const CalcSize CONSTRAINT_SIZE = { CalcLength(300.0), CalcLength(300.0) };
+const SizeF CONSTRAINT_MAX_SIZE(300.0f, 300.f);
+const CalcSize CONSTRAINT_SELF_SIZE = { CalcLength(400.0), CalcLength(400.0) };
 } // namespace
 
 class CalendarPickerLayoutAlgorithmTest : public testing::Test {
@@ -254,271 +258,6 @@ void CalendarPickerLayoutAlgorithmTest::GetCalendarPickerLayoutAlgorithm()
 }
 
 /**
- * @tc.name: UpdateFrameSizeWithLayoutPolicy001
- * @tc.desc: Test UpdateFrameSizeWithLayoutPolicy when layoutWrapper is not nullptr.
- * @tc.type: FUNC
- */
-HWTEST_F(CalendarPickerLayoutAlgorithmTest, UpdateFrameSizeWithLayoutPolicy001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Create CalendarPicker.
-     */
-    CreateCalendarPicker();
-    ASSERT_NE(frameNode_, nullptr);
-
-    /**
-     * @tc.steps: step2. Get CalendarPicker layout algorithm.
-     */
-    GetCalendarPickerLayoutAlgorithm();
-    ASSERT_NE(calendarPickerLayoutAlgorithm_, nullptr);
-
-    /**
-     * @tc.steps: step3. Call UpdateFrameSizeWithLayoutPolicy function when layoutWrapper is nullptr.
-     * @tc.expected: frameSize will not be changed.
-     */
-    LayoutWrapper* layoutWrapperTmp = nullptr;
-    SizeF frameSize = { 1.0f, 1.0f };
-    SizeF expectedValue = frameSize;
-    calendarPickerLayoutAlgorithm_->UpdateFrameSizeWithLayoutPolicy(layoutWrapperTmp, frameSize);
-    EXPECT_EQ(frameSize, expectedValue);
-}
-
-/**
- * @tc.name: UpdateFrameSizeWithLayoutPolicy002
- * @tc.desc: Test UpdateFrameSizeWithLayoutPolicy when layoutPolicy not has value.
- * @tc.type: FUNC
- */
-HWTEST_F(CalendarPickerLayoutAlgorithmTest, UpdateFrameSizeWithLayoutPolicy002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Create CalendarPicker.
-     */
-    CreateCalendarPicker();
-    ASSERT_NE(frameNode_, nullptr);
-
-    /**
-     * @tc.steps: step2. Get CalendarPicker layout algorithm.
-     */
-    GetCalendarPickerLayoutAlgorithm();
-    ASSERT_NE(calendarPickerLayoutAlgorithm_, nullptr);
-
-    /**
-     * @tc.steps: step3. Set layoutPolicy_ to std::nullopt.
-     */
-    auto layoutProperty = layoutWrapper_->GetLayoutProperty();
-    ASSERT_NE(layoutProperty, nullptr);
-    layoutProperty->layoutPolicy_ = std::nullopt;
-
-    /**
-     * @tc.steps: step4. Call UpdateFrameSizeWithLayoutPolicy function when layoutPolicy not has value.
-     * @tc.expected: frameSize will not be changed.
-     */
-    SizeF frameSize = { 1.0f, 1.0f };
-    SizeF expectedValue = frameSize;
-    calendarPickerLayoutAlgorithm_->UpdateFrameSizeWithLayoutPolicy(AceType::RawPtr(layoutWrapper_), frameSize);
-    EXPECT_EQ(frameSize, expectedValue);
-}
-
-/**
- * @tc.name: UpdateFrameSizeWithLayoutPolicy003
- * @tc.desc: Test UpdateFrameSizeWithLayoutPolicy when widthLayoutPolicy_ and heightLayoutPolicy_ are match parent.
- * @tc.type: FUNC
- */
-HWTEST_F(CalendarPickerLayoutAlgorithmTest, UpdateFrameSizeWithLayoutPolicy003, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Create CalendarPicker.
-     */
-    CreateCalendarPicker();
-    ASSERT_NE(frameNode_, nullptr);
-
-    /**
-     * @tc.steps: step2. Get CalendarPicker layout algorithm.
-     */
-    GetCalendarPickerLayoutAlgorithm();
-    ASSERT_NE(calendarPickerLayoutAlgorithm_, nullptr);
-
-    /**
-     * @tc.steps: step3. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::MATCH_PARENT.
-     */
-    auto layoutProperty = layoutWrapper_->GetLayoutProperty();
-    ASSERT_NE(layoutProperty, nullptr);
-    LayoutPolicyProperty layoutPolicyProperty;
-    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
-    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
-    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
-
-    /**
-     * @tc.steps: step4. set layout constraint to a valid value.
-     */
-    LayoutConstraintF parentLayoutConstraint;
-    parentLayoutConstraint.maxSize = CONTAINER_SIZE;
-    parentLayoutConstraint.percentReference = CONTAINER_SIZE;
-    parentLayoutConstraint.selfIdealSize.SetSize(CONTAINER_SIZE);
-    parentLayoutConstraint.parentIdealSize.SetSize(CONTAINER_SIZE);
-    layoutProperty->UpdateLayoutConstraint(parentLayoutConstraint);
-
-    /**
-     * @tc.steps: step4. Call UpdateFrameSizeWithLayoutPolicy function when layoutPolicy not has value.
-     * @tc.expected: frameSize will not be changed.
-     */
-    SizeF frameSize = { 1.0f, 1.0f };
-    calendarPickerLayoutAlgorithm_->UpdateFrameSizeWithLayoutPolicy(AceType::RawPtr(layoutWrapper_), frameSize);
-    EXPECT_EQ(frameSize, CONTAINER_SIZE);
-}
-
-/**
- * @tc.name: UpdateFrameSizeWithLayoutPolicy004
- * @tc.desc: Test UpdateFrameSizeWithLayoutPolicy when widthLayoutPolicy_ and heightLayoutPolicy_ are not match parent.
- * @tc.type: FUNC
- */
-HWTEST_F(CalendarPickerLayoutAlgorithmTest, UpdateFrameSizeWithLayoutPolicy004, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Create CalendarPicker.
-     */
-    CreateCalendarPicker();
-    ASSERT_NE(frameNode_, nullptr);
-
-    /**
-     * @tc.steps: step2. Get CalendarPicker layout algorithm.
-     */
-    GetCalendarPickerLayoutAlgorithm();
-    ASSERT_NE(calendarPickerLayoutAlgorithm_, nullptr);
-
-    /**
-     * @tc.steps: step3. set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::NO_MATCH.
-     */
-    auto layoutProperty = layoutWrapper_->GetLayoutProperty();
-    ASSERT_NE(layoutProperty, nullptr);
-    LayoutPolicyProperty layoutPolicyProperty;
-    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::NO_MATCH;
-    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::NO_MATCH;
-    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
-
-    /**
-     * @tc.steps: step4. Set layout constraint to a valid value.
-     */
-    LayoutConstraintF parentLayoutConstraint;
-    parentLayoutConstraint.maxSize = CONTAINER_SIZE;
-    parentLayoutConstraint.percentReference = CONTAINER_SIZE;
-    parentLayoutConstraint.selfIdealSize.SetSize(CONTAINER_SIZE);
-    parentLayoutConstraint.parentIdealSize.SetSize(CONTAINER_SIZE);
-    layoutProperty->UpdateLayoutConstraint(parentLayoutConstraint);
-
-    /**
-     * @tc.steps: step4. Call UpdateFrameSizeWithLayoutPolicy function when layoutPolicy not has value.
-     * @tc.expected: frameSize will not be changed.
-     */
-    SizeF frameSize = { 1.0f, 1.0f };
-    SizeF expectedValue = frameSize;
-    calendarPickerLayoutAlgorithm_->UpdateFrameSizeWithLayoutPolicy(AceType::RawPtr(layoutWrapper_), frameSize);
-    EXPECT_EQ(frameSize, expectedValue);
-}
-
-/**
- * @tc.name: UpdateFrameSizeWithLayoutPolicy005
- * @tc.desc: Test UpdateFrameSizeWithLayoutPolicy when widthLayoutPolicy_ is not match parent,
- *           and heightLayoutPolicy_ is match parent.
- * @tc.type: FUNC
- */
-HWTEST_F(CalendarPickerLayoutAlgorithmTest, UpdateFrameSizeWithLayoutPolicy005, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Create CalendarPicker.
-     */
-    CreateCalendarPicker();
-    ASSERT_NE(frameNode_, nullptr);
-
-    /**
-     * @tc.steps: step2. Get CalendarPicker layout algorithm.
-     */
-    GetCalendarPickerLayoutAlgorithm();
-    ASSERT_NE(calendarPickerLayoutAlgorithm_, nullptr);
-
-    /**
-     * @tc.steps: step3. Set widthLayoutPolicy_ to LayoutCalPolicy::NO_MATCH,
-     *                   heightLayoutPolicy_ to LayoutCalPolicy::MATCH_PARENT.
-     */
-    auto layoutProperty = layoutWrapper_->GetLayoutProperty();
-    ASSERT_NE(layoutProperty, nullptr);
-    LayoutPolicyProperty layoutPolicyProperty;
-    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::NO_MATCH;
-    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
-    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
-
-    /**
-     * @tc.steps: step4. set layout constraint to a valid value.
-     */
-    LayoutConstraintF parentLayoutConstraint;
-    parentLayoutConstraint.maxSize = CONTAINER_SIZE;
-    parentLayoutConstraint.percentReference = CONTAINER_SIZE;
-    parentLayoutConstraint.selfIdealSize.SetSize(CONTAINER_SIZE);
-    parentLayoutConstraint.parentIdealSize.SetSize(CONTAINER_SIZE);
-    layoutProperty->UpdateLayoutConstraint(parentLayoutConstraint);
-
-    /**
-     * @tc.steps: step4. Call UpdateFrameSizeWithLayoutPolicy function when layoutPolicy not has value.
-     * @tc.expected: frameSize will not be changed.
-     */
-    SizeF frameSize = { 1.0f, 1.0f };
-    calendarPickerLayoutAlgorithm_->UpdateFrameSizeWithLayoutPolicy(AceType::RawPtr(layoutWrapper_), frameSize);
-    EXPECT_EQ(frameSize.Width(), 1.0f);
-    EXPECT_EQ(frameSize.Height(), CONTAINER_SIZE.Height());
-}
-
-/**
- * @tc.name: UpdateFrameSizeWithLayoutPolicy006
- * @tc.desc: Test UpdateFrameSizeWithLayoutPolicy when widthLayoutPolicy_ is match parent,
- *           and heightLayoutPolicy_ is not match parent.
- * @tc.type: FUNC
- */
-HWTEST_F(CalendarPickerLayoutAlgorithmTest, UpdateFrameSizeWithLayoutPolicy006, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Create CalendarPicker.
-     */
-    CreateCalendarPicker();
-    ASSERT_NE(frameNode_, nullptr);
-
-    /**
-     * @tc.steps: step2. Get CalendarPicker layout algorithm.
-     */
-    GetCalendarPickerLayoutAlgorithm();
-    ASSERT_NE(calendarPickerLayoutAlgorithm_, nullptr);
-
-    /**
-     * @tc.steps: step3. Set widthLayoutPolicy_ to LayoutCalPolicy::MATCH_PARENT,
-     *                   heightLayoutPolicy_ to LayoutCalPolicy::NO_MATCH.
-     */
-    auto layoutProperty = layoutWrapper_->GetLayoutProperty();
-    ASSERT_NE(layoutProperty, nullptr);
-    LayoutPolicyProperty layoutPolicyProperty;
-    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
-    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::NO_MATCH;
-    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
-
-    /**
-     * @tc.steps: step4. set layout constraint to a valid value.
-     */
-    LayoutConstraintF parentLayoutConstraint;
-    parentLayoutConstraint.maxSize = CONTAINER_SIZE;
-    parentLayoutConstraint.percentReference = CONTAINER_SIZE;
-    parentLayoutConstraint.selfIdealSize.SetSize(CONTAINER_SIZE);
-    parentLayoutConstraint.parentIdealSize.SetSize(CONTAINER_SIZE);
-    layoutProperty->UpdateLayoutConstraint(parentLayoutConstraint);
-
-    /**
-     * @tc.steps: step4. Call UpdateFrameSizeWithLayoutPolicy function when layoutPolicy not has value.
-     * @tc.expected: frameSize will not be changed.
-     */
-    SizeF frameSize = { 1.0f, 1.0f };
-    calendarPickerLayoutAlgorithm_->UpdateFrameSizeWithLayoutPolicy(AceType::RawPtr(layoutWrapper_), frameSize);
-    EXPECT_EQ(frameSize.Width(), CONTAINER_SIZE.Width());
-    EXPECT_EQ(frameSize.Height(), 1.0f);
-}
-
-/**
  * @tc.name: CalendarPickerContentMeasure001
  * @tc.desc: Test CalendarPickerContentMeasure when widthLayoutPolicy_ and heightLayoutPolicy_ are not match parent.
  * @tc.type: FUNC
@@ -605,7 +344,7 @@ HWTEST_F(CalendarPickerLayoutAlgorithmTest, CalendarPickerContentMeasure002, Tes
      * @tc.steps: step4. set layout constraint to a valid value.
      */
     LayoutConstraintF parentLayoutConstraint;
-    parentLayoutConstraint.maxSize = CONTAINER_SIZE;
+    parentLayoutConstraint.maxSize = CONSTRAINT_MAX_SIZE;
     parentLayoutConstraint.percentReference = CONTAINER_SIZE;
     parentLayoutConstraint.selfIdealSize.SetSize(SELF_IDEAL_SIZE);
     parentLayoutConstraint.parentIdealSize.SetSize(PARENT_IDEAL_SIZE);
@@ -662,6 +401,219 @@ HWTEST_F(CalendarPickerLayoutAlgorithmTest, SelfMeasure001, TestSize.Level1)
     calendarPickerLayoutAlgorithm_->SelfMeasure(AceType::RawPtr(layoutWrapper_));
     EXPECT_EQ(calendarPickerLayoutAlgorithm_->flexMeasure_.Width(), ENTRY_BUTTON_WIDTH.Value());
     EXPECT_EQ(calendarPickerLayoutAlgorithm_->flexMeasure_.Height(), CONTAINER_SIZE.Height());
+}
+
+/**
+ * @tc.name: CalendarPickerContentMeasure003
+ * @tc.desc: Test CalendarPickerContentMeasure when widthLayoutPolicy_ and heightLayoutPolicy_ are wrapContent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CalendarPickerLayoutAlgorithmTest, CalendarPickerContentMeasure003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create CalendarPicker.
+     */
+    CreateCalendarPicker();
+    ASSERT_NE(frameNode_, nullptr);
+
+    /**
+     * @tc.steps: step2. Get CalendarPicker layout algorithm.
+     */
+    GetCalendarPickerLayoutAlgorithm();
+    ASSERT_NE(calendarPickerLayoutAlgorithm_, nullptr);
+
+    /**
+     * @tc.steps: step3. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::WRAP_CONTENT.
+     */
+    auto layoutProperty = layoutWrapper_->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::WRAP_CONTENT;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::WRAP_CONTENT;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+
+    /**
+     * @tc.steps: step4. set layout constraint to a valid value.
+     */
+    LayoutConstraintF parentLayoutConstraint;
+    parentLayoutConstraint.maxSize = CONSTRAINT_MAX_SIZE;
+    parentLayoutConstraint.percentReference = CONTAINER_SIZE;
+    parentLayoutConstraint.selfIdealSize.SetSize(SELF_IDEAL_SIZE);
+    parentLayoutConstraint.parentIdealSize.SetSize(PARENT_IDEAL_SIZE);
+    layoutProperty->UpdateLayoutConstraint(parentLayoutConstraint);
+    layoutProperty->UpdateContentConstraint();
+
+    /**
+     * @tc.steps: step4. Call CalendarPickerContentMeasure function.
+     * @tc.expected: The value of frameSize will be changed to CONSTRAINT_MAX_SIZE.
+     */
+    calendarPickerLayoutAlgorithm_->CalendarPickerContentMeasure(AceType::RawPtr(layoutWrapper_));
+    auto contentWrapper = layoutWrapper_->GetOrCreateChildByIndex(0);
+    ASSERT_NE(contentWrapper, nullptr);
+    auto contentGeometryNode = contentWrapper->GetGeometryNode();
+    ASSERT_NE(contentGeometryNode, nullptr);
+
+    SizeF geometryFrameSize = contentGeometryNode->GetFrameSize();
+    EXPECT_EQ(geometryFrameSize, CONSTRAINT_MAX_SIZE);
+}
+
+/**
+ * @tc.name: CalendarPickerContentMeasure004
+ * @tc.desc: Test CalendarPickerContentMeasure when widthLayoutPolicy_ and heightLayoutPolicy_ are fixAtIdealSize.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CalendarPickerLayoutAlgorithmTest, CalendarPickerContentMeasure004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create CalendarPicker.
+     */
+    CreateCalendarPicker();
+    ASSERT_NE(frameNode_, nullptr);
+
+    /**
+     * @tc.steps: step2. Get CalendarPicker layout algorithm.
+     */
+    GetCalendarPickerLayoutAlgorithm();
+    ASSERT_NE(calendarPickerLayoutAlgorithm_, nullptr);
+
+    /**
+     * @tc.steps: step3. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::FIX_AT_IDEAL_SIZE.
+     */
+    auto layoutProperty = layoutWrapper_->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::FIX_AT_IDEAL_SIZE;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::FIX_AT_IDEAL_SIZE;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+
+    /**
+     * @tc.steps: step4. set layout constraint to a valid value.
+     */
+    LayoutConstraintF parentLayoutConstraint;
+    parentLayoutConstraint.maxSize = CONSTRAINT_MAX_SIZE;
+    parentLayoutConstraint.percentReference = CONTAINER_SIZE;
+    parentLayoutConstraint.selfIdealSize.SetSize(SELF_IDEAL_SIZE);
+    parentLayoutConstraint.parentIdealSize.SetSize(PARENT_IDEAL_SIZE);
+    layoutProperty->UpdateLayoutConstraint(parentLayoutConstraint);
+    layoutProperty->UpdateContentConstraint();
+
+    MeasureProperty constraint;
+    constraint.selfIdealSize = CONSTRAINT_SELF_SIZE;
+    constraint.maxSize = CONSTRAINT_SIZE;
+    layoutProperty->UpdateCalcLayoutProperty(constraint);
+
+    /**
+     * @tc.steps: step4. Call CalendarPickerContentMeasure function.
+     * @tc.expected: The value of frameSize will be changed to CONSTRAINT_MAX_SIZE.
+     */
+    calendarPickerLayoutAlgorithm_->CalendarPickerContentMeasure(AceType::RawPtr(layoutWrapper_));
+    auto contentWrapper = layoutWrapper_->GetOrCreateChildByIndex(0);
+    ASSERT_NE(contentWrapper, nullptr);
+    auto contentGeometryNode = contentWrapper->GetGeometryNode();
+    ASSERT_NE(contentGeometryNode, nullptr);
+
+    SizeF geometryFrameSize = contentGeometryNode->GetFrameSize();
+    EXPECT_EQ(geometryFrameSize, CONSTRAINT_MAX_SIZE);
+}
+
+/**
+ * @tc.name: CalendarPickerContentMeasure005
+ * @tc.desc: Test CalendarPickerContentMeasure when widthLayoutPolicy_ and heightLayoutPolicy_ are wrapContent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CalendarPickerLayoutAlgorithmTest, CalendarPickerContentMeasure005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create CalendarPicker.
+     */
+    CreateCalendarPicker();
+    ASSERT_NE(frameNode_, nullptr);
+
+    /**
+     * @tc.steps: step2. Get CalendarPicker layout algorithm.
+     */
+    GetCalendarPickerLayoutAlgorithm();
+    ASSERT_NE(calendarPickerLayoutAlgorithm_, nullptr);
+
+    /**
+     * @tc.steps: step3. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::WRAP_CONTENT.
+     */
+    auto layoutProperty = layoutWrapper_->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::WRAP_CONTENT;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::WRAP_CONTENT;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+
+    /**
+     * @tc.steps: step4. set layout constraint to a valid value.
+     */
+    LayoutConstraintF parentLayoutConstraint;
+    parentLayoutConstraint.maxSize = CONSTRAINT_MAX_SIZE;
+    parentLayoutConstraint.percentReference = CONTAINER_SIZE;
+    parentLayoutConstraint.selfIdealSize.SetSize(SELF_IDEAL_SIZE);
+    parentLayoutConstraint.parentIdealSize.SetSize(PARENT_IDEAL_SIZE);
+    layoutProperty->UpdateLayoutConstraint(parentLayoutConstraint);
+    if (!layoutProperty->calcLayoutConstraint_) {
+        layoutProperty->calcLayoutConstraint_ = std::make_unique<MeasureProperty>();
+    }
+    layoutProperty->calcLayoutConstraint_->maxSize = CONSTRAINT_SIZE;
+    layoutProperty->UpdateContentConstraint();
+
+    /**
+     * @tc.steps: step4. Call CalendarPickerContentMeasure function.
+     * @tc.expected: The value of frameSize will be changed to CONSTRAINT_MAX_SIZE.
+     */
+    calendarPickerLayoutAlgorithm_->CalendarPickerContentMeasure(AceType::RawPtr(layoutWrapper_));
+    auto contentWrapper = layoutWrapper_->GetOrCreateChildByIndex(0);
+    ASSERT_NE(contentWrapper, nullptr);
+    auto contentGeometryNode = contentWrapper->GetGeometryNode();
+    ASSERT_NE(contentGeometryNode, nullptr);
+
+    SizeF geometryFrameSize = contentGeometryNode->GetFrameSize();
+    EXPECT_EQ(geometryFrameSize, CONSTRAINT_MAX_SIZE);
+}
+
+/**
+ * @tc.name: CalendarPickerMeasure001
+ * @tc.desc: Test BeforeCreateLayoutWrapper when widthLayoutPolicy_ and heightLayoutPolicy_ are matchParent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CalendarPickerLayoutAlgorithmTest, CalendarPickerMeasure001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create CalendarPicker.
+     */
+    CreateCalendarPicker();
+    ASSERT_NE(frameNode_, nullptr);
+
+    /**
+     * @tc.steps: step2. Get CalendarPicker layout algorithm.
+     */
+    GetCalendarPickerLayoutAlgorithm();
+    ASSERT_NE(calendarPickerLayoutAlgorithm_, nullptr);
+
+    /**
+     * @tc.steps: step3. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::MATCH_PARENT.
+     */
+    auto layoutProperty = layoutWrapper_->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+
+    EXPECT_TRUE(layoutProperty->calcLayoutConstraint_->selfIdealSize.has_value());
+    EXPECT_TRUE(layoutProperty->calcLayoutConstraint_->selfIdealSize->Height().has_value());
+
+    /**
+     * @tc.steps: step4. Call BeforeCreateLayoutWrapper.
+     * @tc.expected: Clear Height success.
+     */
+    auto calendarPickerPattern = AceType::DynamicCast<CalendarPickerPattern>(frameNode_->GetPattern());
+    ASSERT_NE(calendarPickerPattern, nullptr);
+    calendarPickerPattern->BeforeCreateLayoutWrapper();
+    EXPECT_FALSE(layoutProperty->calcLayoutConstraint_->selfIdealSize->Height().has_value());
 }
 
 } // namespace OHOS::Ace::NG

@@ -22,11 +22,11 @@
 // Add the following two macro definitions to test the private and protected method.
 #define private public
 #define protected public
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "base/geometry/dimension.h"
 #include "base/geometry/ng/offset_t.h"
@@ -321,5 +321,145 @@ HWTEST_F(CheckboxGroupStaticTestNg, CheckboxGroupStaticTestNg007, TestSize.Level
     checkboxStyle = std::make_optional(CheckBoxStyle::SQUARE_STYLE);
     CheckBoxGroupModelStatic::SetCheckboxGroupStyle(frameNode, checkboxStyle);
     EXPECT_EQ(paintProperty->GetCheckBoxGroupSelectedStyleValue(), CheckBoxStyle::SQUARE_STYLE);
+}
+
+/**
+ * @tc.name: CheckboxGroupStaticTestNg008
+ * @tc.desc: test checkboxgroup ResetCheckMarkColor.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CheckboxGroupStaticTestNg, CheckboxGroupStaticTestNg008, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create checkboxgroup frameNode.
+     */
+    auto node = CheckBoxGroupModelNG::CreateFrameNode(ElementRegister::GetInstance()->MakeUniqueId());
+    ASSERT_NE(node, nullptr);
+    EXPECT_EQ(node->GetTag(), V2::CHECKBOXGROUP_ETS_TAG);
+    auto frameNode = AceType::RawPtr(node);
+    ASSERT_NE(frameNode, nullptr);
+    /**
+     * @tc.steps: step2. create checkboxgroup paintProperty.
+     */
+    auto paintProperty = frameNode->GetPaintProperty<CheckBoxGroupPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+
+    /**
+     * @tc.steps: step3. test ResetCheckMarkColor.
+     * @tc.expected: step3. the property value meet expectations.
+     */
+    std::optional<Color> markColor = CHECK_MARK_COLOR;
+    CheckBoxGroupModelStatic::SetCheckMarkColor(frameNode, markColor);
+    EXPECT_EQ(paintProperty->GetCheckBoxGroupCheckMarkColor(), CHECK_MARK_COLOR);
+    CheckBoxGroupModelStatic::ResetCheckMarkColor(frameNode);
+    EXPECT_EQ(paintProperty->GetCheckBoxGroupCheckMarkColor(), std::nullopt);
+}
+
+/**
+ * @tc.name: CheckboxGroupStaticTestNgt009
+ * @tc.desc: test checkboxgroup SetChangeEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CheckboxGroupStaticTestNg, CheckboxGroupStaticTestNg009, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create checkboxgroup frameNode.
+     */
+    auto node = CheckBoxGroupModelNG::CreateFrameNode(ElementRegister::GetInstance()->MakeUniqueId());
+    ASSERT_NE(node, nullptr);
+    EXPECT_EQ(node->GetTag(), V2::CHECKBOXGROUP_ETS_TAG);
+    auto frameNode = AceType::RawPtr(node);
+    ASSERT_NE(frameNode, nullptr);
+    /**
+     * @tc.steps: step2. create checkboxgroup paintProperty.
+     */
+    auto paintProperty = frameNode->GetPaintProperty<CheckBoxGroupPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+
+    /**
+     * @tc.steps: step3. test SetChangeEvent.
+     * @tc.expected: step3. the property value meet expectations.
+     */
+    std::vector<std::string> vec;
+    int status = 0;
+    CheckboxGroupResult groupResult(
+        std::vector<std::string> { NAME }, int(CheckBoxGroupPaintProperty::SelectStatus::ALL));
+    auto changeEvent = [&vec, &status](const BaseEventInfo* groupResult) {
+        const auto* eventInfo = TypeInfoHelper::DynamicCast<CheckboxGroupResult>(groupResult);
+        vec = eventInfo->GetNameList();
+        status = eventInfo->GetStatus();
+    };
+    CheckBoxGroupModelStatic::SetChangeEvent(frameNode, changeEvent);
+    auto eventHub = frameNode->GetEventHub<NG::CheckBoxGroupEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    eventHub->UpdateChangeEvent(&groupResult);
+    EXPECT_FALSE(vec.empty());
+    EXPECT_EQ(vec.front(), NAME);
+    EXPECT_EQ(status, int(CheckBoxGroupPaintProperty::SelectStatus::ALL));
+}
+
+/**
+ * @tc.name: CheckboxGroupStaticTestNgt010
+ * @tc.desc: test checkboxgroup SetOnChange.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CheckboxGroupStaticTestNg, CheckboxGroupStaticTestNg010, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create checkboxgroup frameNode.
+     */
+    auto node = CheckBoxGroupModelNG::CreateFrameNode(ElementRegister::GetInstance()->MakeUniqueId());
+    ASSERT_NE(node, nullptr);
+    EXPECT_EQ(node->GetTag(), V2::CHECKBOXGROUP_ETS_TAG);
+    auto frameNode = AceType::RawPtr(node);
+    ASSERT_NE(frameNode, nullptr);
+    /**
+     * @tc.steps: step2. create checkboxgroup paintProperty.
+     */
+    auto paintProperty = frameNode->GetPaintProperty<CheckBoxGroupPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+
+    /**
+     * @tc.steps: step3. test SetOnChange.
+     * @tc.expected: step3. the property value meet expectations.
+     */
+    bool isSelected = false;
+    auto onChange = [&isSelected](bool select) { isSelected = select; };
+    CheckBoxGroupModelStatic::SetOnChange(frameNode, onChange);
+    auto eventHub = frameNode->GetEventHub<NG::CheckBoxGroupEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    CheckboxGroupResult groupResult(
+        std::vector<std::string> {}, int(CheckBoxGroupPaintProperty::SelectStatus::ALL));
+    eventHub->UpdateChangeEvent(&groupResult);
+    EXPECT_EQ(isSelected, true);
+}
+
+/**
+ * @tc.name: CheckboxGroupStaticTestNg011
+ * @tc.desc: test checkbox TriggerChange.
+ * @tc.type: FUNC
+ */
+HWTEST_F(CheckboxGroupStaticTestNg, CheckboxGroupStaticTestNg011, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create checkbox frameNode.
+     */
+    auto node = CheckBoxGroupModelNG::CreateFrameNode(ElementRegister::GetInstance()->MakeUniqueId());
+    ASSERT_NE(node, nullptr);
+    EXPECT_EQ(node->GetTag(), V2::CHECKBOXGROUP_ETS_TAG);
+    auto frameNode = AceType::RawPtr(node);
+    ASSERT_NE(frameNode, nullptr);
+    /**
+     * @tc.steps: step2. create checkboxgroup paintProperty.
+     */
+    auto paintProperty = frameNode->GetPaintProperty<CheckBoxGroupPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+
+    /**
+     * @tc.steps: step3. test TriggerChange.
+     * @tc.expected: step3. the property value meet expectations.
+     */
+    CheckBoxGroupModelStatic::TriggerChange(frameNode, SELECTED);
+    EXPECT_EQ(paintProperty->GetCheckBoxGroupSelect(), SELECTED);
 }
 } // namespace OHOS::Ace::NG

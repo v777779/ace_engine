@@ -26,6 +26,7 @@
 
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
+#include "base/utils/string_utils.h"
 #include "base/utils/resource_configuration.h"
 #include "core/common/resource/resource_object.h"
 #include "core/components/theme/resource_adapter.h"
@@ -54,8 +55,7 @@ public:
 
     static ResourceManager& GetInstance();
 
-    RefPtr<ResourceAdapter> GetOrCreateResourceAdapter(const RefPtr<ResourceObject>& resourceObject,
-        bool fromTheme = false);
+    RefPtr<ResourceAdapter> GetOrCreateResourceAdapter(const RefPtr<ResourceObject>& resourceObject);
 
     std::string MakeCacheKey(const std::string& bundleName, const std::string& moduleName, int32_t instanceId)
     {
@@ -84,6 +84,7 @@ public:
     void UpdateMainResourceAdapter(const std::string& bundleName, const std::string& moduleName, int32_t instanceId,
         RefPtr<ResourceAdapter>& resourceAdapter)
     {
+        std::unique_lock<std::shared_mutex> lock(mutex_);
         auto defaultKey = MakeCacheKey("", "", instanceId);
         auto key = MakeCacheKey(bundleName, moduleName, instanceId);
         resourceAdapters_[key] = resourceAdapter;
@@ -98,6 +99,13 @@ public:
             return true;
         }
         return cache_.find(key) != cache_.end();
+    }
+
+    std::string GetCacheKeyInstanceId(const std::string& key)
+    {
+        std::vector<std::string> splitter;
+        StringUtils::StringSplitter(key, '.', splitter);
+        return splitter.back();
     }
 
     RefPtr<ResourceAdapter> GetResourceAdapter(
@@ -136,16 +144,8 @@ public:
         return nullptr;
     }
 
-    void UpdateResourceConfig(const ResourceConfiguration& config, bool themeFlag = false)
-    {
-        std::unique_lock<std::shared_mutex> lock(mutex_);
-        for (auto iter = resourceAdapters_.begin(); iter != resourceAdapters_.end(); ++iter) {
-            iter->second->UpdateConfig(config, themeFlag);
-        }
-        for (auto iter = cacheList_.begin(); iter != cacheList_.end(); ++iter) {
-            iter->cacheObj->UpdateConfig(config, themeFlag);
-        }
-    }
+    void UpdateResourceConfig(const std::string& /*bundleName*/, const std::string& /*moduleName*/, int32_t instanceId,
+        const ResourceConfiguration& config, bool themeFlag = false);
 
     void RemoveResourceAdapter(const std::string& bundleName, const std::string& moduleName, int32_t instanceId)
     {
@@ -167,16 +167,8 @@ public:
         TAG_LOGI(AceLogTag::ACE_RESOURCE, "The cache of Resource has been released!");
     }
 
-    void UpdateColorMode(ColorMode colorMode)
-    {
-        std::unique_lock<std::shared_mutex> lock(mutex_);
-        for (auto iter = resourceAdapters_.begin(); iter != resourceAdapters_.end(); ++iter) {
-            iter->second->UpdateColorMode(colorMode);
-        }
-        for (auto iter = cacheList_.begin(); iter != cacheList_.end(); ++iter) {
-            iter->cacheObj->UpdateColorMode(colorMode);
-        }
-    }
+    void UpdateColorMode(
+        const std::string& /*bundleName*/, const std::string& /*moduleName*/, int32_t instanceId, ColorMode colorMode);
 
     void RegisterMainResourceAdapter(const std::string& bundleName, const std::string& moduleName, int32_t instanceId,
         const RefPtr<ResourceAdapter>& resAdapter);
@@ -194,6 +186,10 @@ public:
 
     void SetResourceCacheSize(size_t cacheSize) {
         capacity_.store(cacheSize);
+        while (cache_.size() > capacity_) {
+            cache_.erase(cacheList_.back().cacheKey);
+            cacheList_.pop_back();
+        }
     }
 
 private:

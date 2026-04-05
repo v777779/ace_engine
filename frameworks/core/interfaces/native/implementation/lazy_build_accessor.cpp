@@ -36,12 +36,10 @@ void SetListItemLazyBuilderImpl(Ark_NativePointer node,
                           weak = AceType::WeakClaim(frameNode)]() -> RefPtr<FrameNode> {
         auto refPtr = weak.Upgrade();
         CHECK_NULL_RETURN(refPtr, nullptr);
-        arkBuilder.BuildAsync(
-            [refPtr](const RefPtr<UINode>& uiNode) mutable {
-                uiNode->MountToParent(refPtr);
-                refPtr->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
-            },
-            Referenced::RawPtr(refPtr));
+        const RefPtr<UINode>& uiNode = arkBuilder.BuildSync(Referenced::RawPtr(refPtr));
+        if (uiNode) {
+            uiNode->MountToParent(refPtr);
+        }
         return nullptr;
     };
     auto shallowBuilder = AceType::MakeRefPtr<ShallowBuilder>(std::move(deepRender));
@@ -57,12 +55,10 @@ void SetTabContentLazyBuilderImpl(Ark_NativePointer node,
         weak = AceType::WeakClaim(frameNode)]() -> RefPtr<FrameNode> {
         auto refPtr = weak.Upgrade();
         CHECK_NULL_RETURN(refPtr, nullptr);
-        arkBuilder.BuildAsync(
-            [refPtr](const RefPtr<UINode>& uiNode) mutable {
-                uiNode->MountToParent(refPtr);
-                refPtr->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
-            },
-            Referenced::RawPtr(refPtr));
+        const RefPtr<UINode>& uiNode = arkBuilder.BuildSync(Referenced::RawPtr(refPtr));
+        if (uiNode) {
+            uiNode->MountToParent(refPtr);
+        }
         return nullptr;
     };
     auto shallowBuilder = AceType::MakeRefPtr<ShallowBuilder>(std::move(deepRender));

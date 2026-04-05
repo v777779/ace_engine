@@ -31,12 +31,12 @@ void ReloadParticleResources(const ParticleOption& particleOption,
     std::list<ParticlePropertyAnimation<Color>> animationArrayValue;
 
     // reloadResources ParticleColorPropertyOptions: range.
-    auto particlrColorOpt = particleOption.GetParticleColorOption();
-    if (particlrColorOpt.has_value()) {
-        particlrColorOpt->ReloadResources();
+    auto particleColorOpt = particleOption.GetParticleColorOption();
+    if (particleColorOpt.has_value()) {
+        particleColorOpt->ReloadResources();
 
         // reloadResources ParticleUpdater.CURVE: from、to.
-        updater = particlrColorOpt.value().GetUpdater();
+        updater = particleColorOpt.value().GetUpdater();
         if (updater.has_value()) {
             updaterConfig = updater.value().GetConfig();
             auto animationArray = updaterConfig.GetAnimationArray();
@@ -53,22 +53,30 @@ void ReloadParticleResources(const ParticleOption& particleOption,
     auto imageParameter = particleConfig.GetImageParticleParameter();
     imageParameter.ReloadResources();
 
+    auto annulusRegion = emitterOptionOpt.GetAnnulusRegion();
+    if (annulusRegion.has_value()) {
+        annulusRegion->ReloadResources();
+    }
+
     ParticleOption updatedParticleOption = particleOption;
     
     // set src and size after reloadResources.
     particleConfig.SetImageParticleParameter(imageParameter);
     particle.SetConfig(particleConfig);
     emitterOptionOpt.SetParticle(particle);
+    if (annulusRegion.has_value()) {
+        emitterOptionOpt.SetAnnulusRegion(annulusRegion.value());
+    }
 
     // set position and size after reloadResources.
     updatedParticleOption.SetEmitterOption(emitterOptionOpt);
 
     // set range and from-to after reloadResources.
-    if (particlrColorOpt.has_value() && updater.has_value()) {
+    if (particleColorOpt.has_value() && updater.has_value()) {
         updaterConfig.SetAnimationArray(animationArrayValue);
         updater.value().SetConfig(updaterConfig);
-        particlrColorOpt.value().SetUpdater(updater.value());
-        updatedParticleOption.SetParticleColorOption(particlrColorOpt.value());
+        particleColorOpt.value().SetUpdater(updater.value());
+        updatedParticleOption.SetParticleColorOption(particleColorOpt.value());
     }
     updatedArrayValue.push_back(updatedParticleOption);
 }
@@ -121,6 +129,41 @@ void ParticleModelNG::DisturbanceField(const std::vector<ParticleDisturbance>& d
     auto pattern = AceType::DynamicCast<ParticlePattern>(frameNode->GetPattern());
     CHECK_NULL_VOID(pattern);
     pattern->UpdateDisturbance(disturbanceArray);
+}
+
+void ParticleModelNG::RippleFields(const std::vector<ParticleRippleField>& rippleFields, NG::FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = AceType::DynamicCast<ParticlePattern>(frameNode->GetPattern());
+    CHECK_NULL_VOID(pattern);
+    pattern->UpdateRippleFields(rippleFields);
+}
+
+void ParticleModelNG::RippleFields(const std::vector<ParticleRippleField>& rippleFields)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = AceType::DynamicCast<ParticlePattern>(frameNode->GetPattern());
+    CHECK_NULL_VOID(pattern);
+    pattern->UpdateRippleFields(rippleFields);
+}
+
+void ParticleModelNG::VelocityFields(const std::vector<ParticleVelocityField>& velocityFields,
+    NG::FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = AceType::DynamicCast<ParticlePattern>(frameNode->GetPattern());
+    CHECK_NULL_VOID(pattern);
+    pattern->UpdateVelocityFields(velocityFields);
+}
+
+void ParticleModelNG::VelocityFields(const std::vector<ParticleVelocityField>& velocityFields)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = AceType::DynamicCast<ParticlePattern>(frameNode->GetPattern());
+    CHECK_NULL_VOID(pattern);
+    pattern->UpdateVelocityFields(velocityFields);
 }
 
 void ParticleModelNG::updateEmitter(std::vector<EmitterProperty>& property, FrameNode* frameNode)

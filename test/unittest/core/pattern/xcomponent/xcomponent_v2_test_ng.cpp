@@ -21,9 +21,9 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/render/mock_render_surface.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_surface.h"
 
 #include "base/memory/ace_type.h"
 #include "base/utils/utils.h"
@@ -67,6 +67,7 @@ public:
     {
         g_isCreated = false;
         g_isChanged = false;
+        g_isDestroyed = false;
     }
 
 protected:
@@ -92,95 +93,6 @@ RefPtr<FrameNode> XComponentV2TestNg::CreateXComponentNode()
     return frameNode;
 }
 
-/**
- * @tc.name: InitSurfaceMultiThread001
- * @tc.desc: Test XComponentPatternV2 InitSurfaceMultiThread func.
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentV2TestNg, InitSurfaceMultiThread001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. call CreateXComponentNode
-     * @tc.expected: xcomponent frameNode create successfully
-     */
-    auto frameNode = CreateXComponentNode();
-    ASSERT_TRUE(frameNode);
-    EXPECT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
-    auto pattern = frameNode->GetPattern<XComponentPatternV2>();
-    ASSERT_TRUE(pattern);
-    pattern->renderSurface_ = nullptr;
-    pattern->renderContextForSurface_ = nullptr;
-    /**
-     * @tc.steps: step2. call InitSurfaceMultiThread when host is nullptr
-     * @tc.expected: the surface is not initialized
-     */
-    pattern->InitSurfaceMultiThread(nullptr);
-    EXPECT_FALSE(pattern->renderSurface_);
-    EXPECT_FALSE(pattern->renderContextForSurface_);
-    /**
-     * @tc.steps: step3. call InitSurfaceMultiThread when host is valid
-     * @tc.expected: the surface is initialized
-     */
-    pattern->InitSurfaceMultiThread(frameNode);
-    EXPECT_TRUE(pattern->renderSurface_);
-    EXPECT_TRUE(pattern->renderContextForSurface_);
-}
-
-/**
- * @tc.name: InitSurfaceMultiThread002
- * @tc.desc: Test XComponentPatternV2 InitSurfaceMultiThread func when render context is nullptr
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentV2TestNg, InitSurfaceMultiThread002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. call CreateXComponentNode
-     * @tc.expected: xcomponent frameNode create successfully
-     */
-    auto frameNode = CreateXComponentNode();
-    ASSERT_TRUE(frameNode);
-    EXPECT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
-    auto pattern = frameNode->GetPattern<XComponentPatternV2>();
-    ASSERT_TRUE(pattern);
-    pattern->renderSurface_ = nullptr;
-    pattern->renderContextForSurface_ = nullptr;
-    frameNode->renderContext_ = nullptr;
-    /**
-     * @tc.steps: step2. call InitSurfaceMultiThread
-     * @tc.expected: the surface is not initialized
-     */
-    pattern->InitSurfaceMultiThread(frameNode);
-    EXPECT_FALSE(pattern->renderSurface_);
-    EXPECT_FALSE(pattern->renderContextForSurface_);
-}
-
-/**
- * @tc.name: InitSurfaceMultiThread003
- * @tc.desc: Test XComponentPatternV2 InitSurfaceMultiThread func for XComponentType::TEXTURE
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentV2TestNg, InitSurfaceMultiThread003, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. call CreateXComponentNode
-     * @tc.expected: xcomponent frameNode create successfully
-     */
-    auto frameNode = CreateXComponentNode();
-    ASSERT_TRUE(frameNode);
-    EXPECT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
-    auto pattern = frameNode->GetPattern<XComponentPatternV2>();
-    ASSERT_TRUE(pattern);
-    pattern->type_ = XComponentType::TEXTURE;
-    pattern->renderSurface_ = nullptr;
-    pattern->renderContextForSurface_ = nullptr;
-    /**
-     * @tc.steps: step2. call InitSurfaceMultiThread
-     * @tc.expected: the surface node is not initialized
-     */
-    pattern->InitSurfaceMultiThread(frameNode);
-    EXPECT_TRUE(pattern->renderSurface_);
-    EXPECT_FALSE(pattern->renderContextForSurface_);
-}
 
 /**
  * @tc.name: OnDetachFromFrameNodeMultiThreadTest
@@ -867,5 +779,406 @@ HWTEST_F(XComponentV2TestNg, CreateAndDisposeAccessibilityProviderTest, TestSize
     XComponentModelNG::DisposeAccessibilityProvider(provider);
     ASSERT_FALSE(pattern->arkuiAccessibilityProvider_);
     delete provider_invalid;
+}
+
+/**
+ * @tc.name: GetRSTransactionHandlerTest001
+ * @tc.desc: Test GetRSTransactionHandler method when multiInstanceEnabled is false
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, GetRSTransactionHandlerTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set multiInstanceEnabled property to false
+     * @tc.expected: multiInstanceEnabled is false
+     */
+    SystemProperties::multiInstanceEnabled_ = false;
+    ASSERT_FALSE(SystemProperties::multiInstanceEnabled_);
+
+    auto frameNode = CreateXComponentNode();
+    ASSERT_TRUE(frameNode);
+    ASSERT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto xcomponentPattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_NE(xcomponentPattern, nullptr);
+    auto hostNode = xcomponentPattern->GetHost();
+    /**
+     * @tc.steps: step2. call GetRSTransactionHandle
+     * @tc.expected: GetRSTransactionHandle return nullptr
+     */
+    auto transactionHandler = xcomponentPattern->GetRSTransactionHandler(hostNode);
+    ASSERT_EQ(transactionHandler, nullptr);
+}
+
+/**
+ * @tc.name: GetRSTransactionHandlerTest002
+ * @tc.desc: Test GetRSTransactionHandler method when multiInstanceEnabled is true
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, GetRSTransactionHandlerTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set multiInstanceEnabled property to true
+     * @tc.expected: multiInstanceEnabled is true
+     */
+    SystemProperties::multiInstanceEnabled_ = true;
+    ASSERT_TRUE(SystemProperties::multiInstanceEnabled_);
+    /**
+     * @tc.steps: step2. create new xcomponent node
+     * @tc.expected: create xcomponent node, do not set a RSUIContext
+     */
+    auto frameNode = CreateXComponentNode();
+    ASSERT_TRUE(frameNode);
+    ASSERT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto xcomponentPattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_NE(xcomponentPattern, nullptr);
+    auto hostNode = xcomponentPattern->GetHost();
+    /**
+     * @tc.steps: step3. call GetRSTransactionHandle
+     * @tc.expected: GetRSTransactionHandle return nullptr
+     */
+    auto transactionHandler = xcomponentPattern->GetRSTransactionHandler(hostNode);
+    ASSERT_EQ(transactionHandler, nullptr);
+}
+
+/**
+ * @tc.name: GetRSUIContextTest001
+ * @tc.desc: Test GetRSUIContext method when framenode is a new node
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, GetRSUIContextTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set multiInstanceEnabled property to false
+     * @tc.expected: multiInstanceEnabled is false
+     */
+    SystemProperties::multiInstanceEnabled_ = false;
+    ASSERT_FALSE(SystemProperties::multiInstanceEnabled_);
+    /**
+     * @tc.steps: step2. create xcomponent frameNode by GetOrCreateFrameNode
+     * @tc.expected: xcomponent frameNode create successfully
+     */
+    auto* stack = ViewStackProcessor::GetInstance();
+    XComponentType type = XComponentType::COMPONENT;
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::XCOMPONENT_ETS_TAG, stack->ClaimNodeId(), [type]() {
+            return AceType::MakeRefPtr<XComponentPatternV2>(type, XComponentNodeType::DECLARATIVE_NODE); });
+    ASSERT_TRUE(frameNode);
+    ASSERT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto xcomponentPattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_NE(xcomponentPattern, nullptr);
+    /**
+     * @tc.steps: step3. call GetRSUIContext
+     * @tc.expected: GetRSUIContext return nullptr
+     */
+    auto transactionHandler = xcomponentPattern->GetRSUIContext(frameNode);
+    ASSERT_EQ(transactionHandler, nullptr);
+}
+
+/**
+ * @tc.name: GetRSUIContextTest002
+ * @tc.desc: Test GetRSUIContext method when frameNode is host node
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, GetRSUIContextTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set multiInstanceEnabled property to false
+     * @tc.expected: multiInstanceEnabled is false
+     */
+    SystemProperties::multiInstanceEnabled_ = false;
+    ASSERT_FALSE(SystemProperties::multiInstanceEnabled_);
+    /**
+     * @tc.steps: step2. create xcomponent frameNode by XComponentModelNG
+     * @tc.expected: xcomponent frameNode create successfully
+     */
+    auto frameNode = CreateXComponentNode();
+    ASSERT_TRUE(frameNode);
+    ASSERT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto xcomponentPattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_NE(xcomponentPattern, nullptr);
+    auto hostNode = xcomponentPattern->GetHost();
+    /**
+     * @tc.steps: step3. call GetRSUIContext
+     * @tc.expected: GetRSUIContext return nullptr
+     */
+    auto transactionHandler = xcomponentPattern->GetRSUIContext(hostNode);
+    ASSERT_EQ(transactionHandler, nullptr);
+}
+
+/**
+ * @tc.name: GetRSUIContextTest003
+ * @tc.desc: Test GetRSUIContext method when framenode is a new node
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, GetRSUIContextTest003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set multiInstanceEnabled property to true
+     * @tc.expected: multiInstanceEnabled is true
+     */
+    SystemProperties::multiInstanceEnabled_ = true;
+    ASSERT_TRUE(SystemProperties::multiInstanceEnabled_);
+    /**
+     * @tc.steps: step2. create xcomponent frameNode by GetOrCreateFrameNode
+     * @tc.expected: xcomponent frameNode create successfully
+     */
+    auto* stack = ViewStackProcessor::GetInstance();
+    XComponentType type = XComponentType::COMPONENT;
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::XCOMPONENT_ETS_TAG, stack->ClaimNodeId(), [type]() {
+            return AceType::MakeRefPtr<XComponentPatternV2>(type, XComponentNodeType::DECLARATIVE_NODE); });
+    ASSERT_TRUE(frameNode);
+    ASSERT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto xcomponentPattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_NE(xcomponentPattern, nullptr);
+    /**
+     * @tc.steps: step3. call GetRSUIContext
+     * @tc.expected: GetRSUIContext return nullptr
+     */
+    auto transactionHandler = xcomponentPattern->GetRSUIContext(frameNode);
+    ASSERT_EQ(transactionHandler, nullptr);
+}
+
+/**
+ * @tc.name: GetRSUIContextTest004
+ * @tc.desc: Test GetRSUIContext method when frameNode is host node
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, GetRSUIContextTest004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set multiInstanceEnabled property to true
+     * @tc.expected: multiInstanceEnabled is true
+     */
+    SystemProperties::multiInstanceEnabled_ = true;
+    ASSERT_TRUE(SystemProperties::multiInstanceEnabled_);
+    /**
+     * @tc.steps: step2. create xcomponent frameNode by XComponentModelNG
+     * @tc.expected: xcomponent frameNode create successfully
+     */
+    auto frameNode = CreateXComponentNode();
+    ASSERT_TRUE(frameNode);
+    ASSERT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto xcomponentPattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_NE(xcomponentPattern, nullptr);
+    auto hostNode = xcomponentPattern->GetHost();
+    /**
+     * @tc.steps: step3. call GetRSUIContext
+     * @tc.expected: GetRSUIContext return nullptr
+     */
+    auto transactionHandler = xcomponentPattern->GetRSUIContext(hostNode);
+    ASSERT_EQ(transactionHandler, nullptr);
+}
+
+/**
+ * @tc.name: FlushImplicitTransaction001
+ * @tc.desc: Test FlushImplicitTransaction method
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, FlushImplicitTransaction001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set multiInstanceEnabled property to false
+     * @tc.expected: multiInstanceEnabled is false
+     */
+    SystemProperties::multiInstanceEnabled_ = false;
+    ASSERT_FALSE(SystemProperties::multiInstanceEnabled_);
+
+    g_params.type = XCOMPONENT_SURFACE_TYPE_VALUE;
+    auto* stack = ViewStackProcessor::GetInstance();
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = AceType::DynamicCast<FrameNode>(XComponentModelNG().CreateTypeNode(nodeId, &g_params));
+
+    ASSERT_TRUE(frameNode);
+    auto xcomponentPattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_NE(xcomponentPattern, nullptr);
+    auto hostNode = xcomponentPattern->GetHost();
+    /**
+     * @tc.steps: step2. call FlushImplicitTransaction
+     * @tc.expected: FlushImplicitTransaction return nullptr
+     */
+    xcomponentPattern->FlushImplicitTransaction(hostNode);
+    EXPECT_EQ(frameNode->GetId(), nodeId);
+}
+
+/**
+ * @tc.name: FlushImplicitTransaction002
+ * @tc.desc: Test FlushImplicitTransaction method
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, FlushImplicitTransaction002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set multiInstanceEnabled property to false
+     * @tc.expected: multiInstanceEnabled is false
+     */
+    SystemProperties::multiInstanceEnabled_ = true;
+    ASSERT_TRUE(SystemProperties::multiInstanceEnabled_);
+
+    g_params.type = XCOMPONENT_SURFACE_TYPE_VALUE;
+    auto* stack = ViewStackProcessor::GetInstance();
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = AceType::DynamicCast<FrameNode>(XComponentModelNG().CreateTypeNode(nodeId, &g_params));
+
+    ASSERT_TRUE(frameNode);
+    auto xcomponentPattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_NE(xcomponentPattern, nullptr);
+    auto hostNode = xcomponentPattern->GetHost();
+    /**
+     * @tc.steps: step2. call FlushImplicitTransaction
+     * @tc.expected: FlushImplicitTransaction return nullptr
+     */
+    xcomponentPattern->FlushImplicitTransaction(hostNode);
+    EXPECT_EQ(frameNode->GetId(), nodeId);
+}
+
+/**
+ * @tc.name: GetSurfaceHolderTest
+ * @tc.desc: Test GetSurfaceHolder Func
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, GetSurfaceHolderTest, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. call CreateXComponentNode
+     * @tc.expected: xcomponent frameNode create successfully
+     */
+    auto frameNode = CreateXComponentNode();
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto pattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. call GetSurfaceHolder when surfaceHolder_ is nullptr
+     * @tc.expected: GetSurfaceHolder return nullptr
+     */
+    pattern->SetSurfaceHolder(nullptr);
+    ASSERT_FALSE(pattern->GetSurfaceHolder());
+
+    /**
+     * @tc.steps: step3. call GetSurfaceHolder when surfaceHolder_ is not null
+     * @tc.expected: GetSurfaceHolder return not null
+     */
+    OH_ArkUI_SurfaceHolder* surfaceHolder = new OH_ArkUI_SurfaceHolder();
+    pattern->SetSurfaceHolder(surfaceHolder);
+    ASSERT_TRUE(pattern->GetSurfaceHolder());
+}
+
+/**
+ * @tc.name: OnModifyDoneTest001
+ * @tc.desc: Test XComponentPatternV2 OnModifyDone func
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, OnModifyDoneTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. call CreateXComponentNode
+     * @tc.expected: xcomponent frameNode create successfully
+     */
+    auto frameNode = CreateXComponentNode();
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto pattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_TRUE(pattern);
+    pattern->usesSuperMethod_ = false;
+    ASSERT_TRUE(pattern->renderContextForSurface_);
+    pattern->renderContextForSurface_->propBackgroundColor_.reset();
+
+    /**
+     * @tc.steps: step2. call OnModifyDone func
+     * @tc.expected: surface background color is updated
+     */
+    pattern->OnModifyDone();
+    EXPECT_EQ(pattern->renderContextForSurface_->propBackgroundColor_, Color::BLACK);
+}
+
+/**
+ * @tc.name: OnModifyDoneTest002
+ * @tc.desc: Test XComponentPatternV2 OnModifyDone func when usesSuperMethod_ is true
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, OnModifyDoneTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. call CreateXComponentNode
+     * @tc.expected: xcomponent frameNode create successfully
+     */
+    auto frameNode = CreateXComponentNode();
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto pattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_TRUE(pattern);
+    pattern->usesSuperMethod_ = true;
+    ASSERT_TRUE(pattern->renderContextForSurface_);
+    pattern->handlingSurfaceRenderContext_ = pattern->renderContextForSurface_;
+    pattern->renderContextForSurface_->propBackgroundColor_.reset();
+
+    /**
+     * @tc.steps: step2. call OnModifyDone func
+     * @tc.expected: surface background color is updated
+     */
+    pattern->OnModifyDone();
+    EXPECT_EQ(pattern->renderContextForSurface_->propBackgroundColor_, Color::BLACK);
+}
+
+/**
+ * @tc.name: InitializeRenderContextTest
+ * @tc.desc: Test XComponentPatternV2 InitializeRenderContextTest func when isThreadSafeNode is true
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, InitializeRenderContextTest, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. call CreateXComponentNode
+     * @tc.expected: xcomponent frameNode create successfully
+     */
+    auto frameNode = CreateXComponentNode();
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto pattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_TRUE(pattern);
+    pattern->usesSuperMethod_ = true;
+    pattern->renderContextForSurface_ = nullptr;
+    /**
+     * @tc.steps: step2. call InitializeRenderContext when isThreadSafeNode is true
+     * @tc.expected: renderContextForSurface_ is initialized
+     */
+    pattern->InitializeRenderContext(true);
+    EXPECT_TRUE(pattern->renderContextForSurface_);
+}
+
+/**
+ * @tc.name: XComponentV2InitAndDisposeSurfaceTest
+ * @tc.desc: Test FlushImplicitTransaction method
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentV2TestNg, XComponentV2InitAndDisposeSurfaceTest, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. call CreateXComponentNode.
+     * @tc.expected: xcomponent frameNode create successfully.
+     */
+    auto frameNode = CreateXComponentNode();
+    ASSERT_TRUE(frameNode);
+    ASSERT_EQ(frameNode->GetTag(), V2::XCOMPONENT_ETS_TAG);
+    auto pattern = frameNode->GetPattern<XComponentPatternV2>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. call InitializeRenderContext.
+     * @tc.expected: surface renderContext create successfully.
+     */
+    pattern->InitializeRenderContext();
+    EXPECT_TRUE(pattern->renderContextForSurface_);
+    EXPECT_EQ(pattern->renderContextForSurface_, pattern->handlingSurfaceRenderContext_);
+
+    /**
+     * @tc.steps: step3. call DisposeSurface.
+     * @tc.expected: surface renderContext dispose successfully.
+     */
+    pattern->DisposeSurface();
+    EXPECT_FALSE(pattern->renderContextForSurface_);
+    EXPECT_EQ(pattern->renderContextForSurface_, pattern->handlingSurfaceRenderContext_);
 }
 } // namespace OHOS::Ace::NG

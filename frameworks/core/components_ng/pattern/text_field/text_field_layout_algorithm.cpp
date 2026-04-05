@@ -24,11 +24,15 @@
 #include "base/i18n/localization.h"
 #include "base/log/log_wrapper.h"
 #include "base/memory/referenced.h"
+#include "core/components_ng/pattern/text/paragraph_util.h"
+#include "core/components_ng/pattern/text/text_pattern.h"
 #include "base/utils/utils.h"
 #include "bridge/common/utils/utils.h"
 #include "core/common/font_manager.h"
 #include "core/components/common/layout/constants.h"
+#include "core/components/common/properties/text_style.h"
 #include "core/components_ng/pattern/text/text_layout_adapter.h"
+#include "core/components_ng/pattern/text/text_layout_property.h"
 #include "core/components_ng/pattern/text/text_styles.h"
 #include "core/components_ng/pattern/text_field/auto_fill_controller.h"
 #include "core/components_ng/pattern/text_field/text_field_content_modifier.h"
@@ -59,8 +63,9 @@ bool IsNeedUpdateCounterWidth(const LayoutConstraintF& contentConstraint,
 }
 } // namespace
 void TextFieldLayoutAlgorithm::ConstructTextStyles(
-    const RefPtr<FrameNode>& frameNode, TextStyle& textStyle, std::u16string& textContent, bool& showPlaceHolder)
+    LayoutWrapper* layoutWrapper, TextStyle& textStyle, std::u16string& textContent, bool& showPlaceHolder)
 {
+    auto frameNode = layoutWrapper->GetHostNode();
     CHECK_NULL_VOID(frameNode);
     auto pipeline = frameNode->GetContext();
     CHECK_NULL_VOID(pipeline);
@@ -75,7 +80,7 @@ void TextFieldLayoutAlgorithm::ConstructTextStyles(
     auto isInlineStyle = pattern->IsNormalInlineState();
     auto isTextArea = pattern->IsTextArea();
     UpdateTextStyleFontScale(textFieldLayoutProperty, textStyle, pattern);
-    auto autofillController = pattern->GetAutoFillController();
+    auto autofillController = pattern->GetOrCreateAutoFillController();
     CHECK_NULL_VOID(autofillController);
     auto autoFillAnimationStatus = autofillController->GetAutoFillAnimationStatus();
     if (autoFillAnimationStatus != AutoFillAnimationStatus::INIT) {
@@ -92,11 +97,32 @@ void TextFieldLayoutAlgorithm::ConstructTextStyles(
             UpdateTextStyleTextOverflowAndWordBreak(
                 textStyle, isTextArea, isInlineStyle, textFieldLayoutProperty, textFieldTheme->TextFadeoutEnabled());
         } else {
-            UpdatePlaceholderTextStyle(frameNode, textFieldLayoutProperty, textFieldTheme, textStyle,
-                pattern->IsDisabled(), textFieldPaintProperty->GetPlaceholderColorFlagByUserValue(false));
-            textContent = textFieldLayoutProperty->GetPlaceholderValue(u"");
             showPlaceHolder = true;
+            if (!pattern->GetPlaceholderResponseArea()) {
+                UpdatePlaceholderTextStyle(frameNode, textFieldLayoutProperty, textFieldTheme, textStyle,
+                    pattern->IsDisabled(), textFieldPaintProperty->GetPlaceholderColorFlagByUserValue(false));
+                textContent = textFieldLayoutProperty->GetPlaceholderValue(u"");
+            } else {
+                if (textFieldLayoutProperty->HasPlaceholderMaxLines()) {
+                    textStyle.SetMaxLines(textFieldLayoutProperty->GetPlaceholderMaxLines().value());
+                }
+                ConstructStyledPlaceholderStyle(layoutWrapper, frameNode, textFieldTheme);
+                return;
+            }
         }
+    }
+    ConstructTextStylesAppend(frameNode, textStyle, pattern, showPlaceHolder);
+}
+
+void TextFieldLayoutAlgorithm::ConstructTextStylesAppend(const RefPtr<FrameNode>& frameNode, TextStyle& textStyle,
+    const RefPtr<TextFieldPattern>& pattern, bool showPlaceHolder)
+{
+    auto pipeline = frameNode->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    auto textFieldLayoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    CHECK_NULL_VOID(textFieldLayoutProperty);
+    if (!showPlaceHolder) {
+        PlaceholderRemoveFromParent(pattern);
     }
 
     textIndent_ = textStyle.GetTextIndent();
@@ -106,12 +132,25 @@ void TextFieldLayoutAlgorithm::ConstructTextStyles(
         textStyle.SetFontFamilies(Framework::ConvertStrToFontFamilies(fontManager->GetAppCustomFont()));
     }
     textStyle.SetEnableAutoSpacing(textFieldLayoutProperty->GetEnableAutoSpacingValue(false));
+    textStyle.SetOrphanCharOptimization(textFieldLayoutProperty->GetOrphanCharOptimizationValue(false));
+    textStyle.SetCompressLeadingPunctuation(textFieldLayoutProperty->GetCompressLeadingPunctuationValue(false));
+    textStyle.SetIncludeFontPadding(textFieldLayoutProperty->GetIncludeFontPaddingValue(false));
+    textStyle.SetFallbackLineSpacing(textFieldLayoutProperty->GetFallbackLineSpacingValue(false));
     // use for modifier.
     auto contentModifier = pattern->GetContentModifier();
     CHECK_NULL_VOID(contentModifier);
     SetPropertyToModifier(textStyle, contentModifier);
     contentModifier->ModifyTextStyle(textStyle);
     contentModifier->SetFontReady(false);
+}
+
+void TextFieldLayoutAlgorithm::PlaceholderRemoveFromParent(const RefPtr<TextFieldPattern>& pattern)
+{
+    auto responseArea = pattern->GetPlaceholderResponseArea();
+    CHECK_NULL_VOID(responseArea);
+    auto placeholderResponseArea = DynamicCast<PlaceholderResponseArea>(responseArea);
+    CHECK_NULL_VOID(placeholderResponseArea);
+    placeholderResponseArea->PlaceholderRemoveFromParent();
 }
 
 void TextFieldLayoutAlgorithm::UpdateTextStyleTextOverflowAndWordBreak(TextStyle& textStyle, bool isTextArea,
@@ -169,9 +208,19 @@ std::optional<SizeF> TextFieldLayoutAlgorithm::InlineMeasureContent(const Layout
 
     float contentWidth = 0.0f;
     auto safeBoundary = textFieldTheme->GetInlineBorderWidth().ConvertToPx() * 2;
+    auto isStyledPlaceholder = IsStyledPlaceholder(pattern);
     if (pattern->HasFocus()) {
-        InlineFocusMeasure(contentConstraint, layoutWrapper, safeBoundary, contentWidth);
+        if (!isStyledPlaceholder) {
+            InlineFocusMeasure(contentConstraint, layoutWrapper, safeBoundary, contentWidth);
+        } else {
+            UpdateStyledPlaceholderMaxlines(
+                textFieldLayoutProperty->GetMaxViewLinesValue(INLINE_DEFAULT_VIEW_MAXLINE), pattern);
+            return StyledPlaceHolderMeasureContent(contentConstraint, layoutWrapper, true);
+        }
     } else {
+        if (isStyledPlaceholder) {
+            return StyledPlaceHolderMeasureContent(contentConstraint, layoutWrapper);
+        }
         ApplyIndent(layoutWrapper, contentConstraint.maxSize.Width());
         paragraph_->Layout(contentConstraint.maxSize.Width());
         if (autoWidth_) {
@@ -185,16 +234,7 @@ std::optional<SizeF> TextFieldLayoutAlgorithm::InlineMeasureContent(const Layout
             contentWidth = std::max(contentWidth, contentConstraint.minSize.Width());
         }
         // calc inline status in advance
-        auto widthOffSet = contentConstraint.selfIdealSize.Width().has_value()?
-            pattern->GetPaddingLeft() + pattern->GetPaddingRight() - safeBoundary : 0.0f - safeBoundary;
-        inlineParagraph_->Layout(contentConstraint.maxSize.Width() + widthOffSet
-            - safeBoundary - PARAGRAPH_SAVE_BOUNDARY);
-        auto longestLine = std::ceil(inlineParagraph_->GetLongestLineWithIndent());
-        inlineParagraph_->Layout(std::min(static_cast<float>(longestLine), inlineParagraph_->GetMaxWidth()));
-        auto inlineContentWidth = ConstraintWithMinWidth(contentConstraint, layoutWrapper, inlineParagraph_,
-            static_cast<float>(safeBoundary) + PARAGRAPH_SAVE_BOUNDARY);
-        inlineMeasureItem_.inlineScrollRectOffsetX = contentWidth
-            + pattern->GetHorizontalPaddingAndBorderSum() - inlineContentWidth - safeBoundary - PARAGRAPH_SAVE_BOUNDARY;
+        CalcInlineStatusAdvance(layoutWrapper, contentConstraint, pattern, safeBoundary, contentWidth);
     }
 
     textRect_.SetSize(SizeF(GetVisualTextWidth(), paragraph_->GetHeight()));
@@ -206,6 +246,22 @@ std::optional<SizeF> TextFieldLayoutAlgorithm::InlineMeasureContent(const Layout
     auto minWidth = INLINE_MIN_WITH.ConvertToPx();
     contentWidth = GreatNotEqual(contentWidth, minWidth) ? contentWidth : minWidth;
     return SizeF(contentWidth, std::min(inlineIdealHeight, contentHeight));
+}
+
+void TextFieldLayoutAlgorithm::CalcInlineStatusAdvance(LayoutWrapper* layoutWrapper,
+    const LayoutConstraintF& contentConstraint, const RefPtr<TextFieldPattern>& pattern, double safeBoundary,
+    float contentWidth)
+{
+    auto widthOffSet = contentConstraint.selfIdealSize.Width().has_value()?
+        pattern->GetPaddingLeft() + pattern->GetPaddingRight() - safeBoundary : 0.0f - safeBoundary;
+    inlineParagraph_->Layout(contentConstraint.maxSize.Width() + widthOffSet
+        - safeBoundary - PARAGRAPH_SAVE_BOUNDARY);
+    auto longestLine = std::ceil(inlineParagraph_->GetLongestLineWithIndent());
+    inlineParagraph_->Layout(std::min(static_cast<float>(longestLine), inlineParagraph_->GetMaxWidth()));
+    auto inlineContentWidth = ConstraintWithMinWidth(contentConstraint, layoutWrapper, inlineParagraph_,
+        static_cast<float>(safeBoundary) + PARAGRAPH_SAVE_BOUNDARY);
+    inlineMeasureItem_.inlineScrollRectOffsetX = contentWidth
+        + pattern->GetHorizontalPaddingAndBorderSum() - inlineContentWidth - safeBoundary - PARAGRAPH_SAVE_BOUNDARY;
 }
 
 void TextFieldLayoutAlgorithm::GetInlineMeasureItem(
@@ -328,10 +384,10 @@ float TextFieldLayoutAlgorithm::ConstraintWithMinWidth(
     return std::max(paragraph->GetMaxWidth(), 0.0f);
 }
 
-SizeF TextFieldLayoutAlgorithm::PlaceHolderMeasureContent(const LayoutConstraintF& contentConstraint,
-    LayoutWrapper* layoutWrapper, float imageWidth)
+SizeF TextFieldLayoutAlgorithm::PlaceHolderMeasureContent(
+    const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper)
 {
-    paragraph_->Layout(contentConstraint.maxSize.Width() - imageWidth);
+    paragraph_->Layout(contentConstraint.maxSize.Width());
 
     // Adapts to auto width.
     if (autoWidth_) {
@@ -339,7 +395,7 @@ SizeF TextFieldLayoutAlgorithm::PlaceHolderMeasureContent(const LayoutConstraint
         paragraph_->Layout(std::max(minWidth, std::ceil(paragraph_->GetLongestLine())));
     }
 
-    auto contentWidth = ConstraintWithMinWidth(contentConstraint, layoutWrapper, paragraph_, imageWidth);
+    auto contentWidth = ConstraintWithMinWidth(contentConstraint, layoutWrapper, paragraph_);
 
     auto frameNode = layoutWrapper->GetHostNode();
     CHECK_NULL_RETURN(frameNode, SizeF());
@@ -347,7 +403,7 @@ SizeF TextFieldLayoutAlgorithm::PlaceHolderMeasureContent(const LayoutConstraint
     CHECK_NULL_RETURN(pattern, SizeF());
     if (pattern->GetTextInputFlag()) {
         // TextInput's counter is outside the input area
-        auto reviseContentWidth = contentWidth + imageWidth;
+        auto reviseContentWidth = contentWidth;
         CounterNodeMeasure(reviseContentWidth, layoutWrapper);
     } else {
         // TextArea's counter is inside the input area
@@ -364,9 +420,200 @@ SizeF TextFieldLayoutAlgorithm::PlaceHolderMeasureContent(const LayoutConstraint
 
     auto contentHeight = std::min(contentConstraint.maxSize.Height(), height);
 
+    isPlaceHolderOverSize_ = height > contentConstraint.maxSize.Height();
     textRect_.SetSize(SizeF(GetVisualTextWidth(), paragraph_->GetHeight()));
 
     return SizeF(contentWidth, contentHeight);
+}
+
+void TextFieldLayoutAlgorithm::UpdateStyledPlaceholderMaxlines(
+    uint32_t maxLines, const RefPtr<TextFieldPattern>& pattern)
+{
+    auto placeholderResponseArea = pattern->GetPlaceholderResponseArea();
+    CHECK_NULL_VOID(placeholderResponseArea);
+    auto textNode = placeholderResponseArea->GetFrameNode();
+    CHECK_NULL_VOID(textNode);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_VOID(textLayoutProperty);
+    textLayoutProperty->UpdateMaxLines(maxLines);
+}
+
+void TextFieldLayoutAlgorithm::UpdateStyledPlaceholderHeightAdaptivePolicy(const RefPtr<TextFieldPattern>& pattern)
+{
+    auto placeholderResponseArea = pattern->GetPlaceholderResponseArea();
+    CHECK_NULL_VOID(placeholderResponseArea);
+    auto textNode = placeholderResponseArea->GetFrameNode();
+    CHECK_NULL_VOID(textNode);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_VOID(textLayoutProperty);
+    textLayoutProperty->UpdateHeightAdaptivePolicy(TextHeightAdaptivePolicy::LAYOUT_CONSTRAINT_FIRST);
+}
+
+void TextFieldLayoutAlgorithm::StylePlaceHolderMeasure(
+    LayoutWrapper* layoutWrapper, const LayoutConstraintF& textContentConstraint, SizeF& contentSize)
+{
+    auto frameNode = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(frameNode);
+    auto textFieldPattern = frameNode->GetPattern<TextFieldPattern>();
+    CHECK_NULL_VOID(textFieldPattern);
+    auto responseArea = textFieldPattern->GetPlaceholderResponseArea();
+    CHECK_NULL_VOID(responseArea);
+    auto placeholderResponseArea = DynamicCast<PlaceholderResponseArea>(responseArea);
+    CHECK_NULL_VOID(placeholderResponseArea);
+    auto textNode = placeholderResponseArea->GetFrameNode();
+    CHECK_NULL_VOID(textNode);
+    auto childIndex = frameNode->GetChildIndex(textNode);
+    contentSize = placeholderResponseArea->MeasurePlaceholder(layoutWrapper, childIndex, textContentConstraint);
+    textRect_.SetSize(contentSize);
+
+    if (LessOrEqual(textRect_.Height(), 0.0)) {
+        // Used for empty placeholder.
+        TextStyle textStyle;
+        auto textFieldLayoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+        CHECK_NULL_VOID(textFieldLayoutProperty);
+        if (textFieldLayoutProperty->HasAdaptMinFontSize()) {
+            textStyle.SetAdaptMinFontSize(textFieldLayoutProperty->GetAdaptMinFontSize().value());
+        }
+        if (textFieldLayoutProperty->HasAdaptMaxFontSize()) {
+            textStyle.SetAdaptMaxFontSize(textFieldLayoutProperty->GetAdaptMaxFontSize().value());
+        }
+        if (textStyle.GetAdaptTextSize() && TextAdaptFontSizer::IsNeedAdaptFontSize(textStyle, textContentConstraint)) {
+            textFieldPattern->SetAdaptFontSize(textFieldLayoutProperty->GetAdaptMaxFontSize().value());
+            preferredHeight_ = textFieldPattern->PreferredLineHeight(true, true);
+        }
+    }
+
+    auto height = GreatNotEqual(textRect_.Height(), 0.0) ? contentSize.Height()
+                                                         : std::max(preferredHeight_, contentSize.Height());
+    contentSize.SetHeight(height);
+}
+
+void TextFieldLayoutAlgorithm::StylePlaceHolderReMeasure(
+    LayoutWrapper* layoutWrapper, LayoutConstraintF textContentConstraint, float counterNodeHeight, SizeF& contentSize)
+{
+    auto frameNode = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(frameNode);
+    auto textFieldPattern = frameNode->GetPattern<TextFieldPattern>();
+    CHECK_NULL_VOID(textFieldPattern);
+    auto contentHeight = std::max(textContentConstraint.maxSize.Height() - counterNodeHeight, 0.0f);
+    textContentConstraint.maxSize.SetHeight(contentHeight);
+
+    ACE_MEASURE_SCOPED_TRACE("TextFieldLayoutAlgorithm::StylePlaceHolderReMeasure[self:%d]["
+                             "textContentConstraint:%s][counterNodeHeight:%f][textRect_:%s]",
+        frameNode->GetId(), textContentConstraint.ToString().c_str(), counterNodeHeight, textRect_.ToString().c_str());
+    UpdateStyledPlaceholderHeightAdaptivePolicy(textFieldPattern);
+    StylePlaceHolderMeasure(layoutWrapper, textContentConstraint, contentSize);
+}
+
+SizeF TextFieldLayoutAlgorithm::StyledPlaceHolderMeasureContent(
+    const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper, bool adapter)
+{
+    auto frameNode = layoutWrapper->GetHostNode();
+    CHECK_NULL_RETURN(frameNode, SizeF());
+    auto textFieldPattern = frameNode->GetPattern<TextFieldPattern>();
+    CHECK_NULL_RETURN(textFieldPattern, SizeF());
+    auto responseArea = textFieldPattern->GetPlaceholderResponseArea();
+    CHECK_NULL_RETURN(responseArea, SizeF());
+    auto placeholderResponseArea = DynamicCast<PlaceholderResponseArea>(responseArea);
+    CHECK_NULL_RETURN(placeholderResponseArea, SizeF());
+    auto textNode = placeholderResponseArea->GetFrameNode();
+    CHECK_NULL_RETURN(textNode, SizeF());
+
+    auto textFieldLayoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    CHECK_NULL_RETURN(textFieldLayoutProperty, SizeF());
+
+    // 构造Text子节点布局约束，默认宽度撑满内容区最大宽，高度自适应实际显示内容
+    auto textContentConstraint = contentConstraint;
+    auto widthPolicy = TextBase::GetLayoutCalPolicy(layoutWrapper, true);
+    if (autoWidth_ || adapter || widthPolicy == LayoutCalPolicy::WRAP_CONTENT) {
+        textContentConstraint.minSize.SetWidth(
+            std::max(static_cast<float>(INLINE_MIN_WITH.ConvertToPx()), textContentConstraint.minSize.Width()));
+        textContentConstraint.selfIdealSize.SetWidth(std::nullopt);
+    } else if (widthPolicy == LayoutCalPolicy::FIX_AT_IDEAL_SIZE && !isInlineFocus_) {
+        textContentConstraint.selfIdealSize.Reset();
+    } else {
+        textContentConstraint.selfIdealSize.SetWidth(contentConstraint.maxSize.Width());
+    }
+    textContentConstraint.selfIdealSize.SetHeight(std::nullopt);
+    textContentConstraint.minSize.SetHeight(0.0f);
+
+    SizeF contentSize;
+    StylePlaceHolderMeasure(layoutWrapper, textContentConstraint, contentSize);
+    ACE_MEASURE_SCOPED_TRACE("TextFieldLayoutAlgorithm::StyledPlaceHolderMeasureContent[self:%d][contentConstraint:%s]["
+                             "textContentConstraint:%s][contentSize:%s][preferredHeight:%f]",
+        frameNode->GetId(), contentConstraint.ToString().c_str(), textContentConstraint.ToString().c_str(),
+        contentSize.ToString().c_str(), preferredHeight_);
+
+    if (paragraph_) {
+        paragraph_ = nullptr;
+    }
+    StyledPlaceHolderCounterNodeMeasure(textContentConstraint, layoutWrapper, textFieldPattern, contentSize);
+    auto textPattern = textNode->GetPattern<TextPattern>();
+    CHECK_NULL_RETURN(textPattern, SizeF());
+
+    inlineMeasureItem_.inlineSizeHeight =
+        preferredHeight_ * std::min(static_cast<uint32_t>(textPattern->GetLineCount()),
+        textFieldLayoutProperty->GetMaxViewLinesValue(INLINE_DEFAULT_VIEW_MAXLINE));
+    return contentSize;
+}
+
+void TextFieldLayoutAlgorithm::StyledPlaceHolderCounterNodeMeasure(const LayoutConstraintF& textContentConstraint,
+    LayoutWrapper* layoutWrapper, const RefPtr<TextFieldPattern>& textFieldPattern, SizeF& contentSize)
+{
+    auto textFieldLayoutProperty = textFieldPattern->GetLayoutProperty<TextFieldLayoutProperty>();
+    CHECK_NULL_VOID(textFieldLayoutProperty);
+    float counterNodeHeight = 0.0f;
+    if (textFieldPattern->GetTextInputFlag()) {
+        // TextInput's counter is outside the input area
+        counterNodeHeight = CounterNodeMeasure(contentSize.Width(), layoutWrapper);
+    } else {
+        // TextArea's counter is inside the input area
+        counterNodeHeight = CounterNodeMeasure(contentSize.Width(), layoutWrapper);
+    }
+    if (textFieldLayoutProperty->GetShowCounterValue(false) && textFieldLayoutProperty->HasMaxLength() &&
+        textFieldPattern->IsTextArea() && !textFieldPattern->IsNormalInlineState() &&
+        textRect_.Height() > textContentConstraint.maxSize.Height() - counterNodeHeight) {
+        StylePlaceHolderReMeasure(layoutWrapper, textContentConstraint, counterNodeHeight, contentSize);
+    }
+}
+
+void TextFieldLayoutAlgorithm::StyledPlaceholderLayout(
+    LayoutWrapper* layoutWrapper, const RefPtr<TextFieldPattern>& pattern)
+{
+    auto placeResponseArea = pattern->GetPlaceholderResponseArea();
+    CHECK_NULL_VOID(placeResponseArea);
+    auto frameNode = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(frameNode);
+    auto placeholderResponseArea = DynamicCast<PlaceholderResponseArea>(placeResponseArea);
+    CHECK_NULL_VOID(placeholderResponseArea);
+    auto textNode = placeholderResponseArea->GetFrameNode();
+    CHECK_NULL_VOID(textNode);
+    auto childIndex = frameNode->GetChildIndex(textNode);
+
+    auto geometryNode = layoutWrapper->GetGeometryNode();
+    CHECK_NULL_VOID(geometryNode);
+    auto size = geometryNode->GetFrameSize();
+    auto renderContext = frameNode->GetRenderContext();
+    CHECK_NULL_VOID(renderContext);
+    auto radius = renderContext->GetBorderRadius().value_or(BorderRadiusProperty());
+    auto rect = AceType::MakeRefPtr<ShapeRect>();
+    rect->SetWidth(Dimension(size.Width()));
+    rect->SetHeight(Dimension(size.Height()));
+    auto topLeft = Radius(radius.radiusTopLeft.value_or(Dimension()));
+    rect->SetTopLeftRadius(topLeft);
+    auto topRight = Radius(radius.radiusTopRight.value_or(Dimension()));
+    rect->SetTopRightRadius(topRight);
+    auto bottomRight = Radius(radius.radiusBottomRight.value_or(Dimension()));
+    rect->SetBottomRightRadius(bottomRight);
+    auto bottomLeft = Radius(radius.radiusBottomLeft.value_or(Dimension()));
+    rect->SetBottomLeftRadius(bottomLeft);
+    auto offset = textRect_.GetOffset();
+    rect->SetOffset(DimensionOffset(Dimension(-offset.GetX()), Dimension(-offset.GetY())));
+    auto textRenderContext = textNode->GetRenderContext();
+    CHECK_NULL_VOID(textRenderContext);
+    textRenderContext->UpdateClipShape(rect);
+
+    placeholderResponseArea->Layout(layoutWrapper, childIndex, textRect_.GetOffset());
 }
 
 SizeF TextFieldLayoutAlgorithm::TextAreaMeasureContent(const LayoutConstraintF& contentConstraint,
@@ -374,11 +621,21 @@ SizeF TextFieldLayoutAlgorithm::TextAreaMeasureContent(const LayoutConstraintF& 
 {
     ACE_LAYOUT_SCOPED_TRACE("TextAreaMeasureContent");
     ApplyIndent(layoutWrapper, contentConstraint.maxSize.Width());
-    paragraph_->Layout(contentConstraint.maxSize.Width());
+
+    auto isHorizontalScrolling = IsHorizontalScrollEnabled(layoutWrapper);
+    if (isHorizontalScrolling) {
+        paragraph_->Layout(std::numeric_limits<double>::infinity());
+        paragraph_->Layout(paragraph_->GetLongestLineWithIndent());
+    } else {
+        paragraph_->Layout(contentConstraint.maxSize.Width());
+    }
 
     auto contentWidth = ConstraintWithMinWidth(contentConstraint, layoutWrapper, paragraph_);
+    if (isHorizontalScrolling) {
+        contentWidth = std::min(contentConstraint.maxSize.Width(), paragraph_->GetMaxWidth());
+    }
 
-    if (autoWidth_) {
+    if (autoWidth_ && !isHorizontalScrolling) {
         contentWidth = std::min(contentWidth, paragraph_->GetLongestLineWithIndent());
         auto minWidth = INLINE_MIN_WITH.ConvertToPx();
         contentWidth = GreatNotEqual(contentWidth, minWidth) ? contentWidth : minWidth;
@@ -591,10 +848,13 @@ void TextFieldLayoutAlgorithm::UpdateTextStyle(const RefPtr<FrameNode>& frameNod
 }
 
 void TextFieldLayoutAlgorithm::UpdatePlaceholderTextStyleSetTextColor(
-    const RefPtr<TextFieldLayoutProperty>& layoutProperty, const RefPtr<TextFieldTheme>& theme, TextStyle& textStyle,
+    const RefPtr<TextFieldLayoutProperty>& layoutProperty, const RefPtr<FrameNode>& frameNode, TextStyle& textStyle,
     bool isDisabled, bool isTextColorByUser)
 {
     CHECK_NULL_VOID(layoutProperty);
+    CHECK_NULL_VOID(frameNode);
+    auto textFieldPattern = frameNode->GetPattern<TextFieldPattern>();
+    auto theme = textFieldPattern->GetTheme();
     CHECK_NULL_VOID(theme);
     if (isTextColorByUser) {
         auto textColor = layoutProperty->GetPlaceholderTextColorValue(theme->GetPlaceholderColor());
@@ -609,8 +869,90 @@ void TextFieldLayoutAlgorithm::UpdatePlaceholderTextStyleSetTextColor(
             auto placeholderTextColor = theme ? theme->GetPlaceholderColor() : textStyle.GetTextColor();
             layoutProperty->UpdatePlaceholderTextColor(placeholderTextColor);
             textStyle.SetTextColor(layoutProperty->GetPlaceholderTextColorValue(placeholderTextColor));
+            std::string info = "TextFieldLayoutAlgorithm::UpdatePlaceholderTextStyle";
+            textFieldPattern->SetPlaceholderColorInfo(info);
         }
     }
+}
+
+#define UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(name, textName)                                 \
+    do {                                                                                        \
+        if (textFieldLayoutProperty->Has##name()) {                                             \
+            textLayoutProperty->Update##textName(textFieldLayoutProperty->Get##name().value()); \
+        }                                                                                       \
+    } while (false)
+
+void TextFieldLayoutAlgorithm::UpdateStyledPlaceholderProperty(LayoutWrapper* layoutWrapper,
+    const RefPtr<TextLayoutProperty>& textLayoutProperty,
+    const RefPtr<TextFieldLayoutProperty>& textFieldLayoutProperty)
+{
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(PlaceholderFontFamily, FontFamily);
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(PlaceholderMaxLines, MaxLines);
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(PlaceholderItalicFontStyle, ItalicFontStyle);
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(TextAlign, TextAlign);
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(EnableAutoSpacing, EnableAutoSpacing);
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(CompressLeadingPunctuation, CompressLeadingPunctuation);
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(IncludeFontPadding, IncludeFontPadding);
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(FallbackLineSpacing, FallbackLineSpacing);
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(OrphanCharOptimization, OrphanCharOptimization);
+    textLayoutProperty->UpdateLayoutDirection(direction_);
+    textLayoutProperty->UpdateTextDirection(textDirection_);
+    if (!isInlineFocus_) {
+        auto widthPolicy = TextBase::GetLayoutCalPolicy(layoutWrapper, true);
+        textLayoutProperty->UpdateLayoutPolicyProperty(widthPolicy, true);
+        auto heightPolicy = TextBase::GetLayoutCalPolicy(layoutWrapper, false);
+        textLayoutProperty->UpdateLayoutPolicyProperty(heightPolicy, false);
+    }
+}
+
+void TextFieldLayoutAlgorithm::ConstructStyledPlaceholderStyle(
+    LayoutWrapper* layoutWrapper, const RefPtr<FrameNode>& frameNode, const RefPtr<TextFieldTheme>& theme)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto textFieldPattern = frameNode->GetPattern<TextFieldPattern>();
+    CHECK_NULL_VOID(textFieldPattern);
+    auto pipeline = frameNode->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    auto responseArea = textFieldPattern->GetPlaceholderResponseArea();
+    CHECK_NULL_VOID(responseArea);
+    auto placeholderResponseArea = DynamicCast<PlaceholderResponseArea>(responseArea);
+    CHECK_NULL_VOID(placeholderResponseArea);
+    placeholderResponseArea->PlaceholderMountToParent();
+    auto textFieldLayoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    CHECK_NULL_VOID(textFieldLayoutProperty);
+    auto textNode = placeholderResponseArea->GetFrameNode();
+    CHECK_NULL_VOID(textNode);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_VOID(textLayoutProperty);
+    auto renderContext = textNode->GetRenderContext();
+    UpdateStyledPlaceholderProperty(layoutWrapper, textLayoutProperty, textFieldLayoutProperty);
+    textLayoutProperty->UpdateFontSize(textFieldLayoutProperty->GetPlaceholderFontSizeValue(theme->GetFontSize()));
+    textLayoutProperty->UpdateFontWeight(
+        textFieldLayoutProperty->GetPlaceholderFontWeightValue(theme->GetFontWeight()));
+    auto isDisabled = textFieldPattern->IsDisabled();
+    auto textColor = textFieldLayoutProperty->GetPlaceholderTextColorValue(theme->GetPlaceholderColor());
+    textLayoutProperty->UpdateTextColor(textColor);
+    renderContext->UpdateForegroundColor(textColor);
+    if (isDisabled) {
+        renderContext->UpdateOpacity(theme->GetDisableOpacityRatio());
+    }
+    textLayoutProperty->UpdateTextOverflow(TextOverflow::ELLIPSIS);
+    auto fontManager = pipeline->GetFontManager();
+    if (fontManager && !(fontManager->GetAppCustomFont().empty()) &&
+        !(textFieldLayoutProperty->HasPlaceholderFontFamily())) {
+        textLayoutProperty->UpdateFontFamily(Framework::ConvertStrToFontFamilies(fontManager->GetAppCustomFont()));
+    }
+    if (textFieldPattern->IsInPasswordMode()) {
+        return;
+    }
+
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(LineHeight, LineHeight);
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(MaxFontScale, MaxFontScale);
+    UPDATE_STYLED_PLACEHOLDER_TEXT_PROPERTY(MinFontScale, MinFontScale);
+
+    textLayoutProperty->UpdateHalfLeading(
+        textFieldLayoutProperty->GetHalfLeading().value_or(pipeline->GetHalfLeading()));
+    textLayoutProperty->UpdateLineSpacing(theme->GetPlaceholderLineSpacing());
 }
 
 void TextFieldLayoutAlgorithm::UpdatePlaceholderTextStyle(const RefPtr<FrameNode>& frameNode,
@@ -642,7 +984,7 @@ void TextFieldLayoutAlgorithm::UpdatePlaceholderTextStyle(const RefPtr<FrameNode
 
     textStyle.SetFontSize(fontSize);
     textStyle.SetFontWeight(layoutProperty->GetPlaceholderFontWeightValue(theme->GetFontWeight()));
-    UpdatePlaceholderTextStyleSetTextColor(layoutProperty, theme, textStyle, isDisabled, isTextColorByUser);
+    UpdatePlaceholderTextStyleSetTextColor(layoutProperty, frameNode, textStyle, isDisabled, isTextColorByUser);
     if (layoutProperty->HasPlaceholderMaxLines()) {
         textStyle.SetMaxLines(layoutProperty->GetPlaceholderMaxLines().value());
     }
@@ -744,7 +1086,7 @@ ParagraphStyle TextFieldLayoutAlgorithm::GetParagraphStyle(
     const TextStyle& textStyle, const std::u16string& content, const float fontSize) const
 {
     return {
-        .direction = GetTextDirection(content, direction_),
+        .direction = GetTextDirection(content, direction_, textDirection_),
         .maxLines = textStyle.GetMaxLines(),
         .fontLocale = Localization::GetInstance()->GetFontLocale(),
         .wordBreak = textStyle.GetWordBreak(),
@@ -753,7 +1095,11 @@ ParagraphStyle TextFieldLayoutAlgorithm::GetParagraphStyle(
         .textOverflow = textStyle.GetTextOverflow(),
         .fontSize = fontSize,
         .isOnlyBetweenLines = textStyle.GetIsOnlyBetweenLines(),
-        .enableAutoSpacing = textStyle.GetEnableAutoSpacing()
+        .enableAutoSpacing = textStyle.GetEnableAutoSpacing(),
+        .orphanCharOptimization = textStyle.GetOrphanCharOptimization(),
+        .compressLeadingPunctuation = textStyle.GetCompressLeadingPunctuation(),
+        .includeFontPadding = textStyle.GetIncludeFontPadding(),
+        .fallbackLineSpacing = textStyle.GetFallbackLineSpacing()
     };
 }
 
@@ -785,6 +1131,7 @@ void TextFieldLayoutAlgorithm::CreateParagraph(const TextStyle& textStyle, const
     TextStyle dragTextStyle = textStyle;
     Color color = textStyle.GetTextColor().ChangeAlpha(DRAGGED_TEXT_TRANSPARENCY);
     dragTextStyle.SetTextColor(color);
+    dragTextStyle.SetStrokeColor(textStyle.GetStrokeColor().ChangeAlpha(DRAGGED_TEXT_TRANSPARENCY));
     std::vector<TextStyle> textStyles { textStyle, dragTextStyle, textStyle };
 
     auto style = textStyles.begin();
@@ -797,7 +1144,11 @@ void TextFieldLayoutAlgorithm::CreateParagraph(const TextStyle& textStyle, const
         .textOverflow = style->GetTextOverflow(),
         .fontSize = paragraphData.fontSize,
         .isOnlyBetweenLines = textStyle.GetIsOnlyBetweenLines(),
-        .enableAutoSpacing = textStyle.GetEnableAutoSpacing() };
+        .enableAutoSpacing = textStyle.GetEnableAutoSpacing(),
+        .orphanCharOptimization = textStyle.GetOrphanCharOptimization(),
+        .compressLeadingPunctuation = textStyle.GetCompressLeadingPunctuation(),
+        .includeFontPadding = textStyle.GetIncludeFontPadding(),
+        .fallbackLineSpacing = textStyle.GetFallbackLineSpacing() };
     if (!paragraphData.disableTextAlign) {
         paraStyle.align = style->GetTextAlign();
     }
@@ -875,24 +1226,10 @@ void TextFieldLayoutAlgorithm::CreateAutoFillParagraph(const TextStyle& textStyl
     paragraph_->Build();
 }
 
-TextDirection TextFieldLayoutAlgorithm::GetTextDirection(const std::u16string& content, TextDirection direction)
+TextDirection TextFieldLayoutAlgorithm::GetTextDirection(
+    const std::u16string& content, TextDirection direction, TextDirection textDirection)
 {
-    if (direction == TextDirection::LTR || direction == TextDirection::RTL) {
-        return direction;
-    }
-
-    bool isRTL = AceApplicationInfo::GetInstance().IsRightToLeft();
-    auto textDirection = isRTL ? TextDirection::RTL : TextDirection::LTR;
-    for (const auto& charOfShowingText : content) {
-        if (TextLayoutadapter::IsLeftToRight(charOfShowingText)) {
-            return TextDirection::LTR;
-        }
-        if (TextLayoutadapter::IsRightToLeft(charOfShowingText) ||
-            TextLayoutadapter::IsRightTOLeftArabic(charOfShowingText)) {
-            return TextDirection::RTL;
-        }
-    }
-    return textDirection;
+    return ParagraphUtil::GetTextOwnDirection(content, direction, textDirection);
 }
 
 RefPtr<Paragraph> TextFieldLayoutAlgorithm::GetParagraph() const
@@ -1218,6 +1555,7 @@ void TextFieldLayoutAlgorithm::UpdatePlaceholderTextStyleMore(const RefPtr<Frame
     const RefPtr<TextFieldLayoutProperty>& layoutProperty, const RefPtr<TextFieldTheme>& theme,
     TextStyle& placeholderTextStyle, bool isDisabled)
 {
+    CHECK_NULL_VOID(layoutProperty);
     if (layoutProperty->GetPlaceholderValue(u"").empty()) {
         if (layoutProperty->HasAdaptMinFontSize()) {
             placeholderTextStyle.SetAdaptMinFontSize(layoutProperty->GetAdaptMinFontSize().value());
@@ -1280,18 +1618,24 @@ void TextFieldLayoutAlgorithm::UpdateTextAreaMaxLines(
     if (ShouldUseInfiniteMaxLines(textFieldLayoutProperty)) {
         textStyle.SetMaxLines(INT32_MAX);
     } else {
-        textStyle.SetMaxLines(textFieldLayoutProperty->GetNormalMaxViewLines().value());
+        auto maxLinesOpt = textFieldLayoutProperty->GetNormalMaxViewLines();
+        if (maxLinesOpt.has_value()) {
+            textStyle.SetMaxLines(maxLinesOpt.value());
+        }
     }
 }
 
 bool TextFieldLayoutAlgorithm::ShouldUseInfiniteMaxLines(const RefPtr<TextFieldLayoutProperty>& textFieldLayoutProperty)
 {
     CHECK_NULL_RETURN(textFieldLayoutProperty, false);
-    return textFieldLayoutProperty->HasOverflowMode() &&
-           textFieldLayoutProperty->GetOverflowMode() == OverflowMode::SCROLL &&
-           (textFieldLayoutProperty->GetTextOverflow() == TextOverflow::NONE ||
-               textFieldLayoutProperty->GetTextOverflow() == TextOverflow::CLIP ||
-               textFieldLayoutProperty->GetTextOverflow() == TextOverflow::DEFAULT);
+    const auto& overflowMode = textFieldLayoutProperty->GetOverflowMode();
+    if (!overflowMode.has_value() || overflowMode.value() != OverflowMode::SCROLL) {
+        return false;
+    }
+    const auto& textOverflow = textFieldLayoutProperty->GetTextOverflow();
+    return textOverflow.has_value() &&
+           (textOverflow.value() == TextOverflow::NONE || textOverflow.value() == TextOverflow::CLIP ||
+               textOverflow.value() == TextOverflow::DEFAULT);
 }
 
 void TextFieldLayoutAlgorithm::CalculateContentMaxSizeWithPolicy(
@@ -1304,16 +1648,18 @@ void TextFieldLayoutAlgorithm::CalculateContentMaxSizeWithPolicy(
     auto widthLayoutPolicy = TextBase::GetLayoutCalPolicy(layoutWrapper, true);
     if (widthLayoutPolicy == LayoutCalPolicy::FIX_AT_IDEAL_SIZE) {
         maxIdealSize.SetWidth(std::numeric_limits<double>::infinity());
-    } else if (widthLayoutPolicy == LayoutCalPolicy::MATCH_PARENT) {
-        maxIdealSize.SetWidth(contentConstraint.parentIdealSize.Width().value_or(0.0f));
+    } else if (widthLayoutPolicy == LayoutCalPolicy::MATCH_PARENT &&
+               contentConstraint.parentIdealSize.Width().has_value()) {
+        maxIdealSize.SetWidth(contentConstraint.parentIdealSize.Width().value());
         contentConstraint.selfIdealSize.SetWidth(maxIdealSize.Width());
     }
     auto heightLayoutPolicy = TextBase::GetLayoutCalPolicy(layoutWrapper, false);
     if (!contentConstraint.selfIdealSize.Height().has_value() &&
         heightLayoutPolicy == LayoutCalPolicy::FIX_AT_IDEAL_SIZE) {
         maxIdealSize.SetHeight(std::numeric_limits<double>::infinity());
-    } else if (heightLayoutPolicy == LayoutCalPolicy::MATCH_PARENT) {
-        maxIdealSize.SetHeight(contentConstraint.parentIdealSize.Height().value_or(0.0f));
+    } else if (heightLayoutPolicy == LayoutCalPolicy::MATCH_PARENT &&
+               contentConstraint.parentIdealSize.Height().has_value()) {
+        maxIdealSize.SetHeight(contentConstraint.parentIdealSize.Height().value());
         contentConstraint.selfIdealSize.SetHeight(maxIdealSize.Height());
     }
 }
@@ -1348,5 +1694,21 @@ bool TextFieldLayoutAlgorithm::HasCalcMinWidthVersion11OrLarger(
         }
     }
     return false;
+}
+
+bool TextFieldLayoutAlgorithm::IsStyledPlaceholder(const RefPtr<TextFieldPattern>& pattern)
+{
+    auto placeholderResponseArea = pattern->GetPlaceholderResponseArea();
+    CHECK_NULL_RETURN(placeholderResponseArea, false);
+    return showPlaceHolder_;
+}
+
+bool TextFieldLayoutAlgorithm::IsHorizontalScrollEnabled(LayoutWrapper* layoutWrapper)
+{
+    auto host = layoutWrapper->GetHostNode();
+    CHECK_NULL_RETURN(host, false);
+    auto pattern = host->GetPattern<TextFieldPattern>();
+    CHECK_NULL_RETURN(pattern, false);
+    return pattern->IsHorizontalScrollEnabled();
 }
 } // namespace OHOS::Ace::NG

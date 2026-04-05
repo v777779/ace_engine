@@ -30,6 +30,7 @@
 #include "core/components_ng/pattern/loading_progress/loading_progress_paint_property.h"
 #include "core/components_ng/pattern/refresh/refresh_animation_state.h"
 #include "core/components_ng/pattern/refresh/refresh_layout_property.h"
+#include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
 #include "core/components_ng/property/property.h"
 #include "core/components_ng/render/animation_utils.h"
@@ -60,6 +61,10 @@ const RefPtr<Curve> DEFAULT_CURVE = AceType::MakeRefPtr<CubicCurve>(0.2f, 0.0f, 
 const std::string REFRESH_DRAG_SCENE = "refresh_drag_scene";
 constexpr Dimension LOADING_TEXT_TOP_MARGIN = 16.0_vp;
 constexpr Dimension LOADING_TEXT_DISPLAY_DISTANCE = 80.0_vp;
+double NormalizeToPx(const Dimension& dimension, PipelineContext* context)
+{
+    return context ? context->NormalizeToPx(dimension) : dimension.ConvertToPx();
+}
 } // namespace
 
 
@@ -105,11 +110,11 @@ bool RefreshPattern::OnDirtyLayoutWrapperSwap(
     } else if (progressChild_) {
         auto host = GetHost();
         CHECK_NULL_RETURN(host, false);
-        auto geometryNode = host->GetGeometryNode();
+        const auto& geometryNode = host->GetGeometryNode();
         CHECK_NULL_RETURN(geometryNode, false);
         auto refreshHeight = geometryNode->GetFrameSize().Height();
         auto scrollOffset = std::clamp(scrollOffset_, 0.0f, refreshHeight);
-        UpdateScrollTransition(scrollOffset);
+        UpdateScrollTransition(host, scrollOffset);
     }
     return false;
 }
@@ -119,11 +124,7 @@ void RefreshPattern::OnModifyDone()
     Pattern::OnModifyDone();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto hub = host->GetEventHub<EventHub>();
-    CHECK_NULL_VOID(hub);
-    auto gestureHub = hub->GetOrCreateGestureEventHub();
-    CHECK_NULL_VOID(gestureHub);
-    auto layoutProperty = GetLayoutProperty<RefreshLayoutProperty>();
+    auto layoutProperty = host->GetLayoutProperty<RefreshLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
     hasLoadingText_ = layoutProperty->HasLoadingText();
     refreshOffset_ = layoutProperty->GetRefreshOffset().value_or(GetTriggerRefreshDisTance());
@@ -131,19 +132,18 @@ void RefreshPattern::OnModifyDone()
         refreshOffset_ = GetTriggerRefreshDisTance();
     }
     pullToRefresh_ = layoutProperty->GetPullToRefresh().value_or(true);
-    InitPanEvent(gestureHub);
-    InitOnKeyEvent();
-    InitChildNode();
-    if (isHigherVersion_) {
-        InitOffsetProperty();
-    } else {
+    pullUpToCancelRefresh_ = layoutProperty->GetPullUpToCancelRefresh().value_or(true);
+    InitPanEvent(host);
+    InitOnKeyEvent(host);
+    InitChildNode(host);
+    if (!isHigherVersion_) {
         triggerLoadingDistance_ = static_cast<float>(
             std::clamp(layoutProperty->GetIndicatorOffset().value_or(triggerLoadingDistanceTheme_).ConvertToPx(),
                 -1.0f * triggerLoadingDistanceTheme_.ConvertToPx(), GetTriggerRefreshDisTance().ConvertToPx()));
         InitLowVersionOffset();
     }
-    RefreshStatusChangeEffect();
-    SetAccessibilityAction();
+    RefreshStatusChangeEffect(layoutProperty->GetIsRefreshing().value_or(false));
+    SetAccessibilityAction(host);
 }
 
 RefPtr<LayoutAlgorithm> RefreshPattern::CreateLayoutAlgorithm()
@@ -158,14 +158,20 @@ RefPtr<LayoutAlgorithm> RefreshPattern::CreateLayoutAlgorithm()
             refreshLayoutAlgorithm->SetScrollOffset(scrollOffset_);
         }
     }
+    refreshLayoutAlgorithm->SetIsHighVersion(isHigherVersion_);
     return refreshLayoutAlgorithm;
 }
 
-void RefreshPattern::InitPanEvent(const RefPtr<GestureEventHub>& gestureHub)
+void RefreshPattern::InitPanEvent(const RefPtr<FrameNode>& host)
 {
     if (panEvent_) {
         return;
     }
+    CHECK_NULL_VOID(host);
+    auto hub = host->GetEventHub<EventHub>();
+    CHECK_NULL_VOID(hub);
+    auto gestureHub = hub->GetOrCreateGestureEventHub();
+    CHECK_NULL_VOID(gestureHub);
     auto actionStartTask = [weak = WeakClaim(this)](const GestureEvent& info) {
         TAG_LOGI(AceLogTag::ACE_REFRESH, "Drag start and drag motion triggered by self");
         auto pattern = weak.Upgrade();
@@ -197,22 +203,21 @@ void RefreshPattern::InitPanEvent(const RefPtr<GestureEventHub>& gestureHub)
     panDirection.type = PanDirection::VERTICAL;
     panEvent_ = MakeRefPtr<PanEvent>(
         std::move(actionStartTask), std::move(actionUpdateTask), std::move(actionEndTask), std::move(actionCancelTask));
-    PanDistanceMap distanceMap = { { SourceTool::UNKNOWN, DEFAULT_PAN_DISTANCE.ConvertToPx() },
-        { SourceTool::PEN, DEFAULT_PEN_PAN_DISTANCE.ConvertToPx() } };
+    PanDistanceMapDimension distanceMap = { { SourceTool::UNKNOWN, DEFAULT_PAN_DISTANCE },
+        { SourceTool::PEN, DEFAULT_PEN_PAN_DISTANCE } };
     gestureHub->AddPanEvent(panEvent_, panDirection, 1, distanceMap);
-    if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_THIRTEEN)) {
+    if (host->GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_THIRTEEN)) {
         gestureHub->SetIsAllowMouse(false);
     }
 }
 
-void RefreshPattern::InitOnKeyEvent()
+void RefreshPattern::InitOnKeyEvent(const RefPtr<FrameNode>& host)
 {
     if (isKeyEventRegisted_) {
         return;
     }
-    auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto focusHub = host->GetFocusHub();
+    const auto& focusHub = host->GetFocusHub();
     CHECK_NULL_VOID(focusHub);
     auto onKeyEvent = [wp = WeakClaim(this)](const KeyEvent& event) -> bool {
         auto pattern = wp.Upgrade();
@@ -223,9 +228,8 @@ void RefreshPattern::InitOnKeyEvent()
     focusHub->SetOnKeyEventInternal(std::move(onKeyEvent));
 }
 
-void RefreshPattern::InitProgressNode()
+void RefreshPattern::InitProgressNode(const RefPtr<FrameNode>& host)
 {
-    auto host = GetHost();
     CHECK_NULL_VOID(host);
     progressChild_ = FrameNode::CreateFrameNode(V2::LOADING_PROGRESS_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<LoadingProgressPattern>());
@@ -250,9 +254,8 @@ void RefreshPattern::InitProgressNode()
     }
     auto progressLayoutProperty = progressChild_->GetLayoutProperty<LoadingProgressLayoutProperty>();
     CHECK_NULL_VOID(progressLayoutProperty);
-    progressLayoutProperty->UpdateUserDefinedIdealSize(
-        CalcSize(CalcLength(loadingProgressSizeTheme_.ConvertToPx()),
-            CalcLength(loadingProgressSizeTheme_.ConvertToPx())));
+    CalcLength length = CalcLength(NormalizeToPx(loadingProgressSizeTheme_, context));
+    progressLayoutProperty->UpdateUserDefinedIdealSize(CalcSize(length, length));
     progressChild_->MarkDirtyNode();
 }
 
@@ -283,9 +286,7 @@ void RefreshPattern::InitProgressColumn()
     CHECK_NULL_VOID(loadingTextLayoutProperty);
     auto layoutProperty = host->GetLayoutProperty<RefreshLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
-    if (layoutProperty->HasLoadingText()) {
-        loadingTextLayoutProperty->UpdateContent(layoutProperty->GetLoadingTextValue());
-    }
+    loadingTextLayoutProperty->UpdateContent(layoutProperty->GetLoadingTextValue(""));
     loadingTextLayoutProperty->UpdateMaxLines(1);
     loadingTextLayoutProperty->UpdateMaxFontScale(2.0f);
     loadingTextLayoutProperty->UpdateTextOverflow(TextOverflow::ELLIPSIS);
@@ -343,25 +344,24 @@ void RefreshPattern::OnColorModeChange(uint32_t colorMode)
     CHECK_NULL_VOID(loadingTextNode_);
     auto textLayoutProperty = loadingTextNode_->GetLayoutProperty<TextLayoutProperty>();
     CHECK_NULL_VOID(textLayoutProperty);
-    textLayoutProperty->UpdateContent(layoutProperty->GetLoadingTextValue());
+    textLayoutProperty->UpdateContent(layoutProperty->GetLoadingTextValue(""));
     loadingTextNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
 }
 
-void RefreshPattern::InitChildNode()
+void RefreshPattern::InitChildNode(const RefPtr<FrameNode>& host)
 {
     if (isCustomBuilderExist_) {
         return;
     }
-    auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto accessibilityProperty = host->GetAccessibilityProperty<NG::AccessibilityProperty>();
+    auto accessibilityProperty = host->GetAccessibilityProperty<NG::RefreshAccessibilityProperty>();
     CHECK_NULL_VOID(accessibilityProperty);
     auto accessibilityLevel = accessibilityProperty->GetAccessibilityLevel();
     if (!progressChild_) {
-        InitProgressNode();
+        InitProgressNode(host);
         if (isHigherVersion_) {
             CHECK_NULL_VOID(progressChild_);
-            auto progressContext = progressChild_->GetRenderContext();
+            const auto& progressContext = progressChild_->GetRenderContext();
             CHECK_NULL_VOID(progressContext);
             progressContext->UpdateOpacity(0.0f);
         } else {
@@ -369,9 +369,11 @@ void RefreshPattern::InitChildNode()
         }
     }
     CHECK_NULL_VOID(progressChild_);
-    auto progressAccessibilityProperty = progressChild_->GetAccessibilityProperty<AccessibilityProperty>();
-    CHECK_NULL_VOID(progressAccessibilityProperty);
-    progressAccessibilityProperty->SetAccessibilityLevel(accessibilityLevel);
+    if (accessibilityProperty->HasAccessibilityLevel()) {
+        auto progressAccessibilityProperty = progressChild_->GetAccessibilityProperty<AccessibilityProperty>();
+        CHECK_NULL_VOID(progressAccessibilityProperty);
+        progressAccessibilityProperty->SetAccessibilityLevel(accessibilityLevel);
+    }
 
     if (hasLoadingText_ && !loadingTextNode_) {
         InitProgressColumn();
@@ -389,21 +391,18 @@ void RefreshPattern::InitChildNode()
         CHECK_NULL_VOID(loadingTextLayoutProperty);
         auto layoutProperty = host->GetLayoutProperty<RefreshLayoutProperty>();
         CHECK_NULL_VOID(layoutProperty);
-        if (layoutProperty->HasLoadingText()) {
-            loadingTextLayoutProperty->UpdateContent(layoutProperty->GetLoadingTextValue());
-        }
+        loadingTextLayoutProperty->UpdateContent(layoutProperty->GetLoadingTextValue(""));
         loadingTextNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
-        auto textAccessibilityProperty = loadingTextNode_->GetAccessibilityProperty<AccessibilityProperty>();
-        CHECK_NULL_VOID(textAccessibilityProperty);
-        textAccessibilityProperty->SetAccessibilityLevel(accessibilityLevel);
+        if (accessibilityProperty->HasAccessibilityLevel()) {
+            auto textAccessibilityProperty = loadingTextNode_->GetAccessibilityProperty<AccessibilityProperty>();
+            CHECK_NULL_VOID(textAccessibilityProperty);
+            textAccessibilityProperty->SetAccessibilityLevel(accessibilityLevel);
+        }
     }
 }
 
-void RefreshPattern::RefreshStatusChangeEffect()
+void RefreshPattern::RefreshStatusChangeEffect(bool refreshingProp)
 {
-    auto layoutProperty = GetLayoutProperty<RefreshLayoutProperty>();
-    CHECK_NULL_VOID(layoutProperty);
-    auto refreshingProp = layoutProperty->GetIsRefreshing().value_or(false);
     if (isRefreshing_ != refreshingProp) {
         if (refreshingProp) {
             QuickStartFresh();
@@ -474,9 +473,11 @@ ScrollResult RefreshPattern::HandleDragUpdate(float delta, float mainSpeed)
             return { delta, true };
         }
         auto pullDownRatio = CalculatePullDownRatio();
+        auto lastOffset = scrollOffset_;
         scrollOffset_ = std::clamp(scrollOffset_ + delta * pullDownRatio, 0.0f, GetMaxPullDownDistance());
         UpdateFirstChildPlacement();
         FireOnOffsetChange(scrollOffset_);
+        FireOnStepOffsetChange(scrollOffset_ - lastOffset, true);
         if (!isSourceFromAnimation_) {
             if (isRefreshing_) {
                 UpdateLoadingProgressStatus(RefreshAnimationState::RECYCLE, GetFollowRatio());
@@ -552,44 +553,11 @@ float RefreshPattern::GetFollowRatio()
 {
     auto loadingVisibleHeight = GetLoadingVisibleHeight();
     auto ratio = 0.0f;
-    if (!NearEqual(static_cast<float>(refreshOffset_.ConvertToPx()), loadingVisibleHeight)) {
-        ratio = static_cast<float>(
-            (scrollOffset_ - loadingVisibleHeight) / (refreshOffset_.ConvertToPx() - loadingVisibleHeight));
+    float refreshOffset = NormalizeToPx(refreshOffset_, GetContext());
+    if (!NearEqual(refreshOffset, loadingVisibleHeight)) {
+        ratio = (scrollOffset_ - loadingVisibleHeight) / (refreshOffset - loadingVisibleHeight);
     }
     return std::clamp(ratio, 0.0f, 1.0f);
-}
-
-void RefreshPattern::FireStateChange(int32_t value)
-{
-    auto refreshEventHub = GetEventHub<RefreshEventHub>();
-    CHECK_NULL_VOID(refreshEventHub);
-    refreshEventHub->FireOnStateChange(value);
-    if (refreshStatus_ == RefreshStatus::REFRESH && Recorder::EventRecorder::Get().IsComponentRecordEnable()) {
-        auto host = GetHost();
-        CHECK_NULL_VOID(host);
-        auto inspectorId = host->GetInspectorId().value_or("");
-        Recorder::EventParamsBuilder builder;
-        builder.SetId(inspectorId)
-            .SetType(host->GetTag())
-            .SetEventType(Recorder::EventType::REFRESH)
-            .SetHost(host)
-            .SetDescription(host->GetAutoEventParamValue(""));
-        Recorder::EventRecorder::Get().OnEvent(std::move(builder));
-    }
-}
-
-void RefreshPattern::FireRefreshing()
-{
-    auto refreshEventHub = GetEventHub<RefreshEventHub>();
-    CHECK_NULL_VOID(refreshEventHub);
-    refreshEventHub->FireOnRefreshing();
-}
-
-void RefreshPattern::FireChangeEvent(const std::string& value)
-{
-    auto refreshEventHub = GetEventHub<RefreshEventHub>();
-    CHECK_NULL_VOID(refreshEventHub);
-    refreshEventHub->FireChangeEvent(value);
 }
 
 void RefreshPattern::FireOnOffsetChange(float value)
@@ -603,6 +571,13 @@ void RefreshPattern::FireOnOffsetChange(float value)
         refreshEventHub->FireOnOffsetChange(Dimension(value).ConvertToVp());
         lastScrollOffset_ = value;
     }
+}
+
+void RefreshPattern::FireOnStepOffsetChange(float value, bool isDrag)
+{
+    auto refreshEventHub = GetEventHub<RefreshEventHub>();
+    CHECK_NULL_VOID(refreshEventHub);
+    refreshEventHub->FireOnStepOffsetChange(value, isDrag);
 }
 
 void RefreshPattern::AddCustomBuilderNode(const RefPtr<NG::UINode>& builder)
@@ -632,7 +607,7 @@ void RefreshPattern::AddCustomBuilderNode(const RefPtr<NG::UINode>& builder)
         }
         host->AddChild(builder, 0);
         UpdateFirstChildPlacement();
-        UpdateScrollTransition(0.f);
+        UpdateScrollTransition(host, 0.f);
         TAG_LOGI(AceLogTag::ACE_REFRESH, "CustomNode exists");
     } else {
         auto customNodeChild = host->GetFirstChild();
@@ -646,9 +621,8 @@ void RefreshPattern::AddCustomBuilderNode(const RefPtr<NG::UINode>& builder)
     isCustomBuilderExist_ = true;
 }
 
-void RefreshPattern::SetAccessibilityAction()
+void RefreshPattern::SetAccessibilityAction(const RefPtr<FrameNode>& host)
 {
-    auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto accessibilityProperty = host->GetAccessibilityProperty<AccessibilityProperty>();
     CHECK_NULL_VOID(accessibilityProperty);
@@ -698,16 +672,29 @@ void RefreshPattern::UpdateRefreshStatus(RefreshStatus newStatus)
         return;
     }
     refreshStatus_ = newStatus;
+    isRefreshing_ = (refreshStatus_ == RefreshStatus::REFRESH);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto refreshEventHub = host->GetEventHub<RefreshEventHub>();
+    CHECK_NULL_VOID(refreshEventHub);
     if (refreshStatus_ == RefreshStatus::REFRESH) {
-        isRefreshing_ = true;
         // the two-way binding of 'refreshing' variable need to be changed before 'onRefreshing' function is triggered
-        FireChangeEvent("true");
-        FireRefreshing();
+        refreshEventHub->FireChangeEvent("true");
+        refreshEventHub->FireOnRefreshing();
     } else {
-        isRefreshing_ = false;
-        FireChangeEvent("false");
+        refreshEventHub->FireChangeEvent("false");
     }
-    FireStateChange(static_cast<int>(refreshStatus_));
+    refreshEventHub->FireOnStateChange(static_cast<int>(refreshStatus_));
+    if (refreshStatus_ == RefreshStatus::REFRESH && Recorder::EventRecorder::Get().IsComponentRecordEnable()) {
+        auto inspectorId = host->GetInspectorId().value_or("");
+        Recorder::EventParamsBuilder builder;
+        builder.SetId(inspectorId)
+            .SetType(host->GetTag())
+            .SetEventType(Recorder::EventType::REFRESH)
+            .SetHost(host)
+            .SetDescription(host->GetAutoEventParamValue(""));
+        Recorder::EventRecorder::Get().OnEvent(std::move(builder));
+    }
     TAG_LOGI(AceLogTag::ACE_REFRESH, "Refresh status changed %{public}d", static_cast<int32_t>(refreshStatus_));
 }
 
@@ -750,14 +737,16 @@ void RefreshPattern::InitOffsetProperty()
             if (NearEqual(scrollOffsetLimit, pattern->scrollOffset_, 1.f)) {
                 pattern->BeginTrailingTrace();
             }
+            float lastOffset = pattern->scrollOffset_;
             pattern->scrollOffset_ = scrollOffsetLimit;
             pattern->UpdateFirstChildPlacement();
             pattern->FireOnOffsetChange(scrollOffsetLimit);
+            pattern->FireOnStepOffsetChange(scrollOffsetLimit - lastOffset, false);
         };
         offsetProperty_ = AceType::MakeRefPtr<NodeAnimatablePropertyFloat>(0.0, std::move(propertyCallback));
         auto host = GetHost();
         CHECK_NULL_VOID(host);
-        auto renderContext = host->GetRenderContext();
+        const auto& renderContext = host->GetRenderContext();
         CHECK_NULL_VOID(renderContext);
         renderContext->AttachNodeAnimatableProperty(offsetProperty_);
         offsetProperty_->SetPropertyUnit(PropertyUnit::PIXEL_POSITION);
@@ -768,17 +757,17 @@ void RefreshPattern::UpdateFirstChildPlacement()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto geometryNode = host->GetGeometryNode();
+    const auto& geometryNode = host->GetGeometryNode();
     CHECK_NULL_VOID(geometryNode);
     auto refreshHeight = geometryNode->GetFrameSize().Height();
     auto scrollOffset = std::clamp(scrollOffset_, 0.0f, refreshHeight);
     if (progressChild_) {
         if (isSourceFromAnimation_) {
             UpdateLoadingProgressTranslate(0.0f);
-            UpdateScrollTransition(scrollOffset);
+            UpdateScrollTransition(host, scrollOffset);
         } else {
             UpdateLoadingProgressTranslate(scrollOffset);
-            UpdateScrollTransition(scrollOffset);
+            UpdateScrollTransition(host, scrollOffset);
             UpdateLoadingProgressStatus(GetLoadingProgressStatus(), GetFollowRatio());
         }
     } else {
@@ -786,9 +775,8 @@ void RefreshPattern::UpdateFirstChildPlacement()
     }
 }
 
-void RefreshPattern::UpdateScrollTransition(float scrollOffset)
+void RefreshPattern::UpdateScrollTransition(const RefPtr<FrameNode>& host, float scrollOffset)
 {
-    auto host = GetHost();
     CHECK_NULL_VOID(host);
     int32_t childCount = host->TotalChildCount();
     // If the refresh has no children without loadingProgress and text, it does not need to update offset.
@@ -849,9 +837,7 @@ float RefreshPattern::GetLoadingVisibleHeight()
 {
     float loadingHeight = 0.0f;
     CHECK_NULL_RETURN(progressChild_, 0.0f);
-    auto renderContext = progressChild_->GetRenderContext();
-    CHECK_NULL_RETURN(renderContext, 0.0f);
-    auto geometryNode = progressChild_->GetGeometryNode();
+    const auto& geometryNode = progressChild_->GetGeometryNode();
     CHECK_NULL_RETURN(geometryNode, 0.0f);
     if (loadingTextNode_) {
         auto loadingTextGeometryNode = loadingTextNode_->GetGeometryNode();
@@ -875,7 +861,9 @@ void RefreshPattern::SpeedTriggerAnimation(float speed)
         auto pullDownRatio = CalculatePullDownRatio();
         dealSpeed = (pullDownRatio * speed) / (targetOffset - scrollOffset_);
     } else if (NearZero(scrollOffset_) && NonPositive(speed)) {
-        SwitchToFinish();
+        if (pullUpToCancelRefresh_ || refreshStatus_ == RefreshStatus::DRAG) {
+            SwitchToFinish();
+        }
         return;
     }
     bool recycle = true;
@@ -884,7 +872,9 @@ void RefreshPattern::SpeedTriggerAnimation(float speed)
         UpdateLoadingProgressStatus(RefreshAnimationState::FOLLOW_TO_RECYCLE, GetFollowRatio());
     } else if (NearZero(targetOffset)) {
         recycle = false;
-        SwitchToFinish();
+        if (pullUpToCancelRefresh_ || refreshStatus_ == RefreshStatus::DRAG) {
+            SwitchToFinish();
+        }
     }
     ResetAnimation();
     AnimationOption option;
@@ -895,7 +885,9 @@ void RefreshPattern::SpeedTriggerAnimation(float speed)
         [&, weak = AceType::WeakClaim(this)]() {
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
-            pattern->offsetProperty_->Set(targetOffset);
+            auto offsetProperty = pattern->offsetProperty_;
+            CHECK_NULL_VOID(offsetProperty);
+            offsetProperty->Set(targetOffset);
         },
         [weak = AceType::WeakClaim(this), recycle]() {
             auto pattern = weak.Upgrade();
@@ -946,7 +938,13 @@ void RefreshPattern::QuickFirstChildAppear()
     option.SetCurve(DEFAULT_CURVE);
     option.SetDuration(LOADING_ANIMATION_DURATION);
     animation_ = AnimationUtils::StartAnimation(
-        option, [&]() { offsetProperty_->Set(static_cast<float>(refreshOffset_.ConvertToPx())); },
+        option,
+        [weak = AceType::WeakClaim(this), refreshOffset = refreshOffset_]() {
+            auto pattern = weak.Upgrade();
+            CHECK_NULL_VOID(pattern);
+            CHECK_NULL_VOID(pattern->offsetProperty_);
+            pattern->offsetProperty_->Set(static_cast<float>(NormalizeToPx(refreshOffset, pattern->GetContext())));
+        },
         [weak = AceType::WeakClaim(this)]() {
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
@@ -961,7 +959,14 @@ void RefreshPattern::QuickFirstChildDisappear()
     option.SetCurve(DEFAULT_CURVE);
     option.SetDuration(LOADING_ANIMATION_DURATION);
     animation_ = AnimationUtils::StartAnimation(
-        option, [&]() { offsetProperty_->Set(0.0f); },
+        option,
+        [weak = AceType::WeakClaim(this)]() {
+            auto pattern = weak.Upgrade();
+            CHECK_NULL_VOID(pattern);
+            auto offsetProperty = pattern->offsetProperty_;
+            CHECK_NULL_VOID(offsetProperty);
+            offsetProperty->Set(0.f);
+        },
         [weak = AceType::WeakClaim(this)]() {
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
@@ -983,21 +988,28 @@ void RefreshPattern::ResetAnimation()
 {
     float currentOffset = scrollOffset_;
     if (isHigherVersion_) {
-        AnimationOption option;
-        option.SetCurve(DEFAULT_CURVE);
-        option.SetDuration(0);
-        animation_ =
-            AnimationUtils::StartAnimation(option, [weak = AceType::WeakClaim(this), offset = currentOffset]() {
-                auto pattern = weak.Upgrade();
-                CHECK_NULL_VOID(pattern);
-                auto offsetProperty = pattern->offsetProperty_;
-                CHECK_NULL_VOID(offsetProperty);
-                offsetProperty->Set(offset);
-            }, [weak = AceType::WeakClaim(this)]() {
-                auto pattern = weak.Upgrade();
-                CHECK_NULL_VOID(pattern);
-                pattern->EndTrailingTrace();
-            });
+        InitOffsetProperty();
+        if (animation_) {
+            AnimationOption option;
+            option.SetCurve(DEFAULT_CURVE);
+            option.SetDuration(0);
+            animation_ =
+                AnimationUtils::StartAnimation(option, [weak = AceType::WeakClaim(this), offset = currentOffset]() {
+                    auto pattern = weak.Upgrade();
+                    CHECK_NULL_VOID(pattern);
+                    auto offsetProperty = pattern->offsetProperty_;
+                    CHECK_NULL_VOID(offsetProperty);
+                    offsetProperty->Set(offset);
+                }, [weak = AceType::WeakClaim(this)]() {
+                    auto pattern = weak.Upgrade();
+                    CHECK_NULL_VOID(pattern);
+                    pattern->EndTrailingTrace();
+                });
+        } else {
+            CHECK_NULL_VOID(offsetProperty_);
+            offsetProperty_->Set(currentOffset);
+            EndTrailingTrace();
+        }
     } else {
         AnimationUtils::StopAnimation(animation_);
         CHECK_NULL_VOID(lowVersionOffset_);
@@ -1316,7 +1328,11 @@ bool RefreshPattern::HandleScrollVelocity(float velocity, const RefPtr<NestableS
         }
     }
     if (Positive(scrollOffset_) || Positive(velocity)) {
-        result = true;
+        if (parent && AceType::InstanceOf<RefreshPattern>(parent)) {
+            result = parent->HandleScrollVelocity(velocity);
+        } else {
+            result = true;
+        }
     } else if (parent && ((Negative(velocity) && nestedScroll.forward == NestedScrollMode::SELF_FIRST) ||
                              (Positive(velocity) && nestedScroll.backward == NestedScrollMode::SELF_FIRST))) {
         result = parent->HandleScrollVelocity(velocity);
@@ -1394,6 +1410,8 @@ void RefreshPattern::DumpInfo()
         std::string("LoadingTextOpacity: ").append(std::to_string(GetLoadingTextOpacity())));
     DumpLog::GetInstance().AddDesc(
         std::string("LoadingProgressColor: ").append(GetLoadingProgressColor().ColorToString()));
+    DumpLog::GetInstance().AddDesc(
+        std::string("PullUpToCancelRefresh: ").append(std::to_string(pullUpToCancelRefresh_)));
 }
 
 void RefreshPattern::DumpInfo(std::unique_ptr<JsonValue>& json)
@@ -1402,5 +1420,6 @@ void RefreshPattern::DumpInfo(std::unique_ptr<JsonValue>& json)
     json->Put("LoadingProgressOpacity", GetLoadingProgressOpacity());
     json->Put("LoadingTextOpacity", GetLoadingTextOpacity());
     json->Put("LoadingProgressColor", GetLoadingProgressColor().ColorToString().c_str());
+    json->Put("PullUpToCancelRefresh", pullUpToCancelRefresh_);
 }
 } // namespace OHOS::Ace::NG

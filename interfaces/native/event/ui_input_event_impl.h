@@ -35,13 +35,16 @@ typedef enum {
     C_FOCUS_AXIS_EVENT_ID = 6, // defined in ace_engine/frameworks/core/interfaces/arkoala/arkoala_api.h
     C_CLICK_EVENT_ID = 7, // defined in ace_engine/frameworks/core/interfaces/arkoala/arkoala_api.h
     C_HOVER_EVENT_ID = 8, // defined in ace_engine/frameworks/core/interfaces/arkoala/arkoala_api.h
+    C_COASTING_AXIS_EVENT_ID = 9, // defined in ace_engine/frameworks/core/interfaces/arkoala/arkoala_api.h
+    C_CHILD_TOUCH_TEST_ID = 10, // defined in ace_engine/frameworks/core/interfaces/arkoala/arkoala_api.h
+    C_DIGITAL_CROWN_ID = 11, // defined in ace_engine/frameworks/core/interfaces/arkoala/arkoala_api.h
 } ArkUIEventTypeId;
 
 struct ArkUI_UIInputEvent {
     ArkUI_UIInputEvent_Type inputType;
     ArkUIEventTypeId eventTypeId;
     void* inputEvent;
-    bool isCloned = false;
+    bool isCreatedByUser = false;
     int32_t apiVersion = 0;
 };
 
@@ -60,10 +63,12 @@ typedef enum {
     S_NODE_ON_HOVER_MOVE = 1 << 10,      // 0x00000400 callback of NODE_ON_HOVER_MOVE
     S_GESTURE_TOUCH_EVENT = 1 << 11,     // 0x00000800 gesture triggered by touch
     S_GESTURE_AXIS_EVENT = 1 << 12,      // 0x00001000 gesture triggered by axis
-    S_GESTURE_MOUSE_EVENT = 1 << 13,     // 0x00002000 gesutre triggered by mouse
+    S_GESTURE_MOUSE_EVENT = 1 << 13,     // 0x00002000 gesture triggered by mouse
     S_GESTURE_CLICK_EVENT = 1 << 14,     // 0x00004000 click or tap gesture triggered by keyboard
     S_NXC_ON_TOUCH_INTERCEPT = 1 << 15,  // 0x00008000 nativeXComponent OnTouchIntercept
     S_NXC_DISPATCH_AXIS_EVENT = 1 << 16, // 0x00010000 nativeXComponent UIAxisEventCallback
+    S_NODE_ON_COASTING_AXIS_EVENT = 1 << 17, // 0x00020000 callback of NODE_ON_COASTING_AXIS_EVENT
+    S_NODE_ON_DIGITAL_CROWN = 1 << 18, // 0x00100000 callback of NODE_ON_DIGITAL_CROWN
     S_ALL_C_MOUSE_EVENT = S_NODE_ON_MOUSE | S_GESTURE_MOUSE_EVENT, // 0x00002004 2 scenarios give c mouse event
     S_ALL_C_TOUCH_EVENT = S_NODE_TOUCH_EVENT | S_NODE_ON_TOUCH_INTERCEPT |
                           S_NODE_ON_HOVER_EVENT, // 0x00000203 3 scenarios give c touch event
@@ -71,9 +76,9 @@ typedef enum {
                         S_NODE_DISPATCH_KEY_EVENT, // 0x00000058 3 scenarios give c key event
 } ArkUIEventScenario;
 
-ArkUI_ErrorCode CheckIsSupportedScenario(int32_t scenarioExpr, const ArkUI_UIInputEvent* event);
+ArkUI_ErrorCode CheckIsSupportedScenario(uint32_t scenarioExpr, const ArkUI_UIInputEvent* event);
 
-inline void CheckSupportedScenarioAndResetEventStatus(int32_t scenarioExpr, const ArkUI_UIInputEvent* event)
+inline void CheckSupportedScenarioAndResetEventStatus(uint32_t scenarioExpr, const ArkUI_UIInputEvent* event)
 {
     g_scenarioSupportCheckResult = CheckIsSupportedScenario(scenarioExpr, event);
     g_latestEventStatus = ARKUI_ERROR_CODE_NO_ERROR;

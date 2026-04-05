@@ -47,6 +47,24 @@ public:
         }
     }
 
+    bool Delete(const RefPtr<FrameNode>& frameNode)
+    {
+        CHECK_NULL_RETURN(frameNode, false);
+        auto pipeline = frameNode->GetContextRefPtr();
+        CHECK_NULL_RETURN(pipeline, false);
+        auto containerId = pipeline->GetInstanceId();
+        auto it = controller_.find(containerId);
+        if (it != controller_.end()) {
+            auto& controllerMap = it->second;
+            auto mapIt = controllerMap.find(WeakPtr(frameNode));
+            if (mapIt != controllerMap.end()) {
+                controllerMap.erase(mapIt);
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool CheckNode(const RefPtr<FrameNode>& frameNode, bool deleteController)
     {
         CHECK_NULL_RETURN(frameNode, false);
@@ -61,13 +79,55 @@ public:
                 if (deleteController) {
                     controllerMap.erase(mapIt);
                 }
-                return true;
+                if (IsHighPriorityNode(frameNode)) {
+                    return true;
+                }
+                return CheckHighPriorityEmpty(containerId);
             }
         }
         return false;
     }
 
-    void DeleteInstanceNodeAll(const RefPtr<FrameNode>& frameNode)
+    bool IsHighPriorityNode(const RefPtr<FrameNode>& frameNode)
+    {
+        CHECK_NULL_RETURN(frameNode, false);
+        return frameNode->GetTag() == V2::WEB_ETS_TAG;
+    }
+
+    bool CheckHighPriorityEmpty(int32_t containerId)
+    {
+        auto it = controller_.find(containerId);
+        if (it == controller_.end()) {
+            return true;
+        }
+        auto& controllerMap = it->second;
+        auto findResult = std::any_of(controllerMap.begin(), controllerMap.end(), [&](const auto& pair) {
+            auto node = pair.first;
+            auto frameNode = node.Upgrade();
+            CHECK_NULL_RETURN(frameNode, false);
+            return IsHighPriorityNode(frameNode);
+        });
+        return !findResult;
+    }
+
+    void DeleteLowPriorityNode(int32_t containerId)
+    {
+        auto it = controller_.find(containerId);
+        if (it != controller_.end()) {
+            auto& controllerMap = it->second;
+            for (auto mapIt = controllerMap.begin(); mapIt != controllerMap.end();) {
+                auto node = mapIt->first;
+                auto frameNode = node.Upgrade();
+                if (frameNode && IsHighPriorityNode(frameNode)) {
+                    ++mapIt;
+                } else {
+                    mapIt = controllerMap.erase(mapIt);
+                }
+            }
+        }
+    }
+
+    void DeleteInstanceNodeAllWithPriority(const RefPtr<FrameNode>& frameNode)
     {
         CHECK_NULL_VOID(frameNode);
         auto pipeline = frameNode->GetContextRefPtr();
@@ -75,13 +135,10 @@ public:
         auto containerId = pipeline->GetInstanceId();
         auto it = controller_.find(containerId);
         if (it != controller_.end()) {
-            auto& controllerMap = it->second;
-            for (auto mapIt = controllerMap.begin(); mapIt != controllerMap.end();) {
-                if (WeakPtr(frameNode) == mapIt->first) {
-                    mapIt = controllerMap.erase(mapIt);
-                } else {
-                    ++mapIt;
-                }
+            if (IsHighPriorityNode(frameNode)) {
+                controller_.erase(it);
+            } else {
+                DeleteLowPriorityNode(containerId);
             }
         }
     }
@@ -224,6 +281,7 @@ class HoverTransparentCallbackController {
 public:
     bool AddToHoverTransparentCallbackList(const RefPtr<FrameNode>& frameNode)
     {
+        UpdateHoverTransparentCallbackList();
         CHECK_NULL_RETURN(frameNode, false);
         auto pipeline = frameNode->GetContextRefPtr();
         CHECK_NULL_RETURN(pipeline, false);
@@ -248,8 +306,24 @@ public:
         return true;
     }
 
+    void UpdateHoverTransparentCallbackList()
+    {
+        for (auto it = controller_.begin(); it != controller_.end(); ++it) {
+            auto& controllerList = it->second;
+            for (auto controllerListIt = controllerList.begin(); controllerListIt != controllerList.end();) {
+                auto node = (*controllerListIt).Upgrade();
+                if (!node) {
+                    controllerListIt = controllerList.erase(controllerListIt);
+                } else {
+                    ++controllerListIt;
+                }
+            }
+        }
+    }
+
     bool IsInHoverTransparentCallbackList(const RefPtr<FrameNode>& frameNode)
     {
+        UpdateHoverTransparentCallbackList();
         CHECK_NULL_RETURN(frameNode, false);
         auto pipeline = frameNode->GetContextRefPtr();
         CHECK_NULL_RETURN(pipeline, false);
@@ -273,6 +347,7 @@ public:
 
     bool CheckHoverTransparentCallbackListEmpty(int32_t containerId)
     {
+        UpdateHoverTransparentCallbackList();
         auto it = controller_.find(containerId);
         if (it != controller_.end()) {
             return it->second.empty();
@@ -282,6 +357,22 @@ public:
 
 private:
     std::map<int32_t, std::list<WeakPtr<FrameNode>>> controller_;
+};
+
+class AccessibilityEventBlockerInAction {
+public:
+    // 构造函数
+    AccessibilityEventBlockerInAction() = default;
+    ~AccessibilityEventBlockerInAction() = default;
+    void AddBlockedEvent(int64_t actionId, AccessibilityEventType event);
+    void SetBlockedEvents(int64_t actionId,
+        const std::vector<AccessibilityEventType>& events);
+    bool ShouldBlock(int64_t actionId, AccessibilityEventType eventType) const;
+    void Reset();
+
+private:
+    int64_t currentActionId_ = -1;
+    std::unordered_set<uint32_t> blockedEvents_;
 };
 
 } // namespace OHOS::Ace::NG

@@ -19,12 +19,12 @@
 #define private public
 #define protected public
 
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/rosen/testing_canvas.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas.h"
 
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/layout/grid_system_manager.h"
@@ -33,6 +33,7 @@
 #include "core/components/select/select_theme.h"
 #include "core/components/theme/shadow_theme.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/components_ng/pattern/menu/menu_divider/menu_divider_pattern.h"
@@ -759,5 +760,163 @@ HWTEST_F(MenuItemTestOneNg, MeasureClickableArea001, TestSize.Level1)
     menuItemLayoutAlgorithm_->MeasureClickableArea(&layoutWrapper);
     MockContainer::Current()->SetApiTargetVersion(backupApiVersion);
     menuItemLayoutAlgorithm_->MeasureClickableArea(&layoutWrapper);
+}
+
+/**
+ * @tc.name: RemoveParentRestrictionsForFixIdeal001
+ * @tc.desc: Test MenuItem RemoveParentRestrictionsForFixIdeal.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemTestOneNg, RemoveParentRestrictionsForFixIdeal001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create menu item.
+     */
+    auto menuItemPattern = AceType::MakeRefPtr<MenuItemPattern>();
+    auto menuItem = AceType::MakeRefPtr<FrameNode>("", -1, menuItemPattern);
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    geometryNode->SetFrameSize(SizeF(150.0f, 50.0f));
+    /**
+     * @tc.steps: step2. LayoutCalPolicy width set to FIX_AT_IDEAL_SIZE.
+     */
+    auto layoutProperty = AceType::MakeRefPtr<LayoutProperty>();
+    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::FIX_AT_IDEAL_SIZE, true);
+    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::WRAP_CONTENT, false);
+    menuItem->SetLayoutProperty(layoutProperty);
+    auto* wrapper = new LayoutWrapperNode(menuItem, geometryNode, layoutProperty);
+    /**
+     * @tc.steps: step3. Set layoutConstraint and contentConstraint.
+     */
+    LayoutConstraintF constraint;
+    constraint.selfIdealSize.width_ = 200.0f;
+    constraint.selfIdealSize.height_ = 30.0f;
+    wrapper->GetLayoutProperty()->layoutConstraint_ = constraint;
+    EXPECT_FALSE(wrapper->GetLayoutProperty()->contentConstraint_);
+    wrapper->GetLayoutProperty()->contentConstraint_ = constraint;
+
+    std::unique_ptr<MeasureProperty> calcLayoutConstraint = std::make_unique<MeasureProperty>();
+    std::optional<CalcLength> len = CalcLength("auto");
+    calcLayoutConstraint->selfIdealSize = std::nullopt;
+    wrapper->GetLayoutProperty()->calcLayoutConstraint_ = std::move(calcLayoutConstraint);
+    geometryNode->parentLayoutConstraint_ = LayoutConstraintF();
+    EXPECT_FLOAT_EQ(menuItemLayoutAlgorithm_->maxRowWidth_, 0.0f);
+    menuItemLayoutAlgorithm_->Measure(wrapper);
+    EXPECT_FLOAT_EQ(menuItemLayoutAlgorithm_->maxRowWidth_, 200.0f);
+}
+
+/**
+ * @tc.name: RemoveParentRestrictionsForFixIdeal002
+ * @tc.desc: Test MenuItem RemoveParentRestrictionsForFixIdeal.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemTestOneNg, RemoveParentRestrictionsForFixIdeal002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create menu item.
+     */
+    auto menuItemPattern = AceType::MakeRefPtr<MenuItemPattern>();
+    auto menuItem = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, -1, menuItemPattern);
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    auto layoutProp = AceType::MakeRefPtr<LayoutProperty>();
+    auto layoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(menuItem, geometryNode, layoutProp);
+    ASSERT_NE(layoutWrapper, nullptr);
+
+    /**
+     * @tc.steps: step2. LayoutCalPolicy is default and set maxSize to FULL_SCREEN_SIZE.
+     * @tc.expected: childConstraint.maxSize is equal to FULL_SCREEN_SIZE.
+     */
+    LayoutConstraintF childConstraint;
+    childConstraint.maxSize = FULL_SCREEN_SIZE;
+    auto props = layoutWrapper->GetLayoutProperty();
+    ASSERT_NE(props, nullptr);
+    props->UpdateLayoutConstraint(childConstraint);
+    props->UpdateContentConstraint();
+    LayoutPolicyProperty layoutPolicyProperty;
+    props->layoutPolicy_ = layoutPolicyProperty;
+    menuItemLayoutAlgorithm_->RemoveParentRestrictionsForFixIdeal(layoutProp, childConstraint);
+    EXPECT_EQ(childConstraint.maxSize.Width(), FULL_SCREEN_SIZE.Width());
+    EXPECT_EQ(childConstraint.maxSize.Height(), FULL_SCREEN_SIZE.Height());
+
+    /**
+     * @tc.steps: step3. LayoutCalPolicy is MATCH_PARENT.
+     * @tc.expected: childConstraint.maxSize is not infinity.
+     */
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    props->layoutPolicy_ = layoutPolicyProperty;
+    menuItemLayoutAlgorithm_->RemoveParentRestrictionsForFixIdeal(layoutProp, childConstraint);
+    EXPECT_FALSE(std::isinf(childConstraint.maxSize.Width()));
+    EXPECT_FALSE(std::isinf(childConstraint.maxSize.Height()));
+
+    /**
+     * @tc.steps: step4. LayoutCalPolicy is FIX_AT_IDEAL_SIZE and set maxSize to FULL_SCREEN_SIZE.
+     * @tc.expected: childConstraint.maxSize is infinity.
+     */
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::FIX_AT_IDEAL_SIZE;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::FIX_AT_IDEAL_SIZE;
+    props->layoutPolicy_ = layoutPolicyProperty;
+    menuItemLayoutAlgorithm_->RemoveParentRestrictionsForFixIdeal(layoutProp, childConstraint);
+    EXPECT_TRUE(std::isinf(childConstraint.maxSize.Width()));
+    EXPECT_TRUE(std::isinf(childConstraint.maxSize.Height()));
+}
+
+/**
+ * @tc.name: MeasureItemViews001
+ * @tc.desc: Test MenuItem MeasureItemViews001.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemTestOneNg, MeasureItemViews001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set font scale to 1.75.
+     */
+    auto context = MockPipelineContext::GetCurrentContext();
+    ASSERT_NE(context, nullptr);
+    context->fontScale_ = 1.75f;
+
+    /**
+     * @tc.steps: step2. create menu and initialize.
+     */
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([](ThemeType type) -> RefPtr<Theme> {
+        if (type == TextTheme::TypeId()) {
+            return AceType::MakeRefPtr<TextTheme>();
+        } else if (type == IconTheme::TypeId()) {
+            return AceType::MakeRefPtr<IconTheme>();
+        } else if (type == SelectTheme::TypeId()) {
+            return AceType::MakeRefPtr<SelectTheme>();
+        } else {
+            return AceType::MakeRefPtr<MenuTheme>();
+        }
+    });
+    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    auto leftNode = FrameNode::CreateFrameNode("", -1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(leftNode, nullptr);
+    auto rightNode = FrameNode::CreateFrameNode("", -1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(rightNode, nullptr);
+    menuItemNode->AddChild(leftNode);
+    menuItemNode->AddChild(rightNode);
+    auto menuItemPattern = menuItemNode->GetPattern<MenuItemPattern>();
+    ASSERT_NE(menuItemPattern, nullptr);
+    auto algorithm = AceType::DynamicCast<MenuItemLayoutAlgorithm>(menuItemPattern->CreateLayoutAlgorithm());
+    ASSERT_NE(algorithm, nullptr);
+
+    RefPtr<LayoutWrapperNode> layoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(
+        std::move(menuItemNode), AceType::MakeRefPtr<GeometryNode>(), AceType::MakeRefPtr<LayoutProperty>());
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto props = layoutWrapper->GetLayoutProperty();
+    ASSERT_NE(props, nullptr);
+    
+
+    auto childWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(std::move(leftNode),
+        AceType::MakeRefPtr<GeometryNode>(), AceType::MakeRefPtr<LayoutProperty>());
+    ASSERT_NE(childWrapper, nullptr);
+    layoutWrapper->AppendChild(childWrapper);
+    layoutWrapper->hostNode_ = menuItemNode;
+    std::optional<LayoutConstraintF> layoutConstraint;
+    auto childConstraint = props->CreateChildConstraint();
+    algorithm->MeasureItemViews(childConstraint, layoutConstraint, AceType::RawPtr(layoutWrapper));
 }
 } // namespace OHOS::Ace::NG

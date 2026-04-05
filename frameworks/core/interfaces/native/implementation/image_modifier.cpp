@@ -4,7 +4,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,8 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "core/components/common/layout/constants.h"
 #include "core/components/image/image_component.h"
+#include "core/components/image/image_theme.h"
 #include "core/components_ng/base/view_abstract_model_ng.h"
 #include "core/components_ng/base/view_abstract_model_static.h"
 #include "core/components_ng/pattern/image/image_model_static.h"
@@ -22,7 +24,12 @@
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/utility/validators.h"
 #include "core/interfaces/native/utility/ace_engine_types.h"
+#include "core/interfaces/native/implementation/content_transition_effect_peer_impl.h"
+#include "core/interfaces/native/implementation/drawing_color_filter_peer.h"
 #include "core/interfaces/native/implementation/drawing_lattice_peer.h"
+#include "core/drawable/drawable_descriptor.h"
+
+#include "core/image/image_source_info.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -31,6 +38,9 @@ constexpr int32_t UNION_ONE = 1;
 constexpr float CEIL_SMOOTHEDGE_VALUE = 1.333f;
 constexpr float FLOOR_SMOOTHEDGE_VALUE = 0.334f;
 constexpr int32_t SELECTOR_INDEX = 3;
+constexpr float DEFAULT_HDR_BRIGHTNESS = 1.0f;
+constexpr float HDR_BRIGHTNESS_MIN = 0.0f;
+constexpr float HDR_BRIGHTNESS_MAX = 1.0f;
 } // namespace
 
 namespace Converter {
@@ -63,6 +73,10 @@ void AssignCast(std::optional<ImageRotateOrientation>& dst, const Ark_ImageRotat
         case ARK_IMAGE_ROTATE_ORIENTATION_RIGHT: dst = ImageRotateOrientation::RIGHT; break;
         case ARK_IMAGE_ROTATE_ORIENTATION_DOWN: dst = ImageRotateOrientation::DOWN; break;
         case ARK_IMAGE_ROTATE_ORIENTATION_LEFT: dst = ImageRotateOrientation::LEFT; break;
+        case ARK_IMAGE_ROTATE_ORIENTATION_UP_MIRRORED: dst = ImageRotateOrientation::UP_MIRRORED; break;
+        case ARK_IMAGE_ROTATE_ORIENTATION_RIGHT_MIRRORED: dst = ImageRotateOrientation::RIGHT_MIRRORED; break;
+        case ARK_IMAGE_ROTATE_ORIENTATION_DOWN_MIRRORED: dst = ImageRotateOrientation::DOWN_MIRRORED; break;
+        case ARK_IMAGE_ROTATE_ORIENTATION_LEFT_MIRRORED: dst = ImageRotateOrientation::LEFT_MIRRORED; break;
         default: LOGE("Unexpected enum value in Ark_ImageRotateOrientation: %{public}d", src);
     }
 }
@@ -93,7 +107,7 @@ Ark_NativePointer ConstructImpl(Ark_Int32 id,
 } // ImageModifier
 namespace ImageInterfaceModifier {
 void SetImageOptionsImpl(Ark_NativePointer node,
-                         const Ark_Union_PixelMap_ResourceStr_DrawableDescriptor_ImageContent* src,
+                         const Opt_Union_image_PixelMap_ResourceStr_DrawableDescriptor_ImageContent* src,
                          const Opt_ImageAIOptions* imageAIOptions)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
@@ -122,16 +136,28 @@ void SetImageOptionsImpl(Ark_NativePointer node,
 } // ImageInterfaceModifier
 namespace ImageAttributeModifier {
 void SetAltImpl(Ark_NativePointer node,
-                const Opt_Union_String_Resource_PixelMap* value)
+                const Opt_Union_String_Resource_image_PixelMap_ImageAlt* value)
 {
-    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    auto info = Converter::OptConvertPtr<ImageSourceInfo>(value);
-    if (!info.has_value() || ImageSourceInfo::ResolveURIType(info->GetSrc()) == SrcType::NETWORK) {
-        ImageModelStatic::SetAlt(frameNode, std::nullopt);
-        return;
+    if (value->tag != INTEROP_TAG_UNDEFINED && value->value.selector == SELECTOR_ID_3) {
+        auto imageAltPlaceholder = Converter::OptConvert<ImageSourceInfo>(value->value.value3.placeholder);
+        if (imageAltPlaceholder.has_value() &&
+            ImageSourceInfo::ResolveURIType(imageAltPlaceholder->GetSrc()) != SrcType::NETWORK) {
+            ImageModelStatic::SetAltPlaceholder(frameNode, imageAltPlaceholder);
+        }
+        auto imageAltError = Converter::OptConvert<ImageSourceInfo>(value->value.value3.error);
+        if (imageAltError.has_value()) {
+            ImageModelStatic::SetAltError(frameNode, imageAltError);
+        }
+    } else {
+        auto info = Converter::OptConvertPtr<ImageSourceInfo>(value);
+        if (!info.has_value() || ImageSourceInfo::ResolveURIType(info->GetSrc()) == SrcType::NETWORK) {
+            ImageModelStatic::SetAlt(frameNode, std::nullopt);
+            return;
+        }
+        ImageModelStatic::SetAlt(frameNode, info);
     }
-    ImageModelStatic::SetAlt(frameNode, info);
 }
 void SetMatchTextDirectionImpl(Ark_NativePointer node,
                                const Opt_Boolean* value)
@@ -158,7 +184,7 @@ void SetFitOriginalSizeImpl(Ark_NativePointer node,
     ImageModelNG::SetFitOriginSize(frameNode, *convValue);
 }
 void SetFillColorImpl(Ark_NativePointer node,
-                      const Opt_Union_ResourceColor_ColorContent_ColorMetrics* value)
+                      const Opt_Union_ResourceColor_ColorContent_ColorMetricsExt* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -166,7 +192,15 @@ void SetFillColorImpl(Ark_NativePointer node,
         ImageModelNG::ResetImageFill(frameNode);
         return;
     }
-    ImageModelStatic::SetImageFill(frameNode, Converter::OptConvertPtr<Color>(value));
+    auto color = Converter::OptConvertPtr<Color>(value);
+    if (!color) {
+        auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+        CHECK_NULL_VOID(pipeline);
+        auto theme = pipeline->GetTheme<ImageTheme>();
+        CHECK_NULL_VOID(theme);
+        color = theme->GetFillColor();
+    }
+    ImageModelStatic::SetImageFill(frameNode, color);
 }
 void SetObjectFitImpl(Ark_NativePointer node,
                       const Opt_ImageFit* value)
@@ -217,6 +251,15 @@ void SetDynamicRangeModeImpl(Ark_NativePointer node,
     CHECK_NULL_VOID(frameNode);
     ImageModelStatic::SetDynamicRangeMode(frameNode, Converter::OptConvertPtr<DynamicRangeMode>(value));
 }
+void SetHdrBrightnessImpl(Ark_NativePointer node,
+                          const Opt_Float64* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto convValue = Converter::OptConvertPtr<float>(value);
+    Validator::ValidateByRange(convValue, HDR_BRIGHTNESS_MIN, HDR_BRIGHTNESS_MAX);
+    ImageModelStatic::SetHdrBrightness(frameNode, convValue.value_or(DEFAULT_HDR_BRIGHTNESS));
+}
 void SetInterpolationImpl(Ark_NativePointer node,
                           const Opt_ImageInterpolation* value)
 {
@@ -247,7 +290,7 @@ void SetSyncLoadImpl(Ark_NativePointer node,
     ImageModelNG::SetSyncMode(frameNode, *convValue);
 }
 void SetColorFilterImpl(Ark_NativePointer node,
-                        const Opt_Union_ColorFilter_DrawingColorFilter* value)
+                        const Opt_Union_ColorFilter_drawing_ColorFilter* value)
 {
     ImageCommonMethods::ApplyColorFilterValues(node, value);
 }
@@ -265,7 +308,7 @@ void SetDraggableImpl(Ark_NativePointer node,
     CHECK_NULL_VOID(frameNode);
     auto convValue = Converter::OptConvertPtr<bool>(value);
     if (!convValue) {
-        ImageModelNG::SetDraggable(frameNode, false);
+        ImageModelStatic::ResetDraggable(frameNode);
         return;
     }
     ImageModelNG::SetDraggable(frameNode, *convValue);
@@ -358,7 +401,7 @@ void SetOnErrorImpl(Ark_NativePointer node,
     ImageModelNG::SetOnError(frameNode, std::move(onError));
 }
 void SetOnFinishImpl(Ark_NativePointer node,
-                     const Opt_Callback_Void* value)
+                     const Opt_VoidCallback* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -440,7 +483,37 @@ void SetOrientationImpl(Ark_NativePointer node,
     auto convValue = Converter::OptConvertPtr<ImageRotateOrientation>(value);
     ImageModelStatic::SetOrientation(frameNode, convValue);
 }
-} // ImageAttributeModifier
+void SetSupportSvg2Impl(Ark_NativePointer node, const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto convValue = Converter::OptConvertPtr<bool>(value);
+    if (convValue) {
+        ImageModelStatic::SetSupportSvg2(frameNode, convValue.value());
+    } else {
+        ImageModelStatic::SetSupportSvg2(frameNode, false);
+    }
+}
+void SetContentTransitionImpl(Ark_NativePointer node, const Opt_ContentTransitionEffect* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto optValue = Converter::GetOptPtr(value);
+    if (optValue.has_value()) {
+        auto* peer = optValue.value();
+        CHECK_NULL_VOID(peer);
+        ImageModelStatic::SetContentTransition(frameNode, peer->type_);
+    }
+}
+void SetAntialiasedImpl(Ark_NativePointer node,
+                        const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto convValue = Converter::OptConvertPtr<bool>(value);
+    ImageModelStatic::SetAntialiased(frameNode, convValue);
+}
+} // namespace ImageAttributeModifier
 const GENERATED_ArkUIImageModifier* GetImageModifier()
 {
     static const GENERATED_ArkUIImageModifier ArkUIImageModifierImpl {
@@ -456,6 +529,7 @@ const GENERATED_ArkUIImageModifier* GetImageModifier()
         ImageAttributeModifier::SetAutoResizeImpl,
         ImageAttributeModifier::SetRenderModeImpl,
         ImageAttributeModifier::SetDynamicRangeModeImpl,
+        ImageAttributeModifier::SetHdrBrightnessImpl,
         ImageAttributeModifier::SetInterpolationImpl,
         ImageAttributeModifier::SetSourceSizeImpl,
         ImageAttributeModifier::SetSyncLoadImpl,
@@ -473,6 +547,9 @@ const GENERATED_ArkUIImageModifier* GetImageModifier()
         ImageAttributeModifier::SetPrivacySensitiveImpl,
         ImageAttributeModifier::SetEnhancedImageQualityImpl,
         ImageAttributeModifier::SetOrientationImpl,
+        ImageAttributeModifier::SetSupportSvg2Impl,
+        ImageAttributeModifier::SetContentTransitionImpl,
+        ImageAttributeModifier::SetAntialiasedImpl,
     };
     return &ArkUIImageModifierImpl;
 }

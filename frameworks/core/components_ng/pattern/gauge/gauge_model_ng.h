@@ -58,23 +58,24 @@ public:
     void CreateWithResourceObj(GaugeResourceType jsResourceType, const RefPtr<ResourceObject>& resObj) override;
     void SetUseGradient(bool useGradient) override;
     void SetUseSpecialDefaultIndicator(bool useSpecialDefaultIndicator) override;
+    void SetGradientColorModeInit() override;
+    void SetGradientInit(const std::vector<NG::ColorStopArray>& colors) override;
 
-    static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
-    static void SetValue(FrameNode* frameNode, const std::optional<float>& value);
-    static void SetMin(FrameNode* frameNode, const std::optional<float>& min);
-    static void SetMax(FrameNode* frameNode, const std::optional<float>& max);
+    static void CreateFrameNode(float values, float min, float max);
+    static void SetValue(FrameNode* frameNode, float value);
     static void SetStartAngle(FrameNode* frameNode, float value);
     static void SetEndAngle(FrameNode* frameNode, float value);
-    static void SetGaugeStrokeWidth(FrameNode* frameNode, const std::optional<Dimension>& strokeWidth);
-    static void SetDescription(FrameNode* frameNode, const RefPtr<AceType>& customNode);
+    static void SetGaugeStrokeWidth(FrameNode* frameNode, const Dimension& strokeWidth);
+    static void SetDescriptionStatic(const RefPtr<AceType>& customNode);
     static void SetIsShowLimitValue(FrameNode* frameNode, bool isShowLimitValue);
+    static void SetIsShowDescription(FrameNode* frameNode, bool isShowDescription);
     static void SetShadowOptions(FrameNode* frameNode, const GaugeShadowOptions& shadowOptions);
     static void ResetShadowOptions(FrameNode* frameNode);
     static void SetIsShowIndicator(FrameNode* frameNode, bool isShowIndicator);
     static void SetIndicatorIconPath(FrameNode* frameNode,
         const std::string& iconPath, const std::string& bundleName, const std::string& moduleName);
     static void ResetIndicatorIconPath(FrameNode* frameNode);
-    static void SetIndicatorSpace(FrameNode* frameNode, const std::optional<Dimension>& space);
+    static void SetIndicatorSpace(FrameNode* frameNode, const Dimension& space);
     static void ResetIndicatorSpace(FrameNode* frameNode);
     static void SetColors(FrameNode* frameNode, const std::vector<Color>& colors, const std::vector<float>& values);
     static void SetGradientColors(FrameNode* frameNode, const std::vector<ColorStopArray>& colors,
@@ -82,9 +83,11 @@ public:
     static void ResetGradientColors(FrameNode* frameNode);
     static void SetBuilderFunc(FrameNode* frameNode, NG::GaugeMakeCallback&& jsMake);
     static void SetUseGradient(FrameNode* frameNode, bool useGradient);
+    static void SetUseSpecialDefaultIndicator(FrameNode* frameNode, bool useSpecialDefaultIndicator);
     static void CreateWithResourceObj(
         FrameNode* frameNode, GaugeResourceType jsResourceType, const RefPtr<ResourceObject>& resObj);
-    static void SetPrivacySensitive(FrameNode* frameNode, const std::optional<bool>& flag);
+    static void SetGradientColorModeInit(FrameNode* frameNode);
+    static void SetGradientInit(FrameNode* frameNode, const std::vector<NG::ColorStopArray>& colors);
 };
 } // namespace OHOS::Ace::NG
 

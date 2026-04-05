@@ -51,11 +51,11 @@ public:
     void SetSubtitle(const std::string& subtitle) override;
     void SetCustomTitle(const RefPtr<AceType>& customNode) override;
     void SetTitleHeight(const Dimension& titleHeight, bool isValid = true) override;
-    void SetTitleHeight(const RefPtr<ResourceObject>& resObj, bool isValid = true) override;
+    void SetTitleHeight(const Dimension& height, const RefPtr<ResourceObject>& resObj) override;
     void UpdateTitleHeight(
         const RefPtr<NG::TitleBarNode>& titleBarNode, const RefPtr<ResourceObject>& resObj) override;
-    void SetOnShown(std::function<void()>&& onShow) override;
-    void SetOnHidden(std::function<void()>&& onHidden) override;
+    void SetOnShown(std::function<void(int32_t)>&& onShow) override;
+    void SetOnHidden(std::function<void(int32_t)>&& onHidden) override;
     void SetOnWillAppear(std::function<void()>&& willAppear) override;
     void SetOnWillShow(std::function<void()>&& willShow) override;
     void SetOnWillHide(std::function<void()>&& willHide) override;
@@ -76,14 +76,14 @@ public:
     RefPtr<AceType> CreateEmpty() override;
     static void SetHideTitleBar(FrameNode* frameNode, bool hideTitleBar, bool animated);
     static void SetHideBackButton(FrameNode* frameNode, bool hideBackButton);
-    static void SetBackgroundColor(FrameNode* frameNode, const Color& color, bool isVaild = true);
-    static void SetBackButtonIcon(FrameNode* frameNode, const std::string& src,
-        bool noPixMap, RefPtr<PixelMap>& pixMap);
-    static void SetBackButtonIcon(FrameNode* frameNode, bool noPixMap, RefPtr<PixelMap>& pixMap,
-        const RefPtr<ResourceObject>& backButtonIconResObj);
+    static void SetBackgroundColor(FrameNode* frameNode, const Color& color, bool isVaild = true,
+        const RefPtr<ResourceObject>& backgroundColorResObj = nullptr);
+    static void SetBackButtonIcon(FrameNode* frameNode, const std::function<void(WeakPtr<NG::FrameNode>)>& iconSymbol,
+        const std::string& src, bool noPixMap, RefPtr<PixelMap>& pixMap);
+    static void SetBackButtonIcon(FrameNode* frameNode, const std::function<void(WeakPtr<NG::FrameNode>)>& iconSymbol,
+        bool noPixMap, RefPtr<PixelMap>& pixMap, const RefPtr<ResourceObject>& backButtonIconResObj);
     static void SetNavDestinationMode(FrameNode* frameNode, NavDestinationMode mode);
     static void SetRecoverable(FrameNode* frameNode, bool recoverable);
-    static void SetRecoverable(FrameNode* frameNode, const std::optional<bool>&recoverable);
 
     void SetNavDestinationMode(NavDestinationMode mode) override;
     void SetRecoverable(bool recoverable) override;
@@ -92,7 +92,8 @@ public:
     void SetMenuItems(std::vector<NG::BarItem>&& menuItems) override;
     void SetCustomMenu(const RefPtr<AceType>& customNode) override;
     void SetMenuOptions(NavigationMenuOptions&& opt) override;
-    void SetBackgroundColor(const Color& color, bool isVaild = true) override;
+    void SetBackgroundColor(const Color& color, bool isVaild = true,
+        const RefPtr<ResourceObject>& backgroundColorResObj = nullptr) override;
     void SetIgnoreLayoutSafeArea(const NG::IgnoreLayoutSafeAreaOpts& opts) override;
     static void SetIgnoreLayoutSafeArea(FrameNode* frameNode, const NG::IgnoreLayoutSafeAreaOpts& opts);
     void SetNavDestinationPathInfo(const std::string& moduleName, const std::string& pagePath) override;
@@ -111,27 +112,33 @@ public:
         std::function<void(WeakPtr<NG::FrameNode>)>&& symbol, uint32_t index);
     void SetSystemTransitionType(NG::NavigationSystemTransitionType type) override;
     static void SetSystemTransitionType(FrameNode* frameNode, NG::NavigationSystemTransitionType type);
-    static RefPtr<NG::FrameNode> CreateFrameNode(int32_t nodeId);
     void SetScrollableProcessor(
         const std::function<RefPtr<NG::NavDestinationScrollableProcessor>()>& creator) override;
     void UpdateBindingWithScrollable(
         std::function<void(const RefPtr<NG::NavDestinationScrollableProcessor>& processor)>&& callback) override;
+    static void UpdateBindingWithScrollable(FrameNode* frameNode,
+        std::function<void(const RefPtr<NG::NavDestinationScrollableProcessor>& processor)>&& callback);
     static void SetCustomTitle(FrameNode* frameNode, const RefPtr<AceType>& customNode);
     static RefPtr<FrameNode> GetCustomTitle(FrameNode* frameNode);
     static void SetTitleHeight(FrameNode* frameNode, const Dimension& titleHeight, bool isValid);
     static void SetOnCoordScrollStartAction(FrameNode* frameNode, std::function<void()>&& onCoordScrollStart);
-    static void SetOnCoordScrollUpdateAction(FrameNode* frameNode, std::function<void(float)>&& onCoordScrollUpdate);
+    static void SetOnCoordScrollUpdateAction(
+        FrameNode* frameNode, std::function<void(float, float)>&& onCoordScrollUpdate);
     static void SetOnCoordScrollEndAction(FrameNode* frameNode, std::function<void()>&& onCoordScrollEnd);
     static void SetSystemBarStyle(FrameNode* frameNode, const RefPtr<SystemBarStyle>& style);
-    static void SetOnShown(FrameNode* frameNode, std::function<void()>&& onShow);
-    static void SetOnHidden(FrameNode* frameNode, std::function<void()>&& onHidden);
+    static void SetOnShown(FrameNode* frameNode, std::function<void(int32_t)>&& onShow);
+    static void SetOnHidden(FrameNode* frameNode, std::function<void(int32_t)>&& onHidden);
     static void SetOnWillAppear(FrameNode* frameNode, std::function<void()>&& willAppear);
     static void SetOnWillShow(FrameNode* frameNode, std::function<void()>&& willShow);
     static void SetOnWillHide(FrameNode* frameNode, std::function<void()>&& willHide);
     static void SetOnWillDisAppear(FrameNode* frameNode, std::function<void()>&& willDisAppear);
+    static void SetOnActive(FrameNode* frameNode, std::function<void(int32_t)>&& active);
+    static void SetOnInactive(FrameNode* frameNode, std::function<void(int32_t)>&& inactive);
     static void SetOnBackPressed(FrameNode* frameNode, std::function<bool()>&& onBackPressed);
     static void SetOnReady(FrameNode* frameNode, std::function<void(RefPtr<NavDestinationContext>)>&& onReady);
     static void SetCustomBackButtonNode(FrameNode* frameNode, FrameNode* backButtonNode);
+    static void SetOnNewParam(FrameNode* frameNode, NG::NavDestinationOnNewParamCallback&& onNewParamCallback);
+    static void SetOnPop(FrameNode* frameNode, std::function<void(const RefPtr<NavPathInfo>&)>&& popCallback);
     void SetCustomTransition(NG::NavDestinationTransitionDelegate&& transitionDelegate) override;
     void SetOnNewParam(NG::NavDestinationOnNewParamCallback&& onNewParamCallback) override;
     void SetPreferredOrientation(const std::optional<Orientation>& ori) override;
@@ -149,10 +156,18 @@ public:
         const RefPtr<NG::TitleBarNode>& titleBarNode, const RefPtr<ResourceObject>& mainResObj) override;
     void UpdateSubTitle(
         const RefPtr<NG::TitleBarNode>& titleBarNode, const RefPtr<ResourceObject>& subResObj) override;
-    static CalcDimension ParseTitleHeight(const RefPtr<ResourceObject>& resObj);
+    static CalcDimension ParseTitleHeight(
+        const RefPtr<NG::TitleBarNode>& titleBarNode, const RefPtr<ResourceObject>& resObj);
     static void ResetResObj(FrameNode* frameNode, NavDestinationPatternType type, const std::string& key);
+    static void SetIsCustomTitleBarSize(FrameNode* frameNode, bool isCustom);
     static void SetBeforeCreateLayoutWrapperCallBack(
         FrameNode* frameNode, std::function<void()>&& beforeCreateLayoutWrapper);
+    static void SetTitleAnimationElapsedTime(FrameNode* frameNode, int32_t elapsedTime);
+    static void SetBackButtonTextResource(FrameNode *frameNode, const std::string& text,
+        const RefPtr<ResourceObject>& resourceObject);
+    static void ResetBackButtonText(FrameNode* frameNode);
+    void SetFreeze(bool freeze, bool isValid) override;
+    static void SetFreeze(FrameNode* frameNode, bool freeze, bool isValid);
 
 private:
     void CreateBackButton(const RefPtr<NavDestinationGroupNode>& navDestinationNode);

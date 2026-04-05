@@ -13,7 +13,8 @@
  * limitations under the License.
  */
 
-import { Finalizable, SerializerBase, toPeerPtr, KPointer, MaterializedBase, DeserializerBase } from "@koalaui/interop"
+import { ArkUIGeneratedNativeModule } from '#components'
+import { Finalizable, SerializerBase, toPeerPtr, KPointer, MaterializedBase, DeserializerBase, MaterializedBaseTag } from "@koalaui/interop"
 import { ResourceColor, Offset, Dimension, EdgeStyles, EdgeColors, EdgeWidths,
     BorderRadiuses } from 'arkui/framework'
 import { Callback } from '@ohos.base';
@@ -21,12 +22,13 @@ import { BlurStyle, ShadowOptions, ShadowStyle, HoverModeAreaType, Rectangle, Tr
     DismissReason, BackgroundBlurStyleOptions, BackgroundEffectOptions } from 'arkui/framework'
 import { CustomBuilder } from 'arkui/framework'
 import { DialogAlignment } from 'arkui/framework'
-import { DismissDialogAction } from 'arkui/framework'
+import { DismissDialogAction, LevelOrderExtender } from 'arkui/framework'
 import { BorderStyle, Alignment } from 'arkui/framework'
 import { Resource } from 'global.resource';
 import { LengthMetrics } from 'arkui/Graphics';
 import { AsyncCallback } from 'arkui/base';
 import { int32 } from "@koalaui/compat";
+import { default as uiMaterial } from '@ohos.arkui.uiMaterial';
 
 export enum LevelMode {
     OVERLAY = 0,
@@ -38,23 +40,14 @@ export enum ImmersiveMode {
     EXTEND = 1,
 }
 
-export class LevelOrder {
-    private order_: number = 0.0;
-    private static ORDER_MIN: number = -100000.0;
-    private static ORDER_MAX: number = 100000.0;
-    constructor() {}
+export class LevelOrder extends LevelOrderExtender {
+    constructor(peerPtr: KPointer) {
+        super(MaterializedBaseTag.NOP, peerPtr)
+    }
     public static clamp(order: number): LevelOrder {
-        let levelOrderImpl = new LevelOrder();
-        levelOrderImpl.setOrder(order);
-        return levelOrderImpl;
-    }
-    public getOrder(): number {
-        return this.order_;
-    }
-
-    private setOrder(order: number): void {
-        this.order_ = order < LevelOrder.ORDER_MIN ?
-            LevelOrder.ORDER_MIN : (order > LevelOrder.ORDER_MAX ? LevelOrder.ORDER_MAX : order);
+        const order_casted = order as (number)
+        const retval = ArkUIGeneratedNativeModule._LevelOrderExtender_clamp(order_casted)
+        return new LevelOrder(retval)
     }
 }
 
@@ -125,10 +118,12 @@ declare namespace promptAction {
         levelUniqueId?: int32;
         immersiveMode?: ImmersiveMode;
         levelOrder?: LevelOrder;
+        systemMaterial?: uiMaterial.Material;
     }
 
     export interface ShowDialogOptionsInternal {
         levelOrder?: number;
+        systemMaterial?: KPointer;
     }
 
     export interface ShowDialogSuccessResponse {
@@ -153,6 +148,15 @@ declare namespace promptAction {
         levelMode?: LevelMode;
         levelUniqueId?: int32;
         immersiveMode?: ImmersiveMode;
+        onDidAppear?: (() => void);
+        onDidDisappear?: (() => void);
+        onWillAppear?: (() => void);
+        onWillDisappear?: (() => void);
+        systemMaterial?: uiMaterial.Material;
+    }
+
+    export interface ActionMenuOptionsInternal {
+        systemMaterial?: KPointer;
     }
 
     export interface ActionMenuSuccessResponse {
@@ -186,6 +190,7 @@ declare namespace promptAction {
         immersiveMode?: ImmersiveMode;
         levelOrder?: LevelOrder;
         focusable?: boolean;
+        systemMaterial?: uiMaterial.Material;
     }
 
     export interface DialogOptionsInternal {
@@ -193,6 +198,7 @@ declare namespace promptAction {
         dialogTransition?: KPointer;
         maskTransition?: KPointer;
         levelOrder?: number;
+        systemMaterial?: KPointer;
     }
 
     export interface CustomDialogOptions extends BaseDialogOptions {
@@ -247,9 +253,10 @@ declare namespace promptAction {
         optionsInternal?: ShowDialogOptionsInternal): Promise<ShowDialogSuccessResponse>;
 
     export function showActionMenu1(options: ActionMenuOptions,
-        callback: AsyncCallback<ActionMenuSuccessResponse>): void;
+        callback: AsyncCallback<ActionMenuSuccessResponse>, optionsInternal?: ActionMenuOptionsInternal): void;
 
-    export function showActionMenu(options: ActionMenuOptions): Promise<ActionMenuSuccessResponse>;
+    export function showActionMenu(options: ActionMenuOptions,
+        optionsInternal?: ActionMenuOptionsInternal): Promise<ActionMenuSuccessResponse>;
 
     export function openCustomDialog1(content: KPointer, options?: BaseDialogOptions,
         optionsInternal?: DialogOptionsInternal): Promise<void>;

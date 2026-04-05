@@ -19,7 +19,7 @@
 #include "base/geometry/ng/offset_t.h"
 #include "base/memory/referenced.h"
 #include "base/mousestyle/mouse_style.h"
-#include "core/components/text_field/text_field_controller.h"
+#include "compatible/components/text_field/text_field_controller.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/search/search_event_hub.h"
@@ -48,6 +48,9 @@ public:
     // search pattern needs softkeyboard, override function.
     bool NeedSoftKeyboard() const override
     {
+        if (onNeedSoftkeyboardCallback_) {
+            return Pattern::NeedSoftKeyboard();
+        }
         return true;
     }
 
@@ -152,11 +155,23 @@ public:
         return buttonSize_;
     }
 
+    void SetIsSearchButtonUsingThemeColor(bool isSearchButtonUsingThemeColor)
+    {
+        isSearchButtonUsingThemeColor_ = isSearchButtonUsingThemeColor;
+    }
+
+    bool IsSearchButtonUsingThemeColor() const
+    {
+        return isSearchButtonUsingThemeColor_;
+    }
+
     void ResetDragOption() override;
     void OnColorConfigurationUpdate() override;
+    void OnIconColorConfigrationUpdate(const RefPtr<SearchTheme>& searchTheme);
+    void OnSearchColorConfigrationUpdate(const RefPtr<FrameNode>& frameNode, const Color& color);
+    void OnCancelColorConfigrationUpdate(const RefPtr<FrameNode>& frameNode, const Color& color);
     bool OnThemeScopeUpdate(int32_t themeScopeId) override;
     bool ButtonNodeOnThemeScopeUpdate(const RefPtr<SearchTheme>& searchTheme);
-    bool IconNodeOnThemeScopeUpdate(const RefPtr<SearchTheme>& searchTheme);
     bool TextNodeOnThemeScopeUpdate(const RefPtr<SearchTheme>& searchTheme,
         const RefPtr<TextFieldTheme>& textFieldTheme);
 
@@ -172,6 +187,7 @@ public:
     void SetCancelButtonStyle(const CancelButtonStyle& cancelButtonStyle);
     void SetCancelIconSize(const Dimension& value);
     void SetCancelIconColor(const Color& color);
+    void ResetCancelButtonColor();
     void InitIconColorSize();
     void InitSearchIconColorSize();
     void InitCancelIconColorSize();
@@ -179,7 +195,7 @@ public:
     void CreateCancelIcon();
     const Dimension ConvertImageIconSizeValue(const Dimension& fontSizeValue);
     void UpdateDisable(const std::u16string& textValue);
-    void UpdateEnable(bool needToenable);
+    void UpdateEnable(bool needToEnable);
     float GetMaxFontScale();
     float GetMinFontScale();
     void SetKeyboardAppearanceConfig(const KeyboardAppearanceConfig& config);
@@ -196,6 +212,8 @@ public:
     void UpdatePlaceholderColorResource(const Color& value);
     void UpdatePlaceholderFontSizeResource(const Dimension& value);
     void UpdateDecorationColorResource(const Color& value);
+    void UpdateDividerColorResource(const Color& value);
+    void UpdateStrokeColorResource(const Color& value);
     void UpdateMinFontSizeResource(const Dimension& value);
     void UpdateMaxFontSizeResource(const Dimension& value);
     void UpdateLetterSpacingResource(const Dimension& value);
@@ -207,8 +225,9 @@ public:
     void UpdateInputFilterResource(const std::string& value);
     void UpdateFontSizeResource(const Dimension& value);
     void UpdateBorderResource() override;
+    int32_t OnInjectionEvent(const std::string& command) override;
     void ProcessTextFieldDefaultStyleAndBehaviors();
-    void ProcessTextFieldDefaultStyleAndBehaviorsMultiThread();
+    void ProcessDividerDefaultStyleAndBehaviors();
 
 private:
     void OnModifyDone() override;
@@ -263,7 +282,7 @@ private:
     std::string SymbolColorToString(std::vector<Color>& colors) const;
 
     void AnimateTouchAndHover(RefPtr<RenderContext>& renderContext, float startOpacity, float endOpacity,
-        int32_t duration, const RefPtr<Curve>& curve);
+        int32_t duration, const RefPtr<Curve>& curve, int32_t childId);
     void AnimateSearchTouchAndHover(RefPtr<RenderContext>& renderContext, Color& blendColorFrom, Color& blendColorTo,
         int32_t duration, const RefPtr<Curve>& curve);
     void InitFocusEvent(const RefPtr<FocusHub>& focusHub);
@@ -282,11 +301,13 @@ private:
 
     void UpdateSearchSymbolIconColor();
     void UpdateCancelSymbolIconColor();
+    void UpdateTextFieldColor();
 
     void CreateOrUpdateSymbol(int32_t index, bool isCreateNode, bool isFromModifier);
     void CreateOrUpdateImage(int32_t index, bool isCreateNode);
     void UpdateImageIconProperties(RefPtr<FrameNode>& frameNode, int32_t index);
     void UpdateImageIconNode(int32_t index);
+    void ImageIconColorConfigurationUpdate(int32_t index);
     void UpdateSymbolIconNode(int32_t index);
     void UpdateSymbolIconProperties(RefPtr<FrameNode>& frameNode, int32_t index);
 
@@ -313,13 +334,11 @@ private:
 
     bool IsSearchAttached();
     RefPtr<SearchTheme> GetTheme() const;
-    
-    void OnAttachToMainTree() override;
-    void OnAttachToMainTreeMultiThread();
 
     uint32_t GetMaxLength() const;
     std::string SearchTypeToString() const;
     void InitMargin(const RefPtr<SearchLayoutProperty>& property);
+    void HandleNotifyChildAction(GestureEvent& info);
     std::string searchButton_;
     SizeF searchSize_;
     OffsetF searchOffset_;
@@ -355,6 +374,8 @@ private:
     bool isFocusIconColorSet_ = false;
     bool isFocusTextColorSet_ = false;
     bool directionKeysMoveFocusOut_ = false;
+    bool isNotifyChildAction_ = false;
+    bool isSearchButtonUsingThemeColor_ = false;
     Color searchNormalColor_;
     Color transparentColor_ = Color::TRANSPARENT;
 
@@ -367,7 +388,6 @@ private:
     WeakPtr<SearchTheme> searchTheme_;
 
     // ----- multi thread state variables -----
-    bool processTextFieldDefaultStyleAndBehaviorsMultiThread_ = false;
     // ----- multi thread state variables end -----
 };
 

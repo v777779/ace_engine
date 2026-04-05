@@ -27,8 +27,11 @@
 #include "core/components/common/properties/placement.h"
 #include "core/components_ng/layout/layout_algorithm.h"
 #include "core/components_ng/pattern/bubble/bubble_layout_property.h"
-#include "core/pipeline_ng/pipeline_context.h"
 #include "core/components_ng/pattern/select/select_model.h"
+#include "core/pipeline_ng/pipeline_context.h"
+#if defined(ENABLE_ROSEN_BACKEND)
+#include "render_service_client/core/ui_effect/property/include/rs_ui_shape_base.h"
+#endif
 namespace OHOS::Ace::NG {
 enum class ArrowOfTargetOffset {
     START,
@@ -129,10 +132,12 @@ public:
     {
         return arrowPlacement_;
     }
+
     std::vector<float>& GetArrowOffsetByClips()
     {
         return arrowOffsetByClips_;
     }
+
     std::string GetClipPath() const
     {
         return clipPath_;
@@ -141,7 +146,56 @@ public:
     {
         return clipFrameNode_;
     }
-    
+#if defined(ENABLE_ROSEN_BACKEND)
+    std::shared_ptr<OHOS::Rosen::RSNGShapeBase> GetBubbleSDFShape();
+
+    // Helper functions for GetBubbleSDFShape
+    void InitArrowParam();
+    std::shared_ptr<OHOS::Rosen::RSNGShapeBase> CreateSDFRRectShape();
+    void CalculateArrowVertices(Placement arrowBuildplacement, float arrowOffset,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    void CalculateTopBottomArrowVertices(Placement placement, float arrowOffset,
+        float radiusPx, float arrowWidthHalf, float arrowHeight,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    void CalculateLeftRightArrowVertices(Placement placement, float arrowOffset,
+        float radiusPx, float arrowWidthHalf, float arrowHeight,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    void CalculateTopLeftCornerArrowVertices(float arrowWidthHalf, float arrowHeight,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    void CalculateTopRightCornerArrowVertices(float arrowWidthHalf, float arrowHeight,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    void CalculateBottomLeftCornerArrowVertices(float arrowWidthHalf, float arrowHeight,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    void CalculateBottomRightCornerArrowVertices(float arrowWidthHalf, float arrowHeight,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    void CalculateLeftTopCornerArrowVertices(float arrowWidthHalf, float arrowHeight,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    void CalculateLeftBottomCornerArrowVertices(float arrowWidthHalf, float arrowHeight,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    void CalculateRightTopCornerArrowVertices(float arrowWidthHalf, float arrowHeight,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    void CalculateRightBottomCornerArrowVertices(float arrowWidthHalf, float arrowHeight,
+        OHOS::Rosen::Vector2f& vertex0, OHOS::Rosen::Vector2f& vertex1,
+        OHOS::Rosen::Vector2f& vertex2);
+    std::shared_ptr<OHOS::Rosen::RSNGShapeBase> CreateSDFTriangleShape(
+        const OHOS::Rosen::Vector2f& vertex0, const OHOS::Rosen::Vector2f& vertex1,
+        const OHOS::Rosen::Vector2f& vertex2);
+    std::shared_ptr<OHOS::Rosen::RSNGShapeBase> CreateSmoothUnionShape(
+        const std::shared_ptr<OHOS::Rosen::RSNGShapeBase>& shapeX,
+        const std::shared_ptr<OHOS::Rosen::RSNGShapeBase>& shapeY);
+    std::shared_ptr<OHOS::Rosen::RSNGShapeBase> CreateSDFCornerRectShape(Placement placement);
+#endif
+
     const std::vector<std::vector<float>>& GetArrowOffsetsFromClip() const
     {
         return arrowOffsetsFromClip_;
@@ -218,6 +272,7 @@ private:
     void InitTargetSizeAndPosition(bool showInSubWindow, LayoutWrapper* layoutWrapper);
     void InitCaretTargetSizeAndPosition();
     void InitProps(const RefPtr<BubbleLayoutProperty>& layoutProp, bool showInSubWindow, LayoutWrapper* layoutWrapper);
+    void InitBubbleArrow(const RefPtr<BubbleLayoutProperty>& layoutProp, LayoutWrapper* layoutWrapper);
     void InitArrowState(const RefPtr<BubbleLayoutProperty>& layoutProp);
     OffsetF GetPositionWithPlacementNew(
         const SizeF& childSize, const OffsetF& topPosition, const OffsetF& bottomPosition, OffsetF& arrowPosition);
@@ -229,7 +284,7 @@ private:
     void UpdateChildPosition(OffsetF& childOffset);
     void UpdateTouchRegion();
     void InitWrapperRect(LayoutWrapper* layoutWrapper, const RefPtr<BubbleLayoutProperty>& layoutProp);
-    void UpdateScrollHeight(LayoutWrapper* layoutWrapper, bool showInSubWindow);
+    void UpdateScrollHeight(LayoutWrapper* layoutWrapper);
     std::string MoveTo(double x, double y);
     std::string LineTo(double x, double y);
     std::string ArcTo(double rx, double ry, double rotation, int32_t arc_flag, double x, double y);
@@ -276,6 +331,7 @@ private:
         OffsetF& bottomPosition, const SizeF& childSize);
     void GetPositionWithPlacement(
         OffsetF& childPosition, OffsetF& arrowPosition, const SizeF& childSize, Placement placement);
+    void UpdateContentPositionRange(float& xMin, float& xMax, float& yMin, float& yMax);
     ErrorPositionType GetErrorPositionType(const OffsetF& childOffset, const SizeF& childSize);
     OffsetF FitToScreen(const OffsetF& fitPosition, const SizeF& childSize);
     SizeF GetPopupMaxWidthAndHeight(bool showInSubWindow, const RefPtr<FrameNode>& frameNode);
@@ -298,10 +354,10 @@ private:
     void RecordMaxSpace(const float maxAreaSpace, const OffsetF& position, const float maxWidth, const float maxHeight,
         const OffsetF& arrowPosition);
     void BottomAndTopPosition(OffsetF& bottomPosition, OffsetF& topPosition, const SizeF& childSize);
-    Rect GetBottomRect();
-    Rect GetTopRect();
-    Rect GetRightRect();
-    Rect GetLeftRect();
+    Rect GetBottomRect(const Dimension& targetSpace);
+    Rect GetTopRect(const Dimension& targetSpace);
+    Rect GetRightRect(const Dimension& targetSpace);
+    Rect GetLeftRect(const Dimension& targetSpace);
     OffsetF AvoidToTopOrBottomByWidth(const SizeF& childSize, OffsetF& arrowPosition, SizeF& resultSize);
     OffsetF AdjustAvoidPosition(const OffsetF& position, float width, float height, OffsetF& arrowPosition);
 
@@ -325,6 +381,8 @@ private:
     OffsetF childOffset_;
     // Offset from upper left corner of the screen
     OffsetF childOffsetForPaint_;
+    // top right bottom left
+    std::vector<float> arrowOffsetByClips_ = { 0.0f, 0.0f, 0.0f, 0.0f };
     OffsetF arrowPosition_;
     OffsetF arrowPositionForPaint_;
     SizeF selfSize_;
@@ -332,8 +390,7 @@ private:
     Rect hostWindowRect_;
     SizeF buttonRowSize_;
     OffsetF buttonRowOffset_;
-    // top right bottom left
-    std::vector<float> arrowOffsetByClips_ = { 0.0f, 0.0f, 0.0f, 0.0f };
+
     Edge padding_;
     Edge margin_;
     Border border_;
@@ -390,9 +447,20 @@ private:
     bool isGreatWrapperWidth_ = false;
     double foldCreaseTop_ = 0.0;
     double foldCreaseBottom_ = 0.0;
+    float popupMaxHeight_ = 0.0f;
+    float popupMaxWidth_ = 0.0f;
     bool isHalfFoldHover_ = false;
     bool doubleBorderEnable_ = false;
     bool expandDisplay_ = false;
+    bool isUserSetMaterial_ = false;
+    // param to generate arrow shape.
+    double angleSideX_ = 0.0;
+    double angleSideY_ = 0.0;
+    double angleHeight_ = 0.0;
+    // param to generate corner arrow shape (using TYPE_ONE_BETA)
+    double cornerAngleSideX_ = 0.0;
+    double cornerAngleSideY_ = 0.0;
+    double cornerAngleHeight_ = 0.0;
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_BUBBLE_BUBBLE_LAYOUT_ALGORITHM_H

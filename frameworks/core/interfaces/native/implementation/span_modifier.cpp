@@ -14,7 +14,9 @@
  */
 
 #include "core/common/multi_thread_build_manager.h"
-#include "core/components_ng/base/frame_node.h"
+#include "core/interfaces/native/implementation/click_event_peer.h"
+#include "core/interfaces/native/implementation/hover_event_peer.h"
+#include "core/interfaces/native/utility/ace_engine_types.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -28,9 +30,6 @@ namespace SpanModifier {
 Ark_NativePointer ConstructImpl(Ark_Int32 id,
                                 Ark_Int32 flags)
 {
-    if (MultiThreadBuildManager::IsParallelScope()) {
-        LOGF_ABORT("Unsupported UI components Span used in ParallelizeUI");
-    }
     auto spanNode = SpanModelNG::CreateSpanNode(id, u"");
     CHECK_NULL_RETURN(spanNode, nullptr);
     spanNode->IncRefCount();
@@ -49,8 +48,56 @@ void SetSpanOptionsImpl(Ark_NativePointer node,
 }
 } // SpanInterfaceModifier
 namespace SpanAttributeModifier {
+namespace {
+void ResetFontWeightConfig(FrameNode* frameNode)
+{
+    SpanModelNG::ResetVariableFontWeight(frameNode);
+    SpanModelNG::ResetEnableVariableFontWeight(frameNode);
+    SpanModelNG::ResetEnableDeviceFontWeightCategory(frameNode);
+}
+void ProcessFontWeightConfigs(FrameNode* frameNode,
+    const std::optional<Converter::FontWeightInt>& convertedWeightInt,
+    const Opt_Boolean& enableVariableFontWeight,
+    const Opt_Boolean& enableDeviceFontWeightCategory)
+{
+    if (enableVariableFontWeight.tag != INTEROP_TAG_UNDEFINED) {
+        if (convertedWeightInt.has_value() && convertedWeightInt->variable.has_value()) {
+            SpanModelNG::SetVariableFontWeight(frameNode, convertedWeightInt->variable.value());
+        } else {
+            SpanModelNG::ResetVariableFontWeight(frameNode);
+        }
+        SpanModelNG::SetEnableVariableFontWeight(frameNode, enableVariableFontWeight.value);
+    } else {
+        SpanModelNG::ResetVariableFontWeight(frameNode);
+        SpanModelNG::ResetEnableVariableFontWeight(frameNode);
+    }
+    if (enableDeviceFontWeightCategory.tag != INTEROP_TAG_UNDEFINED) {
+        SpanModelNG::SetEnableDeviceFontWeightCategory(frameNode, enableDeviceFontWeightCategory.value);
+    } else {
+        SpanModelNG::ResetEnableDeviceFontWeightCategory(frameNode);
+    }
+}
+void ProcessFontConfigs(FrameNode* frameNode,
+                        const std::optional<Converter::FontWeightInt>& convertedWeightInt,
+                        const Opt_FontConfigs* fontConfigs)
+{
+    auto settings = Converter::GetOptPtr(fontConfigs);
+    if (!settings) {
+        ResetFontWeightConfig(frameNode);
+        return;
+    }
+    if (settings->fontWeightConfigs.tag == INTEROP_TAG_UNDEFINED) {
+        ResetFontWeightConfig(frameNode);
+        return;
+    }
+    const auto& configs = settings->fontWeightConfigs.value;
+    ProcessFontWeightConfigs(frameNode, convertedWeightInt, configs.enableVariableFontWeight,
+        configs.enableDeviceFontWeightCategory);
+}
+} // anonymous namespace
 void SetFontImpl(Ark_NativePointer node,
-                 const Opt_Font* value)
+                 const Opt_arkui_component_units_Font* value,
+                 const Opt_FontConfigs* fontConfigs)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -64,8 +111,12 @@ void SetFontImpl(Ark_NativePointer node,
     Validator::ValidateNonNegative(fontSizeValue);
     Validator::ValidateNonPercent(fontSizeValue);
     SpanModelStatic::SetFontSize(frameNode, fontSizeValue);
-    auto fontWeightValue = Converter::OptConvert<FontWeight>(optValue->weight);
-    SpanModelStatic::SetFontWeight(frameNode, fontWeightValue);
+    Converter::FontWeightInt defaultWeight = {};
+    std::optional<Converter::FontWeightInt> convertedWeightInt = defaultWeight;
+    if (value->tag != INTEROP_TAG_UNDEFINED) {
+        convertedWeightInt = Converter::OptConvert<Converter::FontWeightInt>(optValue->weight).value_or(defaultWeight);
+    }
+    SpanModelStatic::SetFontWeight(frameNode, convertedWeightInt->fixed);
     std::optional<StringArray> families;
     if (auto fontfamiliesOpt = Converter::OptConvert<Converter::FontFamilies>(optValue->family); fontfamiliesOpt) {
         families = fontfamiliesOpt->families;
@@ -73,6 +124,7 @@ void SetFontImpl(Ark_NativePointer node,
     SpanModelStatic::SetFontFamily(frameNode, families);
     auto fontStyleValue = Converter::OptConvert<Ace::FontStyle>(optValue->style);
     SpanModelStatic::SetItalicFontStyle(frameNode, fontStyleValue);
+    ProcessFontConfigs(frameNode, convertedWeightInt, fontConfigs);
 }
 void SetFontColorImpl(Ark_NativePointer node,
                       const Opt_ResourceColor* value)
@@ -104,12 +156,25 @@ void SetFontStyleImpl(Ark_NativePointer node,
     SpanModelStatic::SetItalicFontStyle(frameNode, convValue);
 }
 void SetFontWeightImpl(Ark_NativePointer node,
-                       const Opt_Union_I32_FontWeight_String* value)
+                       const Opt_Union_I32_FontWeight_ResourceStr* weight,
+                       const Opt_FontWeightConfigs* fontWeightConfigs)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    auto convValue = Converter::OptConvertPtr<FontWeight>(value);
-    SpanModelStatic::SetFontWeight(frameNode, convValue);
+    Converter::FontWeightInt defaultWeight = {};
+    auto convertedWeightInt = Converter::OptConvertPtr<Converter::FontWeightInt>(weight).value_or(defaultWeight);
+    SpanModelStatic::SetFontWeight(frameNode, convertedWeightInt.fixed);
+    if (!fontWeightConfigs) {
+        ResetFontWeightConfig(frameNode);
+        return;
+    }
+    auto settings = Converter::GetOptPtr(fontWeightConfigs);
+    if (!settings) {
+        ResetFontWeightConfig(frameNode);
+        return;
+    }
+    ProcessFontWeightConfigs(frameNode, convertedWeightInt, settings->enableVariableFontWeight,
+        settings->enableDeviceFontWeightCategory);
 }
 void SetFontFamilyImpl(Ark_NativePointer node,
                        const Opt_Union_String_Resource* value)
@@ -139,8 +204,8 @@ void SetLetterSpacingImpl(Ark_NativePointer node,
                           const Opt_Union_F64_String* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
-    CHECK_NULL_VOID(frameNode);
-    auto convValue = Converter::OptConvertPtr<Dimension>(value);
+    CHECK_NULL_VOID(frameNode && value);
+    auto convValue = Converter::OptConvertFromArkNumStrRes<Opt_Union_F64_String, Ark_Float64>(*value);
     Validator::ValidateNonPercent(convValue);
     SpanModelStatic::SetLetterSpacing(frameNode, convValue);
 }
@@ -157,7 +222,7 @@ void SetLineHeightImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    auto convValue = Converter::OptConvertPtr<Dimension>(value);
+    auto convValue = Converter::OptConvertFromArkNumStrRes<Opt_Length, Ark_Float64>(*value);
     Validator::ValidateNonNegative(convValue);
     SpanModelStatic::SetLineHeight(frameNode, convValue);
 }
@@ -223,7 +288,7 @@ void SetOnClick0Impl(Ark_NativePointer node,
         return;
     }
     auto onClick = [callback = CallbackHelper(*optValue)](GestureEvent& info) {
-        const auto event = Converter::ArkClickEventSync(info);
+        const auto event = Converter::SyncEvent<Ark_ClickEvent>(info);
         callback.InvokeSync(event.ArkValue());
     };
     SpanModelNG::SetOnClick(frameNode, std::move(onClick));
@@ -242,7 +307,7 @@ void SetOnHoverImpl(Ark_NativePointer node,
     auto onHover = [arkCallback = CallbackHelper(*optValue), node = weakNode](bool isHover, HoverInfo& hoverInfo) {
         PipelineContext::SetCallBackNode(node);
         Ark_Boolean arkIsHover = Converter::ArkValue<Ark_Boolean>(isHover);
-        const auto event = Converter::ArkHoverEventSync(hoverInfo);
+        const auto event = Converter::SyncEvent<Ark_HoverEvent>(hoverInfo);
         arkCallback.InvokeSync(arkIsHover, event.ArkValue());
     };
     SpanModelNG::SetOnHover(frameNode, std::move(onHover));
@@ -259,7 +324,7 @@ void SetOnClick1Impl(Ark_NativePointer node,
         return;
     }
     auto onEvent = [callback = CallbackHelper(*optEvent)](GestureEvent& info) {
-        const auto event = Converter::ArkClickEventSync(info);
+        const auto event = Converter::SyncEvent<Ark_ClickEvent>(info);
         callback.InvokeSync(event.ArkValue());
     };
     auto convValue = Converter::OptConvertPtr<float>(distanceThreshold);
@@ -271,11 +336,9 @@ const GENERATED_ArkUISpanModifier* GetSpanModifier()
     static const GENERATED_ArkUISpanModifier ArkUISpanModifierImpl {
         SpanModifier::ConstructImpl,
         SpanInterfaceModifier::SetSpanOptionsImpl,
-        SpanAttributeModifier::SetFontImpl,
         SpanAttributeModifier::SetFontColorImpl,
         SpanAttributeModifier::SetFontSizeImpl,
         SpanAttributeModifier::SetFontStyleImpl,
-        SpanAttributeModifier::SetFontWeightImpl,
         SpanAttributeModifier::SetFontFamilyImpl,
         SpanAttributeModifier::SetDecorationImpl,
         SpanAttributeModifier::SetLetterSpacingImpl,
@@ -288,6 +351,8 @@ const GENERATED_ArkUISpanModifier* GetSpanModifier()
         SpanAttributeModifier::SetIdImpl,
         SpanAttributeModifier::SetOnClick0Impl,
         SpanAttributeModifier::SetOnHoverImpl,
+        SpanAttributeModifier::SetFontImpl,
+        SpanAttributeModifier::SetFontWeightImpl,
         SpanAttributeModifier::SetOnClick1Impl,
     };
     return &ArkUISpanModifierImpl;

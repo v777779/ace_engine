@@ -22,8 +22,8 @@
 
 #define protected public
 #define private public
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/geometry/dimension.h"
 #include "base/memory/ace_type.h"
@@ -66,11 +66,13 @@ const Color BUTTON_TEXT_COLOR_VALUE = Color::RED;
 const Color FONT_COLOR = Color(0XFFFF0000);
 const std::vector<std::string> FONT_FAMILY_VALUE = { "cursive" };
 const Dimension DEFAULT_HEIGTH = 40.0_vp;
+const int NODE_ID = 10;
 const uint32_t MAX_LINE_VALUE = 10;
 const float MIN_SCALE_VALUE = 0.5f;
 const float MAX_SCALE_VALUE = 3.2f;
 const float NEGATIVE_SCALE_VALUE = -1.0f;
 const float MAX_SCALE_NORMAL = 1.0f;
+const Dimension FONT_SIZE = 10.0_vp;
 
 struct CreateWithPara createWithPara = { std::make_optional(true), std::make_optional(CREATE_VALUE),
     std::make_optional(true), std::make_optional(BUTTON_TYPE_CAPSULE_VALUE), std::make_optional(true), std::nullopt,
@@ -1043,4 +1045,109 @@ HWTEST_F(ButtonPropertyTestNg, ButtonPropertyTest023, TestSize.Level1)
     ASSERT_NE(textLayoutProperty, nullptr);
     EXPECT_EQ(textLayoutProperty->GetMaxFontScale(), MAX_SCALE_NORMAL);
 }
+
+/**
+ * @tc.name: ButtonPropertyTest024
+ * @tc.desc: Test SetLabel and GetLabel
+ * @tc.type: FUNC
+ */
+HWTEST_F(ButtonPropertyTestNg, ButtonPropertyTest024, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create button and add text into it.
+     */
+    ButtonModelNG buttonModelNG;
+    auto textNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, NODE_ID, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(textNode, nullptr);
+    auto frameNode = FrameNode(V2::BUTTON_ETS_TAG, NODE_ID, AceType::MakeRefPtr<ButtonPattern>());
+    auto accessibilityProperty = AceType::MakeRefPtr<AccessibilityProperty>();
+    ASSERT_NE(accessibilityProperty, nullptr);
+    auto buttonLayoutProperty = AceType::MakeRefPtr<ButtonLayoutProperty>();
+    ASSERT_NE(buttonLayoutProperty, nullptr);
+    frameNode.children_.push_back(textNode);
+    frameNode.GetOrCreateAccessibilityProperty() = accessibilityProperty;
+    frameNode.layoutProperty_ = buttonLayoutProperty;
+    /**
+     * @tc.steps: step2. try call SetLabel.
+     * @tc.expected: step2. the label is as expected.
+     */
+    const char* label = "button";
+    buttonModelNG.SetLabel(&frameNode, label);
+    EXPECT_EQ(buttonModelNG.GetLabel(&frameNode), "button");
 }
+
+/**
+ * @tc.name: ButtonPropertyTest025
+ * @tc.desc: Test SetFontSize and GetFontSize
+ * @tc.type: FUNC
+ */
+HWTEST_F(ButtonPropertyTestNg, ButtonPropertyTest025, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create button and add text into it.
+     */
+    ButtonModelNG buttonModelNG;
+    auto textNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, NODE_ID, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(textNode, nullptr);
+    auto textLayoutProperty = AceType::MakeRefPtr<TextLayoutProperty>();
+    ASSERT_NE(textLayoutProperty, nullptr);
+    textNode->layoutProperty_ = textLayoutProperty;
+    auto frameNode = FrameNode(V2::BUTTON_ETS_TAG, NODE_ID, AceType::MakeRefPtr<ButtonPattern>());
+    auto accessibilityProperty = AceType::MakeRefPtr<AccessibilityProperty>();
+    ASSERT_NE(accessibilityProperty, nullptr);
+    auto buttonLayoutProperty = AceType::MakeRefPtr<ButtonLayoutProperty>();
+    ASSERT_NE(buttonLayoutProperty, nullptr);
+    frameNode.children_.push_back(textNode);
+    frameNode.GetOrCreateAccessibilityProperty() = accessibilityProperty;
+    frameNode.layoutProperty_ = buttonLayoutProperty;
+    /**
+     * @tc.steps: step2. try call SetFontSize.
+     * @tc.expected: step2. the font size is as expected.
+     */
+    buttonModelNG.SetFontSize(&frameNode, FONT_SIZE);
+    EXPECT_EQ(buttonModelNG.GetFontSize(&frameNode), FONT_SIZE);
+}
+
+/**
+ * @tc.name: ButtonPropertyTest026
+ * @tc.desc: Test textAlign properties of button.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ButtonPropertyTestNg, ButtonPropertyTest026, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create modelNg with label.
+     */
+    ButtonParameters buttonParameters;
+    buttonParameters.textAlign = std::make_optional(TextAlign::CENTER);
+    ButtonModelNG buttonModelNG;
+    buttonModelNG.CreateWithLabel(CREATE_VALUE);
+    /**
+     * @tc.steps: step2. Call SetTextAlign.
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    buttonModelNG.SetLabelStyle(frameNode, buttonParameters);
+    auto buttonPattern = frameNode->GetPattern<ButtonPattern>();
+    ASSERT_NE(buttonPattern, nullptr);
+    /**
+     * @tc.steps: step3. Get LayoutProperty.
+     */
+    RefPtr<LayoutProperty> layoutProperty = frameNode->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    RefPtr<ButtonLayoutProperty> buttonLayoutProperty = AceType::DynamicCast<ButtonLayoutProperty>(layoutProperty);
+    ASSERT_NE(buttonLayoutProperty, nullptr);
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetFirstChild());
+    ASSERT_NE(textNode, nullptr);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    ASSERT_NE(textLayoutProperty, nullptr);
+    /**
+     * @tc.steps: step4. Call UpdateTextAlignProperty.
+     */
+    buttonPattern->UpdateTextAlignProperty(buttonLayoutProperty, textLayoutProperty);
+    /**
+     * @tc.steps: step5. ASSERT textLayoutProperty`s TextAlign.
+     */
+    EXPECT_EQ(textLayoutProperty->GetTextAlignValue(TextAlign::START), TextAlign::CENTER);
+}
+} // namespace OHOS::Ace::NG

@@ -15,6 +15,7 @@
 #include "core/components_ng/image_provider/animated_image_object.h"
 #include "core/components_ng/image_provider/drawing_image_data.h"
 #include "core/components_ng/image_provider/image_loading_context.h"
+#include "core/components_ng/image_provider/image_utils.h"
 #include "frameworks/core/components_ng/render/adapter/animated_image.h"
 
 namespace OHOS::Ace::NG {
@@ -31,8 +32,21 @@ void AnimatedImageObject::MakeCanvasImage(
     CHECK_NULL_VOID(ctx);
     if (!image) {
         ctx->FailCallback("failed to create animated image");
+        return;
     }
-    ctx->SuccessCallback(image);
+    ImageUtils::PostToBg(
+        [ctxWp, image]() {
+            image->GetFirstPixelMap();
+            ImageUtils::PostToUI(
+                [ctxWp, image]() {
+                    auto ctx = ctxWp.Upgrade();
+                    if (ctx) {
+                        ctx->SuccessCallback(image);
+                    }
+                },
+                "AnimatedImageCanvasImageSuccess");
+        },
+        "AnimatedImageCanvasImageTask");
 }
 
 RefPtr<ImageObject> AnimatedImageObject::Clone()

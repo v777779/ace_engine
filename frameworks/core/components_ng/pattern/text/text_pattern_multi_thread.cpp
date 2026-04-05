@@ -45,9 +45,13 @@
 #include "core/components_ng/gestures/recognizers/gesture_recognizer.h"
 #include "core/components_ng/pattern/rich_editor_drag/rich_editor_drag_pattern.h"
 #include "core/components_ng/pattern/text/text_styles.h"
+#include "core/components_ng/property/position_property.h"
 #include "core/text/html_utils.h"
 #include "core/components_ng/pattern/text/paragraph_util.h"
 #include "core/text/text_emoji_processor.h"
+#ifdef ENABLE_ROSEN_BACKEND
+#include "render_service_client/core/ui/rs_ui_director.h"
+#endif
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -85,9 +89,6 @@ void TextPattern::OnAttachToMainTreeMultiThread()
     InitSurfacePositionChangedCallback();
     pipeline->AddWindowStateChangedCallback(host->GetId());
     pipeline->AddWindowSizeChangeCallback(host->GetId());
-    if (host->GetTag() == V2::SYMBOL_ETS_TAG) {
-        ProcessVisibleAreaCallback();
-    }
     auto textLayoutProperty = GetLayoutProperty<TextLayoutProperty>();
     CHECK_NULL_VOID(textLayoutProperty);
     auto theme = pipeline->GetTheme<TextTheme>();
@@ -95,9 +96,10 @@ void TextPattern::OnAttachToMainTreeMultiThread()
     if (!textLayoutProperty->HasTextAlign()) {
         textLayoutProperty->UpdateTextAlign(theme->GetTextStyle().GetTextAlign());
     }
-    textLayoutProperty->UpdateAlignment(Alignment::CENTER_LEFT);
+    if (textLayoutProperty->GetPositionProperty() && !(textLayoutProperty->GetPositionProperty()->HasAlignment())) {
+        textLayoutProperty->UpdateAlignment(Alignment::CENTER_LEFT);
+    }
     isDetachFromMainTree_ = false;
-    MultiThreadDelayedExecution(); // Delayed operation
 }
 
 void TextPattern::OnDetachFromMainTreeMultiThread()
@@ -106,10 +108,12 @@ void TextPattern::OnDetachFromMainTreeMultiThread()
     CHECK_NULL_VOID(host);
     FrameNode* node = RawPtr(host);
     CHECK_NULL_VOID(node);
-    if (dataDetectorAdapter_) {
+    if (dataDetectorAdapter_ && dataDetectorAdapter_->aiDetectDelayTask_) {
         dataDetectorAdapter_->aiDetectDelayTask_.Cancel();
     }
-    CloseSelectOverlay();
+    if (selectOverlay_) {
+        CloseSelectOverlay();
+    }
     auto pipeline = pipeline_.Upgrade();
     CHECK_NULL_VOID(pipeline);
     if (HasSurfaceChangedCallback()) {
@@ -124,50 +128,18 @@ void TextPattern::OnDetachFromMainTreeMultiThread()
     if (fontManager) {
         fontManager->UnRegisterCallbackNG(frameNode);
         fontManager->RemoveVariationNodeNG(frameNode);
+#ifdef ENABLE_ROSEN_BACKEND
+        if (Rosen::RSUIDirector::IsHybridRenderEnabled()) {
+            fontManager->RemoveHybridRenderNode(frameNode);
+        }
+#endif
     }
     pipeline->RemoveOnAreaChangeNode(node->GetId());
     pipeline->RemoveWindowStateChangedCallback(node->GetId());
     pipeline->RemoveVisibleAreaChangeNode(node->GetId());
     pipeline->RemoveWindowSizeChangeCallback(node->GetId());
+    RemoveFormVisibleChangeCallback(node->GetId());
     isDetachFromMainTree_ = true;
-}
-
-void TextPattern::MultiThreadDelayedExecution()
-{
-    auto host = GetHost();
-    CHECK_NULL_VOID(host);
-    auto pipeline = host->GetContext();
-    CHECK_NULL_VOID(pipeline);
-    if (setTextDetectEnableMultiThread_) {
-        setTextDetectEnableMultiThread_ = false;
-        if (textDetectEnable_) {
-            auto callback = [weak = WeakClaim(this)]() {
-                auto pattern = weak.Upgrade();
-                CHECK_NULL_VOID(pattern);
-                pattern->dataDetectorAdapter_->GetAIEntityMenu();
-            };
-            pipeline->SetConfigChangedCallback(host->GetId(), callback);
-        } else {
-            dataDetectorAdapter_->CancelAITask();
-        }
-        host->MarkDirtyWithOnProChange(PROPERTY_UPDATE_MEASURE);
-    }
-    if (setExternalSpanItemMultiThread_) {
-        setExternalSpanItemMultiThread_ = false;
-        ProcessSpanString();
-        auto layoutProperty = GetLayoutProperty<TextLayoutProperty>();
-        CHECK_NULL_VOID(layoutProperty);
-        layoutProperty->UpdateContent(textForDisplay_);
-    }
-    if (closeSelectOverlayMultiThread_) {
-        closeSelectOverlayMultiThread_ = false;
-        CloseSelectOverlayMultiThreadAction(closeSelectOverlayMultiThreadValue_);
-    }
-    if (setTextSelectionMultiThread_) {
-        setTextSelectionMultiThread_ = false;
-        SetTextSelectionMultiThreadAction(
-            setTextSelectionMultiThreadValue0_, setTextSelectionMultiThreadValue1_);
-    }
 }
 
 void TextPattern::SetTextDetectEnableMultiThread(bool enable)
@@ -180,10 +152,40 @@ void TextPattern::SetTextDetectEnableMultiThread(bool enable)
         return;
     }
     textDetectEnable_ = enable;
-    setTextDetectEnableMultiThread_ = true;
+    host->PostAfterAttachMainTreeTask([weakPtr = WeakClaim(this)]() {
+        const auto& pattern = weakPtr.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        auto host = pattern->GetHost();
+        CHECK_NULL_VOID(host);
+        if (pattern->GetTextDetectEnable()) {
+            auto callback = [weak = WeakPtr<TextPattern>(pattern)]() {
+                auto pattern = weak.Upgrade();
+                CHECK_NULL_VOID(pattern);
+                pattern->GetDataDetectorAdapter()->GetAIEntityMenu();
+            };
+            auto pipeline = host->GetContext();
+            CHECK_NULL_VOID(pipeline);
+            pipeline->SetConfigChangedCallback(host->GetId(), callback);
+        } else {
+            pattern->GetDataDetectorAdapter()->CancelAITask();
+        }
+        host->MarkDirtyWithOnProChange(PROPERTY_UPDATE_MEASURE);
+    });
 }
 
-void TextPattern::SetStyledStringMultiThread(const RefPtr<SpanString>& value, bool closeSelectOverlay)
+void TextPattern::SetTextDetectConfigMultiThread(const TextDetectConfig& textDetectConfig)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+
+    host->PostAfterAttachMainTreeTask([weakPtr = WeakClaim(this), textDetectConfig]() {
+        const auto& pattern = weakPtr.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->SetTextDetectConfig(textDetectConfig);
+    });
+}
+
+void TextPattern::SetStyledStringMultiThread(const RefPtr<SpanString>& value, bool closeSelectOverlay, bool isReplace)
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
@@ -220,68 +222,36 @@ void TextPattern::SetExternalSpanItemMultiThread(const std::list<RefPtr<SpanItem
         AllocStyledString();
     }
     spans_ = spans;
-    setExternalSpanItemMultiThread_ = true;
+
+    host->PostAfterAttachMainTreeTask([weakPtr = WeakClaim(this)]() {
+        const auto& pattern = weakPtr.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->ProcessSpanString();
+        auto layoutProperty = pattern->GetLayoutProperty<TextLayoutProperty>();
+        CHECK_NULL_VOID(layoutProperty);
+        layoutProperty->UpdateContent(pattern->GetTextForDisplay());
+    });
 }
 
 void TextPattern::CloseSelectOverlayMultiThread(bool animation)
 {
-    closeSelectOverlayMultiThread_ = true;
-    closeSelectOverlayMultiThreadValue_ = animation;
-}
-
-void TextPattern::CloseSelectOverlayMultiThreadAction(bool animation)
-{
-    // Deprecated use selectOverlay_ instead.
-    if (selectOverlayProxy_ && !selectOverlayProxy_->IsClosed()) {
-        selectOverlayProxy_->Close(animation);
-        RemoveAreaChangeInner();
-    }
-    selectOverlay_->CloseOverlay(animation, CloseReason::CLOSE_REASON_NORMAL);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    host->PostAfterAttachMainTreeTask([weakPtr = WeakClaim(this), animation]() {
+        const auto& pattern = weakPtr.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->CloseSelectOverlay(animation);
+    });
 }
 
 void TextPattern::SetTextSelectionMultiThread(int32_t selectionStart, int32_t selectionEnd)
 {
-    setTextSelectionMultiThread_ = true;
-    setTextSelectionMultiThreadValue0_ = selectionStart;
-    setTextSelectionMultiThreadValue1_ = selectionEnd;
-}
-
-void TextPattern::SetTextSelectionMultiThreadAction(int32_t selectionStart, int32_t selectionEnd)
-{
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    if (SystemProperties::GetTextTraceEnabled()) {
-        ACE_TEXT_SCOPED_TRACE("TextPattern::SetTextSelection[id:%d][selectionStart:%d][selectionStart:%d]",
-            host->GetId(), selectionStart, selectionEnd);
-    }
-    auto eventHub = host->GetEventHub<EventHub>();
-    CHECK_NULL_VOID(eventHub);
-    auto context = host->GetContext();
-    if (context) {
-        context->AddAfterLayoutTask([weak = WeakClaim(this), selectionStart, selectionEnd, eventHub]() {
-            auto textPattern = weak.Upgrade();
-            CHECK_NULL_VOID(textPattern);
-            auto host = textPattern->GetHost();
-            CHECK_NULL_VOID(host);
-            auto geometryNode = host->GetGeometryNode();
-            CHECK_NULL_VOID(geometryNode);
-            auto frameRect = geometryNode->GetFrameRect();
-            if (frameRect.IsEmpty()) {
-                return;
-            }
-            auto textLayoutProperty = textPattern->GetLayoutProperty<TextLayoutProperty>();
-            CHECK_NULL_VOID(textLayoutProperty);
-            auto mode = textLayoutProperty->GetTextSelectableModeValue(TextSelectableMode::SELECTABLE_UNFOCUSABLE);
-            if (mode == TextSelectableMode::UNSELECTABLE ||
-                textLayoutProperty->GetCopyOptionValue(CopyOptions::None) == CopyOptions::None ||
-                textLayoutProperty->GetTextOverflowValue(TextOverflow::CLIP) == TextOverflow::MARQUEE) {
-                return;
-            }
-            if (!textPattern->IsSetObscured() && eventHub->IsEnabled()) {
-                textPattern->ActSetSelection(selectionStart, selectionEnd);
-            }
-        });
-    }
-    host->MarkDirtyWithOnProChange(PROPERTY_UPDATE_MEASURE_SELF);
+    host->PostAfterAttachMainTreeTask([weakPtr = WeakClaim(this), selectionStart, selectionEnd]() {
+        const auto& pattern = weakPtr.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->SetTextSelection(selectionStart, selectionEnd);
+    });
 }
 } // namespace OHOS::Ace::NG

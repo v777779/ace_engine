@@ -26,16 +26,18 @@
 #include "base/utils/noncopyable.h"
 #include "base/utils/utils.h"
 #include "base/view_data/view_data_wrap.h"
+#include "core/common/container_consts.h"
 #include "core/common/recorder/event_recorder.h"
 #include "core/common/resource/pattern_resource_manager.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/event/event_hub.h"
+#include "core/components_ng/layout/box_layout_algorithm.h"
 #include "core/components_ng/layout/layout_property.h"
+#include "core/components_ng/layout/vertical_overflow_handler.h"
 #include "core/components_ng/property/property.h"
 #include "core/components_ng/render/node_paint_method.h"
 #include "core/components_ng/render/paint_property.h"
 #include "core/event/pointer_event.h"
-#include "core/common/container_consts.h"
 
 struct _ArkUINodeAdapter;
 typedef _ArkUINodeAdapter* ArkUINodeAdapterHandle;
@@ -43,11 +45,18 @@ typedef _ArkUINodeAdapter* ArkUINodeAdapterHandle;
 namespace OHOS::Accessibility {
 class AccessibilityElementInfo;
 class AccessibilityEventInfo;
+} // namespace OHOS::Accessibility
+
+namespace OHOS::Ace {
+struct UiMaterialParam;
+class NotifyDragEvent;
 }
 
 namespace OHOS::Ace::NG {
 class AccessibilitySessionAdapter;
 class InspectorFilter;
+class FocusPattern;
+struct ScopeFocusAlgorithm;
 
 class ScrollingListener : public AceType {
     DECLARE_ACE_TYPE(ScrollingListener, AceType);
@@ -67,7 +76,7 @@ public:
 private:
     std::function<void()> callback_;
 };
- 
+
 // Pattern is the base class for different measure, layout and paint behavior.
 class ACE_FORCE_EXPORT Pattern : public virtual AceType {
     DECLARE_ACE_TYPE(Pattern, AceType);
@@ -83,7 +92,10 @@ public:
         return true;
     }
 
-    virtual void OnHostChildUpdateDone() {}
+    virtual void OnHostChildUpdateDone()
+    {
+        PropagateForegroundColorToChildren();
+    }
 
     virtual bool ConsumeChildrenAdjustment(const OffsetF& /* offset */)
     {
@@ -112,7 +124,20 @@ public:
     // The pattern needs softkeyboard is like search, rich editor, text area, text field pattern.
     virtual bool NeedSoftKeyboard() const
     {
+        if (onNeedSoftkeyboardCallback_) {
+            return onNeedSoftkeyboardCallback_();
+        }
         return false;
+    }
+
+    virtual void SetOnNeedSoftKeyboard(std::function<bool()>&& onNeedSoftkeyboardCallback)
+    {
+        onNeedSoftkeyboardCallback_ = std::move(onNeedSoftkeyboardCallback);
+    }
+
+    virtual void ResetOnNeedSoftKeyboard()
+    {
+        onNeedSoftkeyboardCallback_ = nullptr;
     }
 
     virtual bool NeedToRequestKeyboardOnFocus() const
@@ -136,26 +161,6 @@ public:
     }
 
     virtual bool IsEnableFix()
-    {
-        return false;
-    }
-
-    virtual bool IsContentNoEnabledFixed()
-    {
-        return false;
-    }
-
-    virtual bool isEqualWidthAndHeight()
-    {
-        return false;
-    }
-
-    virtual bool IsChildComponentContent()
-    {
-        return false;
-    }
-
-    virtual bool IsChildColumnLayout()
     {
         return false;
     }
@@ -187,10 +192,7 @@ public:
         return false;
     }
 
-    virtual RefPtr<AccessibilityProperty> CreateAccessibilityProperty()
-    {
-        return MakeRefPtr<AccessibilityProperty>();
-    }
+    virtual RefPtr<AccessibilityProperty> CreateAccessibilityProperty();
 
     virtual RefPtr<PaintProperty> CreatePaintProperty()
     {
@@ -202,10 +204,7 @@ public:
         return MakeRefPtr<LayoutProperty>();
     }
 
-    virtual RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm()
-    {
-        return MakeRefPtr<BoxLayoutAlgorithm>();
-    }
+    virtual RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm();
 
     virtual RefPtr<NodePaintMethod> CreateNodePaintMethod()
     {
@@ -222,10 +221,7 @@ public:
         return std::nullopt;
     }
 
-    virtual RefPtr<EventHub> CreateEventHub()
-    {
-        return MakeRefPtr<EventHub>();
-    }
+    virtual RefPtr<EventHub> CreateEventHub();
 
     virtual void OnContextAttached() {}
 
@@ -237,7 +233,13 @@ public:
     virtual void OnModifyDone()
     {
         CheckLocalized();
+        PropagateForegroundColorToChildren();
+    }
+
+    void PropagateForegroundColorToChildren()
+    {
         auto frameNode = GetHost();
+        CHECK_NULL_VOID(frameNode);
         const auto& children = frameNode->GetChildren();
         if (children.empty()) {
             return;
@@ -284,7 +286,7 @@ public:
                     childRenderContext->UpdateForegroundColor(renderContext->GetForegroundColorValue());
                     childRenderContext->ResetForegroundColorStrategy();
                     childRenderContext->UpdateForegroundColorFlag(false);
-                } else if (renderContext->HasForegroundColorStrategy()) {
+                } else {
                     childRenderContext->UpdateForegroundColorStrategy(renderContext->GetForegroundColorStrategyValue());
                     childRenderContext->ResetForegroundColor();
                     childRenderContext->UpdateForegroundColorFlag(false);
@@ -300,7 +302,7 @@ public:
                     childRenderContext->UpdateForegroundColor(renderContext->GetForegroundColorValue());
                     childRenderContext->ResetForegroundColorStrategy();
                     childRenderContext->UpdateForegroundColorFlag(false);
-                } else if (renderContext->HasForegroundColorStrategy()) {
+                } else {
                     childRenderContext->UpdateForegroundColorStrategy(renderContext->GetForegroundColorStrategyValue());
                     childRenderContext->ResetForegroundColor();
                     childRenderContext->UpdateForegroundColorFlag(false);
@@ -335,6 +337,11 @@ public:
     virtual bool IsRenderBoundary() const
     {
         return true;
+    }
+
+    virtual bool ForceRequestParentMeasure() const
+    {
+        return false;
     }
 
     virtual void NotifyForNextTouchEvent() {}
@@ -422,14 +429,27 @@ public:
         return frameNode->GetContext();
     }
 
+    RenderContext* GetRenderContext() const
+    {
+        auto frameNode = GetHost();
+        CHECK_NULL_RETURN(frameNode, nullptr);
+        return frameNode->GetRenderContext().GetRawPtr();
+    }
+
     virtual void DumpInfo() {}
     virtual void DumpInfo(std::unique_ptr<JsonValue>& json) {}
     virtual void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) {}
     virtual void DumpAdvanceInfo() {}
     virtual void DumpAdvanceInfo(std::unique_ptr<JsonValue>& json) {}
     virtual void DumpViewDataPageNode(RefPtr<ViewDataWrap> viewDataWrap, bool needsRecordData = false) {}
-    virtual void NotifyFillRequestSuccess(RefPtr<ViewDataWrap> viewDataWrap,
-        RefPtr<PageNodeInfoWrap> nodeWrap, AceAutoFillType autoFillType) {}
+    virtual void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) {}
+    virtual void DumpSimplifyInfoOnlyForParamConfig(
+        std::shared_ptr<JsonValue>& json, ParamConfig config = ParamConfig())
+    {}
+    virtual void AddExtraInfoWithParamConfig(std::shared_ptr<JsonValue>& json, ParamConfig config = ParamConfig()) {}
+    virtual void NotifyFillRequestSuccess(RefPtr<ViewDataWrap> viewDataWrap, RefPtr<PageNodeInfoWrap> nodeWrap,
+        AceAutoFillType autoFillType, AceAutoFillTriggerType triggerType = AceAutoFillTriggerType::AUTO_REQUEST)
+    {}
     virtual void NotifyFillRequestFailed(int32_t errCode, const std::string& fillContent = "", bool isPopup = false) {}
     virtual bool CheckAutoSave()
     {
@@ -460,6 +480,13 @@ public:
         return DynamicCast<T>(host->GetEventHub<T>());
     }
 
+    void MarkDirty(PropertyChangeFlag flag = PROPERTY_UPDATE_MEASURE_SELF)
+    {
+        auto host = GetHost();
+        CHECK_NULL_VOID(host);
+        host->MarkDirtyNode(flag);
+    }
+
     // Called after frameNode RebuildRenderContextTree.
     virtual void OnRebuildFrame() {}
     // Called before frameNode CreateLayoutWrapper.
@@ -467,15 +494,9 @@ public:
     // Called before frameNode CreatePaintWrapper.
     virtual void BeforeCreatePaintWrapper() {}
 
-    virtual FocusPattern GetFocusPattern() const
-    {
-        return { FocusType::DISABLE, false, FocusStyleType::NONE };
-    }
+    virtual FocusPattern GetFocusPattern() const;
 
-    virtual ScopeFocusAlgorithm GetScopeFocusAlgorithm()
-    {
-        return ScopeFocusAlgorithm();
-    }
+    virtual ScopeFocusAlgorithm GetScopeFocusAlgorithm();
 
     virtual bool ScrollToNode(const RefPtr<FrameNode>& focusFrameNode)
     {
@@ -549,7 +570,7 @@ public:
     {
         return false;
     }
-    
+
     virtual void HandleOnDragStatusCallback(
         const DragEventType& dragEventType, const RefPtr<NotifyDragEvent>& notifyDragEvent) {};
 
@@ -584,14 +605,18 @@ public:
         return -1;
     }
 
-    virtual void SearchExtensionElementInfoByAccessibilityId(int64_t elementId, int32_t mode,
-        int64_t baseParent, std::list<Accessibility::AccessibilityElementInfo>& output) {}
-    virtual void SearchElementInfosByText(int64_t elementId, const std::string& text,
-        int64_t baseParent, std::list<Accessibility::AccessibilityElementInfo>& output) {}
-    virtual void FindFocusedElementInfo(int64_t elementId, int32_t focusType,
-        int64_t baseParent, Accessibility::AccessibilityElementInfo& output) {}
-    virtual void FocusMoveSearch(int64_t elementId, int32_t direction,
-        int64_t baseParent, Accessibility::AccessibilityElementInfo& output) {}
+    virtual void SearchExtensionElementInfoByAccessibilityId(
+        int64_t elementId, int32_t mode, int64_t baseParent, std::list<Accessibility::AccessibilityElementInfo>& output)
+    {}
+    virtual void SearchElementInfosByText(int64_t elementId, const std::string& text, int64_t baseParent,
+        std::list<Accessibility::AccessibilityElementInfo>& output)
+    {}
+    virtual void FindFocusedElementInfo(
+        int64_t elementId, int32_t focusType, int64_t baseParent, Accessibility::AccessibilityElementInfo& output)
+    {}
+    virtual void FocusMoveSearch(
+        int64_t elementId, int32_t direction, int64_t baseParent, Accessibility::AccessibilityElementInfo& output)
+    {}
     virtual bool TransferExecuteAction(
         int64_t elementId, const std::map<std::string, std::string>& actionArguments, int32_t action, int64_t offset)
     {
@@ -608,80 +633,16 @@ public:
         return -1;
     }
 
-    GestureEventFunc GetLongPressEventRecorder()
-    {
-        auto longPressCallback = [weak = WeakClaim(this)](GestureEvent& info) {
-            if (!Recorder::EventRecorder::Get().IsComponentRecordEnable()) {
-                return;
-            }
-            auto pattern = weak.Upgrade();
-            CHECK_NULL_VOID(pattern);
-            auto host = pattern->GetHost();
-            CHECK_NULL_VOID(host);
-            auto inspectorId = host->GetInspectorId().value_or("");
-            auto text = host->GetAccessibilityProperty<NG::AccessibilityProperty>()->GetGroupText(true);
-            auto desc = host->GetAutoEventParamValue("");
+    GestureEventFunc GetLongPressEventRecorder();
 
-            Recorder::EventParamsBuilder builder;
-            builder.SetId(inspectorId)
-                .SetType(host->GetTag())
-                .SetEventType(Recorder::LONG_PRESS)
-                .SetText(text)
-                .SetHost(host)
-                .SetDescription(desc);
-            if (Recorder::EventRecorder::Get().IsRecordEnable(Recorder::EventCategory::CATEGORY_RECT)) {
-                auto rect = host->GetTransformRectRelativeToWindow().ToBounds();
-                builder.SetExtra(Recorder::KEY_NODE_RECT, std::move(rect));
-            }
-            Recorder::EventRecorder::Get().OnEvent(std::move(builder));
-        };
-        return longPressCallback;
-    }
-
-    virtual void OnAttachContext(PipelineContext *context) {}
-    virtual void OnDetachContext(PipelineContext *context) {}
+    virtual void OnAttachContext(PipelineContext* context) {}
+    virtual void OnDetachContext(PipelineContext* context) {}
     virtual void SetFrameRateRange(const RefPtr<FrameRateRange>& rateRange, SwiperDynamicSyncSceneType type) {}
-
-    virtual RefPtr<FrameNode> GetOrCreateChildByIndex(uint32_t index)
+    virtual bool GetEmulateTouchFromMouseEvent() const
     {
-        return nullptr;
+        return false;
     }
-
-    virtual int32_t GetTotalChildCount() const
-    {
-        return -1;
-    }
-
-    void CheckLocalized()
-    {
-        auto host = GetHost();
-        CHECK_NULL_VOID(host);
-        auto layoutProperty = host->GetLayoutProperty();
-        CHECK_NULL_VOID(layoutProperty);
-        auto layoutDirection = layoutProperty->GetNonAutoLayoutDirection();
-        if (layoutProperty->IsPositionLocalizedEdges()) {
-            layoutProperty->CheckPositionLocalizedEdges(layoutDirection);
-        }
-        layoutProperty->CheckMarkAnchorPosition(layoutDirection);
-        if (layoutProperty->IsOffsetLocalizedEdges()) {
-            layoutProperty->CheckOffsetLocalizedEdges(layoutDirection);
-        }
-        layoutProperty->CheckLocalizedPadding(layoutProperty, layoutDirection);
-        layoutProperty->CheckLocalizedMargin(layoutProperty, layoutDirection);
-        layoutProperty->CheckLocalizedEdgeWidths(layoutProperty, layoutDirection);
-        layoutProperty->CheckLocalizedEdgeColors(layoutDirection);
-        layoutProperty->CheckLocalizedBorderRadiuses(layoutDirection);
-        layoutProperty->CheckLocalizedOuterBorderColor(layoutDirection);
-        layoutProperty->CheckLocalizedBorderImageSlice(layoutDirection);
-        layoutProperty->CheckLocalizedBorderImageWidth(layoutDirection);
-        layoutProperty->CheckLocalizedBorderImageOutset(layoutDirection);
-        layoutProperty->CheckLocalizedAlignment(layoutDirection);
-        // Reset for safeAreaExpand's Cache in GeometryNode
-        host->ResetSafeAreaPadding();
-        layoutProperty->CheckLocalizedSafeAreaPadding(layoutDirection);
-        layoutProperty->CheckIgnoreLayoutSafeArea(layoutDirection);
-        layoutProperty->CheckBackgroundLayoutSafeAreaEdges(layoutDirection);
-    }
+    void CheckLocalized();
 
     virtual void OnFrameNodeChanged(FrameNodeChangeInfoFlag flag) {}
 
@@ -712,8 +673,7 @@ public:
         return false;
     }
 
-    virtual void AddInnerOnGestureRecognizerJudgeBegin(
-        GestureRecognizerJudgeFunc&& gestureRecognizerJudgeFunc) {};
+    virtual void AddInnerOnGestureRecognizerJudgeBegin(GestureRecognizerJudgeFunc&& gestureRecognizerJudgeFunc) {};
 
     virtual void RecoverInnerOnGestureRecognizerJudgeBegin() {};
 
@@ -722,9 +682,7 @@ public:
         return false;
     }
 
-    void AddResObj(
-        const std::string& key,
-        const RefPtr<ResourceObject>& resObj,
+    void AddResObj(const std::string& key, const RefPtr<ResourceObject>& resObj,
         std::function<void(const RefPtr<ResourceObject>&)>&& updateFunc);
 
     void RemoveResObj(const std::string& key);
@@ -757,10 +715,29 @@ public:
     virtual void EndTranslate() {};
     virtual void SendTranslateResult(std::string results) {};
     int32_t OnRecvCommand(const std::string& command);
+    virtual std::vector<std::pair<float, float>> GetSpecifiedContentOffsets(const std::string& content)
+    {
+        return std::vector<std::pair<float, float>> {};
+    };
+    virtual void HighlightSpecifiedContent(
+        const std::string& content, const std::vector<std::string>& nodeIds, const std::string& configs) {};
+    virtual void ReportSelectedText(bool isRegister = false) {};
     virtual int32_t OnInjectionEvent(const std::string& command)
     {
         return RET_SUCCESS;
     };
+
+    bool HandleTextBoxComponentCommand(const std::string& command, std::string& cmd, std::unique_ptr<JsonValue>& json,
+        std::unique_ptr<JsonValue>& params)
+    {
+        json = JsonUtil::ParseJsonString(command);
+        CHECK_NULL_RETURN(json && !json->IsNull(), false);
+        cmd = json->GetString("cmd");
+        CHECK_NULL_RETURN(!cmd.empty(), false);
+        params = json->GetValue("params");
+        CHECK_NULL_RETURN(params && params->IsObject(), false);
+        return true;
+    }
 
     virtual bool BorderUnoccupied() const
     {
@@ -769,8 +746,14 @@ public:
 
     virtual void UnRegisterResource(const std::string& key);
 
+    /**
+     * @param adaptMaterial Indicates whether the new material is adapted to special resources for color inversion.
+     * Only the Color type has differences. If the value is true, the color resolved from special resources will carry
+     * a non-NONE placeholder.
+     */
     template<typename T>
-    void RegisterResource(const std::string& key, const RefPtr<ResourceObject>& resObj, T value)
+    void RegisterResource(
+        const std::string& key, const RefPtr<ResourceObject>& resObj, T value, bool adaptMaterial = false)
     {
         if (resourceMgr_ == nullptr) {
             resourceMgr_ = MakeRefPtr<PatternResourceManager>();
@@ -781,7 +764,7 @@ public:
             CHECK_NULL_VOID(pattern);
             pattern->UpdatePropertyImpl(key, valueBase);
         };
-        resourceMgr_->RegisterResource<T>(std::move(propUpdateFunc), key, resObj, value);
+        resourceMgr_->RegisterResource<T>(std::move(propUpdateFunc), key, resObj, value, adaptMaterial);
     }
 
     virtual void UpdatePropertyImpl(const std::string& key, RefPtr<PropertyValueBase> valueBase) {};
@@ -801,6 +784,76 @@ public:
     {
         return false;
     }
+    virtual bool ChildPreMeasureHelperEnabled()
+    {
+        return false;
+    }
+    virtual bool ChildPreMeasureHelperCustomized()
+    {
+        return false;
+    }
+    virtual bool ChildPreMeasureHelper(
+        LayoutWrapper* layoutWrapper, const std::optional<LayoutConstraintF>& parentConstraint)
+    {
+        return false;
+    }
+    virtual bool AccumulatingTerminateHelper(RectF& adjustingRect, ExpandEdges& totalExpand, bool fromSelf = false,
+        LayoutSafeAreaType ignoreType = NG::LAYOUT_SAFE_AREA_TYPE_SYSTEM)
+    {
+        return false;
+    }
+    virtual bool PostponedTaskForIgnoreEnabled()
+    {
+        return false;
+    }
+    virtual bool PostponedTaskForIgnoreCustomized()
+    {
+        return false;
+    }
+    virtual void PostponedTaskForIgnore() {}
+    virtual bool NeedCustomizeSafeAreaPadding()
+    {
+        return false;
+    }
+    virtual PaddingPropertyF CustomizeSafeAreaPadding(PaddingPropertyF safeAreaPadding, bool needRotate)
+    {
+        return safeAreaPadding;
+    }
+    virtual bool ChildTentativelyLayouted()
+    {
+        return false;
+    }
+
+    virtual bool GetIsVertical() const
+    {
+        return false;
+    }
+
+    virtual bool IsVerticalReverseLayout() const
+    {
+        return false;
+    }
+    virtual RefPtr<VerticalOverflowHandler> GetOrCreateVerticalOverflowHandler(const WeakPtr<FrameNode>& host)
+    {
+        return nullptr;
+    }
+    virtual void OnHoverWithHightLight(bool isHover) {}
+    virtual void OnPaintFocusState(bool isFocus) {}
+    virtual void OnContentChangeRegister(const ContentChangeConfig& config) {}
+    virtual void OnContentChangeUnregister() {}
+    virtual void ContentChangeByDetaching(PipelineContext*) {}
+    virtual std::list<RefPtr<FrameNode>> GetKeyFrameNodeWhenContentChanged()
+    {
+        return std::list<RefPtr<FrameNode>>();
+    }
+    virtual void OnDetachFromMainRenderTree() {}
+    virtual void OnAttachToMainRenderTree() {}
+    virtual void OnOffscreenProcessResource() {}
+    virtual void OnUiMaterialParamUpdate(const UiMaterialParam& params) {}
+    virtual void OnBackgroundColorReset() {}
+    virtual void OnBorderWidthReset() {}
+    virtual void OnBorderColorReset() {}
+    virtual void OnBackShadowReset() {}
 
 protected:
     virtual void OnAttachToFrameNode() {}
@@ -809,6 +862,7 @@ protected:
     WeakPtr<FrameNode> frameNode_;
     RefPtr<PatternResourceManager> resourceMgr_;
 
+    std::function<bool()> onNeedSoftkeyboardCallback_;
 private:
     bool onDetach_ = false;
     ACE_DISALLOW_COPY_AND_MOVE(Pattern);

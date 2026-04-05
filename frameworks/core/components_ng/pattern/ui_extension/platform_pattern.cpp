@@ -194,12 +194,9 @@ void PlatformPattern::HandleTouchEvent(const TouchEventInfo& info)
     CHECK_NULL_VOID(pointerEvent);
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    const auto& changedTouches = info.GetChangedTouches();
-    if (!changedTouches.empty() && changedTouches.back().GetTouchType() == TouchType::DOWN) {
-        auto focusHub = host->GetFocusHub();
-        CHECK_NULL_VOID(focusHub);
-        focusHub->RequestFocusImmediately();
-    }
+    auto focusHub = host->GetFocusHub();
+    CHECK_NULL_VOID(focusHub);
+    focusHub->RequestFocusImmediately();
 
     if (tag_ != AceLogTag::ACE_DYNAMIC_COMPONENT) {
         bool ret = HandleTouchEvent(pointerEvent);
@@ -257,7 +254,7 @@ void PlatformPattern::HandleDragEvent(const DragPointerEvent& info)
     CHECK_NULL_VOID(pointerEvent);
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     Platform::CalculatePointerEvent(pointerEvent, host, true);
     DispatchPointerEvent(pointerEvent);

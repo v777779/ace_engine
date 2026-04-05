@@ -20,9 +20,10 @@
 #include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 #include "base/log/ace_scoring_log.h"
+#include "bridge/declarative_frontend/engine/jsi/js_ui_index.h"
 #include "bridge/declarative_frontend/jsview/js_refresh.h"
 #include "bridge/declarative_frontend/jsview/js_view_common_def.h"
-#include "bridge/declarative_frontend/jsview/models/refresh_model_impl.h"
+#include "core/common/dynamic_module_helper.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/refresh/refresh_model.h"
 #include "core/components_ng/pattern/refresh/refresh_model_ng.h"
@@ -46,7 +47,10 @@ RefreshModel* RefreshModel::GetInstance()
             if (Container::IsCurrentUseNewPipeline()) {
                 instance_.reset(new NG::RefreshModelNG());
             } else {
-                instance_.reset(new Framework::RefreshModelImpl());
+                static auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("refresh");
+                static RefreshModel* instance =
+                    loader ? reinterpret_cast<RefreshModel*>(loader->CreateModel()) : nullptr;
+                return instance;
             }
 #endif
         }
@@ -88,6 +92,18 @@ void JSRefresh::SetPullToRefresh(const JSCallbackInfo& info)
     RefreshModel::GetInstance()->SetPullToRefresh(pullToRefresh);
 }
 
+void JSRefresh::SetPullUpToCancelRefresh(const JSCallbackInfo& info)
+{
+    if (info.Length() < 1) {
+        return;
+    }
+    bool isCancelRefresh = true;
+    if (info[0]->IsBoolean()) {
+        isCancelRefresh = info[0]->ToBoolean();
+    }
+    RefreshModel::GetInstance()->SetPullUpToCancelRefresh(isCancelRefresh);
+}
+
 void JSRefresh::JSBind(BindingTarget globalObj)
 {
     JSClass<JSRefresh>::Declare("Refresh");
@@ -95,6 +111,7 @@ void JSRefresh::JSBind(BindingTarget globalObj)
     JSClass<JSRefresh>::StaticMethod("create", &JSRefresh::Create, opt);
     JSClass<JSRefresh>::StaticMethod("refreshOffset", &JSRefresh::JsRefreshOffset);
     JSClass<JSRefresh>::StaticMethod("pullToRefresh", &JSRefresh::SetPullToRefresh, opt);
+    JSClass<JSRefresh>::StaticMethod("pullUpToCancelRefresh", &JSRefresh::SetPullUpToCancelRefresh, opt);
     JSClass<JSRefresh>::StaticMethod("onStateChange", &JSRefresh::OnStateChange);
     JSClass<JSRefresh>::StaticMethod("onRefreshing", &JSRefresh::OnRefreshing);
     JSClass<JSRefresh>::StaticMethod("onOffsetChange", &JSRefresh::OnOffsetChange);
@@ -163,27 +180,29 @@ void JSRefresh::JsRefreshOffset(const JSRef<JSVal>& jsVal)
 
 void JSRefresh::Create(const JSCallbackInfo& info)
 {
-    if (!info[0]->IsObject()) {
+    auto info0 = info[0];
+    if (!info0->IsObject()) {
         return;
     }
 
-    auto paramObject = JSRef<JSObject>::Cast(info[0]);
-    auto refreshing = paramObject->GetProperty("refreshing");
-    auto jsOffset = paramObject->GetProperty("offset");
-    auto friction = paramObject->GetProperty("friction");
-    auto promptText = paramObject->GetProperty("promptText");
+    auto paramObject = JSRef<JSObject>::Cast(info0);
+    auto refreshing = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::REFRESHING));
+    auto jsOffset = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::OFFSET));
+    auto friction = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::FRICTION));
+    auto promptText = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::PROMPT_TEXT));
     JSRef<JSVal> changeEventVal;
     RefreshModel::GetInstance()->Create();
 
     if (refreshing->IsBoolean()) {
         RefreshModel::GetInstance()->SetRefreshing(refreshing->ToBoolean());
-        changeEventVal = paramObject->GetProperty("$refreshing");
+        changeEventVal = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::$REFRESHING));
         ParseRefreshingObject(info, changeEventVal);
     } else if (refreshing->IsObject()) {
         JSRef<JSObject> refreshingObj = JSRef<JSObject>::Cast(refreshing);
-        changeEventVal = refreshingObj->GetProperty("changeEvent");
+        changeEventVal = refreshingObj->GetProperty(static_cast<int32_t>(ArkUIIndex::CHANGE_EVENT));
         ParseRefreshingObject(info, changeEventVal);
-        RefreshModel::GetInstance()->SetRefreshing(refreshingObj->GetProperty("value")->ToBoolean());
+        RefreshModel::GetInstance()->SetRefreshing(
+            refreshingObj->GetProperty(static_cast<int32_t>(ArkUIIndex::VALUE))->ToBoolean());
     } else {
         RefreshModel::GetInstance()->SetRefreshing(false);
     }
@@ -217,17 +236,17 @@ void JSRefresh::Create(const JSCallbackInfo& info)
 
 bool JSRefresh::ParseRefreshingContent(const JSRef<JSObject>& paramObject)
 {
-    JSRef<JSVal> contentParam = paramObject->GetProperty("refreshingContent");
+    JSRef<JSVal> contentParam = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::REFRESHING_CONTENT));
     if (!contentParam->IsObject()) {
         return false;
     }
     JSRef<JSObject> contentObject = JSRef<JSObject>::Cast(contentParam);
-    JSRef<JSVal> builderNodeParam = contentObject->GetProperty("builderNode_");
+    JSRef<JSVal> builderNodeParam = contentObject->GetProperty(static_cast<int32_t>(ArkUIIndex::BUILDER_NODE));
     if (!builderNodeParam->IsObject()) {
         return false;
     }
     JSRef<JSObject> builderNodeObject = JSRef<JSObject>::Cast(builderNodeParam);
-    JSRef<JSVal> nodeptr = builderNodeObject->GetProperty("nodePtr_");
+    JSRef<JSVal> nodeptr = builderNodeObject->GetProperty(static_cast<int32_t>(ArkUIIndex::NODEPTR));
     if (nodeptr.IsEmpty()) {
         return false;
     }
@@ -248,7 +267,7 @@ bool JSRefresh::ParseCustomBuilder(const JSCallbackInfo& info)
         return false;
     }
     auto paramObject = JSRef<JSObject>::Cast(info[0]);
-    auto builder = paramObject->GetProperty("builder");
+    auto builder = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::BUILDER));
     RefPtr<NG::UINode> customNode;
     if (builder->IsFunction()) {
         {
@@ -279,7 +298,8 @@ void JSRefresh::OnStateChange(const JSCallbackInfo& args)
         PipelineContext::SetCallBackNode(node);
         auto newJSVal = JSRef<JSVal>::Make(ToJSValue(value));
         func->ExecuteJS(1, &newJSVal);
-        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Refresh.OnStateChange");
+        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Refresh.OnStateChange",
+            ComponentEventType::COMPONENT_EVENT_SCROLL);
     };
     RefreshModel::GetInstance()->SetOnStateChange(std::move(onStateChange));
 }

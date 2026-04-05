@@ -120,7 +120,8 @@ ArkUINativeModuleValue ImageSpanBridge::SetTextBackgroundStyle(ArkUIRuntimeCallI
     ArkTSUtils::ParseOuterBorderRadius(runtimeCallInfo, vm, radiusArray, valueUnits, NUM_2, style);
     ArkTSUtils::SetTextBackgroundStyle(style, color, colorResObj, radiusArray.data(), valueUnits.data());
     GetArkUINodeModifiers()->getImageSpanModifier()->setImageSpanTextBackgroundStyle(
-        nativeNode, color.GetValue(), radiusArray.data(), valueUnits.data(), static_cast<int32_t>(radiusArray.size()));
+        nativeNode, color.GetValue(), radiusArray.data(), valueUnits.data(), static_cast<int32_t>(radiusArray.size()),
+        style.get());
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -285,6 +286,70 @@ ArkUINativeModuleValue ImageSpanBridge::ResetOnError(ArkUIRuntimeCallInfo* runti
     return panda::JSValueRef::Undefined(vm);
 }
 
+ArkUINativeModuleValue ImageSpanBridge::SetBorderRadius(ArkUIRuntimeCallInfo *runtimeCallInfo)
+{
+    EcmaVM *vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+    Local<JSValueRef> topLeftArgs = runtimeCallInfo->GetCallArgRef(NUM_1);
+    Local<JSValueRef> topRightArgs = runtimeCallInfo->GetCallArgRef(NUM_2);
+    Local<JSValueRef> bottomLeftArgs = runtimeCallInfo->GetCallArgRef(NUM_3);
+    Local<JSValueRef> bottomRightArgs = runtimeCallInfo->GetCallArgRef(NUM_4);
+    if (topLeftArgs->IsUndefined() && topRightArgs->IsUndefined() && bottomLeftArgs->IsUndefined() &&
+        bottomRightArgs->IsUndefined()) {
+        GetArkUINodeModifiers()->getImageSpanModifier()->resetImageSpanBorderRadius(nativeNode);
+        return panda::JSValueRef::Undefined(vm);
+    }
+
+    CalcDimension topLeft;
+    CalcDimension topRight;
+    CalcDimension bottomLeft;
+    CalcDimension bottomRight;
+
+    bool isLengthMetrics = false;
+    isLengthMetrics |= ArkTSUtils::ParseJsLengthMetrics(vm, topLeftArgs, topLeft);
+    isLengthMetrics |= ArkTSUtils::ParseJsLengthMetrics(vm, topRightArgs, topRight);
+    isLengthMetrics |= ArkTSUtils::ParseJsLengthMetrics(vm, bottomLeftArgs, bottomLeft);
+    isLengthMetrics |= ArkTSUtils::ParseJsLengthMetrics(vm, bottomRightArgs, bottomRight);
+    if (!isLengthMetrics) {
+        ArkTSUtils::ParseAllBorder(vm, topLeftArgs, topLeft);
+        ArkTSUtils::ParseAllBorder(vm, topRightArgs, topRight);
+        ArkTSUtils::ParseAllBorder(vm, bottomLeftArgs, bottomLeft);
+        ArkTSUtils::ParseAllBorder(vm, bottomRightArgs, bottomRight);
+    }
+    auto directionChanged = false;
+    auto isRightToLeft = AceApplicationInfo::GetInstance().IsRightToLeft();
+    directionChanged = isRightToLeft && isLengthMetrics;
+    uint32_t size = SIZE_OF_FOUR;
+    ArkUI_Float32 values[size];
+    int units[size];
+    values[NUM_0] = directionChanged ? topRight.Value() : topLeft.Value();
+    units[NUM_0] = directionChanged ? static_cast<int>(topRight.Unit()) : static_cast<int>(topLeft.Unit());
+    values[NUM_1] = directionChanged ? topLeft.Value() : topRight.Value();
+    units[NUM_1] = directionChanged ? static_cast<int>(topLeft.Unit()) : static_cast<int>(topRight.Unit());
+    values[NUM_2] = directionChanged ? bottomRight.Value() : bottomLeft.Value();
+    units[NUM_2] = directionChanged ? static_cast<int>(bottomRight.Unit()) : static_cast<int>(bottomLeft.Unit());
+    values[NUM_3] = directionChanged ? bottomLeft.Value() : bottomRight.Value();
+    units[NUM_3] = directionChanged ? static_cast<int>(bottomLeft.Unit()) : static_cast<int>(bottomRight.Unit());
+
+    GetArkUINodeModifiers()->getImageSpanModifier()->setImageSpanBorderRadius(nativeNode, values, units, SIZE_OF_FOUR);
+
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue ImageSpanBridge::ResetBorderRadius(ArkUIRuntimeCallInfo *runtimeCallInfo)
+{
+    EcmaVM *vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+    GetArkUINodeModifiers()->getImageSpanModifier()->resetImageSpanBorderRadius(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
 void SetSpanColorFilterObject(const EcmaVM* vm, const Local<JSValueRef>& jsObjArg, ArkUINodeHandle nativeNode)
 {
     OHOS::Ace::ImageColorFilter* colorFilter;
@@ -360,67 +425,35 @@ ArkUINativeModuleValue ImageSpanBridge::ResetColorFilter(ArkUIRuntimeCallInfo* r
     return panda::JSValueRef::Undefined(vm);
 }
 
-ArkUINativeModuleValue ImageSpanBridge::SetBorderRadius(ArkUIRuntimeCallInfo *runtimeCallInfo)
+ArkUINativeModuleValue ImageSpanBridge::SetSupportSvg2(ArkUIRuntimeCallInfo* runtimeCallInfo)
 {
-    EcmaVM *vm = runtimeCallInfo->GetVM();
+    EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
     CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
-    Local<JSValueRef> topLeftArgs = runtimeCallInfo->GetCallArgRef(NUM_1);
-    Local<JSValueRef> topRightArgs = runtimeCallInfo->GetCallArgRef(NUM_2);
-    Local<JSValueRef> bottomLeftArgs = runtimeCallInfo->GetCallArgRef(NUM_3);
-    Local<JSValueRef> bottomRightArgs = runtimeCallInfo->GetCallArgRef(NUM_4);
-    if (topLeftArgs->IsUndefined() && topRightArgs->IsUndefined() && bottomLeftArgs->IsUndefined() &&
-        bottomRightArgs->IsUndefined()) {
-        GetArkUINodeModifiers()->getImageSpanModifier()->resetImageSpanBorderRadius(nativeNode);
-        return panda::JSValueRef::Undefined(vm);
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    Local<JSValueRef> secondArg = runtimeCallInfo->GetCallArgRef(1);
+    if (secondArg->IsBoolean()) {
+        bool supportSvg2 = secondArg->ToBoolean(vm)->Value();
+        nodeModifiers->getImageSpanModifier()->setSupportSvg2(nativeNode, supportSvg2);
+    } else {
+        nodeModifiers->getImageSpanModifier()->resetSupportSvg2(nativeNode);
     }
-
-    CalcDimension topLeft;
-    CalcDimension topRight;
-    CalcDimension bottomLeft;
-    CalcDimension bottomRight;
-
-    bool isLengthMetrics = false;
-    isLengthMetrics |= ArkTSUtils::ParseJsLengthMetrics(vm, topLeftArgs, topLeft);
-    isLengthMetrics |= ArkTSUtils::ParseJsLengthMetrics(vm, topRightArgs, topRight);
-    isLengthMetrics |= ArkTSUtils::ParseJsLengthMetrics(vm, bottomLeftArgs, bottomLeft);
-    isLengthMetrics |= ArkTSUtils::ParseJsLengthMetrics(vm, bottomRightArgs, bottomRight);
-    if (!isLengthMetrics) {
-        ArkTSUtils::ParseAllBorder(vm, topLeftArgs, topLeft);
-        ArkTSUtils::ParseAllBorder(vm, topRightArgs, topRight);
-        ArkTSUtils::ParseAllBorder(vm, bottomLeftArgs, bottomLeft);
-        ArkTSUtils::ParseAllBorder(vm, bottomRightArgs, bottomRight);
-    }
-    auto directionChanged = false;
-    auto isRightToLeft = AceApplicationInfo::GetInstance().IsRightToLeft();
-    directionChanged = isRightToLeft && isLengthMetrics;
-    uint32_t size = SIZE_OF_FOUR;
-    ArkUI_Float32 values[size];
-    int units[size];
-    values[NUM_0] = directionChanged ? topRight.Value() : topLeft.Value();
-    units[NUM_0] = directionChanged ? static_cast<int>(topRight.Unit()) : static_cast<int>(topLeft.Unit());
-    values[NUM_1] = directionChanged ? topLeft.Value() : topRight.Value();
-    units[NUM_1] = directionChanged ? static_cast<int>(topLeft.Unit()) : static_cast<int>(topRight.Unit());
-    values[NUM_2] = directionChanged ? bottomRight.Value() : bottomLeft.Value();
-    units[NUM_2] = directionChanged ? static_cast<int>(bottomRight.Unit()) : static_cast<int>(bottomLeft.Unit());
-    values[NUM_3] = directionChanged ? bottomLeft.Value() : bottomRight.Value();
-    units[NUM_3] = directionChanged ? static_cast<int>(bottomLeft.Unit()) : static_cast<int>(bottomRight.Unit());
-
-    GetArkUINodeModifiers()->getImageSpanModifier()->setImageSpanBorderRadius(nativeNode, values, units, SIZE_OF_FOUR);
-
     return panda::JSValueRef::Undefined(vm);
 }
 
-ArkUINativeModuleValue ImageSpanBridge::ResetBorderRadius(ArkUIRuntimeCallInfo *runtimeCallInfo)
+ArkUINativeModuleValue ImageSpanBridge::ResetSupportSvg2(ArkUIRuntimeCallInfo* runtimeCallInfo)
 {
-    EcmaVM *vm = runtimeCallInfo->GetVM();
+    EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
     CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
-    GetArkUINodeModifiers()->getImageSpanModifier()->resetImageSpanBorderRadius(nativeNode);
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    nodeModifiers->getImageSpanModifier()->resetSupportSvg2(nativeNode);
     return panda::JSValueRef::Undefined(vm);
 }
 

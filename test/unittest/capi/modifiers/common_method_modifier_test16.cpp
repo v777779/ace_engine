@@ -20,8 +20,8 @@
 #include "generated/type_helpers.h"
 #include "modifier_test_base.h"
 #include "modifiers_test_utils.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 #include "test/unittest/capi/stubs/mock_subwindow_bind.h"
 #include "test/unittest/capi/utils/custom_node_builder_test_helper.h"
 
@@ -166,8 +166,29 @@ public:
     {
     }
 
+    bool SetReceiveDragEventEnabled(bool enabled) override
+    {
+        isReceiveDragEventEnabled_ = enabled;
+        return true;
+    }
+
+    bool GetIsReceiveDragEventEnabled() override
+    {
+        return isReceiveDragEventEnabled_;
+    }
+
+    bool GetDestroyInHide() override {
+        return destroyInHide_;
+    }
+
+    void SetDestroyInHide(bool destroyInHide) override {
+        destroyInHide_ = destroyInHide;
+    }
+
 private:
     int32_t childContainerId_ = -1;
+    bool isReceiveDragEventEnabled_ = true;
+    bool destroyInHide_ = false;
 
     void CheckOffsetOption(const NG::MenuParam& menuParam)
     {
@@ -267,7 +288,7 @@ Opt_ContextMenuOptions getContextMenuOptions(Ark_ContextMenuOptions options = {}
 } // namespace
 
 namespace Converter {
-void AssignArkValue(Ark_TransitionEffect& dst, const RefPtr<NG::ChainedTransitionEffect>& src)
+void AssignArkValue(Ark_TransitionEffect& dst, const RefPtr<NG::ChainedTransitionEffect>& src, ConvContext *ctx)
 {
     const auto peer = PeerUtils::CreatePeer<TransitionEffectPeer>();
     peer->handler = src;
@@ -390,11 +411,11 @@ public:
 };
 
 /*
- * @tc.name: BindContextMenu0Test
+ * @tc.name: setBindContextMenu0TestBindContextMenu0
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0Test, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBindContextMenu0, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     CommonMethodModifierTest16::InitBindContextMenu0();
@@ -410,11 +431,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0Test, TestSize.Lev
 }
 
 /*
- * @tc.name: BindContextMenu0TestPlacementTest
+ * @tc.name: setBindContextMenu0TestPlacement
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestPlacementTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestPlacement, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -435,11 +456,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestPlacementTest,
 }
 
 /*
- * @tc.name: BindContextMenu0TestEnableArrow
+ * @tc.name: setBindContextMenu0TestEnableArrow
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestEnableArrow, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestEnableArrow, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -463,11 +484,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestEnableArrow, T
 }
 
 /*
- * @tc.name: BindContextMenu0TestArrowOffset
+ * @tc.name: setBindContextMenu0TestArrowOffset
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestArrowOffset, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestArrowOffset, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -488,11 +509,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestArrowOffset, T
 }
 
 /*
- * @tc.name: BindContextMenu0TestPreviewPreviewMode
+ * @tc.name: setBindContextMenu0TestPreviewPreviewMode
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestPreviewPreviewMode, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestPreviewPreviewMode, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -513,11 +534,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestPreviewPreview
 }
 
 /*
- * @tc.name: BindContextMenu0TestPreviewCustomBuilder
+ * @tc.name: setBindContextMenu0TestPreviewCustomBuilder
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestPreviewCustomBuilder, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestPreviewCustomBuilder, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -531,19 +552,19 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestPreviewCustomB
     modifier_->setBindContextMenu0(node_, &arkBuilder, &responseType, &options);
     CommonMethodModifierTest16::EmitLongPressEvent(node_);
     ASSERT_TRUE(menuParams);
-    EXPECT_EQ(menuParams->previewMode, MenuPreviewMode::CUSTOM)
-        << "Passed value is: " << static_cast<int>(MenuPreviewMode::CUSTOM);
+    EXPECT_EQ(menuParams->previewMode, MenuPreviewMode::CUSTOM) <<
+        "Passed value is: " << static_cast<int>(MenuPreviewMode::CUSTOM);
     ASSERT_TRUE(checkEvent2);
     EXPECT_EQ(checkEvent2->resourceId, TEST_RESOURCE_ID_2);
     CommonMethodModifierTest16::ResetParams(node_);
 }
 
 /*
- * @tc.name: BindContextMenu0TestBorderRadiusLength
+ * @tc.name: setBindContextMenu0TestBorderRadiusLength
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBorderRadiusLength, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBorderRadiusLength, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -565,11 +586,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBorderRadiusLe
 }
 
 /*
- * @tc.name: BindContextMenu0TestBorderRadiusBorderRadiuses
+ * @tc.name: setBindContextMenu0TestBorderRadiusBorderRadiuses
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBorderRadiusBorderRadiuses, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBorderRadiusBorderRadiuses, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -597,11 +618,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBorderRadiusBo
 }
 
 /*
- * @tc.name: BindContextMenu0TestBorderRadiusLocalizedRadius
+ * @tc.name: setBindContextMenu0TestBorderRadiusLocalizedRadius
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBorderRadiusLocalizedRadius, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBorderRadiusLocalizedRadius, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -630,11 +651,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBorderRadiusLo
 }
 
 /*
- * @tc.name: BindContextMenu0TestOnAppear
+ * @tc.name: setBindContextMenu0TestOnAppear
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestOnAppear, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestOnAppear, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -665,11 +686,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestOnAppear, Test
 }
 
 /*
- * @tc.name: BindContextMenu0TestOnDisappear
+ * @tc.name: setBindContextMenu0TestOnDisappear
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestOnDisappear, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestOnDisappear, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -700,11 +721,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestOnDisappear, T
 }
 
 /*
- * @tc.name: BindContextMenu0TestAboutToAppear
+ * @tc.name: setBindContextMenu0TestAboutToAppear
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestAboutToAppear, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestAboutToAppear, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -735,11 +756,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestAboutToAppear,
 }
 
 /*
- * @tc.name: BindContextMenu0TestAboutToDisappear
+ * @tc.name: setBindContextMenu0TestAboutToDisappear
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestAboutToDisappear, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestAboutToDisappear, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -770,11 +791,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestAboutToDisappe
 }
 
 /*
- * @tc.name: BindContextMenu0TestLayoutRegionMargin
+ * @tc.name: setBindContextMenu0TestLayoutRegionMargin
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestLayoutRegionMargin, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestLayoutRegionMargin, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -801,11 +822,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestLayoutRegionMa
 }
 
 /*
- * @tc.name: BindContextMenu0TestBackgroundColorValidValues
+ * @tc.name: setBindContextMenu0TestBackgroundColorValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBackgroundColorValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBackgroundColorValidValues, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto checkValue = [this](const std::string& input, const std::string& expected, Opt_ResourceColor colorValue) {
@@ -838,11 +859,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBackgroundColo
     }
 }
 /*
- * @tc.name: BindContextMenu0TestBackgroundColorInvalidValues
+ * @tc.name: setBindContextMenu0TestBackgroundColorInvalidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBackgroundColorInvalidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBackgroundColorInvalidValues, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto checkValue = [this](const std::string& input, Opt_ResourceColor colorValue) {
@@ -873,11 +894,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBackgroundColo
 }
 
 /*
- * @tc.name: BindContextMenu0TestBackgroundBlurStyleValidValues
+ * @tc.name: setBindContextMenu0TestBackgroundBlurStyleValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBackgroundBlurStyleValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBackgroundBlurStyleValidValues, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     for (auto& [input, value, expected] : testFixtureBlurStyleActivePolicyValidValues) {
@@ -893,18 +914,18 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBackgroundBlur
         CommonMethodModifierTest16::EmitLongPressEvent(node_);
         ASSERT_TRUE(menuParams);
         ASSERT_TRUE(menuParams->backgroundBlurStyle) << "BlurStyle: " << input;
-        EXPECT_EQ(menuParams->backgroundBlurStyle, static_cast<int32_t>(expected))
-            << "BlurStyleActivePolicy: " << input;
+        EXPECT_EQ(menuParams->backgroundBlurStyle, static_cast<int32_t>(expected)) <<
+            "BlurStyleActivePolicy: " << input;
         CommonMethodModifierTest16::ResetParams(node_);
     }
 }
 
 /*
- * @tc.name: BindContextMenu0TestBackgroundBlurStyleInvalidValues
+ * @tc.name: setBindContextMenu0TestBackgroundBlurStyleInvalidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBackgroundBlurStyleInvalidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBackgroundBlurStyleInvalidValues, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     for (auto& [input, value] : testFixtureEnumBlurStyleInvalidValues) {
@@ -925,11 +946,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestBackgroundBlur
 }
 
 /*
- * @tc.name: BindContextMenu0TestTransition
+ * @tc.name: setBindContextMenu0TestTransition
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestTransition, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestTransition, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -949,11 +970,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestTransition, Te
 }
 
 /*
- * @tc.name: BindContextMenu0TestEnableHoverMode
+ * @tc.name: setBindContextMenu0TestEnableHoverMode
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestEnableHoverMode, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestEnableHoverMode, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     for (auto& [text, value, expected] : testFixtureBooleanValidValues) {
@@ -974,31 +995,31 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu0TestEnableHoverMod
 }
 
 /*
- * @tc.name: BindContextMenu1Test
+ * @tc.name: setBindContextMenu1TestBindContextMenu1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1Test, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestBindContextMenu1, TestSize.Level1)
 {
     auto& aceEngine = CommonMethodModifierTest16::InitBindContextMenu1();
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
     auto arkBuilder = Converter::ArkValue<Opt_CustomNodeBuilder>(builder);
     auto options = getContextMenuOptions();
-    auto isShown = ArkValue<Opt_Boolean>(true);
+    auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
     CommonMethodModifierTest16::SetSubwindow();
-    modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+    modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
     ASSERT_TRUE(checkEvent);
     EXPECT_EQ(checkEvent->resourceId, TEST_RESOURCE_ID);
     CommonMethodModifierTest16::ResetAceEngine(node_, aceEngine);
 }
 
 /*
- * @tc.name: BindContextMenu1TestPlacementTest
+ * @tc.name: setBindContextMenu1TestPlacement
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestPlacementTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestPlacement, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
@@ -1009,9 +1030,9 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestPlacementTest,
             .placement = getPlacement(value),
         };
         auto options = getContextMenuOptions(optionsPlacement);
-        auto isShown = ArkValue<Opt_Boolean>(true);
+        auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
         CommonMethodModifierTest16::SetSubwindow();
-        modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+        modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
         ASSERT_TRUE(checkEvent);
         EXPECT_EQ(checkEvent->resourceId, TEST_RESOURCE_ID);
         CommonMethodModifierTest16::ResetAceEngine(node_, aceEngine);
@@ -1019,11 +1040,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestPlacementTest,
 }
 
 /*
- * @tc.name: BindContextMenu1TestEnableArrow
+ * @tc.name: setBindContextMenu1TestEnableArrow
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestEnableArrow, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestEnableArrow, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
@@ -1035,9 +1056,9 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestEnableArrow, T
             .enableArrow = ArkValue<Opt_Boolean>(value),
         };
         auto options = getContextMenuOptions(optionsPlacement);
-        auto isShown = ArkValue<Opt_Boolean>(true);
+        auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
         CommonMethodModifierTest16::SetSubwindow();
-        modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+        modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
         ASSERT_TRUE(menuParams);
         EXPECT_EQ(menuParams->enableArrow, expected) << "Passed value is: " << text;
         std::optional<Placement> expectedPlacement = std::nullopt;
@@ -1050,11 +1071,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestEnableArrow, T
 }
 
 /*
- * @tc.name: BindContextMenu1TestArrowOffset
+ * @tc.name: setBindContextMenu1TestArrowOffset
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestArrowOffset, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestArrowOffset, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
@@ -1065,9 +1086,9 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestArrowOffset, T
             .arrowOffset = ArkValue<Opt_Length>(value),
         };
         auto options = getContextMenuOptions(optionsPlacement);
-        auto isShown = ArkValue<Opt_Boolean>(true);
+        auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
         CommonMethodModifierTest16::SetSubwindow();
-        modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+        modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
         ASSERT_TRUE(menuParams);
         EXPECT_EQ(menuParams->arrowOffset, expected) << "Passed value is: " << text;
         CommonMethodModifierTest16::ResetAceEngine(node_, aceEngine);
@@ -1075,11 +1096,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestArrowOffset, T
 }
 
 /*
- * @tc.name: BindContextMenu1TestPreviewPreviewMode
+ * @tc.name: setBindContextMenu1TestPreviewPreviewMode
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestPreviewPreviewMode, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestPreviewPreviewMode, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
@@ -1090,9 +1111,9 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestPreviewPreview
             .preview = ArkUnion<Opt_Union_MenuPreviewMode_CustomBuilder, Ark_MenuPreviewMode>(value),
         };
         auto options = getContextMenuOptions(optionsPlacement);
-        auto isShown = ArkValue<Opt_Boolean>(true);
+        auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
         CommonMethodModifierTest16::SetSubwindow();
-        modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+        modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
         ASSERT_TRUE(menuParams);
         EXPECT_EQ(menuParams->previewMode, expected) << "Passed value is: " << text;
         CommonMethodModifierTest16::ResetAceEngine(node_, aceEngine);
@@ -1100,11 +1121,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestPreviewPreview
 }
 
 /*
- * @tc.name: BindContextMenu1TestPreviewCustomBuilder
+ * @tc.name: setBindContextMenu1TestPreviewCustomBuilder
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestPreviewCustomBuilder, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestPreviewCustomBuilder, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
@@ -1114,23 +1135,23 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestPreviewCustomB
         .preview = getPreviewCustomBuilder(),
     };
     auto options = getContextMenuOptions(optionsPlacement);
-    auto isShown = ArkValue<Opt_Boolean>(true);
+    auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
     CommonMethodModifierTest16::SetSubwindow();
-    modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+    modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
     ASSERT_TRUE(menuParams);
-    EXPECT_EQ(menuParams->previewMode, MenuPreviewMode::CUSTOM)
-        << "Passed value is: " << static_cast<int>(MenuPreviewMode::CUSTOM);
+    EXPECT_EQ(menuParams->previewMode, MenuPreviewMode::CUSTOM) <<
+        "Passed value is: " << static_cast<int>(MenuPreviewMode::CUSTOM);
     ASSERT_TRUE(checkEvent2);
     EXPECT_EQ(checkEvent2->resourceId, TEST_RESOURCE_ID_2);
     CommonMethodModifierTest16::ResetAceEngine(node_, aceEngine);
 }
 
 /*
- * @tc.name: BindContextMenu1TestBorderRadiusLength
+ * @tc.name: setBindContextMenu1TestBorderRadiusLength
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBorderRadiusLength, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestBorderRadiusLength, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
@@ -1142,9 +1163,9 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBorderRadiusLe
         .borderRadius = ArkValue<Opt_Union_Length_BorderRadiuses_LocalizedBorderRadiuses>(radiuses),
     };
     auto options = getContextMenuOptions(optionsPlacement);
-    auto isShown = ArkValue<Opt_Boolean>(true);
+    auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
     CommonMethodModifierTest16::SetSubwindow();
-    modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+    modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
     ASSERT_TRUE(menuParams);
     ASSERT_TRUE(menuParams->borderRadius);
     EXPECT_THAT(menuParams->borderRadius.value(), CompareBorderRadius(LENGTH_TEST_VALUE, false));
@@ -1152,11 +1173,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBorderRadiusLe
 }
 
 /*
- * @tc.name: BindContextMenu1TestBorderRadiusBorderRadiuses
+ * @tc.name: setBindContextMenu1TestBorderRadiusBorderRadiuses
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBorderRadiusBorderRadiuses, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestBorderRadiusBorderRadiuses, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
@@ -1174,9 +1195,9 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBorderRadiusBo
         .borderRadius = ArkValue<Opt_Union_Length_BorderRadiuses_LocalizedBorderRadiuses>(radiuses),
     };
     auto options = getContextMenuOptions(optionsPlacement);
-    auto isShown = ArkValue<Opt_Boolean>(true);
+    auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
     CommonMethodModifierTest16::SetSubwindow();
-    modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+    modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
     ASSERT_TRUE(menuParams);
     ASSERT_TRUE(menuParams->borderRadius);
     EXPECT_THAT(menuParams->borderRadius.value(), CompareBorderRadius(LENGTH_TEST_VALUE, false));
@@ -1184,11 +1205,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBorderRadiusBo
 }
 
 /*
- * @tc.name: BindContextMenu1TestBorderRadiusLocalizedRadius
+ * @tc.name: setBindContextMenu1TestBorderRadiusLocalizedRadius
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBorderRadiusLocalizedRadius, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestBorderRadiusLocalizedRadius, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
@@ -1207,9 +1228,9 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBorderRadiusLo
         .borderRadius = ArkValue<Opt_Union_Length_BorderRadiuses_LocalizedBorderRadiuses>(radiuses),
     };
     auto options = getContextMenuOptions(optionsPlacement);
-    auto isShown = ArkValue<Opt_Boolean>(true);
+    auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
     CommonMethodModifierTest16::SetSubwindow();
-    modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+    modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
     ASSERT_TRUE(menuParams);
     ASSERT_TRUE(menuParams->borderRadius);
     EXPECT_THAT(menuParams->borderRadius.value(), CompareBorderRadius(LENGTH_TEST_VALUE, true));
@@ -1217,11 +1238,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBorderRadiusLo
 }
 
 /*
- * @tc.name: setOnErrorTest
+ * @tc.name: setBindContextMenu0TestOnAppear1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestOnAppear, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestOnAppear1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -1252,11 +1273,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestOnAppear, Test
 }
 
 /*
- * @tc.name: setOnErrorTest
+ * @tc.name: setBindContextMenu0TestOnDisappear1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestOnDisappear, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestOnDisappear1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -1287,11 +1308,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestOnDisappear, T
 }
 
 /*
- * @tc.name: setOnErrorTest
+ * @tc.name: setBindContextMenu0TestAboutToAppear1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestAboutToAppear, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestAboutToAppear1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -1322,11 +1343,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestAboutToAppear,
 }
 
 /*
- * @tc.name: setOnErrorTest
+ * @tc.name: setBindContextMenu0TestAboutToDisappear1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestAboutToDisappear, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestAboutToDisappear1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto builder = getBuilderCb();
@@ -1357,11 +1378,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestAboutToDisappe
 }
 
 /*
- * @tc.name: BindContextMenu1TestLayoutRegionMargin
+ * @tc.name: setBindContextMenu1TestLayoutRegionMargin1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestLayoutRegionMargin, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestLayoutRegionMargin1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
@@ -1378,9 +1399,9 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestLayoutRegionMa
         .layoutRegionMargin = ArkValue<Opt_Padding>(arkPadding),
     };
     auto options = getContextMenuOptions(optionsPlacement);
-    auto isShown = ArkValue<Opt_Boolean>(true);
+    auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
     CommonMethodModifierTest16::SetSubwindow();
-    modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+    modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
     ASSERT_TRUE(menuParams);
     ASSERT_TRUE(menuParams->layoutRegionMargin);
     EXPECT_THAT(menuParams->layoutRegionMargin.value(), CompareMarginPadding(CalcLength(LENGTH_TEST_VALUE)));
@@ -1388,11 +1409,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestLayoutRegionMa
 }
 
 /*
- * @tc.name: BindContextMenu1TestBackgroundColorValidValues
+ * @tc.name: setBindContextMenu0TestBackgroundColorValidValues1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBackgroundColorValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBackgroundColorValidValues1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto checkValue = [this](const std::string& input, const std::string& expected, Opt_ResourceColor colorValue) {
@@ -1425,11 +1446,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBackgroundColo
     }
 }
 /*
- * @tc.name: BindContextMenu1TestBackgroundColorInvalidValues
+ * @tc.name: setBindContextMenu0TestBackgroundColorInvalidValues1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBackgroundColorInvalidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBackgroundColorInvalidValues1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     auto checkValue = [this](const std::string& input, Opt_ResourceColor colorValue) {
@@ -1460,11 +1481,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBackgroundColo
 }
 
 /*
- * @tc.name: BindContextMenu1TestBackgroundBlurStyleValidValues
+ * @tc.name: setBindContextMenu0TestBackgroundBlurStyleValidValues1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBackgroundBlurStyleValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBackgroundBlurStyleValidValues1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     for (auto& [input, value, expected] : testFixtureBlurStyleActivePolicyValidValues) {
@@ -1480,18 +1501,18 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBackgroundBlur
         CommonMethodModifierTest16::EmitLongPressEvent(node_);
         ASSERT_TRUE(menuParams);
         ASSERT_TRUE(menuParams->backgroundBlurStyle) << "BlurStyle: " << input;
-        EXPECT_EQ(menuParams->backgroundBlurStyle, static_cast<int32_t>(expected))
-            << "BlurStyleActivePolicy: " << input;
+        EXPECT_EQ(menuParams->backgroundBlurStyle, static_cast<int32_t>(expected)) <<
+            "BlurStyleActivePolicy: " << input;
         CommonMethodModifierTest16::ResetAceEngine(node_, aceEngine);
     }
 }
 
 /*
- * @tc.name: BindContextMenu1TestBackgroundBlurStyleInvalidValues
+ * @tc.name: setBindContextMenu0TestBackgroundBlurStyleInvalidValues1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBackgroundBlurStyleInvalidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestBackgroundBlurStyleInvalidValues1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     for (auto& [input, value] : testFixtureEnumBlurStyleInvalidValues) {
@@ -1512,11 +1533,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestBackgroundBlur
 }
 
 /*
- * @tc.name: BindContextMenu1TestTransition
+ * @tc.name: setBindContextMenu1TestTransition1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestTransition, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu1TestTransition1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu1);
     auto builder = getBuilderCb();
@@ -1526,9 +1547,9 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestTransition, Te
         .transition = getTransitionEffect(),
     };
     auto options = getContextMenuOptions(optionsPlacement);
-    auto isShown = ArkValue<Opt_Boolean>(true);
+    auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(true);
     CommonMethodModifierTest16::SetSubwindow();
-    modifier_->setBindContextMenu1(node_, &isShown, &arkBuilder, &options);
+    modifier_->setBindContextMenu1(node_, &arkShow, &arkBuilder, &options);
     ASSERT_TRUE(menuParams);
     EXPECT_TRUE(menuParams->hasTransitionEffect);
     EXPECT_EQ(menuParams->transition, effect->handler);
@@ -1536,11 +1557,11 @@ HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestTransition, Te
 }
 
 /*
- * @tc.name: BindContextMenu1TestEnableHoverMode
+ * @tc.name: setBindContextMenu0TestEnableHoverMode1
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest16, DISABLED_BindContextMenu1TestEnableHoverMode, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest16, DISABLED_setBindContextMenu0TestEnableHoverMode1, TestSize.Level1)
 {
     ASSERT_TRUE(modifier_->setBindContextMenu0);
     for (auto& [text, value, expected] : testFixtureBooleanValidValues) {

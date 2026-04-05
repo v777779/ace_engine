@@ -29,6 +29,7 @@ void CustomNodeExtPattern::SetMeasureCallback(std::function<void(LayoutConstrain
 {
     measureCallback_ = std::move(onMeasure);
     auto host = GetHost();
+    CHECK_NULL_VOID(host);
     host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
 }
 
@@ -36,6 +37,7 @@ void CustomNodeExtPattern::SetLayoutCallback(std::function<void(RectF rect)>&& o
 {
     layoutCallback_ = std::move(onLayout);
     auto host = GetHost();
+    CHECK_NULL_VOID(host);
     host->MarkDirtyNode(PROPERTY_UPDATE_LAYOUT);
 }
 
@@ -43,6 +45,7 @@ void CustomNodeExtPattern::SetContentDrawCallback(DrawFunction&& onContent)
 {
     contentModifier_ = AceType::MakeRefPtr<CustomNodeExtContentModifier>(std::move(onContent));
     auto host = GetHost();
+    CHECK_NULL_VOID(host);
     host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
 }
 
@@ -50,6 +53,7 @@ void CustomNodeExtPattern::SetForegroundDrawCallback(DrawFunction&& onForeground
 {
     foregroundModifier_ = AceType::MakeRefPtr<CustomNodeExtForegroundModifier>(std::move(onForeground));
     auto host = GetHost();
+    CHECK_NULL_VOID(host);
     host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
 }
 
@@ -57,6 +61,7 @@ void CustomNodeExtPattern::SetOverlayDrawCallback(DrawFunction&& onOverlay)
 {
     overlayModifier_ = AceType::MakeRefPtr<CustomNodeExtOverlayModifier>(std::move(onOverlay));
     auto host = GetHost();
+    CHECK_NULL_VOID(host);
     host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
 }
 
@@ -78,6 +83,20 @@ void CustomNodeExtPattern::OnWindowUnfocused()
 {
     if (onWindowUnfocusedCallback_) {
         onWindowUnfocusedCallback_();
+    }
+}
+
+void CustomNodeExtPattern::OnWindowActivated()
+{
+    if (onWindowActivatedCallback_) {
+        onWindowActivatedCallback_();
+    }
+}
+
+void CustomNodeExtPattern::OnWindowDeactivated()
+{
+    if (onWindowDeactivatedCallback_) {
+        onWindowDeactivatedCallback_();
     }
 }
 
@@ -148,6 +167,7 @@ void CustomNodeExtPattern::OnAttachToFrameNode()
     auto pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     pipeline->AddWindowFocusChangedCallback(id);
+    pipeline->AddWindowActivateChangedCallback(id);
 }
 
 void CustomNodeExtPattern::OnDetachFromFrameNode(FrameNode* frameNode)
@@ -157,6 +177,10 @@ void CustomNodeExtPattern::OnDetachFromFrameNode(FrameNode* frameNode)
     auto pipeline = frameNode->GetContext();
     CHECK_NULL_VOID(pipeline);
     pipeline->RemoveWindowFocusChangedCallback(id);
+    pipeline->RemoveWindowActivateChangedCallback(id);
+    if (onWindowSizeChangedCallback_) {
+        pipeline->RemoveWindowSizeChangeCallback(id);
+    }
 }
 
 void CustomNodeExtPattern::OnAttachToMainTree()
@@ -212,6 +236,13 @@ void CustomNodeExtPattern::BeforeCreateLayoutWrapper()
 {
     if (beforeCreateLayoutWrapperCallback_) {
         beforeCreateLayoutWrapperCallback_();
+    }
+}
+
+void CustomNodeExtPattern::OnWindowSizeChanged(int32_t width, int32_t height, WindowSizeChangeReason type)
+{
+    if (onWindowSizeChangedCallback_) {
+        onWindowSizeChangedCallback_(width, height, type);
     }
 }
 } // OHOS::Ace::NG

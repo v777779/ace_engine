@@ -63,6 +63,20 @@ void ResetPullToRefresh(ArkUINodeHandle node)
     RefreshModelNG::SetPullToRefresh(frameNode, true);
 }
 
+void SetPullUpToCancelRefresh(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    RefreshModelNG::SetPullUpToCancelRefresh(frameNode, value);
+}
+
+void ResetPullUpToCancelRefresh(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    RefreshModelNG::SetPullUpToCancelRefresh(frameNode, true);
+}
+
 void SetRefreshContent(ArkUINodeHandle node, ArkUINodeHandle content)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -114,6 +128,13 @@ ArkUI_Bool GetPullToRefresh(ArkUINodeHandle node)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_RETURN(frameNode, false);
     return static_cast<ArkUI_Bool>(RefreshModelNG::GetPullToRefresh(frameNode));
+}
+
+ArkUI_Bool GetPullUpToCancelRefresh(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, false);
+    return static_cast<ArkUI_Bool>(RefreshModelNG::GetPullUpToCancelRefresh(frameNode));
 }
 
 void SetRefreshOnStateChangeCallback(ArkUINodeHandle node, void* callback)
@@ -195,6 +216,24 @@ ArkUI_Float32 GetMaxPullDownDistance(ArkUINodeHandle node)
     CHECK_NULL_RETURN(frameNode, ERROR_FLOAT_CODE);
     return RefreshModelNG::GetMaxPullDownDistance(frameNode);
 }
+
+void SetOnStepOffsetChangeCallback(ArkUINodeHandle node,
+    void (*callback)(const ArkUI_Float32 offset, void* extraData, const bool isDrag), void* extraData)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode && callback);
+    auto onChange = [callback, extraData](const float offset, const bool isDrag) {
+        callback(offset, extraData, isDrag);
+    };
+    RefreshModelNG::SetStepOffsetChange(frameNode, std::move(onChange));
+}
+
+void ResetOnStepOffsetChangeCallback(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    RefreshModelNG::SetStepOffsetChange(frameNode, nullptr);
+}
 } // namespace
 namespace NodeModifier {
 
@@ -208,12 +247,15 @@ const ArkUIRefreshModifier* GetRefreshModifier()
         .resetRefreshOffset = ResetRefreshOffset,
         .setPullToRefresh = SetPullToRefresh,
         .resetPullToRefresh = ResetPullToRefresh,
+        .setPullUpToCancelRefresh = SetPullUpToCancelRefresh,
+        .resetPullUpToCancelRefresh = ResetPullUpToCancelRefresh,
         .setRefreshContent = SetRefreshContent,
         .setPullDownRatio = SetPullDownRatio,
         .resetPullDownRatio = ResetPullDownRatio,
         .getPullDownRatio = GetPullDownRatio,
         .getRefreshOffset = GetRefreshOffset,
         .getPullToRefresh = GetPullToRefresh,
+        .getPullUpToCancelRefresh = GetPullUpToCancelRefresh,
         .setRefreshOnStateChangeCallback = SetRefreshOnStateChangeCallback,
         .resetRefreshOnStateChangeCallback = ResetRefreshOnStateChangeCallback,
         .setOnRefreshingCallback = SetOnRefreshingCallback,
@@ -223,6 +265,8 @@ const ArkUIRefreshModifier* GetRefreshModifier()
         .setMaxPullDownDistance = SetMaxPullDownDistance,
         .resetMaxPullDownDistance = ResetMaxPullDownDistance,
         .getMaxPullDownDistance = GetMaxPullDownDistance,
+        .setOnStepOffsetChangeCallback = SetOnStepOffsetChangeCallback,
+        .resetOnStepOffsetChangeCallback = ResetOnStepOffsetChangeCallback,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
     return &modifier;

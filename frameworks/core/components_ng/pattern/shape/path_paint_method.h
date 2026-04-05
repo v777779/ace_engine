@@ -28,7 +28,7 @@
 namespace OHOS::Ace::NG {
 
 class ACE_EXPORT PathPaintMethod : public ShapePaintMethod {
-    DECLARE_ACE_TYPE(PathPaintMethod, ShapePaintMethod)
+    DECLARE_ACE_TYPE(PathPaintMethod, ShapePaintMethod);
 public:
     PathPaintMethod() = default;
     PathPaintMethod(
@@ -41,7 +41,9 @@ public:
     CanvasDrawFunction GetContentDrawFunction(PaintWrapper* paintWrapper) override
     {
         CHECK_NULL_RETURN(paintWrapper, nullptr);
-        auto shapePaintProperty = DynamicCast<PathPaintProperty>(paintWrapper->GetPaintProperty()->Clone());
+        auto paintProperty = paintWrapper->GetPaintProperty();
+        CHECK_NULL_RETURN(paintProperty, nullptr);
+        auto shapePaintProperty = DynamicCast<PathPaintProperty>(paintProperty->Clone());
         CHECK_NULL_RETURN(shapePaintProperty, nullptr);
 
         if (propertiesFromAncestor_) {
@@ -65,9 +67,7 @@ public:
         }
         return [shapePaintProperty, paintWrapper](RSCanvas& canvas) {
                     PathPainter::DrawPath(canvas, *shapePaintProperty);
-                    if (paintWrapper) {
-                        paintWrapper->FlushOverlayModifier();
-                    }
+                    paintWrapper->FlushOverlayModifier();
                 };
     }
 

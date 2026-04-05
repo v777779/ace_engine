@@ -14,11 +14,16 @@
  */
 
 #include "render_service_client/core/animation/rs_interactive_implict_animator.h"
+#include "render_service_client/core/ui/rs_ui_director.h"
 
 #include "core/animation/native_curve_helper.h"
 #include "core/common/container.h"
-#include "frameworks/core/pipeline_ng/pipeline_context.h"
-#include "render_service_client/core/ui/rs_ui_director.h"
+#include "core/components/common/properties/animation_option.h"
+#include "core/components/common/properties/color.h"
+#include "core/components_ng/animation/callback_thread_wrapper.h"
+#include "core/pipeline/base/render_context.h"
+#include "core/pipeline/pipeline_base.h"
+#include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace {
 
@@ -54,43 +59,16 @@ Rosen::RSAnimationTimingProtocol OptionToTimingProtocol(const AnimationOption& o
     }
     return timingProtocol;
 }
-std::function<void()> GetWrappedCallback(const std::function<void()>& callback)
+std::function<void()> GetWrappedCallback(
+    const std::function<void()>& callback, bool once, const RefPtr<PipelineBase>& pipeline)
 {
     CHECK_NULL_RETURN(callback, nullptr);
-    auto instanceId = Container::CurrentIdSafelyWithCheck();
+    auto instanceId = pipeline ? pipeline->GetInstanceId() : Container::CurrentIdSafelyWithCheck();
     ContainerScope scope(instanceId);
     auto taskExecutor = Container::CurrentTaskExecutor();
     CHECK_NULL_RETURN(taskExecutor, callback);
-    struct ArkUIAnimationCallbackWrapper {
-        ArkUIAnimationCallbackWrapper(const RefPtr<TaskExecutor>& taskExecutor, const std::function<void()>& callback)
-            : taskExecutor_(taskExecutor), callback_(callback)
-        {}
-        ~ArkUIAnimationCallbackWrapper()
-        {
-            if (callback_ && taskExecutor_ && !taskExecutor_->WillRunOnCurrentThread(TaskExecutor::TaskType::UI)) {
-                auto mutex = std::make_shared<std::mutex>();
-                std::lock_guard lock(*mutex);
-                taskExecutor_->PostTask(
-                    [callback = callback_, mutex]() mutable {
-                        std::lock_guard lock(*mutex);
-                        callback = nullptr;
-                    },
-                    TaskExecutor::TaskType::UI, "ArkUIAnimationCallbackWrapper", PriorityType::HIGH);
-                callback_ = nullptr;
-            }
-        }
-        void operator()()
-        {
-            if (callback_) {
-                callback_();
-                callback_ = nullptr;
-            }
-        }
-        RefPtr<TaskExecutor> taskExecutor_;
-        std::function<void()> callback_;
-    };
-    ArkUIAnimationCallbackWrapper onFinish { taskExecutor, callback };
-    auto wrappedOnFinish = [onFinish, instanceId]() mutable {
+    NG::CallbackThreadWrapper callbackWrapper { taskExecutor, callback, once };
+    auto wrappedCallback = [callbackWrapper, instanceId]() mutable {
         ContainerScope scope(instanceId);
         auto taskExecutor = Container::CurrentTaskExecutor();
         if (!taskExecutor) {
@@ -98,13 +76,13 @@ std::function<void()> GetWrappedCallback(const std::function<void()>& callback)
             return;
         }
         if (taskExecutor->WillRunOnCurrentThread(TaskExecutor::TaskType::UI)) {
-            onFinish();
+            callbackWrapper();
             return;
         }
-        taskExecutor->PostTask([onFinish] () mutable { onFinish(); }, TaskExecutor::TaskType::UI,
+        taskExecutor->PostTask([callbackWrapper] () mutable { callbackWrapper(); }, TaskExecutor::TaskType::UI,
             "ArkUIAnimationGetWrappedCallback", PriorityType::HIGH);
     };
-    return wrappedOnFinish;
+    return wrappedCallback;
 }
 
 std::shared_ptr<Rosen::RSUIContext> GetRSUIContext(const RefPtr<PipelineBase>& context)
@@ -139,7 +117,7 @@ void AnimationUtils::OpenImplicitAnimation(const AnimationOption& option, const 
     const std::function<void()>& finishCallback, const RefPtr<PipelineBase>& context)
 {
     const auto& timingProtocol = OptionToTimingProtocol(option);
-    auto wrappedOnFinish = GetWrappedCallback(finishCallback);
+    auto wrappedOnFinish = GetWrappedCallback(finishCallback, true, context);
     auto rsUIContext = GetRSUIContext(context);
     Rosen::RSNode::OpenImplicitAnimation(rsUIContext, timingProtocol,
         NativeCurveHelper::ToNativeCurve(curve), wrappedOnFinish);
@@ -180,8 +158,8 @@ void AnimationUtils::Animate(const AnimationOption& option, const PropertyCallba
     const FinishCallback& finishCallback, const RepeatCallback& repeatCallback, const RefPtr<PipelineBase>& context)
 {
     const auto& timingProtocol = OptionToTimingProtocol(option);
-    auto wrappedOnFinish = GetWrappedCallback(finishCallback);
-    auto wrappedOnRepeat = GetWrappedCallback(repeatCallback);
+    auto wrappedOnFinish = GetWrappedCallback(finishCallback, true, context);
+    auto wrappedOnRepeat = GetWrappedCallback(repeatCallback, false, context);
     auto rsUIContext = GetRSUIContext(context);
     Rosen::RSNode::Animate(rsUIContext, timingProtocol, NativeCurveHelper::ToNativeCurve(option.GetCurve()), callback,
         wrappedOnFinish, wrappedOnRepeat);
@@ -195,7 +173,7 @@ void AnimationUtils::Animate(const AnimationOption& option, const PropertyCallba
 void AnimationUtils::AnimateWithCurrentOptions(const PropertyCallback& callback, const FinishCallback& finishCallback,
     bool timingSensitive, const RefPtr<PipelineBase>& context)
 {
-    auto wrappedOnFinish = GetWrappedCallback(finishCallback);
+    auto wrappedOnFinish = GetWrappedCallback(finishCallback, true, context);
     auto rsUIContext = GetRSUIContext(context);
     Rosen::RSNode::AnimateWithCurrentOptions(rsUIContext, callback, wrappedOnFinish, timingSensitive);
 }
@@ -237,8 +215,8 @@ std::shared_ptr<AnimationUtils::Animation> AnimationUtils::StartAnimation(
     std::shared_ptr<AnimationUtils::Animation> animation = std::make_shared<AnimationUtils::Animation>();
     CHECK_NULL_RETURN(animation, nullptr);
     const auto& timingProtocol = OptionToTimingProtocol(option);
-    auto wrappedOnFinish = GetWrappedCallback(finishCallback);
-    auto wrappedOnRepeat = GetWrappedCallback(repeatCallback);
+    auto wrappedOnFinish = GetWrappedCallback(finishCallback, true, context);
+    auto wrappedOnRepeat = GetWrappedCallback(repeatCallback, false, context);
     auto rsUIContext = GetRSUIContext(context);
     animation->animations_ = Rosen::RSNode::Animate(rsUIContext, timingProtocol,
         NativeCurveHelper::ToNativeCurve(option.GetCurve()), callback, wrappedOnFinish, wrappedOnRepeat);
@@ -327,7 +305,7 @@ std::shared_ptr<AnimationUtils::InteractiveAnimation> AnimationUtils::CreateInte
     std::shared_ptr<AnimationUtils::InteractiveAnimation> interactiveAnimation =
         std::make_shared<AnimationUtils::InteractiveAnimation>();
     CHECK_NULL_RETURN(interactiveAnimation, nullptr);
-    auto wrappedOnFinish = GetWrappedCallback(callback);
+    auto wrappedOnFinish = GetWrappedCallback(callback, true, nullptr);
     Rosen::RSAnimationTimingProtocol timingProtocol;
     Rosen::RSAnimationTimingCurve curve;
     interactiveAnimation->interactiveAnimation_ =
@@ -393,5 +371,14 @@ std::shared_ptr<Rosen::RSUIContext> AnimationUtils::GetCurrentRSUIContext(RefPtr
     auto rsUIDirector = window->GetRSUIDirector();
     CHECK_NULL_RETURN(rsUIDirector, nullptr);
     return rsUIDirector->GetRSUIContext();
+}
+
+uint64_t AnimationUtils::GetRSUIContextToken(RefPtr<PipelineBase> context)
+{
+    auto rsUIContext = GetCurrentRSUIContext(context);
+    if (rsUIContext) {
+        return rsUIContext->GetToken();
+    }
+    return 0;
 }
 } // namespace OHOS::Ace

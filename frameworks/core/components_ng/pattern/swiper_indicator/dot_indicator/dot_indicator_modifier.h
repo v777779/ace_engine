@@ -112,6 +112,15 @@ public:
         uint8_t newPointOpacity = 0;
     };
 
+    struct TargetContentProperty {
+        LinearVector<float> itemHalfSizes = {};
+        std::optional<float> longPointLeftCenterX;
+        std::optional<float> longPointRightCenterX;
+        std::optional<OffsetF> indicatorMargin;
+        bool needForceCalc = false;
+    };
+
+    std::tuple<float, float, float, float> CalCBoundsRect();
     void onDraw(DrawingContext& context) override;
     // paint
     virtual void PaintContent(DrawingContext& context, ContentProperty& contentProperty);
@@ -121,8 +130,8 @@ public:
     void PaintSelectedIndicator(RSCanvas& canvas, const OffsetF& leftCenter, const OffsetF& rightCenter,
         const LinearVector<float>& itemHalfSizes, bool isOverlong = false);
     void PaintMask(DrawingContext& context);
-    void PaintBackground(DrawingContext& context, const ContentProperty& contentProperty, int32_t maxDisplayCount = 0,
-        bool isBindIndicator = false);
+    void PaintBackground(DrawingContext& context, ContentProperty& contentProperty);
+    void CalCBackground(ContentProperty& contentProperty);
     virtual LinearVector<float> GetItemHalfSizes(size_t index, ContentProperty& contentProperty);
     void SetFocusedAndSelectedColor(ContentProperty& contentProperty);
     // Update property
@@ -257,6 +266,11 @@ public:
         return isPressed_;
     }
 
+    void SetIsLongPressed(bool isLongPressed)
+    {
+        isLongPressed_ = isLongPressed;
+    }
+
     void SetLongPointIsHover(bool isHover)
     {
         longPointIsHover_ = isHover;
@@ -374,6 +388,7 @@ protected:
         const std::vector<std::pair<float, float>>& longPointCenterX, GestureState gestureState, bool isNormal);
     std::tuple<float, float, float, float> CalcAndAdjustIndicatorPaintRect(
         const ContentProperty& contentProperty, float& rectWidth, float& rectHeight);
+    ContentProperty UpdateContentProperty();
 
     RefPtr<AnimatablePropertyColor> backgroundColor_;
     RefPtr<AnimatablePropertyVectorFloat> vectorBlackPointCenterX_;
@@ -409,6 +424,7 @@ protected:
     bool longPointIsHover_ = false;
     bool isHover_ = false;
     bool isPressed_ = false;
+    bool isLongPressed_ = false;
     bool longPointLeftAnimEnd_ = true;
     bool longPointRightAnimEnd_ = true;
 
@@ -429,6 +445,14 @@ protected:
     float scaleIndicator_ = 1.33f;
     RectF boundsRectF_;
     TouchBottomType touchBottomType_ = TouchBottomType::NONE;
+    float rectLeft_ = 0.0f;
+    float rectRight_ = 0.0f;
+    float rectTop_ = 0.0f;
+    float rectBottom_ = 0.0f;
+    float rectWidth_ = 0.0f;
+    float rectHeight_ = 0.0f;
+    LinearVector<float> targetVectorBlackPointCenterX_;
+    TargetContentProperty targetContentProperty_;
     ACE_DISALLOW_COPY_AND_MOVE(DotIndicatorModifier);
 };
 } // namespace OHOS::Ace::NG

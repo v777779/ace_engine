@@ -23,7 +23,7 @@
 namespace OHOS::Ace::NG {
 
 class ACE_EXPORT TitleBarNode : public FrameNode {
-    DECLARE_ACE_TYPE(TitleBarNode, FrameNode)
+    DECLARE_ACE_TYPE(TitleBarNode, FrameNode);
 public:
     TitleBarNode(const std::string& tag, int32_t nodeId);
     TitleBarNode(const std::string& tag, int32_t nodeId, const RefPtr<Pattern>& pattern)
@@ -118,6 +118,15 @@ public:
     {
         return needAvoidContainerModal_;
     }
+    bool IsParentModalOrSheet() const
+    {
+        return isParentModalOrSheet_;
+    }
+    void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
+
+    void OnAttachToMainTree(bool recursive) override;
+    void OnDetachFromMainTree(bool recursive, PipelineContext* context) override;
+    bool IsChildEmpty() const;
 
 private:
     RefPtr<UINode> backButton_;
@@ -128,6 +137,8 @@ private:
     std::string innerChildId_;
     bool needAvoidContainerModal_ = false;
     bool useContainerModalTitleHeight_ = false;
+    bool isParentModalOrSheet_ = false; // Ancestor node has ModalPage or bindSheet
+    int32_t menuBarChangeListenerId_ = -1;
 };
 
 } // namespace OHOS::Ace::NG

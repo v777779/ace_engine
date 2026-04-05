@@ -12,12 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cstring>
 #include "core/interfaces/native/node/node_drag_modifier.h"
 
 #include "interfaces/native/node/node_model.h"
 
 #include "core/common/udmf/udmf_client.h"
 #include "core/components_ng/pattern/text/span_model_ng.h"
+#include "securec.h"
 
 namespace OHOS::Ace::NG {
 namespace NodeModifier {
@@ -91,7 +93,7 @@ void SetOnDragDrop(ArkUINodeHandle node, void* extraParam)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     int32_t nodeId = frameNode->GetId();
-    auto onDragDrop = [frameNode, nodeId, extraParam](
+    auto onDragDrop = [weak = AceType::WeakClaim(frameNode), nodeId, extraParam](
                           const RefPtr<OHOS::Ace::DragEvent>& info, const std::string& extraParams) -> void {
         ArkUINodeEvent event;
         event.kind = ArkUIEventCategory::DRAG_EVENT;
@@ -109,9 +111,13 @@ void SetOnDragDrop(ArkUINodeHandle node, void* extraParam)
 
         event.dragEvent.unifiedData = unifiedData;
         event.dragEvent.dragBehavior = static_cast<ArkUI_Int32>(DragBehavior::UNKNOWN);
-        event.dragEvent.bundleName = strdup(info->GetDragSource().c_str());
+        int32_t err = strcpy_s(event.dragEvent.bundleName,
+            sizeof(event.dragEvent.bundleName), info->GetDragSource().c_str());
+        if (err != 0) {
+            TAG_LOGE(AceLogTag::ACE_DRAG, "OnDragDrop set bundleName failed, return value is %{public}d", err);
+        }
         event.dragEvent.isRemoteDev = info->isRemoteDev();
-        PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
+        PipelineContext::SetCallBackNode(weak);
         SendArkUISyncEvent(&event);
         info->UseCustomAnimation(event.dragEvent.useCustomDropAnimation);
         info->SetResult(static_cast<DragRet>(event.dragEvent.dragResult));
@@ -128,8 +134,8 @@ void SetOnDragStart(ArkUINodeHandle node, void* extraParam)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     int32_t nodeId = frameNode->GetId();
-    auto onDragStart = [frameNode, nodeId, extraParam](const RefPtr<OHOS::Ace::DragEvent>& info,
-                           const std::string& extraParams) -> NG::DragDropBaseInfo {
+    auto onDragStart = [weak = AceType::WeakClaim(frameNode), nodeId, extraParam]
+        (const RefPtr<OHOS::Ace::DragEvent>& info, const std::string& extraParams) -> NG::DragDropBaseInfo {
         ArkUINodeEvent event;
         event.kind = ArkUIEventCategory::DRAG_EVENT;
         event.nodeId = nodeId;
@@ -142,8 +148,12 @@ void SetOnDragStart(ArkUINodeHandle node, void* extraParam)
         SetDragEventProperty(info, event, strList, keepStr);
         event.dragEvent.isSuitGetData = false;
 
-        PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
-        event.dragEvent.bundleName = strdup(info->GetDragSource().c_str());
+        PipelineContext::SetCallBackNode(weak);
+        int32_t err = strcpy_s(event.dragEvent.bundleName,
+            sizeof(event.dragEvent.bundleName), info->GetDragSource().c_str());
+        if (err != 0) {
+            TAG_LOGE(AceLogTag::ACE_DRAG, "OnDragStart set bundleName failed, return value is %{public}d", err);
+        }
         event.dragEvent.isRemoteDev = info->isRemoteDev();
         SendArkUISyncEvent(&event);
         info->SetUseDataLoadParams(event.dragEvent.useDataLoadParams);
@@ -165,7 +175,7 @@ void SetOnDragEnter(ArkUINodeHandle node, void* extraParam)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     int32_t nodeId = frameNode->GetId();
-    auto onDragEnter = [frameNode, nodeId, extraParam](
+    auto onDragEnter = [weak = AceType::WeakClaim(frameNode), nodeId, extraParam](
                            const RefPtr<OHOS::Ace::DragEvent>& info, const std::string& extraParams) {
         ArkUINodeEvent event;
         event.kind = ArkUIEventCategory::DRAG_EVENT;
@@ -182,10 +192,14 @@ void SetOnDragEnter(ArkUINodeHandle node, void* extraParam)
         event.dragEvent.dragBehavior = static_cast<ArkUI_Int32>(DragBehavior::UNKNOWN);
         event.dragEvent.unifiedData = unifiedData;
         event.dragEvent.isSuitGetData = false;
-        event.dragEvent.bundleName = strdup(info->GetDragSource().c_str());
+        int32_t err = strcpy_s(event.dragEvent.bundleName,
+            sizeof(event.dragEvent.bundleName), info->GetDragSource().c_str());
+        if (err != 0) {
+            TAG_LOGE(AceLogTag::ACE_DRAG, "DragEnter set bundleName failed, return value is %{public}d", err);
+        }
         event.dragEvent.isRemoteDev = info->isRemoteDev();
 
-        PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
+        PipelineContext::SetCallBackNode(weak);
         SendArkUISyncEvent(&event);
         info->SetResult(static_cast<DragRet>(event.dragEvent.dragResult));
         info->SetDragBehavior(static_cast<DragBehavior>(event.dragEvent.dragBehavior));
@@ -199,7 +213,7 @@ void SetOnDragMove(ArkUINodeHandle node, void* extraParam)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     int32_t nodeId = frameNode->GetId();
-    auto onDragMove = [frameNode, nodeId, extraParam](
+    auto onDragMove = [weak = AceType::WeakClaim(frameNode), nodeId, extraParam](
                           const RefPtr<OHOS::Ace::DragEvent>& info, const std::string& extraParams) {
         ArkUINodeEvent event;
         event.kind = ArkUIEventCategory::DRAG_EVENT;
@@ -215,10 +229,14 @@ void SetOnDragMove(ArkUINodeHandle node, void* extraParam)
         event.dragEvent.dragBehavior = static_cast<ArkUI_Int32>(DragBehavior::UNKNOWN);
         event.dragEvent.unifiedData = unifiedData;
         event.dragEvent.isSuitGetData = false;
-        event.dragEvent.bundleName = strdup(info->GetDragSource().c_str());
+        int32_t err = strcpy_s(event.dragEvent.bundleName,
+            sizeof(event.dragEvent.bundleName), info->GetDragSource().c_str());
+        if (err != 0) {
+            TAG_LOGE(AceLogTag::ACE_DRAG, "OnDragMove set bundleName failed, return value is %{public}d", err);
+        }
         event.dragEvent.isRemoteDev = info->isRemoteDev();
 
-        PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
+        PipelineContext::SetCallBackNode(weak);
         SendArkUISyncEvent(&event);
         info->SetResult(static_cast<DragRet>(event.dragEvent.dragResult));
         info->SetDragBehavior(static_cast<DragBehavior>(event.dragEvent.dragBehavior));
@@ -232,7 +250,7 @@ void SetOnDragLeave(ArkUINodeHandle node, void* extraParam)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     int32_t nodeId = frameNode->GetId();
-    auto onDragLeave = [frameNode, nodeId, extraParam](
+    auto onDragLeave = [weak = AceType::WeakClaim(frameNode), nodeId, extraParam](
                            const RefPtr<OHOS::Ace::DragEvent>& info, const std::string& extraParams) {
         ArkUINodeEvent event;
         event.kind = ArkUIEventCategory::DRAG_EVENT;
@@ -249,10 +267,14 @@ void SetOnDragLeave(ArkUINodeHandle node, void* extraParam)
         event.dragEvent.dragBehavior = static_cast<ArkUI_Int32>(DragBehavior::UNKNOWN);
         event.dragEvent.unifiedData = unifiedData;
         event.dragEvent.isSuitGetData = false;
-        event.dragEvent.bundleName = strdup(info->GetDragSource().c_str());
+        int32_t err = strcpy_s(event.dragEvent.bundleName,
+            sizeof(event.dragEvent.bundleName), info->GetDragSource().c_str());
+        if (err != 0) {
+            TAG_LOGE(AceLogTag::ACE_DRAG, "OnDragLeave set bundleName failed, return value is %{public}d", err);
+        }
         event.dragEvent.isRemoteDev = info->isRemoteDev();
 
-        PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
+        PipelineContext::SetCallBackNode(weak);
         SendArkUISyncEvent(&event);
         info->SetResult(static_cast<DragRet>(event.dragEvent.dragResult));
         info->SetDragBehavior(static_cast<DragBehavior>(event.dragEvent.dragBehavior));
@@ -266,7 +288,8 @@ void SetOnDragEnd(ArkUINodeHandle node, void* extraParam)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     int32_t nodeId = frameNode->GetId();
-    auto onDragEnd = [frameNode, nodeId, extraParam](const RefPtr<OHOS::Ace::DragEvent>& info) -> void {
+    auto onDragEnd = [weak = AceType::WeakClaim(frameNode), nodeId, extraParam]
+        (const RefPtr<OHOS::Ace::DragEvent>& info) -> void {
         ArkUINodeEvent event;
         event.kind = ArkUIEventCategory::DRAG_EVENT;
         event.nodeId = nodeId;
@@ -298,10 +321,14 @@ void SetOnDragEnd(ArkUINodeHandle node, void* extraParam)
         event.dragEvent.dragResult = static_cast<ArkUI_Int32>(info->GetResult());
         event.dragEvent.dragBehavior = static_cast<ArkUI_Int32>(info->GetDragBehavior());
         event.dragEvent.displayId = static_cast<ArkUI_Int32>(info->GetDisplayId());
-        event.dragEvent.bundleName = strdup(info->GetDragSource().c_str());
+        int32_t err = strcpy_s(event.dragEvent.bundleName,
+            sizeof(event.dragEvent.bundleName), info->GetDragSource().c_str());
+        if (err != 0) {
+            TAG_LOGE(AceLogTag::ACE_DRAG, "OnDragEnd set bundleName failed, return value is %{public}d", err);
+        }
         event.dragEvent.isRemoteDev = info->isRemoteDev();
 
-        PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
+        PipelineContext::SetCallBackNode(weak);
         SendArkUISyncEvent(&event);
     };
     ViewAbstract::SetOnDragEnd(frameNode, onDragEnd);
@@ -312,7 +339,8 @@ void SetOnPreDrag(ArkUINodeHandle node, void* extraParam)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     int32_t nodeId = frameNode->GetId();
-    auto onPreDrag = [frameNode, nodeId, extraParam](const PreDragStatus preDragStatus) -> void {
+    auto onPreDrag = [weak = AceType::WeakClaim(frameNode), nodeId, extraParam]
+        (const PreDragStatus preDragStatus) -> void {
         ArkUINodeEvent event;
         event.kind = ArkUIEventCategory::COMPONENT_ASYNC_EVENT;
         event.nodeId = nodeId;
@@ -323,7 +351,7 @@ void SetOnPreDrag(ArkUINodeHandle node, void* extraParam)
         event.componentAsyncEvent.data[0].i32 = static_cast<ArkUI_Int32>(preDragStatus);
         event.dragEvent.isSuitGetData = false;
 
-        PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
+        PipelineContext::SetCallBackNode(weak);
         SendArkUISyncEvent(&event);
     };
     ViewAbstract::SetOnPreDrag(frameNode, onPreDrag);

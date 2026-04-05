@@ -42,12 +42,14 @@ CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetValue(double value);
 CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetStartAngle(double startAngle);
 CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetEndAngle(double endAngle);
 CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetColors(VectorUInt32Ptr colors, VectorFloat32Ptr weights);
+CJ_EXPORT void FfiOHOSAceFrameworkGaugeResetColors();
 CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetColorsV2(VectorUInt32Ptr colors, VectorFloat32Ptr weights);
 CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetLinearGradientColors(
     VecLinearGradientHandle linearGradients, VectorUInt32Ptr weight);
 CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetStrokeWidth(double strokeWidth, int32_t strokeUnit);
 CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetShadowOptions(double radius, double offsetX, double offsetY);
 CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetIndicator(const char* icon, double size);
+CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetIndicatorV2(const char* icon, double size, int32_t sizeUnit);
 CJ_EXPORT void FfiOHOSAceFrameworkGaugeSetDescription(void (*builder)());
 CJ_EXPORT void FfiOHOSAceFrameworkSetPrivacySensitive(bool isprivacySensitiveMode);
 }

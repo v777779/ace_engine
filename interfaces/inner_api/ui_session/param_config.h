@@ -1,0 +1,78 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef FOUNDATION_ACE_INTERFACE_PARAM_CONFIG_H
+#define FOUNDATION_ACE_INTERFACE_PARAM_CONFIG_H
+
+#include <cstdint>
+#include <string>
+
+namespace OHOS::Ace {
+struct ParamConfig {
+    bool interactionInfo = false;
+    bool accessibilityInfo = false;
+    bool cacheNodes = true;
+    bool withWeb = false;
+    bool withUIExtension = false;
+};
+
+struct InteractionParamConfig {
+    bool isTopMost = true;
+};
+
+enum class ChangeType {
+    PAGE = 0, // Navigation router
+    SCROLL,   // scroll event
+    SWIPER,   // Swiper content change
+    TABS,     // Tabs content change
+    TEXT,     // Text content significant change
+    DIALOG,   // developer dialog pops up
+    ARKWEB_PAGE,   // WebView transition content change
+    ARKWEB_TEXT,   // WebView Text change
+    IMAGE_LOADED,  // Image load complete event when using network or pixelmap
+};
+
+struct ContentChangeConfig {
+    int32_t minReportTime = 100; // minimum report interval: 100 ms
+    float textContentRatio = 0.15f; // ratio of a single text change bounding box area to window area: 0.15
+    std::string ignoreEventType; // event type which need to be ignored when reporting, in json format
+    int32_t minWidth = 100; // minimum width of Image report event: 100px
+    int32_t minHeight = 100; // minimum height of Image report event: 100px
+    int32_t reportDelayTime = 600; // delay time for component event reporting after transition event: 600 ms
+};
+
+enum ComponentEventType : uint32_t {
+    COMPONENT_EVENT_NONE = 0,                  // no event
+    COMPONENT_EVENT_GESTURE = 1 << 0,          // gesture event
+    COMPONENT_EVENT_SELECT = 1 << 1,           // select event, including Select, Checkbox, Radio, etc.
+    COMPONENT_EVENT_ANIMATOR = 1 << 2,         // animator event
+    COMPONENT_EVENT_PAGE_TRANSITION = 1 << 3,  // page transition event
+    COMPONENT_EVENT_SCROLL = 1 << 4,           // scroll event, including Scroll, List, Grid, etc.
+    COMPONENT_EVENT_TEXT_INPUT = 1 << 5,       // text input event, including Search, RichEditor, etc.
+    COMPONENT_EVENT_DIALOG = 1 << 6,           // dialog event
+    COMPONENT_EVENT_IMAGE = 1 << 7,            // image event
+    COMPONENT_EVENT_PICKER = 1 << 8,           // picker event, including DatePicker
+    COMPONENT_EVENT_PROGRESS = 1 << 9,         // progress event
+    COMPONENT_EVENT_SWIPER = 1 << 10,          // swiper event, including Swiper and Tabs
+    COMPONENT_EVENT_WEB = 1 << 11,             // web event
+    COMPONENT_EVENT_MENU = 1 << 12,             // menu  event
+    COMPONENT_EVENT_SHEET_PRESENTATION = 1 << 13, // sheet presentation event
+    COMPONENT_EVENT_MODAL_PRESENTATION = 1 << 14, // modal presentation event
+    COMPONENT_EVENT_VIDEO = 1 << 15,           // video event
+
+    COMPONENT_EVENT_ALL = static_cast<uint32_t>(-1),  // all events
+};
+} // namespace OHOS::Ace
+#endif // FOUNDATION_ACE_INTERFACE_PARAM_CONFIG_H

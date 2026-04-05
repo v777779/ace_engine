@@ -23,6 +23,7 @@
             "ace_engine_feature_enable_web",
             "ace_engine_feature_enable_pgo",
             "ace_engine_feature_enable_codemerge",
+            "ace_engine_feature_enable_inst_prefetch",
             "ace_engine_feature_pgo_path",
             "ace_engine_feature_enable_atomic",
             "ace_engine_feature_enable_coverage",
@@ -38,7 +39,9 @@
             "ace_engine_feature_enable_event_extra_handling",
             "ace_engine_enable_circle_feature",
             "ace_engine_feature_enable_long_press_gesture_extra_handling",
-            "ace_engine_feature_enable_upgrade_skia"
+            "ace_engine_feature_enable_upgrade_skia",
+            "ace_engine_feature_enable_preload_dynamic_module",
+            "ace_engine_feature_enable_default_click_sound"
         ],
         "adapted_system_type": [
             "standard"
@@ -112,15 +115,16 @@
                 "jsframework",
                 "opencl-headers",
                 "opengles",
+                "opencv",
                 "zlib",
                 "skia",
                 "libuv",
                 "resource_schedule_service",
                 "background_task_mgr",
-                "egl",
                 "request",
                 "qrcodegen",
-                "sdk"
+                "sdk",
+                "screenlock_mgr"
             ],
             "third_party": []
         },
@@ -152,7 +156,8 @@
                             "viewport_config.h",
                             "serialized_gesture.h",
                             "serializeable_object.h",
-                            "modal_ui_extension_config.h"
+                            "modal_ui_extension_config.h",
+                            "node_module_inner.h"
                         ]
                     },
                     "name": "//foundation/arkui/ace_engine/interfaces/inner_api/ace:ace_uicontent"
@@ -164,7 +169,9 @@
                             "ace_forward_compatibility.h",
                             "ai/data_detector_interface.h",
                             "ai/data_url_analyzer.h",
-                            "share/text_share_interface.h"
+                            "share/text_share_interface.h",
+                            "ai/image_analyzer.h",
+                            "ai/image_analyzer_interface.h"
                         ]
                     },
                     "name": "//foundation/arkui/ace_engine/interfaces/inner_api/ace:ace_forward_compatibility"
@@ -245,7 +252,9 @@
                         "header_base": "//foundation/arkui/ace_engine/interfaces/inner_api/ui_session/",
                         "header_files": [
                             "ui_content_service_interface.h",
-                            "ui_content_proxy.h"
+                            "ui_content_proxy.h",
+                            "param_config.h",
+                            "ui_content_proxy_error_code.h"
                         ]
                     },
                     "name": "//foundation/arkui/ace_engine/interfaces/inner_api/ui_session:ui_session"
@@ -273,8 +282,8 @@
                 }
             ],
             "test": [
-                "//foundation/arkui/ace_engine/test/unittest:run_linux_unittest_capi",
-                "//foundation/arkui/ace_engine/test/unittest:unittest"
+                "//foundation/arkui/ace_engine/test/unittest:unittest",
+                "//foundation/arkui/ace_engine/test/benchmark:benchmark"
             ]
         }
     }

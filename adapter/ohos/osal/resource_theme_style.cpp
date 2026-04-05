@@ -18,6 +18,10 @@
 #include <regex>
 #include <unordered_set>
 
+#include "base/log/log_wrapper.h"
+
+#include "base/utils/system_properties.h"
+
 namespace OHOS::Ace {
 namespace {
 constexpr char COLOR_VALUE_PREFIX[] = "$color:";
@@ -150,6 +154,8 @@ static const std::unordered_set<std::string> stringAttrs = {
     "text_overlay_menu_copy_label",
     "text_overlay_menu_paste_label",
     "text_overlay_menu_select_all_label",
+    "text_overlay_menu_auto_fill_label",
+    "text_overlay_menu_password_vault_label",
     "text_overlay_menu_translate_label",
     "text_overlay_menu_share_label",
     "text_overlay_menu_search_label",
@@ -173,6 +179,12 @@ static const std::unordered_set<std::string> stringAttrs = {
     "general_ai_preview_menu_display_failed",
     "textfield_show_password",
     "textfield_hide_password",
+    "general_ai_ask_celia",
+    "general_ai_preview_menu_date_retry",
+    "general_ai_location_title",
+    "general_ai_link_title",
+    "app_theme_click_distancethreshold",
+    "voice_button_text",
 };
 
 void ParseNumberUnit(const std::string& value, std::string& number, std::string& unit)

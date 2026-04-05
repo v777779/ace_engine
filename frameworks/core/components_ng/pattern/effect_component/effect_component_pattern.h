@@ -48,7 +48,7 @@ public:
     std::optional<RenderContext::ContextParam> GetContextParam() const override
     {
         if (effectLayer_ != EffectLayer::NONE) {
-            return RenderContext::ContextParam { RenderContext::ContextType::SURFACE };
+            return RenderContext::ContextParam { RenderContext::ContextType::COMPOSITE_COMPONENT };
         }
         return RenderContext::ContextParam { RenderContext::ContextType::EFFECT };
     }
@@ -61,10 +61,14 @@ public:
         return effectLayer_;
     }
 
+    // For Arkts Static
+    void SetEffectLayer(EffectLayer effectLayerValue);
+
 private:
     WeakPtr<UINode> parent_ = nullptr;
     EffectLayer effectLayer_ = EffectLayer::NONE;
     ACE_DISALLOW_COPY_AND_MOVE(EffectComponentPattern);
+    bool isfirst_ = true;
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_EFFECT_COMPONENT_PATTERN_H

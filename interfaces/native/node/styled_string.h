@@ -35,6 +35,17 @@ struct ArkUI_StyledString {
     void* paragraphStyle = nullptr;
     std::vector<ArkUI_SpanItem*> items;
     std::stack<void*> styles;
+    std::stack<void*> poppedStyles;
+};
+
+struct ArkUI_Boundary {
+    size_t leftIndex;
+    size_t rightIndex;
+    ArkUI_Boundary(size_t left, size_t right)
+    {
+        leftIndex = left;
+        rightIndex = right;
+    }
 };
 
 #ifdef __cplusplus

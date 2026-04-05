@@ -18,19 +18,15 @@
 
 #include "core/components_ng/pattern/swiper/swiper_pattern.h"
 
-namespace OHOS::Ace::Framework {
-class JSIndicatorController;
-}
 namespace OHOS::Ace::NG {
 class IndicatorPattern;
 class IndicatorController : public virtual AceType {
     DECLARE_ACE_TYPE(IndicatorController, AceType);
 
 public:
-    // overriding only for Mock
-    virtual void ShowPrevious() const;
+    void ShowPrevious() const;
 
-    virtual void ShowNext() const;
+    void ShowNext() const;
 
     void ChangeIndex(int32_t index, bool useAnimation) const;
 
@@ -67,6 +63,10 @@ private:
     WeakPtr<FrameNode> swiperNode_;
 };
 
-} // namespace OHOS::Ace
+class JSIndicatorControllerBase : public AceType {
+    DECLARE_ACE_TYPE(JSIndicatorControllerBase, AceType);
+};
+
+} // namespace OHOS::Ace::NG
 
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_SWIPER_SWIPER_CONTROLLER_H

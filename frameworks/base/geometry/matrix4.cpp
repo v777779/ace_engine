@@ -103,7 +103,7 @@ Matrix4 Matrix4::Invert(const Matrix4& matrix)
     Matrix4 inverted = CreateInvert(matrix);
     double determinant = matrix(0, 0) * inverted(0, 0) + matrix(0, 1) * inverted(1, 0) + matrix(0, 2) * inverted(2, 0) +
                          matrix(0, 3) * inverted(3, 0);
-    if (!NearZero(determinant)) {
+    if (!NearZero(determinant, 1e-7f)) {
         inverted = inverted * (1.0f / determinant);
     } else {
         inverted = CreateIdentity();
@@ -261,6 +261,16 @@ bool Matrix4::operator==(const Matrix4& matrix) const
     return std::equal(&matrix4x4_[0][0], &matrix4x4_[0][0] + MATRIX_LENGTH, &matrix.matrix4x4_[0][0], IsEqual);
 }
 
+bool Matrix4::operator==(const double (&matrix)[4][4]) const
+{
+    return std::equal(&matrix4x4_[0][0], &matrix4x4_[0][0] + MATRIX_LENGTH, &matrix[0][0], IsEqual);
+}
+
+void Matrix4::CopyMatrix(double (&matrix)[4][4])
+{
+    std::copy_n(&matrix4x4_[0][0], MATRIX_LENGTH, &matrix[0][0]);
+}
+
 Matrix4 Matrix4::operator*(double num)
 {
     Matrix4 ret(*this);
@@ -329,6 +339,20 @@ Point Matrix4::operator*(const Point& point)
 {
     double x = point.GetX();
     double y = point.GetY();
+    return Point(matrix4x4_[0][0] * x + matrix4x4_[1][0] * y + matrix4x4_[3][0],
+        matrix4x4_[0][1] * x + matrix4x4_[1][1] * y + matrix4x4_[3][1]);
+}
+
+Point Matrix4::TransformPoint(const Point& point)
+{
+    double x = point.GetX();
+    double y = point.GetY();
+    auto w = matrix4x4_[0][3] * x + matrix4x4_[1][3] * y + matrix4x4_[3][3];
+    constexpr double epsilon = 1e-10;
+    if (std::abs(w - 1.0) > epsilon && std::abs(w) > epsilon) {
+        return Point((matrix4x4_[0][0] * x + matrix4x4_[1][0] * y + matrix4x4_[3][0]) / w,
+            (matrix4x4_[0][1] * x + matrix4x4_[1][1] * y + matrix4x4_[3][1]) / w);
+    }
     return Point(matrix4x4_[0][0] * x + matrix4x4_[1][0] * y + matrix4x4_[3][0],
         matrix4x4_[0][1] * x + matrix4x4_[1][1] * y + matrix4x4_[3][1]);
 }

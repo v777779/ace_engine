@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { asFloat64, asString, float64 } from "@koalaui/compat"
+import { asFloat64, float64 } from '@koalaui/compat'
 
 /**
  * Computes the linear interpolation between `source` and `target` based on `weight`.
@@ -62,13 +62,13 @@ export function modulo(value: float64): float64 {
  * @returns a floating-point number
  * @throws Error if `str` cannot be parsed
  */
-export function parseNumber(str: string, name: string = "number", verify: boolean = false): float64 {
-    if (str != "") { // do not parse empty string to 0
+export function parseNumber(str: string, name: string = 'number', verify: boolean = false): float64 {
+    if (str !== '') { // do not parse empty string to 0
         // ArkTS does not support NaN, isNaN, parseFloat
         const value = asFloat64(str)
         if (verify) {
-            const reverseStr = asString(value)
-            if (reverseStr !== undefined && reverseStr?.length == str.length && reverseStr == str) {
+            const reverseStr = value.toString()
+            if (reverseStr !== undefined && reverseStr?.length === str.length && reverseStr === str) {
                 return value
             }
         }
@@ -77,17 +77,6 @@ export function parseNumber(str: string, name: string = "number", verify: boolea
         }
     }
     throw new Error(`cannot parse ${name}: "${str}"`)
-}
-
-/**
- * An ArkTS-compliant replacement for {@link isFinite}.
- */
-export function isFiniteNumber(number: float64): boolean {
-    // With Node.js:
-    // isFiniteNumber(Number.NEGATIVE_INFINITY) == false
-    // isFiniteNumber(Number.POSITIVE_INFINITY) == false
-    // isFiniteNumber(NaN) == false
-    return number >= Number.MIN_SAFE_INTEGER && number <= Number.MAX_SAFE_INTEGER
 }
 
 export function getDistancePx(startX: float64, startY: float64, endX: float64, endY: float64): float64 {

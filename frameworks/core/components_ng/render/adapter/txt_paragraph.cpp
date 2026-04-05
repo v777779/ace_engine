@@ -31,7 +31,8 @@ constexpr int32_t THOUSAND = 1000;
 constexpr char16_t NEWLINE_CODE = u'\n';
 constexpr float TEXT_SPLIT_RATIO = 0.6f;
 } // namespace
-RefPtr<Paragraph> Paragraph::Create(const ParagraphStyle& paraStyle, const RefPtr<FontCollection>& fontCollection)
+ACE_FORCE_EXPORT RefPtr<Paragraph> Paragraph::Create(
+    const ParagraphStyle& paraStyle, const RefPtr<FontCollection>& fontCollection)
 {
     auto txtFontCollection = DynamicCast<TxtFontCollection>(fontCollection);
     CHECK_NULL_RETURN(txtFontCollection, nullptr);
@@ -47,6 +48,7 @@ RefPtr<Paragraph> Paragraph::Create(void* rsParagraph)
 void TxtParagraph::SetParagraphSymbolAnimation(const RefPtr<FrameNode>& frameNode)
 {
     auto context = AceType::DynamicCast<NG::RosenRenderContext>(frameNode->GetRenderContext());
+    CHECK_NULL_VOID(context);
     auto rsNode = context->GetRSNode();
     rsSymbolAnimation_ = RSSymbolAnimation();
     rsSymbolAnimation_.SetNode(rsNode);
@@ -84,21 +86,25 @@ void TxtParagraph::ConvertTypographyStyle(Rosen::TypographyStyle& style, const P
     style.textSplitRatio = TEXT_SPLIT_RATIO;
     style.breakStrategy = static_cast<Rosen::BreakStrategy>(paraStyle.lineBreakStrategy);
     style.lineStyleHalfLeading = paraStyle.halfLeading;
+    style.isEndAddParagraphSpacing = paraStyle.isEndAddParagraphSpacing;
+    style.paragraphSpacing = paraStyle.paragraphSpacing.ConvertToPx();
     style.locale = paraStyle.fontLocale;
     if (paraStyle.textOverflow == TextOverflow::ELLIPSIS) {
         style.ellipsis = ELLIPSIS;
     }
-    style.isEndAddParagraphSpacing = paraStyle.isEndAddParagraphSpacing;
-    style.paragraphSpacing = paraStyle.paragraphSpacing.ConvertToPx();
     style.enableAutoSpace = paraStyle.enableAutoSpacing;
+    style.includeFontPadding = paraStyle.includeFontPadding;
+    style.fallbackLineSpacing = paraStyle.fallbackLineSpacing;
     style.defaultTextStyleUid = paraStyle.textStyleUid;
-    style.isTrailingSpaceOptimized = paraStyle.optimizeTrailingSpace;
     if (paraStyle.isOnlyBetweenLines) {
         style.textHeightBehavior =
             paraStyle.isFirstParagraphLineSpacing
                 ? static_cast<OHOS::Rosen::TextHeightBehavior>(TextHeightBehavior::DISABLE_ALL)
                 : static_cast<OHOS::Rosen::TextHeightBehavior>(TextHeightBehavior::DISABLE_LAST_ASCENT);
     }
+    style.isTrailingSpaceOptimized = paraStyle.optimizeTrailingSpace;
+    style.orphanCharOptimization = paraStyle.orphanCharOptimization;
+    style.compressHeadPunctuation = paraStyle.compressLeadingPunctuation;
 #if !defined(FLUTTER_2_5) && !defined(NEW_SKIA)
     // keep WordBreak define same with WordBreakType in minikin
     style.wordBreakType = static_cast<Rosen::WordBreakType>(paraStyle.wordBreak);
@@ -108,8 +114,8 @@ void TxtParagraph::ConvertTypographyStyle(Rosen::TypographyStyle& style, const P
 
 void TxtParagraph::PushStyle(const TextStyle& style)
 {
+    ACE_TEXT_SCOPED_TRACE("TxtParagraph::PushStyle");
     CHECK_NULL_VOID(!hasExternalParagraph_);
-    ACE_TEXT_SCOPED_TRACE("TxtParagraph::PushStyle id:%d", style.GetTextStyleUid());
     if (!builder_) {
         CreateBuilder();
     }
@@ -130,11 +136,11 @@ void TxtParagraph::PopStyle()
 void TxtParagraph::AddText(const std::u16string& text)
 {
     ACE_TEXT_SCOPED_TRACE("TxtParagraph::AddText:%d", static_cast<uint32_t>(text.length()));
-    CHECK_NULL_VOID(!hasExternalParagraph_);
     if (!builder_) {
         CreateBuilder();
     }
     text_ += text;
+    CHECK_NULL_VOID(!hasExternalParagraph_);
     builder_->AppendText(text);
 }
 
@@ -166,11 +172,7 @@ int32_t TxtParagraph::AddPlaceholder(const PlaceholderRun& span)
 
 void TxtParagraph::Build()
 {
-    int32_t id = -1;
-    if (SystemProperties::GetAcePerformanceMonitorEnabled()) {
-        id = Container::CurrentId();
-    }
-    OTHER_DURATION(id);
+    OTHER_DURATION();
     ACE_TEXT_SCOPED_TRACE("TxtParagraph::Build");
     CHECK_NULL_VOID(!hasExternalParagraph_ && builder_);
     paragraph_ = builder_->CreateTypography();
@@ -197,17 +199,19 @@ void TxtParagraph::Reset()
 
 void TxtParagraph::Layout(float width)
 {
-    int32_t id = -1;
-    if (SystemProperties::GetAcePerformanceMonitorEnabled()) {
-        id = Container::CurrentId();
-    }
-    OTHER_DURATION(id);
+    OTHER_DURATION();
     ACE_TEXT_SCOPED_TRACE("TxtParagraph::Layout, width:%f", width);
     CHECK_NULL_VOID(!hasExternalParagraph_ && paragraph_);
     paragraph_->Layout(width);
 }
 
 void TxtParagraph::ReLayout(float width, const ParagraphStyle& paraStyle, const std::vector<TextStyle>& textStyles)
+{
+    this->ReLayout(width, paraStyle, textStyles, std::nullopt);
+}
+
+void TxtParagraph::ReLayout(float width, const ParagraphStyle& paraStyle, const std::vector<TextStyle>& textStyles,
+    const std::optional<TextStyle>& firstValidTextStyle)
 {
     CHECK_NULL_VOID(!hasExternalParagraph_ && paragraph_);
     paraStyle_ = paraStyle;
@@ -223,15 +227,27 @@ void TxtParagraph::ReLayout(float width, const ParagraphStyle& paraStyle, const 
         txtStyles.emplace_back(txtStyle);
     }
     nodeID << "]";
+
+    ReLayoutParagraphStyleBitmap validBitmap;
+    if (firstValidTextStyle.has_value()) {
+        validBitmap = firstValidTextStyle.value().GetReLayoutParagraphStyleBitmap();
+    } else if (!textStyles.empty()) {
+        validBitmap = textStyles.front().GetReLayoutParagraphStyleBitmap();
+    } else {
+        TAG_LOGW(AceLogTag::ACE_TEXT, "TxtParagraph::ReLayout no valid TextStyle available");
+    }
     if (SystemProperties::GetTextTraceEnabled() && !txtStyles.empty()) {
         ACE_TEXT_SCOPED_TRACE(
             "TxtParagraph::ReLayout node size:%d id:%s paraStyle id:%d paragraphStyleBitmap:%s width:%f",
             static_cast<uint32_t>(txtStyles.size()), nodeID.str().c_str(), paraStyle.textStyleUid,
-            textStyles.front().GetReLayoutParagraphStyleBitmap().to_string().c_str(), width);
+            validBitmap.to_string().c_str(), width);
     }
     Rosen::TypographyStyle style;
     ConvertTypographyStyle(style, paraStyle_);
-    style.relayoutChangeBitmap = textStyles.front().GetReLayoutParagraphStyleBitmap();
+    auto size = std::min(validBitmap.size(), style.relayoutChangeBitmap.size());
+    for (size_t i = 0; i < size; ++i) {
+        style.relayoutChangeBitmap.set(i, validBitmap.test(i));
+    }
     paragraph_->Relayout(width, style, txtStyles);
 }
 
@@ -403,6 +419,47 @@ PositionWithAffinity TxtParagraph::GetGlyphPositionAtCoordinate(const Offset& of
     return finalResult;
 }
 
+PositionWithAffinity TxtParagraph::GetCharacterPositionAtCoordinate(const Offset& offset)
+{
+    PositionWithAffinity finalResult(0, TextAffinity::UPSTREAM);
+    auto paragrah = GetParagraph();
+    CHECK_NULL_RETURN(paragrah, finalResult);
+    auto result = paragrah->GetCharacterIndexByCoordinate(offset.GetX(), offset.GetY());
+    finalResult.position_ = result.index;
+    finalResult.affinity_ = static_cast<TextAffinity>(result.affinity);
+    return finalResult;
+}
+
+std::pair<TextRange, TextRange> TxtParagraph::GetGlyphRangeForCharacterRange(int32_t start, int32_t end)
+{
+    std::pair<TextRange, TextRange> range;
+    auto paragrah = GetParagraph();
+    CHECK_NULL_RETURN(paragrah, range);
+    OHOS::Rosen::Boundary boundary(0, 0);
+    auto result =
+        paragrah->GetGlyphRangeForCharacterRange(static_cast<size_t>(start), static_cast<size_t>(end), &boundary);
+    range.first.start = static_cast<int32_t>(result.leftIndex);
+    range.first.end = static_cast<int32_t>(result.rightIndex);
+    range.second.start = static_cast<int32_t>(boundary.leftIndex);
+    range.second.end = static_cast<int32_t>(boundary.rightIndex);
+    return range;
+}
+
+std::pair<TextRange, TextRange> TxtParagraph::GetCharacterRangeForGlyphRange(int32_t start, int32_t end)
+{
+    std::pair<TextRange, TextRange> range;
+    auto paragrah = GetParagraph();
+    CHECK_NULL_RETURN(paragrah, range);
+    OHOS::Rosen::Boundary boundary(0, 0);
+    auto result =
+        paragrah->GetCharacterRangeForGlyphRange(static_cast<size_t>(start), static_cast<size_t>(end), &boundary);
+    range.first.start = static_cast<int32_t>(result.leftIndex);
+    range.first.end = static_cast<int32_t>(result.rightIndex);
+    range.second.start = static_cast<int32_t>(boundary.leftIndex);
+    range.second.end = static_cast<int32_t>(boundary.rightIndex);
+    return range;
+}
+
 void TxtParagraph::AdjustIndexForward(const Offset& offset, bool compareOffset, int32_t& index)
 {
     if (index < 0) {
@@ -539,6 +596,10 @@ float TxtParagraph::MakeEmptyOffsetX(bool isLtr)
 {
     auto width = GetMaxWidth();
     switch (textAlign_) {
+        case TextAlign::LEFT:
+            return 0.0f;
+        case TextAlign::RIGHT:
+            return width;
         case TextAlign::CENTER:
             return width * 0.5f;
         case TextAlign::END:
@@ -574,6 +635,7 @@ bool TxtParagraph::ComputeOffsetForCaretDownstream(int32_t extent, CaretMetricsF
             boxes = getTextRects(extent, end);
         }
     }
+    
     if (boxes.empty()) {
         return false;
     }
@@ -771,16 +833,24 @@ bool TxtParagraph::GetWordBoundary(int32_t offset, int32_t& start, int32_t& end)
 void TxtParagraph::HandleTextAlign(CaretMetricsF& result, TextAlign align)
 {
     auto width = GetMaxWidth();
+    const bool isRTL = paraStyle_.direction == TextDirection::RTL;
     float offsetX = 0.0f;
     switch (align) {
         case TextAlign::CENTER:
             offsetX = width * 0.5f;
             break;
+        case TextAlign::RIGHT:
         case TextAlign::END:
             offsetX = width;
             break;
+        case TextAlign::JUSTIFY:
+            offsetX = isRTL ? width : 0.0f;
+            break;
         case TextAlign::START:
+        case TextAlign::LEFT:
+            break;
         default:
+            TAG_LOGW(AceLogTag::ACE_TEXT, "Unknown TextAlign value: %{public}d", static_cast<int>(align));
             break;
     }
     result.offset.SetX(offsetX);
@@ -789,6 +859,11 @@ void TxtParagraph::HandleTextAlign(CaretMetricsF& result, TextAlign align)
 void TxtParagraph::HandleLeadingMargin(CaretMetricsF& result, LeadingMargin leadingMargin)
 {
     result.offset.SetX(leadingMargin.size.Width().ConvertToPx());
+}
+
+void TxtParagraph::HandleLeadingMarginSpan(CaretMetricsF& result, DrawableLeadingMargin drawableLeadingMargin)
+{
+    result.offset.SetX(drawableLeadingMargin.size.Width().ConvertToPx());
 }
 
 Rosen::TextRectHeightStyle TxtParagraph::GetHeightStyle(bool needLineHighest)
@@ -829,11 +904,22 @@ bool TxtParagraph::HandleCaretWhenEmpty(CaretMetricsF& result, bool needLineHigh
     if (textAlign != TextAlign::START) {
         HandleTextAlign(result, textAlign);
     } else {
-        if (paraStyle_.leadingMargin) {
+        if (paraStyle_.drawableLeadingMargin) {
+            HandleLeadingMarginSpan(result, *(paraStyle_.drawableLeadingMargin));
+        } else if (paraStyle_.leadingMargin) {
             HandleLeadingMargin(result, *(paraStyle_.leadingMargin));
         }
         result.offset.SetX(result.offset.GetX() + paraStyle_.indent.ConvertToPx());
     }
+
+    bool hasLeadingMargin = paraStyle_.drawableLeadingMargin || paraStyle_.leadingMargin;
+    bool needHandleRtlLeadingMargin = paraStyle_.direction == TextDirection::RTL
+        && paraStyle_.align == TextAlign::START && hasLeadingMargin;
+    CHECK_NULL_RETURN(needHandleRtlLeadingMargin, true);
+    auto leadingMarginWidth = paraStyle_.drawableLeadingMargin
+        ? paraStyle_.drawableLeadingMargin->size.Width().ConvertToPx()
+        : paraStyle_.leadingMargin->size.Width().ConvertToPx();
+    result.offset.SetX(GetMaxWidth() - leadingMarginWidth);
     return true;
 }
 
@@ -883,6 +969,8 @@ TextLineMetrics TxtParagraph::GetLineMetrics(size_t lineNumber)
     lineMetrics.endIndex = resMetric.endIndex;
     lineMetrics.baseline = resMetric.baseline;
     lineMetrics.lineNumber = resMetric.lineNumber;
+
+    ConvertFontMetrics(lineMetrics.firstCharMetrics, resMetric.firstCharMetrics);
 
     if (resMetric.runMetrics.empty()) {
         TAG_LOGD(AceLogTag::ACE_RICH_TEXT, "GetLineMetrics runMetrics is empty.");
@@ -934,22 +1022,27 @@ void TxtParagraph::SetRunMetrics(RunMetrics& runMetrics, const OHOS::Rosen::RunM
     runMetrics.textStyle.SetLocale(textStyleRes->locale);
 
     auto fontMetricsRes = runMetricsRes.fontMetrics;
-    runMetrics.fontMetrics.fFlags = fontMetricsRes.fFlags;
-    runMetrics.fontMetrics.fTop = fontMetricsRes.fTop;
-    runMetrics.fontMetrics.fAscent = fontMetricsRes.fAscent;
-    runMetrics.fontMetrics.fDescent = fontMetricsRes.fDescent;
-    runMetrics.fontMetrics.fBottom = fontMetricsRes.fBottom;
-    runMetrics.fontMetrics.fLeading = fontMetricsRes.fLeading;
-    runMetrics.fontMetrics.fAvgCharWidth = fontMetricsRes.fAvgCharWidth;
-    runMetrics.fontMetrics.fMaxCharWidth = fontMetricsRes.fMaxCharWidth;
-    runMetrics.fontMetrics.fXMin = fontMetricsRes.fXMin;
-    runMetrics.fontMetrics.fXMax = fontMetricsRes.fXMax;
-    runMetrics.fontMetrics.fXHeight = fontMetricsRes.fXHeight;
-    runMetrics.fontMetrics.fCapHeight = fontMetricsRes.fCapHeight;
-    runMetrics.fontMetrics.fUnderlineThickness = fontMetricsRes.fUnderlineThickness;
-    runMetrics.fontMetrics.fUnderlinePosition = fontMetricsRes.fUnderlinePosition;
-    runMetrics.fontMetrics.fStrikeoutThickness = fontMetricsRes.fStrikeoutThickness;
-    runMetrics.fontMetrics.fStrikeoutPosition = fontMetricsRes.fStrikeoutPosition;
+    ConvertFontMetrics(runMetrics.fontMetrics, fontMetricsRes);
+}
+
+void TxtParagraph::ConvertFontMetrics(FontMetrics& fontMetrics, const Rosen::Drawing::FontMetrics& rsFontMetrics)
+{
+    fontMetrics.fFlags = rsFontMetrics.fFlags;
+    fontMetrics.fTop = rsFontMetrics.fTop;
+    fontMetrics.fAscent = rsFontMetrics.fAscent;
+    fontMetrics.fDescent = rsFontMetrics.fDescent;
+    fontMetrics.fBottom = rsFontMetrics.fBottom;
+    fontMetrics.fLeading = rsFontMetrics.fLeading;
+    fontMetrics.fAvgCharWidth = rsFontMetrics.fAvgCharWidth;
+    fontMetrics.fMaxCharWidth = rsFontMetrics.fMaxCharWidth;
+    fontMetrics.fXMin = rsFontMetrics.fXMin;
+    fontMetrics.fXMax = rsFontMetrics.fXMax;
+    fontMetrics.fXHeight = rsFontMetrics.fXHeight;
+    fontMetrics.fCapHeight = rsFontMetrics.fCapHeight;
+    fontMetrics.fUnderlineThickness = rsFontMetrics.fUnderlineThickness;
+    fontMetrics.fUnderlinePosition = rsFontMetrics.fUnderlinePosition;
+    fontMetrics.fStrikeoutThickness = rsFontMetrics.fStrikeoutThickness;
+    fontMetrics.fStrikeoutPosition = rsFontMetrics.fStrikeoutPosition;
 }
 
 bool TxtParagraph::GetLineMetricsByCoordinate(const Offset& offset, LineMetrics& lineMetrics)
@@ -1028,7 +1121,7 @@ void TxtParagraph::UpdateColor(size_t from, size_t to, const Color& color)
     CHECK_NULL_VOID(paragrah);
     if (SystemProperties::GetTextTraceEnabled()) {
         ACE_TEXT_SCOPED_TRACE("TxtParagraph::UpdateColor[id:%d][from:%d][to:%d][color:%s]", paraStyle_.textStyleUid,
-            static_cast<int32_t>(from), static_cast<int32_t>(to), color.ColorToString().c_str());
+            static_cast<int32_t>(from), static_cast<int32_t>(to), color.ToString().c_str());
     }
     auto* paragraphTxt = static_cast<OHOS::Rosen::Typography*>(paragrah);
     CHECK_NULL_VOID(paragraphTxt);
@@ -1056,5 +1149,26 @@ bool TxtParagraph::IsIndexAtLineEnd(const Offset& offset, int32_t index)
 {
     LineMetrics lineMetrics;
     return GetLineMetricsByCoordinate(offset, lineMetrics) && (index == lineMetrics.endIndex);
+}
+
+bool TxtParagraph::DidExceedMaxLinesInner()
+{
+    auto paragrah = GetParagraph();
+    CHECK_NULL_RETURN(paragrah, false);
+    return !paragrah->CanPaintAllText();
+}
+
+std::string TxtParagraph::GetDumpInfo()
+{
+    auto paragrah = GetParagraph();
+    CHECK_NULL_RETURN(paragrah, "");
+    return paragrah->GetDumpInfo();
+}
+
+std::optional<void*> TxtParagraph::GetRawParagraph()
+{
+    auto paragraph = GetParagraph();
+    CHECK_NULL_RETURN(paragraph, std::nullopt);
+    return static_cast<void*>(paragraph);
 }
 } // namespace OHOS::Ace::NG

@@ -22,9 +22,9 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/pattern/web/web_pattern.h"
 #undef protected
@@ -96,7 +96,8 @@ public:
     explicit MockTaskExecutorTest(bool delayRun) : delayRun_(delayRun) {}
 
     bool OnPostTask(Task&& task, TaskType type, uint32_t delayTime, const std::string& name,
-        Ace::PriorityType priorityType = Ace::PriorityType::LOW) const override
+        Ace::PriorityType priorityType = Ace::PriorityType::LOW,
+        Ace::VsyncBarrierOption barrierOption = Ace::VsyncBarrierOption::NO_BARRIER) const override
     {
         CHECK_NULL_RETURN(task, false);
         if (delayRun_) {
@@ -293,7 +294,6 @@ HWTEST_F(WebPatternWindowTestNg, UpdateLocaleTest001, TestSize.Level1)
     auto webPattern = frameNode->GetPattern<WebPattern>();
     webPattern->delegate_ = nullptr;
     webPattern->UpdateLocale();
-    EXPECT_EQ(webPattern->delegate_, nullptr);
 }
 
 /**
@@ -1011,6 +1011,76 @@ HWTEST_F(WebPatternWindowTestNg, OnWindowHide001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: OnWindowHide002
+ * @tc.desc: OnWindowHide
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternWindowTestNg, OnWindowHide002, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    EXPECT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    EXPECT_NE(webPattern->delegate_, nullptr);
+    auto host = webPattern->GetHost();
+    EXPECT_NE(host, nullptr);
+
+    webPattern->isWindowShow_ = true;
+    webPattern->offlineWebInited_ = true;
+    host->UpdateNodeStatus(NodeStatus::BUILDER_NODE_OFF_MAINTREE);
+    webPattern->OnWindowHide();
+    EXPECT_TRUE(webPattern->isWindowShow_);
+
+    webPattern->isWindowShow_ = true;
+    webPattern->offlineWebInited_ = true;
+    host->UpdateNodeStatus(NodeStatus::BUILDER_NODE_ON_MAINTREE);
+    webPattern->OnWindowHide();
+    EXPECT_FALSE(webPattern->isWindowShow_);
+#endif
+}
+
+/**
+ * @tc.name: OnWindowHide003
+ * @tc.desc: OnWindowHide
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternWindowTestNg, OnWindowHide003, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    EXPECT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    EXPECT_NE(webPattern->delegate_, nullptr);
+    auto host = webPattern->GetHost();
+    EXPECT_NE(host, nullptr);
+
+    webPattern->isWindowShow_ = true;
+    webPattern->offlineWebInited_ = true;
+    webPattern->isActive_ = true;
+    host->UpdateNodeStatus(NodeStatus::BUILDER_NODE_ON_MAINTREE);
+    webPattern->OnWindowHide();
+    EXPECT_FALSE(webPattern->isWindowShow_);
+
+    webPattern->isWindowShow_ = true;
+    webPattern->isActive_ = false;
+    webPattern->OnWindowHide();
+    EXPECT_FALSE(webPattern->isWindowShow_);
+#endif
+}
+
+/**
  * @tc.name: CalculateTooltipOffset_001
  * @tc.desc: CalculateTooltipOffset
  * @tc.type: FUNC
@@ -1065,6 +1135,43 @@ HWTEST_F(WebPatternWindowTestNg, InitRotationEventCallback_001, TestSize.Level1)
     webPattern->InitRotationEventCallback();
     MockPipelineContext::TearDown();
     ASSERT_NE(webPattern->rotationEndCallbackId_, 0);
+#endif
+}
+
+/**
+ * @tc.name: AdjustRotationRenderFitTest001
+ * @tc.desc: Test AdjustRotationRenderFit.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternWindowTestNg, AdjustRotationRenderFitTest001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    EXPECT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    EXPECT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+    auto type = WindowSizeChangeReason::UNDEFINED;
+    webPattern->isAttachedToMainTree_ = false;
+    webPattern->isVisible_ = false;
+    webPattern->AdjustRotationRenderFit(type);
+    webPattern->isAttachedToMainTree_ = true;
+    webPattern->isVisible_ = true;
+    type = WindowSizeChangeReason::MAXIMIZE;
+    webPattern->AdjustRotationRenderFit(type);
+    type = WindowSizeChangeReason::ROTATION;
+    webPattern->isAttachedToMainTree_ = true;
+    webPattern->isVisible_ = false;
+    webPattern->AdjustRotationRenderFit(type);
+    webPattern->isVisible_ = true;
+    webPattern->AdjustRotationRenderFit(type);
+    EXPECT_EQ(webPattern->rotationEndCallbackId_, 0);
 #endif
 }
 

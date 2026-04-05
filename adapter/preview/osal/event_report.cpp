@@ -28,6 +28,11 @@ void EventReport::SendPageRouterException(PageRouterExcepType type, const std::s
 
 void EventReport::SendComponentException(ComponentExcepType type) {}
 
+void EventReport::SendComponentExceptionNG(
+    ComponentExcepTypeNG type, int32_t nodeType, int32_t nodeId, const std::string& message) {}
+
+void EventReport::ReportPageLoadTimeout(const EventInfo& eventInfo) {}
+
 void EventReport::SendAPIChannelException(APIChannelExcepType type) {}
 
 void EventReport::SendRenderException(RenderExcepType type) {}
@@ -83,6 +88,10 @@ void EventReport::ReportUiExtensionTransparentEvent(const std::string& pageUrl, 
     const std::string& moduleName)
 {}
 
+void EventReport::ReportMainWindowTransparentEvent(const std::string& pageUrl, const std::string& bundleName,
+    const std::string& moduleName)
+{}
+
 void EventReport::ReportDragInfo(const DragInfo& dragInfo) {}
 
 void EventReport::ReportScrollableErrorEvent(
@@ -114,5 +123,11 @@ void EventReport::StopFormModifyTimeoutReportTimer(int64_t formId)
 
 void EventReport::StartFormModifyTimeoutReportTimer(int64_t formId, const std::string &bundleName,
     const std::string &formName)
+{}
+
+void EventReport::ReportGeneralInteractionError(const GeneralInteractionErrorInfo& generalEventErrorInfo) {}
+
+void EventReport::ReportWebBlanklessSnapshotTouchEvent(uint64_t startTime, const std::string& touchInfo,
+    uint64_t endTime)
 {}
 } // namespace OHOS::Ace

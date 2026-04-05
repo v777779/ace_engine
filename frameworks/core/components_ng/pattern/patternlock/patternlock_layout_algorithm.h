@@ -16,7 +16,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_PATTERNLOCK_PATTERNLOCK_LAYOUT_ALGORITHM_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_PATTERNLOCK_PATTERNLOCK_LAYOUT_ALGORITHM_H
 
-#include "core/components_ng/layout/layout_algorithm.h"
+#include "core/components_ng/layout/box_layout_algorithm.h"
 #include "core/components_ng/layout/layout_wrapper.h"
 
 namespace OHOS::Ace::NG {
@@ -31,6 +31,8 @@ public:
 
     std::optional<SizeF> MeasureContent(
         const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper) override;
+
+    void Measure(LayoutWrapper* layoutWrapper) override;
 
 private:
     Dimension sideLength_;

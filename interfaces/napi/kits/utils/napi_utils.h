@@ -29,7 +29,6 @@
 #include "core/common/container.h"
 #include "core/common/resource/resource_wrapper.h"
 #include "core/components/common/properties/color.h"
-#include "securec.h"
 
 namespace OHOS::Ace::Napi {
 
@@ -39,6 +38,7 @@ struct ResourceInfo {
     std::vector<std::string> params;
     std::optional<std::string> bundleName = std::nullopt;
     std::optional<std::string> moduleName = std::nullopt;
+    bool hasGetter = false;
 };
 
 enum class ResourceType : uint32_t {
@@ -94,6 +94,24 @@ bool ParseResourceParam(napi_env env, napi_value value, ResourceInfo& info);
 
 bool ParseString(const ResourceInfo& info, std::string& result);
 
+bool MatchValueTypeLuminance(napi_env env, napi_value value, napi_valuetype targetType);
+
+bool ParseStringLuminance(napi_env env, napi_value propertyNapi, std::string& property);
+
+bool ParseIntLuminance(napi_env env, napi_value propertyNapi, int32_t& property);
+
+bool ParseEdgesLengthMetrics(napi_env env, napi_value value, EdgesParam& edges);
+
+bool ParseRightEdge(napi_env env, napi_value obj, EdgesParam& edges);
+
+bool ParseLeftEdge(napi_env env, napi_value obj, EdgesParam& edges);
+
+bool ParseBottomEdge(napi_env env, napi_value obj, EdgesParam& edges);
+
+bool ParseTopEdge(napi_env env, napi_value obj, EdgesParam& edges);
+
+bool ParseLengthMetricValue(napi_env env, napi_value value, CalcDimension& dimension);
+
 std::string ErrorToMessage(int32_t code);
 
 bool GetSingleParam(napi_env env, napi_callback_info info, napi_value* argv, napi_valuetype& valueType);
@@ -111,9 +129,16 @@ bool HasProperty(napi_env env, napi_value value, const std::string& targetStr);
 bool ParseNapiDimension(napi_env env, CalcDimension& result, napi_value napiValue, DimensionUnit defaultUnit);
 bool ParseNapiDimensionNG(
     napi_env env, CalcDimension& result, napi_value napiValue, DimensionUnit defaultUnit, bool isSupportPercent);
+bool CheckDarkResource(const RefPtr<ResourceObject>& resObj);
+RefPtr<ResourceObject> ParseResourceParamToObj(napi_env env, napi_value value);
+bool ParseNapiColor(napi_env env, napi_value value, Color& result, RefPtr<ResourceObject>& resObj);
 bool ParseNapiColor(napi_env env, napi_value value, Color& result);
 bool ParseStyle(napi_env env, napi_value value, std::optional<BorderStyle>& style);
 bool ParseShadowColorStrategy(napi_env env, napi_value value, ShadowColorStrategy& strategy);
+bool HasGetter(napi_env env, napi_value value, const std::string& key);
+int32_t GetStringFormatStartIndex(bool hasGetter);
+int32_t GetUIContextInstanceId(napi_env env, napi_value uiContext);
+std::string GetLocalizedParamStr(const std::string& paramStr, const std::string& type);
 } // namespace OHOS::Ace::Napi
 
 #endif // FOUNDATION_ACE_INTERFACES_NAPI_KITS_UTILS_H

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -73,34 +73,6 @@ class ListScrollSnapAlignModifier extends ModifierWithKey<ScrollSnapAlign> {
   }
 }
 
-class ContentStartOffsetModifier extends ModifierWithKey<number> {
-  constructor(value: number) {
-    super(value);
-  }
-  static identity: Symbol = Symbol('contentStartOffset');
-  applyPeer(node: KNode, reset: boolean): void {
-    if (reset) {
-      getUINativeModule().list.resetContentStartOffset(node);
-    } else {
-      getUINativeModule().list.setContentStartOffset(node, this.value);
-    }
-  }
-}
-
-class ContentEndOffsetModifier extends ModifierWithKey<number> {
-  constructor(value: number) {
-    super(value);
-  }
-  static identity: Symbol = Symbol('contentEndOffset');
-  applyPeer(node: KNode, reset: boolean): void {
-    if (reset) {
-      getUINativeModule().list.resetContentEndOffset(node);
-    } else {
-      getUINativeModule().list.setContentEndOffset(node, this.value);
-    }
-  }
-}
-
 class ListDividerModifier extends ModifierWithKey<DividerStyle> {
   constructor(value: DividerStyle) {
     super(value);
@@ -117,6 +89,7 @@ class ListDividerModifier extends ModifierWithKey<DividerStyle> {
   checkObjectDiff(): boolean {
     return !(this.stageValue?.strokeWidth === this.value?.strokeWidth &&
       this.stageValue?.color === this.value?.color &&
+      !isResource(this.stageValue?.color) && !isResource(this.value?.color) &&
       this.stageValue?.startMargin === this.value?.startMargin &&
       this.stageValue?.endMargin === this.value?.endMargin);
   }
@@ -265,6 +238,20 @@ class ListSyncLoadModifier extends ModifierWithKey<boolean | undefined> {
   }
 }
 
+class ListEditModeOptionsModifier extends ModifierWithKey<EditModeOptions | undefined> {
+  constructor(options: EditModeOptions | undefined) {
+    super(options);
+  }
+  static identity: Symbol = Symbol('listEditModeOptions');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().list.resetEditModeOptions(node);
+    } else {
+      getUINativeModule().list.setEditModeOptions(node, this.value);
+    }
+  }
+}
+
 class ListNestedScrollModifier extends ModifierWithKey<NestedScrollOptions> {
   constructor(value: NestedScrollOptions) {
     super(value);
@@ -354,7 +341,7 @@ class ListLanesModifier extends ModifierWithKey<ArkLanesOpt> {
       getUINativeModule().list.resetListLanes(node);
     } else {
       getUINativeModule().list.setListLanes(node, this.value.lanesNum,
-        this.value.minLength, this.value.maxLength, this.value.gutter);
+        this.value.minLength, this.value.maxLength, this.value.fillType, this.value.gutter);
     }
   }
   checkObjectDiff(): boolean {
@@ -376,6 +363,20 @@ class ListClipModifier extends ModifierWithKey<boolean | object> {
   }
   checkObjectDiff(): boolean {
     return true;
+  }
+}
+
+class ListScrollSnapAnimationSpeedModifier extends ModifierWithKey<ScrollSnapAnimationSpeed> {
+  constructor(value: ScrollSnapAnimationSpeed) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('listScrollSnapAnimationSpeed');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().list.resetScrollSnapAnimationSpeed(node);
+    } else {
+      getUINativeModule().list.setScrollSnapAnimationSpeed(node, this.value);
+    }
   }
 }
 
@@ -666,6 +667,21 @@ class ListFocusWrapModeModifier extends ModifierWithKey<FocusWrapMode> {
     }
   }
 }
+
+class ListSupportEmptyBranchInLazyLoading  extends ModifierWithKey<boolean> {
+  constructor(value) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('listSupportEmptyBranchInLazyLoading ');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().list.setSupportLazyLoadingEmptyBranch(node, false);
+    } else {
+      getUINativeModule().list.setSupportLazyLoadingEmptyBranch(node, this.value);
+    }
+  }
+}
+
 interface ListParam {
   initialIndex?: number;
   space?: number | string;
@@ -693,17 +709,25 @@ class ArkListComponent extends ArkScrollable<ListAttribute> implements ListAttri
   allowChildTypes(): string[] {
     return ["ListItem", "ListItemGroup"];
   }
-  lanes(value: number | LengthConstrain, gutter?: any): this {
+  lanes(value: number | LengthConstrain | ItemFillPolicy, gutter?: Length): this {
     let opt: ArkLanesOpt = new ArkLanesOpt();
     opt.gutter = gutter;
     if (isUndefined(value)) {
       opt.lanesNum = undefined;
     } else if (isNumber(value)) {
       opt.lanesNum = value as number;
-    } else {
-      const lc = value as LengthConstrain;
-      opt.minLength = lc.minLength;
-      opt.maxLength = lc.maxLength;
+    } else if (isObject(value)) {
+      if (isNumber(value.fillType)) {
+        opt.fillType = value.fillType as number;
+      }
+      else {
+        const lc = value as LengthConstrain;
+        opt.minLength = lc.minLength;
+        opt.maxLength = lc.maxLength;
+        if (isUndefined(opt.minLength) && isUndefined(opt.maxLength)) {
+          opt.fillType = -1;
+        }
+      }
     }
     modifierWithKey(this._modifiersWithKeys, ListLanesModifier.identity, ListLanesModifier, opt);
     return this;
@@ -730,14 +754,6 @@ class ArkListComponent extends ArkScrollable<ListAttribute> implements ListAttri
   }
   flingSpeedLimit(value: number): this {
     modifierWithKey(this._modifiersWithKeys, ListFlingSpeedLimitModifier.identity, ListFlingSpeedLimitModifier, value);
-    return this;
-  }
-  contentStartOffset(value: number): this {
-    modifierWithKey(this._modifiersWithKeys, ContentStartOffsetModifier.identity, ContentStartOffsetModifier, value);
-    return this;
-  }
-  contentEndOffset(value: number): this {
-    modifierWithKey(this._modifiersWithKeys, ContentEndOffsetModifier.identity, ContentEndOffsetModifier, value);
     return this;
   }
   divider(value: { strokeWidth: any; color?: any; startMargin?: any; endMargin?: any; } | null): this {
@@ -794,12 +810,21 @@ class ArkListComponent extends ArkScrollable<ListAttribute> implements ListAttri
     modifierWithKey(this._modifiersWithKeys, ListSyncLoadModifier.identity, ListSyncLoadModifier, value);
     return this;
   }
+  editModeOptions(options: EditModeOptions | undefined): this {
+    modifierWithKey(this._modifiersWithKeys, ListEditModeOptionsModifier.identity, ListEditModeOptionsModifier, options);
+    return this;
+  }
   clip(value: boolean | CircleAttribute | EllipseAttribute | PathAttribute | RectAttribute): this {
     modifierWithKey(this._modifiersWithKeys, ListClipModifier.identity, ListClipModifier, value);
     return this;
   }
+  scrollSnapAnimationSpeed(value: ScrollSnapAnimationSpeed): this {
+    modifierWithKey(this._modifiersWithKeys,
+      ListScrollSnapAnimationSpeedModifier.identity, ListScrollSnapAnimationSpeedModifier, value);
+    return this;
+  }
   onScroll(event: (scrollOffset: number, scrollState: ScrollState) => void): this {
-    throw new Error('Method not implemented.');
+    throw new BusinessError(100201, 'onScroll not supported in attributeModifier scenario.');
   }
   onScrollIndex(event: (start: number, end: number, center: number) => void): this {
     modifierWithKey(this._modifiersWithKeys, ListOnScrollIndexModifier.identity, ListOnScrollIndexModifier, event);
@@ -810,7 +835,7 @@ class ArkListComponent extends ArkScrollable<ListAttribute> implements ListAttri
     return this;
   }
   onItemDelete(event: (index: number) => boolean): this {
-    throw new Error('Method not implemented.');
+    throw new BusinessError(100201, 'onItemDelete not supported in attributeModifier scenario.');
   }
   onItemMove(callback: (from: number, to: number) => boolean): this {
     modifierWithKey(this._modifiersWithKeys, ListOnItemMoveModifier.identity, ListOnItemMoveModifier, callback);
@@ -873,6 +898,10 @@ class ArkListComponent extends ArkScrollable<ListAttribute> implements ListAttri
     modifierWithKey(this._modifiersWithKeys, ListFocusWrapModeModifier.identity, ListFocusWrapModeModifier, value);
     return this;
   }
+  supportEmptyBranchInLazyLoading(value: boolean): this {
+    modifierWithKey(this._modifiersWithKeys, ListSupportEmptyBranchInLazyLoading.identity, ListSupportEmptyBranchInLazyLoading, value);
+    return this;
+  }
 }
 
 // @ts-ignore
@@ -884,7 +913,27 @@ globalThis.List.attributeModifier = function (modifier: ArkComponent): void {
   });
 };
 
-globalThis.List.onWillStopDragging = function (value: (velocity: number) => void) {
+globalThis.List.onWillStopDragging = function (value: (velocity: number) => void): void {
   let nodePtr = getUINativeModule().frameNode.getStackTopNode();
   getUINativeModule().scrollable.setOnWillStopDragging(nodePtr, value);
+};
+
+globalThis.List.onWillStartDragging = function (value: () => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnWillStartDragging(nodePtr, value);
+};
+
+globalThis.List.onDidStopDragging = function (value: (isWillFling: boolean) => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnDidStopDragging(nodePtr, value);
+};
+
+globalThis.List.onWillStartFling = function (value: () => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnWillStartFling(nodePtr, value);
+};
+
+globalThis.List.onDidStopFling = function (value: () => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnDidStopFling(nodePtr, value);
 };

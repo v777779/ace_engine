@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,10 +13,13 @@
  * limitations under the License.
  */
 
-
+#include "core/common/container_scope.h"
+#include "frameworks/core/common/ace_engine.h"
 #include "interfaces/napi/kits/utils/napi_utils.h"
-
+#include "interfaces/napi/kits/componentutils/js_mistouch_prevention.h"
 #include "frameworks/bridge/common/utils/engine_helper.h"
+
+#include "napi/native_api.h"
 
 namespace OHOS::Ace::Napi {
 namespace {
@@ -24,23 +27,42 @@ constexpr size_t STR_BUFFER_SIZE = 1024;
 }
 static napi_value JSGetRectangleById(napi_env env, napi_callback_info info)
 {
-    size_t argc = 1;
-    napi_value argv = nullptr;
+    size_t argc = 2;
+    napi_value argv[2] = { nullptr };
     napi_value thisVar = nullptr;
     void* data = nullptr;
-    napi_get_cb_info(env, info, &argc, &argv, &thisVar, &data);
-    NAPI_ASSERT(env, argc == 1, "requires 1 parameter");
+    napi_get_cb_info(env, info, &argc, argv, &thisVar, &data);
+
     napi_valuetype type = napi_undefined;
-    napi_typeof(env, argv, &type);
+    napi_typeof(env, argv[0], &type);
     NAPI_ASSERT(env, type == napi_string, "the type of arg is not string");
     char outBuffer[STR_BUFFER_SIZE] = { 0 };
     size_t outSize = 0;
-    napi_get_value_string_utf8(env, argv, outBuffer, STR_BUFFER_SIZE, &outSize);
+    napi_get_value_string_utf8(env, argv[0], outBuffer, STR_BUFFER_SIZE, &outSize);
     std::string key = std::string(outBuffer);
     OHOS::Ace::NG::Rectangle rectangle;
-    auto delegate = EngineHelper::GetCurrentDelegateSafely();
+
+    int32_t safelyId = -1;
+    int32_t currentId = ContainerScope::CurrentId();
+    auto currentIdAndReason = InstanceIdGenReason::SCOPE;
+    if (currentId >= 0) {
+        safelyId = currentId;
+    } else {
+        safelyId = Container::SafelyId();
+        currentIdAndReason = ContainerScope::CurrentIdWithReason().second;
+        int32_t idNum = 0;
+        napi_get_value_int32(env, argv[1], &idNum);
+        TAG_LOGW(AceLogTag::ACE_DEFAULT_DOMAIN, "JSGetRectangleById instanceId_: %{public}d,"
+            "currentId: %{public}d, safelyId: %{public}d", idNum, currentId, safelyId);
+    }
+    auto container = Container::GetContainer(safelyId);
+    auto delegate = EngineHelper::GetDelegateByContainer(container);
     if (!delegate) {
-        NapiThrow(env, "UI execution context not found.", ERROR_CODE_INTERNAL_ERROR);
+        // Build enhanced error message with container context information
+        // This helps developers identify which instance was requested and why it failed
+        std::string message = "";
+        message = AceEngine::GetEnhancedContextBNotFoundMessage(currentIdAndReason, safelyId);
+        NapiThrow(env, "UI execution context not found. \n" + message, ERROR_CODE_INTERNAL_ERROR);
         return nullptr;
     }
     delegate->GetRectangleById(key, rectangle);
@@ -96,14 +118,6 @@ static napi_value JSGetRectangleById(napi_env env, napi_callback_info info)
     const int m32 = 14;
     const int m33 = 15;
 
-    napi_create_object(env, &obj);
-    napi_create_object(env, &size);
-    napi_create_object(env, &localOffset);
-    napi_create_object(env, &windowOffset);
-    napi_create_object(env, &screenOffset);
-    napi_create_object(env, &translate);
-    napi_create_object(env, &scale);
-    napi_create_object(env, &rotate);
     napi_create_array(env, &transform);
 
     napi_create_double(env, rectangle.size.Width(), &width);
@@ -163,44 +177,64 @@ static napi_value JSGetRectangleById(napi_env env, napi_callback_info info)
     napi_set_element(env, transform, m32, matrix4[m23]);
     napi_set_element(env, transform, m33, matrix4[m33]);
 
-    napi_set_named_property(env, obj, "size", size);
-    napi_set_named_property(env, size, "width", width);
-    napi_set_named_property(env, size, "height", height);
-    napi_set_named_property(env, obj, "localOffset", localOffset);
-    napi_set_named_property(env, localOffset, "x", localOffsetX);
-    napi_set_named_property(env, localOffset, "y", localOffsetY);
-    napi_set_named_property(env, obj, "windowOffset", windowOffset);
-    napi_set_named_property(env, windowOffset, "x", windowOffsetX);
-    napi_set_named_property(env, windowOffset, "y", windowOffsetY);
-    napi_set_named_property(env, obj, "screenOffset", screenOffset);
-    napi_set_named_property(env, screenOffset, "x", screenOffsetX);
-    napi_set_named_property(env, screenOffset, "y", screenOffsetY);
-    napi_set_named_property(env, obj, "translate", translate);
-    napi_set_named_property(env, translate, "x", translateX);
-    napi_set_named_property(env, translate, "y", translateY);
-    napi_set_named_property(env, translate, "z", translateZ);
-    napi_set_named_property(env, obj, "scale", scale);
-    napi_set_named_property(env, scale, "x", scaleX);
-    napi_set_named_property(env, scale, "y", scaleY);
-    napi_set_named_property(env, scale, "z", scaleZ);
-    napi_set_named_property(env, scale, "centerX", scaleCenterX);
-    napi_set_named_property(env, scale, "centerY", scaleCenterY);
-    napi_set_named_property(env, obj, "rotate", rotate);
-    napi_set_named_property(env, rotate, "x", rotateX);
-    napi_set_named_property(env, rotate, "y", rotateY);
-    napi_set_named_property(env, rotate, "z", rotateZ);
-    napi_set_named_property(env, rotate, "angle", rotateAngle);
-    napi_set_named_property(env, rotate, "centerX", rotateCenterX);
-    napi_set_named_property(env, rotate, "centerY", rotateCenterY);
-    napi_set_named_property(env, obj, "transform", transform);
+    constexpr size_t kTwoPropties = 2;
+    std::array<const char*, kTwoPropties> sizePropKey = { "width", "height" };
+    std::array<napi_value, kTwoPropties> sizePropValue = { width, height };
+    napi_create_object_with_named_properties(env, &size, kTwoPropties, sizePropKey.data(), sizePropValue.data());
+
+    std::array<const char*, kTwoPropties> localOffsetPropKey = { "x", "y" };
+    std::array<napi_value, kTwoPropties> localOffsetPropValue = { localOffsetX, localOffsetY };
+    napi_create_object_with_named_properties(env, &localOffset, kTwoPropties,
+                                             localOffsetPropKey.data(), localOffsetPropValue.data());
+
+    // same key with local offset { "x", "y" }
+    std::array<napi_value, kTwoPropties> windowOffsetPropValue = { windowOffsetX, windowOffsetY };
+    napi_create_object_with_named_properties(env, &windowOffset, kTwoPropties,
+                                             localOffsetPropKey.data(), windowOffsetPropValue.data());
+
+    // same key with local offset { "x", "y" }
+    std::array<napi_value, kTwoPropties> screenOffsetPropValue = { screenOffsetX, screenOffsetY };
+    napi_create_object_with_named_properties(env, &screenOffset, kTwoPropties,
+                                             localOffsetPropKey.data(), screenOffsetPropValue.data());
+
+    constexpr size_t kThreePropties = 3;
+    std::array<const char*, kThreePropties> translatePropKey = { "x", "y", "z" };
+    std::array<napi_value, kThreePropties> translatePropValue = { translateX, translateY, translateZ };
+    napi_create_object_with_named_properties(env, &translate, kThreePropties,
+                                             translatePropKey.data(), translatePropValue.data());
+
+    constexpr size_t kFivePropties = 5;
+    std::array<const char*, kFivePropties> scalePropKey = { "x", "y", "z", "centerX", "centerY" };
+    std::array<napi_value, kFivePropties> scalePropValue = { scaleX, scaleY, scaleZ, scaleCenterX, scaleCenterY };
+    napi_create_object_with_named_properties(env, &scale, kFivePropties, scalePropKey.data(), scalePropValue.data());
+
+    constexpr size_t kSixPropties = 6;
+    std::array<const char*, kSixPropties> rotatePropKey = { "x", "y", "z", "angle", "centerX", "centerY" };
+    std::array<napi_value, kSixPropties> rotatePropValue = { rotateX, rotateY, rotateZ, rotateAngle,
+                                                             rotateCenterX, rotateCenterY };
+    napi_create_object_with_named_properties(env, &rotate, kSixPropties, rotatePropKey.data(), rotatePropValue.data());
+
+    constexpr size_t kEightPropties = 8;
+    std::array<const char*, kEightPropties> objPropKey = { "size", "localOffset", "windowOffset", "screenOffset",
+                                                           "translate", "scale", "rotate", "transform" };
+    std::array<napi_value, kEightPropties> objPropValue = { size, localOffset, windowOffset, screenOffset,
+                                                            translate, scale, rotate, transform };
+    napi_create_object_with_named_properties(env, &obj, kEightPropties, objPropKey.data(), objPropValue.data());
 
     return obj;
+}
+
+static napi_value JSGetItemsInShapePath(napi_env env, napi_callback_info info)
+{
+    napi_value result = MistouchPrevention::GetItemsInShapePath(env, info);
+    return result;
 }
 
 static napi_value registerFunc(napi_env env, napi_value exports)
 {
     napi_property_descriptor animatorDesc[] = {
         DECLARE_NAPI_FUNCTION("getRectangleById", JSGetRectangleById),
+        DECLARE_NAPI_FUNCTION("getItemsInShapePath", JSGetItemsInShapePath),
     };
     NAPI_CALL(env, napi_define_properties(env, exports, sizeof(animatorDesc) / sizeof(animatorDesc[0]), animatorDesc));
     return exports;

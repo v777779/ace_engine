@@ -17,12 +17,15 @@
 
 #include "base/log/dump_log.h"
 #include "base/utils/multi_thread.h"
-#include "core/components_ng/pattern/list/list_item_group_paint_method.h"
-#include "core/components_ng/pattern/list/list_pattern.h"
-#include "core/pipeline_ng/pipeline_context.h"
-#include "core/components_ng/property/measure_utils.h"
 #include "core/components/list/list_theme.h"
-
+#include "core/components/list/list_item_theme.h"
+#include "core/components_ng/pattern/list/list_item_group_paint_method.h"
+#include "core/components_ng/pattern/list/list_item_pattern.h"
+#include "core/components_ng/pattern/list/list_item_group_layout_algorithm.h"
+#include "core/components_ng/pattern/list/list_pattern.h"
+#include "core/components_ng/pattern/scrollable/scrollable_utils.h"
+#include "core/components_ng/property/measure_utils.h"
+#include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 
@@ -103,6 +106,10 @@ void ListItemGroupPattern::DumpAdvanceInfo()
     DumpLog::GetInstance().AddDesc("laneGutter:" + std::to_string(laneGutter_));
     DumpLog::GetInstance().AddDesc("startHeaderPos:" + std::to_string(startHeaderPos_));
     DumpLog::GetInstance().AddDesc("endFooterPos:" + std::to_string(endFooterPos_));
+    auto layoutProperty = GetLayoutProperty<ListItemGroupLayoutProperty>();
+    if (layoutProperty) {
+        layoutProperty->DumpInfo();
+    }
 }
 
 RefPtr<LayoutAlgorithm> ListItemGroupPattern::CreateLayoutAlgorithm()
@@ -117,6 +124,8 @@ RefPtr<LayoutAlgorithm> ListItemGroupPattern::CreateLayoutAlgorithm()
     layoutAlgorithm->SetPrevTotalItemCount(itemTotalCount_);
     layoutAlgorithm->SetPrevTotalMainSize(mainSize_);
     layoutAlgorithm->SetPrevMeasureBreak(prevMeasureBreak_);
+    layoutAlgorithm->SetLanes(lanes_);
+    layoutAlgorithm->SetAxisChanged(isAxisChanged_);
     if (childrenSize_ && ListChildrenSizeExist()) {
         if (!posMap_) {
             posMap_ = MakeRefPtr<ListPositionMap>();
@@ -136,7 +145,7 @@ RefPtr<NodePaintMethod> ListItemGroupPattern::CreateNodePaintMethod()
     ListItemGroupPaintInfo listItemGroupPaintInfo { layoutDirection_, mainSize_, drawVertical, lanes_,
         spaceWidth_, laneGutter_, itemTotalCount_, listContentSize_ };
     return MakeRefPtr<ListItemGroupPaintMethod>(
-        divider, listItemGroupPaintInfo, itemPosition_, cachedItemPosition_, pressedItem_);
+        divider, listItemGroupPaintInfo, itemPosition_, cachedItemPosition_, noDividerItems_);
 }
 
 void ListItemGroupPattern::SyncItemsToCachedItemPosition()
@@ -307,11 +316,35 @@ RefPtr<ListChildrenMainSize> ListItemGroupPattern::GetOrCreateListChildrenMainSi
         context->RequestFrame();
     };
     childrenSize_->SetOnDataChange(callback);
+    UpdateChildrenMainSizeRoundingMode();
+    return childrenSize_;
+}
+
+void ListItemGroupPattern::UpdateChildrenMainSizeRoundingModeMultiThread()
+{
+    auto node = GetHost();
+    CHECK_NULL_VOID(node);
+    node->PostAfterAttachMainTreeTask([weak = AceType::WeakClaim(AceType::RawPtr(node))]() {
+        auto node = weak.Upgrade();
+        CHECK_NULL_VOID(node);
+        auto pattern = node->GetPattern<ListItemGroupPattern>();
+        CHECK_NULL_VOID(pattern);
+        CHECK_NULL_VOID(pattern->childrenSize_);
+        auto pipeline = node->GetContext();
+        if (pipeline && pipeline->GetPixelRoundMode() == PixelRoundMode::PIXEL_ROUND_AFTER_MEASURE) {
+            pattern->childrenSize_->SetIsRoundingMode();
+        }
+    });
+}
+
+void ListItemGroupPattern::UpdateChildrenMainSizeRoundingMode()
+{
+    auto node = GetHost();
+    FREE_NODE_CHECK(node, UpdateChildrenMainSizeRoundingMode);
     auto pipeline = GetContext();
     if (pipeline && pipeline->GetPixelRoundMode() == PixelRoundMode::PIXEL_ROUND_AFTER_MEASURE) {
         childrenSize_->SetIsRoundingMode();
     }
-    return childrenSize_;
 }
 
 void ListItemGroupPattern::SetListChildrenMainSize(
@@ -571,7 +604,7 @@ std::pair<int32_t, int32_t> ListItemGroupPattern::UpdateCachedIndexOmni(int32_t 
 }
 
 CachedIndexInfo ListItemGroupPattern::UpdateCachedIndex(
-    bool outOfView, bool reCache, int32_t forwardCache, int32_t backwardCache)
+    bool outOfView, int32_t forwardCache, int32_t backwardCache)
 {
     CachedIndexInfo res;
     auto host = GetHost();
@@ -588,12 +621,8 @@ CachedIndexInfo ListItemGroupPattern::UpdateCachedIndex(
         itemTotalCount_ = host->GetTotalChildCount() - itemStartIndex_ - footerCount_;
     }
     if (outOfView) {
+        cachedItemPosition_.merge(itemPosition_);
         ClearItemPosition();
-    }
-    if (reCache || reCache_) {
-        ClearCachedItemPosition();
-        UpdateActiveChildRange(show);
-        reCache_ = false;
     }
     int32_t lanes = lanes_ > 1 ? lanes_ : 1;
     if (forwardCache > -1 && backwardCache > -1 && !itemPosition_.empty()) {
@@ -623,6 +652,10 @@ CachedIndexInfo ListItemGroupPattern::UpdateCachedIndex(
         std::swap(res.forwardCachedCount, res.backwardCachedCount);
         std::swap(res.forwardCacheMax, res.backwardCacheMax);
     }
+    if ((GetTotalItemCount() == 0 && outOfView) || !IsVisible()) {
+        res = {1, 1, 1, 1, isCacheDirty_};
+    }
+    res.needPredict = isCacheDirty_;
     return res;
 }
 
@@ -650,9 +683,20 @@ void ListItemGroupPattern::LayoutCache(const LayoutConstraintF& constraint, int6
     CHECK_NULL_VOID(listPattern);
     auto listLayoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
     CHECK_NULL_VOID(listLayoutProperty);
-    auto cacheCountForward = listLayoutProperty->GetCachedCountWithDefault() - forwardCached;
-    auto cacheCountBackward = listLayoutProperty->GetCachedCountWithDefault() - backwardCached;
+    bool isMainThreadBusy = ScrollableUtils::IsMainThreadBusy(GetHost());
+    auto minCacheCount = listLayoutProperty->GetMinCacheCount();
+    auto maxCacheCount = listLayoutProperty->GetCachedCountWithDefault();
+    auto cacheCountForward = isMainThreadBusy ? minCacheCount - forwardCached : maxCacheCount - forwardCached;
+    auto cacheCountBackward = isMainThreadBusy ? minCacheCount - backwardCached : maxCacheCount - backwardCached;
     if (cacheCountForward < 1 && cacheCountBackward < 1) {
+        return;
+    }
+    int32_t startIndex = itemPosition_.empty() ? itemTotalCount_ : itemPosition_.begin()->first;
+    int32_t backwardCachedCount = (startIndex - backwardCachedIndex_ + lanes_ - 1) / lanes_;
+    int32_t endIndex = itemPosition_.empty() ? -1 : itemPosition_.rbegin()->first;
+    int32_t forwardCachedCount = (forwardCachedIndex_ - endIndex + lanes_ - 1) / lanes_;
+    if (!(listSizeValues.forward && cacheCountForward > forwardCachedCount) &&
+        !(listSizeValues.backward && cacheCountBackward > backwardCachedCount)) {
         return;
     }
     auto host = GetHost();
@@ -801,8 +845,7 @@ void ListItemGroupPattern::UpdateDefaultColor()
     auto listItemLayoutProperty = host->GetLayoutProperty<ListItemGroupLayoutProperty>();
     CHECK_NULL_VOID(listItemLayoutProperty);
     if (!listItemLayoutProperty->HasDividerColorSetByUser() ||
-        (listItemLayoutProperty->HasDividerColorSetByUser() &&
-            !listItemLayoutProperty->GetDividerColorSetByUserValue())) {
+        !listItemLayoutProperty->GetDividerColorSetByUserValue()) {
         V2::ItemDivider value;
         ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(ListItemGroupLayoutProperty, Divider, value, host, value);
         value.color = theme->GetDividerColor();
@@ -833,6 +876,10 @@ void ListItemGroupPattern::DumpAdvanceInfo(std::unique_ptr<JsonValue>& json)
     json->Put("laneGutter", laneGutter_);
     json->Put("startHeaderPos", startHeaderPos_);
     json->Put("endFooterPos", endFooterPos_);
+    auto layoutProperty = GetLayoutProperty<ListItemGroupLayoutProperty>();
+    if (layoutProperty) {
+        layoutProperty->DumpInfo(json);
+    }
 }
 
 ScopeFocusAlgorithm ListItemGroupPattern::GetScopeFocusAlgorithm()
@@ -882,12 +929,12 @@ WeakPtr<FocusHub> ListItemGroupPattern::GetChildFocusNodeByIndex(int32_t tarInde
             CHECK_NULL_RETURN(parentNode, false);
             auto parentPattern = AceType::DynamicCast<ListItemGroupPattern>(parentNode->GetPattern());
             CHECK_NULL_RETURN(parentPattern, false);
-            if ((parentPattern->GetHeader() == childFrame && tarIndexInGroup == -1) ||
-                (parentPattern->GetFooter() == childFrame && tarIndexInGroup == parentPattern->GetTotalItemCount())) {
+            if ((parentPattern->GetHeaderNode() == childFrame && tarIndexInGroup == -1) ||
+                (parentPattern->GetFooterNode() == childFrame &&
+                 tarIndexInGroup == parentPattern->GetTotalItemCount())) {
                 target = childFocus;
                 return true;
             }
-
             return false;
         }
 
@@ -904,15 +951,15 @@ WeakPtr<FocusHub> ListItemGroupPattern::GetChildFocusNodeByIndex(int32_t tarInde
 void ListItemGroupPattern::AdjustMountTreeSequence(int32_t footerCount)
 {
     // Adjust the mount tree sequence to header, listitem, footer
-    if (footerIndex_ >= 0 && footerIndex_ < itemStartIndex_) {
+    if (footerIndex_ < itemStartIndex_) {
+        auto footer = footer_.Upgrade();
+        CHECK_NULL_VOID(footer);
         auto host = GetHost();
         CHECK_NULL_VOID(host);
         auto totalChildCount = host->GetTotalChildCount();
         auto childNode = host->GetChildAtIndex(itemStartIndex_);
         CHECK_NULL_VOID(childNode);
-        auto endNode = host->GetChildAtIndex(footerIndex_);
-        CHECK_NULL_VOID(endNode);
-        endNode->MovePosition(-1);
+        footer->MovePosition(-1);
         footerIndex_ = totalChildCount - footerCount;
         itemStartIndex_ -= footerCount;
     }
@@ -929,9 +976,9 @@ bool ListItemGroupPattern::GetCurrentFocusIndices(
     // If the current focus node is the Header or Footer of the ListItemGroup,
     // it is necessary to retrieve the index of the current focus node within the ListItemGroup.
     if (!curItemPattern) {
-        if (GetHeader() == curFrame) {
+        if (GetHeaderNode() == curFrame) {
             curIndexInGroup = -1;
-        } else if (GetFooter() == curFrame) {
+        } else if (GetFooterNode() == curFrame) {
             curIndexInGroup = GetTotalItemCount();
         } else {
             return false;
@@ -1010,7 +1057,7 @@ void ListItemGroupPattern::HandleForwardStep(
 {
     // Only for DetermineMultiLaneStep
     CHECK_NULL_VOID(curFrame);
-    moveStep = (GetHeader() == curFrame || GetFooter() == curFrame) ? 1 : lanes_;
+    moveStep = (GetHeaderNode() == curFrame || GetFooterNode() == curFrame) ? 1 : lanes_;
     nextIndex = nextIndex + moveStep;
     if (curIndexInGroup < GetTotalItemCount() && curIndexInGroup >= 0) {
         // Neither Header nor Footer. If it is the last row and the DOWN key is pressed,
@@ -1037,7 +1084,7 @@ void ListItemGroupPattern::HandleBackwardStep(
     CHECK_NULL_VOID(curFrame);
     // If the current focus is on the header, set moveStep = 1; if the current focus is on the footer,
     // set moveStep = -1;
-    moveStep = (GetHeader() == curFrame || GetFooter() == curFrame) ? -1 : -lanes_;
+    moveStep = (GetHeaderNode() == curFrame || GetFooterNode() == curFrame) ? -1 : -lanes_;
     nextIndex = curIndexInGroup + moveStep;
     if (curIndexInGroup >= 0 && curIndexInGroup < GetTotalItemCount()) {
         auto curRow = curIndexInGroup / lanes_;
@@ -1326,7 +1373,9 @@ void ListItemGroupPattern::MappingPropertiesFromLayoutAlgorithm(
     adjustRefPos_ = layoutAlgorithm->GetAdjustReferenceDelta();
     adjustTotalSize_ = layoutAlgorithm->GetAdjustTotalSize();
     listContentSize_ = layoutAlgorithm->GetListContentSize();
+    isCacheDirty_ = layoutAlgorithm->IsCacheDirty();
     prevMeasureBreak_ = layoutAlgorithm->GroupMeasureInNextFrame();
+    isAxisChanged_ = false;
     layouted_ = true;
     if (indexChanged) {
         auto parentList = GetListFrameNode();
@@ -1338,11 +1387,4 @@ void ListItemGroupPattern::MappingPropertiesFromLayoutAlgorithm(
         }
     }
 }
-
-void ListItemGroupPattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
-{
-    json->PutExtAttr("itemGroupStyle", GetListItemGroupStyle() == V2::ListItemGroupStyle::NONE ?
-        "ListItemGroupStyle.NONE" : "ListItemGroupStyle.CARD", filter);
-}
-
 } // namespace OHOS::Ace::NG

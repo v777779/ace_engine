@@ -17,18 +17,26 @@
 #define FOUNDATION_ACE_FRAMEWORKS_COMPONENTS_NG_PROPERTIES_ACCESSIBILITY_PROPERTY_H
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_set>
 
 #include "accessibility_property_function.h"
+#include "ui/accessibility/accessibility_constants.h"
+#include "ui/focus/focus_constants.h"
+
+#include "base/geometry/ng/point_t.h"
+#include "base/geometry/ng/rect_t.h"
 #include "base/memory/ace_type.h"
-#include "interfaces/native/native_type.h"
 #include "core/accessibility/accessibility_utils.h"
 #include "core/components_ng/base/inspector_filter.h"
-#include "core/components_ng/base/ui_node.h"
 
 namespace OHOS::Accessibility {
 class ExtraElementInfo;
+}
+
+namespace OHOS::Ace {
+class JsonValue;
 }
 
 namespace OHOS::Ace::NG {
@@ -39,12 +47,39 @@ struct WindowSceneInfo {
     float_t scaleX = 1.0f;
     float_t scaleY = 1.0f;
 };
+
+struct AccessibilityGroupOptions {
+    bool accessibilityTextPreferred = false;
+    AccessibilityRoleType stateControllerByType = AccessibilityRoleType::ROLE_NONE;
+    std::string stateControllerByInspector;
+    AccessibilityRoleType actionControllerByType = AccessibilityRoleType::ROLE_NONE;
+    std::string actionControllerByInspector;
+};
+
+struct AccessibilityActionOptions {
+    int32_t scrollStep = 1;
+};
+
+struct OverlayAccessibilityProperty {
+    bool isModal = true; // true means cannot focus lower component of dialog like components
+};
+
+enum ScrollableStatus : int32_t {
+    NOT_SUPPORT = 0,
+    AT_TOP = 1,
+    AT_BOTTOM = 2,
+    AT_BOTH_TOP_BOTTOM = 3,
+    AT_NEITHER_TOP_BOTTOM = 4,
+};
+
 using ActionNoParam = std::function<void()>;
 using ActionSetTextImpl = std::function<void(const std::string&)>;
 using ActionScrollForwardImpl = ActionNoParam;
-using ActionScrollForwardWithParamImpl = std::function<void(AccessibilityScrollType scrollType)>;;
+using ActionScrollForwardWithParamImpl = std::function<void(AccessibilityScrollType scrollType)>;
+;
 using ActionScrollBackwardImpl = ActionNoParam;
-using ActionScrollBackwardWithParamImpl = std::function<void(AccessibilityScrollType scrollType)>;;
+using ActionScrollBackwardWithParamImpl = std::function<void(AccessibilityScrollType scrollType)>;
+;
 using ActionSetSelectionImpl = std::function<void(int32_t start, int32_t end, bool isForward)>;
 using ActionCopyImpl = ActionNoParam;
 using ActionCutImpl = ActionNoParam;
@@ -61,15 +96,17 @@ using ActionsImpl = std::function<void((uint32_t actionType))>;
 using GetRelatedElementInfoImpl = std::function<void(Accessibility::ExtraElementInfo& extraElementInfo)>;
 using OnAccessibilityFocusCallbackImpl = std::function<void((bool isFocus))>;
 
-using GetWindowScenePositionImpl = std::function<void((WindowSceneInfo& windowSceneInfo))>;
+using GetWindowScenePositionImpl = std::function<void((WindowSceneInfo & windowSceneInfo))>;
 
 using OnAccessibilityHoverConsumeCheckImpl = std::function<bool(const NG::PointF& point)>;
 
+class UINode;
 class FrameNode;
 using AccessibilityHoverTestPath = std::vector<RefPtr<FrameNode>>;
 
 class ACE_FORCE_EXPORT AccessibilityProperty : public virtual AceType,
-    public AccessibilityPropertyInnerFunction, public AccessibilityPropertyInterfaceFunction {
+                                               public AccessibilityPropertyInnerFunction,
+                                               public AccessibilityPropertyInterfaceFunction {
     DECLARE_ACE_TYPE(AccessibilityProperty, AceType);
 
 public:
@@ -148,17 +185,7 @@ public:
         return -1;
     }
 
-    virtual void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
-    {
-        json->PutFixedAttr("scrollable", IsScrollable(), filter, FIXED_ATTR_SCROLLABLE);
-        json->PutExtAttr("accessibilityLevel", GetAccessibilityLevel().c_str(), filter);
-        json->PutExtAttr("accessibilityGroup", IsAccessibilityGroup(), filter);
-        json->PutExtAttr("accessibilityVirtualNode", HasAccessibilityVirtualNode(), filter);
-        json->PutExtAttr("accessibilityText", GetAccessibilityText().c_str(), filter);
-        json->PutExtAttr("accessibilityTextHint", GetTextType().c_str(), filter);
-        json->PutExtAttr("accessibilityDescription", GetAccessibilityDescription().c_str(), filter);
-        json->PutExtAttr("propText", GetText().c_str(), filter);
-    }
+    virtual void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
 
     virtual void FromJson(const std::unique_ptr<JsonValue>& json) {}
 
@@ -415,6 +442,7 @@ public:
     bool ActActionClearSelection();
 
     void SetOnAccessibilityFocusCallback(const OnAccessibilityFocusCallbackImpl& onAccessibilityFocusCallbackImpl);
+
     void ResetUserOnAccessibilityFocusCallback();
 
     void SetUserOnAccessibilityFocusCallback(
@@ -526,42 +554,37 @@ public:
 
     void SetAccessibilityLevel(const std::string& accessibilityLevel);
 
-
     struct HoverTestDebugTraceInfo {
         std::vector<std::unique_ptr<JsonValue>> trace;
     };
 
-
     /*
-    * Get path from root to node which hit the hoverPoint.
-    * return: path contains nodes whose border cover the hoverPoint.
-    */
+     * Get path from root to node which hit the hoverPoint.
+     * return: path contains nodes whose border cover the hoverPoint.
+     */
     static AccessibilityHoverTestPath HoverTest(
-        const PointF& point,
-        const RefPtr<FrameNode>& root,
-        std::unique_ptr<HoverTestDebugTraceInfo>& debugInfo
-    );
+        const PointF& point, const RefPtr<FrameNode>& root, std::unique_ptr<HoverTestDebugTraceInfo>& debugInfo);
 
     /*
-    * Judge whether a node can be accessibility focused.
-    * return: if node is accessibility focusable, return true.
-    * param: {node} should be not-null
-    */
+     * Judge whether a node can be accessibility focused.
+     * return: if node is accessibility focusable, return true.
+     * param: {node} should be not-null
+     */
     static bool IsAccessibilityFocusable(const RefPtr<FrameNode>& node);
 
     /*
-    * param: {node}, {info} should be not-null
-    */
+     * param: {node}, {info} should be not-null
+     */
     static bool IsAccessibilityFocusableDebug(const RefPtr<FrameNode>& node, std::unique_ptr<JsonValue>& info);
 
     /*
-    * Judge whether a node's tag is default accessibility focusable.
-    * return: if a node's tag is default accessibility focusable, return true.
-    * param: {tag} should be not-null
-    */
-    static bool IsAccessibilityFocusableTag(const std::string &tag);
+     * Judge whether a node's tag is default accessibility focusable.
+     * return: if a node's tag is default accessibility focusable, return true.
+     * param: {tag} should be not-null
+     */
+    static bool IsAccessibilityFocusableTag(const std::string& tag);
 
-    static bool IsTagInSubTreeComponent(const std::string& tag);
+    static bool IsTagInSubTreeComponent(const RefPtr<FrameNode>& node, const std::string& tag);
 
     static bool IsTagInModalDialog(const RefPtr<FrameNode>& node);
 
@@ -590,6 +613,10 @@ public:
     void SetAccessibilitySamePage(const std::string& pageMode);
     bool HasAccessibilitySamePage();
     std::string GetAccessibilitySamePage();
+
+    void SetAccessibilityStateDescription(const std::string& stateDescription);
+    std::string GetAccessibilityStateDescription() const;
+    bool HasAccessibilityStateDescription() const;
 
     void SetActions(const ActionsImpl& actionsImpl);
     bool ActionsDefined(uint32_t action);
@@ -651,19 +678,36 @@ public:
     void SetFocusDrawLevel(int32_t drawLevel);
     int32_t GetFocusDrawLevel();
 
-
     void SetAccessibilityZIndex(const int32_t& accessibilityZIndex);
     int32_t GetAccessibilityZIndex() const;
 
+    void SetAccessibilityGroupOptions(const AccessibilityGroupOptions& accessibilityGroupOptions);
+    bool HasAccessibilityGroupOptions();
+    AccessibilityGroupOptions GetAccessibilityGroupOptions();
+    void ResetAccessibilityGroupOptions();
+    void SetAccessibilityActionOptions(const AccessibilityActionOptions& accessibilityActionOptions);
+    AccessibilityActionOptions GetAccessibilityActionOptions();
+    void ResetAccessibilityActionOptions();
+
+    // used to indicate whether a dialog like component is modal
+    void SetIsAccessibilityModal(bool isModal);
+    virtual bool IsAccessibilityModal() const;
+    virtual bool GetAccessibilityInnerVisibleRect(RectF& rect)
+    {
+        return false;
+    }
+
+    void SetIsHeaderOrFooter(bool isFlag);
+    bool IsHeaderOrFooter() const;
+    virtual ScrollableStatus GetScrollableStatus() const
+    {
+        return NOT_SUPPORT;
+    }
+
 private:
     // node should be not-null
-    static bool HoverTestRecursive(
-        const PointF& parentPoint,
-        const RefPtr<FrameNode>& node,
-        AccessibilityHoverTestPath& path,
-        std::unique_ptr<HoverTestDebugTraceInfo>& debugInfo,
-        bool& ancestorGroupFlag
-    );
+    static bool HoverTestRecursive(const PointF& parentPoint, const RefPtr<FrameNode>& node,
+        AccessibilityHoverTestPath& path, std::unique_ptr<HoverTestDebugTraceInfo>& debugInfo, bool& ancestorGroupFlag);
 
     struct RecursiveParam {
         bool hitTarget;
@@ -674,15 +718,15 @@ private:
         AccessibilityHoverTestPath& path, std::unique_ptr<HoverTestDebugTraceInfo>& debugInfo,
         RecursiveParam recursiveParam);
 
-    static std::unique_ptr<JsonValue> CreateNodeSearchInfo(const RefPtr<FrameNode>& node, const PointF& parentPoint,
-        bool& ancestorGroupFlag);
+    static std::unique_ptr<JsonValue> CreateNodeSearchInfo(
+        const RefPtr<FrameNode>& node, const PointF& parentPoint, bool& ancestorGroupFlag);
 
     /*
-    * Get whether node and its children should be searched.
-    * return: first: node itself should be searched.
-    *         second: children of node should be searched.
-    * param: {node} should be not-null
-    */
+     * Get whether node and its children should be searched.
+     * return: first: node itself should be searched.
+     *         second: children of node should be searched.
+     * param: {node} should be not-null
+     */
     static std::tuple<bool, bool, bool> GetSearchStrategy(const RefPtr<FrameNode>& node, bool& ancestorGroupFlag);
 
     void GetGroupTextRecursive(bool forceGetChildren, std::string& text, bool preferAccessibilityText) const;
@@ -690,6 +734,8 @@ private:
     bool HasAccessibilityTextOrDescription() const;
 
     bool HasAction() const;
+
+    static bool NotConsumeByModal(const RefPtr<FrameNode>& node);
 
     static bool CheckHoverConsumeByAccessibility(const RefPtr<FrameNode>& node);
 
@@ -738,8 +784,8 @@ protected:
     ActionsImpl actionsImpl_;
     GetRelatedElementInfoImpl getRelatedElementInfoImpl_;
     OnAccessibilityFocusCallbackImpl onAccessibilityFocusCallbackImpl_;
-    GetWindowScenePositionImpl getWindowScenePositionImpl_;
     OnAccessibilityFocusCallbackImpl onUserAccessibilityFocusCallbackImpl_;
+    GetWindowScenePositionImpl getWindowScenePositionImpl_;
     OnAccessibilityHoverConsumeCheckImpl accessibilityHoverConsumeCheckImpl_;
 
     bool isAccessibilityFocused_ = false;
@@ -758,6 +804,7 @@ protected:
     std::optional<std::string> accessibilityRole_;
     std::optional<std::string> accessibilityCustomRole_;
     std::optional<std::string> accessibilityUseSamePage_;
+    std::optional<std::string> accessibilityStateDescription_;
     ACE_DISALLOW_COPY_AND_MOVE(AccessibilityProperty);
 
     std::optional<bool> isDisabled_;
@@ -774,9 +821,16 @@ protected:
     std::optional<int32_t> rangeCurrentValue_;
     std::optional<std::string> textValue_;
     FocusDrawLevel focusDrawLevel_ = FocusDrawLevel::SELF;
+
     // used to modify the hierarchical relation ship between sibling nodes the same level in barrierfree tree
     // only affects the barrierfree tree presentation, does not affect the zindex in barrierfree hover
     int32_t accessibilityZIndex_ = -1;
+    // used to maintain user accessibilityOptions, only for interface of accessibilityOptions
+    std::optional<AccessibilityGroupOptions> accessibilityGroupOptions_;
+    // used to maintain overlay, dialog like components' options
+    std::optional<OverlayAccessibilityProperty> overlayProperty_;
+    std::optional<bool> isHeaderOrFooter_;
+    std::optional<AccessibilityActionOptions> accessibilityActionOptions_;
 };
 } // namespace OHOS::Ace::NG
 

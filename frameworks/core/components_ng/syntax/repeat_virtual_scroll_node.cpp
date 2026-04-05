@@ -36,6 +36,7 @@ RefPtr<RepeatVirtualScrollNode> RepeatVirtualScrollNode::GetOrCreateRepeatNode(i
         node->UpdateTotalCount(totalCount);
         return node;
     }
+    ACE_UINODE_TRACE(nodeId);
     node = MakeRefPtr<RepeatVirtualScrollNode>(
         nodeId, totalCount, templateCachedCountMap, onCreateNode, onUpdateNode, onGetKeys4Range, onGetTypes4Range,
         onSetActiveRange, reusable);
@@ -435,13 +436,13 @@ const std::list<RefPtr<UINode>>& RepeatVirtualScrollNode::GetChildren(bool /*not
     for (const auto& [index, child] : children) {
         if (child) {
             const_cast<RepeatVirtualScrollNode*>(this)->RemoveDisappearingChild(child);
+            children_.emplace_back(child);
         }
-        children_.emplace_back(child);
     }
     return children_;
 }
 
-const std::list<RefPtr<UINode>>& RepeatVirtualScrollNode::GetChildrenForInspector() const
+const std::list<RefPtr<UINode>>& RepeatVirtualScrollNode::GetChildrenForInspector(bool needCacheNode) const
 {
     return children_;
 }

@@ -44,7 +44,7 @@ CheckboxSettingData Convert(const Ark_LunarSwitchStyle& src)
 } // namespace Converter
 
 namespace DatePickerDialogExtender {
-std::optional<PickerDate> ProcessBindableDateSelected(const Opt_Union_Date_Bindable& value)
+std::optional<PickerDate> ProcessBindableDateSelected(const Opt_Union_Date_Bindable_Date& value)
 {
     std::optional<PickerDate> result;
     Converter::VisitUnion(
@@ -57,7 +57,7 @@ std::optional<PickerDate> ProcessBindableDateSelected(const Opt_Union_Date_Binda
         [] {});
     return result;
 }
-std::optional<PickerTime> ProcessBindableTimeSelected(const Opt_Union_Date_Bindable& value)
+std::optional<PickerTime> ProcessBindableTimeSelected(const Opt_Union_Date_Bindable_Date& value)
 {
     std::optional<PickerTime> result;
     Converter::VisitUnion(
@@ -192,9 +192,14 @@ DatePickerSettingData BuildSettingData(const Ark_DatePickerDialogOptions& option
     if (pickerMode) {
         settingData.mode = *pickerMode;
     }
+    settingData.isEnableHapticFeedback = true;
     auto enableHapticFeedback = Converter::OptConvert<bool>(options.enableHapticFeedback);
     if (enableHapticFeedback) {
         settingData.isEnableHapticFeedback = enableHapticFeedback.value();
+    }
+    auto canLoop = Converter::OptConvert<bool>(options.canLoop);
+    if (canLoop) {
+        settingData.canLoop = canLoop.value();
     }
     return settingData;
 }

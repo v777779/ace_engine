@@ -20,6 +20,10 @@
 #include "core/components_ng/manager/select_overlay/selection_host.h"
 #include "core/components_ng/render/paragraph.h"
 
+namespace OHOS::Ace::NG {
+enum class AIResetSelectionReason : int;
+} // namespace OHOS::Ace::NG
+
 constexpr uint32_t DRAGGED_TEXT_OPACITY = 0x66;
 constexpr uint32_t DRAGGED_TEXT_TRANSPARENCY = 0x40;
 
@@ -81,10 +85,14 @@ public:
         return OffsetF(0, 0);
     }
 
-    virtual void OnDragNodeDetachFromMainTree() {};
     virtual void ResetAISelected(AIResetSelectionReason reason) {}
     virtual void ShowAIEntityMenuForCancel() {}
+    virtual bool IsPreviewMenuShow()
+    {
+        return false;
+    }
 
+    virtual void OnDragNodeDetachFromMainTree() {};
     ACE_DISALLOW_COPY_AND_MOVE(TextDragBase);
 };
 } // namespace OHOS::Ace::NG

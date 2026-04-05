@@ -28,7 +28,7 @@
 namespace OHOS::Ace::NG {
 // RenderSurface is used for SurfaceNode
 class ACE_FORCE_EXPORT RenderSurface : public virtual AceType {
-    DECLARE_ACE_TYPE(NG::RenderSurface, AceType)
+    DECLARE_ACE_TYPE(NG::RenderSurface, AceType);
 
 public:
     RenderSurface() = default;
@@ -76,6 +76,11 @@ public:
         return "";
     }
 
+    virtual uint64_t GetUniqueIdNum() const
+    {
+        return 0;
+    }
+
     virtual void UpdateSurfaceSizeInUserData(uint32_t width, uint32_t height) {}
 
     virtual void SetExtSurfaceBounds(int32_t left, int32_t top, int32_t width, int32_t height) {}
@@ -120,6 +125,8 @@ public:
 
     virtual void SetBufferUsage(const std::string& usage) {}
 
+    virtual void SetBufferTypeLeak(const std::string& bufferTypeLeak) {}
+
     virtual void SetSurfaceQueueSize(int32_t queueSize) {}
 
     virtual void DrawBufferForXComponent(RSCanvas& canvas, float width, float height, float offsetX, float offsetY) {};
@@ -138,10 +145,22 @@ public:
 
     virtual void OnWindowStateChange(bool isShow) {}
 
+    virtual void SetSurfaceBufferOpaque(bool isOpaque) {}
+
     virtual void SetIsNeedSyncGeometryProperties(bool isNeedSyncGeometryProperties) {}
 
     virtual void SetKeyBoardAvoidRect(RectF keyBoardAvoidRect) {}
 
+    virtual std::string GetPSurfaceName()
+    {
+        return "";
+    }
+
+#ifdef RENDER_EXTRACT_SUPPORTED
+    virtual void GetTextureIsVideo(int32_t& type) {}
+
+    virtual void SetPatternType(int type) {}
+#endif
 protected:
     ACE_DISALLOW_COPY_AND_MOVE(RenderSurface);
 };

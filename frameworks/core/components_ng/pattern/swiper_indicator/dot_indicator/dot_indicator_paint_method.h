@@ -29,7 +29,7 @@ namespace OHOS::Ace::NG {
 enum class PointAnimationStage { STATE_SHRINKT_TO_BLACK_POINT, STATE_EXPAND_TO_LONG_POINT };
 
 class ACE_EXPORT DotIndicatorPaintMethod : public NodePaintMethod {
-    DECLARE_ACE_TYPE(DotIndicatorPaintMethod, NodePaintMethod)
+    DECLARE_ACE_TYPE(DotIndicatorPaintMethod, NodePaintMethod);
 public:
     explicit DotIndicatorPaintMethod(const RefPtr<DotIndicatorModifier>& dotIndicatorModifier)
         : dotIndicatorModifier_(dotIndicatorModifier)
@@ -194,6 +194,11 @@ public:
         targetIndex_ = targetIndex;
     }
 
+    void SetIsLongPressed(bool isLongPressed)
+    {
+        isLongPressed_ = isLongPressed;
+    }
+
 protected:
     struct StarAndEndPointCenter {
         float startLongPointLeftCenterX = 0.0f;
@@ -233,6 +238,7 @@ protected:
     bool NeedBottomAnimation() const;
     int32_t CalculateMouseClickIndexOnRTL();
     std::pair<int32_t, int32_t> CalCurrentIndex();
+    void UpdateIsPressedOrIsHover(PaintWrapper* paintWrapper);
 
     RefPtr<DotIndicatorModifier> dotIndicatorModifier_;
     PointF hoverPoint_;
@@ -259,9 +265,11 @@ protected:
     bool isLoop_ = true;
     bool isHover_ = false;
     bool isPressed_ = false;
+    bool isLongPressed_ = false;
     bool longPointIsHover_ = false;
     bool IsCustomSizeValue_ = false;
     bool isSwipeByGroup_ = false;
+    bool isInBottomTranslate_ = false;
     // Animatable properties for updating Modifier
     LinearVector<float> vectorBlackPointCenterX_ = {};
     std::pair<float, float> longPointCenterX_ = { 0, 0 };

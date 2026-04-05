@@ -39,10 +39,11 @@ class AppStorageV2 {
    * @param { { new(...args: any): T } } type - The type of the stored value.
    * @param { string | StorageDefaultCreator<T> } [keyOrDefaultCreator] - The alias name of the key, or function generating the default value.
    * @param { StorageDefaultCreator<T> } [defaultCreator] - The function generating the default value.
+   * @param { StorageDefaultCreator<T> } [defaultSubCreator] - The function generating the default value for each collection item.
    * @returns { T } The value of the existed key or the default value.
    */
-  static connect(type, keyOrDefaultCreator, defaultCreator) {
-    return AppStorageV2.appStorageV2Impl_.connect(type, keyOrDefaultCreator, defaultCreator);
+  static connect(type, keyOrDefaultCreator, defaultCreator, defaultSubCreator) {
+    return AppStorageV2.appStorageV2Impl_.connect(type, keyOrDefaultCreator, defaultCreator, defaultSubCreator);
   }
 
   /**
@@ -65,7 +66,7 @@ class AppStorageV2 {
 }
 
 AppStorageV2.appStorageV2Impl_ =
-InteropConfigureStateMgmt.instance.needsInterop() ? InteropStorageV2.instance() : AppStorageV2Impl.instance();
+InteropConfigureStateMgmt.needsInterop() ? InteropStorageV2.instance() : AppStorageV2Impl.instance();
 
 /**
  * PersistenceV2
@@ -94,10 +95,11 @@ class PersistenceV2 extends AppStorageV2 {
    * @param { { new(...args: any): T } } type - The type of the stored value.
    * @param { string | StorageDefaultCreator<T> } [keyOrDefaultCreator] - The alias name of the key, or function generating the default value.
    * @param { StorageDefaultCreator<T> } [defaultCreator] - The function generating the default value.
+   * @param { StorageDefaultCreator<T> } [defaultSubCreator] - The function generating the default value for each collection item.
    * @returns { T } The value of the existed key or the default value.
    */
-  static connect(type, keyOrDefaultCreator, defaultCreator) {
-    return PersistenceV2.persistenceV2Impl_.connect(type, keyOrDefaultCreator, defaultCreator);
+  static connect(type, keyOrDefaultCreator, defaultCreator, defaultSubCreator) {
+    return PersistenceV2.persistenceV2Impl_.connect(type, keyOrDefaultCreator, defaultCreator, defaultSubCreator);
   }
 
     /**
@@ -108,8 +110,8 @@ class PersistenceV2 extends AppStorageV2 {
    * use application path to store data in disk
    *
    * @template T - The original object.
-   * @param { { ConnectOptions<T extends Objects>: T } } connectOptions - Connect param.
-   * @returns { T } The value of the existed key or the default value.
+   * @param { ConnectOptions<T> | ConnectOptionsCollections<T, S> } connectOptions - Connect param.
+   * @returns { T | undefined } The value of the existed key or the default value.
    */
   static globalConnect(connectOptions) {
     return PersistenceV2.persistenceV2Impl_.globalConnect(connectOptions);
@@ -166,6 +168,54 @@ PersistenceV2.persistenceV2Impl_ = PersistenceV2Impl.instance();
 const Type = __Type__;
 
 /**
+ * When a custom component initialization is about to be completed, the function 
+ * decorated by the decorator will be executed.
+ */
+const ComponentInit = __componentInit__Internal;
+
+/**
+ * The function decorated by the decorator is executed after a new instance of the 
+ * custom component is created, before its build() function is executed.
+ */
+const ComponentAppear = __componentAppear__Internal;
+
+/**
+ * The function decorated by the decorator is executed after a new instance of the 
+ * custom component is built, after its build() function is executed.
+ */
+const ComponentBuilt = __componentBuilt__Internal;
+
+/**
+ * The function decorated by the decorator is invoked when a reusable custom component 
+ * is re-added to the node tree from the reuse cache to receive construction parameters
+ * of the component.
+ */
+const ComponentReuse = __componentReuse__Internal;
+
+/**
+ * The function decorated by the decorator is invoked from the native side function 
+ * 'CustomNodeBase::SetRecycleFunction' when the component is about to be recycled.
+ * It first calls the function in the application, and performs the necessary actions
+ * defined in the application before recycling.
+ * Then, it freezes the component to avoid performing UI updates when its in recycle 
+ * pool.
+ * Finally recursively traverses all subcomponents, calling the function on each 
+ * subcomponent that is about to be recycled, preparing them for recycling as well.
+ */
+const ComponentRecycle = __componentRecycle__Internal;
+
+/**
+ * The function decorated by the decorator is executed before the custom component 
+ * is about to be disappeared.
+ */
+const ComponentDisappear = __componentDisappear__Internal;
+
+/**
+ * Enum for Lifecycle State type.
+ */
+const CustomComponentLifecycleState = __CustomComponentLifecycleState__Internal;
+
+/**
  * UIUtils is a state management tool class for operating the observed data.
  *
  * @syscap SystemCapability.ArkUI.ArkUI.Full
@@ -174,6 +224,20 @@ const Type = __Type__;
  * @since 12
  */
 class UIUtils {
+  /**
+   * Determine whether the data object is observable and return the observation result.
+	 *
+   * @param { T } source - input source object data.
+   * @returns { ObservedResult } return result of whether a class is observable.
+   * @syscap SystemCapability.ArkUI.ArkUI.Full
+   * @stagemodelonly
+   * @crossplatform
+   * @atomicservice
+   * @since 23 dynamic
+   */
+  static canBeObserved(source) {
+    return UIUtils.uiUtilsImpl_.canBeObserved(source);
+  }
   /**
    * Get raw object from the Object wrapped with Proxy added by statemanagement framework.
    * If input parameter is a regular Object without Proxy, return Object itself.
@@ -194,6 +258,19 @@ class UIUtils {
    */
   static getTarget(source) {
     return UIUtils.uiUtilsImpl_.getTarget(source);
+  }
+
+  /**
+   * The getLifecycle function gets the lifecycle instance of the class CustomComponent.
+   * 
+   * @param {T} source custom component instance
+   * @returns 
+   */
+  static getLifecycle(source) {
+    if (source && typeof source.__getLifecycle__Internal === 'function') {
+      return source.__getLifecycle__Internal();
+    }
+    return null;
   }
 
   /**
@@ -220,7 +297,7 @@ class UIUtils {
    * @syscap SystemCapability.ArkUI.ArkUI.Full
    * @crossplatform
    * @atomicservice
-   * @since 12
+   * @since 19
    */
   static makeV1Observed(source) {
       return UIUtils.uiUtilsImpl_.makeV1Observed(source);
@@ -230,12 +307,12 @@ class UIUtils {
    * Enables V2 compatibility for the given object.
    * Ensures that the object and its nested properties conform to V2 behaviour.
    *
-   * @param {Object} source - The object to be made V2-compatible.
-   * @returns {Object} The processed object with V2 compatibility enabled.
+   * @param { Object } source - The object to be made V2-compatible.
+   * @returns { Object } The processed object with V2 compatibility enabled.
    * @syscap SystemCapability.ArkUI.ArkUI.Full
    * @crossplatform
    * @atomicservice
-   * @since 12
+   * @since 19
    */
   static enableV2Compatibility(source) {
     return UIUtils.uiUtilsImpl_.enableV2Compatibility(source);
@@ -256,6 +333,85 @@ class UIUtils {
   static makeBinding(getter, setter) {
     return UIUtils.uiUtilsImpl_.makeBinding(getter, setter);
   }
+
+  /**
+   * Dynamically add monitor for state variable change.
+   *
+   * @param { object } target class instance or custom component instance.
+   * @param { string | string[] } path  monitored change for state variable.
+   * @param { MonitorCallback } monitorCallback the function that triggers the callback when state variable change.
+   * @param { MonitorOptions} [options] the monitor configuration parameter.
+   * @throws { BusinessError } 130000 - The target is not a custom component instance or V2 class instance.
+   * @throws { BusinessError } 130001 - The path is invalid.
+   * @throws { BusinessError } 130002 - monitorCallback is not a function or an anonymous function.
+   * @static
+   * @syscap SystemCapability.ArkUI.ArkUI.Full
+   * @crossplatform
+   * @atomicservice
+   * @since 20
+   */
+    static addMonitor(target, path, monitorCallback, options) {
+      UIUtils.uiUtilsImpl_.addMonitor(target, path, monitorCallback, options) ;
+    }
+
+  /**
+   * Dynamically clear monitor callback for state variable change.
+   *
+   * @param { object } target class instance or custom component instance.
+   * @param { string | string[] } path  monitored change for state variable.
+   * @param { MonitorCallback } [monitorCallback] the function that triggers the callback when state variable change.
+   * @throws { BusinessError } 130000 - The target is not a custom component instance or V2 class instance.
+   * @throws { BusinessError } 130001 - The path is invalid.
+   * @throws { BusinessError } 130002 - monitorCallback is not a function or an anonymous function.
+   * @static
+   * @syscap SystemCapability.ArkUI.ArkUI.Full
+   * @crossplatform
+   * @atomicservice
+   * @since 20
+   */
+  static clearMonitor(target, path, monitorCallback) {
+    UIUtils.uiUtilsImpl_.clearMonitor(target, path, monitorCallback) ;
+  }
+
+  /**
+   * Runs a task and processes all resulting updates immediately
+   *
+   * @param { object } task to be executed
+   * @static
+   * @syscap SystemCapability.ArkUI.ArkUI.Full
+   * @crossplatform
+   * @atomicservice
+   * @returns { T } The value returned by the task
+   */
+  static applySync(task) {
+    return UIUtils.uiUtilsImpl_.applySync(task);
+  }
+
+  /**
+   * Immediately processes all updates
+   *
+   * @static
+   * @syscap SystemCapability.ArkUI.ArkUI.Full
+   * @crossplatform
+   * @atomicservice
+   */
+  static flushUpdates() {
+    return UIUtils.uiUtilsImpl_.flushUpdates();
+  }
+
+
+  /**
+   * Immediately rerenders UINodes that need updates
+   *
+   * @static
+   * @syscap SystemCapability.ArkUI.ArkUI.Full
+   * @crossplatform
+   * @atomicservice
+   */
+  static flushUIUpdates() {
+    return UIUtils.uiUtilsImpl_.flushUIUpdates(); 
+  }
+
 }
 
 UIUtils.uiUtilsImpl_ = UIUtilsImpl.instance();
@@ -264,5 +420,12 @@ export default {
   AppStorageV2,
   PersistenceV2,
   Type,
-  UIUtils
+  UIUtils,
+  ComponentInit,
+  ComponentAppear,
+  ComponentBuilt,
+  ComponentReuse,
+  ComponentRecycle,
+  ComponentDisappear,
+  CustomComponentLifecycleState
 };

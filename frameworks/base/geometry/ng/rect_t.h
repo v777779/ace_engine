@@ -28,6 +28,9 @@
 #include "base/utils/utils.h"
 
 namespace OHOS::Ace::NG {
+namespace {
+constexpr float PARENT_BORDER_CHECK_BUFFER = 5.0;
+}
 template<typename T>
 class RectT {
 public:
@@ -329,6 +332,14 @@ public:
                  LessOrEqual(other.Bottom(), Top() + 1.0) || GreatOrEqual(other.Top() + 1.0, Bottom()));
     }
 
+    bool IsInnerIntersectForSeccompBorder(const RectT& other) const
+    {
+        return !(LessOrEqual(other.Right(), Left() + PARENT_BORDER_CHECK_BUFFER) ||
+                 GreatOrEqual(other.Left() + PARENT_BORDER_CHECK_BUFFER, Right()) ||
+                 LessOrEqual(other.Bottom(), Top() + PARENT_BORDER_CHECK_BUFFER) ||
+                 GreatOrEqual(other.Top() + PARENT_BORDER_CHECK_BUFFER, Bottom()));
+    }
+
     RectT IntersectRectT(const RectT& other) const
     {
         T left = std::max(Left(), other.Left());
@@ -345,6 +356,16 @@ public:
         T top = std::min(Top(), other.Top());
         T bottom = std::max(Bottom(), other.Bottom());
         return RectT(left, top, right - left, bottom - top);
+    }
+
+    void CombineRectTInner(const RectT& other)
+    {
+        T right = std::max(Right(), other.Right());
+        T bottom = std::max(Bottom(), other.Bottom());
+        x_ = std::min(Left(), other.Left());
+        y_ = std::min(Top(), other.Top());
+        width_ = right - x_;
+        height_ = bottom - y_;
     }
 
     OffsetT<T> MagneticAttractedBy(const RectT& magnet)

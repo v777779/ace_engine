@@ -17,6 +17,7 @@
 
 #include "ani_callback_info.h"
 #include "../utils/ani_utils.h"
+#include "base/log/ace_trace.h"
 #include "base/log/log_wrapper.h"
 #ifdef WINDOW_SCENE_SUPPORTED
 #include "core/components_ng/pattern/ui_extension/dynamic_component/dynamic_model_static.h"
@@ -78,6 +79,7 @@ ani_long NativeDynamicModule::DynamicConstruct(
     [[maybe_unused]] ani_int flag)
 {
 #ifdef WINDOW_SCENE_SUPPORTED
+    ACE_UINODE_TRACE(id);
     auto frameNodePtr = NG::DynamicModelStatic::CreateFrameNodeByIncRefCount(id);
     return reinterpret_cast<ani_long>(frameNodePtr);
 #else
@@ -97,6 +99,7 @@ ani_status NativeDynamicModule::SetDynamicOption(
             "frameNode is null when SetDynamicOption");
         return ANI_ERROR;
     }
+    ACE_UINODE_TRACE(frameNode);
 
     std::string optionClassName =
         "arkui.ani.arkts.ui_extension.ArkUIAniDynamicModal.ArkUIAniDynamicOptions";
@@ -140,14 +143,16 @@ ani_status NativeDynamicModule::SetOnError(
         TAG_LOGE(OHOS::Ace::AceLogTag::ACE_DYNAMIC_COMPONENT, "frameNode is null when SetOnError");
         return ANI_ERROR;
     }
+    ACE_UINODE_TRACE(frameNode);
     ani_ref onErrorRef = reinterpret_cast<ani_ref>(callbackObj);
     ani_ref onErrorGlobalRef;
     env->GlobalReference_Create(onErrorRef, &onErrorGlobalRef);
     ani_vm* vm = nullptr;
     env->GetVM(&vm);
     auto onErrorAniReadyCallbackInfo = std::make_shared<AniCallbackInfo>(vm, onErrorGlobalRef);
-    auto onErrorCallback = [onErrorAniReadyCallbackInfo] (
+    auto onErrorCallback = [onErrorAniReadyCallbackInfo, node = AceType::WeakClaim(frameNode)] (
         int32_t code, const std::string& name, const std::string& message) {
+        ACE_UINODE_TRACE(node);
         if (onErrorAniReadyCallbackInfo == nullptr) {
             TAG_LOGE(OHOS::Ace::AceLogTag::ACE_DYNAMIC_COMPONENT,
                 "onErrorAniReadyCallbackInfo is nullptr");
@@ -194,6 +199,7 @@ ani_status NativeDynamicModule::SetIsReportFrameEvent(
         TAG_LOGE(OHOS::Ace::AceLogTag::ACE_DYNAMIC_COMPONENT, "frameNode is null when SetIsReportFrameEvent");
         return ANI_ERROR;
     }
+    ACE_UINODE_TRACE(frameNode);
 #ifdef WINDOW_SCENE_SUPPORTED
     NG::DynamicModelStatic::SetIsReportFrameEvent(frameNode, value);
 #endif //WINDOW_SCENE_SUPPORTED

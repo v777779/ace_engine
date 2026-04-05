@@ -32,6 +32,16 @@
 #include "core/components_ng/pattern/pattern.h"
 
 namespace OHOS::Ace::NG {
+
+inline constexpr char TEXT_ETS_TAG[] = "Text";
+inline constexpr char STACK_ETS_TAG[] = "Stack";
+inline constexpr char LIST_ETS_TAG[] = "List";
+inline constexpr char COLUMN_ETS_TAG[] = "Column";
+inline constexpr char LIST_ITEM_ETS_TAG[] = "ListItem";
+inline constexpr char ARC_INDEXER_ETS_TAG[] = "ArcAlphabetIndexer";
+inline constexpr char INDEXER_ETS_TAG[] = "AlphabetIndexer";
+inline constexpr char IMAGE_ETS_TAG[] = "Image";
+
 enum class IndexerCollapsingMode {
     INVALID,
     NONE, // all array should be displayed
@@ -55,27 +65,32 @@ public:
 
     RefPtr<EventHub> CreateEventHub() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<IndexerEventHub>();
     }
 
     RefPtr<LayoutProperty> CreateLayoutProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<IndexerLayoutProperty>();
     }
 
     RefPtr<PaintProperty> CreatePaintProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<IndexerPaintProperty>();
     }
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
+        ACE_UINODE_TRACE(GetHost());
         auto indexerLayoutAlgorithm = MakeRefPtr<IndexerLayoutAlgorithm>();
         return indexerLayoutAlgorithm;
     }
 
     RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<IndexerAccessibilityProperty>();
     }
 
@@ -96,6 +111,9 @@ public:
 
     bool IsMeasureBoundary() const override;
     void UpdateChildBoundary(RefPtr<FrameNode>& frameNode);
+    void ReportInjectionEvent(bool result, std::string reson);
+    bool ParseCommand(const std::string& command, int32_t& selected);
+    int32_t OnInjectionEvent(const std::string& command) override;
 
 protected:
     void SetAccessibilityAction();
@@ -123,7 +141,7 @@ private:
     void DumpInfo() override;
     void OnColorModeChange(uint32_t colorMode) override;
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void BuildArrayValueItems();
     void BuildFullArrayValue();
     void CollapseArrayValue();
@@ -208,6 +226,7 @@ private:
     void ReportSelectEvent();
     void ReportPoupSelectEvent();
     void UpdateThemeColor();
+    void ReportSelectChangeData(int32_t nodeId, int32_t currentIndex);
     std::vector<int32_t> collapsedItemNums_;
     int32_t collapsedIndex_ = 0;
     int32_t lastCollapsedIndex_ = 0;

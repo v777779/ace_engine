@@ -67,7 +67,7 @@ HWTEST_F(TextFieldUXTest, PerformAction001, TestSize.Level1)
     EXPECT_TRUE(pattern_->IsTextArea());
     EXPECT_TRUE(pattern_->GetInputFilter() != "\n");
     pattern_->PerformAction(textInputAction, false);
-    EXPECT_EQ(pattern_->TextInputActionToString(), "EnterKeyType.Done");
+    EXPECT_EQ(pattern_->TextInputActionToString(), "EnterKeyType.NewLine");
 }
 
 /**
@@ -1169,72 +1169,6 @@ HWTEST_F(TextFieldUXTest, FontFeature002, TestSize.Level1)
 }
 
 /**
- * @tc.name: TextAreaInputRectUpdate001
- * @tc.desc: Test TextAreaInputRectUpdate
- * @tc.type: FUNC
- */
-HWTEST_F(TextFieldUXTest, TextAreaInputRectUpdate001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Initialize text area.
-     */
-    CreateTextField(DEFAULT_TEXT);
-
-    /**
-     * @tc.steps: step2. Update text align.
-     */
-    layoutProperty_->UpdateTextAlign(TextAlign::START);
-    RectF textAreaRect = RectF(2.0f, 2.0f, 2.0f, 2.0f);
-    pattern_->TextAreaInputRectUpdate(textAreaRect);
-    EXPECT_EQ(textAreaRect, RectF(2.0f, 2.0f, 0.0f, 2.0f));
-}
-
-/**
- * @tc.name: TextAreaInputRectUpdate002
- * @tc.desc: Test TextAreaInputRectUpdate
- * @tc.type: FUNC
- */
-HWTEST_F(TextFieldUXTest, TextAreaInputRectUpdate002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Initialize text area.
-     */
-    CreateTextField(DEFAULT_TEXT);
-
-    /**
-     * @tc.steps: step2. Update text align.
-     */
-    layoutProperty_->UpdateTextAlign(TextAlign::CENTER);
-    RectF textAreaRect = RectF(2.0f, 2.0f, 2.0f, 2.0f);
-    pattern_->TextAreaInputRectUpdate(textAreaRect);
-    EXPECT_EQ(textAreaRect, RectF(232.0f, 2.0f, 0.0f, 2.0f));
-}
-
-/**
- * @tc.name: TextAreaInputRectUpdate003
- * @tc.desc: Test TextAreaInputRectUpdate
- * @tc.type: FUNC
- */
-HWTEST_F(TextFieldUXTest, TextAreaInputRectUpdate003, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Initialize text area.
-     */
-    CreateTextField(DEFAULT_TEXT);
-
-    /**
-     * @tc.steps: step2. Update text align.
-     */
-    layoutProperty_->UpdateTextAlign(TextAlign::END);
-    RectF textAreaRect = RectF(2.0f, 2.0f, 2.0f, 2.0f);
-    pattern_->TextAreaInputRectUpdate(textAreaRect);
-    EXPECT_EQ(textAreaRect, RectF(462.0f, 2.0f, 0.0f, 2.0f));
-
-    layoutProperty_->UpdateTextAlign(TextAlign::LEFT);
-    EXPECT_EQ(textAreaRect, RectF(462.0f, 2.0f, 0.0f, 2.0f));
-}
-
-/**
  * @tc.name: TextIsEmptyRect001
  * @tc.desc: Test TextAreaInputRectUpdate
  * @tc.type: FUNC
@@ -1385,7 +1319,9 @@ HWTEST_F(TextFieldUXTest, TextAreaLayout001, TestSize.Level1)
     TextStyle textStyle;
     std::u16string textContent(DEFAULT_TEXT_U16);
     bool showPlaceHolder = false;
-    textAreaLayoutAlgorithm->ConstructTextStyles(frameNode_, textStyle, textContent, showPlaceHolder);
+    LayoutWrapperNode layoutWrapper =
+        LayoutWrapperNode(frameNode_, AceType::MakeRefPtr<GeometryNode>(), layoutProperty_);
+    textAreaLayoutAlgorithm->ConstructTextStyles(&layoutWrapper, textStyle, textContent, showPlaceHolder);
     EXPECT_EQ(textStyle.GetWordBreak(), WordBreak::NORMAL);
 }
 
@@ -1418,7 +1354,9 @@ HWTEST_F(TextFieldUXTest, TextAreaLayout002, TestSize.Level1)
     TextStyle textStyle;
     std::u16string textContent(DEFAULT_TEXT_U16);
     bool showPlaceHolder = false;
-    textAreaLayoutAlgorithm->ConstructTextStyles(frameNode_, textStyle, textContent, showPlaceHolder);
+    LayoutWrapperNode layoutWrapper =
+        LayoutWrapperNode(frameNode_, AceType::MakeRefPtr<GeometryNode>(), layoutProperty_);
+    textAreaLayoutAlgorithm->ConstructTextStyles(&layoutWrapper, textStyle, textContent, showPlaceHolder);
     EXPECT_EQ(textStyle.GetWordBreak(), WordBreak::BREAK_ALL);
 }
 
@@ -1451,7 +1389,9 @@ HWTEST_F(TextFieldUXTest, TextAreaLayout003, TestSize.Level1)
     TextStyle textStyle;
     std::u16string textContent(DEFAULT_TEXT_U16);
     bool showPlaceHolder = false;
-    textAreaLayoutAlgorithm->ConstructTextStyles(frameNode_, textStyle, textContent, showPlaceHolder);
+    LayoutWrapperNode layoutWrapper =
+        LayoutWrapperNode(frameNode_, AceType::MakeRefPtr<GeometryNode>(), layoutProperty_);
+    textAreaLayoutAlgorithm->ConstructTextStyles(&layoutWrapper, textStyle, textContent, showPlaceHolder);
     EXPECT_EQ(textStyle.GetWordBreak(), WordBreak::BREAK_WORD);
 }
 
@@ -1486,7 +1426,9 @@ HWTEST_F(TextFieldUXTest, TextAreaLayout004, TestSize.Level1)
     TextStyle textStyle;
     std::u16string textContent(DEFAULT_TEXT_U16);
     bool showPlaceHolder = false;
-    textAreaLayoutAlgorithm->ConstructTextStyles(frameNode_, textStyle, textContent, showPlaceHolder);
+    LayoutWrapperNode layoutWrapper =
+        LayoutWrapperNode(frameNode_, AceType::MakeRefPtr<GeometryNode>(), layoutProperty_);
+    textAreaLayoutAlgorithm->ConstructTextStyles(&layoutWrapper, textStyle, textContent, showPlaceHolder);
     EXPECT_EQ((uint32_t)(textStyle.GetWordBreak()), invalidValue);
 }
 
@@ -1521,7 +1463,9 @@ HWTEST_F(TextFieldUXTest, TextAreaLayout005, TestSize.Level1)
     TextStyle textStyle;
     std::u16string textContent(DEFAULT_TEXT_U16);
     bool showPlaceHolder = false;
-    textAreaLayoutAlgorithm->ConstructTextStyles(frameNode_, textStyle, textContent, showPlaceHolder);
+    LayoutWrapperNode layoutWrapper =
+        LayoutWrapperNode(frameNode_, AceType::MakeRefPtr<GeometryNode>(), layoutProperty_);
+    textAreaLayoutAlgorithm->ConstructTextStyles(&layoutWrapper, textStyle, textContent, showPlaceHolder);
     EXPECT_EQ((int32_t)(textStyle.GetWordBreak()), invalidValue);
 }
 
@@ -1840,5 +1784,163 @@ HWTEST_F(TextFieldUXTest, TextAreaMaxLines002, TestSize.Level1)
      */
     EXPECT_EQ(layoutProperty_->GetMaxLines(), 999);
     EXPECT_EQ(TextFieldModelNG::GetMaxLines(AceType::RawPtr(frameNode_)), 999);
+}
+
+/**
+ * @tc.name: OrphanCharOptimizationTest001
+ * @tc.desc: Test the enable or disable the OrphanCharOptimization attribute.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldUXTest, OrphanCharOptimizationTest001, TestSize.Level1)
+{
+    /**
+    * @tc.steps: Create Text filed node with default text and placeholder
+    */
+    CreateTextField(DEFAULT_TEXT);
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(layoutProperty_, nullptr);
+    /**
+    * @tc.expected: Get OrphanCharOptimization Value
+    */
+    bool defaultValue = true;
+    EXPECT_EQ(TextFieldModelNG::GetOrphanCharOptimization(AceType::RawPtr(frameNode_)), false);
+    EXPECT_EQ(layoutProperty_->GetOrphanCharOptimizationValue(defaultValue), true);
+}
+
+/**
+ * @tc.name: OrphanCharOptimizationTest002
+ * @tc.desc: Test the enable or disable the OrphanCharOptimization attribute.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldUXTest, OrphanCharOptimizationTest002, TestSize.Level1)
+{
+    /**
+    * @tc.steps: Create Text filed node with default text and placeholder
+    */
+    CreateTextField(DEFAULT_TEXT);
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(layoutProperty_, nullptr);
+
+    bool value = true;
+    TextFieldModelNG model;
+    model.SetOrphanCharOptimization(value);
+    model.SetOrphanCharOptimization(AceType::RawPtr(frameNode_), value);
+    /**
+    * @tc.expected: Get OrphanCharOptimization Value
+    */
+    bool defaultValue = false;
+    EXPECT_EQ(TextFieldModelNG::GetOrphanCharOptimization(AceType::RawPtr(frameNode_)), value);
+    EXPECT_EQ(layoutProperty_->GetOrphanCharOptimizationValue(defaultValue), value);
+}
+
+/**
+ * @tc.name: OrphanCharOptimizationTest002
+ * @tc.desc: Test the enable or disable the OrphanCharOptimization attribute.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldUXTest, OrphanCharOptimizationTest003, TestSize.Level1)
+{
+    /**
+    * @tc.steps: Create Text filed node with default text and placeholder
+    */
+    CreateTextField(DEFAULT_TEXT);
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(layoutProperty_, nullptr);
+
+    bool value = false;
+    TextFieldModelNG model;
+    model.SetOrphanCharOptimization(value);
+    model.SetOrphanCharOptimization(AceType::RawPtr(frameNode_), value);
+    /**
+    * @tc.expected: Get OrphanCharOptimization Value
+    */
+    bool defaultValue = true;
+    EXPECT_EQ(TextFieldModelNG::GetOrphanCharOptimization(AceType::RawPtr(frameNode_)), value);
+    EXPECT_EQ(layoutProperty_->GetOrphanCharOptimizationValue(defaultValue), value);
+}
+
+/**
+ * @tc.name: TextAreaScrollBarColorTest001
+ * @tc.desc: Test the enable or disable the TextAreaScrollBarColor attribute.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldUXTest, TextAreaScrollBarColorTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: Create Text filed node with default text and placeholder
+     */
+    CreateTextField(DEFAULT_TEXT);
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(layoutProperty_, nullptr);
+
+    TextFieldModelNG model;
+    Color colorValue = Color::BLUE;
+    model.SetTextAreaScrollBarColor(colorValue);
+    model.SetTextAreaScrollBarColor(AceType::RawPtr(frameNode_), colorValue);
+    /**
+     * @tc.expected: Get TextAreaScrollBarColor Value
+     */
+    Color defaultColor = Color::BLACK;
+    auto result = layoutProperty_->GetScrollBarColorValue(defaultColor);
+    EXPECT_EQ(TextFieldModelNG::GetTextAreaScrollBarColor(AceType::RawPtr(frameNode_)), colorValue);
+    EXPECT_EQ(result, colorValue);
+}
+
+/**
+ * @tc.name: TextAreaScrollBarColorTest002
+ * @tc.desc: Test the enable or disable the TextAreaScrollBarColor attribute.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldUXTest, TextAreaScrollBarColorTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: Create Text filed node with default text and placeholder
+     */
+    CreateTextField(DEFAULT_TEXT);
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(layoutProperty_, nullptr);
+
+    TextFieldModelNG model;
+    Color value = Color::BLUE;
+    model.SetTextAreaScrollBarColor(value);
+    model.ResetTextAreaScrollBarColor();
+    model.SetTextAreaScrollBarColor(AceType::RawPtr(frameNode_), value);
+    model.ResetTextAreaScrollBarColor(AceType::RawPtr(frameNode_));
+    /**
+     * @tc.expected: Get TextAreaScrollBarColor Value
+     */
+    Color defaultValue = Color::BLACK;
+    auto result = layoutProperty_->GetScrollBarColorValue(defaultValue);
+    EXPECT_EQ(TextFieldModelNG::GetTextAreaScrollBarColor(AceType::RawPtr(frameNode_)), defaultValue);
+    EXPECT_EQ(result, defaultValue);
+}
+
+/**
+ * @tc.name: TextAreaScrollBarColorTest003
+ * @tc.desc: Test the enable or disable the TextAreaScrollBarColor attribute.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldUXTest, TextAreaScrollBarColorTest003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: Create Text filed node with default text and placeholder
+     */
+    CreateTextField(DEFAULT_TEXT);
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_NE(layoutProperty_, nullptr);
+
+    auto valueBase = AceType::MakeRefPtr<PropertyValueBase>();
+    ASSERT_NE(valueBase, nullptr);
+
+    Color colorValue = Color::BLUE;
+    valueBase->SetValue(colorValue);
+    pattern_->UpdatePropertyImpl("scrollBarColor", valueBase);
+    /**
+     * @tc.expected: Get TextAreaScrollBarColor Value
+     */
+    Color defaultColor = Color::BLACK;
+    auto result = layoutProperty_->GetScrollBarColorValue(defaultColor);
+    EXPECT_EQ(result, colorValue);
 }
 } // namespace OHOS::Ace::NG

@@ -30,10 +30,13 @@ const RefPtr<Curve> FOLDER_STACK_ANIMATION_CURVE =
 
 void FolderStackPattern::OnAttachToFrameNode()
 {
-    Pattern::OnAttachToFrameNode();
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto host = GetHost();
+    THREAD_SAFE_NODE_CHECK(host, OnAttachToFrameNode);  // call OnAttachToFrameNodeMultiThread() by multi thread
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
-    CHECK_NULL_VOID(OHOS::Ace::SystemProperties::IsBigFoldProduct());
+    CHECK_NULL_VOID(OHOS::Ace::SystemProperties::IsBigFoldProduct() ||
+        OHOS::Ace::SystemProperties::IsPortraitFoldProduct());
     auto callbackId = pipeline->RegisterFoldStatusChangedCallback([weak = WeakClaim(this)](FoldStatus folderStatus) {
         auto pattern = weak.Upgrade();
         if (pattern) {
@@ -45,7 +48,9 @@ void FolderStackPattern::OnAttachToFrameNode()
 
 void FolderStackPattern::OnDetachFromFrameNode(FrameNode* node)
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    CHECK_NULL_VOID(node);
+    THREAD_SAFE_NODE_CHECK(node, OnDetachFromFrameNode, node); // call OnDetachFromFrameNodeMultiThread()
+    auto pipeline = node->GetContext();
     CHECK_NULL_VOID(pipeline);
     if (HasFoldStatusChangedCallbackId()) {
         pipeline->UnRegisterFoldStatusChangedCallback(foldStatusChangedCallbackId_.value_or(-1));
@@ -53,6 +58,18 @@ void FolderStackPattern::OnDetachFromFrameNode(FrameNode* node)
     Pattern::OnDetachFromFrameNode(node);
 }
 
+void FolderStackPattern::OnAttachToMainTree()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    THREAD_SAFE_NODE_CHECK(host, OnAttachToMainTree);  // call OnAttachToMainTreeMultiThread() by multi thread
+}
+void FolderStackPattern::OnDetachFromMainTree()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    THREAD_SAFE_NODE_CHECK(host, OnDetachFromMainTree);  // call OnDetachFromMainTreeMultiThread() by multi thread
+}
 void FolderStackPattern::OnModifyDone()
 {
     Pattern::OnModifyDone();
@@ -86,7 +103,9 @@ void FolderStackPattern::DumpInfo()
 
 void FolderStackPattern::SetLayoutBeforeAnimation(const RefPtr<FolderStackGroupNode>& hostNode)
 {
+    CHECK_NULL_VOID(hostNode);
     auto controlPartsStackNode = hostNode->GetControlPartsStackNode();
+    CHECK_NULL_VOID(controlPartsStackNode);
     auto index = hostNode->GetChildIndexById(controlPartsStackNode->GetId());
     auto controlPartsStackWrapper = hostNode->GetOrCreateChildByIndex(index);
     CHECK_NULL_VOID(controlPartsStackWrapper);
@@ -115,6 +134,17 @@ void FolderStackPattern::SetLayoutBeforeAnimation(const RefPtr<FolderStackGroupN
     renderContext->SyncGeometryProperties(AceType::RawPtr(controlPartsgeometryNode));
 }
 
+bool FolderStackPattern::IsSupportHoverState(const RefPtr<DisplayInfo>& displayInfo)
+{
+    CHECK_NULL_RETURN(displayInfo, false);
+    bool isFoldable = OHOS::Ace::SystemProperties::IsBigFoldProduct();
+    bool isPortraitFoldable = OHOS::Ace::SystemProperties::IsPortraitFoldProduct();
+    auto rotation = displayInfo->GetRotation();
+    auto isLandscape = rotation == Rotation::ROTATION_90 || rotation == Rotation::ROTATION_270;
+    auto isPortrait = rotation == Rotation::ROTATION_0 || rotation == Rotation::ROTATION_180;
+    return (isLandscape && isFoldable) || (isPortrait && isPortraitFoldable);
+}
+
 void FolderStackPattern::RefreshStack(FoldStatus foldStatus)
 {
     TAG_LOGD(AceLogTag::ACE_FOLDER_STACK, "the current folding state is:%{public}d", foldStatus);
@@ -122,7 +152,9 @@ void FolderStackPattern::RefreshStack(FoldStatus foldStatus)
     if (foldStatusDelayTask_) {
         foldStatusDelayTask_.Cancel();
     }
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto taskExecutor = pipeline->GetTaskExecutor();
     CHECK_NULL_VOID(taskExecutor);
@@ -142,10 +174,8 @@ void FolderStackPattern::RefreshStack(FoldStatus foldStatus)
         }
         auto windowManager = pipeline->GetWindowManager();
         auto windowMode = windowManager->GetWindowMode();
-        auto rotation = displayInfo->GetRotation();
-        auto isLandscape = rotation == Rotation::ROTATION_90 || rotation == Rotation::ROTATION_270;
-        if (currentFoldStatus == displayInfo->GetFoldStatus() && isLandscape &&
-            windowMode == WindowMode::WINDOW_MODE_FULLSCREEN) {
+        if (currentFoldStatus == displayInfo->GetFoldStatus() && pattern->IsSupportHoverState(displayInfo)
+            && windowMode == WindowMode::WINDOW_MODE_FULLSCREEN) {
             auto host = pattern->GetHost();
             CHECK_NULL_VOID(host);
             auto hostNode = AceType::DynamicCast<FolderStackGroupNode>(host);
@@ -170,7 +200,6 @@ void FolderStackPattern::OnFolderStateChangeSend(FoldStatus foldStatus)
     FolderEventInfo event(foldStatus);
     auto eventHub = GetEventHub<FolderStackEventHub>();
     if (eventHub) {
-        needCallBack_ = true;
         eventHub->OnFolderStateChange(event);
     }
 }
@@ -196,7 +225,10 @@ bool FolderStackPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& d
 void FolderStackPattern::StartOffsetEnteringAnimation()
 {
     auto host = GetHost();
-    if (!host->GetLayoutProperty<FolderStackLayoutProperty>()->GetEnableAnimation().value_or(true)) {
+    CHECK_NULL_VOID(host);
+    auto layoutProperty = host->GetLayoutProperty<FolderStackLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    if (!layoutProperty->GetEnableAnimation().value_or(true)) {
         return;
     }
     AnimationOption optionPosition;
@@ -230,6 +262,7 @@ void FolderStackPattern::BeforeCreateLayoutWrapper()
 void FolderStackPattern::SetAutoRotate()
 {
     auto layoutProperty = GetLayoutProperty<FolderStackLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
     auto autoHalfFold = layoutProperty->GetAutoHalfFold().value_or(true);
     auto container = Container::Current();
     CHECK_NULL_VOID(container);
@@ -279,13 +312,13 @@ void FolderStackPattern::UpdateChildAlignment()
         align = folderStackLayoutProperty->GetPositionProperty()->GetAlignment().value_or(Alignment::CENTER);
     }
     auto controlPartsStackNode = AceType::DynamicCast<ControlPartsStackNode>(hostNode->GetControlPartsStackNode());
-    if (controlPartsStackNode) {
+    if (controlPartsStackNode && controlPartsStackNode->GetLayoutProperty()) {
         auto controlPartsLayoutProperty =
             AceType::DynamicCast<LayoutProperty>(controlPartsStackNode->GetLayoutProperty());
         controlPartsLayoutProperty->UpdateAlignment(align);
     }
     auto hoverStackNode = AceType::DynamicCast<HoverStackNode>(hostNode->GetHoverNode());
-    if (hoverStackNode) {
+    if (hoverStackNode && hoverStackNode->GetLayoutProperty()) {
         auto hoverLayoutProperty = AceType::DynamicCast<LayoutProperty>(hoverStackNode->GetLayoutProperty());
         hoverLayoutProperty->UpdateAlignment(align);
     }
@@ -298,7 +331,7 @@ void FolderStackPattern::DumpInfo(std::unique_ptr<JsonValue>& json)
     json->Put("rotation", static_cast<int32_t>(rotation));
 }
 
-void FolderStackPattern::DumpSimplifyInfo(std::unique_ptr<JsonValue>& json)
+void FolderStackPattern::DumpSimplifyInfo(std::shared_ptr<JsonValue>& json)
 {
     CHECK_NULL_VOID(displayInfo_);
     auto rotation = displayInfo_->GetRotation();

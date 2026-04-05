@@ -26,6 +26,14 @@ enum LogTag {
 }
 
 class stateMgmtConsole {
+  private static startTimer: boolean = false;
+
+  private static errorLogFrequency: Map<string, number> = new Map<string, number>();
+
+  private static errorLogFlag: Set<string> = new Set<string>();
+
+  private static MAX_LOG_TYPES: number = 3000;
+
   public static log(...args: any): void {
     aceConsole.log(LogTag.STATE_MGMT, ...args);
   }
@@ -46,15 +54,73 @@ class stateMgmtConsole {
     // aceConsole.error(...args)
   }
   public static applicationError(...args: any): void {
-    aceConsole.error(LogTag.STATE_MGMT, `FIX THIS APPLICATION ERROR: `, ...args);
+    aceConsole.error(LogTag.STATE_MGMT, `FIX THIS APPLICATION ERROR:`, ...args);
   }
 
   public static applicationWarn(...args: any): void {
     aceConsole.warn(LogTag.STATE_MGMT, ...args);
   }
-  public static featureCombinationError(msg: string): void {
-    aceConsole.warn(LogTag.STATE_MGMT, msg);
+
+  private static limitLog(msg: string): number {
+    if (!stateMgmtConsole.startTimer) {
+      stateMgmtConsole.startTimer = true;
+      if (typeof setTimeout === 'function') {
+        setTimeout(() => {
+          stateMgmtConsole.errorLogFlag.clear();
+          stateMgmtConsole.startTimer = false;
+        }, 20000);
+      }
+    }
+    const count = stateMgmtConsole.errorLogFrequency.get(msg);
+    stateMgmtConsole.errorLogFrequency.set(msg, count ? count + 1 : 1);
+
+    if (stateMgmtConsole.errorLogFrequency.size > stateMgmtConsole.MAX_LOG_TYPES) {
+      aceConsole.error(LogTag.STATE_MGMT, `There are more than ${stateMgmtConsole.errorLogFrequency.size} different kinds application error logs, please check the previous log printed.`);
+      stateMgmtConsole.errorLogFrequency.clear();
+      typeof setTimeout !== 'function' && stateMgmtConsole.errorLogFlag.clear();
+    }
+    return count;
   }
+
+  public static frequentApplicationError(msg: string): void {
+    const count = stateMgmtConsole.limitLog(msg);
+
+    if (!stateMgmtConsole.errorLogFlag.has(msg)) {
+      stateMgmtConsole.errorLogFlag.add(msg);
+      if (count) {
+        aceConsole.error(LogTag.STATE_MGMT, `FIX THIS APPLICATION ERROR:`, msg, `Current log drops ${count + 1} line(s).`);
+      } else {
+        aceConsole.error(LogTag.STATE_MGMT, `FIX THIS APPLICATION ERROR:`, msg);
+      }
+    }
+  }
+
+  public static frequentWarn(msg: string): void {
+    const count = stateMgmtConsole.limitLog(msg);
+
+    if (!stateMgmtConsole.errorLogFlag.has(msg)) {
+      stateMgmtConsole.errorLogFlag.add(msg);
+      if (count) {
+        aceConsole.warn(LogTag.STATE_MGMT, msg, `Current log drops ${count + 1} line(s).`);
+      } else {
+        aceConsole.warn(LogTag.STATE_MGMT, msg);
+      }
+    }
+  }
+
+  public static frequentError(msg: string): void {
+    const count = stateMgmtConsole.limitLog(msg);
+
+    if (!stateMgmtConsole.errorLogFlag.has(msg)) {
+      stateMgmtConsole.errorLogFlag.add(msg);
+      if (count) {
+        aceConsole.error(LogTag.STATE_MGMT, msg, `Current log drops ${count + 1} line(s).`);
+      } else {
+        aceConsole.error(LogTag.STATE_MGMT, msg);
+      }
+    }
+  }
+
 }
 
 type TraceArgs = string | number | boolean;
@@ -79,20 +145,6 @@ class errorReport {
 
     msg += '!';
     stateMgmtConsole.applicationError(msg);
-    throw new TypeError(msg);
-  }
-
-  public static varObservationFailed<T>(params: { customComponent: string, variableDeco: string, variableName: string, value: T }): void {
-    let msg = `@Component '${params.customComponent}': decorated variable ${params.variableDeco} '${params.variableName}': `;
-    msg += `its class is neither decorated with '@Observed' nor it is an instance of 'SubscribableAbstract'`;
-
-    try {
-      msg += `, attempt to assign value type: '${typeof params.value}'`;
-      msg += `, value: '${JSON.stringify(params.value, null, 4)}'`;
-    } catch (e) { }
-
-    msg += '!';
-
-    throw new TypeError(msg);
+    throw new BusinessError(ILLEGAL_TYPE_FOR_V1_STATE_VALUE, msg);
   }
 }

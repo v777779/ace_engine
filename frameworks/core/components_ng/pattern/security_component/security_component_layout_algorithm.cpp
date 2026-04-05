@@ -93,6 +93,7 @@ void SecurityComponentLayoutAlgorithm::MeasureButton(LayoutWrapper* layoutWrappe
     auto geometryNode = buttonWrapper->GetGeometryNode();
     CHECK_NULL_VOID(geometryNode);
     geometryNode->SetFrameSize(SizeF(componentWidth_, componentHeight_));
+    HandleSecCompBorderRadius(layoutWrapper);
 }
 
 void SecurityComponentLayoutAlgorithm::InitPadding(RefPtr<SecurityComponentLayoutProperty>& property)
@@ -885,8 +886,10 @@ void SecurityComponentLayoutAlgorithm::UpdateTextFlags(LayoutWrapper* layoutWrap
         AceType::DynamicCast<SecurityComponentLayoutProperty>(layoutWrapper->GetLayoutProperty());
     CHECK_NULL_VOID(securityComponentLayoutProperty);
     std::optional<SizeF> currentTextSize;
-    securityComponentLayoutProperty->UpdateIsTextLimitExceeded(GetTextLimitExceededFlag(securityComponentLayoutProperty,
-        frameNode, currentTextSize));
+    if (frameNode->GetTag() != V2::SAVE_BUTTON_ETS_TAG) {
+        securityComponentLayoutProperty->UpdateIsTextLimitExceeded(GetTextLimitExceededFlag(
+            securityComponentLayoutProperty, frameNode, currentTextSize));
+    }
     securityComponentLayoutProperty->UpdateIsMaxLineLimitExceeded(GetMaxLineLimitExceededFlag(currentTextSize));
     securityComponentLayoutProperty->UpdateIsIconExceeded(GetIconExceededFlag(securityComponentLayoutProperty,
         frameNode));
@@ -902,6 +905,23 @@ void SecurityComponentLayoutAlgorithm::InitLayoutWrapper(LayoutWrapper* layoutWr
 
     auto textWrapper = GetChildWrapper(layoutWrapper, V2::TEXT_ETS_TAG);
     text_.Init(securityComponentLayoutProperty, textWrapper);
+}
+
+void SecurityComponentLayoutAlgorithm::HandleSecCompBorderRadius(LayoutWrapper* layoutWrapper)
+{
+    auto layoutProperty =
+        AceType::DynamicCast<SecurityComponentLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    CHECK_NULL_VOID(layoutProperty);
+    auto scNode = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(scNode);
+    auto renderContext = scNode->GetRenderContext();
+    CHECK_NULL_VOID(renderContext);
+
+    auto buttonNode = GetSecCompChildNode(scNode, V2::BUTTON_ETS_TAG);
+    CHECK_NULL_VOID(buttonNode);
+    auto buttonRenderContext = buttonNode->GetRenderContext();
+    CHECK_NULL_VOID(buttonRenderContext);
+    renderContext->UpdateBorderRadius(buttonRenderContext->GetBorderRadius().value_or(BorderRadiusProperty()));
 }
 
 void SecurityComponentLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)

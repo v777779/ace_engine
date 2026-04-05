@@ -25,9 +25,13 @@ void CheckBoxGroupModelStatic::SetSelectAll(FrameNode* frameNode, const std::opt
     CHECK_NULL_VOID(frameNode);
     auto pattern = frameNode->GetPattern<CheckBoxGroupPattern>();
     pattern->SetUpdateFlag(true);
+    auto eventHub = frameNode->GetEventHub<CheckBoxGroupEventHub>();
+    CHECK_NULL_VOID(eventHub);
     if (isSelected.has_value()) {
+        eventHub->SetCurrentUIState(UI_STATE_SELECTED, isSelected.value());
         ACE_UPDATE_NODE_PAINT_PROPERTY(CheckBoxGroupPaintProperty, CheckBoxGroupSelect, isSelected.value(), frameNode);
     } else {
+        eventHub->SetCurrentUIState(UI_STATE_SELECTED, false);
         ACE_RESET_NODE_PAINT_PROPERTY(CheckBoxGroupPaintProperty, CheckBoxGroupSelect, frameNode);
     }
 }
@@ -70,9 +74,17 @@ void CheckBoxGroupModelStatic::SetCheckMarkColor(FrameNode* frameNode, const std
             CheckBoxGroupPaintProperty, CheckBoxGroupCheckMarkColorFlagByUser, true, frameNode);
     } else {
         ACE_RESET_NODE_PAINT_PROPERTY(CheckBoxGroupPaintProperty, CheckBoxGroupCheckMarkColor, frameNode);
-        ACE_RESET_PAINT_PROPERTY_WITH_FLAG(
-            CheckBoxGroupPaintProperty, CheckBoxGroupCheckMarkColorFlagByUser, PROPERTY_UPDATE_RENDER);
+        ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
+            CheckBoxGroupPaintProperty, CheckBoxGroupCheckMarkColorFlagByUser, PROPERTY_UPDATE_RENDER, frameNode);
     }
+}
+
+void CheckBoxGroupModelStatic::ResetCheckMarkColor(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(CheckBoxGroupPaintProperty, CheckBoxGroupCheckMarkColor,
+        PROPERTY_UPDATE_RENDER, frameNode);
+    ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(CheckBoxGroupPaintProperty, CheckBoxGroupCheckMarkColorFlagByUser,
+        PROPERTY_UPDATE_RENDER, frameNode);
 }
 
 void CheckBoxGroupModelStatic::SetCheckMarkSize(FrameNode* frameNode, const std::optional<Dimension>& size)
@@ -120,4 +132,13 @@ void CheckBoxGroupModelStatic::SetOnChange(FrameNode* frameNode, GroupChangeEven
     CHECK_NULL_VOID(eventHub);
     eventHub->SetOnChange(std::move(onChange));
 }
+
+void CheckBoxGroupModelStatic::TriggerChange(FrameNode* frameNode, bool value)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<CheckBoxGroupPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetCheckBoxGroupSelect(value);
+}
+
 } // namespace OHOS::Ace::NG

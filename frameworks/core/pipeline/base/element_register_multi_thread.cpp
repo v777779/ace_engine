@@ -15,7 +15,9 @@
 
 #include "frameworks/core/pipeline/base/element_register_multi_thread.h"
 
+#include "base/log/ace_trace.h"
 #include "core/components_ng/base/ui_node.h"
+#include "core/pipeline/base/element_register.h"
 #include "frameworks/core/pipeline/base/element_register.h"
 
 namespace OHOS::Ace {
@@ -38,7 +40,7 @@ bool ElementRegisterMultiThread::AddThreadSafeNode(const RefPtr<NG::UINode>& nod
     std::unique_lock<std::shared_mutex> lock(threadSafeNodeMapMutex_);
     auto result = threadSafeNodeMap_.emplace(node->GetId(), node);
     if (!result.second) {
-        LOGE("Duplicate elmtId %{public}d error.", node->GetId());
+        LOGE("Duplicate safe node elmtId %{public}d error.", node->GetId());
     }
     return result.second;
 }

@@ -115,7 +115,7 @@ public:
 
 class MockSslErrorResult : public SslErrorResult {
 public:
-    MOCK_METHOD(void, HandleCancel, ());
+    MOCK_METHOD(void, HandleCancel, (bool));
     MOCK_METHOD(void, HandleConfirm, ());
 };
 

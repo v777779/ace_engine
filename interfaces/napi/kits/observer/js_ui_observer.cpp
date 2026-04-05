@@ -32,6 +32,7 @@ namespace {
     void* data;                    \
     napi_get_cb_info(env, info, &argc, argv, &thisVar, &data)
 
+static constexpr uint32_t PARAM_SIZE_ZERO = 0;
 static constexpr uint32_t PARAM_SIZE_ONE = 1;
 static constexpr uint32_t PARAM_SIZE_TWO = 2;
 static constexpr uint32_t PARAM_SIZE_THREE = 3;
@@ -95,12 +96,16 @@ constexpr char DRAW_COMMAND_SEND[] = "willDraw";
 constexpr char NAVDESTINATION_SWITCH[] = "navDestinationSwitch";
 constexpr char WILLCLICK_UPDATE[] = "willClick";
 constexpr char DIDCLICK_UPDATE[] = "didClick";
+constexpr char TAB_CHANGE[] = "tabChange";
 constexpr char TAB_CONTENT_STATE[] = "tabContentUpdate";
 constexpr char BEFORE_PAN_START[] = "beforePanStart";
 constexpr char BEFORE_PAN_END[] = "beforePanEnd";
 constexpr char AFTER_PAN_START[] = "afterPanStart";
 constexpr char AFTER_PAN_END[] = "afterPanEnd";
 constexpr char NODE_RENDER_STATE[] = "nodeRenderState";
+constexpr char TEXT_CHANGE[] = "textChange";
+constexpr char SWIPER_CONTENT_UPDATE[] = "swiperContentUpdate";
+constexpr char WIN_SIZE_LAYOUT_BREAKPOINT[] = "windowSizeLayoutBreakpointChange";
 constexpr char NODE_RENDER_STATE_REGISTER_ERR_MSG[] =
     "The count of nodes monitoring render state is over the limitation";
 
@@ -117,18 +122,6 @@ bool IsUIAbilityContext(napi_env env, napi_value context)
         return true;
     }
     return false;
-}
-
-int32_t GetUIContextInstanceId(napi_env env, napi_value uiContext)
-{
-    int32_t result = 0;
-    if (IsUIAbilityContext(env, uiContext)) {
-        return result;
-    }
-    napi_value instanceId = nullptr;
-    napi_get_named_property(env, uiContext, "instanceId_", &instanceId);
-    napi_get_value_int32(env, instanceId, &result);
-    return result;
 }
 
 bool MatchValueType(napi_env env, napi_value value, napi_valuetype targetType)
@@ -159,6 +152,20 @@ bool ParseScrollId(napi_env env, napi_value obj, std::string& result)
         return false;
     }
     return ParseStringFromNapi(env, resultId, result);
+}
+
+bool ParseObserverOptionsId(napi_env env, napi_value obj, std::string& id)
+{
+    if (!env || !obj) {
+        return false;
+    }
+    napi_value idVal = nullptr;
+    napi_get_named_property(env, obj, "id", &idVal);
+    if (!MatchValueType(env, idVal, napi_string)) {
+        return false;
+    }
+    auto ret = ParseStringFromNapi(env, idVal, id);
+    return ret;
 }
 
 bool IsNavDestSwitchOptions(napi_env env, napi_value obj, std::string& navigationId)
@@ -376,17 +383,21 @@ ObserverProcess::ObserverProcess()
         { SCROLL_EVENT, &ObserverProcess::ProcessScrollEventRegister },
         { ROUTERPAGE_UPDATE, &ObserverProcess::ProcessRouterPageRegister },
         { DENSITY_UPDATE, &ObserverProcess::ProcessDensityRegister },
+        { WIN_SIZE_LAYOUT_BREAKPOINT, &ObserverProcess::ProcessWinSizeLayoutBreakpointRegister },
         { LAYOUT_DONE, &ObserverProcess::ProcessLayoutDoneRegister },
         { DRAW_COMMAND_SEND, &ObserverProcess::ProcessDrawCommandSendRegister },
         { NAVDESTINATION_SWITCH, &ObserverProcess::ProcessNavDestinationSwitchRegister },
         { WILLCLICK_UPDATE, &ObserverProcess::ProcessWillClickRegister },
         { DIDCLICK_UPDATE, &ObserverProcess::ProcessDidClickRegister },
+        { TAB_CHANGE, &ObserverProcess::ProcessTabChangeRegister },
         { TAB_CONTENT_STATE, &ObserverProcess::ProcessTabContentStateRegister },
         { BEFORE_PAN_START, &ObserverProcess::ProcessBeforePanStartRegister },
         { AFTER_PAN_START, &ObserverProcess::ProcessAfterPanStartRegister },
         { BEFORE_PAN_END, &ObserverProcess::ProcessBeforePanEndRegister },
         { AFTER_PAN_END, &ObserverProcess::ProcessAfterPanEndRegister },
         { NODE_RENDER_STATE, &ObserverProcess::ProcessNodeRenderStateRegister },
+        { TEXT_CHANGE, &ObserverProcess::ProcessTextChangeEventRegister },
+        { SWIPER_CONTENT_UPDATE, &ObserverProcess::ProcessSwiperContentUpdateRegister },
     };
     unregisterProcessMap_ = {
         { NAVDESTINATION_UPDATE, &ObserverProcess::ProcessNavigationUnRegister },
@@ -394,17 +405,21 @@ ObserverProcess::ObserverProcess()
         { SCROLL_EVENT, &ObserverProcess::ProcessScrollEventUnRegister },
         { ROUTERPAGE_UPDATE, &ObserverProcess::ProcessRouterPageUnRegister },
         { DENSITY_UPDATE, &ObserverProcess::ProcessDensityUnRegister },
+        { WIN_SIZE_LAYOUT_BREAKPOINT, &ObserverProcess::ProcessWinSizeLayoutBreakpointUnRegister },
         { LAYOUT_DONE, &ObserverProcess::ProcessLayoutDoneUnRegister },
         { DRAW_COMMAND_SEND, &ObserverProcess::ProcessDrawCommandSendUnRegister},
         { NAVDESTINATION_SWITCH, &ObserverProcess::ProcessNavDestinationSwitchUnRegister },
         { WILLCLICK_UPDATE, &ObserverProcess::ProcessWillClickUnRegister },
         { DIDCLICK_UPDATE, &ObserverProcess::ProcessDidClickUnRegister },
+        { TAB_CHANGE, &ObserverProcess::ProcessTabChangeUnRegister },
         { TAB_CONTENT_STATE, &ObserverProcess::ProcessTabContentStateUnRegister },
         { BEFORE_PAN_START, &ObserverProcess::ProcessBeforePanStartUnRegister },
         { AFTER_PAN_START, &ObserverProcess::ProcessAfterPanStartUnRegister },
         { BEFORE_PAN_END, &ObserverProcess::ProcessBeforePanEndUnRegister },
         { AFTER_PAN_END, &ObserverProcess::ProcessAfterPanEndUnRegister },
         { NODE_RENDER_STATE, &ObserverProcess::ProcessNodeRenderStateUnRegister },
+        { TEXT_CHANGE, &ObserverProcess::ProcessTextChangeEventUnRegister },
+        { SWIPER_CONTENT_UPDATE, &ObserverProcess::ProcessSwiperContentUpdateUnRegister },
     };
 }
 
@@ -414,13 +429,16 @@ ObserverProcess& ObserverProcess::GetInstance()
     return instance;
 }
 
-napi_value ObserverProcess::ProcessRegister(napi_env env, napi_callback_info info)
+napi_value ObserverProcess::ProcessRegister(napi_env env, napi_callback_info info, std::string type)
 {
     GET_PARAMS(env, info, PARAM_SIZE_THREE);
-    NAPI_ASSERT(env, (argc >= PARAM_SIZE_TWO && thisVar != nullptr), "Invalid arguments");
-    std::string type;
-    if (!ParseStringFromNapi(env, argv[PARAM_INDEX_ZERO], type)) {
-        return nullptr;
+    if (type.empty()) {
+        NAPI_ASSERT(env, (argc >= PARAM_SIZE_TWO && thisVar != nullptr), "Invalid arguments");
+        if (!ParseStringFromNapi(env, argv[PARAM_INDEX_ZERO], type)) {
+            return nullptr;
+        }
+    } else {
+        NAPI_ASSERT(env, (argc >= PARAM_SIZE_ONE && thisVar != nullptr), "Invalid arguments");
     }
     auto it = registerProcessMap_.find(type);
     if (it == registerProcessMap_.end()) {
@@ -429,13 +447,14 @@ napi_value ObserverProcess::ProcessRegister(napi_env env, napi_callback_info inf
     return (this->*(it->second))(env, info);
 }
 
-napi_value ObserverProcess::ProcessUnRegister(napi_env env, napi_callback_info info)
+napi_value ObserverProcess::ProcessUnRegister(napi_env env, napi_callback_info info, std::string type)
 {
     GET_PARAMS(env, info, PARAM_SIZE_THREE);
-    NAPI_ASSERT(env, (argc >= PARAM_SIZE_ONE && thisVar != nullptr), "Invalid arguments");
-    std::string type;
-    if (!ParseStringFromNapi(env, argv[PARAM_INDEX_ZERO], type)) {
-        return nullptr;
+    if (type.empty()) {
+        NAPI_ASSERT(env, (argc >= PARAM_SIZE_ONE && thisVar != nullptr), "Invalid arguments");
+        if (!ParseStringFromNapi(env, argv[PARAM_INDEX_ZERO], type)) {
+            return nullptr;
+        }
     }
     auto it = unregisterProcessMap_.find(type);
     if (it == unregisterProcessMap_.end()) {
@@ -734,6 +753,43 @@ napi_value ObserverProcess::ProcessDensityUnRegister(napi_env env, napi_callback
             auto uiContextInstanceId = GetUIContextInstanceId(env, context);
             UIObserver::UnRegisterDensityCallback(uiContextInstanceId, argv[PARAM_INDEX_TWO]);
         }
+    }
+
+    napi_value result = nullptr;
+    return result;
+}
+
+napi_value ObserverProcess::ProcessWinSizeLayoutBreakpointRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_THREE);
+
+    if (!isWinSizeLayoutBreakpointChangeSetted_) {
+        NG::UIObserverHandler::GetInstance().SetWinSizeLayoutBreakpointChangeFunc(
+            &UIObserver::HandleWinSizeLayoutBreakpointChange);
+        isWinSizeLayoutBreakpointChangeSetted_ = true;
+    }
+    if (argc == PARAM_SIZE_TWO && MatchValueType(env, argv[PARAM_INDEX_ONE], napi_function)) {
+        auto listener = std::make_shared<UIObserverListener>(env, argv[PARAM_INDEX_ONE]);
+        int32_t instanceId = ContainerScope::CurrentId();
+        UIObserver::RegisterWinSizeLayoutBreakpointCallback(instanceId, listener);
+    }
+
+    napi_value result = nullptr;
+    return result;
+}
+
+napi_value ObserverProcess::ProcessWinSizeLayoutBreakpointUnRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_THREE);
+
+    if (argc == PARAM_SIZE_ONE) {
+        int32_t instanceId = ContainerScope::CurrentId();
+        UIObserver::UnRegisterWinSizeLayoutBreakpointCallback(instanceId, nullptr);
+    }
+
+    if (argc == PARAM_SIZE_TWO && MatchValueType(env, argv[PARAM_INDEX_ONE], napi_function)) {
+        int32_t instanceId = ContainerScope::CurrentId();
+        UIObserver::UnRegisterWinSizeLayoutBreakpointCallback(instanceId, argv[PARAM_INDEX_ONE]);
     }
 
     napi_value result = nullptr;
@@ -1107,6 +1163,55 @@ napi_value ObserverProcess::ProcessTabContentStateUnRegister(napi_env env, napi_
     return result;
 }
 
+napi_value ObserverProcess::ProcessTabChangeRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_THREE);
+    if (!isTabChangeFuncSetted_) {
+        NG::UIObserverHandler::GetInstance().SetHandleTabChangeFunc(&UIObserver::HandleTabChange);
+        isTabChangeFuncSetted_ = true;
+    }
+    if (argc == PARAM_SIZE_TWO && MatchValueType(env, argv[PARAM_INDEX_ONE], napi_function)) {
+        auto listener = std::make_shared<UIObserverListener>(env, argv[PARAM_INDEX_ONE]);
+        UIObserver::RegisterTabChangeCallback(listener);
+    }
+    if (argc == PARAM_SIZE_THREE && MatchValueType(env, argv[PARAM_INDEX_ONE], napi_object)
+        && MatchValueType(env, argv[PARAM_INDEX_TWO], napi_function)) {
+        std::string id;
+        if (ParseScrollId(env, argv[PARAM_INDEX_ONE], id)) {
+            auto listener = std::make_shared<UIObserverListener>(env, argv[PARAM_INDEX_TWO]);
+            UIObserver::RegisterTabChangeCallback(id, listener);
+        }
+    }
+    napi_value result = nullptr;
+    return result;
+}
+
+napi_value ObserverProcess::ProcessTabChangeUnRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_THREE);
+    if (argc == PARAM_SIZE_ONE) {
+        UIObserver::UnRegisterTabChangeCallback(nullptr);
+    }
+    if (argc == PARAM_SIZE_TWO && MatchValueType(env, argv[PARAM_INDEX_ONE], napi_function)) {
+        UIObserver::UnRegisterTabChangeCallback(argv[PARAM_INDEX_ONE]);
+    }
+    if (argc == PARAM_SIZE_TWO && MatchValueType(env, argv[PARAM_INDEX_ONE], napi_object)) {
+        std::string id;
+        if (ParseScrollId(env, argv[PARAM_INDEX_ONE], id)) {
+            UIObserver::UnRegisterTabChangeCallback(id, nullptr);
+        }
+    }
+    if (argc == PARAM_SIZE_THREE && MatchValueType(env, argv[PARAM_INDEX_ONE], napi_object)
+        && MatchValueType(env, argv[PARAM_INDEX_TWO], napi_function)) {
+        std::string id;
+        if (ParseScrollId(env, argv[PARAM_INDEX_ONE], id)) {
+            UIObserver::UnRegisterTabChangeCallback(id, argv[PARAM_INDEX_TWO]);
+        }
+    }
+    napi_value result = nullptr;
+    return result;
+}
+
 napi_value ObserverProcess::ProcessBeforePanStartRegister(napi_env env, napi_callback_info info)
 {
     GET_PARAMS(env, info, PARAM_SIZE_THREE);
@@ -1398,11 +1503,13 @@ napi_value ObserverProcess::ProcessAfterPanEndUnRegister(napi_env env, napi_call
 napi_value ObserverProcess::ProcessNodeRenderStateRegister(napi_env env, napi_callback_info info)
 {
     auto container = AceEngine::Get().GetContainer(Container::CurrentIdSafely());
+    CHECK_NULL_RETURN(container, nullptr);
     auto pipeline = container->GetPipelineContext();
     CHECK_NULL_RETURN(pipeline, nullptr);
     auto pipelineContext = AceType::DynamicCast<NG::PipelineContext>(pipeline);
     CHECK_NULL_RETURN(pipelineContext, nullptr);
     auto monitor = pipelineContext->GetNodeRenderStatusMonitor();
+    CHECK_NULL_RETURN(monitor, nullptr);
     if (monitor->IsRegisterNodeRenderStateChangeCallbackExceedLimit()) {
         TAG_LOGE(AceLogTag::ACE_OBSERVER, "register node render state change callback exceed limit.");
         NapiThrow(env, NODE_RENDER_STATE_REGISTER_ERR_MSG, NODE_RENDER_STATE_REGISTER_ERR_CODE);
@@ -1422,6 +1529,7 @@ napi_value ObserverProcess::ProcessNodeRenderStateRegister(napi_env env, napi_ca
 napi_value ObserverProcess::ProcessNodeRenderStateUnRegister(napi_env env, napi_callback_info info)
 {
     auto container = AceEngine::Get().GetContainer(Container::CurrentIdSafely());
+    CHECK_NULL_RETURN(container, nullptr);
     auto pipeline = container->GetPipelineContext();
     CHECK_NULL_RETURN(pipeline, nullptr);
     auto pipelineContext = AceType::DynamicCast<NG::PipelineContext>(pipeline);
@@ -1443,6 +1551,238 @@ napi_value ObserverProcess::ProcessNodeRenderStateUnRegister(napi_env env, napi_
     return nullptr;
 }
 
+napi_value ObserverProcess::ProcessTextChangeEventRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_THREE);
+
+    if (!isTextChangeEventHandleFuncSetted_) {
+        NG::UIObserverHandler::GetInstance().SetHandleTextChangeEventFunc(&UIObserver::HandleTextChangeEvent);
+        isTextChangeEventHandleFuncSetted_ = true;
+    }
+    if (argc == PARAM_SIZE_TWO && MatchValueType(env, argv[PARAM_INDEX_ONE], napi_function)) {
+        auto listener = std::make_shared<UIObserverListener>(env, argv[PARAM_INDEX_ONE]);
+        UIObserver::RegisterTextChangeEventCallback(listener);
+    }
+
+    if (argc == PARAM_SIZE_THREE && MatchValueType(env, argv[PARAM_INDEX_ONE], napi_object)
+        && MatchValueType(env, argv[PARAM_INDEX_TWO], napi_function)) {
+        std::string id;
+        if (ParseScrollId(env, argv[PARAM_INDEX_ONE], id)) {
+            auto listener = std::make_shared<UIObserverListener>(env, argv[PARAM_INDEX_TWO]);
+            UIObserver::RegisterTextChangeEventCallback(id, listener);
+        }
+    }
+    return nullptr;
+}
+
+napi_value ObserverProcess::ProcessTextChangeEventUnRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_THREE);
+
+    if (argc == PARAM_SIZE_ONE) {
+        UIObserver::UnRegisterTextChangeEventCallback(nullptr);
+    }
+
+    if (argc == PARAM_SIZE_TWO) {
+        if (MatchValueType(env, argv[PARAM_INDEX_ONE], napi_function)) {
+            UIObserver::UnRegisterTextChangeEventCallback(argv[PARAM_INDEX_ONE]);
+        } else if (MatchValueType(env, argv[PARAM_INDEX_ONE], napi_object)) {
+            std::string id;
+            if (ParseScrollId(env, argv[PARAM_INDEX_ONE], id)) {
+                UIObserver::UnRegisterTextChangeEventCallback(id, nullptr);
+            }
+        }
+    }
+
+    if (argc == PARAM_SIZE_THREE && MatchValueType(env, argv[PARAM_INDEX_ONE], napi_object)
+        && MatchValueType(env, argv[PARAM_INDEX_TWO], napi_function)) {
+        std::string id;
+        if (ParseScrollId(env, argv[PARAM_INDEX_ONE], id)) {
+            UIObserver::UnRegisterTextChangeEventCallback(id, argv[PARAM_INDEX_TWO]);
+        }
+    }
+    return nullptr;
+}
+
+napi_value ObserverProcess::ProcessSwiperContentUpdateRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_TWO);
+
+    if (!isSwiperContentUpdateHandleFuncSetted_) {
+        NG::UIObserverHandler::GetInstance().SetSwiperContentUpdateHandleFunc(&UIObserver::HandleSwiperContentUpdate);
+        NG::UIObserverHandler::GetInstance().SetSwiperContentObservrEmptyFunc(
+            &UIObserver::IsSwiperContentObserverEmpty);
+        isSwiperContentUpdateHandleFuncSetted_ = true;
+    }
+
+    if (argc == PARAM_SIZE_ONE) {
+        if (!MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_function)) {
+            return nullptr;
+        }
+        auto listener = std::make_shared<UIObserverListener>(env, argv[PARAM_INDEX_ZERO]);
+        UIObserver::RegisterSwiperContentUpdateCallback(listener);
+    }
+
+    if (argc == PARAM_SIZE_TWO) {
+        if (!MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_object) ||
+            !MatchValueType(env, argv[PARAM_INDEX_ONE], napi_function)) {
+            return nullptr;
+        }
+        std::string id;
+        if (!ParseObserverOptionsId(env, argv[PARAM_INDEX_ZERO], id)) {
+            return nullptr;
+        }
+        auto listener = std::make_shared<UIObserverListener>(env, argv[PARAM_INDEX_ONE]);
+        UIObserver::RegisterSwiperContentUpdateCallback(id, listener);
+    }
+    return nullptr;
+}
+
+napi_value ObserverProcess::ProcessSwiperContentUpdateUnRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_TWO);
+
+    if (argc == PARAM_SIZE_ZERO) {
+        UIObserver::UnRegisterSwiperContentUpdateCallback();
+        return nullptr;
+    }
+
+    if (argc == PARAM_SIZE_ONE) {
+        if (MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_object)) {
+            std::string id;
+            if (!ParseObserverOptionsId(env, argv[PARAM_INDEX_ZERO], id)) {
+                return nullptr;
+            }
+            UIObserver::UnRegisterSwiperContentUpdateCallback(id);
+        }
+        if (MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_function)) {
+            UIObserver::UnRegisterSwiperContentUpdateCallback(argv[PARAM_INDEX_ZERO]);
+        }
+        return nullptr;
+    }
+
+    if (argc == PARAM_SIZE_TWO) {
+        if (!MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_object) ||
+            !MatchValueType(env, argv[PARAM_INDEX_ONE], napi_function)) {
+            return nullptr;
+        }
+        std::string id;
+        if (!ParseObserverOptionsId(env, argv[PARAM_INDEX_ZERO], id)) {
+            return nullptr;
+        }
+        UIObserver::UnRegisterSwiperContentUpdateCallback(id, argv[PARAM_INDEX_ONE]);
+    }
+    return nullptr;
+}
+
+napi_value ObserverProcess::ProcessRouterPageSizeChangeRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_ONE);
+    if (!isRouterPageSizeChangeHandleFuncSetted_) {
+        NG::UIObserverHandler::GetInstance().SetRouterPageSizeChangeHandleFunc(&UIObserver::HandleRouterPageSizeChange);
+        isRouterPageSizeChangeHandleFuncSetted_ = true;
+    }
+
+    if (argc == PARAM_SIZE_ONE) {
+        if (!MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_function)) {
+            TAG_LOGE(AceLogTag::ACE_ROUTER, "register routerPageSizeChange with invalid params");
+            return nullptr;
+        }
+        auto listener = std::make_shared<UIObserverListener>(env, argv[PARAM_INDEX_ZERO]);
+        UIObserver::RegisterRouterPageSizeChangeCallback(listener);
+    }
+    return nullptr;
+}
+
+napi_value ObserverProcess::ProcessRouterPageSizeChangeUnRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_ONE);
+    if (argc == PARAM_SIZE_ZERO) {
+        UIObserver::UnRegisterRouterPageSizeChangeCallback(nullptr);
+        return nullptr;
+    }
+    if (argc == PARAM_SIZE_ONE) {
+        if (MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_function)) {
+            UIObserver::UnRegisterRouterPageSizeChangeCallback(argv[PARAM_INDEX_ZERO]);
+        }
+    }
+    return nullptr;
+}
+
+napi_value ObserverProcess::ProcessNavDestinationSizeChangeRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_ONE);
+    if (!isNavDestinationSizeChangeHandleFuncSetted_) {
+        NG::UIObserverHandler::GetInstance().SetNavDestinationSizeChangeHandleFunc(
+            &UIObserver::HandleNavDestinationSizeChange);
+        isNavDestinationSizeChangeHandleFuncSetted_ = true;
+    }
+    if (argc == PARAM_SIZE_ONE) {
+        if (!MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_function)) {
+            TAG_LOGE(AceLogTag::ACE_ROUTER, "register NavDestinationSizeChange observer with invalid params");
+            return nullptr;
+        }
+        auto listener = std::make_shared<UIObserverListener>(env, argv[PARAM_INDEX_ZERO]);
+        UIObserver::RegisterNavDestinationSizeChangeCallback(listener);
+    }
+    return nullptr;
+}
+
+napi_value ObserverProcess::ProcessNavDestinationSizeChangeUnRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_ONE);
+    if (argc == PARAM_SIZE_ZERO) {
+        UIObserver::UnRegisterNavDestinationSizeChangeCallback(nullptr);
+        return nullptr;
+    }
+    if (argc == PARAM_SIZE_ONE && MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_function)) {
+        UIObserver::UnRegisterNavDestinationSizeChangeCallback(argv[PARAM_INDEX_ZERO]);
+    }
+    return nullptr;
+}
+
+napi_value ObserverProcess::ProcessNavDestinationSizeChangeByUniqueIdRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_TWO);
+
+    if (!isNavDestinationSizeChangeByUniqueIdHandleFuncSetted_) {
+        NG::UIObserverHandler::GetInstance().SetNavDestinationSizeChangeByUniqueIdHandleFunc(
+            &UIObserver::HandleNavDestinationSizeChangeByUniqueId);
+        isNavDestinationSizeChangeByUniqueIdHandleFuncSetted_ = true;
+    }
+    if (argc == PARAM_SIZE_TWO && MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_number) &&
+        MatchValueType(env, argv[PARAM_INDEX_ONE], napi_function)) {
+            int32_t navigationUniqueId;
+            if (napi_get_value_int32(env, argv[PARAM_INDEX_ZERO], &navigationUniqueId) == napi_ok) {
+                auto listener = std::make_shared<UIObserverListener>(env, argv[PARAM_INDEX_ONE]);
+                UIObserver::RegisterNavDestinationSizeChangeByUniqueIdCallback(navigationUniqueId, listener);
+            }
+    }
+    return nullptr;
+}
+
+napi_value ObserverProcess::ProcessNavDestinationSizeChangeByUniqueIdUnRegister(napi_env env, napi_callback_info info)
+{
+    GET_PARAMS(env, info, PARAM_SIZE_TWO);
+    if (argc == PARAM_SIZE_ONE) {
+        if (MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_number)) {
+            int32_t navigationUniqueId;
+            if (napi_get_value_int32(env, argv[PARAM_INDEX_ZERO], &navigationUniqueId) == napi_ok) {
+                UIObserver::UnRegisterNavDestinationSizeChangeByUniqueIdCallback(navigationUniqueId, nullptr);
+            }
+        }
+    }
+
+    if (argc == PARAM_SIZE_TWO && MatchValueType(env, argv[PARAM_INDEX_ZERO], napi_number)&&
+        MatchValueType(env, argv[PARAM_INDEX_ONE], napi_function)) {
+        int32_t navigationUniqueId;
+        if (napi_get_value_int32(env, argv[PARAM_INDEX_ZERO], &navigationUniqueId) == napi_ok) {
+            UIObserver::UnRegisterNavDestinationSizeChangeByUniqueIdCallback(navigationUniqueId, argv[PARAM_INDEX_ONE]);
+        }
+    }
+    return nullptr;
+}
+
 napi_value ObserverOn(napi_env env, napi_callback_info info)
 {
     return ObserverProcess::GetInstance().ProcessRegister(env, info);
@@ -1451,6 +1791,46 @@ napi_value ObserverOn(napi_env env, napi_callback_info info)
 napi_value ObserverOff(napi_env env, napi_callback_info info)
 {
     return ObserverProcess::GetInstance().ProcessUnRegister(env, info);
+}
+
+napi_value OnSwiperContentUpdate(napi_env env, napi_callback_info info)
+{
+    return ObserverProcess::GetInstance().ProcessRegister(env, info, SWIPER_CONTENT_UPDATE);
+}
+
+napi_value OffSwiperContentUpdate(napi_env env, napi_callback_info info)
+{
+    return ObserverProcess::GetInstance().ProcessUnRegister(env, info, SWIPER_CONTENT_UPDATE);
+}
+
+napi_value OnRouterPageSizeChange(napi_env env, napi_callback_info info)
+{
+    return ObserverProcess::GetInstance().ProcessRouterPageSizeChangeRegister(env, info);
+}
+
+napi_value OffRouterPageSizeChange(napi_env env, napi_callback_info info)
+{
+    return ObserverProcess::GetInstance().ProcessRouterPageSizeChangeUnRegister(env, info);
+}
+
+napi_value OnNavDestinationSizeChange(napi_env env, napi_callback_info info)
+{
+    return ObserverProcess::GetInstance().ProcessNavDestinationSizeChangeRegister(env, info);
+}
+
+napi_value OffNavDestinationSizeChange(napi_env env, napi_callback_info info)
+{
+    return ObserverProcess::GetInstance().ProcessNavDestinationSizeChangeUnRegister(env, info);
+}
+
+napi_value OnNavDestinationSizeChangeByUniqueId(napi_env env, napi_callback_info info)
+{
+    return ObserverProcess::GetInstance().ProcessNavDestinationSizeChangeByUniqueIdRegister(env, info);
+}
+
+napi_value OffNavDestinationSizeChangeByUniqueId(napi_env env, napi_callback_info info)
+{
+    return ObserverProcess::GetInstance().ProcessNavDestinationSizeChangeByUniqueIdUnRegister(env, info);
 }
 
 napi_value AddToScrollEventType(napi_env env)
@@ -1613,6 +1993,14 @@ static napi_value UIObserverExport(napi_env env, napi_value exports)
         DECLARE_NAPI_PROPERTY("GestureType", gestureType),
         DECLARE_NAPI_PROPERTY("GestureRecognizerState", gestureRecognizerState),
         DECLARE_NAPI_PROPERTY("NodeRenderState", nodeRenderStateType),
+        DECLARE_NAPI_FUNCTION("onSwiperContentUpdate", OnSwiperContentUpdate),
+        DECLARE_NAPI_FUNCTION("offSwiperContentUpdate", OffSwiperContentUpdate),
+        DECLARE_NAPI_FUNCTION("onRouterPageSizeChange", OnRouterPageSizeChange),
+        DECLARE_NAPI_FUNCTION("offRouterPageSizeChange", OffRouterPageSizeChange),
+        DECLARE_NAPI_FUNCTION("onNavDestinationSizeChange", OnNavDestinationSizeChange),
+        DECLARE_NAPI_FUNCTION("offNavDestinationSizeChange", OffNavDestinationSizeChange),
+        DECLARE_NAPI_FUNCTION("onNavDestinationSizeChangeByUniqueId", OnNavDestinationSizeChangeByUniqueId),
+        DECLARE_NAPI_FUNCTION("offNavDestinationSizeChangeByUniqueId", OffNavDestinationSizeChangeByUniqueId)
     };
     NAPI_CALL(
         env, napi_define_properties(env, exports, sizeof(uiObserverDesc) / sizeof(uiObserverDesc[0]), uiObserverDesc));

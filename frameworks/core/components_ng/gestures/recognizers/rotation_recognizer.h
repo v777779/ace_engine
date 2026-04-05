@@ -47,6 +47,9 @@ public:
         return angle_;
     }
 
+protected:
+    std::string GetGestureInfoString() const override;
+
 private:
     void HandleTouchDownEvent(const TouchEvent& event) override;
     void HandleTouchUpEvent(const TouchEvent& event) override;
@@ -61,6 +64,7 @@ private:
     double ComputeAngle();
     void OnResetStatus() override;
     void SendCallbackMsg(const std::unique_ptr<GestureEventFunc>& callback, GestureCallbackType type);
+    void GetGestureEventInfo(GestureEvent& info);
     void HandleReports(const GestureEvent& info, GestureCallbackType type) override;
     GestureJudgeResult TriggerGestureJudgeCallback();
     static double ChangeValueRange(double value);
@@ -70,7 +74,7 @@ private:
     double currentAngle_ = 0.0;
     double resultAngle_ = 0.0;
     double lastAngle_ = 0.0;
-    bool angleSignChanged_ = false;
+    double cumulativeAngle_ = 0.0;
     TimeStamp time_;
     AxisEvent lastAxisEvent_;
 };

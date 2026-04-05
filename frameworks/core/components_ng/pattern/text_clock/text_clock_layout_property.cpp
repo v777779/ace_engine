@@ -87,14 +87,12 @@ void TextClockLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, cons
     if (filter.IsFastFilter()) {
         return;
     }
-
     auto host = GetHost();
-    auto themeScopeId = host ? host->GetThemeScopeId() : 0;
-    auto pipelineContext = PipelineContext::GetCurrentContext();
-    CHECK_NULL_VOID(pipelineContext);
-    auto theme = pipelineContext->GetTheme<TextClockTheme>(themeScopeId);
-    auto defaultColor = theme ? theme->GetTextStyleClock().GetTextColor() : Color::BLACK;
-
+    CHECK_NULL_VOID(host);
+    auto context = host->GetContext();
+    CHECK_NULL_VOID(context);
+    auto theme = context->GetTheme<TextTheme>();
+    CHECK_NULL_VOID(theme);
     if (AceApplicationInfo::GetInstance().GreatOrEqualTargetAPIVersion(PlatformVersion::VERSION_ELEVEN)) {
         json->PutExtAttr("format", propFormat_.value_or(DEFAULT_FORMAT_API_ELEVEN).c_str(), filter);
     } else {
@@ -102,10 +100,13 @@ void TextClockLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, cons
     }
     json->PutExtAttr("timeZoneOffset",
         std::to_string(propHoursWest_.value_or(GetSystemTimeZone())).c_str(), filter);
-    json->PutExtAttr("fontSize", GetFontSize().value_or(Dimension()).ToString().c_str(), filter);
-    json->PutExtAttr("fontColor", GetTextColor().value_or(defaultColor).ColorToString().c_str(), filter);
+    json->PutExtAttr(
+        "fontSize", GetFontSize().value_or(theme->GetTextStyle().GetFontSize()).ToString().c_str(), filter);
+    json->PutExtAttr(
+        "fontColor", GetTextColor().value_or(theme->GetTextStyle().GetTextColor()).ColorToString().c_str(), filter);
     json->PutExtAttr("fontWeight",
-        V2::ConvertWrapFontWeightToStirng(GetFontWeight().value_or(FontWeight::NORMAL)).c_str(), filter);
+        V2::ConvertWrapFontWeightToStirng(GetFontWeight().value_or(theme->GetTextStyle().GetFontWeight())).c_str(),
+        filter);
     json->PutExtAttr("fontStyle",
         V2::ConvertWrapFontStyleToStirng(GetItalicFontStyle().value_or(Ace::FontStyle::NORMAL)).c_str(), filter);
     json->PutExtAttr("fontFamily",

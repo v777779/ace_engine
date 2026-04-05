@@ -41,9 +41,8 @@ void LoadingProgressModelNG::Create()
 }
 RefPtr<FrameNode> LoadingProgressModelNG::CreateFrameNode(int32_t nodeId)
 {
-    auto frameNode =
-        FrameNode::CreateFrameNode(V2::LOADING_PROGRESS_ETS_TAG, nodeId, AceType::MakeRefPtr<LoadingProgressPattern>());
-    return frameNode;
+    return FrameNode::CreateFrameNode(
+        V2::LOADING_PROGRESS_ETS_TAG, nodeId, AceType::MakeRefPtr<LoadingProgressPattern>());
 }
 void LoadingProgressModelNG::SetColor(const Color& value)
 {
@@ -67,20 +66,6 @@ void LoadingProgressModelNG::SetColorByUser(bool isSetByUser)
 void LoadingProgressModelNG::SetEnableLoading(bool enable)
 {
     ACE_UPDATE_PAINT_PROPERTY(LoadingProgressPaintProperty, EnableLoading, enable);
-}
-
-void LoadingProgressModelNG::ResetColor()
-{
-    auto frameNode = NG::ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    CHECK_NULL_VOID(frameNode);
-    auto pattern = frameNode->GetPattern<LoadingProgressPattern>();
-    CHECK_NULL_VOID(pattern);
-    pattern->SetColorLock(false);
-    ACE_RESET_PAINT_PROPERTY_WITH_FLAG(LoadingProgressPaintProperty, Color, PROPERTY_UPDATE_RENDER);
-    ACE_UPDATE_PAINT_PROPERTY(LoadingProgressPaintProperty, ColorSetByUser, true);
-    ACE_RESET_RENDER_CONTEXT(RenderContext, ForegroundColor);
-    ACE_RESET_RENDER_CONTEXT(RenderContext, ForegroundColorStrategy);
-    ACE_RESET_RENDER_CONTEXT(RenderContext, ForegroundColorFlag);
 }
 
 void LoadingProgressModelNG::SetForegroundColorParseFailed(bool isParseFailed)
@@ -188,7 +173,10 @@ void HandleColorResource(const RefPtr<LoadingProgressPattern>& pattern, const Re
     std::string key = "loadingProgress.Color";
     pattern->RemoveResObj(key);
     CHECK_NULL_VOID(resObj);
-    auto&& updateFunc = [pattern, key](const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+    auto&& updateFunc = [weak = AceType::WeakClaim(AceType::RawPtr(pattern)), key](
+                            const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
         Color result;
         if (!ResourceParseUtils::ParseResColor(resObj, result)) {
             if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TEN)) {
@@ -209,7 +197,10 @@ void HandleForegroundColorResource(const RefPtr<LoadingProgressPattern>& pattern
     std::string key = "loadingProgress.ForegroundColor";
     pattern->RemoveResObj(key);
     CHECK_NULL_VOID(resObj);
-    auto&& updateFunc = [pattern, key](const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+    auto&& updateFunc = [weak = AceType::WeakClaim(AceType::RawPtr(pattern)), key](
+                            const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
         Color result;
         if (!ResourceParseUtils::ParseResColor(resObj, result)) {
             if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TEN)) {

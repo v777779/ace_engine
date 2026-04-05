@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,12 +18,13 @@
 
 import { NodePosition, Rect, Circle, RoundRect, CommandPath, Size, Frame, Vector2, Vector3, Matrix4, NodeEdges, Corners, ShapeMask, ShapeClip, LengthMetricsUnit, DrawContext } from "./Graphics"
 import { BorderStyle } from "./component/enums"
-import { TypeChecker, ArkUIGeneratedNativeModule } from "#components"
-import { Finalizable, runtimeType, RuntimeType, SerializerBase, registerCallback, wrapCallback, toPeerPtr, KPointer, MaterializedBase, InteropNativeModule } from "@koalaui/interop"
+import { ArkUIGeneratedNativeModule } from "#components"
+import { Finalizable, runtimeType, RuntimeType, SerializerBase, registerCallback, wrapCallback, toPeerPtr, KPointer, MaterializedBase, InteropNativeModule, nullptr } from "@koalaui/interop"
 import { unsafeCast, int32, int64, float32 } from "@koalaui/common"
 import { PeerNode } from "./PeerNode"
 import { FrameNode } from "./FrameNode"
 import { ArkUIAniModule } from "arkui.ani"
+import { BusinessError } from '#external';
 import hilog from '@ohos.hilog'
 import { RenderNodeExtender, NodeEdgeStyles, EdgeI32, EdgeF64, BorderRadiuses_graphics } from "./framework";
 
@@ -35,6 +36,10 @@ export class RenderNodeInternal {
         return obj
     }
 }
+
+const ERROR_CODE_NODE_IS_ADOPTED = 106206;
+const ERROR_CODE_NO_ERROR = 0;
+
 export class RenderNode implements MaterializedBase {
     peer?: Finalizable | undefined = undefined
     private type?: string;  // use for transfer
@@ -42,11 +47,12 @@ export class RenderNode implements MaterializedBase {
     private parentRenderNode: WeakRef<RenderNode> | null = null
     private lengthMetricsUnitValue: LengthMetricsUnit = LengthMetricsUnit.DEFAULT
     private borderStyleValue: NodeEdges<BorderStyle> | undefined = undefined
-    private borderWidthValue: NodeEdges<double> | undefined = undefined
-    private borderColorValue: NodeEdges<int32> | undefined = undefined
-    private borderRadiusValue: Corners<number> | undefined = undefined
-    private shapeMaskValue: ShapeMask | undefined = undefined
-    private shapeClipValue: ShapeClip | undefined = undefined
+    private borderWidthValue: NodeEdges<double> = { left: 0, top: 0, right: 0, bottom: 0 }
+    private borderColorValue: NodeEdges<int32> = { left: 0XFF000000.toInt(), top: 0XFF000000.toInt(),
+        right: 0XFF000000.toInt(), bottom: 0XFF000000.toInt() }
+    private borderRadiusValue: Corners<number> | undefined = undefined;
+    private shapeMaskValue: ShapeMask | undefined = undefined;
+    private shapeClipValue: ShapeClip | undefined = undefined;
     private backgroundColorValue: int32 = 0
     private clipToFrameValue: boolean = true
     private frameValue: Frame = { x: 0, y: 0, width: 0, height: 0 }
@@ -64,6 +70,7 @@ export class RenderNode implements MaterializedBase {
     private translationValue: Vector2 = { x: 0, y: 0 }
     private markNodeGroupValue: boolean = false
     private frameNode_: WeakRef<FrameNode> | undefined = undefined
+    private isDisposed_: boolean = false;
     public getPeer(): Finalizable | undefined {
         return this.peer
     }
@@ -268,7 +275,8 @@ export class RenderNode implements MaterializedBase {
     }
     set borderColor(borderColor: NodeEdges<int32>) {
         if (borderColor === undefined || borderColor === null) {
-            this.borderColorValue = { left: 0XFF000000, top: 0XFF000000, right: 0XFF000000, bottom: 0XFF000000 };
+            this.borderColorValue = { left: 0XFF000000.toInt(), top: 0XFF000000.toInt(),
+                                      right: 0XFF000000.toInt(), bottom: 0XFF000000.toInt() };
         } else {
             this.borderColorValue = borderColor;
         }
@@ -276,7 +284,7 @@ export class RenderNode implements MaterializedBase {
         this.setBorderColor(borderColor_casted)
     }
     get borderRadius(): Corners<number> | undefined {
-        return this.borderRadiusValue
+        return this.borderRadiusValue;
     }
     set borderRadius(borderRadius: Corners<number>) {
         if (borderRadius === undefined || borderRadius === null) {
@@ -304,6 +312,7 @@ export class RenderNode implements MaterializedBase {
     }
     set markNodeGroup(markNodeGroup: boolean) {
         this.setMarkNodeGroup(markNodeGroup)
+        this.markNodeGroupValue = markNodeGroup;
     }
     get lengthMetricsUnit(): LengthMetricsUnit {
         return this.lengthMetricsUnitValue
@@ -314,6 +323,9 @@ export class RenderNode implements MaterializedBase {
     static ctor_rendernode(id: int32, callback: DrawCallback): KPointer {
         const retval  = RenderNodeExtender.constructorRenderNode(id)
         return retval
+    }
+    constructor() {
+        this(undefined);
     }
     constructor(type?: string) {
         this.type = type;
@@ -350,36 +362,38 @@ export class RenderNode implements MaterializedBase {
         if (this.childrenList.findIndex(element => element === node_casted) !== -1) {
             return
         }
+        let result = RenderNodeExtender.appendChild(this, node_casted);
+        if (result === ERROR_CODE_NODE_IS_ADOPTED) {
+            const error = Error("The parameter 'node' is invalid: its corresponding FrameNode cannot be adopted.");
+            throw new BusinessError(100025, error);
+        }
         this.childrenList.push(node)
         node.parentRenderNode = new WeakRef<RenderNode>(this)
-        RenderNodeExtender.appendChild(this, node_casted)
         return
     }
     public insertChildAfter(child: RenderNode, sibling: RenderNode | null): void {
-        const child_casted = child as (RenderNode)
-        InteropNativeModule._NativeLog("FFZZYY insertChildAfter 111")
-        let indexOfNode = this.childrenList.findIndex(element => element === child_casted)
+        let indexOfNode = this.childrenList.findIndex(element => element === child)
         if (indexOfNode !== -1) {
             return
         }
-        InteropNativeModule._NativeLog("FFZZYY insertChildAfter 222")
-        child.parentRenderNode = new WeakRef<RenderNode>(this);
-        InteropNativeModule._NativeLog("FFZZYY insertChildAfter 333")
         let indexOfSibling = this.childrenList.findIndex(element => element === sibling)
         if (indexOfSibling === -1) {
-            return
+            sibling = null;
         }
-        InteropNativeModule._NativeLog("FFZZYY insertChildAfter 444")
+        let result = ERROR_CODE_NO_ERROR;
+        let childrenListStartPosition: number = 0;
         if (sibling === undefined || sibling === null) {
-            this.childrenList.splice(0 as int32, 0 as int32, child)
-            return
+            result = RenderNodeExtender.insertChild(this, child);
         } else {
-            this.childrenList.splice(indexOfSibling + 1, 0, child)
+            result = RenderNodeExtender.insertChildAfter(this, child, sibling!);
+            childrenListStartPosition = indexOfSibling + 1;
         }
-        InteropNativeModule._NativeLog("FFZZYY insertChildAfter 555")
-        const sibling_casted = sibling as RenderNode
-        RenderNodeExtender.insertChildAfter(this, child, sibling_casted);
-        InteropNativeModule._NativeLog("FFZZYY insertChildAfter 666")
+        if (result === ERROR_CODE_NODE_IS_ADOPTED) {
+            const error = Error("The parameter 'child' is invalid: its corresponding FrameNode cannot be adopted.");
+            throw new BusinessError(100025, error);
+        }
+        this.childrenList.splice(childrenListStartPosition.toInt(), 0, child);
+        child.parentRenderNode = new WeakRef<RenderNode>(this);
         return
     }
     public removeChild(node: RenderNode): void {
@@ -424,7 +438,7 @@ export class RenderNode implements MaterializedBase {
         if (index === -1) {
             return null
         }
-        return parent!.getChild(index + 1)
+        return parent!.getChild((index + 1) as int32)
     }
     public getPreviousSibling(): RenderNode | null {
         if (this.parentRenderNode === undefined || this.parentRenderNode === null) {
@@ -439,7 +453,7 @@ export class RenderNode implements MaterializedBase {
         if (index === -1) {
             return null
         }
-        return parent!.getChild(index - 1)
+        return parent!.getChild((index - 1) as int32)
     }
     public draw(context: DrawContext): void {
         InteropNativeModule._NativeLog("RenderNode Draw")
@@ -449,28 +463,37 @@ export class RenderNode implements MaterializedBase {
         return
     }
     dispose() {
+        if (this.isDisposed()) {
+            return;
+        }
         this.frameNode_?.deref()?.resetNodePtr()
         if (this.peer?.ptr) {
             this.peer?.close();
         }
+        this.isDisposed_ = true;
+    }
+    public isDisposed(): boolean {
+        const ptr = this.peer?.ptr;
+        return this.isDisposed_ && (ptr === undefined || ptr === null || ptr === nullptr);
     }
     resetNodePtr() {
         if (this.peer?.ptr) {
             this.peer?.close();
         }
+        this.isDisposed_ = true;
     }
     private setClipToFrame(clipToFrame: boolean): void {
         RenderNodeExtender.setClipToFrame(this, clipToFrame)
         return
     }
     private setSize(size: Size): void {
-        const lengthMetricsUnitValue = this.lengthMetricsUnitValue as int32;
+        const lengthMetricsUnitValue = this.lengthMetricsUnitValue;
         RenderNodeExtender.setSize(this, size, lengthMetricsUnitValue)
         return
     }
     private setPosition(position: NodePosition): void {
         const position_casted = position as (Vector2)
-        const lengthMetricsUnitValue = this.lengthMetricsUnitValue as int32;
+        const lengthMetricsUnitValue = this.lengthMetricsUnitValue;
         RenderNodeExtender.setPosition(this, position_casted, lengthMetricsUnitValue)
         return
     }
@@ -487,7 +510,7 @@ export class RenderNode implements MaterializedBase {
         return
     }
     private setRotation(rotation: Vector3): void {
-        const lengthMetricsUnitValue = this.lengthMetricsUnitValue as int32;
+        const lengthMetricsUnitValue = this.lengthMetricsUnitValue;
         RenderNodeExtender.setRotation(this, rotation, lengthMetricsUnitValue)
         return
     }
@@ -496,7 +519,7 @@ export class RenderNode implements MaterializedBase {
         return
     }
     private setShadowOffset(shadowOffset: Vector2): void {
-        const lengthMetricsUnitValue = this.lengthMetricsUnitValue as int32;
+        const lengthMetricsUnitValue = this.lengthMetricsUnitValue;
         RenderNodeExtender.setShadowOffset(this, shadowOffset, lengthMetricsUnitValue)
         return
     }
@@ -519,15 +542,15 @@ export class RenderNode implements MaterializedBase {
         const bottom = (borderWidth.bottom === null || undefined) ? 0.0 : borderWidth.bottom;
         const right = (borderWidth.right === null || undefined) ? 0.0 : borderWidth.right;
         const edgesBorderWidth = { top: top!, left: left!, bottom: bottom!, right: right! } as EdgeF64;
-        const lengthMetricsUnitValue = this.lengthMetricsUnitValue as int32;
+        const lengthMetricsUnitValue = this.lengthMetricsUnitValue;
         RenderNodeExtender.setBorderWidth(this, edgesBorderWidth, lengthMetricsUnitValue);
         return
     }
     private setBorderColor(borderColor: NodeEdges<int32>): void {
-        const top = ((borderColor.top === null || undefined) ? 0xFF000000 : borderColor.top) as int32;
-        const left = ((borderColor.left === null || undefined) ? 0xFF000000 : borderColor.left) as int32;
-        const bottom = ((borderColor.bottom === null || undefined) ? 0xFF000000 : borderColor.bottom) as int32;
-        const right = ((borderColor.right === null || undefined) ? 0xFF000000 : borderColor.right) as int32;
+        const top = ((borderColor.top === null || undefined) ? (0xFF000000.toInt()) : borderColor.top) as int32;
+        const left = ((borderColor.left === null || undefined) ? (0xFF000000.toInt()) : borderColor.left) as int32;
+        const bottom = ((borderColor.bottom === null || undefined) ? (0xFF000000.toInt()) : borderColor.bottom) as int32;
+        const right = ((borderColor.right === null || undefined) ? (0xFF000000.toInt()) : borderColor.right) as int32;
         const edgesBorderColor = { top: top!, left: left!, bottom: bottom!, right: right! } as EdgeI32;
         RenderNodeExtender.setBorderColor(this, edgesBorderColor);
         return
@@ -535,7 +558,7 @@ export class RenderNode implements MaterializedBase {
     private setBorderRadius(borderRadius: Corners<number>): void {
         const cornersBorderRadius = { topLeft: borderRadius.topLeft, topRight: borderRadius.topRight,
             bottomLeft: borderRadius.bottomLeft, bottomRight: borderRadius.bottomRight } as BorderRadiuses_graphics;
-        const lengthMetricsUnitValue = this.lengthMetricsUnitValue as int32;
+        const lengthMetricsUnitValue = this.lengthMetricsUnitValue;
         RenderNodeExtender.setBorderRadius(this, cornersBorderRadius, lengthMetricsUnitValue);
         return
     }

@@ -17,6 +17,7 @@
 
 #include "bridge/declarative_frontend/engine/js_converter.h"
 
+#include "base/log/ace_scoring_log.h"
 #include "base/subwindow/subwindow_manager.h"
 #include "base/utils/system_properties.h"
 #include "base/utils/utils.h"
@@ -25,7 +26,7 @@
 #include "bridge/declarative_frontend/jsview/models/custom_dialog_controller_model_impl.h"
 #include "core/common/ace_engine.h"
 #include "core/common/container.h"
-#include "core/common/resource/resource_parse_utils.h"
+#include "core/components/common/properties/ui_material.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/dialog/custom_dialog_controller_model_ng.h"
 #include "core/components_ng/pattern/overlay/level_order.h"
@@ -33,6 +34,7 @@
 #include "frameworks/bridge/common/utils/engine_helper.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_view_abstract.h"
 #include "frameworks/bridge/declarative_frontend/engine/jsi/js_ui_index.h"
+#include "frameworks/bridge/declarative_frontend/jsview/js_utils.h"
 
 namespace OHOS::Ace {
 std::unique_ptr<CustomDialogControllerModel> CustomDialogControllerModel::instance_ = nullptr;
@@ -66,6 +68,8 @@ const std::vector<DialogAlignment> DIALOG_ALIGNMENT = { DialogAlignment::TOP, Di
 const std::vector<KeyboardAvoidMode> KEYBOARD_AVOID_MODE = { KeyboardAvoidMode::DEFAULT, KeyboardAvoidMode::NONE };
 const std::vector<LevelMode> DIALOG_LEVEL_MODE = { LevelMode::OVERLAY, LevelMode::EMBEDDED };
 const std::vector<ImmersiveMode> DIALOG_IMMERSIVE_MODE = { ImmersiveMode::DEFAULT, ImmersiveMode::EXTEND };
+const std::vector<DialogDisplayMode> DIALOG_DISPLAY_MODE = {
+    DialogDisplayMode::SCREEN_BASED, DialogDisplayMode::WINDOW_BASED };
 constexpr int32_t DEFAULT_ANIMATION_DURATION = 200;
 constexpr float DEFAULT_AVOID_DISTANCE = 16.0f;
 
@@ -109,84 +113,27 @@ void ParseCustomDialogFocusable(DialogProperties& properties, JSRef<JSObject> ob
     properties.focusable = focusableValue->ToBoolean();
 }
 
+void ParseCustomDialogSystemMaterial(DialogProperties& properties, JSRef<JSObject> obj)
+{
+    auto systemMaterialValue = obj->GetProperty("systemMaterial");
+    if (systemMaterialValue->IsObject()) {
+        auto systemUiMaterial = static_cast<UiMaterial*>(UnwrapNapiValue(systemMaterialValue));
+        properties.systemMaterial = systemUiMaterial ? systemUiMaterial->Copy() : nullptr;
+    }
+}
+
+void ParseCustomDialogDisplayMode(DialogProperties& properties, JSRef<JSObject> obj)
+{
+    auto dialogDisplayMode = obj->GetProperty("displayModeInSubWindow");
+    if (dialogDisplayMode->IsNumber()) {
+        auto mode = dialogDisplayMode->ToNumber<int32_t>();
+        if (mode >= 0 && mode < static_cast<int32_t>(DIALOG_DISPLAY_MODE.size())) {
+            properties.dialogDisplayMode = DIALOG_DISPLAY_MODE[mode];
+        }
+    }
+}
+
 static std::atomic<int32_t> controllerId = 0;
-
-void ParseColor(DialogProperties& properties, const JSRef<JSObject>& obj)
-{
-    Color maskColor;
-    Color backgroundColor;
-    auto maskColorValue = obj->GetProperty("maskColor");
-    auto backgroundColorValue = obj->GetProperty("backgroundColor");
-    if (SystemProperties::ConfigChangePerform()) {
-        RefPtr<ResourceObject> resBgColorObj = nullptr;
-        RefPtr<ResourceObject> resMaskColorObj = nullptr;
-        if (JSViewAbstract::ParseJsColor(maskColorValue, maskColor, resMaskColorObj)) {
-            properties.maskColor = maskColor;
-        }
-        properties.resourceMaskColorObj = resMaskColorObj;
-        if (JSViewAbstract::ParseJsColor(backgroundColorValue, backgroundColor, resBgColorObj)) {
-            properties.backgroundColor = backgroundColor;
-        }
-        properties.resourceBgColorObj = resBgColorObj;
-        return;
-    }
-    if (JSViewAbstract::ParseJsColor(maskColorValue, maskColor)) {
-        properties.maskColor = maskColor;
-    }
-    if (JSViewAbstract::ParseJsColor(backgroundColorValue, backgroundColor)) {
-        properties.backgroundColor = backgroundColor;
-    }
-}
-
-void ParseOffset(const JSRef<JSVal>& jsValue, DialogProperties& properties)
-{
-    auto offsetObj = JSRef<JSObject>::Cast(jsValue);
-    CalcDimension dx;
-    CalcDimension dy;
-    if (!SystemProperties::ConfigChangePerform()) {
-        JSViewAbstract::ParseJsDimensionVp(offsetObj->GetProperty("dx"), dx);
-        JSViewAbstract::ParseJsDimensionVp(offsetObj->GetProperty("dy"), dy);
-        dx.ResetInvalidValue();
-        dy.ResetInvalidValue();
-        properties.offset = DimensionOffset(dx, dy);
-        bool isRtl = AceApplicationInfo::GetInstance().IsRightToLeft();
-        Dimension offsetX = isRtl ? properties.offset.GetX() * (-1) : properties.offset.GetX();
-        properties.offset.SetX(offsetX);
-        return;
-    }
-    RefPtr<ResourceObject> xResObj = nullptr;
-    RefPtr<ResourceObject> yResObj = nullptr;
-    if (JSViewAbstract::ParseJsDimensionVp(offsetObj->GetProperty("dx"), dx, xResObj)) {
-        properties.offset.SetX(dx);
-    }
-    if (JSViewAbstract::ParseJsDimensionVp(offsetObj->GetProperty("dy"), dy, yResObj)) {
-        properties.offset.SetY(dy);
-    }
-    DimensionOffset offsetOption;
-    if (xResObj) {
-        auto&& offsetXUpdateFunc = [](const RefPtr<ResourceObject>& xResObj, DimensionOffset& options) {
-            CalcDimension offsetX;
-            if (ResourceParseUtils::ParseResDimensionVp(xResObj, offsetX)) {
-                Dimension xVal = offsetX;
-                options.SetX(xVal);
-            }
-            bool isRtl = AceApplicationInfo::GetInstance().IsRightToLeft();
-            Dimension value = isRtl ? options.GetX() * (-1) : options.GetX();
-            options.SetX(value);
-        };
-        offsetOption.AddResource("dialog.offset.x", xResObj, std::move(offsetXUpdateFunc));
-    }
-    if (yResObj) {
-        auto&& offsetYUpdateFunc = [](const RefPtr<ResourceObject>& yResObj, DimensionOffset& options) {
-            CalcDimension offsetY;
-            if (ResourceParseUtils::ParseResDimensionVp(yResObj, offsetY)) {
-                Dimension yVal = offsetY;
-                options.SetY(yVal);
-            }
-        };
-        offsetOption.AddResource("dialog.offset.y", yResObj, std::move(offsetYUpdateFunc));
-    }
-}
 
 void JSCustomDialogController::ConstructorCallback(const JSCallbackInfo& info)
 {
@@ -238,7 +185,7 @@ void JSCustomDialogController::ConstructorCallback(const JSCallbackInfo& info)
         }
 
         std::function<void(const int32_t& info, const int32_t& instanceId)> onWillDismissFunc = nullptr;
-        JSViewAbstract::ParseDialogCallback(constructorArg, onWillDismissFunc);
+        JSViewAbstract::ParseDialogCallback(info, constructorArg, onWillDismissFunc);
         instance->dialogProperties_.onWillDismiss = onWillDismissFunc;
 
         JSViewAbstract::ParseAppearDialogCallback(info, instance->dialogProperties_);
@@ -297,7 +244,16 @@ void JSCustomDialogController::ConstructorCallback(const JSCallbackInfo& info)
         // Parse offset
         auto offsetValue = constructorArg->GetProperty("offset");
         if (offsetValue->IsObject()) {
-            ParseOffset(offsetValue, instance->dialogProperties_);
+            auto offsetObj = JSRef<JSObject>::Cast(offsetValue);
+            CalcDimension dx;
+            auto dxValue = offsetObj->GetProperty("dx");
+            JSViewAbstract::ParseJsDimensionVp(dxValue, dx);
+            CalcDimension dy;
+            auto dyValue = offsetObj->GetProperty("dy");
+            JSViewAbstract::ParseJsDimensionVp(dyValue, dy);
+            dx.ResetInvalidValue();
+            dy.ResetInvalidValue();
+            instance->dialogProperties_.offset = DimensionOffset(dx, dy);
         }
 
         // Parses gridCount.
@@ -306,14 +262,33 @@ void JSCustomDialogController::ConstructorCallback(const JSCallbackInfo& info)
             instance->dialogProperties_.gridCount = gridCountValue->ToNumber<int32_t>();
         }
 
-        //  maskColor and backgroundColor
-        ParseColor(instance->dialogProperties_, constructorArg);
+        // Parse maskColor.
+        auto maskColorValue = constructorArg->GetProperty("maskColor");
+        Color maskColor;
+        RefPtr<ResourceObject> maskColorResObj;
+        if (JSViewAbstract::ParseJsColor(maskColorValue, maskColor, maskColorResObj)) {
+            if (SystemProperties::ConfigChangePerform() && !JSViewAbstract::CheckDarkResource(maskColorResObj)) {
+                instance->dialogProperties_.hasInvertColor.hasMaskColor = true;
+            }
+            instance->dialogProperties_.maskColor = maskColor;
+        }
 
         // Parse maskRect.
         auto maskRectValue = constructorArg->GetProperty("maskRect");
         DimensionRect maskRect;
         if (JSViewAbstract::ParseJsDimensionRect(maskRectValue, maskRect)) {
             instance->dialogProperties_.maskRect = maskRect;
+        }
+
+        // Parse backgroundColor.
+        auto backgroundColorValue = constructorArg->GetProperty("backgroundColor");
+        Color backgroundColor;
+        RefPtr<ResourceObject> backgroundColorResObj;
+        if (JSViewAbstract::ParseJsColor(backgroundColorValue, backgroundColor, backgroundColorResObj)) {
+            if (SystemProperties::ConfigChangePerform() && !JSViewAbstract::CheckDarkResource(backgroundColorResObj)) {
+                instance->dialogProperties_.hasInvertColor.hasBackgroundColor = true;
+            }
+            instance->dialogProperties_.backgroundColor = backgroundColor;
         }
 
         // Parse backgroundBlurStyle.
@@ -382,6 +357,10 @@ void JSCustomDialogController::ConstructorCallback(const JSCallbackInfo& info)
         // Parse levelOrder.
         ParseCustomDialogLevelOrder(instance->dialogProperties_, constructorArg);
         ParseCustomDialogFocusable(instance->dialogProperties_, constructorArg);
+        ParseCustomDialogSystemMaterial(instance->dialogProperties_, constructorArg);
+
+        // Parse displayMode.
+        ParseCustomDialogDisplayMode(instance->dialogProperties_, constructorArg);
 
         instance->dialogProperties_.controllerId = controllerId.fetch_add(1, std::memory_order_relaxed);
         JSViewAbstract::SetDialogProperties(constructorArg, instance->dialogProperties_);
@@ -412,6 +391,7 @@ void JSCustomDialogController::JsOpenDialog(const JSCallbackInfo& info)
     auto containerId = this->ownerView_->GetInstanceId();
     ContainerScope containerScope(containerId);
     WeakPtr<NG::FrameNode> frameNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ACE_UINODE_TRACE(frameNode);
     auto pipelineContext = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipelineContext);
 
@@ -474,6 +454,7 @@ void JSCustomDialogController::JsCloseDialog(const JSCallbackInfo& info)
     }
 
     WeakPtr<NG::FrameNode> frameNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ACE_UINODE_TRACE(frameNode);
     auto cancelTask = ([cancelCallback = jsCancelFunction_, node = frameNode]() {
         if (cancelCallback) {
             ACE_SCORING_EVENT("CustomDialog.cancel");
@@ -508,10 +489,8 @@ bool JSCustomDialogController::ParseAnimation(
     int32_t iterations = obj->GetPropertyValue<int32_t>("iterations", 1);
     float tempo = obj->GetPropertyValue<float>("tempo", 1.0);
     auto finishCallbackType = static_cast<FinishCallbackType>(obj->GetPropertyValue<int32_t>("finishCallbackType", 0));
-    if (tempo < 0) {
+    if (NonPositive(tempo)) {
         tempo = 1.0f;
-    } else if (tempo == 0) {
-        tempo = 1000.0f;
     }
     auto direction = StringToAnimationDirection(obj->GetPropertyValue<std::string>("playMode", "normal"));
     RefPtr<Curve> curve;

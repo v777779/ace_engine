@@ -18,7 +18,6 @@
 #include "core/components_ng/pattern/folder_stack/control_parts_stack_node.h"
 #include "core/components_ng/pattern/folder_stack/folder_stack_pattern.h"
 #include "core/components_ng/pattern/folder_stack/hover_stack_node.h"
-#include "folder_stack_model_ng.h"
 
 namespace OHOS::Ace::NG {
 void FolderStackModelNG::Create()
@@ -30,19 +29,20 @@ void FolderStackModelNG::Create(const std::vector<std::string>& itemId)
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
+    ACE_UINODE_TRACE(nodeId);
     auto folderStackGroupNode = FolderStackGroupNode::GetOrCreateGroupNode(
-        V2::FOLDER_STACK_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<FolderStackPattern>(); });
+        FOLDER_STACK_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<FolderStackPattern>(); });
     folderStackGroupNode->SetItemId(itemId);
     if (!folderStackGroupNode->GetHoverNode()) {
         int32_t hoverId = ElementRegister::GetInstance()->MakeUniqueId();
         auto hoverStackNode = HoverStackNode::GetOrCreateHoverStackNode(
-            V2::HOVER_STACK_ETS_TAG, hoverId, []() { return AceType::MakeRefPtr<HoverStackPattern>(); });
+            HOVER_STACK_ETS_TAG, hoverId, []() { return AceType::MakeRefPtr<HoverStackPattern>(); });
         folderStackGroupNode->AddChild(hoverStackNode);
         folderStackGroupNode->SetHoverNode(hoverStackNode);
     }
     if (!folderStackGroupNode->GetControlPartsStackNode()) {
         int32_t controlPartsId = ElementRegister::GetInstance()->MakeUniqueId();
-        auto controlPartsNode = ControlPartsStackNode::GetOrCreateControlPartsStackNode(V2::CONTROL_PARTS_STACK_ETS_TAG,
+        auto controlPartsNode = ControlPartsStackNode::GetOrCreateControlPartsStackNode(CONTROL_PARTS_STACK_ETS_TAG,
             controlPartsId, []() { return AceType::MakeRefPtr<ControlPartsStackPattern>(); });
         folderStackGroupNode->AddChild(controlPartsNode);
         folderStackGroupNode->SetControlPartsStackNode(controlPartsNode);
@@ -51,44 +51,14 @@ void FolderStackModelNG::Create(const std::vector<std::string>& itemId)
     ACE_UPDATE_LAYOUT_PROPERTY(FolderStackLayoutProperty, UpperItems, itemId);
 }
 
-RefPtr<FrameNode> FolderStackModelNG::CreateFrameNode(int32_t nodeId)
-{
-    auto folderStackGroupNode = FolderStackGroupNode::GetOrCreateGroupNode(
-        V2::FOLDER_STACK_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<FolderStackPattern>(); });
-    if (!folderStackGroupNode->GetHoverNode()) {
-        int32_t hoverId = ElementRegister::GetInstance()->MakeUniqueId();
-        auto hoverStackNode = HoverStackNode::GetOrCreateHoverStackNode(
-            V2::HOVER_STACK_ETS_TAG, hoverId, []() { return AceType::MakeRefPtr<HoverStackPattern>(); });
-        folderStackGroupNode->AddChild(hoverStackNode);
-        folderStackGroupNode->SetHoverNode(hoverStackNode);
-    }
-    if (!folderStackGroupNode->GetControlPartsStackNode()) {
-        int32_t controlPartsId = ElementRegister::GetInstance()->MakeUniqueId();
-        auto controlPartsNode = ControlPartsStackNode::GetOrCreateControlPartsStackNode(V2::CONTROL_PARTS_STACK_ETS_TAG,
-            controlPartsId, []() { return AceType::MakeRefPtr<ControlPartsStackPattern>(); });
-        folderStackGroupNode->AddChild(controlPartsNode);
-        folderStackGroupNode->SetControlPartsStackNode(controlPartsNode);
-    }
-    std::vector<std::string> itemId;
-    SetUpdateUpperItems(folderStackGroupNode.GetRawPtr(), itemId);
-    return folderStackGroupNode;
-}
-
-void FolderStackModelNG::SetUpdateUpperItems(FrameNode* frameNode, const std::vector<std::string>& itemId)
-{
-    auto folderStackGroupNode = AceType::DynamicCast<FolderStackGroupNode>(frameNode);
-    folderStackGroupNode->SetItemId(itemId);
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(FolderStackLayoutProperty, UpperItems, itemId, frameNode);
-}
-
-void FolderStackModelNG::SetAlignment(FrameNode* frameNode, const std::optional<Alignment>& valueOpt)
-{
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(LayoutProperty, Alignment, valueOpt.value_or(Alignment::CENTER), frameNode);
-}
-
 void FolderStackModelNG::SetAlignment(Alignment alignment)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(LayoutProperty, Alignment, alignment);
+}
+
+void FolderStackModelNG::SetAlignment(FrameNode* frameNode, Alignment alignment)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(LayoutProperty, Alignment, alignment, frameNode);
 }
 
 void FolderStackModelNG::SetEnableAnimation(FrameNode* frameNode, bool isEnableAnimation)
@@ -131,15 +101,6 @@ void FolderStackModelNG::SetOnFolderStateChange(
 }
 
 void FolderStackModelNG::SetOnHoverStatusChange(
-    FrameNode* frameNode, std::function<void(const NG::FolderEventInfo& folderEventInfo)>&& onChange)
-{
-    CHECK_NULL_VOID(frameNode);
-    auto eventHub = frameNode->GetEventHub<FolderStackEventHub>();
-    CHECK_NULL_VOID(eventHub);
-    eventHub->SetOnHoverStatusChange(std::move(onChange));
-}
-
-void FolderStackModelNG::SetOnHoverStatusChange(
     std::function<void(const NG::FolderEventInfo& folderEventInfo)>&& onChange)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
@@ -148,4 +109,14 @@ void FolderStackModelNG::SetOnHoverStatusChange(
     CHECK_NULL_VOID(eventHub);
     eventHub->SetOnHoverStatusChange(std::move(onChange));
 }
+
+void FolderStackModelNG::SetOnHoverStatusChange(
+    FrameNode* frameNode, std::function<void(const NG::FolderEventInfo& folderEventInfo)>&& onChange)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<FolderStackEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnHoverStatusChange(std::move(onChange));
+}
+
 } // namespace OHOS::Ace::NG

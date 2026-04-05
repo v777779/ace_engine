@@ -20,7 +20,7 @@
 
 #define private public
 #define protectd public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
@@ -28,6 +28,7 @@
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/layout/layout_property.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/flex/flex_layout_pattern.h"
 #include "core/components_ng/pattern/flex/flex_layout_property.h"
@@ -111,7 +112,7 @@ void FlexTestThreeNg::TearDownTestCase()
  * layoutweight, the 6 has 2 displayPriority and 1 layoutweight.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest004, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest004, TestSize.Level0)
 {
     auto columnFrameNode =
         FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(true));
@@ -182,6 +183,7 @@ HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest004, TestSize.Level1)
         layoutWrapper->AppendChild(itemLayoutWrapper);
         index++;
     }
+
     for (int32_t i = START_INDEX; i < THREE_ITEM_SIZE - 1; i++) {
         auto itemFrameNode = FrameNode::CreateFrameNode(V2::BLANK_ETS_TAG, index, AceType::MakeRefPtr<Pattern>());
         RefPtr<GeometryNode> itemGeometryNode = AceType::MakeRefPtr<GeometryNode>();
@@ -250,7 +252,7 @@ HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest004, TestSize.Level1)
  * texts with 20% width, and 4,5 has 1 layoutweight, the 6 has 2 displayPriority and 1 layoutweight.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest005, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest005, TestSize.Level0)
 {
     auto columnFrameNode =
         FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(true));
@@ -384,6 +386,7 @@ HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest005, TestSize.Level1)
         EXPECT_EQ(childOffset, OffsetF(0.0f, 0.0f));
         index++;
     }
+
     auto sixthChildWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
     auto sixthChildSize = sixthChildWrapper->GetGeometryNode()->GetFrameSize();
     auto sixthChildOffset = sixthChildWrapper->GetGeometryNode()->GetFrameOffset();
@@ -396,7 +399,7 @@ HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest005, TestSize.Level1)
  * @tc.desc: Set three texts with different flexBasis, flexGrows, flexShrink.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest006, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest006, TestSize.Level0)
 {
     auto columnFrameNode =
         FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(true));
@@ -410,11 +413,13 @@ HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest006, TestSize.Level1)
     EXPECT_FALSE(columnLayoutPattern == nullptr);
     auto columnLayoutProperty = columnLayoutPattern->GetLayoutProperty<LinearLayoutProperty>();
     EXPECT_FALSE(columnLayoutProperty == nullptr);
+
     columnLayoutProperty->UpdateFlexDirection(FlexDirection::COLUMN);
     columnLayoutProperty->UpdateMainAxisAlign(FlexAlign::FLEX_START);
     columnLayoutProperty->UpdateCrossAxisAlign(FlexAlign::FLEX_START);
     auto columnLayoutAlgorithm = columnLayoutPattern->CreateLayoutAlgorithm();
     EXPECT_FALSE(columnLayoutAlgorithm == nullptr);
+
     layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(columnLayoutAlgorithm));
     layoutWrapper->GetLayoutProperty()->UpdateUserDefinedIdealSize(
         CalcSize(CalcLength(RK356_WIDTH), CalcLength(COLUMN_HEIGHT)));
@@ -456,6 +461,7 @@ HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest006, TestSize.Level1)
     firstItemLayoutWrapper->GetLayoutProperty()->UpdatePadding(noPadding);
     auto boxLayoutAlgorithm = firstItemFrameNode->GetPattern<Pattern>()->CreateLayoutAlgorithm();
     EXPECT_FALSE(boxLayoutAlgorithm == nullptr);
+
     firstItemLayoutWrapper->SetLayoutAlgorithm(
         AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(boxLayoutAlgorithm));
     columnFrameNode->AddChild(firstItemFrameNode);
@@ -501,11 +507,13 @@ HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest006, TestSize.Level1)
     auto firstChildOffset = firstChildWrapper->GetGeometryNode()->GetFrameOffset();
     EXPECT_EQ(firstChildSize, SizeF(TWENTY_PERCENT_WIDTH, ROW_HEIGHT / 4));
     EXPECT_EQ(firstChildOffset, OFFSET_TOP_LEFT);
+
     auto secondChildWrapper = layoutWrapper->GetOrCreateChildByIndex(1);
     auto secondChildSize = secondChildWrapper->GetGeometryNode()->GetFrameSize();
     auto secondChildOffset = secondChildWrapper->GetGeometryNode()->GetFrameOffset();
     EXPECT_EQ(secondChildSize, SizeF(TWENTY_PERCENT_WIDTH, ROW_HEIGHT / 4 * 3));
     EXPECT_EQ(secondChildOffset, OffsetF(0.0f, ROW_HEIGHT / 4));
+
     auto thirdChildWrapper = layoutWrapper->GetOrCreateChildByIndex(2);
     auto thirdChildSize = thirdChildWrapper->GetGeometryNode()->GetFrameSize();
     auto thirdChildOffset = thirdChildWrapper->GetGeometryNode()->GetFrameOffset();
@@ -519,7 +527,7 @@ HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest006, TestSize.Level1)
  * the latter 3 has 2 displayPriority with 20% width.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest018, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest018, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -593,6 +601,7 @@ HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest018, TestSize.Level1)
     rowLayoutAlgorithm->Layout(AccessibilityManager::RawPtr(layoutWrapper));
     EXPECT_EQ(layoutWrapper->GetGeometryNode()->GetFrameSize(), SizeF(RK356_WIDTH, ROW_HEIGHT));
     EXPECT_EQ(layoutWrapper->GetGeometryNode()->GetFrameOffset(), OFFSET_TOP_LEFT);
+
     for (int32_t i = START_INDEX; i < THREE_ITEM_SIZE; i++) {
         auto childWrapper = layoutWrapper->GetOrCreateChildByIndex(i + THREE_ITEM_SIZE);
         auto childSize = childWrapper->GetGeometryNode()->GetFrameSize();
@@ -613,7 +622,7 @@ HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest018, TestSize.Level1)
  * the latter 3 has 2 displayPriority with 20% width.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest019, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest019, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -681,6 +690,7 @@ HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest019, TestSize.Level1)
     rowLayoutAlgorithm->Layout(AccessibilityManager::RawPtr(layoutWrapper));
     EXPECT_EQ(layoutWrapper->GetGeometryNode()->GetFrameSize(), SizeF(RK356_WIDTH, ROW_HEIGHT));
     EXPECT_EQ(layoutWrapper->GetGeometryNode()->GetFrameOffset(), OFFSET_TOP_LEFT);
+
     for (int32_t i = START_INDEX; i < THREE_ITEM_SIZE; i++) {
         auto childWrapper = layoutWrapper->GetOrCreateChildByIndex(i + THREE_ITEM_SIZE);
         auto childSize = childWrapper->GetGeometryNode()->GetFrameSize();
@@ -697,7 +707,7 @@ HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest019, TestSize.Level1)
  * the latter 3 has 2 displayPriority with 20 height.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest007, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest007, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(true));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -780,7 +790,7 @@ HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest007, TestSize.Level1)
  * @tc.desc: Set one child in Row direction and no constraint
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest020, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest020, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -837,7 +847,7 @@ HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest020, TestSize.Level1)
  * @tc.desc: Set one child in RowReverse direction and no constraint
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest021, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest021, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -894,7 +904,7 @@ HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest021, TestSize.Level1)
  * @tc.desc: Set no child in Row direction and no constraint
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest022, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest022, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -935,7 +945,7 @@ HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest022, TestSize.Level1)
  * @tc.desc: Set one child in Column direction and no constraint
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest008, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest008, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -992,7 +1002,7 @@ HWTEST_F(FlexTestThreeNg, FlexColumnLayoutTest008, TestSize.Level1)
  * @tc.desc: Set two children and first child to be visible gone
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest011, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest011, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -1091,7 +1101,7 @@ HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest011, TestSize.Level1)
  * @tc.desc: Set flex has a flex child and a blank children and second child has layout weight 1
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest012, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest012, TestSize.Level0)
 {
     std::vector<int32_t> platformVersions = { PLATFORM_VERSION_9, PLATFORM_VERSION_10 };
     for (int32_t i = 0; i < platformVersions.size(); i++) {
@@ -1184,7 +1194,7 @@ HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest012, TestSize.Level1)
  * @tc.desc: Set two children parent has padding, first child has layout weight
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest013, TestSize.Level1)
+HWTEST_F(FlexTestThreeNg, FlexRowLayoutTest013, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);

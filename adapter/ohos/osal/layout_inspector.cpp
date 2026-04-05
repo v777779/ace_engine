@@ -18,6 +18,7 @@
 #ifdef USE_NEW_SKIA
 #include "include/core/SkPixmap.h"
 #include "include/core/SkData.h"
+#include "include/encode/SkPngEncoder.h"
 #include "src/base/SkBase64.h"
 #else
 #include "include/utils/SkBase64.h"
@@ -29,6 +30,7 @@
 #include "connect_server_manager.h"
 
 #include "adapter/ohos/osal/pixel_map_ohos.h"
+#include "adapter/ohos/entrance/rs_adapter.h"
 #include "adapter/ohos/entrance/subwindow/subwindow_ohos.h"
 #include "base/log/ace_checker.h"
 #include "base/subwindow/subwindow_manager.h"
@@ -121,6 +123,7 @@ const OHOS::sptr<OHOS::Rosen::Window> GetWindow(int32_t containerId)
         if (aceContainer != nullptr) {
             return OHOS::Rosen::Window::Find(aceContainer->GetWindowName());
         }
+        CHECK_NULL_RETURN(container, nullptr);
         return OHOS::Rosen::Window::GetTopWindowWithId(container->GetWindowId());
     }
     return nullptr;
@@ -137,11 +140,18 @@ constexpr static char RECNODE_CHILDREN[] = "RSNode";
 constexpr static char ARK_DEBUGGER_LIB_PATH[] = "libark_connect_inspector.z.so";
 static constexpr char START_PERFORMANCE_CHECK_MESSAGE[] = "StartArkPerformanceCheck";
 static constexpr char END_PERFORMANCE_CHECK_MESSAGE[] = "EndArkPerformanceCheck";
+static constexpr char ENABLE_NODE_TRACE[] = "EnableNodeTrace";
+static constexpr char DISABLE_NODE_TRACE[] = "DisableNodeTrace";
+static constexpr char ARKUI_INTERRACTION[] = "ArkUI.InteractionEvent";
 
 bool LayoutInspector::stateProfilerStatus_ = false;
 bool LayoutInspector::layoutInspectorStatus_ = false;
 bool LayoutInspector::isUseStageModel_ = false;
+bool LayoutInspector::enableNodeTrace_ = false;
+bool LayoutInspector::enableInteractionEventReport_ = false;
 std::mutex LayoutInspector::recMutex_;
+std::shared_mutex LayoutInspector::enableTraceMutex_;
+std::shared_mutex LayoutInspector::interactionEventStatusMutex_;
 ProfilerStatusCallback LayoutInspector::jsStateProfilerStatusCallback_ = nullptr;
 RsProfilerNodeMountCallback LayoutInspector::rsProfilerNodeMountCallback_ = nullptr;
 const char PNG_TAG[] = "png";
@@ -212,6 +222,30 @@ void LayoutInspector::SetRsProfilerNodeMountCallback(RsProfilerNodeMountCallback
 void LayoutInspector::SendMessage(const std::string& message)
 {
     WebSocketManager::SendMessage(message);
+}
+
+bool LayoutInspector::GetEnableNodeTrace()
+{
+    std::shared_lock<std::shared_mutex> lock(enableTraceMutex_);
+    return enableNodeTrace_;
+}
+
+void LayoutInspector::SetEnableNodeTrace(bool enable)
+{
+    std::unique_lock<std::shared_mutex> lock(enableTraceMutex_);
+    enableNodeTrace_ = enable;
+}
+
+bool LayoutInspector::GetInteractionEventStatus()
+{
+    std::shared_lock<std::shared_mutex> lock(interactionEventStatusMutex_);
+    return enableInteractionEventReport_;
+}
+
+void LayoutInspector::TriggerArkUIInteractionEventStatus(const std::string& message)
+{
+    std::unique_lock<std::shared_mutex> lock(interactionEventStatusMutex_);
+    enableInteractionEventReport_ = message.find("InteractionEventOpen", 0) != std::string::npos ? true : false;
 }
 
 void LayoutInspector::SetStateProfilerStatus(bool status)
@@ -392,6 +426,9 @@ void LayoutInspector::BuildInfoForIDE(uint64_t id, const std::shared_ptr<Media::
     image = SkImages::RasterFromPixmap(imagePixmap, &PixelMap::ReleaseProc, PixelMap::GetReleaseContext(acePixelMap));
     CHECK_NULL_VOID(image);
     auto data = image->refEncodedData();
+    if (!data) {
+        data = SkPngEncoder::Encode(nullptr, image.get(), {});
+    }
 #else
     image = SkImage::MakeFromRaster(imagePixmap, &PixelMap::ReleaseProc, PixelMap::GetReleaseContext(acePixelMap));
     CHECK_NULL_VOID(image);
@@ -423,7 +460,10 @@ void LayoutInspector::BuildInfoForIDE(uint64_t id, const std::shared_ptr<Media::
 
 int64_t LayoutInspector::RsNodeIdToFrameNodeId(uint64_t rsNodeId)
 {
-    auto rsNode = Rosen::RSNodeMap::Instance().GetNode<Rosen::RSNode>(rsNodeId);
+    auto context = PipelineContext::GetCurrentContext();
+    auto rsUIContext = RsAdapter::GetRSUIContext(context);
+    auto rsNode = rsUIContext ? rsUIContext->GetNodeMap().GetNode(rsNodeId)
+                    : Rosen::RSNodeMap::Instance().GetNode(rsNodeId);
     if (rsNode == nullptr) {
         return FIND_RSNODE_ERROR;
     }
@@ -517,6 +557,9 @@ void LayoutInspector::GetSnapshotJson(int32_t containerId, std::unique_ptr<JsonV
     image = SkImages::RasterFromPixmap(imagePixmap, &PixelMap::ReleaseProc, PixelMap::GetReleaseContext(acePixelMap));
     CHECK_NULL_VOID(image);
     auto data = image->refEncodedData();
+    if (!data) {
+        data = SkPngEncoder::Encode(nullptr, image.get(), {});
+    }
 #else
     image = SkImage::MakeFromRaster(imagePixmap, &PixelMap::ReleaseProc, PixelMap::GetReleaseContext(acePixelMap));
     CHECK_NULL_VOID(image);
@@ -580,10 +623,19 @@ std::pair<uint32_t, int32_t> LayoutInspector::ProcessMessages(const std::string&
     } else if (message.find(END_PERFORMANCE_CHECK_MESSAGE, 0) != std::string::npos) {
         TAG_LOGI(AceLogTag::ACE_LAYOUT_INSPECTOR, "performance check end");
         AceChecker::SetPerformanceCheckStatus(false, message);
+    } else if (message.find(ENABLE_NODE_TRACE, 0) != std::string::npos) {
+        TAG_LOGI(AceLogTag::ACE_LAYOUT_INSPECTOR, "enable node trace");
+        SetEnableNodeTrace(true);
+    } else if (message.find(DISABLE_NODE_TRACE, 0) != std::string::npos) {
+        TAG_LOGI(AceLogTag::ACE_LAYOUT_INSPECTOR, "disable node trace");
+        SetEnableNodeTrace(false);
+    } else if (message.find(ARKUI_INTERRACTION, 0) != std::string::npos) {
+        TAG_LOGI(AceLogTag::ACE_LAYOUT_INSPECTOR, "trigger arkui interaction");
+        TriggerArkUIInteractionEventStatus(message);
     }
     auto windowResult = NG::Inspector::ParseWindowIdFromMsg(message);
     uint32_t windowId = windowResult.first;
-    if (windowId == OHOS::Ace::NG::INVALID_WINDOW_ID && windowResult.second != QUERY_ABILITY) {
+    if (windowId == OHOS::Ace::NG::INSPECTOR_INVALID_WINDOW_ID && windowResult.second != QUERY_ABILITY) {
         TAG_LOGE(AceLogTag::ACE_LAYOUT_INSPECTOR, "input message: %{public}s", message.c_str());
         return windowResult;
     }
@@ -658,6 +710,7 @@ void LayoutInspector::HandleStartRecord()
         TAG_LOGD(AceLogTag::ACE_LAYOUT_INSPECTOR, "Get nodes size:%{public}zu", recTreeNodes.size());
         NG::Inspector::GetOffScreenTreeNodes(offScreenTreeNodes);
         TAG_LOGD(AceLogTag::ACE_LAYOUT_INSPECTOR, "Get offscreen nodes size:%{public}zu", offScreenTreeNodes.size());
+        NG::Inspector::GetElementRegisterNodes(recTreeNodes);
         LayoutInspector::recNodeInfos_.swap(recTreeNodes);
         for (auto& item : offScreenTreeNodes) {
             recNodeInfos_.emplace(item);
@@ -681,6 +734,6 @@ void LayoutInspector::HandleInnerCallback(FrameNodeInfo node)
     recNode->SetDebugLine(node.debugline);
     recNode->SetParentId(node.parentNodeId);
     std::lock_guard<std::mutex> lock(recMutex_);
-    recNodeInfos_.emplace(node.rsNodeId, recNode);
+    recNodeInfos_[node.frameNodeId] = recNode;
 }
 } // namespace OHOS::Ace

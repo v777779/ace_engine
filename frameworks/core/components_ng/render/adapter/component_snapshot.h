@@ -38,6 +38,7 @@ public:
     static void Create(
         const RefPtr<AceType>& customNode, JsCallback&& callback, bool enableInspector, const SnapshotParam& param,
         bool flag = true);
+    static SnapshotSizeLimitation GetSizeLimitation();
     static void GetNormalCapture(const RefPtr<FrameNode>& frameNode, NormalCallback&& callback);
 
     static std::pair<int32_t, std::shared_ptr<Media::PixelMap>> GetSync(
@@ -57,6 +58,7 @@ public:
     static std::shared_ptr<Media::PixelMap> CreateSync(
         const RefPtr<AceType>& customNode, const SnapshotParam& param);
 
+    // create solo node pixelMaps, this method only for IDE.
     static std::vector<std::pair<uint64_t, std::shared_ptr<Media::PixelMap>>> GetSoloNode(
         const RefPtr<FrameNode>& node);
 
@@ -67,6 +69,9 @@ private:
         const SnapshotParam& param);
     static void BuilerTask(JsCallback&& callback, const RefPtr<FrameNode>& node, bool enableInspector,
         const RefPtr<PipelineContext>& pipeline, const SnapshotParam& param);
+    static void SetRSUIContext(
+        const RefPtr<FrameNode>& frameNode, const std::shared_ptr<Rosen::RSUIContext>& rsUIContext);
+    static std::shared_ptr<Rosen::RSUIContext> GetRSUIContext(const RefPtr<PipelineContext>& pipeline);
 
     WeakPtr<FrameNode> node_;
 };

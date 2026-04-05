@@ -19,11 +19,11 @@
 #include "core/common/container.h"
 #include "core/common/resource/resource_manager.h"
 #include "core/common/resource/resource_wrapper.h"
-#include "core/components_ng/base/frame_node.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "ui/base/geometry/dimension.h"
+#include "ui/resource/resource_object.h"
 
 static thread_local std::vector<int32_t> restoreInstanceIds_;
 
@@ -78,23 +78,22 @@ void ResourceManagerResetImpl()
 {
     ResourceManager::GetInstance().Reset();
 }
-void SetFrameCallbackImpl(const Callback_Number_Void* onFrameCallback,
-                          const Callback_Number_Void* onIdleCallback,
-                          const Ark_Number* delayTime)
+void SetFrameCallbackImpl(const Callback_Long_Void* onFrameCallback,
+                          const Callback_Long_Void* onIdleCallback,
+                          Ark_Int64 delayTime)
 {
     CHECK_NULL_VOID(onFrameCallback);
     CHECK_NULL_VOID(onIdleCallback);
-    CHECK_NULL_VOID(delayTime);
-    auto delayTimeInt = Converter::Convert<int32_t>(*delayTime);
+    auto delayTimeInt = Converter::Convert<int64_t>(delayTime);
     auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
     auto onFrameCallbackFunc = [callback = CallbackHelper(*onFrameCallback)](double delayTimeInt) -> void {
-        auto delayTime = Converter::ArkValue<Ark_Number>(delayTimeInt);
+        auto delayTime = Converter::ArkValue<Ark_Int64>(delayTimeInt);
         callback.Invoke(delayTime);
     };
     auto onIdleCallbackFunc = [callback = CallbackHelper(*onIdleCallback)](uint64_t nanoTimestamp,
         uint32_t frameCount) -> void {
-        auto delayTime = Converter::ArkValue<Ark_Number>(nanoTimestamp);
+        auto delayTime = Converter::ArkValue<Ark_Int64>(nanoTimestamp);
         callback.Invoke(delayTime);
     };
     context->AddFrameCallback(std::move(onFrameCallbackFunc), std::move(onIdleCallbackFunc), delayTimeInt);
@@ -128,7 +127,7 @@ Ark_LengthMetricsCustom ResourceToLengthMetricsImpl(const Ark_Resource* res)
     CHECK_NULL_RETURN(resourceWrapper, errValue);
     if (resId == -1) {
         auto optParams = Converter::OptConvert<std::vector<Ark_Union_String_I32_I64_F64_Resource>>(res->params);
-        
+
         if (!optParams.has_value() || optParams->size() < 1) {
             return errValue;
         }
@@ -200,6 +199,20 @@ Array_Number BlendColorByColorMetricsImpl(const Ark_Number* color,
     ParseArrayNumber(blendColor, indexes, true);
     return Converter::ArkValue<Array_Number>(indexes, Converter::FC);
 }
+Ark_NativePointer CreateResourceObjectImpl(const Ark_Resource* resource)
+{
+    CHECK_NULL_RETURN(resource, 0);
+    auto id = Converter::Convert<int64_t>(resource->id);
+    std::vector<ResourceObjectParams> resObjParamsList;
+    auto type = Converter::OptConvert<int32_t>(resource->type).value_or(0);
+    auto bundleName = Converter::Convert<std::string>(resource->bundleName);
+    auto moduleName = Converter::Convert<std::string>(resource->moduleName);
+    auto resourceObject = AceType::MakeRefPtr<ResourceObject>(
+        id, type, resObjParamsList, bundleName, moduleName, Container::CurrentIdSafely());
+    CHECK_NULL_RETURN(resourceObject, 0);
+    resourceObject->IncRefCount();
+    return AceType::RawPtr(resourceObject);
+}
 } // SystemOpsAccessor
 const GENERATED_ArkUISystemOpsAccessor* GetSystemOpsAccessor()
 {
@@ -214,6 +227,7 @@ const GENERATED_ArkUISystemOpsAccessor* GetSystemOpsAccessor()
         SystemOpsAccessor::ColorMetricsResourceColorImpl,
         SystemOpsAccessor::BlendColorByColorMetricsImpl,
         SystemOpsAccessor::ResourceToLengthMetricsImpl,
+        SystemOpsAccessor::CreateResourceObjectImpl,
     };
     return &SystemOpsAccessorImpl;
 }

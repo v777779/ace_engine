@@ -28,7 +28,7 @@
 namespace OHOS::Ace::Framework {
 using TouchRecognizerMap = std::map<WeakPtr<TouchEventTarget>, std::unordered_set<int32_t>>;
 class JsGestureJudgeFunction : public JsCommonGestureFunction {
-    DECLARE_ACE_TYPE(JsGestureJudgeFunction, JsCommonGestureFunction)
+    DECLARE_ACE_TYPE(JsGestureJudgeFunction, JsCommonGestureFunction);
 
 public:
     explicit JsGestureJudgeFunction(const JSRef<JSFunc>& jsFunction)
@@ -45,7 +45,7 @@ public:
         const RefPtr<NG::GestureInfo>& gestureInfo, const std::shared_ptr<BaseGestureEvent>& info);
 
     GestureJudgeResult Execute(const std::shared_ptr<BaseGestureEvent>& info,
-        const RefPtr<NG::NGGestureRecognizer>& current, const std::list<RefPtr<NG::NGGestureRecognizer>>& others);
+        const RefPtr<NG::NGGestureRecognizer>& current, const std::list<WeakPtr<NG::NGGestureRecognizer>>& others);
 
 private:
     JSRef<JSObject> CreateFingerInfo(const FingerInfo& fingerInfo);

@@ -40,13 +40,22 @@ public:
     {
         return targetId_;
     }
+
+    void SetTargetId(int32_t targetId)
+    {
+        targetId_ = targetId;
+    }
+    
     void DumpInfo() override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
     void OnModifyDone() override;
     void OnAreaChangedInner() override;
     void SetKeyboardAreaChange(bool keyboardAvoidance = false);
     void OnDetachFromFrameNode(FrameNode* node) override;
+    void OnDetachFromFrameNodeMultiThread(FrameNode* node);
+    void OnDetachFromMainTree() override;
+    void OnDetachFromMainTreeMultiThread();
 
     void SetKeyboardOption(bool keyboardAvoidance)
     {

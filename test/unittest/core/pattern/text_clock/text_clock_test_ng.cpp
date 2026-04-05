@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -11,18 +11,20 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 #include <optional>
 #include <string>
 #include <sys/time.h>
 
 #include "gtest/gtest.h"
+
 #include "base/i18n/time_format.h"
+
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
 #include "base/utils/time_util.h"
@@ -33,8 +35,6 @@
 #include "core/components_ng/pattern/text_clock/text_clock_model_ng.h"
 #include "core/components_ng/pattern/text_clock/text_clock_pattern.h"
 #include "core/components_v2/inspector/inspector_constants.h"
-#include "frameworks/core/components/text_clock/text_clock_theme.h"
-#include "frameworks/core/components_ng/pattern/text_clock/text_clock_theme_wrapper.h"
 #undef private
 #undef protected
 
@@ -46,8 +46,6 @@ namespace OHOS::Ace::NG {
 namespace {
 const InspectorFilter filter;
 constexpr int32_t HOURS_WEST = -8;
-constexpr int32_t PROPERTY_CHANGE_FLAG_1 = 49;
-constexpr int32_t PROPERTY_CHANGE_FLAG_2 = 57;
 inline const std::string CLOCK_FORMAT = "aa h:m:s";
 inline const std::string UTC_1 = "1000000000000";
 inline const std::string UTC_2 = "2000000000000";
@@ -56,8 +54,6 @@ inline const std::string FORM_FORMAT = "hh:mm";
 inline const std::vector<std::string> FONT_FAMILY_VALUE = { "cursive" };
 const std::string EMPTY_TEXT = "";
 const std::string TEXTCLOCK_CONTENT = "08:00:00";
-constexpr int32_t PROPERTY_CHANGE_FLAG_RESULT = 49;
-constexpr int32_t PROPERTY_CHANGE_FLAG_CHECK = 57;
 const Dimension FONT_SIZE_VALUE = Dimension(20.1, DimensionUnit::PX);
 const Color TEXT_COLOR_VALUE = Color::FromRGB(255, 100, 100);
 const Color TEXT_COLOR_VALUE_1 = Color::FromRGB(255, 255, 100);
@@ -212,14 +208,6 @@ HWTEST_F(TextClockTestNG, TextClockTest002, TestSize.Level1)
     auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
     ASSERT_NE(textNode, nullptr);
 
-    MockPipelineContext::SetUp();
-    auto pipeline = PipelineContext::GetCurrentContext();
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    auto themeConstants = TestNG::CreateThemeConstants(THEME_PATTERN_TEXT);
-    auto theme = TextClockThemeWrapper::WrapperBuilder().Build(themeConstants);
-    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(theme));
-
     /**
      * @tc.steps: step2. get pattern and create layout property.
      * @tc.expected: related function is called.
@@ -261,7 +249,6 @@ HWTEST_F(TextClockTestNG, TextClockTest002, TestSize.Level1)
     pattern->UpdateTimeText();
     pattern->textClockController_ = nullptr;
     pattern->InitUpdateTimeTextCallBack();
-    EXPECT_EQ(pattern->textClockController_, nullptr);
     EXPECT_EQ(textLayoutProperty->GetContent(), StringUtils::Str8ToStr16(FORMAT_DATA));
 }
 
@@ -498,15 +485,14 @@ HWTEST_F(TextClockTestNG, TextClockTest007, TestSize.Level0)
     ASSERT_NE(textClockProperty, nullptr);
     auto textLayoutProperty = host->GetLayoutProperty<TextLayoutProperty>();
     ASSERT_NE(textLayoutProperty, nullptr);
-    TextStyle textStyleTheme;
-    pattern->UpdateTextLayoutProperty(textClockProperty, textLayoutProperty, textStyleTheme);
+    pattern->UpdateTextLayoutProperty(textClockProperty, textLayoutProperty);
 
     /**
      * @tc.steps: step3. get the properties of all settings.
      * @tc.expected: step3. check whether the properties is correct.
      */
     EXPECT_FALSE(textLayoutProperty->HasFontSize());
-    EXPECT_TRUE(textLayoutProperty->HasTextColor());
+    EXPECT_FALSE(textLayoutProperty->HasTextColor());
     EXPECT_FALSE(textLayoutProperty->HasItalicFontStyle());
     EXPECT_FALSE(textLayoutProperty->HasFontWeight());
     EXPECT_FALSE(textLayoutProperty->HasFontFamily());
@@ -563,8 +549,7 @@ HWTEST_F(TextClockTestNG, TextClockTest008, TestSize.Level0)
     ASSERT_NE(textClockProperty, nullptr);
     auto textLayoutProperty = host->GetLayoutProperty<TextLayoutProperty>();
     ASSERT_NE(textLayoutProperty, nullptr);
-    TextStyle textStyleTheme;
-    pattern->UpdateTextLayoutProperty(textClockProperty, textLayoutProperty, textStyleTheme);
+    pattern->UpdateTextLayoutProperty(textClockProperty, textLayoutProperty);
 
     /**
      * @tc.steps: step3. get the properties of all settings.
@@ -765,14 +750,10 @@ HWTEST_F(TextClockTestNG, TextClockTest012, TestSize.Level0)
     EXPECT_TRUE(pattern->isInVisibleArea_);
     EXPECT_TRUE(pattern->isForm_);
 
-    pattern->OnVisibleChange(false);
     pattern->OnVisibleAreaChange(false);
-    EXPECT_FALSE(pattern->isSetVisible_);
     EXPECT_FALSE(pattern->isInVisibleArea_);
 
-    pattern->OnVisibleChange(true);
     pattern->OnVisibleAreaChange(true);
-    EXPECT_TRUE(pattern->isSetVisible_);
     EXPECT_TRUE(pattern->isInVisibleArea_);
 }
 
@@ -830,14 +811,14 @@ HWTEST_F(TextClockTestNG, TextClockTest011, TestSize.Level1)
      * @tc.expected: check whether the value is correct.
      */
     utc = UTC_1;
-    pattern->OnVisibleChange(false);
+    pattern->OnVisibleAreaChange(false);
     pattern->UpdateTimeText();
     EXPECT_EQ(utc, UTC_1);
-    pattern->OnVisibleChange(true);
+    pattern->OnVisibleAreaChange(true);
     pattern->UpdateTimeText();
     EXPECT_EQ(utc, UTC_1);
     pattern->prevTime_ = "";
-    pattern->OnVisibleChange(true);
+    pattern->OnVisibleAreaChange(true);
     pattern->UpdateTimeText();
     EXPECT_EQ(utc, UTC_2);
     stack->Pop();
@@ -932,7 +913,6 @@ HWTEST_F(TextClockTestNG, TextClockTest014, TestSize.Level0)
     ASSERT_NE(result, nullptr);
     MockPipelineContext::TearDown();
 }
-
 
 /**
  * @tc.name: TextClockLayoutPropertyTest001
@@ -1031,7 +1011,7 @@ HWTEST_F(TextClockTestNG, TextClockLayoutPropertyTest002, TestSize.Level1)
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
     auto themeConstants = TestNG::CreateThemeConstants(THEME_PATTERN_TEXT);
-    auto theme = TextClockThemeWrapper::WrapperBuilder().Build(themeConstants);
+    auto theme = TextThemeWrapper::WrapperBuilder().Build(themeConstants);
     EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(theme));
 
     /**
@@ -1075,8 +1055,13 @@ HWTEST_F(TextClockTestNG, TextClockLayoutPropertyTest002, TestSize.Level1)
     pattern->UpdateTimeText();
     pattern->textClockController_ = nullptr;
     pattern->InitUpdateTimeTextCallBack();
-    EXPECT_EQ(pattern->textClockController_, nullptr);
     EXPECT_EQ(textLayoutProperty->GetContent(), StringUtils::Str8ToStr16(FORMAT_DATA));
+    
+    /**
+     * @tc.steps: step6. Clean up mock objects.
+     * @tc.expected: Mock objects are properly destructed.
+     */
+    MockPipelineContext::TearDown();
 }
 
 /**
@@ -1290,15 +1275,14 @@ HWTEST_F(TextClockTestNG, TextClockLayoutPropertyTest007, TestSize.Level0)
     ASSERT_NE(textClockProperty, nullptr);
     auto textLayoutProperty = host->GetLayoutProperty<TextLayoutProperty>();
     ASSERT_NE(textLayoutProperty, nullptr);
-    TextStyle textStyleTheme;
-    pattern->UpdateTextLayoutProperty(textClockProperty, textLayoutProperty, textStyleTheme);
+    pattern->UpdateTextLayoutProperty(textClockProperty, textLayoutProperty);
 
     /**
      * @tc.steps: step3. get the properties of all settings.
      * @tc.expected: step3. check whether the properties is correct.
      */
     EXPECT_FALSE(textLayoutProperty->HasFontSize());
-    EXPECT_TRUE(textLayoutProperty->HasTextColor());
+    EXPECT_FALSE(textLayoutProperty->HasTextColor());
     EXPECT_FALSE(textLayoutProperty->HasItalicFontStyle());
     EXPECT_FALSE(textLayoutProperty->HasFontWeight());
     EXPECT_FALSE(textLayoutProperty->HasFontFamily());
@@ -1355,8 +1339,7 @@ HWTEST_F(TextClockTestNG, TextClockLayoutPropertyTest008, TestSize.Level0)
     ASSERT_NE(textClockProperty, nullptr);
     auto textLayoutProperty = host->GetLayoutProperty<TextLayoutProperty>();
     ASSERT_NE(textLayoutProperty, nullptr);
-    TextStyle textStyleTheme;
-    pattern->UpdateTextLayoutProperty(textClockProperty, textLayoutProperty, textStyleTheme);
+    pattern->UpdateTextLayoutProperty(textClockProperty, textLayoutProperty);
 
     /**
      * @tc.steps: step3. get the properties of all settings.
@@ -1436,21 +1419,21 @@ HWTEST_F(TextClockTestNG, TextClockLayoutPropertyTest009, TestSize.Level0)
  * @tc.desc: Test UpdateTextLayoutProperty of TextClockPattern.
  * @tc.type: FUNC
  */
- HWTEST_F(TextClockTestNG, TextClockLayoutPropertyTest010, TestSize.Level0)
- {
+HWTEST_F(TextClockTestNG, TextClockLayoutPropertyTest010, TestSize.Level0)
+{
     /**
      * @tc.steps: step1. create textClock frameNode.
      */
-     TestProperty testProperty;
-     testProperty.format = std::make_optional(CLOCK_FORMAT);
-     testProperty.hoursWest = std::make_optional(HOURS_WEST);
-     RefPtr<FrameNode> frameNode = CreateTextClockParagraph(testProperty);
-     ASSERT_NE(frameNode, nullptr);
- 
-     /**
-      * @tc.steps: step2. get pattern and layoutProperty.
-      * @tc.expected: step2.
-      */
+    TestProperty testProperty;
+    testProperty.format = std::make_optional(CLOCK_FORMAT);
+    testProperty.hoursWest = std::make_optional(HOURS_WEST);
+    RefPtr<FrameNode> frameNode = CreateTextClockParagraph(testProperty);
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. get pattern and layoutProperty.
+     * @tc.expected: step2.
+     */
     auto pattern = frameNode->GetPattern<TextClockPattern>();
     ASSERT_NE(pattern, nullptr);
     auto textClockProperty = frameNode->GetLayoutProperty<TextClockLayoutProperty>();
@@ -1799,91 +1782,8 @@ HWTEST_F(TextClockTestNG, BuildContentModifierNode, TestSize.Level0)
 }
 
 /**
- * @tc.name: TextClockTest015
- * @tc.desc: Test ResetTextColor and ResetFontColor of TextClock.
- * @tc.type: FUNC
- */
-HWTEST_F(TextClockTestNG, TextClockTest015, TestSize.Level0)
-{
-    /**
-     * @tc.steps: step1. create textClock and get frameNode.
-     */
-    TextClockModelNG model;
-    model.Create();
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-    auto layoutProperty = frameNode->GetLayoutProperty<TextClockLayoutProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-
-    /**
-     * @tc.steps: step2. test ResetTextColor and ResetFontColor.
-     * @tc.expected: step2. check whether the properties is correct.
-     */
-
-    model.SetTextColor(TEXT_COLOR_VALUE_1);
-    EXPECT_EQ(layoutProperty->GetTextColor(), TEXT_COLOR_VALUE_1);
-    model.ResetTextColor();
-    EXPECT_EQ(layoutProperty->GetTextColor().has_value(), false);
-
-    model.SetFontColor(frameNode, TEXT_COLOR_VALUE);
-    EXPECT_EQ(layoutProperty->GetTextColor(), TEXT_COLOR_VALUE);
-    model.ResetFontColor(frameNode);
-    EXPECT_EQ(layoutProperty->GetTextColor().has_value(), false);
-    model.SetFontColor(frameNode, TEXT_COLOR_VALUE);
-    EXPECT_EQ(layoutProperty->GetTextColor(), TEXT_COLOR_VALUE);
-    model.ResetFontColor(nullptr);
-    EXPECT_EQ(layoutProperty->GetTextColor().has_value(), true);
-}
-
-/**
- * @tc.name: TextClockTest016
- * @tc.desc: Test OnThemeScopeUpdate of TextClockPattern.
- * @tc.type: FUNC
- */
-HWTEST_F(TextClockTestNG, TextClockTest016, TestSize.Level0)
-{
-    /**
-     * @tc.steps: step1. create textClock frameNode.
-     */
-    TextClockModelNG model;
-    model.Create();
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    /**
-     * @tc.steps: step2. get pattern and layoutProperty.
-     */
-    auto pattern = frameNode->GetPattern<TextClockPattern>();
-    ASSERT_NE(pattern, nullptr);
-    auto host = pattern->GetHost();
-    ASSERT_NE(host, nullptr);
-    auto textClockProperty = frameNode->GetLayoutProperty<TextClockLayoutProperty>();
-    ASSERT_NE(textClockProperty, nullptr);
-    auto textProperty = frameNode->GetLayoutProperty<TextLayoutProperty>();
-    ASSERT_NE(textProperty, nullptr);
-
-    /**
-     * @tc.steps: step3. test OnThemeScopeUpdate.
-     * @tc.expected: step3. check whether the properties is correct.
-     */
-
-    EXPECT_EQ(textProperty->GetPropertyChangeFlag(), PROPERTY_UPDATE_MEASURE);
-    EXPECT_FALSE(pattern->OnThemeScopeUpdate(host->GetThemeScopeId()));
-    EXPECT_EQ(textProperty->GetPropertyChangeFlag(), PROPERTY_CHANGE_FLAG_1);
-
-    const double fontSize = 20.1;
-    model.InitFontDefault(
-        TextStyle(FONT_FAMILY_VALUE, fontSize, FONT_WEIGHT_VALUE, ITALIC_FONT_STYLE_VALUE, TEXT_COLOR_VALUE));
-    model.SetTextColor(TEXT_COLOR_VALUE);
-
-    EXPECT_EQ(textProperty->GetPropertyChangeFlag(), PROPERTY_CHANGE_FLAG_2);
-    EXPECT_FALSE(pattern->OnThemeScopeUpdate(host->GetThemeScopeId()));
-    EXPECT_EQ(textProperty->GetPropertyChangeFlag(), PROPERTY_CHANGE_FLAG_2);
-}
-
-/**
  * @tc.name: TextClockTest017
- * @tc.desc: Test ResetTextColor and ResetFontColor of TextClock.
+ * @tc.desc: Test SetTextColor and SetTextColorByUser of TextClock.
  * @tc.type: FUNC
  */
 HWTEST_F(TextClockTestNG, TextClockTest017, TestSize.Level0)
@@ -1899,68 +1799,20 @@ HWTEST_F(TextClockTestNG, TextClockTest017, TestSize.Level0)
     ASSERT_NE(layoutProperty, nullptr);
 
     /**
-     * @tc.steps: step2. test ResetTextColor and ResetFontColor.
+     * @tc.steps: step2. test SetTextColor and SetTextColorByUser.
      * @tc.expected: step2. check whether the properties is correct.
      */
     model.SetTextColor(TEXT_COLOR_VALUE_1);
     EXPECT_EQ(layoutProperty->GetTextColor(), TEXT_COLOR_VALUE_1);
-    model.ResetTextColor();
-    EXPECT_EQ(layoutProperty->GetTextColor().has_value(), false);
+    EXPECT_TRUE(layoutProperty->GetTextColorSetByUserValue());
+    model.SetTextColorByUser(false);
+    EXPECT_FALSE(layoutProperty->GetTextColorSetByUserValue());
 
     model.SetFontColor(frameNode, TEXT_COLOR_VALUE);
     EXPECT_EQ(layoutProperty->GetTextColor(), TEXT_COLOR_VALUE);
-    model.ResetFontColor(frameNode);
-    EXPECT_EQ(layoutProperty->GetTextColor().has_value(), false);
-    model.SetFontColor(frameNode, TEXT_COLOR_VALUE);
-    EXPECT_EQ(layoutProperty->GetTextColor(), TEXT_COLOR_VALUE);
-    model.ResetFontColor(nullptr);
-    EXPECT_EQ(layoutProperty->GetTextColor().has_value(), true);
-}
-
-/**
- * @tc.name: TextClockTest018
- * @tc.desc: Test OnThemeScopeUpdate of TextClockPattern.
- * @tc.type: FUNC
- */
-HWTEST_F(TextClockTestNG, TextClockTest018, TestSize.Level0)
-{
-    /**
-     * @tc.steps: step1. create textClock frameNode.
-     */
-    TextClockModelNG model;
-    model.Create();
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    /**
-     * @tc.steps: step2. get pattern and layoutProperty.
-     */
-    auto pattern = frameNode->GetPattern<TextClockPattern>();
-    ASSERT_NE(pattern, nullptr);
-    auto host = pattern->GetHost();
-    ASSERT_NE(host, nullptr);
-    auto textClockProperty = frameNode->GetLayoutProperty<TextClockLayoutProperty>();
-    ASSERT_NE(textClockProperty, nullptr);
-    auto textProperty = frameNode->GetLayoutProperty<TextLayoutProperty>();
-    ASSERT_NE(textProperty, nullptr);
-
-    /**
-     * @tc.steps: step3. test OnThemeScopeUpdate.
-     * @tc.expected: step3. check whether the properties is correct.
-     */
-
-    EXPECT_EQ(textProperty->GetPropertyChangeFlag(), PROPERTY_UPDATE_MEASURE);
-    EXPECT_FALSE(pattern->OnThemeScopeUpdate(host->GetThemeScopeId()));
-    EXPECT_EQ(textProperty->GetPropertyChangeFlag(), PROPERTY_CHANGE_FLAG_RESULT);
-
-    const double fontSize = 20.1;
-    model.InitFontDefault(
-        TextStyle(FONT_FAMILY_VALUE, fontSize, FONT_WEIGHT_VALUE, ITALIC_FONT_STYLE_VALUE, TEXT_COLOR_VALUE));
-    model.SetTextColor(TEXT_COLOR_VALUE);
-
-    EXPECT_EQ(textProperty->GetPropertyChangeFlag(), PROPERTY_CHANGE_FLAG_2);
-    EXPECT_FALSE(pattern->OnThemeScopeUpdate(host->GetThemeScopeId()));
-    EXPECT_EQ(textProperty->GetPropertyChangeFlag(), PROPERTY_CHANGE_FLAG_CHECK);
+    EXPECT_TRUE(layoutProperty->GetTextColorSetByUserValue());
+    model.SetFontColorByUser(frameNode, false);
+    EXPECT_FALSE(layoutProperty->GetTextColorSetByUserValue());
 }
 
 /**
@@ -1986,4 +1838,301 @@ HWTEST_F(TextClockTestNG, TextClockTest019, TestSize.Level0)
     std::string result = pattern->GetResCacheMapByKey("textClockFormat");
     EXPECT_EQ(result, "");
 }
+
+/**
+ * @tc.name: TextClockTest020
+ * @tc.desc: Test SetTextColor updates child Text node color
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextClockTestNG, TextClockTest020, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create textClock frameNode.
+     */
+    TextClockModelNG model;
+    model.Create();
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. get text child node.
+     */
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
+    ASSERT_NE(textNode, nullptr);
+    EXPECT_EQ(textNode->GetTag(), V2::TEXT_ETS_TAG);
+
+    /**
+     * @tc.steps: step3. call SetTextColor and verify child Text node is updated.
+     */
+    model.SetTextColor(TEXT_COLOR_VALUE);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    ASSERT_NE(textLayoutProperty, nullptr);
+    // Verify that child Text node's color is also updated
+    auto textPattern = textNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+
+    ViewStackProcessor::GetInstance()->Pop();
+}
+
+/**
+ * @tc.name: TextClockTest021
+ * @tc.desc: Test SetFontColor with FrameNode updates child Text node color
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextClockTestNG, TextClockTest021, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create textClock frameNode.
+     */
+    TextClockModelNG model;
+    model.Create();
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. get text child node.
+     */
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
+    ASSERT_NE(textNode, nullptr);
+    EXPECT_EQ(textNode->GetTag(), V2::TEXT_ETS_TAG);
+
+    /**
+     * @tc.steps: step3. call SetFontColor with frameNode and verify child Text node is updated.
+     */
+    TextClockModelNG::SetFontColor(frameNode, TEXT_COLOR_VALUE_1);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    ASSERT_NE(textLayoutProperty, nullptr);
+    auto textPattern = textNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+
+    ViewStackProcessor::GetInstance()->Pop();
+}
+/**
+ * @tc.name: TextClockLayoutAlgorithm003
+ * @tc.desc: Test TextClockLayoutAlgorithm with Match layout policy
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextClockTestNG, TextClockLayoutAlgorithm003, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. create textClock frameNode.
+     */
+    TestProperty testProperty;
+    testProperty.format = std::make_optional(CLOCK_FORMAT);
+    testProperty.hoursWest = std::make_optional(HOURS_WEST);
+    RefPtr<FrameNode> frameNode = CreateTextClockParagraph(testProperty);
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<TextClockPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextClockLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    auto layoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, layoutProperty);
+    ASSERT_NE(layoutWrapper, nullptr);
+
+    /**
+     * @tc.steps: step2. create childFrameNode.
+     */
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
+    ASSERT_NE(textNode, nullptr);
+    RefPtr<GeometryNode> textGeometryNode = AceType::MakeRefPtr<GeometryNode>();
+    auto textLayoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(textNode, textGeometryNode, textNode->GetLayoutProperty());
+    ASSERT_NE(textLayoutWrapper, nullptr);
+    textLayoutWrapper->SetLayoutAlgorithm(
+        AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(textNode->GetPattern()->CreateLayoutAlgorithm()));
+    textNode->MountToParent(frameNode);
+    layoutWrapper->AppendChild(textLayoutWrapper);
+
+    /**
+     * @tc.steps: step3. Set Match layout policy and measure.
+     */
+    LayoutConstraintF contentConstraint;
+    contentConstraint.maxSize = SizeF(720.f, 1136.f);
+    contentConstraint.percentReference = SizeF(720.f, 1136.f);
+    contentConstraint.parentIdealSize.SetSize(SizeF(720.f, 1136.f));
+    layoutProperty->UpdateLayoutConstraint(contentConstraint);
+    layoutProperty->UpdateContentConstraint();
+
+    // Set Width and Height Match policy
+    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
+    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, false);
+
+    auto layoutAlgorithm = AceType::MakeRefPtr<TextClockLayoutAlgorithm>();
+    layoutAlgorithm->Measure(AccessibilityManager::RawPtr(layoutWrapper));
+
+    contentConstraint.selfIdealSize.SetSize(SizeF(200.f, 200.f));
+    layoutProperty->UpdateLayoutConstraint(contentConstraint);
+    layoutProperty->UpdateContentConstraint();
+    layoutAlgorithm->Measure(AccessibilityManager::RawPtr(layoutWrapper));
+}
+
+/**
+ * @tc.name: TextClockLayoutAlgorithm004
+ * @tc.desc: Test TextClockLayoutAlgorithm with Fix layout policy
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextClockTestNG, TextClockLayoutAlgorithm004, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. create textClock frameNode.
+     */
+    TestProperty testProperty;
+    testProperty.format = std::make_optional(CLOCK_FORMAT);
+    testProperty.hoursWest = std::make_optional(HOURS_WEST);
+    RefPtr<FrameNode> frameNode = CreateTextClockParagraph(testProperty);
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<TextClockPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextClockLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    auto layoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, layoutProperty);
+    ASSERT_NE(layoutWrapper, nullptr);
+
+    /**
+     * @tc.steps: step2. create childFrameNode.
+     */
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
+    ASSERT_NE(textNode, nullptr);
+    RefPtr<GeometryNode> textGeometryNode = AceType::MakeRefPtr<GeometryNode>();
+    auto textLayoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(textNode, textGeometryNode, textNode->GetLayoutProperty());
+    ASSERT_NE(textLayoutWrapper, nullptr);
+    textLayoutWrapper->SetLayoutAlgorithm(
+        AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(textNode->GetPattern()->CreateLayoutAlgorithm()));
+    textNode->MountToParent(frameNode);
+    layoutWrapper->AppendChild(textLayoutWrapper);
+
+    /**
+     * @tc.steps: step3. Set Fix layout policy and measure.
+     */
+    LayoutConstraintF contentConstraint;
+    contentConstraint.maxSize = SizeF(720.f, 1136.f);
+    contentConstraint.percentReference = SizeF(720.f, 1136.f);
+    contentConstraint.parentIdealSize.SetSize(SizeF(720.f, 1136.f));
+    layoutProperty->UpdateLayoutConstraint(contentConstraint);
+    layoutProperty->UpdateContentConstraint();
+
+    // Set Width and Height Fix policy
+    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::FIX_AT_IDEAL_SIZE, true);
+    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::FIX_AT_IDEAL_SIZE, false);
+
+    auto layoutAlgorithm = AceType::MakeRefPtr<TextClockLayoutAlgorithm>();
+    layoutAlgorithm->Measure(AccessibilityManager::RawPtr(layoutWrapper));
+
+    contentConstraint.selfIdealSize.SetSize(SizeF(200.f, 200.f));
+    layoutProperty->UpdateLayoutConstraint(contentConstraint);
+    layoutProperty->UpdateContentConstraint();
+    layoutAlgorithm->Measure(AccessibilityManager::RawPtr(layoutWrapper));
+}
+
+/**
+ * @tc.name: TextClockLayoutAlgorithm006
+ * @tc.desc: Test TextClockLayoutAlgorithm with only Width Fix policy
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextClockTestNG, TextClockLayoutAlgorithm006, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. create textClock frameNode.
+     */
+    TestProperty testProperty;
+    testProperty.format = std::make_optional(CLOCK_FORMAT);
+    testProperty.hoursWest = std::make_optional(HOURS_WEST);
+    RefPtr<FrameNode> frameNode = CreateTextClockParagraph(testProperty);
+    ASSERT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextClockLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    auto layoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, layoutProperty);
+    ASSERT_NE(layoutWrapper, nullptr);
+
+    /**
+     * @tc.steps: step2. create childFrameNode.
+     */
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
+    ASSERT_NE(textNode, nullptr);
+    RefPtr<GeometryNode> textGeometryNode = AceType::MakeRefPtr<GeometryNode>();
+    auto textLayoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(textNode, textGeometryNode, textNode->GetLayoutProperty());
+    ASSERT_NE(textLayoutWrapper, nullptr);
+    textLayoutWrapper->SetLayoutAlgorithm(
+        AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(textNode->GetPattern()->CreateLayoutAlgorithm()));
+    textNode->MountToParent(frameNode);
+    layoutWrapper->AppendChild(textLayoutWrapper);
+
+    /**
+     * @tc.steps: step3. Set Width Fix policy only.
+     */
+    LayoutConstraintF contentConstraint;
+    contentConstraint.maxSize = SizeF(720.f, 1136.f);
+    contentConstraint.percentReference = SizeF(720.f, 1136.f);
+    contentConstraint.parentIdealSize.SetSize(SizeF(720.f, 1136.f));
+    layoutProperty->UpdateLayoutConstraint(contentConstraint);
+    layoutProperty->UpdateContentConstraint();
+
+    // Set only Width Fix policy
+    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::FIX_AT_IDEAL_SIZE, true);
+
+    auto layoutAlgorithm = AceType::MakeRefPtr<TextClockLayoutAlgorithm>();
+    layoutAlgorithm->Measure(AccessibilityManager::RawPtr(layoutWrapper));
+}
+
+/**
+ * @tc.name: TextClockLayoutAlgorithm007
+ * @tc.desc: Test TextClockLayoutAlgorithm with only Height Fix policy
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextClockTestNG, TextClockLayoutAlgorithm007, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. create textClock frameNode.
+     */
+    TestProperty testProperty;
+    testProperty.format = std::make_optional(CLOCK_FORMAT);
+    testProperty.hoursWest = std::make_optional(HOURS_WEST);
+    RefPtr<FrameNode> frameNode = CreateTextClockParagraph(testProperty);
+    ASSERT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextClockLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    auto layoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, layoutProperty);
+    ASSERT_NE(layoutWrapper, nullptr);
+
+    /**
+     * @tc.steps: step2. create childFrameNode.
+     */
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
+    ASSERT_NE(textNode, nullptr);
+    RefPtr<GeometryNode> textGeometryNode = AceType::MakeRefPtr<GeometryNode>();
+    auto textLayoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(textNode, textGeometryNode, textNode->GetLayoutProperty());
+    ASSERT_NE(textLayoutWrapper, nullptr);
+    textLayoutWrapper->SetLayoutAlgorithm(
+        AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(textNode->GetPattern()->CreateLayoutAlgorithm()));
+    textNode->MountToParent(frameNode);
+    layoutWrapper->AppendChild(textLayoutWrapper);
+
+    /**
+     * @tc.steps: step3. Set Height Fix policy only.
+     */
+    LayoutConstraintF contentConstraint;
+    contentConstraint.maxSize = SizeF(720.f, 1136.f);
+    contentConstraint.percentReference = SizeF(720.f, 1136.f);
+    contentConstraint.parentIdealSize.SetSize(SizeF(720.f, 1136.f));
+    layoutProperty->UpdateLayoutConstraint(contentConstraint);
+    layoutProperty->UpdateContentConstraint();
+
+    // Set only Height Fix policy
+    layoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::FIX_AT_IDEAL_SIZE, false);
+
+    auto layoutAlgorithm = AceType::MakeRefPtr<TextClockLayoutAlgorithm>();
+    layoutAlgorithm->Measure(AccessibilityManager::RawPtr(layoutWrapper));
+}
+
 } // namespace OHOS::Ace::NG

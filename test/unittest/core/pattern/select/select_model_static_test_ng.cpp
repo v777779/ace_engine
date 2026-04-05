@@ -22,10 +22,10 @@
 
 #define protected public
 #define private public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/geometry/dimension.h"
 #include "core/common/ace_application_info.h"
@@ -57,7 +57,9 @@ using namespace OHOS::Ace::Framework;
 namespace OHOS::Ace::NG {
 namespace {
 const std::string OPTION_TEXT = "option";
+const std::string OPTION_TEXT_2 = "select";
 const std::string FILE_SOURCE = "/common/icon.png";
+const std::string INTERNAL_SOURCE = "$r('app.media.icon')";
 
 } // namespace
 class SelectModelStaticTestNg : public testing::Test {
@@ -765,26 +767,6 @@ HWTEST_F(SelectModelStaticTestNg, SetDividerStyle, TestSize.Level1)
 }
 
 /**
- * @tc.name: SetAvoidance
- * @tc.desc: Test SelectPattern SetAvoidance.
- * @tc.type: FUNC
- */
-HWTEST_F(SelectModelStaticTestNg, SetAvoidance, TestSize.Level1)
-{
-    SelectModelNG selectModelInstance;
-    /**
-     * @tc.steps: step1. Create select.
-     */
-    std::vector<SelectParam> params = { { OPTION_TEXT, FILE_SOURCE } };
-    selectModelInstance.Create(params);
-    auto select = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(select, nullptr);
-    auto pattern = select->GetPattern<SelectPattern>();
-    ASSERT_NE(pattern, nullptr);
-    SelectModelStatic::SetAvoidance(select, std::nullopt);
-}
-
-/**
  * @tc.name: SetMenuOutline
  * @tc.desc: Test SelectPattern SetMenuOutline.
  * @tc.type: FUNC
@@ -830,6 +812,97 @@ HWTEST_F(SelectModelStaticTestNg, SetControlSize, TestSize.Level1)
     MockContainer::Current()->SetApiTargetVersion(rollbackApiVersion);
     EXPECT_EQ(pattern->controlSize_, ControlSize::SMALL);
     ViewStackProcessor::GetInstance()->ClearStack();
+}
+
+/**
+ * @tc.name: SetDefaultMenuParamTest001
+ * @tc.desc: Test SelectModelStatic SetDefaultMenuParam.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectModelStaticTestNg, SetDefaultMenuParamTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. mock menu theme.
+     */
+    auto themeManager = AceType::DynamicCast<MockThemeManager>(MockPipelineContext::GetCurrent()->GetThemeManager());
+    auto theme = AceType::MakeRefPtr<MenuTheme>();
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(theme));
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(theme));
+    SetUpThemeManager();
+    ASSERT_NE(theme, nullptr);
+    SelectModelNG selectModelInstance;
+    /**
+     * @tc.steps: step2. Create select.
+     */
+    std::vector<SelectParam> params = { { OPTION_TEXT, FILE_SOURCE } };
+    selectModelInstance.Create(params);
+    auto select = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(select, nullptr);
+    MenuParam menuParam;
+    SelectModelStatic::SetDefaultMenuParam(select, menuParam);
+
+    NG::BorderColorProperty outlineColor;
+    outlineColor.SetColor(theme->GetOuterBorderColor());
+    EXPECT_EQ(menuParam.outlineColor, outlineColor);
+}
+/**
+ * @tc.name: SetShowInSubWindowTest001
+ * @tc.desc: Test SelectModelStatic SetShowInSubWindow.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectModelStaticTestNg, SetShowInSubWindowTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create select model, select frame node.
+     * @tc.expected: Objects are created successfully.
+     */
+    SelectModelNG instance;
+    std::vector<SelectParam> params = { { OPTION_TEXT, FILE_SOURCE }, { OPTION_TEXT_2, INTERNAL_SOURCE } };
+    instance.Create(params);
+
+    auto viewStackProcessor = ViewStackProcessor::GetInstance();
+    ASSERT_NE(viewStackProcessor, nullptr);
+    auto select = viewStackProcessor->GetMainFrameNode();
+    ASSERT_NE(select, nullptr);
+    auto layoutProps = select->GetLayoutProperty<SelectLayoutProperty>();
+    ASSERT_NE(layoutProps, nullptr);
+
+    /**
+     * @tc.steps: step2. Call SetShowInSubWindow and set SetShowInSubWindow with bool value.
+     * @tc.expected: SelectLayoutProperty's isShowInSubWindow_ and the set value are equal.
+     */
+    EXPECT_EQ(layoutProps->GetShowInSubWindowValue(false), false);
+    SelectModelStatic::SetShowInSubWindow(select, true);
+    EXPECT_EQ(layoutProps->GetShowInSubWindowValue(false), true);
+    SelectModelStatic::SetShowInSubWindow(select, false);
+    EXPECT_EQ(layoutProps->GetShowInSubWindowValue(false), false);
+}
+
+/**
+ * @tc.name: SetShowDefaultSelectedIconTest001
+ * @tc.desc: Test SelectModelStatic SetShowDefaultSelectedIcon.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectModelStaticTestNg, SetShowDefaultSelectedIconTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Select and get pattern.
+     * @tc.expected: SelectPattern created successfully.
+     */
+    SelectModelNG selectModelNG;
+    std::vector<SelectParam> params = { { OPTION_TEXT, FILE_SOURCE }, { OPTION_TEXT_2, INTERNAL_SOURCE } };
+    selectModelNG.Create(params);
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Set ShowDefaultSelectedIcon is true.
+     * @tc.expected: the values of select which is setted successfully.
+     */
+    auto selectLayoutProps = frameNode->GetLayoutProperty<SelectLayoutProperty>();
+    ASSERT_NE(selectLayoutProps, nullptr);
+    SelectModelStatic::SetShowDefaultSelectedIcon(frameNode, true);
+    EXPECT_EQ(selectLayoutProps->GetShowDefaultSelectedIconValue(false), true);
 }
 
 /**
@@ -907,6 +980,9 @@ HWTEST_F(SelectModelStaticTestNg, SetArrowModifierApply, TestSize.Level1)
     selectModelInstance.Create(params);
     auto select = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     ASSERT_NE(select, nullptr);
+    /**
+     * @tc.steps: step2. Get Select pattern.
+     */
     auto pattern = select->GetPattern<SelectPattern>();
     ASSERT_NE(pattern, nullptr);
     SelectModelStatic::SetArrowModifierApply(select, nullptr);

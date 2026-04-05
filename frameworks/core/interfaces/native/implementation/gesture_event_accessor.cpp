@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/implementation/gesture_event_peer.h"
@@ -69,6 +68,32 @@ void SetFingerListImpl(Ark_GestureEvent peer,
 
     auto convValue = Converter::Convert<std::list<FingerInfo>>(*fingerList);
     event->SetFingerList(convValue);
+}
+Opt_Array_FingerInfo GetFingerInfosImpl(Ark_GestureEvent peer)
+{
+    CHECK_NULL_RETURN(peer, {});
+    auto info = peer->GetEventInfo();
+    CHECK_NULL_RETURN(info, {});
+    const std::list<FingerInfo>& fingerList = info->GetFingerList();
+    std::list<FingerInfo> fingerInfos;
+    std::list<FingerInfo> touchFingers;
+    std::list<FingerInfo> otherFingers;
+
+    for (const auto& finger : fingerList) {
+        if (finger.sourceType_ == SourceType::TOUCH &&
+            finger.sourceTool_ == SourceTool::FINGER) {
+            touchFingers.push_back(finger);
+        } else {
+            otherFingers.push_back(finger);
+        }
+    }
+    fingerInfos.splice(fingerInfos.end(), touchFingers);
+    fingerInfos.splice(fingerInfos.end(), otherFingers);
+    return Converter::ArkValue<Opt_Array_FingerInfo>(fingerInfos, Converter::FC);
+}
+void SetFingerInfosImpl(Ark_GestureEvent peer,
+                        const Opt_Array_FingerInfo* fingerInfos)
+{
 }
 Ark_Float64 GetOffsetXImpl(Ark_GestureEvent peer)
 {
@@ -273,6 +298,29 @@ void SetVelocityImpl(Ark_GestureEvent peer,
 {
     LOGE("GestureEventAccessor::SetVelocityImpl not implemented");
 }
+Opt_EventLocationInfo GetTapLocationImpl(Ark_GestureEvent peer)
+{
+    CHECK_NULL_RETURN(peer, {});
+    auto info = peer->GetEventInfo();
+    CHECK_NULL_RETURN(info, {});
+    const std::list<FingerInfo>& fingerList = info->GetFingerList();
+    EventLocationInfo tapLocation;
+    if (info->GetGestureTypeName() == GestureTypeName::TAP_GESTURE) {
+        if (!fingerList.empty()) {
+            tapLocation = {
+                fingerList.back().localLocation_,
+                fingerList.back().globalLocation_,
+                fingerList.back().screenLocation_,
+                fingerList.back().globalDisplayLocation_
+            };
+        }
+    }
+    return Converter::ArkValue<Opt_EventLocationInfo>(tapLocation, Converter::FC);
+}
+void SetTapLocationImpl(Ark_GestureEvent peer,
+                        const Opt_EventLocationInfo* tapLocation)
+{
+}
 } // GestureEventAccessor
 const GENERATED_ArkUIGestureEventAccessor* GetGestureEventAccessor()
 {
@@ -284,6 +332,8 @@ const GENERATED_ArkUIGestureEventAccessor* GetGestureEventAccessor()
         GestureEventAccessor::SetRepeatImpl,
         GestureEventAccessor::GetFingerListImpl,
         GestureEventAccessor::SetFingerListImpl,
+        GestureEventAccessor::GetFingerInfosImpl,
+        GestureEventAccessor::SetFingerInfosImpl,
         GestureEventAccessor::GetOffsetXImpl,
         GestureEventAccessor::SetOffsetXImpl,
         GestureEventAccessor::GetOffsetYImpl,
@@ -304,6 +354,8 @@ const GENERATED_ArkUIGestureEventAccessor* GetGestureEventAccessor()
         GestureEventAccessor::SetVelocityYImpl,
         GestureEventAccessor::GetVelocityImpl,
         GestureEventAccessor::SetVelocityImpl,
+        GestureEventAccessor::GetTapLocationImpl,
+        GestureEventAccessor::SetTapLocationImpl,
     };
     return &GestureEventAccessorImpl;
 }

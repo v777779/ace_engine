@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -34,19 +34,18 @@
 #include "bridge/declarative_frontend/jsview/js_indicator.h"
 #include "bridge/declarative_frontend/jsview/js_utils.h"
 #include "bridge/declarative_frontend/jsview/js_view_abstract.h"
-#include "bridge/declarative_frontend/jsview/models/swiper_model_impl.h"
 #include "bridge/declarative_frontend/view_stack_processor.h"
 #include "bridge/js_frontend/engine/jsi/js_value.h"
 #include "core/animation/curve.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/scroll_bar.h"
-#include "core/components/swiper/swiper_component.h"
 #include "core/components/swiper/swiper_indicator_theme.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/scrollable/scrollable_properties.h"
 #include "core/components_ng/pattern/swiper/swiper_content_transition_proxy.h"
 #include "core/components_ng/pattern/swiper/swiper_model.h"
 #include "core/components_ng/pattern/swiper/swiper_model_ng.h"
+#include "core/common/dynamic_module_helper.h"
 
 namespace OHOS::Ace {
 namespace {
@@ -69,7 +68,9 @@ SwiperModel* SwiperModel::GetInstance()
             if (Container::IsCurrentUseNewPipeline()) {
                 instance_.reset(new NG::SwiperModelNG());
             } else {
-                instance_.reset(new Framework::SwiperModelImpl());
+                static auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("swiper");
+                static SwiperModel* instance = loader ? reinterpret_cast<SwiperModel*>(loader->CreateModel()) : nullptr;
+                return instance;
             }
 #endif
         }
@@ -223,6 +224,7 @@ void JSSwiper::JSBind(BindingTarget globalObj)
     JSClass<JSSwiper>::StaticMethod("onContentWillScroll", &JSSwiper::SetOnContentWillScroll);
     JSClass<JSSwiper>::StaticMethod("onSelected", &JSSwiper::SetOnSelected);
     JSClass<JSSwiper>::StaticMethod("maintainVisibleContentPosition", &JSSwiper::SetMaintainVisibleContentPosition);
+    JSClass<JSSwiper>::StaticMethod("onScrollStateChanged", &JSSwiper::SetOnScrollStateChanged);
     JSClass<JSSwiper>::InheritAndBind<JSContainerBase>(globalObj);
 }
 
@@ -295,6 +297,27 @@ void JSSwiper::SetEffectMode(const JSCallbackInfo& info)
     SwiperModel::GetInstance()->SetEdgeEffect(EDGE_EFFECT[edgeEffect]);
 }
 
+void JSSwiper::ParseDisplayCountObject(const JSRef<JSObject>& object)
+{
+    auto minSizeParam = object->GetProperty("minSize");
+    auto fillTypeParam = object->GetProperty("fillType");
+    // FillType may be optional, prioritize parsing minSize.
+    if (!minSizeParam->IsUndefined()) {
+        CalcDimension minSizeValue;
+        if (!ParseJsDimensionVp(minSizeParam, minSizeValue)) {
+            SwiperModel::GetInstance()->SetMinSize(0.0_vp);
+            return;
+        }
+        SwiperModel::GetInstance()->SetMinSize(minSizeValue);
+    } else {
+        int32_t fillTypeValue = 0;
+        if (fillTypeParam->IsNumber()) {
+            fillTypeValue = fillTypeParam->ToNumber<int32_t>();
+        }
+        SwiperModel::GetInstance()->SetFillType(fillTypeValue);
+    }
+}
+
 void JSSwiper::SetDisplayCount(const JSCallbackInfo& info)
 {
     if (info.Length() < 1) {
@@ -310,26 +333,15 @@ void JSSwiper::SetDisplayCount(const JSCallbackInfo& info)
     }
 
     if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TEN)) {
+        SwiperModel::GetInstance()->ResetDisplayCountWithObject();
+        SwiperModel::GetInstance()->ResetDisplayMode();
         if (info[0]->IsString() && info[0]->ToString() == "auto") {
             SwiperModel::GetInstance()->SetDisplayMode(SwiperDisplayMode::AUTO_LINEAR);
             SwiperModel::GetInstance()->ResetDisplayCount();
-            SwiperModel::GetInstance()->ResetMinSize();
         } else if (info[0]->IsNumber() && info[0]->ToNumber<int32_t>() > 0) {
             SwiperModel::GetInstance()->SetDisplayCount(info[0]->ToNumber<int32_t>());
         } else if (info[0]->IsObject()) {
-            JSRef<JSObject> jsObj = JSRef<JSObject>::Cast(info[0]);
-            auto minSizeParam = jsObj->GetProperty("minSize");
-            if (minSizeParam->IsNull()) {
-                return;
-            }
-            CalcDimension minSizeValue;
-            if (!ParseJsDimensionVp(minSizeParam, minSizeValue)) {
-                SwiperModel::GetInstance()->SetMinSize(0.0_vp);
-                return;
-            }
-            SwiperModel::GetInstance()->SetMinSize(minSizeValue);
-            SwiperModel::GetInstance()->ResetDisplayCount();
-            SwiperModel::GetInstance()->ResetDisplayMode();
+            ParseDisplayCountObject(JSRef<JSObject>::Cast(info[0]));
         } else {
             SwiperModel::GetInstance()->SetDisplayCount(DEFAULT_DISPLAY_COUNT);
         }
@@ -558,7 +570,7 @@ std::optional<Dimension> JSSwiper::ParseIndicatorBottom(const JSRef<JSVal>& bott
         return bottom;
     } else {
         CalcDimension dimBottom;
-        bool parseOk = ParseLengthMetricsToDimension(bottomValue, dimBottom);
+        bool parseOk = ParseLengthMetricsToDimension(bottomValue, dimBottom, resObj);
         if (!parseOk) {
             bottom = ParseIndicatorDimension(bottomValue, resObj);
             return bottom;
@@ -655,7 +667,6 @@ SwiperParameters JSSwiper::GetDotIndicatorInfo(const JSRef<JSObject>& obj)
     SwiperModel::GetInstance()->SetIsIndicatorCustomSize(
         parseSelectedItemWOk || parseSelectedItemHOk || parseItemWOk || parseItemHOk);
     SetDotIndicatorInfo(obj, swiperParameters, swiperIndicatorTheme);
-    swiperParameters.parametersByUser.insert("dotIndicator");
     return swiperParameters;
 }
 void JSSwiper::SetDotIndicatorInfo(const JSRef<JSObject>& obj, SwiperParameters& swiperParameters,
@@ -706,6 +717,44 @@ bool JSSwiper::ParseLengthMetricsToDimension(const JSRef<JSVal>& jsValue, CalcDi
         double value = jsObj->GetProperty("value")->ToNumber<double>();
         auto unit = static_cast<DimensionUnit>(jsObj->GetProperty("unit")->ToNumber<int32_t>());
         result = CalcDimension(value, unit);
+        return true;
+    }
+    if (jsValue->IsNull()) {
+        result = CalcDimension(0.0f, DimensionUnit::VP);
+        return true;
+    }
+
+    return false;
+}
+
+bool JSSwiper::ParseLengthMetricsToDimension(const JSRef<JSVal>& jsValue, CalcDimension& result,
+    RefPtr<ResourceObject>& resourceObj)
+{
+    if (jsValue->IsNumber()) {
+        result = CalcDimension(jsValue->ToNumber<double>(), DimensionUnit::VP);
+        return true;
+    }
+    if (jsValue->IsString()) {
+        auto value = jsValue->ToString();
+        StringUtils::StringToCalcDimensionNG(value, result, false, DimensionUnit::VP);
+        return true;
+    }
+    if (jsValue->IsObject()) {
+        JSRef<JSObject> jsObj = JSRef<JSObject>::Cast(jsValue);
+        auto valObj = jsObj->GetProperty("value");
+        if (valObj->IsUndefined() || valObj->IsNull()) {
+            return false;
+        }
+        double value = valObj->ToNumber<double>();
+        auto unit = static_cast<DimensionUnit>(jsObj->GetProperty("unit")->ToNumber<int32_t>());
+        result = CalcDimension(value, unit);
+        auto jsRes = jsObj->GetProperty("res");
+        if (SystemProperties::ConfigChangePerform() && !jsRes->IsUndefined() &&
+            !jsRes->IsNull() && jsRes->IsObject()) {
+            JSRef<JSObject> resObj = JSRef<JSObject>::Cast(jsRes);
+            JSViewAbstract::CompleteResourceObject(resObj);
+            resourceObj = JSViewAbstract::GetResourceObject(resObj);
+        }
         return true;
     }
     if (jsValue->IsNull()) {
@@ -951,7 +1000,8 @@ void JSSwiper::SetIndicatorController(const JSCallbackInfo& info)
     SwiperModel::GetInstance()->SetBindIndicator(true);
     auto targetNode = AceType::Claim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto resetFunc = jsIndicatorController->SetSwiperNodeBySwiper(targetNode);
-    SwiperModel::GetInstance()->SetIndicatorController(jsIndicatorController);
+    SwiperModel::GetInstance()->SetIndicatorController(
+        AceType::DynamicCast<NG::JSIndicatorControllerBase>(AceType::Claim(jsIndicatorController)));
     if (resetFunc) {
         SwiperModel::GetInstance()->SetJSIndicatorController(resetFunc);
     }
@@ -959,13 +1009,15 @@ void JSSwiper::SetIndicatorController(const JSCallbackInfo& info)
 
 void JSSwiper::ResetSwiperNode(const JSCallbackInfo& info)
 {
-    JSIndicatorController* jsIndicatorController = SwiperModel::GetInstance()->GetIndicatorController();
+    RefPtr<JSIndicatorController> jsIndicatorController =
+        AceType::DynamicCast<Framework::JSIndicatorController>(SwiperModel::GetInstance()->GetIndicatorController());
     JSIndicatorController* controller = nullptr;
     if (info.Length() >= 1 && info[0]->IsObject()) {
         controller = JSRef<JSObject>::Cast(info[0])->Unwrap<JSIndicatorController>();
     }
     if (jsIndicatorController && jsIndicatorController != controller) {
         jsIndicatorController->ResetSwiperNode();
+        SwiperModel::GetInstance()->ResetJSIndicatorController();
     }
 }
 
@@ -1090,7 +1142,6 @@ void JSSwiper::SetIndicatorStyle(const JSCallbackInfo& info)
             swiperParameters.resourceItemSizeValueObject = resItemSizeObj;
         }
     }
-    swiperParameters.parametersByUser.insert("dotIndicator");
     SwiperModel::GetInstance()->SetDotIndicatorStyle(swiperParameters);
     info.ReturnSelf();
 }
@@ -1162,6 +1213,18 @@ void JSSwiper::SetDisplayMode(int32_t index)
     SwiperModel::GetInstance()->SetDisplayMode(DISPLAY_MODE[index]);
 }
 
+void JSSwiper::ParseCachedCountOptions(const JSRef<JSObject>& obj)
+{
+    auto isShown = obj->GetProperty("isShown");
+    if (isShown->IsBoolean()) {
+        SwiperModel::GetInstance()->SetCachedIsShown(isShown->ToBoolean());
+    }
+    auto independent = obj->GetProperty("independent");
+    if (independent->IsBoolean()) {
+        SwiperModel::GetInstance()->SetCachedIndependent(independent->ToBoolean());
+    }
+}
+
 void JSSwiper::SetCachedCount(const JSCallbackInfo& info)
 {
     if (info.Length() < 1) {
@@ -1176,7 +1239,10 @@ void JSSwiper::SetCachedCount(const JSCallbackInfo& info)
         }
     }
     SwiperModel::GetInstance()->SetCachedCount(cachedCount);
-
+    if (info.Length() > 1 && info[1]->IsObject()) {
+        ParseCachedCountOptions(JSRef<JSObject>::Cast(info[1]));
+        return;
+    }
     auto isShown = info.Length() > 1 && info[1]->IsBoolean() && info[1]->ToBoolean();
     SwiperModel::GetInstance()->SetCachedIsShown(isShown);
 }
@@ -1196,7 +1262,9 @@ void JSSwiper::SetCurve(const JSCallbackInfo& info)
         if (onCallBack->IsFunction()) {
             RefPtr<JsFunction> jsFuncCallBack =
                 AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(), JSRef<JSFunc>::Cast(onCallBack));
-            customCallBack = [func = std::move(jsFuncCallBack), id = Container::CurrentId()](float time) -> float {
+            customCallBack = [executionContext = info.GetExecutionContext(), func = std::move(jsFuncCallBack),
+                                 id = Container::CurrentId()](float time) -> float {
+                JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(executionContext, 1.0f);
                 ContainerScope scope(id);
                 JSRef<JSVal> params[1];
                 params[0] = JSRef<JSVal>::Make(ToJSValue(time));
@@ -1464,6 +1532,10 @@ void JSSwiperController::JSBind(BindingTarget globalObj)
     JSClass<JSSwiperController>::CustomMethod("changeIndex", &JSSwiperController::ChangeIndex);
     JSClass<JSSwiperController>::CustomMethod("finishAnimation", &JSSwiperController::FinishAnimation);
     JSClass<JSSwiperController>::CustomMethod("preloadItems", &JSSwiperController::PreloadItems);
+    JSClass<JSSwiperController>::CustomMethod("startFakeDrag", &JSSwiperController::StartFakeDrag);
+    JSClass<JSSwiperController>::CustomMethod("fakeDragBy", &JSSwiperController::FakeDragBy);
+    JSClass<JSSwiperController>::CustomMethod("stopFakeDrag", &JSSwiperController::StopFakeDrag);
+    JSClass<JSSwiperController>::CustomMethod("isFakeDragging", &JSSwiperController::IsFakeDragging);
     JSClass<JSSwiperController>::Bind(globalObj, JSSwiperController::Constructor, JSSwiperController::Destructor);
 }
 
@@ -1490,9 +1562,6 @@ void JSSwiperController::SwipeTo(const JSCallbackInfo& args)
     }
     if (controller_) {
         controller_->SwipeTo(args[0]->ToNumber<int32_t>());
-    } else {
-        EventReport::ReportScrollableErrorEvent(
-            "Swiper", ScrollableErrorType::CONTROLLER_NOT_BIND, "swipeTo: Swiper controller not bind.");
     }
 }
 
@@ -1501,9 +1570,6 @@ void JSSwiperController::ShowNext(const JSCallbackInfo& args)
     ContainerScope scope(instanceId_);
     if (controller_) {
         controller_->ShowNext();
-    } else {
-        EventReport::ReportScrollableErrorEvent(
-            "Swiper", ScrollableErrorType::CONTROLLER_NOT_BIND, "showNext: Swiper controller not bind.");
     }
 }
 
@@ -1512,19 +1578,12 @@ void JSSwiperController::ShowPrevious(const JSCallbackInfo& args)
     ContainerScope scope(instanceId_);
     if (controller_) {
         controller_->ShowPrevious();
-    } else {
-        EventReport::ReportScrollableErrorEvent(
-            "Swiper", ScrollableErrorType::CONTROLLER_NOT_BIND, "showPrevious: Swiper controller not bind.");
     }
 }
 
 void JSSwiperController::ChangeIndex(const JSCallbackInfo& args)
 {
-    if (!controller_) {
-        EventReport::ReportScrollableErrorEvent(
-            "Swiper", ScrollableErrorType::CONTROLLER_NOT_BIND, "changeIndex: Swiper controller not bind.");
-        return;
-    }
+    CHECK_NULL_VOID(controller_);
     if (args.Length() < 1 || !args[0]->IsNumber()) {
         return;
     }
@@ -1547,11 +1606,7 @@ void JSSwiperController::ChangeIndex(const JSCallbackInfo& args)
 void JSSwiperController::FinishAnimation(const JSCallbackInfo& args)
 {
     ContainerScope scope(instanceId_);
-    if (!controller_) {
-        EventReport::ReportScrollableErrorEvent(
-            "Swiper", ScrollableErrorType::CONTROLLER_NOT_BIND, "finishAnimation: Swiper controller not bind.");
-        return;
-    }
+    CHECK_NULL_VOID(controller_);
 
     if (args.Length() > 0 && args[0]->IsFunction()) {
         RefPtr<JsFunction> jsFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(), JSRef<JSFunc>::Cast(args[0]));
@@ -1575,11 +1630,7 @@ void JSSwiperController::FinishAnimation(const JSCallbackInfo& args)
 void JSSwiperController::OldPreloadItems(const JSCallbackInfo& args)
 {
     ContainerScope scope(instanceId_);
-    if (!controller_) {
-        EventReport::ReportScrollableErrorEvent(
-            "Swiper", ScrollableErrorType::CONTROLLER_NOT_BIND, "preloadItems: Swiper controller not bind.");
-        return;
-    }
+    CHECK_NULL_VOID(controller_);
 
     if (args.Length() != LENGTH_TWO || !args[0]->IsArray() || !args[1]->IsFunction()) {
         return;
@@ -1610,8 +1661,6 @@ void JSSwiperController::OldPreloadItems(const JSCallbackInfo& args)
 void JSSwiperController::NewPreloadItems(const JSCallbackInfo& args)
 {
     if (!controller_) {
-        EventReport::ReportScrollableErrorEvent(
-            "Swiper", ScrollableErrorType::CONTROLLER_NOT_BIND, "preloadItems: Swiper controller not bind.");
         JSException::Throw(ERROR_CODE_NAMED_ROUTE_ERROR, "%s", "Controller not bound to component.");
         return;
     }
@@ -1654,6 +1703,63 @@ void JSSwiperController::PreloadItems(const JSCallbackInfo& args)
     }
 
     OldPreloadItems(args);
+}
+
+void JSSwiperController::StartFakeDrag(const JSCallbackInfo& args)
+{
+    ContainerScope scope(instanceId_);
+    if (!controller_) {
+        auto retVal = JSRef<JSVal>::Make(ToJSValue(false));
+        args.SetReturnValue(retVal);
+        return;
+    }
+    bool ret = controller_->StartFakeDrag();
+    auto retVal = JSRef<JSVal>::Make(ToJSValue(ret));
+    args.SetReturnValue(retVal);
+}
+
+void JSSwiperController::FakeDragBy(const JSCallbackInfo& args)
+{
+    ContainerScope scope(instanceId_);
+    if (!controller_) {
+        auto retVal = JSRef<JSVal>::Make(ToJSValue(false));
+        args.SetReturnValue(retVal);
+        return;
+    }
+    if (!args[0]->IsNumber()) {
+        auto retVal = JSRef<JSVal>::Make(ToJSValue(false));
+        args.SetReturnValue(retVal);
+        return;
+    }
+    bool ret = controller_->FakeDragBy(args[0]->ToNumber<float>());
+    auto retVal = JSRef<JSVal>::Make(ToJSValue(ret));
+    args.SetReturnValue(retVal);
+}
+
+void JSSwiperController::StopFakeDrag(const JSCallbackInfo& args)
+{
+    ContainerScope scope(instanceId_);
+    if (!controller_) {
+        auto retVal = JSRef<JSVal>::Make(ToJSValue(false));
+        args.SetReturnValue(retVal);
+        return;
+    }
+    bool ret = controller_->StopFakeDrag();
+    auto retVal = JSRef<JSVal>::Make(ToJSValue(ret));
+    args.SetReturnValue(retVal);
+}
+
+void JSSwiperController::IsFakeDragging(const JSCallbackInfo& args)
+{
+    ContainerScope scope(instanceId_);
+    if (!controller_) {
+        auto retVal = JSRef<JSVal>::Make(ToJSValue(false));
+        args.SetReturnValue(retVal);
+        return;
+    }
+    bool ret = controller_->IsFakeDragging();
+    auto retVal = JSRef<JSVal>::Make(ToJSValue(ret));
+    args.SetReturnValue(retVal);
 }
 
 void JSSwiper::SetNestedScroll(const JSCallbackInfo& args)
@@ -1808,5 +1914,26 @@ void JSSwiper::SetMaintainVisibleContentPosition(const JSCallbackInfo& info)
     }
 
     SwiperModel::GetInstance()->SetMaintainVisibleContentPosition(info[0]->ToBoolean());
+}
+void JSSwiper::SetOnScrollStateChanged(const JSCallbackInfo& info)
+{
+    if (!info[0]->IsFunction()) {
+        return;
+    }
+    auto scrollStateHandler = AceType::MakeRefPtr<JsEventFunction<SwiperChangeEvent, 1>>(
+        JSRef<JSFunc>::Cast(info[0]), SwiperChangeEventToJSValue);
+    WeakPtr<NG::FrameNode> targetNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    auto onScrollStateChanged = [executionContext = info.GetExecutionContext(), func = std::move(scrollStateHandler),
+                          node = targetNode](const BaseEventInfo* info) {
+        JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(executionContext);
+        const auto* scrollStateInfo = TypeInfoHelper::DynamicCast<SwiperChangeEvent>(info);
+        if (!scrollStateInfo) {
+            TAG_LOGW(AceLogTag::ACE_SWIPER, "scrollStateInfo invalid, OnScrollStateChanged failed.");
+            return;
+        }
+        PipelineContext::SetCallBackNode(node);
+        func->Execute(*scrollStateInfo);
+    };
+    SwiperModel::GetInstance()->SetOnScrollStateChanged(std::move(onScrollStateChanged));
 }
 } // namespace OHOS::Ace::Framework

@@ -29,7 +29,7 @@
 
 namespace OHOS::Ace::Framework {
 class JSFontSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSFontSpan, AceType)
+    DECLARE_ACE_TYPE(JSFontSpan, AceType);
 
 public:
     JSFontSpan() = default;
@@ -45,9 +45,11 @@ public:
     static void ParseJsFontStyle(const JSRef<JSObject>& obj, Font& font);
     static void ParseJsStrokeWidth(const JSRef<JSObject>& obj, Font& font);
     static void ParseJsStrokeColor(const JSRef<JSObject>& obj, Font& font);
-    static void GetStrokeColorFallback(const JSRef<JSObject>& obj,
-        const RefPtr<TextTheme>& theme, Color& color);
     static void ParseJsSuperscript(const JSRef<JSObject>& obj, Font& font);
+    static void ParseJsFontConfigs(const JSRef<JSObject>& obj, Font& font);
+    static void ParseFontWeightConfigs(const JSRef<JSObject>& fontConfigsObj, Font& font);
+    static void GetStrokeColorFallback(const JSRef<JSObject>& obj, const RefPtr<TextTheme>& theme, Color& color,
+        RefPtr<ResourceObject>& resObj, JSRef<JSVal>& colorObj);
     void GetFontColor(const JSCallbackInfo& info);
     void SetFontColor(const JSCallbackInfo& info);
     void GetFontFamily(const JSCallbackInfo& info);
@@ -64,6 +66,8 @@ public:
     void SetStrokeColor(const JSCallbackInfo& info);
     void GetSuperscript(const JSCallbackInfo& info);
     void SetSuperscript(const JSCallbackInfo& info);
+    void GetFontConfigs(const JSCallbackInfo& info);
+    void SetFontConfigs(const JSCallbackInfo& info);
 
     const RefPtr<FontSpan>& GetFontSpan();
     void SetFontSpan(const RefPtr<FontSpan>& fontSpan);
@@ -73,16 +77,19 @@ private:
     RefPtr<FontSpan> fontSpan_;
 };
 
-class JSParagraphStyleSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSParagraphStyleSpan, AceType)
+class JSParagraphStyleSpan : public ParagraphStyleSpan {
+    DECLARE_ACE_TYPE(JSParagraphStyleSpan, ParagraphStyleSpan);
 
 public:
     JSParagraphStyleSpan() = default;
+    JSParagraphStyleSpan(JSRef<JSObject> leadingMarginSpanObj, SpanParagraphStyle paragraphStyle,
+        int32_t start, int32_t end);
     ~JSParagraphStyleSpan() override = default;
     static void Constructor(const JSCallbackInfo& args);
     static void Destructor(JSParagraphStyleSpan* paragraphStyleSpan);
     static void JSBind(BindingTarget globalObj);
-    static RefPtr<ParagraphStyleSpan> ParseJsParagraphStyleSpan(const JSRef<JSObject>& obj);
+    static SpanParagraphStyle ParseJsParagraphStyleSpan(const JSRef<JSObject>& obj,
+        const JSCallbackInfo& args, RefPtr<JSParagraphStyleSpan>& paragraphSpan);
     static void ParseJsTextAlign(const JSRef<JSObject>& obj, SpanParagraphStyle& paragraphStyle);
     static void ParseJsTextVerticalAlign(const JSRef<JSObject>& obj, SpanParagraphStyle& paragraphStyle);
     static void ParseJsTextIndent(const JSRef<JSObject>& obj, SpanParagraphStyle& paragraphStyle);
@@ -90,9 +97,19 @@ public:
     static void ParseJsTextOverflow(const JSRef<JSObject>& obj, SpanParagraphStyle& paragraphStyle);
     static void ParseJsWordBreak(const JSRef<JSObject>& obj, SpanParagraphStyle& paragraphStyle);
     static void ParseJsLeadingMargin(const JSRef<JSObject>& obj, SpanParagraphStyle& paragraphStyle);
+    static void ParseJsLeadingMarginSpan(const JSRef<JSObject>& obj, SpanParagraphStyle& paragraphStyle,
+        const JSCallbackInfo& args, RefPtr<JSParagraphStyleSpan>& paragraphSpan);
+    static std::function<void(NG::DrawingContext&, NG::LeadingMarginSpanOptions)> ParseMarginOnDrawFunc(
+        const RefPtr<JsFunction>& jsDraw, const JSExecutionContext& execCtx);
+    static std::function<CalcDimension()> ParseGetLeadingMarginFunc(
+        const RefPtr<JsFunction>& jsDraw, const JSExecutionContext& execCtx);
+    static JSRef<JSVal> SetLeadingMarginSpanObj(const JSRef<JSObjTemplate>& objectTemplate,
+        const NG::LeadingMarginSpanOptions& leadingMarginOptions);
     static void ParseParagraphSpacing(const JSRef<JSObject>& obj, SpanParagraphStyle& paragraphStyle);
     static void ParseLeadingMarginPixelMap(const JSRef<JSObject>& leadingMarginObject,
         std::optional<NG::LeadingMargin>& margin, const JsiRef<JsiValue>& leadingMargin);
+    static CalcDimension ParseLengthMetrics(const JSRef<JSObject>& leadingMarginObject);
+    static void ParseJsTextDirection(const JSRef<JSObject>& obj, SpanParagraphStyle& paragraphStyle);
     void GetTextAlign(const JSCallbackInfo& info);
     void SetTextAlign(const JSCallbackInfo& info);
     void GetTextVerticalAlign(const JSCallbackInfo& info);
@@ -107,21 +124,27 @@ public:
     void GetWordBreak(const JSCallbackInfo& info);
     void SetLeadingMargin(const JSCallbackInfo& info);
     void GetLeadingMargin(const JSCallbackInfo& info);
+    void SetLeadingMarginSpan(const JSCallbackInfo& info);
+    void GetLeadingMarginSpan(const JSCallbackInfo& info);
     void GetParagraphSpacing(const JSCallbackInfo& info);
     void SetParagraphSpacing(const JSCallbackInfo& info);
+    void GetTextDirection(const JSCallbackInfo& info);
+    void SetTextDirection(const JSCallbackInfo& info);
 
     static bool IsPixelMap(const JSRef<JSVal>& jsValue);
 
-    RefPtr<ParagraphStyleSpan>& GetParagraphStyleSpan();
-    void SetParagraphStyleSpan(const RefPtr<ParagraphStyleSpan>& paragraphStyleSpan);
+    RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
+    bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
+    JSRef<JSObject>& GetJsLeadingMarginSpanObject();
+    void SetJsLeadingMarginSpanObject(const JSRef<JSObject>& leadingMarginSpanObj);
 
 private:
     ACE_DISALLOW_COPY_AND_MOVE(JSParagraphStyleSpan);
-    RefPtr<ParagraphStyleSpan> paragraphStyleSpan_;
+    JSRef<JSObject> leadingMarginSpanObj_;
 };
 
 class JSDecorationSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSDecorationSpan, AceType)
+    DECLARE_ACE_TYPE(JSDecorationSpan, AceType);
 
 public:
     JSDecorationSpan() = default;
@@ -151,7 +174,7 @@ private:
 };
 
 class JSBaselineOffsetSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSBaselineOffsetSpan, AceType)
+    DECLARE_ACE_TYPE(JSBaselineOffsetSpan, AceType);
 
 public:
     JSBaselineOffsetSpan() = default;
@@ -172,7 +195,7 @@ private:
 };
 
 class JSLetterSpacingSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSLetterSpacingSpan, AceType)
+    DECLARE_ACE_TYPE(JSLetterSpacingSpan, AceType);
 
 public:
     JSLetterSpacingSpan() = default;
@@ -193,7 +216,7 @@ private:
 };
 
 class JSGestureSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSGestureSpan, AceType)
+    DECLARE_ACE_TYPE(JSGestureSpan, AceType);
 
 public:
     JSGestureSpan() = default;
@@ -212,7 +235,7 @@ private:
 };
 
 class JSTextShadowSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSTextShadowSpan, AceType)
+    DECLARE_ACE_TYPE(JSTextShadowSpan, AceType);
 
 public:
     JSTextShadowSpan() = default;
@@ -220,7 +243,7 @@ public:
     static void Constructor(const JSCallbackInfo& args);
     static void Destructor(JSTextShadowSpan* textShadowSpan);
     static void JSBind(BindingTarget globalObj);
-    static RefPtr<TextShadowSpan> ParseJSTextShadowSpan(const JSRef<JSObject>& obj);
+    static RefPtr<TextShadowSpan> ParseJSTextShadowSpan(const JSRef<JSObject>& obj, bool needResObj = false);
     void GetTextShadow(const JSCallbackInfo& info);
     void SetTextShadow(const JSCallbackInfo& info);
 
@@ -232,7 +255,7 @@ private:
     RefPtr<TextShadowSpan> textShadowSpan_;
 };
 class JSBackgroundColorSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSBackgroundColorSpan, AceType)
+    DECLARE_ACE_TYPE(JSBackgroundColorSpan, AceType);
 
 public:
     JSBackgroundColorSpan() = default;
@@ -252,7 +275,7 @@ private:
     RefPtr<BackgroundColorSpan> backgroundColorSpan_;
 };
 class JSLineHeightSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSLineHeightSpan, AceType)
+    DECLARE_ACE_TYPE(JSLineHeightSpan, AceType);
 
 public:
     JSLineHeightSpan() = default;
@@ -273,7 +296,7 @@ private:
 };
 
 class JSImageAttachment : public virtual AceType {
-    DECLARE_ACE_TYPE(JSImageAttachment, AceType)
+    DECLARE_ACE_TYPE(JSImageAttachment, AceType);
 
 public:
     JSImageAttachment() = default;
@@ -286,6 +309,8 @@ public:
     void SetImageSrc(const JSCallbackInfo& info) {}
     void GetImageSize(const JSCallbackInfo& info);
     void SetImageSize(const JSCallbackInfo& info) {}
+    void GetImageSizeInVp(const JSCallbackInfo& info);
+    void SetImageSizeInVp(const JSCallbackInfo& info) {}
     void GetImageVerticalAlign(const JSCallbackInfo& info);
     void SetImageVerticalAlign(const JSCallbackInfo& info) {}
     void GetImageObjectFit(const JSCallbackInfo& info);
@@ -294,6 +319,8 @@ public:
     void SetImageLayoutStyle(const JSCallbackInfo& info) {}
     void GetImageColorFilter(const JSCallbackInfo& info);
     void SetImageColorFilter(const JSCallbackInfo& info) {}
+    void GetSupportSvg2(const JSCallbackInfo& info);
+    void SetSupportSvg2(const JSCallbackInfo& info) {}
 
     const RefPtr<ImageSpan>& GetImageSpan();
     void SetImageSpan(const RefPtr<ImageSpan>& imageSpan);
@@ -313,7 +340,7 @@ private:
 };
 
 class JSNativeCustomSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSNativeCustomSpan, AceType)
+    DECLARE_ACE_TYPE(JSNativeCustomSpan, AceType);
 
 public:
     JSNativeCustomSpan() = default;
@@ -330,7 +357,7 @@ private:
 };
 
 class JSCustomSpan : public CustomSpan {
-    DECLARE_ACE_TYPE(JSCustomSpan, CustomSpan)
+    DECLARE_ACE_TYPE(JSCustomSpan, CustomSpan);
 
 public:
     JSCustomSpan() = default;
@@ -346,18 +373,29 @@ public:
     bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
     RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
     void SetJsCustomSpanObject(const JSRef<JSObject>& customSpanObj);
-    JSRef<JSObject>& GetJsCustomSpanObject();
+    JSRef<JSObject> GetJsCustomSpanObject();
     void AddStyledString(const WeakPtr<SpanStringBase>& spanString) override;
     void RemoveStyledString(const WeakPtr<SpanStringBase>& spanString) override;
 
 private:
     ACE_DISALLOW_COPY_AND_MOVE(JSCustomSpan);
     RefPtr<JSNativeCustomSpan> customSpan_;
-    JSRef<JSObject> customSpanObj_;
+    JSWeak<JSObject> customSpanObj_;
+};
+
+class JSNativeLeadingMarginSpan : public virtual AceType {
+    DECLARE_ACE_TYPE(JSNativeLeadingMarginSpan, AceType);
+
+public:
+    JSNativeLeadingMarginSpan() = default;
+    ~JSNativeLeadingMarginSpan() override = default;
+    static void Constructor(const JSCallbackInfo& args);
+    static void Destructor(JSNativeLeadingMarginSpan* imageSpan);
+    static void JSBind(BindingTarget globalObj);
 };
 
 class JSExtSpan : public ExtSpan {
-    DECLARE_ACE_TYPE(JSExtSpan, ExtSpan)
+    DECLARE_ACE_TYPE(JSExtSpan, ExtSpan);
 
 public:
     JSExtSpan() = default;
@@ -376,7 +414,7 @@ private:
 };
 
 class JSUrlSpan : public virtual AceType {
-    DECLARE_ACE_TYPE(JSUrlSpan, AceType)
+    DECLARE_ACE_TYPE(JSUrlSpan, AceType);
 
 public:
     JSUrlSpan() = default;

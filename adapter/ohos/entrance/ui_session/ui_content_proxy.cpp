@@ -17,11 +17,13 @@
 
 #include "ipc_skeleton.h"
 
-#include "adapter/ohos/entrance/ui_session/include/ui_service_hilog.h"
+#include "adapter/ohos/entrance/ui_session/content_change_config_impl.h"
+#include "adapter/ohos/entrance/ui_session/get_inspector_tree_config_impl.h"
+#include "adapter/ohos/entrance/ui_session/include/ui_session_log.h"
 
 namespace OHOS::Ace {
-
-int32_t UIContentServiceProxy::GetInspectorTree(const std::function<void(std::string, int32_t, bool)>& eventCallback)
+int32_t UIContentServiceProxy::GetInspectorTree(
+    const std::function<void(std::string, int32_t, bool)>& eventCallback, ParamConfig config)
 {
     MessageParcel data;
     MessageParcel reply;
@@ -35,15 +37,23 @@ int32_t UIContentServiceProxy::GetInspectorTree(const std::function<void(std::st
         return FAILED;
     }
     report_->RegisterGetInspectorTreeCallback(eventCallback);
-    if (Remote()->SendRequest(UI_CONTENT_SERVICE_GET_TREE, data, reply, option) != ERR_NONE) {
-        LOGW("GetInspectorTree send request failed");
+
+    GetInspectorTreeConfigImpl configImpl(config);
+    if (!data.WriteParcelable(&configImpl)) {
+        LOGW("GetInspectorTree write config failed");
+        return FAILED;
+    }
+
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UI_CONTENT_SERVICE_GET_TREE, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetInspectorTree send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
 }
 
 int32_t UIContentServiceProxy::GetVisibleInspectorTree(
-    const std::function<void(std::string, int32_t, bool)>& eventCallback)
+    const std::function<void(std::string, int32_t, bool)>& eventCallback, ParamConfig config)
 {
     MessageParcel data;
     MessageParcel reply;
@@ -57,12 +67,45 @@ int32_t UIContentServiceProxy::GetVisibleInspectorTree(
         return FAILED;
     }
     report_->RegisterGetInspectorTreeCallback(eventCallback);
-    if (Remote()->SendRequest(GET_VISIBLE_TREE, data, reply, option) != ERR_NONE) {
-        LOGW("GetVisibleInspectorTree send request failed");
+
+    GetInspectorTreeConfigImpl configImpl(config);
+    if (!data.WriteParcelable(&configImpl)) {
+        LOGW("GetVisibleInspectorTree write config failed");
+        return FAILED;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(GET_VISIBLE_TREE, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetVisibleInspectorTree send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
 }
+
+int32_t UIContentServiceProxy::GetLatestHitTestNodeInfosForTouch(
+    const std::function<void(std::string, int32_t, bool)>& eventCallback, InteractionParamConfig config)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("GetLatestHitTestNodeInfosForTouch write interface token failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("reportStub is nullptr");
+        return FAILED;
+    }
+    report_->RegisterGetHitTestNodeInfoCallback(eventCallback);
+
+    data.WriteBool(config.isTopMost);
+    int32_t sendRequestErrorCode = Remote()->SendRequest(GET_HIT_TEST_NODE_INFO_FOR_TOUCH, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetLatestHitTestNodeInfosForTouch send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
 
 int32_t UIContentServiceProxy::Connect(const EventCallback& eventCallback)
 {
@@ -74,8 +117,6 @@ int32_t UIContentServiceProxy::Connect(const EventCallback& eventCallback)
         return FAILED;
     }
     report_ = new (std::nothrow) UiReportStub();
-    processId_ = IPCSkeleton::GetCallingRealPid();
-    isConnected = true;
     if (report_ == nullptr) {
         LOGW("connect failed,create reportStub failed");
         return FAILED;
@@ -85,14 +126,12 @@ int32_t UIContentServiceProxy::Connect(const EventCallback& eventCallback)
         LOGW("write reportStub failed");
         return FAILED;
     }
-    if (!data.WriteInt32(processId_)) {
-        LOGW("write processId failed");
-        return FAILED;
-    }
-    if (Remote()->SendRequest(UI_CONTENT_CONNECT, data, reply, option) != ERR_NONE) {
-        LOGW("connect send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UI_CONTENT_CONNECT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("connect send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
+    isConnected_ = true;
     return NO_ERROR;
 }
 
@@ -110,8 +149,9 @@ int32_t UIContentServiceProxy::RegisterClickEventCallback(const EventCallback& e
         return FAILED;
     }
     report_->RegisterClickEventCallback(eventCallback);
-    if (Remote()->SendRequest(REGISTER_CLICK_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("RegisterClickEventCallback send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REGISTER_CLICK_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("RegisterClickEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -131,8 +171,31 @@ int32_t UIContentServiceProxy::RegisterSearchEventCallback(const EventCallback& 
         return FAILED;
     }
     report_->RegisterSearchEventCallback(eventCallback);
-    if (Remote()->SendRequest(REGISTER_SEARCH_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("RegisterSearchEventCallback send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REGISTER_SEARCH_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("RegisterSearchEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::RegisterTextChangeEventCallback(const EventCallback& eventCallback)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("RegisterTextChangeEventCallback write interface token failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("reportStub is nullptr");
+        return FAILED;
+    }
+    report_->RegisterTextChangeEventCallback(eventCallback);
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REGISTER_TEXT_CHANGE_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("RegisterTextChangeEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -152,14 +215,15 @@ int32_t UIContentServiceProxy::RegisterRouterChangeEventCallback(const EventCall
         return FAILED;
     }
     report_->RegisterRouterChangeEventCallback(eventCallback);
-    if (Remote()->SendRequest(REGISTER_ROUTER_CHANGE_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("RegisterRouterChangeEventCallback send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REGISTER_ROUTER_CHANGE_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("RegisterRouterChangeEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
 }
 
-int32_t UIContentServiceProxy::RegisterComponentChangeEventCallback(const EventCallback& eventCallback)
+int32_t UIContentServiceProxy::RegisterComponentChangeEventCallback(const EventCallback& eventCallback, uint32_t mask)
 {
     MessageParcel data;
     MessageParcel reply;
@@ -168,13 +232,18 @@ int32_t UIContentServiceProxy::RegisterComponentChangeEventCallback(const EventC
         LOGW("RegisterComponentChangeEventCallback write interface token failed");
         return FAILED;
     }
+    if (!data.WriteUint32(mask)) {
+        LOGW("RegisterComponentChangeEventCallback write mask failed");
+        return FAILED;
+    }
     if (report_ == nullptr) {
         LOGW("reportStub is nullptr");
         return FAILED;
     }
     report_->RegisterComponentChangeEventCallback(eventCallback);
-    if (Remote()->SendRequest(REGISTER_COMPONENT_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("RegisterComponentChangeEventCallback send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REGISTER_COMPONENT_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("RegisterComponentChangeEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -195,8 +264,131 @@ int32_t UIContentServiceProxy::RegisterWebUnfocusEventCallback(
         return FAILED;
     }
     report_->RegisterWebUnfocusEventCallback(eventCallback);
-    if (Remote()->SendRequest(REGISTER_WEB_UNFOCUS_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("RegisterWebUnfocusEventCallback send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REGISTER_WEB_UNFOCUS_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("RegisterWebUnfocusEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::RegisterScrollEventCallback(const EventCallback& eventCallback)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("RegisterScrollEventCallback write interface token failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("reportStub is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->RegisterScrollEventCallback(eventCallback);
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REGISTER_SCROLL_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("RegisterScrollEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::RegisterLifeCycleEventCallback(const EventCallback& eventCallback)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("RegisterLifeCycleEventCallback write interface token failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("reportStub is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->RegisterLifeCycleEventCallback(eventCallback);
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REGISTER_LIFE_CYCLE_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("RegisterLifeCycleEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::RegisterSelectTextEventCallback(const EventCallback& eventCallback)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("RegisterSelectTextEventCallback write interface token failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("reportStub is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->RegisterSelectTextEventCallback(eventCallback);
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REGISTER_SELECT_TEXT_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("RegisterSelectTextEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::GetSpecifiedContentOffsets(int32_t id, const std::string& content,
+    const std::function<void(std::vector<std::pair<float, float>>)>& eventCallback)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("GetSpecifiedContentOffsets write interface token failed");
+        return FAILED;
+    }
+    if (!data.WriteInt32(id) || !data.WriteString(content)) {
+        LOGW("GetSpecifiedContentOffsets write data failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("GetSpecifiedContentOffsets reportStub is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->RegisterGetSpecifiedContentOffsets(eventCallback);
+    int32_t sendRequestErrorCode = Remote()->SendRequest(GET_SPECIFIED_CONTENT_OFFSETS, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetSpecifiedContentOffsets send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::HighlightSpecifiedContent(int32_t id, const std::string& content,
+    const std::vector<std::string>& nodeIds, const std::string& configs)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("HighlightSpecifiedContent write interface token failed");
+        return FAILED;
+    }
+    if (!data.WriteInt32(id) || !data.WriteString(content) || !data.WriteInt32(nodeIds.size()) ||
+        !data.WriteString(configs)) {
+        LOGW("HighlightSpecifiedContent write data failed");
+        return FAILED;
+    }
+    for (auto& i : nodeIds) {
+        if (!data.WriteString(i)) {
+            LOGW("HighlightSpecifiedContent write data failed");
+            return FAILED;
+        }
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(HIGHLIGHT_SPECIFIED_CONTENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("HighlightSpecifiedContent send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -215,8 +407,9 @@ int32_t UIContentServiceProxy::SendCommand(int32_t id, const std::string& comman
         LOGW("SendCommand write data failed");
         return FAILED;
     }
-    if (Remote()->SendRequest(SENDCOMMAND_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("SendCommand send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SENDCOMMAND_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendCommand send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -257,9 +450,9 @@ int32_t UIContentServiceProxy::SendCommand(const std::string command)
         LOGW("SendCommand WriteStringVector  failed");
         return FAILED;
     }
-
-    if (Remote()->SendRequest(SEND_COMMAND, data, reply, option) != ERR_NONE) {
-        LOGW("SendCommand send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_COMMAND, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendCommand send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -279,8 +472,9 @@ int32_t UIContentServiceProxy::UnregisterClickEventCallback()
         return FAILED;
     }
     report_->UnregisterClickEventCallback();
-    if (Remote()->SendRequest(UNREGISTER_CLICK_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("UnregisterClickEventCallback send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UNREGISTER_CLICK_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("UnregisterClickEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -300,8 +494,31 @@ int32_t UIContentServiceProxy::UnregisterSearchEventCallback()
         return FAILED;
     }
     report_->UnregisterSearchEventCallback();
-    if (Remote()->SendRequest(UNREGISTER_SEARCH_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("UnregisterSearchEventCallback send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UNREGISTER_SEARCH_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("UnregisterSearchEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::UnregisterTextChangeEventCallback()
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("UnregisterTextChangeEventCallback write interface token failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("reportStub is nullptr");
+        return FAILED;
+    }
+    report_->UnregisterTextChangeEventCallback();
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UNREGISTER_TEXT_CHANGE_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("UnregisterTextChangeEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -321,8 +538,9 @@ int32_t UIContentServiceProxy::UnregisterRouterChangeEventCallback()
         return FAILED;
     }
     report_->UnregisterRouterChangeEventCallback();
-    if (Remote()->SendRequest(UNREGISTER_ROUTER_CHANGE_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("UnregisterRouterChangeEventCallback send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UNREGISTER_ROUTER_CHANGE_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("UnregisterRouterChangeEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -342,8 +560,10 @@ int32_t UIContentServiceProxy::UnregisterComponentChangeEventCallback()
         return FAILED;
     }
     report_->UnregisterComponentChangeEventCallback();
-    if (Remote()->SendRequest(UNREGISTER_COMPONENT_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("UnregisterComponentChangeEventCallback send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UNREGISTER_COMPONENT_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("UnregisterComponentChangeEventCallback send request failed, errorCode is %{public}d",
+            sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -355,16 +575,83 @@ int32_t UIContentServiceProxy::UnregisterWebUnfocusEventCallback()
     MessageParcel reply;
     MessageOption option;
     if (!data.WriteInterfaceToken(GetDescriptor())) {
-        LOGW("UnregisterComponentChangeEventCallback write interface token failed");
+        LOGW("UnregisterWebUnfocusEventCallback write interface token failed");
         return FAILED;
     }
     if (report_ == nullptr) {
         LOGW("reportStub is nullptr,connect is not execute");
         return FAILED;
     }
-    report_->UnregisterComponentChangeEventCallback();
-    if (Remote()->SendRequest(UNREGISTER_COMPONENT_EVENT, data, reply, option) != ERR_NONE) {
-        LOGW("UnregisterComponentChangeEventCallback send request failed");
+    report_->UnregisterWebUnfocusEventCallback();
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UNREGISTER_WEB_UNFOCUS_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("UnregisterWebUnfocusEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::UnregisterScrollEventCallback()
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("UnRegisterScrollEventCallback write interface token failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("reportStub is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->UnregisterScrollEventCallback();
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UNREGISTER_SCROLL_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("UnRegisterScrollEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::UnregisterLifeCycleEventCallback()
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("UnregisterLifeCycleEventCallback write interface token failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("reportStub is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->UnregisterLifeCycleEventCallback();
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UNREGISTER_LIFE_CYCLE_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("UnregisterLifeCycleEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::UnregisterSelectTextEventCallback()
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("UnregisterSelectTextEventCallback write interface token failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("reportStub is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->UnregisterSelectTextEventCallback();
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UNREGISTER_SELECT_TEXT_EVENT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("UnregisterSelectTextEventCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -372,7 +659,7 @@ int32_t UIContentServiceProxy::UnregisterWebUnfocusEventCallback()
 
 bool UIContentServiceProxy::IsConnect()
 {
-    return isConnected;
+    return isConnected_;
 }
 
 int32_t UIContentServiceProxy::GetWebViewTranslateText(
@@ -399,9 +686,9 @@ int32_t UIContentServiceProxy::GetWebViewTranslateText(
         return FAILED;
     }
     report_->RegisterGetTranslateTextCallback(eventCallback);
-
-    if (Remote()->SendRequest(GET_WEB_TRANSLATE_TEXT, value, reply, option) != ERR_NONE) {
-        LOGW("GetWebViewTranslateText send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(GET_WEB_TRANSLATE_TEXT, value, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetWebViewTranslateText send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -420,8 +707,9 @@ int32_t UIContentServiceProxy::ResetTranslateTextAll()
         LOGW("ResetTranslateTextAll is nullptr,connect is not execute");
         return FAILED;
     }
-    if (Remote()->SendRequest(RESET_ALL_TEXT, data, reply, option) != ERR_NONE) {
-        LOGW("ResetTranslateTextAll send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(RESET_ALL_TEXT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ResetTranslateTextAll send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -440,8 +728,9 @@ int32_t UIContentServiceProxy::ResetTranslateText(int32_t nodeId)
         LOGW("ResetTranslateText is nullptr,connect is not execute");
         return FAILED;
     }
-    if (Remote()->SendRequest(RESET_TEXT_BY_ID, data, reply, option) != ERR_NONE) {
-        LOGW("ResetTranslateText send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(RESET_TEXT_BY_ID, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ResetTranslateText send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -451,13 +740,9 @@ int32_t UIContentServiceProxy::GetWebViewCurrentLanguage(const EventCallback& ev
 {
     MessageParcel data;
     MessageParcel reply;
-    MessageOption option(MessageOption::TF_ASYNC);
+    MessageOption option;
     if (!data.WriteInterfaceToken(GetDescriptor())) {
         LOGW("GetWebViewCurrentLanguage write interface token failed");
-        return FAILED;
-    }
-    if (!data.WriteInt32(processId_)) {
-        LOGW("write processId failed");
         return FAILED;
     }
     if (report_ == nullptr) {
@@ -465,8 +750,9 @@ int32_t UIContentServiceProxy::GetWebViewCurrentLanguage(const EventCallback& ev
         return FAILED;
     }
     report_->RegisterGetWebViewCurrentLanguage(eventCallback);
-    if (Remote()->SendRequest(GET_WEB_VIEW_LANGUAGE, data, reply, option) != ERR_NONE) {
-        LOGW("GetWebViewCurrentLanguage send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(GET_WEB_VIEW_LANGUAGE, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetWebViewCurrentLanguage send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -476,13 +762,9 @@ int32_t UIContentServiceProxy::GetCurrentPageName(const std::function<void(std::
 {
     MessageParcel data;
     MessageParcel reply;
-    MessageOption option(MessageOption::TF_ASYNC);
+    MessageOption option;
     if (!data.WriteInterfaceToken(GetDescriptor())) {
         LOGW("GetCurrentPageName write interface token failed");
-        return FAILED;
-    }
-    if (!data.WriteInt32(processId_)) {
-        LOGW("write processId failed");
         return FAILED;
     }
     if (report_ == nullptr) {
@@ -490,8 +772,9 @@ int32_t UIContentServiceProxy::GetCurrentPageName(const std::function<void(std::
         return FAILED;
     }
     report_->RegisterGetCurrentPageName(finishCallback);
-    if (Remote()->SendRequest(GET_CURRENT_PAGE_NAME, data, reply, option) != ERR_NONE) {
-        LOGW("GetCurrentPageName send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(GET_CURRENT_PAGE_NAME, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetCurrentPageName send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -502,7 +785,7 @@ int32_t UIContentServiceProxy::StartWebViewTranslate(
 {
     MessageParcel value;
     MessageParcel reply;
-    MessageOption option(MessageOption::TF_ASYNC);
+    MessageOption option;
     if (!value.WriteInterfaceToken(GetDescriptor())) {
         LOGW("StartWebViewTranslate write interface token failed");
         return FAILED;
@@ -516,13 +799,10 @@ int32_t UIContentServiceProxy::StartWebViewTranslate(
         LOGW("StartWebViewTranslate write interface token failed");
         return FAILED;
     }
-    if (!value.WriteInt32(processId_)) {
-        LOGW("write processId failed");
-        return FAILED;
-    }
     report_->RegisterGetTranslateTextCallback(eventCallback);
-    if (Remote()->SendRequest(CONTINUE_GET_WEB_TEXT, value, reply, option) != ERR_NONE) {
-        LOGW("StartWebViewTranslate send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(CONTINUE_GET_WEB_TEXT, value, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("StartWebViewTranslate send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -550,8 +830,9 @@ int32_t UIContentServiceProxy::SendTranslateResult(
         LOGW("SendTranslateResult WriteInt32Vector token failed");
         return FAILED;
     }
-    if (Remote()->SendRequest(SEND_TRANSLATE_RESULT, data, reply, option) != ERR_NONE) {
-        LOGW("SendTranslateResult send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_TRANSLATE_RESULT, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendTranslateResult send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -570,8 +851,9 @@ int32_t UIContentServiceProxy::EndWebViewTranslate()
         LOGW("ResetTranslateTextAll is nullptr,connect is not execute");
         return FAILED;
     }
-    if (Remote()->SendRequest(END_WEB_TRANSLATE, data, reply, option) != ERR_NONE) {
-        LOGW("ResetTranslateTextAll send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(END_WEB_TRANSLATE, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ResetTranslateTextAll send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -594,9 +876,9 @@ int32_t UIContentServiceProxy::SendTranslateResult(int32_t nodeId, std::string r
         LOGW("SendTranslateResult WriteStringVector  failed");
         return FAILED;
     }
-
-    if (Remote()->SendRequest(SEND_TRANSLATE_RESULT_STR, data, reply, option) != ERR_NONE) {
-        LOGW("SendTranslateResult send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_TRANSLATE_RESULT_STR, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendTranslateResult send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
@@ -607,13 +889,9 @@ int32_t UIContentServiceProxy::GetCurrentImagesShowing(
 {
     MessageParcel data;
     MessageParcel reply;
-    MessageOption option(MessageOption::TF_ASYNC);
+    MessageOption option;
     if (!data.WriteInterfaceToken(GetDescriptor())) {
         LOGW("GetCurrentImagesShowing write interface token failed");
-        return FAILED;
-    }
-    if (!data.WriteInt32(processId_)) {
-        LOGW("write processId failed");
         return FAILED;
     }
     if (report_ == nullptr) {
@@ -621,10 +899,228 @@ int32_t UIContentServiceProxy::GetCurrentImagesShowing(
         return FAILED;
     }
     report_->RegisterGetShowingImageCallback(finishCallback);
-    if (Remote()->SendRequest(GET_CURRENT_SHOWING_IMAGE, data, reply, option) != ERR_NONE) {
-        LOGW("GetCurrentImagesShowing send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(GET_CURRENT_SHOWING_IMAGE, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetCurrentImagesShowing send request failed, errorCode is %{public}d", sendRequestErrorCode);
         return REPLY_ERROR;
     }
     return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::GetImagesById(
+    const std::vector<int32_t>& arkUIIds,
+    const std::function<void(int32_t, const std::unordered_map<int32_t, std::shared_ptr<Media::PixelMap>>&,
+        MultiImageQueryErrorCode)>& arkUIfinishCallback,
+    const std::map<int32_t, std::vector<int32_t>>& arkWebs,
+    const std::function<void(int32_t, const std::map<int32_t, std::map<int32_t,
+        std::shared_ptr<Media::PixelMap>>>&, MultiImageQueryErrorCode)>& arkWebfinishCallback)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("GetImagesById write interface token failed");
+        return FAILED;
+    }
+    if (!data.WriteInt32Vector(arkUIIds)) {
+        LOGW("GetImagesById write arkUIIds failed");
+        return FAILED;
+    }
+    size_t mapSize = arkWebs.size();
+    if (!data.WriteUint64(mapSize)) {
+        LOGW("GetImagesById write arkWebs mapSize failed");
+        return FAILED;
+    }
+    for (const auto& mapIter : arkWebs) {
+        if (!data.WriteInt32(mapIter.first)) {
+            LOGW("GetImagesById write arkWebs' Key id: %{public}d failed", mapIter.first);
+            return FAILED;
+        }
+        if (!data.WriteInt32Vector(mapIter.second)) {
+            LOGW("GetImagesById write arkWebs' value id: %{public}d failed", mapIter.first);
+            return FAILED;
+        }
+    }
+    if (report_ == nullptr) {
+        LOGW("GetImagesById report_ is nullptr,connect is not executed");
+        return FAILED;
+    }
+    report_->RegisterGetImagesByIdCallback(arkUIfinishCallback, arkWebfinishCallback);
+    int32_t sendRequestErrorCode = Remote()->SendRequest(GET_MULTI_IMAGES_BY_ID, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetImagesById send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::ExeAppAIFunction(
+    const std::string& funcName, const std::string& params, const std::function<void(uint32_t)>& finishCallback)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option(MessageOption::TF_ASYNC);
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("ExeAppAIFunction write interface token failed");
+        return FAILED;
+    }
+    if (!data.WriteString(funcName) || !data.WriteString(params)) {
+        LOGW("ExeAppAIFunction write data failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("ExeAppAIFunction is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->RegisterExeAppAIFunction(finishCallback);
+    int32_t sendRequestErrorCode = Remote()->SendRequest(EXE_APP_AI_FUNCTION, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ExeAppAIFunction send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::RegisterContentChangeCallback(const ContentChangeConfig& config,
+    const std::function<void(ChangeType type, const std::string& simpleTree)> callback)
+{
+    if (callback == nullptr) {
+        LOGW("RegisterContentChangeCallback callback is nullptr");
+        return PARAM_INVALID;
+    }
+
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("RegisterContentChangeCallback write interface token failed");
+        return FAILED;
+    }
+    ContentChangeConfigImpl configImpl(config);
+    if (!data.WriteParcelable(&configImpl)) {
+        LOGW("RegisterContentChangeCallback write config failed");
+        return FAILED;
+    }
+
+    if (report_ == nullptr) {
+        LOGW("RegisterContentChangeCallback is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->RegisterContentChangeCallback(callback);
+
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REGISTER_CONTENT_CHANGE, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("RegisterContentChangeCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::UnregisterContentChangeCallback()
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("UnregisterContentChangeCallback write interface token failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("UnregisterContentChangeCallback is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->UnregisterContentChangeCallback();
+    int32_t sendRequestErrorCode = Remote()->SendRequest(UNREGISTER_CONTENT_CHANGE, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("UnregisterContentChangeCallback send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::GetStateMgmtInfo(const std::string& componentName, const std::string& propertyName,
+    const std::string& jsonPath, const std::function<void(std::vector<std::string>)>& eventCallback,
+    bool onlyVisible)
+{
+    MessageParcel value;
+    MessageParcel reply;
+    MessageOption option;
+    if (!value.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("GetStateMgmtInfo write interface token failed");
+        return FAILED;
+    }
+    if (!value.WriteString(componentName)) {
+        LOGW("GetStateMgmtInfo write componentName failed");
+        return FAILED;
+    }
+    if (!value.WriteString(propertyName)) {
+        LOGW("GetStateMgmtInfo write propertyName failed");
+        return FAILED;
+    }
+    if (!value.WriteString(jsonPath)) {
+        LOGW("GetStateMgmtInfo write jsonPath failed");
+        return FAILED;
+    }
+    if (!value.WriteBool(onlyVisible)) {
+        LOGW("GetStateMgmtInfo write onlyVisible failed");
+        return FAILED;
+    }
+    if (report_ == nullptr) {
+        LOGW("GetStateMgmtInfo is nullptr, connect is not execute");
+        return FAILED;
+    }
+    report_->RegisterGetStateMgmtInfoCallback(eventCallback);
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REQUEST_STATE_MGMT_INFO, value, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetStateMgmtInfo send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceProxy::GetWebInfoByRequest(
+    int32_t webId,
+    const std::string& request,
+    const GetWebInfoByRequestCallback& finishCallback)
+{
+    if (report_ == nullptr) {
+        LOGW("reportServiceStub is nullptr,connect is not execute");
+        return FAILED;
+    }
+    report_->RegisterGetWebInfoByRequestCallback(finishCallback);
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("GetWebInfoByRequest write interface token failed");
+        return FAILED;
+    }
+    if (!data.WriteInt32(webId)) {
+        LOGW("GetWebInfoByRequest write interface token failed");
+        return FAILED;
+    }
+    if (!data.WriteString(request)) {
+        LOGW("GetWebInfoByRequest write componentName failed");
+        return FAILED;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(GET_WEBINFO_BY_REQUEST, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("GetWebInfoByRequest send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return REPLY_ERROR;
+    }
+    return NO_ERROR;
+}
+
+void UiContentProxyRecipient::OnRemoteDied(const wptr<IRemoteObject>& remote)
+{
+    LOGI("uicontentproxy death notice");
+    if (remote == nullptr) {
+        LOGW("weak remote is null");
+        return;
+    }
+    if (handler_) {
+        handler_();
+    }
 }
 } // namespace OHOS::Ace

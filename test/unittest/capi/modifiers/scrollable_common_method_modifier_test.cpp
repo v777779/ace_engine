@@ -38,15 +38,15 @@ const auto ATTRIBUTE_EDGE_EFFECT_OPTIONS_NAME = "edgeEffectOptions";
 const auto ATTRIBUTE_EDGE_EFFECT_OPTIONS_ALWAYS_ENABLED_NAME = "alwaysEnabled";
 const auto ATTRIBUTE_EDGE_EFFECT_OPTIONS_ALWAYS_ENABLED_DEFAULT_VALUE = "false";
 const auto ATTRIBUTE_FRICTION_NAME = "friction";
-const auto ATTRIBUTE_FRICTION_DEFAULT_VALUE = "0.75";
+const auto ATTRIBUTE_FRICTION_DEFAULT_VALUE = "0.6";
 const auto ATTRIBUTE_BACK_TO_TOP_NAME = "backToTop";
 const auto ATTRIBUTE_BACK_TO_TOP_DEFAULT_VALUE = "false";
 #ifdef SUPPORT_DIGITAL_CROWN
 const auto ATTRIBUTE_DIGITAL_CROWN_SENSITIVITY_DEFAULT_VALUE = "1";
 const auto ATTRIBUTE_DIGITAL_CROWN_SENSITIVITY_NAME = "digitCrownSensitivity";
 #endif
-static const std::string EXPECTED_TRUE("true");
-static const std::string EXPECTED_FALSE("false");
+constexpr auto EXPECTED_TRUE = "true";
+constexpr auto EXPECTED_FALSE = "false";
 } // namespace
 
 class ScrollableCommonMethodModifierTest
@@ -85,16 +85,16 @@ HWTEST_F(ScrollableCommonMethodModifierTest, setEdgeEffectTestDefaultValues, Tes
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
     std::unique_ptr<JsonValue> resultOptions =
-        GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_EDGE_EFFECT_OPTIONS_NAME);
-    std::string resultStr;
+        GetAttrObject(jsonValue, ATTRIBUTE_EDGE_EFFECT_OPTIONS_NAME);
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_EDGE_EFFECT_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_EDGE_EFFECT_DEFAULT_VALUE)
-        << "Default value for attribute 'edgeEffect.edgeEffect'";
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_EDGE_EFFECT_DEFAULT_VALUE)) <<
+        "Default value for attribute 'edgeEffect.edgeEffect'";
 
     resultStr = GetAttrValue<std::string>(resultOptions, ATTRIBUTE_EDGE_EFFECT_OPTIONS_ALWAYS_ENABLED_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_EDGE_EFFECT_OPTIONS_ALWAYS_ENABLED_DEFAULT_VALUE)
-        << "Default value for attribute 'edgeEffect.edgeEffectOptions.alwaysEnabled'";
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_EDGE_EFFECT_OPTIONS_ALWAYS_ENABLED_DEFAULT_VALUE)) <<
+        "Default value for attribute 'edgeEffect.edgeEffectOptions.alwaysEnabled'";
 }
 
 /*
@@ -120,8 +120,8 @@ HWTEST_F(ScrollableCommonMethodModifierTest, setEdgeEffectTestEdgeEffectEdgeEffe
         modifier_->setEdgeEffect(node_, &inputValueEdgeEffect, &inputValueOptions);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_EDGE_EFFECT_NAME);
-        EXPECT_EQ(resultStr, expectedStr)
-            << "Input value is: " << input << ", method: setEdgeEffect, attribute: edgeEffect.edgeEffect";
+        EXPECT_THAT(resultStr, Eq(expectedStr)) <<
+            "Input value is: " << input << ", method: setEdgeEffect, attribute: edgeEffect.edgeEffect";
     };
 
     for (auto& [input, value, expected] : Fixtures::testFixtureEnumEdgeEffectValidValues) {
@@ -154,8 +154,8 @@ HWTEST_F(
         modifier_->setEdgeEffect(node_, &inputValueEdgeEffect, &inputValueOptions);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_EDGE_EFFECT_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_EDGE_EFFECT_DEFAULT_VALUE)
-            << "Input value is: " << input << ", method: setEdgeEffect, attribute: edgeEffect.edgeEffect";
+        EXPECT_THAT(resultStr, Eq(ATTRIBUTE_EDGE_EFFECT_DEFAULT_VALUE)) <<
+            "Input value is: " << input << ", method: setEdgeEffect, attribute: edgeEffect.edgeEffect";
     };
 
     for (auto& [input, value] : Fixtures::testFixtureEnumEdgeEffectInvalidValues) {
@@ -187,11 +187,11 @@ HWTEST_F(ScrollableCommonMethodModifierTest, setEdgeEffectTestEdgeEffectOptionsA
         modifier_->setEdgeEffect(node_, &inputValueEdgeEffect, &inputValueOptions);
         auto jsonValue = GetJsonValue(node_);
         auto resultOptions =
-            GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_EDGE_EFFECT_OPTIONS_NAME);
+            GetAttrObject(jsonValue, ATTRIBUTE_EDGE_EFFECT_OPTIONS_NAME);
         auto resultStr =
             GetAttrValue<std::string>(resultOptions, ATTRIBUTE_EDGE_EFFECT_OPTIONS_ALWAYS_ENABLED_NAME);
-        EXPECT_EQ(resultStr, expectedStr)
-            << "Input value is: " << input << ", method: setEdgeEffect, attribute: edgeEffect.options.alwaysEnabled";
+        EXPECT_EQ(resultStr, expectedStr) <<
+            "Input value is: " << input << ", method: setEdgeEffect, attribute: edgeEffect.options.alwaysEnabled";
     };
 
     for (auto& [input, value, expected] : Fixtures::testFixtureBooleanValidValues) {
@@ -208,10 +208,10 @@ HWTEST_F(ScrollableCommonMethodModifierTest, setFrictionTestDefaultValues, TestS
 {
     OnModifyDone();
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_FRICTION_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_FRICTION_DEFAULT_VALUE) << "Default value for attribute 'friction'";
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_FRICTION_DEFAULT_VALUE)) << "Default value for attribute 'friction'";
 }
 
 /*
@@ -355,24 +355,24 @@ std::vector<std::tuple<std::string, Opt_CrownSensitivity, std::string>> testFixt
         "1" },
 };
 /*
- * @tc.name: setDigitalCrownSensitivityDefaultValuesTest
+ * @tc.name: setDigitalCrownSensitivityTestDefaultValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(ScrollableCommonMethodModifierTest, setDigitalCrownSensitivityDefaultValuesTest, TestSize.Level1)
+HWTEST_F(ScrollableCommonMethodModifierTest, setDigitalCrownSensitivityTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
     auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_DIGITAL_CROWN_SENSITIVITY_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_DIGITAL_CROWN_SENSITIVITY_DEFAULT_VALUE)
-        << "Default value for attribute 'digitalCrownSensitivity'";
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_DIGITAL_CROWN_SENSITIVITY_DEFAULT_VALUE)) <<
+        "Default value for attribute 'digitalCrownSensitivity'";
 }
 
 /*
- * @tc.name: setDigitalCrownSensitivityValidValuesTest
+ * @tc.name: setDigitalCrownSensitivityTestValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(ScrollableCommonMethodModifierTest, setDigitalCrownSensitivityValuesTest, TestSize.Level1)
+HWTEST_F(ScrollableCommonMethodModifierTest, setDigitalCrownSensitivityTestValues, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setDigitalCrownSensitivity, nullptr);
     auto checkValue = [this](
@@ -381,8 +381,8 @@ HWTEST_F(ScrollableCommonMethodModifierTest, setDigitalCrownSensitivityValuesTes
         modifier_->setDigitalCrownSensitivity(node_, &inputValueDigitalCrownSensitivity);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_DIGITAL_CROWN_SENSITIVITY_NAME);
-        EXPECT_EQ(resultStr, expectedStr) << "Input value is: " << input
-                                        << ", method: setDigitalCrownSensitivity, attribute: digitalCrownSensitivity";
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Input value is: " << input <<
+                                        ", method: setDigitalCrownSensitivity, attribute: digitalCrownSensitivity";
     };
     for (auto& [input, value, expected] : testFixtureEnumCrownSensitivityTestPlan) {
         checkValue(input, expected, value);
@@ -402,14 +402,14 @@ HWTEST_F(ScrollableCommonMethodModifierTest, DISABLED_setBackToTopTest, TestSize
     ASSERT_NE(frameNode, nullptr);
 
     auto checkVal = GetAttrValue<std::string>(node_, ATTRIBUTE_BACK_TO_TOP_NAME);
-    EXPECT_EQ(checkVal, ATTRIBUTE_BACK_TO_TOP_DEFAULT_VALUE);
+    EXPECT_THAT(checkVal, Eq(ATTRIBUTE_BACK_TO_TOP_DEFAULT_VALUE));
     auto value = Converter::ArkValue<Opt_Boolean>(false);
     modifier_->setBackToTop(node_, &value);
     checkVal = GetAttrValue<std::string>(node_, ATTRIBUTE_BACK_TO_TOP_NAME);
-    EXPECT_EQ(checkVal, EXPECTED_FALSE);
+    EXPECT_THAT(checkVal, Eq(EXPECTED_FALSE));
     value = Converter::ArkValue<Opt_Boolean>(true);
     modifier_->setBackToTop(node_, &value);
     checkVal = GetAttrValue<std::string>(node_, ATTRIBUTE_BACK_TO_TOP_NAME);
-    EXPECT_EQ(checkVal, EXPECTED_TRUE);
+    EXPECT_THAT(checkVal, Eq(EXPECTED_TRUE));
 }
 } // namespace OHOS::Ace::NG

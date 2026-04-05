@@ -50,6 +50,7 @@
 #include "core/common/layout_inspector.h"
 #include "core/common/plugin_manager.h"
 #include "core/common/plugin_utils.h"
+#include "core/common/statistic_event_reporter.h"
 #include "core/image/image_file_cache.h"
 
 namespace OHOS {
@@ -272,6 +273,7 @@ void AceAbility::OnStart(const Want& want, sptr<AAFwk::SessionInfo> sessionInfo)
         LOGI("deviceWidth: %{public}d, deviceHeight: %{public}d, default density: %{public}f", deviceWidth,
             deviceHeight, density_);
     }
+    SystemProperties::ReadSystemParametersCallOnce();
     SystemProperties::InitDeviceInfo(deviceWidth, deviceHeight, deviceHeight >= deviceWidth ? 0 : 1, density_, false);
     ColorMode colorMode = ColorMode::LIGHT;
 
@@ -508,6 +510,10 @@ void AceAbility::OnStart(const Want& want, sptr<AAFwk::SessionInfo> sessionInfo)
         if (apiCompatibleVersion >= PLATFORM_VERSION_TEN && context->GetIsAppWindow()) {
             context->UpdateSystemSafeArea(container->GetViewSafeAreaByType(Rosen::AvoidAreaType::TYPE_SYSTEM));
             context->UpdateCutoutSafeArea(container->GetViewSafeAreaByType(Rosen::AvoidAreaType::TYPE_CUTOUT));
+        }
+        context->GetStatisticEventReporter()->SendEvent(StatisticEventType::FA_APP_START);
+        if (frontendType == FrontendType::DECLARATIVE_JS) {
+            context->GetStatisticEventReporter()->SendEvent(StatisticEventType::FA_AND_DECLARATIVE_APP_START);
         }
     }
 

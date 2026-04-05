@@ -16,7 +16,14 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_MANAGER_DRAG_DROP_DRAG_DROP_RELATED_CONFIGURATION_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_MANAGER_DRAG_DROP_DRAG_DROP_RELATED_CONFIGURATION_H
 
+#include <memory>
+
 #include "base/memory/ace_type.h"
+
+namespace OHOS::Ace::NG {
+struct DragPreviewOption;
+struct OptionsAfterApplied;
+}
 
 namespace OHOS::Ace::NG {
 constexpr int32_t DEFAULT_STILL_TIME_LIMIT = 500;
@@ -36,17 +43,25 @@ public:
     int32_t updateToFinishInterval = DEFAULT_UPDATE_TO_FINISH_INTERVAL;
 };
 
-class DragDropRelatedConfigurations : public AceType {
+class ACE_FORCE_EXPORT DragDropRelatedConfigurations : public AceType {
     DECLARE_ACE_TYPE(DragDropRelatedConfigurations, AceType);
 
 public:
+    DragDropRelatedConfigurations() = default;
+    ~DragDropRelatedConfigurations() override;
+
     RefPtr<DragSpringLoadingConfiguration> GetOrCreateDragSpringLoadingConfiguration();
 
     void SetDragSpringLoadingConfiguration(
         const RefPtr<DragSpringLoadingConfiguration>& dragSpringLoadingConfiguration);
 
+    ACE_FORCE_EXPORT const DragPreviewOption& GetOrCreateDragPreviewOption();
+    void SetOptionsAfterApplied(const OptionsAfterApplied& optionsAfterApplied);
+    ACE_FORCE_EXPORT void SetDragPreviewOption(const DragPreviewOption& previewOption, bool isResetOptions);
+
 private:
     RefPtr<DragSpringLoadingConfiguration> dragSpringLoadingConfiguration_;
+    std::unique_ptr<DragPreviewOption> previewOption_;
 };
 
 } // namespace OHOS::Ace::NG

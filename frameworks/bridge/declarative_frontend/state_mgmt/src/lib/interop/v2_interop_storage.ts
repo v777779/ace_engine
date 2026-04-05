@@ -17,14 +17,15 @@ class InteropStorageV2 extends StorageHelper {
   private static instance_: InteropStorageV2 | undefined = undefined;
 
   // get value from AppStorage in ArkTS1.2
-  getStaticValue_: (value: string) => any = () => {
-    throw new Error('not implement');
+  getStaticValue_: (value: string) => object = () => {
+    // will implement further, no error code
+    throw new BusinessError(NOT_IMPLEMENT, `getStaticValue_ method does not implement in InteropStorageV2`)
   };
   removeStaticValue_: (value: string) => boolean = () => {
-    throw new Error('not implement');
+    throw new BusinessError(NOT_IMPLEMENT, `removeStaticValue_ method does not implement in InteropStorageV2`)
   };
   getStaticTotalKeys_: () => Array<string> = () => {
-    throw new Error('not implement');
+    throw new BusinessError(NOT_IMPLEMENT, `getStaticTotalKeys_ method does not implement in InteropStorageV2`)
   };
 
   constructor() {
@@ -50,7 +51,7 @@ class InteropStorageV2 extends StorageHelper {
       // nonexistence then search in 1.2 
       const interopValue = this.getStaticValue_(key!);
       if (interopValue) {
-        return interopValue;
+        return interopValue as T;
       }
     }
     // existence or not in 1.2
@@ -83,12 +84,12 @@ class InteropStorageV2 extends StorageHelper {
 }
 
 function bindStaticAppStorageV2(
-  getStaticValue: (value: string) => any,
+  getStaticValue: (value: string) => object,
   removeStaticValue: (value: string) => boolean,
   getStaticTotalKeys: () => Array<string>,
 
   // set callback to ArkTS1.2
-  setGetValueFunc: (event: (value: string) => any | undefined) => void,
+  setGetValueFunc: (event: (value: string) => object | undefined) => void,
   setRemoveValueFunc: (event: (value: string | undefined) => boolean) => void,
   setGetKeysFunc: (event: () =>  Array<string>) => void,
 ): void {
@@ -100,14 +101,14 @@ function bindStaticAppStorageV2(
 
   setGetValueFunc((key: string) => {
     const obj = AppStorageV2Impl.instance().getValue(key)
-    if (obj == undefined) {
+    if (obj === undefined) {
         return undefined;
     }
     return obj;
   });
 
   setRemoveValueFunc((key: string | undefined) => {
-    if (key == undefined) {
+    if (key === undefined) {
         return false;
     }
     AppStorageV2Impl.instance().remove(key);

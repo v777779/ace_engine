@@ -15,11 +15,11 @@
 
 #include "test/unittest/core/pattern/rich_editor/rich_editor_common_test_ng.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_content_modifier.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -100,7 +100,7 @@ RefPtr<MutableSpanString> RichEditorContentModifierTestNg::CreateTextStyledStrin
     styledString->AddSpan(AceType::MakeRefPtr<FontSpan>(TEST_FONT, 0, length));
     std::optional<TextDecorationOptions> options;
     styledString->AddSpan(AceType::MakeRefPtr<DecorationSpan>(std::vector<TextDecoration>({TEXT_DECORATION_VALUE}),
-        TEXT_DECORATION_COLOR_VALUE, TextDecorationStyle::WAVY, options, 0, length));
+        TEXT_DECORATION_COLOR_VALUE, TextDecorationStyle::WAVY, options, 0, length, nullptr));
     styledString->AddSpan(AceType::MakeRefPtr<BaselineOffsetSpan>(TEST_BASELINE_OFFSET, 0, length));
     styledString->AddSpan(AceType::MakeRefPtr<LetterSpacingSpan>(LETTER_SPACING, 0, length));
     styledString->AddSpan(AceType::MakeRefPtr<TextShadowSpan>(SHADOWS, 0, length));
@@ -163,7 +163,7 @@ void RichEditorContentModifierTestNg::SetTypingStyle()
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, onDraw001, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, onDraw001, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -186,7 +186,7 @@ HWTEST_F(RichEditorContentModifierTestNg, onDraw001, TestSize.Level1)
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, SetRichTextRectX001, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, SetRichTextRectX001, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -205,7 +205,7 @@ HWTEST_F(RichEditorContentModifierTestNg, SetRichTextRectX001, TestSize.Level1)
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, SetRichTextRectY001, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, SetRichTextRectY001, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -224,7 +224,7 @@ HWTEST_F(RichEditorContentModifierTestNg, SetRichTextRectY001, TestSize.Level1)
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, SetClipOffset001, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, SetClipOffset001, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -243,7 +243,7 @@ HWTEST_F(RichEditorContentModifierTestNg, SetClipOffset001, TestSize.Level1)
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, SetClipSize001, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, SetClipSize001, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -262,7 +262,7 @@ HWTEST_F(RichEditorContentModifierTestNg, SetClipSize001, TestSize.Level1)
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan001, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan001, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -285,7 +285,7 @@ HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan001, TestSize.Level1)
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan002, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan002, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -305,7 +305,7 @@ HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan002, TestSize.Level1)
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan003, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan003, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -326,7 +326,7 @@ HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan003, TestSize.Level1)
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan004, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan004, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -355,7 +355,7 @@ HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan004, TestSize.Level1)
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan005, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan005, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -385,7 +385,7 @@ HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan005, TestSize.Level1)
  * @tc.desc: Test FromStyledString.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan006, TestSize.Level1)
+HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan006, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -409,4 +409,143 @@ HWTEST_F(RichEditorContentModifierTestNg, PaintCustomSpan006, TestSize.Level1)
     testContentModifier->PaintCustomSpan(context);
     EXPECT_TRUE(info.customSpanIndex >= static_cast<int32_t>(rectsForPlaceholderSize));
 }
+
+/**
+ * @tc.name: PaintLeadingMarginSpan001
+ * @tc.desc: Test PaintLeadingMarginSpan.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorContentModifierTestNg, PaintLeadingMarginSpan001, TestSize.Level2)
+{
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto contentPattern = richEditorPattern->contentPattern_;
+    ASSERT_NE(contentPattern, nullptr);
+    auto testContentModifier = AceType::MakeRefPtr<RichEditorContentModifier>(
+        richEditorPattern->textStyle_, &richEditorPattern->paragraphs_, contentPattern);
+    ASSERT_NE(testContentModifier, nullptr);
+
+    /**
+     * @tc.steps: step1. add paragraph
+     */
+    auto paragraph = MockParagraph::GetOrCreateMockParagraph();
+    ASSERT_NE(paragraph, nullptr);
+    EXPECT_CALL(*paragraph, GetLineCount()).WillRepeatedly(Return(2));
+    TextLineMetrics textLineMetrics;
+    EXPECT_CALL(*paragraph, GetLineMetrics(_)).WillRepeatedly(Return(textLineMetrics));
+    richEditorPattern->paragraphs_.AddParagraph(
+        { .paragraph = paragraph, .start = 0, .end = 2 });
+
+    auto&& paragraphs = testContentModifier->pManager_->GetParagraphs();
+    ASSERT_EQ(paragraphs.size(), 1);
+    auto paragraphInfo = paragraphs.front();
+
+    /**
+     * @tc.steps: step2. test PaintLeadingMarginSpan without drawableLeadingMargin
+     */
+    auto offset = richEditorPattern->GetTextRect().GetOffset();
+    DrawingContext context { canvas, CONTEXT_WIDTH_VALUE, CONTEXT_HEIGHT_VALUE };
+    testContentModifier->pManager_->PaintLeadingMarginSpan(paragraphInfo, offset, context);
+
+    /**
+     * @tc.steps: step3. set paragraphStyle
+     */
+    ParagraphStyle paragraphStyle;
+    paragraphStyle.drawableLeadingMargin = std::make_optional<NG::DrawableLeadingMargin>();
+    paragraphInfo.paragraphStyle = paragraphStyle;
+
+    /**
+     * @tc.steps: step4. test PaintLeadingMarginSpan
+     */
+    testContentModifier->pManager_->PaintLeadingMarginSpan(paragraphInfo, offset, context);
+
+    DrawableLeadingMargin leadingMargin;
+    leadingMargin.onDraw_ = [](NG::DrawingContext& context, NG::LeadingMarginSpanOptions options) {};
+    paragraphStyle.drawableLeadingMargin = std::make_optional<NG::DrawableLeadingMargin>(leadingMargin);
+    paragraphInfo.paragraphStyle = paragraphStyle;
+    testContentModifier->pManager_->PaintLeadingMarginSpan(paragraphInfo, offset, context);
+
+    EXPECT_CALL(*paragraph, empty()).WillRepeatedly(Return(true));
+    testContentModifier->pManager_->PaintLeadingMarginSpan(paragraphInfo, offset, context);
+
+    paragraphInfo.topLineIndex = 0;
+    paragraphInfo.bottomLineIndex = 1;
+    testContentModifier->pManager_->PaintLeadingMarginSpan(paragraphInfo, offset, context);
+}
+
+/**
+ * @tc.name: PaintLeadingMarginSpan002
+ * @tc.desc: Test PaintLeadingMarginSpan.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorContentModifierTestNg, PaintLeadingMarginSpan002, TestSize.Level2)
+{
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto contentPattern = richEditorPattern->contentPattern_;
+    ASSERT_NE(contentPattern, nullptr);
+    auto testContentModifier = AceType::MakeRefPtr<RichEditorContentModifier>(
+        richEditorPattern->textStyle_, &richEditorPattern->paragraphs_, contentPattern);
+    ASSERT_NE(testContentModifier, nullptr);
+
+    /**
+     * @tc.steps: step1. set paragraphInfo
+     */
+    ParagraphManager::ParagraphInfo paragraphInfo;
+    ParagraphStyle paragraphStyle;
+    DrawableLeadingMargin leadingMargin;
+    leadingMargin.onDraw_ = [](NG::DrawingContext& context, NG::LeadingMarginSpanOptions options) {};
+    paragraphStyle.drawableLeadingMargin = std::make_optional<NG::DrawableLeadingMargin>(leadingMargin);
+    paragraphInfo.paragraphStyle = paragraphStyle;
+
+    /**
+     * @tc.steps: step2. test PaintLeadingMarginSpan
+     */
+    auto offset = richEditorPattern->GetTextRect().GetOffset();
+    DrawingContext context { canvas, CONTEXT_WIDTH_VALUE, CONTEXT_HEIGHT_VALUE };
+    testContentModifier->pManager_->PaintLeadingMarginSpan(paragraphInfo, offset, context);
+}
+
+/**
+ * @tc.name: AdjustParagraphX001
+ * @tc.desc: Test AdjustParagraphX.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorContentModifierTestNg, AdjustParagraphX001, TestSize.Level2)
+{
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto contentPattern = richEditorPattern->contentPattern_;
+    ASSERT_NE(contentPattern, nullptr);
+    auto testContentModifier = AceType::MakeRefPtr<RichEditorContentModifier>(
+        richEditorPattern->textStyle_, &richEditorPattern->paragraphs_, contentPattern);
+
+    ParagraphManager::ParagraphInfo info;
+    RectF contentRect{0, 0, 100, 100};
+    EXPECT_EQ(testContentModifier->AdjustParagraphX(info, contentRect), 0); // info.paragraph is nullptr
+
+    auto paragraph = AceType::MakeRefPtr<MockParagraph>();
+    EXPECT_CALL(*paragraph, empty()).WillRepeatedly(Return(false));
+    info.paragraph = paragraph;
+    EXPECT_EQ(testContentModifier->AdjustParagraphX(info, contentRect), 0); // info.paragraph is empty
+
+    paragraph = AceType::MakeRefPtr<MockParagraph>();
+    EXPECT_CALL(*paragraph, empty()).WillRepeatedly(Return(true));
+    info.paragraph = paragraph;
+    EXPECT_EQ(testContentModifier->AdjustParagraphX(info, contentRect), 0); // leadingMargin is nullopt
+
+    ParagraphStyle paragraphStyle;
+    LeadingMargin leadingMargin;
+    void* voidPtr = static_cast<void*>(new char[0]);
+    leadingMargin.pixmap = PixelMap::CreatePixelMap(voidPtr);
+    paragraphStyle.leadingMargin = leadingMargin;
+    paragraphStyle.direction = TextDirection::LTR;
+    info.paragraphStyle = paragraphStyle;
+    EXPECT_EQ(testContentModifier->AdjustParagraphX(info, contentRect), 0);
+
+    paragraphStyle.direction = TextDirection::RTL;
+    info.paragraphStyle = paragraphStyle;
+    EXPECT_EQ(testContentModifier->AdjustParagraphX(info, contentRect), 100);
+}
+
 } // namespace OHOS::Ace::NG

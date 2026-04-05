@@ -49,4 +49,14 @@ void UIEvent::GetSimplifiedInspectorTreeAsync(const TreeParams& params, OnInspec
 {
     UIEventFunc::GetSimplifiedInspectorTreeAsync(params, std::move(callback));
 }
+
+void UIEvent::ExecuteCommandAsync(const UICommandParams& params, UICommandResult&& callback)
+{
+    UIEventFunc::ExecuteCommandAsync(params, std::move(callback));
+}
+
+void UIEvent::GetComponentImageInfo(const ComponentParams& params, std::shared_ptr<ComponentResult>& result)
+{
+    UIEventFunc::GetComponentImageInfo(params, result);
+}
 } // namespace OHOS::Ace

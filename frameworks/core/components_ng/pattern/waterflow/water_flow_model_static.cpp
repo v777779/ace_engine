@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,6 +19,7 @@
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/scrollable/scrollable_controller.h"
 #include "core/components_ng/pattern/scrollable/scrollable_model_ng.h"
+#include "core/components_ng/pattern/waterflow/water_flow_constants.h"
 #include "core/components_ng/pattern/waterflow/water_flow_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -27,7 +28,7 @@ const auto DEFAULT_CONSTRAINT_SIZE = CalcLength(0.0_vp);
 
 RefPtr<FrameNode> WaterFlowModelStatic::CreateFrameNode(int32_t nodeId)
 {
-    auto frameNode = FrameNode::CreateFrameNode(V2::WATERFLOW_ETS_TAG, nodeId, AceType::MakeRefPtr<WaterFlowPattern>());
+    auto frameNode = FrameNode::CreateFrameNode(WATERFLOW_ETS_TAG, nodeId, AceType::MakeRefPtr<WaterFlowPattern>());
     return frameNode;
 }
 
@@ -109,10 +110,16 @@ void WaterFlowModelStatic::SetCachedCount(FrameNode* frameNode, const std::optio
     }
 }
 
-void WaterFlowModelStatic::SetShowCached(FrameNode* frameNode, const std::optional<bool>& show)
+void WaterFlowModelStatic::SetCachedCount(
+    FrameNode* frameNode, const std::optional<int32_t>& count, const std::optional<bool>& show)
 {
-    CHECK_NULL_VOID(frameNode);
-    if (show) {
+    if (count) {
+        int32_t value = count.value() < 0 ? 1 : count.value();
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(WaterFlowLayoutProperty, CachedCount, value, frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(WaterFlowLayoutProperty, CachedCount, frameNode);
+    }
+    if (show.has_value()) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(WaterFlowLayoutProperty, ShowCachedItems, show.value(), frameNode);
     } else {
         ACE_RESET_NODE_LAYOUT_PROPERTY(WaterFlowLayoutProperty, ShowCachedItems, frameNode);
@@ -137,7 +144,7 @@ void WaterFlowModelStatic::ResetSections(FrameNode* frameNode)
 
 void WaterFlowModelStatic::SetColumnsTemplate(FrameNode* frameNode, const std::optional<std::string>& value)
 {
-    CHECK_NULL_VOID(frameNode);
+    ACE_RESET_NODE_LAYOUT_PROPERTY(WaterFlowLayoutProperty, ItemFillPolicy, frameNode);
     if (!value) {
         auto layout = frameNode->GetLayoutPropertyPtr<WaterFlowLayoutProperty>();
         CHECK_NULL_VOID(layout);
@@ -173,10 +180,11 @@ void WaterFlowModelStatic::SetColumnsGap(FrameNode* frameNode, const std::option
     if (value) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(WaterFlowLayoutProperty, ColumnsGap, value.value(), frameNode);
     } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            WaterFlowLayoutProperty, ColumnsGap, PROPERTY_UPDATE_MEASURE, frameNode);
         auto layout = frameNode->GetLayoutPropertyPtr<WaterFlowLayoutProperty>();
         CHECK_NULL_VOID(layout);
-        layout->ResetColumnsGap();
-        layout->OnColumnsGapUpdate(Dimension());
+        layout->OnColumnsGapUpdate(Dimension(0.0));
     }
 }
 
@@ -186,10 +194,11 @@ void WaterFlowModelStatic::SetRowsGap(FrameNode* frameNode, const std::optional<
     if (value) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(WaterFlowLayoutProperty, RowsGap, value.value(), frameNode);
     } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            WaterFlowLayoutProperty, RowsGap, PROPERTY_UPDATE_MEASURE, frameNode);
         auto layout = frameNode->GetLayoutPropertyPtr<WaterFlowLayoutProperty>();
         CHECK_NULL_VOID(layout);
-        layout->ResetRowsGap();
-        layout->OnRowsGapUpdate(Dimension());
+        layout->OnRowsGapUpdate(Dimension(0.0));
     }
 }
 
@@ -260,5 +269,28 @@ void WaterFlowModelStatic::SetLayoutMode(FrameNode* frameNode, WaterFlowLayoutMo
     auto pattern = frameNode->GetPattern<WaterFlowPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetLayoutMode(mode);
+}
+
+void WaterFlowModelStatic::ResetItemLayoutConstraint(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto layout = frameNode->GetLayoutProperty<WaterFlowLayoutProperty>();
+    CHECK_NULL_VOID(layout);
+    layout->ResetItemLayoutConstraint();
+}
+
+void WaterFlowModelStatic::SetItemFillPolicy(FrameNode* frameNode, PresetFillType fillType)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(WaterFlowLayoutProperty, ItemFillPolicy, fillType, frameNode);
+}
+
+void WaterFlowModelStatic::SetSyncLoad(FrameNode* frameNode, bool syncLoad)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(WaterFlowLayoutProperty, SyncLoad, syncLoad, frameNode);
+}
+
+void WaterFlowModelStatic::SetSupportEmptyBranchInLazyLoading(FrameNode* frameNode, bool enabled)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(WaterFlowLayoutProperty, SupportLazyLoadingEmptyBranch, enabled, frameNode);
 }
 } // namespace OHOS::Ace::NG

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Huawei Device Co., Ltd.
+# Copyright (c) 2023-2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -32,6 +32,7 @@ template("ace_core_interfaces_native_node") {
     # add common source file needed by all product platform here
     sources = [
       "node/alphabet_indexer_modifier.cpp",
+      "node/atomic_service_modifier.cpp",
       "node/badge_modifier.cpp",
       "node/blank_modifier.cpp",
       "node/button_modifier.cpp",
@@ -45,9 +46,11 @@ template("ace_core_interfaces_native_node") {
       "node/data_panel_modifier.cpp",
       "node/divider_modifier.cpp",
       "node/drag_adapter_impl.cpp",
+      "node/dynamic_layout_modifier.cpp",
       "node/extension_companion_node.cpp",
       "node/extension_custom_node.cpp",
       "node/flex_modifier.cpp",
+      "node/flow_item_modifier.cpp",
       "node/frame_node_modifier.cpp",
       "node/frame_node_modifier_multi_thread.cpp",
       "node/gauge_modifier.cpp",
@@ -61,6 +64,8 @@ template("ace_core_interfaces_native_node") {
       "node/line_modifier.cpp",
       "node/linear_indicator_modifier.cpp",
       "node/marquee_modifier.cpp",
+      "node/menu_item_group_modifier.cpp",
+      "node/martix_modifier.cpp",
       "node/menu_item_modifier.cpp",
       "node/menu_modifier.cpp",
       "node/nav_destination_modifier.cpp",
@@ -77,6 +82,7 @@ template("ace_core_interfaces_native_node") {
       "node/node_common_modifier_multi_thread.cpp",
       "node/node_container_modifier.cpp",
       "node/node_container_span_modifier.cpp",
+      "node/node_container_picker_modifier.cpp",
       "node/node_content_modifier.cpp",
       "node/node_custom_node_ext_modifier.cpp",
       "node/node_date_picker_modifier.cpp",
@@ -89,9 +95,11 @@ template("ace_core_interfaces_native_node") {
       "node/node_list_item_modifier.cpp",
       "node/node_list_modifier.cpp",
       "node/node_loading_progress_modifier.cpp",
+      "node/node_loading_progress_modifier_multi_thread.cpp",
       "node/node_modifiers.cpp",
       "node/node_refresh_modifier.cpp",
       "node/node_relative_container_modifier.cpp",
+      "node/node_render_node_modifier.cpp",
       "node/node_scroll_bar_modifier.cpp",
       "node/node_scroll_modifier.cpp",
       "node/node_slider_modifier.cpp",
@@ -139,74 +147,83 @@ template("ace_core_interfaces_native_node") {
       "node/view_model.cpp",
       "node/view_model_multi_thread.cpp",
       "node/water_flow_modifier.cpp",
+      "node/styled_string_impl.cpp",
       "runtime/runtime_init.cpp"
     ]
 
-    
-    sources += [
-      "ani/ani_animatable_arithmetic.cpp",
-      "ani/ani_theme.cpp",
-      "ani/ani_theme_module.cpp",
-      "ani/animation_ani_modifier.cpp",
-      "ani/canvas_ani_modifier.cpp",
-      "ani/common_ani_modifier.cpp",
-      "ani/component3d_ani_modifier.cpp",
-      "ani/component_content_ani_modifier.cpp",
-      "ani/component_snapshot_ani_modifier.cpp",
-      "ani/content_slot_ani_modifier.cpp",
-      "ani/custom_node_ani_modifier.cpp",
-      "ani/keyboard_avoid_mode_ani_modifier.cpp",
-      "ani/drag_ani_modifier.cpp",
-      "ani/node_adapter_ani_modifier.cpp",
-      "ani/interop_ani_modifier.cpp",
-      "ani/image_ani_modifier.cpp",
-      "ani/image_span_ani_modifier.cpp",
-      "ani/node_ani_modifier.cpp",
-      "ani/text_based_ani_modifier.cpp",
-      "ani/styled_string_ani_modifier.cpp",
-      "ani/trace_ani_modifier.cpp",
-      "ani/web_ani_modifier.cpp",
-      "ani/waterflow_ani_modifier.cpp",
-      "ani/video_ani_modifier.cpp",
-      "ani/rich_editor_ani_modifier.cpp",
-      "ani/shape_ani_modifier.cpp",
-      "ani/stateMgmt_ani_modifier.cpp",
-      "ani/xbar_ani_modifier.cpp",
-      "ani/xcomponent_ani_modifier.cpp",
-      "ani/list_ani_modifier.cpp",
-      "ani/condition_scope_ani_modifier.cpp",
-      "ani/uinode_ani_modifier.cpp",
-    ]
-    if (build_ohos_sdk) {
-      sources -= [
+    if (!is_arkui_x) {
+      sources += [
+        "ani/ani_animatable_arithmetic.cpp",
         "ani/ani_theme.cpp",
         "ani/ani_theme_module.cpp",
-        "ani/common_ani_modifier.cpp",
-        "ani/component3d_ani_modifier.cpp",
-        "ani/custom_node_ani_modifier.cpp",
-        "ani/node_ani_modifier.cpp",
-        "ani/waterflow_ani_modifier.cpp",
-        "ani/node_adapter_ani_modifier.cpp",
-        "ani/interop_ani_modifier.cpp",
-        "ani/list_ani_modifier.cpp",
-        "ani/uinode_ani_modifier.cpp",
-      ]
-    }
-
-    if (ace_engine_feature_wearable) {
-      sources -= [
-        "ani/ani_theme.cpp",
-        "ani/ani_theme_module.cpp",
+        "ani/animation_ani_modifier.cpp",
         "ani/canvas_ani_modifier.cpp",
         "ani/common_ani_modifier.cpp",
+        "ani/common_node_ani_modifier.cpp",
+        "ani/component3d_ani_modifier.cpp",
+        "ani/component_content_ani_modifier.cpp",
+        "ani/component_snapshot_ani_modifier.cpp",
+        "ani/condition_scope_ani_modifier.cpp",
+        "ani/content_slot_ani_modifier.cpp",
+        "ani/custom_node_ani_modifier.cpp",
+        "ani/detached_free_root_ani_modifier.cpp",
+        "ani/drag_ani_modifier.cpp",
+        "ani/gesture_event_uiobserver_ani_modifier.cpp",
+        "ani/image_ani_modifier.cpp",
+        "ani/image_span_ani_modifier.cpp",
+        "ani/interop_ani_modifier.cpp",
+        "ani/keyboard_avoid_mode_ani_modifier.cpp",
+        "ani/list_ani_modifier.cpp",
+        "ani/list_item_group_ani_modifier.cpp",
+        "ani/node_adapter_ani_modifier.cpp",
         "ani/node_ani_modifier.cpp",
+        "ani/paste_button_ani_modifier.cpp",
+        "ani/rich_editor_ani_modifier.cpp",
+        "ani/save_button_ani_modifier.cpp",
+        "ani/security_component_ani_method.cpp",
+        "ani/shape_ani_modifier.cpp",
+        "ani/stateMgmt_ani_modifier.cpp",
+        "ani/styled_string_ani_modifier.cpp",
+        "ani/text_based_ani_modifier.cpp",
+        "ani/trace_ani_modifier.cpp",
+        "ani/uinode_ani_modifier.cpp",
+        "ani/video_ani_modifier.cpp",
+        "ani/visual_effect_ani_modifier.cpp",
+        "ani/waterflow_ani_modifier.cpp",
+        "ani/web_ani_modifier.cpp",
+        "ani/xbar_ani_modifier.cpp",
+        "ani/xcomponent_ani_modifier.cpp",
+        "ani/parallelize_ui_ani_modifier.cpp",
       ]
-    }
 
-    if (defined(config.enable_drag_framework) && config.enable_drag_framework && !build_ohos_sdk) {
-      sources += [
-        "ani/drag_controller_ani_modifier.cpp",
-      ]
+      sources += [ "drawable/drawable_modifier.cpp" ]
+
+      if (build_ohos_sdk) {
+        sources -= [
+          "ani/ani_theme.cpp",
+          "ani/ani_theme_module.cpp",
+          "ani/common_ani_modifier.cpp",
+          "ani/component3d_ani_modifier.cpp",
+          "ani/custom_node_ani_modifier.cpp",
+          "ani/gesture_event_uiobserver_ani_modifier.cpp",
+          "ani/interop_ani_modifier.cpp",
+          "ani/list_ani_modifier.cpp",
+          "ani/list_item_group_ani_modifier.cpp",
+          "ani/node_adapter_ani_modifier.cpp",
+          "ani/node_ani_modifier.cpp",
+          "ani/paste_button_ani_modifier.cpp",
+          "ani/save_button_ani_modifier.cpp",
+          "ani/security_component_ani_method.cpp",
+          "ani/uinode_ani_modifier.cpp",
+          "ani/waterflow_ani_modifier.cpp",
+          "ani/image_ani_modifier.cpp",
+        ]
+      }
+
+      if (defined(config.enable_drag_framework) &&
+          config.enable_drag_framework && !build_ohos_sdk) {
+        sources += [ "ani/drag_controller_ani_modifier.cpp" ]
+      }
     }
 
     deps = [
@@ -218,6 +235,7 @@ template("ace_core_interfaces_native_node") {
       sources += [ "node/web_modifier.cpp" ]
     }
     if (is_arkui_x) {
+      sources += [ "drawable/drawable_modifier.cpp" ]
       deps += [
         "//foundation/graphic/graphic_2d/rosen/modules/render_service_client:librender_service_client_static",
         "//third_party/bounds_checking_function:libsec_static",
@@ -258,19 +276,17 @@ template("ace_core_interfaces_native_node") {
     if (!ace_engine_feature_wearable) {
       sources += [
         "node/calendar_picker_modifier.cpp",
+        "node/calendar_picker_dialog_modifier.cpp",
         "node/node_folder_stack_modifier.cpp",
       ]
     }
 
-    if (defined(config.window_scene_support) &&
-        config.window_scene_support) {
+    if (defined(config.window_scene_support) && config.window_scene_support) {
       sources += [ "node/embeddedComponent_modifier.cpp" ]
     }
 
     if (is_arkui_x) {
-      deps += [
-        "//foundation/arkui/napi:ace_napi",
-      ]
+      deps += [ "//foundation/arkui/napi:ace_napi" ]
     }
 
     external_deps = [
@@ -283,14 +299,12 @@ template("ace_core_interfaces_native_node") {
     if (current_os == "ohos") {
       external_deps += [ "graphic_2d:drawing_ani" ]
     }
-    
+
     if (defined(config.pixel_map_support)) {
-      external_deps += [
-        "image_framework:image",
-      ]
+      external_deps += [ "image_framework:image" ]
     }
     if (defined(config.enable_drag_framework) && config.enable_drag_framework) {
-        external_deps += [ "device_status:devicestatus_client" ]
+      external_deps += [ "device_status:devicestatus_client" ]
       if (defined(global_parts_info.distributeddatamgr_udmf)) {
         external_deps += [ "udmf:udmf_client" ]
         external_deps += [ "udmf:libudmf" ]
@@ -307,8 +321,7 @@ template("ace_core_interfaces_native_node") {
     if (use_hilog) {
       external_deps += [ "hilog:libhilog" ]
     }
-    if (defined(config.window_scene_support) &&
-        config.window_scene_support) {
+    if (defined(config.window_scene_support) && config.window_scene_support) {
       external_deps += [
         "ability_base:ability_base_want",
         "ability_base:want",

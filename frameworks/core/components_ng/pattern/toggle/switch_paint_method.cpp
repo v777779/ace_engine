@@ -20,6 +20,7 @@
 namespace OHOS::Ace::NG {
 
 namespace {
+    const Color TMP_INACTIVE_COLOR = Color(0x337F7F7F);
 } // namespace
 
 SwitchModifier::SwitchModifier(const SizeF& size, const OffsetF& offset, float pointOffset, bool isSelect,
@@ -62,7 +63,9 @@ void SwitchModifier::InitializeParam(int32_t themeScopeId)
     auto switchTheme = pipeline->GetTheme<SwitchTheme>();
     CHECK_NULL_VOID(switchTheme);
     activeColor_ = switchTheme->GetActiveColor();
-    inactiveColor_ = switchTheme->GetInactiveColor();
+    isUseDiffPointColor_ = switchTheme->GetSwitchUseDiffPointColor();
+    inactiveColor_ = isUseDiffPointColor_ || SystemProperties::ConfigChangePerform() ? switchTheme->GetInactiveColor()
+                                                                                     : TMP_INACTIVE_COLOR;
     clickEffectColor_ = switchTheme->GetInteractivePressedColor();
     hoverColor_ = switchTheme->GetInteractiveHoverColor();
     focusColor_ = switchTheme->GetFocusedBGColorUnselected();
@@ -73,7 +76,6 @@ void SwitchModifier::InitializeParam(int32_t themeScopeId)
     colorAnimationDuration_ = switchTheme->GetColorAnimationDuration();
     pointAnimationDuration_ = switchTheme->GetPointAnimationDuration();
     pointColorUnchecked_ = switchTheme->GetPointColorUnchecked();
-    isUseDiffPointColor_ = switchTheme->GetSwitchUseDiffPointColor();
     focusBoardColor_ = switchTheme->GetFocusBoardColor();
     isCancelAnimation_ = isUseDiffPointColor_;
 }
@@ -212,6 +214,24 @@ float SwitchModifier::GetSwitchWidth(const SizeF& contentSize) const
                      (switchTheme->GetHeight() - switchTheme->GetHotZoneVerticalPadding() * 2).ConvertToPx();
     auto switchWidth = contentSize.Width() - contentSize.Height() + actualGap;
     return switchWidth;
+}
+
+void SwitchModifier::FixPointOffset()
+{
+    if (!isSizeChange_) {
+        return;
+    }
+    auto currentOffset = pointOffset_->Get();
+    if (GreatOrEqual(actualSize_.Width(), actualSize_.Height())) {
+        if (currentOffset > actualSize_.Width() - actualSize_.Height()) {
+            pointOffset_->Set(actualSize_.Width() - actualSize_.Height());
+        }
+    } else {
+        if (currentOffset > actualSize_.Width() - actualTrackRadius_) {
+            pointOffset_->Set(actualSize_.Width() - actualTrackRadius_);
+        }
+    }
+    isSizeChange_ = false;
 }
 
 int32_t SwitchPaintMethod::GetThemeScopeId(PaintWrapper* paintWrapper) const

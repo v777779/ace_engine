@@ -18,6 +18,25 @@
 #include "core/components_ng/pattern/patternlock/patternlock_pattern.h"
 
 namespace OHOS::Ace::NG {
+RefPtr<FrameNode> PatternLockModelStatic::CreateFrameNode(int32_t nodeId)
+{
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        PATTERN_LOCK_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<PatternLockPattern>(); });
+    CHECK_NULL_RETURN(frameNode, frameNode);
+    ACE_UINODE_TRACE(frameNode);
+    auto pattern = frameNode->GetPattern<PatternLockPattern>();
+    pattern->SetPatternLockController(AceType::MakeRefPtr<V2::PatternLockController>());
+    return frameNode;
+}
+
+const RefPtr<V2::PatternLockController> PatternLockModelStatic::GetController(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<PatternLockPattern>();
+    CHECK_NULL_RETURN(pattern, nullptr);
+    return pattern->GetPatternLockController();
+}
+
 void PatternLockModelStatic::SetActiveColor(FrameNode* frameNode, const std::optional<Color>& activeColor)
 {
     if (activeColor.has_value()) {
@@ -54,7 +73,8 @@ void PatternLockModelStatic::SetSideLength(FrameNode* frameNode, const std::opti
     if (sideLength.has_value()) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(PatternLockLayoutProperty, SideLength, sideLength.value(), frameNode);
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(PatternLockLayoutProperty, SideLength, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            PatternLockLayoutProperty, SideLength, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 

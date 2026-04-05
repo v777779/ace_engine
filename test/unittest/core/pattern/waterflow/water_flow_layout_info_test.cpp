@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "gtest/gtest.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
 #include "core/components_ng/property/measure_property.h"
@@ -28,7 +27,18 @@
 using namespace testing;
 using namespace testing::ext;
 namespace OHOS::Ace::NG {
-class WaterFlowLayoutInfoTest : public TestNG {};
+class WaterFlowLayoutInfoTest : public TestNG {
+public:
+    void InitLayoutInfoForOverScrolledDelta(WaterFlowLayoutInfo& layoutInfo);
+};
+
+void WaterFlowLayoutInfoTest::InitLayoutInfoForOverScrolledDelta(WaterFlowLayoutInfo& layoutInfo)
+{
+    layoutInfo.itemEnd_ = true;
+    layoutInfo.currentOffset_ = 100.0f;
+    layoutInfo.maxHeight_ = 400.0f;
+    layoutInfo.lastMainSize_ = 600.0f;
+}
 
 /**
  * @tc.name: GetCrossIndexForNextItem001
@@ -336,5 +346,276 @@ HWTEST_F(WaterFlowLayoutInfoTest, UpdateStartIndexWhenMeasureInNextFrame, TestSi
     info.measureInNextFrame_ = true;
     info.UpdateStartIndex();
     EXPECT_EQ(info.startIndex_, info.endIndex_);
+}
+
+/**
+ * @tc.name: ContentOffsetsAffectEndPosCalculation
+ * @tc.desc: Test GetOverScrolledDelta with contentOffset.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, ContentOffsetsAffectEndPosCalculation, TestSize.Level1)
+{
+    WaterFlowLayoutInfo layoutInfo;
+    InitLayoutInfoForOverScrolledDelta(layoutInfo);
+    layoutInfo.contentStartOffset_ = 20.0f;
+    layoutInfo.contentEndOffset_ = 30.0f;
+
+    // endPos = 100 + 400 + 30 = 530
+    // GreatNotEqual? : 600 - 20 = 580 > 530? true
+    // endPos: 100 + 600 - 20 - 30 = 650
+    float delta = -50.0f; // newEndPos = 650 - 50 = 600
+
+    auto result = layoutInfo.GetOverScrolledDelta(delta);
+
+    // endPos >= lastMainSize_ (650 >= 600) && newEndPos < lastMainSize_ (600 < 600)?
+    // Note: 600 < 600 is false, so it should take another branch.
+    // In reality, the condition endPos >= lastMainSize_ && newEndPos < lastMainSize_ does not hold.
+    // Therefore, offset.end should be 0.
+    EXPECT_FLOAT_EQ(result.end, 0.0f);
+}
+
+/**
+ * @tc.name: ZeroContentStartOffset
+ * @tc.desc: Test GetOverScrolledDelta with contentEndOffset.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, ZeroContentStartOffset, TestSize.Level1)
+{
+    WaterFlowLayoutInfo layoutInfo;
+    InitLayoutInfoForOverScrolledDelta(layoutInfo);
+    layoutInfo.contentStartOffset_ = 0.0f;
+    layoutInfo.contentEndOffset_ = 10.0f;
+
+    // endPos = 100 + 400 + 10 = 510
+    // GreatNotEqual? : 600 - 0 = 600 > 510? true
+    // So endPos will be recalculated as: 100 + 600 - 0 - 10 = 690
+    float delta = -100.0f; // newEndPos = 690 - 100 = 590
+
+    auto result = layoutInfo.GetOverScrolledDelta(delta);
+
+    // endPos >= lastMainSize_ (690 >= 600) && newEndPos < lastMainSize_ (590 < 600)? true
+    // offset.end = 590 - 600 = -10
+    EXPECT_FLOAT_EQ(result.end, -10.0f);
+}
+
+/**
+ * @tc.name: ZeroContentStartOffset
+ * @tc.desc: Test GetOverScrolledDelta with contentStartOffset.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, ZeroContentEndOffset, TestSize.Level1)
+{
+    WaterFlowLayoutInfo layoutInfo;
+    InitLayoutInfoForOverScrolledDelta(layoutInfo);
+    layoutInfo.contentStartOffset_ = 15.0f;
+    layoutInfo.contentEndOffset_ = 0.0f;
+
+    // endPos = 100 + 400 + 0 = 500
+    // GreatNotEqual? : 600 - 15 = 585 > 500? true
+    // So endPos will be recalculated as: 100 + 600 - 0 - 15 = 685
+    float delta = 50.0f; // newEndPos = 685 + 50 = 735
+
+    auto result = layoutInfo.GetOverScrolledDelta(delta);
+
+    // endPos >= lastMainSize_ (685 >= 600) && newEndPos < lastMainSize_ (735 < 600)? false
+    // so offset.end should be 0
+    EXPECT_FLOAT_EQ(result.end, 0.0f);
+}
+
+/**
+ * @tc.name: LargeContentStartOffset
+ * @tc.desc: Test GetOverScrolledDelta with large contentStartOffset.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, LargeContentStartOffset, TestSize.Level1)
+{
+    WaterFlowLayoutInfo layoutInfo;
+    InitLayoutInfoForOverScrolledDelta(layoutInfo);
+    layoutInfo.contentStartOffset_ = 200.0f;
+    layoutInfo.contentEndOffset_ = 10.0f;
+
+    // endPos = 100 + 400 + 10 = 510
+    // GreatNotEqual? : 600 - 200 = 400 > 510? false
+    float delta = 50.0f; // newEndPos = 510 + 50 = 560
+
+    auto result = layoutInfo.GetOverScrolledDelta(delta);
+
+    // endPos < lastMainSize_ (510 < 600) && newEndPos < lastMainSize_ (560 < 600)? true
+    // offset.end = delta = 50
+    EXPECT_FLOAT_EQ(result.end, 50.0f);
+}
+
+/**
+ * @tc.name: LargeContentEndOffset
+ * @tc.desc: Test GetOverScrolledDelta with large contentEndOffset.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, LargeContentEndOffset, TestSize.Level1)
+{
+    WaterFlowLayoutInfo layoutInfo;
+    InitLayoutInfoForOverScrolledDelta(layoutInfo);
+    layoutInfo.contentStartOffset_ = 10.0f;
+    layoutInfo.contentEndOffset_ = 150.0f;
+
+    // endPos = 100 + 400 + 150 = 650
+    // GreatNotEqual? : 600 - 10 = 590 > 650? false
+    float delta = -100.0f; // newEndPos = 650 - 100 = 550
+
+    auto result = layoutInfo.GetOverScrolledDelta(delta);
+
+    // endPos >= lastMainSize_ (650 >= 600) && newEndPos < lastMainSize_ (550 < 600)? true
+    // offset.end = 550 - 600 = -50
+    EXPECT_FLOAT_EQ(result.end, -50.0f);
+}
+
+/**
+ * @tc.name: GreatNotEqualBoundary
+ * @tc.desc: Test GetOverScrolledDelta with large contentEndOffset.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, GreatNotEqualBoundary, TestSize.Level1)
+{
+    WaterFlowLayoutInfo layoutInfo;
+    InitLayoutInfoForOverScrolledDelta(layoutInfo);
+    layoutInfo.contentStartOffset_ = 90.0f;
+    layoutInfo.contentEndOffset_ = 10.0f;
+
+    // endPos = 100 + 400 + 10 = 510
+    // GreatNotEqual?: 600 - 90 = 510 > 510? false
+    float delta = 50.0f; // newEndPos = 510 + 50 = 560
+
+    auto result = layoutInfo.GetOverScrolledDelta(delta);
+
+    // endPos < lastMainSize_ (510 < 600) && newEndPos < lastMainSize_ (560 < 600)? true
+    // offset.end = delta = 50
+    EXPECT_FLOAT_EQ(result.end, 50.0f);
+}
+
+/**
+ * @tc.name: ContentOffsetsChangeGreatNotEqualCondition
+ * @tc.desc: Test GetOverScrolledDelta with contentOffset.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, ContentOffsetsChangeGreatNotEqualCondition, TestSize.Level1)
+{
+    WaterFlowLayoutInfo layoutInfo;
+    InitLayoutInfoForOverScrolledDelta(layoutInfo);
+    // case1: GreatNotEqual is true
+    layoutInfo.contentStartOffset_ = 50.0f;
+    layoutInfo.contentEndOffset_ = 10.0f;
+
+    // endPos = 100 + 400 + 10 = 510
+    // GreatNotEqual? : 600 - 50 = 550 > 510? true
+    float delta = 50.0f;
+    auto result1 = layoutInfo.GetOverScrolledDelta(delta);
+
+    // case2: Adjust contentStartOffset_ so that GreatNotEqual is false.
+    layoutInfo.contentStartOffset_ = 100.0f;
+
+    // endPos = 100 + 400 + 10 = 510
+    // GreatNotEqual? : 600 - 100 = 500 > 510? false
+    auto result2 = layoutInfo.GetOverScrolledDelta(delta);
+    EXPECT_NE(result1.end, result2.end);
+}
+
+/**
+ * @tc.name: ContentOffsetsAffectOverscrollBehavior
+ * @tc.desc: Test GetOverScrolledDelta with large contentEndOffset.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, ContentOffsetsAffectOverscrollBehavior, TestSize.Level1)
+{
+    WaterFlowLayoutInfo layoutInfo;
+    InitLayoutInfoForOverScrolledDelta(layoutInfo);
+    layoutInfo.contentStartOffset_ = 20.0f;
+    layoutInfo.contentEndOffset_ = 30.0f;
+    layoutInfo.currentOffset_ = 0.0f;
+
+    // Test overScroll with bottom
+    // endPos = 0 + 400 + 30 = 430
+    // GreatNotEqual?: 600 - 20 = 580 > 430? true
+    // endPos = 0 + 600 - 20 - 30 = 550
+    float delta = 100.0f; // scroll down 100
+
+    // newEndPos = 550 + 100 = 650
+    auto result = layoutInfo.GetOverScrolledDelta(delta);
+    // endPos < lastMainSize_ (550 < 600) && newEndPos >= lastMainSize_ (650 >= 600)? true
+    // offset.end = 600 - 550 = 50
+    EXPECT_FLOAT_EQ(result.end, 50.0f);
+}
+
+/**
+ * @tc.name: InitMargins001
+ * @tc.desc: Test InitMargins with empty sections returns early.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, InitMargins001, TestSize.Level1)
+{
+    WaterFlowLayoutInfo info;
+    std::vector<WaterFlowSections::Section> emptySections;
+    ScaleProperty scale;
+    info.InitMargins(emptySections, scale, 480.0f);
+    EXPECT_TRUE(info.margins_.empty());
+}
+
+/**
+ * @tc.name: InitMargins002
+ * @tc.desc: Test InitMargins with multiple sections with margins.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, InitMargins002, TestSize.Level1)
+{
+    WaterFlowLayoutInfo info;
+    std::vector<WaterFlowSections::Section> sections(3);
+    sections[0].itemsCount = 5;
+    sections[0].margin = std::make_optional<MarginProperty>();
+    sections[0].margin->top = CalcLength(10.0f);
+    sections[0].margin->bottom = CalcLength(5.0f);
+
+    sections[1].itemsCount = 3;
+    // no margin for section 1
+
+    sections[2].itemsCount = 4;
+    sections[2].margin = std::make_optional<MarginProperty>();
+    sections[2].margin->left = CalcLength(20.0f);
+
+    ScaleProperty scale;
+    info.InitMargins(sections, scale, 480.0f);
+    EXPECT_EQ(info.margins_.size(), 3);
+    EXPECT_TRUE(info.margins_[0].top.has_value());
+    EXPECT_TRUE(info.margins_[0].bottom.has_value());
+    EXPECT_FALSE(info.margins_[1].top.has_value());
+    EXPECT_TRUE(info.margins_[2].left.has_value());
+}
+
+/**
+ * @tc.name: UpdateDefaultCachedCount001
+ * @tc.desc: Test UpdateDefaultCachedCount updates defCachedCount_ based on viewport items.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, UpdateDefaultCachedCount001, TestSize.Level1)
+{
+    WaterFlowLayoutInfo info;
+    info.startIndex_ = 0;
+    info.endIndex_ = 9;
+    info.defCachedCount_ = 1;
+    info.UpdateDefaultCachedCount();
+    // When pageCount <= 0 (default in test), returns early, defCachedCount_ unchanged
+    EXPECT_GE(info.defCachedCount_, 1);
+}
+
+/**
+ * @tc.name: UpdateDefaultCachedCount002
+ * @tc.desc: Test UpdateDefaultCachedCount with zero items returns early.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowLayoutInfoTest, UpdateDefaultCachedCount002, TestSize.Level1)
+{
+    WaterFlowLayoutInfo info;
+    info.startIndex_ = 5;
+    info.endIndex_ = 4; // itemCount = 0
+    info.defCachedCount_ = 2;
+    info.UpdateDefaultCachedCount();
+    EXPECT_EQ(info.defCachedCount_, 2); // unchanged
 }
 } // namespace OHOS::Ace::NG

@@ -19,16 +19,19 @@
 #include "base/memory/referenced.h"
 #include "base/utils/noncopyable.h"
 #include "base/utils/utils.h"
-#include "core/components_ng/pattern/list/list_item_group_accessibility_property.h"
+#include "core/components/scroll/scroll_controller_base.h"
 #include "core/components_ng/pattern/list/list_children_main_size.h"
-#include "core/components_ng/pattern/list/list_item_group_layout_algorithm.h"
+#include "core/components_ng/pattern/list/list_item_group_accessibility_property.h"
+#include "core/components_ng/pattern/list/list_item_group_layout_info.h"
 #include "core/components_ng/pattern/list/list_item_group_layout_property.h"
-#include "core/components_ng/pattern/list/list_layout_property.h"
 #include "core/components_ng/pattern/list/list_position_map.h"
 #include "core/components_ng/pattern/pattern.h"
+#include "core/components_ng/event/focus_hub.h"
 #include "core/components_ng/syntax/shallow_builder.h"
 
 namespace OHOS::Ace::NG {
+
+class ListItemGroupLayoutAlgorithm;
 
 struct ListItemGroupPaintInfo {
     TextDirection layoutDirection = TextDirection::LTR;
@@ -85,6 +88,11 @@ public:
         return false;
     }
 
+    bool ForceRequestParentMeasure() const override
+    {
+        return true;
+    }
+
     FocusPattern GetFocusPattern() const override
     {
         return { FocusType::SCOPE, true };
@@ -114,6 +122,12 @@ public:
 
     RefPtr<NodePaintMethod> CreateNodePaintMethod() override;
 
+    bool OnAttachAdapter(const RefPtr<FrameNode>& node, const RefPtr<UINode>& child) override
+    {
+        node->AddChild(child);
+        return true;
+    }
+
     void AddHeader(const RefPtr<NG::UINode>& header)
     {
         auto host = GetHost();
@@ -140,6 +154,11 @@ public:
             }
         }
         header_ = header;
+        auto frameNode = AceType::DynamicCast<NG::FrameNode>(GetHeaderNode());
+        CHECK_NULL_VOID(frameNode);
+        auto accessibilityProperty = frameNode->GetAccessibilityProperty<NG::AccessibilityProperty>();
+        CHECK_NULL_VOID(accessibilityProperty);
+        accessibilityProperty->SetIsHeaderOrFooter(true);
     }
 
     void AddFooter(const RefPtr<NG::UINode>& footer)
@@ -170,6 +189,11 @@ public:
             }
         }
         footer_ = footer;
+        auto frameNode = AceType::DynamicCast<NG::FrameNode>(GetFooterNode());
+        CHECK_NULL_VOID(frameNode);
+        auto accessibilityProperty = frameNode->GetAccessibilityProperty<NG::AccessibilityProperty>();
+        CHECK_NULL_VOID(accessibilityProperty);
+        accessibilityProperty->SetIsHeaderOrFooter(true);
     }
 
     void RemoveHeader()
@@ -204,17 +228,27 @@ public:
 
     bool IsHasHeader()
     {
-        auto headerNode = DynamicCast<FrameNode>(header_.Upgrade());
-        return headerNode ? true : false;
+        auto header = header_.Upgrade();
+        if (DynamicCast<FrameNode>(header)) {
+            return true;
+        } else if (header && header->TotalChildCount() > 0) {
+            return true;
+        }
+        return false;
     }
 
     bool IsHasFooter()
     {
-        auto footerGroup = DynamicCast<FrameNode>(footer_.Upgrade());
-        return footerGroup ? true : false;
+        auto footer = footer_.Upgrade();
+        if (DynamicCast<FrameNode>(footer)) {
+            return true;
+        } else if (footer && footer->TotalChildCount() > 0) {
+            return true;
+        }
+        return false;
     }
 
-    const ListItemGroupLayoutAlgorithm::PositionMap& GetItemPosition()
+    const ListItemGroupPositionMap& GetItemPosition()
     {
         return itemPosition_;
     }
@@ -284,7 +318,12 @@ public:
         lanes_ = num;
     }
 
-    V2::ListItemGroupStyle GetListItemGroupStyle() const
+    void SetAxisChanged(bool value)
+    {
+        isAxisChanged_ = value;
+    }
+
+    V2::ListItemGroupStyle GetListItemGroupStyle()
     {
         return listItemGroupStyle_;
     }
@@ -307,12 +346,25 @@ public:
         return layouted_ && (layoutedItemInfo_.has_value() || itemTotalCount_ == 0);
     }
 
-    void SetItemPressed(bool isPressed, int32_t id)
+    void SetItemState(ItemState itemState, int32_t id)
     {
-        if (isPressed) {
-            pressedItem_.emplace(id);
+        auto item = noDividerItems_.find(id);
+        if (item == noDividerItems_.end()) {
+            noDividerItems_[id] = itemState;
         } else {
-            pressedItem_.erase(id);
+            item->second |= itemState;
+        }
+    }
+
+    void ResetItemState(ItemState itemState, int32_t id)
+    {
+        auto item = noDividerItems_.find(id);
+        if (item == noDividerItems_.end()) {
+            return;
+        }
+        item->second &= ~itemState;
+        if (item->second == ITEM_STATE_NORMAL) {
+            noDividerItems_.erase(id);
         }
     }
 
@@ -325,6 +377,8 @@ public:
 
     void SetListItemGroupStyle(V2::ListItemGroupStyle style);
     RefPtr<ListChildrenMainSize> GetOrCreateListChildrenMainSize();
+    void UpdateChildrenMainSizeRoundingMode();
+    void UpdateChildrenMainSizeRoundingModeMultiThread();
     void SetListChildrenMainSize(float defaultSize, const std::vector<float>& mainSize);
     void OnChildrenSizeChanged(std::tuple<int32_t, int32_t, int32_t> change, ListChangeFlag flag);
     bool ListChildrenSizeExist();
@@ -338,7 +392,7 @@ public:
     void ClearCachedItemPosition();
     void CalculateItemStartIndex();
     bool NeedCacheForward(const LayoutWrapper* listWrapper) const;
-    CachedIndexInfo UpdateCachedIndex(bool outOfView, bool reCache, int32_t forwardCache, int32_t backwardCache);
+    CachedIndexInfo UpdateCachedIndex(bool outOfView, int32_t forwardCache, int32_t backwardCache);
     int32_t UpdateCachedIndexForward(bool outOfView, bool show, int32_t cacheCount);
     int32_t UpdateCachedIndexBackward(bool outOfView, bool show, int32_t cacheCount);
     std::pair<int32_t, int32_t> UpdateCachedIndexOmni(int32_t forwardCache, int32_t backwardCache);
@@ -346,17 +400,22 @@ public:
     void UpdateActiveChildRange(bool show);
     void SyncItemsToCachedItemPosition();
     bool IsVisible() const;
-    void SetRecache(bool value)
-    {
-        reCache_ = value;
-    }
     void LayoutCache(const LayoutConstraintF& constraint, int64_t deadline, int32_t forwardCached,
         int32_t backwardCached, ListMainSizeValues listSizeValues);
-    void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
 
     RefPtr<UINode> GetHeader() const
     {
         return header_.Upgrade();
+    }
+
+    RefPtr<UINode> GetHeaderNode() const
+    {
+        auto header = GetHeader();
+        if (header) {
+            return header->GetFrameChildByIndex(0, false);
+        } else {
+            return nullptr;
+        }
     }
 
     RefPtr<UINode> GetFooter() const
@@ -364,8 +423,37 @@ public:
         return footer_.Upgrade();
     }
 
+    RefPtr<UINode> GetFooterNode() const
+    {
+        auto footer = GetFooter();
+        if (footer) {
+            return footer->GetFrameChildByIndex(0, false);
+        } else {
+            return nullptr;
+        }
+    }
+
     void OnColorModeChange(uint32_t colorMode) override;
     void UpdateDefaultColor();
+
+    bool ChildPreMeasureHelperEnabled() override
+    {
+        return true;
+    }
+    bool PostponedTaskForIgnoreEnabled() override
+    {
+        return true;
+    }
+
+    bool NeedCustomizeSafeAreaPadding() override
+    {
+        return true;
+    }
+
+    bool ChildTentativelyLayouted() override
+    {
+        return true;
+    }
 
 private:
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config) override;
@@ -429,17 +517,18 @@ private:
     float_t footerMainSize_ = 0.0f;
 
     std::optional<LayoutedItemInfo> layoutedItemInfo_;
-    std::set<int32_t> pressedItem_;
+    std::map<int32_t, uint32_t> noDividerItems_;
     bool layouted_ = false;
+    bool isAxisChanged_ = false;
 
-    bool reCache_ = false;
+    bool isCacheDirty_ = false;
     int32_t backwardCachedIndex_ = INT_MAX;
     int32_t forwardCachedIndex_ = -1;
-    ListItemGroupLayoutAlgorithm::PositionMap cachedItemPosition_;
+    ListItemGroupPositionMap cachedItemPosition_;
     float adjustRefPos_ = 0.0f;
     float adjustTotalSize_ = 0.0f;
 
-    ListItemGroupLayoutAlgorithm::PositionMap itemPosition_;
+    ListItemGroupPositionMap itemPosition_;
     float spaceWidth_ = 0.0f;
     Axis axis_ = Axis::VERTICAL;
     int32_t lanes_ = 1;

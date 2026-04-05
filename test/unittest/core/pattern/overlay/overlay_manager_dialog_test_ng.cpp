@@ -20,10 +20,10 @@
 
 #define private public
 #define protected public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/error/error_code.h"
 #include "base/geometry/dimension.h"
@@ -38,8 +38,8 @@
 #include "core/components/dialog/dialog_properties.h"
 #include "core/components/dialog/dialog_theme.h"
 #include "core/components/drag_bar/drag_bar_theme.h"
-#include "core/components/picker/picker_data.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_data.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components/select/select_theme.h"
 #include "core/components/toast/toast_theme.h"
 #include "core/components_ng/base/view_abstract.h"
@@ -685,7 +685,9 @@ HWTEST_F(OverlayManagerDialogTestNg, DialogTest007, TestSize.Level1)
      * @tc.steps: step2. create overlayManager and call ShowDialog.
      * @tc.expected: DialogNode created successfully
      */
-    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(rootNode);
+    auto context = PipelineContext::GetCurrentContext();
+    ASSERT_NE(context, nullptr);
+    auto overlayManager = context->GetOverlayManager();
     auto dialog = overlayManager->ShowDialog(dialogProperties, nullptr, false);
     ASSERT_NE(dialog, nullptr);
     EXPECT_EQ(overlayManager->dialogMap_.size(), 1);
@@ -705,6 +707,16 @@ HWTEST_F(OverlayManagerDialogTestNg, DialogTest007, TestSize.Level1)
     ASSERT_NE(transitionEffect, nullptr);
     auto dialogScaleTransition = transitionEffect->GetNext();
     ASSERT_NE(dialogScaleTransition, nullptr);
+
+    /**
+     * @tc.steps: step5. remove dialog from parent.
+     * @tc.expected: dialogMap_ is empty.
+     */
+    auto root = context->GetRootElement();
+    ASSERT_NE(root, nullptr);
+    root->RemoveChild(root->GetLastChild());
+    root->RemoveChild(root->GetLastChild());
+    EXPECT_TRUE(overlayManager->dialogMap_.empty());
 }
 /**
  * @tc.name: DialogTest008

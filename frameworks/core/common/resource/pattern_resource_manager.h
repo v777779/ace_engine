@@ -20,39 +20,66 @@
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <variant>
 
 #include "base/memory/ace_type.h"
+#include "interfaces/inner_api/ace_kit/include/ui/base/geometry/calc_dimension.h"
 
 #include "core/common/resource/resource_object.h"
+#include "core/components/common/properties/color.h"
+#include "core/components/common/properties/text_enums.h"
 
 namespace OHOS::Ace {
+enum class ValueType {
+    UNKNOWN = 0,
+    CALDIMENSION,
+    COLOR,
+    DOUBLE,
+    DIMENSION,
+    FLOAT,
+    FONT_WEIGHT,
+    MEDIA,
+    STRING,
+    U16STRING,
+    VECTOR_STRING
+};
+
+using VariantValue = std::variant<std::string, std::u16string, float, double, Color, CalcDimension,
+    std::vector<std::string>, FontWeight>;
+
 class PropertyValueBase : public virtual AceType {
     DECLARE_ACE_TYPE(PropertyValueBase, AceType);
 public:
     virtual ~PropertyValueBase() = default;
-};
- 
-template<typename T>
-class PropertyValue : public PropertyValueBase {
-    DECLARE_ACE_TYPE(PropertyValue<T>, PropertyValueBase);
-public:
-    T value;
-    PropertyValue() : value() {}
-    explicit PropertyValue(const T& val) : value(val) {}
-    void SetValue(const T& value_)
+    VariantValue& GetValue()
     {
-        value = value_;
+        return value_;
     }
+    ValueType GetValueType()
+    {
+        return valueType_;
+    }
+    void SetValue(const VariantValue& value)
+    {
+        value_ = value;
+    }
+    void SetValueType(const ValueType& valueType)
+    {
+        valueType_ = valueType;
+    }
+private:
+    ValueType valueType_;
+    VariantValue value_;
 };
 
-class PatternResourceManager final : public AceType {
+class ACE_FORCE_EXPORT PatternResourceManager final : public AceType {
     DECLARE_ACE_TYPE(PatternResourceManager, AceType);
 
 public:
     PatternResourceManager() = default;
     ~PatternResourceManager() override = default;
 
-    void AddResource(
+    ACE_FORCE_EXPORT void AddResource(
         const std::string& key,
         const RefPtr<ResourceObject>& resObj,
         std::function<void(const RefPtr<ResourceObject>&)>&& updateFunc);
@@ -63,39 +90,64 @@ public:
 
     void RemoveResource(const std::string& key);
 
-    void ReloadResources();
+    ACE_FORCE_EXPORT void ReloadResources();
 
     bool Empty();
 
     template<typename T>
     void UpdateProperty(std::function<void(const std::string&, const RefPtr<PropertyValueBase>&)>&& propUpdateFunc,
-        const std::string& key, const RefPtr<ResourceObject>& resObj)
+        const std::string& key, const RefPtr<ResourceObject>& resObj, bool adaptMaterial = false)
     {
-        auto value = AceType::MakeRefPtr<PropertyValue<T>>();
-        ParsePropertyValue(resObj, value);
+        auto value = AceType::MakeRefPtr<PropertyValueBase>();
+        if constexpr (std::is_same_v<T, std::string>) {
+            value->SetValueType(ValueType::STRING);
+        } else if (std::is_same_v<T, std::u16string>) {
+            value->SetValueType(ValueType::U16STRING);
+        } else if constexpr(std::is_same_v<T, Color>) {
+            value->SetValueType(ValueType::COLOR);
+        } else if constexpr(std::is_same_v<T, double>) {
+            value->SetValueType(ValueType::DOUBLE);
+        } else if constexpr(std::is_same_v<T, CalcDimension>) {
+            value->SetValueType(ValueType::CALDIMENSION);
+        } else if constexpr(std::is_same_v<T, float>) {
+            value->SetValueType(ValueType::FLOAT);
+        } else if constexpr(std::is_same_v<T, std::vector<std::string>>) {
+            value->SetValueType(ValueType::VECTOR_STRING);
+        }
+        ParsePropertyValue(resObj, value, adaptMaterial);
         if (propUpdateFunc) {
             propUpdateFunc(key, value);
         }
     }
 
+    /**
+     * @param adaptMaterial Indicates whether the new material is adapted to special resources for color inversion.
+     * Only the Color type has differences. If the value is true, the color resolved from special resources will carry
+     * a non-NONE placeholder.
+     */
     template<typename T>
     void RegisterResource(std::function<void(const std::string&, const RefPtr<PropertyValueBase>&)>&& propUpdateFunc,
-        const std::string& key, const RefPtr<ResourceObject>& resObj, T value)
+        const std::string& key, const RefPtr<ResourceObject>& resObj, T value, bool adaptMaterial = false)
     {
-        auto&& updateFunc = [weakptr = AceType::WeakClaim(this), propUpdateFunc, key](
+        auto&& updateFunc = [weakptr = AceType::WeakClaim(this), propUpdateFunc, key, adaptMaterial](
                                 const RefPtr<ResourceObject>& resObj) mutable {
             auto manager = weakptr.Upgrade();
             if (manager) {
-                manager->UpdateProperty<T>(std::move(propUpdateFunc), key, resObj);
+                manager->UpdateProperty<T>(std::move(propUpdateFunc), key, resObj, adaptMaterial);
             }
         };
         AddResource(key, resObj, std::move(updateFunc));
-        if (propUpdateFunc) {
-            propUpdateFunc(key, AceType::MakeRefPtr<PropertyValue<T>>(value));
-        }
     }
 
-    void ParsePropertyValue(const RefPtr<ResourceObject>& resObj, RefPtr<PropertyValueBase> value);
+    /**
+     * @param adaptMaterial Indicates whether the new material is adapted to special resources for color inversion.
+     * Only the Color type has differences. If the value is true, the color resolved from special resources will carry
+     * a non-NONE placeholder.
+     */
+    ACE_FORCE_EXPORT void ParsePropertyValue(
+        const RefPtr<ResourceObject>& resObj, RefPtr<PropertyValueBase> value, bool adaptMaterial = false);
+
+    const std::vector<std::string>& GetResKeyArray();
 private:
     struct ResourceUpdater {
         RefPtr<ResourceObject> obj;

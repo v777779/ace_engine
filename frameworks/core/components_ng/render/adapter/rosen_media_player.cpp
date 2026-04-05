@@ -21,6 +21,7 @@
 #include "core/common/resource/resource_manager.h"
 #include "core/common/resource/resource_object.h"
 #include "core/common/resource/resource_wrapper.h"
+#include "core/components_ng/pattern/video/media_player_callback.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
@@ -30,6 +31,11 @@ constexpr float SPEED_1_00_X = 1.00;
 constexpr float SPEED_1_25_X = 1.25;
 constexpr float SPEED_1_75_X = 1.75;
 constexpr float SPEED_2_00_X = 2.00;
+constexpr float SPEED_0_50_X = 0.50;
+constexpr float SPEED_1_50_X = 1.50;
+constexpr float SPEED_3_00_X = 3.00;
+constexpr float SPEED_0_25_X = 0.25;
+constexpr float SPEED_0_125_X = 0.125;
 constexpr uint32_t MEDIA_RESOURCE_MATCH_SIZE = 2;
 const int32_t RAWFILE_PREFIX_LENGTH = strlen("resource://RAWFILE/");
 const std::regex MEDIA_RES_ID_REGEX(R"(^resource://\w+/([0-9]+)\.\w+$)", std::regex::icase);
@@ -63,8 +69,18 @@ OHOS::Media::PlaybackRateMode ConvertToMediaPlaybackSpeed(float speed)
         mode = OHOS::Media::PlaybackRateMode::SPEED_FORWARD_1_75_X;
     } else if (NearEqual(speed, SPEED_2_00_X)) {
         mode = OHOS::Media::PlaybackRateMode::SPEED_FORWARD_2_00_X;
+    } else if (NearEqual(speed, SPEED_0_50_X)) {
+        mode = OHOS::Media::PlaybackRateMode::SPEED_FORWARD_0_50_X;
+    } else if (NearEqual(speed, SPEED_1_50_X)) {
+        mode = OHOS::Media::PlaybackRateMode::SPEED_FORWARD_1_50_X;
+    } else if (NearEqual(speed, SPEED_3_00_X)) {
+        mode = OHOS::Media::PlaybackRateMode::SPEED_FORWARD_3_00_X;
+    } else if (NearEqual(speed, SPEED_0_25_X)) {
+        mode = OHOS::Media::PlaybackRateMode::SPEED_FORWARD_0_25_X;
+    } else if (NearEqual(speed, SPEED_0_125_X)) {
+        mode = OHOS::Media::PlaybackRateMode::SPEED_FORWARD_0_125_X;
     } else {
-        LOGW("speed is not supported yet.");
+        LOGW("speed [%{public}f] is not supported yet.", speed);
     }
     return mode;
 }
@@ -548,6 +564,20 @@ int32_t RosenMediaPlayer::SetPlayRangeUsWithMode(int64_t startTime, int64_t endT
     return mediaPlayer_->SetPlayRangeUsWithMode(startTime, endTime, ConvertToMediaSeekMode(mode));
 }
 
+int32_t RosenMediaPlayer::EnableCameraPostprocessing()
+{
+    LOGI("Media player start to EnableCameraPostprocessing.");
+    CHECK_NULL_RETURN(mediaPlayer_, -1);
+    return mediaPlayer_->EnableCameraPostprocessing();
+}
+ 
+int32_t RosenMediaPlayer::SetCameraPostprocessing(bool isOpen)
+{
+    LOGI("Media player start to SetCameraPostprocessing %{public}d.", isOpen);
+    CHECK_NULL_RETURN(mediaPlayer_, -1);
+    return mediaPlayer_->SetCameraPostprocessing(isOpen);
+}
+
 int32_t RosenMediaPlayer::SetParameter(const std::string& key, int64_t value)
 {
     LOGI("Media player start to SetParameter.");
@@ -555,6 +585,13 @@ int32_t RosenMediaPlayer::SetParameter(const std::string& key, int64_t value)
     Media::Format format;
     (void)format.PutIntValue(key, value);
     return mediaPlayer_->SetParameter(format);
+}
+
+int32_t RosenMediaPlayer::GetGlobalInfo(std::shared_ptr<OHOS::Media::Meta> &globalInfo)
+{
+    LOGI("Media player start to GetGlobalInfo.");
+    CHECK_NULL_RETURN(mediaPlayer_, -1);
+    return mediaPlayer_->GetGlobalInfo(globalInfo);
 }
 
 } // namespace OHOS::Ace::NG

@@ -30,12 +30,22 @@ class LocalStorage extends NativeLocalStorage {
 
   protected storage_: Map<string, ObservedPropertyAbstract<any>>;
 
-  public _getOriginStorageByInterop_(): Map<string, ObservedPropertyAbstract<any>> {
-    return this.storage_;
+  public _getOriginStorageByInterop_(): InteropStorage {
+    return this.storage_ as InteropStorage;
   }
 
   public _setOriginStorageByInterop_(value: Map<string, ObservedPropertyAbstract<any>>): void {
     this.storage_ = value;
+  }
+
+  private proxy?: Object;
+
+  public getProxy(): Object | undefined {
+    return this.proxy;
+  }
+
+  public setProxy(proxy: Object): void {
+    this.proxy = proxy;
   }
 
   /*

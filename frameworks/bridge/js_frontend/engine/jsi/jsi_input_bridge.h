@@ -16,13 +16,13 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_BRIDGE_JS_FRONTEND_ENGINE_JSI_JSI_INPUT_BRIDGE_H
 #define FOUNDATION_ACE_FRAMEWORKS_BRIDGE_JS_FRONTEND_ENGINE_JSI_JSI_INPUT_BRIDGE_H
 
-#include "frameworks/bridge/common/dom/dom_input.h"
+#include "frameworks/compatible/components/input/dom_input.h"
 #include "frameworks/bridge/js_frontend/engine/jsi/jsi_engine.h"
 
 namespace OHOS::Ace::Framework {
 
 class JsiInputBridge : virtual public AceType {
-    DECLARE_ACE_TYPE(JsiInputBridge, AceType)
+    DECLARE_ACE_TYPE(JsiInputBridge, AceType);
 
 public:
     void ParseInputOptions(const shared_ptr<JsRuntime>& runtime, const shared_ptr<JsValue>& valArray);

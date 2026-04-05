@@ -95,18 +95,20 @@ class ACE_EXPORT RepeatVirtualScroll2Node : public ForEachBaseNode {
 
 public:
     static RefPtr<RepeatVirtualScroll2Node> GetOrCreateRepeatNode(int32_t nodeId, uint32_t arrLen, uint32_t totalCount,
-        const std::function<std::pair<RIDType, uint32_t>(IndexType)>& onGetRid4Index,
+        const std::function<std::pair<RIDType, uint32_t>(IndexType, bool)>& onGetRid4Index,
         const std::function<void(IndexType, IndexType)>& onRecycleItems,
         const std::function<void(int32_t, int32_t, int32_t, int32_t, bool, bool)>& onActiveRange,
         const std::function<void(IndexType, IndexType)>& onMoveFromTo,
-        const std::function<void()>& onPurge);
+        const std::function<void()>& onPurge,
+        const std::function<void()>& onUpdateDirty);
 
     RepeatVirtualScroll2Node(int32_t nodeId, uint32_t arrLen, int32_t totalCount,
-        const std::function<std::pair<RIDType, uint32_t>(IndexType)>& onGetRid4Index,
+        const std::function<std::pair<RIDType, uint32_t>(IndexType, bool)>& onGetRid4Index,
         const std::function<void(IndexType, IndexType)>& onRecycleItems,
         const std::function<void(int32_t, int32_t, int32_t, int32_t, bool, bool)>& onActiveRange,
         const std::function<void(IndexType, IndexType)>& onMoveFromTo,
-        const std::function<void()>& onPurge);
+        const std::function<void()>& onPurge,
+        const std::function<void()>& onUpdateDirty);
 
     ~RepeatVirtualScroll2Node() override = default;
 
@@ -144,6 +146,7 @@ public:
      */
     const std::list<RefPtr<UINode>>& GetChildren(bool notDetach = false) const override;
 
+    const std::list<RefPtr<UINode>>& GetChildrenForInspector(bool needCacheNode = false) const override;
     /**
      * scenario: called by layout informs:
      *   - start: the first visible index
@@ -219,6 +222,10 @@ public:
     void SetJSViewActive(bool active = true, bool isLazyForEachNode = false, bool isReuse = false) override;
     void PaintDebugBoundaryTreeAll(bool flag) override;
 
+    bool IsAllowAnimation();
+    bool IsChildInAnimation(uint32_t rid);
+    bool IsChildOnMainTree(uint32_t rid);
+
     void RemoveNode(RIDType rid)
     {
         caches_.RemoveNode(rid);
@@ -234,11 +241,15 @@ public:
     // Repeat.rerender
     void UpdateL1Rid4Index(std::map<int32_t, uint32_t>& l1Rd4Index);
 
-
     void SetIsLoop(bool isLoop)
     {
         isLoop_ = isLoop;
     }
+
+    void fireOnUpdateDirty();
+
+    void DumpInfo() override;
+    
 
 private:
     RefPtr<UINode> GetFrameChildByIndexImpl(
@@ -284,7 +295,7 @@ private:
 
     // re-assembled by GetChildren called from idle task
     mutable std::list<RefPtr<UINode>> children_;
-
+    mutable std::list<RefPtr<UINode>> childrenWithCache_;
     int32_t startIndex_ = 0;
 
     // memorize parameters of previous DoSetActiveRange class
@@ -305,6 +316,7 @@ private:
     std::function<void(int32_t, int32_t, int32_t, int32_t, bool, bool)> onActiveRange_;
     std::function<void(IndexType, IndexType)> onMoveFromTo_;
     std::function<void()> onPurge_;
+    std::function<void()> onUpdateDirty_;
 
     // true in the time from requesting idle / predict task until exec predict tsk.
     bool postUpdateTaskHasBeenScheduled_;

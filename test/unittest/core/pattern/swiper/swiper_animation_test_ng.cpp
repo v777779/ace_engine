@@ -14,7 +14,7 @@
  */
 
 #include "swiper_test_ng.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
 
 #include "core/animation/spring_curve.h"
 
@@ -86,6 +86,7 @@ HWTEST_F(SwiperAnimationTestNg, SwiperPatternSpringAnimation001, TestSize.Level1
     pattern_->itemPosition_.emplace(std::make_pair(1, swiperItemInfo));
     pattern_->PlaySpringAnimation(dragVelocity);
     EXPECT_TRUE(pattern_->springAnimationIsRunning_);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::FLING);
 }
 
 /**
@@ -140,11 +141,14 @@ HWTEST_F(SwiperAnimationTestNg, SwiperPatternSpringAnimation003, TestSize.Level1
     swiperItemInfo.endPos = -1.0f;
     pattern_->itemPosition_.emplace(std::make_pair(1, swiperItemInfo));
     pattern_->PlaySpringAnimation(dragVelocity);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::FLING);
     pattern_->StopSpringAnimationAndFlushImmediately();
     EXPECT_FALSE(pattern_->springAnimationIsRunning_);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::IDLE);
     pattern_->springAnimationIsRunning_ = true;
     pattern_->StopSpringAnimationAndFlushImmediately();
     EXPECT_FALSE(pattern_->springAnimationIsRunning_);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::IDLE);
 }
 
 /**
@@ -200,8 +204,10 @@ HWTEST_F(SwiperAnimationTestNg, SwiperPatternSpringAnimation005, TestSize.Level1
     pattern_->PlaySpringAnimation(200.0f);
     // left align because children total size < swiper
     EXPECT_EQ(
-        AceType::DynamicCast<NodeAnimatablePropertyFloat>(frameNode_->GetAnimatablePropertyFloat("spring"))->Get(),
+        AceType::DynamicCast<AnimatablePropertyFloat>(frameNode_->GetAnimatablePropertyFloat("spring")->GetProperty())
+            ->GetStagingValue(),
         0.0f);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::FLING);
 }
 
 /**
@@ -223,8 +229,10 @@ HWTEST_F(SwiperAnimationTestNg, SwiperPatternSpringAnimation006, TestSize.Level1
     EXPECT_EQ(GetChildX(frameNode_, 0), 200.0f);
     pattern_->PlaySpringAnimation(200.0f);
     EXPECT_EQ(
-        AceType::DynamicCast<NodeAnimatablePropertyFloat>(frameNode_->GetAnimatablePropertyFloat("spring"))->Get(),
+        AceType::DynamicCast<AnimatablePropertyFloat>(frameNode_->GetAnimatablePropertyFloat("spring")->GetProperty())
+            ->GetStagingValue(),
         0.0f);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::FLING);
 }
 
 /**
@@ -567,8 +575,8 @@ HWTEST_F(SwiperAnimationTestNg, SwipeCustomAnimationTest003, TestSize.Level1)
  * @tc.desc: Test check onContentDidScroll info
  * @tc.type: FUNC
  */
- HWTEST_F(SwiperAnimationTestNg, SwipeCustomAnimationTest004, TestSize.Level1)
- {
+HWTEST_F(SwiperAnimationTestNg, SwipeCustomAnimationTest004, TestSize.Level1)
+{
     bool isTrigger = false;
     float finalPosition = 0.0f;
     auto onContentDidScroll = [&isTrigger, &finalPosition](
@@ -587,6 +595,47 @@ HWTEST_F(SwiperAnimationTestNg, SwipeCustomAnimationTest003, TestSize.Level1)
      * @tc.steps: step2. Show next page
      * @tc.expected: Animation event will be called, and final position is correct.
      */
+    EXPECT_TRUE(pattern_->SupportSwiperCustomAnimation());
+    pattern_->ShowNext();
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_TRUE(isTrigger);
+    EXPECT_LT(finalPosition, 0.0f);
+    EXPECT_GT(finalPosition, -1.0f);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_LT(finalPosition, -1.0f + 0.001f);
+}
+
+/**
+ * @tc.name: SwipeCustomAnimationTest005
+ * @tc.desc: Test check onContentDidScroll info
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperAnimationTestNg, SwipeCustomAnimationTest005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step2. create swiper.
+     */
+    bool isTrigger = false;
+    float finalPosition = 0.0f;
+    auto onContentDidScroll = [&isTrigger, &finalPosition](
+                                  int32_t selectedIndex, int32_t index, float position, float mainAxisLength) {
+        isTrigger = true;
+        if (index == 0) {
+            finalPosition = position;
+        }
+    };
+    SwiperModelNG model = CreateSwiper();
+    model.SetOnContentDidScroll(std::move(onContentDidScroll));
+    CreateSwiperItems();
+    CreateSwiperDone();
+
+    /**
+     * @tc.steps: step2. Show next page
+     * @tc.expected: Animation event will be called, and final position is correct.
+     */
+    pattern_->fastCurrentIndex_ = 0;
     EXPECT_TRUE(pattern_->SupportSwiperCustomAnimation());
     pattern_->ShowNext();
     MockAnimationManager::GetInstance().Tick();
@@ -690,16 +739,19 @@ HWTEST_F(SwiperAnimationTestNg, StopTranslateAnimation001, TestSize.Level1)
      */
     pattern_->ShowPrevious();
     EXPECT_TRUE(pattern_->propertyAnimationIsRunning_);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::FLING);
     EXPECT_EQ(GetChildX(frameNode_, 2), -480.0f);
     EXPECT_EQ(GetChildX(frameNode_, 3), -240.0f);
     MockAnimationManager::GetInstance().Tick();
     EXPECT_TRUE(pattern_->propertyAnimationIsRunning_);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::FLING);
     for (int i = 0; i < 4; ++i) {
         EXPECT_EQ(
             GetChildFrameNode(frameNode_, i)->GetRenderContext()->GetTranslateXYProperty(), OffsetF(240.0f, 0.0f));
     }
     pattern_->FinishAnimation();
     EXPECT_FALSE(pattern_->propertyAnimationIsRunning_);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::IDLE);
     // jumped to final position
     EXPECT_EQ(pattern_->currentIndex_, -2);
     EXPECT_EQ(GetChildX(frameNode_, 2), 0.0f);
@@ -710,14 +762,17 @@ HWTEST_F(SwiperAnimationTestNg, StopTranslateAnimation001, TestSize.Level1)
      */
     pattern_->ShowNext();
     EXPECT_TRUE(pattern_->propertyAnimationIsRunning_);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::FLING);
     MockAnimationManager::GetInstance().Tick();
     EXPECT_TRUE(pattern_->propertyAnimationIsRunning_);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::FLING);
     for (int i = 0; i < 4; ++i) {
         EXPECT_EQ(
             GetChildFrameNode(frameNode_, i)->GetRenderContext()->GetTranslateXYProperty(), OffsetF(-240.0f, 0.0f));
     }
     MockAnimationManager::GetInstance().Tick();
     EXPECT_FALSE(pattern_->propertyAnimationIsRunning_);
+    EXPECT_EQ(pattern_->scrollState_, ScrollState::IDLE);
     FlushUITasks();
     EXPECT_FALSE(GetChildFrameNode(frameNode_, 3)->IsActive());
     EXPECT_EQ(GetChildX(frameNode_, 0), 0.0f);
@@ -933,6 +988,39 @@ HWTEST_F(SwiperAnimationTestNg, ShowNextAnimation004, TestSize.Level1)
     EXPECT_FALSE(pattern_->propertyAnimationIsRunning_);
     EXPECT_EQ(GetChildX(frameNode_, 1), 0.0f);
     EXPECT_EQ(pattern_->currentIndex_, 1);
+}
+
+/**
+ * @tc.name: ShowNextAnimation005
+ * @tc.desc: Start property animation with showNext.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperAnimationTestNg, ShowNextAnimation005, TestSize.Level1)
+{
+    /**
+     * @tc.expected: Related function is called.
+     */
+    SwiperModelNG model = CreateSwiper();
+    CreateSwiperItems();
+    CreateSwiperDone();
+    bool flag = false;
+    /**
+     * @tc.steps: step2. ShowNext and ContentWillScrollResult is false.
+     * @tc.expected: stopIndicatorAnimationFunc need not to be called.
+     */
+    pattern_->stopIndicatorAnimationFunc_ = [&flag](bool ifImmediately) { flag = true; };
+    pattern_->onContentWillScroll_ =
+        std::make_shared<ContentWillScrollEvent>([](const SwiperContentWillScrollResult& result) { return false; });
+    pattern_->ShowNext(true);
+    EXPECT_EQ(flag, false);
+    /**
+     * @tc.steps: step3. ShowNext and ContentWillScrollResult is true.
+     * @tc.expected: stopIndicatorAnimationFunc need to be called.
+     */
+    pattern_->onContentWillScroll_ =
+        std::make_shared<ContentWillScrollEvent>([](const SwiperContentWillScrollResult& result) { return true; });
+    pattern_->ShowNext(true);
+    EXPECT_EQ(flag, true);
 }
 
 /**
@@ -1177,6 +1265,40 @@ HWTEST_F(SwiperAnimationTestNg, ShowPreviousAnimation005, TestSize.Level1)
 }
 
 /**
+ * @tc.name: ShowPreviousAnimation006
+ * @tc.desc: Start property animation with showNext.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperAnimationTestNg, ShowPreviousAnimation006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create Swiper.
+     * @tc.expected: Related function is called.
+     */
+    SwiperModelNG model = CreateSwiper();
+    CreateSwiperItems();
+    CreateSwiperDone();
+    bool flag = false;
+    /**
+     * @tc.steps: step2. ShowPrevious and ContentWillScrollResult is false.
+     * @tc.expected: stopIndicatorAnimationFunc need not to be called.
+     */
+    pattern_->stopIndicatorAnimationFunc_ = [&flag](bool ifImmediately) { flag = true; };
+    pattern_->onContentWillScroll_ =
+        std::make_shared<ContentWillScrollEvent>([](const SwiperContentWillScrollResult& result) { return false; });
+    pattern_->ShowPrevious(true);
+    EXPECT_EQ(flag, false);
+    /**
+     * @tc.steps: step3. ShowPrevious and ContentWillScrollResult is true.
+     * @tc.expected: stopIndicatorAnimationFunc need to be called.
+     */
+    pattern_->onContentWillScroll_ =
+        std::make_shared<ContentWillScrollEvent>([](const SwiperContentWillScrollResult& result) { return true; });
+    pattern_->ShowPrevious(true);
+    EXPECT_EQ(flag, true);
+}
+
+/**
  * @tc.name: StopAnimate001
  * @tc.desc: Test change index with animate, and force stop when animate running
  * @tc.desc: Would change index decided by currentOffset
@@ -1364,266 +1486,5 @@ HWTEST_F(SwiperAnimationTestNg, FastAnimation001, TestSize.Level1)
     pattern_->currentIndex_ = SWIPE_FOUR;
     pattern_->FastAnimation(-SWIPE_FOUR);
     EXPECT_EQ(pattern_->currentIndex_, SWIPE_ONE);
-}
-
-/**
- * @tc.name: GetCurrentIndex001
- * @tc.desc: Test GetCurrentIndex
- * @tc.desc: Test GetCurrentIndex
- * @tc.type: FUNC
- */
-HWTEST_F(SwiperAnimationTestNg, GetCurrentIndex001, TestSize.Level1)
-{
-    SwiperModelNG model = CreateSwiper();
-    CreateSwiperItems();
-    CreateSwiperDone();
-    ASSERT_NE(pattern_, nullptr);
-
-    pattern_->targetIndex_ = SWIPE_ONE;
-    pattern_->fastCurrentIndex_ = SWIPE_ONE;
-    pattern_->currentIndex_ = 0;
-    EXPECT_EQ(pattern_->GetCurrentIndex(true), SWIPE_ONE);
-
-    pattern_->targetIndex_ = 0;
-    pattern_->fastCurrentIndex_ = SWIPE_ONE;
-    pattern_->currentIndex_ = 0;
-    EXPECT_EQ(pattern_->GetCurrentIndex(true), pattern_->currentIndex_);
-}
-
-/**
- * @tc.name: IsInFastAnimation001
- * @tc.desc: Test IsInFastAnimation
- * @tc.desc: Test IsInFastAnimation
- * @tc.type: FUNC
- */
-HWTEST_F(SwiperAnimationTestNg, IsInFastAnimation001, TestSize.Level1)
-{
-    SwiperModelNG model = CreateSwiper();
-    CreateSwiperItems();
-    CreateSwiperDone();
-    ASSERT_NE(pattern_, nullptr);
-
-    EXPECT_FALSE(pattern_->IsInFastAnimation());
-
-    pattern_->tabAnimationMode_ = TabAnimateMode::CONTENT_FIRST_WITH_JUMP;
-    pattern_->targetIndex_.reset();
-    pattern_->propertyAnimationIsRunning_ = true;
-    EXPECT_TRUE(pattern_->IsInFastAnimation());
-    pattern_->propertyAnimationIsRunning_ = false;
-    EXPECT_FALSE(pattern_->IsInFastAnimation());
-
-    pattern_->targetIndex_ = 1;
-    EXPECT_TRUE(pattern_->IsInFastAnimation());
-    pattern_->propertyAnimationIsRunning_ = true;
-    EXPECT_TRUE(pattern_->IsInFastAnimation());
-    pattern_->propertyAnimationIsRunning_ = false;
-    EXPECT_TRUE(pattern_->IsInFastAnimation());
-}
-
-/**
- * @tc.name: ComputeTargetIndex001
- * @tc.desc: Test ComputeTargetIndex
- * @tc.desc: Test ComputeTargetIndex
- * @tc.type: FUNC
- */
-HWTEST_F(SwiperAnimationTestNg, ComputeTargetIndex001, TestSize.Level1)
-{
-    SwiperModelNG model = CreateSwiper();
-    CreateSwiperItems();
-    CreateSwiperDone();
-    ASSERT_NE(pattern_, nullptr);
-
-    int32_t targetIndex = 0;
-    pattern_->targetIndex_ = SWIPE_ONE;
-    pattern_->currentIndex_ = 0;
-    EXPECT_TRUE(pattern_->ComputeTargetIndex(0, targetIndex));
-    EXPECT_FALSE(pattern_->ComputeTargetIndex(SWIPE_ONE, targetIndex));
-}
-
-/**
- * @tc.name: ChangeIndex001
- * @tc.desc: Test ChangeIndex and SetSwiperToIndex
- * @tc.desc: Test ChangeIndex and SetSwiperToIndex
- * @tc.type: FUNC
- */
-HWTEST_F(SwiperAnimationTestNg, ChangeIndex001, TestSize.Level1)
-{
-    SwiperModelNG model = CreateSwiper();
-    CreateSwiperItems();
-    CreateSwiperDone();
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_NE(controller_, nullptr);
-
-    pattern_->targetIndex_ = SWIPE_ONE;
-    pattern_->currentIndex_ = 0;
-    controller_->ChangeIndex(SWIPE_ONE, SwiperAnimationMode::NO_ANIMATION);
-    FlushUITasks();
-    EXPECT_EQ(GetChildX(frameNode_, 0), 0.0f);
-
-    pattern_->targetIndex_ = SWIPE_ONE;
-    pattern_->currentIndex_ = 0;
-    controller_->ChangeIndex(SWIPE_THREE, SwiperAnimationMode::NO_ANIMATION);
-    FlushUITasks();
-    EXPECT_EQ(GetChildX(frameNode_, SWIPE_THREE), 0.0f);
-
-    ASSERT_NE(frameNode_, nullptr);
-    FrameNode* frameNode = static_cast<FrameNode*>(Referenced::RawPtr(frameNode_));
-    ASSERT_NE(frameNode, nullptr);
-    model.SetSwiperToIndex(frameNode, SWIPE_ONE, SwiperAnimationMode::NO_ANIMATION);
-    FlushUITasks();
-    EXPECT_EQ(GetChildX(frameNode_, SWIPE_ONE), 0.0f);
-}
-
-/**
- * @tc.name: CalcComingIndex
- * @tc.desc: Test CalcComingIndex
- * @tc.desc: Test CalcComingIndex
- * @tc.type: FUNC
- */
-HWTEST_F(SwiperAnimationTestNg, CalcComingIndex001, TestSize.Level1)
-{
-    SwiperModelNG model = CreateSwiper();
-    CreateSwiperItems();
-    CreateSwiperDone();
-    ASSERT_NE(pattern_, nullptr);
-    EXPECT_EQ(pattern_->currentIndex_, 0);
-
-    GestureEvent event;
-    event.SetMainDelta(-10.0f);
-    pattern_->panEvent_->actionStart_(event);
-    pattern_->panEvent_->actionUpdate_(event);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->CalcComingIndex(-10.0f), 1);
-    event.SetMainVelocity(0.0f);
-    pattern_->HandleTouchUp();
-    pattern_->panEvent_->actionEnd_(event);
-
-    event.SetMainDelta(10.0f);
-    pattern_->panEvent_->actionStart_(event);
-    pattern_->panEvent_->actionUpdate_(event);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->CalcComingIndex(10.0f), 3);
-}
-
-/**
- * @tc.name: CalcComingIndex
- * @tc.desc: Test CalcComingIndex
- * @tc.desc: Test CalcComingIndex
- * @tc.type: FUNC
- */
-HWTEST_F(SwiperAnimationTestNg, CalcComingIndex002, TestSize.Level1)
-{
-    SwiperModelNG model = CreateSwiper();
-    model.SetLoop(false);
-    CreateSwiperItems();
-    CreateSwiperDone();
-    ASSERT_NE(pattern_, nullptr);
-    EXPECT_EQ(pattern_->currentIndex_, 0);
-
-    GestureEvent event;
-    event.SetMainDelta(10.0f);
-    pattern_->panEvent_->actionStart_(event);
-    pattern_->panEvent_->actionUpdate_(event);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->CalcComingIndex(10.0f), 0);
-    event.SetMainVelocity(0.0f);
-    pattern_->HandleTouchUp();
-    pattern_->panEvent_->actionEnd_(event);
-
-    pattern_->SwipeToWithoutAnimation(3);
-    FlushUITasks();
-
-    event.SetMainDelta(-10.0f);
-    pattern_->panEvent_->actionStart_(event);
-    pattern_->panEvent_->actionUpdate_(event);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->CalcComingIndex(-10.0f), 3);
-}
-
-/**
- * @tc.name: CalcComingIndex
- * @tc.desc: Test CalcComingIndex
- * @tc.desc: Test CalcComingIndex
- * @tc.type: FUNC
- */
-HWTEST_F(SwiperAnimationTestNg, CalcComingIndex003, TestSize.Level1)
-{
-    SwiperModelNG model = CreateSwiper();
-    model.SetDisplayCount(2);
-    model.SetSwipeByGroup(true);
-    CreateSwiperItems(5);
-    CreateSwiperDone();
-    ASSERT_NE(pattern_, nullptr);
-    EXPECT_EQ(pattern_->currentIndex_, 0);
-
-    GestureEvent event;
-    event.SetMainDelta(-10.0f);
-    pattern_->panEvent_->actionStart_(event);
-    pattern_->panEvent_->actionUpdate_(event);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->CalcComingIndex(-10.0f), 2);
-    event.SetMainVelocity(0.0f);
-    pattern_->HandleTouchUp();
-    pattern_->panEvent_->actionEnd_(event);
-
-    event.SetMainDelta(10.0f);
-    pattern_->panEvent_->actionStart_(event);
-    pattern_->panEvent_->actionUpdate_(event);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->CalcComingIndex(10.0f), 4);
-}
-
-/**
- * @tc.name: CalcComingIndex
- * @tc.desc: Test CalcComingIndex
- * @tc.desc: Test CalcComingIndex
- * @tc.type: FUNC
- */
-HWTEST_F(SwiperAnimationTestNg, CalcComingIndex004, TestSize.Level1)
-{
-    SwiperModelNG model = CreateSwiper();
-    model.SetLoop(false);
-    model.SetDisplayCount(2);
-    model.SetSwipeByGroup(true);
-    CreateSwiperItems(5);
-    CreateSwiperDone();
-    ASSERT_NE(pattern_, nullptr);
-    EXPECT_EQ(pattern_->currentIndex_, 0);
-
-    GestureEvent event;
-    event.SetMainDelta(10.0f);
-    pattern_->panEvent_->actionStart_(event);
-    pattern_->panEvent_->actionUpdate_(event);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->CalcComingIndex(10.0f), 0);
-    event.SetMainVelocity(0.0f);
-    pattern_->HandleTouchUp();
-    pattern_->panEvent_->actionEnd_(event);
-
-    pattern_->SwipeToWithoutAnimation(4);
-    FlushUITasks();
-
-    event.SetMainDelta(-10.0f);
-    pattern_->panEvent_->actionStart_(event);
-    pattern_->panEvent_->actionUpdate_(event);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->CalcComingIndex(-10.0f), 4);
-}
-
-/**
- * @tc.name: CalcWillScrollOffset
- * @tc.desc: Test CalcWillScrollOffset
- * @tc.desc: Test CalcWillScrollOffset
- * @tc.type: FUNC
- */
-HWTEST_F(SwiperAnimationTestNg, CalcWillScrollOffset001, TestSize.Level1)
-{
-    SwiperModelNG model = CreateSwiper();
-    CreateSwiperItems();
-    CreateSwiperDone();
-    ASSERT_NE(pattern_, nullptr);
-    EXPECT_EQ(pattern_->currentIndex_, 0);
-
-    EXPECT_EQ(pattern_->CalcWillScrollOffset(1), 480.0f);
 }
 } // namespace OHOS::Ace::NG

@@ -53,7 +53,7 @@ public:
     bool CloseCurrent(bool animation, CloseReason reason);
     void CloseWithOverlayId(int32_t overlayId, CloseReason reason, bool animation);
     void ShowOptionMenu();
-    void HideOptionMenu(bool noAnimation = false);
+    void HideOptionMenu(bool noAnimation = false, bool showSubMenu = false);
     void ToggleOptionMenu();
     void DisableMenu();
     void EnableMenu();
@@ -61,11 +61,11 @@ public:
     void HandleGlobalEvent(const TouchEvent& touchPoint, const NG::OffsetF& rootOffset);
     void SetHoldSelectionCallback(int32_t id, const HoldSelectionInfo& selectionInfo);
     void RemoveHoldSelectionCallback(int32_t id);
-    void MarkInfoChange(SelectOverlayDirtyFlag dirtyFlag);
+    ACE_FORCE_EXPORT void MarkInfoChange(SelectOverlayDirtyFlag dirtyFlag);
     void MarkSelectOverlayDirty(PropertyChangeFlag changeFlag);
-    bool IsMenuShow();
-    bool IsSingleHandle();
-    bool IsHandlesShow();
+    ACE_FORCE_EXPORT bool IsMenuShow();
+    ACE_FORCE_EXPORT bool IsSingleHandle();
+    ACE_FORCE_EXPORT bool IsHandlesShow();
     bool IsHandleReverse();
     void ResetSelectionRect();
     void RestartHiddenHandleTask(bool isDelay);
@@ -90,11 +90,12 @@ public:
     void NotifyUpdateToolBar(bool itemChanged, bool withoutAnimation = false);
     void SwitchToHandleMode(HandleLevelMode mode, bool forceChange = true);
     float GetHandleDiameter();
-    void ConvertPointRelativeToNode(const RefPtr<FrameNode>& node, PointF& point);
+    void ConvertPointRelativeToNode(const RefPtr<FrameNode>& node, PointF& point, bool passThrough = false);
     bool IsTouchAtHandle(const PointF& localPoint, const PointF& globalPoint);
-    void SetHandleCircleIsShow(bool isFirst, bool isShow);
-    void SetIsHandleLineShow(bool isShow);
-    void MarkHandleDirtyNode(PropertyChangeFlag flag);
+    void UpdateViewPort();
+    ACE_FORCE_EXPORT void SetHandleCircleIsShow(bool isFirst, bool isShow);
+    ACE_FORCE_EXPORT void SetIsHandleLineShow(bool isShow);
+    ACE_FORCE_EXPORT void MarkHandleDirtyNode(PropertyChangeFlag flag);
     bool IsHiddenHandle();
     void ConvertHandleRelativeToParent(SelectHandleInfo& info);
     void ConvertRectRelativeToParent(RectF& rect);
@@ -105,7 +106,12 @@ public:
     bool IsSelectOverlaySubWindowMenu();
     void FocusFirstFocusableChildInMenu();
     void NotifyAccessibilityOwner();
-    static bool IsPasteOption(const RefPtr<UINode>& node);
+    void UpdateIsSingleHandle(bool isSingleHandle);
+    static RefPtr<UINode> GetSecurityPasteButtonNode(const RefPtr<UINode>& node);
+
+    int32_t GetTextSelectionHolderId();
+    void SetTextSelectionHolderId(int32_t id);
+    void RemoveTextSelectionHolderId(int32_t id);
 
 private:
     void SetHolder(const RefPtr<SelectOverlayHolder>& holder);
@@ -146,6 +152,7 @@ private:
     std::function<void(std::string)> MakeMenuCallbackWithInfo
         (OptionMenuActionId actionId, const SelectOverlayInfo& info);
     void HandleDirtyViewPort(RefPtr<SelectContentOverlayPattern>& menuPattern);
+    bool HandleMenuVisibilityChanged(bool isVisible);
 
     RefPtr<SelectOverlayHolder> selectOverlayHolder_;
     WeakPtr<FrameNode> selectOverlayNode_;
@@ -158,6 +165,8 @@ private:
     LegacyManagerCallbacks legacyManagerCallbacks_;
     bool isIntercept_ = false;
     int32_t containerId_ = -1;
+
+    int32_t textSelectHolderId_ = -1;
 
     ACE_DISALLOW_COPY_AND_MOVE(SelectContentOverlayManager);
 };

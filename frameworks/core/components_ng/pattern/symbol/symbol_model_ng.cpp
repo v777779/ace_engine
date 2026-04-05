@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -26,7 +26,20 @@ void SymbolModelNG::Create(const std::uint32_t& unicode)
     CHECK_NULL_VOID(stack);
     auto nodeId = stack->ClaimNodeId();
     auto symbolNode = FrameNode::GetOrCreateFrameNode(
-        V2::SYMBOL_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<TextPattern>(); });
+        "SymbolGlyph", nodeId, []() { return AceType::MakeRefPtr<TextPattern>(); });
+
+    stack->Push(symbolNode);
+    
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolSourceInfo, SymbolSourceInfo{unicode});
+}
+
+void SymbolModelNG::CreateSymbolGlyph(const std::uint32_t& unicode)
+{
+    auto* stack = ViewStackProcessor::GetInstance();
+    CHECK_NULL_VOID(stack);
+    auto nodeId = stack->ClaimNodeId();
+    auto symbolNode = FrameNode::GetOrCreateFrameNode(
+        "SymbolGlyph", nodeId, []() { return AceType::MakeRefPtr<TextPattern>(); });
 
     stack->Push(symbolNode);
     
@@ -36,7 +49,7 @@ void SymbolModelNG::Create(const std::uint32_t& unicode)
 RefPtr<FrameNode> SymbolModelNG::CreateFrameNode(int32_t nodeId)
 {
     auto symbolNode = FrameNode::GetOrCreateFrameNode(
-        V2::SYMBOL_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<TextPattern>(); });
+        "SymbolGlyph", nodeId, []() { return AceType::MakeRefPtr<TextPattern>(); });
     return symbolNode;
 }
 
@@ -50,7 +63,17 @@ void SymbolModelNG::SetFontFamilies(std::vector<std::string>& value)
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, FontFamily, value);
 }
 
+void SymbolModelNG::SetSymbolFontFamilies(std::vector<std::string>& value)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, FontFamily, value);
+}
+
 void SymbolModelNG::SetSymbolType(SymbolType value)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolType, value);
+}
+
+void SymbolModelNG::SetSymbolGlyphType(SymbolType value)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolType, value);
 }
@@ -68,6 +91,11 @@ void SymbolModelNG::SetSymbolRenderingStrategy(const std::uint32_t renderingStra
 void SymbolModelNG::SetFontColor(std::vector<Color>& symbolColor)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolColorList, symbolColor);
+    if (!symbolColor.empty()) {
+        ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, TextColorFlagByUser, true);
+    } else {
+        ACE_RESET_LAYOUT_PROPERTY(TextLayoutProperty, TextColorFlagByUser);
+    }
 }
 
 void SymbolModelNG::SetSymbolEffect(const std::uint32_t effectStrategy)
@@ -78,6 +106,12 @@ void SymbolModelNG::SetSymbolEffect(const std::uint32_t effectStrategy)
 void SymbolModelNG::SetClipEdge()
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    frameNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+}
+
+void SymbolModelNG::SetClipEdge(FrameNode* frameNode)
+{
     CHECK_NULL_VOID(frameNode);
     frameNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
 }
@@ -110,10 +144,16 @@ void SymbolModelNG::SetMaxFontScale(const float value)
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, MaxFontScale, value);
 }
 
-void SymbolModelNG::RegisterSymbolFontColorResource(const std::string& key,
-    std::vector<Color>& symbolColor, const std::vector<std::pair<int32_t, RefPtr<ResourceObject>>>& resObjArr)
+void SymbolModelNG::RegisterSymbolFontColorResource(const std::string& key, std::vector<Color>& symbolColor,
+    const std::vector<std::pair<int32_t, RefPtr<ResourceObject>>>& resObjArr)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    RegisterSymbolFontColorResource(frameNode, key, symbolColor, resObjArr);
+}
+
+void SymbolModelNG::RegisterSymbolFontColorResource(FrameNode* frameNode, const std::string& key,
+    std::vector<Color>& symbolColor, const std::vector<std::pair<int32_t, RefPtr<ResourceObject>>>& resObjArr)
+{
     CHECK_NULL_VOID(frameNode);
     auto pattern = frameNode->GetPattern<TextPattern>();
     CHECK_NULL_VOID(pattern);
@@ -129,23 +169,29 @@ void SymbolModelNG::RegisterSymbolFontColorResource(const std::string& key,
             auto layoutProperty = host->GetLayoutProperty<TextLayoutProperty>();
             CHECK_NULL_VOID(layoutProperty);
             Color fontColor;
-            ResourceParseUtils::ParseResColor(resObj, fontColor);
+            ResourceParseUtils::ParseResColor(resObj, fontColor, true);
             auto colorVec = layoutProperty->GetSymbolColorList();
             if (colorVec.has_value() && GreatNotEqual(colorVec.value().size(), resObjIndex)) {
                 auto colorVecArr = colorVec.value();
                 colorVecArr[resObjIndex] = fontColor;
                 layoutProperty->UpdateSymbolColorList(colorVecArr);
             }
+            host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
         };
 
         pattern->AddResObj(storeKey, resObj, std::move(updateFunc));
     }
-    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolColorList, symbolColor);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolColorList, symbolColor, frameNode);
 }
 
 void SymbolModelNG::SetFontColor(FrameNode* frameNode, const std::vector<Color>& symbolColor)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolColorList, symbolColor, frameNode);
+    if (!symbolColor.empty()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextColorFlagByUser, true, frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextColorFlagByUser, frameNode);
+    }
 }
 
 void SymbolModelNG::SetFontSize(FrameNode* frameNode, const Dimension& value)
@@ -194,6 +240,23 @@ void SymbolModelNG::SetSymbolEffectOptions(FrameNode* frameNode, SymbolEffectOpt
     CHECK_NULL_VOID(property);
     auto lastSymbolEffectOptions = property->GetSymbolEffectOptionsValue(SymbolEffectOptions());
     symbolEffectOptions.UpdateFlags(lastSymbolEffectOptions);
+    bool isLoopAnimation = false;
+    if (symbolEffectOptions.GetEffectType() == SymbolEffectType::PULSE ||
+        (symbolEffectOptions.GetEffectType() == SymbolEffectType::HIERARCHICAL &&
+            symbolEffectOptions.GetFillStyle() == FillStyle::ITERATIVE)) {
+        isLoopAnimation = symbolEffectOptions.GetIsTxtActive();
+    }
+    property->SetIsLoopAnimation(isLoopAnimation);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolEffectOptions, symbolEffectOptions, frameNode);
+}
+
+void SymbolModelNG::SetSymbolEffect(FrameNode* frameNode, SymbolEffectOptions& symbolEffectOptions)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto property = frameNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_VOID(property);
+    auto lastSymbolEffectOptions = property->GetSymbolEffectOptionsValue(SymbolEffectOptions());
+    symbolEffectOptions.UpdateFlags(lastSymbolEffectOptions);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolEffectOptions, symbolEffectOptions, frameNode);
 }
 
@@ -234,12 +297,33 @@ void SymbolModelNG::UpdateSymbolEffect(FrameNode* frameNode, const std::uint32_t
 
 void SymbolModelNG::SetSymbolShadow(const SymbolShadow& symbolShadow)
 {
-    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolShadow, symbolShadow);
+    auto *frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetSymbolShadow(frameNode, symbolShadow);
 }
 
 void SymbolModelNG::SetSymbolShadow(FrameNode* frameNode, const SymbolShadow& symbolShadow)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolShadow, symbolShadow, frameNode);
+    SetSymbolShadowResObj(frameNode, symbolShadow);
+}
+
+void SymbolModelNG::SetSymbolShadowResObj(FrameNode* frameNode, const SymbolShadow& symbolShadow)
+{
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
+    auto pattern = frameNode->GetPattern();
+    CHECK_NULL_VOID(pattern);
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
+    auto&& updateFunc = [symbolShadow, weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+        auto frameNode = weak.Upgrade();
+        if (!frameNode) {
+            return;
+        }
+        SymbolShadow& symbolShadowVal = const_cast<SymbolShadow&>(symbolShadow);
+        symbolShadowVal.ReloadResources();
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, SymbolShadow, symbolShadowVal, frameNode);
+    };
+    pattern->AddResObj("symbolShadow", resObj, std::move(updateFunc));
 }
 
 void SymbolModelNG::SetShaderStyle(const std::vector<SymbolGradient>& shaderStyle)
@@ -250,5 +334,15 @@ void SymbolModelNG::SetShaderStyle(const std::vector<SymbolGradient>& shaderStyl
 void SymbolModelNG::SetShaderStyle(FrameNode* frameNode, const std::vector<SymbolGradient>& shaderStyle)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, ShaderStyle, shaderStyle, frameNode);
+}
+
+void SymbolModelNG::ResetShaderStyle()
+{
+    ACE_RESET_LAYOUT_PROPERTY(TextLayoutProperty, ShaderStyle);
+}
+
+void SymbolModelNG::ResetShaderStyle(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, ShaderStyle, frameNode);
 }
 } // namespace OHOS::Ace::NG

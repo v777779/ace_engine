@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -21,33 +21,43 @@
 #include <unordered_map>
 #include <vector>
 
-#include "core/accessibility/accessibility_node.h"
+#include "base/utils/macros.h"
 #include "core/components/common/properties/animation_option.h"
+#include "core/components/flex/flex_component.h"
 #include "core/components/grid_layout/grid_layout_component.h"
 #include "core/pipeline/base/component.h"
-#include "frameworks/core/components/box/box_component.h"
 #include "frameworks/core/components/checkable/radio_group_component.h"
-#include "frameworks/core/components/coverage/coverage_component.h"
-#include "frameworks/core/components/display/display_component.h"
 #include "frameworks/core/components/flex/flex_item_component.h"
 #include "frameworks/core/components/focusable/focusable_component.h"
-#include "frameworks/core/components/gesture_listener/gesture_component.h"
-#include "frameworks/core/components/gesture_listener/gesture_listener_component.h"
-#include "frameworks/core/components/menu/menu_component.h"
-#include "frameworks/core/components/mouse_listener/mouse_listener_component.h"
-#include "frameworks/core/components/navigation_bar/navigation_container_component.h"
 #include "frameworks/core/components/page_transition/page_transition_component.h"
-#include "frameworks/core/components/scroll/scroll_component.h"
-#include "frameworks/core/components/stepper/stepper_item_component.h"
+#include "frameworks/core/components_v2/inspector/inspector_composed_component.h"
 #ifndef WEARABLE_PRODUCT
 #include "frameworks/core/components/popup/popup_component_v2.h"
 #endif
 #include "core/pipeline/base/element_register.h"
-#include "frameworks/core/components/positioned/positioned_component.h"
-#include "frameworks/core/components/shared_transition/shared_transition_component.h"
-#include "frameworks/core/components/touch_listener/touch_listener_component.h"
-#include "frameworks/core/components/transform/transform_component.h"
-#include "frameworks/core/components_v2/inspector/inspector_composed_component.h"
+
+namespace OHOS::Ace {
+class AccessibilityManager;
+class BoxComponent;
+class CoverageComponent;
+class DisplayComponent;
+class FlexItemComponent;
+class FocusableComponent;
+class MenuComponent;
+class MouseListenerComponent;
+class GestureListenerComponent;
+class GestureComponent;
+class PageTransitionComponent;
+class PositionedComponent;
+class ScrollComponent;
+class SharedTransitionComponent;
+class TouchListenerComponent;
+class TransformComponent;
+} // namespace OHOS::Ace
+
+namespace OHOS::Ace::V2 {
+class InspectorComposedComponent;
+} // namespace OHOS::Ace::V2
 
 namespace OHOS::Ace::Framework {
     using JsPageRadioGroups = std::unordered_map<std::string, RadioGroupComponent<std::string>>;
@@ -61,22 +71,22 @@ public:
     ACE_FORCE_EXPORT static ViewStackProcessor* GetInstance();
     ~ViewStackProcessor() = default;
     // possible wrapping components
-    RefPtr<FlexItemComponent> GetFlexItemComponent();
-    RefPtr<StepperItemComponent> GetStepperItemComponent();
-    RefPtr<DisplayComponent> GetStepperDisplayComponent();
-    RefPtr<ScrollComponent> GetStepperScrollComponent();
-    RefPtr<BoxComponent> GetBoxComponent();
-    RefPtr<Component> GetMainComponent() const;
+    ACE_FORCE_EXPORT RefPtr<FlexItemComponent> GetFlexItemComponent();
+    ACE_FORCE_EXPORT RefPtr<Component> GetStepperItemComponent();
+    ACE_FORCE_EXPORT RefPtr<DisplayComponent> GetStepperDisplayComponent();
+    ACE_FORCE_EXPORT RefPtr<ScrollComponent> GetStepperScrollComponent();
+    ACE_FORCE_EXPORT RefPtr<BoxComponent> GetBoxComponent();
+    ACE_FORCE_EXPORT RefPtr<Component> GetMainComponent() const;
     RefPtr<DisplayComponent> GetDisplayComponent();
     bool HasDisplayComponent() const;
     RefPtr<TransformComponent> GetTransformComponent();
-    RefPtr<TouchListenerComponent> GetTouchListenerComponent();
-    bool HasTouchListenerComponent() const;
+    ACE_FORCE_EXPORT RefPtr<TouchListenerComponent> GetTouchListenerComponent();
+    ACE_FORCE_EXPORT bool HasTouchListenerComponent() const;
     RefPtr<MouseListenerComponent> GetMouseListenerComponent();
-    RefPtr<GestureListenerComponent> GetClickGestureListenerComponent();
-    bool HasClickGestureListenerComponent() const;
+    ACE_FORCE_EXPORT RefPtr<GestureListenerComponent> GetClickGestureListenerComponent();
+    ACE_FORCE_EXPORT bool HasClickGestureListenerComponent() const;
     RefPtr<GestureListenerComponent> GetPanGestureListenerComponent();
-    RefPtr<FocusableComponent> GetFocusableComponent(bool createIfNotExist = true);
+    ACE_FORCE_EXPORT RefPtr<FocusableComponent> GetFocusableComponent(bool createIfNotExist = true);
     RefPtr<SharedTransitionComponent> GetSharedTransitionComponent();
     RefPtr<GestureComponent> GetGestureComponent();
     RefPtr<PositionedComponent> GetPositionedComponent();
@@ -92,7 +102,7 @@ public:
     // create wrappingComponentsMap and the component to map and then Push
     // the map to the stack.
     // use flag: isCustomView to avoid creating redundant Components.
-    void Push(const RefPtr<Component>& component, bool isCustomView = false);
+    ACE_FORCE_EXPORT void Push(const RefPtr<Component>& component, bool isCustomView = false);
 
     // special versions of Push and Pop for JSGrid
     // maintains a stack of GridLayoutComponent
@@ -140,7 +150,7 @@ public:
 
     // Wrap the components map for the stack top and then pop the stack.
     // Add the wrappedcomponent has child of the new stack top's main component.
-    void Pop();
+    ACE_FORCE_EXPORT void Pop();
 
     // pop the last container
     void PopContainer();
@@ -154,7 +164,7 @@ public:
     // return mainComponent ... outmostWrappingComponent
     // local Component to Element updates will be performed on these any any Component in-between
     // returns the same cComponent twice if no wrapping Components.
-    std::pair<RefPtr<Component>, RefPtr<Component>> FinishReturnMain();
+    ACE_FORCE_EXPORT std::pair<RefPtr<Component>, RefPtr<Component>> FinishReturnMain();
 
     int32_t Size() const
     {
@@ -183,11 +193,11 @@ public:
     bool ShouldPopImmediately();
 
     void SetIsPercentSize(RefPtr<Component>& component);
-    std::shared_ptr<JsPageRadioGroups> GetRadioGroupComponent();
+    ACE_FORCE_EXPORT std::shared_ptr<JsPageRadioGroups> GetRadioGroupComponent();
     std::shared_ptr<JsPageCheckboxGroups> GetCheckboxGroupComponent();
 
     RefPtr<Component> GetNewComponent();
-    RefPtr<V2::InspectorComposedComponent> GetInspectorComposedComponent() const;
+    ACE_FORCE_EXPORT RefPtr<V2::InspectorComposedComponent> GetInspectorComposedComponent() const;
 
     void SetVisualState(VisualState state)
     {
@@ -231,7 +241,7 @@ public:
      * Use reserved elementId for given component
      * sets the reserved lemntId to none
      */
-    void ClaimElementId(const RefPtr<Component>& component);
+    ACE_FORCE_EXPORT void ClaimElementId(const RefPtr<Component>& component);
 
     int32_t ClaimElementId()
     {
@@ -327,10 +337,10 @@ private:
     ACE_DISALLOW_COPY_AND_MOVE(ViewStackProcessor);
 };
 
-class ScopedViewStackProcessor final {
+class ACE_FORCE_EXPORT ScopedViewStackProcessor final {
 public:
-    ScopedViewStackProcessor();
-    ~ScopedViewStackProcessor();
+    ACE_FORCE_EXPORT ScopedViewStackProcessor();
+    ACE_FORCE_EXPORT ~ScopedViewStackProcessor();
 
 private:
     std::unique_ptr<ViewStackProcessor> instance_;

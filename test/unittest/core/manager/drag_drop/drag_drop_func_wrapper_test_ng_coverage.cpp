@@ -18,13 +18,14 @@
 #include "gtest/gtest.h"
 #define private public
 
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/base/mock_drag_window.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_interaction_interface.h"
-#include "test/mock/core/common/mock_udmf.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/base/window/mock_drag_window.h"
+#include "test/mock/frameworks/base/subwindow/mock_subwindow.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_interaction_interface.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/core/event/drag_event/drag_event_test_ng_issue_utils.h"
 
 #include "base/image/pixel_map.h"
@@ -44,8 +45,11 @@
 #include "core/components_ng/manager/drag_drop/drag_drop_global_controller.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_manager.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_proxy.h"
+#include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/grid/grid_item_pattern.h"
 #include "core/components_ng/pattern/grid/grid_pattern.h"
+#include "core/components_ng/syntax/shallow_builder.h"
+#include "core/pipeline/base/element_register.h"
 #include "ui/base/geometry/ng/offset_t.h"
 #include "core/components/select/select_theme.h"
 
@@ -59,6 +63,10 @@ constexpr float GRID_WIDTH = 480.0f;
 constexpr float GRID_HEIGHT = 800.0f;
 constexpr float ITEM_WIDTH = 120.0f;
 constexpr float ITEM_HEIGHT = 200.0f;
+constexpr float OFFSET_WIDTH = 100.0f;
+constexpr float OFFSET_HEIGHT = 50.0f;
+constexpr float TINY_RADIUS = 1.0;
+constexpr float MEDIUM_RADIUS = 12.0;
 } // namespace
 
 // test case
@@ -141,8 +149,46 @@ void SetFrameNodeAllowDrag(RefPtr<FrameNode>& frameNode)
     auto eventHub = gestureHub->eventHub_.Upgrade();
     CHECK_NULL_VOID(eventHub);
     auto func = [](const RefPtr<OHOS::Ace::DragEvent>&, const std::string&) { return DragDropInfo(); };
-    eventHub->onDragStart_ = func;
+    eventHub->SetOnDragStart(std::move(func));
 }
+
+/**
+ * @tc.name: DragDropFuncWrapperTestNgCoverageAutoHide001
+ * @tc.desc: Test resolve auto hide targets by unique id.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, DragDropFuncWrapperTestNgCoverageAutoHide001, TestSize.Level1)
+{
+    auto targetNode = FrameNode::CreateFrameNode(
+        "target", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    auto secondTargetNode = FrameNode::CreateFrameNode(
+        "target2", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(targetNode, nullptr);
+    ASSERT_NE(secondTargetNode, nullptr);
+
+    auto targets = DragDropFuncWrapper::ResolveAutoHideTargetsByUniqueId(
+        { targetNode->GetId(), secondTargetNode->GetId(), targetNode->GetId(), -1 });
+    ASSERT_EQ(targets.size(), 2);
+    EXPECT_EQ(targets.front(), targetNode);
+    EXPECT_EQ(targets.back(), secondTargetNode);
+}
+
+/**
+ * @tc.name: DragDropFuncWrapperTestNgCoverageAutoHide002
+ * @tc.desc: Test update auto hide target visibility.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, DragDropFuncWrapperTestNgCoverageAutoHide002, TestSize.Level1)
+{
+    auto targetNode = FrameNode::CreateFrameNode(
+        "target", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(targetNode, nullptr);
+
+    EXPECT_TRUE(DragDropFuncWrapper::UpdateAutoHideTargetVisibility(targetNode));
+    EXPECT_EQ(targetNode->GetLayoutProperty()->GetVisibilityValue(VisibleType::VISIBLE), VisibleType::INVISIBLE);
+    EXPECT_FALSE(DragDropFuncWrapper::UpdateAutoHideTargetVisibility(targetNode));
+}
+
 /**
  * @tc.name: DragDropFuncWrapperTestNgCoverage001
  * @tc.desc: Test DecideWhetherToStopDragging with valid parameters
@@ -1420,8 +1466,7 @@ HWTEST_F(DragDropFuncWrapperTestNgCoverage, DragDropFuncWrapperTestNgCoverage041
     RefPtr<OHOS::Ace::DragEvent> dragEvent = AceType::MakeRefPtr<OHOS::Ace::DragEvent>();
     ASSERT_NE(dragEvent, nullptr);
     std::string udKey;
-    std::map<std::string, int64_t> summary;
-    std::map<std::string, int64_t> detailedSummary;
+    DragSummaryInfo dragSummaryInfo;
     int32_t ret = -1;
     auto mainPipeline = PipelineContext::GetMainPipelineContext();
     ASSERT_NE(mainPipeline, nullptr);
@@ -1431,8 +1476,8 @@ HWTEST_F(DragDropFuncWrapperTestNgCoverage, DragDropFuncWrapperTestNgCoverage041
     EXPECT_EQ(dragEvent->GetData(), nullptr);
     EXPECT_EQ(dragEvent->GetDataLoadParams(), nullptr);
     auto mockUdmfClient = static_cast<MockUdmfClient*>(UdmfClient::GetInstance());
-    EXPECT_CALL(*mockUdmfClient, GetSummary(_, _, _)).WillRepeatedly(Return(0));
-    DragDropFuncWrapper::ProcessDragDropData(dragEvent, udKey, summary, detailedSummary, ret);
+    EXPECT_CALL(*mockUdmfClient, GetSummary(_, _)).WillRepeatedly(Return(0));
+    DragDropFuncWrapper::ProcessDragDropData(dragEvent, udKey, dragSummaryInfo, ret);
     EXPECT_EQ(ret, 0);
 
     auto unifiedData = AceType::MakeRefPtr<MockUnifiedData>();
@@ -1447,19 +1492,22 @@ HWTEST_F(DragDropFuncWrapperTestNgCoverage, DragDropFuncWrapperTestNgCoverage041
     EXPECT_CALL(*mockUdmfClient, SetData(_, _)).WillRepeatedly(testing::Return(0));
     dragEvent->SetDataLoadParams(dataLoadParams);
     ASSERT_NE(dragEvent->GetDataLoadParams(), nullptr);
-    DragDropFuncWrapper::ProcessDragDropData(dragEvent, udKey, summary, detailedSummary, ret);
+    DragDropFuncWrapper::ProcessDragDropData(dragEvent, udKey, dragSummaryInfo, ret);
     EXPECT_EQ(ret, 0);
     EXPECT_EQ(dragEvent->IsUseDataLoadParams(), true);
+    EXPECT_CALL(*mockUdmfClient, SetDelayInfo(_, _)).WillRepeatedly(testing::Return(1));
+    DragDropFuncWrapper::ProcessDragDropData(dragEvent, udKey, dragSummaryInfo, ret);
+    EXPECT_EQ(ret, 0);
 
     dragEvent->SetUseDataLoadParams(false);
-    DragDropFuncWrapper::ProcessDragDropData(dragEvent, udKey, summary, detailedSummary, ret);
+    DragDropFuncWrapper::ProcessDragDropData(dragEvent, udKey, dragSummaryInfo, ret);
     EXPECT_EQ(ret, 0);
     EXPECT_EQ(dragEvent->IsUseDataLoadParams(), false);
 
     EXPECT_CALL(*mockUdmfClient, SetDelayInfo(_, _)).WillRepeatedly(testing::Return(1));
     EXPECT_CALL(*mockUdmfClient, SetData(_, _)).WillRepeatedly(testing::Return(1));
-    EXPECT_CALL(*mockUdmfClient, GetSummary(_, _, _)).WillRepeatedly(Return(1));
-    DragDropFuncWrapper::ProcessDragDropData(dragEvent, udKey, summary, detailedSummary, ret);
+    EXPECT_CALL(*mockUdmfClient, GetSummary(_, _)).WillRepeatedly(Return(1));
+    DragDropFuncWrapper::ProcessDragDropData(dragEvent, udKey, dragSummaryInfo, ret);
     EXPECT_EQ(ret, 1);
 }
 
@@ -1473,18 +1521,519 @@ HWTEST_F(DragDropFuncWrapperTestNgCoverage, DragDropFuncWrapperTestNgCoverage042
 {
     auto dragAction = std::make_shared<OHOS::Ace::NG::ArkUIInteralDragAction>();
     ASSERT_NE(dragAction, nullptr);
-    dragAction->dataLoadParams = AceType::MakeRefPtr<MockDataLoadParams>();
-    ASSERT_NE(dragAction->dataLoadParams, nullptr);
-    std::string udKey = "test";
+    std::string udKey;
+    DragSummaryInfo dragSummaryInfo;
+    int32_t dataSize = 1;
+
+    RefPtr<MockInteractionInterface> mockInteractionInterface = AceType::MakeRefPtr<MockInteractionInterface>();
+    ASSERT_NE(mockInteractionInterface, nullptr);
+    EXPECT_CALL(*mockInteractionInterface, GetAppDragSwitchState(_)).WillRepeatedly(testing::Return(1));
+    RefPtr<MockUnifiedData> unifiedData = AceType::MakeRefPtr<MockUnifiedData>();
+    ASSERT_NE(unifiedData, nullptr);
+    dragAction->unifiedData = unifiedData;
+    dragAction->dataLoadParams = nullptr;
     auto mockUdmfClient = static_cast<MockUdmfClient*>(UdmfClient::GetInstance());
-    EXPECT_CALL(*mockUdmfClient, SetDelayInfo(_, _))
-        .WillRepeatedly([&](RefPtr<DataLoadParams> dataLoadParams, std::string& key) {
-            key = "";
-            return 0;
-        });
-    DragDropFuncWrapper::EnvelopedDataLoadParams(nullptr, udKey);
-    EXPECT_EQ(udKey, "test");
-    DragDropFuncWrapper::EnvelopedDataLoadParams(dragAction, udKey);
-    EXPECT_EQ(udKey, "");
+    EXPECT_CALL(*mockUdmfClient, SetData(_, _)).WillRepeatedly(testing::Return(1));
+    EXPECT_CALL(*unifiedData, GetSize()).WillRepeatedly(testing::Return(1));
+    DragDropFuncWrapper::EnvelopedData(dragAction, udKey, dragSummaryInfo, dataSize);
+    EXPECT_EQ(dataSize, 1);
+
+    EXPECT_CALL(*mockUdmfClient, SetData(_, _)).WillRepeatedly(testing::Return(0));
+    EXPECT_CALL(*unifiedData, GetSize()).WillRepeatedly(testing::Return(5));
+    EXPECT_CALL(*mockUdmfClient, GetSummary(_, _)).WillRepeatedly(testing::Return(0));
+    DragDropFuncWrapper::EnvelopedData(dragAction, udKey, dragSummaryInfo, dataSize);
+    EXPECT_EQ(dataSize, 5);
+
+    dragAction->unifiedData = nullptr;
+    RefPtr<MockDataLoadParams> mockDataLoadParams = AceType::MakeRefPtr<MockDataLoadParams>();
+    ASSERT_NE(mockDataLoadParams, nullptr);
+    dragAction->dataLoadParams = mockDataLoadParams;
+    EXPECT_CALL(*mockUdmfClient, SetDelayInfo(_, _)).WillRepeatedly(testing::Return(1));
+    DragDropFuncWrapper::EnvelopedData(dragAction, udKey, dragSummaryInfo, dataSize);
+    EXPECT_EQ(dataSize, 1);
+
+    EXPECT_CALL(*mockUdmfClient, SetDelayInfo(_, _)).WillRepeatedly(testing::Return(0));
+    EXPECT_CALL(*mockDataLoadParams, GetRecordCount()).WillRepeatedly(testing::Return(10));
+    EXPECT_CALL(*mockUdmfClient, GetSummary(_, _)).WillRepeatedly(testing::Return(1));
+    DragDropFuncWrapper::EnvelopedData(dragAction, udKey, dragSummaryInfo, dataSize);
+    EXPECT_EQ(dataSize, 10);
+
+    EXPECT_CALL(*mockDataLoadParams, GetRecordCount()).WillRepeatedly(testing::Return(-1));
+    DragDropFuncWrapper::EnvelopedData(dragAction, udKey, dragSummaryInfo, dataSize);
+    EXPECT_EQ(dataSize, 1);
+
+    EXPECT_CALL(*mockDataLoadParams, GetRecordCount()).WillRepeatedly(testing::Return(0));
+    DragDropFuncWrapper::EnvelopedData(dragAction, udKey, dragSummaryInfo, dataSize);
+    EXPECT_EQ(dataSize, 1);
+
+    EXPECT_CALL(*mockDataLoadParams, GetRecordCount()).WillRepeatedly(testing::Return(INT32_MAX + 1));
+    DragDropFuncWrapper::EnvelopedData(dragAction, udKey, dragSummaryInfo, dataSize);
+    EXPECT_EQ(dataSize, 1);
+}
+
+/**
+ * @tc.name: Test DragDropFuncWrapperTestNgCoverage043
+ * @tc.desc: Test FindWindowScene func
+ * @tc.type: FUNC
+ * @tc.author:
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, DragDropFuncWrapperTestNgCoverage043, TestSize.Level1)
+{
+    auto rootNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>(), true);
+    ASSERT_NE(rootNode, nullptr);
+    auto frameNode1 = FrameNode::CreateFrameNode("framenode", ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<Pattern>(), false);
+    rootNode->AddChild(frameNode1);
+    ASSERT_NE(frameNode1, nullptr);
+
+    auto container = MockContainer::Current();
+    ASSERT_NE(container, nullptr);
+    container->isSceneBoardWindow_ = true;
+
+    auto windowScene = DragDropFuncWrapper::FindWindowScene(frameNode1);
+    EXPECT_EQ(windowScene, rootNode);
+
+    auto frameNode2 = FrameNode::CreateFrameNode("framenode", ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<Pattern>(), false);
+    frameNode1->AddChild(frameNode2);
+    ASSERT_NE(frameNode2, nullptr);
+    windowScene = DragDropFuncWrapper::FindWindowScene(frameNode2);
+    EXPECT_EQ(windowScene, rootNode);
+
+    auto frameNode3 = FrameNode::CreateFrameNode("framenode", ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<Pattern>(), false);
+    ASSERT_NE(frameNode3, nullptr);
+    windowScene = DragDropFuncWrapper::FindWindowScene(frameNode3);
+    EXPECT_EQ(windowScene, nullptr);
+
+    container->isSceneBoardWindow_ = false;
+    windowScene = DragDropFuncWrapper::FindWindowScene(frameNode3);
+    EXPECT_EQ(windowScene, nullptr);
+}
+
+/**
+ * @tc.name: GetFrameNodeOffsetToWindow001
+ * @tc.desc: Test GetFrameNodeOffsetToWindow with null targetNode
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeOffsetToWindow001, TestSize.Level1)
+{
+    RefPtr<FrameNode> targetNode = nullptr;
+    RefPtr<FrameNode> frameNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto result = DragDropFuncWrapper::GetFrameNodeOffsetToWindow(targetNode, frameNode, OFFSET_WIDTH, OFFSET_HEIGHT);
+    EXPECT_EQ(result, OffsetF());
+}
+
+/**
+ * @tc.name: GetFrameNodeOffsetToWindow002
+ * @tc.desc: Test GetFrameNodeOffsetToWindow with null frameNode
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeOffsetToWindow002, TestSize.Level1)
+{
+    RefPtr<FrameNode> frameNode = nullptr;
+    RefPtr<FrameNode> targetNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(targetNode, nullptr);
+    auto result = DragDropFuncWrapper::GetFrameNodeOffsetToWindow(targetNode, frameNode, OFFSET_WIDTH, OFFSET_HEIGHT);
+    EXPECT_EQ(result, OffsetF());
+}
+
+/**
+ * @tc.name: GetFrameNodeOffsetToWindow003
+ * @tc.desc: Test GetFrameNodeOffsetToWindow with null renderContext
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeOffsetToWindow003, TestSize.Level1)
+{
+    RefPtr<FrameNode> targetNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(targetNode, nullptr);
+    RefPtr<FrameNode> frameNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->renderContext_ = AceType::MakeRefPtr<MockRenderContext>();
+    targetNode->renderContext_ = nullptr;
+    auto result = DragDropFuncWrapper::GetFrameNodeOffsetToWindow(targetNode, frameNode, OFFSET_WIDTH, OFFSET_HEIGHT);
+    EXPECT_EQ(result, OffsetF());
+}
+
+/**
+ * @tc.name: GetFrameNodeOffsetToWindow004
+ * @tc.desc: Test GetFrameNodeOffsetToWindow with parentNode exists
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeOffsetToWindow004, TestSize.Level1)
+{
+    auto parentNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(parentNode, nullptr);
+    auto targetNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(targetNode, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    parentNode->renderContext_ = AceType::MakeRefPtr<MockRenderContext>();
+    targetNode->renderContext_ = AceType::MakeRefPtr<MockRenderContext>();
+    frameNode->renderContext_ = AceType::MakeRefPtr<MockRenderContext>();
+    targetNode->parent_ = parentNode;
+    auto result = DragDropFuncWrapper::GetFrameNodeOffsetToWindow(targetNode, frameNode, OFFSET_WIDTH, OFFSET_HEIGHT);
+    EXPECT_NE(result, OffsetF());
+}
+
+/**
+ * @tc.name: GetFrameNodeOffsetToWindow005
+ * @tc.desc: Test GetFrameNodeOffsetToWindow with parentNode == nullptr
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeOffsetToWindow005, TestSize.Level1)
+{
+    auto targetNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(targetNode, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    targetNode->renderContext_ = AceType::MakeRefPtr<MockRenderContext>();
+    frameNode->renderContext_ = AceType::MakeRefPtr<MockRenderContext>();
+    auto result = DragDropFuncWrapper::GetFrameNodeOffsetToWindow(targetNode, frameNode, OFFSET_WIDTH, OFFSET_HEIGHT);
+    EXPECT_NE(result, OffsetF());
+}
+
+/**
+ * @tc.name: GetFrameNodeByInspectorId001
+ * @tc.desc: Test GetFrameNodeByInspectorId with empty inspectorId
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeByInspectorId001, TestSize.Level1)
+{
+    std::string inspectorId = "";
+    auto result = DragDropFuncWrapper::GetFrameNodeByInspectorId(inspectorId);
+    EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @tc.name: GetFrameNodeByInspectorId002
+ * @tc.desc: Test GetFrameNodeByInspectorId with inspectorId not found
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeByInspectorId002, TestSize.Level1)
+{
+    std::string inspectorId = "not_found_id";
+    auto context = PipelineContext::GetCurrentContext();
+    ASSERT_NE(context, nullptr);
+    auto rootNode = FrameNode::CreateFrameNode(
+        V2::ROOT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(rootNode, nullptr);
+    context->rootNode_ = rootNode;
+    auto result = DragDropFuncWrapper::GetFrameNodeByInspectorId(inspectorId);
+    EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @tc.name: GetFrameNodeByInspectorId003
+ * @tc.desc: Test GetFrameNodeByInspectorId with frameNode found but layoutProperty is null
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeByInspectorId003, TestSize.Level1)
+{
+    std::string inspectorId = "test_id";
+    auto rootNode = FrameNode::CreateFrameNode(
+        V2::ROOT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(rootNode, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->UpdateInspectorId(inspectorId);
+    frameNode->layoutProperty_ = nullptr;
+    rootNode->AddChild(frameNode);
+
+    auto context = PipelineContext::GetCurrentContext();
+    context->rootNode_ = rootNode;
+
+    auto result = DragDropFuncWrapper::GetFrameNodeByInspectorId(inspectorId);
+    EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @tc.name: GetFrameNodeByInspectorId004
+ * @tc.desc: Test GetFrameNodeByInspectorId with layoutProperty visibility == INVISIBLE
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeByInspectorId004, TestSize.Level1)
+{
+    std::string inspectorId = "test_id";
+    auto rootNode = FrameNode::CreateFrameNode(
+        V2::ROOT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(rootNode, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->UpdateInspectorId(inspectorId);
+    frameNode->GetLayoutProperty()->UpdateVisibility(VisibleType::INVISIBLE);
+    rootNode->AddChild(frameNode);
+
+    auto context = PipelineContext::GetCurrentContext();
+    context->rootNode_ = rootNode;
+
+    auto result = DragDropFuncWrapper::GetFrameNodeByInspectorId(inspectorId);
+    EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @tc.name: GetFrameNodeByInspectorId005
+ * @tc.desc: Test GetFrameNodeByInspectorId with layoutProperty visibility == GONE
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeByInspectorId005, TestSize.Level1)
+{
+    std::string inspectorId = "test_id";
+    auto rootNode = FrameNode::CreateFrameNode(
+        V2::ROOT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(rootNode, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->UpdateInspectorId(inspectorId);
+    frameNode->GetLayoutProperty()->UpdateVisibility(VisibleType::GONE);
+    rootNode->AddChild(frameNode);
+
+    auto context = PipelineContext::GetCurrentContext();
+    context->rootNode_ = rootNode;
+
+    auto result = DragDropFuncWrapper::GetFrameNodeByInspectorId(inspectorId);
+    EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @tc.name: GetFrameNodeByInspectorId006
+ * @tc.desc: Test GetFrameNodeByInspectorId with layoutProperty visibility == VISIBLE
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetFrameNodeByInspectorId006, TestSize.Level1)
+{
+    std::string inspectorId = "test_id";
+    auto rootNode = FrameNode::CreateFrameNode(
+        V2::ROOT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(rootNode, nullptr);
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->UpdateInspectorId(inspectorId);
+    frameNode->GetLayoutProperty()->UpdateVisibility(VisibleType::VISIBLE);
+    rootNode->AddChild(frameNode);
+
+    auto context = PipelineContext::GetCurrentContext();
+    context->rootNode_ = rootNode;
+
+    auto result = DragDropFuncWrapper::GetFrameNodeByInspectorId(inspectorId);
+    EXPECT_EQ(result, frameNode);
+}
+
+/**
+ * @tc.name: GetDragFrameNodeBorderRadius001
+ * @tc.desc: Test GetDragFrameNodeBorderRadius when pixelMap is not null.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetDragFrameNodeBorderRadius001, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StagePattern>());
+    ASSERT_NE(frameNode, nullptr);
+    DragDropInfo info;
+    info.pixelMap = PixelMap::CreatePixelMap(static_cast<void*>(new char[0]));
+    frameNode->dragPreviewInfo_ = info;
+
+    auto radius = DragDropFuncWrapper::GetDragFrameNodeBorderRadius(frameNode);
+    EXPECT_EQ(radius.radiusTopLeft.value_or(Dimension(TINY_RADIUS)), Dimension(0));
+}
+
+/**
+ * @tc.name: GetDragFrameNodeBorderRadius002
+ * @tc.desc: Test GetDragFrameNodeBorderRadius when inspectorId is not empty but node cannot be found.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetDragFrameNodeBorderRadius002, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StagePattern>());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->dragPreviewInfo_.inspectorId = "not_exist";
+
+    auto radius = DragDropFuncWrapper::GetDragFrameNodeBorderRadius(frameNode);
+    EXPECT_EQ(radius.radiusTopLeft.value_or(Dimension(TINY_RADIUS)), Dimension(0));
+}
+
+/**
+ * @tc.name: GetDragFrameNodeBorderRadius003
+ * @tc.desc: Test GetDragFrameNodeBorderRadius when customNode is not null but cannot be cast to FrameNode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetDragFrameNodeBorderRadius003, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StagePattern>());
+    ASSERT_NE(frameNode, nullptr);
+
+    RefPtr<UINode> customNode = AceType::MakeRefPtr<FrameNode>("node", -1, AceType::MakeRefPtr<Pattern>());
+    DragDropInfo info;
+    info.customNode = customNode;
+    frameNode->dragPreviewInfo_ = info;
+
+    auto radius = DragDropFuncWrapper::GetDragFrameNodeBorderRadius(frameNode);
+    EXPECT_EQ(radius.radiusTopLeft.value_or(Dimension(TINY_RADIUS)), Dimension(0));
+}
+
+/**
+ * @tc.name: GetDragFrameNodeBorderRadius004
+ * @tc.desc: Test GetDragFrameNodeBorderRadius when borderRadius is not set, expect default value.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetDragFrameNodeBorderRadius004, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StagePattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto radius = DragDropFuncWrapper::GetDragFrameNodeBorderRadius(frameNode);
+    EXPECT_EQ(radius.radiusTopLeft.value_or(Dimension(TINY_RADIUS)), Dimension(0));
+}
+
+/**
+ * @tc.name: GetDragFrameNodeBorderRadius005
+ * @tc.desc: Test GetDragFrameNodeBorderRadius when borderRadius is set, expect the set value to be returned.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetDragFrameNodeBorderRadius005, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StagePattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto renderContext = frameNode->GetRenderContext();
+    ASSERT_NE(renderContext, nullptr);
+
+    BorderRadiusProperty radiusInput;
+    radiusInput.radiusTopLeft = Dimension(MEDIUM_RADIUS);
+    renderContext->UpdateBorderRadius(radiusInput);
+
+    auto radius = DragDropFuncWrapper::GetDragFrameNodeBorderRadius(frameNode);
+    EXPECT_EQ(radius.radiusTopLeft.value_or(Dimension(0)), Dimension(MEDIUM_RADIUS));
+}
+
+/**
+ * @tc.name: UpdateDragDropInitiatingStatus_NullFrameNode
+ * @tc.desc: Verify that function early returns when frameNode is null
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, UpdateDragDropInitiatingStatus001, TestSize.Level1)
+{
+    DragDropGlobalController::GetInstance().UpdateDragDropInitiatingStatus(nullptr, DragDropInitiatingStatus::MOVING);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().currentDragNode_, nullptr);
+}
+
+/**
+ * @tc.name: UpdateDragDropInitiatingStatus_NonMovingStatus
+ * @tc.desc: Verify that status other than MOVING does not update currentDragNode_
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, UpdateDragDropInitiatingStatus002, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    DragDropGlobalController::GetInstance().UpdateDragDropInitiatingStatus(frameNode, DragDropInitiatingStatus::IDLE);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().currentDragNode_, nullptr);
+}
+
+/**
+ * @tc.name: GetDragDropManagerForDragAnimation001
+ * @tc.desc: Test GetDragDropManagerForDragAnimation context equals nodeContext
+ * @tc.type: FUNC
+ * @tc.author:
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, GetDragDropManagerForDragAnimation001, TestSize.Level1)
+{
+    auto pipelineContext = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto dragDropManager = pipelineContext->GetDragDropManager();
+    ASSERT_NE(dragDropManager, nullptr);
+    auto manager = DragDropFuncWrapper::GetDragDropManagerForDragAnimation(
+        pipelineContext, pipelineContext, nullptr);
+    ASSERT_EQ(dragDropManager, manager);
+    
+    auto subwindow = AceType::MakeRefPtr<MockSubwindow>();
+    subwindow->SetReceiveDragEventEnabled(true);
+    manager = DragDropFuncWrapper::GetDragDropManagerForDragAnimation(
+        pipelineContext, pipelineContext, subwindow);
+    ASSERT_EQ(dragDropManager, manager);
+
+    subwindow->SetReceiveDragEventEnabled(false);
+    manager = DragDropFuncWrapper::GetDragDropManagerForDragAnimation(
+        pipelineContext, pipelineContext, subwindow);
+    ASSERT_EQ(dragDropManager, manager);
+}
+
+/**
+ * @tc.name: UpdateDragDropInitiatingStatus_MovingStatus
+ * @tc.desc: Verify that MOVING status updates currentDragNode_
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, UpdateDragDropInitiatingStatus003, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    DragDropGlobalController::GetInstance().UpdateDragDropInitiatingStatus(frameNode, DragDropInitiatingStatus::MOVING);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().currentDragNode_, frameNode);
+}
+
+/**
+ * @tc.name: Test NotifySuggestedDropOperation
+ * @tc.desc: Test NotifySuggestedDropOperation func
+ * @tc.type: FUNC
+ * @tc.author:
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, NotifySuggestedDropOperation, TestSize.Level1)
+{
+    int32_t requestId = 1;
+    DragDropGlobalController::GetInstance().requestId_ = 0;
+    int32_t ret =
+        DragDropFuncWrapper::NotifySuggestedDropOperation(requestId, static_cast<int32_t>(DragBehavior::COPY));
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().suggestedDropOperation_, DragBehavior::UNKNOWN);
+    DragDropGlobalController::GetInstance().SetIsOnOnDropPhase(true);
+    ret = DragDropFuncWrapper::NotifySuggestedDropOperation(requestId, static_cast<int32_t>(DragBehavior::COPY));
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().suggestedDropOperation_, DragBehavior::UNKNOWN);
+    DragDropGlobalController::GetInstance().requestId_ = requestId;
+    ret = DragDropFuncWrapper::NotifySuggestedDropOperation(requestId, static_cast<int32_t>(DragBehavior::COPY));
+    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().suggestedDropOperation_, DragBehavior::COPY);
+    DragDropGlobalController::GetInstance().SetIsOnOnDropPhase(false);
+}
+
+/**
+ * @tc.name: Test NotifyDisableDropAnimation
+ * @tc.desc: Test NotifyDisableDropAnimation func
+ * @tc.type: FUNC
+ * @tc.author:
+ */
+HWTEST_F(DragDropFuncWrapperTestNgCoverage, NotifyDisableDropAnimation, TestSize.Level1)
+{
+    int32_t requestId = 1;
+    DragDropGlobalController::GetInstance().requestId_ = 0;
+    int32_t ret = DragDropFuncWrapper::NotifyDisableDropAnimation(requestId, true);
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().disableDropAnimation_, false);
+    DragDropGlobalController::GetInstance().SetIsOnOnDropPhase(true);
+    ret = DragDropFuncWrapper::NotifyDisableDropAnimation(requestId, true);
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().disableDropAnimation_, false);
+    DragDropGlobalController::GetInstance().requestId_ = requestId;
+    ret = DragDropFuncWrapper::NotifyDisableDropAnimation(requestId, true);
+    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().disableDropAnimation_, true);
+    DragDropGlobalController::GetInstance().SetIsOnOnDropPhase(false);
 }
 } // namespace OHOS::Ace::NG

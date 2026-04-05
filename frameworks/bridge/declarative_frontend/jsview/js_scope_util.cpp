@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,8 +16,20 @@
 #include "frameworks/bridge/declarative_frontend/jsview/js_scope_util.h"
 
 #include "base/memory/referenced.h"
+#include "base/subwindow/subwindow_manager.h"
 #include "frameworks/core/common/container.h"
-
+namespace OHOS::Ace {
+int32_t GetMainInstanceId(int32_t instanceId)
+{
+    if (instanceId >= MIN_SUBCONTAINER_ID && instanceId < MIN_PLUGIN_SUBCONTAINER_ID) {
+        auto manager = SubwindowManager::GetInstance();
+        auto parentConainerId = manager ? manager->GetParentContainerId(instanceId) : instanceId;
+        LOGD("GetMainInstanceId : ChildId[%{public}d] ParentId[%{public}d]", instanceId, parentConainerId);
+        return parentConainerId;
+    }
+    return instanceId;
+}
+} // namespace OHOS::Ace
 namespace OHOS::Ace::Framework {
 static thread_local std::vector<int32_t> restoreInstanceIds_;
 
@@ -28,6 +40,11 @@ void JSScopeUtil::JSBind(BindingTarget globalObj)
     JSClass<JSScopeUtil>::Declare("__JSScopeUtil__");
     JSClass<JSScopeUtil>::StaticMethod("syncInstanceId", &JSScopeUtil::SyncInstanceId);
     JSClass<JSScopeUtil>::StaticMethod("restoreInstanceId", &JSScopeUtil::RestoreInstanceId);
+    JSClass<JSScopeUtil>::StaticMethod("getCallingScopeUIContext", &JSScopeUtil::GetCallingScopeUIContext);
+    JSClass<JSScopeUtil>::StaticMethod("getLastFocusedUIContext", &JSScopeUtil::GetLastFocusedUIContext);
+    JSClass<JSScopeUtil>::StaticMethod("getLastForegroundUIContext", &JSScopeUtil::GetLastForegroundUIContext);
+    JSClass<JSScopeUtil>::StaticMethod("getAllUIContexts", &JSScopeUtil::GetAllUIContexts);
+    JSClass<JSScopeUtil>::StaticMethod("resolveUIContext", &JSScopeUtil::ResolveUIContext);
     JSClass<JSScopeUtil>::Bind(globalObj);
 }
 
@@ -54,5 +71,45 @@ void JSScopeUtil::RestoreInstanceId(const JSCallbackInfo& info)
     }
     ContainerScope::UpdateCurrent(restoreInstanceIds_.back());
     restoreInstanceIds_.pop_back();
+}
+
+void JSScopeUtil::GetCallingScopeUIContext(const JSCallbackInfo& info)
+{
+    info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(GetMainInstanceId(ContainerScope::CurrentId()))));
+}
+
+void JSScopeUtil::GetLastFocusedUIContext(const JSCallbackInfo& info)
+{
+    info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(GetMainInstanceId(ContainerScope::RecentActiveId()))));
+}
+
+void JSScopeUtil::GetLastForegroundUIContext(const JSCallbackInfo& info)
+{
+    info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(GetMainInstanceId(ContainerScope::RecentForegroundId()))));
+}
+
+void JSScopeUtil::GetAllUIContexts(const JSCallbackInfo& info)
+{
+    auto allUIContexts = ContainerScope::GetAllUIContexts();
+    std::set<int32_t> uicontextSet;
+    for (const auto item : allUIContexts) {
+        uicontextSet.emplace(GetMainInstanceId(item));
+    }
+    uint32_t uiContextIdx = 0;
+    JSRef<JSArray> jsAllUIContexts = JSRef<JSArray>::New();
+    for (const auto item : uicontextSet) {
+        jsAllUIContexts->SetValueAt(uiContextIdx++, JSRef<JSVal>::Make(ToJSValue(item)));
+    }
+    info.SetReturnValue(jsAllUIContexts);
+}
+
+void JSScopeUtil::ResolveUIContext(const JSCallbackInfo& info)
+{
+    auto currentIdWithReason = ContainerScope::CurrentIdWithReason();
+    JSRef<JSArray> jsCurrentIdWithReason = JSRef<JSArray>::New();
+    jsCurrentIdWithReason->SetValueAt(0, JSRef<JSVal>::Make(ToJSValue(GetMainInstanceId(currentIdWithReason.first))));
+    jsCurrentIdWithReason->SetValueAt(
+        1, JSRef<JSVal>::Make(ToJSValue(static_cast<int32_t>(currentIdWithReason.second))));
+    info.SetReturnValue(jsCurrentIdWithReason);
 }
 } // namespace OHOS::Ace::Framework

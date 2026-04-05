@@ -14,8 +14,10 @@
  */
 #include "test/unittest/core/base/view_abstract_test_ng.h"
 #include "core/components/select/select_theme.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/syntax/if_else_model_ng.h"
+#include "core/components_ng/syntax/if_else_node.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -856,8 +858,7 @@ HWTEST_F(ViewAbstractTestNg, SetForegroundEffect001, TestSize.Level1)
     FrameNode* frameNode = Referenced::RawPtr(progressNode);
     frameNode->renderContext_ = AceType::MakeRefPtr<MockRenderContext>();
     float radius = 10.0f;
-    SysOptions sysOptions;
-    ViewAbstract::SetForegroundEffect(frameNode, radius, sysOptions);
+    ViewAbstract::SetForegroundEffect(frameNode, radius);
     EXPECT_NE(frameNode->renderContext_, nullptr);
 }
 
@@ -913,5 +914,41 @@ HWTEST_F(ViewAbstractTestNg, SetDraggable001, TestSize.Level1)
     draggable = false;
     ViewAbstract::SetDraggable(frameNode, draggable);
     EXPECT_NE(frameNode->renderContext_, nullptr);
+}
+
+/**
+ * @tc.name: SetOnCoastingAxisEvent001
+ * @tc.desc: Test SetOnCoastingAxisEvent of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetOnCoastingAxisEvent001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create framenode and check callback;
+     * @tc.expected: callback is not null.
+     */
+    OnCoastingAxisEventFunc onCoastingAxisEventFunc;
+    auto node = FrameNode::CreateFrameNode("page", 1, AceType::MakeRefPtr<Pattern>(), true);
+    ASSERT_NE(node, nullptr);
+    auto eventHub = node->GetOrCreateInputEventHub();
+    ViewAbstract::SetOnCoastingAxisEvent(AceType::RawPtr(node), std::move(onCoastingAxisEventFunc));
+    auto& callback = eventHub->coastingAxisEventActuator_->userCallback_;
+    EXPECT_NE(callback, nullptr);
+
+    /**
+     * @tc.steps: step2. Disable callback.
+     * @tc.expected: callback is null.
+     */
+    ViewAbstract::DisableOnCoastingAxisEvent(AceType::RawPtr(node));
+    EXPECT_EQ(callback, nullptr);
+
+    /**
+     * @tc.steps: step3. Add callback again.
+     * @tc.expected: callback is not null.
+     */
+    OnCoastingAxisEventFunc onCoastingAxisEventFunc2;
+    ViewAbstract::SetOnCoastingAxisEvent(AceType::RawPtr(node), std::move(onCoastingAxisEventFunc2));
+    EXPECT_NE(callback, nullptr);
+    ViewStackProcessor::GetInstance()->instance = nullptr;
 }
 } // namespace OHOS::Ace::NG

@@ -16,13 +16,13 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_BRIDGE_JS_FRONTEND_ENGINE_JSI_CHART_BRIDGE_H
 #define FOUNDATION_ACE_FRAMEWORKS_BRIDGE_JS_FRONTEND_ENGINE_JSI_CHART_BRIDGE_H
 
-#include "frameworks/bridge/common/dom/dom_chart.h"
+#include "compatible/components/chart/dom_chart.h"
 #include "frameworks/bridge/js_frontend/engine/jsi/jsi_engine.h"
 
 namespace OHOS::Ace::Framework {
 
 class JsiChartBridge : virtual public AceType {
-    DECLARE_ACE_TYPE(JsiChartBridge, AceType)
+    DECLARE_ACE_TYPE(JsiChartBridge, AceType);
 
 public:
     void GetAttrOptionsObject(const shared_ptr<JsRuntime>& runtime, const shared_ptr<JsValue>& valObject);

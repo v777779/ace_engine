@@ -50,6 +50,8 @@ public:
         const RefPtr<Curve>& curve, bool smooth, bool canOverScroll) override;
 
     bool operator==(const Ace::RefPtr<Scroller>& other) const override;
+    RefPtr<FrameNode> GetBindingFrameNode() override;
+    void SetCanOverScroll(bool canOverScroll) override;
 
 private:
     RefPtr<ScrollerData> scrollerData_;

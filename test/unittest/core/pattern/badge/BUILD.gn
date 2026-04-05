@@ -15,11 +15,22 @@ import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
 
 ace_unittest("badge_test_ng") {
   type = "new"
-  module_name = "Component-ShowInfo"
-  module_output = ""
+  module_name = "InfoShowSet-Badge"
   sources = [
     "badge_layout_algorithm_test_ng.cpp",
     "badge_test_ng.cpp",
+    "badge_withtheme_test_ng.cpp",
     "badge_test_tojson.cpp",
   ]
+
+  if (!ace_enable_full_test_suite) {
+    sources = []
+    sources = [
+      "badge_test_core.cpp",
+    ]
+  } else {
+    sources += [
+      "badge_test_core.cpp",
+    ]
+  }
 }

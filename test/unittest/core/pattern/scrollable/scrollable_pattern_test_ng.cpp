@@ -17,12 +17,16 @@
 
 #include "gtest/gtest.h"
 #include "test/unittest/core/pattern/test_ng.h"
+#include "test/mock/frameworks/core/components_ng/pattern/mock_nestable_scroll_container.h"
 
 #include "core/components_ng/base/frame_node.h"
-#include "core/components_ng/pattern/list/list_pattern.h"
 #include "core/components_ng/pattern/arc_list/arc_list_pattern.h"
 #include "core/components_ng/pattern/arc_scroll/inner/arc_scroll_bar.h"
+#include "core/components_ng/pattern/list/list_pattern.h"
+#include "core/components_ng/pattern/scrollable/refresh_coordination.h"
+#include "core/components_ng/pattern/scrollable/scrollable_model_ng.h"
 #include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
+#include "core/components_ng/pattern/scrollable/scrollable_paint_method.h"
 
 namespace OHOS::Ace::NG {
 using namespace testing;
@@ -30,18 +34,6 @@ using namespace testing::ext;
 
 class ScrollablePatternTestNg : public TestNG {
 public:
-};
-
-class MockNestableScrollContainer : public NestableScrollContainer {
-    DECLARE_ACE_TYPE(MockNestableScrollContainer, NestableScrollContainer);
-
-public:
-    MOCK_METHOD(OHOS::Ace::Axis, GetAxis, (), (const, override));
-    MOCK_METHOD(ScrollResult, HandleScroll, (float, int32_t, NestedState, float), (override));
-    MOCK_METHOD(bool, HandleScrollVelocity, (float, const RefPtr<NestableScrollContainer>&), (override));
-    MOCK_METHOD(void, OnScrollStartRecursive, (WeakPtr<NestableScrollContainer>, float, float), (override));
-    MOCK_METHOD(void, OnScrollEndRecursive, (const std::optional<float>&), (override));
-    MOCK_METHOD(void, OnScrollDragEndRecursive, (), (override));
 };
 
 /**
@@ -380,7 +372,8 @@ HWTEST_F(ScrollablePatternTestNg, OnScrollPosition001, TestSize.Level1)
 {
     RefPtr<ScrollablePattern> scrollablePattern = AceType::MakeRefPtr<ListPattern>();
     scrollablePattern->isSearchRefresh_ = false;
-    scrollablePattern->needLinked_ = false;
+    scrollablePattern->SetNeedLinked(false);
+    EXPECT_FALSE(scrollablePattern->GetNeedLinked());
     scrollablePattern->isAnimationStop_ = false;
     double offset = 2.0;
     auto result = scrollablePattern->OnScrollPosition(offset, SCROLL_FROM_UPDATE);
@@ -396,7 +389,8 @@ HWTEST_F(ScrollablePatternTestNg, OnScrollPosition002, TestSize.Level1)
 {
     RefPtr<ScrollablePattern> scrollablePattern = AceType::MakeRefPtr<ListPattern>();
     scrollablePattern->isSearchRefresh_ = false;
-    scrollablePattern->needLinked_ = true;
+    scrollablePattern->SetNeedLinked(true);
+    EXPECT_TRUE(scrollablePattern->GetNeedLinked());
     scrollablePattern->isAnimationStop_ = true;
     scrollablePattern->animator_ = nullptr;
     double offset = 2.0;
@@ -1053,6 +1047,94 @@ HWTEST_F(ScrollablePatternTestNg, GetPaintPropertyDumpInfo_Parameter003, TestSiz
     json->Put("innerScrollBarState", "default");
     scrollablePattern->GetPaintPropertyDumpInfo(json);
     EXPECT_EQ(json->GetString("innerScrollBarState"), "default");
+}
+
+/**
+ * @tc.name: GetEventDumpInfo001
+ * @tc.desc: Test ScrollablePattern GetEventDumpInfo
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollablePatternTestNg, GetEventDumpInfo001, TestSize.Level1)
+{
+    RefPtr<ScrollablePattern> scrollablePattern = AceType::MakeRefPtr<ListPattern>();
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 2, scrollablePattern);
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->GetEventHub<ScrollableEventHub>();
+    scrollablePattern->frameNode_ = frameNode;
+    auto json = JsonUtil::Create(true);
+    scrollablePattern->GetEventDumpInfo(json);
+    EXPECT_EQ(json->GetString("hasOnScrollStart"), "false");
+    EXPECT_EQ(json->GetString("nodeOnScrollStart"), "false");
+    EXPECT_EQ(json->GetString("hasOnScrollStop"), "false");
+    EXPECT_EQ(json->GetString("nodeOnScrollStop"), "false");
+    EXPECT_EQ(json->GetString("hasOnWillScroll"), "false");
+    EXPECT_EQ(json->GetString("nodeOnWillScroll"), "false");
+    EXPECT_EQ(json->GetString("hasOnDidScroll"), "false");
+    EXPECT_EQ(json->GetString("nodeOnDidScroll"), "false");
+    EXPECT_EQ(json->GetString("hasOnScrollBegin"), "false");
+    EXPECT_EQ(json->GetString("nodeOnScrollBegin"), "false");
+    EXPECT_EQ(json->GetString("hasOnReachStart"), "false");
+    EXPECT_EQ(json->GetString("nodeOnReachStart"), "false");
+    EXPECT_EQ(json->GetString("hasOnReachEnd"), "false");
+    EXPECT_EQ(json->GetString("nodeOnReachEnd"), "false");
+}
+
+/**
+ * @tc.name: GetEventDumpInfo002
+ * @tc.desc: Test ScrollablePattern GetEventDumpInfo
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollablePatternTestNg, GetEventDumpInfo002, TestSize.Level1)
+{
+    RefPtr<ScrollablePattern> scrollablePattern = AceType::MakeRefPtr<ListPattern>();
+    auto scrollStart = []() {};
+    auto scrollStop = []() {};
+    auto onWillScroll = [](Dimension offset, ScrollState state, ScrollSource source) {
+        ScrollFrameResult result;
+        result.offset = offset;
+        return result;
+    };
+    auto onDidScroll = [](Dimension offset, ScrollState state) {};
+    auto onScrollBegin = [](Dimension, ScrollState) { return ScrollFrameResult(); };
+    auto onReachStart = []() {};
+    auto onReachEnd = []() {};
+
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 2, scrollablePattern);
+    ASSERT_NE(frameNode, nullptr);
+    ScrollableModelNG::SetOnScrollStart(AceType::RawPtr(frameNode), std::move(scrollStart));
+    ScrollableModelNG::SetOnScrollStop(AceType::RawPtr(frameNode), std::move(scrollStop));
+    ScrollableModelNG::SetOnWillScroll(AceType::RawPtr(frameNode), std::move(onWillScroll));
+    ScrollableModelNG::SetOnDidScroll(AceType::RawPtr(frameNode), std::move(onDidScroll));
+    ScrollableModelNG::SetOnScrollFrameBegin(AceType::RawPtr(frameNode), std::move(onScrollBegin));
+    ScrollableModelNG::SetOnReachStart(AceType::RawPtr(frameNode), std::move(onReachStart));
+    ScrollableModelNG::SetOnReachEnd(AceType::RawPtr(frameNode), std::move(onReachEnd));
+
+    auto eventHub = frameNode->GetEventHub<ScrollableEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    eventHub->SetJSFrameNodeOnScrollStart(scrollStart);
+    eventHub->SetJSFrameNodeOnScrollStop(scrollStop);
+    eventHub->SetJSFrameNodeOnWillScroll(onWillScroll);
+    eventHub->SetJSFrameNodeOnDidScroll(onDidScroll);
+    eventHub->SetJSFrameNodeOnScrollFrameBegin(onScrollBegin);
+    eventHub->SetJSFrameNodeOnReachStart(onReachStart);
+    eventHub->SetJSFrameNodeOnReachEnd(onReachEnd);
+
+    auto json = JsonUtil::Create(true);
+    scrollablePattern->GetEventDumpInfo(json);
+    EXPECT_EQ(json->GetString("hasOnScrollStart"), "true");
+    EXPECT_EQ(json->GetString("nodeOnScrollStart"), "true");
+    EXPECT_EQ(json->GetString("hasOnScrollStop"), "true");
+    EXPECT_EQ(json->GetString("nodeOnScrollStop"), "true");
+    EXPECT_EQ(json->GetString("hasOnWillScroll"), "true");
+    EXPECT_EQ(json->GetString("nodeOnWillScroll"), "true");
+    EXPECT_EQ(json->GetString("hasOnDidScroll"), "true");
+    EXPECT_EQ(json->GetString("nodeOnDidScroll"), "true");
+    EXPECT_EQ(json->GetString("hasOnScrollBegin"), "true");
+    EXPECT_EQ(json->GetString("nodeOnScrollBegin"), "true");
+    EXPECT_EQ(json->GetString("hasOnReachStart"), "true");
+    EXPECT_EQ(json->GetString("nodeOnReachStart"), "true");
+    EXPECT_EQ(json->GetString("hasOnReachEnd"), "true");
+    EXPECT_EQ(json->GetString("nodeOnReachEnd"), "true");
 }
 
 /**
@@ -1962,5 +2044,148 @@ HWTEST_F(ScrollablePatternTestNg, HandleOnDidScrollEvent, TestSize.Level1)
     manager->AddObserver(observer, 2);
     manager->HandleOnDidScrollEvent(Dimension(2.0), ScrollSource::SCROLLER_ANIMATION, true, false);
     EXPECT_EQ(scrollCount, 2);
+}
+
+/**
+ * @tc.name: HandleOnWillScrollEventEx
+ * @tc.desc: Test ScrollerObserverManager HandleOnWillScrollEventEx
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollablePatternTestNg, HandleOnWillScrollEventEx, TestSize.Level1)
+{
+    RefPtr<ScrollerObserverManager> manager = AceType::MakeRefPtr<ScrollerObserverManager>();
+    ScrollFrameResult result = { .offset = Dimension(0.0) };
+    manager->observers_.clear();
+    ScrollerObserver observer;
+    observer.onWillScrollEventEx = nullptr;
+    manager->AddObserver(observer, 1);
+    manager->HandleOnWillScrollEventEx(result, ScrollState::SCROLL, ScrollSource::DRAG);
+    EXPECT_NE(result.offset.Value(), 1.0);
+    manager->observers_.clear();
+    observer.onWillScrollEventEx = [](ScrollFrameResult& result, ScrollState state, ScrollSource source) {
+        result.offset = Dimension(1.0);
+    };
+    manager->AddObserver(observer, 1);
+    manager->HandleOnWillScrollEventEx(result, ScrollState::SCROLL, ScrollSource::DRAG);
+    EXPECT_EQ(result.offset.Value(), 1.0);
+}
+
+/**
+ * @tc.name: CustomizeSafeAreaPadding
+ * @tc.desc: Test CustomizeSafeAreaPadding
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollablePatternTestNg, CustomizeSafeAreaPadding, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create scrollable pattern, init .
+     */
+    RefPtr<ListPattern> scrollablePattern = AceType::MakeRefPtr<ListPattern>();
+    scrollablePattern->needFullSafeArea_ = true;
+    /**
+     * @tc.steps: step2. set padding and call CustomizeSafeAreaPadding with true.
+     * @tc.expected: safeAreaPadding is PaddingPropertyF{}.
+     */
+    PaddingPropertyF padding { 10, 20, 30, 40 };
+    auto safeAreaPadding = scrollablePattern->CustomizeSafeAreaPadding(padding, true);
+    EXPECT_EQ(safeAreaPadding, PaddingPropertyF {});
+    /**
+     * @tc.steps: step3. call CustomizeSafeAreaPadding with false.
+     * @tc.expected: safeAreaPadding is equal to padding.
+     */
+    safeAreaPadding = scrollablePattern->CustomizeSafeAreaPadding(padding, false);
+    EXPECT_EQ(safeAreaPadding, padding);
+}
+
+/**
+ * @tc.name: AccumulatingTerminateHelper
+ * @tc.desc: Test AccumulatingTerminateHelper
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollablePatternTestNg, AccumulatingTerminateHelper, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create scrollable pattern, init.
+     */
+    RefPtr<ListPattern> scrollablePattern = AceType::MakeRefPtr<ListPattern>();
+    /**
+     * @tc.steps: step2. set needFullSafeArea_ to true and call AccumulatingTerminateHelper.
+     * @tc.expected: the return value is false.
+     */
+    scrollablePattern->needFullSafeArea_ = true;
+    ExpandEdges padding { 10, 20, 30, 40 };
+    RectF rect {};
+    auto result = scrollablePattern->AccumulatingTerminateHelper(rect, padding);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: UpdateBorderRadius
+ * @tc.desc: Test UpdateBorderRadius
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollablePatternTestNg, UpdateBorderRadius, TestSize.Level1)
+{
+    RefPtr<ScrollablePattern> scrollablePattern = AceType::MakeRefPtr<ListPattern>();
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 2, scrollablePattern);
+    auto layoutProperty = AceType::MakeRefPtr<LayoutProperty>();
+    frameNode->SetLayoutProperty(layoutProperty);
+    auto renderContext = frameNode->GetRenderContext();
+    EXPECT_FALSE(renderContext->HasBorderRadius());
+
+    BorderWidthProperty borderWidth = { 1.0_vp, 1.0_vp, 1.0_vp, 1.0_vp };
+    renderContext->UpdateBorderWidth(borderWidth);
+    scrollablePattern->UpdateBorderRadius();
+    EXPECT_FALSE(renderContext->HasBorderRadius());
+    auto paintProperty = frameNode->GetPaintProperty<ScrollablePaintProperty>();
+    EXPECT_EQ(paintProperty->GetPropertyChangeFlag(), PROPERTY_UPDATE_RENDER);
+}
+
+/**
+ * @tc.name: OnDetachFromMainTree001
+ * @tc.desc: Test ScrollablePattern OnDetachFromMainTree when scrollStop_ is true
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollablePatternTestNg, OnDetachFromMainTree001, TestSize.Level1)
+{
+    RefPtr<ScrollablePattern> scrollablePattern = AceType::MakeRefPtr<ListPattern>();
+    scrollablePattern->scrollStop_ = true;
+    RefPtr<MockNestableScrollContainer> parent = AceType::MakeRefPtr<MockNestableScrollContainer>();
+    EXPECT_CALL(*parent, OnScrollEndRecursive(testing::_)).Times(0);
+    scrollablePattern->parent_ = parent;
+    scrollablePattern->OnDetachFromMainTree();
+}
+
+/**
+ * @tc.name: OnDetachFromMainTree002
+ * @tc.desc: Test ScrollablePattern OnDetachFromMainTree when parent is nullptr
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollablePatternTestNg, OnDetachFromMainTree002, TestSize.Level1)
+{
+    RefPtr<ScrollablePattern> scrollablePattern = AceType::MakeRefPtr<ListPattern>();
+    scrollablePattern->scrollStop_ = false;
+    scrollablePattern->parent_ = nullptr;
+    scrollablePattern->OnDetachFromMainTree();
+}
+
+/**
+ * @tc.name: OnDetachFromMainTree003
+ * @tc.desc: Test ScrollablePattern OnDetachFromMainTree when parent exists and scrollStop_ is false
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollablePatternTestNg, OnDetachFromMainTree003, TestSize.Level1)
+{
+    RefPtr<ListPattern> scrollablePattern = AceType::MakeRefPtr<ListPattern>();
+    scrollablePattern->scrollStop_ = false;
+    RefPtr<Scrollable> scrollable = AceType::MakeRefPtr<Scrollable>();
+    scrollable->currentVelocity_ = 5.0f;
+    RefPtr<ScrollableEvent> scrollableEvent = AceType::MakeRefPtr<ScrollableEvent>(Axis::VERTICAL);
+    scrollableEvent->scrollable_ = scrollable;
+    scrollablePattern->scrollableEvent_ = scrollableEvent;
+    RefPtr<MockNestableScrollContainer> parent = AceType::MakeRefPtr<MockNestableScrollContainer>();
+    EXPECT_CALL(*parent, OnScrollEndRecursive(testing::_)).Times(1);
+    scrollablePattern->parent_ = parent;
+    scrollablePattern->OnDetachFromMainTree();
 }
 } // namespace OHOS::Ace::NG

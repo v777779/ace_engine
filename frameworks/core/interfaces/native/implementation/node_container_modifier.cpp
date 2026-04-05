@@ -20,11 +20,12 @@
 #include "ui/base/utils/utils.h"
 
 #include "core/common/container_scope.h"
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/node_container/node_container_event_hub.h"
 #include "core/components_ng/pattern/node_container/node_container_node.h"
+#include "core/components_ng/pattern/node_container/node_container_model_ng.h"
 #include "core/components_ng/pattern/node_container/node_container_pattern.h"
 #include "core/interfaces/native/implementation/frame_node_peer_impl.h"
+#include "core/interfaces/native/implementation/touch_event_peer.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 
@@ -33,7 +34,7 @@ namespace NodeContainerModifier {
 Ark_NativePointer ConstructImpl(Ark_Int32 id,
                                 Ark_Int32 flags)
 {
-    auto frameNode = NodeContainerNode::GetOrCreateNodeContainerNode(id);
+    auto frameNode = NodeContainerModelNG::CreateFrameNode(id);
     CHECK_NULL_RETURN(frameNode, nullptr);
     frameNode->IncRefCount();
     return AceType::RawPtr(frameNode);
@@ -45,6 +46,9 @@ void SetNodeContainerOptionsImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
+    //auto convValue = Converter::Convert<type>(controller);
+    //auto convValue = Converter::OptConvert<type>(controller); // for enums
+    //NodeContainerModelNG::SetNodeContainerOptions(frameNode, convValue);
 }
 
 void AddNodeContainerRootNodeImpl(Ark_NativePointer self, Ark_NativePointer childNode)
@@ -119,7 +123,7 @@ void SetOnDetachImpl(Ark_NativePointer self, const Callback_Void* value)
     eventHub->SetControllerOnDetach(std::move(onDetachFunc));
 }
 
-void SetOnTouchEventImpl(Ark_NativePointer self, const Opt_Callback_TouchEvent_Void* value)
+void SetOnTouchEventImpl(Ark_NativePointer self, const Opt_Callback_TouchEventProxy_Void* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(self);
     CHECK_NULL_VOID(frameNode);
@@ -128,9 +132,23 @@ void SetOnTouchEventImpl(Ark_NativePointer self, const Opt_Callback_TouchEvent_V
         // Implement Reset value
         return;
     }
-    auto onEvent = [callback = CallbackHelper(*optValue)](TouchEventInfo& info) {
-        const auto event = Converter::ArkTouchEventSync(info);
-        callback.InvokeSync(event.ArkValue());
+    auto onEvent = [arkCallback = CallbackHelper(*optValue)](TouchEventInfo& info) {
+        Ark_TouchEventProxy proxy = {
+            .target = Converter::ArkValue<Ark_EventTarget>(info.GetTarget()),
+            .timeStamp = Converter::ArkValue<Ark_Int64>(
+                static_cast<int64_t>(info.GetTimeStamp().time_since_epoch().count())),
+            .pressure = Converter::ArkValue<Ark_Float64>(info.GetForce()),
+            .tiltX = Converter::ArkValue<Ark_Float64>(static_cast<double>(info.GetTiltX().value_or(0))),
+            .tiltY = Converter::ArkValue<Ark_Float64>(static_cast<double>(info.GetTiltY().value_or(0))),
+            .sourceTool = Converter::ArkValue<Ark_SourceTool>(info.GetSourceTool()),
+            .deviceId = Converter::ArkValue<Opt_Int32>(info.GetDeviceId()),
+            .targetDisplayId = Converter::ArkValue<Opt_Int32>(info.GetTargetDisplayId()),
+            .type = Converter::ArkValue<Ark_TouchType>(info.GetChangedTouches().front().GetTouchType()),
+            .touches = Converter::ArkValue<Array_TouchObject>(info.GetTouches(), Converter::FC),
+            .changedTouches = Converter::ArkValue<Array_TouchObject>(info.GetChangedTouches(), Converter::FC),
+            .ptr = &info
+        };
+        arkCallback.InvokeSync(proxy);
     };
     ViewAbstract::SetOnTouch(frameNode, std::move(onEvent));
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,13 +13,19 @@
  * limitations under the License.
  */
 
-import { int32 } from "./types"
-
-const OBSERVABLE_TARGET = "target"
+const OBSERVABLE_TARGET = 'target'
 
 export function getObservableTarget(proxy: Object): Object {
     try {
-        return (((reflect.Value.of(proxy) as ClassValue).getFieldByName(OBSERVABLE_TARGET).getData()) ?? proxy) as Object
+        const cls = Class.of(proxy)
+        let field: reflect.InstanceField | undefined = undefined;
+        for (let cls: Class | undefined = Class.of(proxy); cls != undefined; cls = cls!.getSuper()) {
+            field = cls!.getInstanceField(OBSERVABLE_TARGET);
+            if (field != undefined) {
+                return field!.getValue(proxy) as Object
+            }
+        }
+        return proxy
     } catch (error) {
         return proxy
     }
@@ -29,7 +35,7 @@ export function getObservableTarget(proxy: Object): Object {
  * Data class decorator that makes all child fields trackable.
  */
 export function Observed() {
-    throw new Error("TypeScript class decorators are not supported yet")
+    throw new Error('TypeScript class decorators are not supported yet')
 }
 
 /** @internal */
@@ -53,7 +59,7 @@ export class ObservableHandler implements Observable {
     private static handlers: WeakMap<Object, ObservableHandler> | undefined = undefined
 
     private parents = new Set<ObservableHandler>()
-    private children = new Map<ObservableHandler, number>()
+    private children = new Map<ObservableHandler, int>()
 
     private readonly observables = new Set<Observable>()
     private _modified = false
@@ -157,7 +163,7 @@ export class ObservableHandler implements Observable {
         if (count > 1) {
             parent.children.set(this, count - 1)
         }
-        else if (count == 1) {
+        else if (count === 1) {
             parent.children.delete(this)
             this.parents.delete(parent)
         }
@@ -172,7 +178,7 @@ export class ObservableHandler implements Observable {
         if (guards.has(this)) return guards // already collected
         guards.add(this) // handler is already guarded
         this.parents.forEach((handler: ObservableHandler) => { handler.collect(all, guards) })
-        if (all) this.children.forEach((_count: number, handler: ObservableHandler) => { handler.collect(all, guards) })
+        if (all) this.children.forEach((_count: int, handler: ObservableHandler) => { handler.collect(all, guards) })
         return guards
     }
 
@@ -196,7 +202,7 @@ export function observableProxyArray<Value>(...value: Value[]): Array<Value> {
 /** @internal */
 export function observableProxy<Value>(value: Value, parent?: ObservableHandler, observed?: boolean, strict: boolean = true): Value {
     if (value instanceof ObservableHandler) return value as Value // do not proxy a marker itself
-    if (value == null || !(value instanceof Object)) return value as Value // only non-null object can be observable
+    if (value === null || !(value instanceof Object)) return value as Value // only non-null object can be observable
     const observable = ObservableHandler.find(value as Object)
     if (observable) {
         if (parent) {
@@ -224,57 +230,7 @@ export function observableProxy<Value>(value: Value, parent?: ObservableHandler,
         return ObservableDate(value, parent, observed) as Value
     }
 
-    // Improve: Fatal error on using proxy with generic types
-    // see: panda issue #26492
-
-    const valueType = Type.of(value)
-    if (valueType instanceof ClassType && !(value instanceof BaseEnum)) {
-        const meta = extractObservableMetadata(value)
-        if (meta == undefined) {
-            return value as Value
-        }
-        if (valueType.hasEmptyConstructor()) {
-            const result = proxy.Proxy.create(value as Object, new CustomProxyHandler<Object>(meta)) as Value
-            ObservableHandler.installOn(result as Object, new ObservableHandler(parent))
-            return result
-        } else {
-            throw new Error(`Class '${valueType.getName()}' must contain a default constructor`)
-        }
-    }
-
     return value as Value
-}
-
-class CustomProxyHandler<T extends Object> extends proxy.DefaultProxyHandler<T> {
-    private readonly metadataClass: MetadataClass
-
-    constructor(metadataClass: MetadataClass) {
-        super();
-        this.metadataClass = metadataClass
-    }
-
-    override get(target: T, name: string): Any {
-        const value = super.get(target, name)
-        const targetHandler = ObservableHandler.find(target)
-        if (targetHandler && this.metadataClass.isObservedClass) {
-            const valueHandler = ObservableHandler.find(value as Object)
-            if (valueHandler && !targetHandler.hasChild(valueHandler)) {
-                valueHandler.addParent(targetHandler)
-            }
-        }
-        targetHandler?.onAccess(this.metadataClass.trackedProperties?.has(name) ? name : undefined)
-        return value
-    }
-
-    override set(target: T, name: string, value: Any): boolean {
-        const observable = ObservableHandler.find(target)
-        if (observable) {
-            observable.onModify(this.metadataClass.trackedProperties?.has(name) ? name : undefined)
-            observable.removeChild(super.get(target, name))
-            value = observableProxy(value, observable, ObservableHandler.contains(observable))
-        }
-        return super.set(target, name, value)
-    }
 }
 
 function proxyChildrenOnly<T>(array: T[], parent: ObservableHandler, observed?: boolean) {
@@ -380,7 +336,7 @@ class ObservableArray<T> extends Array<T> {
         return result
     }
 
-    override sort(comparator?: (a: T, b: T) => number): this {
+    override sort(comparator?: (a: T, b: T) => int): this {
         this.handler?.onModify()
         super.sort(comparator)
         return this
@@ -409,7 +365,7 @@ class ObservableArray<T> extends Array<T> {
         return super.unshift(...items)
     }
 
-    override keys(): IterableIterator<Number> {
+    override keys(): IterableIterator<int> {
         this.handler?.onAccess()
         return super.keys()
     }
@@ -426,7 +382,7 @@ class ObservableArray<T> extends Array<T> {
         return super.flat<U>(depth)
     }
 
-    override flatMap<U>(fn: (v: T, k: int, arr: Array<T>) => U): Array<U> {
+    override flatMap<U>(fn: (v: T, k: int, arr: Array<T>) => U | ReadonlyArray<U>): Array<U> {
         this.handler?.onAccess()
         return super.flatMap<U>(fn)
     }
@@ -508,9 +464,9 @@ class ObservableArray<T> extends Array<T> {
         return super.join(sep)
     }
 
-    override toLocaleString(): string {
+    override toLocaleString(locales?: Intl.LocalesArgument, options?: object): string {
         this.handler?.onAccess()
-        return super.toLocaleString()
+        return super.toLocaleString(locales, options)
     }
 
     override toSpliced(start: int, delete: int, ...items: FixedArray<T>): Array<T> {
@@ -533,7 +489,7 @@ class ObservableArray<T> extends Array<T> {
         return super.toSorted()
     }
 
-    override toSorted(comparator: (a: T, b: T) => number): Array<T> {
+    override toSorted(comparator: (a: T, b: T) => int): Array<T> {
         this.handler?.onAccess()
         return super.toSorted(comparator)
     }
@@ -553,7 +509,7 @@ class ObservableArray<T> extends Array<T> {
         return super.values()
     }
 
-    override entries(): IterableIterator<[number, T]> {
+    override entries(): IterableIterator<[int, T]> {
         this.handler?.onAccess()
         return super.entries()
     }
@@ -810,9 +766,9 @@ class ObservableDate extends Date {
         return super.toLocaleTimeString()
     }
 
-    override toLocaleString(): string {
+    override toLocaleString(locales?: Intl.LocalesArgument, options?: object): string {
         this.handler?.onAccess()
-        return super.toLocaleString()
+        return super.toLocaleString(locales, options)
     }
 
     override toLocaleDateString(): string {

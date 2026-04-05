@@ -16,12 +16,11 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_BUBBLE_BUBBLE_LAYOUT_PROPERTY_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_BUBBLE_BUBBLE_LAYOUT_PROPERTY_H
 
+#include "base/geometry/dimension.h"
 #include "base/geometry/ng/offset_t.h"
 #include "core/components/common/properties/placement.h"
-#include "core/components/common/properties/popup_param.h"
+#include "core/components/common/properties/tips_anchor_type.h"
 #include "core/components_ng/layout/layout_property.h"
-#include "core/components/popup/popup_theme.h"
-#include "core/pipeline/pipeline_base.h"
 
 namespace OHOS::Ace::NG {
 class ACE_EXPORT BubbleLayoutProperty : public LayoutProperty {
@@ -48,9 +47,10 @@ public:
         value->propArrowWidth_ = CloneArrowWidth();
         value->propRadius_ = CloneRadius();
         value->propIsCaretMode_ = CloneIsCaretMode();
-        value->propEnableHoverMode_ = CloneEnableHoverMode();
         value->propFollowTransformOfTarget_ = CloneFollowTransformOfTarget();
+        value->propEnableHoverMode_ = CloneEnableHoverMode();
         value->propShowAtAnchor_ = CloneShowAtAnchor();
+        value->propIsModal_ = CloneIsModal();
         return value;
     }
 
@@ -70,9 +70,10 @@ public:
         ResetArrowWidth();
         ResetRadius();
         ResetIsCaretMode();
-        ResetEnableHoverMode();
         ResetFollowTransformOfTarget();
+        ResetEnableHoverMode();
         ResetShowAtAnchor();
+        ResetIsModal();
     }
 
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(EnableArrow, bool, PROPERTY_UPDATE_MEASURE);
@@ -88,47 +89,10 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ArrowWidth, Dimension, PROPERTY_UPDATE_LAYOUT);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(Radius, Dimension, PROPERTY_UPDATE_LAYOUT);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(IsCaretMode, bool, PROPERTY_UPDATE_LAYOUT);
-    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(EnableHoverMode, bool, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(FollowTransformOfTarget, bool, PROPERTY_UPDATE_LAYOUT);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(EnableHoverMode, bool, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ShowAtAnchor, TipsAnchorType, PROPERTY_UPDATE_MEASURE);
-
-    virtual void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override
-    {
-        LayoutProperty::ToJsonValue(json, filter);
-        CHECK_NULL_VOID(json);
-        auto bubbleLayoutProperty = JsonUtil::Create(true);
-        bubbleLayoutProperty->Put("placement",
-            GetPlacementAsString(GetPlacement().value_or(Placement::RIGHT_BOTTOM)).c_str());
-        bubbleLayoutProperty->Put("enableArrow", GetEnableArrow().value_or(true));
-        bubbleLayoutProperty->Put("enableHoverMode", GetEnableHoverMode().value_or(false));
-        bubbleLayoutProperty->Put("followTransformOfTarget", GetFollowTransformOfTarget().value_or(false));
-        bubbleLayoutProperty->Put("blockEvent", GetBlockEvent().value_or(true));
-        bubbleLayoutProperty->Put("positionOffset", GetPositionOffset().value_or(OffsetF()).ToString().c_str());
-        bubbleLayoutProperty->Put("arrowWidth", GetArrowWidth().value_or(Dimension(16.0_vp)).ToString().c_str());
-        bubbleLayoutProperty->Put("arrowHeight", GetArrowHeight().value_or(Dimension(8.0_vp)).ToString().c_str());
-        bubbleLayoutProperty->Put("showInSubWindow", GetShowInSubWindow().value_or(false));
-
-        auto context = PipelineBase::GetCurrentContextSafelyWithCheck();
-        auto theme = context ? context->GetTheme<PopupTheme>() : nullptr;
-        auto defaultTargetSpace = theme ? theme->GetTargetSpace() : Dimension();
-        bubbleLayoutProperty->Put("targetSpace", GetTargetSpace().value_or(defaultTargetSpace).ToString().c_str());
-
-        auto defaultRadius = theme ?
-            Dimension(theme->GetRadius().GetX().Value(), theme->GetRadius().GetX().Unit()) :
-            Dimension(20._vp);
-        bubbleLayoutProperty->Put("radius", GetRadius().value_or(defaultRadius).ToString().c_str());
-
-        json->PutExtAttr("bubbleLayoutProperty", bubbleLayoutProperty, filter);
-    }
-
-    std::string GetPlacementAsString(Placement arg) const
-    {
-        std::vector<std::string> vec = {
-            "Placement::LEFT", "Placement::RIGHT", "Placement::TOP", "Placement::BOTTOM", "Placement::TOP_LEFT",
-            "Placement::TOP_RIGHT", "Placement::BOTTOM_LEFT", "Placement::BOTTOM_RIGHT", "Placement::LEFT_TOP",
-            "Placement::LEFT_BOTTOM", "Placement::RIGHT_TOP", "Placement::RIGHT_BOTTOM", "Placement::NONE"};
-        return vec.at(static_cast<int32_t>(arg));
-    }
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(IsModal, bool, PROPERTY_UPDATE_RENDER);
 
 private:
     ACE_DISALLOW_COPY_AND_MOVE(BubbleLayoutProperty);

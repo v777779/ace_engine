@@ -34,6 +34,28 @@ const std::string DEFAULT_STR("2.0");
 
 class AnimatableDimensionTest : public testing::Test {};
 
+
+/**
+ * @tc.name: FirstAssignTest
+ * @tc.desc: Test the function ResetAnimatableDimension of the class AnimatableDimension.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AnimatableDimensionTest, FirstAssignTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: initialize parameters.
+     */
+    AnimatableDimension animatableDimensionObj1;
+    animatableDimensionObj1.isFirstAssign_ = false;
+
+    /**
+     * @tc.steps2: call the function ResetAnimatableDimension.
+     * @tc.expected: The value of flagCbk isFirstAssign_ is set to true.
+     */
+    animatableDimensionObj1.ResetAnimatableDimension();
+    EXPECT_TRUE(animatableDimensionObj1.isFirstAssign_);
+}
+
 /**
  * @tc.name: AnimatableDimensionTest001
  * @tc.desc: Test the function operator= of the class AnimatableDimension.
@@ -239,8 +261,7 @@ HWTEST_F(AnimatableDimensionTest, AnimatableDimensionTest007, TestSize.Level1)
      * @tc.expected: status1 is equal to IDLE.
      */
     AnimatableDimension animatableDimensionObj1;
-    bool flagCbk = false;
-    animatableDimensionObj1.SetContextAndCallback(nullptr, [&flagCbk]() { flagCbk = true; });
+    animatableDimensionObj1.SetContextAndCallback(nullptr, []() {});
     auto status1 = animatableDimensionObj1.GetAnimationStatus();
     EXPECT_EQ(status1, AnimatorStatus::IDLE);
 

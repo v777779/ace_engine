@@ -19,29 +19,49 @@
 #include <cstdint>
 #include <list>
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
 
+#include "ui/base/versions.h"
 #include "base/geometry/ng/point_t.h"
 #include "base/geometry/ng/size_t.h"
 #include "base/log/ace_performance_check.h"
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
 #include "base/utils/macros.h"
-#include "base/view_data/view_data_wrap.h"
 #include "core/common/resource/resource_configuration.h"
 #include "core/common/window_animation_config.h"
-#include "core/components_ng/event/focus_hub.h"
-#include "core/components_ng/event/gesture_event_hub.h"
+#include "core/components/theme/theme.h"
 #include "core/components_ng/export_texture_info/export_texture_info.h"
-#include "core/components_ng/layout/layout_wrapper.h"
-#include "core/components_ng/layout/layout_wrapper_node.h"
-#include "core/components_ng/property/accessibility_property.h"
-#include "core/event/touch_event.h"
-#include "core/event/mouse_event.h"
+#include "core/components_ng/event/event_constants.h"
+#include "core/components_ng/property/layout_constraint.h"
+#include "core/components_ng/property/property.h"
+#include "interfaces/inner_api/ui_session/param_config.h"
+
+namespace OHOS::Ace {
+
+namespace NG {
+    class NGGestureRecognizer;
+}
+class ViewDataWrap;
+class PageNodeInfoWrap;
+class TouchEventTarget;
+using TouchTestResult = std::list<RefPtr<TouchEventTarget>>;
+class MouseEventTarget;
+using MouseTestResult = std::list<RefPtr<MouseEventTarget>>;
+class AxisEventTarget;
+using AxisTestResult = std::list<RefPtr<AxisEventTarget>>;
+struct TouchRestrict;
+using ResponseLinkResult = std::list<WeakPtr<NG::NGGestureRecognizer>>;
+}
 
 namespace OHOS::Ace::NG {
 class AccessibilityProperty;
+class FocusHub;
+class LayoutWrapperNode;
+class FrameNode;
+class CustomNode;
 
 struct ExtraInfo {
     std::string page;
@@ -99,6 +119,10 @@ public:
     UINode(const std::string& tag, int32_t nodeId, bool isRoot = false);
     ~UINode() override;
 
+    void RegisterReleaseFunc(bool enableRegister);
+    virtual void OnDelete();
+    bool MaybeOnDelete() const;
+
     // atomic node is like button, image, custom node and so on.
     // In ets UI compiler, the atomic node does not Add Pop function, only have Create function.
     virtual bool IsAtomicNode() const = 0;
@@ -116,12 +140,15 @@ public:
     void AddChildAfter(const RefPtr<UINode>& child, const RefPtr<UINode>& siblingNode);
     void AddChildBefore(const RefPtr<UINode>& child, const RefPtr<UINode>& siblingNode);
 
+    void AdoptChild(const RefPtr<FrameNode>& child, bool silently = false, bool addDefaultTransition = false);
+
     std::list<RefPtr<UINode>>::iterator RemoveChild(const RefPtr<UINode>& child, bool allowTransition = false);
     bool RemoveChildSilently(const RefPtr<UINode>& child);
     int32_t RemoveChildAndReturnIndex(const RefPtr<UINode>& child);
+    bool RemoveAdoptedChild(const RefPtr<FrameNode>& child);
     void ReplaceChild(const RefPtr<UINode>& oldNode, const RefPtr<UINode>& newNode);
     void MovePosition(int32_t slot);
-    void MountToParent(const RefPtr<UINode>& parent, int32_t slot = DEFAULT_NODE_SLOT, bool silently = false,
+    virtual void MountToParent(const RefPtr<UINode>& parent, int32_t slot = DEFAULT_NODE_SLOT, bool silently = false,
         bool addDefaultTransition = false, bool addModalUiextension = false);
     void MountToParentAfter(const RefPtr<UINode>& parent, const RefPtr<UINode>& siblingNode);
     void MountToParentBefore(const RefPtr<UINode>& parent, const RefPtr<UINode>& siblingNode);
@@ -130,16 +157,26 @@ public:
     RefPtr<FrameNode> GetFocusParentWithBoundary() const;
     RefPtr<FrameNode> GetFocusParent() const;
     RefPtr<FocusHub> GetFirstFocusHubChild() const;
+    std::string ToString() const;
+    static int32_t Count()
+    {
+        return count_.load();
+    }
 
     virtual void OnChildUpdateDone() {};
 
-    void SetIsStatic(bool isstatic) {
+    void SetIsStatic(bool isstatic)
+    {
         isStaticNode_ = isstatic;
     }
 
-    bool GetIsStatic() {
+    bool GetIsStatic()
+    {
         return isStaticNode_;
     }
+
+    void NeedSetInActiveAfterTransitionOut(bool needSetInActive);
+    void SetInActiveAfterTransitionOut();
 
     // Only for the currently loaded children, do not expand.
     void GetCurrentChildrenFocusHub(std::list<RefPtr<FocusHub>>& focusNodes);
@@ -164,6 +201,8 @@ public:
 
     // process offscreen process.
     void ProcessOffscreenTask(bool recursive = false);
+
+    void ProcessOffscreenResource();
 
     // Determine if the node is a SyntaxNode, default returns false.
     // SyntaxNode classes need to override the method and return true.
@@ -191,13 +230,18 @@ public:
     // int32_t second - index of the node
     std::pair<bool, int32_t> GetChildFlatIndex(int32_t id);
 
+    const std::list<RefPtr<FrameNode>>& GetAdoptedChildren() const
+    {
+        return adoptedChildren_;
+    }
+
     virtual const std::list<RefPtr<UINode>>& GetChildren(bool notDetach = false) const
     {
         return children_;
     }
 
     // Return children for get inspector tree calling, return cache children directly
-    virtual const std::list<RefPtr<UINode>>& GetChildrenForInspector() const
+    virtual const std::list<RefPtr<UINode>>& GetChildrenForInspector(bool needCacheNode = false) const
     {
         return children_;
     }
@@ -231,6 +275,11 @@ public:
         return parent_.Upgrade();
     }
 
+    RefPtr<UINode> GetAdoptParent() const
+    {
+        return adoptParent_.Upgrade();
+    }
+
     RefPtr<UINode> GetAncestor() const;
 
     void SetNeedCallChildrenUpdate(bool needCallChildrenUpdate)
@@ -239,8 +288,24 @@ public:
     }
 
     virtual void SetParent(const WeakPtr<UINode>& parent, bool needDetect = true);
+
+    void SetAdoptParent(const WeakPtr<UINode>& adoptParent)
+    {
+        adoptParent_ = adoptParent;
+    }
+
     void SetAncestor(const WeakPtr<UINode>& parent);
     // Tree operation end.
+
+    void SetLastParent(WeakPtr<UINode> lastParent)
+    {
+        lastParent_ = lastParent;
+    }
+
+    WeakPtr<UINode> GetLastParent()
+    {
+        return lastParent_;
+    }
 
     // performance.
     PipelineContext* GetContext() const;
@@ -248,6 +313,15 @@ public:
     PipelineContext* GetContextWithCheck();
 
     RefPtr<PipelineContext> GetContextRefPtr() const;
+
+    int32_t GetThemeScopeIdForTheme(bool useApiVersionIsolation) const;
+    RefPtr<Theme> GetThemeByType(ThemeType type, bool useApiVersionIsolation = false) const;
+
+    template<typename T>
+    RefPtr<T> GetTheme(bool useApiVersionIsolation = false) const
+    {
+        return AceType::DynamicCast<T>(GetThemeByType(T::TypeId(), useApiVersionIsolation));
+    }
 
     // When FrameNode creates a layout task, the corresponding LayoutWrapper tree is created, and UINode needs to update
     // the corresponding LayoutWrapper tree node at this time like add self wrapper to wrapper tree.
@@ -258,12 +332,19 @@ public:
         RefPtr<ViewDataWrap> viewDataWrap, bool skipSubAutoFillContainer = false, bool needsRecordData = false);
     bool NeedRequestAutoSave();
     // DFX info.
-    virtual void DumpTree(int32_t depth, bool hasJson = false);
+    virtual void DumpTree(int32_t depth, bool hasJson = false, const std::string& desc = "");
     void DumpTreeJsonForDiff(std::unique_ptr<JsonValue>& json);
-    void DumpSimplifyTree(int32_t depth, std::unique_ptr<JsonValue>& current);
+    void DumpSimplifyTreeBase(std::shared_ptr<JsonValue>& current);
+    void DumpSimplifyTree(int32_t depth, std::shared_ptr<JsonValue>& current);
+    void DumpSimplifyTreeNode(std::shared_ptr<JsonValue>& current, ParamConfig config);
+    void DumpSimplifyTreeWithParamConfig(int32_t depth, std::shared_ptr<JsonValue>& current,
+        bool onlyNeedVisible, ParamConfig config = ParamConfig(),
+        std::function<std::pair<bool, bool>(const RefPtr<UINode>&)> dumpChecker = nullptr);
     virtual bool IsContextTransparent();
 
     bool DumpTreeById(int32_t depth, const std::string& id, bool hasJson = false);
+    bool DumpTreeByComponentName(const std::string& name);
+    void DumpCornerMarkNode(int32_t depth, bool hasJson);
 
     const std::string& GetTag() const
     {
@@ -293,6 +374,16 @@ public:
         return isRoot_;
     }
 
+    bool IsAdopted() const
+    {
+        return isAdopted_;
+    }
+
+    bool IsFirstTimeGetRenderNode() const
+    {
+        return isFirstTimeGetRenderNode_;
+    }
+
     int32_t GetDepth() const
     {
         return depth_;
@@ -303,6 +394,7 @@ public:
         return hostRootId_;
     }
 
+    int32_t GetHostPageId() const;
     int32_t GetPageId() const
     {
         return hostPageId_;
@@ -364,6 +456,16 @@ public:
     }
 
     void SetChildrenInDestroying();
+
+    void SetIsAdopted(bool isAdopted)
+    {
+        isAdopted_ = isAdopted;
+    }
+
+    void SetIsFirstTimeGetRenderNode(bool isFirstTimeGetRenderNode)
+    {
+        isFirstTimeGetRenderNode_ = isFirstTimeGetRenderNode;
+    }
 
     virtual HitTestResult TouchTest(const PointF& globalPoint, const PointF& parentLocalPoint,
         const PointF& parentRevertPoint, TouchRestrict& touchRestrict, TouchTestResult& result, int32_t touchId,
@@ -432,6 +534,7 @@ public:
     virtual void OnReuse();
 
     virtual void NotifyColorModeChange(uint32_t colorMode);
+    virtual void NotifyColorModeChange(uint32_t colorMode, bool recursive);
 
     virtual bool MarkRemoving();
 
@@ -658,12 +761,21 @@ public:
     NodeStatus GetNodeStatus() const;
     void UpdateNodeStatus(NodeStatus nodeStatus);
     void SetIsRootBuilderNode(bool isRootBuilderNode);
+    void SetJsBuilderNodeId(int32_t jsBuilderNodeId)
+    {
+        jsBuilderNodeId_ = jsBuilderNodeId;
+    }
+
+    int32_t GetJsBuilderNodeId() const
+    {
+        return jsBuilderNodeId_;
+    }
+
     bool GetIsRootBuilderNode() const;
     void SetNodeAdapter(bool enable)
     {
         isNodeAdapter_ = enable;
     }
-    
 
     bool IsArkTsFrameNode() const
     {
@@ -695,6 +807,10 @@ public:
 
     virtual void PaintDebugBoundaryTreeAll(bool flag);
     static void DFSAllChild(const RefPtr<UINode>& root, std::vector<RefPtr<UINode>>& res);
+    static RefPtr<UINode> BfsFindUINode(
+        const RefPtr<UINode>& root, const std::function<bool(const RefPtr<UINode>&)>& matcher);
+    RefPtr<FrameNode> GetFrameNodeByIdInSubTree(const std::string& id);
+    RefPtr<FrameNode> GetFrameNodeByUniqueIdInSubTree(int32_t uniqueId);
     static void GetBestBreakPoint(RefPtr<UINode>& breakPointChild, RefPtr<UINode>& breakPointParent);
 
     virtual bool HasVirtualNodeAccessibilityProperty()
@@ -875,7 +991,7 @@ public:
     virtual void NotifyChange(int32_t changeIdx, int32_t count, int64_t id, NotificationType notificationType);
 
     int32_t GetThemeScopeId() const;
-    void SetThemeScopeId(int32_t themeScopeId);
+    virtual void SetThemeScopeId(int32_t themeScopeId);
     virtual void UpdateThemeScopeId(int32_t themeScopeId);
     virtual void UpdateThemeScopeUpdate(int32_t themeScopeId);
     virtual void OnThemeScopeUpdate(int32_t themeScopeId) {}
@@ -908,6 +1024,11 @@ public:
     bool IsReusableNode() const
     {
         return isCNode_ || isArkTsFrameNode_ || isRootBuilderNode_ || isArkTsRenderNode_;
+    }
+
+    bool IsBuildByUser() const
+    {
+        return isBuildByJS_ || IsReusableNode() || isRoot_ || isStaticNode_;
     }
 
     virtual RefPtr<UINode> GetCurrentPageRootNode()
@@ -951,10 +1072,6 @@ public:
     bool IsAllowReusableV2Descendant() const;
 
     bool HasSkipNode();
-    virtual void OnDestroyingStateChange(bool isDestroying, bool cleanStatus)
-    {
-        isDestroyingState_ = isDestroying;
-    }
     virtual void SetDestroying(bool isDestroying = true, bool cleanStatus = true);
 
     /**
@@ -978,7 +1095,7 @@ public:
         shouldRerender_ = shouldRerender;
     }
 
-    bool GetRerenderable()
+    bool GetRerenderable() const
     {
         return shouldRerender_;
     }
@@ -988,7 +1105,7 @@ public:
         isDarkMode_ = isDarkMode;
     }
 
-    bool CheckIsDarkMode()
+    bool CheckIsDarkMode() const
     {
         return isDarkMode_;
     }
@@ -998,7 +1115,7 @@ public:
         measureAnyWay_  = measureAnyWay;
     }
 
-    bool CheckMeasureAnyway()
+    bool CheckMeasureAnyway() const
     {
         return measureAnyWay_;
     }
@@ -1008,10 +1125,29 @@ public:
         shouldClearCache_ = shouldClearCache;
     }
 
-    bool CheckShouldClearCache()
+    bool CheckShouldClearCache() const
     {
         return shouldClearCache_;
     }
+
+    void AllowForceDark(bool forceDarkAllowed);
+
+    bool GetForceDarkAllowed() const
+    {
+        return forceDarkAllowed_;
+    }
+
+    void AllowForceDarkByUser(bool forceDarkAllowedbyUser)
+    {
+        forceDarkAllowedbyUser_ = forceDarkAllowedbyUser;
+    }
+
+    bool GetForceDarkAllowedByUser() const
+    {
+        return forceDarkAllowedbyUser_;
+    }
+
+    virtual void OnAllowForceDarkUpdate(uint32_t colorMode) {};
 
     bool IsArkTsRenderNode() const
     {
@@ -1024,7 +1160,7 @@ public:
     }
 
     void ProcessIsInDestroyingForReuseableNode(const RefPtr<UINode>& child);
-    virtual bool CheckVisibleOrActive()
+    virtual bool IsVisibleAndActive() const
     {
         return true;
     }
@@ -1067,6 +1203,16 @@ public:
         return drawChildrenParent_.Upgrade();
     }
 
+    bool IsObservedByLayoutChildren() const
+    {
+        return isObservedByLayoutChildren_;
+    }
+
+    RefPtr<UINode> GetObserverParentForLayoutChildren() const
+    {
+        return layoutChildrenParent_.Upgrade();
+    }
+
     bool IsThreadSafeNode() const
     {
         return isThreadSafeNode_;
@@ -1077,13 +1223,30 @@ public:
         return isFree_;
     }
 
-    void PostAfterAttachMainTreeTask(std::function<void()>&& task)
+    virtual void SetIsFree(bool isFree)
     {
-        if (IsOnMainTree()) {
-            return;
-        }
-        afterAttachMainTreeTasks_.emplace_back(std::move(task));
+        isFree_ = isFree;
     }
+
+    void MarkNodeTreeNotFree();
+
+    void MarkNodeTreeFree(bool isNeedMarkNodeTreeFree = false);
+
+    void PostAfterAttachMainTreeTask(std::function<void()>&& task);
+
+    void ExecuteAfterAttachMainTreeTasks();
+
+    void FindTopNavDestination(std::list<RefPtr<FrameNode>>& result);
+
+    bool SubtreeWithIgnoreChild() const
+    {
+        return subtreeIgnoreCount_ != 0;
+    }
+    void GetNodeListByComponentName(
+        int32_t depth, std::vector<int32_t>& foundNodeId, const std::string& name, bool onlyVisible);
+
+    virtual void DumpSimplifyInfoWithParamConfig(std::shared_ptr<JsonValue>& json, ParamConfig config = ParamConfig());
+    void UpdateDrawLayoutChildObserver(bool isClearLayoutObserver, bool isClearDrawObserver);
 
 protected:
     std::list<RefPtr<UINode>>& ModifyChildren()
@@ -1115,7 +1278,9 @@ protected:
     // dump self info.
     virtual void DumpInfo() {}
     virtual void DumpInfo(std::unique_ptr<JsonValue>& json) {}
-    virtual void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) {}
+    virtual void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) {}
+    virtual void DumpSimplifyInfoOnlyForParamConfig(
+        std::shared_ptr<JsonValue>& json, ParamConfig config = ParamConfig()) {};
     virtual void DumpAdvanceInfo() {}
     virtual void DumpAdvanceInfo(std::unique_ptr<JsonValue>& json) {}
     virtual void DumpViewDataPageNode(RefPtr<ViewDataWrap> viewDataWrap, bool needsRecordData = false) {}
@@ -1133,6 +1298,8 @@ protected:
 
     // run offscreen process.
     virtual void OnOffscreenProcess(bool recursive) {}
+
+    virtual void OnOffscreenProcessResource() {}
 
     bool isRemoving_ = false;
 
@@ -1169,22 +1336,28 @@ protected:
      */
     int32_t CalcAbsPosition(int32_t changeIdx, int64_t id) const;
     const static std::set<std::string> layoutTags_;
-
     std::string tag_ = "UINode";
     int32_t depth_ = Infinity<int32_t>();
     int32_t hostRootId_ = 0;
     int32_t hostPageId_ = 0;
     int32_t nodeId_ = 0;
+    int32_t jsBuilderNodeId_ = -1;
     int64_t accessibilityId_ = -1;
     int32_t layoutPriority_ = 0;
     int32_t rootNodeId_ = 0; // host is Page or NavDestination
     int32_t themeScopeId_ = 0;
+    int32_t subtreeIgnoreCount_ = 0;
+    std::list<RefPtr<FrameNode>> adoptedChildren_;
 
 private:
+    void DumpSimplifyTreeWithParamConfigInner(int32_t depth, std::shared_ptr<JsonValue>& current, bool onlyNeedVisible,
+        ParamConfig config, std::function<std::pair<bool, bool>(const RefPtr<UINode>&)> dumpChecker);
     void DoAddChild(std::list<RefPtr<UINode>>::iterator& it, const RefPtr<UINode>& child, bool silently = false,
         bool addDefaultTransition = false);
+    void UpdateBuilderNodeColorMode(const RefPtr<UINode>& child);
+    void UpdateForceDarkAllowedNode(const RefPtr<UINode>& child);
     bool CanAddChildWhenTopNodeIsModalUec(std::list<RefPtr<UINode>>::iterator& curIter);
-    void UpdateDrawChildObserver(const RefPtr<UINode>& child);
+    void UpdateDrawLayoutChildObserver(const RefPtr<UINode>& child);
 
     void SetObserverParentForDrawChildren(const RefPtr<UINode>& parent);
     void ClearObserverParentForDrawChildren()
@@ -1195,29 +1368,32 @@ private:
             child->ClearObserverParentForDrawChildren();
         }
     }
-    
-    void ExecuteAfterAttachMainTreeTasks()
-    {
-        for (auto& task : afterAttachMainTreeTasks_) {
-            if (task) {
-                task();
-            }
-        }
-        afterAttachMainTreeTasks_.clear();
-    }
-    bool CheckThreadSafeNodeTree(bool needCheck);
+
+    void SetObserverParentForLayoutChildren(const RefPtr<UINode>& parent);
+    void ClearObserverParentForLayoutChildren();
+
+    bool CheckThreadSafeNodeTree();
+    void MarkNodeNotFree();
+    void MarkNodeFree();
     virtual bool MaybeRelease() override;
+    void DumpBasicInfo(int32_t depth, bool hasJson, const std::string& desc);
+    void DumpMoreBasicInfo();
+
+    void HandleColorModeChange();
 
     std::list<RefPtr<UINode>> children_;
     // disappearingChild、index、branchId
     std::list<std::tuple<RefPtr<UINode>, uint32_t, int32_t>> disappearingChildren_;
     std::unique_ptr<PerformanceCheckNode> nodeInfo_;
     WeakPtr<UINode> parent_; // maybe wrong when not on the tree
+    WeakPtr<UINode> adoptParent_; // maybe wrong when not on the tree
     WeakPtr<UINode> ancestor_; // always correct parent ptr, used to remove duplicates when inserting child nodes
+    WeakPtr<UINode> lastParent_; // for dumpinfo of the @Component. don't use ancestor_ because it may be clear.
     bool isRoot_ = false;
     bool onMainTree_ = false;
     bool isThreadSafeNode_ = false;
     bool isFree_ = false; // the thread safe node in free state can be operated by non UI threads
+    bool isRunningPendingUnsafeTask_ = false;
     std::vector<std::function<void()>> afterAttachMainTreeTasks_;
     bool removeSilently_ = true;
     bool isInDestroying_ = false;
@@ -1228,6 +1404,7 @@ private:
     bool isArkTsRenderNode_ = false;
     bool isTraversing_ = false;
     bool isAllowUseParentTheme_ = true;
+    bool isFirstTimeGetRenderNode_ = true;
     NodeStatus nodeStatus_ = NodeStatus::NORMAL_NODE;
     RootNodeType rootNodeType_ = RootNodeType::PAGE_ETS_TAG;
     InteractionEventBindingInfo eventBindingInfo_;
@@ -1268,6 +1445,8 @@ private:
     bool isDarkMode_ = false;
     bool measureAnyWay_ = false;
     bool shouldClearCache_ = true;
+    bool forceDarkAllowed_ = true;
+    bool forceDarkAllowedbyUser_ = false;
     friend class RosenRenderContext;
     ACE_DISALLOW_COPY_AND_MOVE(UINode);
     bool isMoving_ = false;
@@ -1275,7 +1454,14 @@ private:
     std::optional<bool> userFreeze_;
     WeakPtr<UINode> drawChildrenParent_;
     bool isObservedByDrawChildren_ = false;
+    WeakPtr<UINode> layoutChildrenParent_;
+    bool isObservedByLayoutChildren_ = false;
+    static std::atomic_int32_t count_;
+    bool needSetInActiveAfterTransitionOut_ = false;
+
     bool isStaticNode_ = false;
+    bool uiNodeGcEnable_ = false;
+    bool isAdopted_ = false;
 };
 
 } // namespace OHOS::Ace::NG

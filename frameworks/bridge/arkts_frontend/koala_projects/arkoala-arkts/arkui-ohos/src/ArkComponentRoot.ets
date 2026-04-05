@@ -19,9 +19,16 @@ import { ArkCustomComponentRootPeer } from '#generated';
 import { ArkCustomComponent } from './ArkCustomComponent';
 import { InteropNativeModule } from '@koalaui/interop';
 import { __context, GlobalStateManager, StateManager } from '@koalaui/runtime';
+import { ObserveSingleton } from "arkui/stateManagement/base/observeSingleton";
+import { CallbackTransformer } from './CallbackTransformer';
+import { KPointer, nullptr } from '@koalaui/interop';
+import { FreeRootNode } from './CallbackTransformer';
+import { LifeCycleEvent, CustomDelegate } from './component/customComponent';
+import { int32 } from '@koalaui/common';
+import { ExtendableComponent } from './component/extendableComponent';
+import { IEnvVariable } from './stateManagement/decoratorImpl/decoratorEnv';
 
-export function setNeedCreate(isNeedCreate: boolean): boolean
-{
+export function setNeedCreate(isNeedCreate: boolean): boolean {
     const temp = GlobalStateManager.instance._isNeedCreate
     GlobalStateManager.instance._isNeedCreate = isNeedCreate
     return temp
@@ -34,44 +41,60 @@ export function ArkComponentRoot(
     content: (node: PeerNode) => void
 ) {
     InteropNativeModule._NativeLog(`ArkTS ArkComponentRoot enter`)
-    NodeAttach<PeerNode>(
-        () => ArkCustomComponentRootPeer.create(component),
-        (node: PeerNode) => {
-            if ((__context() as StateManager)._isNeedCreate) {
+    NodeAttach<ArkCustomComponentRootPeer>(
+        () => {
+            const node = ArkCustomComponentRootPeer.create(component);
+            const func = CallbackTransformer.transformFromCustomBuilder(@memo (): void => {
                 rememberDisposable(() => {
-                    let state = mutableState(false)
-                    scheduleCallback(() => { })
-                    return state;
-                }, (_: MutableState<boolean> | undefined) => {
+                    ObserveSingleton.instance.applyTaskDelayMutableStateChange(() => {
+                        const lastRenderingComponent = ObserveSingleton.instance.renderingComponent;
+                        ObserveSingleton.instance.renderingComponent = ObserveSingleton.RenderingComponent;
+                        component.aboutToAppear();
+                        component.__getLifecycle__Internal()?.trigger(LifeCycleEvent.ON_APPEAR);
+                        ObserveSingleton.instance.renderingComponent = lastRenderingComponent;
+                    });
+                    return true;
+                }, (_: boolean | undefined) => {
                     scheduleCallback(() => {
-                        component.aboutToDisappear()
-                    })
-                })
-                component.aboutToAppear()
-                InteropNativeModule._NativeLog(`ArkTS ArkComponentRoot NodeAttach before content`)
-                content(node)
-                InteropNativeModule._NativeLog(`ArkTS ArkComponentRoot NodeAttach after content`)
-                return
-            }
-            let shown = rememberDisposable(() => {
-                let state = mutableState(false)
-                scheduleCallback(() => {
-                    component.aboutToAppear()
-                    state.value = true
-                })
-                return state
-            }, (_: MutableState<boolean> | undefined) =>
-                scheduleCallback(() => {
-                    component.aboutToDisappear()
-                })
-            )
-            InteropNativeModule._NativeLog(`ArkTS ArkComponentRoot NodeAttach before condition ${shown.value}`)
-            if (shown.value) {
-                InteropNativeModule._NativeLog(`ArkTS ArkComponentRoot NodeAttach before WithRouterTransitionState`)
-                InteropNativeModule._NativeLog("AceRouter:ArkComponentRoot NodeAttach, UpdateRouter page visibility state")
+                        component.aboutToDisappear();
+                    });
+                });
+                FreeRootNode.current?.setComponent(node.getComponent()?.getInstance());
                 content(node);
-                InteropNativeModule._NativeLog(`ArkTS ArkComponentRoot NodeAttach after WithRouterTransitionState`)
+            });
+            node.setCustomNodeBuilder(func);
+            const weakNode = new WeakRef<ArkCustomComponentRootPeer>(node);
+            node.setBuildFunction((): Long => {
+                const root = weakNode.deref();
+                if (!root) {
+                    console.error('node is released when call build function');
+                    return new Long();
+                }
+                const childPeerPtr = root.getChildPeerPtr();
+                if (childPeerPtr === nullptr) {
+                    const ptr = root.callCustomNodeBuilder(root.peer.ptr);
+                    root.setChildPeerPtr(ptr);
+                    return new Long(ptr);
+                } else {
+                    return new Long(childPeerPtr);
+                }
+            });
+            if (component instanceof CustomDelegate && (component as Any as CustomDelegate<ExtendableComponent, Object>).getInstance().checkEnvSetSize()) {
+                const envComponent: ExtendableComponent = (component as Any as CustomDelegate<ExtendableComponent, Object>).getInstance();
+                node.getEnvInstanceId((instanceId: int32): void => {
+                    if (envComponent.getEnvInstance() && envComponent.getEnvInstance() === instanceId) {
+                        return;
+                    }
+                    envComponent.setEnvInstance(instanceId);
+                    const envSet: Set<IEnvVariable> = envComponent.getEnvSet();
+                    for (const envItem of envSet) {
+                        envItem.unRegisterEnv(instanceId);
+                        envItem.registerEnv(instanceId);
+                    }
+                })
             }
-        }
-    )
+            return node;
+        },
+        (node: ArkCustomComponentRootPeer) => { }
+    );
 }

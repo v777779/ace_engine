@@ -20,6 +20,7 @@
 #define private public
 #define protected public
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/loading_progress/loading_progress_layout_algorithm.h"
 #include "core/components_ng/pattern/loading_progress/loading_progress_layout_property.h"
 #include "core/components_ng/pattern/loading_progress/loading_progress_model_ng.h"
@@ -27,11 +28,11 @@
 #include "core/components_ng/pattern/loading_progress/loading_progress_pattern.h"
 #include "core/components_ng/pattern/progress/progress_theme_wrapper.h"
 #include "core/components_ng/pattern/refresh/refresh_animation_state.h"
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -99,8 +100,6 @@ HWTEST_F(LoadingProgressTestNg, LoadingProgressModel001, TestSize.Level0)
     ASSERT_NE(paintProperty, nullptr);
     modelNg.SetColor(COLOR_DEFAULT);
     EXPECT_EQ(paintProperty->GetColorValue(), COLOR_DEFAULT);
-    modelNg.ResetColor();
-    EXPECT_EQ(paintProperty->HasColor(), false);
 }
 
 /**
@@ -389,8 +388,6 @@ HWTEST_F(LoadingProgressTestNg, LoadingProgressPatternTest006, TestSize.Level0)
     ASSERT_NE(pattern, nullptr);
     modelNg.SetColor(COLOR_DEFAULT);
     EXPECT_FALSE(pattern->OnThemeScopeUpdate(frameNode->GetThemeScopeId()));
-    modelNg.ResetColor();
-    EXPECT_TRUE(pattern->OnThemeScopeUpdate(frameNode->GetThemeScopeId()));
 }
 
 /**

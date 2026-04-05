@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -47,6 +47,7 @@
 
 namespace OHOS::Ace {
 class ImageAnalyzerManager;
+enum class StatisticEventType;
 }
 namespace OHOS::Ace::NG {
 class XComponentExtSurfaceCallbackClient;
@@ -62,6 +63,11 @@ public:
     ~XComponentPattern() override = default;
 
     bool IsEnableMatchParent() override
+    {
+        return true;
+    }
+
+    bool IsEnableFix() override
     {
         return true;
     }
@@ -107,6 +113,9 @@ public:
 
     bool NeedSoftKeyboard() const override
     {
+        if (onNeedSoftkeyboardCallback_ && !Pattern::NeedSoftKeyboard()) {
+            return false;
+        }
         return (nativeXComponentImpl_ ? nativeXComponentImpl_->IsNeedSoftKeyboard() : false) || isNeedSoftKeyboard_;
     }
 
@@ -131,6 +140,9 @@ public:
     void InitNativeWindow(float textureWidth, float textureHeight);
     void XComponentSizeInit();
     void XComponentSizeChange(const RectF& surfaceRect, bool needFireNativeEvent);
+#ifdef RENDER_EXTRACT_SUPPORTED
+    void OnTextureRefresh(int32_t instanceId, int64_t textureId);
+#endif
     void NativeXComponentInit()
     {
         if (!isTypedNode_) {
@@ -143,8 +155,7 @@ public:
         if (id_.has_value()) {
             return id_.value();
         }
-        auto host = GetHost();
-        return "nodeId:" + (host ? std::to_string(host->GetId()) : "-1");
+        return "nodeId_" + nodeId_;
     }
 
     void SetId(const std::string& id)
@@ -309,11 +320,6 @@ public:
     {
         hasGotNativeXComponent_ = hasGotNativeXComponent;
     }
-    void SetXComponentController(std::shared_ptr<InnerXComponentController> controlller)
-    {
-        xcomponentController_ = controlller;
-        InitController();
-    }
 
     void SetExportTextureSurfaceId(const std::string& surfaceId);
     void FireExternalEvent(RefPtr<NG::PipelineContext> context,
@@ -324,7 +330,7 @@ public:
     void InitializeAccessibility();
     void UninitializeAccessibility(FrameNode* frameNode);
     bool OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId);
-    bool OnAccessibilityChildTreeDeregister();
+    bool OnAccessibilityChildTreeDeregister(FrameNode* frameNode = nullptr);
     void OnSetAccessibilityChildTree(int32_t childWindowId, int32_t childTreeId);
     void SetAccessibilityState(bool state) {}
     RefPtr<AccessibilitySessionAdapter> GetAccessibilitySessionAdapter() override;
@@ -359,14 +365,17 @@ public:
     void OnSurfaceCallbackModeChange(SurfaceCallbackMode mode);
     void EnableSecure(bool isSecure);
     void HdrBrightness(float hdrBrightness);
+    void HdrBrightness(float hdrBrightness, HdrType hdrType);
     void EnableTransparentLayer(bool isTransparentLayer);
     RenderFit GetSurfaceRenderFit() const;
     bool GetEnableAnalyzer();
     void NativeStartImageAnalyzer(std::function<void(int32_t)>& callback);
     RSCanvas* LockCanvas();
     void UnlockCanvasAndPost(RSCanvas* canvas);
+    void SetSurfaceIsOpaque(bool isOpaque);
     ArkUI_AccessibilityProvider* GetNativeProvider();
-
+    void PushType(StatisticEventType type);
+    void OnFrameNodeChanged(FrameNodeChangeInfoFlag flag) override;
 protected:
     void OnAttachToMainTree() override;
     void OnDetachFromMainTree() override;
@@ -380,13 +389,13 @@ protected:
     void AddAfterLayoutTaskForExportTexture();
     void UpdateTransformHint();
     void DumpInfo() override;
-    static std::string XComponentTypeToString(XComponentType type);
-    static std::string XComponentNodeTypeToString(XComponentNodeType type);
     void AdjustNativeWindowSize(float width, float height);
     bool IsSupportImageAnalyzerFeature();
     void UpdateAnalyzerUIConfig(const RefPtr<NG::GeometryNode>& geometryNode);
+    void RegisterTransformHintCallback(PipelineContext* context);
 
     std::optional<std::string> id_;
+    std::string nodeId_ = "-1";
     XComponentType type_;
     bool hasGotSurfaceHolder_ = false;
     bool hasGotNativeXComponent_ = false;
@@ -394,6 +403,9 @@ protected:
     bool isCNode_ = false;
     bool useNodeHandleAccessibilityProvider_ = false;
     RefPtr<RenderSurface> renderSurface_;
+#ifdef RENDER_EXTRACT_SUPPORTED
+    WeakPtr<RenderSurface> renderSurfaceWeakPtr_;
+#endif
     OffsetF localPosition_;
     OffsetF surfaceOffset_;
     SizeF drawSize_;
@@ -402,24 +414,27 @@ protected:
     void* nativeWindow_ = nullptr;
     bool hasReleasedSurface_ = false;
     RefPtr<RenderContext> renderContextForSurface_;
+    RefPtr<RenderContext> handlingSurfaceRenderContext_;
     std::optional<int32_t> transformHintChangedCallbackId_;
     std::string surfaceId_;
     bool isOnTree_ = false;
     float hdrBrightness_ = 1.0f;
+    HdrType hdrType_ = HdrType::DEFAULT;
     bool isTransparentLayer_ = false;
     bool isEnableSecure_ = false;
     bool isSurfaceLock_ = false;
+    bool isOpaque_ = false;
     RenderFit renderFit_ = RenderFit::RESIZE_FILL;
-    RefPtr<UIDisplaySync> displaySync_ = AceType::MakeRefPtr<UIDisplaySync>(UIObjectType::DISPLAYSYNC_XCOMPONENT);
+    RefPtr<UIXComponentDisplaySync> displaySync_ = AceType::MakeRefPtr<UIXComponentDisplaySync>();
     bool needRecoverDisplaySync_ = false;
     std::shared_ptr<AccessibilityChildTreeCallback> accessibilityChildTreeCallback_;
     ArkUI_AccessibilityProvider* arkuiAccessibilityProvider_ = nullptr;
     bool isNeedSoftKeyboard_ = false;
-    void RegisterTransformHintCallback(PipelineContext* context);
+    std::list<StatisticEventType> statisticEventTypes_;
 
 private:
     void OnAreaChangedInner() override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
     void DumpAdvanceInfo() override;
     void DumpAdvanceInfo(std::unique_ptr<JsonValue>& json) override;
@@ -467,7 +482,7 @@ private:
     bool ExportTextureAvailable();
     bool DoTextureExport();
     bool StopTextureExport();
-    void InitializeRenderContext();
+    void InitializeRenderContext(bool isThreadSafeNode = false);
     void SetSurfaceNodeToGraphic();
     void CreateAnalyzerOverlay();
     void DestroyAnalyzerOverlay();
@@ -477,6 +492,9 @@ private:
     void RegisterSurfaceCallbackModeEvent();
     void RegisterSurfaceRenderContext();
     void UnregisterSurfaceRenderContext();
+    std::shared_ptr<Rosen::RSUIContext> GetRSUIContext(const RefPtr<FrameNode>& frameNode);
+    void RegisterNode();
+    void UnregisterNode();
 
     void InitSurfaceMultiThread(const RefPtr<FrameNode>& host);
     void InitControllerMultiThread();
@@ -491,13 +509,16 @@ private:
     void RequestFocus();
 #endif
 
+    void AddLayoutTask();
+
+    void UpdateSdrRatioIfNeed();
+
     std::vector<OH_NativeXComponent_HistoricalPoint> SetHistoryPoint(const std::list<TouchLocationInfo>& touchInfoList);
     std::optional<std::string> libraryname_;
     std::shared_ptr<InnerXComponentController> xcomponentController_;
     std::optional<std::string> soPath_;
     std::optional<uint64_t> screenId_;
 
-    RefPtr<RenderContext> handlingSurfaceRenderContext_;
     WeakPtr<XComponentPattern> extPattern_;
 
     std::shared_ptr<OH_NativeXComponent> nativeXComponent_;
@@ -514,10 +535,6 @@ private:
     RefPtr<XComponentExtSurfaceCallbackClient> extSurfaceClient_;
     SizeF initSize_;
     OffsetF globalPosition_;
-
-#ifdef ENABLE_ROSEN_BACKEND
-    FrameRateRange lastFrameRateRange_;
-#endif
 
     std::optional<float> selfIdealSurfaceWidth_;
     std::optional<float> selfIdealSurfaceHeight_;
@@ -545,6 +562,9 @@ private:
     WeakPtr<PipelineContext> initialContext_ = nullptr;
     // record the initial surfaceId_ in InitSurface, this variable should not be modified after the initial assignment
     std::string initialSurfaceId_;
+    int32_t foldDisplayCallbackId_ = -1;
+    float xcomponentTouchSdrRatio_ = 0.0f;
+    float xcomponentSizeSdrRatio_ = 0.0f;
 };
 } // namespace OHOS::Ace::NG
 

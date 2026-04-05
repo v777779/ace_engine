@@ -19,7 +19,6 @@
 #include "base/i18n/localization.h"
 #include "core/components/theme/theme.h"
 #include "core/components/theme/theme_constants.h"
-#include "core/components/theme/theme_constants_defines.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -76,7 +75,7 @@ public:
     class Builder {
     public:
         Builder() = default;
-        ~Builder() = default;
+        virtual ~Builder() = default;
 
         RefPtr<GaugeTheme> Build(const RefPtr<ThemeConstants>& themeConstants) const
         {
@@ -88,7 +87,7 @@ public:
             return theme;
         }
 
-    private:
+    protected:
         void ParsePattern(const RefPtr<ThemeConstants>& themeConstants, const RefPtr<GaugeTheme>& theme) const
         {
             RefPtr<ThemeStyle> gaugePattern = themeConstants->GetPatternByName(THEME_PATTERN_GAUGE);
@@ -161,9 +160,10 @@ public:
 protected:
     GaugeTheme() = default;
 
-private:
     Color indicatorColor_;
     Color indicatorBorderColor_;
+
+private:
     Dimension limitValueMinFontSize_;
     Dimension trackThickness_;
     float intervalRatio_ = 0.0f;

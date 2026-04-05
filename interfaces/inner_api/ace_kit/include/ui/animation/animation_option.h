@@ -17,6 +17,7 @@
 #define FOUNDATION_ACE_INTERFACES_INNER_API_ACE_KIT_INCLUDE_ANIMATION_ANIMATION_OPTION_H
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -202,6 +203,26 @@ public:
         return result;
     }
 
+    std::string ToSimpleString() const
+    {
+        std::stringstream ss;
+        ss << "dur:" << duration_ << ", curve:"
+           << (curve_ ? curve_->ToSimpleString() : "");
+        if (iteration_ != 1) {
+            ss << ", iter:"  << iteration_;
+        }
+        if (delay_) {
+            ss << ", delay:"  << delay_;
+        }
+        if (!NearEqual(tempo_, 1.0f)) {
+            ss << ", tempo:"  << tempo_;
+        }
+        if (direction_ != AnimationDirection::NORMAL) {
+            ss << ", mode:"  << static_cast<int32_t>(direction_);
+        }
+        return ss.str();
+    }
+
 private:
     int32_t duration_ = 0;
     int32_t delay_ = 0;
@@ -215,6 +236,13 @@ private:
     AnimationDirection direction_ = AnimationDirection::NORMAL;
     FinishCallbackType finishCallbackType_ = FinishCallbackType::REMOVED;
     RefPtr<FrameRateRange> rateRange_;
+};
+
+struct AnimationCallbackInfo {
+    std::optional<float> currentOffset;
+    std::optional<float> targetOffset;
+    std::optional<float> velocity;
+    bool isForceStop = false;
 };
 } // namespace OHOS::Ace
 

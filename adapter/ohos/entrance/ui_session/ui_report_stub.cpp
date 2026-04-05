@@ -15,7 +15,60 @@
 
 #include "interfaces/inner_api/ui_session/ui_report_stub.h"
 
-#include "adapter/ohos/entrance/ui_session/include/ui_service_hilog.h"
+#include "pixel_map.h"
+
+#include "adapter/ohos/entrance/ui_session/include/large_string_ashmem.h"
+#include "adapter/ohos/entrance/ui_session/include/ui_session_log.h"
+
+namespace {
+void AddArkUIImagesByIds(OHOS::MessageParcel& data,
+    std::unordered_map<int32_t, std::shared_ptr<OHOS::Media::PixelMap>>& componentImages)
+{
+    uint64_t componentImagesSize = data.ReadUint64();
+    constexpr int32_t GET_IMAGES_BY_ID_LOOP_UPPERBOUND = 1000;
+    if (componentImagesSize > GET_IMAGES_BY_ID_LOOP_UPPERBOUND) {
+        return;
+    }
+    for (uint64_t i = 0; i < componentImagesSize; ++i) {
+        std::shared_ptr<OHOS::Media::PixelMap> pixelMap = nullptr;
+        int32_t componentImageId = data.ReadInt32();
+        bool nextPixelMapIsAvailable = data.ReadBool();
+        if (nextPixelMapIsAvailable) {
+            pixelMap.reset(OHOS::Media::PixelMap::Unmarshalling(data));
+        }
+        componentImages.emplace(componentImageId, pixelMap);
+    }
+}
+
+void AddArkWebImagesByIds(OHOS::MessageParcel& data,
+    std::map<int32_t, std::map<int32_t, std::shared_ptr<OHOS::Media::PixelMap>>>& webImages)
+{
+    uint64_t webImagesAllMapSize = data.ReadUint64();
+    constexpr int32_t GET_IMAGES_BY_ID_LOOP_UPPERBOUND = 1000;
+    if (webImagesAllMapSize > GET_IMAGES_BY_ID_LOOP_UPPERBOUND) {
+        return;
+    }
+    for (uint64_t i = 0; i < webImagesAllMapSize; ++i) {
+        int32_t webId = data.ReadInt32();
+        uint64_t imagesInOneWebSize = data.ReadUint64();
+        if (imagesInOneWebSize > GET_IMAGES_BY_ID_LOOP_UPPERBOUND) {
+            return;
+        }
+        std::map<int32_t, std::shared_ptr<OHOS::Media::PixelMap>> imagesInOneWeb;
+        for (uint64_t j = 0; j < imagesInOneWebSize; ++j) {
+            std::shared_ptr<OHOS::Media::PixelMap> pixelMap = nullptr;
+            int32_t imageId = data.ReadInt32();
+            bool nextPixelMapIsAvailable = data.ReadBool();
+            if (nextPixelMapIsAvailable) {
+                pixelMap.reset(OHOS::Media::PixelMap::Unmarshalling(data));
+            }
+            imagesInOneWeb.emplace(imageId, pixelMap);
+        }
+        webImages.emplace(webId, std::move(imagesInOneWeb));
+    }
+}
+
+} // namespace
 
 namespace OHOS::Ace {
 int32_t UiReportStub::OnRemoteRequest(uint32_t code, MessageParcel& data, MessageParcel& reply, MessageOption& option)
@@ -45,8 +98,22 @@ int32_t UiReportStub::OnRemoteRequest(uint32_t code, MessageParcel& data, Messag
             ReportSearchEvent(result);
             break;
         }
-        case REPORT_INSPECTOR_VALUE: {
+        case REPORT_TEXT_CHANGE_EVENT: {
             std::string result = data.ReadString();
+            ReportTextChangeEvent(result);
+            break;
+        }
+        case REPORT_INSPECTOR_VALUE: {
+            sptr<LargeStringAshmem> largeStringAshmem = data.ReadParcelable<LargeStringAshmem>();
+            if (!largeStringAshmem) {
+                LOGW("ReportInspectorTreeValue read LargeStringAshmem failed");
+                break;
+            }
+            std::string result = "";
+            if (!largeStringAshmem->ReadFromAshmem(result)) {
+                LOGW("ReportInspectorTreeValue read data failed");
+                break;
+            }
             int32_t partNum = data.ReadInt32();
             bool isLastPart = data.ReadBool();
             ReportInspectorTreeValue(result, partNum, isLastPart);
@@ -56,6 +123,21 @@ int32_t UiReportStub::OnRemoteRequest(uint32_t code, MessageParcel& data, Messag
             std::string result = data.ReadString();
             int64_t accessibilityId = data.ReadInt64();
             ReportWebUnfocusEvent(accessibilityId, result);
+            break;
+        }
+        case REPORT_SCROLL_EVENT: {
+            std::string result = data.ReadString();
+            ReportScrollEvent(result);
+            break;
+        }
+        case REPORT_LIFE_CYCLE_EVENT: {
+            std::string result = data.ReadString();
+            ReportLifeCycleEvent(result);
+            break;
+        }
+        case REPORT_SELECT_TEXT_EVENT: {
+            std::string result = data.ReadString();
+            ReportSelectTextEvent(result);
             break;
         }
         case SEND_BASE_INFO: {
@@ -77,35 +159,34 @@ int32_t UiReportStub::OnRemoteRequest(uint32_t code, MessageParcel& data, Messag
         }
         case SEND_IMAGES: {
             std::vector<std::pair<int32_t, std::shared_ptr<Media::PixelMap>>> result;
-            int32_t size = data.ReadInt32();
+            int32_t size = 0;
+            if (!data.ReadInt32(size)) {
+                LOGW("SendShowingImage size read failed");
+                break;
+            }
             for (int32_t i = 0; i < size; i++) {
                 int32_t nodeId = data.ReadInt32();
-                sptr<Ashmem> ashMem = data.ReadAshmem();
-                if (ashMem == nullptr) {
-                    LOGI("Ashmem is nullptr");
-                    return -1;
-                }
-                if (!ashMem->MapReadOnlyAshmem()) {
-                    LOGI("MapReadOnlyAshmem failed");
-                    ClearAshmem(ashMem);
-                    return -1;
-                }
-                int32_t ashMemSize = ashMem->GetAshmemSize();
-                int32_t offset = 0;
-                const uint8_t* ashDataPtr =
-                    reinterpret_cast<const uint8_t*>(ashMem->ReadFromAshmem(ashMemSize, offset));
-                if (ashDataPtr == nullptr) {
-                    LOGI("ashDataPtr is nullptr");
-                    ClearAshmem(ashMem);
-                    return -1;
-                }
-                std::vector<uint8_t> mapData(ashDataPtr, ashDataPtr + ashMemSize);
-                auto data = std::shared_ptr<Media::PixelMap>(OHOS::Media::PixelMap::DecodeTlv(mapData));
-                std::pair<int32_t, std::shared_ptr<Media::PixelMap>> value = { nodeId, data };
+                auto pixelMap = std::shared_ptr<Media::PixelMap>(OHOS::Media::PixelMap::Unmarshalling(data));
+                std::pair<int32_t, std::shared_ptr<Media::PixelMap>> value = { nodeId, pixelMap };
                 result.push_back(value);
-                ClearAshmem(ashMem);
             }
             SendShowingImage(result);
+            break;
+        }
+        case SEND_ARKUI_IMAGES_BY_ID: {
+            std::unordered_map<int32_t, std::shared_ptr<OHOS::Media::PixelMap>> componentImages;
+            int32_t windowId = data.ReadInt32();
+            AddArkUIImagesByIds(data, componentImages);
+            int32_t arkUIErrorCode = data.ReadInt32();
+            SendArkUIImagesById(windowId, componentImages, static_cast<MultiImageQueryErrorCode>(arkUIErrorCode));
+            break;
+        }
+        case SEND_ARKWEB_IMAGES_BY_ID: {
+            std::map<int32_t, std::map<int32_t, std::shared_ptr<OHOS::Media::PixelMap>>> webImages;
+            int32_t windowId = data.ReadInt32();
+            AddArkWebImagesByIds(data, webImages);
+            int32_t arkWebErrorCode = data.ReadInt32();
+            SendArkWebImagesById(windowId, webImages, static_cast<MultiImageQueryErrorCode>(arkWebErrorCode));
             break;
         }
         case SEND_CURRENT_PAGE_NAME: {
@@ -113,12 +194,94 @@ int32_t UiReportStub::OnRemoteRequest(uint32_t code, MessageParcel& data, Messag
             SendCurrentPageName(result);
             break;
         }
+        case SEND_EXE_APP_AI_FUNCTION_RESULT: {
+            uint32_t result = data.ReadUint32();
+            SendExeAppAIFunctionResult(result);
+            break;
+        }
+        case SEND_SPECIFIED_CONTENT_OFFSETS: {
+            std::vector<std::pair<float, float>> result;
+            int32_t size = 0;
+            if (!data.ReadInt32(size)) {
+                LOGW("SendSpecifiedContentOffsets size read failed");
+                break;
+            }
+            for (int32_t i = 0; i < size; i++) {
+                float offsetX = data.ReadFloat();
+                float offsetY = data.ReadFloat();
+                std::pair<float, float> value = { offsetX, offsetY };
+                result.push_back(value);
+            }
+            SendSpecifiedContentOffsets(result);
+            break;
+        }
+        case SEND_CONTENT_CHANGE: {
+            ChangeType type = static_cast<ChangeType>(data.ReadInt32());
+            std::string simpleTree = data.ReadString();
+            SendContentChange(type, simpleTree);
+            break;
+        }
+        case REPORT_HIT_TEST_NODE_INFOS: {
+            std::string result = data.ReadString();
+            int32_t partNum = data.ReadInt32();
+            bool isLastPart = data.ReadBool();
+            ReportHitTestNodeInfos(result, partNum, isLastPart);
+            break;
+        }
+        case REPORT_STATE_MGMT_INFO: {
+            std::vector<std::string> results;
+            data.ReadStringVector(&results);
+            ReportGetStateMgmtInfo(results);
+            break;
+        }
+        case SEND_WEB_INFO_BY_REQUEST: {
+            OnGetWebInfoByRequestInner(data);
+            break;
+        }
+
         default: {
             LOGI("ui_session unknown transaction code %{public}d", code);
             return IPCObjectStub::OnRemoteRequest(code, data, reply, option);
         }
     }
     return 0;
+}
+
+void UiReportStub::RegisterGetWebInfoByRequestCallback(const GetWebInfoByRequestCallback& finishCallback)
+{
+    getWebInfoByRequestCallback_ = std::move(finishCallback);
+}
+
+void UiReportStub::OnGetWebInfoByRequestInner(MessageParcel& data)
+{
+    uint32_t windowId = data.ReadUint32();
+    int32_t webId = data.ReadInt32();
+    std::string request = data.ReadString();
+    sptr<LargeStringAshmem> largeStringAshmem = data.ReadParcelable<LargeStringAshmem>();
+    if (!largeStringAshmem) {
+        LOGW("OnGetWebInfoByRequestInner read LargeStringAshmem failed");
+        return;
+    }
+    std::string result = "";
+    if (!largeStringAshmem->ReadFromAshmem(result)) {
+        LOGW("OnGetWebInfoByRequestInner read result failed");
+        return;
+    }
+    WebRequestErrorCode errorCode = static_cast<WebRequestErrorCode>(data.ReadInt32());
+    SendWebInfoRequestResult(windowId, webId, request, result, errorCode);
+}
+
+void UiReportStub::SendWebInfoRequestResult(
+    uint32_t windowId,
+    int32_t webId,
+    const std::string& request,
+    const std::string& result, WebRequestErrorCode errorCode)
+{
+    if (!getWebInfoByRequestCallback_) {
+        LOGW("getWebInfoByRequestCallback null");
+        return;
+    }
+    getWebInfoByRequestCallback_(windowId, webId, request, result, errorCode);
 }
 
 void UiReportStub::ReportClickEvent(const std::string& data)
@@ -142,6 +305,13 @@ void UiReportStub::ReportComponentChangeEvent(const std::string& data)
     }
 }
 
+void UiReportStub::ReportTextChangeEvent(const std::string& data)
+{
+    if (textChangeEventCallback_ != nullptr) {
+        textChangeEventCallback_(data);
+    }
+}
+
 void UiReportStub::ReportSearchEvent(const std::string& data)
 {
     if (searchEventCallback_ != nullptr) {
@@ -156,10 +326,51 @@ void UiReportStub::ReportInspectorTreeValue(const std::string& data, int32_t par
     }
 }
 
+void UiReportStub::ReportHitTestNodeInfos(const std::string& data, int32_t partNum, bool isLastPart)
+{
+    if (getHitTestNodeInfoCallback_ != nullptr) {
+        getHitTestNodeInfoCallback_(data, partNum, isLastPart);
+    }
+}
+
+void UiReportStub::RegisterGetHitTestNodeInfoCallback(
+    const std::function<void(std::string, int32_t, bool)>& eventCallback)
+{
+    getHitTestNodeInfoCallback_ = std::move(eventCallback);
+}
+
 void UiReportStub::ReportWebUnfocusEvent(int64_t accessibilityId, const std::string& data)
 {
     if (unfocusEvent_ != nullptr) {
         unfocusEvent_(accessibilityId, data);
+    }
+}
+
+void UiReportStub::ReportScrollEvent(const std::string& data)
+{
+    if (scrollEventCallback_ != nullptr) {
+        scrollEventCallback_(data);
+    }
+}
+
+void UiReportStub::ReportLifeCycleEvent(const std::string& data)
+{
+    if (lifeCycleEventCallback_ != nullptr) {
+        lifeCycleEventCallback_(data);
+    }
+}
+
+void UiReportStub::ReportSelectTextEvent(const std::string& data)
+{
+    if (selectTextEventCallback_ != nullptr) {
+        selectTextEventCallback_(data);
+    }
+}
+
+void UiReportStub::SendSpecifiedContentOffsets(const std::vector<std::pair<float, float>>& offsets)
+{
+    if (getSpecifiedContentOffsets_ != nullptr) {
+        getSpecifiedContentOffsets_(offsets);
     }
 }
 
@@ -196,6 +407,11 @@ void UiReportStub::RegisterSearchEventCallback(const EventCallback& eventCallbac
     searchEventCallback_ = std::move(eventCallback);
 }
 
+void UiReportStub::RegisterTextChangeEventCallback(const EventCallback& eventCallback)
+{
+    textChangeEventCallback_ = std::move(eventCallback);
+}
+
 void UiReportStub::RegisterComponentChangeEventCallback(const EventCallback& eventCallback)
 {
     ComponentChangeEventCallback_ = std::move(eventCallback);
@@ -205,6 +421,27 @@ void UiReportStub::RegisterWebUnfocusEventCallback(
     const std::function<void(int64_t accessibilityId, const std::string& data)>& eventCallback)
 {
     unfocusEvent_ = std::move(eventCallback);
+}
+
+void UiReportStub::RegisterScrollEventCallback(const EventCallback& eventCallback)
+{
+    scrollEventCallback_ = std::move(eventCallback);
+}
+
+void UiReportStub::RegisterLifeCycleEventCallback(const EventCallback& eventCallback)
+{
+    lifeCycleEventCallback_ = std::move(eventCallback);
+}
+
+void UiReportStub::RegisterSelectTextEventCallback(const EventCallback& eventCallback)
+{
+    selectTextEventCallback_ = std::move(eventCallback);
+}
+
+void UiReportStub::RegisterGetSpecifiedContentOffsets(
+    const std::function<void(std::vector<std::pair<float, float>>)>& eventCallback)
+{
+    getSpecifiedContentOffsets_ = std::move(eventCallback);
 }
 
 void UiReportStub::RegisterGetWebViewCurrentLanguage(const EventCallback& eventCallback)
@@ -232,6 +469,11 @@ void UiReportStub::UnregisterSearchEventCallback()
     searchEventCallback_ = nullptr;
 }
 
+void UiReportStub::UnregisterTextChangeEventCallback()
+{
+    textChangeEventCallback_ = nullptr;
+}
+
 void UiReportStub::UnregisterRouterChangeEventCallback()
 {
     RouterChangeEventCallback_ = nullptr;
@@ -240,6 +482,26 @@ void UiReportStub::UnregisterRouterChangeEventCallback()
 void UiReportStub::UnregisterComponentChangeEventCallback()
 {
     ComponentChangeEventCallback_ = nullptr;
+}
+
+void UiReportStub::UnregisterWebUnfocusEventCallback()
+{
+    unfocusEvent_ = nullptr;
+}
+
+void UiReportStub::UnregisterScrollEventCallback()
+{
+    scrollEventCallback_ = nullptr;
+}
+
+void UiReportStub::UnregisterLifeCycleEventCallback()
+{
+    lifeCycleEventCallback_ = nullptr;
+}
+
+void UiReportStub::UnregisterSelectTextEventCallback()
+{
+    selectTextEventCallback_ = nullptr;
 }
 
 void UiReportStub::SendCurrentLanguage(const std::string& data)
@@ -269,6 +531,17 @@ void UiReportStub::RegisterGetShowingImageCallback(
     getShowingImageCallback_ = std::move(eventCallback);
 }
 
+void UiReportStub::RegisterGetImagesByIdCallback(
+    const std::function<void(int32_t, const std::unordered_map<int32_t, std::shared_ptr<Media::PixelMap>>&,
+        MultiImageQueryErrorCode)>& arkUIfinishCallback,
+    const std::function<void(int32_t,
+        const std::map<int32_t, std::map<int32_t, std::shared_ptr<Media::PixelMap>>>&,
+        MultiImageQueryErrorCode)>& arkWebfinishCallback)
+{
+    getImagesByIdArkUIFinishCallback_ = arkUIfinishCallback;
+    getImagesByIdArkWebFinishCallback_ = arkWebfinishCallback;
+}
+
 void UiReportStub::SendShowingImage(std::vector<std::pair<int32_t, std::shared_ptr<Media::PixelMap>>> maps)
 {
     if (getShowingImageCallback_) {
@@ -276,11 +549,62 @@ void UiReportStub::SendShowingImage(std::vector<std::pair<int32_t, std::shared_p
     }
 }
 
-void UiReportStub::ClearAshmem(sptr<Ashmem>& optMem)
+void UiReportStub::SendArkUIImagesById(int32_t windowId,
+    const std::unordered_map<int32_t, std::shared_ptr<Media::PixelMap>>& componentImages,
+    MultiImageQueryErrorCode arkUIErrorCode)
 {
-    if (optMem != nullptr) {
-        optMem->UnmapAshmem();
-        optMem->CloseAshmem();
+    if (getImagesByIdArkUIFinishCallback_) {
+        getImagesByIdArkUIFinishCallback_(windowId, componentImages, arkUIErrorCode);
+    }
+}
+
+void UiReportStub::SendArkWebImagesById(int32_t windowId, const std::map<int32_t, std::map<int32_t,
+    std::shared_ptr<Media::PixelMap>>>& webImages, MultiImageQueryErrorCode arkWebErrorCode)
+{
+    if (getImagesByIdArkWebFinishCallback_) {
+        getImagesByIdArkWebFinishCallback_(windowId, webImages, arkWebErrorCode);
+    }
+}
+
+void UiReportStub::RegisterExeAppAIFunction(const std::function<void(uint32_t)>& finishCallback)
+{
+    exeAppAIFunctionCallback_ = std::move(finishCallback);
+}
+
+void UiReportStub::SendExeAppAIFunctionResult(uint32_t result)
+{
+    if (exeAppAIFunctionCallback_) {
+        exeAppAIFunctionCallback_(result);
+    }
+}
+
+void UiReportStub::RegisterContentChangeCallback(
+    const std::function<void(ChangeType type, const std::string& simpleTree)> callback)
+{
+    contentChangeCallback_ = callback;
+}
+
+void UiReportStub::UnregisterContentChangeCallback()
+{
+    contentChangeCallback_ = nullptr;
+}
+
+void UiReportStub::SendContentChange(ChangeType type, const std::string& simpleTree)
+{
+    if (contentChangeCallback_) {
+        contentChangeCallback_(type, simpleTree);
+    }
+}
+
+void UiReportStub::RegisterGetStateMgmtInfoCallback(const std::function<void(std::vector<std::string>)>& eventCallback)
+{
+    getStateMgmtInfoCallback_ = std::move(eventCallback);
+}
+
+void UiReportStub::ReportGetStateMgmtInfo(std::vector<std::string> results)
+{
+    if (getStateMgmtInfoCallback_) {
+        getStateMgmtInfoCallback_(results);
     }
 }
 } // namespace OHOS::Ace

@@ -19,11 +19,12 @@
 #include "base/utils/noncopyable.h"
 #include "core/components_ng/layout/layout_algorithm.h"
 #include "core/components/common/properties/alignment.h"
+#include "core/components_ng/property/measure_property.h"
 
 namespace OHOS::Ace::NG {
 // BoxLayout is the class for box type measure, layout.
 class ACE_FORCE_EXPORT BoxLayoutAlgorithm : public LayoutAlgorithm {
-    DECLARE_ACE_TYPE(BoxLayoutAlgorithm, LayoutAlgorithm)
+    DECLARE_ACE_TYPE(BoxLayoutAlgorithm, LayoutAlgorithm);
 public:
     BoxLayoutAlgorithm() = default;
     ~BoxLayoutAlgorithm() override = default;
@@ -37,14 +38,14 @@ public:
         const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper) override;
 
     // Called to perform measure current render node.
-    static void PerformMeasureSelf(LayoutWrapper* layoutWrapper);
+    static void PerformMeasureSelf(LayoutWrapper* layoutWrapper, bool isEnableChildrenMatchParent = false);
 
     // Called to perform layout render node.
     static void PerformLayout(LayoutWrapper* layoutWrapper);
 
     // Called to perform measure current render node.
-    static void PerformMeasureSelfWithChildList(
-        LayoutWrapper* layoutWrapper, const std::list<RefPtr<LayoutWrapper>>& childList);
+    static void PerformMeasureSelfWithChildList(LayoutWrapper* layoutWrapper,
+        const std::list<RefPtr<LayoutWrapper>>& childList, bool isEnableChildrenMatchParent = false);
 
     static std::optional<SizeF> PerformMeasureContent(
         const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper);
@@ -53,6 +54,8 @@ public:
     
     static Alignment MapLocalizedToAlignment(std::string localizedAlignment);
 
+    static void CalcSingleSideMarginFrame(
+        MarginPropertyF& margin, const OptionalSizeF& singleSideFrame, float& maxWidth, float& maxHeight);
 protected:
     std::list<RefPtr<LayoutWrapper>> layoutPolicyChildren_;
 

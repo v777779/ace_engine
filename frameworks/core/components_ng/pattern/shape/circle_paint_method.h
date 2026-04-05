@@ -27,7 +27,7 @@
 namespace OHOS::Ace::NG {
 
 class ACE_EXPORT CirclePaintMethod : public ShapePaintMethod {
-    DECLARE_ACE_TYPE(CirclePaintMethod, ShapePaintMethod)
+    DECLARE_ACE_TYPE(CirclePaintMethod, ShapePaintMethod);
 public:
     CirclePaintMethod() = default;
     CirclePaintMethod(
@@ -40,7 +40,9 @@ public:
     CanvasDrawFunction GetContentDrawFunction(PaintWrapper* paintWrapper) override
     {
         CHECK_NULL_RETURN(paintWrapper, nullptr);
-        auto shapePaintProperty = DynamicCast<ShapePaintProperty>(paintWrapper->GetPaintProperty()->Clone());
+        auto paintProperty = paintWrapper->GetPaintProperty();
+        CHECK_NULL_RETURN(paintProperty, nullptr);
+        auto shapePaintProperty = DynamicCast<ShapePaintProperty>(paintProperty->Clone());
         CHECK_NULL_RETURN(shapePaintProperty, nullptr);
 
         if (propertiesFromAncestor_) {
@@ -64,9 +66,7 @@ public:
             [radiusValue = radius, offsetValue = paintWrapper->GetContentOffset(), shapePaintProperty, paintWrapper](
                 RSCanvas& canvas) {
                     CirclePainter::DrawCircle(canvas, radiusValue, offsetValue, *shapePaintProperty);
-                    if (paintWrapper) {
-                        paintWrapper->FlushOverlayModifier();
-                    }
+                    paintWrapper->FlushOverlayModifier();
                 };
     }
 
@@ -74,7 +74,9 @@ public:
     {
         CHECK_NULL_RETURN(paintWrapper, nullptr);
         CHECK_NULL_RETURN(shapeOverlayModifier_, nullptr);
-        auto shapePaintProperty = DynamicCast<ShapePaintProperty>(paintWrapper->GetPaintProperty()->Clone());
+        auto paintProperty = paintWrapper->GetPaintProperty();
+        CHECK_NULL_RETURN(paintProperty, nullptr);
+        auto shapePaintProperty = DynamicCast<ShapePaintProperty>(paintProperty->Clone());
         CHECK_NULL_RETURN(shapePaintProperty, nullptr);
 
         if (propertiesFromAncestor_) {

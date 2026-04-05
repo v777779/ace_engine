@@ -68,7 +68,7 @@ public:
         return curve_;
     }
 
-    void SetCurve(RefPtr<Curve> curve)
+    void SetCurve(const RefPtr<Curve>& curve)
     {
         curve_ = curve;
     }

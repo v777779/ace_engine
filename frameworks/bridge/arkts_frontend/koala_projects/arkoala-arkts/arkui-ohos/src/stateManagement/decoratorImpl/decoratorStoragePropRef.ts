@@ -31,6 +31,8 @@ import { NullableObject } from '../base/types';
 import { UIUtils } from '../utils';
 import { FactoryInternal } from '../base/iFactoryInternal';
 import { uiUtils } from '../base/uiUtilsImpl';
+import { getObservedObject, isDynamicObject } from '../../component/interop';
+import { ObservedObjectRegistry, StateMgmtDFX } from '../tools/stateMgmtDFX';
 
 export class StoragePropRefDecoratedVariable<T>
     extends DecoratedV1VariableBase<T>
@@ -51,14 +53,19 @@ export class StoragePropRefDecoratedVariable<T>
         super(decoratorName, owningView, varName, watchFunc);
         this.propName = propName;
         this.backingStorageValue_ = storagePropRef;
-        this.backingStorageValue_.onChange(this.onStorageObjChanged);
-        const initValue = this.backingStorageValue_.get();
-        this.backing_ = FactoryInternal.mkDecoratorValue<T>(varName, initValue);
+        this.backingStorageValue_.onChange(this.onStorageObjChanged<T>);
+        let initValue = this.backingStorageValue_.get();
+        if (isDynamicObject(initValue)) {
+            this.backing_ = FactoryInternal.mkInteropDecoratorValue(varName, initValue);
+        } else {
+            this.backing_ = FactoryInternal.mkDecoratorValue(varName, initValue);
+        }
         this.registerWatchForObservedObjectChanges(initValue);
         this.storageWatchFunc_ = new WatchFunc((prop: string) => {
             this.onStorageObjPropChanged(prop);
         });
         this.addPrivateWatchSubscription();
+        this.registerToObservedObject(initValue);
     }
 
     onStorageObjPropChanged(propName: string): void {
@@ -73,20 +80,33 @@ export class StoragePropRefDecoratedVariable<T>
     }
 
     get(): T {
-        const value = this.backing_.get(this.shouldAddRef());
-        ObserveSingleton.instance.setV1RenderId(value as NullableObject);
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`${this.decorator} ${this.getTraceInfo()}`);
+        const shouldAddRef = this.shouldAddRef();
+        const value = this.backing_.get(shouldAddRef);
+        if (shouldAddRef) {
+            ObserveSingleton.instance.setV1RenderId(value as NullableObject);
+            uiUtils.builtinContainersAddRefAnyKey(value);
+            this.selfTrack();
+            ObservedObjectRegistry.get(StateMgmtDFX.getObservedObjectFromValue(value))?.addV1InnerRef();
+        }
         return value;
     }
 
     set(newValue: T): void {
         const oldValue = this.backing_.get(false);
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`${this.decorator} ${oldValue === newValue} ${this.setTraceInfo()}`);
         if (oldValue === newValue) {
             return;
         }
-        const value = uiUtils.makeV1Observed(newValue);
-        this.backing_.setNoCheck(value);
+        if (isDynamicObject(newValue)) {
+            const value = getObservedObject(newValue);
+            this.backing_.setNoCheck(value);
+        } else {
+            const value = uiUtils.makeV1Observed(newValue);
+            this.backing_.setNoCheck(value);
+        }
         this.unregisterWatchFromObservedObjectChanges(oldValue);
-        this.registerWatchForObservedObjectChanges(value);
+        this.registerWatchForObservedObjectChanges(this.backing_.get(false));
         this.execWatchFuncs();
     }
 
@@ -122,5 +142,14 @@ export class StoragePropRefDecoratedVariable<T>
             const handler = StateMgmtTool.tryGetHandler(value as Object);
             (handler as IWatchSubscriberRegister).addWatchSubscriber(this.storageWatchFunc_!.id());
         }
+    }
+    public aboutToBeDeletedInternal(): void {
+        this.backingStorageValue_.onChange(undefined);
+        const currentValue = this.backing_.get(false);
+        this.unregisterWatchFromObservedObjectChanges(currentValue);
+        this.removePrivateWatchSubscription();
+        // Unregister from the observed object before deletion
+        this.unregisterFromObservedObject(currentValue);
+        super.aboutToBeDeletedInternal();
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,13 +15,13 @@
 import hilog from '@ohos.hilog';
 import abilityManager from '@ohos.app.ability.abilityManager';
 import common from '@ohos.app.ability.common';
-import { ErrorCallback, Callback, BusinessError, RecordData } from '@ohos.base';
+import { ErrorCallback, Callback, BusinessError, RecordData} from '@ohos.base';
 import AtomicServiceOptions from '@ohos.app.ability.AtomicServiceOptions';
 import commonEventManager from '@ohos.commonEventManager';
 import { State, Memo } from '@ohos.arkui.stateManagement';
 import { $$ } from '@kit.ArkUI';
-import { ReceiveCallback, Column, Text, Row, UIExtensionComponent, Component, BuilderParam, TerminationInfo, Builder, FlexAlign, ClickEvent, AlertDialogParamWithConfirm, CustomBuilder, ContentCoverOptions } from '@ohos.arkui.component'
-import { bundleManager } from '@kit.AbilityKit';
+import { ReceiveCallback, Column, Text, Row, UIExtensionComponent, Component, BuilderParam, TerminationInfo, Builder, FlexAlign, ClickEvent, AlertDialogParamWithConfirm, CustomBuilder, ContentCoverOptions } from '@ohos.arkui.component';
+import bundleManager from "@ohos.bundle.bundleManager"
 
 const errCodeAbnormal: number = 100014;
 const API20: number = 20;
@@ -60,19 +60,19 @@ export struct FullScreenLaunchComponent {
     }
 
     commonEventManager.createSubscriber(subscribeInfo,
-      (err: BusinessError<void> | null, data: commonEventManager.CommonEventSubscriber | undefined | null) => {
+      (err: BusinessError<void> | null, data: commonEventManager.CommonEventSubscriber | undefined) => {
         if (err) {
           hilog.error(0x3900, 'FullScreenLaunchComponent',
             'Failed to create subscriber, err: %{public}s.', JSON.stringify(err))
           return;
         }
 
-        if (data !== null && data !== undefined) {
-          this.subscriber = data as commonEventManager.CommonEventSubscriber;
-        } else {
+        if (data == null || data == undefined) {
           hilog.error(0x3900, 'FullScreenLaunchComponent', 'Failed to create subscriber, data is null.')
           return;
         }
+
+        this.subscriber = data;
         commonEventManager.subscribe(this.subscriber as commonEventManager.CommonEventSubscriber,
           (err: BusinessError | null, data: commonEventManager.CommonEventData | undefined) => {
             if (err) {
@@ -148,7 +148,7 @@ export struct FullScreenLaunchComponent {
         this.popUp();
         hilog.info(0x3900, 'FullScreenLaunchComponent', 'popUp is Allowed!');
       }
-    }).catch((err: BusinessError<void>|null): void => {
+    }).catch((err: Error): void => {
       hilog.info(0x0000, 'FullScreenLaunchComponent',
         'isEmbeddedOpenAllowed failed, code is ${err?.code}, message is ${err?.message}');
     });
@@ -224,12 +224,12 @@ export struct FullScreenLaunchComponent {
               atomicServiceData[kv[0]] = kv[1];
             }
           }
-          const onReceiveCallback = this.onReceive as ReceiveCallback;
-          onReceiveCallback(atomicServiceData);
+          const onReceiveCallback: ReceiveCallback = this.onReceive as ReceiveCallback;
+          (onReceiveCallback as Callback<Record<string, RecordData>>)(atomicServiceData as Record<string, RecordData>);
         }
         if (data[requestComponentTerminateKey]) {
           this.isShow = false;
         }
-      })
+      } as ReceiveCallback);
   }
 }

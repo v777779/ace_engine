@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,8 +16,8 @@
 #ifndef FOUNDATION_ACE_INTERFACE_UI_CONTENT_STUB_H
 #define FOUNDATION_ACE_INTERFACE_UI_CONTENT_STUB_H
 
-#include <iremote_object.h>
-#include <iremote_stub.h>
+#include "iremote_object.h"
+#include "iremote_stub.h"
 
 #include "ui_content_service_interface.h"
 
@@ -33,17 +33,25 @@ private:
     int32_t RegisterClickEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t RegisterRouterChangeEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t RegisterSearchEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t RegisterTextChangeEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t RegisterComponentChangeEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t RegisterWebUnfocusEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t RegisterScrollEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t RegisterLifeCycleEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t RegisterSelectTextEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t SendCommandInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t SendCommandInnerAsync(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t SendCommandKeyCodeInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t UnregisterClickEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t UnregisterSearchEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t UnregisterTextChangeEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t UnregisterRouterChangeEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t UnregisterComponentChangeEventCallbackInner(
         MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t UnregisterWebUnfocusEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t UnregisterScrollEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t UnregisterLifeCycleEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t UnregisterSelectTextEventCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t ResetTranslateTextAllInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t ResetTranslateTextInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t GetWebViewCurrentLanguageInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
@@ -53,8 +61,19 @@ private:
     int32_t SendTranslateResultStrInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t GetCurrentPageNameInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t EndWebViewTranslateInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t GetSpecifiedContentOffsetsInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t HighlightSpecifiedContentInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t GetCurrentImagesShowingInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t GetMultiImagesByIdInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
     int32_t GetVisibleInspectorTreeInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t GetHitTestNodeInfoForTouchInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t ExeAppAIFunctionInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t RegisterContentChangeCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t UnregisterContentChangeCallbackInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t GetStateMgmtInfoInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+    int32_t GetWebInfoByRequestInner(MessageParcel& data, MessageParcel& reply, MessageOption& option);
+
+    bool IsSACalling() const;
 };
 } // namespace OHOS::Ace
 #endif // FOUNDATION_ACE_INTERFACE_UI_CONTENT_STUB_H

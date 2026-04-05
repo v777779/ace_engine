@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -132,7 +132,7 @@ bool EaWorkerTaskWrapperImpl::HasAttachCurrentThread(pthread_t tid)
     return attachCurrentThreads_.find(tid) != attachCurrentThreads_.end();
 }
 
-void EaWorkerTaskWrapperImpl::Call(const TaskExecutor::Task& task)
+void EaWorkerTaskWrapperImpl::Call(const TaskExecutor::Task& task, PriorityType priorityType)
 {
     Call(task, 0);
 }
@@ -164,7 +164,8 @@ void EaWorkerTaskWrapperImpl::DumpWorker()
     TAG_LOGI(AceLogTag::ACE_DYNAMIC_COMPONENT, "DumpWorker end, worker_id: %{public}d", worker_id);
 }
 
-void EaWorkerTaskWrapperImpl::Call(const TaskExecutor::Task& task, uint32_t delayTime)
+void EaWorkerTaskWrapperImpl::Call(const TaskExecutor::Task& task,
+    uint32_t delayTime, PriorityType priorityType)
 {
     if (!CheckWorkerId(workerId_)) {
         TAG_LOGW(AceLogTag::ACE_DYNAMIC_COMPONENT, "EaWorkerTaskWrapperImpl Call due "

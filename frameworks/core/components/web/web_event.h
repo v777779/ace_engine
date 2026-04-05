@@ -18,8 +18,19 @@
 
 #include <map>
 
+#include "base/image/pixel_map.h"
 #include "base/memory/ace_type.h"
 #include "core/event/ace_events.h"
+#ifdef DELETE
+#undef DELETE
+#endif
+
+namespace OHOS {
+namespace Media {
+enum class PixelFormat;
+enum class AlphaType;
+}
+}
 
 namespace OHOS::Ace {
 
@@ -36,6 +47,12 @@ enum class NativeEmbedStatus {
     DESTROY = 2,
     ENTER_BFCACHE = 3,
     LEAVE_BFCACHE = 4
+};
+
+enum class NativeEmbedParamStatus {
+    ADD = 0,
+    UPDATE = 1,
+    DELETE = 2,
 };
 
 enum class NavigationType {
@@ -57,8 +74,15 @@ enum class ViewportFit {
     COVER,
 };
 
+enum class NavigationPolicy {
+    NEW_POPUP = 0,
+    NEW_WINDOW = 1,
+    NEW_BACKGROUND_TAB = 2,
+    NEW_FOREGROUND_TAB = 3,
+};
+
 class WebConsoleLog : public AceType {
-    DECLARE_ACE_TYPE(WebConsoleLog, AceType)
+    DECLARE_ACE_TYPE(WebConsoleLog, AceType);
 public:
     WebConsoleLog() = default;
     ~WebConsoleLog() = default;
@@ -67,10 +91,11 @@ public:
     virtual std::string GetLog() = 0;
     virtual int GetLogLevel() = 0;
     virtual std::string GetSourceId() = 0;
+    virtual int GetSource() = 0;
 };
 
 class WebConsoleMessageParam : public WebConsoleLog {
-    DECLARE_ACE_TYPE(WebConsoleMessageParam, AceType)
+    DECLARE_ACE_TYPE(WebConsoleMessageParam, AceType);
 public:
     WebConsoleMessageParam(std::string message, std::string sourceId, int lineNumber, int messageLevel) :
                         message_(message), sourceId_(sourceId), lineNumber_(lineNumber), messageLevel_(messageLevel) {}
@@ -96,15 +121,28 @@ public:
         return messageLevel_;
     }
 
+    int GetSource() override
+    {
+        return source_;
+    }
+
 private:
     std::string message_;
     std::string sourceId_;
     int lineNumber_;
     int messageLevel_;
+    int source_ = 0;
 };
 
+struct AcceptFileType {
+    std::string mimeType;
+    std::vector<std::string> acceptType;
+};
+using AcceptFileTypeList = std::vector<AcceptFileType>;
+using AcceptFileTypeLists = std::vector<AcceptFileTypeList>;
+
 class WebFileSelectorParam : public AceType {
-    DECLARE_ACE_TYPE(WebFileSelectorParam, AceType)
+    DECLARE_ACE_TYPE(WebFileSelectorParam, AceType);
 public:
     WebFileSelectorParam() = default;
     ~WebFileSelectorParam() = default;
@@ -115,10 +153,14 @@ public:
     virtual std::vector<std::string> GetAcceptType() = 0;
     virtual bool IsCapture() = 0;
     virtual std::vector<std::string> GetMimeType() = 0;
+    virtual std::string GetDefaultPath() = 0;
+    virtual std::vector<std::string> GetDescriptions() = 0;
+    virtual bool IsAcceptAllOptionExcluded() = 0;
+    virtual AcceptFileTypeLists GetAccepts() = 0;
 };
 
 class ACE_EXPORT WebError : public AceType {
-    DECLARE_ACE_TYPE(WebError, AceType)
+    DECLARE_ACE_TYPE(WebError, AceType);
 
 public:
     WebError(const std::string& info, int32_t code) : info_(info), code_(code) {}
@@ -147,7 +189,7 @@ enum class WebResponseDataType : int32_t {
 };
 
 class WebResponseAsyncHandle : public AceType {
-    DECLARE_ACE_TYPE(WebResponseAsyncHandle, AceType)
+    DECLARE_ACE_TYPE(WebResponseAsyncHandle, AceType);
 public:
     WebResponseAsyncHandle() = default;
     virtual ~WebResponseAsyncHandle() = default;
@@ -169,7 +211,7 @@ struct WebKeyboardOption {
 };
 
 class ACE_EXPORT WebResponse : public AceType {
-    DECLARE_ACE_TYPE(WebResponse, AceType)
+    DECLARE_ACE_TYPE(WebResponse, AceType);
 
 public:
     WebResponse(const std::map<std::string, std::string>& headers, const std::string& data, const std::string& encoding,
@@ -344,7 +386,7 @@ private:
 };
 
 class ACE_EXPORT WebRequest : public AceType {
-    DECLARE_ACE_TYPE(WebRequest, AceType)
+    DECLARE_ACE_TYPE(WebRequest, AceType);
 
 public:
     WebRequest(const std::map<std::string, std::string>& headers, const std::string& method, const std::string& url,
@@ -394,7 +436,7 @@ private:
 };
 
 class ACE_EXPORT Result : public AceType {
-    DECLARE_ACE_TYPE(Result, AceType)
+    DECLARE_ACE_TYPE(Result, AceType);
 
 public:
     Result() = default;
@@ -406,7 +448,7 @@ public:
 };
 
 class ACE_EXPORT FileSelectorResult : public AceType {
-    DECLARE_ACE_TYPE(FileSelectorResult, AceType)
+    DECLARE_ACE_TYPE(FileSelectorResult, AceType);
 
 public:
     FileSelectorResult() = default;
@@ -420,8 +462,9 @@ class ACE_EXPORT WebDialogEvent : public BaseEventInfo {
 
 public:
     WebDialogEvent(const std::string& url, const std::string& message, const std::string& value,
-        const DialogEventType& type, const RefPtr<Result>& result)
-        : BaseEventInfo("WebDialogEvent"), url_(url), message_(message), value_(value), type_(type), result_(result)
+        const DialogEventType& type, const RefPtr<Result>& result, bool isReload = false)
+        : BaseEventInfo("WebDialogEvent"), url_(url), message_(message), value_(value), type_(type), result_(result),
+          isReload_(isReload)
     {}
     ~WebDialogEvent() = default;
 
@@ -450,16 +493,22 @@ public:
         return type_;
     }
 
+    bool GetIsReload() const
+    {
+        return isReload_;
+    }
+
 private:
     std::string url_;
     std::string message_;
     std::string value_;
     DialogEventType type_;
     RefPtr<Result> result_;
+    bool isReload_;
 };
 
 class ACE_EXPORT AuthResult : public AceType {
-    DECLARE_ACE_TYPE(AuthResult, AceType)
+    DECLARE_ACE_TYPE(AuthResult, AceType);
 
 public:
     AuthResult() = default;
@@ -501,13 +550,13 @@ private:
 };
 
 class ACE_EXPORT SslErrorResult : public AceType {
-    DECLARE_ACE_TYPE(SslErrorResult, AceType)
+    DECLARE_ACE_TYPE(SslErrorResult, AceType);
 
 public:
     SslErrorResult() = default;
     ~SslErrorResult() = default;
     virtual void HandleConfirm() = 0;
-    virtual void HandleCancel() = 0;
+    virtual void HandleCancel(bool abortLoading) = 0;
 };
 
 class ACE_EXPORT WebSslErrorEvent : public BaseEventInfo {
@@ -544,7 +593,7 @@ private:
 };
 
 class ACE_EXPORT AllSslErrorResult : public AceType {
-    DECLARE_ACE_TYPE(AllSslErrorResult, AceType)
+    DECLARE_ACE_TYPE(AllSslErrorResult, AceType);
 
 public:
     AllSslErrorResult() = default;
@@ -634,16 +683,16 @@ public:
 private:
     RefPtr<AllSslErrorResult> result_;
     int32_t error_;
-    const std::string& url_;
-    const std::string& originalUrl_;
-    const std::string& referrer_;
+    const std::string url_;
+    const std::string originalUrl_;
+    const std::string referrer_;
     bool isFatalError_;
     bool isMainFrame_;
     std::vector<std::string> certChainData_;
 };
 
 class ACE_EXPORT SslSelectCertResult : public AceType {
-    DECLARE_ACE_TYPE(SslSelectCertResult, AceType)
+    DECLARE_ACE_TYPE(SslSelectCertResult, AceType);
 public:
     SslSelectCertResult() = default;
     ~SslSelectCertResult() = default;
@@ -651,6 +700,7 @@ public:
     virtual void HandleConfirm(const std::string& privateKeyFile, const std::string& certChainFile) = 0;
     virtual void HandleCancel() = 0;
     virtual void HandleIgnore() = 0;
+    virtual void HandleConfirm(const std::string& identity, int32_t type) = 0;
 };
 
 class ACE_EXPORT WebSslSelectCertEvent : public BaseEventInfo {
@@ -699,8 +749,43 @@ private:
     std::vector<std::string> issuers_;
 };
 
+class ACE_EXPORT VerifyPinResult : public AceType {
+    DECLARE_ACE_TYPE(VerifyPinResult, AceType);
+public:
+    VerifyPinResult() = default;
+    ~VerifyPinResult() = default;
+ 
+    virtual void HandleConfirm(int32_t verifyResult) = 0;
+};
+ 
+class ACE_EXPORT WebVerifyPinEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(WebVerifyPinEvent, BaseEventInfo);
+ 
+public:
+    WebVerifyPinEvent(const RefPtr<VerifyPinResult>& result, const std::string& identity)
+        : BaseEventInfo("WebVerifyPinEvent"),
+        result_(result), identity_(identity) {}
+ 
+    ~WebVerifyPinEvent() = default;
+ 
+    const RefPtr<VerifyPinResult>& GetResult() const
+    {
+        return result_;
+    }
+ 
+    const std::string& GetIdentity() const
+    {
+        return identity_;
+    }
+ 
+ 
+private:
+    RefPtr<VerifyPinResult> result_;
+    std::string identity_;
+};
+
 class ACE_EXPORT WebGeolocation : public AceType {
-    DECLARE_ACE_TYPE(WebGeolocation, AceType)
+    DECLARE_ACE_TYPE(WebGeolocation, AceType);
 
 public:
     WebGeolocation() = default;
@@ -710,7 +795,7 @@ public:
 };
 
 class ACE_EXPORT WebPermissionRequest : public AceType {
-    DECLARE_ACE_TYPE(WebPermissionRequest, AceType)
+    DECLARE_ACE_TYPE(WebPermissionRequest, AceType);
 
 public:
     WebPermissionRequest() = default;
@@ -726,7 +811,7 @@ public:
 };
 
 class ACE_EXPORT WebScreenCaptureRequest : public AceType {
-    DECLARE_ACE_TYPE(WebScreenCaptureRequest, AceType)
+    DECLARE_ACE_TYPE(WebScreenCaptureRequest, AceType);
 
 public:
     WebScreenCaptureRequest() = default;
@@ -744,7 +829,7 @@ public:
 };
 
 class ACE_EXPORT WebWindowNewHandler : public AceType {
-    DECLARE_ACE_TYPE(WebWindowNewHandler, AceType)
+    DECLARE_ACE_TYPE(WebWindowNewHandler, AceType);
 
 public:
     WebWindowNewHandler() = default;
@@ -760,7 +845,7 @@ public:
 };
 
 class ACE_EXPORT WebAppLinkCallback : public AceType {
-    DECLARE_ACE_TYPE(WebAppLinkCallback, AceType)
+    DECLARE_ACE_TYPE(WebAppLinkCallback, AceType);
 
 public:
     WebAppLinkCallback() = default;
@@ -770,8 +855,20 @@ public:
     virtual void CancelLoad() = 0;
 };
 
+class ACE_EXPORT WebNativeMessageCallback : public AceType {
+    DECLARE_ACE_TYPE(WebNativeMessageCallback, AceType);
+
+public:
+    WebNativeMessageCallback() = default;
+    ~WebNativeMessageCallback() = default;
+
+    virtual void OnConnect(int32_t pid) = 0;
+    virtual void OnDisconnect(int32_t pid) = 0;
+    virtual void OnFailed(int32_t code) = 0;
+};
+
 class ACE_EXPORT WebCustomKeyboardHandler : public AceType {
-    DECLARE_ACE_TYPE(WebCustomKeyboardHandler, AceType)
+    DECLARE_ACE_TYPE(WebCustomKeyboardHandler, AceType);
 
 public:
     WebCustomKeyboardHandler() = default;
@@ -784,12 +881,13 @@ public:
     virtual void Close() = 0;
 };
 
-class ACE_EXPORT LoadWebPageStartEvent : public BaseEventInfo {
-    DECLARE_RELATIONSHIP_OF_CLASSES(LoadWebPageStartEvent, BaseEventInfo);
+class ACE_EXPORT BaseLoadEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(BaseLoadEvent, BaseEventInfo);
 
 public:
-    explicit LoadWebPageStartEvent(const std::string& url) : BaseEventInfo("LoadWebPageStartEvent"), loadedUrl_(url) {}
-    ~LoadWebPageStartEvent() = default;
+    explicit BaseLoadEvent(const std::string& type, const std::string& url)
+        : BaseEventInfo(type), loadedUrl_(url) {}
+    ~BaseLoadEvent() = default;
 
     const std::string& GetLoadedUrl() const
     {
@@ -800,21 +898,158 @@ private:
     std::string loadedUrl_;
 };
 
-class ACE_EXPORT LoadWebPageFinishEvent : public BaseEventInfo {
-    DECLARE_RELATIONSHIP_OF_CLASSES(LoadWebPageFinishEvent, BaseEventInfo);
+class ACE_EXPORT LoadWebPageStartEvent : public BaseLoadEvent {
+    DECLARE_RELATIONSHIP_OF_CLASSES(LoadWebPageStartEvent, BaseLoadEvent);
 
 public:
-    explicit LoadWebPageFinishEvent(const std::string& url) : BaseEventInfo("LoadWebPageFinishEvent"), loadedUrl_(url)
-    {}
-    ~LoadWebPageFinishEvent() = default;
+    explicit LoadWebPageStartEvent(const std::string& url) : BaseLoadEvent("LoadWebPageStartEvent", url) {}
+    ~LoadWebPageStartEvent() = default;
+};
 
-    const std::string& GetLoadedUrl() const
+class ACE_EXPORT LoadWebPageFinishEvent : public BaseLoadEvent {
+    DECLARE_RELATIONSHIP_OF_CLASSES(LoadWebPageFinishEvent, BaseLoadEvent);
+
+public:
+    explicit LoadWebPageFinishEvent(const std::string& url) : BaseLoadEvent("LoadWebPageFinishEvent", url) {}
+    ~LoadWebPageFinishEvent() = default;
+};
+
+class ACE_EXPORT LoadStartedEvent : public BaseLoadEvent {
+    DECLARE_RELATIONSHIP_OF_CLASSES(LoadStartedEvent, BaseLoadEvent);
+
+public:
+    explicit LoadStartedEvent(const std::string& url) : BaseLoadEvent("LoadStartedEvent", url) {}
+    ~LoadStartedEvent() = default;
+};
+
+class ACE_EXPORT LoadFinishedEvent : public BaseLoadEvent {
+    DECLARE_RELATIONSHIP_OF_CLASSES(LoadFinishedEvent, BaseLoadEvent);
+
+public:
+    explicit LoadFinishedEvent(const std::string& url) : BaseLoadEvent("LoadFinishedEvent", url) {}
+    ~LoadFinishedEvent() = default;
+};
+
+class ACE_EXPORT PdfScrollEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(PdfScrollEvent, BaseEventInfo);
+
+public:
+    explicit PdfScrollEvent(const std::string& url)
+        : BaseEventInfo("PdfScrollEvent"), url_(url) {}
+    ~PdfScrollEvent() = default;
+
+    const std::string& GetUrl() const
     {
-        return loadedUrl_;
+        return url_;
     }
 
 private:
-    std::string loadedUrl_;
+    std::string url_;
+};
+
+class ACE_EXPORT TextSelectionChangedEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(TextSelectionChangedEvent, BaseEventInfo);
+
+public:
+    explicit TextSelectionChangedEvent(const std::string& selectionText)
+        : BaseEventInfo("TextSelectionChangedEvent"), selectionText_(selectionText)
+    {}
+    ~TextSelectionChangedEvent() = default;
+
+    const std::string& GetselectionText() const
+    {
+        return selectionText_;
+    }
+
+private:
+    std::string selectionText_;
+};
+
+class ACE_EXPORT DetectedBlankScreenEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(DetectedBlankScreenEvent, BaseEventInfo);
+
+public:
+    explicit DetectedBlankScreenEvent(
+        const std::string& url, int32_t blankScreenReason, int32_t detectedContentfulNodesCount)
+        : BaseEventInfo("DetectedBlankScreenEvent"), url_(url), blankScreenReason_(blankScreenReason),
+          detectedContentfulNodesCount_(detectedContentfulNodesCount)
+    {}
+    ~DetectedBlankScreenEvent() = default;
+
+    const std::string& GetUrl() const
+    {
+        return url_;
+    }
+
+    int32_t GetBlankScreenReason() const
+    {
+        return blankScreenReason_;
+    }
+
+    int32_t GetDetectedContentfulNodesCount() const
+    {
+        return detectedContentfulNodesCount_;
+    }
+
+private:
+    std::string url_;
+    int32_t blankScreenReason_;
+    int32_t detectedContentfulNodesCount_;
+};
+
+class ACE_EXPORT FirstScreenPaintEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(FirstScreenPaintEvent, BaseEventInfo);
+
+public:
+    FirstScreenPaintEvent(
+        const std::string& url, int64_t navigationStartTime, int64_t firstScreenPaintTime)
+        : BaseEventInfo("FirstScreenPaintEvent"), url_(url), navigationStartTime_(navigationStartTime),
+          firstScreenPaintTime_(firstScreenPaintTime)
+    {}
+    ~FirstScreenPaintEvent() = default;
+
+    const std::string& GetUrl() const
+    {
+        return url_;
+    }
+
+    int64_t GetNavigationStartTime() const
+    {
+        return navigationStartTime_;
+    }
+
+    int64_t GetFirstScreenPaintTime() const
+    {
+        return firstScreenPaintTime_;
+    }
+
+private:
+    std::string url_;
+    int64_t navigationStartTime_;
+    int64_t firstScreenPaintTime_;
+};
+
+class ACE_EXPORT PdfLoadEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(PdfLoadEvent, BaseEventInfo);
+
+public:
+    explicit PdfLoadEvent(int32_t result, const std::string& url)
+        : BaseEventInfo("PdfLoadEvent"), result_(result), url_(url) {}
+    ~PdfLoadEvent() = default;
+
+    int32_t GetResult() const
+    {
+        return result_;
+    }
+
+    const std::string& GetUrl() const
+    {
+        return url_;
+    }
+
+private:
+    int32_t result_;
+    std::string url_;
 };
 
 class ACE_EXPORT ContextMenuHideEvent : public BaseEventInfo {
@@ -877,7 +1112,7 @@ private:
 };
 
 class ACE_EXPORT FullScreenExitHandler : public AceType {
-    DECLARE_ACE_TYPE(FullScreenExitHandler, AceType)
+    DECLARE_ACE_TYPE(FullScreenExitHandler, AceType);
 
 public:
     FullScreenExitHandler() = default;
@@ -1034,6 +1269,56 @@ public:
 private:
     std::string url_;
     RefPtr<WebAppLinkCallback> callback_;
+};
+
+class ACE_EXPORT WebNativeMessageEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(WebNativeMessageEvent, BaseEventInfo);
+
+public:
+    WebNativeMessageEvent(const std::string &bundleName, const std::string &extensionOrigin, const int readPipe,
+        const int writePipe, const RefPtr<WebNativeMessageCallback> &callback)
+        : BaseEventInfo("WebNativeMessageEvent"), bundleName_(bundleName), extensionOrigin_(extensionOrigin),
+          readPipe_(readPipe), writePipe_(writePipe), callback_(callback)
+    {}
+    WebNativeMessageEvent(const int connectId) : BaseEventInfo("WebNativeMessageEvent"), connectId_(connectId)
+    {}
+
+    ~WebNativeMessageEvent() = default;
+
+    const RefPtr<WebNativeMessageCallback> &GetCallback() const
+    {
+        return callback_;
+    }
+
+    const std::string &GetBundleName() const
+    {
+        return bundleName_;
+    }
+    const std::string &GetExtensionOrigin() const
+    {
+        return extensionOrigin_;
+    }
+    const int &GetReadPipe() const
+    {
+        return readPipe_;
+    }
+    const int &GetWritePipe() const
+    {
+        return writePipe_;
+    }
+
+    const int &GetConnectId() const
+    {
+        return connectId_;
+    }
+
+private:
+    std::string bundleName_;
+    std::string extensionOrigin_;
+    int readPipe_;
+    int writePipe_;
+    int connectId_ = 0;
+    RefPtr<WebNativeMessageCallback> callback_;
 };
 
 class ACE_EXPORT LoadWebGeolocationHideEvent : public BaseEventInfo {
@@ -1315,8 +1600,9 @@ class ACE_EXPORT RefreshAccessedHistoryEvent : public BaseEventInfo {
     DECLARE_RELATIONSHIP_OF_CLASSES(RefreshAccessedHistoryEvent, BaseEventInfo);
 
 public:
-    RefreshAccessedHistoryEvent(const std::string& url, bool isRefreshed)
-        : BaseEventInfo("RefreshAccessedHistoryEvent"), url_(url), isRefreshed_(isRefreshed)
+    RefreshAccessedHistoryEvent(const std::string& url, bool isRefreshed, bool isMainFrame = false)
+        : BaseEventInfo("RefreshAccessedHistoryEvent"),
+        url_(url), isRefreshed_(isRefreshed), isMainFrame_(isMainFrame)
     {}
 
     ~RefreshAccessedHistoryEvent() = default;
@@ -1331,9 +1617,15 @@ public:
         return isRefreshed_;
     }
 
+    bool IsMainFrame() const
+    {
+        return isMainFrame_;
+    }
+
 private:
     std::string url_;
     bool isRefreshed_;
+    bool isMainFrame_;
 };
 
 class ACE_EXPORT FileSelectorEvent : public BaseEventInfo {
@@ -1424,7 +1716,7 @@ private:
 };
 
 class WebContextMenuParam : public AceType {
-    DECLARE_ACE_TYPE(WebContextMenuParam, AceType)
+    DECLARE_ACE_TYPE(WebContextMenuParam, AceType);
 
 public:
     WebContextMenuParam() = default;
@@ -1444,10 +1736,13 @@ public:
     virtual std::string GetSelectionText() const = 0;
     virtual void GetImageRect(int32_t& x, int32_t& y, int32_t& width, int32_t& height) const {}
     virtual bool IsAILink() const { return false; }
+    virtual int GetSourceTypeV2() const { return 0; }
+    virtual int GetMediaTypeV2() const { return 0; }
+    virtual int GetContextMenuMediaType() const { return 0; }
 };
 
 class ACE_EXPORT ContextMenuResult : public AceType {
-    DECLARE_ACE_TYPE(ContextMenuResult, AceType)
+    DECLARE_ACE_TYPE(ContextMenuResult, AceType);
 
 public:
     ContextMenuResult() = default;
@@ -1455,6 +1750,7 @@ public:
 
     virtual void Cancel() const = 0;
     virtual void CopyImage() const = 0;
+    virtual void SaveImage() const = 0;
     virtual void Copy() const = 0;
     virtual void Paste() const = 0;
     virtual void Cut() const = 0;
@@ -1462,6 +1758,7 @@ public:
     virtual void Undo() const = 0;
     virtual void Redo() const = 0;
     virtual void PasteAndMatchStyle() const = 0;
+    virtual void RequestPasswordAutoFill() const = 0;
 };
 
 class ACE_EXPORT ContextMenuEvent : public BaseEventInfo {
@@ -1554,6 +1851,77 @@ private:
     RefPtr<WebWindowNewHandler> handler_;
 };
 
+class ACE_EXPORT WebWindowNewExtEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(WebWindowNewExtEvent, BaseEventInfo);
+
+public:
+    WebWindowNewExtEvent(const std::string& targetUrl, bool isAlert, bool isUserTrigger,
+        const RefPtr<WebWindowNewHandler>& handler, int x, int y, int width, int height,
+        NavigationPolicy navigationPolicy)
+        : BaseEventInfo("WebWindowNewExtEvent"), targetUrl_(targetUrl), isAlert_(isAlert),
+          isUserTrigger_(isUserTrigger), handler_(handler), x_(x), y_(y), width_(width), height_(height),
+          navigationPolicy_(navigationPolicy)
+    {}
+
+    ~WebWindowNewExtEvent() = default;
+
+    const std::string& GetTargetUrl() const
+    {
+        return targetUrl_;
+    }
+
+    bool IsAlert() const
+    {
+        return isAlert_;
+    }
+
+    bool IsUserTrigger() const
+    {
+        return isUserTrigger_;
+    }
+
+    const RefPtr<WebWindowNewHandler>& GetWebWindowNewHandler() const
+    {
+        return handler_;
+    }
+
+    int GetHeight() const
+    {
+        return height_;
+    }
+
+    int GetWidth() const
+    {
+        return width_;
+    }
+
+    int GetX() const
+    {
+        return x_;
+    }
+
+    int GetY() const
+    {
+        return y_;
+    }
+
+    NavigationPolicy GetNavigationPolicy() const
+    {
+        return navigationPolicy_;
+    }
+
+private:
+    std::string targetUrl_;
+    bool isAlert_;
+    bool isUserTrigger_;
+    RefPtr<WebWindowNewHandler> handler_;
+    int x_;
+    int y_;
+    int width_;
+    int height_;
+    NavigationPolicy navigationPolicy_;
+};
+
 class ACE_EXPORT WebWindowExitEvent : public BaseEventInfo {
     DECLARE_RELATIONSHIP_OF_CLASSES(WebWindowExitEvent, BaseEventInfo);
 
@@ -1590,7 +1958,7 @@ private:
 };
 
 class ACE_EXPORT DataResubmitted : public AceType {
-    DECLARE_ACE_TYPE(DataResubmitted, AceType)
+    DECLARE_ACE_TYPE(DataResubmitted, AceType);
 
 public:
     DataResubmitted() = default;
@@ -1618,7 +1986,7 @@ private:
 };
 
 class ACE_EXPORT WebFaviconReceived : public AceType {
-    DECLARE_ACE_TYPE(WebFaviconReceived, AceType)
+    DECLARE_ACE_TYPE(WebFaviconReceived, AceType);
 
 public:
     WebFaviconReceived() = default;
@@ -1629,6 +1997,10 @@ public:
     virtual size_t GetHeight() = 0;
     virtual int GetColorType() = 0;
     virtual int GetAlphaType() = 0;
+    virtual Media::PixelFormat GetMediaPixelFormat() = 0;
+    virtual Media::AlphaType GetMediaAlphaType() = 0;
+    virtual void SetPixelMap() = 0;
+    virtual std::shared_ptr<Media::PixelMap> GetPixelMap() = 0;
 };
 
 class ACE_EXPORT FaviconReceivedEvent : public BaseEventInfo {
@@ -1976,6 +2348,44 @@ private:
     std::string embed_id_ = "";
 };
 
+struct NativeEmbedParamItem final {
+    NativeEmbedParamStatus status;
+    std::string id = "";
+    std::string name = "";
+    std::string value = "";
+};
+
+class ACE_EXPORT NativeEmbedParamDataInfo : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(NativeEmbedParamDataInfo, BaseEventInfo)
+
+public:
+    NativeEmbedParamDataInfo(const std::string& embedId, const std::string& objectAttributeId,
+        const std::vector<NativeEmbedParamItem>& paramItems)
+        : BaseEventInfo("NativeEmbedParamDataInfo"), embedId_(embedId),
+        objectAttributeId_(objectAttributeId), paramItems_(paramItems) {}
+    ~NativeEmbedParamDataInfo() = default;
+
+    const std::string& GetEmbedId() const
+    {
+        return embedId_;
+    }
+
+    const std::string& GetObjectAttributeId() const
+    {
+        return objectAttributeId_;
+    }
+
+    const std::vector<NativeEmbedParamItem> GetParamItems() const
+    {
+        return paramItems_;
+    }
+
+private:
+    std::string embedId_ = "";
+    std::string objectAttributeId_ = "";
+    std::vector<NativeEmbedParamItem> paramItems_;
+};
+
 class ACE_EXPORT RenderProcessNotRespondingEvent : public BaseEventInfo {
     DECLARE_RELATIONSHIP_OF_CLASSES(RenderProcessNotRespondingEvent, BaseEventInfo);
 
@@ -2054,6 +2464,49 @@ private:
     std::vector<std::string> adsBlocked_;
 };
 
+class ACE_EXPORT CameraCaptureStateEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(CameraCaptureStateEvent, BaseEventInfo);
+
+public:
+    CameraCaptureStateEvent(int32_t originalState, int32_t newState) :
+        BaseEventInfo("CameraCaptureState"), originalState_(originalState), newState_(newState) {}
+    ~CameraCaptureStateEvent() = default;
+
+    int32_t GetOriginalCameraCaptureState() const
+    {
+        return originalState_;
+    }
+
+    int32_t GetNewCameraCaptureState() const
+    {
+        return newState_;
+    }
+private:
+    int32_t originalState_ = 0;
+    int32_t newState_ = 0;
+};
+
+class ACE_EXPORT MicrophoneCaptureStateEvent : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(MicrophoneCaptureStateEvent, BaseEventInfo);
+
+public:
+    explicit MicrophoneCaptureStateEvent(int32_t originalState, int32_t newState) :
+        BaseEventInfo("MicrophoneCaptureState"), originalState_(originalState), newState_(newState) {}
+    ~MicrophoneCaptureStateEvent() = default;
+
+    int32_t GetOriginalMicrophoneCaptureState() const
+    {
+        return originalState_;
+    }
+
+    int32_t GetNewMicrophoneCaptureState() const
+    {
+        return newState_;
+    }
+private:
+    int32_t originalState_ = 0;
+    int32_t newState_ = 0;
+};
 } // namespace OHOS::Ace
 
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_WEB_WEB_EVENT_H

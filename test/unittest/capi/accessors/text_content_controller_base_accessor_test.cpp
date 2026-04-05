@@ -38,6 +38,8 @@ public:
     MOCK_METHOD(void, DeleteText, (int32_t, int32_t), (override));
     MOCK_METHOD(SelectionInfo, GetSelection, (), (override));
     MOCK_METHOD(int32_t, AddText, (std::u16string, int32_t), (override));
+    MOCK_METHOD(std::u16string, GetText, (), (override));
+    MOCK_METHOD(void, ClearPreviewText, (), (override));
 };
 } // namespace
 
@@ -68,28 +70,31 @@ public:
 };
 
 /**
- * @tc.name: GetTextContentLinesNumTest
+ * @tc.name: getTextContentLineCountTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextContentControllerBaseAccessorTest, GetTextContentLinesNumTest, TestSize.Level1)
+HWTEST_F(TextContentControllerBaseAccessorTest, getTextContentLineCountTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getTextContentLineCount, nullptr);
     EXPECT_CALL(*mockTextContentControllerBase_, GetTextContentLinesNum()).Times(1).WillOnce(Return(LINES_NUM));
-    auto checkValue = Converter::Convert<int32_t>(accessor_->getTextContentLineCount(peer_));
+    auto checkValue = Converter::OptConvert<int32_t>(accessor_->getTextContentLineCount(peer_));
     EXPECT_EQ(checkValue, LINES_NUM);
 }
 
 /**
- * @tc.name: GetCaretOffsetTest
+ * @tc.name: getCaretOffsetTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextContentControllerBaseAccessorTest, GetCaretOffsetTest, TestSize.Level1)
+HWTEST_F(TextContentControllerBaseAccessorTest, getCaretOffsetTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getCaretOffset, nullptr);
     EXPECT_CALL(*mockTextContentControllerBase_, GetCaretPosition()).Times(1).WillOnce(Return(NG::OffsetF(0, 0)));
-    Ark_CaretOffset offset = accessor_->getCaretOffset(peer_);
+    Opt_CaretOffset offsetOpt = accessor_->getCaretOffset(peer_);
+    auto offsetArk = Converter::GetOpt(offsetOpt);
+    ASSERT_TRUE(offsetArk.has_value());
+    auto offset = offsetArk.value();
     auto x = Converter::Convert<int32_t>(offset.x);
     auto y = Converter::Convert<int32_t>(offset.y);
     EXPECT_EQ(x, 0);
@@ -97,24 +102,27 @@ HWTEST_F(TextContentControllerBaseAccessorTest, GetCaretOffsetTest, TestSize.Lev
 }
 
 /**
- * @tc.name: GetTextContentRectTest
+ * @tc.name: getTextContentRectTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextContentControllerBaseAccessorTest, DISABLED_GetTextContentRectTest, TestSize.Level1)
+HWTEST_F(TextContentControllerBaseAccessorTest, DISABLED_getTextContentRectTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getTextContentRect, nullptr);
     EXPECT_CALL(*mockTextContentControllerBase_, GetTextContentRect()).Times(1).WillOnce(Return(Rect(0, 0, 1, 1)));
-    auto checkValue = accessor_->getTextContentRect(peer_);
+    Opt_RectResult rectResultOpt = accessor_->getTextContentRect(peer_);
+    auto rectResultArk = Converter::GetOpt(rectResultOpt);
+    ASSERT_TRUE(rectResultArk.has_value());
+    auto checkValue = rectResultArk.value();
     EXPECT_EQ(&checkValue, nullptr); // fix after updating return value
 }
 
 /**
- * @tc.name: DeleteTextTest
+ * @tc.name: deleteTextTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextContentControllerBaseAccessorTest, DISABLED_DeleteTextTest, TestSize.Level1)
+HWTEST_F(TextContentControllerBaseAccessorTest, DISABLED_deleteTextTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getSelection, nullptr);
     const auto defaultStart = -1;
@@ -143,11 +151,11 @@ HWTEST_F(TextContentControllerBaseAccessorTest, DISABLED_DeleteTextTest, TestSiz
 }
 
 /**
- * @tc.name: GetSelectionTest
+ * @tc.name: getSelectionTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextContentControllerBaseAccessorTest, GetSelectionTest, TestSize.Level1)
+HWTEST_F(TextContentControllerBaseAccessorTest, getSelectionTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getSelection, nullptr);
     const auto start = 1;
@@ -156,33 +164,35 @@ HWTEST_F(TextContentControllerBaseAccessorTest, GetSelectionTest, TestSize.Level
     info.SetSelectionStart(start);
     info.SetSelectionEnd(end);
     EXPECT_CALL(*mockTextContentControllerBase_, GetSelection()).Times(1).WillOnce(Return(info));
-    auto checkValue = Converter::Convert<TextRange>(accessor_->getSelection(peer_));
-    EXPECT_EQ(checkValue.start, start);
-    EXPECT_EQ(checkValue.end, end);
+    auto selection = accessor_->getSelection(peer_);
+    auto range = Converter::OptConvert<TextRange>(selection);
+    ASSERT_TRUE(range.has_value());
+    EXPECT_EQ(range->start, start);
+    EXPECT_EQ(range->end, end);
 }
 
 /**
- * @tc.name: AddTextTest
+ * @tc.name: addTextTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextContentControllerBaseAccessorTest, AddTextTest, TestSize.Level1)
+HWTEST_F(TextContentControllerBaseAccessorTest, addTextTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->addText, nullptr);
-    const auto errorValue = 0;
+    const auto errorValue = std::nullopt;
     const std::string text = "Hello";
     const auto offset = 1;
     const auto defaultOffset = -1;
     auto arkOptions = Converter::ArkValue<Opt_TextContentControllerOptions>(Ark_Empty());
 
     EXPECT_CALL(*mockTextContentControllerBase_, AddText(UtfUtils::Str8ToStr16(text), offset)).Times(0);
-    auto checkValue = Converter::Convert<int32_t>(accessor_->addText(peer_, nullptr, &arkOptions));
+    auto checkValue = Converter::OptConvert<int32_t>(accessor_->addText(peer_, nullptr, &arkOptions));
     EXPECT_EQ(checkValue, errorValue);
 
     auto arkText = Converter::ArkValue<Ark_String>(text);
     EXPECT_CALL(*mockTextContentControllerBase_,
         AddText(UtfUtils::Str8ToStr16(text), defaultOffset)).Times(1).WillOnce(Return(offset));
-    checkValue = Converter::Convert<int32_t>(accessor_->addText(peer_, &arkText, nullptr));
+    checkValue = Converter::OptConvert<int32_t>(accessor_->addText(peer_, &arkText, nullptr));
     EXPECT_EQ(checkValue, offset);
 
     Ark_TextContentControllerOptions options {
@@ -191,8 +201,49 @@ HWTEST_F(TextContentControllerBaseAccessorTest, AddTextTest, TestSize.Level1)
     arkOptions = Converter::ArkValue<Opt_TextContentControllerOptions>(options);
     EXPECT_CALL(*mockTextContentControllerBase_,
         AddText(UtfUtils::Str8ToStr16(text), offset)).Times(1).WillOnce(Return(offset));
-    checkValue = Converter::Convert<int32_t>(accessor_->addText(peer_, &arkText, &arkOptions));
+    checkValue = Converter::OptConvert<int32_t>(accessor_->addText(peer_, &arkText, &arkOptions));
     EXPECT_EQ(checkValue, offset);
+}
+
+/**
+ * @tc.name: getTextTestValidValues
+ * @tc.desc:
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextContentControllerBaseAccessorTest, getTextTestValidValues, TestSize.Level1)
+{
+    TextRange range = {
+        .start = 2,
+        .end = 5
+    };
+    auto arkRange = Converter::ArkValue<Opt_TextRange>(range);
+    EXPECT_CALL(*mockTextContentControllerBase_, GetText()).WillOnce(Return(u"Qwerty"));
+    auto checkValue = Converter::OptConvert<std::u16string>(accessor_->getText(peer_, &arkRange));
+    EXPECT_EQ(checkValue, u"ert");
+}
+
+/**
+ * @tc.name: getTextTestInvalidValues
+ * @tc.desc:
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextContentControllerBaseAccessorTest, getTextTestInvalidValues, TestSize.Level1)
+{
+    auto arkRange = Converter::ArkValue<Opt_TextRange>(Ark_Empty());
+    EXPECT_CALL(*mockTextContentControllerBase_, GetText()).WillOnce(Return(u"Qwerty"));
+    auto checkValue = Converter::OptConvert<std::u16string>(accessor_->getText(peer_, &arkRange));
+    EXPECT_EQ(checkValue, u"Qwerty");
+}
+
+/**
+ * @tc.name: clearPreviewTextTest
+ * @tc.desc:
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextContentControllerBaseAccessorTest, clearPreviewTextTest, TestSize.Level1)
+{
+    EXPECT_CALL(*mockTextContentControllerBase_, ClearPreviewText()).Times(1);
+    accessor_->clearPreviewText(peer_);
 }
 
 } // namespace OHOS::Ace::NG

@@ -16,10 +16,10 @@
 #ifndef INTERFACE_INNERAPI_UI_SESSION_UI_TRANSLATE_MANAGER_H
 #define INTERFACE_INNERAPI_UI_SESSION_UI_TRANSLATE_MANAGER_H
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 #include "ui_session_json_util.h"
-
 #include "base/utils/macros.h"
 
 namespace OHOS::Ace {
@@ -32,6 +32,7 @@ public:
     virtual void SendTranslateResult(int32_t nodeId, std::string res) {};
     virtual void ResetTranslate(int32_t nodeId);
     virtual void ClearMap();
+    virtual void PostToUI(const std::function<void()>& task) {};
 };
 } // namespace OHOS::Ace
 #endif

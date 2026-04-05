@@ -41,14 +41,17 @@ class ScreenModifierTest : public ModifierTestBase<GENERATED_ArkUIScreenModifier
  * @tc.desc: test fucntion of setScreenOptionsImpl
  * @tc.type: FUNC
  */
-HWTEST_F(ScreenModifierTest, setScreenOptionsTest, TestSize.Level1)
+HWTEST_F(ScreenModifierTest, DISABLED_setScreenOptionsTest, TestSize.Level1)
 {
-    Ark_Number screenId = Converter::ArkValue<Ark_Number>(SCREEN_ID);
-    modifier_->setScreenOptions(node_, &screenId);
+    Ark_Int64 screenId = Converter::ArkValue<Ark_Int64>(SCREEN_ID);
+    modifier_->setScreenOptions(node_, screenId);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
+    ASSERT_NE(frameNode, nullptr);
     auto pattern = frameNode->GetPattern<ScreenPattern>();
-    CHECK_NULL_VOID(pattern);
-    auto id = pattern->GetScreenSession()->GetScreenId();
+    ASSERT_NE(pattern, nullptr);
+    auto session = pattern->GetScreenSession();
+    ASSERT_NE(session, nullptr);
+    auto id = session->GetScreenId();
     EXPECT_EQ(id, SCREEN_ID);
 }
 

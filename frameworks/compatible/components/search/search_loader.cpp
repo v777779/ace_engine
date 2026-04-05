@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,6 +19,7 @@
 #include "compatible/components/search/dom_search.h"
 #include "compatible/components/search/search_composed_element.h"
 #include "compatible/components/search/search_model_impl.h"
+#include "frameworks/core/components/common/properties/input_option.h"
 
 namespace OHOS::Ace {
 
@@ -36,9 +37,13 @@ RefPtr<V2::InspectorComposedElement> SearchLoader::CreateInspectorElement(const 
 {
     return AceType::MakeRefPtr<V2::SearchComposedElement>(id);
 }
-RefPtr<Declaration> SearchLoader::CreateDeclaration()
-{
-    return AceType::MakeRefPtr<SearchDeclaration>();
-}
 
+void SearchLoader::UpdateDomConfig(const RefPtr<Framework::DOMNode>& node, void* config)
+{
+    CHECK_NULL_VOID(config);
+    auto domSearch = AceType::DynamicCast<Framework::DOMSearch>(node);
+    if (domSearch) {
+        domSearch->SetInputOptions(*reinterpret_cast<std::vector<InputOption>*>(config));
+    }
+}
 } // namespace OHOS::Ace

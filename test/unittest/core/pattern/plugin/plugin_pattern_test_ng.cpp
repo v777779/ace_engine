@@ -28,8 +28,8 @@
 
 #include "bundlemgr/bundle_mgr_interface.h"
 #include "mock/mock_bundle_mgr_interface.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/geometry/dimension.h"
 #include "base/json/json_util.h"
@@ -39,6 +39,7 @@
 #include "core/components/plugin/plugin_sub_container.h"
 #include "core/components/plugin/resource/plugin_manager_delegate.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/custom/custom_node.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/plugin/plugin_event_hub.h"

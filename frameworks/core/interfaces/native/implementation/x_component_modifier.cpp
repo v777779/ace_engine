@@ -33,6 +33,10 @@ XComponentType ConvertXComponentType(Ark_XComponentType type)
 {
     return type == Ark_XComponentType::ARK_XCOMPONENT_TYPE_TEXTURE ? XComponentType::TEXTURE : XComponentType::SURFACE;
 }
+HdrType ConvertHdrType(Ark_HdrType type)
+{
+    return static_cast<HdrType>(static_cast<int32_t>(type));
+}
 #endif // XCOMPONENT_SUPPORTED
 }
 namespace XComponentModifier {
@@ -40,6 +44,7 @@ Ark_NativePointer ConstructImpl(Ark_Int32 id,
                                 Ark_Int32 flags)
 {
 #ifdef XCOMPONENT_SUPPORTED
+    ACE_UINODE_TRACE(id);
     auto frameNode = XComponentModelStatic::CreateFrameNode(id, false);
     frameNode->IncRefCount();
     return AceType::RawPtr(frameNode);
@@ -55,9 +60,11 @@ void SetXComponentOptionsImpl(Ark_NativePointer node,
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     CHECK_NULL_VOID(params);
+    ACE_UINODE_TRACE(frameNode);
 #ifdef XCOMPONENT_SUPPORTED
     Converter::VisitUnion(*params,
         [frameNode](const Ark_XComponentParameters& src) {
+            ACE_UINODE_TRACE(frameNode);
             std::string xComponentId = Converter::Convert<std::string>(src.id);
             XComponentModelStatic::SetXComponentId(frameNode, xComponentId);
             XComponentType type = ConvertXComponentType(src.type);
@@ -74,6 +81,7 @@ void SetXComponentOptionsImpl(Ark_NativePointer node,
             XComponentModelStatic::InitParams(frameNode);
         },
         [frameNode](const Ark_XComponentOptions& src) {
+            ACE_UINODE_TRACE(frameNode);
             XComponentType type = ConvertXComponentType(src.type);
             XComponentModelStatic::SetXComponentType(frameNode, type);
             auto peerImpl = reinterpret_cast<XComponentControllerPeerImpl*>(src.controller);
@@ -84,11 +92,11 @@ void SetXComponentOptionsImpl(Ark_NativePointer node,
             XComponentModelNG::SetControllerOnChanged(frameNode, std::move(peerImpl->onSurfaceChangedEvent));
             XComponentModelNG::SetControllerOnDestroyed(frameNode, std::move(peerImpl->onSurfaceDestroyedEvent));
             XComponentModelStatic::InitParams(frameNode);
-            if (src.screenId.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
-                XComponentModelStatic::SetScreenId(frameNode, static_cast<uint64_t>(src.screenId.value));
-            }
+            CHECK_EQUAL_VOID(src.screenId.tag, InteropTag::INTEROP_TAG_UNDEFINED);
+            XComponentModelStatic::SetScreenId(frameNode, static_cast<uint64_t>(src.screenId.value));
         },
         [frameNode](const Ark_NativeXComponentParameters& src) {
+            ACE_UINODE_TRACE(frameNode);
             XComponentType type = ConvertXComponentType(src.type);
             XComponentModelStatic::SetXComponentType(frameNode, type);
             XComponentModelStatic::MarkBindNative(frameNode);
@@ -104,6 +112,7 @@ void SetOnLoadImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
 #ifdef XCOMPONENT_SUPPORTED
     auto optValue = Converter::GetOptPtr(value);
     if (!optValue) {
@@ -111,7 +120,10 @@ void SetOnLoadImpl(Ark_NativePointer node,
         return;
     }
     auto onLoad =
-        [arkCallback = CallbackHelper(*optValue)](const std::string& xcomponentId) {
+        [arkCallback = CallbackHelper(*optValue), node = AceType::WeakClaim(frameNode)](
+            const std::string& xcomponentId) {
+            ACE_UINODE_TRACE(node);
+            CHECK_NULL_VOID(CallbackHelper<VoidCallback>::GetVMContext());
             arkCallback.InvokeSync();
             TAG_LOGI(AceLogTag::ACE_XCOMPONENT, "XComponent[%{public}s] onLoad triggers", xcomponentId.c_str());
     };
@@ -123,6 +135,7 @@ void SetOnDestroyImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
 #ifdef XCOMPONENT_SUPPORTED
     auto optValue = Converter::GetOptPtr(value);
     if (!optValue) {
@@ -130,7 +143,10 @@ void SetOnDestroyImpl(Ark_NativePointer node,
         return;
     }
     auto onDestroy =
-        [arkCallback = CallbackHelper(*optValue)](const std::string&) {
+        [arkCallback = CallbackHelper(*optValue), node = AceType::WeakClaim(frameNode)](
+            const std::string&) {
+            ACE_UINODE_TRACE(node);
+            CHECK_NULL_VOID(CallbackHelper<VoidCallback>::GetVMContext());
             arkCallback.InvokeSync();
     };
     XComponentModelNG::SetOnDestroy(frameNode, std::move(onDestroy));
@@ -141,12 +157,18 @@ void SetEnableAnalyzerImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
+#ifdef XCOMPONENT_SUPPORTED
+    auto convValue = Converter::OptConvertPtr<bool>(value);
+    XComponentModelNG::EnableAnalyzer(frameNode, convValue.value_or(false));
+#endif // XCOMPONENT_SUPPORTED
 }
 void SetEnableSecureImpl(Ark_NativePointer node,
                          const Opt_Boolean* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
 #ifdef XCOMPONENT_SUPPORTED
     auto convValue = Converter::OptConvertPtr<bool>(value);
     if (!convValue) {
@@ -156,31 +178,49 @@ void SetEnableSecureImpl(Ark_NativePointer node,
     XComponentModelNG::EnableSecure(frameNode, *convValue);
 #endif // XCOMPONENT_SUPPORTED
 }
-void SetHdrBrightnessImpl(Ark_NativePointer node,
-                          const Opt_Float64* value)
+
+void SetHdrBrightness0Impl(Ark_NativePointer node, const Opt_Float64* value)
 {
-    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    #ifdef XCOMPONENT_SUPPORTED
+    ACE_UINODE_TRACE(frameNode);
+#ifdef XCOMPONENT_SUPPORTED
     auto convValue = Converter::OptConvertPtr<float>(value);
     if (!convValue) {
         XComponentModelNG::HdrBrightness(frameNode, 1.0f);
         return;
     }
-    XComponentModelNG::HdrBrightness(frameNode, *convValue);
-    #endif // XCOMPONENT_SUPPORTED
+    XComponentModelNG::HdrBrightness(frameNode, std::clamp(*convValue, 0.0f, 1.0f));
+#endif // XCOMPONENT_SUPPORTED
+}
+void SetHdrBrightness1Impl(Ark_NativePointer node, const Opt_Float64* brightness, const Opt_HdrType* type)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
+#ifdef XCOMPONENT_SUPPORTED
+    // Extract and normalize brightness value with default 1.0f
+    auto convBrightness = Converter::OptConvertPtr<float>(brightness);
+    float hdrBrightness = convBrightness ? std::clamp(*convBrightness, 0.0f, 1.0f) : 1.0f;
+
+    // Check if type parameter is provided
+    if (type && type->tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        HdrType hdrType = ConvertHdrType(type->value);
+        XComponentModelNG::HdrBrightness(frameNode, hdrBrightness, hdrType);
+    } else {
+        XComponentModelNG::HdrBrightness(frameNode, hdrBrightness);
+    }
+#endif // XCOMPONENT_SUPPORTED
 }
 void SetEnableTransparentLayerImpl(Ark_NativePointer node,
                                    const Opt_Boolean* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     #ifdef XCOMPONENT_SUPPORTED
     auto convValue = Converter::OptConvertPtr<bool>(value);
-    if (!convValue) {
-        return;
-    }
-    XComponentModelNG::EnableTransparentLayer(frameNode, *convValue);
+    XComponentModelNG::EnableTransparentLayer(frameNode, convValue.value_or(false));
     #endif // XCOMPONENT_SUPPORTED
 }
 } // XComponentAttributeModifier
@@ -193,7 +233,9 @@ const GENERATED_ArkUIXComponentModifier* GetXComponentModifier()
         XComponentAttributeModifier::SetOnDestroyImpl,
         XComponentAttributeModifier::SetEnableAnalyzerImpl,
         XComponentAttributeModifier::SetEnableSecureImpl,
-        XComponentAttributeModifier::SetHdrBrightnessImpl,
+        XComponentAttributeModifier::SetEnableTransparentLayerImpl,
+        XComponentAttributeModifier::SetHdrBrightness0Impl,
+        XComponentAttributeModifier::SetHdrBrightness1Impl,
     };
     return &ArkUIXComponentModifierImpl;
 }

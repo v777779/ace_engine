@@ -29,9 +29,10 @@ const RefPtr<CubicCurve> LAND_CURVE = AceType::MakeRefPtr<CubicCurve>(0.2, 0, 0.
 } // namespace
 
 RichEditorOverlayModifier::RichEditorOverlayModifier(const WeakPtr<OHOS::Ace::NG::Pattern>& pattern,
-    const WeakPtr<ScrollBarOverlayModifier>& scrollbarOverlayModifier, WeakPtr<ScrollEdgeEffect>&& edgeEffect)
-    : TextOverlayModifier(), pattern_(pattern), edgeEffect_(edgeEffect),
-      scrollBarOverlayModifier_(scrollbarOverlayModifier)
+    const WeakPtr<ScrollBarOverlayModifier>& scrollbarOverlayModifier,
+    WeakPtr<ScrollEdgeEffect>&& edgeEffect, bool isContentNode)
+    : TextOverlayModifier(pattern), edgeEffect_(edgeEffect),
+      scrollBarOverlayModifier_(scrollbarOverlayModifier), isContentNode_(isContentNode)
 {
     caretVisible_ = AceType::MakeRefPtr<PropertyBool>(false);
     AttachProperty(caretVisible_);
@@ -65,6 +66,8 @@ RichEditorOverlayModifier::RichEditorOverlayModifier(const WeakPtr<OHOS::Ace::NG
     AttachProperty(previewTextUnderlineWidth_);
     showPreviewTextDecoration_ = AceType::MakeRefPtr<PropertyBool>(false);
     AttachProperty(showPreviewTextDecoration_);
+    changeOverlay_ = AceType::MakeRefPtr<PropertyBool>(false);
+    AttachProperty(changeOverlay_);
 }
 
 void RichEditorOverlayModifier::SetPreviewTextDecorationColor(const Color& value)
@@ -276,11 +279,21 @@ void RichEditorOverlayModifier::PaintEdgeEffect(const SizeF& frameSize, RSCanvas
 
 void RichEditorOverlayModifier::onDraw(DrawingContext& drawingContext)
 {
-    ACE_SCOPED_TRACE("RichEditorOverlayOnDraw");
+    if (isContentNode_) {
+        DrawContent(drawingContext);
+    } else {
+        DrawScrollBar(drawingContext);
+    }
+}
+
+void RichEditorOverlayModifier::DrawContent(DrawingContext& drawingContext)
+{
+    ACE_SCOPED_TRACE("RichEditorOverlayDrawContent");
     drawingContext.canvas.Save();
     auto richEditorPattern = AceType::DynamicCast<RichEditorPattern>(pattern_.Upgrade());
     CHECK_NULL_VOID(richEditorPattern);
     auto contentRect = richEditorPattern->GetTextContentRect();
+    SetContentRect(contentRect);
 
     drawingContext.canvas.ClipRect(ToRSRect(contentRect), RSClipOp::INTERSECT);
     PaintCaret(drawingContext);
@@ -289,7 +302,11 @@ void RichEditorOverlayModifier::onDraw(DrawingContext& drawingContext)
     SetSelectedColor(richEditorPattern->GetSelectedBackgroundColor().GetValue());
     TextOverlayModifier::onDraw(drawingContext);
     drawingContext.canvas.Restore();
+}
 
+void RichEditorOverlayModifier::DrawScrollBar(DrawingContext& drawingContext)
+{
+    ACE_SCOPED_TRACE("RichEditorOverlayDrawScrollBar");
     PaintScrollBar(drawingContext);
     PaintEdgeEffect(frameSize_->Get(), drawingContext.canvas);
 }
@@ -335,6 +352,13 @@ void RichEditorOverlayModifier::StartFloatingCaretLand(const OffsetF& originCare
             auto richEditorPattern = AceType::DynamicCast<RichEditorPattern>(pattern.Upgrade());
             CHECK_NULL_VOID(richEditorPattern);
             richEditorPattern->ResetFloatingCaretState();
+            richEditorPattern->MarkContentNodeForRender();
         });
+}
+
+void RichEditorOverlayModifier::ChangeOverlay()
+{
+    CHECK_NULL_VOID(changeOverlay_);
+    changeOverlay_->Set(!changeOverlay_->Get());
 }
 } // namespace OHOS::Ace::NG

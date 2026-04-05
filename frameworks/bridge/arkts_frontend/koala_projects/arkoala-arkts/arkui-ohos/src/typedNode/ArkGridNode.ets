@@ -13,17 +13,26 @@
  * limitations under the License.
  */
 
-import { RuntimeType, runtimeType } from "@koalaui/interop";
-import { int32, int64, float32, unsafeCast } from "@koalaui/common"
-import { ArkScrollableNode } from "./ArkScrollableNode";
-import { Length } from "../component/units";
-import { Color, BarState, EdgeEffect } from "../component/enums";
-import { CustomBuilder } from "../component/builder";
-import { ItemDragInfo, NestedScrollOptions, OnWillScrollCallback, OnScrollCallback, EdgeEffectOptions, AttributeModifier,
-    ScrollableCommonMethod, CommonMethod } from "../component/common";
-import { Scroller, OnScrollFrameBeginCallback } from "../component/scroll";
-import { ArkGridPeer, ComputedBarAttribute, GridDirection, GridItemAlignment, GridAttribute, GridLayoutOptions } from "../component/grid";
-import { Resource } from "global.resource"
+import { RuntimeType, runtimeType } from '@koalaui/interop';
+import { ArkScrollableNode } from './ArkScrollableNode';
+import { ItemFillPolicy, Length } from '../component/units';
+import { Color, BarState, FocusWrapMode, EdgeEffect } from '../component/enums';
+import { CustomBuilder } from '../component/builder';
+import { int32 } from '@koalaui/common';
+import {
+  ItemDragInfo,
+  NestedScrollOptions,
+  OnWillScrollCallback,
+  OnScrollCallback,
+  EdgeEffectOptions,
+  AttributeModifier,
+  ScrollableCommonMethod,
+  CommonMethod
+} from '../component/common';
+import { Scroller, OnScrollFrameBeginCallback } from '../component/scroll';
+import { ArkGridPeer, ComputedBarAttribute, GridDirection, GridItemAlignment,
+    GridAttribute, GridLayoutOptions } from '../component/grid';
+import { Resource } from 'global.resource'
 export class ArkGridNode extends ArkScrollableNode implements GridAttribute {
     constructParam(...param: Object[]): this {
         if (param.length > 2) {
@@ -53,10 +62,10 @@ export class ArkGridNode extends ArkScrollableNode implements GridAttribute {
         return this;
     }
     allowChildTypes(): string[] {
-        return ["GridItem"];
+        return ['GridItem'];
     }
-    columnsTemplate(value: string | undefined): this {
-        const value_casted = value as (string | undefined)
+    columnsTemplate(value: string | ItemFillPolicy | undefined): this {
+        const value_casted = value as (string | ItemFillPolicy | undefined)
         this.getPeer()?.setColumnsTemplateAttribute(value_casted)
         this.markDirty()
         return this
@@ -85,8 +94,8 @@ export class ArkGridNode extends ArkScrollableNode implements GridAttribute {
         this.markDirty()
         return this
     }
-    scrollBarColor(value: Color | int32 | string | undefined): this {
-        const value_casted = value as (Color | int32 | string | undefined)
+    scrollBarColor(value: Color | int32 | string | Resource | undefined): this {
+        const value_casted = value as (Color | int32 | string | Resource | undefined)
         this.getPeer()?.setScrollBarColorAttribute(value_casted)
         this.markDirty()
         return this
@@ -131,7 +140,7 @@ export class ArkGridNode extends ArkScrollableNode implements GridAttribute {
             this.markDirty()
             return this
         }
-        throw new Error("Can not select appropriate overload")
+        throw new Error('Can not select appropriate overload')
     }
     editMode(value: boolean | undefined): this {
         const value_casted = value as (boolean | undefined)
@@ -229,6 +238,18 @@ export class ArkGridNode extends ArkScrollableNode implements GridAttribute {
         this.markDirty()
         return this
     }
+    focusWrapMode(value: FocusWrapMode | undefined): this {
+        const value_casted = value as (FocusWrapMode | undefined)
+        this.getPeer()?.setFocusWrapModeAttribute(value_casted)
+        this.markDirty()
+        return this
+    }
+    syncLoad(value: boolean | undefined): this {
+        const value_casted = value as (boolean | undefined)
+        this.getPeer()?.setSyncLoadAttribute(value_casted)
+        this.markDirty()
+        return this
+    }
     onReachStart(value: (() => void) | undefined): this {
         const value_casted = value as ((() => void) | undefined)
         this.getPeer()?.setOnReachStartAttribute(value_casted)
@@ -278,7 +299,13 @@ export class ArkGridNode extends ArkScrollableNode implements GridAttribute {
         this.markDirty()
         return this
     }
-    attributeModifier(value: AttributeModifier<GridAttribute> | AttributeModifier<ScrollableCommonMethod> | AttributeModifier<CommonMethod> | undefined): this {
-        throw new Error("Unimplemented method attributeModifier")
+    supportEmptyBranchInLazyLoading(supported: boolean | undefined): this {
+        this.getPeer()?.setSupportEmptyBranchInLazyLoadingAttribute(supported)
+        this.markDirty()
+        return this
+    }
+    attributeModifier(value: AttributeModifier<GridAttribute> | AttributeModifier<ScrollableCommonMethod> |
+        AttributeModifier<CommonMethod> | undefined): this {
+        throw new Error('Unimplemented method attributeModifier')
     }
 }

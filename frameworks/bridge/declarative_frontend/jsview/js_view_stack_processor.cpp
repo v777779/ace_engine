@@ -16,6 +16,7 @@
 #include "bridge/declarative_frontend/jsview/js_view_stack_processor.h"
 
 #include "bridge/declarative_frontend/engine/bindings.h"
+#include "bridge/declarative_frontend/engine/js_execution_scope_defines.h"
 #include "bridge/declarative_frontend/engine/js_types.h"
 #include "bridge/declarative_frontend/jsview/models/view_stack_model_impl.h"
 #include "bridge/declarative_frontend/view_stack_processor.h"
@@ -86,13 +87,15 @@ void JSViewStackProcessor::JSBind(BindingTarget globalObj)
     JSClass<JSViewStackProcessor>::StaticMethod("moveDeletedElmtIds", &JSViewStackProcessor::JsMoveDeletedElmtIds);
     JSClass<JSViewStackProcessor>::StaticMethod(
         "scheduleUpdateOnNextVSync", &JSViewStackProcessor::JSScheduleUpdateOnNextVSync);
-    JSClass<JSViewStackProcessor>::StaticMethod("sendStateInfo", &JSViewStackProcessor::JsSendStateInfo);
     JSClass<JSViewStackProcessor>::StaticMethod("PushPrebuildCompCmd",
         &JSViewStackProcessor::JsPushPrebuildCompCmd, opt);
     JSClass<JSViewStackProcessor>::StaticMethod("CheckIsPrebuildTimeout",
         &JSViewStackProcessor::JsCheckIsPrebuildTimeout, opt);
+    JSClass<JSViewStackProcessor>::StaticMethod("sendStateInfo", &JSViewStackProcessor::JsSendStateInfo);
+#ifdef ACE_STATIC
     JSClass<JSViewStackProcessor>::StaticMethod("push", &JSViewStackProcessor::JsPush, opt);
     JSClass<JSViewStackProcessor>::StaticMethod("pop", &JSViewStackProcessor::JsPop, opt);
+#endif
     JSClass<JSViewStackProcessor>::Bind<>(globalObj);
 }
 
@@ -195,7 +198,9 @@ void JSViewStackProcessor::JSScheduleUpdateOnNextVSync(const JSCallbackInfo& inf
     }
 
     if (info[0]->IsFunction()) {
-        auto flushTSFunc = [func = JSRef<JSFunc>::Cast(info[0])](int32_t containerId = -1) -> bool {
+        auto flushTSFunc = [execCtx = info.GetExecutionContext(),
+            func = JSRef<JSFunc>::Cast(info[0])](int32_t containerId) -> bool {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx, false);
             JSRef<JSVal> jsId = JSRef<JSVal>::Make(ToJSValue(containerId));
             JSRef<JSVal> retVal = func->Call(JSRef<JSObject>(), 1, &jsId);
             if (!retVal->IsBoolean()) {
@@ -227,7 +232,7 @@ void JSViewStackProcessor::JsSendStateInfo(const std::string& stateInfo)
     info->Put("vsyncID", (int32_t)pipeline->GetFrameCount());
     info->Put("processID", getpid());
     info->Put("windowID", (int32_t)pipeline->GetWindowId());
-    TAG_LOGD(AceLogTag::ACE_STATE_MGMT, "ArkUI SendStateInfo %{public}s", info->ToString().c_str());
+    TAG_LOGD(AceLogTag::ACE_STATE_MGMT, "ArkUI SendStateInfo %{private}s", info->ToString().c_str());
     LayoutInspector::SendMessage(info->ToString());
 #endif
 }

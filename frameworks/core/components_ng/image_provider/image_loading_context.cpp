@@ -30,10 +30,10 @@
 
 namespace OHOS::Ace::NG {
 
-ImageLoadingContext::ImageLoadingContext(
-    const ImageSourceInfo& src, LoadNotifier&& loadNotifier, bool syncLoad, const ImageDfxConfig& imageDfxConfig)
+ImageLoadingContext::ImageLoadingContext(const ImageSourceInfo& src, LoadNotifier&& loadNotifier, bool syncLoad,
+    bool isSceneBoardWindow, const ImageDfxConfig& imageDfxConfig)
     : src_(src), notifiers_(std::move(loadNotifier)), containerId_(Container::CurrentId()), syncLoad_(syncLoad),
-      imageDfxConfig_(imageDfxConfig)
+      isSceneBoardWindow_(isSceneBoardWindow), imageDfxConfig_(imageDfxConfig)
 {
     stateManager_ = MakeRefPtr<ImageStateManager>(WeakClaim(this));
     src_.SetImageDfxConfig(imageDfxConfig_);
@@ -72,7 +72,7 @@ SizeF ImageLoadingContext::CalculateTargetSize(const SizeF& srcSize, const SizeF
     }
 
     SizeF targetSize = rawImageSize;
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = PipelineContext::GetCurrentContext();
     auto viewScale = context ? context->GetViewScale() : 1.0;
     double widthScale = dstSize.Width() / srcSize.Width() * viewScale;
     double heightScale = dstSize.Height() / srcSize.Height() * viewScale;
@@ -129,6 +129,21 @@ void ImageLoadingContext::SetOnProgressCallback(
     onProgressCallback_ = onProgress;
 }
 
+bool ImageLoadingContext::IsNetworkImageSafeToRecycle() const
+{
+    const auto& sourceInfo = GetSourceInfo();
+
+    if (sourceInfo.GetSrcType() != SrcType::NETWORK) {
+        return true;
+    }
+
+    if (!SystemProperties::GetDownloadByNetworkEnabled()) {
+        return false;
+    }
+
+    return DownloadManager::GetInstance()->IsContains(sourceInfo.GetSrc());
+}
+
 void ImageLoadingContext::OnDataLoading()
 {
     auto obj = ImageProvider::QueryImageObjectFromCache(src_);
@@ -139,7 +154,7 @@ void ImageLoadingContext::OnDataLoading()
     }
     src_.SetContainerId(containerId_);
     src_.SetImageDfxConfig(GetImageDfxConfig());
-    ImageProvider::CreateImageObject(src_, WeakClaim(this), syncLoad_);
+    ImageProvider::CreateImageObject(src_, WeakClaim(this), syncLoad_, isSceneBoardWindow_);
 }
 
 bool ImageLoadingContext::Downloadable()
@@ -228,7 +243,22 @@ void ImageLoadingContext::DataReadyCallback(const RefPtr<ImageObject>& imageObj)
 void ImageLoadingContext::SuccessCallback(const RefPtr<CanvasImage>& canvasImage)
 {
     canvasImage_ = canvasImage;
+    canvasImage_->SetImageSourceInfo(src_);
     stateManager_->HandleCommand(ImageLoadingCommand::MAKE_CANVAS_IMAGE_SUCCESS);
+}
+
+void ImageLoadingContext::RemoveDownloadedImageCache(const ImageSourceInfo& src)
+{
+    if (src.GetSrcType() != SrcType::NETWORK) {
+        return;
+    }
+    DownloadManager::GetInstance()->RemoveUrlCache(src.GetSrc());
+    auto pipelineCtx = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipelineCtx);
+    auto cache = pipelineCtx->GetImageCache();
+    if (cache) {
+        cache->ClearCacheImgObj(src.GetKey());
+    }
 }
 
 void ImageLoadingContext::FailCallback(const std::string& errorMsg, const ImageErrorInfo& errorInfo)
@@ -236,6 +266,7 @@ void ImageLoadingContext::FailCallback(const std::string& errorMsg, const ImageE
     errorInfo_ = errorInfo;
     errorMsg_ = errorMsg;
     needErrorCallBack_ = true;
+    RemoveDownloadedImageCache(src_);
     TAG_LOGD(AceLogTag::ACE_IMAGE, "fail-%{private}s-%{public}s-%{public}s", src_.ToString().c_str(),
         errorMsg.c_str(), imageDfxConfig_.ToStringWithoutSrc().c_str());
     CHECK_NULL_VOID(measureFinish_);
@@ -451,4 +482,15 @@ int32_t ImageLoadingContext::GetFrameCount() const
     return imageObj_ ? imageObj_->GetFrameCount() : 0;
 }
 
+std::string ImageLoadingContext::GetImageSizeInfo() const
+{
+    if (!imageObj_) {
+        return "[imageObj=null]";
+    }
+
+    std::ostringstream oss;
+    oss << "[fileSize=" << imageObj_->GetImageFileSize()
+        << ", dataSize=" << imageObj_->GetImageDataSize() << "]";
+    return oss.str();
+}
 } // namespace OHOS::Ace::NG

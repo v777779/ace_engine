@@ -35,6 +35,11 @@ public:
         return true;
     }
 
+    RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
+    {
+        return MakeRefPtr<StageLayoutAlgorithm>();
+    }
+
     bool IsAtomicNode() const override
     {
         return false;
@@ -62,6 +67,10 @@ public:
     }
 
     virtual void OnForceSplitConfigUpdate() {}
+
+    virtual bool GetIsSplit() {
+        return false;
+    }
 
 protected:
     std::function<void()> onRebuildFrameCallback_;

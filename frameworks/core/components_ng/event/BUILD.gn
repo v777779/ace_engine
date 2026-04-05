@@ -19,6 +19,7 @@ build_component_ng("event_ng") {
     "click_event.cpp",
     "drag_drop_event.cpp",
     "drag_event.cpp",
+    "error_reporter/general_interaction_error_reporter.cpp",
     "event_hub.cpp",
     "focus_box.cpp",
     "focus_event_handler.cpp",
@@ -37,7 +38,7 @@ build_component_ng("event_ng") {
     "touch_event.cpp",
   ]
 
-  standard_input_deps = [ "imf:inputmethod_client" ]
+  standard_input_deps = [ "imf:inputmethod_client", "ability_base:want" ]
   if (is_ohos_standard_system && !use_mingw_win && !use_mac && !use_linux) {
     external_deps = [
       "hilog:libhilog",

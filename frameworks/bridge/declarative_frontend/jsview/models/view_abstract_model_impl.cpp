@@ -17,9 +17,15 @@
 
 #include "base/log/ace_scoring_log.h"
 #include "bridge/declarative_frontend/jsview/js_interactable_view.h"
-#include "bridge/declarative_frontend/jsview/models/grid_container_model_impl.h"
 #include "bridge/declarative_frontend/view_stack_processor.h"
+#include "core/common/dynamic_module_helper.h"
 #include "core/components/box/box_component_helper.h"
+#include "core/components/coverage/coverage_component.h"
+#include "core/components/gesture_listener/gesture_listener_component.h"
+#include "core/components/menu/menu_component.h"
+#include "core/components/touch_listener/touch_listener_component.h"
+#include "core/components_v2/inspector/inspector_composed_component.h"
+#include "core/components_ng/pattern/grid_container/grid_container_model.h"
 #include "core/gestures/long_press_gesture.h"
 
 // avoid windows build error about macro defined in winuser.h
@@ -596,7 +602,12 @@ void ViewAbstractModelImpl::SetUseAlign(
 
 void ViewAbstractModelImpl::SetGrid(std::optional<uint32_t> span, std::optional<int32_t> offset, GridSizeType type)
 {
-    auto info = GridContainerModelImpl::GetContainer();
+    static auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("grid-container");
+    CHECK_NULL_VOID(loader);
+    static GridContainerModel* instance =
+        loader ? reinterpret_cast<GridContainerModel*>(loader->CreateModel()) : nullptr;
+    CHECK_NULL_VOID(instance);
+    auto info = instance->GetGridContainer();
     if (info != nullptr) {
         auto builder = ViewStackProcessor::GetInstance()->GetBoxComponent()->GetGridColumnInfoBuilder();
         builder->SetParent(info);
@@ -1227,7 +1238,7 @@ void ViewAbstractModelImpl::SetOnDragEnd(OnNewDragFunc&& onDragEnd)
     box->SetOnDragEndId(onDragEnd);
 }
 
-void ViewAbstractModelImpl::SetOnDragSpringLoading(NG::OnDrapDropSpringLoadingFunc&& onDragSpringLoading) {}
+void ViewAbstractModelImpl::SetOnDragSpringLoading(NG::OnDragDropSpringLoadingFunc&& onDragSpringLoading) {}
 
 void ViewAbstractModelImpl::SetOnDragSpringLoadingConfiguration(
     const RefPtr<NG::DragSpringLoadingConfiguration>& dragSpringLoadingConfiguration)
@@ -1252,7 +1263,7 @@ void ViewAbstractModelImpl::SetOnDrop(NG::OnDragDropFunc&& onDrop)
 }
 
 void ViewAbstractModelImpl::SetOnVisibleChange(
-    std::function<void(bool, double)>&& onVisibleChange, const std::vector<double>& ratios)
+    std::function<void(bool, double)>&& onVisibleChange, const std::vector<double>& ratios, bool measureFromViewport)
 {
     auto inspector = ViewStackProcessor::GetInstance()->GetInspectorComposedComponent();
     CHECK_NULL_VOID(inspector);
@@ -1268,7 +1279,8 @@ void ViewAbstractModelImpl::SetOnVisibleChange(
 }
 
 void ViewAbstractModelImpl::SetOnAreaChanged(
-    std::function<void(const Rect&, const Offset&, const Rect&, const Offset&)>&& onAreaChanged)
+    std::function<void(const Rect&, const Offset&, const Rect&, const Offset&)>&& onAreaChanged,
+    int32_t minInterval)
 {
     auto boxComponent = ViewStackProcessor::GetInstance()->GetBoxComponent();
     boxComponent->GetEventExtensions()->GetOnAreaChangeExtension()->AddOnAreaChangeEvent(std::move(onAreaChanged));
@@ -1607,7 +1619,7 @@ void ViewAbstractModelImpl::BindMenu(
 }
 
 void ViewAbstractModelImpl::BindContextMenu(ResponseType type, std::function<void()>& buildFunc,
-    const NG::MenuParam& menuParam, std::function<void()>& previewBuildFunc)
+    NG::MenuParam& menuParam, std::function<void()>& previewBuildFunc)
 {
     ViewStackProcessor::GetInstance()->GetCoverageComponent();
     auto menuComponent = ViewStackProcessor::GetInstance()->GetMenuComponent(true);
@@ -1700,6 +1712,9 @@ void ViewAbstractModelImpl::SetAccessibilityImportance(const std::string& import
     inspector->SetAccessibilityImportance(importance);
 }
 
+void ViewAbstractModelImpl::SetAccessibilityStateDescription(const std::string& stateDescription)
+{}
+
 void ViewAbstractModelImpl::SetAccessibilitySelected(bool selected, bool resetValue)
 {}
 
@@ -1707,6 +1722,9 @@ void ViewAbstractModelImpl::SetAccessibilityChecked(bool checked, bool resetValu
 {}
 
 void ViewAbstractModelImpl::SetAccessibilityTextPreferred(bool accessibilityTextPreferred)
+{}
+
+void ViewAbstractModelImpl::SetAccessibilityGroupOptions(NG::AccessibilityGroupOptions groupOptions)
 {}
 
 void ViewAbstractModelImpl::SetAccessibilityNextFocusId(const std::string& nextFocusId)
@@ -1739,5 +1757,11 @@ void ViewAbstractModelImpl::SetOnAccessibilityActionIntercept(
 {}
 
 void ViewAbstractModelImpl::SetOnAccessibilityHoverTransparent(TouchEventFunc&& touchEventFunc)
+{}
+
+void ViewAbstractModelImpl::SetAccessibilityActionOptions(NG::AccessibilityActionOptions actionOptions)
+{}
+
+void ViewAbstractModelImpl::ResetAccessibilityActionOptions()
 {}
 } // namespace OHOS::Ace::Framework

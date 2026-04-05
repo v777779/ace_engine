@@ -14,7 +14,6 @@
  */
 
 #include "arkoala_api_generated.h"
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/particle/particle_model_ng.h"
 #include "core/components_ng/pattern/particle/particle_pattern.h"
 #include "core/interfaces/native/utility/converter.h"
@@ -46,16 +45,16 @@ constexpr int32_t PARTICLE_DEFAULT_EMITTER_RATE = 5;
 
 void ParseSize(std::pair<Dimension, Dimension>& size, const Ark_Tuple_Dimension_Dimension& value)
 {
-    auto width = Converter::Convert<Dimension>(value.value0);
-    auto height = Converter::Convert<Dimension>(value.value1);
-    if (GreatOrEqual(width.Value(), 0.0)) {
-        size.first = width;
+    std::optional<Dimension> width = Converter::OptConvert<Dimension>(value.value0);
+    std::optional<Dimension> height = Converter::OptConvert<Dimension>(value.value1);
+    if (width && GreatOrEqual(width->Value(), 0.0)) {
+        size.first = *width;
     }
-    if (GreatOrEqual(height.Value(), 0.0)) {
-        size.second = height;
+    if (height && GreatOrEqual(height->Value(), 0.0)) {
+        size.second = *height;
     }
 }
-int32_t ParseEmitRate(const Opt_Number& value)
+int32_t ParseEmitRate(const Opt_Int32& value)
 {
     int32_t emitRate = PARTICLE_DEFAULT_EMITTER_RATE;
     std::optional<int32_t> emitRateOpt = Converter::OptConvert<int32_t>(value);
@@ -64,7 +63,25 @@ int32_t ParseEmitRate(const Opt_Number& value)
     }
     return emitRate;
 }
-std::pair<float, float> ParseParticleRange(const Ark_Tuple_Number_Number& src, float defaultValue)
+std::pair<float, float> ParseParticleRange(const Ark_Tuple_Double_Double& src, float defaultValue)
+{
+    auto from = Converter::Convert<float>(src.value0);
+    auto to = Converter::Convert<float>(src.value1);
+    if (GreatNotEqual(from, to)) {
+        return std::pair<float, float>(defaultValue, defaultValue);
+    }
+    return std::pair<float, float>(from, to);
+}
+std::pair<float, float> ParseParticleRange(const Ark_Tuple_I32_I32 & src, float defaultValue)
+{
+    auto from = Converter::Convert<float>(src.value0);
+    auto to = Converter::Convert<float>(src.value1);
+    if (GreatNotEqual(from, to)) {
+        return std::pair<float, float>(defaultValue, defaultValue);
+    }
+    return std::pair<float, float>(from, to);
+}
+std::pair<float, float> ParseParticleRange(const Ark_Tuple_F64_F64  & src, float defaultValue)
 {
     auto from = Converter::Convert<float>(src.value0);
     auto to = Converter::Convert<float>(src.value1);
@@ -94,7 +111,7 @@ void SetNoneColorUpdater(ParticleColorPropertyUpdater& updater)
     noneUpdaterConfig.SetInValid(0);
     updater.SetConfig(noneUpdaterConfig);
 }
-void ParseFloatInitRange(const Ark_Tuple_Number_Number& arkRange, ParticleFloatPropertyOption& floatOption,
+void ParseFloatInitRange(const Ark_Tuple_Double_Double & arkRange, ParticleFloatPropertyOption& floatOption,
     float defaultValue, float minValue, float maxValue)
 {
     float from = Converter::Convert<float>(arkRange.value0);
@@ -119,7 +136,7 @@ void ParseFloatInitRange(const Ark_Tuple_Number_Number& arkRange, ParticleFloatP
     floatOption.SetRange(range);
 }
 
-RefPtr<Curve> ParseCurve(const Opt_Union_Curve_ICurve arkCurve)
+RefPtr<Curve> ParseCurve(const Opt_Union_curves_Curve_curves_ICurve arkCurve)
 {
     std::optional<RefPtr<Curve>> curveOpt = Converter::OptConvert<RefPtr<Curve>>(arkCurve);
     if (curveOpt && *curveOpt) {
@@ -128,17 +145,14 @@ RefPtr<Curve> ParseCurve(const Opt_Union_Curve_ICurve arkCurve)
     return Curves::LINEAR;
 }
 
-bool ParseFloatRandomConfig(const Opt_Union_Tuple_Number_Number_Array_ParticlePropertyAnimationNumberInner& arkObject,
+bool ParseFloatRandomConfig(const Ark_Union_Tuple_Double_Double_Array_ParticlePropertyAnimationNumberInner& arkObject,
     ParticleFloatPropertyUpdater& updater)
 {
-    if (arkObject.tag == InteropTag::INTEROP_TAG_UNDEFINED) {
-        return false;
-    }
     constexpr int RANDOM_INDEX = 0;
-    if (arkObject.value.selector != RANDOM_INDEX) {
+    if (arkObject.selector != RANDOM_INDEX) {
         return false;
     }
-    auto randomRangePair = ParseParticleRange(arkObject.value.value0, 0.0f);
+    auto randomRangePair = ParseParticleRange(arkObject.value0, 0.0f);
     ParticleFloatPropertyUpdaterConfig randomUpdaterConfig;
     randomUpdaterConfig.SetRandomConfig(randomRangePair);
     updater.SetConfig(randomUpdaterConfig);
@@ -183,18 +197,18 @@ std::list<NG::ParticlePropertyAnimation<float>> ParseAnimationFloatArray(
     }
     return particleAnimationFloatArray;
 }
-bool ParseFloatCurveConfig(const Opt_Union_Tuple_Number_Number_Array_ParticlePropertyAnimationNumberInner& arkObject,
+bool ParseFloatCurveConfig(const Ark_Union_Tuple_Double_Double_Array_ParticlePropertyAnimationNumberInner& arkObject,
     ParticleFloatPropertyUpdater& updater, float defaultValue, float minValue, float maxValue)
 {
-    if (arkObject.tag == InteropTag::INTEROP_TAG_UNDEFINED) {
-        return false;
-    }
+
+
+
     constexpr int ANIMATION_INDEX = 1;
-    if (arkObject.value.selector != ANIMATION_INDEX) {
+    if (arkObject.selector != ANIMATION_INDEX) {
         return false;
     }
     auto particleAnimationFloatArray =
-        ParseAnimationFloatArray(arkObject.value.value1, defaultValue, minValue, maxValue);
+        ParseAnimationFloatArray(arkObject.value1, defaultValue, minValue, maxValue);
     NG::ParticleFloatPropertyUpdaterConfig updateConfig;
     updateConfig.SetAnimations(particleAnimationFloatArray);
     updater.SetConfig(updateConfig);
@@ -210,7 +224,7 @@ bool ParseFloatUpdater(const Ark_ParticleUpdaterOptionsInner& arkObject, Particl
     }
     updater.SetUpdaterType(type);
     if (type == UpdaterType::RANDOM) {
-        if (!ParseFloatRandomConfig(arkObject.config, updater)) {
+        if (!ParseFloatRandomConfig(arkObject.config.value, updater)) {
             auto randomRangePair = std::pair<float, float>(0.0f, 0.0f);
             NG::ParticleFloatPropertyUpdaterConfig randomUpdaterConfig;
             randomUpdaterConfig.SetRandomConfig(randomRangePair);
@@ -218,7 +232,7 @@ bool ParseFloatUpdater(const Ark_ParticleUpdaterOptionsInner& arkObject, Particl
         }
         return true;
     } else if (type == NG::UpdaterType::CURVE) {
-        if (!ParseFloatCurveConfig(arkObject.config, updater, defaultValue, minValue, maxValue)) {
+        if (!ParseFloatCurveConfig(arkObject.config.value, updater, defaultValue, minValue, maxValue)) {
             std::list<NG::ParticlePropertyAnimation<float>> particleAnimationFloatArray;
             NG::ParticleFloatPropertyUpdaterConfig updateConfig;
             updateConfig.SetAnimations(particleAnimationFloatArray);
@@ -366,6 +380,77 @@ void AddDisturbance(std::vector<ParticleDisturbance>& dataArray, const Ark_Distu
     dataArray.push_back(disturbanceField);
 }
 
+void ParseFieldRegion(const Ark_FieldRegionInner& arkFieldRegion, ParticleFieldRegion& field)
+{
+    ParticleDisturbanceShapeType shape = ParticleDisturbanceShapeType::RECT;
+    if (arkFieldRegion.shape.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        int shapeInt = static_cast<int>(arkFieldRegion.shape.value);
+        if (shapeInt >= static_cast<int>(ParticleDisturbanceShapeType::RECT) &&
+            shapeInt < static_cast<int>(ParticleDisturbanceShapeType::MAX)) {
+            shape = static_cast<ParticleDisturbanceShapeType>(shapeInt);
+        }
+    }
+    field.shape = shape;
+    std::pair<float, float> size(0.0f, 0.0f);
+    std::pair<float, float> position(0.0f, 0.0f);
+    if (arkFieldRegion.size.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        size.first = Converter::Convert<float>(arkFieldRegion.size.value.width);
+        size.second = Converter::Convert<float>(arkFieldRegion.size.value.height);
+    }
+    if (arkFieldRegion.position.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        position.first = Converter::Convert<float>(arkFieldRegion.position.value.x);
+        position.second = Converter::Convert<float>(arkFieldRegion.position.value.y);
+    }
+    float sizeX = std::max(0.0f, size.first);
+    float sizeY = std::max(0.0f, size.second);
+    float posX = position.first;
+    float posY = position.second;
+    field.size.first = Dimension(sizeX, DimensionUnit::VP);
+    field.size.second = Dimension(sizeY, DimensionUnit::VP);
+    field.position.first = Dimension(posX, DimensionUnit::VP);
+    field.position.second = Dimension(posY, DimensionUnit::VP);
+}
+
+void AddRipple(std::vector<ParticleRippleField>& dataArray, const Ark_RippleFieldOptionsInner& arkRippleField)
+{
+    ParticleRippleField rippleField;
+    float amplitude = Converter::ConvertOrDefault<float>(arkRippleField.amplitude, 0.0f);
+    rippleField.amplitude = GreatOrEqual(amplitude, 0.0f) ? amplitude : 0.0f;
+    float wavelength = Converter::ConvertOrDefault<float>(arkRippleField.wavelength, 0.0f);
+    rippleField.wavelength = GreatOrEqual(wavelength, 0.0f) ? wavelength : 0.0f;
+    float waveSpeed = Converter::ConvertOrDefault<float>(arkRippleField.waveSpeed, 0.0f);
+    rippleField.waveSpeed = GreatOrEqual(waveSpeed, 0.0f) ? waveSpeed : 0.0f;
+    float attenuation = Converter::ConvertOrDefault<float>(arkRippleField.attenuation, 0.0f);
+    rippleField.attenuation = (GreatOrEqual(attenuation, 0.0f) && LessOrEqual(attenuation, 1.0f)) ? attenuation : 0.0f;
+    if (arkRippleField.center.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        const auto& centerObj = arkRippleField.center.value;
+        float x = Converter::ConvertOrDefault<float>(centerObj.x, 0.0f);
+        rippleField.center.first = Dimension(x, DimensionUnit::VP);
+        float y = Converter::ConvertOrDefault<float>(centerObj.y, 0.0f);
+        rippleField.center.second = Dimension(y, DimensionUnit::VP);
+    }
+    if (arkRippleField.region.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        ParseFieldRegion(arkRippleField.region.value, rippleField.region);
+    }
+    dataArray.push_back(rippleField);
+}
+
+void AddVelocity(std::vector<ParticleVelocityField>& dataArray, const Ark_VelocityFieldOptionsInner& arkVelocityField)
+{
+    ParticleVelocityField velocityField;
+    if (arkVelocityField.velocity.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        const auto& vec = arkVelocityField.velocity.value;
+        float x = Converter::ConvertOrDefault<float>(vec.x, 0.0f);
+        velocityField.velocity.first = x;
+        float y = Converter::ConvertOrDefault<float>(vec.y, 0.0f);
+        velocityField.velocity.second = y;
+    }
+    if (arkVelocityField.region.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        ParseFieldRegion(arkVelocityField.region.value, velocityField.region);
+    }
+    dataArray.push_back(velocityField);
+}
+
 bool ParseParticleConfig(const ParticleType& type, const Ark_ParticleConfigs& arkConfig, ParticleConfig& result)
 {
     if (type == ParticleType::IMAGE) {
@@ -418,18 +503,51 @@ bool ParseParticleObject(const Ark_EmitterParticleOptions& src, Particle& result
     }
     result.SetCount(count);
     int64_t lifeTime = 1000;
-    std::optional<long> lifeTimeIntValue =
-        Converter::OptConvert<long>(src.lifetime); // notice: long is not supported now
+    std::optional<int32_t> arkLifeTime = Converter::OptConvert<int32_t>(src.lifetime);
+    std::optional<long> lifeTimeIntValue = static_cast<long>(arkLifeTime.value_or(lifeTime));
     if (lifeTimeIntValue && *lifeTimeIntValue >= -1) {
         lifeTime = *lifeTimeIntValue;
     }
     result.SetLifeTime(lifeTime);
     int64_t lifeTimeRange = 0;
-    std::optional<long> lifeTimeRangeIntValue = Converter::OptConvert<long>(src.lifetimeRange);
+    std::optional<int32_t> arkLifeTimeRange = Converter::OptConvert<int32_t>(src.lifetimeRange);
+    std::optional<long> lifeTimeRangeIntValue = static_cast<long>(arkLifeTimeRange.value_or(lifeTimeRange));
     if (lifeTimeRangeIntValue && *lifeTimeRangeIntValue >= 0) {
         lifeTimeRange = *lifeTimeRangeIntValue;
     }
     result.SetLifeTimeRange(lifeTimeRange);
+    return true;
+}
+
+bool ParseAnnulusRegionObject(const Ark_ParticleAnnulusRegionInner& src, ParticleAnnulusRegion& result)
+{
+    std::pair<CalcDimension, CalcDimension> center;
+    if (src.center.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        const auto& arkCenter = src.center.value;
+        std::optional<CalcDimension> centerXOpt = Converter::OptConvert<CalcDimension>(arkCenter.x);
+        std::optional<CalcDimension> centerYOpt = Converter::OptConvert<CalcDimension>(arkCenter.y);
+        center.first = centerXOpt.value_or(CalcDimension(0.0));
+        center.second = centerYOpt.value_or(CalcDimension(0.0));
+    } else {
+        center = { CalcDimension(0.0), CalcDimension(0.0) };
+    }
+
+    CalcDimension innerRadius = Converter::Convert<CalcDimension>(src.innerRadius);
+
+    CalcDimension outerRadius = Converter::Convert<CalcDimension>(src.outerRadius);
+
+    float startAngle = 0.0f;
+    if (src.startAngle.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        startAngle = Converter::Convert<float>(src.startAngle.value);
+    }
+
+    float endAngle = 360.0f;
+    if (src.endAngle.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        endAngle = Converter::Convert<float>(src.endAngle.value);
+    }
+
+    result = ParticleAnnulusRegion(center, innerRadius, outerRadius, startAngle, endAngle);
+
     return true;
 }
 
@@ -457,6 +575,15 @@ bool ParseEmitterOption(const Ark_EmitterOptionsInner& src, EmitterOption& resul
         ParseSize(sizeValue, src.size.value);
     }
     result.SetSize(sizeValue);
+
+    if (src.annulusRegion.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        ParticleAnnulusRegion annulusRegion(
+            { CalcDimension(0.0), CalcDimension(0.0) }, CalcDimension(0.0), CalcDimension(0.0), 0.0f, 360.0f);
+        if (ParseAnnulusRegionObject(src.annulusRegion.value, annulusRegion)) {
+            result.SetAnnulusRegion(annulusRegion);
+        }
+    }
+
     return true;
 }
 
@@ -660,6 +787,36 @@ void SetParticleOptionsImpl(Ark_NativePointer node,
     auto renderContext = frameNode->GetRenderContext();
     renderContext->UpdateParticleOptionArray(options);
 }
+void SetRippleFieldsImpl(Ark_NativePointer node, const Opt_Array_RippleFieldOptionsInner* rippleFields)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(rippleFields);
+    if (rippleFields->tag == InteropTag::INTEROP_TAG_UNDEFINED) {
+        return;
+    }
+    std::vector<ParticleRippleField> dataArray;
+    const auto& arkRippleFieldOptions = rippleFields->value;
+    for (int32_t i = 0; i < arkRippleFieldOptions.length; ++i) {
+        AddRipple(dataArray, arkRippleFieldOptions.array[i]);
+    }
+    ParticleModelNG::RippleFields(dataArray, frameNode);
+}
+void SetVelocityFieldsImpl(Ark_NativePointer node, const Opt_Array_VelocityFieldOptionsInner* velocityFields)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(velocityFields);
+    if (velocityFields->tag == InteropTag::INTEROP_TAG_UNDEFINED) {
+        return;
+    }
+    std::vector<ParticleVelocityField> dataArray;
+    const auto& arkVelocityFieldOptions = velocityFields->value;
+    for (int32_t i = 0; i < arkVelocityFieldOptions.length; ++i) {
+        AddVelocity(dataArray, arkVelocityFieldOptions.array[i]);
+    }
+    ParticleModelNG::VelocityFields(dataArray, frameNode);
+}
 } // ParticleHelperAccessor
 
 const GENERATED_ArkUIParticleHelperAccessor* GetParticleHelperAccessor()
@@ -669,6 +826,8 @@ const GENERATED_ArkUIParticleHelperAccessor* GetParticleHelperAccessor()
         ParticleHelperAccessor::SetEmitterPropertyImpl,
         ParticleHelperAccessor::ParticleConstructImpl,
         ParticleHelperAccessor::SetParticleOptionsImpl,
+        ParticleHelperAccessor::SetRippleFieldsImpl,
+        ParticleHelperAccessor::SetVelocityFieldsImpl,
     };
     return &ParticleHelperAccessorImpl;
 }

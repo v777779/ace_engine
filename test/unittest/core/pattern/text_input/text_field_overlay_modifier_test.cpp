@@ -15,7 +15,7 @@
 
 #include "text_input_base.h"
 
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 namespace OHOS::Ace::NG {
 
@@ -252,5 +252,12 @@ HWTEST_F(TextFieldOverlayModifierTest, TextFieldOverlayModifierTest004, TestSize
     textFieldOverlayModifier->PaintUnderline(rsCanvas);
     ret = layoutProperty->GetShowUnderline();
     EXPECT_EQ(ret, true);
+
+    /**
+     * @tc.steps: step9.
+     * Change show counter
+     */
+
+    layoutProperty->UpdateShowCounter(false);
 }
 } // namespace OHOS::Ace::NG

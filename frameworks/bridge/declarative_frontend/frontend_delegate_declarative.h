@@ -68,6 +68,11 @@ public:
         const MediaQueryCallback& mediaQueryCallback, const LayoutInspectorCallback& layoutInpsectorCallback,
         const DrawInspectorCallback& drawInpsectorCallback,
         const DrawChildrenInspectorCallback& drawChildrenInspectorCallback,
+        const LayoutChildrenInspectorCallback& layoutChildrenInspectorCallback,
+        const LayoutInspectorUniqueIdCallback& layoutInspectorUniqueIdCallback,
+        const DrawInspectorUniqueIdCallback& drawInspectorUniqueIdCallback,
+        const DrawChildrenInspectorUniqueIdCallback& drawChildrenInspectorUniqueIdCallback,
+        const LayoutChildrenInspectorUniqueIdCallback& layoutChildrenInspectorUniqueIdCallback,
         const RequestAnimationCallback& requestAnimationCallback,
         const JsCallback& jsCallback, const OnWindowDisplayModeChangedCallBack& onWindowDisplayModeChangedCallBack,
         const OnConfigurationUpdatedCallBack& onConfigurationUpdatedCallBack,
@@ -144,8 +149,17 @@ public:
     void OnSurfaceChanged();
     void OnLayoutCompleted(const std::string& componentId);
     void OnDrawCompleted(const std::string& componentId);
-    void OnDrawChildrenCompleted(const std::string& componentId);
+    void OnDrawChildrenCompleted(const std::string& componentId, const std::vector<int32_t>& childIds);
+    void OnLayoutChildrenCompleted(const std::string& componentId);
     bool IsDrawChildrenCallbackFuncExist(const std::string& componentId);
+    bool IsLayoutChildrenCallbackFuncExist(const std::string& componentId);
+ 
+    void OnLayoutCompleted(int32_t uniqueId);
+    void OnDrawCompleted(int32_t uniqueId);
+    void OnDrawChildrenCompleted(int32_t uniqueId);
+    void OnLayoutChildrenCompleted(int32_t uniqueId);
+    bool IsDrawChildrenCallbackFuncExist(int32_t uniqueId);
+    bool IsLayoutChildrenCallbackFuncExist(int32_t uniqueId);
     // JSEventHandler delegate functions.
     void FireAsyncEvent(const std::string& eventId, const std::string& param, const std::string& jsonArgs);
     bool FireSyncEvent(const std::string& eventId, const std::string& param, const std::string& jsonArgs);
@@ -181,6 +195,7 @@ public:
     void GetRouterStateByIndex(int32_t& index, std::string& name, std::string& path, std::string& params) override;
     bool IsUnrestoreByIndex(int32_t index);
     void GetRouterStateByUrl(std::string& url, std::vector<StateInfo>& stateArray) override;
+    std::string GetInitParams() override;
     std::string GetParams() override;
     int32_t GetIndexByUrl(const std::string& url) override;
 
@@ -309,9 +324,11 @@ public:
     std::pair<int32_t, std::shared_ptr<Media::PixelMap>> GetSyncSnapshotByUniqueId(int32_t uniqueId,
         const NG::SnapshotOptions& options) override;
         
-    void GetSnapshotWithRange(const NG::NodeIdentity startID, const NG::NodeIdentity endID, const bool isStartRect,
+    void GetSnapshotWithRange(const NG::NodeIdentity& startID, const NG::NodeIdentity& endID, const bool isStartRect,
         std::function<void(std::shared_ptr<Media::PixelMap>, int32_t, std::function<void()>)>&& callback,
         const NG::SnapshotOptions& options) override;
+
+    NG::SnapshotSizeLimitation GetSizeLimitation() override;
 
     void CreateSnapshotFromComponent(const RefPtr<NG::UINode>& nodeWk,
         std::function<void(std::shared_ptr<Media::PixelMap>, int32_t, std::function<void()>)>&& callback,
@@ -331,6 +348,10 @@ public:
     void RequestAnimationFrame(const std::string& callbackId) override;
 
     void CancelAnimationFrame(const std::string& callbackId) override;
+
+    void SetMonitorForCrownEvents(const std::string& callbackId) override;
+
+    void ClearMonitorForCrownEvents() override;
 
     SingleTaskExecutor GetAnimationJsTask() override;
 
@@ -401,6 +422,8 @@ public:
     }
 
     std::string GetPagePathByUrl(const std::string& url) const;
+
+    void* CreateDynamicPage(int32_t pageId, const std::string& url, const std::string& params, bool recoverable);
 
 protected:
     bool isCardDelegate_ = false;
@@ -480,6 +503,7 @@ private:
     DialogProperties ParsePropertiesFromAttr(const PromptDialogAttr &dialogAttr);
 
     std::unique_ptr<JsonValue> GetNavigationJsonInfo();
+    bool GetCurrentPageIndexForStaticIfNeeded(int32_t& index) const;
 
     std::atomic<uint64_t> pageIdPool_ = 0;
     int32_t callbackCnt_ = 0;
@@ -511,6 +535,12 @@ private:
     LayoutInspectorCallback layoutInspectorCallback_;
     DrawInspectorCallback drawInspectorCallback_;
     DrawChildrenInspectorCallback drawChildrenInspectorCallback_;
+    LayoutChildrenInspectorCallback layoutChildrenInspectorCallback_;
+ 
+    LayoutInspectorUniqueIdCallback layoutInspectorUniqueIdCallback_;
+    DrawInspectorUniqueIdCallback drawInspectorUniqueIdCallback_;
+    DrawChildrenInspectorUniqueIdCallback drawChildrenInspectorUniqueIdCallback_;
+    LayoutChildrenInspectorUniqueIdCallback layoutChildrenInspectorUniqueIdCallback_;
     RequestAnimationCallback requestAnimationCallback_;
     JsCallback jsCallback_;
     OnWindowDisplayModeChangedCallBack onWindowDisplayModeChanged_;

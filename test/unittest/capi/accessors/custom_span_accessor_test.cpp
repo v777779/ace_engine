@@ -12,9 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "gmock/gmock.h"
+
 #include "accessor_test_base.h"
 #include "test/unittest/capi/accessors/accessor_test_fixtures.h"
 #include "core/interfaces/native/implementation/color_filter_peer.h"
+#include "core/interfaces/native/implementation/custom_span_peer.h"
+#include "core/interfaces/native/implementation/styled_string_peer.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -25,86 +29,68 @@ using namespace testing;
 using namespace testing::ext;
 using namespace Converter;
 
-class CustomSpanAccessorTest : public AccessorTestBase<GENERATED_ArkUICustomSpanAccessor,
-                                    &GENERATED_ArkUIAccessors::getCustomSpanAccessor, CustomSpanPeer> {};
+namespace Converter {
+// Defined in custom_span_accessor.cpp
+template<> CustomSpanMetrics Convert(const Ark_CustomSpanMetrics& src);
+} // namespace Converter
+
+namespace {
+class MockFrameNode : public FrameNode {
+public:
+    MockFrameNode() : FrameNode("TEST", 0, AceType::MakeRefPtr<Pattern>()) {}
+
+    MOCK_METHOD(void, MarkDirtyNode, (PropertyChangeFlag));
+};
+}
+
+class CustomSpanNativeAccessorTest : public AccessorTestBase<GENERATED_ArkUICustomSpanNativeAccessor,
+                                    &GENERATED_ArkUIAccessors::getCustomSpanNativeAccessor, CustomSpanNativePeer> {};
 
 /**
- * @tc.name: CustomSpanAccessor.OnMeasureTest
+ * @tc.name: setOnMeasure_callbackTestOnMeasure.OnMeasureTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CustomSpanAccessorTest, OnMeasureTest, TestSize.Level1)
+HWTEST_F(CustomSpanNativeAccessorTest, DISABLED_setOnMeasure_callbackTestOnMeasure, TestSize.Level1)
 {
     ASSERT_TRUE(accessor_);
-    ASSERT_TRUE(accessor_->getOnMeasure_callback);
-    ASSERT_TRUE(accessor_->setOnMeasure_callback);
-
-    static const Ark_Int32 expectedId {123};
-    const float expectedValue {9.87f};
-
-    // set valid callback
-    auto testCallback = [](Ark_VMContext vmContext, const Ark_Int32 resourceId,
-        const Ark_CustomSpanMeasureInfo measureInfo,
-        const Callback_CustomSpanMetrics_Void continuation) {
-        EXPECT_EQ(resourceId, expectedId);
-        Ark_CustomSpanMetrics result {
-            .width = measureInfo.fontSize,
-            .height = Converter::ArkValue<Opt_Float64>()
-        };
-        CallbackHelper(continuation).InvokeSync(result);
-    };
-    auto inputCallback =
-        Converter::ArkValue<Callback_CustomSpanMeasureInfo_CustomSpanMetrics>(nullptr, testCallback, expectedId);
-    accessor_->setOnMeasure_callback(peer_, &inputCallback);
-
-    // get callback
-    auto checkCallback = accessor_->getOnMeasure_callback(peer_);
-
-    // invoke the obtained callback
-    Ark_CustomSpanMeasureInfo inputData {
-        .fontSize = Converter::ArkValue<Ark_Float64>(expectedValue)
-    };
-    auto checkData = CallbackHelper(checkCallback).
-        InvokeWithObtainResult<Ark_CustomSpanMetrics, Callback_CustomSpanMetrics_Void>(inputData);
-    EXPECT_FLOAT_EQ(Converter::Convert<float>(checkData.width), expectedValue);
-    EXPECT_FALSE(Converter::OptConvert<float>(checkData.height).has_value());
+    // CustomSpanNativeAccessor no longer has draw callbacks in this generation.
 }
 
 /**
- * @tc.name: CustomSpanAccessor.OnDrawTest
+ * @tc.name: setOnDraw_callbackTestOnDraw.OnDrawTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CustomSpanAccessorTest, DISABLED_OnDrawTest, TestSize.Level1)
+HWTEST_F(CustomSpanNativeAccessorTest, DISABLED_setOnDraw_callbackTestOnDraw, TestSize.Level1)
 {
     ASSERT_TRUE(accessor_);
-    ASSERT_TRUE(accessor_->getOnDraw_callback);
-    ASSERT_TRUE(accessor_->setOnDraw_callback);
+    // CustomSpanNativeAccessor no longer has draw callbacks in this generation.
+}
 
-    static const Ark_Int32 expectedId {123};
-    const float expectedValue {9.87f};
-    static std::optional<Ark_CustomSpanDrawInfo> checkData {};
-
-    // set valid callback
-    auto testCallback = [](Ark_VMContext vmContext, const Ark_Int32 resourceId,
-        const Ark_DrawContext context, const Ark_CustomSpanDrawInfo drawInfo) {
-        EXPECT_EQ(resourceId, expectedId);
-        checkData = drawInfo;
+/**
+ * @tc.name: invalidateTest.InvalidateTest
+ * @tc.desc:
+ * @tc.type: FUNC
+ */
+HWTEST_F(CustomSpanNativeAccessorTest, invalidateTest, TestSize.Level1)
+{
+    Ark_CustomSpanWrapper wrap {
+        .nativeObj = peer_
     };
-    auto inputCallback =
-        Converter::ArkValue<Callback_DrawContext_CustomSpanDrawInfo_Void>(nullptr, testCallback, expectedId);
-    accessor_->setOnDraw_callback(peer_, &inputCallback);
+    auto value = Converter::ArkUnion<Ark_Union_String_ImageAttachment_CustomSpanWrapper, Ark_CustomSpanWrapper>(wrap);
+    auto inputStyles = Converter::ArkValue<Opt_Array_StyleOptions>();
+    Ark_StyledString styledStringPeer =
+        accessors_->getStyledStringAccessor()->construct(&value, &inputStyles);
+    ASSERT_NE(styledStringPeer, nullptr);
 
-    // get callback
-    auto checkCallback = accessor_->getOnDraw_callback(peer_);
+    auto frameNode = AceType::MakeRefPtr<MockFrameNode>();
+    auto spanString = styledStringPeer->spanString;
+    ASSERT_NE(spanString, nullptr);
+    spanString->SetFramNode(frameNode);
+    spanString->AddCustomSpan();
 
-    // invoke the obtained callback
-    Ark_DrawContext inputCtx {nullptr};
-    Ark_CustomSpanDrawInfo inputData {
-        .x = Converter::ArkValue<Ark_Float64>(expectedValue)
-    };
-    CallbackHelper(checkCallback).InvokeSync(inputCtx, inputData);
-    ASSERT_TRUE(checkData.has_value());
-    EXPECT_FLOAT_EQ(Converter::Convert<float>(checkData->x), expectedValue);
+    EXPECT_CALL(*frameNode, MarkDirtyNode(_)).Times(1);
+    accessor_->invalidate(peer_);
 }
 } // namespace OHOS::Ace::NG

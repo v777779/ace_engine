@@ -17,6 +17,7 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_WEB_RESOURCE_WEBVIEW_CLIENT_IMPL_H
 
 #include "foundation/arkui/ace_engine/frameworks/base/memory/referenced.h"
+#include "nweb_agent_handler.h"
 #include "nweb_drag_data.h"
 #include "nweb_handler.h"
 
@@ -85,6 +86,31 @@ private:
     WeakPtr<WebDelegate> webDelegate_;
 };
 
+class WebAgentClientImpl : public std::enable_shared_from_this<WebAgentClientImpl>,
+                           public OHOS::NWeb::NWebAgentHandler {
+public:
+    WebAgentClientImpl() = default;
+    ~WebAgentClientImpl() = default;
+
+    void ReportEventJson(const std::string& json) override;
+
+    void OnCreateAISession(AISessionType type, const std::string& id, const std::string& params,
+        std::shared_ptr<NWeb::NWebStringVectorValueCallback> callback) override;
+
+    void OnExecuteAIAction(AISessionType type, const std::string& id, const std::string& params,
+        std::shared_ptr<NWeb::NWebStringVectorValueCallback> callback) override;
+
+    void OnDestroyAISession(AISessionType type, const std::string& id) override;
+
+    void SetWebDelegate(const WeakPtr<WebDelegate>& delegate)
+    {
+        webDelegate_ = delegate;
+    }
+
+private:
+    WeakPtr<WebDelegate> webDelegate_;
+};
+
 class SpanstringConvertHtmlImpl : public OHOS::NWeb::NWebSpanstringConvertHtmlCallback {
 public:
     SpanstringConvertHtmlImpl() = default;
@@ -92,6 +118,24 @@ public:
     ~SpanstringConvertHtmlImpl() = default;
 
     virtual std::string SpanstringConvertHtml(const std::vector<uint8_t> &content) override;
+
+    void SetWebDelegate(const WeakPtr<WebDelegate>& delegate)
+    {
+        webDelegate_ = delegate;
+    }
+
+private:
+    WeakPtr<WebDelegate> webDelegate_;
+    int32_t instanceId_ = -1;
+};
+
+class VaultPlainTextImpl : public OHOS::NWeb::NWebVaultPlainTextCallback {
+public:
+    VaultPlainTextImpl() = default;
+    explicit VaultPlainTextImpl(int32_t instanceId) : instanceId_(instanceId) {}
+    ~VaultPlainTextImpl() = default;
+
+    bool ProcessAutoFillOnPaste() override;
 
     void SetWebDelegate(const WeakPtr<WebDelegate>& delegate)
     {
@@ -178,6 +222,7 @@ public:
         const std::vector<std::string>& keyTypes,
         const std::vector<std::string>& issuers) override;
     void OnPermissionRequest(std::shared_ptr<NWeb::NWebAccessRequest> request) override;
+    void OnContextMenuDismissed() override;
     bool RunContextMenu(std::shared_ptr<NWeb::NWebContextMenuParams> params,
         std::shared_ptr<NWeb::NWebContextMenuCallback> callback) override;
     void UpdateClippedSelectionBounds(int x, int y, int w, int h) override;
@@ -199,6 +244,7 @@ public:
         bool isAlert,
         bool isUserTrigger,
         std::shared_ptr<NWeb::NWebControllerHandler> handler) override;
+    void OnWindowNewExtByJS(std::shared_ptr<NWeb::NWebWindowNewEventInfo> dataInfo) override;
     void OnActivateContentByJS() override;
     void OnWindowExitByJS() override;
     void OnPageVisible(const std::string& url) override;
@@ -233,11 +279,14 @@ public:
     void OnOverScrollFlingEnd() override;
     void OnScrollState(bool scrollState) override;
     void EnableSecurityLayer(bool isNeedSecurityLayer) override;
+    void UpdateTextFieldStatus(bool isShowKeyboard, bool isAttachIME) override;
     void OnRootLayerChanged(int width, int height) override;
     void ReleaseResizeHold() override;
     bool FilterScrollEvent(const float x, const float y, const float xVelocity, const float yVelocity) override;
     void OnNativeEmbedLifecycleChange(std::shared_ptr<NWeb::NWebNativeEmbedDataInfo> dataInfo) override;
     void OnNativeEmbedGestureEvent(std::shared_ptr<NWeb::NWebNativeEmbedTouchEvent> event) override;
+    void OnNativeEmbedMouseEvent(std::shared_ptr<NWeb::NWebNativeEmbedMouseEvent> event) override;
+    void OnNativeEmbedObjectParamChange(std::shared_ptr<NWeb::NWebNativeEmbedParamDataInfo> paramDataInfo) override;
     void OnIntelligentTrackingPreventionResult(
         const std::string& websiteHost, const std::string& trackerHost) override;
     void OnTooltip(const std::string& tooltip) override;
@@ -286,6 +335,8 @@ public:
 
     void KeyboardReDispatch(std::shared_ptr<OHOS::NWeb::NWebKeyEvent> event, bool isUsed) override;
 
+    void OnTakeFocus(std::shared_ptr<OHOS::NWeb::NWebKeyEvent> event) override;
+
     void OnCursorUpdate(double x, double y, double width, double height) override;
 
     void StartVibraFeedback(const std::string& vibratorType) override;
@@ -309,11 +360,14 @@ public:
 
     bool OnNestedScroll(float& x, float& y, float& xVelocity, float& yVelocity, bool& isAvailable) override;
 
+    void OnLoadStarted(const std::string& url) override;
+
+    void OnLoadFinished(const std::string& url) override;
+
     void OnPip(int status, int delegate_id, int child_id, int frame_routing_id, int width, int height) override;
 
-    bool OnAllSslErrorRequestByJSV2(std::shared_ptr<NWeb::NWebJSAllSslErrorResult> result, OHOS::NWeb::SslError error,
-        const std::string& url, const std::string& originalUrl, const std::string& referrer, bool isFatalError,
-        bool isMainFrame, const std::vector<std::string>& certChainData) override;
+    bool OnAllSslErrorRequestByJSV2(std::shared_ptr<NWeb::NWebJSAllSslErrorResult> result,
+        std::shared_ptr<NWeb::NWebAllSslErrorInfo> nwebAllSslError) override;
 
     void ShowMagnifier() override;
 
@@ -323,6 +377,32 @@ public:
 
     void OnInsertBlanklessFrame(const std::string& pathToFrame) override;
     void OnRemoveBlanklessFrame(int delayTime) override;
+    bool OnBeforeUnloadByJSV2(const std::string& url, const std::string& message, bool isReload,
+        std::shared_ptr<NWeb::NWebJSDialogResult> result) override;
+    void OnTextSelectionChange(const std::string& selectionText) override;
+    void OnDetectedBlankScreen(
+        const std::string& url, int32_t blankScreenReason, int32_t detectedContentfulNodesCount) override;
+    void OnFirstScreenPaint(const std::string& url, int64_t navigationStartTime, int64_t firstScreenPaintTime) override;
+    void OnPdfScrollAtBottom(const std::string& url) override;
+    void OnPdfLoadEvent(int32_t result, const std::string& url) override;
+    void OnInsertBlanklessFrameWithSize(const std::string& pathToFrame,
+                                        uint32_t width,
+                                        uint32_t height) override;
+    void OnExtensionDisconnect(int32_t connectId) override;
+    std::string OnWebNativeMessage(std::shared_ptr<OHOS::NWeb::NWebRuntimeConnectInfo> info,
+        std::shared_ptr<OHOS::NWeb::NWebNativeMessageCallback> callback) override;
+    void SetImeShow(bool visible) override;
+    bool IsShowHandle() override;
+    void OnSafeBrowsingCheckFinish(int threat_type) override;
+    void OnRefreshAccessedHistoryV2(const std::string& url, bool isReload, bool isMainFrame) override;
+    bool IsQuickMenuShow() override;
+    void OnRemoveBlanklessFrameWithAnimation(int delayTime) override;
+    bool OnVerifyPinRequestByJS(
+        std::shared_ptr<NWeb::NWebJSVerifyPinResult> result, const std::string& identity) override;
+    void OnClippedSelectionBoundsChanged(int x, int y, int width, int height) override;
+    void OnCameraCaptureStateChanged(int originalState, int new_state) override;
+    void OnMicrophoneCaptureStateChanged(int originalState, int newState) override;
+    void OnMediaCastEnter() override;
 private:
     std::weak_ptr<OHOS::NWeb::NWeb> webviewWeak_;
     WeakPtr<WebDelegate> webDelegate_;

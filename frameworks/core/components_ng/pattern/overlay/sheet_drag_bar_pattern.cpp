@@ -15,6 +15,8 @@
 
 #include "core/components_ng/pattern/overlay/sheet_drag_bar_pattern.h"
 
+#include "core/pipeline_ng/pipeline_context.h"
+
 namespace OHOS::Ace::NG {
 namespace {
 // Maximum displacement of the control bar in the x direction when dragging the control bar.
@@ -43,6 +45,7 @@ void SheetDragBarPattern::OnModifyDone()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     dragOffsetX_ = MAX_DRAG_X.ConvertToPx();
     dragOffsetY_ = MAX_DRAG_Y.ConvertToPx();
     auto hub = host->GetEventHub<EventHub>();
@@ -87,6 +90,7 @@ void SheetDragBarPattern::InitTouchEvent(const RefPtr<GestureEventHub>& gestureH
         CHECK_NULL_VOID(pattern);
         pattern->HandleTouchEvent(info);
     };
+    ACE_UINODE_TRACE(GetHost());
 
     touchEvent_ = MakeRefPtr<TouchEventImpl>(std::move(touchTask));
     gestureHub->AddTouchEvent(touchEvent_);
@@ -106,6 +110,7 @@ void SheetDragBarPattern::InitClickEvent()
         CHECK_NULL_VOID(sheetDragBarPattern);
         sheetDragBarPattern->OnClick();
     };
+    ACE_UINODE_TRACE(host);
     clickListener_ = MakeRefPtr<ClickEvent>(std::move(clickCallback));
     gesture->AddClickEvent(clickListener_);
 }
@@ -120,6 +125,7 @@ void SheetDragBarPattern::OnClick()
 
 void SheetDragBarPattern::ScaleAnimation(bool isDown)
 {
+    ACE_UINODE_TRACE(GetHost());
     CreatePropertyCallback();
     CHECK_NULL_VOID(property_);
     StopAnimation();
@@ -138,13 +144,15 @@ void SheetDragBarPattern::ScaleAnimation(bool isDown)
     auto context = host->GetRenderContext();
     CHECK_NULL_VOID(context);
     context->AttachNodeAnimatableProperty(property_);
+    auto pipeline = host->GetContextRefPtr();
     AnimationUtils::Animate(
         option,
         [weak]() {
             auto ref = weak.Upgrade();
             CHECK_NULL_VOID(ref);
             ref->property_->Set(1.0f);
-        });
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void SheetDragBarPattern::StopAnimation()
@@ -154,11 +162,17 @@ void SheetDragBarPattern::StopAnimation()
     option.SetCurve(Curves::LINEAR);
     option.SetDuration(0);
     option.SetDelay(0);
-    AnimationUtils::Animate(option, [weak]() {
-        auto ref = weak.Upgrade();
-        CHECK_NULL_VOID(ref);
-        ref->property_->Set(0.0);
-    });
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
+    AnimationUtils::Animate(
+        option,
+        [weak]() {
+            auto ref = weak.Upgrade();
+            CHECK_NULL_VOID(ref);
+            ref->property_->Set(0.0);
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void SheetDragBarPattern::HandleTouchEvent(const TouchEventInfo& info)
@@ -235,6 +249,7 @@ void SheetDragBarPattern::CreatePropertyCallback()
         }
         ref->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
     };
+    ACE_UINODE_TRACE(GetHost());
     property_ = AceType::MakeRefPtr<NodeAnimatablePropertyFloat>(0.0, std::move(propertyCallback));
 }
 } // namespace OHOS::Ace::NG

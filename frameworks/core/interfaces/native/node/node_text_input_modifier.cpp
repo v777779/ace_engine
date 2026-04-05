@@ -15,10 +15,12 @@
 #include "core/interfaces/native/node/node_text_input_modifier.h"
 #include <string>
 
+#include "core/components/common/layout/common_text_constants.h"
 #include "core/components/text_field/textfield_theme.h"
 #include "core/components_ng/pattern/text_field/text_field_model_ng.h"
 #include "base/utils/utf_helper.h"
 #include "bridge/common/utils/utils.h"
+#include "core/common/resource/resource_parse_utils.h"
 #include "core/components/common/properties/text_style_parser.h"
 #include "core/interfaces/arkoala/arkoala_api.h"
 #include "interfaces/native/node/node_model.h"
@@ -42,21 +44,19 @@ constexpr Ace::FontStyle DEFAULT_FONT_STYLE = Ace::FontStyle::NORMAL;
 constexpr int16_t DEFAULT_ALPHA = 255;
 constexpr double DEFAULT_OPACITY = 0.2;
 const std::vector<std::string> DEFAULT_FONT_FAMILY = { "HarmonyOS Sans" };
-const std::vector<TextAlign> TEXT_ALIGNS = { TextAlign::START, TextAlign::CENTER, TextAlign::END, TextAlign::JUSTIFY };
-const std::vector<EllipsisMode> ELLIPSIS_MODALS = { EllipsisMode::HEAD, EllipsisMode::MIDDLE, EllipsisMode::TAIL };
 constexpr float DEFAULT_MIN_FONT_SCALE = 0.0f;
 constexpr float DEFAULT_MAX_FONT_SCALE = static_cast<float>(INT32_MAX);
 const uint32_t ERROR_UINT_CODE = -1;
 const float ERROR_FLOAT_CODE = -1.0f;
 const int32_t ERROR_INT_CODE = -1;
+constexpr TextDecoration DEFAULT_TEXT_DECORATION = TextDecoration::NONE;
+constexpr Color DEFAULT_DECORATION_COLOR = Color(0xff000000);
+constexpr TextDecorationStyle DEFAULT_DECORATION_STYLE = TextDecorationStyle::SOLID;
 constexpr int CALL_ARG_0 = 0;
 constexpr int CALL_ARG_1 = 1;
 constexpr int CALL_ARG_2 = 2;
 constexpr int CALL_ARG_3 = 3;
 constexpr int32_t DEFAULT_GROUP_UNDERLINE_COLOR_VALUES_COUNT = 4;
-constexpr TextDecoration DEFAULT_TEXT_DECORATION = TextDecoration::NONE;
-constexpr Color DEFAULT_DECORATION_COLOR = Color(0xff000000);
-constexpr TextDecorationStyle DEFAULT_DECORATION_STYLE = TextDecorationStyle::SOLID;
 constexpr bool DEFAULT_SELECT_ALL = false;
 constexpr bool DEFAULT_ENABLE_PREVIEW_TEXT_VALUE = true;
 constexpr bool DEFAULT_ENABLE_HAPTIC_FEEDBACK_VALUE = true;
@@ -65,22 +65,32 @@ constexpr int32_t ELLIPSIS_MODE_TAIL = 2;
 
 void SetTextInputCaretColor(ArkUINodeHandle node, ArkUI_Uint32 color, void* colorRawPtr)
 {
-    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetCaretColor(frameNode, Color(color));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && colorRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
-        pattern->RegisterResource<Color>("caretColor", resObj, Color(color));
-    } else {
-        pattern->UnRegisterResource("caretColor");
+    Color result = Color(color);
+    if (SystemProperties::ConfigChangePerform()) {
+        RefPtr<ResourceObject> resObj;
+        if (!colorRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
+        }
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resObj) {
+            pattern->RegisterResource<Color>("caretColor", resObj, result);
+        } else {
+            pattern->UnRegisterResource("caretColor");
+        }
     }
+    TextFieldModelNG::SetCaretColor(frameNode, result);
 }
 
 void ResetTextInputCaretColor(ArkUINodeHandle node)
 {
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::ResetCaretColor(frameNode);
     if (SystemProperties::ConfigChangePerform()) {
@@ -126,17 +136,26 @@ void ResetTextInputMaxLines(ArkUINodeHandle node)
 
 void SetTextInputPlaceholderColor(ArkUINodeHandle node, ArkUI_Uint32 color, void* colorRawPtr)
 {
-    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetPlaceholderColor(frameNode, Color(color));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && colorRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
-        pattern->RegisterResource<Color>("placeholderColor", resObj, Color(color));
-    } else {
-        pattern->UnRegisterResource("placeholderColor");
+    Color result = Color(color);
+    if (SystemProperties::ConfigChangePerform()) {
+        RefPtr<ResourceObject> resObj;
+        if (!colorRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject *>(colorRawPtr));
+        }
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resObj) {
+            pattern->RegisterResource<Color>("placeholderColor", resObj, result);
+        } else {
+            pattern->UnRegisterResource("placeholderColor");
+        }
     }
+    TextFieldModelNG::SetPlaceholderColor(frameNode, result);
 }
 
 void ResetTextInputPlaceholderColor(ArkUINodeHandle node)
@@ -254,6 +273,32 @@ void SetTextInputStyle(ArkUINodeHandle node, ArkUI_Int32 style)
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetInputStyle(frameNode, static_cast<InputStyle>(style));
+}
+
+void SetTextInputDirection(ArkUINodeHandle node, ArkUI_Uint32 textDirection)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (textDirection < 0 || textDirection >= TEXT_DIRECTIONS.size()) {
+        TextFieldModelNG::ResetTextDirection(frameNode);
+        return;
+    }
+    TextFieldModelNG::SetTextDirection(frameNode, TEXT_DIRECTIONS[textDirection]);
+}
+
+int32_t GetTextInputDirection(ArkUINodeHandle node)
+{
+    auto defaultTextDirection = static_cast<int32_t>(OHOS::Ace::TextDirection::INHERIT);
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, defaultTextDirection);
+    return static_cast<int32_t>(TextFieldModelNG::GetTextDirection(frameNode));
+}
+
+void ResetTextInputDirection(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::ResetTextDirection(frameNode);
 }
 
 ArkUI_Int32 GetTextInputStyle(ArkUINodeHandle node)
@@ -464,19 +509,21 @@ void SetTextInputCaretStyle(ArkUINodeHandle node, ArkUI_Float32 value, ArkUI_Int
     caretStyle.caretWidth = CalcDimension(value, (DimensionUnit)unit);
     TextFieldModelNG::SetCaretStyle(frameNode, caretStyle);
     TextFieldModelNG::SetCaretColor(frameNode, Color(caretColor));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && widthRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(widthRawPtr));
-        pattern->RegisterResource<CalcDimension>("caretWidth", resObj, CalcDimension(value, (DimensionUnit)unit));
-    } else {
-        pattern->UnRegisterResource("caretWidth");
-    }
-    if (SystemProperties::ConfigChangePerform() && colorRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
-        pattern->RegisterResource<Color>("caretColor", resObj, Color(caretColor));
-    } else {
-        pattern->UnRegisterResource("caretColor");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (widthRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(widthRawPtr));
+            pattern->RegisterResource<CalcDimension>("caretWidth", resObj, CalcDimension(value, (DimensionUnit)unit));
+        } else {
+            pattern->UnRegisterResource("caretWidth");
+        }
+        if (colorRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
+            pattern->RegisterResource<Color>("caretColor", resObj, Color(caretColor));
+        } else {
+            pattern->UnRegisterResource("caretColor");
+        }
     }
 }
 
@@ -564,13 +611,15 @@ void SetTextInputFontWeightStr(ArkUINodeHandle node, ArkUI_CharPtr fontWeight, v
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetFontWeight(frameNode, Framework::ConvertStrToFontWeight(fontWeight));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && fontWeightRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(fontWeightRawPtr));
-        pattern->RegisterResource<std::string>("fontWeight", resObj, fontWeight);
-    } else {
-        pattern->UnRegisterResource("fontWeight");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (fontWeightRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(fontWeightRawPtr));
+            pattern->RegisterResource<std::string>("fontWeight", resObj, fontWeight);
+        } else {
+            pattern->UnRegisterResource("fontWeight");
+        }
     }
 }
 
@@ -605,13 +654,15 @@ void SetTextInputFontSize(ArkUINodeHandle node, const struct ArkUILengthType *va
     }
     fontSize.SetUnit(static_cast<DimensionUnit>(value->unit));
     TextFieldModelNG::SetFontSize(frameNode, fontSize);
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<CalcDimension>("fontSize", resObj, fontSize);
-    } else {
-        pattern->UnRegisterResource("fontSize");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<CalcDimension>("fontSize", resObj, fontSize);
+        } else {
+            pattern->UnRegisterResource("fontSize");
+        }
     }
 }
 
@@ -636,13 +687,15 @@ void SetTextInputMinFontScale(ArkUINodeHandle node, ArkUI_Float32 number, void* 
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetMinFontScale(frameNode, number);
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<float>("minFontScale", resObj, number);
-    } else {
-        pattern->UnRegisterResource("minFontScale");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<float>("minFontScale", resObj, number);
+        } else {
+            pattern->UnRegisterResource("minFontScale");
+        }
     }
 }
 
@@ -663,13 +716,15 @@ void SetTextInputMaxFontScale(ArkUINodeHandle node, ArkUI_Float32 number, void* 
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetMaxFontScale(frameNode, number);
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<float>("maxFontScale", resObj, number);
-    } else {
-        pattern->UnRegisterResource("maxFontScale");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<float>("maxFontScale", resObj, number);
+        } else {
+            pattern->UnRegisterResource("maxFontScale");
+        }
     }
 }
 
@@ -701,17 +756,26 @@ void ResetTextInputMaxLength(ArkUINodeHandle node)
 
 void SetTextInputSelectedBackgroundColor(ArkUINodeHandle node, ArkUI_Uint32 color, void* resRawPtr)
 {
-    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetSelectedBackgroundColor(frameNode, Color(color));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<Color>("selectedBackgroundColor", resObj, Color(color));
-    } else {
-        pattern->UnRegisterResource("selectedBackgroundColor");
+    Color result = Color(color);
+    if (SystemProperties::ConfigChangePerform()) {
+        RefPtr<ResourceObject> resObj;
+        if (!resRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+        }
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resObj) {
+            pattern->RegisterResource<Color>("selectedBackgroundColor", resObj, result);
+        } else {
+            pattern->UnRegisterResource("selectedBackgroundColor");
+        }
     }
+    TextFieldModelNG::SetSelectedBackgroundColor(frameNode, result);
 }
 
 void ResetTextInputSelectedBackgroundColor(ArkUINodeHandle node)
@@ -741,13 +805,15 @@ void SetTextInputShowError(ArkUINodeHandle node, ArkUI_CharPtr error, ArkUI_Uint
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetShowError(frameNode, UtfUtils::Str8ToStr16(std::string(error)), static_cast<bool>(visible));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<std::u16string>("errorString", resObj, UtfUtils::Str8ToStr16(std::string(error)));
-    } else {
-        pattern->UnRegisterResource("errorString");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<std::u16string>("errorString", resObj, UtfUtils::Str8ToStr16(std::string(error)));
+        } else {
+            pattern->UnRegisterResource("errorString");
+        }
     }
 }
 
@@ -796,19 +862,21 @@ void SetTextInputPlaceholderFont(ArkUINodeHandle node, const struct ArkUIPlaceho
         font.fontStyle = static_cast<Ace::FontStyle>(placeholderFont->style);
     }
     TextFieldModelNG::SetPlaceholderFont(frameNode, font);
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && fontSizeRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(fontSizeRawPtr));
-        pattern->RegisterResource<CalcDimension>("placeholderFontSize", resObj, fontSize);
-    } else {
-        pattern->UnRegisterResource("placeholderFontSize");
-    }
-    if (SystemProperties::ConfigChangePerform() && fontfamilyRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(fontfamilyRawPtr));
-        pattern->RegisterResource<std::vector<std::string>>("fontFamily", resObj, font.fontFamilies);
-    } else {
-        pattern->UnRegisterResource("fontFamily");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (fontSizeRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(fontSizeRawPtr));
+            pattern->RegisterResource<CalcDimension>("placeholderFontSize", resObj, fontSize);
+        } else {
+            pattern->UnRegisterResource("placeholderFontSize");
+        }
+        if (fontfamilyRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(fontfamilyRawPtr));
+            pattern->RegisterResource<std::vector<std::string>>("placeholderFontFamily", resObj, font.fontFamilies);
+        } else {
+            pattern->UnRegisterResource("placeholderFontFamily");
+        }
     }
 }
 
@@ -835,17 +903,26 @@ void ResetTextInputPlaceholderFont(ArkUINodeHandle node)
 
 void SetTextInputFontColor(ArkUINodeHandle node, ArkUI_Uint32 color, void* resRawPtr)
 {
-    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetTextColor(frameNode, Color(color));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<Color>("fontColor", resObj, Color(color));
-    } else {
-        pattern->UnRegisterResource("fontColor");
+    Color result = Color(color);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        RefPtr<ResourceObject> resObj;
+        if (!resRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+        }
+        if (resObj) {
+            pattern->RegisterResource<Color>("fontColor", resObj, result);
+        } else {
+            pattern->UnRegisterResource("fontColor");
+        }
     }
+    TextFieldModelNG::SetTextColor(frameNode, result);
 }
 
 void ResetTextInputFontColor(ArkUINodeHandle node)
@@ -890,13 +967,15 @@ void SetTextInputFontFamily(ArkUINodeHandle node, ArkUI_CharPtr* fontFamilies, A
         }
     }
     TextFieldModelNG::SetFontFamily(frameNode, families);
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<std::vector<std::string>>("fontFamily", resObj, families);
-    } else {
-        pattern->UnRegisterResource("fontFamily");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<std::vector<std::string>>("fontFamily", resObj, families);
+        } else {
+            pattern->UnRegisterResource("fontFamily");
+        }
     }
 }
 
@@ -959,25 +1038,27 @@ void SetTextInputCancelButton(ArkUINodeHandle node, ArkUI_Int32 style, const str
     // set icon color
     Color iconColor(color);
     TextFieldModelNG::SetCancelIconColor(frameNode, iconColor);
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && imageIconRes && imageIconRes->sizeObj) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(imageIconRes->sizeObj));
-        pattern->RegisterResource<CalcDimension>("cancelButtonIconSize", resObj, iconSize);
-    } else {
-        pattern->UnRegisterResource("cancelButtonIconSize");
-    }
-    if (SystemProperties::ConfigChangePerform() && imageIconRes && imageIconRes->colorObj) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(imageIconRes->colorObj));
-        pattern->RegisterResource<Color>("cancelButtonIconColor", resObj, iconColor);
-    } else {
-        pattern->UnRegisterResource("cancelButtonIconColor");
-    }
-    if (SystemProperties::ConfigChangePerform() && imageIconRes && imageIconRes->srcObj) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(imageIconRes->srcObj));
-        pattern->RegisterResource<std::string>("cancelButtonIconSrc", resObj, iconSrc);
-    } else {
-        pattern->UnRegisterResource("cancelButtonIconSrc");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (imageIconRes && imageIconRes->sizeObj) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(imageIconRes->sizeObj));
+            pattern->RegisterResource<CalcDimension>("cancelButtonIconSize", resObj, iconSize);
+        } else {
+            pattern->UnRegisterResource("cancelButtonIconSize");
+        }
+        if (imageIconRes && imageIconRes->colorObj) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(imageIconRes->colorObj));
+            pattern->RegisterResource<Color>("cancelButtonIconColor", resObj, iconColor);
+        } else {
+            pattern->UnRegisterResource("cancelButtonIconColor");
+        }
+        if (imageIconRes && imageIconRes->srcObj) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(imageIconRes->srcObj));
+            pattern->RegisterResource<std::string>("cancelButtonIconSrc", resObj, iconSrc);
+        } else {
+            pattern->UnRegisterResource("cancelButtonIconSrc");
+        }
     }
 }
 
@@ -1121,7 +1202,7 @@ ArkUI_Int32 GetTextInputType(ArkUINodeHandle node)
 {
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
-    return static_cast<ArkUI_Int32>(TextFieldModelNG::GetType(frameNode));
+    return static_cast<ArkUI_Int32>(TextFieldModelNG::GetJSInputType(frameNode));
 }
 
 ArkUI_Uint32 GetTextInputSelectedBackgroundColor(ArkUINodeHandle node)
@@ -1187,21 +1268,21 @@ ArkUI_Int32 GetTextInputTextAlign(ArkUINodeHandle node)
     CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
     return static_cast<ArkUI_Int32>(TextFieldModelNG::GetTextAlign(frameNode));
 }
-
+ 
 ArkUI_Uint32 GetTextInputFontColor(ArkUINodeHandle node)
 {
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_RETURN(frameNode, ERROR_UINT_CODE);
     return TextFieldModelNG::GetTextColor(frameNode).GetValue();
 }
-
+ 
 ArkUI_Int32 GetTextInputFontStyle(ArkUINodeHandle node)
 {
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
     return static_cast<ArkUI_Int32>(TextFieldModelNG::GetFontStyle(frameNode));
 }
-
+ 
 ArkUI_Int32 GetTextInputFontWeight(ArkUINodeHandle node)
 {
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
@@ -1220,14 +1301,25 @@ void SetTextInputBackgroundColor(ArkUINodeHandle node, ArkUI_Uint32 color, void*
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetBackgroundColor(frameNode, Color(color));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<Color>("backgroundColor", resObj, Color(color));
-    } else {
-        pattern->UnRegisterResource("backgroundColor");
+    Color result = Color(color);
+    RefPtr<ResourceObject> resObj;
+    if (SystemProperties::ConfigChangePerform()) {
+        if (!resRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+        }
+    }
+    TextFieldModelNG::SetBackgroundColor(frameNode, result);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resObj) {
+            pattern->RegisterResource<Color>("backgroundColor", resObj, result);
+        } else {
+            pattern->UnRegisterResource("backgroundColor");
+        }
     }
 }
 
@@ -1243,13 +1335,15 @@ void SetTextInputBackgroundColorWithColorSpace(ArkUINodeHandle node, ArkUI_Uint3
         backgroundColor.SetColorSpace(ColorSpace::SRGB);
     }
     TextFieldModelNG::SetBackgroundColor(frameNode, backgroundColor);
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<Color>("backgroundColor", resObj, Color(color));
-    } else {
-        pattern->UnRegisterResource("backgroundColor");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<Color>("backgroundColor", resObj, backgroundColor);
+        } else {
+            pattern->UnRegisterResource("backgroundColor");
+        }
     }
 }
 
@@ -1262,98 +1356,6 @@ void ResetTextInputBackgroundColor(ArkUINodeHandle node)
         auto pattern = frameNode->GetPattern();
         CHECK_NULL_VOID(pattern);
         pattern->UnRegisterResource("backgroundColor");
-    }
-}
-
-void SetTextInputNormalUnderlineColor(ArkUINodeHandle node, ArkUI_Uint32 normalColor, void* resRawPtr)
-{
-    auto *frameNode = reinterpret_cast<FrameNode *>(node);
-    CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetNormalUnderlineColor(frameNode, Color(normalColor));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<Color>("underlineColorNormal", resObj, Color(normalColor));
-    } else {
-        pattern->UnRegisterResource("underlineColorNormal");
-    }
-}
-
-void SetTextInputUserUnderlineColor(ArkUINodeHandle node, const ArkUI_Uint32* values,
-    const ArkUI_Bool* hasValues, ArkUI_Int32 length, ArkUIUserUnderlineColorRes* underlineColorObj)
-{
-    auto *frameNode = reinterpret_cast<FrameNode *>(node);
-    CHECK_NULL_VOID(frameNode);
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    UserUnderlineColor userColor = UserUnderlineColor();
-    if (length != DEFAULT_GROUP_UNDERLINE_COLOR_VALUES_COUNT) {
-        return;
-    }
-    if (hasValues[CALL_ARG_0]) {
-        userColor.typing = Color(values[CALL_ARG_0]);
-        if (SystemProperties::ConfigChangePerform() && underlineColorObj && underlineColorObj->typingColorObj) {
-            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(underlineColorObj->typingColorObj));
-            pattern->RegisterResource<Color>("underlineColorTyping", resObj, Color(values[CALL_ARG_0]));
-        } else {
-            pattern->UnRegisterResource("underlineColorTyping");
-        }
-    }
-    if (hasValues[CALL_ARG_1]) {
-        userColor.normal = Color(values[CALL_ARG_1]);
-        if (SystemProperties::ConfigChangePerform() && underlineColorObj && underlineColorObj->normalColorObj) {
-            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(underlineColorObj->normalColorObj));
-            pattern->RegisterResource<Color>("underlineColorNormal", resObj, Color(values[CALL_ARG_1]));
-        } else {
-            pattern->UnRegisterResource("underlineColorNormal");
-        }
-    }
-    if (hasValues[CALL_ARG_2]) {
-        userColor.error = Color(values[CALL_ARG_2]);
-        if (SystemProperties::ConfigChangePerform() && underlineColorObj && underlineColorObj->errorColorObj) {
-            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(underlineColorObj->errorColorObj));
-            pattern->RegisterResource<Color>("underlineColorError", resObj, Color(values[CALL_ARG_2]));
-        } else {
-            pattern->UnRegisterResource("underlineColorError");
-        }
-    }
-    if (hasValues[CALL_ARG_3]) {
-        userColor.disable = Color(values[CALL_ARG_3]);
-        if (SystemProperties::ConfigChangePerform() && underlineColorObj && underlineColorObj->disableColorObj) {
-            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(underlineColorObj->disableColorObj));
-            pattern->RegisterResource<Color>("underlineColorDisable", resObj, Color(values[CALL_ARG_3]));
-        } else {
-            pattern->UnRegisterResource("underlineColorDisable");
-        }
-    }
-    TextFieldModelNG::SetUserUnderlineColor(frameNode, userColor);
-}
-
-void GetTextInputUserUnderlineColor(ArkUINodeHandle node, ArkUI_Uint32 (*values)[4])
-{
-    auto *frameNode = reinterpret_cast<FrameNode *>(node);
-    CHECK_NULL_VOID(frameNode);
-    UserUnderlineColor userColor = TextFieldModelNG::GetUnderLineColor(frameNode);
-    (*values)[CALL_ARG_0] = userColor.typing->GetValue();
-    (*values)[CALL_ARG_1] = userColor.normal->GetValue();
-    (*values)[CALL_ARG_2] = userColor.error->GetValue();
-    (*values)[CALL_ARG_3] = userColor.disable->GetValue();
-}
-
-void ResetTextInputUserUnderlineColor(ArkUINodeHandle node)
-{
-    auto *frameNode = reinterpret_cast<FrameNode *>(node);
-    CHECK_NULL_VOID(frameNode);
-    UserUnderlineColor userColor = UserUnderlineColor();
-    TextFieldModelNG::SetUserUnderlineColor(frameNode, userColor);
-    if (SystemProperties::ConfigChangePerform()) {
-        auto pattern = frameNode->GetPattern();
-        CHECK_NULL_VOID(pattern);
-        pattern->UnRegisterResource("underlineColorTyping");
-        pattern->UnRegisterResource("underlineColorNormal");
-        pattern->UnRegisterResource("underlineColorError");
-        pattern->UnRegisterResource("underlineColorDisable");
     }
 }
 
@@ -1371,6 +1373,110 @@ ArkUI_Int32 GetTextInputTextSelectionIndex(ArkUINodeHandle node, ArkUI_Bool isEn
     return TextFieldModelNG::GetTextSelectionIndex(frameNode, isEnd);
 }
 
+void RegisterPaddingResource(FrameNode* frameNode, const struct ArkUISizeType* top, const struct ArkUISizeType* right,
+    const struct ArkUISizeType* bottom, const struct ArkUISizeType* left, ArkUIPaddingRes* paddingRes)
+{
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
+    auto pattern = frameNode->GetPattern();
+    CHECK_NULL_VOID(pattern);
+    if (paddingRes && paddingRes->topObj) {
+        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(paddingRes->topObj));
+        pattern->RegisterResource<CalcDimension>("paddingTop", resObj,
+        CalcDimension(top->value, static_cast<DimensionUnit>(top->unit)));
+    } else {
+        pattern->UnRegisterResource("paddingTop");
+    }
+    if (paddingRes && paddingRes->bottomObj) {
+        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(paddingRes->bottomObj));
+        pattern->RegisterResource<CalcDimension>("paddingBottom", resObj,
+        CalcDimension(bottom->value, static_cast<DimensionUnit>(bottom->unit)));
+    } else {
+        pattern->UnRegisterResource("paddingBottom");
+    }
+    if (paddingRes && paddingRes->leftObj) {
+        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(paddingRes->leftObj));
+        pattern->RegisterResource<CalcDimension>("paddingLeft", resObj,
+        CalcDimension(left->value, static_cast<DimensionUnit>(left->unit)));
+    } else {
+        pattern->UnRegisterResource("paddingLeft");
+    }
+    if (paddingRes && paddingRes->rightObj) {
+        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(paddingRes->rightObj));
+        pattern->RegisterResource<CalcDimension>("paddingRight", resObj,
+        CalcDimension(right->value, static_cast<DimensionUnit>(right->unit)));
+    } else {
+        pattern->UnRegisterResource("paddingRight");
+    }
+}
+
+void SetTextInputPadding(ArkUINodeHandle node, const struct ArkUISizeType* top, const struct ArkUISizeType* right,
+    const struct ArkUISizeType* bottom, const struct ArkUISizeType* left, ArkUIPaddingRes* paddingRes)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    CalcLength topDimen;
+    CalcLength rightDimen;
+    CalcLength bottomDimen;
+    CalcLength leftDimen;
+    if (top->string != nullptr) {
+        topDimen = CalcLength(top->string);
+    } else {
+        topDimen = CalcLength(top->value, static_cast<DimensionUnit>(top->unit));
+    }
+    if (right->string != nullptr) {
+        rightDimen = CalcLength(right->string);
+    } else {
+        rightDimen = CalcLength(right->value, static_cast<DimensionUnit>(right->unit));
+    }
+    if (bottom->string != nullptr) {
+        bottomDimen = CalcLength(bottom->string);
+    } else {
+        bottomDimen = CalcLength(bottom->value, static_cast<DimensionUnit>(bottom->unit));
+    }
+    if (left->string != nullptr) {
+        leftDimen = CalcLength(left->string);
+    } else {
+        leftDimen = CalcLength(left->value, static_cast<DimensionUnit>(left->unit));
+    }
+    NG::PaddingProperty paddings;
+    paddings.top = std::optional<CalcLength>(topDimen);
+    paddings.bottom = std::optional<CalcLength>(bottomDimen);
+    paddings.left = std::optional<CalcLength>(leftDimen);
+    paddings.right = std::optional<CalcLength>(rightDimen);
+    TextFieldModelNG::SetPadding(frameNode, paddings);
+    RegisterPaddingResource(frameNode, top, right, bottom, left, paddingRes);
+}
+
+void ResetTextInputPadding(ArkUINodeHandle node)
+{
+    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::ResetTextInputPadding(frameNode);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        pattern->UnRegisterResource("paddingTop");
+        pattern->UnRegisterResource("paddingBottom");
+        pattern->UnRegisterResource("paddingLeft");
+        pattern->UnRegisterResource("paddingRight");
+    }
+}
+
+void SetTextInputFontFeature(ArkUINodeHandle node, ArkUI_CharPtr value)
+{
+    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    std::string strValue = value;
+    TextFieldModelNG::SetFontFeature(frameNode, ParseFontFeatureSettings(strValue));
+}
+
+void ResetTextInputFontFeature(ArkUINodeHandle node)
+{
+    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    std::string strValue = "";
+    TextFieldModelNG::SetFontFeature(frameNode, ParseFontFeatureSettings(strValue));
+}
+
 void SetTextInputDecoration(ArkUINodeHandle node, ArkUI_Int32 decoration, ArkUI_Uint32 color,
     ArkUI_Int32 style, void* resRawPtr)
 {
@@ -1379,13 +1485,15 @@ void SetTextInputDecoration(ArkUINodeHandle node, ArkUI_Int32 decoration, ArkUI_
     TextFieldModelNG::SetTextDecoration(frameNode, static_cast<TextDecoration>(decoration));
     TextFieldModelNG::SetTextDecorationColor(frameNode, Color(color));
     TextFieldModelNG::SetTextDecorationStyle(frameNode, static_cast<TextDecorationStyle>(style));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<Color>("decorationColor", resObj, Color(color));
-    } else {
-        pattern->UnRegisterResource("decorationColor");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<Color>("decorationColor", resObj, Color(color));
+        } else {
+            pattern->UnRegisterResource("decorationColor");
+        }
     }
 }
 
@@ -1408,13 +1516,16 @@ void SetTextInputLetterSpacing(ArkUINodeHandle node, ArkUI_Float32 value, ArkUI_
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetLetterSpacing(frameNode, CalcDimension(value, (DimensionUnit)unit));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<CalcDimension>("letterSpacing", resObj, CalcDimension(value, (DimensionUnit)unit));
-    } else {
-        pattern->UnRegisterResource("letterSpacing");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<CalcDimension>(
+                "letterSpacing", resObj, CalcDimension(value, (DimensionUnit)unit));
+        } else {
+            pattern->UnRegisterResource("letterSpacing");
+        }
     }
 }
 
@@ -1444,13 +1555,15 @@ void SetTextInputLineHeight(ArkUINodeHandle node, ArkUI_Float32 value, ArkUI_Int
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetLineHeight(frameNode, CalcDimension(value, (DimensionUnit)unit));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<CalcDimension>("lineHeight", resObj, CalcDimension(value, (DimensionUnit)unit));
-    } else {
-        pattern->UnRegisterResource("lineHeight");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<CalcDimension>("lineHeight", resObj, CalcDimension(value, (DimensionUnit)unit));
+        } else {
+            pattern->UnRegisterResource("lineHeight");
+        }
     }
 }
 
@@ -1506,19 +1619,105 @@ void ResetTextInputKeyboardAppearance(ArkUINodeHandle node)
     TextFieldModelNG::SetKeyboardAppearance(frameNode, value);
 }
 
-void SetTextInputFontFeature(ArkUINodeHandle node, ArkUI_CharPtr value)
+void SetTextInputNormalUnderlineColor(ArkUINodeHandle node, ArkUI_Uint32 normalColor, void* resRawPtr)
+{
+    auto *frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetNormalUnderlineColor(frameNode, Color(normalColor));
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<Color>("underlineColorNormal", resObj, Color(normalColor));
+        } else {
+            pattern->UnRegisterResource("underlineColorNormal");
+        }
+    }
+}
+
+void SetTextInputUserUnderlineColorRegister(FrameNode* frameNode, ArkUIUserUnderlineColorRes* colorObj,
+    void* subColorObj, Color& result, const std::string& key)
+{
+    auto pattern = frameNode->GetPattern();
+    CHECK_NULL_VOID(pattern);
+    if (SystemProperties::ConfigChangePerform()) {
+        RefPtr<ResourceObject> resObj;
+        if (colorObj && subColorObj) {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject *>(subColorObj));
+        } else {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        }
+        if (resObj) {
+            pattern->RegisterResource<Color>(key, resObj, result);
+        } else {
+            pattern->UnRegisterResource(key);
+        }
+    }
+}
+
+void SetTextInputUserUnderlineColor(ArkUINodeHandle node, const ArkUI_Uint32* values, const ArkUI_Bool* hasValues,
+    ArkUI_Int32 length, ArkUIUserUnderlineColorRes* underlineColorObj)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    UserUnderlineColor userColor = UserUnderlineColor();
+    if (length != DEFAULT_GROUP_UNDERLINE_COLOR_VALUES_COUNT) {
+        return;
+    }
+    if (hasValues[CALL_ARG_0]) {
+        Color result = Color(values[CALL_ARG_0]);
+        SetTextInputUserUnderlineColorRegister(frameNode, underlineColorObj,
+            underlineColorObj ? underlineColorObj->typingColorObj : nullptr, result, "underlineColorTyping");
+        userColor.typing = result;
+    }
+    if (hasValues[CALL_ARG_1]) {
+        Color result = Color(values[CALL_ARG_1]);
+        SetTextInputUserUnderlineColorRegister(frameNode, underlineColorObj,
+            underlineColorObj ? underlineColorObj->normalColorObj : nullptr, result, "underlineColorNormal");
+        userColor.normal = result;
+    }
+    if (hasValues[CALL_ARG_2]) {
+        Color result = Color(values[CALL_ARG_2]);
+        SetTextInputUserUnderlineColorRegister(frameNode, underlineColorObj,
+            underlineColorObj ? underlineColorObj->errorColorObj : nullptr, result, "underlineColorError");
+        userColor.error = result;
+    }
+    if (hasValues[CALL_ARG_3]) {
+        Color result = Color(values[CALL_ARG_3]);
+        SetTextInputUserUnderlineColorRegister(frameNode, underlineColorObj,
+            underlineColorObj ? underlineColorObj->disableColorObj : nullptr, result, "underlineColorDisable");
+        userColor.disable = result;
+    }
+    TextFieldModelNG::SetUserUnderlineColor(frameNode, userColor);
+}
+
+void GetTextInputUserUnderlineColor(ArkUINodeHandle node, ArkUI_Uint32 (*values)[4])
 {
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    std::string strValue = value;
-    TextFieldModelNG::SetFontFeature(frameNode, ParseFontFeatureSettings(strValue));
+    UserUnderlineColor userColor = TextFieldModelNG::GetUnderLineColor(frameNode);
+    (*values)[CALL_ARG_0] = userColor.typing->GetValue();
+    (*values)[CALL_ARG_1] = userColor.normal->GetValue();
+    (*values)[CALL_ARG_2] = userColor.error->GetValue();
+    (*values)[CALL_ARG_3] = userColor.disable->GetValue();
 }
 
-void ResetTextInputFontFeature(ArkUINodeHandle node)
+void ResetTextInputUserUnderlineColor(ArkUINodeHandle node)
 {
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
-    std::string strValue = "";
-    TextFieldModelNG::SetFontFeature(frameNode, ParseFontFeatureSettings(strValue));
+    CHECK_NULL_VOID(frameNode);
+    UserUnderlineColor userColor = UserUnderlineColor();
+    TextFieldModelNG::SetUserUnderlineColor(frameNode, userColor);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        pattern->UnRegisterResource("underlineColorTyping");
+        pattern->UnRegisterResource("underlineColorNormal");
+        pattern->UnRegisterResource("underlineColorError");
+        pattern->UnRegisterResource("underlineColorDisable");
+    }
 }
 
 void SetTextInputWordBreak(ArkUINodeHandle node, ArkUI_Uint32 wordBreak)
@@ -1543,178 +1742,6 @@ void ResetTextInputWordBreak(ArkUINodeHandle node)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetWordBreak(frameNode, WORD_BREAK_TYPES[2]); // 2 is the default value of WordBreak::BREAK_WORD
-}
-
-void RegisterPaddingResource(FrameNode* frameNode, const struct ArkUISizeType* top, const struct ArkUISizeType* right,
-    const struct ArkUISizeType* bottom, const struct ArkUISizeType* left, ArkUIPaddingRes* paddingRes)
-{
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && paddingRes && paddingRes->topObj) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(paddingRes->topObj));
-        pattern->RegisterResource<CalcDimension>("paddingTop", resObj,
-        CalcDimension(top->value, static_cast<DimensionUnit>(top->unit)));
-    } else {
-        pattern->UnRegisterResource("paddingTop");
-    }
-    if (SystemProperties::ConfigChangePerform() && paddingRes && paddingRes->bottomObj) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(paddingRes->bottomObj));
-        pattern->RegisterResource<CalcDimension>("paddingBottom", resObj,
-        CalcDimension(bottom->value, static_cast<DimensionUnit>(bottom->unit)));
-    } else {
-        pattern->UnRegisterResource("paddingBottom");
-    }
-    if (SystemProperties::ConfigChangePerform() && paddingRes && paddingRes->leftObj) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(paddingRes->leftObj));
-        pattern->RegisterResource<CalcDimension>("paddingLeft", resObj,
-        CalcDimension(left->value, static_cast<DimensionUnit>(left->unit)));
-    } else {
-        pattern->UnRegisterResource("paddingLeft");
-    }
-    if (SystemProperties::ConfigChangePerform() && paddingRes && paddingRes->rightObj) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(paddingRes->rightObj));
-        pattern->RegisterResource<CalcDimension>("paddingRight", resObj,
-        CalcDimension(right->value, static_cast<DimensionUnit>(right->unit)));
-    } else {
-        pattern->UnRegisterResource("paddingRight");
-    }
-}
-
-void SetTextInputPadding(ArkUINodeHandle node, const struct ArkUISizeType* top, const struct ArkUISizeType* right,
-    const struct ArkUISizeType* bottom, const struct ArkUISizeType* left, ArkUIPaddingRes* paddingRes)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    CalcLength topDimen;
-    CalcLength rightDimen;
-    CalcLength bottomDimen;
-    CalcLength leftDimen;
-    if (top->string != nullptr) {
-        topDimen = CalcLength(top->string);
-    } else {
-        topDimen = CalcLength(top->value, static_cast<DimensionUnit>(top->unit));
-    }
-    if (right->string != nullptr) {
-        rightDimen = CalcLength(right->string);
-    } else {
-        rightDimen = CalcLength(right->value, static_cast<DimensionUnit>(right->unit));
-    }
-    if (bottom->string != nullptr) {
-        bottomDimen = CalcLength(bottom->string);
-    } else {
-        bottomDimen = CalcLength(bottom->value, static_cast<DimensionUnit>(bottom->unit));
-    }
-    if (left->string != nullptr) {
-        leftDimen = CalcLength(left->string);
-    } else {
-        leftDimen = CalcLength(left->value, static_cast<DimensionUnit>(left->unit));
-    }
-    NG::PaddingProperty paddings;
-    paddings.top = std::optional<CalcLength>(topDimen);
-    paddings.bottom = std::optional<CalcLength>(bottomDimen);
-    paddings.left = std::optional<CalcLength>(leftDimen);
-    paddings.right = std::optional<CalcLength>(rightDimen);
-    TextFieldModelNG::SetPadding(frameNode, paddings);
-    RegisterPaddingResource(frameNode, top, right, bottom, left, paddingRes);
-}
-
-void ResetTextInputPadding(ArkUINodeHandle node)
-{
-    auto *frameNode = reinterpret_cast<FrameNode *>(node);
-    TextFieldModelNG::ResetTextInputPadding(frameNode);
-    if (SystemProperties::ConfigChangePerform()) {
-        auto pattern = frameNode->GetPattern();
-        CHECK_NULL_VOID(pattern);
-        pattern->UnRegisterResource("paddingTop");
-        pattern->UnRegisterResource("paddingBottom");
-        pattern->UnRegisterResource("paddingLeft");
-        pattern->UnRegisterResource("paddingRight");
-    }
-}
-
-void SetTextInputAdaptMinFontSize(ArkUINodeHandle node, ArkUI_Float32 value, ArkUI_Int32 unit, void* resRawPtr)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetAdaptMinFontSize(frameNode, CalcDimension(value, (DimensionUnit)unit));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<CalcDimension>("minFontSize", resObj, CalcDimension(value, (DimensionUnit)unit));
-    } else {
-        pattern->UnRegisterResource("minFontSize");
-    }
-}
-
-void ResetTextInputAdaptMinFontSize(ArkUINodeHandle node)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    auto pipelineContext = frameNode->GetContext();
-    CHECK_NULL_VOID(pipelineContext);
-    auto theme = pipelineContext->GetTheme<TextFieldTheme>();
-    CHECK_NULL_VOID(theme);
-    CalcDimension minFontSize = theme->GetTextStyle().GetAdaptMinFontSize();
-    TextFieldModelNG::SetAdaptMinFontSize(frameNode, minFontSize);
-    if (SystemProperties::ConfigChangePerform()) {
-        auto pattern = frameNode->GetPattern();
-        CHECK_NULL_VOID(pattern);
-        pattern->UnRegisterResource("minFontSize");
-    }
-}
-
-void SetTextInputAdaptMaxFontSize(ArkUINodeHandle node, ArkUI_Float32 value, ArkUI_Int32 unit, void* resRawPtr)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetAdaptMaxFontSize(frameNode, CalcDimension(value, (DimensionUnit)unit));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<CalcDimension>("maxFontSize", resObj, CalcDimension(value, (DimensionUnit)unit));
-    } else {
-        pattern->UnRegisterResource("maxFontSize");
-    }
-}
-
-void ResetTextInputAdaptMaxFontSize(ArkUINodeHandle node)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    auto pipelineContext = frameNode->GetContext();
-    CHECK_NULL_VOID(pipelineContext);
-    auto theme = pipelineContext->GetTheme<TextFieldTheme>();
-    CHECK_NULL_VOID(theme);
-    CalcDimension maxFontSize = theme->GetTextStyle().GetAdaptMaxFontSize();
-    TextFieldModelNG::SetAdaptMaxFontSize(frameNode, maxFontSize);
-    if (SystemProperties::ConfigChangePerform()) {
-        auto pattern = frameNode->GetPattern();
-        CHECK_NULL_VOID(pattern);
-        pattern->UnRegisterResource("maxFontSize");
-    }
-}
-
-void SetTextInputHeightAdaptivePolicy(ArkUINodeHandle node, ArkUI_Int32 value)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetHeightAdaptivePolicy(frameNode, static_cast<Ace::TextHeightAdaptivePolicy>(value));
-}
-
-void ResetTextInputHeightAdaptivePolicy(ArkUINodeHandle node)
-{
-    auto *frameNode = reinterpret_cast<FrameNode *>(node);
-    CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetHeightAdaptivePolicy(frameNode, TextHeightAdaptivePolicy::MAX_LINES_FIRST);
-}
-
-ArkUI_Bool GetTextInputSelectionMenuHidden(ArkUINodeHandle node)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
-    return TextFieldModelNG::GetSelectionMenuHidden(frameNode);
 }
 
 void SetTextInputPlaceholderFontEnum(ArkUINodeHandle node, const struct ArkUIResourceLength* size, ArkUI_Int32 weight,
@@ -1760,6 +1787,95 @@ void SetTextInputPlaceholderFontEnum(ArkUINodeHandle node, const struct ArkUIRes
     TextFieldModelNG::SetPlaceholderFont(frameNode, font);
 }
 
+void SetTextInputAdaptMinFontSize(ArkUINodeHandle node, ArkUI_Float32 value, ArkUI_Int32 unit, void* resRawPtr)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetAdaptMinFontSize(frameNode, CalcDimension(value, (DimensionUnit)unit));
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<CalcDimension>("minFontSize", resObj, CalcDimension(value, (DimensionUnit)unit));
+        } else {
+            pattern->UnRegisterResource("minFontSize");
+        }
+    }
+}
+
+void ResetTextInputAdaptMinFontSize(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto pipelineContext = frameNode->GetContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto theme = pipelineContext->GetTheme<TextFieldTheme>();
+    CHECK_NULL_VOID(theme);
+    CalcDimension minFontSize = theme->GetTextStyle().GetAdaptMinFontSize();
+    TextFieldModelNG::SetAdaptMinFontSize(frameNode, minFontSize);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        pattern->UnRegisterResource("minFontSize");
+    }
+}
+
+void SetTextInputAdaptMaxFontSize(ArkUINodeHandle node, ArkUI_Float32 value, ArkUI_Int32 unit, void* resRawPtr)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetAdaptMaxFontSize(frameNode, CalcDimension(value, (DimensionUnit)unit));
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<CalcDimension>("maxFontSize", resObj, CalcDimension(value, (DimensionUnit)unit));
+        } else {
+            pattern->UnRegisterResource("maxFontSize");
+        }
+    }
+}
+
+void ResetTextInputAdaptMaxFontSize(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto pipelineContext = frameNode->GetContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto theme = pipelineContext->GetTheme<TextFieldTheme>();
+    CHECK_NULL_VOID(theme);
+    CalcDimension maxFontSize = theme->GetTextStyle().GetAdaptMaxFontSize();
+    TextFieldModelNG::SetAdaptMaxFontSize(frameNode, maxFontSize);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        pattern->UnRegisterResource("maxFontSize");
+    }
+}
+
+void SetTextInputHeightAdaptivePolicy(ArkUINodeHandle node, ArkUI_Int32 value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetHeightAdaptivePolicy(frameNode, static_cast<Ace::TextHeightAdaptivePolicy>(value));
+}
+
+void ResetTextInputHeightAdaptivePolicy(ArkUINodeHandle node)
+{
+    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetHeightAdaptivePolicy(frameNode, TextHeightAdaptivePolicy::MAX_LINES_FIRST);
+}
+
+ArkUI_Bool GetTextInputSelectionMenuHidden(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
+    return TextFieldModelNG::GetSelectionMenuHidden(frameNode);
+}
+
 void SetTextInputTextOverflow(ArkUINodeHandle node, ArkUI_Int32 value)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -1775,19 +1891,29 @@ void ResetTextInputTextOverflow(ArkUINodeHandle node)
     TextFieldModelNG::SetTextOverflow(frameNode, TextOverflow::DEFAULT);
 }
 
+int32_t GetTextInputTextOverflow(ArkUINodeHandle node)
+{
+    int32_t defaultTextOverflow = static_cast<int32_t>(TextOverflow::NONE);
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, defaultTextOverflow);
+    return static_cast<int32_t>(TextFieldModelNG::GetTextOverflow(frameNode));
+}
+
 void SetTextInputTextIndent(ArkUINodeHandle node, ArkUI_Float32 number, ArkUI_Int32 unit, void* resRawPtr)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetTextIndent(frameNode, Dimension(number, static_cast<DimensionUnit>(unit)));
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<CalcDimension>("textIndent", resObj,
-        Dimension(number, static_cast<DimensionUnit>(unit)));
-    } else {
-        pattern->UnRegisterResource("textIndent");
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<CalcDimension>("textIndent", resObj,
+            Dimension(number, static_cast<DimensionUnit>(unit)));
+        } else {
+            pattern->UnRegisterResource("textIndent");
+        }
     }
 }
 
@@ -1803,25 +1929,25 @@ void ResetTextInputTextIndent(ArkUINodeHandle node)
     }
 }
 
-void SetTextInputShowPassword(ArkUINodeHandle node, ArkUI_Uint32 value)
+void SetSelectDetectorEnable(ArkUINodeHandle node, ArkUI_Uint32 value)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetShowPassword(frameNode, static_cast<bool>(value));
+    TextFieldModelNG::SetSelectDetectEnable(frameNode, static_cast<bool>(value));
 }
 
-void ResetTextInputShowPassword(ArkUINodeHandle node)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetShowPassword(frameNode, false);
-}
-
-ArkUI_Bool GetTextInputShowPassword(ArkUINodeHandle node)
+ArkUI_Int32 GetSelectDetectorEnable(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
-    return TextFieldModelNG::GetShowPassword(frameNode);
+    return static_cast<ArkUI_Int32>(TextFieldModelNG::GetSelectDetectEnable(frameNode));
+}
+
+void ResetSelectDetectorEnable(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::ResetSelectDetectEnable(frameNode);
 }
 
 ArkUI_CharPtr GetTextInputFontFeature(ArkUINodeHandle node)
@@ -1863,6 +1989,13 @@ ArkUI_Float32 GetTextInputLineHeight(ArkUINodeHandle node)
     return TextFieldModelNG::GetLineHeight(frameNode).Value();
 }
 
+ArkUI_Bool GetTextInputHalfLeading(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, ERROR_FLOAT_CODE);
+    return static_cast<ArkUI_Bool>(TextFieldModelNG::GetHalfLeading(frameNode));
+}
+
 ArkUI_Int32 GetTextInputMaxLines(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -1884,14 +2017,43 @@ void ResetTextInputSelectAll(ArkUINodeHandle node)
     TextFieldModelNG::SetSelectAllValue(frameNode, DEFAULT_SELECT_ALL);
 }
 
-void SetTextInputShowCounter(
-    ArkUINodeHandle node, ArkUI_Uint32 open, ArkUI_Int32 thresholdPercentage, ArkUI_Uint32 highlightBorder)
+void SetTextInputShowCounter(ArkUINodeHandle node, ArkUIShowCountOptions* showCountOptions,
+    void* counterTextColorRawPtr, void* counterTextOverflowColorRawPtr)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetShowCounter(frameNode, static_cast<bool>(open));
-    TextFieldModelNG::SetCounterType(frameNode, thresholdPercentage);
-    TextFieldModelNG::SetShowCounterBorder(frameNode, static_cast<bool>(highlightBorder));
+    TextFieldModelNG::SetShowCounter(frameNode, static_cast<bool>(showCountOptions->open));
+    TextFieldModelNG::SetCounterType(frameNode, showCountOptions->thresholdPercentage);
+    TextFieldModelNG::SetShowCounterBorder(frameNode, static_cast<bool>(showCountOptions->highlightBorder));
+    if (showCountOptions->counterTextColorIsSet) {
+        TextFieldModelNG::SetCounterTextColor(frameNode, Color(showCountOptions->counterTextColor));
+    } else {
+        TextFieldModelNG::ResetCounterTextColor(frameNode);
+    }
+    if (showCountOptions->counterTextOverflowColorIsSet) {
+        TextFieldModelNG::SetCounterTextOverflowColor(frameNode, Color(showCountOptions->counterTextOverflowColor));
+    } else {
+        TextFieldModelNG::ResetCounterTextOverflowColor(frameNode);
+    }
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (counterTextColorRawPtr) {
+            auto resObjTextColor = AceType::Claim(reinterpret_cast<ResourceObject*>(counterTextColorRawPtr));
+            pattern->RegisterResource<Color>(
+                "counterTextColor", resObjTextColor, Color(showCountOptions->counterTextColor));
+        } else {
+            pattern->UnRegisterResource("counterTextColor");
+        }
+        if (counterTextOverflowColorRawPtr) {
+            auto resObjTextOverflowColor =
+                AceType::Claim(reinterpret_cast<ResourceObject*>(counterTextOverflowColorRawPtr));
+            pattern->RegisterResource<Color>(
+                "counterTextOverflowColor", resObjTextOverflowColor, Color(showCountOptions->counterTextOverflowColor));
+        } else {
+            pattern->UnRegisterResource("counterTextOverflowColor");
+        }
+    }
 }
 
 void ResetTextInputShowCounter(ArkUINodeHandle node)
@@ -1901,6 +2063,25 @@ void ResetTextInputShowCounter(ArkUINodeHandle node)
     TextFieldModelNG::SetShowCounter(frameNode, false);
     TextFieldModelNG::SetCounterType(frameNode, -1);
     TextFieldModelNG::SetShowCounterBorder(frameNode, true);
+    TextFieldModelNG::ResetCounterTextColor(frameNode);
+    TextFieldModelNG::ResetCounterTextOverflowColor(frameNode);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        pattern->UnRegisterResource("caretColor");
+        pattern->UnRegisterResource("counterTextOverflowColor");
+    }
+}
+
+void GetTextInputShowCounterOptions(ArkUINodeHandle node, ArkUIShowCountOptions* options)
+{
+    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    options->open = TextFieldModelNG::GetShowCounter(frameNode);
+    options->thresholdPercentage = TextFieldModelNG::GetCounterType(frameNode);
+    options->highlightBorder = TextFieldModelNG::GetShowCounterBorder(frameNode);
+    options->counterTextColor = TextFieldModelNG::GetCounterTextColor(frameNode).GetValue();
+    options->counterTextOverflowColor = TextFieldModelNG::GetCounterTextOverflowColor(frameNode).GetValue();
 }
 
 void SetTextInputOnEditChange(ArkUINodeHandle node, void* callback)
@@ -2018,6 +2199,25 @@ void ResetTextInputOnContentScroll(ArkUINodeHandle node)
     TextFieldModelNG::SetOnContentScroll(frameNode, nullptr);
 }
 
+void SetTextInputOnWillCopy(ArkUINodeHandle node, void* callback)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (callback) {
+        auto func = reinterpret_cast<std::function<bool(const std::u16string&)>*>(callback);
+        TextFieldModelNG::SetOnWillCopy(frameNode, std::move(*func));
+    } else {
+        TextFieldModelNG::SetOnWillCopy(frameNode, nullptr);
+    }
+}
+
+void ResetTextInputOnWillCopy(ArkUINodeHandle node)
+{
+    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetOnWillCopy(frameNode, nullptr);
+}
+
 void SetTextInputOnCopy(ArkUINodeHandle node, void* callback)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -2035,6 +2235,25 @@ void ResetTextInputOnCopy(ArkUINodeHandle node)
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetOnCopy(frameNode, nullptr);
+}
+
+void SetTextInputOnWillCut(ArkUINodeHandle node, void* callback)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (callback) {
+        auto func = reinterpret_cast<std::function<bool(const std::u16string&)>*>(callback);
+        TextFieldModelNG::SetOnWillCut(frameNode, std::move(*func));
+    } else {
+        TextFieldModelNG::SetOnWillCut(frameNode, nullptr);
+    }
+}
+
+void ResetTextInputOnWillCut(ArkUINodeHandle node)
+{
+    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetOnWillCut(frameNode, nullptr);
 }
 
 void SetTextInputOnCut(ArkUINodeHandle node, void* callback)
@@ -2095,7 +2314,7 @@ void SetTextInputCustomKeyboard(ArkUINodeHandle node, ArkUINodeHandle customKeyb
     CHECK_NULL_VOID(frameNode);
     auto *customKeyboardNode = reinterpret_cast<FrameNode*>(customKeyboard);
     CHECK_NULL_VOID(customKeyboardNode);
-    TextFieldModelNG::SetCustomKeyboard(frameNode, customKeyboardNode, supportAvoidance);
+    TextFieldModelNG::SetCustomKeyboardWithNode(frameNode, customKeyboardNode, supportAvoidance);
 }
 
 ArkUINodeHandle GetTextInputCustomKeyboard(ArkUINodeHandle node)
@@ -2118,25 +2337,7 @@ void ResetTextInputCustomKeyboard(ArkUINodeHandle node)
 {
     auto *frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetCustomKeyboard(frameNode, nullptr, false);
-}
-
-void SetTextInputLineBreakStrategy(ArkUINodeHandle node, ArkUI_Uint32 lineBreakStrategy)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    if (lineBreakStrategy < 0 || lineBreakStrategy >= LINE_BREAK_STRATEGY_TYPES.size()) {
-        lineBreakStrategy = 0; // 0 is the default value of lineBreakStrategy::GREEDY
-    }
-    TextFieldModelNG::SetLineBreakStrategy(frameNode, LINE_BREAK_STRATEGY_TYPES[lineBreakStrategy]);
-}
-
-void ResetTextInputLineBreakStrategy(ArkUINodeHandle node)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-     // 0 is the default value of lineBreakStrategy::GREEDY
-    TextFieldModelNG::SetLineBreakStrategy(frameNode, LINE_BREAK_STRATEGY_TYPES[0]);
+    TextFieldModelNG::SetCustomKeyboardWithNode(frameNode, nullptr, false);
 }
 
 void SetTextInputShowKeyBoardOnFocus(ArkUINodeHandle node, ArkUI_Bool value)
@@ -2181,33 +2382,73 @@ void ResetTextInputNumberOfLines(ArkUINodeHandle node)
     TextFieldModelNG::ResetNumberOfLines(frameNode);
 }
 
+void SetTextInputShowPassword(ArkUINodeHandle node, ArkUI_Uint32 value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetShowPassword(frameNode, static_cast<bool>(value));
+}
+
+void ResetTextInputShowPassword(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetShowPassword(frameNode, false);
+}
+
+ArkUI_Bool GetTextInputShowPassword(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
+    return TextFieldModelNG::GetShowPassword(frameNode);
+}
+
+void SetTextInputLineBreakStrategy(ArkUINodeHandle node, ArkUI_Uint32 lineBreakStrategy)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (lineBreakStrategy < 0 || lineBreakStrategy >= LINE_BREAK_STRATEGY_TYPES.size()) {
+        lineBreakStrategy = 0; // 0 is the default value of lineBreakStrategy::GREEDY
+    }
+    TextFieldModelNG::SetLineBreakStrategy(frameNode, LINE_BREAK_STRATEGY_TYPES[lineBreakStrategy]);
+}
+
+void ResetTextInputLineBreakStrategy(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+     // 0 is the default value of lineBreakStrategy::GREEDY
+    TextFieldModelNG::SetLineBreakStrategy(frameNode, LINE_BREAK_STRATEGY_TYPES[0]);
+}
+
 void RegisterMarginResource(FrameNode* frameNode, const struct ArkUISizeType* top, const struct ArkUISizeType* right,
     const struct ArkUISizeType* bottom, const struct ArkUISizeType* left, ArkUIPaddingRes* marginRes)
 {
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
     auto pattern = frameNode->GetPattern();
     CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && marginRes && marginRes->topObj) {
+    if (marginRes && marginRes->topObj) {
         auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(marginRes->topObj));
         pattern->RegisterResource<CalcDimension>("marginTop", resObj,
         CalcDimension(top->value, static_cast<DimensionUnit>(top->unit)));
     } else {
         pattern->UnRegisterResource("marginTop");
     }
-    if (SystemProperties::ConfigChangePerform() && marginRes && marginRes->bottomObj) {
+    if (marginRes && marginRes->bottomObj) {
         auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(marginRes->bottomObj));
         pattern->RegisterResource<CalcDimension>("marginBottom", resObj,
         CalcDimension(bottom->value, static_cast<DimensionUnit>(bottom->unit)));
     } else {
         pattern->UnRegisterResource("marginBottom");
     }
-    if (SystemProperties::ConfigChangePerform() && marginRes && marginRes->leftObj) {
+    if (marginRes && marginRes->leftObj) {
         auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(marginRes->leftObj));
         pattern->RegisterResource<CalcDimension>("marginLeft", resObj,
         CalcDimension(left->value, static_cast<DimensionUnit>(left->unit)));
     } else {
         pattern->UnRegisterResource("marginLeft");
     }
-    if (SystemProperties::ConfigChangePerform() && marginRes && marginRes->rightObj) {
+    if (marginRes && marginRes->rightObj) {
         auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(marginRes->rightObj));
         pattern->RegisterResource<CalcDimension>("marginRight", resObj,
         CalcDimension(right->value, static_cast<DimensionUnit>(right->unit)));
@@ -2274,23 +2515,6 @@ void ResetTextInputMargin(ArkUINodeHandle node)
     }
 }
 
-void SetTextInputCaret(ArkUINodeHandle node, ArkUI_Float32 value, ArkUI_Int32 unit, void* resRawPtr)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    CaretStyle caretStyle;
-    caretStyle.caretWidth = CalcDimension(value, (DimensionUnit)unit);
-    TextFieldModelNG::SetCaretStyle(frameNode, caretStyle);
-    auto pattern = frameNode->GetPattern();
-    CHECK_NULL_VOID(pattern);
-    if (SystemProperties::ConfigChangePerform() && resRawPtr) {
-        auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
-        pattern->RegisterResource<CalcDimension>("caretWidth", resObj, CalcDimension(value, (DimensionUnit)unit));
-    } else {
-        pattern->UnRegisterResource("caretWidth");
-    }
-}
-
 void GetTextInputMargin(ArkUINodeHandle node, ArkUI_Float32 (*values)[4], ArkUI_Int32 length, ArkUI_Int32 unit)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -2300,6 +2524,25 @@ void GetTextInputMargin(ArkUINodeHandle node, ArkUI_Float32 (*values)[4], ArkUI_
     (*values)[CALL_ARG_1] = margin.right->GetDimension().GetNativeValue(static_cast<DimensionUnit>(unit));
     (*values)[CALL_ARG_2] = margin.bottom->GetDimension().GetNativeValue(static_cast<DimensionUnit>(unit));
     (*values)[CALL_ARG_3] = margin.left->GetDimension().GetNativeValue(static_cast<DimensionUnit>(unit));
+}
+
+void SetTextInputCaret(ArkUINodeHandle node, ArkUI_Float32 value, ArkUI_Int32 unit, void* resRawPtr)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    CaretStyle caretStyle;
+    caretStyle.caretWidth = CalcDimension(value, (DimensionUnit)unit);
+    TextFieldModelNG::SetCaretStyle(frameNode, caretStyle);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<CalcDimension>("caretWidth", resObj, CalcDimension(value, (DimensionUnit)unit));
+        } else {
+            pattern->UnRegisterResource("caretWidth");
+        }
+    }
 }
 
 void SetTextInputEnablePreviewText(ArkUINodeHandle node, ArkUI_Uint32 value)
@@ -2395,17 +2638,24 @@ void SetEllipsisMode(ArkUINodeHandle node, ArkUI_Uint32 ellipsisMode)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    if (ellipsisMode < 0 || ellipsisMode >= ELLIPSIS_MODALS.size()) {
+    if (ellipsisMode < 0 || ellipsisMode >= ELLIPSIS_MODES.size()) {
         ellipsisMode = ELLIPSIS_MODE_TAIL;
     }
-    TextFieldModelNG::SetEllipsisMode(frameNode, ELLIPSIS_MODALS[ellipsisMode]);
+    TextFieldModelNG::SetEllipsisMode(frameNode, ELLIPSIS_MODES[ellipsisMode]);
 }
 
 void ResetEllipsisMode(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetEllipsisMode(frameNode, ELLIPSIS_MODALS[ELLIPSIS_MODE_TAIL]);
+    TextFieldModelNG::SetEllipsisMode(frameNode, ELLIPSIS_MODES[ELLIPSIS_MODE_TAIL]);
+}
+
+ArkUI_Int32 GetEllipsisMode(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
+    return static_cast<ArkUI_Int32>(TextFieldModelNG::GetEllipsisMode(frameNode));
 }
 
 void SetStopBackPress(ArkUINodeHandle node, ArkUI_Uint32 value)
@@ -2469,11 +2719,21 @@ ArkUI_Float32 GetTextInputStrokeWidth(ArkUINodeHandle node)
     return TextFieldModelNG::GetStrokeWidth(frameNode).Value();
 }
 
-void SetTextInputStrokeColor(ArkUINodeHandle node, ArkUI_Uint32 color)
+void SetTextInputStrokeColor(ArkUINodeHandle node, ArkUI_Uint32 color, void* resRawPtr)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetStrokeColor(frameNode, Color(color));
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resRawPtr) {
+            auto resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+            pattern->RegisterResource<Color>("strokeColor", resObj, Color(color));
+        } else {
+            pattern->UnRegisterResource("strokeColor");
+        }
+    }
 }
 
 void ResetTextInputStrokeColor(ArkUINodeHandle node)
@@ -2481,6 +2741,11 @@ void ResetTextInputStrokeColor(ArkUINodeHandle node)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::ResetStrokeColor(frameNode);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        pattern->UnRegisterResource("strokeColor");
+    }
 }
 
 ArkUI_Uint32 GetTextInputStrokeColor(ArkUINodeHandle node)
@@ -2503,12 +2768,176 @@ void ResetEnableAutoSpacing(ArkUINodeHandle node)
     CHECK_NULL_VOID(frameNode);
     TextFieldModelNG::SetEnableAutoSpacing(frameNode, false);
 }
+
+void ScrollToVisible(ArkUINodeHandle node, ArkUI_Int32 start, ArkUI_Int32 end)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::ScrollToVisible(frameNode, start, end);
+}
+
+void SetTextInputOnWillAttachIME(ArkUINodeHandle node, void* callback)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (callback) {
+        auto onWillAttachIMECallback = reinterpret_cast<IMEAttachCallback*>(callback);
+        TextFieldModelNG::SetOnWillAttachIME(frameNode, std::move(*onWillAttachIMECallback));
+    } else {
+        TextFieldModelNG::SetOnWillAttachIME(frameNode, nullptr);
+    }
+}
+
+void ResetTextInputOnWillAttachIME(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetOnWillAttachIME(frameNode, nullptr);
+}
+
+void TextInputDeleteBackward(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::DeleteBackward(frameNode);
+}
+
+void SetTextInputOrphanCharOptimization(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetOrphanCharOptimization(frameNode, value);
+}
+
+ArkUI_Int32 GetTextInputOrphanCharOptimization(ArkUINodeHandle node)
+{
+    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_RETURN(frameNode, false);
+    return static_cast<ArkUI_Int32>(TextFieldModelNG::GetOrphanCharOptimization(frameNode));
+}
+
+void ResetTextInputOrphanCharOptimization(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetOrphanCharOptimization(frameNode, false);
+}
+
+void SetTextInputCompressLeadingPunctuation(ArkUINodeHandle node, ArkUI_Bool trim)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetCompressLeadingPunctuation(frameNode, trim);
+}
+
+ArkUI_Int32 GetTextInputCompressLeadingPunctuation(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, false);
+    return static_cast<ArkUI_Int32>(TextFieldModelNG::GetCompressLeadingPunctuation(frameNode));
+}
+
+void ResetTextInputCompressLeadingPunctuation(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetCompressLeadingPunctuation(frameNode, false);
+}
+
+void SetIncludeFontPadding(ArkUINodeHandle node, ArkUI_Bool includeFontPadding)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetIncludeFontPadding(frameNode, static_cast<bool>(includeFontPadding));
+}
+
+void ResetIncludeFontPadding(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetIncludeFontPadding(frameNode, false);
+}
+
+ArkUI_Bool GetIncludeFontPadding(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
+    return static_cast<int>(TextFieldModelNG::GetIncludeFontPadding(frameNode));
+}
+
+void SetFallbackLineSpacing(ArkUINodeHandle node, ArkUI_Bool fallbackLineSpacing)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetFallbackLineSpacing(frameNode, static_cast<bool>(fallbackLineSpacing));
+}
+
+void ResetFallbackLineSpacing(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetFallbackLineSpacing(frameNode, false);
+}
+
+ArkUI_Bool GetFallbackLineSpacing(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
+    return static_cast<int>(TextFieldModelNG::GetFallbackLineSpacing(frameNode));
+}
+
+void SetTextInputSelectedDragPreviewStyle(ArkUINodeHandle node, ArkUI_Uint32 color, void* resRawPtr)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    Color result = Color(color);
+    if (SystemProperties::ConfigChangePerform()) {
+        RefPtr<ResourceObject> resObj;
+        if (!resRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(resRawPtr));
+        }
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        if (resObj) {
+            pattern->RegisterResource<Color>("selectedDragPreviewStyleColor", resObj, result);
+        } else {
+            pattern->UnRegisterResource("selectedDragPreviewStyleColor");
+        }
+    }
+    TextFieldModelNG::SetSelectedDragPreviewStyle(frameNode, result);
+}
+
+void ResetTextInputSelectedDragPreviewStyle(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto pattern = frameNode->GetPattern();
+        CHECK_NULL_VOID(pattern);
+        pattern->UnRegisterResource("selectedDragPreviewStyle");
+    }
+    TextFieldModelNG::ResetSelectedDragPreviewStyle(frameNode);
+}
+
+ArkUI_Uint32 GetTextInputSelectedDragPreviewStyle(ArkUINodeHandle node)
+{
+    auto *frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_RETURN(frameNode, ERROR_UINT_CODE);
+    return TextFieldModelNG::GetSelectedDragPreviewStyle(frameNode).GetValue();
+}
 } // namespace
+
 namespace NodeModifier {
 const ArkUITextInputModifier* GetTextInputModifier()
 {
     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
     static const ArkUITextInputModifier modifier = {
+        .setSelectDetectorEnable = SetSelectDetectorEnable,
+        .getSelectDetectorEnable = GetSelectDetectorEnable,
+        .resetSelectDetectorEnable = ResetSelectDetectorEnable,
         .setTextInputCaretColor = SetTextInputCaretColor,
         .resetTextInputCaretColor = ResetTextInputCaretColor,
         .setTextInputType = SetTextInputType,
@@ -2592,68 +3021,44 @@ const ArkUITextInputModifier* GetTextInputModifier()
         .setTextInputBackgroundColor = SetTextInputBackgroundColor,
         .setTextInputBackgroundColorWithColorSpace = SetTextInputBackgroundColorWithColorSpace,
         .resetTextInputBackgroundColor = ResetTextInputBackgroundColor,
-        .setTextInputNormalUnderlineColor = SetTextInputNormalUnderlineColor,
-        .setTextInputUserUnderlineColor = SetTextInputUserUnderlineColor,
-        .resetTextInputUserUnderlineColor = ResetTextInputUserUnderlineColor,
         .setTextInputTextSelection = SetTextInputTextSelection,
         .getTextInputTextSelectionIndex = GetTextInputTextSelectionIndex,
-        .setTextInputDecoration = SetTextInputDecoration,
-        .resetTextInputDecoration = ResetTextInputDecoration,
-        .setTextInputLetterSpacing = SetTextInputLetterSpacing,
-        .resetTextInputLetterSpacing = ResetTextInputLetterSpacing,
-        .setTextInputLineHeight = SetTextInputLineHeight,
-        .resetTextInputLineHeight = ResetTextInputLineHeight,
         .setTextInputHalfLeading = SetTextInputHalfLeading,
         .resetTextInputHalfLeading = ResetTextInputHalfLeading,
-        .setTextInputFontFeature = SetTextInputFontFeature,
-        .resetTextInputFontFeature = ResetTextInputFontFeature,
-        .setTextInputWordBreak = SetTextInputWordBreak,
-        .resetTextInputWordBreak = ResetTextInputWordBreak,
         .setTextInputPasswordRules = SetTextInputPasswordRules,
         .resetTextInputPasswordRules = ResetTextInputPasswordRules,
         .setTextInputEnableAutoFill = SetTextInputEnableAutoFill,
         .resetTextInputEnableAutoFill = ResetTextInputEnableAutoFill,
         .setTextInputPadding = SetTextInputPadding,
         .resetTextInputPadding = ResetTextInputPadding,
+        .setTextInputFontFeature = SetTextInputFontFeature,
+        .resetTextInputFontFeature = ResetTextInputFontFeature,
+        .setTextInputDecoration = SetTextInputDecoration,
+        .resetTextInputDecoration = ResetTextInputDecoration,
+        .setTextInputLetterSpacing = SetTextInputLetterSpacing,
+        .resetTextInputLetterSpacing = ResetTextInputLetterSpacing,
+        .setTextInputLineHeight = SetTextInputLineHeight,
+        .resetTextInputLineHeight = ResetTextInputLineHeight,
+        .setTextInputNormalUnderlineColor = SetTextInputNormalUnderlineColor,
+        .setTextInputUserUnderlineColor = SetTextInputUserUnderlineColor,
+        .resetTextInputUserUnderlineColor = ResetTextInputUserUnderlineColor,
+        .setTextInputWordBreak = SetTextInputWordBreak,
+        .resetTextInputWordBreak = ResetTextInputWordBreak,
+        .setTextInputPlaceholderFontEnum = SetTextInputPlaceholderFontEnum,
         .setTextInputAdaptMinFontSize = SetTextInputAdaptMinFontSize,
         .resetTextInputAdaptMinFontSize = ResetTextInputAdaptMinFontSize,
         .setTextInputAdaptMaxFontSize = SetTextInputAdaptMaxFontSize,
         .resetTextInputAdaptMaxFontSize = ResetTextInputAdaptMaxFontSize,
         .setTextInputHeightAdaptivePolicy = SetTextInputHeightAdaptivePolicy,
         .resetTextInputHeightAdaptivePolicy = ResetTextInputHeightAdaptivePolicy,
-        .setTextInputPlaceholderFontEnum = SetTextInputPlaceholderFontEnum,
         .setTextInputTextOverflow = SetTextInputTextOverflow,
         .resetTextInputTextOverflow = ResetTextInputTextOverflow,
+        .getTextInputTextOverflow = GetTextInputTextOverflow,
         .setTextInputTextIndent = SetTextInputTextIndent,
         .resetTextInputTextIndent = ResetTextInputTextIndent,
-        .setTextInputSelectAll = SetTextInputSelectAll,
-        .resetTextInputSelectAll = ResetTextInputSelectAll,
-        .setTextInputShowCounter = SetTextInputShowCounter,
-        .resetTextInputShowCounter = ResetTextInputShowCounter,
-        .setTextInputOnEditChange = SetTextInputOnEditChange,
-        .resetTextInputOnEditChange = ResetTextInputOnEditChange,
-        .setTextInputFilter = SetTextInputFilter,
-        .resetTextInputFilter = ResetTextInputFilter,
-        .setTextInputOnSubmitWithEvent = SetTextInputOnSubmitWithEvent,
-        .resetTextInputOnSubmitWithEvent = ResetTextInputOnSubmitWithEvent,
         .setTextInputOnWillChange = SetTextInputOnWillChange,
         .resetTextInputOnWillChange = ResetTextInputOnWillChange,
-        .setTextInputOnChange = SetTextInputOnChange,
-        .resetTextInputOnChange = ResetTextInputOnChange,
-        .setTextInputOnTextSelectionChange = SetTextInputOnTextSelectionChange,
-        .resetTextInputOnTextSelectionChange = ResetTextInputOnTextSelectionChange,
-        .setTextInputOnContentScroll = SetTextInputOnContentScroll,
-        .resetTextInputOnContentScroll = ResetTextInputOnContentScroll,
-        .setTextInputOnCopy = SetTextInputOnCopy,
-        .resetTextInputOnCopy = ResetTextInputOnCopy,
-        .setTextInputOnCut = SetTextInputOnCut,
-        .resetTextInputOnCut = ResetTextInputOnCut,
-        .setTextInputOnPaste = SetTextInputOnPaste,
-        .resetTextInputOnPaste = ResetTextInputOnPaste,
         .getTextInputSelectionMenuHidden = GetTextInputSelectionMenuHidden,
-        .setTextInputShowPassword = SetTextInputShowPassword,
-        .resetTextInputShowPassword = ResetTextInputShowPassword,
-        .getTextInputShowPassword = GetTextInputShowPassword,
         .getTextInputWordBreak = GetTextInputWordBreak,
         .getTextInputEnableAutoFill = GetTextInputEnableAutoFill,
         .setTextInputContentType = SetTextInputContentType,
@@ -2675,25 +3080,55 @@ const ArkUITextInputModifier* GetTextInputModifier()
         .getTextInputAdaptMinFontSize = GetTextInputAdaptMinFontSize,
         .getTextInputAdaptMaxFontSize = GetTextInputAdaptMaxFontSize,
         .getTextInputLineHeight = GetTextInputLineHeight,
+        .getTextInputHalfLeading = GetTextInputHalfLeading,
         .getTextInputMaxLines = GetTextInputMaxLines,
         .getTextInputFontFeature = GetTextInputFontFeature,
         .setTextInputCustomKeyboard = SetTextInputCustomKeyboard,
         .getTextInputCustomKeyboard = GetTextInputCustomKeyboard,
         .getTextInputCustomKeyboardOption = GetTextInputCustomKeyboardOption,
         .resetTextInputCustomKeyboard = ResetTextInputCustomKeyboard,
-        .setTextInputLineBreakStrategy = SetTextInputLineBreakStrategy,
-        .resetTextInputLineBreakStrategy = ResetTextInputLineBreakStrategy,
+        .setTextInputSelectAll = SetTextInputSelectAll,
+        .resetTextInputSelectAll = ResetTextInputSelectAll,
+        .setTextInputShowCounter = SetTextInputShowCounter,
+        .resetTextInputShowCounter = ResetTextInputShowCounter,
+        .setTextInputOnEditChange = SetTextInputOnEditChange,
+        .resetTextInputOnEditChange = ResetTextInputOnEditChange,
+        .setTextInputFilter = SetTextInputFilter,
+        .resetTextInputFilter = ResetTextInputFilter,
+        .setTextInputOnSubmitWithEvent = SetTextInputOnSubmitWithEvent,
+        .resetTextInputOnSubmitWithEvent = ResetTextInputOnSubmitWithEvent,
+        .setTextInputOnChange = SetTextInputOnChange,
+        .resetTextInputOnChange = ResetTextInputOnChange,
+        .setTextInputOnTextSelectionChange = SetTextInputOnTextSelectionChange,
+        .resetTextInputOnTextSelectionChange = ResetTextInputOnTextSelectionChange,
+        .setTextInputOnContentScroll = SetTextInputOnContentScroll,
+        .resetTextInputOnContentScroll = ResetTextInputOnContentScroll,
+        .setTextInputOnWillCopy = SetTextInputOnWillCopy,
+        .resetTextInputOnWillCopy = ResetTextInputOnWillCopy,
+        .setTextInputOnCopy = SetTextInputOnCopy,
+        .resetTextInputOnCopy = ResetTextInputOnCopy,
+        .setTextInputOnWillCut = SetTextInputOnWillCut,
+        .resetTextInputOnWillCut = ResetTextInputOnWillCut,
+        .setTextInputOnCut = SetTextInputOnCut,
+        .resetTextInputOnCut = ResetTextInputOnCut,
+        .setTextInputOnPaste = SetTextInputOnPaste,
+        .resetTextInputOnPaste = ResetTextInputOnPaste,
         .setTextInputShowKeyBoardOnFocus = SetTextInputShowKeyBoardOnFocus,
         .getTextInputShowKeyBoardOnFocus = GetTextInputShowKeyBoardOnFocus,
         .resetTextInputShowKeyBoardOnFocus = ResetTextInputShowKeyBoardOnFocus,
         .setTextInputNumberOfLines = SetTextInputNumberOfLines,
         .getTextInputNumberOfLines = GetTextInputNumberOfLines,
         .resetTextInputNumberOfLines = ResetTextInputNumberOfLines,
+        .setTextInputShowPassword = SetTextInputShowPassword,
+        .resetTextInputShowPassword = ResetTextInputShowPassword,
+        .getTextInputShowPassword = GetTextInputShowPassword,
+        .setTextInputLineBreakStrategy = SetTextInputLineBreakStrategy,
+        .resetTextInputLineBreakStrategy = ResetTextInputLineBreakStrategy,
         .setTextInputMargin = SetTextInputMargin,
         .resetTextInputMargin = ResetTextInputMargin,
+        .getTextInputMargin = GetTextInputMargin,
         .setTextInputCaret = SetTextInputCaret,
         .getTextInputController = GetTextInputController,
-        .getTextInputMargin = GetTextInputMargin,
         .setTextInputEnablePreviewText = SetTextInputEnablePreviewText,
         .resetTextInputEnablePreviewText = ResetTextInputEnablePreviewText,
         .setTextInputSelectionMenuOptions = SetTextInputSelectionMenuOptions,
@@ -2710,6 +3145,7 @@ const ArkUITextInputModifier* GetTextInputModifier()
         .getTextInputEnablePreviewText = GetTextInputEnablePreviewText,
         .setEllipsisMode = SetEllipsisMode,
         .resetEllipsisMode = ResetEllipsisMode,
+        .getEllipsisMode = GetEllipsisMode,
         .setTextInputMinFontScale = SetTextInputMinFontScale,
         .resetTextInputMinFontScale = ResetTextInputMinFontScale,
         .setTextInputMaxFontScale = SetTextInputMaxFontScale,
@@ -2719,18 +3155,41 @@ const ArkUITextInputModifier* GetTextInputModifier()
         .setTextInputKeyboardAppearance = SetTextInputKeyboardAppearance,
         .getTextInputKeyboardAppearance = GetTextInputKeyboardAppearance,
         .resetTextInputKeyboardAppearance = ResetTextInputKeyboardAppearance,
-        .setTextInputEnableAutoFillAnimation = SetTextInputEnableAutoFillAnimation,
-        .getTextInputEnableAutoFillAnimation = GetTextInputEnableAutoFillAnimation,
-        .resetTextInputEnableAutoFillAnimation = ResetTextInputEnableAutoFillAnimation,
         .setTextInputStrokeWidth = SetTextInputStrokeWidth,
         .resetTextInputStrokeWidth = ResetTextInputStrokeWidth,
         .getTextInputStrokeWidth = GetTextInputStrokeWidth,
         .setTextInputStrokeColor = SetTextInputStrokeColor,
         .resetTextInputStrokeColor = ResetTextInputStrokeColor,
         .getTextInputStrokeColor = GetTextInputStrokeColor,
+        .setTextInputEnableAutoFillAnimation = SetTextInputEnableAutoFillAnimation,
+        .getTextInputEnableAutoFillAnimation = GetTextInputEnableAutoFillAnimation,
+        .resetTextInputEnableAutoFillAnimation = ResetTextInputEnableAutoFillAnimation,
         .setEnableAutoSpacing = SetEnableAutoSpacing,
         .resetEnableAutoSpacing = ResetEnableAutoSpacing,
         .resetTextInputOnSecurityStateChange = ResetTextInputOnSecurityStateChange,
+        .getTextInputShowCounterOptions = GetTextInputShowCounterOptions,
+        .scrollToVisible = ScrollToVisible,
+        .setTextInputOnWillAttachIME = SetTextInputOnWillAttachIME,
+        .resetTextInputOnWillAttachIME = ResetTextInputOnWillAttachIME,
+        .textInputDeleteBackward = TextInputDeleteBackward,
+        .setTextInputOrphanCharOptimization = SetTextInputOrphanCharOptimization,
+        .getTextInputOrphanCharOptimization = GetTextInputOrphanCharOptimization,
+        .resetTextInputOrphanCharOptimization = ResetTextInputOrphanCharOptimization,
+        .setTextInputCompressLeadingPunctuation = SetTextInputCompressLeadingPunctuation,
+        .getTextInputCompressLeadingPunctuation = GetTextInputCompressLeadingPunctuation,
+        .resetTextInputCompressLeadingPunctuation = ResetTextInputCompressLeadingPunctuation,
+        .setTextInputDirection = SetTextInputDirection,
+        .getTextInputDirection = GetTextInputDirection,
+        .resetTextInputDirection = ResetTextInputDirection,
+        .setIncludeFontPadding = SetIncludeFontPadding,
+        .resetIncludeFontPadding = ResetIncludeFontPadding,
+        .getIncludeFontPadding = GetIncludeFontPadding,
+        .setFallbackLineSpacing = SetFallbackLineSpacing,
+        .resetFallbackLineSpacing = ResetFallbackLineSpacing,
+        .getFallbackLineSpacing = GetFallbackLineSpacing,
+        .setTextInputSelectedDragPreviewStyle = SetTextInputSelectedDragPreviewStyle,
+        .resetTextInputSelectedDragPreviewStyle = ResetTextInputSelectedDragPreviewStyle,
+        .getTextInputSelectedDragPreviewStyle = GetTextInputSelectedDragPreviewStyle,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
     return &modifier;
@@ -2740,6 +3199,9 @@ const CJUITextInputModifier* GetCJUITextInputModifier()
 {
     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
     static const CJUITextInputModifier modifier = {
+        .setSelectDetectorEnable = SetSelectDetectorEnable,
+        .getSelectDetectorEnable = GetSelectDetectorEnable,
+        .resetSelectDetectorEnable = ResetSelectDetectorEnable,
         .setTextInputCaretColor = SetTextInputCaretColor,
         .resetTextInputCaretColor = ResetTextInputCaretColor,
         .setTextInputType = SetTextInputType,
@@ -3026,7 +3488,9 @@ void SetOnTextInputPaste(ArkUINodeHandle node, void* extraParam)
         event.extraParam = reinterpret_cast<intptr_t>(extraParam);
         event.textInputEvent.subKind = ON_TEXT_INPUT_PASTE;
         event.textInputEvent.nativeStringPtr = reinterpret_cast<intptr_t>(utf8Str.c_str());
+        event.textInputEvent.preventDefault = 1;
         SendArkUISyncEvent(&event);
+        commonEvent.SetPreventDefault(!static_cast<bool>(event.textInputEvent.preventDefault));
     };
     TextFieldModelNG::SetOnPasteWithEvent(frameNode, std::move(onPaste));
 }
@@ -3114,6 +3578,75 @@ void SetTextInputOnTextContentScroll(ArkUINodeHandle node, void* extraParam)
     TextFieldModelNG::SetOnContentScroll(frameNode, std::move(onScroll));
 }
 
+void ResetOnTextInputChange(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnChange(node);
+}
+
+void ResetTextInputOnSubmit(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnSubmitWithEvent(node);
+}
+
+void ResetOnTextInputCut(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnCut(node);
+}
+
+void ResetOnTextInputPaste(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnPaste(node);
+}
+
+void ResetOnTextInputSelectionChange(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnTextSelectionChange(node);
+}
+
+void ResetOnTextInputEditChange(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnEditChange(node);
+}
+
+void ResetOnTextInputContentSizeChange(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetOnContentSizeChange(frameNode, nullptr);
+}
+
+void ResetOnTextInputInputFilterError(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextFieldModelNG::SetInputFilterError(frameNode, nullptr);
+}
+
+void ResetTextInputOnTextContentScroll(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnContentScroll(node);
+}
+
+void ResetOnTextInputWillChange(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnWillChange(node);
+}
+
+void ResetOnTextInputWillCopy(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnWillCopy(node);
+}
+
+void ResetOnTextInputCopy(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnCopy(node);
+}
+
+void ResetOnTextInputWillCut(ArkUINodeHandle node)
+{
+    GetTextInputModifier()->resetTextInputOnWillCut(node);
+}
+
 void SetTextInputOnWillInsert(ArkUINodeHandle node, void* extraParam)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -3174,6 +3707,58 @@ void SetTextInputOnWillDelete(ArkUINodeHandle node, void* extraParam)
     TextFieldModelNG::SetOnWillDeleteEvent(frameNode, std::move(onWillDelete));
 }
 
+void SetOnTextInputWillCopy(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto func = [node, extraParam](const std::u16string& str) -> bool {
+        ArkUINodeEvent nodeEvent;
+        std::string utf8Str = UtfUtils::Str16DebugToStr8(str);
+        nodeEvent.kind = TEXT_INPUT;
+        nodeEvent.extraParam = reinterpret_cast<intptr_t>(extraParam);
+        nodeEvent.textInputEvent.subKind = ON_TEXT_INPUT_WILL_COPY;
+        nodeEvent.textInputEvent.nativeStringPtr = reinterpret_cast<intptr_t>(utf8Str.c_str());
+        nodeEvent.textInputEvent.preventDefault = 1;
+        SendArkUISyncEvent(&nodeEvent);
+        return static_cast<bool>(nodeEvent.textInputEvent.preventDefault);
+    };
+    TextFieldModelNG::SetOnWillCopy(frameNode, std::move(func));
+}
+
+void SetOnTextInputCopy(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto func = [node, extraParam](const std::u16string& str) {
+        ArkUINodeEvent nodeEvent;
+        std::string utf8Str = UtfUtils::Str16DebugToStr8(str);
+        nodeEvent.kind = TEXT_INPUT;
+        nodeEvent.extraParam = reinterpret_cast<intptr_t>(extraParam);
+        nodeEvent.textInputEvent.subKind = ON_TEXT_INPUT_COPY;
+        nodeEvent.textInputEvent.nativeStringPtr = reinterpret_cast<intptr_t>(utf8Str.c_str());
+        SendArkUISyncEvent(&nodeEvent);
+    };
+    TextFieldModelNG::SetOnCopy(frameNode, std::move(func));
+}
+
+void SetOnTextInputWillCut(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto func = [node, extraParam](const std::u16string& str) -> bool {
+        ArkUINodeEvent nodeEvent;
+        std::string utf8Str = UtfUtils::Str16DebugToStr8(str);
+        nodeEvent.kind = TEXT_INPUT;
+        nodeEvent.extraParam = reinterpret_cast<intptr_t>(extraParam);
+        nodeEvent.textInputEvent.subKind = ON_TEXT_INPUT_WILL_CUT;
+        nodeEvent.textInputEvent.nativeStringPtr = reinterpret_cast<intptr_t>(utf8Str.c_str());
+        nodeEvent.textInputEvent.preventDefault = 1;
+        SendArkUISyncEvent(&nodeEvent);
+        return static_cast<bool>(nodeEvent.textInputEvent.preventDefault);
+    };
+    TextFieldModelNG::SetOnWillCut(frameNode, std::move(func));
+}
+
 void SetTextInputOnDidDelete(ArkUINodeHandle node, void* extraParam)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -3194,53 +3779,9 @@ void SetTextInputOnDidDelete(ArkUINodeHandle node, void* extraParam)
     TextFieldModelNG::SetOnDidDeleteEvent(frameNode, std::move(onDidDelete));
 }
 
-void ResetOnTextInputChange(ArkUINodeHandle node)
-{
-    GetTextInputModifier()->resetTextInputOnChange(node);
-}
 void ResetOnTextInputChangeWithPreviewText(ArkUINodeHandle node)
 {
     GetTextInputModifier()->resetTextInputOnChange(node);
-}
-void ResetTextInputOnSubmit(ArkUINodeHandle node)
-{
-    GetTextInputModifier()->resetTextInputOnSubmitWithEvent(node);
-}
-void ResetOnTextInputCut(ArkUINodeHandle node)
-{
-    GetTextInputModifier()->resetTextInputOnCut(node);
-}
-void ResetOnTextInputPaste(ArkUINodeHandle node)
-{
-    GetTextInputModifier()->resetTextInputOnPaste(node);
-}
-void ResetOnTextInputSelectionChange(ArkUINodeHandle node)
-{
-    GetTextInputModifier()->resetTextInputOnTextSelectionChange(node);
-}
-void ResetOnTextInputEditChange(ArkUINodeHandle node)
-{
-    GetTextInputModifier()->resetTextInputOnEditChange(node);
-}
-void ResetOnTextInputContentSizeChange(ArkUINodeHandle node)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetOnContentSizeChange(frameNode, nullptr);
-}
-void ResetOnTextInputInputFilterError(ArkUINodeHandle node)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    TextFieldModelNG::SetInputFilterError(frameNode, nullptr);
-}
-void ResetTextInputOnTextContentScroll(ArkUINodeHandle node)
-{
-    GetTextInputModifier()->resetTextInputOnContentScroll(node);
-}
-void ResetOnTextInputWillChange(ArkUINodeHandle node)
-{
-    GetTextInputModifier()->resetTextInputOnWillChange(node);
 }
 } // namespace NodeModifier
 } // namespace OHOS::Ace::NG

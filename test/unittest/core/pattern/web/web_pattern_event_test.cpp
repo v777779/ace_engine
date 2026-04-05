@@ -14,9 +14,11 @@
  */
 
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
 
 #define private public
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/web/web_pattern.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/components/web/resource/web_delegate.h"
@@ -224,9 +226,171 @@ HWTEST_F(WebPatternEventTest, WebPatternTestNg_005, TestSize.Level1)
     ASSERT_NE(g_webPattern->delegate_, nullptr);
     g_webPattern->delegate_->SetIsFileSelectorShow(true);
     MouseInfo info;
+    info.SetRawDeltaX(1);
+    info.SetRawDeltaY(1);
     info.SetAction(MouseAction::HOVER_EXIT);
-    g_webPattern->WebSendMouseEvent(info, 0);
+    g_webPattern->CheckShouldBlockMouseEvent(info);
     EXPECT_EQ(g_webPattern->delegate_->IsFileSelectorShow(), true);
 #endif
 }
+
+/**
+ * @tc.name: WebPatternTestNg_006
+ * @tc.desc: SupplementMouseEventsIfNeeded.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternEventTest, WebPatternTestNg_006, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    g_webPattern->selectPopupMenuShowing_ = false;
+    g_webPattern->isMenuShownFromWebBeforeStartClose_ = true;
+    g_webPattern->NotifyMenuLifeCycleEvent(MenuLifeCycleEvent::ABOUT_TO_DISAPPEAR);
+    EXPECT_FALSE(g_webPattern->isMenuShownFromWebBeforeStartClose_);
+    EXPECT_TRUE(g_webPattern->isLastEventMenuClose_);
+    
+    g_webPattern->isLastEventMenuClose_ = true;
+    g_webPattern->lastMenuCloseTimestamp_ = GetCurrentTimestamp();
+    MouseInfo info;
+    info.SetAction(MouseAction::WINDOW_ENTER);
+    g_webPattern->SupplementMouseEventsIfNeeded(info, 1, std::vector<int32_t>());
+
+    g_webPattern->isHoverNWeb_ = true;
+    g_webPattern->isSupplementMouseLeave_ = true;
+    MouseInfo infoHover;
+    infoHover.SetAction(MouseAction::HOVER);
+    g_webPattern->SupplementMouseEventsIfNeeded(infoHover, 1, std::vector<int32_t>());
+
+    g_webPattern->isHoverNWeb_ = false;
+    g_webPattern->isSupplementMouseLeave_ = false;
+    g_webPattern->isUpSupplementDown_ = true;
+    MouseInfo infoRelease;
+    infoRelease.SetAction(MouseAction::RELEASE);
+    g_webPattern->SupplementMouseEventsIfNeeded(infoRelease, 1, std::vector<int32_t>());
+    EXPECT_FALSE(g_webPattern->isLastEventMenuClose_);
+#endif
+}
+
+/**
+ * @tc.name: WebPatternTestNg_007
+ * @tc.desc: CheckShouldBlockMouseEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternEventTest, WebPatternTestNg_007, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    g_webPattern->isMenuShownFromWebBeforeStartClose_ = true;
+    MouseInfo info;
+    info.SetAction(MouseAction::PRESS);
+    bool result = g_webPattern->CheckShouldBlockMouseEvent(info);
+    EXPECT_TRUE(result);
+
+    g_webPattern->isMenuShownFromWebBeforeStartClose_ = true;
+    MouseInfo infoHoverExit;
+    infoHoverExit.SetAction(MouseAction::HOVER_EXIT);
+    bool resultExit = g_webPattern->CheckShouldBlockMouseEvent(infoHoverExit);
+    EXPECT_TRUE(resultExit);
+    ASSERT_NE(g_webPattern->delegate_, nullptr);
+    g_webPattern->delegate_->SetIsFileSelectorShow(false);
+    g_webPattern->isMenuShownFromWebBeforeStartClose_ = false;
+    g_webPattern->isDragging_ = true;
+    MouseInfo infoDrag;
+    infoDrag.SetAction(MouseAction::HOVER_EXIT);
+    bool resultDrag = g_webPattern->CheckShouldBlockMouseEvent(infoDrag);
+    g_webPattern->WebOnMouseEvent(infoDrag);
+    EXPECT_TRUE(resultDrag);
+#endif
+}
+
+/**
+ * @tc.name: GetPixelMapName_001
+ * @tc.desc: Test GetPixelMapName.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternEventTest, GetPixelMapName_001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    EXPECT_EQ(g_webPattern->GetPixelMapName(nullptr, "test"), "undefined_");
+    Media::InitializationOptions opt;
+    opt.size.width = 1;
+    opt.size.height = 1;
+    opt.editable = true;
+    auto pixelMap = Media::PixelMap::Create(opt);
+    std::shared_ptr<Media::PixelMap> testPixelMap(pixelMap.release());
+    auto frameNode = g_webPattern->GetHost();
+    ASSERT_NE(frameNode, nullptr);
+    EXPECT_EQ(g_webPattern->GetPixelMapName(testPixelMap, "test"),
+        "web-1x1-test-" + std::to_string(frameNode->GetId()));
+#endif
+}
+
+class MockWebPattern : public WebPattern {
+DECLARE_ACE_TYPE(MockWebPattern, WebPattern);
+
+public:
+    MockWebPattern() = default;
+    ~MockWebPattern() override = default;
+
+    MOCK_METHOD(bool, IsConvertByWhiteList, (), (override));
+};
+
+/**
+ * @tc.name: ConvertMouseToTouchByWhiteList_001
+ * @tc.desc: ConvertMouseToTouchByWhiteList.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternEventTest, ConvertMouseToTouchByWhiteList_001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    const std::string src = "web_pattern_event_test";
+    RefPtr<WebController> webController = AceType::MakeRefPtr<WebController>();
+
+    EXPECT_NE(webController, nullptr);
+    auto* stack = ViewStackProcessor::GetInstance();
+    auto nodeId = stack->ClaimNodeId();
+    RefPtr<FrameNode> frameNode = FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId,
+        [src, webController]() { return AceType::MakeRefPtr<WebPattern>(src, webController); });
+    stack->Push(frameNode);
+    RefPtr<WebPattern> webPattern = frameNode->GetPattern<WebPattern>();
+    RefPtr<MockWebPattern> mockWebPattern = AceType::DynamicCast<MockWebPattern>(webPattern);
+    CHECK_NULL_VOID(mockWebPattern);
+    mockWebPattern->SetWebSrc(src);
+    mockWebPattern->SetWebController(webController);
+
+    bool result;
+    MouseInfo mouseInfo;
+    mouseInfo.SetAction(MouseAction::PRESS);
+    mouseInfo.SetButton(MouseButton::RIGHT_BUTTON);
+
+    TouchEventInfo touchEventInfo("touchEvent");
+    result = mockWebPattern->ConvertMouseToTouchByWhiteList(mouseInfo, touchEventInfo);
+    EXPECT_FALSE(result);
+
+    mouseInfo.SetButton(MouseButton::LEFT_BUTTON);
+    result = mockWebPattern->ConvertMouseToTouchByWhiteList(mouseInfo, touchEventInfo);
+    EXPECT_FALSE(result);
+
+    EXPECT_CALL(*mockWebPattern, IsConvertByWhiteList())
+        .WillRepeatedly(::testing::Return(true));
+
+    result = mockWebPattern->ConvertMouseToTouchByWhiteList(mouseInfo, touchEventInfo);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(touchEventInfo.GetSourceDevice(), SourceType::TOUCH);
+
+    mouseInfo.SetAction(MouseAction::RELEASE);
+    result = mockWebPattern->ConvertMouseToTouchByWhiteList(mouseInfo, touchEventInfo);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(touchEventInfo.GetSourceDevice(), SourceType::TOUCH);
+
+    mouseInfo.SetAction(MouseAction::MOVE);
+    result = mockWebPattern->ConvertMouseToTouchByWhiteList(mouseInfo, touchEventInfo);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(touchEventInfo.GetSourceDevice(), SourceType::TOUCH);
+
+    mouseInfo.SetAction(MouseAction::CANCEL);
+    result = mockWebPattern->ConvertMouseToTouchByWhiteList(mouseInfo, touchEventInfo);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(touchEventInfo.GetSourceDevice(), SourceType::TOUCH);
+#endif
+}
+
 } // namespace OHOS::Ace::NG

@@ -63,7 +63,7 @@ public:
 
     void DumpInfo() override;
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void FireOnErrorCallbackOnUI(
         int32_t code, const std::string& name, const std::string& msg);
 
@@ -76,7 +76,7 @@ public:
     void OnFrameNodeChanged(FrameNodeChangeInfoFlag flag) override;
     void OnAccessibilityParentRectInfoUpdate() override;
 
-    void InitializeAccessibility();
+    void InitializeAccessibility() override;
     void ResetAccessibilityChildTreeCallback();
 
     void SetBackgroundTransparent(bool backgroundTransparent);

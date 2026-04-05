@@ -26,10 +26,8 @@ constexpr int32_t DISMIN = 0;
 constexpr float VMIN = 0.0f;
 constexpr float PICKER_SPEED_TH = 0.25f;
 constexpr int32_t VELOCTY_TRANS = 1000;
-constexpr float PICKER_SPRING_MASS = 1.f;
 constexpr float PICKER_SPRING_STIFFNESS = 20.f;
 constexpr float PICKER_SPRING_DAMPING = 10.f;
-constexpr int32_t DISMAX = 30;
 constexpr float VMAX = 5.0f;
 } // namespace
 
@@ -37,6 +35,7 @@ void TextPickerTossAnimationController::SetStart(double y)
 {
     auto weak = AceType::WeakClaim(this);
     auto ref = weak.Upgrade();
+    CHECK_NULL_VOID(ref);
     auto column = AceType::DynamicCast<TextPickerColumnPattern>(ref->column_.Upgrade());
     CHECK_NULL_VOID(column);
     auto isTouchBreak = column->GetTouchBreakStatus();
@@ -64,6 +63,7 @@ bool TextPickerTossAnimationController::Play()
 {
     auto weak = AceType::WeakClaim(this);
     auto ref = weak.Upgrade();
+    CHECK_NULL_RETURN(ref, false);
     auto column = AceType::DynamicCast<TextPickerColumnPattern>(ref->column_.Upgrade());
     CHECK_NULL_RETURN(column, false);
     auto timeDiff = timeEnd_ - timeStart_;
@@ -84,6 +84,7 @@ void TextPickerTossAnimationController::StartSpringMotion()
 {
     auto weak = AceType::WeakClaim(this);
     auto ref = weak.Upgrade();
+    CHECK_NULL_VOID(ref);
     auto column = AceType::DynamicCast<TextPickerColumnPattern>(ref->column_.Upgrade());
     CHECK_NULL_VOID(column);
     auto columnNode = column->GetHost();
@@ -91,6 +92,7 @@ void TextPickerTossAnimationController::StartSpringMotion()
     auto offset = column->GetOffset();
     auto speed = column->GetMainVelocity() / VELOCTY_TRANS;
     auto renderContext = columnNode->GetRenderContext();
+    auto context = columnNode->GetContextRefPtr();
     CHECK_NULL_VOID(renderContext);
     auto springCurve = UpdatePlayAnimationValue();
     CHECK_NULL_VOID(springCurve);
@@ -121,14 +123,11 @@ void TextPickerTossAnimationController::StartSpringMotion()
             column->SetYOffset(0.0);
         }
     };
-    AnimationUtils::Animate(
-        option,
-        [weak]() {
+    AnimationUtils::Animate(option, [weak]() {
             auto ref = weak.Upgrade();
             CHECK_NULL_VOID(ref);
             ref->property_->Set(ref->end_);
-        },
-        finishCallback);
+        }, finishCallback, nullptr, context);
 }
 
 void TextPickerTossAnimationController::StopTossAnimation()
@@ -143,19 +142,26 @@ void TextPickerTossAnimationController::StopTossAnimation()
     option.SetCurve(Curves::LINEAR);
     option.SetDuration(0);
     option.SetDelay(0);
-    AnimationUtils::Animate(option, [weak]() {
-        auto ref = weak.Upgrade();
-        ref->isManualStopToss_ = true;
-        ref->property_->Set(0.0);
-    });
+    auto columnNode = column->GetHost();
+    auto context = columnNode? columnNode->GetContextRefPtr(): nullptr;
+    AnimationUtils::Animate(
+        option,
+        [weak]() {
+            auto ref = weak.Upgrade();
+            CHECK_NULL_VOID(ref);
+            ref->isManualStopToss_ = true;
+            ref->property_->Set(0.0);
+        },
+        nullptr, nullptr, context);
 }
 
 RefPtr<Curve> TextPickerTossAnimationController::UpdatePlayAnimationValue()
 {
     speed_ = std::abs(speed_) >= std::abs(VMAX) ? std::abs(VMAX) : std::abs(speed_);
-    showCount_ = static_cast<int>(DISMIN + (DISMAX - DISMIN) * (std::abs(speed_) - VMIN) / (VMAX - VMIN));
+    auto maxDistance = GetPickerMaxSlidingDistance();
+    showCount_ = static_cast<int>(DISMIN + (maxDistance - DISMIN) * (std::abs(speed_) - VMIN) / (VMAX - VMIN));
     return AceType::MakeRefPtr<InterpolatingSpring>(
-        speed_, PICKER_SPRING_MASS, PICKER_SPRING_STIFFNESS, PICKER_SPRING_DAMPING);
+        speed_, GetPickerSpringMass(), PICKER_SPRING_STIFFNESS, PICKER_SPRING_DAMPING);
 }
 
 double TextPickerTossAnimationController::GetCurrentTime() const
@@ -178,6 +184,7 @@ void TextPickerTossAnimationController::CreatePropertyCallback()
     }
     auto weak = AceType::WeakClaim(this);
     auto ref = weak.Upgrade();
+    CHECK_NULL_VOID(ref);
     auto column = AceType::DynamicCast<TextPickerColumnPattern>(ref->column_.Upgrade());
     CHECK_NULL_VOID(column);
     auto propertyCallback = [weak, column](float position) {
@@ -208,5 +215,26 @@ bool TextPickerTossAnimationController::GetTossPlaying() const
 void TextPickerTossAnimationController::SetTossPlaying(bool playing)
 {
     isTossPlaying_ = playing;
+}
+
+RefPtr<PickerTheme> TextPickerTossAnimationController::GetPickerTheme()
+{
+    auto column = column_.Upgrade();
+    CHECK_NULL_RETURN(column, {});
+    auto context = column->GetContext();
+    CHECK_NULL_RETURN(context, {});
+    return context->GetTheme<PickerTheme>();
+}
+
+double TextPickerTossAnimationController::GetPickerSpringMass()
+{
+    auto theme = GetPickerTheme();
+    return theme ? theme->GetPickerSpringMass() : PICKER_SPRING_MASS;
+}
+
+int32_t TextPickerTossAnimationController::GetPickerMaxSlidingDistance()
+{
+    auto theme = GetPickerTheme();
+    return theme ? theme->GetPickerMaxSlidingDistance() : PICKER_MAX_SLIDING_DISTANCE;
 }
 } // namespace OHOS::Ace::NG

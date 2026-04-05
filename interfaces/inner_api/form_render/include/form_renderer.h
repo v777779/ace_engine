@@ -43,9 +43,9 @@ public:
         std::weak_ptr<OHOS::AppExecFwk::EventHandler> eventHandler);
     ~FormRenderer();
 
-    void AddForm(const OHOS::AAFwk::Want& want, const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
+    int32_t AddForm(const OHOS::AAFwk::Want& want, const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
     void PreInitAddForm(const OHOS::AAFwk::Want& want, const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
-    void RunFormPage(const OHOS::AAFwk::Want& want, const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
+    int32_t RunFormPage(const OHOS::AAFwk::Want& want, const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
     void UpdateForm(const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
     void ReloadForm(const std::string& url);
     void Destroy();
@@ -53,26 +53,23 @@ public:
     void SetAllowUpdate(bool allowUpdate);
     bool IsAllowUpdate();
 
-    void OnSurfaceCreate(const OHOS::AppExecFwk::FormJsInfo& formJsInfo, bool isRecoverFormToHandleClickEvent);
-    void OnSurfaceReuse(const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
+    int32_t OnSurfaceCreate(const OHOS::AppExecFwk::FormJsInfo& formJsInfo, const OHOS::AAFwk::Want& want);
+    int32_t OnSurfaceReuse(const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
     void OnSurfaceDetach();
     void OnActionEvent(const std::string& action);
     void OnError(const std::string& code, const std::string& msg);
     void OnSurfaceChange(float width, float height, float borderWidth = 0.0);
     void OnFormLinkInfoUpdate(const std::vector<std::string>& formLinkInfos);
     void UpdateConfiguration(const std::shared_ptr<OHOS::AppExecFwk::Configuration>& config);
-    void AttachForm(const OHOS::AAFwk::Want& want, const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
+    int32_t AttachForm(const OHOS::AAFwk::Want& want, const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
     void RecycleForm(std::string& statusData);
     void RecoverForm(const std::string& statusData);
     void GetRectRelativeToWindow(AccessibilityParentRectInfo& parentRectInfo) const;
+    void SetRenderGroupEnableFlag(bool isEnable);
     void SetVisibleChange(bool isVisible);
-    void UpdateFormSize(float width, float height, float borderWidth);
-    void HandleTimeStampAndSetBounds(std::shared_ptr<Rosen::RSSurfaceNode> rsSurfaceNode);
-    void CheckWhetherNeedResizeFormAgain(float borderWidth, float width, float height);
-    void ResizeFormAgain(float borderWidth, float width, float height);
-    int64_t GetRunFormPageInnerTimeStamp();
-    void SetRunFormPageInnerTimeStamp(int64_t timeStamp);
+    void UpdateFormSize(float width, float height, float borderWidth, float formViewScale);
     bool IsManagerDelegateValid(const OHOS::AAFwk::Want& want);
+    void SetUiContentParams(const OHOS::AAFwk::Want& want);
 
 private:
     void InitUIContent(const OHOS::AAFwk::Want& want, const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
@@ -82,17 +79,22 @@ private:
     void PreInitUIContent(const OHOS::AAFwk::Want& want, const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
     void RunFormPageInner(const OHOS::AAFwk::Want& want, const OHOS::AppExecFwk::FormJsInfo& formJsInfo);
     void RemoveFormDeathRecipient();
+    std::shared_ptr<Rosen::RSSurfaceNode> GetSurfaceNode();
+    void SetUIContentProperty(const OHOS::AAFwk::Want &want);
 
+    bool disableUIFirst_ = false;
     bool allowUpdate_ = true;
     bool obscurationMode_ = false;
     float width_ = 0.0f;
     float height_ = 0.0f;
+    float formViewScale_ = 1.0f;
     float borderWidth_ = 0.0f;
     float lastBorderWidth_ = 0.0f;
     bool fontScaleFollowSystem_ = true;
     std::string backgroundColor_;
     AppExecFwk::Constants::RenderingMode renderingMode_ = AppExecFwk::Constants::RenderingMode::FULL_COLOR;
     bool enableBlurBackground_ = false;
+    bool deleteBackgroundImage_ = false;
     std::vector<std::string> cachedInfos_;
     std::shared_ptr<OHOS::AbilityRuntime::Context> context_;
     std::shared_ptr<OHOS::AbilityRuntime::Runtime> runtime_;
@@ -102,7 +104,7 @@ private:
     std::shared_ptr<UIContent> uiContent_;
     sptr<IRemoteObject::DeathRecipient> renderDelegateDeathRecipient_;
     sptr<IRemoteObject> proxy_;
-    int64_t runFormPageInnerTimeStamp_ = -1;
+    AppExecFwk::Constants::FormLocation formLocation_ = AppExecFwk::Constants::FormLocation::OTHER;
 };
 
 /**

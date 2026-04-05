@@ -21,8 +21,7 @@
 #include "base/i18n/date_time_sequence.h"
 #include "base/memory/ace_type.h"
 #include "base/utils/utils.h"
-#include "core/components/picker/picker_date_component.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
@@ -58,6 +57,7 @@ void DatePickerModelNG::CreateDatePicker(RefPtr<PickerTheme> pickerTheme)
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
+    ACE_UINODE_TRACE(nodeId);
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::DATE_PICKER_ETS_TAG, nodeId);
     RefPtr<FrameNode> dateNode = FrameNode::GetOrCreateFrameNode(
         V2::DATE_PICKER_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<DatePickerPattern>(); });
@@ -74,6 +74,9 @@ void DatePickerModelNG::CreateDatePicker(RefPtr<PickerTheme> pickerTheme)
         datePickerPattern->SetDateOrder("y-d-M");
     } else {
         datePickerPattern->SetDateOrder(dateOrder);
+    }
+    if (language == "ar" && dateNode->GetLayoutProperty()) {
+        dateNode->GetLayoutProperty()->UpdateLayoutDirection(TextDirection::LTR);
     }
     bool hasYearNode = datePickerPattern->HasYearNode();
     bool hasMonthNode = datePickerPattern->HasMonthNode();
@@ -193,6 +196,7 @@ RefPtr<FrameNode> DatePickerModelNG::CreateButtonNode()
 
 RefPtr<FrameNode> DatePickerModelNG::CreateFrameNode(int32_t nodeId)
 {
+    ACE_UINODE_TRACE(nodeId);
     auto dateNode = FrameNode::GetOrCreateFrameNode(
         V2::DATE_PICKER_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<DatePickerPattern>(); });
     auto datePickerPattern = dateNode->GetPattern<DatePickerPattern>();
@@ -447,7 +451,7 @@ void DatePickerModelNG::SetDisappearTextStyle(const RefPtr<PickerTheme>& theme, 
     CHECK_NULL_VOID(theme);
 
     if (SystemProperties::ConfigChangePerform()) {
-        ParseDisappearTextStyleResObj(value);
+        ParseDisappearTextStyleResObj(frameNode, value);
     }
     auto disappearStyle = theme->GetDisappearOptionStyle();
     if (value.fontSize.has_value() && value.fontSize->IsValid()) {
@@ -468,6 +472,7 @@ void DatePickerModelNG::SetDisappearTextStyle(const RefPtr<PickerTheme>& theme, 
         DataPickerRowLayoutProperty, DisappearFontFamily, value.fontFamily.value_or(disappearStyle.GetFontFamilies()));
     ACE_UPDATE_LAYOUT_PROPERTY(
         DataPickerRowLayoutProperty, DisappearFontStyle, value.fontStyle.value_or(disappearStyle.GetFontStyle()));
+    ACE_UPDATE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, DisappearTextColorSetByUser, value.textColorSetByUser);
 }
 
 PickerTextStyle DatePickerModelNG::getNormalTextStyle(FrameNode* frameNode)
@@ -499,7 +504,7 @@ void DatePickerModelNG::SetNormalTextStyle(const RefPtr<PickerTheme>& theme, con
     CHECK_NULL_VOID(theme);
 
     if (SystemProperties::ConfigChangePerform()) {
-        ParseNormalTextStyleResObj(value);
+        ParseNormalTextStyleResObj(frameNode, value);
     }
     auto normalStyle = theme->GetOptionStyle(false, false);
     if (value.fontSize.has_value() && value.fontSize->IsValid()) {
@@ -520,6 +525,7 @@ void DatePickerModelNG::SetNormalTextStyle(const RefPtr<PickerTheme>& theme, con
         DataPickerRowLayoutProperty, FontFamily, value.fontFamily.value_or(normalStyle.GetFontFamilies()));
     ACE_UPDATE_LAYOUT_PROPERTY(
         DataPickerRowLayoutProperty, FontStyle, value.fontStyle.value_or(normalStyle.GetFontStyle()));
+    ACE_UPDATE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, NormalTextColorSetByUser, value.textColorSetByUser);
 }
 
 PickerTextStyle DatePickerModelNG::getSelectedTextStyle(FrameNode* frameNode)
@@ -551,7 +557,7 @@ void DatePickerModelNG::SetSelectedTextStyle(const RefPtr<PickerTheme>& theme, c
     CHECK_NULL_VOID(theme);
 
     if (SystemProperties::ConfigChangePerform()) {
-        ParseSelectedTextStyleResObj(value);
+        ParseSelectedTextStyleResObj(frameNode, value);
     }
     auto selectedStyle = theme->GetOptionStyle(true, false);
     if (value.fontSize.has_value() && value.fontSize->IsValid()) {
@@ -572,6 +578,7 @@ void DatePickerModelNG::SetSelectedTextStyle(const RefPtr<PickerTheme>& theme, c
         DataPickerRowLayoutProperty, SelectedFontFamily, value.fontFamily.value_or(selectedStyle.GetFontFamilies()));
     ACE_UPDATE_LAYOUT_PROPERTY(
         DataPickerRowLayoutProperty, SelectedFontStyle, value.fontStyle.value_or(selectedStyle.GetFontStyle()));
+    ACE_UPDATE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, SelectedTextColorSetByUser, value.textColorSetByUser);
 }
 
 void DatePickerModelNG::SetDefaultAttributes(RefPtr<FrameNode>& frameNode, const RefPtr<PickerTheme>& pickerTheme)
@@ -663,7 +670,8 @@ void DatePickerModelNG::SetStartDate(FrameNode* frameNode, const PickerDate& val
     auto datePickerPattern = frameNode->GetPattern<DatePickerPattern>();
     CHECK_NULL_VOID(datePickerPattern);
     datePickerPattern->SetStartDate(value);
-    ACE_UPDATE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, StartDate, datePickerPattern->GetStartDateLunar());
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+        DataPickerRowLayoutProperty, StartDate, datePickerPattern->GetStartDateLunar(), frameNode);
 }
 
 void DatePickerModelNG::SetEndDate(FrameNode* frameNode, const PickerDate& value)
@@ -672,7 +680,8 @@ void DatePickerModelNG::SetEndDate(FrameNode* frameNode, const PickerDate& value
     auto datePickerPattern = frameNode->GetPattern<DatePickerPattern>();
     CHECK_NULL_VOID(datePickerPattern);
     datePickerPattern->SetEndDate(value);
-    ACE_UPDATE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, EndDate, datePickerPattern->GetEndDateLunar());
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+        DataPickerRowLayoutProperty, EndDate, datePickerPattern->GetEndDateLunar(), frameNode);
 }
 
 void DatePickerModelNG::SetSelectedDate(FrameNode* frameNode, const PickerDate& value)
@@ -681,7 +690,8 @@ void DatePickerModelNG::SetSelectedDate(FrameNode* frameNode, const PickerDate& 
     auto datePickerPattern = frameNode->GetPattern<DatePickerPattern>();
     CHECK_NULL_VOID(datePickerPattern);
     datePickerPattern->SetSelectDate(value);
-    ACE_UPDATE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, SelectedDate, datePickerPattern->GetSelectDate());
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+        DataPickerRowLayoutProperty, SelectedDate, datePickerPattern->GetSelectDate(), frameNode);
 }
 
 void DatePickerModelNG::SetMode(FrameNode* frameNode, const DatePickerMode& value)
@@ -690,7 +700,7 @@ void DatePickerModelNG::SetMode(FrameNode* frameNode, const DatePickerMode& valu
     auto datePickerPattern = frameNode->GetPattern<DatePickerPattern>();
     CHECK_NULL_VOID(datePickerPattern);
     datePickerPattern->SetMode(value);
-    ACE_UPDATE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, Mode, value);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, Mode, value, frameNode);
 }
 
 void DatePickerModelNG::SetChangeEvent(DateChangeEvent&& onChange)
@@ -741,7 +751,7 @@ void DatePickerDialogModelNG::SetDatePickerDialogShow(PickerDialogInfo& pickerDi
     if (!executor) {
         return;
     }
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto theme = pipeline->GetTheme<DialogTheme>();
     CHECK_NULL_VOID(theme);
@@ -829,7 +839,7 @@ void DatePickerModelNG::SetSelectedTextStyle(
 {
     CHECK_NULL_VOID(theme);
     if (SystemProperties::ConfigChangePerform()) {
-        ParseSelectedTextStyleResObj(value);
+        ParseSelectedTextStyleResObj(frameNode, value);
     }
     auto selectedStyle = theme->GetOptionStyle(true, false);
     if (value.fontSize.has_value() && value.fontSize->IsValid()) {
@@ -849,6 +859,8 @@ void DatePickerModelNG::SetSelectedTextStyle(
         value.fontFamily.value_or(selectedStyle.GetFontFamilies()), frameNode);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, SelectedFontStyle,
         value.fontStyle.value_or(selectedStyle.GetFontStyle()), frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, SelectedTextColorSetByUser,
+        value.textColorSetByUser, frameNode);
 }
 
 void DatePickerModelNG::SetNormalTextStyle(
@@ -856,7 +868,7 @@ void DatePickerModelNG::SetNormalTextStyle(
 {
     CHECK_NULL_VOID(theme);
     if (SystemProperties::ConfigChangePerform()) {
-        ParseNormalTextStyleResObj(value);
+        ParseNormalTextStyleResObj(frameNode, value);
     }
     auto normalStyle = theme->GetOptionStyle(false, false);
     if (value.fontSize.has_value() && value.fontSize->IsValid()) {
@@ -874,6 +886,8 @@ void DatePickerModelNG::SetNormalTextStyle(
         DataPickerRowLayoutProperty, FontFamily, value.fontFamily.value_or(normalStyle.GetFontFamilies()), frameNode);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(
         DataPickerRowLayoutProperty, FontStyle, value.fontStyle.value_or(normalStyle.GetFontStyle()), frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+        DataPickerRowLayoutProperty, NormalTextColorSetByUser, value.textColorSetByUser, frameNode);
 }
 
 void DatePickerModelNG::SetDisappearTextStyle(
@@ -881,7 +895,7 @@ void DatePickerModelNG::SetDisappearTextStyle(
 {
     CHECK_NULL_VOID(theme);
     if (SystemProperties::ConfigChangePerform()) {
-        ParseDisappearTextStyleResObj(value);
+        ParseDisappearTextStyleResObj(frameNode, value);
     }
     auto disappearStyle = theme->GetDisappearOptionStyle();
     if (value.fontSize.has_value() && value.fontSize->IsValid()) {
@@ -901,6 +915,8 @@ void DatePickerModelNG::SetDisappearTextStyle(
         value.fontFamily.value_or(disappearStyle.GetFontFamilies()), frameNode);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, DisappearFontStyle,
         value.fontStyle.value_or(disappearStyle.GetFontStyle()), frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(DataPickerRowLayoutProperty, DisappearTextColorSetByUser,
+        value.textColorSetByUser, frameNode);
 }
 
 void DatePickerModelNG::SetShowLunar(FrameNode* frameNode, bool lunar)
@@ -975,7 +991,7 @@ uint32_t DatePickerModelNG::getBackgroundColor(FrameNode* frameNode)
 
 const Dimension DatePickerModelNG::ConvertFontScaleValue(const Dimension& fontSizeValue)
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_RETURN(pipeline, fontSizeValue);
     auto maxAppFontScale = pipeline->GetMaxAppFontScale();
     auto follow = pipeline->IsFollowSystem();
@@ -1012,16 +1028,19 @@ void DatePickerModelNG::UpdateUserSetSelectColor()
     datePickerPattern->UpdateUserSetSelectColor();
 }
 
-void DatePickerModelNG::ParseResTextStyle(const PickerTextStyle& textStyleOpt, const std::string& textStyleType,
-    std::function<void(const PickerTextStyle&)> updateTextStyleFunc)
+void DatePickerModelNG::ParseResTextStyle(FrameNode* frameNode, const PickerTextStyle& textStyleOpt,
+    const std::string& textStyleType, std::function<void(const PickerTextStyle&)> updateTextStyleFunc)
 {
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
-
     auto pickerPattern = frameNode->GetPattern<DatePickerPattern>();
     CHECK_NULL_VOID(pickerPattern);
 
-    auto&& updateFunc = [textStyleOpt, updateTextStyleFunc](const RefPtr<ResourceObject> resObj) {
+    if (!textStyleOpt.textColorResObj && !textStyleOpt.fontSizeResObj && !textStyleOpt.fontFamilyResObj) {
+        pickerPattern->RemoveResObj(textStyleType);
+        return;
+    }
+
+    auto&& updateFunc = [textStyleOpt, frameNode, updateTextStyleFunc](const RefPtr<ResourceObject> resObj) {
         PickerTextStyle textStyle;
         Color color;
         CalcDimension fontSize;
@@ -1048,45 +1067,42 @@ void DatePickerModelNG::ParseResTextStyle(const PickerTextStyle& textStyleOpt, c
     pickerPattern->AddResObj(textStyleType, resObj, std::move(updateFunc));
 }
 
-void DatePickerModelNG::ParseDisappearTextStyleResObj(const PickerTextStyle& textStyleOpt)
+void DatePickerModelNG::ParseDisappearTextStyleResObj(FrameNode* frameNode, const PickerTextStyle& textStyleOpt)
 {
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
-
     auto pickerPattern = frameNode->GetPattern<DatePickerPattern>();
     CHECK_NULL_VOID(pickerPattern);
 
     ParseResTextStyle(
+        frameNode,
         textStyleOpt,
         "DatePickerDisappearTextStyle",
         [pickerPattern](const PickerTextStyle& textStyle) { pickerPattern->UpdateDisappearTextStyle(textStyle); }
     );
 }
 
-void DatePickerModelNG::ParseSelectedTextStyleResObj(const PickerTextStyle& textStyleOpt)
+void DatePickerModelNG::ParseSelectedTextStyleResObj(FrameNode* frameNode, const PickerTextStyle& textStyleOpt)
 {
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
-
     auto pickerPattern = frameNode->GetPattern<DatePickerPattern>();
     CHECK_NULL_VOID(pickerPattern);
 
     ParseResTextStyle(
+        frameNode,
         textStyleOpt,
         "DatePickerSelectedTextStyle",
         [pickerPattern](const PickerTextStyle& textStyle) { pickerPattern->UpdateSelectedTextStyle(textStyle); }
     );
 }
 
-void DatePickerModelNG::ParseNormalTextStyleResObj(const PickerTextStyle& textStyleOpt)
+void DatePickerModelNG::ParseNormalTextStyleResObj(FrameNode* frameNode, const PickerTextStyle& textStyleOpt)
 {
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
-
     auto pickerPattern = frameNode->GetPattern<DatePickerPattern>();
     CHECK_NULL_VOID(pickerPattern);
 
     ParseResTextStyle(
+        frameNode,
         textStyleOpt,
         "DatePickerNormalTextStyle",
         [pickerPattern](const PickerTextStyle& textStyle) { pickerPattern->UpdateNormalTextStyle(textStyle); }

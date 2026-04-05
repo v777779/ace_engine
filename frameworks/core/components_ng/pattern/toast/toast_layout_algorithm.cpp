@@ -14,6 +14,7 @@
  */
 
 #include "core/components_ng/pattern/toast/toast_layout_algorithm.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 
 #include "base/subwindow/subwindow_manager.h"
 #include "core/common/ace_engine.h"
@@ -24,7 +25,7 @@ namespace OHOS::Ace::NG {
 namespace {
     constexpr Dimension LIMIT_SPACING = 8.0_vp;
 } // namespace
-        
+
 void UpdateToastAlign(int32_t& alignment)
 {
     bool isRtl = AceApplicationInfo::GetInstance().IsRightToLeft();
@@ -60,6 +61,7 @@ void ToastLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     CHECK_NULL_VOID(layoutWrapper);
     auto frameNode = layoutWrapper->GetHostNode();
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto toastPattern = frameNode->GetPattern<ToastPattern>();
     CHECK_NULL_VOID(toastPattern);
     auto toastProperty = frameNode->GetLayoutProperty<ToastLayoutProperty>();
@@ -82,6 +84,12 @@ void ToastLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
         toastProperty->ResetToastOffset();
     }
     auto text = layoutWrapper->GetOrCreateChildByIndex(0);
+    CHECK_NULL_VOID(text);
+    auto padding = toastProperty->CreatePaddingAndBorder();
+    OffsetF textOffset = padding.Offset();
+    auto geometryNode = text->GetGeometryNode();
+    CHECK_NULL_VOID(geometryNode);
+    geometryNode->SetFrameOffset(textOffset);
     text->Layout();
 }
 
@@ -105,6 +113,7 @@ void ToastLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     CHECK_NULL_VOID(toastProps);
     auto toastNode = layoutWrapper->GetHostNode();
     CHECK_NULL_VOID(toastNode);
+    ACE_UINODE_TRACE(toastNode);
     auto toastPattern = toastNode->GetPattern<ToastPattern>();
     CHECK_NULL_VOID(toastPattern);
     toastPattern->InitWrapperRect(layoutWrapper, toastProps);
@@ -126,11 +135,22 @@ void ToastLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
 
 LayoutConstraintF ToastLayoutAlgorithm::GetTextLayoutConstraint(LayoutWrapper* layoutWrapper)
 {
-    auto layoutConstraint = layoutWrapper->GetLayoutProperty()->CreateChildConstraint();
+    LayoutConstraintF layoutConstraint;
+    auto toastLayoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_RETURN(toastLayoutProperty, layoutConstraint);
+    layoutConstraint = toastLayoutProperty->CreateChildConstraint();
     auto frameNode = layoutWrapper->GetHostNode();
     CHECK_NULL_RETURN(frameNode, layoutConstraint);
+    ACE_UINODE_TRACE(frameNode);
     auto toastPattern = frameNode->GetPattern<ToastPattern>();
     CHECK_NULL_RETURN(toastPattern, layoutConstraint);
+    auto text = layoutWrapper->GetOrCreateChildByIndex(0);
+    CHECK_NULL_RETURN(text, layoutConstraint);
+    text->Measure(layoutConstraint);
+    auto textGeometryNode = text->GetGeometryNode();
+    CHECK_NULL_RETURN(textGeometryNode, layoutConstraint);
+    auto originTextHeight = textGeometryNode->GetMarginFrameSize().Height();
+    toastPattern->SetOriginalTextHeight(originTextHeight);
     auto toastProperty = frameNode->GetLayoutProperty<ToastLayoutProperty>();
     CHECK_NULL_RETURN(toastProperty, layoutConstraint);
     auto context = toastPattern->GetToastContext();
@@ -145,21 +165,11 @@ LayoutConstraintF ToastLayoutAlgorithm::GetTextLayoutConstraint(LayoutWrapper* l
     auto keyboardOffset = deviceHeight - keyboardInset;
     if (toastPattern->IsAlignedWithHostWindow() && GreatNotEqual(keyboardInset, 0)) {
         deviceHeight = toastPattern->GetUiExtensionHostWindowRect().Height();
-
-        auto currentId = Container::CurrentId();
-        auto container = Container::Current();
-        CHECK_NULL_RETURN(container, layoutConstraint);
-        if (container->IsSubContainer()) {
-            auto parentContainerId = SubwindowManager::GetInstance()->GetParentContainerId(currentId);
-            auto parentContainer = AceEngine::Get().GetContainer(parentContainerId);
-            CHECK_NULL_RETURN(parentContainer, layoutConstraint);
-            CHECK_NULL_RETURN(parentContainer->IsUIExtensionWindow(), layoutConstraint);
-            auto toastSubwindow = SubwindowManager::GetInstance()->GetToastSubwindow(parentContainer);
-            if (toastSubwindow) {
-                auto parentWindowRect = toastSubwindow->GetParentWindowRect();
-                keyboardOffset = deviceHeight - keyboardInset - toastPattern->GetUiExtensionHostWindowRect().Bottom() +
-                                 parentWindowRect.Bottom();
-            }
+        auto toastSubwindow = SubwindowManager::GetInstance()->GetSubwindowById(frameNode->GetInstanceId());
+        if (toastSubwindow) {
+            auto parentWindowRect = toastSubwindow->GetParentWindowRect();
+            keyboardOffset = deviceHeight - keyboardInset - toastPattern->GetUiExtensionHostWindowRect().Bottom() +
+                             parentWindowRect.Bottom();
         }
     }
     if (GreatNotEqual(keyboardInset, 0) && (toastPattern->IsDefaultToast() || toastPattern->IsTopMostToast())) {

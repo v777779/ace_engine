@@ -25,8 +25,9 @@
 #define private public
 #define protected public
 #include "mock_touch_event_target.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/geometry/ng/offset_t.h"
 #include "base/geometry/offset.h"
@@ -49,7 +50,9 @@
 #include "core/components_ng/pattern/stage/page_pattern.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/event/ace_events.h"
+#include "core/event/resample_algo.h"
 #include "core/event/axis_event.h"
+#include "core/event/coasting_axis_event_generator.h"
 #include "core/event/key_event.h"
 #include "core/event/mouse_event.h"
 #include "core/event/touch_event.h"
@@ -111,6 +114,11 @@ struct MockMouseEvent {
 };
 
 class EventManagerTestNg : public testing::Test {
+public:
+    static void SetUpTestSuite();
+    static void TearDownTestSuite();
+};
+class EventManagerTestThreeNg : public testing::Test {
 public:
     static void SetUpTestSuite();
     static void TearDownTestSuite();

@@ -17,6 +17,9 @@
 
 #include "base/log/event_report.h"
 #include "core/components_ng/property/measure_utils.h"
+#include "core/components_ng/syntax/lazy_for_each_node.h"
+#include "core/components_ng/syntax/repeat_virtual_scroll_2_node.h"
+#include "core/components_ng/syntax/repeat_virtual_scroll_node.h"
 
 namespace OHOS::Ace::NG {
 
@@ -24,7 +27,7 @@ void ListLanesLayoutAlgorithm::UpdateListItemConstraint(
     Axis axis, const OptionalSizeF& selfIdealSize, LayoutConstraintF& contentConstraint)
 {
     contentConstraint.parentIdealSize = selfIdealSize;
-    contentConstraint.maxSize.SetMainSize(Infinity<float>(), axis);
+    contentConstraint.maxSize.SetMainSize(LayoutInfinity<float>(), axis);
     groupLayoutConstraint_ = contentConstraint;
     auto crossSizeOptional = selfIdealSize.CrossSize(axis);
     if (crossSizeOptional.has_value()) {
@@ -216,10 +219,13 @@ int32_t ListLanesLayoutAlgorithm::LayoutALineBackward(LayoutWrapper* layoutWrapp
             break;
         }
     }
-    if (cnt > 0) {
-        startPos = endPos - mainLen;
-        for (int32_t i = 0; i < cnt; i++) {
-            auto wrap = GetListItem(layoutWrapper, currentIndex + i);
+    if (cnt <= 0) {
+        return cnt;
+    }
+    startPos = endPos - mainLen;
+    for (int32_t i = 0; i < cnt; i++) {
+        auto wrap = GetListItem(layoutWrapper, currentIndex + i);
+        if (wrap) {
             int32_t id = wrap->GetHostNode()->GetId();
             SetItemInfo(currentIndex + i, { id, startPos, endPos, isGroup });
         }
@@ -315,9 +321,20 @@ int32_t ListLanesLayoutAlgorithm::CalculateLanesParam(std::optional<float>& minL
 void ListLanesLayoutAlgorithm::CalculateLanes(const RefPtr<ListLayoutProperty>& layoutProperty,
     const LayoutConstraintF& layoutConstraint, std::optional<float> crossSizeOptional, Axis axis)
 {
-    auto contentConstraint = layoutProperty->GetContentLayoutConstraint().value();
+    const auto& contentConstraintOps = layoutProperty->GetContentLayoutConstraint();
+    CHECK_NULL_VOID(contentConstraintOps);
+    auto contentConstraint = contentConstraintOps.value();
     auto mainPercentRefer = GetMainAxisSize(contentConstraint.percentReference, axis);
     int32_t lanes = layoutProperty->GetLanes().value_or(1);
+    if (layoutProperty->GetItemFillPolicy().has_value()) {
+        auto fillType = layoutProperty->GetItemFillPolicy();
+        const auto& padding = listLayoutProperty_->CreatePaddingAndBorder();
+        auto leftPadding = axis == Axis::HORIZONTAL ? padding.top.value_or(0) : padding.left.value_or(0);
+        auto rightPadding = axis == Axis::HORIZONTAL ? padding.bottom.value_or(0) : padding.right.value_or(0);
+        WidthBreakpoint point = GetCommonWidthBreakpoint(
+            (crossSizeOptional.value_or(0.0) + leftPadding + rightPadding), contentConstraint.scaleProperty.vpScale);
+        lanes = GetListLanesByFillType(fillType.value(), point);
+    }
     lanes = lanes > 1 ? lanes : 1;
     if (layoutProperty->GetLaneMinLength().has_value()) {
         minLaneLength_ =
@@ -459,125 +476,6 @@ void ListLanesLayoutAlgorithm::LayoutCachedALine(LayoutWrapper* layoutWrapper,
     LayoutItem(wrapper, pos.first, pos.second, startIndex, crossSize);
     SyncGeometry(wrapper, isDirty);
     wrapper->SetActive(false);
-    SetCachedItemInfo(pos.first, std::move(pos.second));
-}
-
-std::list<int32_t> ListLanesLayoutAlgorithm::LayoutCachedALineForward(LayoutWrapper* layoutWrapper,
-    int32_t& index, float& startPos, float crossSize)
-{
-    std::list<int32_t> predictBuildList;
-    ListLayoutAlgorithm::PositionMap posMap;
-    float mainLen = 0.0f;
-    bool isGroup = false;
-    int32_t cnt = 0;
-    int32_t lanes = lanes_ > 1 ? lanes_ : 1;
-    for (int32_t i = 0; i < lanes && index + i <= GetMaxListItemIndex(); i++) {
-        auto wrapper = GetChildByIndex(layoutWrapper, index + i, true);
-        if (!wrapper) {
-            predictBuildList.emplace_back(index + i);
-            break;
-        }
-        isGroup = wrapper->GetHostTag() == V2::LIST_ITEM_GROUP_ETS_TAG;
-        if (isGroup && cnt > 0) {
-            isGroup = false;
-            break;
-        }
-        if (CheckNeedMeasure(wrapper)) {
-            if (!isGroup) {
-                predictBuildList.emplace_back(index + i);
-                continue;
-            }
-            break;
-        }
-        cnt++;
-        mainLen = std::max(mainLen, GetMainAxisSize(wrapper->GetGeometryNode()->GetMarginFrameSize(), axis_));
-        auto id = wrapper->GetHostNode()->GetId();
-        posMap[index + i] = { id, startPos, startPos + mainLen, isGroup };
-        if (isGroup) {
-            break;
-        }
-    }
-    if (cnt > 0) {
-        auto endPos = startPos + mainLen;
-        startPos = endPos + GetSpaceWidth();
-        auto startIndex = index;
-        for (auto& pos: posMap) {
-            pos.second.endPos = endPos;
-            LayoutCachedALine(layoutWrapper, pos, startIndex, crossSize);
-        }
-    }
-    index += cnt + static_cast<int32_t>(predictBuildList.size());
-    return predictBuildList;
-}
-
-std::list<int32_t> ListLanesLayoutAlgorithm::LayoutCachedALineBackward(LayoutWrapper* layoutWrapper,
-    int32_t& index, float& endPos, float crossSize)
-{
-    std::list<int32_t> predictBuildList;
-    ListLayoutAlgorithm::PositionMap posMap;
-    float mainLen = 0.0f;
-    bool isGroup = false;
-    int32_t cnt = 0;
-    int32_t lanes = lanes_ > 1 ? lanes_ : 1;
-    for (int32_t i = 0; i < lanes && index >= 0; i++) {
-        auto idx = index - i;
-        auto wrapper = GetChildByIndex(layoutWrapper, idx, true);
-        if (!wrapper) {
-            predictBuildList.emplace_back(idx);
-            break;
-        }
-        isGroup = wrapper->GetHostTag() == V2::LIST_ITEM_GROUP_ETS_TAG;
-        if (isGroup && cnt > 0) {
-            isGroup = false;
-            break;
-        }
-        if (CheckNeedMeasure(wrapper)) {
-            if (!isGroup) {
-                predictBuildList.emplace_back(idx);
-                continue;
-            }
-            break;
-        }
-        cnt++;
-        mainLen = std::max(mainLen, GetMainAxisSize(wrapper->GetGeometryNode()->GetMarginFrameSize(), axis_));
-        auto id = wrapper->GetHostNode()->GetId();
-        posMap[idx] = { id, endPos - mainLen, endPos, isGroup };
-        if (CheckCurRowMeasureFinished(layoutWrapper, idx, isGroup)) {
-            break;
-        }
-    }
-    if (cnt > 0) {
-        auto startPos = endPos - mainLen;
-        endPos = startPos - GetSpaceWidth();
-        auto startIndex = index - cnt + 1;
-        for (auto& pos: posMap) {
-            pos.second.startPos = startPos;
-            LayoutCachedALine(layoutWrapper, pos, startIndex, crossSize);
-        }
-    }
-    index -= cnt + static_cast<int32_t>(predictBuildList.size());
-    return predictBuildList;
-}
-
-std::list<int32_t> ListLanesLayoutAlgorithm::LayoutCachedItem(LayoutWrapper* layoutWrapper, int32_t cacheCount)
-{
-    std::list<int32_t> predictBuildList;
-    float crossSize = GetLayoutCrossAxisSize(layoutWrapper);
-
-    auto& itemPosition = GetItemPosition();
-    auto curIndex = itemPosition.rbegin()->first + 1;
-    auto currPos = itemPosition.rbegin()->second.endPos + GetSpaceWidth();
-    for (int32_t i = 0; i < cacheCount && curIndex <= GetMaxListItemIndex(); i++) {
-        auto tmpList = LayoutCachedALineForward(layoutWrapper, curIndex, currPos, crossSize);
-        predictBuildList.merge(tmpList);
-    }
-    curIndex = itemPosition.begin()->first - 1;
-    currPos = itemPosition.begin()->second.startPos - GetSpaceWidth();
-    for (int32_t i = 0; i < cacheCount && curIndex >= 0; i++) {
-        auto tmpList = LayoutCachedALineBackward(layoutWrapper, curIndex, currPos, crossSize);
-        predictBuildList.merge(tmpList);
-    }
-    return predictBuildList;
 }
 
 std::pair<bool, bool> ListLanesLayoutAlgorithm::CheckACachedItem(
@@ -604,6 +502,9 @@ std::pair<bool, bool> ListLanesLayoutAlgorithm::CheckACachedItem(
 int32_t ListLanesLayoutAlgorithm::LayoutCachedForward(LayoutWrapper* layoutWrapper,
     int32_t cacheCount, int32_t& cachedCount, int32_t curIndex, std::list<PredictLayoutItem>& predictList, bool show)
 {
+    auto prop = AceType::DynamicCast<ListLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    CHECK_NULL_RETURN(prop, curIndex);
+    int32_t minCacheCount = prop->GetMinCacheCount();
     float crossSize = GetLayoutCrossAxisSize(layoutWrapper);
     RefPtr<LayoutWrapper> wrapper;
     curIndex = GetItemPosition().rbegin()->first + 1;
@@ -613,11 +514,12 @@ int32_t ListLanesLayoutAlgorithm::LayoutCachedForward(LayoutWrapper* layoutWrapp
         float mainLen = 0.0f;
         bool isGroup = false;
         int32_t cnt = 0;
+        bool forceCache = cachedCount <= minCacheCount;
         for (int32_t i = 0; i < lanes_ && curIndex + i <= GetMaxListItemIndex() && !isGroup; i++) {
             wrapper = GetChildByIndex(layoutWrapper, curIndex + i, !show);
             auto [needBreak, needPredict] = CheckACachedItem(wrapper, cnt, isGroup);
             if (needPredict) {
-                predictList.emplace_back(PredictLayoutItem { curIndex + i, cachedCount, -1 });
+                predictList.emplace_back(PredictLayoutItem { curIndex + i, cachedCount, -1, forceCache });
             }
             if (needBreak) {
                 break;
@@ -627,23 +529,31 @@ int32_t ListLanesLayoutAlgorithm::LayoutCachedForward(LayoutWrapper* layoutWrapp
             posMap[curIndex + i] = { wrapper->GetHostNode()->GetId(), startPos, startPos + mainLen, isGroup };
         }
         auto startIndex = curIndex;
+        int32_t currCache = 1;
         if (isGroup) {
             auto res = GetLayoutGroupCachedCount(layoutWrapper, wrapper, cacheCount - cachedCount, -1, curIndex, true);
             if (res.forwardCachedCount < res.forwardCacheMax && res.forwardCachedCount < cacheCount - cachedCount) {
                 LayoutItem(wrapper, posMap.begin()->first, posMap.begin()->second, startIndex, crossSize);
-                predictList.emplace_back(PredictLayoutItem { posMap.begin()->first, cachedCount, -1 });
+                predictList.emplace_back(PredictLayoutItem { posMap.begin()->first, cachedCount, -1, forceCache });
                 return res.forwardCachedCount > 0 ? curIndex : curIndex - 1;
+            } else if (res.needPredict) {
+                predictList.emplace_back(PredictLayoutItem { posMap.begin()->first, cachedCount, -1, forceCache });
             }
-            cachedCount += std::max(res.forwardCacheMax, 1);
-        } else if (cnt > 0) {
-            cachedCount++;
-        } else {
+            currCache = std::max(res.forwardCacheMax, 1);
+        } else if (cnt <= 0) {
             break;
         }
         for (auto& pos : posMap) {
             pos.second.endPos = startPos + mainLen;
             LayoutCachedALine(layoutWrapper, pos, startIndex, crossSize);
+            if (NearEqual(pos.second.endPos, GetContentMainSize()) && NearZero(mainLen)) {
+                SetItemInfo(pos.first, std::move(pos.second));
+                currCache = 0;
+            } else {
+                SetCachedItemInfo(pos.first, std::move(pos.second));
+            }
         }
+        cachedCount += currCache;
         if (isStackFromEnd_) {
             SetLaneIdx4Divider(cnt - 1);
         }
@@ -656,6 +566,9 @@ int32_t ListLanesLayoutAlgorithm::LayoutCachedForward(LayoutWrapper* layoutWrapp
 int32_t ListLanesLayoutAlgorithm::LayoutCachedBackward(LayoutWrapper* layoutWrapper,
     int32_t cacheCount, int32_t& cachedCount, int32_t curIndex, std::list<PredictLayoutItem>& predictList, bool show)
 {
+    auto prop = AceType::DynamicCast<ListLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    CHECK_NULL_RETURN(prop, curIndex);
+    int32_t minCacheCount = prop->GetMinCacheCount();
     float crossSize = GetLayoutCrossAxisSize(layoutWrapper);
     RefPtr<LayoutWrapper> wrapper;
     curIndex = GetItemPosition().begin()->first - 1;
@@ -665,12 +578,13 @@ int32_t ListLanesLayoutAlgorithm::LayoutCachedBackward(LayoutWrapper* layoutWrap
         float mainLen = 0.0f;
         bool isGroup = false;
         int32_t cnt = 0;
+        bool forceCache = cachedCount <= minCacheCount;
         for (int32_t i = 0; i < lanes_ && curIndex - i >= 0; i++) {
             auto idx = curIndex - i;
             wrapper = GetChildByIndex(layoutWrapper, idx, !show);
             auto [needBreak, needPredict] = CheckACachedItem(wrapper, cnt, isGroup);
             if (needPredict) {
-                predictList.emplace_back(PredictLayoutItem { idx, -1, cachedCount });
+                predictList.emplace_back(PredictLayoutItem { idx, -1, cachedCount, forceCache });
             }
             if (needBreak) {
                 break;
@@ -683,23 +597,31 @@ int32_t ListLanesLayoutAlgorithm::LayoutCachedBackward(LayoutWrapper* layoutWrap
             }
         }
         auto startIndex = GetLanesFloor(layoutWrapper, curIndex);
+        int32_t currCache = 1;
         if (isGroup) {
             auto res = GetLayoutGroupCachedCount(layoutWrapper, wrapper, -1, cacheCount - cachedCount, curIndex, true);
             if (res.backwardCachedCount < res.backwardCacheMax && res.backwardCachedCount < cacheCount - cachedCount) {
                 LayoutItem(wrapper, posMap.begin()->first, posMap.begin()->second, startIndex, crossSize);
-                predictList.emplace_back(PredictLayoutItem { posMap.begin()->first, -1, cachedCount });
+                predictList.emplace_back(PredictLayoutItem { posMap.begin()->first, -1, cachedCount, forceCache });
                 return res.backwardCachedCount > 0 ? curIndex : curIndex + 1;
+            } else if (res.needPredict) {
+                predictList.emplace_back(PredictLayoutItem { posMap.begin()->first, -1, cachedCount, forceCache });
             }
-            cachedCount += std::max(res.backwardCacheMax, 1);
-        } else if (cnt > 0) {
-            cachedCount++;
-        } else {
+            currCache = std::max(res.backwardCacheMax, 1);
+        } else if (cnt <= 0) {
             break;
         }
         for (auto& pos: posMap) {
             pos.second.startPos = endPos - mainLen;
             LayoutCachedALine(layoutWrapper, pos, startIndex, crossSize);
+            if (NearEqual(pos.second.startPos, 0.0f) && NearZero(mainLen)) {
+                SetItemInfo(pos.first, std::move(pos.second));
+                currCache = 0;
+            } else {
+                SetCachedItemInfo(pos.first, std::move(pos.second));
+            }
         }
+        cachedCount += currCache;
         if (!isStackFromEnd_) {
             SetLaneIdx4Divider(curIndex - startIndex + 1 - cnt);
         }

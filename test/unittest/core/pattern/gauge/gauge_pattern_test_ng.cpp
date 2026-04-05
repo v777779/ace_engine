@@ -19,11 +19,11 @@
 
 #define private public
 #define protected public
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/rosen/testing_canvas.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
 #include "base/geometry/offset.h"
@@ -1993,5 +1993,35 @@ HWTEST_F(GaugePatternTestNg, GaugeTestSetUseSpecialDefaultIndicator001, TestSize
     gauge.SetUseSpecialDefaultIndicator(true);
     ASSERT_NE(gaugePaintProperty->GetUseSpecialDefaultIndicator().has_value(), false);
     EXPECT_TRUE(gaugePaintProperty->GetUseSpecialDefaultIndicatorValue());
+}
+
+/**
+ * @tc.name: GaugeIsMatchParentTest001
+ * @tc.desc: Test Gauge LayoutPolicyIsMatchParent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GaugePatternTestNg, GaugeIsMatchParentTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init Gauge node.
+     */
+    g_testValue = -0.1f;
+    auto gaugePattern = AceType::MakeRefPtr<GaugePattern>();
+    ASSERT_NE(gaugePattern, nullptr);
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::GAUGE_ETS_TAG, -1, gaugePattern);
+    gaugePattern->AttachToFrameNode(frameNode);
+    ASSERT_NE(frameNode, nullptr);
+    auto gaugePaintProperty = frameNode->GetPaintProperty<GaugePaintProperty>();
+    ASSERT_NE(gaugePaintProperty, nullptr);
+    auto eventHub = frameNode->GetEventHub<NG::EventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetEnabled(ENABLED_TRUE);
+    gaugePaintProperty->UpdateValue(g_testValue);
+
+    /**
+     * @tc.steps: step2. get pattern and test IsEnableMatchParent
+     */
+    EXPECT_TRUE(gaugePattern->IsEnableMatchParent());
+    EXPECT_TRUE(gaugePattern->IsEnableFix());
 }
 } // namespace OHOS::Ace::NG

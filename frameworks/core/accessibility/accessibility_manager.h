@@ -20,7 +20,6 @@
 #include "base/memory/ace_type.h"
 #include "core/accessibility/accessibility_node.h"
 #include "core/accessibility/accessibility_constants.h"
-#include "core/accessibility/accessibility_provider.h"
 #include "core/accessibility/accessibility_utils.h"
 
 namespace OHOS::Accessibility {
@@ -43,6 +42,7 @@ constexpr int32_t QUARTER_ANGLE = 90;
 constexpr int32_t HALF_ANGLE = 180;
 constexpr int32_t THREE_QUARTER_ANGLE = 270;
 constexpr int32_t FULL_ANGLE = 360;
+constexpr int64_t INVALID_ACCESSIBILITY_NODE_ID = -1;
 
 struct RotateTransform {
     int32_t rotateDegree = 0;  // final rotate degree of parent interface
@@ -56,6 +56,8 @@ struct RotateTransform {
 };
 
 class ComposedElement;
+class PipelineBase;
+class AccessibilityProvider;
 
 struct AccessibilityEvent {
     int64_t nodeId = 0;
@@ -107,10 +109,6 @@ struct AccessibilityParentRectInfo {
     bool isChanged = false;    // only for uiextension, true means uec transfered translate params to uiextension
 };
 
-struct AccessibilityWorkMode {
-    bool isTouchExplorationEnabled = true;
-};
-
 struct AccessibilityWindowInfo {
     int32_t left = 0;
     int32_t top = 0;
@@ -118,6 +116,10 @@ struct AccessibilityWindowInfo {
     float_t scaleX = 1.0f;
     float_t scaleY = 1.0f;
     RotateTransform rotateTransform;
+};
+
+struct AccessibilityWorkMode {
+    bool isTouchExplorationEnabled = true;
 };
 
 enum class AccessibilityCallbackEventId : uint32_t {
@@ -135,6 +137,21 @@ struct AccessibilityCallbackEvent {
     {
         return std::tie(eventId, parameter) < std::tie(other.eventId, other.parameter);
     }
+};
+
+class AccessibilityScreenReaderObserverCallback {
+public:
+    explicit AccessibilityScreenReaderObserverCallback(int64_t accessibilityId) : accessibilityId_(accessibilityId) {}
+    virtual ~AccessibilityScreenReaderObserverCallback() = default;
+    virtual bool OnState(bool state) = 0;
+
+    int64_t GetAccessibilityId() const
+    {
+        return accessibilityId_;
+    }
+
+private:
+    int64_t accessibilityId_ = -1;
 };
 
 class AccessibilitySAObserverCallback {
@@ -191,6 +208,10 @@ public:
     virtual void SendAccessibilityAsyncEvent(const AccessibilityEvent& accessibilityEvent) = 0;
     virtual void SendWebAccessibilityAsyncEvent(const AccessibilityEvent& accessibilityEvent,
         const RefPtr<NG::WebPattern>& webPattern) {}
+    virtual bool IsTouchExplorationEnabled()
+    {
+        return true;
+    }
     virtual bool IsScreenReaderEnabled()
     {
         return false;
@@ -261,7 +282,8 @@ public:
     {
         return false;
     }
-    virtual bool DeregisterWebInteractionOperationAsChildTree(int32_t treeId)
+    virtual bool DeregisterWebInteractionOperationAsChildTree(int32_t treeId,
+        const WeakPtr<NG::WebPattern>& webPattern)
     {
         return false;
     }
@@ -334,7 +356,7 @@ public:
         isReg_ = state;
     }
 
-    int32_t GetTreeId() const
+    virtual int32_t GetTreeId(int32_t instanceId = -1)
     {
         return treeId_;
     }
@@ -355,6 +377,11 @@ public:
         return AccessibilityWindowInfo();
     }
 
+    virtual AccessibilityWorkMode GenerateAccessibilityWorkMode()
+    {
+        return AccessibilityWorkMode();
+    }
+
     virtual void UpdateWindowInfo(AccessibilityWindowInfo& windowInfo, const RefPtr<PipelineBase>& context) {}
     virtual void UpdateAccessibilityNodeRect(const RefPtr<NG::FrameNode>& frameNode) {}
     virtual void OnAccessbibilityDetachFromMainTree(const RefPtr<NG::FrameNode>& frameNode) {}
@@ -363,21 +390,33 @@ public:
         return 0;
     }
 
-    virtual AccessibilityWorkMode GenerateAccessibilityWorkMode()
-    {
-        return AccessibilityWorkMode();
-    }
-
     virtual void ReleasePageEvent(
         const RefPtr<NG::FrameNode>& node,
         bool deleteController = true,
         bool releaseAll = false) {}
     virtual void AddToPageEventController(const RefPtr<NG::FrameNode>& node) {}
+    virtual bool DeleteFromPageEventController(const RefPtr<NG::FrameNode>& node) {return false;}
     virtual bool CheckPageEventCached(const RefPtr<NG::FrameNode>& node, bool onlyCurrentPage) {return false;}
     virtual bool CheckAccessibilityVisible(const RefPtr<NG::FrameNode>& node) {return true;}
 
     virtual void AddHoverTransparentCallback(const RefPtr<NG::FrameNode>& node) {};
-    virtual bool IsInHoverTransparentCallbackList(const RefPtr<NG::FrameNode>& node) { return false; };
+    virtual bool CheckHoverTransparentCallbackListEmpty(int32_t containerId) {return true;};
+    virtual void RegisterScreenReaderObserverCallback(
+        int64_t elementId, const std::shared_ptr<AccessibilityScreenReaderObserverCallback>& callback) {};
+    virtual void DeregisterScreenReaderObserverCallback(int64_t elementId) {};
+
+    virtual bool NeedChangeToReadableNode(const RefPtr<NG::FrameNode>& curFrameNode,
+        RefPtr<NG::FrameNode>& readableNode)
+    {
+        return false;
+    }
+
+    virtual int64_t CheckAndGetEmbedFrameNode(const RefPtr<NG::FrameNode>& node)
+    {
+        return INVALID_ACCESSIBILITY_NODE_ID;
+    }
+
+    virtual void AccessibilityOnShowHide(bool isOnShow, const WeakPtr<PipelineBase>& context) {};
 
 protected:
     int32_t treeId_ = 0;

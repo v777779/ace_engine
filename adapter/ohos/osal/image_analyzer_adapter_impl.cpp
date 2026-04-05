@@ -47,8 +47,15 @@ void ImageAnalyzerAdapterImpl::SetImageAnalyzerConfig(void* config, bool isOptio
     }
 }
 
+void* ImageAnalyzerAdapterImpl::GetNapiEnv() const
+{
+    return env_;
+}
+
 void* ImageAnalyzerAdapterImpl::GetImageAnalyzerConfig()
 {
+    napi_escapable_handle_scope scope = nullptr;
+    napi_open_escapable_handle_scope(env_, &scope);
     napi_value analyzerConfig = nullptr;
     napi_get_reference_value(env_, analyzerConfigRef_, &analyzerConfig);
 
@@ -64,6 +71,8 @@ void* ImageAnalyzerAdapterImpl::GetImageAnalyzerConfig()
         }
         napi_set_named_property(env_, analyzerConfig, "types", typeNapi);
     }
+    napi_escape_handle(env_, scope, analyzerConfig, &analyzerConfig);
+    napi_close_escapable_handle_scope(env_, scope);
     return analyzerConfig;
 }
 
@@ -73,7 +82,10 @@ void* ImageAnalyzerAdapterImpl::ConvertPixmapNapi(const RefPtr<PixelMap>& pixelM
     auto engine = EngineHelper::GetCurrentEngine();
     CHECK_NULL_RETURN(engine, {});
     napi_handle_scope scope = nullptr;
-    napi_open_handle_scope(env_, &scope);
+    auto status = napi_open_handle_scope(env_, &scope);
+    if (status != napi_ok || scope == nullptr) {
+        return nullptr;
+    }
     NativeEngine* nativeEngine = engine->GetNativeEngine();
     auto env = reinterpret_cast<napi_env>(nativeEngine);
     auto napiValue = OHOS::Media::PixelMapNapi::CreatePixelMap(env, pixelMap->GetPixelMapSharedPtr());

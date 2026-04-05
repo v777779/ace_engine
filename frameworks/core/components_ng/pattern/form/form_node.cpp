@@ -18,13 +18,10 @@
 #include "base/utils/utils.h"
 #include "core/components/form/sub_container.h"
 #include "core/components_ng/pattern/form/form_pattern.h"
+#include "core/components_ng/property/accessibility_property.h"
 #include "core/pipeline/pipeline_context.h"
 #include "core/pipeline_ng/pipeline_context.h"
-#ifndef ARKUI_CAPI_UNITTEST
 #include "pointer_event.h"
-#else
-#include "test/unittest/capi/stubs/mock_pointer_event.h"
-#endif // ARKUI_CAPI_UNITTEST
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -153,7 +150,9 @@ public:
         if (isReg_) {
             return true;
         }
-        formNode->OnAccessibilityChildTreeRegister(windowId, treeId);
+        if (!(formNode->OnAccessibilityChildTreeRegister(windowId, treeId))) {
+            return false;
+        }
         isReg_ = true;
         return true;
     }
@@ -204,15 +203,35 @@ private:
     bool isReg_ = false;
     WeakPtr<FormNode> weakFormNode_;
 };
+
+class FormAccessibilityScreenReaderObserverCallback : public AccessibilityScreenReaderObserverCallback {
+public:
+    explicit FormAccessibilityScreenReaderObserverCallback(const WeakPtr<FormNode> &formNode, int64_t accessibilityId)
+        : AccessibilityScreenReaderObserverCallback(accessibilityId), weakFormNode_(formNode) {}
+    ~FormAccessibilityScreenReaderObserverCallback() override = default;
+
+    bool OnState(bool state) override
+    {
+        auto formNode = weakFormNode_.Upgrade();
+        CHECK_NULL_RETURN(formNode, false);
+        auto pattern = formNode->GetPattern<FormPattern>();
+        CHECK_NULL_RETURN(pattern, false);
+
+        return pattern->OnAccessibilityStateChange(state);
+    }
+private:
+    WeakPtr<FormNode> weakFormNode_;
+};
 }
 
 FormNode::~FormNode()
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto accessibilityManager = pipeline->GetAccessibilityManager();
     CHECK_NULL_VOID(accessibilityManager);
     accessibilityManager->DeregisterAccessibilityChildTreeCallback(GetAccessibilityId());
+    accessibilityManager->DeregisterScreenReaderObserverCallback(GetAccessibilityId());
 }
 
 HitTestResult FormNode::AxisTest(const PointF& globalPoint, const PointF& parentLocalPoint,
@@ -239,9 +258,7 @@ HitTestResult FormNode::AxisTest(const PointF& globalPoint, const PointF& parent
         };
         auto mgr = context->GetFormEventManager();
         if (mgr) {
-#ifndef ARKUI_CAPI_UNITTEST
             mgr->AddEtsCardAxisEventCallback(touchRestrict.touchEvent.id, callback);
-#endif
         }
         return testResult;
     }
@@ -283,9 +300,7 @@ HitTestResult FormNode::TouchTest(const PointF& globalPoint, const PointF& paren
         };
         auto mgr = context->GetFormEventManager();
         if (mgr) {
-#ifndef ARKUI_CAPI_UNITTEST
             mgr->AddEtsCardTouchEventCallback(touchRestrict.touchEvent.id, callback);
-#endif
         }
         return testResult;
     }
@@ -353,6 +368,7 @@ RefPtr<FormNode> FormNode::GetOrCreateFormNode(
     formNode = AceType::MakeRefPtr<FormNode>(tag, nodeId, pattern, false);
     formNode->InitializePatternAndContext();
     formNode->InitializeFormAccessibility();
+    formNode->RegisterFormAccessibilityCallback();
     ElementRegister::GetInstance()->AddUINode(formNode);
     return formNode;
 }
@@ -366,7 +382,7 @@ void FormNode::OnDetachFromMainTree(bool recursive, PipelineContext* context)
 
 void FormNode::InitializeFormAccessibility()
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto accessibilityManager = pipeline->GetAccessibilityManager();
     CHECK_NULL_VOID(accessibilityManager);
@@ -378,24 +394,25 @@ void FormNode::InitializeFormAccessibility()
 
 void FormNode::NotifyAccessibilityChildTreeRegister()
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto accessibilityManager = pipeline->GetAccessibilityManager();
     CHECK_NULL_VOID(accessibilityManager);
     if (accessibilityManager->IsRegister()) {
+        CHECK_NULL_VOID(accessibilityChildTreeCallback_);
         accessibilityChildTreeCallback_->OnRegister(pipeline->GetWindowId(), 0);
     }
 }
 
-void FormNode::OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId)
+bool FormNode::OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId)
 {
     auto accessibilityId = GetAccessibilityId();
     auto pattern = GetPattern<FormPattern>();
     if (pattern == nullptr) {
         TAG_LOGE(AceLogTag::ACE_FORM, "pattern is null");
-        return;
+        return false;
     }
-    pattern->OnAccessibilityChildTreeRegister(windowId, treeId, accessibilityId);
+    return pattern->OnAccessibilityChildTreeRegister(windowId, treeId, accessibilityId);
 }
 
 void FormNode::OnAccessibilityChildTreeDeregister()
@@ -436,5 +453,30 @@ int32_t FormNode::GetImageId()
         imageId_ = ElementRegister::GetInstance()->MakeUniqueId();
     }
     return imageId_.value();
+}
+
+void FormNode::ResetAccessibilityChildTreeCallbackAndDeregister()
+{
+    auto pipeline = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    auto accessibilityManager = pipeline->GetAccessibilityManager();
+    CHECK_NULL_VOID(accessibilityManager);
+    accessibilityManager->DeregisterAccessibilityChildTreeCallback(GetAccessibilityId());
+    CHECK_NULL_VOID(accessibilityChildTreeCallback_);
+    accessibilityChildTreeCallback_->OnDeregister();
+    accessibilityChildTreeCallback_.reset();
+}
+
+void FormNode::RegisterFormAccessibilityCallback()
+{
+    auto pipeline = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    auto accessibilityManager = pipeline->GetAccessibilityManager();
+    CHECK_NULL_VOID(accessibilityManager);
+
+    accessibilityScreenReaderObserverCallback_ = std::make_shared<FormAccessibilityScreenReaderObserverCallback>(
+        WeakClaim(this), GetAccessibilityId());
+    accessibilityManager->RegisterScreenReaderObserverCallback(GetAccessibilityId(),
+        accessibilityScreenReaderObserverCallback_);
 }
 } // namespace OHOS::Ace::NG

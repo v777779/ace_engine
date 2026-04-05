@@ -16,7 +16,6 @@
 /// <reference path='./import.ts' />
 
 import { ArkScrollable } from "./ArkScrollable";
-
 class ArkGridComponent extends ArkScrollable<GridAttribute> implements GridAttribute {
   constructor(nativePtr: KNode, classType?: ModifierType) {
     super(nativePtr, classType);
@@ -36,7 +35,7 @@ class ArkGridComponent extends ArkScrollable<GridAttribute> implements GridAttri
       modifierWithKey(this._modifiersWithKeys, GridLayoutOptionsModifier.identity, GridLayoutOptionsModifier, undefined);
     }
   }
-  columnsTemplate(value: string): this {
+  columnsTemplate(value: string | ItemFillPolicy): this {
     modifierWithKey(this._modifiersWithKeys, GridColumnsTemplateModifier.identity, GridColumnsTemplateModifier, value);
     return this;
   }
@@ -142,7 +141,7 @@ class ArkGridComponent extends ArkScrollable<GridAttribute> implements GridAttri
     return this;
   }
   onScroll(event: (scrollOffset: number, scrollState: ScrollState) => void): this {
-    throw new Error('Method not implemented.');
+    throw new BusinessError(100201, 'onScroll not supported in attributeModifier scenario.');
   }
   onReachStart(event: () => void): this {
     modifierWithKey(this._modifiersWithKeys, GridOnReachStartModifier.identity, GridOnReachStartModifier, event);
@@ -180,6 +179,10 @@ class ArkGridComponent extends ArkScrollable<GridAttribute> implements GridAttri
     modifierWithKey(this._modifiersWithKeys, GridSyncLoadModifier.identity, GridSyncLoadModifier, value);
     return this;
   }
+  editModeOptions(options: EditModeOptions | undefined): this {
+    modifierWithKey(this._modifiersWithKeys, GridEditModeOptionsModifier.identity, GridEditModeOptionsModifier, options);
+    return this;
+  }
   onWillScroll(callback: (xOffset: number, yOffset: number,
     scrollState: ScrollState, scrollSource: ScrollSource) => void | OffsetResult): this {
     modifierWithKey(this._modifiersWithKeys, GridOnWillScrollModifier.identity, GridOnWillScrollModifier, callback);
@@ -187,6 +190,10 @@ class ArkGridComponent extends ArkScrollable<GridAttribute> implements GridAttri
   }
   onDidScroll(callback: (xOffset: number, yOffset: number, scrollState: ScrollState) => void): this {
     modifierWithKey(this._modifiersWithKeys, GridOnDidScrollModifier.identity, GridOnDidScrollModifier, callback);
+    return this;
+  }
+  supportEmptyBranchInLazyLoading(value): this {
+    modifierWithKey(this._modifiersWithKeys, GridSupportLazyLoadingEmptyBranchModifier.identity, GridSupportLazyLoadingEmptyBranchModifier, value);
     return this;
   }
 }
@@ -215,26 +222,30 @@ class GridLayoutOptionsModifier extends ModifierWithKey<GridLayoutOptions> {
   static identity: Symbol = Symbol('gridLayoutOptions');
   applyPeer(node: KNode, reset: boolean): void {
     if (reset) {
-      getUINativeModule().grid.setGridLayoutOptions(node, undefined, undefined, undefined, undefined, undefined);
+      getUINativeModule().grid.setGridLayoutOptions(node, undefined, undefined, undefined, undefined, undefined, undefined, undefined);
     } else {
       getUINativeModule().grid.setGridLayoutOptions(node,
         isArray(this.value.regularSize) ? this.value.regularSize : undefined,
         isArray(this.value?.irregularIndexes) ? this.value.irregularIndexes : undefined,
         isArray(this.value?.irregularIndexes) ? this.value.irregularIndexes.length : undefined,
         isFunction(this.value?.onGetIrregularSizeByIndex) ? this.value.onGetIrregularSizeByIndex : undefined,
-        isFunction(this.value?.onGetRectByIndex) ? this.value.onGetRectByIndex : undefined);
+        isFunction(this.value?.onGetRectByIndex) ? this.value.onGetRectByIndex : undefined,
+        isFunction(this.value?.onGetStartIndexByOffset) ? this.value.onGetStartIndexByOffset : undefined,
+        isFunction(this.value?.onGetStartIndexByIndex) ? this.value.onGetStartIndexByIndex : undefined);
     }
   }
   checkObjectDiff(): boolean {
     return !isBaseOrResourceEqual(this.stageValue?.regularSize, this.value?.regularSize) ||
       !isBaseOrResourceEqual(this.stageValue?.irregularIndexes, this.value?.irregularIndexes) ||
       !isBaseOrResourceEqual(this.stageValue?.onGetIrregularSizeByIndex, this.value?.onGetIrregularSizeByIndex) ||
-      !isBaseOrResourceEqual(this.stageValue?.onGetRectByIndex, this.value?.onGetRectByIndex);
+      !isBaseOrResourceEqual(this.stageValue?.onGetRectByIndex, this.value?.onGetRectByIndex) ||
+      !isBaseOrResourceEqual(this.stageValue?.onGetStartIndexByOffset, this.value?.onGetStartIndexByOffset) ||
+      !isBaseOrResourceEqual(this.stageValue?.onGetStartIndexByIndex, this.value?.onGetStartIndexByIndex);
   }
 }
 
-class GridColumnsTemplateModifier extends ModifierWithKey<string> {
-  constructor(value: string) {
+class GridColumnsTemplateModifier extends ModifierWithKey<string | ItemFillPolicy> {
+  constructor(value: string | ItemFillPolicy) {
     super(value);
   }
   static identity: Symbol = Symbol('gridColumnsTemplate');
@@ -484,6 +495,20 @@ class GridOnDidScrollModifier extends ModifierWithKey<(xOffset: number, yOffset:
       getUINativeModule().grid.resetOnDidScroll(node);
     } else {
       getUINativeModule().grid.setOnDidScroll(node, this.value);
+    }
+  }
+}
+
+class GridSupportLazyLoadingEmptyBranchModifier extends ModifierWithKey<boolean> {
+  constructor(value) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('gridSupportLazyLoadingEmptyBranch');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().grid.setSupportLazyLoadingEmptyBranch(node, false);
+    } else {
+      getUINativeModule().grid.setSupportLazyLoadingEmptyBranch(node, this.value);
     }
   }
 }
@@ -771,6 +796,20 @@ class GridSyncLoadModifier extends ModifierWithKey<boolean> {
   }
 }
 
+class GridEditModeOptionsModifier extends ModifierWithKey<EditModeOptions | undefined> {
+  constructor(options: EditModeOptions | undefined) {
+    super(options);
+  }
+  static identity: Symbol = Symbol('gridEditModeOptions');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().grid.resetEditModeOptions(node);
+    } else {
+      getUINativeModule().grid.setEditModeOptions(node, this.value);
+    }
+  }
+}
+
 // @ts-ignore
 globalThis.Grid.attributeModifier = function (modifier: ArkComponent): void {
   attributeModifierFunc.call(this, modifier, (nativePtr: KNode) => {
@@ -780,7 +819,27 @@ globalThis.Grid.attributeModifier = function (modifier: ArkComponent): void {
   });
 };
 
-globalThis.Grid.onWillStopDragging = function (value: (velocity: number) => void) {
+globalThis.Grid.onWillStopDragging = function (value: (velocity: number) => void): void {
   let nodePtr = getUINativeModule().frameNode.getStackTopNode();
   getUINativeModule().scrollable.setOnWillStopDragging(nodePtr, value);
+};
+
+globalThis.Grid.onWillStartDragging = function (value: () => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnWillStartDragging(nodePtr, value);
+};
+
+globalThis.Grid.onDidStopDragging = function (value: (isWillFling: boolean) => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnDidStopDragging(nodePtr, value);
+};
+
+globalThis.Grid.onWillStartFling = function (value: () => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnWillStartFling(nodePtr, value);
+};
+
+globalThis.Grid.onDidStopFling = function (value: () => void): void {
+  let nodePtr = getUINativeModule().frameNode.getStackTopNode();
+  getUINativeModule().scrollable.setOnDidStopFling(nodePtr, value);
 };

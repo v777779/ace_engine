@@ -29,6 +29,8 @@ public:
     void SetBitmapMesh(const std::vector<float>& mesh, int32_t column, int32_t row) override;
     void SetViewPort(const Dimension& dimLeft, const Dimension& dimTop, const Dimension& dimWidth,
         const Dimension& dimHeight) override;
+    void SetViewPort(
+        const std::vector<Dimension>& dimArray, const std::vector<RefPtr<ResourceObject>>& resObjArray) override;
     void InitBox(const RefPtr<PixelMap>& pixMap) override;
     void SetStroke(const Color& color) override;
     void SetFill(const Color& color) override;
@@ -41,10 +43,22 @@ public:
     void SetFillOpacity(double opacity) override;
     void SetStrokeWidth(const Ace::Dimension& lineWidth) override;
     void SetStrokeDashArray(const std::vector<Ace::Dimension>& segments) override;
+    void SetStrokeDashArray(
+        const std::vector<Ace::Dimension>& segments, const std::vector<RefPtr<ResourceObject>>& resObjArray) override;
     void SetAntiAlias(bool antiAlias) override;
     void SetWidth() override {}
     void SetHeight() override {}
+    void SetStroke(const RefPtr<ResourceObject>& resObj) override;
+    void SetFill(const RefPtr<ResourceObject>& resObj) override;
+    void SetForegroundColor(const RefPtr<ResourceObject>& resObj) override;
+    void SetStrokeDashOffset(const RefPtr<ResourceObject>& resObj) override;
+    void SetStrokeMiterLimit(const RefPtr<ResourceObject>& resObj) override;
+    void SetStrokeOpacity(const RefPtr<ResourceObject>& resObj) override;
+    void SetFillOpacity(const RefPtr<ResourceObject>& resObj) override;
+    void SetStrokeWidth(const RefPtr<ResourceObject>& resObj) override;
     static void SetStrokeDashArray(FrameNode* frameNode, const std::vector<Ace::Dimension>& segments);
+    static void SetStrokeDashArray(FrameNode* frameNode, const std::vector<Ace::Dimension>& segments,
+        const std::vector<RefPtr<ResourceObject>>& resObjArray);
     static void SetStrokeMiterLimit(FrameNode* frameNode, double miterLimit);
     static void SetFillOpacity(FrameNode* frameNode, double fillOpacity);
     static void SetStrokeOpacity(FrameNode* frameNode, double strokeOpacity);
@@ -57,10 +71,20 @@ public:
     static void SetStrokeLineJoin(FrameNode* frameNode, int lineJoinStyle);
     static void SetViewPort(FrameNode* frameNode, const Dimension& dimLeft, const Dimension& dimTop,
         const Dimension& dimWidth, const Dimension& dimHeight);
+    static void SetViewPort(FrameNode* frameNode, const std::vector<Dimension>& dimArray,
+        const std::vector<RefPtr<ResourceObject>>& resObjArray);
     static void SetBitmapMesh(FrameNode* frameNode, const std::vector<float>& mesh, int32_t column, int32_t row);
     static void SetWidth(FrameNode* frameNode) {}
     static void SetHeight(FrameNode* frameNode) {}
     static void InitBox(FrameNode* frameNode, const RefPtr<PixelMap>& pixMap);
+    static void SetStroke(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void SetFill(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void SetForegroundColor(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void SetStrokeDashOffset(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void SetStrokeMiterLimit(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void SetStrokeOpacity(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void SetFillOpacity(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void SetStrokeWidth(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
 };
 
 } // namespace OHOS::Ace::NG

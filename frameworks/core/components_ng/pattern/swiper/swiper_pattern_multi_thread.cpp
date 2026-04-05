@@ -17,7 +17,7 @@
 
 #include "base/log/log_wrapper.h"
 #include "core/components/common/layout/constants.h"
-
+ 
 namespace OHOS::Ace::NG {
 
 void SwiperPattern::OnAttachToFrameNodeMultiThread()
@@ -28,6 +28,11 @@ void SwiperPattern::OnAttachToFrameNodeMultiThread()
     CHECK_NULL_VOID(renderContext);
     renderContext->SetClipToFrame(true);
     renderContext->SetClipToBounds(true);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    auto indicatorTheme = pipeline->GetTheme<SwiperIndicatorTheme>();
+    CHECK_NULL_VOID(indicatorTheme);
+    renderContext->UpdateClipEdge(indicatorTheme->GetClipEdge());
 }
 
 void SwiperPattern::OnDetachFromFrameNodeMultiThread(FrameNode* node)
@@ -37,15 +42,6 @@ void SwiperPattern::OnDetachFromFrameNodeMultiThread(FrameNode* node)
 void SwiperPattern::OnAttachToMainTreeMultiThread()
 {
     do {
-        auto host = GetHost();
-        CHECK_NULL_BREAK(host);
-        auto pipeline = host->GetContext();
-        CHECK_NULL_BREAK(pipeline);
-        auto renderContext = host->GetRenderContext();
-        CHECK_NULL_BREAK(renderContext);
-        auto indicatorTheme = pipeline->GetTheme<SwiperIndicatorTheme>();
-        CHECK_NULL_BREAK(indicatorTheme);
-        renderContext->UpdateClipEdge(indicatorTheme->GetClipEdge());
         InitSurfaceChangedCallback();
     } while (false);
     if (!isInit_) {
@@ -102,3 +98,4 @@ void SwiperPattern::SetCachedCountMultiThread(int32_t cachedCount)
     host->PostAfterAttachMainTreeTask(std::move(setTask));
 }
 } // namespace OHOS::Ace::NG
+ 

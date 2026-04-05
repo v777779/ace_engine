@@ -47,8 +47,8 @@ class ACE_FORCE_EXPORT LongPressRecognizer : public MultiFingersRecognizer {
 
 public:
     explicit LongPressRecognizer() = default;
-    LongPressRecognizer(int32_t duration, int32_t fingers, bool repeat,
-        bool isForDrag = false, bool isDisableMouseLeft = false, bool isLimitFingerCount = false);
+    LongPressRecognizer(int32_t duration, int32_t fingers, bool repeat, bool isForDrag = false,
+        bool isDisableMouseLeft = false, bool isLimitFingerCount = false, double allowableMovement = 15.0);
 
     LongPressRecognizer(bool isForDrag = false, bool isDisableMouseLeft = false)
         : isForDrag_(isForDrag), isDisableMouseLeft_(isDisableMouseLeft)
@@ -74,6 +74,16 @@ public:
     void SetUseCatchMode(bool useCatchMode)
     {
         useCatchMode_ = useCatchMode;
+    }
+
+    void SetAllowableMovement(double allowableMovement)
+    {
+        allowableMovement_ = allowableMovement;
+    }
+
+    double GetAllowableMovement() const
+    {
+        return allowableMovement_;
     }
 
     void SetDuration(int32_t duration)
@@ -131,6 +141,8 @@ public:
 
     void ForceCleanRecognizer() override;
 
+protected:
+    std::string GetGestureInfoString() const override;
 private:
     void HandleTouchDownEvent(const TouchEvent& event) override;
     void HandleTouchUpEvent(const TouchEvent& event) override;
@@ -144,6 +156,7 @@ private:
     void SendCallbackMsg(const std::unique_ptr<GestureEventFunc>& callback, bool isRepeat, GestureCallbackType type);
     void HandleReports(const GestureEvent& info, GestureCallbackType type) override;
     GestureJudgeResult TriggerGestureJudgeCallback();
+    void UpdateGestureEventInfo(std::shared_ptr<LongPressGestureEvent>& info);
     void OnResetStatus() override;
     double ConvertPxToVp(double offset) const;
     void ThumbnailTimer(int32_t time);
@@ -155,6 +168,7 @@ private:
     bool repeat_ = false;
     bool isForDrag_ = false;
     bool isDisableMouseLeft_ = false;
+    double allowableMovement_ = 15.0;
 
     TouchEvent lastTouchEvent_;
     WeakPtr<GestureEventHub> gestureHub_;
@@ -163,7 +177,6 @@ private:
     TimeStamp time_;
     bool useCatchMode_ = true;
     Point globalPoint_;
-    bool hasRepeated_ = false;
     int32_t longPressFingerCountForSequence_ = 0;
     bool isOnActionTriggered_ = false;
 

@@ -21,7 +21,6 @@
 #include <optional>
 #include <sstream>
 
-#include "core/components_ng/pattern/waterflow/layout/water_flow_layout_algorithm_base.h"
 #include "core/components_ng/pattern/waterflow/layout/water_flow_layout_info_base.h"
 #include "core/components_ng/pattern/waterflow/water_flow_sections.h"
 
@@ -112,12 +111,12 @@ public:
     }
     float TopFinalPos() const override
     {
-        return 0.0f;
+        return contentStartOffset_;
     };
     float BottomFinalPos(float viewHeight) const override
     {
-        float endOffset = viewHeight - GetContentHeight();
-        return Negative(endOffset) ? endOffset : 0.0f;
+        float endOffset = viewHeight - GetContentHeight() - contentEndOffset_;
+        return Negative(endOffset) ? endOffset : contentStartOffset_;
     };
 
     float JumpToTargetAlign(const std::pair<float, float>& item) const;
@@ -194,7 +193,7 @@ public:
 
     void InvalidatedOffset() override {};
 
-    float currentOffset_ = 0.0f;
+    double currentOffset_ = 0.0;
     // 0.0f until itemEnd_ is true
     float maxHeight_ = 0.0f;
 
@@ -224,6 +223,16 @@ public:
 
     void UpdateItemStart(bool canOverScrollStart);
 
+    int32_t StartIndex() const override
+    {
+        return startIndex_;
+    }
+
+    int32_t EndIndex() const override
+    {
+        return endIndex_;
+    }
+
 private:
     inline float TopMargin() const
     {
@@ -243,7 +252,7 @@ struct WaterFlowLayoutInfo::ItemInfo {
     }
 
     int32_t crossIdx = 0;
-    float mainOffset = 0.0f;
+    double mainOffset = 0.0;
     float mainSize = 0.0f;
 };
 

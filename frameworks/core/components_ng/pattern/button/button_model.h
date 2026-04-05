@@ -19,7 +19,6 @@
 #include "core/common/resource/resource_object.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/base/view_abstract_model.h"
-#include "core/components_ng/event/event_hub.h"
 #include "core/components_ng/pattern/button/button_request_data.h"
 
 namespace OHOS::Ace {
@@ -73,8 +72,10 @@ public:
     virtual void ResetBorderRadius() {}
     virtual void SetRemoteMessage(RemoteCallback&& remoteCallback) {}
     virtual void SetButtonStyle(const std::optional<ButtonStyleMode>& buttonStyle) {}
+    virtual void SetButtonStyleOnly(const std::optional<ButtonStyleMode>& buttonStyle) {}
     virtual void SetControlSize(const std::optional<ControlSize>& controlSize) {}
     virtual void SetRole(const std::optional<ButtonRole>& buttonRole) {}
+    virtual void SetRoleOnly(const std::optional<ButtonRole>& buttonRole) {}
     virtual void SetCreateWithLabel(bool isLabelButton) {}
     virtual void SetMinFontScale(float minFontScale) {}
     virtual void SetMaxFontScale(float maxFontScale) {}
@@ -88,6 +89,7 @@ public:
         const ButtonDoubleType buttonDoubleType) = 0;
     virtual void CreateWithFamiliesResourceObj(const RefPtr<ResourceObject>& resObj,
         const ButtonStringType buttonStringType) = 0;
+    virtual void ResetTextAlign() {}
 
 private:
     static std::unique_ptr<ButtonModel> instance_;

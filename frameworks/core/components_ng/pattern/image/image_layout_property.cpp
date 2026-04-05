@@ -48,6 +48,8 @@ void ImageLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, const In
     static const char* VERTICALALIGNVALUE[] = { "VerticalAlign.NONE", "VerticalAlign.TOP", "VerticalAlign.CENTER",
         "VerticalAlign.BOTTOM", "VerticalAlign.BASELINE", "VerticalAlign.NONE" };
     json->PutExtAttr("alt", propAlt_.value_or(ImageSourceInfo("")).GetSrc().c_str(), filter);
+    json->PutExtAttr("altPlaceholder", propAltPlaceholder_.value_or(ImageSourceInfo("")).GetSrc().c_str(), filter);
+    json->PutExtAttr("altError", propAltError_.value_or(ImageSourceInfo("")).GetSrc().c_str(), filter);
     json->PutExtAttr(
         "objectFit", OBJECTFITVALUE[static_cast<int32_t>(propImageFit_.value_or(ImageFit::COVER))], filter);
     json->PutExtAttr("verticalAlign",
@@ -83,7 +85,7 @@ void ImageLayoutProperty::FromJson(const std::unique_ptr<JsonValue>& json)
     };
 
     std::string src = json->GetString("rawSrc");
-    std::string bundleName = AceApplicationInfo::GetInstance().GetPackageName();
+    std::string bundleName = Container::CurrentBundleName();
     std::string moduleName = json->GetString("moduleName");
     UpdateImageSourceInfo(ImageSourceInfo(src, bundleName, moduleName));
     auto objectFit = json->GetString("objectFit");
@@ -101,7 +103,6 @@ void ImageLayoutProperty::FromJson(const std::unique_ptr<JsonValue>& json)
     CHECK_NULL_VOID(frameNode);
     auto pipeline = frameNode->GetContext();
     CHECK_NULL_VOID(pipeline);
-    pipeline->AddNodesToNotifyMemoryLevel(frameNode->GetId());
     pipeline->AddWindowStateChangedCallback(frameNode->GetId());
     LayoutProperty::FromJson(json);
 }

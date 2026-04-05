@@ -14,10 +14,20 @@
 import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
 
 ace_unittest("calendar_test_ng") {
+  module_name = "PickerSet-Calendar"
   type = "new"
   sources = [
     "calendar_month_pattern_test.cpp",
     "calendar_paint_method_test.cpp",
+    "calendar_pattern_test_ng.cpp",
     "calendar_test_ng.cpp",
+    "calendar_utils_test.cpp",
   ]
+
+  if (!ace_enable_full_test_suite) {
+    sources = []
+    sources = [ "calendar_test_core.cpp" ]
+  } else {
+    sources += [ "calendar_test_core.cpp" ]
+  }
 }

@@ -14,9 +14,9 @@
  */
 
 #include "test/unittest/core/pattern/rich_editor/rich_editor_common_test_ng.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_undo_manager.h"
 
 using namespace testing;
@@ -68,11 +68,12 @@ void RichEditorStyledUndoTestNg::TearDownTestSuite()
  * @tc.desc: Test RecordOperation by insert or delete.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation001, TestSize.Level1)
+HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
+    ASSERT_NE(richEditorPattern->undoManager_, nullptr);
     auto& undoRecords = richEditorPattern->undoManager_->undoRecords_;
     // step1 insert value
     struct UpdateSpanStyle typingStyle;
@@ -133,7 +134,7 @@ HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation001, TestSize.Level1)
  * @tc.desc: Test RecordOperation by paste or drag.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation002, TestSize.Level1)
+HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -194,7 +195,7 @@ HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation002, TestSize.Level1)
  * @tc.desc: Test RecordOperation by add or delete span.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation003, TestSize.Level1)
+HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -240,6 +241,15 @@ HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation003, TestSize.Level1)
     EXPECT_EQ(undoRecord.rangeBefore.end, 9);
     EXPECT_EQ(undoRecord.rangeAfter.start, 0);
     EXPECT_EQ(undoRecord.rangeAfter.end, 0);
+
+    // step5 Invalid SpanType
+    auto spanNode = SpanNode::GetOrCreateSpanNode(ElementRegister::GetInstance()->MakeUniqueId());
+    auto spanItem = spanNode->GetSpanItem();
+    richEditorPattern->undoManager_->RecordAddSpanOperation(spanItem, static_cast<SpanOptionsType>(4));
+    EXPECT_EQ(richEditorPattern->undoManager_->undoRecords_.size(), 4);
+    auto resultObject = ResultObject { .type = static_cast<SelectSpanType>(4) };
+    auto spanOptions = richEditorPattern->undoManager_->builder_->CreateSpanOptionsBySpanObject(resultObject);
+    EXPECT_TRUE(std::holds_alternative<TextSpanOptions>(spanOptions));
 }
 
 /**
@@ -247,7 +257,7 @@ HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation003, TestSize.Level1)
  * @tc.desc: Test RecordOperation by update style.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation004, TestSize.Level1)
+HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation004, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -286,6 +296,15 @@ HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation004, TestSize.Level1)
     EXPECT_EQ(undoRecord.rangeAfter.start, 0);
     EXPECT_EQ(undoRecord.rangeAfter.end, 6);
     EXPECT_TRUE(undoRecord.isOnlyStyleChange);
+
+    richEditorPattern->UpdateParagraphStyle(0, 3, style1);
+    EXPECT_EQ(richEditorPattern->undoManager_->undoRecords_.size(), 3);
+    undoRecord = undoRecords.back();
+    EXPECT_EQ(undoRecord.rangeBefore.start, 0);
+    EXPECT_EQ(undoRecord.rangeBefore.end, 6);
+    EXPECT_EQ(undoRecord.rangeAfter.start, 0);
+    EXPECT_EQ(undoRecord.rangeAfter.end, 6);
+    EXPECT_TRUE(undoRecord.isOnlyStyleChange);
 }
 
 /**
@@ -293,7 +312,7 @@ HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation004, TestSize.Level1)
  * @tc.desc: Test RecordOperation symbol with paragraph style.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation005, TestSize.Level1)
+HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation005, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -313,6 +332,7 @@ HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation005, TestSize.Level1)
     style1.lineBreakStrategy = LineBreakStrategy::HIGH_QUALITY;
     style1.paragraphSpacing = Dimension(10.0f, DimensionUnit::PX);
     style1.textVerticalAlign = TextVerticalAlign::BASELINE;
+    style1.textDirection = TextDirection::INHERIT;
     richEditorPattern->UpdateParagraphStyle(0, 8, style1);
     EXPECT_EQ(richEditorPattern->undoManager_->undoRecords_.size(), 1);
     auto undoRecord = undoRecords.back();
@@ -349,7 +369,7 @@ HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation005, TestSize.Level1)
  * @tc.desc: Test RecordOperation PasteSpanStringData and NotifyExitTextPreview.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation006, TestSize.Level1)
+HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation006, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -409,7 +429,7 @@ HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation006, TestSize.Level1)
  * @tc.desc: Test RecordOperation UpdateSpanStyle.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation007, TestSize.Level1)
+HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation007, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -452,7 +472,7 @@ HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation007, TestSize.Level1)
  * @tc.desc: Test RecordOperation UpdateSpanStyle.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation008, TestSize.Level1)
+HWTEST_F(RichEditorStyledUndoTestNg, RecordOperation008, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -65,13 +65,11 @@ public:
     static void SetChainAnimation(const JSCallbackInfo& args);
     static void SetChainAnimationOptions(const JSCallbackInfo& info);
     static void SetChildrenMainSize(const JSCallbackInfo& args);
-    static void SetChildrenMainSize(const JSRef<JSObject>& childrenSizeObj);
+    static void SetChildrenMainSize(const JSRef<JSObject>& childrenSizeObj, NG::FrameNode* node = nullptr);
     static void SetMultiSelectable(bool multiSelectable);
     static void SetListItemAlign(int32_t itemAlignment);
     static void SetLanes(const JSCallbackInfo& info);
     static void SetSticky(int32_t sticky);
-    static void SetContentStartOffset(const JSCallbackInfo& info);
-    static void SetContentEndOffset(const JSCallbackInfo& info);
     static void SetNestedScroll(const JSCallbackInfo& args);
     static void SetScrollEnabled(const JSCallbackInfo& args);
     static void SetScrollSnapAlign(int32_t scrollSnapAlign);
@@ -80,6 +78,9 @@ public:
     static void MaintainVisibleContentPosition(const JSCallbackInfo& args);
     static void SetStackFromEnd(const JSCallbackInfo& args);
     static void SetSyncLoad(const JSCallbackInfo& args);
+    static void SetEditModeOptions(const JSCallbackInfo& info);
+    static void SetScrollSnapAnimationSpeed(const JSCallbackInfo& args);
+    static void SetSupportEmptyBranchInLazyLoading(const JSCallbackInfo& args);
 
     static void ItemDragStartCallback(const JSCallbackInfo& info);
     static void ItemDragEnterCallback(const JSCallbackInfo& info);

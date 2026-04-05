@@ -16,24 +16,37 @@ import { ObserveSingleton } from '../base/observeSingleton';
 import { IBindingSource } from '../base/mutableStateMeta';
 import { StateMgmtConsole } from '../tools/stateMgmtDFX';
 import { ITrackedDecoratorRef } from '../base/mutableStateMeta';
-import { RenderIdType, IMonitorValue, IMonitorDecoratedVariable, IMonitor, IMonitorPathInfo, IVariableOwner } from '../decorator';
+import { RenderIdType, IMonitorValue, IMonitorDecoratedVariable, IMonitor, IMonitorPathInfo, IVariableOwner, IDecoratorBaseRegistry } from '../decorator';
+import { ElementInfo } from '../utils';
 
-export class MonitorFunctionDecorator implements IMonitorDecoratedVariable, IMonitor {
+export class MonitorFunctionDecorator implements IMonitorDecoratedVariable, IMonitor, IDecoratorBaseRegistry {
     public static readonly MIN_MONITOR_ID: RenderIdType = 0x20000000;
+    public static readonly MIN_SYNC_MONITOR_ID: RenderIdType = 0x25000000;
     public static nextWatchId_ = MonitorFunctionDecorator.MIN_MONITOR_ID;
+    public static nextSyncWatchId_ = MonitorFunctionDecorator.MIN_SYNC_MONITOR_ID;
     public readonly decorator: string;
     private readonly monitorFunction_: (m: IMonitor) => void;
     private readonly values_: MonitorValueInternal[] = new Array<MonitorValueInternal>();
     private readonly owningComponent_?: IVariableOwner;
+    public readonly functionName_?: string;
 
-    constructor(pathLambda: IMonitorPathInfo[], monitorFunction: (m: IMonitor) => void, owningView?: IVariableOwner) {
+    constructor(pathLambda: IMonitorPathInfo[], monitorFunction: (m: IMonitor) => void, owningView?: IVariableOwner, isSynchronous?: boolean,
+            functionName?: string) {
         this.monitorFunction_ = monitorFunction;
         this.owningComponent_ = owningView;
+        this.functionName_ = functionName;
+        const isSync = isSynchronous ?? false;
+
         pathLambda.forEach((info: IMonitorPathInfo) => {
-            this.values_.push(new MonitorValueInternal(info.path, info.valueCallback, this));
+            this.values_.push(new MonitorValueInternal(info.path, info.valueCallback, this, isSync));
         });
         this.decorator = '@Monitor';
         this.readInitialMonitorValues();
+        this.registerToOwningView();
+    }
+
+    public isFreeze(): boolean {
+        return !!(this.owningComponent_ && !this.owningComponent_!.__isViewActive__Internal());
     }
 
     public value<T>(path?: string): IMonitorValue<T> | undefined {
@@ -58,7 +71,7 @@ export class MonitorFunctionDecorator implements IMonitorDecoratedVariable, IMon
     }
 
     public runMonitorFunction(): void {
-        if (this.dirty.length == 0) {
+        if (this.dirty.length === 0) {
             return;
         }
         try {
@@ -94,7 +107,7 @@ export class MonitorFunctionDecorator implements IMonitorDecoratedVariable, IMon
      * @param monitorValue
      * @returns true if value is dirty
      */
-    private recordDependenciesForMonitorValue(isFirstRun: boolean, monitorValue: MonitorValueInternal): boolean {
+    private recordDependenciesForMonitorValue(isFirstRun: boolean, monitorValue: MonitorValueInternal, isReuse: boolean = false): boolean {
         if (!isFirstRun) {
             monitorValue.clearReverseBindings();
         }
@@ -102,10 +115,33 @@ export class MonitorFunctionDecorator implements IMonitorDecoratedVariable, IMon
         let renderingComponentRefBefore = ObserveSingleton.instance.renderingComponentRef;
         ObserveSingleton.instance.renderingComponent = ObserveSingleton.RenderingMonitor;
         ObserveSingleton.instance.renderingComponentRef = monitorValue;
-        let dirty = monitorValue.readValue(isFirstRun);
+        let dirty = isReuse ? monitorValue.readValueWhenReuse() : monitorValue.readValue(isFirstRun);
         ObserveSingleton.instance.renderingComponent = renderingComponentBefore;
         ObserveSingleton.instance.renderingComponentRef = renderingComponentRefBefore;
         return dirty;
+    }
+
+    public unbindAllInternalValues(): void {
+        this.values_.forEach((value: MonitorValueInternal): void => {
+            ObserveSingleton.instance.finalizeComputedAndMonitorPath(value.weakThis);
+        });
+    }
+
+    get path(): string[] {
+        return this.values_.map(
+            (value: MonitorValueInternal): string => value.path
+        );
+    }
+
+    resetOnReuse(): void {
+        ObserveSingleton.instance.clearDelayedMonitorWhenReuse();
+        this.values_.forEach((monitorValue: MonitorValueInternal) => {
+            this.recordDependenciesForMonitorValue(false, monitorValue, true);
+        });
+    }
+
+    public registerToOwningView(): void {
+        this.owningComponent_?.__registerStateVariables__Internal(this);
     }
 }
 
@@ -121,8 +157,8 @@ export class MonitorValueInternal implements IMonitorValue<Any>, ITrackedDecorat
     private dirty_: boolean = false;
     private readonly lambda: () => Any;
 
-    constructor(path: string, lambda: () => Any, monitor: MonitorFunctionDecorator) {
-        this.id = MonitorFunctionDecorator.nextWatchId_++;
+    constructor(path: string, lambda: () => Any, monitor: MonitorFunctionDecorator, isSync: boolean) {
+        this.id = isSync ? MonitorFunctionDecorator.nextSyncWatchId_++ : MonitorFunctionDecorator.nextWatchId_++;
         this.path = path;
         this.lambda = lambda;
         this.weakThis = new WeakRef<ITrackedDecoratorRef>(this);
@@ -160,6 +196,16 @@ export class MonitorValueInternal implements IMonitorValue<Any>, ITrackedDecorat
         }
     }
 
+    public readValueWhenReuse(): boolean {
+        try {
+            this.now = this.lambda();
+            this.before = this.now;
+        } catch (e) {
+            StateMgmtConsole.log(`Caught exception while reading monitor path ${this.path} value: ${e}.`);
+        }
+        return true;
+    }
+
     public get dirty(): boolean {
         return this.dirty_;
     }
@@ -167,6 +213,16 @@ export class MonitorValueInternal implements IMonitorValue<Any>, ITrackedDecorat
     public reset(): void {
         this.before = this.now;
         this.dirty_ = false;
+    }
+
+    public getDFXInfo(): ElementInfo {
+        const functionName = this.monitor.functionName_;
+        const elementName = functionName ?
+            `@Monitor function: ${functionName}, path: ${this.path}` : `@Monitor function path: ${this.path}`;
+        return {
+            elementName: elementName,
+            elementId: this.id
+        };
     }
 }
 

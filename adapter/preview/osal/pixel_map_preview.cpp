@@ -27,6 +27,11 @@ RefPtr<PixelMap> PixelMap::Create(const InitializationOptions& opts)
     return nullptr;
 }
 
+RefPtr<PixelMap> PixelMap::Create(const std::shared_ptr<Media::PixelMap>& pixelMap)
+{
+    return nullptr;
+}
+
 RefPtr<PixelMap> PixelMap::CreatePixelMap(void* rawPtr)
 {
     return nullptr;
@@ -35,12 +40,6 @@ RefPtr<PixelMap> PixelMap::CreatePixelMap(void* rawPtr)
 RefPtr<PixelMap> PixelMap::GetFromDrawable(void* ptr)
 {
     return nullptr;
-}
-
-bool PixelMap::GetPxielMapListFromAnimatedDrawable(void* ptr, std::vector<RefPtr<PixelMap>>& pixelMaps,
-    int32_t& duration, int32_t& iterations)
-{
-    return false;
 }
 
 RefPtr<PixelMap> PixelMap::CreatePixelMapFromDataAbility(void* uniquePtr)
@@ -131,7 +130,7 @@ bool PixelMapPreview::EncodeTlv(std::vector<uint8_t>& buff)
 
 void PixelMapPreview::Scale(float xAxis, float yAxis) {}
 
-void PixelMapPreview::Scale(float xAxis, float yAxis, const AceAntiAliasingOption &option) {}
+void PixelMapPreview::Scale(float xAxis, float yAxis, const AceAntiAliasingOption& option) {}
 
 uint32_t PixelMapPreview::WritePixels(const WritePixelsOptions& opts)
 {

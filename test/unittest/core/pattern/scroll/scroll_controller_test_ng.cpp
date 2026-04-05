@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,8 +14,11 @@
  */
 
 #include "scroll_test_ng.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
+#include "test/mock/interfaces/inner_api/ui_session/mock_ui_session_manager.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
 #include "core/common/resource/resource_parse_utils.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter_v2.h"
 
 namespace OHOS::Ace::NG {
 class ScrollControllerTestNg : public ScrollTestNg, public testing::WithParamInterface<bool> {};
@@ -202,6 +205,39 @@ HWTEST_P(ScrollControllerTestNg, ScrollPage001, TestSize.Level1)
     EXPECT_FALSE(pattern_->GetCanStayOverScroll());
 }
 
+/**
+ * @tc.name: ScrollPage002
+ * @tc.desc: Test ScrollPage
+ * @tc.type: FUNC
+ */
+HWTEST_P(ScrollControllerTestNg, ScrollPage002, TestSize.Level1)
+{
+    CreateScroll();
+    CreateContent();
+    CreateScrollDone();
+    EXPECT_EQ(pattern_->GetScrollableDistance(), VERTICAL_SCROLLABLE_DISTANCE);
+
+    /**
+     * @tc.steps: step1. ScrollPage down with animation
+     * @tc.expected: Scroll down with animation
+     */
+    auto scrollable = AceType::MakeRefPtr<Scrollable>();
+    auto propertyCallback = [](float offset) {};
+    scrollable->springOffsetProperty_ =
+        AceType::MakeRefPtr<NodeAnimatablePropertyFloat>(0.0, std::move(propertyCallback));
+    scrollable->state_ = Scrollable::AnimationState::SPRING;
+    pattern_->scrollAbort_ = false;
+    ASSERT_NE(pattern_->scrollableEvent_, nullptr);
+    pattern_->scrollableEvent_->scrollable_ = scrollable;
+
+    /**
+     * @tc.steps: step2. Test ScrollPage
+     * @tc.expected: Verify the scrollAbort_ status
+     */
+    pattern_->ScrollPage(false, true, AccessibilityScrollType::SCROLL_HALF);
+    EXPECT_TRUE(pattern_->scrollAbort_);
+}
+
 INSTANTIATE_TEST_SUITE_P(Smooth, ScrollControllerTestNg, testing::Bool());
 
 /**
@@ -372,154 +408,281 @@ HWTEST_F(ScrollControllerTestNg, GetInfo001, TestSize.Level1)
 }
 
 /**
- * @tc.name: CreateWithResourceObjFriction
- * @tc.desc: Test CreateWithResourceObjFriction in ScrollModelNG
+ * @tc.name: CreateWithResourceObjScrollBarColor
+ * @tc.desc: Test CreateWithResourceObjScrollBarColor in ScrollModelNG
  * @tc.type: FUNC
  */
-HWTEST_F(ScrollControllerTestNg, CreateWithResourceObjFriction001, TestSize.Level1)
+HWTEST_F(ScrollControllerTestNg, CreateWithResourceObjScrollBarColor001, TestSize.Level1)
 {
     ScrollModelNG model = CreateScroll();
     ASSERT_NE(frameNode_, nullptr);
     ASSERT_NE(pattern_, nullptr);
     ASSERT_EQ(pattern_->resourceMgr_, nullptr);
 
-    const double defaultiction = 10000000.0f;
-    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    // remove callback function
-    model.CreateWithResourceObjFriction(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    model.CreateWithResourceObjFriction(resObj);
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    model.CreateWithResourceObjScrollBarColor(invalidResObj);
     ASSERT_NE(pattern_->resourceMgr_, nullptr);
     EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
 
-    pattern_->friction_ = defaultiction;
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(0, Color::BLUE);
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        0, static_cast<int32_t>(ResourceType::COLOR), params, "", "", Container::CurrentIdSafely());
+    model.CreateWithResourceObjScrollBarColor(resObjWithString);
     pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, defaultiction);
+    uint32_t color = ScrollModelNG::GetScrollBarColor(AceType::RawPtr(frameNode_));
+    EXPECT_EQ(color, Color::BLUE.GetValue());
 
-    // remove callback function
-    model.CreateWithResourceObjFriction(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    resObj->id_ = 0;
-    resObj->type_ = static_cast<int32_t>(ResourceType::INTEGER);
-
-    // add callback function
-    model.CreateWithResourceObjFriction(resObj);
+    model.CreateWithResourceObjScrollBarColor(resObjWithString);
     ASSERT_NE(pattern_->resourceMgr_, nullptr);
     EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
 
-    pattern_->friction_ = defaultiction;
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, defaultiction);
-
-    // remove callback function
-    model.CreateWithResourceObjFriction(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+    color = ScrollModelNG::GetScrollBarColor(AceType::RawPtr(frameNode_));
+    EXPECT_NE(color, Color::RED.GetValue());
 }
 
 /**
- * @tc.name: CreateWithResourceObjFriction
- * @tc.desc: Test CreateWithResourceObjFriction in ScrollModelNG
+ * @tc.name: CreateWithResourceObjScrollBarColor
+ * @tc.desc: Test CreateWithResourceObjScrollBarColor in ScrollModelNG
  * @tc.type: FUNC
  */
-HWTEST_F(ScrollControllerTestNg, CreateWithResourceObjFriction002, TestSize.Level1)
+HWTEST_F(ScrollControllerTestNg, CreateWithResourceObjScrollBarColor002, TestSize.Level1)
 {
     ScrollModelNG model = CreateScroll();
     ASSERT_NE(frameNode_, nullptr);
     ASSERT_NE(pattern_, nullptr);
     ASSERT_EQ(pattern_->resourceMgr_, nullptr);
 
-    const double defaultiction = 10000000.0f;
-    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    ScrollModelNG::CreateWithResourceObjFriction(nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    ScrollModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    ScrollModelNG::CreateWithResourceObjFriction(nullptr, resObj);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    ScrollModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), resObj);
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    ScrollModelNG::CreateWithResourceObjScrollBarColor(AceType::RawPtr(frameNode_), invalidResObj);
+    model.CreateWithResourceObjScrollBarColor(invalidResObj);
     ASSERT_NE(pattern_->resourceMgr_, nullptr);
     EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-    pattern_->friction_ = defaultiction;
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(0, Color::BLUE);
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        0, static_cast<int32_t>(ResourceType::COLOR), params, "", "", Container::CurrentIdSafely());
+    ScrollModelNG::CreateWithResourceObjScrollBarColor(AceType::RawPtr(frameNode_), resObjWithString);
     pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, defaultiction);
+    uint32_t color = ScrollModelNG::GetScrollBarColor(AceType::RawPtr(frameNode_));
+    EXPECT_EQ(color, Color::BLUE.GetValue());
 
-    // remove callback function
-    ScrollModelNG::CreateWithResourceObjFriction(nullptr, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_, nullptr);
-    ScrollModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    resObj->id_ = 0;
-    resObj->type_ = static_cast<int32_t>(ResourceType::INTEGER);
-
-    ScrollModelNG::CreateWithResourceObjFriction(nullptr, resObj);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    ScrollModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), resObj);
+    model.CreateWithResourceObjScrollBarColor(resObjWithString);
     ASSERT_NE(pattern_->resourceMgr_, nullptr);
     EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-    pattern_->friction_ = defaultiction;
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, defaultiction);
 
-    // remove callback function
-    ScrollModelNG::CreateWithResourceObjFriction(nullptr, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_, nullptr);
-    ScrollModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+    color = ScrollModelNG::GetScrollBarColor(AceType::RawPtr(frameNode_));
+    EXPECT_NE(color, Color::RED.GetValue());
 }
 
 /**
- * @tc.name: CreateWithResourceObjIntervalSize
- * @tc.desc: Test CreateWithResourceObjIntervalSize in ScrollModelNG
+ * @tc.name: OnInjectionEventTest001
+ * @tc.desc: test OnInjectionEvent
  * @tc.type: FUNC
  */
-HWTEST_F(ScrollControllerTestNg, CreateWithResourceObjIntervalSize001, TestSize.Level1)
+HWTEST_F(ScrollControllerTestNg, OnInjectionEventTest001, TestSize.Level1)
 {
     ScrollModelNG model = CreateScroll();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
+    model.SetEdgeEffect(EdgeEffect::NONE, true, EffectEdge::START);
+    CreateContent();
+    CreateScrollDone();
 
-    const CalcDimension DEFAULT_INTERVAL_SIZE = CalcDimension(100.0);
-    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, 0);
 
-    model.CreateWithResourceObjIntervalSize(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+    command = R"({"cmd":"scrollBackward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, -40);
 
-    model.CreateWithResourceObjIntervalSize(resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+    command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, 0);
 
-    pattern_->SetIntervalSize(DEFAULT_INTERVAL_SIZE);
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->GetIntervalSize(), DEFAULT_INTERVAL_SIZE);
+    command = R"({"cmd":"scrollward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, 0);
 
-    model.CreateWithResourceObjIntervalSize(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+    command = R"({"cmd":"scrollForward","eventId":123123,"ratio":1.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, 0);
 
-    resObj->id_ = 0;
-    resObj->type_ = static_cast<int32_t>(ResourceType::INTEGER);
+    command = R"({"cmd":"scrollBackward"})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, -400);
 
-    model.CreateWithResourceObjIntervalSize(resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+    command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, -360);
 
-    pattern_->SetIntervalSize(DEFAULT_INTERVAL_SIZE);
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->GetIntervalSize(), DEFAULT_INTERVAL_SIZE);
+    command = R"({"cmd":"scrollForward"})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, 40);
 
-    model.CreateWithResourceObjIntervalSize(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+    pattern_->ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, false);
+    command = R"({"cmd":"scrollBackward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, -600);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest002
+ * @tc.desc: test OnInjectionEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollControllerTestNg, OnInjectionEventTest002, TestSize.Level1)
+{
+    ScrollModelNG model = CreateScroll();
+    model.SetEdgeEffect(EdgeEffect::NONE, true, EffectEdge::START);
+    CreateContent(30);
+    CreateScrollDone();
+    EXPECT_TRUE(pattern_->IsAtTop());
+    EXPECT_TRUE(pattern_->IsAtBottom());
+
+    std::string command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, 0);
+
+    command = R"()";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, 0);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest003
+ * @tc.desc: test OnInjectionEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollControllerTestNg, OnInjectionEventTest003, TestSize.Level1)
+{
+    ScrollModelNG model = CreateScroll();
+    model.SetEdgeEffect(EdgeEffect::NONE, true, EffectEdge::START);
+    CreateContent();
+    CreateScrollDone();
+
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->currentOffset_, 0);
+    EXPECT_EQ(pattern_->GetFirstIndex(), -1);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":-20})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->currentOffset_, 0);
+    EXPECT_EQ(pattern_->GetFirstIndex(), -1);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":20})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->currentOffset_, -20);
+    EXPECT_EQ(pattern_->GetFirstIndex(), -1);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":-10})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->currentOffset_, -10);
+    EXPECT_EQ(pattern_->GetFirstIndex(), -1);
+
+    command = R"({"cmd":"scrolloffset","eventId":123123,"offset":10})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->currentOffset_, -10);
+    EXPECT_EQ(pattern_->GetFirstIndex(), -1);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123)";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->currentOffset_, -10);
+    EXPECT_EQ(pattern_->GetFirstIndex(), -1);
+
+    pattern_->ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, false);
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":10})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->currentOffset_, -600);
+    EXPECT_EQ(pattern_->GetFirstIndex(), -1);
+}
+
+/**
+ * @tc.name: ReportComponentChangeEventTest001
+ * @tc.desc: Test ReportComponentChangeEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollControllerTestNg, ReportComponentChangeEventTest001, TestSize.Level1)
+{
+    ScrollModelNG model = CreateScroll();
+    model.SetEdgeEffect(EdgeEffect::NONE, true, EffectEdge::START);
+    CreateContent(30);
+    CreateScrollDone();
+    EXPECT_TRUE(pattern_->IsAtTop());
+    MockUiSessionManager* mockUiSessionManager =
+        reinterpret_cast<MockUiSessionManager*>(UiSessionManager::GetInstance());
+    EXPECT_CALL(*mockUiSessionManager, GetComponentChangeEventRegistered()).WillRepeatedly(Return(true));
+
+    pattern_->ReportScroll(false, ScrollError::SCROLL_ERROR_OTHER, 123);
+    pattern_->ReportScroll(true, ScrollError::SCROLL_NO_ERROR, 123);
+    pattern_->ReportOnItemScrollEvent("onReachStart");
+
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->currentOffset_, 0);
+}
+
+/**
+ * @tc.name: GetBindingFrameNodeId001
+ * @tc.desc: Test GetBindingFrameNodeId returns valid node id after scroll is created
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollControllerTestNg, GetBindingFrameNodeId001, TestSize.Level1)
+{
+    CreateScroll();
+    CreateContent();
+    CreateScrollDone();
+
+    /**
+     * @tc.steps: step1. Get the binding frame node id from controller
+     * @tc.expected: The node id should match the scroll frame node's id
+     */
+    auto nodeId = positionController_->GetBindingFrameNodeId();
+    EXPECT_EQ(nodeId, frameNode_->GetId());
+}
+
+/**
+ * @tc.name: GetBindingFrameNodeId002
+ * @tc.desc: Test GetBindingFrameNodeId returns -1 when pattern is not set
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollControllerTestNg, GetBindingFrameNodeId002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create a standalone controller without binding to any pattern
+     * @tc.expected: GetBindingFrameNodeId should return -1
+     */
+    auto controller = AceType::MakeRefPtr<ScrollableController>();
+    EXPECT_EQ(controller->GetBindingFrameNodeId(), -1);
+}
+
+/**
+ * @tc.name: GetBindingFrameNodeId003
+ * @tc.desc: Test ScrollControllerBase default GetBindingFrameNodeId returns -1
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollControllerTestNg, GetBindingFrameNodeId003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Call base class GetBindingFrameNodeId
+     * @tc.expected: Default implementation should return -1
+     */
+    auto baseController = AceType::MakeRefPtr<ScrollControllerBase>();
+    EXPECT_EQ(baseController->GetBindingFrameNodeId(), -1);
 }
 } // namespace OHOS::Ace::NG

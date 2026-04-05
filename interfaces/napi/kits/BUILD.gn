@@ -13,6 +13,7 @@
 
 import("//build/ohos.gni")
 import("//foundation/arkui/ace_engine/ace_config.gni")
+import("//foundation/arkui/ace_engine/build/ace_controller.gni")
 import("napi_lib.gni")
 
 config("ace_napi_config") {
@@ -43,6 +44,10 @@ config("ace_napi_config") {
   if (is_mac) {
     cflags_cc = [ "-O0" ]
   }
+
+  if (enable_ace_instance_log) {
+    defines += [ "ACE_INSTANCE_LOG" ]
+  }
 }
 
 common_targets = []
@@ -62,7 +67,7 @@ foreach(module, common_napi_libs) {
   } else if (!is_arkui_x) {
     ace_napi_lib(module) {
       # napi libs remain isolate in libace.z.so and asan version
-      if (is_asan) {
+      if (is_asan || !ace_engine_feature_enable_libace) {
         platform = "ohos"
       } else {
         platform = "ohos_ng"
@@ -91,6 +96,7 @@ group("napi_group") {
     deps += [
       "$ace_root/interfaces/napi/kits/drawabledescriptor:drawabledescriptor",
       "$ace_root/interfaces/napi/kits/plugincomponent:plugincomponent",
+      "$ace_root/interfaces/napi/kits/intelligence/image_generation:imagegeneration"
     ]
   }
 }

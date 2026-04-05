@@ -87,6 +87,11 @@ public:
         color_ = color;
     }
 
+    void ResetColor()
+    {
+        color_ = std::nullopt;
+    }
+
     bool operator==(const IconOptions& info) const
     {
         return color_ == info.color_ && size_ == info.size_ && src_ == info.src_ && bundleName_ == info.bundleName_ &&
@@ -229,16 +234,6 @@ public:
         return cancelSymbolIconColor_;
     }
 
-    Color& GetSearchImageIconColor()
-    {
-        return searchImageIconOptions_.GetColor().value();
-    }
-
-    Color& GetCancelImageIconColor()
-    {
-        return cancelImageIconOptions_.GetColor().value();
-    }
-
     IconOptions& GetSearchImageIconOptions()
     {
         return searchImageIconOptions_;
@@ -307,6 +302,12 @@ public:
     void UpdateHasCancelIconNodeCreated(bool hasNodeCreated)
     {
         cancelIconNodeCreated_ = hasNodeCreated;
+    }
+
+    void OnConfigurationUpdate(const ConfigurationChange& configurationChange) override
+    {
+        SetNeedCallChildrenUpdate(true);
+        GroupNode::OnConfigurationUpdate(configurationChange);
     }
 
 private:

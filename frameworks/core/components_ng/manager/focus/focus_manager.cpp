@@ -19,6 +19,8 @@
 #include "base/subwindow/subwindow_manager.h"
 #include "core/components/theme/app_theme.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "core/components_ng/event/error_reporter/general_interaction_error_reporter.h"
+#include "core/components_ng/pattern/ui_extension/ui_extension_component/ui_extension_pattern.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -31,7 +33,7 @@ RefPtr<FocusManager> GetCurrentFocusManager()
 }
 }
 
-FocusManager::FocusManager(const RefPtr<PipelineContext>& pipeline): pipeline_(pipeline)
+FocusManager::FocusManager(const RefPtr<PipelineContext>& pipeline) : pipeline_(pipeline)
 {
     CHECK_NULL_VOID(pipeline);
     if (pipeline->GetRootElement()) {
@@ -44,6 +46,31 @@ FocusManager::FocusManager(const RefPtr<PipelineContext>& pipeline): pipeline_(p
         auto context = weak.Upgrade();
         context->SetNeedTriggerScroll(true);
     });
+}
+
+bool FocusManager::IsModalFocusViewStackValid()
+{
+    if (modalFocusViewStack_.empty()) {
+        return false;
+    }
+    for (auto it = modalFocusViewStack_.rbegin(); it != modalFocusViewStack_.rend(); ++it) {
+        auto focusView = it->Upgrade();
+        if (focusView) {
+            return true;
+        }
+    }
+    return false;
+}
+
+WeakPtr<FocusView> FocusManager::GetValidModalFocusView() const
+{
+    for (auto it = modalFocusViewStack_.rbegin(); it != modalFocusViewStack_.rend(); ++it) {
+        auto focusView = it->Upgrade();
+        if (focusView) {
+            return *it;
+        }
+    }
+    return nullptr;
 }
 
 void FocusManager::FocusViewShow(const RefPtr<FocusView>& focusView, bool isTriggerByStep)
@@ -59,6 +86,13 @@ void FocusManager::FocusViewShow(const RefPtr<FocusView>& focusView, bool isTrig
     if (lastFocusView) {
         if (lastFocusView == focusView || lastFocusView->IsChildFocusViewOf(focusView)) {
             return;
+        }
+        if (IsModalFocusViewStackValid()) {
+            auto modalFocusView = GetValidModalFocusView().Upgrade();
+            if (modalFocusView && !focusView->IsChildFocusViewOf(modalFocusView)) {
+                TAG_LOGI(AceLogTag::ACE_FOCUS, "interrupt by modal focus view");
+                return;
+            }
         }
         if (!focusView->IsChildFocusViewOf(lastFocusView) && IsAutoFocusTransfer()) {
             lastFocusView->LostViewFocus();
@@ -110,6 +144,12 @@ bool FocusManager::RearrangeViewStack()
 void FocusManager::FocusViewHide(const RefPtr<FocusView>& focusView)
 {
     CHECK_NULL_VOID(focusView);
+    if (IsModalFocusViewStackValid()) {
+        auto modalFocusView = modalFocusViewStack_.back().Upgrade();
+        if (modalFocusView && (modalFocusView == focusView || modalFocusView->IsChildFocusViewOf(focusView))) {
+            return;
+        }
+    }
     if (IsAutoFocusTransfer()) {
         focusView->LostViewFocus();
     }
@@ -119,14 +159,31 @@ void FocusManager::FocusViewHide(const RefPtr<FocusView>& focusView)
     }
 }
 
+void FocusManager::EraseModalFocusView(const RefPtr<FocusView>& focusView)
+{
+    if (!IsModalFocusViewStackValid()) {
+        return;
+    }
+    for (auto it = modalFocusViewStack_.begin(); it != modalFocusViewStack_.end(); ++it) {
+        auto modalFocusView = it->Upgrade();
+        if (modalFocusView && (modalFocusView == focusView || modalFocusView->IsChildFocusViewOf(focusView))) {
+            TAG_LOGI(AceLogTag::ACE_FOCUS, "modalFocusViewStack remove view %{public}s/%{public}d",
+                modalFocusView->GetFrameName().c_str(), modalFocusView->GetFrameId());
+            modalFocusViewStack_.erase(it);
+            break;
+        }
+    }
+}
+
 void FocusManager::FocusViewClose(const RefPtr<FocusView>& focusView, bool isDetachFromTree)
 {
-    if (!IsAutoFocusTransfer() && !isDetachFromTree)  {
+    if (!IsAutoFocusTransfer() && !isDetachFromTree) {
         return;
     }
     CHECK_NULL_VOID(focusView);
     focusView->LostViewFocus();
     focusView->SetIsViewHasShow(false);
+    EraseModalFocusView(focusView);
     for (auto iter = focusViewStack_.begin(); iter != focusViewStack_.end();) {
         auto view = (*iter).Upgrade();
         if (view && (view == focusView || view->IsChildFocusViewOf(focusView))) {
@@ -142,10 +199,27 @@ void FocusManager::FocusViewClose(const RefPtr<FocusView>& focusView, bool isDet
     }
     if (focusViewStack_.empty()) {
         lastFocusView_ = nullptr;
+        TAG_LOGW(AceLogTag::ACE_FOCUS, "viewStack empty");
+        GeneralInteractionErrorInfo errorInfo { GeneralInteractionErrorType::FOCUS_VIEW_STACK_EMPTY_ERROR, -1, -1,
+            "empty" };
+        NG::GeneralInteractionErrorReporter::GetInstance().Submit(errorInfo, Container::CurrentId());
         return;
     }
     if (focusViewStack_.back() != lastFocusView_) {
         lastFocusView_ = focusViewStack_.back();
+        auto lastFocusView = lastFocusView_.Upgrade();
+        CHECK_NULL_VOID(lastFocusView);
+        auto lastFocusViewHub = lastFocusView->GetFocusHub();
+        CHECK_NULL_VOID(lastFocusViewHub);
+        if (!lastFocusViewHub->IsFocusableNode()) {
+            TAG_LOGW(AceLogTag::ACE_FOCUS,
+                "unfocusable view:%{public}s enable:%{public}d show:%{public}d focusable:%{public}d",
+                lastFocusViewHub->GetFrameName().c_str(), lastFocusViewHub->IsEnabled(), lastFocusViewHub->IsShow(),
+                lastFocusViewHub->focusable_);
+            GeneralInteractionErrorInfo errorInfo { GeneralInteractionErrorType::FOCUS_VIEW_STACK_TOP_UNFOCUSABLE_ERROR,
+                -1, -1, lastFocusViewHub->GetFrameName() };
+            NG::GeneralInteractionErrorReporter::GetInstance().Submit(errorInfo, Container::CurrentId());
+        }
     }
 }
 
@@ -372,6 +446,38 @@ void FocusManager::ReportFocusSwitching(FocusReason focusReason)
     endReason_.reset();
 }
 
+void FocusManager::ArrangeModalFocusViewStack()
+{
+    auto focusRef = currentFocus_.Upgrade();
+    CHECK_NULL_VOID(focusRef);
+    if (focusRef->GetFrameName() != V2::UI_EXTENSION_COMPONENT_ETS_TAG) {
+        return;
+    }
+    auto frameNode = focusRef->GetFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto focusPattern = frameNode->GetPattern<UIExtensionPattern>();
+    CHECK_NULL_VOID(focusPattern);
+    if (!focusPattern->GetModalFlag()) { // GetIsFixFocus()
+        return;
+    }
+    for (RefPtr<UINode> node = focusRef->GetFrameNode(); node; node = node->GetParent()) {
+        auto frameNode = DynamicCast<FrameNode>(node);
+        CHECK_NULL_CONTINUE(frameNode);
+        auto focusView = frameNode->GetPattern<FocusView>();
+        CHECK_NULL_CONTINUE(focusView);
+        
+        auto focusViewWeak = AceType::WeakClaim(AceType::RawPtr(focusView));
+        if (std::find(modalFocusViewStack_.begin(), modalFocusViewStack_.end(), focusViewWeak) !=
+            modalFocusViewStack_.end()) {
+            modalFocusViewStack_.remove(focusViewWeak);
+        }
+        TAG_LOGI(AceLogTag::ACE_FOCUS, "modalFocusViewStack emplace_back view %{public}s/%{public}d",
+            focusView->GetFrameName().c_str(), focusView->GetFrameId());
+        modalFocusViewStack_.emplace_back(focusViewWeak);
+        break;
+    }
+}
+
 void FocusManager::FocusSwitchingEnd(SwitchingEndReason reason)
 {
     // While switching window, focus may move by steps.(WindowFocus/FlushFocus)
@@ -396,6 +502,7 @@ void FocusManager::FocusSwitchingEnd(SwitchingEndReason reason)
         }
         ReportFocusSwitching(FocusReason::DEFAULT);
         PaintFocusState();
+        ArrangeModalFocusViewStack();
     } else {
         isSwitchingFocus_ = false;
         endReason_ = reason;
@@ -477,7 +584,7 @@ void FocusManager::WindowFocus(bool isFocus)
     if (!curFocusViewHub) {
         TAG_LOGW(AceLogTag::ACE_FOCUS, "Current focus view can not found!");
     } else if (curFocusView->GetIsViewHasFocused() && !curFocusViewHub->IsCurrentFocus()) {
-        TAG_LOGD(AceLogTag::ACE_FOCUS, "Request current focus view: %{public}s/%{public}d",
+        TAG_LOGD(AceLogTag::ACE_FOCUS, "Request focus on current focus view: %{public}s/%{public}d",
             curFocusView->GetFrameName().c_str(), curFocusView->GetFrameId());
         if (!IsAutoFocusTransfer()) {
             SetFocusViewRootScope(curFocusView);
@@ -488,7 +595,7 @@ void FocusManager::WindowFocus(bool isFocus)
     } else {
         auto container = Container::Current();
         if (container && (container->IsUIExtensionWindow() || container->IsDynamicRender())) {
-            TAG_LOGD(AceLogTag::ACE_FOCUS,
+            TAG_LOGI(AceLogTag::ACE_FOCUS,
                 "Request default focus on current focus view: %{public}s/%{public}d",
                 curFocusView->GetFrameName().c_str(),
                 curFocusView->GetFrameId());
@@ -504,7 +611,7 @@ void FocusManager::WindowFocus(bool isFocus)
     auto rootFocusHub = root->GetFocusHub();
     CHECK_NULL_VOID(rootFocusHub);
     if (!rootFocusHub->IsCurrentFocus()) {
-        TAG_LOGD(AceLogTag::ACE_FOCUS,
+        TAG_LOGI(AceLogTag::ACE_FOCUS,
             "Request focus on rootFocusHub: %{public}s/%{public}d",
             rootFocusHub->GetFrameName().c_str(),
             rootFocusHub->GetFrameId());
@@ -513,6 +620,7 @@ void FocusManager::WindowFocus(bool isFocus)
         rootFocusHub->RequestFocusImmediatelyInner(FocusReason::WINDOW_FOCUS);
         rootFocusHub->SetFocusDependence(focusDepend);
     }
+    TAG_LOGI(AceLogTag::ACE_FOCUS, "WindowFocus RequestFrame");
     pipeline->RequestFrame();
 }
 

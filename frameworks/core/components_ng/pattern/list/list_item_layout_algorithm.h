@@ -17,9 +17,10 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_LIST_LIST_ITEM_LAYOUT_ALGORITHM_H
 
 #include "base/geometry/axis.h"
-#include "core/components_ng/layout/layout_algorithm.h"
+#include "core/components_ng/layout/box_layout_algorithm.h"
 #include "core/components_ng/layout/layout_wrapper.h"
-#include "core/components_v2/list/list_properties.h"
+#include "core/components_ng/pattern/list/list_item_pattern.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 
 namespace OHOS::Ace::NG {
 class ACE_EXPORT ListItemLayoutAlgorithm : public BoxLayoutAlgorithm {
@@ -118,6 +119,11 @@ public:
 
     bool IsRTLAndVertical(LayoutWrapper* layoutWrapper) const;
     float SetReverseValue(LayoutWrapper* layoutWrapper, float offset);
+    void SetExpandSwipeAction(ListItemSwipeIndex index)
+    {
+        swipeIndex_ = std::optional<ListItemSwipeIndex>(index);
+    }
+    bool CheckMeasureSwipeAction(bool isStart);
 
 private:
     void MeasureItemChild(LayoutWrapper* layoutWrapper);
@@ -141,6 +147,7 @@ private:
     bool isCurOffsetUpdated_ = false;
     bool hasStartDeleteArea_ = false;
     bool hasEndDeleteArea_ = false;
+    std::optional<ListItemSwipeIndex> swipeIndex_;
 
     Axis axis_ = Axis::VERTICAL;
 };

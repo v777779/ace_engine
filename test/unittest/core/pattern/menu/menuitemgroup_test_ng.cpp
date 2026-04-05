@@ -19,12 +19,13 @@
 #define private public
 #define protected public
 
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/rosen/testing_canvas.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas.h"
 
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/layout/grid_system_manager.h"
@@ -33,6 +34,7 @@
 #include "core/components/select/select_theme.h"
 #include "core/components/theme/shadow_theme.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/components_ng/pattern/menu/menu_item/menu_item_model_ng.h"
@@ -546,7 +548,7 @@ HWTEST_F(MenuItemGroupTestNg, MenuItemGroupLayoutAlgorithmTestNg007, TestSize.Le
     props->UpdateLayoutPolicyProperty(LayoutCalPolicy::FIX_AT_IDEAL_SIZE, true);
     props->UpdateLayoutPolicyProperty(LayoutCalPolicy::FIX_AT_IDEAL_SIZE, false);
     isUpdate = algorithm->UpdateLayoutSizeBasedOnPolicy(layoutWrapper, frameSize);
-    EXPECT_TRUE(isUpdate);
+    EXPECT_FALSE(isUpdate);
 }
 /**
  * @tc.name: MenuItemGroupPaintMethod001
@@ -802,12 +804,16 @@ HWTEST_F(MenuItemGroupTestNg, MenuItemGroupPattern002, TestSize.Level1)
     MneuModelInstance.SetFontColor(Color::RED);
     MneuModelInstance.SetFontWeight(FontWeight::BOLD);
 
-    auto menuItemGroupPattern = AceType::MakeRefPtr<MenuItemGroupPattern>();
+    auto menuItemGroupNode =
+        FrameNode::CreateFrameNode(V2::MENU_ITEM_GROUP_ETS_TAG, 3, AceType::MakeRefPtr<MenuItemGroupPattern>());
+    ASSERT_NE(menuItemGroupNode, nullptr);
+    auto menuItemGroupPattern = menuItemGroupNode->GetPattern<MenuItemGroupPattern>();
+    ASSERT_NE(menuItemGroupPattern, nullptr);
     RefPtr<NG::UINode> footerNode;
     footerNode = NG::ViewStackProcessor::GetInstance()->Finish();
     menuItemGroupPattern->footerIndex_ = 0;
     menuItemGroupPattern->AddFooter(footerNode);
-    EXPECT_EQ(menuItemGroupPattern->footerIndex_, 0);
+    ASSERT_NE(menuItemGroupPattern->GetFooter(), nullptr);
 }
 
 /**
@@ -888,6 +894,18 @@ HWTEST_F(MenuItemGroupTestNg, MenuItemGroupPattern004, TestSize.Level1)
     ASSERT_NE(layoutProps2, nullptr);
     EXPECT_EQ(layoutProps2->GetFontWeight(), FontWeight::BOLD);
 
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    selectTheme->menuHeaderFontWeight_ = FontWeight::MEDIUM;
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([=](ThemeType type) -> RefPtr<Theme> {
+        return selectTheme;
+    });
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    menuItemGroupView.SetHeader(headerStr);
+    ASSERT_NE(menuItemPattern->headerContent_, nullptr);
+    auto layoutProps3 = menuItemPattern->headerContent_->GetLayoutProperty<TextLayoutProperty>();
+    ASSERT_NE(layoutProps3, nullptr);
+    EXPECT_EQ(layoutProps3->GetFontWeight(), FontWeight::MEDIUM);
+
     MockContainer::Current()->SetApiTargetVersion(backupApiVersion);
 }
 
@@ -918,7 +936,7 @@ HWTEST_F(MenuItemGroupTestNg, AddHeaderNull, TestSize.Level1)
 
 /**
  * @tc.name: AddFooterNormal
- * @tc.desc: Test MenuItemGroupView SetFooter method.
+ * @tc.desc: Test MenuItemGroup pattern AddFooter.
  * @tc.type: FUNC
  */
 HWTEST_F(MenuItemGroupTestNg, AddFooterNormal, TestSize.Level1)
@@ -944,7 +962,6 @@ HWTEST_F(MenuItemGroupTestNg, AddFooterNormal, TestSize.Level1)
     menuItemPattern->AddFooter(footerNode);
     EXPECT_NE(menuItemPattern->footerContent_, nullptr);
     EXPECT_EQ(menuItemPattern->footerIndex_, START_INDEX);
-    EXPECT_EQ(frameNode->isRestoreInfoUsed_, false);
 }
 
 /**
@@ -975,9 +992,7 @@ HWTEST_F(MenuItemGroupTestNg, AddFooterNull, TestSize.Level1)
     menuItemPattern->itemStartIndex_ = START_INDEX;
     menuItemPattern->AddFooter(footerNode);
 
-    EXPECT_EQ(menuItemPattern->footerContent_, nullptr);
     EXPECT_EQ(menuItemPattern->footerIndex_, START_INDEX);
-    EXPECT_EQ(frameNode->isRestoreInfoUsed_, false);
 }
 
 /**
@@ -1071,38 +1086,6 @@ HWTEST_F(MenuItemGroupTestNg, UpdateMenuBackgroundStyle003, TestSize.Level1)
     MockContainer::Current()->SetApiTargetVersion(backupApiVersion);
 }
 
-/**
- * @tc.name: UpdateMenuBackgroundStyle004
- * @tc.desc: Test UpdateMenuBackgroundStyle.
- * @tc.type: FUNC
- */
-HWTEST_F(MenuItemGroupTestNg, UpdateMenuBackgroundStyle004, TestSize.Level1)
-{
-    int32_t backupApiVersion = MockContainer::Current()->GetApiTargetVersion();
-    PipelineBase::GetCurrentContext()->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_ELEVEN));
-    MenuParam menuParam;
-    BlurStyleOption blurStyleOption;
-    blurStyleOption.policy = BlurStyleActivePolicy::FOLLOWS_WINDOW_ACTIVE_STATE;
-    menuParam.blurStyleOption = blurStyleOption;
-    menuParam.backgroundColor = Color::RED;
-    auto menuWrapperNode = GetPreviewMenuWrapper();
-    ASSERT_NE(menuWrapperNode, nullptr);
-    auto menuNode = AceType::DynamicCast<FrameNode>(menuWrapperNode->GetChildAtIndex(0));
-    ASSERT_NE(menuNode, nullptr);
-    auto renderContext = menuNode->GetRenderContext();
-    ASSERT_NE(renderContext, nullptr);
-    EffectOption existingEffect;
-    existingEffect.saturation = 1.0f;
-    renderContext->UpdateBackgroundEffect(existingEffect);
-    auto pipelineContext = PipelineBase::GetCurrentContext();
-    auto mockSelectTheme = AceType::MakeRefPtr<SelectTheme>();
-    MenuView::UpdateMenuBackgroundStyle(menuNode, menuParam);
-    ASSERT_NE(renderContext->GetBackBlurStyle(), std::nullopt);
-    EXPECT_EQ(renderContext->GetBackgroundColor(), Color::RED);
-    EXPECT_EQ(renderContext->GetBackgroundEffect(), std::nullopt);
-    EXPECT_EQ(blurStyleOption.policy, BlurStyleActivePolicy::FOLLOWS_WINDOW_ACTIVE_STATE);
-    MockContainer::Current()->SetApiTargetVersion(backupApiVersion);
-}
 /**
  * @tc.name: SetBackgroundBlurStyle001
  * @tc.desc: MenuView SetBackgroundBlurStyle.
@@ -1390,5 +1373,106 @@ HWTEST_F(MenuItemGroupTestNg, MenuItemGroupSetFooterContentTest001, TestSize.Lev
     ASSERT_NE(textLayoutProperty, nullptr);
 
     EXPECT_EQ(textLayoutProperty->GetContentValue(), UtfUtils::Str8DebugToStr16(testText));
+}
+
+/**
+ * @tc.name: RemoveParentRestrictionsForFixIdeal001
+ * @tc.desc: Test MenuItemGroup RemoveParentRestrictionsForFixIdeal.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemGroupTestNg, RemoveParentRestrictionsForFixIdeal001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create menu item group.
+     */
+    auto menuItemGroupPattern = AceType::MakeRefPtr<MenuItemGroupPattern>();
+    auto menuItemGroup = FrameNode::CreateFrameNode(V2::MENU_ITEM_GROUP_ETS_TAG, -1, menuItemGroupPattern);
+    auto algorithm = AceType::MakeRefPtr<MenuItemGroupLayoutAlgorithm>(-1, -1, 0);
+    ASSERT_TRUE(algorithm);
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    auto layoutProp = AceType::MakeRefPtr<LayoutProperty>();
+    auto layoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(menuItemGroup, geometryNode, layoutProp);
+    ASSERT_NE(layoutWrapper, nullptr);
+
+    /**
+     * @tc.steps: step2. LayoutCalPolicy is default and set maxSize to FULL_SCREEN_SIZE.
+     * @tc.expected: childConstraint.maxSize is equal to FULL_SCREEN_SIZE.
+     */
+    LayoutConstraintF childConstraint;
+    childConstraint.maxSize = FULL_SCREEN_SIZE;
+    auto props = layoutWrapper->GetLayoutProperty();
+    ASSERT_NE(props, nullptr);
+    props->UpdateLayoutConstraint(childConstraint);
+    props->UpdateContentConstraint();
+    LayoutPolicyProperty layoutPolicyProperty;
+    props->layoutPolicy_ = layoutPolicyProperty;
+    algorithm->RemoveParentRestrictionsForFixIdeal(layoutProp, childConstraint);
+    EXPECT_EQ(childConstraint.maxSize.Width(), FULL_SCREEN_SIZE.Width());
+    EXPECT_EQ(childConstraint.maxSize.Height(), FULL_SCREEN_SIZE.Height());
+
+    /**
+     * @tc.steps: step3. LayoutCalPolicy is FIX_AT_IDEAL_SIZE and set maxSize to FULL_SCREEN_SIZE.
+     * @tc.expected: childConstraint.maxSize is infinity.
+     */
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::FIX_AT_IDEAL_SIZE;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::FIX_AT_IDEAL_SIZE;
+    props->layoutPolicy_ = layoutPolicyProperty;
+    algorithm->RemoveParentRestrictionsForFixIdeal(layoutProp, childConstraint);
+    EXPECT_TRUE(std::isinf(childConstraint.maxSize.Width()));
+    EXPECT_TRUE(std::isinf(childConstraint.maxSize.Height()));
+}
+
+/**
+ * @tc.name: AttachBottomDivider001
+ * @tc.desc: Testing the AttachBottomDivider method without a parent container.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemGroupTestNg, AttachBottomDivider001, TestSize.Level1)
+{
+    MenuItemGroupPattern menuItemGroupPattern;
+    menuItemGroupPattern.bottomDivider_ =
+        FrameNode::CreateFrameNode(V2::MENU_ITEM_GROUP_ETS_TAG, 1, AceType::MakeRefPtr<MenuItemGroupPattern>());
+    auto dividerParent =
+        FrameNode::CreateFrameNode(V2::MENU_ITEM_GROUP_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemGroupPattern>());
+    ASSERT_NE(dividerParent, nullptr);
+    menuItemGroupPattern.bottomDivider_->parent_ = std::move(dividerParent);
+    auto node = FrameNode::CreateFrameNode(V2::MENU_ITEM_GROUP_ETS_TAG, 2, AceType::MakeRefPtr<MenuItemGroupPattern>());
+    ASSERT_NE(node, nullptr);
+    auto menuItemNode =
+        FrameNode::CreateFrameNode(V2::MENU_ITEM_GROUP_ETS_TAG, 3, AceType::MakeRefPtr<MenuItemGroupPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    node->parent_ = std::move(menuItemNode);
+    menuItemGroupPattern.frameNode_ = std::move(node);
+    auto host = menuItemGroupPattern.GetHost();
+    ASSERT_NE(host, nullptr);
+    auto parent = host->GetParent();
+    ASSERT_NE(parent, nullptr);
+    menuItemGroupPattern.AttachBottomDivider();
+    EXPECT_EQ(parent->GetChildIndex(node), -1);
+}
+
+/**
+ * @tc.name: AttachBottomDivider002
+ * @tc.desc: Testing the AttachBottomDivider method has a parent container.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuItemGroupTestNg, AttachBottomDivider002, TestSize.Level1)
+{
+    MenuItemGroupPattern menuItemGroupPattern;
+    menuItemGroupPattern.bottomDivider_ =
+        FrameNode::CreateFrameNode(V2::MENU_ITEM_GROUP_ETS_TAG, 1, AceType::MakeRefPtr<MenuItemGroupPattern>());
+    auto node = FrameNode::CreateFrameNode(V2::MENU_ITEM_GROUP_ETS_TAG, 2, AceType::MakeRefPtr<MenuItemGroupPattern>());
+    ASSERT_NE(node, nullptr);
+    auto menuItemNode =
+        FrameNode::CreateFrameNode(V2::MENU_ITEM_GROUP_ETS_TAG, 3, AceType::MakeRefPtr<MenuItemGroupPattern>());
+    ASSERT_NE(menuItemNode, nullptr);
+    menuItemGroupPattern.frameNode_ = std::move(node);
+    auto host = menuItemGroupPattern.GetHost();
+    ASSERT_NE(host, nullptr);
+    host->MountToParent(menuItemNode);
+    auto parent = host->GetParent();
+    ASSERT_NE(parent, nullptr);
+    menuItemGroupPattern.AttachBottomDivider();
+    EXPECT_EQ(parent->GetChildIndex(node), 0);
 }
 } // namespace OHOS::Ace::NG

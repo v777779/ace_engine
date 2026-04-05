@@ -21,16 +21,14 @@ generate_static_abc("full_screen_launch_ets_abc") {
   is_boot_abc = "True"
   device_dst_file = "/system/framework/full_screen_launch_ets_abc.abc"
   dst_file = target_out_dir + "/full_screen_launch_ets_abc/modules_static.abc"
-  out_puts = [ target_out_dir + "/full_screen_launch_ets_abc/modules_static.abc" ]
+  out_puts =
+      [ target_out_dir + "/full_screen_launch_ets_abc/modules_static.abc" ]
 }
 
 ohos_copy("copy_full_screen_launch_ets_abc") {
-  sources = [
-    target_out_dir + "/full_screen_launch_ets_abc/modules_static.abc"
-  ]
-  outputs = [
-    target_out_dir + "/full_screen_launch_ets_abc.abc"
-  ]
+  sources =
+      [ target_out_dir + "/full_screen_launch_ets_abc/modules_static.abc" ]
+  outputs = [ target_out_dir + "/full_screen_launch_ets_abc.abc" ]
   deps = [ ":full_screen_launch_ets_abc" ]
 }
 
@@ -43,5 +41,5 @@ ohos_prebuilt_etc("full_screen_launch_ets_abc_etc") {
 }
 
 group("fullScreenLaunch") {
-    deps = [":full_screen_launch_ets_abc_etc"]
+  deps = [ ":full_screen_launch_ets_abc_etc" ]
 }

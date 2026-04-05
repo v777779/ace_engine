@@ -261,7 +261,8 @@ public:
 
     void OnSurfaceChanged(
         int32_t width, int32_t height, WindowSizeChangeReason type = WindowSizeChangeReason::UNDEFINED,
-        const std::shared_ptr<Rosen::RSTransaction>& rsTransaction = nullptr) override;
+        const std::shared_ptr<Rosen::RSTransaction>& rsTransaction = nullptr,
+        const std::map<NG::SafeAreaAvoidType, NG::SafeAreaInsets>& safeAvoidArea = {}) override;
 
     void OnSurfacePositionChanged(int32_t posX, int32_t posY) override;
 
@@ -355,6 +356,12 @@ public:
 
     bool RequestFocus(const RefPtr<Element>& targetElement);
     bool RequestFocus(const std::string& targetNodeId, bool isSyncRequest = false) override;
+    void RequestCrownEventMonitor(std::function<bool(const std::string& args)>&& crownCallback)
+    {
+        crownEventMonitorCallback_ = std::move(crownCallback);
+    }
+    bool OnMonitorForCrownEvents(const CrownEvent &crownEvent);
+
     bool RequestDefaultFocus();
 
     bool NeedSoftKeyboard() override
@@ -824,9 +831,15 @@ public:
     {
         vsyncListener_ = vsync;
     }
+
+    void UpdateDrawLayoutChildObserver(
+        int32_t uniqueId, bool isClearLayoutObserver, bool isClearDrawObserver) override {};
+    void UpdateDrawLayoutChildObserver(
+        const std::string& inspectorKey, bool isClearLayoutObserver, bool isClearDrawObserver) override {};
+
 protected:
     bool OnDumpInfo(const std::vector<std::string>& params) const override;
-    void FlushVsync(uint64_t nanoTimestamp, uint32_t frameCount) override;
+    void FlushVsync(uint64_t nanoTimestamp, uint64_t frameCount) override;
     void FlushPipelineWithoutAnimation() override;
     void DispatchDisplaySync(uint64_t nanoTimestamp) override;
     void FlushAnimation(uint64_t nanoTimestamp) override;
@@ -1027,6 +1040,7 @@ private:
     std::vector<RectCallback> rectCallbackList_;
     std::list<TouchEvent> touchEvents_;
     std::function<void()> vsyncListener_;
+    std::function<bool(const std::string& args)> crownEventMonitorCallback_;
 
     ACE_DISALLOW_COPY_AND_MOVE(PipelineContext);
 };

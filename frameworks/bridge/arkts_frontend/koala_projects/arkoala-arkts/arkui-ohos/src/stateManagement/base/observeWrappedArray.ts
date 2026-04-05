@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,22 +13,22 @@
  * limitations under the License.
  */
 
-import { IMutableKeyedStateMeta, IObservedObject, ISubscribedWatches, RenderIdType, WatchIdType } from '../decorator';
+import { IMutableKeyedStateMeta, IObservedObject, ISubscribedWatches, OBSERVE, RenderIdType, WatchIdType } from '../decorator';
 import { SubscribedWatches } from '../decoratorImpl/decoratorWatch';
 import { ObserveSingleton } from './observeSingleton';
 import { FactoryInternal } from './iFactoryInternal';
-import { ObserveWrappedBase } from './observeWrappedBase';
+import { ObserveWrappedKeyedMeta } from './observeWrappedBase';
 import { UIUtils } from '../utils';
-import { uiUtils } from './uiUtilsImpl';
+import { uiUtils, UIUtilsImpl } from './uiUtilsImpl';
 final class CONSTANT {
     public static readonly OB_ARRAY_ANY_KEY = '__OB_ANY_INDEX';
     public static readonly OB_LENGTH = '__OB_LENGTH';
 }
 
-export class WrappedArray<T> extends Array<T> implements IObservedObject, ObserveWrappedBase, ISubscribedWatches {
+export class WrappedArray<T> extends Array<T> implements IObservedObject, ObserveWrappedKeyedMeta, ISubscribedWatches {
     public store_: Array<T>;
     @JSONStringifyIgnore
-    private meta_: IMutableKeyedStateMeta;
+    meta_: IMutableKeyedStateMeta;
     // support for @Watch
     // each IObservedObject manages a set of @Wtch subscribers
     // when a object property changes need to call execureOnSubscribingWatches
@@ -37,17 +37,25 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
     private subscribedWatches: SubscribedWatches = new SubscribedWatches();
     // IObservedObject interface
     @JSONStringifyIgnore
-    private ____V1RenderId: RenderIdType = 0;
+    ____V1RenderId: RenderIdType = 0;
     @JSONStringifyIgnore
     private allowDeep_: boolean;
     private isAPI_: boolean;
+    @JSONStringifyIgnore
+    public isStaticArrayProxy_: boolean = true;
 
     constructor(src: Array<T>, allowDeep: boolean = false, isAPI: boolean = false) {
         super();
         this.store_ = src;
         this.allowDeep_ = allowDeep;
         this.isAPI_ = isAPI;
-        this.meta_ = FactoryInternal.mkMutableKeyedStateMeta('WrappedArray');
+        this.meta_ = FactoryInternal.mkMutableKeyedStateMeta(
+            (
+                this.allowDeep_ ? 
+                    this.isAPI_ ? '__metaBuiltInMakeObserved_'
+                        : '__metaBuiltInV2_'
+                    : '__metaBuiltInV1_'
+            ) +'WrappedArray', this);
     }
 
     public getRaw(): Object {
@@ -71,7 +79,7 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
     }
 
     public shouldAddRef(): boolean {
-        return this.allowDeep_ || ObserveSingleton.instance.shouldAddRef(this.____V1RenderId);
+        return (OBSERVE.renderingComponent > 0) && (this.allowDeep_ || OBSERVE.shouldAddRef(this.____V1RenderId));
     }
 
     override get length(): int {
@@ -102,9 +110,13 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
             this.meta_.addRef(CONSTANT.OB_LENGTH);
             this.meta_.addRef(String(idx as Object | undefined | null));
         }
-        const makeobserved = uiUtils.makeObservedEntrance(this.store_[idx], this.allowDeep_, this.isAPI_);
+        const value = this.store_[idx];
+        if (!value || typeof value !== 'object') {
+            return value;
+        }
+        const makeobserved = uiUtils.makeObservedEntrance(value, this.allowDeep_, this.isAPI_);
         this.store_[idx] = makeobserved;
-        return this.store_[idx];
+        return makeobserved;
     }
 
     // [] operator
@@ -127,7 +139,7 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
      * @param initialValue initial value of elements.
      */
     public static create<T>(arrayLength: number, initialValue: T): WrappedArray<T> {
-        let other = new Array<T>(arrayLength as int);
+        let other = new Array<T>(arrayLength.toInt());
         other.fill(initialValue);
         return new WrappedArray<T>(other);
     }
@@ -163,9 +175,9 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
      * @param arrayLength The length of the array to be created (optional).
      * @returns A new Array instance with the specified length
      */
-    public static $_invoke<T>(arrayLength?: number): WrappedArray<T> {
+    public static $_invoke<T>(arrayLength?: int): WrappedArray<T> {
         if (arrayLength) {
-            return new WrappedArray<T>(new Array<T>(arrayLength.toInt()));
+            return new WrappedArray<T>(new Array<T>(arrayLength));
         } else {
             return new WrappedArray<T>(new Array<T>());
         }
@@ -178,7 +190,7 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
      * @returns `Array` intance constructed from `Object[]` primitive array.
      */
     public static from<T>(iterable: ArrayLike<T> | Iterable<T>): WrappedArray<T> {
-        return new WrappedArray<T>(Array.from<T, T>(iterable, (x: T, k: number): T => x));
+        return new WrappedArray<T>(Array.from<T, T>(iterable, (x: T, k: int): T => x));
     }
 
     /**
@@ -190,11 +202,11 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
      * is added to the array instead.
      * @returns `Array` intance constructed from `Object[]` primitive array and given function.
      */
-    public static from<T, U>(iterable: ArrayLike<T> | Iterable<T>, mapfn: (v: T, k: number) => U): WrappedArray<U> {
+    public static from<T, U>(iterable: ArrayLike<T> | Iterable<T>, mapfn: (v: T, k: int) => U): WrappedArray<U> {
         return new WrappedArray<U>(Array.from<T, U>(iterable, mapfn));
     }
 
-    public static from<T, U>(values: T[], mapfn: (v: T, k: number) => U): WrappedArray<U> {
+    public static from<T, U>(values: T[], mapfn: (v: T, k: int) => U): WrappedArray<U> {
         return new WrappedArray<U>(Array.from<T, U>(values, mapfn));
     }
 
@@ -214,7 +226,7 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
      * @param comparator function that defines the sort order.
      * @note Mutating method
      */
-    public sort(comparator?: (a: T, b: T) => number): this {
+    public sort(comparator?: (a: T, b: T) => int): this {
         this.store_.sort(comparator);
         this.meta_.fireChange(CONSTANT.OB_LENGTH);
         this.meta_.fireChange(CONSTANT.OB_ARRAY_ANY_KEY);
@@ -368,7 +380,7 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
     /**
      * Returns an iterator over all indices
      */
-    public override keys(): IterableIterator<Number> {
+    public override keys(): IterableIterator<int> {
         this.meta_.addRef(CONSTANT.OB_ARRAY_ANY_KEY);
         return this.store_.keys();
     }
@@ -379,6 +391,7 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
     public override $_iterator(): IterableIterator<T> {
         // NOTE! addRef for OB_LENGTH similarly to V2!
         this.meta_.addRef(CONSTANT.OB_LENGTH);
+        this.meta_.addRef(CONSTANT.OB_ARRAY_ANY_KEY);
         return this.store_.values();
     }
 
@@ -419,7 +432,7 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
      * @param fn a function to apply
      * @return new Array after map and than flat
      */
-    public override flatMap<U>(fn: (v: T, k: int, arr: Array<T>) => U): Array<U> {
+    public override flatMap<U>(fn: (v: T, k: int, arr: Array<T>) => U | ReadonlyArray<U>): Array<U> {
         this.meta_.addRef(CONSTANT.OB_ARRAY_ANY_KEY);
         return this.store_.flatMap(fn);
     }
@@ -432,9 +445,9 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
      * @param index Zero-based index of the array element to be returned.
      * Negative index counts back from the end of the array — if `index` < 0, index + `array.length()` is accessed.
      * @returns The element in the array matching the given index.
-     * Returns undefined if `index` < `-length()` or `index` >= `length()`.
+     * Throw range error if `index` < `-length()` or `index` >= `length()`.
      */
-    public override at(index: int): T | undefined {
+    public override at(index: int): T {
         if (this.shouldAddRef()) {
             this.meta_.addRef(CONSTANT.OB_LENGTH);
             this.meta_.addRef(String(index as Object | undefined | null));
@@ -450,11 +463,10 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
      * @param end index at which to end copying elements from
      * @returns this array after transformation
      */
-    public copyWithin(target: int, start: int, end?: int): this {
+    public override copyWithin(target: int, start: int, end?: int): this {
         this.store_.copyWithin(target, start, end);
         this.meta_.fireChange(CONSTANT.OB_LENGTH);
         this.meta_.fireChange(CONSTANT.OB_ARRAY_ANY_KEY);
-
         // exec all subscribing @Watch
         this.executeOnSubscribingWatches('copyWithin');
 
@@ -756,33 +768,11 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
      * @param options
      * @returns string representation
      */
-    public override toLocaleString(locales: Object, options: Object): string {
+    public override toLocaleString(locales?: Intl.LocalesArgument, options?: object): string {
         if (this.shouldAddRef()) {
             this.meta_.addRef(CONSTANT.OB_ARRAY_ANY_KEY);
         }
         return this.store_.toLocaleString(locales, options);
-    }
-
-    /**
-     * Returns a locale string representing the specified array and its elements.
-     *
-     * @param options
-     * @returns string representation
-     */
-    public override toLocaleString(locales: Object): string {
-        return this.toLocaleString(new Object(), new Object());
-    }
-
-    /**
-     * Returns a locale string representing the specified array and its elements.
-     *
-     * @returns string representation
-     */
-    public override toLocaleString(): string {
-        if (this.shouldAddRef()) {
-            this.meta_.addRef(CONSTANT.OB_ARRAY_ANY_KEY);
-        }
-        return this.store_.toLocaleString();
     }
 
     /**
@@ -876,7 +866,7 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
      * @param comparator function to compare to elements of the Array
      * @returns sorted copy of the current instance comparator
      */
-    public override toSorted(comparator: (a: T, b: T) => number): Array<T> {
+    public override toSorted(comparator: (a: T, b: T) => int): Array<T> {
         if (this.shouldAddRef()) {
             this.meta_.addRef(CONSTANT.OB_ARRAY_ANY_KEY);
         }
@@ -939,7 +929,7 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
     /**
      * Returns an iterable of key, value pairs for every entry in the array
      */
-    public override entries(): IterableIterator<[number, T]> {
+    public override entries(): IterableIterator<[int, T]> {
         if (this.shouldAddRef()) {
             this.meta_.addRef(CONSTANT.OB_ARRAY_ANY_KEY);
         }
@@ -957,5 +947,14 @@ export class WrappedArray<T> extends Array<T> implements IObservedObject, Observ
             this.meta_.addRef(CONSTANT.OB_ARRAY_ANY_KEY);
         }
         return this.store_.map<U>(callbackfn);
+    }
+
+    public override addRefAnyKey(): void {
+        this.meta_.addRef(CONSTANT.OB_ARRAY_ANY_KEY);
+        this.meta_.addRef(CONSTANT.OB_LENGTH);
+    }
+
+    public override addRefLength(): void {
+        this.meta_.addRef(CONSTANT.OB_LENGTH);
     }
 }

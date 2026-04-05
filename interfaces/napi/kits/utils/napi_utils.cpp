@@ -14,16 +14,21 @@
  */
 
 #include "napi_utils.h"
+#include "base/i18n/localization.h"
 #include "core/common/resource/resource_manager.h"
 #include "core/pipeline/pipeline_base.h"
-
+#include "native_engine/impl/ark/ark_native_engine.h"
+#include "jsnapi.h"
 namespace OHOS::Ace::Napi {
 using namespace OHOS::Ace;
 namespace {
 
 const std::regex RESOURCE_APP_STRING_PLACEHOLDER(R"(\%((\d+)(\$)){0,1}([dsf]))", std::regex::icase);
+const std::regex FLOAT_PATTERN(R"(-?(0|[1-9]\d*)(\.\d+))", std::regex::icase);
 constexpr int32_t NAPI_BUF_LENGTH = 256;
 constexpr int32_t UNKNOWN_RESOURCE_ID = -1;
+constexpr int32_t UNKNOWN_RESOURCE_TYPE = -1;
+constexpr int32_t FLOAT_PRECISION = -1;
 constexpr char BUNDLE_NAME[] = "bundleName";
 std::vector<std::string> RESOURCE_HEADS = { "app", "sys" };
 } // namespace
@@ -57,6 +62,18 @@ void NapiThrow(napi_env env, const std::string& message, int32_t errCode)
     napi_value error = nullptr;
     napi_create_error(env, code, msg, &error);
     napi_throw(env, error);
+}
+
+std::string GetLocalizedParamStr(const std::string& paramStr, const std::string& type)
+{
+    auto localization = Localization::GetInstance();
+    if (!localization || (type != "d" && type != "f")) {
+        return paramStr;
+    }
+
+    int32_t precision = (type == "d") ? 0 : FLOAT_PRECISION;
+    std::string result;
+    return localization->LocalizeNumber(paramStr, result, precision) ? result : paramStr;
 }
 
 void ReplaceHolder(std::string& originStr, const std::vector<std::string>& params, uint32_t containCount)
@@ -97,7 +114,7 @@ void ReplaceHolder(std::string& originStr, const std::vector<std::string>& param
             }
         }
         if (static_cast<uint32_t>(index) < size) {
-            replaceContentStr = params[index];
+            replaceContentStr = GetLocalizedParamStr(params[index], type);
         } else {
             LOGE("index = %{public}d size = %{public}d", static_cast<uint32_t>(index), size);
         }
@@ -309,7 +326,13 @@ ResourceStruct CheckResourceStruct(napi_env env, napi_value value)
     if (valueType == napi_number) {
         int32_t id = 0;
         napi_get_value_int32(env, idNApi, &id);
-        if (id == UNKNOWN_RESOURCE_ID) {
+
+        napi_value typeNApi = nullptr;
+        napi_get_named_property(env, value, "type", &typeNApi);
+        int32_t type = UNKNOWN_RESOURCE_TYPE;
+        napi_get_value_int32(env, typeNApi, &type);
+
+        if (id == UNKNOWN_RESOURCE_ID || type == UNKNOWN_RESOURCE_TYPE) {
             return ResourceStruct::DYNAMIC_V2;
         }
     }
@@ -529,22 +552,21 @@ napi_valuetype GetValueType(napi_env env, napi_value value)
 
 std::optional<std::string> GetStringFromValueUtf8(napi_env env, napi_value value)
 {
-    static constexpr size_t maxLength = 2048;
     if (GetValueType(env, value) != napi_string) {
         return std::nullopt;
     }
 
     size_t paramLen = 0;
     napi_status status = napi_get_value_string_utf8(env, value, nullptr, 0, &paramLen);
-    if (paramLen == 0 || paramLen > maxLength || status != napi_ok) {
+    if (paramLen == 0 || status != napi_ok) {
         return std::nullopt;
     }
-    char params[maxLength] = { 0 };
-    status = napi_get_value_string_utf8(env, value, params, paramLen + 1, &paramLen);
+    std::unique_ptr<char[]> params = std::make_unique<char[]>(paramLen + 1);
+    status = napi_get_value_string_utf8(env, value, params.get(), paramLen + 1, &paramLen);
     if (status != napi_ok) {
         return std::nullopt;
     }
-    return params;
+    return std::optional<std::string>(params.get());
 }
 
 bool GetIntProperty(napi_env env, napi_value value, const std::string& key, int32_t& result)
@@ -584,17 +606,17 @@ bool ParseColorFromResourceObject(napi_env env, napi_value value, Color& colorRe
         LOGE("Parse color from resource failed");
         return false;
     }
-    auto themeConstants = GetThemeConstants(resourceInfo.bundleName, resourceInfo.moduleName);
-    if (themeConstants == nullptr) {
-        LOGE("themeConstants is nullptr");
+    auto resourceWrapper = CreateResourceWrapper(resourceInfo);
+    if (resourceWrapper == nullptr) {
+        LOGE("resourceWrapper is nullptr");
         return false;
     }
     if (resourceInfo.type == static_cast<int32_t>(ResourceType::STRING)) {
-        auto colorString = themeConstants->GetString(resourceInfo.type);
+        auto colorString = resourceWrapper->GetString(resourceInfo.resId);
         return Color::ParseColorString(colorString, colorResult);
     }
     if (resourceInfo.type == static_cast<int32_t>(ResourceType::INTEGER)) {
-        auto colorInt = themeConstants->GetInt(resourceInfo.type);
+        auto colorInt = resourceWrapper->GetInt(resourceInfo.resId);
         colorResult = Color(CompleteColorAlphaIfIncomplete(colorInt));
         return true;
     }
@@ -603,9 +625,9 @@ bool ParseColorFromResourceObject(napi_env env, napi_value value, Color& colorRe
             LOGE("resourceParams is empty");
             return false;
         }
-        colorResult = themeConstants->GetColorByName(resourceInfo.params[0]);
+        colorResult = resourceWrapper->GetColorByName(resourceInfo.params[0]);
     } else {
-        colorResult = themeConstants->GetColor(resourceInfo.resId);
+        colorResult = resourceWrapper->GetColor(resourceInfo.resId);
     }
     return true;
 }
@@ -711,7 +733,204 @@ bool ParseResourceParam(napi_env env, napi_value value, ResourceInfo& info)
         info.moduleName = moduleNameStr.get();
     }
 
+    if (HasGetter(env, value, "id")) {
+        info.hasGetter = true;
+    }
+
     return true;
+}
+
+bool MatchValueTypeLuminance(napi_env env, napi_value value, napi_valuetype targetType)
+{
+    napi_valuetype valueType = napi_undefined;
+    napi_status status = napi_typeof(env, value, &valueType);
+    if (status != napi_ok) {
+        return false;
+    }
+    return valueType == targetType;
+}
+
+bool ParseStringLuminance(napi_env env, napi_value propertyNapi, std::string& property)
+{
+    if (propertyNapi == nullptr) {
+        return false;
+    }
+    napi_valuetype valueType = napi_undefined;
+    napi_typeof(env, propertyNapi, &valueType);
+    if (valueType == napi_undefined) {
+        return false;
+    } else if (valueType != napi_string) {
+        NapiThrow(env, "Incorrect parameters types, need string type", ERROR_CODE_PARAM_INVALID);
+        return false;
+    }
+
+    size_t buffSize = 0;
+    napi_status status = napi_get_value_string_utf8(env, propertyNapi, nullptr, 0, &buffSize);
+    if (status != napi_ok || buffSize == 0) {
+        return false;
+    }
+    std::unique_ptr<char[]> propertyString = std::make_unique<char[]>(buffSize + 1);
+    size_t retLen = 0;
+    napi_get_value_string_utf8(env, propertyNapi, propertyString.get(), buffSize + 1, &retLen);
+    property = propertyString.get();
+    return true;
+}
+
+bool ParseIntLuminance(napi_env env, napi_value propertyNapi, int32_t& property)
+{
+    if (propertyNapi == nullptr) {
+        return false;
+    }
+    napi_valuetype valueType = napi_undefined;
+    napi_typeof(env, propertyNapi, &valueType);
+    if (valueType == napi_undefined) {
+        return false;
+    } else if (valueType != napi_number) {
+        NapiThrow(env, "Incorrect parameters types, need number type.", ERROR_CODE_PARAM_INVALID);
+        return false;
+    }
+    napi_get_value_int32(env, propertyNapi, &property);
+    return true;
+}
+
+bool ParseLengthMetricValue(napi_env env, napi_value value, CalcDimension& dimension)
+{
+    napi_valuetype type = napi_undefined;
+    napi_typeof(env, value, &type);
+
+    if (type == napi_number) {
+        double val = 0.0;
+        napi_get_value_double(env, value, &val);
+        dimension.SetValue(val);
+        dimension.SetUnit(DimensionUnit::VP);
+        return true;
+    }
+
+    if (type == napi_string) {
+        std::string str;
+        size_t len = 0;
+        napi_get_value_string_utf8(env, value, nullptr, 0, &len);
+        if (len > 0) {
+            std::unique_ptr<char[]> buffer = std::make_unique<char[]>(len + 1);
+            napi_get_value_string_utf8(env, value, buffer.get(), len + 1, &len);
+            str = buffer.get();
+            dimension = StringUtils::StringToCalcDimension(str, false, DimensionUnit::VP);
+            return true;
+        }
+        return false;
+    }
+
+    if (type == napi_object) {
+        napi_value objValue = nullptr;
+        napi_value objUnit = nullptr;
+        napi_get_named_property(env, value, "value", &objValue);
+        napi_get_named_property(env, value, "unit", &objUnit);
+
+        if (objValue != nullptr && objUnit != nullptr) {
+            double val = 0.0;
+            int32_t unit = static_cast<int32_t>(DimensionUnit::VP);
+
+            napi_valuetype valType = napi_undefined;
+            napi_valuetype unitType = napi_undefined;
+            napi_typeof(env, objValue, &valType);
+            napi_typeof(env, objUnit, &unitType);
+
+            if (valType == napi_number && unitType == napi_number &&
+                napi_get_value_double(env, objValue, &val) == napi_ok &&
+                napi_get_value_int32(env, objUnit, &unit) == napi_ok) {
+                dimension.SetValue(val);
+                dimension.SetUnit(static_cast<DimensionUnit>(unit));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    return false;
+}
+
+bool ParseTopEdge(napi_env env, napi_value obj, EdgesParam& edges)
+{
+    napi_value topValue = nullptr;
+    if (napi_get_named_property(env, obj, "top", &topValue) != napi_ok || topValue == nullptr) {
+        return false;
+    }
+
+    CalcDimension dimension;
+    if (ParseLengthMetricValue(env, topValue, dimension)) {
+        edges.SetTop(dimension);
+        return true;
+    }
+    return false;
+}
+
+bool ParseBottomEdge(napi_env env, napi_value obj, EdgesParam& edges)
+{
+    napi_value bottomValue = nullptr;
+    if (napi_get_named_property(env, obj, "bottom", &bottomValue) != napi_ok || bottomValue == nullptr) {
+        return false;
+    }
+
+    CalcDimension dimension;
+    if (ParseLengthMetricValue(env, bottomValue, dimension)) {
+        edges.SetBottom(dimension);
+        return true;
+    }
+    return false;
+}
+
+bool ParseLeftEdge(napi_env env, napi_value obj, EdgesParam& edges)
+{
+    napi_value leftValue = nullptr;
+    if (napi_get_named_property(env, obj, "left", &leftValue) != napi_ok || leftValue == nullptr) {
+        return false;
+    }
+
+    CalcDimension dimension;
+    if (ParseLengthMetricValue(env, leftValue, dimension)) {
+        edges.SetLeft(dimension);
+        return true;
+    }
+    return false;
+}
+
+bool ParseRightEdge(napi_env env, napi_value obj, EdgesParam& edges)
+{
+    napi_value rightValue = nullptr;
+    if (napi_get_named_property(env, obj, "right", &rightValue) != napi_ok || rightValue == nullptr) {
+        return false;
+    }
+
+    CalcDimension dimension;
+    if (ParseLengthMetricValue(env, rightValue, dimension)) {
+        edges.SetRight(dimension);
+        return true;
+    }
+    return false;
+}
+
+bool ParseEdgesLengthMetrics(napi_env env, napi_value value, EdgesParam& edges)
+{
+    napi_valuetype valueType = napi_undefined;
+    napi_typeof(env, value, &valueType);
+
+    if (valueType != napi_object) {
+        return false;
+    }
+    bool hasAnyProperty = false;
+    if (ParseTopEdge(env, value, edges)) {
+        hasAnyProperty = true;
+    }
+    if (ParseBottomEdge(env, value, edges)) {
+        hasAnyProperty = true;
+    }
+    if (ParseLeftEdge(env, value, edges)) {
+        hasAnyProperty = true;
+    }
+    if (ParseRightEdge(env, value, edges)) {
+        hasAnyProperty = true;
+    }
+    return hasAnyProperty;
 }
 
 std::string DimensionToString(Dimension dimension)
@@ -734,17 +953,19 @@ std::string DimensionToString(Dimension dimension)
 bool ParseString(const ResourceInfo& info, std::string& result)
 {
     auto resourceWrapper = CreateResourceWrapper(info);
-    CHECK_NULL_RETURN(resourceWrapper, false);
+    CHECK_NULL_RETURN(resourceWrapper, true);
     if (info.type == static_cast<int>(ResourceType::PLURAL)) {
         std::string pluralResults;
         if (info.resId == UNKNOWN_RESOURCE_ID) {
             auto count = StringUtils::StringToInt(info.params[1]);
             pluralResults = resourceWrapper->GetPluralStringByName(info.params[0], count);
-            ReplaceHolder(pluralResults, info.params, 2); // plural holder in index 2
+            int32_t startIndex = GetStringFormatStartIndex(info.hasGetter);
+            ReplaceHolder(pluralResults, info.params, startIndex + 2); // plural holder in index 2
         } else {
             auto count = StringUtils::StringToInt(info.params[0]);
             pluralResults = resourceWrapper->GetPluralString(info.resId, count);
-            ReplaceHolder(pluralResults, info.params, 1);
+            int32_t startIndex = GetStringFormatStartIndex(info.hasGetter);
+            ReplaceHolder(pluralResults, info.params, startIndex + 1);
         }
         result = pluralResults;
         return true;
@@ -766,10 +987,12 @@ bool ParseString(const ResourceInfo& info, std::string& result)
         std::string originStr;
         if (info.resId == UNKNOWN_RESOURCE_ID) {
             originStr = resourceWrapper->GetStringByName(info.params[0]);
-            ReplaceHolder(originStr, info.params, 1);
+            int32_t startIndex = GetStringFormatStartIndex(info.hasGetter);
+            ReplaceHolder(originStr, info.params, startIndex + 1);
         } else {
             originStr = resourceWrapper->GetString(info.resId);
-            ReplaceHolder(originStr, info.params, 0);
+            int32_t startIndex = GetStringFormatStartIndex(info.hasGetter);
+            ReplaceHolder(originStr, info.params, startIndex);
         }
         result = originStr;
         return true;
@@ -829,7 +1052,7 @@ std::optional<Color> GetOptionalColor(napi_env env, napi_value argv, napi_valuet
 bool ParseIntegerToString(const ResourceInfo& info, std::string& result)
 {
     auto resourceWrapper = CreateResourceWrapper(info);
-    CHECK_NULL_RETURN(resourceWrapper, false);
+    CHECK_NULL_RETURN(resourceWrapper, true);
     if (info.type == static_cast<int>(ResourceType::INTEGER)) {
         if (info.resId == UNKNOWN_RESOURCE_ID) {
             result = std::to_string(resourceWrapper->GetIntByName(info.params[0]));
@@ -929,6 +1152,129 @@ bool ParseNapiDimensionNG(
     return false;
 }
 
+bool CheckDarkResource(const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::GetResourceDecoupling() || !resObj) {
+        return false;
+    }
+    auto resourceAdapter = ResourceManager::GetInstance().GetOrCreateResourceAdapter(resObj);
+    CHECK_NULL_RETURN(resourceAdapter, false);
+
+    int32_t resId = resObj->GetId();
+    bool hasDarkRes = false;
+    auto params = resObj->GetParams();
+    if (resId == -1 && !params.empty() && params.back().value.has_value()) {
+        std::vector<std::string> splitter;
+        StringUtils::StringSplitter(params.back().value.value(), '.', splitter);
+        CHECK_NULL_RETURN(!splitter.empty(), false);
+        hasDarkRes = resourceAdapter->ExistDarkResByName(splitter.back(), std::to_string(resObj->GetType()));
+    } else {
+        hasDarkRes = resourceAdapter->ExistDarkResById(std::to_string(resId));
+    }
+    return hasDarkRes;
+}
+
+RefPtr<ResourceObject> ParseResourceParamToObj(napi_env env, napi_value value)
+{
+    CompleteResourceParam(env, value);
+    napi_value idNApi = nullptr;
+    napi_value typeNApi = nullptr;
+    napi_value paramsNApi = nullptr;
+    napi_value bundleNameNApi = nullptr;
+    napi_value moduleNameNApi = nullptr;
+    napi_valuetype valueType = napi_undefined;
+    napi_typeof(env, value, &valueType);
+    if (valueType != napi_object || value == NULL) {
+        return nullptr;
+    }
+    napi_get_named_property(env, value, "id", &idNApi);
+    napi_get_named_property(env, value, "type", &typeNApi);
+    napi_get_named_property(env, value, "params", &paramsNApi);
+    napi_get_named_property(env, value, "bundleName", &bundleNameNApi);
+    napi_get_named_property(env, value, "moduleName", &moduleNameNApi);
+    bool isArray = false;
+    if (napi_is_array(env, paramsNApi, &isArray) != napi_ok || !isArray) {
+        return nullptr;
+    }
+    int32_t id = -1;
+    napi_typeof(env, idNApi, &valueType);
+    if (valueType == napi_number) {
+        napi_get_value_int32(env, idNApi, &id);
+    }
+    int32_t type = -1;
+    napi_typeof(env, typeNApi, &valueType);
+    if (valueType == napi_number) {
+        napi_get_value_int32(env, typeNApi, &type);
+    }
+    std::string bundleName = "";
+    napi_typeof(env, bundleNameNApi, &valueType);
+    if (valueType == napi_string) {
+        NapiStringToString(env, bundleNameNApi, bundleName);
+    }
+    std::string moduleName = "";
+    napi_typeof(env, moduleNameNApi, &valueType);
+    if (valueType == napi_string) {
+        NapiStringToString(env, moduleNameNApi, moduleName);
+    }
+    uint32_t arrayLength = 0;
+    napi_get_array_length(env, paramsNApi, &arrayLength);
+    std::vector<ResourceObjectParams> resObjParamsList;
+    for (uint32_t i = 0; i < arrayLength; i++) {
+        napi_value indexValue = nullptr;
+        napi_get_element(env, paramsNApi, i, &indexValue);
+        napi_typeof(env, indexValue, &valueType);
+        ResourceObjectParams resObjParams;
+        if (valueType == napi_string) {
+            std::string indexStr;
+            NapiStringToString(env, indexValue, indexStr);
+            resObjParams.value = indexStr;
+            resObjParams.type = ResourceObjectParamType::STRING;
+        } else if (valueType == napi_number) {
+            double num;
+            napi_get_value_double(env, indexValue, &num);
+            resObjParams.value = std::to_string(num);
+            resObjParams.type = std::regex_match(std::to_string(num), FLOAT_PATTERN) ? ResourceObjectParamType::FLOAT
+                                                                                     : ResourceObjectParamType::INT;
+            resObjParamsList.push_back(resObjParams);
+        }
+    }
+    auto resourceObject = AceType::MakeRefPtr<ResourceObject>(
+        id, type, resObjParamsList, bundleName, moduleName, Container::CurrentIdSafely());
+    return resourceObject;
+}
+
+bool ParseNapiColor(napi_env env, napi_value value, Color& result, RefPtr<ResourceObject>& resObj)
+{
+    napi_valuetype valueType = GetValueType(env, value);
+    if (valueType != napi_number && valueType != napi_string && valueType != napi_object) {
+        return false;
+    }
+    if (valueType == napi_number) {
+        int32_t colorId = 0;
+        napi_get_value_int32(env, value, &colorId);
+        constexpr uint32_t colorAlphaOffset = 24;
+        constexpr uint32_t colorAlphaDefaultValue = 0xFF000000;
+        auto origin = static_cast<uint32_t>(colorId);
+        uint32_t alphaResult = origin;
+        if ((origin >> colorAlphaOffset) == 0) {
+            alphaResult = origin | colorAlphaDefaultValue;
+        }
+        result = Color(alphaResult);
+        return true;
+    }
+    if (valueType == napi_string) {
+        std::optional<std::string> colorString = GetStringFromValueUtf8(env, value);
+        if (!colorString.has_value()) {
+            LOGE("Parse color from string failed");
+            return false;
+        }
+        return Color::ParseColorString(colorString.value(), result);
+    }
+
+    resObj = ParseResourceParamToObj(env, value);
+    return ParseColorFromResourceObject(env, value, result);
+}
+
 bool ParseNapiColor(napi_env env, napi_value value, Color& result)
 {
     napi_valuetype valueType = GetValueType(env, value);
@@ -991,5 +1337,36 @@ bool ParseShadowColorStrategy(napi_env env, napi_value value, ShadowColorStrateg
         }
     }
     return false;
+}
+
+bool HasGetter(napi_env env, napi_value value, const std::string& key)
+{
+    auto* nativeEngine = reinterpret_cast<NativeEngine*>(env);
+    CHECK_NULL_RETURN(nativeEngine, false);
+    auto vm = nativeEngine->GetEcmaVm();
+    CHECK_NULL_RETURN(vm, false);
+
+    auto localObject = NapiValueToLocalValue(value)->ToObject(vm);
+    if (localObject->IsUndefined()) {
+        return false;
+    }
+    auto stringRef = panda::StringRef::NewFromUtf8(vm, key.c_str());
+    panda::PropertyAttribute propertyAttribute;
+    localObject->GetOwnProperty(vm, stringRef, propertyAttribute);
+    return propertyAttribute.HasGetter();
+}
+
+int32_t GetStringFormatStartIndex(bool hasGetter)
+{
+    return hasGetter ? 1 : 0;
+}
+
+int32_t GetUIContextInstanceId(napi_env env, napi_value uiContext)
+{
+    int32_t result = 0;
+    napi_value instanceId = nullptr;
+    napi_get_named_property(env, uiContext, "instanceId_", &instanceId);
+    napi_get_value_int32(env, instanceId, &result);
+    return result;
 }
 } // namespace OHOS::Ace::Napi

@@ -126,6 +126,10 @@ private:
     // set variables from theme
     void InitializeTheme(const RefPtr<TitleBarNode>& titleBarNode, const SizeF& titleBarSize);
 
+    void GetFullTitleWidth(bool isCustom, float& occupiedWidth);
+
+    bool PrasePaddingEnd(const RefPtr<TitleBarNode>& titleBarNode, float& avoidWidth);
+
     Dimension maxPaddingStart_;
     Dimension maxPaddingEnd_;
     Dimension defaultPaddingStart_;
@@ -139,6 +143,7 @@ private:
     Dimension menuCompPadding_;
     Dimension paddingTopTwolines_;
     Dimension titleSpaceVertical_;
+    Dimension menuButtonPadding_;
 
     float menuOccupiedHeight_ = 0.0f;
     float initialTitleOffsetY_ = 0.0f;
@@ -149,6 +154,7 @@ private:
     float minTitleHeight_ = 0.0f;
     float menuOccupiedWidth_ = 0.0f;
     bool showBackButton_ = false;
+    bool fullModeTitleCenter_ = false;
 
     float singleLineTitleHeight_ = 0.0f;
     float doubleLineTitleBarHeight_ = 0.0f;

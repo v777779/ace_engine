@@ -44,6 +44,7 @@ public:
     void ResetLoadingText() override;
     void SetRefreshOffset(const Dimension& offset) override;
     void SetPullToRefresh(bool isPullToRefresh) override;
+    void SetPullUpToCancelRefresh(bool isPullUpToCancelRefresh) override;
     void SetIsCustomBuilderExist(bool isCustomBuilderExist) override;
     // @deprecated
     void Pop() override {}
@@ -66,22 +67,22 @@ public:
     static bool GetRefreshing(FrameNode* frameNode);
     static void SetCustomBuilder(FrameNode* frameNode, FrameNode* customBuilder);
     static void SetCustomBuilderMultiThread(FrameNode* frameNode, FrameNode* customBuilder);
-    static void SetCustomBuilder(FrameNode* frameNode, const RefPtr<NG::UINode>& customBuilder);
     static void SetOnStateChange(FrameNode* frameNode, StateChangeEvent&& stateChange);
     static void SetOnOffsetChange(FrameNode* frameNode, OffsetChangeEvent&& dragOffset);
     static void ResetOnOffsetChange(FrameNode* frameNode);
     static void SetOnRefreshing(FrameNode* frameNode, RefreshingEvent&& refreshing);
-    static void SetLoadingText(FrameNode* frameNode, const std::string& loadingText);
-    static void SetRefreshOffset(FrameNode* frameNode, const std::optional<Dimension>& offset);
+    static void SetRefreshOffset(FrameNode* frameNode, const Dimension& offset);
     static void SetPullToRefresh(FrameNode* frameNode, bool isPullToRefresh);
+    static void SetPullUpToCancelRefresh(FrameNode* frameNode, bool isPullUpToCancelRefresh);
     static void SetMaxPullDownDistance(FrameNode* frameNode, const std::optional<float>& maxDistance);
     static float GetMaxPullDownDistance(FrameNode* frameNode);
     static void SetPullDownRatio(FrameNode* frameNode, const std::optional<float>& pullDownRatio);
     static float GetPullDownRatio(FrameNode* frameNode);
     static Dimension GetRefreshOffset(FrameNode* frameNode);
     static bool GetPullToRefresh(FrameNode* frameNode);
-    static void SetIsCustomBuilderExist(FrameNode* frameNode, bool isCustomBuilderExist);
+    static bool GetPullUpToCancelRefresh(FrameNode* frameNode);
     static void SetChangeEvent(FrameNode* frameNode, RefreshChangeEvent&& changeEvent);
+    static void SetStepOffsetChange(FrameNode* frameNode, OffsetStepChangeEvent&& changeEvent);
 };
 } // namespace OHOS::Ace::NG
 

@@ -14,6 +14,32 @@
  */
 
 import { uiUtils } from './base/uiUtilsImpl';
+import { IMonitor, IMonitorDecoratedVariable, IMonitorPathInfo, IVariableOwner } from './decorator';
+import { MonitorFunctionDecorator } from './decoratorImpl/decoratorMonitor';
+import { ExtendableComponent } from '../component/extendableComponent';
+import { BusinessError } from '@ohos.base';
+import { CustomComponentV2 } from '../component/customComponent'
+import { canBeObserved as canBeObservedImpl } from './tools/stateMgmtDFX';
+import { CustomComponentV2, CustomComponentLifecycle } from '../component/customComponent';
+
+export interface ElementInfo {
+    elementName: string;
+    elementId: int;
+}
+
+export interface DecoratorInfo {
+    decoratorName: string;
+    stateVariableName: string;
+    owningComponentOrClassName: string;
+    owningComponentId: int;
+    dependentInfo: Array<ElementInfo>;
+}
+
+export interface ObservedResult {
+    isObserved: boolean;
+    reason: string;
+    decoratorInfo: Array<DecoratorInfo>;
+}
 
 export class UIUtils {
     static makeObserved<T>(source: T): T {
@@ -28,6 +54,88 @@ export class UIUtils {
     static makeBinding<T>(getter: () => T, setter: (newValue: T) => void): MutableBinding<T> {
         return uiUtils.makeBindingMutable(getter, setter);
     }
+
+    /**
+     * Check if an object can be observed by the state management framework.
+     * This is the public API for DFX debugging purposes.
+     *
+     * @param obj The object to check
+     * @returns ObservedResult containing observation status and related information
+     */
+    static canBeObserved(obj: Object): ObservedResult {
+        return canBeObservedImpl(obj);
+    }
+
+    private static readonly DEFAULT_PATH: string = 'MONITOR_';
+    private static readonly DEFAULT_INDEX = 0;
+    private static currentIndex_ = UIUtils.DEFAULT_INDEX;
+
+    static addMonitor(valueCallback: (() => Any) | Array<() => Any>, monitorCallback: (m: IMonitor) => void, options?: MonitorOptions): IMonitorDecoratedVariable {
+        if (options?.owner && !(options?.owner instanceof CustomComponentV2)) {
+            const errorCode: Int = 130000;
+            const errorMessage: string = 'options.owner is not a component decorated with @ComponentV2 which is not supported by UIUtils.addMonitor.';
+            throw new BusinessError(errorCode, new Error(errorMessage));
+        }
+
+        const callbackArray = UIUtils.unionToArray(valueCallback);
+        const pathArray = UIUtils.pathToArray(options?.path);
+        const pathLambda = UIUtils.generatePathLambda(callbackArray, pathArray);
+
+        return new MonitorFunctionDecorator(pathLambda, monitorCallback, options?.owner, options?.isSynchronous);
+    }
+
+    static clearMonitor(monitor: IMonitorDecoratedVariable): void {
+        (monitor as MonitorFunctionDecorator).unbindAllInternalValues();
+    }
+
+    /**
+     * Get lifecycle instance of IVariableOwner
+     *
+     * @param {IVariableOwner} source - Variable owner instance
+     * @returns lifecycle instance
+     */
+    static getLifecycle<T extends IVariableOwner>(customComponent: T): CustomComponentLifecycle {
+        return customComponent.__getLifecycle__Internal();
+    }
+
+    private static pathToArray(path?: string | string[]): string[] {
+        if (!path) {
+            return [];
+        }
+
+        return UIUtils.unionToArray(path);
+    }
+
+    private static unionToArray<T>(input: T | T[]): T[] {
+        if (Array.isArray(input)) {
+            return input as T[];
+        } else {
+            return [input as T];
+        }
+    }
+
+    private static createPathInfo(callback: () => Any, path?: string): IMonitorPathInfo {
+        return {
+            path: path ?? '',
+            valueCallback: callback
+        };
+    }
+
+    private static generatePathLambda(callbacks: (() => Any)[], paths?: string[]): IMonitorPathInfo[] {
+        return callbacks.map((callback: () => Any, index: int): IMonitorPathInfo => {
+            const currentPath: string = !paths || index >= paths.length
+                ? `${UIUtils.DEFAULT_PATH}${UIUtils.currentIndex_++}`
+                : paths[index];
+
+            return UIUtils.createPathInfo(callback, currentPath);
+        });
+    }
+}
+
+export interface MonitorOptions {
+    isSynchronous?: boolean;
+    owner?: IVariableOwner;
+    path?: string | string[];
 }
 
 /**

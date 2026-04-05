@@ -19,7 +19,7 @@
 #include "core/components_ng/manager/drag_drop/drag_drop_func_wrapper.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_initiating/drag_drop_initiating_state_machine.h"
 #include "core/components_ng/manager/drag_drop/utils/drag_animation_helper.h"
-#include "core/components_ng/pattern/text/text_pattern.h"
+#include "core/components_ng/pattern/text/text_base.h"
 #include "core/components_ng/pattern/text_drag/text_drag_pattern.h"
 #include "core/gestures/drag_event.h"
 #include "core/pipeline_ng/pipeline_context.h"
@@ -163,6 +163,9 @@ void DragDropInitiatingStateBase::ResetBorderRadiusAnimation()
     auto frameNode = params.frameNode.Upgrade();
     CHECK_NULL_VOID(frameNode);
     auto renderContext = frameNode->GetRenderContext();
+    CHECK_NULL_VOID(renderContext);
+    auto context = frameNode->GetContextRefPtr();
+    CHECK_NULL_VOID(context);
     BorderRadiusProperty borderRadius;
     if (renderContext->GetBorderRadius().has_value()) {
         borderRadius.UpdateWithCheck(renderContext->GetBorderRadius().value());
@@ -176,7 +179,7 @@ void DragDropInitiatingStateBase::ResetBorderRadiusAnimation()
         [renderContext = renderContext, borderRadius = borderRadius]() {
             renderContext->UpdateBorderRadius(borderRadius);
         },
-        option.GetOnFinishEvent());
+        option.GetOnFinishEvent(), nullptr, context);
 }
 
 bool DragDropInitiatingStateBase::CheckStatusForPanActionBegin(
@@ -206,19 +209,6 @@ bool DragDropInitiatingStateBase::CheckStatusForPanActionBegin(
         return false;
     }
     return true;
-}
-
-int32_t DragDropInitiatingStateBase::GetCurDuration(const TouchEvent& touchEvent, int32_t curDuration)
-{
-    int64_t currentTimeStamp = GetSysTimestamp();
-    auto machine = GetStateMachine();
-    CHECK_NULL_RETURN(machine, 0);
-    int64_t eventTimeStamp = static_cast<int64_t>(touchEvent.time.time_since_epoch().count());
-    if (currentTimeStamp > eventTimeStamp) {
-        curDuration = curDuration - static_cast<int32_t>((currentTimeStamp- eventTimeStamp) / TIME_BASE);
-        curDuration = curDuration < 0 ? 0: curDuration;
-    }
-    return curDuration;
 }
 
 void DragDropInitiatingStateBase::SetTextPixelMap()
@@ -277,9 +267,11 @@ std::function<void()> GetTextAnimationFinishCallback(
         pattern->ShowAIEntityMenuForCancel();
         auto pipeline = PipelineContext::GetCurrentContext();
         CHECK_NULL_VOID(pipeline);
-        auto manager = pipeline->GetOverlayManager();
-        CHECK_NULL_VOID(manager);
-        manager->RemovePixelMap();
+        if (!pattern->IsPreviewMenuShow()) {
+            auto manager = pipeline->GetOverlayManager();
+            CHECK_NULL_VOID(manager);
+            manager->RemovePixelMap();
+        }
         TAG_LOGD(AceLogTag::ACE_DRAG, "In removeColumnNode callback, set DragWindowVisible true.");
         auto gestureHub = weakEvent.Upgrade();
         CHECK_NULL_VOID(gestureHub);
@@ -336,6 +328,8 @@ void DragDropInitiatingStateBase::HideTextAnimation(bool startDrag, double globa
     }
     auto context = dragNode->GetRenderContext();
     CHECK_NULL_VOID(context);
+    auto dragcontext = dragNode->GetContextRefPtr();
+    CHECK_NULL_VOID(dragcontext);
     context->UpdateTransformScale(VectorF(1.0f, 1.0f));
     AnimationUtils::Animate(
         option,
@@ -347,7 +341,7 @@ void DragDropInitiatingStateBase::HideTextAnimation(bool startDrag, double globa
                 context->OnModifyDone();
             }
         },
-        option.GetOnFinishEvent());
+        option.GetOnFinishEvent(), nullptr, dragcontext);
 }
 
 void DragDropInitiatingStateBase::HandleTextDragCallback()
@@ -367,6 +361,19 @@ void DragDropInitiatingStateBase::HandleTextDragCallback()
     } else if (!gestureHub->GetIsTextDraggable()) {
         gestureHub->SetPixelMap(nullptr);
     }
+}
+
+int32_t DragDropInitiatingStateBase::GetCurDuration(const TouchEvent& touchEvent, int32_t curDuration)
+{
+    int64_t currentTimeStamp = GetSysTimestamp();
+    auto machine = GetStateMachine();
+    CHECK_NULL_RETURN(machine, 0);
+    int64_t eventTimeStamp = static_cast<int64_t>(touchEvent.time.time_since_epoch().count());
+    if (currentTimeStamp > eventTimeStamp) {
+        curDuration = curDuration - static_cast<int32_t>((currentTimeStamp- eventTimeStamp) / TIME_BASE);
+        curDuration = curDuration < 0 ? 0: curDuration;
+    }
+    return curDuration;
 }
 
 void DragDropInitiatingStateBase::HandleTextDragStart(const RefPtr<FrameNode>& frameNode, const GestureEvent& info)
@@ -426,6 +433,24 @@ void DragDropInitiatingStateBase::UpdatePointInfoForFinger(const TouchEvent& tou
 void DragDropInitiatingStateBase::OnActionEnd(const GestureEvent& info)
 {
     TAG_LOGI(AceLogTag::ACE_DRAG, "Trigger drag action end.");
+    DragDropGlobalController::GetInstance().ResetDragDropInitiatingStatus();
+    auto pipelineContext = PipelineContext::GetCurrentContextSafelyWithCheck();
+    CHECK_NULL_VOID(pipelineContext);
+    auto dragDropManager = pipelineContext->GetDragDropManager();
+    CHECK_NULL_VOID(dragDropManager);
+    if (dragDropManager->IsAboutToPreview()) {
+        dragDropManager->ResetDragging();
+    }
+    dragDropManager->SetIsDragNodeNeedClean(false);
+    dragDropManager->SetIsDisableDefaultDropAnimation(true);
+    auto machine = GetStateMachine();
+    CHECK_NULL_VOID(machine);
+    machine->RequestStatusTransition(static_cast<int32_t>(DragDropInitiatingStatus::IDLE));
+}
+
+void DragDropInitiatingStateBase::OnActionCancel(const GestureEvent& info)
+{
+    TAG_LOGI(AceLogTag::ACE_DRAG, "Trigger drag action cancel.");
     DragDropGlobalController::GetInstance().ResetDragDropInitiatingStatus();
     auto pipelineContext = PipelineContext::GetCurrentContextSafelyWithCheck();
     CHECK_NULL_VOID(pipelineContext);

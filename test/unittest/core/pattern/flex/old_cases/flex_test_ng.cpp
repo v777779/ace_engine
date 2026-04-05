@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,136 +13,18 @@
  * limitations under the License.
  */
 
-#include "gtest/gtest.h"
-
-#include "base/geometry/ng/offset_t.h"
-#include "base/geometry/ng/size_t.h"
-
-#define private public
-#define protectd public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-
-#include "base/memory/ace_type.h"
-#include "base/memory/referenced.h"
-#include "core/components/common/layout/constants.h"
-#include "core/components_ng/base/view_abstract.h"
-#include "core/components_ng/base/view_stack_processor.h"
-#include "core/components_ng/layout/layout_property.h"
-#include "core/components_ng/pattern/button/button_pattern.h"
-#include "core/components_ng/pattern/flex/flex_layout_pattern.h"
-#include "core/components_ng/pattern/flex/flex_layout_property.h"
-#include "core/components_ng/pattern/flex/flex_model_ng.h"
-#include "core/components_ng/pattern/flex/wrap_layout_algorithm.h"
-#include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
-#include "core/components_v2/inspector/inspector_constants.h"
+#include "flex_test_ng.h"
 
 using namespace testing;
 using namespace testing::ext;
 
 namespace OHOS::Ace::NG {
-namespace {
-const float OFFSET_TOP = 20.0f;
-const float OFFSET_LEFT = 0.0f;
-const float CONTAINER_WIDTH = 300.0f;
-const float CONTAINER_HEIGHT = 300.0f;
-const float FIRST_ITEM_WIDTH = 150.0f;
-const float FIRST_ITEM_HEIGHT = 75.0f;
-const SizeF FIRST_ITEM_SIZE(FIRST_ITEM_WIDTH, FIRST_ITEM_HEIGHT);
-const int START_INDEX = 0;
-const int THREE_ITEM_SIZE = 3;
-const int FOUR_ITEM_SIZE = 4;
-
-const float RK356_WIDTH = 720.0f;
-const float RK356_HEIGHT = 1136.0f;
-const float ZERO = 0.0f;
-
-const float SMALL_ITEM_WIDTH = 150.0f;
-const float SMALL_ITEM_HEIGHT_BIG = 120.f;
-const float SMALL_ITEM_HEIGHT = 60.0f;
-
-const float BIG_ITEM_WIDTH = 180.0f;
-const float BIG_ITEM_HEIGHT = 75.0f;
-
-const float ROW_HEIGHT = 120.0f;
-const float COLUMN_HEIGHT = 150.0f;
-
-const float TWENTY_PERCENT_WIDTH = 0.2f * RK356_WIDTH;
-const float TWENTY_PERCENT_COLUMN_HEIGHT = 0.2f * COLUMN_HEIGHT;
-
-const SizeF CONTAINER_SIZE(RK356_WIDTH, RK356_HEIGHT);
-const SizeF SMALL_ITEM_SIZE(SMALL_ITEM_WIDTH, SMALL_ITEM_HEIGHT);
-const SizeF BIG_ITEM_SIZE(BIG_ITEM_WIDTH, BIG_ITEM_HEIGHT);
-
-const OffsetF OFFSET_TOP_LEFT = OffsetF(ZERO, ZERO);
-const OffsetF OFFSET_TOP_MIDDLE = OffsetF(RK356_WIDTH / 2.0f, ZERO);
-const OffsetF OFFSET_TOP_RIGHT = OffsetF(RK356_WIDTH, ZERO);
-
-const OffsetF OFFSET_CENTER_LEFT = OffsetF(ZERO, RK356_HEIGHT / 2.0f);
-const OffsetF OFFSET_CENTER_MIDDLE = OffsetF(RK356_WIDTH / 2.0f, RK356_HEIGHT / 2.0f);
-const OffsetF OFFSET_CENTER_RIGHT = OffsetF(RK356_WIDTH, RK356_HEIGHT / 2.0f);
-
-const OffsetF OFFSET_BOTTOM_LEFT = OffsetF(ZERO, RK356_HEIGHT);
-const OffsetF OFFSET_BOTTOM_MIDDLE = OffsetF(RK356_WIDTH / 2.0f, RK356_HEIGHT);
-const OffsetF OFFSET_BOTTOM_RIGHT = OffsetF(RK356_WIDTH, RK356_HEIGHT);
-
-const float NOPADDING = 0.0f;
-constexpr int32_t FLEX_NODE_ID = 12;
-} // namespace
-class FlexTestNg : public testing::Test {
-public:
-    static void SetUpTestCase();
-    static void TearDownTestCase();
-};
-
-void FlexTestNg::SetUpTestCase()
-{
-    MockPipelineContext::SetUp();
-}
-
-void FlexTestNg::TearDownTestCase()
-{
-    MockPipelineContext::TearDown();
-}
-
-struct WrapProperties {
-    WrapDirection wrapDirection = WrapDirection::HORIZONTAL;
-    WrapAlignment wrapAlignment = WrapAlignment::START;
-    WrapAlignment wrapMainAxisAlignment = WrapAlignment::START;
-    WrapAlignment wrapCrossAxisAlignment = WrapAlignment::START;
-    Dimension mainSpace = Dimension(20.0, DimensionUnit::VP);
-    Dimension crossSpace = Dimension(20.0, DimensionUnit::VP);
-};
-
-void UpdateWrapProperties(const RefPtr<FlexLayoutProperty>& layoutProperty, const WrapProperties& wrapProperty)
-{
-    EXPECT_EQ(layoutProperty == nullptr, false);
-    layoutProperty->UpdateWrapDirection(wrapProperty.wrapDirection);
-    layoutProperty->UpdateAlignment(wrapProperty.wrapAlignment);
-    layoutProperty->UpdateMainAlignment(wrapProperty.wrapMainAxisAlignment);
-    layoutProperty->UpdateCrossAlignment(wrapProperty.wrapCrossAxisAlignment);
-    layoutProperty->UpdateSpace(wrapProperty.mainSpace);
-    layoutProperty->UpdateCrossSpace(wrapProperty.crossSpace);
-}
-
-struct FlexProperties {
-    FlexDirection flexDirection = FlexDirection::ROW;
-    FlexAlign flexAlign = FlexAlign::FLEX_START;
-};
-
-void UpdateFlexProperties(const RefPtr<FlexLayoutProperty>& layoutProperty, const FlexProperties& flexProperty)
-{
-    EXPECT_FALSE(layoutProperty == nullptr);
-    layoutProperty->UpdateFlexDirection(flexProperty.flexDirection);
-    layoutProperty->UpdateMainAxisAlign(flexProperty.flexAlign);
-    layoutProperty->UpdateCrossAxisAlign(flexProperty.flexAlign);
-}
-
 /**
  * @tc.name: FlexWrapFrameNodeCreator001
  * @tc.desc: Test setting of flex.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator001, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator001, TestSize.Level0)
 {
     WrapProperties wrapProperty;
     auto frameNode = FrameNode::GetOrCreateFrameNode(
@@ -152,6 +34,7 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator001, TestSize.Level1)
     EXPECT_EQ(layoutProperty == nullptr, false);
     RefPtr<FlexLayoutProperty> flexLayoutProperty = AceType::DynamicCast<FlexLayoutProperty>(layoutProperty);
     EXPECT_EQ(flexLayoutProperty == nullptr, false);
+
     UpdateWrapProperties(flexLayoutProperty, wrapProperty);
     EXPECT_EQ(flexLayoutProperty->GetWrapDirectionValue(WrapDirection::HORIZONTAL) == wrapProperty.wrapDirection, true);
     EXPECT_EQ(flexLayoutProperty->GetAlignmentValue(WrapAlignment::START) == wrapProperty.wrapAlignment, true);
@@ -161,9 +44,8 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator001, TestSize.Level1)
         flexLayoutProperty->GetCrossAlignmentValue(WrapAlignment::START) == wrapProperty.wrapCrossAxisAlignment, true);
     EXPECT_EQ(flexLayoutProperty->GetSpaceValue({}).Value() == wrapProperty.mainSpace.Value(), true);
     EXPECT_EQ(flexLayoutProperty->GetCrossSpaceValue({}).Value() == wrapProperty.crossSpace.Value(), true);
-
     /**
-     * @tc.steps: step1. Call CreateFlexGrow.
+     * @tc.steps: step1. Call CreateFlexRow.
      * @tc.expected: created successfully
      */
     FlexModelNG instance;
@@ -178,7 +60,7 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator001, TestSize.Level1)
  * @tc.desc: Test setting of flex.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexRowFrameNodeCreator001, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexRowFrameNodeCreator001, TestSize.Level0)
 {
     FlexProperties flexProperty;
     auto frameNode = FrameNode::GetOrCreateFrameNode(
@@ -188,10 +70,10 @@ HWTEST_F(FlexTestNg, FlexRowFrameNodeCreator001, TestSize.Level1)
     EXPECT_EQ(layoutProperty == nullptr, false);
     RefPtr<FlexLayoutProperty> flexLayoutProperty = AceType::DynamicCast<FlexLayoutProperty>(layoutProperty);
     EXPECT_EQ(flexLayoutProperty == nullptr, false);
-    UpdateFlexProperties(flexLayoutProperty, flexProperty);
 
+    UpdateFlexProperties(flexLayoutProperty, flexProperty);
     /**
-     * @tc.steps: step1. Call CreateFlexGrow.
+     * @tc.steps: step1. Call CreateFlexRow.
      * @tc.expected: created successfully
      */
     FlexModelNG instance;
@@ -206,7 +88,7 @@ HWTEST_F(FlexTestNg, FlexRowFrameNodeCreator001, TestSize.Level1)
  * @tc.desc: Test flexRowNode exiting normally.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator003, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator003, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. prepare flexNode.
@@ -219,8 +101,8 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator003, TestSize.Level1)
     EXPECT_EQ(layoutProperty == nullptr, false);
     RefPtr<FlexLayoutProperty> flexLayoutProperty = AceType::DynamicCast<FlexLayoutProperty>(layoutProperty);
     EXPECT_EQ(flexLayoutProperty == nullptr, false);
-    UpdateFlexProperties(flexLayoutProperty, flexProperty);
 
+    UpdateFlexProperties(flexLayoutProperty, flexProperty);
     /**
      * @tc.steps: step2. Call CreateWrap.
      * @tc.expected: exited successfully
@@ -238,7 +120,7 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator003, TestSize.Level1)
  * @tc.desc: Test flexWrapNode pushed successfully.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator004, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator004, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. prepare flexNode.
@@ -251,8 +133,8 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator004, TestSize.Level1)
     EXPECT_EQ(layoutProperty == nullptr, false);
     RefPtr<FlexLayoutProperty> flexLayoutProperty = AceType::DynamicCast<FlexLayoutProperty>(layoutProperty);
     EXPECT_EQ(flexLayoutProperty == nullptr, false);
-    UpdateWrapProperties(flexLayoutProperty, wrapProperty);
 
+    UpdateWrapProperties(flexLayoutProperty, wrapProperty);
     /**
      * @tc.steps: step2. Call CreateWrap.
      * @tc.expected: pushed successfully
@@ -270,7 +152,7 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator004, TestSize.Level1)
  * @tc.desc: Test creating flex then switch to wrap.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator002, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator002, TestSize.Level0)
 {
     FlexModelNG instance;
     // create a regular flex
@@ -291,6 +173,7 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator002, TestSize.Level1)
     EXPECT_EQ(flexLayoutProperty->GetMainAxisAlignValue(FlexAlign::FLEX_START) == FlexAlign::FLEX_END, true);
     EXPECT_EQ(flexLayoutProperty->GetCrossAxisAlignValue(FlexAlign::FLEX_START) == FlexAlign::SPACE_AROUND, true);
     ViewStackProcessor::GetInstance()->Finish();
+
     instance.CreateWrap();
     frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     EXPECT_FALSE(frameNode == nullptr);
@@ -305,7 +188,7 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeCreator002, TestSize.Level1)
  * @tc.desc: Test layout of flex wrap.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexWrapFrameNodeLayout001, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexWrapFrameNodeLayout001, TestSize.Level0)
 {
     WrapProperties wrapProperty;
     wrapProperty.wrapDirection = WrapDirection::HORIZONTAL;
@@ -318,7 +201,6 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeLayout001, TestSize.Level1)
     EXPECT_FALSE(flexNode == nullptr);
     RefPtr<LayoutProperty> layoutProperty = flexNode->GetLayoutProperty();
     EXPECT_FALSE(layoutProperty == nullptr);
-
     RefPtr<FlexLayoutProperty> flexLayoutProperty = AceType::DynamicCast<FlexLayoutProperty>(layoutProperty);
     EXPECT_EQ(flexLayoutProperty == nullptr, false);
     UpdateWrapProperties(flexLayoutProperty, wrapProperty);
@@ -326,7 +208,6 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeLayout001, TestSize.Level1)
     EXPECT_FALSE(flexLayoutPattern == nullptr);
     auto flexLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     layoutWrapper.SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(flexLayoutAlgorithm));
-
     auto childLayoutConstraint = layoutWrapper.GetLayoutProperty()->CreateChildConstraint();
     childLayoutConstraint.selfIdealSize = OptionalSizeF(FIRST_ITEM_SIZE);
     // create first item
@@ -344,6 +225,7 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeLayout001, TestSize.Level1)
     firstLayoutWrapper->GetLayoutProperty()->UpdateLayoutConstraint(childLayoutConstraint);
     auto firstItemLayoutAlgorithm = firstItemPattern->CreateLayoutAlgorithm();
     EXPECT_FALSE(firstItemLayoutAlgorithm == nullptr);
+
     firstLayoutWrapper->SetLayoutAlgorithm(
         AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(firstItemLayoutAlgorithm));
     firstLayoutWrapper->GetLayoutProperty()->UpdateUserDefinedIdealSize(
@@ -365,7 +247,7 @@ HWTEST_F(FlexTestNg, FlexWrapFrameNodeLayout001, TestSize.Level1)
  * @tc.desc: Test properties set of flex.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexPatternTest001, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexPatternTest001, TestSize.Level0)
 {
     FlexProperties flexProperty;
     FlexModelNG flexModelNG;
@@ -388,7 +270,7 @@ HWTEST_F(FlexTestNg, FlexPatternTest001, TestSize.Level1)
  * @tc.desc: Test properties set of flex.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexPatternTest002, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexPatternTest002, TestSize.Level0)
 {
     FlexModelNG flexModelNG;
     flexModelNG.CreateFlexRow();
@@ -419,7 +301,7 @@ HWTEST_F(FlexTestNg, FlexPatternTest002, TestSize.Level1)
  * @tc.desc: Test properties set of flex.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexWrapPatternTest002, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexWrapPatternTest002, TestSize.Level0)
 {
     FlexModelNG flexModelNG;
     flexModelNG.CreateWrap();
@@ -457,7 +339,7 @@ HWTEST_F(FlexTestNg, FlexWrapPatternTest002, TestSize.Level1)
  * @tc.desc: Set two texts with size in row and check them.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexRowLayoutTest001, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexRowLayoutTest001, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -554,7 +436,7 @@ HWTEST_F(FlexTestNg, FlexRowLayoutTest001, TestSize.Level1)
  * @tc.desc: Set two items with different constraint size.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexRowLayoutTest002, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexRowLayoutTest002, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -658,7 +540,7 @@ HWTEST_F(FlexTestNg, FlexRowLayoutTest002, TestSize.Level1)
  * @tc.desc: Set four texts with 20% of container size in row direction, container has no padding.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexRowLayoutTest003, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexRowLayoutTest003, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -743,7 +625,7 @@ HWTEST_F(FlexTestNg, FlexRowLayoutTest003, TestSize.Level1)
  * @tc.desc: Set two texts with size in column and check them.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexColumnLayoutTest001, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexColumnLayoutTest001, TestSize.Level0)
 {
     auto columnFrameNode =
         FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
@@ -841,7 +723,7 @@ HWTEST_F(FlexTestNg, FlexColumnLayoutTest001, TestSize.Level1)
  * @tc.desc: Set two items in column with different constraint size.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexColumnLayoutTest002, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexColumnLayoutTest002, TestSize.Level0)
 {
     auto columnFrameNode =
         FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
@@ -946,7 +828,7 @@ HWTEST_F(FlexTestNg, FlexColumnLayoutTest002, TestSize.Level1)
  * @tc.desc: Set four texts with 20% of container size in column direction, container has no padding.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexColumnLayoutTest003, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexColumnLayoutTest003, TestSize.Level0)
 {
     auto columnFrameNode =
         FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
@@ -1032,7 +914,7 @@ HWTEST_F(FlexTestNg, FlexColumnLayoutTest003, TestSize.Level1)
  * @tc.desc: Set three texts with size in row and check the alignItems is Start and justifyContent is Start.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexRowLayoutTest005, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexRowLayoutTest005, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -1115,7 +997,7 @@ HWTEST_F(FlexTestNg, FlexRowLayoutTest005, TestSize.Level1)
  * @tc.desc: Set three texts with size in row and check the alignItems is Center and justifyContent is Center.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexRowLayoutTest006, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexRowLayoutTest006, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -1200,7 +1082,7 @@ HWTEST_F(FlexTestNg, FlexRowLayoutTest006, TestSize.Level1)
  * @tc.desc: Set three texts with size in row and check the alignItems is End and justifyContent is End.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexRowLayoutTest007, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexRowLayoutTest007, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -1285,7 +1167,7 @@ HWTEST_F(FlexTestNg, FlexRowLayoutTest007, TestSize.Level1)
  * @tc.desc: Set three texts with size in row and check the alignItems is Stretch and justifyContent is SpaceBetween.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexRowLayoutTest008, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexRowLayoutTest008, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -1359,9 +1241,7 @@ HWTEST_F(FlexTestNg, FlexRowLayoutTest008, TestSize.Level1)
         auto childWrapper = layoutWrapper->GetOrCreateChildByIndex(i);
         auto childSize = childWrapper->GetGeometryNode()->GetFrameSize();
         auto childOffset = childWrapper->GetGeometryNode()->GetFrameOffset();
-        EXPECT_EQ(childSize, SizeF(TWENTY_PERCENT_WIDTH, SMALL_ITEM_HEIGHT_BIG))
-            << "actual: " + childSize.ToString() +
-                   ", expect: " + SizeF(TWENTY_PERCENT_WIDTH, SMALL_ITEM_HEIGHT_BIG).ToString();
+        EXPECT_EQ(childSize, SizeF(TWENTY_PERCENT_WIDTH, ROW_HEIGHT));
         EXPECT_EQ(childOffset, OffsetF(i * (TWENTY_PERCENT_WIDTH + horizontalRemaining / 2), 0.0f));
     }
 }
@@ -1371,7 +1251,7 @@ HWTEST_F(FlexTestNg, FlexRowLayoutTest008, TestSize.Level1)
  * @tc.desc: Set three texts with size in row and check the alignItems is Baseline and justifyContent is SpaceEvenly.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexRowLayoutTest009, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexRowLayoutTest009, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);
@@ -1456,7 +1336,7 @@ HWTEST_F(FlexTestNg, FlexRowLayoutTest009, TestSize.Level1)
  * @tc.desc: Set three texts with size in row and check the alignItems is Start and justifyContent is SpaceAround.
  * @tc.type: FUNC
  */
-HWTEST_F(FlexTestNg, FlexRowLayoutTest010, TestSize.Level1)
+HWTEST_F(FlexTestNg, FlexRowLayoutTest010, TestSize.Level0)
 {
     auto rowFrameNode = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
     EXPECT_FALSE(rowFrameNode == nullptr);

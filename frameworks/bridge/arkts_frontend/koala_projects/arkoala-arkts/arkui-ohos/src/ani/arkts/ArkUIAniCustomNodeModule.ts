@@ -24,7 +24,17 @@ export class ArkUIAniCustomNodeModule {
 
     native static _CustomNode_Construct(id: int32, component: ArkCustomComponent): KPointer
 
+    native static _CustomNode_SetBuildFunction(ptr: KPointer, buildFunc: () => KPointer): void
+
+    native static _CustomNode_AddChild(parent: KPointer, child: KPointer): void
+
+    native static _CustomNode_CallDefaultMeasure(ptr: KPointer): SizeResult
+
+    native static _CustomNode_CallDefaultLayout(ptr: KPointer): void
+
+    native static _CustomNode_EnvFunction(ptr: KPointer, envFunc: (instanceId: int32) => void): void
 }
+
 export class MeasurableLayoutableInner implements Measurable, Layoutable {
 
     private  measureLayoutChild: int64 = 0;
@@ -35,30 +45,30 @@ export class MeasurableLayoutableInner implements Measurable, Layoutable {
         }
     }
     
-    uniqueId?: number | undefined;
+    uniqueId?: int32 | undefined;
     measureResult: MeasureResult = {width: 0, height: 0};
 
-    public override measure(constraint: ConstraintSizeOptions): MeasureResult {
+    public override measure(constraint: ConstraintSizeOptions | undefined ): MeasureResult | undefined {
         return this.measureInner(constraint);
     }
-    public override layout(position: Position) {
+    public override layout(position: Position | undefined ) {
         this.layoutInner(position)
     }
-    public override getMargin(): DirectionalEdgesT<number> {
+    public override getMargin(): DirectionalEdgesT<double> | undefined {
         return this.getMarginInner()
     }
-    public override getPadding(): DirectionalEdgesT<number> {
+    public override getPadding(): DirectionalEdgesT<double> | undefined {
         return this.getPaddingInner()
     }
-    public override getBorderWidth(): DirectionalEdgesT<number> {
+    public override getBorderWidth(): DirectionalEdgesT<double> | undefined {
         return this.getBorderWidthInner()
     }
     
-    public native layoutInner(position: Position): void;
-    public native measureInner(constraint: ConstraintSizeOptions): MeasureResult;
-    public native getMarginInner(): DirectionalEdgesT<double>;
-    public native getPaddingInner(): DirectionalEdgesT<double>;
-    public native getBorderWidthInner(): DirectionalEdgesT<double>;
+    public native layoutInner(position: Position | undefined ): void;
+    public native measureInner(constraint: ConstraintSizeOptions | undefined ): MeasureResult | undefined;
+    public native getMarginInner(): DirectionalEdgesT<double> | undefined;
+    public native getPaddingInner(): DirectionalEdgesT<double> | undefined;
+    public native getBorderWidthInner(): DirectionalEdgesT<double> | undefined;
 }
 
 export class ConstraintSizeOptionsInner implements ConstraintSizeOptions {
@@ -122,7 +132,7 @@ export class DirectionalEdgesTInner implements DirectionalEdgesT<double> {
     end: number;
     top: number;
     bottom: number;
-    constructor(top: number, bottom: number, start: number, end: number )
+    constructor(top: number, bottom: number, start: number, end: number)
     {
         this.start = start;
         this.end = end;
@@ -132,11 +142,19 @@ export class DirectionalEdgesTInner implements DirectionalEdgesT<double> {
 }
 
 export class GeometryInfoInner implements GeometryInfo {
-    width: number = 0;
-    height: number = 0;
-    borderWidth: EdgeWidths = {};
-    margin: Padding = {};
-    padding: Padding = {};
+    width: number;
+    height: number;
+    borderWidth: EdgeWidths;
+    margin: Padding;
+    padding: Padding;
+    constructor(width: number, height: number, borderWidth: EdgeWidths, margin: Padding, padding: Padding)
+    {
+        this.width = width;
+        this.height = height;
+        this.borderWidth = borderWidth;
+        this.margin = margin;
+        this.padding = padding;
+    }
 }
 
 export class SizeResultInner implements SizeResult {

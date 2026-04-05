@@ -19,12 +19,13 @@
 #define protected public
 
 #include "base_shape_pattern_test_ng.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "base/geometry/dimension.h"
 #include "base/geometry/ng/radius.h"
 #include "base/memory/referenced.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/shape/rect_model_ng.h"
 #include "core/components_ng/pattern/shape/rect_paint_property.h"
 #include "core/components_ng/pattern/shape/rect_pattern.h"
@@ -248,4 +249,192 @@ HWTEST_F(RectPatternTestNg, RectPaintProperty004, TestSize.Level1)
     EXPECT_EQ(rect->bottomLeftRadius_, rect04);
 }
 
+/**
+ * @tc.name: RectPaintProperty005
+ * @tc.desc: create rect with radius width and radius height
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(RectPatternTestNg, RectPaintProperty005, TestSize.Level1)
+{
+    RectModelNG().Create();
+    RectModelNG().SetRadiusWidth(RADIUS_WIDTH);
+    RectModelNG().SetRadiusHeight(RADIUS_HEIGHT);
+    auto shapeAbstactModel = ShapeAbstractModelNG();
+    SetSize(shapeAbstactModel);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ViewStackProcessor::GetInstance()->Pop();
+    EXPECT_EQ(frameNode == nullptr, false);
+    auto paintProperty = frameNode->GetPaintProperty<RectPaintProperty>();
+    EXPECT_EQ(paintProperty == nullptr, false);
+    Radius radius;
+    radius.SetX(RADIUS_WIDTH);
+    radius.SetY(RADIUS_HEIGHT);
+    paintProperty->UpdateRadius(radius);
+    EXPECT_EQ(paintProperty->HasBottomRightRadius(), true);
+}
+
+/**
+ * @tc.name: SetRadiusWidth001
+ * @tc.desc: test SetRadiusWidth
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(RectPatternTestNg, SetRadiusWidth001, TestSize.Level1)
+{
+    auto rectModelNG = RectModelNG();
+    rectModelNG.Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<RectPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto pattern = frameNode->GetPattern<RectPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    rectModelNG.SetRadiusWidth(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_EQ(paintProperty->HasTopLeftRadius(), true);
+    EXPECT_EQ(paintProperty->HasTopRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomLeftRadius(), true);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopLeftRadiusValue().GetX().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopRightRadiusValue().GetX().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomRightRadiusValue().GetX().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomLeftRadiusValue().GetX().ConvertToPx(), 0.0f);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_RADIUS_WIDTH, RADIUS_WIDTH);
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_RADIUS_WIDTH, static_cast<int32_t>(ResourceType::FLOAT), params, "", "", Container::CurrentIdSafely());
+    rectModelNG.SetRadiusWidth(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_EQ(paintProperty->HasTopLeftRadius(), true);
+    EXPECT_EQ(paintProperty->HasTopRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomLeftRadius(), true);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopLeftRadiusValue().GetX().ConvertToPx(), RADIUS_WIDTH.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetTopRightRadiusValue().GetX().ConvertToPx(), RADIUS_WIDTH.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomRightRadiusValue().GetX().ConvertToPx(), RADIUS_WIDTH.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomLeftRadiusValue().GetX().ConvertToPx(), RADIUS_WIDTH.ConvertToPx());
+
+    rectModelNG.SetRadiusWidth(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetRadiusHeight001
+ * @tc.desc: test SetRadiusHeight
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(RectPatternTestNg, SetRadiusHeight001, TestSize.Level1)
+{
+    auto rectModelNG = RectModelNG();
+    rectModelNG.Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<RectPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto pattern = frameNode->GetPattern<RectPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    rectModelNG.SetRadiusHeight(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_EQ(paintProperty->HasTopLeftRadius(), true);
+    EXPECT_EQ(paintProperty->HasTopRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomLeftRadius(), true);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopLeftRadiusValue().GetY().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopRightRadiusValue().GetY().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomRightRadiusValue().GetY().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomLeftRadiusValue().GetY().ConvertToPx(), 0.0f);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_RADIUS_HEIGHT, RADIUS_HEIGHT);
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_RADIUS_HEIGHT, static_cast<int32_t>(ResourceType::FLOAT), params, "", "", Container::CurrentIdSafely());
+    rectModelNG.SetRadiusHeight(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_EQ(paintProperty->HasTopLeftRadius(), true);
+    EXPECT_EQ(paintProperty->HasTopRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomLeftRadius(), true);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopLeftRadiusValue().GetY().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetTopRightRadiusValue().GetY().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomRightRadiusValue().GetY().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomLeftRadiusValue().GetY().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+
+    rectModelNG.SetRadiusHeight(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetRadius001
+ * @tc.desc: test SetRadius
+ * @tc.type: FUNC
+ */
+
+HWTEST_F(RectPatternTestNg, SetRadius001, TestSize.Level1)
+{
+    auto rectModelNG = RectModelNG();
+    rectModelNG.Create();
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<RectPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto pattern = frameNode->GetPattern<RectPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    g_isConfigChangePerform = true;
+    RefPtr<ResourceObject> invalidResObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    rectModelNG.SetRadius(invalidResObj);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_EQ(paintProperty->HasTopLeftRadius(), true);
+    EXPECT_EQ(paintProperty->HasTopRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomLeftRadius(), true);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopLeftRadiusValue().GetX().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopLeftRadiusValue().GetY().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopRightRadiusValue().GetX().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopRightRadiusValue().GetY().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomRightRadiusValue().GetX().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomRightRadiusValue().GetY().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomLeftRadiusValue().GetX().ConvertToPx(), 0.0f);
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomLeftRadiusValue().GetY().ConvertToPx(), 0.0f);
+
+    std::vector<ResourceObjectParams> params;
+    AddMockResourceData(ID_RADIUS_HEIGHT, RADIUS_HEIGHT);
+    auto resObjWithString = AceType::MakeRefPtr<ResourceObject>(
+        ID_RADIUS_HEIGHT, static_cast<int32_t>(ResourceType::FLOAT), params, "", "", Container::CurrentIdSafely());
+    rectModelNG.SetRadius(resObjWithString);
+    pattern->resourceMgr_->ReloadResources();
+    EXPECT_EQ(paintProperty->HasTopLeftRadius(), true);
+    EXPECT_EQ(paintProperty->HasTopRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomRightRadius(), true);
+    EXPECT_EQ(paintProperty->HasBottomLeftRadius(), true);
+    EXPECT_FLOAT_EQ(paintProperty->GetTopLeftRadiusValue().GetY().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetTopRightRadiusValue().GetY().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomRightRadiusValue().GetY().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomLeftRadiusValue().GetY().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetTopLeftRadiusValue().GetX().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetTopRightRadiusValue().GetX().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomRightRadiusValue().GetX().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+    EXPECT_FLOAT_EQ(paintProperty->GetBottomLeftRadiusValue().GetX().ConvertToPx(), RADIUS_HEIGHT.ConvertToPx());
+
+    rectModelNG.SetRadius(resObjWithString);
+    pattern->OnColorModeChange((uint32_t)ColorMode::DARK);
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_NE(pattern->resourceMgr_->resMap_.size(), 0);
+    g_isConfigChangePerform = false;
+}
 } // namespace OHOS::Ace::NG

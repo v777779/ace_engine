@@ -18,18 +18,20 @@
 #include <vector>
 
 #include "base/error/error_code.h"
+#include "base/utils/utils.h"
 #include "base/utils/multi_thread.h"
+#include "bridge/common/utils/engine_helper.h"
 #include "core/common/builder_util.h"
 #include "core/common/color_inverter.h"
-#include "base/utils/multi_thread.h"
 #include "core/components_ng/base/inspector.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/pattern/custom_frame_node/custom_frame_node.h"
+#include "core/components_ng/pattern/custom_frame_node/custom_pattern.h"
 #include "core/components_ng/pattern/custom/custom_measure_layout_node.h"
 #include "core/interfaces/arkoala/arkoala_api.h"
 #include "core/interfaces/native/node/frame_node_modifier_multi_thread.h"
 #include "core/pipeline_ng/pipeline_context.h"
-#include "bridge/common/utils/engine_helper.h"
+#include "interfaces/native/native_type.h"
 
 namespace OHOS::Ace::NG {
 enum class ExpandMode : uint32_t {
@@ -73,6 +75,20 @@ void InvalidateInFrameNode(ArkUINodeHandle node)
     renderContext->RequestNextFrame();
 }
 
+void ApplyAttributesFinish(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    frameNode->MarkModifyDone();
+}
+
+ArkUI_Bool IsOnRenderTree(ArkUINodeHandle node)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    auto renderContext = frameNode->GetRenderContext();
+    return renderContext->IsOnRenderTree();
+}
+
 RefPtr<FrameNode> GetParentNode(UINode* node)
 {
     auto uiNode = AceType::Claim<UINode>(node);
@@ -90,10 +106,16 @@ void AddBuilderNodeInFrameNode(ArkUINodeHandle node, ArkUINodeHandle child)
     CHECK_NULL_VOID(currentNode);
     auto* childNode = reinterpret_cast<UINode*>(child);
     CHECK_NULL_VOID(childNode);
+    if (childNode->IsAdopted()) {
+        return;
+    }
     auto childRef = Referenced::Claim<UINode>(childNode);
+    CHECK_NULL_VOID(childRef);
+    auto parentNode = childRef->GetParent();
+    CHECK_NULL_VOID(parentNode && parentNode == currentNode);
     std::list<RefPtr<UINode>> nodes;
     BuilderUtils::GetBuilderNodes(childRef, nodes);
-    BuilderUtils::AddBuilderToParent(childRef, nodes);
+    BuilderUtils::AddBuilderToParent(childRef->GetParent(), nodes);
 }
 
 ArkUI_Bool AppendChildInFrameNode(ArkUINodeHandle node, ArkUINodeHandle child)
@@ -135,9 +157,11 @@ void RemoveBuilderNodeInFrameNode(ArkUINodeHandle node, ArkUINodeHandle child)
     auto* childNode = reinterpret_cast<UINode*>(child);
     CHECK_NULL_VOID(childNode);
     auto childRef = Referenced::Claim<UINode>(childNode);
+    auto parentNode = childRef->GetParent();
+    CHECK_NULL_VOID(parentNode && parentNode == currentNode);
     std::list<RefPtr<UINode>> nodes;
     BuilderUtils::GetBuilderNodes(childRef, nodes);
-    BuilderUtils::RemoveBuilderFromParent(childRef, nodes);
+    BuilderUtils::RemoveBuilderFromParent(parentNode, nodes);
 }
 
 void RemoveChildInFrameNode(ArkUINodeHandle node, ArkUINodeHandle child)
@@ -154,7 +178,12 @@ void ClearBuilderNodeInFrameNode(ArkUINodeHandle node)
     auto* currentNode = reinterpret_cast<UINode*>(node);
     CHECK_NULL_VOID(currentNode);
     auto currentRef = Referenced::Claim<UINode>(currentNode);
-    BuilderUtils::ClearBuilder(currentRef);
+    std::list<RefPtr<NG::UINode>> nodes;
+    CHECK_NULL_VOID(currentRef);
+    for (const auto& child : currentRef->GetChildren()) {
+        BuilderUtils::GetBuilderNodes(child, nodes);
+    }
+    BuilderUtils::RemoveBuilderFromParent(currentRef, nodes);
 }
 
 void ClearChildrenInFrameNode(ArkUINodeHandle node)
@@ -165,6 +194,56 @@ void ClearChildrenInFrameNode(ArkUINodeHandle node)
     CHECK_NULL_VOID(currentNode);
     currentNode->Clean();
     currentNode->MarkNeedFrameFlushDirty(NG::PROPERTY_UPDATE_MEASURE);
+}
+
+ArkUI_Bool ConvertPoint(ArkUINodeHandle node, ArkUI_Float32 (*position)[2], ArkUINodeHandle targetnode,
+    ArkUI_Float32 (*targetNodePositionOffset)[2])
+{
+    auto* currentNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(currentNode, false);
+    auto* targetNode = reinterpret_cast<FrameNode*>(targetnode);
+    CHECK_NULL_RETURN(targetNode, false);
+    auto sameParentNode =
+        FindSameParentComponent(Referenced::Claim<FrameNode>(currentNode), Referenced::Claim<FrameNode>(targetNode));
+    if (!sameParentNode) {
+        return false;
+    }
+    auto offset = currentNode->ConvertPoint({ PipelineBase::Vp2PxWithCurrentDensity((*position)[0]),
+                                                PipelineBase::Vp2PxWithCurrentDensity((*position)[1]) },
+        Referenced::Claim<FrameNode>(targetNode));
+    (*targetNodePositionOffset)[0] = PipelineBase::Px2VpWithCurrentDensity(offset.GetX());
+    (*targetNodePositionOffset)[1] = PipelineBase::Px2VpWithCurrentDensity(offset.GetY());
+    return true;
+}
+
+ArkUI_Int32 ConvertPositionToWindow(
+    ArkUINodeHandle node, ArkUI_Float32 (*position)[2], ArkUI_Float32 (*windowPosition)[2], ArkUI_Bool useVp)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(frameNode->IsOnMainTree(), ERROR_CODE_NATIVE_IMPL_NODE_NOT_ON_MAIN_TREE);
+    auto offset = frameNode->ConvertPositionToWindow(
+        { useVp ? PipelineBase::Vp2PxWithCurrentDensity((*position)[0]) : (*position)[0],
+            useVp ? PipelineBase::Vp2PxWithCurrentDensity((*position)[1]) : (*position)[1] },
+        false);
+    (*windowPosition)[0] = useVp ? PipelineBase::Px2VpWithCurrentDensity(offset.GetX()) : offset.GetX();
+    (*windowPosition)[1] = useVp ? PipelineBase::Px2VpWithCurrentDensity(offset.GetY()) : offset.GetY();
+    return ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_Int32 ConvertPositionFromWindow(
+    ArkUINodeHandle node, ArkUI_Float32 (*windowPosition)[2], ArkUI_Float32 (*position)[2], ArkUI_Bool useVp)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(frameNode->IsOnMainTree(), ERROR_CODE_NATIVE_IMPL_NODE_NOT_ON_MAIN_TREE);
+    auto offset = frameNode->ConvertPositionToWindow(
+        { useVp ? PipelineBase::Vp2PxWithCurrentDensity((*windowPosition)[0]) : (*windowPosition)[0],
+            useVp ? PipelineBase::Vp2PxWithCurrentDensity((*windowPosition)[1]) : (*windowPosition)[1] },
+        true);
+    (*position)[0] = useVp ? PipelineBase::Px2VpWithCurrentDensity(offset.GetX()) : offset.GetX();
+    (*position)[1] = useVp ? PipelineBase::Px2VpWithCurrentDensity(offset.GetY()) : offset.GetY();
+    return ERROR_CODE_NO_ERROR;
 }
 
 ArkUI_Uint32 GetChildrenCount(ArkUINodeHandle node, ArkUI_Bool isExpanded)
@@ -550,15 +629,15 @@ ArkUINodeHandle GetFirstUINode(ArkUINodeHandle node)
     return reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(child));
 }
 
-void GetLayoutSize(ArkUINodeHandle node, ArkUI_Int32* size)
+void GetLayoutSize(ArkUINodeHandle node, ArkUI_Int32 (*size)[2])
 {
     auto* currentNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(currentNode);
     auto renderContext = currentNode->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
     auto rectSize = renderContext->GetPaintRectWithoutTransform().GetSize();
-    size[0] = rectSize.Width();
-    size[1] = rectSize.Height();
+    (*size)[0] = rectSize.Width();
+    (*size)[1] = rectSize.Height();
 }
 
 ArkUI_Float32* GetLayoutPositionWithoutMargin(ArkUINodeHandle node)
@@ -956,6 +1035,9 @@ ArkUI_Int32 MoveNodeTo(ArkUINodeHandle node, ArkUINodeHandle target_parent, ArkU
     auto* toNode = reinterpret_cast<UINode*>(target_parent);
     CHECK_NULL_RETURN(moveNode, ERROR_CODE_PARAM_INVALID);
     CHECK_NULL_RETURN(toNode, ERROR_CODE_PARAM_INVALID);
+    if (moveNode->IsAdopted()) {
+        return ERROR_CODE_NODE_IS_ADOPTED;
+    }
     static const std::vector<const char*> nodeTypeArray = {
         OHOS::Ace::V2::STACK_ETS_TAG,
         OHOS::Ace::V2::XCOMPONENT_ETS_TAG,
@@ -974,6 +1056,7 @@ ArkUI_Int32 MoveNodeTo(ArkUINodeHandle node, ArkUINodeHandle target_parent, ArkU
     auto moveNodeRef = AceType::Claim(moveNode);
     if (oldParent) {
         oldParent->RemoveChild(moveNodeRef);
+        OHOS::Ace::BuilderUtils::RemoveBuilderFromParent(oldParent, moveNodeRef);
         oldParent->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
     }
     int32_t childCount = toNode->TotalChildCount();
@@ -982,6 +1065,9 @@ ArkUI_Int32 MoveNodeTo(ArkUINodeHandle node, ArkUINodeHandle target_parent, ArkU
     } else {
         auto indexChild = toNode->GetChildAtIndex(index);
         toNode->AddChildBefore(moveNodeRef, indexChild);
+    }
+    if (moveNodeRef->GetParent() == AceType::Claim(toNode)) {
+        OHOS::Ace::BuilderUtils::AddBuilderToParent(AceType::Claim(toNode), moveNodeRef);
     }
     toNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
     moveNode->setIsMoving(false);
@@ -1014,7 +1100,9 @@ void AddSupportedUIStates(
     std::function<void(uint64_t)> onStatesChange = [userData, statesChangeHandler](uint64_t currentState) {
         using FuncType = float (*)(int32_t, void*);
         FuncType func = reinterpret_cast<FuncType>(statesChangeHandler);
-        func(static_cast<int32_t >(currentState), userData);
+        if (func != nullptr) {
+            func(static_cast<int32_t >(currentState), userData);
+        }
     };
     eventHub->AddSupportedUIStateWithCallback(static_cast<uint64_t>(state), onStatesChange, false, isExcludeInner);
 }
@@ -1050,6 +1138,46 @@ ArkUI_Int32 SetForceDarkConfig(
     return ERROR_CODE_NO_ERROR;
 }
 
+void SetFocusDependence(ArkUINodeHandle node, ArkUI_Uint32 focusDependence)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto focusHub = frameNode->GetOrCreateFocusHub();
+    CHECK_NULL_VOID(focusHub);
+    focusHub->SetFocusDependence(static_cast<FocusDependence>(focusDependence));
+}
+
+void ResetFocusDependence(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto focusHub = frameNode->GetOrCreateFocusHub();
+    CHECK_NULL_VOID(focusHub);
+    focusHub->SetFocusDependence(FocusDependence::CHILD);
+}
+
+ArkUI_AccessibilityProvider* GetAccessibilityProvider(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<CustomPattern>();
+    CHECK_NULL_RETURN(pattern, nullptr);
+    return pattern->GetNativeAccessibilityProvider();
+}
+
+ArkUINodeHandle GetPageRootNode(int32_t instanceId)
+{
+    ContainerScope scope(instanceId);
+    auto pipelinecontext = NG::PipelineContext::GetCurrentContextSafely();
+    if (!pipelinecontext) {
+        LOGD("Fail to get PageRootNode for pipelinecontext is null");
+        return nullptr;
+    }
+    auto node = pipelinecontext->GetPageRootNode();
+    CHECK_NULL_RETURN(node, nullptr);
+    return reinterpret_cast<ArkUINodeHandle>(OHOS::Ace::AceType::RawPtr(node));
+}
+
 namespace NodeModifier {
 const ArkUIFrameNodeModifier* GetFrameNodeModifier()
 {
@@ -1065,6 +1193,7 @@ const ArkUIFrameNodeModifier* GetFrameNodeModifier()
         .removeChild = RemoveChildInFrameNode,
         .clearBuilderNode = ClearBuilderNodeInFrameNode,
         .clearChildren = ClearChildrenInFrameNode,
+        .convertPoint = ConvertPoint,
         .getChildrenCount = GetChildrenCount,
         .getChild = GetChild,
         .getFirstChildIndexWithoutExpand = GetFirstChildIndexWithoutExpand,
@@ -1136,6 +1265,14 @@ const ArkUIFrameNodeModifier* GetFrameNodeModifier()
         .addSupportedUIStates = AddSupportedUIStates,
         .removeSupportedUIStates = RemoveSupportedUIStates,
         .setForceDarkConfig = SetForceDarkConfig,
+        .setFocusDependence = SetFocusDependence,
+        .resetFocusDependence = ResetFocusDependence,
+        .applyAttributesFinish = ApplyAttributesFinish,
+        .isOnRenderTree = IsOnRenderTree,
+        .convertPositionToWindow = ConvertPositionToWindow,
+        .convertPositionFromWindow = ConvertPositionFromWindow,
+        .getAccessibilityProvider = GetAccessibilityProvider,
+        .getPageRootNode = GetPageRootNode,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
     return &modifier;

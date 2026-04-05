@@ -25,6 +25,7 @@
 #include "base/utils/utils.h"
 #include "bridge/common/utils/engine_helper.h"
 #include "bridge/declarative_frontend/engine/js_converter.h"
+#include "core/common/statistic_event_reporter.h"
 #include "core/components/xcomponent/xcomponent_controller_impl.h"
 #include "core/components_ng/pattern/xcomponent/xcomponent_controller_ng.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_view_common_def.h"
@@ -111,6 +112,15 @@ void ReturnPromise(const JSCallbackInfo& info, napi_value result)
     }
     info.SetReturnValue(JSRef<JSObject>::Cast(jsPromise));
 }
+
+void SendStatisticEvent(StatisticEventType type)
+{
+    auto context = PipelineBase::GetCurrentContextSafely();
+    CHECK_NULL_VOID(context);
+    auto StatisticEventReporter = context->GetStatisticEventReporter();
+    CHECK_NULL_VOID(StatisticEventReporter);
+    StatisticEventReporter->SendEvent(type);
+}
 } // namespace
 void JSXComponentController::JSBind(BindingTarget globalObj)
 {
@@ -132,6 +142,8 @@ void JSXComponentController::JSBind(BindingTarget globalObj)
         "getXComponentSurfaceRotation", &JSXComponentController::GetXComponentSurfaceRotation);
     JSClass<JSXComponentController>::CustomMethod("lockCanvas", &JSXComponentController::LockCanvas);
     JSClass<JSXComponentController>::CustomMethod("unlockCanvasAndPost", &JSXComponentController::UnlockCanvasAndPost);
+    JSClass<JSXComponentController>::CustomMethod(
+        "setXComponentSurfaceConfig", &JSXComponentController::SetXComponentSurfaceConfig);
     JSClass<JSXComponentController>::Bind(
         globalObj, JSXComponentController::Constructor, JSXComponentController::Destructor);
 }
@@ -185,7 +197,7 @@ void JSXComponentController::SetSurfaceConfig(const JSCallbackInfo& args)
         LOGW("Failed to parse param 'surfaceWidth' or 'surfaceHeight'");
         return;
     }
-
+    SendStatisticEvent(StatisticEventType::XCOMPONENT_SET_SURFACE_SIZE);
     CHECK_NULL_VOID(xcomponentController_);
     xcomponentController_->ConfigSurface(surfaceWidth, surfaceHeight);
 }
@@ -318,11 +330,20 @@ void JSXComponentController::GetXComponentSurfaceRotation(const JSCallbackInfo& 
 
 void JSXComponentController::LockCanvas(const JSCallbackInfo& args)
 {
-    CHECK_NULL_VOID(xcomponentController_);
+    if (xcomponentController_ == nullptr) {
+        args.SetReturnValue(JSVal::Null());
+        return;
+    }
     auto rsCanvas = xcomponentController_->LockCanvas();
-    CHECK_NULL_VOID(rsCanvas);
+    if (rsCanvas == nullptr) {
+        args.SetReturnValue(JSVal::Null());
+        return;
+    }
     auto engine = EngineHelper::GetCurrentEngine();
-    CHECK_NULL_VOID(engine);
+    if (engine == nullptr) {
+        args.SetReturnValue(JSVal::Null());
+        return;
+    }
     NativeEngine* nativeEngine = engine->GetNativeEngine();
     napi_env env = reinterpret_cast<napi_env>(nativeEngine);
     ScopeRAII scope(env);
@@ -348,5 +369,18 @@ void JSXComponentController::UnlockCanvasAndPost(const JSCallbackInfo& args)
     auto rsCanvas = unwrapCanvas->GetCanvas();
     CHECK_NULL_VOID(xcomponentController_);
     xcomponentController_->UnlockCanvasAndPost(rsCanvas);
+}
+
+void JSXComponentController::SetXComponentSurfaceConfig(const JSCallbackInfo& args)
+{
+    if (!args[0]->IsObject()) {
+        return;
+    }
+
+    JSRef<JSObject> obj = JSRef<JSObject>::Cast(args[0]);
+    bool isOpaque = false;
+    ConvertFromJSValue(obj->GetProperty("isOpaque"), isOpaque);
+    CHECK_NULL_VOID(xcomponentController_);
+    xcomponentController_->SetSurfaceConfig(isOpaque);
 }
 } // namespace OHOS::Ace::Framework

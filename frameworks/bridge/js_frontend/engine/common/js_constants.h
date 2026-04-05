@@ -117,6 +117,10 @@ ACE_EXPORT extern const char APP_SET_IMAGE_FILE_CACHE_SIZE[];
 ACE_EXPORT extern const char ANIMATION_REQUEST_ANIMATION_FRAME[];
 ACE_EXPORT extern const char ANIMATION_CANCEL_ANIMATION_FRAME[];
 
+// for digitalcrown
+ACE_EXPORT extern const char DIGITAL_CROWN_SET_MONITOR_FOR_CROWN_EVENT[];
+ACE_EXPORT extern const char DIGITAL_CROWN_CLEAR_MONITOR_FOR_CROWN_EVENT[];
+
 // for animator
 ACE_EXPORT extern const char ANIMATOR_CREATE_ANIMATOR[];
 ACE_EXPORT extern const char ANIMATOR_CREATE[];
@@ -160,7 +164,6 @@ ACE_EXPORT extern const char READ_KEY_LENGTH[];
 // for matrix
 ACE_EXPORT extern const char MATRIX_INIT[];
 ACE_EXPORT extern const char MATRIX_IDENTITY[];
-ACE_EXPORT extern const char MATRIX_TRANSFER[];
 ACE_EXPORT extern const char MATRIX_COPY[];
 ACE_EXPORT extern const char MATRIX_COMBINE[];
 ACE_EXPORT extern const char MATRIX_INVERT[];

@@ -14,10 +14,12 @@
  */
 
 #include "base/log/dump_log.h"
+#include "core/components/common/layout/layout_constants_string_utils.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components/text/text_theme.h"
 #include "core/components_ng/pattern/button/toggle_button_pattern.h"
 #include "core/components/theme/shadow_theme.h"
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -32,7 +34,7 @@ constexpr float MAXFONTSCALE = 3.20f;
 
 inline std::string ToString(const ButtonType& type)
 {
-    static const LinearEnumMapNode<ButtonType, std::string> table[] = {
+    const LinearEnumMapNode<ButtonType, std::string> table[] = {
         { ButtonType::NORMAL, "NORMAL" }, { ButtonType::CAPSULE, "CAPSULE" },
         { ButtonType::CIRCLE, "CIRCLE" }, { ButtonType::TEXT, "TEXT" },
         { ButtonType::ARC, "ARC" }, { ButtonType::DOWNLOAD, "DOWNLOAD" },
@@ -45,7 +47,7 @@ inline std::string ToString(const ButtonType& type)
 
 inline std::string ToString(const ButtonStyleMode& mode)
 {
-    static const LinearEnumMapNode<ButtonStyleMode, std::string> table[] = {
+    const LinearEnumMapNode<ButtonStyleMode, std::string> table[] = {
         { ButtonStyleMode::NORMAL, "NORMAL" },
         { ButtonStyleMode::EMPHASIZE, "EMPHASIZE" },
         { ButtonStyleMode::TEXT, "TEXT" },
@@ -56,7 +58,7 @@ inline std::string ToString(const ButtonStyleMode& mode)
 
 inline std::string ToString(const ControlSize& size)
 {
-    static const LinearEnumMapNode<ControlSize, std::string> table[] = {
+    const LinearEnumMapNode<ControlSize, std::string> table[] = {
         { ControlSize::SMALL, "SMALL" },
         { ControlSize::NORMAL, "NORMAL" },
     };
@@ -66,7 +68,7 @@ inline std::string ToString(const ControlSize& size)
 
 inline std::string ToString(const ButtonRole& role)
 {
-    static const LinearEnumMapNode<ButtonRole, std::string> table[] = {
+    const LinearEnumMapNode<ButtonRole, std::string> table[] = {
         { ButtonRole::NORMAL, "NORMAL" },
         { ButtonRole::ERROR, "ERROR" },
     };
@@ -76,7 +78,7 @@ inline std::string ToString(const ButtonRole& role)
 
 inline std::string ToString(const TextHeightAdaptivePolicy& policy)
 {
-    static const LinearEnumMapNode<TextHeightAdaptivePolicy, std::string> table[] = {
+    const LinearEnumMapNode<TextHeightAdaptivePolicy, std::string> table[] = {
         { TextHeightAdaptivePolicy::MAX_LINES_FIRST, "MAX_LINES_FIRST" },
         { TextHeightAdaptivePolicy::MIN_FONT_SIZE_FIRST, "MIN_FONT_SIZE_FIRST" },
         { TextHeightAdaptivePolicy::LAYOUT_CONSTRAINT_FIRST, "LAYOUT_CONSTRAINT_FIRST" },
@@ -123,6 +125,7 @@ void ButtonPattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const Inspecto
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto layoutProperty = host->GetLayoutProperty<ButtonLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
     auto context = PipelineBase::GetCurrentContext();
@@ -197,6 +200,9 @@ void ButtonPattern::ToJsonValueAttribute(std::unique_ptr<JsonValue>& json, const
         V2::ConvertWrapTextHeightAdaptivePolicyToString(
             layoutProperty->GetHeightAdaptivePolicy().value_or(TextHeightAdaptivePolicy::MAX_LINES_FIRST))
             .c_str());
+    if (layoutProperty->GetTextAlign().has_value()) {
+        labelJsValue->Put("textAlign", V2::ConvertWrapTextAlignToString(layoutProperty->GetTextAlignValue()).c_str());
+    }
     labelJsValue->Put("font", fontJsValue->ToString().c_str());
     json->PutExtAttr("labelStyle", labelJsValue->ToString().c_str(), filter);
 
@@ -297,20 +303,6 @@ Color ButtonPattern::GetColorFromType(const RefPtr<ButtonTheme>& theme, const in
     }
 }
 
-void ButtonPattern::OnAttachToFrameNode()
-{
-    auto host = GetHost();
-    CHECK_NULL_VOID(host);
-    auto* pipeline = host->GetContextWithCheck();
-    CHECK_NULL_VOID(pipeline);
-    auto buttonTheme = pipeline->GetTheme<ButtonTheme>();
-    CHECK_NULL_VOID(buttonTheme);
-    clickedColor_ = buttonTheme->GetClickedColor();
-    auto renderContext = host->GetRenderContext();
-    CHECK_NULL_VOID(renderContext);
-    renderContext->SetAlphaOffscreen(true);
-}
-
 bool ButtonPattern::NeedAgingUpdateText(RefPtr<ButtonLayoutProperty>& layoutProperty)
 {
     CHECK_NULL_RETURN(layoutProperty, false);
@@ -349,6 +341,8 @@ void ButtonPattern::UpdateTextLayoutProperty(
 {
     CHECK_NULL_VOID(layoutProperty);
     CHECK_NULL_VOID(textLayoutProperty);
+    auto host = layoutProperty->GetHost();
+    ACE_UINODE_TRACE(host);
     UpdateTextFontScale(layoutProperty, textLayoutProperty);
     auto label = layoutProperty->GetLabelValue("");
     textLayoutProperty->UpdateContent(label);
@@ -393,8 +387,17 @@ void ButtonPattern::UpdateTextLayoutProperty(
     if (layoutProperty->GetHeightAdaptivePolicy().has_value()) {
         textLayoutProperty->UpdateHeightAdaptivePolicy(layoutProperty->GetHeightAdaptivePolicy().value());
     }
+    UpdateTextAlignProperty(layoutProperty, textLayoutProperty);
     // update text style defined by buttonStyle and control size
     UpdateTextStyle(layoutProperty, textLayoutProperty);
+}
+
+void ButtonPattern::UpdateTextAlignProperty(
+    RefPtr<ButtonLayoutProperty>& layoutProperty, RefPtr<TextLayoutProperty>& textLayoutProperty)
+{
+    if (layoutProperty->GetTextAlign().has_value()) {
+        textLayoutProperty->UpdateTextAlign(layoutProperty->GetTextAlign().value());
+    }
 }
 
 void ButtonPattern::UpdateComponentColor(const Color& color, const ButtonColorType buttonColorType)
@@ -409,15 +412,11 @@ void ButtonPattern::UpdateComponentColor(const Color& color, const ButtonColorTy
     CHECK_NULL_VOID(textRenderContext);
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
-    auto layoutProperty = GetLayoutProperty<ButtonLayoutProperty>();
-    CHECK_NULL_VOID(layoutProperty);
-    if (pipelineContext->IsSystmColorChange()) {
+    if (pipelineContext->IsSystemColorChange()) {
         switch (buttonColorType) {
             case ButtonColorType::FONT_COLOR:
-                layoutProperty->UpdateFontColor(color);
                 textRenderContext->UpdateForegroundColor(color);
-                textNode->MarkModifyDone();
-                textNode->MarkDirtyNode(PROPERTY_UPDATE_NORMAL);
+                textNode->MarkDirtyNode(PROPERTY_UPDATE_LAYOUT);
                 break;
             case ButtonColorType::BACKGROUND_COLOR:
                 renderContext->UpdateBackgroundColor(color);
@@ -437,6 +436,7 @@ void ButtonPattern::UpdateComponentString(const std::string& value, const Button
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto textNode = DynamicCast<FrameNode>(host->GetFirstChild());
     CHECK_NULL_VOID(textNode);
     auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
@@ -446,7 +446,7 @@ void ButtonPattern::UpdateComponentString(const std::string& value, const Button
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
 
-    if (pipelineContext->IsSystmColorChange()) {
+    if (pipelineContext->IsSystemColorChange()) {
         switch (buttonStringType) {
             case ButtonStringType::LABEL:
                 textLayoutProperty->UpdateContent(value);
@@ -465,6 +465,7 @@ void ButtonPattern::UpdateComponentFamilies(const std::vector<std::string>& valu
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto textNode = DynamicCast<FrameNode>(host->GetFirstChild());
     CHECK_NULL_VOID(textNode);
     auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
@@ -472,7 +473,7 @@ void ButtonPattern::UpdateComponentFamilies(const std::vector<std::string>& valu
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
 
-    if (pipelineContext->IsSystmColorChange()) {
+    if (pipelineContext->IsSystemColorChange()) {
         switch (buttonStringType) {
             case ButtonStringType::FONT_FAMILY:
                 textLayoutProperty->UpdateFontFamily(value);
@@ -498,7 +499,7 @@ void ButtonPattern::UpdateComponentDimension(const CalcDimension value, const Bu
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
 
-    if (pipelineContext->IsSystmColorChange()) {
+    if (pipelineContext->IsSystemColorChange()) {
         switch (buttonDimensionType) {
             case ButtonDimensionType::MIN_FONT_SIZE:
                 textLayoutProperty->UpdateAdaptMinFontSize(value);
@@ -526,7 +527,7 @@ void ButtonPattern::UpdateComponentDouble(const double value, const ButtonDouble
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
 
-    if (pipelineContext->IsSystmColorChange()) {
+    if (pipelineContext->IsSystemColorChange()) {
         switch (buttonDoubleType) {
             case ButtonDoubleType::MIN_FONT_SCALE:
                 textLayoutProperty->UpdateMinFontScale(value);
@@ -601,6 +602,7 @@ void ButtonPattern::InitButtonLabel()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto focusHub = host->GetFocusHub();
     CHECK_NULL_VOID(focusHub);
     auto layoutProperty = GetLayoutProperty<ButtonLayoutProperty>();
@@ -624,7 +626,6 @@ void ButtonPattern::InitButtonLabel()
     } else {
         textRenderContext->UpdateClipEdge(buttonRenderContext->GetClipEdgeValue(true));
     }
-
     auto pipeline = host->GetContextRefPtr();
     CHECK_NULL_VOID(pipeline);
     auto buttonTheme = pipeline->GetTheme<ButtonTheme>();
@@ -650,6 +651,7 @@ void ButtonPattern::InitButtonLabel()
 void ButtonPattern::OnModifyDone()
 {
     Pattern::OnModifyDone();
+    InitButtonAlphaOffscreen();
     CheckLocalizedBorderRadiuses();
     FireBuilder();
     InitButtonLabel();
@@ -662,10 +664,24 @@ void ButtonPattern::OnModifyDone()
     HandleFocusActiveStyle();
 }
 
+void ButtonPattern::InitButtonAlphaOffscreen()
+{
+    if (isInitButtonAlphaOffscreen_) {
+        return;
+    }
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto renderContext = host->GetRenderContext();
+    CHECK_NULL_VOID(renderContext);
+    renderContext->SetAlphaOffscreen(true);
+    isInitButtonAlphaOffscreen_ = true;
+}
+
 void ButtonPattern::CheckLocalizedBorderRadiuses()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     const auto& property = host->GetLayoutProperty<ButtonLayoutProperty>();
     CHECK_NULL_VOID(property);
     auto direction = property->GetNonAutoLayoutDirection();
@@ -717,6 +733,7 @@ void ButtonPattern::InitTouchEvent()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto eventHub = host->GetEventHub<ButtonEventHub>();
     CHECK_NULL_VOID(eventHub);
     touchListener_ = [weak = WeakClaim(this)](const UIState& state) {
@@ -731,6 +748,7 @@ void ButtonPattern::InitTouchEvent()
             TAG_LOGD(AceLogTag::ACE_SELECT_COMPONENT, "button touch up");
             buttonPattern->HandleNormalStyle();
             buttonPattern->UpdateTexOverflow(buttonPattern->isHover_ || buttonPattern->isFocus_);
+            buttonPattern->ReportButtonClickResult();
         }
     };
     eventHub->AddSupportedUIStateWithCallback(UI_STATE_PRESSED | UI_STATE_NORMAL, touchListener_, true);
@@ -749,6 +767,68 @@ void ButtonPattern::OnAfterModifyDone()
     }
 }
 
+int32_t ButtonPattern::OnInjectionEvent(const std::string& command)
+{
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, RET_FAILED);
+    ACE_UINODE_TRACE(host);
+    auto json = JsonUtil::ParseJsonString(command);
+    if (!json || json->IsNull()) {
+        return RET_FAILED;
+    }
+    auto cmdType = json->GetString("cmd");
+    if (cmdType != "onButtonClick") {
+        return RET_FAILED;
+    }
+    auto eventHub = host->GetEventHub<EventHub>();
+    CHECK_NULL_RETURN(eventHub, RET_FAILED);
+    if (!eventHub->IsEnabled()) {
+        return RET_FAILED;
+    }
+    double x = 0.0;
+    double y = 0.0;
+    auto geometryNode = host->GetGeometryNode();
+    auto frameRect = geometryNode ? geometryNode->GetFrameRect() : RectF();
+    const double HALF_RATIO = 2.0;
+    x = frameRect.Width() / HALF_RATIO;
+    y = frameRect.Height() / HALF_RATIO;
+    HandlePressedStyle();
+    SetButtonPress(x, y);
+
+    auto gestureEventHub = host->GetOrCreateGestureEventHub();
+    if (gestureEventHub) {
+        auto clickEvent = gestureEventHub->GetClickEvent();
+        if (clickEvent) {
+            GestureEvent info;
+            info.SetLocalLocation(Offset(x, y));
+            clickEvent(info);
+        }
+    }
+    ReportButtonClickResult();
+    return RET_SUCCESS;
+}
+
+void ButtonPattern::ReportButtonClickResult()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto buttonResult = JsonUtil::Create();
+    CHECK_NULL_VOID(buttonResult);
+    auto id = host->GetId();
+    buttonResult->Put("nodeId", id);
+
+    buttonResult->Put("event", "onButtonClick");
+    buttonResult->Put("result", "success");
+
+    auto json = JsonUtil::Create();
+    CHECK_NULL_VOID(json);
+    json->Put("ButtonResult", buttonResult);
+
+    auto manager = UiSessionManager::GetInstance();
+    CHECK_NULL_VOID(manager);
+    manager->ReportComponentChangeEvent("buttonClick", json->ToString(), 0);
+}
+
 void ButtonPattern::InitHoverEvent()
 {
     if (UseContentModifier()) {
@@ -756,6 +836,7 @@ void ButtonPattern::InitHoverEvent()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto eventHub = host->GetEventHub<ButtonEventHub>();
     auto inputHub = eventHub->GetOrCreateInputEventHub();
     auto hoverEffect = inputHub->GetHoverEffect();
@@ -784,21 +865,27 @@ void ButtonPattern::HandlePressedStyle()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto buttonEventHub = GetEventHub<ButtonEventHub>();
     CHECK_NULL_VOID(buttonEventHub);
     if (buttonEventHub->GetStateEffect()) {
         auto renderContext = host->GetRenderContext();
         CHECK_NULL_VOID(renderContext);
         backgroundColor_ = renderContext->GetBackgroundColor().value_or(Color::TRANSPARENT);
-        if (isSetClickedColor_) {
+        if (clickedColor_.has_value()) {
             // for user self-defined
-            renderContext->UpdateBackgroundColor(clickedColor_);
+            renderContext->UpdateBackgroundColor(clickedColor_.value());
             return;
         }
         // for system default
         auto isNeedToHandleHoverOpacity = IsNeedToHandleHoverOpacity();
         AnimateTouchAndHover(renderContext, isNeedToHandleHoverOpacity ? TYPE_HOVER : TYPE_CANCEL, TYPE_TOUCH,
             TOUCH_DURATION, isNeedToHandleHoverOpacity ? Curves::SHARP : Curves::FRICTION);
+    }
+    if (scaleModify_ && isPress_) {
+        auto renderContext = host->GetRenderContext();
+        CHECK_NULL_VOID(renderContext);
+        renderContext->SetScale(1.0f, 1.0f);
     }
 }
 
@@ -811,6 +898,7 @@ void ButtonPattern::HandleNormalStyle()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto buttonEventHub = GetEventHub<ButtonEventHub>();
     CHECK_NULL_VOID(buttonEventHub);
     auto toggleButtonPattern = host->GetPattern<ToggleButtonPattern>();
@@ -819,7 +907,7 @@ void ButtonPattern::HandleNormalStyle()
     }
     if (buttonEventHub->GetStateEffect()) {
         auto renderContext = host->GetRenderContext();
-        if (isSetClickedColor_) {
+        if (clickedColor_.has_value()) {
             renderContext->UpdateBackgroundColor(backgroundColor_);
             return;
         }
@@ -831,6 +919,9 @@ void ButtonPattern::HandleNormalStyle()
             AnimateTouchAndHover(renderContext, TYPE_TOUCH, TYPE_CANCEL, TOUCH_DURATION, Curves::FRICTION);
         }
     }
+    if (scaleModify_ && isHover_) {
+        HandleHoverEvent(true);
+    }
 }
 
 void ButtonPattern::HandleHoverEvent(bool isHover)
@@ -838,6 +929,7 @@ void ButtonPattern::HandleHoverEvent(bool isHover)
     isHover_ = isHover;
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto eventHub = host->GetEventHub<EventHub>();
     CHECK_NULL_VOID(eventHub);
     auto enabled = eventHub->IsEnabled();
@@ -870,6 +962,7 @@ void ButtonPattern::HandleBackgroundColor()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto* pipeline = host->GetContextWithCheck();
     CHECK_NULL_VOID(pipeline);
     auto renderContext = host->GetRenderContext();
@@ -916,6 +1009,7 @@ void ButtonPattern::HandleShadowStyle(ButtonStyleMode buttonStyle, ShadowStyle s
             auto shadow = GetShadowFromTheme(
                 buttonStyle == ButtonStyleMode::TEXT ? ShadowStyle::None : shadowStyle);
             renderContext->UpdateBackShadow(shadow);
+            shadowModify_ = true;
         }
     }
 }
@@ -927,6 +1021,7 @@ void ButtonPattern::HandleBorderAndShadow()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
     auto layoutProperty = GetLayoutProperty<ButtonLayoutProperty>();
@@ -1044,6 +1139,10 @@ void ButtonPattern::DumpInfo()
         DumpLog::GetInstance().AddDesc(
             "HeightAdaptivePolicy: " + ToString(layoutProperty->GetHeightAdaptivePolicyValue()));
     }
+    if (layoutProperty->HasTextAlign()) {
+        DumpLog::GetInstance().AddDesc(
+            "TextAlign: " + StringUtils::ToString(layoutProperty->GetTextAlignValue()));
+    }
 
     DumpSubInfo(layoutProperty);
 }
@@ -1084,6 +1183,7 @@ void ButtonPattern::UpdateTexOverflow(bool isMarqueeStart)
     if (isTextFadeOut_) {
         auto host = GetHost();
         CHECK_NULL_VOID(host);
+        ACE_UINODE_TRACE(host);
         auto textNode = DynamicCast<FrameNode>(host->GetFirstChild());
         CHECK_NULL_VOID(textNode);
         auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
@@ -1122,6 +1222,7 @@ void ButtonPattern::HandleEnabled()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto eventHub = host->GetEventHub<EventHub>();
     CHECK_NULL_VOID(eventHub);
     auto enabled = eventHub->IsEnabled();
@@ -1141,7 +1242,7 @@ void ButtonPattern::AnimateTouchAndHover(RefPtr<RenderContext>& renderContext, i
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto* pipeline = host->GetContextWithCheck();
+    auto pipeline = host->GetContextRefPtr();
     CHECK_NULL_VOID(pipeline);
     auto theme = pipeline->GetTheme<ButtonTheme>();
     CHECK_NULL_VOID(theme);
@@ -1152,7 +1253,9 @@ void ButtonPattern::AnimateTouchAndHover(RefPtr<RenderContext>& renderContext, i
     AnimationOption option = AnimationOption();
     option.SetDuration(duration);
     option.SetCurve(curve);
-    AnimationUtils::Animate(option, [renderContext, blendColorTo]() { renderContext->BlendBgColor(blendColorTo); });
+    AnimationUtils::Animate(
+        option, [renderContext, blendColorTo]() { renderContext->BlendBgColor(blendColorTo); }, nullptr, nullptr,
+        pipeline);
 }
 
 void ButtonPattern::SetButtonPress(double xPos, double yPos)
@@ -1160,6 +1263,7 @@ void ButtonPattern::SetButtonPress(double xPos, double yPos)
     CHECK_NULL_VOID(contentModifierNode_);
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto eventHub = host->GetEventHub<EventHub>();
     CHECK_NULL_VOID(eventHub);
     auto enabled = eventHub->IsEnabled();
@@ -1193,6 +1297,7 @@ void ButtonPattern::FireBuilder()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto gestureEventHub = host->GetOrCreateGestureEventHub();
     CHECK_NULL_VOID(gestureEventHub);
     if (!makeFunc_.has_value()) {
@@ -1227,8 +1332,10 @@ void ButtonPattern::FireBuilder()
 
 RefPtr<FrameNode> ButtonPattern::BuildContentModifierNode()
 {
+    CHECK_NULL_RETURN(makeFunc_, nullptr);
     auto host = GetHost();
     CHECK_NULL_RETURN(host, nullptr);
+    ACE_UINODE_TRACE(host);
     auto layoutProperty = GetLayoutProperty<ButtonLayoutProperty>();
     CHECK_NULL_RETURN(layoutProperty, nullptr);
     auto label = layoutProperty->GetLabel().value_or("");
@@ -1243,6 +1350,7 @@ void ButtonPattern::OnColorConfigurationUpdate()
 {
     auto node = GetHost();
     CHECK_NULL_VOID(node);
+    ACE_UINODE_TRACE(node);
     if (isColorUpdateFlag_) {
         node->SetNeedCallChildrenUpdate(false);
         return;
@@ -1259,20 +1367,32 @@ void ButtonPattern::OnColorConfigurationUpdate()
     ButtonRole buttonRole = buttonLayoutProperty->GetButtonRole().value_or(ButtonRole::NORMAL);
     auto renderContext = node->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
+    auto backgroundColor = buttonTheme->GetBgColor(buttonStyle, buttonRole);
+    auto textColor = buttonTheme->GetTextColor(buttonStyle, buttonRole);
     if (renderContext->GetBackgroundColor().value_or(themeBgColor_) == themeBgColor_) {
-        auto color = buttonTheme->GetBgColor(buttonStyle, buttonRole);
-        renderContext->UpdateBackgroundColor(color);
+        renderContext->UpdateBackgroundColor(backgroundColor);
     }
+    OnColorConfigurationUpdateTextColor(node, buttonStyle, buttonRole, textColor);
     if (SystemProperties::ConfigChangePerform()) {
-        themeBgColor_ = buttonTheme->GetBgColor(buttonStyle, buttonRole);
-        themeTextColor_ = buttonTheme->GetTextColor(buttonStyle, buttonRole);
+        if (renderContext->HasForegroundColor() && renderContext->GetForegroundColorValue() == themeTextColor_) {
+            renderContext->UpdateForegroundColor(textColor);
+            PropagateForegroundColorToChildren();
+        }
+        themeBgColor_ = backgroundColor;
+        themeTextColor_ = textColor;
     }
-    auto textNode = DynamicCast<FrameNode>(node->GetFirstChild());
+}
+
+void ButtonPattern::OnColorConfigurationUpdateTextColor(const RefPtr<FrameNode>& host,
+    const ButtonStyleMode& buttonStyle, const ButtonRole& buttonRole, const Color& textColor)
+{
+    CHECK_NULL_VOID(host);
+    auto textNode = DynamicCast<FrameNode>(host->GetFirstChild());
     CHECK_NULL_VOID(textNode);
     auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
     CHECK_NULL_VOID(textLayoutProperty);
     if (textLayoutProperty->GetTextColor().value_or(themeTextColor_) == themeTextColor_) {
-        textLayoutProperty->UpdateTextColor(buttonTheme->GetTextColor(buttonStyle, buttonRole));
+        textLayoutProperty->UpdateTextColor(textColor);
         textNode->MarkDirtyNode();
     }
 }
@@ -1321,6 +1441,7 @@ void ButtonPattern::OnFontScaleConfigurationUpdate()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto textNode = DynamicCast<FrameNode>(host->GetFirstChild());
     CHECK_NULL_VOID(textNode);
     auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
@@ -1406,6 +1527,18 @@ void ButtonPattern::HandleBlurStyleTask()
     UpdateButtonStyle();
 }
 
+void ButtonPattern::SetNavBarMenuFocusStyle(RefPtr<RenderContext>& renderContext, bool isFocus)
+{
+    if (buttonType_ != ComponentButtonType::NAVIGATION || !navMenuItemNeedFocus_) {
+        return;
+    }
+    if (isFocus) {
+        renderContext->BlendBgColor(navigationFocusBlendBgColor_);
+        return;
+    }
+    renderContext->BlendBgColor(Color::TRANSPARENT);
+}
+
 void ButtonPattern::SetBlurButtonStyle(RefPtr<RenderContext>& renderContext, RefPtr<ButtonTheme>& buttonTheme,
     RefPtr<ButtonLayoutProperty>& layoutProperty, RefPtr<FrameNode>& textNode)
 {
@@ -1426,6 +1559,7 @@ void ButtonPattern::SetBlurButtonStyle(RefPtr<RenderContext>& renderContext, Ref
         bgColorModify_ = false;
         renderContext->UpdateBackgroundColor(buttonTheme->GetBgColor(buttonStyle, buttonRole));
     }
+    SetNavBarMenuFocusStyle(renderContext, false);
     if (focusTextColorModify_) {
         focusTextColorModify_ = false;
         auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
@@ -1448,7 +1582,6 @@ void ButtonPattern::SetFocusButtonStyle(RefPtr<RenderContext>& renderContext, Re
     if (buttonStyle != ButtonStyleMode::TEXT) {
         ShadowStyle shadowStyle = static_cast<ShadowStyle>(buttonTheme->GetShadowFocus());
         HandleShadowStyle(buttonStyle, shadowStyle, renderContext, buttonTheme);
-        shadowModify_ = true;
     }
     SetButtonScale(renderContext, buttonTheme);
     bgColorModify_ = renderContext->GetBackgroundColor() == buttonTheme->GetBgColor(buttonStyle, buttonRole);
@@ -1461,6 +1594,7 @@ void ButtonPattern::SetFocusButtonStyle(RefPtr<RenderContext>& renderContext, Re
             renderContext->UpdateBackgroundColor(buttonTheme->GetEmphasizeBackgroundFocus());
         }
     }
+    SetNavBarMenuFocusStyle(renderContext, true);
 
     auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
     CHECK_NULL_VOID(textLayoutProperty);
@@ -1493,6 +1627,7 @@ void ButtonPattern::UpdateButtonStyle()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto pipeline = host->GetContextRefPtr();
     CHECK_NULL_VOID(pipeline);
     auto buttonTheme = pipeline->GetTheme<ButtonTheme>();
@@ -1517,6 +1652,7 @@ void ButtonPattern::HandleFocusStatusStyle()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto focusHub = host->GetOrCreateFocusHub();
     CHECK_NULL_VOID(focusHub);
 
@@ -1535,5 +1671,15 @@ void ButtonPattern::HandleFocusStatusStyle()
         pattern->HandleBlurStyleTask();
     };
     focusHub->SetOnBlurInternal(blurTask);
+}
+
+void ButtonPattern::SetNavigationFocusBlendBgColor(const Color& navigationFocusBlendBgColor)
+{
+    navigationFocusBlendBgColor_ = navigationFocusBlendBgColor;
+}
+
+void ButtonPattern::SetNavMenuItemNeedFocus(bool navMenuItemNeedFocus)
+{
+    navMenuItemNeedFocus_ = navMenuItemNeedFocus;
 }
 } // namespace OHOS::Ace::NG

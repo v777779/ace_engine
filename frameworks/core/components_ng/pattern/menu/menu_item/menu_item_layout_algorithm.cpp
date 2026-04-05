@@ -17,13 +17,27 @@
 
 #include "core/components_ng/pattern/menu/menu_item/menu_item_pattern.h"
 #include "core/components_ng/pattern/security_component/security_component_layout_property.h"
+#include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/property/measure_utils.h"
+#include "core/components_ng/pattern/menu/menu_tag_constants.h"
 
 namespace OHOS::Ace::NG {
-constexpr Dimension ITEM_BOTTOM_TOP_PADDING = 8.0_vp;
-constexpr int32_t PADDING_MULTIPLE = 2;
-// The maximum width of the right row is 1/3 of content area width
-constexpr float RIGHT_ROW_MAX_WIDTH_WEIGHT = 3;
+namespace {
+bool IsSelectOverlayExtensionMenu(const RefPtr<FrameNode>& itemNode)
+{
+    bool isSelectOverlayExtensionMenu = false;
+    CHECK_NULL_RETURN(itemNode, isSelectOverlayExtensionMenu);
+    auto menuItemPattern = itemNode->GetPattern<MenuItemPattern>();
+    if (menuItemPattern) {
+        auto topLevelMenuPattern = menuItemPattern->GetMenuPattern(true);
+        if (topLevelMenuPattern) {
+            isSelectOverlayExtensionMenu = topLevelMenuPattern->IsSelectOverlayExtensionMenu();
+        }
+    }
+    return isSelectOverlayExtensionMenu;
+}
+} // namespace
+
 void MenuItemLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
 {
     CHECK_NULL_VOID(layoutWrapper);
@@ -39,13 +53,37 @@ void MenuItemLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     auto props = layoutWrapper->GetLayoutProperty();
     CHECK_NULL_VOID(props);
 
-    auto layoutConstraint = props->GetLayoutConstraint();
-    CHECK_NULL_VOID(layoutConstraint);
-
+    auto curLayoutConstraint = props->GetLayoutConstraint();
+    CHECK_NULL_VOID(curLayoutConstraint);
+    std::optional<LayoutConstraintF> layoutConstraint;
+    auto layoutPolicyProperty = props->GetLayoutPolicyProperty();
+    if (layoutPolicyProperty.has_value() && layoutPolicyProperty.value().IsFix()) {
+        std::optional<LayoutConstraintF> newLayoutConstraint = curLayoutConstraint;
+        RemoveParentRestrictionsForFixIdeal(props, newLayoutConstraint.value());
+        layoutConstraint = newLayoutConstraint;
+    } else {
+        layoutConstraint = curLayoutConstraint;
+    }
     if (isOption_ && !showDefaultSelectedIcon_) {
         MeasureOption(layoutWrapper, theme, props, layoutConstraint);
     } else {
         MeasureMenuItem(layoutWrapper, theme, props, layoutConstraint);
+    }
+}
+
+void MenuItemLayoutAlgorithm::RemoveParentRestrictionsForFixIdeal(
+    const RefPtr<LayoutProperty> layoutProperty, LayoutConstraintF& layoutConstraint)
+{
+    CHECK_NULL_VOID(layoutProperty);
+    auto layoutPolicyProperty = layoutProperty->GetLayoutPolicyProperty();
+    if (layoutPolicyProperty.has_value()) {
+        auto& layoutPolicy = layoutPolicyProperty.value();
+        if (layoutPolicy.IsWidthFix()) {
+            layoutConstraint.maxSize.SetWidth(std::numeric_limits<float>::infinity());
+        }
+        if (layoutPolicy.IsHeightFix()) {
+            layoutConstraint.maxSize.SetHeight(std::numeric_limits<float>::infinity());
+        }
     }
 }
 
@@ -66,6 +104,7 @@ void MenuItemLayoutAlgorithm::CheckNeedMatchParent(LayoutWrapper* layoutWrapper,
     std::optional<LayoutConstraintF>& layoutConstraint)
 {
     auto menuNode = layoutWrapper->GetHostNode();
+    ACE_UINODE_TRACE(menuNode);
     auto menuItemPattern = menuNode ? menuNode->GetPattern<MenuItemPattern>() : nullptr;
     SubMenuExpandingMode expandingMode = menuItemPattern ? menuItemPattern->GetExpandingMode()
         : SubMenuExpandingMode::STACK;
@@ -104,6 +143,9 @@ void MenuItemLayoutAlgorithm::CheckUserHeight(LayoutWrapper* layoutWrapper)
 
 float MenuItemLayoutAlgorithm::CalcItemHeight(float leftRowHeight, float rightRowHeight)
 {
+    TAG_LOGD(AceLogTag::ACE_MENU, "MenuItem measure, leftRowHeight:%{public}f, rightRowHeight:%{public}f,"
+        " paddingHeight:%{public}f, idealHeight_:%{public}f, userHeight_:%{public}f",
+        leftRowHeight, rightRowHeight, padding_.Height(), idealHeight_, userHeight_);
     return GreatNotEqual(idealHeight_, 0.0f) ? idealHeight_
             : std::max(leftRowHeight, rightRowHeight) + padding_.Height();
 }
@@ -115,42 +157,45 @@ std::pair<float, float> MenuItemLayoutAlgorithm::MeasureRightRow(LayoutWrapper* 
     CHECK_NULL_RETURN(layoutWrapper, defaultPair);
     auto rightRow = layoutWrapper->GetOrCreateChildByIndex(1);
     CHECK_NULL_RETURN(rightRow, defaultPair);
-    auto children = rightRow->GetAllChildrenWithBuild();
-    CHECK_EQUAL_RETURN(children.empty(), true, defaultPair);
     rightRow->Measure(childConstraint);
-
-    auto itemNode = layoutWrapper->GetHostNode();
-    CHECK_NULL_RETURN(itemNode, defaultPair);
-    auto pipeline = itemNode->GetContext();
-    CHECK_NULL_RETURN(pipeline, defaultPair);
-    auto theme = pipeline->GetTheme<SelectTheme>();
-    CHECK_NULL_RETURN(theme, defaultPair);
-    float iconContentPadding = static_cast<float>(theme->GetIconContentPadding().ConvertToPx());
-    float spaceWidth = childConstraint.maxSize.Width();
     float rowWidth = 0.0f;
-    float rowHeight = Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWELVE) ?
-        theme->GetMenuChildMinHeight().ConvertToPx() : minItemHeight_;
-    for (auto it = children.rbegin(); it != children.rend();++it) {
-        const auto& child = *it;
-        if (child != children.front()) {
-            child->Measure(childConstraint);
-        } else {
-            auto labelConstraint = childConstraint;
-            labelConstraint.maxSize.SetWidth(spaceWidth);
-            child->Measure(labelConstraint);
+    float rowHeight = 0.0f;
+    if ((isOption_ && showDefaultSelectedIcon_) || GreatNotEqual(GetLeftRowMinWidth(layoutWrapper), 0.0f)) {
+        auto children = rightRow->GetAllChildrenWithBuild();
+        CHECK_EQUAL_RETURN(children.empty(), true, defaultPair);
+        auto itemNode = layoutWrapper->GetHostNode();
+        CHECK_NULL_RETURN(itemNode, defaultPair);
+        auto pipeline = itemNode->GetContext();
+        CHECK_NULL_RETURN(pipeline, defaultPair);
+        auto theme = pipeline->GetTheme<SelectTheme>();
+        CHECK_NULL_RETURN(theme, defaultPair);
+        float iconContentPadding = static_cast<float>(theme->GetIconContentPadding().ConvertToPx());
+        float spaceWidth = childConstraint.maxSize.Width();
+        rowHeight = Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWELVE) ?
+            theme->GetMenuChildMinHeight().ConvertToPx() : minItemHeight_;
+        for (auto it = children.rbegin(); it != children.rend();++it) {
+            const auto& child = *it;
+            if (child != children.front()) {
+                child->Measure(childConstraint);
+            } else {
+                auto labelConstraint = childConstraint;
+                labelConstraint.maxSize.SetWidth(spaceWidth);
+                child->Measure(labelConstraint);
+            }
+            auto childGeometryNode = child->GetGeometryNode();
+            CHECK_NULL_RETURN(childGeometryNode, defaultPair);
+            auto childSize = childGeometryNode->GetMarginFrameSize();
+            spaceWidth -= childSize.Width() + iconContentPadding;
+            rowWidth += childSize.Width() + iconContentPadding;
+            rowHeight = std::max(rowHeight, childSize.Height());
         }
-        auto childGeometryNode = child->GetGeometryNode();
-        CHECK_NULL_RETURN(childGeometryNode, defaultPair);
-        auto childSize = childGeometryNode->GetMarginFrameSize();
-        spaceWidth -= childSize.Width() + iconContentPadding;
-        rowWidth += childSize.Width() + iconContentPadding;
-        rowHeight = std::max(rowHeight, childSize.Height());
+        rowWidth -= iconContentPadding;
     }
-    rowWidth -= iconContentPadding;
     auto rightRowGeometryNode = rightRow->GetGeometryNode();
     CHECK_NULL_RETURN(rightRowGeometryNode, defaultPair);
-    rightRowGeometryNode->SetFrameSize(SizeF(rowWidth, rowHeight));
-    
+    if (isOption_ && showDefaultSelectedIcon_) {
+        rightRowGeometryNode->SetFrameSize(SizeF(rowWidth, rowHeight));
+    }
     auto marginFrameSize = rightRowGeometryNode->GetMarginFrameSize();
     return {marginFrameSize.Width(), marginFrameSize.Height()};
 }
@@ -178,14 +223,100 @@ void MenuItemLayoutAlgorithm::CalcContentExpandWidth(std::optional<LayoutConstra
     }
 }
 
+float MenuItemLayoutAlgorithm::GetLeftRowMinWidth(LayoutWrapper* layoutWrapper)
+{
+    CHECK_NULL_RETURN(layoutWrapper, 0.0f);
+    auto host = layoutWrapper->GetHostNode();
+    CHECK_NULL_RETURN(host, 0.0f);
+    auto pattern = host->GetPattern<MenuItemPattern>();
+    CHECK_NULL_RETURN(pattern, 0.0f);
+    return pattern->GetLeftRowMinWidth();
+}
+
+bool MenuItemLayoutAlgorithm::NeedLimitRightRowWidth(LayoutWrapper* layoutWrapper)
+{
+    if (isOption_) {
+        return false;
+    }
+    CHECK_NULL_RETURN(layoutWrapper, false);
+    auto host = layoutWrapper->GetHostNode();
+    CHECK_NULL_RETURN(host, false);
+    auto itemPattern = host->GetPattern<MenuItemPattern>();
+    CHECK_NULL_RETURN(itemPattern, false);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_RETURN(pipeline, false);
+    auto menuTheme = pipeline->GetTheme<NG::MenuTheme>();
+    CHECK_NULL_RETURN(menuTheme, false);
+    auto fontScale = pipeline->GetFontScale();
+    bool largeFontScale = NearEqual(fontScale, menuTheme->GetBigFontSizeScale()) ||
+        NearEqual(fontScale, menuTheme->GetLargeFontSizeScale()) ||
+        NearEqual(fontScale, menuTheme->GetMaxFontSizeScale());
+    TAG_LOGD(AceLogTag::ACE_MENU, "MenuItem measure, fontScale:%{public}f", fontScale);
+    return largeFontScale && itemPattern->GetContentNode() && itemPattern->GetLabelNode();
+}
+
+void MenuItemLayoutAlgorithm::CalcLeftRowMinWidth(LayoutWrapper* layoutWrapper)
+{
+    CHECK_NULL_VOID(layoutWrapper);
+    if (!NeedLimitRightRowWidth(layoutWrapper)) {
+        return;
+    }
+    auto leftRow = layoutWrapper->GetOrCreateChildByIndex(0);
+    CHECK_NULL_VOID(leftRow);
+    auto children = leftRow->GetAllChildrenWithBuild();
+    auto itemNode = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(itemNode);
+    auto pipeline = itemNode->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    auto theme = pipeline->GetTheme<SelectTheme>();
+    CHECK_NULL_VOID(theme);
+    float iconContentPadding = static_cast<float>(theme->GetIconContentPadding().ConvertToPx());
+    float leftRowMinWidth = 0.0f;
+    for (const auto& child : children) {
+        CHECK_NULL_CONTINUE(child);
+        auto geometryNode = child->GetGeometryNode();
+        CHECK_NULL_CONTINUE(geometryNode);
+        if (child != children.back()) {
+            // not content node
+            leftRowMinWidth += geometryNode->GetMarginFrameSize().Width() + iconContentPadding;
+        } else {
+            auto textNode = child->GetHostNode();
+            CHECK_NULL_CONTINUE(textNode);
+            auto textPattern = textNode->GetPattern<TextPattern>();
+            CHECK_NULL_CONTINUE(textPattern);
+            auto pManager = textPattern->GetParagraphManager();
+            CHECK_NULL_CONTINUE(pManager);
+            auto textLongestLineWidth = pManager->GetLongestLineWithIndent();
+            if (LessOrEqual(textLongestLineWidth, geometryNode->GetMarginFrameSize().Width())) {
+                return;
+            }
+            leftRowMinWidth += textLongestLineWidth;
+        }
+    }
+    CHECK_NULL_VOID(layoutWrapper);
+    auto host = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(host);
+    auto pattern = host->GetPattern<MenuItemPattern>();
+    CHECK_NULL_VOID(pattern);
+    TAG_LOGD(AceLogTag::ACE_MENU, "MenuItem measure, leftRowMinWidth:%{public}f when largeFontScale", leftRowMinWidth);
+    pattern->SetLeftRowMinWidth(leftRowMinWidth);
+}
+
 void MenuItemLayoutAlgorithm::MeasureItemViews(LayoutConstraintF& childConstraint,
     std::optional<LayoutConstraintF>& layoutConstraint, LayoutWrapper* layoutWrapper)
 {
     auto leftRow = layoutWrapper->GetOrCreateChildByIndex(0);
     CHECK_NULL_VOID(leftRow);
-
+    childConstraint.maxSize.SetWidth(leftRow->GetGeometryNode()->GetFrameSize().Width()
+        // Cannot cover left icon
+        ? maxRowWidth_ - middleSpace_ - static_cast<float>(iconSize_)
+        : maxRowWidth_);
+    auto leftRowMinWidth = GetLeftRowMinWidth(layoutWrapper);
+    if (GreatNotEqual(leftRowMinWidth, 0.0f)) {
+        //limit rightRow maxWidth
+        childConstraint.maxSize.SetWidth(maxRowWidth_ - middleSpace_ -leftRowMinWidth);
+    }
     // measure right row
-    childConstraint.maxSize.SetWidth((maxRowWidth_ - middleSpace_) / RIGHT_ROW_MAX_WIDTH_WEIGHT);
     auto [rightRowWidth, rightRowHeight] = MeasureRightRow(layoutWrapper, childConstraint);
     
     // measure left row
@@ -197,12 +328,14 @@ void MenuItemLayoutAlgorithm::MeasureItemViews(LayoutConstraintF& childConstrain
     float contentWidth = 0.0f;
     contentWidth = leftRowWidth + rightRowWidth + padding_.Width() + middleSpace_;
 
+    CalcLeftRowMinWidth(layoutWrapper);
     CalcContentExpandWidth(layoutConstraint, contentWidth, leftRowWidth, rightRowWidth);
 
     auto width = std::max(minRowWidth_, contentWidth);
     auto actualWidth = GreatNotEqual(idealWidth_, 0.0f) ? idealWidth_ : width;
-    childConstraint.minSize.SetWidth(actualWidth - padding_.Width());
-    childConstraint.maxSize.SetWidth(actualWidth - padding_.Width());
+    auto subMenuIndentation = IsSelectOverlayExtensionMenu(layoutWrapper->GetHostNode()) ? 0.0f : padding_.Width();
+    childConstraint.minSize.SetWidth(actualWidth - subMenuIndentation);
+    childConstraint.maxSize.SetWidth(actualWidth - subMenuIndentation);
     auto expandableHeight = MeasureExpandableHeight(childConstraint, layoutWrapper);
 
     float itemHeight = CalcItemHeight(leftRowHeight, rightRowHeight);
@@ -229,7 +362,6 @@ void MenuItemLayoutAlgorithm::MeasureRow(LayoutWrapper* layoutWrapper, const Ref
     CHECK_NULL_VOID(itemNode);
     auto pipeline = itemNode->GetContext();
     CHECK_NULL_VOID(pipeline);
-
     auto children = row->GetAllChildrenWithBuild();
     CHECK_EQUAL_VOID(isOption_ && !showDefaultSelectedIcon_ && children.empty(), true);
     
@@ -243,7 +375,7 @@ void MenuItemLayoutAlgorithm::MeasureRow(LayoutWrapper* layoutWrapper, const Ref
             theme->GetMenuChildMinHeight().ConvertToPx() : minItemHeight_
     );
     float iconContentPadding = 0.0f;
-    if (!isOption_) {
+    if (!isOption_ && !IsSelectOverlayExtensionMenu(itemNode)) {
         iconContentPadding = static_cast<float>(theme->GetIconContentPadding().ConvertToPx());
     }
 
@@ -264,10 +396,6 @@ void MenuItemLayoutAlgorithm::MeasureRow(LayoutWrapper* layoutWrapper, const Ref
     }
     if (!isOption_ && GreatNotEqual(rowWidth, iconContentPadding)) {
         rowWidth -= iconContentPadding;
-    }
-    if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_FOURTEEN) && isOption_ &&
-        !showDefaultSelectedIcon_) {
-        rowHeight += (ITEM_BOTTOM_TOP_PADDING * PADDING_MULTIPLE).ConvertToPx();
     }
     row->GetGeometryNode()->SetFrameSize(SizeF(rowWidth, rowHeight));
 }
@@ -302,6 +430,7 @@ void MenuItemLayoutAlgorithm::UpdateSelfSize(LayoutWrapper* layoutWrapper,
 {
     CHECK_NULL_VOID(layoutWrapper);
     auto menuNode = layoutWrapper->GetHostNode();
+    ACE_UINODE_TRACE(menuNode);
     auto menuItemPattern = menuNode ? menuNode->GetPattern<MenuItemPattern>() : nullptr;
     auto isEmbedded = menuItemPattern ? menuItemPattern->IsEmbedded() : false;
     auto expandingMode = menuItemPattern ? menuItemPattern->GetExpandingMode() : SubMenuExpandingMode::SIDE;
@@ -424,7 +553,7 @@ void MenuItemLayoutAlgorithm::UpdateIconMargin(LayoutWrapper* layoutWrapper)
     Alignment align = isRtl ? Alignment::CENTER_RIGHT : Alignment::CENTER_LEFT;
     auto child = layoutWrapper->GetOrCreateChildByIndex(0);
     for (auto iconChild : child->GetAllChildrenWithBuild()) {
-        if ((iconChild->GetHostTag() == V2::IMAGE_ETS_TAG) || (iconChild->GetHostTag() == V2::SYMBOL_ETS_TAG)) {
+        if ((iconChild->GetHostTag() == IMAGE_ETS_TAG) || (iconChild->GetHostTag() == SYMBOL_ETS_TAG)) {
             auto iconProps = iconChild->GetLayoutProperty();
             iconProps->UpdateAlignment(align);
             iconProps->UpdateMargin(margin);
@@ -496,8 +625,17 @@ void MenuItemLayoutAlgorithm::MeasureMenuItem(LayoutWrapper* layoutWrapper, cons
     minItemHeight_ = static_cast<float>(selectTheme->GetOptionMinHeight().ConvertToPx());
     childConstraint.minSize.SetHeight(Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWELVE) ?
         selectTheme->GetMenuChildMinHeight().ConvertToPx() : minItemHeight_);
-    
+
     iconSize_ = selectTheme->GetIconSideLength().ConvertToPx();
+    if (!isOption_) {
+        // The end side needs to be aligned on TV.
+        auto rightRow = layoutWrapper->GetOrCreateChildByIndex(1);
+        auto rightRowSize = rightRow ? rightRow->GetGeometryNode()->GetFrameSize() : SizeT(0.0f, 0.0f);
+        // If the size of the right row is not greater than 0, that is, there is no content displayed on the right row.
+        middleSpace_ = GreatNotEqual(rightRowSize.Width(), 0.0f)
+                           ? static_cast<float>(selectTheme->GetIconContentPadding().ConvertToPx())
+                           : static_cast<float>(selectTheme->GetMenuLeftRowEndSpace().ConvertToPx());
+    }
     MeasureItemViews(childConstraint, layoutConstraint, layoutWrapper);
     MeasureClickableArea(layoutWrapper);
     CheckNeedExpandContent(layoutWrapper, childConstraint);
@@ -522,8 +660,8 @@ void MenuItemLayoutAlgorithm::MeasureOption(LayoutWrapper* layoutWrapper, const 
     auto optionPattern = optionNode->GetPattern<MenuItemPattern>();
     CHECK_NULL_VOID(optionPattern);
 
-    auto idealSize = CreateIdealSize(
-        layoutConstraint.value(), Axis::HORIZONTAL, props->GetMeasureType(MeasureType::MATCH_CONTENT), true);
+    auto idealSize = CreateIdealSize(layoutConstraint.value_or(LayoutConstraintF()), Axis::HORIZONTAL,
+        props->GetMeasureType(MeasureType::MATCH_CONTENT), true);
     float maxChildWidth = layoutConstraint->maxSize.Width() - horInterval_ * 2.0f;
     // measure child
     auto childConstraint = props->CreateChildConstraint();
@@ -533,8 +671,9 @@ void MenuItemLayoutAlgorithm::MeasureOption(LayoutWrapper* layoutWrapper, const 
     auto child = layoutWrapper->GetOrCreateChildByIndex(0);
     CHECK_NULL_VOID(child);
 
+    auto textAlign = static_cast<TextAlign>(selectTheme->GetOptionContentNormalAlign());
     auto rowChild = child->GetOrCreateChildByIndex(0);
-    if (rowChild && (rowChild->GetHostTag() == V2::PASTE_BUTTON_ETS_TAG)) {
+    if (rowChild && (rowChild->GetHostTag() == PASTE_BUTTON_ETS_TAG) && textAlign != TextAlign::CENTER) {
         auto securityLayoutProperty = DynamicCast<SecurityComponentLayoutProperty>(rowChild->GetLayoutProperty());
         CHECK_NULL_VOID(securityLayoutProperty);
         securityLayoutProperty->UpdateBackgroundLeftPadding(Dimension(horInterval_));
@@ -558,14 +697,13 @@ void MenuItemLayoutAlgorithm::MeasureOption(LayoutWrapper* layoutWrapper, const 
     if (optionPattern->IsSelectOption() && optionPattern->GetHasOptionWidth()) {
         idealSize.SetWidth(optionPattern->GetSelectOptionWidth());
     }
-    if (rowChild && (rowChild->GetHostTag() == V2::PASTE_BUTTON_ETS_TAG)) {
+    if (rowChild && (rowChild->GetHostTag() == PASTE_BUTTON_ETS_TAG)) {
         float dividerWidth = static_cast<float>(selectTheme->GetDefaultDividerWidth().ConvertToPx());
         SizeF idealSizePaste(idealSize.Width() - dividerWidth, idealSize.Height() - dividerWidth);
         childConstraint.selfIdealSize.SetSize(idealSizePaste);
         rowChild->Measure(childConstraint);
     }
     layoutWrapper->GetGeometryNode()->SetFrameSize(idealSize);
-    auto textAlign = static_cast<TextAlign>(selectTheme->GetOptionContentNormalAlign());
     if (textAlign == TextAlign::CENTER) {
         ExtendTextAndRowNode(child, idealSize, horInterval_, childConstraint);
     }
@@ -617,9 +755,9 @@ void MenuItemLayoutAlgorithm::LayoutMenuItem(LayoutWrapper* layoutWrapper, const
     auto expandableArea = layoutWrapper->GetOrCreateChildByIndex(EXPANDABLE_AREA_VIEW_INDEX);
     CHECK_NULL_VOID(expandableArea);
     expandableArea->GetLayoutProperty()->UpdatePropertyChangeFlag(PROPERTY_UPDATE_LAYOUT);
-    expandableArea->GetGeometryNode()->SetMarginFrameOffset(
-        OffsetF(padding_.left.value_or(horInterval_),
-        itemHeight));
+    auto subMenuStartOffset = IsSelectOverlayExtensionMenu(layoutWrapper->GetHostNode()) ? 0.0f :
+        padding_.left.value_or(horInterval_);
+    expandableArea->GetGeometryNode()->SetMarginFrameOffset(OffsetF(subMenuStartOffset, itemHeight));
     expandableArea->Layout();
 }
 
@@ -634,7 +772,7 @@ void MenuItemLayoutAlgorithm::LayoutOption(LayoutWrapper* layoutWrapper, const R
     auto child = layoutWrapper->GetOrCreateChildByIndex(0);
     child->GetLayoutProperty()->UpdatePropertyChangeFlag(PROPERTY_UPDATE_LAYOUT);
     auto rowChild = child->GetOrCreateChildByIndex(0);
-    if (rowChild && (rowChild->GetHostTag() == V2::PASTE_BUTTON_ETS_TAG)) {
+    if (rowChild && (rowChild->GetHostTag() == PASTE_BUTTON_ETS_TAG)) {
         float horInterval = 0.0f;
         if (props->GetNonAutoLayoutDirection() == TextDirection::RTL) {
             SizeF childSize = child->GetGeometryNode()->GetMarginFrameSize();
@@ -677,7 +815,7 @@ void MenuItemLayoutAlgorithm::ExtendTextAndRowNode(const RefPtr<LayoutWrapper>& 
         if (!geometryNode) {
             continue;
         }
-        if (textChild->GetHostTag() != V2::TEXT_ETS_TAG) {
+        if (textChild->GetHostTag() != TEXT_ETS_TAG) {
             imageNodeWidth += geometryNode->GetMarginFrameSize().Width();
             continue;
         }

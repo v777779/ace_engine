@@ -17,6 +17,9 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMMON_WINDOW_H
 
 #include <memory>
+#include <mutex>
+#include <set>
+#include <vector>
 
 #include "base/geometry/ng/rect_t.h"
 #include "base/mousestyle/mouse_style.h"
@@ -25,6 +28,7 @@
 #include "base/utils/noncopyable.h"
 #include "core/common/ace_page.h"
 #include "core/common/platform_window.h"
+#include "core/common/window_size_breakpoint.h"
 
 namespace OHOS::Rosen {
 class RSUIDirector;
@@ -32,12 +36,13 @@ class RSUIDirector;
 
 namespace OHOS::Ace {
 
+// Forward declarations
+struct WidthLayoutBreakPoint;
+struct HeightLayoutBreakPoint;
+
 namespace NG {
 class FrameNode;
 } // namespace NG
-
-enum class WidthBreakpoint {WIDTH_XS, WIDTH_SM, WIDTH_MD, WIDTH_LG, WIDTH_XL};
-enum class HeightBreakpoint {HEIGHT_SM, HEIGHT_MD, HEIGHT_LG};
 
 class ACE_EXPORT Window : public std::enable_shared_from_this<Window> {
 public:
@@ -51,6 +56,7 @@ public:
     }
 
     virtual void RequestFrame();
+    virtual void ForceFlushVsync(uint64_t nanoTimestamp, uint64_t frameCount) {}
 
     virtual void FlushFrameRate(int32_t rate, int32_t animatorExpectedFrameRate, int32_t rateTyte) {}
 
@@ -102,7 +108,7 @@ public:
         return false;
     }
 
-    virtual void OnVsync(uint64_t nanoTimestamp, uint32_t frameCount);
+    virtual void OnVsync(uint64_t nanoTimestamp, uint64_t frameCount);
 
     virtual void SetVsyncCallback(AceVsyncCallback&& callback);
 
@@ -232,7 +238,7 @@ public:
     virtual void Unlock() {}
 
     virtual void SetUiDvsyncSwitch(bool dvsyncSwitch);
-    
+
     virtual uint32_t GetStatusBarHeight() const
     {
         return 0;
@@ -254,8 +260,40 @@ public:
 
     void SetForceVsyncRequests(bool forceVsyncRequests);
 
+    void NotifyBreakpointChangeIfNeeded(int32_t instanceId, const WidthLayoutBreakPoint& widthLayoutBreakpoints,
+        const HeightLayoutBreakPoint& heightLayoutBreakpoints);
+
+    WindowSizeBreakpoint GetCurrentBreakpoint() const
+    {
+        return currentBreakpoint_;
+    }
+
     WidthBreakpoint GetWidthBreakpoint(const WidthLayoutBreakPoint& layoutBreakpoints) const;
     HeightBreakpoint GetHeightBreakpoint(const HeightLayoutBreakPoint& layoutBreakpoints) const;
+
+    virtual void SetDVSyncUpdate(uint64_t dvsyncTime) {}
+
+    virtual void FlushVsync() {}
+
+    // Thread-safe methods for managing sub-window IDs
+    void RegisterSubWindow(int32_t subWindowId)
+    {
+        std::lock_guard<std::mutex> lock(subWindowMutex_);
+        subWindowIds_.emplace(subWindowId);
+    }
+
+    void UnregisterSubWindow(int32_t subWindowId)
+    {
+        std::lock_guard<std::mutex> lock(subWindowMutex_);
+        subWindowIds_.erase(subWindowId);
+    }
+
+    std::vector<int32_t> GetSubWindowIds() const
+    {
+        std::lock_guard<std::mutex> lock(subWindowMutex_);
+        std::vector<int32_t> ids(subWindowIds_.begin(), subWindowIds_.end());
+        return ids;
+    }
 
 protected:
     bool isRequestVsync_ = false;
@@ -263,6 +301,9 @@ protected:
     double density_ = 1.0;
     MouseFormat cursor_ = MouseFormat::DEFAULT;
     bool isUserSetCursor_ = false;
+
+    mutable std::mutex subWindowMutex_;
+    std::set<int32_t> subWindowIds_;
 
     struct VsyncCallback {
         AceVsyncCallback callback_ = nullptr;
@@ -276,6 +317,7 @@ protected:
     bool dvsyncOn_ = false;
     int64_t lastDVsyncInbihitPredictTs_ = 0;
     bool forceVsync_ = false;
+    WindowSizeBreakpoint currentBreakpoint_;
 
 private:
     std::function<Rect()> windowRectImpl_;

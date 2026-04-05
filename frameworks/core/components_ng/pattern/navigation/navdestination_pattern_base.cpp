@@ -313,7 +313,10 @@ void NavDestinationPatternBase::StartAnimation(
     if (needRunToolBarAnimation) {
         OnToolBarAnimationStart();
     }
-    auto animation = AnimationUtils::StartAnimation(option, propertyCallback, finishCallback);
+    auto hostNode = GetHost();
+    CHECK_NULL_VOID(hostNode);
+    auto animation = AnimationUtils::StartAnimation(
+        option, propertyCallback, finishCallback, nullptr /* repeatCallback */, hostNode->GetContextRefPtr());
     barAnimations_.emplace(nextBarAnimationId_, animation);
     nextBarAnimationId_++;
 }
@@ -448,16 +451,17 @@ void NavDestinationPatternBase::OnColorConfigurationUpdate()
 void NavDestinationPatternBase::InitOnTouchEvent(const RefPtr<FrameNode>& host)
 {
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto context = host->GetContext();
     CHECK_NULL_VOID(context);
-    auto navManager = context->GetNavigationManager();
-    CHECK_NULL_VOID(navManager);
-    if (touchListener_ || !navManager->IsForceSplitSupported()) {
+    auto forceSplitMgr = context->GetForceSplitManager();
+    CHECK_NULL_VOID(forceSplitMgr);
+    if (!forceSplitMgr->IsForceSplitSupported(false)) {
         return;
     }
-    auto gesture = host->GetOrCreateGestureEventHub();
-    CHECK_NULL_VOID(gesture);
-    auto touchCallback = [weak = WeakClaim(this)](const TouchEventInfo info) {
+    auto eventManager = context->GetEventManager();
+    CHECK_NULL_VOID(eventManager);
+    eventManager->RegisterHitTestFrameNodeListener(host->GetId(), [weak = WeakClaim(this)](const TouchEvent& info) {
         auto pattern = weak.Upgrade();
         CHECK_NULL_VOID(pattern);
         auto host = pattern->GetHost();
@@ -476,9 +480,7 @@ void NavDestinationPatternBase::InitOnTouchEvent(const RefPtr<FrameNode>& host)
         }
         auto dest = AceType::DynamicCast<NavDestinationGroupNode>(host);
         navPattern->SetIsHomeNodeTouched(dest && dest->GetNavDestinationType() == NavDestinationType::HOME);
-    };
-    touchListener_ = MakeRefPtr<TouchEventImpl>(std::move(touchCallback));
-    gesture->AddTouchEvent(touchListener_);
+    });
 }
 
 void NavDestinationPatternBase::RemoveOnTouchEvent(FrameNode* frameNode)
@@ -486,14 +488,14 @@ void NavDestinationPatternBase::RemoveOnTouchEvent(FrameNode* frameNode)
     CHECK_NULL_VOID(frameNode);
     auto context = frameNode->GetContext();
     CHECK_NULL_VOID(context);
-    auto navManager = context->GetNavigationManager();
-    CHECK_NULL_VOID(navManager);
-    if (!touchListener_ || !navManager->IsForceSplitSupported()) {
+    auto forceSplitMgr = context->GetForceSplitManager();
+    CHECK_NULL_VOID(forceSplitMgr);
+    if (!forceSplitMgr->IsForceSplitSupported(false)) {
         return;
     }
-    auto gesture = frameNode->GetOrCreateGestureEventHub();
-    CHECK_NULL_VOID(gesture);
-    gesture->RemoveTouchEvent(touchListener_);
-    touchListener_ = nullptr;
+    auto eventManager = context->GetEventManager();
+    CHECK_NULL_VOID(eventManager);
+    eventManager->UnRegisterHitTestFrameNodeListener(frameNode->GetId());
 }
+
 } // namespace OHOS::Ace::NG

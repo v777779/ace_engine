@@ -17,6 +17,9 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_TEXT_SYMBOL_CONSTANTS_H
 
 #include <cstdint>
+#include <functional>
+#include <unordered_map>
+#include "ui/resource/resource_object.h"
 #include "core/components/common/properties/color.h"
 
 namespace OHOS::Ace {
@@ -30,8 +33,8 @@ enum class SymbolEffectType {
     BOUNCE,
     PULSE,
     REPLACE,
-    Disable,
-    QuickReplace,
+    DISABLE,
+    QUICK_REPLACE,
 };
 
 enum class CommonSubType {
@@ -55,14 +58,15 @@ enum class SymbolType {
 };
 
 enum class SymbolGradientType {
-    COLOR_SHADER = 0,
+    NONE = 0,
+    COLOR_SHADER,
     RADIAL_GRADIENT,
     LINEAR_GRADIENT,
 };
 
-struct Point2F {
-    float x{0.0f};
-    float y{0.0f};
+enum class GradientDefinedStatus {
+    GRADIENT_TYPE = 1,
+    GRADIENT_DEFAULT_COLOR = 2
 };
 
 enum class SDKGradientDirection {
@@ -86,30 +90,33 @@ static const std::unordered_map<SDKGradientDirection, float> GRADIENT_DIRECTION_
     {SDKGradientDirection::LeftBottom,  225.0f},
     {SDKGradientDirection::RightTop,     45.0f},
     {SDKGradientDirection::RightBottom, 135.0f},
-    {SDKGradientDirection::None,          0.0f}
+    {SDKGradientDirection::None,        180.0f}
 };
 
 struct SymbolGradient {
-    SymbolGradientType type = SymbolGradientType::COLOR_SHADER;
-    Point2F center;
+    SymbolGradientType type = SymbolGradientType::NONE;
+    GradientDefinedStatus gradientType = GradientDefinedStatus::GRADIENT_DEFAULT_COLOR;
     std::vector<Color> symbolColor;
     std::vector<float> symbolOpacities;
     bool repeating = false;
     std::optional<float> angle;
-    float radius = 0.0f;
+    std::optional<Dimension> radius;
+    std::optional<Dimension> radialCenterX;
+    std::optional<Dimension> radialCenterY;
 
     bool operator==(const SymbolGradient& other) const
     {
     return type == other.type &&
-           NearZero(center.x - other.center.x) &&
-           NearZero(center.y - other.center.y) &&
+           radialCenterX == other.radialCenterX &&
+           radialCenterY == other.radialCenterY &&
            symbolColor == other.symbolColor &&
            symbolOpacities.size() == other.symbolOpacities.size() &&
            std::equal(symbolOpacities.begin(), symbolOpacities.end(), other.symbolOpacities.begin(),
                      [](float a, float b) { return NearZero(a - b); }) &&
            repeating == other.repeating &&
+           gradientType == other.gradientType &&
            ((!angle && !other.angle) || (angle && other.angle && NearZero(*angle - *other.angle))) &&
-           NearZero(radius - other.radius);
+           radius == other.radius;
     }
 };
 
@@ -117,6 +124,12 @@ struct SymbolShadow {
     Color color = Color::BLACK;
     std::pair<float, float> offset{0.0f, 0.0f};
     float radius = 0.0f;
+    struct resourceUpdater {
+        RefPtr<ResourceObject> resObj;
+        std::function<void(const RefPtr<ResourceObject>&, SymbolShadow&)> updateFunc;
+    };
+    std::unordered_map<std::string, resourceUpdater> resMap_;
+
     bool operator==(const SymbolShadow& other) const
     {
         return color == other.color &&
@@ -131,6 +144,22 @@ struct SymbolShadow {
                NearZero(offset.first) &&
                NearZero(offset.second) &&
                NearZero(radius);
+    }
+
+    void AddResource(const std::string& key, const RefPtr<ResourceObject>& resObj,
+        std::function<void(const RefPtr<ResourceObject>&, SymbolShadow&)>&& updateFunc)
+    {
+        if (resObj == nullptr || !updateFunc) {
+            return;
+        }
+        resMap_[key] = { resObj, std::move(updateFunc) };
+    }
+
+    void ReloadResources()
+    {
+        for (const auto& [key, resourceUpdater] : resMap_) {
+            resourceUpdater.updateFunc(resourceUpdater.resObj, *this);
+        }
     }
 };
 

@@ -40,13 +40,16 @@ declare class NativeViewPartialUpdate {
   setIsV2(isV2: boolean): void;
   allowReusableV2Descendant(): boolean;
   getInstanceId(): number;
+  getMainInstanceId(): number;
   markStatic(): void;
   elmtIdExists(elmtId: number): boolean;
   findChildByIdForPreview(viewId: number): object;
   queryNavDestinationInfo(isInner: boolean | undefined): object;
   queryNavigationInfo(): object;
   queryRouterPageInfo(): object;
-  getUIContext(): object;
+  getUIContext(): UIContext;
   getUniqueId(): number;
   getDialogController(): object;
+  registerUpdateInstanceForEnvFunc(updateInstanceIdForEnvFun: (newInstanceId: number) => void): void;
+  setCreatorId(id: number): void;
 }

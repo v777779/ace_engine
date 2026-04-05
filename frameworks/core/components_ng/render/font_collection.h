@@ -25,12 +25,13 @@
 #include "base/utils/macros.h"
 
 namespace OHOS::Ace::NG {
-using LoadFontCallback = std::function<void(const std::string&)>;
+using LoadFontCallback = std::function<void(const std::string&, uint64_t)>;
 
 class ACE_EXPORT FontCollection : public virtual AceType {
-    DECLARE_ACE_TYPE(FontCollection, AceType)
+    DECLARE_ACE_TYPE(FontCollection, AceType);
 public:
-    static RefPtr<FontCollection> Current();
+    ACE_FORCE_EXPORT static RefPtr<FontCollection> Current();
+    static RefPtr<FontCollection> Global();
 
     const std::list<LoadFontCallback>& GetUnloadFontFinishCallback()
     {

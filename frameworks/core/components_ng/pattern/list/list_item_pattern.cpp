@@ -19,13 +19,20 @@
 #include "base/memory/ace_type.h"
 #include "base/utils/multi_thread.h"
 #include "base/utils/utils.h"
+#include "core/animation/spring_motion.h"
+#include "core/components/list/list_item_theme.h"
+#include "core/components/scroll/scroll_controller_base.h"
 #include "core/components_ng/pattern/list/list_item_group_layout_property.h"
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/base/inspector_filter.h"
+#include "core/components_ng/pattern/list/list_item_accessibility_property.h"
+#include "core/components_ng/pattern/list/list_item_drag_manager.h"
+#include "core/components_ng/pattern/list/list_item_event_hub.h"
 #include "core/components_ng/pattern/list/list_item_layout_algorithm.h"
 #include "core/components_ng/pattern/list/list_item_layout_property.h"
 #include "core/components_ng/pattern/list/list_pattern.h"
 #include "core/components_ng/property/property.h"
+#include "core/components_ng/syntax/shallow_builder.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/common/container.h"
 #include "core/components_ng/property/measure_utils.h"
@@ -44,9 +51,55 @@ constexpr int32_t DELETE_ANIMATION_DURATION = 400;
 constexpr Color ITEM_FILL_COLOR = Color(0x1A0A59f7);
 } // namespace
 
+ListItemPattern::~ListItemPattern() = default;
+
+void ListItemPattern::BeforeCreateLayoutWrapper()
+{
+    if (shallowBuilder_ && !shallowBuilder_->IsExecuteDeepRenderDone()) {
+        shallowBuilder_->ExecuteDeepRender();
+        shallowBuilder_.Reset();
+    }
+}
+
+void ListItemPattern::OnCollectRemoved()
+{
+    shallowBuilder_.Reset();
+}
+
+RefPtr<LayoutProperty> ListItemPattern::CreateLayoutProperty()
+{
+    return MakeRefPtr<ListItemLayoutProperty>();
+}
+
+RefPtr<EventHub> ListItemPattern::CreateEventHub()
+{
+    return MakeRefPtr<ListItemEventHub>();
+}
+
+RefPtr<AccessibilityProperty> ListItemPattern::CreateAccessibilityProperty()
+{
+    return MakeRefPtr<ListItemAccessibilityProperty>();
+}
+
 void ListItemPattern::SetShallowBuilder(const RefPtr<ShallowBuilder>&& shallowBuilder)
 {
     shallowBuilder_ = std::move(shallowBuilder);
+}
+
+void ListItemPattern::InitDragManager(RefPtr<ForEachBaseNode> forEach)
+{
+    if (!dragManager_) {
+        dragManager_ = MakeRefPtr<ListItemDragManager>(GetHost(), forEach);
+        dragManager_->InitDragDropEvent();
+    }
+}
+
+void ListItemPattern::DeInitDragManager()
+{
+    if (dragManager_) {
+        dragManager_->DeInitDragDropEvent();
+        dragManager_ = nullptr;
+    }
 }
 
 void ListItemPattern::OnAttachToFrameNode()
@@ -128,6 +181,9 @@ RefPtr<LayoutAlgorithm> ListItemPattern::CreateLayoutAlgorithm()
         layoutAlgorithm->SetCanUpdateCurOffset();
         layoutAlgorithm->SetItemChildCrossSize(GetContentSize().CrossSize(axis_));
     }
+    if (expandSwipeAction_) {
+        layoutAlgorithm->SetExpandSwipeAction(expandSwipeAction_.value());
+    }
     return layoutAlgorithm;
 }
 
@@ -146,8 +202,12 @@ bool ListItemPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirt
     CHECK_NULL_RETURN(layoutAlgorithm, false);
     startNodeSize_ = layoutAlgorithm->GetStartNodeSize();
     endNodeSize_ = layoutAlgorithm->GetEndNodeSize();
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
     if (axis_ != GetAxis()) {
         ChangeAxis(GetAxis());
+    } else if (expandSwipeAction_ && host->IsActive()) {
+        ExpandSwipeActionWithAnimate(expandSwipeAction_.value());
     } else if (layoutAlgorithm->GetCurOffsetUpdated()) {
         float newOffset = layoutAlgorithm->GetCurOffset();
         FireSwipeActionOffsetChange(curOffset_, newOffset);
@@ -157,7 +217,27 @@ bool ListItemPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirt
         pendingSwipeFunc_();
         pendingSwipeFunc_ = nullptr;
     }
+    expandSwipeAction_.reset();
     return false;
+}
+
+void ListItemPattern::OnRecycle()
+{
+    if (swiperIndex_ == ListItemSwipeIndex::ITEM_CHILD) {
+        return;
+    }
+    FireSwipeActionStateChange(ListItemSwipeIndex::ITEM_CHILD);
+    if (springController_ && !springController_->IsStopped()) {
+        // clear stop listener before stop
+        springController_->ClearStopListeners();
+        springController_->Stop();
+    }
+    startNodeSize_ = 0.0f;
+    endNodeSize_ = 0.0f;
+    float oldOffset = curOffset_;
+    curOffset_ = 0.0f;
+    FireSwipeActionOffsetChange(oldOffset, curOffset_);
+    MarkDirtyNode();
 }
 
 void ListItemPattern::SetStartNode(const RefPtr<NG::UINode>& startNode)
@@ -174,6 +254,9 @@ void ListItemPattern::SetStartNode(const RefPtr<NG::UINode>& startNode)
             if (endNodeIndex_ >= startNodeIndex_) {
                 endNodeIndex_++;
             }
+            auto prop = host->GetLayoutProperty<ListItemLayoutProperty>();
+            CHECK_NULL_VOID(prop);
+            prop->UpdatePropertyChangeFlag(PROPERTY_UPDATE_MEASURE_SELF);
         } else {
             host->ReplaceChild(host->GetChildAtIndex(startNodeIndex_), startNode);
             host->MarkDirtyNode(PROPERTY_UPDATE_BY_CHILD_REQUEST);
@@ -209,6 +292,9 @@ void ListItemPattern::SetEndNode(const RefPtr<NG::UINode>& endNode)
             if (startNodeIndex_ >= endNodeIndex_) {
                 startNodeIndex_++;
             }
+            auto prop = host->GetLayoutProperty<ListItemLayoutProperty>();
+            CHECK_NULL_VOID(prop);
+            prop->UpdatePropertyChangeFlag(PROPERTY_UPDATE_MEASURE_SELF);
         } else {
             host->ReplaceChild(host->GetChildAtIndex(endNodeIndex_), endNode);
             host->MarkDirtyNode(PROPERTY_UPDATE_BY_CHILD_REQUEST);
@@ -310,9 +396,56 @@ void ListItemPattern::SetOffsetChangeCallBack(OnOffsetChangeFunc&& offsetChangeC
 void ListItemPattern::CloseSwipeAction(OnFinishFunc&& onFinishCallback)
 {
     auto host = GetHost();
-    FREE_NODE_CHECK(host, CloseSwipeAction, std::move(onFinishCallback));
-    onFinishEvent_ = onFinishCallback;
+    onFinishEvent_ = std::move(onFinishCallback);
+    FREE_NODE_CHECK(host, CloseSwipeAction, std::move(onFinishEvent_));
     ResetSwipeStatus(true);
+}
+
+void ListItemPattern::ExpandSwipeAction(ListItemSwipeActionDirection direction)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    CHECK_EQUAL_VOID(host->IsOnMainTree(), false);
+    CHECK_EQUAL_VOID(host->IsActive(), false);
+    auto targetIndex = direction == ListItemSwipeActionDirection::START ? ListItemSwipeIndex::SWIPER_START
+                                                                        : ListItemSwipeIndex::SWIPER_END;
+    CHECK_EQUAL_VOID(targetIndex, swiperIndex_);
+    auto nodeIndex = direction == ListItemSwipeActionDirection::START ? startNodeIndex_ : endNodeIndex_;
+    CHECK_EQUAL_VOID(nodeIndex, -1);
+    auto targetSize = targetIndex == ListItemSwipeIndex::SWIPER_START ? startNodeSize_ : -endNodeSize_;
+    if (!NearZero(targetSize)) {
+        ExpandSwipeActionWithAnimate(targetIndex);
+        return;
+    }
+    expandSwipeAction_ = std::make_optional<ListItemSwipeIndex>(targetIndex);
+    host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
+}
+
+void ListItemPattern::ExpandSwipeActionWithAnimate(ListItemSwipeIndex index)
+{
+    float offset = index == ListItemSwipeIndex::SWIPER_START ? startNodeSize_ : -endNodeSize_;
+    auto listNode = GetListFrameNode();
+    CHECK_NULL_VOID(listNode);
+    auto listPattern = listNode->GetPattern<ListPattern>();
+    CHECK_NULL_VOID(listPattern);
+    listPattern->StopAnimate();
+    auto oldSwiperItem = listPattern->GetSwiperItem().Upgrade();
+    if (oldSwiperItem && oldSwiperItem->GetSwipeActionState() == SwipeActionState::EXPANDED) {
+        oldSwiperItem->CloseSwipeAction(nullptr);
+    }
+    FireSwipeActionStateChange(index);
+    float velocity = 0.0f;
+    if (springMotion_) {
+        velocity = springMotion_->GetCurrentVelocity();
+    }
+    if (springController_ && !springController_->IsStopped()) {
+        // clear stop listener before stop
+        springController_->ClearStopListeners();
+        springController_->Stop();
+    }
+    StartSpringMotion(curOffset_, offset, velocity, true);
+    listPattern->SetSwiperItem(AceType::WeakClaim(this));
+    listPattern->SetSwiperItemEnd(AceType::WeakClaim(this));
 }
 
 void ListItemPattern::OnModifyDone()
@@ -362,6 +495,45 @@ void ListItemPattern::SetDeleteArea()
     gestureHub->RemovePanEvent(panEvent_);
     panEvent_.Reset();
     springController_.Reset();
+}
+
+void ListItemPattern::OnHoverWithHightLight(bool isHover)
+{
+    NotifyItemState(ITEM_STATE_HOVERED, isHover);
+}
+
+void ListItemPattern::OnPaintFocusState(bool isFocus)
+{
+    NotifyItemState(ITEM_STATE_FOCUSED, isFocus);
+}
+
+void ListItemPattern::NotifyItemState(ItemState itemState, bool isEffective)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto nodeId = host->GetId();
+    auto parent = host->GetAncestorNodeOfFrame(false);
+    CHECK_NULL_VOID(parent);
+    if (parent->GetTag() == V2::LIST_ITEM_GROUP_ETS_TAG) {
+        auto listGroupPattern = DynamicCast<ListItemGroupPattern>(parent->GetPattern());
+        CHECK_NULL_VOID(listGroupPattern);
+        if (isEffective) {
+            listGroupPattern->SetItemState(itemState, nodeId);
+        } else {
+            listGroupPattern->ResetItemState(itemState, nodeId);
+        }
+        parent->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
+    }
+    if (parent->GetTag() == V2::LIST_ETS_TAG) {
+        auto listPattern = DynamicCast<ListPattern>(parent->GetPattern());
+        CHECK_NULL_VOID(listPattern);
+        if (isEffective) {
+            listPattern->SetItemState(itemState, nodeId);
+        } else {
+            listPattern->ResetItemState(itemState, nodeId);
+        }
+        parent->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
+    }
 }
 
 V2::SwipeEdgeEffect ListItemPattern::GetEdgeEffect()
@@ -476,7 +648,7 @@ void ListItemPattern::InitSwiperAction(bool axisChanged)
         FireSwipeActionOffsetChange(oldOffset, curOffset_);
     }
     if (!springController_) {
-        springController_ = CREATE_ANIMATOR(PipelineBase::GetCurrentContextSafelyWithCheck());
+        springController_ = CREATE_ANIMATOR(PipelineBase::GetCurrentContext());
     } else if (axisChanged) {
         springController_->Stop();
     }
@@ -962,8 +1134,6 @@ void ListItemPattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const Inspec
 {
     json->PutFixedAttr("selectable", selectable_, filter, FIXED_ATTR_SELECTABLE);
     json->PutExtAttr("selected", isSelected_, filter);
-    json->PutExtAttr("itemStyle", GetListItemStyle() == V2::ListItemStyle::NONE ?
-        "ListItemStyle.NONE" : "ListItemStyle.CARD", filter);
 }
 
 void ListItemPattern::SwipeCommon(ListItemSwipeIndex targetState)
@@ -1133,7 +1303,9 @@ void ListItemPattern::InitHoverEvent()
     auto hoverTask = [weak = WeakClaim(this)](bool isHover) {
         auto pattern = weak.Upgrade();
         if (pattern) {
-            pattern->HandleHoverEvent(isHover, pattern->GetHost());
+            auto host = pattern->GetHost();
+            CHECK_NULL_VOID(host);
+            pattern->HandleHoverEvent(isHover, host);
         }
     };
     hoverEvent_ = MakeRefPtr<InputEvent>(std::move(hoverTask));
@@ -1169,7 +1341,9 @@ void ListItemPattern::InitPressEvent()
         CHECK_NULL_VOID(pattern);
         auto touchType = info.GetTouches().front().GetTouchType();
         if (touchType == TouchType::DOWN || touchType == TouchType::UP || touchType == TouchType::CANCEL) {
-            pattern->HandlePressEvent(touchType == TouchType::DOWN, pattern->GetHost());
+            auto host = pattern->GetHost();
+            CHECK_NULL_VOID(host);
+            pattern->HandlePressEvent(touchType == TouchType::DOWN, host);
         }
     };
     auto touchListener_ = MakeRefPtr<TouchEventImpl>(std::move(touchCallback));
@@ -1178,6 +1352,7 @@ void ListItemPattern::InitPressEvent()
 
 void ListItemPattern::HandlePressEvent(bool isPressed, const RefPtr<NG::FrameNode>& itemNode)
 {
+    CHECK_NULL_VOID(itemNode);
     auto renderContext = itemNode->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
     auto pipeline = GetContext();
@@ -1198,7 +1373,7 @@ void ListItemPattern::InitDisableEvent()
     CHECK_NULL_VOID(eventHub);
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto theme = pipeline->GetTheme<ListItemTheme>();
     CHECK_NULL_VOID(theme);
@@ -1316,18 +1491,19 @@ bool ListItemPattern::ClickJudge(const PointF& localPoint)
 {
     auto host = GetHost();
     CHECK_NULL_RETURN(host, false);
-    auto geometryNode = host->GetGeometryNode();
-    CHECK_NULL_RETURN(geometryNode, false);
-    auto offset = geometryNode->GetFrameOffset();
+    auto renderContext = host->GetRenderContext();
+    CHECK_NULL_RETURN(renderContext, false);
+    RectF paintRect = renderContext->GetPaintRectWithoutTransform();
+    auto offset = paintRect.GetOffset();
     if (indexInListItemGroup_ != -1) {
         auto parentFrameNode = GetParentFrameNode();
         CHECK_NULL_RETURN(parentFrameNode, false);
-        auto parentGeometryNode = parentFrameNode->GetGeometryNode();
-        CHECK_NULL_RETURN(parentGeometryNode, false);
-        auto parentOffset = parentGeometryNode->GetFrameOffset();
+        auto parentRenderContext = parentFrameNode->GetRenderContext();
+        CHECK_NULL_RETURN(parentRenderContext, false);
+        auto parentOffset = parentRenderContext->GetPaintRectWithoutTransform().GetOffset();
         offset = offset + parentOffset;
     }
-    auto size = geometryNode->GetFrameSize();
+    auto size = paintRect.GetSize();
     auto xOffset = localPoint.GetX() - offset.GetX();
     auto yOffset = localPoint.GetY() - offset.GetY();
     if (GetAxis() == Axis::VERTICAL) {
@@ -1364,6 +1540,21 @@ bool ListItemPattern::RenderCustomChild(int64_t deadline)
         shallowBuilder_.Reset();
     }
     return true;
+}
+
+FocusPattern ListItemPattern::GetFocusPattern() const
+{
+    if (listItemStyle_ == V2::ListItemStyle::CARD) {
+        auto pipelineContext = PipelineBase::GetCurrentContext();
+        CHECK_NULL_RETURN(pipelineContext, FocusPattern());
+        auto listItemTheme = pipelineContext->GetTheme<ListItemTheme>();
+        CHECK_NULL_RETURN(listItemTheme, FocusPattern());
+        FocusPaintParam paintParam;
+        paintParam.SetPaintColor(listItemTheme->GetItemFocusBorderColor());
+        paintParam.SetPaintWidth(listItemTheme->GetItemFocusBorderWidth());
+        return { FocusType::SCOPE, true, FocusStyleType::INNER_BORDER, paintParam };
+    }
+    return { FocusType::SCOPE, true };
 }
 
 void ListItemPattern::DumpAdvanceInfo(std::unique_ptr<JsonValue>& json)

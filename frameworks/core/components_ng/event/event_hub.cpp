@@ -19,6 +19,13 @@
 
 namespace OHOS::Ace::NG {
 
+EventHub::EventHub() = default;
+
+EventHub::~EventHub()
+{
+    keyboardShortcut_.clear();
+}
+
 void EventHub::AttachHost(const WeakPtr<FrameNode>& host)
 {
     host_ = host;
@@ -64,6 +71,7 @@ RefPtr<FrameNode> EventHub::GetFrameNode() const
 
 void EventHub::AddSupportedState(UIState state)
 {
+    ACE_UINODE_TRACE(host_);
     if (!stateStyleMgr_) {
         stateStyleMgr_ = MakeRefPtr<StateStyleManager>(host_);
     }
@@ -72,28 +80,30 @@ void EventHub::AddSupportedState(UIState state)
 
 void EventHub::SetSupportedStates(UIState state)
 {
+    ACE_UINODE_TRACE(host_);
     if (!stateStyleMgr_) {
         stateStyleMgr_ = MakeRefPtr<StateStyleManager>(host_);
     }
     stateStyleMgr_->SetSupportedStates(state);
 }
 
-void EventHub::AddSupportedUIStateWithCallback(
+bool EventHub::AddSupportedUIStateWithCallback(
     UIState state, std::function<void(uint64_t)>& callback, bool isInner, bool excludeInner)
 {
     if (!stateStyleMgr_) {
         stateStyleMgr_ = MakeRefPtr<StateStyleManager>(host_);
     }
-    stateStyleMgr_->AddSupportedUIStateWithCallback(state, callback, isInner, excludeInner);
+    auto result = stateStyleMgr_->AddSupportedUIStateWithCallback(state, callback, isInner, excludeInner);
     AddPressedListener();
+    return result;
 }
 
-void EventHub::RemoveSupportedUIState(UIState state, bool isInner)
+bool EventHub::RemoveSupportedUIState(UIState state, bool isInner)
 {
     if (!stateStyleMgr_) {
         stateStyleMgr_ = MakeRefPtr<StateStyleManager>(host_);
     }
-    stateStyleMgr_->RemoveSupportedUIState(state, isInner);
+    return stateStyleMgr_->RemoveSupportedUIState(state, isInner);
 }
 
 bool EventHub::GetUserSetStateStyle()
@@ -203,20 +213,86 @@ void EventHub::MarkModifyDone()
     OnModifyDone();
 }
 
+RefPtr<DragDropCallbackSet> EventHub::GetOrCreateDragDropCallbackSet()
+{
+    if (dragDropCallbackSet_) {
+        return dragDropCallbackSet_;
+    }
+    dragDropCallbackSet_ = MakeRefPtr<DragDropCallbackSet>();
+    return dragDropCallbackSet_;
+}
+
+RefPtr<DragDropCallbackInfo> DragDropCallbackSet::GetOrCreateInnerDragDropCallback()
+{
+    if (innerDragDropCallback) {
+        return innerDragDropCallback;
+    }
+    innerDragDropCallback = MakeRefPtr<DragDropCallbackInfo>();
+    return innerDragDropCallback;
+}
+
+RefPtr<DragDropCallbackInfo> DragDropCallbackSet::GetOrCreateCustomerDragDropCallback()
+{
+    if (customerDragDropCallback) {
+        return customerDragDropCallback;
+    }
+    customerDragDropCallback = MakeRefPtr<DragDropCallbackInfo>();
+    return customerDragDropCallback;
+}
+
+RefPtr<VisibleAreaChangeCallbackSet> EventHub::GetOrCreateVisibleAreaChangeCallbackSet()
+{
+    if (visibleAreaChangeCallbackSet_) {
+        return visibleAreaChangeCallbackSet_;
+    }
+    visibleAreaChangeCallbackSet_ = MakeRefPtr<VisibleAreaChangeCallbackSet>();
+    return visibleAreaChangeCallbackSet_;
+}
+
+RefPtr<VisibleAreaChangeConfig> VisibleAreaChangeCallbackSet::GetOrCreateUserVisibleAreaChange()
+{
+    if (userVisibleAreaChange) {
+        return userVisibleAreaChange;
+    }
+    userVisibleAreaChange = MakeRefPtr<VisibleAreaChangeConfig>();
+    return userVisibleAreaChange;
+}
+
+RefPtr<VisibleAreaChangeConfig> VisibleAreaChangeCallbackSet::GetOrCreateInnerVisibleAreaChange()
+{
+    if (innerVisibleAreaChange) {
+        return innerVisibleAreaChange;
+    }
+    innerVisibleAreaChange = MakeRefPtr<VisibleAreaChangeConfig>();
+    return innerVisibleAreaChange;
+}
+
+RefPtr<VisibleAreaChangeConfig> VisibleAreaChangeCallbackSet::GetOrCreateThrottledVisibleAreaChange()
+{
+    if (throttledVisibleAreaChange) {
+        return throttledVisibleAreaChange;
+    }
+    throttledVisibleAreaChange = MakeRefPtr<VisibleAreaChangeConfig>();
+    return throttledVisibleAreaChange;
+}
+
 void EventHub::SetCustomerOnDragFunc(DragFuncType dragFuncType, OnDragFunc&& onDragFunc)
 {
     switch (dragFuncType) {
         case DragFuncType::DRAG_ENTER:
-            customerOnDragEnter_ = std::move(onDragFunc);
+            GetOrCreateDragDropCallbackSet()->GetOrCreateCustomerDragDropCallback()->onDragEnter =
+                std::move(onDragFunc);
             break;
         case DragFuncType::DRAG_LEAVE:
-            customerOnDragLeave_ = std::move(onDragFunc);
+            GetOrCreateDragDropCallbackSet()->GetOrCreateCustomerDragDropCallback()->onDragLeave =
+                std::move(onDragFunc);
             break;
         case DragFuncType::DRAG_MOVE:
-            customerOnDragMove_ = std::move(onDragFunc);
+            GetOrCreateDragDropCallbackSet()->GetOrCreateCustomerDragDropCallback()->onDragMove =
+                std::move(onDragFunc);
             break;
         case DragFuncType::DRAG_DROP:
-            customerOnDrop_ = std::move(onDragFunc);
+            GetOrCreateDragDropCallbackSet()->GetOrCreateCustomerDragDropCallback()->onDrop = std::move(onDragFunc);
             break;
         default:
             TAG_LOGW(AceLogTag::ACE_DRAG, "Unsupported DragFuncType");
@@ -229,46 +305,48 @@ void EventHub::SetCustomerOnDragFunc(DragFuncType dragFuncType, OnNewDragFunc&& 
     if (dragFuncType != DragFuncType::DRAG_END) {
         return;
     }
-    customerOnDragEnd_ = std::move(onDragEnd);
+    GetOrCreateDragDropCallbackSet()->GetOrCreateCustomerDragDropCallback()->onDragEnd = std::move(onDragEnd);
 }
 
 void EventHub::FireCustomerOnDragFunc(DragFuncType dragFuncType, const RefPtr<OHOS::Ace::DragEvent>& info,
     const std::string& extraParams)
 {
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->customerDragDropCallback);
     switch (dragFuncType) {
         case DragFuncType::DRAG_ENTER: {
-            if (customerOnDragEnter_ != nullptr) {
-                auto customerDragEnter = customerOnDragEnter_;
-                customerDragEnter(info, extraParams);
+            if (dragDropCallbackSet_->customerDragDropCallback->onDragEnter != nullptr) {
+                auto onDragEnter = dragDropCallbackSet_->customerDragDropCallback->onDragEnter;
+                onDragEnter(info, extraParams);
             }
             break;
         }
         case DragFuncType::DRAG_LEAVE: {
-            if (customerOnDragLeave_ != nullptr) {
-                auto customerOnDragLeave = customerOnDragLeave_;
-                customerOnDragLeave(info, extraParams);
+            if (dragDropCallbackSet_->customerDragDropCallback->onDragLeave != nullptr) {
+                auto onDragLeave = dragDropCallbackSet_->customerDragDropCallback->onDragLeave;
+                onDragLeave(info, extraParams);
             }
             break;
         }
         case DragFuncType::DRAG_MOVE: {
-            if (customerOnDragMove_ != nullptr) {
-                auto customerOnDragMove = customerOnDragMove_;
-                customerOnDragMove(info, extraParams);
+            if (dragDropCallbackSet_->customerDragDropCallback->onDragMove != nullptr) {
+                auto onDragMove = dragDropCallbackSet_->customerDragDropCallback->onDragMove;
+                onDragMove(info, extraParams);
             }
             break;
         }
         case DragFuncType::DRAG_DROP: {
-            if (customerOnDrop_ != nullptr) {
-                auto customerOnDrop = customerOnDrop_;
+            if (dragDropCallbackSet_->customerDragDropCallback->onDrop != nullptr) {
+                auto onDrop = dragDropCallbackSet_->customerDragDropCallback->onDrop;
+                onDrop(info, extraParams);
                 ACE_SCOPED_TRACE("drag: execute user onDrop");
-                customerOnDrop(info, extraParams);
             }
             break;
         }
         case DragFuncType::DRAG_END: {
-            if (customerOnDragEnd_ != nullptr) {
-                auto customerOnDragEnd = customerOnDragEnd_;
-                customerOnDragEnd(info);
+            if (dragDropCallbackSet_->customerDragDropCallback->onDragEnd != nullptr) {
+                auto onDragEnd = dragDropCallbackSet_->customerDragDropCallback->onDragEnd;
+                onDragEnd(info);
             }
             break;
         }
@@ -283,9 +361,11 @@ void EventHub::FireOnDragEnter(const RefPtr<OHOS::Ace::DragEvent>& info, const s
     if (SystemProperties::GetDebugEnabled()) {
         TAG_LOGD(AceLogTag::ACE_DRAG, "DragDropManager fire onDragEnter");
     }
-    if (onDragEnter_) {
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->innerDragDropCallback);
+    if (dragDropCallbackSet_->innerDragDropCallback->onDragEnter) {
         // callback may be overwritten in its invoke so we copy it first
-        auto onDragEnter = onDragEnter_;
+        auto onDragEnter = dragDropCallbackSet_->innerDragDropCallback->onDragEnter;
         onDragEnter(info, extraParams);
     }
 }
@@ -295,9 +375,11 @@ void EventHub::FireOnDragLeave(const RefPtr<OHOS::Ace::DragEvent>& info, const s
     if (SystemProperties::GetDebugEnabled()) {
         TAG_LOGD(AceLogTag::ACE_DRAG, "DragDropManager fire onDragLeave");
     }
-    if (onDragLeave_) {
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->innerDragDropCallback);
+    if (dragDropCallbackSet_->innerDragDropCallback->onDragLeave) {
         // callback may be overwritten in its invoke so we copy it first
-        auto onDragLeave = onDragLeave_;
+        auto onDragLeave = dragDropCallbackSet_->innerDragDropCallback->onDragLeave;
         onDragLeave(info, extraParams);
     }
 }
@@ -307,9 +389,11 @@ void EventHub::FireOnDragMove(const RefPtr<OHOS::Ace::DragEvent>& info, const st
     if (SystemProperties::GetDebugEnabled()) {
         TAG_LOGD(AceLogTag::ACE_DRAG, "DragDropManager fire onDragMove");
     }
-    if (onDragMove_) {
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->innerDragDropCallback);
+    if (dragDropCallbackSet_->innerDragDropCallback->onDragMove) {
         // callback may be overwritten in its invoke so we copy it first
-        auto onDragMove = onDragMove_;
+        auto onDragMove = dragDropCallbackSet_->innerDragDropCallback->onDragMove;
         onDragMove(info, extraParams);
     }
 }
@@ -319,9 +403,11 @@ void EventHub::FireOnDrop(const RefPtr<OHOS::Ace::DragEvent>& info, const std::s
     if (SystemProperties::GetDebugEnabled()) {
         TAG_LOGD(AceLogTag::ACE_DRAG, "DragDropManager fire onDrop");
     }
-    if (onDrop_) {
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->innerDragDropCallback);
+    if (dragDropCallbackSet_->innerDragDropCallback->onDrop) {
         // callback may be overwritten in its invoke so we copy it first
-        auto onDrop = onDrop_;
+        auto onDrop = dragDropCallbackSet_->innerDragDropCallback->onDrop;
         onDrop(info, extraParams);
     }
 }
@@ -363,52 +449,6 @@ void EventHub::RemoveInnerOnAreaChangedCallback(int32_t id)
     onAreaChangedInnerCallbacks_.erase(id);
 }
 
-void EventHub::ClearCustomerOnDragFunc()
-{
-    onDragStart_ = nullptr;
-    customerOnDragEnter_ = nullptr;
-    customerOnDragSpringLoading_ = nullptr;
-    customerOnDragLeave_ = nullptr;
-    customerOnDragMove_ = nullptr;
-    customerOnDrop_ = nullptr;
-    customerOnDragEnd_ = nullptr;
-}
-
-void EventHub::ClearCustomerOnDragStart()
-{
-    onDragStart_ = nullptr;
-}
-
-void EventHub::ClearCustomerOnDragEnter()
-{
-    customerOnDragEnter_ = nullptr;
-}
-
-void EventHub::ClearCustomerOnDragSpringLoading()
-{
-    customerOnDragSpringLoading_ = nullptr;
-}
-
-void EventHub::ClearCustomerOnDragMove()
-{
-    customerOnDragMove_ = nullptr;
-}
-
-void EventHub::ClearCustomerOnDragLeave()
-{
-    customerOnDragLeave_ = nullptr;
-}
-
-void EventHub::ClearCustomerOnDrop()
-{
-    customerOnDrop_ = nullptr;
-}
-
-void EventHub::ClearCustomerOnDragEnd()
-{
-    customerOnDragEnd_ = nullptr;
-}
-
 void EventHub::SetOnSizeChanged(OnSizeChangedFunc&& onSizeChanged)
 {
     onSizeChanged_ = std::move(onSizeChanged);
@@ -423,7 +463,7 @@ void EventHub::FireOnSizeChanged(const RectF& oldRect, const RectF& rect)
     }
 }
 
-void EventHub::SetJSFrameNodeOnSizeChangeCallback(OnSizeChangedFunc&& onSizeChanged)
+void EventHub::SetFrameNodeCommonOnSizeChangeCallback(OnSizeChangedFunc&& onSizeChanged)
 {
     onJsFrameNodeSizeChanged_ = std::move(onSizeChanged);
 }
@@ -454,7 +494,9 @@ bool EventHub::HasOnSizeChanged() const
 
 bool EventHub::HasImmediatelyVisibleCallback()
 {
-    return visibleAreaUserCallback_.callback || visibleAreaInnerCallback_.callback;
+    CHECK_NULL_RETURN(visibleAreaChangeCallbackSet_, false);
+    return visibleAreaChangeCallbackSet_->GetOrCreateUserVisibleAreaChange()->callbackInfo.callback ||
+        visibleAreaChangeCallbackSet_->GetOrCreateInnerVisibleAreaChange()->callbackInfo.callback;
 }
 
 void EventHub::ClearOnAreaChangedInnerCallbacks()
@@ -462,7 +504,72 @@ void EventHub::ClearOnAreaChangedInnerCallbacks()
     onAreaChangedInnerCallbacks_.clear();
 }
 
-void EventHub::SetJSFrameNodeOnAppear(std::function<void()>&& onAppear)
+void EventHub::ClearCustomerOnDragFunc()
+{
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    if (dragDropCallbackSet_->innerDragDropCallback) {
+        dragDropCallbackSet_->innerDragDropCallback->onDragStart = nullptr;
+    }
+    if (dragDropCallbackSet_->customerDragDropCallback) {
+        dragDropCallbackSet_->customerDragDropCallback->onDragEnter = nullptr;
+        dragDropCallbackSet_->customerDragDropCallback->onDragSpringLoading = nullptr;
+        dragDropCallbackSet_->customerDragDropCallback->onDragLeave = nullptr;
+        dragDropCallbackSet_->customerDragDropCallback->onDragMove = nullptr;
+        dragDropCallbackSet_->customerDragDropCallback->onDrop = nullptr;
+        dragDropCallbackSet_->customerDragDropCallback->onDragEnd = nullptr;
+    }
+}
+
+void EventHub::ClearCustomerOnDragStart()
+{
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->innerDragDropCallback);
+    dragDropCallbackSet_->innerDragDropCallback->onDragStart = nullptr;
+}
+
+void EventHub::ClearCustomerOnDragEnter()
+{
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->customerDragDropCallback);
+    dragDropCallbackSet_->customerDragDropCallback->onDragEnter = nullptr;
+}
+
+void EventHub::ClearCustomerOnDragSpringLoading()
+{
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->customerDragDropCallback);
+    dragDropCallbackSet_->customerDragDropCallback->onDragSpringLoading = nullptr;
+}
+
+void EventHub::ClearCustomerOnDragMove()
+{
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->customerDragDropCallback);
+    dragDropCallbackSet_->customerDragDropCallback->onDragMove = nullptr;
+}
+
+void EventHub::ClearCustomerOnDragLeave()
+{
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->customerDragDropCallback);
+    dragDropCallbackSet_->customerDragDropCallback->onDragLeave = nullptr;
+}
+
+void EventHub::ClearCustomerOnDrop()
+{
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->customerDragDropCallback);
+    dragDropCallbackSet_->customerDragDropCallback->onDrop = nullptr;
+}
+
+void EventHub::ClearCustomerOnDragEnd()
+{
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->customerDragDropCallback);
+    dragDropCallbackSet_->customerDragDropCallback->onDragEnd = nullptr;
+}
+
+void EventHub::SetFrameNodeCommonOnAppear(std::function<void()>&& onAppear)
 {
     onJSFrameNodeAppear_ = std::move(onAppear);
 }
@@ -474,7 +581,7 @@ void EventHub::ClearJSFrameNodeOnAppear()
     }
 }
 
-void EventHub::SetJSFrameNodeOnDisappear(std::function<void()>&& onDisappear)
+void EventHub::SetFrameNodeCommonOnDisappear(std::function<void()>&& onDisappear)
 {
     onJSFrameNodeDisappear_ = std::move(onDisappear);
 }
@@ -581,7 +688,9 @@ void EventHub::ClearOnDetach()
 
 void EventHub::ClearOnPreDrag()
 {
-    onPreDragFunc_ = nullptr;
+    CHECK_NULL_VOID(dragDropCallbackSet_);
+    CHECK_NULL_VOID(dragDropCallbackSet_->innerDragDropCallback);
+    dragDropCallbackSet_->innerDragDropCallback->onPreDragFunc = nullptr;
 }
 
 void EventHub::FireOnDetach()
@@ -589,78 +698,6 @@ void EventHub::FireOnDetach()
     if (onDetach_) {
         auto onDetach = onDetach_;
         onDetach();
-    }
-}
-
-void EventHub::SetOnWillBind(std::function<void(int32_t)>&& onWillBind)
-{
-    onWillBind_ = std::move(onWillBind);
-}
-
-void EventHub::ClearOnWillBind()
-{
-    onWillBind_ = nullptr;
-}
-
-void EventHub::FireOnWillBind(int32_t containerId)
-{
-    if (onWillBind_) {
-        auto onWillBind = onWillBind_;
-        onWillBind(containerId);
-    }
-}
-
-void EventHub::SetOnWillUnbind(std::function<void(int32_t)>&& onWillUnbind)
-{
-    onWillUnbind_ = std::move(onWillUnbind);
-}
-
-void EventHub::ClearOnWillUnbind()
-{
-    onWillUnbind_ = nullptr;
-}
-
-void EventHub::FireOnWillUnbind(int32_t containerId)
-{
-    if (onWillUnbind_) {
-        auto onWillUnbind = onWillUnbind_;
-        onWillUnbind(containerId);
-    }
-}
-
-void EventHub::SetOnBind(std::function<void(int32_t)>&& onBind)
-{
-    onBind_ = std::move(onBind);
-}
-
-void EventHub::ClearOnBind()
-{
-    onBind_ = nullptr;
-}
-
-void EventHub::FireOnBind(int32_t containerId)
-{
-    if (onBind_) {
-        auto onBind = onBind_;
-        onBind(containerId);
-    }
-}
-
-void EventHub::SetOnUnbind(std::function<void(int32_t)>&& onUnbind)
-{
-    onUnbind_ = std::move(onUnbind);
-}
-
-void EventHub::ClearOnUnbind()
-{
-    onUnbind_ = nullptr;
-}
-
-void EventHub::FireOnUnbind(int32_t containerId)
-{
-    if (onUnbind_) {
-        auto onUnbind = onUnbind_;
-        onUnbind(containerId);
     }
 }
 
@@ -684,6 +721,11 @@ const RefPtr<GestureEventHub>& EventHub::GetOrCreateGestureEventHub()
         gestureEventHub_ = CreateGestureEventHub();
     }
     return gestureEventHub_;
+}
+
+RefPtr<GestureEventHub> EventHub::CreateGestureEventHub()
+{
+    return MakeRefPtr<GestureEventHub>(WeakClaim(this));
 }
 
 const RefPtr<GestureEventHub>& EventHub::GetGestureEventHub() const
@@ -808,112 +850,202 @@ bool EventHub::HasInnerOnAreaChanged() const
 
 void EventHub::SetOnPreDrag(OnPreDragFunc&& onPreDragFunc)
 {
-    onPreDragFunc_ = std::move(onPreDragFunc);
+    GetOrCreateDragDropCallbackSet()->GetOrCreateInnerDragDropCallback()->onPreDragFunc = std::move(onPreDragFunc);
 }
 
 const OnPreDragFunc& EventHub::GetOnPreDrag() const
 {
-    return onPreDragFunc_;
+    static const OnPreDragFunc EMPTY_DRAG_FUNC;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, EMPTY_DRAG_FUNC);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, EMPTY_DRAG_FUNC);
+    return dragDropCallbackSet_->innerDragDropCallback->onPreDragFunc;
 }
 
 void EventHub::SetOnDragStart(OnDragStartFunc&& onDragStart)
 {
-    onDragStart_ = std::move(onDragStart);
+    GetOrCreateDragDropCallbackSet()->GetOrCreateInnerDragDropCallback()->onDragStart = std::move(onDragStart);
 }
 
 bool EventHub::HasOnDragStart() const
 {
-    return static_cast<bool>(onDragStart_) || static_cast<bool>(defaultOnDragStart_);
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, false);
+    return static_cast<bool>(dragDropCallbackSet_->innerDragDropCallback->onDragStart) ||
+        static_cast<bool>(dragDropCallbackSet_->innerDragDropCallback->defaultOnDragStart);
 }
 
 void EventHub::SetOnDragEnter(OnDragFunc&& onDragEnter)
 {
-    onDragEnter_ = std::move(onDragEnter);
+    GetOrCreateDragDropCallbackSet()->GetOrCreateInnerDragDropCallback()->onDragEnter = std::move(onDragEnter);
 }
 
-void EventHub::SetCustomerOnDragSpringLoading(OnDrapDropSpringLoadingFunc&& onDragSpringLoading)
+void EventHub::SetCustomerOnDragSpringLoading(OnDragDropSpringLoadingFunc&& onDragSpringLoading)
 {
-    customerOnDragSpringLoading_ = std::move(onDragSpringLoading);
+    GetOrCreateDragDropCallbackSet()->GetOrCreateCustomerDragDropCallback()->onDragSpringLoading =
+        std::move(onDragSpringLoading);
 }
 
-const OnDrapDropSpringLoadingFunc& EventHub::GetCustomerOnDragSpringLoading() const
+const OnDragDropSpringLoadingFunc& EventHub::GetCustomerOnDragSpringLoading() const
 {
-    return customerOnDragSpringLoading_;
+    static const OnDragDropSpringLoadingFunc EMPTY_DRAG_FUNC;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, EMPTY_DRAG_FUNC);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->customerDragDropCallback, EMPTY_DRAG_FUNC);
+    return dragDropCallbackSet_->customerDragDropCallback->onDragSpringLoading;
+}
+
+const EventHub::OnDragStartFunc& EventHub::GetOnDragStart() const
+{
+    static const EventHub::OnDragStartFunc EMPTY_DRAG_FUNC;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, EMPTY_DRAG_FUNC);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, EMPTY_DRAG_FUNC);
+    return dragDropCallbackSet_->innerDragDropCallback->onDragStart;
+}
+
+const EventHub::OnDragStartFunc& EventHub::GetDefaultOnDragStart() const
+{
+    static const EventHub::OnDragStartFunc EMPTY_DRAG_FUNC;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, EMPTY_DRAG_FUNC);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, EMPTY_DRAG_FUNC);
+    return dragDropCallbackSet_->innerDragDropCallback->defaultOnDragStart;
+}
+
+const EventHub::OnNewDragFunc& EventHub::GetOnDragEnd() const
+{
+    static const EventHub::OnNewDragFunc EMPTY_DRAG_FUNC;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, EMPTY_DRAG_FUNC);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, EMPTY_DRAG_FUNC);
+    return dragDropCallbackSet_->innerDragDropCallback->onDragEnd;
+}
+
+const EventHub::OnDragFunc EventHub::GetCustomerOnDragFunc(DragFuncType dragFuncType) const
+{
+    static const EventHub::OnDragFunc EMPTY_DRAG_FUNC;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, EMPTY_DRAG_FUNC);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->customerDragDropCallback, EMPTY_DRAG_FUNC);
+    EventHub::OnDragFunc dragFunc;
+    switch (dragFuncType) {
+        case DragFuncType::DRAG_ENTER:
+            dragFunc = dragDropCallbackSet_->customerDragDropCallback->onDragEnter;
+            break;
+        case DragFuncType::DRAG_LEAVE:
+            dragFunc = dragDropCallbackSet_->customerDragDropCallback->onDragLeave;
+            break;
+        case DragFuncType::DRAG_MOVE:
+            dragFunc = dragDropCallbackSet_->customerDragDropCallback->onDragMove;
+            break;
+        case DragFuncType::DRAG_DROP:
+            dragFunc = dragDropCallbackSet_->customerDragDropCallback->onDrop;
+            break;
+        default:
+            LOGW("unsuport dragFuncType");
+            break;
+    }
+    return dragFunc;
+}
+
+const EventHub::OnNewDragFunc& EventHub::GetCustomerOnDragEndFunc() const
+{
+    static const EventHub::OnNewDragFunc EMPTY_DRAG_FUNC;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, EMPTY_DRAG_FUNC);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->customerDragDropCallback, EMPTY_DRAG_FUNC);
+    return dragDropCallbackSet_->customerDragDropCallback->onDragEnd;
 }
 
 void EventHub::SetOnDragLeave(OnDragFunc&& onDragLeave)
 {
-    onDragLeave_ = std::move(onDragLeave);
+    GetOrCreateDragDropCallbackSet()->GetOrCreateInnerDragDropCallback()->onDragLeave = std::move(onDragLeave);
 }
 
 void EventHub::SetOnDragMove(OnDragFunc&& onDragMove)
 {
-    onDragMove_ = std::move(onDragMove);
+    GetOrCreateDragDropCallbackSet()->GetOrCreateInnerDragDropCallback()->onDragMove = std::move(onDragMove);
 }
 
 bool EventHub::HasOnDragMove() const
 {
-    return static_cast<bool>(onDragMove_);
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, false);
+    return static_cast<bool>(dragDropCallbackSet_->innerDragDropCallback->onDragMove);
 }
 
 void EventHub::SetOnDrop(OnDragFunc&& onDrop)
 {
-    onDrop_ = std::move(onDrop);
+    GetOrCreateDragDropCallbackSet()->GetOrCreateInnerDragDropCallback()->onDrop = std::move(onDrop);
 }
 
 void EventHub::SetOnDragEnd(OnNewDragFunc&& onDragEnd)
 {
-    onDragEnd_ = std::move(onDragEnd);
+    GetOrCreateDragDropCallbackSet()->GetOrCreateInnerDragDropCallback()->onDragEnd = std::move(onDragEnd);
 }
 
 bool EventHub::HasOnDragEnter() const
 {
-    return static_cast<bool>(onDragEnter_);
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, false);
+    return static_cast<bool>(dragDropCallbackSet_->innerDragDropCallback->onDragEnter);
 }
 
 bool EventHub::HasOnDragLeave() const
 {
-    return static_cast<bool>(onDragLeave_);
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, false);
+    return static_cast<bool>(dragDropCallbackSet_->innerDragDropCallback->onDragLeave);
 }
 
 bool EventHub::HasOnDragEnd() const
 {
-    return static_cast<bool>(onDragEnd_);
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, false);
+    return static_cast<bool>(dragDropCallbackSet_->innerDragDropCallback->onDragEnd);
 }
 
 bool EventHub::HasOnDrop() const
 {
-    return onDrop_ != nullptr;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, false);
+    return dragDropCallbackSet_->innerDragDropCallback->onDrop != nullptr;
 }
 
 bool EventHub::HasCustomerOnDragEnter() const
 {
-    return customerOnDragEnter_ != nullptr;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->customerDragDropCallback, false);
+    return dragDropCallbackSet_->customerDragDropCallback->onDragEnter != nullptr;
 }
 
 bool EventHub::HasCustomerOnDragLeave() const
 {
-    return customerOnDragLeave_ != nullptr;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->customerDragDropCallback, false);
+    return dragDropCallbackSet_->customerDragDropCallback->onDragLeave != nullptr;
 }
 
 bool EventHub::HasCustomerOnDragMove() const
 {
-    return customerOnDragMove_ != nullptr;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->customerDragDropCallback, false);
+    return dragDropCallbackSet_->customerDragDropCallback->onDragMove != nullptr;
 }
 
 bool EventHub::HasCustomerOnDragEnd() const
 {
-    return customerOnDragEnd_ != nullptr;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->customerDragDropCallback, false);
+    return dragDropCallbackSet_->customerDragDropCallback->onDragEnd != nullptr;
 }
 
 bool EventHub::HasCustomerOnDrop() const
 {
-    return customerOnDrop_ != nullptr;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->customerDragDropCallback, false);
+    return dragDropCallbackSet_->customerDragDropCallback->onDrop != nullptr;
 }
 
 bool EventHub::HasCustomerOnDragSpringLoading() const
 {
-    return customerOnDragSpringLoading_ != nullptr;
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->customerDragDropCallback, false);
+    return dragDropCallbackSet_->customerDragDropCallback->onDragSpringLoading != nullptr;
 }
 
 void EventHub::SetDisableDataPrefetch(bool disableDataPrefetch)
@@ -938,13 +1070,6 @@ bool EventHub::IsDeveloperEnabled() const
 
 void EventHub::SetEnabled(bool enabled)
 {
-    auto host = GetFrameNode();
-    if (enabled_ != enabled && host) {
-        auto accessibilityProperty = host->GetAccessibilityProperty<NG::AccessibilityProperty>();
-        if (accessibilityProperty) {
-            accessibilityProperty->NotifyComponentChangeEvent(AccessibilityEventType::ELEMENT_INFO_CHANGE);
-        }
-    }
     enabled_ = enabled;
     developerEnabled_ = enabled;
 }
@@ -1014,6 +1139,11 @@ void EventHub::ClearSingleKeyboardShortcut()
     }
 }
 
+void EventHub::ClearSingleKeyboardShortcutAll()
+{
+    keyboardShortcut_.clear();
+}
+
 std::vector<KeyboardShortcut>& EventHub::GetKeyboardShortcut()
 {
     return keyboardShortcut_;
@@ -1021,83 +1151,98 @@ std::vector<KeyboardShortcut>& EventHub::GetKeyboardShortcut()
 
 void EventHub::SetDefaultOnDragStart(OnDragStartFunc&& defaultOnDragStart)
 {
-    defaultOnDragStart_ = std::move(defaultOnDragStart);
+    GetOrCreateDragDropCallbackSet()->GetOrCreateInnerDragDropCallback()->defaultOnDragStart =
+        std::move(defaultOnDragStart);
 }
 
 bool EventHub::HasDefaultOnDragStart() const
 {
-    return static_cast<bool>(defaultOnDragStart_);
+    CHECK_NULL_RETURN(dragDropCallbackSet_, false);
+    CHECK_NULL_RETURN(dragDropCallbackSet_->innerDragDropCallback, false);
+    return static_cast<bool>(dragDropCallbackSet_->innerDragDropCallback->defaultOnDragStart);
 }
 
 std::vector<double>& EventHub::GetThrottledVisibleAreaRatios()
 {
-    return throttledVisibleAreaRatios_;
+    return GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateThrottledVisibleAreaChange()->ratios;
 }
 
 VisibleCallbackInfo& EventHub::GetThrottledVisibleAreaCallback()
 {
-    return throttledVisibleAreaCallback_;
+    return GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateThrottledVisibleAreaChange()->callbackInfo;
 }
 
 std::vector<double>& EventHub::GetVisibleAreaRatios(bool isUser)
 {
     if (isUser) {
-        return visibleAreaUserRatios_;
+        return GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateUserVisibleAreaChange()->ratios;
     } else {
-        return visibleAreaInnerRatios_;
+        return GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateInnerVisibleAreaChange()->ratios;
     }
 }
 
 VisibleCallbackInfo& EventHub::GetVisibleAreaCallback(bool isUser)
 {
     if (isUser) {
-        return visibleAreaUserCallback_;
+        return GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateUserVisibleAreaChange()->callbackInfo;
     } else {
-        return visibleAreaInnerCallback_;
+        return GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateInnerVisibleAreaChange()->callbackInfo;
     }
 }
 
 void EventHub::SetVisibleAreaRatiosAndCallback(
-    const VisibleCallbackInfo& callback, const std::vector<double>& radios, bool isUser)
+    const VisibleCallbackInfo& callback, const std::vector<double>& ratios, bool isUser)
 {
     if (isUser) {
-        VisibleCallbackInfo* cbInfo =
-            (callback.period == 0) ? &visibleAreaUserCallback_ : &throttledVisibleAreaCallback_;
-        auto ratioInfo = (callback.period == 0) ? &visibleAreaUserRatios_ : &throttledVisibleAreaRatios_;
-        *cbInfo = callback;
-        *ratioInfo = radios;
+        if (callback.period == 0) {
+            GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateUserVisibleAreaChange()->callbackInfo = callback;
+            GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateUserVisibleAreaChange()->ratios = ratios;
+        } else {
+            GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateThrottledVisibleAreaChange()->callbackInfo =
+                callback;
+            GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateThrottledVisibleAreaChange()->ratios = ratios;
+        }
     } else {
-        visibleAreaInnerCallback_ = callback;
-        visibleAreaInnerRatios_ = radios;
+        GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateInnerVisibleAreaChange()->callbackInfo = callback;
+        GetOrCreateVisibleAreaChangeCallbackSet()->GetOrCreateInnerVisibleAreaChange()->ratios = ratios;
     }
 }
 
 void EventHub::CleanVisibleAreaCallback(bool isUser, bool isThrottled)
 {
+    CHECK_NULL_VOID(visibleAreaChangeCallbackSet_);
     if (!isUser) {
-        visibleAreaInnerRatios_.clear();
-        visibleAreaInnerCallback_.callback = nullptr;
+        CHECK_NULL_VOID(visibleAreaChangeCallbackSet_->innerVisibleAreaChange);
+        visibleAreaChangeCallbackSet_->innerVisibleAreaChange->ratios.clear();
+        visibleAreaChangeCallbackSet_->innerVisibleAreaChange->callbackInfo.callback = nullptr;
     } else if (isThrottled) {
-        throttledVisibleAreaRatios_.clear();
-        throttledVisibleAreaCallback_.callback = nullptr;
+        CHECK_NULL_VOID(visibleAreaChangeCallbackSet_->throttledVisibleAreaChange);
+        visibleAreaChangeCallbackSet_->throttledVisibleAreaChange->ratios.clear();
+        visibleAreaChangeCallbackSet_->throttledVisibleAreaChange->callbackInfo.callback = nullptr;
     } else {
-        visibleAreaUserRatios_.clear();
-        visibleAreaUserCallback_.callback = nullptr;
+        CHECK_NULL_VOID(visibleAreaChangeCallbackSet_->userVisibleAreaChange);
+        visibleAreaChangeCallbackSet_->userVisibleAreaChange->ratios.clear();
+        visibleAreaChangeCallbackSet_->userVisibleAreaChange->callbackInfo.callback = nullptr;
     }
 }
 
 bool EventHub::HasVisibleAreaCallback(bool isUser)
 {
+    CHECK_NULL_RETURN(visibleAreaChangeCallbackSet_, false);
     if (isUser) {
-        return static_cast<bool>(visibleAreaUserCallback_.callback);
+        CHECK_NULL_RETURN(visibleAreaChangeCallbackSet_->userVisibleAreaChange, false);
+        return static_cast<bool>(visibleAreaChangeCallbackSet_->userVisibleAreaChange->callbackInfo.callback);
     } else {
-        return static_cast<bool>(visibleAreaInnerCallback_.callback);
+        CHECK_NULL_RETURN(visibleAreaChangeCallbackSet_->innerVisibleAreaChange, false);
+        return static_cast<bool>(visibleAreaChangeCallbackSet_->innerVisibleAreaChange->callbackInfo.callback);
     }
 }
 
 bool EventHub::HasThrottledVisibleAreaCallback() const
 {
-    return static_cast<bool>(throttledVisibleAreaCallback_.callback);
+    CHECK_NULL_RETURN(visibleAreaChangeCallbackSet_, false);
+    CHECK_NULL_RETURN(visibleAreaChangeCallbackSet_->throttledVisibleAreaChange, false);
+    return static_cast<bool>(visibleAreaChangeCallbackSet_->throttledVisibleAreaChange->callbackInfo.callback);
 }
 
 void EventHub::HandleOnAreaChange(const std::unique_ptr<RectF>& lastFrameRect,
@@ -1142,35 +1287,53 @@ void EventHub::FireUntriggeredInnerOnAreaChanged(
 
 void EventHub::FireDrawCompletedNDKCallback(PipelineContext* pipeline)
 {
-    if (ndkDrawCompletedCallback_) {
-        if (!pipeline) {
-            TAG_LOGW(AceLogTag::ACE_UIEVENT, "can not fire draw callback, pipeline is null");
-            return;
-        }
-        auto executor = pipeline->GetTaskExecutor();
-        if (!executor) {
-            TAG_LOGW(AceLogTag::ACE_UIEVENT, "can not fire draw callback, executor is null");
-            return;
-        }
-        auto cb = ndkDrawCompletedCallback_;
-        executor->PostTask(std::move(cb), TaskExecutor::TaskType::UI, "FireDrawCompletedNDKCallback");
+    if (!ndkDrawCompletedCallback_) {
+        return;
     }
+    if (pipeline == nullptr) {
+        TAG_LOGW(AceLogTag::ACE_UIEVENT, "can not fire draw callback, pipeline is null");
+        return;
+    }
+    auto executor = pipeline->GetTaskExecutor();
+    if (executor == nullptr) {
+        TAG_LOGW(AceLogTag::ACE_UIEVENT, "can not fire draw callback, executor is null");
+        return;
+    }
+    executor->PostTask(
+        [weak = WeakClaim(this)]() {
+            auto eventHub = weak.Upgrade();
+            CHECK_NULL_VOID(eventHub);
+            auto cb = eventHub->ndkDrawCompletedCallback_;
+            if (cb) {
+                cb();
+            }
+        },
+        TaskExecutor::TaskType::UI, "FireDrawCompletedNDKCallback");
 }
 
-void EventHub::FireLayoutNDKCallback(PipelineContext* pipeline)
+void EventHub::FireLayoutNDKCallback(const PipelineContext* pipeline)
 {
-    if (ndkLayoutCallback_) {
-        if (!pipeline) {
-            TAG_LOGW(AceLogTag::ACE_UIEVENT, "can not fire layout callback, pipeline is null");
-            return;
-        }
-        auto executor = pipeline->GetTaskExecutor();
-        if (!executor) {
-            TAG_LOGW(AceLogTag::ACE_UIEVENT, "can not fire layout callback, executor is null");
-            return;
-        }
-        auto cb = ndkLayoutCallback_;
-        executor->PostTask(std::move(cb), TaskExecutor::TaskType::UI, "FireLayoutNDKCallback");
+    if (!ndkLayoutCallback_) {
+        return;
     }
+    if (!pipeline) {
+        TAG_LOGW(AceLogTag::ACE_UIEVENT, "can not fire layout callback, pipeline is null");
+        return;
+    }
+    auto executor = pipeline->GetTaskExecutor();
+    if (!executor) {
+        TAG_LOGW(AceLogTag::ACE_UIEVENT, "can not fire layout callback, executor is null");
+        return;
+    }
+    executor->PostTask(
+        [weak = WeakClaim(this)]() {
+            auto eventHub = weak.Upgrade();
+            CHECK_NULL_VOID(eventHub);
+            auto cb = eventHub->ndkLayoutCallback_;
+            if (cb) {
+                cb();
+            }
+        },
+        TaskExecutor::TaskType::UI, "FireLayoutNDKCallback");
 }
 } // namespace OHOS::Ace::NG

@@ -35,18 +35,22 @@ struct ImagePaintMethodConfig {
     RefPtr<ImageOverlayModifier> imageOverlayModifier;
     RefPtr<ImageContentModifier> imageContentModifier;
     ImageInterpolation interpolation = ImageInterpolation::NONE;
+    ContentTransitionType contentTransitionType = ContentTransitionType::IDENTITY;
 };
 
 class ACE_EXPORT ImagePaintMethod : public NodePaintMethod {
-    DECLARE_ACE_TYPE(ImagePaintMethod, NodePaintMethod)
+    DECLARE_ACE_TYPE(ImagePaintMethod, NodePaintMethod);
 public:
     explicit ImagePaintMethod(
         const RefPtr<CanvasImage>& canvasImage, const ImagePaintMethodConfig& imagePainterMethodConfig = {})
         : selected_(imagePainterMethodConfig.selected), sensitive_(imagePainterMethodConfig.sensitive),
-          canvasImage_(canvasImage), interpolationDefault_(imagePainterMethodConfig.interpolation),
+          interpolationDefault_(imagePainterMethodConfig.interpolation),
           imageOverlayModifier_(imagePainterMethodConfig.imageOverlayModifier),
-          imageContentModifier_(imagePainterMethodConfig.imageContentModifier)
-    {}
+          imageContentModifier_(imagePainterMethodConfig.imageContentModifier),
+          contentTransitionType_(imagePainterMethodConfig.contentTransitionType)
+    {
+        UpdateCanvasImage(canvasImage);
+    }
     ~ImagePaintMethod() override = default;
 
     RefPtr<Modifier> GetOverlayModifier(PaintWrapper* paintWrapper) override;
@@ -56,19 +60,23 @@ public:
     void UpdateContentModifier(PaintWrapper* paintWrapper) override;
     void UpdatePaintMethod(
         const RefPtr<CanvasImage>& canvasImage, const ImagePaintMethodConfig& imagePainterMethodConfig = {});
+    bool NeedsContentTransition();
 
 private:
     void UpdatePaintConfig(PaintWrapper* paintWrapper);
     void UpdateBorderRadius(PaintWrapper* paintWrapper, ImageDfxConfig& imageDfxConfig);
+    void UpdateCanvasImage(const RefPtr<CanvasImage>& canvasImage);
 
     bool selected_ = false;
     bool sensitive_ = false;
+    bool needContentTransition_ = false;
 
     RefPtr<CanvasImage> canvasImage_;
     ImageInterpolation interpolationDefault_ = ImageInterpolation::NONE;
 
     RefPtr<ImageOverlayModifier> imageOverlayModifier_;
     RefPtr<ImageContentModifier> imageContentModifier_;
+    ContentTransitionType contentTransitionType_ = ContentTransitionType::IDENTITY;
 
     ACE_DISALLOW_COPY_AND_MOVE(ImagePaintMethod);
 };

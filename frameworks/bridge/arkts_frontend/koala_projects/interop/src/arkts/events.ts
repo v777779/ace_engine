@@ -9,7 +9,7 @@ import { KBuffer } from "./NativeBuffer"
 const API_KIND_MAX = 100
 const apiEventHandlers = new Array<EventHandler | undefined>(API_KIND_MAX).fill(undefined)
 export type EventHandler = (deserializer: DeserializerBase) => void
-export function registerApiEventHandler(apiKind: int32, handler: EventHandler) {
+export function registerApiEventHandler(apiKind: int32, handler: EventHandler): void {
     if (apiKind < 0 || apiKind > API_KIND_MAX) {
         throw new Error(`Maximum api kind is ${API_KIND_MAX}, received ${apiKind}`)
     }
@@ -52,10 +52,11 @@ const deserializer = new DeserializerBase(buffer.buffer, bufferSize)
 function checkSingleEvent(): boolean {
     deserializer.resetCurrentPosition()
     let result = InteropNativeModule._CheckCallbackEvent(buffer.buffer, bufferSize)
-    if (result == 0)
+    if (result === 0) {
         return false
+    }
 
-    const eventKind = deserializer.readInt32() as CallbackEventKind
+    const eventKind = CallbackEventKind.fromValue(deserializer.readInt32())
     switch (eventKind) {
         case CallbackEventKind.Event_CallCallback: {
             const apiKind = deserializer.readInt32()

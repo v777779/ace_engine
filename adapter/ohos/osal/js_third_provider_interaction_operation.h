@@ -75,6 +75,8 @@ public:
     void SetChildTreeIdAndWinId(
         const int64_t nodeId, const int32_t treeId, const int32_t childWindowId) override;
     void SetBelongTreeId(const int32_t treeId) override;
+    void FocusMoveSearchWithCondition(const AccessibilityElementInfo& info, const AccessibilityFocusMoveParam param,
+        const int32_t requestId, AccessibilityElementOperatorCallback &callback) override;
     int32_t SendAccessibilityAsyncEvent(
         const ArkUI_AccessibilityEventInfo& nativeAccessibilityEvent,
         void (*callback)(int32_t errorCode)) override;
@@ -99,6 +101,14 @@ public:
         return belongTreeId_;
     }
 
+    static void FillNodeConfig(const NodeConfig& config, Accessibility::AccessibilityElementInfo& info);
+
+    static bool FindNativeInfoById(
+        const WeakPtr<AccessibilityProvider>& accessibilityProvider,
+        int64_t splitElementId,
+        std::shared_ptr<ArkUI_AccessibilityElementInfo>& nativeInfo);
+
+    void CheckAndSendHoverEnterByReadableRules(int64_t thirdElementId);
 private:
     void GetHostRectTranslateInfo(NodeConfig& config);
     void GetNodeConfig(NodeConfig& nodeConfig);
@@ -155,6 +165,8 @@ private:
         const ArkUI_AccessibilityEventInfo& nativeAccessibilityEvent,
         Accessibility::AccessibilityEventInfo& accessibilityEventInfo);
     void HandleActionWhenFindNodeFail(const int32_t action);
+
+    int32_t GetParentWindowId();
 
     WeakPtr<AccessibilityProvider> accessibilityProvider_;
     WeakPtr<JsAccessibilityManager> jsAccessibilityManager_;

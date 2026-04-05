@@ -95,7 +95,7 @@ RefPtr<SelectOverlayProxy> SelectOverlayManager::CreateAndShowSelectOverlay(
                 node->ShowSelectOverlay(animation);
             }
         },
-        TaskExecutor::TaskType::UI, "ArkUISelectOverlayShow", PriorityType::VIP);
+        TaskExecutor::TaskType::UI, "ArkUISelectOverlayShow");
 
     auto proxy = MakeRefPtr<SelectOverlayProxy>(selectOverlayNode->GetId());
     return proxy;
@@ -277,12 +277,21 @@ void SelectOverlayManager::HandleGlobalEvent(
         point.SetX(lastTouchDownPoint.x - rootOffset.GetX());
         point.SetY(lastTouchDownPoint.y - rootOffset.GetY());
     }
-
     // handle global mouse event.
     if ((touchPoint.type != TouchType::DOWN || touchPoint.sourceType != SourceType::MOUSE) && !acceptTouchUp) {
         return;
     }
-    if (EventInfoConvertor::MatchCompatibleCondition() &&
+
+    auto emulateTouchFromMouseEvent = false;
+    auto host = host_.Upgrade();
+    if (host) {
+        auto pattern = DynamicCast<Pattern>(host);
+        if (pattern) {
+            emulateTouchFromMouseEvent = pattern->GetEmulateTouchFromMouseEvent();
+        }
+    }
+
+    if ((EventInfoConvertor::MatchCompatibleCondition() || emulateTouchFromMouseEvent) &&
         (touchPoint.type == TouchType::DOWN && touchPoint.sourceType == SourceType::MOUSE) && !acceptTouchUp) {
         return;
     }
@@ -458,6 +467,12 @@ void SelectOverlayManager::OnFontChanged()
     auto contentOverlayManager = GetSelectContentOverlayManager();
     CHECK_NULL_VOID(contentOverlayManager);
     contentOverlayManager->NotifyUpdateToolBar(true);
+}
+
+int32_t SelectOverlayManager::GetTextSelectionHolderId()
+{
+    CHECK_NULL_RETURN(selectContentManager_, -1);
+    return selectContentManager_->GetTextSelectionHolderId();
 }
 
 SelectOverlayManager::~SelectOverlayManager()

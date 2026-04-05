@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,6 +23,7 @@
 #include "core/components_ng/pattern/divider/divider_pattern.h"
 #include "core/components_ng/pattern/stack/stack_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
+#include "core/components_ng/pattern/time_picker/bridge/timepicker_util.h"
 #include "core/components_ng/pattern/time_picker/timepicker_event_hub.h"
 #include "core/components_ng/pattern/time_picker/timepicker_layout_property.h"
 #include "core/components_ng/pattern/time_picker/timepicker_row_pattern.h"
@@ -32,15 +33,17 @@ namespace {
 const int32_t DIVIDER_ROWS_THREE = 3;
 const int32_t MARGIN_HALF = 2;
 const int32_t BUFFER_NODE_NUMBER = 2;
-constexpr Dimension PICKER_DIALOG_MARGIN_FORM_EDGE = 24.0_vp;
-constexpr Dimension TITLE_BUTTON_HEIGHT = 32.0_vp;
 constexpr size_t ACCEPT_BUTTON_INDEX = 0;
 constexpr size_t CANCEL_BUTTON_INDEX = 1;
 } // namespace
 thread_local bool TimePickerDialogView::switchFlag_ = false;
+thread_local bool TimePickerDialogView::useButtonFocusArea_ = false;
 thread_local Dimension TimePickerDialogView::selectedTextStyleFont_ = 40.0_fp;
 thread_local Dimension TimePickerDialogView::normalTextStyleFont_ = 32.0_fp;
 thread_local Dimension TimePickerDialogView::disappearTextStyleFont_ = 28.0_fp;
+thread_local Dimension TimePickerDialogView::pickerDialogMargin_ = 24.0_vp;
+thread_local Dimension TimePickerDialogView::pickerTitleHeight_ = 32.0_vp;
+thread_local Color TimePickerDialogView::buttonColor_ = Color::TRANSPARENT;
 
 RefPtr<FrameNode> TimePickerDialogView::Show(const DialogProperties& dialogProperties,
     const TimePickerSettingData& settingData, const std::vector<ButtonInfo>& buttonInfos,
@@ -49,12 +52,12 @@ RefPtr<FrameNode> TimePickerDialogView::Show(const DialogProperties& dialogPrope
 {
     auto isNeedAging = (NeedAdaptForAging() && (!settingData.isUseMilitaryTime));
     GetUserSettingLimit();
-    auto contentColumn = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
-        AceType::MakeRefPtr<LinearLayoutPattern>(true));
+    auto contentColumn = FrameNode::CreateFrameNode(TimePickerUtil::COLUMN_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<LinearLayoutPattern>(true));
     auto timeNodeId = ElementRegister::GetInstance()->MakeUniqueId();
-    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::TIME_PICKER_ETS_TAG, timeNodeId);
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", TimePickerUtil::TIME_PICKER_ETS_TAG, timeNodeId);
     auto timePickerNode = FrameNode::GetOrCreateFrameNode(
-        V2::TIME_PICKER_ETS_TAG, timeNodeId, []() { return AceType::MakeRefPtr<TimePickerRowPattern>(); });
+        TimePickerUtil::TIME_PICKER_ETS_TAG, timeNodeId, []() { return AceType::MakeRefPtr<TimePickerRowPattern>(); });
     ViewStackProcessor::GetInstance()->Push(timePickerNode);
     auto context = timePickerNode->GetContext();
     CHECK_NULL_RETURN(context, nullptr);
@@ -69,6 +72,7 @@ RefPtr<FrameNode> TimePickerDialogView::Show(const DialogProperties& dialogPrope
     auto timePickerRowPattern = timePickerNode->GetPattern<TimePickerRowPattern>();
     CHECK_NULL_RETURN(timePickerRowPattern, nullptr);
     timePickerRowPattern->SetIsShowInDialog(true);
+    timePickerRowPattern->SetIsShowInSubwindow(dialogProperties.isShowInSubWindow);
     timePickerRowPattern->SetShowCount(showCount);
     timePickerRowPattern->SetBackgroundColor(dialogTheme->GetBackgroundColor());
     timePickerRowPattern->SetTextProperties(settingData.properties);
@@ -86,6 +90,11 @@ RefPtr<FrameNode> TimePickerDialogView::Show(const DialogProperties& dialogPrope
         timePickerLayout->UpdatePrefixMinute(static_cast<int32_t>(minuteOptions));
     }
 
+    auto language = AceApplicationInfo::GetInstance().GetLanguage();
+    if (language == "ar") {
+        timePickerLayout->UpdateLayoutDirection(TextDirection::LTR);
+    }
+
     auto hasHourNode = timePickerRowPattern->HasHourNode();
     auto hasMinuteNode = timePickerRowPattern->HasMinuteNode();
 
@@ -93,12 +102,12 @@ RefPtr<FrameNode> TimePickerDialogView::Show(const DialogProperties& dialogPrope
     auto minuteId = timePickerRowPattern->GetMinuteId();
 
     auto hourColumnNode = FrameNode::GetOrCreateFrameNode(
-        V2::COLUMN_ETS_TAG, hourId, []() { return AceType::MakeRefPtr<TimePickerColumnPattern>(); });
+        TimePickerUtil::COLUMN_ETS_TAG, hourId, []() { return AceType::MakeRefPtr<TimePickerColumnPattern>(); });
     CHECK_NULL_RETURN(hourColumnNode, nullptr);
     if (!hasHourNode) {
         for (uint32_t index = 0; index < showCount; index++) {
-            auto textNode = FrameNode::CreateFrameNode(
-                V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+            auto textNode = FrameNode::CreateFrameNode(TimePickerUtil::TEXT_ETS_TAG,
+                ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
             CHECK_NULL_RETURN(textNode, nullptr);
             textNode->MountToParent(hourColumnNode);
         }
@@ -107,12 +116,12 @@ RefPtr<FrameNode> TimePickerDialogView::Show(const DialogProperties& dialogPrope
     }
 
     auto minuteColumnNode = FrameNode::GetOrCreateFrameNode(
-        V2::COLUMN_ETS_TAG, minuteId, []() { return AceType::MakeRefPtr<TimePickerColumnPattern>(); });
+        TimePickerUtil::COLUMN_ETS_TAG, minuteId, []() { return AceType::MakeRefPtr<TimePickerColumnPattern>(); });
     CHECK_NULL_RETURN(minuteColumnNode, nullptr);
     if (!hasMinuteNode) {
         for (uint32_t index = 0; index < showCount; index++) {
-            auto textNode = FrameNode::CreateFrameNode(
-                V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+            auto textNode = FrameNode::CreateFrameNode(TimePickerUtil::TEXT_ETS_TAG,
+                ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
             CHECK_NULL_RETURN(textNode, nullptr);
             textNode->MountToParent(minuteColumnNode);
         }
@@ -186,8 +195,8 @@ RefPtr<FrameNode> TimePickerDialogView::Show(const DialogProperties& dialogPrope
     CHECK_NULL_RETURN(timePickerLayoutProperty, nullptr);
 
     MarginProperty margin;
-    margin.left = CalcLength(PICKER_DIALOG_MARGIN_FORM_EDGE);
-    margin.right = CalcLength(PICKER_DIALOG_MARGIN_FORM_EDGE);
+    margin.left = CalcLength(pickerDialogMargin_);
+    margin.right = CalcLength(pickerDialogMargin_);
     timePickerLayoutProperty->UpdateMargin(margin);
 
     buttonTitleNode->MountToParent(contentColumn);
@@ -283,11 +292,11 @@ RefPtr<FrameNode> TimePickerDialogView::CreateNextPrevButtonNode(std::function<v
     auto dialogTheme = pipeline->GetTheme<DialogTheme>();
     auto buttonTheme = pipeline->GetTheme<ButtonTheme>();
     auto pickerTheme = pipeline->GetTheme<PickerTheme>();
-    auto nextPrevButtonNode = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
+    auto nextPrevButtonNode = FrameNode::GetOrCreateFrameNode(TimePickerUtil::BUTTON_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     CHECK_NULL_RETURN(nextPrevButtonNode, nullptr);
-    auto textNextPrevNode = FrameNode::CreateFrameNode(
-        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+    auto textNextPrevNode = FrameNode::CreateFrameNode(TimePickerUtil::TEXT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
     CHECK_NULL_RETURN(textNextPrevNode, nullptr);
     auto textNextPrevLayoutProperty = textNextPrevNode->GetLayoutProperty<TextLayoutProperty>();
     CHECK_NULL_RETURN(textNextPrevLayoutProperty, nullptr);
@@ -377,21 +386,21 @@ RefPtr<FrameNode> TimePickerDialogView::CreateStackNode()
 {
     auto stackId = ElementRegister::GetInstance()->MakeUniqueId();
     return FrameNode::GetOrCreateFrameNode(
-        V2::STACK_ETS_TAG, stackId, []() { return AceType::MakeRefPtr<StackPattern>(); });
+        TimePickerUtil::STACK_ETS_TAG, stackId, []() { return AceType::MakeRefPtr<StackPattern>(); });
 }
 
 RefPtr<FrameNode> TimePickerDialogView::CreateColumnNode()
 {
     auto columnId = ElementRegister::GetInstance()->MakeUniqueId();
     return FrameNode::GetOrCreateFrameNode(
-        V2::COLUMN_ETS_TAG, columnId, []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
+        TimePickerUtil::COLUMN_ETS_TAG, columnId, []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
 }
 
 RefPtr<FrameNode> TimePickerDialogView::CreateButtonNode()
 {
     auto buttonId = ElementRegister::GetInstance()->MakeUniqueId();
     return FrameNode::GetOrCreateFrameNode(
-        V2::BUTTON_ETS_TAG, buttonId, []() { return AceType::MakeRefPtr<ButtonPattern>(); });
+        TimePickerUtil::BUTTON_ETS_TAG, buttonId, []() { return AceType::MakeRefPtr<ButtonPattern>(); });
 }
 
 RefPtr<FrameNode> TimePickerDialogView::CreateDividerNode(const RefPtr<FrameNode>& dateNode, bool isCreateDivider)
@@ -408,7 +417,7 @@ RefPtr<FrameNode> TimePickerDialogView::CreateDividerNode(const RefPtr<FrameNode
         dividerNodeId = pickerPattern->GetDividerId();
     }
     auto dividerNode = FrameNode::GetOrCreateFrameNode(
-        V2::DIVIDER_ETS_TAG, dividerNodeId, []() { return AceType::MakeRefPtr<DividerPattern>(); });
+        TimePickerUtil::DIVIDER_ETS_TAG, dividerNodeId, []() { return AceType::MakeRefPtr<DividerPattern>(); });
     CHECK_NULL_RETURN(dividerNode, nullptr);
 
     auto dividerPaintProps = dividerNode->GetPaintProperty<DividerRenderProperty>();
@@ -430,7 +439,7 @@ RefPtr<FrameNode> TimePickerDialogView::CreateDividerNode(const RefPtr<FrameNode
             CalcSize(CalcLength(dialogTheme->GetDividerWidth()), CalcLength(dialogTheme->GetDividerHeight())));
     } else {
         auto buttonTheme = pipeline->GetTheme<ButtonTheme>();
-        auto dividerWrapper = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG,
+        auto dividerWrapper = FrameNode::CreateFrameNode(TimePickerUtil::COLUMN_ETS_TAG,
             ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<LinearLayoutPattern>(false));
         CHECK_NULL_RETURN(dividerWrapper, nullptr);
         auto layoutProps = dividerWrapper->GetLayoutProperty<LinearLayoutProperty>();
@@ -454,11 +463,11 @@ RefPtr<FrameNode> TimePickerDialogView::CreateTitleButtonNode(const RefPtr<Frame
     auto pickerTheme = pipeline->GetTheme<PickerTheme>();
     auto pickerPattern = dateNode->GetPattern<TimePickerRowPattern>();
     CHECK_NULL_RETURN(pickerPattern, nullptr);
-    auto buttonTitleNode = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
+    auto buttonTitleNode = FrameNode::GetOrCreateFrameNode(TimePickerUtil::BUTTON_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     auto textTitleNodeId = pickerPattern->GetTitleId();
     auto textTitleNode =
-        FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, textTitleNodeId, AceType::MakeRefPtr<TextPattern>());
+        FrameNode::CreateFrameNode(TimePickerUtil::TEXT_ETS_TAG, textTitleNodeId, AceType::MakeRefPtr<TextPattern>());
     CHECK_NULL_RETURN(textTitleNode, nullptr);
     auto textLayoutProperty = textTitleNode->GetLayoutProperty<TextLayoutProperty>();
     CHECK_NULL_RETURN(textLayoutProperty, nullptr);
@@ -480,12 +489,12 @@ RefPtr<FrameNode> TimePickerDialogView::CreateTitleButtonNode(const RefPtr<Frame
     MarginProperty margin;
     margin.left = CalcLength(dialogTheme->GetDividerPadding().Left());
     margin.right = CalcLength(dialogTheme->GetDividerPadding().Right());
-    margin.top = CalcLength(dialogTheme->GetDividerHeight() / MARGIN_HALF);
-    margin.bottom = CalcLength(dialogTheme->GetDividerHeight() / MARGIN_HALF);
+    margin.top = CalcLength(pickerTheme->GetTimePickerTitleMarginTop() / MARGIN_HALF);
+    margin.bottom = CalcLength(pickerTheme->GetTimePickerTitleMarginBottom() / MARGIN_HALF);
     buttonTitleNode->GetLayoutProperty()->UpdateMargin(margin);
     if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWELVE)) {
         buttonTitleNode->GetLayoutProperty()->UpdateUserDefinedIdealSize(
-            CalcSize(std::nullopt, CalcLength(TITLE_BUTTON_HEIGHT)));
+            CalcSize(std::nullopt, CalcLength(pickerTitleHeight_)));
     }
     textTitleNode->MountToParent(buttonTitleNode);
     return buttonTitleNode;
@@ -497,8 +506,8 @@ RefPtr<FrameNode> TimePickerDialogView::CreateButtonNode(const RefPtr<FrameNode>
 {
     auto acceptEvent = dialogEvent["acceptId"];
     auto cancelEvent = dialogCancelEvent["cancelId"];
-    auto contentRow = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
-        AceType::MakeRefPtr<LinearLayoutPattern>(false));
+    auto contentRow = FrameNode::CreateFrameNode(TimePickerUtil::COLUMN_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<LinearLayoutPattern>(false));
 
     CHECK_NULL_RETURN(contentRow, nullptr);
     auto layoutProps = contentRow->GetLayoutProperty<LinearLayoutProperty>();
@@ -519,8 +528,8 @@ RefPtr<FrameNode> TimePickerDialogView::CreateButtonNodeForAging(const RefPtr<Fr
 {
     auto acceptEvent = dialogEvent["acceptId"];
     auto cancelEvent = dialogCancelEvent["cancelId"];
-    auto contentRow = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
-        AceType::MakeRefPtr<LinearLayoutPattern>(false));
+    auto contentRow = FrameNode::CreateFrameNode(TimePickerUtil::COLUMN_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<LinearLayoutPattern>(false));
 
     CHECK_NULL_RETURN(contentRow, nullptr);
     auto layoutProps = contentRow->GetLayoutProperty<LinearLayoutProperty>();
@@ -653,10 +662,10 @@ RefPtr<FrameNode> TimePickerDialogView::CreateConfirmNode(const RefPtr<FrameNode
     auto dialogTheme = pipeline->GetTheme<DialogTheme>();
     auto pickerTheme = pipeline->GetTheme<PickerTheme>();
 
-    auto buttonConfirmNode = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
+    auto buttonConfirmNode = FrameNode::GetOrCreateFrameNode(TimePickerUtil::BUTTON_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
-    auto textConfirmNode = FrameNode::CreateFrameNode(
-        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+    auto textConfirmNode = FrameNode::CreateFrameNode(TimePickerUtil::TEXT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
     CHECK_NULL_RETURN(buttonConfirmNode, nullptr);
     CHECK_NULL_RETURN(textConfirmNode, nullptr);
     auto textLayoutProperty = textConfirmNode->GetLayoutProperty<TextLayoutProperty>();
@@ -672,7 +681,7 @@ RefPtr<FrameNode> TimePickerDialogView::CreateConfirmNode(const RefPtr<FrameNode
     CHECK_NULL_RETURN(buttonConfirmLayoutProperty, nullptr);
     UpdateButtonLayoutProperty(buttonConfirmLayoutProperty, pickerTheme);
     auto buttonConfirmRenderContext = buttonConfirmNode->GetRenderContext();
-    buttonConfirmRenderContext->UpdateBackgroundColor(Color::TRANSPARENT);
+    buttonConfirmRenderContext->UpdateBackgroundColor(buttonColor_);
     UpdateButtonStyles(buttonInfos, ACCEPT_BUTTON_INDEX, buttonConfirmLayoutProperty, buttonConfirmRenderContext);
     UpdateButtonDefaultFocus(buttonInfos, buttonConfirmNode, true);
 
@@ -741,7 +750,11 @@ void TimePickerDialogView::UpdateConfirmButtonTextLayoutProperty(
 {
     CHECK_NULL_VOID(textLayoutProperty);
     textLayoutProperty->UpdateContent(GetDialogNormalButtonText(true));
-    textLayoutProperty->UpdateTextColor(pickerTheme->GetOptionStyle(true, false).GetTextColor());
+    if (useButtonFocusArea_) {
+        textLayoutProperty->UpdateTextColor(pickerTheme->GetTitleStyle().GetTextColor());
+    } else {
+        textLayoutProperty->UpdateTextColor(pickerTheme->GetOptionStyle(true, false).GetTextColor());
+    }
     if (!NeedAdaptForAging()) {
         textLayoutProperty->UpdateMaxFontScale(pickerTheme->GetNormalFontScale());
     }
@@ -772,11 +785,11 @@ RefPtr<FrameNode> TimePickerDialogView::CreateCancelNode(NG::DialogGestureEvent&
     auto dialogTheme = pipeline->GetTheme<DialogTheme>();
     auto buttonTheme = pipeline->GetTheme<ButtonTheme>();
     auto pickerTheme = pipeline->GetTheme<PickerTheme>();
-    auto buttonCancelNode = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
+    auto buttonCancelNode = FrameNode::GetOrCreateFrameNode(TimePickerUtil::BUTTON_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     CHECK_NULL_RETURN(buttonCancelNode, nullptr);
-    auto textCancelNode = FrameNode::CreateFrameNode(
-        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+    auto textCancelNode = FrameNode::CreateFrameNode(TimePickerUtil::TEXT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
     CHECK_NULL_RETURN(textCancelNode, nullptr);
     auto textCancelLayoutProperty = textCancelNode->GetLayoutProperty<TextLayoutProperty>();
     CHECK_NULL_RETURN(textCancelLayoutProperty, nullptr);
@@ -811,7 +824,7 @@ RefPtr<FrameNode> TimePickerDialogView::CreateCancelNode(NG::DialogGestureEvent&
     }
 
     auto buttonCancelRenderContext = buttonCancelNode->GetRenderContext();
-    buttonCancelRenderContext->UpdateBackgroundColor(Color::TRANSPARENT);
+    buttonCancelRenderContext->UpdateBackgroundColor(buttonColor_);
     UpdateButtonStyles(buttonInfos, CANCEL_BUTTON_INDEX, buttonCancelLayoutProperty, buttonCancelRenderContext);
     UpdateButtonDefaultFocus(buttonInfos, buttonCancelNode, false);
     buttonCancelNode->MarkModifyDone();
@@ -823,7 +836,11 @@ void TimePickerDialogView::UpdateCancelButtonTextLayoutProperty(
 {
     CHECK_NULL_VOID(textCancelLayoutProperty);
     textCancelLayoutProperty->UpdateContent(GetDialogNormalButtonText(false));
-    textCancelLayoutProperty->UpdateTextColor(pickerTheme->GetOptionStyle(true, false).GetTextColor());
+    if (useButtonFocusArea_) {
+        textCancelLayoutProperty->UpdateTextColor(pickerTheme->GetTitleStyle().GetTextColor());
+    } else {
+        textCancelLayoutProperty->UpdateTextColor(pickerTheme->GetOptionStyle(true, false).GetTextColor());
+    }
     if (!NeedAdaptForAging()) {
         textCancelLayoutProperty->UpdateMaxFontScale(pickerTheme->GetNormalFontScale());
     }
@@ -1206,6 +1223,10 @@ void TimePickerDialogView::GetUserSettingLimit()
     selectedTextStyleFont_ = pickerTheme->GetUseSetSelectedTextStyle();
     normalTextStyleFont_ = pickerTheme->GetUserSetNormalTextStyle();
     disappearTextStyleFont_ = pickerTheme->GetUserSetDisappearTextStyle();
+    pickerDialogMargin_ = pickerTheme->GetPickerDialogMargin();
+    buttonColor_ = pickerTheme->GetButtonColor();
+    useButtonFocusArea_ = pickerTheme->NeedButtonFocusAreaType();
+    pickerTitleHeight_ = pickerTheme->GetPickerTitleHeight();
 }
 
 void TimePickerDialogView::SetEnableCascade(

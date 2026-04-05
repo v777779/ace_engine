@@ -62,24 +62,10 @@ public:
         return mode_;
     }
 
-
 private:
     RefPtr<ClickEvent> clickListener_;
     RefPtr<RouteInfo> routeInfo_;
     NavRouteMode mode_ = NavRouteMode::PUSH_WITH_RECREATE;
-
-    const std::string NavRouteModeToString(const NavRouteMode& mode) const {
-        switch (mode) {
-            case NavRouteMode::PUSH_WITH_RECREATE:
-                return "NavRouteMode.PUSH_WITH_RECREATE";
-            case NavRouteMode::PUSH:
-                return "NavRouteMode.PUSH";
-            case NavRouteMode::REPLACE:
-                return "NavRouteMode.REPLACE";
-            default:
-                return "";
-        }
-    }
 };
 } // namespace OHOS::Ace::NG
 

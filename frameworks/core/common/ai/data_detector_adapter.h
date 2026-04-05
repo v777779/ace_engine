@@ -29,6 +29,7 @@
 #include "core/components_v2/inspector/utils.h"
 
 #include "frameworks/core/components/common/layout/constants.h"
+#include "frameworks/core/common/statistic_event_reporter.h"
 namespace OHOS::AAFwk {
 class Want;
 class WantParams;
@@ -39,16 +40,36 @@ namespace OHOS::Ace {
 namespace NG {
 class TextPattern;
 class RichEditorPattern;
+class TextFieldPattern;
 }
+
+static const std::unordered_map<TextDataDetectType, StatisticEventType> REPORT_TYPE_MAP = {
+    { TextDataDetectType::PHONE_NUMBER, StatisticEventType::CLICK_AI_MENU_PHONE_NUMBER },
+    { TextDataDetectType::URL, StatisticEventType::CLICK_AI_MENU_URL },
+    { TextDataDetectType::EMAIL, StatisticEventType::CLICK_AI_MENU_EMAIL },
+    { TextDataDetectType::ADDRESS, StatisticEventType::CLICK_AI_MENU_ADDRESS },
+    { TextDataDetectType::DATE_TIME, StatisticEventType::CLICK_AI_MENU_DATE_TIME },
+    { TextDataDetectType::ASK_CELIA, StatisticEventType::CLICK_AI_MENU_ASK_CELIA },
+};
 
 struct AISpan {
     int32_t start = 0;
     int32_t end = 0;
     std::string content = "";
     TextDataDetectType type = TextDataDetectType::INVALID;
+    std::map<std::string, std::string> params;
     bool operator==(const AISpan& span) const
     {
         return start == span.start && end == span.end && content == span.content && type == span.type;
+    }
+    std::string ToString()
+    {
+        std::stringstream ss;
+        ss << "start: " << start << ",";
+        ss << "end: " << end << ",";
+        ss << "content: " << content << ",";
+        ss << "type: " << static_cast<int>(type) << "\n";
+        return ss.str();
     }
 };
 class DataDetectorAdapter : public AceType {
@@ -75,13 +96,13 @@ public:
     }
     bool ParseOriText(const std::unique_ptr<JsonValue>& entityJson, std::u16string& text);
     void PreprocessTextDetect();
-    void InitTextDetect(int32_t startPos, std::string detectText);
-    void HandleTextUrlDetect();
+    void InitTextDetect(int32_t startPos, std::string detectText, uint64_t taskId = 0);
+    void HandleTextUrlDetect(uint64_t taskId);
     void HandleUrlResult(std::vector<UrlEntity> urlEntities);
     void SetTextDetectTypes(const std::string& types);
     void ParseAIResult(const TextDataDetectResult& result, int32_t startPos);
     void ParseAIJson(const std::unique_ptr<JsonValue>& jsonValue, TextDataDetectType type, int32_t startPos);
-    void StartAITask();
+    ACE_FORCE_EXPORT void StartAITask(bool clearAISpanMap = true, bool isSelectDetect = false);
     void CancelAITask()
     {
         if (aiDetectDelayTask_) {
@@ -98,16 +119,29 @@ public:
         const AISpan& aiSpan, const NG::RectF& aiRect, const RefPtr<NG::FrameNode>& targetNode, AIMenuInfo info);
     bool GetAiEntityMenuOptions(const AISpan& aiSpan, const RefPtr<NG::FrameNode>& targetNode, AIMenuInfo info,
         std::vector<std::pair<std::string, std::function<void()>>>& menuOptions);
-    RefPtr<NG::FrameNode> CreateAIEntityMenu(
+    ACE_FORCE_EXPORT RefPtr<NG::FrameNode> CreateAIEntityMenu(
         const AISpan& aiSpan, const RefPtr<NG::FrameNode>& targetNode, AIMenuInfo info);
-    void ResponseBestMatchItem(const AISpan& aiSpan);
-    void GetAIEntityMenu();
+    ACE_FORCE_EXPORT void ResponseBestMatchItem(const AISpan& aiSpan);
+    ACE_FORCE_EXPORT void GetAIEntityMenu();
     void MarkDirtyNode() const;
+    void SetParseSelectAIResCallBack(std::function<void()>&& task);
+    void ParseSelectAIResult();
+    void SetUpdateAISelectMenuCallBack(std::function<void()>&& task);
+    void UpdateAISelectMenu();
+    void SelectAIDetect(const std::u16string& targetDetectText);
+    bool CheckTaskId(uint64_t taskId)
+    {
+        return taskId == taskId_;
+    }
+    bool IsAskCeliaSupported();
+    void ReportStatisticEvent(const RefPtr<NG::PipelineContext>& pipeline, TextDataDetectType type);
+
 private:
     friend class NG::TextPattern;
     friend class NG::RichEditorPattern;
+    friend class NG::TextFieldPattern;
 
-    std::function<void()> GetDetectDelayTask(const std::map<int32_t, AISpan>& aiSpanMap);
+    std::function<void()> GetDetectDelayTask(const std::map<int32_t, AISpan>& aiSpanMap, uint64_t taskId);
     std::function<void()> GetPreviewMenuOptionCallback(TextDataDetectType type, const std::string& content);
     void OnClickAIMenuOption(const AISpan& aiSpan, const std::pair<std::string, FuncVariant>& menuOption,
         const RefPtr<NG::FrameNode>& targetNode = nullptr);
@@ -141,6 +175,9 @@ private:
     std::optional<Color> entityDecorationColor_;
     std::optional<TextDecorationStyle> entityDecorationStyle_;
     std::string textDetectConfigStr_;
+    std::function<void()> parseSelectAIResCallBack_ = nullptr;
+    std::function<void()> updateAISelectMenuCallBack_ = nullptr;
+    volatile uint64_t taskId_ = 0;
 };
 } // namespace OHOS::Ace
 

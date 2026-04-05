@@ -28,6 +28,7 @@
 namespace OHOS::Ace::NG {
 
 struct OptionParam;
+struct MenuParam;
 
 const std::string SelectOverlayRrightClickMenuWrapper = "select_overlay_right_click_menuWrapper";
 
@@ -45,6 +46,12 @@ enum class FrameNodeStatus {
     GONETOVISIBLE
 };
 
+enum class SubToolbarStatus {
+    UNEXPANDED,
+    EXPANDED,
+    NEEDEXPAND
+};
+
 enum class FrameNodeTrigger {
     SHOW,
     SHOWN,
@@ -53,7 +60,7 @@ enum class FrameNodeTrigger {
 };
 
 class ACE_EXPORT SelectOverlayNode : public FrameNode {
-    DECLARE_ACE_TYPE(SelectOverlayNode, FrameNode)
+    DECLARE_ACE_TYPE(SelectOverlayNode, FrameNode);
 public:
     explicit SelectOverlayNode(const RefPtr<Pattern>& pattern);
     ~SelectOverlayNode() override = default;
@@ -65,8 +72,11 @@ public:
     void UpdateToolBar(bool menuItemChanged, bool noAnimation = false);
 
     void UpdateMenuOptions(const std::shared_ptr<SelectOverlayInfo>& info);
+    void AddSubMenuItemByCreateMenuCallback(const std::shared_ptr<SelectOverlayInfo>& info, float maxWidth);
+    void UpdateSubMenuOptions(const std::shared_ptr<SelectOverlayInfo>& info);
 
-    void UpdateMenuInner(const std::shared_ptr<SelectOverlayInfo>& info, bool noAnimation = false);
+    void UpdateMenuInner(const std::shared_ptr<SelectOverlayInfo>& info, bool noAnimation = false,
+        bool isSubMenu = false);
 
     void SetSelectInfo(const std::string& selectInfo)
     {
@@ -91,6 +101,10 @@ public:
         return isDoingAnimation_;
     }
 
+    void SetSubToolbarStatus(SubToolbarStatus status);
+    SubToolbarStatus GetSubToolbarStatus();
+    void ProcessSubMenuOnHide();
+
     bool GetIsExtensionMenu()
     {
         return isExtensionMenu_;
@@ -102,16 +116,30 @@ public:
     void HideOrShowCirclesAndBackArrow(FrameNodeType type, float value);
 
     void SwitchToOverlayMode();
-    void UpdateSelectMenuBg();
+    void UpdateSelectMenuBg(const RefPtr<FrameNode>& caller);
     void AddCustomMenuCallbacks(const std::shared_ptr<SelectOverlayInfo>& info);
     void OnCustomSelectMenuAppear();
     void FireCustomMenuChangeEvent(bool isMenuShow);
     void OnDetachFromMainTree(bool recursive, PipelineContext* context) override;
     void UpdateToolBarFromMainWindow(bool menuItemChanged, bool noAnimation = false);
+    static int32_t ConvertToIntMenuId(const std::string& menuId);
+    static std::string ConvertToStrMenuId(int32_t menuId);
+    void GetDefaultButtonAndMenuWidth(float& maxWidth);
+    float GetMaxDefaultButtonAndMenuWidth() const
+    {
+        return maxDefaultButtonAndMenuWidth_;
+    }
+
+    int32_t GetScopeId() const
+    {
+        return scopeId_;
+    }
 
 private:
     void CreateToolBar();
-    void SelectMenuAndInnerInitProperty();
+    void SelectMenuAndInnerInitProperty(const RefPtr<FrameNode>& caller);
+    void SetMenuItemsColor(const std::vector<RefPtr<FrameNode>>& menuItems, const RefPtr<FrameNode>& caller);
+    RefPtr<FrameNode> BuildMoreOrBackSymbol();
     void AddMenuItemByCreateMenuCallback(const std::shared_ptr<SelectOverlayInfo>& info, float maxWidth);
     static const std::vector<MenuItemParam> GetSystemMenuItemParams(const std::shared_ptr<SelectOverlayInfo>& info);
     static void AddMenuItemParamIf(
@@ -128,6 +156,11 @@ private:
     void ShowPaste(
         float maxWidth, float& allocatedSize, std::shared_ptr<SelectOverlayInfo>& info, const std::string& label);
     void ShowCopyAll(
+        float maxWidth, float& allocatedSize, std::shared_ptr<SelectOverlayInfo>& info, const std::string& label);
+    void ShowPasswordVault(float maxWidth, float& allocatedSize, const std::shared_ptr<SelectOverlayInfo>& info,
+        const std::string& label);
+    void AddSystemAutoFillSubMenuOptions(float maxWidth, const std::shared_ptr<SelectOverlayInfo>& info);
+    void ShowAutoFill(
         float maxWidth, float& allocatedSize, std::shared_ptr<SelectOverlayInfo>& info, const std::string& label);
     void ShowTranslate(
         float maxWidth, float& allocatedSize, std::shared_ptr<SelectOverlayInfo>& info, const std::string& label);
@@ -157,8 +190,9 @@ private:
         const std::shared_ptr<SelectOverlayInfo>& info, int32_t startIndex, std::vector<OptionParam>& params);
     std::function<void()> CreateExtensionMenuOptionCallback(int32_t id, const OnMenuItemCallback& onCreateCallback,
         const std::function<void()>& systemEvent, const MenuOptionsParam& item);
-    void CreatExtensionMenu(std::vector<OptionParam>&& params);
-    void GetDefaultButtonAndMenuWidth(float& maxWidth);
+    RefPtr<FrameNode> GetExtensionMenuOutterrMenu(std::vector<OptionParam>& params, const MenuParam& menuParam,
+        const RefPtr<FrameNode>& caller);
+    void CreatExtensionMenu(std::vector<OptionParam>&& params, const RefPtr<FrameNode>& caller);
 
     void MoreAnimation(bool noAnimation);
     void BackAnimation(bool noAnimation);
@@ -199,6 +233,9 @@ private:
 
     void NotifyUpdateToolBar(bool itemChanged, bool withoutAnimation);
     void SetSelectMenuInnerSize();
+    void ShowAskCelia(
+        float maxWidth, float& allocatedSize, std::shared_ptr<SelectOverlayInfo>& info, const std::string& label);
+    std::optional<float> GetParentWidth();
 
     using ExecuteStateFunc = void (SelectOverlayNode::*)(FrameNodeType type, FrameNodeTrigger trigger);
 
@@ -230,7 +267,7 @@ private:
     FrameNodeStatus extensionMenuStatus_ = FrameNodeStatus::GONE;
     FrameNodeStatus backButtonStatus_ = FrameNodeStatus::GONE;
     FrameNodeStatus menuOnlyStatus_ = FrameNodeStatus::VISIBLE;
-
+    SubToolbarStatus subToolbarStatus = SubToolbarStatus::UNEXPANDED;
     std::map<FrameNodeStatus, ExecuteStateFunc> stateFuncs_;
 
     std::string selectInfo_;
@@ -243,12 +280,14 @@ private:
     bool isExtensionMenu_ = false;
 
     // Label whether the menu default button needs to appear within the extended menu
-    bool isShowInDefaultMenu_[10] = { false }; // OPTION_INDEX_AI_MENU + 1
+    bool isShowInDefaultMenu_[12] = { false }; // OPTION_INDEX_AUTO_FILL + 1
 
     bool isDefaultBtnOverMaxWidth_ = false;
 
     bool isMoreOrBackSymbolIcon_ = false;
     bool isCustomMenuAppear_ = false;
+    float maxDefaultButtonAndMenuWidth_ = 0.0f;
+    int32_t scopeId_ = -1;
 
     ACE_DISALLOW_COPY_AND_MOVE(SelectOverlayNode);
 };

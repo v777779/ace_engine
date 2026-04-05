@@ -22,13 +22,37 @@
 namespace OHOS::Ace::NG {
 
 class NavDestinationGroupNode;
+class NavBarNode;
+
+struct ForceSplitConfig {
+    std::string homePage;
+    std::string relatedPage;
+    bool isArkUIHookEnabled = false;
+    bool navigationDisablePlaceholder = false;
+    bool navigationDisableDivider = false;
+    bool dialogSupportSplit = true;
+    std::optional<std::string> navigationId;
+    std::optional<int32_t> navigationDepth;
+    std::set<std::string> fullScreenPages;
+    std::optional<Color> splitDividerColorLight;
+    std::optional<Color> splitDividerColorDark;
+};
 
 class ForceSplitUtils {
 public:
     static RefPtr<FrameNode> CreatePlaceHolderContent(const RefPtr<PipelineContext>& context);
-    static RefPtr<NavDestinationGroupNode> CreatePlaceHolderNavDestination(const RefPtr<PipelineContext>& context);
-    static bool IsNavDestinationHomePage(const RefPtr<NavDestinationGroupNode>& node);
+    static RefPtr<NavDestinationGroupNode> CreateNavDestinationProxyNode();
+    static bool IsHomePageNavDestination(const RefPtr<NavDestinationGroupNode>& node);
+    static bool IsHomePageNavBar(const RefPtr<NavBarNode>& navBar);
     static RefPtr<FrameNode> CreatePlaceHolderNode();
+    static bool ParseSystemForceSplitConfig(const std::string& configJsonStr, ForceSplitConfig& config);
+    static bool ParseAppForceSplitConfig(bool isRouter, const std::string& configJsonStr, ForceSplitConfig& config);
+    static void LogSystemForceSplitConfig(bool isRouter, const std::string& homePage, const ForceSplitConfig& config);
+    static void LogAppForceSplitConfig(bool isRouter, const ForceSplitConfig& config);
+private:
+    static bool ParseNavigationOptions(const std::unique_ptr<JsonValue>& navigationOptions, ForceSplitConfig& config);
+    static bool ParseFullScreenPages(const std::unique_ptr<JsonValue>& fullScreenPages, ForceSplitConfig& config);
+    static bool ParseSplitDividerColor(const std::unique_ptr<JsonValue>& splitDividerColor, ForceSplitConfig& config);
 };
 
 } // namespace OHOS::Ace::NG

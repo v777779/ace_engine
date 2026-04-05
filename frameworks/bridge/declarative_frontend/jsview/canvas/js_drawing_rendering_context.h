@@ -24,12 +24,13 @@
 #include "bridge/declarative_frontend/jsview/js_view_abstract.h"
 #include "core/components_ng/base/modifier.h"
 #include "core/components_ng/pattern/canvas/canvas_pattern.h"
+#include "core/components_ng/render/drawing_forward.h"
 #include "core/pipeline/base/rosen_render_context.h"
 
 namespace OHOS::Ace::Framework {
 
 class JSDrawingRenderingContext : public JSRenderingContextBase {
-    DECLARE_ACE_TYPE(JSDrawingRenderingContext, JSRenderingContextBase)
+    DECLARE_ACE_TYPE(JSDrawingRenderingContext, JSRenderingContextBase);
 public:
     JSDrawingRenderingContext();
     ~JSDrawingRenderingContext() override = default;
@@ -43,28 +44,26 @@ public:
     void JsSetCanvas(const JSCallbackInfo& info);
     void JsSetSize(const JSCallbackInfo& info);
     void SetInvalidate(const JSCallbackInfo& info);
-    void SetRSCanvasCallback(RefPtr<AceType>& canvasPattern);
+    void SetRSCanvasCallback(WeakPtr<AceType>& canvasPattern);
 
     ACE_DISALLOW_COPY_AND_MOVE(JSDrawingRenderingContext);
 
     void SetAntiAlias() override {}
     void SetDensity() override {}
 
-    void SetCanvasPattern(const RefPtr<AceType>& canvas) override
-    {
-        canvasPattern_ = canvas;
-        SetRSCanvasCallback(canvasPattern_);
-    }
+    void SetCanvasPattern(const RefPtr<AceType>& canvas) override;
 
     void SetInstanceId(int32_t id) override
     {
         instanceId_ = id;
     }
 
-    void SetUnit(CanvasUnit unit)
+    int32_t GetInstanceId() override
     {
-        unit_ = unit;
+        return instanceId_;
     }
+
+    void SetUnit(CanvasUnit unit);
 
     CanvasUnit GetUnit()
     {
@@ -77,14 +76,18 @@ public:
         return ((GetUnit() == CanvasUnit::DEFAULT) && !NearZero(density)) ? density : 1.0;
     }
 
+    const JSRef<JSObject>& GetOrCreateContext2D(bool antialias);
+
 protected:
-    RefPtr<AceType> canvasPattern_;
+    WeakPtr<AceType> canvasPattern_;
     int32_t instanceId_ = INSTANCE_ID_UNDEFINED;
 
 private:
     JSRef<JSVal> jsCanvasVal_;
     NG::OptionalSizeF size_;
     CanvasUnit unit_ = CanvasUnit::DEFAULT;
+    JSRef<JSObject> context2d_ {};
+    std::shared_ptr<RSCanvas> canvas_ = nullptr;
 };
 } // namespace OHOS::Ace::Framework
 

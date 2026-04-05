@@ -24,7 +24,6 @@
 #include <unordered_map>
 
 #include "base/utils/macros.h"
-#include "base/utils/system_properties.h"
 
 #ifdef ACE_INSTANCE_LOG
 #define ACE_FMT_PREFIX "[%{public}s(%{public}d)-(%{public}s)] "
@@ -87,6 +86,7 @@ constexpr uint32_t APP_DOMAIN = 0xC0D0;
 #define TAG_LOGF(tag, fmt, ...) PRINT_LOG(FATAL, tag, fmt, ##__VA_ARGS__)
 
 #define LOG_FUNCTION() LOGD("function track: %{public}s", __FUNCTION__)
+#define LOG_CALLBACK(callback) CallbackLogger _(__FUNCTION__, reinterpret_cast<uintptr_t>(callback))
 
 #define LOGF_ABORT(fmt, ...)      \
     do {                          \
@@ -228,6 +228,9 @@ enum AceLogTag : uint8_t {
     ACE_DYNAMIC_COMPONENT = 95,    // C0395F
     ACE_DRAWABLE_DESCRIPTOR = 96,  // C03960
     ACE_LAZY_GRID = 97,            // C03961
+    ACE_CONTAINER_PICKER = 98,     // C03962
+    ACE_IMAGE_GENERATION = 99,     // C03963
+    ACE_COLOR_SAMPLER = 100,       // C03964
 
     FORM_RENDER = 255, // C039FF FormRenderer, last domain, do not add
 };
@@ -249,53 +252,15 @@ enum class LogLevel : uint32_t {
 
 class ACE_FORCE_EXPORT LogWrapper final {
 public:
-    static bool JudgeLevel(LogLevel level)
-    {
-        if (level == LogLevel::DEBUG) {
-            return SystemProperties::GetDebugEnabled();
-        }
-        return level_ <= level;
-    }
-
-    static void SetLogLevel(LogLevel level)
-    {
-        level_ = level;
-    }
-
-    static LogLevel GetLogLevel()
-    {
-        return level_;
-    }
-
-    static const char* GetBriefFileName(const char* name)
-    {
-        static const char separator = GetSeparatorCharacter();
-        const char* p = strrchr(name, separator);
-        return p != nullptr ? p + 1 : name;
-    }
-
-    static void StripFormatString(const std::string& prefix, std::string& str)
-    {
-        for (auto pos = str.find(prefix, 0); pos != std::string::npos; pos = str.find(prefix, pos)) {
-            str.erase(pos, prefix.size());
-        }
-    }
-
-    static void ReplaceFormatString(const std::string& prefix, const std::string& replace, std::string& str)
-    {
-        for (auto pos = str.find(prefix, 0); pos != std::string::npos; pos = str.find(prefix, pos)) {
-            str.replace(pos, prefix.size(), replace);
-        }
-    }
+    static bool JudgeLevel(LogLevel level);
+    static void SetLogLevel(LogLevel level);
+    static LogLevel GetLogLevel();
+    static const char* GetBriefFileName(const char* name);
+    static void StripFormatString(const std::string& prefix, std::string& str);
+    static void ReplaceFormatString(const std::string& prefix, const std::string& replace, std::string& str);
 
     static void PrintLog(LogDomain domain, LogLevel level, AceLogTag tag, const char* fmt, ...)
-        __attribute__((__format__(os_log, 4, 5)))
-    {
-        va_list args;
-        va_start(args, fmt);
-        PrintLog(domain, level, tag, fmt, args);
-        va_end(args);
-    }
+        __attribute__((__format__(os_log, 4, 5)));
 
     // MUST implement these interface on each platform.
     static char GetSeparatorCharacter();
@@ -313,6 +278,17 @@ private:
 };
 
 bool LogBacktrace(size_t maxFrameNums = 256);
+
+class ACE_FORCE_EXPORT CallbackLogger final {
+public:
+    CallbackLogger(const std::string& funcName, uintptr_t callback);
+    ~CallbackLogger();
+    CallbackLogger(const CallbackLogger&) = delete;
+    CallbackLogger& operator=(const CallbackLogger&) = delete;
+private:
+    std::string msg_;
+    uintptr_t lastObjAddr_ = 0;
+};
 } // namespace OHOS::Ace
 
 #endif // FOUNDATION_ACE_FRAMEWORKS_BASE_LOG_LOG_WRAPPER_H

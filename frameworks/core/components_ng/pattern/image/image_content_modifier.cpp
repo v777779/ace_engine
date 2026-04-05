@@ -15,6 +15,13 @@
 
 #include "core/components_ng/pattern/image/image_content_modifier.h"
 
+#include "core/components_ng/render/drawing.h"
+
+#ifdef ENABLE_ROSEN_BACKEND
+#include "2d_graphics/include/recording/draw_cmd_list.h"
+#include "render_service_client/core/ui/rs_ui_director.h"
+#endif
+
 #include "core/common/ace_application_info.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/components_ng/render/adapter/svg_canvas_image.h"
@@ -34,22 +41,24 @@ ImageContentModifier::ImageContentModifier(const WeakPtr<ImagePattern>& pattern)
 
 void ImageContentModifier::onDraw(DrawingContext& drawingContext)
 {
-    DrawDrawable(drawingContext);
     CHECK_NULL_VOID(canvasImageWrapper_);
     auto canvasImage = canvasImageWrapper_->Get().GetCanvasImage();
     CHECK_NULL_VOID(canvasImage);
     UpdateSvgColorFilter(canvasImage);
     ImagePainter imagePainter(canvasImage);
     if (!sensitive_->Get()) {
+#ifdef ENABLE_ROSEN_BACKEND
+        const auto& config = canvasImage->GetPaintConfig();
+        if (config.isSvg_) {
+            RSRecordingCanvas* recordingCanvas = static_cast<RSRecordingCanvas*>(&drawingContext.canvas);
+            if (recordingCanvas != nullptr && recordingCanvas->GetDrawCmdList() != nullptr &&
+                Rosen::RSUIDirector::GetHybridRenderSwitch(Rosen::ComponentEnableSwitch::SVG)) {
+                recordingCanvas->GetDrawCmdList()->SetHybridRenderType(RSHybridRenderType::SVG);
+            }
+        }
+#endif
         imagePainter.DrawImage(drawingContext.canvas, {}, size_->Get());
     }
-}
-
-void ImageContentModifier::DrawDrawable(DrawingContext& drawingContext)
-{
-    auto pattern = pattern_.Upgrade();
-    CHECK_NULL_VOID(pattern);
-    pattern->DrawDrawable(drawingContext.canvas);
 }
 
 void ImageContentModifier::UpdateSvgColorFilter(const RefPtr<CanvasImage>& canvasImage)
@@ -67,5 +76,12 @@ void ImageContentModifier::UpdateSvgColorFilter(const RefPtr<CanvasImage>& canva
             svgCanvas->SetColorFilter(imageColorFilter);
         }
     }
+}
+
+ContentTransitionType ImageContentModifier::GetContentTransitionParam()
+{
+    auto pattern = pattern_.Upgrade();
+    CHECK_NULL_RETURN(pattern, ContentTransitionType::IDENTITY);
+    return pattern->GetContentTransitionParam();
 }
 } // namespace OHOS::Ace::NG

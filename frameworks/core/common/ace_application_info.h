@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "interfaces/inner_api/ace/ace_forward_compatibility.h"
+#include "ui/base/versions.h"
 
 #include "base/json/json_util.h"
 #include "base/utils/macros.h"
@@ -34,24 +35,6 @@
 
 namespace OHOS::Ace {
 
-enum class PlatformVersion {
-    VERSION_FIVE = 5,
-    VERSION_SIX,
-    VERSION_SEVEN,
-    VERSION_EIGHT,
-    VERSION_NINE,
-    VERSION_TEN,
-    VERSION_ELEVEN,
-    VERSION_TWELVE,
-    VERSION_THIRTEEN,
-    VERSION_FOURTEEN,
-    VERSION_FIFTEEN,
-    VERSION_SIXTEEN,
-    VERSION_SEVENTEEN,
-    VERSION_EIGHTEEN,
-    VERSION_NINETEEN,
-    VERSION_TWENTY
-};
 struct AceBundleInfo {
     uint32_t versionCode = 0;
     std::string versionName;
@@ -61,6 +44,11 @@ enum class TouchPassMode: int32_t {
     DEFAULT = 0,
     PASS_THROUGH,
     ACCELERATE,
+};
+
+enum class MousePassMode: int32_t {
+    DEFAULT = 0,
+    PASS_THROUGH,
 };
 
 struct TextMenuInfo {
@@ -224,6 +212,14 @@ public:
     {
         return isAccessibilityEnabled_;
     }
+    void SetAccessibilityScreenReadEnabled(bool isEnabled)
+    {
+        isAccessibilityScreenReadEnabled_ = isEnabled;
+    }
+    bool IsAccessibilityScreenReadEnabled() const
+    {
+        return isAccessibilityScreenReadEnabled_;
+    }
     void SetPid(int32_t pid)
     {
         pid_ = pid;
@@ -263,6 +259,22 @@ public:
         std::shared_lock<std::shared_mutex> lock(eventsPassMutex_);
         return touchPassMode_;
     }
+
+    void SetMouseEventPassMode(MousePassMode mode)
+    {
+        std::unique_lock<std::shared_mutex> lock(mousePassMutex_);
+        mousePassMode_ = mode;
+    }
+
+    MousePassMode GetMouseEventPassMode() const
+    {
+        std::shared_lock<std::shared_mutex> lock(mousePassMutex_);
+        return mousePassMode_;
+    }
+
+    virtual void UpdateTouchPassthroughForPipelines(bool enabled, const std::string& bundleName);
+
+    virtual void UpdateMousePassthroughForPipelines(bool enabled, const std::string& bundleName);
 
     void SetReusedNodeSkipMeasure(bool reusedNodeSkipMeasure)
     {
@@ -314,6 +326,16 @@ public:
         return touchPadIdChanged_;
     }
 
+    void SetEnableCustomComponentCrossAbility(bool enableCustomComponentCrossAbility)
+    {
+        enableCustomComponentCrossAbility_ = enableCustomComponentCrossAbility;
+    }
+
+    bool GetEnableCustomComponentCrossAbility() const
+    {
+        return enableCustomComponentCrossAbility_;
+    }
+
 protected:
     std::string countryOrRegion_;
     std::string language_;
@@ -340,16 +362,20 @@ protected:
 
     int userId_ = 0;
     bool isAccessibilityEnabled_ = false;
+    bool isAccessibilityScreenReadEnabled_ = false;
 
     int32_t apiVersion_ = 0;
     std::string versionName_;
     uint32_t versionCode_ = 0;
     int32_t missionId_ = -1;
     mutable std::shared_mutex eventsPassMutex_;
-    TouchPassMode touchPassMode_ = TouchPassMode::DEFAULT;
+    TouchPassMode touchPassMode_ = TouchPassMode::ACCELERATE;
+    mutable std::shared_mutex mousePassMutex_;
+    MousePassMode mousePassMode_ = MousePassMode::DEFAULT;
     bool reusedNodeSkipMeasure_ = false;
     bool mouseTransformEnable_ = false;
     bool touchPadIdChanged_ = false;
+    bool enableCustomComponentCrossAbility_ = false;
     TextMenuInfo textMenuInfo_;
 };
 

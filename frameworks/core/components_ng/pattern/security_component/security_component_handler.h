@@ -43,10 +43,10 @@ public:
         std::string& message);
     static int32_t ReportSecurityComponentClickEvent(int32_t& scId,
         RefPtr<FrameNode>& node, const KeyEvent& event,
-        Security::SecurityComponent::OnFirstUseDialogCloseFunc&& callback);
+        Security::SecurityComponent::OnFirstUseDialogCloseFunc&& callback, std::string& message);
     static int32_t ReportSecurityComponentClickEvent(int32_t& scId,
         RefPtr<FrameNode>& node, const SecCompEnhanceEvent& event,
-        Security::SecurityComponent::OnFirstUseDialogCloseFunc&& callback);
+        Security::SecurityComponent::OnFirstUseDialogCloseFunc&& callback, std::string& message);
     static bool InitButtonInfoValue(RefPtr<FrameNode>& node, OHOS::Security::SecurityComponent::SecCompBase& buttonInfo,
         const Security::SecurityComponent::SecCompType& scType, std::string& message);
     static bool InitButtonInfo(std::string& componentInfo,
@@ -86,8 +86,6 @@ private:
     static float GetBorderRadius(RefPtr<FrameNode>& node, const NG::GradientDirection direction);
     static bool CheckLinearGradientBlur(const RefPtr<FrameNode>& parentNode, RefPtr<FrameNode>& node,
         bool& isBlured, double& blurRadius);
-    static bool CheckGrayScale(const RefPtr<FrameNode>& node, const RefPtr<RenderContext>& renderContext,
-        std::string& message);
     static bool CheckSaturate(const RefPtr<FrameNode>& node, const RefPtr<RenderContext>& renderContext,
         std::string& message);
     static bool CheckContrast(const RefPtr<FrameNode>& node, const RefPtr<RenderContext>& renderContext,
@@ -114,8 +112,8 @@ private:
         const RefPtr<RenderContext>& renderContext, OHOS::Security::SecurityComponent::SecCompBase& buttonInfo);
     static bool CheckOverlayText(const RefPtr<FrameNode>& node, std::string& message,
         const RefPtr<RenderContext>& renderContext, OHOS::Security::SecurityComponent::SecCompBase& buttonInfo);
-    static bool CheckRenderEffect(RefPtr<FrameNode>& node, std::string& message,
-        OHOS::Security::SecurityComponent::SecCompBase& buttonInfo);
+    static bool CheckRenderEffect(const RefPtr<FrameNode>& secNode, RefPtr<FrameNode>& parentNode,
+        std::string& message, OHOS::Security::SecurityComponent::SecCompBase& buttonInfo);
     static bool CheckOverlayNode(RefPtr<FrameNode>& parentNode, RefPtr<FrameNode>& node,
         std::string& message, OHOS::Security::SecurityComponent::SecCompBase& buttonInfo);
     static bool CheckParentNodesEffect(RefPtr<FrameNode>& node,
@@ -127,9 +125,11 @@ private:
     static bool GetWindowSceneWindowId(RefPtr<FrameNode>& node, uint32_t& windId);
     static bool InitBaseInfo(OHOS::Security::SecurityComponent::SecCompBase& buttonInfo, RefPtr<FrameNode>& node);
     static bool GetPaddingInfo(OHOS::Security::SecurityComponent::SecCompBase& buttonInfo, RefPtr<FrameNode>& node);
+    static bool GetSizeWithScale(RefPtr<FrameNode>& node, double& width, double& height);
     static bool InitChildInfo(OHOS::Security::SecurityComponent::SecCompBase& buttonInfo, RefPtr<FrameNode>& node);
     static NG::RectF UpdateClipRect(NG::RectF& clipRect, NG::RectF& paintRect);
     static NG::RectF UpdatePaintRect(NG::RectF& paintRect, NG::RectF& clipRect);
+    static bool IsNodeSkipCheck(const RefPtr<FrameNode>& frameNode);
     static bool CheckSecurityComponentStatus(const RefPtr<UINode>& root, NodeMaps& maps,
         int32_t secNodeId, std::string& message, NG::RectF& clipRect);
     static bool CheckRectIntersect(const RectF& dest, int32_t secNodeId,

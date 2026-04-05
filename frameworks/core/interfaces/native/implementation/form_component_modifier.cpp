@@ -24,6 +24,11 @@
 #include "arkoala_api_generated.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/form/resource/form_request_data.h"
+#include "core/components_ng/base/view_abstract.h"
+#include "core/components_ng/base/view_abstract_model_static.h"
+#include "core/components_ng/pattern/counter/counter_model_ng.h"
+#include "core/components_ng/pattern/counter/counter_node.h"
+#include "core/interfaces/native/utility/validators.h"
 namespace OHOS::Ace::NG {
 struct OptRequestFormInfo {
     std::optional<int64_t> id = std::nullopt;
@@ -36,6 +41,7 @@ struct OptRequestFormInfo {
     RefPtr<WantWrap> want = nullptr;
     std::optional<int32_t> renderingMode = std::nullopt;
     std::optional<int32_t> shape = std::nullopt;
+    std::optional<bool> exemptAppLock = std::nullopt;
 };
 struct LiteralDimension {
     Dimension width;
@@ -46,41 +52,53 @@ const auto FORM_SHAPE_RECT = 1;
 const auto FORM_SHAPE_CIRCLE = 2;
 const auto FORM_RENDERING_MODE_FULL_COLOR = 0;
 const auto FORM_RENDERING_MODE_SINGLE_COLOR = 1;
-const auto FORM_DIMENSION_DIMENSION_1_2 = 0;
-const auto FORM_DIMENSION_DIMENSION_2_2 = 1;
-const auto FORM_DIMENSION_DIMENSION_2_4 = 2;
-const auto FORM_DIMENSION_DIMENSION_4_4 = 3;
+const auto FORM_DIMENSION_DIMENSION_1_2 = 1;
+const auto FORM_DIMENSION_DIMENSION_2_2 = 2;
+const auto FORM_DIMENSION_DIMENSION_2_4 = 3;
+const auto FORM_DIMENSION_DIMENSION_4_4 = 4;
 const auto FORM_DIMENSION_DIMENSION_1_1 = 6;
 const auto FORM_DIMENSION_DIMENSION_6_4 = 7;
 const auto FORM_DIMENSION_DIMENSION_2_3 = 8;
 const auto FORM_DIMENSION_DIMENSION_3_3 = 9;
 const auto FORM_COMPONENT_ID_KEY = "id";
 const auto FORM_COMPONENT_ID_STRING_KEY = "idString";
+const auto FORM_COMPONENT_IS_LOCKED_KEY = "isLocked";
 const uint32_t FORM_ON_ACQUIRED_ID_INVALID = -1;
 const std::string FORM_ON_ACQUIRED_ID_STRING_INVALID = "-1";
 const uint32_t MIN_UNSIGNED_NUMBER_OF_ARK = 0;
 const uint32_t MAX_UNSIGNED_NUMBER_OF_ARK = UINT_MAX;
 const auto FORM_ON_ERROR_CODE_KEY = "errcode";
 const auto FORM_ON_ERROR_MSG_KEY = "msg";
+const auto ROUTER_CODE_ACTION_KEY = "action";
+const auto ROUTER_CODE_BUNDLE_NAME_KEY = "bundleName";
+const auto ROUTER_CODE_MODULE_NAME_KEY = "moduleName";
+const auto ROUTER_CODE_ABILITY_NAME_KEY = "abilityName";
+const auto ROUTER_CODE_PARAMS_KEY = "params";
 const int32_t FORM_ON_ERROR_CODE_INVALID = -1;
 const std::string FORM_EMPTY_STRING = "";
 const int32_t MIN_SIGNED_NUMBER_OF_ARK = INT_MIN;
 const int32_t MAX_SIGNED_NUMBER_OF_ARK = INT_MAX;
+const int32_t TYPE_INT = 0;
 } // namespace
 namespace Converter {
 template<>
 OptRequestFormInfo Convert(const Ark_FormInfo& src)
 {
     OptRequestFormInfo dst;
+    if (src.id.selector == TYPE_INT) {
+        dst.id = Converter::OptConvert<int64_t>(src.id.value0);
+    } else {
+        dst.id = StringUtils::StringToLongInt(Converter::OptConvert<std::string>(src.id.value1).value_or("-1"), -1);
+    }
     dst.name = Converter::Convert<std::string>(src.name);
     dst.bundle = Converter::Convert<std::string>(src.bundle);
     dst.ability = Converter::Convert<std::string>(src.ability);
     dst.module = Converter::Convert<std::string>(src.module);
     dst.dimension = Converter::OptConvert<int32_t>(src.dimension);
     dst.temporary = Converter::OptConvert<bool>(src.temporary);
-    dst.want = nullptr;
     dst.renderingMode = Converter::OptConvert<int32_t>(src.renderingMode);
     dst.shape = Converter::OptConvert<int32_t>(src.shape);
+    dst.exemptAppLock = Converter::OptConvert<bool>(src.exemptAppLock);
     return dst;
 }
 template<>
@@ -100,14 +118,6 @@ void AssignCast(std::optional<int32_t>& dst, const Ark_FormRenderingMode& src)
         case ARK_FORM_RENDERING_MODE_SINGLE_COLOR: dst = FORM_RENDERING_MODE_SINGLE_COLOR; break;
         default: LOGE("Unexpected enum value in Ark_FormRenderingMode: %{public}d", src);
     }
-}
-template<>
-LiteralDimension Convert(const Ark_FormSize& src)
-{
-    return LiteralDimension {
-        .width = Dimension(Converter::Convert<double>(src.width)),
-        .height = Dimension(Converter::Convert<double>(src.height)),
-    };
 }
 template<>
 void AssignCast(std::optional<int32_t>& dst, const Ark_FormDimension& src)
@@ -136,7 +146,7 @@ Ark_NativePointer ConstructImpl(Ark_Int32 id,
                                 Ark_Int32 flags)
 {
 #ifdef FORM_SUPPORTED
-    auto frameNode = FormModelStatic::CreateFrameNode(id);
+    auto frameNode = FormModelNG::CreateFrameNode(id);
     CHECK_NULL_RETURN(frameNode, nullptr);
     frameNode->IncRefCount();
     return AceType::RawPtr(frameNode);
@@ -153,33 +163,37 @@ void SetFormComponentOptionsImpl(Ark_NativePointer node,
     auto frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     CHECK_NULL_VOID(value);
-    auto formInfo = Converter::Convert<OptRequestFormInfo>(*value);
-    FormModelStatic::SetModuleName(frameNode, formInfo.module);
-    if (formInfo.dimension) {
-        FormModelStatic::SetDimension(frameNode, *formInfo.dimension);
+    auto optRequestFormInfo = Converter::Convert<OptRequestFormInfo>(*value);
+    RequestFormInfo formInfo;
+    if (optRequestFormInfo.id) {
+        formInfo.id = optRequestFormInfo.id.value();
     }
-    LOGE("ARKOALA FormComponentInterfaceModifier::SetFormComponentOptionsImpl - CustomObject is not supported "
-         "the type Ark_FormInfo::Opt_Want::Opt_Map_String_CustomObject::Ark_CustomObject.");
+    formInfo.cardName = optRequestFormInfo.name;
+    formInfo.bundleName = optRequestFormInfo.bundle;
+    formInfo.abilityName = optRequestFormInfo.ability;
+    formInfo.moduleName = optRequestFormInfo.module;
+    formInfo.wantWrap = WantWrap::CreateWantWrap(formInfo.bundleName, formInfo.abilityName);
+    if (optRequestFormInfo.dimension) {
+        formInfo.dimension = optRequestFormInfo.dimension.value();
+    }
+    if (optRequestFormInfo.temporary) {
+        formInfo.temporary = optRequestFormInfo.temporary.value();
+    }
+    if (optRequestFormInfo.renderingMode) {
+        formInfo.renderingMode = optRequestFormInfo.renderingMode.value();
+    }
+    if (optRequestFormInfo.shape) {
+        formInfo.shape = optRequestFormInfo.shape.value();
+    }
+    if (optRequestFormInfo.exemptAppLock) {
+        formInfo.exemptAppLock = optRequestFormInfo.exemptAppLock.value();
+    }
+    FormModelStatic::UpdateProperty(formInfo);
+    FormModelStatic::SetModuleName(frameNode, formInfo.moduleName);
 #endif // FORM_SUPPORTED
 }
 } // FormComponentInterfaceModifier
 namespace FormComponentAttributeModifier {
-void SetSizeImpl(Ark_NativePointer node,
-                 const Opt_FormSize* value)
-{
-#ifdef FORM_SUPPORTED
-    auto frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    auto dimension = Converter::OptConvertPtr<LiteralDimension>(value);
-    if (!dimension) {
-        dimension = LiteralDimension {
-            .width = 0.0_vp,
-            .height = 0.0_vp,
-        };
-    }
-    FormModelStatic::SetSize(frameNode, dimension->width, dimension->height);
-#endif // FORM_SUPPORTED
-}
 void SetModuleNameImpl(Ark_NativePointer node,
                        const Opt_String* value)
 {
@@ -221,6 +235,12 @@ void SetVisibilityImpl(Ark_NativePointer node,
     FormModelStatic::SetVisibility(frameNode, *opt);
 #endif // FORM_SUPPORTED
 }
+void SetColorModeImpl(Ark_NativePointer node,
+                      const Opt_FormColorMode* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+}
 void SetOnAcquiredImpl(Ark_NativePointer node,
                        const Opt_Callback_FormCallbackInfo_Void* value)
 {
@@ -232,21 +252,24 @@ void SetOnAcquiredImpl(Ark_NativePointer node,
     auto onAcquired = [arkCallback](const std::string& param) {
         int64_t id = FORM_ON_ACQUIRED_ID_INVALID;
         std::string idString = FORM_ON_ACQUIRED_ID_STRING_INVALID;
+        bool isLocked = false;
         auto sourceJson = JsonUtil::ParseJsonString(param);
         if (sourceJson && !sourceJson->IsNull()) {
-            char* endptr;
+            char* endptr = nullptr;
             auto jsonId = sourceJson->GetString(FORM_COMPONENT_ID_KEY, FORM_ON_ACQUIRED_ID_STRING_INVALID);
             idString = sourceJson->GetString(FORM_COMPONENT_ID_STRING_KEY, FORM_ON_ACQUIRED_ID_STRING_INVALID);
-            int64_t result = std::strtoul(jsonId.c_str(), &endptr, 10);
-            if (*endptr == '\0') {
+            isLocked = sourceJson->GetBool(FORM_COMPONENT_IS_LOCKED_KEY, false);
+            int64_t result = std::strtoll(jsonId.c_str(), &endptr, 10);
+            if (endptr && *endptr == '\0') {
                 id = result;
             }
         }
         Ark_FormCallbackInfo parameter = {
             .id = Converter::ArkValue<Ark_Int64>(id),
-            .idString = Converter::ArkValue<Ark_String>(idString)
+            .idString = Converter::ArkValue<Ark_String>(idString),
+            .isLocked = Converter::ArkValue<Ark_Boolean>(isLocked)
         };
-        arkCallback.Invoke(parameter);
+        arkCallback.InvokeSync(parameter);
     };
     FormModelStatic::SetOnAcquired(frameNode, onAcquired);
 #endif // FORM_SUPPORTED
@@ -264,29 +287,65 @@ void SetOnErrorImpl(Ark_NativePointer node,
         std::string msg = FORM_EMPTY_STRING;
         auto sourceJson = JsonUtil::ParseJsonString(param);
         if (sourceJson && !sourceJson->IsNull()) {
-            char* endptr;
+            char* endptr = nullptr;
             auto jsonCode = sourceJson->GetString(FORM_ON_ERROR_CODE_KEY, FORM_EMPTY_STRING);
             msg = sourceJson->GetString(FORM_ON_ERROR_MSG_KEY, FORM_EMPTY_STRING);
             int32_t result = std::strtol(jsonCode.c_str(), &endptr, 10);
-            if (*endptr == '\0' && result >= MIN_SIGNED_NUMBER_OF_ARK && result <= MAX_SIGNED_NUMBER_OF_ARK) {
+            if (endptr && *endptr == '\0' && result >= MIN_SIGNED_NUMBER_OF_ARK
+                && result <= MAX_SIGNED_NUMBER_OF_ARK) {
                 code = result;
             }
         }
         Ark_ErrorInformation parameter = { .errcode = Converter::ArkValue<Ark_Int32>(code),
             .msg = Converter::ArkValue<Ark_String>(msg) };
-        arkCallback.Invoke(parameter);
+        arkCallback.InvokeSync(parameter);
     };
     FormModelStatic::SetOnError(frameNode, onError);
 #endif // FORM_SUPPORTED
 }
 void SetOnRouterImpl(Ark_NativePointer node,
-                     const Opt_Callback_Object_Void* value)
+                     const Opt_Callback_RouterCallbackInfo_Void* value)
 {
 #ifdef FORM_SUPPORTED
     auto frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    LOGE("ARKOALA FormComponentInterfaceModifier::OnRouterImpl - Callback_Any_Void  is not supported "
-        "the type Callback_Any_Void should be replaced by Callback_String_Void.");
+    auto optValue = Converter::GetOptPtr(value);
+    auto arkCallback = optValue ? CallbackHelper(*optValue) : CallbackHelper<Callback_RouterCallbackInfo_Void>();
+    auto onRouter = [arkCallback](const std::string& param) {
+        std::string action = FORM_EMPTY_STRING;
+        std::string bundleName = FORM_EMPTY_STRING;
+        std::string moduleName = FORM_EMPTY_STRING;
+        std::string abilityName = FORM_EMPTY_STRING;
+        std::string params = FORM_EMPTY_STRING;
+        auto sourceJson = JsonUtil::ParseJsonString(param);
+        do {
+            if (!sourceJson || sourceJson->IsNull()) {
+                break;
+            }
+            auto actionInfo = sourceJson->GetValue(ROUTER_CODE_ACTION_KEY);
+            if (!actionInfo || actionInfo->IsNull()) {
+                break;
+            }
+            action = actionInfo->GetString(ROUTER_CODE_ACTION_KEY, FORM_EMPTY_STRING);
+            bundleName = actionInfo->GetString(ROUTER_CODE_BUNDLE_NAME_KEY, FORM_EMPTY_STRING);
+            moduleName = actionInfo->GetString(ROUTER_CODE_MODULE_NAME_KEY, FORM_EMPTY_STRING);
+            abilityName = actionInfo->GetString(ROUTER_CODE_ABILITY_NAME_KEY, FORM_EMPTY_STRING);
+            auto paramsValue = actionInfo->GetValue(ROUTER_CODE_PARAMS_KEY);
+            if (!paramsValue || paramsValue->IsNull()) {
+                break;
+            }
+            params = paramsValue->ToString();
+        } while (false);
+        Ark_RouterCallbackInfo parameter = {
+            .action = Converter::ArkValue<Ark_String>(action),
+            .bundleName = Converter::ArkValue<Ark_String>(bundleName),
+            .moduleName = Converter::ArkValue<Ark_String>(moduleName),
+            .abilityName = Converter::ArkValue<Ark_String>(abilityName),
+            .params = Converter::ArkValue<Ark_String>(params)
+        };
+        arkCallback.InvokeSync(parameter);
+    };
+    FormModelStatic::SetOnRouter(frameNode, onRouter);
 #endif // FORM_SUPPORTED
 }
 void SetOnUninstallImpl(Ark_NativePointer node,
@@ -300,21 +359,24 @@ void SetOnUninstallImpl(Ark_NativePointer node,
     auto onUninstall = [arkCallback](const std::string& param) {
         int64_t id = FORM_ON_ACQUIRED_ID_INVALID;
         std::string idString = FORM_ON_ACQUIRED_ID_STRING_INVALID;
+        bool isLocked = false;
         auto sourceJson = JsonUtil::ParseJsonString(param);
         if (sourceJson && !sourceJson->IsNull()) {
-            char* endptr;
+            char* endptr = nullptr;
             auto jsonId = sourceJson->GetString(FORM_COMPONENT_ID_KEY, FORM_ON_ACQUIRED_ID_STRING_INVALID);
             idString = sourceJson->GetString(FORM_COMPONENT_ID_STRING_KEY, FORM_ON_ACQUIRED_ID_STRING_INVALID);
-            int64_t result = std::strtoul(jsonId.c_str(), &endptr, 10);
-            if (*endptr == '\0') {
+            isLocked = sourceJson->GetBool(FORM_COMPONENT_IS_LOCKED_KEY, false);
+            int64_t result = std::strtoll(jsonId.c_str(), &endptr, 10);
+            if (endptr && *endptr == '\0') {
                 id = result;
             }
         }
         Ark_FormCallbackInfo parameter = {
             .id = Converter::ArkValue<Ark_Int64>(id),
-            .idString = Converter::ArkValue<Ark_String>(idString)
+            .idString = Converter::ArkValue<Ark_String>(idString),
+            .isLocked = Converter::ArkValue<Ark_Boolean>(isLocked)
         };
-        arkCallback.Invoke(parameter);
+        arkCallback.InvokeSync(parameter);
     };
     FormModelStatic::SetOnUninstall(frameNode, onUninstall);
 #endif // FORM_SUPPORTED
@@ -346,17 +408,17 @@ void SetOnUpdateImpl(Ark_NativePointer node,
         std::string idString = FORM_ON_ACQUIRED_ID_STRING_INVALID;
         auto sourceJson = JsonUtil::ParseJsonString(param);
         if (sourceJson && !sourceJson->IsNull()) {
-            char* endptr;
+            char* endptr = nullptr;
             auto jsonId = sourceJson->GetString(FORM_COMPONENT_ID_KEY, FORM_ON_ACQUIRED_ID_STRING_INVALID);
             idString = sourceJson->GetString(FORM_COMPONENT_ID_STRING_KEY, FORM_ON_ACQUIRED_ID_STRING_INVALID);
-            int64_t result = std::strtoul(jsonId.c_str(), &endptr, 10);
-            if (*endptr == '\0') {
+            int64_t result = std::strtoll(jsonId.c_str(), &endptr, 10);
+            if (endptr && *endptr == '\0') {
                 id = result;
             }
         }
         Ark_FormCallbackInfo parameter = { .id = Converter::ArkValue<Ark_Int64>(id),
             .idString = Converter::ArkValue<Ark_String>(idString) };
-        arkCallback.Invoke(parameter);
+        arkCallback.InvokeSync(parameter);
     };
     FormModelStatic::SetOnUpdate(frameNode, onUpdate);
 #endif // FORM_SUPPORTED
@@ -367,11 +429,11 @@ const GENERATED_ArkUIFormComponentModifier* GetFormComponentModifier()
     static const GENERATED_ArkUIFormComponentModifier ArkUIFormComponentModifierImpl {
         FormComponentModifier::ConstructImpl,
         FormComponentInterfaceModifier::SetFormComponentOptionsImpl,
-        FormComponentAttributeModifier::SetSizeImpl,
         FormComponentAttributeModifier::SetModuleNameImpl,
         FormComponentAttributeModifier::SetDimensionImpl,
         FormComponentAttributeModifier::SetAllowUpdateImpl,
         FormComponentAttributeModifier::SetVisibilityImpl,
+        FormComponentAttributeModifier::SetColorModeImpl,
         FormComponentAttributeModifier::SetOnAcquiredImpl,
         FormComponentAttributeModifier::SetOnErrorImpl,
         FormComponentAttributeModifier::SetOnRouterImpl,

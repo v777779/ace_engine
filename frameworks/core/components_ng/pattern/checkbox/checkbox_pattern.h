@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,27 +16,24 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_CHECKBOX_CHECKBOX_PATTERN_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_CHECKBOX_CHECKBOX_PATTERN_H
 
-#include "base/geometry/axis.h"
 #include "base/memory/referenced.h"
 #include "base/utils/utils.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/base/inspector_filter.h"
 #include "core/components_ng/event/event_hub.h"
-#include "core/components_ng/pattern/toggle/toggle_model_ng.h"
-#include "core/components_ng/pattern/overlay/group_manager.h"
+#include "core/components_ng/pattern/toggle/toggle_base_pattern.h"
 #include "core/components_ng/pattern/checkbox/checkbox_accessibility_property.h"
 #include "core/components_ng/pattern/checkbox/checkbox_event_hub.h"
 #include "core/components_ng/pattern/checkbox/checkbox_layout_algorithm.h"
 #include "core/components_ng/pattern/checkbox/checkbox_model_ng.h"
 #include "core/components_ng/pattern/checkbox/checkbox_paint_method.h"
 #include "core/components_ng/pattern/checkbox/checkbox_paint_property.h"
-#include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/picker/picker_type_define.h"
-
 namespace OHOS::Ace::NG {
 class CheckBoxGroupPaintProperty;
-class CheckBoxPattern : public Pattern {
-    DECLARE_ACE_TYPE(CheckBoxPattern, Pattern);
+class GroupManager;
+class CheckBoxPattern : public ToggleBasePattern {
+    DECLARE_ACE_TYPE(CheckBoxPattern, ToggleBasePattern);
 
 public:
     CheckBoxPattern() = default;
@@ -158,6 +155,9 @@ public:
     void OnAttachToMainTreeMultiThread(const RefPtr<FrameNode>& frameNode);
     void StartCustomNodeAnimation(bool select);
     RefPtr<GroupManager> GetGroupManager();
+    static int32_t ParseCommand(const std::string& command, bool& selectStatus);
+    void ReportChangeEvent(bool selectStatus);
+    int32_t OnInjectionEvent(const std::string& command) override;
 
     void SaveCheckboxSettingData(const CheckboxSettingData& checkboxSettingData)
     {
@@ -167,9 +167,6 @@ public:
     bool OnThemeScopeUpdate(int32_t themeScopeId) override;
 
     void DumpInfo() override;
-    static int32_t ParseCommand(const std::string& command, bool& selectStatus);
-    void ReportChangeEvent(bool selectStatus);
-    int32_t OnInjectionEvent(const std::string& command) override;
     void SetIsUserSetMargin(bool isUserSetMargin)
     {
         isUserSetMargin_ = isUserSetMargin;
@@ -180,10 +177,11 @@ public:
         return true;
     }
 
-    bool isEqualWidthAndHeight() override
+    bool IsEnableFix() override
     {
         return true;
     }
+
 private:
     void OnAttachToFrameNode() override;
     void OnAttachToFrameNodeMultiThread(const RefPtr<FrameNode>& frameNode);
@@ -193,6 +191,7 @@ private:
     void OnDetachFromMainTreeMultiThread(const RefPtr<FrameNode>& frameNode);
     void OnModifyDone() override;
     void OnAfterModifyDone() override;
+    void InitEvent();
     void InitClickEvent();
     void InitTouchEvent();
     void InitMouseEvent();
@@ -241,6 +240,9 @@ private:
     void InitDefaultMargin();
     void ResetDefaultMargin();
     void UpdateNavIdAndState(const RefPtr<FrameNode>& host);
+    void UpdateGroupManager();
+    bool IsArkTSStatic();
+    void ReportToggleChangeEvent(bool isOn);
 
     CheckboxSettingData checkboxSettingData_;
 

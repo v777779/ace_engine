@@ -20,8 +20,12 @@
 
 #include "base/memory/ace_type.h"
 #include "base/utils/noncopyable.h"
-#include "core/components/video/video_utils.h"
+#include "core/components_ng/pattern/video/video_utils.h"
 #include "core/components_ng/render/render_surface.h"
+
+namespace OHOS::Media {
+class Meta;
+}
 
 namespace OHOS::Ace::NG {
 using PositionUpdatedEvent = std::function<void(uint32_t)>;
@@ -32,7 +36,7 @@ using CommonEvent = std::function<void()>;
 using TextureRefreshEnVent = std::function<void(uint32_t, uint64_t)>;
 // MediaPlayer is used to show and play meida
 class ACE_FORCE_EXPORT MediaPlayer : public virtual AceType {
-    DECLARE_ACE_TYPE(NG::MediaPlayer, AceType)
+    DECLARE_ACE_TYPE(NG::MediaPlayer, AceType);
 
 public:
     MediaPlayer() = default;
@@ -160,6 +164,19 @@ public:
     virtual int32_t SetPlayRangeUsWithMode(int64_t /*startTime*/, int64_t /*endTime*/, SeekMode /*mode */)
     {
         return -1;
+    }
+    virtual int32_t EnableCameraPostprocessing()
+    {
+        return -1;
+    }
+    virtual int32_t SetCameraPostprocessing(bool isOpen)
+    {
+        return -1;
+    }
+    virtual int32_t GetGlobalInfo(std::shared_ptr<OHOS::Media::Meta> &globalInfo)
+    {
+        (void)globalInfo;
+        return 0;
     }
 
 protected:

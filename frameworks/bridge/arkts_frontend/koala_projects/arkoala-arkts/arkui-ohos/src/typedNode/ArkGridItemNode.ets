@@ -13,10 +13,16 @@
  * limitations under the License.
  */
 
-import { RuntimeType, runtimeType } from "@koalaui/interop";
-import { ArkBaseNode } from "./ArkBaseNode";
-import { int32 } from "@koalaui/common"
-import { GridItemAttribute, ArkGridItemPeer, GridItemOptions, Bindable, AttributeModifier, CommonMethod } from "../component/gridItem";
+import { RuntimeType, runtimeType } from '@koalaui/interop';
+import { ArkBaseNode } from './ArkBaseNode';
+import { int32 } from '@koalaui/common';
+import {
+  GridItemAttribute,
+  ArkGridItemPeer,
+  GridItemOptions
+} from '../component/gridItem';
+import { Bindable } from '#generated';
+import { AttributeModifier, CommonMethod } from '../component/common';
 export class ArkGridItemNode extends ArkBaseNode implements GridItemAttribute {
     constructParam(...param: Object[]): this {
         if (param.length > 1) {
@@ -82,7 +88,8 @@ export class ArkGridItemNode extends ArkBaseNode implements GridItemAttribute {
         this.markDirty()
         return this
     }
-    attributeModifier(value: AttributeModifier<GridItemAttribute> | AttributeModifier<CommonMethod> | undefined): this {
-        throw new Error("Unimplemented method attributeModifier")
+    attributeModifier(value: AttributeModifier<GridItemAttribute> |
+        AttributeModifier<CommonMethod> | undefined): this {
+        throw new Error('Unimplemented method attributeModifier')
     }
 }

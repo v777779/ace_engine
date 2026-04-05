@@ -16,10 +16,10 @@
 #include "gtest/gtest.h"
 #define private public
 #define protected public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/core/event/frame_node_on_tree.h"
 
 #include "base/subwindow/subwindow_manager.h"
@@ -68,6 +68,7 @@ void DialogManagerTestNg::TearDownTestCase()
  */
 HWTEST_F(DialogManagerTestNg, DialogManagerTest001, TestSize.Level1)
 {
+    DialogManagerTestNg::SetUpTestCase();
     auto dialogPattern = AceType::MakeRefPtr<DialogPattern>(nullptr, nullptr);
     auto dialogNode = FrameNode::CreateFrameNode(V2::DIALOG_ETS_TAG, 101, dialogPattern);
     auto dialogNodeOnTree = FrameNodeOnTree::CreateFrameNode(V2::DIALOG_ETS_TAG, 102, dialogPattern);
@@ -78,6 +79,7 @@ HWTEST_F(DialogManagerTestNg, DialogManagerTest001, TestSize.Level1)
     EXPECT_EQ(ret, nullptr);
     ret = dialogManager.FindPageNodeOverlay(dialogNodeOnTree);
     EXPECT_EQ(ret, nullptr);
+    DialogManagerTestNg::SetUpTestCase();
 }
 
 /**
@@ -87,6 +89,7 @@ HWTEST_F(DialogManagerTestNg, DialogManagerTest001, TestSize.Level1)
  */
 HWTEST_F(DialogManagerTestNg, DialogManagerTest002, TestSize.Level1)
 {
+    DialogManagerTestNg::SetUpTestCase();
     auto container = Container::Current();
     ASSERT_NE(container, nullptr);
     auto pipelineContext = container->GetPipelineContext();
@@ -104,6 +107,7 @@ HWTEST_F(DialogManagerTestNg, DialogManagerTest002, TestSize.Level1)
     EXPECT_EQ(ret, nullptr);
     ret = dialogManager.GetEmbeddedOverlay(-1, context);
     EXPECT_EQ(ret, nullptr);
+    DialogManagerTestNg::SetUpTestCase();
 }
 
 /**
@@ -113,6 +117,7 @@ HWTEST_F(DialogManagerTestNg, DialogManagerTest002, TestSize.Level1)
  */
 HWTEST_F(DialogManagerTestNg, DialogManagerTest003, TestSize.Level1)
 {
+    DialogManagerTestNg::SetUpTestCase();
     auto rootNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 201, AceType::MakeRefPtr<RootPattern>());
     auto stageNode = FrameNode::CreateFrameNode(V2::STAGE_ETS_TAG, 301, AceType::MakeRefPtr<StagePattern>());
     auto pageNode = FrameNode::CreateFrameNode(
@@ -137,6 +142,7 @@ HWTEST_F(DialogManagerTestNg, DialogManagerTest003, TestSize.Level1)
     ret = dialogManager.GetEmbeddedOverlayWithNode(navDialogNode);
     EXPECT_EQ(ret, nullptr);
     dialogManager.GetDialogNodeByContentNode(columnNode);
+    DialogManagerTestNg::SetUpTestCase();
 }
 
 /**

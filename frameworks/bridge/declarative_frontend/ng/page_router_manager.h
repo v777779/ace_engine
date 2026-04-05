@@ -34,6 +34,8 @@
 
 namespace OHOS::Ace::NG {
 
+using LoadDynamicPageCallback = std::function<bool(const std::string& ohmUrl,
+    const std::function<void(const std::string&, int32_t)>&)>;
 using LoadPageCallback = std::function<bool(const std::string&,
     const std::function<void(const std::string&, int32_t)>&)>;
 using LoadPageByBufferCallback = std::function<bool(const std::shared_ptr<std::vector<uint8_t>>& content,
@@ -106,6 +108,11 @@ public:
         manifestParser_ = manifestParser;
     }
 
+    void SetLoadDynamicPageCallback(LoadDynamicPageCallback&& callback)
+    {
+        loadDynamicPage_ = std::move(callback);
+    }
+
     void SetLoadJsCallback(LoadPageCallback&& callback)
     {
         loadJs_ = std::move(callback);
@@ -174,20 +181,29 @@ public:
 
     void EnableAlertBeforeBackPage(const std::string& message, std::function<void(int32_t)>&& callback);
 
+    void EnableAlertBeforeBackPageExtender(const std::string& message, std::function<void(int32_t)>&& callback);
+
     void DisableAlertBeforeBackPage();
 
     // router operation
     void Push(const RouterPageInfo& target);
 
-    // For ArkTS1.2
+    // For ArkTS static
     void PushExtender(const RouterPageInfo& target, std::function<void()>&& finishCallback, void* jsNode);
-    void PushNamedRouteExtender(const RouterPageInfo& target, std::function<void()>&& finishCallback, void* jsNode);
-    void ReplaceExtender(
-        const RouterPageInfo& target, std::function<void()>&& enterFinishCallback, void* jsNode);
+    void PushNamedRouteExtender(
+        const RouterPageInfo& target, std::function<void()>&& finishCallback, void* jsNode);
+    void ReplaceExtender(const RouterPageInfo& target, std::function<void()>&& enterFinishCallback, void* jsNode);
     void ReplaceNamedRouteExtender(
         const RouterPageInfo& target, std::function<void()>&& enterFinishCallback, void* jsNode);
-    void RunPageExtender(
-        const RouterPageInfo& target, std::function<void()>&& finishCallback, void* jsNode);
+    void RunPageExtender(const RouterPageInfo& target, std::function<void()>&& finishCallback, void* jsNode);
+    void BackWithTargetExtender(const RouterPageInfo& target);
+    void BackToIndexWithTargetExtender(int32_t index, const std::string& params);
+
+    // ArkTS static push ArkTS dynamic
+    void PushDynamicExtender(
+        const RouterPageInfo& target, std::function<void()>&& finishCallback, const RefPtr<FrameNode>& pageNode);
+    void ReplaceDynamicExtender(
+        const RouterPageInfo& target, std::function<void()>&& finishCallback, const RefPtr<FrameNode>& pageNode);
 
     void PushNamedRoute(const RouterPageInfo& target);
     bool Pop();
@@ -202,11 +218,12 @@ public:
 
     void GetState(int32_t& index, std::string& name, std::string& path);
     void GetStateByIndex(int32_t index, std::string& name, std::string& path, std::string& params);
-    void GetStateByUrl(std::string& url, std::vector<Framework::StateInfo>& stateArray);
+    void GetStateByUrl(std::string& url, std::vector<StateInfo>& stateArray);
 
     void GetPageNameAndPath(const std::string& url, std::string& name, std::string& path);
     int32_t GetPageIndex(const WeakPtr<FrameNode>& page);
 
+    std::string GetInitParams() const;
     std::string GetParams() const;
 
     int32_t GetIndexByUrl(const std::string& url) const;
@@ -249,6 +266,14 @@ public:
         const std::function<void()>&& loadPageCallback);
     std::string GetTopNavDestinationInfo(bool onlyFullScreen, bool needParam);
 
+    // page id manage
+    int32_t GenerateNextPageId();
+    RefPtr<FrameNode> CreatePage(int32_t pageId, const RouterPageInfo& target);
+    RefPtr<FrameNode> CreateDynamicPage(int32_t pageId, const RouterPageInfo& target);
+
+    void FireNavigateChangeCallback(const std::string& to);
+    void NotifyPageTransitionEnd(const RefPtr<PipelineContext>& context, const RefPtr<FrameNode>& page);
+
 protected:
     class RouterOptScope {
     public:
@@ -265,13 +290,13 @@ protected:
         PageRouterManager* manager_ = nullptr;
     };
 
-    // page id manage
-    int32_t GenerateNextPageId();
-
     virtual int32_t GetLastPageIndex()
     {
         return static_cast<int32_t>(pageRouterStack_.size()) - 1;
     }
+
+    virtual void NotifyForceFullScreenChangeIfNeeded(
+        const std::string& curTopPageName, const RefPtr<PipelineContext>& context) {}
 
     std::pair<int32_t, RefPtr<FrameNode>> FindPageInStack(const std::string& url, bool needIgnoreBegin = false);
     std::pair<int32_t, RefPtr<FrameNode>> FindPageInStackByRouteName(
@@ -286,8 +311,9 @@ protected:
     void StartPush(const RouterPageInfo& target);
     void StartReplace(const RouterPageInfo& target);
     void StartBack(const RouterPageInfo& target);
+    void StartBackExtender(const RouterPageInfo& target);
     void StartBackToIndex(int32_t index, const std::string& params);
-    bool StartPop();
+    virtual bool StartPop();
     void StartRestore(const RouterPageInfo& target);
     void BackCheckAlert(const RouterPageInfo& target);
     void BackToIndexCheckAlert(int32_t index, const std::string& params);
@@ -328,10 +354,14 @@ protected:
     static bool OnPopPageToIndex(int32_t index, bool needShowNext, bool needTransition);
     static bool OnCleanPageStack();
 
-    // For ArkTS1.2
+    // For ArkTS static
     virtual bool LoadPageExtender(int32_t pageId, const RouterPageInfo& target, void* jsNode,
         bool needHideLast = true, bool needTransition = true);
     RefPtr<FrameNode> CreatePageExtender(int32_t pageId, const RouterPageInfo& target);
+    // ArkTS static push ArkTS dynamic
+    bool LoadDynamicPageExtender(
+        const RefPtr<FrameNode>& pageNode, bool needHideLast = true, bool needTransition = true);
+    bool CreateDynamicPageOhmUrl(const std::string& url, std::string& ohmUrl);
 
     UIContentErrorCode LoadCard(int32_t pageId, const RouterPageInfo& target, const std::string& params, int64_t cardId,
         bool isRestore = false, bool needHideLast = true, const std::string& entryPoint = "");
@@ -340,12 +370,13 @@ protected:
     bool CheckOhmUrlValid(const std::string& ohmUrl);
     void ThrowError(const std::string& msg, int32_t code);
 
+    void ThrowRuntimeError(const std::string& msg, int32_t code);
+
     bool TryPreloadNamedRouter(const std::string& name, std::function<void()>&& finishCallback);
     void PushNamedRouteInner(const RouterPageInfo& target);
     void ReplaceNamedRouteInner(const RouterPageInfo& target);
     void RunPageByNamedRouterInner(const std::string& name, const std::string& params);
 
-    RefPtr<FrameNode> CreatePage(int32_t pageId, const RouterPageInfo& target);
     void RestoreOhmUrl(const RouterPageInfo& target, std::function<void()>&& finishCallback,
         RestorePageDestination dest, bool needTransition);
     void PushPageToTop(RefPtr<FrameNode>& pageNode, std::function<void()>&& finishCallback, bool needTransition);
@@ -359,6 +390,8 @@ protected:
     RouterIntentInfo ParseRouterIntentInfo(const std::string& intentInfoSerialized);
     // only for @normalized ohmUrl
     std::string ParseUrlNameFromOhmUrl(const std::string& ohmUrl);
+    void LoadCompleteManagerStopCollect();
+    std::string GetBackTargetName();
 
     RefPtr<Framework::ManifestParser> manifestParser_;
 
@@ -369,6 +402,7 @@ protected:
     };
     InsertPageProcessingType insertPageProcessingType_ = InsertPageProcessingType::NONE;
     bool inRouterOpt_ = false;
+    LoadDynamicPageCallback loadDynamicPage_;
     LoadPageCallback loadJs_;
     LoadPageByBufferCallback loadJsByBuffer_;
     LoadCardCallback loadCard_;

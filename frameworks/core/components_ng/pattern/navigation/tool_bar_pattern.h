@@ -38,6 +38,7 @@ public:
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<ToolbarLayoutAlgorithm>();
     }
 
@@ -81,6 +82,10 @@ public:
         dialogNode_ = dialogNode;
     }
 
+    NavigationToolbarOptions GetToolBarOptions() const
+    {
+        return options_;
+    }
 private:
     bool CustomizeExpandSafeArea() override;
     void OnModifyDone() override;
@@ -93,6 +98,7 @@ private:
 
     void SetDefaultBackgroundColorIfNeeded(RefPtr<FrameNode>& host);
     void UpdateBackgroundStyle();
+    void UpdateBackgroundStyleMultiThread();
 
     NavigationToolbarOptions options_;
     MoreButtonOptions moreButtonOptions_;

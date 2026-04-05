@@ -22,7 +22,7 @@
 #include "core/components_ng/pattern/security_component/security_component_common.h"
 #include "core/components_ng/pattern/security_component/security_component_theme.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 
 namespace OHOS::Ace::NG {
 struct SecurityComponentElementStyle {
@@ -47,17 +47,20 @@ public:
         const std::function<RefPtr<Pattern>(void)>& patternCreator, bool isArkuiComponent);
     static void SetIconSize(const Dimension& value);
     static void SetIconSize(const NG::CalcSize& value);
-    static void SetIconSize(FrameNode* frameNode, const std::optional<Dimension>& value);
-    static void SetIconSize(FrameNode* frameNode, const std::optional<NG::CalcSize>& value);
-    static void SetIconColor(FrameNode* frameNode, const std::optional<Color>& value);
     static void SetSymbolIconSize(const Dimension& value);
     static void SetIconColor(const Color& value);
     static void SetIconBorderRadius(const Dimension& value);
     static void SetIconBorderRadius(const std::optional<Dimension>& topLeft,
         const std::optional<Dimension>& topRight, const std::optional<Dimension>& bottomLeft,
         const std::optional<Dimension>& bottomRight);
+    static void SetIconBorderRadius(FrameNode* frameNode, const std::optional<BorderRadiusProperty>& value);
     static void SetIcon(const ImageSourceInfo& value);
+    static void SetIcon(FrameNode* frameNode, const std::optional<ImageSourceInfo>& value);
     static void SetText(const std::string& value);
+    static void SetText(FrameNode* frameNode, const std::optional<std::string>& value);
+    static void SetIconSize(FrameNode* frameNode, const std::optional<Dimension>& value);
+    static void SetIconSize(FrameNode* frameNode, const std::optional<NG::CalcSize>& value);
+    static void SetIconColor(FrameNode* frameNode, const std::optional<Color>& value);
     static void SetSymbolIconColor(const std::vector<Color>& value);
     static void SetFontSize(const Dimension& value);
     static void SetFontSize(FrameNode* frameNode, const std::optional<Dimension>& value);
@@ -68,7 +71,10 @@ public:
     static void SetFontFamily(const std::vector<std::string>& fontFamilies);
     static void SetFontFamily(FrameNode* frameNode, const std::optional<std::vector<std::string>>& fontFamilies);
     static void SetStateEffect(const bool& value);
+    static void SetStateEffect(FrameNode* frameNode, const bool& value);
     static void SetTipPosition(const TipPosition& value);
+    static void SetUserCancelEvent(const bool& value);
+    static void SetUserCancelEvent(FrameNode* frameNode, const std::optional<bool>& value);
     static void SetFontColor(const Color& value);
     static void SetFontColor(FrameNode* frameNode, const std::optional<Color>& value);
     static void SetBackgroundColor(const Color& value);
@@ -84,8 +90,7 @@ public:
     static void SetBackgroundBorderRadius(const std::optional<Dimension>& topLeft,
         const std::optional<Dimension>& topRight, const std::optional<Dimension>& bottomLeft,
         const std::optional<Dimension>& bottomRight);
-    static void SetBackgroundBorderRadius(FrameNode* frameNode,
-        const std::optional<BorderRadiusProperty>& value);
+    static void SetBackgroundBorderRadius(FrameNode* frameNode, const std::optional<BorderRadiusProperty>& value);
     static void SetBackgroundPadding(const std::optional<Dimension>& left, const std::optional<Dimension>& right,
         const std::optional<Dimension>& top, const std::optional<Dimension>& bottom);
     static void SetBackgroundPadding(FrameNode* frameNode,
@@ -139,6 +144,8 @@ public:
 
 protected:
     static RefPtr<SecurityComponentTheme> GetTheme();
+    static void InitChildNode(FrameNode* frameNode, const SecurityComponentElementStyle& style,
+        GetIconResourceFuncType getIconResource, GetTextResourceFuncType getTextResource);
     static bool InitSecurityComponent(FrameNode* frameNode,
         const SecurityComponentElementStyle& style, bool isArkuiComponent,
         GetIconResourceFuncType getIconResource, GetTextResourceFuncType getTextResource);

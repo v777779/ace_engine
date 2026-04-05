@@ -45,7 +45,6 @@ public:
      */
     static void PreloadGridItems(
         const RefPtr<GridPattern>& pattern, std::list<GridPreloadItem>&& items, const BuildGridItemCallback& buildCb);
-
 private:
     // helper to add the GridItem build task to Pipeline
     static void PreloadGridItemsHelper(const RefPtr<GridPattern>& pattern, const BuildGridItemCallback& buildCb);

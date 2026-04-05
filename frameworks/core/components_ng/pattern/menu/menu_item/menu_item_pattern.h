@@ -22,6 +22,7 @@
 #include "core/components/slider/render_slider.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/event/long_press_event.h"
+#include "core/components_ng/pattern/menu/menu_item/custom_menu_item_layout_algorithm.h"
 #include "core/components_ng/pattern/menu/menu_item/menu_item_accessibility_property.h"
 #include "core/components_ng/pattern/menu/menu_item/menu_item_event_hub.h"
 #include "core/components_ng/pattern/menu/menu_item/menu_item_layout_algorithm.h"
@@ -33,6 +34,8 @@
 #include "core/components_ng/pattern/pattern.h"
 
 namespace OHOS::Ace::NG {
+const std::string DETACHED_FREE_ROOT_PROXY_TAG = "DetachedFreeRootProxy";
+
 enum class ShowSubMenuType : int32_t {
     DEFAULT = 0,
     HOVER = 1,
@@ -47,6 +50,11 @@ class ACE_EXPORT MenuItemPattern : public Pattern {
 public:
     MenuItemPattern(bool isOptionPattern = false, int index = -1) : index_(index), isOptionPattern_(isOptionPattern) {}
     ~MenuItemPattern() override = default;
+
+    bool HasHideTask()
+    {
+        return hideTask_;
+    }
 
     inline bool IsAtomicNode() const override
     {
@@ -92,11 +100,6 @@ public:
         return true;
     }
 
-    bool IsContentNoEnabledFixed() override
-    {
-        return true;
-    }
-
     inline RefPtr<EventHub> CreateEventHub() override
     {
         return MakeRefPtr<MenuItemEventHub>();
@@ -132,7 +135,9 @@ public:
     {
         isSelected_ = isSelected;
         if (!isOptionPattern_) {
-            GetHost()->MarkModifyDone();
+            auto host = GetHost();
+            CHECK_NULL_VOID(host);
+            host->MarkModifyDone();
         }
         UpdateDividerSelectedStatus(isSelected_);
     }
@@ -140,6 +145,16 @@ public:
     bool IsSelected() const
     {
         return isSelected_;
+    }
+
+    void SetSubSelectMenuBuilder(const std::function<RefPtr<UINode>()>& subBuilderFunc)
+    {
+        subSelectMenuBuilderFunc_ = subBuilderFunc;
+    }
+
+    std::function<RefPtr<UINode>()>& GetSubSelectMenuBuilder()
+    {
+        return subSelectMenuBuilderFunc_;
     }
 
     void SetSubBuilder(const std::function<void()>& subBuilderFunc)
@@ -210,6 +225,7 @@ public:
 
     RefPtr<FrameNode> GetBottomDivider()
     {
+        CreateBottomDivider();
         return bottomDivider_;
     }
 
@@ -306,10 +322,13 @@ public:
     void SetBgColor(const Color& color);
     void SetFontColor(const Color& color, bool isNeedRecord = true);
     void SetFontFamily(const std::vector<std::string>& value);
-    void SetFontSize(const std::optional<Dimension>& value);
-    void SetFontWeight(const std::optional<FontWeight>& value);
-    void SetItalicFontStyle(const std::optional<Ace::FontStyle>& value);
-    void SetSelected(int32_t selected);
+    void SetFontSize(const Dimension& value);
+    void SetFontWeight(const FontWeight& value);
+    void SetItalicFontStyle(const Ace::FontStyle& value);
+    void SetSelected(int32_t selected)
+    {
+        rowSelected_ = selected;
+    }
     void SetBorderColor(const Color& color);
     Color GetBorderColor() const;
     void SetBorderWidth(const Dimension& value);
@@ -404,7 +423,7 @@ public:
     {
         pasteButton_ = pasteButton;
     }
-    inline void SetOptionFontColor(const std::optional<Color>& color)
+    inline void SetOptionFontColor(const Color& color)
     {
         optionFontColor_ = color;
     }
@@ -412,12 +431,13 @@ public:
     {
         return isExpanded_;
     }
-    void AttachBottomDivider();
     inline bool IsOptionPattern()
     {
         return isOptionPattern_;
     }
+    void AttachBottomDivider();
     void RemoveBottomDivider();
+    void CreateBottomDivider();
     void SetOptionTextModifier(const std::function<void(WeakPtr<NG::FrameNode>)>& optionApply);
     void SetSelectedOptionTextModifier(const std::function<void(WeakPtr<NG::FrameNode>)>& optionSelectedApply);
     std::function<void(WeakPtr<NG::FrameNode>)>& GetOptionTextModifier();
@@ -430,21 +450,50 @@ public:
     void SetShowDefaultSelectedIcon(bool show);
     void SetCheckMarkVisibleType(VisibleType type);
     void OnColorConfigurationUpdate() override;
+    float GetLeftRowMinWidth()
+    {
+        return leftRowMinWidth_;
+    }
+
+    void SetLeftRowMinWidth(float width)
+    {
+        leftRowMinWidth_ = width;
+    }
+    mutable RefPtr<UINode> detachedProxy_ = nullptr;
+    void HandleCloseSubMenu();
+    void DoCloseSubMenu();
+    void SetOnClickEventSet(bool isSet)
+    {
+        onClickEventSet_ = isSet;
+    }
+
+    void SetDetachedFreeRootProxy(const RefPtr<UINode>& node)
+    {
+        if (node && node->GetTag() == DETACHED_FREE_ROOT_PROXY_TAG) {
+            detachedProxy_ = node;
+        }
+    }
+
+    bool HasDetachedFreeRootProxy()
+    {
+        return detachedProxy_ != nullptr;
+    }
+
+    void ReportEvent();
 
 protected:
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
     void RegisterOnKeyEvent();
     void RegisterOnTouch();
-    void CreateBottomDivider();
+    void RegisterAccessibilityClickAction();
     void RegisterOnPress();
     void OnAfterModifyDone() override;
     RefPtr<FrameNode> GetMenuWrapper();
     void InitFocusPadding();
     Dimension focusPadding_ = 0.0_vp;
-    double menuFocusType_ = 0.0;
 
 private:
-    friend class ServiceCollaborationMenuAceHelper;
+friend class ServiceCollaborationMenuAceHelper;
     // register menu item's callback
     void RegisterOnClick();
     void RegisterOnHover();
@@ -460,10 +509,14 @@ private:
 
     void RegisterWrapperMouseEvent();
 
+    void UpdateLeftRow(RefPtr<FrameNode>& leftRow);
+    void UpdateRightRow(RefPtr<FrameNode>& rightRow);
     void AddSelectIcon(RefPtr<FrameNode>& row);
     void UpdateIcon(RefPtr<FrameNode>& row, bool isStart);
     void AddExpandIcon(RefPtr<FrameNode>& row);
     bool ISNeedAddExpandIcon(RefPtr<FrameNode>& row);
+    void UpdateLabelIfSelectOverlayExtensionMenu(std::string& label);
+    void UpdateContentIfSelectOverlayExtensionMenu(std::string& content);
     void AddClickableArea();
     void SetRowAccessibilityLevel();
     void UpdateText(RefPtr<FrameNode>& row, RefPtr<MenuLayoutProperty>& menuProperty, bool isLabel);
@@ -488,7 +541,6 @@ private:
     void ShowEmbeddedExpandMenu(const RefPtr<FrameNode>& expandableNode);
     void SetShowEmbeddedMenuParams(const RefPtr<FrameNode>& expandableNode);
     void UpdatePreviewPosition(SizeF oldMenuSize, SizeF menuSize);
-    void MenuRemoveChild(const RefPtr<FrameNode>& expandableNode, bool isOutFocus);
 
     OffsetF GetSubMenuPosition(const RefPtr<FrameNode>& targetNode);
 
@@ -541,7 +593,9 @@ private:
 
     void HandleOptionBackgroundColor();
     void HandleOptionFontColor();
+    void UpdateOptionStyle();
     RefPtr<SelectTheme> GetCurrentSelectTheme();
+    void OnAttachToMainTree() override;
 
     std::list<TouchRegion> hoverRegions_;
 
@@ -559,6 +613,7 @@ private:
     int32_t index_ = 0;
 
     std::function<void()> subBuilderFunc_ = nullptr;
+    std::function<RefPtr<UINode>()> subSelectMenuBuilderFunc_ = nullptr;
     std::function<void(WeakPtr<NG::FrameNode>)> optionApply_ = nullptr;
     std::function<void(WeakPtr<NG::FrameNode>)> optionSelectedApply_ = nullptr;
 
@@ -581,6 +636,7 @@ private:
     RefPtr<InputEvent> onHoverEvent_;
     RefPtr<ClickEvent> onClickEvent_;
     RefPtr<FrameNode> endRowNode_ = nullptr;
+    std::vector<RefPtr<FrameNode>> expandableItems_;
     bool onTouchEventSet_ = false;
     bool onPressEventSet_ = false;
     bool onHoverEventSet_ = false;
@@ -622,6 +678,7 @@ private:
     std::optional<PointF> lastInnerPosition_ = std::nullopt;
     std::optional<PointF> lastOutterPosition_ = std::nullopt;
     bool leaveFromBottom_ = false;
+    float leftRowMinWidth_ = 0.0f;
 
     ACE_DISALLOW_COPY_AND_MOVE(MenuItemPattern);
 };
@@ -632,7 +689,7 @@ class CustomMenuItemPattern : public MenuItemPattern {
 public:
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
-        return MakeRefPtr<BoxLayoutAlgorithm>();
+        return MakeRefPtr<CustomMenuItemLayoutAlgorithm>();
     }
     void OnAttachToFrameNode() override;
 

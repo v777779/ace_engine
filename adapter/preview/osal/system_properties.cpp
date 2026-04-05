@@ -15,6 +15,8 @@
 
 #include "base/utils/system_properties.h"
 
+#include "base/utils/layout_break_point.h"
+
 #include "base/log/log.h"
 
 namespace OHOS::Ace {
@@ -28,6 +30,8 @@ constexpr char PROPERTY_DEVICE_TYPE_TWO_IN_ONE[] = "2in1";
 constexpr char PROPERTY_DEVICE_TYPE_WEARABLE[] = "wearable";
 constexpr char PROPERTY_DEVICE_TYPE_CAR[] = "car";
 constexpr int32_t DEFAULT_FORM_SHARED_IMAGE_CACHE_THRESHOLD = 20;
+
+constexpr int32_t DEFAULT_VELOCITY_TRACKER_POINTNUMBER_VALUE = 20;
 
 static constexpr char UNDEFINED_PARAM[] = "undefined parameter";
 
@@ -46,6 +50,7 @@ std::atomic<bool> SystemProperties::attributeSetTraceEnable_(false);
 std::atomic<bool> SystemProperties::traceInputEventEnable_(false);
 std::atomic<bool> SystemProperties::stateManagerEnable_(false);
 bool SystemProperties::buildTraceEnable_ = false;
+bool SystemProperties::dynamicDetectionTraceEnable_ = false;
 bool SystemProperties::syncDebugTraceEnable_ = false;
 bool SystemProperties::measureDebugTraceEnable_ = false;
 bool SystemProperties::safeAreaDebugTraceEnable_ = false;
@@ -74,10 +79,10 @@ std::string SystemProperties::paramDeviceType_ = UNDEFINED_PARAM;
 int32_t SystemProperties::mcc_ = MCC_UNDEFINED;
 int32_t SystemProperties::mnc_ = MNC_UNDEFINED;
 ScreenShape SystemProperties::screenShape_ { ScreenShape::NOT_ROUND };
-LongScreenType SystemProperties::LongScreen_ { LongScreenType::NOT_LONG };
-bool SystemProperties::unZipHap_ = true;
+std::atomic<bool> SystemProperties::unZipHap_(true);
 bool SystemProperties::windowAnimationEnabled_ = false;
 bool SystemProperties::debugEnabled_ = false;
+bool SystemProperties::eventBenchMarkEnabled_ = false;
 DebugFlags SystemProperties::debugFlags_ = 0;
 bool SystemProperties::layoutDetectEnabled_ = false;
 std::atomic<bool> SystemProperties::debugBoundaryEnabled_(false);
@@ -85,6 +90,7 @@ bool SystemProperties::debugAutoUIEnabled_ = false;
 bool SystemProperties::debugOffsetLogEnabled_ = false;
 bool SystemProperties::downloadByNetworkEnabled_ = false;
 bool SystemProperties::recycleImageEnabled_ = false;
+bool SystemProperties::imageReleaseManageObjectEnabled_ = false;
 bool SystemProperties::gpuUploadEnabled_ = false;
 bool SystemProperties::isHookModeEnabled_ = false;
 bool SystemProperties::astcEnabled_ = false;
@@ -102,6 +108,7 @@ bool SystemProperties::rosenBackendEnabled_ = true;
 #endif
 bool SystemProperties::enableScrollableItemPool_ = false;
 bool SystemProperties::navigationBlurEnabled_ = true;
+std::optional<bool> SystemProperties::arkUIHookEnabled_;
 bool SystemProperties::gridCacheEnabled_ = false;
 bool SystemProperties::gridIrregularLayoutEnable_ = false;
 bool SystemProperties::sideBarContainerBlurEnable_ = false;
@@ -115,17 +122,29 @@ float SystemProperties::pageCount_ = 1.0f;
 float SystemProperties::dragStartDampingRatio_ = 0.2f;
 float SystemProperties::dragStartPanDisThreshold_ = 10.0f;
 uint32_t SystemProperties::canvasDebugMode_ = 0;
+uint32_t SystemProperties::safeRefactorMode_ = 0;
+float SystemProperties::fontScale_ = 1.0;
+float SystemProperties::fontWeightScale_ = 1.0;
 double SystemProperties::scrollableDistance_ = 0.0;
 bool SystemProperties::taskPriorityAdjustmentEnable_ = false;
 int32_t SystemProperties::dragDropFrameworkStatus_ = 0;
 int32_t SystemProperties::touchAccelarate_ = 0;
+int32_t SystemProperties::pageLoadTimethreshold_ = 1000; // page load max timethreshold is 1000ms.
 bool SystemProperties::pageTransitionFrzEnabled_ = false;
+bool SystemProperties::forcibleLandscapeEnabled_ = false;
 bool SystemProperties::softPagetransition_ = false;
 bool SystemProperties::formSkeletonBlurEnabled_ = true;
 int32_t SystemProperties::formSharedImageCacheThreshold_ = DEFAULT_FORM_SHARED_IMAGE_CACHE_THRESHOLD;
 WidthLayoutBreakPoint SystemProperties::widthLayoutBreakpoints_ = WidthLayoutBreakPoint();
 HeightLayoutBreakPoint SystemProperties::heightLayoutBreakpoints_ = HeightLayoutBreakPoint();
 bool SystemProperties::syncLoadEnabled_ = true;
+int32_t SystemProperties::velocityTrackerPointNumber_ = DEFAULT_VELOCITY_TRACKER_POINTNUMBER_VALUE;
+bool SystemProperties::isVelocityWithinTimeWindow_ = true;
+bool SystemProperties::isVelocityWithoutUpPoint_ = true;
+bool SystemProperties::prebuildInMultiFrameEnabled_ = false;
+bool SystemProperties::isOpenYuvDecode_ = false;
+bool SystemProperties::autoResizeEnabled_ = false;
+std::once_flag SystemProperties::getSysPropertiesFlag_;
 
 bool SystemProperties::IsOpIncEnable()
 {
@@ -199,6 +218,10 @@ void SystemProperties::InitDeviceInfo(
     }
 }
 
+void SystemProperties::ReadSystemParametersCallOnce()
+{
+}
+
 void SystemProperties::SetDeviceOrientation(int32_t orientation)
 {
     if (orientation == ORIENTATION_PORTRAIT && orientation_ != DeviceOrientation::PORTRAIT) {
@@ -268,6 +291,16 @@ bool SystemProperties::GetIsUseMemoryMonitor()
     return false;
 }
 
+int32_t SystemProperties::GetComponentLoadNumber()
+{
+    return 1;
+}
+
+int32_t SystemProperties::GetStopCollectTimeWait()
+{
+    return 800; // 800 : Stop collecting asynchronous task waiting time.
+}
+
 bool SystemProperties::IsFormAnimationLimited()
 {
     return true;
@@ -281,6 +314,16 @@ bool SystemProperties::GetDebugPixelMapSaveEnabled()
 bool SystemProperties::GetResourceDecoupling()
 {
     return true;
+}
+
+bool SystemProperties::IsPCMode()
+{
+    return false;
+}
+
+bool SystemProperties::IsAutoFillSupport()
+{
+    return false;
 }
 
 bool SystemProperties::ConfigChangePerform()
@@ -316,6 +359,11 @@ bool SystemProperties::GetDisplaySyncSkipEnabled()
 bool SystemProperties::GetNavigationBlurEnabled()
 {
     return navigationBlurEnabled_;
+}
+
+std::optional<bool> SystemProperties::GetArkUIHookEnabled()
+{
+    return arkUIHookEnabled_;
 }
 
 bool SystemProperties::GetGridCacheEnabled()
@@ -358,7 +406,27 @@ float SystemProperties::GetDragStartPanDistanceThreshold()
     return dragStartPanDisThreshold_;
 }
 
+int32_t SystemProperties::GetVelocityTrackerPointNumber()
+{
+    return velocityTrackerPointNumber_;
+}
+
+bool SystemProperties::IsVelocityWithinTimeWindow()
+{
+    return isVelocityWithinTimeWindow_;
+}
+
+bool SystemProperties::IsVelocityWithoutUpPoint()
+{
+    return isVelocityWithoutUpPoint_;
+}
+
 bool SystemProperties::IsSmallFoldProduct()
+{
+    return false;
+}
+
+bool SystemProperties::IsPortraitFoldProduct()
 {
     return false;
 }
@@ -371,6 +439,11 @@ bool SystemProperties::IsBigFoldProduct()
 std::string SystemProperties::GetDebugInspectorId()
 {
     return UNDEFINED_PARAM;
+}
+
+bool SystemProperties::GetEventBenchMarkEnabled()
+{
+    return false;
 }
 
 double SystemProperties::GetSrollableVelocityScale()
@@ -408,6 +481,11 @@ int32_t SystemProperties::GetTouchAccelarate()
     return touchAccelarate_;
 }
 
+int32_t SystemProperties::GetPageLoadTimethreshold()
+{
+    return pageLoadTimethreshold_;
+}
+
 bool SystemProperties::GetContainerDeleteFlag()
 {
     return true;
@@ -421,6 +499,11 @@ bool SystemProperties::IsSuperFoldDisplayDevice()
 bool SystemProperties::IsPageTransitionFreeze()
 {
     return pageTransitionFrzEnabled_;
+}
+
+bool SystemProperties::IsForcibleLandscapeEnabled()
+{
+    return forcibleLandscapeEnabled_;
 }
 
 bool SystemProperties::IsSoftPageTransition()
@@ -441,6 +524,11 @@ bool SystemProperties::GetMultiInstanceEnabled()
 int32_t SystemProperties::getFormSharedImageCacheThreshold()
 {
     return formSharedImageCacheThreshold_;
+}
+
+bool SystemProperties::IsFormSkeletonRSTransactionEnabled()
+{
+    return true;
 }
 
 void SystemProperties::SetMultiInstanceEnabled(bool enabled)
@@ -467,4 +555,98 @@ int32_t SystemProperties::GetWhiteBlockCacheCountValue()
     return 0;
 }
 
+int32_t SystemProperties::GetPreviewStatus()
+{
+    return -1;
+}
+
+// Missing setter implementations
+void SystemProperties::SetDeviceType(DeviceType deviceType)
+{
+    deviceType_ = deviceType;
+}
+
+void SystemProperties::SetDevicePhysicalWidth(int32_t devicePhysicalWidth)
+{
+    devicePhysicalWidth_ = devicePhysicalWidth;
+}
+
+void SystemProperties::SetDevicePhysicalHeight(int32_t devicePhysicalHeight)
+{
+    devicePhysicalHeight_ = devicePhysicalHeight;
+}
+
+void SystemProperties::SetFontWeightScale(const float fontWeightScale)
+{
+    if (fontWeightScale_ != fontWeightScale) {
+        fontWeightScale_ = fontWeightScale;
+    }
+}
+
+void SystemProperties::SetFontScale(const float fontScale)
+{
+    if (fontScale != fontScale_) {
+        fontScale_ = fontScale;
+    }
+}
+
+void SystemProperties::SetResolution(double resolution)
+{
+    resolution_ = resolution;
+}
+
+void SystemProperties::SetDeviceAccess(bool isDeviceAccess)
+{
+    isDeviceAccess_ = isDeviceAccess;
+}
+
+void SystemProperties::SetUnZipHap(bool unZipHap)
+{
+    unZipHap_.store(unZipHap);
+}
+
+void SystemProperties::SetExtSurfaceEnabled(bool extSurfaceEnabled)
+{
+    extSurfaceEnabled_ = extSurfaceEnabled;
+}
+
+void SystemProperties::SetStateManagerEnabled(bool stateManagerEnable)
+{
+    stateManagerEnable_.store(stateManagerEnable);
+}
+
+void SystemProperties::SetFaultInjectEnabled(bool faultInjectEnable)
+{
+    faultInjectEnabled_ = faultInjectEnable;
+}
+
+void SystemProperties::SetLayoutTraceEnabled(bool layoutTraceEnable)
+{
+    layoutTraceEnable_.store(layoutTraceEnable);
+}
+
+void SystemProperties::SetInputEventTraceEnabled(bool inputEventTraceEnable)
+{
+    traceInputEventEnable_.store(inputEventTraceEnable);
+}
+
+void SystemProperties::SetSecurityDevelopermodeLayoutTraceEnabled(bool layoutTraceEnable)
+{
+    layoutTraceEnable_.store(layoutTraceEnable);
+}
+
+void SystemProperties::SetDebugBoundaryEnabled(bool debugBoundaryEnabled)
+{
+    debugBoundaryEnabled_.store(debugBoundaryEnabled);
+}
+
+void SystemProperties::SetPerformanceMonitorEnabled(bool performanceMonitorEnable)
+{
+    acePerformanceMonitorEnable_.store(performanceMonitorEnable);
+}
+
+void SystemProperties::SetFocusCanBeActive(bool focusCanBeActive)
+{
+    focusCanBeActive_.store(focusCanBeActive);
+}
 } // namespace OHOS::Ace

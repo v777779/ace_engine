@@ -55,6 +55,16 @@ public:
         return isTrimMemRecycle_;
     }
 
+    void SetAutoResize(bool autoResize)
+    {
+        autoResize_ = autoResize;
+    }
+
+    bool GetAutoResize() const
+    {
+        return autoResize_;
+    }
+
     int32_t GetNodeId() const
     {
         return nodeInfo_.nodeId_;
@@ -70,6 +80,27 @@ public:
         return imageSrc_;
     }
 
+    void SetFrameSize(float width, float height)
+    {
+        frameSizeWidth_ = width;
+        frameSizeHeight_ = height;
+    }
+
+    float GetFrameSizeWidth() const
+    {
+        return frameSizeWidth_;
+    }
+
+    float GetFrameSizeHeight() const
+    {
+        return frameSizeHeight_;
+    }
+
+    int32_t GetSrcType() const
+    {
+        return srcType_;
+    }
+
 private:
     ImageNodeId nodeInfo_ = ImageNodeId();
     int32_t srcType_ = -1;
@@ -77,34 +108,12 @@ private:
     bool isTrimMemRecycle_ = false;
     std::string withoutSrcInfo_ = "";
     std::string withSrcInfo_ = "";
+    float frameSizeWidth_ = 0.0f;
+    float frameSizeHeight_ = 0.0f;
+    bool autoResize_ = false;
 
-    void InitToStringWithoutSrc()
-    {
-        withoutSrcInfo_ = std::string("[")
-                              .append(std::to_string(nodeInfo_.nodeId_))
-                              .append("-")
-                              .append(std::to_string(nodeInfo_.accessibilityId_))
-                              .append("-")
-                              .append(std::to_string(nodeInfo_.canvasNodeId_))
-                              .append("-")
-                              .append(std::to_string(srcType_))
-                              .append("]");
-    }
-
-    void InitToStringWithSrc()
-    {
-        withSrcInfo_ = std::string("[")
-                           .append(std::to_string(nodeInfo_.nodeId_))
-                           .append("-")
-                           .append(std::to_string(nodeInfo_.accessibilityId_))
-                           .append("-")
-                           .append(std::to_string(nodeInfo_.canvasNodeId_))
-                           .append("-")
-                           .append(std::to_string(srcType_))
-                           .append("]-[")
-                           .append(imageSrc_)
-                           .append("]");
-    }
+    void InitToStringWithoutSrc();
+    void InitToStringWithSrc();
 };
 
 struct RenderedImageInfo {
@@ -122,38 +131,9 @@ struct RenderedImageInfo {
     AllocatorType allocatorType = AllocatorType::DEFAULT;
     std::string pixelMapId;
     std::string srcInfo;
+    std::string dstRectInfo;
 
-    std::string ToString() const
-    {
-        if (!renderSuccess) {
-            return "RenderedImageInfo: { RenderStatus: NotRender }";
-        }
-        std::string result;
-        result.append("RenderedImageInfo: {")
-            .append("RenderStatus: Success")
-            .append(", Width: ")
-            .append(std::to_string(width))
-            .append(", Height: ")
-            .append(std::to_string(height))
-            .append(", Row Stride: ")
-            .append(std::to_string(rowStride))
-            .append(", Row Bytes: ")
-            .append(std::to_string(rowBytes))
-            .append(", Byte Count: ")
-            .append(std::to_string(byteCount))
-            .append(", Is HDR: ")
-            .append(isHdr ? "true" : "false")
-            .append(", Alpha Type: ")
-            .append(std::to_string(static_cast<int>(alphaType)))
-            .append(", Pixel Format: ")
-            .append(std::to_string(static_cast<int>(pixelFormat)))
-            .append(", Allocator Type: ")
-            .append(std::to_string(static_cast<int>(allocatorType)))
-            .append(", Pixel Map ID: ")
-            .append(pixelMapId)
-            .append(" }");
-        return result;
-    }
+    std::string ToString() const;
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_IMAGE_IMAGE_DFX_H

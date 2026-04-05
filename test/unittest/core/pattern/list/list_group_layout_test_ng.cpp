@@ -16,20 +16,23 @@
 #include <optional>
 
 #include "gtest/gtest.h"
+#include "list_test_ng.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
 #include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/list/list_children_main_size.h"
 #include "core/components_ng/pattern/list/list_item_group_layout_algorithm.h"
+#include "core/components_ng/pattern/list/list_height_offset_calculator.h"
 #include "core/components_ng/pattern/list/list_item_pattern.h"
 #include "core/components_ng/pattern/list/list_position_map.h"
+#include "core/components_ng/syntax/shallow_builder.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 
 namespace OHOS::Ace::NG {
 using namespace testing;
 using namespace testing::ext;
 
-class ListItemGroupAlgorithmTestNg : public TestNG {
+class ListItemGroupAlgorithmTestNg : public ListTestNg {
 public:
 };
 
@@ -355,6 +358,36 @@ HWTEST_F(ListItemGroupAlgorithmTestNg, CheckJumpBackwardForBigOffset007, TestSiz
     EXPECT_EQ(endIndex, 2);
     EXPECT_EQ(endPos, 1.0f);
     EXPECT_FALSE(result);
+}
+
+
+/**
+ * @tc.name: CheckJumpForwardForBigOffset008
+ * @tc.desc: Test ListItemGroup BigOffsetWithScrollBar
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupAlgorithmTestNg, BigOffsetWithScrollBar, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    CreateListItemGroup(V2::ListItemGroupStyle::NONE);
+    CreateListItems(30000);
+    CreateDone();
+
+    FlushIdleTask(pattern_);
+    UpdateCurrentOffset(-200000, SCROLL_FROM_BAR);
+
+    auto calculateForward = ListHeightOffsetCalculator(pattern_->itemPosition_, 0, 1, Axis::VERTICAL, 0);
+    calculateForward.SetPosMap(pattern_->posMap_);
+    calculateForward.GetEstimateHeightAndOffset(frameNode_);
+    auto currentOffset = calculateForward.GetEstimateOffset();
+    EXPECT_EQ(currentOffset, 200000);
+
+    UpdateCurrentOffset(100000, SCROLL_FROM_BAR);
+    auto calculateBackward = ListHeightOffsetCalculator(pattern_->itemPosition_, 0, 1, Axis::VERTICAL, 0);
+    calculateBackward.SetPosMap(pattern_->posMap_);
+    calculateBackward.GetEstimateHeightAndOffset(frameNode_);
+    currentOffset = calculateBackward.GetEstimateOffset();
+    EXPECT_EQ(currentOffset, 100000);
 }
 
 /**
@@ -981,6 +1014,36 @@ HWTEST_F(ListItemGroupAlgorithmTestNg, SetActiveChildRange005, TestSize.Level1)
 }
 
 /**
+ * @tc.name: SetActiveChildRange006
+ * @tc.desc: Test ListItemGroupLayoutAlgorithm SetActiveChildRange
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupAlgorithmTestNg, SetActiveChildRange006, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    ListItemGroupModelNG groupModel = CreateListItemGroup();
+    auto header = GetRowOrColBuilder(FILL_LENGTH, Dimension(GROUP_HEADER_LEN));
+    groupModel.SetHeader(std::move(header));
+    CreateRepeatVirtualScrollNode(10, [this](int32_t idx) {
+        CreateListItem();
+        ViewStackProcessor::GetInstance()->Pop();
+        ViewStackProcessor::GetInstance()->StopGetAccessRecording();
+    });
+    CreateDone();
+
+    auto groupNode = AceType::DynamicCast<FrameNode>(frameNode_->GetChildAtIndex(0));
+    auto repeat = AceType::DynamicCast<RepeatVirtualScrollNode>(groupNode->GetChildAtIndex(1));
+    EXPECT_NE(repeat, nullptr);
+    EXPECT_EQ(repeat->GetChildren().size(), 5);
+
+    RefPtr<ListItemGroupLayoutAlgorithm> listItemGroupLayoutAlgorithm =
+        AceType::MakeRefPtr<ListItemGroupLayoutAlgorithm>(2, 2, 2);
+    listItemGroupLayoutAlgorithm->pauseMeasureCacheItem_ = 0;
+    listItemGroupLayoutAlgorithm->SetActiveChildRange(AceType::RawPtr(groupNode), 2, true);
+    EXPECT_EQ(repeat->GetChildren().size(), 2);
+}
+
+/**
  * @tc.name: ModifyReferencePos001
  * @tc.desc: Test ListItemGroupLayoutAlgorithm ModifyReferencePos
  * @tc.type: FUNC
@@ -1339,6 +1402,49 @@ HWTEST_F(ListItemGroupAlgorithmTestNg, CalculateLanes002, TestSize.Level1)
     listItemGroupLayoutAlgorithm->CalculateLanes(listLayoutProperty, layoutConstraint, crossSizeOptional, Axis::FREE);
     EXPECT_EQ(listItemGroupLayoutAlgorithm->laneGutter_, 5.0f);
     EXPECT_EQ(listItemGroupLayoutAlgorithm->lanes_, 4);
+}
+
+/**
+ * @tc.name: CalculateLanes003
+ * @tc.desc: Test ListItemGroupLayoutAlgorithm CalculateLanes when lanes changed
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupAlgorithmTestNg, CalculateLanes003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create list with one group.
+     */
+    ListModelNG model = CreateList();
+    model.SetLanes(2);
+    CreateListItemGroup();
+    CreateListItems(100);
+    CreateDone();
+
+    /**
+     * @tc.steps: step2. Scroll to bottom.
+     * @tc.expected: The value of startIndex of layoutedItemInfo_ is 0, and the value of endIndex is 99.
+     */
+    ScrollTo(50 * ITEM_MAIN_SIZE);
+    LayoutedItemInfo defaultLayoutedItemInfo = { -1, 0.0f, -1, 0.0f };
+    EXPECT_EQ(pattern_->itemPosition_.rbegin()->second.endPos, HEIGHT);
+    EXPECT_EQ(itemGroupPatters_[0]->layoutedItemInfo_.value_or(defaultLayoutedItemInfo).startIndex, 0);
+    EXPECT_EQ(itemGroupPatters_[0]->layoutedItemInfo_.value_or(defaultLayoutedItemInfo).endIndex, 99);
+
+    /**
+     * @tc.steps: step3. Change lanes.
+     * @tc.expected: layoutedItemInfo_ is reset and then recalculated.
+     */
+    layoutProperty_->UpdateLanes(1);
+    FlushUITasks(frameNode_);
+    EXPECT_GT(itemGroupPatters_[0]->layoutedItemInfo_.value_or(defaultLayoutedItemInfo).startIndex, 0);
+
+    /**
+     * @tc.steps: step4. Scroll to top.
+     * @tc.expected: The value of startIndex of layoutedItemInfo_ is 0.
+     */
+    ScrollTo(0);
+    EXPECT_EQ(pattern_->itemPosition_.begin()->second.startPos, 0);
+    EXPECT_EQ(itemGroupPatters_[0]->layoutedItemInfo_.value_or(defaultLayoutedItemInfo).startIndex, 0);
 }
 
 /**
@@ -1722,5 +1828,267 @@ HWTEST_F(ListItemGroupAlgorithmTestNg, CheckRecycle001, TestSize.Level1)
     listItemGroupLayoutAlgorithm->itemPosition_[1] = { 1, 100.0f, 200.0f, true };
     listItemGroupLayoutAlgorithm->CheckRecycle(layoutWrapperNode, 200.0f, 300.0f, 0.0f, true);
     EXPECT_EQ(listItemGroupLayoutAlgorithm->recycledItemPosition_.size(), 1);
+}
+
+/**
+ * @tc.name: CheckRecycle002
+ * @tc.desc: Test ListItemGroupLayoutAlgorithm CheckRecycle
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupAlgorithmTestNg, CheckRecycle002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List and ListItemGroup.
+     */
+    ListModelNG model = CreateList();
+    ListItemGroupModelNG groupModel = CreateListItemGroup();
+    auto listItemGroup = ViewStackProcessor::GetInstance()->GetMainElementNode();
+    auto listItemGroupFrameNode = AceType::DynamicCast<FrameNode>(listItemGroup);
+    auto layoutAlgorithmWrapper = listItemGroupFrameNode->GetLayoutAlgorithm();
+    auto layoutAlgorithm = layoutAlgorithmWrapper->GetLayoutAlgorithm();
+    auto listItemGroupLayoutAlgorithm = AceType::DynamicCast<ListItemGroupLayoutAlgorithm>(layoutAlgorithm);
+    CreateListItems(20, V2::ListItemStyle::NONE);
+    CreateDone();
+
+    /**
+     * @tc.steps: step2. set CachedCount to 3.
+     */
+    ListModelNG::SetCachedCount(AceType::RawPtr(frameNode_), 3);
+
+    /**
+     * @tc.steps: step3. set TextDirection to RTL.
+     */
+    layoutProperty_->UpdateLayoutDirection(TextDirection::RTL);
+
+    /**
+     * @tc.steps: step4. set ListDirection to HORIZONTAL.
+     */
+    auto horizontal = 1;
+    ListModelNG::SetListDirection(AceType::RawPtr(frameNode_), horizontal);
+    
+    /**
+     * @tc.steps: step4. FlushUITasks
+     * @tc.expected: The size of cachedItemPosition is 0.
+     */
+    FlushUITasks();
+    auto cachedItemPosition = listItemGroupLayoutAlgorithm->GetCachedItemPosition();
+    EXPECT_TRUE(cachedItemPosition.empty());
+}
+
+/**
+ * @tc.name: CheckRecycle003
+ * @tc.desc: Test ListItemGroupLayoutAlgorithm CheckRecycle
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupAlgorithmTestNg, CheckRecycle003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List and ListItemGroup.
+     */
+    ListModelNG model = CreateList();
+    ListItemGroupModelNG groupModel = CreateListItemGroup();
+    auto listItemGroup = ViewStackProcessor::GetInstance()->GetMainElementNode();
+    auto listItemGroupFrameNode = AceType::DynamicCast<FrameNode>(listItemGroup);
+    auto layoutAlgorithmWrapper = listItemGroupFrameNode->GetLayoutAlgorithm();
+    auto layoutAlgorithm = layoutAlgorithmWrapper->GetLayoutAlgorithm();
+    auto listItemGroupLayoutAlgorithm = AceType::DynamicCast<ListItemGroupLayoutAlgorithm>(layoutAlgorithm);
+    CreateListItems(20, V2::ListItemStyle::NONE);
+    CreateDone();
+
+    /**
+     * @tc.steps: step2. set TextDirection to RTL.
+     */
+    layoutProperty_->UpdateLayoutDirection(TextDirection::RTL);
+
+    /**
+     * @tc.steps: step3. set ListDirection to HORIZONTAL.
+     */
+    auto horizontal = 1;
+    ListModelNG::SetListDirection(AceType::RawPtr(frameNode_), horizontal);
+    
+    /**
+     * @tc.steps: step4. FlushUITasks
+     * @tc.expected: The size of cachedItemPosition is 0.
+     */
+    FlushUITasks();
+    auto cachedItemPosition = listItemGroupLayoutAlgorithm->GetCachedItemPosition();
+    EXPECT_TRUE(cachedItemPosition.empty());
+}
+
+/**
+ * @tc.name: TestWhetherCacheItemLayouted
+ * @tc.desc: Test whether the cached item is layouted.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupAlgorithmTestNg, TestWhetherCacheItemLayouted, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List and ListItemGroup, set cachedCount to (1, false).
+     */
+    ListModelNG model = CreateList();
+    model.SetCachedCount(1, false);
+    CreateListItemGroup(V2::ListItemGroupStyle::NONE);
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+
+    /**
+     * @tc.steps: step2. FlushIdleTask
+     * @tc.expected: The cached item is inactive and layouted.
+     */
+    FlushIdleTask(pattern_);
+    auto groupNode = AceType::DynamicCast<FrameNode>(frameNode_->GetChildAtIndex(0));
+    auto itemNode = AceType::DynamicCast<FrameNode>(groupNode->GetChildAtIndex(4));
+    EXPECT_TRUE(itemNode->IsActive());
+    auto itemPattern = itemNode->GetPattern<ListItemPattern>();
+    EXPECT_TRUE(itemPattern->isLayouted_);
+    auto cachedItemNode = AceType::DynamicCast<FrameNode>(groupNode->GetChildAtIndex(5));
+    EXPECT_FALSE(cachedItemNode->IsActive());
+    auto cachedItemPattern = cachedItemNode->GetPattern<ListItemPattern>();
+    EXPECT_TRUE(cachedItemPattern->isLayouted_);
+
+    /**
+     * @tc.steps: step3. Create List and ListItemGroup, set cachedCount to (1, true).
+     */
+    ClearOldNodes();
+    model = CreateList();
+    model.SetCachedCount(1, true);
+    CreateListItemGroup(V2::ListItemGroupStyle::NONE);
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+
+    /**
+     * @tc.steps: step4. FlushIdleTask
+     * @tc.expected: The cached item is active and layouted.
+     */
+    FlushIdleTask(pattern_);
+    groupNode = AceType::DynamicCast<FrameNode>(frameNode_->GetChildAtIndex(0));
+    itemNode = AceType::DynamicCast<FrameNode>(groupNode->GetChildAtIndex(4));
+    EXPECT_TRUE(itemNode->IsActive());
+    itemPattern = itemNode->GetPattern<ListItemPattern>();
+    EXPECT_TRUE(itemPattern->isLayouted_);
+    cachedItemNode = AceType::DynamicCast<FrameNode>(groupNode->GetChildAtIndex(5));
+    EXPECT_TRUE(cachedItemNode->IsActive());
+    cachedItemPattern = cachedItemNode->GetPattern<ListItemPattern>();
+    EXPECT_TRUE(cachedItemPattern->isLayouted_);
+}
+
+/**
+ * @tc.name: TestGroupCacheRange
+ * @tc.desc: Window size drag not load cached node
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupAlgorithmTestNg, TestGroupCacheRange, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetCachedCount(2);
+    CreateListItemGroup(V2::ListItemGroupStyle::NONE);
+    CreateItemsInLazyForEach(10, 100.0f, nullptr); /* 10: item count */
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. SetCacheRange
+     * @tc.expected: 1 ListItem cached.
+     */
+    ListModelNG::SetCacheRange(AceType::RawPtr(frameNode_), 1, 3);
+    auto groupNode = AceType::DynamicCast<FrameNode>(frameNode_->GetChildAtIndex(0));
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    auto groupPattern = groupNode->GetPattern<ListItemGroupPattern>();
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(groupPattern->cachedItemPosition_.size(), 3);
+
+    /**
+     * @tc.steps: step2. ResetCacheRange
+     * @tc.expected: 2 ListItem cached.
+     */
+    ListModelNG::ResetCacheRange(AceType::RawPtr(frameNode_));
+    FlushUITasks(frameNode_);
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(groupPattern->cachedItemPosition_.size(), 2);
+
+    /**
+     * @tc.steps: step3. SetCachedCount 4
+     * @tc.expected: 4 ListItem cached.
+     */
+    ListModelNG::SetCachedCount(AceType::RawPtr(frameNode_), 4);
+    FlushUITasks(frameNode_);
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(groupPattern->cachedItemPosition_.size(), 4);
+
+    /**
+     * @tc.steps: step4. SetCacheRange
+     * @tc.expected: 3 ListItem cached.
+     */
+    ListModelNG::SetCacheRange(AceType::RawPtr(frameNode_), 1, 3);
+    FlushUITasks(frameNode_);
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(groupPattern->cachedItemPosition_.size(), 3);
+
+    /**
+     * @tc.steps: step5. UpdateCurrentOffset
+     * @tc.expected: 5 ListItem cached.
+     */
+    UpdateCurrentOffset(-250);
+    FlushUITasks(frameNode_);
+    FlushIdleTask(listPattern);
+    EXPECT_EQ(groupPattern->cachedItemPosition_.size(), 5);
+    EXPECT_EQ(groupPattern->cachedItemPosition_.count(0), 1);
+    EXPECT_EQ(groupPattern->cachedItemPosition_.count(1), 1);
+    EXPECT_EQ(groupPattern->cachedItemPosition_.count(7), 1);
+}
+
+/**
+ * @tc.name: TestGroupCacheRangeInBusy
+ * @tc.desc: Test group cached node
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupAlgorithmTestNg, TestGroupCacheRangeInBusy, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetCachedCount(1);
+    CreateListItemGroup(V2::ListItemGroupStyle::NONE);
+    CreateItemsInLazyForEach(10, 100.0f, nullptr); /* 10: item count */
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. SetCacheRange
+     * @tc.expected: 1 ListItem cached.
+     */
+    auto listPattern = frameNode_->GetPattern<ListPattern>();
+    FlushUITasks(frameNode_);
+    ASSERT_NE(listPattern->GetPredictLayoutParamV2(), std::nullopt);
+    auto param = listPattern->GetPredictLayoutParamV2().value();
+    for (auto it : param.items) {
+        EXPECT_EQ(it.forceCache, true);
+    }
+}
+
+/**
+ * @tc.name: TestGroupCacheSyncGeometry
+ * @tc.desc: ListItemGroup in cache need sync geometry.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupAlgorithmTestNg, TestGroupCacheSyncGeometry, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetCachedCount(4);
+    CreateListItem(V2::ListItemStyle::NONE);
+    ViewAbstract::SetHeight(CalcLength(350));
+    ViewStackProcessor::GetInstance()->Pop();
+    ViewStackProcessor::GetInstance()->StopGetAccessRecording();
+    CreateListItemGroup(V2::ListItemGroupStyle::NONE);
+    CreateItemsInLazyForEach(10, 100.0f, nullptr); /* 10: item count */
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. update item0 height, ListItemGroup out of view in cache.
+     * @tc.expected: ListItemGroup paint rect updated.
+     */
+    auto item0 = GetChildFrameNode(frameNode_, 0);
+    auto group1 = GetChildFrameNode(frameNode_, 1);
+    ViewAbstract::SetHeight(AceType::RawPtr(item0), CalcLength(1000));
+    FlushUITasks(frameNode_);
+    EXPECT_EQ(GetChildY(frameNode_, 1), 1000);
+    auto renderContext = group1->GetRenderContext();
+    EXPECT_EQ(renderContext->GetPaintRectWithoutTransform().GetY(), 1000);
 }
 } // namespace OHOS::Ace::NG

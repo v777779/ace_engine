@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -52,7 +52,7 @@ struct PickerOptionProperty {
 };
 
 class PickerEventParam : public virtual AceType {
-    DECLARE_ACE_TYPE(PickerEventParam, AceType)
+    DECLARE_ACE_TYPE(PickerEventParam, AceType);
 
 public:
     WeakPtr<FrameNode> instance_;
@@ -75,7 +75,7 @@ enum class PickerOptionIndex {
     COLUMN_INDEX_6,
 };
 
-class PickerColumnPattern : public LinearLayoutPattern {
+class ACE_FORCE_EXPORT PickerColumnPattern : public LinearLayoutPattern {
     DECLARE_ACE_TYPE(PickerColumnPattern, LinearLayoutPattern);
 
 public:
@@ -96,10 +96,12 @@ public:
         uint32_t showCount, bool isDown, double scale) = 0;
     virtual void InitTextFontFamily() = 0;
     virtual uint32_t GetOptionCount() const = 0;
+    virtual uint32_t GetActualOptionCount() const = 0;
     virtual const Color& GetButtonHoverColor() const = 0;
     virtual const Color& GetButtonBgColor() const = 0;
     virtual const Color& GetButtonPressColor() const = 0;
     virtual bool CanMove(bool isDown) const = 0;
+    virtual bool GetCanLoopFromLayoutPropertyWithStartEnd() const = 0;
     virtual std::string GetCurrentOption() const = 0;
 
     virtual uint32_t GetShowCount() const
@@ -196,16 +198,6 @@ public:
     virtual void SetEventCallback(EventCallback&& value)
     {
         EventCallback_ = value;
-    }
-
-    virtual bool GetWheelModeEnabled() const
-    {
-        return wheelModeEnabled_;
-    }
-
-    virtual void SetWheelModeEnabled(bool value)
-    {
-        wheelModeEnabled_ = value;
     }
 
     virtual bool GetTouchBreakStatus() const
@@ -362,7 +354,6 @@ protected:
     bool isShow_ = true;
     bool isEnableHaptic_ = true;
     bool isHapticPlayOnce_ = true;
-    bool wheelModeEnabled_ = true;
     bool isTossPlaying_ = false;
     std::shared_ptr<IPickerAudioHaptic> hapticController_ = nullptr;
     RefPtr<NodeAnimatablePropertyFloat> scrollProperty_;

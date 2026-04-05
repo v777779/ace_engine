@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "mock_model_pattern.h"
+#include "core/components_ng/pattern/model/model_pattern.h"
 
 namespace OHOS::Ace::NG {
 
@@ -161,4 +161,24 @@ void ModelPattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const Inspector
     json->PutExtAttr("scene", SceneResourceToStr(mainProperty).c_str(), filter);
 }
 
+void ModelPattern::OnModifyDone()
+{
 }
+
+bool ModelPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config)
+{
+    return false;
+}
+
+void ModelPattern::OnRebuildFrame()
+{
+}
+
+void ModelPattern::OnAttachToFrameNode()
+{
+}
+
+void ModelPattern::OnDetachFromFrameNode(FrameNode* node)
+{
+}
+} // namespace OHOS::Ace::NG

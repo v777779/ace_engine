@@ -17,9 +17,15 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_LIST_LIST_ITEM_DRAG_MANAGER_H
 
 #include "base/memory/ace_type.h"
+#include "base/geometry/ng/rect_t.h"
 #include "base/geometry/ng/vector.h"
+#include "core/components/common/properties/shadow.h"
 #include "core/components_ng/base/ui_node.h"
 #include "core/components_ng/syntax/for_each_base_node.h"
+
+namespace OHOS::Ace {
+class GestureEvent;
+}
 
 namespace OHOS::Ace::NG {
 
@@ -31,7 +37,7 @@ enum class ListItemDragState {
     DRAGGING,
 };
 class ListItemDragManager : public AceType {
-    DECLARE_ACE_TYPE(ListItemDragManager, AceType)
+    DECLARE_ACE_TYPE(ListItemDragManager, AceType);
 
 public:
     struct ScaleResult {
@@ -83,7 +89,8 @@ private:
     bool IsNeedMove(const RectF& nearRect, const RectF& rect, Axis axis, float axisDelta);
     RefPtr<FrameNode> GetListFrameNode() const;
     OffsetF GetParentPaddingOffset();
-    
+    bool GetDummyItemRect(int32_t index, RectF& rect) const;
+    bool CheckItemExistence(int32_t index) const;
     OffsetF dragOffset_;
     WeakPtr<FrameNode> frameNode_;
     WeakPtr<ForEachBaseNode> forEachNode_;

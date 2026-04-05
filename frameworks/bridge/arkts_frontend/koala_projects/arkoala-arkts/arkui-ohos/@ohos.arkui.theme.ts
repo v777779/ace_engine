@@ -72,17 +72,20 @@ export interface Colors {
 }
 
 export type CustomColors = Partial<Colors>;
+export type CustomDarkColors = Partial<Colors>;
 
 export interface Theme {
     colors: Colors;
+    darkColors: Colors;
 }
 
 export interface CustomTheme {
     colors?: CustomColors;
+    darkColors?: CustomDarkColors;
 }
 
 export class ThemeControl {
-    static setDefaultTheme(customTheme: CustomTheme) {
+    static setDefaultTheme(customTheme: CustomTheme | undefined) {
         ArkThemeScopeManager.getInstance().setDefaultTheme(customTheme);
     }
 }

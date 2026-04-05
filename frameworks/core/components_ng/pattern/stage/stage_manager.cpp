@@ -16,6 +16,7 @@
 #include "core/components_ng/pattern/stage/stage_manager.h"
 
 #include "interfaces/inner_api/ui_session/ui_session_manager.h"
+
 #include "base/log/ace_checker.h"
 #include "base/perfmonitor/perf_constants.h"
 #include "base/perfmonitor/perf_monitor.h"
@@ -26,6 +27,7 @@
 #include "core/components_ng/base/transparent_node_detector.h"
 #endif
 
+#include "core/components_ng/manager/load_complete/load_complete_manager.h"
 #include "core/components_ng/pattern/stage/page_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -33,9 +35,20 @@ std::string KEY_PAGE_TRANSITION_PROPERTY = "pageTransitionProperty";
 namespace {
 constexpr char EMPTY_PAGE_INFO[] = "NA";
 
+std::string GetPageUrl(const RefPtr<PagePattern>& pagePattern)
+{
+    auto pageInfo = pagePattern->GetPageInfo();
+    std::string url = "";
+    if (pageInfo) {
+        url = pageInfo->GetPageUrl();
+    }
+    return url;
+}
+
 void FirePageTransition(const RefPtr<FrameNode>& page, PageTransitionType transitionType)
 {
     CHECK_NULL_VOID(page);
+    ACE_UINODE_TRACE(page);
     auto pagePattern = page->GetPattern<PagePattern>();
     CHECK_NULL_VOID(pagePattern);
     auto eventHub = page->GetEventHub<EventHub>();
@@ -66,6 +79,7 @@ void FirePageTransition(const RefPtr<FrameNode>& page, PageTransitionType transi
     }
     ACE_SCOPED_TRACE_COMMERCIAL("Router Page Transition Start");
     PerfMonitor::GetPerfMonitor()->Start(PerfConstants::ABILITY_OR_PAGE_SWITCH, PerfActionType::LAST_UP, "");
+    context->GetLoadCompleteManager()->StartCollect(GetPageUrl(pagePattern));
     pagePattern->TriggerPageTransition(
         [weak = WeakPtr<PagePattern>(pagePattern), animationId = stageManager->GetAnimationId(), transitionType]() {
             auto pagePattern = weak.Upgrade();
@@ -98,6 +112,18 @@ void StageManager::StartTransition(const RefPtr<FrameNode>& srcPage, const RefPt
     }
     if (destPage) {
         destPage->SetNodeFreeze(false);
+        auto pagePattern = destPage->GetPattern<NG::PagePattern>();
+        CHECK_NULL_VOID(pagePattern);
+        auto pageInfo = pagePattern->GetPageInfo();
+        CHECK_NULL_VOID(pageInfo);
+        auto pagePath = pageInfo->GetFullPath();
+        std::string routeType("routerPageChange");
+        if (type == RouteType::PUSH) {
+            routeType = "routerPushPage";
+        } else if (type == RouteType::POP) {
+            routeType = "routerPopPage";
+        }
+        UiSessionManager::GetInstance()->OnRouterChange(pagePath, routeType);
     }
     animationId_++;
     if (type == RouteType::PUSH) {
@@ -186,7 +212,7 @@ bool StageManager::PushPage(const RefPtr<FrameNode>& node, bool needHideLast, bo
         if (!isNewLifecycle) {
             FirePageHide(hidePageNode, needTransition ? PageTransitionType::EXIT_PUSH : PageTransitionType::NONE);
         }
-        
+
     }
     auto rect = stageNode_->GetGeometryNode()->GetFrameRect();
     rect.SetOffset({});
@@ -448,7 +474,8 @@ bool StageManager::MovePageToFront(const RefPtr<FrameNode>& node, bool needHideL
     if (children.empty()) {
         return false;
     }
-    const auto& lastPage = children.back();
+    // srcPageNode_ is last page in pageRouterStack.
+    const auto& lastPage = srcPageNode_.Upgrade();
     if (lastPage == node) {
         return true;
     }
@@ -781,19 +808,4 @@ std::string StageManager::GetPagePath(const RefPtr<FrameNode>& pageNode)
     CHECK_NULL_RETURN(info, "");
     return info->GetPagePath();
 }
-
-void StageManager::SetForceSplitEnable(bool isForceSplit, const std::string& homePage)
-{
-    TAG_LOGI(AceLogTag::ACE_ROUTER, "SetForceSplitEnable, isForceSplit: %{public}u, homePage: %{public}s",
-        isForceSplit, homePage.c_str());
-    //app support split mode, whether force split is enable or disable, the homepage will be recognized
-    isDetectPrimaryPage_ = true;
-    if (isForceSplit_ == isForceSplit && homePageConfig_ == homePage) {
-        return;
-    }
-    isForceSplit_ = isForceSplit;
-    homePageConfig_ = homePage;
-    OnForceSplitConfigUpdate();
-}
-
 } // namespace OHOS::Ace::NG

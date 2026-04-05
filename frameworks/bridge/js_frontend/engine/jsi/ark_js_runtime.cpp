@@ -51,6 +51,16 @@ void FunctionDeleter(void *env, void *nativePointer, void *data)
 
 thread_local EcmaVM* ArkJSRuntime::threadVm_ = nullptr;
 
+const EcmaVM* ArkJSRuntime::GetThreadVm() const
+{
+    return threadVm_;
+}
+
+void ArkJSRuntime::SetThreadVm(EcmaVM* vm)
+{
+    threadVm_ = vm;
+}
+
 bool ArkJSRuntime::Initialize(const std::string& libraryPath, bool isDebugMode, int32_t instanceId)
 {
     RuntimeOption option;
@@ -224,12 +234,13 @@ bool ArkJSRuntime::IsStaticOrInvalidFile(const uint8_t *data, int32_t size)
             break;
         case JSNApi::PandaFileType::FILE_FORMAT_INVALID:
             ret = true;
-            LOGI("ArkJSRuntime::IsStaticOrInvalidFile, file is invalid. reason is param invalid");
+            LOGE("ArkJSRuntime::IsStaticOrInvalidFile, file is invalid. reason is param invalid");
             break;
         default:
             ret = true;
-            LOGI("ArkJSRuntime::IsStaticOrInvalidFile, file is invalid");
+            LOGE("ArkJSRuntime::IsStaticOrInvalidFile, file is invalid");
     }
+
     HandleUncaughtException(trycatch);
     return ret;
 }

@@ -72,6 +72,7 @@ public:
         Platform::SystemParams& systemParams) override;
     std::string GetJSONTree() override;
     bool OperateComponent(const std::string& attrsJson) override;
+    static int32_t GetUIContentWindowID(int32_t instanceId);
     // UI content event process
     bool ProcessBackPressed() override;
     bool ProcessPointerEvent(const std::shared_ptr<OHOS::MMI::PointerEvent>& pointerEvent) override;
@@ -132,6 +133,8 @@ public:
     {
         return 0.0;
     }
+
+    void SetFormViewScale(float width, float height, float formViewScale) override {}
     std::shared_ptr<Rosen::RSSurfaceNode> GetFormRootNode() override
     {
         return nullptr;
@@ -142,6 +145,7 @@ public:
     void CloseModalUIExtension(int32_t sessionId) override;
 
     void SetParentToken(sptr<IRemoteObject> token) override {}
+    void SetFrameMetricsCallBack(std::function<void(FrameMetrics info)>&& callback) override;
     sptr<IRemoteObject> GetParentToken() override
     {
         return nullptr;
@@ -159,8 +163,6 @@ public:
     void PreLayout() override {};
 
     void SetStatusBarItemColor(uint32_t color) override;
-
-    void SetForceSplitEnable(bool isForceSplit, const std::string& homePage, bool isRouter = true) override {};
 
     void EnableContainerModalGesture(bool isEnable) override {};
 
@@ -215,6 +217,7 @@ private:
     int32_t compatibleVersion_ = 0;
     int32_t targetVersion_ = 0;
     bool installationFree_ = false;
+    bool isComponentMode_ = false;
     uint32_t labelId_ = 0;
     bool useNewPipeline_ = true;
     std::weak_ptr<OHOS::AbilityRuntime::Context> context_;

@@ -14,13 +14,14 @@
  */
 
 #include "test/unittest/core/pattern/rich_editor/rich_editor_common_test_ng.h"
-#include "test/mock/core/common/mock_udmf.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_model_ng.h"
+#include "core/components_ng/pattern/rich_editor/rich_editor_scroll_controller.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_theme.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_undo_manager.h"
 #include "core/components_ng/pattern/text/span/tlv_util.h"
@@ -96,10 +97,11 @@ RefPtr<RichEditorPattern> RichEditorDragTestNg::GetRichEditorPattern()
  * @tc.desc: test the drag of RichEditor without developer's onDragStart function
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, RichEditorDragTest001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, RichEditorDragTest001, TestSize.Level2)
 {
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
     PipelineBase::GetCurrentContext()->themeManager_ = themeManager;
     RichEditorModelNG model;
     model.Create();
@@ -151,10 +153,11 @@ HWTEST_F(RichEditorDragTestNg, RichEditorDragTest001, TestSize.Level1)
  * @tc.desc: test the drag of RichEditor with developer's onDragStart function
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, RichEditorDragTest002, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, RichEditorDragTest002, TestSize.Level2)
 {
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
     PipelineBase::GetCurrentContext()->themeManager_ = themeManager;
     RichEditorModelNG model;
     model.Create();
@@ -193,7 +196,6 @@ HWTEST_F(RichEditorDragTestNg, RichEditorDragTest002, TestSize.Level1)
     EXPECT_EQ(dragDropInfo.extraInfo, TEST_STR);
     EXPECT_EQ(pattern->textSelector_.GetTextStart(), 0);
     EXPECT_EQ(pattern->textSelector_.GetTextEnd(), 6);
-    EXPECT_EQ(pattern->status_, Status::NONE);
     eventHub->FireOnDragMove(event, "");
     auto onDragEnd = eventHub->GetOnDragEnd();
     onDragEnd(event);
@@ -208,10 +210,11 @@ HWTEST_F(RichEditorDragTestNg, RichEditorDragTest002, TestSize.Level1)
  * @tc.desc: test the drag of RichEditor with developer's onDragDrop function
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, RichEditorDragTest003, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, RichEditorDragTest003, TestSize.Level2)
 {
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
     PipelineBase::GetCurrentContext()->themeManager_ = themeManager;
     RichEditorModelNG model;
     model.Create();
@@ -251,10 +254,11 @@ HWTEST_F(RichEditorDragTestNg, RichEditorDragTest003, TestSize.Level1)
  * @tc.desc: test the drag of RichEditor with developer's HandleOnDragDropTextOperation function
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, RichEditorDragTest004, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, RichEditorDragTest004, TestSize.Level2)
 {
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
     PipelineBase::GetCurrentContext()->themeManager_ = themeManager;
     RichEditorModelNG model;
     model.Create();
@@ -308,7 +312,7 @@ HWTEST_F(RichEditorDragTestNg, RichEditorDragTest004, TestSize.Level1)
  * @tc.desc: test OnDragEnd
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, OnDragEnd001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, OnDragEnd001, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -322,15 +326,13 @@ HWTEST_F(RichEditorDragTestNg, OnDragEnd001, TestSize.Level1)
     }
 
     RefPtr<Ace::DragEvent> event = nullptr;
-    richEditorPattern->showSelect_ = false;
     richEditorPattern->OnDragEnd(event);
-    ASSERT_EQ(richEditorPattern->showSelect_, false);
+    ASSERT_EQ(richEditorPattern->showSelect_, true);
 
     event = AceType::MakeRefPtr<Ace::DragEvent>();
     event->SetResult(DragRet::DRAG_SUCCESS);
-    richEditorPattern->showSelect_ = false;
     richEditorPattern->OnDragEnd(event);
-    ASSERT_EQ(richEditorPattern->showSelect_, false);
+    ASSERT_EQ(richEditorPattern->showSelect_, true);
 
     if (isTestAddObject) {
         richEditorPattern->recoverDragResultObjects_.clear();
@@ -343,8 +345,11 @@ HWTEST_F(RichEditorDragTestNg, OnDragEnd001, TestSize.Level1)
  * @tc.desc: test OnDragEnd
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, OnDragEnd002, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, OnDragEnd002, TestSize.Level2)
 {
+    /**
+     * @tc.steps: step1. get rich editor pattern.
+     */
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -354,7 +359,9 @@ HWTEST_F(RichEditorDragTestNg, OnDragEnd002, TestSize.Level1)
         isTestAddObject = true;
         richEditorPattern->recoverDragResultObjects_.emplace_back(resultObject);
     }
-
+    /**
+     * @tc.steps: step2. test OnDragEnd.
+     */
     auto event = AceType::MakeRefPtr<Ace::DragEvent>();
     richEditorPattern->showSelect_ = false;
     richEditorNode_.Reset();
@@ -367,7 +374,7 @@ HWTEST_F(RichEditorDragTestNg, OnDragEnd002, TestSize.Level1)
  * @tc.desc: test OnDragEnd
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, OnDragEnd003, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, OnDragEnd003, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -391,7 +398,7 @@ HWTEST_F(RichEditorDragTestNg, OnDragEnd003, TestSize.Level1)
  * @tc.desc: test OnDragEnd
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, OnDragEnd004, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, OnDragEnd004, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -415,7 +422,7 @@ HWTEST_F(RichEditorDragTestNg, OnDragEnd004, TestSize.Level1)
  * @tc.desc: test HandleCursorOnDragEnded
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragEnded001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragEnded001, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -461,7 +468,7 @@ HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragEnded001, TestSize.Level1)
  * @tc.desc: test HandleDraggableFlag
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag001, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -481,7 +488,7 @@ HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag001, TestSize.Level1)
  * @tc.desc: test InsertValueInStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag002, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag002, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. get richEditor pattern
@@ -518,7 +525,7 @@ HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag002, TestSize.Level1)
  * @tc.desc: test JudgeContentDraggable
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, JudgeContentDraggable, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, JudgeContentDraggable, TestSize.Level2)
 {
     /**
      * @tc.step: step1. Get frameNode and pattern
@@ -541,7 +548,7 @@ HWTEST_F(RichEditorDragTestNg, JudgeContentDraggable, TestSize.Level1)
  * @tc.desc: test HandleOnDragDropTextOperation
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragDropTextOperation001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragDropTextOperation001, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -553,9 +560,14 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDropTextOperation001, TestSize.Level1
     EXPECT_EQ(richEditorPattern->contentMod_, nullptr);
     EXPECT_NE(richEditorPattern->overlayMod_, nullptr);
 
-    auto temp = richEditorPattern->caretPosition_;
+    auto caretPosition = richEditorPattern->caretPosition_;
+    auto lastCaretPosition = richEditorPattern->lastCaretPosition_;
     richEditorPattern->HandleOnDragDropTextOperation(INIT_VALUE_1, false);
-    EXPECT_NE(richEditorPattern->caretPosition_, temp);
+
+    auto newCaretPosition = richEditorPattern->caretPosition_;
+    auto newLastCaretPosition = richEditorPattern->lastCaretPosition_;
+    EXPECT_NE(newCaretPosition, caretPosition);
+    EXPECT_EQ(newLastCaretPosition, lastCaretPosition);
 }
 
 /**
@@ -563,7 +575,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDropTextOperation001, TestSize.Level1
  * @tc.desc: test HandleOnDragDrop
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragDrop001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragDrop001, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -577,6 +589,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDrop001, TestSize.Level1)
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     ASSERT_NE(themeManager, nullptr);
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
     PipelineBase::GetCurrentContext()->themeManager_ = themeManager;
     RefPtr<OHOS::Ace::DragEvent> event = AceType::MakeRefPtr<OHOS::Ace::DragEvent>();
     ASSERT_NE(event, nullptr);
@@ -595,7 +608,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDrop001, TestSize.Level1)
  * @tc.desc: test HandleOnDragDrop
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragDrop002, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragDrop002, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -609,6 +622,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDrop002, TestSize.Level1)
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     ASSERT_NE(themeManager, nullptr);
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(AceType::MakeRefPtr<RichEditorTheme>()));
     PipelineBase::GetCurrentContext()->themeManager_ = themeManager;
 
     RefPtr<OHOS::Ace::DragEvent> event = AceType::MakeRefPtr<OHOS::Ace::DragEvent>();
@@ -633,7 +647,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDrop002, TestSize.Level1)
  * @tc.desc: test RichEditorPattern
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestClearDragDropEvent001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestClearDragDropEvent001, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -645,7 +659,7 @@ HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestClearDragDropEvent001, TestS
     ASSERT_NE(host, nullptr);
     auto eventHub = host->GetEventHub<EventHub>();
     ASSERT_NE(eventHub, nullptr);
-    ASSERT_EQ(eventHub->onDragStart_, nullptr);
+    ASSERT_EQ(eventHub->GetOnDragStart(), nullptr);
 }
 
 /**
@@ -653,7 +667,7 @@ HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestClearDragDropEvent001, TestS
  * @tc.desc: test OnDragMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestOnDragMove001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestOnDragMove001, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -676,20 +690,21 @@ HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestOnDragMove001, TestSize.Leve
     richEditorPattern->isShowPlaceholder_ = !isShowPlaceholder;
     richEditorPattern->OnDragMove(event);
     richEditorPattern->isShowPlaceholder_ = isShowPlaceholder;
-
-    richEditorPattern->prevAutoScrollOffset_.SetX(testNumber1);
-    richEditorPattern->prevAutoScrollOffset_.SetY(testNumber1);
+    auto& scrollController = richEditorPattern->scrollController_;
+    ASSERT_NE(scrollController, nullptr);
+    scrollController->prevAutoScrollOffset_.SetX(testNumber1);
+    scrollController->prevAutoScrollOffset_.SetY(testNumber1);
     richEditorPattern->richTextRect_.SetRect(testNumber0, testNumber0, testNumber5, testNumber5);
 
     event->SetX(testNumber3);
     event->SetY(testNumber3);
     richEditorPattern->OnDragMove(event);
-    EXPECT_EQ(richEditorPattern->prevAutoScrollOffset_.GetX(), testNumber3);
+    EXPECT_EQ(scrollController->prevAutoScrollOffset_.GetX(), testNumber3);
 
     event->SetX(testNumber4);
     event->SetY(testNumber4);
     richEditorPattern->OnDragMove(event);
-    EXPECT_EQ(richEditorPattern->prevAutoScrollOffset_.GetX(), testNumber4);
+    EXPECT_EQ(scrollController->prevAutoScrollOffset_.GetX(), testNumber4);
 
     PipelineBase::GetCurrentContext()->themeManager_ = oldThemeManager;
 }
@@ -699,7 +714,7 @@ HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestOnDragMove001, TestSize.Leve
  * @tc.desc: test ResetDragSpanItems
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestResetDragSpanItems001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestResetDragSpanItems001, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -739,7 +754,7 @@ HWTEST_F(RichEditorDragTestNg, RichEditorPatternTestResetDragSpanItems001, TestS
  * @tc.desc: test HandleOnDragInsertStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString001, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -754,7 +769,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString001, TestSize.Level
  * @tc.desc: test HandleOnDragInsertStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString002, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString002, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -771,7 +786,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString002, TestSize.Level
  * @tc.desc: test HandleOnDragInsertStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString003, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString003, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -789,7 +804,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString003, TestSize.Level
  * @tc.desc: test HandleOnDragInsertStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString004, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString004, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -809,7 +824,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragInsertStyledString004, TestSize.Level
  * @tc.desc: test JudgeContentDraggable
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, JudgeContentDraggable001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, JudgeContentDraggable001, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -844,7 +859,7 @@ HWTEST_F(RichEditorDragTestNg, JudgeContentDraggable001, TestSize.Level1)
  * @tc.desc: test HandleDraggableFlag
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag003, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag003, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -861,7 +876,7 @@ HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag003, TestSize.Level1)
  * @tc.desc: test HandleOnDragDropStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString001, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -899,7 +914,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString001, TestSize.Level1)
  * @tc.desc: test HandleOnDragDropStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString002, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString002, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -942,7 +957,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString002, TestSize.Level1)
  * @tc.desc: test HandleOnDragDropStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString003, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString003, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -978,7 +993,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString003, TestSize.Level1)
  * @tc.desc: test HandleOnDragDropStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString004, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString004, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1015,7 +1030,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString004, TestSize.Level1)
  * @tc.desc: test HandleOnDragDropStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString005, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString005, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1055,7 +1070,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString005, TestSize.Level1)
  * @tc.desc: test HandleOnDragDropStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString006, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString006, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1096,7 +1111,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString006, TestSize.Level1)
  * @tc.desc: test ResetDragOption
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, ResetDragOption001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, ResetDragOption001, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -1123,7 +1138,7 @@ HWTEST_F(RichEditorDragTestNg, ResetDragOption001, TestSize.Level1)
  * @tc.desc: test HandleOnDragStatusCallback
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragStatusCallback001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragStatusCallback001, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -1150,7 +1165,7 @@ HWTEST_F(RichEditorDragTestNg, HandleOnDragStatusCallback001, TestSize.Level1)
  * @tc.desc: test HandleCursorOnDragLeaved
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragLeaved001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragLeaved001, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -1166,7 +1181,6 @@ HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragLeaved001, TestSize.Level1)
     /**
      * @tc.steps: step2. change parameter and call function.
      */
-    richEditorPattern->isCursorAlwaysDisplayed_ = false;
     richEditorPattern->HandleCursorOnDragLeaved(notifyDragEvent);
     EXPECT_EQ(richEditorPattern->isCursorAlwaysDisplayed_, false);
 }
@@ -1176,7 +1190,7 @@ HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragLeaved001, TestSize.Level1)
  * @tc.desc: test HandleCursorOnDragMoved
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragMoved001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragMoved001, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -1187,19 +1201,18 @@ HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragMoved001, TestSize.Level1)
     richEditorPattern->CreateNodePaintMethod();
     EXPECT_EQ(richEditorPattern->contentMod_, nullptr);
     EXPECT_NE(richEditorPattern->overlayMod_, nullptr);
-    RefPtr<NotifyDragEvent> notifyDragEvent = AceType::MakeRefPtr<NotifyDragEvent>();
-    EXPECT_NE(notifyDragEvent, nullptr);
+
     /**
      * @tc.steps: step2. change parameter and call function.
      */
     richEditorPattern->isCursorAlwaysDisplayed_ = true;
-    richEditorPattern->HandleCursorOnDragMoved(notifyDragEvent);
-    EXPECT_EQ(richEditorPattern->isCursorAlwaysDisplayed_, true);
+    richEditorPattern->HandleCursorOnDragMoved();
+    EXPECT_EQ(richEditorPattern->caretVisible_, true);
     /**
      * @tc.steps: step2. change parameter and call function.
      */
     richEditorPattern->isCursorAlwaysDisplayed_ = false;
-    richEditorPattern->HandleCursorOnDragMoved(notifyDragEvent);
+    richEditorPattern->HandleCursorOnDragMoved();
     EXPECT_EQ(richEditorPattern->isCursorAlwaysDisplayed_, true);
 }
 
@@ -1208,7 +1221,7 @@ HWTEST_F(RichEditorDragTestNg, HandleCursorOnDragMoved001, TestSize.Level1)
  * @tc.desc: test BeforeDrag
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, BeforeDrag001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, BeforeDrag001, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -1246,7 +1259,7 @@ HWTEST_F(RichEditorDragTestNg, BeforeDrag001, TestSize.Level1)
  * @tc.desc: test SetSelfAndChildDraggableFalse
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, SetSelfAndChildDraggableFalse001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, SetSelfAndChildDraggableFalse001, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1268,7 +1281,7 @@ HWTEST_F(RichEditorDragTestNg, SetSelfAndChildDraggableFalse001, TestSize.Level1
  * @tc.desc: test HandleDraggableFlag
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag004, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag004, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1288,7 +1301,7 @@ HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag004, TestSize.Level1)
  * @tc.desc: test OnDragEnd
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, OnDragEnd005, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, OnDragEnd005, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1312,7 +1325,7 @@ HWTEST_F(RichEditorDragTestNg, OnDragEnd005, TestSize.Level1)
  * @tc.desc: test OnDragEnd
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, OnDragEnd006, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, OnDragEnd006, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1336,7 +1349,7 @@ HWTEST_F(RichEditorDragTestNg, OnDragEnd006, TestSize.Level1)
  * @tc.desc: test OnDragEnd
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, OnDragEnd007, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, OnDragEnd007, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1360,7 +1373,7 @@ HWTEST_F(RichEditorDragTestNg, OnDragEnd007, TestSize.Level1)
  * @tc.desc: test BeforeDrag
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, BeforeDrag002, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, BeforeDrag002, TestSize.Level2)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -1385,7 +1398,7 @@ HWTEST_F(RichEditorDragTestNg, BeforeDrag002, TestSize.Level1)
  * @tc.desc: test HandleDragStart
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleDragStart001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleDragStart001, TestSize.Level2)
 {
     auto richEditorPattern = GetRichEditorPattern();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -1398,11 +1411,50 @@ HWTEST_F(RichEditorDragTestNg, HandleDragStart001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: HandleDragStart002
+ * @tc.desc: test HandleDragStart
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDragTestNg, HandleDragStart002, TestSize.Level2)
+{
+    auto richEditorPattern = GetRichEditorPattern();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto dragEvent = AceType::MakeRefPtr<Ace::DragEvent>();
+    std::string extraParams = "text";
+    auto& dragRange = richEditorPattern->dragRange_;
+    auto& selector = richEditorPattern->textSelector_;
+
+    // drag selected text
+    selector.baseOffset = 0;
+    selector.destinationOffset = 4;
+    selector.aiStart.reset();
+    selector.aiEnd.reset();
+    dragRange.first = -1;
+    dragRange.second = -1;
+    richEditorPattern->isDragSponsor_ = false;
+    richEditorPattern->HandleDragStart(dragEvent, extraParams);
+    EXPECT_EQ(dragRange.first, 0);
+    EXPECT_EQ(dragRange.second, 4);
+
+    // drag ai span
+    selector.baseOffset = -1;
+    selector.destinationOffset = -1;
+    selector.aiStart = 0;
+    selector.aiEnd = 4;
+    dragRange.first = -1;
+    dragRange.second = -1;
+    richEditorPattern->isDragSponsor_ = false;
+    richEditorPattern->HandleDragStart(dragEvent, extraParams);
+    EXPECT_EQ(dragRange.first, 0);
+    EXPECT_EQ(dragRange.second, 4);
+}
+
+/**
  * @tc.name: HandleDraggableFlag005
  * @tc.desc: test HandleDraggableFlag
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag005, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag005, TestSize.Level2)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -1412,30 +1464,11 @@ HWTEST_F(RichEditorDragTestNg, HandleDraggableFlag005, TestSize.Level1)
 }
 
 /**
- * @tc.name: CalcDragSpeed001
- * @tc.desc: test CalcDragSpeed
- * @tc.type: FUNC
- */
-HWTEST_F(RichEditorDragTestNg, CalcDragSpeed001, TestSize.Level1)
-{
-    ASSERT_NE(richEditorNode_, nullptr);
-    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
-    ASSERT_NE(richEditorPattern, nullptr);
-    float speed = 0.0f;
-    float hotAreaStart = 1.1f;
-    float hotAreaEnd = 101.1f;
-    float point = 50.1f;
-    float result = 17.472723f;
-    speed = richEditorPattern->CalcDragSpeed(hotAreaStart, hotAreaEnd, point);
-    EXPECT_EQ(result, speed);
-}
-
-/**
  * @tc.name: HandleOnDragDropStyledString007
  * @tc.desc: test HandleOnDragDropStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString007, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNg, HandleOnDragDropStyledString007, TestSize.Level2)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.

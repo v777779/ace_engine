@@ -84,7 +84,7 @@ public:
     void FireOnRecycleFunc();
 
     void SetRecycleRenderFunc(std::function<void()>&& func);
-    void FireRecycleRenderFunc();
+    virtual void FireRecycleRenderFunc();
     bool HasRecycleRenderFunc();
 
     void FireClearAllRecycleFunc();
@@ -110,14 +110,43 @@ public:
     // called for PageTransition animation
     void SetPageTransitionFunction(std::function<void()>&& pageTransitionFunc);
     void CallPageTransitionFunction() const;
-        
+
+    void SetTriggerLifecycleFunction(std::function<bool(int32_t)>&& triggerLifecycleFunc);
+    bool FireTriggerLifecycleFunc(int32_t eventId);
+
+    bool NeedRebuild() const
+    {
+        return needRebuild_;
+    }
+
+    void ResetNeedRebuild()
+    {
+        needRebuild_ = false;
+    }
+
+    enum LifeCycleEvent {
+        ON_APPEAR = 0,
+        ON_BUILD = 1,
+        ON_RECYCLE = 2,
+        ON_REUSE = 3,
+        ON_DISAPPEAR = 4
+    };
+
     void SetClearAllRecycleFunc(std::function<void()>&& func);
+
+    void SetReuseId(const std::string& reuseId);
+    const std::string& GetReuseId() const;
+
+    void SetCreatorId(const std::string& creatorId);
+    const std::string& GetCreatorId() const;
 
 protected:
     std::string jsViewName_;
     ExtraInfo extraInfo_;
     bool isV2_ = false;
     bool executeFireOnAppear_ = false;
+    std::string reuseId_;
+    std::string creatorId_;
 
 private:
     std::function<void()> updateFunc_;
@@ -138,6 +167,7 @@ private:
     std::function<void*()> getThisFunc_;
     std::function<void()> onRecycleFunc_;
     std::function<void(void*)> onReuseFunc_;
+    std::function<bool(int32_t)> triggerLifecycleFunc_;
     bool needRebuild_ = false;
     RecycleNodeInfo recycleInfo_;
 };

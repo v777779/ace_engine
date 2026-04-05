@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,7 +23,7 @@
 #include "core/components/common/properties/text_layout_info.h"
 #include "core/components_ng/render/paragraph.h"
 namespace OHOS::Ace::NG {
-class ParagraphManager : public virtual AceType {
+class ACE_FORCE_EXPORT ParagraphManager : public virtual AceType {
     DECLARE_ACE_TYPE(ParagraphManager, AceType);
 
 public:
@@ -34,6 +34,8 @@ public:
         int32_t end = 0;
         float topPos = 0.0f;
         float bottomPos = 0.0f;
+        size_t topLineIndex = 0;
+        size_t bottomLineIndex = 0;
 
         std::string ToString() const;
     };
@@ -49,6 +51,9 @@ public:
 
     int32_t GetIndex(Offset offset, bool clamp = false) const;
     PositionWithAffinity GetGlyphPositionAtCoordinate(Offset offset);
+    PositionWithAffinity GetCharacterPositionAtCoordinate(Offset offset);
+    std::pair<TextRange, TextRange> GetGlyphRangeForCharacterRange(int32_t start, int32_t end);
+    std::pair<TextRange, TextRange> GetCharacterRangeForGlyphRange(int32_t start, int32_t end);
     float GetHeight() const;
 
     const std::vector<ParagraphInfo>& GetParagraphs() const
@@ -97,11 +102,18 @@ public:
     size_t GetLineCount() const;
     LineMetrics GetLineMetricsByRectF(RectF rect, int32_t paragraphIndex) const;
     void GetPaintRegion(RectF& boundsRect, float x, float y) const;
+    void PaintAllLeadingMarginSpan(DrawingContext& drawingContext,
+        const OffsetT<float>& offset);
+    void PaintLeadingMarginSpan(const ParagraphManager::ParagraphInfo& paragraphInfo, const OffsetT<float>& offset,
+        DrawingContext& drawingContext);
     std::vector<TextBox> GetRectsForRange(int32_t start, int32_t end,
         RectHeightStyle heightStyle, RectWidthStyle widthStyle);
     std::pair<size_t, size_t> GetEllipsisTextRange();
     TextLineMetrics GetLineMetrics(size_t lineNumber);
     bool IsIndexAtParagraphEnd(int32_t index);
+    bool DidExceedMaxLinesInner() const;
+    std::string GetDumpInfo() const;
+    int32_t GetParagraphLength() const;
 
 protected:
     std::vector<ParagraphInfo> paragraphs_;

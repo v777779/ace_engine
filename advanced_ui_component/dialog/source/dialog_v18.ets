@@ -143,6 +143,10 @@ const CONTENT_FONT_WEIGHT = lazyInit<FontWeight>(() => {
   let fontWeight: FontWeight = FontWeight[getString(125834682) || 'Medium'];
   return fontWeight;
 });
+// 'sys.string.dialog_content_font_size'
+const CONTENT_FONT_SIZE = lazyInit<number>(() => {
+  return getLengthMetricsByResource($r('sys.float.dialog_content_font_size'), BODY_L);
+});
 const SCROLL_BAR_OFFSET = 20;
 const SELECT_DIALOG_SCROLL_BAR_OFFSET = 4;
 
@@ -231,17 +235,18 @@ export struct TipsDialog {
           })
           .margin({ start: LengthMetrics.vp(0), end: LengthMetrics.vp(TIP_CHECKBOX_END_MARGIN()) })
         Text(this.checkTips)
-          .fontSize(`${BODY_L}fp`)
+          .fontSize(`${CONTENT_FONT_SIZE()}fp`)
           .fontWeight(FontWeight.Regular)
           .fontColor(this.fontColorWithTheme)
           .maxLines(CONTENT_MAX_LINES)
           .layoutWeight(1)
           .focusable(false)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .fallbackLineSpacing(true)
       }
     }
     .accessibilityGroup(true)
-    .accessibilityText(getCheckTipsAccessibilityText(this.checkTips, this.isChecked))
+    .accessibilityText(getCheckTipsAccessibilityText(this.getUIContext(), this.checkTips, this.isChecked))
     .accessibilityDescription(this.isChecked ? $r('sys.string.advanced_dialog_accessibility_cancel_checked_desc') :
     $r('sys.string.slider_accessibility_unselectedDesc'))
     .onClick(() => {
@@ -250,12 +255,17 @@ export struct TipsDialog {
         this.checkAction(this.isChecked);
       }
       try {
+        let hostContext: Context | undefined = this.getUIContext()?.getHostContext();
+        let resourceManager: resourceManager.ResourceManager | undefined = hostContext?.resourceManager;
+        let bundleName: string = (hostContext as common.UIAbilityContext)?.abilityInfo?.bundleName ??
+          (hostContext as common.UIExtensionContext)?.extensionAbilityInfo?.bundleName;
         let eventInfo: accessibility.EventInfo = ({
           type: 'announceForAccessibility',
-          bundleName: (getContext() as common.UIAbilityContext)?.abilityInfo?.bundleName,
+          bundleName: bundleName,
           triggerAction: 'common',
-          textAnnouncedForAccessibility: this.isChecked ? getContext().resourceManager.getStringSync(125833934) :
-          getContext().resourceManager.getStringSync(125833935)
+          textAnnouncedForAccessibility: this.isChecked ?
+            resourceManager?.getStringSync(125833934) :
+            resourceManager?.getStringSync(125833935)
         });
         accessibility.sendAccessibilityEvent(eventInfo).then(() => {
         });
@@ -299,6 +309,7 @@ export struct TipsDialog {
               .maxLines(CONTENT_MAX_LINES)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .width('100%')
+              .fallbackLineSpacing(true)
           }
           .padding({ bottom: $r('sys.float.padding_level8') })
         }
@@ -320,6 +331,7 @@ export struct TipsDialog {
                   resolveKeyEvent(event, this.contentScroller);
                 }
               })
+              .fallbackLineSpacing(true)
           }
         }
       }
@@ -341,7 +353,7 @@ export struct TipsDialog {
   }
 
   getContentFontSize(): Length {
-    return BODY_L + 'fp';
+    return CONTENT_FONT_SIZE() + 'fp';
   }
 
   private initButtons(): void {
@@ -495,6 +507,7 @@ export struct SelectDialog {
               .fontWeight(FontWeight.Regular)
               .fontColor(this.fontColorWithTheme)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .fallbackLineSpacing(true)
           }.paddingContentStyle().width('100%')
         }
         List() {
@@ -509,6 +522,7 @@ export struct SelectDialog {
                       .fontColor(this.fontColorWithTheme)
                       .layoutWeight(1)
                       .direction(i18n.isRTL(i18n.System.getSystemLanguage()) ? Direction.Rtl : Direction.Ltr)
+                      .fallbackLineSpacing(true)
                     Radio({ value: 'item.title', group: 'radioGroup' })
                       .size({ width: CHECKBOX_CONTAINER_LENGTH, height: CHECKBOX_CONTAINER_LENGTH })
                       .checked(this.selectedIndex === index)
@@ -546,11 +560,11 @@ export struct SelectDialog {
               .focusBox({
                 margin: { value: -2, unit: LengthUnit.VP }
               })
-              .accessibilityText(getAccessibilityText(item.title, this.selectedIndex === index))
+              .accessibilityText(getAccessibilityText(this.getUIContext(), item.title, this.selectedIndex === index))
               .onClick(() => {
                 this.selectedIndex = index;
                 item.action && item.action();
-                this.controller?.close();
+                closeDialog(this.controller, 'onClick');
               })
             }
             .paddingStyle()
@@ -739,7 +753,7 @@ export struct ConfirmDialog {
             .focusBox({
               strokeWidth: LengthMetrics.px(0)
             })
-            .fontSize(`${BODY_L}fp`)
+            .fontSize(`${CONTENT_FONT_SIZE()}fp`)
             .fontWeight(CONTENT_FONT_WEIGHT())
             .fontColor(this.fontColorWithTheme)
             .textAlign(this.textAlign)
@@ -749,6 +763,7 @@ export struct ConfirmDialog {
               }
             })
             .width('100%')
+            .fallbackLineSpacing(true)
         }
         .margin({ end: LengthMetrics.vp(SCROLL_BAR_OFFSET) })
         .width(`calc(100% - ${SCROLL_BAR_OFFSET}vp)`)
@@ -781,20 +796,26 @@ export struct ConfirmDialog {
         .focusable(false)
         .layoutWeight(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .fallbackLineSpacing(true)
     }
     .accessibilityGroup(true)
-    .accessibilityText(getCheckTipsAccessibilityText(this.checkTips, this.isChecked))
+    .accessibilityText(getCheckTipsAccessibilityText(this.getUIContext(), this.checkTips, this.isChecked))
     .accessibilityDescription(this.isChecked ? $r('sys.string.advanced_dialog_accessibility_cancel_checked_desc') :
     $r('sys.string.slider_accessibility_unselectedDesc'))
     .onClick(() => {
       this.isChecked = !this.isChecked;
       try {
+        let hostContext: Context | undefined = this.getUIContext()?.getHostContext();
+        let resourceManager: resourceManager.ResourceManager | undefined = hostContext?.resourceManager;
+        let bundleName: string = (hostContext as common.UIAbilityContext)?.abilityInfo?.bundleName ??
+          (hostContext as common.UIExtensionContext)?.extensionAbilityInfo?.bundleName;
         let eventInfo: accessibility.EventInfo = ({
           type: 'announceForAccessibility',
-          bundleName: (getContext() as common.UIAbilityContext)?.abilityInfo?.bundleName,
+          bundleName: bundleName,
           triggerAction: 'common',
-          textAnnouncedForAccessibility: this.isChecked ? getContext().resourceManager.getStringSync(125833934) :
-          getContext().resourceManager.getStringSync(125833935)
+          textAnnouncedForAccessibility: this.isChecked ?
+            resourceManager?.getStringSync(125833934) :
+            resourceManager?.getStringSync(125833935)
         });
         accessibility.sendAccessibilityEvent(eventInfo).then(() => {
         });
@@ -909,7 +930,7 @@ export struct AlertDialog {
           .focusBox({
             strokeWidth: LengthMetrics.px(0)
           })
-          .fontSize(`${BODY_L}fp`)
+          .fontSize(`${CONTENT_FONT_SIZE()}fp`)
           .fontWeight(this.getFontWeight())
           .fontColor(this.fontColorWithTheme)
           .margin({ end: LengthMetrics.vp(SCROLL_BAR_OFFSET) })
@@ -920,6 +941,7 @@ export struct AlertDialog {
               resolveKeyEvent(event, this.contentScroller);
             }
           })
+          .fallbackLineSpacing(true)
       }
       .fadingEdge(IS_FADEOUT_ENABLE(), { fadingEdgeLength: LengthMetrics.vp(FADEOUT_GRADIENT_WIDTH) })
       .nestedScroll({ scrollForward: NestedScrollMode.PARALLEL, scrollBackward: NestedScrollMode.PARALLEL })
@@ -1089,10 +1111,8 @@ struct CustomDialogContentComponent {
   @State customStyle: boolean | undefined = undefined;
   @State buttonMaxFontSize: Length = `${BODY_L}fp`;
   @State buttonMinFontSize: Length = 9;
-  @State primaryTitleMaxFontSize: Length = `${TITLE_S}fp`;
-  @State primaryTitleMinFontSize: Length = `${BODY_L}fp`;
-  @State secondaryTitleMaxFontSize: Length = `${SUBTITLE_SIZE()}fp`;
-  @State secondaryTitleMinFontSize: Length = `${BODY_S}fp`;
+  @State primaryTitleFontSize: Length = `${TITLE_S}fp`;
+  @State secondaryTitleFontSize: Length = `${SUBTITLE_SIZE()}fp`;
   @State primaryTitleFontColorWithTheme: ResourceColor = $r('sys.color.font_primary');
   @State secondaryTitleFontColorWithTheme: ResourceColor = $r('sys.color.font_secondary');
   @State titleTextAlign: TextAlign = TextAlign.Center;
@@ -1200,8 +1220,8 @@ struct CustomDialogContentComponent {
   aboutToAppear(): void {
     try {
       let uiContext: UIContext = this.getUIContext();
-      this.isFollowingSystemFontScale = uiContext?.isFollowingSystemFontScale();
-      this.appMaxFontScale = uiContext?.getMaxFontScale();
+      this.isFollowingSystemFontScale = uiContext?.isFollowingSystemFontScale() ?? false;
+      this.appMaxFontScale = uiContext?.getMaxFontScale() ?? 3.2;
     } catch (err) {
       let code: number = (err as BusinessError)?.code;
       let message: string = (err as BusinessError)?.message;
@@ -1303,13 +1323,13 @@ struct CustomDialogContentComponent {
           .fontWeight(TITLE_FONT_WEIGHT())
           .fontColor(this.primaryTitleFontColorWithTheme)
           .textAlign(this.titleTextAlign)
-          .maxFontSize(this.primaryTitleMaxFontSize)
-          .minFontSize(this.primaryTitleMinFontSize)
+          .fontSize(this.primaryTitleFontSize)
           .maxFontScale(Math.min(this.appMaxFontScale, MAX_FONT_SCALE))
           .maxLines(TITLE_MAX_LINES)
           .heightAdaptivePolicy(TextHeightAdaptivePolicy.MAX_LINES_FIRST)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
+          .fallbackLineSpacing(true)
       }
       .width('100%')
 
@@ -1323,13 +1343,13 @@ struct CustomDialogContentComponent {
           .fontWeight(FontWeight.Regular)
           .fontColor(this.secondaryTitleFontColorWithTheme)
           .textAlign(this.titleTextAlign)
-          .maxFontSize(this.secondaryTitleMaxFontSize)
-          .minFontSize(this.secondaryTitleMinFontSize)
+          .fontSize(this.secondaryTitleFontSize)
           .maxFontScale(Math.min(this.appMaxFontScale, MAX_FONT_SCALE))
           .maxLines(TITLE_MAX_LINES)
           .heightAdaptivePolicy(TextHeightAdaptivePolicy.MAX_LINES_FIRST)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
+          .fallbackLineSpacing(true)
       }
       .width('100%')
     }
@@ -1483,6 +1503,16 @@ struct CustomDialogContentComponent {
     };
   }
 
+  private getButtonLabelStyle(buttonOptions: ButtonOptions): LabelStyle {
+    return {
+      maxLines: 1,
+      overflow: IS_FADEOUT_ENABLE() ? TextOverflow.MARQUEE : TextOverflow.Ellipsis,
+      maxFontSize: this.buttonMaxFontSize,
+      minFontSize: this.buttonMinFontSize,
+      textAlign: buttonOptions.textAlign ?? TextAlign.Start
+    }
+  }
+
   @Builder
   buildSingleButton(buttonOptions: ButtonOptions): void {
     if (this.isNewPropertiesHighPriority(buttonOptions)) {
@@ -1490,46 +1520,26 @@ struct CustomDialogContentComponent {
         .setButtonProperties(buttonOptions, this.isHasDefaultFocus, this.isAllFocusFalse, this.controller)
         .role(buttonOptions.role ?? ButtonRole.NORMAL)
         .key(`advanced_dialog_button_${this.keyIndex++}`)
-        .labelStyle({
-          maxLines: 1,
-          overflow: IS_FADEOUT_ENABLE() ? TextOverflow.MARQUEE : TextOverflow.Ellipsis,
-          maxFontSize: this.buttonMaxFontSize,
-          minFontSize: this.buttonMinFontSize
-        })
+        .labelStyle(this.getButtonLabelStyle(buttonOptions))
     } else if (buttonOptions.background !== undefined && buttonOptions.fontColor !== undefined) {
       Button(buttonOptions.value)
         .setButtonProperties(buttonOptions, this.isHasDefaultFocus, this.isAllFocusFalse, this.controller)
         .backgroundColor(buttonOptions.background)
         .fontColor(buttonOptions.fontColor)
         .key(`advanced_dialog_button_${this.keyIndex++}`)
-        .labelStyle({
-          maxLines: 1,
-          overflow: IS_FADEOUT_ENABLE() ? TextOverflow.MARQUEE : TextOverflow.Ellipsis,
-          maxFontSize: this.buttonMaxFontSize,
-          minFontSize: this.buttonMinFontSize
-        })
+        .labelStyle(this.getButtonLabelStyle(buttonOptions))
     } else if (buttonOptions.background !== undefined) {
       Button(buttonOptions.value)
         .setButtonProperties(buttonOptions, this.isHasDefaultFocus, this.isAllFocusFalse, this.controller)
         .backgroundColor(buttonOptions.background)
         .key(`advanced_dialog_button_${this.keyIndex++}`)
-        .labelStyle({
-          maxLines: 1,
-          overflow: IS_FADEOUT_ENABLE() ? TextOverflow.MARQUEE : TextOverflow.Ellipsis,
-          maxFontSize: this.buttonMaxFontSize,
-          minFontSize: this.buttonMinFontSize
-        })
+        .labelStyle(this.getButtonLabelStyle(buttonOptions))
     } else {
       Button(buttonOptions.value)
         .setButtonProperties(buttonOptions, this.isHasDefaultFocus, this.isAllFocusFalse, this.controller)
         .fontColor(buttonOptions.fontColor)
         .key(`advanced_dialog_button_${this.keyIndex++}`)
-        .labelStyle({
-          maxLines: 1,
-          overflow: IS_FADEOUT_ENABLE() ? TextOverflow.MARQUEE : TextOverflow.Ellipsis,
-          maxFontSize: this.buttonMaxFontSize,
-          minFontSize: this.buttonMinFontSize
-        })
+        .labelStyle(this.getButtonLabelStyle(buttonOptions))
     }
   }
 
@@ -1562,7 +1572,7 @@ struct CustomDialogContentComponent {
         ForEach(this.buttons.slice(0, VERTICAL_BUTTON_MAX_COUNT), (item: ButtonOptions, index: number) => {
           this.buildButtonWithDivider(this.buttons?.length === HORIZON_BUTTON_MAX_COUNT ?
             HORIZON_BUTTON_MAX_COUNT - index - 1 : index);
-        }, (item: ButtonOptions) => item.value.toString());
+        }, (item: ButtonOptions) => item.value?.toString() ?? JSON.stringify(item));
       }
     }
   }
@@ -1667,7 +1677,7 @@ function setButtonProperties(buttonOptions: ButtonOptions, isHasDefaultFocus: bo
       if (buttonOptions.action) {
         buttonOptions.action();
       }
-      controller?.close();
+      closeDialog(controller, 'onKeyEvent');
       event.stopPropagation();
     }
   })
@@ -1675,13 +1685,22 @@ function setButtonProperties(buttonOptions: ButtonOptions, isHasDefaultFocus: bo
     if (buttonOptions.action) {
       buttonOptions.action();
     }
-    controller?.close();
+    closeDialog(controller, 'onClick');
   })
   .defaultFocus(isDefaultFocus(buttonOptions, isHasDefaultFocus, isAllFocusFalse))
   .buttonStyle(buttonOptions.buttonStyle ??
     (buttonOptions.role === ButtonRole.ERROR ? ERROR_BUTTON_STYLE() : ALERT_BUTTON_STYLE()))
   .layoutWeight(BUTTON_LAYOUT_WEIGHT)
   .type(ButtonType.ROUNDED_RECTANGLE)
+}
+
+function closeDialog(controller: CustomDialogController | undefined, funcName: string) {
+  if (controller) {
+    hilog?.info(0x3900,'Ace',`AdvancedDialog button ${funcName} controller true`);
+    controller?.close();
+  } else {
+    hilog?.info(0x3900,'Ace',`AdvancedDialog button ${funcName} controller false`);
+  }
 }
 
 /**
@@ -1810,14 +1829,14 @@ function getString(resourceId: number): string {
  * @param selected select state
  * @returns string
  */
-function getAccessibilityText(resource: ResourceStr, selected: boolean): string {
+function getAccessibilityText(context: UIContext, resource: ResourceStr, selected: boolean): string {
   try {
-    let selectText: string = getContext().resourceManager.getStringSync(125833934);
+    let selectText: string = context?.getHostContext()?.resourceManager.getStringSync(125833934) ?? '';
     let resourceString: string = '';
     if (typeof resource === 'string') {
       resourceString = resource;
     } else {
-      resourceString = getContext().resourceManager.getStringSync(resource);
+      resourceString = resource ? context?.getHostContext()?.resourceManager.getStringSync(resource?.id) ?? '' : '';
     }
     return selected ? `${selectText},${resourceString}` : resourceString;
   } catch (error) {
@@ -1860,19 +1879,20 @@ function resolveKeyEvent(event: KeyEvent, controller: Scroller) {
  * @param selected select state
  * @returns string
  */
-function getCheckTipsAccessibilityText(resource: ResourceStr | null | undefined, selected?: boolean): string {
+function getCheckTipsAccessibilityText(context: UIContext, resource: ResourceStr | null | undefined,
+  selected?: boolean): string {
   try {
     // 'sys.string.slider_accessibility_selected'
-    let selectText: string = getContext().resourceManager.getStringSync(125833934);
+    let selectText: string = context?.getHostContext()?.resourceManager.getStringSync(125833934) ?? '';
     // 'sys.string.slider_accessibility_unselected'
-    let unselectText: string = getContext().resourceManager.getStringSync(125833935);
+    let unselectText: string = context?.getHostContext()?.resourceManager.getStringSync(125833935) ?? '';
     // 'sys.string.advanced_dialog_accessibility_checkbox'
-    let checkBoxText: string = getContext().resourceManager.getStringSync(125834354);
+    let checkBoxText: string = context?.getHostContext()?.resourceManager.getStringSync(125834354) ?? '';
     let resourceString: string = '';
     if (typeof resource === 'string') {
       resourceString = resource
     } else {
-      resourceString = getContext().resourceManager.getStringSync(resource);
+      resourceString = resource ? context?.getHostContext()?.resourceManager.getStringSync(resource?.id) ?? '' : '';
     }
     return selected ? `${selectText},${resourceString},${checkBoxText}` :
       `${unselectText},${resourceString},${checkBoxText}`;
@@ -1915,7 +1935,7 @@ export struct LoadingDialog {
     Column() {
       Row() {
         Text(this.content)
-          .fontSize(`${BODY_L}fp`)
+          .fontSize(`${CONTENT_FONT_SIZE()}fp`)
           .fontWeight(FontWeight.Regular)
           .fontColor(this.fontColorWithTheme)
           .layoutWeight(LOADING_TEXT_LAYOUT_WEIGHT)
@@ -1926,6 +1946,7 @@ export struct LoadingDialog {
             strokeWidth: LengthMetrics.px(0)
           })
           .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .fallbackLineSpacing(true)
         LoadingProgress()
           .color(this.loadingProgressIconColorWithTheme)
           .width(LOADING_PROGRESS_WIDTH)
@@ -1959,6 +1980,18 @@ export struct PopoverDialog {
     if (this.targetBuilder === undefined || this.targetBuilder === null) {
       this.targetBuilder = this.emptyBuilder;
     }
+    if (this.popover) {
+      this.popover.placement = this.popover?.placement ?? Placement.Bottom;
+      this.popover.enableArrow = this.popover?.enableArrow ?? true;
+      this.popover.onStateChange = this.popover?.onStateChange ?? ((e) => {
+        if (!e.isVisible) {
+          this.visible = false
+        }
+      });
+      this.popover.radius = this.popover?.radius ?? $r('sys.float.corner_radius_level16');
+      this.popover.shadow = this.popover?.shadow ?? ShadowStyle.OUTER_DEFAULT_MD;
+      this.popover.backgroundBlurStyle = this.popover?.backgroundBlurStyle ?? BlurStyle.COMPONENT_ULTRA_THICK;
+    }
   }
 
   build() {
@@ -1981,33 +2014,7 @@ export struct PopoverDialog {
         hilog.error(0x3900, 'Ace', `dialog popup error, code: ${code}, message: ${message}`);
       }
     })
-    .bindPopup(this.visible, {
-      builder: this.popover?.builder,
-      placement: this.popover?.placement ?? Placement.Bottom,
-      popupColor: this.popover?.popupColor,
-      enableArrow: this.popover?.enableArrow ?? true,
-      autoCancel: this.popover?.autoCancel,
-      onStateChange: this.popover?.onStateChange ?? ((e) => {
-        if (!e.isVisible) {
-          this.visible = false
-        }
-      }),
-      arrowOffset: this.popover?.arrowOffset,
-      showInSubWindow: this.popover?.showInSubWindow,
-      mask: this.popover?.mask,
-      targetSpace: this.popover?.targetSpace,
-      offset: this.popover?.offset,
-      width: this.popover?.width,
-      arrowPointPosition: this.popover?.arrowPointPosition,
-      arrowWidth: this.popover?.arrowWidth,
-      arrowHeight: this.popover?.arrowHeight,
-      radius: this.popover?.radius ?? $r('sys.float.corner_radius_level16'),
-      shadow: this.popover?.shadow ?? ShadowStyle.OUTER_DEFAULT_MD,
-      backgroundBlurStyle: this.popover?.backgroundBlurStyle ?? BlurStyle.COMPONENT_ULTRA_THICK,
-      focusable: this.popover?.focusable,
-      transition: this.popover?.transition,
-      onWillDismiss: this.popover?.onWillDismiss
-    })
+    .bindPopup(this.visible, this.popover)
   }
 }
 

@@ -35,6 +35,11 @@ void ClipboardImpl::GetSpanStringData(
     const std::function<void(std::vector<std::vector<uint8_t>>&, const std::string&, bool&)>& callback, bool syncMode)
 {}
 
+void ClipboardImpl::GetSpanStringData(
+    const std::function<void(std::vector<std::vector<uint8_t>>&, const std::string&, bool&, bool&)>& callback,
+    bool syncMode)
+{}
+
 RefPtr<PasteDataMix> ClipboardImpl::CreatePasteDataMix()
 {
     return AceType::MakeRefPtr<PasteDataMix>();
@@ -55,20 +60,15 @@ void ClipboardImpl::SetData(const std::string& data, CopyOptions copyOption, boo
 
 void ClipboardImpl::GetData(const std::function<void(const std::string&)>& callback, bool syncMode)
 {
-    if (!taskExecutor_ || !callback) {
-        return;
-    }
-    taskExecutor_->PostTask(
-        [callback] {
-            auto getClipboardData = AcePreviewHelper::GetInstance()->GetCallbackOfGetClipboardData();
-            if (callback && getClipboardData) {
-                callback(getClipboardData());
-            }
-        },
-        TaskExecutor::TaskType::UI, "ArkUIClipboardGetData");
+    CHECK_NULL_VOID(callback);
+    auto callbackWith2Args = [callback](const std::string& data, bool isFromAutoFill) {
+        (void)isFromAutoFill;
+        callback(data);
+    };
+    GetData(callbackWith2Args, syncMode);
 }
 
-void ClipboardImpl::HasData(const std::function<void(bool hasData)>& callback)
+void ClipboardImpl::GetData(const std::function<void(const std::string&, bool)>& callback, bool syncMode)
 {
     if (!taskExecutor_ || !callback) {
         return;
@@ -77,14 +77,29 @@ void ClipboardImpl::HasData(const std::function<void(bool hasData)>& callback)
         [callback] {
             auto getClipboardData = AcePreviewHelper::GetInstance()->GetCallbackOfGetClipboardData();
             if (callback && getClipboardData) {
-                callback(!getClipboardData().empty());
+                callback(getClipboardData(), false);
+            }
+        },
+        TaskExecutor::TaskType::UI, "ArkUIClipboardGetData");
+}
+
+void ClipboardImpl::HasData(const std::function<void(bool hasData, bool isAutoFill)>& callback)
+{
+    if (!taskExecutor_ || !callback) {
+        return;
+    }
+    taskExecutor_->PostTask(
+        [callback] {
+            auto getClipboardData = AcePreviewHelper::GetInstance()->GetCallbackOfGetClipboardData();
+            if (callback && getClipboardData) {
+                callback(!getClipboardData().empty(), false);
             }
         },
         TaskExecutor::TaskType::UI, "ArkUIClipboardHasData");
 }
 
-void ClipboardImpl::HasDataType(
-    const std::function<void(bool hasData)>& callback, const std::vector<std::string>& mimeTypes)
+void ClipboardImpl::HasDataType(const std::function<void(bool hasData, bool isAutoFill)>& callback,
+    const std::vector<std::string>& mimeTypes)
 {
     HasData(callback);
 }

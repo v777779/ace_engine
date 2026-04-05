@@ -19,7 +19,6 @@
 #include "arkoala_api_generated.h"
 
 #include "base/utils/utils.h"
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/gestures/long_press_gesture.h"
 #include "core/components_ng/gestures/pan_gesture.h"
 #include "core/components_ng/gestures/pinch_gesture.h"
@@ -30,6 +29,7 @@
 #include "core/interfaces/arkoala/arkoala_api.h"
 #include "core/interfaces/native/implementation/base_gesture_event_peer.h"
 #include "core/interfaces/native/implementation/event_target_info_peer.h"
+#include "core/interfaces/native/implementation/gesture_event_peer.h"
 #include "core/interfaces/native/implementation/pan_gesture_options_peer.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
@@ -61,7 +61,7 @@ constexpr double DEFAULT_MAX_ROTATION_ANGLE = 360.0;
 } // namespace
 namespace GestureOpsAccessor {
 Ark_NativePointer CreateTapGestureImpl(const Ark_Number* fingers, const Ark_Number* count,
-    const Ark_Number* distanceThreshold, Ark_Boolean isFingerCountLimited)
+    Ark_Float64 distanceThreshold, Ark_Boolean isFingerCountLimited)
 {
     int32_t fingerValue = Converter::Convert<int32_t>(*fingers);
     if (fingerValue > DEFAULT_MAX_FINGERS || fingerValue < DEFAULT_TAP_FINGER) {
@@ -69,8 +69,9 @@ Ark_NativePointer CreateTapGestureImpl(const Ark_Number* fingers, const Ark_Numb
     }
     int32_t countValue = Converter::Convert<int32_t>(*count);
     countValue = countValue < DEFAULT_TAP_COUNT ? DEFAULT_TAP_COUNT : countValue;
-    float distanceThresholdValue = Converter::Convert<float>(*distanceThreshold);
-    distanceThresholdValue = distanceThresholdValue < 0 ? DEFAULT_TAP_DISTANCE : distanceThresholdValue;
+    double distanceThresholdValue = Converter::Convert<double>(distanceThreshold);
+    distanceThresholdValue = distanceThresholdValue < 0 || std::isnan(distanceThresholdValue) ? DEFAULT_TAP_DISTANCE
+                                                                                              : distanceThresholdValue;
     distanceThresholdValue = Dimension(distanceThresholdValue, DimensionUnit::VP).ConvertToPx();
     bool isFingerCountLimitedValue = Converter::Convert<bool>(isFingerCountLimited);
     auto tapGestureObject =
@@ -183,57 +184,63 @@ Ark_NativePointer CreateGestureGroupImpl(Ark_GestureMode mode)
     gestureGroupObject->IncRefCount();
     return AceType::RawPtr(gestureGroupObject);
 }
-void SetOnActionImpl(Ark_NativePointer gesture, const Callback_GestureEvent_Void* onAction)
+void SetOnActionImpl(Ark_NativePointer gesture,
+                     const GestureEventHandler* onAction)
 {
     auto* gesturePtr = reinterpret_cast<Gesture*>(gesture);
     CHECK_NULL_VOID(gesturePtr);
     auto onActionEvent = [callback = CallbackHelper(*onAction)](GestureEvent& info) {
-        const auto gestureEvent = Converter::ArkGestureEventSync(info);
+        const auto gestureEvent = Converter::SyncEvent<Ark_GestureEvent>(info);
         callback.InvokeSync(gestureEvent.ArkValue());
     };
     gesturePtr->SetOnActionId(onActionEvent);
 }
-void SetOnActionStartImpl(Ark_NativePointer gesture, const Callback_GestureEvent_Void* onActionStart)
+void SetOnActionStartImpl(Ark_NativePointer gesture,
+                          const GestureEventHandler* onActionStart)
 {
     auto* gesturePtr = reinterpret_cast<Gesture*>(gesture);
     CHECK_NULL_VOID(gesturePtr);
     auto onActionStartEvent = [callback = CallbackHelper(*onActionStart)](GestureEvent& info) {
-        const auto gestureEvent = Converter::ArkGestureEventSync(info);
+        const auto gestureEvent = Converter::SyncEvent<Ark_GestureEvent>(info);
         callback.InvokeSync(gestureEvent.ArkValue());
     };
     gesturePtr->SetOnActionStartId(onActionStartEvent);
 }
-void SetOnActionUpdateImpl(Ark_NativePointer gesture, const Callback_GestureEvent_Void* onActionUpdate)
+void SetOnActionUpdateImpl(Ark_NativePointer gesture,
+                           const GestureEventHandler* onActionUpdate)
 {
     auto* gesturePtr = reinterpret_cast<Gesture*>(gesture);
     CHECK_NULL_VOID(gesturePtr);
     auto onActionUpdateEvent = [callback = CallbackHelper(*onActionUpdate)](GestureEvent& info) {
-        const auto gestureEvent = Converter::ArkGestureEventSync(info);
+        const auto gestureEvent = Converter::SyncEvent<Ark_GestureEvent>(info);
         callback.InvokeSync(gestureEvent.ArkValue());
     };
     gesturePtr->SetOnActionUpdateId(onActionUpdateEvent);
 }
-void SetOnActionEndImpl(Ark_NativePointer gesture, const Callback_GestureEvent_Void* onActionEnd)
+void SetOnActionEndImpl(Ark_NativePointer gesture,
+                        const GestureEventHandler* onActionEnd)
 {
     auto* gesturePtr = reinterpret_cast<Gesture*>(gesture);
     CHECK_NULL_VOID(gesturePtr);
     auto onActionEndEvent = [callback = CallbackHelper(*onActionEnd)](GestureEvent& info) {
-        const auto gestureEvent = Converter::ArkGestureEventSync(info);
+        const auto gestureEvent = Converter::SyncEvent<Ark_GestureEvent>(info);
         callback.InvokeSync(gestureEvent.ArkValue());
     };
     gesturePtr->SetOnActionEndId(onActionEndEvent);
 }
-void SetOnActionCancelImpl(Ark_NativePointer gesture, const Callback_GestureEvent_Void* onActionCancel)
+void SetOnActionCancelImpl(Ark_NativePointer gesture,
+                           const GestureEventHandler* onActionCancel)
 {
     auto* gesturePtr = reinterpret_cast<Gesture*>(gesture);
     CHECK_NULL_VOID(gesturePtr);
     auto onActionCancelEvent = [callback = CallbackHelper(*onActionCancel)](GestureEvent& info) {
-        const auto gestureEvent = Converter::ArkGestureEventSync(info);
+        const auto gestureEvent = Converter::SyncEvent<Ark_GestureEvent>(info);
         callback.InvokeSync(gestureEvent.ArkValue());
     };
     gesturePtr->SetOnActionCancelId(onActionCancelEvent);
 }
-void SetOnCancelImpl(Ark_NativePointer gesture, const Callback_Void* onCancel)
+void SetOnCancelImpl(Ark_NativePointer gesture,
+                     const synthetic_Callback_Void* onCancel)
 {
     auto* gesturePtr = reinterpret_cast<Gesture*>(gesture);
     CHECK_NULL_VOID(gesturePtr);
@@ -308,7 +315,7 @@ void ClearGesturesImpl(Ark_NativePointer node)
 Ark_Number GetGestureEventType(Ark_NativePointer event)
 {
     auto* peer = reinterpret_cast<Ark_BaseGestureEvent>(event);
-    CHECK_NULL_RETURN(peer, Converter::ArkValue<Ark_Number>(-1););
+    CHECK_NULL_RETURN(peer, Converter::ArkValue<Ark_Number>(-1));
     return Converter::ArkValue<Ark_Number>(static_cast<int32_t>(peer->GetRecognizerType()));
 }
 Ark_Boolean IsScrollableComponent(Ark_NativePointer event)

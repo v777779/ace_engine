@@ -30,8 +30,9 @@
 
 namespace OHOS::Ace::NG {
 using OnAccessibilityEventFunc = std::function<void(AccessibilityEventType)>;
+using InteractiveSoundEffectsFunc = int32_t (*)(uint32_t type, uint32_t index, int32_t abscissa, int32_t ordinate);
 
-class ClickRecognizer : public MultiFingersRecognizer {
+class ACE_FORCE_EXPORT ClickRecognizer : public MultiFingersRecognizer {
     DECLARE_ACE_TYPE(ClickRecognizer, MultiFingersRecognizer);
 
 public:
@@ -65,22 +66,9 @@ public:
         onAccessibilityEventFunc_ = std::move(onAccessibilityEvent);
     }
 
-    void SetDistanceThreshold(double distanceThreshold)
-    {
-        distanceThreshold_ = Dimension(
-            Dimension(distanceThreshold, DimensionUnit::PX).ConvertToVp(), DimensionUnit::VP);
-        if (distanceThreshold <= 0) {
-            distanceThreshold_ = Dimension(std::numeric_limits<double>::infinity(), DimensionUnit::PX);
-        }
-    }
+    void SetDistanceThreshold(double distanceThreshold);
 
-    void SetDistanceThreshold(Dimension distanceThreshold)
-    {
-        distanceThreshold_ = distanceThreshold;
-        if (distanceThreshold_.ConvertToPx() <= 0) {
-            distanceThreshold_ = Dimension(std::numeric_limits<double>::infinity(), DimensionUnit::PX);
-        }
-    }
+    void SetDistanceThreshold(Dimension distanceThreshold);
 
     int GetCount()
     {
@@ -110,6 +98,8 @@ public:
     void CleanRecognizerState() override;
     GestureEvent GetGestureEventInfo();
     ClickInfo GetClickInfo();
+protected:
+    std::string GetGestureInfoString() const override;
 
 private:
     // Recognize whether MOVE/UP event is in response region.
@@ -120,6 +110,7 @@ private:
     void HandleTouchCancelEvent(const TouchEvent& event) override;
     bool ReconcileFrom(const RefPtr<NGGestureRecognizer>& recognizer) override;
     void UpdateInfoWithDownEvent(const TouchEvent& event);
+    void ResetStatusInHandleOverdueDeadline();
 
     void OnResetStatus() override
     {
@@ -130,9 +121,7 @@ private:
         fingerDeadlineTimer_.Cancel();
         tapDeadlineTimer_.Cancel();
         currentTouchPointsNum_ = 0;
-        useCatchMode_ = true;
         responseRegionBuffer_.clear();
-        localMatrix_.clear();
     }
 
     void HandleOverdueDeadline();
@@ -140,11 +129,12 @@ private:
     Offset ComputeFocusPoint();
 
     void SendCallbackMsg(const std::unique_ptr<GestureEventFunc>& callback, GestureCallbackType type);
+    void PlayClickSoundEffect();
     void HandleReports(const GestureEvent& info, GestureCallbackType type) override;
     GestureJudgeResult TriggerGestureJudgeCallback();
     bool ExceedSlop();
     void InitGlobalValue(SourceType deviceId);
-
+    void HandleReportClick(const GestureEvent& info);
     bool CheckNeedReceiveEvent();
 
     bool IsFormRenderClickRejected(const TouchEvent& event);
@@ -156,24 +146,30 @@ private:
 
     int32_t count_ = 1;
     Dimension distanceThreshold_ = Dimension(std::numeric_limits<double>::infinity(), DimensionUnit::PX);
+    double userDT_ = 0.0;
 
     // number of tap action.
     int32_t tappedCount_ = 0;
+
     // Check whether the touch point num has reached the configured value
     bool equalsToFingers_ = false;
     // the time when gesture recognition is successful
     TimeStamp time_;
     Offset focusPoint_;
     TimeStamp touchDownTime_;
-    int32_t currentTouchPointsNum_ = 0;
-    bool useCatchMode_ = true;
-    std::vector<RectF> responseRegionBuffer_;
 
     ClickCallback onClick_;
     ClickCallback remoteMessage_;
+    bool useCatchMode_ = true;
     CancelableCallback<void()> fingerDeadlineTimer_;
     CancelableCallback<void()> tapDeadlineTimer_;
+    std::vector<RectF> responseRegionBuffer_;
+
+    int32_t currentTouchPointsNum_ = 0;
+
     OnAccessibilityEventFunc onAccessibilityEventFunc_ = nullptr;
+
+    InteractiveSoundEffectsFunc interactiveSoundEffectsFunc_ = nullptr;
 };
 
 } // namespace OHOS::Ace::NG

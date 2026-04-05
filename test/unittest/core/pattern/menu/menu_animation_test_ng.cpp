@@ -20,13 +20,13 @@
 #define private public
 #define protected public
 
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/rosen/testing_canvas.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/layout/grid_system_manager.h"
 #include "core/components/common/properties/shadow_config.h"
@@ -34,6 +34,7 @@
 #include "core/components/select/select_theme.h"
 #include "core/components/theme/shadow_theme.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/components_ng/pattern/menu/menu_item/menu_item_model_ng.h"
@@ -486,19 +487,24 @@ HWTEST_F(MenuAnimationTestNg, GetAnimationOffset001, TestSize.Level1)
     mainMenu->MountToParent(wrapperNode);
     auto wrapperPattern = wrapperNode->GetPattern<MenuWrapperPattern>();
     ASSERT_NE(wrapperPattern, nullptr);
+
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto selectTheme = AceType::MakeRefPtr<SelectTheme>();
+    ASSERT_NE(selectTheme, nullptr);
+    auto defaultDimension = Dimension(30.0, DimensionUnit::PX);
+    selectTheme->menuAnimationOffset_ = defaultDimension;
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(selectTheme));
     /**
      * @tc.steps: step2. execute GetAnimationOffset
      * @tc.expected: property is set as expected
      */
     wrapperPattern->menuPlacement_ = Placement::LEFT;
-    wrapperPattern->GetAnimationOffset();
-    EXPECT_EQ(wrapperPattern->menuPlacement_, Placement::LEFT);
+    EXPECT_EQ(wrapperPattern->GetAnimationOffset().GetX(), defaultDimension);
     wrapperPattern->menuPlacement_ = Placement::RIGHT;
-    wrapperPattern->GetAnimationOffset();
-    EXPECT_EQ(wrapperPattern->menuPlacement_, Placement::RIGHT);
+    EXPECT_EQ(wrapperPattern->GetAnimationOffset().GetX(), -defaultDimension);
     wrapperPattern->menuPlacement_ = Placement::TOP;
-    wrapperPattern->GetAnimationOffset();
-    EXPECT_EQ(wrapperPattern->menuPlacement_, Placement::TOP);
+    EXPECT_EQ(wrapperPattern->GetAnimationOffset().GetY(), defaultDimension);
 }
 
 /**

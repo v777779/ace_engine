@@ -22,6 +22,10 @@
 #include "core/components_ng/pattern/container_modal/enhance/container_modal_view_enhance.h"
 #include "frameworks/core/pipeline_ng/pipeline_context.h"
 
+namespace OHOS::Ace {
+SINGLETON_INSTANCE_IMPL(NG::UIExtensionIdUtility);
+}
+
 namespace OHOS::Ace::NG {
 UIExtensionIdUtility::UIExtensionIdUtility() {}
 
@@ -418,7 +422,7 @@ bool UIExtensionManager::TriggerBusinessDataSend(UIContentBusinessCode code)
         ret |= uiExtension->SendBusinessData(code, data.value(), type, subsystemId);
     }
     decltype(aliveSecurityUIExtensions_) tempAliveSecurityUIExtensions(aliveSecurityUIExtensions_);
-    for (const auto& pattern : aliveSecurityUIExtensions_) {
+    for (const auto& pattern : tempAliveSecurityUIExtensions) {
         auto uiExtension = pattern.second.Upgrade();
         CHECK_NULL_CONTINUE(uiExtension);
         auto frameNode = uiExtension->GetHost();
@@ -536,7 +540,7 @@ void UIExtensionManager::NotifyWindowMode(Rosen::WindowMode mode)
 void UIExtensionManager::SendPageModeToProvider(const int32_t nodeId, const std::string& pageMode)
 {
     auto it = aliveUIExtensions_.find(nodeId);
-    if(it == aliveUIExtensions_.end()) {
+    if (it == aliveUIExtensions_.end()) {
         return;
     }
     auto uiExtension = it->second.Upgrade();
@@ -551,16 +555,7 @@ void UIExtensionManager::SendPageModeRequestToHost(const RefPtr<PipelineContext>
 {
     AAFwk::Want data;
     data.SetParam("requestPageMode", std::string("yes"));
-    AAFwk::Want reply;
-    SendBusinessToHostSyncReply(UIContentBusinessCode::SEND_PAGE_MODE, data, reply);
-    if (reply.HasParameter("pageMode")) {
-        auto pageMode = reply.GetStringParam("pageMode");
-        TAG_LOGI(AceLogTag::ACE_UIEXTENSIONCOMPONENT,
-            "UEA received a reply, pageMode: %{public}s.", pageMode.c_str());
-        auto accessibilityManager = pipeline->GetAccessibilityManager();
-        CHECK_NULL_VOID(accessibilityManager);
-        accessibilityManager->UpdatePageMode(pageMode);
-    }
+    SendBusinessToHost(UIContentBusinessCode::SEND_PAGE_MODE_REQUEST, data, BusinessDataSendType::ASYNC);
 }
 
 void UIExtensionManager::TransferAccessibilityRectInfo()
@@ -585,19 +580,19 @@ void UIExtensionManager::TransferAccessibilityRectInfo()
 }
 
 void UIExtensionManager::UpdateWMSUIExtProperty(UIContentBusinessCode code, const AAFwk::Want& data,
-    RSSubsystemId subSystemId)
+    RSSubsystemId subSystemId, const UIExtOptions& options)
 {
     CHECK_RUN_ON(UI);
     for (const auto& it : aliveUIExtensions_) {
         auto uiExtension = it.second.Upgrade();
         if (uiExtension) {
-            uiExtension->UpdateWMSUIExtProperty(code, data, subSystemId);
+            uiExtension->UpdateWMSUIExtProperty(code, data, subSystemId, options);
         }
     }
     for (const auto& it : aliveSecurityUIExtensions_) {
         auto uiExtension = it.second.Upgrade();
         if (uiExtension) {
-            uiExtension->UpdateWMSUIExtProperty(code, data, subSystemId);
+            uiExtension->UpdateWMSUIExtProperty(code, data, subSystemId, options);
         }
     }
 }
@@ -640,10 +635,15 @@ void UIExtensionManager::RegisterListenerIfNeeded()
 
     auto pipeline = pipeline_.Upgrade();
     CHECK_NULL_VOID(pipeline);
+    auto avoidInfoMgr = pipeline->GetAvoidInfoManager();
+    CHECK_NULL_VOID(avoidInfoMgr);
     auto containerModalListener =
-        [weakMgr = WeakClaim(this)](const RectF&, const RectF&) {
+        [weakMgr = WeakClaim(this), weakAvoidMgr = WeakClaim(RawPtr(avoidInfoMgr))](const RectF&, const RectF&) {
             auto mgr = weakMgr.Upgrade();
             CHECK_NULL_VOID(mgr);
+            auto avoidMgr = weakAvoidMgr.Upgrade();
+            CHECK_NULL_VOID(avoidMgr);
+            avoidMgr->SetIsUpdateButtonRect(true);
             mgr->NotifyUECProviderIfNeedded();
         };
     TAG_LOGI(AceLogTag::ACE_UIEXTENSIONCOMPONENT, "UIExtensionManager register listener");
@@ -682,11 +682,19 @@ void UIExtensionManager::NotifyUECProviderIfNeedded()
 
     auto pipeline = pipeline_.Upgrade();
     CHECK_NULL_VOID(pipeline);
+    if (pipeline->GetContainerFloatingTitleVisible()) {
+        TAG_LOGI(AceLogTag::ACE_UIEXTENSIONCOMPONENT, "floating tile is show, not notify ui extension.");
+        return;
+    }
     auto avoidInfoMgr = pipeline->GetAvoidInfoManager();
     CHECK_NULL_VOID(avoidInfoMgr);
     for (const auto& it : aliveUIExtensions_) {
         auto uecPattern = it.second.Upgrade();
         CHECK_NULL_CONTINUE(uecPattern);
+        if (!uecPattern->IsUpdateDisplayArea() && !avoidInfoMgr->IsUpdateButtonRect()) {
+            continue;
+        }
+        uecPattern->SetIsUpdateDisplayArea(false);
         const auto& preAvoidInfo = uecPattern->GetAvoidInfo();
         auto uecNode = AceType::DynamicCast<FrameNode>(uecPattern->GetHost());
         CHECK_NULL_CONTINUE(uecNode);
@@ -703,5 +711,42 @@ void UIExtensionManager::NotifyUECProviderIfNeedded()
                 std::move(avoidInfoWant), BusinessDataSendType::ASYNC);
         }
     }
+    avoidInfoMgr->SetIsUpdateButtonRect(false);
+}
+
+void UIExtensionManager::NotifyNestedUECProvidersIfNeeded()
+{
+    if (aliveUIExtensions_.empty()) {
+        return;
+    }
+
+    auto pipeline = pipeline_.Upgrade();
+    CHECK_NULL_VOID(pipeline);
+    auto avoidInfoMgr = pipeline->GetAvoidInfoManager();
+    CHECK_NULL_VOID(avoidInfoMgr);
+    for (const auto& it : aliveUIExtensions_) {
+        auto uecPattern = it.second.Upgrade();
+        CHECK_NULL_CONTINUE(uecPattern);
+        if (!uecPattern->IsUpdateDisplayArea() && !avoidInfoMgr->IsUpdateButtonRect()) {
+            continue;
+        }
+        uecPattern->SetIsUpdateDisplayArea(false);
+        const auto& preAvoidInfo = uecPattern->GetAvoidInfo();
+        auto uecNode = AceType::DynamicCast<FrameNode>(uecPattern->GetHost());
+        CHECK_NULL_CONTINUE(uecNode);
+        ContainerModalAvoidInfo newAvoidInfo;
+        avoidInfoMgr->GetNewAvoidInfoForUEC(uecNode, newAvoidInfo);
+        bool needNotify = AvoidInfoManager::CheckIfNeedNotifyAvoidInfoChange(preAvoidInfo, newAvoidInfo);
+        uecPattern->SetAvoidInfo(newAvoidInfo);
+        if (needNotify) {
+            AAFwk::Want avoidInfoWant;
+            avoidInfoMgr->BuildAvoidInfo(newAvoidInfo, avoidInfoWant);
+            TAG_LOGI(AceLogTag::ACE_UIEXTENSIONCOMPONENT, "UECManager send AvoidInfo: %{public}s",
+                newAvoidInfo.ToString().c_str());
+            uecPattern->SendBusinessData(UIContentBusinessCode::NOTIFY_AVOID_INFO_CHANGE,
+                std::move(avoidInfoWant), BusinessDataSendType::ASYNC);
+        }
+    }
+    avoidInfoMgr->SetIsUpdateButtonRect(false);
 }
 } // namespace OHOS::Ace::NG

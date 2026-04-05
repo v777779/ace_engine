@@ -44,7 +44,17 @@ RefPtr<UnifiedData> UdmfClientImpl::TransformUnifiedDataFromANI(void* rawData)
     return nullptr;
 }
 
+RefPtr<DataLoadParams> UdmfClientImpl::TransformDataLoadParamsFromANI(void* rawData)
+{
+    return nullptr;
+}
+
 void* UdmfClientImpl::TransformUnifiedDataPtr(RefPtr<UnifiedData>& unifiedData)
+{
+    return nullptr;
+}
+
+std::shared_ptr<void> UdmfClientImpl::TransformUnifiedDataSharedPtr(RefPtr<UnifiedData>& unifiedDataImpl)
 {
     return nullptr;
 }
@@ -74,7 +84,7 @@ napi_value UdmfClientImpl::TransformSummary(std::map<std::string, int64_t>& summ
     return nullptr;
 }
 
-void UdmfClientImpl::TransformSummaryANI(std::map<std::string, int64_t>& summary, void* summaryPtr)
+void UdmfClientImpl::TransformSummaryANI(std::map<std::string, int64_t>& summary, std::shared_ptr<void> summaryPtr)
 {}
 
 RefPtr<UnifiedData> UdmfClientImpl::CreateUnifiedData()
@@ -92,8 +102,7 @@ int32_t UdmfClientImpl::GetData(const RefPtr<UnifiedData>& unifiedData, const st
     return -1;
 }
 
-int32_t UdmfClientImpl::GetSummary(std::string& key, std::map<std::string, int64_t>& summaryMap,
-    std::map<std::string, int64_t>& detailedSummaryMap)
+int32_t UdmfClientImpl::GetSummary(std::string& key, DragSummaryInfo& dragSummaryInfo)
 {
     return -1;
 }
@@ -213,8 +222,9 @@ std::vector<uint8_t> UdmfClientImpl::GetSpanStringEntry(const RefPtr<UnifiedData
     return {};
 }
 
-bool UdmfClientImpl::IsBelongsTo(const std::string& summary, const std::string& allowDropType)
+bool UdmfClientImpl::IsAppropriateType(DragSummaryInfo& dragSummaryInfo, const std::set<std::string>& allowTypes)
 {
     return false;
 }
+
 } // namespace OHOS::Ace

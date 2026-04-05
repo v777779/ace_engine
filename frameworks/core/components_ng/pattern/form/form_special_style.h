@@ -48,13 +48,30 @@ enum class FormStyleAttribution : int32_t {
      * App lock.
      */
     APP_LOCK,
+
+    /* *
+     * Developer mode tips.
+     */
+    DEVELOPER_MODE_TIPS,
+
+    /**
+     * Due disable
+     */
+    DUE_DISABLE,
+ 
+    /**
+     * Due remove
+     */
+    DUE_REMOVE,
 };
 class FormSpecialStyle {
 public:
     void SetIsForbiddenByParentControl(bool isForbiddenByParentControl);
     void SetIsLockedByAppLock(bool isLockedByAppLock);
+    void SetIsShowDeveloperTips(bool isShowDeveloperTips);
     bool IsForbidden() const;
     bool IsLocked() const;
+    bool IsShowDeveloperTips() const;
     const char* GetResource();
     [[nodiscard]] FormStyleAttribution GetFormStyleAttribution() const;
     FormOperation GetOperationToNewFormStyle(const FormSpecialStyle& formSpecialStyle);
@@ -64,6 +81,10 @@ public:
     bool IsInited() const;
     void SetIsMultiAppForm(AppExecFwk::FormInfo &formInfo);
     bool IsMultiAppForm() const;
+    void SetIsDisableByDue(bool isDueDisable);
+    bool IsDueDisabled() const;
+    void SetIsRemoveByDue(bool isDueRemove);
+    bool IsDueRemoved() const;
 private:
     bool isForbiddenByParentControl_ = false;
 
@@ -72,6 +93,12 @@ private:
     bool isInited_ = false;
 
     bool isMultiAppForm_ = false;
+
+    bool isShowDeveloperTips_ = false;
+
+    bool isDueDisabled_ = false;
+ 
+    bool isDueRemoved_ = false;
 };
 } // namespace OHOS::Ace::NG
 

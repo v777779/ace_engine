@@ -16,6 +16,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_SWIPER_OVER_INDICATOR_SWIPER_INDICATOR_MODIFIER_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_SWIPER_OVER_INDICATOR_SWIPER_INDICATOR_MODIFIER_H
 
+#include <cfloat>
 #include <optional>
 
 #include "core/components/swiper/swiper_indicator_theme.h"
@@ -44,6 +45,8 @@ public:
 
     void onDraw(DrawingContext& context) override;
     // paint
+    void PaintBackground(DrawingContext& context, const ContentProperty& contentProperty, int32_t maxDisplayCount,
+        bool isBindIndicator);
     void PaintContent(DrawingContext& context, ContentProperty& contentProperty) override;
     void PaintBlackPoint(DrawingContext& context, ContentProperty& contentProperty);
     void PaintUnselectedIndicator(
@@ -267,6 +270,8 @@ private:
     float blackPointCenterMoveRate_ = 0.0f;
     float longPointLeftCenterMoveRate_ = 0.0f;
     float longPointRightCenterMoveRate_ = 0.0f;
+    float backgroundStart_ = 0.0f;
+    float backgroundEnd_ = 0.0f;
     GestureState gestureState_ = GestureState::GESTURE_STATE_INIT;
     TouchBottomTypeLoop touchBottomTypeLoop_ = TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_NONE;
     bool isCustomSizeValue_ = false;
@@ -278,6 +283,7 @@ private:
     bool isAutoPlay_ = false;
     bool isBindIndicator_ = false;
     bool isLoop_ = true;
+    bool isDrawbackground_ = false;
     ACE_DISALLOW_COPY_AND_MOVE(OverlengthDotIndicatorModifier);
 };
 } // namespace OHOS::Ace::NG

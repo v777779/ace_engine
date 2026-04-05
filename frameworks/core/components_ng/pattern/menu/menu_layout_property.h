@@ -19,15 +19,12 @@
 #include <string>
 
 #include "base/utils/utils.h"
-#include "core/components/select/select_theme.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/layout/layout_property.h"
 #include "core/components_ng/pattern/select/select_pattern.h"
 #include "core/components_ng/property/property.h"
 #include "core/components_v2/inspector/utils.h"
-#include "core/components_v2/list/list_properties.h"
-#include "core/pipeline/pipeline_base.h"
-#include "core/pipeline_ng/pipeline_context.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 namespace OHOS::Ace::NG {
 class InspectorFilter;
 
@@ -70,6 +67,7 @@ public:
         value->propSelectAvoidanceMode_ = CloneSelectAvoidanceMode();
         value->propBorderRadius_ = CloneBorderRadius();
         value->propMenuWidth_ = CloneMenuWidth();
+        value->propMenuMaxHeight_ = CloneMenuMaxHeight();
         value->propShowInSubWindow_ = CloneShowInSubWindow();
         value->propShowDefaultSelectedIcon_ = CloneShowDefaultSelectedIcon();
         value->propExpandingMode_ = CloneExpandingMode();
@@ -92,6 +90,7 @@ public:
         ResetSelectAvoidanceMode();
         ResetBorderRadius();
         ResetMenuWidth();
+        ResetMenuMaxHeight();
         ResetShowInSubWindow();
         ResetShowDefaultSelectedIcon();
         ResetExpandingMode();
@@ -117,6 +116,7 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(TargetSize, NG::SizeF, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(BorderRadius, NG::BorderRadiusProperty, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(MenuWidth, Dimension, PROPERTY_UPDATE_MEASURE);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(MenuMaxHeight, Dimension, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ItemDivider, V2::ItemDivider, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ItemDividerMode, DividerMode, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ItemGroupDivider, V2::ItemDivider, PROPERTY_UPDATE_MEASURE);

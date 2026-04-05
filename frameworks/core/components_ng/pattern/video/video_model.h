@@ -21,7 +21,7 @@
 #include "base/image/pixel_map.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/color.h"
-#include "core/components/video/video_controller_v2.h"
+#include "core/components_ng/pattern/video/video_controller_v2.h"
 
 namespace OHOS::Ace {
 using VideoEventFunc = std::function<void(const std::string&)>;
@@ -59,6 +59,7 @@ public:
     virtual void EnableAnalyzer(bool enable) {}
     virtual void SetImageAnalyzerConfig(void* config) {}
     virtual void SetImageAIOptions(void* options) {}
+    virtual void SetContentTransition(ContentTransitionType contentTransition) {}
 };
 } // namespace OHOS::Ace
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_VIDEO_VIDEO_MODEL_H

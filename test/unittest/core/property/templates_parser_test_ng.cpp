@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 iSoftStone Information Technology (Group) Co.,Ltd.
+ * Copyright (c) 2023-2025 iSoftStone Information Technology (Group) Co.,Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -26,9 +26,9 @@
 #define protected public
 #define private public
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/property/templates_parser.h"
 
@@ -412,5 +412,74 @@ HWTEST_F(TemplatesParserTestNg, TemplatesParserTestNg006, TestSize.Level1)
     int32_t childrenCount = 10;
     auto retVal = ParseTemplateArgs(args, size, gap, childrenCount);
     EXPECT_EQ(retVal.first.size(), size);
+}
+
+/**
+ * @tc.name: BuildItemFillPolicyColumnsTest001
+ * @tc.desc: Test BREAKPOINT_SM1MD2LG3 policy with different width breakpoints
+ * @tc.type: FUNC
+ */
+HWTEST_F(TemplatesParserTestNg, BuildItemFillPolicyColumnsTest001, TestSize.Level1)
+{
+    // Test WIDTH_SM breakpoint (<= WIDTH_SM)
+    auto result1 = BuildItemFillPolicyColumns(PresetFillType::BREAKPOINT_SM1MD2LG3, 300.0f, 1.0);
+    EXPECT_TRUE(result1.has_value());
+    EXPECT_EQ(result1.value(), "1fr");
+
+    // Test WIDTH_MD breakpoint
+    auto result2 = BuildItemFillPolicyColumns(PresetFillType::BREAKPOINT_SM1MD2LG3, 600.0f, 1.0);
+    EXPECT_TRUE(result2.has_value());
+    EXPECT_EQ(result2.value(), "1fr 1fr");
+
+    // Test WIDTH_LG breakpoint (>= WIDTH_LG)
+    auto result3 = BuildItemFillPolicyColumns(PresetFillType::BREAKPOINT_SM1MD2LG3, 840.0f, 1.0);
+    EXPECT_TRUE(result3.has_value());
+    EXPECT_EQ(result3.value(), "1fr 1fr 1fr");
+}
+
+/**
+ * @tc.name: BuildItemFillPolicyColumnsTest002
+ * @tc.desc: Test BREAKPOINT_SM2MD3LG5 policy with different width breakpoints
+ * @tc.type: FUNC
+ */
+HWTEST_F(TemplatesParserTestNg, BuildItemFillPolicyColumnsTest002, TestSize.Level1)
+{
+    // Test WIDTH_SM breakpoint (<= WIDTH_SM)
+    auto result1 = BuildItemFillPolicyColumns(PresetFillType::BREAKPOINT_SM2MD3LG5, 300.0f, 1.0);
+    EXPECT_TRUE(result1.has_value());
+    EXPECT_EQ(result1.value(), "1fr 1fr");
+
+    // Test WIDTH_MD breakpoint
+    auto result2 = BuildItemFillPolicyColumns(PresetFillType::BREAKPOINT_SM2MD3LG5, 600.0f, 1.0);
+    EXPECT_TRUE(result2.has_value());
+    EXPECT_EQ(result2.value(), "1fr 1fr 1fr");
+
+    // Test WIDTH_LG breakpoint (>= WIDTH_LG)
+    auto result3 = BuildItemFillPolicyColumns(PresetFillType::BREAKPOINT_SM2MD3LG5, 840.0f, 1.0);
+    EXPECT_TRUE(result3.has_value());
+    EXPECT_EQ(result3.value(), "1fr 1fr 1fr 1fr 1fr");
+}
+
+/**
+ * @tc.name: BuildItemFillPolicyColumnsTest003
+ * @tc.desc: Test BREAKPOINT_DEFAULT policy with different width breakpoints
+ * @tc.type: FUNC
+ */
+HWTEST_F(TemplatesParserTestNg, BuildItemFillPolicyColumnsTest003, TestSize.Level1)
+{
+    // Test WIDTH_SM breakpoint (<= WIDTH_SM)
+    auto result1 = BuildItemFillPolicyColumns(PresetFillType::BREAKPOINT_DEFAULT, 300.0f, 1.0);
+    EXPECT_TRUE(result1.has_value());
+    EXPECT_EQ(result1.value(), "1fr 1fr");
+
+    // Test WIDTH_MD breakpoint
+    auto result2 = BuildItemFillPolicyColumns(PresetFillType::BREAKPOINT_DEFAULT, 600.0f, 1.0);
+    EXPECT_TRUE(result2.has_value());
+    EXPECT_EQ(result2.value(), "1fr 1fr 1fr");
+
+    // Test WIDTH_LG breakpoint (>= WIDTH_LG)
+    auto result3 = BuildItemFillPolicyColumns(PresetFillType::BREAKPOINT_DEFAULT, 840.0f, 1.0);
+    EXPECT_TRUE(result3.has_value());
+    EXPECT_EQ(result3.value(), "1fr 1fr 1fr 1fr 1fr");
 }
 } // namespace OHOS::Ace::NG

@@ -44,7 +44,7 @@ inline constexpr uint64_t EXCLUDE_INNER_FLAG_NONE = 0;
 
 // StateStyleManager is mainly used to manage the setting and refresh of state styles.
 class StateStyleManager : public virtual AceType {
-    DECLARE_ACE_TYPE(StateStyleManager, AceType)
+    DECLARE_ACE_TYPE(StateStyleManager, AceType);
 
 public:
     explicit StateStyleManager(WeakPtr<FrameNode> frameNode);
@@ -74,9 +74,9 @@ public:
         supportedStates_ = state;
     }
 
-    void AddSupportedUIStateWithCallback(
+    bool AddSupportedUIStateWithCallback(
         UIState state, std::function<void(uint64_t)>& callback, bool isInner, bool excludeInner = false);
-    void RemoveSupportedUIState(UIState state, bool isInner);
+    bool RemoveSupportedUIState(UIState state, bool isInner);
 
     bool GetUserSetStateStyle()
     {
@@ -126,7 +126,7 @@ public:
         if (!HasStateStyle(state)) {
             return;
         }
-                if ((currentState_ & state) != state) {
+        if ((currentState_ & state) != state) {
             return;
         }
         auto temp = currentState_ ^ state;
@@ -221,8 +221,8 @@ private:
         ResetPressedCancelPendingState();
     }
 
-    bool IsOutOfPressedRegion(int32_t sourceType, const Offset& location) const;
-    bool IsOutOfPressedRegionWithoutClip(RefPtr<FrameNode> node, int32_t sourceType,
+    bool IsOutOfPressedRegion(int32_t sourceType, int32_t sourceTool, const Offset& location) const;
+    bool IsOutOfPressedRegionWithoutClip(RefPtr<FrameNode> node, int32_t sourceType, int32_t sourceTool,
         const Offset& location) const;
     void Transform(PointF& localPointF, const WeakPtr<FrameNode>& node) const;
     void CleanScrollingParentListener();

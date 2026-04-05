@@ -52,9 +52,12 @@ ohos_shared_library("ace_ndk") {
   public_configs = [ ":ace_ndk_public_configs" ]
 
   sources = [
+    "//foundation/arkui/ace_engine/frameworks/base/log/log_wrapper.cpp",
+    "//foundation/arkui/ace_engine/frameworks/base/utils/string_utils.cpp",
     "//foundation/arkui/ace_engine/frameworks/core/accessibility/native_interface_accessibility_impl.cpp",
     "//foundation/arkui/ace_engine/frameworks/core/accessibility/native_interface_accessibility_provider.cpp",
     "//foundation/arkui/ace_engine/frameworks/core/components/common/properties/color.cpp",
+    "//foundation/arkui/ace_engine/frameworks/core/components/common/properties/text_style.cpp",
     "//foundation/arkui/ace_engine/frameworks/core/components/xcomponent/native_interface_xcomponent_impl.cpp",
     "//foundation/arkui/ace_engine/frameworks/core/components_v2/inspector/inspector_constants.cpp",
     "build_check_for_c.c",
@@ -66,6 +69,7 @@ ohos_shared_library("ace_ndk") {
     "native_interface_xcomponent.cpp",
     "native_styled_string_descriptor.cpp",
     "node/animate_impl.cpp",
+    "node/container_picker_option.cpp",
     "node/dialog_model.cpp",
     "node/dialog_option.cpp",
     "node/drawable_descriptor.cpp",
@@ -73,6 +77,7 @@ ohos_shared_library("ace_ndk") {
     "node/event_converter.cpp",
     "node/frame_information.cpp",
     "node/gesture_impl.cpp",
+    "node/grid_layout_option.cpp",
     "node/list_option.cpp",
     "node/native_drawable_descriptor.cpp",
     "node/native_impl.cpp",
@@ -90,10 +95,16 @@ ohos_shared_library("ace_ndk") {
     "node/node_transition.cpp",
     "node/node_transition_imp.cpp",
     "node/node_utils.cpp",
+    "node/node_visual_effect.cpp",
     "node/progress_option.cpp",
+    "node/render_node.cpp",
     "node/style_modifier.cpp",
+    "node/swiper_option.cpp",
     "node/textpicker_option.cpp",
     "node/waterflow_section_option.cpp",
+    "node/text_native_impl.cpp",
+    "node/rich_editor_native_impl.cpp",
+    "node/span_style_native_impl.cpp"
   ]
   external_deps = [ "bounds_checking_function:libsec_shared" ]
   deps = []
@@ -114,6 +125,7 @@ ohos_shared_library("ace_ndk") {
       "graphic_2d:native_drawing_ndk",
       "hilog:libhilog",
       "image_framework:pixelmap",
+      "image_framework:image_native",
       "ipc:ipc_core",
       "napi:ace_napi",
       "resource_management:global_resmgr",

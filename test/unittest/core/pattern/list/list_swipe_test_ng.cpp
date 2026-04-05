@@ -14,7 +14,7 @@
  */
 
 #include "list_test_ng.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -1291,6 +1291,28 @@ HWTEST_F(ListSwipeTestNg, DragSwipeItem_DeleteArea008, TestSize.Level1)
 }
 
 /**
+ * @tc.name: TestSetSwipeActionByModifier
+ * @tc.desc: Test SwipeEdgeEffect::None for ListItem
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListSwipeTestNg, TestSetSwipeActionByModifier, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. init ListItem with SwipeEdgeEffect::None
+     */
+    CreateList();
+    ListItemModelNG itemModel = CreateListItem();
+    CreateSwipeDone();
+    itemModel.SetSwiperAction(nullptr, nullptr, nullptr, V2::SwipeEdgeEffect::None, AceType::RawPtr(item_));
+
+    /**
+     * @tc.steps: step2. Check SwipeEdgeEffect::None effective
+     * @tc.expected: SwipeEdgeEffect::None is effective
+     */
+    EXPECT_EQ(itemPattern_->GetEdgeEffect(), V2::SwipeEdgeEffect::None);
+}
+
+/**
  * @tc.name: ResetSwipeStatus001
  * @tc.desc: If drag different ListItem, the previous item would be reset.
  * @tc.type: FUNC
@@ -1690,6 +1712,47 @@ HWTEST_F(ListSwipeTestNg, ClickJudge006, TestSize.Level1)
     EXPECT_TRUE(itemPattern_->ClickJudge(PointF(10.f, 10.f)));
     EXPECT_FALSE(itemPattern_->ClickJudge(PointF(10.f, HEIGHT - 10.f)));
     EXPECT_TRUE(itemPattern_->ClickJudge(PointF(10.f, HEIGHT + 10.f)));
+}
+
+/**
+ * @tc.name: ClickJudge007
+ * @tc.desc: Test ClickJudge with UpdatePaintRect
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListSwipeTestNg, ClickJudge007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create list and swipeItem
+     */
+    auto listModelNG = CreateList();
+    auto endFunc = GetRowOrColBuilder(END_NODE_LEN, ITEM_MAIN_SIZE);
+    CreateSwipeItem(nullptr, endFunc, V2::SwipeEdgeEffect::None);
+    CreateSwipeDone();
+
+    /**
+     * @tc.steps: step2. Expand endNode
+     * @tc.expected: return true
+     */
+    EXPECT_TRUE(DragSwiperItem(item_, -END_NODE_LEN, 0, ListItemSwipeIndex::SWIPER_END));
+
+    /**
+     * @tc.steps: step3. Update PaintRect
+     */
+    auto renderContext = item_->GetRenderContext();
+    ASSERT_NE(renderContext, false);
+    auto rect = renderContext->GetPaintRectWithoutTransform();
+    renderContext->UpdatePaintRect(RectF(rect.GetX(), rect.GetY() + 100.f, rect.Width(), rect.Height()));
+
+    /**
+     * @tc.steps: step4. Click listItem
+     * @tc.expected: Click not at endNode would return true
+     */
+    rect = renderContext->GetPaintRectWithoutTransform();
+    auto offset = rect.GetOffset();
+    EXPECT_EQ(offset.GetY(), 100.f);
+    EXPECT_TRUE(itemPattern_->ClickJudge(PointF(10.f, 10.f + offset.GetY())));
+    EXPECT_FALSE(itemPattern_->ClickJudge(PointF(WIDTH - 10.f, 10.f + offset.GetY())));
+    EXPECT_TRUE(itemPattern_->ClickJudge(PointF(WIDTH + 10.f, 10.f + offset.GetY())));
 }
 
 /**

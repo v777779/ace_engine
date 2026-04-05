@@ -17,20 +17,23 @@
 #include "gtest/internal/gtest-internal.h"
 
 #define private public
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+
 #include "base/geometry/ng/offset_t.h"
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/base/modifier.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/data_panel/data_panel_model_ng.h"
 #include "core/components_ng/pattern/data_panel/data_panel_modifier.h"
 #include "core/components_ng/pattern/data_panel/data_panel_paint_property.h"
 #include "core/components_ng/pattern/data_panel/data_panel_pattern.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/common/mock_theme_manager.h"
 #include "core/pipeline/base/constants.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -88,7 +91,8 @@ public:
 };
 
 class DataPanelTheme : public Theme {
-    DECLARE_ACE_TYPE(DataPanelTheme, Theme)
+    DECLARE_ACE_TYPE(DataPanelTheme, Theme);
+
 public:
     DataPanelTheme()
     {
@@ -813,7 +817,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintProgressTest001, TestSize.Level0)
     auto dataTheme = AceType::MakeRefPtr<DataPanelTheme>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataTheme));
 
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     ArcData arcData;
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
@@ -854,7 +858,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintBackgroundTest001, TestSize.Level0)
     auto dataTheme = AceType::MakeRefPtr<DataPanelTheme>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataTheme));
 
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, DetachBrush()).WillRepeatedly(ReturnRef(rsCanvas));
@@ -875,7 +879,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintSpaceTest001, TestSize.Level0)
     auto dataTheme = AceType::MakeRefPtr<DataPanelTheme>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(dataTheme));
 
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, DetachBrush()).WillRepeatedly(ReturnRef(rsCanvas));
@@ -887,11 +891,11 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintSpaceTest001, TestSize.Level0)
 
     LinearData linearData;
     dataPanelModifier.PaintSpace(rsCanvas, linearData, SPACEWIDTH);
-    
+
     /**
      * @tc.case: layout direction rtl
      */
-    DataPanelModifier dataPanelModifierRtl;
+    DataPanelModifier dataPanelModifierRtl(nullptr);
     dataPanelModifierRtl.SetIsRtl(true);
     dataPanelModifierRtl.PaintSpace(rsCanvas, linearData, SPACEWIDTH);
 }
@@ -908,7 +912,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintColorSegmentTest001, TestSize.Level0)
     auto dataTheme = AceType::MakeRefPtr<DataPanelTheme>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(dataTheme));
 
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, DetachBrush()).WillRepeatedly(ReturnRef(rsCanvas));
@@ -932,11 +936,11 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintColorSegmentTest001, TestSize.Level0)
     gradientColorEnd.SetDimension(Dimension(1.0));
     linerData.segmentColor = gradient;
     dataPanelModifier.PaintColorSegment(rsCanvas, linerData);
-    
+
     /**
      * @tc.case: layout direction rtl
      */
-    DataPanelModifier dataPanelModifierRtl;
+    DataPanelModifier dataPanelModifierRtl(nullptr);
     dataPanelModifierRtl.SetIsRtl(true);
     dataPanelModifierRtl.PaintColorSegment(rsCanvas, linerData);
 }
@@ -953,7 +957,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintTrackBackgroundTest001, TestSize.Level0)
     auto dataTheme = AceType::MakeRefPtr<DataPanelTheme>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataTheme));
 
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     ArcData arcData;
     EXPECT_CALL(rsCanvas, AttachPen(_)).WillOnce(ReturnRef(rsCanvas));
@@ -977,14 +981,13 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintCircleTest001, TestSize.Level0)
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(AceType::MakeRefPtr<DataPanelTheme>()));
 
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     DrawingContext context { rsCanvas, -10.0f, -10.0f };
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, DetachBrush()).WillRepeatedly(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, Save()).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, DrawPath(_)).Times(AtLeast(1));
-    EXPECT_CALL(rsCanvas, Translate(_, _)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, AttachPen(_)).WillOnce(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, DetachPen()).WillOnce(ReturnRef(rsCanvas));
     dataPanelModifier.PaintCircle(context, OFFSET);
@@ -1007,7 +1010,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintCircleTest002, TestSize.Level0)
     dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
         { Color::WHITE, Color::BLACK } };
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataPanelTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     DrawingContext context { rsCanvas, 10.0f, 10.0f };
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
@@ -1015,7 +1018,6 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintCircleTest002, TestSize.Level0)
     EXPECT_CALL(rsCanvas, Save()).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, Restore()).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, DrawPath(_)).Times(AtLeast(1));
-    EXPECT_CALL(rsCanvas, Translate(_, _)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, Rotate(_, _, _)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, AttachPen(_)).WillOnce(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, DetachPen()).WillOnce(ReturnRef(rsCanvas));
@@ -1043,7 +1045,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintCircleTest003, TestSize.Level1)
     dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
         { Color::WHITE, Color::BLACK } };
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataPanelTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     DrawingContext context { rsCanvas, 10.0f, 10.0f };
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
@@ -1054,7 +1056,6 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintCircleTest003, TestSize.Level1)
     EXPECT_CALL(rsCanvas, Restore()).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, DrawPath(_)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, Rotate(_, _, _)).Times(AtLeast(1));
-    EXPECT_CALL(rsCanvas, Translate(_, _)).Times(AtLeast(1));
     dataPanelModifier.SetMax(100.0f);
     std::vector<double> VALUES = { 0.001f, 20.0f };
     dataPanelModifier.SetValues(VALUES);
@@ -1112,10 +1113,10 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintCircleTest004, TestSize.Level0)
     dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
         { Color::WHITE, Color::BLACK } };
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataPanelTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     DrawingContext context { rsCanvas, 10.0f, 10.0f };
-    
+
     std::vector<Gradient> valueColors;
     // test Solid color when the valueColors >0 and valueColors <=9
     Gradient gradient;
@@ -1143,7 +1144,6 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintCircleTest004, TestSize.Level0)
     EXPECT_CALL(rsCanvas, Save()).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, Restore()).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, DrawPath(_)).Times(AtLeast(1));
-    EXPECT_CALL(rsCanvas, Translate(_, _)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, Rotate(_, _, _)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, AttachPen(_)).WillOnce(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, DetachPen()).WillOnce(ReturnRef(rsCanvas));
@@ -1167,10 +1167,10 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintCircleTest005, TestSize.Level0)
     dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
         { Color::WHITE, Color::BLACK } };
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataPanelTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     DrawingContext context { rsCanvas, 10.0f, 10.0f };
-    
+
     std::vector<Gradient> valueColors;
     // test Solid color when the valueColors >0 and valueColors <=9
     Gradient gradient;
@@ -1198,7 +1198,6 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintCircleTest005, TestSize.Level0)
     EXPECT_CALL(rsCanvas, Save()).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, Restore()).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, DrawPath(_)).Times(AtLeast(1));
-    EXPECT_CALL(rsCanvas, Translate(_, _)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, Rotate(_, _, _)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, AttachPen(_)).WillOnce(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, DetachPen()).WillOnce(ReturnRef(rsCanvas));
@@ -1222,7 +1221,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintLinearProgressTest001, TestSize.Level0)
     dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
         { Color::WHITE, Color::BLACK } };
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataPanelTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     DrawingContext context { rsCanvas, 10.0f, 10.0f };
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
@@ -1279,7 +1278,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintLinearProgressTest002, TestSize.Level0)
     dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
         { Color::WHITE, Color::BLACK } };
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataPanelTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     DrawingContext context { rsCanvas, 10.0f, 10.0f };
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
@@ -1310,7 +1309,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintLinearProgressTest003, TestSize.Level0)
     dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
         { Color::WHITE, Color::BLACK } };
     EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataPanelTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     DrawingContext context { rsCanvas, 10.0f, 10.0f };
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
@@ -1340,7 +1339,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintColorSegmentFilterMaskTest001, TestSize.
     dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
         { Color::WHITE, Color::BLACK } };
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(dataPanelTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     DrawingContext context { rsCanvas, 10.0f, 10.0f };
     EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
@@ -1387,7 +1386,7 @@ HWTEST_F(DataPanelTestNg, DataPanelPaintColorSegmentFilterMaskTest001, TestSize.
     /**
      * @tc.case: case. layout direction rtl
      */
-    DataPanelModifier dataPanelModifierRtl;
+    DataPanelModifier dataPanelModifierRtl(nullptr);
     dataPanelModifierRtl.SetIsRtl(true);
     dataPanelModifierRtl.PaintColorSegmentFilterMask(rsCanvas, segmentLinearData);
 }
@@ -1407,7 +1406,7 @@ HWTEST_F(DataPanelTestNg, DataPanelUpdateDateTest001, TestSize.Level0)
     /**
      * @tc.cases: case. cover branch isEffect_.
      */
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     dataPanelModifier.isEffect_->Set(true);
     dataPanelModifier.date_->Set(0.0f);
     dataPanelModifier.UpdateDate();
@@ -1433,7 +1432,7 @@ HWTEST_F(DataPanelTestNg, DataPanelOnDrawTest001, TestSize.Level0)
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
     auto dataTheme = AceType::MakeRefPtr<DataPanelTheme>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(dataTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
 
     /**
      * @tc.steps: step2. construct context and call onDraw().
@@ -1444,7 +1443,6 @@ HWTEST_F(DataPanelTestNg, DataPanelOnDrawTest001, TestSize.Level0)
     EXPECT_CALL(rsCanvas, AttachPen(_)).WillRepeatedly(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, DetachBrush()).WillRepeatedly(ReturnRef(rsCanvas));
     EXPECT_CALL(rsCanvas, DetachPen()).WillRepeatedly(ReturnRef(rsCanvas));
-    EXPECT_CALL(rsCanvas, Translate(_, _)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, DrawRoundRect(_)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, DrawPath(_)).Times(AtLeast(1));
     EXPECT_CALL(rsCanvas, Save()).Times(AtLeast(1));
@@ -1472,7 +1470,7 @@ HWTEST_F(DataPanelTestNg, DataPanelSortGradientColorsOffsetTest001, TestSize.Lev
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
     auto dataTheme = AceType::MakeRefPtr<DataPanelTheme>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(dataTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
 
     /**
      * @tc.steps: step2. Test positive sequence gradientColor.
@@ -1513,7 +1511,7 @@ HWTEST_F(DataPanelTestNg, DataPanelSortGradientColorsOffsetTest002, TestSize.Lev
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
     auto dataTheme = AceType::MakeRefPtr<DataPanelTheme>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(dataTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
 
     /**
      * @tc.steps: step2. Test Reverse GradientColor.
@@ -1554,7 +1552,7 @@ HWTEST_F(DataPanelTestNg, DataPanelShadowTest001, TestSize.Level0)
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
     auto dataTheme = AceType::MakeRefPtr<DataPanelTheme>();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(dataTheme));
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
 
     /**
      * @tc.steps: step2. Test the setting of Shadow attribute.
@@ -2328,7 +2326,7 @@ HWTEST_F(DataPanelTestNg, DataPanelMeasureTest006, TestSize.Level1)
  */
 HWTEST_F(DataPanelTestNg, DataPanelGetPaintPathTest001, TestSize.Level0)
 {
-    DataPanelModifier dataPanelModifier;
+    DataPanelModifier dataPanelModifier(nullptr);
     Testing::MockCanvas rsCanvas;
     DrawingContext context { rsCanvas, 50.0f, 50.0f };
     // test Solid color when the valueColors >0 and valueColors <=9
@@ -2364,4 +2362,268 @@ HWTEST_F(DataPanelTestNg, DataPanelGetPaintPathTest001, TestSize.Level0)
     dataPanelModifier.PaintProgress(rsCanvas, arcData, path, endPath, true);
     dataPanelModifier.PaintProgress(rsCanvas, arcData, path, endPath, false);
 }
+
+/**
+ * @tc.name: DataPanelUpdateDateTest002
+ * @tc.desc: Test DataPanel PaintMethod UpdateDate
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelUpdateDateTest002, TestSize.Level0)
+{
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto dataTheme = AceType::MakeRefPtr<DataPanelTheme>();
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataTheme));
+
+    /**
+     * @tc.cases: case. cover branch isEffect_.
+     */
+    DataPanelModifier dataPanelModifier(nullptr);
+    dataPanelModifier.isEffect_->Set(false);
+    dataPanelModifier.date_->Set(1.0f);
+    dataPanelModifier.UpdateDate();
+    EXPECT_EQ(1.0f, dataPanelModifier.date_->Get());
+}
+
+/**
+ * @tc.name: DataPanelModelNGTest025
+ * @tc.desc: Test SetValueColorsSetByUser method of DataPanelModelNG.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelModelNGTest025, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create data panel and set ConfigChangePerform to true, then call SetValueColorsSetByUser(true).
+     * @tc.expected: step1. ValueColorsSetByUser is set to true.
+     */
+    DataPanelModelNG dataPanel;
+    dataPanel.Create(VALUES, MAX, TYPE_CYCLE);
+
+    OHOS::Ace::g_isConfigChangePerform = true;
+    dataPanel.SetValueColorsSetByUser(true);
+
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+
+    auto paintProperty = frameNode->GetPaintProperty<DataPanelPaintProperty>();
+    EXPECT_NE(paintProperty, nullptr);
+    EXPECT_EQ(paintProperty->GetValueColorsSetByUser(), true);
+
+    /**
+     * @tc.steps: step2. Set ConfigChangePerform to false, then call SetValueColorsSetByUser(false).
+     * @tc.expected: step2. ValueColorsSetByUser remains true (no change).
+     */
+    OHOS::Ace::g_isConfigChangePerform = false;
+    dataPanel.SetValueColorsSetByUser(false);
+    EXPECT_EQ(paintProperty->GetValueColorsSetByUser(), true);
+}
+
+/**
+ * @tc.name: DataPanelModelNGTest026
+ * @tc.desc: Test SetTrackBackgroundSetByUser method of DataPanelModelNG.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelModelNGTest026, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create data panel and set ConfigChangePerform to true, then call
+     * SetTrackBackgroundSetByUser(true).
+     * @tc.expected: step1. TrackBackgroundSetByUser is set to true.
+     */
+    DataPanelModelNG dataPanel;
+    dataPanel.Create(VALUES, MAX, TYPE_CYCLE);
+
+    OHOS::Ace::g_isConfigChangePerform = true;
+    dataPanel.SetTrackBackgroundSetByUser(true);
+
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+
+    auto paintProperty = frameNode->GetPaintProperty<DataPanelPaintProperty>();
+    EXPECT_NE(paintProperty, nullptr);
+    EXPECT_EQ(paintProperty->GetTrackBackgroundSetByUser(), true);
+
+    /**
+     * @tc.steps: step2. Set ConfigChangePerform to false, then call SetTrackBackgroundSetByUser(false).
+     * @tc.expected: step2. TrackBackgroundSetByUser remains true (no change).
+     */
+    OHOS::Ace::g_isConfigChangePerform = false;
+    dataPanel.SetTrackBackgroundSetByUser(false);
+    EXPECT_EQ(paintProperty->GetTrackBackgroundSetByUser(), true);
+}
+
+/**
+ * @tc.name: DataPanelModelNGTest027
+ * @tc.desc: Test SetStrokeWidthSetByUser method of DataPanelModelNG.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelModelNGTest027, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create data panel and set ConfigChangePerform to true, then call SetStrokeWidthSetByUser(true).
+     * @tc.expected: step1. StrokeWidthSetByUser is set to true.
+     */
+    DataPanelModelNG dataPanel;
+    dataPanel.Create(VALUES, MAX, TYPE_CYCLE);
+
+    OHOS::Ace::g_isConfigChangePerform = true;
+    dataPanel.SetStrokeWidthSetByUser(true);
+
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+
+    auto paintProperty = frameNode->GetPaintProperty<DataPanelPaintProperty>();
+    EXPECT_NE(paintProperty, nullptr);
+    EXPECT_EQ(paintProperty->GetStrokeWidthSetByUser(), true);
+
+    /**
+     * @tc.steps: step2. Set ConfigChangePerform to false, then call SetStrokeWidthSetByUser(false).
+     * @tc.expected: step2. StrokeWidthSetByUser remains true (no change).
+     */
+    OHOS::Ace::g_isConfigChangePerform = false;
+    dataPanel.SetStrokeWidthSetByUser(false);
+    EXPECT_EQ(paintProperty->GetStrokeWidthSetByUser(), true);
+}
+
+/**
+ * @tc.name: DataPanelModelNGTest028
+ * @tc.desc: Test static SetValueColorsSetByUser method of DataPanelModelNG.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelModelNGTest028, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create data panel, get frameNode.
+     * @tc.expected: step1. frameNode is created successfully.
+     */
+    DataPanelModelNG dataPanel;
+    dataPanel.Create(VALUES, MAX, TYPE_CYCLE);
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Set ConfigChangePerform to true, then call static SetValueColorsSetByUser with frameNode and
+     * true.
+     * @tc.expected: step2. ValueColorsSetByUser is set to true.
+     */
+    OHOS::Ace::g_isConfigChangePerform = true;
+    DataPanelModelNG::SetValueColorsSetByUser(frameNode, true);
+
+    auto paintProperty = frameNode->GetPaintProperty<DataPanelPaintProperty>();
+    EXPECT_NE(paintProperty, nullptr);
+    EXPECT_EQ(paintProperty->GetValueColorsSetByUser(), true);
+
+    /**
+     * @tc.steps: step3. Set ConfigChangePerform to false, then call static SetValueColorsSetByUser with frameNode and
+     * false.
+     * @tc.expected: step3. ValueColorsSetByUser remains true (no change).
+     */
+    OHOS::Ace::g_isConfigChangePerform = false;
+    DataPanelModelNG::SetValueColorsSetByUser(frameNode, false);
+    EXPECT_EQ(paintProperty->GetValueColorsSetByUser(), true);
+
+    /**
+     * @tc.steps: step4. Call static SetValueColorsSetByUser with nullptr frameNode.
+     * @tc.expected: step4. No crash occurs.
+     */
+    OHOS::Ace::g_isConfigChangePerform = true;
+    DataPanelModelNG::SetValueColorsSetByUser(nullptr, true);
+    // Just verify no crash
+    EXPECT_EQ(paintProperty->GetValueColorsSetByUser(), true);
+}
+
+/**
+ * @tc.name: DataPanelModelNGTest029
+ * @tc.desc: Test static SetTrackBackgroundSetByUser method of DataPanelModelNG.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelModelNGTest029, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create data panel, get frameNode.
+     * @tc.expected: step1. frameNode is created successfully.
+     */
+    DataPanelModelNG dataPanel;
+    dataPanel.Create(VALUES, MAX, TYPE_CYCLE);
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Set ConfigChangePerform to true, then call static SetTrackBackgroundSetByUser with frameNode
+     * and true.
+     * @tc.expected: step2. TrackBackgroundSetByUser is set to true.
+     */
+    OHOS::Ace::g_isConfigChangePerform = true;
+    DataPanelModelNG::SetTrackBackgroundSetByUser(frameNode, true);
+
+    auto paintProperty = frameNode->GetPaintProperty<DataPanelPaintProperty>();
+    EXPECT_NE(paintProperty, nullptr);
+    EXPECT_EQ(paintProperty->GetTrackBackgroundSetByUser(), true);
+
+    /**
+     * @tc.steps: step3. Set ConfigChangePerform to false, then call static SetTrackBackgroundSetByUser with frameNode
+     * and false.
+     * @tc.expected: step3. TrackBackgroundSetByUser remains true (no change).
+     */
+    OHOS::Ace::g_isConfigChangePerform = false;
+    DataPanelModelNG::SetTrackBackgroundSetByUser(frameNode, false);
+    EXPECT_EQ(paintProperty->GetTrackBackgroundSetByUser(), true);
+
+    /**
+     * @tc.steps: step4. Call static SetTrackBackgroundSetByUser with nullptr frameNode.
+     * @tc.expected: step4. No crash occurs.
+     */
+    OHOS::Ace::g_isConfigChangePerform = true;
+    DataPanelModelNG::SetTrackBackgroundSetByUser(nullptr, true);
+    // Just verify no crash
+    EXPECT_EQ(paintProperty->GetTrackBackgroundSetByUser(), true);
+}
+
+/**
+ * @tc.name: DataPanelModelNGTest030
+ * @tc.desc: Test static SetStrokeWidthSetByUser method of DataPanelModelNG.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelModelNGTest030, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create data panel, get frameNode.
+     * @tc.expected: step1. frameNode is created successfully.
+     */
+    DataPanelModelNG dataPanel;
+    dataPanel.Create(VALUES, MAX, TYPE_CYCLE);
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Set ConfigChangePerform to true, then call static SetStrokeWidthSetByUser with frameNode and
+     * true.
+     * @tc.expected: step2. StrokeWidthSetByUser is set to true.
+     */
+    OHOS::Ace::g_isConfigChangePerform = true;
+    DataPanelModelNG::SetStrokeWidthSetByUser(frameNode, true);
+
+    auto paintProperty = frameNode->GetPaintProperty<DataPanelPaintProperty>();
+    EXPECT_NE(paintProperty, nullptr);
+    EXPECT_EQ(paintProperty->GetStrokeWidthSetByUser(), true);
+
+    /**
+     * @tc.steps: step3. Set ConfigChangePerform to false, then call static SetStrokeWidthSetByUser with frameNode and
+     * false.
+     * @tc.expected: step3. StrokeWidthSetByUser remains true (no change).
+     */
+    OHOS::Ace::g_isConfigChangePerform = false;
+    DataPanelModelNG::SetStrokeWidthSetByUser(frameNode, false);
+    EXPECT_EQ(paintProperty->GetStrokeWidthSetByUser(), true);
+
+    /**
+     * @tc.steps: step4. Call static SetStrokeWidthSetByUser with nullptr frameNode.
+     * @tc.expected: step4. No crash occurs.
+     */
+    OHOS::Ace::g_isConfigChangePerform = true;
+    DataPanelModelNG::SetStrokeWidthSetByUser(nullptr, true);
+    // Just verify no crash
+    EXPECT_EQ(paintProperty->GetStrokeWidthSetByUser(), true);
+}
+
 } // namespace OHOS::Ace::NG

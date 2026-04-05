@@ -24,13 +24,19 @@ JSRef<JSObject> CreateFingerInfo(const FingerInfo& fingerInfo)
     const OHOS::Ace::Offset& globalLocation = fingerInfo.globalLocation_;
     const OHOS::Ace::Offset& localLocation = fingerInfo.localLocation_;
     const OHOS::Ace::Offset& screenLocation = fingerInfo.screenLocation_;
+    const OHOS::Ace::Offset& globalDisplayLocation = fingerInfo.globalDisplayLocation_;
     fingerInfoObj->SetProperty<int32_t>("id", fingerInfo.fingerId_);
+    fingerInfoObj->SetProperty<int32_t>("hand", fingerInfo.operatingHand_);
     fingerInfoObj->SetProperty<double>("globalX", PipelineBase::Px2VpWithCurrentDensity(globalLocation.GetX()));
     fingerInfoObj->SetProperty<double>("globalY", PipelineBase::Px2VpWithCurrentDensity(globalLocation.GetY()));
     fingerInfoObj->SetProperty<double>("localX", PipelineBase::Px2VpWithCurrentDensity(localLocation.GetX()));
     fingerInfoObj->SetProperty<double>("localY", PipelineBase::Px2VpWithCurrentDensity(localLocation.GetY()));
     fingerInfoObj->SetProperty<double>("displayX", PipelineBase::Px2VpWithCurrentDensity(screenLocation.GetX()));
     fingerInfoObj->SetProperty<double>("displayY", PipelineBase::Px2VpWithCurrentDensity(screenLocation.GetY()));
+    fingerInfoObj->SetProperty<double>(
+        "globalDisplayX", PipelineBase::Px2VpWithCurrentDensity(globalDisplayLocation.GetX()));
+    fingerInfoObj->SetProperty<double>(
+        "globalDisplayY", PipelineBase::Px2VpWithCurrentDensity(globalDisplayLocation.GetY()));
     return fingerInfoObj;
 }
 
@@ -100,6 +106,7 @@ bool SetBaseGestureEventInfo(JSRef<JSObject> obj, const std::shared_ptr<BaseGest
     obj->SetProperty<int32_t>("targetDisplayId", info->GetTargetDisplayId());
     obj->SetProperty<float>("axisVertical", info->GetVerticalAxis());
     obj->SetProperty<float>("axisHorizontal", info->GetHorizontalAxis());
+    obj->SetProperty<float>("axisPinch", info->GetPinchAxisScale());
     obj->SetPropertyObject(
         "getModifierKeyState", JSRef<JSFunc>::New<FunctionCallback>(NG::ArkTSUtils::JsGetModifierKeyState));
     CreateFingerInfosObject(info, obj);

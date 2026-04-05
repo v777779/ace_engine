@@ -17,7 +17,6 @@
 
 #include "core/components_ng/pattern/stack/stack_pattern.h"
 #include "core/components_ng/pattern/text/text_layout_property.h"
-#include "core/components_ng/pattern/text/text_model.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/pipeline/base/constants.h"
@@ -34,6 +33,7 @@ void ArcIndexerPattern::OnModifyDone()
     Pattern::OnModifyDone();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto layoutProperty = host->GetLayoutProperty<ArcIndexerLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
     bool autoCollapseModeChanged = true;
@@ -313,7 +313,7 @@ void ArcIndexerPattern::ResetArrayValue(bool isModeChanged)
     }
 }
 
-void ArcIndexerPattern::InitTouchEvent ()
+void ArcIndexerPattern::InitTouchEvent()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
@@ -382,7 +382,7 @@ RefPtr<FrameNode> ArcIndexerPattern::BuildIcon()
     CHECK_EQUAL_RETURN(arcArrayValue_.size(), 0, nullptr);
     int32_t indexerSize = static_cast<int32_t>(arcArrayValue_.size() - 1);
     auto icon = FrameNode::CreateFrameNode(
-        V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ImagePattern>());
+        IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ImagePattern>());
     CHECK_NULL_RETURN(icon, nullptr);
     ImageSourceInfo imageSourceInfo;
     if (arcArrayValue_[indexerSize].second == ArcIndexerBarState::COLLAPSED) {
@@ -429,7 +429,7 @@ void ArcIndexerPattern::BuildArrayValueItems()
         }
         for (int32_t index = 0; index < indexerSize; index++) {
             auto indexerChildNode = FrameNode::CreateFrameNode(
-                V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+                TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
             CHECK_NULL_VOID(indexerChildNode);
             host->AddChild(indexerChildNode);
         }
@@ -629,6 +629,8 @@ void ArcIndexerPattern::OnTouchUp(const TouchEventInfo& info)
 
 void ArcIndexerPattern::MoveIndexByOffset(const Offset& offset)
 {
+    // Tracking animation memory profiling.
+    ACE_UINODE_TRACE(GetHost());
     if (itemCount_ <= 0) {
         return;
     }
@@ -686,6 +688,9 @@ void ArcIndexerPattern::IndexNodeCollapsedAnimation()
     collapsedAnimateIndex_ = static_cast<int32_t>(total);
     collapsedProperty_->Set(from);
     float to = stepAngle_ * (ARC_INDEXER_COLLAPSE_ITEM_COUNT + 1);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
     AnimationUtils::Animate(
         option,
         [weak = AceType::WeakClaim(this), to]() {
@@ -705,7 +710,8 @@ void ArcIndexerPattern::IndexNodeCollapsedAnimation()
             auto expandedNode = pattern->expandedNode_.Upgrade();
             CHECK_NULL_VOID(expandedNode);
             expandedNode->OnAccessibilityEvent(AccessibilityEventType::REQUEST_FOCUS);
-        });
+        },
+        nullptr, pipeline);
     lastCollapsingMode_ = currectCollapsingMode_;
 }
 
@@ -727,6 +733,7 @@ void ArcIndexerPattern::IndexNodeExpandedAnimation()
     expandedAnimateIndex_ = ARC_INDEXER_COLLAPSE_ITEM_COUNT;
     expandedProperty_->Set(from);
     float to = stepAngle_ * total;
+    auto pipeline = host->GetContextRefPtr();
     AnimationUtils::Animate(
         option,
         [weak = AceType::WeakClaim(this), to]() {
@@ -741,7 +748,8 @@ void ArcIndexerPattern::IndexNodeExpandedAnimation()
             auto collapsedNode = pattern->collapsedNode_.Upgrade();
             CHECK_NULL_VOID(collapsedNode);
             collapsedNode->OnAccessibilityEvent(AccessibilityEventType::REQUEST_FOCUS);
-        });
+        },
+        nullptr, pipeline);
     lastCollapsingMode_ = currectCollapsingMode_;
 }
 
@@ -761,6 +769,7 @@ void ArcIndexerPattern::StartIndexerNodeDisappearAnimation(int32_t nodeIndex)
     AnimationOption option;
     option.SetCurve(Curves::FRICTION);
     option.SetDuration(ANIMATION_DURATION_20);
+    auto pipeline = host->GetContextRefPtr();
     AnimationUtils::Animate(
         option,
         [childNode, id = Container::CurrentId(), weak = AceType::WeakClaim(this)]() {
@@ -768,7 +777,8 @@ void ArcIndexerPattern::StartIndexerNodeDisappearAnimation(int32_t nodeIndex)
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
             pattern->SetIndexerNodeOpacity(childNode, 0.0f);
-        });
+        },
+        nullptr, nullptr, pipeline);
 }
 
 int32_t ArcIndexerPattern::GetSelectChildIndex(const Offset& offset)
@@ -836,7 +846,7 @@ void ArcIndexerPattern::ItemSelectedInAnimation(RefPtr<FrameNode>& itemNode)
     AnimationUtils::Animate(option, [renderContext, id = Container::CurrentId(), selectedBackgroundColor]() {
         ContainerScope scope(id);
         renderContext->UpdateBackgroundColor(selectedBackgroundColor);
-    });
+    }, nullptr, nullptr, Claim(pipelineContext));
 }
 
 int32_t ArcIndexerPattern::GetFocusIndex(int32_t selected)
@@ -1141,6 +1151,7 @@ void ArcIndexerPattern::StartIndexerNodeAppearAnimation(int32_t nodeIndex)
     AnimationOption option;
     option.SetCurve(Curves::FRICTION);
     option.SetDuration(ANIMATION_DURATION_20);
+    auto pipeline = host->GetContextRefPtr();
     AnimationUtils::Animate(
         option,
         [childNode, id = Container::CurrentId(), weak = AceType::WeakClaim(this)]() {
@@ -1148,7 +1159,8 @@ void ArcIndexerPattern::StartIndexerNodeAppearAnimation(int32_t nodeIndex)
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
             pattern->SetIndexerNodeOpacity(childNode, 1.0f);
-        });
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void ArcIndexerPattern::SetIndexerNodeOpacity(const RefPtr<FrameNode>& itemNode, float ratio)
@@ -1166,6 +1178,7 @@ void ArcIndexerPattern::ShowBubble(bool isShow)
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto layoutProperty = host->GetLayoutProperty<ArcIndexerLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
     if (!popupNode_) {
@@ -1187,7 +1200,7 @@ void ArcIndexerPattern::ShowBubble(bool isShow)
 RefPtr<FrameNode> ArcIndexerPattern::CreatePopupNode()
 {
     auto textNode = FrameNode::CreateFrameNode(
-        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+        TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
     CHECK_NULL_RETURN(textNode, nullptr);
     return textNode;
 }
@@ -1334,10 +1347,16 @@ void ArcIndexerPattern::ArcExpandedAnimation(int32_t nextIndex)
     if (NearEqual(nextAngle + stepAngle_, FULL_CIRCLE_ANGLE)) {
         nextAngle = FULL_CIRCLE_ANGLE;
     }
-    AnimationUtils::Animate(option, [&, nextAngle, id = Container::CurrentId()]() {
-        ContainerScope scope(id);
-        contentModifier_->SetSweepAngle(nextAngle);
-    });
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
+    AnimationUtils::Animate(
+        option,
+        [&, nextAngle, id = Container::CurrentId()]() {
+            ContainerScope scope(id);
+            contentModifier_->SetSweepAngle(nextAngle);
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void ArcIndexerPattern::ArcCollapedAnimation(int32_t nextIndex)
@@ -1347,10 +1366,16 @@ void ArcIndexerPattern::ArcCollapedAnimation(int32_t nextIndex)
     option.SetCurve(Curves::FRICTION);
     float nextAngle = CalcArcItemAngle(nextIndex);
     nextAngle += stepAngle_ * (ARC_INDEXER_COLLAPSE_ITEM_COUNT + 1) * HALF;
-    AnimationUtils::Animate(option, [&, nextAngle, id = Container::CurrentId()]() {
-        ContainerScope scope(id);
-        contentModifier_->SetSweepAngle(nextAngle);
-    });
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
+    AnimationUtils::Animate(
+        option,
+        [&, nextAngle, id = Container::CurrentId()]() {
+            ContainerScope scope(id);
+            contentModifier_->SetSweepAngle(nextAngle);
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void ArcIndexerPattern::ArcIndexerPressInAnimation()
@@ -1362,14 +1387,17 @@ void ArcIndexerPattern::ArcIndexerPressInAnimation()
     AnimationOption option;
     option.SetDuration(ARC_INDEXER_PRESS_IN_DURATION);
     option.SetCurve(Curves::SHARP);
-    AnimationUtils::Animate(option, [renderContext, id = Container::CurrentId()]() {
-        ContainerScope scope(id);
-        auto pipeline = PipelineContext::GetCurrentContext();
-        CHECK_NULL_VOID(pipeline);
-        auto indexerTheme = pipeline->GetTheme<IndexerTheme>();
-        CHECK_NULL_VOID(indexerTheme);
-        renderContext->UpdateBackgroundColor(Color::TRANSPARENT);
-    });
+    auto pipeline = host->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    AnimationUtils::Animate(
+        option,
+        [renderContext, pipeline, id = Container::CurrentId()]() {
+            ContainerScope scope(id);
+            auto indexerTheme = pipeline->GetTheme<IndexerTheme>();
+            CHECK_NULL_VOID(indexerTheme);
+            renderContext->UpdateBackgroundColor(Color::TRANSPARENT);
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void ArcIndexerPattern::ArcIndexerPressOutAnimation()
@@ -1381,14 +1409,17 @@ void ArcIndexerPattern::ArcIndexerPressOutAnimation()
     AnimationOption option;
     option.SetDuration(ARC_INDEXER_PRESS_OUT_DURATION);
     option.SetCurve(Curves::SHARP);
-    AnimationUtils::Animate(option, [renderContext, id = Container::CurrentId()]() {
-        ContainerScope scope(id);
-        auto pipeline = PipelineContext::GetCurrentContext();
-        CHECK_NULL_VOID(pipeline);
-        auto indexerTheme = pipeline->GetTheme<IndexerTheme>();
-        CHECK_NULL_VOID(indexerTheme);
-        renderContext->UpdateBackgroundColor(Color::TRANSPARENT);
-    });
+    auto pipeline = host->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    AnimationUtils::Animate(
+        option,
+        [renderContext, pipeline, id = Container::CurrentId()]() {
+            ContainerScope scope(id);
+            auto indexerTheme = pipeline->GetTheme<IndexerTheme>();
+            CHECK_NULL_VOID(indexerTheme);
+            renderContext->UpdateBackgroundColor(Color::TRANSPARENT);
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void ArcIndexerPattern::StartBubbleAppearAnimation()
@@ -1398,6 +1429,9 @@ void ArcIndexerPattern::StartBubbleAppearAnimation()
     AnimationOption option;
     option.SetCurve(Curves::SHARP);
     option.SetDuration(ARC_INDEXER_BUBBLE_ENTER_DURATION);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
     AnimationUtils::Animate(
         option,
         [id = Container::CurrentId(), weak = AceType::WeakClaim(this)]() {
@@ -1405,7 +1439,8 @@ void ArcIndexerPattern::StartBubbleAppearAnimation()
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
             pattern->UpdatePopupOpacity(1.0f);
-        });
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void ArcIndexerPattern::StartDelayTask(uint32_t duration)
@@ -1429,6 +1464,9 @@ void ArcIndexerPattern::StartBubbleDisappearAnimation()
     AnimationOption option;
     option.SetCurve(Curves::SHARP);
     option.SetDuration(ARC_INDEXER_BUBBLE_EXIT_DURATION);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
     AnimationUtils::Animate(
         option,
         [id = Container::CurrentId(), weak = AceType::WeakClaim(this)]() {
@@ -1447,7 +1485,8 @@ void ArcIndexerPattern::StartBubbleDisappearAnimation()
             if (NearZero(rendercontext->GetOpacityValue(0.0f))) {
                 pattern->UpdatePopupVisibility(VisibleType::GONE);
             }
-        });
+        },
+        nullptr, pipeline);
 }
 
 int32_t ArcIndexerPattern::GetActualIndex(int32_t selectIndex)
@@ -1511,7 +1550,7 @@ void ArcIndexerPattern::UpdateChildBoundary(RefPtr<FrameNode>& frameNode)
     CHECK_NULL_VOID(layoutProperty);
     CHECK_NULL_VOID(frameNode);
     auto isMeasureBoundary = layoutProperty->GetPropertyChangeFlag() ==  PROPERTY_UPDATE_NORMAL;
-    if (frameNode->GetHostTag() == V2::TEXT_ETS_TAG) {
+    if (frameNode->GetHostTag() == TEXT_ETS_TAG) {
         auto pattern = DynamicCast<TextPattern>(frameNode->GetPattern());
         CHECK_NULL_VOID(pattern);
         pattern->SetIsMeasureBoundary(isMeasureBoundary);

@@ -23,6 +23,7 @@
 
 #include "base/utils/macros.h"
 #include "interfaces/inner_api/ace/serialized_gesture.h"
+#include "form_surface_info.h"
 
 namespace OHOS::Rosen {
 class RSTransaction;
@@ -53,9 +54,10 @@ public:
     virtual void SetAllowUpdate(bool allowUpdate) = 0;
     virtual void SetMultiInstanceEnabled(bool isMultiInstanceEnabled) = 0;
 
-    virtual void DispatchSurfaceChangeEvent(float width, float height, uint32_t reason = 0,
-        const std::shared_ptr<Rosen::RSTransaction>& rsTransaction = nullptr, float borderWidth = 0.0) = 0;
+    virtual void DispatchSurfaceChangeEvent(const OHOS::AppExecFwk::FormSurfaceInfo& formSurfaceInfo,
+        uint32_t reason = 0, const std::shared_ptr<Rosen::RSTransaction>& rsTransaction = nullptr) = 0;
     virtual void SetObscured(bool isObscured) = 0;
+    virtual void SetColorMode(int32_t colorMode) = 0;
 
     virtual void OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId, int64_t accessibilityId) = 0;
     virtual void OnAccessibilityChildTreeDeregister() = 0;
@@ -75,7 +77,9 @@ public:
         ACCESSIBILITY_DUMP_CHILD_INFO,
         ACCESSIBILITY_TRANSFER_HOVER_EVENT,
         NOTIFY_DUMP_INFO,
-        SET_MULTI_INSTANCE_ENABLED
+        SET_MULTI_INSTANCE_ENABLED,
+        SET_COLOR_MODE,
+        MESSAGE_END
     };
 };
 }  // namespace Ace

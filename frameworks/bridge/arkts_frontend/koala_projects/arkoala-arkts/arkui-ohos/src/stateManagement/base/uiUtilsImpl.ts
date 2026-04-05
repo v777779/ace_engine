@@ -19,14 +19,14 @@ import { WrappedArray } from './observeWrappedArray';
 import { WrappedDate } from './observeWrappedDate';
 import { WrappedSet } from './observeWrappedSet';
 import { WrappedMap } from './observeWrappedMap';
-import { ObserveWrappedBase } from './observeWrappedBase';
+import { ObserveWrappedBase, ObserveWrappedKeyedMeta } from './observeWrappedBase';
 import { Binding, MutableBinding } from '../utils';
 import { getRawObject, isDynamicObject } from '#generated';
 
-const ArrayTypeName = Type.from<Array<Any>>().getName();
-const SetTypeName = Type.from<Set<Any>>().getName();
-const MapTypeName = Type.from<Map<Any, Any>>().getName();
-const DateTypeName = Type.from<Date>().getName();
+const ArrayTypeName = Class.from<Array<Any>>().getName();
+const SetTypeName = Class.from<Set<Any>>().getName();
+const MapTypeName = Class.from<Map<Any, Any>>().getName();
+const DateTypeName = Class.from<Date>().getName();
 
 export class UIUtilsImpl {
     private static observedMap: WeakMap<Object, Object> = new WeakMap<Object, Object>();
@@ -34,8 +34,8 @@ export class UIUtilsImpl {
 
     public static set<T extends Object>(obj: Object, wrapObject: T, allowDeep: boolean): T {
         allowDeep
-            ? UIUtilsImpl.deepObservedMap.set(obj, new WeakRef<T>(wrapObject)) as Object
-            : UIUtilsImpl.observedMap.set(obj, new WeakRef<T>(wrapObject) as Object);
+            ? UIUtilsImpl.deepObservedMap.set(obj, wrapObject)
+            : UIUtilsImpl.observedMap.set(obj, wrapObject);
         return wrapObject;
     }
 
@@ -44,14 +44,14 @@ export class UIUtilsImpl {
             return obj;
         }
         return allowDeep
-            ? ((UIUtilsImpl.deepObservedMap.get(obj) as WeakRef<T> | undefined)?.deref() as T | undefined)
-            : ((UIUtilsImpl.observedMap.get(obj) as WeakRef<T> | undefined)?.deref() as T | undefined);
+            ? UIUtilsImpl.deepObservedMap.get(obj) as T | undefined
+            : UIUtilsImpl.observedMap.get(obj) as T | undefined;
     }
 
     public static getObserved<T extends Object>(obj: T, allowDeep: boolean): T | undefined {
         return allowDeep
-            ? ((UIUtilsImpl.deepObservedMap.get(obj) as WeakRef<T> | undefined)?.deref() as T | undefined)
-            : ((UIUtilsImpl.observedMap.get(obj) as WeakRef<T> | undefined)?.deref() as T | undefined);
+            ? UIUtilsImpl.deepObservedMap.get(obj) as T | undefined
+            : UIUtilsImpl.observedMap.get(obj) as T | undefined;
     }
 
     public static isProxied<T extends Object>(value: T): boolean {
@@ -89,7 +89,7 @@ export class UIUtilsImpl {
         if (observed) {
             return observed;
         }
-        return UIUtilsImpl.set(source, new WrappedDate(source, allowDeep), allowDeep);
+        return UIUtilsImpl.set(source, new WrappedDate(source, allowDeep, isAPI), allowDeep);
     }
 
     public static makeObservedMap<K, V>(source: Map<K, V>, allowDeep: boolean, isAPI: boolean = false): Map<K, V> {
@@ -111,7 +111,7 @@ export class UIUtilsImpl {
         if (observed) {
             return observed;
         }
-        return UIUtilsImpl.set(source, new WrappedSet<T>(source, allowDeep), allowDeep);
+        return UIUtilsImpl.set(source, new WrappedSet<T>(source, allowDeep, isAPI), allowDeep);
     }
 
     // allowDeep is used to mark whether it need to use deep observation
@@ -139,14 +139,11 @@ export class UIUtilsImpl {
         if (!value || typeof value !== 'object') {
             return value as T;
         }
-        if (isDynamicObject(value)) {
-            value = getRawObject(value);
-        }
         const isProxy = StateMgmtTool.isObjectLiteral(value);
         if (value instanceof ObserveWrappedBase || !(UIUtilsImpl.checkIsBuitInType(value) || isProxy)) {
             return value as T;
         }
-        const valueTypeName = Type.of(value).getName();
+        const valueTypeName = Class.of(value as Object).getName();
         const makeObservedWrappedBase: ((value: object, allowDeep: boolean, isAPI: boolean) => object) | undefined = 
             UIUtilsImpl.makeObservedWrappedBaseMap.get(valueTypeName);
         if (makeObservedWrappedBase) {
@@ -168,7 +165,7 @@ export class UIUtilsImpl {
         if (value instanceof ObserveWrappedBase || !(UIUtilsImpl.checkIsBuitInType(value))) {
             return value as T;
         }
-        const valueTypeName = Type.of(value).getName();
+        const valueTypeName = Class.of(value as Object).getName();
         const makeObservedWrappedBase: ((value: object, allowDeep: boolean, isAPI: boolean) => object) | undefined = 
             UIUtilsImpl.makeObservedWrappedBaseMap.get(valueTypeName);
         if (makeObservedWrappedBase) {
@@ -188,7 +185,7 @@ export class UIUtilsImpl {
         if (value instanceof ObserveWrappedBase || !(UIUtilsImpl.checkIsBuitInType(value) || isProxy)) {
             return value as T;
         }
-        const valueTypeName = Type.of(value).getName();
+        const valueTypeName = Class.of(value as Object).getName();
         const makeObservedWrappedBase: ((value: object, allowDeep: boolean, isAPI: boolean) => object) | undefined = 
             UIUtilsImpl.makeObservedWrappedBaseMap.get(valueTypeName);
         if (makeObservedWrappedBase) {
@@ -228,6 +225,18 @@ export class UIUtilsImpl {
     }
     public makeBindingMutable<T>(getter: () => T, setter: (newValue: T) => void): MutableBinding<T> {
         return new MutableBinding<T>(getter, setter);
+    }
+
+    public builtinContainersAddRefAnyKey(value: Any): void {
+        if (value instanceof ObserveWrappedKeyedMeta) {
+            value.addRefAnyKey();
+        }
+    }
+
+    public builtinContainersAddRefLength(value: Any): void {
+        if (value instanceof ObserveWrappedKeyedMeta) {
+            value.addRefLength();
+        }
     }
 }
 

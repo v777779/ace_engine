@@ -20,7 +20,7 @@
 #include "bridge/declarative_frontend/jsview/js_utils.h"
 #include "bridge/declarative_frontend/jsview/js_view_abstract.h"
 #include "core/common/container.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/pattern/security_component/security_component_theme.h"
 
@@ -54,11 +54,10 @@ void JSSecButtonBase::SetIconSize(const JSCallbackInfo& info)
         if (ParseJsDimensionVp(iconSizeObj->GetProperty("height"), heightDimen)) {
             height.emplace(heightDimen);
         }
-        if ((!width.has_value()) && (!height.has_value())) {
+        if (width.has_value() || height.has_value()) {
+            SecurityComponentModelNG::SetIconSize(NG::CalcSize(width, height));
             return;
         }
-        SecurityComponentModelNG::SetIconSize(NG::CalcSize(width, height));
-        return;
     }
 
     CalcDimension value;
@@ -439,5 +438,10 @@ void JSSecButtonBase::SetHeightAdaptivePolicy(int32_t value)
         value = 0;
     }
     SecurityComponentModelNG::SetHeightAdaptivePolicy(HEIGHT_ADAPTIVE_POLICY[value]);
+}
+
+void JSSecButtonBase::SetFocusBox(const JSCallbackInfo& info)
+{
+    JSViewAbstract::JsFocusBox(info);
 }
 }

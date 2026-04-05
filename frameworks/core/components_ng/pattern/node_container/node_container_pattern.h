@@ -114,7 +114,6 @@ public:
     }
 
     void ResetExportTextureInfo();
-    void AddBaseNode(const RefPtr<UINode>& newNode);
 
     bool IsEnableChildrenMatchParent() override
     {
@@ -131,10 +130,11 @@ public:
         return true;
     }
 
+    void AddBaseNode(const RefPtr<UINode>& newNode);
+
 private:
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
     void OnMountToParentDone() override;
-    void OnAttachToMainTree() override;
     void SetExportTextureInfoIfNeeded();
     bool HandleTextureExport(bool isStop, FrameNode* frameNode);
     std::function<void()> resetFunc_;

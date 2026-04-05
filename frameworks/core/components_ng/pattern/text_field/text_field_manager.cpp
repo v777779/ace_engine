@@ -14,6 +14,7 @@
  */
 
 #include "core/components_ng/pattern/text_field/text_field_manager.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 
 #include "base/geometry/dimension.h"
 #include "base/memory/ace_type.h"
@@ -21,7 +22,9 @@
 #include "core/common/ime/text_input_type.h"
 #include "core/components_ng/event/focus_hub.h"
 #include "core/components_ng/pattern/navigation/navigation_pattern.h"
+#include "core/components_ng/pattern/overlay/sheet_presentation_pattern.h"
 #include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
+#include "core/components_ng/pattern/navigation/nav_bar_pattern.h"
 #include "core/components_ng/pattern/text/text_base.h"
 #include "core/components_ng/pattern/text_field/text_field_pattern.h"
 
@@ -44,6 +47,41 @@ void TextFieldManagerNG::ClearOnFocusTextField(int32_t id)
         optionalPosition_ = std::nullopt;
         usingCustomKeyboardAvoid_ = false;
         isScrollableChild_ = false;
+    }
+}
+
+bool TextFieldManagerNG::NeedCloseKeyboard()
+{
+    auto preNode = preNode_.Upgrade();
+    CHECK_NULL_RETURN(preNode, false);
+    auto prePattern = preNode->GetPattern();
+    CHECK_NULL_RETURN(prePattern, false);
+    auto textBasePattern = AceType::DynamicCast<TextBase>(prePattern);
+    CHECK_NULL_RETURN(textBasePattern, false);
+    return textBasePattern->NeedCloseKeyboard();
+}
+
+void TextFieldManagerNG::ProcessCustomKeyboard(bool matched, int32_t nodeId)
+{
+    auto preNode = preNode_.Upgrade();
+    CHECK_NULL_VOID(preNode);
+    auto prePattern = preNode->GetPattern();
+    CHECK_NULL_VOID(prePattern);
+    auto textBasePattern = AceType::DynamicCast<TextBase>(prePattern);
+    CHECK_NULL_VOID(textBasePattern);
+    textBasePattern->ProcessCustomKeyboard(matched, nodeId);
+}
+
+void TextFieldManagerNG::CloseTextCustomKeyboard(int32_t nodeId, bool isUIExtension)
+{
+    auto preNode = preNode_.Upgrade();
+    CHECK_NULL_VOID(preNode);
+    auto prePattern = preNode->GetPattern();
+    CHECK_NULL_VOID(prePattern);
+    auto textBasePattern = AceType::DynamicCast<TextBase>(prePattern);
+    CHECK_NULL_VOID(textBasePattern);
+    if (GetCustomKeyboardContinueFeature()) {
+        textBasePattern->CloseTextCustomKeyboard(nodeId, isUIExtension);
     }
 }
 
@@ -79,12 +117,10 @@ void TextFieldManagerNG::SetClickPosition(const Offset& position)
     if (GreatOrEqual(position.GetX(), rootWidth) || LessNotEqual(position.GetX(), 0.0f)) {
         return;
     }
-    auto y = std::max(0.0, position.GetY());
-    Offset newPosition = { position.GetX(), y };
     TAG_LOGD(AceLogTag::ACE_KEYBOARD, "SetClickPosition from %{public}s to %{public}s",
-        position_.ToString().c_str(), newPosition.ToString().c_str());
-    position_ = newPosition;
-    optionalPosition_ = newPosition;
+        position_.ToString().c_str(), position.ToString().c_str());
+    position_ = position;
+    optionalPosition_ = position;
 }
 
 RefPtr<FrameNode> TextFieldManagerNG::FindScrollableOfFocusedTextField(const RefPtr<FrameNode>& textField)
@@ -101,6 +137,15 @@ RefPtr<FrameNode> TextFieldManagerNG::FindScrollableOfFocusedTextField(const Ref
     return {};
 }
 
+void TextFieldManagerNG::TriggerCaretInfoUpdateOnScaleChange()
+{
+    auto pattern = onFocusTextField_.Upgrade();
+    CHECK_NULL_VOID(pattern);
+    auto textFieldPattern = DynamicCast<TextFieldPattern>(pattern);
+    CHECK_NULL_VOID(textFieldPattern);
+    textFieldPattern->UpdateCaretInfoToController(true);
+}
+
 RectF TextFieldManagerNG::GetFocusedNodeCaretRect()
 {
     auto node = onFocusTextField_.Upgrade();
@@ -109,7 +154,7 @@ RectF TextFieldManagerNG::GetFocusedNodeCaretRect()
     CHECK_NULL_RETURN(frameNode, RectF());
     auto textBase = DynamicCast<TextBase>(node);
     CHECK_NULL_RETURN(textBase, RectF());
-    auto caretRect = textBase->GetCaretRect() + frameNode->GetTransformRectRelativeToWindow();
+    auto caretRect = textBase->GetCaretRect(false) + frameNode->GetTransformRectRelativeToWindow();
     return caretRect;
 }
 
@@ -123,9 +168,10 @@ void TextFieldManagerNG::TriggerCustomKeyboardAvoid()
     if (!curPattern->GetIsCustomKeyboardAttached()) {
         return;
     }
-    auto caretHeight = curPattern->GetCaretRect().Height();
-    auto safeHeight = caretHeight + curPattern->GetCaretRect().GetY();
-    if (curPattern->GetCaretRect().GetY() > caretHeight) {
+    auto caretRectWithScale = curPattern->GetCaretRect(false);
+    auto caretHeight = caretRectWithScale.Height();
+    auto safeHeight = caretHeight + caretRectWithScale.GetY();
+    if (caretRectWithScale.GetY() > caretHeight) {
         safeHeight = caretHeight;
     }
     auto keyboardOverLay = curPattern->GetKeyboardOverLay();
@@ -149,11 +195,10 @@ void TextFieldManagerNG::TriggerAvoidOnCaretChange()
     if (!pipeline->UsingCaretAvoidMode() || NearEqual(safeAreaManager->GetKeyboardInset().Length(), 0)) {
         return;
     }
+    ScrollTextFieldToSafeArea();
     if (UsingCustomKeyboardAvoid()) {
-        ScrollTextFieldToSafeArea();
         TriggerCustomKeyboardAvoid();
     } else {
-        ScrollTextFieldToSafeArea();
         auto keyboardInset = safeAreaManager->GetKeyboardInset();
         lastKeyboardOffset_ = safeAreaManager->GetKeyboardOffset(true);
         Rect keyboardRect;
@@ -229,15 +274,7 @@ bool TextFieldManagerNG::ScrollToSafeAreaHelper(
         CHECK_NULL_RETURN(LessNotEqual(scrollableRect.Top(), bottomInset.start), false);
     }
 
-    auto pipeline = frameNode->GetContext();
-    CHECK_NULL_RETURN(pipeline, false);
-    auto safeAreaManager = pipeline->GetSafeAreaManager();
-    CHECK_NULL_RETURN(safeAreaManager, false);
-    if (pipeline->UsingCaretAvoidMode()) {
-        scrollableRect.SetTop(scrollableRect.Top() - safeAreaManager->GetKeyboardOffset());
-    }
-
-    auto caretRect = textBase->GetCaretRect() + frameNode->GetPositionToWindowWithTransform();
+    auto caretRect = textBase->GetCaretRect(false) + frameNode->GetPositionToWindowWithTransform();
     auto diffTop = caretRect.Top() - scrollableRect.Top();
     // caret height larger scroll's content region
     if (isShowKeyboard && LessOrEqual(diffTop, 0) && LessNotEqual(bottomInset.start,
@@ -267,6 +304,10 @@ bool TextFieldManagerNG::ScrollToSafeAreaHelper(
     CHECK_NULL_RETURN(diffBot < 0, false);
     TAG_LOGI(ACE_KEYBOARD, "scrollRect:%{public}s caretRect:%{public}s totalOffset()=%{public}f diffBot=%{public}f",
         scrollableRect.ToString().c_str(), caretRect.ToString().c_str(), scrollPattern->GetTotalOffset(), diffBot);
+    if (caretRect.Height() >= scrollableRect.Height()) {
+        TAG_LOGI(ACE_KEYBOARD, "caret height higher then whole scroll, don't scroll");
+        return false;
+    }
     scrollPattern->ScrollTo(scrollPattern->GetTotalOffset() - diffBot);
     return true;
 }
@@ -646,5 +687,15 @@ void TextFieldManagerNG::RemoveFillContentMap(int32_t id)
     if (fillContentMapIter != textFieldFillContentMaps_.end()) {
         textFieldFillContentMaps_.erase(fillContentMapIter);
     }
+}
+
+void TextFieldManagerNG::SetIsAskCeliaSupported(bool isAskCeliaSupported)
+{
+    isAskCeliaSupported_ = isAskCeliaSupported;
+}
+
+std::optional<bool> TextFieldManagerNG::IsAskCeliaSupported()
+{
+    return isAskCeliaSupported_;
 }
 } // namespace OHOS::Ace::NG

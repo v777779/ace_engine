@@ -64,6 +64,10 @@ HWTEST_F(RotationRecognizerTestNg, RotationRecognizerTest001, TestSize.Level1)
      * @tc.steps: step2. call OnAccepted function and compare result.
      * @tc.expected: step2. result equals.
      */
+    rotationRecognizer->inputEventType_ = InputEventType::AXIS;
+    rotationRecognizer->OnAccepted();
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::SUCCEED);
+    rotationRecognizer->inputEventType_ = InputEventType::TOUCH_SCREEN;
     rotationRecognizer->OnAccepted();
     EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::SUCCEED);
 
@@ -1002,7 +1006,7 @@ HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleAxisEventTest002, Tes
     recognizer->HandleTouchUpEvent(event);
     EXPECT_EQ(recognizer->refereeState_, RefereeState::SUCCEED);
 }
-/**
+ /**
  * @tc.name: RotationRecognizerHandleTouchDownEventTest003
  * @tc.desc: Test RotationRecognizer function with axis event input: Move
  * @tc.type: FUNC
@@ -1188,7 +1192,7 @@ HWTEST_F(RotationRecognizerTestNg, SetOnActionCancelTest003, TestSize.Level1)
     rotationRecognizer->activeFingers_.push_back(1);
     rotationRecognizer->activeFingers_.push_back(2);
     auto result = rotationRecognizer->ReconcileFrom(rotationRecognizerPtr);
-    EXPECT_EQ(unknownPropertyValue, GESTURE_EVENT_PROPERTY_VALUE);
+    EXPECT_EQ(unknownPropertyValue, 0);
     EXPECT_EQ(result, false);
 }
 
@@ -1296,7 +1300,7 @@ HWTEST_F(RotationRecognizerTestNg, RotationGestureLimitFingerTest002, TestSize.L
     EXPECT_EQ(rotationRecognizer->isLimitFingerCount_, IS_NOT_LIMIT_FINGER_COUNT);
 }
 
-/**
+ /**
  * @tc.name: OnAcceptedTest001
  * @tc.desc: Test OnAccepted function
  */
@@ -1409,6 +1413,7 @@ HWTEST_F(RotationRecognizerTestNg, HandleTouchUpEvent002, TestSize.Level1)
     rotationRecognizer3->refereeState_ = RefereeState::FAIL;
     rotationRecognizer3->HandleTouchUpEvent(touchEvent);
     EXPECT_FALSE(rotationRecognizer3->isNeedResetVoluntarily_);
+    EXPECT_EQ(static_cast<int32_t>(rotationRecognizer3->activeFingers_.size()), 2);
 }
 
 /**
@@ -1462,7 +1467,7 @@ HWTEST_F(RotationRecognizerTestNg, RotationRecognizerPtrHandleTouchUpEventTest00
     rotationRecognizerPtr->angle_ = 0;
     rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent);
     EXPECT_EQ(rotationRecognizerPtr->lastAngle_, 0.0);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_EQ(rotationRecognizerPtr->cumulativeAngle_, 0.0);
 }
 
 /**
@@ -1499,13 +1504,13 @@ HWTEST_F(RotationRecognizerTestNg, RotationRecognizerPtrHandleTouchUpEventTest00
     rotationRecognizerPtr->touchPoints_[touchEvent2.id] = touchEvent2;
     rotationRecognizerPtr->touchPoints_[touchEvent.id] = touchEvent;
     rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_NE(rotationRecognizerPtr, nullptr);
 
     rotationRecognizerPtr->initialAngle_ = 1;
     rotationRecognizerPtr->refereeState_ = RefereeState::DETECTING;
     rotationRecognizerPtr->lastAngle_ = -10;
     rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_NE(rotationRecognizerPtr, nullptr);
 
     touchEvent.SetX(100);
     rotationRecognizerPtr->lastAngle_ = 10;
@@ -1517,7 +1522,7 @@ HWTEST_F(RotationRecognizerTestNg, RotationRecognizerPtrHandleTouchUpEventTest00
     rotationRecognizerPtr->touchPoints_[touchEvent.id] = touchEvent;
     rotationRecognizerPtr->refereeState_ = RefereeState::DETECTING;
     rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_NE(rotationRecognizerPtr, nullptr);
 }
 
 /**
@@ -1554,7 +1559,7 @@ HWTEST_F(RotationRecognizerTestNg, RotationRecognizerPtrHandleTouchUpEventTest00
     rotationRecognizerPtr->touchPoints_[touchEvent2.id] = touchEvent2;
     rotationRecognizerPtr->touchPoints_[touchEvent.id] = touchEvent;
     rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_NE(rotationRecognizerPtr, nullptr);
 
     touchEvent.SetX(100);
     rotationRecognizerPtr->lastAngle_ = -10;
@@ -1566,10 +1571,10 @@ HWTEST_F(RotationRecognizerTestNg, RotationRecognizerPtrHandleTouchUpEventTest00
     rotationRecognizerPtr->touchPoints_[touchEvent.id] = touchEvent;
     rotationRecognizerPtr->refereeState_ = RefereeState::DETECTING;
     rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_NE(rotationRecognizerPtr, nullptr);
 }
 
-/**
+ /**
  * @tc.name: RotationRecognizerPtrHandleTouchUpEventTest005
  * @tc.desc: Test RotationRecognizer function: HandleTouchUpEvent
  * @tc.type: FUNC
@@ -1603,24 +1608,24 @@ HWTEST_F(RotationRecognizerTestNg, RotationRecognizerPtrHandleTouchUpEventTest00
     rotationRecognizerPtr->touchPoints_[touchEvent2.id] = touchEvent2;
     rotationRecognizerPtr->touchPoints_[touchEvent.id] = touchEvent;
     rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_EQ(rotationRecognizerPtr->cumulativeAngle_, 0.0);
 
     rotationRecognizerPtr->fingers_ = 2;
     rotationRecognizerPtr->refereeState_ = RefereeState::SUCCEED;
     rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_EQ(rotationRecognizerPtr->cumulativeAngle_, 0.0);
 
     rotationRecognizerPtr->isLimitFingerCount_ = false;
     rotationRecognizerPtr->fingers_ = 1;
     rotationRecognizerPtr->refereeState_ = RefereeState::SUCCEED;
     rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_EQ(rotationRecognizerPtr->cumulativeAngle_, 0.0);
 
     rotationRecognizerPtr->isLimitFingerCount_ = false;
     rotationRecognizerPtr->fingers_ = 2;
     rotationRecognizerPtr->refereeState_ = RefereeState::SUCCEED;
     rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_EQ(rotationRecognizerPtr->cumulativeAngle_, 0.0);
 }
 
 /**
@@ -1648,12 +1653,12 @@ HWTEST_F(RotationRecognizerTestNg, HandleTouchCancelEvent001, TestSize.Level1)
     rotationRecognizerPtr->refereeState_ = RefereeState::SUCCEED;
     rotationRecognizerPtr->activeFingers_.push_back(touchEvent.id);
     rotationRecognizerPtr->HandleTouchCancelEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_EQ(rotationRecognizerPtr->cumulativeAngle_, 0.0);
 
     rotationRecognizerPtr->refereeState_ = RefereeState::FAIL;
     rotationRecognizerPtr->activeFingers_.push_back(touchEvent.id);
     rotationRecognizerPtr->HandleTouchCancelEvent(touchEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_EQ(rotationRecognizerPtr->cumulativeAngle_, 0.0);
 }
 
 /**
@@ -1673,7 +1678,7 @@ HWTEST_F(RotationRecognizerTestNg, HandleTouchCancelEvent002, TestSize.Level1)
     rotationRecognizerPtr->targetComponent_ = targetComponent;
     rotationRecognizerPtr->refereeState_ = RefereeState::SUCCEED;
     rotationRecognizerPtr->HandleTouchCancelEvent(axisEvent);
-    EXPECT_EQ(rotationRecognizerPtr->angleSignChanged_, false);
+    EXPECT_EQ(rotationRecognizerPtr->cumulativeAngle_, 0.0);
 }
 
 /**
@@ -1702,7 +1707,7 @@ HWTEST_F(RotationRecognizerTestNg, SendCallbackMsg001, TestSize.Level1)
     EXPECT_TRUE(gestureInfo->disposeTag_);
 }
 
-/**
+ /**
  * @tc.name: RotationRecognizerBasicInfoTest001
  * @tc.desc: Test case basic input info check.
  * @tc.type: FUNC
@@ -1766,8 +1771,8 @@ HWTEST_F(RotationRecognizerTestNg, RotationRecognizerInjectEventsTest001, TestSi
         EXPECT_EQ(rotationRecognizer->refereeState_, mockRotationRecognizerCases[i].expectedRefereeState);
     }
 }
-  
-/**
+
+ /**
   * @tc.name: RotationRecognizerInjectEventsTest002
   * @tc.desc: Test case inject events.
   * @tc.type: FUNC
@@ -1821,21 +1826,631 @@ HWTEST_F(RotationRecognizerTestNg, RotationRecognizerInjectEventsTest002, TestSi
     }
 }
 
-/**
- * @tc.name: RotationRecognizerTypeTest001
- * @tc.desc: Test RotationRecognizerType
+/*
+ * @tc.name: GetGestureEventInfoTest001
+ * @tc.desc: Test GetGestureEventInfo
  * @tc.type: FUNC
  */
-HWTEST_F(RotationRecognizerTestNg, RotationRecognizerTypeTest001, TestSize.Level1)
+HWTEST_F(RotationRecognizerTestNg, GetGestureEventInfoTest001, TestSize.Level1)
 {
+    /**
+     * @tc.steps: step1. create PinchRecognizer.
+     */
     RefPtr<RotationRecognizer> rotationRecognizerPtr =
         AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
     auto frameNode = FrameNode::CreateFrameNode("myButton", 100, AceType::MakeRefPtr<Pattern>());
     rotationRecognizerPtr->AttachFrameNode(frameNode);
-    rotationRecognizerPtr->SetRecognizerType(GestureTypeName::ROTATION_GESTURE);
-    
+    /**
+     * @tc.steps: step2. call GetGestureEventInfo function and compare result.
+     * @tc.steps: case: touchEvent is not default.
+     * @tc.expected: step2. result equals.
+     */
+    AxisEvent axisEvent;
+    axisEvent.sourceTool = SourceTool::MOUSE;
+    rotationRecognizerPtr->lastAxisEvent_ = axisEvent;
+    rotationRecognizerPtr->inputEventType_ = InputEventType::TOUCH_SCREEN;
     GestureEvent info;
-    rotationRecognizerPtr->HandleReports(info, GestureCallbackType::END);
-    EXPECT_EQ(rotationRecognizerPtr->GetRecognizerType(), GestureTypeName::ROTATION_GESTURE);
+    rotationRecognizerPtr->GetGestureEventInfo(info);
+    EXPECT_NE(info.GetSourceTool(), SourceTool::MOUSE);
+
+    rotationRecognizerPtr->inputEventType_ = InputEventType::AXIS;
+    rotationRecognizerPtr->GetGestureEventInfo(info);
+    EXPECT_EQ(info.GetSourceTool(), SourceTool::MOUSE);
+}
+
+/**
+ * @tc.name: RotationRecognizerPtrHandleTouchUpEventTest006
+ * @tc.desc: Test RotationRecognizer function: HandleTouchMoveEvent with angle transition from 178 to -178 degrees
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerPtrHandleTouchUpEventTest006, TestSize.Level0)
+{
+    RefPtr<RotationRecognizer> rotationRecognizerPtr =
+        AceType::MakeRefPtr<RotationRecognizer>(2, ROTATION_GESTURE_ANGLE);
+    RefPtr<NG::TargetComponent> targetComponent = AceType::MakeRefPtr<TargetComponent>();
+    auto gestureJudgeFunc = [](const RefPtr<GestureInfo>& gestureInfo, const std::shared_ptr<BaseGestureEvent>& info) {
+        return GestureJudgeResult::REJECT;};
+    targetComponent->SetOnGestureJudgeBegin(gestureJudgeFunc);
+
+    rotationRecognizerPtr->targetComponent_ = targetComponent;
+    rotationRecognizerPtr->refereeState_ = RefereeState::DETECTING;
+    rotationRecognizerPtr->fingers_ = 2;
+    rotationRecognizerPtr->currentFingers_ = 2;
+    rotationRecognizerPtr->activeFingers_.push_back(1);
+    rotationRecognizerPtr->activeFingers_.push_back(2);
+
+    rotationRecognizerPtr->initialAngle_ = 178.0;
+    rotationRecognizerPtr->currentAngle_ = 178.0;
+    rotationRecognizerPtr->lastAngle_ = 178.0;
+    
+    TouchEvent touchEvent1;
+    touchEvent1.id = 1;
+    touchEvent1.SetX(-50);
+    touchEvent1.SetY(-5);
+    
+    TouchEvent touchEvent2;
+    touchEvent2.id = 2;
+    touchEvent2.SetX(50);
+    touchEvent2.SetY(0);
+    
+    rotationRecognizerPtr->touchPoints_[1] = touchEvent1;
+    rotationRecognizerPtr->touchPoints_[2] = touchEvent2;
+    
+    touchEvent1.SetX(-50);
+    touchEvent1.SetY(-10);
+    rotationRecognizerPtr->touchPoints_[1] = touchEvent1;
+    
+    rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent1);
+    EXPECT_NE(rotationRecognizerPtr, nullptr);
+}
+
+/**
+ * @tc.name: RotationRecognizerPtrHandleTouchUpEventTest007
+ * @tc.desc: Test RotationRecognizer function: HandleTouchMoveEvent with angle transition from -178 to 178 degrees
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerPtrHandleTouchUpEventTest007, TestSize.Level0)
+{
+    RefPtr<RotationRecognizer> rotationRecognizerPtr =
+        AceType::MakeRefPtr<RotationRecognizer>(2, ROTATION_GESTURE_ANGLE);
+    RefPtr<NG::TargetComponent> targetComponent = AceType::MakeRefPtr<TargetComponent>();
+    auto gestureJudgeFunc = [](const RefPtr<GestureInfo>& gestureInfo, const std::shared_ptr<BaseGestureEvent>& info) {
+        return GestureJudgeResult::REJECT;};
+    targetComponent->SetOnGestureJudgeBegin(gestureJudgeFunc);
+
+    rotationRecognizerPtr->targetComponent_ = targetComponent;
+    rotationRecognizerPtr->refereeState_ = RefereeState::DETECTING;
+    rotationRecognizerPtr->fingers_ = 2;
+    rotationRecognizerPtr->currentFingers_ = 2;
+    rotationRecognizerPtr->activeFingers_.push_back(1);
+    rotationRecognizerPtr->activeFingers_.push_back(2);
+    
+    rotationRecognizerPtr->initialAngle_ = -178.0;
+    rotationRecognizerPtr->currentAngle_ = -178.0;
+    rotationRecognizerPtr->lastAngle_ = -178.0;
+    
+    TouchEvent touchEvent1;
+    touchEvent1.id = 1;
+    touchEvent1.SetX(-50);
+    touchEvent1.SetY(1);
+    
+    TouchEvent touchEvent2;
+    touchEvent2.id = 2;
+    touchEvent2.SetX(50);
+    touchEvent2.SetY(0);
+    
+    rotationRecognizerPtr->touchPoints_[1] = touchEvent1;
+    rotationRecognizerPtr->touchPoints_[2] = touchEvent2;
+    
+    touchEvent1.SetX(50);
+    touchEvent1.SetY(1);
+    rotationRecognizerPtr->touchPoints_[1] = touchEvent1;
+    
+    rotationRecognizerPtr->HandleTouchMoveEvent(touchEvent1);
+    EXPECT_NE(rotationRecognizerPtr, nullptr);
+}
+
+/**
+ * @tc.name: GetGestureInfoString001
+ * @tc.desc: Test RotationRecognizer function: GetGestureInfoString
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, GetGestureInfoString001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create rotation recognizer and axis event.
+     */
+    RefPtr<RotationRecognizer> recognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    recognizer->initialAngle_ = 1.5;
+    recognizer->currentAngle_ = 2.5;
+    recognizer->resultAngle_ = 3.5;
+    recognizer->lastAngle_ = 4.5;
+    recognizer->cumulativeAngle_ = 5.5;
+
+    std::string result = recognizer->GetGestureInfoString();
+    EXPECT_THAT(result, HasSubstr("INAG:1.5"));
+    EXPECT_THAT(result, HasSubstr("CUAG:2.5"));
+    EXPECT_THAT(result, HasSubstr("REAG:3.5"));
+    EXPECT_THAT(result, HasSubstr("LAG:4.5"));
+    EXPECT_THAT(result, HasSubstr("CULAG:5.5"));
+}
+
+/**
+ * @tc.name: RotationRecognizerTest011
+ * @tc.desc: Test RotationRecognizer function: OnRejected when refereeState is not SUCCEED
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerTest011, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call OnRejected when refereeState is READY
+     * @tc.expected: step2. result equals.
+     */
+    rotationRecognizer->refereeState_ = RefereeState::READY;
+    rotationRecognizer->OnRejected();
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::FAIL);
+    EXPECT_FALSE(rotationRecognizer->firstInputTime_.has_value());
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchDownEventTest003
+ * @tc.desc: Test RotationRecognizer function: HandleTouchDownEvent when fingersId already contains id
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchDownEventTest003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call HandleTouchDownEvent with same id twice
+     * @tc.expected: step2. id should only be added once to fingersId_
+     */
+    TouchEvent touchEvent;
+    touchEvent.id = 1;
+    rotationRecognizer->fingers_ = FINGER_NUMBER;
+    rotationRecognizer->HandleTouchDownEvent(touchEvent);
+    size_t firstSize = rotationRecognizer->fingersId_.size();
+    rotationRecognizer->HandleTouchDownEvent(touchEvent);
+    size_t secondSize = rotationRecognizer->fingersId_.size();
+    EXPECT_EQ(firstSize, secondSize);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchDownEventTest004
+ * @tc.desc: Test RotationRecognizer function: HandleTouchDownEvent with AxisEvent when not rotation event
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchDownEventTest004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call HandleTouchDownEvent with AxisEvent where isRotationEvent is false
+     * @tc.expected: step2. state should remain READY
+     */
+    AxisEvent axisEvent;
+    axisEvent.isRotationEvent = false;
+    rotationRecognizer->refereeState_ = RefereeState::READY;
+    rotationRecognizer->HandleTouchDownEvent(axisEvent);
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::READY);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchUpEventTest003
+ * @tc.desc: Test RotationRecognizer function: HandleTouchUpEvent when isNeedResetVoluntarily is true
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchUpEventTest003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. set isNeedResetVoluntarily_ to true and currentFingers_ to 1
+     * @tc.expected: step2. state should be reset
+     */
+    TouchEvent touchEvent;
+    touchEvent.id = 1;
+    rotationRecognizer->activeFingers_.emplace_back(touchEvent.id);
+    rotationRecognizer->isNeedResetVoluntarily_ = true;
+    rotationRecognizer->currentFingers_ = 1;
+    rotationRecognizer->HandleTouchUpEvent(touchEvent);
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::READY);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchUpEventTest004
+ * @tc.desc: Test RotationRecognizer function: HandleTouchUpEvent when finger not active
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchUpEventTest004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call HandleTouchUpEvent with finger not in activeFingers
+     * @tc.expected: step2. should return early
+     */
+    TouchEvent touchEvent;
+    touchEvent.id = 1;
+    rotationRecognizer->fingersId_.insert(1);
+    rotationRecognizer->activeFingers_.clear();
+    rotationRecognizer->HandleTouchUpEvent(touchEvent);
+    EXPECT_TRUE(rotationRecognizer->activeFingers_.empty());
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchUpEventTest005
+ * @tc.desc: Test RotationRecognizer function: HandleTouchUpEvent with AxisEvent when not rotation event
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchUpEventTest005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call HandleTouchUpEvent with AxisEvent where isRotationEvent is false
+     * @tc.expected: step2. should return early without changing state
+     */
+    AxisEvent axisEvent;
+    axisEvent.isRotationEvent = false;
+    rotationRecognizer->refereeState_ = RefereeState::SUCCEED;
+    rotationRecognizer->HandleTouchUpEvent(axisEvent);
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::SUCCEED);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchMoveEventTest004
+ * @tc.desc: Test RotationRecognizer function: HandleTouchMoveEvent with cumulative angle branches
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchMoveEventTest004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. test HandleTouchMoveEvent when activeFingers size < DEFAULT_ROTATION_FINGERS
+     * @tc.expected: step2. lastAngle and cumulativeAngle should be reset
+     */
+    TouchEvent touchEvent;
+    touchEvent.id = 1;
+    rotationRecognizer->activeFingers_.emplace_back(1);
+    rotationRecognizer->refereeState_ = RefereeState::DETECTING;
+    rotationRecognizer->currentFingers_ = 1;
+    rotationRecognizer->HandleTouchMoveEvent(touchEvent);
+    EXPECT_EQ(rotationRecognizer->lastAngle_, 0.0);
+    EXPECT_EQ(rotationRecognizer->cumulativeAngle_, 0.0);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchMoveEventTest005
+ * @tc.desc: Test RotationRecognizer function: HandleTouchMoveEvent when not active finger
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchMoveEventTest005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call HandleTouchMoveEvent with finger not in activeFingers
+     * @tc.expected: step2. touchPoint should still be updated
+     */
+    TouchEvent touchEvent;
+    touchEvent.id = 1;
+    touchEvent.x = 100.0;
+    rotationRecognizer->activeFingers_.clear();
+    rotationRecognizer->HandleTouchMoveEvent(touchEvent);
+    EXPECT_EQ(rotationRecognizer->touchPoints_[touchEvent.id].x, 100.0);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchMoveEventTest007
+ * @tc.desc: Test RotationRecognizer function: HandleTouchMoveEvent with AxisEvent in different states
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchMoveEventTest007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. test HandleTouchMoveEvent with AxisEvent when refereeState is READY
+     * @tc.expected: step2. should not accept gesture
+     */
+    AxisEvent axisEvent;
+    axisEvent.isRotationEvent = true;
+    axisEvent.rotateAxisAngle = 10.0;
+    rotationRecognizer->refereeState_ = RefereeState::READY;
+    rotationRecognizer->HandleTouchMoveEvent(axisEvent);
+    EXPECT_NE(rotationRecognizer->disposal_, GestureDisposal::ACCEPT);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchMoveEventTest008
+ * @tc.desc: Test RotationRecognizer function: HandleTouchMoveEvent with AxisEvent when not rotation event
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchMoveEventTest008, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call HandleTouchMoveEvent with AxisEvent where isRotationEvent is false
+     * @tc.expected: step2. should return early
+     */
+    AxisEvent axisEvent;
+    axisEvent.isRotationEvent = false;
+    rotationRecognizer->refereeState_ = RefereeState::DETECTING;
+    rotationRecognizer->HandleTouchMoveEvent(axisEvent);
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::DETECTING);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchCancelEventTest005
+ * @tc.desc: Test RotationRecognizer function: HandleTouchCancelEvent when not active finger
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchCancelEventTest005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call HandleTouchCancelEvent with finger not in activeFingers
+     * @tc.expected: step2. should return early
+     */
+    TouchEvent touchEvent;
+    touchEvent.id = 1;
+    rotationRecognizer->activeFingers_.clear();
+    rotationRecognizer->refereeState_ = RefereeState::SUCCEED;
+    rotationRecognizer->HandleTouchCancelEvent(touchEvent);
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::SUCCEED);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchCancelEventTest003
+ * @tc.desc: Test RotationRecognizer function: HandleTouchCancelEvent when activeFingers size != fingers_
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchCancelEventTest003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call HandleTouchCancelEvent when activeFingers size != fingers_
+     * @tc.expected: step2. should not send cancel callback
+     */
+    TouchEvent touchEvent;
+    touchEvent.id = 1;
+    rotationRecognizer->activeFingers_.emplace_back(1);
+    rotationRecognizer->activeFingers_.emplace_back(2);
+    rotationRecognizer->fingers_ = FINGER_NUMBER;
+    rotationRecognizer->refereeState_ = RefereeState::SUCCEED;
+    rotationRecognizer->HandleTouchCancelEvent(touchEvent);
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::SUCCEED);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchCancelEventTest004
+ * @tc.desc: Test RotationRecognizer function: HandleTouchCancelEvent with AxisEvent when not rotation event
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchCancelEventTest004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call HandleTouchCancelEvent with AxisEvent where isRotationEvent is false
+     * @tc.expected: step2. should return early
+     */
+    AxisEvent axisEvent;
+    axisEvent.isRotationEvent = false;
+    rotationRecognizer->refereeState_ = RefereeState::SUCCEED;
+    rotationRecognizer->HandleTouchCancelEvent(axisEvent);
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::SUCCEED);
+}
+
+/**
+ * @tc.name: RotationRecognizerSendCallbackMsgTest002
+ * @tc.desc: Test RotationRecognizer function: SendCallbackMsg when gestureInfo has disposeTag
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerSendCallbackMsgTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call SendCallbackMsg when disposeTag is true
+     * @tc.expected: step2. callback should not be invoked
+     */
+    rotationRecognizer->gestureInfo_ = AceType::MakeRefPtr<GestureInfo>();
+    rotationRecognizer->gestureInfo_->SetDisposeTag(true);
+    auto callbackCalled = false;
+    std::unique_ptr<GestureEventFunc> onAction =
+        std::make_unique<GestureEventFunc>([&callbackCalled](GestureEvent) { callbackCalled = true; });
+    rotationRecognizer->SendCallbackMsg(onAction, GestureCallbackType::START);
+    EXPECT_FALSE(callbackCalled);
+}
+
+/**
+ * @tc.name: RotationRecognizerReconcileFromTest002
+ * @tc.desc: Test RotationRecognizer function: ReconcileFrom when conditions match but SUCCEED with activeFingers
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerReconcileFromTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+    RefPtr<RotationRecognizer> rotationRecognizerPtr =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. test ReconcileFrom when in SUCCEED state with matching activeFingers
+     * @tc.expected: step2. should call onActionCancel_ and return false
+     */
+    rotationRecognizer->refereeState_ = RefereeState::SUCCEED;
+    rotationRecognizer->currentFingers_ = rotationRecognizer->fingers_;
+    rotationRecognizer->fingers_ = rotationRecognizerPtr->fingers_ + 1;
+    bool result = rotationRecognizer->ReconcileFrom(rotationRecognizerPtr);
+    EXPECT_EQ(result, false);
+}
+
+/**
+ * @tc.name: RotationRecognizerOnAcceptedTest001
+ * @tc.desc: Test RotationRecognizer function: OnAccepted when firstInputTime has value
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerOnAcceptedTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. call OnAccepted when firstInputTime_ has value
+     * @tc.expected: step2. state should become SUCCEED
+     */
+    TouchEvent touchEvent;
+    touchEvent.time = std::chrono::steady_clock::now();
+    rotationRecognizer->firstInputTime_ = touchEvent.time;
+    rotationRecognizer->OnAccepted();
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::SUCCEED);
+    EXPECT_FALSE(rotationRecognizer->isNeedResetVoluntarily_);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchMoveEventTest009
+ * @tc.desc: Test RotationRecognizer function: HandleTouchMoveEvent with limitFingerCount branch
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchMoveEventTest009, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. test HandleTouchMoveEvent when CheckLimitFinger returns true
+     * @tc.expected: step2. should return without accepting
+     */
+    TouchEvent touchEvent1;
+    touchEvent1.id = 0;
+    touchEvent1.x = 100.0;
+    touchEvent1.y = 100.0;
+    TouchEvent touchEvent2;
+    touchEvent2.id = 1;
+    touchEvent2.x = 200.0;
+    touchEvent2.y = 100.0;
+    TouchEvent touchEvent3;
+    touchEvent3.id = 2;
+    touchEvent3.x = 150.0;
+    touchEvent3.y = 150.0;
+
+    rotationRecognizer->isLimitFingerCount_ = true;
+    rotationRecognizer->refereeState_ = RefereeState::DETECTING;
+    rotationRecognizer->currentFingers_ = 3;
+    rotationRecognizer->activeFingers_.clear();
+    rotationRecognizer->activeFingers_.emplace_back(0);
+    rotationRecognizer->activeFingers_.emplace_back(1);
+    rotationRecognizer->activeFingers_.emplace_back(2);
+    rotationRecognizer->touchPoints_[0] = touchEvent1;
+    rotationRecognizer->touchPoints_[1] = touchEvent2;
+    rotationRecognizer->touchPoints_[2] = touchEvent3;
+    rotationRecognizer->angle_ = 0.1;
+    rotationRecognizer->HandleTouchMoveEvent(touchEvent3);
+    EXPECT_NE(rotationRecognizer->refereeState_, RefereeState::SUCCEED);
+}
+
+/**
+ * @tc.name: RotationRecognizerHandleTouchMoveEventTest010
+ * @tc.desc: Test RotationRecognizer function: HandleTouchMoveEvent with SUCCEED and isLimitFingerCount
+ * @tc.type: FUNC
+ */
+HWTEST_F(RotationRecognizerTestNg, RotationRecognizerHandleTouchMoveEventTest010, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create RotationRecognizer.
+     */
+    RefPtr<RotationRecognizer> rotationRecognizer =
+        AceType::MakeRefPtr<RotationRecognizer>(SINGLE_FINGER_NUMBER, ROTATION_GESTURE_ANGLE);
+
+    /**
+     * @tc.steps: step2. test HandleTouchMoveEvent when SUCCEED with touchPoints size > fingers and isLimitFingerCount
+     * @tc.expected: step2. should return without sending update
+     */
+    TouchEvent touchEvent;
+    touchEvent.id = 1;
+    rotationRecognizer->isLimitFingerCount_ = true;
+    rotationRecognizer->refereeState_ = RefereeState::SUCCEED;
+    rotationRecognizer->currentFingers_ = rotationRecognizer->fingers_;
+    rotationRecognizer->touchPoints_[0] = touchEvent;
+    rotationRecognizer->touchPoints_[1] = touchEvent;
+    rotationRecognizer->activeFingers_.emplace_back(1);
+    rotationRecognizer->HandleTouchMoveEvent(touchEvent);
+    EXPECT_EQ(rotationRecognizer->refereeState_, RefereeState::SUCCEED);
 }
 } // namespace OHOS::Ace::NG

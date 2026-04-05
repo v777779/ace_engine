@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -27,12 +27,15 @@ namespace OHOS::Ace::NG {
 class ScrollablePattern;
 struct ScrollableNodeInfo {
     WeakPtr<ScrollablePattern> scrollableNode;
-    std::function<bool(double, int32_t source, bool, bool)> onPositionChanged;
+    std::function<bool(double, int32_t source, bool, bool, Axis)> onPositionChanged;
     std::function<bool(double, int32_t source, bool)> scrollStartCallback;
     std::function<void(bool)> scrollEndCallback;
     StartSnapAnimationCallback startSnapAnimationCallback;
     ScrollBarFRCallback scrollbarFRcallback;
     std::function<void(bool, bool smooth)> scrollPageCallback;
+    std::function<void(bool isWillFling)> scrollBarOnDidStopDraggingCallback;
+    std::function<void()> scrollBarOnDidStopFlingCallback;
+    std::function<void()> preDragStartCallback;
 
     bool operator==(const ScrollableNodeInfo& info) const
     {
@@ -60,7 +63,7 @@ public:
      * @param distance absolute distance that scroll bar has scrolled.
      */
     void NotifyScrollableNode(float distance, int32_t source, const WeakPtr<ScrollBarPattern>& weakScrollBar,
-        bool isMouseWheelScroll = false) const;
+        Axis axis, bool isMouseWheelScroll = false, bool originOffset = false) const;
 
     /*
      * Notify scrollable node to callback scrollStart, called by scroll bar.
@@ -84,18 +87,29 @@ public:
     /*
      * Stop animation of ScrollBar, and show ScrollBar if needed, when scrollable node is scrolling.
      */
-    void StopScrollBarAnimator() const;
+    void StopScrollBarAnimator(bool isStopDisappearAnimator = true) const;
 
     /*
      * Notify scrollable node to snap scroll, called by scroll bar.
      */
-    bool NotifySnapScroll(float delta, float velocity, float barScrollableDistance, float dragDistance) const;
+    bool NotifySnapScroll(
+        float delta, float velocity, float barScrollableDistance, float dragDistance, bool isTouchScreen = false) const;
 
     bool NotifySnapScrollWithoutChild(SnapAnimationOptions snapAnimationOptions) const;
 
     float CalcPatternOffset(float controlDistance, float barScrollableDistance, float delta) const;
 
-    void NotifyScrollBarNode(float distance, int32_t source, bool isMouseWheelScroll = false) const;
+    void NotifyScrollBarNode(float distance, int32_t source, Axis axis, bool isMouseWheelScroll = false) const;
+
+    void NotifyScrollBarOnDidStopDragging(bool isWillFling) const;
+
+    void NotifyScrollBarOnDidStopFling() const;
+
+    void NotifyPreDragStart() const;
+
+    void SetScrollBarOnDidStopDraggingCallback(const OnDidStopDraggingEvent& onDidStopDraggingCallback);
+
+    void SetScrollBarOnDidStopFlingCallback(const OnDidStopFlingEvent& onDidStopFlingCallback);
 
     void SetScrollSnapTrigger_(bool scrollSnapTrigger)
     {
@@ -104,9 +118,9 @@ public:
 
     bool IsScrollSnapTrigger() const;
 
+    ACE_FORCE_EXPORT void SetScrollEnabled(
+        bool scrollEnabled, const WeakPtr<ScrollablePattern>& weakScrollableNode) const;
     void ScrollPage(bool reverse, bool smooth);
-
-    void SetScrollEnabled(bool scrollEnabled, const WeakPtr<ScrollablePattern>& weakScrollableNode) const;
 
     void RegisterNestScrollableNode(const ScrollableNodeInfo& scrollableNode);
 
@@ -117,9 +131,30 @@ public:
         return scorllableNode_;
     }
 
-    bool IsNestScroller() const;
+    ACE_FORCE_EXPORT bool IsNestScroller() const;
 
     void MarkScrollBarDirty() const;
+
+    void SetIsScrollableNodeScrolling(bool isScrolling)
+    {
+        isScrollableNodeScrolling_ = isScrolling;
+    }
+
+    bool IsScrollableNodeScrolling() const
+    {
+        return isScrollableNodeScrolling_;
+    }
+
+    bool IsFreeScroll() const;
+    /*
+     * Notify scroll bar to over scroll with velocity, called by scrollable node.
+     */
+    void NotifyScrollOverDrag(float velocity);
+    void NotifyFreeScrollOverDrag(const OffsetF velocity);
+    bool CanOverScrollWithDelta(double delta) const;
+    bool CanFreeOverScrollWithDelta(Axis axis, double delta);
+    bool Idle();
+    void SyncLayout(const OffsetF& offset, const SizeF& viewSize, const SizeF& content);
 private:
     /*
      * Drag the built-in or external scroll bar to slide the Scroll.
@@ -131,6 +166,7 @@ private:
     std::list<WeakPtr<ScrollBarPattern>> scrollBars_; // ScrollBar should effect with scrollable node.
     float lastControlDistance_ = 0.f;
     float lastScrollableNodeOffset_ = 0.f;
+    bool isScrollableNodeScrolling_ = false;
 };
 
 } // namespace OHOS::Ace::NG

@@ -19,7 +19,7 @@
 #include "interfaces/inner_api/form_render/include/form_renderer_delegate_impl.h"
 #include "interfaces/inner_api/form_render/include/form_renderer_delegate_proxy.h"
 #include "interfaces/inner_api/form_render/include/form_renderer_group.h"
-#include "test/mock/interfaces/mock_i_remote_object_form.h"
+#include "test/unittest/interfaces/form_render/mock/mock_i_remote_object_form.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -42,7 +42,7 @@ public:
  * @tc.desc: Test OnSurfaceCreate() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_001, TestSize.Level1)
+HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_001, TestSize.Level0)
 {
     sptr<AppExecFwk::MockFormIRemoteObject> iremoteObject = new (std::nothrow) AppExecFwk::MockFormIRemoteObject();
     sptr<FormRendererDelegateProxy> renderDelegate =
@@ -55,7 +55,7 @@ HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_001, TestSize.
     formJsInfo.moduleName = "moduleName";
     formJsInfo.formId = 1;
     EXPECT_EQ(formJsInfo.formId, 1);
-    EXPECT_EQ(renderDelegate->OnSurfaceCreate(nullptr, formJsInfo, newWant), ERR_INVALID_VALUE);
+    EXPECT_EQ(renderDelegate->OnSurfaceCreate(nullptr, formJsInfo, newWant), ERR_APPEXECFWK_PARCEL_ERROR);
 
     std::string surfaceNodeName = "ArkTSCardNode";
     struct Rosen::RSSurfaceNodeConfig surfaceNodeConfig = { .SurfaceNodeName = surfaceNodeName };
@@ -64,8 +64,8 @@ HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_001, TestSize.
 
     EXPECT_CALL(*iremoteObject, SendRequest(_, _, _, _)).Times(1).WillRepeatedly(Return(ERR_OK));
     EXPECT_EQ(renderDelegate->OnSurfaceCreate(rsNode, formJsInfo, newWant), ERR_OK);
-    EXPECT_CALL(*iremoteObject, SendRequest(_, _, _, _)).Times(1).WillRepeatedly(Return(ERR_INVALID_VALUE));
-    EXPECT_EQ(renderDelegate->OnSurfaceCreate(rsNode, formJsInfo, newWant), ERR_INVALID_VALUE);
+    EXPECT_CALL(*iremoteObject, SendRequest(_, _, _, _)).Times(1).WillRepeatedly(Return(ERR_APPEXECFWK_PARCEL_ERROR));
+    EXPECT_EQ(renderDelegate->OnSurfaceCreate(rsNode, formJsInfo, newWant), ERR_APPEXECFWK_PARCEL_ERROR);
 }
 
 /*
@@ -73,7 +73,7 @@ HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_001, TestSize.
  * @tc.desc: Test OnSurfaceReuse() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_002, TestSize.Level1)
+HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_002, TestSize.Level0)
 {
     sptr<AppExecFwk::MockFormIRemoteObject> iremoteObject = new (std::nothrow) AppExecFwk::MockFormIRemoteObject();
     sptr<FormRendererDelegateProxy> renderDelegate =
@@ -103,7 +103,7 @@ HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_002, TestSize.
  * @tc.desc: Test OnSurfaceDetach() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_003, TestSize.Level1)
+HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_003, TestSize.Level0)
 {
     sptr<AppExecFwk::MockFormIRemoteObject> iremoteObject = new (std::nothrow) AppExecFwk::MockFormIRemoteObject();
     sptr<FormRendererDelegateProxy> renderDelegate =
@@ -126,7 +126,7 @@ HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_003, TestSize.
  * @tc.desc: Test OnSurfaceRelease() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_004, TestSize.Level1)
+HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_004, TestSize.Level0)
 {
     sptr<AppExecFwk::MockFormIRemoteObject> iremoteObject = new (std::nothrow) AppExecFwk::MockFormIRemoteObject();
     sptr<FormRendererDelegateProxy> renderDelegate =
@@ -149,7 +149,7 @@ HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_004, TestSize.
  * @tc.desc: Test OnActionEvent() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_005, TestSize.Level1)
+HWTEST_F(FormRenderDelegateProxyTest, FormRenderDelegateProxyTest_005, TestSize.Level0)
 {
     sptr<AppExecFwk::MockFormIRemoteObject> iremoteObject = new (std::nothrow) AppExecFwk::MockFormIRemoteObject();
     sptr<FormRendererDelegateProxy> renderDelegate =

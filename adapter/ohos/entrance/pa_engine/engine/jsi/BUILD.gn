@@ -49,7 +49,7 @@ template("js_pa_engine_ark") {
     configs = [ "$ace_root:ace_config" ]
 
     include_dirs = [ "$ace_root/adapter/ohos/entrance/pa_engine/engine/common" ]
-    deps = [ "$ace_root/frameworks/core/components/theme:build_theme_code" ]
+    deps = []
     external_deps = [
       "ability_base:want",
       "ability_base:zuri",
@@ -66,7 +66,9 @@ template("js_pa_engine_ark") {
       "ets_runtime:libark_jsruntime",
       "eventhandler:libeventhandler",
       "ffrt:libffrt",
-      "form_fwk:form_manager",
+      "form_fwk:form_render_info",
+      "form_fwk:form_common_info",
+      "form_fwk:form_utils",
       "hilog:libhilog",
       "hisysevent:libhisysevent",
       "ipc:ipc_core",

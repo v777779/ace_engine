@@ -20,14 +20,14 @@
 
 #include "base/memory/referenced.h"
 #include "base/utils/noncopyable.h"
-#include "core/components/video/resource/ext_surface.h"
+#include "core/components_ng/pattern/video/resource/ext_surface.h"
 #include "core/components_ng/render/ext_surface_callback_interface.h"
 #include "core/components_ng/render/render_surface.h"
 
 namespace OHOS::Ace::NG {
 
 class RenderSurfaceImpl : public RenderSurface {
-    DECLARE_ACE_TYPE(RenderSurfaceImpl, NG::RenderSurface)
+    DECLARE_ACE_TYPE(RenderSurfaceImpl, NG::RenderSurface);
 public:
     RenderSurfaceImpl() = default;
     ~RenderSurfaceImpl() override;

@@ -16,16 +16,12 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_GRID_GRID_MODEL_STATIC_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_GRID_GRID_MODEL_STATIC_H
 
-#include <string>
-
-#include "base/geometry/dimension.h"
 #include "base/utils/macros.h"
-#include "core/components/common/layout/constants.h"
-#include "core/components/common/properties/scroll_bar.h"
-#include "core/components_ng/pattern/grid/grid_event_hub.h"
+#include "core/components_ng/pattern/grid/grid_properties.h"
 #include "core/components_ng/pattern/grid/grid_model.h"
  
 namespace OHOS::Ace::NG {
+class FrameNode;
 
 class ACE_EXPORT GridModelStatic {
 public:
@@ -47,6 +43,7 @@ public:
     static void SetMinCount(FrameNode* frameNode, const std::optional<int32_t>& minCount);
     static void SetCellLength(FrameNode* frameNode, const std::optional<int32_t>& cellLength);
     static void SetEditable(FrameNode* frameNode, const std::optional<bool>& editMode);
+    static void SetEditModeOptions(FrameNode* frameNode, const EditModeOptions& editModeOptions);
     static void SetMultiSelectable(FrameNode* frameNode, bool multiSelectable);
     static void SetSupportAnimation(FrameNode* frameNode, bool supportAnimation);
     static EdgeEffect GetEdgeEffect(FrameNode* frameNode);
@@ -58,6 +55,9 @@ public:
     static void SetScrollEnabled(FrameNode* frameNode, const std::optional<bool>& scrollEnabled);
     static void SetFriction(FrameNode* frameNode, const std::optional<double>& value);
     static void SetAlignItems(FrameNode* frameNode, const std::optional<GridItemAlignment>& itemAlign);
+    static void SetItemFillPolicy(FrameNode* frameNode, PresetFillType policy);
+    static void SetFocusWrapMode(FrameNode* frameNode, const std::optional<FocusWrapMode>& focusWrapMode);
+    static void SetSyncLoad(FrameNode* frameNode, bool syncLoad);
 
     static void SetLayoutOptions(FrameNode* frameNode, GridLayoutOptions& options);
     static void SetOnScrollBarUpdate(FrameNode* frameNode, ScrollBarUpdateFunc&& value);

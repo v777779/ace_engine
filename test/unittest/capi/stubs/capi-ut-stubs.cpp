@@ -15,8 +15,10 @@
 
 #include "ace_pixelmap_stub.h"
 
+#include "base/background_task_helper/background_task_helper.h"
 #include "core/pipeline/pipeline_base.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "core/components_ng/pattern/form/form_model_ng.h"
 #include "core/components_ng/pattern/shape/circle_model_ng.h"
 #include "core/components_ng/pattern/shape/circle_pattern.h"
 #include "core/components_ng/pattern/shape/ellipse_model_ng.h"
@@ -44,11 +46,9 @@ RefPtr<NG::FrameNode> NG::CircleModelNG::CreateFrameNode(int32_t nodeId)
         V2::CIRCLE_ETS_TAG, nodeId, AceType::MakeRefPtr<CirclePattern>());
 }
 
-std::optional<NG::SizeF> NG::ShapeContainerLayoutAlgorithm::MeasureContent(
-    const LayoutConstraintF& contentConstraint,
-    LayoutWrapper* layoutWrapper)
+RefPtr<NG::FrameNode> NG::FormModelNG::CreateFrameNode(int32_t nodeId)
 {
-    return {};
+    return nullptr;
 }
 
 std::optional<NG::SizeF> NG::PathLayoutAlgorithm::MeasureContent(
@@ -56,6 +56,8 @@ std::optional<NG::SizeF> NG::PathLayoutAlgorithm::MeasureContent(
 {
     return {};
 }
+
+void NG::PathLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper) {}
 
 void AnimationUtils::AddDurationKeyFrame(int duration, const RefPtr<Curve>& curve,
     const PropertyCallback& callback, const RefPtr<PipelineBase>& context) {}
@@ -73,5 +75,19 @@ std::string SystemProperties::GetWebDebugRenderMode()
 RefPtr<PixelMap> PixelMap::Create(std::unique_ptr<Media::PixelMap>&& pixmap)
 {
     return AceType::MakeRefPtr<PixelMapStub>();
+}
+
+class MockBackgroundTaskHelper : public BackgroundTaskHelper {
+public:
+    bool HasBackgroundTask() override
+    {
+        return false;
+    }
+};
+
+BackgroundTaskHelper& BackgroundTaskHelper::GetInstance()
+{
+    static MockBackgroundTaskHelper instance;
+    return instance;
 }
 } // namespace OHOS::Ace

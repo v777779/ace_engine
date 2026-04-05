@@ -24,7 +24,6 @@
 #include "base/memory/referenced.h"
 #include "core/components_ng/pattern/text/span/tlv_util.h"
 #include "core/components_ng/pattern/text/span/span_object.h"
-#include "core/components_ng/pattern/text/text_model.h"
 
 namespace OHOS::Ace {
 
@@ -32,7 +31,7 @@ class SpanStringBase;
 
 enum class SpanStringOperation { REPLACE = 0, INSERT, REMOVE };
 
-class ACE_EXPORT SpanString : public SpanStringBase {
+class ACE_FORCE_EXPORT SpanString : public SpanStringBase {
     DECLARE_ACE_TYPE(SpanString, SpanStringBase);
 
 public:
@@ -138,7 +137,7 @@ protected:
     std::u16string text_;
     std::unordered_map<SpanType, std::list<RefPtr<SpanBase>>> spansMap_;
     std::list<RefPtr<NG::SpanItem>> spans_;
-    WeakPtr<NG::FrameNode> framNode_;
+    WeakPtr<NG::FrameNode> frameNode_;
     int32_t groupId_ = 0;
 };
 } // namespace OHOS::Ace

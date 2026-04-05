@@ -19,6 +19,8 @@
 #include "napi_runtime.cpp"
 #include "core/common/resource/resource_manager.h"
 #include "interfaces/napi/kits/utils/napi_utils.h"
+#include "base/i18n/localization.h"
+#include "test/mock/frameworks/base/i18n/mock_localization.cpp"
 
 using namespace testing;
 using namespace testing::ext;
@@ -391,4 +393,94 @@ HWTEST_F(NapiUtilsTest, NapiUtilsTest006, TestSize.Level1)
     EXPECT_EQ(toastNotFoundError, "Toast not found. ");
 }
 
+/**
+ * @tc.name: NapiUtilsTest007
+ * @tc.desc: GetStringFromValueUtf8
+ * @tc.type: FUNC
+ */
+HWTEST_F(NapiUtilsTest, NapiUtilsTest007, TestSize.Level1)
+{
+    NativeEngineMock engine;
+    /**
+     * @tc.steps: step1. Create napi string
+     * @tc.expected: Create success
+     */
+    std::string testStr = "test napi string";
+    napi_value napiTestStr = nullptr;
+
+    napi_status status = napi_create_string_utf8(napi_env(engine), testStr.c_str(), testStr.length(), &napiTestStr);
+    EXPECT_EQ(status, napi_ok);
+
+    /**
+     * @tc.steps: step2. Call GetStringFromValueUtf8
+     * @tc.expected: Return value equals raw string
+     */
+    auto retVal = Napi::GetStringFromValueUtf8(napi_env(engine), napiTestStr);
+    EXPECT_EQ(retVal.has_value(), true);
+    EXPECT_EQ(retVal.value(), testStr);
+}
+
+/**
+ * @tc.name: NapiUtilsTest008
+ * @tc.desc: GetLocalizedParamStr - Non-numeric type should return original string
+ * @tc.type: FUNC
+ */
+HWTEST_F(NapiUtilsTest, NapiUtilsTest008, TestSize.Level1)
+{
+    std::string paramStr = "test string";
+    std::string type = "s";
+
+    std::string result = Napi::GetLocalizedParamStr(paramStr, type);
+    EXPECT_EQ(result, paramStr);
+
+    type = "";
+    result = Napi::GetLocalizedParamStr(paramStr, type);
+    EXPECT_EQ(result, paramStr);
+
+    type = "other";
+    result = Napi::GetLocalizedParamStr(paramStr, type);
+    EXPECT_EQ(result, paramStr);
+}
+
+/**
+ * @tc.name: NapiUtilsTest009
+ * @tc.desc: GetLocalizedParamStr - Numeric type "d" should call LocalizeNumber
+ * @tc.type: FUNC
+ */
+HWTEST_F(NapiUtilsTest, NapiUtilsTest009, TestSize.Level1)
+{
+    std::string paramStr = "12345";
+    std::string type = "d";
+
+    std::string result = Napi::GetLocalizedParamStr(paramStr, type);
+    EXPECT_FALSE(result.empty());
+}
+
+/**
+ * @tc.name: NapiUtilsTest010
+ * @tc.desc: GetLocalizedParamStr - Numeric type "f" should call LocalizeNumber
+ * @tc.type: FUNC
+ */
+HWTEST_F(NapiUtilsTest, NapiUtilsTest010, TestSize.Level1)
+{
+    std::string paramStr = "123.45";
+    std::string type = "f";
+
+    std::string result = Napi::GetLocalizedParamStr(paramStr, type);
+    EXPECT_FALSE(result.empty());
+}
+
+/**
+ * @tc.name: NapiUtilsTest011
+ * @tc.desc: GetLocalizedParamStr
+ * @tc.type: FUNC
+ */
+HWTEST_F(NapiUtilsTest, NapiUtilsTest011, TestSize.Level1)
+{
+    std::string paramStr = "123.45";
+    std::string type = "d";
+
+    std::string result = Napi::GetLocalizedParamStr(paramStr, type);
+    EXPECT_FALSE(result.empty());
+}
 } // namespace OHOS::Ace

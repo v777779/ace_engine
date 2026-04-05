@@ -57,51 +57,56 @@ public:
 };
 
 /**
- * @tc.name: IsEditingTest
+ * @tc.name: isEditingTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextEditControllerExAccessorTest, IsEditingTest, TestSize.Level1)
+HWTEST_F(TextEditControllerExAccessorTest, isEditingTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->isEditing, nullptr);
     EXPECT_CALL(*peer_, IsEditing()).Times(1).WillOnce(Return(true));
-    auto checkValue = accessor_->isEditing(peer_);
-    EXPECT_TRUE(checkValue);
+    auto isEditing = accessor_->isEditing(peer_);
+    auto checkValueOpt = Converter::OptConvert<bool>(isEditing);
+    ASSERT_TRUE(checkValueOpt.has_value());
+    EXPECT_TRUE(*checkValueOpt);
 }
 
 /**
- * @tc.name: GetCaretOffsetTest
+ * @tc.name: getCaretOffsetTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextEditControllerExAccessorTest, GetCaretOffsetTest, TestSize.Level1)
+HWTEST_F(TextEditControllerExAccessorTest, getCaretOffsetTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getCaretOffset, nullptr);
     EXPECT_CALL(*peer_, GetCaretOffset()).Times(1).WillOnce(Return(OFFSET));
-    auto checkValue = Converter::Convert<int32_t>(accessor_->getCaretOffset(peer_));
+    auto caretOffset = accessor_->getCaretOffset(peer_);
+    auto checkValue = Converter::OptConvert<int32_t>(caretOffset);
     EXPECT_EQ(checkValue, OFFSET);
 }
 
 /**
- * @tc.name: SetCaretOffsetTest
+ * @tc.name: setCaretOffsetTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextEditControllerExAccessorTest, SetCaretOffsetTest, TestSize.Level1)
+HWTEST_F(TextEditControllerExAccessorTest, setCaretOffsetTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->setCaretOffset, nullptr);
-    auto offset = Converter::ArkValue<Ark_Number>(OFFSET);
+    auto offset = Converter::ArkValue<Ark_Int32>(OFFSET);
     EXPECT_CALL(*peer_, SetCaretOffset(OFFSET)).Times(1).WillOnce(Return(true));
-    auto checkValue = accessor_->setCaretOffset(peer_, &offset);
-    EXPECT_TRUE(checkValue);
+    auto caretOffset = accessor_->setCaretOffset(peer_, offset);
+    auto checkValueOpt = Converter::OptConvert<bool>(caretOffset);
+    ASSERT_TRUE(checkValueOpt.has_value());
+    EXPECT_TRUE(*checkValueOpt);
 }
 
 /**
- * @tc.name: StopEditingTest
+ * @tc.name: stopEditingTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextEditControllerExAccessorTest, StopEditingTest, TestSize.Level1)
+HWTEST_F(TextEditControllerExAccessorTest, stopEditingTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->stopEditing, nullptr);
     EXPECT_CALL(*peer_, StopEditing()).Times(1);
@@ -109,16 +114,19 @@ HWTEST_F(TextEditControllerExAccessorTest, StopEditingTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetPreviewTextTest
+ * @tc.name: getPreviewTextTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(TextEditControllerExAccessorTest, GetPreviewTextTest, TestSize.Level1)
+HWTEST_F(TextEditControllerExAccessorTest, getPreviewTextTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getPreviewText, nullptr);
     PreviewTextInfo previewText = {.offset = OFFSET, .value = u"info"};
     EXPECT_CALL(*peer_, GetPreviewText()).Times(1).WillOnce(Return(previewText));
-    auto checkValue = accessor_->getPreviewText(peer_);
+    auto previewTextOpt = accessor_->getPreviewText(peer_);
+    auto checkValueOpt = Converter::GetOpt(previewTextOpt);
+    ASSERT_TRUE(checkValueOpt.has_value());
+    auto checkValue = checkValueOpt.value();
     EXPECT_EQ(Converter::Convert<std::string>(checkValue.value), "info");
     EXPECT_EQ(Converter::Convert<int32_t>(checkValue.offset), OFFSET);
 }

@@ -142,7 +142,7 @@ private:
     int32_t selectingFingerId_ = -1;
 };
 
-class TextBase : public SelectOverlayClient {
+class ACE_FORCE_EXPORT TextBase : public SelectOverlayClient {
     DECLARE_ACE_TYPE(TextBase, SelectOverlayClient);
 
 public:
@@ -175,14 +175,25 @@ public:
     }
 
     // The methods that need to be implemented for input class components
-    virtual RectF GetCaretRect() const
+    virtual RectF GetCaretRect(bool ignoreScale = true) const
     {
         return { 0, 0, 0, 0 };
     }
 
+    VectorF GetHostScale(const RefPtr<FrameNode>& host) const;
+
     virtual void ScrollToSafeArea() const {}
 
     virtual void GetCaretMetrics(CaretMetricsF& caretCaretMetric) {}
+
+    virtual bool NeedCloseKeyboard()
+    {
+        return false;
+    }
+
+    virtual void ProcessCustomKeyboard(bool matched, int32_t nodeId) {}
+
+    virtual void CloseTextCustomKeyboard(int32_t nodeId, bool isUIExtension) {}
 
     virtual void OnVirtualKeyboardAreaChanged() {}
 
@@ -254,13 +265,15 @@ public:
     static int32_t GetGraphemeClusterLength(const std::u16string& text, int32_t extend, bool checkPrev = false);
     static void CalculateSelectedRect(
         std::vector<RectF>& selectedRect, float longestLine, TextDirection direction = TextDirection::LTR);
-    static float GetSelectedBlankLineWidth();
-    static void CalculateSelectedRectEx(std::vector<RectF>& selectedRect, float lastLineBottom,
+    ACE_FORCE_EXPORT static float GetSelectedBlankLineWidth();
+    ACE_FORCE_EXPORT static void CalculateSelectedRectEx(std::vector<RectF>& selectedRect, float lastLineBottom,
         const std::optional<TextDirection>& direction = std::nullopt);
-    static bool UpdateSelectedBlankLineRect(RectF& rect, float blankWidth, TextAlign textAlign, float longestLine);
+    ACE_FORCE_EXPORT static bool UpdateSelectedBlankLineRect(
+        RectF& rect, float blankWidth, TextAlign textAlign, float longestLine);
     static void SelectedRectsToLineGroup(const std::vector<RectF>& selectedRect,
         std::map<float, std::pair<RectF, std::vector<RectF>>>& lineGroup);
-    static TextAlign CheckTextAlignByDirection(TextAlign textAlign, TextDirection direction);
+    ACE_FORCE_EXPORT static TextAlign CheckTextAlignByDirection(TextAlign textAlign, TextDirection direction,
+        TextDirection textDirection = TextDirection::INHERIT);
 
     static void RevertLocalPointWithTransform(const RefPtr<FrameNode>& targetNode, OffsetF& point);
     static bool HasRenderTransform(const RefPtr<FrameNode>& targetNode);
@@ -273,12 +286,13 @@ public:
     {
         return (sourceTool == SourceTool::MOUSE || sourceTool == SourceTool::TOUCHPAD);
     }
-    std::u16string TruncateText(const std::u16string& text, const size_t& length) const;
-    size_t CountUtf16Chars(const std::u16string& s);
-    std::pair<std::string, std::string> DetectTextDiff(const std::string& latestContent);
+    ACE_FORCE_EXPORT std::u16string TruncateText(const std::u16string& text, const size_t& length) const;
+    ACE_FORCE_EXPORT size_t CountUtf16Chars(const std::u16string& s);
+    ACE_FORCE_EXPORT std::pair<std::string, std::string> DetectTextDiff(const std::string& latestContent);
     static LayoutCalPolicy GetLayoutCalPolicy(LayoutWrapper* layoutWrapper, bool isHorizontal);
     static float GetConstraintMaxLength(
         LayoutWrapper* layoutWrapper, const LayoutConstraintF& constraint, bool isHorizontal);
+    static std::optional<float> GetCalcLayoutConstraintLength(LayoutWrapper* layoutWrapper, bool isMax, bool isWidth);
     template <typename Callback>
     void ProcessAccessibilityTextChange(const std::string& currentContent,
         Callback&& callback, const AceLogTag& logTag)

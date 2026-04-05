@@ -144,7 +144,11 @@ public:
         return nullptr;
     }
 
-    std::shared_ptr<PixelMap>* GetPixelMap()
+    static std::shared_ptr<PixelMap> GetPixelMap(napi_env env, napi_value pixelmap)
+    {
+        return nullptr;
+    }
+    static std::shared_ptr<std::vector<std::shared_ptr<PixelMap>>> GetPixelMaps(napi_env env, napi_value pixelmaps)
     {
         return nullptr;
     }

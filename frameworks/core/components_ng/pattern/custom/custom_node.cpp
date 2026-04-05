@@ -15,13 +15,17 @@
 
 #include "core/components_ng/pattern/custom/custom_node.h"
 
+#include "base/log/ace_checker.h"
+#include "base/log/ace_performance_check.h"
 #include "base/log/ace_performance_monitor.h"
 #include "base/log/dump_log.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 RefPtr<CustomNode> CustomNode::CreateCustomNode(int32_t nodeId, const std::string& viewKey)
 {
+    ACE_UINODE_TRACE(nodeId);
     auto node = MakeRefPtr<CustomNode>(nodeId, viewKey);
     ElementRegister::GetInstance()->AddUINode(node);
     return node;
@@ -47,20 +51,26 @@ bool CustomNode::Render(int64_t deadline)
         if (!CheckFireOnAppear()) {
             ACE_SCOPED_TRACE("CustomNode:OnAppear");
             FireOnAppear();
+            FireTriggerLifecycleFunc(LifeCycleEvent::ON_APPEAR);
             if (deadline > 0 && GetSysTimestamp() > deadline) {
                 std::swap(renderFunction, renderFunction_);
                 return false;
             }
         }
         {
-            int32_t id = -1;
-            if (SystemProperties::GetAcePerformanceMonitorEnabled()) {
-                id = Container::CurrentId();
+            COMPONENT_CREATION_DURATION();
+            std::string reuseId = GetReuseId().empty() ? "-1" : GetReuseId();
+            std::string parentInfo = "-1";
+            if (SystemProperties::GetDynamicDetectionTraceEnabled()) {
+                auto customParent = FindParentCustomNode();
+                if (customParent) {
+                    parentInfo = customParent->GetJSViewName() + "[" + std::to_string(customParent->GetId()) + "]";
+                }
             }
-            COMPONENT_CREATION_DURATION(id);
-            ACE_SCOPED_TRACE("CustomNode:BuildItem [%s][self:%d][parent:%d][frameRound:%d]",
-                GetJSViewName().c_str(), GetId(), GetParent() ? GetParent()->GetId() : 0, prebuildFrameRounds_);
-            // first create child node and wrapper.
+            ACE_SCOPED_TRACE(
+                "CustomNode:BuildItem [%s][self:%d][parent:%d][frameRound:%d][reuseId:%s][parentCustomNode:%s]",
+                GetJSViewName().c_str(), GetId(), GetParent() ? GetParent()->GetId() : 0,
+                prebuildFrameRounds_, reuseId.c_str(), parentInfo.c_str());
             ScopedViewStackProcessor scopedViewStackProcessor(prebuildViewStackProcessor_);
             auto parent = GetParent();
             bool parentNeedExportTexture = parent ? parent->IsNeedExportTexture() : false;
@@ -77,16 +87,28 @@ bool CustomNode::Render(int64_t deadline)
                 child->MountToParent(Claim(this));
             }
         }
-        {
-            ACE_SCOPED_TRACE("CustomNode::DidBuild");
-            FireDidBuild();
-        }
+        NodeDidBuild();
     }
     {
         FireRecycleRenderFunc();
     }
+    if (AceChecker::IsPerformanceCheckEnabled()) {
+        auto child = GetFirstChild();
+        if (child) {
+            AceScopedPerformanceCheck::UpdateRecordPath(child->GetFilePath());
+            AceScopedPerformanceCheck::ReportAllRecord();
+        }
+    }
     needMarkParent_ = needMarkParentBak;
     return true;
+}
+
+void CustomNode::NodeDidBuild()
+{
+    ACE_SCOPED_TRACE("CustomNode::DidBuild");
+    FireTriggerLifecycleFunc(LifeCycleEvent::ON_BUILD);
+    FireDidBuild();
+    isDidBuild_ = true;
 }
 
 void CustomNode::FireCustomDisappear()
@@ -218,7 +240,7 @@ void CustomNode::DoSetActiveChildRange(
 std::unique_ptr<JsonValue> CustomNode::GetStateInspectorInfo()
 {
     std::string res = FireOnDumpInspectorFunc();
-    TAG_LOGD(AceLogTag::ACE_STATE_MGMT, "ArkUI State Inspector dump info %{public}s", res.c_str());
+    TAG_LOGD(AceLogTag::ACE_STATE_MGMT, "ArkUI State Inspector dump info %{private}s", res.c_str());
     auto json = JsonUtil::ParseJsonString(res);
     return json;
 }
@@ -242,7 +264,7 @@ void CustomNode::DumpDecoratorInfo(std::unique_ptr<JsonValue>& decoratorInfo)
         DumpLog::GetInstance().AddDesc("decorator:" + decoratorItem->GetValue("decorator")->ToString() + \
                                        " propertyName:" + decoratorItem->GetValue("propertyName")->ToString() + \
                                        " value:" + decoratorItem->GetValue("value")->ToString());
-        DumpLog::GetInstance().AddDesc("stateVariable id: " + decoratorItem->GetValue("id")->ToString());
+        DumpLog::GetInstance().AddDesc("state Variable id: " + decoratorItem->GetValue("id")->ToString());
         DumpLog::GetInstance().AddDesc("inRenderingElementId: " + \
                                         decoratorItem->GetValue("inRenderingElementId")->ToString());
         DumpLog::GetInstance().AddDesc("dependentElementIds: " + \
@@ -257,7 +279,7 @@ void CustomNode::DumpDecoratorInfo(std::unique_ptr<JsonValue>& decoratorInfo)
 void CustomNode::DumpInfo()
 {
     std::string ret = FireOnDumpInspectorFunc();
-    TAG_LOGD(AceLogTag::ACE_STATE_MGMT, "ArkUI DumpInfo %{public}s", ret.c_str());
+    TAG_LOGD(AceLogTag::ACE_STATE_MGMT, "ArkUI DumpInfo %{private}s", ret.c_str());
     if (ret != "") {
         auto json = JsonUtil::ParseJsonString(ret);
         if (json == nullptr || !json->IsValid()) {
@@ -273,13 +295,59 @@ void CustomNode::DumpInfo()
             DumpDecoratorInfo(decoratorInfo);
         }
     }
+    DumpLog::GetInstance().AddDesc(std::string("CreatorId: ").append(GetCreatorId()));
+    FireOnDumpInfoFunc({ "RecyclePool" });
 }
 
-void CustomNode::OnDestroyingStateChange(bool isDestroying, bool cleanStatus)
+void CustomNode::FireRecycleRenderFunc()
 {
+    if (HasRecycleRenderFunc()) {
+        if (SystemProperties::ConfigChangePerform()) {
+            // Get the current color mode and notify the node to change the color mode
+            auto context = GetContext();
+            if (context) {
+                auto colorMode = context->GetColorMode();
+                SetRerenderable(true);
+                SetMeasureAnyway(true);
+                NotifyColorModeChange(static_cast<uint32_t>(colorMode));
+            }
+        }
+        std::string reuseId = GetReuseId().empty() ? "-1" : GetReuseId();
+        std::string parentInfo = "-1";
+        if (SystemProperties::GetDynamicDetectionTraceEnabled()) {
+            auto customParent = FindParentCustomNode();
+            if (customParent) {
+                parentInfo = customParent->GetJSViewName() + "[" + std::to_string(customParent->GetId()) + "]";
+            }
+        }
+
+        ACE_SCOPED_TRACE("CustomNode:BuildRecycle [%s][self:%d][parent:%d][reuseId:%s][parentCustomNode:%s]",
+            GetJSViewName().c_str(), GetId(), GetParent() ? GetParent()->GetId() : 0,
+            reuseId.c_str(), parentInfo.c_str());
+        CustomNodeBase::FireRecycleRenderFunc();
+    }
+}
+
+RefPtr<CustomNode> CustomNode::FindParentCustomNode() const
+{
+    auto current = GetParent();
+    while (current) {
+        auto customParent = DynamicCast<CustomNode>(current);
+        if (customParent) {
+            return customParent;
+        }
+        current = current->GetParent();
+    }
+    return nullptr;
+}
+
+void CustomNode::SetDestroying(bool isDestroying, bool cleanStatus)
+{
+    UINode::SetDestroying(isDestroying, cleanStatus);
     if (isDestroying && cleanStatus) {
         auto context = GetContext();
         CHECK_NULL_VOID(context);
+        // add customnode to pipeline when state change, destroy them next vsync
         context->AddPendingDeleteCustomNode(Claim(this));
     }
 }

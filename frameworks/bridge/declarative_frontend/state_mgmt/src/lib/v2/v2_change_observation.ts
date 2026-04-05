@@ -53,9 +53,14 @@ class ObserveV2 {
   // meta data about decorated variable inside prototype
   public static readonly V2_DECO_META = Symbol('__v2_deco_meta__');
 
+  // meta data about decorated accessor and method: @Computed and @Monitor
+  public static readonly V2_DECO_METHOD_META = Symbol('__v2_deco_method_meta__');
+
   public static readonly SYMBOL_REFS = Symbol('__use_refs__');
   public static readonly ID_REFS = Symbol('__id_refs__');
   public static readonly MONITOR_REFS = Symbol('___monitor_refs_');
+  public static readonly ADD_MONITOR_API_REFS = Symbol('___add_monitorapi_refs_');
+  public static readonly MONITOR_WITH_OPTIONS_OR_SYNC_MONITOR_REFS = Symbol('___monitor_with_options_or_syncmonitor_refs_');
   public static readonly COMPUTED_REFS = Symbol('___computed_refs_');
 
   public static readonly SYMBOL_PROXY_GET_TARGET = Symbol('__proxy_get_target');
@@ -63,6 +68,7 @@ class ObserveV2 {
   public static readonly SYMBOL_MAKE_OBSERVED = Symbol('___make_observed__');
 
   public static readonly OB_PREFIX = '__ob_'; // OB_PREFIX + attrName => backing store attribute name
+  public static readonly ENV_PREFIX = '__env_'; // ENV_PREFIX + attrName => backing store attribute name
   public static readonly OB_PREFIX_LEN = 5;
   public static readonly NO_REUSE = -1; // mark no reuse on-going
   // used by array Handler to create dependency on artificial 'length'
@@ -77,32 +83,39 @@ class ObserveV2 {
   // see modified ViewV2 and ViewPU observeComponentCreation, bindCmp is the ViewV2 or ViewPU
 
   // bindId: UINode elmtId or watchId, depending on what is being observed
-  private stackOfRenderedComponents_ : StackOfRenderedComponents = new StackOfRenderedComponents();
+  private stackOfRenderedComponents_: StackOfRenderedComponents = new StackOfRenderedComponents();
 
-  // Map bindId to WeakRef<ViewBuildNodeBase>
+  // Map bindId to WeakRef<ViewBuildNodeBase>, bindId -> owning View instance
   public id2cmp_: { number: WeakRef<ViewBuildNodeBase> } = {} as { number: WeakRef<ViewBuildNodeBase> };
 
   // Map bindId to WeakRef<MonitorV2 | ComputedV2 | PersistenceV2Impl>
-  private id2Others_: { number: WeakRef<MonitorV2 | ComputedV2 | PersistenceV2Impl> } = {} as { number: WeakRef<MonitorV2 | ComputedV2 | PersistenceV2Impl> };
+  public id2Others_: { number: WeakRef<MonitorV2 | ComputedV2 | PersistenceV2Impl> } = {} as { number: WeakRef<MonitorV2 | ComputedV2 | PersistenceV2Impl> };
 
   // Map bindId -> Set of @ObservedV2 class objects
   // reverse dependency map for quickly removing all dependencies of a bindId
-  private id2targets_: { number: Set<WeakRef<Object>> } = {} as { number: Set<WeakRef<Object>> };
+  public id2targets_: { number: Set<WeakRef<Object>> } = {} as { number: Set<WeakRef<Object>> };
 
   // Queue of tasks to run in next idle period (used for optimization)
   public idleTasks_: (Array<[(...any: any[]) => any, ...any[]]> & { first: number, end: number }) =
     Object.assign(Array(1000).fill([]), { first: 0, end: 0 });
+  public static readonly idleTasksInitLength = 1000;
 
   // queued up Set of bindId
   // elmtIds of UINodes need re-render
   // @monitor functions that need to execute
   public elmtIdsChanged_: Set<number> = new Set();
+  // @Computed id
   private computedPropIdsChanged_: Set<number> = new Set();
+  // AddMonitor API (ASync), @Monitor with Options
+  private monitorAsyncIdsChangedForAddMonitorBased_: Set<number> = new Set();
+  // AddMonitor API (Sync), @SyncMonitor
+  private monitorSyncIdsChangedForAddMonitorBased_: Set<number> = new Set();
+  // @Monitor id
   private monitorIdsChanged_: Set<number> = new Set();
   private persistenceChanged_: Set<number> = new Set();
 
-  // ViewV2s Grouped by instance id (container id)
-  private viewV2NeedUpdateMap_: Map<number, Map<ViewV2 | ViewPU, Array<number>>> = new Map();
+  // ViewV2s Grouped by instance id (container id), contains ReactiveBuilderNode.
+  private viewV2NeedUpdateMap_: Map<number, Map<ViewBuildNodeBase, Array<number>>> = new Map();
 
   // To avoid multiple schedules on the same container
   private scheduledContainerIds_: Set<number> = new Set();
@@ -126,7 +139,15 @@ class ObserveV2 {
   // flag to disable nested component optimization if V1 and V2 components are involved in the nested cases.
   public isParentChildOptimizable_ : boolean = true;
 
+  // counter for nested applySync() calls
+  private applySyncRunningCount_: number = 0;
+
   private static obsInstance_: ObserveV2;
+
+  public __interopInStaticRendering_internal_ : boolean = false;
+
+  // define a lambda for fireChange to call instead of calling this.updateDirty.bind(this) every time
+  private updateDirtyBoundFunction_: () => void = () => { this.updateDirty(); };
 
   public static getObserve(): ObserveV2 {
     if (!this.obsInstance_) {
@@ -136,18 +157,25 @@ class ObserveV2 {
   }
 
   // return true given value is @ObservedV2 object
+  // return true when including @Trace, but exclude @Monitor and @Computed
   public static IsObservedObjectV2(value: any): boolean {
-    return (value && typeof (value) === 'object' && value[ObserveV2.V2_DECO_META]);
+    return !!(value && typeof (value) === 'object' && value[ObserveV2.V2_DECO_META]);
   }
 
   // return true if given value is proxied observed object, either makeObserved or autoProxyObject
   public static IsProxiedObservedV2(value: any): boolean {
-    return (value && typeof value === 'object' && value[ObserveV2.SYMBOL_PROXY_GET_TARGET]);
+    return !!(value && typeof value === 'object' && value[ObserveV2.SYMBOL_PROXY_GET_TARGET]);
   }
 
   // return true given value is the return value of makeObserved
   public static IsMakeObserved(value: any): boolean {
-    return (value && typeof (value) === 'object' && value[ObserveV2.SYMBOL_MAKE_OBSERVED]);
+    return !!(value && typeof (value) === 'object' && value[ObserveV2.SYMBOL_MAKE_OBSERVED]);
+  }
+
+  // return true if given value is proxied observed object, either makeObserved or autoProxyObject
+  public static IsProxiedObservedV2OrMakeObserved(value: unknown): boolean {
+    return !!(value && typeof value === 'object' &&
+      (value[ObserveV2.SYMBOL_PROXY_GET_TARGET] || value[ObserveV2.SYMBOL_MAKE_OBSERVED]));
   }
 
   public static getCurrentRecordedId(): number {
@@ -188,23 +216,25 @@ class ObserveV2 {
       this.id2cmp_[id] = new WeakRef<ViewBuildNodeBase | PersistenceV2Impl>(cmp);
       return;
     } 
-    const weakRef = WeakRefPool.get(cmp);
+    const weakRef = WeakRefPool.getWeakRef(cmp);
     // this instance, which maybe MonitorV2/ComputedV2 have been already recorded in id2Others
     if (this.id2Others_[id] === weakRef) {
       return;
     }
     this.id2Others_[id] = weakRef;
     // register MonitorV2/ComputedV2 instance gc-callback func
-    WeakRefPool.register(cmp, id, () => {
+    WeakRefPool.addTagCallback(cmp, id, () => {
       delete this.id2Others_[id];
     });
-    
   }
 
   // clear any previously created dependency view model object to elmtId
   // find these view model objects with the reverse map id2targets_
   public clearBinding(id: number): void {
     if (this.idleTasks_) {
+      if (this.idleTasks_.end - this.idleTasks_.first > ObserveV2.idleTasksInitLength) {
+        ObserveV2.getObserve().runIdleTasks();
+      }
       this.idleTasks_[this.idleTasks_.end++] = [this.clearBindingInternal, id];
     } else {
       this.clearBindingInternal(id);
@@ -218,18 +248,24 @@ class ObserveV2 {
       const symRefs: Object = target?.[ObserveV2.SYMBOL_REFS];
 
       if (idRefs) {
-        idRefs[id]?.forEach(key =>
+        idRefs[id]?.forEach(key => {
           symRefs?.[key]?.delete(id)
-        );
+          if (symRefs?.[key]?.size === 0) {
+            delete symRefs[key];
+          }
+        });
         delete idRefs[id];
       } else {
         for (let key in symRefs) {
           symRefs[key]?.delete(id);
+          if (symRefs?.[key]?.size === 0) {
+            delete symRefs[key];
+          }
         };
       }
 
-      if (target) {
-        WeakRefPool.unregister(target, id);
+      if (target && !(target instanceof PUV2ViewBase)) {
+        WeakRefPool.removeTagCallback(target, id);
       }
     });
 
@@ -268,13 +304,14 @@ class ObserveV2 {
       delete this.idleTasks_[this.idleTasks_.first];
       this.idleTasks_.first++;
       // ensure that there is no accumulation in idleTask leading to oom
-      if (this.idleTasks_.end - this.idleTasks_.first < 1000 && this.idleTasks_.first % 100 === 0 && Date.now() >= deadline - 1) {
+      if (this.idleTasks_.end - this.idleTasks_.first < ObserveV2.idleTasksInitLength &&
+        this.idleTasks_.first % 100 === 0 && Date.now() >= deadline - 1) {
         return;
       }
     }
     this.idleTasks_.first = 0;
     this.idleTasks_.end = 0;
-    this.idleTasks_.length = 1000;
+    this.idleTasks_.length = ObserveV2.idleTasksInitLength;
   }
 
   /**
@@ -282,7 +319,7 @@ class ObserveV2 {
    * @returns total count and count of WeakRefs that can be deref'ed
    * Methods only for testing
    */
-  public get id2CompDeRefSize(): [ totalCount: number, aliveCount: number ] {
+  public get id2CompDeRefSize(): [totalCount: number, aliveCount: number] {
     let totalCount = 0;
     let aliveCount = 0;
     let comp: Object;
@@ -301,7 +338,7 @@ class ObserveV2 {
    * @returns total count and those can be dereferenced
    * Methods only for testing
    */
-  public get id2TargetsDerefSize(): [ totalCount: number, aliveCount: number ] {
+  public get id2TargetsDerefSize(): [totalCount: number, aliveCount: number] {
     let totalCount = 0;
     let aliveCount = 0;
     for (const id in this.id2targets_) {
@@ -322,13 +359,37 @@ class ObserveV2 {
   // to current this.bindId
   public addRef(target: object, attrName: string): void {
     const bound = this.stackOfRenderedComponents_.top();
-    if (!bound || this.disableRecording_) {
+    if (this.disableRecording_) {
       return;
     }
-    if (bound[0] === UINodeRegisterProxy.monitorIllegalV1V2StateAccess) {
-      const error = `${attrName}: ObserveV2.addRef: trying to use V2 state '${attrName}' to init/update child V2 @Component. Application error`;
-      stateMgmtConsole.applicationError(error);
-      throw new TypeError(error);
+    if (InteropConfigureStateMgmt.needsInterop()) {
+      let inStaticIntrop: boolean = !bound;
+      if (!inStaticIntrop) {
+        inStaticIntrop = this.__interopInStaticRendering_internal_;
+      }
+      if (inStaticIntrop) {
+          let staticCompatibleFunc = target['__staticCompatibleFunc__'];
+          if (staticCompatibleFunc) {
+            let staticStatic = target['__staticStatic__' + attrName];
+            if (!staticStatic) {
+              staticStatic = staticCompatibleFunc[0]();
+              target['__staticStatic__' + attrName] = staticStatic;
+            }
+            staticCompatibleFunc[1](staticStatic);
+          }
+          let staticCompatibleMetaFunc = target['__staticCompatibleMetaFunc__'];
+          if (staticCompatibleMetaFunc) {
+            let staticStatic = target['__staticMetaState__' + attrName];
+            if (!staticStatic) {
+              staticStatic = staticCompatibleMetaFunc[0]();
+              target['__staticMetaState__' + attrName] = staticStatic;
+            }
+            staticCompatibleMetaFunc[1](staticStatic);
+          }
+      }
+    }
+    if (!bound) {
+      return;
     }
 
     stateMgmtConsole.propertyAccess(`ObserveV2.addRef '${attrName}' for id ${bound[0]}...`);
@@ -349,11 +410,6 @@ class ObserveV2 {
     const bound = this.stackOfRenderedComponents_.top();
     if (bound && bound[1]) {
       if (!(bound[1] instanceof ViewPU)) {
-        if (bound[0] === UINodeRegisterProxy.monitorIllegalV1V2StateAccess) {
-          const error = `${attrName}: ObserveV2.addRefV2Compatibility: trying to use V2 state '${attrName}' to init/update child V2 @Component. Application error`;
-          stateMgmtConsole.applicationError(error);
-          throw new TypeError(error);
-        }
         stateMgmtConsole.propertyAccess(`ObserveV2.addRefV2Compatibility '${attrName}' for id ${bound[0]}...`);
         this.addRef4Id(bound[0], target, attrName);
       } else {
@@ -389,18 +445,22 @@ class ObserveV2 {
       idRefs[id].add(attrName);
     }
 
-    const weakRef = WeakRefPool.get(target);
+    const weakRef = WeakRefPool.getWeakRef(target);
     if (this.id2targets_?.[id]?.has(weakRef)) {
       return;
     }
 
     this.id2targets_[id] ??= new Set<WeakRef<Object>>();
     this.id2targets_[id].add(weakRef);
-    WeakRefPool.register(target, id, () => {
-      if (this.id2targets_?.[id]?.delete(weakRef) && this.id2targets_[id].size === 0) {
-        delete this.id2targets_[id];
-      }
-    });
+    // only observedV2 class need to register to FinalizationRegistry
+    // view can be unregistered from id2targets in aboutToBeDeletedInternal
+    if (!(target instanceof ViewBuildNodeBase)) {
+      WeakRefPool.addTagCallback(target, id, () => {
+        if (this.id2targets_?.[id]?.delete(weakRef) && this.id2targets_[id].size === 0) {
+          delete this.id2targets_[id];
+        }
+      });
+    }
   }
 
   /**
@@ -471,8 +531,6 @@ class ObserveV2 {
     return ret;
   }
 
-
-
   /**
   * mark view model object 'target' property 'attrName' as changed
   * notify affected watchIds and elmtIds but exclude given elmtIds
@@ -492,22 +550,55 @@ class ObserveV2 {
     // enable to get more fine grained traces
     // including 2 (!) .end calls.
 
-    if (!target[ObserveV2.SYMBOL_REFS] || this.disabled_) {
+    if (this.disabled_) {
+      return;
+    }
+
+    if (InteropConfigureStateMgmt.needsInterop()) {
+      let staticCompatibleFunc = target['__staticCompatibleFunc__'];
+      if (staticCompatibleFunc) {
+        let staticStatic = target['__staticStatic__' + attrName];
+        if (staticStatic) {
+          staticCompatibleFunc[2](staticStatic);
+        }
+      }
+      let staticCompatibleMetaFunc = target['__staticCompatibleMetaFunc__'];
+      if (staticCompatibleMetaFunc) {
+        let staticStatic = target['__staticMetaState__' + attrName];
+        if (staticStatic) {
+          staticCompatibleMetaFunc[2](staticStatic);
+        }
+      }
+    }
+
+    let targetSymbolRefs = target[ObserveV2.SYMBOL_REFS];
+
+    if (!targetSymbolRefs) {
       return;
     }
 
     const bound = this.stackOfRenderedComponents_.top();
-    if (this.calculatingComputedProp_) {
-      const prop = bound ? (bound[1] as ComputedV2).getProp() : 'unknown computed property';
-      const error = `Usage of ILLEGAL @Computed function detected for ${prop}! The @Computed function MUST NOT change the state of any observed state variable!`;
-      stateMgmtConsole.applicationError(error);
-      throw new Error(error);
-    }
 
     // enable this trace marker for more fine grained tracing of the update pipeline
     // note: two (!) end markers need to be enabled
-    let changedIdSet = target[ObserveV2.SYMBOL_REFS][attrName];
-    if (changedIdSet instanceof Set === false) {
+
+    let changedIdSet: Set<number> | undefined = targetSymbolRefs[attrName];
+    // Ignore for SynMonitor
+    // Map/Set always fire in pairs SetMapProxyHandler.OB_MAP_SET_ANY_PROPERTY and  ObserveV2.OB_LENGTH
+    // Condition below will ignore all attrs for Map and Set with the exception of
+    // OB_LENGTH and OB_MAP_SET_MONITOR_ANY_PROPERTY
+    // For Map and Set we trigger SyncMonitors only two attribures:
+    // ObserveV2.OB_LENGTH and OB_MAP_SET_MONITOR_ANY_PROPERTY
+    if ((targetSymbolRefs[MonitorV2.OB_ANY] !== undefined) &&
+      (attrName === ObserveV2.OB_LENGTH ||
+      attrName === SetMapProxyHandler.OB_MAP_SET_MONITOR_ANY_PROPERTY ||
+      (!(target instanceof Map) && !(target instanceof Set)))) {
+      if (changedIdSet === undefined) {
+        changedIdSet = new Set<number>();
+      }
+      targetSymbolRefs[MonitorV2.OB_ANY].forEach(item => changedIdSet!.add(item))
+    }
+    if (!changedIdSet || changedIdSet.size === 0) {
       return;
     }
 
@@ -535,7 +626,7 @@ class ObserveV2 {
       const shouldUpdateDirty = (!hasPendingChanges && !this.startDirty_ && !isReuseInProgress);
 
       if (shouldUpdateDirty) {
-        Promise.resolve().then(this.updateDirty.bind(this))
+        Promise.resolve().then(this.updateDirtyBoundFunction_)
           .catch(error => {
             stateMgmtConsole.applicationError(`Exception occurred during the update process involving @Computed properties, @Monitor functions or UINode re-rendering`, error);
             _arkUIUncaughtPromiseError(error);
@@ -543,16 +634,33 @@ class ObserveV2 {
       }
 
       // add bindId to the correct Set of pending changes.
+
       if (id < ComputedV2.MIN_COMPUTED_ID) {
         this.elmtIdsChanged_.add(id);
-      } else if (id < MonitorV2.MIN_WATCH_ID) {
+      } else if (id < MonitorV2.MIN_MONITOR_ORIG_ID) {
         this.computedPropIdsChanged_.add(id);
-      } else if (id < PersistenceV2Impl.MIN_PERSISTENCE_ID) {
+      } else if (id < MonitorV2.MIN_MONITOR_WITH_OPTIONS_OR_ASYNC_API_ID) {
         this.monitorIdsChanged_.add(id);
+      } else if (id < MonitorV2.MIN_SYNC_MONITOR_OR_SYNC_API_ID) {
+        this.monitorAsyncIdsChangedForAddMonitorBased_.add(id);
+      } else if (id < PersistenceV2Impl.MIN_PERSISTENCE_ID) {
+        this.monitorSyncIdsChangedForAddMonitorBased_.add(id);
       } else {
         this.persistenceChanged_.add(id);
       }
     } // for
+
+    // execute the AddMonitor synchronous function and @SyncMonitor function
+    while (this.monitorSyncIdsChangedForAddMonitorBased_.size) {
+      stateMgmtConsole.debug(`AddMonitor API/@SyncMonitor monitorSyncIdsChangedForAddMonitor_ ${this.monitorSyncIdsChangedForAddMonitorBased_.size}`)
+      const monitorIdSet: Set<number> = this.monitorSyncIdsChangedForAddMonitorBased_;
+      this.monitorSyncIdsChangedForAddMonitorBased_ = new Set<number>();
+      // update the value and dependency for each path and get the MonitorV2 id needs to be execute
+      let funcsToRun = this.updateDirtyMonitorPath(monitorIdSet);
+      if (funcsToRun.size) {
+        this.runAddMonitorBasedFunctions(funcsToRun);
+      }
+    }
 
     // report the stateVar changed when recording the profiler
     if (stateMgmtDFX.enableProfiler && !ignoreOnProfiler) {
@@ -572,13 +680,14 @@ class ObserveV2 {
     this.elmtIdsChanged_.clear();
 
     // Cache for view -> instanceId
-    const viewInstanceIdCache = new Map<ViewV2 | ViewPU, number>();
+    const viewInstanceIdCache = new Map<ViewBuildNodeBase, number>();
 
     for (const elmtId of elmtIds) {
         const view = this.id2cmp_[elmtId]?.deref();
 
         // Early continue for invalid views
-        if (!(view instanceof ViewV2 || view instanceof ViewPU)) {
+        if (!(view instanceof ViewV2 || view instanceof ViewPU ||
+            (view instanceof ViewBuildNodeBase && view?.__isReactiveBuilderNode__ViewBuildNodeBase__Internal()))) {
             continue;
         }
 
@@ -592,7 +701,7 @@ class ObserveV2 {
         // Get or create viewMap
         let viewMap = this.viewV2NeedUpdateMap_.get(instanceId);
         if (!viewMap) {
-          viewMap = new Map<ViewV2 | ViewPU, Array<number>>();
+          viewMap = new Map<ViewBuildNodeBase, Array<number>>();
           this.viewV2NeedUpdateMap_.set(instanceId, viewMap);
         }
 
@@ -714,47 +823,14 @@ class ObserveV2 {
    * three nested loops, means:
    * process @Computed until no more @Computed need update
    * process @Monitor until no more @Computed and @Monitor
-  */
-  private updateComputedAndMonitors(): void {
-    do {
-      while (this.computedPropIdsChanged_.size) {
-        //  sort the ids and update in ascending order
-        // If a @Computed property depends on other @Computed properties, their
-        // ids will be smaller as they are defined first.
-        const computedProps = Array.from(this.computedPropIdsChanged_).sort((id1, id2) => id1 - id2);
-        this.computedPropIdsChanged_ = new Set<number>();
-        this.updateDirtyComputedProps(computedProps);
-      }
-
-      if (this.persistenceChanged_.size) {
-        const persistKeys: Array<number> = Array.from(this.persistenceChanged_);
-        this.persistenceChanged_ = new Set<number>();
-        PersistenceV2Impl.instance().onChangeObserved(persistKeys);
-      }
-
-      if (this.monitorIdsChanged_.size) {
-        const monitors = this.monitorIdsChanged_;
-        this.monitorIdsChanged_ = new Set<number>();
-        this.updateDirtyMonitors(monitors);
-      }
-    } while (this.monitorIdsChanged_.size + this.persistenceChanged_.size + this.computedPropIdsChanged_.size > 0);
-  }
-
-  /**
-   * execute /update in this order
-   * - @Computed variables
-   * - @Monitor functions
-   * - UINode re-render
-   * three nested loops, means:
-   * process @Computed until no more @Computed need update
-   * process @Monitor until no more @Computed and @Monitor
    * process UINode update until no more @Computed and @Monitor and UINode rerender
    *
    * @param updateUISynchronously should be set to true if called during VSYNC only
+   * @param snapshot optional, used by applySync() to track processed IDs for optimization
    *
    */
 
-  public updateDirty2(updateUISynchronously: boolean = false, isReuse: boolean = false): void {
+  public updateDirty2(updateUISynchronously: boolean = false, isReuse: boolean = false, snapshot?: Object): void {
     aceDebugTrace.begin('updateDirty2');
     stateMgmtConsole.debug(`ObservedV2.updateDirty2 updateUISynchronously=${updateUISynchronously} ... `);
     // obtain and unregister the removed elmtIds
@@ -767,10 +843,14 @@ class ObserveV2 {
     // 3- update UINodes until no more monitors, no more computed props, and no more UINodes
     // FIXME prevent infinite loops
     do {
-      this.updateComputedAndMonitors();
+      // update and remove processed ids from the snapshot
+      this.updateComputedAndMonitors(snapshot);
 
       if (this.elmtIdsChanged_.size) {
         const elmtIds = Array.from(this.elmtIdsChanged_).sort((elmtId1, elmtId2) => elmtId1 - elmtId2);
+        if (snapshot) {
+          this.elmtIdsChanged_.forEach(Set.prototype.delete, snapshot['elmtIdsChanged_']);
+        }
         this.elmtIdsChanged_ = new Set<number>();
         updateUISynchronously ? isReuse ? this.updateUINodesForReuse(elmtIds) : this.updateUINodesSynchronously(elmtIds) : this.updateUINodes(elmtIds);
       }
@@ -778,6 +858,66 @@ class ObserveV2 {
 
     aceDebugTrace.end();
     stateMgmtConsole.debug(`ObservedV2.updateDirty2 updateUISynchronously=${updateUISynchronously} - DONE `);
+  }
+
+  /**
+   * execute /update in this order
+   * - @Computed variables
+   * - @Monitor functions
+   * - UINode re-render
+   * three nested loops, means:
+   * process @Computed until no more @Computed need update
+   * process @Monitor until no more @Computed and @Monitor
+   * 
+   * @param snapshot optional, used by applySync() to track processed IDs for optimization
+  */
+  private updateComputedAndMonitors(snapshot?: Object): void {
+    do {
+      while (this.computedPropIdsChanged_.size) {
+        //  sort the ids and update in ascending order
+        // If a @Computed property depends on other @Computed properties, their
+        // ids will be smaller as they are defined first.
+        const computedProps = Array.from(this.computedPropIdsChanged_).sort((id1, id2) => id1 - id2);
+        if (snapshot) {
+          this.computedPropIdsChanged_.forEach(Set.prototype.delete, snapshot['computedPropIdsChanged_']);
+        }
+        this.computedPropIdsChanged_ = new Set<number>();
+        this.updateDirtyComputedProps(computedProps);
+      }
+
+      if (this.persistenceChanged_.size) {
+        const persistKeys: Array<number> = Array.from(this.persistenceChanged_);
+        if (snapshot) {
+          this.persistenceChanged_.forEach(Set.prototype.delete, snapshot['persistenceChanged_']);
+        }
+        this.persistenceChanged_ = new Set<number>();
+        PersistenceV2Impl.instance().onChangeObserved(persistKeys);
+      }
+
+      if (this.monitorIdsChanged_.size) {
+        const monitors = this.monitorIdsChanged_;
+        if (snapshot) {
+          this.monitorIdsChanged_.forEach(Set.prototype.delete, snapshot['monitorIdsChanged_']);
+        }
+        this.monitorIdsChanged_ = new Set<number>();
+        this.updateDirtyMonitors(monitors);
+      }
+      // Handle the id for AddMonitor API configured with asynchronous options
+      // Handle also Monitor With Options (that is always async) here
+      while (this.monitorAsyncIdsChangedForAddMonitorBased_.size) {
+        stateMgmtConsole.debug(`AddMonitor asynchronous ${this.monitorAsyncIdsChangedForAddMonitorBased_.size}`)
+        const monitorIdSet = this.monitorAsyncIdsChangedForAddMonitorBased_;
+        if (snapshot) {
+          this.monitorAsyncIdsChangedForAddMonitorBased_.forEach(Set.prototype.delete, snapshot['monitorAsyncIdsChangedForAddMonitorBased_']);
+        }
+        this.monitorAsyncIdsChangedForAddMonitorBased_ = new Set<number>();
+        // update the value and dependency for each path and get the MonitorV2 id needs to be execute
+        let funcsToRun = this.updateDirtyMonitorPath(monitorIdSet);
+        if (funcsToRun.size) {
+          this.runAddMonitorBasedFunctions(funcsToRun);
+        }
+      }
+    } while (this.monitorIdsChanged_.size + this.persistenceChanged_.size + this.computedPropIdsChanged_.size  > 0)
   }
 
   public updateDirtyComputedProps(computed: Array<number>): void {
@@ -825,9 +965,9 @@ class ObserveV2 {
   }
 
   public updateDirtyMonitors(monitors: Set<number>): void {
-    stateMgmtConsole.debug(`ObservedV3.updateDirtyMonitors: ${Array.from(monitors).length} @monitor funcs: ${JSON.stringify(Array.from(monitors))} ...`);
-    aceDebugTrace.begin(`ObservedV3.updateDirtyMonitors: ${Array.from(monitors).length} @monitor`);
-    
+    stateMgmtConsole.debug(`ObservedV2.updateDirtyMonitors: ${monitors.size} @monitor funcs: ${JSON.stringify(Array.from(monitors))} ...`);
+    aceDebugTrace.begin(`ObservedV2.updateDirtyMonitors: ${monitors.size} @monitor`);
+
     let monitor: MonitorV2 | undefined;
     let monitorTarget: Object;
 
@@ -839,12 +979,63 @@ class ObserveV2 {
           // monitor notifyChange delayed if target is a View that is not active
           monitorTarget.addDelayedMonitorIds(watchId);
         } else {
-          monitor.notifyChange();
+          monitor.notifyChange(); // can delete this.elmtIdsChanged_
         }
       }
     });
     aceDebugTrace.end();
   }
+
+  /**
+   * @function runAddMonitorBasedFunctions
+   * @description This function will run monitor functions for
+   * Monitors added with AddMonitor API, functions decorated with @SyncMonitor
+   * and with @Monitor with options
+   *
+   * @param monitors - Set with IDs of MonitorsV2
+   */
+  public runAddMonitorBasedFunctions(monitors: Set<number>): void {
+    stateMgmtConsole.debug(`ObservedV2.runAddMonitorBasedFunctions: ${monitors.size}. AddMonitor/@SyncMonitor/@MonitorWithOpts funcs: ${JSON.stringify(Array.from(monitors))} ...`);
+    aceDebugTrace.begin(`ObservedV2.runAddMonitorBasedFunctions: ${monitors.size}`);
+
+    let monitor: MonitorV2 | undefined;
+
+    monitors.forEach((watchId) => {
+      monitor = this.id2Others_[watchId]?.deref();
+      if (monitor instanceof MonitorV2) {
+        monitor.runMonitorFunction();
+      }
+    });
+    aceDebugTrace.end();
+  }
+
+  public updateDirtyMonitorPath(monitorIds: Set<number>): Set<number> {
+    stateMgmtConsole.debug(`ObservedV2.updateDirtyMonitorPath: ${monitorIds.size} addMonitor/@SyncMonitor funcs: ${JSON.stringify(Array.from(monitorIds))} ...`);
+    aceDebugTrace.begin(`ObservedV3.updateDirtyMonitorPath: ${monitorIds.size} addMonitor/@SyncMonitor`);
+    let ret: number = 0;
+    let funcsToRun = new Set<number>;
+    monitorIds.forEach((monitorId) => {
+      const monitor = this.id2Others_[monitorId]?.deref();
+      if (monitor instanceof MonitorV2) {
+        const monitorTarget = monitor.getTarget();
+        if (monitorTarget instanceof ViewV2 && !monitorTarget.isViewActive()) {
+          monitorTarget.addDelayedMonitorIds(monitorId)
+        } else {
+          // find the path MonitorValue and record dependency again
+          // get path owning MonitorV2 id
+          ret = monitor.notifyChangeForEachPath(monitorId);
+        }
+      }
+
+      // Collect AddMonitor functions that need to be executed later
+      if (ret > 0) {
+        funcsToRun.add(ret);
+      }
+    });
+    aceDebugTrace.end();
+    return funcsToRun;
+  }
+
 
   /**
    * This version of UpdateUINodes does not wait for VSYNC, violates rules
@@ -854,7 +1045,7 @@ class ObserveV2 {
    * @param elmtIds
    *
    */
-  private updateUINodesSynchronously(elmtIds: Array<number>, inView?: ViewPU | ViewV2): void {
+  private updateUINodesSynchronously(elmtIds: Array<number>, inView?: ViewBuildNodeBase): void {
     stateMgmtConsole.debug(`ObserveV2.updateUINodesSynchronously: ${elmtIds.length} elmtIds: ${JSON.stringify(elmtIds)} ...`);
     aceDebugTrace.begin(`ObserveV2.updateUINodesSynchronously: ${elmtIds.length} elmtId`);
 
@@ -869,6 +1060,9 @@ class ObserveV2 {
           view.scheduleDelayedUpdate(elmtId);
         }
       } // if ViewV2 or ViewPU
+      else if (view instanceof ViewBuildNodeBase && view?.__isReactiveBuilderNode__ViewBuildNodeBase__Internal()) {
+        view.UpdateElement(elmtId);
+      }
     });
     aceDebugTrace.end();
   }
@@ -912,26 +1106,175 @@ class ObserveV2 {
           view.scheduleDelayedUpdate(elmtId);
         }
       }
+      else if (view instanceof ViewBuildNodeBase && view?.__isReactiveBuilderNode__ViewBuildNodeBase__Internal()) {
+        view.UpdateElement(elmtId);
+      }
     });
     aceDebugTrace.end();
   }
 
   public constructMonitor(owningObject: Object, owningObjectName: string): void {
-    let watchProp = Symbol.for(MonitorV2.WATCH_PREFIX + owningObjectName);
+    let watchProp = Symbol.for(MonitorV2.MONITOR_ORIG_PREFIX + owningObjectName);
     if (owningObject && (typeof owningObject === 'object') && owningObject[watchProp]) {
       Object.entries(owningObject[watchProp]).forEach(([pathString, monitorFunc]) => {
         if (monitorFunc && pathString && typeof monitorFunc === 'function') {
-          const monitor = new MonitorV2(owningObject, pathString, monitorFunc as (m: IMonitor) => void);
+          const monitor = new MonitorV2(owningObject, pathString, monitorFunc as (m: IMonitor) => void, MonitorType.MONITOR_DECORATOR);
           monitor.InitRun();
           const refs = owningObject[ObserveV2.MONITOR_REFS] ??= {};
           // store a reference inside owningObject
           // thereby MonitorV2 will share lifespan as owning @ComponentV2 or @ObservedV2
-          // remember: id2cmp only has a WeakRef to MonitorV2 obj
+          // remember: id2others only has a WeakRef to MonitorV2 obj
+          const existingMonitor = refs[monitorFunc.name];
+          if (existingMonitor && existingMonitor instanceof MonitorV2) {
+            // current Monitor will be override, and will be GC soon
+            // to avoid the Monitor be triggered anymore, invalidate it
+            ObserveV2.getObserve().clearWatch(existingMonitor.getMonitorId());
+          }
           refs[monitorFunc.name] = monitor;
         }
         // FIXME Else handle error
       });
     } // if target[watchProp]
+  }
+
+
+  private constructSyncMonitorAndMonitorsWithOptions(owningObject: Object, owningObjectName: string, isSync: boolean ): void {
+    let watchProp = Symbol.for(
+      (isSync? MonitorV2.SYNC_MONITOR_PREFIX : MonitorV2.MONITOR_WITH_OPTIONS_PREFIX) + owningObjectName);
+    if (owningObject && (typeof owningObject === 'object') && owningObject[watchProp]) {
+      Object.entries(owningObject[watchProp]).forEach(([pathString, info]) => {
+        let monitorFunc;
+        let wildcardEnabled = false;
+        let type;
+        if (isSync) {
+          // SyncMonitor
+          monitorFunc = info;
+          wildcardEnabled = true;
+          type = MonitorType.SYNC_MONITOR_DECORATOR;
+        } else {
+          [monitorFunc, wildcardEnabled] = (info as MonitorFunctionInfo);
+          type = MonitorType.MONITOR_WITH_OPTIONS_DECORATOR;
+        }
+        if (monitorFunc && pathString && typeof monitorFunc === 'function') {
+          this.AddMonitorPath(owningObject, pathString,
+            monitorFunc as MonitorCallback, isSync, wildcardEnabled, type, owningObjectName);
+        }
+      });
+      delete owningObject[watchProp];
+    }
+  }
+
+  public constructMonitorsWithOptions(owningObject: Object, owningObjectName: string): void {
+    this.constructSyncMonitorAndMonitorsWithOptions(owningObject, owningObjectName, false);
+  }
+
+  public constructSyncMonitors(owningObject: Object, owningObjectName: string): void {
+    this.constructSyncMonitorAndMonitorsWithOptions(owningObject, owningObjectName, true);
+  }
+
+  public AddMonitorPath(target: object, path: string | string[], monitorFunc: MonitorCallback,
+    isSync: boolean,
+    wildcardEnabled: boolean,
+    monitorType: MonitorType = MonitorType.ADD_MONITOR_API,
+    owningObjectName: string = ''): void {
+
+    const funcName = monitorFunc.name;
+    const pathsUniqueString = Array.isArray(path) ? path.join(' ') : path;
+    const paths = Array.isArray(path) ? path : [path];
+    const decorator = monitorType === MonitorType.SYNC_MONITOR_DECORATOR || monitorType === MonitorType.MONITOR_WITH_OPTIONS_DECORATOR;
+
+    // ADD_MONITOR_API_REFS - used in clearMonitorPath and getMonitorIds
+    // MONITOR_WITH_OPTIONS_OR_SYNC_MONITOR_REFS - used in resetAllMonitorsOnReuse and getMonitorIds
+
+    const refs_sym = (monitorType === MonitorType.ADD_MONITOR_API)
+      ? ObserveV2.ADD_MONITOR_API_REFS
+      : ObserveV2.MONITOR_WITH_OPTIONS_OR_SYNC_MONITOR_REFS;
+
+    const refs = target[refs_sym] ??= {};
+    let monitor = refs[funcName] as MonitorV2;
+
+    // 'monitor' is a @SyncMonitor MonitorV2 or @Monitor with options decorator
+    if (monitor && monitor instanceof MonitorV2 && (monitor.isSyncMonitorDecorator() || monitor.isMonitorWithOptionsdDecorator())) {
+      const decoratorName = monitor.getDecoratorName();
+      if (!decorator) {
+        // Attempt to redefine @SyncMonitor or @Monitor With Options via API addMonitor call, ignore
+        stateMgmtConsole.applicationError(`addMonitor failed, current function ${funcName} in ${owningObjectName} has already register as ${decoratorName}, cannot add path(s)`);
+        return;
+      }
+      // Derived class defines @SyncMonitor for the function with the same name
+      // as in the base class. Deleting MonitorV2 object of the base class here.
+      ObserveV2.getObserve().clearWatch(monitor.getMonitorId());
+      refs[funcName] = undefined;
+      monitor = undefined;
+      stateMgmtConsole.warn(`${decoratorName} ${monitorFunc.name} ${path} in ${owningObjectName} instance with same name already exists.
+        The new ${funcName} will override the previous one, and the old one will no longer take effect.`);
+    }
+
+    // 'monitor' is a AddMonitor API created MonitorV2
+    if (monitor && monitor instanceof MonitorV2) {
+      if (isSync !== monitor.isSync()) {
+        stateMgmtConsole.applicationError(`addMonitor failed, current function ${funcName} has already register as ${monitor.isSync()? `sync`: `async`}, cannot change to ${isSync? `sync`: `async`} anymore`);
+        return;
+      }
+      paths.forEach(path => {
+        monitor.addPath(path);
+      });
+      monitor.InitRun();
+      return;
+    }
+
+    // @SyncMonitor or @Monitor With Options
+    monitor = new MonitorV2(target, pathsUniqueString, monitorFunc, monitorType, isSync, wildcardEnabled);
+    monitor.InitRun();
+    // store a reference inside target
+    // thereby MonitorV2 will share lifespan as owning @ComponentV2 or @ObservedV2 to prevent the MonitorV2 is GC
+    // remember: id2others only has a WeakRef to MonitorV2 obj
+    refs[funcName] = monitor;
+
+    if (!(target instanceof PUV2ViewBase)) {
+      WeakRefPool.addMonitorId(target, monitor.getMonitorId());
+    }
+  }
+
+  public clearMonitorPath(target: object, path: string | string[], monitorFunc?: MonitorCallback): void {
+    const refs = target[ObserveV2.ADD_MONITOR_API_REFS] ??= {};
+    const paths = Array.isArray(path) ? path : [path];
+
+    if (monitorFunc) {
+      const funcName = monitorFunc.name;
+      let monitor = refs[funcName];
+      if (monitor && monitor instanceof MonitorV2) {
+        paths.forEach(item => {
+          if (!monitor.removePath(item)) {
+            stateMgmtConsole.applicationError(
+              `cannot clear path ${item} for ${funcName} because it was never registered with addMonitor`
+            );
+          }
+        });
+      } else {
+        const pathsUniqueString = paths.join(' ');
+        stateMgmtConsole.applicationError(
+          `clearMonitor failed: cannot clear path(s) ${pathsUniqueString} for ${funcName} because no Monitor instance was found for this function`
+        );
+      }
+      return;
+    }
+    // no monitorFunc passed: try to remove this path for all the monitorV2 instance stored in current target
+    const monitors = Object.values(refs).filter((m): m is MonitorV2 => m instanceof MonitorV2);
+
+    paths.forEach(item => {
+      let res = false;
+      monitors.forEach(monitor => {
+        if (monitor.removePath(item)) {
+          res = true;
+        }
+      });
+      if (!res) {
+        stateMgmtConsole.applicationError(
+          `cannot clear path ${item} for current target ${target.constructor.name} because no Monitor function for this path was registered`
+        );
+      }
+    });
   }
 
   public constructComputed(owningObject: Object, owningObjectName: string): void {
@@ -945,19 +1288,63 @@ class ObserveV2 {
         // store a reference inside owningObject
         // thereby ComputedV2 will share lifespan as owning @ComponentV2 or @ObservedV2
         // remember: id2cmp only has a WeakRef to ComputedV2 obj
+        const existingComputed = refs[computedPropertyName];
+        if (existingComputed && existingComputed instanceof ComputedV2) {
+          // current computed will be override, and will be GC soon
+          // to avoid the Computed be triggered anymore, invalidate it
+          this.clearBinding(existingComputed.getComputedId());
+        }
         refs[computedPropertyName] = computed;
       });
     }
   }
 
   public clearWatch(id: number): void {
+    // @Monitor
+    if (id < MonitorV2.MIN_MONITOR_WITH_OPTIONS_OR_ASYNC_API_ID) {
+      this.clearBinding(id);
+      return;
+    }
+    // addMonitor, @SyncMonitor, @Monitor with options
+    const monitor: MonitorV2 = this.id2Others_[id]?.deref();
+    if (monitor instanceof MonitorV2) {
+      monitor.getValues().forEach((monitorValueV2: MonitorValueV2<unknown>) => {
+        this.clearBinding(monitorValueV2.id);
+        delete this.id2Others_[monitorValueV2.id];
+      })
+    }
     this.clearBinding(id);
+    delete this.id2Others_[id];
   }
 
-
-
+  public registerMonitor(monitor: MonitorV2, id: number): void {
+    const weakRef = WeakRefPool.getWeakRef(monitor);
+    // this instance, which maybe MonitorV2/ComputedV2 have been already recorded in id2Others
+    if (this.id2Others_[id] === weakRef) {
+      return;
+    }
+    this.id2Others_[id] = weakRef;
+    // register MonitorV2/ComputedV2 instance gc-callback func
+    WeakRefPool.addTagCallback(monitor, id, () => {
+      delete this.id2Others_[id];
+    });
+  }
+  
+  public static setStaticCompatibleFuncInVal(target: Object, val: any): any {
+    let staticCompatibleFunc = target['__staticCompatibleFunc__'];
+    if (staticCompatibleFunc && typeof (val) === 'object') {
+      if (!(Array.isArray(val) || val instanceof Set || val instanceof Map || val instanceof Date)) {
+        val['__staticCompatibleFunc__'] = staticCompatibleFunc;
+        return val;
+      }
+    }
+    return val;
+  }
   public static autoProxyObject(target: Object, key: string | symbol): any {
     let val = target[key];
+    if (InteropConfigureStateMgmt.needsInterop()) {
+      val = ObserveV2.setStaticCompatibleFuncInVal(target, val);
+    }
     // Not an object, not a collection, no proxy required
     if (!val || typeof (val) !== 'object' ||
       !(Array.isArray(val) || val instanceof Set || val instanceof Map || val instanceof Date)) {
@@ -997,9 +1384,10 @@ class ObserveV2 {
 
   /**
    * Helper function to add meta data about decorator to ViewPU or ViewV2
-   * @param proto prototype object of application class derived from  ViewPU or ViewV2
+   * @param proto prototype object of application class derived from  ViewPU or ViewV2 or `@ObservedV2` class
    * @param varName decorated variable
-   * @param deco '@Local', '@Event', etc 
+   * @param deco '@Local', '@Event', etc
+   *              Excludes `@Computed` and `@Monitor`
    */
   public static addVariableDecoMeta(proto: Object, varName: string, deco: string): void {
     // add decorator meta data
@@ -1014,8 +1402,25 @@ class ObserveV2 {
     Reflect.defineProperty(proto, 'isViewV2', {
       get() { return true; },
       enumerable: false
-    }
-    );
+    });
+  }
+
+    /**
+   * Helper function to add meta data about for `@Computed` and `@Monitor`
+   * @param proto prototype object of application class derived from  ViewPU or ViewV2 or `@ObservedV2` class
+   * @param varName decorated variable
+   * @param deco `@Computed` and `@Monitor`
+   */
+  public static addMethodDecoMeta(proto: Object, varName: string, deco: string): void {
+    // add decorator meta data
+    const meta = proto[ObserveV2.V2_DECO_METHOD_META] ??= {};
+    meta[varName] = {};
+    meta[varName].deco = deco;
+
+    Reflect.defineProperty(proto, 'isViewV2', {
+      get() { return true; },
+      enumerable: false
+    });
   }
 
 
@@ -1041,7 +1446,6 @@ class ObserveV2 {
     );
   }
 
-
   public static usesV2Variables(proto: Object): boolean {
     return (proto && typeof proto === 'object' && proto[ObserveV2.V2_DECO_META]);
   }
@@ -1059,16 +1463,28 @@ class ObserveV2 {
     return (weak && (view = weak.deref()) && (view instanceof PUV2ViewBase)) ? view.debugInfoElmtId(elmtId, isProfiler) : `unknown component type[${elmtId}]`;
   }
 
+  public getElementNameById(elmtId: number): string {
+    const weak: WeakRef<ViewBuildNodeBase> | undefined = UINodeRegisterProxy.ElementIdToOwningViewPU_.get(elmtId);
+    let view;
+    return (weak && (view = weak.deref()) && (view instanceof PUV2ViewBase)) ?
+      view.getElementNameById(elmtId) : 'unknown component name';
+  }
+
   /**
    * Get attrName decorator info. 
    */
   public getDecoratorInfo(target: object, attrName: string): string {
-    const meta = target[ObserveV2.V2_DECO_META]; 
-    if (!meta) {
+    const meta = target[ObserveV2.V2_DECO_META];
+    const metaMethod = target[ObserveV2.V2_DECO_METHOD_META];
+    const decorator = meta?.[attrName] ?? metaMethod?.[attrName];
+    return this.parseDecorator(decorator);
+  }
+
+  public parseDecorator(decorator: any): string {
+    if (!decorator) {
       return '';
     }
-    const decorator = meta[attrName];
-    if (!decorator) {
+    if (typeof decorator !== 'object') {
       return '';
     }
     let decoratorInfo: string = '';
@@ -1096,9 +1512,113 @@ class ObserveV2 {
     return (weak && (monitorV2 = weak.deref()) && (monitorV2 instanceof MonitorV2)) ? monitorV2.getMonitorFuncName() : '';
   }
 
+  public getMonitorInfoByIdTagAndFunc(id: number): string {
+    let weak = this.id2Others_[id];
+    let monitorV2: MonitorV2;
+    return (weak && (monitorV2 = weak.deref()) && (monitorV2 instanceof MonitorV2))
+      ? monitorV2.getDecoratorName() + ' '  + monitorV2.getMonitorFuncName()
+      : '';
+  }
+
   public setCurrentReuseId(elmtId: number): void {
     this.currentReuseId_ = elmtId;
   }
+
+  // Runs a task and processes all resulting updates immediately
+  public applySync<T>(task: () => T): T {
+    ObserveV2.getObserve().isParentChildOptimizable_ = false;
+    if (ComputedV2.runningCount) {
+      const message = 'The function is not allowed to be called in @Computed';
+      stateMgmtConsole.applicationError(message);
+      throw new BusinessError(FUNC_CALLED_IN_COMPUTED_ILLEGAL, message);
+    }
+
+    if (this.applySyncRunningCount_) {
+      stateMgmtConsole.warn('UIUtils.applySync will be skipped when called within another UIUtils.applySync. The inner UIUtils.applySync will return undefined');
+      return undefined;
+    }
+
+    this.applySyncRunningCount_++;
+
+    const names = [
+      'elmtIdsChanged_',
+      'computedPropIdsChanged_',
+      'monitorIdsChanged_', 'monitorAsyncIdsChangedForAddMonitorBased_', 'monitorSyncIdsChangedForAddMonitorBased_',
+      'persistenceChanged_'
+    ];
+
+    // Take a snapshot of the current pending IDs and reset them to empty sets
+    const snapshot = {};
+    names.forEach(name => snapshot[name] = this[name]);
+    names.forEach(name => this[name] = new Set());
+
+    // Execute the task — any state changes here will be recorded in the cleared sets
+    let retValue;
+    try {
+      retValue = task();     
+    } catch (error) {
+      stateMgmtConsole.applicationError(`UIUtils.applySync - task execution caught error ${error} !`);
+      throw error;
+    }
+
+    // Remove IDs added by task() from the original snapshot
+    names.forEach((name) =>
+      this[name].forEach(Set.prototype.delete, snapshot[name])
+    );
+
+    // Process the new changes immediately (may produce further changes) and
+    // remove IDs added by updateDirty2 from the original snapshot
+    this.updateDirty2(false, false, snapshot);
+
+    // Restore unprocessed IDs from the snapshot
+    names.forEach((name) => this[name] = snapshot[name]);
+
+    this.applySyncRunningCount_--;
+    return retValue;
+  }
+
+  // Immediately processes all updates
+  public flushUpdates(): void {
+    ObserveV2.getObserve().isParentChildOptimizable_ = false;
+    if (ComputedV2.runningCount) {
+      const message = 'The function is not allowed to be called in @Computed';
+      stateMgmtConsole.applicationError(message);
+      throw new BusinessError(FUNC_CALLED_IN_COMPUTED_ILLEGAL, message);
+    }
+    if (MonitorV2.runningCount) {
+      const message = 'The function is not allowed to be called in @Monitor';
+      stateMgmtConsole.applicationError(message);
+      throw new BusinessError(FUNC_CALLED_IN_MONITOR_ILLEGAL, message);
+    }
+    if (this.applySyncRunningCount_) {
+      stateMgmtConsole.warn('UIUtils.flushUpdates will be skipped when called within UIUtils.applySync');
+      return;
+    }
+    this.updateDirty2(false);
+  }
+
+  // Update all UINodes that currently need update
+  public flushUIUpdates(): void {
+    ObserveV2.getObserve().isParentChildOptimizable_ = false;
+    if (ComputedV2.runningCount) {
+      const message = 'The function is not allowed to be called in @Computed';
+      stateMgmtConsole.applicationError(message);
+      throw new BusinessError(FUNC_CALLED_IN_COMPUTED_ILLEGAL, message);
+    }
+    if (MonitorV2.runningCount) {
+      const message = 'The function is not allowed to be called in @Monitor';
+      stateMgmtConsole.applicationError(message);
+      throw new BusinessError(FUNC_CALLED_IN_MONITOR_ILLEGAL, message);
+    }
+    if (this.applySyncRunningCount_) {
+      stateMgmtConsole.warn('UIUtils.flushUIUpdates will be skipped when called within UIUtils.applySync'); 
+      return;
+    }
+    const elmtIds = Array.from(this.elmtIdsChanged_).sort((id1, id2) => id1 - id2);
+    this.updateUINodes(elmtIds);
+    this.elmtIdsChanged_.clear();
+  }
+
 } // class ObserveV2
 
 const trackInternal = (
@@ -1118,6 +1638,9 @@ const trackInternal = (
     },
     set(val) {
       // If the object has not been observed, you can directly assign a value to it. This improves performance.
+      if (InteropConfigureStateMgmt.needsInterop() && val && typeof val === 'object' && isStaticProxy(val)) {
+        val = InteropExtractorModule.getV2InteropObservedObject(val, this, propertyKey, '__localStaticWatch_');
+      }
       if (val !== this[storeProp]) {
         this[storeProp] = val;
 
@@ -1133,6 +1656,7 @@ const trackInternal = (
   target[ObserveV2.V2_DECO_META] ??= {};
 }; // trackInternal
 
-function updateDirty2ForAnimateTo() {
+// used to manually mark dirty v2 before animateTo
+function __updateDirty2Immediately_V2_Change_Observation(): void {
   ObserveV2.getObserve().updateDirty2();
 }

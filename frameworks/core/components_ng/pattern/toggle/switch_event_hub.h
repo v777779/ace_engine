@@ -17,7 +17,6 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_SWITCH_SWITCH_EVENT_HUB_H
 
 #include "base/memory/ace_type.h"
-#include "base/utils/noncopyable.h"
 #include "core/components_ng/event/event_hub.h"
 
 namespace OHOS::Ace::NG {
@@ -25,7 +24,7 @@ namespace OHOS::Ace::NG {
 using ChangeEvent = std::function<void(const bool)>;
 
 class SwitchEventHub : public EventHub {
-    DECLARE_ACE_TYPE(SwitchEventHub, EventHub)
+    DECLARE_ACE_TYPE(SwitchEventHub, EventHub);
 
 public:
     SwitchEventHub() = default;

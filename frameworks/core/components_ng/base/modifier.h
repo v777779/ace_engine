@@ -22,9 +22,11 @@
 #include <optional>
 #include <vector>
 
+#include "ui/base/modifier_property.h"
 #include "base/geometry/ng/rect_t.h"
 #include "base/memory/ace_type.h"
 #include "base/utils/utils.h"
+#include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/animation_option.h"
 #include "core/components_ng/animation/gradient_arithmetic.h"
 #include "core/components_ng/base/linear_vector.h"
@@ -42,10 +44,6 @@ enum class ThresholdType {
     ZERO,    // 0.0f for noanimatable property
 };
 
-enum class PropertyUnit {
-    UNKNOWN,
-    PIXEL_POSITION, // animatable properties are related to position of the object, the unit is pixels
-};
 
 namespace OHOS::Ace::NG {
 
@@ -99,6 +97,7 @@ public:
     DrawModifierFunc drawContentFunc;
     DrawModifierFunc drawFrontFunc;
     DrawModifierFunc drawForegroundFunc;
+    DrawModifierFunc drawOverlayFunc;
 };
 
 template<typename T>
@@ -352,6 +351,11 @@ public:
 
     void SetExtensionHandler(const RefPtr<ExtensionHandler>& extensionHandler);
 
+    virtual ContentTransitionType GetContentTransitionParam()
+    {
+        return ContentTransitionType::IDENTITY;
+    }
+
 private:
     std::vector<RefPtr<PropertyBase>> attachedProperties_;
     std::optional<RectF> rect_;
@@ -402,11 +406,11 @@ private:
 using FinishCallback = std::function<void()>;
 
 template<typename T, typename S>
-class NodeAnimatableProperty : public NodeAnimatablePropertyBase {
+class ACE_FORCE_EXPORT NodeAnimatableProperty : public NodeAnimatablePropertyBase {
     DECLARE_ACE_TYPE(NodeAnimatableProperty, NodeAnimatablePropertyBase);
 
 public:
-    NodeAnimatableProperty(const T& value, std::function<void(const T&)>&& updateCallback)
+    ACE_FORCE_EXPORT NodeAnimatableProperty(const T& value, std::function<void(const T&)>&& updateCallback)
     {
         auto property = AceType::MakeRefPtr<S>(value);
         property->SetUpdateCallback(std::move(updateCallback));
@@ -414,7 +418,7 @@ public:
     }
     ~NodeAnimatableProperty() override = default;
 
-    void Set(const T& value)
+    ACE_FORCE_EXPORT void Set(const T& value)
     {
         auto property = AceType::DynamicCast<S>(GetProperty());
         if (property) {
@@ -434,13 +438,28 @@ public:
         }
         return {};
     }
+
+    T GetStagingValue() const
+    {
+        auto property = AceType::DynamicCast<S>(GetProperty());
+        if (property) {
+            return property->GetStagingValue();
+        }
+        return {};
+    }
+
     void AnimateWithVelocity(const AnimationOption& option, T value, T velocity,
         const FinishCallback& finishCallback);
 private:
     ACE_DISALLOW_COPY_AND_MOVE(NodeAnimatableProperty);
 };
 
+// Explicit instantiation declarations
+extern template class ACE_FORCE_EXPORT NodeAnimatableProperty<float, AnimatablePropertyFloat>;
+extern template class NodeAnimatableProperty<OffsetF, AnimatablePropertyOffsetF>;
+
 using NodeAnimatablePropertyFloat = NodeAnimatableProperty<float, AnimatablePropertyFloat>;
+using NodeAnimatablePropertyOffsetF = NodeAnimatableProperty<OffsetF, AnimatablePropertyOffsetF>;
 using NodeAnimatableArithmeticProperty =
     NodeAnimatableProperty<RefPtr<CustomAnimatableArithmetic>, AnimatableArithmeticProperty>;
 } // namespace OHOS::Ace::NG

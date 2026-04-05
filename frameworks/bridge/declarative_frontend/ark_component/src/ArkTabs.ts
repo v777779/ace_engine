@@ -135,6 +135,10 @@ class ArkTabsComponent extends ArkComponent implements TabsAttribute {
     modifierWithKey(this._modifiersWithKeys, TabsOnUnselectedModifier.identity, TabsOnUnselectedModifier, event);
     return this;
   }
+  onContentDidScroll(handler: OnTabsContentDidScrollCallback | undefined): this {
+    modifierWithKey(this._modifiersWithKeys, TabsOnContentDidScrollModifier.identity, TabsOnContentDidScrollModifier, handler);
+    return this;
+  }
   fadingEdge(value: boolean): TabsAttribute {
     modifierWithKey(this._modifiersWithKeys, FadingEdgeModifier.identity, FadingEdgeModifier, value);
     return this;
@@ -194,6 +198,10 @@ class ArkTabsComponent extends ArkComponent implements TabsAttribute {
   }
   edgeEffect(value: EdgeEffect): TabsAttribute {
     modifierWithKey(this._modifiersWithKeys, TabEdgeEffectModifier.identity, TabEdgeEffectModifier, value);
+    return this;
+  }
+  nestedScroll(value: TabsNestedScrollMode): TabsAttribute {
+    modifierWithKey(this._modifiersWithKeys, TabsNestedScrollModifier.identity, TabsNestedScrollModifier, value);
     return this;
   }
   pageFlipMode(value: PageFlipMode): this {
@@ -639,6 +647,21 @@ class TabsOnUnselectedModifier extends ModifierWithKey<Callback<number>> {
   }
 }
 
+class TabsOnContentDidScrollModifier extends ModifierWithKey<(selectedIndex: number, index: number,
+  position: number, mainAxisLength: number) => void> {
+  constructor(value: (selectedIndex: number, index: number, position: number, mainAxisLength: number) => void) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('tabsOnContentDidScroll');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().tabs.resetTabsOnContentDidScroll(node);
+    } else {
+      getUINativeModule().tabs.setTabsOnContentDidScroll(node, this.value);
+    }
+  }
+}
+
 class FadingEdgeModifier extends ModifierWithKey<boolean> {
   constructor(value: boolean) {
     super(value);
@@ -685,6 +708,23 @@ class TabEdgeEffectModifier extends ModifierWithKey<EdgeEffect> {
     }
   }
   checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
+class TabsNestedScrollModifier extends ModifierWithKey<TabsNestedScrollMode> {
+  constructor(value: TabsNestedScrollMode) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('tabsNestedScroll');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().tabs.resetNestedScroll(node);
+    } else {
+      getUINativeModule().tabs.setNestedScroll(node, this.value);
+    }
+  }
+  checkObjectDiff() {
     return !isBaseOrResourceEqual(this.stageValue, this.value);
   }
 }

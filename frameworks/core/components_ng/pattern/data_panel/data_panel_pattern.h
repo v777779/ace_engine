@@ -16,6 +16,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_DATA_PANEL_DATA_PANEL_PATTERN_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_DATA_PANEL_DATA_PANEL_PATTERN_H
 
+#include "base/utils/multi_thread.h"
 #include "core/components_ng/pattern/data_panel/data_panel_layout_algorithm.h"
 #include "core/components_ng/pattern/data_panel/data_panel_modifier.h"
 #include "core/components_ng/pattern/data_panel/data_panel_paint_method.h"
@@ -44,10 +45,7 @@ public:
         return MakeRefPtr<DataPanelLayoutAlgorithm>();
     }
 
-    FocusPattern GetFocusPattern() const override
-    {
-        return { FocusType::NODE, false, FocusStyleType::OUTER_BORDER };
-    }
+    FocusPattern GetFocusPattern() const override;
 
     void OnModifyDone() override;
 
@@ -55,15 +53,30 @@ public:
     {
         if (makeFunc == nullptr) {
             makeFunc_ = std::nullopt;
+            auto host = GetHost();
+            CHECK_NULL_VOID(host);
+            FREE_NODE_CHECK(host, SetBuilderFunc);
             OnModifyDone();
             return;
         }
         makeFunc_ = std::move(makeFunc);
     }
 
+    void SetBuilderFuncMultiThread();
+
     bool UseContentModifier()
     {
         return contentModifierNode_ != nullptr;
+    }
+
+    bool IsEnableMatchParent() override
+    {
+        return true;
+    }
+
+    bool IsEnableFix() override
+    {
+        return true;
     }
 
     void UpdateTrackBackground(const Color& color, bool isFirstLoad = false);

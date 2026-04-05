@@ -46,14 +46,14 @@ public:
     static void PlayGatherAnimation(const RefPtr<FrameNode>& frameNode, const RefPtr<OverlayManager>& overlayManager);
     static void ShowBadgeAnimation(const RefPtr<FrameNode>& textNode);
     static void ShowMenuHideAnimation(const PreparedInfoForDrag& data);
-    static void CalcBadgeTextPosition(const RefPtr<MenuPattern>& menuPattern,
-        const RefPtr<OverlayManager>& manager, const RefPtr<FrameNode>& imageNode, const RefPtr<FrameNode>& textNode);
-    static OffsetF CalcBadgeTextOffset(const RefPtr<MenuPattern>& menuPattern, const RefPtr<FrameNode>& imageNode,
+    static void CalcBadgeTextPosition(const RefPtr<FrameNode>& node, const RefPtr<OverlayManager>& manager,
+        const RefPtr<FrameNode>& imageNode, const RefPtr<FrameNode>& textNode);
+    static OffsetF CalcBadgeTextOffset(const RefPtr<FrameNode>& node, const RefPtr<FrameNode>& imageNode,
         const RefPtr<PipelineBase>& context, int32_t badgeLength);
     static void UpdateBadgeLayoutAndRenderContext(
         const RefPtr<FrameNode>& textNode, int32_t badgeLength, int32_t childSize);
-    static void UpdateGatherNodeToTop();
-    static void ShowGatherAnimationWithMenu(const RefPtr<FrameNode>& menuWrapperNode);
+    ACE_FORCE_EXPORT static void UpdateGatherNodeToTop();
+    ACE_FORCE_EXPORT static void ShowGatherAnimationWithMenu(const RefPtr<FrameNode>& menuWrapperNode);
     static void DoGrayedAnimation(const RefPtr<FrameNode>& frameNode, float opacity, RefPtr<InterpolatingSpring> cure);
     static void SetPreOpacity(const RefPtr<FrameNode>& preNode);
     static void DoDragStartGrayedAnimation(const RefPtr<FrameNode>& frameNode);
@@ -70,6 +70,10 @@ public:
     static void InitGatherNodeAttr(const RefPtr<FrameNode>& gatherNode,
         const std::vector<GatherNodeChildInfo>& gatherNodeInfo);
     static bool ShowGatherNodeAnimation(const RefPtr<FrameNode>& frameNode);
+
+    static void PreLayout(const RefPtr<FrameNode>& imageNode);
+    static void SetNodeVisible(const RefPtr<FrameNode>& frameNode, bool visible);
+
     static RefPtr<FrameNode> CreateBadgeTextNode(int32_t childSize);
     static void UpdateBadgeTextNodePosition(const RefPtr<FrameNode>& frameNode, const RefPtr<FrameNode>& textNode,
         int32_t childSize, float previewScale, OffsetF previewOffset = { 0.0f, 0.0f });
@@ -84,8 +88,7 @@ public:
     static void HideDragNodeCopyWithAnimation(const RefPtr<OverlayManager>& overlayManager,
         const RefPtr<FrameNode>& frameNode);
     static void HideDragNodeCopy(const RefPtr<OverlayManager>& overlayManager);
-    static void PreLayout(const RefPtr<FrameNode>& imageNode);
-    static void SetNodeVisible(const RefPtr<FrameNode>& frameNode, bool visible);
+
     static void DragStartAnimation(const Offset& newOffset, const RefPtr<OverlayManager>& overlayManager,
         const OffsetF& gatherNodeCenter, Point point, int32_t containerId);
     static void InitImageNodeProperties(const RefPtr<FrameNode>& imageNode, const RefPtr<PixelMap>& pixelMap);
@@ -95,6 +98,7 @@ public:
     static void MountPixelMap(const RefPtr<OverlayManager>& manager, const RefPtr<GestureEventHub>& gestureHub,
         PreparedInfoForDrag& data, bool isDragPixelMap);
     static void MountPixelMapSizeContentTransition(PreparedInfoForDrag& data, const RefPtr<FrameNode>& columnNode);
+    static void MountMenuNode(PreparedInfoForDrag& data);
     static RefPtr<RenderContext> GetMenuRenderContextFromMenuWrapper(const RefPtr<FrameNode>& menuWrapperNode);
     static RefPtr<FrameNode> GetMenuWrapperNodeFromDrag();
     static void UpdateStartAnimation(const RefPtr<OverlayManager>& overlayManager,
@@ -102,6 +106,8 @@ public:
         const DragDropManager::DragPreviewInfo& info, const Offset& newOffset);
     static void UpdateStartTransitionOptionAnimation(const DragDropManager::DragPreviewInfo& info);
     static void CreateTextNode(PreparedInfoForDrag& data);
+    static float GetLiftingNodeScale(const RefPtr<RenderContext>& renderContext);
+    static bool ShouldSetOffsetForMenuDrag();
 
 private:
     static void CreateAndMountMenuPreviewNode(PreparedInfoForDrag& data, const RefPtr<FrameNode>& stackFrameNode);

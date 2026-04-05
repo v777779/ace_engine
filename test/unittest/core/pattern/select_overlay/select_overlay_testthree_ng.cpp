@@ -14,28 +14,32 @@
  */
 
 #include <memory>
-
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-
-#include "base/memory/ace_type.h"
-#include "core/common/manager_interface.h"
-
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "base/memory/ace_type.h"
+#include "core/common/manager_interface.h"
+#include "core/components_ng/property/property.h"
+
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 
 #include "core/components/text_overlay/text_overlay_theme.h"
+#include "core/components/theme/shadow_theme.h"
 #include "core/components_ng/manager/select_overlay/select_overlay_manager.h"
-#include "core/components_ng/pattern/select_overlay/select_overlay_property.h"
-#undef protected
-#undef private
-
-#define protected public
-#include "core/components_ng/pattern/select_overlay/select_overlay_pattern.h"
-#undef protected
+#include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/select_overlay/magnifier_controller.h"
+#include "core/components_ng/pattern/select_overlay/magnifier.h"
+#include "core/components_ng/pattern/select_overlay/select_overlay_pattern.h"
+#include "core/components_ng/pattern/select_overlay/select_overlay_property.h"
+#include "core/components_ng/pattern/text/text_pattern.h"
+#include "core/components_ng/token_theme/token_theme_storage.h"
+#undef private
+#undef protected
 
 using namespace testing;
 using namespace testing::ext;
@@ -43,28 +47,78 @@ using namespace testing::ext;
 namespace OHOS::Ace::NG {
 namespace {} // namespace
 
+class MockPattern : public Pattern {
+    DECLARE_ACE_TYPE(MockPattern, Pattern);
+
+public:
+    MockPattern() = default;
+    void OnFrameNodeChanged(FrameNodeChangeInfoFlag flag) override
+    {
+        changeFlag_ = flag;
+    }
+    FrameNodeChangeInfoFlag changeFlag_;
+};
+
 class SelectOverlayPatternTestNg : public testing::Test {
 public:
     static void SetUpTestCase();
     static void TearDownTestCase();
+    void VerifyMagnifierBottomRightResult(MagnifierController& controller, const SizeF& frameSize,
+        float magnifierWidth, float magnifierHeight, const OffsetF& localOffset);
 };
 
 void SelectOverlayPatternTestNg::SetUpTestCase()
 {
     MockPipelineContext::SetUp();
+    MockContainer::SetUp();
+    MockContainer::Current()->taskExecutor_ = AceType::MakeRefPtr<MockTaskExecutor>();
     // set SelectTheme to themeManager before using themeManager to get SelectTheme
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto rootNode = MockPipelineContext::GetCurrent()->rootNode_;
+    if (rootNode) {
+        auto rootRenderContext = rootNode->GetRenderContext();
+        if (rootRenderContext) {
+            rootRenderContext->UpdatePaintRect(RectF(0.0f, 0.0f, 1280.0f, 2480.0f));
+        }
+    }
 }
 
 void SelectOverlayPatternTestNg::TearDownTestCase()
 {
     MockPipelineContext::TearDown();
+    MockContainer::TearDown();
 }
 
 void ResetCallback()
 {
     std::cout << "onResetSelection" << std::endl;
+}
+
+void SelectOverlayPatternTestNg::VerifyMagnifierBottomRightResult(MagnifierController& controller,
+    const SizeF& frameSize, float magnifierWidth, float magnifierHeight, const OffsetF& localOffset)
+{
+    OffsetF magnifierPaintOffset;
+    VectorF magnifierOffset(0.f, 0.f);
+    VectorF zoomOffset(0.f, 0.f);
+    EXPECT_EQ(controller.UpdateMagnifierOffsetX(magnifierPaintOffset, magnifierOffset, zoomOffset), true);
+    EXPECT_EQ(controller.UpdateMagnifierOffsetY(magnifierPaintOffset, magnifierOffset, zoomOffset), true);
+    EXPECT_EQ(magnifierPaintOffset, OffsetF(frameSize.Width() - magnifierWidth,
+        frameSize.Height() - magnifierOffset.y - magnifierHeight));
+    EXPECT_NE(magnifierOffset.y, 0.f);
+    float halfPreScaledTextWidth = magnifierWidth / MAGNIFIER_FACTOR / 2;
+    float preScaledMagnifierHeight = static_cast<float>(MAGNIFIER_HEIGHT.ConvertToPx() / MAGNIFIER_FACTOR);
+    float halfMagnifierInnerPaddingY = static_cast<float>(
+        (MAGNIFIER_SHADOWOFFSETY + MAGNIFIER_SHADOWSIZE * MAGNIFIER_SHADOW_SIZE_SCALE).ConvertToPx() / 2);
+    float magnifierInnerPaddingX =
+        static_cast<float>((MAGNIFIER_SHADOWOFFSETX + MAGNIFIER_SHADOWSIZE * 1.5).ConvertToPx());
+    float maxZoomOffsetX = magnifierWidth / 2 - halfPreScaledTextWidth + magnifierInnerPaddingX;
+    float targetZoomOffsetX = localOffset.GetX() - frameSize.Width() + magnifierWidth / 2;
+    float targetZoomOffsetY = localOffset.GetY() - frameSize.Height() + magnifierHeight / 2;
+    float maxZoomOffsetY = magnifierHeight / 2 - preScaledMagnifierHeight / 2 +
+                          halfMagnifierInnerPaddingY / MAGNIFIER_FACTOR;
+    EXPECT_EQ(zoomOffset, VectorF(std::clamp(targetZoomOffsetX, -maxZoomOffsetX, maxZoomOffsetX),
+        std::clamp(targetZoomOffsetY, -maxZoomOffsetY, maxZoomOffsetY)));
 }
 
 class MockUINode : public UINode {
@@ -466,6 +520,203 @@ HWTEST_F(SelectOverlayPatternTestNg, MagnifierController_FindWindowScene004, Tes
 }
 
 /**
+ * @tc.name: MagnifierController_SetLocalOffset001
+ * @tc.desc: test SetLocalOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectOverlayPatternTestNg, MagnifierController_SetLocalOffset001, TestSize.Level1)
+{
+    auto pattern = AceType::MakeRefPtr<Pattern>();
+    WeakPtr<Pattern> weakPattern(pattern);
+    MagnifierController controller(weakPattern);
+    auto windowNode = FrameNode::CreateFrameNode(V2::WINDOW_SCENE_ETS_TAG, 1, pattern, false);
+    auto columnNode = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, 2, pattern, false);
+    columnNode->MountToParent(windowNode);
+    controller.SetLocalOffset(OffsetF(10.f, 10.f));
+    EXPECT_EQ(controller.globalOffset_, OffsetF(10.f, 10.f));
+    controller.SetLocalOffset(OffsetF(10.f, 10.f), OffsetF(20.f, 20.f));
+    EXPECT_EQ(controller.globalOffset_, OffsetF(20.f, 20.f));
+}
+
+/**
+ * @tc.name: MagnifierController_UpdateMagnifierOffset001
+ * @tc.desc: test UpdateMagnifierOffsetX、UpdateMagnifierOffsetY
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectOverlayPatternTestNg, MagnifierController_UpdateMagnifierOffset001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set up test environment.
+     */
+    auto frameSize = SizeF(400.f, 400.f);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto rootUINode = pipeline->GetRootElement();
+    ASSERT_NE(rootUINode, nullptr);
+    auto rootGeometryNode = rootUINode->GetGeometryNode();
+    ASSERT_NE(rootGeometryNode, nullptr);
+    rootGeometryNode->SetFrameSize(frameSize);
+
+    auto pattern = AceType::MakeRefPtr<Pattern>();
+    WeakPtr<Pattern> weakPattern(pattern);
+    MagnifierController controller(weakPattern);
+    auto windowNode = FrameNode::CreateFrameNode(V2::PAGE_ETS_TAG, 1, pattern, false);
+    auto columnNode = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, 2, pattern, false);
+    auto mockParentRenderContext = AceType::MakeRefPtr<MockRenderContext>();
+    RectF paintRect(0, 0, frameSize.Width(), frameSize.Height());
+    mockParentRenderContext->SetPaintRectWithTransform(paintRect);
+    auto rootUINodeRenderContext = rootUINode->renderContext_;
+    rootUINode->renderContext_ = mockParentRenderContext;
+    windowNode->renderContext_ = mockParentRenderContext;
+    columnNode->renderContext_ = mockParentRenderContext;
+    windowNode->MountToParent(rootUINode);
+    columnNode->MountToParent(windowNode);
+
+    /**
+     * @tc.steps: step2. Set magnifier to top-left position.
+     */
+    controller.magnifierNodeWidth_ = MAGNIFIER_WIDTH + MAGNIFIER_SHADOWOFFSETX + MAGNIFIER_SHADOWSIZE * 1.5;
+    controller.magnifierNodeHeight_ = MAGNIFIER_HEIGHT + MAGNIFIER_SHADOWOFFSETY + MAGNIFIER_SHADOWSIZE * 1.5;
+    float magnifierWidth = controller.magnifierNodeWidth_.ConvertToPx();
+    float magnifierHeight = controller.magnifierNodeHeight_.ConvertToPx();
+    OffsetF localOffset(20.f, 20.f);
+    controller.SetLocalOffset(localOffset);
+    EXPECT_EQ(controller.globalOffset_, localOffset);
+
+    /**
+     * @tc.steps: step3. Test zoomOffset value when magnifier at top-left position.
+     */
+    OffsetF magnifierPaintOffset;
+    VectorF magnifierOffset(0.f, 0.f);
+    VectorF zoomOffset(0.f, 0.f);
+    EXPECT_EQ(controller.UpdateMagnifierOffsetX(magnifierPaintOffset, magnifierOffset, zoomOffset), true);
+    EXPECT_EQ(controller.UpdateMagnifierOffsetY(magnifierPaintOffset, magnifierOffset, zoomOffset), true);
+    EXPECT_EQ(magnifierPaintOffset, OffsetF(0.f, 0.f));
+    EXPECT_EQ(magnifierOffset, VectorF(0.f, 0.f));
+    float halfPreScaledTextWidth = magnifierWidth / MAGNIFIER_FACTOR / 2;
+    float magnifierInnerPaddingX =
+        static_cast<float>((MAGNIFIER_SHADOWOFFSETX + MAGNIFIER_SHADOWSIZE * 1.5).ConvertToPx());
+    float maxZoomOffsetX = magnifierWidth / 2 - halfPreScaledTextWidth + magnifierInnerPaddingX;
+    float targetZoomOffsetX = localOffset.GetX() - magnifierWidth / 2;
+    EXPECT_EQ(zoomOffset, VectorF(std::clamp(targetZoomOffsetX, -maxZoomOffsetX, maxZoomOffsetX),
+        localOffset.GetY() - magnifierHeight / 2));
+    rootUINode->RemoveChild(windowNode);
+    rootUINode->renderContext_ = rootUINodeRenderContext;
+}
+
+/**
+ * @tc.name: MagnifierController_UpdateMagnifierOffset002
+ * @tc.desc: test UpdateMagnifierOffsetX、UpdateMagnifierOffsetY
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectOverlayPatternTestNg, MagnifierController_UpdateMagnifierOffset002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set up test environment.
+     */
+    auto frameSize = SizeF(400.f, 400.f);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto rootUINode = pipeline->GetRootElement();
+    ASSERT_NE(rootUINode, nullptr);
+    auto rootGeometryNode = rootUINode->GetGeometryNode();
+    ASSERT_NE(rootGeometryNode, nullptr);
+    rootGeometryNode->SetFrameSize(frameSize);
+
+    auto pattern = AceType::MakeRefPtr<Pattern>();
+    MagnifierController controller { WeakPtr<Pattern>(pattern) };
+    auto windowNode = FrameNode::CreateFrameNode(V2::PAGE_ETS_TAG, 1, pattern, false);
+    auto columnNode = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, 2, pattern, false);
+    auto mockParentRenderContext = AceType::MakeRefPtr<MockRenderContext>();
+    mockParentRenderContext->SetPaintRectWithTransform(RectF(0, 0, frameSize.Width(), frameSize.Height()));
+    auto rootUINodeRenderContext = rootUINode->renderContext_;
+    rootUINode->renderContext_ = mockParentRenderContext;
+    windowNode->renderContext_ = mockParentRenderContext;
+    columnNode->renderContext_ = mockParentRenderContext;
+    windowNode->MountToParent(rootUINode);
+    columnNode->MountToParent(windowNode);
+
+    /**
+     * @tc.steps: step2. Set magnifier to bottom-right position.
+     */
+    controller.magnifierNodeWidth_ = MAGNIFIER_WIDTH + MAGNIFIER_SHADOWOFFSETX + MAGNIFIER_SHADOWSIZE * 1.5;
+    controller.magnifierNodeHeight_ = MAGNIFIER_HEIGHT + MAGNIFIER_SHADOWOFFSETY + MAGNIFIER_SHADOWSIZE * 1.5;
+    float magnifierWidth = controller.magnifierNodeWidth_.ConvertToPx();
+    float magnifierHeight = controller.magnifierNodeHeight_.ConvertToPx();
+    OffsetF localOffset(380.f, 380.f);
+    controller.SetLocalOffset(localOffset);
+    EXPECT_EQ(controller.globalOffset_, localOffset);
+
+    /**
+     * @tc.steps: step3. Test zoomOffset value when magnifier at bottom-right position.
+     */
+    VerifyMagnifierBottomRightResult(controller, frameSize, magnifierWidth, magnifierHeight, localOffset);
+    rootUINode->RemoveChild(windowNode);
+    rootUINode->renderContext_ = rootUINodeRenderContext;
+}
+
+/**
+ * @tc.name: MagnifierController_UpdateMagnifierOffset003
+ * @tc.desc: test UpdateMagnifierOffsetX、UpdateMagnifierOffsetY
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectOverlayPatternTestNg, MagnifierController_UpdateMagnifierOffset003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set up test environment.
+     */
+    auto frameSize = SizeF(400.f, 400.f);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto rootUINode = pipeline->GetRootElement();
+    ASSERT_NE(rootUINode, nullptr);
+    auto rootGeometryNode = rootUINode->GetGeometryNode();
+    ASSERT_NE(rootGeometryNode, nullptr);
+    rootGeometryNode->SetFrameSize(frameSize);
+
+    auto pattern = AceType::MakeRefPtr<Pattern>();
+    WeakPtr<Pattern> weakPattern(pattern);
+    MagnifierController controller(weakPattern);
+    auto windowNode = FrameNode::CreateFrameNode(V2::PAGE_ETS_TAG, 1, pattern, false);
+    auto columnNode = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, 2, pattern, false);
+    auto mockParentRenderContext = AceType::MakeRefPtr<MockRenderContext>();
+    RectF paintRect(0, 0, frameSize.Width(), frameSize.Height());
+    mockParentRenderContext->SetPaintRectWithTransform(paintRect);
+    auto rootUINodeRenderContext = rootUINode->renderContext_;
+    rootUINode->renderContext_ = mockParentRenderContext;
+    windowNode->renderContext_ = mockParentRenderContext;
+    columnNode->renderContext_ = mockParentRenderContext;
+    windowNode->MountToParent(rootUINode);
+    columnNode->MountToParent(windowNode);
+
+    /**
+     * @tc.steps: step2. Set magnifier to center position.
+     */
+    controller.magnifierNodeWidth_ = MAGNIFIER_WIDTH + MAGNIFIER_SHADOWOFFSETX + MAGNIFIER_SHADOWSIZE * 1.5;
+    controller.magnifierNodeHeight_ = MAGNIFIER_HEIGHT + MAGNIFIER_SHADOWOFFSETY + MAGNIFIER_SHADOWSIZE * 1.5;
+    float magnifierWidth = controller.magnifierNodeWidth_.ConvertToPx();
+    float magnifierHeight = controller.magnifierNodeHeight_.ConvertToPx();
+    OffsetF localOffset(200.f, 200.f);
+    controller.SetLocalOffset(localOffset);
+    EXPECT_EQ(controller.globalOffset_, localOffset);
+
+    /**
+     * @tc.steps: step3. Test zoomOffset value when magnifier at center position.
+     */
+    OffsetF magnifierPaintOffset;
+    VectorF magnifierOffset(0.f, 0.f);
+    VectorF zoomOffset(0.f, 0.f);
+    EXPECT_EQ(controller.UpdateMagnifierOffsetX(magnifierPaintOffset, magnifierOffset, zoomOffset), true);
+    EXPECT_EQ(controller.UpdateMagnifierOffsetY(magnifierPaintOffset, magnifierOffset, zoomOffset), true);
+    EXPECT_EQ(magnifierPaintOffset, OffsetF(localOffset.GetX() - magnifierWidth / 2,
+        localOffset.GetY() - MAGNIFIER_OFFSETY.ConvertToPx() - magnifierHeight / 2));
+    EXPECT_EQ(magnifierOffset, VectorF(0.f, MAGNIFIER_OFFSETY.ConvertToPx()));
+    EXPECT_EQ(zoomOffset, VectorF(0.f, 0.f));
+    rootUINode->RemoveChild(windowNode);
+    rootUINode->renderContext_ = rootUINodeRenderContext;
+}
+
+/**
  * @tc.name: TextMenuController.disableSystemServiceMenuItems
  * @tc.desc: test disableSystemServiceMenuItems
  * @tc.type: FUNC
@@ -491,7 +742,7 @@ HWTEST_F(SelectOverlayPatternTestNg, DisableSystemServiceMenuItems, TestSize.Lev
     auto selectOverlayNode = AceType::DynamicCast<SelectOverlayNode>(
         SelectOverlayNode::CreateSelectOverlayNode(shareInfo, SelectOverlayMode::MENU_ONLY));
     ASSERT_NE(selectOverlayNode, nullptr);
-    EXPECT_EQ(selectOverlayNode->selectMenuInner_->GetChildren().size(), 5);
+    EXPECT_EQ(selectOverlayNode->selectMenuInner_->GetChildren().size(), 0);
 
     AceApplicationInfo::GetInstance().AddTextMenuDisableFlag(NG::DISABLE_ALL_FLAG);
     selectOverlayNode = AceType::DynamicCast<SelectOverlayNode>(
@@ -554,5 +805,306 @@ HWTEST_F(SelectOverlayPatternTestNg, DisableMenuItems, TestSize.Level1)
         SelectOverlayNode::CreateSelectOverlayNode(shareInfo, SelectOverlayMode::MENU_ONLY));
     ASSERT_NE(selectOverlayNode, nullptr);
     EXPECT_EQ(selectOverlayNode->selectMenuInner_->GetTotalChildCount(), 6);
+}
+
+/**
+ * @tc.name: TextMenuController.disableSystemServiceMenuItems
+ * @tc.desc: test disableSystemServiceMenuItems of askCelia
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectOverlayPatternTestNg, DisableSystemServiceMenuItems002, TestSize.Level1)
+{
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
+    SelectOverlayInfo overlayInfo;
+    SelectMenuInfo menuInfo;
+    menuInfo.showCopy = false;
+    menuInfo.showPaste = false;
+    menuInfo.showCopyAll = false;
+    menuInfo.showCut = false;
+    menuInfo.showAIWrite = true;
+    menuInfo.showTranslate = true;
+    menuInfo.showSearch = true;
+    menuInfo.showCameraInput = true;
+    menuInfo.showShare = true;
+    menuInfo.isAskCeliaEnabled = true;
+    overlayInfo.menuInfo = menuInfo;
+    std::shared_ptr<SelectOverlayInfo> shareInfo = std::make_shared<SelectOverlayInfo>(overlayInfo);
+
+    AceApplicationInfo::GetInstance().AddTextMenuDisableFlag(NG::DISABLE_ALL_FLAG);
+    auto selectOverlayNode = AceType::DynamicCast<SelectOverlayNode>(
+        SelectOverlayNode::CreateSelectOverlayNode(shareInfo, SelectOverlayMode::MENU_ONLY));
+    ASSERT_NE(selectOverlayNode, nullptr);
+    EXPECT_EQ(selectOverlayNode->selectMenuInner_->GetChildren().size(), 0);
+}
+
+/**
+ * @tc.name: FrameNode::ProcessFrameNodeChangeFlag
+ * @tc.desc: test ProcessFrameNodeChangeFlag
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectOverlayPatternTestNg, ProcessFrameNodeChangeFlag, TestSize.Level1)
+{
+    auto pattern = AceType::MakeRefPtr<MockPattern>();
+    auto mockNode = FrameNode::CreateFrameNode("Mock", 1, pattern, false);
+
+    auto parentPattern1 = AceType::MakeRefPtr<MockPattern>();
+    auto parentNode1 = FrameNode::CreateFrameNode("Mock", 2, pattern, false);
+    parentNode1->AddFrameNodeChangeInfoFlag(FRAME_NODE_CHANGE_END_SCROLL);
+    mockNode->MountToParent(parentNode1);
+
+    auto parentPattern2 = AceType::MakeRefPtr<MockPattern>();
+    auto parentNode2 = FrameNode::CreateFrameNode("Mock", 3, pattern, false);
+    parentNode2->AddFrameNodeChangeInfoFlag(FRAME_NODE_CHANGE_GEOMETRY_CHANGE);
+    parentNode1->MountToParent(parentNode2);
+
+    auto parentPattern3 = AceType::MakeRefPtr<MockPattern>();
+    auto parentNode3 = FrameNode::CreateFrameNode("Mock", 4, pattern, false);
+    parentNode3->AddFrameNodeChangeInfoFlag(FRAME_NODE_CHANGE_START_ANIMATION);
+    parentNode2->MountToParent(parentNode3);
+
+    mockNode->ProcessFrameNodeChangeFlag();
+    EXPECT_EQ(pattern->changeFlag_,
+        FRAME_NODE_CHANGE_END_SCROLL | FRAME_NODE_CHANGE_GEOMETRY_CHANGE | FRAME_NODE_CHANGE_START_ANIMATION);
+}
+
+/**
+ * @tc.name: SelectMenuAndInnerInitProperty_ColorMode_EdgeCases
+ * @tc.desc: Test SelectMenuAndInnerInitProperty color mode edge cases
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectOverlayPatternTestNg, SelectMenuAndInnerInitProperty_ColorMode_EdgeCases, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set up test environment
+     */
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    ASSERT_NE(themeManager, nullptr);
+    auto textOverlayTheme = AceType::MakeRefPtr<TextOverlayTheme>();
+    ASSERT_NE(textOverlayTheme, nullptr);
+
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(textOverlayTheme));
+
+    SelectOverlayInfo selectInfo;
+    auto infoPtr = std::make_shared<SelectOverlayInfo>(selectInfo);
+    auto selectOverlayNode =
+        AceType::DynamicCast<SelectOverlayNode>(SelectOverlayNode::CreateSelectOverlayNode(infoPtr));
+    ASSERT_NE(selectOverlayNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Test with invalid color mode values
+     * @tc.expected: Should handle gracefully and use default conversion
+     */
+
+    // Test with out-of-range color mode (simulate potential invalid value)
+    MockContainer::SetMockColorMode(ColorMode::COLOR_MODE_UNDEFINED);
+    auto text = FrameNode::GetOrCreateFrameNode(
+        "test", ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextPattern>(); });
+    auto theme = AceType::MakeRefPtr<TokenTheme>(1);
+    theme->SetColorMode(ColorMode::LIGHT);
+    TokenThemeStorage::GetInstance()->CacheSet(theme);
+    TokenThemeStorage::GetInstance()->StoreThemeScope(100, 1);
+    text->themeScopeId_ = 100;
+
+    selectOverlayNode->SelectMenuAndInnerInitProperty(text);
+
+    auto selectMenu = selectOverlayNode->selectMenu_;
+    ASSERT_NE(selectMenu, nullptr);
+    auto renderContext = selectMenu->GetRenderContext();
+    ASSERT_NE(renderContext, nullptr);
+    const auto& groupProperty = renderContext->GetBackground();
+    ASSERT_NE(groupProperty, nullptr);
+    BlurStyleOption actualStyleOption = groupProperty->propBlurStyleOption.value_or(BlurStyleOption());
+    // Should default to some valid SystemColorMode
+    EXPECT_TRUE(actualStyleOption.colorMode == ThemeColorMode::LIGHT);
+}
+
+/**
+ * @tc.name: SelectOverlayNodeUpdateSelectMenuBg001
+ * @tc.desc: Test UpdateSelectMenuBg with normal process.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectOverlayPatternTestNg, SelectOverlayNodeUpdateSelectMenuBg001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set up test environment.
+     */
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    ASSERT_NE(themeManager, nullptr);
+    auto textOverlayTheme = AceType::MakeRefPtr<TextOverlayTheme>();
+    ASSERT_NE(textOverlayTheme, nullptr);
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(textOverlayTheme));
+
+    SelectOverlayInfo selectInfo;
+    auto infoPtr = std::make_shared<SelectOverlayInfo>(selectInfo);
+    auto selectOverlayNode =
+        AceType::DynamicCast<SelectOverlayNode>(SelectOverlayNode::CreateSelectOverlayNode(infoPtr));
+    ASSERT_NE(selectOverlayNode, nullptr);
+
+    // Create a mock caller with specific color mode.
+    MockContainer::SetMockColorMode(ColorMode::COLOR_MODE_UNDEFINED);
+    auto text = FrameNode::GetOrCreateFrameNode(
+        "test", ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextPattern>(); });
+    auto theme = AceType::MakeRefPtr<TokenTheme>(1);
+    theme->SetColorMode(ColorMode::DARK);
+    TokenThemeStorage::GetInstance()->CacheSet(theme);
+    TokenThemeStorage::GetInstance()->StoreThemeScope(100, 1);
+    text->themeScopeId_ = 100;
+
+    /**
+     * @tc.steps: step2. Call UpdateSelectMenuBg with valid caller.
+     * @tc.expected: Should update render context with correct properties.
+     */
+    selectOverlayNode->UpdateSelectMenuBg(text);
+
+    /**
+     * @tc.steps: step3. Verify the render context properties.
+     */
+    auto selectMenu = selectOverlayNode->selectMenu_;
+    ASSERT_NE(selectMenu, nullptr);
+    auto renderContext = selectMenu->GetRenderContext();
+    ASSERT_NE(renderContext, nullptr);
+
+    // Verify background color
+    EXPECT_EQ(renderContext->GetBackgroundColor(), Color::TRANSPARENT);
+
+    // Verify blur style option
+    const auto& groupProperty = renderContext->GetBackground();
+    ASSERT_NE(groupProperty, nullptr);
+    BlurStyleOption actualStyleOption = groupProperty->propBlurStyleOption.value_or(BlurStyleOption());
+    EXPECT_EQ(actualStyleOption.blurStyle, BlurStyle::COMPONENT_ULTRA_THICK);
+    EXPECT_EQ(actualStyleOption.colorMode, ThemeColorMode::DARK); // Should convert from ColorMode::DARK.
+}
+
+/**
+ * @tc.name: SelectOverlayNodeBuildMoreOrBackSymbol001
+ * @tc.desc: Test BuildMoreOrBackSymbol symbol effect options configuration
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectOverlayPatternTestNg, SelectOverlayNodeBuildMoreOrBackSymbol001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set up test environment
+     */
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    ASSERT_NE(themeManager, nullptr);
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+
+    auto textOverlayTheme = AceType::MakeRefPtr<TextOverlayTheme>();
+    ASSERT_NE(textOverlayTheme, nullptr);
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(textOverlayTheme));
+
+    SelectOverlayInfo selectInfo;
+    auto infoPtr = std::make_shared<SelectOverlayInfo>(selectInfo);
+    auto selectOverlayNode =
+        AceType::DynamicCast<SelectOverlayNode>(SelectOverlayNode::CreateSelectOverlayNode(infoPtr));
+    ASSERT_NE(selectOverlayNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Call BuildMoreOrBackSymbol
+     */
+    auto symbol = selectOverlayNode->BuildMoreOrBackSymbol();
+    ASSERT_NE(symbol, nullptr);
+
+    /**
+     * @tc.steps: step3. Verify SymbolEffectOptions are correctly configured
+     */
+    auto layoutProperty = symbol->GetLayoutProperty<TextLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+
+    auto symbolEffectOptions = layoutProperty->GetSymbolEffectOptions();
+    ASSERT_TRUE(symbolEffectOptions.has_value());
+
+    // Verify specific effect options
+    EXPECT_EQ(symbolEffectOptions.value().GetEffectType(), SymbolEffectType::REPLACE);
+    EXPECT_EQ(symbolEffectOptions.value().GetScopeType(), Ace::ScopeType::WHOLE);
+    EXPECT_FALSE(symbolEffectOptions.value().GetIsTxtActive());
+
+    EXPECT_EQ(layoutProperty->GetFontWeight().value_or(FontWeight::NORMAL), FontWeight::MEDIUM);
+}
+
+/**
+ * @tc.name: SelectOverlayNodeCreatExtensionMenuColor001
+ * @tc.desc: Test CreatExtensionMenu color mode conversion and SetMenuOptionColor call with LIGHT mode
+ * @tc.type: FUNC
+ */
+HWTEST_F(SelectOverlayPatternTestNg, SelectOverlayNodeCreatExtensionMenuColor001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set up test environment with LIGHT color mode
+     */
+    SelectOverlayInfo selectInfo;
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    auto infoPtr = std::make_shared<SelectOverlayInfo>(selectInfo);
+    auto selectOverlayNode =
+        AceType::DynamicCast<SelectOverlayNode>(SelectOverlayNode::CreateSelectOverlayNode(infoPtr));
+    ASSERT_NE(selectOverlayNode, nullptr);
+    selectOverlayNode->CreateToolBar();
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    auto textOverlayTheme = AceType::MakeRefPtr<TextOverlayTheme>();
+    ASSERT_NE(textOverlayTheme, nullptr);
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(textOverlayTheme));
+    EXPECT_CALL(*themeManager, GetTheme(_, _)).WillRepeatedly(Return(textOverlayTheme));
+
+    selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
+    selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
+
+    // @tc.steps: step2. Create caller with DARK color mode
+    auto caller = FrameNode::GetOrCreateFrameNode(
+        "test", ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextPattern>(); });
+    MockContainer::SetMockColorMode(ColorMode::COLOR_MODE_UNDEFINED);
+    auto theme = AceType::MakeRefPtr<TokenTheme>(1);
+    theme->SetColorMode(ColorMode::DARK);
+    TokenThemeStorage::GetInstance()->CacheSet(theme);
+    TokenThemeStorage::GetInstance()->StoreThemeScope(100, 1);
+    caller->themeScopeId_ = 100;
+
+    std::vector<MenuOptionsParam> menuOptionItems;
+    MenuOptionsParam menuItem1;
+    menuItem1.content = "item1";
+    menuItem1.id = "item1";
+    menuOptionItems.emplace_back(menuItem1);
+    MenuOptionsParam menuItem2;
+    menuItem2.content = "item2";
+    menuItem2.id = "item2";
+    menuOptionItems.emplace_back(menuItem2);
+    infoPtr->callerFrameNode = caller;
+
+    /**
+     * @tc.steps: step3. Call CreatExtensionMenu
+     */
+    std::vector<OptionParam> params;
+    selectOverlayNode->AddCreateMenuExtensionMenuParams(menuOptionItems, infoPtr, 0, params);
+    EXPECT_EQ(params.size(), 0);
+    auto call = infoPtr->callerFrameNode.Upgrade();
+    auto selectTheme = AceType::MakeRefPtr<SelectTheme>();
+    ASSERT_NE(selectTheme, nullptr);
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(selectTheme));
+    selectOverlayNode->CreatExtensionMenu(std::move(params), call);
+
+    /**
+     * @tc.steps: step4. Verify styleOption color mode conversion
+     */
+    ASSERT_NE(selectOverlayNode->extensionMenu_, nullptr);
+    auto extensionMenu = selectOverlayNode->extensionMenu_;
+
+    auto scrollNode = AceType::DynamicCast<FrameNode>(extensionMenu->GetChildAtIndex(0));
+    ASSERT_NE(scrollNode, nullptr);
+    auto innerMenuNode = AceType::DynamicCast<FrameNode>(scrollNode->GetChildAtIndex(0));
+    ASSERT_NE(innerMenuNode, nullptr);
+    auto menuPattern = innerMenuNode->GetPattern<MenuPattern>();
+    CHECK_NULL_VOID(menuPattern);
+    auto options = menuPattern->GetMenuItems();
+    EXPECT_EQ(options.size(), 1);
+    for (size_t i = 0; i < options.size(); ++i) {
+        auto pattern = options[i]->GetPattern<MenuItemPattern>();
+        ASSERT_NE(pattern, nullptr);
+    }
 }
 } // namespace OHOS::Ace::NG

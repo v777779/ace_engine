@@ -17,9 +17,9 @@
 #define protected public
 #define private public
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/base/group_node.h"
 #include "core/components_ng/base/view_stack_processor.h"
@@ -252,5 +252,35 @@ HWTEST_F(ViewStackProcessorTestNg, ViewStackProcessorTestNg006, TestSize.Level1)
     instance->Push(child2);
     instance->PopContainer();
     EXPECT_EQ(instance->elementsStack_.size(), 1);
+}
+
+/**
+ * @tc.name: ViewStackProcessorTestNg007
+ * @tc.desc: Test the operation of view stack processor
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewStackProcessorTestNg, ViewStackProcessorTestNg007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. clear PrebuildCompCmds.
+     */
+    auto& prebuildComponentCmds = ViewStackProcessor::GetInstance()->GetPrebuildComponentCmds();
+    while (!prebuildComponentCmds.empty()) {
+        prebuildComponentCmds.pop();
+    }
+    /**
+     * @tc.steps: step2. PushPrebuildCompCmd.
+     * @tc.expected: PrebuildCompCmds is not empty.
+     */
+    ViewStackProcessor::GetInstance()->PushPrebuildCompCmd();
+    EXPECT_FALSE(ViewStackProcessor::GetInstance()->GetPrebuildComponentCmds().empty());
+    /**
+     * @tc.steps: step3. pop PrebuildCompCmd.
+     * @tc.expected: PrebuildCompCmds is empty.
+     */
+    if (!prebuildComponentCmds.empty()) {
+        prebuildComponentCmds.pop();
+    }
+    EXPECT_TRUE(ViewStackProcessor::GetInstance()->GetPrebuildComponentCmds().empty());
 }
 } // namespace OHOS::Ace::NG

@@ -104,6 +104,10 @@ bool AceContainer::IsKeyboard()
     return true;
 }
 
+void AceContainer::DumpSimplifyTreeWithParamConfig(
+    std::shared_ptr<JsonValue>& root, ParamConfig config, bool isInSubWindow)
+{}
+
 void AceContainer::DestroyView() {}
 
 void AceContainer::Dispatch(const std::string& group, std::vector<uint8_t>&& data,
@@ -200,7 +204,8 @@ bool AceContainer::GetCurPointerEventSourceType(int32_t& sourceType)
 
 int32_t AceContainer::RequestAutoFill(const RefPtr<NG::FrameNode>& node, AceAutoFillType autoFillType,
     bool isNewPassWord, bool& isPopup, uint32_t& autoFillSessionId, bool isNative,
-    const std::function<void()>& onFinish, const std::function<void()>& onUIExtNodeBindingCompleted)
+    const std::function<void()>& onFinish, const std::function<void()>& onUIExtNodeBindingCompleted,
+    AceAutoFillTriggerType triggerType)
 {
     return AceAutoFillError::ACE_AUTO_FILL_SUCCESS;
 }
@@ -302,9 +307,18 @@ bool AceContainer::IsCrossAxisWindow()
     return false;
 }
 
-void AceContainer::UpdateColorMode(uint32_t colorMode) {}
+void AceContainer::UpdateColorMode(uint32_t colorMode,
+    const ParsedConfig& parsedConfig, const std::string& configuration) {}
 
 void AceContainer::TriggerModuleSerializer() {}
 
 void AceContainer::SetIsFormRender(bool isFormRender) {}
+
+void AceContainer::LoadCompleteManagerStartCollect(const std::string& url) {}
+
+void AceContainer::LoadCompleteManagerStopCollect() {}
+
+void AceContainer::RegisterTerminateUIExtension(AbilityRuntimeContextCallback&& callback) {}
+
+void AceContainer::TerminateUIExtensionInner() {}
 } // namespace OHOS::Ace::Platform

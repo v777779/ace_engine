@@ -20,7 +20,7 @@
 #include "core/components_ng/pattern/scroll/inner/scroll_bar.h"
 #include "core/components_ng/pattern/scroll/scroll_edge_effect.h"
 #include "core/components_ng/pattern/scrollable/scrollable_paint_method.h"
-#include "core/components_v2/list/list_properties.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 
 namespace OHOS::Ace::NG {
 struct DividerInfo {
@@ -40,7 +40,7 @@ struct DividerInfo {
 };
 
 class ACE_EXPORT ListPaintMethod : public ScrollablePaintMethod {
-    DECLARE_ACE_TYPE(ListPaintMethod, ScrollablePaintMethod)
+    DECLARE_ACE_TYPE(ListPaintMethod, ScrollablePaintMethod);
 public:
     using PositionMap = ListLayoutAlgorithm::PositionMap;
     ListPaintMethod(const V2::ItemDivider& divider, bool vertical, bool isReverse, int32_t lanes, float space)
@@ -97,7 +97,7 @@ public:
     }
 
     void SetItemsPosition(const PositionMap& positionMap, const PositionMap& cachedPositionMap,
-        const std::set<int32_t>& pressedItem, bool showCached, bool clip)
+        const std::map<int32_t, uint32_t>& pressedItem, bool showCached, bool clip)
     {
         itemPosition_ = positionMap;
         if (showCached || clip) {

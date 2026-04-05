@@ -250,9 +250,13 @@ void ParseBarItemsIcon(const JSRef<JSObject>& itemObject, NG::BarItem& toolBarIt
     std::string icon;
     auto itemIconObject = itemObject->GetProperty("icon");
     RefPtr<ResourceObject> itemIconResObj;
-    if (JSViewAbstract::ParseJsMedia(itemIconObject, icon, itemIconResObj)) {
-        toolBarItem.icon = icon;
-    }
+    std::string bundleName = "";
+    std::string moduleName = "";
+    int32_t resId = -1;
+    JSViewAbstract::ParseJsMediaWithBundleName(itemIconObject, icon, bundleName, moduleName, resId, itemIconResObj);
+    toolBarItem.icon = icon;
+    toolBarItem.bundleName = bundleName;
+    toolBarItem.moduleName = moduleName;
     if (itemIconResObj && SystemProperties::ConfigChangePerform()) {
         auto&& updateFunc = [](const RefPtr<ResourceObject>& itemIconResObj, NG::BarItem& toolBarItem) {
             std::string iconResult;
@@ -323,7 +327,8 @@ void JSNavigationUtils::ParseTitleBarOptions(
     }
 }
 
-void JSNavigationUtils::ParseToolbarOptions(const JSCallbackInfo& info, NG::NavigationToolbarOptions& options)
+void JSNavigationUtils::ParseToolbarOptions(
+    const JSCallbackInfo& info, NG::NavigationToolbarOptions& options, const int32_t optionSituation)
 {
     if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWELVE)) {
         auto pipelineContext = PipelineBase::GetCurrentContext();
@@ -338,9 +343,13 @@ void JSNavigationUtils::ParseToolbarOptions(const JSCallbackInfo& info, NG::Navi
             options.bgOptions.color = Color::TRANSPARENT;
         }
     }
-    if (info.Length() > 1) {
-        ParseBackgroundOptions(info[1], options.bgOptions);
-        ParseBarOptions(info[1], options.brOptions);
+    if (optionSituation < 0) {
+        return;
+    }
+    auto infoLength = static_cast<uint32_t>(optionSituation);
+    if (info.Length() > infoLength) {
+        ParseBackgroundOptions(info[optionSituation], options.bgOptions);
+        ParseBarOptions(info[optionSituation], options.brOptions);
     }
 }
 

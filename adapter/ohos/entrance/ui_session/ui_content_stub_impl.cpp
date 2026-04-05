@@ -19,9 +19,10 @@
 
 namespace OHOS::Ace {
 
-int32_t UIContentServiceStubImpl::GetInspectorTree(const std::function<void(std::string, int32_t, bool)>& eventCallback)
+int32_t UIContentServiceStubImpl::GetInspectorTree(
+    const std::function<void(std::string, int32_t, bool)>& eventCallback, ParamConfig config)
 {
-    UiSessionManager::GetInstance()->GetInspectorTree();
+    UiSessionManager::GetInstance()->GetInspectorTree(config);
     return NO_ERROR;
 }
 
@@ -41,9 +42,16 @@ int32_t UIContentServiceStubImpl::RegisterSearchEventCallback(const EventCallbac
     UiSessionManager::GetInstance()->SetSearchEventRegistered(true);
     return NO_ERROR;
 }
-int32_t UIContentServiceStubImpl::RegisterComponentChangeEventCallback(const EventCallback& eventCallback)
+int32_t UIContentServiceStubImpl::RegisterTextChangeEventCallback(const EventCallback& eventCallback)
+{
+    UiSessionManager::GetInstance()->SetTextChangeEventRegistered(true);
+    return NO_ERROR;
+}
+int32_t UIContentServiceStubImpl::RegisterComponentChangeEventCallback(const EventCallback& eventCallback,
+    uint32_t mask)
 {
     UiSessionManager::GetInstance()->SetComponentChangeEventRegistered(true);
+    UiSessionManager::GetInstance()->SetComponentChangeEventMask(mask);
     return NO_ERROR;
 }
 
@@ -51,6 +59,26 @@ int32_t UIContentServiceStubImpl::RegisterWebUnfocusEventCallback(
     const std::function<void(int64_t accessibilityId, const std::string& data)>& eventCallback)
 {
     UiSessionManager::GetInstance()->NotifyAllWebPattern(true);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::RegisterScrollEventCallback(const EventCallback& eventCallback)
+{
+    UiSessionManager::GetInstance()->SetScrollEventRegistered(true);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::RegisterLifeCycleEventCallback(const EventCallback& eventCallback)
+{
+    UiSessionManager::GetInstance()->SetLifeCycleEventRegistered(true);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::RegisterSelectTextEventCallback(const EventCallback& eventCallback)
+{
+    UiSessionManager::GetInstance()->SetSelectTextEventRegistered(true);
+    // first register
+    UiSessionManager::GetInstance()->ReportSelectText();
     return NO_ERROR;
 }
 
@@ -81,6 +109,11 @@ int32_t UIContentServiceStubImpl::UnregisterSearchEventCallback()
     UiSessionManager::GetInstance()->SetSearchEventRegistered(false);
     return NO_ERROR;
 }
+int32_t UIContentServiceStubImpl::UnregisterTextChangeEventCallback()
+{
+    UiSessionManager::GetInstance()->SetTextChangeEventRegistered(false);
+    return NO_ERROR;
+}
 int32_t UIContentServiceStubImpl::UnregisterRouterChangeEventCallback()
 {
     UiSessionManager::GetInstance()->SetRouterChangeEventRegistered(false);
@@ -89,12 +122,31 @@ int32_t UIContentServiceStubImpl::UnregisterRouterChangeEventCallback()
 int32_t UIContentServiceStubImpl::UnregisterComponentChangeEventCallback()
 {
     UiSessionManager::GetInstance()->SetComponentChangeEventRegistered(false);
+    UiSessionManager::GetInstance()->SetComponentChangeEventMask(ComponentEventType::COMPONENT_EVENT_NONE);
     return NO_ERROR;
 }
 
 int32_t UIContentServiceStubImpl::UnregisterWebUnfocusEventCallback()
 {
     UiSessionManager::GetInstance()->NotifyAllWebPattern(false);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::UnregisterScrollEventCallback()
+{
+    UiSessionManager::GetInstance()->SetScrollEventRegistered(false);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::UnregisterLifeCycleEventCallback()
+{
+    UiSessionManager::GetInstance()->SetLifeCycleEventRegistered(false);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::UnregisterSelectTextEventCallback()
+{
+    UiSessionManager::GetInstance()->SetSelectTextEventRegistered(false);
     return NO_ERROR;
 }
 
@@ -161,6 +213,18 @@ int32_t UIContentServiceStubImpl::GetCurrentImagesShowing(
     return NO_ERROR;
 }
 
+int32_t UIContentServiceStubImpl::GetImagesById(
+    const std::vector<int32_t>& arkUIIds,
+    const std::function<void(int32_t, const std::unordered_map<int32_t, std::shared_ptr<Media::PixelMap>>&,
+        MultiImageQueryErrorCode)>& arkUIfinishCallback,
+    const std::map<int32_t, std::vector<int32_t>>& arkWebs,
+    const std::function<void(int32_t, const std::map<int32_t, std::map<int32_t,
+        std::shared_ptr<Media::PixelMap>>>&, MultiImageQueryErrorCode)>& arkWebfinishCallback)
+{
+    UiSessionManager::GetInstance()->GetMultiImagesById(arkUIIds, arkWebs);
+    return NO_ERROR;
+}
+
 int32_t UIContentServiceStubImpl::GetCurrentPageName(const EventCallback& eventCallback)
 {
     UiSessionManager::GetInstance()->GetCurrentPageName();
@@ -168,9 +232,67 @@ int32_t UIContentServiceStubImpl::GetCurrentPageName(const EventCallback& eventC
 }
 
 int32_t UIContentServiceStubImpl::GetVisibleInspectorTree(
-    const std::function<void(std::string, int32_t, bool)>& eventCallback)
+    const std::function<void(std::string, int32_t, bool)>& eventCallback, ParamConfig config)
 {
-    UiSessionManager::GetInstance()->GetVisibleInspectorTree();
+    UiSessionManager::GetInstance()->GetVisibleInspectorTree(config);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::GetLatestHitTestNodeInfosForTouch(
+    const std::function<void(std::string, int32_t, bool)>& eventCallback, InteractionParamConfig config)
+{
+    UiSessionManager::GetInstance()->GetLatestHitTestNodeInfosForTouch(config);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::ExeAppAIFunction(
+    const std::string& funcName, const std::string& params, const std::function<void(uint32_t)>& finishCallback)
+{
+    UiSessionManager::GetInstance()->ExeAppAIFunction(funcName, params);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::RegisterContentChangeCallback(const ContentChangeConfig& config,
+    const std::function<void(ChangeType type, const std::string& simpleTree)> callback)
+{
+    UiSessionManager::GetInstance()->RegisterContentChangeCallback(config);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::GetSpecifiedContentOffsets(int32_t id, const std::string& content,
+    const std::function<void(std::vector<std::pair<float, float>>)>& eventCallback)
+{
+    UiSessionManager::GetInstance()->GetSpecifiedContentOffsets(id, content);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::HighlightSpecifiedContent(int32_t id, const std::string& content,
+    const std::vector<std::string>& nodeIds, const std::string& configs)
+{
+    UiSessionManager::GetInstance()->HighlightSpecifiedContent(id, content, nodeIds, configs);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::UnregisterContentChangeCallback()
+{
+    UiSessionManager::GetInstance()->UnregisterContentChangeCallback();
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::GetStateMgmtInfo(const std::string& componentName, const std::string& propertyName,
+    const std::string& jsonPath, const std::function<void(std::vector<std::string>)>& eventCallback,
+    bool onlyVisible)
+{
+    UiSessionManager::GetInstance()->GetStateMgmtInfo(componentName, propertyName, jsonPath, onlyVisible);
+    return NO_ERROR;
+}
+
+int32_t UIContentServiceStubImpl::GetWebInfoByRequest(
+    int32_t webId,
+    const std::string& request,
+    const GetWebInfoByRequestCallback& finishCallback)
+{
+    UiSessionManager::GetInstance()->GetWebInfoByRequest(webId, request);
     return NO_ERROR;
 }
 } // namespace OHOS::Ace

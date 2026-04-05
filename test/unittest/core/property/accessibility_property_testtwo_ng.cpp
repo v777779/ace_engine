@@ -104,15 +104,21 @@ HWTEST_F(AccessibilityPropertyTestTwoNg, AccessibilityPropertyTest001, TestSize.
  */
 HWTEST_F(AccessibilityPropertyTestTwoNg, AccessibilityPropertyTestTwoNg002, TestSize.Level1)
 {
+    /**
+     * @tc.steps1: construct accessibilityProperty
+     */
     AccessibilityProperty accessibilityProperty;
     AccessibilityHoverTestPath path;
     auto root = FrameNode::GetOrCreateFrameNode(
         V2::BUTTON_ETS_TAG, 13, []() { return AceType::MakeRefPtr<ButtonPattern>(); });
-    root->accessibilityProperty_ = nullptr;
+    root->GetOrCreateAccessibilityProperty() = nullptr;
     NG::PointF hoverPoint(0, 0);
     auto debugInfo = std::make_unique<AccessibilityProperty::HoverTestDebugTraceInfo>();
     accessibilityProperty.HoverTest(hoverPoint, root, debugInfo);
 
+    /**
+     * @tc.steps2: test CreateNodeSearchInfo
+     */
     auto subNode = FrameNode::GetOrCreateFrameNode(
         V2::BUTTON_ETS_TAG, 1, []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     root->AddChild(subNode);
@@ -144,7 +150,8 @@ HWTEST_F(AccessibilityPropertyTestTwoNg, AccessibilityPropertyTestTwoNg003, Test
     EXPECT_NE(hostBak.Upgrade(), nullptr);
     hostBak.Upgrade()->frameChildren_.insert(nullptr);
     hostBak.Upgrade()->frameChildren_.insert(root);
-    auto result = accessibilityProperty.ProcessHoverTestRecursive(hoverPoint, root, path, debugInfo, recursiveParam);
+    auto result =
+        accessibilityProperty.ProcessHoverTestRecursive(hoverPoint, root, path, debugInfo, recursiveParam);
     EXPECT_EQ(result, true);
 
     accessibilityProperty.accessibilityVirtualNode_ = FrameNode::GetOrCreateFrameNode(
@@ -170,7 +177,7 @@ HWTEST_F(AccessibilityPropertyTestTwoNg, AccessibilityPropertyTestTwoNg004, Test
     auto gestureEventHub = host->GetEventHub<EventHub>()->GetOrCreateGestureEventHub();
     gestureEventHub->SetResponseRegion(responseRegion);
     auto paintRect = host->renderContext_->GetPaintRectWithoutTransform();
-    auto responseRegionList = host->GetResponseRegionList(paintRect, 2);
+    auto responseRegionList = host->GetResponseRegionList(paintRect, 2, 0);
     EXPECT_FALSE(responseRegionList.size() != 1);
 
     auto rect = responseRegionList.back();
@@ -181,7 +188,7 @@ HWTEST_F(AccessibilityPropertyTestTwoNg, AccessibilityPropertyTestTwoNg004, Test
     WeakPtr<FrameNode> hostBak = host;
     accessibilityProperty.SetHost(hostBak);
     auto result = accessibilityProperty.IsMatchAccessibilityResponseRegion(true);
-    EXPECT_TRUE(result);
+    EXPECT_FALSE(result);
 }
 
 /**

@@ -14,15 +14,19 @@
  */
 
 #include "grid_test_ng.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 
+
+#include "core/components_ng/pattern/grid/grid_item_event_hub.h"
 #include "core/components_ng/pattern/grid/grid_item_pattern.h"
 namespace OHOS::Ace::NG {
 
 namespace {
 const InspectorFilter filter;
 } // namespace
-
 class GridAttrTestNg : public GridTestNg {
 public:
     AssertionResult VerifyBigItemRect(int32_t index, RectF expectRect);
@@ -777,6 +781,23 @@ HWTEST_F(GridAttrTestNg, EnableScrollInteraction002, TestSize.Level1)
 }
 
 /**
+ * @tc.name: SetEnableScrollWithMouse001
+ * @tc.desc: Test SetEnableScrollWithMouse
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridAttrTestNg, SetEnableScrollWithMouse001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateGridItems(16, NULL_VALUE, NULL_VALUE);
+    pattern_->SetIsAllowMouse(true);
+    CreateDone();
+    EXPECT_TRUE(pattern_->GetIsAllowMouse());
+    auto scrollable = pattern_->GetScrollableEvent()->GetScrollable();
+    EXPECT_TRUE(scrollable->panRecognizerNG_->isAllowMouse_);
+}
+
+/**
  * @tc.name: Gap001
  * @tc.desc: Test gap
  * @tc.type: FUNC
@@ -885,311 +906,38 @@ HWTEST_F(GridAttrTestNg, Gap005, TestSize.Level1)
 }
 
 /**
- * @tc.name: EdgeEffectOption001
- * @tc.desc: Test EdgeEffectOption
+ * @tc.name: GetGridController001
+ * @tc.desc: Test GetGridController returns existing controller without replacing positionController_
  * @tc.type: FUNC
  */
-HWTEST_F(GridAttrTestNg, EdgeEffectOption001, TestSize.Level1)
+HWTEST_F(GridAttrTestNg, GetGridController001, TestSize.Level1)
 {
     GridModelNG model = CreateGrid();
     model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    CreateFixedItems(20);
-    model.SetEdgeEffect(EdgeEffect::SPRING, false);
+    CreateFixedItems(10);
     CreateDone();
-    EXPECT_FALSE(pattern_->GetAlwaysEnabled());
-    EXPECT_TRUE(pattern_->scrollable_);
+    auto controller = pattern_->positionController_;
+    EXPECT_NE(controller, nullptr);
+
+    auto fetched = GridModelNG::GetOrCreateController(AceType::RawPtr(frameNode_));
+    EXPECT_NE(fetched, nullptr);
+    EXPECT_EQ(fetched, controller);
+    EXPECT_EQ(pattern_->positionController_, controller);
 }
 
 /**
- * @tc.name: EdgeEffectOption002
- * @tc.desc: Test EdgeEffectOption
+ * @tc.name: SetGridScrollBarProxy001
+ * @tc.desc: Test SetScrollBarProxy pushes proxy to grid pattern
  * @tc.type: FUNC
  */
-HWTEST_F(GridAttrTestNg, EdgeEffectOption002, TestSize.Level1)
+HWTEST_F(GridAttrTestNg, SetGridScrollBarProxy001, TestSize.Level1)
 {
     GridModelNG model = CreateGrid();
     model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    CreateFixedItems(20);
-    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    CreateFixedItems(10);
     CreateDone();
-    EXPECT_TRUE(pattern_->GetAlwaysEnabled());
-    EXPECT_TRUE(pattern_->scrollable_);
-}
-
-/**
- * @tc.name: EdgeEffectOption003
- * @tc.desc: Test EdgeEffectOption
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, EdgeEffectOption003, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    CreateFixedItems(3); // 3 is item count
-    model.SetEdgeEffect(EdgeEffect::SPRING, false);
-    CreateDone();
-    EXPECT_FALSE(pattern_->GetAlwaysEnabled());
-    EXPECT_FALSE(pattern_->scrollable_);
-}
-
-/**
- * @tc.name: EdgeEffectOption004
- * @tc.desc: Test EdgeEffectOption
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, EdgeEffectOption004, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    CreateFixedItems(3); // 3 is item count
-    model.SetEdgeEffect(EdgeEffect::SPRING, true);
-    CreateDone();
-    EXPECT_TRUE(pattern_->GetAlwaysEnabled());
-    EXPECT_TRUE(pattern_->scrollable_);
-}
-
-/**
- * @tc.name: GridSetFriction001
- * @tc.desc: Test SetFriction Function.
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, GridSetFriction001, TestSize.Level1)
-{
-    /**
-     * @tc.cases: Set friction less than zero
-     * @tc.expected: friction would be default
-     */
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    model.SetFriction(-1.0);
-    CreateDone();
-    EXPECT_DOUBLE_EQ(pattern_->GetFriction(), DEFAULT_FRICTION);
-}
-
-/**
- * @tc.name: GridSetFriction002
- * @tc.desc: Test SetFriction Function.
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, GridSetFriction002, TestSize.Level1)
-{
-    /**
-     * @tc.cases: Set friction equal to zero
-     * @tc.expected: friction would be default
-     */
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    model.SetFriction(0.0);
-    CreateDone();
-    EXPECT_DOUBLE_EQ(pattern_->GetFriction(), DEFAULT_FRICTION);
-}
-
-/**
- * @tc.name: GridSetFriction003
- * @tc.desc: Test SetFriction Function.
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, GridSetFriction003, TestSize.Level1)
-{
-    /**
-     * @tc.cases: Set friction greater than zero
-     * @tc.expected: Friction would be itself
-     */
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    model.SetFriction(1.0);
-    CreateDone();
-    EXPECT_DOUBLE_EQ(pattern_->GetFriction(), 1.0);
-}
-
-/**
- * @tc.name: GridItemHoverEventTest001
- * @tc.desc: GridItem hover event test.
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, GridItemHoverEventTest001, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    CreateFixedItems(10, GridItemStyle::PLAIN);
-    CreateDone();
-    auto gridItemNode = GetChildFrameNode(frameNode_, 0);
-    auto gridItemPattern = GetChildPattern<GridItemPattern>(frameNode_, 0);
-    auto gridItemeventHub = gridItemNode->GetEventHub<GridItemEventHub>();
-    auto gridItemInputHub = gridItemeventHub->GetOrCreateInputEventHub();
-    auto HandleHoverEvent = gridItemInputHub->hoverEventActuator_->inputEvents_.back()->GetOnHoverEventFunc();
-
-    /**
-     * @tc.steps: step1. Hover gridItem
-     * @tc.expected: isHover_ is true
-     */
-    HandleHoverEvent(true);
-    EXPECT_TRUE(gridItemPattern->isHover_);
-
-    /**
-     * @tc.steps: step2. Leave gridItem
-     * @tc.expected: isHover_ is false
-     */
-    HandleHoverEvent(false);
-    EXPECT_FALSE(gridItemPattern->isHover_);
-}
-
-/**
- * @tc.name: GridItemPressEventTest001
- * @tc.desc: GridItem press event test.
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, GridItemPressEventTest001, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    CreateFixedItems(10, GridItemStyle::PLAIN);
-    CreateDone();
-    auto gridItemNode = GetChildFrameNode(frameNode_, 0);
-    auto gridItemPattern = GetChildPattern<GridItemPattern>(frameNode_, 0);
-    auto gridItemeventHub = gridItemNode->GetEventHub<GridItemEventHub>();
-    auto gridItemGesture = gridItemeventHub->GetOrCreateGestureEventHub();
-    auto HandlePressEvent = gridItemGesture->touchEventActuator_->touchEvents_.back()->GetTouchEventCallback();
-
-    /**
-     * @tc.steps: step1. Press gridItem
-     * @tc.expected: isPressed_ is true
-     */
-    auto info = CreateTouchEventInfo(TouchType::DOWN, Offset::Zero());
-    HandlePressEvent(info);
-    EXPECT_TRUE(gridItemPattern->isPressed_);
-
-    /**
-     * @tc.steps: step2. Move on gridItem
-     * @tc.expected: isPressed_ not change
-     */
-    info = CreateTouchEventInfo(TouchType::MOVE, Offset(10.f, 10.f));
-    HandlePressEvent(info);
-    EXPECT_TRUE(gridItemPattern->isPressed_);
-
-    /**
-     * @tc.steps: step3. Release gridItem
-     * @tc.expected: isPressed_ is false
-     */
-    info = CreateTouchEventInfo(TouchType::UP, Offset(10.f, 10.f));
-    HandlePressEvent(info);
-    EXPECT_FALSE(gridItemPattern->isPressed_);
-}
-
-/**
- * @tc.name: GridItemSetSelectableTest001
- * @tc.desc: GridItem setselectable test.
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, GridItemSetSelectableTest001, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    CreateFixedItems(20);
-    CreateDone();
-
-    /**
-     * @tc.steps: step1. Get gridItemPattern.
-     */
-    auto gridItemPattern = GetChildPattern<GridItemPattern>(frameNode_, 0);
-
-    /**
-     * @tc.steps: step2. When gridItem is unSelectable isSelected_ and selectable_ is true.
-     * @tc.expected: gridItemPattern->selectable_ is false.
-     */
-    gridItemPattern->isSelected_ = true;
-    gridItemPattern->selectable_ = true;
-    gridItemPattern->SetSelectable(false);
-    EXPECT_FALSE(gridItemPattern->selectable_);
-}
-
-/**
- * @tc.name: GridItemDisableEventTest001
- * @tc.desc: GridItem disable event test.
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, GridItemDisableEventTest001, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    CreateFixedItems(10, GridItemStyle::PLAIN);
-    CreateDone();
-
-    /**
-     * @tc.steps: step2. Get gridItem frameNode and pattern, set callback function.
-     * @tc.expected: Related function is called.
-     */
-    auto gridItemPattern = GetChildPattern<GridItemPattern>(frameNode_, 0);
-    auto gridItemEventHub = GetChildEventHub<GridItemEventHub>(frameNode_, 0);
-    auto gridItemFrameNode = GetChildFrameNode(frameNode_, 0);
-    auto renderContext = gridItemFrameNode->renderContext_;
-    auto mockRenderContext = AceType::DynamicCast<MockRenderContext>(renderContext);
-    EXPECT_EQ(mockRenderContext->opacityMultiplier_, 1.0f);
-    gridItemEventHub->SetEnabled(false);
-    gridItemPattern->InitDisableStyle();
-    EXPECT_EQ(mockRenderContext->opacityMultiplier_, 0.4f);
-    gridItemEventHub->SetEnabled(true);
-    gridItemPattern->InitDisableStyle();
-    EXPECT_EQ(mockRenderContext->opacityMultiplier_, 1.0f);
-}
-
-/**
- * @tc.name: GridItemDisableEventTest002
- * @tc.desc: GridItem disable event test.
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, GridItemDisableEventTest002, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    CreateFixedItems(10, GridItemStyle::PLAIN);
-    CreateDone();
-
-    /**
-     * @tc.steps: step2. Get gridItem frameNode and pattern, set callback function.
-     * @tc.expected: Related function is called.
-     */
-    auto gridItemPattern = GetChildPattern<GridItemPattern>(frameNode_, 0);
-    auto gridItemEventHub = GetChildEventHub<GridItemEventHub>(frameNode_, 0);
-    auto gridItemFrameNode = GetChildFrameNode(frameNode_, 0);
-    auto renderContext = gridItemFrameNode->renderContext_;
-    auto mockRenderContext = AceType::DynamicCast<MockRenderContext>(renderContext);
-    EXPECT_EQ(mockRenderContext->opacityMultiplier_, 1.0f);
-    gridItemEventHub->SetEnabled(false);
-    gridItemPattern->InitDisableStyle();
-    EXPECT_EQ(mockRenderContext->opacityMultiplier_, 0.4f);
-    gridItemPattern->InitDisableStyle();
-    EXPECT_EQ(mockRenderContext->opacityMultiplier_, 0.4f);
-}
-
-/**
- * @tc.name: Property005
- * @tc.desc: Test selectable and selected of GridItem.
- * @tc.type: FUNC
- */
-HWTEST_F(GridAttrTestNg, Property005, TestSize.Level1)
-{
-    GridItemModelNG itemModel;
-    itemModel.Create(GridItemStyle::NONE);
-    itemModel.SetSelectable(false);
-    itemModel.SetOnSelect([](bool) {});
-    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    auto pattern = frameNode->GetPattern<GridItemPattern>();
-
-    /**
-     * @tc.steps: step1. Test ToJsonValue
-     */
-    auto json = JsonUtil::Create(true);
-    pattern->ToJsonValue(json, filter);
-    EXPECT_EQ(json->GetString("selected"), "false");
-    EXPECT_EQ(json->GetString("selectable"), "false");
-
-    /**
-     * @tc.steps: step2. Update GridItemPattern Test ToJsonValue
-     */
-    pattern->SetSelectable(true);
-    pattern->SetSelected(true);
-    json = JsonUtil::Create(true);
-    pattern->ToJsonValue(json, filter);
-    EXPECT_EQ(json->GetString("selected"), "true");
-    EXPECT_EQ(json->GetString("selectable"), "true");
+    auto proxy = AceType::MakeRefPtr<ScrollBarProxy>();
+    pattern_->SetScrollBarProxy(proxy);
+    EXPECT_EQ(pattern_->scrollBarProxy_, proxy);
 }
 } // namespace OHOS::Ace::NG

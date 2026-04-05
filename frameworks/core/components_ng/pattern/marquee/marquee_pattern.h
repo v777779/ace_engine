@@ -46,6 +46,34 @@ struct LastAnimationParam {
     MarqueeDirection lastDirection = MarqueeDirection::LEFT;
 };
 
+enum class StartMarqueeAnimationType {
+    BOTH = 0,
+    FIRST,
+    SECOND
+};
+
+struct MarqueeAnimationParam {
+    bool isFirst;
+    int32_t delay;
+    float start;
+    float end;
+    int32_t playCount;
+    int32_t totalDuration;
+    int32_t firstDuration;
+    int32_t secondDuration;
+
+    std::string ToString() const
+    {
+        std::stringstream ss;
+        ss << "MarqueeAnimationParam(isFirst:" << isFirst << " delay:" << delay;
+        ss << " start:" << start << " end:" << end << " playCount:" << playCount;
+        ss << " firstDuration:" << firstDuration << " secondDuration:" << secondDuration <<
+            " totalDuration:" << totalDuration << ")";
+        std::string output = ss.str();
+        return output;
+    }
+};
+
 class MarqueePattern : public Pattern {
     DECLARE_ACE_TYPE(MarqueePattern, Pattern);
 
@@ -83,9 +111,9 @@ public:
     void OnColorConfigurationUpdate() override;
     void DumpInfo() override;
     
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void OnVisibleChange(bool isVisible) override;
+    void OnVisibleAreaChange(bool isVisible);
     void OnWindowHide() override;
     void OnWindowShow() override;
     void SetMarqueeFrameRateRange(const RefPtr<FrameRateRange>& rateRange, MarqueeDynamicSyncSceneType type)
@@ -94,6 +122,7 @@ public:
     }
     TextDirection GetTextDirection(const std::string& content, TextDirection direction);
     void OnFontScaleConfigurationUpdate() override;
+    void OnColorModeChange(uint32_t colorMode) override;
 
 protected:
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
@@ -113,10 +142,13 @@ private:
     void FireStartEvent() const;
     void FireBounceEvent() const;
     void FireFinishEvent() const;
+    void FireStopEvent() const;
 
     void StartMarqueeAnimation();
+    void ExecuteStopMarquee();
     void StopMarqueeAnimation(bool stopAndStart);
-    void UpdateTextTranslateXY(float offsetX, bool cancel = false);
+    void ChangeSecondChildVisibility(bool stopAndStart);
+    void UpdateTextTranslateXY(float offsetX, bool cancel = false, bool isFirstTextNode = true);
     void PropertyCancelAnimationFinish();
     bool OnlyPlayStatusChange();
     void ChangeAnimationPlayStatus();
@@ -127,12 +159,37 @@ private:
     float CalculateStart();
     float CalculateEnd();
     float GetTextOffset();
+    std::pair<float, float> GetDoubleTextOffset();
     float GetTextNodeWidth();
     double GetScrollAmount();
     void CheckTextDirectionChange(TextDirection direction);
     TextDirection GetCurrentTextDirection();
     void UpdateTextDirection(
         const RefPtr<MarqueeLayoutProperty>& layoutProperty, const RefPtr<TextLayoutProperty>& textLayoutProperty);
+
+    void OnDoubleAnimationFinish(bool isFirst);
+    void UpdateTextNodeAttr(RefPtr<FrameNode>& textChild);
+    float GetMarqueeSpacing();
+    bool NeedSecondChild();
+    void CreateSecondChild();
+    void UpdateNodeInitialPos(bool cancel = false);
+    void PlayMarqueeDoubleAnimation(float startPosition, float secondStartPos, int32_t playCount,
+        bool needSecondPlay, StartMarqueeAnimationType startType);
+    std::shared_ptr<AnimationUtils::Animation> ActionDoubleAnimation(
+        AnimationOption& option, MarqueeAnimationParam& param, bool needSecondPlay);
+    int32_t CalcAnimeDuration(float end, float start, double step);
+    void CalcDuration(MarqueeAnimationParam& param, double step, bool directionMoveLeft, bool needSecondPlay);
+    float GetSecondChildStart();
+    void CalcAnimationStart(float& firstStart, float& secondStart, float textTotalLen,
+        float start, float end, bool directionMoveLeft);
+    void BuildAnimationKeyframes(const MarqueeAnimationParam& param, bool needSecondPlay, bool isFirst);
+    void HandleAnimationFinish(int32_t animationId, bool isFirst, int32_t playCount, bool needSecondPlay);
+    std::function<void()> CreateAnimationFinishCallback(int32_t animationId, bool isFirst, int32_t playCount,
+        bool needSecondPlay);
+    MarqueeAnimationParam CreateAnimationParam(bool isFirst, float start, int32_t delay, float end, int32_t playCount);
+    void CreateAnimationOptions(MarqueeAnimationParam& firstParam, MarqueeAnimationParam& secondParam,
+        double step, bool directionMoveLeft, bool needSecondPlay, AnimationOption& option, AnimationOption& option2);
+
     void ActionAnimation(AnimationOption& option, float end, int32_t playCount, bool needSecondPlay);
     bool IsRunMarquee();
     void ProcessVisibleAreaCallback();
@@ -141,7 +198,9 @@ private:
 
     bool measureChanged_ = false;
     int32_t animationId_ = 0;
+    int32_t secondAnimationId_ = 0;
     std::shared_ptr<AnimationUtils::Animation> animation_;
+    std::shared_ptr<AnimationUtils::Animation> secondAnimation_;
     bool playStatus_ = false;
     double scrollAmount_ = DEFAULT_MARQUEE_SCROLL_AMOUNT.ConvertToPx();
     int32_t loop_ = -1;
@@ -151,7 +210,9 @@ private:
     int32_t lastWindowHeight_ = 0.0;
     int32_t lastWindowWidth_ = 0.0;
     float marqueeWidth_ = 0.0f;
+    bool hasStart_ = false;
     std::optional<OffsetF> lastAnimationOffset_;
+    std::optional<OffsetF> secondChildLastAnimationOffset_;
     std::unordered_map<MarqueeDynamicSyncSceneType, RefPtr<FrameRateRange>> frameRateRange_ ;
 };
 } // namespace OHOS::Ace::NG

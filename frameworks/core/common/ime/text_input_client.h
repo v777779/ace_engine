@@ -105,7 +105,7 @@ public:
     virtual void SetInputMethodStatus(bool keyboardShown) {}
     virtual void NotifyKeyboardClosedByUser() {}
     virtual void NotifyKeyboardClosed() {}
-    virtual void NotifyKeyboardHeight(uint32_t height);
+    ACE_FORCE_EXPORT virtual void NotifyKeyboardHeight(uint32_t height);
     virtual std::u16string GetLeftTextOfCursor(int32_t number)
     {
         return StringUtils::DEFAULT_USTRING;
@@ -161,13 +161,20 @@ public:
         instanceId_ = instanceId;
     }
 
-    bool HandleKeyEvent(const KeyEvent& keyEvent);
+    ACE_FORCE_EXPORT bool HandleKeyEvent(const KeyEvent& keyEvent);
     virtual void UpdateShiftFlag(const KeyEvent& keyEvent) {}
 
     virtual bool HandleOnEscape()
     {
         return false;
     }
+
+#ifdef ANDROID_PLATFORM
+    virtual bool HandleOnKeyBack()
+    {
+        return false;
+    }
+#endif
 
     virtual bool HandleOnTab(bool backward)
     {
@@ -254,6 +261,7 @@ public:
     virtual void HandleOnPageDown() {};
     virtual void ResetOriginCaretPosition() {};
     virtual bool RecordOriginCaretPosition() { return false; };
+    virtual bool IsShortCutBlocked() { return false; };
 protected:
     int32_t instanceId_ = -1;
     bool shiftFlag_ = false;

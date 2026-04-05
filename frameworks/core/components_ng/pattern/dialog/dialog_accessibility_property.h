@@ -32,6 +32,9 @@ public:
 
     std::string GetText() const override;
 
+    void GetExtraElementInfo(Accessibility::ExtraElementInfo& extraElementInfo) override;
+
+    bool IsAccessibilityModal() const override;
 private:
     ACE_DISALLOW_COPY_AND_MOVE(DialogAccessibilityProperty);
 };

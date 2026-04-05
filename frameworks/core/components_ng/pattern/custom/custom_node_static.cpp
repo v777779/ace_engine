@@ -40,7 +40,8 @@ CustomNode* CustomNodeStatic::ConstructCustomNode(int32_t id, NodeKoalaInfo&& in
 
 CustomMeasureLayoutNode* CustomNodeStatic::ConstructCustomNode(int32_t id,
     std::function<void(NG::LayoutWrapper* layoutWrapper)>&& onMeasureSize,
-    std::function<void(NG::LayoutWrapper* layoutWrapper)>&& onPlaceChildren)
+    std::function<void(NG::LayoutWrapper* layoutWrapper)>&& onPlaceChildren,
+    std::function<void(NG::LayoutWrapper* layoutWrapper)>&& updateParamFunc)
 {
     auto customNode = NG::CustomMeasureLayoutNode::CreateCustomMeasureLayoutNode(id, "");
     customNode->IncRefCount();
@@ -48,16 +49,58 @@ CustomMeasureLayoutNode* CustomNodeStatic::ConstructCustomNode(int32_t id,
         auto customMeasureLayoutNode = AceType::DynamicCast<NG::CustomMeasureLayoutNode>(customNode);
         customMeasureLayoutNode->SetMeasureFunction(std::move(onMeasureSize));
     } else {
-        TAG_LOGI(AceLogTag::ACE_NATIVE_NODE, "onMeasureSize null");
+        TAG_LOGI(AceLogTag::ACE_NATIVE_NODE, "onMeasureSize is nullptr");
     }
 
     if (onPlaceChildren) {
         auto customMeasureLayoutNode = AceType::DynamicCast<NG::CustomMeasureLayoutNode>(customNode);
         customMeasureLayoutNode->SetLayoutFunction(std::move(onPlaceChildren));
     } else {
-        TAG_LOGI(AceLogTag::ACE_NATIVE_NODE, "onPlaceChildren null");
+        TAG_LOGI(AceLogTag::ACE_NATIVE_NODE, "onPlaceChildren is nullptr");
     }
-    
+
+    if (updateParamFunc) {
+        auto customMeasureLayoutNode = AceType::DynamicCast<NG::CustomMeasureLayoutNode>(customNode);
+        customMeasureLayoutNode->SetUpdateParamFunc(std::move(updateParamFunc));
+    } else {
+        TAG_LOGI(AceLogTag::ACE_NATIVE_NODE, "updateParamFunc is nullptr");
+    }
     return AceType::RawPtr(customNode);
+}
+
+SizeF CustomNodeStatic::DidDefaultMeasure(const RefPtr<OHOS::Ace::NG::CustomMeasureLayoutNode>& frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, NG::SizeF());
+    auto layoutWrapper = AceType::DynamicCast<OHOS::Ace::NG::LayoutWrapper>(frameNode);
+    CHECK_NULL_RETURN(layoutWrapper, NG::SizeF());
+    // use normal measure step.
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_RETURN(layoutProperty, NG::SizeF());
+    auto layoutConstraint = layoutProperty->CreateChildConstraint();
+    
+    const auto& children = layoutWrapper->GetAllChildrenWithBuild();
+    int32_t index = 0;
+    frameNode->FireOnUpdateParam(AceType::RawPtr(layoutWrapper));
+    for (auto&& child : children) {
+        child->Measure(layoutConstraint);
+        auto size = child->GetGeometryNode()->GetFrameSize();
+        frameNode->UpdateSize(index, size);
+        index++;
+    }
+    NG::BoxLayoutAlgorithm::PerformMeasureSelf(AceType::RawPtr(layoutWrapper));
+    auto geometryNode = frameNode->GetGeometryNode();
+    CHECK_NULL_RETURN(geometryNode, NG::SizeF());
+    return geometryNode->GetFrameSize();
+}
+
+void CustomNodeStatic::DidDefaultLayout(const RefPtr<OHOS::Ace::NG::CustomMeasureLayoutNode>& frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto layoutWrapper = AceType::DynamicCast<OHOS::Ace::NG::LayoutWrapper>(frameNode);
+    CHECK_NULL_VOID(layoutWrapper);
+    NG::BoxLayoutAlgorithm::PerformLayout(AceType::RawPtr(layoutWrapper));
+    for (auto&& child : layoutWrapper->GetAllChildrenWithBuild()) {
+        child->Layout();
+    }
 }
 } // namespace OHOS::Ace::NG

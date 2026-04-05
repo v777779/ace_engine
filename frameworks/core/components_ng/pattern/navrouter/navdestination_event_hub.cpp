@@ -14,7 +14,10 @@
  */
 #include "frameworks/core/components_ng/pattern/navrouter/navdestination_event_hub.h"
 
+#include "core/components_ng/pattern/navigation/navigation_pattern.h"
 #include "frameworks/core/components_ng/pattern/navrouter/navdestination_pattern.h"
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
+
 namespace OHOS::Ace::NG {
 void NavDestinationEventHub::FireOnDisappear()
 {
@@ -58,7 +61,8 @@ void NavDestinationEventHub::FireAutoSave()
     container->RequestAutoSave(node);
 }
 
-void NavDestinationEventHub::FireOnShownEvent(const std::string& name, const std::string& param)
+void NavDestinationEventHub::FireOnShownEvent(
+    const std::string& name, const std::string& param, NavDestVisibilityChangeReason reason)
 {
     auto navDestination = AceType::DynamicCast<NavDestinationGroupNode>(GetFrameNode());
     CHECK_NULL_VOID(navDestination);
@@ -68,9 +72,10 @@ void NavDestinationEventHub::FireOnShownEvent(const std::string& name, const std
     state_= NavDestinationState::ON_SHOWN;
     UIObserverHandler::GetInstance().NotifyNavigationStateChange(GetNavDestinationPattern(),
         NavDestinationState::ON_SHOWN);
+    UiSessionManager::GetInstance()->OnRouterChange(navDestination->GetNavDestinationPathInfo(), "onPageShow");
     if (onShownEvent_) {
         auto onShownEvent = onShownEvent_;
-        onShownEvent();
+        onShownEvent(static_cast<int32_t>(reason));
     }
     if (!onHiddenChange_.empty()) {
         FireOnHiddenChange(true);
@@ -94,7 +99,7 @@ void NavDestinationEventHub::FireOnShownEvent(const std::string& name, const std
     pipelineContext->GetMemoryManager()->RebuildImageByPage(AceType::DynamicCast<FrameNode>(navDestination));
 }
 
-void NavDestinationEventHub::FireOnHiddenEvent(const std::string& name)
+void NavDestinationEventHub::FireOnHiddenEvent(const std::string& name, NavDestVisibilityChangeReason reason)
 {
     auto navDestination = AceType::DynamicCast<NavDestinationGroupNode>(GetFrameNode());
     CHECK_NULL_VOID(navDestination);
@@ -104,8 +109,9 @@ void NavDestinationEventHub::FireOnHiddenEvent(const std::string& name)
     state_ = NavDestinationState::ON_HIDDEN;
     UIObserverHandler::GetInstance().NotifyNavigationStateChange(GetNavDestinationPattern(),
         NavDestinationState::ON_HIDDEN);
+    UiSessionManager::GetInstance()->OnRouterChange(navDestination->GetNavDestinationPathInfo(), "onPageHide");
     if (onHiddenEvent_) {
-        onHiddenEvent_();
+        onHiddenEvent_(static_cast<int32_t>(reason));
     }
     if (!onHiddenChange_.empty()) {
         FireOnHiddenChange(false);
@@ -148,7 +154,8 @@ void NavDestinationEventHub::FireOnAppear()
         onAppearAction();
         return;
     }
-    if (navDestination && navDestination->IsHomeDestination()) {
+    if (navDestination->IsHomeDestination() ||
+        navDestination->GetNavDestinationType() == NavDestinationType::RELATED) {
         onAppearAction();
         return;
     }
@@ -231,6 +238,10 @@ void NavDestinationEventHub::FireOnWillDisAppear()
 
 bool NavDestinationEventHub::FireOnBackPressedEvent()
 {
+    auto navDestination = AceType::DynamicCast<NavDestinationGroupNode>(GetFrameNode());
+    CHECK_NULL_RETURN(navDestination, false);
+    UiSessionManager::GetInstance()->OnRouterChange(navDestination->GetNavDestinationPathInfo(),
+        "onBackPressed");
     if (onBackPressedEvent_) {
         TAG_LOGI(AceLogTag::ACE_NAVIGATION, "navDestination backButton press is happening.");
         return onBackPressedEvent_();

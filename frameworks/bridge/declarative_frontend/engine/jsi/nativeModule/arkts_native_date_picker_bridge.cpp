@@ -21,7 +21,6 @@
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_utils.h"
 #include "core/components_ng/pattern/picker/picker_type_define.h"
 
-#include "core/components/picker/picker_base_component.h"
 namespace OHOS::Ace::NG {
 constexpr int NUM_0 = 0;
 constexpr int NUM_1 = 1;
@@ -33,8 +32,8 @@ const std::string FORMAT_FONT = "%s|%s|%s";
 const std::string DEFAULT_FAMILY = "HarmonyOS Sans";
 constexpr int PARAM_ARR_LENGTH_1 = 1;
 
-std::string ParseFontSize(const EcmaVM* vm, const Local<JSValueRef>& fontSizeArgs,
-    RefPtr<ResourceObject>& fontSizeResObj)
+std::string ParseFontSize(
+    const EcmaVM* vm, const Local<JSValueRef>& fontSizeArgs, RefPtr<ResourceObject>& fontSizeResObj)
 {
     CalcDimension fontSizeData;
     if (!ArkTSUtils::ParseJsDimensionFp(vm, fontSizeArgs, fontSizeData, fontSizeResObj, true, false) ||
@@ -44,8 +43,8 @@ std::string ParseFontSize(const EcmaVM* vm, const Local<JSValueRef>& fontSizeArg
     return fontSizeData.ToString();
 }
 
-std::string ParseFontFamily(const EcmaVM* vm, const Local<JSValueRef>& fontFamilyArgs,
-    RefPtr<ResourceObject>& fontFamilyResObj)
+std::string ParseFontFamily(
+    const EcmaVM* vm, const Local<JSValueRef>& fontFamilyArgs, RefPtr<ResourceObject>& fontFamilyResObj)
 {
     std::string fontFamily;
     if (!ArkTSUtils::ParseJsFontFamiliesToString(vm, fontFamilyArgs, fontFamily, fontFamilyResObj) ||
@@ -60,6 +59,7 @@ ArkUINativeModuleValue DatePickerBridge::SetSelectedTextStyle(ArkUIRuntimeCallIn
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     Local<JSValueRef> textColorArgs = runtimeCallInfo->GetCallArgRef(NUM_1);
     Local<JSValueRef> fontSizeArgs = runtimeCallInfo->GetCallArgRef(NUM_2);
@@ -67,8 +67,12 @@ ArkUINativeModuleValue DatePickerBridge::SetSelectedTextStyle(ArkUIRuntimeCallIn
     Local<JSValueRef> fontFamilyArgs = runtimeCallInfo->GetCallArgRef(NUM_4);
     Local<JSValueRef> fontStyleArgs = runtimeCallInfo->GetCallArgRef(NUM_5);
 
-    if (textColorArgs->IsUndefined() && fontSizeArgs->IsUndefined() && fontWeightArgs->IsUndefined() &&
-        fontFamilyArgs->IsUndefined() && fontStyleArgs->IsUndefined()) {
+    bool isUndefinedValue = ((textColorArgs->IsNull() || textColorArgs->IsUndefined()) &&
+                             (fontSizeArgs->IsNull() || fontSizeArgs->IsUndefined()) &&
+                             (fontWeightArgs->IsNull() || fontWeightArgs->IsUndefined()) &&
+                             (fontFamilyArgs->IsNull() || fontFamilyArgs->IsUndefined()) &&
+                             (fontStyleArgs->IsNull() || fontStyleArgs->IsUndefined()));
+    if (isUndefinedValue) {
         GetArkUINodeModifiers()->getDatePickerModifier()->resetSelectedTextStyle(nativeNode);
     }
 
@@ -83,20 +87,20 @@ ArkUINativeModuleValue DatePickerBridge::SetSelectedTextStyle(ArkUIRuntimeCallIn
     RefPtr<ResourceObject> fontFamilyResObj;
     std::string fontFamily = ParseFontFamily(vm, fontFamilyArgs, fontFamilyResObj);
 
-    int32_t fontStyle = 0;
-    if (fontStyleArgs->IsNumber()) {
-        fontStyle = fontStyleArgs->Int32Value(vm);
-    }
+    int32_t fontStyle = fontStyleArgs->IsNumber() ? fontStyleArgs->Int32Value(vm) : 0;
     Color color;
     RefPtr<ResourceObject> textColorResObj;
+    ArkUIPickerTextStyleStruct textStyleStruct;
     auto nodeInfo = ArkTSUtils::MakeNativeNodeInfo(nativeNode);
     if (!ArkTSUtils::ParseJsColorAlpha(vm, textColorArgs, color, textColorResObj, nodeInfo)) {
         Color::ParseColorString("#ff0a59f7", color);
+        textStyleStruct.textColorSetByUser = false;
+    } else {
+        textStyleStruct.textColorSetByUser = true;
     }
     std::string fontInfo =
         StringUtils::FormatString(FORMAT_FONT.c_str(), fontSize.c_str(), weight.c_str(), fontFamily.c_str());
 
-    ArkUIPickerTextStyleStruct textStyleStruct;
     textStyleStruct.textColor = color.GetValue();
     textStyleStruct.fontStyle = fontStyle;
     textStyleStruct.fontInfo = fontInfo.c_str();
@@ -112,6 +116,7 @@ ArkUINativeModuleValue DatePickerBridge::ResetSelectedTextStyle(ArkUIRuntimeCall
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     GetArkUINodeModifiers()->getDatePickerModifier()->resetSelectedTextStyle(nativeNode);
     return panda::JSValueRef::Undefined(vm);
@@ -122,6 +127,7 @@ ArkUINativeModuleValue DatePickerBridge::SetTextStyle(ArkUIRuntimeCallInfo* runt
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     Local<JSValueRef> textColorArgs = runtimeCallInfo->GetCallArgRef(NUM_1);
     Local<JSValueRef> fontSizeArgs = runtimeCallInfo->GetCallArgRef(NUM_2);
@@ -129,9 +135,13 @@ ArkUINativeModuleValue DatePickerBridge::SetTextStyle(ArkUIRuntimeCallInfo* runt
     Local<JSValueRef> fontFamilyArgs = runtimeCallInfo->GetCallArgRef(NUM_4);
     Local<JSValueRef> fontStyleArgs = runtimeCallInfo->GetCallArgRef(NUM_5);
 
-    if (textColorArgs->IsUndefined() && fontSizeArgs->IsUndefined() && fontWeightArgs->IsUndefined() &&
-        fontFamilyArgs->IsUndefined() && fontStyleArgs->IsUndefined()) {
-        GetArkUINodeModifiers()->getDatePickerModifier()->resetSelectedTextStyle(nativeNode);
+    bool isUndefinedValue = ((textColorArgs->IsNull() || textColorArgs->IsUndefined()) &&
+                             (fontSizeArgs->IsNull() || fontSizeArgs->IsUndefined()) &&
+                             (fontWeightArgs->IsNull() || fontWeightArgs->IsUndefined()) &&
+                             (fontFamilyArgs->IsNull() || fontFamilyArgs->IsUndefined()) &&
+                             (fontStyleArgs->IsNull() || fontStyleArgs->IsUndefined()));
+    if (isUndefinedValue) {
+        GetArkUINodeModifiers()->getDatePickerModifier()->resetDatePickerTextStyle(nativeNode);
     }
 
     RefPtr<ResourceObject> fontSizeResObj;
@@ -145,20 +155,20 @@ ArkUINativeModuleValue DatePickerBridge::SetTextStyle(ArkUIRuntimeCallInfo* runt
     RefPtr<ResourceObject> fontFamilyResObj;
     std::string fontFamily = ParseFontFamily(vm, fontFamilyArgs, fontFamilyResObj);
 
-    int32_t fontStyle = 0;
-    if (fontStyleArgs->IsNumber()) {
-        fontStyle = fontStyleArgs->Int32Value(vm);
-    }
+    int32_t fontStyle = fontStyleArgs->IsNumber() ? fontStyleArgs->Int32Value(vm) : 0;
     Color color;
     RefPtr<ResourceObject> textColorResObj;
+    ArkUIPickerTextStyleStruct textStyleStruct;
     auto nodeInfo = ArkTSUtils::MakeNativeNodeInfo(nativeNode);
     if (!ArkTSUtils::ParseJsColorAlpha(vm, textColorArgs, color, textColorResObj, nodeInfo)) {
         Color::ParseColorString("#ff182431", color);
+        textStyleStruct.textColorSetByUser = false;
+    } else {
+        textStyleStruct.textColorSetByUser = true;
     }
     std::string fontInfo =
         StringUtils::FormatString(FORMAT_FONT.c_str(), fontSize.c_str(), weight.c_str(), fontFamily.c_str());
 
-    ArkUIPickerTextStyleStruct textStyleStruct;
     textStyleStruct.textColor = color.GetValue();
     textStyleStruct.fontStyle = fontStyle;
     textStyleStruct.fontInfo = fontInfo.c_str();
@@ -174,6 +184,7 @@ ArkUINativeModuleValue DatePickerBridge::ResetTextStyle(ArkUIRuntimeCallInfo* ru
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     GetArkUINodeModifiers()->getDatePickerModifier()->resetDatePickerTextStyle(nativeNode);
     return panda::JSValueRef::Undefined(vm);
@@ -184,6 +195,7 @@ ArkUINativeModuleValue DatePickerBridge::SetDisappearTextStyle(ArkUIRuntimeCallI
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     Local<JSValueRef> textColorArgs = runtimeCallInfo->GetCallArgRef(NUM_1);
     Local<JSValueRef> fontSizeArgs = runtimeCallInfo->GetCallArgRef(NUM_2);
@@ -191,9 +203,13 @@ ArkUINativeModuleValue DatePickerBridge::SetDisappearTextStyle(ArkUIRuntimeCallI
     Local<JSValueRef> fontFamilyArgs = runtimeCallInfo->GetCallArgRef(NUM_4);
     Local<JSValueRef> fontStyleArgs = runtimeCallInfo->GetCallArgRef(NUM_5);
 
-    if (textColorArgs->IsUndefined() && fontSizeArgs->IsUndefined() && fontWeightArgs->IsUndefined() &&
-        fontFamilyArgs->IsUndefined() && fontStyleArgs->IsUndefined()) {
-        GetArkUINodeModifiers()->getDatePickerModifier()->resetSelectedTextStyle(nativeNode);
+    bool isUndefinedValue = ((textColorArgs->IsNull() || textColorArgs->IsUndefined()) &&
+                             (fontSizeArgs->IsNull() || fontSizeArgs->IsUndefined()) &&
+                             (fontWeightArgs->IsNull() || fontWeightArgs->IsUndefined()) &&
+                             (fontFamilyArgs->IsNull() || fontFamilyArgs->IsUndefined()) &&
+                             (fontStyleArgs->IsNull() || fontStyleArgs->IsUndefined()));
+    if (isUndefinedValue) {
+        GetArkUINodeModifiers()->getDatePickerModifier()->resetDisappearTextStyle(nativeNode);
     }
 
     RefPtr<ResourceObject> fontSizeResObj;
@@ -207,20 +223,20 @@ ArkUINativeModuleValue DatePickerBridge::SetDisappearTextStyle(ArkUIRuntimeCallI
     RefPtr<ResourceObject> fontFamilyResObj;
     std::string fontFamily = ParseFontFamily(vm, fontFamilyArgs, fontFamilyResObj);
 
-    int32_t fontStyle = 0;
-    if (fontStyleArgs->IsNumber()) {
-        fontStyle = fontStyleArgs->Int32Value(vm);
-    }
+    int32_t fontStyle = fontStyleArgs->IsNumber() ? fontStyleArgs->Int32Value(vm) : 0;
     Color color;
     RefPtr<ResourceObject> textColorResObj;
+    ArkUIPickerTextStyleStruct textStyleStruct;
     auto nodeInfo = ArkTSUtils::MakeNativeNodeInfo(nativeNode);
     if (!ArkTSUtils::ParseJsColorAlpha(vm, textColorArgs, color, textColorResObj, nodeInfo)) {
         Color::ParseColorString("#ff182431", color);
+        textStyleStruct.textColorSetByUser = false;
+    } else {
+        textStyleStruct.textColorSetByUser = true;
     }
     std::string fontInfo =
         StringUtils::FormatString(FORMAT_FONT.c_str(), fontSize.c_str(), weight.c_str(), fontFamily.c_str());
 
-    ArkUIPickerTextStyleStruct textStyleStruct;
     textStyleStruct.textColor = color.GetValue();
     textStyleStruct.fontStyle = fontStyle;
     textStyleStruct.fontInfo = fontInfo.c_str();
@@ -236,6 +252,7 @@ ArkUINativeModuleValue DatePickerBridge::ResetDisappearTextStyle(ArkUIRuntimeCal
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     GetArkUINodeModifiers()->getDatePickerModifier()->resetDisappearTextStyle(nativeNode);
     return panda::JSValueRef::Undefined(vm);
@@ -246,9 +263,10 @@ ArkUINativeModuleValue DatePickerBridge::SetLunar(ArkUIRuntimeCallInfo* runtimeC
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     Local<JSValueRef> isLunarArg = runtimeCallInfo->GetCallArgRef(NUM_1);
     auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
-    if (isLunarArg->IsUndefined() || !isLunarArg->IsBoolean()) {
+    if (isLunarArg->IsNull() || isLunarArg->IsUndefined() || !isLunarArg->IsBoolean()) {
         GetArkUINodeModifiers()->getDatePickerModifier()->resetLunar(nativeNode);
         return panda::JSValueRef::Undefined(vm);
     }
@@ -262,6 +280,7 @@ ArkUINativeModuleValue DatePickerBridge::ResetLunar(ArkUIRuntimeCallInfo* runtim
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     GetArkUINodeModifiers()->getDatePickerModifier()->resetLunar(nativeNode);
     return panda::JSValueRef::Undefined(vm);
@@ -274,6 +293,7 @@ ArkUINativeModuleValue DatePickerBridge::SetBackgroundColor(ArkUIRuntimeCallInfo
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     Local<JSValueRef> colorArg = runtimeCallInfo->GetCallArgRef(1);
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     Color color;
@@ -292,44 +312,9 @@ ArkUINativeModuleValue DatePickerBridge::ResetBackgroundColor(ArkUIRuntimeCallIn
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     GetArkUINodeModifiers()->getDatePickerModifier()->resetDatePickerBackgroundColor(nativeNode);
-    return panda::JSValueRef::Undefined(vm);
-}
-
-ArkUINativeModuleValue DatePickerBridge::SetEnableHapticFeedback(ArkUIRuntimeCallInfo* runtimeCallInfo)
-{
-    EcmaVM* vm = runtimeCallInfo->GetVM();
-    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
-    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
-    Local<JSValueRef> enableHapticFeedbackArg = runtimeCallInfo->GetCallArgRef(NUM_1);
-    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
-    CHECK_NULL_RETURN(nativeNode, panda::NativePointerRef::New(vm, nullptr));
-    auto nodeModifiers = GetArkUINodeModifiers();
-    CHECK_NULL_RETURN(nodeModifiers, panda::NativePointerRef::New(vm, nullptr));
-    auto datePickerModifier = nodeModifiers->getDatePickerModifier();
-    CHECK_NULL_RETURN(datePickerModifier, panda::NativePointerRef::New(vm, nullptr));
-    if (enableHapticFeedbackArg->IsBoolean()) {
-        bool value = enableHapticFeedbackArg->ToBoolean(vm)->Value();
-        datePickerModifier->setEnableHapticFeedback(nativeNode, value);
-    } else {
-        datePickerModifier->resetEnableHapticFeedback(nativeNode);
-    }
-    return panda::JSValueRef::Undefined(vm);
-}
-
-ArkUINativeModuleValue DatePickerBridge::ResetEnableHapticFeedback(ArkUIRuntimeCallInfo* runtimeCallInfo)
-{
-    EcmaVM* vm = runtimeCallInfo->GetVM();
-    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
-    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
-    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
-    CHECK_NULL_RETURN(nativeNode, panda::NativePointerRef::New(vm, nullptr));
-    auto nodeModifiers = GetArkUINodeModifiers();
-    CHECK_NULL_RETURN(nodeModifiers, panda::NativePointerRef::New(vm, nullptr));
-    auto datePickerModifier = nodeModifiers->getDatePickerModifier();
-    CHECK_NULL_RETURN(datePickerModifier, panda::NativePointerRef::New(vm, nullptr));
-    datePickerModifier->resetEnableHapticFeedback(nativeNode);
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -338,11 +323,12 @@ ArkUINativeModuleValue DatePickerBridge::SetDigitalCrownSensitivity(ArkUIRuntime
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
-    Local<JSValueRef> crownSensitivityArg =
-        runtimeCallInfo->GetCallArgRef(NUM_1);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    Local<JSValueRef> crownSensitivityArg = runtimeCallInfo->GetCallArgRef(NUM_1);
     auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
     uint32_t crownSensitivity = OHOS::Ace::NG::DEFAULT_CROWNSENSITIVITY;
-    if (crownSensitivityArg->IsNumber()) {
+    bool isUndefinedValue = (crownSensitivityArg->IsNull() || crownSensitivityArg->IsUndefined());
+    if (!isUndefinedValue && crownSensitivityArg->IsNumber()) {
         crownSensitivity = crownSensitivityArg->ToNumber(vm)->Value();
     }
     auto modifier = GetArkUINodeModifiers();
@@ -356,10 +342,50 @@ ArkUINativeModuleValue DatePickerBridge::ResetDigitalCrownSensitivity(ArkUIRunti
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
     auto modifier = GetArkUINodeModifiers();
     CHECK_NULL_RETURN(modifier, panda::NativePointerRef::New(vm, nullptr));
     modifier->getDatePickerModifier()->resetDatePickerDigitalCrownSensitivity(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue DatePickerBridge::SetEnableHapticFeedback(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    Local<JSValueRef> enableHapticFeedbackArg = runtimeCallInfo->GetCallArgRef(NUM_1);
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    CHECK_NULL_RETURN(nativeNode, panda::NativePointerRef::New(vm, nullptr));
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::NativePointerRef::New(vm, nullptr));
+    auto datePickerModifier = nodeModifiers->getDatePickerModifier();
+    CHECK_NULL_RETURN(datePickerModifier, panda::NativePointerRef::New(vm, nullptr));
+    bool isUndefinedValue = (enableHapticFeedbackArg->IsNull() || enableHapticFeedbackArg->IsUndefined());
+    if (!isUndefinedValue && enableHapticFeedbackArg->IsBoolean()) {
+        bool value = enableHapticFeedbackArg->ToBoolean(vm)->Value();
+        datePickerModifier->setEnableHapticFeedback(nativeNode, value);
+    } else {
+        datePickerModifier->resetEnableHapticFeedback(nativeNode);
+    }
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue DatePickerBridge::ResetEnableHapticFeedback(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    CHECK_NULL_RETURN(nativeNode, panda::NativePointerRef::New(vm, nullptr));
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::NativePointerRef::New(vm, nullptr));
+    auto datePickerModifier = nodeModifiers->getDatePickerModifier();
+    CHECK_NULL_RETURN(datePickerModifier, panda::NativePointerRef::New(vm, nullptr));
+    datePickerModifier->resetEnableHapticFeedback(nativeNode);
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -368,6 +394,7 @@ ArkUINativeModuleValue DatePickerBridge::SetCanLoop(ArkUIRuntimeCallInfo* runtim
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     Local<JSValueRef> canLoopArg = runtimeCallInfo->GetCallArgRef(NUM_1);
     auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
     CHECK_NULL_RETURN(nativeNode, panda::NativePointerRef::New(vm, nullptr));
@@ -375,7 +402,8 @@ ArkUINativeModuleValue DatePickerBridge::SetCanLoop(ArkUIRuntimeCallInfo* runtim
     CHECK_NULL_RETURN(nodeModifiers, panda::NativePointerRef::New(vm, nullptr));
     auto datePickerModifier = nodeModifiers->getDatePickerModifier();
     CHECK_NULL_RETURN(datePickerModifier, panda::NativePointerRef::New(vm, nullptr));
-    if (canLoopArg->IsBoolean()) {
+    bool isUndefinedValue = (canLoopArg->IsNull() || canLoopArg->IsUndefined());
+    if (!isUndefinedValue && canLoopArg->IsBoolean()) {
         bool value = canLoopArg->ToBoolean(vm)->Value();
         datePickerModifier->setCanLoop(nativeNode, value);
     } else {
@@ -389,6 +417,7 @@ ArkUINativeModuleValue DatePickerBridge::ResetCanLoop(ArkUIRuntimeCallInfo* runt
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
     CHECK_NULL_RETURN(nativeNode, panda::NativePointerRef::New(vm, nullptr));
     auto nodeModifiers = GetArkUINodeModifiers();
@@ -475,6 +504,7 @@ ArkUINativeModuleValue DatePickerBridge::ResetDatePickerOnChange(ArkUIRuntimeCal
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> nativeNodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nativeNodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(nativeNodeArg->ToNativePointer(vm)->Value());
     GetArkUINodeModifiers()->getDatePickerModifier()->resetDatePickerOnChange(nativeNode);
     return panda::JSValueRef::Undefined(vm);
@@ -501,6 +531,7 @@ ArkUINativeModuleValue DatePickerBridge::SetDatePickerOnDateChange(ArkUIRuntimeC
     std::function<void(const BaseEventInfo*)> callback = [vm, frameNode, func = panda::CopyableGlobal(vm, func)](
                                                              const BaseEventInfo* info) {
         const auto* eventInfo = TypeInfoHelper::DynamicCast<DatePickerChangeEvent>(info);
+        CHECK_NULL_VOID(eventInfo);
         panda::LocalScope pandaScope(vm);
         panda::TryCatch trycatch(vm);
         PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
@@ -519,6 +550,7 @@ ArkUINativeModuleValue DatePickerBridge::ResetDatePickerOnDateChange(ArkUIRuntim
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
     Local<JSValueRef> nativeNodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nativeNodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
     auto nativeNode = nodePtr(nativeNodeArg->ToNativePointer(vm)->Value());
     GetArkUINodeModifiers()->getDatePickerModifier()->resetDatePickerOnDateChange(nativeNode);
     return panda::JSValueRef::Undefined(vm);

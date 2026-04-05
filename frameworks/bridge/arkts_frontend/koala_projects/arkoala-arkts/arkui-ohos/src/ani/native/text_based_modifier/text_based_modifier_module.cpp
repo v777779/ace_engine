@@ -15,25 +15,49 @@
 
 #include "text_based_modifier_module.h"
 
+#ifdef ENABLE_STANDARD_INPUT
+#include "extra_config_ani.h"
+#endif
 #include "core/pipeline/pipeline_base.h"
 #include "load.h"
 #include "log/log.h"
 #include "utils/ani_utils.h"
+#include "core/interfaces/native/implementation/text_paragraph_peer.h"
+#include "core/interfaces/native/utility/peer_utils.h"
+#include "ani/include/ani_paragraph.h"
 
 namespace OHOS::Ace::Ani {
+
+namespace {
+ani_status GetAniEnv(ani_vm* vm, ani_env** env)
+{
+    CHECK_NULL_RETURN(vm, ANI_ERROR);
+    ani_options aniOpt {0, nullptr};
+    auto status = vm->AttachCurrentThread(&aniOpt, ANI_VERSION_1, env);
+    if (status != ANI_OK) {
+        vm->GetEnv(ANI_VERSION_1, env);
+    }
+    return status;
+}
+} // namespace
 
 class TextBasedComponentCallbackAni {
 public:
     TextBasedComponentCallbackAni(ani_env* env, ani_ref func)
     {
         CHECK_NULL_VOID(env && func);
-        env_ = env;
+        env->GetVM(&vm_);
         env->GlobalReference_Create(func, &func_);
     }
     ~TextBasedComponentCallbackAni()
     {
-        CHECK_NULL_VOID(func_ && env_);
-        env_->GlobalReference_Delete(func_);
+        CHECK_NULL_VOID(vm_ && func_);
+        ani_env* env = nullptr;
+        auto attachStatus = GetAniEnv(vm_, &env);
+        if (attachStatus == ANI_OK && env != nullptr) {
+            env->GlobalReference_Delete(func_);
+            vm_->DetachCurrentThread();
+        }
     }
     void Call(ani_env* env, ani_size argc, ani_ref* argv, ani_ref* result)
     {
@@ -41,7 +65,7 @@ public:
         env->FunctionalObject_Call(static_cast<ani_fn_object>(func_), argc, argv, result);
     }
 private:
-    ani_env* env_ = nullptr;
+    ani_vm* vm_ = nullptr;
     ani_ref func_ = nullptr;
 };
 
@@ -61,15 +85,26 @@ ani_long ExtractorsToSymbolGlyphModifierPtr(ani_env* env, [[maybe_unused]] ani_o
     const auto* modifier = GetNodeAniModifier();
     CHECK_NULL_RETURN(modifier && fnObj, 0);
 
+    ani_vm* vm = nullptr;
+    env->GetVM(&vm);
+
     auto callbackAni = std::make_shared<TextBasedComponentCallbackAni>(env, fnObj);
     std::function<void(WeakPtr<NG::FrameNode>)> symbolApply =
-        [env, callbackAni](WeakPtr<NG::FrameNode> frameNode) -> void {
+        [vm, callbackAni](WeakPtr<NG::FrameNode> frameNode) -> void {
+            ani_env* env = nullptr;
+            auto attachStatus = GetAniEnv(vm, &env);
+            CHECK_NULL_VOID(env);
+
             auto node = reinterpret_cast<void*>(frameNode.Upgrade().GetRawPtr());
             ani_object pointerObject = AniUtils::CreateLong(env, reinterpret_cast<ani_long>(node));
             CHECK_NULL_VOID(pointerObject);
             std::vector<ani_ref> args = { pointerObject };
             ani_ref ret = nullptr;
             callbackAni->Call(env, args.size(), args.data(), &ret);
+
+            if (attachStatus == ANI_OK) {
+                vm->DetachCurrentThread();
+            }
         };
 
     auto symbolModifierPeer = modifier->getTextBasedAniModifier()->toSymbolModifierPeer(symbolApply,
@@ -106,5 +141,51 @@ ani_long ExtractorsToTextModifierPtr(ani_env* env, [[maybe_unused]] ani_object o
     auto textModifierPeer = modifier->getTextBasedAniModifier()->toTextModifierPeer(textApply,
         reinterpret_cast<void*>(textModifierAni));
     return reinterpret_cast<ani_long>(textModifierPeer);
+}
+
+ani_long ExtractorsToInputMethodExtraConfigPtr(ani_env* env, [[maybe_unused]] ani_object obj, ani_object extraConfigObj)
+{
+    const auto* modifier = GetNodeAniModifier();
+    if (!modifier) {
+        HILOGE("GetNodeAniModifier is null.");
+        return 0;
+    }
+#ifdef ENABLE_STANDARD_INPUT
+    auto shareConfigPtr = std::make_shared<OHOS::MiscServices::ExtraConfig>();
+    CHECK_NULL_RETURN(shareConfigPtr, 0);
+    auto status = OHOS::MiscServices::AniExtraConfig::GetExtraConfig(env, extraConfigObj, *shareConfigPtr);
+    if (!status) {
+        HILOGE("GetExtraConfig failed, size: %{public}u", shareConfigPtr->customSettings.size());
+        return 0;
+    }
+    auto extraConfigPtr = reinterpret_cast<void*>(&shareConfigPtr);
+    auto imeExtraConfigPeer = modifier->getTextBasedAniModifier()->toIMEExtraCfgPeer(extraConfigPtr);
+    return reinterpret_cast<ani_long>(imeExtraConfigPeer);
+#else
+    HILOGE("IME extra config not supported.");
+    return 0;
+#endif
+}
+
+ani_long ExtractorsToTextParagraphPtr(ani_env* env, [[maybe_unused]] ani_object obj, ani_object textParagraphObj)
+{
+    const auto* modifier = GetNodeAniModifier();
+    if (!modifier) {
+        return 0;
+    }
+    auto textParagraphPtr = modifier->getTextBasedAniModifier()->toTextParagraphPeer(
+        reinterpret_cast<void*>(textParagraphObj));
+    CHECK_NULL_RETURN(textParagraphPtr, 0);
+    return reinterpret_cast<ani_long>(textParagraphPtr);
+}
+
+ani_object ExtractorsFromTextParagraphPtr(ani_env* env, [[maybe_unused]]ani_object aniClass, ani_long pointer)
+{
+    auto textParagraphPeer = reinterpret_cast<text_ParagraphPeer*>(pointer);
+    CHECK_NULL_RETURN(textParagraphPeer, nullptr);
+    CHECK_NULL_RETURN(textParagraphPeer->paragraph, nullptr);
+    auto result = OHOS::Text::ANI::AniParagraph::SetTypography(env, textParagraphPeer->paragraph.release());
+    NG::PeerUtils::DestroyPeer<text_ParagraphPeer>(textParagraphPeer);
+    return result;
 }
 } // namespace OHOS::Ace::Ani

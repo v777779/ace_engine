@@ -15,32 +15,51 @@
 
 #include "core/components_ng/render/adapter/txt_font_collection.h"
 
+#ifndef PREVIEW
+#include "rosen_text/font_collection_mgr.h"
+#include "bridge/common/utils/engine_helper.h"
+#endif
+
 namespace OHOS::Ace::NG {
 namespace {
-void OnLoadFontFinished(const Rosen::FontCollection* collection, const std::string& name)
+void OnLoadFontFinished(const Rosen::FontCollection* collection, const Rosen::FontEventInfo& info)
 {
-    auto txtFontCollection = AceType::DynamicCast<TxtFontCollection>(FontCollection::Current());
-    if (!txtFontCollection || txtFontCollection->GetRawFontCollection().get() != collection) {
-        return;
+#ifndef PREVIEW
+    uint64_t runtimeId = Rosen::FontCollectionMgr::GetInstance().GetEnvByFontCollection(collection);
+#else
+    uint64_t runtimeId = 0;
+#endif
+    if (runtimeId == 0) {
+        auto txtFontCollection = AceType::DynamicCast<TxtFontCollection>(FontCollection::Global());
+        if (!txtFontCollection || txtFontCollection->GetRawFontCollection().get() != collection) {
+            return;
+        }
     }
-    auto loadFinishCallback = FontCollection::Current()->GetLoadFontFinishCallback();
+    auto loadFinishCallback = FontCollection::Global()->GetLoadFontFinishCallback();
     for (const auto& callback : loadFinishCallback) {
         if (callback) {
-            callback(name);
+            callback(info.familyName, runtimeId);
         }
     }
 }
 
-void OnUnLoadFontFinished(const Rosen::FontCollection* collection, const std::string& name)
+void OnUnLoadFontFinished(const Rosen::FontCollection* collection, const Rosen::FontEventInfo& info)
 {
-    auto txtFontCollection = AceType::DynamicCast<TxtFontCollection>(FontCollection::Current());
-    if (!txtFontCollection || txtFontCollection->GetRawFontCollection().get() != collection) {
-        return;
+#ifndef PREVIEW
+    uint64_t runtimeId = Rosen::FontCollectionMgr::GetInstance().GetEnvByFontCollection(collection);
+#else
+    uint64_t runtimeId = 0;
+#endif
+    if (runtimeId == 0) {
+        auto txtFontCollection = AceType::DynamicCast<TxtFontCollection>(FontCollection::Global());
+        if (!txtFontCollection || txtFontCollection->GetRawFontCollection().get() != collection) {
+            return;
+        }
     }
-    auto unLoadFinishCallback = FontCollection::Current()->GetUnloadFontFinishCallback();
+    auto unLoadFinishCallback = FontCollection::Global()->GetUnloadFontFinishCallback();
     for (const auto& callback : unLoadFinishCallback) {
         if (callback) {
-            callback(name);
+            callback(info.familyName, runtimeId);
         }
     }
 }
@@ -52,9 +71,46 @@ RefPtr<FontCollection> TxtFontCollection::GetInstance()
     return instance;
 }
 
-RefPtr<FontCollection> FontCollection::Current()
+ACE_FORCE_EXPORT RefPtr<FontCollection> FontCollection::Current()
+{
+    auto localFontCollection = TxtFontCollection::GetFormLocalInstance();
+    if (localFontCollection) {
+        return localFontCollection;
+    }
+    return TxtFontCollection::GetInstance();
+}
+
+RefPtr<FontCollection> FontCollection::Global()
 {
     return TxtFontCollection::GetInstance();
+}
+
+RefPtr<FontCollection> TxtFontCollection::GetFormLocalInstance()
+{
+#ifndef PREVIEW
+    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    CHECK_NULL_RETURN(pipeline, nullptr);
+    if (!pipeline->IsFormRender()) {
+        return nullptr;
+    }
+    auto engine = EngineHelper::GetCurrentEngine();
+    if (!engine) {
+        return nullptr;
+    }
+    NativeEngine* nativeEngine = engine->GetNativeEngine();
+    if (nativeEngine == nullptr) {
+        return nullptr;
+    }
+    uint64_t envId = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(nativeEngine));
+    std::shared_ptr<Rosen::FontCollection> rosenFontCollection =
+        Rosen::FontCollectionMgr::GetInstance().GetLocalInstance(envId);
+    if (rosenFontCollection) {
+        // register global font callback.
+        TxtFontCollection::GetInstance();
+        return AceType::MakeRefPtr<TxtFontCollection>(rosenFontCollection);
+    }
+#endif
+    return nullptr;
 }
 
 TxtFontCollection::TxtFontCollection()

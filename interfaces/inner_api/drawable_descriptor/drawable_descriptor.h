@@ -74,7 +74,7 @@ using RSImage = Rosen::Drawing::Image;
 using UniqueImageSource = std::unique_ptr<Media::ImageSource>;
 
 struct DrawableItem {
-    UINT8 data_;
+    UINT8 data_ = nullptr;
     size_t len_ = 0;
     RState state_ = RState::INVALID_FORMAT;
 };
@@ -132,38 +132,46 @@ class DRAWABLE_FORCE_EXPORT LayeredDrawableDescriptor : public DrawableDescripto
 public:
     LayeredDrawableDescriptor() = default;
 
-    LayeredDrawableDescriptor(UINT8 jsonBuf, size_t len, const SharedResourceManager& resourceMgr)
-        : jsonBuf_(std::move(jsonBuf)), len_(len)
+    LayeredDrawableDescriptor(
+        UINT8 jsonBuf, size_t len, const SharedResourceManager& resourceMgr, bool foregroundOverBackground = false)
+        : jsonBuf_(std::move(jsonBuf)), len_(len), foregroundOverBackground_(foregroundOverBackground)
     {
         InitialResource(resourceMgr);
         jsonBuf_.reset();
+        InitBlendMode();
     }
 
     LayeredDrawableDescriptor(UINT8 jsonBuf, size_t len, const SharedResourceManager& resourceMgr, std::string path,
-        uint32_t iconType, uint32_t density)
-        : jsonBuf_(std::move(jsonBuf)), len_(len), maskPath_(std::move(path)), iconType_(iconType), density_(density)
+        uint32_t iconType, uint32_t density, bool foregroundOverBackground = false)
+        : jsonBuf_(std::move(jsonBuf)), len_(len), maskPath_(std::move(path)), iconType_(iconType), density_(density),
+          foregroundOverBackground_(foregroundOverBackground)
     {
         InitialResource(resourceMgr);
         jsonBuf_.reset();
+        InitBlendMode();
     }
 
     LayeredDrawableDescriptor(UINT8 jsonBuf, size_t len, const SharedResourceManager& resourceMgr, std::string path,
-        uint32_t iconType, DataInfo& foregroundInfo, DataInfo& backgroundInfo)
-        : jsonBuf_(std::move(jsonBuf)), len_(len), maskPath_(std::move(path)), iconType_(iconType)
+        uint32_t iconType, DataInfo& foregroundInfo, DataInfo& backgroundInfo, bool foregroundOverBackground = false)
+        : jsonBuf_(std::move(jsonBuf)), len_(len), maskPath_(std::move(path)), iconType_(iconType),
+          foregroundOverBackground_(foregroundOverBackground)
     {
         InitLayeredParam(foregroundInfo, backgroundInfo);
         InitialResource(resourceMgr);
         jsonBuf_.reset();
+        InitBlendMode();
     }
 
     LayeredDrawableDescriptor(size_t len, std::string path, uint32_t iconType, DataInfo& foregroundInfo,
         DataInfo& backgroundInfo, const std::pair<int32_t, int32_t>& decoderSize,
-        const SharedResourceManager& resourceMgr = nullptr)
-        : len_(len), maskPath_(std::move(path)), iconType_(iconType)
+        const SharedResourceManager& resourceMgr = nullptr, bool foregroundOverBackground = false)
+        : len_(len), maskPath_(std::move(path)), iconType_(iconType),
+          foregroundOverBackground_(foregroundOverBackground)
     {
         SetDecodeSize(decoderSize.first, decoderSize.second);
         InitLayeredParam(foregroundInfo, backgroundInfo);
         InitialResource(resourceMgr);
+        InitBlendMode();
     }
 
     ~LayeredDrawableDescriptor() override = default;
@@ -197,6 +205,8 @@ public:
     bool GetCompositePixelMapWithBadge(
         const SharedPixelMap layeredPixelMap, const SharedPixelMap badgedPixelMap, SharedPixelMap& compositePixelMap);
 
+    void SetBlendMode(int32_t mode);
+
 private:
     DrawableItem PreGetDrawableItem(const SharedResourceManager& resourceMgr, const char* item);
 
@@ -220,6 +230,8 @@ private:
 
     void TransformToPixelMap(const RSBitmap& bitmap, const RSImageInfo& imageInfo);
 
+    void InitBlendMode();
+
     UINT8 defaultMaskData_;
     size_t defaultMaskDataLength_ = 0;
     DrawableItem backgroundItem_;
@@ -234,53 +246,26 @@ private:
     OptionalPixelMap mask_;
     OptionalPixelMap layeredPixelMap_;
     bool customized_ = false;
-};
-
-class DRAWABLE_FORCE_EXPORT AnimatedDrawableDescriptor : public DrawableDescriptor {
-public:
-    AnimatedDrawableDescriptor(std::vector<SharedPixelMap> pixelMaps, int32_t duration, int32_t iterations)
-        : pixelMapList_(std::move(pixelMaps)), duration_(duration), iterations_(iterations) {};
-
-    ~AnimatedDrawableDescriptor() override = default;
-
-    SharedPixelMap GetPixelMap() override;
-
-    DrawableType GetDrawableType() override;
-
-    std::vector<SharedPixelMap> GetPixelMapList();
-
-    int32_t GetDuration();
-
-    int32_t GetIterations();
-
-    void SetDuration(int32_t duration);
-
-    void SetIterations(int32_t iterations);
-
-private:
-    std::vector<SharedPixelMap> pixelMapList_;
-    int32_t duration_ = -1;
-    int32_t iterations_ = 1;
+    bool foregroundOverBackground_ = false; // default: foreground uses SRC_OVER mode
+    int32_t blendMode_ = -1;
 };
 
 class DRAWABLE_FORCE_EXPORT DrawableDescriptorFactory {
 public:
     using DrawableType = DrawableDescriptor::DrawableType;
-
     static std::unique_ptr<DrawableDescriptor> Create(int32_t id, const SharedResourceManager& resourceMgr,
-        RState& state, DrawableType& drawableType, uint32_t density);
-
+        RState& state, DrawableType& drawableType, uint32_t density, bool foregroundOverBackground = false);
     static std::unique_ptr<DrawableDescriptor> Create(const char* name, const SharedResourceManager& resourceMgr,
-        RState& state, DrawableType& drawableType, uint32_t density);
-
-    static std::unique_ptr<DrawableDescriptor> Create(std::tuple<int32_t, uint32_t, uint32_t>& drawableInfo,
-        const SharedResourceManager& resourceMgr, RState& state, DrawableType& drawableType);
-
-    static std::unique_ptr<DrawableDescriptor> Create(std::tuple<const char*, uint32_t, uint32_t>& drawableInfo,
-        const SharedResourceManager& resourceMgr, RState& state, DrawableType& drawableType);
-
+        RState& state, DrawableType& drawableType, uint32_t density, bool foregroundOverBackground = false);
     static std::unique_ptr<DrawableDescriptor> Create(DataInfo& foregroundInfo, DataInfo& backgroundInfo,
-        std::string& path, DrawableType& drawableType, const SharedResourceManager& resourceMgr);
+        std::string& path, DrawableType& drawableType, const SharedResourceManager& resourceMgr,
+        bool foregroundOverBackground = false);
+    static std::unique_ptr<DrawableDescriptor> Create(std::tuple<int32_t, uint32_t, uint32_t>& drawableInfo,
+        const SharedResourceManager& resourceMgr, RState& state, DrawableType& drawableType,
+        bool foregroundOverBackground = false);
+    static std::unique_ptr<DrawableDescriptor> Create(std::tuple<const char*, uint32_t, uint32_t>& drawableInfo,
+        const SharedResourceManager& resourceMgr, RState& state, DrawableType& drawableType,
+        bool foregroundOverBackground = false);
 };
 } // namespace Napi
 } // namespace Ace

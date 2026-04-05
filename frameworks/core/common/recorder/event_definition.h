@@ -31,6 +31,7 @@ enum class EventCategory: int32_t {
     CATEGORY_TEXT_INPUT,
     CATEGORY_POINT,
     CATEGORY_PARENT_TEXT,
+    CATEGORY_IMAGE_INFO,
     CATEGORY_END,
 };
 
@@ -70,6 +71,8 @@ enum EventType : int32_t {
     TEXT_INPUT,
     WEB_ACTION,
     BACK_PRESSED,
+    LOAD_STARTED,
+    LOAD_FINISHED,
 };
 
 constexpr char KEY_COUNT[] = "count";

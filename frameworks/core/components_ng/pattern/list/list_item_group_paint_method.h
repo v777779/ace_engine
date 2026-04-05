@@ -39,12 +39,12 @@ struct DividerGroupInfo {
 };
 
 class ACE_EXPORT ListItemGroupPaintMethod : public NodePaintMethod {
-    DECLARE_ACE_TYPE(ListItemGroupPaintMethod, NodePaintMethod)
+    DECLARE_ACE_TYPE(ListItemGroupPaintMethod, NodePaintMethod);
 public:
     ListItemGroupPaintMethod(const V2::ItemDivider& divider, const ListItemGroupPaintInfo& listItemGroupPaintInfo,
         ListItemGroupLayoutAlgorithm::PositionMap& itemPosition,
         ListItemGroupLayoutAlgorithm::PositionMap& cachedItemPosition,
-        const std::set<int32_t>& pressedItem)
+        const std::map<int32_t, uint32_t>& pressedItem)
         : divider_(divider), itemPosition_(itemPosition)
     {
         vertical_ = listItemGroupPaintInfo.vertical;

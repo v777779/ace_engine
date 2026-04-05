@@ -34,38 +34,60 @@ GradientColor CreatePercentGradientColor(float percent, Color color)
 }
 } // namespace
 
+void ScrollablePaintMethod::UpdateOverlayFadingGradient()
+{
+    NG::Gradient gradient;
+    gradient.CreateGradientWithType(NG::GradientType::LINEAR);
+    if (hasFadingEdge_ && (isFadingTop_ || isFadingBottom_)) {
+        if (isFadingTop_) {
+            gradient.AddColor(CreatePercentGradientColor(startPercent_, Color::TRANSPARENT));
+            gradient.AddColor(CreatePercentGradientColor(startPercent_ + percentFading_, Color::WHITE));
+        } else {
+            gradient.AddColor(CreatePercentGradientColor(0, Color::TRANSPARENT));
+            gradient.AddColor(CreatePercentGradientColor(0, Color::WHITE));
+        }
+        if (isFadingBottom_) {
+            gradient.AddColor(CreatePercentGradientColor(endPercent_ - percentFading_, Color::WHITE));
+            gradient.AddColor(CreatePercentGradientColor(endPercent_, Color::TRANSPARENT));
+        } else {
+            gradient.AddColor(CreatePercentGradientColor(1, Color::WHITE));
+            gradient.AddColor(CreatePercentGradientColor(1, Color::TRANSPARENT));
+        }
+        if (vertical_) {
+            gradient.GetLinearGradient()->angle = isReverse_
+                ? CalcDimension(LINEAR_GRADIENT_DIRECTION_ANGLE, DimensionUnit::PX)
+                : CalcDimension(LINEAR_GRADIENT_ANGLE, DimensionUnit::PX);
+        }
+    }
+    const auto& oldGradientOpt = overlayRenderContext_->GetLinearGradient();
+    if (oldGradientOpt.has_value() && gradient.GetColors().size() == oldGradientOpt.value().GetColors().size()) {
+        overlayRenderContext_->UpdateLinearGradient(gradient);
+        return;
+    }
+    AnimationUtils::ExecuteWithoutAnimation([weak = AceType::WeakClaim(this), &gradient]() {
+        auto paint = weak.Upgrade();
+        CHECK_NULL_VOID(paint);
+        paint->overlayRenderContext_->UpdateLinearGradient(gradient);
+    });
+}
+
 void ScrollablePaintMethod::UpdateFadingGradient(const RefPtr<RenderContext>& renderContext)
 {
-    if (!hasFadingEdge_) {
+    if (!needUpdateFadingEdge_) {
         return;
     }
     CHECK_NULL_VOID(renderContext);
     CHECK_NULL_VOID(overlayRenderContext_);
-    NG::Gradient gradient;
-    gradient.CreateGradientWithType(NG::GradientType::LINEAR);
     if (isVerticalReverse_) {
         bool tempFadingValue = isFadingTop_;
         isFadingTop_ = isFadingBottom_;
         isFadingBottom_ = tempFadingValue;
     }
-    if (isFadingTop_) {
-        gradient.AddColor(CreatePercentGradientColor(startPercent_, Color::TRANSPARENT));
-        gradient.AddColor(CreatePercentGradientColor(startPercent_ + percentFading_, Color::WHITE));
-    }
-    if (isFadingBottom_) {
-        gradient.AddColor(CreatePercentGradientColor(endPercent_ - percentFading_, Color::WHITE));
-        gradient.AddColor(CreatePercentGradientColor(endPercent_, Color::TRANSPARENT));
-    }
-    if (vertical_) {
-        gradient.GetLinearGradient()->angle = isReverse_
-                                                  ? CalcDimension(LINEAR_GRADIENT_DIRECTION_ANGLE, DimensionUnit::PX)
-                                                  : CalcDimension(LINEAR_GRADIENT_ANGLE, DimensionUnit::PX);
-    }
     renderContext->UpdateBackBlendApplyType(BlendApplyType::OFFSCREEN);
 
     overlayRenderContext_->UpdateZIndex(INT32_MAX);
-    overlayRenderContext_->UpdateLinearGradient(gradient);
-    if (!isFadingTop_ && !isFadingBottom_) {
+    UpdateOverlayFadingGradient();
+    if (!hasFadingEdge_ || (!isFadingTop_ && !isFadingBottom_)) {
         overlayRenderContext_->UpdateBackBlendMode(BlendMode::SRC_OVER);
         renderContext->UpdateBackBlendMode(BlendMode::NONE);
     } else {
@@ -104,7 +126,9 @@ bool ScrollablePaintMethod::TryContentClip(PaintWrapper* wrapper)
             case ContentClipMode::SAFE_AREA: {
                 auto host = renderContext->GetHost();
                 CHECK_NULL_RETURN(host, false);
-                const auto safeAreaPad = host->GetAccumulatedSafeAreaExpand(true);
+                const auto safeAreaPad = host->GetAccumulatedSafeAreaExpand(true,
+                    { .type = NG::LAYOUT_SAFE_AREA_TYPE_SYSTEM, .edges = NG::LAYOUT_SAFE_AREA_EDGE_ALL },
+                    IgnoreStrategy::AXIS_INSENSITIVE);
 
                 auto size = geo->GetPaddingSize();
                 AddPaddingToSize(safeAreaPad, size);

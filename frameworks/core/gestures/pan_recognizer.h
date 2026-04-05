@@ -21,11 +21,12 @@
 #include <map>
 
 #include "core/gestures/multi_fingers_recognizer.h"
+#include "core/gestures/velocity_tracker.h"
 #include "core/pipeline/pipeline_context.h"
 
 namespace OHOS::Ace {
 
-class PanRecognizer : public MultiFingersRecognizer {
+class ACE_FORCE_EXPORT PanRecognizer : public MultiFingersRecognizer {
     DECLARE_ACE_TYPE(PanRecognizer, MultiFingersRecognizer);
 
 public:

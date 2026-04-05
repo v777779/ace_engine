@@ -25,6 +25,7 @@
 #include "core/components_ng/pattern/ui_extension/session_wrapper.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_config.h"
 
+// For Arkts Static
 namespace OHOS::Ace::NG {
 class UIExtensionProxy;
 

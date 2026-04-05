@@ -15,6 +15,23 @@
 
 /// <reference path='./import.ts' />
 
+class SearchSelectDetectorEnableModifier extends ModifierWithKey<boolean> {
+  constructor(value: boolean) {
+    super(value);
+  }
+  static identity = Symbol('searchSelectDetectorEnable');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetSelectDetectorEnable(node);
+    } else {
+      getUINativeModule().search.setSelectDetectorEnable(node, this.value);
+    }
+  }
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
 class SearchSelectionMenuHiddenModifier extends ModifierWithKey<boolean> {
   constructor(value: boolean) {
     super(value);
@@ -275,19 +292,18 @@ class SearchHeightModifier extends ModifierWithKey<Length> {
   }
 }
 
-class SearchIdModifier extends ModifierWithKey<string> {
-  constructor(value: string) {
+class SearchFontFeatureModifier extends ModifierWithKey<FontFeature> {
+  constructor(value: FontFeature) {
     super(value);
   }
-  static identity: Symbol = Symbol('searchId');
+  static identity: Symbol = Symbol('searchFontFeature');
   applyPeer(node: KNode, reset: boolean): void {
     if (reset) {
-      getUINativeModule().search.resetSearchInspectorId(node);
+      getUINativeModule().search.resetFontFeature(node);
     } else {
-      getUINativeModule().search.setSearchInspectorId(node, this.value);
+      getUINativeModule().search.setFontFeature(node, this.value!);
     }
   }
-
   checkObjectDiff(): boolean {
     return !isBaseOrResourceEqual(this.stageValue, this.value);
   }
@@ -330,11 +346,25 @@ class SearchLetterSpacingModifier extends ModifierWithKey<number | string> {
       getUINativeModule().search.setLetterSpacing(node, this.value);
     }
   }
-
+}
+class SearchIdModifier extends ModifierWithKey<string> {
+  constructor(value: string) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('searchId');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetSearchInspectorId(node);
+    } else {
+      getUINativeModule().search.setSearchInspectorId(node, this.value);
+    }
+  }
+ 
   checkObjectDiff(): boolean {
     return !isBaseOrResourceEqual(this.stageValue, this.value);
   }
 }
+
 class SearchMinFontSizeModifier extends ModifierWithKey<number | string | Resource> {
   constructor(value: number | string | Resource) {
     super(value);
@@ -347,7 +377,7 @@ class SearchMinFontSizeModifier extends ModifierWithKey<number | string | Resour
       getUINativeModule().search.setSearchMinFontSize(node, this.value);
     }
   }
-
+ 
   checkObjectDiff(): boolean {
     return !isBaseOrResourceEqual(this.stageValue, this.value);
   }
@@ -401,7 +431,38 @@ class SearchMaxFontSizeModifier extends ModifierWithKey<number | string | Resour
       getUINativeModule().search.setSearchMaxFontSize(node, this.value);
     }
   }
+ 
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
 
+class SearchInputFilterModifier extends ModifierWithKey<ArkSearchInputFilter> {
+  constructor(value: ArkSearchInputFilter) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('searchInputFilter');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetInputFilter(node);
+    } else {
+      getUINativeModule().search.setInputFilter(node, this.value.value, this.value.error);
+    }
+  }
+}
+
+class SearchDividerColorModifier extends ModifierWithKey<ColorMetrics> {
+  constructor(value: ColorMetrics) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('dividerColor');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetSearchDividerColor(node);
+    } else {
+      getUINativeModule().search.setSearchDividerColor(node, this.value);
+    }
+  }
   checkObjectDiff(): boolean {
     return !isBaseOrResourceEqual(this.stageValue, this.value);
   }
@@ -443,23 +504,6 @@ class SearchMaxFontScaleModifier extends ModifierWithKey<number | Resource> {
   }
 }
 
-class SearchFontFeatureModifier extends ModifierWithKey<FontFeature> {
-  constructor(value: FontFeature) {
-    super(value);
-  }
-  static identity: Symbol = Symbol('searchFontFeature');
-  applyPeer(node: KNode, reset: boolean): void {
-    if (reset) {
-      getUINativeModule().search.resetFontFeature(node);
-    } else {
-      getUINativeModule().search.setFontFeature(node, this.value!);
-    }
-  }
-  checkObjectDiff(): boolean {
-    return !isBaseOrResourceEqual(this.stageValue, this.value);
-  }
-}
-
 class SearchSelectedBackgroundColorModifier extends ModifierWithKey<ResourceColor> {
   constructor(value: ResourceColor) {
     super(value);
@@ -476,20 +520,7 @@ class SearchSelectedBackgroundColorModifier extends ModifierWithKey<ResourceColo
     return !isBaseOrResourceEqual(this.stageValue, this.value);
   }
 }
-
-class SearchInputFilterModifier extends ModifierWithKey<ArkSearchInputFilter> {
-  constructor(value: ArkSearchInputFilter) {
-    super(value);
-  }
-  static identity: Symbol = Symbol('searchInputFilter');
-  applyPeer(node: KNode, reset: boolean): void {
-    if (reset) {
-      getUINativeModule().search.resetInputFilter(node);
-    } else {
-      getUINativeModule().search.setInputFilter(node, this.value.value, this.value.error);
-    }
-  }
-}
+ 
 class SearchTextIndentModifier extends ModifierWithKey<Dimension> {
   constructor(value: Dimension) {
     super(value);
@@ -506,6 +537,7 @@ class SearchTextIndentModifier extends ModifierWithKey<Dimension> {
     return !isBaseOrResourceEqual(this.stageValue, this.value);
   }
 }
+
 class SearchMaxLengthModifier extends ModifierWithKey<number> {
   constructor(value: number) {
     super(value);
@@ -540,6 +572,20 @@ class SearchTypeModifier extends ModifierWithKey<number> {
   }
 }
 
+class SearchCustomKeyboardModifier extends ModifierWithKey<ArkCustomKeyboard> {
+  constructor(value: ArkCustomKeyboard) {
+    super(value);
+  }
+  static identity = Symbol('searchCustomKeyboard');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetCustomKeyboard(node);
+    } else {
+      getUINativeModule().search.setCustomKeyboard(node, this.value.value, this.value.supportAvoidance);
+    }
+  }
+}
+
 class SearchOnEditChangeModifier extends ModifierWithKey<(isEditing: boolean) => void> {
   constructor(value: (isEditing: boolean) => void) {
     super(value);
@@ -568,6 +614,20 @@ class SearchOnSubmitModifier extends ModifierWithKey<(info: string, event?: Subm
   }
 }
 
+class SearchOnWillCopyModifier extends ModifierWithKey<Callback<string, boolean>> {
+  constructor(value: Callback<string, boolean>) {
+    super(value);
+  }
+  static identity = Symbol('searchOnWillCopy');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetOnWillCopy(node);
+    } else {
+      getUINativeModule().search.setOnWillCopy(node, this.value);
+    }
+  }
+}
+
 class SearchOnCopyModifier extends ModifierWithKey<(value: string) => void> {
   constructor(value: (value: string) => void) {
     super(value);
@@ -578,6 +638,20 @@ class SearchOnCopyModifier extends ModifierWithKey<(value: string) => void> {
       getUINativeModule().search.resetOnCopy(node);
     } else {
       getUINativeModule().search.setOnCopy(node, this.value);
+    }
+  }
+}
+
+class SearchOnWillCutModifier extends ModifierWithKey<Callback<string, boolean>> {
+  constructor(value: Callback<string, boolean>) {
+    super(value);
+  }
+  static identity = Symbol('searchOnWillCut');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetOnWillCut(node);
+    } else {
+      getUINativeModule().search.setOnWillCut(node, this.value);
     }
   }
 }
@@ -859,11 +933,112 @@ class SearchEnableAutoSpacingModifier extends ModifierWithKey<boolean> {
   }
 }
 
+class SearchCompressLeadingPunctuationModifier extends ModifierWithKey<boolean> {
+  constructor(value: boolean) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('searchCompressLeadingPunctuation');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetCompressLeadingPunctuation(node);
+    } else {
+      getUINativeModule().search.setCompressLeadingPunctuation(node, this.value!);
+    }
+  }
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
+class SearchTextDirectionModifier extends ModifierWithKey<TextDirection> {
+  constructor(value: TextDirection) {
+    super(value);
+  }
+  static identity = Symbol('searchTextDirection');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetTextDirection(node);
+    } else {
+      getUINativeModule().search.setTextDirection(node, this.value!);
+    }
+  }
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
+class SearchIncludeFontPaddingModifier extends ModifierWithKey<boolean> {
+  constructor(value: boolean) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('searchIncludeFontPadding');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetIncludeFontPadding(node);
+    }
+    else {
+      getUINativeModule().search.setIncludeFontPadding(node, this.value);
+    }
+  }
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
+class SearchFallbackLineSpacingModifier extends ModifierWithKey<boolean> {
+  constructor(value: boolean) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('searchFallbackLineSpacing');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetFallbackLineSpacing(node);
+    }
+    else {
+      getUINativeModule().search.setFallbackLineSpacing(node, this.value);
+    }
+  }
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
 interface SearchParam {
   value?: ResourceStr;
   placeholder?: ResourceStr;
   icon?: string;
   controller?: SearchController
+}
+
+class SearchOnWillAttachIMEModifier extends ModifierWithKey<(client: IMEClient) => void> {
+  constructor(value: (client: IMEClient) => void) {
+    super(value);
+  }
+  static identity = Symbol('searchOnWillAttachIME');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetOnWillAttachIME(node);
+    } else {
+      getUINativeModule().search.setOnWillAttachIME(node, this.value);
+    }
+  }
+}
+
+class SearchSelectedDragPreviewStyleModifier extends ModifierWithKey<ArkSelectedDragPreviewStyle> {
+  constructor(value: ArkSelectedDragPreviewStyle) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('searchSelectedDragPreviewStyle');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().search.resetSelectedDragPreviewStyle(node);
+    } else {
+      getUINativeModule().search.setSelectedDragPreviewStyle(node, this.value.color);
+    }
+  }
+  checkObjectDiff(): boolean {
+      return !isBaseOrResourceEqual(this.stageValue.color, this.value.color);
+  }
 }
 
 class ArkSearchComponent extends ArkComponent implements CommonMethod<SearchAttribute> {
@@ -900,11 +1075,16 @@ class ArkSearchComponent extends ArkComponent implements CommonMethod<SearchAttr
       SearchOnEditChangeModifier, callback);
     return this;
   }
-  customKeyboard(event: () => void): SearchAttribute {
-    throw new Error('Method not implemented.');
+  customKeyboard(value: ComponentContent, options?: { supportAvoidance?: boolean }): SearchAttribute {
+    let arkValue: ArkCustomKeyboard = new ArkCustomKeyboard();
+    arkValue.value = value;
+    arkValue.supportAvoidance = options?.supportAvoidance;
+    modifierWithKey(this._modifiersWithKeys, SearchCustomKeyboardModifier.identity,
+      SearchCustomKeyboardModifier, arkValue);
+    return this;
   }
   showUnit(event: () => void): SearchAttribute {
-    throw new Error('Method not implemented.');
+    throw new BusinessError(100201, 'showUnit function not supported in attributeModifier scenario.');
   }
   onContentScroll(callback: (totalOffsetX: number, totalOffsetY: number) => void): SearchAttribute {
     modifierWithKey(this._modifiersWithKeys, SearchOnContentScrollModifier.identity,
@@ -921,9 +1101,19 @@ class ArkSearchComponent extends ArkComponent implements CommonMethod<SearchAttr
       SearchOnTextSelectionChangeModifier, callback);
     return this;
   }
+  onWillCopy(callback: Callback<string, boolean>): SearchAttribute {
+    modifierWithKey(this._modifiersWithKeys, SearchOnWillCopyModifier.identity,
+      SearchOnWillCopyModifier, callback);
+    return this;
+  }
   onCopy(callback: (value: string) => void): SearchAttribute {
     modifierWithKey(this._modifiersWithKeys, SearchOnCopyModifier.identity,
       SearchOnCopyModifier, callback);
+    return this;
+  }
+  onWillCut(callback: Callback<string, boolean>): SearchAttribute {
+    modifierWithKey(this._modifiersWithKeys, SearchOnWillCutModifier.identity,
+      SearchOnWillCutModifier, callback);
     return this;
   }
   onCut(callback: (value: string) => void): SearchAttribute {
@@ -957,6 +1147,10 @@ class ArkSearchComponent extends ArkComponent implements CommonMethod<SearchAttr
     searchButton.fontSize = option?.fontSize;
     searchButton.autoDisable = option?.autoDisable;
     modifierWithKey(this._modifiersWithKeys, SearchSearchButtonModifier.identity, SearchSearchButtonModifier, searchButton);
+    return this;
+  }
+  enableSelectedDataDetector(value) {
+    modifierWithKey(this._modifiersWithKeys, SearchSelectDetectorEnableModifier.identity, SearchSelectDetectorEnableModifier, value);
     return this;
   }
   selectionMenuHidden(value: boolean): SearchAttribute {
@@ -1003,25 +1197,17 @@ class ArkSearchComponent extends ArkComponent implements CommonMethod<SearchAttr
     modifierWithKey(this._modifiersWithKeys, SearchTextAlignModifier.identity, SearchTextAlignModifier, value);
     return this;
   }
+  fontFeature(value: FontFeature): SearchAttribute {
+    modifierWithKey(this._modifiersWithKeys, SearchFontFeatureModifier.identity, SearchFontFeatureModifier, value);
+    return this;
+  }
   enterKeyType(value: EnterKeyType): SearchAttribute {
     modifierWithKey(this._modifiersWithKeys, SearchEnterKeyTypeModifier.identity,
       SearchEnterKeyTypeModifier, value);
     return this;
   }
-  fontFeature(value: FontFeature): SearchAttribute {
-    modifierWithKey(this._modifiersWithKeys, SearchFontFeatureModifier.identity, SearchFontFeatureModifier, value);
-    return this;
-  }
   height(value: Length): this {
     modifierWithKey(this._modifiersWithKeys, SearchHeightModifier.identity, SearchHeightModifier, value);
-    return this;
-  }
-  id(value: string): this {
-    modifierWithKey(this._modifiersWithKeys, SearchIdModifier.identity, SearchIdModifier, value);
-    return this;
-  }
-  key(value: string): this {
-    modifierWithKey(this._modifiersWithKeys, SearchIdModifier.identity, SearchIdModifier, value);
     return this;
   }
   decoration(value: { type: TextDecorationType; color?: ResourceColor; style?: TextDecorationStyle }): this {
@@ -1036,6 +1222,14 @@ class ArkSearchComponent extends ArkComponent implements CommonMethod<SearchAttr
     modifierWithKey(this._modifiersWithKeys, SearchLineHeightModifier.identity, SearchLineHeightModifier, value);
     return this;
   }
+  id(value: string): this {
+    modifierWithKey(this._modifiersWithKeys, SearchIdModifier.identity, SearchIdModifier, value);
+    return this;
+  }
+  key(value: string): this {
+    modifierWithKey(this._modifiersWithKeys, SearchIdModifier.identity, SearchIdModifier, value);
+    return this;
+  }
   halfLeading(value: boolean): this {
     modifierWithKey(this._modifiersWithKeys, SearchHalfLeadingModifier.identity, SearchHalfLeadingModifier, value);
     return this;
@@ -1046,6 +1240,17 @@ class ArkSearchComponent extends ArkComponent implements CommonMethod<SearchAttr
   }
   maxFontSize(value: number | string | Resource): this {
     modifierWithKey(this._modifiersWithKeys, SearchMaxFontSizeModifier.identity, SearchMaxFontSizeModifier, value);
+    return this;
+  }
+  inputFilter(value: ResourceStr, error?: (value: string) => void): this {
+    let searchInputFilter = new ArkSearchInputFilter();
+    searchInputFilter.value = value;
+    searchInputFilter.error = error;
+    modifierWithKey(this._modifiersWithKeys, SearchInputFilterModifier.identity, SearchInputFilterModifier, searchInputFilter);
+    return this;
+  }
+  dividerColor(value: ColorMetrics): this {
+    modifierWithKey(this._modifiersWithKeys, SearchDividerColorModifier.identity, SearchDividerColorModifier, value);
     return this;
   }
   minFontScale(value: number | Resource): this {
@@ -1062,13 +1267,6 @@ class ArkSearchComponent extends ArkComponent implements CommonMethod<SearchAttr
   }
   textIndent(value: Dimension): this {
     modifierWithKey(this._modifiersWithKeys, SearchTextIndentModifier.identity, SearchTextIndentModifier, value);
-    return this;
-  }
-  inputFilter(value: ResourceStr, error?: (value: string) => void): this {
-    let searchInputFilter = new ArkSearchInputFilter();
-    searchInputFilter.value = value;
-    searchInputFilter.error = error;
-    modifierWithKey(this._modifiersWithKeys, SearchInputFilterModifier.identity, SearchInputFilterModifier, searchInputFilter);
     return this;
   }
   onWillChange(callback: Callback<ChangeValueInfo, boolean>): this {
@@ -1104,16 +1302,44 @@ class ArkSearchComponent extends ArkComponent implements CommonMethod<SearchAttr
     modifierWithKey(this._modifiersWithKeys, SearchEnableHapticFeedbackModifier.identity, SearchEnableHapticFeedbackModifier, value);
     return this;
   }
-  strokeWidth(value: LengthMetrics):this {
+  strokeWidth(value: LengthMetrics): this {
     modifierWithKey(this._modifiersWithKeys, SearchStrokeWidthModifier.identity, SearchStrokeWidthModifier, value);
     return this;
   }
-  strokeColor(value: ResourceColor):this {
+  strokeColor(value: ResourceColor): this {
     modifierWithKey(this._modifiersWithKeys, SearchStrokeColorModifier.identity, SearchStrokeColorModifier, value);
     return this;
   }
   enableAutoSpacing(value: boolean): this {
     modifierWithKey(this._modifiersWithKeys, SearchEnableAutoSpacingModifier.identity, SearchEnableAutoSpacingModifier, value);
+    return this;
+  }
+  compressLeadingPunctuation(value: boolean): this {
+    modifierWithKey(this._modifiersWithKeys, SearchCompressLeadingPunctuationModifier.identity, SearchCompressLeadingPunctuationModifier, value);
+    return this;
+  }
+  includeFontPadding(value: boolean): this {
+    modifierWithKey(this._modifiersWithKeys, SearchIncludeFontPaddingModifier.identity, SearchIncludeFontPaddingModifier, value);
+    return this;
+  }
+  fallbackLineSpacing(value: boolean): this {
+    modifierWithKey(this._modifiersWithKeys, SearchFallbackLineSpacingModifier.identity, SearchFallbackLineSpacingModifier, value);
+    return this;
+  }
+  onWillAttachIME(callback: Callback<IMEClient>): this {
+    modifierWithKey(this._modifiersWithKeys, SearchOnWillAttachIMEModifier.identity,
+      SearchOnWillAttachIMEModifier, callback);
+    return this;
+  }
+  selectedDragPreviewStyle(value: SelectedDragPreviewStyle): this {
+    let arkSelectedDragPreviewStyle = new ArkSelectedDragPreviewStyle();
+    arkSelectedDragPreviewStyle.color = value?.color;
+    modifierWithKey(this._modifiersWithKeys, SearchSelectedDragPreviewStyleModifier.identity,
+        SearchSelectedDragPreviewStyleModifier, arkSelectedDragPreviewStyle);
+    return this;
+  }
+  textDirection(value: TextDirection): this {
+    modifierWithKey(this._modifiersWithKeys, SearchTextDirectionModifier.identity, SearchTextDirectionModifier, value);
     return this;
   }
 }

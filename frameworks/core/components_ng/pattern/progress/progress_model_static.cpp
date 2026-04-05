@@ -30,10 +30,6 @@
 namespace OHOS::Ace::NG {
 void ProgressModelStatic::SetColor(FrameNode* frameNode, const std::optional<Color>& value)
 {
-    CHECK_NULL_VOID(frameNode);
-    auto pattern = frameNode->GetPattern<ProgressPattern>();
-    CHECK_NULL_VOID(pattern);
-    pattern->SetUserInitiatedColor(value.has_value());
     if (value) {
         ACE_UPDATE_NODE_PAINT_PROPERTY(ProgressPaintProperty, Color, value.value(), frameNode);
     } else {
@@ -178,6 +174,7 @@ void ProgressModelStatic::SetShowText(FrameNode* frameNode, const std::optional<
 
 void ProgressModelStatic::SetText(FrameNode* frameNode, const std::optional<std::string>& value)
 {
+    CHECK_NULL_VOID(frameNode);
     auto textHost = AceType::DynamicCast<FrameNode>(frameNode->GetChildAtIndex(0));
     CHECK_NULL_VOID(textHost);
     auto pattern = frameNode->GetPattern<ProgressPattern>();
@@ -190,15 +187,17 @@ void ProgressModelStatic::SetText(FrameNode* frameNode, const std::optional<std:
     if (!value.has_value()) {
         auto maxValue = progressPaintProperty->GetMaxValue();
         auto curValue = progressPaintProperty->GetValue();
-        int32_t curPercent = curValue.value() * 100 / maxValue.value();
-        std::string number = std::to_string(curPercent) + "%";
-        bool isShowText = progressPaintProperty->GetEnableShowText().value_or(false);
-        if (!isShowText) {
-            number = "";
+        if (maxValue.has_value() && curValue.has_value()) {
+            int32_t curPercent = curValue.value() * 100 / maxValue.value();
+            std::string number = std::to_string(curPercent) + "%";
+            bool isShowText = progressPaintProperty->GetEnableShowText().value_or(false);
+            if (!isShowText) {
+                number = "";
+            }
+            textLayoutProperty->UpdateContent(number);
+            context = number;
+            pattern->SetTextFromUser(false);
         }
-        textLayoutProperty->UpdateContent(number);
-        context = number;
-        pattern->SetTextFromUser(false);
     } else {
         textLayoutProperty->UpdateContent(value.value());
         context = value.value();
@@ -210,6 +209,7 @@ void ProgressModelStatic::SetText(FrameNode* frameNode, const std::optional<std:
 
 void ProgressModelStatic::SetFontColor(FrameNode* frameNode, const std::optional<Color>& value)
 {
+    CHECK_NULL_VOID(frameNode);
     auto textHost = AceType::DynamicCast<FrameNode>(frameNode->GetChildAtIndex(0));
     CHECK_NULL_VOID(textHost);
     auto textLayoutProperty = textHost->GetLayoutProperty<TextLayoutProperty>();
@@ -226,6 +226,7 @@ void ProgressModelStatic::SetFontColor(FrameNode* frameNode, const std::optional
 
 void ProgressModelStatic::SetFontSize(FrameNode* frameNode, const std::optional<Dimension>& value)
 {
+    CHECK_NULL_VOID(frameNode);
     auto textHost = AceType::DynamicCast<FrameNode>(frameNode->GetChildAtIndex(0));
     CHECK_NULL_VOID(textHost);
     auto textLayoutProperty = textHost->GetLayoutProperty<TextLayoutProperty>();
@@ -234,7 +235,11 @@ void ProgressModelStatic::SetFontSize(FrameNode* frameNode, const std::optional<
         textLayoutProperty->UpdateFontSize(value.value());
         ACE_UPDATE_NODE_PAINT_PROPERTY(ProgressPaintProperty, TextSize, value.value(), frameNode);
     } else {
-        textLayoutProperty->ResetFontSize();
+        auto pipeline = frameNode->GetContext();
+        CHECK_NULL_VOID(pipeline);
+        RefPtr<ProgressTheme> progressTheme = pipeline->GetTheme<ProgressTheme>(frameNode->GetThemeScopeId());
+        CHECK_NULL_VOID(progressTheme);
+        textLayoutProperty->UpdateFontSize(progressTheme->GetTextSize());
         ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(ProgressPaintProperty, TextSize, PROPERTY_UPDATE_RENDER, frameNode);
     }
     textHost->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
@@ -242,6 +247,7 @@ void ProgressModelStatic::SetFontSize(FrameNode* frameNode, const std::optional<
 
 void ProgressModelStatic::SetFontWeight(FrameNode* frameNode, const std::optional<FontWeight>& value)
 {
+    CHECK_NULL_VOID(frameNode);
     auto textHost = AceType::DynamicCast<FrameNode>(frameNode->GetChildAtIndex(0));
     CHECK_NULL_VOID(textHost);
     auto textLayoutProperty = textHost->GetLayoutProperty<TextLayoutProperty>();
@@ -258,6 +264,7 @@ void ProgressModelStatic::SetFontWeight(FrameNode* frameNode, const std::optiona
 
 void ProgressModelStatic::SetFontFamily(FrameNode* frameNode, const std::optional<std::vector<std::string>>& value)
 {
+    CHECK_NULL_VOID(frameNode);
     auto textHost = AceType::DynamicCast<FrameNode>(frameNode->GetChildAtIndex(0));
     CHECK_NULL_VOID(textHost);
     auto textLayoutProperty = textHost->GetLayoutProperty<TextLayoutProperty>();
@@ -274,6 +281,7 @@ void ProgressModelStatic::SetFontFamily(FrameNode* frameNode, const std::optiona
 
 void ProgressModelStatic::SetItalicFontStyle(FrameNode* frameNode, const std::optional<Ace::FontStyle>& value)
 {
+    CHECK_NULL_VOID(frameNode);
     auto textHost = AceType::DynamicCast<FrameNode>(frameNode->GetChildAtIndex(0));
     CHECK_NULL_VOID(textHost);
     auto textLayoutProperty = textHost->GetLayoutProperty<TextLayoutProperty>();
@@ -310,6 +318,7 @@ void ProgressModelStatic::SetPrivacySensitive(FrameNode* frameNode, const std::o
 
 void ProgressModelStatic::SetValue(FrameNode* frameNode, const std::optional<double>& valueOpt)
 {
+    CHECK_NULL_VOID(frameNode);
     auto progressPaintProperty = frameNode->GetPaintProperty<ProgressPaintProperty>();
     CHECK_NULL_VOID(progressPaintProperty);
     if (valueOpt) {
@@ -330,6 +339,8 @@ void ProgressModelStatic::SetValue(FrameNode* frameNode, const std::optional<dou
 void ProgressModelStatic::Initialize(FrameNode* frameNode, double min, double value, double cachedValue, double max,
     NG::ProgressType type)
 {
+    CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     ACE_UPDATE_NODE_PAINT_PROPERTY(ProgressPaintProperty, Value, value, frameNode);
     ACE_UPDATE_NODE_PAINT_PROPERTY(ProgressPaintProperty, MaxValue, max, frameNode);
     ACE_UPDATE_NODE_PAINT_PROPERTY(ProgressPaintProperty, ProgressType, type, frameNode);
@@ -419,5 +430,16 @@ void ProgressModelStatic::SetTextDefaultStyle(FrameNode* frameNode, const RefPtr
     }
     textNode->MarkModifyDone();
     ACE_UPDATE_PAINT_PROPERTY(ProgressPaintProperty, Text, number);
+}
+
+void ProgressModelStatic::SetBackgroundColor(FrameNode* frameNode, const std::optional<Color>& value)
+{
+    CHECK_NULL_VOID(frameNode);
+    if (value) {
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ProgressPaintProperty, BackgroundColor, value.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
+            ProgressPaintProperty, BackgroundColor, PROPERTY_UPDATE_RENDER, frameNode);
+    }
 }
 } // namespace OHOS::Ace::NG

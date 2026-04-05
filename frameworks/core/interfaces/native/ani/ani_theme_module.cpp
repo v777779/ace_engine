@@ -33,9 +33,13 @@ void AniThemeModule::UpdateColorMode(int32_t colorMode)
 #if defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)
         UpdateColorModeForThemeConstants(colorModeValue);
 #else
-        ResourceManager::GetInstance().UpdateColorMode(colorModeValue);
+        auto container = Container::Current();
+        CHECK_NULL_VOID(container);
+        ResourceManager::GetInstance().UpdateColorMode(
+            container->GetBundleName(), container->GetModuleName(), container->GetInstanceId(), colorModeValue);
 #endif
         auto pipelineContext = NG::PipelineContext::GetCurrentContextSafely();
+        CHECK_NULL_VOID(pipelineContext);
         pipelineContext->SetLocalColorMode(colorModeValue);
     }
 }
@@ -50,7 +54,10 @@ void AniThemeModule::RestoreColorMode()
 #if defined(ANDROID_PLATFORM) || defined(IOS_PLATFORM)
     UpdateColorModeForThemeConstants(colorModeValue);
 #else
-    ResourceManager::GetInstance().UpdateColorMode(colorModeValue);
+    auto container = Container::GetContainer(pipelineContext->GetInstanceId());
+    CHECK_NULL_VOID(container);
+    ResourceManager::GetInstance().UpdateColorMode(
+        container->GetBundleName(), container->GetModuleName(), container->GetInstanceId(), colorModeValue);
 #endif
 }
 

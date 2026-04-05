@@ -26,6 +26,7 @@ import {
 import { SizeT } from '@ohos.arkui.node';
 import { i18n } from '@kit.LocalizationKit';
 import util from '@ohos.util';
+import uiMaterial from '@ohos.arkui.uiMaterial';
 
 export interface SegmentButtonV2ItemOptions {
   text?: ResourceStr;
@@ -76,7 +77,6 @@ interface SimpleSegmentButtonV2Theme extends SegmentButtonV2ContentTheme {
   buttonPadding: Resource;
   itemSelectedBackgroundColor: ResourceColor;
   itemBorderRadius: Resource;
-  itemShadow: ShadowStyle;
 }
 
 interface SegmentButtonV2ItemRect {
@@ -95,7 +95,7 @@ const tabSimpleTheme: SimpleSegmentButtonV2Theme = {
   buttonBorderRadius: $r('sys.float.segment_button_v2_background_corner_radius'),
   buttonMinHeight: $r('sys.float.segment_button_v2_singleline_background_height'),
   hybridButtonMinHeight: $r('sys.float.segment_button_v2_doubleline_background_height'),
-  buttonPadding: $r('sys.float.padding_level1'),
+  buttonPadding: $r('sys.float.padding_level2'),
   itemSelectedBackgroundColor: $r('sys.color.segment_button_v2_tab_selected_item_background'),
   itemBorderRadius: $r('sys.float.segment_button_v2_selected_corner_radius'),
   itemSpace: LengthMetrics.vp(0),
@@ -118,7 +118,6 @@ const tabSimpleTheme: SimpleSegmentButtonV2Theme = {
     start: LengthMetrics.resource($r('sys.float.padding_level4')),
     end: LengthMetrics.resource($r('sys.float.padding_level4')),
   },
-  itemShadow: ShadowStyle.OUTER_DEFAULT_XS,
   itemMaxFontScale: SMALLEST_MAX_FONT_SCALE,
   itemMaxFontScaleSmallest: SMALLEST_MAX_FONT_SCALE,
   itemMaxFontScaleLargest: LARGEST_MAX_FONT_SCALE,
@@ -132,7 +131,7 @@ const capsuleSimpleTheme: SimpleSegmentButtonV2Theme = {
   buttonBorderRadius: $r('sys.float.segment_button_v2_background_corner_radius'),
   buttonMinHeight: $r('sys.float.segment_button_v2_singleline_background_height'),
   hybridButtonMinHeight: $r('sys.float.segment_button_v2_doubleline_background_height'),
-  buttonPadding: $r('sys.float.padding_level1'),
+  buttonPadding: $r('sys.float.padding_level2'),
   itemSelectedBackgroundColor: $r('sys.color.comp_background_emphasize'),
   itemBorderRadius: $r('sys.float.segment_button_v2_selected_corner_radius'),
   itemSpace: LengthMetrics.vp(0),
@@ -155,7 +154,6 @@ const capsuleSimpleTheme: SimpleSegmentButtonV2Theme = {
     start: LengthMetrics.resource($r('sys.float.padding_level4')),
     end: LengthMetrics.resource($r('sys.float.padding_level4')),
   },
-  itemShadow: ShadowStyle.OUTER_DEFAULT_XS,
   itemMaxFontScale: SMALLEST_MAX_FONT_SCALE,
   itemMaxFontScaleSmallest: SMALLEST_MAX_FONT_SCALE,
   itemMaxFontScaleLargest: LARGEST_MAX_FONT_SCALE,
@@ -290,6 +288,10 @@ export struct TabSegmentButtonV2 {
   buttonPadding?: LengthMetrics = undefined;
   @Param
   languageDirection?: Direction = undefined;
+  @Param
+  backgroundSystemMaterial?: uiMaterial.Material = undefined;
+  @Param
+  enableStateAnimation?: boolean = false
 
   build() {
     SimpleSegmentButtonV2({
@@ -328,6 +330,8 @@ export struct TabSegmentButtonV2 {
       buttonMinHeight: this.buttonMinHeight,
       buttonPadding: this.buttonPadding,
       languageDirection: this.languageDirection,
+      backgroundSystemMaterial: this.backgroundSystemMaterial,
+      enableStateAnimation: this.enableStateAnimation
     })
   }
 }
@@ -400,6 +404,10 @@ export struct CapsuleSegmentButtonV2 {
   buttonPadding?: LengthMetrics = undefined;
   @Param
   languageDirection?: Direction = undefined;
+  @Param
+  backgroundSystemMaterial?: uiMaterial.Material = undefined;
+  @Param
+  enableStateAnimation?: boolean = false
 
   build() {
     SimpleSegmentButtonV2({
@@ -438,6 +446,8 @@ export struct CapsuleSegmentButtonV2 {
       buttonMinHeight: this.buttonMinHeight,
       buttonPadding: this.buttonPadding,
       languageDirection: this.languageDirection,
+      backgroundSystemMaterial: this.backgroundSystemMaterial,
+      enableStateAnimation: this.enableStateAnimation
     })
   }
 }
@@ -541,6 +551,9 @@ struct SimpleSegmentButtonV2 {
   @Require
   @Param
   languageDirection?: Direction = undefined;
+  @Require
+  @Param
+  backgroundSystemMaterial?: uiMaterial.Material = undefined;
   @Local
   itemRects: SegmentButtonV2ItemRect[] = [];
   @Local
@@ -555,7 +568,8 @@ struct SimpleSegmentButtonV2 {
   private isDragging: boolean = false;
   private panStartGlobalX: number = 0;
   private panStartIndex: number = -1;
-  private focusGroupId: string = util.generateRandomUUID();
+  private focusGroupId: string = GroupIdGenerator.getInstance().generate();
+  @Param enableStateAnimation?: boolean = false
 
   @Computed
   get normalizedSelectedIndex(): number {
@@ -762,6 +776,8 @@ struct SimpleSegmentButtonV2 {
           x: this.selectedItemRect.position.x,
           y: this.selectedItemRect.position.y,
         })
+        .animation(this.enableStateAnimation ?
+          { curve: curves.springMotion(0.347, 0.99) } : undefined)
         .backgroundColor(this.getItemSelectedBackgroundColor())
         .borderRadius(this.getItemBorderRadius())
         .scale({ x: this.itemScale, y: this.itemScale })
@@ -807,11 +823,13 @@ struct SimpleSegmentButtonV2 {
         this.ContentLayer()
       }
       .borderRadius(this.getButtonBorderRadius())
-      .backgroundBlurStyle(this.getButtonBackgroundBlurStyle(), this.getButtonBackgroundBlurStyleOptions(), { disableSystemAdaptation: true })
+      .backgroundBlurStyle(this.getButtonBackgroundBlurStyle(), this.getButtonBackgroundBlurStyleOptions(),
+        { disableSystemAdaptation: true })
       .clip(false)
       .direction(this.languageDirection)
     }
     .backgroundColor(this.getButtonBackgroundColor())
+    .systemMaterial(this.backgroundSystemMaterial)
     .backgroundEffect(this.buttonBackgroundEffect, { disableSystemAdaptation: true })
     .borderRadius(this.getButtonBorderRadius())
     .clip(false)
@@ -827,7 +845,7 @@ struct SimpleSegmentButtonV2 {
   }
 
   private getItemBackplateShadow(): ShadowOptions | ShadowStyle | undefined {
-    return this.itemShadow ?? this.theme.itemShadow
+    return this.itemShadow;
   }
 
   private getButtonBackgroundBlurStyle(): BlurStyle | undefined {
@@ -943,6 +961,7 @@ struct SimpleSegmentButtonV2 {
     ) {
       return;
     }
+
     this.getUIContext().animateTo({ curve: curves.springMotion(0.347, 0.99) }, () => {
       this.$selectedIndex?.(selectedIndex);
     });
@@ -1098,7 +1117,7 @@ export struct MultiCapsuleSegmentButtonV2 {
   @Param
   languageDirection?: Direction = undefined;
   private theme: MultiplySegmentButtonV2Theme = multiplyCapsuleTheme;
-  private focusGroupId: string = util.generateRandomUUID();
+  private focusGroupId: string = GroupIdGenerator.getInstance().generate();
 
   build() {
     Flex({ alignItems: ItemAlign.Stretch, space: { main: this.getItemSpace() } }) {
@@ -1129,7 +1148,8 @@ export struct MultiCapsuleSegmentButtonV2 {
               languageDirection: this.languageDirection,
             })
               .borderRadius(this.getItemButtonBorderRadius(repeatItem))
-              .backgroundBlurStyle(this.getItemBackgroundBlurStyle(), this.getItemBackgroundBlurStyleOptions(), { disableSystemAdaptation: true })
+              .backgroundBlurStyle(this.getItemBackgroundBlurStyle(), this.getItemBackgroundBlurStyleOptions(),
+                { disableSystemAdaptation: true })
               .direction(this.languageDirection)
           }
           .accessibilityGroup(true)
@@ -1174,7 +1194,8 @@ export struct MultiCapsuleSegmentButtonV2 {
   }
 
   private getFocusPriority(repeatItem: RepeatItem<SegmentButtonV2Item>): FocusPriority | undefined {
-    return Math.min(...this.selectedIndexes) === repeatItem.index ? FocusPriority.PREVIOUS : FocusPriority.AUTO;
+    const selectedIndexes = this.selectedIndexes ?? [];
+    return Math.min(...selectedIndexes) === repeatItem.index ? FocusPriority.PREVIOUS : FocusPriority.AUTO;
   }
 
   getItems(): SegmentButtonV2Items {
@@ -1372,7 +1393,8 @@ struct SegmentButtonV2ItemContent {
   }
 
   private getSymbolFontSize(): Dimension {
-    if (this.itemSymbolFontSize && LengthMetricsUtils.getInstance().isNaturalNumber(this.itemSymbolFontSize) && this.itemSymbolFontSize.unit !== LengthUnit.PERCENT) {
+    if (this.itemSymbolFontSize && LengthMetricsUtils.getInstance().isNaturalNumber(this.itemSymbolFontSize) &&
+      this.itemSymbolFontSize.unit !== LengthUnit.PERCENT) {
       return LengthMetricsUtils.getInstance().stringify(this.itemSymbolFontSize);
     }
     return this.theme.itemSymbolFontSize;
@@ -1451,12 +1473,14 @@ struct SegmentButtonV2ItemContent {
 
   private getItemFontSize(): Length {
     if (this.selected) {
-      if (this.itemSelectedFontSize && LengthMetricsUtils.getInstance().isNaturalNumber(this.itemSelectedFontSize)  && this.itemSelectedFontSize.unit !== LengthUnit.PERCENT) {
+      if (this.itemSelectedFontSize && LengthMetricsUtils.getInstance().isNaturalNumber(this.itemSelectedFontSize) &&
+        this.itemSelectedFontSize.unit !== LengthUnit.PERCENT) {
         return LengthMetricsUtils.getInstance().stringify(this.itemSelectedFontSize);
       }
       return this.theme.itemFontSize;
     }
-    if (this.itemFontSize && LengthMetricsUtils.getInstance().isNaturalNumber(this.itemFontSize) && this.itemFontSize.unit !== LengthUnit.PERCENT) {
+    if (this.itemFontSize && LengthMetricsUtils.getInstance().isNaturalNumber(this.itemFontSize) &&
+      this.itemFontSize.unit !== LengthUnit.PERCENT) {
       return LengthMetricsUtils.getInstance().stringify(this.itemFontSize);
     }
     return this.theme.itemFontSize;
@@ -1569,5 +1593,24 @@ function getResourceUniqueId(resource: Resource): string {
     return `${resource.id}`;
   } else {
     return JSON.stringify(resource);
+  }
+}
+
+class GroupIdGenerator {
+  private static instance: GroupIdGenerator | null = null;
+  private id: number = 0;
+
+  private constructor() {
+  }
+
+  public static getInstance(): GroupIdGenerator {
+    if (!GroupIdGenerator.instance) {
+      GroupIdGenerator.instance = new GroupIdGenerator();
+    }
+    return GroupIdGenerator.instance;
+  }
+
+  public generate(): string {
+    return util.generateRandomUUID() || `SegmentButton-${this.id++}`;
   }
 }

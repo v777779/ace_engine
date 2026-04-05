@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "base/utils/multi_thread.h"
 #include "core/components_ng/pattern/scroll/scroll_model_static.h"
 #include "core/components_ng/pattern/scroll/scroll_pattern.h"
 #include "core/components_ng/pattern/scrollable/scrollable_model_static.h"
@@ -66,6 +67,9 @@ void ScrollModelStatic::SetAxis(FrameNode* frameNode, const std::optional<Axis>&
     CHECK_NULL_VOID(frameNode);
     auto pattern = frameNode->GetPattern<ScrollPattern>();
     CHECK_NULL_VOID(pattern);
+    if (axis == Axis::FREE || pattern->GetAxis() == Axis::FREE) {
+        return;
+    }
     pattern->SetAxis(axis);
 }
 
@@ -136,46 +140,12 @@ void ScrollModelStatic::SetScrollBar(FrameNode* frameNode, std::optional<Display
 
 void ScrollModelStatic::SetScrollBarColor(FrameNode* frameNode, const std::optional<Color>& color)
 {
-    if (color) {
-        ACE_UPDATE_NODE_PAINT_PROPERTY(ScrollablePaintProperty, ScrollBarColor, color.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
-            ScrollablePaintProperty, ScrollBarColor, PROPERTY_UPDATE_RENDER, frameNode);
-        auto context = frameNode->GetContext();
-        CHECK_NULL_VOID(context);
-        auto scrollBarTheme = context->GetTheme<ScrollBarTheme>();
-        CHECK_NULL_VOID(scrollBarTheme);
-        auto defaultScrollBarColor = scrollBarTheme->GetForegroundColor();
-        auto pattern = frameNode->GetPattern<ScrollablePattern>();
-        CHECK_NULL_VOID(pattern);
-        auto scrollBar = pattern->GetScrollableScrollBar();
-        CHECK_NULL_VOID(scrollBar);
-        scrollBar->SetForegroundColor(defaultScrollBarColor);
-    }
+    ScrollableModelStatic::SetScrollBarColor(frameNode, color);
 }
 
 void ScrollModelStatic::SetScrollBarWidth(FrameNode* frameNode, const std::optional<Dimension>& dimension)
 {
-    if (dimension) {
-        ACE_UPDATE_NODE_PAINT_PROPERTY(ScrollablePaintProperty, ScrollBarWidth, dimension.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
-            ScrollablePaintProperty, ScrollBarWidth, PROPERTY_UPDATE_RENDER, frameNode);
-        auto context = frameNode->GetContext();
-        CHECK_NULL_VOID(context);
-        auto scrollBarTheme = context->GetTheme<ScrollBarTheme>();
-        CHECK_NULL_VOID(scrollBarTheme);
-        auto defaultScrollBarWidth = scrollBarTheme->GetNormalWidth();
-        auto pattern = frameNode->GetPattern<ScrollablePattern>();
-        CHECK_NULL_VOID(pattern);
-        auto scrollBar = pattern->GetScrollableScrollBar();
-        CHECK_NULL_VOID(scrollBar);
-        scrollBar->SetActiveWidth(defaultScrollBarWidth);
-        scrollBar->SetTouchWidth(defaultScrollBarWidth);
-        scrollBar->SetInactiveWidth(defaultScrollBarWidth);
-        scrollBar->SetNormalWidth(defaultScrollBarWidth);
-        scrollBar->SetIsUserNormalWidth(false);
-    }
+    ScrollableModelStatic::SetScrollBarWidth(frameNode, dimension);
 }
 
 void ScrollModelStatic::SetOnScrollFrameBegin(FrameNode* frameNode, OnScrollFrameBeginEvent&& event)
@@ -263,6 +233,70 @@ void ScrollModelStatic::SetEdgeEffect(FrameNode* frameNode, const std::optional<
     const std::optional<bool>& alwaysEnabled, EffectEdge edge)
 {
     ScrollableModelStatic::SetEdgeEffect(frameNode, edgeEffect, alwaysEnabled, edge);
+}
+
+void ScrollModelStatic::SetMaxZoomScale(FrameNode* frameNode, float scale)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ScrollPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetMaxZoomScale(scale);
+}
+
+void ScrollModelStatic::SetMinZoomScale(FrameNode* frameNode, float scale)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ScrollPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetMinZoomScale(scale);
+}
+
+void ScrollModelStatic::SetZoomScale(FrameNode* frameNode, const std::optional<float>& scale)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ScrollPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetZoomScale(scale);
+}
+
+void ScrollModelStatic::SetZoomScaleChangeEvent(FrameNode* frameNode, std::function<void(float)>&& event)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<ScrollEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnZoomScaleChange(std::move(event));
+}
+
+void ScrollModelStatic::SetEnableBouncesZoom(FrameNode* frameNode, bool enable)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ScrollPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetEnableBouncesZoom(enable);
+}
+
+void ScrollModelStatic::SetOnDidZoom(FrameNode* frameNode, std::function<void(float)>&& event)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<ScrollEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnDidZoom(std::move(event));
+}
+
+void ScrollModelStatic::SetOnZoomStart(FrameNode* frameNode, std::function<void()>&& event)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<ScrollEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnZoomStart(std::move(event));
+}
+
+void ScrollModelStatic::SetOnZoomStop(FrameNode* frameNode, std::function<void()>&& event)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<ScrollEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnZoomStop(std::move(event));
 }
 } // namespace OHOS::Ace::NG
  

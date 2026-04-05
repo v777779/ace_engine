@@ -23,11 +23,11 @@
 #include "core/components_ng/pattern/navigation/tool_bar_pattern.h"
 #include "core/components_ng/pattern/navigation/title_bar_pattern.h"
 #include "core/components_ng/property/transition_property.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -701,6 +701,7 @@ HWTEST_F(NavDestinationBaseTestNg, CalcFullClipRectForTransitionTest003, TestSiz
     EXPECT_EQ(offset, OffsetF(0.0f, 0.0f));
     EXPECT_EQ(size, SizeF(REMOVE_CLIP_SIZE, FRAME_HEIGHT));
 }
+
 /**
  * @tc.name: CalcHalfClipRectForTransitionTest001
  * @tc.desc: Branch: auto angle = rotateAngle_.has_value() ? rotateAngle_.value() : ROTATION_0;
@@ -753,7 +754,7 @@ HWTEST_F(NavDestinationBaseTestNg, CalcHalfClipRectForTransitionTest002, TestSiz
     AceApplicationInfo::GetInstance().isRightToLeft_ = backupValue;
 }
 
-/**
+ /**
  * @tc.name: CalcHalfClipRectForTransitionTest003
  * @tc.desc: Branch: auto angle = rotateAngle_.has_value() ? rotateAngle_.value() : ROTATION_0;
  *                       rotateAngle_.has_value() => true

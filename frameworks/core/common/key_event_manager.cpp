@@ -20,6 +20,8 @@
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/overlay/sheet_manager.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "core/common/reporter/reporter.h"
+#include "core/event/focus_axis_event.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -523,10 +525,12 @@ void KeyEventManager::SetIsKeyConsumed(bool value)
 
 bool KeyEventManager::OnKeyEvent(const KeyEvent& event)
 {
+    ACE_BENCH_MARK_TRACE("OnKeyEvent_start type:%d", event.action);
     SetPressedKeyCodes(event.pressedCodes);
 
     // onKeyPreIme
     if (event.isPreIme) {
+        Reporter::GetInstance().HandleInputEventInspectorReporting(event);
         ResSchedReport::GetInstance().OnKeyEvent(event);
         if (TriggerKeyEventDispatch(event)) {
             return true;
@@ -540,7 +544,11 @@ bool KeyEventManager::OnKeyEvent(const KeyEvent& event)
     }
 
     // process drag cancel
+#ifdef ANDROID_PLATFORM
+    if (event.code == KeyCode::KEY_ESCAPE || event.code == KeyCode::KEY_BACK) {
+#else
     if (event.code == KeyCode::KEY_ESCAPE) {
+#endif
         auto dragDropMgr = GetDragDropManager(GetInstanceId());
         if (dragDropMgr && dragDropMgr->IsMSDPDragging()) {
             return true;
@@ -557,6 +565,7 @@ bool KeyEventManager::OnKeyEvent(const KeyEvent& event)
 
 bool KeyEventManager::OnFocusAxisEvent(const FocusAxisEvent& event)
 {
+    ACE_BENCH_MARK_TRACE("OnFocusAxisEvent_start type:%d", event.action);
     auto container = Container::GetContainer(GetInstanceId());
     CHECK_NULL_RETURN(container, false);
     auto pipeline = DynamicCast<NG::PipelineContext>(container->GetPipelineContext());
@@ -571,6 +580,7 @@ bool KeyEventManager::OnFocusAxisEvent(const FocusAxisEvent& event)
 
 bool KeyEventManager::OnCrownEvent(const CrownEvent& event)
 {
+    ACE_BENCH_MARK_TRACE("OnCrownEvent_start type:%d", event.action);
     auto container = Container::GetContainer(GetInstanceId());
     CHECK_NULL_RETURN(container, false);
     auto pipeline = DynamicCast<NG::PipelineContext>(container->GetPipelineContext());

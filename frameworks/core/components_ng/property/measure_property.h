@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,15 +16,19 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PROPERTIES_MEASURE_PROPERTIES_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PROPERTIES_MEASURE_PROPERTIES_H
 
-#include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 
-#include "core/common/ace_application_info.h"
 #include "ui/properties/ng/measure_property.h"
 
+namespace OHOS::Ace {
+class JsonValue;
+}
+
 namespace OHOS::Ace::NG {
+class InspectorFilter;
 
 enum class MeasureType {
     MATCH_PARENT,
@@ -33,7 +37,7 @@ enum class MeasureType {
     MATCH_PARENT_MAIN_AXIS,
 };
 
-class CalcSize {
+class ACE_FORCE_EXPORT CalcSize {
 public:
     CalcSize() = default;
     ~CalcSize() = default;
@@ -46,20 +50,11 @@ public:
 
     bool IsValid() const;
 
-    bool IsDimensionUnitAuto() const
-    {
-        return IsWidthDimensionUnitAuto() || IsHeightDimensionUnitAuto();
-    }
+    bool IsDimensionUnitAuto() const;
 
-    bool IsWidthDimensionUnitAuto() const
-    {
-        return width_ && width_->GetDimension().Unit() == DimensionUnit::AUTO;
-    }
+    bool IsWidthDimensionUnitAuto() const;
 
-    bool IsHeightDimensionUnitAuto() const
-    {
-        return height_ && height_->GetDimension().Unit() == DimensionUnit::AUTO;
-    }
+    bool IsHeightDimensionUnitAuto() const;
 
     const std::optional<CalcLength>& Width() const
     {
@@ -105,7 +100,7 @@ public:
 
     bool PercentHeight() const;
 
-    std::string ToString() const;
+    ACE_FORCE_EXPORT std::string ToString() const;
 
 private:
     std::optional<CalcLength> width_;
@@ -132,9 +127,9 @@ struct MeasureProperty {
 
     bool ClearSelfIdealSize(bool clearWidth, bool clearHeight);
 
-    bool UpdateMaxSizeWithCheck(const CalcSize& size);
+    ACE_FORCE_EXPORT bool UpdateMaxSizeWithCheck(const CalcSize& size);
 
-    bool UpdateMinSizeWithCheck(const CalcSize& size);
+    ACE_FORCE_EXPORT bool UpdateMinSizeWithCheck(const CalcSize& size);
 
     bool PercentWidth() const;
 

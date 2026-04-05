@@ -28,26 +28,55 @@ constexpr int32_t CHILDREN_SIZE = 1;
 
 namespace OHOS::Ace::NG {
 
-RichEditorLayoutAlgorithm::RichEditorLayoutAlgorithm(std::list<RefPtr<SpanItem>> spans,
-    RichEditorParagraphManager* paragraphs, LRUMap<std::uintptr_t, RefPtr<Paragraph>>* paraMapPtr,
-    std::unique_ptr<StyleManager>& styleManager, bool needShowPlaceholder, AISpanLayoutInfo aiSpanLayoutInfo)
-    : pManager_(paragraphs), paraMapPtr_(paraMapPtr), styleManager_(styleManager),
-    needShowPlaceholder_(needShowPlaceholder)
+RichEditorLayoutAlgorithm::RichEditorLayoutAlgorithm(const RefPtr<RichEditorPattern>& pattern) :
+    pManager_(&pattern->paragraphs_),
+    paraMapPtr_(&pattern->paragraphCache_),
+    styleManager_(pattern->styleManager_),
+    needShowPlaceholder_(pattern->NeedShowPlaceholder()),
+    isSingleLineMode_(pattern->isSingleLineMode_)
 {
     ACE_SCOPED_TRACE("RichEditorLayoutAlgorithm::Constructor");
-    allSpans_ = spans;
-    // split spans into groups by \newline
+    const auto& spans = pattern->spans_;
+    auto aiSpanLayoutInfo = AISpanLayoutInfo{ pattern->GetAISpanMap(), pattern->NeedShowAIDetect() };
+
     IF_TRUE(spans.empty() && paraMapPtr_, paraMapPtr_->Clear());
+    allSpans_ = spans;
+    spans_ = ConstructParagraphSpans(spans, isSingleLineMode_);
+    AppendNewLineSpan();
+    HandleAISpan(allSpans_, aiSpanLayoutInfo);
+    HandleParagraphCache();
+    TAG_LOGD(AceLogTag::ACE_RICH_TEXT, "spans=%{public}s", SpansToString().c_str());
+}
+
+std::vector<std::list<RefPtr<SpanItem>>> RichEditorLayoutAlgorithm::ConstructParagraphSpans(
+    std::list<RefPtr<SpanItem>> spans, bool isSingleLineMode)
+{
+    return isSingleLineMode ? ConstructParagraphSpansSingleLine(spans) : ConstructParagraphSpansMultiLine(spans);
+}
+
+std::vector<std::list<RefPtr<SpanItem>>> RichEditorLayoutAlgorithm::ConstructParagraphSpansSingleLine(
+    std::list<RefPtr<SpanItem>> spans)
+{
+    for (const auto& span : spans) {
+        span->SetNeedRemoveNewLine(false);
+    }
+    return { spans };
+}
+
+// split spans into groups by \newline
+std::vector<std::list<RefPtr<SpanItem>>> RichEditorLayoutAlgorithm::ConstructParagraphSpansMultiLine(
+    std::list<RefPtr<SpanItem>> spans)
+{
+    std::vector<std::list<RefPtr<SpanItem>>> paragraphSpans;
     auto it = spans.begin();
     while (it != spans.end()) {
         auto span = *it;
         // only checking the last char
-        if (span->content.back() == u'\n') {
+        if (!span->content.empty() && span->content.back() == u'\n') {
             span->SetNeedRemoveNewLine(true);
             std::list<RefPtr<SpanItem>> newGroup;
             newGroup.splice(newGroup.begin(), spans, spans.begin(), std::next(it));
-            spans_.push_back(std::move(newGroup));
-
+            paragraphSpans.push_back(std::move(newGroup));
             it = spans.begin();
             continue;
         }
@@ -61,12 +90,9 @@ RichEditorLayoutAlgorithm::RichEditorLayoutAlgorithm(std::list<RefPtr<SpanItem>>
         ++it;
     }
     if (!spans.empty()) {
-        spans_.push_back(std::move(spans));
+        paragraphSpans.push_back(std::move(spans));
     }
-    AppendNewLineSpan();
-    HandleAISpan(allSpans_, aiSpanLayoutInfo);
-    HandleParagraphCache();
-    TAG_LOGD(AceLogTag::ACE_RICH_TEXT, "spans=%{public}s", SpansToString().c_str());
+    return paragraphSpans;
 }
 
 void RichEditorLayoutAlgorithm::HandleAISpan(
@@ -139,15 +165,22 @@ void RichEditorLayoutAlgorithm::HandleAISpan(
     }
 }
 
+inline uint64_t RichEditorLayoutAlgorithm::Hash(uint64_t hash, const RefPtr<SpanItem>& span)
+{
+    constexpr uint64_t MAGIC_NUMBER = 0x9e3779b9;
+    constexpr int32_t LEFT_SHIFT = 6;
+    constexpr int32_t RIGHT_SHIFT = 2;
+    return hash ^ (static_cast<uint64_t>(span->nodeId_) + MAGIC_NUMBER + (hash << LEFT_SHIFT) + (hash >> RIGHT_SHIFT));
+}
+
 void RichEditorLayoutAlgorithm::HandleParagraphCache()
 {
     CHECK_NULL_VOID(paraMapPtr_);
     for (const auto& group : spans_) {
-        std::uintptr_t hash = 0;
+        uint64_t hash = 0;
         bool needReLayout = false;
         for (const auto& child : group) {
-            std::uintptr_t intValue = reinterpret_cast<std::uintptr_t>(RawPtr(child));
-            hash ^= intValue;
+            hash = Hash(hash, child);
             needReLayout |= child->needReLayout;
         }
         if (needReLayout) {
@@ -156,11 +189,11 @@ void RichEditorLayoutAlgorithm::HandleParagraphCache()
     }
 }
 
-std::uintptr_t RichEditorLayoutAlgorithm::Hash(const std::list<RefPtr<SpanItem>>& spanGroup)
+uint64_t RichEditorLayoutAlgorithm::Hash(const std::list<RefPtr<SpanItem>>& spanGroup)
 {
-    std::uintptr_t hash = 0;
+    uint64_t hash = 0;
     for (const auto& child : spanGroup) {
-        hash ^= reinterpret_cast<std::uintptr_t>(RawPtr(child));
+        hash = Hash(hash, child);
     }
     return hash;
 }
@@ -170,16 +203,17 @@ RefPtr<Paragraph> RichEditorLayoutAlgorithm::GetOrCreateParagraph(const std::lis
 {
     if (!paraMapPtr_) {
         useParagraphCache_ = false;
-        return Paragraph::CreateRichEditorParagraph(paraStyle, FontCollection::Current());
+        return Paragraph::CreateRichEditorParagraph(paraStyle, FontCollection::Current(), isSingleLineMode_);
     }
-    auto hash = Hash(group);
+    uint64_t hash = Hash(group);
+    paragraphKeySet_.insert(hash);
     auto it = paraMapPtr_->Get(hash);
     bool findCache = it != paraMapPtr_->End() && it->second != nullptr;
     bool directionChanged = findCache && it->second->GetParagraphStyle().direction != paraStyle.direction;
     bool fontLocaleChanged = findCache && it->second->GetParagraphStyle().fontLocale != paraStyle.fontLocale;
     bool useCache = findCache && !directionChanged && !fontLocaleChanged && paraStyle.maxLines == UINT32_MAX;
     auto paragraph = useCache ?
-        it->second : Paragraph::CreateRichEditorParagraph(paraStyle, FontCollection::Current());
+        it->second : Paragraph::CreateRichEditorParagraph(paraStyle, FontCollection::Current(), isSingleLineMode_);
 
     // caching paragraph
     paraMapPtr_->Put(hash, paragraph);
@@ -202,6 +236,7 @@ void RichEditorLayoutAlgorithm::AppendNewLineSpan()
     bool afterNewLine = !allSpans_.empty() && lastSpan && lastSpan->content.back() == u'\n';
     bool emptyAndNoPlaceholder = allSpans_.empty() && !needShowPlaceholder_;
     bool needNewLineSpan = afterNewLine || emptyAndNoPlaceholder;
+    IF_TRUE(isSingleLineMode_, needNewLineSpan = emptyAndNoPlaceholder);
     if (needNewLineSpan) {
         std::list<RefPtr<SpanItem>> newGroup;
         auto tailNewLineSpan = AceType::MakeRefPtr<SpanItem>();
@@ -219,12 +254,18 @@ void RichEditorLayoutAlgorithm::CopySpanStyle(RefPtr<SpanItem> source, RefPtr<Sp
     if (source) {
         target->fontStyle->UpdateFontSize(source->fontStyle->GetFontSize());
         target->textLineStyle->UpdateLineHeight(source->textLineStyle->GetLineHeight());
+        if (source->textLineStyle->HasDrawableLeadingMargin()) {
+            auto drawableLeadingMargin = source->textLineStyle->GetDrawableLeadingMarginValue();
+            drawableLeadingMargin.onDraw_ = nullptr;
+            target->textLineStyle->UpdateDrawableLeadingMargin(drawableLeadingMargin);
+        }
         if (source->textLineStyle->HasLeadingMargin()) {
             auto leadingMargin = source->textLineStyle->GetLeadingMarginValue();
             leadingMargin.pixmap.Reset();
             target->textLineStyle->UpdateLeadingMargin(leadingMargin);
         }
         target->textLineStyle->UpdateTextAlign(source->textLineStyle->GetTextAlign());
+        target->textLineStyle->UpdateTextDirection(source->textLineStyle->GetTextDirection());
     }
     styleManager_->UpdateTextStyleByTypingStyle(target);
     styleManager_->UpdateStyleByTypingParagraphStyle(target);
@@ -238,16 +279,19 @@ std::optional<SizeF> RichEditorLayoutAlgorithm::MeasureContentSize(
     CHECK_NULL_RETURN(layoutProperty, {});
     TextStyle textStyle;
     ConstructTextStyles(contentConstraint, layoutWrapper, textStyle);
-    MeasureChildren(layoutWrapper, textStyle);
+    MeasureChildren(contentConstraint, layoutWrapper, textStyle);
     CHECK_NULL_RETURN(BuildParagraph(textStyle, layoutProperty, contentConstraint, layoutWrapper), {});
     pManager_->SetParagraphs(GetParagraphs());
-    return SizeF(pManager_->GetMaxWidth(), pManager_->GetHeight());
+    auto textWidth = pManager_->GetTextWidth();
+    auto maxWidth = pManager_->GetMaxWidth();
+    return SizeF(isSingleLineMode_ ? std::max(textWidth, maxWidth) : maxWidth, pManager_->GetHeight());
 }
 
 LayoutConstraintF RichEditorLayoutAlgorithm::ReMeasureContent(
     SizeF& textSize, const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper)
 {
     ACE_SCOPED_TRACE("RichEditorLayoutAlgorithm::ReMeasureContent");
+    CHECK_NULL_RETURN(!isSingleLineMode_, contentConstraint);
     auto newContentConstraint = contentConstraint;
     auto pattern = GetRichEditorPattern(layoutWrapper);
     CHECK_NULL_RETURN(pattern, newContentConstraint);
@@ -281,14 +325,27 @@ void RichEditorLayoutAlgorithm::UpdateConstraintByLayoutPolicy(
     CHECK_NULL_VOID(layoutProperty);
     auto layoutPolicy = layoutProperty->GetLayoutPolicyProperty();
     CHECK_NULL_VOID(layoutPolicy.has_value() && layoutPolicy->IsHeightFix());
-    const auto& calcLayoutConstraint = layoutProperty->GetCalcLayoutConstraint();
-    CHECK_NULL_VOID(calcLayoutConstraint);
+    const auto& calcConstraint = layoutProperty->GetCalcLayoutConstraint();
+    CHECK_NULL_VOID(calcConstraint);
     const auto& layoutConstraint = layoutProperty->GetLayoutConstraint();
     CHECK_NULL_VOID(layoutConstraint.has_value());
     const auto& percentReference = layoutConstraint->percentReference;
-    auto finalSize = UpdateOptionSizeByCalcLayoutConstraint(OptionalSizeF(textSize), calcLayoutConstraint,
-        percentReference);
+    auto finalSize = UpdateOptionSizeByCalcLayoutConstraint(OptionalSizeF(textSize), calcConstraint, percentReference);
+    bool hasMaxHeight = calcConstraint->maxSize.has_value() && calcConstraint->maxSize->Height().has_value();
+    if (hasMaxHeight) {
+        const auto& padding = layoutProperty->CreatePaddingAndBorder();
+        MinusPaddingToSize(padding, finalSize);
+    }
     IF_TRUE(finalSize.Height().has_value(), constraint.maxSize.SetHeight(finalSize.Height().value()));
+}
+
+void RichEditorLayoutAlgorithm::HandleTextSizeWhenEmpty(LayoutWrapper* layoutWrapper, SizeF& textSize)
+{
+    CHECK_NULL_VOID(layoutWrapper && allSpans_.empty());
+    auto pattern = GetRichEditorPattern(layoutWrapper);
+    CHECK_NULL_VOID(pattern);
+    float minWidth = std::ceil(pattern->GetCaretWidth());
+    textSize.SetWidth(std::max(textSize.Width(), minWidth));
 }
 
 std::optional<SizeF> RichEditorLayoutAlgorithm::MeasureContent(
@@ -300,13 +357,16 @@ std::optional<SizeF> RichEditorLayoutAlgorithm::MeasureContent(
     auto optionalTextSize = MeasureContentSize(contentConstraint, layoutWrapper);
     CHECK_NULL_RETURN(optionalTextSize.has_value(), {});
     auto newContentConstraint = ReMeasureContent(optionalTextSize.value(), contentConstraint, layoutWrapper);
+    HandleTextSizeWhenEmpty(layoutWrapper, optionalTextSize.value());
     SizeF res = optionalTextSize.value();
     res.AddHeight(spans_.empty() ? 0 : shadowOffset_);
     CHECK_NULL_RETURN(res.IsNonNegative(), {});
     UpdateRichTextRect(optionalTextSize.value(), layoutWrapper);
     auto maxHeight = newContentConstraint.selfIdealSize.Height().value_or(newContentConstraint.maxSize.Height());
     auto contentHeight = std::min(res.Height(), maxHeight);
-    return SizeF(res.Width(), contentHeight);
+    auto contentWidth = isSingleLineMode_ ?
+        MultipleParagraphLayoutAlgorithm::GetMaxMeasureSize(contentConstraint).Width() : res.Width();
+    return SizeF(contentWidth, contentHeight);
 }
 
 bool RichEditorLayoutAlgorithm::BuildParagraph(TextStyle& textStyle, const RefPtr<TextLayoutProperty>& layoutProperty,
@@ -314,12 +374,18 @@ bool RichEditorLayoutAlgorithm::BuildParagraph(TextStyle& textStyle, const RefPt
 {
     ACE_SCOPED_TRACE("RichEditorLayoutAlgorithm::BuildParagraph");
     auto maxSize = MultipleParagraphLayoutAlgorithm::GetMaxMeasureSize(contentConstraint);
+    auto maxMeasureSize = maxSize;
     UpdateMaxSizeByLayoutPolicy(contentConstraint, layoutWrapper, maxSize);
     cacheHitCount_ = 0;
+    paragraphKeySet_.clear();
     if (!CreateParagraph(textStyle, layoutProperty->GetContent().value_or(u""), layoutWrapper, maxSize.Width())) {
         return false;
     }
     CHECK_NULL_RETURN(paragraphManager_, false);
+    if (paragraphKeySet_.size() != spans_.size()) {
+        TAG_LOGE(AceLogTag::ACE_RICH_TEXT, "paragraph hash collision, %{public}zu, %{public}zu",
+            paragraphKeySet_.size(), spans_.size());
+    }
     AceScopedTrace scopedTrace("LayoutParagraph[cacheHit=%d][hitRate=%.4f]",
         cacheHitCount_, (float) cacheHitCount_ / spans_.size());
     auto& paragraphInfo = paragraphManager_->GetParagraphs();
@@ -338,10 +404,12 @@ bool RichEditorLayoutAlgorithm::BuildParagraph(TextStyle& textStyle, const RefPt
         auto& group = *groupIter;
         bool needReLayout = false;
         bool needReLayoutParagraph = false;
-        ReLayoutParagraphBySpan(layoutWrapper, textStyles, group, needReLayout, needReLayoutParagraph);
+        std::optional<TextStyle> firstValidTextStyle;
+        ReLayoutParagraphBySpan(layoutWrapper, textStyles, group, needReLayout, needReLayoutParagraph,
+            firstValidTextStyle);
         if (!needReLayout && needReLayoutParagraph) {
             ACE_SCOPED_TRACE("ReLayoutParagraph");
-            paragraph->ReLayout(maxSize.Width(), pIter->paragraphStyle, textStyles);
+            paragraph->ReLayout(maxSize.Width(), pIter->paragraphStyle, textStyles, firstValidTextStyle);
         } else {
             ACE_SCOPED_TRACE("LayoutParagraph");
             paragraph->Layout(maxSize.Width());
@@ -349,48 +417,65 @@ bool RichEditorLayoutAlgorithm::BuildParagraph(TextStyle& textStyle, const RefPt
         ++pIter;
         ++groupIter;
     }
-    ReLayoutParagraphByLayoutPolicy(layoutWrapper, maxSize.Width());
+    ReLayoutParagraphByLayoutPolicy(layoutWrapper, maxSize.Width(), maxMeasureSize.Width());
 
     if (paraMapPtr_) {
         paraMapPtr_->SetCapacity(paragraphInfo.size());
         paraMapPtr_->SetCapacity(SIZE_MAX);
     }
-    return ParagraphReLayout(contentConstraint);
+    return true;
 }
 
 void RichEditorLayoutAlgorithm::UpdateMaxSizeByLayoutPolicy(const LayoutConstraintF& contentConstraint,
     LayoutWrapper* layoutWrapper, SizeF& maxSize)
 {
-    CHECK_NULL_VOID(layoutWrapper);
-    auto layoutProperty = layoutWrapper->GetLayoutProperty();
-    CHECK_NULL_VOID(layoutProperty);
-    auto layoutPolicy = layoutProperty->GetLayoutPolicyProperty();
-    CHECK_NULL_VOID(layoutPolicy.has_value() && layoutPolicy->IsWidthFix());
     auto parentIdealWidth = contentConstraint.parentIdealSize.Width();
-    CHECK_NULL_VOID(parentIdealWidth.has_value() && NearEqual(maxSize.Width(), parentIdealWidth.value()));
+    bool isNotSetComponentWidth = parentIdealWidth.has_value() && NearEqual(maxSize.Width(), parentIdealWidth.value());
+    CHECK_NULL_VOID(isSingleLineMode_ || (IsWidthFix(layoutWrapper) && isNotSetComponentWidth));
     maxSize.SetWidth(std::numeric_limits<float>::max());
 }
 
-void RichEditorLayoutAlgorithm::ReLayoutParagraphByLayoutPolicy(LayoutWrapper* layoutWrapper, float maxWidth)
+void RichEditorLayoutAlgorithm::ReLayoutParagraphByLayoutPolicy(LayoutWrapper* layoutWrapper,
+    float maxWidth, float maxMeasureWidth)
 {
-    CHECK_NULL_VOID(layoutWrapper);
-    auto layoutProperty = layoutWrapper->GetLayoutProperty();
-    CHECK_NULL_VOID(layoutProperty);
-    auto layoutPolicy = layoutProperty->GetLayoutPolicyProperty();
-    CHECK_NULL_VOID(layoutPolicy.has_value() && layoutPolicy->IsWidthAdaptive());
     CHECK_NULL_VOID(paragraphManager_);
-    auto maxParagraphWidth = paragraphManager_->GetLongestLineWithIndent();
-    CHECK_NULL_VOID(GreatNotEqual(maxWidth, maxParagraphWidth));
-    paragraphManager_->LayoutParagraphs(maxParagraphWidth);
+    if (IsWidthAdaptive(layoutWrapper)) {
+        auto maxParagraphWidth = paragraphManager_->GetLongestLineWithIndent();
+        CHECK_NULL_VOID(GreatNotEqual(maxWidth, maxParagraphWidth));
+        paragraphManager_->LayoutParagraphs(maxParagraphWidth);
+    } else if (isSingleLineMode_) {
+        auto width = std::max(paragraphManager_->GetLongestLineWithIndent(), maxMeasureWidth);
+        paragraphManager_->LayoutParagraphs(width);
+    }
+}
+
+bool RichEditorLayoutAlgorithm::IsWidthFix(LayoutWrapper* layoutWrapper)
+{
+    CHECK_NULL_RETURN(layoutWrapper, false);
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_RETURN(layoutProperty, false);
+    auto layoutPolicy = layoutProperty->GetLayoutPolicyProperty();
+    return layoutPolicy.has_value() && layoutPolicy->IsWidthFix();
+}
+
+bool RichEditorLayoutAlgorithm::IsWidthAdaptive(LayoutWrapper* layoutWrapper)
+{
+    CHECK_NULL_RETURN(layoutWrapper, false);
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_RETURN(layoutProperty, false);
+    auto layoutPolicy = layoutProperty->GetLayoutPolicyProperty();
+    return layoutPolicy.has_value() && layoutPolicy->IsWidthAdaptive();
 }
 
 void RichEditorLayoutAlgorithm::ReLayoutParagraphBySpan(LayoutWrapper* layoutWrapper,
     std::vector<TextStyle>& textStyles, std::list<RefPtr<SpanItem>>& group,
-    bool& needReLayout, bool& needReLayoutParagraph)
+    bool& needReLayout, bool& needReLayoutParagraph, std::optional<TextStyle>& firstValidTextStyle)
 {
     auto frameNode = layoutWrapper->GetHostNode();
     CHECK_NULL_VOID(frameNode);
     textStyles.reserve(group.size());
+    bool hasFoundFirstValidText = false;
+    firstValidTextStyle.reset();
     for (const auto& child : group) {
         if (!child) {
             continue;
@@ -400,10 +485,15 @@ void RichEditorLayoutAlgorithm::ReLayoutParagraphBySpan(LayoutWrapper* layoutWra
         child->ResetReLayout();
         CHECK_NULL_CONTINUE(!needReLayout);
         child->UpdateSpanTextStyle(inheritTextStyle_, frameNode);
+        TextStyle currentTextStyle;
         if (child->GetTextStyle().has_value()) {
-            textStyles.emplace_back(child->GetTextStyle().value());
-        } else {
-            textStyles.emplace_back(TextStyle());
+            currentTextStyle = child->GetTextStyle().value();
+        }
+        textStyles.emplace_back(currentTextStyle);
+        if (!hasFoundFirstValidText && (child->spanItemType == SpanItemType::NORMAL
+            || child->spanItemType == SpanItemType::SYMBOL)) {
+            firstValidTextStyle = currentTextStyle;
+            hasFoundFirstValidText = true;
         }
     }
 }
@@ -438,7 +528,8 @@ void RichEditorLayoutAlgorithm::UpdateRichTextRect(const SizeF& textSize, Layout
 {
     auto pattern = GetRichEditorPattern(layoutWrapper);
     CHECK_NULL_VOID(pattern);
-    richTextRect_.SetSize(pattern->IsShowPlaceholder() ? SizeF() : textSize);
+    IF_TRUE(!richTextRect_.has_value(), richTextRect_ = std::make_optional<RectF>());
+    richTextRect_->SetSize(pattern->IsShowPlaceholder() ? SizeF() : textSize);
 }
 
 bool RichEditorLayoutAlgorithm::SetPlaceholder(LayoutWrapper* layoutWrapper)
@@ -513,8 +604,6 @@ void RichEditorLayoutAlgorithm::UpdateFrameSizeWithLayoutPolicy(LayoutWrapper* l
     CHECK_NULL_VOID(layoutWrapper);
     auto layoutProperty = layoutWrapper->GetLayoutProperty();
     CHECK_NULL_VOID(layoutProperty);
-    const auto& calcLayoutConstraint = layoutProperty->GetCalcLayoutConstraint();
-    CHECK_NULL_VOID(calcLayoutConstraint);
     const auto& layoutConstraint = layoutProperty->GetLayoutConstraint();
     CHECK_NULL_VOID(layoutConstraint.has_value());
     const auto& percentReference = layoutConstraint->percentReference;
@@ -525,8 +614,8 @@ void RichEditorLayoutAlgorithm::UpdateFrameSizeWithLayoutPolicy(LayoutWrapper* l
     auto contentSize = content->GetRect().GetSize();
     const auto& padding = layoutProperty->CreatePaddingAndBorder();
     AddPaddingToSize(padding, contentSize);
-    auto fixIdealSize = UpdateOptionSizeByCalcLayoutConstraint(OptionalSizeF(contentSize), calcLayoutConstraint,
-        percentReference);
+    auto fixIdealSize = UpdateOptionSizeByCalcLayoutConstraint(OptionalSizeF(contentSize),
+        layoutProperty->GetCalcLayoutConstraint(), percentReference);
     bool widthAdaptive = layoutPolicy->IsWidthAdaptive() && fixIdealSize.Width().has_value();
     bool heightAdaptive = layoutPolicy->IsHeightAdaptive() && fixIdealSize.Height().has_value();
     IF_TRUE(widthAdaptive, frameSize.SetWidth(fixIdealSize.Width().value()));
@@ -535,6 +624,9 @@ void RichEditorLayoutAlgorithm::UpdateFrameSizeWithLayoutPolicy(LayoutWrapper* l
 
 void RichEditorLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
 {
+    ACE_SCOPED_TRACE("RichEditorLayoutAlgorithm::Layout");
+    CHECK_NULL_VOID(layoutWrapper);
+    CHECK_NULL_VOID(layoutWrapper->GetHostNode());
     auto context = layoutWrapper->GetHostNode()->GetContext();
     CHECK_NULL_VOID(context);
     parentGlobalOffset_ = layoutWrapper->GetHostNode()->GetPaintRectOffsetNG() - context->GetRootRect().GetOffset();
@@ -579,8 +671,15 @@ OffsetF RichEditorLayoutAlgorithm::GetContentOffset(LayoutWrapper* layoutWrapper
     CHECK_NULL_RETURN(host, contentOffset);
     auto pattern = host->GetPattern<RichEditorPattern>();
     CHECK_NULL_RETURN(pattern, contentOffset);
-    richTextRect_.SetOffset(OffsetF(contentOffset.GetX(), pattern->GetTextRect().GetY()));
-    return richTextRect_.GetOffset();
+    IF_TRUE(!richTextRect_.has_value(), richTextRect_ = std::make_optional<RectF>());
+    auto textRect = pattern->GetTextRect();
+    bool isTextRectValid = (textRect != RectF(0, 0, 0, 0));
+    // For the first frame, the component's content area is used directly as the layout content area.
+    CHECK_NULL_RETURN(isTextRectValid, contentOffset);
+    auto offsetX = isSingleLineMode_ ? pattern->GetTextRect().GetX() : contentOffset.GetX();
+    auto offsetY = pattern->GetTextRect().GetY();
+    richTextRect_->SetOffset({ offsetX, offsetY });
+    return richTextRect_->GetOffset();
 }
 
 ParagraphStyle RichEditorLayoutAlgorithm::GetEditorParagraphStyle(
@@ -595,6 +694,19 @@ ParagraphStyle RichEditorLayoutAlgorithm::GetEditorParagraphStyle(
     }
 
     return style;
+}
+
+RefPtr<SpanItem> RichEditorLayoutAlgorithm::GetFirstTextSpanItem() const
+{
+    auto& spanGroup = GetSpans();
+    auto it = spanGroup.begin();
+    while (it != spanGroup.end()) {
+        if (!DynamicCast<PlaceholderSpanItem>(*it)) {
+            return *it;
+        }
+        ++it;
+    }
+    return *spanGroup.begin();
 }
 
 void RichEditorLayoutAlgorithm::HandleEmptyParagraph(RefPtr<Paragraph> paragraph,

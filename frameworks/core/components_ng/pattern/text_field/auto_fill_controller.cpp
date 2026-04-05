@@ -28,23 +28,32 @@
 namespace OHOS::Ace::NG {
 namespace {
 constexpr int32_t AUTO_FILL_ICON_ANIMATION_DURATION = 250;
-constexpr float AUTO_FILL_SPRING_RESPONSE = 0.513f;
+constexpr float AUTO_FILL_SPRING_RESPONSE = 0.313f;
 constexpr float AUTO_FILL_SPRING_DAMPING_FRACTION = 0.94f;
-constexpr float AUTO_FILL_SPRING_RESPONSE_EXTRA_LONG = 0.613f;
+constexpr float AUTO_FILL_SPRING_RESPONSE_EXTRA_LONG = 0.413f;
 constexpr float AUTO_FILL_SPRING_DAMPING_FRACTION_EXTRA_LONG = 0.93f;
 constexpr uint32_t AUTO_FILL_SYMBOL_RENDERING_STRATEGY = 1;
 constexpr float AUTO_FILL_ICON_INIT_SCALE = 0.2f;
 constexpr int32_t AUTO_FILL_TEXT_SCROLL_DELAY_DURATION = 500;
 constexpr int32_t AUTO_FILL_DEFAULT_CHAR_DELAY_DURATION = 150;
-constexpr int32_t AUTO_FILL_ICON_HIDE_DELAY_DURATION_SHORT = 800;
-constexpr int32_t AUTO_FILL_ICON_HIDE_DELAY_DURATION_MEDIUM = 900;
-constexpr int32_t AUTO_FILL_ICON_HIDE_DELAY_DURATION_LONG = 1000;
+constexpr int32_t AUTO_FILL_ICON_HIDE_DELAY_DURATION_SHORT = 500;
+constexpr int32_t AUTO_FILL_ICON_HIDE_DELAY_DURATION_MEDIUM = 600;
+constexpr int32_t AUTO_FILL_ICON_HIDE_DELAY_DURATION_LONG = 700;
 constexpr int32_t AUTO_FILL_ICON_HIDE_DELAY_DURATION_EXTRA_LONG = 1100;
 } // namespace
 
 void AutoFillController::StartAutoFillAnimation(
     const std::function<void()>& onFinishCallback, const std::u16string& content)
 {
+    auto pattern = pattern_.Upgrade();
+    CHECK_NULL_VOID(pattern);
+    auto textFieldPattern = DynamicCast<TextFieldPattern>(pattern);
+    if (textFieldPattern) {
+        auto host = textFieldPattern->GetHost();
+        if (host) {
+            ACE_UINODE_TRACE(host);
+        }
+    }
     auto initParagraphSuc = InitAutoFillParagraph(content);
     auto createAutoFillIconSuc = CreateAutoFillIcon();
     if (!initParagraphSuc || !createAutoFillIconSuc) {
@@ -62,9 +71,6 @@ void AutoFillController::StartAutoFillAnimation(
         ResetAutoFillAnimationStatus();
         return;
     }
-    auto pattern = pattern_.Upgrade();
-    CHECK_NULL_VOID(pattern);
-    auto textFieldPattern = DynamicCast<TextFieldPattern>(pattern);
     CHECK_NULL_VOID(textFieldPattern);
     textFieldPattern->StopTwinkling();
     UpdateAnimationTextRect();
@@ -144,7 +150,7 @@ void AutoFillController::PlayAutoFillIconShowAnimation(const AutoFillContentLeng
             CHECK_NULL_VOID(autofillController);
             autofillController->PlayAutoFillTranslationAnimation(mode);
             autofillController->PlayAutoFillDefaultCharAnimation(mode);
-        });
+        }, nullptr, symbolNode->GetContextRefPtr());
 }
 
 void AutoFillController::PlayAutoFillDefaultCharAnimation(const AutoFillContentLengthMode& mode)
@@ -157,6 +163,10 @@ void AutoFillController::PlayAutoFillDefaultCharAnimation(const AutoFillContentL
     CHECK_NULL_VOID(pattern);
     auto textFieldPattern = DynamicCast<TextFieldPattern>(pattern);
     CHECK_NULL_VOID(textFieldPattern);
+    auto host = textFieldPattern->GetHost();
+    if (host) {
+        ACE_UINODE_TRACE(host);
+    }
     auto contentLength = autoFillParagraph_->GetParagraphText().length();
     auto response = GetSpringAnimationResponse(mode);
     auto damping = GetSpringAnimationDamping(mode);
@@ -175,7 +185,7 @@ void AutoFillController::PlayAutoFillDefaultCharAnimation(const AutoFillContentL
         CHECK_NULL_VOID(textFieldContentModifier);
         autofillController->autoFillAnimationStatus_ = AutoFillAnimationStatus::TRANSLATION;
         textFieldContentModifier->SetAutoFillDefaultCharIndex(std::max(contentLength - 1.0f, 0.0f));
-    });
+    }, nullptr, nullptr, Claim(pattern->GetContext()));
 }
 
 void AutoFillController::PlayAutoFillTranslationAnimation(const AutoFillContentLengthMode& mode)
@@ -188,6 +198,9 @@ void AutoFillController::PlayAutoFillTranslationAnimation(const AutoFillContentL
     CHECK_NULL_VOID(pattern);
     auto textFieldPattern = DynamicCast<TextFieldPattern>(pattern);
     CHECK_NULL_VOID(textFieldPattern);
+    if (textFieldPattern->GetHost()) {
+        ACE_UINODE_TRACE(textFieldPattern->GetHost());
+    }
     auto symbolNode = autoFillIconNode_.Upgrade();
     CHECK_NULL_VOID(symbolNode);
     auto symbolRenderContext = symbolNode->GetRenderContext();
@@ -197,16 +210,13 @@ void AutoFillController::PlayAutoFillTranslationAnimation(const AutoFillContentL
     float textFieldContentWidth = std::max(contentRect.Width(), 0.0f);
     auto layoutProperty = textFieldPattern->GetLayoutProperty<TextFieldLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
-    auto isRTL = layoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
     auto theme = textFieldPattern->GetTheme();
     CHECK_NULL_VOID(theme);
-    auto iconSize = theme->GetAutoFillIconSize();
-    auto iconWidth = static_cast<float>(iconSize.ConvertToPx());
+    auto iconWidth = static_cast<float>(theme->GetAutoFillIconSize().ConvertToPx());
     auto translationOffset =
         std::min(autoFillParagraphWidth + autoFillFirstCharOffset_, textFieldContentWidth - iconWidth);
-    if (isRTL) {
-        translationOffset = -translationOffset;
-    }
+    translationOffset =
+        (GetTextDirection(layoutProperty) == TextDirection::RTL) ? -translationOffset : translationOffset;
     auto contentLength = autoFillParagraph_->GetParagraphText().length();
     auto response = GetSpringAnimationResponse(mode);
     auto damping = GetSpringAnimationDamping(mode);
@@ -227,7 +237,7 @@ void AutoFillController::PlayAutoFillTranslationAnimation(const AutoFillContentL
         textFieldContentModifier->SetAutoFillEmphasizeCharIndex(std::max(contentLength - 1.0f, 0.0f));
         textFieldContentModifier->SetAutoFillTranslationOffset(translationOffset);
         symbolRenderContext->UpdateTransformTranslate({ translationOffset, 0.0f, 0.0f });
-    });
+    }, nullptr, nullptr, Claim(pattern->GetContext()));
 }
 
 void AutoFillController::PlayAutoFillTextScrollAnimation()
@@ -242,7 +252,7 @@ void AutoFillController::PlayAutoFillTextScrollAnimation()
     CHECK_NULL_VOID(textFieldPattern);
     auto layoutProperty = textFieldPattern->GetLayoutProperty<TextFieldLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
-    auto isRTL = layoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
+    auto isRTL = GetTextDirection(layoutProperty) == TextDirection::RTL;
     float autoFillParagraphWidth = std::max(autoFillParagraph_->GetLongestLine(), 0.0f);
     auto contentRect = textFieldPattern->GetTextContentRect();
     float textFieldContentWidth = std::max(contentRect.Width(), 0.0f);
@@ -267,7 +277,7 @@ void AutoFillController::PlayAutoFillTextScrollAnimation()
         CHECK_NULL_VOID(textFieldContentModifier);
         autofillController->autoFillAnimationStatus_ = AutoFillAnimationStatus::TRANSLATION;
         textFieldContentModifier->SetAutoFillTextScrollOffset(endScrollOffset);
-    });
+    }, nullptr, nullptr, Claim(pattern->GetContext()));
 }
 
 void AutoFillController::PlayAutoFillIconHideAnimation(
@@ -318,7 +328,7 @@ void AutoFillController::PlayAutoFillIconHideAnimation(
             if (onFinish) {
                 onFinish();
             }
-        });
+        }, nullptr, symbolNode->GetContextRefPtr());
 }
 
 bool AutoFillController::CreateAutoFillIcon()
@@ -349,7 +359,7 @@ bool AutoFillController::CreateAutoFillIcon()
     CHECK_NULL_RETURN(autoFillParagraph_, false);
     auto layoutProperty = textFieldPattern->GetLayoutProperty<TextFieldLayoutProperty>();
     CHECK_NULL_RETURN(layoutProperty, false);
-    auto isRTL = layoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
+    auto isRTL = GetTextDirection(layoutProperty) == TextDirection::RTL;
     auto lineMetrics = autoFillParagraph_->GetLineMetrics(0);
     autoFillFirstCharOffset_ = lineMetrics.x;
     auto startOffset = autoFillFirstCharOffset_;
@@ -422,5 +432,22 @@ void AutoFillController::UpdateAnimationTextRect()
     auto contentRect = textFieldPattern->GetTextContentRect();
     animationTextRect_ = textRect;
     animationTextRect_.SetLeft(contentRect.GetX());
+}
+
+TextDirection AutoFillController::GetTextDirection(const RefPtr<LayoutProperty>& layoutProperty)
+{
+    CHECK_NULL_RETURN(layoutProperty, TextDirection::LTR);
+    auto direction = layoutProperty->GetNonAutoLayoutDirection();
+    auto textFieldLayoutProperty = DynamicCast<TextFieldLayoutProperty>(layoutProperty);
+    CHECK_NULL_RETURN(textFieldLayoutProperty, direction);
+    auto textDirection = textFieldLayoutProperty->GetTextDirectionValue(TextDirection::INHERIT);
+    if (textDirection == TextDirection::INHERIT) {
+        return direction;
+    } else if (textDirection == TextDirection::AUTO) {
+        CHECK_NULL_RETURN(autoFillParagraph_, direction);
+        return autoFillParagraph_->GetParagraphStyle().direction;
+    } else {
+        return textDirection;
+    }
 }
 } // namespace OHOS::Ace::NG

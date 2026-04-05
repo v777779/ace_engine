@@ -22,7 +22,7 @@
 
 #define private public
 #define protectd public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "core/components_ng/pattern/flex/wrap_layout_algorithm.h"
 #include "core/components_ng/pattern/flex/flex_layout_pattern.h"
 #include "core/components_ng/property/grid_property.h"
@@ -68,7 +68,7 @@ RefPtr<LayoutWrapperNode> WrapLayoutAlgorithmTest::CreateParam()
 RefPtr<LayoutWrapperNode> WrapLayoutAlgorithmTest::CreateLayoutWrapper()
 {
     FrameNode *node = new (FrameNode)(V2::FLEX_ETS_TAG, 0, AceType::MakeRefPtr<FlexLayoutPattern>(true));
-    RefCounter* ref = ThreadSafeRef::Create();
+    RefCounter* ref = RefCounter::Create();
     ref->IncStrongRef();
     WeakPtr<FrameNode> wrapFrameNode(node, ref);
     RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
@@ -79,7 +79,6 @@ RefPtr<LayoutWrapperNode> WrapLayoutAlgorithmTest::CreateLayoutWrapper()
     layoutWrapper->layoutAlgorithm_ = AceType::MakeRefPtr<LayoutAlgorithmWrapper>(layoutAlgorithm);
     layoutWrapper->layoutProperty_ = AceType::MakeRefPtr<FlexLayoutProperty>();
     layoutWrapper->layoutProperty_->calcLayoutConstraint_ = std::make_unique<MeasureProperty>();
-    layoutWrapper->layoutProperty_->safeAreaPadding_ = std::make_unique<PaddingProperty>();
     layoutWrapper->layoutProperty_->padding_ = std::make_unique<PaddingProperty>();
     layoutWrapper->layoutProperty_->margin_ = std::make_unique<MarginProperty>();
 
@@ -95,7 +94,7 @@ RefPtr<LayoutWrapperNode> WrapLayoutAlgorithmTest::CreateLayoutWrapper()
     return layoutWrapper;
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout001, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout001, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -111,7 +110,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout001, TestSize.Level1)
     EXPECT_DOUBLE_EQ(param, size.Width());
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout002, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout002, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -129,7 +128,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout002, TestSize.Level1)
     EXPECT_DOUBLE_EQ(param, size.Height());
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout003, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout003, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -143,7 +142,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout003, TestSize.Level1)
     EXPECT_DOUBLE_EQ(param, size.Height());
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout004, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout004, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -159,7 +158,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout004, TestSize.Level1)
     EXPECT_DOUBLE_EQ(param, size.Width());
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout005, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout005, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -184,7 +183,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout005, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(content.crossLength, height));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout006, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout006, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -210,7 +209,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout006, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(content.crossLength, width));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout007, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout007, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -236,7 +235,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout007, TestSize.Level1)
     EXPECT_FALSE(NearEqual<float>(content.crossLength, width));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout008, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout008, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -258,7 +257,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout008, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(wrapLayoutAlgorithm->crossLengthLimit_, width));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout009, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout009, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -282,7 +281,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout009, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(wrapLayoutAlgorithm->crossLengthLimit_, width));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout010, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout010, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -305,7 +304,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout010, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(wrapLayoutAlgorithm->crossLengthLimit_, height));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout011, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout011, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -330,7 +329,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout011, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(wrapLayoutAlgorithm->crossLengthLimit_, width));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout012, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout012, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -352,7 +351,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout012, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(wrapLayoutAlgorithm->crossLengthLimit_, height));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout013, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout013, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -373,7 +372,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout013, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(wrapLayoutAlgorithm->crossLengthLimit_, width));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout014, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout014, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -392,7 +391,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout014, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>((crossLeftLength - crossLength), size.Width()));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout015, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout015, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -411,7 +410,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout015, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>((crossLeftLength - crossLength), size.Height()));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout016, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout016, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -437,7 +436,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout016, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(startPosition.GetX(), height));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout017, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout017, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -461,7 +460,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout017, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(sum, wrapLayoutAlgorithm->currentMainLength_));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout018, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout018, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -485,7 +484,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout018, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(sum, wrapLayoutAlgorithm->currentMainLength_));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout019, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout019, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -505,7 +504,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout019, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(flexItemProperties.totalGrow, 3));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout020, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout020, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();
@@ -531,7 +530,7 @@ HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout020, TestSize.Level1)
     EXPECT_TRUE(NearEqual<float>(geometryNode->GetParentLayoutConstraint()->selfIdealSize.Width().value_or(0.0), 7.0));
 }
 
-HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout021, TestSize.Level1)
+HWTEST_F(WrapLayoutAlgorithmTest, FlexWrapFrameNodeLayout021, TestSize.Level0)
 {
     auto wrapLayoutAlgorithm = AccessibilityManager::MakeRefPtr<WrapLayoutAlgorithm>(false);
     auto wrapper = CreateLayoutWrapper();

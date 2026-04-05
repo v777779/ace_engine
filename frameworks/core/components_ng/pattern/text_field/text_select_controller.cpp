@@ -22,11 +22,13 @@
 #include "core/common/ai/data_detector_mgr.h"
 #include "core/components_ng/pattern/text_field/text_field_pattern.h"
 #include "core/components_ng/pattern/text_field/text_input_ai_checker.h"
+#include "core/components_ng/property/position_property.h"
 
 namespace OHOS::Ace::NG {
 namespace {
 const std::string NEWLINE = "\n";
 const std::u16string WIDE_NEWLINE = UtfUtils::Str8DebugToStr16(NEWLINE);
+constexpr uint32_t DEFAULT_MINLINES = 1;
 } // namespace
 void TextSelectController::UpdateHandleIndex(int32_t firstHandleIndex, int32_t secondHandleIndex)
 {
@@ -60,10 +62,12 @@ RectF TextSelectController::CalculateEmptyValueCaretRect(float width)
     rect.SetWidth(GreatNotEqual(width, 0.0f) ? width : caretInfo_.rect.Width());
     auto textAlign = layoutProperty->GetTextAlignValue(TextAlign::START);
     auto direction = layoutProperty->GetNonAutoLayoutDirection();
-    textField->CheckTextAlignByDirection(textAlign, direction);
+    textAlign = TextBase::CheckTextAlignByDirection(textAlign, direction,
+        layoutProperty->GetTextDirectionValue(TextDirection::INHERIT));
 
     switch (textAlign) {
         case TextAlign::START:
+        case TextAlign::LEFT:
             rect.SetLeft(contentRect_.GetX());
             break;
         case TextAlign::CENTER:
@@ -76,6 +80,7 @@ RectF TextSelectController::CalculateEmptyValueCaretRect(float width)
             }
             break;
         case TextAlign::END:
+        case TextAlign::RIGHT:
             rect.SetLeft(static_cast<float>(contentRect_.GetX()) + contentRect_.Width() -
                          static_cast<float>(rect.Width()));
             break;
@@ -87,10 +92,13 @@ RectF TextSelectController::CalculateEmptyValueCaretRect(float width)
     if (layoutProperty->GetPositionProperty()) {
         align = layoutProperty->GetPositionProperty()->GetAlignment().value_or(align);
     }
-    OffsetF offset = Alignment::GetAlignPosition(contentRect_.GetSize(), rect.GetSize(), align);
+    OffsetF offset = Alignment::GetAlignPosition(GetAlignParentSize(), rect.GetSize(), align);
     rect.SetTop(offset.GetY() + contentRect_.GetY());
     if (textAlign != TextAlign::END) {
         AdjustHandleAtEdge(rect);
+    }
+    if (GreatNotEqual(rect.Height(), contentRect_.Height()) && !textField->IsTextArea()) {
+        rect.SetHeight(contentRect_.Height());
     }
     return rect;
 }
@@ -408,16 +416,19 @@ std::vector<RectF> TextSelectController::GetSelectedRects() const
     if (!IsSelected()) {
         return {};
     }
+    return GetSelectedRects(GetStartIndex(), GetEndIndex());
+}
+
+std::vector<RectF> TextSelectController::GetSelectedRects(int32_t start, int32_t end) const
+{
     std::vector<RectF> selectedRects;
     CHECK_NULL_RETURN(paragraph_, selectedRects);
-    paragraph_->GetRectsForRange(GetStartIndex(), GetEndIndex(), selectedRects);
+    paragraph_->GetRectsForRange(start, end, selectedRects);
     return selectedRects;
 }
 
 void TextSelectController::MoveHandleToContentRect(RectF& handleRect, float boundaryAdjustment) const
 {
-    TAG_LOGI(AceLogTag::ACE_TEXTINPUT, "before move, handleRect.GetX():%{public}f,handleRect.GetY():%{public}f",
-        handleRect.GetX(), handleRect.GetY());
     auto pattern = pattern_.Upgrade();
     CHECK_NULL_VOID(pattern);
     auto textField = DynamicCast<TextFieldPattern>(pattern);
@@ -563,13 +574,15 @@ void TextSelectController::MoveCaretToContentRect(
                 caretInfo_.index, boundaryAdjustment);
         }
     }
+    // textRect offset may be changed.
+    OffsetF caretMetricsOffset = caretMetrics.offset - textRect.GetOffset();
     if (moveContent) {
         MoveHandleToContentRect(caretRect, boundaryAdjustment);
     } else {
         AdjustHandleAtEdge(caretRect);
     }
     caretInfo_.rect = caretRect;
-    UpdateCaretOriginalRect(caretMetrics.offset);
+    UpdateCaretOriginalRect(caretMetricsOffset + textRect.GetOffset());
 }
 
 void TextSelectController::MoveCaretAnywhere(const Offset& touchOffset)
@@ -873,7 +886,9 @@ TouchPosition TextSelectController::GetTouchLinePos(const Offset& localOffset)
     auto offset = localOffset - Offset(textRect.GetX(), textRect.GetY());
     LineMetrics lineMetrics;
     if (paragraph_->GetLineMetricsByCoordinate(offset, lineMetrics)) {
-        if (GreatNotEqual(offset.GetX(), lineMetrics.x + lineMetrics.width)) {
+        std::vector<RectF> tempRects;
+        paragraph_->GetRectsForRange(lineMetrics.startIndex, lineMetrics.endIndex, tempRects);
+        if (GreatNotEqual(offset.GetX(), lineMetrics.x + tempRects.back().Right())) {
             return TouchPosition::RIGHT;
         }
         if (LessNotEqual(offset.GetX(), lineMetrics.x)) {
@@ -941,7 +956,9 @@ void TextSelectController::AdjustHandleOffsetWithBoundary(RectF& handleRect)
     auto textField = DynamicCast<TextFieldPattern>(pattern);
     CHECK_NULL_VOID(textField);
     if (textField->IsTextArea()) {
-        AdjustHandleInBoundary(handleRect);
+        if (!textField->IsHorizontalScrollEnabled()) {
+            AdjustHandleInBoundary(handleRect);
+        }
         return;
     }
     auto textRect = textField->GetTextRect();
@@ -961,5 +978,46 @@ void TextSelectController::AdjustAllHandlesWithBoundary()
 {
     AdjustHandleOffsetWithBoundary(firstHandleInfo_.rect);
     AdjustHandleOffsetWithBoundary(secondHandleInfo_.rect);
+}
+
+RectF TextSelectController::GetCaretRectByIndex(int32_t index, TextAffinity textAffinity)
+{
+    if (contentController_->IsEmpty()) {
+        return CalculateEmptyValueCaretRect();
+    }
+    auto caretIndex = std::clamp(index, 0, static_cast<int32_t>(contentController_->GetTextUtf16Value().length()));
+    CaretMetricsF caretMetrics;
+    CalcCaretMetricsByPosition(caretIndex, caretMetrics, textAffinity);
+    OffsetF caretOffset = caretMetrics.offset;
+    RectF caretRect;
+    caretRect.SetOffset(caretOffset);
+    auto pattern = pattern_.Upgrade();
+    CHECK_NULL_RETURN(pattern, caretRect);
+    auto textField = DynamicCast<TextFieldPattern>(pattern);
+    CHECK_NULL_RETURN(textField, caretRect);
+    caretRect.SetSize({ SelectHandleInfo::GetDefaultLineWidth().ConvertToPx(),
+        LessOrEqual(caretMetrics.height, 0.0) ? textField->PreferredLineHeight() : caretMetrics.height });
+    auto textRect = textField->GetTextRect();
+    if (LessNotEqual(caretRect.GetX(), textRect.GetX())) {
+        caretRect.SetOffset(OffsetF(textRect.GetX(), caretRect.GetY()));
+    }
+    return caretRect;
+}
+
+NG::SizeF TextSelectController::GetAlignParentSize() const
+{
+    // Use text content height for alignment if minLines is set.
+    auto pattern = pattern_.Upgrade();
+    CHECK_NULL_RETURN(pattern, contentRect_.GetSize());
+    auto textField = DynamicCast<TextFieldPattern>(pattern);
+    CHECK_NULL_RETURN(textField, contentRect_.GetSize());
+    auto layoutProperty = textField->GetLayoutProperty<TextFieldLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, contentRect_.GetSize());
+    CHECK_EQUAL_RETURN(layoutProperty->HasMinLines(), false, contentRect_.GetSize());
+    CHECK_EQUAL_RETURN(layoutProperty->GetMinLines().value() >= DEFAULT_MINLINES, false, contentRect_.GetSize());
+    CHECK_NULL_RETURN(paragraph_, contentRect_.GetSize());
+    SizeF alignParentSize = contentRect_.GetSize();
+    alignParentSize.SetHeight(paragraph_->GetHeight());
+    return alignParentSize;
 }
 } // namespace OHOS::Ace::NG

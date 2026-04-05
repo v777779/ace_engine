@@ -13,37 +13,32 @@
  * limitations under the License.
  */
 
-import { ArrayState, Equivalent, MutableState, StateManager, ValueTracker, createStateManager, StateManagerImpl } from './State'
-import { int32 } from '@koalaui/common'
+import { ArrayState, Equivalent, MutableState, StateManager, StateManagerLocal, ValueTracker, createStateManager } from './State'
 
 /**
  * This class provides an access to the global state manager of the application.
  * @internal
  */
 export class GlobalStateManager {
-    // @ts-ignore
-    private static localManagerMap = new Map<int32, StateManager>()
-
     /**
-     * The current instance of a coroutine local state manager.
-     * Note that it will be recreated after reset.
+     * Returns the state manager for the current worker.
+     * If it is undefined, it is automatically created.
      */
     static get instance(): StateManager {
-        let current = GlobalStateManager.GetLocalManager()
+        let current = StateManagerLocal.get()
         if (current === undefined) {
-            const manager = createStateManager()
-            GlobalStateManager.SetLocalManager(manager)
-            return manager
+            current = createStateManager()
+            StateManagerLocal.set(current)
         }
         return current
     }
 
     /**
-     * Drops the current instance to recreate a global state manager.
+     * Resets the state manager for the current worker.
      * @internal
      */
     static reset(): void {
-        GlobalStateManager.GetLocalManager()?.reset()
+        StateManagerLocal.get()?.reset()
     }
 
     /**
@@ -51,9 +46,7 @@ export class GlobalStateManager {
      * @internal
      */
     static GetLocalManager(): StateManager | undefined {
-        // @ts-ignore
-        const coroutineId = CoroutineExtras.getWorkerId()
-        return GlobalStateManager.localManagerMap.get(coroutineId)
+        return StateManagerLocal.get()
     }
 
     /**
@@ -61,17 +54,7 @@ export class GlobalStateManager {
      * @internal
      */
     static SetLocalManager(manager: StateManager | undefined): void {
-        // @ts-ignore
-        const coroutineId = CoroutineExtras.getWorkerId()
-        if (manager === undefined) {
-            GlobalStateManager.localManagerMap.delete(coroutineId)
-            return
-        }
-        GlobalStateManager.localManagerMap.set(coroutineId, manager)
-    }
-
-    public static getCurrentScopeId(): int32 | undefined {
-        return (GlobalStateManager.instance as StateManagerImpl).current ? (GlobalStateManager.instance as StateManagerImpl).current!.id : undefined;
+        StateManagerLocal.set(manager)
     }
 }
 
@@ -133,4 +116,16 @@ export function mutableState<T>(value: T, equivalent?: Equivalent<T>, tracker?: 
  */
 export function arrayState<T>(array?: ReadonlyArray<T>, equivalent?: Equivalent<T>): ArrayState<T> {
     return GlobalStateManager.instance.arrayState<T>(array, undefined, equivalent)
+}
+
+/**
+ * Creates new mutable state in the global state manager.
+ * This state is valid until it is manually detached from the manager.
+ * Note that this state will not be automatically disconnected,
+ * even if this function is called in memo-context.
+ * Always call {@link Disposable.dispose} when the state is not needed to prevent memory leaks.
+ * @see #mutableState
+ */
+export function globalMutableState<T>(value: T): MutableState<T> {
+    return GlobalStateManager.instance.mutableState<T>(value, true)
 }

@@ -28,6 +28,7 @@
 
 #include "base/i18n/localization.h"
 #include "core/common/container.h"
+#include "core/common/statistic_event_reporter.h"
 #include "core/components_ng/pattern/canvas/custom_paint_util.h"
 
 namespace OHOS::Ace::NG {
@@ -35,7 +36,6 @@ constexpr Dimension DEFAULT_FONT_SIZE = 14.0_px;
 OffscreenCanvasPaintMethod::OffscreenCanvasPaintMethod(int32_t width, int32_t height)
 {
     antiAlias_ = false;
-    matrix_.Reset();
     width_ = width;
     height_ = height;
     lastLayoutSize_.SetWidth(static_cast<float>(width));
@@ -55,6 +55,7 @@ void OffscreenCanvasPaintMethod::InitBitmap()
     bool ret = bitmap_.Build(width_, height_, bitmapFormat);
     if (!ret) {
         TAG_LOGE(AceLogTag::ACE_CANVAS, "The width and height exceed the limit size.");
+        SendStatisticEvent(StatisticEventType::CANVAS_BITMAP_SIZE_EXCEED_LIMIT);
         return;
     }
     bitmap_.ClearWithColor(RSColor::COLOR_TRANSPARENT);
@@ -90,7 +91,6 @@ RefPtr<PixelMap> OffscreenCanvasPaintMethod::TransferToImageBitmap()
 
 void OffscreenCanvasPaintMethod::Reset()
 {
-    matrix_.Reset();
     ResetStates();
     InitBitmap();
 }
@@ -140,8 +140,7 @@ std::unique_ptr<Ace::ImageData> OffscreenCanvasPaintMethod::GetImageData(
     // copy the bitmap to tempCanvas
     RSBitmapFormat format { RSColorType::COLORTYPE_BGRA_8888, RSAlphaType::ALPHATYPE_PREMUL };
     int32_t size = dirtyWidth * dirtyHeight;
-    auto srcRect =
-        RSRect(scaledLeft, scaledTop, dirtyWidth + scaledLeft, dirtyHeight + scaledTop);
+    auto srcRect = RSRect(scaledLeft, scaledTop, dirtyWidth + scaledLeft, dirtyHeight + scaledTop);
     auto dstRect = RSRect(0.0, 0.0, dirtyWidth, dirtyHeight);
     RSBitmap tempCache;
     tempCache.Build(dirtyWidth, dirtyHeight, format);
@@ -231,6 +230,11 @@ std::string OffscreenCanvasPaintMethod::ToDataURL(const std::string& type, const
 #else
     return UNSUPPORTED;
 #endif
+}
+
+std::optional<bool> OffscreenCanvasPaintMethod::GetAntialiasExt() const
+{
+    return fontAntiAlias_;
 }
 
 TransformParam OffscreenCanvasPaintMethod::GetTransform() const

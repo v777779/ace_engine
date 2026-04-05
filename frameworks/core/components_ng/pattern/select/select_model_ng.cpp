@@ -15,9 +15,14 @@
 
 #include "core/components_ng/pattern/select/select_model_ng.h"
 
+#include "base/utils/multi_thread.h"
 #include "core/common/resource/resource_parse_utils.h"
+#include "core/components/select/select_theme.h"
+#include "core/components_ng/pattern/menu/bridge/inner_modifier/menu_inner_modifier.h"
+#include "core/components_ng/pattern/menu/bridge/inner_modifier/menu_view_inner_modifier.h"
 #include "core/components_ng/pattern/menu/menu_view.h"
 #include "core/components_ng/pattern/select/select_layout_property.h"
+#include "core/interfaces/native/node/menu_modifier.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -39,7 +44,6 @@ void SetSelectDefaultSize(const RefPtr<FrameNode>& select)
             CalcLength(theme->GetSelectDefaultHeight(pattern->GetControlSize()))));
     }
 }
-
 } // namespace
 
 void SelectModelNG::Create(const std::vector<SelectParam>& params)
@@ -56,6 +60,7 @@ void SelectModelNG::Create(const std::vector<SelectParam>& params)
     if (props) {
         props->ResetFontColorSetByUser();
         props->ResetSelectedOptionBgColorSetByUser();
+        props->ResetOptionBgColorSetByUser();
         props->ResetSelectedOptionFontColorSetByUser();
         props->ResetOptionFontColorSetByUser();
         props->ResetBackgroundColorSetByUser();
@@ -121,7 +126,6 @@ void SelectModelNG::SetSelectedOptionBgColor(const Color& color)
     auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetSelectedOptionBgColor(color);
-    ACE_UPDATE_PAINT_PROPERTY(SelectPaintProperty, SelectedOptionBgColorSetByUser, true);
 }
 
 void SelectModelNG::SetSelectedOptionFontSize(const Dimension& value)
@@ -157,7 +161,6 @@ void SelectModelNG::SetSelectedOptionFontColor(const Color& color)
     auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetSelectedOptionFontColor(color);
-    ACE_UPDATE_PAINT_PROPERTY(SelectPaintProperty, SelectedOptionFontColorSetByUser, true);
 }
 
 void SelectModelNG::SetOptionBgColor(const Color& color)
@@ -573,17 +576,15 @@ void SelectModelNG::ResetComponentColor(FrameNode* frameNode, const SelectColorT
             }
             break;
         case SelectColorType::OPTION_BG_COLOR:
-            pattern->SetOptionBgColor(selectTheme->GetBackgroundColor());
+            pattern->SetOptionBgColor(Color::TRANSPARENT);
             break;
         case SelectColorType::OPTION_FONT_COLOR:
             pattern->SetOptionFontColor(selectTheme->GetMenuFontColor());
             break;
         case SelectColorType::MENU_BACKGROUND_COLOR: {
-            if (!props->GetMenuBackgroundColorSetByUserValue(false)) {
-                pattern->SetMenuBackgroundColor(Color::TRANSPARENT);
-            } else {
-                pattern->SetMenuBackgroundColor(selectTheme->GetBackgroundColor());
-            }
+            auto themeBgcolor =
+                selectTheme->GetMenuBlendBgColor() ? selectTheme->GetBackgroundColor() : Color::TRANSPARENT;
+            pattern->SetMenuBackgroundColor(themeBgcolor);
             break;
         }
         default:
@@ -610,9 +611,10 @@ void SelectModelNG::SetColorStatus(FrameNode* frameNode, const SelectColorType& 
     CHECK_NULL_VOID(pattern);
     auto menuNode = pattern->GetMenuNode();
     CHECK_NULL_VOID(menuNode);
-    auto menuPattern = menuNode->GetPattern<MenuPattern>();
-    CHECK_NULL_VOID(menuPattern);
-    menuPattern->SetDisableMenuBgColorByUser(true);
+    ACE_UINODE_TRACE(menuNode);
+    const auto* menuModifier = NG::NodeModifier::GetMenuInnerModifier();
+    CHECK_NULL_VOID(menuModifier);
+    menuModifier->setDisableMenuBgColorByUser(menuNode, true);
 }
 
 void SelectModelNG::CreateWithColorResourceObj(
@@ -776,34 +778,14 @@ std::string SelectModelNG::ModifierColorTypeToString(const SelectColorType& sele
     return "Unknown";
 }
 
-std::string SelectModelNG::ColorTypeToString(const SelectColorType& selectColorType)
-{
-    switch (selectColorType) {
-        case SelectColorType::FONT_COLOR:
-            return "FontColor";
-        case SelectColorType::BACKGROUND_COLOR:
-            return "BackgroundColor";
-        case SelectColorType::SELECTED_OPTION_BG_COLOR:
-            return "SelectedOptionBgColor";
-        case SelectColorType::SELECTED_OPTION_FONT_COLOR:
-            return "SelectedOptionFontColor";
-        case SelectColorType::OPTION_BG_COLOR:
-            return "OptionBgColor";
-        case SelectColorType::OPTION_FONT_COLOR:
-            return "OptionFontColor";
-        case SelectColorType::MENU_BACKGROUND_COLOR:
-            return "MenuBackgroundColor";
-    }
-    return "Unknown";
-}
-
 void SelectModelNG::InitSelect(FrameNode* frameNode, const std::vector<SelectParam>& params)
 {
     CHECK_NULL_VOID(frameNode);
     auto select = AceType::Claim(frameNode);
+    FREE_NODE_CHECK(select, InitSelect, select, params);
     SetSelectDefaultSize(select);
     auto pattern = select->GetPattern<SelectPattern>();
-    
+
     CHECK_NULL_VOID(pattern);
     auto* pipeline = frameNode->GetContextWithCheck();
     CHECK_NULL_VOID(pipeline);
@@ -811,47 +793,38 @@ void SelectModelNG::InitSelect(FrameNode* frameNode, const std::vector<SelectPar
         NG::PaddingProperty paddings;
         paddings.top = std::nullopt;
         paddings.bottom = std::nullopt;
-        paddings.left = NG::CalcLength(pattern->GetSelectLeftRightMargin());
-        paddings.right = NG::CalcLength(pattern->GetSelectLeftRightMargin());
+        paddings.left = NG::CalcLength(pattern->GetSelectLeftMargin(ControlSize::NORMAL));
+        paddings.right = NG::CalcLength(pattern->GetSelectRightMargin(ControlSize::NORMAL));
         ViewAbstract::SetPadding(frameNode, paddings);
     }
-    
+
     pattern->BuildChild();
     // create menu node
     if (!pattern->GetMenuNode()) {
-        auto menuWrapper = MenuView::Create(params, select->GetId(), V2::SELECT_ETS_TAG);
+        const auto* menuViewModifier = NG::NodeModifier::GetMenuViewInnerModifier();
+        auto menuWrapper = menuViewModifier ? menuViewModifier->createWithSelectParams(
+            params, select->GetId(), V2::SELECT_ETS_TAG, false) : nullptr;
         pattern->SetMenuNode(menuWrapper);
         pattern->InitSelected();
     } else {
         auto menuNode = pattern->GetMenuNode();
         CHECK_NULL_VOID(menuNode);
-        auto menuPattern = menuNode->GetPattern<MenuPattern>();
-        CHECK_NULL_VOID(menuPattern);
-        menuPattern->UpdateSelectParam(params);
+        ACE_UINODE_TRACE(menuNode);
+        const auto* menuModifier = NG::NodeModifier::GetMenuInnerModifier();
+        CHECK_NULL_VOID(menuModifier);
+        menuModifier->updateSelectParam(menuNode, params);
     }
     // store option pointers in select
     auto menuContainer = pattern->GetMenuNode();
     CHECK_NULL_VOID(menuContainer);
     pattern->ClearOptions();
-    auto menuPattern = menuContainer->GetPattern<MenuPattern>();
-    CHECK_NULL_VOID(menuPattern);
-    auto options = menuPattern->GetOptions();
-    menuPattern->SetSelectProperties(params);
+    const auto* menuModifier = NG::NodeModifier::GetMenuInnerModifier();
+    CHECK_NULL_VOID(menuModifier);
+    auto options = menuModifier->getOptions(menuContainer);
+    menuModifier->setSelectProperties(menuContainer, params);
     for (auto&& option : options) {
         pattern->AddOptionNode(option);
     }
-
-    // delete menu when select node destroy
-    auto destructor = [id = select->GetId(), weak = AceType::WeakClaim(AceType::RawPtr(menuContainer))]() {
-        auto menuNode = weak.Upgrade();
-        CHECK_NULL_VOID(menuNode);
-        auto* pipeline = menuNode->GetContext();
-        CHECK_NULL_VOID(pipeline);
-        auto overlayManager = pipeline->GetOverlayManager();
-        CHECK_NULL_VOID(overlayManager);
-        overlayManager->DeleteMenu(id);
-    };
-    select->PushDestroyCallbackWithTag(destructor, V2::SELECT_ETS_TAG);
 }
 
 void SelectModelNG::SetArrowPosition(FrameNode* frameNode, const ArrowPosition value)
@@ -875,11 +848,11 @@ void SelectModelNG::SetMenuAlign(FrameNode* frameNode, const MenuAlign& menuAlig
     pattern->SetMenuAlign(menuAlign);
 }
 
-void SelectModelNG::SetAvoidance(FrameNode* frameNode, AvoidanceMode avoidance)
+void SelectModelNG::SetAvoidance(FrameNode* frameNode, AvoidanceMode mode)
 {
     auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>(frameNode);
     CHECK_NULL_VOID(pattern);
-    pattern->SetAvoidance(avoidance);
+    pattern->SetAvoidance(mode);
 }
 
 void SelectModelNG::SetValue(FrameNode* frameNode, const std::string& value)
@@ -929,7 +902,6 @@ void SelectModelNG::SetFontColor(FrameNode* frameNode, const Color& color)
     auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>(frameNode);
     CHECK_NULL_VOID(pattern);
     pattern->SetFontColor(color);
-    ACE_UPDATE_NODE_PAINT_PROPERTY(SelectPaintProperty, FontColorSetByUser, true, frameNode);
 }
 
 void SelectModelNG::SetSelectedOptionBgColor(FrameNode* frameNode, const Color& color)
@@ -937,7 +909,6 @@ void SelectModelNG::SetSelectedOptionBgColor(FrameNode* frameNode, const Color& 
     auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>(frameNode);
     CHECK_NULL_VOID(pattern);
     pattern->SetSelectedOptionBgColor(color);
-    ACE_UPDATE_NODE_PAINT_PROPERTY(SelectPaintProperty, SelectedOptionBgColorSetByUser, true, frameNode);
 }
 
 void SelectModelNG::SetOptionFontSize(FrameNode* frameNode, const Dimension& value)
@@ -980,7 +951,6 @@ void SelectModelNG::SetSelectedOptionFontColor(FrameNode* frameNode, const Color
     auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>(frameNode);
     CHECK_NULL_VOID(pattern);
     pattern->SetSelectedOptionFontColor(color);
-    ACE_UPDATE_NODE_PAINT_PROPERTY(SelectPaintProperty, SelectedOptionFontColorSetByUser, true, frameNode);
 }
 
 void SelectModelNG::SetSelectedOptionFontSize(FrameNode* frameNode, const Dimension& value)
@@ -1067,9 +1037,10 @@ void SelectModelNG::ResetBuilderFunc(FrameNode* frameNode)
     CHECK_NULL_VOID(pattern);
     auto menuNode = pattern->GetMenuNode();
     CHECK_NULL_VOID(menuNode);
-    auto menuPattern = menuNode->GetPattern<MenuPattern>();
-    CHECK_NULL_VOID(menuPattern);
-    menuPattern->ResetBuilderFunc();
+    ACE_UINODE_TRACE(menuNode);
+    const auto* menuModifier = NG::NodeModifier::GetMenuInnerModifier();
+    CHECK_NULL_VOID(menuModifier);
+    menuModifier->resetBuilderFunc(menuNode);
 }
 
 void SelectModelNG::SetBuilderFunc(FrameNode* frameNode, NG::SelectMakeCallback&& makeFunc)
@@ -1079,9 +1050,10 @@ void SelectModelNG::SetBuilderFunc(FrameNode* frameNode, NG::SelectMakeCallback&
     CHECK_NULL_VOID(pattern);
     auto menuNode = pattern->GetMenuNode();
     CHECK_NULL_VOID(menuNode);
-    auto menuPattern = menuNode->GetPattern<MenuPattern>();
-    CHECK_NULL_VOID(menuPattern);
-    menuPattern->SetBuilderFunc(std::move(makeFunc));
+    ACE_UINODE_TRACE(menuNode);
+    const auto* menuModifier = NG::NodeModifier::GetMenuInnerModifier();
+    CHECK_NULL_VOID(menuModifier);
+    menuModifier->setBuilderFunc(menuNode, std::move(makeFunc));
 }
 
 void SelectModelNG::SetChangeValue(FrameNode* frameNode, int index, const std::string& value)
@@ -1090,14 +1062,6 @@ void SelectModelNG::SetChangeValue(FrameNode* frameNode, int index, const std::s
     auto pattern = frameNode->GetPattern<SelectPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetItemSelected(index, value);
-}
-
-void SelectModelNG::SetOnSelect(FrameNode* frameNode, NG::SelectEvent&& onSelect)
-{
-    CHECK_NULL_VOID(frameNode);
-    auto hub = frameNode->GetEventHub<SelectEventHub>();
-    CHECK_NULL_VOID(hub);
-    hub->SetSelectEvent(std::move(onSelect));
 }
 
 void SelectModelNG::SetMenuBackgroundColor(FrameNode* frameNode, const Color& color)
@@ -1112,6 +1076,14 @@ void SelectModelNG::SetMenuBackgroundBlurStyle(FrameNode* frameNode, const BlurS
     auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>(frameNode);
     CHECK_NULL_VOID(pattern);
     pattern->SetMenuBackgroundBlurStyle(blurStyle);
+}
+
+void SelectModelNG::SetOnSelect(FrameNode* frameNode, NG::SelectEvent&& onSelect)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto hub = frameNode->GetEventHub<SelectEventHub>();
+    CHECK_NULL_VOID(hub);
+    hub->SetSelectEvent(std::move(onSelect));
 }
 
 void SelectModelNG::SetLayoutDirection(TextDirection value)
@@ -1134,6 +1106,7 @@ void SelectModelNG::ResetFontColor()
     auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->ResetFontColor();
+    ACE_UPDATE_PAINT_PROPERTY(SelectPaintProperty, FontColorSetByUser, false);
 }
 
 void SelectModelNG::BackgroundColor(const Color& color)
@@ -1150,19 +1123,20 @@ void SelectModelNG::ResetBackgroundColor()
     ACE_UPDATE_PAINT_PROPERTY(SelectPaintProperty, BackgroundColorSetByUser, false);
 }
 
-void SelectModelNG::SetMenuOutline(const MenuParam& menuParam)
-{
-    auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>();
-    CHECK_NULL_VOID(pattern);
-    pattern->SetMenuOutline(menuParam);
-}
-
-void SelectModelNG::SetMenuOutline(FrameNode* frameNode, const MenuParam& menuParam)
+void SelectModelNG::BackgroundColor(FrameNode* frameNode, const Color& color)
 {
     CHECK_NULL_VOID(frameNode);
-    auto pattern = frameNode->GetPattern<SelectPattern>();
-    CHECK_NULL_VOID(pattern);
-    pattern->SetMenuOutline(menuParam);
+    ACE_UPDATE_NODE_PAINT_PROPERTY(SelectPaintProperty, BackgroundColor, color, frameNode);
+    ViewAbstract::SetBackgroundColor(frameNode, color);
+    ACE_UPDATE_NODE_PAINT_PROPERTY(SelectPaintProperty, BackgroundColorSetByUser, true, frameNode);
+}
+
+void SelectModelNG::ResetBackgroundColor(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(SelectPaintProperty, BackgroundColor, PROPERTY_UPDATE_RENDER, frameNode);
+    ACE_RESET_NODE_RENDER_CONTEXT(RenderContext, BackgroundColor, frameNode);
+    ACE_UPDATE_NODE_PAINT_PROPERTY(SelectPaintProperty, BackgroundColorSetByUser, false, frameNode);
 }
 
 void SelectModelNG::SetTextModifierApply(const std::function<void(WeakPtr<NG::FrameNode>)>& textApply)
@@ -1195,7 +1169,41 @@ void SelectModelNG::SetSelectedOptionTextModifier(
     auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetSelectedOptionTextModifier(optionSelectedApply);
-    ACE_UPDATE_PAINT_PROPERTY(SelectPaintProperty, OptionTextModifierSetByUser, true);
+    ACE_UPDATE_PAINT_PROPERTY(SelectPaintProperty, SelectedOptionTextModifierSetByUser, true);
+}
+
+void SelectModelNG::SetMenuOutline(const MenuParam& menuParam)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    SetMenuOutline(frameNode, menuParam);
+}
+
+void SelectModelNG::SetMenuOutline(FrameNode* frameNode, const MenuParam& menuParam)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<SelectPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetMenuOutline(menuParam);
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
+    pattern->AddResObj("selectMenuOutline", AceType::MakeRefPtr<ResourceObject>(),
+        [myMenuParam = menuParam, weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) mutable {
+            auto frameNode = weak.Upgrade();
+            CHECK_NULL_VOID(frameNode);
+            if (myMenuParam.outlineColor.has_value()) {
+                auto outlineColor = myMenuParam.outlineColor.value();
+                outlineColor.ReloadResources();
+                myMenuParam.outlineColor = outlineColor;
+            }
+            if (myMenuParam.outlineWidth.has_value()) {
+                auto outlineWidth = myMenuParam.outlineWidth.value();
+                outlineWidth.ReloadResources();
+                myMenuParam.outlineWidth = outlineWidth;
+            }
+            auto pattern = frameNode->GetPattern<SelectPattern>();
+            CHECK_NULL_VOID(pattern);
+            pattern->SetMenuOutline(myMenuParam);
+        });
 }
 
 void SelectModelNG::SetShowInSubWindow(bool isShowInSubWindow)
@@ -1238,6 +1246,14 @@ void SelectModelNG::SetShowInSubWindow(FrameNode* frameNode, bool isShowInSubWin
     selectPattern->SetShowInSubWindow(isShowInSubWindow);
 }
 
+void SelectModelNG::SetArrowColor(FrameNode* frameNode, const Color& color)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto selectPattern = frameNode->GetPattern<SelectPattern>();
+    CHECK_NULL_VOID(selectPattern);
+    selectPattern->SetArrowColor(color);
+}
+
 void SelectModelNG::SetShowDefaultSelectedIcon(FrameNode* frameNode, bool show)
 {
     CHECK_NULL_VOID(frameNode);
@@ -1276,18 +1292,222 @@ void SelectModelNG::SetFontColorByUser(FrameNode* frameNode, bool isValidValue)
     paintProperty->UpdateFontColorSetByUser(isValidValue);
 }
 
-void SelectModelNG::SetMenuBackgroundColorByUser(bool isFromModifier)
+void SelectModelNG::SetMenuBackgroundColorByUser(bool isValidValue)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
-    SetMenuBackgroundColorByUser(frameNode, isFromModifier);
+    SetMenuBackgroundColorByUser(frameNode, isValidValue);
 }
 
-void SelectModelNG::SetMenuBackgroundColorByUser(FrameNode* frameNode, bool isFromModifier)
+void SelectModelNG::SetMenuBackgroundColorByUser(FrameNode* frameNode, bool isValidValue)
 {
     CHECK_NULL_VOID(frameNode);
     auto paintProperty = frameNode->GetPaintProperty<SelectPaintProperty>();
     CHECK_NULL_VOID(paintProperty);
-    paintProperty->UpdateMenuBackgroundColorSetByUser(isFromModifier);
+    paintProperty->UpdateMenuBackgroundColorSetByUser(isValidValue);
 }
+
+void SelectModelNG::SetSelectedOptionFontColorByUser(bool isValidValue)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    SetSelectedOptionFontColorByUser(frameNode, isValidValue);
+}
+
+void SelectModelNG::SetSelectedOptionFontColorByUser(FrameNode* frameNode, bool isValidValue)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto paintProperty = frameNode->GetPaintProperty<SelectPaintProperty>();
+    CHECK_NULL_VOID(paintProperty);
+    paintProperty->UpdateSelectedOptionFontColorSetByUser(isValidValue);
+}
+
+void SelectModelNG::SetOptionBgColorByUser(bool isValidValue)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    SetOptionBgColorByUser(frameNode, isValidValue);
+}
+
+void SelectModelNG::SetOptionBgColorByUser(FrameNode* frameNode, bool isValidValue)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto paintProperty = frameNode->GetPaintProperty<SelectPaintProperty>();
+    CHECK_NULL_VOID(paintProperty);
+    paintProperty->UpdateOptionBgColorSetByUser(isValidValue);
+}
+
+void SelectModelNG::SetSelectedOptionBgColorByUser(bool isValidValue)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    SetSelectedOptionBgColorByUser(frameNode, isValidValue);
+}
+
+void SelectModelNG::SetSelectedOptionBgColorByUser(FrameNode* frameNode, bool isValidValue)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto paintProperty = frameNode->GetPaintProperty<SelectPaintProperty>();
+    CHECK_NULL_VOID(paintProperty);
+    paintProperty->UpdateSelectedOptionBgColorSetByUser(isValidValue);
+}
+
+void SelectModelNG::SetKeyboardAvoidMode(const std::optional<MenuKeyboardAvoidMode>& mode)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetKeyboardAvoidMode(frameNode, mode);
+}
+
+void SelectModelNG::SetKeyboardAvoidMode(FrameNode* frameNode, const std::optional<MenuKeyboardAvoidMode>& mode)
+{
+    CHECK_NULL_VOID(frameNode);
+    if (mode.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SelectLayoutProperty, MenuKeyboardAvoidMode, mode.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(SelectLayoutProperty, MenuKeyboardAvoidMode, frameNode);
+    }
+}
+
+void SelectModelNG::SetMinKeyboardAvoidDistance(const std::optional<Dimension>& distance)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetMinKeyboardAvoidDistance(frameNode, distance);
+}
+
+void SelectModelNG::SetMinKeyboardAvoidDistance(FrameNode* frameNode, const std::optional<Dimension>& distance)
+{
+    CHECK_NULL_VOID(frameNode);
+    if (distance.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(SelectLayoutProperty, MinKeyboardAvoidDistance, distance.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(SelectLayoutProperty, MinKeyboardAvoidDistance, frameNode);
+    }
+}
+
+void SelectModelNG::SetMenuSystemMaterial(const RefPtr<UiMaterial>& menuSystemMaterial)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    SetMenuSystemMaterial(frameNode, menuSystemMaterial);
+}
+
+void SelectModelNG::SetMenuSystemMaterial(FrameNode* frameNode, const RefPtr<UiMaterial>& menuSystemMaterial)
+{
+    CHECK_NULL_VOID(frameNode);
+    if (menuSystemMaterial) {
+        auto pattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<SelectPattern>(frameNode);
+        CHECK_NULL_VOID(pattern);
+        pattern->SetMenuSystemMaterial(menuSystemMaterial);
+    }
+}
+
+void SelectModelNG::SetDividerPropertiesSetByUser(bool strokeWidth, bool color, bool startMargin, bool endMargin)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    SetDividerPropertiesSetByUser(frameNode, strokeWidth, color, startMargin, endMargin);
+}
+
+void SelectModelNG::SetDividerPropertiesSetByUser(
+    FrameNode* frameNode, bool strokeWidth, bool color, bool startMargin, bool endMargin)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto props = frameNode->GetPaintProperty<SelectPaintProperty>();
+    CHECK_NULL_VOID(props);
+    props->UpdateDividerStrokeWidthSetByUser(strokeWidth);
+    props->UpdateDividerColorSetByUser(color);
+    props->UpdateDividerStartMarginSetByUser(startMargin);
+    props->UpdateDividerEndMarginSetByUser(endMargin);
+}
+
+void SelectModelNG::CreateWithDividerResourceObj(
+    const RefPtr<ResourceObject>& resObj, const SelectDividerResourceType& type)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    CreateWithDividerResourceObj(frameNode, resObj, type);
+}
+
+std::string DividerResourceTypeToString(const SelectDividerResourceType& type)
+{
+    switch (type) {
+        case SelectDividerResourceType::STROKE_WIDTH:
+            return "StrokeWidth";
+        case SelectDividerResourceType::START_MARGIN:
+            return "StartMargin";
+        case SelectDividerResourceType::END_MARGIN:
+            return "EndMargin";
+        case SelectDividerResourceType::COLOR:
+            return "Color";
+    }
+    return "Unknown";
+}
+
+void SelectModelNG::CreateWithDividerResourceObj(
+    FrameNode* frameNode, const RefPtr<ResourceObject>& resObj, const SelectDividerResourceType& type)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<SelectPattern>();
+    CHECK_NULL_VOID(pattern);
+    std::string key = "selectDivider" + DividerResourceTypeToString(type);
+    pattern->RemoveResObj(key);
+    if (!resObj) {
+        return;
+    }
+    auto&& updateFunc = [type, weak = AceType::WeakClaim(AceType::RawPtr(pattern))](
+                            const RefPtr<ResourceObject>& resObj) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        CHECK_NULL_VOID(resObj);
+        SelectDivider divider = pattern->GetDivider();
+        bool updated = false;
+        switch (type) {
+            case SelectDividerResourceType::STROKE_WIDTH: {
+                Dimension value;
+                if (!ResourceParseUtils::ConvertFromResObjNG(resObj, value)) {
+                    break;
+                }
+                divider.strokeWidth = value;
+                updated = true;
+                break;
+            }
+            case SelectDividerResourceType::START_MARGIN: {
+                Dimension value;
+                if (!ResourceParseUtils::ConvertFromResObjNG(resObj, value)) {
+                    break;
+                }
+                divider.startMargin = value;
+                updated = true;
+                break;
+            }
+            case SelectDividerResourceType::END_MARGIN: {
+                Dimension value;
+                if (!ResourceParseUtils::ConvertFromResObjNG(resObj, value)) {
+                    break;
+                }
+                divider.endMargin = value;
+                updated = true;
+                break;
+            }
+            case SelectDividerResourceType::COLOR: {
+                Color value;
+                if (!ResourceParseUtils::ParseResColor(resObj, value)) {
+                    break;
+                }
+                divider.color = value;
+                updated = true;
+                break;
+            }
+        }
+        if (!updated) {
+            return;
+        }
+        pattern->SetDivider(divider);
+        if (pattern->GetDividerMode().has_value()) {
+            pattern->SetDividerMode(pattern->GetDividerMode());
+        }
+    };
+    pattern->AddResObj(key, resObj, std::move(updateFunc));
+}
+
 } // namespace OHOS::Ace::NG

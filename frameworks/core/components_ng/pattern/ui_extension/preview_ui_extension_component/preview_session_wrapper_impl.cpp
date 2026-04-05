@@ -509,6 +509,7 @@ void PreviewSessionWrapperImpl::NotifyForeground()
     auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto hostWindowId = pipeline->GetFocusWindowId();
+    PLATFORM_LOGI("PreviewSessionWrapperImpl NotifyForeground hostWindowId is %{public}u.", hostWindowId);
     auto wantPtr = session_->EditSessionInfo().want;
     UpdateWantPtr(wantPtr);
     Rosen::ExtensionSessionManager::GetInstance().RequestExtensionSessionActivation(
@@ -521,11 +522,19 @@ void PreviewSessionWrapperImpl::NotifyBackground(bool isHandleError)
     Rosen::ExtensionSessionManager::GetInstance().RequestExtensionSessionBackground(
         session_, std::move(backgroundCallback_));
 }
+
 void PreviewSessionWrapperImpl::NotifyDestroy(bool isHandleError)
 {
     CHECK_NULL_VOID(session_);
-    Rosen::ExtensionSessionManager::GetInstance().RequestExtensionSessionDestruction(
-        session_, std::move(destructionCallback_));
+    PLATFORM_LOGI("PreviewSessionWrapperImpl NotifyDestroy, isHandleError = %{public}d, persistentid = %{public}d.",
+        isHandleError, session_->GetPersistentId());
+    if (isHandleError) {
+        Rosen::ExtensionSessionManager::GetInstance().RequestExtensionSessionDestruction(
+            session_, std::move(destructionCallback_));
+    } else {
+        Rosen::ExtensionSessionManager::GetInstance().RequestExtensionSessionDestruction(
+            session_, nullptr);
+    }
 }
 
 void PreviewSessionWrapperImpl::NotifyConfigurationUpdate() {}
@@ -679,7 +688,7 @@ void PreviewSessionWrapperImpl::NotifyDisplayArea(const RectF& displayArea)
     ACE_SCOPED_TRACE("NotifyDisplayArea id: %d, reason [%d]", persistentId, reason);
     PLATFORM_LOGI("PreviewUIExtension DisplayArea: %{public}s, persistentId: %{public}d, reason: %{public}d",
         displayArea_.ToString().c_str(), persistentId, reason);
-        if (reason == Rosen::SizeChangeReason::ROTATION) {
+        if (reason == Rosen::SizeChangeReason::ROTATION || reason == Rosen::SizeChangeReason::SNAPSHOT_ROTATION) {
             if (auto temp = transaction_.lock()) {
                 transaction = temp;
                 transaction_.reset();
@@ -701,7 +710,8 @@ void PreviewSessionWrapperImpl::NotifySizeChangeReason(
     CHECK_NULL_VOID(session_);
     auto reason = static_cast<Rosen::SizeChangeReason>(type);
     session_->UpdateSizeChangeReason(reason);
-    if (rsTransaction && (type == WindowSizeChangeReason::ROTATION)) {
+    if (rsTransaction && (type == WindowSizeChangeReason::ROTATION ||
+        type == WindowSizeChangeReason::SNAPSHOT_ROTATION)) {
         transaction_ = rsTransaction;
     }
 }

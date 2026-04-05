@@ -68,9 +68,17 @@ struct _ArkUIDialog {
     std::optional<OHOS::Ace::EffectOption> effectOption;
     OHOS::Ace::KeyboardAvoidMode keyboardAvoidMode;
     std::optional<ArkUI_Bool> enableHoverMode;
-    OHOS::Ace::HoverModeAreaType hoverModeAreaType;
+    std::optional<OHOS::Ace::HoverModeAreaType> hoverModeAreaType;
     ArkUI_Int32 focusable;
     ArkUI_Int32* dialogState;
+    std::vector<void*> historyDialogHandle;
+    bool hasCustomMaskColor = false;
+    bool hasCustomBackgroundColor = false;
+    bool hasCustomShadowColor = false;
+    bool hasCustomBorderColor = false;
+    bool hasCustomBlurStyleOptionInactiveColor = false;
+    bool hasCustomEffectOptionColor = false;
+    bool hasCustomEffectOptionInactiveColor = false;
 };
 
 namespace OHOS::Ace::NG::CustomDialog {
@@ -128,7 +136,7 @@ ArkUI_Int32 SetFocusable(ArkUIDialogHandle handle, bool focusable);
 ArkUI_Int32 SetBackgroundBlurStyleOptions(ArkUIDialogHandle controllerHandler, ArkUI_Int32 (*intArray)[3],
     ArkUI_Float32 scale, ArkUI_Uint32 (*uintArray)[3], ArkUI_Bool isValidColor);
 ArkUI_Int32 SetBackgroundEffect(ArkUIDialogHandle controllerHandler, ArkUI_Float32 (*floatArray)[3],
-    ArkUI_Int32 (*intArray)[2], ArkUI_Uint32 (*uintArray)[4], ArkUI_Bool isValidColor);
+    ArkUI_Int32 (*intArray)[2], ArkUI_Uint32 (*uintArray)[4], ArkUI_Bool (*boolArray)[2]);
 } // namespace OHOS::Ace::NG::CustomDialog
 
 #endif

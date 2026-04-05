@@ -44,18 +44,23 @@ class ArkSliderComponent extends ArkComponent implements SliderAttribute {
     modifierWithKey(this._modifiersWithKeys, TrackColorModifier.identity, TrackColorModifier, value);
     return this;
   }
+  trackColorMetrics(value: ColorMetricsLinearGradient): this {
+    modifierWithKey(this._modifiersWithKeys, TrackColorMetricsModifier.identity, TrackColorMetricsModifier, value);
+    return this;
+  }
   selectedColor(value: ResourceColor): this {
     modifierWithKey(this._modifiersWithKeys, SelectColorModifier.identity, SelectColorModifier, value);
     return this;
   }
   minLabel(value: string): this {
-    throw new Error('Method not implemented.');
+    throw new BusinessError(100201, 'minLabel not supported in attributeModifier scenario.');
   }
   maxLabel(value: string): this {
-    throw new Error('Method not implemented.');
+    throw new BusinessError(100201, 'maxLabel not supported in attributeModifier scenario.');
   }
-  showSteps(value: boolean): this {
-    modifierWithKey(this._modifiersWithKeys, ShowStepsModifier.identity, ShowStepsModifier, value);
+  showSteps(value: boolean, options?: SliderShowStepOptions): this {
+    let stepOptions = new ArkSliderStepOptions(value, options);
+    modifierWithKey(this._modifiersWithKeys, ShowStepsModifier.identity, ShowStepsModifier, stepOptions);
     return this;
   }
   showTips(value: boolean, content?: any): this {
@@ -338,8 +343,8 @@ class StepColorModifier extends ModifierWithKey<ResourceColor> {
   }
 }
 
-class OnChangeModifier extends ModifierWithKey<(value:number,mode:SliderChangeMode) => void> {
-  constructor(value: (value:number,mode:SliderChangeMode) => void) {
+class OnChangeModifier extends ModifierWithKey<(value:number, mode:SliderChangeMode) => void> {
+  constructor(value: (value:number, mode:SliderChangeMode) => void) {
     super(value);
   }
   static identity: Symbol = Symbol('sliderOnChange');
@@ -424,6 +429,24 @@ class TrackColorModifier extends ModifierWithKey<ResourceColor> {
   }
 }
 
+class TrackColorMetricsModifier extends ModifierWithKey<ColorMetricsLinearGradient> {
+  constructor(value: ColorMetricsLinearGradient) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('sliderTrackColorMetrics');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().slider.resetTrackColorMetrics(node);
+    } else {
+      getUINativeModule().slider.setTrackColorMetrics(node, this.value);
+    }
+  }
+
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
 class SelectColorModifier extends ModifierWithKey<ResourceColor> {
   constructor(value: ResourceColor) {
     super(value);
@@ -442,8 +465,8 @@ class SelectColorModifier extends ModifierWithKey<ResourceColor> {
   }
 }
 
-class ShowStepsModifier extends ModifierWithKey<boolean> {
-  constructor(value: boolean) {
+class ShowStepsModifier extends ModifierWithKey<ArkSliderStepOptions> {
+  constructor(value: ArkSliderStepOptions) {
     super(value);
   }
   static identity: Symbol = Symbol('sliderShowSteps');
@@ -451,11 +474,29 @@ class ShowStepsModifier extends ModifierWithKey<boolean> {
     if (reset) {
       getUINativeModule().slider.resetShowSteps(node);
     } else {
-      getUINativeModule().slider.setShowSteps(node, this.value);
+      getUINativeModule().slider.setShowSteps(node, this.value.showSteps, this.value.stepOptions);
     }
   }
   checkObjectDiff(): boolean {
-    return this.stageValue !== this.value;
+    let isShowStepsDiff = this.stageValue.showSteps !== this.value.showSteps;
+    let isStepOptionsDiff = false;
+    if ((this.stageValue.stepOptions === null) || (this.stageValue.stepOptions === undefined)) {
+      isStepOptionsDiff = (this.value.stepOptions !== null) && (this.value.stepOptions !== undefined);
+    } else if ((this.value.stepOptions === null) || (this.value.stepOptions === undefined)) {
+      isStepOptionsDiff = true;
+    } else if (this.stageValue.stepOptions.stepsAccessibility.size !==
+      this.value.stepOptions.stepsAccessibility.size) {
+      isStepOptionsDiff = true;
+    } else {
+      for (const [key, val] of this.stageValue.stepOptions.stepsAccessibility) {
+        if (!this.value.stepOptions.stepsAccessibility.has(key)) {
+          isStepOptionsDiff = true;
+        } else if (!isBaseOrResourceEqual(this.value.stepOptions.stepsAccessibility.get(key), val)) {
+          isStepOptionsDiff = true;
+        }
+      }
+    }
+    return isShowStepsDiff || isStepOptionsDiff;
   }
 }
 

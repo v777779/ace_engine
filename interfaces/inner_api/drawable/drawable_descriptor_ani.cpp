@@ -26,98 +26,47 @@
 #include "cJSON.h"
 #include "resource_manager.h"
 
+#include "core/interfaces/drawable/drawable_api.h"
+
 namespace OHOS::Ace::Ani {
 namespace {
+constexpr char PIXEL_MAP_CONSTRUCTOR[] = "C{@ohos.multimedia.image.image.PixelMap}:";
 constexpr char PIXEL_MAP_DRAWABLE[] = "@ohos.arkui.drawableDescriptor.PixelMapDrawableDescriptor";
+constexpr char LAYERED_CONSTRUCTOR[] =
+    "C{@ohos.arkui.drawableDescriptor.DrawableDescriptor}C{@ohos.arkui.drawableDescriptor.DrawableDescriptor}C{@ohos."
+    "arkui.drawableDescriptor.DrawableDescriptor}:";
 constexpr char LAYERED_DRAWABLE[] = "@ohos.arkui.drawableDescriptor.LayeredDrawableDescriptor";
 constexpr char BACKGROUND_KEY[] = "background";
 constexpr char FOREGROUND_KEY[] = "foreground";
 constexpr char DEFAULT_MASK[] = "ohos_icon_mask";
-constexpr char PIXELMAP_SET_RAW_DATA[] = "OHOS_ACE_PixelMapDrawableDescriptor_SetRawData";
-constexpr char LAYERED_SET_FOREGROUND_DATA[] = "OHOS_ACE_LayeredDrawableDescriptor_SetForegroundData";
-constexpr char LAYERED_SET_BACKGROUND_DATA[] = "OHOS_ACE_LayeredDrawableDescriptor_SetBackgroundData";
-constexpr char LAYERED_SET_MASK_DATA[] = "OHOS_ACE_LayeredDrawableDescriptor_SetMaskData";
-constexpr char LAYERED_SET_MASK_PATH[] = "OHOS_ACE_LayeredDrawableDescriptor_SetMaskPath";
 constexpr char LIBACE_MODULE[] = "libace_compatible.z.so";
-
 constexpr int32_t DECIMAL_BASE = 10;
 constexpr size_t BUFFER_NUMBER = 2;
-
-using PixelMapDrawableSetRawDataFunc = void (*)(void*, uint8_t*, size_t);
-using LayeredDrawableSetForegoundDataFunc = void (*)(void*, uint8_t*, size_t);
-using LayeredDrawableSetBackgroundDataFunc = void (*)(void*, uint8_t*, size_t);
-using LayeredDrawableSetMaskDataFunc = void (*)(void*, uint8_t*, size_t);
-using LayeredDrawableSetMaskPathFunc = void (*)(void*, const char*);
 } // namespace
 
-void PixelMapDrawableSetRawDataC(void* drawable, uint8_t* data, size_t len)
-{
-    void* handle = dlopen(LIBACE_MODULE, RTLD_LAZY | RTLD_LOCAL);
-    if (handle == nullptr) {
-        return;
-    }
-    auto entry = reinterpret_cast<PixelMapDrawableSetRawDataFunc>(dlsym(handle, PIXELMAP_SET_RAW_DATA));
-    if (entry == nullptr) {
-        dlclose(handle);
-        return;
-    }
-    entry(drawable, data, len);
-}
+using GetArkUIDrawableDescriptorFunc = const ArkUIDrawableDescriptor* (*)();
 
-void LayeredDrawableSetForegroundDataC(void* drawable, uint8_t* data, size_t len)
+const ArkUIDrawableDescriptor* GetArkUIDrawableModifier()
 {
-    void* handle = dlopen(LIBACE_MODULE, RTLD_LAZY | RTLD_LOCAL);
+    static void* handle = nullptr;
+    static void* drawable = nullptr;
+    static bool initialized = false;
+    if (!initialized) {
+        handle = dlopen(LIBACE_MODULE, RTLD_LAZY | RTLD_LOCAL);
+        if (handle != nullptr) {
+            drawable = dlsym(handle, DRAWABLE_FUNC_NAME);
+            initialized = true;
+        }
+    }
     if (handle == nullptr) {
-        return;
+        return nullptr;
     }
-    auto entry = reinterpret_cast<LayeredDrawableSetForegoundDataFunc>(dlsym(handle, LAYERED_SET_FOREGROUND_DATA));
+    auto entry = reinterpret_cast<GetArkUIDrawableDescriptorFunc>(drawable);
     if (entry == nullptr) {
-        dlclose(handle);
-        return;
+        return nullptr;
     }
-    entry(drawable, data, len);
-}
-
-void LayeredDrawableSetBackgroundDataC(void* drawable, uint8_t* data, size_t len)
-{
-    void* handle = dlopen(LIBACE_MODULE, RTLD_LAZY | RTLD_LOCAL);
-    if (handle == nullptr) {
-        return;
-    }
-    auto entry = reinterpret_cast<LayeredDrawableSetBackgroundDataFunc>(dlsym(handle, LAYERED_SET_BACKGROUND_DATA));
-    if (entry == nullptr) {
-        dlclose(handle);
-        return;
-    }
-    entry(drawable, data, len);
-}
-
-void LayeredDrawableSetMaskDataC(void* drawable, uint8_t* data, size_t len)
-{
-    void* handle = dlopen(LIBACE_MODULE, RTLD_LAZY | RTLD_LOCAL);
-    if (handle == nullptr) {
-        return;
-    }
-    auto entry = reinterpret_cast<LayeredDrawableSetMaskDataFunc>(dlsym(handle, LAYERED_SET_MASK_DATA));
-    if (entry == nullptr) {
-        dlclose(handle);
-        return;
-    }
-    entry(drawable, data, len);
-}
-
-void LayeredDrawableSetMaskPathC(void* drawable, const char* path)
-{
-    void* handle = dlopen(LIBACE_MODULE, RTLD_LAZY | RTLD_LOCAL);
-    if (handle == nullptr) {
-        return;
-    }
-    auto entry = reinterpret_cast<LayeredDrawableSetMaskPathFunc>(dlsym(handle, LAYERED_SET_MASK_PATH));
-    if (entry == nullptr) {
-        dlclose(handle);
-        return;
-    }
-    entry(drawable, path);
+    const auto* result = entry();
+    return result;
 }
 
 bool CheckResourceType(const std::string& type)
@@ -171,17 +120,14 @@ std::vector<uint32_t> GetResIdInJson(const MediaData& jsonBuf, const std::vector
         if (pos != std::string::npos) {
             idStr = value.substr(pos + 1);
         } else {
-            cJSON_Delete(roots);
             return ids;
         }
         uint32_t resId = 0;
         if (!SafeStringToUint(idStr, resId)) {
-            cJSON_Delete(roots);
             return ids;
         }
         ids.push_back(resId);
     }
-    cJSON_Delete(roots);
     return ids;
 }
 
@@ -194,8 +140,16 @@ ani_object CreatePixelMapDrawable(ani_env* env, MediaData& mediaData)
         return obj;
     }
     ani_method ctor;
-    env->Class_FindMethod(cls, "<ctor>", ":", &ctor);
-    env->Object_New(cls, ctor, &obj);
+    if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", PIXEL_MAP_CONSTRUCTOR, &ctor)) {
+        return obj;
+    }
+    ani_ref undefinedArgument;
+    if (ANI_OK != env->GetUndefined(&undefinedArgument)) {
+        return obj;
+    }
+    if (ANI_OK != env->Object_New(cls, ctor, &obj, undefinedArgument)) {
+        return obj;
+    }
     // no media data
     if (mediaData.len <= 0) {
         return obj;
@@ -208,32 +162,27 @@ ani_object CreatePixelMapDrawable(ani_env* env, MediaData& mediaData)
     if (drawable == nullptr) {
         return obj;
     }
-    PixelMapDrawableSetRawDataC(drawable, mediaData.data.release(), mediaData.len);
+    auto modifier = GetArkUIDrawableModifier();
+    if (modifier == nullptr) {
+        return obj;
+    }
+    modifier->setPixelRawData(drawable, mediaData.data.release(), mediaData.len);
     return obj;
 }
 
-ani_object CreateLayeredDrawableByJsonBuffer(ani_env* env, DrawableInfo& info)
+bool InitLayeredDrawableByJsonBuffer(ani_env* env, DrawableInfo& info, ani_object obj)
 {
-    ani_class cls;
-    ani_object obj = nullptr;
-    auto status = env->FindClass(LAYERED_DRAWABLE, &cls);
-    if (status != ANI_OK) {
-        return obj;
-    }
-    ani_method ctor;
-    env->Class_FindMethod(cls, "<ctor>", ":", &ctor);
-    env->Object_New(cls, ctor, &obj);
     ani_long nativeObj = 0;
     env->Object_GetPropertyByName_Long(obj, "nativeObj", &nativeObj);
     auto* drawable = reinterpret_cast<void*>(nativeObj);
     if (drawable == nullptr) {
-        return obj;
+        return false;
     }
     std::string foreground(FOREGROUND_KEY);
     std::string background(BACKGROUND_KEY);
     auto ids = GetResIdInJson(info.firstBuffer, { foreground, background });
     if (ids.size() < BUFFER_NUMBER) {
-        return obj;
+        return false;
     }
     // initialize foreground and background buffer
     auto resMgr = info.manager;
@@ -247,16 +196,46 @@ ani_object CreateLayeredDrawableByJsonBuffer(ani_env* env, DrawableInfo& info)
         }
     }
     if (datas.size() < BUFFER_NUMBER) {
-        return obj;
+        return false;
     }
-    LayeredDrawableSetForegroundDataC(drawable, datas[0].first, datas[0].second);
-    LayeredDrawableSetBackgroundDataC(drawable, datas[1].first, datas[1].second);
+    auto modifier = GetArkUIDrawableModifier();
+    if (modifier == nullptr) {
+        return false;
+    }
+    modifier->setForegroundData(drawable, datas[0].first, datas[0].second);
+    modifier->setBackgroundData(drawable, datas[1].first, datas[1].second);
     // initialize mask data
     std::unique_ptr<uint8_t[]> maskData;
     size_t maskLen = 0;
     auto state = resMgr->GetMediaDataByName(DEFAULT_MASK, maskLen, maskData);
     if (state == Global::Resource::SUCCESS && maskLen > 0) {
-        LayeredDrawableSetMaskDataC(drawable, maskData.release(), maskLen);
+        modifier->setMaskData(drawable, maskData.release(), maskLen);
+    }
+    return true;
+}
+
+ani_object CreateLayeredDrawableByJsonBuffer(ani_env* env, DrawableInfo& info)
+{
+    ani_class cls;
+    ani_object obj = nullptr;
+    auto status = env->FindClass(LAYERED_DRAWABLE, &cls);
+    if (status != ANI_OK) {
+        return obj;
+    }
+    ani_method ctor;
+    if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", LAYERED_CONSTRUCTOR, &ctor)) {
+        return obj;
+    }
+    ani_ref undefinedArgument;
+    if (ANI_OK != env->GetUndefined(&undefinedArgument)) {
+        return obj;
+    }
+    if (ANI_OK != env->Object_New(cls, ctor, &obj,
+        undefinedArgument, undefinedArgument, undefinedArgument)) {
+        return obj;
+    }
+    if (!InitLayeredDrawableByJsonBuffer(env, info, obj)) {
+        return obj;
     }
     return obj;
 }
@@ -270,25 +249,37 @@ ani_object CreateLayerdDrawableByTwoBuffer(ani_env* env, DrawableInfo& info)
         return obj;
     }
     ani_method ctor;
-    env->Class_FindMethod(cls, "<ctor>", ":", &ctor);
-    env->Object_New(cls, ctor, &obj);
+    if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", LAYERED_CONSTRUCTOR, &ctor)) {
+        return obj;
+    }
+    ani_ref undefinedArgument;
+    if (ANI_OK != env->GetUndefined(&undefinedArgument)) {
+        return obj;
+    }
+    if (ANI_OK != env->Object_New(cls, ctor, &obj, undefinedArgument, undefinedArgument, undefinedArgument)) {
+        return obj;
+    }
     ani_long nativeObj = 0;
     env->Object_GetPropertyByName_Long(obj, "nativeObj", &nativeObj);
     auto* drawable = reinterpret_cast<void*>(nativeObj);
     if (drawable == nullptr) {
         return obj;
     }
-    LayeredDrawableSetForegroundDataC(drawable, info.firstBuffer.data.release(), info.firstBuffer.len);
-    LayeredDrawableSetBackgroundDataC(drawable, info.secondBuffer.data.release(), info.secondBuffer.len);
+    auto modifier = GetArkUIDrawableModifier();
+    if (modifier == nullptr) {
+        return obj;
+    }
+    modifier->setForegroundData(drawable, info.firstBuffer.data.release(), info.firstBuffer.len);
+    modifier->setBackgroundData(drawable, info.secondBuffer.data.release(), info.secondBuffer.len);
     // initialize mask data
     auto resMgr = info.manager;
     auto themeMask = resMgr->GetThemeMask();
-    LayeredDrawableSetMaskPathC(drawable, themeMask.c_str());
+    modifier->setMaskPath(drawable, themeMask.c_str());
     std::unique_ptr<uint8_t[]> maskData;
     size_t maskLen = 0;
     auto state = resMgr->GetMediaDataByName(DEFAULT_MASK, maskLen, maskData);
     if (state == Global::Resource::SUCCESS && maskLen > 0) {
-        LayeredDrawableSetMaskDataC(drawable, maskData.release(), maskLen);
+        modifier->setMaskData(drawable, maskData.release(), maskLen);
     }
     return obj;
 }

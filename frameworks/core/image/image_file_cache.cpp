@@ -15,17 +15,21 @@
 #include "core/image/image_file_cache.h"
 
 #include <dirent.h>
+#include <fstream>
 #include <sys/stat.h>
 
 #include "base/image/image_packer.h"
 #include "base/image/image_source.h"
 #include "base/log/dump_log.h"
+#include "base/log/log_wrapper.h"
 #include "base/thread/background_task_executor.h"
+#include "core/components_ng/image_provider/drawing_image_data.h"
 #include "core/image/image_loader.h"
 
-#include "core/components_ng/image_provider/drawing_image_data.h"
-
 namespace OHOS::Ace {
+
+SINGLETON_INSTANCE_IMPL(ImageFileCache);
+
 ImageFileCache::ImageFileCache() = default;
 ImageFileCache::~ImageFileCache() = default;
 
@@ -167,7 +171,7 @@ RefPtr<NG::ImageData> ImageFileCache::GetDataFromCacheFile(const std::string& ur
     if (filePath == "") {
         return nullptr;
     }
-    ImageErrorInfo errorInfo;
+    NG::ImageLoadResultInfo errorInfo;
     auto cacheFileLoader = AceType::MakeRefPtr<FileImageLoader>();
     auto rsData = cacheFileLoader->LoadImageData(ImageSourceInfo(std::string("file:/").append(filePath)), errorInfo);
     return AceType::MakeRefPtr<NG::DrawingImageData>(rsData);

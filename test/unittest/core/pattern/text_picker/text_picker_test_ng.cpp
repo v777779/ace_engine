@@ -20,39 +20,22 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_theme_default.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_theme_default.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
-#include "base/geometry/dimension.h"
-#include "base/geometry/ng/size_t.h"
-#include "base/i18n/localization.h"
-#include "base/memory/ace_type.h"
-#include "base/memory/referenced.h"
-#include "base/utils/measure_util.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components/theme/icon_theme.h"
-#include "core/components_ng/base/frame_node.h"
-#include "core/components_ng/base/view_stack_processor.h"
-#include "core/components_ng/layout/layout_algorithm.h"
-#include "core/components_ng/layout/layout_property.h"
-#include "core/components_ng/pattern/button/button_layout_property.h"
-#include "core/components_ng/pattern/button/button_pattern.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
-#include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/stack/stack_pattern.h"
-#include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/text_picker/textpicker_column_pattern.h"
 #include "core/components_ng/pattern/text_picker/textpicker_dialog_view.h"
 #include "core/components_ng/pattern/text_picker/textpicker_model.h"
 #include "core/components_ng/pattern/text_picker/textpicker_model_ng.h"
 #include "core/components_ng/pattern/text_picker/textpicker_pattern.h"
-#include "core/components_v2/inspector/inspector_constants.h"
-#include "core/pipeline/base/element_register.h"
-#include "core/pipeline_ng/ui_task_scheduler.h"
 #undef private
 #undef protected
 
@@ -86,12 +69,8 @@ TextPickerDialogModel* TextPickerDialogModel::GetInstance()
 
 namespace OHOS::Ace::NG {
 namespace {
-constexpr int32_t BUFFER_NODE_NUMBER = 2;
-constexpr size_t FIVE_CHILDREN = 5;
 constexpr size_t THREE = 3;
 constexpr uint32_t SELECTED_INDEX_1 = 1;
-constexpr double FONT_SIZE_10 = 10.0;
-constexpr double FONT_SIZE_INVALID = -1.0;
 const std::string EMPTY_TEXT = "";
 const std::string TEXT_PICKER_CONTENT = "text";
 const OffsetF CHILD_OFFSET(0.0f, 10.0f);
@@ -251,907 +230,11 @@ public:
 };
 
 /**
- * @tc.name: TextPickerDialogViewShow001
- * @tc.desc: Test TextPickerDialogView Show(column kind is MIXTURE).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow001, TestSize.Level1)
-{
-    PickerTextProperties properties;
-    properties.disappearTextStyle_.textColor = Color::RED;
-    properties.disappearTextStyle_.fontSize = Dimension(FONT_SIZE_10);
-    properties.disappearTextStyle_.fontWeight = Ace::FontWeight::BOLD;
-
-    properties.normalTextStyle_.textColor = Color::RED;
-    properties.normalTextStyle_.fontSize = Dimension(FONT_SIZE_10);
-    properties.normalTextStyle_.fontWeight = Ace::FontWeight::BOLD;
-
-    properties.selectedTextStyle_.textColor = Color::RED;
-    properties.selectedTextStyle_.fontSize = Dimension(FONT_SIZE_10);
-    properties.normalTextStyle_.fontWeight = Ace::FontWeight::BOLD;
-
-    auto func = [](const std::string& info) { (void)info; };
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    dialogEvent["changeId"] = func;
-    dialogEvent["acceptId"] = func;
-    dialogEvent["scrollStopId"] = func;
-
-    auto cancelFunc = [](const GestureEvent& info) { (void)info; };
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    dialogCancelEvent["cancelId"] = cancelFunc;
-
-    TextPickerSettingData settingData;
-    settingData.columnKind = MIXTURE;
-    settingData.height = Dimension(FONT_SIZE_10);
-    settingData.properties = properties;
-    settingData.rangeVector = { { "", "1" }, { "", "2" }, { "", "3" } };
-    settingData.selected = 0;
-
-    DialogProperties dialogProperties;
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(static_cast<int32_t>(DeviceOrientation::LANDSCAPE));
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: TextPickerDialogViewShow002
- * @tc.desc: Test TextPickerDialogView Show(do not set callback).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow002, TestSize.Level1)
-{
-    PickerTextProperties properties;
-    properties.disappearTextStyle_.textColor = Color::RED;
-    properties.disappearTextStyle_.fontSize = Dimension(FONT_SIZE_10);
-    properties.disappearTextStyle_.fontWeight = Ace::FontWeight::BOLD;
-
-    properties.normalTextStyle_.textColor = Color::RED;
-    properties.normalTextStyle_.fontSize = Dimension(FONT_SIZE_10);
-    properties.normalTextStyle_.fontWeight = Ace::FontWeight::BOLD;
-
-    properties.selectedTextStyle_.textColor = Color::RED;
-    properties.selectedTextStyle_.fontSize = Dimension(FONT_SIZE_10);
-    properties.normalTextStyle_.fontWeight = Ace::FontWeight::BOLD;
-
-    auto cancelFunc = [](const GestureEvent& info) { (void)info; };
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    dialogCancelEvent["cancelId"] = cancelFunc;
-
-    TextPickerSettingData settingData;
-    settingData.columnKind = MIXTURE;
-    settingData.height = Dimension(FONT_SIZE_10);
-    settingData.properties = properties;
-    settingData.rangeVector = { { "", "1" }, { "", "2" }, { "", "3" } };
-    settingData.selected = 0;
-
-    DialogProperties dialogProperties;
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(0);
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: TextPickerDialogViewShow003
- * @tc.desc: Test TextPickerDialogView Show(do not set properties).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow003, TestSize.Level1)
-{
-    auto cancelFunc = [](const GestureEvent& info) { (void)info; };
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    dialogCancelEvent["cancelId"] = cancelFunc;
-
-    TextPickerSettingData settingData;
-    settingData.columnKind = MIXTURE;
-    settingData.height = Dimension(FONT_SIZE_10);
-    settingData.rangeVector = { { "", "1" }, { "", "2" }, { "", "3" } };
-    settingData.selected = 0;
-
-    DialogProperties dialogProperties;
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(0);
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: TextPickerDialogViewShow004
- * @tc.desc: Test TextPickerDialogView Show(column kind is TEXT).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow004, TestSize.Level1)
-{
-    auto cancelFunc = [](const GestureEvent& info) { (void)info; };
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    dialogCancelEvent["cancelId"] = cancelFunc;
-
-    TextPickerSettingData settingData;
-    settingData.columnKind = TEXT;
-    settingData.height = Dimension(FONT_SIZE_10);
-    settingData.rangeVector = { { "", "1" }, { "", "2" }, { "", "3" } };
-    settingData.selected = 0;
-
-    DialogProperties dialogProperties;
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(0);
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: TextPickerDialogViewShow005
- * @tc.desc: Test TextPickerDialogView Show(column kind is ICON).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow005, TestSize.Level1)
-{
-    auto cancelFunc = [](const GestureEvent& info) { (void)info; };
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    dialogCancelEvent["cancelId"] = cancelFunc;
-
-    TextPickerSettingData settingData;
-    settingData.columnKind = ICON;
-    settingData.height = Dimension(FONT_SIZE_10);
-    settingData.rangeVector = { { "", "1" }, { "", "2" }, { "", "3" } };
-    settingData.selected = 0;
-
-    DialogProperties dialogProperties;
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(0);
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: TextPickerDialogViewShow006
- * @tc.desc: Test TextPickerDialogView Show(column kind is invalid).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow006, TestSize.Level1)
-{
-    auto cancelFunc = [](const GestureEvent& info) { (void)info; };
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    dialogCancelEvent["cancelId"] = cancelFunc;
-
-    TextPickerSettingData settingData;
-    settingData.columnKind = 0;
-    settingData.height = Dimension(FONT_SIZE_10);
-    settingData.rangeVector = { { "", "1" }, { "", "2" }, { "", "3" } };
-    settingData.selected = 0;
-
-    DialogProperties dialogProperties;
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(0);
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: TextPickerDialogViewShow007
- * @tc.desc: Test TextPickerDialogView Show(Invailid font size).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow007, TestSize.Level1)
-{
-    PickerTextProperties properties;
-    properties.disappearTextStyle_.textColor = Color::RED;
-    properties.disappearTextStyle_.fontSize = Dimension(FONT_SIZE_INVALID);
-    properties.disappearTextStyle_.fontWeight = Ace::FontWeight::BOLD;
-
-    properties.normalTextStyle_.textColor = Color::RED;
-    properties.normalTextStyle_.fontSize = Dimension(FONT_SIZE_INVALID);
-    properties.normalTextStyle_.fontWeight = Ace::FontWeight::BOLD;
-
-    properties.selectedTextStyle_.textColor = Color::RED;
-    properties.selectedTextStyle_.fontSize = Dimension(FONT_SIZE_INVALID);
-    properties.normalTextStyle_.fontWeight = Ace::FontWeight::BOLD;
-
-    auto cancelFunc = [](const GestureEvent& info) { (void)info; };
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    dialogCancelEvent["cancelId"] = cancelFunc;
-
-    TextPickerSettingData settingData;
-    settingData.columnKind = MIXTURE;
-    settingData.height = Dimension(FONT_SIZE_10);
-    settingData.properties = properties;
-    settingData.rangeVector = { { "", "1" }, { "", "2" }, { "", "3" } };
-    settingData.selected = 0;
-
-    DialogProperties dialogProperties;
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(0);
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: TextPickerDialogViewShow008
- * @tc.desc: Test TextPickerDialogView Show(Multi Column).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow008, TestSize.Level1)
-{
-    auto cancelFunc = [](const GestureEvent& info) { (void)info; };
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    dialogCancelEvent["cancelId"] = cancelFunc;
-
-    TextPickerSettingData settingData;
-    settingData.columnKind = TEXT;
-    settingData.height = Dimension(FONT_SIZE_10);
-    settingData.selectedValues = { 0, 0, 0 };
-    settingData.attr.isCascade = false;
-    /**
-     * @tc.step: step1. create multi TextCascadePickerOptions of settingData
-     */
-    NG::TextCascadePickerOptions options1;
-    options1.rangeResult = { "11", "12", "13" };
-    settingData.options.emplace_back(options1);
-    NG::TextCascadePickerOptions options2;
-    options2.rangeResult = { "21", "22", "23" };
-    settingData.options.emplace_back(options2);
-    NG::TextCascadePickerOptions options3;
-    options3.rangeResult = { "31", "32", "33" };
-    settingData.options.emplace_back(options3);
-    DialogProperties dialogProperties;
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(0);
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    /**
-     * @tc.step: step2. call Show of TextPickerDialogView
-     * @tc.expected: the function of show can generate framenode.
-     */
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: TextPickerDialogViewShow009
- * @tc.desc: Test TextPickerDialogView Show(Cascade Column).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow009, TestSize.Level1)
-{
-    auto cancelFunc = [](const GestureEvent& info) { (void)info; };
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    dialogCancelEvent["cancelId"] = cancelFunc;
-
-    TextPickerSettingData settingData;
-    settingData.columnKind = TEXT;
-    settingData.height = Dimension(FONT_SIZE_10);
-    settingData.selectedValues = { 0, 0 };
-    settingData.attr.isCascade = true;
-    /**
-     * @tc.step: step1. create cascade TextCascadePickerOptions of settingData
-     */
-    NG::TextCascadePickerOptions options1;
-    NG::TextCascadePickerOptions options1Child;
-    options1Child.rangeResult = { "11", "12" };
-    options1.rangeResult = { "1" };
-    options1.children.emplace_back(options1Child);
-    settingData.options.emplace_back(options1);
-    NG::TextCascadePickerOptions options2;
-    NG::TextCascadePickerOptions options2Child;
-    options2Child.rangeResult = { "21", "22" };
-    options2.rangeResult = { "2" };
-    options2.children.emplace_back(options2Child);
-    settingData.options.emplace_back(options2);
-    NG::TextCascadePickerOptions options3;
-    NG::TextCascadePickerOptions options3Child;
-    options3Child.rangeResult = { "31", "32" };
-    options3.rangeResult = { "3" };
-    options3.children.emplace_back(options3Child);
-    settingData.options.emplace_back(options3);
-    DialogProperties dialogProperties;
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(0);
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    /**
-     * @tc.step: step2. call Show of TextPickerDialogView
-     * @tc.expected: the function of show can generate framenode.
-     */
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: TextPickerDialogViewShow010
- * @tc.desc: Test TextPickerDialogView Show(Cascade Column Supply Zero Child).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow010, TestSize.Level1)
-{
-    auto cancelFunc = [](const GestureEvent& info) { (void)info; };
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    dialogCancelEvent["cancelId"] = cancelFunc;
-
-    TextPickerSettingData settingData;
-    settingData.columnKind = TEXT;
-    settingData.height = Dimension(FONT_SIZE_10);
-    settingData.selectedValues = { 0, 0, 0 };
-    settingData.attr.isCascade = true;
-    /**
-     * @tc.step: step1. create cascade TextCascadePickerOptions of settingData(Zero Child)
-     */
-    NG::TextCascadePickerOptions options1;
-    NG::TextCascadePickerOptions options1Child;
-    options1Child.rangeResult = { "11", "12" };
-    options1.rangeResult = { "1" };
-    options1.children.emplace_back(options1Child);
-    settingData.options.emplace_back(options1);
-    NG::TextCascadePickerOptions options2;
-    NG::TextCascadePickerOptions options2Child;
-    NG::TextCascadePickerOptions options2Child2Child;
-    options2Child2Child.rangeResult = { "221", "222" };
-    options2Child.rangeResult = { "21" };
-    options2Child.children.emplace_back(options2Child2Child);
-    options2.rangeResult = { "2" };
-    options2.children.emplace_back(options2Child);
-    settingData.options.emplace_back(options2);
-    NG::TextCascadePickerOptions options3;
-    NG::TextCascadePickerOptions options3Child;
-    options3Child.rangeResult = { "31", "32" };
-    options3.rangeResult = { "3" };
-    options3.children.emplace_back(options3Child);
-    settingData.options.emplace_back(options3);
-    DialogProperties dialogProperties;
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(0);
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    /**
-     * @tc.step: step2. call Show of TextPickerDialogView
-     * @tc.expected: the function of show can generate framenode.
-     */
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    ASSERT_NE(frameNode, nullptr);
-}
-
-/**
- * @tc.name: TextPickerDialogViewShow011
- * @tc.desc: Test TextPickerDialogView Show(rangeVector is empty).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewShow011, TestSize.Level1)
-{
-    TextPickerDialogView::dialogNode_ = nullptr;
-    // when rangeVector and multi selection are both empty, dialog will not display
-    std::map<std::string, NG::DialogGestureEvent> dialogCancelEvent;
-    TextPickerSettingData settingData;
-    settingData.rangeVector = {};
-    settingData.options = {};
-
-    DialogProperties dialogProperties;
-    std::map<std::string, NG::DialogTextEvent> dialogEvent;
-    std::vector<ButtonInfo> buttonInfos;
-    auto frameNode1 =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    EXPECT_EQ(frameNode1, nullptr);
-
-    // when one of rangeVector and multi selection is valid, dialog will display
-    settingData.rangeVector = { { "", "1" }, { "", "2" }, { "", "3" } };
-    auto frameNode2 =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    EXPECT_NE(frameNode2, nullptr);
-    TextPickerDialogView::dialogNode_ = nullptr;
-    settingData.rangeVector = {};
-    NG::TextCascadePickerOptions options1;
-    NG::TextCascadePickerOptions options1Child;
-    options1Child.rangeResult = { "11", "12" };
-    options1.rangeResult = { "1" };
-    options1.children.emplace_back(options1Child);
-    settingData.options.emplace_back(options1);
-    NG::TextCascadePickerOptions options2;
-    NG::TextCascadePickerOptions options2Child;
-    NG::TextCascadePickerOptions options2Child2Child;
-    options2Child2Child.rangeResult = { "221", "222" };
-    options2Child.rangeResult = { "21" };
-    options2Child.children.emplace_back(options2Child2Child);
-    options2.rangeResult = { "2" };
-    options2.children.emplace_back(options2Child);
-    settingData.options.emplace_back(options2);
-    auto frameNode3 =
-        TextPickerDialogView::Show(dialogProperties, settingData, buttonInfos, dialogEvent, dialogCancelEvent);
-    EXPECT_NE(frameNode3, nullptr);
-}
-
-/**
- * @tc.name: TextPickerPatternOnAttachToFrameNode001
- * @tc.desc: Test TextPickerPattern OnAttachToFrameNode.
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGCreateTextPicker001, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, ICON);
-
-    auto frameNode = AceType::Claim(ViewStackProcessor::GetInstance()->GetMainFrameNode());
-    ASSERT_NE(frameNode, nullptr);
-
-    auto textPickerPattern = AceType::MakeRefPtr<TextPickerPattern>();
-    textPickerPattern->AttachToFrameNode(frameNode);
-    textPickerPattern->OnAttachToFrameNode();
-    auto host = textPickerPattern->GetHost();
-    ASSERT_NE(host, nullptr);
-}
-
-/**
- * @tc.name: TextPickerModelNGSetDisappearTextStyle001
- * @tc.desc: Test TextPickerModelNG SetDisappearTextStyle(set Color).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetDisappearTextStyle001, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.textColor = Color::RED;
-    TextPickerModelNG::GetInstance()->SetDisappearTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_TRUE(pickerProperty->HasDisappearColor());
-    EXPECT_EQ(Color::RED, pickerProperty->GetDisappearColor().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetDisappearTextStyle002
- * @tc.desc: Test TextPickerModelNG SetDisappearTextStyle(set FontSize).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetDisappearTextStyle002, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.fontSize = Dimension(FONT_SIZE_10);
-    TextPickerModelNG::GetInstance()->SetDisappearTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_TRUE(pickerProperty->HasDisappearFontSize());
-    EXPECT_EQ(Dimension(FONT_SIZE_10), pickerProperty->GetDisappearFontSize().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetDisappearTextStyle003
- * @tc.desc: Test TextPickerModelNG SetDisappearTextStyle(set FontSize 0).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetDisappearTextStyle003, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.fontSize = Dimension(0);
-    TextPickerModelNG::GetInstance()->SetDisappearTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    EXPECT_TRUE(pickerProperty->HasDisappearFontSize());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetDisappearTextStyle004
- * @tc.desc: Test TextPickerModelNG SetDisappearTextStyle(set FontWeight).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetDisappearTextStyle004, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.fontWeight = Ace::FontWeight::BOLD;
-    TextPickerModelNG::GetInstance()->SetDisappearTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_TRUE(pickerProperty->HasDisappearWeight());
-    EXPECT_EQ(Ace::FontWeight::BOLD, pickerProperty->GetDisappearWeight().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetNormalTextStyle001
- * @tc.desc: Test TextPickerModelNG SetNormalTextStyle(set Color).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetNormalTextStyle001, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.textColor = Color::RED;
-    TextPickerModelNG::GetInstance()->SetNormalTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_TRUE(pickerProperty->HasColor());
-    EXPECT_EQ(Color::RED, pickerProperty->GetColor().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetNormalTextStyle002
- * @tc.desc: Test TextPickerModelNG SetNormalTextStyle(set FontSize).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetNormalTextStyle002, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.fontSize = Dimension(FONT_SIZE_10);
-    TextPickerModelNG::GetInstance()->SetNormalTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_TRUE(pickerProperty->HasFontSize());
-    EXPECT_EQ(Dimension(FONT_SIZE_10), pickerProperty->GetFontSize().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetNormalTextStyle003
- * @tc.desc: Test TextPickerModelNG SetNormalTextStyle(set FontSize 0).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetNormalTextStyle003, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.fontSize = Dimension(0);
-    TextPickerModelNG::GetInstance()->SetNormalTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    EXPECT_TRUE(pickerProperty->HasFontSize());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetNormalTextStyle004
- * @tc.desc: Test TextPickerModelNG SetNormalTextStyle(set FontWeight).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetNormalTextStyle004, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.fontWeight = Ace::FontWeight::BOLD;
-    TextPickerModelNG::GetInstance()->SetNormalTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_TRUE(pickerProperty->HasWeight());
-    EXPECT_EQ(Ace::FontWeight::BOLD, pickerProperty->GetWeight().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetSelectedTextStyle001
- * @tc.desc: Test TextPickerModelNG SetSelectedTextStyle(set Color).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelectedTextStyle001, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.textColor = Color::RED;
-    TextPickerModelNG::GetInstance()->SetSelectedTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_TRUE(pickerProperty->HasSelectedColor());
-    EXPECT_EQ(Color::RED, pickerProperty->GetSelectedColor().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetSelectedTextStyle002
- * @tc.desc: Test TextPickerModelNG SetSelectedTextStyle(set FontSize).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelectedTextStyle002, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.fontSize = Dimension(FONT_SIZE_10);
-    TextPickerModelNG::GetInstance()->SetSelectedTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_TRUE(pickerProperty->HasSelectedFontSize());
-    EXPECT_EQ(Dimension(FONT_SIZE_10), pickerProperty->GetSelectedFontSize().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetSelectedTextStyle003
- * @tc.desc: Test TextPickerModelNG SetSelectedTextStyle(set FontSize 0).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelectedTextStyle003, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.fontSize = Dimension(0);
-    TextPickerModelNG::GetInstance()->SetSelectedTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    EXPECT_TRUE(pickerProperty->HasSelectedFontSize());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetSelectedTextStyle004
- * @tc.desc: Test TextPickerModelNG SetSelectedTextStyle(set FontWeight).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelectedTextStyle004, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    PickerTextStyle textStyle;
-    textStyle.fontWeight = Ace::FontWeight::BOLD;
-    TextPickerModelNG::GetInstance()->SetSelectedTextStyle(theme, textStyle);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_TRUE(pickerProperty->HasSelectedWeight());
-    EXPECT_EQ(Ace::FontWeight::BOLD, pickerProperty->GetSelectedWeight().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetSelected001
- * @tc.desc: Test TextPickerModelNG SetSelected.
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelected001, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    std::vector<NG::RangeContent> range = { { "", "1" }, { "", "2" }, { "", "3" } };
-    TextPickerModelNG::GetInstance()->SetRange(range);
-    TextPickerModelNG::GetInstance()->SetSelected(SELECTED_INDEX_1);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_TRUE(pickerProperty->HasSelected());
-    EXPECT_EQ(1, pickerProperty->GetSelected().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetRange001
- * @tc.desc: Test TextPickerModelNG SetRange.
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetRange001, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    std::vector<NG::RangeContent> range = { { "", "1" }, { "", "2" }, { "", "3" } };
-    TextPickerModelNG::GetInstance()->SetRange(range);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerPattern = frameNode->GetPattern<TextPickerPattern>();
-    ASSERT_NE(pickerPattern, nullptr);
-    EXPECT_EQ(THREE, pickerPattern->GetRange().size());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetRange002
- * @tc.desc: Test TextPickerModelNG SetRange.
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetRange002, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    std::vector<NG::RangeContent> range;
-    TextPickerModelNG::GetInstance()->SetRange(range);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-
-    auto pickerPattern = frameNode->GetPattern<TextPickerPattern>();
-    ASSERT_NE(pickerPattern, nullptr);
-    EXPECT_TRUE(pickerPattern->GetRange().empty());
-}
-
-/**
- * @tc.name: TextPickerModelNGCreate001
- * @tc.desc: Test TextPickerModelNG Create(DeviceType::PHONE, DeviceOrientation::LANDSCAPE).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGCreate001, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(static_cast<int32_t>(DeviceOrientation::LANDSCAPE));
-    TextPickerModelNG::GetInstance()->Create(theme, ICON);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-    auto stackNode = AceType::DynamicCast<FrameNode>(frameNode->GetFirstChild());
-    ASSERT_NE(stackNode, nullptr);
-    auto blendNode = AceType::DynamicCast<FrameNode>(stackNode->GetLastChild());
-    ASSERT_NE(blendNode, nullptr);
-    auto columnNode = AceType::DynamicCast<FrameNode>(blendNode->GetLastChild());
-    ASSERT_NE(columnNode, nullptr);
-    auto columnChildren = columnNode->GetChildren();
-    EXPECT_EQ(FIVE_CHILDREN + BUFFER_NODE_NUMBER, columnChildren.size());
-}
-
-/**
- * @tc.name: TextPickerModelNGCreate002
- * @tc.desc: Test TextPickerModelNG Create(DeviceType::PHONE, DeviceOrientation::0).
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGCreate002, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    SystemProperties::SetDeviceType(DeviceType::PHONE);
-    SystemProperties::SetDeviceOrientation(0);
-    TextPickerModelNG::GetInstance()->Create(theme, MIXTURE);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-    auto stackNode = AceType::DynamicCast<FrameNode>(frameNode->GetFirstChild());
-    ASSERT_NE(stackNode, nullptr);
-    auto blendNode = AceType::DynamicCast<FrameNode>(stackNode->GetLastChild());
-    ASSERT_NE(blendNode, nullptr);
-    auto columnNode = AceType::DynamicCast<FrameNode>(blendNode->GetLastChild());
-    ASSERT_NE(columnNode, nullptr);
-    auto columnChildren = columnNode->GetChildren();
-    EXPECT_EQ(FIVE_CHILDREN + BUFFER_NODE_NUMBER, columnChildren.size());
-}
-
-/**
- * @tc.name: TextPickerModelNGSetDefaultAttributes001
- * @tc.desc: Test TextPickerModelNG SetDefaultAttributes.
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetDefaultAttributes001, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-
-    theme->selectedOptionStyle_.SetTextColor(Color(0x007DFF));
-    theme->selectedOptionStyle_.SetFontSize(Dimension(20, DimensionUnit::VP));
-    theme->selectedOptionStyle_.SetFontWeight(FontWeight::MEDIUM);
-
-    theme->normalOptionStyle_.SetTextColor(Color(0xff182431));
-    theme->normalOptionStyle_.SetFontSize(Dimension(16, DimensionUnit::FP));
-    theme->normalOptionStyle_.SetFontWeight(FontWeight::REGULAR);
-
-    theme->disappearOptionStyle_.SetTextColor(Color(0xff182431));
-    theme->disappearOptionStyle_.SetFontSize(Dimension(14, DimensionUnit::FP));
-    theme->disappearOptionStyle_.SetFontWeight(FontWeight::REGULAR);
-
-    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
-    TextPickerModelNG::GetInstance()->SetDefaultAttributes(theme);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-    auto pickerProperty = frameNode->GetLayoutProperty<TextPickerLayoutProperty>();
-    ASSERT_NE(pickerProperty, nullptr);
-    ASSERT_FALSE(pickerProperty->HasSelectedColor());
-
-    double fontSize = pickerProperty->GetSelectedFontSize().value().Value();
-    EXPECT_EQ(20, fontSize);
-    EXPECT_EQ(FontWeight::MEDIUM, pickerProperty->GetSelectedWeight().value());
-
-    ASSERT_FALSE(pickerProperty->HasColor());
-    fontSize = pickerProperty->GetFontSize().value().Value();
-    EXPECT_EQ(16, fontSize);
-    EXPECT_EQ(FontWeight::REGULAR, pickerProperty->GetWeight().value());
-
-    ASSERT_FALSE(pickerProperty->HasDisappearColor());
-    fontSize = pickerProperty->GetDisappearFontSize().value().Value();
-    EXPECT_EQ(14, fontSize);
-    EXPECT_EQ(FontWeight::REGULAR, pickerProperty->GetDisappearWeight().value());
-}
-
-/**
- * @tc.name: TextPickerModelNGMultiInit001
- * @tc.desc: Test TextPickerModelNG MultiInit.
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGMultiInit001, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    /**
-     * @tc.step: step1. create textpicker pattern.
-     */
-    TextPickerModelNG::GetInstance()->MultiInit(theme);
-
-    auto frameNode = AceType::Claim(ViewStackProcessor::GetInstance()->GetMainFrameNode());
-    ASSERT_NE(frameNode, nullptr);
-
-    auto textPickerPattern = AceType::MakeRefPtr<TextPickerPattern>();
-    textPickerPattern->AttachToFrameNode(frameNode);
-    textPickerPattern->OnAttachToFrameNode();
-    auto host = textPickerPattern->GetHost();
-    ASSERT_NE(host, nullptr);
-}
-
-/**
- * @tc.name: TextPickerModelNGSetIsCascade001
- * @tc.desc: Test TextPickerModelNG SetIsCascade.
- * @tc.type: FUNC
- */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetIsCascade001, TestSize.Level1)
-{
-    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
-    /**
-     * @tc.step: step1. create textpicker pattern.
-     */
-    TextPickerModelNG::GetInstance()->MultiInit(theme);
-    TextPickerModelNG::GetInstance()->SetIsCascade(true);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    ASSERT_NE(frameNode, nullptr);
-    /**
-     * @tc.step: step2. Get textpicker pattern and Call the interface.
-     * @tc.expected: the result of isCascade is correct.
-     */
-    auto pickerPattern = frameNode->GetPattern<TextPickerPattern>();
-    ASSERT_NE(pickerPattern, nullptr);
-    EXPECT_TRUE(pickerPattern->GetIsCascade());
-}
-
-/**
  * @tc.name: TextPickerModelNGSetSelecteds001
  * @tc.desc: Test TextPickerModelNG SetSelecteds.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelecteds001, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelecteds001, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     /**
@@ -1180,7 +263,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelecteds001, TestSize.Level1)
  * @tc.desc: Test TextPickerModelNG SetSelecteds.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelecteds002, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelecteds002, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     TextPickerModelNG::GetInstance()->MultiInit(theme);
@@ -1234,7 +317,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelecteds002, TestSize.Level1)
  * @tc.desc: Test TextPickerModelNG SetSelecteds.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelecteds003, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelecteds003, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     TextPickerModelNG::GetInstance()->MultiInit(theme);
@@ -1279,7 +362,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelNGSetSelecteds003, TestSize.Level1)
  * @tc.desc: Test TextPickerModelNG SetValues.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetValues001, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelNGSetValues001, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     /**
@@ -1308,7 +391,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelNGSetValues001, TestSize.Level1)
  * @tc.desc: Test TextPickerModelNG SetColumns(Multi).
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetColumns001, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelNGSetColumns001, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     /**
@@ -1344,7 +427,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelNGSetColumns001, TestSize.Level1)
  * @tc.desc: Test TextPickerModelNG SetColumns(Cascade).
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetColumns002, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelNGSetColumns002, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     /**
@@ -1389,7 +472,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelNGSetColumns002, TestSize.Level1)
  * @tc.desc: Test TextPickerModelNG SetColumns(Cascade Supply Zero Child).
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelNGSetColumns003, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelNGSetColumns003, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     /**
@@ -1437,7 +520,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelNGSetColumns003, TestSize.Level1)
  * @tc.desc: Test Layout.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     TextPickerModelNG::GetInstance()->Create(theme, TEXT);
@@ -1476,7 +559,7 @@ HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest, TestSize.Level1)
  * @tc.desc: Test Measure.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest001, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest001, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     TextPickerModelNG::GetInstance()->Create(theme, TEXT);
@@ -1503,7 +586,7 @@ HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest001, TestSize.Level1)
  * @tc.desc: Test Layout.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest002, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest002, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     TextPickerModelNG::GetInstance()->Create(theme, TEXT);
@@ -1534,7 +617,7 @@ HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest002, TestSize.Level1)
  * @tc.desc: Test Measure.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest003, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest003, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     TextPickerModelNG::GetInstance()->Create(theme, TEXT);
@@ -1566,7 +649,7 @@ HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest003, TestSize.Level1)
  * @tc.desc: Test Layout.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest004, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest004, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     TextPickerModelNG::GetInstance()->Create(theme, TEXT);
@@ -1603,7 +686,7 @@ HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest004, TestSize.Level1)
  * @tc.desc: Test Measure.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest005, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest005, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     TextPickerModelNG::GetInstance()->Create(theme, TEXT);
@@ -1636,7 +719,7 @@ HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest005, TestSize.Level1)
  * @tc.desc: Test Measure.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest006, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest006, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     /**
@@ -1681,7 +764,7 @@ HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest006, TestSize.Level1)
  * @tc.desc: Test Measure.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest007, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest007, TestSize.Level0)
 {
     auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
     TextPickerModelNG::GetInstance()->Create(theme, TEXT);
@@ -1727,7 +810,7 @@ HWTEST_F(TextPickerTestNg, TextPickerAlgorithmTest007, TestSize.Level1)
  * @tc.desc: Test TextPickerDialogView OnKeyEvent.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewOnKeyEvent, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewOnKeyEvent, TestSize.Level0)
 {
     KeyEvent event;
 
@@ -1761,7 +844,7 @@ HWTEST_F(TextPickerTestNg, TextPickerDialogViewOnKeyEvent, TestSize.Level1)
  * @tc.desc: Test SetDefaultPickerItemHeight, SetCanLoop, SetBackgroundColor
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelTest001, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelTest001, TestSize.Level0)
 {
     /**
      * @tc.step: step1. create textpicker framenode and textPickerLayoutProperty.
@@ -1799,7 +882,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelTest001, TestSize.Level1)
  * @tc.desc: Test GetSingleRange, GetMultiOptions
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelTest002, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelTest002, TestSize.Level0)
 {
     /**
      * @tc.step: step1. create textpicker framenode.
@@ -1844,7 +927,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelTest002, TestSize.Level1)
  * @tc.desc: Test SetDivider
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelTest003, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelTest003, TestSize.Level0)
 {
     /**
      * @tc.step: step1. create textpicker framenode and textPickerLayoutProperty.
@@ -1875,7 +958,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelTest003, TestSize.Level1)
  * @tc.desc: Test SetTextPickerDialogShow
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelTest004, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelTest004, TestSize.Level0)
 {
     /**
      * @tc.step: step1. create textpicker dialog model.
@@ -1907,7 +990,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelTest004, TestSize.Level1)
  * @tc.desc: Test SetNormalTextStyle
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelTest005, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelTest005, TestSize.Level0)
 {
     /**
      * @tc.step: step1. create textpicker model.
@@ -1941,7 +1024,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelTest005, TestSize.Level1)
  * @tc.desc: Test SetColumns
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelTest006, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelTest006, TestSize.Level0)
 {
     /**
      * @tc.step: step1. create textpicker model.
@@ -1976,7 +1059,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelTest006, TestSize.Level1)
  * @tc.desc: Test TextPickerModelTest.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerModelTest007, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerModelTest007, TestSize.Level0)
 {
     auto pipeline = MockPipelineContext::GetCurrent();
     auto theme = pipeline->GetTheme<PickerTheme>();
@@ -2017,7 +1100,7 @@ HWTEST_F(TextPickerTestNg, TextPickerModelTest007, TestSize.Level1)
  * @tc.desc: Test TextPickerDialogView ConvertFontScaleValue.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontScaleValue001, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontScaleValue001, TestSize.Level0)
 {
     Dimension fontSizeValue = 50.0_vp;
     Dimension fontSizeLimit = 40.0_vp;
@@ -2031,7 +1114,7 @@ HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontScaleValue001, TestSiz
  * @tc.desc: Test TextPickerDialogView ConvertFontScaleValue.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontScaleValue002, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontScaleValue002, TestSize.Level0)
 {
     Dimension fontSizeValue = 20.0_vp;
     Dimension fontSizeLimit = 40.0_vp;
@@ -2045,7 +1128,7 @@ HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontScaleValue002, TestSiz
  * @tc.desc: Test TextPickerDialogView ConvertFontSizeLimit.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest001, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest001, TestSize.Level0)
 {
     Dimension fontSizeValue(20.0);
     Dimension fontSizeLimit(30.0);
@@ -2059,7 +1142,7 @@ HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest001, Test
  * @tc.desc: Test TextPickerDialogView ConvertFontSizeLimit.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest002, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest002, TestSize.Level0)
 {
     Dimension fontSizeValue(20.0);
     Dimension fontSizeLimit(30.0);
@@ -2073,7 +1156,7 @@ HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest002, Test
  * @tc.desc: Test TextPickerDialogView ConvertFontSizeLimit.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest003, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest003, TestSize.Level0)
 {
     Dimension fontSizeValue(40.0);
     Dimension fontSizeLimit(30.0);
@@ -2090,7 +1173,7 @@ HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest003, Test
  * @tc.desc: Test TextPickerDialogView ConvertFontSizeLimit.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest004, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest004, TestSize.Level0)
 {
     Dimension fontSizeValue(10.0);
     Dimension fontSizeLimit(30.0);
@@ -2106,7 +1189,7 @@ HWTEST_F(TextPickerTestNg, TextPickerDialogViewConvertFontSizeLimitTest004, Test
  * @tc.desc: Test TextPickerDialogView AdjustFontSizeScale.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest001, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest001, TestSize.Level0)
 {
     double fontScale = 1.0f;
     Dimension fontSizeValue(10.0);
@@ -2119,7 +1202,7 @@ HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest001, TestS
  * @tc.desc: Test TextPickerDialogView AdjustFontSizeScale.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest002, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest002, TestSize.Level0)
 {
     double fontScale = 1.75f;
     Dimension fontSizeValue(10.0);
@@ -2132,7 +1215,7 @@ HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest002, TestS
  * @tc.desc: Test TextPickerDialogView AdjustFontSizeScale.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest003, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest003, TestSize.Level0)
 {
     double fontScale = 2.0f;
     Dimension fontSizeValue(10.0);
@@ -2145,7 +1228,7 @@ HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest003, TestS
  * @tc.desc: Test TextPickerDialogView AdjustFontSizeScale.
  * @tc.type: FUNC
  */
-HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest004, TestSize.Level1)
+HWTEST_F(TextPickerTestNg, TextPickerDialogViewGetUserSettingLimitTest004, TestSize.Level0)
 {
     double fontScale = 3.2f;
     Dimension fontSizeValue(10.0);
@@ -2196,5 +1279,4 @@ HWTEST_F(TextPickerTestNg, TextPickerToJsonDefaultPickerItemHeight001, TestSize.
     */
     EXPECT_EQ(json->GetString("defaultPickerItemHeight"), "10.00vp");
 }
-
 } // namespace OHOS::Ace::NG

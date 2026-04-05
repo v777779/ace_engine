@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,6 +18,7 @@
 #include <regex>
 
 #include "core/pipeline/pipeline_base.h"
+#include "core/components_ng/property/measure_utils.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -492,15 +493,42 @@ std::pair<std::vector<double>, double> ParseArgsWithAutoStretch(const std::strin
 std::pair<std::vector<double>, double> ParseTemplateArgs(
     const std::string& args, double size, double gap, int32_t childrenCount)
 {
-    if (args.find(REPEAT_PREFIX) != std::string::npos && args.find(UNIT_AUTO_FILL) != std::string::npos) {
-        return ParseArgsWithAutoFill(args, size, gap, childrenCount);
-    }
-    if (args.find(REPEAT_PREFIX) != std::string::npos && args.find(UNIT_AUTO_FIT) != std::string::npos) {
-        return ParseArgsWithAutoFit(args, size, gap, childrenCount);
-    }
-    if (args.find(REPEAT_PREFIX) != std::string::npos && args.find(UNIT_AUTO_STRETCH) != std::string::npos) {
-        return ParseArgsWithAutoStretch(args, size, gap);
+    if (args.find(REPEAT_PREFIX) != std::string::npos) {
+        if (args.find(UNIT_AUTO_FILL) != std::string::npos) {
+            return ParseArgsWithAutoFill(args, size, gap, childrenCount);
+        }
+        if (args.find(UNIT_AUTO_FIT) != std::string::npos) {
+            return ParseArgsWithAutoFit(args, size, gap, childrenCount);
+        }
+        if (args.find(UNIT_AUTO_STRETCH) != std::string::npos) {
+            return ParseArgsWithAutoStretch(args, size, gap);
+        }
     }
     return NG::ParseArgsWithoutAutoFill(args, size, gap);
+}
+
+std::optional<std::string> BuildItemFillPolicyColumns(PresetFillType policy, float width, double density)
+{
+    std::optional<std::string> columns;
+    WidthBreakpoint point = GetCommonWidthBreakpoint(width, density);
+    if (policy == PresetFillType::BREAKPOINT_SM1MD2LG3) {
+        if (point <= WidthBreakpoint::WIDTH_SM) {
+            columns = "1fr";
+        } else if (point == WidthBreakpoint::WIDTH_MD) {
+            columns = "1fr 1fr";
+        } else if (point >= WidthBreakpoint::WIDTH_LG) {
+            columns = "1fr 1fr 1fr";
+        }
+    } else {
+        if (point <= WidthBreakpoint::WIDTH_SM) {
+            columns = "1fr 1fr";
+        } else if (point == WidthBreakpoint::WIDTH_MD) {
+            columns = "1fr 1fr 1fr";
+        } else if (point >= WidthBreakpoint::WIDTH_LG) {
+            columns = "1fr 1fr 1fr 1fr 1fr";
+        }
+    }
+
+    return columns;
 }
 } // namespace OHOS::Ace::NG

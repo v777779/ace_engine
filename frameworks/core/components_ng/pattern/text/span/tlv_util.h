@@ -25,8 +25,7 @@
 #include "base/image/pixel_map.h"
 #include "core/components/common/properties/color.h"
 #include "core/components/common/properties/shadow.h"
-#include "core/components/common/properties/text_style.h"
-#include "core/components_ng/pattern/text/span_node.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/render/paragraph.h"
 #include "core/components_ng/pattern/text/text_styles.h"
 
@@ -145,7 +144,7 @@ constexpr uint8_t TLV_SPAN_TEXT_LINE_STYLE_PARAGRAPH_SPACING = 0x98;
 constexpr uint8_t TLV_SPAN_STRING_MODE_FLAG = 0x99;
 constexpr uint8_t TLV_SPAN_FONT_STYLE_LineThicknessScale = 0x9A;
 constexpr uint8_t TLV_FLOAT_TAG = 0x9B;
-constexpr uint8_t TLV_SPAN_URL_CONTENT = 0x9C;
+constexpr uint8_t TLV_SPAN_URL_CONTENT = 0X9C;
 constexpr uint8_t TLV_SPAN_FONT_STYLE_SUPERSCRIPT = 0x9D;
 constexpr uint8_t TLV_SPAN_FONT_STYLE_STROKEWIDTH = 0x9E;
 constexpr uint8_t TLV_SPAN_FONT_STYLE_STROKECOLOR = 0x9F;
@@ -153,6 +152,14 @@ constexpr uint8_t TLV_SUPERSCRIPT_TAG = 0xA0;
 constexpr uint8_t TLV_SPAN_TEXT_LINE_STYLE_TEXTVERTICALALIGN = 0xA1;
 constexpr uint8_t TLV_TEXTVERTICALALIGN_TAG = 0xA2;
 
+constexpr uint8_t TLV_IMAGESPANATTRIBUTE_SUPPORTSVG2_TAG = 0xA3;
+
+constexpr uint8_t TLV_SPAN_TEXT_LINE_STYLE_TEXTDIRECTION = 0xA4;
+constexpr uint8_t TLV_TEXTDIRECTION_TAG = 0xA5;
+
+constexpr uint8_t TLV_SPAN_FONT_STYLE_VARIABLEFONTWEIGHT = 0xA6;
+constexpr uint8_t TLV_SPAN_FONT_STYLE_ENABLEVARIABLEFONTWEIGHT = 0xA7;
+constexpr uint8_t TLV_SPAN_FONT_STYLE_ENABLEDEVICEFONTWEIGHTCATEGORY = 0xA8;
 
 #define TLV_DEFINE_ENUM_TYPE(type, tag) \
 public:                                                                     \
@@ -211,6 +218,19 @@ public:
         return static_cast<int32_t>(value);
     }
 
+    static void WriteBool(std::vector<uint8_t>& buff, bool value)
+    {
+        buff.push_back(value ? 0x01 : 0x00);
+    }
+
+    static bool ReadBool(std::vector<uint8_t>& buff, int32_t& cursor)
+    {
+        if (static_cast<size_t>(cursor) >= buff.size()) {
+            return false;
+        }
+        return buff[cursor++] != 0;
+    }
+
     TLV_DEFINE_ENUM_TYPE(FontStyle, TLV_ITALICSFONTSTYLE_TAG);
     TLV_DEFINE_ENUM_TYPE(FontWeight, TLV_FONTWEIGHT_TAG);
     TLV_DEFINE_ENUM_TYPE(SuperscriptStyle, TLV_SUPERSCRIPT_TAG);
@@ -227,6 +247,7 @@ public:
     TLV_DEFINE_ENUM_TYPE(VerticalAlign, TLV_VERTICALALIGN_TAG);
     TLV_DEFINE_ENUM_TYPE(ImageFit, TLV_IMAGEFIT_TAG);
     TLV_DEFINE_ENUM_TYPE(TextVerticalAlign, TLV_TEXTVERTICALALIGN_TAG);
+    TLV_DEFINE_ENUM_TYPE(TextDirection, TLV_TEXTDIRECTION_TAG);
 
     static void WriteString(std::vector<uint8_t>& buff, const std::string& value);
     static std::string ReadString(std::vector<uint8_t>& buff, int32_t& cursor);

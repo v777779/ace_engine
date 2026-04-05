@@ -21,10 +21,10 @@
 #define protected public
 #include "session/host/include/extension_session.h"
 #include "session/host/include/session.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_rosen_render_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+
 #include "test/unittest/core/pattern/ui_extension/mock/mock_data_handler.h"
 #include "test/unittest/core/pattern/ui_extension/mock/mock_window_scene_helper.h"
 #include "ui/rs_surface_node.h"
@@ -285,7 +285,8 @@ HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg003, 
     OHOS::Rosen::WSError errcode = OHOS::Rosen::WSError::WS_OK;
     AAFwk::Want want;
     AAFwk::WantParams params;
-    auto sessionCallbacks = sessionWrapper->session_->GetExtensionSessionEventCallback();
+    auto sessionCallbacks =
+        sessionWrapper->session_->GetExtensionSessionEventCallback();
     sessionWrapper->foregroundCallback_(errcode);
     sessionWrapper->backgroundCallback_(errcode);
     sessionWrapper->destructionCallback_(errcode);
@@ -337,7 +338,8 @@ HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg004, 
     /**
      * @tc.steps: step2. test CreateSession
      */
-    auto container = Platform::AceContainer::GetContainer(sessionWrapper->instanceId_);
+    auto container =
+        Platform::AceContainer::GetContainer(sessionWrapper->instanceId_);
     EXPECT_NE(container, nullptr);
     sessionWrapper->sessionType_ = SessionType::UI_EXTENSION_ABILITY;
     SessionConfig config;
@@ -428,12 +430,16 @@ HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg006, 
     std::shared_ptr<Rosen::RSTransaction> rsTransaction(rawTransaction);
     EXPECT_NE(rsTransaction, nullptr);
     sessionWrapper->NotifySizeChangeReason(type, nullptr);
-    EXPECT_EQ(sessionWrapper->session_->reason_, Rosen::SizeChangeReason::UNDEFINED);
+    EXPECT_EQ(sessionWrapper->session_->GetSizeChangeReason(), Rosen::SizeChangeReason::UNDEFINED);
 
     sessionWrapper->NotifySizeChangeReason(type, rsTransaction);
     EXPECT_TRUE(sessionWrapper->transaction_.expired());
 
     type = OHOS::Ace::WindowSizeChangeReason::ROTATION;
+    sessionWrapper->NotifySizeChangeReason(type, rsTransaction);
+    EXPECT_FALSE(sessionWrapper->transaction_.expired());
+
+    type = OHOS::Ace::WindowSizeChangeReason::SNAPSHOT_ROTATION;
     sessionWrapper->NotifySizeChangeReason(type, rsTransaction);
     EXPECT_FALSE(sessionWrapper->transaction_.expired());
 #endif
@@ -505,7 +511,8 @@ HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg008, 
     sessionWrapper->instanceId_ = 1;
     EXPECT_NE(sessionWrapper->instanceId_, sessionWrapper->hostPattern_.Upgrade()->GetInstanceIdFromHost());
     sessionWrapper->GetInstanceIdFromHost();
-    sessionWrapper->instanceId_ = sessionWrapper->hostPattern_.Upgrade()->GetInstanceIdFromHost();
+    sessionWrapper->instanceId_ =
+        sessionWrapper->hostPattern_.Upgrade()->GetInstanceIdFromHost();
     sessionWrapper->GetInstanceIdFromHost();
 
     sessionWrapper->hostPattern_ = nullptr;
@@ -580,7 +587,10 @@ HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg010, 
     RectF paintRect = { 10.0f, 10.0f, 10.0f, 10.0f };
     sessionWrapper->NotifyDisplayArea(paintRect);
 
-    sessionWrapper->session_->reason_ = Rosen::SizeChangeReason::ROTATION;
+    sessionWrapper->session_->Rosen::Session::UpdateSizeChangeReason(Rosen::SizeChangeReason::ROTATION);
+    sessionWrapper->NotifyDisplayArea(paintRect);
+
+    sessionWrapper->session_->Rosen::Session::UpdateSizeChangeReason(Rosen::SizeChangeReason::SNAPSHOT_ROTATION);
     sessionWrapper->NotifyDisplayArea(paintRect);
 #endif
 }
@@ -661,6 +671,179 @@ HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg012, 
     sessionWrapper->OnDisconnect(true);
     sessionWrapper->OnDisconnect(false);
     sessionWrapper->OnConnect();
+#endif
+}
+
+/**
+ * @tc.name: SecuritySessionWrapperImplTestNg013
+ * @tc.desc: Test the method ReDispatchWantParams
+ * @tc.type: FUNC
+ */
+HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg013, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    /**
+     * @tc.steps: step1. construct a SecuritySessionWrapperImpl
+     */
+    auto sessionWrapper = GenerateSecuritySessionWrapperImpl();
+    Rosen::SessionInfo sessionInfo;
+    sessionWrapper->session_ = new Rosen::ExtensionSession(sessionInfo);
+    EXPECT_NE(sessionWrapper->session_->GetExtensionDataHandler(), nullptr);
+    auto container = Platform::AceContainer::GetContainer(sessionWrapper->instanceId_);
+    EXPECT_NE(container, nullptr);
+
+    /**
+     * @tc.steps: step2. test ReDispatchWantParams
+     */
+    RefPtr<WantWrap> wantWrap = AceType::MakeRefPtr<WantWrapOhos>("123", "123");
+    auto wantWrapOhos = AceType::DynamicCast<WantWrapOhos>(wantWrap);
+    auto want = wantWrapOhos->GetWant();
+    want.SetParam("type", std::string("test type"));
+    sessionWrapper->customWant_ = std::make_shared<AAFwk::Want>(want);
+    sessionWrapper->ReDispatchWantParams();
+#endif
+}
+
+/**
+ * @tc.name: SecuritySessionWrapperImplTestNg014
+ * @tc.desc: Test the method GetWant
+ * @tc.type: FUNC
+ */
+HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg014, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    /**
+     * @tc.steps: step1. construct a SecuritySessionWrapperImpl
+     */
+    auto sessionWrapper = GenerateSecuritySessionWrapperImpl();
+    EXPECT_EQ(sessionWrapper->session_, nullptr);
+
+    /**
+     * @tc.steps: step2. test GetWant
+     */
+    EXPECT_EQ(sessionWrapper->GetWant(), nullptr);
+    Rosen::SessionInfo sessionInfo;
+    sessionWrapper->session_ = new Rosen::ExtensionSession(sessionInfo);
+    EXPECT_EQ(sessionWrapper->GetWant(), sessionWrapper->customWant_);
+#endif
+}
+
+/**
+ * @tc.name: SecuritySessionWrapperImplTestNg015
+ * @tc.desc: Test the method NotifyBackPressedSync
+ * @tc.type: FUNC
+ */
+HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg015, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    /**
+     * @tc.steps: step1. construct a SecuritySessionWrapperImpl
+     */
+    auto sessionWrapper = GenerateSecuritySessionWrapperImpl();
+    EXPECT_EQ(sessionWrapper->session_, nullptr);
+
+    /**
+     * @tc.steps: step2. test NotifyBackPressedSync
+     */
+    EXPECT_FALSE(sessionWrapper->NotifyBackPressedSync());
+    Rosen::SessionInfo sessionInfo;
+    sessionWrapper->session_ = new Rosen::ExtensionSession(sessionInfo);
+    EXPECT_FALSE(sessionWrapper->NotifyBackPressedSync());
+#endif
+}
+
+/**
+ * @tc.name: SecuritySessionWrapperImplTestNg016
+ * @tc.desc: Test the method NotifyKeyEventAsync
+ * @tc.type: FUNC
+ */
+HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg016, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    /**
+     * @tc.steps: step1. construct a SecuritySessionWrapperImpl
+     */
+    auto sessionWrapper = GenerateSecuritySessionWrapperImpl();
+    EXPECT_EQ(sessionWrapper->session_, nullptr);
+
+    /**
+     * @tc.steps: step2. test NotifyKeyEventAsync
+     */
+    std::shared_ptr<OHOS::MMI::KeyEvent> keyEvent;
+    EXPECT_FALSE(sessionWrapper->NotifyKeyEventAsync(keyEvent, false));
+    Rosen::SessionInfo sessionInfo;
+    sessionWrapper->session_ = new Rosen::ExtensionSession(sessionInfo);
+    EXPECT_TRUE(sessionWrapper->NotifyKeyEventAsync(keyEvent, false));
+#endif
+}
+
+/**
+ * @tc.name: SecuritySessionWrapperImplTestNg017
+ * @tc.desc: Test the method NotifyFocusEventAsync
+ * @tc.type: FUNC
+ */
+HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg017, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    /**
+     * @tc.steps: step1. construct a SecuritySessionWrapperImpl
+     */
+    auto sessionWrapper = GenerateSecuritySessionWrapperImpl();
+    EXPECT_EQ(sessionWrapper->session_, nullptr);
+
+    /**
+     * @tc.steps: step2. test NotifyFocusEventAsync
+     */
+    EXPECT_FALSE(sessionWrapper->NotifyFocusEventAsync(false));
+    Rosen::SessionInfo sessionInfo;
+    sessionWrapper->session_ = new Rosen::ExtensionSession(sessionInfo);
+    EXPECT_TRUE(sessionWrapper->NotifyFocusEventAsync(false));
+#endif
+}
+
+/**
+ * @tc.name: SecuritySessionWrapperImplTestNg018
+ * @tc.desc: Test the method NotifyFocusStateAsync
+ * @tc.type: FUNC
+ */
+HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg018, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    /**
+     * @tc.steps: step1. construct a SecuritySessionWrapperImpl
+     */
+    auto sessionWrapper = GenerateSecuritySessionWrapperImpl();
+    EXPECT_EQ(sessionWrapper->session_, nullptr);
+
+    /**
+     * @tc.steps: step2. test NotifyFocusStateAsync
+     */
+    EXPECT_FALSE(sessionWrapper->NotifyFocusStateAsync(false));
+    Rosen::SessionInfo sessionInfo;
+    sessionWrapper->session_ = new Rosen::ExtensionSession(sessionInfo);
+    EXPECT_TRUE(sessionWrapper->NotifyFocusStateAsync(false));
+#endif
+}
+
+/**
+ * @tc.name: SecuritySessionWrapperImplTestNg019
+ * @tc.desc: Test the method UpdateInstanceId
+ * @tc.type: FUNC
+ */
+HWTEST_F(SecuritySessionWrapperImplTestNg, SecuritySessionWrapperImplTestNg019, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    /**
+     * @tc.steps: step1. construct a SecuritySessionWrapperImpl
+     */
+    auto sessionWrapper = GenerateSecuritySessionWrapperImpl();
+    EXPECT_EQ(sessionWrapper->session_, nullptr);
+
+    /**
+     * @tc.steps: step2. test UpdateInstanceId
+     */
+    sessionWrapper->UpdateInstanceId(10);
+    EXPECT_EQ(sessionWrapper->patternInstanceId_, 10);
 #endif
 }
 } // namespace OHOS::Ace::NG

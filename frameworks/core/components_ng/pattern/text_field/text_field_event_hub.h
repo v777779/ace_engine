@@ -64,9 +64,36 @@ struct ChangeValueInfo {
     PreviewText oldPreviewText;
 };
 
+class IMEExtraInfo : public virtual AceType {
+    DECLARE_ACE_TYPE(IMEExtraInfo, AceType);
+
+public:
+    IMEExtraInfo(void* imeExtraInfo, std::function<void()>&& callback)
+        : imeExtraInfo_(imeExtraInfo), destroyCallback_(std::move(callback))
+    {}
+    ~IMEExtraInfo()
+    {
+        if (destroyCallback_) {
+            destroyCallback_();
+        }
+    }
+
+    void* GetExtraInfo()
+    {
+        return imeExtraInfo_;
+    }
+
+private:
+    void* imeExtraInfo_ = nullptr;
+    std::function<void()> destroyCallback_;
+};
+
 struct IMEClient {
     int32_t nodeId = -1;
+    RefPtr<IMEExtraInfo> extraInfo = nullptr;
 };
+
+using IMEAttachCallback = std::function<void(IMEClient&)>;
 } // namespace OHOS::Ace
 
 namespace OHOS::Ace::NG {
@@ -98,7 +125,7 @@ private:
 };
 
 class TextFieldEventHub : public EventHub {
-    DECLARE_ACE_TYPE(TextFieldEventHub, EventHub)
+    DECLARE_ACE_TYPE(TextFieldEventHub, EventHub);
 
 public:
     TextFieldEventHub() = default;
@@ -220,6 +247,19 @@ public:
         }
     }
 
+    void SetOnWillCopy(std::function<bool(const std::u16string&)>&& func)
+    {
+        onWillCopy_ = std::move(func);
+    }
+
+    bool FireOnWillCopy(const std::u16string& value)
+    {
+        if (onWillCopy_) {
+            return onWillCopy_(value);
+        }
+        return true;
+    }
+
     void SetOnCopy(std::function<void(const std::u16string&)>&& func)
     {
         onCopy_ = std::move(func);
@@ -231,6 +271,20 @@ public:
             TAG_LOGI(AceLogTag::ACE_TEXT_FIELD, "On copy size %{public}zu", UtfUtils::Str16DebugToStr8(value).size());
             onCopy_(value);
         }
+    }
+
+    void SetOnWillCut(std::function<bool(const std::u16string&)>&& func)
+    {
+        onWillCut_ = std::move(func);
+    }
+
+    bool FireOnWillCut(const std::u16string& value)
+    {
+        if (onWillCut_) {
+            TAG_LOGI(AceLogTag::ACE_TEXT_FIELD, "On cut size %{public}zu", UtfUtils::Str16DebugToStr8(value).size());
+            return onWillCut_(value);
+        }
+        return true;
     }
 
     void SetOnCut(std::function<void(const std::u16string&)>&& func)
@@ -381,6 +435,11 @@ public:
         onDidInsertValueEvent_ = std::move(func);
     }
 
+    bool HasOnDidInsertValueEvent()
+    {
+        return onDidInsertValueEvent_ ? true : false;
+    }
+
     void FireOnDidInsertValueEvent(const InsertValueInfo& info)
     {
         if (onDidInsertValueEvent_) {
@@ -393,6 +452,11 @@ public:
     void SetOnWillDeleteEvent(std::function<bool(const DeleteValueInfo&)>&& func)
     {
         onWillDeleteEvent_ = std::move(func);
+    }
+
+    bool HasOnWillDeleteValueEvent()
+    {
+        return onWillDeleteEvent_ ? true : false;
     }
 
     bool FireOnWillDeleteEvent(const DeleteValueInfo& info)
@@ -410,6 +474,11 @@ public:
         onDidDeleteEvent_ = std::move(func);
     }
 
+    bool HasOnDidDeleteValueEvent()
+    {
+        return onDidDeleteEvent_ ? true : false;
+    }
+
     void FireOnDidDeleteValueEvent(const DeleteValueInfo& info)
     {
         if (onDidDeleteEvent_) {
@@ -419,17 +488,19 @@ public:
         }
     }
 
-    void SetOnWillAttachIME(std::function<void(const IMEClient&)>&& func)
+    void SetOnWillAttachIME(IMEAttachCallback&& func)
     {
         onWillAttachIME_ = std::move(func);
     }
 
-    void FireOnWillAttachIME(const IMEClient& info)
+    void FireOnWillAttachIME(IMEClient& info)
     {
         if (onWillAttachIME_) {
             onWillAttachIME_(info);
         }
     }
+
+    RefPtr<GestureEventHub> CreateGestureEventHub() override;
 
 private:
     std::optional<std::u16string> lastValue_;
@@ -451,7 +522,9 @@ private:
     std::function<void(float, float)> onContentSizeChange_;
     std::function<void(int32_t, int32_t)> onSelectionChange_;
 
+    std::function<bool(const std::u16string&)> onWillCopy_;
     std::function<void(const std::u16string&)> onCopy_;
+    std::function<bool(const std::u16string&)> onWillCut_;
     std::function<void(const std::u16string&)> onCut_;
     std::function<void(const std::u16string&)> onPaste_;
     std::function<void(const std::u16string&, NG::TextCommonEvent&)> onPasteWithEvent_;
@@ -463,7 +536,7 @@ private:
     std::function<bool(const DeleteValueInfo&)> onWillDeleteEvent_;
     std::function<void(const DeleteValueInfo&)> onDidDeleteEvent_;
 
-    std::function<void(const IMEClient&)> onWillAttachIME_;
+    IMEAttachCallback onWillAttachIME_;
     ACE_DISALLOW_COPY_AND_MOVE(TextFieldEventHub);
 };
 

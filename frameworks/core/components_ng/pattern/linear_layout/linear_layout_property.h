@@ -60,11 +60,6 @@ public:
         return isVertical_;
     }
 
-    std::pair<bool, bool> GetPercentSensitive() override
-    {
-        return LayoutProperty::GetPercentSensitive();
-    }
-
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override
     {
         LayoutProperty::ToJsonValue(json, filter);
@@ -93,7 +88,6 @@ public:
                 alignItems = "VerticalAlign.Bottom";
             }
         }
-        json->PutExtAttr("isReverse", std::to_string(GetIsReverse().value_or(false)).c_str(), filter);
         json->PutExtAttr("space", GetSpaceValue(Dimension(0.0f)).ToString().c_str(), filter);
         json->PutExtAttr("alignItems", alignItems.c_str(), filter);
         auto justifyContent = V2::ConvertFlexAlignToStirng(GetMainAxisAlign().value_or(FlexAlign::FLEX_START));
@@ -122,6 +116,8 @@ public:
                 flexAlign = iter->second;
             }
             UpdateCrossAxisAlign(flexAlign);
+        } else {
+            LOGE("UITree |ERROR| invalid %{public}s", alignItems.c_str());
         }
         UpdateMainAxisAlign(V2::ConvertStringToFlexAlign(json->GetString("justifyContent")));
 

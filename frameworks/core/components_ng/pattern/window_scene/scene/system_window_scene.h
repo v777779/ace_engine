@@ -21,7 +21,6 @@
 
 #include "core/common/container.h"
 #include "core/components_ng/manager/focus/focus_view.h"
-#include "core/components_ng/pattern/overlay/overlay_manager.h"
 #include "core/components_ng/pattern/stack/stack_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -38,7 +37,6 @@ public:
             .type = RenderContext::ContextType::EXTERNAL,
             .surfaceName = std::nullopt};
     }
-
     sptr<Rosen::Session> GetSession();
 
     void OnVisibleChange(bool visible) override;
@@ -56,20 +54,29 @@ public:
 
     void CreateOverlayManager(bool isShow, const RefPtr<FrameNode>& target)
     {
-        if (!overlayManager_ && isShow) {
-            overlayManager_ = MakeRefPtr<OverlayManager>(target);
-            overlayManager_->SetIsAttachToCustomNode(true);
+        auto targetId = target->GetId();
+        auto it = targetOverlayMap_.find(targetId);
+        if (it == targetOverlayMap_.end() && isShow) {
+            targetOverlayMap_[targetId] = MakeRefPtr<OverlayManager>(target);
+            targetOverlayMap_[targetId]->SetIsAttachToCustomNode(true);
         }
     }
 
-    const RefPtr<OverlayManager>& GetOverlayManager()
+    RefPtr<OverlayManager> GetOverlayManager(int32_t targetId)
     {
-        return overlayManager_;
+        auto it = targetOverlayMap_.find(targetId);
+        if (it != targetOverlayMap_.end()) {
+            return it->second;
+        }
+        return nullptr;
     }
 
-    void DeleteOverlayManager()
+    void DeleteOverlayManager(int32_t targetId)
     {
-        overlayManager_.Reset();
+        auto it = targetOverlayMap_.find(targetId);
+        if (it != targetOverlayMap_.end()) {
+            targetOverlayMap_.erase(it);
+        }
     }
     uint32_t GetWindowPatternType() const override;
 
@@ -90,12 +97,14 @@ private:
     void PostCheckContextTransparentTask();
     void PostFaultInjectTask();
     void SetWindowScenePosition();
+    void InsertSurfaceNodeId(uint64_t nodeId);
+    void ClearSurfaceNodeId(uint64_t nodeId);
 
     int32_t instanceId_ = Container::CurrentId();
 
     CancelableCallback<void()> checkContextTransparentTask_;
-    RefPtr<OverlayManager> overlayManager_;
     std::map<int32_t, std::function<void(bool)>> visibleChangeCallbackMap_;
+    std::map<int32_t, RefPtr<OverlayManager>> targetOverlayMap_;
 
     ACE_DISALLOW_COPY_AND_MOVE(SystemWindowScene);
 };

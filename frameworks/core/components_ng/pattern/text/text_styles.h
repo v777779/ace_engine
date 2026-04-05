@@ -28,6 +28,8 @@ namespace OHOS::Ace {
 
 struct CustomSpanMeasureInfo {
     float fontSize = 0.0f;
+    std::optional<float> maxWidth;
+    std::optional<LayoutCalPolicy> layoutPolicy;
 };
 
 struct CustomSpanOptions {
@@ -110,7 +112,9 @@ struct ImageSpanAttribute {
     std::optional<OHOS::Ace::NG::MarginProperty> marginProp;
     std::optional<OHOS::Ace::NG::BorderRadiusProperty> borderRadius;
     std::optional<OHOS::Ace::NG::PaddingProperty> paddingProp;
+
     bool syncLoad = false;
+    bool supportSvg2 = false;
     std::optional<std::vector<float>> colorFilterMatrix;
     std::optional<RefPtr<DrawingColorFilter>> drawingColorFilter;
 
@@ -135,13 +139,21 @@ struct ImageSpanAttribute {
 
 enum class OptionSource { EXTERNAL_API = 0, USER_PASTE, UNDO_REDO, IME_INSERT, COLLBORATION };
 
+struct AccessibilitySpanOptions {
+    std::optional<std::string> accessibilityTextOpt;
+    std::optional<std::string> accessibilityDescriptionOpt;
+    std::optional<std::string> accessibilityLevelOpt;
+};
+
 struct SpanOptionBase {
     std::optional<int32_t> offset;
     UserGestureOptions userGestureOption;
     UserMouseOptions userMouseOption;
     std::optional<Color> dragBackgroundColor;
+    RefPtr<ResourceObject> dragBackgroundColorResObj;
     bool isDragShadowNeeded = true;
     OptionSource optionSource = OptionSource::EXTERNAL_API;
+    std::optional<AccessibilitySpanOptions> accessibilityOptions;
 
     std::string ToString() const
     {
@@ -202,10 +214,13 @@ struct FontStyle {
     ACE_DEFINE_PROPERTY_GROUP_ITEM(FontWeight, FontWeight);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(VariableFontWeight, int32_t);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(EnableVariableFontWeight, bool);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(EnableDeviceFontWeightCategory, bool);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(FontFamily, std::vector<std::string>);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(FontFeature, FONT_FEATURES_LIST);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(TextDecoration, std::vector<TextDecoration>);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(TextDecorationColor, Color);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(StrokeWidth, Dimension);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(StrokeColor, Color);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(TextDecorationStyle, TextDecorationStyle);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(TextDecorationOptions, TextDecorationOptions);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(TextCase, TextCase);
@@ -220,16 +235,7 @@ struct FontStyle {
     ACE_DEFINE_PROPERTY_GROUP_ITEM(MinFontScale, float);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(MaxFontScale, float);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(SymbolType, SymbolType);
-    ACE_DEFINE_PROPERTY_GROUP_ITEM(StrokeWidth, Dimension);
-    ACE_DEFINE_PROPERTY_GROUP_ITEM(StrokeColor, Color);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(LineThicknessScale, float);
-    ACE_DEFINE_PROPERTY_GROUP_ITEM(FontForegroudGradiantColor, FontForegroudGradiantColor);
-    ACE_DEFINE_PROPERTY_GROUP_ITEM(GradientShaderStyle, Gradient);
-    ACE_DEFINE_PROPERTY_GROUP_ITEM(SymbolShadow, SymbolShadow);
-    ACE_DEFINE_PROPERTY_GROUP_ITEM(ShaderStyle, std::vector<SymbolGradient>);
-    ACE_DEFINE_PROPERTY_GROUP_ITEM(ColorShaderStyle, Color);
-    
-    void UpdateColorByResourceId();
 
     TextDecoration GetTextDecorationFirst() const
     {
@@ -240,6 +246,42 @@ struct FontStyle {
         return decorations.value().size() > 0 ?
             decorations.value()[0] : TextDecoration::NONE;
     }
+
+    void AddResource(
+        const std::string& key,
+        const RefPtr<ResourceObject>& resObj,
+        std::function<void(const RefPtr<ResourceObject>&, FontStyle&)>&& updateFunc)
+    {
+        CHECK_NULL_VOID(resObj && updateFunc);
+        resMap_[key] = {resObj, std::move(updateFunc)};
+    }
+
+    size_t RemoveResource(const std::string& key)
+    {
+        return resMap_.erase(key);
+    }
+
+    void CopyResource(const std::unique_ptr<FontStyle>& source)
+    {
+        resMap_ = source->resMap_;
+    }
+
+    void ReloadResources()
+    {
+        for (const auto& [key, resourceUpdater] : resMap_) {
+            resourceUpdater.updateFunc(resourceUpdater.resObj, *this);
+        }
+        if (propTextShadow) {
+            auto& shadows = propTextShadow.value();
+            std::for_each(shadows.begin(), shadows.end(), [](Shadow& sd) { sd.ReloadResources(); });
+        }
+    }
+
+    struct resourceUpdater {
+        RefPtr<ResourceObject> resObj;
+        std::function<void(const RefPtr<ResourceObject>&, FontStyle&)> updateFunc;
+    };
+    std::unordered_map<std::string, resourceUpdater> resMap_;
 };
 
 struct TextLineStyle {
@@ -255,6 +297,7 @@ struct TextLineStyle {
     ACE_DEFINE_PROPERTY_GROUP_ITEM(HeightAdaptivePolicy, TextHeightAdaptivePolicy);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(TextIndent, Dimension);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(LeadingMargin, LeadingMargin);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(DrawableLeadingMargin, DrawableLeadingMargin);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(WordBreak, WordBreak);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(EllipsisMode, EllipsisMode);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(LineSpacing, Dimension);
@@ -265,6 +308,10 @@ struct TextLineStyle {
     ACE_DEFINE_PROPERTY_GROUP_ITEM(AllowScale, bool);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(ParagraphSpacing, Dimension);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(OptimizeTrailingSpace, bool);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(OrphanCharOptimization, bool);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(CompressLeadingPunctuation, bool);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(TextContentAlign, TextContentAlign);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(TextDirection, TextDirection);
 };
 
 struct HandleInfoNG {
@@ -298,26 +345,30 @@ struct HandleInfoNG {
 
 PlaceholderAlignment GetPlaceHolderAlignmentFromVerticalAlign(VerticalAlign verticalAlign);
 
-TextStyle CreateTextStyleUsingTheme(const std::unique_ptr<FontStyle>& fontStyle,
+ACE_FORCE_EXPORT TextStyle CreateTextStyleUsingTheme(const std::unique_ptr<FontStyle>& fontStyle,
     const std::unique_ptr<TextLineStyle>& textLineStyle, const RefPtr<TextTheme>& textTheme, bool isSymbol = false);
 
 void CreateTextStyleUsingTheme(const RefPtr<TextLayoutProperty>& property, const RefPtr<TextTheme>& textTheme,
     TextStyle& textStyle, bool isSymbol = false);
 
-void UseSelfStyle(const std::unique_ptr<FontStyle>& fontStyle, const std::unique_ptr<TextLineStyle>& textLineStyle,
-    TextStyle& textStyle, bool isSymbol = false);
+ACE_FORCE_EXPORT void UseSelfStyle(const std::unique_ptr<FontStyle>& fontStyle,
+    const std::unique_ptr<TextLineStyle>& textLineStyle, TextStyle& textStyle, bool isSymbol = false);
 
 void UseSelfStyleWithTheme(const RefPtr<TextLayoutProperty>& property, TextStyle& textStyle,
     const RefPtr<TextTheme>& textTheme, bool isSymbol = false);
+void UseSelfTextLineStyleWithTheme(const std::unique_ptr<TextLineStyle>& textLineStyle, TextStyle& textStyle,
+    const RefPtr<TextTheme>& textTheme);
 
-std::string GetFontFamilyInJson(const std::optional<std::vector<std::string>>& value);
-std::string GetFontStyleInJson(const std::optional<Ace::FontStyle>& value);
-std::string GetFontWeightInJson(const std::optional<FontWeight>& value);
+ACE_FORCE_EXPORT std::string GetFontFamilyInJson(const std::optional<std::vector<std::string>>& value);
+ACE_FORCE_EXPORT std::string GetFontStyleInJson(const std::optional<Ace::FontStyle>& value);
+ACE_FORCE_EXPORT std::string GetFontWeightInJson(const std::optional<FontWeight>& value);
 std::string GetFontSizeInJson(const std::optional<Dimension>& value);
 std::string GetSymbolRenderingStrategyInJson(const std::optional<uint32_t>& value);
 std::string GetSymbolEffectStrategyInJson(const std::optional<uint32_t>& value);
 std::string GetLineBreakStrategyInJson(const std::optional<Ace::LineBreakStrategy>& value);
 std::string GetSymbolEffectOptionsInJson(const std::optional<SymbolEffectOptions>& value);
+std::unique_ptr<JsonValue> GetSymbolShadowInJson(const std::optional<SymbolShadow>& value);
+std::unique_ptr<JsonValue> GetShaderStyleInJson(const std::optional<std::vector<SymbolGradient>>& value);
 } // namespace OHOS::Ace::NG
 
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_TEXT_TEXT_STYLES_H

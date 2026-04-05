@@ -21,9 +21,10 @@
 #define protected public
 
 #include "core/components_ng/manager/avoid_info/avoid_info_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -375,5 +376,92 @@ HWTEST_F(AvoidInfoManagerTestNg, UnregisterListenerIfNeeded001, TestSize.Level1)
     container->SetIsUIExtensionWindow(false);
     manager->UnregisterListenerIfNeeded();
     ASSERT_FALSE(manager->hasRegisterListener_);
+}
+
+/**
+ * @tc.name: GetContainerModalAvoidInfoForUEC001
+ * @tc.desc: Branch: if (context->GetContainerCustomTitleVisible() ||
+ *                       !context->GetContainerControlButtonVisible()) { => false
+ *                   if (!context->GetContainerModalButtonsRect(containerModal, buttonsRect)) { => false
+ *                   if (height <= 0) { => false
+ *                   if (!uecRect.IsIntersectWith(buttonsRect)) { => true
+ * @tc.type: FUNC
+ * @tc.author:
+ */
+HWTEST_F(AvoidInfoManagerTestNg, GetContainerModalAvoidInfoForUEC001, TestSize.Level1)
+{
+    auto container = MockContainer::Current();
+    ASSERT_NE(container, nullptr);
+    auto pipeline = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipeline, nullptr);
+    auto manager = GetAvoidInfoManager();
+    ASSERT_NE(manager, nullptr);
+    
+    bool preTitleVisible = pipeline->GetContainerCustomTitleVisible();
+    bool preBtnVisible = pipeline->GetContainerControlButtonVisible();
+    int32_t preHeight = pipeline->GetContainerModalTitleHeight();
+
+    pipeline->SetContainerCustomTitleVisible(false);
+    pipeline->SetContainerControlButtonVisible(true);
+    pipeline->SetContainerModalButtonsRect(true);
+    RectF btnRct{200.0f, 0.0f, 200.0f, 100.0f};
+    pipeline->SetContainerModalButtonsRect(btnRct);
+    pipeline->SetContainerModalTitleHeight(80);
+
+    auto uecNode = FrameNode::CreateFrameNode(V2::UI_EXTENSION_COMPONENT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(uecNode, nullptr);
+    auto geometryNode = uecNode->GetGeometryNode();
+    ASSERT_NE(geometryNode, nullptr);
+    geometryNode->SetFrameOffset(OffsetF(100.0f, 0.0f));
+    geometryNode->SetFrameSize(SizeF(200.0f, 200.0f));
+
+    auto renderContext = AceType::MakeRefPtr<MockRenderContext>();
+    ASSERT_NE(geometryNode, nullptr);
+    renderContext->UpdatePaintRect(RectF(100.0f, 120.0f, 200.0f, 200.0f));
+    uecNode->renderContext_ = renderContext;
+
+    ContainerModalAvoidInfo info;
+    info.needAvoid = true;
+    manager->GetContainerModalAvoidInfoForUEC(uecNode, info);
+    EXPECT_FALSE(info.needAvoid);
+
+    pipeline->SetContainerCustomTitleVisible(preTitleVisible);
+    pipeline->SetContainerControlButtonVisible(preBtnVisible);
+    pipeline->SetContainerModalTitleHeight(preHeight);
+}
+
+/**
+ * @tc.name: GetNewAvoidInfoForUEC001
+ * @tc.desc: Test basic logic of GetNewAvoidInfoForUEC
+ * @tc.type: FUNC
+ * @tc.author:
+ */
+HWTEST_F(AvoidInfoManagerTestNg, GetNewAvoidInfoForUEC001, TestSize.Level1)
+{
+    auto container = MockContainer::Current();
+    ASSERT_NE(container, nullptr);
+    auto manager = GetAvoidInfoManager();
+    ASSERT_NE(manager, nullptr);
+    manager->hasRegisterListener_ = true;
+
+    auto uecNode = FrameNode::CreateFrameNode(V2::UI_EXTENSION_COMPONENT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(uecNode, nullptr);
+    ContainerModalAvoidInfo info;
+    manager->GetNewAvoidInfoForUEC(uecNode, info);
+    EXPECT_FALSE(info.needAvoid);
+    
+    auto geometryNode = uecNode->GetGeometryNode();
+    ASSERT_NE(geometryNode, nullptr);
+    geometryNode->SetFrameSize(SizeF(50.0f, 50.0f));
+    manager->avoidInfoForUEC_.titleHeight = 1;
+    manager->GetNewAvoidInfoForUEC(uecNode, info);
+    EXPECT_TRUE(info.needAvoid);
+
+    info.needAvoid = false;
+    manager->avoidInfoForUEC_.controlBottonsRect.SetRect(100.0f, 100.0f, 100.0f, 100.0f);
+    manager->GetNewAvoidInfoForUEC(uecNode, info);
+    EXPECT_FALSE(info.needAvoid);
 }
 } // namespace OHOS::Ace::NG

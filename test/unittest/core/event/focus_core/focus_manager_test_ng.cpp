@@ -18,9 +18,9 @@
 #include "gtest/gtest.h"
 #define private public
 #include "base/log/dump_log.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/core/event/frame_node_on_tree.h"
 
 #include "core/components_ng/manager/focus/focus_manager.h"
@@ -388,7 +388,6 @@ HWTEST_F(FocusManagerTestNg, FocusManagerTest011, TestSize.Level1)
      * @tc.steps: step1. construct a FocusManager.
      */
     auto focusManager = AceType::MakeRefPtr<FocusManager>(nullptr);
-
     setFocusManagerViewStack(focusManager);
 
     std::unordered_map<int32_t, std::pair<WeakPtr<FocusView>, std::list<WeakPtr<FocusView>>>> focusViewMap;
@@ -563,7 +562,6 @@ HWTEST_F(FocusManagerTestNg, FocusManagerTest016, TestSize.Level1)
 
     std::unordered_map<int32_t, std::pair<WeakPtr<FocusView>, std::list<WeakPtr<FocusView>>>> focusViewMap;
     focusViewMap[1] = std::make_pair(pageFouceView, focusManager->focusViewStack_);
-
     focusManager->GetFocusViewMap(focusViewMap);
     EXPECT_FALSE(focusViewMap[1].second.empty());
 }

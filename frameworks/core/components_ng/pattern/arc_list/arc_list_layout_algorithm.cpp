@@ -38,7 +38,7 @@
 #include "core/components_ng/property/measure_utils.h"
 #include "core/components_ng/property/property.h"
 #include "core/components_v2/inspector/inspector_constants.h"
-#include "core/components_v2/list/list_properties.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
@@ -53,11 +53,12 @@ static constexpr double SCALE_FACTOR_B = -0.012414818053443355;
 static constexpr double SCALE_FACTOR_C = -0.0015925017083441295;
 static constexpr double SCALE_FACTOR_D = 3.0809306290456454E-06;
 static constexpr double SCALE_FACTOR_E = 100.0;
+static constexpr float OFFSET_THRESHOLD = 348.5f;
 } // namespace
 
 float ArcListLayoutAlgorithm::GetNearScale(float pos)
 {
-    float offset = fabs(pos);
+    float offset = fmin(fabs(pos), OFFSET_THRESHOLD);
     float ratio = static_cast<float>((SCALE_FACTOR_A +
                                     SCALE_FACTOR_B * offset +
                                     SCALE_FACTOR_C * pow(offset, 2) + // 2:平方
@@ -409,12 +410,16 @@ void ArcListLayoutAlgorithm::GenerateItemOffset(LayoutWrapper* layoutWrapper)
 
 float ArcListLayoutAlgorithm::CalculatePredictSnapEndPositionByIndex(int32_t index, float prevPredictEndPos)
 {
+    auto iter = itemPosition_.find(index);
+    if (iter == itemPosition_.end()) {
+        return prevPredictEndPos;
+    }
     float predictSnapEndPos = prevPredictEndPos;
     float predictPos = prevPredictEndPos + contentMainSize_ / FLOAT_TWO - totalOffset_;
-    float itemHeight = itemPosition_[index].endPos - itemPosition_[index].startPos;
+    float itemHeight = iter->second.endPos - iter->second.startPos;
     float snapSize = LessOrEqual(itemHeight, GetItemSnapSize()) ? itemHeight : GetItemSnapSize();
-    float snapLow = itemPosition_[index].startPos + snapSize / FLOAT_TWO;
-    float snapHigh = itemPosition_[index].endPos - snapSize / FLOAT_TWO;
+    float snapLow = iter->second.startPos + snapSize / FLOAT_TWO;
+    float snapHigh = iter->second.endPos - snapSize / FLOAT_TWO;
     predictPos = LessNotEqual(predictPos, snapLow) ? snapLow : predictPos;
     predictPos = LessNotEqual(snapHigh, predictPos) ? snapHigh : predictPos;
     predictSnapEndPos = totalOffset_ + predictPos - contentMainSize_ / FLOAT_TWO;
@@ -433,6 +438,7 @@ void ArcListLayoutAlgorithm::MeasureHeader(LayoutWrapper* layoutWrapper)
     }
 
     const auto& layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(layoutProperty);
     auto headerLayoutConstraint = layoutProperty->CreateChildConstraint();
     headerLayoutConstraint.maxSize.SetMainSize(Infinity<float>(), axis_);
 
@@ -460,7 +466,7 @@ void ArcListLayoutAlgorithm::LayoutHeader(LayoutWrapper* layoutWrapper, const Of
         float itemDispStartPos = info.startPos + info.offsetY - itemDeltaHeight / FLOAT_TWO;
         startHeaderPos_ = itemDispStartPos - headerMainSize_;
         if (CheckNeedUpdateHeaderOffset(layoutWrapper)) {
-            headerOffset_ = GreatNotEqual(startHeaderPos_, HEADER_DIST) ? startHeaderPos_ - HEADER_DIST : 0.0f;
+            headerOffset_ = CalculateHeaderOffset(layoutWrapper, info);
         }
         startHeaderPos_ -= headerOffset_;
         if (GreatNotEqual(startHeaderPos_, -TRANSPARENCY_DIST)) {
@@ -488,7 +494,6 @@ void ArcListLayoutAlgorithm::LayoutHeader(LayoutWrapper* layoutWrapper, const Of
     } else {
         SyncGeometry(wrapper);
     }
-    wrapper->MarkAndCheckNewOpIncNode(axis_);
     auto frameNode = AceType::DynamicCast<FrameNode>(wrapper);
     if (frameNode) {
         frameNode->MarkAndCheckNewOpIncNode(axis_);
@@ -496,6 +501,29 @@ void ArcListLayoutAlgorithm::LayoutHeader(LayoutWrapper* layoutWrapper, const Of
         if (renderContext) {
             renderContext->UpdateOpacity(transparency);
         }
+    }
+}
+
+float ArcListLayoutAlgorithm::CalculateHeaderOffset(LayoutWrapper* layoutWrapper, const ListItemInfo& info)
+{
+    auto firstItemWrapper = GetListItem(layoutWrapper, 0);
+    if (firstItemWrapper) {
+        // Calculate the start position of the first item in the middle of the ArcList.
+        auto listItemLayoutProperty =
+            AceType::DynamicCast<ArcListItemLayoutProperty>(firstItemWrapper->GetLayoutProperty());
+        auto autoScale = listItemLayoutProperty ? listItemLayoutProperty->GetAutoScale().value_or(true) : true;
+        auto scale = autoScale ? GetNearScale(0.0f) : 1.0f;
+        auto itemHeight = (info.endPos - info.startPos) * scale;
+        auto itemDispStartPosInCenter = (contentMainSize_ - itemHeight) / FLOAT_TWO;
+
+        // Calculate the start position of the header when the first item in the middle of the ArcList.
+        auto headerStartPosInTop = itemDispStartPosInCenter - headerMainSize_;
+        headerStartPosInTop =
+            GreatNotEqual(headerStartPosInTop, HEADER_DIST) ? HEADER_DIST : headerStartPosInTop;
+
+        return itemDispStartPosInCenter - (headerStartPosInTop + headerMainSize_);
+    } else {
+        return GreatNotEqual(startHeaderPos_, HEADER_DIST) ? startHeaderPos_ - HEADER_DIST : 0.0f;
     }
 }
 

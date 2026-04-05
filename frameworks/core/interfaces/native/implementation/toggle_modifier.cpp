@@ -13,18 +13,16 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/toggle/toggle_model_ng.h"
 #include "core/components_ng/pattern/toggle/toggle_model_static.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
-#include "core/interfaces/native/utility/converter2.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/utility/validators.h"
 
 namespace OHOS::Ace::NG {
 namespace {
-std::optional<bool> ProcessBindableIsOn(FrameNode* frameNode, const Opt_Union_Boolean_Bindable& value)
+std::optional<bool> ProcessBindableIsOn(FrameNode* frameNode, const Opt_Union_Boolean_Bindable_Boolean& value)
 {
     std::optional<bool> result;
     Converter::VisitUnion(value,
@@ -71,23 +69,7 @@ namespace ToggleModifier {
 Ark_NativePointer ConstructImpl(Ark_Int32 id,
                                 Ark_Int32 flags)
 {
-    auto frameNode = ToggleModelNG::CreateFrameNode(id, NG::ToggleType::SWITCH, false);
-    CHECK_NULL_RETURN(frameNode, nullptr);
-    frameNode->IncRefCount();
-    return AceType::RawPtr(frameNode);
-}
-
-Ark_NativePointer buttonConstruct(Ark_Int32 id, Ark_Int32 flags)
-{
-    auto frameNode = ToggleModelNG::CreateFrameNode(id, NG::ToggleType::BUTTON, false);
-    CHECK_NULL_RETURN(frameNode, nullptr);
-    frameNode->IncRefCount();
-    return AceType::RawPtr(frameNode);
-}
-
-Ark_NativePointer checkboxConstruct(Ark_Int32 id, Ark_Int32 flags)
-{
-    auto frameNode = ToggleModelNG::CreateFrameNode(id, NG::ToggleType::CHECKBOX, false);
+    auto frameNode = ToggleModelStatic::CreateFrameNode(id, NG::ToggleType::SWITCH);
     CHECK_NULL_RETURN(frameNode, nullptr);
     frameNode->IncRefCount();
     return AceType::RawPtr(frameNode);
@@ -104,13 +86,14 @@ void SetToggleOptionsImpl(Ark_NativePointer node,
     auto isOn = ProcessBindableIsOn(frameNode, options->isOn);
     if (isOn.has_value()) {
         ToggleModelNG::SetToggleState(frameNode, *isOn);
+    } else {
+        ToggleModelNG::SetToggleState(frameNode, false);
     }
-    LOGE("ToggleModifier::SetToggleOptionsImpl. Set ToggleType is not supported!");
 }
 } // ToggleInterfaceModifier
 namespace ToggleAttributeModifier {
 void SetOnChangeImpl(Ark_NativePointer node,
-                     const Opt_Callback_Boolean_Void* value)
+                     const Opt_synthetic_Callback_Boolean_Void* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);

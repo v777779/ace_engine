@@ -19,27 +19,24 @@
 #include <functional>
 #include <list>
 #include <string>
+#include <tuple>
 
-#include "base/log/ace_scoring_log.h"
 #include "base/memory/ace_type.h"
-#include "base/memory/referenced.h"
-#include "core/components_ng/base/view_partial_update_model.h"
-#include "core/components_ng/syntax/repeat_virtual_scroll_node.h"
-#include "frameworks/bridge/declarative_frontend/engine/js_ref_ptr.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_view_abstract.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_view_functions.h"
 
 namespace OHOS::Ace::Framework {
 
 class JSView : public JSViewAbstract, public virtual AceType {
-    DECLARE_ACE_TYPE(JSView, AceType)
+    DECLARE_ACE_TYPE(JSView, AceType);
 
 public:
     JSView() : instanceId_(Container::CurrentId()) {}
     ~JSView() override = default;
     virtual void Destroy(JSView* parentCustomView) = 0;
 
-    virtual RefPtr<AceType> CreateViewNode(bool isTitleNode = false, bool isCustomAppBar = false)
+    virtual RefPtr<AceType> CreateViewNode(bool isTitleNode = false, bool isCustomAppBar = false,
+        int64_t creatorId = -1)
     {
         LOGE("Internal error. Not implemented");
         return nullptr;
@@ -48,59 +45,14 @@ public:
     void SyncInstanceId();
     void RestoreInstanceId();
     void GetInstanceId(const JSCallbackInfo& info);
+    void GetMainInstanceId(const JSCallbackInfo& info);
 
-    void FireOnShow()
-    {
-        if (jsViewFunction_) {
-            ACE_SCORING_EVENT("OnShow");
-            jsViewFunction_->ExecuteShow();
-        }
-    }
-
-    void FireOnHide()
-    {
-        if (jsViewFunction_) {
-            ACE_SCORING_EVENT("OnHide");
-            jsViewFunction_->ExecuteHide();
-        }
-    }
-
-    bool FireOnBackPress()
-    {
-        if (jsViewFunction_) {
-            ACE_SCORING_EVENT("OnBackPress");
-            return jsViewFunction_->ExecuteOnBackPress();
-        }
-        return false;
-    }
-
-    std::string FireOnFormRecycle()
-    {
-        if (jsViewFunction_) {
-            ACE_SCORING_EVENT("OnFormRecycle");
-            return jsViewFunction_->ExecuteOnFormRecycle();
-        }
-        LOGE("jsViewFunction_ is null");
-        return "";
-    }
-
-    void FireOnFormRecover(const std::string &statusData)
-    {
-        if (jsViewFunction_) {
-            ACE_SCORING_EVENT("OnFormRecover");
-            return jsViewFunction_->ExecuteOnFormRecover(statusData);
-        }
-        LOGE("jsViewFunction_ is null");
-    }
-
-    void FireOnNewParam(const std::string &newParam)
-    {
-        if (jsViewFunction_) {
-            ACE_SCORING_EVENT("OnNewParam");
-            return jsViewFunction_->ExecuteOnNewParam(newParam);
-        }
-        TAG_LOGE(AceLogTag::ACE_ROUTER, "fire onNewParam failed, jsViewFunction_ is null!");
-    }
+    void FireOnShow();
+    void FireOnHide();
+    bool FireOnBackPress();
+    std::string FireOnFormRecycle();
+    void FireOnFormRecover(const std::string& statusData);
+    void FireOnNewParam(const std::string& newParam);
 
     virtual void RenderJSExecution();
 
@@ -169,6 +121,11 @@ public:
     {
         return instanceId_;
     }
+    
+    void SetInstanceId(int32_t id)
+    {
+        instanceId_ = id;
+    }
 
     RefPtr<AceType> GetViewNode() const
     {
@@ -178,6 +135,9 @@ public:
     virtual void OnDumpInfo(const std::vector<std::string>& params) {}
 
     static JSView* GetNativeView(JSRef<JSObject> obj);
+    void JsSetCreatorId(int64_t creatorId);
+    int64_t GetCreatorId() const;
+
 protected:
     RefPtr<ViewFunctions> jsViewFunction_;
     bool needsUpdate_ = false;
@@ -190,6 +150,7 @@ protected:
     // set on the root JSView of the card and inherited by all child JSViews
     // -1 means not part of a card
     int64_t cardId_ = -1;
+    int64_t creatorId_ = -1;
     std::function<void()> notifyRenderDone_;
 
 private:
@@ -204,7 +165,7 @@ private:
 };
 
 class JSViewFullUpdate : public JSView {
-    DECLARE_ACE_TYPE(JSViewFullUpdate, JSView)
+    DECLARE_ACE_TYPE(JSViewFullUpdate, JSView);
 
 public:
     JSViewFullUpdate(const std::string& viewId, JSRef<JSObject> jsObject, JSRef<JSFunc> jsRenderFunction);
@@ -215,7 +176,8 @@ public:
     // TODO: delete this after the toolchain for partial update is ready.
     RefPtr<AceType> InternalRender();
 
-    RefPtr<AceType> CreateViewNode(bool isTitleNode = false, bool isCustomAppBar = false) override;
+    RefPtr<AceType> CreateViewNode(bool isTitleNode = false, bool isCustomAppBar = false,
+        int64_t creatorId = -1) override;
 
     void MarkNeedUpdate() override;
 
@@ -311,7 +273,7 @@ private:
 };
 
 class JSViewPartialUpdate : public JSView {
-    DECLARE_ACE_TYPE(JSViewPartialUpdate, JSView)
+    DECLARE_ACE_TYPE(JSViewPartialUpdate, JSView);
 
 public:
     explicit JSViewPartialUpdate(JSRef<JSObject> jsObject);
@@ -337,7 +299,8 @@ public:
 
     void SetPrebuildPhase(PrebuildPhase prebuildPhase, int64_t deadline = 0) override;
 
-    RefPtr<AceType> CreateViewNode(bool isTitleNode = false, bool isCustomAppBar = false) override;
+    RefPtr<AceType> CreateViewNode(bool isTitleNode = false, bool isCustomAppBar = false,
+        int64_t creatorId = -1) override;
 
     static void Create(const JSCallbackInfo& info);
     static void CreateRecycle(const JSCallbackInfo& info);
@@ -451,8 +414,22 @@ public:
     void JSGetDialogController(const JSCallbackInfo& info);
 
     bool JSAllowReusableV2Descendant();
+
+    void JSRegisterUpdateInstanceForEnvFunc(const JSCallbackInfo& info);
+
+    void JSRegisterUpdateJSInstanceCallback(const JSCallbackInfo& info);
+
+    void RegisterOnInstanceIdUpdateCallback(const JSRef<JSFunc>& onInstanceIdUpdateFunc);
+
+    void SetLatestInstanceId(const int32_t instanceId);
+
+    JSRef<JSVal> GetJsContext();
+
+    int32_t GetLatestInstanceId() const;
 private:
     void MarkNeedUpdate() override;
+
+    void RegisterCombinedCallbackToBackend();
 
     // indicates if the JSView has ever completed initial render
     // used for code branching in lambda given to ComposedComponent
@@ -465,7 +442,7 @@ private:
     <1> outmost wrapping Component
     <2> main Component
     */
-    std::list<UpdateTask> pendingUpdateTasks_;
+    std::list<std::tuple<int32_t, RefPtr<AceType>, RefPtr<AceType>>> pendingUpdateTasks_;
 
     // The C++ JSView object owns a reference to the JS Object
     // AssignNewView assigns the JS View
@@ -487,6 +464,12 @@ private:
     bool executedAboutToRender_ = false;
     bool executedOnRenderDone_ = false;
     bool executedRender_ = false;
+
+    // Save two independent instance update callbacks
+    std::function<void(int32_t)> updateInstanceForEnvCallback_;
+    std::function<void(int32_t)> updateJSInstanceCallback_;
+
+    int32_t latestInstanceId_ = -1;
 };
 
 } // namespace OHOS::Ace::Framework

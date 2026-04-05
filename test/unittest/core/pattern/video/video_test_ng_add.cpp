@@ -26,10 +26,10 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_media_player.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_media_player.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 
 #include "base/geometry/ng/size_t.h"
 #include "base/json/json_util.h"
@@ -37,8 +37,8 @@
 #include "base/resource/internal_resource.h"
 #include "core/common/ai/image_analyzer_mgr.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components/video/video_theme.h"
-#include "core/components/video/video_utils.h"
+#include "core/components_ng/pattern/video/video_theme.h"
+#include "core/components_ng/pattern/video/video_utils.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/layout/layout_algorithm.h"
@@ -126,7 +126,7 @@ public:
     void TearDown() {}
 
 protected:
-    static RefPtr<FrameNode> CreateVideoNode(TestProperty& g_testProperty);
+    static RefPtr<FrameNode> CreateVideoNode(TestProperty& testProperty);
 };
 
 void VideoTestAddNg::SetUpTestSuite()
@@ -155,10 +155,10 @@ void VideoTestAddNg::SetUp()
     ViewStackProcessor::GetInstance()->ClearStack();
 }
 
-RefPtr<FrameNode> VideoTestAddNg::CreateVideoNode(TestProperty& g_testProperty)
+RefPtr<FrameNode> VideoTestAddNg::CreateVideoNode(TestProperty& testProperty)
 {
-    if (g_testProperty.videoController.has_value()) {
-        VideoModelNG().Create(g_testProperty.videoController.value());
+    if (testProperty.videoController.has_value()) {
+        VideoModelNG().Create(testProperty.videoController.value());
     } else {
         auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
         VideoModelNG().Create(videoController);
@@ -170,32 +170,32 @@ RefPtr<FrameNode> VideoTestAddNg::CreateVideoNode(TestProperty& g_testProperty)
     EXPECT_CALL(*(AceType::DynamicCast<MockMediaPlayer>(videoPattern->mediaPlayer_)), IsMediaPlayerValid())
         .WillRepeatedly(Return(true));
 
-    if (g_testProperty.src.has_value()) {
-        VideoModelNG().SetSrc(g_testProperty.src.value(), "", "");
+    if (testProperty.src.has_value()) {
+        VideoModelNG().SetSrc(testProperty.src.value(), "", "");
     }
-    if (g_testProperty.progressRate.has_value()) {
-        VideoModelNG().SetProgressRate(g_testProperty.progressRate.value());
+    if (testProperty.progressRate.has_value()) {
+        VideoModelNG().SetProgressRate(testProperty.progressRate.value());
     }
-    if (g_testProperty.posterUrl.has_value()) {
-        VideoModelNG().SetPosterSourceInfo(g_testProperty.posterUrl.value(), "", "");
+    if (testProperty.posterUrl.has_value()) {
+        VideoModelNG().SetPosterSourceInfo(testProperty.posterUrl.value(), "", "");
     }
-    if (g_testProperty.muted.has_value()) {
-        VideoModelNG().SetMuted(g_testProperty.muted.value());
+    if (testProperty.muted.has_value()) {
+        VideoModelNG().SetMuted(testProperty.muted.value());
     }
-    if (g_testProperty.autoPlay.has_value()) {
-        VideoModelNG().SetAutoPlay(g_testProperty.autoPlay.value());
+    if (testProperty.autoPlay.has_value()) {
+        VideoModelNG().SetAutoPlay(testProperty.autoPlay.value());
     }
-    if (g_testProperty.controls.has_value()) {
-        VideoModelNG().SetControls(g_testProperty.controls.value());
+    if (testProperty.controls.has_value()) {
+        VideoModelNG().SetControls(testProperty.controls.value());
     }
-    if (g_testProperty.loop.has_value()) {
-        VideoModelNG().SetLoop(g_testProperty.loop.value());
+    if (testProperty.loop.has_value()) {
+        VideoModelNG().SetLoop(testProperty.loop.value());
     }
-    if (g_testProperty.objectFit.has_value()) {
-        VideoModelNG().SetObjectFit(g_testProperty.objectFit.value());
+    if (testProperty.objectFit.has_value()) {
+        VideoModelNG().SetObjectFit(testProperty.objectFit.value());
     }
-    if (g_testProperty.showFirstFrame.has_value()) {
-        VideoModelNG().SetShowFirstFrame(g_testProperty.showFirstFrame.value());
+    if (testProperty.showFirstFrame.has_value()) {
+        VideoModelNG().SetShowFirstFrame(testProperty.showFirstFrame.value());
     }
 
     auto element = ViewStackProcessor::GetInstance()->GetMainFrameNode();
@@ -1432,496 +1432,341 @@ HWTEST_F(VideoTestAddNg, OnPlayerStatusTest015, TestSize.Level1)
 }
 
 /**
- * @tc.name: VideoPropertyTest016
- * @tc.desc: Create Vdeo, and set its properties.
+ * @tc.name: VideoPatternOnInjectionEvent001
+ * @tc.desc: Test OnInjectionEvent with valid play command
  * @tc.type: FUNC
  */
-HWTEST_F(VideoTestAddNg, OnPlayerStatusTest016, TestSize.Level1)
+HWTEST_F(VideoTestAddNg, OnInjectionEvent001, TestSize.Level1)
 {
-    auto themeManager16 = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager16);
-    EXPECT_CALL(*themeManager16, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<VideoTheme>()));
     /**
-     * @tc.steps: step1. Create Video
-     * @tc.expected: step1. Create Video successfully
-     */
-    auto frameNode = CreateVideoNode(g_testProperty);
-    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
-    auto pattern16 = frameNode->GetPattern<VideoPattern>();
-    
-    /**
-     * @tc.steps: step2. Prepare the childNode & videoEvent
-     */
-    auto controlBar = frameNode->GetChildAtIndex(2);
-    auto playBtn = AceType::DynamicCast<FrameNode>(controlBar->GetChildAtIndex(0));
-    auto playBtnGestureEventHub = playBtn->GetOrCreateGestureEventHub();
-
-    // set videoEvent
-    auto videoEventHub16 = frameNode->GetEventHub<VideoEventHub>();
-    ASSERT_TRUE(videoEventHub16);
-    std::string startCheck;
-    VideoEventCallback onStart = [&startCheck](const std::string& /* param */) { startCheck = VIDEO_START_EVENT; };
-    std::string pauseCheck;
-    VideoEventCallback onPause = [&pauseCheck](const std::string& /* param */) { pauseCheck = VIDEO_PAUSE_EVENT; };
-    std::string finishCheck;
-    VideoEventCallback onFinish = [&finishCheck](const std::string& /* param */) { finishCheck = VIDEO_FINISH_EVENT; };
-    std::string stopCheck;
-    VideoEventCallback onStop = [&stopCheck](const std::string& /* param */) { stopCheck = VIDEO_STOP_EVENT; };
-    videoEventHub16->SetOnStart(std::move(onStart));
-    videoEventHub16->SetOnPause(std::move(onPause));
-    videoEventHub16->SetOnFinish(std::move(onFinish));
-    videoEventHub16->SetOnStop(std::move(onStop));
-
-    /**
-     * @tc.steps: step3. Call OnPlayerStatus status == STARTED
-     * @tc.expected: step3. FireStartEvent has called and playBtn event will call pattern16->Pause()
-     */
-    pattern16->OnPlayerStatus(PlaybackStatus::STARTED);
-    EXPECT_EQ(startCheck, VIDEO_START_EVENT);
-    // will call pattern16->Pause()
-    EXPECT_TRUE(pattern16->isPlaying_);
-    pattern16->isPlaying_ = false;
-    auto flag = playBtnGestureEventHub->ActClick();
-    EXPECT_TRUE(flag);
-
-    /**
-     * @tc.steps: step4. Call OnPlayerStatus status == PREPARED
-     * @tc.expected: step4. FirePauseEvent & mediaPlayer->GetDuration() has called
-     */
-    // case1: MediaPlayer is invalid
-    pattern16->OnPlayerStatus(PlaybackStatus::PAUSED);
-    EXPECT_EQ(pauseCheck, VIDEO_PAUSE_EVENT);
-
-    // case1: MediaPlayer is valid
-    pauseCheck.clear();
-    pattern16->OnPlayerStatus(PlaybackStatus::PAUSED);
-    EXPECT_EQ(pauseCheck, VIDEO_PAUSE_EVENT);
-
-    /**
-     * @tc.steps: step5. Call OnPlayerStatus status == PLAYBACK_COMPLETE
-     * @tc.expected: step5. FireFinishEvent & OnUpdateTime(pos = CURRENT_POS) will be called
-     */
-    auto videoLayoutProperty = pattern16->GetLayoutProperty<VideoLayoutProperty>();
-    videoLayoutProperty->UpdateControls(false);
-    pattern16->OnPlayerStatus(PlaybackStatus::PLAYBACK_COMPLETE); // case2: controls = false
-    EXPECT_EQ(finishCheck, VIDEO_FINISH_EVENT);
-    pattern16->OnPlayerStatus(PlaybackStatus::ERROR);
-    pattern16->OnPlayerStatus(PlaybackStatus::IDLE);
-    pattern16->OnPlayerStatus(PlaybackStatus::PREPARED);
-    pattern16->OnPlayerStatus(PlaybackStatus::PAUSED);
-    pattern16->OnPlayerStatus(PlaybackStatus::STOPPED);
-    EXPECT_EQ(stopCheck, VIDEO_STOP_EVENT);
-    pattern16->OnPlayerStatus(PlaybackStatus::NONE);
-}
-
-/**
- * @tc.name: VideoPropertyTest017
- * @tc.desc: Create Vdeo, and set its properties.
- * @tc.type: FUNC
- */
-HWTEST_F(VideoTestAddNg, OnPlayerStatusTest017, TestSize.Level1)
-{
-    auto themeManager17 = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager17);
-    EXPECT_CALL(*themeManager17, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<VideoTheme>()));
-    /**
-     * @tc.steps: step1. Create Video
-     * @tc.expected: step1. Create Video successfully
-     */
-    auto frameNode = CreateVideoNode(g_testProperty);
-    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
-    auto pattern17 = frameNode->GetPattern<VideoPattern>();
-
-    /**
-     * @tc.steps: step2. Prepare the childNode & videoEvent
-     */
-    auto controlBar = frameNode->GetChildAtIndex(2);
-    auto playBtn = AceType::DynamicCast<FrameNode>(controlBar->GetChildAtIndex(0));
-    auto playBtnGestureEventHub = playBtn->GetOrCreateGestureEventHub();
-    ASSERT_TRUE(playBtnGestureEventHub);
-
-    // set videoEvent
-    auto videoEventHub17 = frameNode->GetEventHub<VideoEventHub>();
-    ASSERT_TRUE(videoEventHub17);
-    std::string startCheck;
-    VideoEventCallback onStart = [&startCheck](const std::string& /* param */) { startCheck = VIDEO_START_EVENT; };
-    std::string pauseCheck;
-    VideoEventCallback onPause = [&pauseCheck](const std::string& /* param */) { pauseCheck = VIDEO_PAUSE_EVENT; };
-    std::string finishCheck;
-    VideoEventCallback onFinish = [&finishCheck](const std::string& /* param */) { finishCheck = VIDEO_FINISH_EVENT; };
-    std::string stopCheck;
-    VideoEventCallback onStop = [&stopCheck](const std::string& /* param */) { stopCheck = VIDEO_STOP_EVENT; };
-    videoEventHub17->SetOnStart(std::move(onStart));
-    videoEventHub17->SetOnPause(std::move(onPause));
-    videoEventHub17->SetOnFinish(std::move(onFinish));
-    videoEventHub17->SetOnStop(std::move(onStop));
-
-    /**
-     * @tc.steps: step3. Call OnPlayerStatus status == STARTED
-     * @tc.expected: step3. FireStartEvent has called and playBtn event will call pattern17->Pause()
-     */
-    pattern17->OnPlayerStatus(PlaybackStatus::STARTED);
-    EXPECT_EQ(startCheck, VIDEO_START_EVENT);
-    // will call pattern17->Pause()
-    EXPECT_TRUE(pattern17->isPlaying_);
-    // case1: MediaPlayer is valid & isPlaying = true
-    EXPECT_CALL(*(AceType::DynamicCast<MockMediaPlayer>(pattern17->mediaPlayer_)),
-                  Pause()).Times(1).WillOnce(Return(0));
-    auto flag = playBtnGestureEventHub->ActClick();
-    EXPECT_TRUE(flag);
-
-    /**
-     * @tc.steps: step4. Call OnPlayerStatus status == PREPARED
-     * @tc.expected: step4. FirePauseEvent & mediaPlayer->GetDuration() has called
-     */
-    // case1: MediaPlayer is invalid
-    pattern17->OnPlayerStatus(PlaybackStatus::PAUSED);
-    EXPECT_EQ(pauseCheck, VIDEO_PAUSE_EVENT);
-
-    /**
-     * @tc.steps: step5. Call OnPlayerStatus status == PLAYBACK_COMPLETE
-     * @tc.expected: step5. FireFinishEvent & OnUpdateTime(pos = CURRENT_POS) will be called
-     */
-    pattern17->OnPlayerStatus(PlaybackStatus::PLAYBACK_COMPLETE); // case1: controls = true
-    EXPECT_EQ(finishCheck, VIDEO_FINISH_EVENT);
-    auto videoLayoutProperty = pattern17->GetLayoutProperty<VideoLayoutProperty>();
-    videoLayoutProperty->UpdateControls(false);
-    pattern17->OnPlayerStatus(PlaybackStatus::PLAYBACK_COMPLETE); // case2: controls = false
-    EXPECT_EQ(finishCheck, VIDEO_FINISH_EVENT);
-    pattern17->OnPlayerStatus(PlaybackStatus::ERROR);
-    pattern17->OnPlayerStatus(PlaybackStatus::IDLE);
-    pattern17->OnPlayerStatus(PlaybackStatus::PREPARED);
-    pattern17->OnPlayerStatus(PlaybackStatus::PAUSED);
-    pattern17->OnPlayerStatus(PlaybackStatus::STOPPED);
-    EXPECT_EQ(stopCheck, VIDEO_STOP_EVENT);
-    pattern17->OnPlayerStatus(PlaybackStatus::NONE);
-}
-
-/**
- * @tc.name: VideoPropertyTest018
- * @tc.desc: Create Vdeo, and set its properties.
- * @tc.type: FUNC
- */
-HWTEST_F(VideoTestAddNg, OnPlayerStatusTest018, TestSize.Level1)
-{
-    auto themeManager18 = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager18);
-    EXPECT_CALL(*themeManager18, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<VideoTheme>()));
-    /**
-     * @tc.steps: step1. Create Video
-     * @tc.expected: step1. Create Video successfully
+     * @tc.steps: step1. Create Video node
      */
     auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
-    auto pattern18 = frameNode->GetPattern<VideoPattern>();
-    ASSERT_TRUE(pattern18);
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
 
     /**
-     * @tc.steps: step2. Prepare the childNode & videoEvent
+     * @tc.steps: step2. Send play command
      */
-    auto controlBar = frameNode->GetChildAtIndex(2);
-    ASSERT_TRUE(controlBar);
-
-    auto playBtn = AceType::DynamicCast<FrameNode>(controlBar->GetChildAtIndex(0));
-    ASSERT_TRUE(playBtn);
-    auto playBtnGestureEventHub = playBtn->GetOrCreateGestureEventHub();
-    ASSERT_TRUE(playBtnGestureEventHub);
-
-    // set videoEvent
-    auto videoEventHub18 = frameNode->GetEventHub<VideoEventHub>();
-    ASSERT_TRUE(videoEventHub18);
-    std::string startCheck;
-    VideoEventCallback onStart = [&startCheck](const std::string& /* param */) { startCheck = VIDEO_START_EVENT; };
-    std::string pauseCheck;
-    VideoEventCallback onPause = [&pauseCheck](const std::string& /* param */) { pauseCheck = VIDEO_PAUSE_EVENT; };
-    std::string finishCheck;
-    VideoEventCallback onFinish = [&finishCheck](const std::string& /* param */) { finishCheck = VIDEO_FINISH_EVENT; };
-    std::string stopCheck;
-    VideoEventCallback onStop = [&stopCheck](const std::string& /* param */) { stopCheck = VIDEO_STOP_EVENT; };
-    videoEventHub18->SetOnStart(std::move(onStart));
-    videoEventHub18->SetOnPause(std::move(onPause));
-    videoEventHub18->SetOnFinish(std::move(onFinish));
-    videoEventHub18->SetOnStop(std::move(onStop));
+    std::string playCommand = R"({"cmd":"setVideoPlayerStatus","value":"play"})";
+    int32_t result = pattern->OnInjectionEvent(playCommand);
 
     /**
-     * @tc.steps: step3. Call OnPlayerStatus status == STARTED
-     * @tc.expected: step3. FireStartEvent has called and playBtn event will call pattern18->Pause()
+     * @tc.expected: step2. Return success and verify playback status
      */
-    pattern18->OnPlayerStatus(PlaybackStatus::STARTED);
-    EXPECT_EQ(startCheck, VIDEO_START_EVENT);
-    // will call pattern18->Pause()
-    EXPECT_TRUE(pattern18->isPlaying_);
-    // case1: MediaPlayer is valid & isPlaying = true
-    EXPECT_CALL(*(AceType::DynamicCast<MockMediaPlayer>(pattern18->mediaPlayer_)),
-                  Pause()).Times(1).WillOnce(Return(0));
-    auto flag = playBtnGestureEventHub->ActClick();
-    EXPECT_TRUE(flag);
-
-    /**
-     * @tc.steps: step4. Call OnPlayerStatus status == PREPARED
-     * @tc.expected: step4. FirePauseEvent & mediaPlayer->GetDuration() has called
-     */
-    // case1: MediaPlayer is invalid
-    pattern18->OnPlayerStatus(PlaybackStatus::PAUSED);
-    EXPECT_EQ(pauseCheck, VIDEO_PAUSE_EVENT);
-
-    /**
-     * @tc.steps: step5. Call OnPlayerStatus status == PLAYBACK_COMPLETE
-     * @tc.expected: step5. FireFinishEvent & OnUpdateTime(pos = CURRENT_POS) will be called
-     */
-    auto videoLayoutProperty = pattern18->GetLayoutProperty<VideoLayoutProperty>();
-    videoLayoutProperty->UpdateControls(false);
-    pattern18->OnPlayerStatus(PlaybackStatus::PLAYBACK_COMPLETE); // case2: controls = false
-    EXPECT_EQ(finishCheck, VIDEO_FINISH_EVENT);
-    pattern18->OnPlayerStatus(PlaybackStatus::ERROR);
-    pattern18->OnPlayerStatus(PlaybackStatus::IDLE);
-    pattern18->OnPlayerStatus(PlaybackStatus::PREPARED);
-    pattern18->OnPlayerStatus(PlaybackStatus::PAUSED);
-    pattern18->OnPlayerStatus(PlaybackStatus::STOPPED);
-    EXPECT_EQ(stopCheck, VIDEO_STOP_EVENT);
-    pattern18->OnPlayerStatus(PlaybackStatus::NONE);
+    EXPECT_EQ(result, RET_SUCCESS);
+    EXPECT_EQ(pattern->currentInjectedStatusCmd_, "play");
 }
 
 /**
- * @tc.name: VideoPropertyTest019
- * @tc.desc: Create Vdeo, and set its properties.
+ * @tc.name: VideoPatternOnInjectionEvent002
+ * @tc.desc: Test OnInjectionEvent with valid speed command
  * @tc.type: FUNC
  */
-HWTEST_F(VideoTestAddNg, OnPlayerStatusTest019, TestSize.Level1)
+HWTEST_F(VideoTestAddNg, OnInjectionEvent002, TestSize.Level1)
 {
-    auto themeManager19 = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager19);
-    EXPECT_CALL(*themeManager19, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<VideoTheme>()));
     /**
-     * @tc.steps: step1. Create Video
-     * @tc.expected: step1. Create Video successfully
+     * @tc.steps: step1. Create Video node
      */
     auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
-    auto pattern19 = frameNode->GetPattern<VideoPattern>();
-    ASSERT_TRUE(pattern19);
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
 
     /**
-     * @tc.steps: step2. Prepare the childNode & videoEvent
+     * @tc.steps: step2. Send speed command with valid value
      */
-    auto controlBar = frameNode->GetChildAtIndex(2);
-    ASSERT_TRUE(controlBar);
-
-    auto playBtn = AceType::DynamicCast<FrameNode>(controlBar->GetChildAtIndex(0));
-    ASSERT_TRUE(playBtn);
-    auto playBtnGestureEventHub = playBtn->GetOrCreateGestureEventHub();
-    ASSERT_TRUE(playBtnGestureEventHub);
-
-    // set videoEvent
-    auto videoEventHub19 = frameNode->GetEventHub<VideoEventHub>();
-    ASSERT_TRUE(videoEventHub19);
-    std::string startCheck;
-    VideoEventCallback onStart = [&startCheck](const std::string& /* param */) { startCheck = VIDEO_START_EVENT; };
-    std::string pauseCheck;
-    VideoEventCallback onPause = [&pauseCheck](const std::string& /* param */) { pauseCheck = VIDEO_PAUSE_EVENT; };
-    std::string finishCheck;
-    VideoEventCallback onFinish = [&finishCheck](const std::string& /* param */) { finishCheck = VIDEO_FINISH_EVENT; };
-    std::string stopCheck;
-    VideoEventCallback onStop = [&stopCheck](const std::string& /* param */) { stopCheck = VIDEO_STOP_EVENT; };
-    videoEventHub19->SetOnStart(std::move(onStart));
-    videoEventHub19->SetOnPause(std::move(onPause));
-    videoEventHub19->SetOnFinish(std::move(onFinish));
-    videoEventHub19->SetOnStop(std::move(onStop));
+    std::string speedCommand = R"({"cmd":"setVideoPlaybackSpeed","value":2.0})";
+    int32_t result = pattern->OnInjectionEvent(speedCommand);
 
     /**
-     * @tc.steps: step3. Call OnPlayerStatus status == STARTED
-     * @tc.expected: step3. FireStartEvent has called and playBtn event will call pattern19->Pause()
+     * @tc.expected: step2. Return success and verify speed
      */
-    pattern19->OnPlayerStatus(PlaybackStatus::STARTED);
-    EXPECT_EQ(startCheck, VIDEO_START_EVENT);
-    // will call pattern19->Pause()
-    EXPECT_TRUE(pattern19->isPlaying_);
-    // case1: MediaPlayer is valid & isPlaying = true
-    EXPECT_CALL(*(AceType::DynamicCast<MockMediaPlayer>(pattern19->mediaPlayer_)),
-                  Pause()).Times(1).WillOnce(Return(0));
-    auto flag = playBtnGestureEventHub->ActClick();
-    EXPECT_TRUE(flag);
-
-    /**
-     * @tc.steps: step4. Call OnPlayerStatus status == PREPARED
-     * @tc.expected: step4. FirePauseEvent & mediaPlayer->GetDuration() has called
-     */
-    // case1: MediaPlayer is valid
-    pauseCheck.clear();
-    pattern19->OnPlayerStatus(PlaybackStatus::PAUSED);
-    EXPECT_EQ(pauseCheck, VIDEO_PAUSE_EVENT);
-
-    /**
-     * @tc.steps: step5. Call OnPlayerStatus status == PLAYBACK_COMPLETE
-     * @tc.expected: step5. FireFinishEvent & OnUpdateTime(pos = CURRENT_POS) will be called
-     */
-    pattern19->OnPlayerStatus(PlaybackStatus::PLAYBACK_COMPLETE); // case1: controls = true
-    EXPECT_EQ(finishCheck, VIDEO_FINISH_EVENT);
-    auto videoLayoutProperty = pattern19->GetLayoutProperty<VideoLayoutProperty>();
-    videoLayoutProperty->UpdateControls(false);
+    EXPECT_EQ(result, RET_SUCCESS);
+    EXPECT_DOUBLE_EQ(pattern->GetProgressRate(), 2.0);
 }
 
 /**
- * @tc.name: VideoPropertyTest020
- * @tc.desc: Create Vdeo, and set its properties.
+ * @tc.name: VideoPatternOnInjectionEvent003
+ * @tc.desc: Test OnInjectionEvent with invalid JSON
  * @tc.type: FUNC
  */
-HWTEST_F(VideoTestAddNg, OnPlayerStatusTest020, TestSize.Level1)
+HWTEST_F(VideoTestAddNg, OnInjectionEvent003, TestSize.Level1)
 {
-auto themeManager20 = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager20);
-    EXPECT_CALL(*themeManager20, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<VideoTheme>()));
     /**
-     * @tc.steps: step1. Create Video
-     * @tc.expected: step1. Create Video successfully
+     * @tc.steps: step1. Create Video node
      */
     auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
-    auto pattern20 = frameNode->GetPattern<VideoPattern>();
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
 
     /**
-     * @tc.steps: step2. Prepare the childNode & videoEvent
+     * @tc.steps: step2. Send invalid JSON
      */
-    auto controlBar = frameNode->GetChildAtIndex(2);
-    auto playBtn = AceType::DynamicCast<FrameNode>(controlBar->GetChildAtIndex(0));
-    auto playBtnGestureEventHub = playBtn->GetOrCreateGestureEventHub();
-
-    // set videoEvent
-    auto videoEventHub20 = frameNode->GetEventHub<VideoEventHub>();
-    ASSERT_TRUE(videoEventHub20);
-    std::string startCheck;
-    VideoEventCallback onStart = [&startCheck](const std::string& /* param */) { startCheck = VIDEO_START_EVENT; };
-    std::string pauseCheck;
-    VideoEventCallback onPause = [&pauseCheck](const std::string& /* param */) { pauseCheck = VIDEO_PAUSE_EVENT; };
-    std::string finishCheck;
-    VideoEventCallback onFinish = [&finishCheck](const std::string& /* param */) { finishCheck = VIDEO_FINISH_EVENT; };
-    std::string stopCheck;
-    VideoEventCallback onStop = [&stopCheck](const std::string& /* param */) { stopCheck = VIDEO_STOP_EVENT; };
-    videoEventHub20->SetOnStart(std::move(onStart));
-    videoEventHub20->SetOnPause(std::move(onPause));
-    videoEventHub20->SetOnFinish(std::move(onFinish));
-    videoEventHub20->SetOnStop(std::move(onStop));
+    std::string invalidJson = R"({"cmd":"setVideoPlayerStatus","value":)";
+    int32_t result = pattern->OnInjectionEvent(invalidJson);
 
     /**
-     * @tc.steps: step3. Call OnPlayerStatus status == STARTED
-     * @tc.expected: step3. FireStartEvent has called and playBtn event will call pattern20->Pause()
+     * @tc.expected: step2. Return failure
      */
-    pattern20->OnPlayerStatus(PlaybackStatus::STARTED);
-    EXPECT_EQ(startCheck, VIDEO_START_EVENT);
-    // will call pattern20->Pause()
-    EXPECT_TRUE(pattern20->isPlaying_);
-    // case1: MediaPlayer is valid & isPlaying = true
-    EXPECT_CALL(*(AceType::DynamicCast<MockMediaPlayer>(pattern20->mediaPlayer_)),
-                  Pause()).Times(1).WillOnce(Return(0));
-    auto flag = playBtnGestureEventHub->ActClick();
-    EXPECT_TRUE(flag);
-
-    /**
-     * @tc.steps: step4. Call OnPlayerStatus status == PREPARED
-     * @tc.expected: step4. FirePauseEvent & mediaPlayer->GetDuration() has called
-     */
-    // case1: MediaPlayer is valid
-    pauseCheck.clear();
-    pattern20->OnPlayerStatus(PlaybackStatus::PAUSED);
-    EXPECT_EQ(pauseCheck, VIDEO_PAUSE_EVENT);
-
-    /**
-     * @tc.steps: step5. Call OnPlayerStatus status == PLAYBACK_COMPLETE
-     * @tc.expected: step5. FireFinishEvent & OnUpdateTime(pos = CURRENT_POS) will be called
-     */
-    auto videoLayoutProperty = pattern20->GetLayoutProperty<VideoLayoutProperty>();
-    videoLayoutProperty->UpdateControls(false);
-    pattern20->OnPlayerStatus(PlaybackStatus::PLAYBACK_COMPLETE); // case2: controls = false
-    EXPECT_EQ(finishCheck, VIDEO_FINISH_EVENT);
-    pattern20->OnPlayerStatus(PlaybackStatus::ERROR);
-    pattern20->OnPlayerStatus(PlaybackStatus::IDLE);
-    pattern20->OnPlayerStatus(PlaybackStatus::PREPARED);
-    pattern20->OnPlayerStatus(PlaybackStatus::PAUSED);
-    pattern20->OnPlayerStatus(PlaybackStatus::STOPPED);
-    EXPECT_EQ(stopCheck, VIDEO_STOP_EVENT);
-    pattern20->OnPlayerStatus(PlaybackStatus::NONE);
+    EXPECT_EQ(result, RET_FAILED);
 }
 
 /**
- * @tc.name: VideoPropertyTest021
- * @tc.desc: Create Vdeo, and set its properties.
+ * @tc.name: VideoPatternOnInjectionEvent004
+ * @tc.desc: Test OnInjectionEvent with unsupported cmd type
  * @tc.type: FUNC
  */
-HWTEST_F(VideoTestAddNg, OnPlayerStatusTest021, TestSize.Level1)
+HWTEST_F(VideoTestAddNg, OnInjectionEvent004, TestSize.Level1)
 {
-    auto themeManager21 = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager21);
-    EXPECT_CALL(*themeManager21, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<VideoTheme>()));
     /**
-     * @tc.steps: step1. Create Video
-     * @tc.expected: step1. Create Video successfully
+     * @tc.steps: step1. Create Video node
      */
     auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
-    auto pattern21 = frameNode->GetPattern<VideoPattern>();
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
 
     /**
-     * @tc.steps: step2. Prepare the childNode & videoEvent
+     * @tc.steps: step2. Send unsupported cmd
      */
-    auto controlBar = frameNode->GetChildAtIndex(2);
-    auto playBtn = AceType::DynamicCast<FrameNode>(controlBar->GetChildAtIndex(0));
-    auto playBtnGestureEventHub = playBtn->GetOrCreateGestureEventHub();
-
-    // set videoEvent
-    auto videoEventHub21 = frameNode->GetEventHub<VideoEventHub>();
-    std::string startCheck;
-    VideoEventCallback onStart = [&startCheck](const std::string& /* param */) { startCheck = VIDEO_START_EVENT; };
-    std::string pauseCheck;
-    VideoEventCallback onPause = [&pauseCheck](const std::string& /* param */) { pauseCheck = VIDEO_PAUSE_EVENT; };
-    std::string finishCheck;
-    VideoEventCallback onFinish = [&finishCheck](const std::string& /* param */) { finishCheck = VIDEO_FINISH_EVENT; };
-    std::string stopCheck;
-    VideoEventCallback onStop = [&stopCheck](const std::string& /* param */) { stopCheck = VIDEO_STOP_EVENT; };
-    videoEventHub21->SetOnStart(std::move(onStart));
-    videoEventHub21->SetOnPause(std::move(onPause));
-    videoEventHub21->SetOnFinish(std::move(onFinish));
-    videoEventHub21->SetOnStop(std::move(onStop));
+    std::string unsupportedCmd = R"({"cmd":"unsupportedCommand","value":"play"})";
+    int32_t result = pattern->OnInjectionEvent(unsupportedCmd);
 
     /**
-     * @tc.steps: step3. Call OnPlayerStatus status == STARTED
-     * @tc.expected: step3. FireStartEvent has called and playBtn event will call pattern21->Pause()
+     * @tc.expected: step2. Return failure
      */
-    pattern21->OnPlayerStatus(PlaybackStatus::STARTED);
-    EXPECT_EQ(startCheck, VIDEO_START_EVENT);
-    // will call pattern21->Pause()
-    EXPECT_TRUE(pattern21->isPlaying_);
-    // case1: MediaPlayer is invalid
-    auto flag = playBtnGestureEventHub->ActClick();
-    EXPECT_TRUE(flag);
-    // case2: MediaPlayer is valid & isPlaying = true
-    EXPECT_CALL(*(AceType::DynamicCast<MockMediaPlayer>(pattern21->mediaPlayer_)),
-                  Pause()).Times(2).WillOnce(Return(0));
-    flag = playBtnGestureEventHub->ActClick();
-    EXPECT_TRUE(flag);
-    // case3: MediaPlayer is valid & isPlaying = false
-    pattern21->isPlaying_ = false;
-    flag = playBtnGestureEventHub->ActClick();
-    EXPECT_TRUE(flag);
-    pattern21->OnPlayerStatus(PlaybackStatus::PAUSED);
-    EXPECT_EQ(pauseCheck, VIDEO_PAUSE_EVENT);
+    EXPECT_EQ(result, RET_FAILED);
+}
+
+/**
+ * @tc.name: VideoPatternOnInjectionEvent005
+ * @tc.desc: Test OnInjectionEvent with missing value field
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestAddNg, OnInjectionEvent005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     */
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
 
     /**
-     * @tc.steps: step5. Call OnPlayerStatus status == PLAYBACK_COMPLETE
-     * @tc.expected: step5. FireFinishEvent & OnUpdateTime(pos = CURRENT_POS) will be called
+     * @tc.steps: step2. Send command without value field
      */
-    pattern21->OnPlayerStatus(PlaybackStatus::PLAYBACK_COMPLETE); // case1: controls = true
-    EXPECT_EQ(finishCheck, VIDEO_FINISH_EVENT);
-    auto videoLayoutProperty = pattern21->GetLayoutProperty<VideoLayoutProperty>();
-    videoLayoutProperty->UpdateControls(false);
-    pattern21->OnPlayerStatus(PlaybackStatus::PLAYBACK_COMPLETE); // case2: controls = false
-    EXPECT_EQ(finishCheck, VIDEO_FINISH_EVENT);
-    pattern21->OnPlayerStatus(PlaybackStatus::ERROR);
-    pattern21->OnPlayerStatus(PlaybackStatus::IDLE);
-    pattern21->OnPlayerStatus(PlaybackStatus::PREPARED);
-    pattern21->OnPlayerStatus(PlaybackStatus::PAUSED);
-    pattern21->OnPlayerStatus(PlaybackStatus::STOPPED);
-    EXPECT_EQ(stopCheck, VIDEO_STOP_EVENT);
+    std::string missingValue = R"({"cmd":"setVideoPlayerStatus"})";
+    int32_t result = pattern->OnInjectionEvent(missingValue);
+
+    /**
+     * @tc.expected: step2. Return failure
+     */
+    EXPECT_EQ(result, RET_FAILED);
+}
+
+/**
+ * @tc.name: VideoPatternOnInjectionEvent006
+ * @tc.desc: Test OnInjectionEvent with invalid status value
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestAddNg, OnInjectionEvent006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     */
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. Send invalid status value
+     */
+    std::string invalidStatus = R"({"cmd":"setVideoPlayerStatus","value":"invalid"})";
+    int32_t result = pattern->OnInjectionEvent(invalidStatus);
+
+    /**
+     * @tc.expected: step2. Return failure
+     */
+    EXPECT_EQ(result, RET_FAILED);
+}
+
+/**
+ * @tc.name: VideoPatternOnInjectionEvent007
+ * @tc.desc: Test OnInjectionEvent with numeric value for status command
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestAddNg, OnInjectionEvent007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     */
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. Send status command with numeric value
+     */
+    std::string numericStatus = R"({"cmd":"setVideoPlayerStatus","value":123})";
+    int32_t result = pattern->OnInjectionEvent(numericStatus);
+
+    /**
+     * @tc.expected: step2. Return failure
+     */
+    EXPECT_EQ(result, RET_FAILED);
+}
+
+/**
+ * @tc.name: VideoPatternOnInjectionEvent008
+ * @tc.desc: Test OnInjectionEvent with string value for speed command
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestAddNg, OnInjectionEvent008, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     */
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. Send speed command with string value
+     */
+    std::string stringSpeed = R"({"cmd":"setVideoPlaybackSpeed","value":"fast"})";
+    int32_t result = pattern->OnInjectionEvent(stringSpeed);
+
+    /**
+     * @tc.expected: step2. Return failure
+     */
+    EXPECT_EQ(result, RET_FAILED);
+}
+
+/**
+ * @tc.name: VideoPatternOnInjectionEvent009
+ * @tc.desc: Test OnInjectionEvent with invalid speed value
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestAddNg, OnInjectionEvent009, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     */
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. Send speed command with invalid value (negative)
+     */
+    std::string invalidSpeed = R"({"cmd":"setVideoPlaybackSpeed","value":-1.0})";
+    int32_t result = pattern->OnInjectionEvent(invalidSpeed);
+
+    /**
+     * @tc.expected: step2. Return failure
+     */
+    EXPECT_EQ(result, RET_FAILED);
+}
+
+/**
+ * @tc.name: VideoPatternOnInjectionEvent010
+ * @tc.desc: Test OnInjectionEvent multiple commands sequentially
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestAddNg, OnInjectionEvent010, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     */
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. Send play command
+     */
+    std::string playCommand = R"({"cmd":"setVideoPlayerStatus","value":"play"})";
+    int32_t result = pattern->OnInjectionEvent(playCommand);
+    EXPECT_EQ(result, RET_SUCCESS);
+
+    /**
+     * @tc.steps: step3. Send pause command
+     */
+    std::string pauseCommand = R"({"cmd":"setVideoPlayerStatus","value":"paused"})";
+    result = pattern->OnInjectionEvent(pauseCommand);
+    EXPECT_EQ(result, RET_SUCCESS);
+
+    /**
+     * @tc.steps: step4. Send speed command
+     */
+    std::string speedCommand = R"({"cmd":"setVideoPlaybackSpeed","value":1.5})";
+    result = pattern->OnInjectionEvent(speedCommand);
+    EXPECT_EQ(result, RET_SUCCESS);
+}
+
+/**
+ * @tc.name: VideoPatternOnInjectionEvent011
+ * @tc.desc: Test OnInjectionEvent with valid pause command
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestAddNg, OnInjectionEvent011, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     */
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. Setup mock media player and expect Pause to be called once
+     */
+    auto mockPlayer = AceType::DynamicCast<MockMediaPlayer>(pattern->mediaPlayer_);
+    ASSERT_TRUE(mockPlayer);
+    EXPECT_CALL(*mockPlayer, Pause()).WillOnce(Return(0));
+
+    /**
+     * @tc.steps: step3. Send pause command
+     */
+    std::string pauseCommand = R"({"cmd":"setVideoPlayerStatus","value":"paused"})";
+    int32_t result = pattern->OnInjectionEvent(pauseCommand);
+
+    /**
+     * @tc.steps: step4. Verify result
+     * @tc.expected: Return success and Pause() called exactly once
+     */
+    EXPECT_EQ(result, RET_SUCCESS);
 }
 } // namespace OHOS::Ace::NG

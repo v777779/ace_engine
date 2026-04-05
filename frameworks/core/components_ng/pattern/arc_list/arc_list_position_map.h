@@ -16,13 +16,14 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_ARC_LIST_ARC_LIST_POSITION_MAP_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_ARC_LIST_ARC_LIST_POSITION_MAP_H
 
+#include "core/components_ng/layout/layout_wrapper.h"
 #include "core/components_ng/pattern/arc_list/arc_list_layout_algorithm.h"
 #include "core/components_ng/pattern/list/list_position_map.h"
 
 namespace OHOS::Ace::NG {
 
 class ArcListPositionMap : public ListPositionMap {
-    DECLARE_ACE_TYPE(ArcListPositionMap, ListPositionMap)
+    DECLARE_ACE_TYPE(ArcListPositionMap, ListPositionMap);
 public:
     explicit ArcListPositionMap(int32_t itemStartIndex) : itemStartIndex_(itemStartIndex) {}
     ~ArcListPositionMap() override = default;

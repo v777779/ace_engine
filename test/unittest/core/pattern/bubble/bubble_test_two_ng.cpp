@@ -20,14 +20,14 @@
 
 #define private public
 #define protected public
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/rosen/testing_canvas.h"
-#include "test/mock/core/rosen/testing_path.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_path.h"
 
 #include "base/geometry/ng/offset_t.h"
 #include "base/memory/ace_type.h"
@@ -39,6 +39,7 @@
 #include "core/components/popup/popup_theme.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/bubble/bubble_event_hub.h"
 #include "core/components_ng/pattern/bubble/bubble_layout_property.h"
 #include "core/components_ng/pattern/bubble/bubble_pattern.h"
@@ -46,6 +47,7 @@
 #include "core/components_ng/pattern/bubble/bubble_view.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
+#include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 
 using namespace testing;
@@ -286,7 +288,7 @@ RefPtr<FrameNode> BubbleTestTwoNg::CreateBubbleNode(const TestProperty& testProp
  * @tc.desc: Test InitWrapperRect
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, InitWrapperRect001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, InitWrapperRect001, TestSize.Level0)
 {
     auto frameNode = AceType::MakeRefPtr<FrameNode>("test1", 1, AceType::MakeRefPtr<BubblePattern>());
     ASSERT_NE(frameNode, nullptr);
@@ -295,7 +297,7 @@ HWTEST_F(BubbleTestTwoNg, InitWrapperRect001, TestSize.Level1)
     LayoutWrapper* layoutWrapper = Referenced::RawPtr(refLayoutWrapper);
     ASSERT_NE(layoutWrapper, nullptr);
     WeakPtr<AceType> bubble = Referenced::WeakClaim(Referenced::RawPtr(frameNode));
-    ElementRegister::GetInstance()->itemMap_.insert({ 1, bubble });
+    ElementRegister::GetInstance()->AddReferenced(1, bubble);
     BubbleLayoutAlgorithm bubbleLayoutAlgorithm;
     bubbleLayoutAlgorithm.targetTag_ = "test1";
     bubbleLayoutAlgorithm.targetNodeId_ = 1;
@@ -310,6 +312,9 @@ HWTEST_F(BubbleTestTwoNg, InitWrapperRect001, TestSize.Level1)
     layoutProp->UpdateEnableHoverMode(true);
     AceEngine::Get().AddContainer(0, containerOne);
     AceEngine::Get().AddContainer(1, containerTwo);
+    auto context = frameNode->GetContext();
+    ASSERT_NE(context, nullptr);
+    context->isHalfFoldHoverStatus_ = true;
     bubbleLayoutAlgorithm.InitWrapperRect(layoutWrapper, layoutProp);
     EXPECT_FALSE(bubbleLayoutAlgorithm.isHalfFoldHover_);
     bubbleLayoutAlgorithm.foldCreaseBottom_ = -1;
@@ -325,7 +330,7 @@ HWTEST_F(BubbleTestTwoNg, InitWrapperRect001, TestSize.Level1)
  * @tc.desc: Test UpdateBubbleMaxSize.
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, UpdateBubbleMaxSize001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, UpdateBubbleMaxSize001, TestSize.Level0)
 {
     auto targetNode = CreateTargetNode();
     auto id = targetNode->GetId();
@@ -352,6 +357,10 @@ HWTEST_F(BubbleTestTwoNg, UpdateBubbleMaxSize001, TestSize.Level1)
     layoutAlgorithm->UpdateBubbleMaxSize(AceType::RawPtr(layoutWrapper), showInSubwindow);
     layoutAlgorithm->useCustom_ = true;
     layoutAlgorithm->UpdateBubbleMaxSize(AceType::RawPtr(layoutWrapper), showInSubwindow);
+    showInSubwindow = true;
+    layoutAlgorithm->UpdateBubbleMaxSize(AceType::RawPtr(layoutWrapper), showInSubwindow);
+    layoutAlgorithm->isTips_ = true;
+    layoutAlgorithm->UpdateBubbleMaxSize(AceType::RawPtr(layoutWrapper), showInSubwindow);
     auto childProp = childNode->GetLayoutProperty();
     ASSERT_NE(childProp, nullptr);
     auto layoutConstraint = childProp->GetLayoutConstraint();
@@ -364,7 +373,7 @@ HWTEST_F(BubbleTestTwoNg, UpdateBubbleMaxSize001, TestSize.Level1)
  * @tc.desc: Test CreateBubbleNode
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, CreateBubbleNode001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, CreateBubbleNode001, TestSize.Level0)
 {
     auto param = AceType::MakeRefPtr<PopupParam>();
     ASSERT_NE(param, nullptr);
@@ -382,7 +391,7 @@ HWTEST_F(BubbleTestTwoNg, CreateBubbleNode001, TestSize.Level1)
  * @tc.desc: Test InitTargetSizeAndPosition.
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, InitTargetSizeAndPosition, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, InitTargetSizeAndPosition, TestSize.Level0)
 {
     auto targetNode = CreateTargetNode();
     auto id = targetNode->GetId();
@@ -404,6 +413,7 @@ HWTEST_F(BubbleTestTwoNg, InitTargetSizeAndPosition, TestSize.Level1)
     bool showInSubwindow = false;
     layoutAlgorithm->InitTargetSizeAndPosition(showInSubwindow, AceType::RawPtr(layoutWrapper));
     showInSubwindow = true;
+    layoutAlgorithm->followCursor_ = false;
     layoutAlgorithm->InitTargetSizeAndPosition(showInSubwindow, AceType::RawPtr(layoutWrapper));
     EXPECT_EQ(layoutAlgorithm->targetOffset_, OffsetF(0.0f, 0.0f));
 }
@@ -413,7 +423,7 @@ HWTEST_F(BubbleTestTwoNg, InitTargetSizeAndPosition, TestSize.Level1)
  * @tc.desc: Test AdjustAvoidPosition
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AdjustAvoidPosition001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AdjustAvoidPosition001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_ONE_HUNDRED, SIZE_ONE_HUNDRED);
@@ -446,7 +456,7 @@ HWTEST_F(BubbleTestTwoNg, AdjustAvoidPosition001, TestSize.Level1)
  * @tc.desc: Test AdjustAvoidPosition
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AdjustAvoidPosition002, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AdjustAvoidPosition002, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_ONE_HUNDRED, SIZE_ONE_HUNDRED);
@@ -479,7 +489,7 @@ HWTEST_F(BubbleTestTwoNg, AdjustAvoidPosition002, TestSize.Level1)
  * @tc.desc: Test AdjustAvoidPosition
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AdjustAvoidPosition003, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AdjustAvoidPosition003, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_ONE_HUNDRED, SIZE_ONE_HUNDRED);
@@ -512,7 +522,7 @@ HWTEST_F(BubbleTestTwoNg, AdjustAvoidPosition003, TestSize.Level1)
  * @tc.desc: Test CoverParent
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, CoverParent001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, CoverParent001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -558,7 +568,7 @@ HWTEST_F(BubbleTestTwoNg, CoverParent001, TestSize.Level1)
  * @tc.desc: Test AvoidToTopOrBottomByWidth
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTopOrBottomByWidth001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTopOrBottomByWidth001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -605,7 +615,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTopOrBottomByWidth001, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetBottom
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetBottom001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetBottom001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -650,7 +660,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetBottom001, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetBottom
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetBottom002, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetBottom002, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -697,7 +707,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetBottom002, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetTop
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetTop001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetTop001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -751,7 +761,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetTop001, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetTop
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetTop002, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetTop002, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -781,7 +791,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetTop002, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetTopMid
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetTopMid001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetTopMid001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -810,7 +820,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetTopMid001, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetTopMid
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetTopMid002, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetTopMid002, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -840,7 +850,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetTopMid002, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetTopMid
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetTopMid003, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetTopMid003, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -871,7 +881,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetTopMid003, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetRight
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetRight001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetRight001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -899,7 +909,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetRight001, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetRight
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetRight002, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetRight002, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -944,7 +954,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetRight002, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetRight
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetRight003, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetRight003, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -991,7 +1001,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetRight003, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetLeft
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -1013,11 +1023,53 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: InitBubbleArrow001
+ * @tc.desc: Test InitBubbleArrow.
+ * @tc.type: FUNC
+ */
+HWTEST_F(BubbleTestTwoNg, InitBubbleArrow001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. create bubble and get frameNode.
+     */
+    auto targetNode = CreateTargetNode();
+    auto targetId = targetNode->GetId();
+    auto targetTag = targetNode->GetTag();
+    auto popupId = ElementRegister::GetInstance()->MakeUniqueId();
+    auto frameNode =
+        FrameNode::CreateFrameNode(V2::POPUP_ETS_TAG, popupId, AceType::MakeRefPtr<BubblePattern>(targetId, targetTag));
+    ASSERT_NE(frameNode, nullptr);
+
+    auto bubblePattern = frameNode->GetPattern<BubblePattern>();
+    ASSERT_NE(bubblePattern, nullptr);
+    auto layoutAlgorithm = AceType::DynamicCast<BubbleLayoutAlgorithm>(bubblePattern->CreateLayoutAlgorithm());
+    ASSERT_NE(layoutAlgorithm, nullptr);
+    auto bubbleLayoutProperty = bubblePattern->GetLayoutProperty<BubbleLayoutProperty>();
+    ASSERT_NE(bubbleLayoutProperty, nullptr);
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    RefPtr<LayoutWrapperNode> layoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, frameNode->GetLayoutProperty());
+    ASSERT_NE(layoutWrapper, nullptr);
+
+    /**
+     * @tc.steps: step2. test InitBubbleArrow.
+     */
+    layoutAlgorithm->enableArrow_ = false;
+    layoutAlgorithm->InitBubbleArrow(bubbleLayoutProperty, AceType::RawPtr(layoutWrapper));
+    // The arrow height need to be 1.0 when enableArrow_ is false.
+    EXPECT_EQ(layoutAlgorithm->realArrowHeight_, 1.0f);
+    layoutAlgorithm->enableArrow_ = true;
+    layoutAlgorithm->InitBubbleArrow(bubbleLayoutProperty, AceType::RawPtr(layoutWrapper));
+    EXPECT_NE(layoutAlgorithm->realArrowHeight_, 1.0f);
+}
+
+/**
  * @tc.name: AvoidToTargetLeft002
  * @tc.desc: Test AvoidToTargetLeft
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft002, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft002, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -1047,7 +1099,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft002, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetLeft
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft003, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft003, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -1077,7 +1129,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft003, TestSize.Level1)
  * @tc.desc: Test AvoidToTargetLeft
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft004, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft004, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
@@ -1108,7 +1160,7 @@ HWTEST_F(BubbleTestTwoNg, AvoidToTargetLeft004, TestSize.Level1)
  * @tc.desc: Test CheckPositionBottom
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, CheckPositionBottom001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, CheckPositionBottom001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     BubbleTestTwoNg::InitCheckPositionSetting(algorithm);
@@ -1143,7 +1195,7 @@ HWTEST_F(BubbleTestTwoNg, CheckPositionBottom001, TestSize.Level1)
  * @tc.desc: Test CheckPositionTop
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, CheckPositionTop001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, CheckPositionTop001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     BubbleTestTwoNg::InitCheckPositionSetting(algorithm);
@@ -1178,7 +1230,7 @@ HWTEST_F(BubbleTestTwoNg, CheckPositionTop001, TestSize.Level1)
  * @tc.desc: Test CheckPositionRight
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, CheckPositionRight001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, CheckPositionRight001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     BubbleTestTwoNg::InitCheckPositionSetting(algorithm);
@@ -1213,11 +1265,10 @@ HWTEST_F(BubbleTestTwoNg, CheckPositionRight001, TestSize.Level1)
  * @tc.desc: Test CheckPositionLeft
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, CheckPositionLeft001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, CheckPositionLeft001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     BubbleTestTwoNg::InitCheckPositionSetting(algorithm);
-
     algorithm.maxAreaSpace_ = 0.0f;
     size_t i = 0;
     size_t step = 1;
@@ -1228,7 +1279,6 @@ HWTEST_F(BubbleTestTwoNg, CheckPositionLeft001, TestSize.Level1)
     EXPECT_TRUE(algorithm.CheckPositionLeft(position, childSize, step, i, arrowPosition));
     EXPECT_FLOAT_EQ(algorithm.maxAreaSpace_, MAX_AREA_SPACE);
     EXPECT_TRUE(algorithm.canPlacement_.left);
-
     algorithm.maxAreaSpace_ = 0.0f;
     i = 0;
     step = 1;
@@ -1248,20 +1298,20 @@ HWTEST_F(BubbleTestTwoNg, CheckPositionLeft001, TestSize.Level1)
  * @tc.desc: Test GetBottomRect
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, GetBottomRect001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, GetBottomRect001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     BubbleTestTwoNg::InitGetRectSetting(algorithm);
 
     algorithm.isHalfFoldHover_ = false;
-    Rect rect = algorithm.GetBottomRect();
+    Rect rect = algorithm.GetBottomRect(Dimension(0.0f));
     EXPECT_FLOAT_EQ(rect.Width(), CHILDSIZE_ONE_HUNDRED_EIGHTY);
     EXPECT_FLOAT_EQ(rect.Height(), RESULT_FORTY);
     EXPECT_FLOAT_EQ(rect.Left(), RESULT_TEN);
     EXPECT_FLOAT_EQ(rect.Top(), RESULT_ONE_HUNDRED_FIFTY);
 
     algorithm.isHalfFoldHover_ = true;
-    rect = algorithm.GetBottomRect();
+    rect = algorithm.GetBottomRect(Dimension(0.0f));
     EXPECT_FLOAT_EQ(rect.Width(), CHILDSIZE_ONE_HUNDRED_EIGHTY);
     EXPECT_FLOAT_EQ(rect.Height(), RESULT_FIFTY);
     EXPECT_FLOAT_EQ(rect.Left(), RESULT_TEN);
@@ -1273,20 +1323,20 @@ HWTEST_F(BubbleTestTwoNg, GetBottomRect001, TestSize.Level1)
  * @tc.desc: Test GetTopRect
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, GetTopRect001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, GetTopRect001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     BubbleTestTwoNg::InitGetRectSetting(algorithm);
 
     algorithm.isHalfFoldHover_ = false;
-    Rect rect = algorithm.GetTopRect();
+    Rect rect = algorithm.GetTopRect(Dimension(0.0f));
     EXPECT_FLOAT_EQ(rect.Width(), CHILDSIZE_ONE_HUNDRED_EIGHTY);
     EXPECT_FLOAT_EQ(rect.Height(), RESULT_FORTY);
     EXPECT_FLOAT_EQ(rect.Left(), RESULT_TEN);
     EXPECT_FLOAT_EQ(rect.Top(), RESULT_TEN);
 
     algorithm.isHalfFoldHover_ = true;
-    rect = algorithm.GetTopRect();
+    rect = algorithm.GetTopRect(Dimension(0.0f));
     EXPECT_FLOAT_EQ(rect.Width(), CHILDSIZE_ONE_HUNDRED_EIGHTY);
     EXPECT_FLOAT_EQ(rect.Height(), RESULT_FIFTY);
     EXPECT_FLOAT_EQ(rect.Left(), RESULT_TEN);
@@ -1298,20 +1348,20 @@ HWTEST_F(BubbleTestTwoNg, GetTopRect001, TestSize.Level1)
  * @tc.desc: Test GetRightRect
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, GetRightRect001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, GetRightRect001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     BubbleTestTwoNg::InitGetRectSetting(algorithm);
 
     algorithm.isHalfFoldHover_ = false;
-    Rect rect = algorithm.GetRightRect();
+    Rect rect = algorithm.GetRightRect(Dimension(0.0f));
     EXPECT_FLOAT_EQ(rect.Width(), RESULT_FORTY);
     EXPECT_FLOAT_EQ(rect.Height(), CHILDSIZE_ONE_HUNDRED_EIGHTY);
     EXPECT_FLOAT_EQ(rect.Left(), RESULT_ONE_HUNDRED_FIFTY);
     EXPECT_FLOAT_EQ(rect.Top(), RESULT_TEN);
 
     algorithm.isHalfFoldHover_ = true;
-    rect = algorithm.GetRightRect();
+    rect = algorithm.GetRightRect(Dimension(0.0f));
     EXPECT_FLOAT_EQ(rect.Width(), RESULT_FORTY);
     EXPECT_FLOAT_EQ(rect.Height(), SIZE_TWO_HUNDRED);
     EXPECT_FLOAT_EQ(rect.Left(), RESULT_ONE_HUNDRED_FIFTY);
@@ -1323,20 +1373,20 @@ HWTEST_F(BubbleTestTwoNg, GetRightRect001, TestSize.Level1)
  * @tc.desc: Test GetLeftRect
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, GetLeftRect001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, GetLeftRect001, TestSize.Level0)
 {
     BubbleLayoutAlgorithm algorithm;
     BubbleTestTwoNg::InitGetRectSetting(algorithm);
 
     algorithm.isHalfFoldHover_ = false;
-    Rect rect = algorithm.GetLeftRect();
+    Rect rect = algorithm.GetLeftRect(Dimension(0.0f));
     EXPECT_FLOAT_EQ(rect.Width(), RESULT_FORTY);
     EXPECT_FLOAT_EQ(rect.Height(), CHILDSIZE_ONE_HUNDRED_EIGHTY);
     EXPECT_FLOAT_EQ(rect.Left(), RESULT_TEN);
     EXPECT_FLOAT_EQ(rect.Top(), RESULT_TEN);
 
     algorithm.isHalfFoldHover_ = true;
-    rect = algorithm.GetLeftRect();
+    rect = algorithm.GetLeftRect(Dimension(0.0f));
     EXPECT_FLOAT_EQ(rect.Width(), RESULT_FORTY);
     EXPECT_FLOAT_EQ(rect.Height(), SIZE_TWO_HUNDRED);
     EXPECT_FLOAT_EQ(rect.Left(), RESULT_TEN);
@@ -1344,372 +1394,89 @@ HWTEST_F(BubbleTestTwoNg, GetLeftRect001, TestSize.Level1)
 }
 
 /**
- * @tc.name: AvoidToTargetPlacement001
- * @tc.desc: Test AvoidToTargetPlacement
+ * @tc.name: UpdateBubbleGradient001
+ * @tc.desc: Test BubblePattern::UpdateBubbleGradient
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetPlacement001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, UpdateBubbleGradient001, TestSize.Level0)
 {
-    BubbleLayoutAlgorithm algorithm;
-    algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
-    BubbleTestTwoNg::InitSetting(algorithm);
-    algorithm.arrowHeight_ = 0.0f;
-    algorithm.targetOffset_ = OffsetF(POSITION_FIFTY, POSITION_FIFTY);
-    algorithm.targetSize_ = SizeF(SIZE_ONE_HUNDRED, SIZE_ONE_HUNDRED);
-    SizeF resultSize(0.0f, 0.0f);
-    OffsetF arrowPosition(0.0f, 0.0f);
-    OffsetF resultPosition(0.0f, 0.0f);
-    SizeF childSize(SIZE_THIRTY, SIZE_THIRTY);
-
-    algorithm.canPlacement_.bottom = false;
-    algorithm.canPlacement_.top = false;
-    algorithm.canPlacement_.right = false;
-    algorithm.canPlacement_.left = false;
-    bool canCompress = false;
-    algorithm.placement_ = Placement::BOTTOM_LEFT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::BOTTOM_RIGHT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::BOTTOM;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP_LEFT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP_RIGHT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT_TOP;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT_BOTTOM;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT_TOP;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT_BOTTOM;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::NONE;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
+     /**
+     * @tc.steps: step1. create targetNode and get frameNode.
+     */
+    auto targetNode = FrameNode::GetOrCreateFrameNode(V2::ROW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<ButtonPattern>(); });
+    auto popupParam = AceType::MakeRefPtr<PopupParam>();
+    popupParam->SetBlurStyle(BlurStyle::COMPONENT_REGULAR);
+    auto popupNode = BubbleView::CreateBubbleNode(targetNode->GetTag(), targetNode->GetId(), popupParam);
+    ASSERT_NE(popupNode, nullptr);
+    auto bubblePattern = popupNode->GetPattern<BubblePattern>();
+    ASSERT_NE(bubblePattern, nullptr);
+    PopupLinearGradientProperties outlineGradient;
+    PopupGradientColor gradientColor;
+    gradientColor.gradientColor = Color::RED;
+    outlineGradient.gradientColors.push_back(gradientColor);
+    bubblePattern->SetOutlineLinearGradient(outlineGradient);
+    EXPECT_EQ(bubblePattern->outlineLinearGradient_.gradientColors[0].gradientColor, Color::RED);
+    bubblePattern->UpdateBubbleGradient(0, Color::BLUE, true);
+    EXPECT_EQ(bubblePattern->outlineLinearGradient_.gradientColors[0].gradientColor, Color::BLUE);
 }
 
 /**
- * @tc.name: AvoidToTargetPlacement002
- * @tc.desc: Test AvoidToTargetPlacement
+ * @tc.name: BubblePatternUpdateStyleOptionTest001
+ * @tc.desc: Test BubblePattern::UpdateStyleOption
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetPlacement002, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, BubblePatternUpdateStyleOptionTest001, TestSize.Level0)
 {
-    BubbleLayoutAlgorithm algorithm;
-    algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
-    BubbleTestTwoNg::InitSetting(algorithm);
-    algorithm.arrowHeight_ = 0.0f;
-    algorithm.targetOffset_ = OffsetF(POSITION_FIFTY, POSITION_FIFTY);
-    algorithm.targetSize_ = SizeF(SIZE_ONE_HUNDRED, SIZE_ONE_HUNDRED);
-    SizeF resultSize(0.0f, 0.0f);
-    OffsetF arrowPosition(0.0f, 0.0f);
-    OffsetF resultPosition(0.0f, 0.0f);
-    SizeF childSize(SIZE_THIRTY, SIZE_THIRTY);
+    /**
+     * @tc.steps: step1. create targetNode and get frameNode.
+     */
+    auto targetNode = FrameNode::GetOrCreateFrameNode(V2::ROW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<ButtonPattern>(); });
+    auto popupParam = AceType::MakeRefPtr<PopupParam>();
+    auto popupNode = BubbleView::CreateBubbleNode(targetNode->GetTag(), targetNode->GetId(), popupParam);
+    ASSERT_NE(popupNode, nullptr);
+    auto bubblePattern = popupNode->GetPattern<BubblePattern>();
+    ASSERT_NE(bubblePattern, nullptr);
 
-    algorithm.canPlacement_.bottom = false;
-    algorithm.canPlacement_.top = false;
-    algorithm.canPlacement_.right = false;
-    algorithm.canPlacement_.left = false;
-    bool canCompress = true;
-    algorithm.placement_ = Placement::BOTTOM_LEFT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::BOTTOM_RIGHT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::BOTTOM;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP_LEFT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP_RIGHT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT_TOP;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT_BOTTOM;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT_TOP;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT_BOTTOM;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::NONE;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
+    /**
+     * @tc.steps: step2. set param.
+     */
+    bubblePattern->isTips_ = true;
+    bubblePattern->OnColorConfigurationUpdate();
+    auto childNode = AceType::DynamicCast<FrameNode>(popupNode->GetFirstChild());
+    CHECK_NULL_VOID(childNode);
+    auto renderContext = childNode->GetRenderContext();
+    CHECK_NULL_VOID(renderContext->GetBackBlurStyle().has_value());
+    EXPECT_EQ(BlurStyle::COMPONENT_REGULAR, renderContext->GetBackBlurStyle()->blurStyle);
 }
 
 /**
- * @tc.name: AvoidToTargetPlacement003
- * @tc.desc: Test AvoidToTargetPlacement
- * @tc.type: FUNC
- */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetPlacement003, TestSize.Level1)
-{
-    BubbleLayoutAlgorithm algorithm;
-    algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
-    BubbleTestTwoNg::InitSetting(algorithm);
-    algorithm.arrowHeight_ = 0.0f;
-    algorithm.targetOffset_ = OffsetF(POSITION_FIFTY, POSITION_FIFTY);
-    algorithm.targetSize_ = SizeF(SIZE_ONE_HUNDRED, SIZE_ONE_HUNDRED);
-    SizeF resultSize(0.0f, 0.0f);
-    OffsetF arrowPosition(0.0f, 0.0f);
-    OffsetF resultPosition(0.0f, 0.0f);
-    SizeF childSize(SIZE_THIRTY, SIZE_THIRTY);
-
-    algorithm.canPlacement_.bottom = true;
-    algorithm.canPlacement_.top = true;
-    algorithm.canPlacement_.right = true;
-    algorithm.canPlacement_.left = true;
-    bool canCompress = true;
-    BubbleTestTwoNg::InitFuncMap(algorithm);
-    algorithm.placement_ = Placement::BOTTOM_LEFT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::BOTTOM_RIGHT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::BOTTOM;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP_LEFT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP_RIGHT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT_TOP;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT_BOTTOM;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT_TOP;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT_BOTTOM;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::NONE;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-}
-
-/**
- * @tc.name: AvoidToTargetPlacement004
- * @tc.desc: Test AvoidToTargetPlacement
- * @tc.type: FUNC
- */
-HWTEST_F(BubbleTestTwoNg, AvoidToTargetPlacement004, TestSize.Level1)
-{
-    BubbleLayoutAlgorithm algorithm;
-    algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
-    BubbleTestTwoNg::InitSetting(algorithm);
-    algorithm.arrowHeight_ = 0.0f;
-    algorithm.targetOffset_ = OffsetF(POSITION_FIFTY, POSITION_FIFTY);
-    algorithm.targetSize_ = SizeF(SIZE_ONE_HUNDRED, SIZE_ONE_HUNDRED);
-    SizeF resultSize(0.0f, 0.0f);
-    OffsetF arrowPosition(0.0f, 0.0f);
-    OffsetF resultPosition(0.0f, 0.0f);
-    SizeF childSize(SIZE_TWENTY, SIZE_TWENTY);
-
-    algorithm.isHalfFoldHover_ = false;
-    algorithm.canPlacement_.bottom = true;
-    algorithm.canPlacement_.top = true;
-    algorithm.canPlacement_.right = true;
-    algorithm.canPlacement_.left = true;
-    bool canCompress = false;
-    BubbleTestTwoNg::InitFuncMap(algorithm);
-    algorithm.placement_ = Placement::BOTTOM_LEFT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::BOTTOM_RIGHT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::BOTTOM;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP_LEFT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP_RIGHT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::TOP;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT_TOP;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT_BOTTOM;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::RIGHT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT_TOP;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT_BOTTOM;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::LEFT;
-    EXPECT_TRUE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-    algorithm.placement_ = Placement::NONE;
-    EXPECT_FALSE(algorithm.AvoidToTargetPlacement(childSize, arrowPosition, resultPosition, resultSize, canCompress));
-}
-
-/**
- * @tc.name: AvoidOrCoverParent001
- * @tc.desc: Test AvoidOrCoverParent
- * @tc.type: FUNC
- */
-HWTEST_F(BubbleTestTwoNg, AvoidOrCoverParent001, TestSize.Level1)
-{
-    auto targetNode = CreateTargetNode();
-    auto targetId = targetNode->GetId();
-    auto targetTag = targetNode->GetTag();
-    auto popupId = ElementRegister::GetInstance()->MakeUniqueId();
-    auto frameNode =
-        FrameNode::CreateFrameNode(V2::POPUP_ETS_TAG, popupId, AceType::MakeRefPtr<BubblePattern>(targetId, targetTag));
-    EXPECT_NE(frameNode, nullptr);
-    auto bubblePattern = frameNode->GetPattern<BubblePattern>();
-    EXPECT_FALSE(bubblePattern == nullptr);
-    auto bubbleLayoutProperty = bubblePattern->GetLayoutProperty<BubbleLayoutProperty>();
-    EXPECT_FALSE(bubbleLayoutProperty == nullptr);
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_FALSE(geometryNode == nullptr);
-    RefPtr<LayoutWrapperNode> layoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, frameNode->GetLayoutProperty());
-
-    BubbleLayoutAlgorithm algorithm;
-    algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
-    BubbleTestTwoNg::InitSetting(algorithm);
-    algorithm.arrowHeight_ = 0.0f;
-    algorithm.targetOffset_ = OffsetF(POSITION_FIFTY, 0.0f);
-    algorithm.targetSize_ = SizeF(SIZE_ONE_HUNDRED, SIZE_ONE_HUNDRED);
-    SizeF resultSize(0.0f, 0.0f);
-    OffsetF arrowPosition(0.0f, 0.0f);
-    OffsetF resultPosition(0.0f, 0.0f);
-    SizeF childSize(SIZE_TWENTY, SIZE_TWENTY);
-    Placement originPlacement = Placement::BOTTOM_LEFT;
-    algorithm.placementFuncMap_[Placement::BOTTOM_LEFT] = &BubbleLayoutAlgorithm::GetPositionWithPlacementBottomLeft;
-    OffsetF ArrowOffset(0.0f, 0.0f);
-    algorithm.avoidTarget_ = AvoidanceMode::AVOID_AROUND_TARGET;
-    algorithm.hasPlacement_ = true;
-    algorithm.hasWidth_ = true;
-    InitCanPlacement(algorithm);
-    OffsetF result =
-        algorithm.AvoidOrCoverParent(childSize, bubbleLayoutProperty, layoutWrapper, originPlacement, ArrowOffset);
-    EXPECT_FLOAT_EQ(result.GetX(), RESULT_FIFTY);
-    EXPECT_FLOAT_EQ(result.GetY(), RESULT_ONE_HUNDRED);
-
-    algorithm.hasWidth_ = false;
-    result = algorithm.AvoidOrCoverParent(childSize, bubbleLayoutProperty, layoutWrapper, originPlacement, ArrowOffset);
-    EXPECT_FLOAT_EQ(result.GetX(), RESULT_FIFTY);
-    EXPECT_FLOAT_EQ(result.GetY(), RESULT_ONE_HUNDRED);
-
-    childSize = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
-    result = algorithm.AvoidOrCoverParent(childSize, bubbleLayoutProperty, layoutWrapper, originPlacement, ArrowOffset);
-    EXPECT_FLOAT_EQ(result.GetX(), RESULT_FIFTY);
-    EXPECT_FLOAT_EQ(result.GetY(), RESULT_ONE_HUNDRED);
-}
-
-/**
- * @tc.name: AvoidOrCoverParent002
- * @tc.desc: Test AvoidOrCoverParent
- * @tc.type: FUNC
- */
-HWTEST_F(BubbleTestTwoNg, AvoidOrCoverParent002, TestSize.Level1)
-{
-    auto targetNode = CreateTargetNode();
-    auto targetId = targetNode->GetId();
-    auto targetTag = targetNode->GetTag();
-    auto popupId = ElementRegister::GetInstance()->MakeUniqueId();
-    auto frameNode =
-        FrameNode::CreateFrameNode(V2::POPUP_ETS_TAG, popupId, AceType::MakeRefPtr<BubblePattern>(targetId, targetTag));
-    EXPECT_NE(frameNode, nullptr);
-    auto bubblePattern = frameNode->GetPattern<BubblePattern>();
-    EXPECT_FALSE(bubblePattern == nullptr);
-    auto bubbleLayoutProperty = bubblePattern->GetLayoutProperty<BubbleLayoutProperty>();
-    EXPECT_FALSE(bubbleLayoutProperty == nullptr);
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_FALSE(geometryNode == nullptr);
-    RefPtr<LayoutWrapperNode> layoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, frameNode->GetLayoutProperty());
-
-    BubbleLayoutAlgorithm algorithm;
-    algorithm.wrapperSize_ = SizeF(SIZE_TWO_HUNDRED, SIZE_TWO_HUNDRED);
-    BubbleTestTwoNg::InitSetting(algorithm);
-    algorithm.arrowHeight_ = 0.0f;
-    algorithm.targetOffset_ = OffsetF(POSITION_FIFTY, 0.0f);
-    algorithm.targetSize_ = SizeF(SIZE_ONE_HUNDRED, SIZE_ONE_HUNDRED);
-    SizeF resultSize(0.0f, 0.0f);
-    OffsetF arrowPosition(0.0f, 0.0f);
-    OffsetF resultPosition(0.0f, 0.0f);
-    SizeF childSize(SIZE_ONE_HUNDRED, SIZE_ONE_HUNDRED);
-
-    Placement originPlacement = Placement::BOTTOM_LEFT;
-    algorithm.placementFuncMap_[Placement::BOTTOM_LEFT] = &BubbleLayoutAlgorithm::GetPositionWithPlacementBottomLeft;
-    OffsetF ArrowOffset(0.0f, 0.0f);
-
-    algorithm.avoidTarget_ = AvoidanceMode::AVOID_AROUND_TARGET;
-    algorithm.hasPlacement_ = false;
-    algorithm.hasWidth_ = true;
-    InitCanPlacement(algorithm);
-
-    OffsetF result =
-        algorithm.AvoidOrCoverParent(childSize, bubbleLayoutProperty, layoutWrapper, originPlacement, ArrowOffset);
-    EXPECT_FLOAT_EQ(result.GetX(), RESULT_FIFTY);
-    EXPECT_FLOAT_EQ(result.GetY(), RESULT_ONE_HUNDRED);
-
-    algorithm.hasWidth_ = false;
-    algorithm.maxAreaInfo_ =
-        PopupMaxAreaInfo { Placement::BOTTOM_LEFT, OffsetF { POSITION_FIFTY, POSITION_ONE_HUNDRED_FIFTY },
-            SizeF { SIZE_FORTY, SIZE_FORTY }, OffsetF { 0.0f, 0.0f } };
-    result = algorithm.AvoidOrCoverParent(childSize, bubbleLayoutProperty, layoutWrapper, originPlacement, ArrowOffset);
-    EXPECT_FLOAT_EQ(result.GetX(), RESULT_FIFTY);
-    EXPECT_FLOAT_EQ(result.GetY(), RESULT_ONE_HUNDRED_FIFTY);
-}
-
-/**
- * @tc.name: BubblePatternUpdateBubbleBackGroundColorTest001
+ * @tc.name: BubblePatternUpdateBubbleBackGroundColorTest002
  * @tc.desc: Test BubblePattern::UpdateBubbleBackGroundColor
  * @tc.type: FUNC
  */
-HWTEST_F(BubbleTestTwoNg, BubblePatternUpdateBubbleBackGroundColorTest001, TestSize.Level1)
+HWTEST_F(BubbleTestTwoNg, BubblePatternUpdateBubbleBackGroundColorTest002, TestSize.Level0)
 {
-    TestProperty testProperty;
-    RefPtr<FrameNode> frameNode = CreateBubbleNode(testProperty);
-    ASSERT_NE(frameNode, nullptr);
-    auto bubblePattern = frameNode->GetPattern<BubblePattern>();
+     /**
+     * @tc.steps: step1. create targetNode and get frameNode.
+     */
+    auto targetNode = FrameNode::GetOrCreateFrameNode(V2::ROW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<ButtonPattern>(); });
+    auto popupParam = AceType::MakeRefPtr<PopupParam>();
+    popupParam->SetBlurStyle(BlurStyle::COMPONENT_REGULAR);
+    auto popupNode = BubbleView::CreateBubbleNode(targetNode->GetTag(), targetNode->GetId(), popupParam);
+    ASSERT_NE(popupNode, nullptr);
+    auto bubblePattern = popupNode->GetPattern<BubblePattern>();
     ASSERT_NE(bubblePattern, nullptr);
-    auto host = bubblePattern->GetHost();
-    ASSERT_NE(host, nullptr);
-
+    bubblePattern->SetPopupParam(popupParam);
     Color testColor = Color::RED;
-
     bubblePattern->UpdateBubbleBackGroundColor(testColor);
-
-    auto popupPaintProp = host->GetPaintProperty<BubbleRenderProperty>();
-    ASSERT_NE(popupPaintProp, nullptr);
-
-    EXPECT_EQ(popupPaintProp->GetBackgroundColor().value(), testColor);
-}
-
-/**
- * @tc.name: BubblePatternUpdateMaskColorTest001
- * @tc.desc: Test BubblePattern::UpdateMaskColor
- * @tc.type: FUNC
- */
-HWTEST_F(BubbleTestTwoNg, BubblePatternUpdateMaskColorTest001, TestSize.Level1)
-{
-    TestProperty testProperty;
-    RefPtr<FrameNode> frameNode = CreateBubbleNode(testProperty);
-    ASSERT_NE(frameNode, nullptr);
-    auto bubblePattern = frameNode->GetPattern<BubblePattern>();
-    ASSERT_NE(bubblePattern, nullptr);
-    auto host = bubblePattern->GetHost();
-    ASSERT_EQ(host, frameNode);
-
-    Color testColor = Color::GREEN;
-
-    bubblePattern->UpdateMaskColor(testColor);
-
-    auto popupPaintProp = host->GetPaintProperty<BubbleRenderProperty>();
-    ASSERT_NE(popupPaintProp, nullptr);
-
-    EXPECT_EQ(popupPaintProp->GetMaskColor().value(), testColor);
+    auto childNode = AceType::DynamicCast<FrameNode>(popupNode->GetFirstChild());
+    ASSERT_NE(childNode, nullptr);
+    auto renderContext = childNode->GetRenderContext();
+    ASSERT_NE(renderContext, nullptr);
+    EXPECT_EQ(renderContext->GetBackBlurStyle().has_value(), true);
+    EXPECT_EQ(BlurStyle::COMPONENT_REGULAR, renderContext->GetBackBlurStyle()->blurStyle);
 }
 } // namespace OHOS::Ace::NG

@@ -16,10 +16,13 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_EVENT_GESTURE_EVENT_HUB_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_EVENT_GESTURE_EVENT_HUB_H
 
+#include <functional>
 #include <list>
 #include <vector>
+#include "ui/base/referenced.h"
 
 #include "base/geometry/ng/point_t.h"
+#include "base/geometry/ng/rect_t.h"
 #include "base/memory/referenced.h"
 #include "core/common/interaction/interaction_data.h"
 #include "core/components/common/layout/constants.h"
@@ -44,6 +47,8 @@ struct DragNotifyMsg;
 struct KeyEvent;
 class UnifiedData;
 class Subwindow;
+class CalcDimensionRect;
+class DragEvent;
 }
 
 namespace OHOS::Ace::NG {
@@ -52,7 +57,7 @@ using TouchInterceptFunc = std::function<NG::HitTestMode(TouchEventInfo&)>;
 using ShouldBuiltInRecognizerParallelWithFunc = std::function<RefPtr<NGGestureRecognizer>(
     const RefPtr<NGGestureRecognizer>&, const std::vector<RefPtr<NGGestureRecognizer>>&)>;
 using TouchTestDoneCallback = std::function<void(
-    const std::shared_ptr<BaseGestureEvent>&, const std::list<RefPtr<NGGestureRecognizer>>&)>;
+    const std::shared_ptr<BaseGestureEvent>&, const std::list<WeakPtr<NGGestureRecognizer>>&)>;
 
 struct TouchTestInfo {
     PointF windowPoint;
@@ -79,10 +84,7 @@ struct BindMenuStatus {
     bool isShow = false;
     MenuPreviewMode isShowPreviewMode = MenuPreviewMode::NONE;
     MenuPreviewMode longPressPreviewMode = MenuPreviewMode::NONE;
-    bool IsNotNeedShowPreview() const
-    {
-        return (isBindCustomMenu && isShow) || isBindLongPressMenu;
-    }
+    bool IsNotNeedShowPreview() const;
 };
 
 struct PreparedInfoForDrag {
@@ -117,6 +119,9 @@ struct PreparedInfoForDrag {
     RectF dragPreviewRect;
     BorderRadiusProperty borderRadius = BorderRadiusProperty(0.0_vp);
     SourceType deviceType = SourceType::NONE;
+    bool isMenuNotShow = false;
+    bool isSceneBoardTouchDrag = false;
+    PointF displayPoint = { 0.0f, 0.0f };
 };
 
 struct PreparedAsyncCtxForAnimate {
@@ -131,11 +136,12 @@ struct PreparedAsyncCtxForAnimate {
 struct DragframeNodeInfo {
     WeakPtr<FrameNode> frameNode;
     std::vector<RefPtr<FrameNode>> gatherFrameNode;
+    std::vector<WeakPtr<FrameNode>> autoHideFrameNodes;
+    bool autoHideExecuted = false;
 };
 
 using OnDragStartFunc = std::function<DragDropBaseInfo(const RefPtr<OHOS::Ace::DragEvent>&, const std::string&)>;
 using OnDragDropFunc = std::function<void(const RefPtr<OHOS::Ace::DragEvent>&, const std::string&)>;
-using OnDrapDropSpringLoadingFunc = std::function<void(const RefPtr<DragSpringLoadingContext>& info)>;
 using OnChildTouchTestFunc = std::function<TouchResult(const std::vector<TouchTestInfo>& touchInfo)>;
 using OnReponseRegionFunc = std::function<void(const std::vector<DimensionRect>&)>;
 struct DragDropInfo {
@@ -159,6 +165,7 @@ constexpr float PIXELMAP_DRAG_WGR_TEXT_SCALE = 2.0f;
 constexpr float PIXELMAP_DRAG_WGR_SCALE = 3.0f;
 constexpr float DEFALUT_DRAG_PPIXELMAP_SCALE = 1.05f;
 constexpr float PIXELMAP_DRAG_DEFAULT_HEIGHT = -28.0f;
+constexpr float DEFAULT_PAN_ANGLE = 45.0f;
 
 class EventHub;
 class PipelineContext;
@@ -167,8 +174,7 @@ class PipelineContext;
 class ACE_FORCE_EXPORT GestureEventHub : public Referenced {
 public:
     explicit GestureEventHub(const WeakPtr<EventHub>& eventHub);
-    ~GestureEventHub() override = default;
-
+    ~GestureEventHub() override;
     void AddGesture(const RefPtr<NG::Gesture>& gesture);
     // call by CAPI do distinguish with AddGesture called by ARKUI;
     void ClearGesture();
@@ -186,7 +192,7 @@ public:
     // Set by node container.
     void SetOnTouchEvent(TouchEventFunc&& touchEventFunc);
     // Set by JS FrameNode.
-    void SetJSFrameNodeOnTouchEvent(TouchEventFunc&& touchEventFunc);
+    void SetFrameNodeCommonOnTouchEvent(TouchEventFunc&& touchEventFunc);
     void AddTouchEvent(const RefPtr<TouchEventImpl>& touchEvent);
     void AddTouchAfterEvent(const RefPtr<TouchEventImpl>& touchEvent);
     void RemoveTouchEvent(const RefPtr<TouchEventImpl>& touchEvent);
@@ -202,9 +208,10 @@ public:
     void SetUserOnClick(GestureEventFunc&& clickEvent,
         double distanceThreshold = std::numeric_limits<double>::infinity());
     void SetUserOnClick(GestureEventFunc&& clickEvent, Dimension distanceThreshold);
+    double GetClickDistance() const;
     void SetNodeClickDistance(double distanceThreshold = std::numeric_limits<double>::infinity());
      // Set by JS FrameNode.
-    void SetJSFrameNodeOnClick(GestureEventFunc&& clickEvent);
+    void SetFrameNodeCommonOnClick(GestureEventFunc&& clickEvent);
     void SetOnGestureJudgeBegin(GestureJudgeFunc&& gestureJudgeFunc);
     void SetOnTouchIntercept(TouchInterceptFunc&& touchInterceptFunc);
     TouchInterceptFunc GetOnTouchIntercept() const;
@@ -232,19 +239,26 @@ public:
     bool IsClickEventsEmpty() const;
     GestureEventFunc GetClickEvent();
     void BindMenu(GestureEventFunc&& showMenu);
+    void RemoveBindMenu();
     void RegisterMenuOnTouch(TouchEventFunc&& callback);
+    void AddTouchEventForTips(TouchEventFunc&& tipsTouchEventFunc);
     bool IsLongClickable() const;
     void SetRedirectClick(bool redirectClick);
     bool ActLongClick();
     void SetLongPressEvent(const RefPtr<LongPressEvent>& event, bool isForDrag = false, bool isDisableMouseLeft = false,
         int32_t duration = 500);
+    void ReplaceLongPressEventActuator(RefPtr<LongPressEventActuator> longPressEventActuator);
+    RefPtr<LongPressEventActuator> GetLongPressEventActuator();
     // Set by user define, which will replace old one.
     void SetPanEvent(const RefPtr<PanEvent>& panEvent, PanDirection direction, int32_t fingers, Dimension distance);
     void SetPanEvent(
         const RefPtr<PanEvent>& panEvent, PanDirection direction, int32_t fingers, PanDistanceMap distanceMap);
-    void AddPanEvent(const RefPtr<PanEvent>& panEvent, PanDirection direction, int32_t fingers, Dimension distance);
-    void AddPanEvent(
-        const RefPtr<PanEvent>& panEvent, PanDirection direction, int32_t fingers, PanDistanceMap distanceMap);
+    void AddPanEvent(const RefPtr<PanEvent>& panEvent, PanDirection direction, int32_t fingers,
+        Dimension distance, double angle = DEFAULT_PAN_ANGLE);
+    void AddPanEvent(const RefPtr<PanEvent>& panEvent, PanDirection direction, int32_t fingers,
+        PanDistanceMap distanceMap, double angle = DEFAULT_PAN_ANGLE);
+    void AddPanEvent(const RefPtr<PanEvent>& panEvent, PanDirection direction, int32_t fingers,
+        const PanDistanceMapDimension& distanceMap, double angle = DEFAULT_PAN_ANGLE);
     void RemovePanEvent(const RefPtr<PanEvent>& panEvent);
     void SetPanEventType(GestureTypeName typeName);
     void SetLongPressEventType(GestureTypeName typeName);
@@ -264,16 +278,21 @@ public:
     bool ProcessDragEventTouchTestHit(const OffsetF& coordinateOffset, const TouchRestrict& touchRestrict,
         TouchTestResult& innerTargets, TouchTestResult& finalResult, int32_t touchId, const PointF& localPoint,
         const RefPtr<TargetComponent>& targetComponent, ResponseLinkResult& responseLinkResult);
+
     RefPtr<FrameNode> GetFrameNode() const;
     void OnContextAttached() {}
     static std::string GetHitTestModeStr(const RefPtr<GestureEventHub>& GestureEventHub);
     HitTestMode GetHitTestMode() const;
     void SetHitTestMode(HitTestMode hitTestMode);
     void RemoveDragEvent();
-    void CombineIntoExclusiveRecognizer(
-        const PointF& globalPoint, const PointF& localPoint, TouchTestResult& result, int32_t touchId);
+    void CombineIntoExclusiveRecognizer(const PointF& globalPoint, const PointF& localPoint,
+        TouchTestResult& result, int32_t touchId, int32_t originalId);
     const std::vector<DimensionRect>& GetResponseRegion() const;
     const std::vector<DimensionRect>& GetMouseResponseRegion() const;
+    std::vector<CalcDimensionRect> GetFingerResponseRegionFromMap();
+    const std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>>& GetResponseRegionMap();
+    void SetResponseRegionMap(
+        const std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>>& responseRegionMap);
     void SetResponseRegionFunc(const OnReponseRegionFunc& func);
     void SetResponseRegion(const std::vector<DimensionRect>& responseRegion);
     void SetOnTouchTestFunc(OnChildTouchTestFunc&& callback);
@@ -304,7 +323,7 @@ public:
     const RefPtr<ClickEventActuator>& GetUserClickEventActuator();
     OnDragCallbackCore GetDragCallback(const RefPtr<PipelineBase>& context, const WeakPtr<EventHub>& hub);
     void GenerateMousePixelMap(const GestureEvent& info);
-    OffsetF GetPixelMapOffset(const GestureEvent& info, const SizeF& size, const PreparedInfoForDrag& dragInfoData,
+    OffsetF GetPixelMapOffset(const GestureEvent& info, const SizeF& size, PreparedInfoForDrag& dragInfoData,
         const float scale = 1.0f, const RectF& innerRect = RectF()) const;
     void CalcFrameNodeOffsetAndSize(const RefPtr<FrameNode> frameNode, bool isMenuShow);
     OffsetF GetDragPreviewInitPositionToScreen(const RefPtr<PipelineBase>& context, PreparedInfoForDrag& data);
@@ -341,18 +360,23 @@ public:
     void SetMonopolizeEvents(bool monopolizeEvents);
     virtual RefPtr<NGGestureRecognizer> PackInnerRecognizer(
         const Offset& offset, std::list<RefPtr<NGGestureRecognizer>>& innerRecognizers, int32_t touchId,
-        const RefPtr<TargetComponent>& targetComponent);
+        int32_t originalId, const RefPtr<TargetComponent>& targetComponent);
     void CleanExternalRecognizers();
     void CleanInnerRecognizer();
     void CleanNodeRecognizer();
     void CopyGestures(const RefPtr<GestureEventHub>& gestureEventHub);
     void CopyEvent(const RefPtr<GestureEventHub>& gestureEventHub);
-    int32_t RegisterCoordinationListener(const RefPtr<PipelineBase>& context);
     bool IsTextCategoryComponent(const std::string& frameTag);
+    int32_t RegisterCoordinationListener(const RefPtr<PipelineBase>& context);
     DragDropInfo GetDragDropInfo(const GestureEvent& info, const RefPtr<FrameNode> frameNode,
         DragDropInfo& dragPreviewInfo, const RefPtr<OHOS::Ace::DragEvent>& dragEvent);
     RefPtr<UnifiedData> GetUnifiedData(const std::string& frameTag, DragDropInfo& dragDropInfo,
         const RefPtr<OHOS::Ace::DragEvent>& dragEvent);
+    std::vector<RefPtr<FrameNode>> ResolveAutoHideTargetsByUniqueId(
+        const RefPtr<OHOS::Ace::DragEvent>& dragEvent) const;
+    void HideAutoHideTargets(const std::vector<RefPtr<FrameNode>>& targets);
+    void ResetAutoHideDragInfo();
+    bool UpdateAutoHideTargetVisibility(const RefPtr<FrameNode>& frameNode) const;
     int32_t GetSelectItemSize();
     bool IsNeedSwitchToSubWindow(const PreparedInfoForDrag& dragInfoData) const;
     RefPtr<PixelMap> GetDragPreviewPixelMap();
@@ -367,8 +391,8 @@ public:
         DragDropInfo dragDropInfo, const RefPtr<OHOS::Ace::DragEvent>& event,
         DragDropInfo dragPreviewInfo, const RefPtr<PipelineContext>& pipeline);
     void HideMenu();
-    GestureEvent GetGestureEventInfo();
-    ClickInfo GetClickInfo();
+    const GestureEvent GetGestureEventInfo();
+    const ClickInfo GetClickInfo();
 #if defined(PIXEL_MAP_SUPPORTED)
     static void PrintBuilderNode(const RefPtr<UINode>& customNode);
     static void PrintIfImageNode(
@@ -389,6 +413,7 @@ public:
     RefPtr<ParallelRecognizer> innerParallelRecognizer_;
 
     bool IsGestureEmpty() const;
+    bool IsGestureHierarchyEmpty() const;
 
     bool IsPanEventEmpty() const;
 
@@ -398,6 +423,8 @@ public:
 
     bool IsDragNewFwk() const;
     bool TriggerTouchEvent(const TouchEvent& point);
+    void SetRecognizerDelayStatus(const RecognizerDelayStatus& recognizerDelayStatus = RecognizerDelayStatus::NONE);
+    void DragNodeDetachFromParent();
 private:
     void ProcessTouchTestHierarchy(const OffsetF& coordinateOffset, const TouchRestrict& touchRestrict,
         std::list<RefPtr<NGGestureRecognizer>>& innerRecognizers, TouchTestResult& finalResult, int32_t touchId,
@@ -431,12 +458,12 @@ private:
     template<typename T>
     const RefPtr<T> AccessibilityRecursionSearchRecognizer(const RefPtr<NGGestureRecognizer>& recognizer);
 
-    void ProcessParallelPriorityGesture(const Offset& offset, int32_t touchId,
+    void ProcessParallelPriorityGesture(const Offset& offset, int32_t touchId, int32_t originalId,
         const RefPtr<TargetComponent>& targetComponent, const RefPtr<FrameNode>& host,
         RefPtr<NGGestureRecognizer>& current, std::list<RefPtr<NGGestureRecognizer>>& recognizers,
         int32_t& parallelIndex, bool needRebuildForCurrent = false);
 
-    void ProcessExternalExclusiveRecognizer(const Offset& offset, int32_t touchId,
+    void ProcessExternalExclusiveRecognizer(const Offset& offset, int32_t touchId, int32_t originalId,
         const RefPtr<TargetComponent>& targetComponent, const RefPtr<FrameNode>& host, GesturePriority priority,
         RefPtr<NGGestureRecognizer>& current, std::list<RefPtr<NGGestureRecognizer>>& recognizers,
         int32_t& exclusiveIndex, bool needRebuildForCurrent = false);
@@ -473,6 +500,7 @@ private:
     // used in bindMenu, need to delete the old callback when bindMenu runs again
     RefPtr<ClickEvent> showMenu_;
     RefPtr<TouchEventImpl> bindMenuTouch_;
+    RefPtr<TouchEventImpl> tipsTouchEvent_;
 
     HitTestMode hitTestMode_ = HitTestMode::HTMDEFAULT;
     bool recreateGesture_ = true;
@@ -480,6 +508,7 @@ private:
     bool isResponseRegion_ = false;
     std::vector<DimensionRect> responseRegion_;
     std::vector<DimensionRect> mouseResponseRegion_;
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> responseRegionMap_;
     bool touchable_ = true;
     RefPtr<PixelMap> pixelMap_;
 
@@ -521,6 +550,13 @@ private:
     bool isDragNewFwk_ = false;
 };
 
+#ifdef ENABLE_ROSEN_BACKEND
+class DragRSTransactionGuard : public AceType {
+    DECLARE_ACE_TYPE(DragRSTransactionGuard, AceType);
+public:
+    ~DragRSTransactionGuard();
+};
+#endif
 } // namespace OHOS::Ace::NG
 
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_EVENT_GESTURE_EVENT_HUB_H

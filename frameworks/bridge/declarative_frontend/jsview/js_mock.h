@@ -67,6 +67,11 @@ public:
     static void JSBind(BindingTarget globalObj);
     static void SyncInstanceId(const JSCallbackInfo& info) {}
     static void RestoreInstanceId(const JSCallbackInfo& info) {}
+    static void GetCallingScopeUIContext(const JSCallbackInfo& info) {}
+    static void GetLastFocusedUIContext(const JSCallbackInfo& info) {}
+    static void GetLastForegroundUIContext(const JSCallbackInfo& info) {}
+    static void GetAllUIContexts(const JSCallbackInfo& info) {}
+    static void ResolveUIContext(const JSCallbackInfo& info) {}
 };
 
 class MockCustomDialogController {
@@ -86,6 +91,14 @@ public:
 
     static void JSBind(BindingTarget globalObj);
     void Invalidate(const JSCallbackInfo& info) {}
+};
+
+class JSMockNativeLeadingMarginSpan {
+public:
+    JSMockNativeLeadingMarginSpan() = default;
+    ~JSMockNativeLeadingMarginSpan() = default;
+
+    static void JSBind(BindingTarget globalObj);
 };
 
 class JSMockViewBuildNodeBase {

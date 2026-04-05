@@ -17,6 +17,7 @@
 #define CAPI_STUBS_ACE_PIXELMAP_STUB_H
 
 #include <string>
+
 #include "base/memory/ace_type.h"
 #include "frameworks/base/image/pixel_map.h"
 
@@ -134,7 +135,6 @@ public:
     void SavePixelMapToFile(const std::string& dst) const override
     {
         // Implement file saving logic here
-        std::cout << "Stub implementation: Saving to file " << dst << std::endl;
     }
 
     RefPtr<PixelMap> GetCropPixelMap(const Rect& srcRect) override
@@ -162,6 +162,11 @@ public:
 
     void SetMemoryName(std::string pixelMapName) const override
     {
+    }
+
+    uint32_t GetUniqueId() override
+    {
+        return 0;
     }
 
 private:

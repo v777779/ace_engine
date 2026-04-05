@@ -15,13 +15,14 @@
 
 #include "core/components_ng/pattern/recycle_view/recycle_manager.h"
 
+#include "core/common/resource/resource_configuration.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 
 void RecycleManager::Push(int32_t elmtId, WeakPtr<CustomNodeBase> &&node)
 {
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
     context->GetRecycleManager()->PushNode(elmtId, std::move(node));
 }
@@ -35,21 +36,21 @@ void RecycleManager::ClearAll()
 
 void RecycleManager::Pop(int32_t elmtId)
 {
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
     context->GetRecycleManager()->PopNode(elmtId);
 }
 
 void RecycleManager::Erase(int32_t elmtId)
 {
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
     context->GetRecycleManager()->EraseNode(elmtId);
 }
 
 void RecycleManager::Notify(const ConfigurationChange &config)
 {
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
     context->GetRecycleManager()->NotifyConfigurationChange(config);
 }

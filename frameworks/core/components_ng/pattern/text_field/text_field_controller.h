@@ -26,7 +26,7 @@
 
 namespace OHOS::Ace::NG {
 
-class ACE_EXPORT TextFieldController : public TextFieldControllerBase {
+class ACE_FORCE_EXPORT TextFieldController : public TextFieldControllerBase {
     DECLARE_ACE_TYPE(TextFieldController, TextFieldControllerBase);
 
 public:
@@ -46,6 +46,7 @@ public:
         const std::optional<SelectionOptions>& options = std::nullopt) override;
     Rect GetTextContentRect() override;
     int32_t GetTextContentLinesNum() override;
+    void ScrollToVisible(const TextScrollOptions& options) override;
     void StopEditing() override;
 
     void SetPasswordState(bool flag) override;
@@ -55,6 +56,9 @@ public:
     void ClearPreviewText() override;
     std::u16string GetText() override;
     SelectionInfo GetSelection() override;
+    void SetPlaceholderStyledString(const RefPtr<SpanStringBase>& value) override;
+    void DeleteBackward() override;
+
 private:
     WeakPtr<Pattern> pattern_;
 };

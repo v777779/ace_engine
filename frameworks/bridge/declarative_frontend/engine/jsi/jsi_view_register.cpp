@@ -31,6 +31,8 @@
 #include "bridge/declarative_frontend/engine/functions/js_drag_function.h"
 #include "bridge/declarative_frontend/engine/js_object_template.h"
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_native_api_bridge.h"
+#include "bridge/declarative_frontend/engine/jsi/utils/jsi_module_loader.h"
+#include "bridge/declarative_frontend/engine/jsi/utils/jsi_stage_utils.h"
 #include "bridge/declarative_frontend/frontend_delegate_declarative.h"
 #include "bridge/declarative_frontend/interfaces/profiler/js_profiler.h"
 #include "bridge/declarative_frontend/jsview/canvas/js_canvas_image_data.h"
@@ -40,10 +42,19 @@
 #include "core/components/container_modal/container_modal_constants.h"
 #include "core/components_ng/base/inspector.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
+#include "core/components_ng/pattern/canvas/canvas_pattern.h"
+#include "core/components_ng/pattern/video/video_pattern.h"
+#ifdef XCOMPONENT_SUPPORTED
+#include "core/components_ng/pattern/xcomponent/xcomponent_pattern.h"
+#endif //XCOMPONENT_SUPPORTED
 #include "core/components_ng/pattern/stage/page_pattern.h"
 #include "core/components_v2/inspector/inspector.h"
+#include "core/interfaces/native/implementation/canvas_renderer_peer_impl.h"
+#include "core/interfaces/native/implementation/x_component_controller_peer_impl.h"
+#include "frameworks/bridge/declarative_frontend/engine/bindings_implementation.h"
 #include "frameworks/bridge/declarative_frontend/engine/jsi/jsi_container_app_bar_register.h"
 #include "frameworks/bridge/declarative_frontend/engine/jsi/jsi_container_modal_view_register.h"
+#include "frameworks/bridge/declarative_frontend/engine/jsi/jsi_image_generator_dialog_view_register.h"
 #include "frameworks/bridge/declarative_frontend/engine/jsi/jsi_object_template.h"
 #include "frameworks/bridge/declarative_frontend/engine/jsi/nativeModule/arkts_utils.h"
 #include "frameworks/bridge/declarative_frontend/engine/functions/js_gesture_recognizer.h"
@@ -54,6 +65,7 @@ static constexpr uint32_t PARAM_SIZE_TWO   = 2;
 static constexpr uint32_t PARAM_SIZE_THREE = 3;
 static constexpr uint32_t PARAM_TRHEE_INDEX = 2;
 constexpr int FUNC_SET_CREATE_ARG_LEN = 2;
+using UpdateCallback = std::function<void(const std::string& data)>;
 }
 
 JSRef<JSVal> CreateJsObjectFromJsonValue(const EcmaVM* vm, const std::unique_ptr<JsonValue>& jsonValue)
@@ -88,61 +100,101 @@ JSRef<JSVal> CreateJsObjectFromJsonValue(const EcmaVM* vm, const std::unique_ptr
     }
 }
 
-void RegisterCardUpdateCallback(int64_t cardId, const panda::Local<panda::ObjectRef>& obj)
+static void ProcessCardData(const EcmaVM* vm, const std::string& data, const JSRef<JSVal>& targetObject,
+    const JSRef<JSFunc>& targetFunc, const char* logPrefix)
 {
-    JSRef<JSObject> object = JSRef<JSObject>::Make(obj);
-    JSRef<JSVal> storageValue = object->GetProperty("localStorage_");
-    if (!storageValue->IsObject()) {
+    CHECK_NULL_VOID(vm);
+    LocalScope localScope(vm);
+    TAG_LOGI(AceLogTag::ACE_FORM, "%s, dataList length: %{public}zu", logPrefix, data.length());
+    std::unique_ptr<JsonValue> jsonRoot = JsonUtil::ParseJsonString(data);
+    CHECK_NULL_VOID(jsonRoot);
+    auto child = jsonRoot->GetChild();
+    if (!child || !child->IsValid()) {
+        TAG_LOGE(AceLogTag::ACE_FORM, "%s failed", logPrefix);
         return;
     }
 
-    JSRef<JSObject> storage = JSRef<JSObject>::Cast(storageValue);
-    JSRef<JSVal> setOrCreateVal = storage->GetProperty("setOrCreate");
-    if (!setOrCreateVal->IsFunction()) {
-        return;
+    while (child && child->IsValid()) {
+        const std::string& key = child->GetKey();
+        JSRef<JSVal> args[] = {
+            JSRef<JSVal>::Make(JsiValueConvertor::toJsiValueWithVM(vm, key)),
+            CreateJsObjectFromJsonValue(vm, child),
+        };
+        targetFunc->Call(targetObject, FUNC_SET_CREATE_ARG_LEN, args);
+        child = child->GetNext();
     }
+}
 
-    JSRef<JSFunc> setOrCreate = JSRef<JSFunc>::Cast(setOrCreateVal);
-    auto id = ContainerScope::CurrentId();
-    auto callback = [storage, setOrCreate, id](const std::string& data) {
-        ContainerScope scope(id);
-        const EcmaVM* vm = storage->GetEcmaVM();
-        CHECK_NULL_VOID(vm);
-        TAG_LOGI(AceLogTag::ACE_FORM, "setOrCreate, dataList length: %{public}zu", data.length());
-        std::unique_ptr<JsonValue> jsonRoot = JsonUtil::ParseJsonString(data);
-        CHECK_NULL_VOID(jsonRoot);
-        auto child = jsonRoot->GetChild();
-        if (!child || !child->IsValid()) {
-            return;
-        }
-
-        while (child && child->IsValid()) {
-            const std::string& key = child->GetKey();
-            JSRef<JSVal> args[] = {
-                JSRef<JSVal>::Make(JsiValueConvertor::toJsiValueWithVM(vm, key)),
-                CreateJsObjectFromJsonValue(vm, child),
-            };
-            setOrCreate->Call(storage, FUNC_SET_CREATE_ARG_LEN, args);
-            child = child->GetNext();
-        }
-    };
-
+static void SetCardUpdateCallback(int64_t cardId, UpdateCallback&& callback)
+{
     auto container = Container::Current();
+    CHECK_NULL_VOID(container);
     if (container->IsFRSCardContainer() || container->IsDynamicRender()) {
         auto frontEnd = AceType::DynamicCast<FormFrontendDeclarative>(container->GetCardFrontend(cardId).Upgrade());
         CHECK_NULL_VOID(frontEnd);
         auto delegate = frontEnd->GetDelegate();
         CHECK_NULL_VOID(delegate);
-        delegate->SetUpdateCardDataCallback(callback);
+        delegate->SetUpdateCardDataCallback(std::move(callback));
         delegate->UpdatePageDataImmediately();
     } else {
         auto frontEnd = AceType::DynamicCast<CardFrontendDeclarative>(container->GetCardFrontend(cardId).Upgrade());
         CHECK_NULL_VOID(frontEnd);
         auto delegate = frontEnd->GetDelegate();
         CHECK_NULL_VOID(delegate);
-        delegate->SetUpdateCardDataCallback(callback);
+        delegate->SetUpdateCardDataCallback(std::move(callback));
         delegate->UpdatePageDataImmediately();
     }
+}
+
+void RegisterCardUpdateCallback(int64_t cardId, const panda::Local<panda::ObjectRef>& obj)
+{
+    JSRef<JSObject> object = JSRef<JSObject>::Make(obj);
+    JSRef<JSVal> isV2Value = object->GetProperty("__isV2__Internal");
+    if (!isV2Value->IsFunction()) {
+        TAG_LOGE(AceLogTag::ACE_FORM, "isV2Value is not function");
+        return;
+    }
+    JSRef<JSFunc> isV2Func = JSRef<JSFunc>::Cast(isV2Value);
+    JSRef<JSVal> result = isV2Func->Call(object);
+    if (!result->IsBoolean()) {
+        TAG_LOGE(AceLogTag::ACE_FORM, "result is not boolean");
+        return;
+    }
+    UpdateCallback callback;
+    if (result->ToBoolean()) {
+        JSRef<JSVal> setTsCardVal = object->GetProperty("__setTSCard__Internal");
+        if (!setTsCardVal->IsFunction()) {
+            TAG_LOGE(AceLogTag::ACE_FORM, "GetProperty setTsCard failed");
+            return;
+        }
+
+        JSRef<JSFunc> setTsCard = JSRef<JSFunc>::Cast(setTsCardVal);
+        auto id = ContainerScope::CurrentId();
+        callback = [object, setTsCard, id](const std::string& data) {
+            ContainerScope scope(id);
+            const EcmaVM* vm = object->GetEcmaVM();
+            ProcessCardData(vm, data, object, setTsCard, "setTsCard");
+        };
+    } else {
+        JSRef<JSVal> storageValue = object->GetProperty("localStorage_");
+        if (!storageValue->IsObject()) {
+            return;
+        }
+        JSRef<JSObject> storage = JSRef<JSObject>::Cast(storageValue);
+        JSRef<JSVal> setOrCreateVal = storage->GetProperty("setOrCreate");
+        if (!setOrCreateVal->IsFunction()) {
+            return;
+        }
+
+        JSRef<JSFunc> setOrCreate = JSRef<JSFunc>::Cast(setOrCreateVal);
+        auto id = ContainerScope::CurrentId();
+        callback = [storage, setOrCreate, id](const std::string& data) {
+            ContainerScope scope(id);
+            const EcmaVM* vm = storage->GetEcmaVM();
+            ProcessCardData(vm, data, storage, setOrCreate, "setOrCreate");
+        };
+    }
+    SetCardUpdateCallback(cardId, std::move(callback));
 }
 
 void SetFormCallbacks(RefPtr<Container> container, JSView* view)
@@ -290,7 +342,7 @@ panda::Local<panda::JSValueRef> JsRegisterNamedRoute(panda::JsiRuntimeCallInfo* 
     }
 #ifdef DYNAMIC_COMPONENT_SUPPORT
     auto container = Container::Current();
-    if (container && container->IsDynamicRender()) {
+    if (container && container->GetUIContentType() == UIContentType::ISOLATED_COMPONENT) {
         LOGD("load dynamic component card through named route");
         panda::Local<panda::FunctionRef> objSupplier = firstArg;
         std::vector<Local<JSValueRef>> argv;
@@ -307,7 +359,31 @@ panda::Local<panda::JSValueRef> JsRegisterNamedRoute(panda::JsiRuntimeCallInfo* 
     if (!thirdArg->IsObject(vm)) {
         return panda::JSValueRef::Undefined(vm);
     }
-
+#ifdef DYNAMIC_COMPONENT_SUPPORT
+    if (container && container->GetUIContentType() == UIContentType::DYNAMIC_COMPONENT) {
+        LOGD("load dynamic component card through named route");
+        std::string bundleName;
+        std::string moduleName;
+        std::string pagePath;
+        std::string pageFullPath;
+        std::string ohmUrl;
+        if (!JsiDeclarativeEngine::ParseNamedRouterParams(
+            vm, thirdArg->ToObject(vm), bundleName, moduleName, pagePath, pageFullPath, ohmUrl)) {
+            LOGE("parse named router params failed!");
+        }
+        LOGI("RegisterNamedRouter: [%{public}s][%{public}s][%{public}s][%{public}s][%{public}s]",
+            bundleName.c_str(), moduleName.c_str(), pagePath.c_str(), pageFullPath.c_str(), ohmUrl.c_str());
+        LOGI("ContainerBundleInfo: [%{public}s][%{public}s]",
+            container->GetBundleName().c_str(), container->GetModuleName().c_str());
+        if (moduleName == container->GetModuleName()) {
+            panda::Local<panda::FunctionRef> objSupplier = firstArg;
+            std::vector<Local<JSValueRef>> argv;
+            auto obj = objSupplier->Call(vm, JSNApi::GetGlobalObject(vm), argv.data(), 0);
+            UpdateCardRootComponent(vm, obj->ToObject(vm));
+            return panda::JSValueRef::Undefined(vm);
+        }
+    }
+#endif
     JsiDeclarativeEngine::AddToNamedRouterMap(vm,
         panda::Global<panda::FunctionRef>(vm, Local<panda::FunctionRef>(firstArg)),
         secondArg->ToString(vm)->ToString(vm), thirdArg->ToObject(vm));
@@ -846,16 +922,24 @@ static TouchEvent GetTouchPointFromJS(const JsiObject& value)
     TouchEvent touchPoint;
 
     auto type = value->GetProperty("type");
-    touchPoint.type = static_cast<TouchType>(type->ToNumber<int32_t>());
+    if (type->IsNumber()) {
+        touchPoint.type = static_cast<TouchType>(type->ToNumber<int32_t>());
+    }
 
     auto id = value->GetProperty("id");
-    touchPoint.id = id->ToNumber<int32_t>();
+    if (id->IsNumber()) {
+        touchPoint.id = id->ToNumber<int32_t>();
+    }
 
     auto x = value->GetProperty("x");
-    touchPoint.x = x->ToNumber<float>();
+    if (x->IsNumber()) {
+        touchPoint.x = x->ToNumber<float>();
+    }
 
     auto y = value->GetProperty("y");
-    touchPoint.y = y->ToNumber<float>();
+    if (y->IsNumber()) {
+        touchPoint.y = y->ToNumber<float>();
+    }
 
     touchPoint.time = std::chrono::high_resolution_clock::now();
 
@@ -894,25 +978,39 @@ panda::Local<panda::JSValueRef> JsSendTouchEvent(panda::JsiRuntimeCallInfo* runt
 static KeyEvent GetKeyEventFromJS(const JsiObject& value)
 {
     auto type = value->GetProperty("type");
-    auto action = static_cast<KeyAction>(type->ToNumber<int32_t>());
+    auto action = KeyAction::UNKNOWN;
+    if (type->IsNumber()) {
+        action = static_cast<KeyAction>(type->ToNumber<int32_t>());
+    }
 
     auto jsKeyCode = value->GetProperty("keyCode");
-    auto code = static_cast<KeyCode>(jsKeyCode->ToNumber<int32_t>());
+    auto code = KeyCode::KEY_UNKNOWN;
+    if (jsKeyCode->IsNumber()) {
+        code = static_cast<KeyCode>(jsKeyCode->ToNumber<int32_t>());
+    }
 
     KeyEvent keyEvent(code, action);
 
     auto jsKeySource = value->GetProperty("keySource");
-    keyEvent.sourceType = static_cast<SourceType>(jsKeySource->ToNumber<int32_t>());
+    if (jsKeySource->IsNumber()) {
+        keyEvent.sourceType = static_cast<SourceType>(jsKeySource->ToNumber<int32_t>());
+    }
 
     auto jsDeviceId = value->GetProperty("deviceId");
-    keyEvent.deviceId = jsDeviceId->ToNumber<int32_t>();
+    if (jsDeviceId->IsNumber()) {
+        keyEvent.deviceId = jsDeviceId->ToNumber<int32_t>();
+    }
 
     auto jsMetaKey = value->GetProperty("metaKey");
-    keyEvent.metaKey = jsMetaKey->ToNumber<int32_t>();
+    if (jsMetaKey->IsNumber()) {
+        keyEvent.metaKey = jsMetaKey->ToNumber<int32_t>();
+    }
 
     auto jsTimestamp = value->GetProperty("timestamp");
-    auto timeStamp = jsTimestamp->ToNumber<int64_t>();
-    keyEvent.SetTimeStamp(timeStamp);
+    if (jsTimestamp->IsNumber()) {
+        auto timeStamp = jsTimestamp->ToNumber<int64_t>();
+        keyEvent.SetTimeStamp(timeStamp);
+    }
 
     auto jsUnicode = value->GetProperty("unicode");
     keyEvent.unicode = jsUnicode->ToNumber<uint32_t>();
@@ -954,18 +1052,26 @@ static MouseEvent GetMouseEventFromJS(const JsiObject& value)
     MouseEvent mouseEvent;
 
     auto action = value->GetProperty("action");
-    mouseEvent.action = static_cast<MouseAction>(action->ToNumber<int32_t>());
+    if (action->IsNumber()) {
+        mouseEvent.action = static_cast<MouseAction>(action->ToNumber<int32_t>());
+    }
 
     auto button = value->GetProperty("button");
-    mouseEvent.button = static_cast<MouseButton>(button->ToNumber<int32_t>());
+    if (button->IsNumber()) {
+        mouseEvent.button = static_cast<MouseButton>(button->ToNumber<int32_t>());
+    }
 
     auto x = value->GetProperty("x");
-    mouseEvent.x = x->ToNumber<float>();
-    mouseEvent.deltaX = mouseEvent.x;
+    if (x->IsNumber()) {
+        mouseEvent.x = x->ToNumber<float>();
+        mouseEvent.deltaX = mouseEvent.x;
+    }
 
     auto y = value->GetProperty("y");
-    mouseEvent.y = y->ToNumber<float>();
-    mouseEvent.deltaY = mouseEvent.y;
+    if (y->IsNumber()) {
+        mouseEvent.y = y->ToNumber<float>();
+        mouseEvent.deltaY = mouseEvent.y;
+    }
 
     mouseEvent.time = std::chrono::high_resolution_clock::now();
     mouseEvent.sourceType = SourceType::MOUSE;
@@ -1109,8 +1215,12 @@ panda::Local<panda::JSValueRef> WrapAxisEventPointer(panda::JsiRuntimeCallInfo* 
         panda::FunctionRef::New(vm, NG::ArkTSUtils::JsGetHorizontalAxisValue));
     dynamicEvent->Set(vm, panda::StringRef::NewFromUtf8(vm, "getVerticalAxisValue"),
         panda::FunctionRef::New(vm, NG::ArkTSUtils::JsGetVerticalAxisValue));
+    dynamicEvent->Set(vm, panda::StringRef::NewFromUtf8(vm, "getPinchAxisScaleValue"),
+        panda::FunctionRef::New(vm, NG::ArkTSUtils::JsGetPinchAxisScaleValue));
     dynamicEvent->Set(vm, panda::StringRef::NewFromUtf8(vm, "getModifierKeyState"),
         panda::FunctionRef::New(vm, NG::ArkTSUtils::JsGetModifierKeyState));
+    dynamicEvent->Set(vm, panda::StringRef::NewFromUtf8(vm, "hasAxis"),
+        panda::FunctionRef::New(vm, NG::ArkTSUtils::JsHasAxis));
     panda::Local<panda::JSValueRef> pointerObj = runtimeCallInfo->GetCallArgRef(1);
     if (!pointerObj.IsNull() && !pointerObj->IsUndefined()) {
         auto nativePointer = static_cast<int64_t>(pointerObj->ToNumber(vm)->Value());
@@ -1264,6 +1374,7 @@ panda::Local<panda::JSValueRef> WrapColorFilterPointer(panda::JsiRuntimeCallInfo
     return panda::JSValueRef::Undefined(vm);
 }
 
+template<typename T>
 panda::Local<panda::JSValueRef> WrapImageAIOptions(panda::JsiRuntimeCallInfo* runtimeCallInfo)
 {
     ContainerScope scope(Container::CurrentIdSafely());
@@ -1271,14 +1382,14 @@ panda::Local<panda::JSValueRef> WrapImageAIOptions(panda::JsiRuntimeCallInfo* ru
     if (vm == nullptr) {
         return panda::JSValueRef::Undefined(vm);
     }
-    panda::Local<panda::JSValueRef> imageValueRef = runtimeCallInfo->GetCallArgRef(0);
-    if (!(imageValueRef->IsNumber())) {
+    panda::Local<panda::JSValueRef> peerValueRef = runtimeCallInfo->GetCallArgRef(0);
+    if (!(peerValueRef->IsNumber())) {
         return panda::JSValueRef::Undefined(vm);
     }
-    auto imagePointer = static_cast<int64_t>(imageValueRef->ToNumber(vm)->Value());
-    auto* imageFrameNode = reinterpret_cast<NG::FrameNode*>(imagePointer);
-    auto imagePattern = imageFrameNode->GetPattern<NG::ImagePattern>();
-    if (!imagePattern) {
+    auto peerPointer = static_cast<int64_t>(peerValueRef->ToNumber(vm)->Value());
+    auto* frameNode = reinterpret_cast<NG::FrameNode*>(peerPointer);
+    auto pattern = frameNode->GetPattern<T>();
+    if (!pattern) {
         return panda::JSValueRef::Undefined(vm);
     }
     panda::Local<panda::JSValueRef> imageAIOptionsValueRef = runtimeCallInfo->GetCallArgRef(1);
@@ -1293,7 +1404,141 @@ panda::Local<panda::JSValueRef> WrapImageAIOptions(panda::JsiRuntimeCallInfo* ru
     Framework::ScopeRAII scopeRAII(env);
     JSValueWrapper optionsWrapper = imageAIOptionsValueRef;
     napi_value optionsValue = nativeEngine->ValueToNapiValue(optionsWrapper);
-    imagePattern->SetImageAIOptions(optionsValue);
+    pattern->SetImageAIOptions(optionsValue);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+panda::Local<panda::JSValueRef> WrapXComponentImageAIOptions(panda::JsiRuntimeCallInfo* runtimeCallInfo)
+{
+    ContainerScope scope(Container::CurrentIdSafely());
+    auto* vm = runtimeCallInfo->GetVM();
+#ifdef XCOMPONENT_SUPPORTED
+    if (vm == nullptr) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    panda::Local<panda::JSValueRef> xComponentValueRef = runtimeCallInfo->GetCallArgRef(0);
+    if (!(xComponentValueRef->IsNumber())) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    auto xComponentPointer = static_cast<int64_t>(xComponentValueRef->ToNumber(vm)->Value());
+    auto* frameNode = reinterpret_cast<NG::FrameNode*>(xComponentPointer);
+    auto xComponenPattern = frameNode->GetPattern<NG::XComponentPattern>();
+    if (!xComponenPattern) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    panda::Local<panda::JSValueRef> imageAIOptionsValueRef = runtimeCallInfo->GetCallArgRef(1);
+    if (imageAIOptionsValueRef.IsNull() || imageAIOptionsValueRef->IsUndefined()) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_RETURN(engine, panda::JSValueRef::Undefined(vm));
+    NativeEngine* nativeEngine = engine->GetNativeEngine();
+    CHECK_NULL_RETURN(nativeEngine, panda::JSValueRef::Undefined(vm));
+    napi_env env = reinterpret_cast<napi_env>(nativeEngine);
+    Framework::ScopeRAII scopeRAII(env);
+    JSValueWrapper optionsWrapper = imageAIOptionsValueRef;
+    napi_value optionsValue = nativeEngine->ValueToNapiValue(optionsWrapper);
+    xComponenPattern->SetImageAIOptions(optionsValue);
+#endif //XCOMPONENT_SUPPORTED
+    return panda::JSValueRef::Undefined(vm);
+}
+
+panda::Local<panda::JSValueRef> HookVideoSetAnalyzerConfig(panda::JsiRuntimeCallInfo* runtimeCallInfo)
+{
+    ContainerScope scope(Container::CurrentIdSafely());
+    auto* vm = runtimeCallInfo->GetVM();
+    if (vm == nullptr) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    panda::Local<panda::JSValueRef> videoValueRef = runtimeCallInfo->GetCallArgRef(0);
+    if (!(videoValueRef->IsNumber())) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    auto videoPointer = static_cast<int64_t>(videoValueRef->ToNumber(vm)->Value());
+    auto* videoFrameNode = reinterpret_cast<NG::FrameNode*>(videoPointer);
+    auto videoPattern = videoFrameNode->GetPattern<NG::VideoPattern>();
+    if (!videoPattern) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    panda::Local<panda::JSValueRef> analyzerConfigValueRef = runtimeCallInfo->GetCallArgRef(1);
+    if (analyzerConfigValueRef.IsNull() || analyzerConfigValueRef->IsUndefined()) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    auto engine = EngineHelper::GetCurrentEngine();
+    CHECK_NULL_RETURN(engine, panda::JSValueRef::Undefined(vm));
+    NativeEngine* nativeEngine = engine->GetNativeEngine();
+    CHECK_NULL_RETURN(nativeEngine, panda::JSValueRef::Undefined(vm));
+    napi_env env = reinterpret_cast<napi_env>(nativeEngine);
+    Framework::ScopeRAII scopeRAII(env);
+    JSValueWrapper configWrapper = analyzerConfigValueRef;
+    napi_value configValue = nativeEngine->ValueToNapiValue(configWrapper);
+    videoPattern->SetImageAnalyzerConfig(configValue);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+panda::Local<panda::JSValueRef> HookCanvasSetAnalyzerConfig(panda::JsiRuntimeCallInfo* runtimeCallInfo)
+{
+    ContainerScope scope(Container::CurrentIdSafely());
+    auto* vm = runtimeCallInfo->GetVM();
+    if (vm == nullptr) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    panda::Local<panda::JSValueRef> peerValueRef = runtimeCallInfo->GetCallArgRef(0);
+    if (!(peerValueRef->IsNumber())) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    auto peerPointer = static_cast<int64_t>(peerValueRef->ToNumber(vm)->Value());
+    auto* peer = reinterpret_cast<NG::GeneratedModifier::CanvasRendererPeerImpl*>(peerPointer);
+    CHECK_NULL_RETURN(peer, panda::JSValueRef::Undefined(vm));
+    panda::Local<panda::JSValueRef> analyzerConfigValueRef = runtimeCallInfo->GetCallArgRef(1);
+    if (analyzerConfigValueRef.IsNull() || analyzerConfigValueRef->IsUndefined()) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    peer->wrapAnalyzerConfigImpl = [configRef = panda::CopyableGlobal(vm, analyzerConfigValueRef)]() -> void* {
+        auto engine = EngineHelper::GetCurrentEngine();
+        CHECK_NULL_RETURN(engine, nullptr);
+        NativeEngine* nativeEngine = engine->GetNativeEngine();
+        CHECK_NULL_RETURN(nativeEngine, nullptr);
+        napi_env env = reinterpret_cast<napi_env>(nativeEngine);
+        Framework::ScopeRAII scopeRAII(env);
+        JSValueWrapper configWrapper = configRef.ToLocal();
+        napi_value configValue = nativeEngine->ValueToNapiValue(configWrapper);
+        return reinterpret_cast<void*>(configValue);
+    };
+    return panda::JSValueRef::Undefined(vm);
+}
+
+panda::Local<panda::JSValueRef> HookXComponentSetAnalyzerConfig(panda::JsiRuntimeCallInfo* runtimeCallInfo)
+{
+    ContainerScope scope(Container::CurrentIdSafely());
+    auto* vm = runtimeCallInfo->GetVM();
+#ifdef XCOMPONENT_SUPPORTED
+    if (vm == nullptr) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    panda::Local<panda::JSValueRef> peerValueRef = runtimeCallInfo->GetCallArgRef(0);
+    if (!(peerValueRef->IsNumber())) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    auto peerPointer = static_cast<int64_t>(peerValueRef->ToNumber(vm)->Value());
+    auto* peer = reinterpret_cast<NG::GeneratedModifier::XComponentControllerPeerImpl*>(peerPointer);
+    CHECK_NULL_RETURN(peer, panda::JSValueRef::Undefined(vm));
+    panda::Local<panda::JSValueRef> analyzerConfigValueRef = runtimeCallInfo->GetCallArgRef(1);
+    if (analyzerConfigValueRef.IsNull() || analyzerConfigValueRef->IsUndefined()) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    peer->wrapAnalyzerConfigImpl = [configRef = panda::CopyableGlobal(vm, analyzerConfigValueRef)]() -> void* {
+        auto engine = EngineHelper::GetCurrentEngine();
+        CHECK_NULL_RETURN(engine, nullptr);
+        NativeEngine* nativeEngine = engine->GetNativeEngine();
+        CHECK_NULL_RETURN(nativeEngine, nullptr);
+        napi_env env = reinterpret_cast<napi_env>(nativeEngine);
+        Framework::ScopeRAII scopeRAII(env);
+        JSValueWrapper configWrapper = configRef.ToLocal();
+        napi_value configValue = nativeEngine->ValueToNapiValue(configWrapper);
+        return reinterpret_cast<void*>(configValue);
+    };
+#endif
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -1316,7 +1561,7 @@ panda::Local<panda::JSValueRef> WrapScrollableTargetInfoPointer(panda::JsiRuntim
     if (!pointerObj.IsNull() && !pointerObj->IsUndefined()) {
         auto nativePointer = static_cast<int64_t>(pointerObj->ToNumber(vm)->Value());
         auto pattern = reinterpret_cast<NG::Pattern*>(nativePointer);
-        if (pattern) {
+        if (!pattern) {
             auto patternRef = AceType::WeakClaim(pattern);
             eventTarget->SetPattern(patternRef);
         }
@@ -1334,10 +1579,6 @@ panda::Local<panda::JSValueRef> GetScrollableTargetInfoPointer(panda::JsiRuntime
     }
     JSRef<JSObject> object = JSRef<JSObject>::Make(obj);
     auto jsScrollableTargetInfo = Referenced::Claim(object->Unwrap<JSScrollableTargetInfo>());
-    if (!jsScrollableTargetInfo) {
-        LOGE("GetScrollableTargetInfoPointer JSScrollableTargetInfo is null");
-        return panda::NumberRef::Undefined(vm);
-    }
     auto ptr = jsScrollableTargetInfo->GetPatternPointer();
     CHECK_NULL_RETURN(ptr, panda::NumberRef::Undefined(vm));
     return panda::NumberRef::New(vm, ptr);
@@ -1353,10 +1594,6 @@ panda::Local<panda::JSValueRef> GetDragEventPointer(panda::JsiRuntimeCallInfo* r
     }
     JSRef<JSObject> object = JSRef<JSObject>::Make(obj);
     auto jsDragEvent = Referenced::Claim(object->Unwrap<JsDragEvent>());
-    if (!jsDragEvent) {
-        LOGE("GetDragEventPointer jsDragEvent is null");
-        return panda::NumberRef::Undefined(vm);
-    }
     auto ptr = jsDragEvent->GetDragEventPointer();
     CHECK_NULL_RETURN(ptr, panda::NumberRef::Undefined(vm));
     return panda::NumberRef::New(vm, ptr);
@@ -1448,6 +1685,14 @@ panda::Local<panda::JSValueRef> Lpx2Px(panda::JsiRuntimeCallInfo* runtimeCallInf
     if (pipelineContext && pipelineContext->IsContainerModalVisible()) {
         width -= 2 * (CONTAINER_BORDER_WIDTH + CONTENT_PADDING).ConvertToPx();
     }
+
+    if (pipelineContext) {
+        double effectiveWidth = pipelineContext->CalcPageWidth(width);
+        if (effectiveWidth > 0) {
+            width = effectiveWidth;
+        }
+    }
+
     if (!windowConfig.autoDesignWidth) {
         windowConfig.UpdateDesignWidthScale(width);
     }
@@ -1482,10 +1727,18 @@ panda::Local<panda::JSValueRef> Px2Lpx(panda::JsiRuntimeCallInfo* runtimeCallInf
     if (pipelineContext && pipelineContext->IsContainerModalVisible()) {
         width -= 2 * (CONTAINER_BORDER_WIDTH + CONTENT_PADDING).ConvertToPx();
     }
+
+    if (pipelineContext) {
+        double effectiveWidth = pipelineContext->CalcPageWidth(width);
+        if (effectiveWidth > 0) {
+            width = effectiveWidth;
+        }
+    }
+
     if (!windowConfig.autoDesignWidth) {
         windowConfig.UpdateDesignWidthScale(width);
     }
-    
+
     double pxValue = firstArg->ToNumber(vm)->Value();
     double lpxValue = pxValue / windowConfig.designWidthScale;
     return panda::NumberRef::New(vm, lpxValue);
@@ -1587,12 +1840,8 @@ panda::Local<panda::JSValueRef> RestoreDefault(panda::JsiRuntimeCallInfo* runtim
 
 panda::Local<panda::JSValueRef> JSHandleUncaughtException(panda::JsiRuntimeCallInfo* runtimeCallInfo)
 {
-    ContainerScope scope(Container::CurrentIdSafely());
     EcmaVM* vm = runtimeCallInfo->GetVM();
-    auto engine = EngineHelper::GetCurrentEngineSafely();
-    CHECK_NULL_RETURN(engine, panda::JSValueRef::Undefined(vm));
-    auto nativeEngine = engine->GetNativeEngine();
-    auto arkNativeEngine = static_cast<ArkNativeEngine*>(nativeEngine);
+    ArkNativeEngine* arkNativeEngine = reinterpret_cast<ArkNativeEngine*>(JSNApi::GetEnv(vm));
     CHECK_NULL_RETURN(arkNativeEngine, panda::JSValueRef::Undefined(vm));
     NapiUncaughtExceptionCallback callback = arkNativeEngine->GetNapiUncaughtExceptionCallback();
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
@@ -1828,6 +2077,66 @@ void JsRegisterFormViews(
     globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "PickerStyle"), *pickerStyle);
     globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "BadgePosition"), *badgePosition);
 }
+
+void JsRegisterFormJsXNodeLite(BindingTarget globalObj)
+{
+    auto runtime = std::static_pointer_cast<ArkJSRuntime>(JsiDeclarativeEngineInstance::GetCurrentRuntime());
+    if (!runtime) {
+        return;
+    }
+    auto vm = const_cast<EcmaVM*>(runtime->GetEcmaVm());
+    if (vm == nullptr) {
+        return;
+    }
+    if (globalObj.IsNull() || globalObj->IsUndefined()) {
+        return;
+    }
+    auto objRef = globalObj->Get(vm, panda::StringRef::NewFromUtf8(vm, "__getArkUINativeModuleForm__"));
+    if (objRef.IsNull() || objRef->IsUndefined() || !objRef->IsFunction(vm)) {
+        return;
+    }
+    auto obj = objRef->ToObject(vm);
+    panda::Local<panda::FunctionRef> func = obj;
+    auto function = panda::CopyableGlobal(vm, func);
+    auto arkUINativeModuleRef = function->Call(vm, function.ToLocal(), nullptr, 0);
+    if (arkUINativeModuleRef.IsNull() || arkUINativeModuleRef->IsUndefined() || !arkUINativeModuleRef->IsObject(vm)) {
+        return;
+    }
+    auto arkUINativeModule = arkUINativeModuleRef->ToObject(vm);
+    NG::ArkUINativeModule::RegisterArkUINativeModuleFormLite(arkUINativeModule, vm);
+    JsBindFormViewsForJsXNode(globalObj);
+    TAG_LOGI(AceLogTag::ACE_FORM, "Form model loading JsXNode module Lite successfully.");
+}
+
+void JsRegisterFormJsXNodeFull(BindingTarget globalObj, bool isLiteSetRegistered)
+{
+    auto runtime = std::static_pointer_cast<ArkJSRuntime>(JsiDeclarativeEngineInstance::GetCurrentRuntime());
+    if (!runtime) {
+        return;
+    }
+    auto vm = const_cast<EcmaVM*>(runtime->GetEcmaVm());
+    if (vm == nullptr) {
+        return;
+    }
+    if (globalObj.IsNull() || globalObj->IsUndefined()) {
+        return;
+    }
+    auto objRef = globalObj->Get(vm, panda::StringRef::NewFromUtf8(vm, "__getArkUINativeModuleForm__"));
+    if (objRef.IsNull() || objRef->IsUndefined() || !objRef->IsFunction(vm)) {
+        return;
+    }
+    auto obj = objRef->ToObject(vm);
+    panda::Local<panda::FunctionRef> func = obj;
+    auto function = panda::CopyableGlobal(vm, func);
+    auto arkUINativeModuleRef = function->Call(vm, function.ToLocal(), nullptr, 0);
+    if (arkUINativeModuleRef.IsNull() || arkUINativeModuleRef->IsUndefined() || !arkUINativeModuleRef->IsObject(vm)) {
+        return;
+    }
+    auto arkUINativeModule = arkUINativeModuleRef->ToObject(vm);
+    NG::ArkUINativeModule::RegisterArkUINativeModuleFormFull(arkUINativeModule, vm, isLiteSetRegistered);
+    JsBindFormViewsForJsXNode(globalObj, true);
+    TAG_LOGI(AceLogTag::ACE_FORM, "Form model loading JsXNode module Full successfully.");
+}
 #endif
 
 void JsRegisterViews(BindingTarget globalObj, void* nativeEngine, bool isCustomEnvSupported)
@@ -1837,6 +2146,8 @@ void JsRegisterViews(BindingTarget globalObj, void* nativeEngine, bool isCustomE
         return;
     }
     auto vm = runtime->GetEcmaVm();
+    IFunctionBinding::runtime = nativeEngine;
+
     globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "loadDocument"),
         panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), JsLoadDocument));
     globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "loadEtsCard"),
@@ -1915,7 +2226,19 @@ void JsRegisterViews(BindingTarget globalObj, void* nativeEngine, bool isCustomE
     globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "GetColorFilterPointer"),
         panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), GetColorFilterPointer));
     globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "wrapImageAIOptions"),
-        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), WrapImageAIOptions));
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), WrapImageAIOptions<NG::ImagePattern>));
+    globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "wrapCanvasImageAIOptions"),
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), WrapImageAIOptions<NG::CanvasPattern>));
+    globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "hookCanvasSetAnalyzerConfig"),
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), HookCanvasSetAnalyzerConfig));
+    globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "wrapVideoImageAIOptions"),
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), WrapImageAIOptions<NG::VideoPattern>));
+    globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "hookVideoSetAnalyzerConfig"),
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), HookVideoSetAnalyzerConfig));
+    globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "wrapXComponentImageAIOptions"),
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), WrapXComponentImageAIOptions));
+    globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "hookXComponentSetAnalyzerConfig"),
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), HookXComponentSetAnalyzerConfig));
     globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "wrapScrollableTargetInfoPointer"),
         panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), WrapScrollableTargetInfoPointer));
     globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "wrapDragEventPointer"),
@@ -1948,6 +2271,18 @@ void JsRegisterViews(BindingTarget globalObj, void* nativeEngine, bool isCustomE
         panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), JsLoadCustomAppBar));
     globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "loadCustomWindowMask"),
         panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), JsLoadCustomWindowMask));
+    // for image generator dialog use below
+    globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "loadImageGeneratorDialog"),
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), JsLoadImageGeneratorDialog));
+    globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "__requireHspModuleForAdvancedUIComponent__"),
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), JsRequireHspModuleForAdvancedUIComponent));
+    // __setArkUIStageRenderGroup__ global function for StageNode render group control
+    globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "__setArkUIStageRenderGroup__"),
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), JsSetStageRenderGroup));
+    // need to delete this.
+    globalObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "onXIconClicked"),
+        panda::FunctionRef::New(const_cast<panda::EcmaVM*>(vm), JsOnXIconClicked));
+    // for image generator dialog use above
 
     BindingTarget cursorControlObj = panda::ObjectRef::New(const_cast<panda::EcmaVM*>(vm));
     cursorControlObj->Set(vm, panda::StringRef::NewFromUtf8(vm, "setCursor"),

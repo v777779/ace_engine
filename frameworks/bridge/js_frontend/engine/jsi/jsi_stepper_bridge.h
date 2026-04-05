@@ -16,13 +16,13 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_BRIDGE_JS_FRONTEND_ENGINE_JSI_STEPPER_BRIDGE_H
 #define FOUNDATION_ACE_FRAMEWORKS_BRIDGE_JS_FRONTEND_ENGINE_JSI_STEPPER_BRIDGE_H
 
-#include "frameworks/bridge/common/dom/dom_stepper.h"
 #include "frameworks/bridge/js_frontend/engine/jsi/jsi_engine.h"
+#include "frameworks/compatible/components/stepper/dom_stepper.h"
 
 namespace OHOS::Ace::Framework {
 
 class JsiStepperBridge : virtual public AceType {
-    DECLARE_ACE_TYPE(JsiStepperBridge, AceType)
+    DECLARE_ACE_TYPE(JsiStepperBridge, AceType);
 
 public:
     void GetAttrLabel(shared_ptr<JsRuntime> runtime, const shared_ptr<JsValue>& valObject, StepperLabels& stepperLabel);

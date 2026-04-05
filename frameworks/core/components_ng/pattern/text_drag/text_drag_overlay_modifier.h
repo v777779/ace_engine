@@ -50,10 +50,7 @@ public:
         isHandlesShow_ = isHandlesShow;
     }
 
-    void SetAnimateFlag(bool isAnimate)
-    {
-        isAnimating_ = isAnimate;
-    }
+    void SetAnimateFlag(bool isAnimate);
 
     void SetShadowOpacity(float opacity)
     {
@@ -109,6 +106,11 @@ public:
         selectedColor_->Set(static_cast<int32_t>(selectedColor));
     }
 
+    void SetSelectedDragPreviewColor(const std::optional<Color>& value)
+    {
+        dragBackgroundColor_ = value;
+    }
+
     void SetIsFirstHandleAnimated(bool isFirstHandleAnimated)
     {
         isFirstHandleAnimated_ = isFirstHandleAnimated;
@@ -130,6 +132,10 @@ public:
         const OffsetF& endPoint);
     void PaintSelBackground(RSCanvas& canvas, const RefPtr<TextDragPattern>& textDragPattern);
     void PaintImage(RSCanvas& canvas);
+    bool IsAnimating()
+    {
+        return isAnimating_;
+    }
 
 protected:
     WeakPtr<Pattern> pattern_;
@@ -147,6 +153,7 @@ protected:
     RefPtr<PropertyColor> handleColor_;
     RefPtr<PropertyFloat> innerHandleRadius_;
     RefPtr<PropertyInt> selectedColor_;
+    std::optional<Color> dragBackgroundColor_;
 private:
     DragAnimType type_ = DragAnimType::DEFAULT;
     RefPtr<AnimatablePropertyFloat> shadowOpacity_;

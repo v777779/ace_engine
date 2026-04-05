@@ -35,12 +35,17 @@ enum PrebuildPhase {
   PrebuildDone = 3,
 }
 
+//API Version 18
+const API_VERSION_ISOLATION_FOR_5_1: number = 18;
+
+// Declare MutableBuilder class to make it available for type-checking. See jsEnumStyle.js and
+// build-tools\ets-loader\declarations\common.d.ts
+declare class MutableBuilder<Args extends Object[]> {
+  builder(): (...args: Args) => void;
+}
 // NativeView
 // implemented in C++  for release
 abstract class PUV2ViewBase extends ViewBuildNodeBase {
-
-  // for interop
-  public __interopInStaticRendering_internal_ = false;
 
   // List of inactive components used for Dfx
   protected static readonly inactiveComponents_: Set<string> = new Set<string>();
@@ -55,6 +60,11 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
   static readonly compareNumber = (a: number, b: number): number => {
     return (a < b) ? -1 : (a > b) ? 1 : 0;
   };
+
+  // A map to associate builder objects with unique numeric IDs, used in ConditionalBuilder.
+  protected builderIdMap_: WeakMap<Object, number> = new WeakMap();
+  // The next available builder ID to be assigned, starting from 1000000 to avoid conflict.
+  protected nextBuilderId_: number = 1000000;
 
   // indicates the currently rendered or rendered UINode's elmtIds
   // or UINodeRegisterProxy.notRecordingDependencies if none is currently rendering
@@ -91,17 +101,29 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
   // used by view createdBy BuilderNode. Indicated weather need to block the recylce or reuse events called by parentView;
   public __isBlockRecycleOrReuse__: boolean = false;
 
+  // view is switched to new instance by builderNode
+  protected __updatedInstanceId__?: number;
+
   // Set of elements for delayed update
   private elmtIdsDelayedUpdate_: Set<number> = new Set();
+
+  protected __lifecycle__Internal: CustomComponentLifecycle | undefined;
 
   protected static prebuildPhase_: PrebuildPhase = PrebuildPhase.None;
   protected isPrebuilding_: boolean = false;
   protected static prebuildingElmtId_: number = -1;
 
+  // it only exists when native id is different with the front id
+  private __nativeId__Internal__?: number;
+
   static readonly doRecycle: boolean = true;
   static readonly doReuse: boolean = false;
 
   private nativeViewPartialUpdate: NativeViewPartialUpdate;
+
+  private activeChangeListenerForInterop_: Set<(active: boolean) => void> = new Set<(active: boolean) => void>();
+
+  protected __isEntryValue__Internal = false;
 
   constructor(parent: IView, elmtId: number = UINodeRegisterProxy.notRecordingDependencies, extraInfo: ExtraInfo = undefined) {
     super(true);
@@ -109,7 +131,17 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
     // if set use the elmtId also as the ViewPU/V2 object's subscribable id.
     // these matching is requirement for updateChildViewById(elmtId) being able to
     // find the child ViewPU/V2 object by given elmtId
-    this.id_ = elmtId === UINodeRegisterProxy.notRecordingDependencies ? SubscriberManager.MakeId() : elmtId;
+    if (elmtId === UINodeRegisterProxy.notRecordingDependencies) {
+      // Check if native side has already allocated an elmtId via StartGetAccessRecordingFor
+      // This ensures consistency between TS and native sides, especially for LoadNamedRouterSource
+      const assignedElmtId = ViewStackProcessor.GetElmtIdToAccountFor();
+      if (assignedElmtId !== UINodeRegisterProxy.notRecordingDependencies) {
+        this.__nativeId__Internal__ = assignedElmtId;
+      }
+      this.id_ = SubscriberManager.MakeId();
+    } else {
+      this.id_ = elmtId;
+    }
 
     stateMgmtConsole.debug(`PUV2ViewBase constructor: Creating @Component '${this.constructor.name}' from parent '${parent?.constructor.name}'`);
 
@@ -122,6 +154,9 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
       this.setCardId(parent.getCardId());
       // Call below will set this parent_ to parent as well
       parent.addChild(this as unknown as IView); // FIXME
+      this.nativeViewPartialUpdate.setCreatorId(parent.id__());
+    } else {
+      this.__isEntryValue__Internal = true;
     }
 
     this.isCompFreezeAllowed_ = this.isCompFreezeAllowed_ || (this.parent_ && this.parent_.isCompFreezeAllowed());
@@ -129,10 +164,43 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
     stateMgmtConsole.debug(`${this.debugInfo__()}: constructor: done`);
   }
 
+  public __triggerLifecycle__Internal(eventId: LifeCycleEvent): boolean {
+    if (this['__newLifecycleNeedWork__Internal']) {
+      return this.__getLifecycle__Internal()?.handleEvent(eventId);
+    }
+    return false;
+  }
+
+  public __getLifecycle__Internal(): CustomComponentLifecycle {
+    if (!this.__lifecycle__Internal) {
+      this.__lifecycle__Internal = new CustomComponentLifecycle(this);
+    }
+    return this.__lifecycle__Internal;
+  }
+
+  public get __nativeId__Internal(): number {
+    return this.__nativeId__Internal__ ? this.__nativeId__Internal__ : this.id_;
+  }
+
+  public __customComponentExecuteInit__Internal(): void {
+    let watchProp = Symbol.for('INIT_INTERNAL_FUNCTION' + this.constructor.name);
+    const componentInitFunctions = this[watchProp];
+    try {
+      if (componentInitFunctions instanceof Array) {
+        componentInitFunctions.forEach((componentInitFunction) => {
+            componentInitFunction.call(this);
+        });
+      }
+    } catch (e) {
+      stateMgmtConsole.frequentApplicationError(`Lifecycle ComponentInit error, ${this.debugInfo__()}, ${e.message} ${e.stack}`);
+      throw e;
+    }
+  }
+
   public static create(view: PUV2ViewBase): void {
     return NativeViewPartialUpdate.create(view.nativeViewPartialUpdate);
   }
-  
+
   static createRecycle(componentCall: object, isRecycling: boolean, reuseId: string, callback: () => void): void {
     return NativeViewPartialUpdate.createRecycle(componentCall, isRecycling, reuseId, callback);
   }
@@ -201,10 +269,17 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
     return this.nativeViewPartialUpdate.queryRouterPageInfo();
   }
  
-  public getUIContext(): object {
+  public getUIContext(): UIContext {
+    if (typeof globalThis.__getUIContext__ === 'function') {
+      return globalThis.__getUIContext__(this.nativeViewPartialUpdate.getMainInstanceId());
+    }
     return this.nativeViewPartialUpdate.getUIContext();
   }
  
+  public getMainInstanceId(): number {
+    return this.nativeViewPartialUpdate.getMainInstanceId();
+  }
+
   public sendStateInfo(stateInfo: string): void {
     return this.nativeViewPartialUpdate.sendStateInfo(stateInfo);
   }
@@ -224,7 +299,21 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
   public allowReusableV2Descendant(): boolean {
     return this.nativeViewPartialUpdate.allowReusableV2Descendant();
   }
-  
+
+  public __registerUpdateInstanceForEnvFunc__Internal(updateInstanceIdForEnvFun: (newInstanceId: number) => void): void {
+    return this.nativeViewPartialUpdate.registerUpdateInstanceForEnvFunc(updateInstanceIdForEnvFun);
+  }
+
+  // Callback handler when instanceId changes in backend
+  protected __onJSInstanceIdUpdate__Internal(): void {
+    stateMgmtConsole.debug(`${this.debugInfo__()}: instanceId changed, clearing dirtDescendantElementIds_`);
+    this.dirtDescendantElementIds_.clear();
+  }
+
+  public __isV2__Internal(): boolean {
+    return this instanceof ViewV2;
+  }
+
   // globally unique id, this is different from compilerAssignedUniqueChildId!
   id__(): number {
     return this.id_;
@@ -310,14 +399,14 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
     // When the child node supports the Component freezing, the root node will definitely recurse to the child node. 
     // From API16, to prevent child node mistakenly activated by the parent node, reference counting is used to control node status.
     // active + 1 means count +1， inactive -1 means count -1, Expect no more than 1 
-    if (Utils.isApiVersionEQAbove(18)) {
+    if (Utils.isApiVersionEQAbove(API_VERSION_ISOLATION_FOR_5_1)) {
       this.activeCount_ += active ? 1 : -1;
     }
     else {
       this.activeCount_ = active ? 1 : 0;
     }
     if (this.activeCount_ > 1) {
-      stateMgmtConsole.warn(`${this.debugInfo__()} activeCount_ error:${this.activeCount_}`);
+      stateMgmtConsole.frequentWarn(`${this.constructor.name} activeCount_ error:${this.activeCount_}`);
     }
   }
 
@@ -359,6 +448,10 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
 
   protected abstract debugInfoStateVars(): string;
 
+  public __getRecycleDump_internal(): string {
+    return '';
+  }
+
   public isViewActive(): boolean {
     return this.activeCount_ > 0;
   }
@@ -376,6 +469,68 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
   public dumpReport(): void {
     stateMgmtConsole.warn(`Printing profiler information`);
     stateMgmtProfiler.report();
+  }
+
+  protected __latestInstanceId_value__: number = -1;
+
+  get __latestInstanceId__Internal(): number {
+    if (this.__latestInstanceId_value__ === -1) {
+      this.__latestInstanceId_value__ = this.getMainInstanceId();
+    }
+    return this.__latestInstanceId_value__;
+  }
+
+  set __latestInstanceId__Internal(newInstanceId: number) {
+    if (newInstanceId !== -1) {
+      this.__latestInstanceId_value__ = newInstanceId;
+    }
+  }
+
+  public __updateForEnvValue__Internal(newInstanceId?: number): void {
+    if (newInstanceId) {
+      stateMgmtConsole.debug(`updateInstanceIdForEnvValue ${this.debugInfo__()} instance id ${this.__latestInstanceId__Internal} -> new InstanceId ${newInstanceId}`);
+      this.__latestInstanceId__Internal = newInstanceId;
+    }
+    stateMgmtConsole.debug(`updateInstanceIdForEnvValue ${this.debugInfo__()} begin`);
+    let needUpdated: boolean = false;
+    // loop the [varName, key][]
+    this.__getEnvPropertyNameToKey__Internal()
+      .forEach(([varName, envKey]) => {
+        const updatedInstanceEnvValue = newInstanceId ?
+          EnvV2.registerEnv(envKey as keyof EnvTypeMap, this, varName, newInstanceId) :
+          EnvV2.findEnvRecursively(envKey, this, this.__latestInstanceId__Internal);
+        const storeProp = ObserveV2.ENV_PREFIX + varName;
+        if (updatedInstanceEnvValue !== this[storeProp]) {
+          stateMgmtConsole.debug(`findAllEnvPropertiesInView ${this.debugInfo__()} @Env(${envKey}) ${varName} find EnvValue in parent, value is different, reset the local value`);
+          this[storeProp] = updatedInstanceEnvValue;
+          ObserveV2.getObserve().fireChange(this, varName);
+          needUpdated = true;
+        }
+      })
+    if (needUpdated) {
+      // update ui synchronously
+      stateMgmtConsole.debug(`updateInstanceIdForEnvValue ${this.debugInfo__()} instance, there are envValue updated, update ui synchronously.`);
+      ObserveV2.getObserve().updateDirty2(true);
+    }
+    stateMgmtConsole.debug(`updateInstanceIdForEnvValue ${this.debugInfo__()} end`);
+  }
+
+  protected __hasEnvValue__: boolean = false;
+
+  get __hasEnv__Internal(): boolean {
+    if (this[EnvV2.ENV_DECO_META]) {
+      this.__hasEnvValue__ = true;
+    }
+    return this.__hasEnvValue__;
+  }
+
+  public __getEnvPropertyNameToKey__Internal(): [string, keyof EnvTypeMap][] {
+    // there is no env in current view
+    const meta = this[EnvV2.ENV_DECO_META] as EnvMeta | undefined;
+    if (!meta || !(typeof meta === 'object')) {
+      return [];
+    }
+    return Object.entries(meta.varToKey);
   }
 
   /**
@@ -397,6 +552,9 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
     // forceCompleteRerender() might have been called externally,
     // ensure all pending book keeping is finished to prevent unwanted element updates
     ObserveV2.getObserve()?.runIdleTasks();
+    // to avoid to run the update func twice
+    // it is not necessary to save dirty nodes, because it wll update all the element soon
+    this.dirtDescendantElementIds_.clear();
 
     Array.from(this.updateFuncByElmtId.keys()).sort(ViewPU.compareNumber).forEach(elmtId => this.UpdateElement(elmtId));
 
@@ -537,7 +695,7 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
         try {
           return `${index}__${JSON.stringify(item)}`;
         } catch (e) {
-          throw new Error(`${this.debugInfo__()}: ForEach id ${elmtId}: use of default id generator function not possible on provided data structure. Need to specify id generator function (ForEach 3rd parameter). Application Error!`);
+          throw new BusinessError(103801, `${this.debugInfo__()}: ForEach id ${elmtId}: use of default id generator function not possible on provided data structure. Need to specify id generator function (ForEach 3rd parameter). Application Error!`);
         }
       };
     }
@@ -570,10 +728,7 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
 
     // Its error if there are duplicate IDs.
     if (idDuplicates.length > 0) {
-      idDuplicates.forEach((indx) => {
-        stateMgmtConsole.error(`Error: ForEach id generated for ${indx}${indx < 4 ? indx === 2 ? 'nd' : 'rd' : 'th'} array item is duplicated.`);
-      });
-      stateMgmtConsole.applicationError(`${this.debugInfo__()}: Ids generated by the ForEach id gen function must be unique. Application error!`);
+      stateMgmtConsole.applicationError(`${this.debugInfo__()}: Ids generated by the ForEach id gen function must be unique. Application error! Duplicated index: ${JSON.stringify(idDuplicates)}`);
     }
 
     stateMgmtConsole.debug(`${this.debugInfo__()}: forEachUpdateFunction: diff indexes ${JSON.stringify(diffIndexArray)} . `);
@@ -751,6 +906,9 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
           view.dumpReport();
           this.sendStateInfo('{}');
           break;
+        case 'RecyclePool':
+          DumpLog.addDesc('RecyclePool: ' + this.__getRecycleDump_internal());
+          break;
         default:
           DumpLog.print(0, `\nUnsupported JS DFX dump command: [${command.what}, viewId=${command.viewId}, isRecursive=${command.isRecursive}]\n`);
       }
@@ -898,6 +1056,62 @@ abstract class PUV2ViewBase extends ViewBuildNodeBase {
         }
         this.updateFuncByElmtId.get(retakenElmtId)?.setIsChanged(false);
       }
+    }
+  }
+
+  public addActiveChangeListenerForInterop(listener: (active: boolean) => void): void {
+    this.activeChangeListenerForInterop_.add(listener);
+  }
+
+  public removeActiveChangeListenerForInterop(listener: (active: boolean) => void): void {
+    this.activeChangeListenerForInterop_.delete(listener);
+  }
+
+  public handleActiveChangeForInterop(active: boolean): void {
+    if (this.activeChangeListenerForInterop_.size > 0) {
+      this.activeChangeListenerForInterop_.forEach((listener: (active: boolean) => void) => {
+        listener(active);
+      });
+    }
+  }
+
+  public __isEntry__Internal(): boolean {
+    return this.__isEntryValue__Internal;
+  }
+
+  public abstract __getPathValueFromJson__Internal(propertyName: string, jsonPath: string): string | undefined;
+
+  protected __findPathValueInJson__Internal(jsonValue: any, jsonPath: string): string | undefined {
+    const paths = jsonPath.split('/').filter(path => path.length > 0);
+    let current = jsonValue;
+    for (const path of paths) {
+      if (current === null || current === undefined) {
+        return undefined;
+      }
+      if (Array.isArray(current)) {
+        if (!/^\d+$/.test(path)) {
+          return undefined;
+        }
+        const index = Number(path);
+        if (index < 0 || index >= current.length) {
+          return undefined;
+        }
+        current = current[index];
+        continue;
+      }
+      if ((typeof current !== 'object') || !Object.prototype.hasOwnProperty.call(current, path)) {
+        return undefined;
+      }
+      current = current[path];
+    }
+    if (typeof current === 'string') {
+      return current;
+    }
+    try {
+      return JSON.stringify(current);
+    } catch (error) {
+      stateMgmtConsole.error('getStateMgmtInfo get path JSON.stringify failed', error);
+      return undefined;
     }
   }
 } // class PUV2ViewBase

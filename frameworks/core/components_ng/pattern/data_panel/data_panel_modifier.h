@@ -22,6 +22,7 @@
 #include "core/animation/spring_curve.h"
 #include "core/common/container.h"
 #include "core/components_ng/base/modifier.h"
+#include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/property/property.h"
 #include "core/components_ng/render/animation_utils.h"
 #include "core/components_ng/render/canvas_image.h"
@@ -39,6 +40,7 @@ constexpr float ANIMATION_CURVE_MASS = 1.0f;        // The circle animation spri
 constexpr float ANIMATION_CURVE_STIFFNESS = 110.0f; // The circle animation spring curve stiffness is 110.0
 constexpr float ANIMATION_CURVE_DAMPING = 17.0f;    // The circle animation spring curve damping is 17.0
 constexpr size_t MAX_COUNT = 9;
+constexpr size_t DEFAULT_VALUE_COUNT = 0;
 constexpr float DEFAULT_MAX_VALUE = 100.0f;
 constexpr float START_ANGLE = 0.0f;
 struct ArcData {
@@ -75,7 +77,7 @@ class DataPanelModifier : public ContentModifier {
     DECLARE_ACE_TYPE(DataPanelModifier, ContentModifier);
 
 public:
-    DataPanelModifier();
+    DataPanelModifier(const WeakPtr<Pattern>& pattern);
     ~DataPanelModifier() override = default;
     void onDraw(DrawingContext& context) override;
     void UpdateDate();
@@ -84,11 +86,13 @@ public:
     {
         for (size_t i = 0; i < values.size(); ++i) {
             if (i >= MAX_COUNT) {
+                count_->Set(MAX_COUNT);
                 return;
             }
             values_[i]->Set(values[i]);
         }
         valuesLastLength_ = values.size();
+        count_->Set(values.size());
     };
 
     void SetMax(double max)
@@ -112,6 +116,11 @@ public:
     void SetOffset(OffsetF offset)
     {
         offset_ = offset;
+    };
+
+    void SetContentSize(const SizeF& contentSize)
+    {
+        contentSize_ = contentSize;
     };
 
     void SetValueColors(const std::vector<Gradient>& valueColors)
@@ -182,6 +191,11 @@ public:
         isRtl_ = isRtl;
     };
 
+    float GetValuesCount()
+    {
+        return count_->Get();
+    };
+
 private:
     void PaintCircle(DrawingContext& context, OffsetF offset) const;
     void PaintLinearProgress(DrawingContext& context, OffsetF offset) const;
@@ -190,6 +204,8 @@ private:
     void PaintColorSegment(RSCanvas& canvas, const LinearData& segmentLinearData) const;
     void PaintSpace(RSCanvas& canvas, const LinearData& segmentLinearData, float spaceWidth) const;
     void PaintTrackBackground(RSCanvas& canvas, ArcData arcData, const Color color) const;
+    void PaintCircleShadow(RSCanvas& canvas, ArcData& arcData) const;
+    void PaintCircleProgress(RSCanvas& canvas, ArcData& arcData) const;
     void PaintProgress(RSCanvas& canvas, ArcData arcData, RSPath& path, RSPath& endPath, bool isShadow) const;
     void GetPaintPath(ArcData& arcData, RSPath& path, RSPath& endPath) const;
     void Path2DArc(
@@ -200,16 +216,20 @@ private:
     RefPtr<PropertyBool> isEffect_;
     size_t dataPanelType_ = 0;
     OffsetF offset_;
+    SizeF contentSize_;
     bool isFirstCreate_ = true;
     bool isHasShadowValue_ = false;
     bool isRtl_ = false;
     RefPtr<PropertyBool> useContentModifier_;
+    RefPtr<PropertyBool> updateDataPanel_;
     
     RefPtr<AnimatablePropertyFloat> max_;
+    RefPtr<AnimatablePropertyFloat> count_;
     std::vector<RefPtr<AnimatablePropertyFloat>> values_;
     std::vector<RefPtr<AnimatablePropertyVectorColor>> valueColors_;
     RefPtr<AnimatablePropertyColor> trackBackgroundColor_;
     RefPtr<AnimatablePropertyFloat> strokeWidth_;
+    WeakPtr<Pattern> pattern_;
 
     // shadow param
     bool isShadowVisible_ = false;

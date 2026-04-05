@@ -37,7 +37,7 @@ struct TextPickerInteractiveEvent {
 };
 
 class TextPickerEventHub : public EventHub {
-    DECLARE_ACE_TYPE(TextPickerEventHub, EventHub)
+    DECLARE_ACE_TYPE(TextPickerEventHub, EventHub);
 
 public:
     TextPickerEventHub() = default;

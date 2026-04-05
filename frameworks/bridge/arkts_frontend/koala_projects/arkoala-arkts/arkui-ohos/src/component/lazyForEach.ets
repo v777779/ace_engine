@@ -125,6 +125,9 @@ export interface LazyForEachAttribute<T> extends DynamicNode {
         return this;
     }
     applyAttributesFinish(): void {}
+    debugLine(sourceLine: string, moduleName?: string): this {
+        return this;
+    }
 }
 
 export class ArkLazyForEachComponent<T> implements LazyForEachAttribute<T> {
@@ -157,6 +160,10 @@ export class ArkLazyForEachComponent<T> implements LazyForEachAttribute<T> {
     }
 
     applyAttributesFinish(): void {}
+    
+    public debugLine(sourceLine: string, moduleName?: string): this {
+        return this;
+    }
 }
 
 /** @memo */
@@ -169,13 +176,18 @@ export function LazyForEachImpl<T>(
     })
     style?.(receiver)
     if (!receiver.dataSource) {
-        InteropNativeModule._NativeLog('LazyForEach receiver.dataSource null !')
-    } else {
-        LazyForEachImplForOptions(
-            receiver.dataSource!,
-            receiver.itemGenerator,
-            receiver.keyGenerator,
-            receiver.onMoveEvent,
-            receiver.itemDragEvent);
+        throw new Error('LazyForEach dataSource is null. Application ERROR!')
     }
+    if (!receiver.itemGenerator) {
+        throw new Error('LazyForEach itemGenerator is null. Application ERROR!')
+    }
+    if (receiver.dataSource!.totalCount() === 0) {
+        console.warn('LazyForEach dataSource totalCount is 0. Please check your data source.')
+    }
+    LazyForEachImplForOptions(
+        receiver.dataSource!,
+        receiver.itemGenerator,
+        receiver.keyGenerator,
+        receiver.onMoveEvent,
+        receiver.itemDragEvent)
 }

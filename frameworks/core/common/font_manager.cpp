@@ -18,6 +18,7 @@
 #include <regex>
 
 #include "base/i18n/localization.h"
+#include "bridge/common/utils/engine_helper.h"
 #include "core/components/text/render_text.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/render/font_collection.h"
@@ -387,13 +388,45 @@ bool FontManager::RegisterCallbackNG(
     // Register callbacks for non-system fonts that are loaded through the graphic2d.
     FontInfo fontInfo;
     if (!hasRegistered) {
-        externalLoadCallbacks_.emplace(node, std::make_pair(familyName, callback));
+        RegisterTextEngineLoadCallback(node, familyName, callback);
     }
-    if (!hasRegisterLoadFontCallback_) {
-        RegisterLoadFontCallbacks();
-        hasRegisterLoadFontCallback_ = true;
-    }
+    std::call_once(load_font_flag_, [weak = WeakClaim(this)]() {
+        auto fontManager = weak.Upgrade();
+        CHECK_NULL_VOID(fontManager);
+        fontManager->RegisterLoadFontCallbacks();
+    });
     return false;
+}
+
+void FontManager::RegisterTextEngineLoadCallback(
+    const WeakPtr<NG::UINode>& node, const std::string& familyName, const std::function<void()>& callback)
+{
+    auto context = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto isFormRender = context && context->IsFormRender();
+    if (isFormRender) {
+        auto engine = EngineHelper::GetCurrentEngine();
+        NativeEngine* nativeEngine = engine ? engine->GetNativeEngine() : nullptr;
+        uint64_t runtimeId = nativeEngine ? static_cast<uint64_t>(reinterpret_cast<uintptr_t>(nativeEngine)) : 0;
+        FormLoadFontCallbackInfo formCallbackInfo = { callback, runtimeId };
+        std::unique_lock lock(formCallbackLock_);
+        auto iter = formLoadCallbacks_.find(node);
+        if (iter != formLoadCallbacks_.end()) {
+            iter->second.emplace(familyName, formCallbackInfo);
+        } else {
+            std::map<std::string, FormLoadFontCallbackInfo> familyMap;
+            familyMap.emplace(familyName, formCallbackInfo);
+            formLoadCallbacks_.emplace(node, familyMap);
+        }
+    }
+    std::unique_lock lock(externalCallbackLock_);
+    auto iter = externalLoadCallbacks_.find(node);
+    if (iter != externalLoadCallbacks_.end()) {
+        iter->second.emplace(familyName, callback);
+    } else {
+        std::map<std::string, std::function<void()>> familyMap;
+        familyMap.emplace(familyName, callback);
+        externalLoadCallbacks_.emplace(node, familyMap);
+    }
 }
 
 void FontManager::AddFontNodeNG(const WeakPtr<NG::UINode>& node)
@@ -414,6 +447,7 @@ void FontManager::UnRegisterCallbackNG(const WeakPtr<NG::UINode>& node)
         fontLoader->RemoveCallbackNG(node);
     }
     externalLoadCallbacks_.erase(node);
+    formLoadCallbacks_.erase(node);
 }
 
 void FontManager::AddVariationNodeNG(const WeakPtr<NG::UINode>& node)
@@ -449,37 +483,68 @@ void FontManager::RegisterLoadFontCallbacks()
 {
     auto context = PipelineBase::GetCurrentContextSafelyWithCheck();
     CHECK_NULL_VOID(context);
-    NG::FontCollection::Current()->RegisterLoadFontFinishCallback(
-        [weakContext = WeakPtr(context), weak = WeakClaim(this)](const std::string& fontName) {
+    NG::FontCollection::Global()->RegisterLoadFontFinishCallback(
+        [weakContext = WeakPtr(context), weak = WeakClaim(this)](
+            const std::string& fontName, uint64_t runtimeId) {
             auto fontManager = weak.Upgrade();
             CHECK_NULL_VOID(fontManager);
-            fontManager->OnLoadFontChanged(weakContext, fontName);
+            fontManager->OnLoadFontChanged(weakContext, fontName, runtimeId);
         });
-    NG::FontCollection::Current()->RegisterUnloadFontFinishCallback(
-        [weakContext = WeakPtr(context), weak = WeakClaim(this)](const std::string& fontName) {
+    NG::FontCollection::Global()->RegisterUnloadFontFinishCallback(
+        [weakContext = WeakPtr(context), weak = WeakClaim(this)](
+            const std::string& fontName, uint64_t runtimeId) {
             auto fontManager = weak.Upgrade();
             CHECK_NULL_VOID(fontManager);
-            fontManager->OnLoadFontChanged(weakContext, fontName);
+            fontManager->OnLoadFontChanged(weakContext, fontName, runtimeId);
         });
 }
 
-void FontManager::OnLoadFontChanged(const WeakPtr<PipelineBase>& weakContext, const std::string& fontName)
+void FontManager::OnLoadFontChanged(
+    const WeakPtr<PipelineBase>& weakContext, const std::string& fontName, uint64_t runtimeId)
 {
     auto context = weakContext.Upgrade();
     CHECK_NULL_VOID(context);
     auto taskExecutor = context->GetTaskExecutor();
     CHECK_NULL_VOID(taskExecutor);
     taskExecutor->PostTask(
-        [weak = WeakClaim(this), fontName] {
+        [weak = WeakClaim(this), fontName, runtimeId] {
             auto fontManager = weak.Upgrade();
             CHECK_NULL_VOID(fontManager);
-            for (const auto& element : fontManager->externalLoadCallbacks_) {
-                if (element.second.first == fontName && element.second.second) {
-                    element.second.second();
-                }
-            }
+            fontManager->NotifyFontChange(fontName, runtimeId);
         },
         TaskExecutor::TaskType::UI, "NotifyFontLoadUITask");
+}
+
+void FontManager::NotifyFontChange(const std::string& fontName, uint64_t runtimeId)
+{
+    // form font change event.
+    if (runtimeId > 0) {
+        NotifyFormFontChange(fontName, runtimeId);
+        return;
+    }
+    // global font change event.
+    std::shared_lock lock(externalCallbackLock_);
+    for (const auto& element : externalLoadCallbacks_) {
+        for (const auto& family : element.second) {
+            if (family.first == fontName && family.second) {
+                family.second();
+            }
+        }
+    }
+}
+
+void FontManager::NotifyFormFontChange(const std::string& fontName, uint64_t runtimeId)
+{
+    std::shared_lock lock(formCallbackLock_);
+    for (const auto& element : formLoadCallbacks_) {
+        for (const auto& [currentFontName, callbackInfo] : element.second) {
+            if (currentFontName != fontName || !callbackInfo.callback || callbackInfo.formRuntimeId == 0 ||
+                callbackInfo.formRuntimeId != runtimeId) {
+                continue;
+            }
+            callbackInfo.callback();
+        }
+    }
 }
 
 void FontManager::StartAbilityOnJumpBrowser(const std::string& address) const
@@ -496,13 +561,6 @@ void FontManager::StartAbilityOnInstallAppInStore(const std::string& appName) co
     }
 }
 
-void FontManager::OpenLinkOnMapSearch(const std::string& address)
-{
-    if (startOpenLinkOnMapSearchHandler_) {
-        startOpenLinkOnMapSearchHandler_(address);
-    }
-}
-
 void FontManager::OnPreviewMenuOptionClick(TextDataDetectType type, const std::string& content)
 {
     if (type == TextDataDetectType::URL) {
@@ -516,13 +574,15 @@ void FontManager::OnPreviewMenuOptionClick(TextDataDetectType type, const std::s
         }
         StartAbilityOnJumpBrowser(url);
     }
+}
 
-    if (type == TextDataDetectType::ADDRESS) {
-        OpenLinkOnMapSearch(content);
+void FontManager::StartAbilityOnCalendar(const std::map<std::string, std::string>& params) const
+{
+    if (startAbilityOnCalendarHandler_) {
+        startAbilityOnCalendarHandler_(params);
     }
 }
 
-#ifdef ACE_ENABLE_VK
 void FontManager::AddHybridRenderNode(const WeakPtr<NG::UINode>& node)
 {
     std::lock_guard<std::mutex> lock(hybridRenderNodesMutex_);
@@ -552,5 +612,24 @@ void FontManager::UpdateHybridRenderNodes()
         }
     }
 }
-#endif
+
+void FontManager::UpdateStyleOptimizeFlagInCurrentLanguage()
+{
+    auto context = PipelineBase::GetCurrentContextSafelyWithCheck();
+    CHECK_NULL_VOID(context);
+    auto themeManager = context->GetThemeManager();
+    CHECK_NULL_VOID(themeManager);
+    auto themeConstants = themeManager->GetThemeConstants();
+    CHECK_NULL_VOID(themeConstants);
+    auto resourceAdapter = themeConstants->GetResourceAdapter();
+    CHECK_NULL_VOID(resourceAdapter);
+    fallbackLineSpacingStyleOptimizeFlag_ =
+        resourceAdapter->GetStringByName("text_fallback_line_spacing") == "true";
+}
+
+bool FontManager::GetFallbackLineSpacingStyleOptimizeFlag()
+{
+    return fallbackLineSpacingStyleOptimizeFlag_;
+}
+
 } // namespace OHOS::Ace

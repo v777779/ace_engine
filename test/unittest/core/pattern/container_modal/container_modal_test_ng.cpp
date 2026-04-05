@@ -16,10 +16,10 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_resource_adapter.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
 #include "base/log/log_wrapper.h"
@@ -1002,5 +1002,113 @@ HWTEST_F(ContainerModelTestNg, SetWindowContainerColor, TestSize.Level1)
     pattern_->SetWindowContainerColor(Color::TRANSPARENT, Color::TRANSPARENT);
     ret = pattern_->IsContainerModalTransparent();
     EXPECT_TRUE(ret);
+}
+
+/**
+ * @tc.name: InitColumnTouchTestFunc3
+ * @tc.desc: Test InitColumnTouchTestFunc.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ContainerModelTestNg, InitColumnTouchTestFunc3, TestSize.Level1)
+{
+    CreateContainerModal();
+
+    /**
+     * @tc.steps: step1. Get column node and check it's not null
+     * @tc.expected: Column node is valid
+     */
+    auto column = pattern_->GetColumnNode();
+    ASSERT_NE(column, nullptr);
+
+    /**
+     * @tc.steps: step2. Get gesture event hub and check it's not null
+     * @tc.expected: Gesture event hub is valid
+     */
+    auto eventHub = column->GetOrCreateGestureEventHub();
+    ASSERT_NE(eventHub, nullptr);
+
+    /**
+     * @tc.steps: step3. Initialize touch test function
+     * @tc.expected: Touch test function is set
+     */
+    pattern_->InitColumnTouchTestFunc();
+    auto callback = eventHub->GetOnTouchTestFunc();
+    EXPECT_NE(callback, nullptr);
+
+    /**
+     * @tc.steps: step4. Create frame node and set toolbar builder
+     * @tc.expected: Frame node created and toolbar builder set
+     */
+    auto frameNode = AceType::MakeRefPtr<FrameNode>("frameNode", 100, AceType::MakeRefPtr<Pattern>());
+    pattern_->SetToolbarBuilder(frameNode, nullptr);
+    ASSERT_NE(pattern_->titleMgr_, nullptr);
+
+    /**
+     * @tc.steps: step5. Test different combinations of custom title and update target node
+     * @tc.expected: Touch test function set/unset based on conditions
+     */
+    std::vector<std::pair<bool, bool>> vec { { true, true }, { true, false }, { false, true }, { false, false } };
+    for (auto p : vec) {
+        pattern_->customTitleSettedShow_ = p.first;
+        pattern_->titleMgr_->isUpdateTargetNode_ = p.second;
+        pattern_->InitColumnTouchTestFunc();
+        callback = eventHub->GetOnTouchTestFunc();
+        if (p.first && p.second) {
+            EXPECT_EQ(callback, nullptr);
+        } else {
+            EXPECT_NE(callback, nullptr);
+        }
+    }
+}
+
+/**
+ * @tc.name: CheckNodeOnContainerModalTitle
+ * @tc.desc: Test function CheckNodeOnContainerModalTitle
+ * @tc.type: FUNC
+ */
+HWTEST_F(ContainerModelTestNg, CheckNodeOnContainerModalTitle, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: init ContainerModal.
+     */
+    CreateContainerModal();
+    ASSERT_NE(pattern_, nullptr);
+
+    /**
+     * @tc.steps2: call CheckNodeOnContainerModalTitle when frameNode not has parent.
+     * @tc.expected: result is false.
+     */
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), nullptr);
+    auto result = pattern_->CheckNodeOnContainerModalTitle(frameNode);
+    EXPECT_FALSE(result);
+
+    /**
+     * @tc.steps3: call CheckNodeOnContainerModalTitle when frameNode parent is column.
+     * @tc.expected: result is false.
+     */
+    auto column =
+        FrameNode::GetOrCreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), nullptr);
+    column->AddChild(frameNode);
+    result = pattern_->CheckNodeOnContainerModalTitle(frameNode);
+    EXPECT_FALSE(result);
+
+    /**
+     * @tc.steps5: call CheckNodeOnContainerModalTitle when frameNode  parent is toolbarItem.
+     * @tc.expected: result is true.
+     */
+    auto toolbarItem = FrameNode::GetOrCreateFrameNode(
+        V2::TOOLBARITEM_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), nullptr);
+    toolbarItem->AddChild(column);
+    result = pattern_->CheckNodeOnContainerModalTitle(frameNode);
+    EXPECT_TRUE(result);
+
+    /**
+     * @tc.steps4: call CheckNodeOnContainerModalTitle when frameNode  parent is containerNode.
+     * @tc.expected: result is false.
+     */
+    frameNode_->AddChild(toolbarItem);
+    result = pattern_->CheckNodeOnContainerModalTitle(toolbarItem);
+    EXPECT_FALSE(result);
 }
 } // namespace OHOS::Ace::NG

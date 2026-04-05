@@ -127,10 +127,11 @@ struct ActiveChildSets {
 enum class IgnoreStrategy {
     NORMAL = 0,
     FROM_MARGIN,
-    STRIDE_OVER
+    STRIDE_OVER,
+    AXIS_INSENSITIVE
 };
 class ACE_FORCE_EXPORT LayoutWrapper : public virtual AceType {
-    DECLARE_ACE_TYPE(LayoutWrapper, AceType)
+    DECLARE_ACE_TYPE(LayoutWrapper, AceType);
 public:
     LayoutWrapper(WeakPtr<FrameNode> hostNode) : hostNode_(std::move(hostNode)) {}
     ~LayoutWrapper() override = default;
@@ -273,13 +274,62 @@ public:
     {
         return ignoreLayoutProcess_;
     }
-    virtual void MarkAndCheckNewOpIncNode(Axis axis) {};
+
+    // Paired with GetHasPreMeasured. Once a node being collected as a measure-delayed child, set true.
+    void SetHasPreMeasured()
+    {
+        hasPreMeasured_ = true;
+    }
+
+    // Paired with SetHasPreMeasured. To avoid re-entering PreMeasure in the delayed measure process.
+    bool GetHasPreMeasured()
+    {
+        return std::exchange(hasPreMeasured_, false);
+    }
+
+    bool CheckHasPreMeasured() const
+    {
+        return hasPreMeasured_;
+    }
+
+    void SetEscapeDelayForIgnore(bool noDelay)
+    {
+        escapeDelayForIgnore_ = noDelay;
+    }
+
+    bool GetEscapeDelayForIgnore() const
+    {
+        return escapeDelayForIgnore_;
+    }
+
+    bool PredictMeasureResult(LayoutWrapper* childWrapper, const std::optional<LayoutConstraintF>& parentConstraint);
+
+    // Paired with GetDelaySelfLayoutForIgnore. Once a node being collected as a layout-delayed child, set true.
+    void SetDelaySelfLayoutForIgnore()
+    {
+        delaySelfLayoutForIgnore_ = true;
+    }
+
+    // Paired with SetDelaySelfLayoutForIgnore. Access to skip THE JUST first layout after SetDelaySelfLayoutForIgnore,
+    // and valid layout should be called during PostponedTaskForIgnore.
+    bool GetDelaySelfLayoutForIgnore()
+    {
+        return std::exchange(delaySelfLayoutForIgnore_, false);
+    }
+
+    bool IsIgnoreOptsValid();
+
+    bool IsScrollableAxisInsensitive()
+    {
+        return isScrollableAxis_;
+    }
+
+    void OffsetNodeToSafeArea();
 
 protected:
     void CreateRootConstraint();
     void ApplyConstraint(LayoutConstraintF constraint);
 
-    void OffsetNodeToSafeArea();
     // keyboard avoidance is done by offsetting, to expand into keyboard area, reverse the offset.
     OffsetF ExpandIntoKeyboard();
     bool CheckValidSafeArea();
@@ -300,7 +350,8 @@ protected:
         INCLUDING_SELF,
         FROM_MARGIN
     };
-    bool AccumulateExpandCacheHit(ExpandEdges& totalExpand, const PaddingPropertyF& innerSpace);
+    bool AccumulateExpandCacheHit(ExpandEdges& totalExpand, const PaddingPropertyF& innerSpace,
+        const RectF& adjustingRect, LayoutSafeAreaType ignoreType);
     ExpandEdges GetAccumulatedSafeAreaExpandForAllEdges(
         StartPoint startPoint = StartPoint::NORMAL, LayoutSafeAreaType ignoreType = NG::LAYOUT_SAFE_AREA_TYPE_SYSTEM);
     void GetAccumulatedSafeAreaExpandHelper(RectF& adjustingRect, ExpandEdges& totalExpand, bool fromSelf = false,
@@ -319,7 +370,10 @@ protected:
     std::optional<bool> skipMeasureContent_;
     std::optional<bool> needForceMeasureAndLayout_;
     bool ignoreLayoutProcess_ = false;
-
+    bool hasPreMeasured_ = false;
+    bool delaySelfLayoutForIgnore_ = false;
+    bool escapeDelayForIgnore_ = false;
+    bool isScrollableAxis_ = false;
 private:
     void AdjustChildren(const OffsetF& offset, bool parentScrollable);
     void AdjustChild(RefPtr<UINode> node, const OffsetF& offset, bool parentScrollable);

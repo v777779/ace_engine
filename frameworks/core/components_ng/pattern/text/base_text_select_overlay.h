@@ -23,6 +23,7 @@
 #include "base/memory/referenced.h"
 #include "core/components_ng/manager/select_content_overlay/select_overlay_callback.h"
 #include "core/components_ng/manager/select_content_overlay/select_overlay_holder.h"
+#include "core/components_ng/manager/select_overlay/select_overlay_manager.h"
 #include "core/components_ng/pattern/scrollable/scrollable_paint_property.h"
 #include "core/components_ng/pattern/select_overlay/select_overlay_property.h"
 #include "core/components_ng/pattern/text/text_base.h"
@@ -41,7 +42,7 @@ struct OverlayRequest {
 
 enum class DragHandleIndex { NONE, FIRST, SECOND };
 
-class BaseTextSelectOverlay : public SelectOverlayHolder, public SelectOverlayCallback {
+class ACE_FORCE_EXPORT BaseTextSelectOverlay : public SelectOverlayHolder, public SelectOverlayCallback {
     DECLARE_ACE_TYPE(BaseTextSelectOverlay, SelectOverlayHolder, SelectOverlayCallback);
 
 public:
@@ -60,7 +61,7 @@ public:
     {
         return hostTextBase_;
     }
-
+    void CheckHasPasteData(const std::function<void(bool, bool)>& callback);
     void ProcessOverlay(const OverlayRequest& request = OverlayRequest());
     void ProcessOverlayOnAreaChanged(const OverlayRequest& request = OverlayRequest());
     virtual bool PreProcessOverlay(const OverlayRequest& request)
@@ -88,7 +89,7 @@ public:
     void CloseOverlay(bool animation, CloseReason reason);
     void ToggleMenu();
     void ShowMenu();
-    void HideMenu(bool noAnimation = false);
+    void HideMenu(bool noAnimation = false, bool showSubMenu = false);
     void DisableMenu();
     void EnableMenu();
     virtual void UpdateAllHandlesOffset();
@@ -187,7 +188,7 @@ public:
     RectF GetPaintRectWithTransform();
     OffsetF GetPaintRectOffsetWithTransform();
     RectF GetVisibleContentRectWithTransform(float epsilon);
-    bool CheckHandleIsVisibleWithTransform(const OffsetF& startPoint, const OffsetF& endPoint, float epsilon);
+    virtual bool CheckHandleIsVisibleWithTransform(const OffsetF& startPoint, const OffsetF& endPoint, float epsilon);
     bool IsPointInRect(const OffsetF& point, const OffsetF& leftBottom, const OffsetF& rightBottom,
         const OffsetF& rightTop, const OffsetF& leftTop);
 
@@ -274,6 +275,7 @@ public:
     void MarkOverlayDirty();
     void OnHandleMarkInfoChange(const std::shared_ptr<SelectOverlayInfo> info, SelectOverlayDirtyFlag flag) override;
     void UpdateHandleColor();
+    void UpdateAIMenu();
     virtual std::optional<Color> GetHandleColor()
     {
         return std::nullopt;
@@ -319,6 +321,17 @@ public:
         return manager->GetSelectOverlayInfo();
     }
     virtual void BeforeOnPrepareMenu() {}
+    virtual bool ChangeSecondHandleHeight(const GestureEvent& event, bool isOverlayMode)
+    {
+        return false;
+    }
+    bool GetDragViewHandleRects(RectF& firstRect, RectF& secondRect);
+    void UpdateIsSingleHandle(bool isSingleHandle);
+    void AddTaskAfterShowOverlay(std::function<void()>&& task);
+    bool IsAutoFillPaste ()
+    {
+        return isAutoFillPaste;
+    }
 
 protected:
     RectF MergeSelectedBoxes(
@@ -375,6 +388,7 @@ protected:
         enableContainerModal_ = true;
     }
     bool IsNeedMenuTranslate();
+    void HandleOnAutoFill(OptionMenuType type);
     void HandleOnTranslate();
     bool IsNeedMenuSearch();
     void HandleOnSearch();
@@ -404,6 +418,8 @@ protected:
     RectF ConvertWindowToScreenDomain(RectF rect);
     EdgeF ConvertWindowToScreenDomain(EdgeF edge);
     std::string GetTranslateParamRectStr(RectF rect, EdgeF rectLeftTop, EdgeF rectRightBottom);
+    void FlushAfterOverlayShowTask();
+    bool isAutoFillPaste = false;
 
 private:
     void FindScrollableParentAndSetCallback(const RefPtr<FrameNode>& host);
@@ -440,6 +456,7 @@ private:
      */
     bool isHostNodeEnableSubWindowMenu_ = true;
     bool isSuperFoldDisplayDevice_ = false;
+    std::vector<std::function<void()>> afterShowTasks_;
 };
 
 } // namespace OHOS::Ace::NG

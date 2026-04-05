@@ -36,7 +36,7 @@ constexpr int32_t UNKNOWN_INSTANCE_ID = -1;
 constexpr int32_t UNKNOWN_RESOURCE_ID = -1;
 constexpr int32_t UNKNOWN_RESOURCE_TYPE = -1;
 const std::regex FLOAT_PATTERN(R"(-?(0|[1-9]\d*)(\.\d+))", std::regex::icase);
-bool ResourceParseUtils::isReloading_ = false;
+bool ResourceParseUtils::needReload_ = false;
 
 uint32_t ColorAlphaAdapt(uint32_t origin)
 {
@@ -257,6 +257,38 @@ void ReplaceHolder(std::string& originStr, const std::vector<ResourceObjectParam
     }
 }
 
+void ResourceParseUtils::CompleteResourceObjectFromColor(
+    RefPtr<ResourceObject>& resObj, Color& color, const NG::NodeInfo& nodeInfo)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto instanceId = Container::CurrentIdSafely();
+    auto invertFunc = ColorInverter::GetInstance().GetInvertFunc(instanceId, nodeInfo.nodeTag);
+    CHECK_NULL_VOID(invertFunc);
+
+    auto colorMode = Container::CurrentColorMode();
+    Color curColor = color;
+    if (colorMode == ColorMode::DARK && nodeInfo.allowForceDark) {
+        color = Color(invertFunc(color.GetValue()));
+    }
+    resObj = AceType::MakeRefPtr<ResourceObject>();
+    resObj->SetIsResource(false);
+    resObj->SetInstanceId(instanceId);
+    resObj->SetNodeTag(nodeInfo.nodeTag);
+    resObj->SetColorMode(colorMode);
+    resObj->SetHasDarkRes(false);
+    resObj->SetColor(((colorMode == ColorMode::DARK) ? curColor : color));
+}
+
+NG::NodeInfo ResourceParseUtils::MakeNativeNodeInfo(NG::UINode* uiNode)
+{
+    if (!uiNode) {
+        return { "", ColorMode::COLOR_MODE_UNDEFINED, true };
+    }
+    return { uiNode->GetTag(), uiNode->GetLocalColorMode(), uiNode->GetForceDarkAllowed() };
+}
+
 bool ResourceParseUtils::ParseResInteger(const RefPtr<ResourceObject>& resObj, uint32_t& result)
 {
     return ParseResInteger<uint32_t>(resObj, result);
@@ -356,12 +388,12 @@ bool ResourceParseUtils::ParseResFontFamilies(const RefPtr<ResourceObject>& resO
 void ResourceParseUtils::InvertColorWithResource(const RefPtr<ResourceObject>& resObj, Color& result,
     const ColorMode& colorMode)
 {
-    if (isReloading_ && !resObj->HasDarkResource() && (colorMode == ColorMode::DARK) &&
-        (colorMode != resObj->GetColorMode()) &&
-        (resObj->GetColorMode() != ColorMode::COLOR_MODE_UNDEFINED)) {
+    if (!needReload_ || (resObj->GetColorMode() == ColorMode::COLOR_MODE_UNDEFINED)) {
+        return;
+    }
+    if ((colorMode == ColorMode::DARK) && !resObj->HasDarkResource()) {
         result = ColorInverter::Invert(result, resObj->GetInstanceId(), resObj->GetNodeTag());
     }
-    resObj->SetColor(result);
     resObj->SetColorMode(colorMode);
 }
 
@@ -377,18 +409,20 @@ bool ResourceParseUtils::ParseResColorWithName(const RefPtr<ResourceObject>& res
     return true;
 }
 
-bool ResourceParseUtils::ParseResColor(const RefPtr<ResourceObject>& resObj, Color& result)
+bool ResourceParseUtils::ParseResColor(const RefPtr<ResourceObject>& resObj, Color& result, bool adaptMaterial)
 {
     CHECK_NULL_RETURN(resObj, false);
 
     auto colorMode = Container::CurrentColorMode();
     if (!resObj->IsResource()) {
-        if (isReloading_ && (colorMode != resObj->GetColorMode() &&
-            (resObj->GetColorMode() != ColorMode::COLOR_MODE_UNDEFINED))) {
-            result = ColorInverter::Invert(resObj->GetColor(), resObj->GetInstanceId(), resObj->GetNodeTag());
-            resObj->SetColor(result);
+        if (resObj->GetColorMode() == ColorMode::COLOR_MODE_UNDEFINED) {
+            return false;
         }
-        result = resObj->GetColor();
+        if (needReload_ && (colorMode == ColorMode::DARK)) {
+            result = ColorInverter::Invert(resObj->GetColor(), resObj->GetInstanceId(), resObj->GetNodeTag());
+        } else {
+            result = resObj->GetColor();
+        }
         resObj->SetColorMode(colorMode);
         return true;
     }
@@ -419,10 +453,34 @@ bool ResourceParseUtils::ParseResColor(const RefPtr<ResourceObject>& resObj, Col
     if (type == static_cast<int32_t>(ResourceType::COLOR)) {
         result = resourceWrapper->GetColor(resId);
         result.SetResourceId(resId);
+        if (adaptMaterial) {
+            result.FillColorPlaceholderIfNeed(resId);
+        }
         InvertColorWithResource(resObj, result, colorMode);
         return true;
     }
     return false;
+}
+
+bool ResourceParseUtils::ParseResColorWithColorMode(const RefPtr<ResourceObject>& resObj, Color& result,
+    const ColorMode& colorMode)
+{
+    CHECK_NULL_RETURN(resObj, false);
+    auto container = Container::CurrentSafely();
+    CHECK_NULL_RETURN(container, false);
+    if (resObj->GetInstanceId() == UNKNOWN_INSTANCE_ID) {
+        resObj->SetInstanceId(container->GetInstanceId());
+    }
+    auto resourceWrapper = GetOrCreateResourceWrapper(resObj);
+    CHECK_NULL_RETURN(resourceWrapper, false);
+    auto resourceAdapter = resourceWrapper->GetResourceAdapter();
+    auto colorModeValue = resourceAdapter ? resourceAdapter->GetResourceColorMode() : container->GetColorMode();
+    ResourceManager::GetInstance().UpdateColorMode(
+        container->GetBundleName(), container->GetModuleName(), container->GetInstanceId(), colorMode);
+    bool state = ParseResColor(resObj, result);
+    ResourceManager::GetInstance().UpdateColorMode(
+        container->GetBundleName(), container->GetModuleName(), container->GetInstanceId(), colorModeValue);
+    return state;
 }
 
 bool ResourceParseUtils::ParseResString(const RefPtr<ResourceObject>& resObj, std::u16string& result)
@@ -821,6 +879,6 @@ bool ResourceParseUtils::ConvertFromResObj(const RefPtr<ResourceObject>& resObj,
     return false;
 }
 
-template bool ResourceParseUtils::ConvertFromResObjNG<Dimension>(
+template bool ACE_FORCE_EXPORT ResourceParseUtils::ConvertFromResObjNG<Dimension>(
     const RefPtr<ResourceObject>& resObj, Dimension& result);
 }

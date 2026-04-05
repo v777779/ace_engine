@@ -15,9 +15,13 @@
 
 #include "bridge/declarative_frontend/jsview/models/web_model_impl.h"
 
+#include "bridge/declarative_frontend/view_stack_processor.h"
+#include "core/components/focusable/focusable_component.h"
+
 namespace OHOS::Ace::Framework {
 void WebModelImpl::Create(const std::string& src, const RefPtr<WebController>& webController,
-    RenderMode /* renderMode */, bool incognitoMode, const std::string& sharedRenderProcessToken)
+    RenderMode /* renderMode */, bool incognitoMode, const std::string& sharedRenderProcessToken,
+    bool emulateTouchFromMouseEvent)
 {
     RefPtr<WebComponent> webComponent;
     webComponent = AceType::MakeRefPtr<WebComponent>(src);
@@ -27,13 +31,15 @@ void WebModelImpl::Create(const std::string& src, const RefPtr<WebController>& w
     webComponent->SetWebController(webController);
     webComponent->SetIncognitoMode(incognitoMode);
     webComponent->SetSharedRenderProcessToken(sharedRenderProcessToken);
+    webComponent->SetEmulateTouchFromMouseEvent(emulateTouchFromMouseEvent);
 
     ViewStackProcessor::GetInstance()->Push(webComponent);
 }
 
 void WebModelImpl::Create(const std::string& src, std::function<void(int32_t)>&& setWebIdCallback,
     std::function<void(const std::string&)>&& setHapPathCallback, int32_t parentWebId, bool popup,
-    RenderMode /* renderMode */, bool incognitoMode, const std::string& sharedRenderProcessToken)
+    RenderMode /* renderMode */, bool incognitoMode, const std::string& sharedRenderProcessToken,
+    bool emulateTouchFromMouseEvent)
 {
     RefPtr<WebComponent> webComponent;
     webComponent = AceType::MakeRefPtr<WebComponent>(src);
@@ -46,7 +52,7 @@ void WebModelImpl::Create(const std::string& src, std::function<void(int32_t)>&&
     webComponent->SetSetHapPathCallback(std::move(setHapPathCallback));
     webComponent->SetIncognitoMode(incognitoMode);
     webComponent->SetSharedRenderProcessToken(sharedRenderProcessToken);
-
+    webComponent->SetEmulateTouchFromMouseEvent(emulateTouchFromMouseEvent);
     ViewStackProcessor::GetInstance()->Push(webComponent);
 }
 
@@ -559,6 +565,13 @@ void WebModelImpl::SetWindowNewEvent(std::function<void(const std::shared_ptr<Ba
     webComponent->SetWindowNewEvent(std::move(jsCallback));
 }
 
+void WebModelImpl::SetWindowNewExtEvent(std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& jsCallback)
+{
+    auto webComponent = AceType::DynamicCast<WebComponent>(ViewStackProcessor::GetInstance()->GetMainComponent());
+    CHECK_NULL_VOID(webComponent);
+    webComponent->SetWindowNewExtEvent(std::move(jsCallback));
+}
+
 void WebModelImpl::SetActivateContentEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback)
 {
     auto webComponent = AceType::DynamicCast<WebComponent>(ViewStackProcessor::GetInstance()->GetMainComponent());
@@ -660,6 +673,15 @@ void WebModelImpl::SetNativeEmbedGestureEventId(std::function<void(const BaseEve
     webComponent->SetNativeEmbedGestureEventId(eventMarker);
 }
 
+void WebModelImpl::SetNativeEmbedObjectParamChangeId(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto webComponent = AceType::DynamicCast<WebComponent>(ViewStackProcessor::GetInstance()->GetMainComponent());
+    CHECK_NULL_VOID(webComponent);
+    auto eventMarker = EventMarker(std::move(jsCallback));
+
+    webComponent->SetNativeEmbedObjectParamChangeId(eventMarker);
+}
+
 void WebModelImpl::SetOnOverrideUrlLoading(std::function<bool(const BaseEventInfo* info)>&& jsCallback)
 {
     auto webComponent = AceType::DynamicCast<WebComponent>(ViewStackProcessor::GetInstance()->GetMainComponent());
@@ -721,10 +743,40 @@ void WebModelImpl::SetOptimizeParserBudgetEnabled(bool enable)
     webComponent->SetOptimizeParserBudgetEnabled(enable);
 }
 
+void WebModelImpl::SetOnLoadStarted(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto webComponent = AceType::DynamicCast<WebComponent>(ViewStackProcessor::GetInstance()->GetMainComponent());
+    CHECK_NULL_VOID(webComponent);
+    auto eventMarker = EventMarker(std::move(jsCallback));
+    webComponent->SetOnLoadStartedEventId(eventMarker);
+}
+
+void WebModelImpl::SetOnLoadFinished(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto webComponent = AceType::DynamicCast<WebComponent>(ViewStackProcessor::GetInstance()->GetMainComponent());
+    CHECK_NULL_VOID(webComponent);
+    auto eventMarker = EventMarker(std::move(jsCallback));
+    webComponent->SetOnLoadFinishedEventId(eventMarker);
+}
+
 void WebModelImpl::SetBypassVsyncCondition(WebBypassVsyncCondition condition)
 {
     auto webComponent = AceType::DynamicCast<WebComponent>(ViewStackProcessor::GetInstance()->GetMainComponent());
     CHECK_NULL_VOID(webComponent);
     webComponent->SetBypassVsyncCondition(condition);
+}
+
+void WebModelImpl::SetForceEnableZoom(bool isForceEnableZoom)
+{
+    auto webComponent = AceType::DynamicCast<WebComponent>(ViewStackProcessor::GetInstance()->GetMainComponent());
+    CHECK_NULL_VOID(webComponent);
+    webComponent->SetForceEnableZoom(isForceEnableZoom);
+}
+
+void WebModelImpl::SetOnVerifyPinRequest(std::function<bool(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto webComponent = AceType::DynamicCast<WebComponent>(ViewStackProcessor::GetInstance()->GetMainComponent());
+    CHECK_NULL_VOID(webComponent);
+    webComponent->SetOnVerifyPinRequestImpl(std::move(jsCallback));
 }
 } // namespace OHOS::Ace::Framework

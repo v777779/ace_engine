@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -30,6 +30,7 @@ public:
     static ArkUINativeModuleValue ResetChainAnimation(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetCachedCount(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue ResetCachedCount(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetCacheRange(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetEnableScrollInteraction(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue ResetEnableScrollInteraction(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetSticky(ArkUIRuntimeCallInfo* runtimeCallInfo);
@@ -46,6 +47,8 @@ public:
     static ArkUINativeModuleValue ResetListStackFromEnd(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetListSyncLoad(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue ResetListSyncLoad(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetEditModeOptions(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue ResetEditModeOptions(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetListNestedScroll(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue ResetListNestedScroll(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetListScrollBar(ArkUIRuntimeCallInfo* runtimeCallInfo);
@@ -60,10 +63,6 @@ public:
     static ArkUINativeModuleValue ResetAlignListItem(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetScrollSnapAlign(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue ResetScrollSnapAlign(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetContentStartOffset(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue ResetContentStartOffset(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetContentEndOffset(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue ResetContentEndOffset(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetDivider(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue ResetDivider(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetChainAnimationOptions(ArkUIRuntimeCallInfo* runtimeCallInfo);
@@ -76,6 +75,8 @@ public:
     static ArkUINativeModuleValue ResetSpace(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetInitialScroller(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue ResetInitialScroller(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetScrollSnapAnimationSpeed(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue resetScrollSnapAnimationSpeed(ArkUIRuntimeCallInfo* runtimeCallInfo);
 
     static ArkUINativeModuleValue SetOnScrollIndex(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static Local<panda::ObjectRef> SetListItemIndex(const EcmaVM* vm, const ListItemIndex indexInfo);
@@ -93,6 +94,7 @@ public:
     static ArkUINativeModuleValue SetOnListDidScroll(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetOnListReachStart(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetOnListReachEnd(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetSupportEmptyBranchInLazyLoading(ArkUIRuntimeCallInfo* runtimeCallInfo);
 
     static ArkUINativeModuleValue ResetOnScrollIndex(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue ResetOnScrollVisibleContentChange(ArkUIRuntimeCallInfo* runtimeCallInfo);

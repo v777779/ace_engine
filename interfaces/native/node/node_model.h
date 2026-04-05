@@ -27,6 +27,11 @@
 
 #include "frameworks/core/common/ace_application_info.h"
 #include "frameworks/core/interfaces/arkoala/arkoala_api.h"
+#include "interfaces/inner_api/ace/node_module_inner.h"
+
+namespace OHOS::Media {
+class PixelMap;
+} // namespace OHOS::Media
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,22 +52,22 @@ struct ArkUI_Node {
     void* alignRuleOption = nullptr;
     void* userData = nullptr;
     void* swiperIndicator = nullptr;
-    void* imageFrameInfos = nullptr;
-    void* drawableDescriptor = nullptr;
     int32_t linearGradientDirection = -1;
     void* customEventListeners = nullptr;
     void* altDrawableDescriptor = nullptr;
+    void* drawableDescriptor = nullptr;
+    void* imageFrameInfos = nullptr;
     ArkUI_AttributeItem* areaChangeRadio = nullptr;
     void* transitionOption = nullptr;
     void* progressLinearStyle = nullptr;
     void* visibleAreaEventOptions = nullptr;
     bool isBindNative = false;
+    void* commonEventListeners = nullptr;
+    void* extraCommonData = nullptr;
+    void* gridLayoutOptions =  nullptr;
 };
 
-struct ArkUI_Context {
-    int32_t id;
-};
-
+constexpr int BASIC_COMPONENT_NUM = 23;
 struct ArkUI_GuidelineStyle {
     std::string id;
     ArkUI_Axis direction;
@@ -109,7 +114,15 @@ struct ArkUI_AlignmentRuleOption {
     float biasVertical;
 };
 
-constexpr int BASIC_COMPONENT_NUM = 22;
+struct InnerEventExtraParam {
+    int32_t targetId;
+    ArkUI_NodeHandle nodePtr;
+    void* userData;
+};
+
+struct ExtraData {
+    std::unordered_map<int64_t, InnerEventExtraParam*> eventMap;
+};
 
 #ifdef __cplusplus
 };
@@ -159,9 +172,13 @@ void HandleHoverEvent(ArkUI_UIInputEvent& uiEvent, ArkUINodeEvent* innerEvent);
 void HandleClickEvent(ArkUI_UIInputEvent& uiEvent, ArkUINodeEvent* innerEvent);
 int32_t CheckEvent(ArkUI_NodeEvent* event);
 void HandleInnerNodeEvent(ArkUINodeEvent* innerEvent);
-int32_t GetNativeNodeEventType(ArkUINodeEvent* innerEvent);
+int32_t GetNativeNodeEventType(ArkUINodeEvent* innerEvent, bool isCommonEvent);
 void HandleNodeEvent(ArkUI_NodeEvent* event);
 void TriggerNodeEvent(ArkUI_NodeEvent* event, std::set<void (*)(ArkUI_NodeEvent*)>* eventListenersSet);
+void HandleInnerNodeCommonEvent(ArkUINodeEvent* innerEvent);
+void HandleNodeCommonEvent(ArkUI_NodeEvent* event, int32_t eventType);
+void TriggerNodeCommonEvent(ArkUI_NodeEvent* event, int32_t eventType,
+    std::map<uint32_t, void (*)(ArkUI_NodeEvent*)>* commonEventListenersMap);
 void ApplyModifierFinish(ArkUI_NodeHandle nodePtr);
 void MarkDirty(ArkUI_NodeHandle nodePtr, ArkUI_NodeDirtyFlag dirtyFlag);
 
@@ -171,13 +188,38 @@ int32_t SetLengthMetricUnit(ArkUI_NodeHandle nodePtr, ArkUI_LengthMetricUnit uni
 int32_t AddNodeEventReceiver(ArkUI_NodeHandle node, void (*eventReceiver)(ArkUI_NodeEvent* event));
 int32_t RemoveNodeEventReceiver(ArkUI_NodeHandle node, void (*eventReceiver)(ArkUI_NodeEvent* event));
 void* GetParseJsMedia();
+void* GetParseStaticResource();
 void IncreaseRefDrawable(void* object);
 void DecreaseRefDrawable(void* object);
+void* CreateDrawable(uint32_t type);
+void SetPixelMaps(void* object, std::vector<std::shared_ptr<OHOS::Media::PixelMap>> pixelMaps);
+void SetTotalDuration(void* object, int32_t duration);
+int32_t GetTotalDuration(void* object);
+void SetIterations(void* object, int32_t duration);
+int32_t GetIterations(void* object);
+int32_t SetFrameDurations(void* object, uint32_t* durations, size_t size);
+int32_t GetFrameDurations(void* object, uint32_t* durations, size_t* size);
+int32_t SetAutoPlay(void* object, uint32_t autoPlay);
+int32_t GetAutoPlay(void* object, uint32_t* autoPlay);
+int32_t SetStopMode(void* object, int32_t stopMode);
+int32_t GetStopMode(void* object, int32_t* stopMode);
+int32_t CreateAnimationController(
+    void* object, ArkUI_NodeHandle node, ArkUI_DrawableDescriptor_AnimationController** controller);
+void DisposeAnimationController(ArkUI_DrawableDescriptor_AnimationController* controller);
+int32_t StartAnimation(ArkUI_DrawableDescriptor_AnimationController* controller);
+int32_t StopAnimation(ArkUI_DrawableDescriptor_AnimationController* controller);
+int32_t ResumeAnimation(ArkUI_DrawableDescriptor_AnimationController* controller);
+int32_t PauseAnimation(ArkUI_DrawableDescriptor_AnimationController* controller);
+int32_t GetAnimationStatus(
+    ArkUI_DrawableDescriptor_AnimationController* controller, DrawableDescriptor_AnimationStatus* status);
 bool CheckIsCNode(ArkUI_NodeHandle node);
 bool CheckIsCNodeOrCrossLanguage(ArkUI_NodeHandle node);
 ArkUI_NodeHandle GetArkUINode(ArkUINodeHandle node);
 int32_t GetNodeTypeByTag(ArkUI_NodeHandle node);
 std::string ConvertNodeTypeToTag(ArkUI_NodeType nodeType);
 void RegisterBindNativeNode(ArkUI_NodeHandle node);
+bool MakeCommonEventMap(ArkUI_NodeHandle node, ArkUI_NodeEventType eventType, void* userData,
+    void (*callback)(ArkUI_NodeEvent* event));
+bool ClearCommonEventMap(ArkUI_NodeHandle node, ArkUI_NodeEventType eventType);
 }; // namespace OHOS::Ace::NodeModel
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_INTERFACES_NATIVE_NODE_NODE_MODEL_H

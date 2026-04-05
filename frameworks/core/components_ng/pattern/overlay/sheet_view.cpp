@@ -38,6 +38,7 @@
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/pipeline/base/element_register.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "base/subwindow/subwindow_manager.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -48,7 +49,6 @@ constexpr int32_t SHEET_DETENTS_THREE = 3;
 constexpr int32_t SHEET_OPERATION_INDEX = 0;
 constexpr int32_t SHEET_CLOSE_ICON_INDEX = 1;
 constexpr int32_t SHEET_SCROLL_INDEX = 2;
-constexpr Dimension WINDOW_RADIUS = 16.0_vp;
 } // namespace
 RefPtr<FrameNode> SheetView::CreateSheetPage(int32_t targetId, std::string targetTag, RefPtr<UINode> builder,
     RefPtr<FrameNode> titleBuilder, std::function<void(const std::string&)>&& callback, NG::SheetStyle& sheetStyle)
@@ -67,6 +67,7 @@ RefPtr<FrameNode> SheetView::CreateSheetPage(int32_t targetId, std::string targe
     CHECK_NULL_RETURN(eventConfirmHub, nullptr);
     eventConfirmHub->AddClickEvent(AceType::MakeRefPtr<NG::ClickEvent>(
         [](const GestureEvent& /* info */) { TAG_LOGD(AceLogTag::ACE_SHEET, "The sheet hits the click event."); }));
+    InitSheetKey(sheetNode, builder->GetId(), targetId);
     sheetPattern->UpdateSheetType();
     sheetPattern->InitSheetObject();
     auto operationColumn = CreateOperationColumnNode(titleBuilder, sheetStyle, sheetNode);
@@ -83,6 +84,23 @@ RefPtr<FrameNode> SheetView::CreateSheetPage(int32_t targetId, std::string targe
     layoutProperty->UpdateMeasureType(MeasureType::MATCH_PARENT);
     CreateCloseIconButtonNode(sheetNode, sheetStyle);
     return sheetNode;
+}
+
+void SheetView::InitSheetKey(const RefPtr<FrameNode>& sheetNode, int32_t builderId, int32_t targetId)
+{
+    CHECK_NULL_VOID(sheetNode);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    CHECK_NULL_VOID(sheetPattern);
+    const auto& overlayManager = sheetPattern->GetOverlayManager();
+    CHECK_NULL_VOID(overlayManager);
+    bool isValidTarget = overlayManager->CheckTargetIdIsValid(targetId);
+    auto overlayRootNode = overlayManager->GetRootNode().Upgrade();
+    CHECK_NULL_VOID(overlayRootNode);
+    SheetKey sheetKey;
+    if (!isValidTarget && targetId == overlayRootNode->GetId()) {
+        sheetKey = SheetKey(isValidTarget, builderId, targetId);
+    }
+    sheetPattern->SetSheetKey(sheetKey);
 }
 
 RefPtr<FrameNode> SheetView::CreateOperationColumnNode(
@@ -174,6 +192,7 @@ void SheetView::CreateCloseIconButtonNode(RefPtr<FrameNode> sheetNode, NG::Sheet
     auto buttonNode = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     CHECK_NULL_VOID(buttonNode);
+    ACE_UINODE_TRACE(buttonNode);
     auto buttonLayoutProperty = buttonNode->GetLayoutProperty<ButtonLayoutProperty>();
     CHECK_NULL_VOID(buttonLayoutProperty);
     auto pipeline = PipelineContext::GetCurrentContext();
@@ -435,11 +454,6 @@ RefPtr<FrameNode> SheetView::CreateSheetMaskShowInSubwindow(const RefPtr<FrameNo
         AceType::MakeRefPtr<SheetMaskPattern>(targetNode->GetId(), targetNode->GetTag()));
     CHECK_NULL_RETURN(maskNode, nullptr);
     if (sheetWrapperPattern->ShowInUEC()) {
-        auto maskRenderContext = maskNode->GetRenderContext();
-        CHECK_NULL_RETURN(maskRenderContext, nullptr);
-        BorderRadiusProperty borderRadius;
-        borderRadius.SetRadius(WINDOW_RADIUS);
-        maskRenderContext->UpdateBorderRadius(borderRadius);
         maskNode->MountToParent(sheetWrapperNode);
     } else {
         auto subwindowId = sheetWrapperPattern->GetSubWindowId();
@@ -453,8 +467,14 @@ RefPtr<FrameNode> SheetView::CreateSheetMaskShowInSubwindow(const RefPtr<FrameNo
         overlayManager->MountToParentWithService(mainWindowRoot, maskNode);
         mainWindowRoot->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
     }
+    auto sheetNodePattern = sheetPageNode->GetPattern<SheetPresentationPattern>();
+    CHECK_NULL_RETURN(sheetNodePattern, nullptr);
     TAG_LOGI(AceLogTag::ACE_SHEET, "show in subwindow mount sheet page node");
     sheetPageNode->MountToParent(sheetWrapperNode);
+    // Update sheet type needs to get subwindow messages which is updated
+    // after sheetWrapper MountToParent root, after sheetPage MountToParent sheetWrapper.
+    sheetNodePattern->UpdateSheetType();
+    sheetNodePattern->UpdateSheetObject(sheetNodePattern->GetSheetTypeNoProcess());
     sheetWrapperPattern->SetSheetMaskNode(maskNode);
     sheetWrapperPattern->SetSheetPageNode(sheetPageNode);
     return maskNode;

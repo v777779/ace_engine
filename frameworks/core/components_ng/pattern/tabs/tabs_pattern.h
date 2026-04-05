@@ -31,6 +31,8 @@
 
 namespace OHOS::Ace::NG {
 
+class TabsNode;
+
 class TabsPattern : public Pattern {
     DECLARE_ACE_TYPE(TabsPattern, Pattern);
 
@@ -50,11 +52,13 @@ public:
 
     RefPtr<LayoutProperty> CreateLayoutProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<TabsLayoutProperty>();
     }
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<TabsLayoutAlgorithm>();
     }
 
@@ -65,6 +69,9 @@ public:
 
     ScopeFocusAlgorithm GetScopeFocusAlgorithm() override;
 
+    void PerformanceCheckTabChange(
+        RefPtr<OHOS::Ace::NG::TabsPattern> pattern, RefPtr<OHOS::Ace::NG::TabsNode> tabsNode, bool currentIndex);
+    
     void SetOnChangeEvent(std::function<void(const BaseEventInfo*)>&& event);
 
     ChangeEventWithPreIndexPtr GetChangeEvent()
@@ -81,6 +88,8 @@ public:
     void SetOnSelectedEvent(std::function<void(const BaseEventInfo*)>&& event);
 
     void SetOnUnselectedEvent(std::function<void(const BaseEventInfo*)>&& event);
+
+    void SetOnContentDidScroll(ContentDidScrollEvent&& onContentDidScroll);
 
     ChangeEventPtr GetTabBarClickEvent()
     {
@@ -154,8 +163,6 @@ public:
 
     void UpdateSelectedState(const RefPtr<FrameNode>& swiperNode, const RefPtr<TabBarPattern>& tabBarPattern,
         const RefPtr<TabsLayoutProperty>& tabsLayoutProperty, int index);
-    int32_t OnInjectionEvent(const std::string& command) override;
-    void ReportComponentChangeEvent(int32_t currentIndex);
 
     void UpdateDividerStrokeWidth()
     {
@@ -165,8 +172,10 @@ public:
     {
         OnUpdateShowDivider();
     }
-
+    int32_t OnInjectionEvent(const std::string& command) override;
+    void OnColorConfigurationUpdate() override;
     void OnColorModeChange(uint32_t colorMode) override;
+    void DumpInfo() override;
 
 private:
     void OnAttachToFrameNode() override;
@@ -179,18 +188,33 @@ private:
     void SetSwiperPaddingAndBorder();
     void RecordChangeEvent(int32_t index);
     void FireTabContentStateCallback(int32_t oldIndex, int32_t nextIndex) const;
+    void FireTabChangeCallback(int32_t preIndex, int32_t nextIndex);
+    void UpdateTabBarOverlap(const RefPtr<TabsLayoutProperty>& tabsLayoutProperty);
+    bool GetTargetIndex(const std::string& command, int32_t& targetIndex);
+    // Information on TabChange event
+    struct TabChangeInfo {
+        int32_t index = 0;
+        bool  isShow = false;
+        std::optional<int32_t> lastFocusIndex;
+    };
+    static bool IsValidFireTabChange(const std::optional<TabChangeInfo>& lastTabChangeInfo,
+        int32_t index, bool isShow);
+    static bool IsNeedFireTabChange(bool isInit,
+        int32_t targetIndex, int32_t currentIndex, int32_t preIndex);
+    void HandleTabChangeWhenChildrenUpdated(bool isInit, int32_t tabContentNum, int32_t targetIndex);
     void UpdateIndex(const RefPtr<FrameNode>& tabsNode, const RefPtr<FrameNode>& tabBarNode,
         const RefPtr<FrameNode>& swiperNode, const RefPtr<TabsLayoutProperty>& tabsLayoutProperty);
     void InitFocusEvent();
     RefPtr<FocusHub> GetCurrentFocusNode(FocusIntension intension);
     void InitAccessibilityZIndex();
-    bool GetTargetIndex(const std::string& command, int32_t& targetIndex);
+
     bool isCustomAnimation_ = false;
     bool isDisableSwipe_ = false;
     bool isInit_ = true;
 
     TabAnimateMode animateMode_ = TabAnimateMode::CONTENT_FIRST;
     ChangeEventWithPreIndexPtr onChangeEvent_;
+    std::shared_ptr<ContentDidScrollEvent> onContentDidScroll_;
     ChangeEventPtr selectedEvent_;
     ChangeEventPtr unselectedEvent_;
     ChangeEventPtr onTabBarClickEvent_;
@@ -200,6 +224,7 @@ private:
     std::function<bool(int32_t, int32_t)> callback_;
     bool interceptStatus_ = false;
     BarPosition barPosition_ = BarPosition::END; // default accessibilityZIndex is consistent with BarPosition::END
+    std::optional<TabChangeInfo> lastTabChangeInfo_;
 };
 
 } // namespace OHOS::Ace::NG

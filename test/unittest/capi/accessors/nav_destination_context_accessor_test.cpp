@@ -15,10 +15,9 @@
 
 #include "core/interfaces/native/implementation/nav_destination_context_peer.h"
 #include "accessor_test_base.h"
-#include "node_api.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
-#include "test/mock/core/render/mock_animation_utils.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_animation_utils.h"
 
 #include "gmock/gmock.h"
 
@@ -35,11 +34,11 @@ class NavDestinationContextAccessorTest : public AccessorTestBase<
 };
 
 /**
- * @tc.name: initialStateTest
+ * @tc.name: getConfigInRouteMapTestInitialState
  * @tc.desc: Check the functionality of NavDestinationContextAccessor
  * @tc.type: FUNC
  */
-HWTEST_F(NavDestinationContextAccessorTest, initialStateTest, TestSize.Level1)
+HWTEST_F(NavDestinationContextAccessorTest, getConfigInRouteMapTestInitialState, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getConfigInRouteMap, nullptr);
     accessor_->getConfigInRouteMap(peer_);

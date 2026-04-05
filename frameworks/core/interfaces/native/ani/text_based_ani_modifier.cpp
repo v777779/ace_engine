@@ -15,9 +15,15 @@
 
 #include "text_based_ani_modifier.h"
 
+#include "base/log/log.h"
 #include "core/components_ng/base/frame_node.h"
+#ifdef ENABLE_STANDARD_INPUT
+#include "core/common/ime/ime_extra_config.h"
+#include "core/interfaces/native/implementation/ime_extra_config_peer.h"
+#endif
 #include "core/interfaces/native/implementation/symbol_glyph_modifier_peer.h"
 #include "core/interfaces/native/implementation/text_modifier_peer.h"
+#include "core/interfaces/native/implementation/text_paragraph_peer.h"
 
 namespace OHOS::Ace::NG {
 
@@ -55,13 +61,35 @@ void* FromTextModifierPeer(void* ptr)
     return ret;
 }
 
+void* ToIMEExtraCfgPeer(void* extraConfigPtr)
+{
+#ifdef ENABLE_STANDARD_INPUT
+    return reinterpret_cast<void*>(InputMethodExtraConfigPeer::Create(extraConfigPtr));
+#else
+    TAG_LOGE(AceLogTag::ACE_TEXT_FIELD, "IME extra config not supported.");
+    return nullptr;
+#endif
+}
+
+void* ToTextParagraphPeer(void* ptr)
+{
+    auto* paragraphPtr = reinterpret_cast<std::unique_ptr<OHOS::Rosen::Typography>*>(ptr);
+    if (paragraphPtr == nullptr || *paragraphPtr == nullptr) {
+        return nullptr;
+    }
+    return reinterpret_cast<void*>(PeerUtils::CreatePeer<text_ParagraphPeer>(std::move(*paragraphPtr)));
+}
+
+
 const ArkUIAniTextBasedModifier* GetTextBasedAniModifier()
 {
     static const ArkUIAniTextBasedModifier impl = {
         .fromSymbolModifierPeer = OHOS::Ace::NG::FromSymbolModifierPeer,
         .toSymbolModifierPeer = OHOS::Ace::NG::ToSymbolModifierPeer,
         .fromTextModifierPeer = OHOS::Ace::NG::FromTextModifierPeer,
-        .toTextModifierPeer = OHOS::Ace::NG::ToTextModifierPeer
+        .toTextModifierPeer = OHOS::Ace::NG::ToTextModifierPeer,
+        .toIMEExtraCfgPeer = OHOS::Ace::NG::ToIMEExtraCfgPeer,
+        .toTextParagraphPeer = OHOS::Ace::NG::ToTextParagraphPeer,
     };
     return &impl;
 }

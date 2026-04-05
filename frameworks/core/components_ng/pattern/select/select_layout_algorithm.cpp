@@ -17,9 +17,11 @@
 
 #include "core/components_ng/pattern/flex/flex_layout_property.h"
 #include "core/components_ng/pattern/select/select_pattern.h"
+#include "core/components_ng/pattern/menu/bridge/inner_modifier/menu_item_inner_modifier.h"
 #include "core/components_ng/pattern/menu/menu_item/menu_item_pattern.h"
 #include "core/components_ng/pattern/menu/menu_theme.h"
-
+#include "core/interfaces/native/node/menu_modifier.h"
+#include "core/interfaces/native/node/menu_item_modifier.h"
 namespace OHOS::Ace::NG {
 namespace {
 constexpr float MIN_SPACE = 8.0f;
@@ -32,6 +34,7 @@ void SelectLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     auto layoutProps = layoutWrapper->GetLayoutProperty();
     CHECK_NULL_VOID(layoutProps);
     auto childConstraint = layoutProps->CreateChildConstraint();
+    RemoveParentRestrictionsForFixIdeal(layoutProps, childConstraint);
     // Measure child row to get row height and width.
     auto rowWrapper = layoutWrapper->GetOrCreateChildByIndex(0);
     CHECK_NULL_VOID(rowWrapper);
@@ -74,6 +77,22 @@ void SelectLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
 
     // Measure same as box, base on the child row.
     BoxLayoutAlgorithm::PerformMeasureSelf(layoutWrapper);
+}
+
+void SelectLayoutAlgorithm::RemoveParentRestrictionsForFixIdeal(
+    const RefPtr<LayoutProperty> layoutProperty, LayoutConstraintF& childConstraint)
+{
+    CHECK_NULL_VOID(layoutProperty);
+    auto layoutPolicyProperty = layoutProperty->GetLayoutPolicyProperty();
+    if (layoutPolicyProperty.has_value()) {
+        auto& layoutPolicy = layoutPolicyProperty.value();
+        if (layoutPolicy.IsWidthFix()) {
+            childConstraint.maxSize.SetWidth(std::numeric_limits<float>::infinity());
+        }
+        if (layoutPolicy.IsHeightFix()) {
+            childConstraint.maxSize.SetHeight(std::numeric_limits<float>::infinity());
+        }
+    }
 }
 
 SizeF SelectLayoutAlgorithm::MeasureSelectText(
@@ -157,14 +176,15 @@ void SelectLayoutAlgorithm::NeedAgingUpdateParams(LayoutWrapper* layoutWrapper)
     auto pattern = host->GetPattern<SelectPattern>();
     CHECK_NULL_VOID(pattern);
     auto options = pattern->GetOptions();
+    const auto* menuItemModifier = NG::NodeModifier::GetMenuItemInnerModifier();
+    CHECK_NULL_VOID(menuItemModifier);
     for (const auto& option : options) {
-        auto optionPattern = option->GetPattern<MenuItemPattern>();
-        CHECK_NULL_VOID(optionPattern);
-        auto textNode = AceType::DynamicCast<FrameNode>(optionPattern->GetTextNode());
+        auto textNode = AceType::DynamicCast<FrameNode>(menuItemModifier->getTextNode(option));
         CHECK_NULL_VOID(textNode);
         auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
         CHECK_NULL_VOID(textLayoutProperty);
-        if (optionPattern->GetOptionTextModifier() || optionPattern->GetSelectedOptionTextModifier()) {
+        if (menuItemModifier->getOptionTextModifier(option) ||
+            menuItemModifier->getSelectedOptionTextModifier(option)) {
             continue;
         } else {
             if (NearEqual(fontScale_, menuTheme->GetBigFontSizeScale()) ||

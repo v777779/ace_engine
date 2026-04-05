@@ -21,8 +21,19 @@
 #include "core/components_ng/pattern/text_drag/text_drag_overlay_modifier.h"
 #include "core/components_ng/pattern/text_drag/text_drag_paint_method.h"
 #include "core/components_ng/pattern/rich_editor_drag/rich_editor_drag_info.h"
-#include "core/components_ng/render/drawing.h"
 #include "core/components_ng/render/paragraph.h"
+
+namespace OHOS::Rosen {
+namespace Drawing {
+class Path;
+}
+}
+
+#ifndef ACE_UNITTEST
+namespace OHOS::Ace {
+using RSPath = Rosen::Drawing::Path;
+}
+#endif
 
 namespace OHOS::Ace::NG {
 constexpr Dimension TEXT_DRAG_RADIUS_2IN1 = 8.0_vp;
@@ -86,7 +97,14 @@ class TextDragPattern : public Pattern {
 public:
     TextDragPattern() = default;
     ~TextDragPattern() override = default;
+
     static RefPtr<FrameNode> CreateDragNode(const RefPtr<FrameNode>& hostNode);
+
+    static const RectF GetFirstBoxRect(const std::vector<RectF>& boxes, const RectF& contentRect,
+        const float textStartY);
+    static const RectF GetLastBoxRect(const std::vector<RectF>& boxes, const RectF& contentRect,
+        const float textStartY);
+
     void Initialize(const RefPtr<Paragraph>& paragraph, const TextDragData& data)
     {
         paragraph_ = paragraph;
@@ -172,7 +190,7 @@ public:
         return selBackGroundPath_;
     }
 
-    std::shared_ptr<RSPath> GenerateBackgroundPath(float offset, float radiusRatio = 1.0f);
+    ACE_FORCE_EXPORT std::shared_ptr<RSPath> GenerateBackgroundPath(float offset, float radiusRatio = 1.0f);
 
     std::shared_ptr<RSPath> GenerateSelBackgroundPath(float offset);
 
@@ -217,8 +235,24 @@ public:
 
     void OnDetachFromMainTree() override;
     Color GetDragBackgroundColor();
+
+    bool IsAnimating()
+    {
+        return overlayModifier_ && overlayModifier_->IsAnimating();
+    }
+
+    void UpdateAnimatingParagraph()
+    {
+        animatingParagraph_ = paragraph_.Upgrade();
+    }
+
+    void ResetAnimatingParagraph()
+    {
+        animatingParagraph_.Reset();
+    }
 protected:
-    static TextDragData CalculateTextDragData(RefPtr<TextDragBase>& pattern, RefPtr<FrameNode>& dragNode);
+    static TextDragData CalculateTextDragData(RefPtr<TextDragBase>& pattern, RefPtr<FrameNode>& dragNode,
+        const RefPtr<FrameNode>& hostNode = nullptr);
     virtual void AdjustMaxWidth(float& width, const RectF& contentRect, const std::vector<RectF>& boxes);
     static RectF GetHandler(const bool isLeftHandler, const std::vector<RectF> boxes, const RectF contentRect,
         const OffsetF globalOffset, const OffsetF textStartOffset);
@@ -228,7 +262,8 @@ protected:
     void GenerateBackgroundPoints(std::vector<TextPoint>& points, float offset, bool needAdjust = true);
     void CalculateLineAndArc(std::vector<TextPoint>& points, std::shared_ptr<RSPath>& path, float radiusRatio);
     void CalculateLine(std::vector<TextPoint>& points, std::shared_ptr<RSPath>& path);
-    static void CalculateOverlayOffset(RefPtr<FrameNode>& dragNode, OffsetF& offset);
+    static void CalculateOverlayOffset(RefPtr<FrameNode>& dragNode, OffsetF& offset,
+        const RefPtr<FrameNode>& hostNode = nullptr);
     static void DropBlankLines(std::vector<RectF>& boxes);
 
     void SetLastLineHeight(float lineHeight)
@@ -243,12 +278,13 @@ protected:
 
 protected:
     RefPtr<TextDragOverlayModifier> overlayModifier_;
-    TextDragData textDragData_;
 
+    TextDragData textDragData_;
 private:
     float lastLineHeight_ = 0.0f;
     OffsetF contentOffset_;
     WeakPtr<Paragraph> paragraph_;
+    RefPtr<Paragraph> animatingParagraph_;
     std::shared_ptr<RSPath> clipPath_;
     std::shared_ptr<RSPath> backGroundPath_;
     std::shared_ptr<RSPath> selBackGroundPath_;

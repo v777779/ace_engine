@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -12,27 +12,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// <reference path="../../state_mgmt/src/lib/common/ifelse_native.d.ts" />
-/// <reference path="../../state_mgmt/src/lib/puv2_common/puv2_viewstack_processor.d.ts" />
-
-class BuilderNode extends Disposable {
-  private _JSBuilderNode: JSBuilderNode;
+/// <reference path="../types/if_else.d.ts" />
+/// <reference path="../types/puv2_viewstack_processor.d.ts" />
+class BuilderNodeCommonBase {
+  protected _JSBuilderNode: JSBuilderNode | ReactiveBuilderNodeBase;
   // the name of "nodePtr_" is used in ace_engine/interfaces/native/node/native_node_napi.cpp.
-  private nodePtr_: NodePtr;
-  constructor(uiContext: UIContext, options: RenderOptions) {
-    super();
-    let jsBuilderNode = new JSBuilderNode(uiContext, options);
-    this._JSBuilderNode = jsBuilderNode;
-    let id = Symbol('BuilderRootFrameNode');
-    BuilderNodeFinalizationRegisterProxy.ElementIdToOwningBuilderNode_.set(id, jsBuilderNode);
-    BuilderNodeFinalizationRegisterProxy.register(this, { name: 'BuilderRootFrameNode', idOfNode: id });
+  protected nodePtr_: NodePtr;
+  protected _isDisposed: boolean;
+
+  constructor() {
+    this._isDisposed = false;
   }
   public update(params: Object) {
     this._JSBuilderNode.update(params);
-  }
-  public build(builder: WrappedBuilder<Object[]>, params?: Object, options?: BuildOptions,): void {
-    this._JSBuilderNode.build(builder, params, options);
-    this.nodePtr_ = this._JSBuilderNode.getNodePtr();
   }
   public getNodePtr(): NodePtr {
     return this._JSBuilderNode.getValidNodePtr();
@@ -55,12 +47,21 @@ class BuilderNode extends Disposable {
     __JSScopeUtil__.restoreInstanceId();
     return ret;
   }
+  public postInputEventWithStrategy(event: InputEventType, competitionStrategy?: CompetitionStrategy): boolean {
+    __JSScopeUtil__.syncInstanceId(this._JSBuilderNode.getInstanceId());
+    let ret = this._JSBuilderNode.postInputEventWithStrategy(event, competitionStrategy);
+    __JSScopeUtil__.restoreInstanceId();
+    return ret;
+  }
   public dispose(): void {
-    super.dispose();
+    if (this.isDisposed()) {
+      return;
+    }
+    this._isDisposed = true;
     this._JSBuilderNode.dispose();
   }
   public isDisposed(): boolean {
-    return super.isDisposed() && (this._JSBuilderNode ? this._JSBuilderNode.isDisposed() : true);
+    return this._isDisposed && (this._JSBuilderNode?.isDisposed() ?? true);
   }
   public reuse(param?: Object): void {
     this._JSBuilderNode.reuse(param);
@@ -81,46 +82,100 @@ class BuilderNode extends Disposable {
     this._JSBuilderNode.inheritFreezeOptions(enable);
   }
 }
+class BuilderNode extends BuilderNodeCommonBase {
+  constructor(uiContext: UIContext, options: RenderOptions, jsBuilderNode?: JSBuilderNode) {
+    super();
+    if (jsBuilderNode == null || jsBuilderNode == undefined) {
+      this._JSBuilderNode = new JSBuilderNode(uiContext, options);
+    } else {
+      this._JSBuilderNode = jsBuilderNode;
+      this.nodePtr_ = this._JSBuilderNode.getNodePtr();
+    }
+    let id = Symbol('BuilderRootFrameNode');
+    BuilderNodeFinalizationRegisterProxy.ElementIdToOwningBuilderNode_.set(
+      id, new WeakRef<JSBuilderNode>(this._JSBuilderNode));
+    BuilderNodeFinalizationRegisterProxy.register(this, { name: 'BuilderRootFrameNode', idOfNode: id });
+  }
+  public build(builder: WrappedBuilder<Object[]>, params?: Object, options?: BuildOptions,): void {
+    this._JSBuilderNode.build(builder, params, options);
+    this.nodePtr_ = this._JSBuilderNode.getNodePtr();
+  }
+}
 
-class JSBuilderNode extends BaseNode implements IDisposable {
-  private params_: Object;
+class JSBuilderNode extends BaseNode {
+  protected params_: Object;
   private uiContext_: UIContext;
   private frameNode_: FrameNode;
   private _nativeRef: NativeStrongRef;
   private _supportNestingBuilder: boolean;
   private _proxyObjectParam: Object;
-  private bindedViewOfBuilderNode:ViewPU;
-  private disposable_: Disposable;
+  private bindedViewOfBuilderNode: ViewPU;
+  private _isDisposed: boolean;
   private inheritFreeze: boolean;
   private allowFreezeWhenInactive: boolean;
   private parentallowFreeze: boolean;
-  private isFreeze: boolean;
+  protected isFreeze: boolean;
 
+  // builderNode's parent, it may be view or builderNode
+  public __parentViewOfBuildNode?: WeakRef<ViewBuildNodeBase>;
+  private updateParams_: Object;
+  private activeCount_: number;
   constructor(uiContext: UIContext, options?: RenderOptions) {
     super(uiContext, options);
     this.uiContext_ = uiContext;
     this.updateFuncByElmtId = new UpdateFuncsByElmtId();
     this._supportNestingBuilder = false;
-    this.disposable_ = new Disposable();
+    this._isDisposed = false;
     this.inheritFreeze = false;
     this.allowFreezeWhenInactive = false;
     this.parentallowFreeze = false;
     this.isFreeze = false;
+    this.__parentViewOfBuildNode = undefined;
+    this.updateParams_ = null;
+    this.activeCount_ = 1;
+  }
+  public static createForTrans(uiContext: UIContext, nodePtr: number, frameNodePtr: number): JSBuilderNode {
+    __JSScopeUtil__.syncInstanceId(uiContext.instanceId_);
+    let jsBuilderNode = new JSBuilderNode(uiContext, {});
+    let nativeRef = getUINativeModule().frameNode.createNativeStrongRefWithPtrVal(nodePtr);
+    let frameNode = new BuilderRootFrameNode(uiContext, 'BuilderRootFrameNode', frameNodePtr); 
+    frameNode.setNodePtr(nativeRef, nativeRef.getNativeHandle());
+    frameNode.setRenderNode(nativeRef);
+    frameNode.setBaseNode(jsBuilderNode);
+    frameNode.setBuilderNode(jsBuilderNode);
+    FrameNodeFinalizationRegisterProxy.rootFrameNodeIdToBuilderNode_.set(frameNode.getUniqueId(), new WeakRef(frameNode));
+
+    jsBuilderNode._nativeRef = nativeRef;
+    jsBuilderNode.nodePtr_ = nativeRef.getNativeHandle();
+    jsBuilderNode.frameNode_ = frameNode;
+    __JSScopeUtil__.restoreInstanceId();
+    return jsBuilderNode;
+  }
+  public findProvidePU__(providePropName: string): ObservedPropertyAbstractPU<any> | undefined {
+    if (this.__enableBuilderNodeConsume__ && this.__parentViewOfBuildNode) {
+      return this.__parentViewOfBuildNode?.deref()?.findProvidePU__(providePropName);
+    }
+    return undefined;
   }
   public reuse(param: Object): void {
     this.updateStart();
-    this.childrenWeakrefMap_.forEach((weakRefChild) => {
-      const child = weakRefChild.deref();
-      if (child) {
-        if (child instanceof ViewPU) {
-          child.aboutToReuseInternal(param);
-        }
-        else {
-          // FIXME fix for mixed V2 - V3 Hierarchies
-          throw new Error('aboutToReuseInternal: Recycle not implemented for ViewV2, yet');
-        }
-      } // if child
-    });
+    try {
+      this.childrenWeakrefMap_.forEach((weakRefChild) => {
+        const child = weakRefChild.deref();
+        if (child) {
+          if (child instanceof ViewPU) {
+            child.aboutToReuseInternal(param);
+          }
+          else {
+            // FIXME fix for mixed V2 - V3 Hierarchies
+            throw new BusinessError(100029, 'aboutToReuseInternal: Reuse not implemented for ViewV2, yet');
+          }
+        } // if child
+      });
+    } catch (err) {
+      this.updateEnd();
+      throw err;
+    }
     this.updateEnd();
   }
   public recycle(): void {
@@ -132,7 +187,7 @@ class JSBuilderNode extends BaseNode implements IDisposable {
         }
         else {
           // FIXME fix for mixed V2 - V3 Hierarchies
-          throw new Error('aboutToRecycleInternal: Recycle not yet implemented for ViewV2');
+          throw new BusinessError(100029, 'aboutToRecycleInternal: Recycle not yet implemented for ViewV2');
         }
       } // if child
     });
@@ -185,11 +240,11 @@ class JSBuilderNode extends BaseNode implements IDisposable {
       return false;
     }
   }
-  private buildWithNestingBuilder(builder: WrappedBuilder<Object[]>, supportLazyBuild: boolean): void {
+  protected buildWithNestingBuilder(builder: WrappedBuilder<Object[]>, supportLazyBuild: boolean): void {
     if (this._supportNestingBuilder && this.isObject(this.params_)) {
       this._proxyObjectParam = new Proxy(this.params_, {
         set(target, property, val): boolean {
-          throw Error(`@Builder : Invalid attempt to set(write to) parameter '${property.toString()}' error!`);
+          throw new BusinessError(140109, `@Builder : Invalid attempt to set(write to) parameter '${property.toString()}' error!`);
         },
         get: (target, property, receiver): Object => { return this.params_?.[property] }
       });
@@ -200,22 +255,34 @@ class JSBuilderNode extends BaseNode implements IDisposable {
         this.params_, this.updateNodeFromNative, this.updateConfiguration, supportLazyBuild);
     }
   }
+  public clearChildBuilderNodeWeakMap(): void {
+    this.builderNodeWeakrefMap_?.forEach((weakRefChild) => {
+      const child = weakRefChild?.deref();
+      if (child instanceof JSBuilderNode) {
+        child.__parentViewOfBuildNode = undefined;
+        this.removeChildBuilderNode(child.id__());
+      }
+    });
+    this.clearChildBuilderNode();
+  }
   public build(builder: WrappedBuilder<Object[]>, params?: Object, options?: BuildOptions): void {
     __JSScopeUtil__.syncInstanceId(this.instanceId_);
     this._supportNestingBuilder = options?.nestingBuilderSupported ? options.nestingBuilderSupported : false;
+    this.clearChildBuilderNodeWeakMap();
     const supportLazyBuild = options?.lazyBuildSupported ? options.lazyBuildSupported : false;
     this.bindedViewOfBuilderNode = options?.bindedViewOfBuilderNode;
+    this.__enableBuilderNodeConsume__ = (options?.enableProvideConsumeCrossing) ? (options?.enableProvideConsumeCrossing) : false;
     this.params_ = params;
     if (options?.localStorage instanceof LocalStorage) {
       this.setShareLocalStorage(options.localStorage);
     }
     this.updateFuncByElmtId.clear();
-    if(this.bindedViewOfBuilderNode){
-      globalThis.__viewPuStack__?.push(this.bindedViewOfBuilderNode); 
+    if (this.bindedViewOfBuilderNode) {
+      globalThis.__viewPuStack__?.push(this.bindedViewOfBuilderNode);
     }
     this.buildWithNestingBuilder(builder, supportLazyBuild);
-    if(this.bindedViewOfBuilderNode){
-      globalThis.__viewPuStack__?.pop(); 
+    if (this.bindedViewOfBuilderNode) {
+      globalThis.__viewPuStack__?.pop();
     }
     this._nativeRef = getUINativeModule().nativeUtils.createNativeStrongRef(this.nodePtr_);
     if (this.frameNode_ === undefined || this.frameNode_ === null) {
@@ -225,43 +292,61 @@ class JSBuilderNode extends BaseNode implements IDisposable {
     this.frameNode_.setRenderNode(this._nativeRef);
     this.frameNode_.setBaseNode(this);
     this.frameNode_.setBuilderNode(this);
-    this.id_ = this.frameNode_.getUniqueId();
-    BuilderNodeFinalizationRegisterProxy.rootFrameNodeIdToBuilderNode_.set(this.frameNode_.getUniqueId(), new WeakRef(this));
+    let id = this.frameNode_.getUniqueId();
+    if (this.id_ && this.id_ !== id) {
+      this.__parentViewOfBuildNode?.deref()?.removeChildBuilderNode(this.id_);
+    }
+    this.id_ = id;
+    this.__parentViewOfBuildNode?.deref()?.addChildBuilderNode(this);
+    FrameNodeFinalizationRegisterProxy.rootFrameNodeIdToBuilderNode_.set(this.frameNode_.getUniqueId(), new WeakRef(this.frameNode_));
     __JSScopeUtil__.restoreInstanceId();
   }
   public update(param: Object) {
     if (this.isFreeze) {
-      this.params_ = param;
+      this.updateParams_ = param;
       return;
     }
     __JSScopeUtil__.syncInstanceId(this.instanceId_);
     this.updateStart();
-    this.purgeDeletedElmtIds();
-    this.params_ = param;
-    Array.from(this.updateFuncByElmtId.keys()).sort((a: number, b: number): number => {
-      return (a < b) ? -1 : (a > b) ? 1 : 0;
-    }).forEach(elmtId => this.UpdateElement(elmtId));
+    try {
+      this.purgeDeletedElmtIds();
+      this.params_ = param;
+      Array.from(this.updateFuncByElmtId.keys()).sort((a: number, b: number): number => {
+        return (a < b) ? -1 : (a > b) ? 1 : 0;
+      }).forEach(elmtId => this.UpdateElement(elmtId));
+    } catch (err) {
+      this.updateEnd();
+      throw err;
+    }
     this.updateEnd();
     __JSScopeUtil__.restoreInstanceId();
   }
   public updateConfiguration(): void {
+    if (this === undefined) {
+        return;
+    }
     __JSScopeUtil__.syncInstanceId(this.instanceId_);
     this.updateStart();
-    this.purgeDeletedElmtIds();
-    Array.from(this.updateFuncByElmtId.keys()).sort((a: number, b: number): number => {
-      return (a < b) ? -1 : (a > b) ? 1 : 0;
-    }).forEach(elmtId => this.UpdateElement(elmtId));
-    for (const child of this.childrenWeakrefMap_.values()) {
-      const childView = child.deref();
-      if (childView) {
-        childView.forceCompleteRerender(true);
+    try {
+      this.purgeDeletedElmtIds();
+      Array.from(this.updateFuncByElmtId.keys()).sort((a: number, b: number): number => {
+        return (a < b) ? -1 : (a > b) ? 1 : 0;
+      }).forEach(elmtId => this.UpdateElement(elmtId));
+      for (const child of this.childrenWeakrefMap_.values()) {
+        const childView = child.deref();
+        if (childView) {
+          childView.forceCompleteRerender(true);
+        }
       }
+      getUINativeModule().frameNode.updateConfiguration(this.getFrameNode()?.getNodePtr());
+    } catch (err) {
+      this.updateEnd();
+      throw err;
     }
-    getUINativeModule().frameNode.updateConfiguration(this.getFrameNode()?.getNodePtr());
     this.updateEnd();
     __JSScopeUtil__.restoreInstanceId();
   }
-  private UpdateElement(elmtId: number): void {
+  public UpdateElement(elmtId: number): void {
     // do not process an Element that has been marked to be deleted
     const obj: UpdateFunc | UpdateFuncRecord | undefined = this.updateFuncByElmtId.get(elmtId);
     const updateFunc = (typeof obj === 'object') ? obj.getUpdateFunc() : null;
@@ -271,14 +356,22 @@ class JSBuilderNode extends BaseNode implements IDisposable {
     }
   }
 
+  private isBuilderNodeActive(): boolean {
+    return this.activeCount_ > 0;
+  }
+
   public setActiveInternal(active: boolean, isReuse: boolean = false): void {
     stateMgmtProfiler.begin('BuilderNode.setActive');
     if (!isReuse) {
-      if (active && this.isFreeze) {
+      this.activeCount_ += active ? 1 : -1;
+      if (this.isBuilderNodeActive()) {
         this.isFreeze = false;
-        this.update(this.params_);
-      } else if (!active) {
+      } else {
         this.isFreeze = this.allowFreezeWhenInactive;
+      }
+      if (this.isBuilderNodeActive() && this.updateParams_ !== null) {
+        this.update(this.updateParams_);
+        this.updateParams_ = null;
       }
     }
     if (this.inheritFreeze) {
@@ -339,7 +432,7 @@ class JSBuilderNode extends BaseNode implements IDisposable {
         // update + initial render calls, like in if and ForEach case, convert to stack as well
         ObserveV2.getObserve().startRecordDependencies(this, elmtId, true);
       }
-      if (this._supportNestingBuilder) {
+      if (this._supportNestingBuilder || this.__isReactiveBuilderNode__ViewBuildNodeBase__Internal()) {
         compilerAssignedUpdateFunc(elmtId, isFirstRender);
       } else {
         compilerAssignedUpdateFunc(elmtId, isFirstRender, this.params_);
@@ -404,9 +497,7 @@ class JSBuilderNode extends BaseNode implements IDisposable {
         try {
           return `${index}__${JSON.stringify(item)}`;
         } catch (e) {
-          throw new Error(
-            ` ForEach id ${elmtId}: use of default id generator function not possible on provided data structure. Need to specify id generator function (ForEach 3rd parameter). Application Error!`
-          );
+          throw new BusinessError(103801, ` ForEach id ${elmtId}: use of default id generator function not possible on provided data structure. Need to specify id generator function (ForEach 3rd parameter). Application Error!`);
         }
       };
     }
@@ -458,14 +549,18 @@ class JSBuilderNode extends BaseNode implements IDisposable {
     return this._nativeRef?.getNativeHandle();
   }
   public dispose(): void {
-    if (this.nodePtr_) {
-      getUINativeModule().frameNode.fireArkUIObjectLifecycleCallback(new WeakRef(this), 'BuilderNode', this.getFrameNode()?.getNodeType() || 'BuilderNode', this.nodePtr_);
+    if (this.isDisposed()) {
+      return;
     }
-    this.disposable_.dispose();
+    this._isDisposed = true;
+    if (this.nodePtr_) {
+      getUINativeModule().frameNode.fireArkUIObjectLifecycleCallback(new WeakRef(this),
+        'BuilderNode', this.getFrameNode()?.getNodeType() || 'BuilderNode', this.nodePtr_);
+    }
     this.frameNode_?.dispose();
   }
   public isDisposed(): boolean {
-    return this.disposable_.isDisposed() && (this._nativeRef === undefined || this._nativeRef === null);
+    return this._isDisposed && (this._nativeRef === undefined || this._nativeRef === null);
   }
   public disposeNode(): void {
     super.disposeNode();
@@ -474,15 +569,14 @@ class JSBuilderNode extends BaseNode implements IDisposable {
     this.frameNode_?.resetNodePtr();
   }
   updateInstance(uiContext: UIContext): void {
-      this.uiContext_ = uiContext;
-      this.instanceId_ = uiContext.instanceId_;
-      if (this.frameNode_ !== undefined && this.frameNode_ !== null) {
-          this.frameNode_.updateInstance(uiContext);
-      }
+    this.uiContext_ = uiContext;
+    this.instanceId_ = uiContext.instanceId_;
+    if (this.frameNode_ !== undefined && this.frameNode_ !== null) {
+      this.frameNode_.updateInstance(uiContext);
+    }
   }
 
-  private updateNodePtr(nodePtr: NodePtr)
-  {
+  private updateNodePtr(nodePtr: NodePtr): void {
     if (nodePtr != this.nodePtr_) {
       this.dispose();
       this.nodePtr_ = nodePtr;
@@ -491,21 +585,84 @@ class JSBuilderNode extends BaseNode implements IDisposable {
     }
   }
 
-  private updateInstanceId(instanceId: number)
-  {
+  private updateInstanceId(instanceId: number): void {
     this.instanceId_ = instanceId;
   }
 
-  protected updateNodeFromNative(instanceId: number, nodePtr: NodePtr)
-  {
+  protected updateNodeFromNative(instanceId: number, nodePtr: NodePtr): void {
     this.updateNodePtr(nodePtr);
     this.updateInstanceId(instanceId);
   }
 
   public observeRecycleComponentCreation(name: string, recycleUpdateFunc: RecycleUpdateFunc): void {
-    throw new Error('custom component in @Builder used by BuilderNode does not support @Reusable');
+    throw new BusinessError(100030, 'custom component in @Builder used by BuilderNode does not support @Reusable');
   }
-  public ifElseBranchUpdateFunctionDirtyRetaken(): void {}
-  public forceCompleteRerender(deep: boolean): void {}
-  public forceRerenderNode(elmtId: number): void {}
+  public ifElseBranchUpdateFunctionDirtyRetaken(): void { }
+  public forceCompleteRerender(deep: boolean): void { }
+  public forceRerenderNode(elmtId: number): void { }
+}
+
+class ReactiveBuilderNode extends BuilderNodeCommonBase {
+  constructor(uiContext: UIContext, options: RenderOptions) {
+    super();
+    let jsBuilderNode = new ReactiveBuilderNodeBase(uiContext, options);
+    this._JSBuilderNode = jsBuilderNode;
+    let id = Symbol('BuilderRootFrameNode');
+    BuilderNodeFinalizationRegisterProxy.ElementIdToOwningBuilderNode_.set(
+      id, new WeakRef<JSBuilderNode>(jsBuilderNode));
+    BuilderNodeFinalizationRegisterProxy.register(this, { name: 'BuilderRootFrameNode', idOfNode: id });
+  }
+  public build(builder: WrappedBuilder<Object[]>, options?: BuildOptions, ...params: Object[]): void {
+    this._JSBuilderNode.build(builder, params, options);
+    this.nodePtr_ = this._JSBuilderNode.getNodePtr();
+  }
+  public flushState(): void {
+    if (this._JSBuilderNode instanceof ReactiveBuilderNodeBase) {
+      (this._JSBuilderNode as ReactiveBuilderNodeBase)?.flushState();
+    }
+
+  }
+}
+
+class ReactiveBuilderNodeBase extends JSBuilderNode {
+  constructor(uiContext: UIContext, options?: RenderOptions) {
+    super(uiContext, options);
+  }
+  protected buildWithNestingBuilder(builder: WrappedBuilder<Object[]>, supportLazyBuild: boolean): void {
+    if (this.isArray(this.params_)) {
+      this.nodePtr_ = super.createReactive(builder.builder?.bind(this), this.params_ as Array<Object>,
+                                            this.updateNodeFromNative, this.updateConfiguration, supportLazyBuild);
+    }
+  }
+  public __isReactiveBuilderNode__ViewBuildNodeBase__Internal(): boolean {
+    return true;
+  }
+  private isArray(param: Object): boolean {
+    const typeName = Object.prototype.toString.call(param);
+    const objectName = `[object Array]`;
+    if (typeName === objectName) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+  public flushState(): void {
+    if (this.isFreeze) {
+      return;
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    this.updateStart();
+    try {
+      this.purgeDeletedElmtIds();
+      Array.from(this.updateFuncByElmtId.keys()).sort((a: number, b: number): number => {
+        return (a < b) ? -1 : (a > b) ? 1 : 0;
+      }).forEach(elmtId => this.UpdateElement(elmtId));
+    } catch (err) {
+      this.updateEnd();
+      __JSScopeUtil__.restoreInstanceId();
+      throw err;
+    }
+    this.updateEnd();
+    __JSScopeUtil__.restoreInstanceId();
+  }
 }

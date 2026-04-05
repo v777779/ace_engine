@@ -16,16 +16,13 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_UI_EXTENSION_UEC_UI_EXTENSION_ADAPTER_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_UI_EXTENSION_UEC_UI_EXTENSION_ADAPTER_H
 
-#include <memory>
-#include <string>
-
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_model.h"
 
 namespace OHOS::Ace {
 struct ModalUIExtensionCallbacks;
 } // namespace OHOS::Ace
 
+// For Arkts Dynamic
 namespace OHOS::Ace::NG {
 class ACE_FORCE_EXPORT UIExtensionAdapter {
 public:

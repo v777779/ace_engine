@@ -15,7 +15,10 @@
 
 #include "core/components_ng/pattern/qrcode/qrcode_paint_method.h"
 
+#include "core/components/qrcode/qrcode_theme.h"
 #include "core/components_ng/pattern/qrcode/qrcode_paint_property.h"
+#include "core/components_ng/pattern/qrcode/qrcode_pattern.h"
+#include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -33,20 +36,25 @@ void QRCodePaintMethod::UpdateContentModifier(PaintWrapper* paintWrapper)
     }
     auto value = paintProperty->GetValueValue();
     auto renderContext = paintWrapper->GetRenderContext();
+
+    auto pattern = DynamicCast<QRCodePattern>(pattern_.Upgrade());
+    CHECK_NULL_VOID(pattern);
+    auto frameNode = pattern->GetHost();
+    CHECK_NULL_VOID(frameNode);
+    auto qrCodeTheme = frameNode->GetTheme<QrcodeTheme>(true);
+    CHECK_NULL_VOID(qrCodeTheme);
     if (renderContext->HasForegroundColor()) {
-        if (renderContext->GetForegroundColorValue().GetValue() != paintProperty->GetColorValue().GetValue()) {
+        if (renderContext->GetForegroundColorValue().GetValue() !=
+            paintProperty->GetColorValue(qrCodeTheme->GetQrcodeColor()).GetValue()) {
             paintProperty->UpdateColor(Color::FOREGROUND);
         }
     } else if (renderContext->HasForegroundColorStrategy()) {
         paintProperty->UpdateColor(Color::FOREGROUND);
     }
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
-    CHECK_NULL_VOID(pipeline);
-    RefPtr<QrcodeTheme> qrCodeTheme = pipeline->GetTheme<QrcodeTheme>();
-    CHECK_NULL_VOID(qrCodeTheme);
+
     auto color = paintProperty->GetColorValue(qrCodeTheme->GetQrcodeColor());
     auto backgroundColor = paintProperty->GetBackgroundColorValue(qrCodeTheme->GetBackgroundColor());
-    auto opacity = paintProperty->GetOpacityValue(1.0f);
+    auto opacity = paintProperty->GetOpacityValue(1.0);
 
     // For the long string, just show the length as 256.
     if (value.size() > QRCODE_VALUE_MAX_LENGTH) {
@@ -54,7 +62,9 @@ void QRCodePaintMethod::UpdateContentModifier(PaintWrapper* paintWrapper)
     }
     auto paintOffset = paintWrapper->GetContentOffset();
     qrCodeModifier_->SetQRCodeOpacity(opacity);
-    qrCodeModifier_->SetQRCodeSize(qrCodeSize_);
+    auto contentSize = paintWrapper->GetContentSize();
+    auto qrCodeSize = std::min(contentSize.Width(), contentSize.Height());
+    qrCodeModifier_->SetQRCodeSize(qrCodeSize);
     qrCodeModifier_->SetQRCodeValue(value);
     qrCodeModifier_->SetPaintOffset(paintOffset);
     qrCodeModifier_->SetQRCodeColor(color);

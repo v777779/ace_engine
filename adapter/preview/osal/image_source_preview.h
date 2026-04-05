@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,22 +16,33 @@
 #ifndef FOUNDATION_ACE_ADAPTER_PREVIEW_OSAL_IMAGE_SOURCE_PREVIEW_H
 #define FOUNDATION_ACE_ADAPTER_PREVIEW_OSAL_IMAGE_SOURCE_PREVIEW_H
 
+#include "include/codec/SkCodec.h"
+
 #include "base/image/image_source.h"
 
 namespace OHOS::Ace {
 class ImageSourcePreview : public ImageSource {
-    DECLARE_ACE_TYPE(ImageSourcePreview, ImageSource)
+    DECLARE_ACE_TYPE(ImageSourcePreview, ImageSource);
 
 public:
+    explicit ImageSourcePreview(std::unique_ptr<SkCodec>&& codec) : codec_(std::move(codec)) {}
     std::string GetProperty(const std::string& key) override;
     RefPtr<PixelMap> CreatePixelMap(
         const Size& size, uint32_t& errorCode, const PixelMapConfig& pixelMapConfig = {}) override;
     RefPtr<PixelMap> CreatePixelMap(
         uint32_t index, const Size& size, uint32_t& errorCode, const PixelMapConfig& pixelMapConfig = {}) override;
     RefPtr<PixelMap> CreatePixelMap() override;
+    RefPtr<PixelMap> CreatePixelMap(const DecodeOptions& options) override;
     Size GetImageSize() override;
     uint32_t GetFrameCount() override;
     std::string GetEncodedFormat() override;
+    int32_t GetLoopCount() override;
+    std::vector<int32_t> GetDelayTime() override;
+    bool IsHeifWithoutAlpha() override;
+    ImageRotateOrientation GetImageOrientation() override;
+    
+private:
+    std::unique_ptr<SkCodec> codec_;
 };
 } // namespace OHOS::Ace
 #endif // FOUNDATION_ACE_ADAPTER_PREVIEW_OSAL_IMAGE_SOURCE_PREVIEW_H

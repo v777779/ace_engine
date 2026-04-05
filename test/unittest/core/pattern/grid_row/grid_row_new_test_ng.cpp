@@ -16,7 +16,7 @@
 
 #include "core/components_ng/pattern//linear_layout/row_model_ng.h"
 #include "core/components_v2/grid_layout/grid_container_util_class.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "core/components_v2/grid_layout/grid_container_utils.h"
 
 namespace OHOS::Ace::NG {
@@ -31,7 +31,7 @@ class GridRowNewTestNG : public GridRowBaseTestNG {};
  * @tc.desc: Show an example of creating a test case.
  * @tc.type: ETS
  */
-HWTEST_F(GridRowNewTestNG, Example, TestSize.Level1)
+HWTEST_F(GridRowNewTestNG, Example, TestSize.Level0)
 {
     // If this test is related to api versions, need to SetMinPlatformVersion
     auto pipeline = PipelineContext::GetCurrentContext();
@@ -69,6 +69,7 @@ HWTEST_F(GridRowNewTestNG, Example, TestSize.Level1)
         breakpoints.breakpoints = { "1000px" };
         // test case runtime, get window width = 0
         breakpoints.reference = V2::BreakPointsReference::WindowSize;
+        breakpoints.userDefine = true;
 
         ACE_UPDATE_LAYOUT_PROPERTY(GridRowLayoutProperty, Columns, col);
         ACE_UPDATE_LAYOUT_PROPERTY(GridRowLayoutProperty, Gutter, gutter);
@@ -112,7 +113,7 @@ HWTEST_F(GridRowNewTestNG, Example, TestSize.Level1)
  * @tc.desc: Show an example of creating a test case.
  * @tc.type: ETS
  */
-HWTEST_F(GridRowNewTestNG, GridRowIgnoreLayoutSafeArea001, TestSize.Level1)
+HWTEST_F(GridRowNewTestNG, GridRowIgnoreLayoutSafeArea001, TestSize.Level0)
 {
     // If this test is related to api versions, need to SetMinPlatformVersion
     auto pipeline = PipelineContext::GetCurrentContext();
@@ -130,6 +131,7 @@ HWTEST_F(GridRowNewTestNG, GridRowIgnoreLayoutSafeArea001, TestSize.Level1)
         breakpoints.breakpoints = { "1000px" };
         // test case runtime, get window width = 0
         breakpoints.reference = V2::BreakPointsReference::WindowSize;
+        breakpoints.userDefine = true;
 
         ACE_UPDATE_LAYOUT_PROPERTY(GridRowLayoutProperty, Columns, col);
         ACE_UPDATE_LAYOUT_PROPERTY(GridRowLayoutProperty, Gutter, gutter);
@@ -182,7 +184,7 @@ HWTEST_F(GridRowNewTestNG, GridRowIgnoreLayoutSafeArea001, TestSize.Level1)
  * @tc.desc: Show an example of creating a test case.
  * @tc.type: ETS
  */
-HWTEST_F(GridRowNewTestNG, GridRowIgnoreLayoutSafeArea002, TestSize.Level1)
+HWTEST_F(GridRowNewTestNG, GridRowIgnoreLayoutSafeArea002, TestSize.Level0)
 {
     // If this test is related to api versions, need to SetMinPlatformVersion
     auto pipeline = PipelineContext::GetCurrentContext();
@@ -200,6 +202,7 @@ HWTEST_F(GridRowNewTestNG, GridRowIgnoreLayoutSafeArea002, TestSize.Level1)
         breakpoints.breakpoints = { "1000px" };
         // test case runtime, get window width = 0
         breakpoints.reference = V2::BreakPointsReference::WindowSize;
+        breakpoints.userDefine = true;
 
         ACE_UPDATE_LAYOUT_PROPERTY(GridRowLayoutProperty, Columns, col);
         ACE_UPDATE_LAYOUT_PROPERTY(GridRowLayoutProperty, Gutter, gutter);
@@ -254,7 +257,7 @@ HWTEST_F(GridRowNewTestNG, GridRowIgnoreLayoutSafeArea002, TestSize.Level1)
  * @tc.desc: Test Create001 of GridRow
  * @tc.type: FUNC
  */
-HWTEST_F(GridRowBaseTestNG, Create001, TestSize.Level1)
+HWTEST_F(GridRowBaseTestNG, Create001, TestSize.Level0)
 {
     GridRowModelNG gridRowModelNG;
     std::string bundleName = "com.example.test";
@@ -288,7 +291,7 @@ HWTEST_F(GridRowBaseTestNG, Create001, TestSize.Level1)
  * @tc.desc: Test InheritGridRowColumns()
  * @tc.type: FUNC
  */
-HWTEST_F(GridRowNewTestNG, InheritGridRowColumnsTest, TestSize.Level1)
+HWTEST_F(GridRowNewTestNG, InheritGridRowColumnsTest, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. containerSizeArray is initialized with -1.
@@ -301,7 +304,7 @@ HWTEST_F(GridRowNewTestNG, InheritGridRowColumnsTest, TestSize.Level1)
     EXPECT_EQ(gridContainerSize->ToString(), expectedResult->ToString());
     /**
      * @tc.steps: step2. containerSizeArray[5] = 9,
-                         which means the developer initializes gridrow's columns property as {xxl:9}.
+                          which means the developer initializes gridrow's columns property as {xxl:9}.
      * @tc.expected: gridContainerSize has 9 columns for each breakpoint.
      */
     int32_t containerSizeArray2[6] = {-1, -1, -1, 0, -1, -1};
@@ -318,7 +321,7 @@ HWTEST_F(GridRowNewTestNG, InheritGridRowColumnsTest, TestSize.Level1)
      * @tc.steps: step3. containerSizeArray[0] = 2, containerSizeArray[5] = 9,
                          which means the developer initializes gridrow's columns property as {xs:2, xxl:9}.
      * @tc.expected: gridContainerSize has 2 columns for xs, sm, md, lg, xl.
-                     gridContainerSize has 9 columns for xxl.
+                      gridContainerSize has 9 columns for xxl.
      */
     int32_t containerSizeArray3[6] = {-1, -1, -1, 0, -1, -1};
     containerSizeArray3[0] = 2;
@@ -332,10 +335,10 @@ HWTEST_F(GridRowNewTestNG, InheritGridRowColumnsTest, TestSize.Level1)
     EXPECT_EQ(gridContainerSize->ToString(), expectedResult->ToString());
     /**
      * @tc.steps: step4. containerSizeArray[0] = 2, containerSizeArray4[2] = 4, containerSizeArray[5] = 9,
-                         which means the developer initializes gridrow's columns property as {xs:2, md:4, xxl:9}.
+                          which means the developer initializes gridrow's columns property as {xs:2, md:4, xxl:9}.
      * @tc.expected: gridContainerSize has 2 columns for xs, sm.
-                     gridContainerSize has 4 columns for md, lg, xl
-                     gridContainerSize has 9 columns for xxl.
+                      gridContainerSize has 4 columns for md, lg, xl
+                      gridContainerSize has 9 columns for xxl.
      */
     int32_t containerSizeArray4[6] = {-1, -1, -1, 0, -1, -1};
     containerSizeArray4[0] = 2;

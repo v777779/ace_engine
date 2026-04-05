@@ -19,6 +19,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 
@@ -27,7 +28,8 @@
 #include "base/utils/macros.h"
 
 namespace OHOS::Ace {
-
+struct WidthLayoutBreakPoint;
+struct HeightLayoutBreakPoint;
 enum class ResolutionType : int32_t {
     RESOLUTION_NONE = -2,
     RESOLUTION_ANY = -1,
@@ -45,6 +47,7 @@ enum class FoldScreenType: int32_t {
     SMALL_FOLDER = 2,
     OUTER_FOLDER = 3,
     SUPER_FOLDER = 5,
+    PORTRAIT_FOLDER = 7,
 };
 
 constexpr int32_t MCC_UNDEFINED = 0;
@@ -79,24 +82,6 @@ union DebugFlags {
         bool objDestroyInUse_ : 1;
         bool useInvalidIter_ : 1;
     } bits_;
-};
-
-struct WidthLayoutBreakPoint {
-    double widthVPXS_ = 320.0;
-    double widthVPSM_ = 600.0;
-    double widthVPMD_ = 840.0;
-    double widthVPLG_ = 1440.0;
-    WidthLayoutBreakPoint() = default;
-    WidthLayoutBreakPoint(double widthVPXS, double widthVPSM, double widthVPMD, double widthVPLG)
-        : widthVPXS_(widthVPXS), widthVPSM_(widthVPSM), widthVPMD_(widthVPMD), widthVPLG_(widthVPLG) {}
-};
-
-struct HeightLayoutBreakPoint {
-    double heightVPRATIOSM_ = 0.8;
-    double heightVPRATIOMD_ = 1.2;
-    HeightLayoutBreakPoint() = default;
-    HeightLayoutBreakPoint(double heightVPRATIOSM, double heightVPRATIOMD)
-        : heightVPRATIOSM_(heightVPRATIOSM), heightVPRATIOMD_(heightVPRATIOMD) {}
 };
 
 class ACE_FORCE_EXPORT SystemProperties final {
@@ -145,10 +130,7 @@ public:
      * Set type of current device.
      * @param deviceType
      */
-    static void SetDeviceType(DeviceType deviceType)
-    {
-        deviceType_ = deviceType;
-    }
+    static void SetDeviceType(DeviceType deviceType);
 
     /*
      * Get current orientation of device.
@@ -177,18 +159,12 @@ public:
     /*
      * Set physical width of device.
      */
-    static void SetDevicePhysicalWidth(int32_t devicePhysicalWidth)
-    {
-        devicePhysicalWidth_ = devicePhysicalWidth;
-    }
+    static void SetDevicePhysicalWidth(int32_t devicePhysicalWidth);
 
     /*
      * Set physical height of device.
      */
-    static void SetDevicePhysicalHeight(int32_t devicePhysicalHeight)
-    {
-        devicePhysicalHeight_ = devicePhysicalHeight;
-    }
+    static void SetDevicePhysicalHeight(int32_t devicePhysicalHeight);
 
     /*
      * Get physical width of device.
@@ -211,24 +187,14 @@ public:
      */
     static float GetFontWeightScale();
 
-    static void SetFontWeightScale(const float fontWeightScale)
-    {
-        if (fontWeightScale_ != fontWeightScale) {
-            fontWeightScale_ = fontWeightScale;
-        }
-    }
+    static void SetFontWeightScale(const float fontWeightScale);
 
     /*
      * Get size scale of device.
      */
     static float GetFontScale();
 
-    static void SetFontScale(const float fontScale)
-    {
-        if (fontScale != fontScale_) {
-            fontScale_ = fontScale;
-        }
-    }
+    static void SetFontScale(const float fontScale);
 
     /*
      * Get density of default display.
@@ -241,10 +207,7 @@ public:
     /*
      * Set resolution of device.
      */
-    static void SetResolution(double resolution)
-    {
-        resolution_ = resolution;
-    }
+    static void SetResolution(double resolution);
 
     static bool GetIsScreenRound()
     {
@@ -344,6 +307,16 @@ public:
         return recycleImageEnabled_;
     }
 
+    static bool GetImageReleaseManageObjectEnabled()
+    {
+        return imageReleaseManageObjectEnabled_;
+    }
+
+    static bool GetImageAutoResizeEnabled()
+    {
+        return autoResizeEnabled_;
+    }
+
     static bool GetSvgTraceEnabled()
     {
         return svgTraceEnable_;
@@ -399,15 +372,9 @@ public:
         return stateManagerEnable_.load();
     }
 
-    static void SetStateManagerEnabled(bool stateManagerEnable)
-    {
-        stateManagerEnable_.store(stateManagerEnable);
-    }
+    static void SetStateManagerEnabled(bool stateManagerEnable);
 
-    static void SetFaultInjectEnabled(bool faultInjectEnable)
-    {
-        faultInjectEnabled_ = faultInjectEnable;
-    }
+    static void SetFaultInjectEnabled(bool faultInjectEnable);
 
     static bool GetFaultInjectEnabled()
     {
@@ -417,6 +384,11 @@ public:
     static bool GetBuildTraceEnabled()
     {
         return buildTraceEnable_;
+    }
+
+    static bool GetDynamicDetectionTraceEnabled()
+    {
+        return dynamicDetectionTraceEnable_;
     }
 
     static bool GetCacheNavigationNodeEnable();
@@ -429,6 +401,11 @@ public:
     static uint32_t GetCanvasDebugMode()
     {
         return canvasDebugMode_;
+    }
+
+    static uint32_t GetSafeRefactorMode()
+    {
+        return safeRefactorMode_;
     }
 
     static bool GetDebugEnabled();
@@ -507,29 +484,18 @@ public:
         return mnc_;
     }
 
-    static void SetDeviceAccess(bool isDeviceAccess)
-    {
-        isDeviceAccess_ = isDeviceAccess;
-    }
+    static void SetDeviceAccess(bool isDeviceAccess);
 
     static bool GetDeviceAccess()
     {
         return isDeviceAccess_;
     }
 
-    static void SetConfigDeviceType(const std::string& type)
-    {
-        configDeviceType_ = type;
-    }
-
-    static const std::string& GetConfigDeviceType()
-    {
-        return configDeviceType_;
-    }
-
     static float GetScrollCoefficients();
 
     static bool GetTransformEnabled();
+
+    static bool GetCompatibleInputTransEnabled();
 
     static void InitMccMnc(int32_t mcc, int32_t mnc);
 
@@ -548,14 +514,11 @@ public:
 
     static size_t GetLongPauseTime();
 
-    static void SetUnZipHap(bool unZipHap = true)
-    {
-        unZipHap_ = unZipHap;
-    }
+    static void SetUnZipHap(bool unZipHap = true);
 
     static bool GetUnZipHap()
     {
-        return unZipHap_;
+        return unZipHap_.load();
     }
 
     static bool GetAsmInterpreterEnabled();
@@ -596,10 +559,7 @@ public:
         return imageFileCacheConvertAstcThreshold_;
     }
 
-    static void SetExtSurfaceEnabled(bool extSurfaceEnabled)
-    {
-        extSurfaceEnabled_ = extSurfaceEnabled;
-    }
+    static void SetExtSurfaceEnabled(bool extSurfaceEnabled);
 
     static bool GetExtSurfaceEnabled()
     {
@@ -615,9 +575,17 @@ public:
 
     static bool GetIsUseMemoryMonitor();
 
+    static int32_t GetComponentLoadNumber();
+
+    static int32_t GetStopCollectTimeWait();
+
     static bool IsFormAnimationLimited();
 
     static bool GetResourceDecoupling();
+
+    static bool IsPCMode();
+
+    static bool IsAutoFillSupport();
 
     static bool ConfigChangePerform();
 
@@ -646,6 +614,8 @@ public:
 
     static bool GetGridIrregularLayoutEnabled();
 
+    static std::optional<bool> GetArkUIHookEnabled();
+
     static bool WaterFlowUseSegmentedLayout();
 
     static bool GetSideBarContainerBlurEnable();
@@ -659,9 +629,8 @@ public:
     static void EnableSystemParameterTraceInputEventCallback(const char* key, const char* value, void* context);
     static void EnableSystemParameterSecurityDevelopermodeCallback(const char* key, const char* value, void* context);
     static void EnableSystemParameterDebugStatemgrCallback(const char* key, const char* value, void* context);
-    static void EnableSystemParameterDebugBoundaryCallback(const char* key, const char* value, void* context);
     static void EnableSystemParameterPerformanceMonitorCallback(const char* key, const char* value, void* context);
-    static void OnFocusActiveChanged(const char* key, const char* value, void* context);
+
     static float GetDefaultResolution();
 
     static void SetLayoutTraceEnabled(bool layoutTraceEnable);
@@ -709,13 +678,23 @@ public:
 
     static float GetDragStartPanDistanceThreshold();
 
+    static int32_t GetVelocityTrackerPointNumber();
+
+    static bool IsVelocityWithinTimeWindow();
+
+    static bool IsVelocityWithoutUpPoint();
+
     static bool IsSmallFoldProduct();
+
+    static bool IsPortraitFoldProduct();
 
     static bool IsBigFoldProduct();
 
     static std::string GetWebDebugRenderMode();
 
     static std::string GetDebugInspectorId();
+
+    static bool GetEventBenchMarkEnabled();
 
     static double GetSrollableVelocityScale();
 
@@ -746,10 +725,12 @@ public:
 
     static int32_t GetDragDropFrameworkStatus();
     static int32_t GetTouchAccelarate();
+    static int32_t GetPageLoadTimethreshold();
 
     static bool IsSuperFoldDisplayDevice();
 
     static bool IsPageTransitionFreeze();
+    static bool IsForcibleLandscapeEnabled();
 
     static bool IsSoftPageTransition();
 
@@ -757,17 +738,19 @@ public:
 
     static int32_t getFormSharedImageCacheThreshold();
 
+    static bool IsFormSkeletonRSTransactionEnabled();
+
     static bool IsWhiteBlockEnabled();
     static bool IsWhiteBlockIdleChange();
     static int32_t GetWhiteBlockIndexValue();
     static int32_t GetWhiteBlockCacheCountValue();
 
-    static WidthLayoutBreakPoint GetWidthLayoutBreakpoints()
+    static const WidthLayoutBreakPoint& GetWidthLayoutBreakpoints()
     {
         return widthLayoutBreakpoints_;
     }
 
-    static HeightLayoutBreakPoint GetHeightLayoutBreakpoints()
+    static const HeightLayoutBreakPoint& GetHeightLayoutBreakpoints()
     {
         return heightLayoutBreakpoints_;
     }
@@ -777,10 +760,24 @@ public:
         return syncLoadEnabled_;
     }
 
+    static int32_t GetPreviewStatus();
+
     static bool GetDebugThreadSafeNodeEnabled()
     {
         return debugThreadSafeNodeEnable_;
     }
+
+    static bool GetPrebuildInMultiFrameEnabled()
+    {
+        return prebuildInMultiFrameEnabled_;
+    }
+
+    static bool IsOpenYuvDecode()
+    {
+        return isOpenYuvDecode_;
+    }
+
+    static void ReadSystemParametersCallOnce();
 
 private:
     static bool opincEnabled_;
@@ -790,6 +787,7 @@ private:
     static std::atomic<bool> attributeSetTraceEnable_;
     static std::atomic<bool> traceInputEventEnable_;
     static bool buildTraceEnable_;
+    static bool dynamicDetectionTraceEnable_;
     static bool cacheNavigationNodeEnable_;
     static bool syncDebugTraceEnable_;
     static bool measureDebugTraceEnable_;
@@ -801,6 +799,7 @@ private:
     static bool vsyncModeTraceEnable_;
     static bool accessibilityEnabled_;
     static uint32_t canvasDebugMode_;
+    static uint32_t safeRefactorMode_;
     static bool isRound_;
     static bool isDeviceAccess_;
     static int32_t deviceWidth_;
@@ -821,13 +820,15 @@ private:
     static int32_t mcc_;
     static int32_t mnc_;
     static ScreenShape screenShape_;
-    static LongScreenType LongScreen_;
-    static bool unZipHap_;
+    static bool autoResizeEnabled_;
+
+    static std::atomic<bool> unZipHap_;
     static bool rosenBackendEnabled_;
     static bool windowAnimationEnabled_;
     static bool debugEnabled_;
+    static bool eventBenchMarkEnabled_;
     static std::string configDeviceType_;
-    static bool transformEnabled_;
+    static bool compatibleInputTransEnabled_;
     static float scrollCoefficients_;
     static DebugFlags debugFlags_;
     static bool containerDeleteFlag_;
@@ -837,6 +838,7 @@ private:
     static bool debugOffsetLogEnabled_;
     static bool downloadByNetworkEnabled_;
     static bool recycleImageEnabled_;
+    static bool imageReleaseManageObjectEnabled_;
     static bool gpuUploadEnabled_;
     static bool isHookModeEnabled_;
     static bool astcEnabled_;
@@ -850,6 +852,7 @@ private:
     static bool configChangePerform_;
     static bool enableScrollableItemPool_;
     static bool navigationBlurEnabled_;
+    static std::optional<bool> arkUIHookEnabled_;
     static bool gridCacheEnabled_;
     static bool gridIrregularLayoutEnable_;
     static bool sideBarContainerBlurEnable_;
@@ -864,6 +867,9 @@ private:
     static std::pair<float, float> brightUpPercent_;
     static float dragStartDampingRatio_;
     static float dragStartPanDisThreshold_;
+    static int32_t velocityTrackerPointNumber_ ;
+    static bool isVelocityWithinTimeWindow_;
+    static bool isVelocityWithoutUpPoint_;
     static float fontScale_;
     static float fontWeightScale_;
     static bool windowRectResizeEnabled_;
@@ -873,7 +879,9 @@ private:
     static bool multiInstanceEnabled_;
     static int32_t dragDropFrameworkStatus_;
     static int32_t touchAccelarate_;
+    static int32_t pageLoadTimethreshold_;
     static bool pageTransitionFrzEnabled_;
+    static bool forcibleLandscapeEnabled_;
     static bool softPagetransition_;
     static bool formSkeletonBlurEnabled_;
     static int32_t formSharedImageCacheThreshold_;
@@ -881,7 +889,14 @@ private:
     static HeightLayoutBreakPoint heightLayoutBreakpoints_;
     static bool syncLoadEnabled_;
     static bool whiteBlockEnabled_;
+    static int32_t previewStatus_;
     static bool debugThreadSafeNodeEnable_;
+    static bool prebuildInMultiFrameEnabled_;
+    static bool isPCMode_;
+    static bool isAutoFillSupport_;
+    static bool isOpenYuvDecode_;
+
+    static std::once_flag getSysPropertiesFlag_;
 };
 
 } // namespace OHOS::Ace

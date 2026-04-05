@@ -21,14 +21,12 @@
 namespace OHOS {
 namespace Ace {
 class ACE_EXPORT DrawingLattice : public AceType {
-    DECLARE_ACE_TYPE(DrawingLattice, AceType)
+    DECLARE_ACE_TYPE(DrawingLattice, AceType);
 
 public:
-    static RefPtr<DrawingLattice> CreateDrawingLattice(void* sptrAddr);
-    static RefPtr<DrawingLattice> CreateDrawingLatticeFromNative(void* sptrAddr);
+    static RefPtr<DrawingLattice> CreateDrawingLatticeFromSptr(void* sptrAddr);
+    static RefPtr<DrawingLattice> CreateDrawingLatticeFromNative(void* addr);
 
-    // define the return value as void is for tdd compilation
-    virtual void* GetDrawingLatticeSptrAddr() = 0;
     virtual std::string DumpToString() = 0;
 };
 

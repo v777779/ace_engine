@@ -26,9 +26,6 @@ namespace ContainerSpanModifier {
 Ark_NativePointer ConstructImpl(Ark_Int32 id,
                                 Ark_Int32 flags)
 {
-    if (MultiThreadBuildManager::IsParallelScope()) {
-        LOGF_ABORT("Unsupported UI components ContainerSpan used in ParallelizeUI");
-    }
     auto spanNode = SpanModelStatic::CreateContainerSpanNode(id);
     CHECK_NULL_RETURN(spanNode, nullptr);
     spanNode->IncRefCount();
@@ -49,9 +46,7 @@ void SetTextBackgroundStyleImpl(Ark_NativePointer node,
     CHECK_NULL_VOID(frameNode);
     auto convValue = Converter::OptConvertPtr<TextBackgroundStyle>(value);
     if (!convValue) {
-        // Implement Reset value
-        TextBackgroundStyle textBackgroundStyle;
-        SpanModelNG::SetTextBackgroundStyleByBaseSpan(frameNode, textBackgroundStyle);
+        SpanModelNG::ResetTextBackgroundStyleByBaseSpan(frameNode);
         return;
     }
     SpanModelNG::SetTextBackgroundStyleByBaseSpan(frameNode, *convValue);

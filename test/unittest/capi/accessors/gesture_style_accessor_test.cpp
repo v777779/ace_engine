@@ -17,7 +17,6 @@
 #include "core/interfaces/native/implementation/frame_node_peer_impl.h"
 #include "core/interfaces/native/implementation/gesture_style_peer.h"
 #include "accessor_test_base.h"
-#include "node_api.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -38,28 +37,30 @@ public:
     void* CreatePeerInstance() override
     {
         Ark_Int32 resId = 1;
+        Ark_GestureStyleInterface param;
         auto onClick = [](const Ark_Int32 resourceId, const Ark_ClickEvent event) {
             g_onClick = true;
         };
-        param_.value.onClick.value = Converter::ArkValue<Callback_ClickEvent_Void>(onClick, resId);
+        param.onClick = Converter::ArkCallback<Opt_Callback_ClickEvent_Void>(onClick, resId);
 
         auto onLongPress = [](const Ark_Int32 resourceId, const Ark_GestureEvent event) {
             g_onLongPress = true;
         };
-        param_.value.onLongPress.value = Converter::ArkValue<Callback_GestureEvent_Void>(onLongPress, resId);
-        return accessor_->construct(&param_);
+        param.onLongPress = Converter::ArkCallback<Opt_Callback_GestureEvent_Void>(onLongPress, resId);
+        param.onTouch = Converter::ArkValue<Opt_Callback_TouchEventProxy_Void>();
+        auto optParam = Converter::ArkValue<Opt_GestureStyleInterface>(param);
+        return accessor_->construct(&optParam);
     }
-
-    Opt_GestureStyleInterface param_;
 };
 
 /**
- * @tc.name: callbacksTest
+ * @tc.name: constructTestCallbacks
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(GestureStyleAccessorTest, callbacksTest, TestSize.Level1)
+HWTEST_F(GestureStyleAccessorTest, constructTestCallbacks, TestSize.Level1)
 {
+    ASSERT_NE(accessor_->construct, nullptr);
     ASSERT_NE(peer_, nullptr);
     auto style = peer_->span->GetGestureStyle();
     EXPECT_NE(style.onClick, nullptr);

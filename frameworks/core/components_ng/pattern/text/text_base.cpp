@@ -14,6 +14,9 @@
  */
 
 #include "core/components_ng/pattern/text/text_base.h"
+
+#include "core/components_ng/manager/select_overlay/select_overlay_manager.h"
+#include "core/components_ng/property/measure_utils.h"
 #include "core/text/text_emoji_processor.h"
 #include <cstdint>
 
@@ -166,9 +169,10 @@ void TextBase::SelectedRectsToLineGroup(const std::vector<RectF>& selectedRect,
     }
 }
 
-TextAlign TextBase::CheckTextAlignByDirection(TextAlign textAlign, TextDirection direction)
+TextAlign TextBase::CheckTextAlignByDirection(TextAlign textAlign, TextDirection direction, TextDirection textDirection)
 {
-    if (direction == TextDirection::RTL) {
+    if ((direction == TextDirection::RTL && textDirection == TextDirection::INHERIT) ||
+        textDirection == TextDirection::RTL) {
         if (textAlign == TextAlign::START) {
             return TextAlign::END;
         } else if (textAlign == TextAlign::END) {
@@ -285,15 +289,59 @@ LayoutCalPolicy TextBase::GetLayoutCalPolicy(LayoutWrapper* layoutWrapper, bool 
     return layoutPolicyProperty->heightLayoutPolicy_.value();
 }
 
+VectorF TextBase::GetHostScale(const RefPtr<FrameNode>& host) const
+{
+    auto unitScale = VectorF(1, 1);
+    CHECK_NULL_RETURN(host, unitScale);
+    auto scaleX = 1.0f;
+    auto scaleY = 1.0f;
+    auto parent = host;
+    while (parent && parent->GetTag() != V2::WINDOW_SCENE_ETS_TAG) {
+        auto renderContext = parent->GetRenderContext();
+        CHECK_NULL_RETURN(renderContext, unitScale);
+        auto scale = renderContext->GetTransformScaleValue(unitScale);
+        scaleX *= std::abs(scale.x);
+        scaleY *= std::abs(scale.y);
+        auto transformMatrix = renderContext->GetTransformMatrix();
+        if (transformMatrix.has_value()) {
+            DecomposedTransform transform;
+            TransformUtil::DecomposeTransform(transform, transformMatrix.value());
+            scaleX *= std::abs(transform.scale[0]);
+            scaleY *= std::abs(transform.scale[1]);
+        }
+        parent = parent->GetAncestorNodeOfFrame(true);
+    }
+    return VectorF(scaleX, scaleY);
+}
+
 float TextBase::GetConstraintMaxLength(
     LayoutWrapper* layoutWrapper, const LayoutConstraintF& constraint, bool isHorizontal)
 {
     auto layoutCalPolicy = GetLayoutCalPolicy(layoutWrapper, isHorizontal);
     if (layoutCalPolicy == LayoutCalPolicy::MATCH_PARENT) {
-        return isHorizontal ? constraint.parentIdealSize.Width().value_or(0.0f)
-                            : constraint.parentIdealSize.Height().value_or(0.0f);
+        return isHorizontal ? constraint.parentIdealSize.Width().value_or(constraint.maxSize.Width())
+                            : constraint.parentIdealSize.Height().value_or(constraint.maxSize.Height());
     }
     return isHorizontal ? constraint.maxSize.Width() : constraint.maxSize.Height();
+}
+
+std::optional<float> TextBase::GetCalcLayoutConstraintLength(LayoutWrapper* layoutWrapper, bool isMax, bool isWidth)
+{
+    CHECK_NULL_RETURN(layoutWrapper, std::nullopt);
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_RETURN(layoutProperty, std::nullopt);
+    const auto& layoutCalcConstraint = layoutProperty->GetCalcLayoutConstraint();
+    CHECK_NULL_RETURN(layoutCalcConstraint, std::nullopt);
+    auto layoutConstraint = layoutProperty->GetLayoutConstraint();
+    CHECK_NULL_RETURN(layoutConstraint, std::nullopt);
+    auto calcLayoutConstraintMaxMinSize = isMax ? layoutCalcConstraint->maxSize : layoutCalcConstraint->minSize;
+    CHECK_NULL_RETURN(calcLayoutConstraintMaxMinSize, std::nullopt);
+    auto optionalCalcLength =
+        isWidth ? calcLayoutConstraintMaxMinSize->Width() : calcLayoutConstraintMaxMinSize->Height();
+    auto percentLength =
+        isWidth ? layoutConstraint->percentReference.Width() : layoutConstraint->percentReference.Height();
+    CHECK_NULL_RETURN(optionalCalcLength, std::nullopt);
+    return ConvertToPx(optionalCalcLength, ScaleProperty::CreateScaleProperty(), percentLength);
 }
 
 void TextGestureSelector::DoGestureSelection(const TouchEventInfo& info)

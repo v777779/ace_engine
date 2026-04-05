@@ -16,6 +16,8 @@
 
 #include "bridge/common/utils/utils.h"
 #include "core/common/container.h"
+#include "core/common/resource/resource_parse_utils.h"
+#include "core/components/common/layout/common_text_constants.h"
 #include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/pattern/button/button_model_ng.h"
 #include "frameworks/core/components/button/button_theme.h"
@@ -35,6 +37,7 @@ constexpr uint32_t INDEX_VALUE_TEXT_OVERFLOW_0 = 0;
 constexpr uint32_t INDEX_VALUE_MAX_LINES_1 = 1;
 constexpr uint32_t INDEX_VALUE_ADAPT_HEIGHT_2 = 2;
 constexpr uint32_t INDEX_VALUE_FONT_STYLE_3 = 3;
+constexpr uint32_t INDEX_VALUE_TEXT_ALIGN_4 = 4;
 constexpr uint32_t INDEX_DIMENSION_MIN_FONT_SIZE_0 = 0;
 constexpr uint32_t INDEX_DIMENSION_MAX_FONT_SIZE_1 = 1;
 constexpr uint32_t INDEX_DIMENSION_FONT_SIZE_2 = 2;
@@ -162,14 +165,39 @@ void SetButtonFontColor(ArkUINodeHandle node, uint32_t fontColor)
 void SetButtonFontColorPtr(ArkUINodeHandle node, uint32_t fontColor, void* colorRawPtr)
 {
     CHECK_NULL_VOID(node);
-    SetButtonFontColor(node, fontColor);
+    Color result = Color(fontColor);
     if (SystemProperties::ConfigChangePerform()) {
         auto* frameNode = reinterpret_cast<FrameNode*>(node);
         CHECK_NULL_VOID(frameNode);
-        auto* color = reinterpret_cast<ResourceObject*>(colorRawPtr);
-        auto colorResObj = AceType::Claim(color);
-        ButtonModelNG::CreateWithColorResourceObj(frameNode, colorResObj, ButtonColorType::FONT_COLOR);
+        RefPtr<ResourceObject> resObj;
+        if (!colorRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
+        }
+        ButtonModelNG::CreateWithColorResourceObj(frameNode, resObj, ButtonColorType::FONT_COLOR);
     }
+    SetButtonFontColor(node, result.GetValue());
+}
+
+void SetButtonFontColorUseColorPtr(ArkUINodeHandle node, const ArkUI_InnerColor* fontColor, void* colorRawPtr)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(fontColor);
+    Color result = *(reinterpret_cast<const Color*>(fontColor));
+    if (SystemProperties::ConfigChangePerform()) {
+        RefPtr<ResourceObject> resObj;
+        if (!colorRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
+        }
+        ButtonModelNG::CreateWithColorResourceObj(frameNode, resObj, ButtonColorType::FONT_COLOR);
+    }
+    ButtonModelNG::SetFontColor(frameNode, result);
 }
 
 void ResetButtonFontColor(ArkUINodeHandle node)
@@ -401,6 +429,10 @@ void SetButtonValueParameters(const int32_t* valueArray, const size_t dataCount,
         result < static_cast<int32_t>(FONT_STYLES.size())) {
         buttonParameters.fontStyle = FONT_STYLES[result];
     }
+    if (SetButtonValue(valueArray, INDEX_VALUE_TEXT_ALIGN_4, dataCount, result) && result >= 0 &&
+        result < static_cast<int32_t>(TEXT_ALIGNS.size())) {
+        buttonParameters.textAlign = TEXT_ALIGNS[result];
+    }
 }
 
 void SetButtonStringParameters(
@@ -434,6 +466,9 @@ void SetButtonLabelStyle(ArkUINodeHandle node, ArkUI_CharPtr* stringParameters, 
     SetButtonValueParameters(valueArray, dataCountArray[INDEX_VALUE_ARRAY_COUNT], buttonParameters);
     SetButtonDimensionParameters(dimensionArray, dataCountArray[INDEX_DIMENSION_ARRAY_COUNT], buttonParameters);
     ButtonCompleteParameters(buttonParameters);
+    if (!buttonParameters.textAlign.has_value()) {
+        ButtonModelNG::ResetTextAlign(frameNode);
+    }
     ButtonModelNG::SetLabelStyle(frameNode, buttonParameters);
 }
 
@@ -472,6 +507,24 @@ void SetButtonBackgroundColor(ArkUINodeHandle node, uint32_t color)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     ButtonModelNG::BackgroundColor(frameNode, Color(color), true);
+}
+
+void SetButtonBackgroundColorPtr(ArkUINodeHandle node, uint32_t color, void* colorRawPtr)
+{
+    Color result = Color(color);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto* frameNode = reinterpret_cast<FrameNode*>(node);
+        CHECK_NULL_VOID(frameNode);
+        RefPtr<ResourceObject> resObj;
+        if (!colorRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
+        }
+        ButtonModelNG::CreateWithColorResourceObj(frameNode, resObj, ButtonColorType::BACKGROUND_COLOR);
+    }
+    SetButtonBackgroundColor(node, result.GetValue());
 }
 
 void SetButtonBackgroundColorWithColorSpace(ArkUINodeHandle node, ArkUI_Uint32 color, ArkUI_Int32 colorSpace)
@@ -804,6 +857,15 @@ ArkUI_Float32 GetButtonMaxFontScale(ArkUINodeHandle node)
     return static_cast<ArkUI_Float32>(ButtonModelNG::GetMaxFontScale(frameNode));
 }
 
+void SetButtonFontColorWithPlaceholder(ArkUINodeHandle node, uint32_t fontColor, ArkUI_Uint32 colorPlaceholder)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    Color result = Color(fontColor);
+    result.SetPlaceholder(static_cast<ColorPlaceholder>(colorPlaceholder));
+    ButtonModelNG::SetFontColor(frameNode, result);
+}
+
 namespace NodeModifier {
 const ArkUIButtonModifier* GetButtonModifier()
 {
@@ -858,11 +920,14 @@ const ArkUIButtonModifier* GetButtonModifier()
         .getButtonMinFontScale = GetButtonMinFontScale,
         .getButtonMaxFontScale = GetButtonMaxFontScale,
         .setButtonFontColorPtr = SetButtonFontColorPtr,
+        .setButtonFontColorUseColorPtr = SetButtonFontColorUseColorPtr,
         .setButtonFontFamilyPtr = SetButtonFontFamilyPtr,
         .setButtonLabelStylePtr = SetButtonLabelStylePtr,
         .setButtonBackgroundColorWithColorSpacePtr = SetButtonBackgroundColorWithColorSpacePtr,
         .setButtonMinFontScalePtr = SetButtonMinFontScalePtr,
         .setButtonMaxFontScalePtr = SetButtonMaxFontScalePtr,
+        .setButtonBackgroundColorPtr = SetButtonBackgroundColorPtr,
+        .setButtonFontColorWithPlaceholder = SetButtonFontColorWithPlaceholder,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
     return &modifier;

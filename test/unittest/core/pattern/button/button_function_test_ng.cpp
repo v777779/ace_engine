@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <utility>
 
@@ -22,8 +23,8 @@
 
 #define protected public
 #define private public
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/geometry/dimension.h"
 #include "base/memory/ace_type.h"
@@ -35,6 +36,7 @@
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/event/focus_hub.h"
 #include "core/components_ng/layout/layout_property.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/button_layout_property.h"
 #include "core/components_ng/pattern/button/button_model_ng.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
@@ -56,6 +58,8 @@ constexpr float BUTTON_WIDTH = 200.0f;
 constexpr float BUTTON_HEIGHT = 100.0f;
 constexpr float FULL_SCREEN_WIDTH = 720.0f;
 constexpr float FULL_SCREEN_HEIGHT = 1136.0f;
+constexpr float TOP_PADDING = 0.0f;
+constexpr float BOTTOM_PADDING = 0.0f;
 constexpr bool STATE_EFFECT = true;
 const std::string CREATE_VALUE = "Hello World";
 const std::string BUTTON_VALUE = "Test";
@@ -1041,6 +1045,150 @@ HWTEST_F(ButtonFunctionTestNg, ButtonFunctionTest012, TestSize.Level1)
 }
 
 /**
+ * @tc.name: ButtonFunctionLayoutPolicyIsFixAtIdelSizeTest001
+ * @tc.desc: Test HandleLabelCircleButtonConstraint and ButtonFunctionLayoutPolicyIsFixAtIdelSize.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ButtonFunctionTestNg, ButtonFunctionLayoutPolicyIsFixAtIdelSizeTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create button and get frameNode.
+     */
+    TestProperty testProperty;
+    testProperty.typeValue = std::make_optional(ButtonType::CIRCLE);
+    testProperty.stateEffectValue = std::make_optional(STATE_EFFECT);
+    auto frameNode = CreateLabelButtonParagraph(CREATE_VALUE, testProperty);
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. get layout property, layoutAlgorithm and create layoutWrapper.
+     * @tc.expected: step2. related function is called.
+     */
+    auto layoutWrapper = frameNode->CreateLayoutWrapper();
+    auto buttonPattern = frameNode->GetPattern<ButtonPattern>();
+    ASSERT_NE(buttonPattern, nullptr);
+    auto buttonLayoutAlgorithm =
+        AccessibilityManager::DynamicCast<ButtonLayoutAlgorithm>(buttonPattern->CreateLayoutAlgorithm());
+    ASSERT_NE(buttonLayoutAlgorithm, nullptr);
+    layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(buttonLayoutAlgorithm));
+
+    /**
+     * @tc.steps: step3. update layoutWrapper.
+     */
+    LayoutConstraintF parentLayoutConstraint;
+    parentLayoutConstraint.maxSize = CONTAINER_SIZE;
+    parentLayoutConstraint.percentReference = CONTAINER_SIZE;
+
+    PaddingProperty noPadding = CreatePadding(ZERO, ZERO, ZERO, ZERO);
+    layoutWrapper->GetLayoutProperty()->UpdatePadding(noPadding);
+    layoutWrapper->GetLayoutProperty()->UpdateLayoutConstraint(parentLayoutConstraint);
+    layoutWrapper->GetLayoutProperty()->UpdateContentConstraint();
+
+    /**
+     * @tc.steps: step4. use layoutAlgorithm to call LayoutPolicyIsFixAtIdelSize and
+     * HandleLabelLayoutPolicyIsFixAtIdelSizeButtonFrameSize.
+     * @tc.expected: step4. check whether the value of constraint frame szie.
+     */
+    SizeF frameSize;
+    auto layoutProperty = AccessibilityManager::DynamicCast<ButtonLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+    buttonLayoutAlgorithm->LayoutPolicyIsFixAtIdelSize(layoutPolicyProperty, BOTTOM_PADDING, TOP_PADDING, frameSize);
+    EXPECT_FLOAT_EQ(frameSize.Width(), ZERO);
+    EXPECT_FLOAT_EQ(frameSize.Height(), ZERO);
+
+    /**
+     * @tc.steps: step4. use layoutAlgorithm to call LayoutPolicyIsFixAtIdelSize and
+     * HandleLabelLayoutPolicyIsFixAtIdelSizeButtonFrameSize.
+     * @tc.expected: step4. check whether the value of constraint frame szie.
+     */
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::NO_MATCH;
+    buttonLayoutAlgorithm->LayoutPolicyIsFixAtIdelSize(layoutPolicyProperty, BOTTOM_PADDING, TOP_PADDING, frameSize);
+    EXPECT_FLOAT_EQ(frameSize.Width(), ZERO);
+    EXPECT_FLOAT_EQ(frameSize.Height(), ZERO);
+
+    /**
+     * @tc.steps: step4. use layoutAlgorithm to call LayoutPolicyIsFixAtIdelSize and
+     * HandleLabelLayoutPolicyIsFixAtIdelSizeButtonFrameSize.
+     * @tc.expected: step4. check whether the value of constraint frame szie.
+     */
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::FIX_AT_IDEAL_SIZE;
+    buttonLayoutAlgorithm->childSize_.SetHeight(ZERO);
+    buttonLayoutAlgorithm->LayoutPolicyIsFixAtIdelSize(layoutPolicyProperty, BOTTOM_PADDING, TOP_PADDING, frameSize);
+    EXPECT_FLOAT_EQ(frameSize.Width(), ZERO);
+    EXPECT_FLOAT_EQ(frameSize.Height(), ZERO);
+
+    /**
+     * @tc.steps: step4. use layoutAlgorithm to call LayoutPolicyIsFixAtIdelSize and
+     * HandleLabelLayoutPolicyIsFixAtIdelSizeButtonFrameSize.
+     * @tc.expected: step4. check whether the value of constraint frame szie.
+     */
+    buttonLayoutAlgorithm->childSize_.SetHeight(BUTTON_HEIGHT);
+    buttonLayoutAlgorithm->LayoutPolicyIsFixAtIdelSize(layoutPolicyProperty, BOTTOM_PADDING, TOP_PADDING, frameSize);
+    EXPECT_FLOAT_EQ(frameSize.Width(), ZERO);
+}
+
+/**
+ * @tc.name: ButtonFunctionHandleAdaptiveTextTest001
+ * @tc.desc: test button layout using buttonType ROUNDED_RECTANGLE and Handle Adaptive Text.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ButtonFunctionTestNg, ButtonFunctionHandleAdaptiveTextTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create bubble and get frameNode.
+     */
+    TestProperty testProperty;
+    testProperty.typeValue = std::make_optional(ButtonType::ROUNDED_RECTANGLE);
+    testProperty.stateEffectValue = std::make_optional(STATE_EFFECT);
+    testProperty.borderRadius = std::make_optional(BORDER_RADIUS);
+    auto frameNode = CreateLabelButtonParagraphByRoundedRect(CREATE_VALUE, testProperty);
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. get layout property, layoutAlgorithm and create layoutWrapper.
+     * @tc.expected: step2. related function is called.
+     */
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    auto layoutWrapper = frameNode->CreateLayoutWrapper();
+    auto buttonPattern = frameNode->GetPattern<ButtonPattern>();
+    ASSERT_NE(buttonPattern, nullptr);
+    auto buttonLayoutAlgorithm = buttonPattern->CreateLayoutAlgorithm();
+    ASSERT_NE(buttonLayoutAlgorithm, nullptr);
+    layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(buttonLayoutAlgorithm));
+
+    /**
+     * @tc.steps: step3. update layoutWrapper.
+     */
+    // set button width and height by user
+    layoutWrapper->GetLayoutProperty()->UpdateUserDefinedIdealSize(CalcSize(CalcLength(BUTTON_WIDTH), CalcLength()));
+    LayoutConstraintF parentLayoutConstraint;
+    parentLayoutConstraint.maxSize = CONTAINER_SIZE;
+    parentLayoutConstraint.percentReference = CONTAINER_SIZE;
+
+    PaddingProperty noPadding = CreatePadding(ZERO, ZERO, ZERO, ZERO);
+    layoutWrapper->GetLayoutProperty()->UpdatePadding(noPadding);
+    layoutWrapper->GetLayoutProperty()->UpdateLayoutConstraint(parentLayoutConstraint);
+    layoutWrapper->GetLayoutProperty()->UpdateContentConstraint();
+
+    /**
+     * @tc.steps: step3. use layoutAlgorithm to measure and layout.
+     * @tc.expected: check whether the value of geometry's frameSize and frameOffset is correct.
+     */
+    buttonLayoutAlgorithm->Measure(AccessibilityManager::RawPtr(layoutWrapper));
+    buttonLayoutAlgorithm->Layout(AccessibilityManager::RawPtr(layoutWrapper));
+    EXPECT_FLOAT_EQ(layoutWrapper->GetGeometryNode()->GetFrameSize().Width(), BUTTON_WIDTH);
+    EXPECT_EQ(layoutWrapper->GetGeometryNode()->GetFrameOffset(), OffsetF());
+
+    layoutWrapper->GetLayoutProperty()->UpdateLayoutPolicyProperty(LayoutCalPolicy::FIX_AT_IDEAL_SIZE, true);
+    buttonLayoutAlgorithm->Measure(AccessibilityManager::RawPtr(layoutWrapper));
+    buttonLayoutAlgorithm->Layout(AccessibilityManager::RawPtr(layoutWrapper));
+    EXPECT_FLOAT_EQ(layoutWrapper->GetGeometryNode()->GetFrameSize().Width(), BUTTON_WIDTH);
+    EXPECT_EQ(layoutWrapper->GetGeometryNode()->GetFrameOffset(), OffsetF());
+}
+
+/**
  * @tc.name: ButtonFunctionTest013
  * @tc.desc: Test on color configuration update
  * @tc.type: FUNC
@@ -1347,17 +1495,40 @@ HWTEST_F(ButtonFunctionTestNg, ButtonFunctionTest019, TestSize.Level1)
 
 /**
  * @tc.name: ButtonFunctionTest020
- * @tc.desc: Test NeedAgingMeasureFunc
+ * @tc.desc: Test ButtonModelNG::SetButtonStyleOnly and ButtonModelNG::SetRoleOnly
  * @tc.type: FUNC
  */
 HWTEST_F(ButtonFunctionTestNg, ButtonFunctionTest020, TestSize.Level1)
 {
+    ButtonModelNG buttonModelNG;
+    std::list<RefPtr<Component>> buttonChildren;
+    createWithPara.parseSuccess = true;
+    buttonModelNG.CreateWithLabel(createWithPara, buttonChildren);
+    buttonModelNG.SetButtonStyleOnly(ButtonStyleMode::NORMAL);
+    buttonModelNG.SetRoleOnly(ButtonRole::NORMAL);
+
+    RefPtr<UINode> element = ViewStackProcessor::GetInstance()->Finish();
+    auto frameNode = AceType::DynamicCast<FrameNode>(element);
+    ASSERT_NE(frameNode, nullptr);
+    auto buttonPattern = frameNode->GetPattern<ButtonPattern>();
+    ASSERT_NE(buttonPattern, nullptr);
+    auto buttonLayoutProperty = buttonPattern->GetLayoutProperty<ButtonLayoutProperty>();
+    ASSERT_NE(buttonLayoutProperty, nullptr);
+
+    EXPECT_EQ(buttonLayoutProperty->GetButtonRoleValue(), ButtonRole::NORMAL);
+    EXPECT_EQ(buttonLayoutProperty->GetButtonStyleValue(), ButtonStyleMode::NORMAL);
+}
+
+/**
+ * @tc.name: ButtonOnInjectionEventTest001
+ * @tc.desc: Test ButtonPattern::OnInjectionEvent success path and ReportButtonClickResult
+ * @tc.type: FUNC
+ */
+HWTEST_F(ButtonFunctionTestNg, ButtonOnInjectionEventTest001, TestSize.Level1)
+{
     /**
-     * @tc.steps: step1. create bubble, set font scale to 1.75 and get frameNode.
+     * @tc.steps: step1. create button and get frameNode
      */
-    auto context = PipelineBase::GetCurrentContext();
-    CHECK_NULL_VOID(context);
-    context->fontScale_ = 1.75f;
     TestProperty testProperty;
     testProperty.typeValue = std::make_optional(ButtonType::CAPSULE);
     testProperty.stateEffectValue = std::make_optional(STATE_EFFECT);
@@ -1365,242 +1536,251 @@ HWTEST_F(ButtonFunctionTestNg, ButtonFunctionTest020, TestSize.Level1)
     ASSERT_NE(frameNode, nullptr);
 
     /**
-     * @tc.steps: step2. get layout property, layoutAlgorithm and create layoutWrapper.
+     * @tc.steps: step2. get button pattern
+     * @tc.expected: step2. pattern is not null
      */
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    ASSERT_NE(geometryNode, nullptr);
-    auto layoutWrapper = frameNode->CreateLayoutWrapper();
     auto buttonPattern = frameNode->GetPattern<ButtonPattern>();
     ASSERT_NE(buttonPattern, nullptr);
-    auto buttonLayoutProperty = buttonPattern->GetLayoutProperty<ButtonLayoutProperty>();
-    ASSERT_NE(buttonLayoutProperty, nullptr);
-    auto buttonLayoutAlgorithm =
-        AccessibilityManager::DynamicCast<ButtonLayoutAlgorithm>(buttonPattern->CreateLayoutAlgorithm());
-    ASSERT_NE(buttonLayoutAlgorithm, nullptr);
-    layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(buttonLayoutAlgorithm));
 
     /**
-     * @tc.steps: step3. update layoutWrapper.
+     * @tc.steps: step3. test valid command with onButtonClick
+     * @tc.expected: step3. OnInjectionEvent returns RET_SUCCESS
      */
-    LayoutConstraintF parentLayoutConstraint;
-    parentLayoutConstraint.maxSize = CONTAINER_SIZE;
-    parentLayoutConstraint.percentReference = CONTAINER_SIZE;
-    layoutWrapper->GetLayoutProperty()->UpdateLayoutConstraint(parentLayoutConstraint);
-    layoutWrapper->GetLayoutProperty()->UpdateContentConstraint();
+    std::string validCommand = R"({"cmd":"onButtonClick"})";
+    int32_t result = buttonPattern->OnInjectionEvent(validCommand);
+    EXPECT_EQ(result, RET_SUCCESS);
 
     /**
-     * @tc.steps: step4. call NeedAgingMeasure and verify return value.
-     * @tc.expected: the NeedAgingMeasure return value is true
+     * @tc.steps: step4. test command with extra fields
+     * @tc.expected: step4. OnInjectionEvent returns RET_SUCCESS (extra fields ignored)
      */
-    bool result = buttonLayoutAlgorithm->NeedAgingMeasure(AccessibilityManager::RawPtr(layoutWrapper));
-    EXPECT_TRUE(result);
+    std::string extraFieldsCommand = R"({"cmd":"onButtonClick","extra":"data","timestamp":12345})";
+    result = buttonPattern->OnInjectionEvent(extraFieldsCommand);
+    EXPECT_EQ(result, RET_SUCCESS);
+
+    /**
+     * @tc.steps: step5. call ReportButtonClickResult directly
+     * @tc.expected: step5. function executes without crash
+     */
+    buttonPattern->ReportButtonClickResult();
 }
 
 /**
- * @tc.name: ButtonFunctionTest021
- * @tc.desc: test textOverflow enum value.
+ * @tc.name: ButtonOnInjectionEventTest002
+ * @tc.desc: Test ButtonPattern::OnInjectionEvent with null host and invalid commands
  * @tc.type: FUNC
  */
-HWTEST_F(ButtonFunctionTestNg, ButtonFunctionTest021, TestSize.Level1)
+HWTEST_F(ButtonFunctionTestNg, ButtonOnInjectionEventTest002, TestSize.Level1)
 {
     /**
-     * @tc.steps: step1. get frameNode.
+     * @tc.steps: step1. create button and get frameNode
      */
     TestProperty testProperty;
-    testProperty.borderRadius = std::make_optional(BORDER_RADIUS);
-    testProperty.controlSize = ControlSize::SMALL;
+    testProperty.typeValue = std::make_optional(ButtonType::CAPSULE);
+    testProperty.stateEffectValue = std::make_optional(STATE_EFFECT);
     auto frameNode = CreateLabelButtonParagraph(CREATE_VALUE, testProperty);
     ASSERT_NE(frameNode, nullptr);
-    EXPECT_EQ(frameNode->GetTag(), V2::BUTTON_ETS_TAG);
 
     /**
-     * @tc.steps: step2. visit function CreateAndCheckTextOverflow, then check whether the properties is correct.
-     */
-    CreateAndCheckTextOverflow(frameNode, true);
-
-    /**
-     * @tc.steps: step3. buttonPattern UpdateButtonStyle.
+     * @tc.steps: step2. get button pattern
+     * @tc.expected: step2. pattern is not null
      */
     auto buttonPattern = frameNode->GetPattern<ButtonPattern>();
     ASSERT_NE(buttonPattern, nullptr);
-    buttonPattern->isTextFadeOut_ = true;
-    buttonPattern->SetIsFocus(true);
-    buttonPattern->UpdateButtonStyle();
 
     /**
-     * @tc.steps: step4. visit function CheckTextMarqueeOption.
-     * @tc.expected: step4. check whether the properties is correct.
+     * @tc.steps: step3. test invalid JSON commands
+     * @tc.expected: step3. all return RET_FAILED
      */
-    CheckTextMarqueeOption(frameNode, true);
+    std::vector<std::string> invalidCommands = {
+        "invalid json string",
+        "",
+        "{}",
+        "{cmd:onButtonClick}"
+    };
+    
+    for (const auto& cmd : invalidCommands) {
+        int32_t result = buttonPattern->OnInjectionEvent(cmd);
+        EXPECT_EQ(result, RET_FAILED);
+    }
+
+    /**
+     * @tc.steps: step4. test wrong command types
+     * @tc.expected: step4. all return RET_FAILED
+     */
+    std::vector<std::string> wrongCommands = {
+        R"({"cmd":"onOtherEvent"})",
+        R"({"data":"value"})",
+        R"({"cmd":""})",
+        R"({"cmd":123})"
+    };
+    
+    for (const auto& cmd : wrongCommands) {
+        int32_t result = buttonPattern->OnInjectionEvent(cmd);
+        EXPECT_EQ(result, RET_FAILED);
+    }
 }
 
 /**
- * @tc.name: ButtonFunctionTest022
- * @tc.desc: test textOverflow enum value.
+ * @tc.name: ButtonOnInjectionEventTest003
+ * @tc.desc: Test ButtonPattern::OnInjectionEvent and ReportButtonClickResult with null host
  * @tc.type: FUNC
  */
-HWTEST_F(ButtonFunctionTestNg, ButtonFunctionTest022, TestSize.Level1)
+HWTEST_F(ButtonFunctionTestNg, ButtonOnInjectionEventTest003, TestSize.Level1)
 {
     /**
-     * @tc.steps: step1. get frameNode.
+     * @tc.steps: step1. create button pattern without host
+     */
+    auto buttonPattern = AceType::MakeRefPtr<ButtonPattern>();
+    ASSERT_NE(buttonPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. call OnInjectionEvent with valid command
+     * @tc.expected: step2. returns RET_FAILED due to null host
+     */
+    std::string validCommand = R"({"cmd":"onButtonClick"})";
+    int32_t result = buttonPattern->OnInjectionEvent(validCommand);
+    EXPECT_EQ(result, RET_FAILED);
+    
+    /**
+     * @tc.steps: step3. call OnInjectionEvent with invalid command
+     * @tc.expected: step3. returns RET_FAILED (host null check happens before JSON parse)
+     */
+    result = buttonPattern->OnInjectionEvent("invalid");
+    EXPECT_EQ(result, RET_FAILED);
+    
+    /**
+     * @tc.steps: step4. call ReportButtonClickResult with null host
+     * @tc.expected: step4. function returns early without crash
+     */
+    buttonPattern->ReportButtonClickResult();
+}
+
+/**
+ * @tc.name: ButtonOnInjectionEventTest004
+ * @tc.desc: Test ButtonPattern::OnInjectionEvent with multiple buttons
+ * @tc.type: FUNC
+ */
+HWTEST_F(ButtonFunctionTestNg, ButtonOnInjectionEventTest004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create first button
      */
     TestProperty testProperty;
-    testProperty.borderRadius = std::make_optional(BORDER_RADIUS);
-    auto frameNode = CreateLabelButtonParagraph(CREATE_VALUE, testProperty);
-    ASSERT_NE(frameNode, nullptr);
-    EXPECT_EQ(frameNode->GetTag(), V2::BUTTON_ETS_TAG);
+    testProperty.typeValue = std::make_optional(ButtonType::CAPSULE);
+    auto frameNode1 = CreateLabelButtonParagraph("Button1", testProperty);
+    ASSERT_NE(frameNode1, nullptr);
+    
+    /**
+     * @tc.steps: step2. create second button
+     */
+    auto frameNode2 = CreateLabelButtonParagraph("Button2", testProperty);
+    ASSERT_NE(frameNode2, nullptr);
 
     /**
-     * @tc.steps: step2. visit function CreateAndCheckTextOverflow, then check whether the properties is correct.
+     * @tc.steps: step3. get button patterns
      */
-    CreateAndCheckTextOverflow(frameNode, true);
+    auto buttonPattern1 = frameNode1->GetPattern<ButtonPattern>();
+    auto buttonPattern2 = frameNode2->GetPattern<ButtonPattern>();
+    ASSERT_NE(buttonPattern1, nullptr);
+    ASSERT_NE(buttonPattern2, nullptr);
 
     /**
-     * @tc.steps: step3. buttonPattern UpdateButtonStyle.
+     * @tc.steps: step4. test valid command on both buttons
+     * @tc.expected: step4. both return RET_SUCCESS
      */
-    auto buttonPattern = frameNode->GetPattern<ButtonPattern>();
-    ASSERT_NE(buttonPattern, nullptr);
-    buttonPattern->isTextFadeOut_ = true;
-    buttonPattern->isHover_ = true;
-    buttonPattern->SetIsFocus(false);
-    buttonPattern->UpdateButtonStyle();
+    std::string validCmd = R"({"cmd":"onButtonClick"})";
+    EXPECT_EQ(buttonPattern1->OnInjectionEvent(validCmd), RET_SUCCESS);
+    EXPECT_EQ(buttonPattern2->OnInjectionEvent(validCmd), RET_SUCCESS);
 
     /**
-     * @tc.steps: step4. visit function CheckTextMarqueeOption.
-     * @tc.expected: step4. check whether the properties is correct.
+     * @tc.steps: step5. test invalid command on both buttons
+     * @tc.expected: step5. both return RET_FAILED
      */
-    CheckTextMarqueeOption(frameNode, true);
+    std::string invalidCmd = "invalid";
+    EXPECT_EQ(buttonPattern1->OnInjectionEvent(invalidCmd), RET_FAILED);
+    EXPECT_EQ(buttonPattern2->OnInjectionEvent(invalidCmd), RET_FAILED);
+
+    /**
+     * @tc.steps: step6. test wrong command on both buttons
+     * @tc.expected: step6. both return RET_FAILED
+     */
+    std::string wrongCmd = R"({"cmd":"wrong"})";
+    EXPECT_EQ(buttonPattern1->OnInjectionEvent(wrongCmd), RET_FAILED);
+    EXPECT_EQ(buttonPattern2->OnInjectionEvent(wrongCmd), RET_FAILED);
 }
 
 /**
- * @tc.name: ButtonFunctionTest023
- * @tc.desc: test textOverflow enum value.
+ * @tc.name: ButtonOnInjectionEventTest005
+ * @tc.desc: Test disabled button
  * @tc.type: FUNC
  */
-HWTEST_F(ButtonFunctionTestNg, ButtonFunctionTest023, TestSize.Level1)
+HWTEST_F(ButtonFunctionTestNg, ButtonOnInjectionEventTest005, TestSize.Level1)
 {
     /**
-     * @tc.steps: step1. get frameNode.
+     * @tc.steps: step1. create disabled button
      */
     TestProperty testProperty;
-    testProperty.borderRadius = std::make_optional(BORDER_RADIUS);
+    testProperty.typeValue = std::make_optional(ButtonType::CAPSULE);
+    testProperty.stateEffectValue = std::make_optional(STATE_EFFECT);
     auto frameNode = CreateLabelButtonParagraph(CREATE_VALUE, testProperty);
     ASSERT_NE(frameNode, nullptr);
-    EXPECT_EQ(frameNode->GetTag(), V2::BUTTON_ETS_TAG);
 
     /**
-     * @tc.steps: step2. visit function CreateAndCheckTextOverflow, then check whether the properties is correct.
-     */
-    CreateAndCheckTextOverflow(frameNode, true);
-
-    /**
-     * @tc.steps: step3. buttonPattern UpdateButtonStyle.
+     * @tc.steps: step2. get button pattern and event hub
      */
     auto buttonPattern = frameNode->GetPattern<ButtonPattern>();
     ASSERT_NE(buttonPattern, nullptr);
-    buttonPattern->isTextFadeOut_ = true;
-    buttonPattern->isHover_ = false;
-    buttonPattern->SetIsFocus(false);
-    buttonPattern->UpdateButtonStyle();
+    auto eventHub = frameNode->GetEventHub<EventHub>();
+    ASSERT_NE(eventHub, nullptr);
 
     /**
-     * @tc.steps: step4. visit function CheckTextMarqueeOption.
-     * @tc.expected: step4. check whether the properties is correct.
+     * @tc.steps: step3. disable the button
      */
-    CheckTextMarqueeOption(frameNode, false);
+    eventHub->SetEnabled(false);
+
+    /**
+     * @tc.steps: step4. send injection command to disabled button
+     * @tc.expected: step4. returns RET_FAILED because button is disabled
+     */
+    std::string validCmd = R"({"cmd":"onButtonClick"})";
+    int32_t result = buttonPattern->OnInjectionEvent(validCmd);
+    EXPECT_EQ(result, RET_FAILED);
 }
 
 /**
- * @tc.name: ButtonFunctionTest024
- * @tc.desc: test AddIsFocusActiveUpdateEvent.
+ * @tc.name: ButtonOnInjectionEventTest006
+ * @tc.desc: Test geometryNode is null
  * @tc.type: FUNC
  */
-HWTEST_F(ButtonFunctionTestNg, ButtonFunctionTest024, TestSize.Level1)
+HWTEST_F(ButtonFunctionTestNg, ButtonOnInjectionEventTest006, TestSize.Level1)
 {
     /**
-     * @tc.steps: step1. get frameNode.
+     * @tc.steps: step1. create button
      */
     TestProperty testProperty;
-    testProperty.borderRadius = std::make_optional(BORDER_RADIUS);
+    testProperty.typeValue = std::make_optional(ButtonType::CAPSULE);
+    testProperty.stateEffectValue = std::make_optional(STATE_EFFECT);
     auto frameNode = CreateLabelButtonParagraph(CREATE_VALUE, testProperty);
     ASSERT_NE(frameNode, nullptr);
-    EXPECT_EQ(frameNode->GetTag(), V2::BUTTON_ETS_TAG);
 
     /**
-     * @tc.steps: step2. visit function CreateAndCheckTextOverflow, then check whether the properties is correct.
-     */
-    CreateAndCheckTextOverflow(frameNode, false);
-
-    /**
-     * @tc.steps: step3. buttonPattern AddIsFocusActiveUpdateEvent.
+     * @tc.steps: step2. get button pattern
      */
     auto buttonPattern = frameNode->GetPattern<ButtonPattern>();
     ASSERT_NE(buttonPattern, nullptr);
-    buttonPattern->OnModifyDone();
-    buttonPattern->isTextFadeOut_ = true;
-    buttonPattern->HandleFocusStatusStyle();
-    buttonPattern->SetIsFocus(true);
-    buttonPattern->HandleFocusStyleTask();
-    buttonPattern->AddIsFocusActiveUpdateEvent();
-    buttonPattern->UpdateButtonStyle();
 
     /**
-     * @tc.steps: step4. visit function CheckTextMarqueeOption.
-     * @tc.expected: step4. check whether the properties is correct.
+     * @tc.steps: step3. set geometryNode to null
      */
-    CheckTextMarqueeOption(frameNode, true);
+    frameNode->SetGeometryNode(nullptr);
 
     /**
-     * @tc.steps: step5. buttonPattern RemoveIsFocusActiveUpdateEvent.
+     * @tc.steps: step4. send injection command
+     * @tc.expected: step4. returns RET_SUCCESS (should handle null geometryNode gracefully)
      */
-    buttonPattern->SetIsFocus(false);
-    buttonPattern->HandleBlurStyleTask();
-    buttonPattern->RemoveIsFocusActiveUpdateEvent();
-    buttonPattern->UpdateButtonStyle();
-
-    /**
-     * @tc.steps: step6. visit function CheckTextMarqueeOption.
-     * @tc.expected: step6. check whether the properties is correct.
-     */
-    CheckTextMarqueeOption(frameNode, false);
-}
-
-/**
- * @tc.name: test match parent layout policy.
- * @tc.desc: test the measure result when setting layoutPolicy is match parent.
- * @tc.type: FUNC
- */
-HWTEST_F(ButtonFunctionTestNg, LayoutPolicyTest001, TestSize.Level1)
-{
-    RefPtr<FrameNode> button;
-    RefPtr<FrameNode> frameNode = CreateButton(u"partent", [this, &button](ButtonModelNG model) {
-        ViewAbstract::SetWidth(CalcLength(500));
-        ViewAbstract::SetHeight(CalcLength(300));
-        button = CreateButton(u"child", [](ButtonModelNG model) {
-            ViewAbstractModelNG model1;
-            model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
-            model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, false);
-        });
-    });
-    ASSERT_NE(frameNode, nullptr);
-    ASSERT_NE(button, nullptr);
-    ASSERT_EQ(frameNode->GetChildren().size(), 1);
-    CreateLayoutTask(frameNode);
-
-    // Expect button's width is 500, height is 300 and offset is [0.0, 0.0].
-    auto geometryNode = frameNode->GetGeometryNode();
-    ASSERT_NE(geometryNode, nullptr);
-    auto size = geometryNode->GetFrameSize();
-    auto offset = geometryNode->GetFrameOffset();
-    EXPECT_EQ(size, SizeF(500.0f, 300.0f));
-    EXPECT_EQ(offset, OffsetF(0.0f, 0.0f));
-
-    // Expect button1's width is 500, height is 300 and offset is [0.0, 0.0].
-    auto geometryNode1 = button->GetGeometryNode();
-    ASSERT_NE(geometryNode1, nullptr);
-    auto size1 = geometryNode1->GetFrameSize();
-    auto offset1 = geometryNode1->GetFrameOffset();
-    EXPECT_EQ(size1, SizeF(500.0f, 300.0f));
-    EXPECT_EQ(offset1, OffsetF(0.0f, 0.0f));
+    std::string validCmd = R"({"cmd":"onButtonClick"})";
+    int32_t result = buttonPattern->OnInjectionEvent(validCmd);
+    EXPECT_EQ(result, RET_SUCCESS);
 }
 } // namespace OHOS::Ace::NG

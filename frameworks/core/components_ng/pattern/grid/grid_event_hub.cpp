@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,13 +15,25 @@
 
 #include "core/components_ng/pattern/grid/grid_event_hub.h"
 
+#include "core/components_ng/pattern/grid/grid_item_layout_property.h"
 #include "core/components_ng/pattern/grid/grid_item_pattern.h"
+#include "core/components_ng/pattern/grid/grid_layout_property.h"
+#include "core/components_ng/pattern/grid/grid_pattern.h"
 #include "core/components_ng/render/adapter/component_snapshot.h"
+#include "core/components_v2/grid/grid_event.h"
 
 namespace OHOS::Ace::NG {
 #if defined(PIXEL_MAP_SUPPORTED)
 constexpr int32_t CREATE_PIXELMAP_TIME = 80;
 #endif
+
+void GridEventHub::FireOnScrollToIndex(int32_t param) const
+{
+    if (onScrollToIndex_) {
+        V2::GridEventInfo info(param);
+        onScrollToIndex_(&info);
+    }
+}
 
 void GridEventHub::InitItemDragEvent(const RefPtr<GestureEventHub>& gestureHub)
 {
@@ -162,6 +174,8 @@ void GridEventHub::HandleOnItemDragStart(const GestureEvent& info)
     OHOS::Ace::ItemDragInfo itemDragInfo;
     itemDragInfo.SetX(globalX);
     itemDragInfo.SetY(globalY);
+    itemDragInfo.SetFrameNode(gridItem);
+
     auto customNode = FireOnItemDragStart(itemDragInfo, draggedIndex_);
     CHECK_NULL_VOID(customNode);
     auto dragDropManager = pipeline->GetDragDropManager();
@@ -210,6 +224,7 @@ void GridEventHub::HandleOnItemDragStart(const GestureEvent& info)
     SnapshotParam param;
     if (auto pixmap = ComponentSnapshot::CreateSync(customNode, param); pixmap) {
         callback(pixmap, 0, nullptr);
+        gridItem->SetActive(true);
         return;
     }
     param.delay = CREATE_PIXELMAP_TIME;
@@ -360,7 +375,10 @@ void GridEventHub::MoveItems(int32_t itemIndex, int32_t insertIndex) const
     auto curve = MakeRefPtr<SpringCurve>(
         ANIMATION_CURVE_VELOCITY, ANIMATION_CURVE_MASS, ANIMATION_CURVE_STIFFNESS, ANIMATION_CURVE_DAMPING);
     option.SetCurve(curve);
+    auto context = host->GetContextRefPtr();
+    CHECK_NULL_VOID(context);
     AnimationUtils::Animate(
-        option, [pattern, itemIndex, insertIndex]() { pattern->MoveItems(itemIndex, insertIndex); }, nullptr);
+        option, [pattern, itemIndex, insertIndex]() { pattern->MoveItems(itemIndex, insertIndex); }, nullptr,
+        nullptr, context);
 }
 } // namespace OHOS::Ace::NG

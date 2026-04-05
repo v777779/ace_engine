@@ -49,6 +49,7 @@ public:
     Dimension GetDimensionByName(const std::string& resName) override;
     std::string GetString(uint32_t resId) override;
     std::string GetStringByName(const std::string& resName) override;
+    std::string GetStringFormatByName(const char* resName, ...) override;
     std::string GetPluralString(uint32_t resId, int quantity) override;
     std::string GetPluralStringByName(const std::string& resName, int quantity) override;
     std::vector<std::string> GetStringArray(uint32_t resId) const override;
@@ -111,6 +112,7 @@ private:
     std::mutex updateResConfigMutex_;
     ACE_DISALLOW_COPY_AND_MOVE(ResourceAdapterImplV2);
     void PreloadTheme(int32_t themeId, RefPtr<ResourceThemeStyle> theme);
+    void DumpColorMode();
 };
 } // namespace OHOS::Ace
 

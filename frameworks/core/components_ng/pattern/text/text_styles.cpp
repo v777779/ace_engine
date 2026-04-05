@@ -56,6 +56,21 @@ void CreateTextStyleUsingTheme(const RefPtr<TextLayoutProperty>& property, const
     UseSelfStyleWithTheme(property, textStyle, textTheme, isSymbol);
 }
 
+void UpdateFontSizeWithPxUnit(
+    const RefPtr<TextLayoutProperty>& property, TextStyle& textStyle, const RefPtr<TextTheme>& textTheme)
+{
+    auto& fontStyle = property->GetFontStyle();
+    Dimension fontSize;
+    if (fontStyle && fontStyle->HasFontSize()) {
+        fontSize = fontStyle->GetFontSizeValue();
+    } else {
+        fontSize = textTheme->GetTextStyle().GetFontSize();
+    }
+    auto fontSizePx = fontSize.ConvertToPxDistribute(
+        textStyle.GetMinFontScale(), textStyle.GetMaxFontScale(), textStyle.IsAllowScale());
+    textStyle.SetFontSize(Dimension(fontSizePx, DimensionUnit::PX));
+}
+
 void UseSelfStyleWithTheme(const RefPtr<TextLayoutProperty>& property, TextStyle& textStyle,
     const RefPtr<TextTheme>& textTheme, bool isSymbol)
 {
@@ -68,7 +83,12 @@ void UseSelfStyleWithTheme(const RefPtr<TextLayoutProperty>& property, TextStyle
     UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, MinFontScale, MinFontScale);
     UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, MaxFontScale, MaxFontScale);
 
-    UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, FontSize, FontSize);
+    if (property->IsNewMaterial()) {
+        UpdateFontSizeWithPxUnit(property, textStyle, textTheme);
+    } else {
+        UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, FontSize, FontSize);
+    }
+
     UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, AdaptMinFontSize, AdaptMinFontSize);
     UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, AdaptMaxFontSize, AdaptMaxFontSize);
     UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, LetterSpacing, LetterSpacing);
@@ -83,7 +103,7 @@ void UseSelfStyleWithTheme(const RefPtr<TextLayoutProperty>& property, TextStyle
     UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, TextCase, TextCase);
     UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, VariableFontWeight, VariableFontWeight);
     UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, EnableVariableFontWeight, EnableVariableFontWeight);
-    UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, FontForegroudGradiantColor, FontForegroudGradiantColor);
+    UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, EnableDeviceFontWeightCategory, EnableDeviceFontWeightCategory);
 
     if (isSymbol) {
         UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, SymbolColorList, SymbolColorList);
@@ -91,10 +111,16 @@ void UseSelfStyleWithTheme(const RefPtr<TextLayoutProperty>& property, TextStyle
         UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, SymbolEffectStrategy, EffectStrategy);
         UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, SymbolEffectOptions, SymbolEffectOptions);
         UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, SymbolType, SymbolType);
-        UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, SymbolShadow, SymbolShadow);
-        UPDATE_TEXT_STYLE_WITH_THEME(fontStyle, ShaderStyle, ShaderStyle);
+        textStyle.SetSymbolShadow(property->GetSymbolShadowValue(textTheme->GetTextStyle().GetSymbolShadow()));
+        textStyle.SetShaderStyle(property->GetShaderStyleValue(textTheme->GetTextStyle().GetShaderStyle()));
     }
 
+    UseSelfTextLineStyleWithTheme(textLineStyle, textStyle, textTheme);
+}
+
+void UseSelfTextLineStyleWithTheme(const std::unique_ptr<TextLineStyle>& textLineStyle, TextStyle& textStyle,
+    const RefPtr<TextTheme>& textTheme)
+{
     UPDATE_TEXT_STYLE_WITH_THEME(textLineStyle, LineHeight, LineHeight);
     UPDATE_TEXT_STYLE_WITH_THEME(textLineStyle, BaselineOffset, BaselineOffset);
     UPDATE_TEXT_STYLE_WITH_THEME(textLineStyle, TextIndent, TextIndent);
@@ -110,6 +136,8 @@ void UseSelfStyleWithTheme(const RefPtr<TextLayoutProperty>& property, TextStyle
     UPDATE_TEXT_STYLE_WITH_THEME(textLineStyle, IsOnlyBetweenLines, IsOnlyBetweenLines);
     UPDATE_TEXT_STYLE_WITH_THEME(textLineStyle, ParagraphSpacing, ParagraphSpacing);
     UPDATE_TEXT_STYLE_WITH_THEME(textLineStyle, OptimizeTrailingSpace, OptimizeTrailingSpace);
+    UPDATE_TEXT_STYLE_WITH_THEME(textLineStyle, OrphanCharOptimization, OrphanCharOptimization);
+    UPDATE_TEXT_STYLE_WITH_THEME(textLineStyle, CompressLeadingPunctuation, CompressLeadingPunctuation);
 }
 
 void UseSelfStyle(const std::unique_ptr<FontStyle>& fontStyle, const std::unique_ptr<TextLineStyle>& textLineStyle,
@@ -119,8 +147,6 @@ void UseSelfStyle(const std::unique_ptr<FontStyle>& fontStyle, const std::unique
         UPDATE_TEXT_STYLE(textLineStyle, AllowScale, SetAllowScale);
     }
     if (fontStyle) {
-        // The setting of AllowScale, MinFontScale, MaxFontScale must be done before any Dimension-type properties that
-        // depend on its value.
         UPDATE_TEXT_STYLE(fontStyle, MinFontScale, SetMinFontScale);
         UPDATE_TEXT_STYLE(fontStyle, MaxFontScale, SetMaxFontScale);
 
@@ -146,6 +172,7 @@ void UseSelfStyle(const std::unique_ptr<FontStyle>& fontStyle, const std::unique
 
         UPDATE_TEXT_STYLE(fontStyle, VariableFontWeight, SetVariableFontWeight);
         UPDATE_TEXT_STYLE(fontStyle, EnableVariableFontWeight, SetEnableVariableFontWeight);
+        UPDATE_TEXT_STYLE(fontStyle, EnableDeviceFontWeightCategory, SetEnableDeviceFontWeightCategory);
 
         if (isSymbol) {
             UPDATE_TEXT_STYLE(fontStyle, SymbolColorList, SetSymbolColorList);
@@ -153,8 +180,6 @@ void UseSelfStyle(const std::unique_ptr<FontStyle>& fontStyle, const std::unique
             UPDATE_TEXT_STYLE(fontStyle, SymbolEffectStrategy, SetEffectStrategy);
             UPDATE_TEXT_STYLE(fontStyle, SymbolEffectOptions, SetSymbolEffectOptions);
             UPDATE_TEXT_STYLE(fontStyle, SymbolType, SetSymbolType);
-            UPDATE_TEXT_STYLE(fontStyle, SymbolShadow, SetSymbolShadow);
-            UPDATE_TEXT_STYLE(fontStyle, ShaderStyle, SetShaderStyle);
         }
     }
     if (textLineStyle) {
@@ -163,7 +188,6 @@ void UseSelfStyle(const std::unique_ptr<FontStyle>& fontStyle, const std::unique
         UPDATE_TEXT_STYLE(textLineStyle, TextIndent, SetTextIndent);
         UPDATE_TEXT_STYLE(textLineStyle, LineSpacing, SetLineSpacing);
         
-        UPDATE_TEXT_STYLE(textLineStyle, OptimizeTrailingSpace, SetOptimizeTrailingSpace);
         UPDATE_TEXT_STYLE(textLineStyle, HalfLeading, SetHalfLeading);
         UPDATE_TEXT_STYLE(textLineStyle, TextBaseline, SetTextBaseline);
         UPDATE_TEXT_STYLE(textLineStyle, TextOverflow, SetTextOverflow);
@@ -175,6 +199,9 @@ void UseSelfStyle(const std::unique_ptr<FontStyle>& fontStyle, const std::unique
         UPDATE_TEXT_STYLE(textLineStyle, LineBreakStrategy, SetLineBreakStrategy);
         UPDATE_TEXT_STYLE(textLineStyle, IsOnlyBetweenLines, SetIsOnlyBetweenLines);
         UPDATE_TEXT_STYLE(textLineStyle, ParagraphSpacing, SetParagraphSpacing);
+        UPDATE_TEXT_STYLE(textLineStyle, OptimizeTrailingSpace, SetOptimizeTrailingSpace);
+        UPDATE_TEXT_STYLE(textLineStyle, OrphanCharOptimization, SetOrphanCharOptimization);
+        UPDATE_TEXT_STYLE(textLineStyle, CompressLeadingPunctuation, SetCompressLeadingPunctuation);
     }
 }
 
@@ -192,9 +219,9 @@ std::string GetFontWeightInJson(const std::optional<FontWeight>& value)
 }
 std::string GetFontFamilyInJson(const std::optional<std::vector<std::string>>& value)
 {
-    std::vector<std::string> fontFamilyVector = value.value_or<std::vector<std::string>>({"HarmonyOS Sans"});
+    std::vector<std::string> fontFamilyVector = value.value_or<std::vector<std::string>>({ "HarmonyOS Sans" });
     if (fontFamilyVector.empty()) {
-        fontFamilyVector = std::vector<std::string>({"HarmonyOS Sans"});
+        fontFamilyVector = std::vector<std::string>({ "HarmonyOS Sans" });
     }
     std::string fontFamily = fontFamilyVector.at(0);
     for (uint32_t i = 1; i < fontFamilyVector.size(); ++i) {
@@ -262,22 +289,70 @@ std::string GetSymbolEffectOptionsInJson(const std::optional<SymbolEffectOptions
     return text;
 }
 
-void FontStyle::UpdateColorByResourceId()
+std::unique_ptr<JsonValue> GetSymbolShadowInJson(const std::optional<SymbolShadow>& value)
 {
-    if (propTextColor) {
-        propTextColor->UpdateColorByResourceId();
+    auto res = JsonUtil::Create(true);
+    if (!value.has_value()) {
+        return res;
     }
-    if (propTextDecorationColor) {
-        propTextDecorationColor->UpdateColorByResourceId();
+    const auto& shadow = value.value();
+    res->Put("color", (shadow.color).ColorToString().c_str());
+    std::string offsetStr = "[" + std::to_string(shadow.offset.first) + ", "
+                           + std::to_string(shadow.offset.second) + "]";
+    res->Put("offset", offsetStr.c_str());
+    res->Put("radius", std::to_string(shadow.radius).c_str());
+    return res;
+}
+
+std::string GradientTypeToString(SymbolGradientType type)
+{
+    switch (type) {
+        case SymbolGradientType::COLOR_SHADER:
+            return "COLOR_SHADER";
+        case SymbolGradientType::RADIAL_GRADIENT:
+            return "RADIAL_GRADIENT";
+        case SymbolGradientType::LINEAR_GRADIENT:
+            return "LINEAR_GRADIENT";
+        default:
+            return "UNKNOWN";
     }
-    if (propTextShadow) {
-        auto& shadows = propTextShadow.value();
-        std::for_each(shadows.begin(), shadows.end(), [](Shadow& sd) { sd.UpdateColorByResourceId(); });
+}
+
+std::unique_ptr<JsonValue> GetShaderStyleInJson(const std::optional<std::vector<SymbolGradient>>& value)
+{
+    auto array = JsonUtil::CreateArray(true);
+    if (!value.has_value() || value->empty()) {
+        return array;
     }
-    if (propSymbolColorList) {
-        auto& colors = propSymbolColorList.value();
-        std::for_each(colors.begin(), colors.end(), [](Color& cl) { cl.UpdateColorByResourceId(); });
+    for (const auto& gradient : *value) {
+        auto obj = JsonUtil::Create(true);
+        obj->Put("type", GradientTypeToString(gradient.type).c_str());
+        auto colorsArray = JsonUtil::CreateArray(true);
+        for (const auto& color : gradient.symbolColor) {
+            colorsArray->Put("", color.ColorToString().c_str());
+        }
+        obj->Put("symbolColor", colorsArray);
+        auto opacitiesArray = JsonUtil::CreateArray(true);
+        for (float opacity : gradient.symbolOpacities) {
+            opacitiesArray->Put("", std::to_string(opacity).c_str());
+        }
+        obj->Put("symbolOpacities", opacitiesArray);
+        obj->Put("repeating", gradient.repeating ? "true" : "false");
+        if (gradient.angle.has_value()) {
+            obj->Put("angle", std::to_string(*gradient.angle).c_str());
+        }
+        if (gradient.radius.has_value()) {
+            obj->Put("radius", gradient.radius->ToString().c_str());
+        }
+        if (gradient.radialCenterX.has_value()) {
+            obj->Put("radialCenterX", gradient.radialCenterX->ToString().c_str());
+        }
+        if (gradient.radialCenterY.has_value()) {
+            obj->Put("radialCenterY", gradient.radialCenterY->ToString().c_str());
+        }
+        array->Put(obj);
     }
+    return array;
 }
 
 PlaceholderAlignment GetPlaceHolderAlignmentFromVerticalAlign(VerticalAlign verticalAlign)

@@ -43,6 +43,9 @@ struct LineSpaceAndHeightInfo {
     double lineSpacingScale = 0.0;
     bool lineHeightOnly = false;
     bool lineSpacingOnly = false;
+    double minimumLineHeight = 0.0;
+    double maximumLineHeight = std::numeric_limits<float>::max();
+    double lineHeightMultiply = 0.0;
 };
 } // namespace
 
@@ -274,6 +277,17 @@ SkColor ConvertSkColor(Color color)
 {
     return color.GetValue();
 }
+namespace {
+RSColor ConvertToRSColor(Color color)
+{
+    if (ACE_UNLIKELY(color.IsPlaceholder())) {
+        RSColor rsColor(color.GetValue());
+        rsColor.SetPlaceholder(static_cast<RSColorPlaceholder>(color.GetPlaceholder()));
+        return rsColor;
+    }
+    return color.GetValue();
+}
+}
 
 Rosen::TextDecoration ConvertTxtTextDecoration(const std::vector<TextDecoration>& textDecorations)
 {
@@ -339,7 +353,7 @@ double NormalizeToPx(const Dimension& dimension)
 
 void ConvertTxtStyle(const TextStyle& textStyle, Rosen::TextStyle& txtStyle)
 {
-    txtStyle.color = ConvertSkColor(textStyle.GetTextColor());
+    txtStyle.color = ConvertToRSColor(textStyle.GetTextColor());
     txtStyle.fontWeight = ConvertTxtFontWeight(textStyle.GetFontWeight());
 
     txtStyle.fontSize = NormalizeToPx(textStyle.GetFontSize());
@@ -358,7 +372,7 @@ void ConvertTxtStyle(const TextStyle& textStyle, Rosen::TextStyle& txtStyle)
     ConvertSymbolTxtStyle(textStyle, txtStyle);
     txtStyle.baseline = ConvertTxtTextBaseline(textStyle.GetTextBaseline());
     txtStyle.decoration = ConvertTxtTextDecoration(textStyle.GetTextDecoration());
-    txtStyle.decorationColor = ConvertSkColor(textStyle.GetTextDecorationColor());
+    txtStyle.decorationColor = ConvertToRSColor(textStyle.GetTextDecorationColor());
     txtStyle.decorationStyle = ConvertTxtTextDecorationStyle(textStyle.GetTextDecorationStyle());
     txtStyle.locale = Localization::GetInstance()->GetFontLocale();
     txtStyle.halfLeading = textStyle.GetHalfLeading();
@@ -469,6 +483,39 @@ void ConvertSpacingAndHeigh(
     }
 }
 
+void CheckMinMaxLineHeight(const TextStyle& textStyle, Rosen::TextStyle& txtStyle, LineSpaceAndHeightInfo& info)
+{
+    if (textStyle.GetMinimumLineHeight().has_value()) {
+        double minimumLineHeight = textStyle.GetMinimumLineHeight()->ConvertToPxDistribute(textStyle.GetMinFontScale(),
+            textStyle.GetMaxFontScale(), textStyle.IsAllowScale());
+        if (GreatNotEqual(minimumLineHeight, 0.0)) {
+            info.minimumLineHeight = minimumLineHeight;
+        }
+        txtStyle.minLineHeight = info.minimumLineHeight;
+    }
+    if (textStyle.GetMaximumLineHeight().has_value()) {
+        double maximumLineHeight = textStyle.GetMaximumLineHeight()->ConvertToPxDistribute(textStyle.GetMinFontScale(),
+        textStyle.GetMaxFontScale(), textStyle.IsAllowScale());
+        if (GreatNotEqual(maximumLineHeight, 0.0)) {
+            if (GreatNotEqual(info.minimumLineHeight, 0.0)) {
+                info.maximumLineHeight = std::max(maximumLineHeight, info.minimumLineHeight);
+            } else {
+                info.maximumLineHeight = maximumLineHeight;
+            }
+        }
+        txtStyle.maxLineHeight = info.maximumLineHeight;
+    }
+    if (textStyle.GetLineHeightMultiply().has_value()) {
+        double lineHeightMultiply = textStyle.GetLineHeightMultiply().value();
+        if (GreatNotEqual(lineHeightMultiply, 0.0)) {
+            info.lineHeightMultiply = lineHeightMultiply;
+        }
+        txtStyle.lineHeightStyle = Rosen::LineHeightStyle::kFontHeight;
+        txtStyle.heightScale = info.lineHeightMultiply;
+        txtStyle.heightOnly = true;
+    }
+}
+
 void ConvertGradiantColor(
     const TextStyle& textStyle, const WeakPtr<PipelineBase>& context, Rosen::TextStyle& txtStyle,
     OHOS::Ace::FontForegroudGradiantColor & gradiantColor)
@@ -495,18 +542,29 @@ void ConvertGradiantColor(
     }
 }
 
+template<typename Bitmap1, typename Bitmap2>
+inline void ConvertBitmap(const Bitmap1& source, Bitmap2& destination)
+{
+    const auto size = std::min(source.size(), destination.size());
+    for (size_t i = 0; i < size; ++i) {
+        destination.set(i, source.test(i));
+    }
+}
+
 void ConvertTxtStyle(const TextStyle& textStyle, const WeakPtr<PipelineBase>& context, Rosen::TextStyle& txtStyle)
 {
-    txtStyle.relayoutChangeBitmap = textStyle.GetReLayoutTextStyleBitmap();
+    ConvertBitmap(textStyle.GetReLayoutTextStyleBitmap(), txtStyle.relayoutChangeBitmap);
     txtStyle.textStyleUid  = static_cast<unsigned long>(textStyle.GetTextStyleUid());
-    txtStyle.color = ConvertSkColor(textStyle.GetTextColor());
+    txtStyle.color = ConvertToRSColor(textStyle.GetTextColor());
     txtStyle.fontWeight = ConvertTxtFontWeight(textStyle.GetFontWeight());
     txtStyle.symbol.SetSymbolType(ConvertTxtSymbolType(textStyle.GetSymbolType()));
     auto fontWeightValue = (static_cast<int32_t>(
             ConvertTxtFontWeight(textStyle.GetFontWeight())) + 1) * DEFAULT_MULTIPLE;
     auto pipelineContext = context.Upgrade();
     if (pipelineContext) {
-        fontWeightValue = fontWeightValue * pipelineContext->GetFontWeightScale();
+        if (textStyle.GetEnableDeviceFontWeightCategory()) {
+            fontWeightValue = fontWeightValue * pipelineContext->GetFontWeightScale();
+        }
     }
     if (textStyle.GetEnableVariableFontWeight()) {
         fontWeightValue = textStyle.GetVariableFontWeight();
@@ -542,7 +600,7 @@ void ConvertTxtStyle(const TextStyle& textStyle, const WeakPtr<PipelineBase>& co
     ConvertSymbolTxtStyle(textStyle, txtStyle);
     txtStyle.baseline = ConvertTxtTextBaseline(textStyle.GetTextBaseline());
     txtStyle.decoration = ConvertTxtTextDecoration(textStyle.GetTextDecoration());
-    txtStyle.decorationColor = ConvertSkColor(textStyle.GetTextDecorationColor());
+    txtStyle.decorationColor = ConvertToRSColor(textStyle.GetTextDecorationColor());
     txtStyle.decorationStyle = ConvertTxtTextDecorationStyle(textStyle.GetTextDecorationStyle());
     txtStyle.decorationThicknessScale = static_cast<double>(textStyle.GetLineThicknessScale());
     txtStyle.locale = Localization::GetInstance()->GetFontLocale();
@@ -560,7 +618,7 @@ void ConvertTxtStyle(const TextStyle& textStyle, const WeakPtr<PipelineBase>& co
         brush.SetColor(textStyle.GetTextColor().GetValue());
         txtStyle.foregroundBrush = brush;
     }
-    if (textStyle.GetColorShaderStyle().has_value() && textStyle.GetStrokeWidth().Value() >= DEFAULT_STROKE_WIDTH) {
+    if (textStyle.GetColorShaderStyle().has_value() && textStyle.GetStrokeWidth().Value() == DEFAULT_STROKE_WIDTH) {
         RSBrush brush;
         auto shaderEffect =
             RSRecordingShaderEffect::CreateColorShader(textStyle.GetColorShaderStyle().value().GetValue());
@@ -588,7 +646,7 @@ void ConvertTxtStyle(const TextStyle& textStyle, const WeakPtr<PipelineBase>& co
     } else {
         txtStyle.heightScale = 1;
     }
-
+    CheckMinMaxLineHeight(textStyle, txtStyle, info);
     // set font variant
     auto fontFeatures = textStyle.GetFontFeatures();
     if (!fontFeatures.empty()) {
@@ -599,7 +657,7 @@ void ConvertTxtStyle(const TextStyle& textStyle, const WeakPtr<PipelineBase>& co
         txtStyle.fontFeatures = features;
     }
 
-    auto gradiantColor = textStyle.GetFontForegroudGradiantColor();
+    auto gradiantColor = textStyle.GetFontForegroudGradiantColor().value_or(FontForegroudGradiantColor());
     if (gradiantColor.IsValid()) {
         ConvertGradiantColor(textStyle, context, txtStyle, gradiantColor);
     }
@@ -656,7 +714,7 @@ NG::Gradient ToGradient(const Gradient& gradient)
             retGradient.GetRadialGradient()->radialVerticalSize = CalcDimension(radialVerticalSize.value());
         }
         auto radialHorizontalSize = gradient.GetRadialGradient().radialHorizontalSize;
-        if (radialVerticalSize.has_value()) {
+        if (radialHorizontalSize.has_value()) {
             retGradient.GetRadialGradient()->radialHorizontalSize = CalcDimension(radialHorizontalSize.value());
         }
     }
@@ -674,11 +732,11 @@ NG::Gradient ToGradient(const Gradient& gradient)
 
 void ConvertForegroundPaint(const TextStyle& textStyle, double width, double height, Rosen::TextStyle& txtStyle)
 {
-    if (!textStyle.GetGradient().has_value()) {
+    if (!textStyle.GetGradient().has_value() || textStyle.GetStrokeWidth().Value() != DEFAULT_STROKE_WIDTH) {
         return;
     }
     txtStyle.textStyleUid = static_cast<unsigned long>(textStyle.GetTextStyleUid());
-    txtStyle.relayoutChangeBitmap = textStyle.GetReLayoutTextStyleBitmap();
+    ConvertBitmap(textStyle.GetReLayoutTextStyleBitmap(), txtStyle.relayoutChangeBitmap);
     auto gradient = textStyle.GetGradient().value();
     GradientType type = gradient.GetType();
     if (type != GradientType::LINEAR && type != GradientType::RADIAL) {
@@ -694,11 +752,10 @@ void ConvertForegroundPaint(const TextStyle& textStyle, double width, double hei
 Rosen::SymbolColor ConvertToNativeSymbolColor(const std::vector<SymbolGradient>& intermediate)
 {
     Rosen::SymbolColor symbolColor;
-    symbolColor.colorType = Rosen::SymbolColorType::GRADIENT_TYPE;
     for (const auto& grad : intermediate) {
-        if (auto nativeGradient = CreateNativeGradient(grad)) {
-            symbolColor.gradients.push_back(nativeGradient);
-        }
+        auto nativeGradient = CreateNativeGradient(grad);
+        symbolColor.colorType = static_cast<Rosen::SymbolColorType>(grad.gradientType);
+        symbolColor.gradients.push_back(nativeGradient);
     }
 
     return symbolColor;
@@ -713,9 +770,9 @@ void ConvertSymbolTxtStyle(const TextStyle& textStyle, Rosen::TextStyle& txtStyl
     txtStyle.isSymbolGlyph = true;
     txtStyle.symbol.SetRenderMode(textStyle.GetRenderStrategy());
     const std::vector<Color>& symbolColor = textStyle.GetSymbolColorList();
-    std::vector<Rosen::Drawing::Color> symbolColors;
+    std::vector<RSColor> symbolColors;
     for (size_t i = 0; i < symbolColor.size(); i++) {
-        symbolColors.emplace_back(ConvertSkColor(symbolColor[i]));
+        symbolColors.emplace_back(ConvertToRSColor(symbolColor[i]));
     }
     txtStyle.symbol.SetRenderColor(symbolColors);
 
@@ -741,6 +798,9 @@ void ConvertSymbolTxtStyle(const TextStyle& textStyle, Rosen::TextStyle& txtStyl
             if (options.GetScopeType().has_value()) {
                 txtStyle.symbol.SetAnimationMode(static_cast<uint16_t>(options.GetScopeType().value()));
             }
+        }
+        if (effectType == SymbolEffectType::REPLACE || effectType == SymbolEffectType::QUICK_REPLACE) {
+            txtStyle.symbol.SetFirstActive(true);
         }
     } else {
         auto effectStrategyValue = textStyle.GetEffectStrategy();
@@ -840,7 +900,7 @@ std::shared_ptr<Rosen::SymbolGradient> CreateNativeGradient(const SymbolGradient
             return gradient;
         }
         case SymbolGradientType::LINEAR_GRADIENT: {
-            auto gradient = std::make_shared<Rosen::SymbolLineGradient>(grad.angle.value());
+            auto gradient = std::make_shared<Rosen::SymbolLineGradient>(grad.angle.value_or(0.0f));
             gradient->SetColors(ConvertColors(grad.symbolColor));
             gradient->SetPositions(grad.symbolOpacities);
             gradient->SetTileMode(grad.repeating ?
@@ -848,9 +908,19 @@ std::shared_ptr<Rosen::SymbolGradient> CreateNativeGradient(const SymbolGradient
             return gradient;
         }
         case SymbolGradientType::RADIAL_GRADIENT: {
-            Rosen::Drawing::Point centerPt(grad.center.x, grad.center.y);
-            auto gradient = std::make_shared<Rosen::SymbolRadialGradient>(centerPt, grad.radius);
-            gradient->SetRadius(grad.radius);
+            auto getCoord = [](const std::optional<Dimension>& dim) {
+                if (!dim) return Dimension(0.0).ConvertToPx();
+                return dim->Unit() == DimensionUnit::PERCENT ? dim->Value() : dim->ConvertToPx();
+            };
+            Rosen::Drawing::Point centerPt(
+                static_cast<float>(getCoord(grad.radialCenterX)),
+                static_cast<float>(getCoord(grad.radialCenterY))
+            );
+            auto gradient = std::make_shared<Rosen::SymbolRadialGradient>
+                            (centerPt, grad.radius.value_or(Dimension(0.0)).Value());
+            if (grad.radius.has_value() && grad.radius.value().Unit() != DimensionUnit::PERCENT) {
+                gradient->SetRadius(static_cast<float>(grad.radius.value().ConvertToPx()));
+            }
             gradient->SetColors(ConvertColors(grad.symbolColor));
             gradient->SetPositions(grad.symbolOpacities);
             gradient->SetTileMode(grad.repeating ?
@@ -862,11 +932,11 @@ std::shared_ptr<Rosen::SymbolGradient> CreateNativeGradient(const SymbolGradient
     }
 }
 
-std::vector<Rosen::Drawing::ColorQuad> ConvertColors(const std::vector<Color>& colors)
+std::vector<Rosen::Drawing::Color> ConvertColors(const std::vector<Color>& colors)
 {
-    std::vector<Rosen::Drawing::ColorQuad> symbolColors;
+    std::vector<Rosen::Drawing::Color> symbolColors;
     for (const auto& color : colors) {
-        symbolColors.emplace_back(ConvertSkColor(color));
+        symbolColors.emplace_back(ConvertToRSColor(color));
     }
     return symbolColors;
 }

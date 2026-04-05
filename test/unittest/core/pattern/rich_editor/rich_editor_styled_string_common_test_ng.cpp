@@ -14,10 +14,10 @@
  */
 
 #include "test/unittest/core/pattern/rich_editor/rich_editor_styled_string_common_test_ng.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_undo_manager.h"
  
 using namespace testing;
@@ -65,8 +65,9 @@ RefPtr<MutableSpanString> RichEditorStyledStringCommonTestNg::CreateTextStyledSt
     auto styledString = AceType::MakeRefPtr<MutableSpanString>(content);
     auto length = styledString->GetLength();
     styledString->AddSpan(AceType::MakeRefPtr<FontSpan>(TEST_FONT, 0, length));
-    styledString->AddSpan(AceType::MakeRefPtr<DecorationSpan>(std::vector<TextDecoration>({TEXT_DECORATION_VALUE}),
-        TEXT_DECORATION_COLOR_VALUE, TextDecorationStyle::WAVY, std::optional<TextDecorationOptions>(), 0, length));
+    styledString->AddSpan(AceType::MakeRefPtr<DecorationSpan>(std::vector<TextDecoration>({ TEXT_DECORATION_VALUE }),
+        TEXT_DECORATION_COLOR_VALUE, TextDecorationStyle::WAVY, std::optional<TextDecorationOptions>(), 0, length,
+        nullptr));
     styledString->AddSpan(AceType::MakeRefPtr<BaselineOffsetSpan>(TEST_BASELINE_OFFSET, 0, length));
     styledString->AddSpan(AceType::MakeRefPtr<LetterSpacingSpan>(LETTER_SPACING, 0, length));
     styledString->AddSpan(AceType::MakeRefPtr<TextShadowSpan>(SHADOWS, 0, length));

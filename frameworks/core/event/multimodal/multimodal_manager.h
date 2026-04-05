@@ -25,7 +25,7 @@ namespace OHOS::Ace {
 class PipelineContext;
 
 class MultiModalManager final : public AceType {
-    DECLARE_ACE_TYPE(MultiModalManager, AceType)
+    DECLARE_ACE_TYPE(MultiModalManager, AceType);
 
 public:
     MultiModalManager() = default;
@@ -35,7 +35,7 @@ public:
     void OpenChannel(const RefPtr<PipelineContext>& context);
 
     RefPtr<MultiModalScene> GetMultiModalScene(int32_t pageId);
-    RefPtr<MultiModalScene> GetCurrentMultiModalScene();
+    ACE_FORCE_EXPORT RefPtr<MultiModalScene> GetCurrentMultiModalScene();
 
     void DumpMultimodalScene();
 

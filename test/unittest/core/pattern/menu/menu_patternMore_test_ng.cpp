@@ -19,12 +19,12 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/rosen/testing_canvas.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas.h"
 
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/layout/grid_system_manager.h"
@@ -520,7 +520,7 @@ HWTEST_F(MenuPattern2TestNg, GetInnerMenuCount001, TestSize.Level1)
             []() { return AceType::MakeRefPtr<MenuPattern>(TARGET_ID, "", TYPE); });
     ASSERT_NE(outerMenuNode, nullptr);
     auto child = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 1, AceType::MakeRefPtr<MenuItemPattern>());
-
+ 
     auto jsViewNode = FrameNode::CreateFrameNode(
         V2::JS_VIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
     ASSERT_NE(jsViewNode, nullptr);
@@ -529,27 +529,27 @@ HWTEST_F(MenuPattern2TestNg, GetInnerMenuCount001, TestSize.Level1)
         V2::JS_VIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
     ASSERT_NE(jsViewNode1, nullptr);
     jsViewNode1->MountToParent(jsViewNode);
-
+ 
     RefPtr<FrameNode> innerMenuNode =
         FrameNode::GetOrCreateFrameNode(V2::MENU_ETS_TAG, ViewStackProcessor::GetInstance()->ClaimNodeId(),
             []() { return AceType::MakeRefPtr<InnerMenuPattern>(TARGET_ID, "", TYPE); });
     ASSERT_NE(innerMenuNode, nullptr);
     innerMenuNode->MountToParent(jsViewNode1);
-
+ 
     auto menuItemNode =
         FrameNode::CreateFrameNode(
             V2::MENU_ITEM_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
             AceType::MakeRefPtr<MenuItemPattern>());
     ASSERT_NE(menuItemNode, nullptr);
     menuItemNode->MountToParent(innerMenuNode);
-
+ 
     /**
      * @tc.steps: step2. get InnerMenuPattern
      */
     auto menuPattern = innerMenuNode->GetPattern<InnerMenuPattern>();
     ASSERT_NE(menuPattern, nullptr);
     menuPattern->type_ = MenuType::CONTEXT_MENU;
-
+ 
     /**
      * @tc.steps: step3. Call UpdateBorderRadius.
      * @tc.expected: the function runs normally
@@ -558,7 +558,7 @@ HWTEST_F(MenuPattern2TestNg, GetInnerMenuCount001, TestSize.Level1)
     CalcDimension radiusDim(20.0f, DimensionUnit::VP);
     borderRadius.SetRadius(radiusDim);
     menuPattern->UpdateBorderRadius(innerMenuNode, borderRadius);
-
+ 
     auto menuRenderContext = innerMenuNode->GetRenderContext();
     ASSERT_NE(menuRenderContext, nullptr);
     EXPECT_EQ(menuRenderContext->GetBorderRadius(), borderRadius);
@@ -1132,11 +1132,11 @@ HWTEST_F(MenuPattern2TestNg, GetMenuOffset002, TestSize.Level1)
 }
 
 /**
- * @tc.name:  IsSelectOverlayDefaultModeRightClickMenu001
- * @tc.desc: Test  IsSelectOverlayDefaultModeRightClickMenu
+ * @tc.name:  IsSelectOverlayShowInSubWindow001
+ * @tc.desc: Test  IsSelectOverlayShowInSubWindow
  * @tc.type: FUNC
  */
-HWTEST_F(MenuPattern2TestNg, IsSelectOverlayDefaultModeRightClickMenu001, TestSize.Level1)
+HWTEST_F(MenuPattern2TestNg, IsSelectOverlayShowInSubWindow001, TestSize.Level1)
 {
     auto menuWrapperNode =
         FrameNode::GetOrCreateFrameNode(V2::MENU_WRAPPER_ETS_TAG, ViewStackProcessor::GetInstance()->ClaimNodeId(),
@@ -1156,8 +1156,8 @@ HWTEST_F(MenuPattern2TestNg, IsSelectOverlayDefaultModeRightClickMenu001, TestSi
 
     menuWrapperPattern->SetIsSelectOverlaySubWindowWrapper(false);
 
-    bool res = menuPattern->IsSelectOverlayDefaultModeRightClickMenu();
-    EXPECT_TRUE(res);
+    bool res = menuPattern->IsSelectOverlayShowInSubWindow();
+    EXPECT_FALSE(res);
 }
 
 /**
@@ -1337,7 +1337,6 @@ HWTEST_F(MenuPattern2TestNg, GetFirstMenuItem001, TestSize.Level1)
 
     auto menuPattern = outterMenuNode->GetPattern<MenuPattern>();
     ASSERT_NE(menuPattern, nullptr);
-    ASSERT_NE(menuPattern->GetFirstMenuItem(), nullptr);
     EXPECT_EQ(menuPattern->GetFirstMenuItem(), menuItemNode);
 }
 
@@ -1402,432 +1401,96 @@ HWTEST_F(MenuPattern2TestNg, GetLastMenuItem001, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetLastMenuItem002
- * @tc.desc: Verify GetLastMenuItem
+ * @tc.name: ApplyScrollBarToScrollNode001
+ * @tc.desc: Test ApplyScrollBarToScrollNode Function.
  * @tc.type: FUNC
  */
-HWTEST_F(MenuPattern2TestNg, GetLastMenuItem002, TestSize.Level1)
+HWTEST_F(MenuPattern2TestNg, ApplyScrollBarToScrollNode001, TestSize.Level1)
 {
-    auto outterMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 2, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(outterMenuNode, nullptr);
-    auto scrollNode = FrameNode::CreateFrameNode(
-        V2::SCROLL_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ScrollPattern>());
-    ASSERT_NE(scrollNode, nullptr);
-    scrollNode->MountToParent(outterMenuNode);
-    auto jsViewNode = FrameNode::CreateFrameNode(
-        V2::JS_VIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
-    ASSERT_NE(jsViewNode, nullptr);
-    jsViewNode->MountToParent(scrollNode);
-    auto jsViewNode1 = FrameNode::CreateFrameNode(
-        V2::JS_VIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
-    ASSERT_NE(jsViewNode1, nullptr);
-    jsViewNode1->MountToParent(jsViewNode);
-
-    auto innerMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 2, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(innerMenuNode, nullptr);
-    innerMenuNode->MountToParent(jsViewNode1);
-    auto menuItemNode = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 4, AceType::MakeRefPtr<MenuItemPattern>());
-    ASSERT_NE(menuItemNode, nullptr);
-    menuItemNode->MountToParent(innerMenuNode);
-
-    auto menuPattern = outterMenuNode->GetPattern<MenuPattern>();
-    EXPECT_EQ(menuPattern->GetLastMenuItem(), menuItemNode);
-}
-
-/**
- * @tc.name: UpdateMenuBorderAndBackgroundBlur001
- * @tc.desc: Verify UpdateMenuBorderAndBackgroundBlur
- * @tc.type: FUNC
- */
-HWTEST_F(MenuPattern2TestNg, UpdateMenuBorderAndBackgroundBlur001, TestSize.Level1)
-{
-    auto outterMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 2, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(outterMenuNode, nullptr);
-    auto menuPattern = outterMenuNode->GetPattern<MenuPattern>();
-    ASSERT_NE(menuPattern, nullptr);
-    auto renderContext = outterMenuNode->GetRenderContext();
-    ASSERT_NE(renderContext, nullptr);
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    ASSERT_NE(themeManager, nullptr);
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([](ThemeType type) -> RefPtr<Theme> {
-        if (type == TextTheme::TypeId()) {
-            return AceType::MakeRefPtr<TextTheme>();
-        } else if (type == IconTheme::TypeId()) {
-            return AceType::MakeRefPtr<IconTheme>();
-        } else if (type == SelectTheme::TypeId()) {
-            auto selectTheme = AceType::MakeRefPtr<SelectTheme>();
-            selectTheme->menuNormalBorderColor_ = Color::RED;
-            return selectTheme;
-        } else {
-            return AceType::MakeRefPtr<MenuTheme>();
-        }
-    });
-
-    menuPattern->UpdateMenuBorderAndBackgroundBlur();
-    auto borderColor = renderContext->GetBorderColor();
-    EXPECT_TRUE(borderColor.has_value());
-    EXPECT_EQ(borderColor.value().leftColor.value_or(Color::TRANSPARENT),  Color::RED);
-}
-
-/**
- * @tc.name: UpdateMenuBorderAndBackgroundBlur002
- * @tc.desc: Verify UpdateMenuBorderAndBackgroundBlur
- * @tc.type: FUNC
- */
-HWTEST_F(MenuPattern2TestNg, UpdateMenuBorderAndBackgroundBlur002, TestSize.Level1)
-{
-    auto outterMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 2, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(outterMenuNode, nullptr);
-    auto menuPattern = outterMenuNode->GetPattern<MenuPattern>();
-    ASSERT_NE(menuPattern, nullptr);
-    auto renderContext = outterMenuNode->GetRenderContext();
-    ASSERT_NE(renderContext, nullptr);
-    BorderColorProperty borderColor;
-    borderColor.SetColor(Color::BLUE);
-    renderContext->UpdateBorderColor(borderColor);
-
-    BorderWidthProperty borderWidth;
-    renderContext->UpdateBorderWidth(borderWidth);
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    ASSERT_NE(themeManager, nullptr);
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([](ThemeType type) -> RefPtr<Theme> {
-        if (type == TextTheme::TypeId()) {
-            return AceType::MakeRefPtr<TextTheme>();
-        } else if (type == IconTheme::TypeId()) {
-            return AceType::MakeRefPtr<IconTheme>();
-        } else if (type == SelectTheme::TypeId()) {
-            return AceType::MakeRefPtr<SelectTheme>();
-        } else {
-            return AceType::MakeRefPtr<MenuTheme>();
-        }
-    });
-
-    menuPattern->UpdateMenuBorderAndBackgroundBlur();
-    auto borderColor1 = renderContext->GetBorderColor();
-    EXPECT_TRUE(borderColor1.has_value());
-    EXPECT_EQ(borderColor1.value().leftColor.value_or(Color::TRANSPARENT),  Color::BLUE);
-}
-
-/**
- * @tc.name: InitDefaultBorder001
- * @tc.desc: Verify InitDefaultBorder
- * @tc.type: FUNC
- */
-HWTEST_F(MenuPattern2TestNg, InitDefaultBorder001, TestSize.Level1)
-{
-    auto innerMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 2,
-            AceType::MakeRefPtr<InnerMenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(innerMenuNode, nullptr);
-    auto menuPattern = innerMenuNode->GetPattern<InnerMenuPattern>();
-    ASSERT_NE(menuPattern, nullptr);
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    ASSERT_NE(themeManager, nullptr);
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([](ThemeType type) -> RefPtr<Theme> {
-        if (type == TextTheme::TypeId()) {
-            return AceType::MakeRefPtr<TextTheme>();
-        } else if (type == IconTheme::TypeId()) {
-            return AceType::MakeRefPtr<IconTheme>();
-        } else if (type == SelectTheme::TypeId()) {
-            return AceType::MakeRefPtr<SelectTheme>();
-        } else {
-            return AceType::MakeRefPtr<MenuTheme>();
-        }
-    });
-    auto renderContext = innerMenuNode->GetRenderContext();
-    ASSERT_NE(renderContext, nullptr);
-    menuPattern->InitDefaultBorder(innerMenuNode);
-    EXPECT_TRUE(renderContext->GetBorderColor().has_value());
-}
-
-/**
- * @tc.name: SetMenuBackGroundStyle001
- * @tc.desc: Verify SetMenuBackGroundStyle
- * @tc.type: FUNC
- */
-HWTEST_F(MenuPattern2TestNg, SetMenuBackGroundStyle001, TestSize.Level1)
-{
-    auto outterMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 2, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(outterMenuNode, nullptr);
-    auto menuPattern = outterMenuNode->GetPattern<MenuPattern>();
-    ASSERT_NE(menuPattern, nullptr);
-
-    MenuParam menuParam;
-    BlurStyleOption blurStyleOption;
-    menuParam.backgroundBlurStyleOption = blurStyleOption;
-
-    EffectOption option;
-    option.radius = Dimension();
-    menuParam.backgroundEffectOption = option;
-    menuParam.type = MenuType::CONTEXT_MENU;
-    menuPattern->SetMenuBackGroundStyle(outterMenuNode, menuParam);
-}
-
-/**
- * @tc.name: ShowStackSubMenuAnimation001
- * @tc.desc: Verify ShowStackSubMenuAnimation
- * @tc.type: FUNC
- */
-HWTEST_F(MenuPattern2TestNg, ShowStackSubMenuAnimation001, TestSize.Level1)
-{
-    auto mainMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 2, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(mainMenuNode, nullptr);
-    auto subMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 3, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(subMenuNode, nullptr);
-    
-    auto scrollNode = FrameNode::CreateFrameNode(
-        V2::SCROLL_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ScrollPattern>());
-    ASSERT_NE(scrollNode, nullptr);
-    scrollNode->MountToParent(subMenuNode);
-    auto innerMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 4, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(innerMenuNode, nullptr);
-    innerMenuNode->MountToParent(scrollNode);
-    
-    MenuItemProperties itemOption;
-    itemOption.content = "content";
-    itemOption.labelInfo = "label";
-    MenuItemModelNG MneuItemModelInstance;
-    MneuItemModelInstance.Create(itemOption);
-    auto titleFrameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(titleFrameNode, nullptr);
-    titleFrameNode->MountToParent(innerMenuNode);
-    auto menuItem = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 1, AceType::MakeRefPtr<MenuItemPattern>());
-    ASSERT_NE(menuItem, nullptr);
-    menuItem->MountToParent(innerMenuNode);
-
-    auto menuPattern = subMenuNode->GetPattern<MenuPattern>();
-    ASSERT_NE(menuPattern, nullptr);
-    menuPattern->ShowStackSubMenuAnimation(mainMenuNode, subMenuNode);
-
-    auto titlePattern = titleFrameNode->GetPattern<MenuItemPattern>();
-    ASSERT_NE(titlePattern, nullptr);
-    auto titleContentNode = titlePattern->GetContentNode();
-    ASSERT_NE(titleContentNode, nullptr);
-    auto textProperty = titleContentNode->GetLayoutProperty<TextLayoutProperty>();
-    ASSERT_NE(textProperty, nullptr);
-    EXPECT_EQ(textProperty->GetFontWeight(), FontWeight::BOLD);
-}
-
-/**
- * @tc.name: ShowStackMainMenuAnimation001
- * @tc.desc: Verify ShowStackMainMenuAnimation
- * @tc.type: FUNC
- */
-HWTEST_F(MenuPattern2TestNg, ShowStackMainMenuAnimation001, TestSize.Level1)
-{
-    auto mainMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 2, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(mainMenuNode, nullptr);
-    auto scrollNode = FrameNode::CreateFrameNode(
-        V2::SCROLL_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ScrollPattern>());
-    ASSERT_NE(scrollNode, nullptr);
-    scrollNode->MountToParent(mainMenuNode);
-    auto innerMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 4, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(innerMenuNode, nullptr);
-    innerMenuNode->MountToParent(scrollNode);
-
-    auto subMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 3, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(subMenuNode, nullptr);
-    auto subMenuPattern = subMenuNode->GetPattern<MenuPattern>();
-    ASSERT_NE(subMenuPattern, nullptr);
-    subMenuPattern->translateYForStack_ = 10.0f;
-
-    auto menuWrapperNode =
-        FrameNode::GetOrCreateFrameNode(V2::MENU_WRAPPER_ETS_TAG, ViewStackProcessor::GetInstance()->ClaimNodeId(),
-            []() {return AceType::MakeRefPtr<MenuWrapperPattern>(1);});
-    ASSERT_NE(menuWrapperNode, nullptr);
-    auto previewNode = FrameNode::CreateFrameNode(
-        V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ImagePattern>());
-    ASSERT_NE(previewNode, nullptr);
-    mainMenuNode->MountToParent(menuWrapperNode);
-    previewNode->MountToParent(menuWrapperNode);
-    subMenuNode->MountToParent(menuWrapperNode);
-    subMenuPattern->ShowStackMainMenuAnimation(mainMenuNode, subMenuNode, menuWrapperNode);
-
-    auto innerMenuContext = innerMenuNode->GetRenderContext();
-    ASSERT_NE(innerMenuContext, nullptr);
-    EXPECT_EQ(innerMenuContext->GetOpacity(), 0.4f);
-}
-
-/**
- * @tc.name: ShowStackSubMenuDisappearAnimation001
- * @tc.desc: Verify ShowStackSubMenuDisappearAnimation
- * @tc.type: FUNC
- */
-HWTEST_F(MenuPattern2TestNg, ShowStackSubMenuDisappearAnimation001, TestSize.Level1)
-{
-    auto mainMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 2, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(mainMenuNode, nullptr);
-    auto subMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 3, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(subMenuNode, nullptr);
-    auto scrollNode = FrameNode::CreateFrameNode(
-        V2::SCROLL_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ScrollPattern>());
-    ASSERT_NE(scrollNode, nullptr);
-    scrollNode->MountToParent(subMenuNode);
-    auto innerMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 4, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(innerMenuNode, nullptr);
-    innerMenuNode->MountToParent(scrollNode);
-    
-    MenuItemProperties itemOption;
-    itemOption.content = "content";
-    itemOption.labelInfo = "label";
-    MenuItemModelNG MneuItemModelInstance;
-    MneuItemModelInstance.Create(itemOption);
-    auto titleFrameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
-    ASSERT_NE(titleFrameNode, nullptr);
-    titleFrameNode->MountToParent(innerMenuNode);
-    auto menuItem = FrameNode::CreateFrameNode(V2::MENU_ITEM_ETS_TAG, 1, AceType::MakeRefPtr<MenuItemPattern>());
-    ASSERT_NE(menuItem, nullptr);
-    menuItem->MountToParent(innerMenuNode);
-
-    auto menuPattern = subMenuNode->GetPattern<MenuPattern>();
-    ASSERT_NE(menuPattern, nullptr);
-    menuPattern->ShowStackSubMenuDisappearAnimation(mainMenuNode, subMenuNode);
-    auto titlePattern = titleFrameNode->GetPattern<MenuItemPattern>();
-    ASSERT_NE(titlePattern, nullptr);
-    auto titleContentNode = titlePattern->GetContentNode();
-    ASSERT_NE(titleContentNode, nullptr);
-    auto textProperty = titleContentNode->GetLayoutProperty<TextLayoutProperty>();
-    ASSERT_NE(textProperty, nullptr);
-    EXPECT_EQ(textProperty->GetFontWeight(), FontWeight::MEDIUM);
-}
-
-/**
- * @tc.name: ShowStackMainMenuDisappearAnimation001
- * @tc.desc: Verify ShowStackMainMenuDisappearAnimation
- * @tc.type: FUNC
- */
-HWTEST_F(MenuPattern2TestNg, ShowStackMainMenuDisappearAnimation001, TestSize.Level1)
-{
-    auto mainMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 2, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(mainMenuNode, nullptr);
-    auto scrollNode = FrameNode::CreateFrameNode(
-        V2::SCROLL_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ScrollPattern>());
-    ASSERT_NE(scrollNode, nullptr);
-    scrollNode->MountToParent(mainMenuNode);
-    auto innerMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 4, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(innerMenuNode, nullptr);
-    innerMenuNode->MountToParent(scrollNode);
-
-    auto subMenuNode =
-        FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 3, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    ASSERT_NE(subMenuNode, nullptr);
-    auto mainMenuPattern = mainMenuNode->GetPattern<MenuPattern>();
-    ASSERT_NE(mainMenuPattern, nullptr);
-    mainMenuPattern->originMenuYForStack_ = 10.0f;
-    mainMenuPattern->originPreviewYForStack_ = 10.0f;
-
-    auto menuWrapperNode =
-        FrameNode::GetOrCreateFrameNode(V2::MENU_WRAPPER_ETS_TAG, ViewStackProcessor::GetInstance()->ClaimNodeId(),
-            []() {return AceType::MakeRefPtr<MenuWrapperPattern>(1);});
-    ASSERT_NE(menuWrapperNode, nullptr);
-    auto previewNode = FrameNode::CreateFrameNode(
-        V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ImagePattern>());
-    ASSERT_NE(previewNode, nullptr);
-    mainMenuNode->MountToParent(menuWrapperNode);
-    previewNode->MountToParent(menuWrapperNode);
-    subMenuNode->MountToParent(menuWrapperNode);
-    AnimationOption option = AnimationOption();
-    mainMenuPattern->ShowStackMainMenuDisappearAnimation(mainMenuNode, subMenuNode, option);
-
-    auto innerMenuContext = innerMenuNode->GetRenderContext();
-    ASSERT_NE(innerMenuContext, nullptr);
-    EXPECT_EQ(innerMenuContext->GetOpacity(), 1.0f);
-}
-
-/**
- * @tc.name: OnColorConfigurationUpdate
- * @tc.desc: Verify OnColorConfigurationUpdate
- * @tc.type: FUNC
- */
-HWTEST_F(MenuPattern2TestNg, OnColorConfigurationUpdate, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Init pipeline and create menu.
-     * @tc.expected: step1. All pointers non-null.
-     */
-    MockPipelineContext::GetCurrent()->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_EIGHTEEN));
-    std::vector<SelectParam> selectParam = { { "content1", "icon1" }, { "content2", "" }, { "", "icon3" }, { "", "" } };
-    auto wrapperNode = MenuView::Create(selectParam, TARGET_ID, "");
-    ASSERT_NE(wrapperNode, nullptr);
-    auto menuNode = AceType::DynamicCast<FrameNode>(wrapperNode->GetChildAtIndex(0));
+    auto menuNode = FrameNode::GetOrCreateFrameNode(V2::MENU_ETS_TAG, ViewStackProcessor::GetInstance()->ClaimNodeId(),
+        []() { return AceType::MakeRefPtr<MenuPattern>(TARGET_ID, "", TYPE); });
     ASSERT_NE(menuNode, nullptr);
     auto menuPattern = menuNode->GetPattern<MenuPattern>();
     ASSERT_NE(menuPattern, nullptr);
-    auto layout = menuNode->GetLayoutProperty<MenuLayoutProperty>();
-    ASSERT_NE(layout, nullptr);
-    auto pipeline = menuNode->GetContextWithCheck();
-    ASSERT_NE(pipeline, nullptr);
-    auto theme = pipeline->GetTheme<SelectTheme>();
-    ASSERT_NE(theme, nullptr);
-    auto renderContext = menuNode->GetRenderContext();
-    ASSERT_NE(renderContext, nullptr);
-    theme->menuFontColor_ = Color::RED;
-    theme->menuBlendBgColor_ = true;
-    theme->backgroundColor_ = Color::RED;
- 
-    /**
-     * @tc.steps: step2. Color config change, user sets font & disables bg.
-     * @tc.expected: step2. Font color keeps user's value.
-     */
-    g_isConfigChangePerform = true;
-    menuPattern->isDisableMenuBgColorByUser_ = true;
-    layout->UpdateFontColorSetByUser(true);
-    menuPattern->OnColorConfigurationUpdate();
-    EXPECT_NE(layout->GetFontColor().value_or(Color::TRANSPARENT), theme->GetMenuFontColor());
- 
-    /**
-     * @tc.steps: step3. Color config change, use theme font & bg.
-     * @tc.expected: step3. Font color uses theme.
-     */
-    menuPattern->isDisableMenuBgColorByUser_ = false;
-    layout->UpdateFontColorSetByUser(false);
-    menuPattern->OnColorConfigurationUpdate();
-    EXPECT_EQ(layout->GetFontColor().value_or(Color::TRANSPARENT), theme->GetMenuFontColor());
- 
-    /**
-     * @tc.steps: step4. No config change, user disables bg.
-     * @tc.expected: step4. Bg color unchanged.
-     */
-    g_isConfigChangePerform = false;
-    menuPattern->isDisableMenuBgColorByUser_ = true;
-    layout->UpdateFontColorSetByUser(true);
-    menuPattern->OnColorConfigurationUpdate();
-    EXPECT_EQ(renderContext->GetBackgroundColor().value_or(Color::TRANSPARENT), theme->GetBackgroundColor());
- 
-    /**
-     * @tc.steps: step5. No config change, use theme bg.
-     * @tc.expected: step5. Bg color uses theme.
-     */
-    menuPattern->isDisableMenuBgColorByUser_ = false;
-    layout->UpdateFontColorSetByUser(false);
-    menuPattern->OnColorConfigurationUpdate();
-    EXPECT_EQ(renderContext->GetBackgroundColor().value_or(Color::TRANSPARENT), theme->GetBackgroundColor());
- 
-    /**
-     * @tc.steps: step6. Blend bg enabled, recheck bg color.
-     * @tc.expected: step6. Still matches theme.
-     */
-    theme->menuBlendBgColor_ = true;
-    menuPattern->OnColorConfigurationUpdate();
-    EXPECT_EQ(renderContext->GetBackgroundColor().value_or(Color::TRANSPARENT), theme->GetBackgroundColor());
+    menuPattern->SetScrollBar(DisplayMode::ON);
+
+    auto customNode = CustomNode::CreateCustomNode(ElementRegister::GetInstance()->MakeUniqueId(), "CustomNode");
+    customNode->MountToParent(menuNode);
+
+    menuPattern->ApplyScrollBarToScrollNode();
+    EXPECT_EQ(AceType::DynamicCast<FrameNode>(customNode), nullptr);
+}
+
+/**
+ * @tc.name: ApplyScrollBarToScrollNode002
+ * @tc.desc: Test ApplyScrollBarToScrollNode Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuPattern2TestNg, ApplyScrollBarToScrollNode002, TestSize.Level1)
+{
+    auto menuNode = FrameNode::GetOrCreateFrameNode(V2::MENU_ETS_TAG, ViewStackProcessor::GetInstance()->ClaimNodeId(),
+        []() { return AceType::MakeRefPtr<MenuPattern>(TARGET_ID, "", TYPE); });
+    auto menuPattern = menuNode->GetPattern<MenuPattern>();
+    menuPattern->SetScrollBar(DisplayMode::ON);
+
+    auto scrollNode = FrameNode::CreateFrameNode(
+        V2::SCROLL_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ScrollPattern>());
+    scrollNode->MountToParent(menuNode);
+
+    menuPattern->ApplyScrollBarToScrollNode();
+
+    auto scrollPaintProperty = scrollNode->GetPaintProperty<ScrollablePaintProperty>();
+    ASSERT_NE(scrollPaintProperty, nullptr);
+    EXPECT_EQ(scrollPaintProperty->GetScrollBarMode().value(), DisplayMode::ON);
+
+    auto scrollPattern = scrollNode->GetPattern<ScrollPattern>();
+    ASSERT_NE(scrollPattern, nullptr);
+}
+
+/**
+ * @tc.name: ApplyScrollBarToScrollNode003
+ * @tc.desc: Test ApplyScrollBarToScrollNode Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuPattern2TestNg, ApplyScrollBarToScrollNode003, TestSize.Level1)
+{
+    auto menuNode = FrameNode::GetOrCreateFrameNode(V2::MENU_ETS_TAG, ViewStackProcessor::GetInstance()->ClaimNodeId(),
+        []() { return AceType::MakeRefPtr<MenuPattern>(TARGET_ID, "", TYPE); });
+    auto menuPattern = menuNode->GetPattern<MenuPattern>();
+    menuPattern->SetScrollBar(DisplayMode::ON);
+
+    auto dummyScrollNode = FrameNode::CreateFrameNode(
+        V2::SCROLL_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    dummyScrollNode->MountToParent(menuNode);
+
+    menuPattern->ApplyScrollBarToScrollNode();
+
+    auto paintProperty = dummyScrollNode->GetPaintProperty<ScrollablePaintProperty>();
+    EXPECT_EQ(paintProperty, nullptr);
+
+    auto scrollPattern = dummyScrollNode->GetPattern<ScrollablePattern>();
+    EXPECT_EQ(scrollPattern, nullptr);
+}
+
+/**
+ * @tc.name: ApplyScrollBarToScrollNode004
+ * @tc.desc: Test ApplyScrollBarToScrollNode Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(MenuPattern2TestNg, ApplyScrollBarToScrollNode004, TestSize.Level1)
+{
+    auto menuNode = FrameNode::GetOrCreateFrameNode(V2::MENU_ETS_TAG, ViewStackProcessor::GetInstance()->ClaimNodeId(),
+        []() { return AceType::MakeRefPtr<MenuPattern>(TARGET_ID, "", TYPE); });
+    auto menuPattern = menuNode->GetPattern<MenuPattern>();
+    menuPattern->SetScrollBar(DisplayMode::ON);
+
+    auto textNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>());
+    textNode->MountToParent(menuNode);
+
+    menuPattern->ApplyScrollBarToScrollNode();
+
+    auto paintProperty = textNode->GetPaintProperty<ScrollablePaintProperty>();
+    EXPECT_EQ(paintProperty, nullptr);
 }
 } // namespace OHOS::Ace::NG

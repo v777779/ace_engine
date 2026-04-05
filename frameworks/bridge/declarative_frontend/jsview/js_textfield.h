@@ -17,15 +17,16 @@
 #define FRAMEWORKS_BRIDGE_DECLARATIVE_FRONTEND_JS_VIEW_JS_TEXTFIELD_H
 
 #include "bridge/declarative_frontend/engine/js_types.h"
+#include "bridge/declarative_frontend/jsview/js_text_editable_controller.h"
+#include "core/components_ng/pattern/text_field/text_keyboard_common_type.h"
 #include "frameworks/bridge/declarative_frontend/engine/functions/js_function.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_interactable_view.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_utils.h"
-#include "frameworks/core/components/text_field/text_field_component.h"
-#include "frameworks/core/components/text_field/text_field_controller.h"
+#include "frameworks/compatible/components/text_field/text_field_component.h"
+#include "frameworks/compatible/components/text_field/text_field_controller.h"
 #include "frameworks/core/components/text_field/textfield_theme.h"
 #include "frameworks/core/components_ng/pattern/text/text_menu_extension.h"
 #include "frameworks/core/components_ng/pattern/text_field/text_field_event_hub.h"
-#include "core/components_ng/pattern/text_field/text_keyboard_common_type.h"
 
 namespace OHOS::Ace::Framework {
 
@@ -41,6 +42,8 @@ public:
     static void SetPlaceholderFont(const JSCallbackInfo& info);
     static void SetEnterKeyType(const JSCallbackInfo& info);
     static void SetTextAlign(int32_t value);
+    static void SetTextDirection(const JSCallbackInfo& info);
+    static void SetSelectDetectEnable(const JSCallbackInfo& info);
     static void SetLineBreakStrategy(const JSCallbackInfo& info);
     static void SetCaretColor(const JSCallbackInfo& info);
     static void SetCaretStyle(const JSCallbackInfo& info);
@@ -77,6 +80,7 @@ public:
         JSRef<JSObject>& object, std::optional<CalcDimension>& radius);
     static bool ParseAllBorderRadiuses(JSRef<JSObject>& object, CalcDimension& topLeft,
         CalcDimension& topRight, CalcDimension& bottomLeft, CalcDimension& bottomRight);
+    static void ParseShowCounterColor(const JSRef<JSObject>& paramObject);
     static void ParseBorderRadius(const JSRef<JSVal>& args);
     static void JsBorderRadius(const JSCallbackInfo& info);
     static void JsHoverEffect(const JSCallbackInfo& info);
@@ -84,10 +88,17 @@ public:
     static void SetOnSubmit(const JSCallbackInfo& info);
     static JSRef<JSVal> CreateJsOnChangeObj(const PreviewText& previewText);
     static void SetOnChange(const JSCallbackInfo& info);
+    static JSRef<JSVal> CreateJsOnWillChangeObj(const ChangeValueInfo& changeValueInfo);
+    static void SetOnWillChange(const JSCallbackInfo& info);
+    static void SetStrokeWidth(const JSCallbackInfo& info);
+    static void SetStrokeColor(const JSCallbackInfo& info);
     static void SetOnTextSelectionChange(const JSCallbackInfo& info);
     static void SetOnSecurityStateChange(const JSCallbackInfo& info);
     static void SetOnContentScroll(const JSCallbackInfo& info);
+    static void SetOnWillCopy(const JSCallbackInfo& info);
+    static JSRef<JSVal> CreateSimpleJsOnWillObj(const std::u16string& value);
     static void SetOnCopy(const JSCallbackInfo& info);
+    static void SetOnWillCut(const JSCallbackInfo& info);
     static void SetOnCut(const JSCallbackInfo& info);
     static void SetOnPaste(const JSCallbackInfo& info);
     static void SetOnClick(const JSCallbackInfo& info);
@@ -98,8 +109,6 @@ public:
     static void OnDidInsertValue(const JSCallbackInfo& info);
     static void OnWillDelete(const JSCallbackInfo& info);
     static void OnDidDelete(const JSCallbackInfo& info);
-    static void UpdateDecoration(const RefPtr<BoxComponent>& boxComponent, const RefPtr<TextFieldComponent>& component,
-        const Border& boxBorder, const RefPtr<TextFieldTheme>& textFieldTheme);
     static void SetForegroundColor(const JSCallbackInfo& info);
     static void SetPasswordIcon(const JSCallbackInfo& info);
     static void SetShowUnit(const JSCallbackInfo& info);
@@ -113,8 +122,8 @@ public:
     static void SetUnderlineColor(const JSCallbackInfo& info);
     static void SetEnableKeyboardOnFocus(const JSCallbackInfo& info);
     static void SetSelectionMenuHidden(const JSCallbackInfo& info);
-    static bool ParseJsCustomKeyboardBuilder(
-        const JSCallbackInfo& info, int32_t index, std::function<void()>& buildFunc);
+    static bool ParseJsCustomKeyboardBuilder(const JSCallbackInfo& info, int32_t index,
+        std::function<void()>& buildFunc, NG::FrameNode*& contentNode, bool& isBuilder);
     static void SetCustomKeyboard(const JSCallbackInfo& info);
 
     static void SetPasswordRules(const JSCallbackInfo& info);
@@ -125,6 +134,7 @@ public:
     static void CreateJsTextFieldCommonEvent(const JSCallbackInfo& info);
     static Local<JSValueRef> JsKeepEditableState(panda::JsiRuntimeCallInfo *info);
     static void SetCancelButton(const JSCallbackInfo& info);
+    static void SetVoiceButton(const JSCallbackInfo& info);
     static void SetSelectAllValue(const JSCallbackInfo& info);
     static void SetFontFeature(const JSCallbackInfo& info);
     static void SetDecoration(const JSCallbackInfo& info);
@@ -143,25 +153,31 @@ public:
     static void SetCapitalizationMode(const JSCallbackInfo& info);
     static void SetStopBackPress(const JSCallbackInfo& info);
     static void SetKeyboardAppearance(const JSCallbackInfo& info);
-    static JSRef<JSVal> CreateJsOnWillChangeObj(const ChangeValueInfo& changeValueInfo);
-    static void SetOnWillChange(const JSCallbackInfo& info);
-    static void SetStrokeWidth(const JSCallbackInfo& info);
-    static void SetStrokeColor(const JSCallbackInfo& info);
     static void SetEnableAutoSpacing(const JSCallbackInfo& info);
+    static void SetOrphanCharOptimization(const JSCallbackInfo& info);
+    static void SetCompressLeadingPunctuation(const JSCallbackInfo& info);
     static NG::KeyboardAppearanceConfig ParseKeyboardAppearanceConfig(const JSRef<JSObject>& obj);
     static void SetOnWillAttachIME(const JSCallbackInfo& info);
     static void SetKeyboardAppearanceConfig(const JSCallbackInfo& info);
     static void ParseOnIconSrc(const JSRef<JSVal>& showVal, PasswordIcon& passwordIcon);
     static void ParseOffIconSrc(const JSRef<JSVal>& showVal, PasswordIcon& passwordIcon);
-    static void SetUnderlineColorObject(const JSRef<JSVal>& jsValue);
-    static void UnregisterResource(const std::string& key);
+    static void SetUnderlineColorObject(const JSRef<JSObject>& jsValue);
+    static void SetScrollBarColor(const JSCallbackInfo& info);
+    static Local<JSValueRef> JsSetIMEExtraInfo(panda::JsiRuntimeCallInfo* info);
+    static IMEAttachCallback ParseAndCreateAttachCallback(const JSCallbackInfo& info);
+    static void SetIncludeFontPadding(const JSCallbackInfo& info);
+    static void SetFallbackLineSpacing(const JSCallbackInfo& info);
+    static void SetSelectedDragPreviewStyle(const JSCallbackInfo& info);
+    static void SetAccessibilityText(const JSCallbackInfo& info);
+    static void SetSearchKeyboardAppearanceConfig(const JSCallbackInfo& info);
 
 private:
     static void SetCancelIconColorAndIconSrc(const JSRef<JSObject>& iconParam);
     static void SetCancelDefaultIcon();
-    static void ResetCancelIcon();
     static void SetCancelSymbolIcon(const JSCallbackInfo& info);
     static void SetLayoutPolicy(const JSRef<JSVal>& jsValue, bool isWidth);
+    static void SetController(
+        JSTextEditableController* jsController, const RefPtr<TextFieldControllerBase>& controller);
 };
 
 } // namespace OHOS::Ace::Framework

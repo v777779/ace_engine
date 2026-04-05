@@ -62,7 +62,6 @@ constexpr float BADGED_SIDE_Y = 7.0f;
 constexpr float SIDE = 192.0f;
 constexpr float NOT_ADAPTIVE_SIZE = 288.0f;
 constexpr float HALF = 0.5f;
-const int DEFAULT_DURATION = 1000;
 const std::string DEFAULT_MASK = "ohos_icon_mask";
 constexpr int DECIMAL_BASE = 10;
 
@@ -209,7 +208,7 @@ RSImageInfo CreateRSImageInfo(OptionalPixelMap pixelmap, int32_t width, int32_t 
 }
 
 void BlendForeground(RSCanvas& bitmapCanvas, RSBrush& brush, RSImage& image, const SharedBitMap& background,
-    const SharedBitMap& foreground)
+    const SharedBitMap& foreground, bool foregroundOverBackground, int32_t blendMode)
 {
     if (!foreground || !background || NearEqual(foreground->GetWidth(), 0.0) ||
         NearEqual(foreground->GetHeight(), 0.0)) {
@@ -226,7 +225,8 @@ void BlendForeground(RSCanvas& bitmapCanvas, RSBrush& brush, RSImage& image, con
     auto dstOffsetY = static_cast<float>((background->GetHeight() - destHeight) * HALF);
     Rosen::Drawing::Rect rsSrcRect(0.0, 0.0, foreground->GetWidth(), foreground->GetHeight());
     Rosen::Drawing::Rect rsDstRect(dstOffsetX, dstOffsetY, destWidth + dstOffsetX, destHeight + dstOffsetY);
-    brush.SetBlendMode(Rosen::Drawing::BlendMode::SRC_ATOP);
+    brush.SetBlendMode(foregroundOverBackground ? static_cast<Rosen::Drawing::BlendMode>(blendMode)
+                                                : Rosen::Drawing::BlendMode::SRC_ATOP);
     bitmapCanvas.AttachBrush(brush);
     image.BuildFromBitmap(*foreground);
     bitmapCanvas.DrawImageRect(image, rsSrcRect, rsDstRect, Rosen::Drawing::SamplingOptions(),
@@ -648,6 +648,9 @@ bool LayeredDrawableDescriptor::CompositeIconAdaptive(
     Rosen::Drawing::Rect dstRect(
         0.0, 0.0, static_cast<float>(background->GetWidth()), static_cast<float>(background->GetHeight()));
     RSImage image;
+    if (foregroundOverBackground_ && foreground) {
+        BlendForeground(bitmapCanvas, brush, image, background, foreground, foregroundOverBackground_, blendMode_);
+    }
     if (mask) {
         Rosen::Drawing::Rect srcRect(
             0.0, 0.0, static_cast<float>(mask->GetWidth()), static_cast<float>(mask->GetHeight()));
@@ -658,8 +661,8 @@ bool LayeredDrawableDescriptor::CompositeIconAdaptive(
             Rosen::Drawing::SrcRectConstraint::FAST_SRC_RECT_CONSTRAINT);
         bitmapCanvas.DetachBrush();
     }
-    if (foreground) {
-        BlendForeground(bitmapCanvas, brush, image, background, foreground);
+    if (!foregroundOverBackground_ && foreground) {
+        BlendForeground(bitmapCanvas, brush, image, background, foreground, foregroundOverBackground_, blendMode_);
     }
     // convert bitmap back to pixelMap
     bitmapCanvas.ReadPixels(imageInfo, tempCache.GetPixels(), tempCache.GetRowBytes(), 0, 0);
@@ -686,13 +689,19 @@ void LayeredDrawableDescriptor::CompositeIconNotAdaptive(
         DrawOntoCanvas(background, SIDE, SIDE, bitmapCanvas);
         bitmapCanvas.DetachBrush();
     }
+    if (foregroundOverBackground_ && foreground) {
+        brush.SetBlendMode(static_cast<Rosen::Drawing::BlendMode>(blendMode_));
+        bitmapCanvas.AttachBrush(brush);
+        DrawOntoCanvas(foreground, SIDE, SIDE, bitmapCanvas);
+        bitmapCanvas.DetachBrush();
+    }
     if (mask) {
         brush.SetBlendMode(Rosen::Drawing::BlendMode::DST_IN);
         bitmapCanvas.AttachBrush(brush);
         DrawOntoCanvas(mask, SIDE, SIDE, bitmapCanvas);
         bitmapCanvas.DetachBrush();
     }
-    if (foreground) {
+    if (!foregroundOverBackground_ && foreground) {
         brush.SetBlendMode(Rosen::Drawing::BlendMode::SRC_ATOP);
         bitmapCanvas.AttachBrush(brush);
         DrawOntoCanvas(foreground, SIDE, SIDE, bitmapCanvas);
@@ -859,61 +868,29 @@ std::string LayeredDrawableDescriptor::GetStaticMaskClipPath()
     return data;
 }
 
-SharedPixelMap AnimatedDrawableDescriptor::GetPixelMap()
+void LayeredDrawableDescriptor::SetBlendMode(int32_t mode)
 {
-    if (pixelMapList_.empty()) {
-        return nullptr;
+    if (mode < static_cast<int32_t>(Rosen::Drawing::BlendMode::CLEAR) ||
+        mode > static_cast<int32_t>(Rosen::Drawing::BlendMode::LUMINOSITY)) {
+        return;
     }
-    return pixelMapList_[0];
-}
-
-DrawableDescriptor::DrawableType AnimatedDrawableDescriptor::GetDrawableType()
-{
-    return DrawableType::ANIMATED;
-}
-
-std::vector<SharedPixelMap> AnimatedDrawableDescriptor::GetPixelMapList()
-{
-    return pixelMapList_;
-}
-
-int32_t AnimatedDrawableDescriptor::GetDuration()
-{
-    if (duration_ <= 0) {
-        duration_ = DEFAULT_DURATION * static_cast<int32_t>(pixelMapList_.size());
-    }
-    return duration_;
-}
-
-int32_t AnimatedDrawableDescriptor::GetIterations()
-{
-    if (iterations_ < -1) {
-        iterations_ = 1;
-    }
-    return iterations_;
-}
-
-void AnimatedDrawableDescriptor::SetDuration(int32_t duration)
-{
-    if (duration <= 0) {
-        duration_ = DEFAULT_DURATION * static_cast<int32_t>(pixelMapList_.size());
-    } else {
-        duration_ = duration;
+    blendMode_ = mode;
+    if (blendMode_ >= 0) {
+        foregroundOverBackground_ = true;
     }
 }
 
-void AnimatedDrawableDescriptor::SetIterations(int32_t iterations)
+void LayeredDrawableDescriptor::InitBlendMode()
 {
-    if (iterations < -1) {
-        iterations_ = 1;
-    } else {
-        iterations_ = iterations;
+    if (foregroundOverBackground_) {
+        blendMode_ = static_cast<int32_t>(Rosen::Drawing::BlendMode::SRC_OVER);
     }
 }
 
 // drawable factory implement
-std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(
-    int32_t id, const SharedResourceManager& resourceMgr, RState& state, DrawableType& drawableType, uint32_t density)
+std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(int32_t id,
+    const SharedResourceManager& resourceMgr, RState& state, DrawableType& drawableType, uint32_t density,
+    bool foregroundOverBackground)
 {
     std::string type;
     size_t len;
@@ -928,7 +905,8 @@ std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(
         HILOGD("Create LayeredDrawableDescriptor object");
         drawableType = DrawableDescriptor::DrawableType::LAYERED;
         state = Global::Resource::SUCCESS;
-        return std::make_unique<LayeredDrawableDescriptor>(std::move(jsonBuf), len, resourceMgr);
+        return std::make_unique<LayeredDrawableDescriptor>(
+            std::move(jsonBuf), len, resourceMgr, foregroundOverBackground);
     }
     if (type == "png" || type == "jpg" || type == "bmp" || type == "svg" || type == "gif" || type == "webp" ||
         type == "astc" || type == "sut") {
@@ -943,7 +921,8 @@ std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(
 }
 
 std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(const char* name,
-    const SharedResourceManager& resourceMgr, RState& state, DrawableType& drawableType, uint32_t density)
+    const SharedResourceManager& resourceMgr, RState& state, DrawableType& drawableType, uint32_t density,
+    bool foregroundOverBackground)
 {
     std::string type;
     size_t len;
@@ -958,7 +937,8 @@ std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(const char
         HILOGD("Create LayeredDrawableDescriptor object");
         drawableType = DrawableDescriptor::DrawableType::LAYERED;
         state = Global::Resource::SUCCESS;
-        return std::make_unique<LayeredDrawableDescriptor>(std::move(jsonBuf), len, resourceMgr);
+        return std::make_unique<LayeredDrawableDescriptor>(
+            std::move(jsonBuf), len, resourceMgr, foregroundOverBackground);
     }
     if (type == "png" || type == "jpg" || type == "bmp" || type == "svg" || type == "gif" || type == "webp" ||
         type == "astc" || type == "sut") {
@@ -972,9 +952,20 @@ std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(const char
     return nullptr;
 }
 
+std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(DataInfo& foregroundInfo,
+    DataInfo& backgroundInfo, std::string& path, DrawableType& drawableType, const SharedResourceManager& resourceMgr,
+    bool foregroundOverBackground)
+{
+    UINT8 jsonBuf;
+    drawableType = DrawableDescriptor::DrawableType::LAYERED;
+    auto layeredDrawableDescriptor = std::make_unique<LayeredDrawableDescriptor>(
+        std::move(jsonBuf), 0, resourceMgr, path, 1, foregroundInfo, backgroundInfo, foregroundOverBackground);
+    return layeredDrawableDescriptor;
+}
+
 std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(
     std::tuple<int32_t, uint32_t, uint32_t>& drawableInfo, const SharedResourceManager& resourceMgr, RState& state,
-    DrawableType& drawableType)
+    DrawableType& drawableType, bool foregroundOverBackground)
 {
     int32_t resId = std::get<0>(drawableInfo);
     uint32_t iconType = std::get<1>(drawableInfo);
@@ -993,8 +984,8 @@ std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(
     if (type == "json") {
         HILOGD("Create LayeredDrawableDescriptor object");
         drawableType = DrawableDescriptor::DrawableType::LAYERED;
-        auto layeredDrawableDescriptor =
-            std::make_unique<LayeredDrawableDescriptor>(std::move(jsonBuf), len, resourceMgr, path, iconType, density);
+        auto layeredDrawableDescriptor = std::make_unique<LayeredDrawableDescriptor>(
+            std::move(jsonBuf), len, resourceMgr, path, iconType, density, foregroundOverBackground);
         return layeredDrawableDescriptor;
     }
     if (type == "png" || type == "jpg" || type == "bmp" || type == "svg" || type == "gif" || type == "webp" ||
@@ -1010,7 +1001,7 @@ std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(
 
 std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(
     std::tuple<const char*, uint32_t, uint32_t>& drawableInfo, const SharedResourceManager& resourceMgr, RState& state,
-    DrawableType& drawableType)
+    DrawableType& drawableType, bool foregroundOverBackground)
 {
     const char* name = std::get<0>(drawableInfo);
     uint32_t iconType = std::get<1>(drawableInfo);
@@ -1029,8 +1020,8 @@ std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(
     if (type == "json") {
         HILOGD("Create LayeredDrawableDescriptor object");
         drawableType = DrawableDescriptor::DrawableType::LAYERED;
-        auto layeredDrawableDescriptor =
-            std::make_unique<LayeredDrawableDescriptor>(std::move(jsonBuf), len, resourceMgr, path, iconType, density);
+        auto layeredDrawableDescriptor = std::make_unique<LayeredDrawableDescriptor>(
+            std::move(jsonBuf), len, resourceMgr, path, iconType, density, foregroundOverBackground);
         return layeredDrawableDescriptor;
     }
     if (type == "png" || type == "jpg" || type == "bmp" || type == "svg" || type == "gif" || type == "webp" ||
@@ -1042,16 +1033,6 @@ std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(
     HILOGE("unknow resource type: %{public}s", type.c_str());
     state = Global::Resource::INVALID_FORMAT;
     return nullptr;
-}
-
-std::unique_ptr<DrawableDescriptor> DrawableDescriptorFactory::Create(DataInfo& foregroundInfo,
-    DataInfo& backgroundInfo, std::string& path, DrawableType& drawableType, const SharedResourceManager& resourceMgr)
-{
-    UINT8 jsonBuf;
-    drawableType = DrawableDescriptor::DrawableType::LAYERED;
-    auto layeredDrawableDescriptor = std::make_unique<LayeredDrawableDescriptor>(
-        std::move(jsonBuf), 0, resourceMgr, path, 1, foregroundInfo, backgroundInfo);
-    return layeredDrawableDescriptor;
 }
 } // namespace Napi
 } // namespace Ace

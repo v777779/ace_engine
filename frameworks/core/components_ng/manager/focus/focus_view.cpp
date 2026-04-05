@@ -305,31 +305,30 @@ std::pair<bool, bool> FocusView::HandleDefaultFocusNode(
 
 bool FocusView::RequestDefaultFocus()
 {
-    TAG_LOGD(AceLogTag::ACE_FOCUS, "Request focus on focusView: %{public}s/%{public}d.", GetFrameName().c_str(),
+    TAG_LOGI(AceLogTag::ACE_FOCUS, "Request focus on focusView: %{public}s/%{public}d.", GetFrameName().c_str(),
         GetFrameId());
     auto focusViewHub = GetFocusHub();
     CHECK_NULL_RETURN(focusViewHub, false);
-    if (focusViewHub->GetFocusType() != FocusType::SCOPE || !focusViewHub->IsFocusableNode()) {
+    if (focusViewHub->GetFocusType() != FocusType::SCOPE || !focusViewHub->IsFocusableNode())
         return false;
-    }
     auto viewRootScope = GetViewRootScope();
     CHECK_NULL_RETURN(viewRootScope, false);
     isViewHasFocused_ = true;
     auto defaultFocusNode = focusViewHub->GetChildFocusNodeByType(FocusNodeType::DEFAULT);
-
     auto isViewRootScopeHasChildFocused = viewRootScope->HasFocusedChild();
     auto node = GetFrameNode();
     CHECK_NULL_RETURN(node, false);
     auto pipeline = node->GetContextRefPtr();
     CHECK_NULL_RETURN(pipeline, false);
     auto focusManager = pipeline->GetFocusManager();
-    CHECK_NULL_RETURN(focusManager, false);
+    if (!focusManager || focusManager->IsModalFocusViewStackValid()) {
+        return false;
+    }
     if (!focusManager->IsAutoFocusTransfer()) {
         std::pair<bool, bool> pair = HandleDefaultFocusNode(defaultFocusNode, isViewRootScopeHasChildFocused);
         CHECK_NULL_RETURN(!pair.second, false);
         return focusManager->RearrangeViewStack();
     }
-
     std::pair<bool, bool> pair = HandleDefaultFocusNode(defaultFocusNode, isViewRootScopeHasChildFocused);
     if (pair.first) {
         return pair.second;
@@ -338,9 +337,8 @@ bool FocusView::RequestDefaultFocus()
         SetIsViewRootScopeFocused(true);
         auto ret = viewRootScope->RequestFocusImmediatelyInner(FocusReason::VIEW_SWITCH);
         // set neverShown_ false when request focus on focus view success
-        neverShown_ &= (!ret | firstFlush_);
-        firstFlush_ = false;
-        TAG_LOGD(AceLogTag::ACE_FOCUS, "Request rootScope: %{public}s/%{public}d ret: %{public}d.",
+        neverShown_ &= !ret;
+        TAG_LOGD(AceLogTag::ACE_FOCUS, "Request focus on root scope: %{public}s/%{public}d return: %{public}d.",
             viewRootScope->GetFrameName().c_str(), viewRootScope->GetFrameId(), ret);
         return ret;
     }
@@ -354,9 +352,7 @@ bool FocusView::RequestDefaultFocus()
     } else {
         ret = lastViewFocusNode->RequestFocusImmediatelyInner(FocusReason::VIEW_SWITCH);
     }
-    // set neverShown_ false when request focus on focus view success
-    neverShown_ &= (!ret | firstFlush_);
-    firstFlush_ = false;
+    neverShown_ &= !ret;
     TAG_LOGD(AceLogTag::ACE_FOCUS, "Request focus on focus view ret: %{public}d.", ret);
     return ret;
 }

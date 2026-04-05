@@ -17,20 +17,21 @@ import { ComponentBase } from "./../ComponentBase";
 import { AccessibilityCallback, AccessibilityRoleType, AlignRuleOption, AnimatableArithmetic, AnimateParam, AttributeModifier } from '../component/common';
 import { Bindable, BackgroundBlurStyleOptions, BackgroundBrightnessOptions, BackgroundEffectOptions, BlendApplyType } from '../component/common';
 import { BlurOptions, BlurStyle, BorderImageOption, ChainStyle, ClickEffect, ClickEvent, CommonAttribute, ContentCoverOptions } from '../component/common';
-import { ContextMenuOptions, CustomBuilder, CustomPopupOptions, DragEvent, DragInteractionOptions, DragItemInfo } from '../component/common';
+import { ContextMenuOptions, CustomPopupOptions, DragEvent, DragInteractionOptions, DragItemInfo } from '../component/common';
+import { CustomBuilder } from '../framework';
 import { DragPreviewOptions, DrawModifier, EffectType, ForegroundBlurStyleOptions, ForegroundEffectOptions } from '../component/common';
 import { GeometryTransitionOptions, GestureModifier, GestureRecognizerJudgeBeginCallback, HoverEvent, InvertOptions, KeyEvent } from '../component/common';
 import { LinearGradientBlurOptions, BackgroundOptions } from '../component/common';
 import { LocalizedAlignRuleOptions, MenuElement, MenuOptions, ModalTransition, MotionBlurOptions, MotionPathOptions } from '../component/common';
 import { MouseEvent, OutlineStyle, OverlayOptions, PixelRoundPolicy, PixelStretchEffectOptions, PopupOptions, PreDragStatus } from '../component/common';
-import { ProgressMask, Rectangle, RotateOptions, SafeAreaEdge, SafeAreaType, ScaleOptions, ShadowOptions, ShadowStyle } from '../component/common';
+import { ProgressMask, Rectangle, ResponseRegion, RotateOptions, SafeAreaEdge, SafeAreaType, ScaleOptions, ShadowOptions, ShadowStyle } from '../component/common';
 import { SheetOptions, ShouldBuiltInRecognizerParallelWithCallback, SizeChangeCallback, StateStyles, TouchEvent, TouchResult } from '../component/common';
-import { TouchTestInfo, TransitionEffect, TransitionFinishCallback, TranslateOptions } from '../component/common';
+import { TouchTestInfo, TouchTestDoneCallback, TransitionEffect, TransitionFinishCallback, TranslateOptions } from '../component/common';
 import { VisibleAreaChangeCallback, sharedTransitionOptions, BackgroundImageOptions, ArkCommonMethodPeer } from '../component/common';
 import { SystemAdaptiveOptions, CrownEvent, FocusAxisEvent, AxisEvent, FocusMovement, LinearGradientOptions } from '../component/common';
 import { OnDragEventCallback, LayoutPolicy, PreviewConfiguration, DropOptions, SweepGradientOptions, AccessibilitySamePageMode } from '../component/common';
 import { AccessibilityFocusCallback, ReuseOptions, TipsMessageType, TipsOptions, VisibleAreaEventOptions, RadialGradientOptions} from '../component/common';
-import { Color, HitTestMode, ImageSize, Alignment, BorderStyle, ColoringStrategy, HoverEffect, Visibility, ItemAlign, Direction, ObscuredReasons, RenderFit, FocusDrawLevel, ImageRepeat, Axis, ResponseType, FunctionKey, ModifierKey } from '../component/enums'
+import { Color, HitTestMode, ImageSize, Alignment, BorderStyle, ColoringStrategy, HoverEffect, Visibility, ItemAlign, Direction, ObscuredReasons, RenderFit, FocusDrawLevel, ImageRepeat, RenderStrategy, Axis, ResponseType, FunctionKey, ModifierKey } from '../component/enums'
 import { ResourceColor, ConstraintSizeOptions, SizeOptions, Length, ChainWeightOptions, Padding, LocalizedPadding, Position, BorderOptions, EdgeWidths, LocalizedEdgeWidths, EdgeColors, LocalizedEdgeColors, BorderRadiuses, LocalizedBorderRadiuses, OutlineOptions, EdgeOutlineStyles, Dimension, EdgeOutlineWidths, OutlineRadiuses, Area, LocalizedEdges, LocalizedPosition, ResourceStr, AccessibilityOptions, EdgeStyles, Edges } from '../component/units'
 import { Resource } from "global.resource"
 import { LengthMetrics } from "../Graphics"
@@ -44,6 +45,10 @@ import { ComponentContent } from 'arkui/ComponentContent'
 import { BlendMode } from "../component/common"
 import { InteropNativeModule } from '@koalaui/interop';
 import { ArkUIAniModule } from 'arkui.ani';
+import { hookCustomPropertyImpl, hookAllowDrop, hookDragPreviewOptions } from '#handwritten';
+import { CustomProperty } from '#generated';
+import { dragController } from "@ohos.arkui.dragController"
+import { SpringLoadingContext, DragSpringLoadingConfiguration } from '#generated';
 
 export class ArkBaseNode extends ComponentBase implements CommonAttribute {
 
@@ -76,8 +81,13 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
     public mouseResponseRegion(value: Array<Rectangle> | Rectangle | undefined): this {
         return this
     }
+    public responseRegionList(value: Array<ResponseRegion> | undefined): this {
+        this.getPeer().setResponseRegionListAttribute(value);
+        return this
+    }
 
     public constraintSize(value: ConstraintSizeOptions | undefined): this {
+        this.getPeer().setConstraintSizeAttribute(value);
         return this
     }
     public touchable(value: boolean | undefined): this {
@@ -91,21 +101,27 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
         return this
     }
     public layoutWeight(value: number | string | undefined): this {
+        this.getPeer().setLayoutWeightAttribute(value);
         return this
     }
     public chainWeight(value: ChainWeightOptions | undefined): this {
+        this.getPeer().setChainWeightAttribute(value);
         return this
     }
     public padding(value: Padding | Length | LocalizedPadding | undefined): this {
+        this.getPeer().setPaddingAttribute(value);
         return this
     }
     public safeAreaPadding(value: Padding | LengthMetrics | LocalizedPadding | undefined): this {
+        this.getPeer().setSafeAreaPaddingAttribute(value);
         return this
     }
     public margin(value: Padding | Length | LocalizedPadding | undefined): this {
+        this.getPeer().setMarginAttribute(value);
         return this
     }
     public pixelRound(value: PixelRoundPolicy | undefined): this {
+        this.getPeer().setPixelRoundAttribute(value);
         return this
     }
     public backgroundImageSize(value: SizeOptions | ImageSize | undefined): this {
@@ -145,6 +161,7 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
         return this;
     }
     public border(value: BorderOptions | undefined): this {
+        this.getPeer().setBorderAttribute(value);
         return this
     }
     public borderStyle(value: BorderStyle | EdgeStyles | undefined): this {
@@ -157,12 +174,15 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
         return this;
     }
     public borderColor(value: ResourceColor | EdgeColors | LocalizedEdgeColors | undefined): this {
+        this.getPeer().setBorderColorAttribute(value);
         return this
     }
-    public borderRadius(value: Length | BorderRadiuses | LocalizedBorderRadiuses | undefined): this {
+    public borderRadius(value: Length | BorderRadiuses | LocalizedBorderRadiuses | undefined, type?: RenderStrategy): this {
+        this.getPeer().setBorderRadiusAttribute(value, type);
         return this
     }
     public borderImage(value: BorderImageOption | undefined): this {
+        this.getPeer().setBorderImageAttribute(value);
         return this
     }
     public outline(value: OutlineOptions | undefined): this {
@@ -204,6 +224,10 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
     }
     public onTouch(value: ((event: TouchEvent) => void) | undefined): this {
         this.getPeer().setOnTouchAttribute(value);
+        return this
+    }
+    public onTouchTestDone(value: TouchTestDoneCallback | undefined): this {
+        this.getPeer().setOnTouchTestDoneAttribute(value);
         return this
     }
     public onKeyEvent(value: ((parameter: KeyEvent) => boolean) | undefined): this {
@@ -357,7 +381,7 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
         return this
     }
     public onAreaChange(value: ((oldValue: Area, newValue: Area) => void) | undefined): this {
-        this.getPeer().setOnAreaChangeAttribute(value);
+        this.getPeer().setOnAreaChange0Attribute(value);
         return this
     }
     public visibility(value: Visibility | undefined): this {
@@ -365,76 +389,111 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
         return this
     }
     public flexGrow(value: number | undefined): this {
+        this.getPeer().setFlexGrowAttribute(value);
         return this
     }
     public flexShrink(value: number | undefined): this {
+        this.getPeer().setFlexShrinkAttribute(value);
         return this
     }
     public flexBasis(value: number | string | undefined): this {
+        this.getPeer().setFlexBasisAttribute(value);
         return this
     }
     public alignSelf(value: ItemAlign | undefined): this {
+        this.getPeer().setAlignSelfAttribute(value);
         return this
     }
     public displayPriority(value: number | undefined): this {
+        this.getPeer().setDisplayPriorityAttribute(value);
         return this
     }
     public direction(value: Direction | undefined): this {
+        this.getPeer().setDirectionAttribute(value);
         return this
     }
     public align(value: Alignment | undefined): this {
+        this.getPeer().setAlignAttribute(value);
         return this
     }
     public position(value: Position | Edges | LocalizedEdges | undefined): this {
+        this.getPeer().setPositionAttribute(value);
         return this
     }
     public markAnchor(value: Position | LocalizedPosition | undefined): this {
+        this.getPeer().setMarkAnchorAttribute(value);
         return this
     }
     public offset(value: Position | Edges | LocalizedEdges | undefined): this {
+        this.getPeer().setOffsetAttribute(value);
         return this
     }
     public enabled(value: boolean | undefined): this {
         this.getPeer().setEnabledAttribute(value);
+        this.markDirty();
         return this
     }
     public alignRules(value: AlignRuleOption | undefined | LocalizedAlignRuleOptions | undefined): this {
+        this.getPeer().setAlignRulesAttribute(value);
         return this
     }
     public aspectRatio(value: number | undefined): this {
+        this.getPeer().setAspectRatioAttribute(value);
         return this
     }
     public clickEffect(value: ClickEffect | undefined): this {
         return this
     }
+    public enableClickSoundEffect(value: boolean | undefined): this {
+        this.getPeer()?.setEnableClickSoundEffectAttribute(value);
+        return this
+    }
     public onDragStart(value: ((event: DragEvent, extraParams?: string) => CustomBuilder | DragItemInfo) | undefined): this {
+        this.getPeer()?.setOnDragStartAttribute(value);
         return this
     }
     public onDragEnter(value: ((event: DragEvent, extraParams?: string) => void) | undefined): this {
+        this.getPeer()?.setOnDragEnterAttribute(value);
         return this
     }
     public onDragMove(value: ((event: DragEvent, extraParams?: string) => void) | undefined): this {
+        this.getPeer()?.setOnDragMoveAttribute(value);
         return this
     }
     public onDragLeave(value: ((event: DragEvent, extraParams?: string) => void) | undefined): this {
+        this.getPeer()?.setOnDragLeaveAttribute(value);
         return this
     }
-    public onDrop(eventCallback: ((event: DragEvent, extraParams?: string) => void) | undefined | OnDragEventCallback | undefined, dropOptions?: DropOptions): this {
+    public onDrop(eventCallback: ((event: DragEvent, extraParams?: string) => void) | undefined | OnDragEventCallback | undefined): this {
+        this.getPeer()?.setOnDrop0Attribute(eventCallback);
+        return this
+    }
+    public onDrop(eventCallback: ((event: DragEvent, extraParams?: string) => void) | undefined | OnDragEventCallback | undefined, dropOptions: DropOptions): this {
+        this.getPeer()?.setOnDrop1Attribute(eventCallback, dropOptions);
+        return this
+    }
+    public onDragSpringLoading(callback_: ((value0: SpringLoadingContext) => void) | null | undefined, configuration?: DragSpringLoadingConfiguration): this {
+        this.getPeer()?.setOnDragSpringLoadingAttribute(callback_, configuration)
         return this
     }
     public onDragEnd(value: ((event: DragEvent, extraParams?: string) => void) | undefined): this {
+        this.getPeer()?.setOnDragEndAttribute(value);
         return this
     }
-    public allowDrop(value: Array<UniformDataType> | null | undefined): this {
+    public allowDrop(value: Array<UniformDataType> | null | Array<string> | undefined): this {
+        hookAllowDrop(this, value);
         return this
     }
     public draggable(value: boolean | undefined): this {
+        this.getPeer()?.setDraggableAttribute(value);
         return this
     }
     public dragPreview(preview: CustomBuilder | DragItemInfo | string | undefined, config?: PreviewConfiguration): this {
+        this.getPeer()?.setDragPreviewAttribute(preview, config);
         return this
     }
     public onPreDrag(value: ((parameter: PreDragStatus) => void) | undefined): this {
+        this.getPeer()?.setOnPreDragAttribute(value);
         return this
     }
     public linearGradient(value: LinearGradientOptions | undefined): this {
@@ -559,6 +618,10 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
         this.getPeer().setOnGestureRecognizerJudgeBegin1Attribute(callback_, exposeInnerGesture);
         return this
     }
+    public onGestureRecognizerJudgeBegin(callback_: GestureRecognizerJudgeBeginCallback | undefined): this {
+        this.getPeer().setOnGestureRecognizerJudgeBegin0Attribute(callback_);
+        return this
+    }
     public shouldBuiltInRecognizerParallelWith(value: ShouldBuiltInRecognizerParallelWithCallback | undefined): this {
         this.getPeer().setShouldBuiltInRecognizerParallelWithAttribute(value);
         return this
@@ -568,6 +631,7 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
         return this
     }
     public onTouchIntercept(value: ((parameter: TouchEvent) => HitTestMode) | undefined): this {
+        this.getPeer().setOnTouchInterceptAttribute(value);
         return this
     }
     public onSizeChange(value: SizeChangeCallback | undefined): this {
@@ -577,16 +641,26 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
     public accessibilityFocusDrawLevel(value: FocusDrawLevel | undefined): this {
         return this
     }
-    public customProperty(name: string | undefined, value: Object | undefined): this {
+    public customProperty(name: string, value: CustomProperty): this {
+        hookCustomPropertyImpl(this, name, value);
         return this
     }
     public expandSafeArea(types?: Array<SafeAreaType> | undefined, edges?: Array<SafeAreaEdge> | undefined): this {
         return this
     }
-    public background(builder: CustomBuilder | undefined, options?: BackgroundOptions): this {
+    public background(content: CustomBuilder | ResourceColor | undefined, options?: BackgroundOptions): this {
+        this.getPeer().setBackgroundAttribute(content);
         return this
     }
-    public backgroundImage(src: ResourceStr | PixelMap | undefined, repeat?: ImageRepeat | undefined): this {
+    public backgroundImage(value: ResourceStr | PixelMap | undefined): this {
+        this.getPeer().setBackgroundImage0Attribute(value);
+        return this
+    }
+    public backgroundImage(src: ResourceStr | PixelMap | undefined, options: BackgroundImageOptions): this {
+        this.getPeer().setBackgroundImage1Attribute(src, options);
+        return this
+    }
+    public backgroundImage(src: ResourceStr | PixelMap | undefined, repeat: ImageRepeat): this {
         this.getPeer().setBackgroundImage2Attribute(src, repeat);
         return this
     }
@@ -604,13 +678,13 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
         this.getPeer().setFocusScopePriorityAttribute(scopeId, priority);
         return this
     }
-    public gesture(gesture: GestureType | undefined, mask?: GestureMask): this {
+    public gesture(gesture: GestureType, mask?: GestureMask): this {
         return this
     }
-    public priorityGesture(gesture: GestureType | undefined, mask?: GestureMask): this {
+    public priorityGesture(gesture: GestureType, mask?: GestureMask): this {
         return this
     }
-    public parallelGesture(gesture: GestureType | undefined, mask?: GestureMask): this {
+    public parallelGesture(gesture: GestureType, mask?: GestureMask): this {
         return this
     }
     public blur(blurRadius: number | undefined, options?: BlurOptions, sysOptions?: SystemAdaptiveOptions): this {
@@ -632,9 +706,11 @@ export class ArkBaseNode extends ComponentBase implements CommonAttribute {
         return this
     }
     public dragPreviewOptions(value: DragPreviewOptions | undefined, options?: DragInteractionOptions): this {
+        hookDragPreviewOptions(this, value, options)
         return this
     }
-    public overlay(value: string | CustomBuilder | ComponentContent | undefined, options?: OverlayOptions): this {
+    public overlay(value: string | CustomBuilder | ComponentContent<Object> | undefined, options?: OverlayOptions): this {
+        this.getPeer()?.setOverlayAttribute(value, options)
         return this
     }
     public blendMode(value: BlendMode | undefined, type?: BlendApplyType): this {

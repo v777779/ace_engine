@@ -20,9 +20,17 @@
 
 #include "bridge/declarative_frontend/jsview/js_view_common_def.h"
 #include "core/components/web/web_component.h"
+#include "frameworks/base/image/pixel_map.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_container_base.h"
+#include "core/event/mouse_event.h"
 
 namespace OHOS::Ace::Framework {
+
+constexpr napi_type_tag WEB_PIXEL_MAP_TYPE_TAG = {
+    .lower = 0xA7E5D9F3C8B6A4E2,
+    .upper = 0x8E6B4C9D7A3F2E5D,
+};
+
 using JSwebEventCallback = std::function<void()>;
 class JSWeb : public JSContainerBase {
 public:
@@ -48,6 +56,7 @@ public:
     static void OnErrorReceive(const JSCallbackInfo& args);
     static void OnHttpErrorReceive(const JSCallbackInfo& args);
     static void OnFileSelectorShow(const JSCallbackInfo& args);
+    static void AISessionOptions(const JSCallbackInfo& args);
     static void OnInterceptRequest(const JSCallbackInfo& args);
     static void OnOverrideErrorPage(const JSCallbackInfo& args);
     static void OnUrlLoadIntercept(const JSCallbackInfo& args);
@@ -61,6 +70,7 @@ public:
     static void ImageAccessEnabled(bool isImageAccessEnabled);
     static void MixedMode(int32_t MixedModeNum);
     static void ZoomAccessEnabled(bool isZoomAccessEnabled);
+    static void ZoomControlAccess(bool zoomControlAccess);
     static void GeolocationAccessEnabled(bool isGeolocationAccessEnabled);
     static void JavaScriptProxy(const JSCallbackInfo& args);
     static void UserAgent(const std::string& userAgent);
@@ -104,6 +114,7 @@ public:
     static void JsOnDrop(const JSCallbackInfo& info);
     static void PinchSmoothModeEnabled(bool isPinchSmoothModeEnabled);
     static void OnWindowNew(const JSCallbackInfo& args);
+    static void OnWindowNewExt(const JSCallbackInfo& args);
     static void OnActivateContent(const JSCallbackInfo& args);
     static void OnWindowExit(const JSCallbackInfo& args);
     static void MultiWindowAccessEnabled(bool isMultiWindowAccessEnable);
@@ -150,6 +161,8 @@ public:
     static void OnNativeEmbedLifecycleChange(const JSCallbackInfo& args);
     static void OnNativeEmbedVisibilityChange(const JSCallbackInfo& args);
     static void OnNativeEmbedGestureEvent(const JSCallbackInfo& args);
+    static void OnNativeEmbedMouseEvent(const JSCallbackInfo& args);
+    static void OnNativeEmbedObjectParamChange(const JSCallbackInfo& args);
     static void JavaScriptOnDocumentStart(const JSCallbackInfo& args);
     static void JavaScriptOnDocumentEnd(const JSCallbackInfo& args);
     static void OptimizeParserBudgetEnabled(bool enable);
@@ -157,20 +170,29 @@ public:
     static void RunJavaScriptOnDocumentStart(const JSCallbackInfo& args);
     static void RunJavaScriptOnDocumentEnd(const JSCallbackInfo& args);
     static void RunJavaScriptOnHeadEnd(const JSCallbackInfo& args);
+    static void SetCallbackFromController(const JSRef<JSObject> controller);
+    static void SetForceEnableZoom(const JSCallbackInfo& args);
+    static void JSBackToTop(const JSCallbackInfo& info);
+    static void OnCameraCaptureStateChanged(const JSCallbackInfo& args);
+    static void OnMicrophoneCaptureStateChanged(const JSCallbackInfo& args);
+    static void EnableDrag(const JSCallbackInfo& args);
     static JSRef<JSVal> CreateJSWindowNewHandler(const WebWindowNewEvent& eventInfo);
     static bool HandleWindowNewEvent(const WebWindowNewEvent* eventInfo);
+    static JSRef<JSVal> CreateJSWindowNewExtHandler(const WebWindowNewExtEvent& eventInfo);
+    static bool HandleWindowNewExtEvent(const WebWindowNewExtEvent* eventInfo);
     static JSRef<JSVal> CreateScreenCaptureHandler(const WebScreenCaptureRequestEvent& eventInfo);
     static JSRef<JSVal> CreatePermissionRequestHandler(const WebPermissionRequestEvent& eventInfo);
     static JSRef<JSVal> CreateGeolocationShowHandler(const LoadWebGeolocationShowEvent& eventInfo);
     static JSRef<JSVal> CreateNativeEmbedGestureHandler(const NativeEmbeadTouchInfo& eventInfo);
+    static JSRef<JSVal> CreateNativeEmbedMouseHandler(const NativeEmbeadMouseInfo& eventInfo);
     static JSRef<JSVal> CreateFullScreenEnterHandler(const FullScreenEnterEvent& eventInfo);
     static JSRef<JSVal> CreateCommonDialogResultHandler(const WebDialogEvent& eventInfo);
     static JSRef<JSVal> CreateFileSelectorResultHandler(const FileSelectorEvent& eventInfo);
     static JSRef<JSVal> CreateFileSelectorParamHandler(const FileSelectorEvent& eventInfo);
     static JSRef<JSVal> CreateContextMenuParamHandler(const ContextMenuEvent& eventInfo);
     static JSRef<JSVal> CreateContextMenuResultHandler(const ContextMenuEvent& eventInfo);
-    static JSRef<JSVal> CreateErrorReceiveRequestHandler(const ReceivedErrorEvent& eventInfo);
-    static JSRef<JSVal> CreateErrorReceiveErrorHandler(const ReceivedErrorEvent& eventInfo);
+    static JSRef<JSVal> CreateRequestErrorHandler(const ReceivedErrorEvent& eventInfo);
+    static JSRef<JSVal> CreateResponseErrorHandler(const ReceivedErrorEvent& eventInfo);
     static JSRef<JSVal> CreateLoadInterceptHandler(const LoadInterceptEvent& eventInfo);
     static JSRef<JSVal> CreateHttpErrorReceiveRequestHandler(const ReceivedHttpErrorEvent& eventInfo);
     static JSRef<JSVal> CreateHttpErrorReceiveResponseHandler(const ReceivedHttpErrorEvent& eventInfo);
@@ -179,6 +201,11 @@ public:
     static JSRef<JSVal> CreateConsoleHandler(const LoadWebConsoleLogEvent& eventInfo);
     static JSRef<JSVal> CreateSslErrorEventHandler(const WebAllSslErrorEvent& eventInfo);
     static JSRef<JSVal> CreateDataResubmittedHandler(const DataResubmittedEvent& eventInfo);
+    static JSRef<JSVal> CreateClientAuthenticationRequestHandler(const WebSslSelectCertEvent& eventInfo);
+    static JSRef<JSVal> CreateSslErrorEventReceiveHandler(const WebSslErrorEvent& eventInfo);
+    static JSRef<JSVal> CreateInterceptRequestHandler(const OnInterceptRequestEvent& eventInfo);
+    static JSRef<JSVal> CreateFaviconReceivedHandler(const FaviconReceivedEvent& eventInfo);
+    static uint32_t GetBytesPerPixel(OHOS::Ace::PixelFormat format);
 
     // Enable or disable debugging of web content
     static bool webDebuggingAccess_;
@@ -201,8 +228,25 @@ public:
     static void EnableWebAVSession(const JSCallbackInfo& args);
     static void EnableDataDetector(const JSCallbackInfo& args);
     static void DataDetectorConfig(const JSCallbackInfo& args);
+    static void EnableSelectedDataDetector(const JSCallbackInfo& args);
     static void EnableFollowSystemFontWeight(bool enableFollowSystemFontWeight);
+    static void OnLoadStarted(const JSCallbackInfo& args);
+    static void OnLoadFinished(const JSCallbackInfo& args);
     static void GestureFocusMode(int32_t gestureFocusMode);
+    static void RotateRenderEffect(int32_t webRotateEffect);
+    static void OnDetectedBlankScreen(const JSCallbackInfo& args);
+    static void BlankScreenDetectionConfig(const JSCallbackInfo& args);
+    static void OnFirstScreenPaint(const JSCallbackInfo& args);
+    static void OnTextSelectionChange(const JSCallbackInfo& args);
+    static void EnableImageAnalyzer(const JSCallbackInfo& args);
+    static void OnPdfScrollAtBottom(const JSCallbackInfo& args);
+    static void OnPdfLoadEvent(const JSCallbackInfo& args);
+    static void OnSafeBrowsingCheckFinish(const JSCallbackInfo& args);
+    static void OnVerifyPinRequest(const JSCallbackInfo& args);
+    static void EnableAutoFill(const JSCallbackInfo& args);
+    static void EnableDefaultContextMenu(const JSCallbackInfo& args);
+    static void EnableScrollDirectionalLock(const JSCallbackInfo& args);
+    static void ScrollbarLayoutPolicy(const JSCallbackInfo& args);
 
 protected:
     static void OnCommonDialog(const JSCallbackInfo& args, int dialogEventType);
@@ -212,7 +256,10 @@ protected:
 
 private:
     static void ParseScriptItems(const JSCallbackInfo& args, ScriptItems& scriptItems,
-        ScriptItemsByOrder& scriptItemsByOrder);
+        ScriptRegexItems& scriptRegexItems, ScriptItemsByOrder& scriptItemsByOrder);
+    static void GetDoubleVectorFromJSArray(const JSRef<JSArray>& jsArray, std::vector<double>& params);
+    static void GetBlankScreenDetectionMethodVectorFromJSArray(
+        const JSRef<JSArray>& jsArray, std::vector<int32_t>& params);
     static bool CheckNestedScrollMode(const int32_t& modeValue);
 };
 } // namespace OHOS::Ace::Framework

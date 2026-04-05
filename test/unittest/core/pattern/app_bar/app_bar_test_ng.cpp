@@ -22,9 +22,9 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/geometry/dimension.h"
 #include "base/memory/ace_type.h"
@@ -68,6 +68,9 @@ public:
 void AppBarTestNg::SetUpTestSuite()
 {
     MockPipelineContext::SetUp();
+    MockContainer::SetUp();
+    MockContainer::Current()->pipelineContext_ = PipelineBase::GetCurrentContext();
+
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
     auto themeConstants = AceType::MakeRefPtr<ThemeConstants>(nullptr);
@@ -77,6 +80,7 @@ void AppBarTestNg::SetUpTestSuite()
 
 void AppBarTestNg::TearDownTestSuite()
 {
+    MockContainer::Current()->pipelineContext_ = nullptr;
     MockPipelineContext::GetCurrent()->SetThemeManager(nullptr);
     MockPipelineContext::TearDown();
 }
@@ -833,7 +837,7 @@ HWTEST_F(AppBarTestNg, TestColorConfigurationCallBack027, TestSize.Level1)
      */
     auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
     ViewStackProcessor::GetInstance()->SetCustomAppBarNode(custom);
-
+    pattern->SetCustomAppBarNode(custom);
     /**
      * @tc.steps: step3. Set callback.
      */
@@ -898,7 +902,7 @@ HWTEST_F(AppBarTestNg, TestAppInfoCallBack028, TestSize.Level1)
      */
     auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
     ViewStackProcessor::GetInstance()->SetCustomAppBarNode(custom);
-
+    pattern->SetCustomAppBarNode(custom);
     /**
      * @tc.steps: step3. Set callback.
      */
@@ -950,7 +954,7 @@ HWTEST_F(AppBarTestNg, TestAppBgColorCallBack029, TestSize.Level1)
      */
     auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
     ViewStackProcessor::GetInstance()->SetCustomAppBarNode(custom);
-
+    pattern->SetCustomAppBarNode(custom);
     /**
      * @tc.steps: step3. Set callback.
      */
@@ -1053,11 +1057,11 @@ HWTEST_F(AppBarTestNg, TestOnBackPressedCallback032, TestSize.Level1)
      */
     auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
     ViewStackProcessor::GetInstance()->SetCustomAppBarNode(custom);
-
+    pattern->SetCustomAppBarNode(custom);
     bool callbackCalled = false;
     std::string callbackName;
     std::string callbackValue;
-    
+
     auto callback =
         [&callbackCalled, &callbackName, &callbackValue](const std::string& name, const std::string& value) mutable {
         callbackCalled = true;
@@ -1110,5 +1114,370 @@ HWTEST_F(AppBarTestNg, TestOnBackPressedCallback032, TestSize.Level1)
     };
     appBar->CreateServicePanel(bundleName, abilityName, params);
     EXPECT_EQ(appBar->sessionId_, 0);
+}
+
+/**
+ * @tc.name: InitAccessibility001
+ * @tc.desc: Test InitAccessibility
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, InitAccessibility001, TestSize.Level1)
+{
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    AppBarView::InitAccessibility(stage);
+    auto stageAccessibilityProperty = stage->GetAccessibilityProperty<NG::AccessibilityProperty>();
+    EXPECT_EQ(stageAccessibilityProperty->GetAccessibilityZIndex(), -2);
+}
+
+/**
+ * @tc.name: BuildAppbar001
+ * @tc.desc: Test BuildAppbar
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, BuildAppbar001, TestSize.Level1)
+{
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    EXPECT_NE(stage, nullptr);
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    EXPECT_NE(appBar, nullptr);
+    auto atom = appBar->Create(stage);
+    EXPECT_NE(atom, nullptr);;
+
+    auto pipeline = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    AppBarView::BuildAppbar(pipeline);
+    EXPECT_EQ(atom, appBar->atomicService_.Upgrade());
+}
+
+/**
+ * @tc.name: RectChangeListener001
+ * @tc.desc: Test RectChangeListener
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, RectChangeListener001, TestSize.Level1)
+{
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(stage, nullptr);
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    ASSERT_NE(appBar, nullptr);
+    auto atom = appBar->Create(stage);
+    ASSERT_NE(atom, nullptr);
+    auto pattern = atom->GetPattern<AtomicServicePattern>();
+    ASSERT_NE(pattern, nullptr);
+    bool isExecute = false;
+    auto callback = [&isExecute](const RectF& rect) mutable { isExecute = true; };
+    pattern->AddRectChangeListener(callback);
+    pattern->NotifyRectChange(RectF(0.0f, 0.0f, 100.0f, 100.0f));
+    EXPECT_EQ(isExecute, true);
+}
+
+/**
+ * @tc.name: RectChangeListener002
+ * @tc.desc: Test RectChangeListener
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, RectChangeListener002, TestSize.Level1)
+{
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(stage, nullptr);
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    ASSERT_NE(appBar, nullptr);
+    auto atom = appBar->Create(stage);
+    ASSERT_NE(atom, nullptr);
+    auto pattern = atom->GetPattern<AtomicServicePattern>();
+    ASSERT_NE(pattern, nullptr);
+    bool isExecute = false;
+    auto callback = [&isExecute](const RectF& rect) mutable { isExecute = true; };
+    auto listenerId =  pattern->AddRectChangeListener(callback);
+    auto size = static_cast<size_t>(pattern->rectChangeListeners_.size());
+    EXPECT_EQ(size, 1);
+    pattern->RemoveRectChangeListener(listenerId);
+    auto sizeRectChange = static_cast<size_t>(pattern->rectChangeListeners_.size());
+    EXPECT_EQ(sizeRectChange, 0);
+}
+
+/**
+ * @tc.name: RectChangeListener003
+ * @tc.desc: Test RectChangeListener
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, RectChangeListener003, TestSize.Level1)
+{
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(stage, nullptr);
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    ASSERT_NE(appBar, nullptr);
+    auto atom = appBar->Create(stage);
+    ASSERT_NE(atom, nullptr);
+    auto pattern = atom->GetPattern<AtomicServicePattern>();
+    ASSERT_NE(pattern, nullptr);
+    bool isExecute = false;
+    auto callback = [&isExecute](const RectF& rect) mutable { isExecute = true; };
+    pattern->AddRectChangeListener(callback);
+    pattern->CallRectChange();
+    EXPECT_EQ(pattern->appBarRect_, std::nullopt);
+}
+
+/**
+ * @tc.name: TestAppBgColorCallBack030
+ * @tc.desc: Test AppBgColorCallBack
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, TestAppBgColorCallBack030, TestSize.Level1)
+{
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    EXPECT_NE(stage, nullptr);
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    EXPECT_NE(appBar, nullptr);
+    auto atom = appBar->Create(stage);
+    EXPECT_NE(atom, nullptr);
+    auto menuBar = appBar->BuildMenuBar();
+    atom->AddChild(menuBar);
+    auto pattern = atom->GetPattern<AtomicServicePattern>();
+
+    auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
+    ViewStackProcessor::GetInstance()->SetCustomAppBarNode(custom);
+    pattern->SetCustomAppBarNode(custom);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    pipeline->SetAppBgColor(Color::RED);
+
+    bool isExecute = false;
+    auto callback = [&isExecute](const std::string& name, const std::string& value) mutable {
+        isExecute = true;
+    };
+
+    custom->SetCustomCallback(std::move(callback));
+    pattern->AppBgColorCallBack();
+    EXPECT_EQ(isExecute, true);
+}
+
+/**
+ * @tc.name: TestGetAppBarRect003
+ * @tc.desc: Test GetAppBarRect
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, TestGetAppBarRect003, TestSize.Level1)
+{
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    auto atom = appBar->Create(stage);
+
+    auto pipeline = PipelineContext::GetCurrentContext();
+    pipeline->safeAreaManager_ = AceType::MakeRefPtr<SafeAreaManager>();
+    pipeline->SetInstallationFree(0);
+    auto rect = appBar->GetAppBarRect();
+    EXPECT_EQ(rect, std::nullopt);
+
+    pipeline->SetInstallationFree(1);
+    rect = appBar->GetAppBarRect();
+    EXPECT_EQ(rect, std::nullopt);
+}
+
+/**
+ * @tc.name: GetJSAppBarContainer001
+ * @tc.desc: Test GetJSAppBarContainer
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, GetJSAppBarContainer001, TestSize.Level1)
+{
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(stage, nullptr);
+    RefPtr<AtomicServicePattern> atomicServicePattern = AceType::MakeRefPtr<AtomicServicePattern>();
+    ASSERT_NE(atomicServicePattern, nullptr);
+    auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
+    atomicServicePattern->customAppBarNodeNode_ = custom;
+    auto customAppBar = atomicServicePattern->GetJSAppBarContainer();
+    EXPECT_NE(customAppBar, nullptr);
+}
+
+/**
+ * @tc.name: SetCustomAppBarNode
+ * @tc.desc: Test SetCustomAppBarNode
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, SetCustomAppBarNode001, TestSize.Level1)
+{
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(stage, nullptr);
+    RefPtr<AtomicServicePattern> atomicServicePattern = AceType::MakeRefPtr<AtomicServicePattern>();
+    ASSERT_NE(atomicServicePattern, nullptr);
+    auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
+    atomicServicePattern->SetCustomAppBarNode(custom);
+    auto customAppBar = atomicServicePattern->GetJSAppBarContainer();
+    EXPECT_NE(customAppBar, nullptr);
+}
+
+/**
+ * @tc.name: SetCustomAppBarNode002
+ * @tc.desc: Test GetJSAppBarContainer
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, SetCustomAppBarNode002, TestSize.Level1)
+{
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(stage, nullptr);
+    RefPtr<AtomicServicePattern> atomicServicePattern = AceType::MakeRefPtr<AtomicServicePattern>();
+    ASSERT_NE(atomicServicePattern, nullptr);
+    auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
+    atomicServicePattern->customAppBarNodeNode_ = custom;
+    auto customAppBar = atomicServicePattern->GetJSAppBarContainer();
+    EXPECT_NE(customAppBar, nullptr);
+}
+
+/**
+ * @tc.name: SetMenuBarVisibleCallBack001
+ * @tc.desc: Test SetMenuBarVisibleCallBack
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, SetMenuBarVisibleCallBack001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create stage, atomicServicePattern, customAppBar.
+     * @tc.expected: stage, atomicServicePattern, customAppBar are not null.
+     */
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(stage, nullptr);
+    RefPtr<AtomicServicePattern> atomicServicePattern = AceType::MakeRefPtr<AtomicServicePattern>();
+    ASSERT_NE(atomicServicePattern, nullptr);
+    auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
+    atomicServicePattern->customAppBarNodeNode_ = custom;
+    auto customAppBar = atomicServicePattern->GetJSAppBarContainer();
+    CHECK_NULL_VOID(customAppBar);
+
+    /**
+     * @tc.steps: step2. Expect the callback is used.
+     */
+    std::string name1 = "qw";
+    customAppBar->customCallback_ = [&name1](const std::string& name, const std::string& value) { name1 = "test"; };
+    atomicServicePattern->SetMenuBarVisibleCallBack(true);
+    EXPECT_EQ(name1, "test");
+}
+
+/**
+ * @tc.name: SetMenuBarVisible001
+ * @tc.desc: Test SetMenuBarVisible
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, SetMenuBarVisible001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create stage, atomicServicePattern, customAppBar.
+     * @tc.expected: stage, atomicServicePattern, customAppBar are not null.
+     */
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    ASSERT_NE(appBar, nullptr);
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(stage, nullptr);
+    auto atom = appBar->Create(stage);
+    ASSERT_NE(atom, nullptr);
+    auto atomicServicePattern = atom->GetPattern<AtomicServicePattern>();
+    ASSERT_NE(atomicServicePattern, nullptr);
+
+    auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
+    atomicServicePattern->customAppBarNodeNode_ = custom;
+    auto customAppBar = atomicServicePattern->GetJSAppBarContainer();
+    CHECK_NULL_VOID(customAppBar);
+
+    /**
+     * @tc.steps: step2. Expect the callback is used.
+     */
+    std::string name1 = "qw";
+    customAppBar->customCallback_ = [&name1](const std::string& name, const std::string& value) { name1 = "test"; };
+    appBar->SetMenuBarVisible(true);
+    EXPECT_EQ(name1, "test");
+}
+
+/**
+ * @tc.name: ExtensionHostParamsCallBack001
+ * @tc.desc: Test ExtensionHostParamsCallBack
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, ExtensionHostParamsCallBack001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create stage, atomicServicePattern, customAppBar.
+     * @tc.expected: stage, atomicServicePattern, customAppBar are not null.
+     */
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    ASSERT_NE(appBar, nullptr);
+    auto stage = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(stage, nullptr);
+    auto atom = appBar->Create(stage);
+    ASSERT_NE(atom, nullptr);
+    auto atomicServicePattern = atom->GetPattern<AtomicServicePattern>();
+    ASSERT_NE(atomicServicePattern, nullptr);
+
+    auto custom = CustomAppBarNode::CreateCustomAppBarNode(-1, "");
+    atomicServicePattern->customAppBarNodeNode_ = custom;
+    auto customAppBar = atomicServicePattern->GetJSAppBarContainer();
+    CHECK_NULL_VOID(customAppBar);
+    /**
+     * @tc.steps: step2. Expect the callback is used.
+     */
+    std::string name1 = "qw";
+    customAppBar->customCallback_ = [&name1](const std::string& name, const std::string& value) { name1 = "test"; };
+    appBar->FireExtensionHostParams();
+    EXPECT_EQ(name1, "test");
+}
+
+/**
+ * @tc.name: TestCreateServicePanelNotFirstTry
+ * @tc.desc: Test CreateServicePanel
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, TestCreateServicePanelNotFirstTry, TestSize.Level1)
+{
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    appBar->CreateServicePanel(false);
+    appBar->GetModalUIExtensionCallbacks(false);
+    EXPECT_EQ(appBar->sessionId_, 0);
+}
+
+/**
+  * @tc.name: UpdateVisibilityOfMenuBarRow001
+  * @tc.desc: Test UpdateVisiblityOfMenuBarRow
+  * @tc.type: FUNC
+  */
+HWTEST_F(AppBarTestNg, UpdateVisibilityOfMenuBarRow001, TestSize.Level1)
+{
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    auto menubarRow = appBar->BuildMenuBarRow();
+    ASSERT_TRUE(menubarRow);
+    auto menubarRowNode = AceType::DynamicCast<FrameNode>(menubarRow);
+    ASSERT_TRUE(menubarRowNode);
+    auto container = MockContainer::Current();
+    ASSERT_TRUE(container);
+    menubarRowNode->SetLayoutProperty(AceType::MakeRefPtr<LinearLayoutProperty>(true));
+    auto layoutProperty = menubarRowNode->GetLayoutProperty<LinearLayoutProperty>();
+    ASSERT_TRUE(layoutProperty);
+
+    EXPECT_CALL(*container, IsSubWindow()).Times(AnyNumber()).WillRepeatedly(Return(true));
+    layoutProperty->UpdateVisibility(VisibleType::VISIBLE);
+    appBar->UpdateVisibilityOfMenuBarRow(menubarRow, container);
+    EXPECT_EQ(layoutProperty->GetVisibilityValue(), VisibleType::INVISIBLE);
+}
+
+/**
+ * @tc.name: SetRectChangeCallback001
+ * @tc.desc: Test SetRectChangeCallback
+ * @tc.type: FUNC
+ */
+HWTEST_F(AppBarTestNg, SetRectChangeCallback001, TestSize.Level1)
+{
+    auto node = AceType::MakeRefPtr<FrameNode>("test", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(node, nullptr);
+    auto appBar = AceType::MakeRefPtr<AppBarView>();
+    ASSERT_NE(appBar, nullptr);
+    auto hub = node->GetEventHub<EventHub>();
+    ASSERT_NE(hub, nullptr);
+
+    bool isExecute = false;
+    auto callback = [&isExecute](const RectF& oldRect, const RectF& rect) { isExecute = true; };
+    appBar->SetRectChangeCallback(std::move(callback));
+    EXPECT_NE(appBar->rectChangeCallback_, nullptr);
+    appBar->AddInnerOnSizeChangeCallback(node);
+    hub->FireInnerOnSizeChanged(RectF(), RectF());
+    EXPECT_EQ(isExecute, true);
 }
 } // namespace OHOS::Ace::NG

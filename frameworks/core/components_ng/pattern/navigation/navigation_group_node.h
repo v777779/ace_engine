@@ -46,7 +46,7 @@ struct TransitionUnitInfo {
 };
 
 class ACE_FORCE_EXPORT NavigationGroupNode : public GroupNode {
-    DECLARE_ACE_TYPE(NavigationGroupNode, GroupNode)
+    DECLARE_ACE_TYPE(NavigationGroupNode, GroupNode);
 public:
     NavigationGroupNode(const std::string& tag, int32_t nodeId, const RefPtr<Pattern>& pattern)
         : GroupNode(tag, nodeId, pattern)
@@ -84,6 +84,14 @@ public:
     {
         return forceSplitPlaceHolderNode_;
     }
+    void SetRelatedPageDestNode(const RefPtr<UINode>& node)
+    {
+        relatedPageDestinationNode_ = node;
+    }
+    const RefPtr<UINode>& GetRelatedPageDestNode() const
+    {
+        return relatedPageDestinationNode_;
+    }
 
     void SetNavBarNode(const RefPtr<UINode>& navBarNode)
     {
@@ -105,14 +113,12 @@ public:
     {
         return useHomeDestination_;
     }
-    void SetUseHomeDestinatoin(bool use)
-    {
-        useHomeDestination_ = use;
-    }
+    void SetUseHomeDestinatoin(bool use);
 
     void CreateHomeDestinationIfNeeded();
 
     void SetSplitPlaceholder(const RefPtr<NG::UINode>& splitPlaceholder);
+    void SetStaticSplitPlaceholder(const RefPtr<NG::UINode>& splitPlaceholder);
 
     void SetPlaceholderContentNode(const RefPtr<NG::UINode>& placeholderContentNode)
     {
@@ -209,8 +215,6 @@ public:
     }
 
     bool CheckCanHandleBack(bool& isEntry);
-    
-    void CheckIsNeedForceExitWindow(bool result);
 
     void OnInspectorIdUpdate(const std::string& id) override;
 
@@ -297,6 +301,7 @@ public:
     RefPtr<FrameNode> GetTopDestination();
     void OnDetachFromMainTree(bool recursive, PipelineContext* context = nullptr) override;
     void OnAttachToMainTree(bool recursive) override;
+    void LoadRelatedPageIfNeeded();
 
     void FireHideNodeChange(NavDestinationLifecycle lifecycle);
 
@@ -378,10 +383,16 @@ public:
 
     std::string ToDumpString();
 
+    bool GetIsStaticPlaceholder() const
+    {
+        return isStaticPlaceholder_;
+    }
+
 protected:
     std::list<std::shared_ptr<AnimationUtils::Animation>> pushAnimations_;
     std::list<std::shared_ptr<AnimationUtils::Animation>> popAnimations_;
 private:
+    bool IsHomeNodeAndShouldShow(const RefPtr<NavDestinationGroupNode>& navDestination) const;
     bool UpdateNavDestinationVisibility(const RefPtr<NavDestinationGroupNode>& navDestination,
         const RefPtr<UINode>& remainChild, int32_t index, size_t destinationSize,
         const RefPtr<UINode>& preLastStandardNode);
@@ -400,6 +411,9 @@ private:
     bool CheckNeedUpdateParentNode(const RefPtr<UINode>& node);
     void RemoveJsChildImmediately(const RefPtr<FrameNode>& preNode, bool preUseCustomTransition,
         int32_t preAnimationId);
+    bool CheckEnableCustomNodeDel() const {
+        return false;
+    }
 
     void StartSoftOpacityAnimationPush(const RefPtr<FrameNode>& curNode);
     void StartSoftOpacityAnimationPop(const RefPtr<FrameNode>& preNode);
@@ -409,7 +423,11 @@ private:
     void SoftTransitionAnimationPop(const RefPtr<FrameNode>& preNode,
         const RefPtr<FrameNode>& curNode, bool isNavBar, bool preUseCustomTransition, bool curUseCustomTransition,
         const NavigationGroupNode::AnimationFinishCallback& callback);
-    bool HandleBackForHomeDestination();
+    bool HandleBackForHomeOrRelatedDestination();
+    void LoadCompleteManagerStartCollect();
+    void LoadCompleteManagerStopCollect();
+    void ContentChangeReport(RefPtr<FrameNode>& keyNode);
+    RefPtr<FrameNode> GetStaticDeveloperPlaceholderNode(const RefPtr<UINode>& node);
 
     std::optional<bool> useHomeDestination_;
     RefPtr<UINode> customHomeNode_;
@@ -418,6 +436,7 @@ private:
     RefPtr<UINode> contentNode_;
     RefPtr<UINode> dividerNode_;
     RefPtr<UINode> dragBarNode_;
+    bool isStaticPlaceholder_ = false;
     RefPtr<UINode> splitPlaceholder_;
     RefPtr<UINode> placeholderContentNode_;
     WeakPtr<NavDestinationGroupNode> parentDestinationNode_;
@@ -441,6 +460,8 @@ private:
     std::vector<RefPtr<NavDestinationGroupNode>> primaryNodesToBeRemoved_;
     RefPtr<UINode> primaryContentNode_;
     RefPtr<UINode> forceSplitPlaceHolderNode_;
+    RefPtr<UINode> relatedPageCustomNode_;
+    RefPtr<UINode> relatedPageDestinationNode_;
     //-------for force split------- end  ------
 };
 } // namespace OHOS::Ace::NG

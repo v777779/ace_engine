@@ -15,9 +15,9 @@
 
 #include "form_renderer_group.h"
 
+#include "form_event_report.h"
 #include "form_renderer.h"
 #include "form_renderer_hilog.h"
-#include "form_renderer_event_report.h"
 
 namespace OHOS {
 namespace Ace {
@@ -114,6 +114,15 @@ void FormRendererGroup::OnUnlock()
     InnerAddForm(currentFormRequest);
 }
 
+void FormRendererGroup::SetRenderGroupEnableFlag(bool isEnable)
+{
+    if (formRenderer_ == nullptr) {
+        HILOG_ERROR("SetRenderGroupEnableFlag failed, formRenderer is null");
+        return;
+    }
+    formRenderer_->SetRenderGroupEnableFlag(isEnable);
+}
+ 
 void FormRendererGroup::SetVisibleChange(bool isVisible)
 {
     if (formRenderer_ == nullptr) {
@@ -129,8 +138,8 @@ void FormRendererGroup::InnerAddForm(const FormRequest& formRequest)
     auto compId = formRequest.compId;
     OHOS::AAFwk::Want want = formRequest.want;
     AppExecFwk::FormJsInfo formJsInfo = formRequest.formJsInfo;
-    FormRenderEventReport::StartSurfaceNodeTimeoutReportTimer(formJsInfo.formId, formJsInfo.bundleName,
-        formJsInfo.formName);
+    int32_t errCode = ERR_OK;
+    AppExecFwk::AddFormFailedErrorType errType;
     if (formRenderer_ == nullptr || initState_ == FormRendererInitState::UNINITIALIZED) {
         formRenderer_ = std::make_shared<FormRenderer>(context_, runtime_, eventHandler_);
         if (!formRenderer_) {
@@ -141,22 +150,35 @@ void FormRendererGroup::InnerAddForm(const FormRequest& formRequest)
             compId.c_str(),
             std::to_string(formJsInfo.formId).c_str(),
             formJsInfo.formData.size());
-        formRenderer_->AddForm(want, formJsInfo);
+        errCode = formRenderer_->AddForm(want, formJsInfo);
         initState_ = FormRendererInitState::INITIALIZED;
+        errType = AppExecFwk::AddFormFailedErrorType::SURFACE_NODE_CREATE_FAILED;
     } else if (initState_ == FormRendererInitState::PRE_INITIALIZED) {
         HILOG_INFO("RunFormPage compId is %{public}s. formId is %{public}s, formJsInfo.formData.size is %{public}zu",
             compId.c_str(),
             std::to_string(formJsInfo.formId).c_str(),
             formJsInfo.formData.size());
-        formRenderer_->RunFormPage(want, formJsInfo);
+        errCode = formRenderer_->RunFormPage(want, formJsInfo);
         initState_ = FormRendererInitState::INITIALIZED;
+        errType = AppExecFwk::AddFormFailedErrorType::SURFACE_NODE_CREATE_FAILED;
     } else { // initState_ == FormRendererInitState::INITIALIZED
-        HILOG_INFO("AttachForm compId is %{public}s, formRequests size is %{public}s, \
-            formJsInfo.formData.size is %{public}zu",
+        HILOG_INFO("AttachForm compId: %{public}s, currentCompId_: %{public}s, formRequests size is %{public}s, "
+                   "formJsInfo.formData.size is %{public}zu",
             compId.c_str(),
+            currentCompId_.c_str(),
             std::to_string(formRequests_.size()).c_str(),
             formJsInfo.formData.size());
-        formRenderer_->AttachForm(want, formJsInfo);
+        errCode = formRenderer_->AttachForm(want, formJsInfo);
+        errType = AppExecFwk::AddFormFailedErrorType::SURFACE_NODE_REUSE_FAILED;
+    }
+
+    if (errCode != ERR_OK) {
+        AppExecFwk::FormEventReport::SendFormFailedEvent(AppExecFwk::FormEventName::FORM_NODE_ERROR,
+            formJsInfo.formId,
+            formJsInfo.bundleName,
+            formJsInfo.formName,
+            static_cast<int32_t>(errType),
+            errCode);
     }
 }
 
@@ -180,15 +202,17 @@ void FormRendererGroup::ReloadForm(const AppExecFwk::FormJsInfo& formJsInfo)
     }
 }
 
-void FormRendererGroup::UpdateFormSizeOfFormRequests(double width, double height, float borderWidth)
+void FormRendererGroup::UpdateFormSizeOfFormRequests(double width, double height, float borderWidth,
+    float formViewScale)
 {
     for (auto iter = formRequests_.begin(); iter != formRequests_.end(); ++iter) {
         iter->want.SetParam(OHOS::AppExecFwk::Constants::PARAM_FORM_WIDTH_KEY, static_cast<double>(width));
         iter->want.SetParam(OHOS::AppExecFwk::Constants::PARAM_FORM_HEIGHT_KEY, static_cast<double>(height));
         iter->want.SetParam(OHOS::AppExecFwk::Constants::PARAM_FORM_BORDER_WIDTH_KEY, static_cast<float>(borderWidth));
+        iter->want.SetParam(OHOS::AppExecFwk::Constants::PARAM_FORM_VIEW_SCALE, formViewScale);
     }
     if (formRenderer_ != nullptr) {
-        formRenderer_->UpdateFormSize(width, height, borderWidth);
+        formRenderer_->UpdateFormSize(width, height, borderWidth, formViewScale);
     } else {
         HILOG_WARN("formRenderer is null");
     }
@@ -318,6 +342,15 @@ bool FormRendererGroup::IsManagerDelegateValid(const OHOS::AAFwk::Want& want)
         return true;
     }
     return formRenderer_->IsManagerDelegateValid(want);
+}
+
+void FormRendererGroup::SetUiContentParams(const OHOS::AAFwk::Want& want)
+{
+    if (formRenderer_ == nullptr) {
+        HILOG_ERROR("SetUiContentParams failed, formRenderer is null");
+        return;
+    }
+    formRenderer_->SetUiContentParams(want);
 }
 }  // namespace Ace
 }  // namespace OHOS

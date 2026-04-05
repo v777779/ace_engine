@@ -15,6 +15,7 @@
 
 #include "core/components_ng/syntax/if_else_node.h"
 
+#include "base/log/ace_trace.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/pipeline/base/element_register.h"
 
@@ -26,6 +27,7 @@ RefPtr<IfElseNode> IfElseNode::GetOrCreateIfElseNode(int32_t nodeId)
     if (node) {
         return node;
     }
+    ACE_UINODE_TRACE(nodeId);
     node = MakeRefPtr<IfElseNode>(nodeId);
     ElementRegister::GetInstance()->AddUINode(node);
     return node;
@@ -80,9 +82,13 @@ void IfElseNode::FlushUpdateAndMarkDirty()
 {
     if (branchIdChanged_) {
         auto parent = GetParent();
-        int64_t accessibilityId = GetAccessibilityId();
-        if (parent) {
-            parent->NotifyChange(0, 0, accessibilityId, NotificationType::START_CHANGE_POSITION);
+        while (parent) {
+            auto frameNode = AceType::DynamicCast<FrameNode>(parent);
+            if (frameNode) {
+                frameNode->ChildrenUpdatedFrom(0);
+                break;
+            }
+            parent = parent->GetParent();
         }
         // mark parent dirty to flush measure.
         MarkNeedFrameFlushDirty(PROPERTY_UPDATE_BY_CHILD_REQUEST);

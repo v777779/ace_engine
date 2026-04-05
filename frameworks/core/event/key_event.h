@@ -19,11 +19,14 @@
 #include <map>
 
 #include "core/event/ace_events.h"
-#include "core/event/focus_axis_event.h"
 #include "core/event/non_pointer_event.h"
 
 namespace OHOS::MMI {
 class KeyEvent;
+}
+
+namespace OHOS::Ace::NG {
+class FocusAxisEventInfo;
 }
 
 namespace OHOS::Ace {
@@ -38,7 +41,7 @@ enum class ModifierKeyName {
     ModifierKeyFn = 1 << 3,
 };
 
-uint64_t CalculateModifierKeyState(const std::vector<OHOS::Ace::KeyCode>& status);
+ACE_FORCE_EXPORT uint64_t CalculateModifierKeyState(const std::vector<OHOS::Ace::KeyCode>& status);
 
 enum class KeyCode : int32_t {
     KEY_UNKNOWN = -1,
@@ -572,7 +575,7 @@ struct KeyEvent final : public NonPointerEvent {
     }
 
     std::string ConvertInputCodeToString() const;
-    std::string ConvertCodeToString() const;
+    ACE_FORCE_EXPORT std::string ConvertCodeToString() const;
 
     KeyCode code { KeyCode::KEY_UNKNOWN };
     std::string key;
@@ -592,8 +595,6 @@ struct KeyEvent final : public NonPointerEvent {
     uint32_t unicode = 0;
     std::vector<uint8_t> enhanceData;
     std::shared_ptr<MMI::KeyEvent> rawKeyEvent;
-    std::string msg = "";
-    std::optional<bool> activeMark;
 
     std::string ToString() const
     {
@@ -607,6 +608,9 @@ struct KeyEvent final : public NonPointerEvent {
         ss << "isPreIme = " << isPreIme;
         return ss.str();
     }
+    std::string msg = "";
+    std::optional<bool> activeMark;
+    int32_t targetDisplayId = 0;
 };
 
 class ACE_EXPORT KeyEventInfo : public BaseEventInfo {
@@ -623,12 +627,13 @@ public:
         metaKey_ = event.metaKey;
         SetDeviceId(event.deviceId);
         SetTimeStamp(event.timeStamp);
-        keyMsg_ = event.msg;
         SetPressedKeyCodes(event.pressedCodes);
+        keyMsg_ = event.msg;
         unicode_ = event.unicode;
         numLock_ = event.numLock;
         capsLock_ = event.enableCapsLock;
         scrollLock_ = event.scrollLock;
+        targetDisplayId_ = event.targetDisplayId;
     };
     ~KeyEventInfo() override = default;
 
@@ -640,9 +645,9 @@ public:
     {
         return keyCode_;
     }
-    const char* GetKeyText() const
+    const std::string& GetKeyText() const
     {
-        return keyText_.c_str();
+        return keyText_;
     }
     int32_t GetMetaKey() const
     {
@@ -660,6 +665,51 @@ public:
     void SetMetaKey(int32_t metaKey)
     {
         metaKey_ = metaKey;
+    }
+
+    void SetKeyType(KeyAction keyType)
+    {
+        keyType_ = keyType;
+    }
+
+    void SetKeyCode(KeyCode keyCode)
+    {
+        keyCode_ = keyCode;
+    }
+
+    void SetKeyText(const std::string& keyText)
+    {
+        keyText_ = keyText;
+    }
+
+    void SetKeySource(SourceType keySource)
+    {
+        keySource_ = keySource;
+    }
+
+    void SetKeyIntention(KeyIntention keyIntention)
+    {
+        keyIntention_ = keyIntention;
+    }
+
+    void SetUnicode(uint32_t unicode)
+    {
+        unicode_ = unicode;
+    }
+
+    void SetNumLock(bool numLock)
+    {
+        numLock_ = numLock;
+    }
+
+    void SetCapsLock(bool capsLock)
+    {
+        capsLock_ = capsLock;
+    }
+
+    void SetScrollLock(bool scrollLock)
+    {
+        scrollLock_ = scrollLock;
     }
 
     uint32_t GetUnicode() const

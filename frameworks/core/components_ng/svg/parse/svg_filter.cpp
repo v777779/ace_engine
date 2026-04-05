@@ -62,7 +62,7 @@ void SvgFilter::OnAsPaint()
         filterEffectsRegion.Height() * filterAttr_.height.Value()
     };
 
-    if (!Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_FOURTEEN)) {
+    if (filterAttr_.filterUnits == SvgLengthScaleUnit::USER_SPACE_ON_USE) {
         if (filterAttr_.x.Unit() != DimensionUnit::PERCENT) {
             effectFilterArea.SetLeft(filterAttr_.x.Value());
         }
@@ -135,7 +135,7 @@ bool SvgFilter::ParseAndSetSpecializedAttr(const std::string& name, const std::s
             } },
         { SVG_HEIGHT,
             [](const std::string& val, SvgFilterAttribute& attr) {
-                SvgAttributesParser::ParseDimension(val, attr.height);
+                SvgAttributesParser::ParseDimension(val, attr.height, attr.featureEnable);
             } },
         { SVG_PRIMITIVE_UNITS,
             [](const std::string& val, SvgFilterAttribute& attr) {
@@ -144,21 +144,22 @@ bool SvgFilter::ParseAndSetSpecializedAttr(const std::string& name, const std::s
             } },
         { SVG_WIDTH,
             [](const std::string& val, SvgFilterAttribute& attr) {
-                SvgAttributesParser::ParseDimension(val, attr.width);
+                SvgAttributesParser::ParseDimension(val, attr.width, attr.featureEnable);
             } },
         { SVG_X,
             [](const std::string& val, SvgFilterAttribute& attr) {
-                SvgAttributesParser::ParseDimension(val, attr.x);
+                SvgAttributesParser::ParseDimension(val, attr.x, attr.featureEnable);
             } },
         { SVG_Y,
             [](const std::string& val, SvgFilterAttribute& attr) {
-                SvgAttributesParser::ParseDimension(val, attr.y);
+                SvgAttributesParser::ParseDimension(val, attr.y, attr.featureEnable);
             } },
     };
     std::string key = name;
     StringUtils::TransformStrCase(key, StringUtils::TEXT_CASE_LOWERCASE);
     auto attrIter = BinarySearchFindIndex(attrs, ArraySize(attrs), key.c_str());
     if (attrIter != -1) {
+        filterAttr_.featureEnable = SvgUtils::IsFeatureEnable(SVG_FEATURE_SUPPORT_TWO, GetUsrConfigVersion());
         attrs[attrIter].value(value, filterAttr_);
         return true;
     }

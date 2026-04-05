@@ -144,10 +144,12 @@ RefPtr<AceType> NativeView::CreateUI()
                 std::string* val = static_cast<std::string*>(params);
                 CHECK_NULL_VOID(val);
                 self->cjView_->AboutToReuse(*val);
-            },
+            }
     };
     auto node = ViewPartialUpdateModel::GetInstance()->CreateNode(std::move(partialUpdateCallbacks));
+
     node_ = node;
+
     return node;
 }
 
@@ -251,6 +253,11 @@ void NativeView::CreateRecycle(
         AceType::DynamicCast<NG::CustomNodeBase>(node)->SetRecycleRenderFunc(std::move(recycleUpdateFunc));
     } else {
         node = view->CreateUI();
+    }
+
+    auto customNodeBase = AceType::DynamicCast<NG::CustomNodeBase>(node);
+    if (customNodeBase) {
+        customNodeBase->SetReuseId(nodeName);
     }
     auto* stack = NG::ViewStackProcessor::GetInstance();
     auto dummyNode = NG::RecycleDummyNode::WrapRecycleDummyNode(node, stack->GetRecycleNodeId());

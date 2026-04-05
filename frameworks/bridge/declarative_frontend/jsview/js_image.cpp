@@ -18,15 +18,18 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+
+#include "base/network/download_manager.h"
+#include "bridge/declarative_frontend/engine/js_converter.h"
 #ifndef PREVIEW
 #include <dlfcn.h>
 #endif
 
 #include "interfaces/inner_api/ace/ai/image_analyzer.h"
 #include "interfaces/inner_api/ui_session/ui_session_manager.h"
+#include "lattice_napi/js_lattice.h"
 
 #include "base/geometry/ng/vector.h"
-#include "base/image/drawable_descriptor.h"
 #include "base/image/drawing_color_filter.h"
 #include "base/image/drawing_lattice.h"
 #include "base/image/pixel_map.h"
@@ -49,6 +52,7 @@
 #include "core/components_ng/event/gesture_event_hub.h"
 #include "core/components_ng/pattern/image/image_model.h"
 #include "core/components_ng/pattern/image/image_model_ng.h"
+#include "core/drawable/drawable_descriptor.h"
 #include "core/image/image_source_info.h"
 
 namespace {
@@ -59,11 +63,18 @@ constexpr float DEFAULT_SMOOTHEDGE_VALUE = 0.0f;
 constexpr float DEFAULT_HDR_BRIGHTNESS = 1.0f;
 constexpr float HDR_BRIGHTNESS_MIN = 0.0f;
 constexpr float HDR_BRIGHTNESS_MAX = 1.0f;
+constexpr int32_t IMAGE_ALT_PLACEHOLDER = 1;
+constexpr int32_t IMAGE_ALT_ERROR = 2;
+constexpr int32_t IMAGE_ALT_NORMAL = 3;
 constexpr uint32_t FIT_MATRIX = 16;
 constexpr char DRAWABLE_DESCRIPTOR_NAME[] = "DrawableDescriptor";
 constexpr char LAYERED_DRAWABLE_DESCRIPTOR_NAME[] = "LayeredDrawableDescriptor";
 constexpr char ANIMATED_DRAWABLE_DESCRIPTOR_NAME[] = "AnimatedDrawableDescriptor";
 constexpr char PIXELMAP_DRAWABLE_DESCRIPTOR_NAME[] = "PixelMapDrawableDescriptor";
+const char* TOP_START_PROPERTY = "topStart";
+const char* TOP_END_PROPERTY = "topEnd";
+const char* BOTTOM_START_PROPERTY = "bottomStart";
+const char* BOTTOM_END_PROPERTY = "bottomEnd";
 } // namespace
 
 namespace OHOS::Ace {
@@ -132,6 +143,23 @@ JSRef<JSVal> LoadImageFailEventToJSValue(const LoadImageFailEvent& eventInfo)
     businessErrorObj->SetProperty<int32_t>("code", static_cast<int32_t>(eventInfo.GetErrorInfo().errorCode));
     businessErrorObj->SetProperty("message", eventInfo.GetErrorInfo().errorMessage);
     obj->SetPropertyObject("error", businessErrorObj);
+    if (!eventInfo.GetErrorInfo().downloadInfo) {
+        return JSRef<JSVal>::Cast(obj);
+    }
+    auto container = Container::Current();
+    if (!eventInfo.GetErrorInfo().downloadInfo || !container || container->IsSceneBoardWindow()) {
+        return JSRef<JSVal>::Cast(obj);
+    }
+    auto engine = EngineHelper::GetCurrentEngine();
+    if (!engine) {
+        return JSRef<JSVal>::Cast(obj);
+    }
+    NativeEngine* nativeEngine = engine->GetNativeEngine();
+    auto downloadInfoNapiValue = DownloadManager::GetInstance()->WrapDownloadInfoToNapiValue(
+        reinterpret_cast<void*>(nativeEngine), eventInfo.GetErrorInfo());
+    auto downloadInfoJsValue =
+        JsConverter::ConvertNapiValueToJsVal(reinterpret_cast<napi_value>(downloadInfoNapiValue));
+    obj->SetPropertyObject("downloadInfo", downloadInfoJsValue);
     return JSRef<JSVal>::Cast(obj);
 }
 
@@ -148,42 +176,18 @@ void JSImage::SetAlt(const JSCallbackInfo& args)
     CHECK_NULL_VOID(context);
     bool isCard = context->IsFormRender();
 
-    std::string src;
-    bool srcValid = false;
-    RefPtr<ResourceObject> resObj;
-    if (args[0]->IsString()) {
-        src = args[0]->ToString();
-    } else {
-        srcValid = ParseJsMedia(args[0], src, resObj);
-    }
-    if (ImageSourceInfo::ResolveURIType(src) == SrcType::NETWORK) {
-        return;
-    }
-    int32_t resId = 0;
-    if (args[0]->IsObject()) {
+    if (IsImageAltObject(args[0])) {
         JSRef<JSObject> jsObj = JSRef<JSObject>::Cast(args[0]);
-        JSRef<JSVal> tmp = jsObj->GetProperty("id");
-        if (!tmp->IsNull() && tmp->IsNumber()) {
-            resId = tmp->ToNumber<int32_t>();
+        if (jsObj->HasProperty("placeholder")) {
+            JSRef<JSVal> placeholderVal = jsObj->GetProperty("placeholder");
+            ParseAltImageAlt(placeholderVal, isCard, IMAGE_ALT_PLACEHOLDER);
         }
-    }
-    std::string bundleName;
-    std::string moduleName;
-    GetJsMediaBundleInfo(args[0], bundleName, moduleName);
-    RefPtr<PixelMap> pixmap = nullptr;
-
-    // input is Drawable
-    if (!srcValid && !isCard) {
-#if defined(PIXEL_MAP_SUPPORTED)
-        pixmap = CreatePixelMapFromNapiValue(args[0]);
-#endif
-    }
-    auto srcRef = std::make_shared<std::string>(src);
-    auto srcInfo = CreateSourceInfo(srcRef, pixmap, bundleName, moduleName);
-    srcInfo.SetIsUriPureNumber((resId == -1));
-    ImageModel::GetInstance()->SetAlt(srcInfo);
-    if (SystemProperties::ConfigChangePerform()) {
-        ImageModel::GetInstance()->CreateWithResourceObj(ImageResourceType::ALT, resObj);
+        if (jsObj->HasProperty("error")) {
+            JSRef<JSVal> errorVal = jsObj->GetProperty("error");
+            ParseAltImageAlt(errorVal, isCard, IMAGE_ALT_ERROR);
+        }
+    } else {
+        ParseAltImageAlt(args[0], isCard, IMAGE_ALT_NORMAL);
     }
 }
 
@@ -282,7 +286,8 @@ void JSImage::OnComplete(const JSCallbackInfo& args)
             JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             ACE_SCORING_EVENT("Image.onComplete");
             func->Execute(info);
-            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Image.onComplete");
+            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Image.onComplete",
+                ComponentEventType::COMPONENT_EVENT_IMAGE);
         };
         ImageModel::GetInstance()->SetOnComplete(std::move(onComplete));
     }
@@ -298,7 +303,8 @@ void JSImage::OnError(const JSCallbackInfo& args)
             JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             ACE_SCORING_EVENT("Image.onError");
             func->Execute(info);
-            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Image.onError");
+            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Image.onError",
+                ComponentEventType::COMPONENT_EVENT_IMAGE);
         };
 
         ImageModel::GetInstance()->SetOnError(onError);
@@ -402,47 +408,34 @@ void JSImage::CreateImage(const JSCallbackInfo& info, bool isImageSpan)
     CHECK_EQUAL_VOID(CheckResetImage(srcValid, info), true);
     CheckIsCard(src, imageInfo);
     RefPtr<PixelMap> pixmap = nullptr;
-
-    if (!srcValid) {
+    RefPtr<DrawableDescriptor> drawable = nullptr;
+    ImageType type = ImageType::BASE;
 #ifdef PIXEL_MAP_SUPPORTED
-        auto type = ParseImageType(imageInfo);
+    if (!srcValid) {
+        type = ParseImageType(imageInfo);
         if (type == ImageType::ANIMATED_DRAWABLE) {
-            std::vector<RefPtr<PixelMap>> pixelMaps;
-            int32_t duration = -1;
-            int32_t iterations = 1;
-            if (GetPixelMapListFromAnimatedDrawable(imageInfo, pixelMaps, duration, iterations)) {
-                CreateImageAnimation(pixelMaps, duration, iterations);
-                return;
-            }
-        } else if (type == ImageType::PIXELMAP_DRAWABLE) {
-            auto* address = UnwrapNapiValue(imageInfo);
-            auto drawable = AceDrawableDescriptor::CreateDrawable(address);
-            if (!drawable) {
-                return;
-            }
-            if (drawable->GetDrawableSrcType() == 1) {
-                pixmap = GetDrawablePixmap(imageInfo);
-            } else {
-                ImageModel::GetInstance()->Create(drawable);
-                ParseImageAIOptions(info);
-                return;
-            }
-        } else if (type == ImageType::LAYERED_DRAWABLE || type == ImageType::DRAWABLE) {
+            auto* drawableAddr = reinterpret_cast<DrawableDescriptor*>(UnwrapNapiValue(imageInfo));
+            drawable = Referenced::Claim<DrawableDescriptor>(drawableAddr);
+        } else if (type == ImageType::PIXELMAP_DRAWABLE || type == ImageType::DRAWABLE ||
+                   type == ImageType::LAYERED_DRAWABLE) {
             pixmap = GetDrawablePixmap(imageInfo);
         } else {
             pixmap = CreatePixelMapFromNapiValue(imageInfo);
         }
-#endif
     }
+#endif
     ImageInfoConfig config;
+    config.type = type;
     config.src = std::make_shared<std::string>(src);
+    config.pixelMap = pixmap;
+    config.drawable = drawable;
     config.bundleName = bundleName;
     config.moduleName = moduleName;
     config.isUriPureNumber = (resId == -1);
     config.isImageSpan = isImageSpan;
-    ImageModel::GetInstance()->Create(config, pixmap);
+    ImageModel::GetInstance()->Create(config);
     ParseImageAIOptions(info);
-    if (SystemProperties::ConfigChangePerform() && resObj) {
+    if (SystemProperties::ConfigChangePerform()) {
         ImageModel::GetInstance()->CreateWithResourceObj(ImageResourceType::SRC, resObj);
     }
 }
@@ -515,7 +508,7 @@ void ParseImageAllBorderRadiusesResObj(NG::BorderRadiusProperty& borderRadius,
         auto&& updateFunc = [](const RefPtr<ResourceObject>& resObj, NG::BorderRadiusProperty& borderRadius) {
             CalcDimension result;
             ResourceParseUtils::ParseResDimensionVp(resObj, result);
-            borderRadius.radiusTopLeft = result;
+            borderRadius.radiusTopStart = result;
         };
         borderRadius.AddResource("borderRadius.topLeft", topLeftResObj, std::move(updateFunc));
     }
@@ -523,7 +516,7 @@ void ParseImageAllBorderRadiusesResObj(NG::BorderRadiusProperty& borderRadius,
         auto&& updateFunc = [](const RefPtr<ResourceObject>& resObj, NG::BorderRadiusProperty& borderRadius) {
             CalcDimension result;
             ResourceParseUtils::ParseResDimensionVp(resObj, result);
-            borderRadius.radiusTopRight = result;
+            borderRadius.radiusTopEnd = result;
         };
         borderRadius.AddResource("borderRadius.topRight", topRightResObj, std::move(updateFunc));
     }
@@ -531,7 +524,7 @@ void ParseImageAllBorderRadiusesResObj(NG::BorderRadiusProperty& borderRadius,
         auto&& updateFunc = [](const RefPtr<ResourceObject>& resObj, NG::BorderRadiusProperty& borderRadius) {
             CalcDimension result;
             ResourceParseUtils::ParseResDimensionVp(resObj, result);
-            borderRadius.radiusBottomLeft = result;
+            borderRadius.radiusBottomStart = result;
         };
         borderRadius.AddResource("borderRadius.bottomLeft", bottomLeftResObj, std::move(updateFunc));
     }
@@ -539,7 +532,7 @@ void ParseImageAllBorderRadiusesResObj(NG::BorderRadiusProperty& borderRadius,
         auto&& updateFunc = [](const RefPtr<ResourceObject>& resObj, NG::BorderRadiusProperty& borderRadius) {
             CalcDimension result;
             ResourceParseUtils::ParseResDimensionVp(resObj, result);
-            borderRadius.radiusBottomRight = result;
+            borderRadius.radiusBottomEnd = result;
         };
         borderRadius.AddResource("borderRadius.bottomRight", bottomRightResObj, std::move(updateFunc));
     }
@@ -552,6 +545,59 @@ void SetImageBorderRadius(const CalcDimension& topLeft, const CalcDimension& top
     ViewAbstractModel::GetInstance()->SetBorderRadius(topLeft, topRight, bottomLeft, bottomRight);
 }
 
+void JSImage::SetImageLengthMetricsBorderRadiusWithResObj(JSRef<JSObject>& object, CalcDimension& topLeft,
+    CalcDimension& topRight, CalcDimension& bottomLeft, CalcDimension& bottomRight)
+{
+    NG::BorderRadiusProperty borderRadiusProperty;
+    RefPtr<ResourceObject> topLeftResObj;
+    RefPtr<ResourceObject> topRightResObj;
+    RefPtr<ResourceObject> bottomLeftResObj;
+    RefPtr<ResourceObject> bottomRightResObj;
+    if (object->HasProperty(TOP_START_PROPERTY) && object->GetProperty(TOP_START_PROPERTY)->IsObject()) {
+        JSRef<JSObject> startObj = JSRef<JSObject>::Cast(object->GetProperty(TOP_START_PROPERTY));
+        ParseJsLengthMetricsVpWithResObj(startObj, topLeft, topLeftResObj);
+    }
+    if (object->HasProperty(TOP_END_PROPERTY) && object->GetProperty(TOP_END_PROPERTY)->IsObject()) {
+        JSRef<JSObject> endObj = JSRef<JSObject>::Cast(object->GetProperty(TOP_END_PROPERTY));
+        ParseJsLengthMetricsVpWithResObj(endObj, topRight, topRightResObj);
+    }
+    if (object->HasProperty(BOTTOM_START_PROPERTY) && object->GetProperty(BOTTOM_START_PROPERTY)->IsObject()) {
+        JSRef<JSObject> startObj = JSRef<JSObject>::Cast(object->GetProperty(BOTTOM_START_PROPERTY));
+        ParseJsLengthMetricsVpWithResObj(startObj, bottomLeft, bottomLeftResObj);
+    }
+    if (object->HasProperty(BOTTOM_END_PROPERTY) && object->GetProperty(BOTTOM_END_PROPERTY)->IsObject()) {
+        JSRef<JSObject> endObj = JSRef<JSObject>::Cast(object->GetProperty(BOTTOM_END_PROPERTY));
+        ParseJsLengthMetricsVpWithResObj(endObj, bottomRight, bottomRightResObj);
+    }
+    ParseImageAllBorderRadiusesResObj(
+        borderRadiusProperty, topLeftResObj, topRightResObj, bottomLeftResObj, bottomRightResObj);
+    ImageModel::GetInstance()->SetBorderRadius(GetLocalizedBorderRadius(topLeft, topRight, bottomLeft, bottomRight));
+    ViewAbstractModel::GetInstance()->SetBorderRadius(
+        GetLocalizedBorderRadius(topLeft, topRight, bottomLeft, bottomRight));
+}
+
+void JSImage::SetImageBorderRadiusWithResObj(JSRef<JSObject>& object, CalcDimension& topLeft, CalcDimension& topRight,
+    CalcDimension& bottomLeft, CalcDimension& bottomRight)
+{
+    NG::BorderRadiusProperty borderRadiusProperty;
+    RefPtr<ResourceObject> topLeftResObj;
+    RefPtr<ResourceObject> topRightResObj;
+    RefPtr<ResourceObject> bottomLeftResObj;
+    RefPtr<ResourceObject> bottomRightResObj;
+    GetBorderRadiusResObj("topLeft", object, topLeft, topLeftResObj);
+    GetBorderRadiusResObj("topRight", object, topRight, topRightResObj);
+    GetBorderRadiusResObj("bottomLeft", object, bottomLeft, bottomLeftResObj);
+    GetBorderRadiusResObj("bottomRight", object, bottomRight, bottomRightResObj);
+    borderRadiusProperty.radiusTopLeft = topLeft;
+    borderRadiusProperty.radiusTopRight = topRight;
+    borderRadiusProperty.radiusBottomLeft = bottomLeft;
+    borderRadiusProperty.radiusBottomRight = bottomRight;
+    borderRadiusProperty.multiValued = true;
+    ParseImageAllBorderRadiusesResObj(
+        borderRadiusProperty, topLeftResObj, topRightResObj, bottomLeftResObj, bottomRightResObj);
+    ImageModel::GetInstance()->SetBorderRadius(borderRadiusProperty);
+    ViewAbstractModel::GetInstance()->SetBorderRadius(borderRadiusProperty);
+}
 void JSImage::ParseBorderRadius(const JSRef<JSVal>& args)
 {
     CalcDimension borderRadius;
@@ -572,32 +618,19 @@ void JSImage::ParseBorderRadius(const JSRef<JSVal>& args)
         CalcDimension topRight;
         CalcDimension bottomLeft;
         CalcDimension bottomRight;
-        if (ParseAllBorderRadiuses(object, topLeft, topRight, bottomLeft, bottomRight)) {
+        if (SystemProperties::ConfigChangePerform()) {
+            if (object->HasProperty(TOP_START_PROPERTY) || object->HasProperty(TOP_END_PROPERTY) ||
+                object->HasProperty(BOTTOM_START_PROPERTY) || object->HasProperty(BOTTOM_END_PROPERTY)) {
+                SetImageLengthMetricsBorderRadiusWithResObj(object, topLeft, topRight, bottomLeft, bottomRight);
+            } else {
+                SetImageBorderRadiusWithResObj(object, topLeft, topRight, bottomLeft, bottomRight);
+            }
+        } else if (ParseAllBorderRadiuses(object, topLeft, topRight, bottomLeft, bottomRight)) {
             ImageModel::GetInstance()->SetBorderRadius(
                 GetLocalizedBorderRadius(topLeft, topRight, bottomLeft, bottomRight));
             ViewAbstractModel::GetInstance()->SetBorderRadius(
                 GetLocalizedBorderRadius(topLeft, topRight, bottomLeft, bottomRight));
             return;
-        }
-        if (SystemProperties::ConfigChangePerform()) {
-            NG::BorderRadiusProperty borderRadiusProperty;
-            RefPtr<ResourceObject> topLeftResObj;
-            RefPtr<ResourceObject> topRightResObj;
-            RefPtr<ResourceObject> bottomLeftResObj;
-            RefPtr<ResourceObject> bottomRightResObj;
-            GetBorderRadiusResObj("topLeft", object, topLeft, topLeftResObj);
-            GetBorderRadiusResObj("topRight", object, topRight, topRightResObj);
-            GetBorderRadiusResObj("bottomLeft", object, bottomLeft, bottomLeftResObj);
-            GetBorderRadiusResObj("bottomRight", object, bottomRight, bottomRightResObj);
-            borderRadiusProperty.radiusTopLeft = topLeft;
-            borderRadiusProperty.radiusTopRight = topRight;
-            borderRadiusProperty.radiusBottomLeft = bottomLeft;
-            borderRadiusProperty.radiusBottomRight = bottomRight;
-            borderRadiusProperty.multiValued = true;
-            ParseImageAllBorderRadiusesResObj(
-                borderRadiusProperty, topLeftResObj, topRightResObj, bottomLeftResObj, bottomRightResObj);
-            ImageModel::GetInstance()->SetBorderRadius(borderRadiusProperty);
-            ViewAbstractModel::GetInstance()->SetBorderRadius(borderRadiusProperty);
         } else {
             SetImageBorderRadius(topLeft, topRight, bottomLeft, bottomRight);
         }
@@ -633,7 +666,12 @@ void JSImage::ParseResizableLattice(const JSRef<JSObject>& resizableObject)
         ImageModel::GetInstance()->ResetResizableLattice();
     }
     CHECK_NULL_VOID(latticeValue->IsObject());
-    auto drawingLattice = CreateDrawingLattice(latticeValue);
+    auto* lattice = UnwrapNapiValue(latticeValue);
+    CHECK_NULL_VOID(lattice);
+    auto* jsLattice = reinterpret_cast<OHOS::Rosen::Drawing::JsLattice*>(lattice);
+    auto latticeSptr = jsLattice->GetLattice();
+    CHECK_NULL_VOID(latticeSptr);
+    auto drawingLattice = DrawingLattice::CreateDrawingLatticeFromSptr(&latticeSptr);
     if (drawingLattice) {
         ImageModel::GetInstance()->SetResizableLattice(drawingLattice);
     } else {
@@ -655,6 +693,19 @@ void JSImage::JsImageResizable(const JSCallbackInfo& info)
     JSRef<JSObject> resizableObject = JSRef<JSObject>::Cast(infoObj);
     ParseResizableSlice(resizableObject);
     ParseResizableLattice(resizableObject);
+}
+
+void JSImage::JsAntiAlias(const JSCallbackInfo& info)
+{
+    if (info.Length() < 1) {
+        return;
+    }
+    auto infoObj = info[0];
+    bool antiAlias = false;
+    if (infoObj->IsBoolean()) {
+        antiAlias = infoObj->ToBoolean();
+    }
+    ImageModel::GetInstance()->SetAntiAlias(antiAlias);
 }
 
 void ApplySliceResource(ImageResizableSlice& sliceResult, const std::string& resKey,
@@ -738,12 +789,14 @@ void JSImage::JsBorderRadius(const JSCallbackInfo& info)
         ImageModel::GetInstance()->SetBackBorder();
         return;
     }
+    SetRenderStrategy(info);
     static std::vector<JSCallbackInfoType> checkList { JSCallbackInfoType::STRING, JSCallbackInfoType::NUMBER,
         JSCallbackInfoType::OBJECT };
     auto jsVal = info[0];
     if (!CheckJSCallbackInfo("JsBorderRadius", jsVal, checkList)) {
         ViewAbstractModel::GetInstance()->SetBorderRadius(Dimension {});
         ImageModel::GetInstance()->SetBorderRadius(Dimension {});
+        ImageModel::GetInstance()->CreateWithResourceObj(ImageResourceType::BORDER_RADIUS, nullptr);
         return;
     }
     ParseBorderRadius(jsVal);
@@ -778,10 +831,13 @@ void JSImage::SetImageFill(const JSCallbackInfo& info)
 
     Color color;
     RefPtr<ResourceObject> resObj;
-    bool status = ParseJsColor(info[0], color, resObj);
+    bool status = ParseJsColorForMaterial(info[0], color, resObj);
     if (!status) {
         if (ParseColorContent(info[0])) {
             ImageModel::GetInstance()->ResetImageFill();
+            if (SystemProperties::ConfigChangePerform()) {
+                ImageModel::GetInstance()->CreateWithResourceObj(ImageResourceType::FILL_COLOR, resObj);
+            }
             return;
         }
         if (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_ELEVEN)) {
@@ -794,6 +850,8 @@ void JSImage::SetImageFill(const JSCallbackInfo& info)
         color = theme->GetFillColor();
     }
     ImageModel::GetInstance()->SetImageFill(color);
+    // Fix the svg collision bug with the foreground color placeholder 0x00000001.
+    ViewAbstractModel::GetInstance()->SetForegroundColor(Color::FOREGROUND);
 
     if (SystemProperties::ConfigChangePerform()) {
         ImageModel::GetInstance()->CreateWithResourceObj(ImageResourceType::FILL_COLOR, resObj);
@@ -1063,17 +1121,6 @@ void JSImage::SetOrientation(const JSCallbackInfo& info)
     ImageModel::GetInstance()->SetOrientation(res);
 }
 
-void JSImage::CreateImageAnimation(std::vector<RefPtr<PixelMap>>& pixelMaps, int32_t duration, int32_t iterations)
-{
-    std::vector<ImageProperties> imageList;
-    for (int i = 0; i < static_cast<int32_t>(pixelMaps.size()); i++) {
-        ImageProperties image;
-        image.pixelMap = pixelMaps[i];
-        imageList.push_back(image);
-    }
-    ImageModel::GetInstance()->CreateAnimation(imageList, duration, iterations);
-}
-
 void JSImage::JSBind(BindingTarget globalObj)
 {
     JSClass<JSImage>::Declare("Image");
@@ -1095,6 +1142,7 @@ void JSImage::JSBind(BindingTarget globalObj)
     JSClass<JSImage>::StaticMethod("hdrBrightness", &JSImage::SetHdrBrightness, opt);
     JSClass<JSImage>::StaticMethod("enhancedImageQuality", &JSImage::SetEnhancedImageQuality, opt);
     JSClass<JSImage>::StaticMethod("orientation", &JSImage::SetOrientation, opt);
+    JSClass<JSImage>::StaticMethod("contentTransition", &JSImage::SetContentTransition, opt);
 
     JSClass<JSImage>::StaticMethod("border", &JSImage::JsBorder);
     JSClass<JSImage>::StaticMethod("borderRadius", &JSImage::JsBorderRadius);
@@ -1104,14 +1152,15 @@ void JSImage::JSBind(BindingTarget globalObj)
     JSClass<JSImage>::StaticMethod("onDisAppear", &JSInteractableView::JsOnDisAppear);
     JSClass<JSImage>::StaticMethod("autoResize", &JSImage::SetAutoResize);
     JSClass<JSImage>::StaticMethod("resizable", &JSImage::JsImageResizable);
+    JSClass<JSImage>::StaticMethod("antialiased", &JSImage::JsAntiAlias);
 
     JSClass<JSImage>::StaticMethod("onTouch", &JSInteractableView::JsOnTouch);
     JSClass<JSImage>::StaticMethod("onHover", &JSInteractableView::JsOnHover);
     JSClass<JSImage>::StaticMethod("onKeyEvent", &JSInteractableView::JsOnKey);
     JSClass<JSImage>::StaticMethod("onDeleteEvent", &JSInteractableView::JsOnDelete);
     JSClass<JSImage>::StaticMethod("onClick", &JSInteractableView::JsOnClick);
-    JSClass<JSImage>::StaticMethod("onComplete", &JSImage::OnComplete);
-    JSClass<JSImage>::StaticMethod("onError", &JSImage::OnError);
+    JSClass<JSImage>::StaticMethod("onComplete", &JSImage::OnComplete); 
+    JSClass<JSImage>::StaticMethod("onError", &JSImage::OnError); 
     JSClass<JSImage>::StaticMethod("onFinish", &JSImage::OnFinish);
     JSClass<JSImage>::StaticMethod("syncLoad", &JSImage::SetSyncLoad);
     JSClass<JSImage>::StaticMethod("remoteMessage", &JSInteractableView::JsCommonRemoteMessage);
@@ -1120,6 +1169,7 @@ void JSImage::JSBind(BindingTarget globalObj)
     JSClass<JSImage>::StaticMethod("copyOption", &JSImage::SetCopyOption);
     JSClass<JSImage>::StaticMethod("enableAnalyzer", &JSImage::EnableAnalyzer);
     JSClass<JSImage>::StaticMethod("analyzerConfig", &JSImage::AnalyzerConfig);
+    JSClass<JSImage>::StaticMethod("supportSvg2", &JSImage::SupportSvg2);
 
     // override method
     JSClass<JSImage>::StaticMethod("opacity", &JSImage::JsOpacity);
@@ -1241,4 +1291,116 @@ void JSImage::AnalyzerConfig(const JSCallbackInfo& info)
     ImageModel::GetInstance()->SetImageAnalyzerConfig(analyzerConfig);
 }
 
+void JSImage::SupportSvg2(const JSCallbackInfo& info)
+{
+    bool enable = false;
+    if (info.Length() > 0) {
+        ParseJsBool(info[0], enable);
+    }
+    ImageModel::GetInstance()->SetSupportSvg2(enable);
+}
+
+bool JSImage::ParseContentTransitionEffect(const JSRef<JSVal>& jsValue, ContentTransitionType& contentTransitionType)
+{
+    if (jsValue.IsEmpty() || jsValue->IsNull() || jsValue->IsUndefined() || !jsValue->IsObject()) {
+        return false;
+    }
+    auto paramObject = JSRef<JSObject>::Cast(jsValue);
+    JSRef<JSVal> typeVal = paramObject->GetProperty("contentTransitionType_");
+    if (typeVal.IsEmpty() || !typeVal->IsString()) {
+        return false;
+    }
+    static const std::unordered_map<std::string, ContentTransitionType> contentTransitionTypeMap {
+        { "IDENTITY", ContentTransitionType::IDENTITY },
+        { "OPACITY", ContentTransitionType::OPACITY },
+    };
+    auto it = contentTransitionTypeMap.find(typeVal->ToString());
+    if (it == contentTransitionTypeMap.end()) {
+        return false;
+    }
+    contentTransitionType = it->second;
+    return true;
+}
+
+void JSImage::SetContentTransition(const JSCallbackInfo& info)
+{
+    if (info.Length() < 1) {
+        ImageModel::GetInstance()->SetContentTransition(ContentTransitionType::IDENTITY);
+        return;
+    }
+    auto contentTransitionType = ContentTransitionType::IDENTITY;
+    if (ParseContentTransitionEffect(info[0], contentTransitionType)) {
+        ImageModel::GetInstance()->SetContentTransition(contentTransitionType);
+    } else {
+        ImageModel::GetInstance()->SetContentTransition(ContentTransitionType::IDENTITY);
+    }
+}
+
+void JSImage::ParseAltImageAlt(JSRef<JSVal> val, bool isCard, int32_t type)
+{
+    std::string src;
+    bool srcValid = false;
+    RefPtr<ResourceObject> resObj;
+    if (val->IsString()) {
+        src = val->ToString();
+    } else {
+        srcValid = ParseJsMedia(val, src, resObj);
+    }
+
+    if (ImageSourceInfo::ResolveURIType(src) == SrcType::NETWORK && type != IMAGE_ALT_ERROR) {
+        return;
+    }
+    int32_t resId = 0;
+    if (val->IsObject()) {
+        JSRef<JSObject> jsObj = JSRef<JSObject>::Cast(val);
+        JSRef<JSVal> tmp = jsObj->GetProperty("id");
+        if (!tmp->IsNull() && tmp->IsNumber()) {
+            resId = tmp->ToNumber<int32_t>();
+        }
+    }
+    std::string bundleName;
+    std::string moduleName;
+    GetJsMediaBundleInfo(val, bundleName, moduleName);
+    RefPtr<PixelMap> pixmap = nullptr;
+
+    if (!srcValid && !isCard) {
+#if defined(PIXEL_MAP_SUPPORTED)
+        pixmap = CreatePixelMapFromNapiValue(val);
+#endif
+    }
+    auto srcRef = std::make_shared<std::string>(src);
+    auto srcInfo = CreateSourceInfo(srcRef, pixmap, bundleName, moduleName);
+    srcInfo.SetIsUriPureNumber((resId == -1));
+    HandleAltType(type, srcInfo);
+    if (SystemProperties::ConfigChangePerform()) {
+        ImageModel::GetInstance()->CreateWithResourceObj(ImageResourceType::ALT, resObj);
+    }
+}
+
+bool JSImage::IsImageAltObject(JSRef<JSVal> val)
+{
+    if (!val->IsObject()) {
+        return false;
+    }
+
+    JSRef<JSObject> jsObj = JSRef<JSObject>::Cast(val);
+    return jsObj->HasProperty("placeholder") || jsObj->HasProperty("error");
+}
+
+void JSImage::HandleAltType(int32_t type, const ImageSourceInfo& srcInfo)
+{
+    switch (type) {
+        case IMAGE_ALT_PLACEHOLDER:
+            ImageModel::GetInstance()->SetAltPlaceholder(srcInfo);
+            break;
+        case IMAGE_ALT_ERROR:
+            ImageModel::GetInstance()->SetAltError(srcInfo);
+            break;
+        case IMAGE_ALT_NORMAL:
+            ImageModel::GetInstance()->SetAlt(srcInfo);
+            break;
+        default:
+            break;
+    }
+}
 } // namespace OHOS::Ace::Framework

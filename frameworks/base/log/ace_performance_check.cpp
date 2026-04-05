@@ -24,6 +24,9 @@
 namespace OHOS::Ace {
 namespace {
 constexpr int32_t BASE_YEAR = 1900;
+constexpr char FAULT_COMPONENT_LARGE[] = "9901";
+constexpr char FAULT_RENDERING_LONG[] = "9903";
+constexpr char FAULT_FOREACH_FULL[] = "9904";
 constexpr char DATE_FORMAT[] = "MM-dd HH:mm:ss";
 constexpr int32_t CONVERT_NANOSECONDS = 1000000;
 constexpr int32_t FUNCTION_TIMEOUT = 150;
@@ -38,13 +41,20 @@ constexpr char CHECK_RESULT[] = "{\"message_type\": \"SendArkPerformanceCheckRes
 // ============================== survival interval of JSON files ============================================
 
 std::unique_ptr<JsonValue> AcePerformanceCheck::performanceInfo_ = nullptr;
+bool AcePerformanceCheck::isPagesOfSharedLib_ = false;
+bool AcePerformanceCheck::isPagesOfSharedLibFirstReqOrPagesOfMainLib_ = false;
+std::string  AcePerformanceCheck::preRuleType_ = "";
 std::string AceScopedPerformanceCheck::currentPath_;
+std::string AceScopedPerformanceCheck::recordPath_;
 std::vector<std::pair<int64_t, std::string>> AceScopedPerformanceCheck::records_;
 void AcePerformanceCheck::Start()
 {
     if (AceChecker::IsPerformanceCheckEnabled()) {
         LOGI("performance check start");
         performanceInfo_ = JsonUtil::Create(true);
+        isPagesOfSharedLib_ = false;
+        isPagesOfSharedLibFirstReqOrPagesOfMainLib_ = false;
+        preRuleType_ = "";
     }
 }
 
@@ -67,6 +77,9 @@ void AcePerformanceCheck::Stop()
             AceChecker::NotifyCaution("AcePerformanceCheck::Stop, json data generated, store in " + filePath);
         }
         performanceInfo_.reset(nullptr);
+        isPagesOfSharedLib_ = false;
+        isPagesOfSharedLibFirstReqOrPagesOfMainLib_ = false;
+        preRuleType_ = "";
     }
 }
 
@@ -110,6 +123,13 @@ bool AceScopedPerformanceCheck::CheckIsRuleContainsPage(const std::string& ruleT
     for (int32_t i = 0; i < size; i++) {
         auto indexJson = ruleJson->GetArrayItem(i);
         auto value = indexJson->GetString("pagePath", {});
+        std::unique_ptr<JsonValue> componentsJson;
+        if (indexJson->Contains("components")) {
+            componentsJson = indexJson->GetValue("components");
+            if (componentsJson && componentsJson->IsArray() && componentsJson->GetArraySize() > 0) {
+                value = componentsJson->GetArrayItem(0)->GetString("pagePath", {});
+            }
+        }
         if (value == pagePath) {
             return true;
         }
@@ -149,10 +169,32 @@ CodeInfo AceScopedPerformanceCheck::GetCodeInfo(int32_t row, int32_t col)
 
 bool AceScopedPerformanceCheck::CheckPage(const CodeInfo& codeInfo, const std::string& rule)
 {
-    if (!codeInfo.sources.empty() && CheckIsRuleContainsPage(rule, codeInfo.sources)) {
+    if (AcePerformanceCheck::preRuleType_ != rule) {
+        AcePerformanceCheck::isPagesOfSharedLibFirstReqOrPagesOfMainLib_ = true;
+        AcePerformanceCheck::preRuleType_ = rule;
+    }
+    std::unordered_set<std::string> sourcesEmptyRules = { FAULT_COMPONENT_LARGE, FAULT_RENDERING_LONG,
+        FAULT_FOREACH_FULL };
+    if (sourcesEmptyRules.find(rule) != sourcesEmptyRules.end() && AcePerformanceCheck::isPagesOfSharedLib_ &&
+        AcePerformanceCheck::isPagesOfSharedLibFirstReqOrPagesOfMainLib_) {
+        AcePerformanceCheck::isPagesOfSharedLibFirstReqOrPagesOfMainLib_ = false;
+        if (CheckIsRuleContainsPage(rule, codeInfo.sources)) {
+            return true;
+        }
+    } else if (!codeInfo.sources.empty() && CheckIsRuleContainsPage(rule, codeInfo.sources)) {
         return true;
     }
     return false;
+}
+
+void AceScopedPerformanceCheck::UpdateRecordPath(const std::string& path)
+{
+    recordPath_ = path;
+}
+
+void AceScopedPerformanceCheck::ReportAllRecord()
+{
+    RecordFunctionTimeout();
 }
 
 void AceScopedPerformanceCheck::RecordPerformanceCheckData(const PerformanceCheckNodeMap& nodeMap, int64_t vsyncTimeout,
@@ -242,19 +284,17 @@ void AceScopedPerformanceCheck::RecordFunctionTimeout()
             continue;
         }
         auto codeInfo = GetCodeInfo(1, 1);
-        if (!codeInfo.sources.empty()) {
-            continue;
-        }
         CheckIsRuleContainsPage("9902", codeInfo.sources);
         auto eventTime = GetCurrentTime();
         CHECK_NULL_VOID(AcePerformanceCheck::performanceInfo_);
         auto ruleJson = AcePerformanceCheck::performanceInfo_->GetValue("9902");
         auto pageJson = JsonUtil::Create(true);
         pageJson->Put("eventTime", eventTime.c_str());
-        pageJson->Put("pagePath", codeInfo.sources.c_str());
+        pageJson->Put("pagePath", recordPath_.c_str());
         pageJson->Put("functionName", record.second.c_str());
         pageJson->Put("costTime", record.first);
         ruleJson->Put(pageJson);
+        LOGI("pageJson 9902: %{public}s", pageJson->ToString().c_str());
     }
     records_.clear();
 }
@@ -365,6 +405,18 @@ void AceScopedPerformanceCheck::RecordFlexLayoutsCount(
     ruleJson->Put(pageJson);
 }
 
+void AceScopedPerformanceCheck::SetPagesAboutNoEntry(bool isMainLibPage)
+{
+    if (isMainLibPage) {
+        AcePerformanceCheck::isPagesOfSharedLib_ = false;
+        AcePerformanceCheck::isPagesOfSharedLibFirstReqOrPagesOfMainLib_ = true;
+    } else if (!AcePerformanceCheck::isPagesOfSharedLib_ &&
+                !AcePerformanceCheck::isPagesOfSharedLibFirstReqOrPagesOfMainLib_) {
+        AcePerformanceCheck::isPagesOfSharedLib_ = true;
+        AcePerformanceCheck::isPagesOfSharedLibFirstReqOrPagesOfMainLib_ = true;
+    }
+}
+
 RefPtr<Framework::RevSourceMap> AceScopedPerformanceCheck::GetCurrentSourceMap()
 {
     std::string jsSourceMap;
@@ -394,6 +446,8 @@ RefPtr<Framework::RevSourceMap> AceScopedPerformanceCheck::GetCurrentSourceMap()
             if (!child->GetValue("entry-package-info")->IsNull()) {
                 judgePath = NEW_PATH + pagePath + TS_SUFFIX;
             }
+            bool isMainLibPage = jsonPages->Contains(judgePath);
+            SetPagesAboutNoEntry(isMainLibPage);
             auto jsonPage = jsonPages->GetValue(judgePath)->ToString();
             sourceMap = AceType::MakeRefPtr<Framework::RevSourceMap>();
             sourceMap->Init(jsonPage);

@@ -176,7 +176,11 @@ const Provider = (aliasName?: string) => {
   return (proto: Object, varName: string): void => {
     const providedUnderName: string = aliasName || varName;
     ProviderConsumerUtilV2.addProvideConsumeVariableDecoMeta(proto, varName, providedUnderName, '@Provider');
-    trackInternal(proto, varName);
+    if (!InteropConfigureStateMgmt.needsInterop()) {
+      trackInternal(proto, varName);
+    } else {
+      trackInternalInterop(proto, varName);
+    }
   };
 }; // @Provider
 
@@ -219,11 +223,14 @@ const Consumer = (aliasName?: string) => {
         let providerInfo = ProviderConsumerUtilV2.findProvider(this, providerName);
         if (providerInfo && providerInfo[0] && providerInfo[1]) {
           ProviderConsumerUtilV2.connectConsumer2Provider(this, varName, providerInfo[0], providerInfo[1]);
+          this.getOrCreateConnectConsumerV2().set(varName, providerName);
         } else {
           ProviderConsumerUtilV2.defineConsumerWithoutProvider(this, varName, val);
+          this.getOrCreateDefaultConsumerV2().set(varName, providerName);
         }
       },
-      enumerable: true
+      enumerable: true,
+      configurable: true
     });
   };
 }; // @Consumer
@@ -246,14 +253,75 @@ const Consumer = (aliasName?: string) => {
  * part of SDK
  * @since 12
  */
-const Monitor = function (key : string, ...keys: string[]): (target: any, _: any, descriptor: any) => void {
+
+type MonitorFunctionInfo = [(m: IMonitor) => void, boolean]; // Function, wildcard
+
+function Monitor(optionsOrFirstPath : MonitorDecoratorOptions | string, path?: string, ...pathN: string[]): (target: Object, _: string, descriptor: PropertyDescriptor) => void {
+  let monitorWithOptionsMode = false;
+  let enableWildcard = false;
+  if (typeof optionsOrFirstPath === 'string') {
+    // Original @Monitor without options
+    if (path) {
+      pathN.unshift(optionsOrFirstPath, path);
+    } else {
+      pathN.unshift(optionsOrFirstPath);
+    }
+  } else {
+    // @Monitor with options
+    monitorWithOptionsMode = true;
+    if (path != null) {
+      pathN.unshift(path);
+    }
+    // enableWildcard - default value is true
+    enableWildcard = (optionsOrFirstPath as MonitorDecoratorOptions).enableWildcard ?? true;
+  }
+
+  const pathsUniqueString = pathN.join(' ');
+  return function (target, _, descriptor): void {
+    ObserveV2.addMethodDecoMeta(target, descriptor.value.name, '@Monitor');
+    stateMgmtConsole.debug(`@Monitor('${pathsUniqueString}')`);
+    // @Monitor with options uses different code paths than original @Monitor without options.
+    // @Monitor with options relies on the same code path that used by Add/ClearMonitor
+    // API implementation.
+    //
+    // @Monitor with options - supports wildcard in the path and correctly handles cases when
+    // attribute on the path becomes undefined and then back to valid reference.
+    //
+    // @Monitor without options
+    // - does not fire correctly when attribute on the path triggers
+    //   between undefined and valid reference
+    // - can trigger erroneously for properties not decorated with @Trace
+    //
+    const symbolName = monitorWithOptionsMode
+      ? MonitorV2.MONITOR_WITH_OPTIONS_PREFIX + target.constructor.name
+      : MonitorV2.MONITOR_ORIG_PREFIX + target.constructor.name;
+    let watchProp = Symbol.for(symbolName);
+    const monitorFunc = descriptor.value;
+    let info = monitorWithOptionsMode
+      ? [monitorFunc, enableWildcard] as MonitorFunctionInfo
+      : monitorFunc;
+
+    target[watchProp]
+      ? target[watchProp][pathsUniqueString] = info
+      : target[watchProp] = { [pathsUniqueString]: info };
+  };
+};
+
+const SyncMonitor = function (key : string, ...keys: string[]): (target: Object, _: string, descriptor: PropertyDescriptor) => void {
+  // Path can end with the star
+  const isValidPath = (typeof key === 'string') && keys.every(item => typeof item === 'string');
   const pathsUniqueString = keys ? [key, ...keys].join(' ') : key;
   return function (target, _, descriptor): void {
-    ObserveV2.addVariableDecoMeta(target, descriptor.value.name, '@Monitor');
-    stateMgmtConsole.debug(`@Monitor('${pathsUniqueString}')`);
-    let watchProp = Symbol.for(MonitorV2.WATCH_PREFIX + target.constructor.name);
+    ObserveV2.addMethodDecoMeta(target, descriptor.value.name, '@SyncMonitor');
     const monitorFunc = descriptor.value;
-    target[watchProp] ? target[watchProp][pathsUniqueString] = monitorFunc : target[watchProp] = { [pathsUniqueString]: monitorFunc };
+    if (!isValidPath) {
+      const message = `@SyncMonitor '${monitorFunc.name}' owned by '${target.constructor.name}' - failed to initialize, path type not valid, path(s) must be of type string`;
+      throw new BusinessError(SYNC_MONITOR_FAIL_PATH_ILLEGAL, message);
+    }
+    stateMgmtConsole.debug(`@SyncMonitor('${pathsUniqueString}')`);
+    let watchProp = Symbol.for(MonitorV2.SYNC_MONITOR_PREFIX + target.constructor.name);
+    target[watchProp] ? target[watchProp][pathsUniqueString] = monitorFunc
+                      : target[watchProp] = { [pathsUniqueString]: monitorFunc };
   };
 };
 
@@ -295,10 +363,59 @@ interface IMonitor {
    */
 const Computed = (target: Object, propertyKey: string, descriptor: PropertyDescriptor): void => {
   stateMgmtConsole.debug(`@Computed ${propertyKey}`);
-  ObserveV2.addVariableDecoMeta(target, propertyKey, '@Computed');
+  ObserveV2.addMethodDecoMeta(target, propertyKey, '@Computed');
   let watchProp = Symbol.for(ComputedV2.COMPUTED_PREFIX + target.constructor.name);
   const computeFunction = descriptor.get;
   target[watchProp] ? target[watchProp][propertyKey] = computeFunction
     : target[watchProp] = { [propertyKey]: computeFunction };
 
+};
+
+/**
+ * @Env Environment property decorator.
+ * Returns an `IEnvironmentValue<T>` instance corresponding to the specified `envKey`.
+ *
+ * Currently, only `envKey = 'system.arkui.breakpoint'` is supported.
+ *
+ * @partof SDK
+ * @since 22
+ */
+const Env = (envKey: keyof EnvTypeMap): PropertyDecorator => {
+  ConfigureStateMgmt.instance.usingV2ObservedTrack(`@Env`, envKey);
+
+  return (proto: object, varName: string): void => {
+    EnvV2.addEnvKeyVariableDecoMeta(proto, varName, envKey);
+    const storeProp = ObserveV2.ENV_PREFIX + varName;
+    Reflect.defineProperty(proto, varName, {
+      get() {
+        if (!(envKey in envFactoryMap)) {
+          const message = `Unsupported key '${envKey}' in @Env.`;
+          stateMgmtConsole.applicationError(message);
+          throw new BusinessError(UNSUPPORTED_KEY_IN_ENV, message);
+        }
+
+        if (!(this instanceof ViewPU || this instanceof ViewV2)) {
+          const message = `@Env can only be declared inside @Component or @ComponentV2.`;
+          stateMgmtConsole.applicationError(message);
+          // toolchain can check
+          throw new Error(message);
+        }
+        ObserveV2.getObserve().addRef(this, varName);
+        if (!this[storeProp]) {
+          // first init env value
+          stateMgmtConsole.debug(`Env get first register EnvValue key ${envKey} varName ${varName} in ${this.debugInfo__()}`);
+          this.__registerUpdateInstanceForEnvFunc__Internal(this.__updateForEnvValue__Internal.bind(this));
+          this[storeProp] = EnvV2.registerEnv(envKey, this, varName);
+        }
+        return this[storeProp];
+      },
+      set(_) {
+          const message = `@Env(${envKey}) is read-only and cannot assign value for it.`;
+          stateMgmtConsole.applicationError(message);
+          // toolchain can check
+          throw new Error(message);
+      },
+      enumerable: true
+    });
+  };
 };

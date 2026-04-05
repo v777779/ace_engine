@@ -129,6 +129,11 @@ void ListItemModelStatic::SetDeleteArea(FrameNode* frameNode, UINode* buildNode,
             ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListItemLayoutProperty, StartDeleteAreaDistance, length.value(), frameNode);
         } else {
             ACE_RESET_NODE_LAYOUT_PROPERTY(ListItemLayoutProperty, StartDeleteAreaDistance, frameNode);
+            auto listItemTheme = GetListItemTheme(frameNode);
+            if (listItemTheme) {
+                ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+                    ListItemLayoutProperty, StartDeleteAreaDistance, listItemTheme->GetDeleteDistance(), frameNode);
+            }
         }
     } else {
         const auto endNode = AceType::Claim<UINode>(buildNode);
@@ -142,9 +147,24 @@ void ListItemModelStatic::SetDeleteArea(FrameNode* frameNode, UINode* buildNode,
             ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListItemLayoutProperty, EndDeleteAreaDistance, length.value(), frameNode);
         } else {
             ACE_RESET_NODE_LAYOUT_PROPERTY(ListItemLayoutProperty, EndDeleteAreaDistance, frameNode);
+            auto listItemTheme = GetListItemTheme(frameNode);
+            if (listItemTheme) {
+                ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+                    ListItemLayoutProperty, EndDeleteAreaDistance, listItemTheme->GetDeleteDistance(), frameNode);
+            }
         }
     }
     pattern->SetDeleteArea();
+}
+
+RefPtr<ListItemTheme> ListItemModelStatic::GetListItemTheme(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, nullptr);
+    auto pipelineContext = frameNode->GetContext();
+    CHECK_NULL_RETURN(pipelineContext, nullptr);
+    auto themeManager = pipelineContext->GetThemeManager();
+    CHECK_NULL_RETURN(themeManager, nullptr);
+    return themeManager->GetTheme<ListItemTheme>();
 }
 
 void ListItemModelStatic::SetSwiperAction(FrameNode* frameNode, std::function<void()>&& startAction,
@@ -160,5 +180,31 @@ void ListItemModelStatic::SetSwiperAction(FrameNode* frameNode, std::function<vo
     } else {
         ACE_RESET_NODE_LAYOUT_PROPERTY(ListItemLayoutProperty, EdgeEffect, frameNode);
     }
+}
+
+void ListItemModelStatic::SetAutoScale(FrameNode* frameNode, const std::optional<bool>& autoScale)
+{
+    CHECK_NULL_VOID(frameNode);
+    if (autoScale.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(ArcListItemLayoutProperty, AutoScale, autoScale.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(ArcListItemLayoutProperty, AutoScale, frameNode);
+    }
+}
+
+void ListItemModelStatic::ExpandSwipeAction(const NG::FrameNode* listItem, ListItemSwipeActionDirection direction)
+{
+    CHECK_NULL_VOID(listItem);
+    auto listItemPattern = listItem->GetPattern<ListItemPattern>();
+    CHECK_NULL_VOID(listItemPattern);
+    listItemPattern->ExpandSwipeAction(direction);
+}
+
+void ListItemModelStatic::CollapseSwipeAction(const NG::FrameNode* listItem)
+{
+    CHECK_NULL_VOID(listItem);
+    auto listItemPattern = listItem->GetPattern<ListItemPattern>();
+    CHECK_NULL_VOID(listItemPattern);
+    listItemPattern->CloseSwipeAction(nullptr);
 }
 } // namespace OHOS::Ace::NG

@@ -16,6 +16,8 @@
 #include "core/components_v2/water_flow/render_water_flow.h"
 
 #include "base/log/event_report.h"
+#include "base/log/log_wrapper.h"
+#include "core/animation/curve_animation.h"
 #include "core/components/common/layout/templates_parser.h"
 #include "core/components_v2/water_flow/water_flow_scroll_controller.h"
 
@@ -326,6 +328,7 @@ void RenderWaterFlow::CallItemConstraintSize()
 {
     ItemConstraintSize size;
     auto pipelineContext = GetContext().Upgrade();
+    CHECK_NULL_VOID(pipelineContext);
     if (direction_ == FlexDirection::COLUMN || direction_ == FlexDirection::COLUMN_REVERSE) {
         size.maxCrossSize = std::max(NormalizePercentToPx(component_->GetMaxWidth(), false),
             NormalizePercentToPx(component_->GetMinWidth(), false));

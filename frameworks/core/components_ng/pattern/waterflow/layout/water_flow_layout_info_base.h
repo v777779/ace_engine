@@ -20,12 +20,11 @@
 #include "base/utils/noncopyable.h"
 #include "core/components/scroll/scroll_controller_base.h"
 #include "core/components_ng/pattern/scrollable/scrollable.h"
+#include "core/components_ng/pattern/waterflow/layout/water_flow_layout_mode.h"
 #include "core/components_ng/pattern/waterflow/water_flow_sections.h"
 #include "core/components_ng/property/measure_property.h"
 
 namespace OHOS::Ace::NG {
-
-enum class WaterFlowLayoutMode;
 
 class WaterFlowLayoutInfoBase : public AceType {
     DECLARE_ACE_TYPE(WaterFlowLayoutInfoBase, AceType);
@@ -205,7 +204,29 @@ public:
         return firstRepeatCount_ > 0 ? firstRepeatCount_ : childrenCount_;
     }
 
+    int32_t GetReportedHostId() const
+    {
+        return reportedHostId_;
+    }
+
+    void SetReportedHostId(int32_t reportedHostId)
+    {
+        reportedHostId_ = reportedHostId;
+    }
+
     virtual void InvalidatedOffset() = 0;
+
+    /**
+    * @brief Get the start index of visible items in the layout.
+    * @return The start index of the current layout range.
+    */
+    virtual int32_t StartIndex() const = 0;
+
+    /**
+    * @brief Get the end index of visible items in the layout.
+    * @return The end index of the current layout range.
+    */
+    virtual int32_t EndIndex() const = 0;
 
     bool itemStart_ = false;
     /**
@@ -222,6 +243,7 @@ public:
     ScrollAlign align_ = ScrollAlign::START;
     std::optional<int32_t> targetIndex_;
     std::optional<float> extraOffset_;
+    int32_t jumpForRecompose_ = EMPTY_JUMP_INDEX;
 
     int32_t startIndex_ = 0;
     int32_t endIndex_ = -1;
@@ -234,6 +256,10 @@ public:
     float restoreOffset_ = 0.0f;
 
     float expandHeight_ = 0.0f;
+    float contentStartOffset_ = 0.0f;
+    float contentEndOffset_ = 0.0f;
+
+    float footerHeight_ = 0.0f;
 
     // Stores the tail item index of each segment.
     std::vector<int32_t> segmentTails_;
@@ -247,6 +273,7 @@ public:
     int32_t repeatDifference_ = 0;
     int32_t firstRepeatCount_ = 0;
     int32_t childrenCount_ = 0;
+    int32_t reportedHostId_ = 0;
 
     // unfold the LazyVGrid during the position calculation.
     bool duringPositionCalc_ = false;

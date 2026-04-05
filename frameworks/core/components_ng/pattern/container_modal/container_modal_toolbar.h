@@ -49,7 +49,7 @@ public:
     void UpdateToolbarShow(bool isTitleShow, bool customTitleSettedShow);
     void AdjustContainerModalTitleHeight();
 
-    bool GetNavOrSideBarNodes();
+    bool GetNavOrSideBarNodes(const RefPtr<FrameNode>& node);
     void ToInitNavOrSideBarNode();
 
     void UpdateSideTitleBgColor(
@@ -57,6 +57,11 @@ public:
     void UpdateTargetNodesBarMargin(bool reset = false);
     void ExpandStackNodeLayout(bool reset = false);
     void ResetExpandStackNode();
+    bool GetIsUpdateTargetNode() const
+    {
+        return isUpdateTargetNode_;
+    }
+    bool hasNavOrSideBarNodes_ = false;
 
 protected:
     void UpdateTitleAfterRemove();
@@ -65,7 +70,8 @@ protected:
     void UpdateTitleLayout();
 
 private:
-    void ParsePlacementType();
+    RefPtr<UINode> GetCurrentPageNode(const RefPtr<UINode>& node);
+    void ParsePlacementType(const RefPtr<FrameNode>& node);
     bool HandleToolbarItemList(const RefPtr<FrameNode>& parentNode, std::list<RefPtr<UINode>>& list);
     ItemPlacementType GetItemTypeFromTag(const std::string& tag, uint32_t placement);
 
@@ -127,8 +133,7 @@ private:
     WeakPtr<FrameNode> sideBarNode_;
     WeakPtr<FrameNode> navigationNode_;
     WeakPtr<FrameNode> navDestNode_;
-    bool hasNavOrSideBarNodes_ = false;
-    bool hasSetOnchangeCallback_ = false;
+    bool hasSetOnChangeCallback_ = false;
 
     bool hasSetNavigationModeChangeCallback_ = false;
     bool hasSetUpdateSideTitleBgColor_ = false;

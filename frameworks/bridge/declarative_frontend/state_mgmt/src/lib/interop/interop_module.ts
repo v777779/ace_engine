@@ -14,12 +14,21 @@
  */
 
 class InteropExtractorModule {
-    static getInteropObservedObject<T extends Object>(newValue: T, owningProperty: ObservedPropertyPU<T>) {
-        if ((newValue instanceof Array || newValue instanceof Set || newValue instanceof Map || newValue instanceof Date) &&
-            !('addWatchSubscriber' in newValue) && (typeof InteropExtractorModule.makeObserved !== undefined && typeof InteropExtractorModule.makeObserved === 'function')) {
-            newValue = InteropExtractorModule.makeObserved(newValue) as T;
+    static getInteropObservedObject<T extends Object>(newValue: T, owningProperty: ObservedPropertyPU<T>): T {
+        const isStaBuiltin =
+          globalThis.Panda.STValue.isSTArray(newValue) ||
+          globalThis.Panda.STValue.isSTSet(newValue) ||
+          globalThis.Panda.STValue.isSTMap(newValue) ||
+          newValue instanceof Date;
+        if (
+          isStaBuiltin &&
+          !('addWatchSubscriber' in newValue) &&
+          typeof InteropExtractorModule.makeObserved !== undefined &&
+          typeof InteropExtractorModule.makeObserved === 'function'
+        ) {
+          newValue = InteropExtractorModule.makeObserved(newValue) as T;
         }
-        if ('addWatchSubscriber' in newValue && typeof newValue.addWatchSubscriber === 'function') {
+        if ('addWatchSubscriber' in newValue && typeof (newValue as any).addWatchSubscriber === 'function') {
             const callback = () => {
                 owningProperty.onTrackedObjectPropertyCompatModeHasChangedPU(null, '');
             };
@@ -30,7 +39,33 @@ class InteropExtractorModule {
         return newValue;
     }
 
-    static setStaticValueForInterop<T>(state: ObservedPropertyPU<T>, newValue: T): void {
+    static getV2InteropObservedObject<T extends Object>(newValue: T, owningProperty: object, propertyKey: string, watchKeyPrefix: string): T {
+        const isStaBuiltin =
+          globalThis.Panda.STValue.isSTArray(newValue) ||
+          globalThis.Panda.STValue.isSTSet(newValue) ||
+          globalThis.Panda.STValue.isSTMap(newValue) ||
+          newValue instanceof Date;
+        if (
+          isStaBuiltin &&
+          !('addWatchSubscriber' in newValue) &&
+          typeof InteropExtractorModule.makeObserved !== undefined &&
+          typeof InteropExtractorModule.makeObserved === 'function'
+        ) {
+          newValue = InteropExtractorModule.makeObserved(newValue) as T;
+        }
+        if ('addWatchSubscriber' in newValue && typeof (newValue as any).addWatchSubscriber === 'function') {
+            const callback = () => {
+                ObserveV2.getObserve().fireChange(owningProperty, propertyKey);
+            };
+            if (typeof InteropExtractorModule.createWatchFunc !== undefined && typeof InteropExtractorModule.createWatchFunc === 'function') {
+                const watchStoreKey = `${watchKeyPrefix}${propertyKey}`;
+                owningProperty[watchStoreKey] = InteropExtractorModule.createWatchFunc(callback, newValue);
+            }
+        }
+        return newValue;
+    }
+
+    static setStaticValueForInterop<T>(state: ObservedPropertyPU<T> | SynchedPropertyOneWayPU<T>, newValue: T): void {
         if (state._setInteropValueForStaticState !== undefined &&
             typeof state._setInteropValueForStaticState === 'function') {
             state._setInteropValueForStaticState(newValue);
@@ -50,6 +85,8 @@ class InteropExtractorModule {
     static transferCompatibleBuilder?: (builder: (...args: any[]) => void) => (...args: any[]) => void;
     static transferCompatibleDynamicBuilder?: (builder: (...args: any[]) => void) => (...args: any[]) => void;
     static createCompatibleStaticState?: (value: Object) => Object;
+    static transferCompatibleUpdatableBuilder?: (builder: (...args: any[]) => void) => (...args: any[]) => void;
+    static localStorageSetProxy?: (storage: Object, proxy: Object) => void;
 }
 
 class StaticInteropHook {
@@ -96,4 +133,12 @@ function registerTransferCompatibleDynamicBuilderCallback(callback: (builder: (.
 
 function registerCreateCompatibleStaticState(callback: (value: Object) => Object): void {
     InteropExtractorModule.createCompatibleStaticState = callback;
+}
+
+function registerTransferCompatibleUpdatableBuilderCallback(callback: (builder: (...args: any[]) => void) => (...args: any[]) => void): void {
+    InteropExtractorModule.transferCompatibleUpdatableBuilder = callback;
+}
+
+function registerLocalStorageSetProxy(callback: (storage: Object, proxy: Object) => void): void {
+     InteropExtractorModule.localStorageSetProxy = callback;
 }

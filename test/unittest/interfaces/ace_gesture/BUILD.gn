@@ -34,12 +34,13 @@ ohos_unittest("ace_native_gesture_test") {
     "$ace_root/interfaces/native/node/node_utils.cpp",
     "$ace_root/interfaces/native/node/style_modifier.cpp",
     "native_gesture_test.cpp",
-    "native_pan_gesture_test.cpp",
-    "native_tap_gesture_test.cpp",
     "native_long_press_gesture_test.cpp",
+    "native_pan_gesture_test.cpp",
     "native_pinch_gesture_test.cpp",
     "native_rotation_gesture_test.cpp",
     "native_swiper_gesture_test.cpp",
+    "native_tap_gesture_test.cpp",
+    "native_gesture_test_two.cpp",
   ]
 
   configs = [
@@ -78,6 +79,7 @@ ohos_unittest("ace_native_gesture_test") {
     "hilog:libhilog",
     "image_framework:image",
     "image_framework:image_native",
+    "ipc:ipc_single",
     "napi:ace_napi",
     "resource_management:global_resmgr",
   ]

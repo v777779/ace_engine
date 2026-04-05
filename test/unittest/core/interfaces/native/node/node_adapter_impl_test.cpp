@@ -16,8 +16,8 @@
 #include <optional>
 
 #include "gtest/gtest.h"
-#include "test/mock/core/pattern/mock_pattern.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/pattern/mock_pattern.cpp"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/base/ui_node.h"
 #include "core/components_ng/pattern/waterflow/water_flow_pattern.h"
@@ -401,5 +401,126 @@ HWTEST_F(NodeAdapterImplTest, GetNodeAdapter004, TestSize.Level1)
      */
     auto hostHandle = node->getNodeAdapter(host);
     EXPECT_EQ(hostHandle, nullptr);
+}
+
+/**
+ * @tc.name: GetNodeTypeInNodeAdapter001
+ * @tc.desc: Check get node type from node adapter.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeAdapterImplTest, GetNodeTypeInNodeAdapter001, TestSize.Level1)
+{
+    /**
+     * @tc.steps1 Create a frameNode.
+     */
+    const ArkUINodeAdapterAPI* node = NodeAdapter::GetNodeAdapterAPI();
+    ASSERT_NE(node, nullptr);
+    ArkUINodeAdapterHandle handle = node->create();
+    ASSERT_NE(handle, nullptr);
+    auto frameNode1 = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), false);
+    ASSERT_NE(frameNode1, nullptr);
+    ArkUINodeHandle host = reinterpret_cast<ArkUINodeHandle>(Referenced::RawPtr(frameNode1));
+    /**
+     * @tc.steps2: GetNodeTypeInNodeAdapter.
+     * @tc.expected: "".
+     */
+    std::string tag = node->getNodeType(handle);
+    EXPECT_EQ(tag, "");
+    /**
+     * @tc.steps3: GetNodeTypeInNodeAdapter.
+     * @tc.expected: "LazyForEach".
+     */
+    auto attachResult = node->attachHostNode(handle, host);
+    EXPECT_TRUE(attachResult);
+    tag = node->getNodeType(handle);
+    EXPECT_EQ(tag, "LazyForEach");
+}
+
+/**
+ * @tc.name: FireArkUIObjectLifecycleCallback001
+ * @tc.desc: Check fire arkui object life cycle callback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeAdapterImplTest, FireArkUIObjectLifecycleCallback001, TestSize.Level1)
+{
+    /**
+     * @tc.steps1 Create a frameNode.
+     */
+    const ArkUINodeAdapterAPI* node = NodeAdapter::GetNodeAdapterAPI();
+    ASSERT_NE(node, nullptr);
+    ArkUINodeAdapterHandle handle = node->create();
+    ASSERT_NE(handle, nullptr);
+    auto frameNode1 = FrameNode::CreateFrameNode("framenode", 1, AceType::MakeRefPtr<Pattern>(), false);
+    ASSERT_NE(frameNode1, nullptr);
+    ArkUINodeHandle host = reinterpret_cast<ArkUINodeHandle>(Referenced::RawPtr(frameNode1));
+    /**
+     * @tc.steps2: FireArkUIObjectLifecycleCallback.
+     * @tc.expected: taskExecuted true.
+     */
+    auto attachResult = node->attachHostNode(handle, host);
+    EXPECT_TRUE(attachResult);
+    auto mockPipeline = NG::MockPipelineContext::GetCurrent();
+    ASSERT_NE(mockPipeline, nullptr);
+    bool taskExecuted = false;
+    mockPipeline->RegisterArkUIObjectLifecycleCallback([&taskExecuted](void*) { taskExecuted = true; });
+    node->fireArkUIObjectLifecycleCallback(reinterpret_cast<void*>(new int), handle);
+    EXPECT_TRUE(taskExecuted);
+}
+
+/**
+ * @tc.name: NativeLazyForEachBuilderRegisterDataChangeListenerWithAPIVersion26
+ * @tc.desc: Test RegisterDataChangeListener skips receiver when API version >= 26.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeAdapterImplTest, NativeLazyForEachBuilderRegisterDataChangeListenerWithAPIVersion26, TestSize.Level1)
+{
+    auto mockPipeline = NG::MockPipelineContext::GetCurrent();
+    ASSERT_NE(mockPipeline, nullptr);
+    auto lastVersion = mockPipeline->GetMinPlatformVersion();
+    mockPipeline->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_TWENTY_SIX));
+
+    auto builder = AceType::MakeRefPtr<NativeLazyForEachBuilder>();
+    ASSERT_NE(builder, nullptr);
+    auto lazyNode = NG::LazyForEachNode::CreateLazyForEachNode(1, nullptr);
+    ASSERT_NE(lazyNode, nullptr);
+
+    static bool eventSent = false;
+    auto receiver = [](ArkUINodeAdapterEvent* event) { eventSent = true; };
+    builder->SetReceiver(receiver);
+
+    builder->RegisterDataChangeListener(lazyNode);
+
+    EXPECT_TRUE(eventSent);
+
+    mockPipeline->SetMinPlatformVersion(lastVersion);
+}
+
+/**
+ * @tc.name: NativeLazyForEachBuilderRegisterDataChangeListenerHandler001
+ * @tc.desc: Test RegisterDataChangeListenerHandler sends ON_ATTACH_TO_NODE event.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeAdapterImplTest, NativeLazyForEachBuilderRegisterDataChangeListenerHandler001, TestSize.Level1)
+{
+    auto mockPipeline = NG::MockPipelineContext::GetCurrent();
+    ASSERT_NE(mockPipeline, nullptr);
+    auto lastVersion = mockPipeline->GetMinPlatformVersion();
+    mockPipeline->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_TWENTY_FIVE));
+
+    auto builder = AceType::MakeRefPtr<NativeLazyForEachBuilder>();
+    ASSERT_NE(builder, nullptr);
+    auto lazyNode = NG::LazyForEachNode::CreateLazyForEachNode(1, nullptr);
+    ASSERT_NE(lazyNode, nullptr);
+    builder->RegisterDataChangeListener(lazyNode);
+
+    static ArkUINodeAdapterEvent sentEvent;
+    auto receiver = [](ArkUINodeAdapterEvent* event) { sentEvent = *event; };
+    builder->SetReceiver(receiver);
+
+    builder->RegisterDataChangeListenerHandler();
+
+    EXPECT_EQ(sentEvent.type, ON_ATTACH_TO_NODE);
+
+    mockPipeline->SetMinPlatformVersion(lastVersion);
 }
 } // namespace OHOS::Ace::NG

@@ -70,6 +70,7 @@ RefPtr<FrameNode> ContainerModalView::Create(RefPtr<FrameNode>& content)
 {
     auto nodeId = ElementRegister::GetInstance()->MakeUniqueId();
     ACE_LAYOUT_SCOPED_TRACE("Create[ContainerModal][self:%d]", nodeId);
+    ACE_UINODE_TRACE(nodeId);
     auto containerModalNode = FrameNode::CreateFrameNode("ContainerModal", nodeId, MakeRefPtr<ContainerModalPattern>());
     auto stack = FrameNode::CreateFrameNode(
         V2::STACK_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), MakeRefPtr<StackPattern>());
@@ -104,6 +105,7 @@ RefPtr<FrameNode> ContainerModalView::BuildTitleContainer(RefPtr<FrameNode>& con
 {
     auto containerTitleRow = BuildTitleRow(isFloatingTitle);
     CHECK_NULL_RETURN(containerTitleRow, nullptr);
+    ACE_UINODE_TRACE(containerTitleRow);
 
     RefPtr<UINode> customTitleBarNode;
     if (customTitileBuilder_) {
@@ -412,7 +414,9 @@ void ContainerModalView::AddButtonHoverEvent(
             auto renderContext = buttonNode->GetRenderContext();
             renderContext->UpdateBackgroundColor(theme->GetControlBtnColor(isCloseBtn, isHoverType));
         }
-        imageLayoutProperty->UpdateImageSourceInfo(sourceInfo.value());
+        if (sourceInfo.has_value()) {
+            imageLayoutProperty->UpdateImageSourceInfo(sourceInfo.value());
+        }
         buttonNode->MarkModifyDone();
         imageNode->MarkModifyDone();
     };

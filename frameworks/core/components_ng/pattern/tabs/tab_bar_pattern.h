@@ -44,6 +44,7 @@ class TextLayoutProperty;
 const auto TabBarPhysicalCurve = AceType::MakeRefPtr<InterpolatingSpring>(-1.0f, 1.0f, 228.0f, 30.f);
 
 using TabBarBuilderFunc = std::function<void()>;
+using OnTabBarItemsChangeEvent = std::function<void()>;
 class TabBarParam : public virtual Referenced {
 public:
     TabBarParam(const std::string& textParam, const std::string& iconParam, TabBarBuilderFunc&& builderParam)
@@ -168,11 +169,13 @@ public:
 
     RefPtr<LayoutProperty> CreateLayoutProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<TabBarLayoutProperty>();
     }
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
+        ACE_UINODE_TRACE(GetHost());
         auto layoutAlgorithm = MakeRefPtr<TabBarLayoutAlgorithm>();
         layoutAlgorithm->SetCurrentDelta(currentDelta_);
         layoutAlgorithm->SetTabBarStyle(tabBarStyle_);
@@ -190,6 +193,7 @@ public:
 
     RefPtr<PaintProperty> CreatePaintProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<TabBarPaintProperty>();
     }
 
@@ -197,6 +201,7 @@ public:
 
     RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<TabBarAccessibilityProperty>();
     }
 
@@ -332,6 +337,62 @@ public:
         }
 
         indicatorStyles_[position] = indicatorStyle;
+    }
+
+    IndicatorStyle GetIndicatorStyleByIndex(uint32_t index) const
+    {
+        if (index >= indicatorStyles_.size()) {
+            IndicatorStyle indicatorStyle;
+            return indicatorStyle;
+        }
+        return indicatorStyles_[index];
+    }
+
+    void SetDrawableIndicatorConfig(const ImageInfoConfig& config, uint32_t position, bool newTabBar = false)
+    {
+        if (drawableIndicatorConfigs_.size() <= position) {
+            drawableIndicatorConfigs_.emplace_back(config);
+            return;
+        }
+
+        if (newTabBar) {
+            drawableIndicatorConfigs_.insert(drawableIndicatorConfigs_.begin() + position, config);
+            return;
+        }
+
+        drawableIndicatorConfigs_[position] = config;
+    }
+
+    ImageInfoConfig GetDrawableIndicatorConfigByIndex(uint32_t index)
+    {
+        if (index >= drawableIndicatorConfigs_.size()) {
+            ImageInfoConfig config;
+            return config;
+        }
+        return drawableIndicatorConfigs_[index];
+    }
+
+    void SetDrawableIndicatorFlag(bool isDrawableIndicator, uint32_t position, bool newTabBar = false)
+    {
+        if (isDrawableIndicators_.size() <= position) {
+            isDrawableIndicators_.emplace_back(isDrawableIndicator);
+            return;
+        }
+
+        if (newTabBar) {
+            isDrawableIndicators_.insert(isDrawableIndicators_.begin() + position, isDrawableIndicator);
+            return;
+        }
+
+        isDrawableIndicators_[position] = isDrawableIndicator;
+    }
+
+    bool GetDrawableIndicatorFlagByIndex(uint32_t index) const
+    {
+        if (index >= isDrawableIndicators_.size()) {
+            return false;
+        }
+        return isDrawableIndicators_[index];
     }
 
     void SetTabBarStyle(TabBarStyle tabBarStyle, uint32_t position, bool newTabBar = false)
@@ -489,7 +550,7 @@ public:
         }
         return iter->second;
     }
-
+    void ChangeIndex(int32_t index);
     void DumpAdvanceInfo() override;
     void DumpAdvanceInfo(std::unique_ptr<JsonValue>& json) override;
     void SetRegionInfo(std::unique_ptr<JsonValue>& json);
@@ -554,6 +615,13 @@ public:
         tabBarItemIds_[position] = tabBarItemId;
     }
 
+    int32_t GetTabBarItemSize()
+    {
+        return tabBarItemIds_.size();
+    }
+
+    TabBarParamType GetTabBarItemType(int32_t tabBarItemId);
+
     bool IsNewTabBar(int32_t tabBarItemId) const
     {
         return std::find(tabBarItemIds_.begin(), tabBarItemIds_.end(), tabBarItemId) == tabBarItemIds_.end();
@@ -572,10 +640,34 @@ public:
         focusIndicator_ = focusIndicator;
     }
 
-    void ChangeIndex(int32_t index);
-
     void ResetOnForceMeasure(int32_t index);
     void OnColorModeChange(uint32_t colorMode) override;
+
+    void OnAttachToFrameNodeMultiThread();
+    void OnAttachToMainTree() override;
+    void OnAttachToMainTreeMultiThread();
+    void OnDetachFromFrameNodeMultiThread(FrameNode* node);
+    void OnDetachFromMainTree() override;
+    void OnDetachFromMainTreeMultiThread();
+
+    bool NeedShowImageIndicator(int32_t index) const
+    {
+        auto isImageIndicator = GetDrawableIndicatorFlagByIndex(index);
+        if (GetTabBarStyle(index) != TabBarStyle::SUBTABBATSTYLE || !isImageIndicator || axis_ != Axis::HORIZONTAL) {
+            return false;
+        }
+        return true;
+    }
+
+    void SetOnTabBarItemsChangeEvent(OnTabBarItemsChangeEvent&& event)
+    {
+        onTabBarItemsChangeEvent_ = std::move(event);
+    }
+
+    void SetShouldPlayMaskAnimation(bool shouldPlayMaskAnimation)
+    {
+        shouldPlayMaskAnimation_ = shouldPlayMaskAnimation;
+    }
 
 private:
     void OnModifyDone() override;
@@ -686,8 +778,12 @@ private:
     void StopHideTabBar();
     void InitTabBarProperty();
     void UpdateTabBarHiddenOffset(float offset);
-    void SetTabBarTranslate(const TranslateOptions& options);
+    void SetTabBarTranslate(const TranslateOptions& options, bool isUserDefined = false);
     void SetTabBarOpacity(float opacity);
+    float GetUserDefinedTranslateY() const
+    {
+        return userDefinedTranslateY_;
+    }
 
     void AddIsFocusActiveUpdateEvent();
     void RemoveIsFocusActiveUpdateEvent();
@@ -708,6 +804,10 @@ private:
 
     template<typename T>
     void UpdateTabBarInfo(std::vector<T>& info, const std::set<int32_t>& retainedIndex);
+    void UpdateSubTabBarImageIndicator();
+    void LoadCompleteManagerStartCollect(int32_t index);
+    void LoadCompleteManagerStopCollect();
+    void NotifyTabBarItemsChange();
 
     RefPtr<NodeAnimatablePropertyFloat> tabBarProperty_;
     CancelableCallback<void()> showTabBarTask_;
@@ -727,6 +827,7 @@ private:
     RefPtr<DragEvent> dragEvent_;
     AnimationStartEventPtr animationStartEvent_;
     AnimationEndEventPtr animationEndEvent_;
+    OnTabBarItemsChangeEvent onTabBarItemsChangeEvent_;
 
     float bigScale_ = 0.0f;
     float largeScale_ = 0.0f;
@@ -762,6 +863,8 @@ private:
     float currentIndicatorOffset_ = 0.0f;
     std::vector<SelectedMode> selectedModes_;
     std::vector<IndicatorStyle> indicatorStyles_;
+    std::vector<ImageInfoConfig> drawableIndicatorConfigs_;
+    std::vector<bool> isDrawableIndicators_;
     std::vector<TabBarStyle> tabBarStyles_;
     std::vector<int32_t> tabBarItemIds_;
     std::unordered_map<int32_t, LabelStyle> labelStyles_;
@@ -787,6 +890,7 @@ private:
     std::optional<int32_t> surfaceChangedCallbackId_;
     std::optional<WindowSizeChangeReason> windowSizeChangeReason_;
     std::pair<double, double> prevRootSize_;
+    float userDefinedTranslateY_ = 0.0f;
 
     std::optional<int32_t> jumpIndex_;
     std::optional<int32_t> targetIndex_;
@@ -801,6 +905,9 @@ private:
     Color tabBarItemDefaultBgColor_ = Color::TRANSPARENT;
     Color tabBarItemFocusBgColor_ = Color::TRANSPARENT;
     Color tabBarItemHoverColor_ = Color::TRANSPARENT;
+
+    bool shouldPlayMaskAnimation_ = true;
+
     ACE_DISALLOW_COPY_AND_MOVE(TabBarPattern);
 };
 } // namespace OHOS::Ace::NG

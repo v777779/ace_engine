@@ -22,7 +22,7 @@
 #include "ui/base/referenced.h"
 
 #include "base/memory/ace_type.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/render/drawing_forward.h"
 
 namespace OHOS::Ace::NG {
@@ -45,6 +45,7 @@ public:
     virtual int UpdateTypography(std::vector<std::pair<RefPtr<Paragraph>, RefPtr<Paragraph>>>& paragraphs) = 0;
     virtual void StartEffect(RSCanvas& canvas, double x, double y) = 0;
     virtual void StopEffect() = 0;
+    virtual void NoEffect(RSCanvas& canvas, double x, double y) = 0;
 };
 } // namespace OHOS::Ace::NG
 

@@ -25,9 +25,10 @@
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/event/click_event.h"
 #include "core/components_ng/event/event_hub.h"
+#include "core/components_ng/gestures/recognizers/click_recognizer.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_v2/inspector/inspector_constants.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -302,7 +303,6 @@ HWTEST_F(ClickEventTestNg, ClickEventActuatorTest005, TestSize.Level1)
     eventHub->AttachHost(frameNode);
     auto gestureEventHub = AceType::MakeRefPtr<GestureEventHub>(AceType::WeakClaim(AceType::RawPtr(eventHub)));
     ClickEventActuator clickEventActuator = ClickEventActuator(AceType::WeakClaim(AceType::RawPtr(gestureEventHub)));
-
     /**
      * @tc.steps: step2. test clear callback and add event.
      * @tc.expected: Add clickRecognizer_ to finalResult, and it's size is equal 1.
@@ -320,7 +320,6 @@ HWTEST_F(ClickEventTestNg, ClickEventActuatorTest005, TestSize.Level1)
     clickEventActuator.OnCollectTouchTarget(
         COORDINATE_OFFSET, CLICK_TOUCH_RESTRICT, getEventTargetImpl, finalResult, responseLinkResult);
     EXPECT_EQ(finalResult.size(), CLICK_TEST_RESULT_SIZE_1);
-
     /**
      * @tc.steps: step3. test clear callback again.
      * @tc.expected: Add clickRecognizer_ to finalResult, and it's size is equal 1.
@@ -330,7 +329,6 @@ HWTEST_F(ClickEventTestNg, ClickEventActuatorTest005, TestSize.Level1)
     clickEventActuator.OnCollectTouchTarget(
         COORDINATE_OFFSET, CLICK_TOUCH_RESTRICT, getEventTargetImpl, finalResultAfterClear, responseLinkResult);
     EXPECT_EQ(finalResultAfterClear.size(), CLICK_TEST_RESULT_SIZE_1);
-
     /**
      * @tc.steps: step4. test clear event again.
      * @tc.expected: callback and event are null, and it's size is equal 0.
@@ -363,7 +361,6 @@ HWTEST_F(ClickEventTestNg, ClickEventActuatorTest006, TestSize.Level1)
     auto clickEvent = AceType::MakeRefPtr<ClickEvent>(std::move(callback));
     clickEventActuator.AddClickAfterEvent(clickEvent);
     EXPECT_NE(clickEventActuator.clickAfterEvents_, nullptr);
-
     clickEventActuator.ClearClickAfterEvent();
     EXPECT_EQ(clickEventActuator.clickAfterEvents_, nullptr);
 }

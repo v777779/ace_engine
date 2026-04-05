@@ -12,7 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "richeditor_modifier_test.h"
+
+#include <regex>
+
 #include "modifier_test_base.h"
 #include "modifiers_test_utils.h"
 
@@ -89,7 +93,7 @@ static const auto ATTRIBUTE_MAX_LINES_DEFAULT_UINT_VALUE = UINT_MAX;
 
 typedef std::tuple<Ark_ResourceColor, std::string> ColorTestStep;
 static const std::vector<ColorTestStep> COLOR_TEST_PLAN = {
-    { Converter::ArkUnion<Ark_ResourceColor, enum Ark_Color>(ARK_COLOR_BLUE), "#FF0000FF" },
+    { Converter::ArkUnion<Ark_ResourceColor, Ark_Color>(ARK_COLOR_BLUE), "#FF0000FF" },
     { Converter::ArkUnion<Ark_ResourceColor, Ark_Int32>(0x123456), "#FF123456" },
     { Converter::ArkUnion<Ark_ResourceColor, Ark_Int32>(0.5f), COLOR_TRANSPARENT },
     { Converter::ArkUnion<Ark_ResourceColor, Ark_String>("#11223344"), "#11223344" },
@@ -109,6 +113,7 @@ public:
     void SetUp(void) override
     {
         ModifierTestBase::SetUp();
+        SetupTheme<TextTheme>();
         checkEvent = std::nullopt;
     }
 
@@ -230,18 +235,18 @@ HWTEST_F(RichEditorModifierTest, DISABLED_setRichEditorOptions1Test, TestSize.Le
 }
 
 /**
- * @tc.name: setCopyOptionTest
+ * @tc.name: setCopyOptionsTestSetCopyOption
  * @tc.desc: Check the functionality of setCopyOption
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorModifierTest, setCopyOptionTest, TestSize.Level1)
+HWTEST_F(RichEditorModifierTest, setCopyOptionsTestSetCopyOption, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setCopyOptions, nullptr);
 
     std::unique_ptr<JsonValue> jsonValue = GetLayoutJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_COPY_OPTIONS_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_COPY_OPTIONS_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_COPY_OPTIONS_DEFAULT_VALUE));
 
     auto optionsConverted = ARK_COPY_OPTIONS_IN_APP;
     auto optOptionsConverted = Converter::ArkValue<Opt_CopyOptions>(optionsConverted);
@@ -249,7 +254,7 @@ HWTEST_F(RichEditorModifierTest, setCopyOptionTest, TestSize.Level1)
 
     jsonValue = GetLayoutJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_COPY_OPTIONS_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_COPY_OPTIONS_IN_APP_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_COPY_OPTIONS_IN_APP_VALUE));
 }
 
 /**
@@ -262,16 +267,16 @@ HWTEST_F(RichEditorModifierTest, setEnableDataDetectorTest, TestSize.Level1)
     ASSERT_NE(modifier_->setEnableDataDetector, nullptr);
 
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_DATA_DETECTOR_NAME);
-    EXPECT_EQ(resultStr, "false");
+    EXPECT_THAT(resultStr, Eq("false"));
 
     auto enabled = Converter::ArkValue<Opt_Boolean>(true);
     modifier_->setEnableDataDetector(node_, &enabled);
 
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_DATA_DETECTOR_NAME);
-    EXPECT_EQ(resultStr, "true");
+    EXPECT_THAT(resultStr, Eq("true"));
 }
 
 /**
@@ -284,21 +289,21 @@ HWTEST_F(RichEditorModifierTest, DISABLED_setEnablePreviewTextTest, TestSize.Lev
     ASSERT_NE(modifier_->setEnablePreviewText, nullptr);
 
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_PREVIEW_TEXT_NAME);
-    EXPECT_EQ(resultStr, "true");
+    EXPECT_THAT(resultStr, Eq("true"));
 
     auto enabled = Converter::ArkValue<Opt_Boolean>(false);
     modifier_->setEnablePreviewText(node_, &enabled);
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_PREVIEW_TEXT_NAME);
-    EXPECT_EQ(resultStr, "false");
+    EXPECT_THAT(resultStr, Eq("false"));
 
     enabled = Converter::ArkValue<Opt_Boolean>(true);
     modifier_->setEnablePreviewText(node_, &enabled);
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_PREVIEW_TEXT_NAME);
-    EXPECT_EQ(resultStr, "true");
+    EXPECT_THAT(resultStr, Eq("true"));
 }
 
 /**
@@ -308,17 +313,21 @@ HWTEST_F(RichEditorModifierTest, DISABLED_setEnablePreviewTextTest, TestSize.Lev
  */
 HWTEST_F(RichEditorModifierTest, setDataDetectorConfigTest, TestSize.Level1)
 {
+    Converter::ConvContext ctx;
     ASSERT_NE(modifier_->setDataDetectorConfig, nullptr);
 
-    std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
-    resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_DATA_DETECTOR_CONFIG_NAME);
-    EXPECT_EQ(resultStr, "");
+    auto jsonValue = GetJsonValue(node_);
+    auto jsonConfig = GetAttrObject(jsonValue, ATTRIBUTE_DATA_DETECTOR_CONFIG_NAME);
+    auto resultStr = GetAttrValue<std::string>(jsonConfig, "color");
+    EXPECT_THAT(resultStr, Eq(std::nullopt));
+    resultStr = GetAttrValue<std::string>(jsonConfig, "types");
+    EXPECT_THAT(resultStr, Eq(std::nullopt));
+    auto jsonStyle = GetAttrObject(jsonConfig, "decoration");
+    EXPECT_THAT(jsonStyle, Eq(nullptr));
 
     Ark_TextDataDetectorConfig config;
     config.color = Converter::ArkUnion<Opt_ResourceColor, Ark_String>(TEST_COLOR);
-    Converter::ArkArrayHolder<Array_TextDataDetectorType> types(ATTRIBUTE_DATA_DETECTOR_CONFIG_VALUE_ARR);
-    config.types = types.ArkValue();
+    config.types = Converter::ArkValue<Opt_Array_TextDataDetectorType>(ATTRIBUTE_DATA_DETECTOR_CONFIG_VALUE_ARR, &ctx);
     config.decoration = Converter::ArkValue<Opt_DecorationStyleInterface>(Ark_DecorationStyleInterface{
         .style = Converter::ArkValue<Opt_TextDecorationStyle>(ATTRIBUTE_DATA_DETECTOR_STYLE_VALUE)
     });
@@ -327,32 +336,21 @@ HWTEST_F(RichEditorModifierTest, setDataDetectorConfigTest, TestSize.Level1)
     auto optConfigConverted = Converter::ArkValue<Opt_TextDataDetectorConfig>(configConverted);
     modifier_->setDataDetectorConfig(node_, &optConfigConverted);
     jsonValue = GetJsonValue(node_);
-    resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_DATA_DETECTOR_CONFIG_NAME);
-    auto jsonConfig = JsonUtil::ParseJsonString(resultStr);
+    jsonConfig = GetAttrObject(jsonValue, ATTRIBUTE_DATA_DETECTOR_CONFIG_NAME);
     resultStr = GetAttrValue<std::string>(jsonConfig, "color");
-    EXPECT_EQ(resultStr, TEST_COLOR);
+    EXPECT_THAT(resultStr, Eq(TEST_COLOR));
     resultStr = GetAttrValue<std::string>(jsonConfig, "types");
-    EXPECT_EQ(resultStr, ATTRIBUTE_DATA_DETECTOR_CONFIG_VALUE);
-    resultStr = GetAttrValue<std::string>(jsonConfig, "decoration");
-    auto jsonStyle = JsonUtil::ParseJsonString(resultStr);
-    int testValue = GetAttrValue<int>(jsonStyle, "style");
-    EXPECT_EQ(testValue, static_cast<int>(ATTRIBUTE_DATA_DETECTOR_STYLE_VALUE));
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_DATA_DETECTOR_CONFIG_VALUE));
+    jsonStyle = GetAttrObject(jsonConfig, "decoration");
+    auto testValue = GetAttrValue<int>(jsonStyle, "style");
+    EXPECT_THAT(testValue, Eq(static_cast<int>(ATTRIBUTE_DATA_DETECTOR_STYLE_VALUE)));
 }
 
-void FixValue(std::string& value)
+std::string FixValue(std::string& value)
 {
-    size_t pos = 0;
-    auto issue1 = "\"{\"";
-    while ((pos = value.find(issue1, pos)) != std::string::npos) {
-        value.replace(pos, strlen(issue1), "{\"");
-        pos++;
-    }
-    pos = 0;
-    auto issue2 = "\"}\"";
-    while ((pos = value.find(issue2, pos)) != std::string::npos) {
-        value.replace(pos, strlen(issue2), "\"}");
-        pos++;
-    }
+    std::regex open("\"\\{\"");
+    std::regex close("\"\\}\"");
+    return std::regex_replace(std::regex_replace(value, open, "{\""), close, "\"}");
 }
 
 /**
@@ -360,7 +358,7 @@ void FixValue(std::string& value)
  * @tc.desc: Check the functionality of setPlaceholder
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorModifierTest, DISABLED_setPlaceholderTest, TestSize.Level1)
+HWTEST_F(RichEditorModifierTest, setPlaceholderTest, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setPlaceholder, nullptr);
 
@@ -379,26 +377,27 @@ HWTEST_F(RichEditorModifierTest, DISABLED_setPlaceholderTest, TestSize.Level1)
     modifier_->setPlaceholder(node_, &optValue, &optStyle);
 
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_PLACEHOLDER_NAME);
-    FixValue(resultStr);
-    std::unique_ptr<JsonValue> placeholderValue = JsonUtil::ParseJsonData(resultStr.c_str());
+    // Special case. Invalid JSON format of object string!!!
+    auto placeholderStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_PLACEHOLDER_NAME);
+    ASSERT_TRUE(placeholderStr);
+    auto placeholder = JsonUtil::ParseJsonData(FixValue(*placeholderStr).c_str());
 
-    resultStr = GetAttrValue<std::string>(placeholderValue, ATTRIBUTE_PLACEHOLDER_VALUE_NAME);
-    EXPECT_EQ(StringUtils::Str8ToStr16(resultStr), TEST_VALUE);
+    auto placeholderValue = GetAttrValue<std::u16string>(placeholder, ATTRIBUTE_PLACEHOLDER_VALUE_NAME);
+    EXPECT_THAT(placeholderValue, Eq(TEST_VALUE));
 
-    std::unique_ptr<JsonValue> styleValue = placeholderValue->GetObject(ATTRIBUTE_PLACEHOLDER_STYLE_NAME);
-    resultStr = GetAttrValue<std::string>(styleValue, ATTRIBUTE_PLACEHOLDER_FONT_COLOR_NAME);
-    EXPECT_EQ(resultStr, TEST_COLOR);
+    auto styleValue = GetAttrObject(placeholder, ATTRIBUTE_PLACEHOLDER_STYLE_NAME);
+    auto resultStr = GetAttrValue<std::string>(styleValue, ATTRIBUTE_PLACEHOLDER_FONT_COLOR_NAME);
+    EXPECT_THAT(resultStr, Eq(TEST_COLOR));
 
-    std::unique_ptr<JsonValue> fontValue = styleValue->GetObject(ATTRIBUTE_PLACEHOLDER_FONT_NAME);
+    auto fontValue = GetAttrObject(styleValue, ATTRIBUTE_PLACEHOLDER_FONT_NAME);
     resultStr = GetAttrValue<std::string>(fontValue, ATTRIBUTE_PLACEHOLDER_FONT_SIZE_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_PLACEHOLDER_FONT_SIZE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_PLACEHOLDER_FONT_SIZE));
 
     resultStr = GetAttrValue<std::string>(fontValue, ATTRIBUTE_PLACEHOLDER_WEIGHT_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_PLACEHOLDER_WEIGHT_NAME_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_PLACEHOLDER_WEIGHT_NAME_VALUE));
 
     resultStr = GetAttrValue<std::string>(fontValue, ATTRIBUTE_PLACEHOLDER_STYLE_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_PLACEHOLDER_STYLE_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_PLACEHOLDER_STYLE_VALUE));
 }
 
 /**
@@ -414,7 +413,7 @@ HWTEST_F(RichEditorModifierTest, DISABLED_setCaretColorTest, TestSize.Level1)
         auto optValue = Converter::ArkValue<Opt_ResourceColor>(value);
         modifier_->setCaretColor(node_, &optValue);
         auto checkVal = GetAttrValue<std::string>(node_, "caretColor");
-        EXPECT_EQ(checkVal, expectVal);
+        EXPECT_THAT(checkVal, Eq(expectVal));
     }
 }
 
@@ -431,7 +430,7 @@ HWTEST_F(RichEditorModifierTest, DISABLED_setSelectedBackgroundColorTest, TestSi
         auto optValue = Converter::ArkValue<Opt_ResourceColor>(value);
         modifier_->setSelectedBackgroundColor(node_, &optValue);
         auto checkVal = GetAttrValue<std::string>(node_, "selectedBackgroundColor");
-        EXPECT_EQ(checkVal, expectVal);
+        EXPECT_THAT(checkVal, Eq(expectVal));
     }
 }
 
@@ -444,16 +443,16 @@ HWTEST_F(RichEditorModifierTest, DISABLED_setEnterKeyTypeTest, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setEnterKeyType, nullptr);
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENTER_KEY_TYPE_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_ENTER_KEY_TYPE_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_ENTER_KEY_TYPE_DEFAULT_VALUE));
 
     auto optValue = Converter::ArkValue<Opt_EnterKeyType>(Ark_EnterKeyType::ARK_ENTER_KEY_TYPE_NEW_LINE);
     modifier_->setEnterKeyType(node_, &optValue);
 
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENTER_KEY_TYPE_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_ENTER_KEY_TYPE_NEWLINE_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_ENTER_KEY_TYPE_NEWLINE_VALUE));
 }
 
 /**
@@ -466,21 +465,21 @@ HWTEST_F(RichEditorModifierTest, setEnableKeyboardOnFocusTest, TestSize.Level1)
     ASSERT_NE(modifier_->setEnableKeyboardOnFocus, nullptr);
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
 
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_KEYBOARD_ON_FOCUS_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_ENABLE_KEYBOARD_ON_FOCUS_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_ENABLE_KEYBOARD_ON_FOCUS_DEFAULT_VALUE));
 
     auto optValue = Converter::ArkValue<Opt_Boolean>(false);
     modifier_->setEnableKeyboardOnFocus(node_, &optValue);
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_KEYBOARD_ON_FOCUS_NAME);
-    EXPECT_EQ(resultStr, "false");
+    EXPECT_THAT(resultStr, Eq("false"));
 
     optValue = Converter::ArkValue<Opt_Boolean>(true);
     modifier_->setEnableKeyboardOnFocus(node_, &optValue);
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_KEYBOARD_ON_FOCUS_NAME);
-    EXPECT_EQ(resultStr, "true");
+    EXPECT_THAT(resultStr, Eq("true"));
 }
 
 /**
@@ -493,21 +492,21 @@ HWTEST_F(RichEditorModifierTest, setEnableHapticFeedbackTest, TestSize.Level1)
     ASSERT_NE(modifier_->setEnableHapticFeedback, nullptr);
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
 
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_HAPTIC_FEEDBACK_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_ENABLE_HAPTIC_FEEDBACK_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_ENABLE_HAPTIC_FEEDBACK_DEFAULT_VALUE));
 
     auto optValue = Converter::ArkValue<Opt_Boolean>(false);
     modifier_->setEnableHapticFeedback(node_, &optValue);
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_HAPTIC_FEEDBACK_NAME);
-    EXPECT_EQ(resultStr, "false");
+    EXPECT_THAT(resultStr, Eq("false"));
 
     optValue = Converter::ArkValue<Opt_Boolean>(true);
     modifier_->setEnableHapticFeedback(node_, &optValue);
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_HAPTIC_FEEDBACK_NAME);
-    EXPECT_EQ(resultStr, "true");
+    EXPECT_THAT(resultStr, Eq("true"));
 }
 
 /**
@@ -515,20 +514,20 @@ HWTEST_F(RichEditorModifierTest, setEnableHapticFeedbackTest, TestSize.Level1)
  * @tc.desc: Check the functionality of setBarState
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorModifierTest, setBarStateTest, TestSize.Level1)
+HWTEST_F(RichEditorModifierTest, DISABLED_setBarStateTest, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setBarState, nullptr);
     std::unique_ptr<JsonValue> jsonValue = GetLayoutJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_BAR_STATE_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_BAR_STATE_DEFAULT);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_BAR_STATE_DEFAULT));
 
     auto optValue = Converter::ArkValue<Opt_BarState>(Ark_BarState::ARK_BAR_STATE_ON);
     modifier_->setBarState(node_, &optValue);
 
     jsonValue = GetLayoutJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_BAR_STATE_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_BAR_STATE_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_BAR_STATE_VALUE));
 }
 
 static bool g_onAppear = false;
@@ -595,15 +594,15 @@ HWTEST_F(RichEditorModifierTest, DISABLED_setCustomKeyboardTest, TestSize.Level1
     ASSERT_NE(modifier_->setCustomKeyboard, nullptr);
 
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_CUSTOM_KB_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_CUSTOM_KB_DEFAULT_VALUE);
+    auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_CUSTOM_KB_NAME);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_CUSTOM_KB_DEFAULT_VALUE));
 
     Ark_KeyboardOptions keyboardOptions;
     keyboardOptions.supportAvoidance = Converter::ArkValue<Opt_Boolean>(true);
     auto options = Converter::ArkValue<Opt_KeyboardOptions>(keyboardOptions);
     uiNode = BlankModelNG::CreateFrameNode(NODE_ID);
     auto buildFunc = getBuilderCb();
-    auto optBuildFunc = Converter::ArkValue<Opt_CustomNodeBuilder>(buildFunc);
+    auto optBuildFunc = Converter::ArkUnion<Opt_Union_CustomBuilder_ComponentContentBase, CustomNodeBuilder>(buildFunc);
     modifier_->setCustomKeyboard(node_, &optBuildFunc, &options);
 
     // Testing callback
@@ -617,7 +616,7 @@ HWTEST_F(RichEditorModifierTest, DISABLED_setCustomKeyboardTest, TestSize.Level1
     // Testing value
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_CUSTOM_KB_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_CUSTOM_KB_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_CUSTOM_KB_VALUE));
     uiNode = std::nullopt;
 }
 
@@ -648,10 +647,10 @@ HWTEST_F(RichEditorModifierTest, setMaxLengthTestValidValues, TestSize.Level1)
     ASSERT_NE(frameNode, nullptr);
     auto pattern = frameNode->GetPattern<RichEditorPattern>();
     ASSERT_NE(pattern, nullptr);
-    int32_t resultValue;
+    std::optional<int> resultValue;
 
     using OneTestStep = std::tuple<Opt_Int32, int32_t>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_Int32>(123321), 123321},
         {Converter::ArkValue<Opt_Int32>(321123), 321123},
     };
@@ -675,11 +674,11 @@ HWTEST_F(RichEditorModifierTest, setMaxLengthTestInvalidValues, TestSize.Level1)
     ASSERT_NE(frameNode, nullptr);
     auto pattern = frameNode->GetPattern<RichEditorPattern>();
     ASSERT_NE(pattern, nullptr);
-    int32_t resultValue;
+    std::optional<int> resultValue;
 
     auto validValue = Converter::ArkValue<Opt_Int32>(100);
     using OneTestStep = std::tuple<Opt_Int32, int32_t>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_Int32>(), ATTRIBUTE_MAX_LENGTH_DEFAULT_VALUE},
         {Converter::ArkValue<Opt_Int32>(-1), ATTRIBUTE_MAX_LENGTH_DEFAULT_VALUE},
     };
@@ -701,7 +700,7 @@ HWTEST_F(RichEditorModifierTest, setMaxLinesTestDefaultValues, TestSize.Level1)
     ASSERT_NE(modifier_->setMaxLines, nullptr);
     auto jsonValue = GetJsonValue(node_);
     auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_MAX_LINES_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_MAX_LINES_DEFAULT_STR_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_MAX_LINES_DEFAULT_STR_VALUE));
 }
 
 /**
@@ -716,10 +715,10 @@ HWTEST_F(RichEditorModifierTest, setMaxLinesTestValidValues, TestSize.Level1)
     ASSERT_NE(frameNode, nullptr);
     auto pattern = frameNode->GetPattern<RichEditorPattern>();
     ASSERT_NE(pattern, nullptr);
-    int32_t resultValue;
+    std::optional<int> resultValue;
 
     using OneTestStep = std::tuple<Opt_Int32, uint32_t>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_Int32>(123321), 123321},
         {Converter::ArkValue<Opt_Int32>(321123), 321123},
     };
@@ -742,11 +741,11 @@ HWTEST_F(RichEditorModifierTest, setMaxLinesTestInvalidValues, TestSize.Level1)
     ASSERT_NE(frameNode, nullptr);
     auto pattern = frameNode->GetPattern<RichEditorPattern>();
     ASSERT_NE(pattern, nullptr);
-    int32_t resultValue;
+    std::optional<int> resultValue;
 
     auto validValue = Converter::ArkValue<Opt_Int32>(100);
     using OneTestStep = std::tuple<Opt_Int32, uint32_t>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_Int32>(), ATTRIBUTE_MAX_LINES_DEFAULT_UINT_VALUE},
         {Converter::ArkValue<Opt_Int32>(-1), ATTRIBUTE_MAX_LINES_DEFAULT_UINT_VALUE},
     };

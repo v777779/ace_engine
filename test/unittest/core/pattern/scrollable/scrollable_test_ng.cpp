@@ -15,11 +15,11 @@
 
 #include "scrollable_test_ng.h"
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pattern/mock_nestable_scroll_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/components_ng/pattern/mock_nestable_scroll_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/core/pattern/scrollable/mock_scrollable.h"
 #define protected public
 #define private public
@@ -67,12 +67,14 @@ void ScrollableTestNg::TearDownTestSuite()
 void ScrollableTestNg::SetUp()
 {
     InitNestedScrolls();
+    MockPipelineContext::SetUp();
 }
 
 void ScrollableTestNg::TearDown()
 {
     scroll_.Reset();
     mockScroll_.Reset();
+    MockPipelineContext::TearDown();
 }
 
 void ScrollableTestNg::InitNestedScrolls()
@@ -284,6 +286,90 @@ HWTEST_F(ScrollableTestNg, IsInHotZone001, TestSize.Level1)
     EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(700.0, 0.0))));
 }
 
+/**
+ * @tc.name: IsInHotZone002
+ * @tc.desc: Test IsInHotZone with needExpandHotZone parameter, axis vertical
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableTestNg, IsInHotZone002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. initialize ScrollablePattern and set frame size
+     */
+    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
+    auto pipeLine = PipelineBase::GetCurrentContext();
+    auto frameNode = scrollPn->GetHost();
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    geometryNode->SetFrameSize(SizeF(700.0, 1200.0));
+    frameNode->SetGeometryNode(geometryNode);
+    scrollPn->SetAxis(Axis::VERTICAL);
+
+    /**
+     * @tc.steps: step2. test IsInHotZone with needExpandHotZone parameter
+     * @tc.expected: in the expanded top hot zone area, return value is positive
+     */
+    EXPECT_TRUE(NearZero(scrollPn->IsInHotZone(PointF(80.0, 250.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0, 0.0 - 10.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0 - 10.0, 0.0 - 10.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0 + 10.0, 0.0 - 10.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0, 0.0 + 10.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0 - 10.0, 0.0 + 10.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0 + 10.0, 0.0 + 10.0), true)));
+
+    /**
+     * @tc.steps: step3. test IsInHotZone with needExpandHotZone parameter
+     * @tc.expected: in the expanded bottom hot zone area, return value is negative
+     */
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(0.0, 1200.0 - 10.0), true)));
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(0.0 - 10.0, 1200.0 - 10.0), true)));
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(0.0 + 10.0, 1200.0 - 10.0), true)));
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(0.0, 1200.0 + 10.0), true)));
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(0.0 - 10.0, 1200.0 + 10.0), true)));
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(0.0 + 10.0, 1200.0 + 10.0), true)));
+}
+
+/**
+ * @tc.name: IsInHotZone003
+ * @tc.desc: Test IsInHotZone with needExpandHotZone parameter, axis horizontal
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableTestNg, IsInHotZone003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. initialize ScrollablePattern and set frame size
+     */
+    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
+    auto pipeLine = PipelineBase::GetCurrentContext();
+    auto frameNode = scrollPn->GetHost();
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    geometryNode->SetFrameSize(SizeF(1200.0, 700.0));
+    frameNode->SetGeometryNode(geometryNode);
+    scrollPn->SetAxis(Axis::HORIZONTAL);
+
+    /**
+     * @tc.steps: step2. test IsInHotZone with needExpandHotZone parameter
+     * @tc.expected: in the expanded top hot zone area, return value is positive
+     */
+    EXPECT_TRUE(NearZero(scrollPn->IsInHotZone(PointF(250.0, 80.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0 - 10.0, 0.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0 - 10.0, 0.0 - 10.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0 - 10.0, 0.0 + 10.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0 + 10.0, 0.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0 + 10.0, 0.0 - 10.0), true)));
+    EXPECT_TRUE(Positive(scrollPn->IsInHotZone(PointF(0.0 + 10.0, 0.0 + 10.0), true)));
+
+    /**
+     * @tc.steps: step3. test IsInHotZone with needExpandHotZone parameter
+     * @tc.expected: in the expanded bottom hot zone area, return value is negative
+     */
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(1200.0 - 10.0, 0.0), true)));
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(1200.0 - 10.0, 0.0 - 10.0), true)));
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(1200.0 - 10.0, 0.0 + 10.0), true)));
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(1200.0 + 10.0, 0.0), true)));
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(1200.0 + 10.0, 0.0 - 10.0), true)));
+    EXPECT_TRUE(Negative(scrollPn->IsInHotZone(PointF(1200.0 + 10.0, 0.0 + 10.0), true)));
+}
+
 HWTEST_F(ScrollableTestNg, IsVertical, TestSize.Level1)
 {
     auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
@@ -380,41 +466,6 @@ HWTEST_F(ScrollableTestNg, HandleScrollVelocity007, TestSize.Level1)
      */
     bool res = scrollPn->HandleScrollVelocity(-1.1f);
     EXPECT_TRUE(res);
-}
-
-/**
- * @tc.name: IsReverse001
- * @tc.desc: Test nested IsReverse for IsAtBottom
- * @tc.type: FUNC
- */
-HWTEST_F(ScrollableTestNg, IsReverse001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Initialize ScrollablePattern type pointer
-     * @tc.expected: Pointer is not nullptr.
-     */
-    auto mockPn = AceType::MakeRefPtr<FullyMockedScrollable>();
-    mockScroll_->pattern_ = mockPn;
-    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
-    scrollPn->parent_ = mockPn;
-
-    /**
-     * @tc.steps: step2. Set the parameter scrollable to be nullptr
-     * @tc.expected: Scrollable is nullptr
-     */
-    EXPECT_CALL(*scrollPn, IsAtBottom).WillRepeatedly(Return(false));
-    scrollPn->scrollableEvent_ = AceType::MakeRefPtr<ScrollableEvent>(Axis::VERTICAL);
-    auto scrollable =
-        AceType::MakeRefPtr<Scrollable>([](double, int32_t source) -> bool { return true; }, Axis::VERTICAL);
-    scrollPn->scrollableEvent_->SetScrollable(scrollable);
-    EXPECT_NE(scrollPn->scrollableEvent_->GetScrollable(), nullptr);
-
-    /**
-     * @tc.steps: step3. Call the IsReverse method
-     * @tc.expected: The result is false
-     */
-    bool res = scrollPn->IsReverse();
-    EXPECT_NE(res, true);
 }
 
 /**
@@ -1255,6 +1306,31 @@ HWTEST_F(ScrollableTestNg, Fling001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: FireOnScrollStop
+ * @tc.desc: Test OnTouchDown
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableTestNg, FireOnScrollStop001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize ScrollablePattern type pointer and Scrollable.
+     * @tc.expected: Pointer is not nullptr.
+     */
+    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
+    ASSERT_NE(scrollPn, nullptr);
+
+    /**
+     * @tc.steps: step2. ScrollablePattern OnTouchDown
+     * @tc.expected: Click animation stop
+     */
+    bool isStopTrigger = false;
+    OnScrollStopEvent stopEvent = [&isStopTrigger]() { isStopTrigger = true; };
+    scrollPn->nestedScrollVelocity_ = 0;
+    scrollPn->FireOnScrollStop(stopEvent, nullptr);
+    EXPECT_TRUE(scrollPn->isAnimationStop_);
+}
+
+/**
  * @tc.name: FadingEdge001
  * @tc.desc: Test SetFadingEdge
  * @tc.type: FUNC
@@ -1279,166 +1355,6 @@ HWTEST_F(ScrollableTestNg, FadingEdge001, TestSize.Level1)
     NG::ScrollableModelNG::SetFadingEdge(Referenced::RawPtr(scroll_), true, Dimension(50.0f, DimensionUnit::PERCENT));
     EXPECT_TRUE(paintProperty->GetFadingEdge().value_or(false));
     EXPECT_EQ(paintProperty->GetFadingEdgeLength().value(), Dimension(50.0f, DimensionUnit::PERCENT));
-}
-
-/**
- * @tc.name: HandleClickScroll001
- * @tc.desc: Test scrolling when clicking on the scroll bar
- * @tc.type: FUNC
- */
-HWTEST_F(ScrollableTestNg, HandleClickScroll001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create FullyMockedScrollable, PartiallyMockedScrollable and GestureEvent.
-     * @tc.expected: create FullyMockedScrollable, PartiallyMockedScrollable and GestureEvent created successfully.
-     */
-    auto mockPn = AceType::MakeRefPtr<FullyMockedScrollable>();
-    mockScroll_->pattern_ = mockPn;
-    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
-    scrollPn->scrollableEvent_ = AceType::MakeRefPtr<ScrollableEvent>(Axis::VERTICAL);
-    scrollPn->parent_ = mockPn;
-    scrollPn->scrollBar_ = AceType::MakeRefPtr<ScrollBar>();
-    scrollPn->scrollBar_->barRect_ = Rect(0.0f, 0.0f, 30.0f, 500.0f);
-    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
-    scrollPn->isMousePressed_ = true;
-    scrollPn->scrollBar_->isScrollable_ = true;
-    scrollPn->locationInfo_ = Offset(1.0f, 150.0f);
-    // /**
-    //  * @tc.steps: step2. Test HandleClickEvent.
-    //  * @tc.expect: finalPosition_ equal to expect value.
-    //  */
-    EXPECT_CALL(*scrollPn, GetMainContentSize).Times(2).WillRepeatedly(Return(50.0f));
-    scrollPn->InitScrollBarClickEvent();
-    scrollPn->HandleClickEvent();
-    EXPECT_EQ(scrollPn->finalPosition_, 0.0f);
-
-    scrollPn->locationInfo_ = Offset(15.0f, 1.0f);
-    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
-    scrollPn->HandleClickEvent();
-    EXPECT_EQ(scrollPn->finalPosition_, -50.0f);
-
-    scrollPn->locationInfo_ = Offset(15.0f, 350.0f);
-    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
-    scrollPn->HandleClickEvent();
-    EXPECT_EQ(scrollPn->finalPosition_, 50.0f);
-}
-
-/**
- * @tc.name: HandleLongPressScroll001
- * @tc.desc: Test long press and hold scrolling when clicking on the scroll bar
- * @tc.type: FUNC
- */
-HWTEST_F(ScrollableTestNg, HandleLongPressScroll001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create FullyMockedScrollable, PartiallyMockedScrollable and ScrollBar.
-     * @tc.expected: create FullyMockedScrollable, PartiallyMockedScrollable and ScrollBar created successfully.
-     */
-    auto mockPn = AceType::MakeRefPtr<FullyMockedScrollable>();
-    mockScroll_->pattern_ = mockPn;
-    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
-    scrollPn->scrollableEvent_ = AceType::MakeRefPtr<ScrollableEvent>(Axis::VERTICAL);
-    scrollPn->parent_ = mockPn;
-    scrollPn->scrollBar_ = AceType::MakeRefPtr<ScrollBar>();
-    scrollPn->scrollBar_->barRect_ = Rect(0.0f, 0.0f, 30.0f, 500.0f);
-    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
-    scrollPn->scrollBar_->InitLongPressEvent();
-    scrollPn->isMousePressed_ = true;
-    scrollPn->scrollBar_->isScrollable_ = true;
-    /**
-    * @tc.steps: step2. Test HandleClickEvent.
-    * @tc.expect: CheckBarDirection equal to equal BarDirection's Value.
-    */
-    scrollPn->scrollBar_->locationInfo_ = Offset(1.0f, 110.0f);
-    scrollPn->scrollBar_->HandleLongPress(true);
-    Point point(scrollPn->scrollBar_->locationInfo_.GetX(), scrollPn->scrollBar_->locationInfo_.GetY());
-    scrollPn->scrollBar_->CheckBarDirection(point);
-    EXPECT_EQ(scrollPn->scrollBar_->CheckBarDirection(point), BarDirection::BAR_NONE);
-    scrollPn->scrollBar_->locationInfo_ = Offset(1.0f, 1.0f);
-    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
-    scrollPn->scrollBar_->HandleLongPress(true);
-    Point point1(scrollPn->scrollBar_->locationInfo_.GetX(), scrollPn->scrollBar_->locationInfo_.GetY());
-    EXPECT_EQ(scrollPn->scrollBar_->CheckBarDirection(point1), BarDirection::PAGE_UP);
-    scrollPn->scrollBar_->locationInfo_ = Offset(1.0f, 300.0f);
-    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
-    scrollPn->scrollBar_->HandleLongPress(true);
-    Point point2(scrollPn->scrollBar_->locationInfo_.GetX(), scrollPn->scrollBar_->locationInfo_.GetY());
-    EXPECT_EQ(scrollPn->scrollBar_->CheckBarDirection(point2), BarDirection::PAGE_DOWN);
-}
-
-/**
- * @tc.name: InitMouseEvent001
- * @tc.desc: Test mouse event callback
- * @tc.type: FUNC
- */
-HWTEST_F(ScrollableTestNg, InitMouseEvent001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create FullyMockedScrollable, PartiallyMockedScrollable and MouseInfo.
-     * @tc.expected: create CreateScrollBar and MouseInfo created successfully.
-     */
-    auto mockPn = AceType::MakeRefPtr<FullyMockedScrollable>();
-    mockScroll_->pattern_ = mockPn;
-    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
-    scrollPn->scrollBar_ = AceType::MakeRefPtr<ScrollBar>();
-    scrollPn->parent_ = mockPn;
-    scrollPn->InitScrollBarMouseEvent();
-    // /**
-    //  * @tc.steps: step2. Test HandleMouseEvent.
-    //  * @tc.expect: info's GetButton is LEFT_BUTTON.
-    //  */
-    MouseInfo info;
-    info.SetAction(MouseAction::PRESS);
-    info.SetButton(MouseButton::LEFT_BUTTON);
-    auto& inputEvents = scrollPn->GetEventHub<EventHub>()
-        ->GetOrCreateInputEventHub()->mouseEventActuator_->inputEvents_;
-    EXPECT_EQ(inputEvents.size(), 1);
-    for (const auto& callback : inputEvents) {
-        if (callback) {
-            (*callback)(info);
-        }
-    };
-    EXPECT_TRUE(scrollPn->isMousePressed_);
-    MouseInfo info1;
-    info1.SetAction(MouseAction::RELEASE);
-    info1.SetButton(MouseButton::LEFT_BUTTON);
-    for (const auto& callback : inputEvents) {
-        if (callback) {
-            (*callback)(info1);
-        }
-    };
-    EXPECT_FALSE(scrollPn->isMousePressed_);
-}
-
-/**
- * @tc.name: InitMouseEvent002
- * @tc.desc: Test multiSelectable event and mouse scroll event
- * @tc.type: FUNC
- */
-HWTEST_F(ScrollableTestNg, InitMouseEvent002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create FullyMockedScrollable, PartiallyMockedScrollable.
-     * @tc.expected: create PartiallyMockedScrollable successfully.
-     */
-    auto mockPn = AceType::MakeRefPtr<FullyMockedScrollable>();
-    mockScroll_->pattern_ = mockPn;
-    ASSERT_NE(scroll_, nullptr);
-    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
-    ASSERT_NE(scrollPn, nullptr);
-    auto gestureHub = scroll_->GetOrCreateGestureEventHub();
-    ASSERT_NE(gestureHub, nullptr);
-    EXPECT_EQ(gestureHub->panEventActuator_, nullptr);
-    
-    /**
-     * @tc.steps: step2. execute the InitMouseEbent.
-     * @tc.expected: the isExcludedAxis_ of panEventActuator_ is true.
-     */
-    scrollPn->InitMouseEvent();
-    gestureHub = scroll_->GetOrCreateGestureEventHub();
-    ASSERT_NE(gestureHub, nullptr);
-    ASSERT_NE(gestureHub->panEventActuator_, nullptr);
-    EXPECT_TRUE(gestureHub->panEventActuator_->isExcludedAxis_);
 }
 
 /**
@@ -1516,6 +1432,167 @@ HWTEST_F(ScrollableTestNg, HandleOverScroll001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: HandleClickScroll001
+ * @tc.desc: Test scrolling when clicking on the scroll bar
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableTestNg, HandleClickScroll001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create FullyMockedScrollable, PartiallyMockedScrollable and GestureEvent.
+     * @tc.expected: create FullyMockedScrollable, PartiallyMockedScrollable and GestureEvent created successfully.
+     */
+    auto mockPn = AceType::MakeRefPtr<FullyMockedScrollable>();
+    mockScroll_->pattern_ = mockPn;
+    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
+    scrollPn->scrollableEvent_ = AceType::MakeRefPtr<ScrollableEvent>(Axis::VERTICAL);
+    scrollPn->parent_ = mockPn;
+    scrollPn->scrollBar_ = AceType::MakeRefPtr<ScrollBar>();
+    scrollPn->scrollBar_->barRect_ = Rect(0.0f, 0.0f, 30.0f, 500.0f);
+    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
+    scrollPn->isMousePressed_ = true;
+    scrollPn->scrollBar_->isScrollable_ = true;
+    scrollPn->locationInfo_ = Offset(1.0f, 150.0f);
+    // /**
+    //  * @tc.steps: step2. Test HandleClickEvent.
+    //  * @tc.expect: finalPosition_ equal to expect value.
+    //  */
+    EXPECT_CALL(*scrollPn, GetMainContentSize).Times(2).WillRepeatedly(Return(50.0f));
+    scrollPn->InitScrollBarClickEvent();
+    scrollPn->HandleClickEvent();
+    EXPECT_EQ(scrollPn->finalPosition_, 0.0f);
+
+    scrollPn->locationInfo_ = Offset(15.0f, 1.0f);
+    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
+    scrollPn->HandleClickEvent();
+    EXPECT_EQ(scrollPn->finalPosition_, -50.0f);
+
+    scrollPn->locationInfo_ = Offset(15.0f, 350.0f);
+    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
+    scrollPn->HandleClickEvent();
+    EXPECT_EQ(scrollPn->finalPosition_, 50.0f);
+}
+
+/**
+ * @tc.name: HandleLongPressScroll001
+ * @tc.desc: Test long press and hold scrolling when clicking on the scroll bar
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableTestNg, HandleLongPressScroll001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create FullyMockedScrollable, PartiallyMockedScrollable and ScrollBar.
+     * @tc.expected: create FullyMockedScrollable, PartiallyMockedScrollable and ScrollBar created successfully.
+     */
+    auto mockPn = AceType::MakeRefPtr<FullyMockedScrollable>();
+    mockScroll_->pattern_ = mockPn;
+    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
+    EXPECT_TRUE(scrollPn);
+    scrollPn->scrollableEvent_ = AceType::MakeRefPtr<ScrollableEvent>(Axis::VERTICAL);
+    scrollPn->parent_ = mockPn;
+    scrollPn->scrollBar_ = AceType::MakeRefPtr<ScrollBar>();
+    scrollPn->scrollBar_->barRect_ = Rect(0.0f, 0.0f, 30.0f, 500.0f);
+    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
+    scrollPn->scrollBar_->InitLongPressEvent();
+    scrollPn->isMousePressed_ = true;
+    scrollPn->scrollBar_->isScrollable_ = true;
+    /**
+    * @tc.steps: step2. Test HandleClickEvent.
+    * @tc.expect: CheckBarDirection equal to equal BarDirection's Value.
+    */
+    scrollPn->scrollBar_->locationInfo_ = Offset(1.0f, 110.0f);
+    scrollPn->scrollBar_->HandleLongPress(true);
+    Point point(scrollPn->scrollBar_->locationInfo_.GetX(), scrollPn->scrollBar_->locationInfo_.GetY());
+    scrollPn->scrollBar_->CheckBarDirection(point);
+    EXPECT_EQ(scrollPn->scrollBar_->CheckBarDirection(point), BarDirection::BAR_NONE);
+    scrollPn->scrollBar_->locationInfo_ = Offset(1.0f, 1.0f);
+    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
+    scrollPn->scrollBar_->HandleLongPress(true);
+    Point point1(scrollPn->scrollBar_->locationInfo_.GetX(), scrollPn->scrollBar_->locationInfo_.GetY());
+    EXPECT_EQ(scrollPn->scrollBar_->CheckBarDirection(point1), BarDirection::PAGE_UP);
+    scrollPn->scrollBar_->locationInfo_ = Offset(1.0f, 300.0f);
+    scrollPn->scrollBar_->touchRegion_ = Rect(0.0f, 100.0f, 30.0f, 100.0f);
+    scrollPn->scrollBar_->HandleLongPress(true);
+    Point point2(scrollPn->scrollBar_->locationInfo_.GetX(), scrollPn->scrollBar_->locationInfo_.GetY());
+    EXPECT_EQ(scrollPn->scrollBar_->CheckBarDirection(point2), BarDirection::PAGE_DOWN);
+}
+
+/**
+ * @tc.name: InitMouseEvent001
+ * @tc.desc: Test mouse event callback
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableTestNg, InitMouseEvent001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create FullyMockedScrollable, PartiallyMockedScrollable and MouseInfo.
+     * @tc.expected: create CreateScrollBar and MouseInfo created successfully.
+     */
+    auto mockPn = AceType::MakeRefPtr<FullyMockedScrollable>();
+    mockScroll_->pattern_ = mockPn;
+    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
+    EXPECT_TRUE(scrollPn);
+    scrollPn->parent_ = mockPn;
+    scrollPn->InitScrollBarMouseEvent();
+    // /**
+    //  * @tc.steps: step2. Test HandleMouseEvent.
+    //  * @tc.expect: info's GetButton is LEFT_BUTTON.
+    //  */
+    MouseInfo info;
+    info.SetAction(MouseAction::PRESS);
+    info.SetButton(MouseButton::LEFT_BUTTON);
+    auto& inputEvents = scrollPn->GetEventHub<EventHub>()
+        ->GetOrCreateInputEventHub()->mouseEventActuator_->inputEvents_;
+    EXPECT_EQ(inputEvents.size(), 1);
+    for (const auto& callback : inputEvents) {
+        if (callback) {
+            (*callback)(info);
+        }
+    };
+    EXPECT_TRUE(scrollPn->isMousePressed_);
+    MouseInfo info1;
+    info1.SetAction(MouseAction::RELEASE);
+    info1.SetButton(MouseButton::LEFT_BUTTON);
+    for (const auto& callback : inputEvents) {
+        if (callback) {
+            (*callback)(info1);
+        }
+    };
+    EXPECT_FALSE(scrollPn->isMousePressed_);
+}
+
+/**
+ * @tc.name: InitMouseEvent002
+ * @tc.desc: Test multiSelectable event and mouse scroll event
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableTestNg, InitMouseEvent002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create FullyMockedScrollable, PartiallyMockedScrollable.
+     * @tc.expected: create PartiallyMockedScrollable successfully.
+     */
+    auto mockPn = AceType::MakeRefPtr<FullyMockedScrollable>();
+    mockScroll_->pattern_ = mockPn;
+    ASSERT_NE(scroll_, nullptr);
+    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
+    ASSERT_NE(scrollPn, nullptr);
+    auto gestureHub = scroll_->GetOrCreateGestureEventHub();
+    ASSERT_NE(gestureHub, nullptr);
+    EXPECT_EQ(gestureHub->panEventActuator_, nullptr);
+
+    /**
+     * @tc.steps: step2. execute the InitMouseEbent.
+     * @tc.expected: the isExcludedAxis_ of panEventActuator_ is true.
+     */
+    scrollPn->InitMouseEvent();
+    gestureHub = scroll_->GetOrCreateGestureEventHub();
+    ASSERT_NE(gestureHub, nullptr);
+    ASSERT_NE(gestureHub->panEventActuator_, nullptr);
+    EXPECT_TRUE(gestureHub->panEventActuator_->isExcludedAxis_);
+}
+
+/**
  * @tc.name: OnTouchTestDone001
  * @tc.desc: Test OnTouchTestDone
  * @tc.type: FUNC
@@ -1531,7 +1608,7 @@ HWTEST_F(ScrollableTestNg, OnTouchTestDone001, TestSize.Level1)
     FingerInfo fingerInfo;
     fingerInfos.emplace_back(fingerInfo);
     baseGestureEvent->SetFingerList(fingerInfos);
-    std::list<RefPtr<NGGestureRecognizer>> activeRecognizers;
+    std::list<WeakPtr<NGGestureRecognizer>> activeRecognizers;
     RefPtr<NGGestureRecognizer> clickRecognizer = AceType::MakeRefPtr<ClickRecognizer>();
     clickRecognizer->AttachFrameNode(AceType::WeakClaim(AceType::RawPtr(mockScroll_)));
     clickRecognizer->SetRecognizerType(GestureTypeName::CLICK);
@@ -1577,6 +1654,161 @@ HWTEST_F(ScrollableTestNg, OnTouchTestDone001, TestSize.Level1)
     EXPECT_TRUE(longPressRecognizer->IsPreventBegin());
     EXPECT_TRUE(tapRecognizer->IsPreventBegin());
     EXPECT_FALSE(panRecognizer->IsPreventBegin());
+}
+
+/**
+ * @tc.name: OnTouchTestDone002
+ * @tc.desc: Test OnTouchTestDone with panRecognizer
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableTestNg, OnTouchTestDone002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize baseGestureEvent and activeRecognizers.
+     */
+    auto baseGestureEvent = std::make_shared<BaseGestureEvent>();
+    baseGestureEvent->SetSourceDevice(SourceType::TOUCH);
+    std::list<FingerInfo> fingerInfos;
+    FingerInfo fingerInfo;
+    fingerInfos.emplace_back(fingerInfo);
+    baseGestureEvent->SetFingerList(fingerInfos);
+    std::list<WeakPtr<NGGestureRecognizer>> activeRecognizers;
+    PanDirection panDirection;
+    panDirection.type = PanDirection::HORIZONTAL;
+    RefPtr<PanRecognizer> panRecognizer = AceType::MakeRefPtr<PanRecognizer>(1, panDirection, 5, false);
+    panRecognizer->AttachFrameNode(AceType::WeakClaim(AceType::RawPtr(mockScroll_)));
+    panRecognizer->SetRecognizerType(GestureTypeName::PAN_GESTURE);
+    activeRecognizers.emplace_back(panRecognizer);
+
+    /**
+     * @tc.steps: step2. currentVelocity_ is greater than 200 and state_ is SPRING.
+     * @tc.expected: isHitTestBlock_ is true.
+     */
+    auto scrollablePattern = scroll_->GetPattern<PartiallyMockedScrollable>();
+    RefPtr<Scrollable> scrollable = scrollablePattern->GetScrollable();
+    EXPECT_NE(scrollable, nullptr);
+    scrollable->currentVelocity_ = 300;
+    scrollable->state_ = Scrollable::AnimationState::SPRING;
+    scrollablePattern->OnTouchTestDone(baseGestureEvent, activeRecognizers);
+    EXPECT_TRUE(scrollablePattern->isHitTestBlock_);
+    EXPECT_TRUE(panRecognizer->IsPreventBegin());
+
+    /**
+     * @tc.steps: step3. Set pan direction to PanDirection::RIGHT.
+     * @tc.expected: IsPreventBegin is true.
+     */
+    panRecognizer->SetPreventBegin(false);
+    panDirection.type = PanDirection::RIGHT;
+    panRecognizer->SetDirection(panDirection);
+    scrollablePattern->OnTouchTestDone(baseGestureEvent, activeRecognizers);
+    EXPECT_TRUE(panRecognizer->IsPreventBegin());
+
+    /**
+     * @tc.steps: step4. Set pan direction to PanDirection::LEFT.
+     * @tc.expected: IsPreventBegin is true.
+     */
+    panRecognizer->SetPreventBegin(false);
+    panDirection.type = PanDirection::LEFT;
+    panRecognizer->SetDirection(panDirection);
+    scrollablePattern->OnTouchTestDone(baseGestureEvent, activeRecognizers);
+    EXPECT_TRUE(panRecognizer->IsPreventBegin());
+
+    /**
+     * @tc.steps: step5. Set pan direction to PanDirection::VERTICAL.
+     * @tc.expected: IsPreventBegin is false.
+     */
+    panRecognizer->SetPreventBegin(false);
+    panDirection.type = PanDirection::VERTICAL;
+    panRecognizer->SetDirection(panDirection);
+    scrollablePattern->OnTouchTestDone(baseGestureEvent, activeRecognizers);
+    EXPECT_FALSE(panRecognizer->IsPreventBegin());
+
+    /**
+     * @tc.steps: step6. Set scroll direction to Axis::HORIZONTAL.
+     * @tc.expected: IsPreventBegin is true.
+     */
+    panRecognizer->SetPreventBegin(false);
+    scrollablePattern->axis_ = Axis::HORIZONTAL;
+    scrollablePattern->OnTouchTestDone(baseGestureEvent, activeRecognizers);
+    EXPECT_TRUE(panRecognizer->IsPreventBegin());
+
+    /**
+     * @tc.steps: step7. Set pan direction to PanDirection::UP.
+     * @tc.expected: IsPreventBegin is true.
+     */
+    panRecognizer->SetPreventBegin(false);
+    panDirection.type = PanDirection::UP;
+    panRecognizer->SetDirection(panDirection);
+    scrollablePattern->OnTouchTestDone(baseGestureEvent, activeRecognizers);
+    EXPECT_TRUE(panRecognizer->IsPreventBegin());
+
+    /**
+     * @tc.steps: step8. Set pan direction to PanDirection::DOWN.
+     * @tc.expected: IsPreventBegin is true.
+     */
+    panRecognizer->SetPreventBegin(false);
+    panDirection.type = PanDirection::DOWN;
+    panRecognizer->SetDirection(panDirection);
+    scrollablePattern->OnTouchTestDone(baseGestureEvent, activeRecognizers);
+    EXPECT_TRUE(panRecognizer->IsPreventBegin());
+
+    /**
+     * @tc.steps: step9. Set pan direction to PanDirection::HORIZONTAL.
+     * @tc.expected: IsPreventBegin is false.
+     */
+    panRecognizer->SetPreventBegin(false);
+    panDirection.type = PanDirection::HORIZONTAL;
+    panRecognizer->SetDirection(panDirection);
+    scrollablePattern->OnTouchTestDone(baseGestureEvent, activeRecognizers);
+    EXPECT_FALSE(panRecognizer->IsPreventBegin());
+}
+
+/**
+ * @tc.name: OnTouchTestDone003
+ * @tc.desc: Test OnTouchTestDone with ClickJudge block
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableTestNg, OnTouchTestDone003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize baseGestureEvent and activeRecognizers.
+     */
+    auto baseGestureEvent = std::make_shared<BaseGestureEvent>();
+    baseGestureEvent->SetSourceDevice(SourceType::TOUCH);
+    std::list<FingerInfo> fingerInfos;
+    FingerInfo fingerInfo;
+    fingerInfos.emplace_back(fingerInfo);
+    baseGestureEvent->SetFingerList(fingerInfos);
+    std::list<WeakPtr<NGGestureRecognizer>> activeRecognizers;
+    PanDirection panDirection;
+    panDirection.type = PanDirection::HORIZONTAL;
+    RefPtr<PanRecognizer> panRecognizer = AceType::MakeRefPtr<PanRecognizer>(1, panDirection, 5, false);
+    panRecognizer->AttachFrameNode(AceType::WeakClaim(AceType::RawPtr(mockScroll_)));
+    panRecognizer->SetRecognizerType(GestureTypeName::PAN_GESTURE);
+    activeRecognizers.emplace_back(panRecognizer);
+    RefPtr<LongPressRecognizer> longPressRecognizer = AceType::MakeRefPtr<LongPressRecognizer>(false, false);
+    longPressRecognizer->AttachFrameNode(AceType::WeakClaim(AceType::RawPtr(mockScroll_)));
+    longPressRecognizer->SetRecognizerType(GestureTypeName::LONG_PRESS_GESTURE);
+    activeRecognizers.emplace_back(longPressRecognizer);
+    RefPtr<NGGestureRecognizer> clickRecognizer = AceType::MakeRefPtr<ClickRecognizer>();
+    clickRecognizer->AttachFrameNode(AceType::WeakClaim(AceType::RawPtr(scroll_)));
+    clickRecognizer->SetRecognizerType(GestureTypeName::CLICK);
+    activeRecognizers.emplace_back(clickRecognizer);
+    auto scrollablePattern = scroll_->GetPattern<PartiallyMockedScrollable>();
+    RefPtr<Scrollable> scrollable = scrollablePattern->GetScrollable();
+    EXPECT_NE(scrollable, nullptr);
+    auto scrollableEvent = scrollablePattern->GetScrollableEvent();
+    scrollableEvent->SetClickJudgeCallback([](const PointF&){ return true; });
+
+    /**
+     * @tc.steps: step2. call OnTouchTestDone.
+     * @tc.expected: isHitTestBlock_ is true, clickRecognizer and panRecognizer not prevent.
+     */
+    scrollablePattern->OnTouchTestDone(baseGestureEvent, activeRecognizers);
+    EXPECT_TRUE(scrollablePattern->isHitTestBlock_);
+    EXPECT_FALSE(panRecognizer->IsPreventBegin());
+    EXPECT_TRUE(longPressRecognizer->IsPreventBegin());
+    EXPECT_FALSE(clickRecognizer->IsPreventBegin());
 }
 
 /**
@@ -1650,7 +1882,7 @@ HWTEST_F(ScrollableTestNg, GetCrownRotatePx001, TestSize.Level1)
 
     CrownEvent event = {};
     event.degree = 1.f;
-    
+
     /**
      * @tc.steps: step2. Very slow rotation speed test.
      * @tc.expected: Rotating pixel points with specific row values.
@@ -1773,6 +2005,7 @@ HWTEST_F(ScrollableTestNg, HandleCrownEvent001, TestSize.Level1)
         scrollable->SetCrownEventDragging(false);
     }
     event.action = CrownAction::BEGIN;
+    scrollable->SetReachBoundary(false);
     scrollable->crownEventNum_ = TEST_CROWN_EVENT_NUN_THRESH;
     scrollable->HandleCrownEvent(event, oft);
     EXPECT_TRUE(scrollable->GetIsDragging());
@@ -1782,6 +2015,7 @@ HWTEST_F(ScrollableTestNg, HandleCrownEvent001, TestSize.Level1)
      * @tc.expected: Rotating pixel points with specific row values.
      */
     event.action = CrownAction::BEGIN;
+    scrollable->SetReachBoundary(true);
     scrollable->HandleCrownEvent(event, oft);
     EXPECT_TRUE(scrollable->GetIsDragging());
 
@@ -1915,23 +2149,24 @@ HWTEST_F(ScrollableTestNg, SetVelocityScale001, TestSize.Level1)
  * @tc.desc: Test OnTouchDown
  * @tc.type: FUNC
  */
-// HWTEST_F(ScrollableTestNg, OnTouchDown001, TestSize.Level1)
-// {
-//     /**
-//      * @tc.steps: step1. Initialize ScrollablePattern type pointer and Scrollable.
-//      * @tc.expected: Pointer is not nullptr.
-//      */
-//     auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
-//     ASSERT_NE(scrollPn, nullptr);
+HWTEST_F(ScrollableTestNg, OnTouchDown001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize ScrollablePattern type pointer and Scrollable.
+     * @tc.expected: Pointer is not nullptr.
+     */
+    auto scrollPn = scroll_->GetPattern<PartiallyMockedScrollable>();
+    ASSERT_NE(scrollPn, nullptr);
 
-//     /**
-//      * @tc.steps: step2. ScrollablePattern OnTouchDown
-//      * @tc.expected: Click animation stop
-//      */
-//     TouchEventInfo touchEvent = TouchEventInfo("unknown");
-//     scrollPn->nestedScrollVelocity_ = 0;
-//     scrollPn->OnTouchDown(touchEvent);
-//     EXPECT_FALSE(scrollPn->isClickAnimationStop_);
-// }
+    /**
+     * @tc.steps: step2. ScrollablePattern OnTouchDown
+     * @tc.expected: Click animation stop
+     */
+    TouchEventInfo touchEvent = TouchEventInfo("unknown");
+    scrollPn->nestedScrollVelocity_ = 0;
+    scrollPn->OnTouchDown(touchEvent);
+    EXPECT_FALSE(scrollPn->isClickAnimationStop_);
+}
+
 #endif
 } // namespace OHOS::Ace::NG

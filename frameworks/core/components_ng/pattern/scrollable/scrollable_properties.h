@@ -24,6 +24,7 @@
 #include "core/components_ng/base/frame_scene_status.h"
 #include "core/components_ng/event/touch_event.h"
 #include "core/components_ng/property/layout_constraint.h"
+#include "core/gestures/gesture_event.h"
 #include "ui/properties/scrollable_properties.h"
 
 namespace OHOS::Ace {
@@ -33,12 +34,6 @@ constexpr float DEFAULT_SCROLL_TO_DAMPING = 33.0f;
 constexpr float DEFAULT_SCROLL_TO_VELOCITY = 7.0f;
 // for add item and scrollEdge(Edge.Bottom) in one layout
 constexpr int32_t LAST_ITEM = -1;
-
-enum class ScrollState {
-    IDLE = 0,
-    SCROLL,
-    FLING,
-};
 
 enum class NestedScrollMode {
     SELF_ONLY = 0,
@@ -67,6 +62,29 @@ enum class ScrollPagingStatus {
     // enablePaging is true
     VALID,
 };
+
+namespace NG {
+enum class NestedState {
+    GESTURE = 0,
+    CHILD_SCROLL,
+    CHILD_OVER_SCROLL,
+    CHILD_CHECK_OVER_SCROLL,
+};
+
+struct OverScrollOffset {
+    double start;
+    double end;
+};
+
+struct ScrollResult {
+    double remain;
+    bool reachEdge;
+};
+} // namespace NG
+
+using NestedState = NG::NestedState;
+using OverScrollOffset = NG::OverScrollOffset;
+using ScrollResult = NG::ScrollResult;
 
 enum class SnapType {
     SCROLL_SNAP = 0,
@@ -110,19 +128,10 @@ struct ScrollFrameInfo {
     }
 };
 
-struct ScrollFrameResult {
-    Dimension offset;
-
-    bool operator==(const ScrollFrameResult& scrollRes) const
-    {
-        return offset == scrollRes.offset;
-    }
-};
-
 struct ScrollSnapOptions {
-    int32_t snapAlign;
-    int32_t enableSnapToStart;
-    int32_t enableSnapToEnd;
+    int32_t snapAlign = 0;
+    int32_t enableSnapToStart = 0;
+    int32_t enableSnapToEnd = 0;
     std::vector<Dimension> paginationParams;
 };
 
@@ -230,6 +239,8 @@ constexpr int32_t SCROLL_FROM_ANIMATION_CONTROLLER = 12;
 constexpr int32_t SCROLL_FROM_BAR_FLING = 13;
 constexpr int32_t SCROLL_FROM_CROWN = 14;
 constexpr int32_t SCROLL_FROM_STATUSBAR = 15;
+constexpr int32_t SCROLL_FROM_LAYOUT = 16;
+constexpr int32_t SCROLL_FROM_BAR_OVER_DRAG = 17;
 
 inline std::string GetSourceStr(int32_t scrollSource)
 {
@@ -262,6 +273,8 @@ inline std::string GetSourceStr(int32_t scrollSource)
             return "SCROLL_FROM_ANIMATION_CONTROLLER";
         case SCROLL_FROM_BAR_FLING:
             return "SCROLL_FROM_BAR_FLING";
+        case SCROLL_FROM_BAR_OVER_DRAG:
+            return "SCROLL_FROM_BAR_OVER_DRAG";
         default:
             return "";
     }
@@ -473,7 +486,8 @@ struct SnapAnimationOptions {
     float animationVelocity = 0.f;
     float dragDistance = 0.f;
     SnapDirection snapDirection = SnapDirection::NONE;
-    bool fromScrollBar = false;
+    int32_t source = SCROLL_FROM_NONE;
+    bool fromScrollBar = false; // stop spring animation? true: stop spring animation,false: continue spring animation
 };
 
 // app tail animation
@@ -504,15 +518,26 @@ using ScrollEndCallback = std::function<void()>;
 using StartSnapAnimationCallback = std::function<bool(SnapAnimationOptions)>;
 using ScrollBarFRCallback = std::function<void(double velocity, NG::SceneStatus sceneStatus)>;
 using ScrollPageCallback = std::function<void(bool, bool smooth)>;
+using OnWillScrollEventEx = std::function<void(ScrollFrameResult&, ScrollState, ScrollSource)>;
+using TwoDimensionOnWillScrollEvent = std::function<void(ScrollFrameResult&,
+    ScrollFrameResult&, ScrollState, ScrollSource)>;
+
+using OnWillStartDraggingEvent = std::function<void()>;
+using OnDidStopDraggingEvent = std::function<void(bool)>;
+using OnWillStartFlingEvent = std::function<void()>;
+using OnDidStopFlingEvent = std::function<void()>;
 
 struct ScrollerObserver {
     RefPtr<NG::TouchEventImpl> onTouchEvent;
+    GestureEventFunc onPanActionEndEvent;
     OnReachEvent onReachStartEvent;
     OnReachEvent onReachEndEvent;
     OnScrollStartEvent onScrollStartEvent;
     OnScrollStopEvent onScrollStopEvent;
     OnDidScrollEvent onDidScrollEvent;
     OnScrollerAreaChangeEvent onScrollerAreaChangeEvent;
+    OnWillScrollEventEx onWillScrollEventEx;
+    TwoDimensionOnWillScrollEvent twoDimensionOnWillScrollEvent;
 };
 } // namespace OHOS::Ace
 

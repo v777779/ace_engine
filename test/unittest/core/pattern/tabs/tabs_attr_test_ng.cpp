@@ -21,7 +21,7 @@
 #include "core/components_ng/pattern/tabs/tab_content_pattern.h"
 #include "core/components_ng/pattern/text/text_layout_property.h"
 #include "core/common/resource/resource_parse_utils.h"
-#include "test/mock/base/mock_system_properties.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
 
 namespace OHOS::Ace::NG {
 class TabsAttrTestNg : public TabsTestNg {
@@ -909,7 +909,7 @@ HWTEST_F(TabsAttrTestNg, TabContentModelCreate002, TestSize.Level1)
     auto tabContentPattern = tabContentFrameNode->GetPattern<TabContentPattern>();
 
     TabsModelNG Mode1NG;
-    Mode1NG.Create(BarPosition::END, 0, nullptr, nullptr);
+    Mode1NG.Create(BarPosition::END, 0, nullptr);
     tabContentPattern->shallowBuilder_->deepRenderFunc_();
     EXPECT_FALSE(frameNode_);
 }
@@ -1944,5 +1944,57 @@ HWTEST_F(TabsAttrTestNg, TabContentCreateWithResourceObj001, TestSize.Level1)
     EXPECT_EQ(tabContentPattern->GetLabelStyle().fontSize->Value(), 0.0);
     tabContentModel.Pop();
     g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: AccumulatingTerminateHelper001
+ * @tc.desc: Test TabContentPattern AccumulatingTerminateHelper
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsAttrTestNg, AccumulatingTerminateHelper001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create tabContent.
+     */
+    CreateTabContent();
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<TabContentPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. test AccumulatingTerminateHelper, when "IsScrollableAxisInsensitive" is true.
+     */
+    frameNode->isScrollableAxis_ = true;
+    ExpandEdges padding {0, 10, 20, 30};
+    RectF rect {};
+    auto result = pattern->AccumulatingTerminateHelper(rect, padding);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: AccumulatingTerminateHelper002
+ * @tc.desc: Test TabContentPattern AccumulatingTerminateHelper
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsAttrTestNg, AccumulatingTerminateHelper002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create tabContent.
+     */
+    CreateTabContent();
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<TabContentPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. test AccumulatingTerminateHelper, when "IsScrollableAxisInsensitive" is false.
+     */
+    frameNode->isScrollableAxis_ = false;
+    ExpandEdges padding {30, 20, 10, 0};
+    RectF rect {};
+    auto result = pattern->AccumulatingTerminateHelper(rect, padding);
+    EXPECT_TRUE(result);
 }
 } // namespace OHOS::Ace::NG

@@ -15,9 +15,9 @@
 
 #include "rich_editor_drag_paint_method_test_ng.h"
 
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_canvas_image.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_canvas_image.h"
 #include "core/components_ng/base/view_stack_processor.h"
 
 namespace OHOS::Ace::NG {
@@ -81,7 +81,7 @@ void RichEditorDragPaintMethodTestNG::InitDate()
  * @tc.desc: Test function UpdateContentModifier.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragPaintMethodTestNG, UpdateContentModifier001, TestSize.Level1)
+HWTEST_F(RichEditorDragPaintMethodTestNG, UpdateContentModifier001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Init frameNode_ 、pattern_ and richGragPaintMethod_.
@@ -105,7 +105,7 @@ HWTEST_F(RichEditorDragPaintMethodTestNG, UpdateContentModifier001, TestSize.Lev
  * @tc.desc: Test function GetContentModifier.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragPaintMethodTestNG, GetContentModifier001, TestSize.Level1)
+HWTEST_F(RichEditorDragPaintMethodTestNG, GetContentModifier001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Init frameNode_ 、pattern_ and richGragPaintMethod_.

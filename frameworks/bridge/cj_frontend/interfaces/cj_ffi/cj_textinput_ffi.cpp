@@ -67,7 +67,7 @@ int32_t NGNativeTextInputController::GetTextContentLinesNum()
 
 CJRectResult NGNativeTextInputController::GetTextContentRect()
 {
-    CJRectResult result;
+    CJRectResult result = {};
     if (controller_) {
         Rect rect = controller_->GetTextContentRect();
         result.x = rect.Left();
@@ -80,7 +80,7 @@ CJRectResult NGNativeTextInputController::GetTextContentRect()
 
 CJCaretOffset NGNativeTextInputController::GetCaretOffset()
 {
-    CJCaretOffset result;
+    CJCaretOffset result = {};
     if (controller_) {
         NG::OffsetF caretOffset = controller_->GetCaretPosition();
         result.index = controller_->GetCaretIndex();

@@ -70,6 +70,7 @@ void BlankPattern::BeforeCreateLayoutWrapper()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto parent = host->GetAncestorNodeOfFrame(false);
     CHECK_NULL_VOID(parent);
     auto layoutProp = host->GetLayoutProperty<BlankLayoutProperty>();
@@ -120,7 +121,7 @@ void BlankPattern::DumpInfo(std::unique_ptr<JsonValue>& json)
     json->Put("min", blankMin.ToString().c_str());
 }
 
-void BlankPattern::DumpSimplifyInfo(std::unique_ptr<JsonValue>& json)
+void BlankPattern::DumpSimplifyInfo(std::shared_ptr<JsonValue>& json)
 {
     auto blankProperty = GetLayoutProperty<BlankLayoutProperty>();
     CHECK_NULL_VOID(blankProperty);

@@ -62,6 +62,10 @@ class ArkMarqueeComponent extends ArkComponent implements MarqueeAttribute {
     modifierWithKey(this._modifiersWithKeys, MarqueeOnFinishModifier.identity, MarqueeOnFinishModifier, event);
     return this;
   }
+  onStop(event: () => void): this {
+    modifierWithKey(this._modifiersWithKeys, MarqueeOnStopModifier.identity, MarqueeOnStopModifier, event);
+    return this;
+  }
   marqueeUpdateStrategy(value: MarqueeUpdateStrategy): this {
     modifierWithKey(this._modifiersWithKeys, MarqueeUpdateStrategyModifier.identity, MarqueeUpdateStrategyModifier, value);
     return this;
@@ -75,10 +79,10 @@ class MarqueeInitializeModifier extends ModifierWithKey<Object> {
   static identity: Symbol = Symbol('marqueeInitialize');
   applyPeer(node: KNode, reset: boolean): void {
     if (reset) {
-      getUINativeModule().marquee.setInitialize(node, undefined, undefined, undefined, undefined, undefined);
+      getUINativeModule().marquee.setInitialize(node, undefined, undefined, undefined, undefined, undefined, undefined, undefined);
     } else {
       getUINativeModule().marquee.setInitialize(node, this.value?.start, this.value?.step, this.value?.loop,
-        this.value?.fromStart, this.value?.src);
+        this.value?.fromStart, this.value?.src, this.value?.spacing, this.value?.delay);
     }
   }
 
@@ -87,7 +91,9 @@ class MarqueeInitializeModifier extends ModifierWithKey<Object> {
           !isBaseOrResourceEqual(this.stageValue?.step, this.value?.step) ||
           !isBaseOrResourceEqual(this.stageValue?.loop, this.value?.loop) ||
           !isBaseOrResourceEqual(this.stageValue?.fromStart, this.value?.fromStart) ||
-          !isBaseOrResourceEqual(this.stageValue?.src, this.value?.src);
+          !isBaseOrResourceEqual(this.stageValue?.src, this.value?.src) ||
+          !isBaseOrResourceEqual(this.stageValue?.spacing, this.value?.spacing) ||
+          !isBaseOrResourceEqual(this.stageValue?.delay, this.value?.delay);
   }
 }
 
@@ -139,9 +145,6 @@ class MarqueeAllowScaleModifier extends ModifierWithKey<boolean> {
   }
 }
 class MarqueeFontWeightModifier extends ModifierWithKey<string | number | FontWeight> {
-  constructor(value: string | number | FontWeight) {
-    super(value);
-  }
   static identity: Symbol = Symbol('fontWeight');
   applyPeer(node: KNode, reset: boolean): void {
     if (reset) {
@@ -220,6 +223,20 @@ class MarqueeOnFinishModifier extends ModifierWithKey<() => void> {
       getUINativeModule().marquee.resetMarqueeOnFinish(node);
     } else {
       getUINativeModule().marquee.setMarqueeOnFinish(node, this.value);
+    }
+  }
+}
+
+class MarqueeOnStopModifier extends ModifierWithKey<() => void> {
+  constructor(value: () => void) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('marqueeOnStop');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().marquee.resetMarqueeOnStop(node);
+    } else {
+      getUINativeModule().marquee.setMarqueeOnStop(node, this.value);
     }
   }
 }

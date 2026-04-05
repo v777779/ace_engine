@@ -18,7 +18,9 @@
 
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
+#include "core/components/common/properties/text_style.h"
 #include "core/components_ng/base/frame_node.h"
+#include "core/components_ng/pattern/text/text_styles.h"
 
 namespace OHOS::Ace::NG {
 
@@ -28,6 +30,7 @@ public:
     TextComponentDecorator(const RefPtr<FrameNode>& decoratedNode);
     ~TextComponentDecorator();
     void BuildDecorator();
+    void BuildDecoratorMultiThread();
     void CleanDecorator();
     virtual void UpdateTextFieldMargin() = 0;
     virtual float MeasureDecorator(float contentWidth, const std::u16string& textContent, bool showPlaceHolder) = 0;
@@ -58,6 +61,9 @@ private:
     TextAlign GetCounterNodeAlignment();
     void HandleNonTextArea();
     void HandleTextArea();
+    std::string GetAccessibilityText(uint32_t textLength, uint32_t maxLength);
+    void ProcessCounterColor(RefPtr<FrameNode>& decoratedNode, TextStyle& countTextStyle);
+    void UpdateBottomMargin(const std::unique_ptr<MarginProperty>& marginProp, Dimension& bottom);
 };
 
 class ACE_EXPORT ErrorDecorator : public TextComponentDecorator {

@@ -18,6 +18,7 @@
 
 #include <event_handler.h>
 #include <unordered_set>
+#include <vector>
 
 #include "core/components_ng/base/frame_node.h"
 
@@ -38,8 +39,8 @@ struct TraverseInfo {
     bool isAncestorRecent = false;
     bool isAncestorDirty = false;
     bool notSyncPosition = false;
-    int32_t transScenePosX = 0;
-    int32_t transScenePosY = 0;
+    float transScenePosX = 0.0f;
+    float transScenePosY = 0.0f;
 };
 
 class WindowSceneLayoutManager {
@@ -83,13 +84,16 @@ private:
     void GetUINodeInfo(const RefPtr<FrameNode>& node, int32_t parentId, std::ostringstream& oss);
     void GetUITreeInfo(const RefPtr<FrameNode>& node, int32_t depth, int32_t parentId, std::ostringstream& oss);
     void GetTotalUITreeInfo(std::string& info);
-    void DumpRSNodeType(Rosen::RSUINodeType rsNode, std::ostringstream& oss);
+    void DumpRSNodeType(Rosen::RSUINodeType nodeType, std::ostringstream& oss);
     void GetRSNodeTreeInfo(const std::shared_ptr<RSNode>& rsNode, int32_t depth,
         std::ostringstream& oss);
     void GetRSNodeInfo(const std::shared_ptr<RSNode>& rsNode,
         std::ostringstream& oss);
     void IsFrameNodeAbnormal(const RefPtr<FrameNode>& node);
     void RemoveAbnormalId();
+    void TraverseTreeFindTransformScene(const RefPtr<FrameNode>& rootNode, uint32_t targetZOrder,
+        std::vector<std::pair<RefPtr<FrameNode>, uint32_t>>& scenePanelNodeArr);
+    std::shared_ptr<Rosen::RSNode> FindScenePanelRsNodeByZOrder(uint64_t screenId, uint32_t targetZOrder);
     std::unordered_set<uint64_t> abnormalNodeDfxSet_;
     std::unordered_set<uint64_t> windowSceneOnTreeDfxSet_;
     std::unordered_map<uint64_t, WeakPtr<FrameNode>> screenNodeMap_;

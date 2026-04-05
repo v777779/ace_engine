@@ -25,11 +25,13 @@ struct PixelMapConfig {
     AIImageQuality imageQuality = AIImageQuality::NONE;
     bool isHdrDecoderNeed = false;
     PixelFormat photoDecodeFormat = PixelFormat::UNKNOWN;
+    PixelFormat desiredDecodeFormat = PixelFormat::UNKNOWN;
+    AllocatorType allocatorType = AllocatorType::DEFAULT;
 
     bool operator==(const PixelMapConfig& other) const
     {
         return (imageQuality == other.imageQuality) && (isHdrDecoderNeed == other.isHdrDecoderNeed) &&
-               (photoDecodeFormat == other.photoDecodeFormat);
+               (photoDecodeFormat == other.photoDecodeFormat) && (desiredDecodeFormat == other.desiredDecodeFormat);
     }
 
     bool operator!=(const PixelMapConfig& other) const
@@ -38,25 +40,24 @@ struct PixelMapConfig {
     }
 };
 
-
+class PixelMap;
 struct DecodeOptions {
     PixelFormat desiredFormat = PixelFormat::RGBA_8888;
 };
 
 class ACE_FORCE_EXPORT ImageSource : public AceType {
-    DECLARE_ACE_TYPE(ImageSource, AceType)
+    DECLARE_ACE_TYPE(ImageSource, AceType);
 
 public:
     using Size = std::pair<int32_t, int32_t>;
 
     static RefPtr<ImageSource> Create(int32_t fd);
     static RefPtr<ImageSource> Create(const uint8_t* data, uint32_t size, uint32_t& errorCode);
+    static RefPtr<ImageSource> Create(const uint8_t* data, uint32_t size);
     static RefPtr<ImageSource> Create(const std::string& filePath);
     static bool IsAstc(const uint8_t* data, size_t size);
     static Size GetASTCInfo(const uint8_t* data, size_t size);
-
     virtual std::string GetProperty(const std::string& key) = 0;
-
     virtual RefPtr<PixelMap> CreatePixelMap(
         const Size& size, uint32_t& errorCode, const PixelMapConfig& pixelMapConfig = {}) = 0;
     virtual RefPtr<PixelMap> CreatePixelMap(
@@ -73,7 +74,11 @@ public:
     }
     virtual Size GetImageSize() = 0;
     virtual uint32_t GetFrameCount() = 0;
+    virtual ImageRotateOrientation GetImageOrientation() = 0;
     virtual std::string GetEncodedFormat() = 0;
+    virtual int32_t GetLoopCount() = 0;
+    virtual std::vector<int32_t> GetDelayTime() = 0;
+    virtual bool IsHeifWithoutAlpha() = 0;
 };
 } // namespace OHOS::Ace
 

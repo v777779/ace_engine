@@ -19,8 +19,12 @@
 #include "core/components_ng/pattern/menu/menu_pattern.h"
 #include "core/components_ng/pattern/menu/multi_menu_layout_algorithm.h"
 #include "core/components_ng/property/measure_utils.h"
+#include "core/components_ng/pattern/menu/menu_tag_constants.h"
 
 namespace OHOS::Ace::NG {
+namespace {
+constexpr float MULTIPLE_FACTOR = 2.0f;
+} //namespace
 void RecordItemsAndGroups(const RefPtr<FrameNode>& host)
 {
     CHECK_NULL_VOID(host);
@@ -28,9 +32,26 @@ void RecordItemsAndGroups(const RefPtr<FrameNode>& host)
     CHECK_NULL_VOID(pattern);
     auto menu = pattern->GetMenu();
     CHECK_NULL_VOID(menu);
+    ACE_UINODE_TRACE(menu);
     auto menuPattern = menu->GetPattern<InnerMenuPattern>();
     CHECK_NULL_VOID(menuPattern);
     menuPattern->RecordItemsAndGroups();
+}
+
+void MenuItemGroupLayoutAlgorithm::RemoveParentRestrictionsForFixIdeal(
+    const RefPtr<LayoutProperty> layoutProperty, LayoutConstraintF& childConstraint)
+{
+    CHECK_NULL_VOID(layoutProperty);
+    auto layoutPolicyProperty = layoutProperty->GetLayoutPolicyProperty();
+    if (layoutPolicyProperty.has_value()) {
+        auto& layoutPolicy = layoutPolicyProperty.value();
+        if (layoutPolicy.IsWidthFix()) {
+            childConstraint.maxSize.SetWidth(std::numeric_limits<float>::infinity());
+        }
+        if (layoutPolicy.IsHeightFix()) {
+            childConstraint.maxSize.SetHeight(std::numeric_limits<float>::infinity());
+        }
+    }
 }
 
 void MenuItemGroupLayoutAlgorithm::MeasureChildren(
@@ -42,6 +63,7 @@ void MenuItemGroupLayoutAlgorithm::MeasureChildren(
     CHECK_NULL_VOID(layoutConstraint);
 
     auto childConstraint = props->CreateChildConstraint();
+    RemoveParentRestrictionsForFixIdeal(props, childConstraint);
     childConstraint.minSize = layoutConstraint->minSize;
 
     if (layoutConstraint->selfIdealSize.Width().has_value()) {
@@ -127,7 +149,7 @@ bool MenuItemGroupLayoutAlgorithm::UpdateLayoutSizeBasedOnPolicy(
     }
 
     auto& layoutPolicy = layoutPolicyProperty.value();
-    if (!(layoutPolicy.IsAdaptive() || layoutPolicy.IsMatch())) {
+    if (!(layoutPolicy.IsWrap() || layoutPolicy.IsMatch())) {
         return false;
     }
 
@@ -135,9 +157,6 @@ bool MenuItemGroupLayoutAlgorithm::UpdateLayoutSizeBasedOnPolicy(
     auto parentIdealWidth = layoutConstraint->parentIdealSize.Width();
     auto parentIdealHeight = layoutConstraint->parentIdealSize.Height();
 
-    const auto& padding = layoutWrapper->GetLayoutProperty()->CreatePaddingAndBorder();
-    auto paddingSize = menuItemGroupSize;
-    AddPaddingToSize(padding, paddingSize);
     float maxWidth = menuItemGroupSize.Width();
     float maxHeight = menuItemGroupSize.Height();
     bool isParentIdealWidth = parentIdealWidth.has_value();
@@ -147,7 +166,7 @@ bool MenuItemGroupLayoutAlgorithm::UpdateLayoutSizeBasedOnPolicy(
         if (layoutPolicy.IsWidthMatch()) {
             maxWidth = parentIdealWidth.value();
         } else if (layoutPolicy.IsWidthWrap()) {
-            maxWidth = std::min(parentIdealWidth.value(), paddingSize.Width());
+            maxWidth = std::min(parentIdealWidth.value(), menuItemGroupSize.Width());
         }
     }
 
@@ -155,7 +174,7 @@ bool MenuItemGroupLayoutAlgorithm::UpdateLayoutSizeBasedOnPolicy(
         if (layoutPolicy.IsHeightMatch()) {
             maxHeight = parentIdealHeight.value();
         } else if (layoutPolicy.IsHeightWrap()) {
-            maxHeight = std::min(parentIdealHeight.value(), paddingSize.Height());
+            maxHeight = std::min(parentIdealHeight.value(), menuItemGroupSize.Height());
         }
     }
     layoutWrapper->GetGeometryNode()->SetFrameSize(SizeT(maxWidth, maxHeight));
@@ -279,7 +298,7 @@ bool MenuItemGroupLayoutAlgorithm::NeedHeaderPadding(const RefPtr<FrameNode>& ho
 {
     auto brotherNode = GetBrotherNode(host);
     CHECK_NULL_RETURN(brotherNode, false);
-    return brotherNode->GetTag() != V2::MENU_ITEM_GROUP_ETS_TAG;
+    return brotherNode->GetTag() != MENU_ITEM_GROUP_ETS_TAG;
 }
 
 bool MenuItemGroupLayoutAlgorithm::NeedFooterPadding(const RefPtr<FrameNode>& host)
@@ -303,10 +322,12 @@ float MenuItemGroupLayoutAlgorithm::GetChildrenMaxWidth(
 std::list<WeakPtr<UINode>> MenuItemGroupLayoutAlgorithm::GetItemsAndGroups(const RefPtr<FrameNode>& host) const
 {
     std::list<WeakPtr<UINode>> itemsAndGroups;
+    CHECK_NULL_RETURN(host, itemsAndGroups);
     auto pattern = host->GetPattern<MenuItemGroupPattern>();
     CHECK_NULL_RETURN(pattern, itemsAndGroups);
     auto menu = pattern->GetMenu();
     CHECK_NULL_RETURN(menu, itemsAndGroups);
+    ACE_UINODE_TRACE(menu);
     auto menuPattern = menu->GetPattern<InnerMenuPattern>();
     CHECK_NULL_RETURN(menuPattern, itemsAndGroups);
     return menuPattern->GetItemsAndGroups();
@@ -362,7 +383,7 @@ void MenuItemGroupLayoutAlgorithm::UpdateHeaderAndFooterMargin(LayoutWrapper* la
         }
     } else {
         if (pattern->HasSelectIcon() && pattern->HasStartIcon()) {
-            margin.left = CalcLength(iconWidth * 2.0 + iconContentPadding * 2.0);
+            margin.left = CalcLength(iconWidth * MULTIPLE_FACTOR + iconContentPadding * MULTIPLE_FACTOR);
         } else if (pattern->HasSelectIcon() || pattern->HasStartIcon()) {
             margin.left = CalcLength(iconWidth + iconContentPadding);
         } else {

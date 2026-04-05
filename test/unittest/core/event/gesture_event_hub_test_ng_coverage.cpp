@@ -15,10 +15,11 @@
 
 #include "test/unittest/core/event/gesture_event_hub_test_ng.h"
 
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_interaction_interface.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_interaction_interface.h"
 #include "test/unittest/core/pattern/scrollable/mock_scrollable.h"
 
+#include "core/components_ng/manager/drag_drop/drag_drop_global_controller.h"
 #include "frameworks/core/components_ng/pattern/text/text_pattern.h"
 
 using namespace testing;
@@ -323,7 +324,7 @@ HWTEST_F(GestureEventHubTestCoverageNg, GestureEventHubTestCoverage007, TestSize
     ASSERT_NE(gestureEventHub, nullptr);
     gestureEventHub->parallelCombineClick = true;
     GestureEventFunc gestureEventFunc = [](GestureEvent& info) {};
-    gestureEventHub->SetJSFrameNodeOnClick(std::move(gestureEventFunc));
+    gestureEventHub->SetFrameNodeCommonOnClick(std::move(gestureEventFunc));
     gestureEventHub->CheckClickActuator();
     EXPECT_EQ(gestureEventHub->parallelCombineClick, true);
 }
@@ -705,5 +706,202 @@ HWTEST_F(GestureEventHubTestCoverageNg, GestureEventHubTestCoverage015, TestSize
     EXPECT_EQ(gestureEvent.inputEventType_, InputEventType::MOUSE_BUTTON);
     EXPECT_EQ(gestureEvent.GetSourceDevice(), SourceType::TOUCH);
     EXPECT_EQ(gestureEvent.GetSourceTool(), SourceTool::MOUSE);
+}
+
+/**
+ * @tc.name: GestureEventHubTestCollectRecognizers001
+ * @tc.desc: test ProcessParallelPriorityGesture
+ * @tc.type: FUNC
+ */
+HWTEST_F(GestureEventHubTestCoverageNg, GestureEventHubTestCollectRecognizers001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create GestureEventHub.
+     * @tc.expected: gestureEventHub is not null.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("myButton", 100, AceType::MakeRefPtr<Pattern>());
+    auto gestureEventHub = frameNode->GetOrCreateGestureEventHub();
+    ASSERT_NE(gestureEventHub, nullptr);
+
+    Offset offset = Offset(0, 0);
+    int32_t touchId = 0;
+    int32_t originalId = 0;
+    RefPtr<TargetComponent> targetComponent = nullptr;
+    RefPtr<FrameNode> host = nullptr;
+    RefPtr<NGGestureRecognizer> current = nullptr;
+    auto clickRecognizer = AceType::MakeRefPtr<ClickRecognizer>();
+    std::list<RefPtr<NGGestureRecognizer>> recognizers { 1, clickRecognizer };
+    int32_t parallelIndex = 0;
+    std::vector<RefPtr<NGGestureRecognizer>> parallelVc;
+    parallelVc.push_back(clickRecognizer);
+    auto parallelRecognizer = AceType::MakeRefPtr<ParallelRecognizer>(parallelVc);
+
+    gestureEventHub->externalParallelRecognizer_.push_back(parallelRecognizer);
+    gestureEventHub->ProcessParallelPriorityGesture(
+        offset, touchId, originalId, targetComponent, host, current, recognizers, parallelIndex);
+    ASSERT_NE(gestureEventHub->externalParallelRecognizer_[parallelIndex], nullptr);
+    auto touchPoint = gestureEventHub->externalParallelRecognizer_[parallelIndex]->GetTouchPoints();
+    EXPECT_EQ(touchPoint.size(), 1);
+    EXPECT_EQ(parallelIndex, 0);
+    EXPECT_EQ(current, clickRecognizer);
+}
+
+/**
+ * @tc.name: GestureEventHubOnDragStartTestCoverage001
+ * @tc.desc: test OnDragStart
+ * @tc.type: FUNC
+ */
+HWTEST_F(GestureEventHubTestCoverageNg, GestureEventHubOnDragStartTestCoverage001, TestSize.Level1)
+{
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    auto childNode = AceType::MakeRefPtr<FrameNode>(V2::RICH_EDITOR_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(childNode, nullptr);
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::RICH_EDITOR_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto patternNode = AceType::MakeRefPtr<FrameNode>(V2::RICH_EDITOR_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    frameNode->AddChild(childNode);
+    DragDropInfo dragDropInfo;
+    eventHub->AttachHost(frameNode);
+    auto gestureEventHub = AceType::MakeRefPtr<GestureEventHub>(eventHub);
+    ASSERT_NE(gestureEventHub, nullptr);
+    gestureEventHub->InitDragDropEvent();
+    ASSERT_NE(gestureEventHub->dragEventActuator_, nullptr);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    GestureEvent gestureEvent;
+    void* voidPtr = static_cast<void*>(new char[0]);
+    RefPtr<PixelMap> pixelMap = PixelMap::CreatePixelMap(voidPtr);
+    dragDropInfo.pixelMap = pixelMap;
+    frameNode->SetDragPreview(dragDropInfo);
+    gestureEventHub->dragEventActuator_->preScaledPixelMap_ = pixelMap;
+    gestureEventHub->dragPreviewPixelMap_ = pixelMap;
+    RefPtr<OHOS::Ace::DragEvent> event = AceType::MakeRefPtr<OHOS::Ace::DragEvent>();
+    auto dragDropProxy = AceType::MakeRefPtr<DragDropProxy>(101);
+    gestureEventHub->dragDropProxy_ = dragDropProxy;
+    auto textPattern = AceType::MakeRefPtr<TextPattern>();
+    textPattern->dragRecordSize_ = 1;
+    frameNode->pattern_ = textPattern;
+    frameNode->GetOrCreateFocusHub();
+    auto mainPipeline = PipelineContext::GetMainPipelineContext();
+    auto overlayManager = mainPipeline->GetOverlayManager();
+    overlayManager->pixmapColumnNodeWeak_ = WeakPtr<FrameNode>(AceType::DynamicCast<FrameNode>(frameNode));
+    gestureEventHub->OnDragStart(gestureEvent, pipeline, frameNode, dragDropInfo, event);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().dragStartRequestStatus_, DragStartRequestStatus::READY);
+}
+
+/**
+ * @tc.name: GestureEventHubOnDragStartTestCoverage002
+ * @tc.desc: test OnDragStart
+ * @tc.type: FUNC
+ */
+HWTEST_F(GestureEventHubTestCoverageNg, GestureEventHubOnDragStartTestCoverage002, TestSize.Level1)
+{
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    auto childNode = AceType::MakeRefPtr<FrameNode>(V2::RICH_EDITOR_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(childNode, nullptr);
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::RICH_EDITOR_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto patternNode = AceType::MakeRefPtr<FrameNode>(V2::RICH_EDITOR_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    frameNode->AddChild(childNode);
+    DragDropInfo dragDropInfo;
+    eventHub->AttachHost(frameNode);
+    auto gestureEventHub = AceType::MakeRefPtr<GestureEventHub>(eventHub);
+    ASSERT_NE(gestureEventHub, nullptr);
+    gestureEventHub->InitDragDropEvent();
+    ASSERT_NE(gestureEventHub->dragEventActuator_, nullptr);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    GestureEvent gestureEvent;
+    void* voidPtr = static_cast<void*>(new char[0]);
+    RefPtr<PixelMap> pixelMap = PixelMap::CreatePixelMap(voidPtr);
+    dragDropInfo.pixelMap = pixelMap;
+    frameNode->SetDragPreview(dragDropInfo);
+    gestureEventHub->dragEventActuator_->preScaledPixelMap_ = pixelMap;
+    gestureEventHub->dragPreviewPixelMap_ = pixelMap;
+    RefPtr<OHOS::Ace::DragEvent> event = AceType::MakeRefPtr<OHOS::Ace::DragEvent>();
+    auto dragDropProxy = AceType::MakeRefPtr<DragDropProxy>(101);
+    gestureEventHub->dragDropProxy_ = dragDropProxy;
+    auto textPattern = AceType::MakeRefPtr<TextPattern>();
+    textPattern->dragRecordSize_ = 1;
+    frameNode->pattern_ = textPattern;
+    frameNode->GetOrCreateFocusHub();
+    auto mainPipeline = PipelineContext::GetMainPipelineContext();
+    auto overlayManager = mainPipeline->GetOverlayManager();
+    overlayManager->pixmapColumnNodeWeak_ = WeakPtr<FrameNode>(AceType::DynamicCast<FrameNode>(frameNode));
+    gestureEvent.inputEventType_ = InputEventType::MOUSE_BUTTON;
+    gestureEventHub->OnDragStart(gestureEvent, pipeline, frameNode, dragDropInfo, event);
+    EXPECT_EQ(DragDropGlobalController::GetInstance().dragStartRequestStatus_, DragStartRequestStatus::READY);
+}
+
+/**
+ * @tc.name: GestureEventHubGetPixelMapOffset004
+ * @tc.desc: Test GetPixelMapOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(GestureEventHubTestNg, GestureEventHubGetPixelMapOffset004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create gestureEventHub.
+     * @tc.expected: gestureEventHub is not null.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("MyButton", 102, AceType::MakeRefPtr<Pattern>());
+    auto gestureEventHub = frameNode->GetOrCreateGestureEventHub();
+    ASSERT_NE(gestureEventHub, nullptr);
+    auto eventHub = gestureEventHub->eventHub_.Upgrade();
+    eventHub->AttachHost(frameNode);
+    ASSERT_NE(eventHub, nullptr);
+
+    /**
+     * @tc.steps2: Invoke GetPixelMapOffset
+     * @tc.expected: NearZero(gestureEventHub->frameNodeSize_.Width()) is false,
+     * NearZero(size.Width()) is false.
+     */
+    GestureEvent info = GestureEvent();
+    auto size = SizeF(500, 600);
+    PreparedInfoForDrag data;
+    gestureEventHub->frameNodeSize_ = SizeF(1, 1);
+    DragPreviewOption option;
+    option.isTouchPointCalculationBasedOnFinalPreviewEnable = true;
+    frameNode->SetDragPreviewOptions(option);
+    data.displayPoint.SetX(0.0f);
+    data.displayPoint.SetY(0.0f);
+    gestureEventHub->GetPixelMapOffset(info, size, data, 1.0f);
+    EXPECT_FALSE(NearZero(gestureEventHub->frameNodeSize_.Width()));
+    EXPECT_FALSE(NearZero(size.Width()));
+}
+
+/**
+ * @tc.name: GestureEventHubGetPixelMapOffset005
+ * @tc.desc: Test GetPixelMapOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(GestureEventHubTestNg, GestureEventHubGetPixelMapOffset005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create gestureEventHub.
+     * @tc.expected: gestureEventHub is not null.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("MyButton", 102, AceType::MakeRefPtr<Pattern>());
+    auto gestureEventHub = frameNode->GetOrCreateGestureEventHub();
+    ASSERT_NE(gestureEventHub, nullptr);
+    auto eventHub = gestureEventHub->eventHub_.Upgrade();
+    eventHub->AttachHost(frameNode);
+    ASSERT_NE(eventHub, nullptr);
+
+    /**
+     * @tc.steps2: Invoke GetPixelMapOffset
+     * @tc.expected: NearZero(gestureEventHub->frameNodeSize_.Width()) is false,
+     * NearZero(size.Width()) is false.
+     */
+    GestureEvent info = GestureEvent();
+    auto size = SizeF(500, 600);
+    PreparedInfoForDrag data;
+    data.isSceneBoardTouchDrag = true;
+    gestureEventHub->frameNodeSize_ = SizeF(1, 1);
+    data.displayPoint.SetX(0.0f);
+    data.displayPoint.SetY(0.0f);
+    gestureEventHub->GetPixelMapOffset(info, size, data, 1.0f);
+    EXPECT_FALSE(NearZero(gestureEventHub->frameNodeSize_.Width()));
+    EXPECT_FALSE(NearZero(size.Width()));
 }
 } // namespace OHOS::Ace::NG

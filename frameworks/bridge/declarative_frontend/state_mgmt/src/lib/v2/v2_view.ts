@@ -42,13 +42,17 @@ function ReusableV2<T extends Constructor>(BaseClass: T): T {
  *
  */
 
-abstract class ViewV2 extends PUV2ViewBase implements IView {
+abstract class ViewV2 extends PUV2ViewBase implements IView, IPropertySubscriber {
 
     // Set of elmtIds that need re-render
     protected dirtDescendantElementIds_: Set<number> = new Set<number>();
 
-    private monitorIdsDelayedUpdate: Set<number> = new Set();
-    private computedIdsDelayedUpdate: Set<number> = new Set();
+    private monitorIdsDelayedUpdate__?: Set<number>;
+    private monitorIdsDelayedUpdateForAddMonitorBased__?: Set<number>;
+    private computedIdsDelayedUpdate__?: Set<number>;
+
+    public defaultConsumerV2__?: Map<string, string>;
+    public connectConsumerV2__?: Map<string, string>;
 
     private recyclePoolV2_: RecyclePoolV2 | undefined = undefined;
 
@@ -64,7 +68,63 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
             stateMgmtConsole.debug(`Both V1 and V2 components are involved. Disabling Parent-Child optimization`)
             ObserveV2.getObserve().isParentChildOptimizable_ = false;
         }
-        stateMgmtConsole.debug(`ViewV2 constructor: Creating @Component '${this.constructor.name}' from parent '${parent?.constructor.name}'`);
+        SubscriberManager.Add(this);
+        stateMgmtConsole.debug(`ViewV2 constructor: Creating @ComponentV2 '${this.constructor.name}' from parent '${parent?.constructor.name}'`);
+    }
+    
+    get monitorIdsDelayedUpdate(): Set<number> | undefined {
+        return this.monitorIdsDelayedUpdate__;
+    }
+
+    getOrCreateMonitorIdsDelayedUpdate(): Set<number> {
+        if (!this.monitorIdsDelayedUpdate__) {
+            this.monitorIdsDelayedUpdate__ = new Set<number>();
+        }
+        return this.monitorIdsDelayedUpdate__;
+    }
+
+    private get monitorIdsDelayedUpdateForAddMonitorBased_(): Set<number> | undefined {
+        return this.monitorIdsDelayedUpdateForAddMonitorBased__;
+    }
+
+    getOrCreateMonitorIdsDelayedUpdateForAddMonitor(): Set<number> {
+        if (!this.monitorIdsDelayedUpdateForAddMonitorBased__) {
+            this.monitorIdsDelayedUpdateForAddMonitorBased__ = new Set<number>();
+        }
+        return this.monitorIdsDelayedUpdateForAddMonitorBased__;
+    }
+
+    get computedIdsDelayedUpdate(): Set<number> | undefined {
+        return this.computedIdsDelayedUpdate__;
+    }
+
+    getOrCreateComputedIdsDelayedUpdate(): Set<number> {
+        if (!this.computedIdsDelayedUpdate__) {
+            this.computedIdsDelayedUpdate__ = new Set<number>();
+        }
+        return this.computedIdsDelayedUpdate__;
+    }
+
+    get defaultConsumerV2_(): Map<string, string> | undefined {
+        return this.defaultConsumerV2__;
+    }
+
+    getOrCreateDefaultConsumerV2(): Map<string, string> {
+        if (!this.defaultConsumerV2__) {
+            this.defaultConsumerV2__ = new Map<string, string>();
+        }
+        return this.defaultConsumerV2__;
+    }
+
+    get connectConsumerV2_(): Map<string, string> | undefined {
+        return this.connectConsumerV2__;
+    }
+
+    getOrCreateConnectConsumerV2(): Map<string, string> {
+        if (!this.connectConsumerV2__) {
+            this.connectConsumerV2__ = new Map<string, string>();
+        }
+        return this.connectConsumerV2__;
     }
 
     /**
@@ -76,9 +136,15 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
      * otherwise it inherits from its parent instance if its freezeState is true
      */
     protected finalizeConstruction(freezeState?: boolean | undefined): void {
-
-        ObserveV2.getObserve().constructComputed(this, this.constructor.name);
-        ObserveV2.getObserve().constructMonitor(this, this.constructor.name);
+        try {
+            ObserveV2.getObserve().constructComputed(this, this.constructor.name);
+            ObserveV2.getObserve().constructMonitor(this, this.constructor.name);
+            ObserveV2.getObserve().constructMonitorsWithOptions(this, this.constructor.name);
+            ObserveV2.getObserve().constructSyncMonitors(this, this.constructor.name);
+        } catch (error) {
+            stateMgmtConsole.applicationError(`Exception occurred when constructor @Computed or @Monitor`, error.message);
+            _arkUIUncaughtPromiseError(error);
+        }
 
         // Always use ID_REFS in ViewV2
         this[ObserveV2.ID_REFS] = {};
@@ -88,6 +154,7 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
         this.isCompFreezeAllowed_ = freezeState || this.isCompFreezeAllowed_;
         stateMgmtConsole.debug(`${this.debugInfo__()}: @ComponentV2 freezeWhenInactive state is set to ${this.isCompFreezeAllowed()}`);
 
+        this.__customComponentExecuteInit__Internal();
     }
 
     public debugInfo__(): string {
@@ -126,7 +193,7 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
     // If it's not defined, it indicates that an older version of the toolchain is being used,
     // and an error is thrown to notify about the outdated toolchain.
     public resetStateVarsOnReuse(params: Object): void {
-        throw new Error('Old toolchain detected. Please upgrade to the latest.');
+        throw new BusinessError(REUSABLE_V2_OLD_TOOLCHAIN, 'Old toolchain detected. Please upgrade to the latest.');
     }
 
     // The aboutToReuse function defined in the application will be called if it exists.
@@ -159,6 +226,9 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
                 // unfreeze the component on reuse
                 this.unfreezeReusedComponent();
                 this.aboutToReuse();
+                if (this['__newLifecycleNeedWork__Internal']) {
+                    this.__getLifecycle__Internal()?.handleEvent(LifeCycleEvent.ON_REUSE);
+                }
             }
         }, 'aboutToReuseInternal', this.constructor.name);
         ObserveV2.getObserve().updateDirty2(true, true);
@@ -180,8 +250,11 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
 
         stateMgmtConsole.debug(`ViewV2 ${this.debugInfo__()} aboutToRecycleInternal`);
 
-        // Calls the application's aboutToRecycle() method if defined
+        // Calls to application's aboutToRecycle() method if defined
         this.aboutToRecycle();
+        if (this['__newLifecycleNeedWork__Internal']) {
+            this.__getLifecycle__Internal()?.handleEvent(LifeCycleEvent.ON_RECYCLE);
+        }
 
         // Freeze the component when its in recycle pool
         this.freezeRecycledComponent();
@@ -313,8 +386,6 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
             delete ObserveV2.getObserve().id2cmp_[elmtId];
         });
 
-        delete ObserveV2.getObserve().id2cmp_[this.id_];
-
         // unregistration of ElementIDs
         stateMgmtConsole.debug(`${this.debugInfo__()}: onUnRegElementID`);
 
@@ -336,6 +407,10 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
         MonitorV2.clearWatchesFromTarget(this);
         ComputedV2.clearComputedFromTarget(this);
 
+        ObserveV2.getObserve().clearBinding(this.id_);
+        delete ObserveV2.getObserve().id2cmp_[this.id_];
+        SubscriberManager.Delete(this.id_);
+
         this.updateFuncByElmtId.clear();
         if (this.parent_) {
             this.parent_.removeChild(this);
@@ -347,6 +422,9 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
             ArkUIObjectFinalizationRegisterProxy.call(new WeakRef(this),
                 `${this.debugInfo__()} is in the process of destruction`);
         }
+
+        this.defaultConsumerV2_?.clear();
+        this.connectConsumerV2_?.clear();
     }
 
     public initialRenderView(): void {
@@ -372,23 +450,83 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
      */
     public resetMonitorsOnReuse(): void {
         // Clear the monitorIds set for delayed updates, if any
-        this.monitorIdsDelayedUpdate.clear();
+        this.monitorIdsDelayedUpdate?.clear();
+        this.monitorIdsDelayedUpdateForAddMonitorBased_?.clear()
         ObserveV2.getObserve().resetMonitorValues();
+
+        this.resetAllMonitorsOnReuse();
+    }
+
+    // 'resetMonitorValues' solution is not enough to ensure (for all path')  MonitorV2 
+    // MonitorValueV2.now + .before is in sync with current path value.
+    // - if object shared with parent component is still the same, but property has 
+    //   changed by @ReusableV2 was in recycle state, then  MonitorValueV2.now monitoring this 
+    //   property gets out of sync, lacks call to MonitorV2.analyzeProp
+    //   see ViewPU.resetParam, and ace-loader generated resetStateVarsOnReuse function
+    // - reset local state does not update MonitorValueV2.now of path monitoring the local state 
+    //   either.
+    // the solution is to run analyzeProp for all monitor path for all monitors of a component 
+    // when it gets reused
+    //
+    // this should be done for MonitorV2 objects created from @Monitor, from addMonitor API
+    // and from @SyncMonitor
+    // because this would be an incompatible change its currently only added for @SyncMonitor 
+    // for @Monitor, from addMonitor API remain to be done (in OH 7.0 release?!)
+    public resetAllMonitorsOnReuse(): void {
+        const refs = this[ObserveV2.MONITOR_WITH_OPTIONS_OR_SYNC_MONITOR_REFS] as object | undefined;
+        if (refs === undefined) {
+            return;
+        }
+        Object.keys(refs).forEach(monitorFuncName => {
+            stateMgmtConsole.log(`${this.debugInfo__()}: `)
+            let monitor = refs[monitorFuncName] as MonitorV2;
+            stateMgmtConsole.log(`Reuse of owning @ComponentV2: @SyncMonitor ${monitorFuncName}: updating MonitorV2Value.before/now to new state`);
+                monitor.recordDependenciesForProps();
+        })
     }
 
     // Resets the computed value when the reused component variables are reinitialized
     // through the resetStateVarsOnReuse process
     public resetComputed(name: string): void {
         // Clear the computedIds set for delayed updates, if any
-        this.computedIdsDelayedUpdate.clear();
+        this.computedIdsDelayedUpdate?.clear();
 
         const refs = this[ObserveV2.COMPUTED_REFS];
         refs[name].resetComputed(name);
      }
 
+    // The Consumer uses providerName when findProvider
+    // but uses varName when connect or disconnect.
+    public __reconnectToConsumer__ViewV2__Internal<T>(): void {
+        this.defaultConsumerV2_?.forEach((value: string, varName: string) => {
+            const providerInfo = ProviderConsumerUtilV2.findProvider(this, value);
+            if (providerInfo && providerInfo[0] && providerInfo[1]) {
+                ProviderConsumerUtilV2.connectConsumer2Provider(this, varName, providerInfo[0], providerInfo[1]);
+                ObserveV2.getObserve().fireChange(this, varName);
+                this.getOrCreateConnectConsumerV2().set(varName, value);
+            }
+        })
+    }
+    public __disconnectToConsumer__ViewV2__Internal<T>(): void {
+        this.connectConsumerV2_?.forEach((value: string, varName: string) => {
+            const providerInfo = ProviderConsumerUtilV2.findProvider(this, value);
+            if (!providerInfo) {
+                ProviderConsumerUtilV2.defineConsumerWithoutProvider(this, varName, this[ObserveV2.OB_PREFIX + varName]);
+                ObserveV2.getObserve().fireChange(this, varName);
+                this.connectConsumerV2_!.delete(varName);
+            }
+        })
+    }
+
     // Resets the consumer value when the component is reinitialized on reuse
      public resetConsumer<T>(varName: string, consumerVal: T): void {
-        let providerInfo = ProviderConsumerUtilV2.findProvider(this, varName);
+        const info = ObserveV2.getObserve().getDecoratorInfo(this, varName);
+        if (!info.startsWith('@Consumer')) {
+            stateMgmtConsole.warn('Should use resetConsumer only to reset @Consumer');
+            return;
+        }
+        const aliasName = info.substring(/** '@Consumer(' */10, info.length - 1); // @Consumer(aliasName)
+        let providerInfo = ProviderConsumerUtilV2.findProvider(this, aliasName);
         if (!providerInfo) {
           ProviderConsumerUtilV2.defineConsumerWithoutProvider(this, varName, consumerVal);
           ObserveV2.getObserve().fireChange(this, varName);
@@ -413,34 +551,37 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
         const _popFunc: () => void = (classObject && 'pop' in classObject) ? classObject.pop! : (): void => { };
         const updateFunc = (elmtId: number, isFirstRender: boolean): void => {
             this.syncInstanceId();
-            stateMgmtConsole.debug(`@ComponentV2 ${this.debugInfo__()}: ${isFirstRender ? `First render` : `Re-render/update`} ${_componentName}[${elmtId}] - start ....`);
-            ViewBuildNodeBase.arkThemeScopeManager?.onComponentCreateEnter(_componentName, elmtId, isFirstRender, this);
-            ViewStackProcessor.StartGetAccessRecordingFor(elmtId);
-            ObserveV2.getObserve().startRecordDependencies(this, elmtId);
+            try {
+                stateMgmtConsole.debug(`@ComponentV2 ${this.debugInfo__()}: ${isFirstRender ? `First render` : `Re-render/update`} ${_componentName}[${elmtId}] - start ....`);
+                ViewBuildNodeBase.arkThemeScopeManager?.onComponentCreateEnter(_componentName, elmtId, isFirstRender, this);
+                ViewStackProcessor.StartGetAccessRecordingFor(elmtId);
+                ObserveV2.getObserve().startRecordDependencies(this, elmtId);
 
-            compilerAssignedUpdateFunc(elmtId, isFirstRender);
+                compilerAssignedUpdateFunc(elmtId, isFirstRender);
 
-            // After first render, new bindings (pending) need to be recorded
-            // immediately, as they may fire changes before the next idle time,
-            // e.g. in the onAreaChange handler
-            if (isFirstRender) {
-                ObserveV2.getObserve().runIdleTasks();
+                // After first render, new bindings (pending) need to be recorded
+                // immediately, as they may fire changes before the next idle time,
+                // e.g. in the onAreaChange handler
+                if (isFirstRender) {
+                    ObserveV2.getObserve().runIdleTasks();
+                }
+
+                if (!isFirstRender) {
+                    _popFunc();
+                }
+
+                let node = this.getNodeById(elmtId);
+                if (node !== undefined) {
+                    (node as ArkComponent).cleanStageValue();
+                }
+
+                ObserveV2.getObserve().stopRecordDependencies();
+                ViewStackProcessor.StopGetAccessRecording();
+                ViewBuildNodeBase.arkThemeScopeManager?.onComponentCreateExit(elmtId);
+                stateMgmtConsole.debug(`${this.debugInfo__()}: ${isFirstRender ? `First render` : `Re-render/update`}  ${_componentName}[${elmtId}] - DONE ....`);
+            } finally {
+                this.restoreInstanceId();
             }
-
-            if (!isFirstRender) {
-                _popFunc();
-            }
-
-            let node = this.getNodeById(elmtId);
-            if (node !== undefined) {
-                (node as ArkComponent).cleanStageValue();
-            }
-
-            ObserveV2.getObserve().stopRecordDependencies();
-            ViewStackProcessor.StopGetAccessRecording();
-            ViewBuildNodeBase.arkThemeScopeManager?.onComponentCreateExit(elmtId);
-            stateMgmtConsole.debug(`${this.debugInfo__()}: ${isFirstRender ? `First render` : `Re-render/update`}  ${_componentName}[${elmtId}] - DONE ....`);
-            this.restoreInstanceId();
         };
 
         const elmtId = ViewStackProcessor.AllocateNewElmetIdForNextComponent();
@@ -522,8 +663,11 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
             // mark ComposedElement dirty when first elmtIds are added
             // do not need to do this every time
             this.syncInstanceId();
-            this.markNeedUpdate();
-            this.restoreInstanceId();
+            try {
+                this.markNeedUpdate();
+            } finally {
+                this.restoreInstanceId();
+            }
         }
         this.dirtDescendantElementIds_.add(elmtId);
         stateMgmtConsole.debug(`${this.debugInfo__()}: uiNodeNeedUpdate: updated full list of elmtIds that need re-render [${this.debugInfoElmtIds(Array.from(this.dirtDescendantElementIds_))}].`);
@@ -635,12 +779,17 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
     // monitor fireChange will be triggered for all these watchIds once this view gets active
     public addDelayedMonitorIds(watchId: number): void  {
         stateMgmtConsole.debug(`${this.debugInfo__()} addDelayedMonitorIds called for watchId: ${watchId}`);
-        this.monitorIdsDelayedUpdate.add(watchId);
+        this.getOrCreateMonitorIdsDelayedUpdate().add(watchId);
     }
 
-    public addDelayedComputedIds(watchId: number) {
+    public addDelayedMonitorIdsForAddMonitor(watchId: number): void  {
+        stateMgmtConsole.debug(`${this.debugInfo__()} addDelayedMonitorIdsForAddMonitor called for watchId: ${watchId}`);
+        this.getOrCreateMonitorIdsDelayedUpdateForAddMonitor().add(watchId);
+    }
+
+    public addDelayedComputedIds(watchId: number): void {
         stateMgmtConsole.debug(`${this.debugInfo__()} addDelayedComputedIds called for watchId: ${watchId}`);
-        this.computedIdsDelayedUpdate.add(watchId);
+        this.getOrCreateComputedIdsDelayedUpdate().add(watchId);
     }
     // If the component has `hasComponentFreezeEnabled` set to true and is marked as @ReusableV2,
     // skip the delayed update, as freeze and delayed updates are handled in `aboutToRecycleInternal`
@@ -662,18 +811,27 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
         this.propagateToChildren(this.childrenWeakrefMap_, active, isReuse);
         // Propagate state to all child BuilderNode
         this.propagateToChildren(this.builderNodeWeakrefMap_, active, isReuse);
+
+        if (InteropConfigureStateMgmt.needsInterop()) {
+            this.handleActiveChangeForInterop(active);
+        }
+
         stateMgmtProfiler.end();
     }
 
     private performDelayedUpdate(): void {
         stateMgmtProfiler.begin('ViewV2: performDelayedUpdate');
-        if(this.computedIdsDelayedUpdate.size) {
+        if(this.computedIdsDelayedUpdate?.size) {
             // exec computed functions
             ObserveV2.getObserve().updateDirtyComputedProps([...this.computedIdsDelayedUpdate]);
         }
-        if(this.monitorIdsDelayedUpdate.size) {
+        if(this.monitorIdsDelayedUpdate?.size) {
           // exec monitor functions
           ObserveV2.getObserve().updateDirtyMonitors(this.monitorIdsDelayedUpdate);
+        }
+        if (this.monitorIdsDelayedUpdateForAddMonitorBased_?.size) {
+            let funcsToRun = ObserveV2.getObserve().updateDirtyMonitorPath(this.monitorIdsDelayedUpdateForAddMonitorBased_);
+            ObserveV2.getObserve().runAddMonitorBasedFunctions(funcsToRun)
         }
         if(this.elmtIdsDelayedUpdate.size) {
           // update re-render of updated element ids once the view gets active
@@ -688,8 +846,9 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
         }
         this.markNeedUpdate();
         this.elmtIdsDelayedUpdate.clear();
-        this.monitorIdsDelayedUpdate.clear();
-        this.computedIdsDelayedUpdate.clear();
+        this.monitorIdsDelayedUpdate?.clear();
+        this.monitorIdsDelayedUpdateForAddMonitorBased_?.clear();
+        this.computedIdsDelayedUpdate?.clear();
         stateMgmtProfiler.end();
     }
 
@@ -787,29 +946,37 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
         return retVaL;
     }
 
+    public __getDecoratorPropertyName__V2View__Internal(): [string, any][] {
+        const meta = this[ObserveV2.V2_DECO_META];
+        const metaMethod = this[ObserveV2.V2_DECO_METHOD_META];
+        let propertyVariableNames: [string, any][] = [];
+        if (!meta && !metaMethod) {
+            return propertyVariableNames;
+        }
+        if (meta) {
+            propertyVariableNames = Object.entries(meta);
+        }
+        if (metaMethod) {
+            propertyVariableNames = [...propertyVariableNames, ...Object.entries(metaMethod)]
+        }
+        return propertyVariableNames;
+    }
 
     public debugInfoStateVars(): string {
         let retVal: string = `|--${this.constructor.name}[${this.id__()}]\n`;
-        let meta = this[ObserveV2.V2_DECO_META];
-        if (!meta) {
+        const propertyVariableNames: [string, any][] = this.__getDecoratorPropertyName__V2View__Internal();
+
+        if (propertyVariableNames.length === 0) {
             retVal += ' No State Variables';
             return retVal;
         }
-        Object.getOwnPropertyNames(meta)
-            .filter((varName) => !varName.startsWith(ProviderConsumerUtilV2.ALIAS_PREFIX)) // remove provider & consumer prefix
-            .forEach((varName) => {
-                const prop: any = Reflect.get(meta, varName);
-                if (prop && typeof prop === 'object') {
-                    if ('deco' in prop) {
-                        retVal += ` ${prop.deco}`; // main decorator
-                    }
-                    if ('deco2' in prop) {
-                        retVal += ` ${prop.deco2}`; // sub decorator like @Once
-                    }
-                    if ('aliasName' in prop) {
-                        retVal += `(${prop.aliasName})`; // aliasName for provider & consumer
-                    }
-                }
+
+        propertyVariableNames
+            .filter((entry) => !entry[0].startsWith(ProviderConsumerUtilV2.ALIAS_PREFIX))
+            .forEach((entry) => {
+                const prop: any = entry[1];
+                const varName: string = entry[0];
+                retVal += ObserveV2.getObserve().parseDecorator(prop);
                 retVal += ` varName: ${varName}`;
 
                 let dependentElmtIds = this[ObserveV2.SYMBOL_REFS]?.[varName];
@@ -818,7 +985,7 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
                     dependentElmtIds.forEach((elmtId) => {
                         if (elmtId < ComputedV2.MIN_COMPUTED_ID) {
                             retVal += ` ` + ObserveV2.getObserve().getElementInfoById(elmtId);
-                        } else if (elmtId < MonitorV2.MIN_WATCH_ID) {
+                        } else if (elmtId < MonitorV2.MIN_MONITOR_ORIG_ID) {
                             retVal += ` @Computed[${elmtId}]`;
                         } else if (elmtId < PersistenceV2Impl.MIN_PERSISTENCE_ID) {
                             retVal += ` @Monitor[${elmtId}]`;
@@ -873,5 +1040,56 @@ abstract class ViewV2 extends PUV2ViewBase implements IView {
         // cannot use ReusableV1 in V2, but for compatibility, do not throw error..
         // transpiler will try to give a warning to hint that it will downgrade to normal V1
         stateMgmtConsole.error(`${this.debugInfo__()}: Recycle not supported for ComponentV2 instance`);
+    }
+
+    protected mutableBuilderImpl<Args extends Object[]>(
+        builder: () => MutableBuilder<Args>, ...args: Args): void {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            const _wb = builder();
+            // WeakMap that stores Builder and has builderID number for it.
+            let builderId = this.builderIdMap_.get(_wb);
+
+            if (builderId === undefined) {
+                builderId = this.nextBuilderId_++;
+                this.builderIdMap_.set(_wb, builderId);
+            }
+            // Create branch for each Builder to ensure UI updating.
+            this.ifElseBranchUpdateFunction(
+                builderId,
+                () => _wb.builder.bind(this)(...args)
+            );
+            If.pop();
+        }, If);
+    }
+
+    __setTSCard__Internal(property: string, value: Object): void {
+        // should only work for @Local/@Provider/@Consumer/@Param@Once decorated variable
+        if (!this.__checkValidDecorator__Internal(property)) {
+            stateMgmtConsole.warn(`Invalid property ${property} to update V2 card`);
+            return;
+        }
+        this[property] = value;
+    }
+
+    __checkValidDecorator__Internal(property: string): boolean {
+        const info = ObserveV2.getObserve().getDecoratorInfo(this, property);
+        if (info === '@Local' || info === '@Param@Once' || info.startsWith('@Provider') || info.startsWith('@Consumer')) {
+            return true;
+        }
+        return false;
+    }
+
+    public __getPathValueFromJson__Internal(propertyName: string, jsonPath: string): string | undefined {
+        const meta = this[ObserveV2.V2_DECO_META];
+        if (!meta || !Object.prototype.hasOwnProperty.call(meta, propertyName)) {
+            return undefined;
+        }
+        const prop = Reflect.get(this, propertyName);
+        const value = stateMgmtDFX.unwrapRawValue(prop);
+        if (value === null || value === undefined) {
+            return undefined;
+        }
+        return this.__findPathValueInJson__Internal(value, jsonPath);
     }
 }

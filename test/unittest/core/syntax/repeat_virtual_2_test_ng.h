@@ -19,6 +19,7 @@
 #include <optional>
 #include <utility>
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 #include "base/memory/ace_type.h"
@@ -26,7 +27,7 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_stack_processor.h"
@@ -39,6 +40,19 @@
 #undef protected
 
 namespace OHOS::Ace::NG {
+class TestUINode : public UINode {
+    DECLARE_ACE_TYPE(TestUINode, UINode);
+
+    bool IsAtomicNode() const override
+    {
+        return true;
+    }
+
+    explicit TestUINode(int32_t nodeId) : UINode("TestUINode", nodeId) {}
+
+    ~TestUINode() override = default;
+};
+
 class RepeatVirtual2TestNg : public testing::Test {
 public:
     void SetUp() override
@@ -51,9 +65,14 @@ public:
         MockPipelineContext::TearDown();
     }
 
+    RefPtr<TestUINode> CreateTestUINode(int32_t nodeId)
+    {
+        return AceType::MakeRefPtr<TestUINode>(nodeId);
+    }
+
     RefPtr<FrameNode> CreateNode(const std::string& tag);
 
-    RefPtr<RepeatVirtualScroll2Node> CreateRepeatVirtualNode(uint32_t totalCount);
+    RefPtr<RepeatVirtualScroll2Node> CreateRepeatVirtualNode(uint32_t arrLen, uint32_t totalCount);
 
     // create ListItemNode with 2 Text Node inside
     RefPtr<FrameNode> CreateListItemNode();
@@ -73,11 +92,12 @@ public:
     /**
      * Function needed by RepeatVirtualScrollCaches constructor is special test case
      */
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index_;
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index_;
     std::function<void(IndexType, IndexType)> onRecycleItems_;
     std::function<void(int32_t, int32_t, int32_t, int32_t, bool, bool)> onActiveRange_;
     std::function<void(IndexType, IndexType)> onMoveFromTo_;
     std::function<void()> onPurge_;
+    std::function<void()> onUpdateDirty_;
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_TEST_UNITTEST_CORE_SYNTAX_REPEAT_VIRTUAL_2_TEST_NG_H

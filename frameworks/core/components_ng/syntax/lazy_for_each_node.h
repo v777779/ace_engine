@@ -30,6 +30,15 @@
 
 namespace OHOS::Ace::NG {
 
+enum LazyForEachIdleTaskSource {
+    POST_IDLE_TASK = 0,
+    ON_DATA_RELOADED = 1,
+    GET_FRAME_CHILD = 2,
+    RECYCLE_ITEMS = 3,
+    REMOVE_CHILD_IN_RENDER_TREE = 4,
+    SET_ACTIVE_RANGE = 5
+};
+
 class ACE_EXPORT LazyForEachNode : public ForEachBaseNode, public V2::DataChangeListener {
     DECLARE_ACE_TYPE(LazyForEachNode, ForEachBaseNode, DataChangeListener);
 
@@ -41,15 +50,11 @@ public:
         int32_t nodeId, const RefPtr<LazyForEachBuilder>& forEachBuilder);
 
     LazyForEachNode(int32_t nodeId, const RefPtr<LazyForEachBuilder>& forEachBuilder)
-        : ForEachBaseNode(V2::JS_LAZY_FOR_EACH_ETS_TAG, nodeId, false), builder_(forEachBuilder)
-    {}
+        : ForEachBaseNode(V2::JS_LAZY_FOR_EACH_ETS_TAG, nodeId, false), builder_(forEachBuilder) {}
 
-    ~LazyForEachNode() {
-        CHECK_NULL_VOID(builder_);
-        builder_->UnregisterDataChangeListener(this);
-        builder_->ClearAllOffscreenNode();
-        isRegisterListener_ = false;
-    }
+    ~LazyForEachNode() override;
+
+    void OnDelete() override;
 
     bool IsAtomicNode() const override
     {
@@ -106,7 +111,7 @@ public:
     {
         return isLoop_;
     }
-    void PostIdleTask();
+    void PostIdleTask(uint32_t taskSource);
     void OnConfigurationUpdate(const ConfigurationChange& configurationChange) override;
     void MarkNeedSyncRenderTree(bool needRebuild = false) override;
 
@@ -120,7 +125,7 @@ public:
     const std::list<RefPtr<UINode>>& GetChildren(bool notDetach = false) const override;
     void LoadChildren(bool notDetach) const;
 
-    const std::list<RefPtr<UINode>>& GetChildrenForInspector() const override;
+    const std::list<RefPtr<UINode>>& GetChildrenForInspector(bool needCacheNode = false) const override;
 
     void OnSetCacheCount(int32_t cacheCount, const std::optional<LayoutConstraintF>& itemConstraint) override
     {
@@ -169,6 +174,12 @@ public:
         }
     }
 
+    void RegisterBuilderListenerHandler()
+    {
+        CHECK_NULL_VOID(builder_);
+        builder_->RegisterDataChangeListenerHandler();
+    }
+
     void SetItemDragHandler(std::function<void(int32_t)>&& onLongPress, std::function<void(int32_t)>&& onDragStart,
         std::function<void(int32_t, int32_t)>&& onMoveThrough, std::function<void(int32_t)>&& onDrop);
     void SetOnMove(std::function<void(int32_t, int32_t)>&& onMove);
@@ -194,8 +205,11 @@ public:
      * @param dataOperations bulk change operations.
      */
     void ParseOperations(const std::list<V2::Operation>& dataOperations);
+
+    void EnablePreBuild(bool enable);
 protected:
     void UpdateChildrenFreezeState(bool isFreeze, bool isForceUpdateFreezeVaule = false) override;
+    void DumpInfo() override;
 private:
     void OnAttachToMainTree(bool recursive) override
     {
@@ -238,6 +252,12 @@ private:
         UINode::GenerateOneDepthVisibleFrameWithTransition(visibleList);
     }
 
+    int32_t GetParentId() const
+    {
+        auto parent = GetParent();
+        return parent? parent->GetId() : -1;
+    }
+
     // The index values of the start and end of the current children nodes and the corresponding keys.
     std::list<std::optional<std::string>> ids_;
     std::list<int32_t> predictItems_;
@@ -249,6 +269,7 @@ private:
     mutable std::list<RefPtr<UINode>> tempChildren_;
     mutable std::list<RefPtr<UINode>> children_;
     mutable bool needPredict_ = false;
+    mutable std::list<RefPtr<UINode>> childrenWithCache_;
     bool needMarkParent_ = true;
     bool isActive_ = true;
     int32_t startIndex_ = 0;

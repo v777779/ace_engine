@@ -22,6 +22,7 @@
 #include "base/utils/utils.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/search/search_pattern.h"
+#include "core/components_ng/pattern/text_field/text_field_free_scroller.h"
 #include "core/components_ng/pattern/text_field/text_field_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -143,7 +144,7 @@ void TextFieldPaintMethod::UpdateOverlayModifier(PaintWrapper* paintWrapper)
     CHECK_NULL_VOID(pipelineContext);
     auto themeManager = pipelineContext->GetThemeManager();
     CHECK_NULL_VOID(themeManager);
-    auto theme = themeManager->GetTheme<TextFieldTheme>();
+    auto theme = themeManager->GetTheme<TextFieldTheme>(frameNode->GetThemeScopeId());
     CHECK_NULL_VOID(theme);
 
     OffsetF contentOffset = paintWrapper->GetContentOffset();
@@ -226,6 +227,11 @@ void TextFieldPaintMethod::DoTextFadeoutIfNeed(PaintWrapper* paintWrapper)
 
 void TextFieldPaintMethod::UpdateScrollBar()
 {
+    auto textFieldPattern = DynamicCast<TextFieldPattern>(pattern_.Upgrade());
+    if (textFieldPattern && textFieldPattern->IsFreeScrollEnabled()) {
+        textFieldPattern->GetFreeScroller()->UpdateScrollBar();
+        return;
+    }
     auto scrollBar = scrollBar_.Upgrade();
     if (!scrollBar || !scrollBar->NeedPaint()) {
         return;
@@ -233,11 +239,15 @@ void TextFieldPaintMethod::UpdateScrollBar()
     if (scrollBar->GetPositionModeUpdate()) {
         textFieldOverlayModifier_->SetPositionMode(scrollBar->GetPositionMode());
     }
-    OffsetF fgOffset(scrollBar->GetActiveRect().Left(), scrollBar->GetActiveRect().Top());
     textFieldOverlayModifier_->StartBarAnimation(scrollBar->GetHoverAnimationType(),
         scrollBar->GetOpacityAnimationType(), scrollBar->GetNeedAdaptAnimation(), scrollBar->GetActiveRect());
     scrollBar->SetHoverAnimationType(HoverAnimationType::NONE);
-    textFieldOverlayModifier_->SetBarColor(scrollBar->GetForegroundColor());
+    CHECK_NULL_VOID(textFieldPattern);
+    auto textFieldLayoutProperty = textFieldPattern->GetLayoutProperty<TextFieldLayoutProperty>();
+    CHECK_NULL_VOID(textFieldLayoutProperty);
+    auto defaultValue = scrollBar->GetForegroundColor();
+    auto barColorValue = textFieldLayoutProperty->GetScrollBarColorValue(defaultValue);
+    textFieldOverlayModifier_->SetBarColor(barColorValue);
     scrollBar->SetOpacityAnimationType(OpacityAnimationType::NONE);
 }
 
@@ -255,5 +265,9 @@ void TextFieldPaintMethod::UpdateForegroundModifier(PaintWrapper* paintWrapper)
     CHECK_NULL_VOID(paintProperty);
     textFieldForegroundModifier_->SetInnerBorderWidth(
         static_cast<float>(paintProperty->GetInnerBorderWidthValue(Dimension()).ConvertToPx()));
+    auto textFieldTheme = textFieldPattern->GetTheme();
+    CHECK_NULL_VOID(textFieldTheme);
+    textFieldForegroundModifier_->SetInnerBorderColor(
+        paintProperty->GetInnerBorderColorValue(textFieldTheme->GetOverCounterColor()));
 }
 } // namespace OHOS::Ace::NG

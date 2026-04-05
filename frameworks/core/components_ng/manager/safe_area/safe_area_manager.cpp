@@ -42,14 +42,14 @@ SafeAreaInsets GenerateCutOutAreaWithRoot(const SafeAreaInsets& safeArea, NG::Op
 
 bool SafeAreaManager::IsModeResize()
 {
-    return keyboardAvoidMode_ == KeyBoardAvoidMode::RESIZE ||
-           keyboardAvoidMode_ == KeyBoardAvoidMode::RESIZE_WITH_CARET;
+    return (
+        keyboardAvoidMode_ == KeyBoardAvoidMode::RESIZE || keyboardAvoidMode_ == KeyBoardAvoidMode::RESIZE_WITH_CARET);
 }
 
 bool SafeAreaManager::IsModeOffset()
 {
-    return keyboardAvoidMode_ == KeyBoardAvoidMode::OFFSET ||
-           keyboardAvoidMode_ == KeyBoardAvoidMode::OFFSET_WITH_CARET;
+    return (
+        keyboardAvoidMode_ == KeyBoardAvoidMode::OFFSET || keyboardAvoidMode_ == KeyBoardAvoidMode::OFFSET_WITH_CARET);
 }
 
 bool SafeAreaManager::CheckCutoutSafeArea(const SafeAreaInsets& safeArea, NG::OptionalSize<uint32_t> rootSize)
@@ -63,8 +63,7 @@ bool SafeAreaManager::UpdateCutoutSafeArea(const SafeAreaInsets& safeArea, NG::O
     if (cutoutSafeArea_ == safeAreaWithRoot) {
         return false;
     }
-    ACE_SCOPED_TRACE("SafeAreaManager::UpdateCutoutSafeArea %s, safeAreaWithRoot %s", safeArea.ToString().c_str(),
-        safeAreaWithRoot.ToString().c_str());
+    ACE_SCOPED_TRACE("SafeAreaManager::UpdateCutoutSafeArea %s", safeAreaWithRoot.ToString().c_str());
     cutoutSafeArea_ = safeAreaWithRoot;
     return true;
 }
@@ -226,6 +225,7 @@ bool SafeAreaManager::SetIgnoreSafeArea(bool value)
     }
     ignoreSafeArea_ = value;
     TAG_LOGI(ACE_SAFE_AREA, "SetIgnoreSafeArea %{public}d", ignoreSafeArea_);
+    ACE_SCOPED_TRACE("SafeAreaManager::SetIgnoreSafeArea %d", ignoreSafeArea_);
     return true;
 }
 
@@ -345,7 +345,6 @@ PaddingPropertyF SafeAreaManager::SafeAreaToPadding(bool withoutProcess, LayoutS
 
     bool includeSystem = ignoreType & LAYOUT_SAFE_AREA_TYPE_SYSTEM;
     bool includeKeyboard = ignoreType & LAYOUT_SAFE_AREA_TYPE_KEYBOARD;
-
     if (includeSystem) {
         combinedSafeArea = systemSafeArea_.Combine(cutoutSafeArea).Combine(navSafeArea_);
     }
@@ -455,9 +454,6 @@ void SafeAreaManager::SetKeyboardInfo(float height)
         keyboardOrientation, height);
     SetRawKeyboardHeight(height);
     keyboardOrientation_ = keyboardOrientation;
-    auto pipeline = container->GetPipelineContext();
-    CHECK_NULL_VOID(pipeline);
-    pipeline->OnRawKeyboardChangedCallback();
 }
 
 bool SafeAreaManager::CheckPageNeedAvoidKeyboard(const RefPtr<FrameNode>& frameNode)

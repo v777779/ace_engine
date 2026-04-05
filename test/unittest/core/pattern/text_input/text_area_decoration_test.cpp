@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_paragraph.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
 #include "core/components_ng/pattern/text_field/text_field_model_ng.h"
@@ -1451,5 +1451,17 @@ HWTEST_F(TextAreaDecorationUXTest, TextAreaToJsonValue034, TestSize.Level1)
      * @tc.expected: check lineHeight in TextArea JSON is 3.00px
      */
     EXPECT_EQ(json->GetString("lineHeight"), "3.00px");
+}
+
+/**
+ * @tc.name: TextCounterFormat
+ * @tc.desc: test get counter format text from resournce manager.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextAreaDecorationUXTest, TextCounterFormat, TestSize.Level1)
+{
+    auto textFieldTheme = AceType::MakeRefPtr<TextFieldTheme>();
+    auto counter = textFieldTheme->GetCounterFormatString(10, 100);
+    EXPECT_EQ(counter, "10/100");
 }
 }

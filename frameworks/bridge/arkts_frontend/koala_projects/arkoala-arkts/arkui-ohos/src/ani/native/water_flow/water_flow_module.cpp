@@ -15,13 +15,12 @@
 
 #include "water_flow_module.h"
 
-#include <memory>
+#include <optional>
+#include <vector>
 
 #include "load.h"
 #include "utils/ani_utils.h"
-#include "water_flow_module.h"
 
-#include "base/log/log.h"
 #include "base/utils/utils.h"
 
 namespace OHOS::Ace::Ani {
@@ -57,6 +56,38 @@ void ParseStringToDimension(const std::string& str, ArkUIWaterFlowSectionGap* re
     }
 }
 
+bool ParseResourceDimension(ani_env* env, ani_ref dimensionRef, ArkUIWaterFlowSectionGap* res)
+{
+    auto* object = static_cast<ani_object>(dimensionRef);
+    if (!AniUtils::IsClassObject(env, object, "global.resource.Resource")) {
+        return false;
+    }
+
+    ArkUIWaterFlowResourceParam param;
+    ani_long aniId = 0;
+    if (env->Object_GetPropertyByName_Long(object, "id", &aniId) == ANI_OK) {
+        param.resId = static_cast<int32_t>(aniId);
+    }
+    ani_ref typeRef;
+    if (env->Object_GetPropertyByName_Ref(object, "type", &typeRef) == ANI_OK) {
+        AniUtils::GetOptionalInt(env, typeRef, param.resType);
+    }
+
+    std::string bundleName;
+    std::string moduleName;
+    AniUtils::GetStringByName(env, object, "bundleName", bundleName);
+    AniUtils::GetStringByName(env, object, "moduleName", moduleName);
+    param.bundleName = bundleName.empty() ? nullptr : bundleName.c_str();
+    param.moduleName = moduleName.empty() ? nullptr : moduleName.c_str();
+
+    const auto* modifier = GetNodeAniModifier();
+    if (!modifier || !modifier->getArkUIAniWaterFlowModifier() ||
+        !modifier->getArkUIAniWaterFlowModifier()->parseWaterFlowSectionResourceGap) {
+        return false;
+    }
+    return modifier->getArkUIAniWaterFlowModifier()->parseWaterFlowSectionResourceGap(&param, res);
+}
+
 ArkUIWaterFlowSectionGap ParseDimension(ani_env *env, ani_ref dimensionRef)
 {
     ArkUIWaterFlowSectionGap res;
@@ -69,18 +100,17 @@ ArkUIWaterFlowSectionGap ParseDimension(ani_env *env, ani_ref dimensionRef)
         return res;
     }
 
+    // Check if Double
     ani_boolean isDouble;
     env->Object_InstanceOf(static_cast<ani_object>(dimensionRef), doubleClass, &isDouble);
     if (isDouble) {
         ani_double dimension;
         env->Object_CallMethodByName_Double(static_cast<ani_object>(dimensionRef), "toDouble", ":d", &dimension);
-        if (dimension < 0) {
-            dimension = 0;
-        }
-        res.value = dimension;
+        res.value = dimension < 0 ? 0 : dimension;
         return res;
     }
 
+    // Check if String
     ani_boolean isString;
     env->Object_InstanceOf(static_cast<ani_object>(dimensionRef), stringClass, &isString);
     if (isString) {
@@ -89,8 +119,28 @@ ArkUIWaterFlowSectionGap ParseDimension(ani_env *env, ani_ref dimensionRef)
         if (res.value < 0) {
             res.value = 0.0f;
         }
+        return res;
+    }
+
+    // Check if Resource
+    if (ParseResourceDimension(env, dimensionRef, &res) && res.value < 0) {
+        res.value = 0.0f;
     }
     return res;
+}
+
+ArkUIWaterFlowSectionGap ParseOptionalDimension(ani_env* env, ani_object section, const char* propName)
+{
+    ArkUIWaterFlowSectionGap result;
+
+    ani_ref propRef;
+    if (env->Object_GetPropertyByName_Ref(section, propName, &propRef) == ANI_OK) {
+        if (!AniUtils::IsUndefined(env, propRef)) {
+            result = ParseDimension(env, propRef);
+        }
+    }
+
+    return result;
 }
 
 ArkUIWaterFlowSectionPadding ParsePadding(ani_env* env, ani_ref paddingRef)
@@ -141,56 +191,36 @@ ArkUIWaterFlowSectionPadding ParseMargin(ani_env* env, ani_ref marginRef)
 ArkUIWaterFlowSection ParseSectionOptions(ani_env* env, ani_ref section)
 {
     ArkUIWaterFlowSection curSection;
-    ani_double itemsCount;
-    if (env->Object_GetPropertyByName_Double(static_cast<ani_object>(section), "itemsCount", &itemsCount) != ANI_OK) {
+    ani_int itemsCount;
+    if (env->Object_GetPropertyByName_Int(static_cast<ani_object>(section), "itemsCount", &itemsCount) != ANI_OK) {
         return curSection;
     }
-    curSection.itemsCount = static_cast<int32_t>(itemsCount);
+    curSection.itemsCount = itemsCount;
 
+    curSection.crossCount = 1;
     ani_ref crossCount;
-    if (env->Object_GetPropertyByName_Ref(static_cast<ani_object>(section), "crossCount", &crossCount) != ANI_OK) {
-        curSection.crossCount = 1;
-    }
-    ani_boolean isUndefined = false;
-    if (env->Reference_IsUndefined(crossCount, &isUndefined) != ANI_OK) {
-        curSection.crossCount = 1;
-    }
-    if (!isUndefined) {
-        ani_double crossCnt;
-        env->Object_CallMethodByName_Double(static_cast<ani_object>(crossCount), "toDouble", ":d", &crossCnt);
-        if (crossCnt <= 0) {
-            crossCnt = 1;
+    if (env->Object_GetPropertyByName_Ref(static_cast<ani_object>(section), "crossCount", &crossCount) == ANI_OK) {
+        if (!AniUtils::IsUndefined(env, crossCount)) {
+            int32_t crossCnt;
+            if (AniUtils::GetOptionalInt(env, crossCount, crossCnt) && crossCnt > 0) {
+                curSection.crossCount = crossCnt;
+            }
         }
-        curSection.crossCount = static_cast<int32_t>(crossCnt);
     }
 
-    ani_ref columnsGap;
-    env->Object_GetPropertyByName_Ref(static_cast<ani_object>(section), "columnsGap", &columnsGap);
-    isUndefined = false;
-    env->Reference_IsUndefined(columnsGap, &isUndefined);
-    if (!isUndefined) {
-        curSection.columnsGap = ParseDimension(env, columnsGap);
-    }
-
-    ani_ref rowsGap;
-    env->Object_GetPropertyByName_Ref(static_cast<ani_object>(section), "rowsGap", &rowsGap);
-    isUndefined = false;
-    env->Reference_IsUndefined(rowsGap, &isUndefined);
-    if (!isUndefined) {
-        curSection.rowsGap = ParseDimension(env, rowsGap);
-    }
+    curSection.columnsGap = ParseOptionalDimension(env, static_cast<ani_object>(section), "columnsGap");
+    curSection.rowsGap = ParseOptionalDimension(env, static_cast<ani_object>(section), "rowsGap");
 
     ani_ref margin;
-    env->Object_GetPropertyByName_Ref(static_cast<ani_object>(section), "margin", &margin);
-    isUndefined = false;
-    env->Reference_IsUndefined(margin, &isUndefined);
-    if (!isUndefined) {
-        curSection.margin = ParseMargin(env, margin);
+    if (env->Object_GetPropertyByName_Ref(static_cast<ani_object>(section), "margin", &margin) == ANI_OK) {
+        if (!AniUtils::IsUndefined(env, margin)) {
+            curSection.margin = ParseMargin(env, margin);
+        }
     }
 
     ani_ref func;
     env->Object_GetPropertyByName_Ref(static_cast<ani_object>(section), "onGetItemMainSizeByIndex", &func);
-    isUndefined = false;
+    ani_boolean isUndefined = false;
     ani_boolean isGetItemMainSizeByIndex = ANI_FALSE;
     env->Reference_IsUndefined(func, &isUndefined);
     if (!isUndefined) {
@@ -200,11 +230,21 @@ ArkUIWaterFlowSection ParseSectionOptions(ani_env* env, ani_ref section)
     }
 
     if (isGetItemMainSizeByIndex) {
+        ani_vm* vm = nullptr;
+        env->GetVM(&vm);
+
         ani_ref fnObjGlobalRef = nullptr;
         env->GlobalReference_Create(func, &fnObjGlobalRef);
-        auto onGetItemMainSizeByIndex = [fnObjGlobalRef, env](int32_t index) {
+
+        auto onGetItemMainSizeByIndex = [fnObjGlobalRef, vm](int32_t index) {
+            ani_env* env = nullptr;
+            ani_status status = vm->GetEnv(ANI_VERSION_1, &env);
+            if (status != ANI_OK || !env) {
+                return 0.0f;
+            }
+
             ani_ref aniRes;
-            ani_ref aniIndex = AniUtils::CreateDouble(env, ani_double(index));
+            ani_ref aniIndex = AniUtils::CreateInt32(env, index);
 
             env->FunctionalObject_Call(static_cast<ani_fn_object>(fnObjGlobalRef), 1, &aniIndex, &aniRes);
             ani_double res;
@@ -241,6 +281,7 @@ void SetWaterFlowSection(ani_env* env, [[maybe_unused]] ani_object aniClass, ani
     }
     ani_size changeArrayLength;
     if (env->Array_GetLength(static_cast<ani_array>(changeArray), &changeArrayLength) != ANI_OK) {
+        return;
     }
 
     ani_class sectionChangeInfo;
@@ -291,7 +332,7 @@ void SetWaterFlowSection(ani_env* env, [[maybe_unused]] ani_object aniClass, ani
             if (env->Array_Get(static_cast<ani_array>(sectionOptionsArray), j, &section) != ANI_OK) {
                 continue;
             }
-            ani_boolean isSectionOptions;
+            ani_boolean isSectionOptions = ANI_FALSE;
             env->Object_InstanceOf(static_cast<ani_object>(section), sectionOptions, &isSectionOptions);
             if (!isSectionOptions) {
                 continue;
@@ -359,5 +400,61 @@ void SetWaterFlowLayoutMode(ani_env* env, [[maybe_unused]] ani_object aniClass, 
     const auto* modifier = GetNodeAniModifier();
     CHECK_NULL_VOID(modifier);
     modifier->getArkUIAniWaterFlowModifier()->setWaterFlowLayoutMode(arkNode, static_cast<int32_t>(mode));
+}
+
+void UpdateWaterFlowSection(ani_env* env, [[maybe_unused]] ani_object aniClass, ani_long ptr, ani_object changeInfo)
+{
+    ani_int start = 0;
+    if (env->Object_GetPropertyByName_Int(changeInfo, "start", &start) != ANI_OK) {
+        return;
+    }
+
+    ani_int deleteCount = 0;
+    if (env->Object_GetPropertyByName_Int(changeInfo, "deleteCount", &deleteCount) != ANI_OK) {
+        return;
+    }
+
+    ani_ref sections;
+    if (env->Object_GetPropertyByName_Ref(changeInfo, "sections", &sections) != ANI_OK) {
+        return;
+    }
+
+    ani_size sectionsLength = 0;
+    if (env->Array_GetLength(static_cast<ani_array>(sections), &sectionsLength) != ANI_OK) {
+        return;
+    }
+
+    ani_class sectionOptions;
+    if (env->FindClass("arkui.component.waterFlow.SectionOptions", &sectionOptions) != ANI_OK) {
+        return;
+    }
+
+    int32_t length = static_cast<int32_t>(sectionsLength);
+    std::vector<ArkUIWaterFlowSection> newSections;
+    for (int32_t j = 0; j < length; j++) {
+        ani_ref section;
+        if (env->Array_Get(static_cast<ani_array>(sections), j, &section) != ANI_OK) {
+            continue;
+        }
+        ani_boolean isSectionOptions = ANI_FALSE;
+        env->Object_InstanceOf(static_cast<ani_object>(section), sectionOptions, &isSectionOptions);
+        if (!isSectionOptions) {
+            continue;
+        }
+        ArkUIWaterFlowSection curSection = ParseSectionOptions(env, section);
+        if (curSection.itemsCount < 0) {
+            continue;
+        }
+        newSections.emplace_back(curSection);
+    }
+
+    const auto* modifier = GetNodeAniModifier();
+    auto* arkNode = reinterpret_cast<ArkUINodeHandle>(ptr);
+    if (!modifier || !arkNode) {
+        return;
+    }
+
+    modifier->getArkUIAniWaterFlowModifier()->setWaterFlowSection(
+        arkNode, start, deleteCount, static_cast<void*>(newSections.data()), newSections.size());
 }
 } // namespace OHOS::Ace::Ani

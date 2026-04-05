@@ -21,6 +21,7 @@
 #include "core/image/image_source_info.h"
 #include "core/common/ace_application_info.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "frameworks/core/components_ng/svg/svg_utils.h"
 
 namespace OHOS::Ace::NG {
 
@@ -105,6 +106,9 @@ std::shared_ptr<RSData> SvgImage::LoadLocalImage(const std::string& uri)
     std::string svgPath = GetImagePath();
     auto realPath = uri;
     auto dotPos = realPath.find_last_of('.');
+    if (dotPos == std::string::npos) {
+        return nullptr;
+    }
     auto format = realPath.substr(dotPos + 1);
     if (format == "svg" || format == "gif") {
         LOGW("Svg image format is not supported");
@@ -196,7 +200,7 @@ RSRect SvgImage::CalcDstRect(const Size& realSize, const Rect& viewBox)
     auto scaleY = 0.0f;
     auto offsetX = 0.0f;
     auto offsetY = 0.0f;
-    if (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_EIGHTEEN)) {
+    if (!SvgUtils::IsFeatureEnable(SVG_FEATURE_SUPPORT_TWO, GetUsrConfigVersion())) {
         scaleX = std::min(viewBox.Width() / realSize.Width(), viewBox.Height() / realSize.Height());
         scaleY = scaleX;
         auto spaceX = viewBox.Width() - realSize.Width() * scaleX;

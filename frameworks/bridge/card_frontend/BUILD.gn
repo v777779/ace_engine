@@ -34,7 +34,7 @@ template("card_frontend") {
       "js_card_parser.cpp",
     ]
 
-    deps = [ "$ace_root/frameworks/core/components/theme:build_theme_code" ]
+    deps = []
     if (use_hilog) {
       external_deps = [ "hilog:libhilog" ]
     }
@@ -43,7 +43,9 @@ template("card_frontend") {
       if (form_fwk_enable) {
         external_deps += [
           "form_fwk:fmskit_native",
-          "form_fwk:form_manager",
+          "form_fwk:form_render_info",
+          "form_fwk:form_common_info",
+          "form_fwk:form_utils",
         ]
       }
     }

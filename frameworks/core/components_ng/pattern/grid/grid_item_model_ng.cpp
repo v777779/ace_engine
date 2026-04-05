@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,8 +16,12 @@
 #include "core/components_ng/pattern/grid/grid_item_model_ng.h"
 
 #include "base/utils/multi_thread.h"
+#include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/pattern/grid/grid_item_event_hub.h"
+#include "core/components_ng/pattern/grid/grid_item_layout_property.h"
 #include "core/components_ng/pattern/grid/grid_item_pattern.h"
 #include "core/components_ng/pattern/scrollable/scrollable_item.h"
+#include "core/components_ng/syntax/shallow_builder.h"
 
 namespace OHOS::Ace::NG {
 
@@ -138,6 +142,15 @@ void GridItemModelNG::SetOnSelect(SelectFunc&& onSelect)
     eventHub->SetOnSelect(std::move(onSelect));
 }
 
+void GridItemModelNG::BindContextMenu()
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<GridItemEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->BindContextMenu();
+}
+
 void GridItemModelNG::SetForceRebuild(FrameNode* frameNode, bool value)
 {
     CHECK_NULL_VOID(frameNode);
@@ -154,6 +167,14 @@ void GridItemModelNG::SetSelectable(FrameNode* frameNode, bool selectable)
     pattern->SetSelectable(selectable);
 }
 
+bool GridItemModelNG::GetSelectable(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, false);
+    auto pattern = frameNode->GetPattern<GridItemPattern>();
+    CHECK_NULL_RETURN(pattern, false);
+    return pattern->Selectable();
+}
+
 void GridItemModelNG::SetSelected(FrameNode* frameNode, bool selected)
 {
     CHECK_NULL_VOID(frameNode);
@@ -163,6 +184,14 @@ void GridItemModelNG::SetSelected(FrameNode* frameNode, bool selected)
     auto eventHub = frameNode->GetEventHub<GridItemEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetCurrentUIState(UI_STATE_SELECTED, selected);
+}
+
+bool GridItemModelNG::GetSelected(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, false);
+    auto pattern = frameNode->GetPattern<GridItemPattern>();
+    CHECK_NULL_RETURN(pattern, false);
+    return pattern->IsSelected();
 }
 
 void GridItemModelNG::SetRowStart(FrameNode* frameNode, int32_t rowStart)
@@ -188,9 +217,17 @@ void GridItemModelNG::SetColumnEnd(FrameNode* frameNode, int32_t columnEnd)
 void GridItemModelNG::SetGridItemStyle(FrameNode* frameNode, GridItemStyle gridItemStyle)
 {
     CHECK_NULL_VOID(frameNode);
-    auto pattern = frameNode->GetPatternPtr<GridItemPattern>();
+    auto pattern = frameNode->GetPattern<GridItemPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->UpdateGridItemStyle(gridItemStyle);
+}
+
+GridItemStyle GridItemModelNG::GetGridItemStyle(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, GridItemStyle::NONE);
+    auto pattern = frameNode->GetPattern<GridItemPattern>();
+    CHECK_NULL_RETURN(pattern, GridItemStyle::NONE);
+    return pattern->GetGridItemStyle();
 }
 
 void GridItemModelNG::SetOnSelect(FrameNode* frameNode, SelectFunc&& onSelect)

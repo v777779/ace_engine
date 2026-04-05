@@ -14,6 +14,7 @@
 import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
 
 ace_unittest("arc_list_test_ng") {
+  module_name = "NavigationSet-Swiper"
   type = "new"
   sources = [
     "$ace_root/frameworks/bridge/common/dom/dom_type.cpp",
@@ -23,10 +24,25 @@ ace_unittest("arc_list_test_ng") {
     "arc_list_attr_test_ng.cpp",
     "arc_list_common_test_ng.cpp",
     "arc_list_layout_test_ng.cpp",
+    "arc_list_layout_testtwo_ng.cpp",
+    "arc_list_pattern_test_ng.cpp",
     "arc_list_scroller_event_test_ng.cpp",
     "arc_list_scroller_test_ng.cpp",
     "arc_list_swipe_test_ng.cpp",
     "arc_list_test_ng.cpp",
     "arc_scroll_test_ng.cpp",
   ]
+
+  if (!ace_enable_full_test_suite) {
+    sources = []
+    sources = [
+      "arc_list_test_min.cpp",
+      "arc_list_test_core.cpp",
+    ]
+  } else {
+    sources += [
+      "arc_list_test_min.cpp",
+      "arc_list_test_core.cpp",
+    ]
+  }
 }

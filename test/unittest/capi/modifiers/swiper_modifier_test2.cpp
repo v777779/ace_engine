@@ -35,10 +35,10 @@ using namespace testing;
 using namespace testing::ext;
 
 namespace {
-    static const auto ATTRIBUTE_PAGE_FLIP_MODE_DEFAULT_VALUE = 0;
-    constexpr int32_t TEST_WSCROLL_CINDEX = 0;
-    constexpr int32_t TEST_WSCROLL_COMINGINDEX = 10;
-    constexpr int32_t TEST_WSCROLL_OFFSET = 1;
+const auto ATTRIBUTE_PAGE_FLIP_MODE_DEFAULT_VALUE = 0;
+constexpr int32_t TEST_WSCROLL_CINDEX = 0;
+constexpr int32_t TEST_WSCROLL_COMINGINDEX = 10;
+constexpr int32_t TEST_WSCROLL_OFFSET = 1;
 }
 
 namespace Converter {
@@ -162,7 +162,7 @@ HWTEST_F(SwiperModifierTest2, setPageFlipModeTestValidValue, TestSize.Level1)
     ASSERT_NE(pattern, nullptr);
 
     using OneTestStep = std::tuple<Opt_PageFlipMode, int32_t>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_PageFlipMode>(PageFlipMode::CONTINUOUS), ATTRIBUTE_PAGE_FLIP_MODE_DEFAULT_VALUE},
         {Converter::ArkValue<Opt_PageFlipMode>(PageFlipMode::SINGLE), static_cast<int32_t>(PageFlipMode::SINGLE)},
     };
@@ -186,7 +186,7 @@ HWTEST_F(SwiperModifierTest2, setPageFlipModeTestInvalidValue, TestSize.Level1)
     ASSERT_NE(pattern, nullptr);
 
     using OneTestStep = std::tuple<Opt_PageFlipMode, int32_t>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Opt_PageFlipMode{.tag = Ark_Tag::INTEROP_TAG_UNDEFINED}, ATTRIBUTE_PAGE_FLIP_MODE_DEFAULT_VALUE},
         {Converter::ArkValue<Opt_PageFlipMode>(static_cast<PageFlipMode>(-1)), ATTRIBUTE_PAGE_FLIP_MODE_DEFAULT_VALUE},
     };

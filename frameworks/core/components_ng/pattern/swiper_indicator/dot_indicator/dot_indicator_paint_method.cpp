@@ -67,10 +67,23 @@ void DotIndicatorPaintMethod::UpdateContentModifier(PaintWrapper* paintWrapper)
     dotIndicatorModifier_->SetOffset(geometryNode->GetContentOffset());
     dotIndicatorModifier_->SetIndicatorDotItemSpace(
         paintProperty->GetSpaceValue(swiperTheme->GetIndicatorDotItemSpace()));
+    dotIndicatorModifier_->SetIsLongPressed(isLongPressed_);
 
     SizeF contentSize = geometryNode->GetFrameSize();
     centerY_ = (axis_ == Axis::HORIZONTAL ? contentSize.Height() : contentSize.Width()) * 0.5;
     dotIndicatorModifier_->SetCenterY(centerY_);
+    UpdateIsPressedOrIsHover(paintWrapper);
+
+    auto [rectX, rectY, rectWidth, rectHeight] = dotIndicatorModifier_->CalCBoundsRect();
+    RectF boundsRect(rectX, rectY, rectWidth, rectHeight);
+    auto origin = dotIndicatorModifier_->GetBoundsRect();
+    CHECK_EQUAL_VOID(origin, boundsRect);
+    dotIndicatorModifier_->SetBoundsRect(boundsRect);
+    paintWrapper->FlushContentModifier();
+}
+
+void DotIndicatorPaintMethod::UpdateIsPressedOrIsHover(PaintWrapper* paintWrapper)
+{
     if (touchBottomType_ != TouchBottomType::NONE) {
         if (!dotIndicatorModifier_->GetIsPressed()) {
             PaintPressIndicator(paintWrapper);
@@ -140,7 +153,7 @@ bool DotIndicatorPaintMethod::NeedBottomAnimation() const
     if (gestureState_ == GestureState::GESTURE_STATE_RELEASE_RIGHT) {
         if (touchBottomTypeLoop_ == TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_NONE) {
             if (currentIndexActual == 0 && targetIndex_ && targetIndex_.value() == 0 &&
-                std::abs(touchBottomPageRate_) < FIFTY_PERCENT) {
+                std::abs(touchBottomPageRate_) < FIFTY_PERCENT && !NearZero(touchBottomPageRate_)) {
                 return true;
             }
 
@@ -149,6 +162,10 @@ bool DotIndicatorPaintMethod::NeedBottomAnimation() const
 
         if (touchBottomTypeLoop_ == TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_RIGHT) {
             if (currentIndexActual == firstIndex && std::abs(touchBottomPageRate_) > FIFTY_PERCENT) {
+                return false;
+            }
+            // NearZero(touchBottomPageRate_) is Actual judgment, others are Preconditions.
+            if (currentIndexActual == itemCount_ - 1 && firstIndex == 0 && NearZero(touchBottomPageRate_)) {
                 return false;
             }
 
@@ -505,14 +522,6 @@ std::pair<float, float> DotIndicatorPaintMethod::CalculatePointCenterX(
     longPointCenterX.second = starAndEndPointCenter.startLongPointRightCenterX +
         (starAndEndPointCenter.endLongPointRightCenterX - starAndEndPointCenter.startLongPointRightCenterX) *
             longPointRightCenterMoveRate;
-    if (isHorizontalAndRightToLeft_) {
-        longPointCenterX.first = starAndEndPointCenter.startLongPointLeftCenterX +
-        (starAndEndPointCenter.endLongPointLeftCenterX - starAndEndPointCenter.startLongPointLeftCenterX) *
-            longPointLeftCenterMoveRate;
-        longPointCenterX.second = starAndEndPointCenter.startLongPointRightCenterX +
-            (starAndEndPointCenter.endLongPointRightCenterX - starAndEndPointCenter.startLongPointRightCenterX) *
-                longPointRightCenterMoveRate;
-    }
     return longPointCenterX;
 }
 
@@ -728,9 +737,16 @@ bool DotIndicatorPaintMethod::AdjustPointCenterXForTouchBottomNew(StarAndEndPoin
                               touchBottomTypeLoop_ == TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_LEFT);
     bool releaseRightBottom = (gestureState_ == GestureState::GESTURE_STATE_RELEASE_RIGHT &&
                                touchBottomTypeLoop_ == TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_RIGHT);
+    if (!NearZero(pageRate) && touchBottomTypeLoop_ != TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_NONE) {
+        isInBottomTranslate_ = true;
+    }
     if ((releaseLeftBottom && (!NearZero(touchBottomPageRate_) && pageRate <= FIFTY_PERCENT)) ||
-        (releaseRightBottom && pageRate >= FIFTY_PERCENT)) {
+        (releaseRightBottom && (pageRate >= FIFTY_PERCENT || (NearZero(pageRate) && isInBottomTranslate_)))) {
+        isInBottomTranslate_ = false;
         return true;
+    }
+    if (NearZero(pageRate)) {
+        isInBottomTranslate_ = false;
     }
 
     bool dragLeftBottom = (gestureState_ == GestureState::GESTURE_STATE_FOLLOW_LEFT &&
@@ -814,6 +830,8 @@ std::pair<float, float> DotIndicatorPaintMethod::ForwardCalculation(
     LinearVector<float> endVectorBlackPointCenterX(itemCount_);
 
     auto [startCurrentIndex, endCurrentIndex] = GetStartAndEndIndex(index);
+    startCurrentIndex = std::clamp(startCurrentIndex, 0, itemCount_ - 1);
+    endCurrentIndex = std::clamp(endCurrentIndex, 0, itemCount_ - 1);
     for (int32_t i = 0; i < itemCount_; ++i) {
         if (i != startCurrentIndex) {
             startVectorBlackPointCenterX[i] = startCenterX + itemHalfSizes[ITEM_HALF_WIDTH];

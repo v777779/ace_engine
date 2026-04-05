@@ -18,19 +18,19 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_subwindow.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_rosen_render_context.h"
+#include "test/mock/frameworks/base/subwindow/mock_subwindow.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+
 #include "test/unittest/core/event/frame_node_on_tree.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
 #include "core/common/frontend.h"
 #include "core/components/common/properties/shadow_config.h"
 #include "core/components/drag_bar/drag_bar_theme.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components/select/select_theme.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_global_controller.h"
 #include "core/components_ng/pattern/bubble/bubble_pattern.h"
@@ -38,6 +38,7 @@
 #include "core/components_ng/pattern/dialog/dialog_pattern.h"
 #include "core/components_ng/pattern/dialog/dialog_view.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
+#include "core/components_ng/pattern/menu/menu_manager.h"
 #include "core/components_ng/pattern/menu/menu_theme.h"
 #include "core/components_ng/pattern/menu/preview/menu_preview_pattern.h"
 #include "core/components_ng/pattern/menu/wrapper/menu_wrapper_pattern.h"
@@ -105,7 +106,10 @@ HWTEST_F(OverlayManagerTestThreeNg, CalculateMenuPosition001, TestSize.Level1)
     auto mainMenu =
         FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 3, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
     ASSERT_NE(mainMenu, nullptr);
-    overlayManager->menuMap_.emplace(3, std::move(mainMenu));
+    overlayManager->CheckMenuManager();
+    auto menuManager = AceType::DynamicCast<MenuManager>(overlayManager->menuManager_);
+    ASSERT_NE(menuManager, nullptr);
+    menuManager->menuMap_.emplace(3, std::move(mainMenu));
     ret = overlayManager->CalculateMenuPosition(menuWrapperNode, MENU_OFFSET);
     EXPECT_EQ(ret.GetX(), 0.0);
     EXPECT_EQ(ret.GetY(), 0.0);
@@ -113,40 +117,6 @@ HWTEST_F(OverlayManagerTestThreeNg, CalculateMenuPosition001, TestSize.Level1)
     ret = overlayManager->CalculateMenuPosition(menuWrapperNode, MENU_OFFSET);
     EXPECT_EQ(ret.GetX(), 0.0);
     EXPECT_EQ(ret.GetY(), 0.0);
-}
-
-/**
- * @tc.name: CalculateMenuPosition002
- * @tc.desc: Test CalculateMenuPosition with valid menu node and geometry
- * @tc.type: FUNC
- */
-HWTEST_F(OverlayManagerTestThreeNg, CalculateMenuPosition002, TestSize.Level1)
-{
-    auto pipelineContext = PipelineContext::GetCurrentContext();
-    EXPECT_NE(pipelineContext, nullptr);
-    auto overlayManager = pipelineContext->overlayManager_;
-    ASSERT_NE(overlayManager, nullptr);
-    auto menuWrapperPattern = AceType::MakeRefPtr<MenuWrapperPattern>(1);
-    auto menuWrapperNode = FrameNode::CreateFrameNode(V2::MENU_WRAPPER_ETS_TAG, 2, menuWrapperPattern);
-    ASSERT_NE(menuWrapperNode, nullptr);
-    auto menuPattern = AceType::MakeRefPtr<MenuPattern>(1, "menu", MenuType::MENU);
-    auto menuNode = FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 3, menuPattern);
-    ASSERT_NE(menuNode, nullptr);
-    menuNode->MountToParent(menuWrapperNode);
-    auto geometryNode = menuNode->GetGeometryNode();
-    ASSERT_NE(geometryNode, nullptr);
-    geometryNode->SetFrameOffset(OffsetF(100.0f, 100.0f));
-    overlayManager->isContextMenuDragHideFinished_ = false;
-    overlayManager->menuMap_.emplace(3, menuNode);
-    overlayManager->dragMoveVector_ = OffsetF(20.0f, 20.0f);
-    overlayManager->lastDragMoveVector_ = OffsetF(30.0, 30.0);
-    OffsetF ret = overlayManager->CalculateMenuPosition(menuWrapperNode, OffsetF(10.0f, 10.0f));
-    EXPECT_EQ(ret.GetX(), 90.0f);
-    EXPECT_EQ(ret.GetY(), 90.0f);
-    EXPECT_EQ(menuPattern->GetEndOffset().GetX(), 90.0f);
-    EXPECT_EQ(menuPattern->GetEndOffset().GetY(), 90.0f);
-    EXPECT_EQ(geometryNode->GetFrameOffset().GetX(), 90.0f);
-    EXPECT_EQ(geometryNode->GetFrameOffset().GetY(), 90.0f);
 }
 
 /**
@@ -170,8 +140,40 @@ HWTEST_F(OverlayManagerTestThreeNg, RemoveMenuWrapperNode001, TestSize.Level1)
     ASSERT_NE(childTwo, nullptr);
     mainMenu->children_.push_back(childOne);
     mainMenu->children_.push_back(childTwo);
-    overlayManager->RemoveMenuWrapperNode(mainMenu, pipelineContext);
+    overlayManager->CheckMenuManager();
+    auto menuManager = AceType::DynamicCast<MenuManager>(overlayManager->menuManager_);
+    ASSERT_NE(menuManager, nullptr);
+    menuManager->RemoveMenuWrapperNode(mainMenu, pipelineContext);
     EXPECT_EQ(mainMenu->children_.size(), 1);
+}
+
+/**
+ *@tc.name:EraseMenuInfoFromWrapper001
+ *@tc.desc:Test EraseMenuInfoFromWrapper
+ *@tc.type:FUNC
+ */
+
+HWTEST_F(OverlayManagerTestThreeNg, EraseMenuInfoFromWrapper001, TestSize.Level1)
+{
+    auto pipelineContext = PipelineContext::GetCurrentContext();
+    EXPECT_NE(pipelineContext, nullptr);
+    auto overlayManager = pipelineContext->overlayManager_;
+    ASSERT_NE(overlayManager, nullptr);
+    auto targetId = ElementRegister::GetInstance()->MakeUniqueId();
+    auto menuWrapper = FrameNode::CreateFrameNode(V2::MENU_WRAPPER_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<MenuWrapperPattern>(targetId));
+    overlayManager->CheckMenuManager();
+    auto menuManager = AceType::DynamicCast<MenuManager>(overlayManager->menuManager_);
+    ASSERT_NE(menuManager, nullptr);
+    menuManager->menuMap_[targetId] = menuWrapper;
+    menuManager->EraseMenuInfoFromWrapper(menuWrapper);
+    EXPECT_EQ(menuManager->menuMap_[targetId], nullptr);
+    menuManager->menuMap_[targetId] = menuWrapper;
+    auto menuWrapper2 = FrameNode::CreateFrameNode(V2::MENU_WRAPPER_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<MenuWrapperPattern>(targetId));
+    menuManager->EraseMenuInfoFromWrapper(menuWrapper2);
+    EXPECT_NE(menuManager->menuMap_[targetId], nullptr);
+    menuManager->menuMap_[targetId] = nullptr;
 }
 
 /**

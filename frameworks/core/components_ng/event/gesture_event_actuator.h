@@ -18,7 +18,6 @@
 
 #include "base/geometry/ng/offset_t.h"
 #include "base/memory/ace_type.h"
-#include "base/memory/referenced.h"
 #include "core/accessibility/accessibility_utils.h"
 #include "core/event/touch_event.h"
 
@@ -27,7 +26,7 @@ namespace OHOS::Ace::NG {
 using OnAccessibilityEventFunc = std::function<void(AccessibilityEventType)>;
 
 class GestureEventActuator : public virtual AceType {
-    DECLARE_ACE_TYPE(GestureEventActuator, AceType)
+    DECLARE_ACE_TYPE(GestureEventActuator, AceType);
 public:
     GestureEventActuator() = default;
     ~GestureEventActuator() override = default;

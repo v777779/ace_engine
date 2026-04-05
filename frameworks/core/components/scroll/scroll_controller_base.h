@@ -18,6 +18,7 @@
 
 #include "base/geometry/axis.h"
 #include "base/geometry/dimension.h"
+#include "base/geometry/ng/size_t.h"
 #include "base/geometry/offset.h"
 #include "base/geometry/rect.h"
 #include "base/memory/ace_type.h"
@@ -92,6 +93,21 @@ public:
     {
         return true;
     }
+
+    /* Free Scroll mode */
+    struct ScrollToParam {
+        Dimension xOffset;
+        Dimension yOffset;
+        float duration = 0.0f;
+        RefPtr<Curve> curve;
+        bool smooth = false;
+        bool canOverScroll = false;
+    };
+    virtual bool FreeScrollTo(const ScrollToParam& param)
+    {
+        return false;
+    }
+
     virtual void SetCanStayOverScroll(bool canStayOverScroll) {}
     virtual void ScrollBy(double pixelX, double pixelY, bool smooth) {}
     virtual void ScrollToEdge(ScrollEdgeType scrollEdgeType, float velocity) {}
@@ -112,6 +128,16 @@ public:
     }
 
     virtual int32_t GetItemIndex(double x, double y) const
+    {
+        return -1;
+    }
+    
+    virtual NG::SizeF ContentSize() const
+    {
+        return NG::SizeF();
+    }
+
+    virtual int32_t GetBindingFrameNodeId() const
     {
         return -1;
     }

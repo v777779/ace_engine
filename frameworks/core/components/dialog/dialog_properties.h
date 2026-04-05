@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -20,18 +20,28 @@
 
 #include "base/geometry/dimension_offset.h"
 #include "base/geometry/dimension.h"
-#include "core/common/resource/resource_object.h"
 #include "core/components/common/properties/blur_style_option.h"
 #include "core/components/common/properties/color.h"
 #include "core/components/common/properties/shadow.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/event/click_event.h"
 #include "core/components_ng/property/border_property.h"
 #include "core/components_ng/property/transition_property.h"
 #include "core/event/ace_event_handler.h"
+#include "core/gestures/gesture_event.h"
 #include "core/pipeline/base/component.h"
-#include "core/components/common/properties/text_style.h"
 
 namespace OHOS::Ace {
+class UiMaterial;
+class Component;
+class Gesture;
+
+namespace NG {
+    class ClickEvent;
+    class UINode;
+    class FrameNode;
+    class ChainedTransitionEffect;
+}
 
 enum class DialogType {
     COMMON = 0,
@@ -41,39 +51,8 @@ enum class DialogType {
     PROGRESS_DIALOG,
 };
 
-enum class DialogResourceType {
-    BACKGROUND_COLOR = 1,
-    MASK_COLOR,
-    WIDTH,
-    HEIGHT,
-    TITLE,
-    SUBTITLE,
-    MESSAGE,
-};
 class DialogTypeUtils {
 public:
-    static std::string ConvertDialogTypeToString(const DialogResourceType type)
-    {
-        switch (type) {
-            case DialogResourceType::BACKGROUND_COLOR:
-                return "backgroundColor";
-            case DialogResourceType::MASK_COLOR:
-                return "maskColor";
-            case DialogResourceType::WIDTH:
-                return "width";
-            case DialogResourceType::HEIGHT:
-                return "height";
-            case DialogResourceType::TITLE:
-                return "title";
-            case DialogResourceType::SUBTITLE:
-                return "subtitle";
-            case DialogResourceType::MESSAGE:
-                return "message";
-            default:
-                break;
-        }
-        return "";
-    }
     static std::string ConvertDialogTypeToString(DialogType type)
     {
         switch (type) {
@@ -148,6 +127,11 @@ enum class ImmersiveMode {
     EXTEND,
 };
 
+enum class DialogDisplayMode {
+    SCREEN_BASED = 0,
+    WINDOW_BASED = 1
+};
+
 class DialogAlignmentUtils {
 public:
     static std::string ConvertDialogAlignmentToString(DialogAlignment dialogAlignment)
@@ -207,6 +191,21 @@ public:
     }
 };
 
+struct HasInvertColor {
+    bool hasMaskColor = false;
+    bool hasShadowColor = false;
+    bool hasBackgroundColor = false;
+    bool hasBorderTopColor = false;
+    bool hasBorderBottomColor = false;
+    bool hasBorderLeftColor = false;
+    bool hasBorderRightColor = false;
+    bool hasBorderStartColor = false;
+    bool hasBorderEndColor = false;
+    bool hasBlurStyleOptionInactiveColor = false;
+    bool hasEffectOptionColor = false;
+    bool hasEffectOptionInactiveColor = false;
+};
+
 // Information of ActionSheet
 struct ActionSheetInfo {
     std::string title;             // title of ActionSheet, necessary.
@@ -243,9 +242,6 @@ struct ButtonInfo {
     std::optional<NG::BorderRadiusProperty> borderRadius;
     bool isPrimary = false;
     bool isAcceptButton = false;
-    RefPtr<ResourceObject> resourceTextObj;
-    RefPtr<ResourceObject> resourceFontColorObj;
-    RefPtr<ResourceObject> resourceBgColorObj;
     // Whether button info is valid, valid if text is not empty.
     bool IsValid() const
     {
@@ -267,6 +263,7 @@ struct DialogProperties {
     std::vector<ButtonInfo> buttons;
     std::function<void()> onCancel;       // NG cancel callback
     std::function<void(const int32_t& info, const int32_t& instanceId)> onWillDismiss; // Cancel Dismiss Callback
+    std::function<void()> onWillDismissRelease;
     std::function<void(int32_t, int32_t)> onSuccess;      // NG prompt success callback
     std::function<void(const bool)> onChange;             // onChange success callback
     std::function<void(DialogProperties&)> onLanguageChange;    // onLanguageChange callback
@@ -298,6 +295,7 @@ struct DialogProperties {
     std::optional<CalcDimension> height;
     std::optional<HoverModeAreaType> hoverModeArea;
     std::optional<int32_t> controllerId;
+    HasInvertColor hasInvertColor;
 
 #ifndef NG_BUILD
     std::unordered_map<std::string, EventMarker> callbacks; // <callback type(success, cancel, complete), eventId>
@@ -338,15 +336,9 @@ struct DialogProperties {
     int32_t dialogLevelUniqueId = -1;
     ImmersiveMode dialogImmersiveMode = ImmersiveMode::DEFAULT;
     WeakPtr<NG::UINode> customCNode;
-    RefPtr<ResourceObject> resourceBgColorObj;
-    RefPtr<ResourceObject> resourceTitleObj;
-    RefPtr<ResourceObject> resourceSubTitleObj;
-    RefPtr<ResourceObject> resourceContentObj;
-    RefPtr<ResourceObject> resourceMaskColorObj;
-    RefPtr<ResourceObject> resourceWidthObj;
-    RefPtr<ResourceObject> resourceHeightObj;
-    RefPtr<ResourceObject> resourceBdColorObj;
     std::function<void(const WeakPtr<NG::UINode> node)> destroyCallback;
+    DialogDisplayMode dialogDisplayMode = DialogDisplayMode::SCREEN_BASED;
+    RefPtr<UiMaterial> systemMaterial;
 };
 
 struct PromptDialogAttr {
@@ -360,6 +352,7 @@ struct PromptDialogAttr {
     std::function<void()> customBuilder;
     std::function<void(const int32_t dialogId)> customBuilderWithId;
     std::function<void(const int32_t& info, const int32_t& instanceId)> customOnWillDismiss;
+    std::function<void()> customOnWillDismissRelease;
 
     std::optional<DialogAlignment> alignment;
     std::optional<DimensionOffset> offset;
@@ -376,6 +369,7 @@ struct PromptDialogAttr {
     std::optional<CalcDimension> width;
     std::optional<CalcDimension> height;
     std::optional<HoverModeAreaType> hoverModeArea;
+    HasInvertColor hasInvertColor;
 
     WeakPtr<NG::UINode> contentNode;
     bool customStyle = false;
@@ -397,6 +391,8 @@ struct PromptDialogAttr {
     int32_t dialogLevelUniqueId = -1;
     ImmersiveMode dialogImmersiveMode = ImmersiveMode::DEFAULT;
     WeakPtr<NG::UINode> customCNode;
+    DialogDisplayMode dialogDisplayMode = DialogDisplayMode::SCREEN_BASED;
+    RefPtr<UiMaterial> systemMaterial;
 };
 
 enum class PromptActionCommonState {

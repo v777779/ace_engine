@@ -15,7 +15,9 @@
 
 #include "core/components_ng/manager/select_overlay/select_overlay_client.h"
 
+#include "core/components_ng/manager/select_overlay/select_overlay_manager.h"
 #include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
+#include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 void SelectOverlayClient::InitSelectOverlay()
@@ -63,6 +65,16 @@ void SelectOverlayClient::InitMenuCallback()
         auto client = weak.Upgrade();
         CHECK_NULL_VOID(client);
         client->OnSelectOverlayMenuClicked(SelectOverlayMenuId::SELECT_ALL);
+    };
+    selectOverlayInfo_.menuCallback.onAutoFill = [weak = WeakClaim(this)]() {
+        auto client = weak.Upgrade();
+        CHECK_NULL_VOID(client);
+        client->OnSelectOverlayMenuClicked(SelectOverlayMenuId::AUTO_FILL);
+    };
+    selectOverlayInfo_.menuCallback.autoFillSubMenuCallback.onPasswordVault = [weak = WeakClaim(this)]() {
+        auto client = weak.Upgrade();
+        CHECK_NULL_VOID(client);
+        client->OnSelectOverlayMenuClicked(SelectOverlayMenuId::PASSWORD_VAULT);
     };
     selectOverlayInfo_.menuCallback.onPaste = [weak = WeakClaim(this)]() {
         auto client = weak.Upgrade();

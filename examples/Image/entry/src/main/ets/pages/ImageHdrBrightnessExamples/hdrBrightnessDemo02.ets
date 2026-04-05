@@ -46,6 +46,7 @@ struct hdrBrightnessDemo02 {
     } else {
       console.info('imageInfo.isHdr: ' + imageInfo.isHdr)
     }
+    imageSource?.release()
   }
 
   build() {
@@ -57,7 +58,7 @@ struct hdrBrightnessDemo02 {
       // Image using the dynamic brightness modifier
       Text('Image with dynamic hdrBrightness')
         .fontSize(16)
-      Image($r('app.media.img_1'))
+      Image($r('app.media.startIcon'))
         .width('60%')
         .height('auto')
         .attributeModifier(this.modifier)
@@ -76,7 +77,7 @@ struct hdrBrightnessDemo02 {
       // Static example: image with fixed maximum brightness
       Text('Image with fixed hdrBrightness = 1.0')
         .fontSize(16)
-      Image($r('app.media.img_1'))
+      Image($r('app.media.startIcon'))
         .width('60%')
         .height('auto')
         .hdrBrightness(1.0)
@@ -84,7 +85,7 @@ struct hdrBrightnessDemo02 {
       // Static example: image with fixed hdrBrightness = 0.0
       Text('Image with fixed hdrBrightness = 0.0')
         .fontSize(16)
-      Image($r('app.media.img_1'))
+      Image($r('app.media.startIcon'))
         .width('60%')
         .height('auto')
         .hdrBrightness(0.0)

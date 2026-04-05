@@ -14,8 +14,17 @@
  */
 
 import { UID, Unique, UniqueMap, UniqueSet } from '../common/Unique'
+import { IncrementalNode } from '../tree/IncrementalNode'
 
 let uidCounter: UID = 0
+
+/** This interface represents an object that may depend on some other dependencies. */
+export interface Dependent {
+    /** @return `true` if this object has at least one dependency */
+    hasDependencies(): boolean
+    /** @return a string representation of this object, useful for debugging */
+    toString(): string
+}
 
 /** This interface represents an unique observer that can be notified that some changes. */
 export interface Dependency {
@@ -60,7 +69,7 @@ export class StateToScopes implements Unique {
 
     invalidateIf(predicate: (element: ScopeToStates) => boolean): void {
         this.dependencies.forEach((dependency: ScopeToStates) => {
-            if (predicate(dependency)) dependency.invalidate()
+            if (predicate(dependency)) { dependency.invalidate() }
         })
     }
 
@@ -72,6 +81,10 @@ export class StateToScopes implements Unique {
             that.add(this)
         }
     }
+
+    getDependencies(): UniqueSet<ScopeToStates> {
+        return this.dependencies;
+    }
 }
 
 /** This class is intended to store dependencies to all used states. */
@@ -82,8 +95,11 @@ export class ScopeToStates implements Unique {
 
     readonly invalidate: () => void
 
-    constructor(invalidate: () => void) {
+    readonly getNodeRef?: () => (IncrementalNode | undefined)
+
+    constructor(invalidate: () => void, getNodeRef?: () => (IncrementalNode | undefined)) {
         this.invalidate = invalidate
+        this.getNodeRef = getNodeRef
     }
 
     get uid(): UID {
@@ -112,7 +128,7 @@ export class ScopeToStates implements Unique {
         const current = this.marker
         this.marker = !current
         this.dependencies.deleteIf((dependency: StateToScopes, marker: Boolean) => {
-            if (current === marker) return false
+            if (current === marker) { return false }
             dependency.remove(this)
             return true
         })

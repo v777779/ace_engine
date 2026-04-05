@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,38 +17,59 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMMON_DYNAMIC_MODULE_HELPER_H
 
 #include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_map>
+
+#include "compatible/components/component_loader.h"
 
 #include "base/utils/macros.h"
 #include "base/utils/noncopyable.h"
-#include "compatible/components/component_loader.h"
+#include "core/common/dynamic_module.h"
 
 namespace OHOS::Ace {
 
 using ComponentLoaderFunc = ComponentLoader* (*)(const char* name);
-using CanvasLoaderFunc = void* (*)(bool offscreen);
-using CanvasBridgeFunc = void* (*)(CanvasBridgeParams& params);
+using DynamicModuleCreateFunc = DynamicModule* (*)();
 
-class ACE_EXPORT DynamicModuleHelper final {
+constexpr const char* COMPATIABLE_COMPONENT_LOADER = "OHOS_ACE_Compatible_GetLoader";
+constexpr const char* DYNAMIC_MODULE_CREATE = "OHOS_ACE_DynamicModule_Create_";
+#ifdef ENABLE_PRELOAD_DYNAMIC_MODULE
+struct TextSegmentInfo {
+    std::string libraryName_;
+    void* handle_;
+    void* baseAddress_;
+    void* textStart_;
+    void* textEnd_;
+    size_t textSize_;
+    bool findFlag_ = false;
+
+    TextSegmentInfo(std::string libraryName, void* handle)
+        : libraryName_(libraryName), handle_(handle), baseAddress_(nullptr), textStart_(nullptr), textEnd_(nullptr),
+          textSize_(0), findFlag_(false)
+    {}
+};
+#endif
+
+class ACE_FORCE_EXPORT DynamicModuleHelper final {
 public:
     static DynamicModuleHelper& GetInstance();
     std::unique_ptr<ComponentLoader> GetLoaderByName(const char* name);
-    void* CreateCanvasRenderingContextModel(bool isOffscreen);
-    void* CreateCanvasBridge(CanvasBridgeParams& params);
+    DynamicModule* GetDynamicModule(const std::string& name);
+#ifdef ENABLE_PRELOAD_DYNAMIC_MODULE
+    void TriggerPageFaultForPreLoad();
+#endif
 
 private:
-    DynamicModuleHelper();
-    ~DynamicModuleHelper();
-    bool LoadLibrary();
-    void CloseLibrary();
-    void* LoadSymbol(const char* symName);
+    DynamicModuleHelper() = default;
+    ~DynamicModuleHelper() = default;
 
-    void* compatibleLibHandle_ = nullptr;
-    bool compatibleLibLoaded_ = false;
-
-    ComponentLoaderFunc componentLoaderFunc_ = nullptr;
-    CanvasLoaderFunc canvasRenderingContextLoaderFunc_ = nullptr;
-    CanvasBridgeFunc canvasBridgeLoaderFunc_ = nullptr;
+    ComponentLoaderFunc compatibleLoaderFunc_ = nullptr;
+    std::unordered_map<std::string, std::unique_ptr<DynamicModule>> moduleMap_;
+    std::mutex moduleMapMutex_;
+#ifdef ENABLE_PRELOAD_DYNAMIC_MODULE
+    std::unordered_map<std::string, TextSegmentInfo> textInfoMap_;
+#endif
 };
 } // namespace OHOS::Ace
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMMON_DYNAMIC_MODULE_HELPER_H

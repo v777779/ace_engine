@@ -74,7 +74,6 @@ napi_value JsCreate(napi_env env, napi_callback_info info)
     napi_value jsData = nullptr;
     napi_get_named_property(env, argv[0], "movingPhoto", &jsData);
     if (!ExtNapiUtils::CheckTypeForNapiValue(env, jsData, napi_object)) {
-        TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "when create movingphoto is null.");
         return ExtNapiUtils::CreateNull(env);
     }
 
@@ -174,7 +173,7 @@ napi_value JsOnComplete(napi_env env, napi_callback_info info)
     napi_value thisVal = nullptr;
     napi_value argv[MAX_ARG_NUM] = { nullptr };
     NAPI_CALL(env, napi_get_cb_info(env, info, &argc, argv, &thisVal, nullptr));
-    NAPI_ASSERT(env, argc >= 1, "Wrong number of arguments");
+    NAPI_ASSERT(env, argc >= ARG_NUM_ONE, "Wrong number of arguments");
     if (!ExtNapiUtils::CheckTypeForNapiValue(env, argv[0], napi_function)) {
         return ExtNapiUtils::CreateNull(env);
     }
@@ -312,6 +311,7 @@ napi_value InitView(napi_env env, napi_value exports)
         DECLARE_NAPI_FUNCTION("repeatPlay", JsRepeatPlay),
         DECLARE_NAPI_FUNCTION("enableAnalyzer", JsEnableAnalyzer),
         DECLARE_NAPI_FUNCTION("hdrBrightness", JsHdrBrightness),
+        DECLARE_NAPI_FUNCTION("setPlaybackStrategy", JsSetPlaybackStrategy),
     };
     NAPI_CALL(env, napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc));
     return exports;
@@ -356,7 +356,7 @@ napi_value RefreshMovingPhoto(napi_env env, napi_callback_info info)
     return ExtNapiUtils::CreateNull(env);
 }
 
-napi_value Pause(napi_env env, napi_callback_info info)
+napi_value PausePlayback(napi_env env, napi_callback_info info)
 {
     napi_value thisVar = nullptr;
     NAPI_CALL(env, napi_get_cb_info(env, info, nullptr, nullptr, &thisVar, NULL));
@@ -401,9 +401,9 @@ napi_value EnableTransition(napi_env env, napi_callback_info info)
     size_t argc = MAX_ARG_NUM;
     napi_value argv[MAX_ARG_NUM] = { nullptr };
     NAPI_CALL(env, napi_get_cb_info(env, info, &argc, argv, &thisVar, nullptr));
-    NAPI_ASSERT(env, argc >= ARG_NUM_TWO, "Wrong number of arguments");
+    NAPI_ASSERT(env, argc >= ARG_NUM_ONE, "Wrong number of arguments");
     bool enabled = true;
-    if (ExtNapiUtils::CheckTypeForNapiValue(env, argv[PARAM_INDEX_ZERO], napi_number)) {
+    if (ExtNapiUtils::CheckTypeForNapiValue(env, argv[PARAM_INDEX_ZERO], napi_boolean)) {
         enabled = ExtNapiUtils::GetBool(env, argv[PARAM_INDEX_ZERO]);
     }
     NG::MovingPhotoController* controller = nullptr;
@@ -445,9 +445,9 @@ napi_value EnableAutoPlay(napi_env env, napi_callback_info info)
     size_t argc = MAX_ARG_NUM;
     napi_value argv[MAX_ARG_NUM] = { nullptr };
     NAPI_CALL(env, napi_get_cb_info(env, info, &argc, argv, &thisVar, nullptr));
-    NAPI_ASSERT(env, argc >= ARG_NUM_TWO, "Wrong number of arguments");
+    NAPI_ASSERT(env, argc >= ARG_NUM_ONE, "Wrong number of arguments");
     bool enabled = true;
-    if (ExtNapiUtils::CheckTypeForNapiValue(env, argv[PARAM_INDEX_ZERO], napi_number)) {
+    if (ExtNapiUtils::CheckTypeForNapiValue(env, argv[PARAM_INDEX_ZERO], napi_boolean)) {
         enabled = ExtNapiUtils::GetBool(env, argv[PARAM_INDEX_ZERO]);
     }
     NG::MovingPhotoController* controller = nullptr;
@@ -456,6 +456,19 @@ napi_value EnableAutoPlay(napi_env env, napi_callback_info info)
         return ExtNapiUtils::CreateNull(env);
     }
     controller->EnableAutoPlay(enabled);
+    return ExtNapiUtils::CreateNull(env);
+}
+
+napi_value NotifyTransition(napi_env env, napi_callback_info info)
+{
+    napi_value thisVar = nullptr;
+    NAPI_CALL(env, napi_get_cb_info(env, info, nullptr, nullptr, &thisVar, NULL));
+    NG::MovingPhotoController* controller = nullptr;
+    napi_unwrap(env, thisVar, (void**)&controller);
+    if (controller == nullptr) {
+        return ExtNapiUtils::CreateNull(env);
+    }
+    controller->NotifyTransition();
     return ExtNapiUtils::CreateNull(env);
 }
 
@@ -486,12 +499,13 @@ napi_value InitController(napi_env env, napi_value exports)
         DECLARE_NAPI_FUNCTION("startPlayback", StartPlayback),
         DECLARE_NAPI_FUNCTION("stopPlayback", StopPlayback),
         DECLARE_NAPI_FUNCTION("refreshMovingPhoto", RefreshMovingPhoto),
-        DECLARE_NAPI_FUNCTION("pause", Pause),
+        DECLARE_NAPI_FUNCTION("pausePlayback", PausePlayback),
         DECLARE_NAPI_FUNCTION("reset", Reset),
         DECLARE_NAPI_FUNCTION("restart", Restart),
         DECLARE_NAPI_FUNCTION("enableTransition", EnableTransition),
         DECLARE_NAPI_FUNCTION("setPlaybackPeriod", SetPlaybackPeriod),
         DECLARE_NAPI_FUNCTION("enableAutoPlay", EnableAutoPlay),
+        DECLARE_NAPI_FUNCTION("notifyMovingPhotoTransition", NotifyTransition),
     };
     NAPI_CALL(env, napi_define_class(env, "MovingPhotoViewController", NAPI_AUTO_LENGTH,
         MovingPhotoControllerConstructor, nullptr, sizeof(properties) / sizeof(*properties), properties,
@@ -573,6 +587,26 @@ napi_value JsHdrBrightness(napi_env env, napi_callback_info info)
     }
     NG::MovingPhotoModelNG::GetInstance()->SetHdrBrightness(hdrBrightness);
  
+    return ExtNapiUtils::CreateNull(env);
+}
+
+napi_value JsSetPlaybackStrategy(napi_env env, napi_callback_info info)
+{
+    size_t argc = MAX_ARG_NUM;
+    napi_value argv[MAX_ARG_NUM] = { nullptr };
+    NAPI_CALL(env, napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr));
+    NAPI_ASSERT(env, argc >= ARG_NUM_ONE, "Wrong number of arguments");
+ 
+    if (!ExtNapiUtils::CheckTypeForNapiValue(env, argv[0], napi_object)) {
+        return ExtNapiUtils::CreateNull(env);
+    }
+    napi_value jsEnabled = nullptr;
+    if (napi_get_named_property(env, argv[0], "enableCameraPostprocessing", &jsEnabled) != napi_ok) {
+        return ExtNapiUtils::CreateNull(env);
+    }
+    bool isEnabled = ExtNapiUtils::GetBool(env, jsEnabled);
+    NG::MovingPhotoModelNG::GetInstance()->SetEnableCameraPostprocessing(isEnabled);
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "napi SetEnableCameraPostprocessing = %{public}d.", isEnabled);
     return ExtNapiUtils::CreateNull(env);
 }
 

@@ -21,7 +21,7 @@ action("run_arkoala_build") {
   # TODO: generate real inputs later
   inputs = [ "../koala_projects/arkoala-arkts/arkui/src/ArkUIEntry.ts" ]
   outputs = [ "$target_out_dir/arkoala.abc" ]
-  node_version = "v16.20.2"
+  node_version = "v18.20.1"
   host_arch = "${host_os}-${host_cpu}"
   args = [
     # Paths: 1 koala root folder.
@@ -54,11 +54,6 @@ action("run_arkoala_build") {
 
     # Paths: 10 innerkits config path.
     rebase_path("$root_out_dir/arkui/innerkits"),
-  ]
-
-  external_deps = [
-    "sdk:ohos_ets_api",
-    "sdk:ohos_ets_arkts",
   ]
 
   external_deps += ets2abc_build_deps

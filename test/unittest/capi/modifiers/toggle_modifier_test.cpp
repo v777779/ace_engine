@@ -94,13 +94,13 @@ public:
 HWTEST_F(ToggleModifierTest, setToggleOptionsTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_TYPE_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_TYPE_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_TYPE_DEFAULT_VALUE));
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_IS_ON_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_IS_ON_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IS_ON_DEFAULT_VALUE));
 }
 
 // Valid values for attribute 'type' of method 'setToggleOptions'
@@ -121,14 +121,14 @@ static std::vector<std::tuple<std::string, IsOnType, std::string>> setToggleOpti
 };
 
 /*
- * @tc.name: setToggleOptionsTestValidValues
+ * @tc.name: setToggleOptionsTestTypeValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
 HWTEST_F(ToggleModifierTest, DISABLED_setToggleOptionsTestTypeValidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_ToggleOptions inputValueOptions;
     Ark_ToggleOptions initValueOptions;
@@ -145,19 +145,19 @@ HWTEST_F(ToggleModifierTest, DISABLED_setToggleOptionsTestTypeValidValues, TestS
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_TYPE_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
 /*
- * @tc.name: setToggleOptionsTestValidValues
+ * @tc.name: setToggleOptionsTestIsOnValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
 HWTEST_F(ToggleModifierTest, setToggleOptionsTestIsOnValidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_ToggleOptions inputValueOptions;
     Ark_ToggleOptions initValueOptions;
@@ -174,7 +174,7 @@ HWTEST_F(ToggleModifierTest, setToggleOptionsTestIsOnValidValues, TestSize.Level
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_IS_ON_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
@@ -189,14 +189,14 @@ static std::vector<std::tuple<std::string, IsOnType>> setToggleOptionsIsOnInvali
 };
 
 /*
- * @tc.name: setToggleOptionsTestInvalidValues
+ * @tc.name: setToggleOptionsTestTypeInvalidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
 HWTEST_F(ToggleModifierTest, setToggleOptionsTestTypeInvalidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_ToggleOptions inputValueOptions;
     Ark_ToggleOptions initValueOptions;
@@ -214,19 +214,19 @@ HWTEST_F(ToggleModifierTest, setToggleOptionsTestTypeInvalidValues, TestSize.Lev
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_TYPE_NAME);
         expectedStr = ATTRIBUTE_TYPE_DEFAULT_VALUE;
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
 /*
- * @tc.name: setToggleOptionsTestInvalidValues
+ * @tc.name: setToggleOptionsTestIsOnInvalidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
 HWTEST_F(ToggleModifierTest, setToggleOptionsTestIsOnInvalidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_ToggleOptions inputValueOptions;
     Ark_ToggleOptions initValueOptions;
@@ -244,7 +244,7 @@ HWTEST_F(ToggleModifierTest, setToggleOptionsTestIsOnInvalidValues, TestSize.Lev
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_IS_ON_NAME);
         expectedStr = ATTRIBUTE_IS_ON_DEFAULT_VALUE;
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
@@ -287,16 +287,6 @@ HWTEST_F(ToggleModifierTest, setOnChangeTest, TestSize.Level1)
 }
 
 /*
- * @tc.name: DISABLED_setContentModifierTest
- * @tc.desc:
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleModifierTest, DISABLED_setContentModifierTest, TestSize.Level1)
-{
-    // CustomObjects is not implemented yet!
-}
-
-/*
  * @tc.name: setSelectedColorTestDefaultValues
  * @tc.desc:
  * @tc.type: FUNC
@@ -304,15 +294,15 @@ HWTEST_F(ToggleModifierTest, DISABLED_setContentModifierTest, TestSize.Level1)
 HWTEST_F(ToggleModifierTest, DISABLED_setSelectedColorTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SELECTED_COLOR_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_SELECTED_COLOR_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_SELECTED_COLOR_DEFAULT_VALUE));
 }
 
 // Valid values for attribute 'selectedColor' of method 'selectedColor'
 static std::vector<std::tuple<std::string, Opt_ResourceColor, std::string>> selectedColorValidValues = {
-    { "#FF0000FF", Converter::ArkUnion<Opt_ResourceColor, enum Ark_Color>(ARK_COLOR_BLUE), "#FF0000FF" },
+    { "#FF0000FF", Converter::ArkUnion<Opt_ResourceColor, Ark_Color>(ARK_COLOR_BLUE), "#FF0000FF" },
     { "#FF123456", Converter::ArkUnion<Opt_ResourceColor, Ark_Int32>(0x123456), "#FF123456" },
     { Color::TRANSPARENT.ToString(), Converter::ArkUnion<Opt_ResourceColor, Ark_Int32>(0.5f),
         Color::TRANSPARENT.ToString() },
@@ -329,7 +319,7 @@ static std::vector<std::tuple<std::string, Opt_ResourceColor, std::string>> sele
 HWTEST_F(ToggleModifierTest, DISABLED_setSelectedColorTestValidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Opt_ResourceColor inputValueSelectedColor;
     Opt_ResourceColor initValueSelectedColor;
@@ -345,7 +335,7 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSelectedColorTestValidValues, TestSize.
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SELECTED_COLOR_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
@@ -363,7 +353,7 @@ static std::vector<std::tuple<std::string, Opt_ResourceColor, std::string>>
 HWTEST_F(ToggleModifierTest, DISABLED_setSelectedColorTestInvalidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Opt_ResourceColor inputValueSelectedColor;
     Opt_ResourceColor initValueSelectedColor;
@@ -379,7 +369,7 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSelectedColorTestInvalidValues, TestSiz
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SELECTED_COLOR_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
@@ -391,15 +381,15 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSelectedColorTestInvalidValues, TestSiz
 HWTEST_F(ToggleModifierTest, DISABLED_setSwitchPointColorTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_POINT_COLOR_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_SWITCH_POINT_COLOR_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_SWITCH_POINT_COLOR_DEFAULT_VALUE));
 }
 
 // Valid values for attribute 'switchPointColorColor' of method 'switchPointColor'
 static std::vector<std::tuple<std::string, Opt_ResourceColor, std::string>> switchPointColorValidValues = {
-    { "#FF0000FF", Converter::ArkUnion<Opt_ResourceColor, enum Ark_Color>(ARK_COLOR_BLUE), "#FF0000FF" },
+    { "#FF0000FF", Converter::ArkUnion<Opt_ResourceColor, Ark_Color>(ARK_COLOR_BLUE), "#FF0000FF" },
     { "#FF123456", Converter::ArkUnion<Opt_ResourceColor, Ark_Int32>(0x123456), "#FF123456" },
     { Color::TRANSPARENT.ToString(), Converter::ArkUnion<Opt_ResourceColor, Ark_Int32>(0.5f),
         Color::TRANSPARENT.ToString() },
@@ -419,7 +409,7 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSwitchPointColorTestValidValues, TestSi
     Ark_NodeHandle node = reinterpret_cast<Ark_NodeHandle>(AceType::RawPtr(frameNode));
 
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Opt_ResourceColor inputValueSwitchPointColor;
     Opt_ResourceColor initValueSwitchPointColor;
@@ -435,7 +425,7 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSwitchPointColorTestValidValues, TestSi
         jsonValue = GetJsonValue(node);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_POINT_COLOR_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
@@ -455,7 +445,7 @@ static std::vector<std::tuple<std::string, Opt_ResourceColor, std::string>>
 HWTEST_F(ToggleModifierTest, DISABLED_setSwitchPointColorTestInvalidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Opt_ResourceColor inputValueSwitchPointColor;
     Opt_ResourceColor initValueSwitchPointColor;
@@ -471,7 +461,7 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSwitchPointColorTestInvalidValues, Test
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_POINT_COLOR_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
@@ -483,26 +473,26 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSwitchPointColorTestInvalidValues, Test
 HWTEST_F(ToggleModifierTest, DISABLED_setSwitchStyleTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> resultSwitchStyle = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(resultSwitchStyle, ATTRIBUTE_SWITCH_STYLE_POINT_RADIUS_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_SWITCH_STYLE_POINT_RADIUS_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_SWITCH_STYLE_POINT_RADIUS_DEFAULT_VALUE));
 
     resultStr = GetAttrValue<std::string>(resultSwitchStyle, ATTRIBUTE_SWITCH_STYLE_UNSELECTED_COLOR_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_SWITCH_STYLE_UNSELECTED_COLOR_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_SWITCH_STYLE_UNSELECTED_COLOR_DEFAULT_VALUE));
 
     resultStr = GetAttrValue<std::string>(resultSwitchStyle, ATTRIBUTE_SWITCH_STYLE_POINT_COLOR_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_SWITCH_STYLE_POINT_COLOR_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_SWITCH_STYLE_POINT_COLOR_DEFAULT_VALUE));
 
     resultStr = GetAttrValue<std::string>(resultSwitchStyle, ATTRIBUTE_SWITCH_STYLE_TRACK_BORDER_RADIUS_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_SWITCH_STYLE_TRACK_BORDER_RADIUS_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_SWITCH_STYLE_TRACK_BORDER_RADIUS_DEFAULT_VALUE));
 }
 
 // Valid values for attribute 'pointRadius' of method 'switchStyle'
-static std::vector<std::tuple<std::string, Opt_Union_Number_Resource, std::string>>
+static std::vector<std::tuple<std::string, Opt_Union_F64_Resource, std::string>>
     switchStylePointRadiusValidValues = {
-    { "55.50vp", Converter::ArkUnion<Opt_Union_Number_Resource, Ark_Number>(55.5f), "55.50vp" },
-    { "7.00vp", Converter::ArkUnion<Opt_Union_Number_Resource, Ark_Resource>(POINT_RADIUS_RESOURCE), "7.00vp" }
+    { "55.50vp", Converter::ArkUnion<Opt_Union_F64_Resource, Ark_Float64>(55.5), "55.50vp" },
+    { "7.00vp", Converter::ArkUnion<Opt_Union_F64_Resource, Ark_Resource>(POINT_RADIUS_RESOURCE), "7.00vp" }
 };
 
 /*
@@ -516,7 +506,7 @@ HWTEST_F(ToggleModifierTest, setSwitchStyleTestPointRadiusValidValues, TestSize.
     Ark_NodeHandle node = reinterpret_cast<Ark_NodeHandle>(AceType::RawPtr(frameNode));
 
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_SwitchStyle inputValueSwitchStyle;
     Ark_SwitchStyle initValueSwitchStyle;
@@ -533,13 +523,13 @@ HWTEST_F(ToggleModifierTest, setSwitchStyleTestPointRadiusValidValues, TestSize.
         jsonValue = GetJsonValue(node);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_STYLE_POINT_RADIUS_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
 // Valid values for attribute 'unselectedColor' of method 'switchStyle'
 static std::vector<std::tuple<std::string, Opt_ResourceColor, std::string>> switchStyleUnselectedColorValidValues = {
-    { "#FF0000FF", Converter::ArkUnion<Opt_ResourceColor, enum Ark_Color>(ARK_COLOR_BLUE), "#FF0000FF" },
+    { "#FF0000FF", Converter::ArkUnion<Opt_ResourceColor, Ark_Color>(ARK_COLOR_BLUE), "#FF0000FF" },
     { "#FF123456", Converter::ArkUnion<Opt_ResourceColor, Ark_Int32>(0x123456), "#FF123456" },
     { Color::TRANSPARENT.ToString(), Converter::ArkUnion<Opt_ResourceColor, Ark_Int32>(0.5f),
         Color::TRANSPARENT.ToString() },
@@ -559,7 +549,7 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSwitchStyleTestUnselectedColorValidValu
     Ark_NodeHandle node = reinterpret_cast<Ark_NodeHandle>(AceType::RawPtr(frameNode));
 
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_SwitchStyle inputValueSwitchStyle;
     Ark_SwitchStyle initValueSwitchStyle;
@@ -576,13 +566,13 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSwitchStyleTestUnselectedColorValidValu
         jsonValue = GetJsonValue(node);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_STYLE_UNSELECTED_COLOR_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
 // Valid values for attribute 'pointColor' of method 'switchStyle'
 static std::vector<std::tuple<std::string, Opt_ResourceColor, std::string>> switchStylePointColorValidValues = {
-    { "#FF0000FF", Converter::ArkUnion<Opt_ResourceColor, enum Ark_Color>(ARK_COLOR_BLUE), "#FF0000FF" },
+    { "#FF0000FF", Converter::ArkUnion<Opt_ResourceColor, Ark_Color>(ARK_COLOR_BLUE), "#FF0000FF" },
     { "#FF123456", Converter::ArkUnion<Opt_ResourceColor, Ark_Int32>(0x123456), "#FF123456" },
     { Color::TRANSPARENT.ToString(), Converter::ArkUnion<Opt_ResourceColor, Ark_Int32>(0.5f),
         Color::TRANSPARENT.ToString() },
@@ -602,7 +592,7 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSwitchStyleTestPointColorValidValues, T
     Ark_NodeHandle node = reinterpret_cast<Ark_NodeHandle>(AceType::RawPtr(frameNode));
 
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_SwitchStyle inputValueSwitchStyle;
     Ark_SwitchStyle initValueSwitchStyle;
@@ -619,15 +609,15 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSwitchStyleTestPointColorValidValues, T
         jsonValue = GetJsonValue(node);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_STYLE_POINT_COLOR_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
 // Valid values for attribute 'trackBorderRadius' of method 'switchStyle'
-static std::vector<std::tuple<std::string, Opt_Union_Number_Resource, std::string>>
+static std::vector<std::tuple<std::string, Opt_Union_F64_Resource, std::string>>
     switchStyleTrackBorderRadiusValidValues = {
-    { "55.50vp", Converter::ArkUnion<Opt_Union_Number_Resource, Ark_Number>(55.5f), "55.50vp" },
-    { "7.00vp", Converter::ArkUnion<Opt_Union_Number_Resource, Ark_Resource>(TRACK_BORDER_RADIUS_RESOURCE), "7.00vp" }
+    { "55.50vp", Converter::ArkUnion<Opt_Union_F64_Resource, Ark_Float64>(55.5), "55.50vp" },
+    { "7.00vp", Converter::ArkUnion<Opt_Union_F64_Resource, Ark_Resource>(TRACK_BORDER_RADIUS_RESOURCE), "7.00vp" }
 };
 
 /*
@@ -641,7 +631,7 @@ HWTEST_F(ToggleModifierTest, setSwitchStyleTestTrackBorderRadiusValidValues, Tes
     Ark_NodeHandle node = reinterpret_cast<Ark_NodeHandle>(AceType::RawPtr(frameNode));
 
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_SwitchStyle inputValueSwitchStyle;
     Ark_SwitchStyle initValueSwitchStyle;
@@ -658,14 +648,14 @@ HWTEST_F(ToggleModifierTest, setSwitchStyleTestTrackBorderRadiusValidValues, Tes
         jsonValue = GetJsonValue(node);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_STYLE_TRACK_BORDER_RADIUS_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
 // Invalid values for attribute 'pointRadius' of method 'switchStyle'
-static std::vector<std::tuple<std::string, Opt_Union_Number_Resource>> switchStylePointRadiusInvalidValues = {
-    { "Ark_Empty()", Converter::ArkUnion<Opt_Union_Number_Resource>(Ark_Empty()) },
-    { "nullptr", Converter::ArkUnion<Opt_Union_Number_Resource, Ark_Empty>(nullptr) },
+static std::vector<std::tuple<std::string, Opt_Union_F64_Resource>> switchStylePointRadiusInvalidValues = {
+    { "Ark_Empty()", Converter::ArkUnion<Opt_Union_F64_Resource>(Ark_Empty()) },
+    { "nullptr", Converter::ArkUnion<Opt_Union_F64_Resource, Ark_Empty>(nullptr) },
 };
 
 /*
@@ -679,7 +669,7 @@ HWTEST_F(ToggleModifierTest, setSwitchStyleTestPointRadiusInvalidValues, TestSiz
     Ark_NodeHandle node = reinterpret_cast<Ark_NodeHandle>(AceType::RawPtr(frameNode));
 
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_SwitchStyle inputValueSwitchStyle;
     Ark_SwitchStyle initValueSwitchStyle;
@@ -698,7 +688,7 @@ HWTEST_F(ToggleModifierTest, setSwitchStyleTestPointRadiusInvalidValues, TestSiz
         jsonValue = GetJsonValue(node);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_STYLE_POINT_RADIUS_NAME);
         expectedStr = ATTRIBUTE_SWITCH_STYLE_POINT_RADIUS_DEFAULT_VALUE;
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
@@ -716,7 +706,7 @@ static std::vector<std::tuple<std::string, Opt_ResourceColor>> switchStyleUnsele
 HWTEST_F(ToggleModifierTest, DISABLED_setSwitchStyleTestUnselectedColorInvalidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_SwitchStyle inputValueSwitchStyle;
     Ark_SwitchStyle initValueSwitchStyle;
@@ -735,7 +725,7 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSwitchStyleTestUnselectedColorInvalidVa
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_STYLE_UNSELECTED_COLOR_NAME);
         expectedStr = ATTRIBUTE_SWITCH_STYLE_UNSELECTED_COLOR_DEFAULT_VALUE;
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
@@ -753,7 +743,7 @@ static std::vector<std::tuple<std::string, Opt_ResourceColor>> switchStylePointC
 HWTEST_F(ToggleModifierTest, DISABLED_setSwitchStyleTestPointColorInvalidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_SwitchStyle inputValueSwitchStyle;
     Ark_SwitchStyle initValueSwitchStyle;
@@ -772,14 +762,14 @@ HWTEST_F(ToggleModifierTest, DISABLED_setSwitchStyleTestPointColorInvalidValues,
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_STYLE_POINT_COLOR_NAME);
         expectedStr = ATTRIBUTE_SWITCH_STYLE_POINT_COLOR_DEFAULT_VALUE;
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
 // Invalid values for attribute 'trackBorderRadius' of method 'switchStyle'
-static std::vector<std::tuple<std::string, Opt_Union_Number_Resource>> switchStyleTrackBorderRadiusInvalidValues = {
-    { "Ark_Empty()", Converter::ArkUnion<Opt_Union_Number_Resource>(Ark_Empty()) },
-    { "nullptr", Converter::ArkUnion<Opt_Union_Number_Resource, Ark_Empty>(nullptr) },
+static std::vector<std::tuple<std::string, Opt_Union_F64_Resource>> switchStyleTrackBorderRadiusInvalidValues = {
+    { "Ark_Empty()", Converter::ArkUnion<Opt_Union_F64_Resource>(Ark_Empty()) },
+    { "nullptr", Converter::ArkUnion<Opt_Union_F64_Resource, Ark_Empty>(nullptr) },
 };
 
 /*
@@ -793,7 +783,7 @@ HWTEST_F(ToggleModifierTest, setSwitchStyleTestTrackBorderRadiusInvalidValues, T
     Ark_NodeHandle node = reinterpret_cast<Ark_NodeHandle>(AceType::RawPtr(frameNode));
 
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_SwitchStyle inputValueSwitchStyle;
     Ark_SwitchStyle initValueSwitchStyle;
@@ -812,17 +802,17 @@ HWTEST_F(ToggleModifierTest, setSwitchStyleTestTrackBorderRadiusInvalidValues, T
         jsonValue = GetJsonValue(node);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_SWITCH_STYLE_TRACK_BORDER_RADIUS_NAME);
         expectedStr = ATTRIBUTE_SWITCH_STYLE_TRACK_BORDER_RADIUS_DEFAULT_VALUE;
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
 #ifdef WRONG_OLD_GEN
 /*
- * @tc.name: setOnChangeEventIsOnImpl
+ * @tc.name: set_onChangeEvent_isOnTestOnChangeEventIsOnImpl
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(ToggleModifierTest, setOnChangeEventIsOnImpl, TestSize.Level1)
+HWTEST_F(ToggleModifierTest, set_onChangeEvent_isOnTestOnChangeEventIsOnImpl, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     auto eventHub = frameNode->GetEventHub<SwitchEventHub>();

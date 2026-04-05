@@ -68,7 +68,7 @@ private:
     std::unordered_map<std::string, ResourceUpdater> resMap_;
 };
 class GaugePaintProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(GaugePaintProperty, PaintProperty)
+    DECLARE_ACE_TYPE(GaugePaintProperty, PaintProperty);
 
 public:
     GaugePaintProperty() = default;
@@ -301,6 +301,8 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(IsSensitive, bool, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(UseJsLinearGradient, bool, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(UseSpecialDefaultIndicator, bool, PROPERTY_UPDATE_RENDER);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(GradientColorsInit, std::vector<ColorStopArray>, PROPERTY_UPDATE_RENDER);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ColorModeInit, int, PROPERTY_UPDATE_RENDER);
     ACE_DISALLOW_COPY_AND_MOVE(GaugePaintProperty);
 };
 

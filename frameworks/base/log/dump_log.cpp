@@ -29,6 +29,8 @@ namespace OHOS::Ace {
 
 #define COMPRESS_VERSION 9
 
+SINGLETON_INSTANCE_IMPL(DumpLog);
+
 DumpLog::DumpLog() = default;
 DumpLog::~DumpLog() = default;
 
@@ -76,8 +78,7 @@ void DumpLog::Print(int32_t depth, const std::string& content)
     for (int32_t i = 0; i < depth; ++i) {
         ostream_->write(space.c_str(), space.length());
     }
-    std::string data = content + (isUIExt_ ? ";" : "\n");
-    ostream_->write(data.c_str(), data.length());
+    (*ostream_) << content << std::endl;
 }
 
 void DumpLog::Reset()

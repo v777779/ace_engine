@@ -14,13 +14,26 @@
 import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
 
 ace_unittest("checkbox_test_ng") {
+  module_name = "FormAndSelection-Checkbox"
   type = "new"
   sources = [
     "checkbox_content_modifier_test_ng.cpp",
+    "checkbox_content_modifier_test_two_ng.cpp",
+    "checkbox_model_static_test_ng.cpp",
+    "checkbox_patternScd_test_ng.cpp",
     "checkbox_pattern_sub_test_ng.cpp",
     "checkbox_pattern_test_ng.cpp",
-    "checkbox_patternScd_test_ng.cpp",
+    "checkbox_pattern_test_two_ng.cpp",
+    "checkbox_sub_test_ng.cpp",
     "checkbox_test_ng.cpp",
-    "checkbox_model_static_test_ng.cpp",
+    "checkbox_test_three_ng.cpp",
+    "checkbox_test_two_ng.cpp",
   ]
+
+  if (!ace_enable_full_test_suite) {
+    sources = []
+    sources = [ "checkbox_test_core.cpp" ]
+  } else {
+    sources += [ "checkbox_test_core.cpp" ]
+  }
 }

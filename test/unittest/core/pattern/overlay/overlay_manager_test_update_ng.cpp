@@ -20,10 +20,10 @@
 
 #define private public
 #define protected public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/geometry/dimension.h"
 #include "base/geometry/ng/offset_t.h"
@@ -36,8 +36,8 @@
 #include "core/components/dialog/dialog_properties.h"
 #include "core/components/dialog/dialog_theme.h"
 #include "core/components/drag_bar/drag_bar_theme.h"
-#include "core/components/picker/picker_data.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_data.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components/select/select_theme.h"
 #include "core/components/theme/shadow_theme.h"
 #include "core/components/toast/toast_theme.h"
@@ -102,7 +102,7 @@ public:
     static void SetUpTestCase();
     static void TearDownTestCase();
     static void SetSheetTheme(RefPtr<SheetTheme> sheetTheme);
-    std::function<RefPtr<UINode>()> builderFunc_;
+    std::function<RefPtr<UINode>(int32_t id)> builderFunc_;
     std::function<RefPtr<UINode>()> titleBuilderFunc_;
 
 protected:
@@ -197,7 +197,7 @@ void OverlayManagerTestUpdateNg::CreateSheetStyle(SheetStyle& sheetStyle)
 
 void OverlayManagerTestUpdateNg::CreateSheetBuilder()
 {
-    auto builderFunc = []() -> RefPtr<UINode> {
+    auto builderFunc = [](int32_t id) -> RefPtr<UINode> {
         auto frameNode =
             FrameNode::GetOrCreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
                 []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
@@ -2067,5 +2067,4 @@ HWTEST_F(OverlayManagerTestUpdateNg, UpdateSheetRender001, TestSize.Level1)
     Shadow shadow = shadowTheme->GetShadow(ShadowStyle::OuterFloatingMD, MockContainer::GetMockColorMode());
     EXPECT_EQ(renderContext->GetBackShadow().value(), shadow);
 }
-
 } // namespace OHOS::Ace::NG

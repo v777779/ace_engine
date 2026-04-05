@@ -16,29 +16,18 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_UI_EXTENSION_UEC_UI_EXTENSION_PATTERN_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_UI_EXTENSION_UEC_UI_EXTENSION_PATTERN_H
 
-#include <cstdint>
-#include <functional>
-#include <list>
-#include <memory>
-#include <optional>
-#include <refbase.h>
-#include <vector>
-
-#include "base/memory/referenced.h"
 #include "base/want/want_wrap.h"
 #include "core/common/container.h"
-#include "core/components_ng/event/gesture_event_hub.h"
 #include "core/components_ng/manager/avoid_info/avoid_info_manager.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/ui_extension/accessibility_session_adapter_ui_extension.h"
 #include "core/components_ng/pattern/ui_extension/platform_event_proxy.h"
 #include "core/components_ng/pattern/ui_extension/session_wrapper.h"
-#include "core/components_ng/pattern/ui_extension/ui_extension_config.h"
 #ifdef SUPPORT_DIGITAL_CROWN
 #include "core/event/crown_event.h"
 #endif
 #include "core/event/mouse_event.h"
-#include "core/event/touch_event.h"
+#include "interfaces/inner_api/ace/ui_content_config.h"
 
 #define UIEXT_LOGD(fmt, ...)                                                                                      \
     TAG_LOGD(AceLogTag::ACE_UIEXTENSIONCOMPONENT, "[@%{public}d][ID: %{public}d] " fmt, __LINE__, uiExtensionId_, \
@@ -87,10 +76,27 @@ struct SessionViewportConfig {
     uint64_t displayId_ = 0;
     int32_t orientation_ = 0;
     uint32_t transform_ = 0;
+    bool operator==(const SessionViewportConfig& other) const
+    {
+        return (isDensityFollowHost_ == other.isDensityFollowHost_) &&
+            (NearZero(std::abs(density_ - other.density_))) &&
+            (displayId_ == other.displayId_) &&
+            (orientation_ == other.orientation_) &&
+            (transform_ == other.transform_);
+    }
 };
+
+struct DelayTaskRecord {
+    std::string taskName;
+    int64_t lastTaskTime = 0;
+    int64_t currentTaskTime = 0;
+    SingleTaskExecutor::CancelableTask taskMutex;
+};
+
 using BusinessDataUECConsumeCallback = std::function<int32_t(const AAFwk::Want&)>;
 using BusinessDataUECConsumeReplyCallback = std::function<int32_t(const AAFwk::Want&, std::optional<AAFwk::Want>&)>;
 
+class UIExtensionAvoidListener;
 class UIExtensionProxy;
 class UIExtensionPattern : public Pattern {
     DECLARE_ACE_TYPE(UIExtensionPattern, Pattern);
@@ -111,12 +117,11 @@ public:
     }
     void UpdateWant(const RefPtr<OHOS::Ace::WantWrap>& wantWrap);
     void UpdateWant(const AAFwk::Want& want);
-    void UpdateSessionWraper(bool isTransferringCaller);
 
     void OnWindowShow() override;
     void OnWindowHide() override;
     void OnWindowSizeChanged(int32_t width, int32_t height, WindowSizeChangeReason type) override;
-    void OnVisibleChangeInner(bool visible);
+    void OnVisibleChange(bool visible) override;
     void OnMountToParentDone() override;
     void AfterMountToParent() override;
     void OnSyncGeometryNode(const DirtySwapConfig& config) override;
@@ -155,7 +160,10 @@ public:
     void FireAsyncCallbacks();
     void SetBindModalCallback(const std::function<void()>&& callback);
     void FireBindModalCallback();
+    /* only for 1.2 begin */
+    bool GetIsTransferringCaller();
     void SetIsTransferringCaller(bool isTransferringCaller);
+    /* only for 1.2 end */
     void SetDensityDpi(bool densityDpi);
     bool GetDensityDpi();
     bool IsCompatibleOldVersion();
@@ -166,7 +174,6 @@ public:
     void NotifyBackground(bool isHandleError = true);
     void NotifyDestroy();
     int32_t GetInstanceId() const;
-    bool GetIsTransferringCaller();
     int32_t GetSessionId() const;
     int32_t GetNodeId() const;
     int32_t GetUiExtensionId() override;
@@ -206,6 +213,22 @@ public:
     {
         isModal_ = isModal;
     }
+    bool GetModalFlag() const
+    {
+        return isModal_;
+    }
+    bool GetIsModalFixFocus() const
+    {
+        return isModalFixFocus_;
+    }
+    void SetIsModalFixFocus(bool isModalFixFocus)
+    {
+        isModalFixFocus_ = isModalFixFocus;
+    }
+    void SetNeedCheckWindowSceneId(bool needCheckWindowSceneId)
+    {
+        needCheckWindowSceneId_ = needCheckWindowSceneId;
+    }
     void OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId, int64_t accessibilityId);
     void OnAccessibilityChildTreeDeregister();
     void OnSetAccessibilityChildTree(int32_t childWindowId, int32_t childTreeId);
@@ -233,13 +256,17 @@ public:
     void DumpInfo() override;
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
     void DumpOthers();
-    void UpdateSessionType(SessionType type)
-    {
-        sessionType_ = type;
-        UpdateSessionWraper(isTransferringCaller_);
-    }
-
+    void AddExtraInfoWithParamConfig(
+        std::shared_ptr<JsonValue>& json, ParamConfig config = ParamConfig()) override;
+    void ExecuteDumpTask(
+        std::shared_ptr<JsonValue>& json, const std::vector<std::string>& params, const RefPtr<FrameNode>& host);
     int32_t GetInstanceIdFromHost() const;
+    void DispatchDisplayArea(bool isForce = false);
+    void DispatchDisplayAreaWithDelay(uint32_t delayMs);
+    void UpdateLastTime(int64_t lastTime)
+    {
+        dispatchDisplayAreaTaskTime_.lastTaskTime = lastTime;
+    };
     bool SendBusinessDataSyncReply(UIContentBusinessCode code, const AAFwk::Want& data, AAFwk::Want& reply,
         RSSubsystemId subSystemId = RSSubsystemId::ARKUI_UIEXT);
     bool SendBusinessData(UIContentBusinessCode code, const AAFwk::Want& data, BusinessDataSendType type,
@@ -265,7 +292,8 @@ public:
 
     void TransferAccessibilityRectInfo(bool isForce = false);
     void OnFrameNodeChanged(FrameNodeChangeInfoFlag flag) override;
-    void UpdateWMSUIExtProperty(UIContentBusinessCode code, const AAFwk::Want& data, RSSubsystemId subSystemId);
+    void UpdateWMSUIExtProperty(UIContentBusinessCode code, const AAFwk::Want& data,
+        RSSubsystemId subSystemId, const UIExtOptions& options = UIExtOptions());
 
     const ContainerModalAvoidInfo& GetAvoidInfo() const
     {
@@ -276,6 +304,21 @@ public:
         avoidInfo_ = info;
     }
     bool HandleTouchEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
+    void SetModalRequestFocus(bool requestFocus)
+    {
+        isModalRequestFocus_ = requestFocus;
+    }
+
+    void UpdateSessionViewportConfigFromContext();
+
+    bool IsUpdateDisplayArea() const
+    {
+        return isUpdateDisplayArea_;
+    }
+    void SetIsUpdateDisplayArea(bool isUpdate)
+    {
+        isUpdateDisplayArea_ = isUpdate;
+    }
 
 protected:
     virtual void DispatchPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
@@ -320,6 +363,8 @@ private:
     void InitTouchEvent(const RefPtr<GestureEventHub>& gestureHub);
     void InitMouseEvent(const RefPtr<InputEventHub>& inputHub);
     void InitHoverEvent(const RefPtr<InputEventHub>& inputHub);
+    void InitTouchpadInteraction(const RefPtr<InputEventHub>& inputHub);
+    bool IsInComponent(PointF point);
     void InitializeAccessibility();
     bool HandleKeyEvent(const KeyEvent& event);
     void HandleFocusEvent();
@@ -330,7 +375,6 @@ private:
     bool DispatchKeyEventSync(const KeyEvent& event);
     void DispatchFocusActiveEvent(bool isFocusActive);
     void DispatchFocusState(bool focusState);
-    void DispatchDisplayArea(bool isForce = false);
     void LogoutModalUIExtension();
     bool IsMoving();
     void UnRegisterEvent(int32_t instanceId);
@@ -379,7 +423,12 @@ private:
     void RegisterEventProxyFlagCallback();
 
     void RegisterGetAvoidInfoCallback();
-    void RegisterReplyPageModeCallback();
+    void RegisterAvoidInfoChangeListener(int32_t instanceId);
+    void UnRegisterAvoidInfoChangeListener();
+
+    void SendPageModeToProvider();
+    void RegisterReceivePageModeRequestCallback();
+
     void UpdateFrameNodeState();
     bool IsAncestorNodeGeometryChange(FrameNodeChangeInfoFlag flag);
     bool IsAncestorNodeTransformChange(FrameNodeChangeInfoFlag flag);
@@ -393,6 +442,7 @@ private:
     std::shared_ptr<MMI::PointerEvent> lastPointerEvent_ = nullptr;
     std::shared_ptr<AccessibilityChildTreeCallback> accessibilityChildTreeCallback_;
 
+    DelayTaskRecord dispatchDisplayAreaTaskTime_;
     std::function<void()> onModalDestroy_;
     std::function<void(const std::shared_ptr<ModalUIExtensionProxy>&)> onModalRemoteReadyCallback_;
     std::function<void(const RefPtr<UIExtensionProxy>&)> onRemoteReadyCallback_;
@@ -415,7 +465,7 @@ private:
     ErrorMsg lastError_;
     AbilityState state_ = AbilityState::NONE;
     bool isTransferringCaller_ = false;
-    bool isVisible_ = true;
+    bool isVisible_ = true;  // actual visibility
     bool isModal_ = false;
     bool hasInitialize_ = false;
     bool isAsyncModalBinding_ = false;
@@ -427,6 +477,7 @@ private:
     SessionViewportConfig sessionViewportConfig_;
     bool viewportConfigChanged_ = false;
     bool displayAreaChanged_ = false;
+    bool isModalFixFocus_ = false;
     bool isKeyAsync_ = false;
     bool hasDetachContext_ = false;
     // Whether to send the focus to the UIExtension
@@ -439,8 +490,9 @@ private:
     // StartUIExtension should after mountToParent
     bool hasMountToParent_ = false;
     bool needReNotifyForeground_ = false;
+    bool needCheckWindowSceneId_ = false;
     bool needReDispatchDisplayArea_ = false;
-    bool curVisible_ = false;
+    bool curVisible_ = false; // HandleVisibleArea visible
     SessionType sessionType_ = SessionType::UI_EXTENSION_ABILITY;
     UIExtensionUsage usage_ = UIExtensionUsage::EMBEDDED;
 
@@ -454,10 +506,15 @@ private:
     std::map<UIContentBusinessCode, BusinessDataUECConsumeReplyCallback> businessDataUECConsumeReplyCallbacks_;
 
     bool isWindowModeFollowHost_ = false;
+    bool isModalRequestFocus_ = true;
+    /* only for 1.2 begin */
     bool hasAttachContext_ = false;
+    /* only for 1.2 end */
     std::shared_ptr<AccessibilitySAObserverCallback> accessibilitySAObserverCallback_;
 
     ContainerModalAvoidInfo avoidInfo_;
+    RefPtr<UIExtensionAvoidListener> avoidListener_;
+    bool isUpdateDisplayArea_ = true;
 
     ACE_DISALLOW_COPY_AND_MOVE(UIExtensionPattern);
 };

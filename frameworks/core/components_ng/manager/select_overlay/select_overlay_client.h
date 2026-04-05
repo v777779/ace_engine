@@ -23,6 +23,7 @@
 #include "base/geometry/offset.h"
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
+#include "ui/base/macros.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/manager/select_overlay/select_overlay_proxy.h"
 #include "core/components_ng/manager/select_overlay/selection_host.h"
@@ -68,6 +69,8 @@ enum class SelectOverlayMenuId {
     CUT,
     PASTE,
     SELECT_ALL,
+    AUTO_FILL,
+    PASSWORD_VAULT,
     TRANSLATE,
     SEARCH,
     SHARE,
@@ -75,14 +78,14 @@ enum class SelectOverlayMenuId {
     AI_WRITE
 };
 
-class SelectOverlayClient : public SelectionHost {
+class ACE_FORCE_EXPORT SelectOverlayClient : public SelectionHost {
     DECLARE_ACE_TYPE(SelectOverlayClient, SelectionHost);
 
 public:
     void InitSelectOverlay();
     void InitMenuCallback();
     void RequestOpenSelectOverlay(ClientOverlayInfo& overlayInfo);
-    virtual void RequestCloseSelectOverlay(bool animation);
+    ACE_FORCE_EXPORT virtual void RequestCloseSelectOverlay(bool animation);
     bool SelectOverlayIsOn();
 
     virtual bool CheckHandleVisible(const RectF& paintRect)
@@ -119,13 +122,13 @@ public:
 
     void UpdateSelectInfo(const std::string& selectInfo);
 
-    virtual void OnParentScrollStartOrEnd(bool isEnd, bool noAnimation = false);
+    ACE_FORCE_EXPORT virtual void OnParentScrollStartOrEnd(bool isEnd, bool noAnimation = false);
 
     virtual void OnParentScrollCallback(Axis axis, int32_t offset) {};
 
     void StartListeningScrollableParent(const RefPtr<FrameNode>& host);
 
-    void StopListeningScrollableParent(const RefPtr<FrameNode>& host);
+    ACE_FORCE_EXPORT void StopListeningScrollableParent(const RefPtr<FrameNode>& host);
 
     void UpdateSelectMenuInfo(std::function<void(SelectMenuInfo&)> updateAction);
 
@@ -138,7 +141,7 @@ public:
         return proxy->IsSingleHandle();
     }
 
-    RectF GetVisibleContentRect(WeakPtr<FrameNode> parent, RectF visibleRect);
+    ACE_FORCE_EXPORT RectF GetVisibleContentRect(WeakPtr<FrameNode> parent, RectF visibleRect);
 
 protected:
     const RefPtr<SelectOverlayProxy>& GetSelectOverlayProxy()

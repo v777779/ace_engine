@@ -15,32 +15,40 @@
 
 #include "frameworks/bridge/declarative_frontend/jsview/js_container_base.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_text_editable_controller.h"
+#include "frameworks/bridge/declarative_frontend/jsview/js_text_editable_controller_binding.h"
 #include "frameworks/core/components_ng/pattern/text_field/text_field_model.h"
 
 namespace OHOS::Ace::Framework {
 
-void JSTextEditableController::JSBind(BindingTarget globalObj)
+void JSTextEditableControllerBinding::JSBind(BindingTarget globalObj)
 {
     JSClass<JSTextEditableController>::Method("caretPosition", &JSTextEditableController::CaretPosition);
-    JSClass<JSTextEditableController>::CustomMethod("getCaretOffset", &JSTextEditableController::GetCaretOffset);
-    JSClass<JSTextEditableController>::CustomMethod("setTextSelection", &JSTextEditableController::SetTextSelection);
-    JSClass<JSTextEditableController>::CustomMethod("showPassword", &JSTextEditableController::ShowPassword);
-    JSClass<JSTextEditableController>::CustomMethod("hidePassword", &JSTextEditableController::HidePassword);
+    JSClass<JSTextEditableController>::CustomMethod("getCaretOffset", &JSTextEditableControllerBinding::GetCaretOffset);
     JSClass<JSTextEditableController>::CustomMethod(
-        "getTextContentRect", &JSTextEditableController::GetTextContentRect);
+        "setTextSelection", &JSTextEditableControllerBinding::SetTextSelection);
+    JSClass<JSTextEditableController>::CustomMethod("showPassword", &JSTextEditableControllerBinding::ShowPassword);
+    JSClass<JSTextEditableController>::CustomMethod("hidePassword", &JSTextEditableControllerBinding::HidePassword);
     JSClass<JSTextEditableController>::CustomMethod(
-        "getTextContentLineCount", &JSTextEditableController::GetTextContentLinesNum);
-    JSClass<JSTextEditableController>::CustomMethod("addText", &JSTextEditableController::AddText);
-    JSClass<JSTextEditableController>::CustomMethod("deleteText", &JSTextEditableController::DeleteText);
-    JSClass<JSTextEditableController>::CustomMethod("getSelection", &JSTextEditableController::GetSelection);
-    JSClass<JSTextEditableController>::CustomMethod("clearPreviewText", &JSTextEditableController::ClearPreviewText);
-    JSClass<JSTextEditableController>::CustomMethod("getText", &JSTextEditableController::GetText);
+        "getTextContentRect", &JSTextEditableControllerBinding::GetTextContentRect);
+    JSClass<JSTextEditableController>::CustomMethod(
+        "getTextContentLineCount", &JSTextEditableControllerBinding::GetTextContentLinesNum);
+    JSClass<JSTextEditableController>::CustomMethod("addText", &JSTextEditableControllerBinding::AddText);
+    JSClass<JSTextEditableController>::CustomMethod(
+        "scrollToVisible", &JSTextEditableControllerBinding::ScrollToVisible);
+    JSClass<JSTextEditableController>::CustomMethod(
+        "setStyledPlaceholder", &JSTextEditableControllerBinding::SetPlaceholderStyledString);
+    JSClass<JSTextEditableController>::CustomMethod("deleteText", &JSTextEditableControllerBinding::DeleteText);
+    JSClass<JSTextEditableController>::CustomMethod("getSelection", &JSTextEditableControllerBinding::GetSelection);
+    JSClass<JSTextEditableController>::CustomMethod(
+        "clearPreviewText", &JSTextEditableControllerBinding::ClearPreviewText);
+    JSClass<JSTextEditableController>::CustomMethod("getText", &JSTextEditableControllerBinding::GetText);
+    JSClass<JSTextEditableController>::Method("deleteBackward", &JSTextEditableController::DeleteBackward);
     JSClass<JSTextEditableController>::Method("stopEditing", &JSTextEditableController::StopEditing);
     JSClass<JSTextEditableController>::Bind(
-        globalObj, JSTextEditableController::Constructor, JSTextEditableController::Destructor);
+        globalObj, JSTextEditableControllerBinding::Constructor, JSTextEditableController::Destructor);
 }
 
-void JSTextEditableController::Constructor(const JSCallbackInfo& args)
+void JSTextEditableControllerBinding::Constructor(const JSCallbackInfo& args)
 {
     auto controller = Referenced::MakeRefPtr<JSTextEditableController>();
     controller->IncRefCount();
@@ -69,7 +77,7 @@ void JSTextEditableController::CaretPosition(int32_t caretPosition)
     }
 }
 
-void JSTextEditableController::ShowPassword(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::ShowPassword(const JSCallbackInfo& info)
 {
     auto controller = controllerWeak_.Upgrade();
     if (controller) {
@@ -79,7 +87,7 @@ void JSTextEditableController::ShowPassword(const JSCallbackInfo& info)
     }
 }
 
-void JSTextEditableController::HidePassword(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::HidePassword(const JSCallbackInfo& info)
 {
     auto controller = controllerWeak_.Upgrade();
     if (controller) {
@@ -89,7 +97,7 @@ void JSTextEditableController::HidePassword(const JSCallbackInfo& info)
     }
 }
 
-void JSTextEditableController::SetTextSelection(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::SetTextSelection(const JSCallbackInfo& info)
 {
     if (info.Length() < 2) { /* 2:args number */
         return;
@@ -123,7 +131,7 @@ void JSTextEditableController::SetTextSelection(const JSCallbackInfo& info)
     }
 }
 
-JSRef<JSObject> JSTextEditableController::CreateRectangle(const Rect& info)
+JSRef<JSObject> JSTextEditableControllerBinding::CreateRectangle(const Rect& info)
 {
     JSRef<JSObject> rectObj = JSRef<JSObject>::New();
     rectObj->SetProperty<double>("x", info.Left());
@@ -133,7 +141,7 @@ JSRef<JSObject> JSTextEditableController::CreateRectangle(const Rect& info)
     return rectObj;
 }
 
-void JSTextEditableController::GetTextContentRect(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::GetTextContentRect(const JSCallbackInfo& info)
 {
     auto controller = controllerWeak_.Upgrade();
     if (controller) {
@@ -145,7 +153,7 @@ void JSTextEditableController::GetTextContentRect(const JSCallbackInfo& info)
     }
 }
 
-void JSTextEditableController::GetTextContentLinesNum(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::GetTextContentLinesNum(const JSCallbackInfo& info)
 {
     auto controller = controllerWeak_.Upgrade();
     if (controller) {
@@ -158,7 +166,7 @@ void JSTextEditableController::GetTextContentLinesNum(const JSCallbackInfo& info
     }
 }
 
-void JSTextEditableController::AddText(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::AddText(const JSCallbackInfo& info)
 {
     auto controller = controllerWeak_.Upgrade();
     if (controller) {
@@ -191,7 +199,7 @@ void JSTextEditableController::AddText(const JSCallbackInfo& info)
     }
 }
 
-void JSTextEditableController::DeleteText(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::DeleteText(const JSCallbackInfo& info)
 {
     auto controller = controllerWeak_.Upgrade();
     if (controller) {
@@ -220,7 +228,7 @@ void JSTextEditableController::DeleteText(const JSCallbackInfo& info)
     }
 }
 
-void JSTextEditableController::GetSelection(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::GetSelection(const JSCallbackInfo& info)
 {
     auto controller = controllerWeak_.Upgrade();
     if (controller) {
@@ -236,7 +244,7 @@ void JSTextEditableController::GetSelection(const JSCallbackInfo& info)
     }
 }
 
-void JSTextEditableController::GetCaretOffset(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::GetCaretOffset(const JSCallbackInfo& info)
 {
     auto controller = controllerWeak_.Upgrade();
     if (controller) {
@@ -252,7 +260,7 @@ void JSTextEditableController::GetCaretOffset(const JSCallbackInfo& info)
     }
 }
 
-void JSTextEditableController::ClearPreviewText(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::ClearPreviewText(const JSCallbackInfo& info)
 {
     auto controller = controllerWeak_.Upgrade();
     if (controller) {
@@ -262,7 +270,7 @@ void JSTextEditableController::ClearPreviewText(const JSCallbackInfo& info)
     }
 }
 
-void JSTextEditableController::GetText(const JSCallbackInfo& info)
+void JSTextEditableControllerBinding::GetText(const JSCallbackInfo& info)
 {
     auto controller = controllerWeak_.Upgrade();
     if (controller) {
@@ -296,6 +304,32 @@ void JSTextEditableController::GetText(const JSCallbackInfo& info)
     }
 }
 
+void JSTextEditableControllerBinding::ScrollToVisible(const JSCallbackInfo& info)
+{
+    std::optional<int32_t> start;
+    std::optional<int32_t> end;
+    if (info.Length() == 1) {
+        const auto& optionVal = info[0];
+        if (optionVal->IsObject()) {
+            JSRef<JSObject> optionObj = JSRef<JSObject>::Cast(optionVal);
+            JSRef<JSVal> startVal = optionObj->GetProperty("start");
+            if (startVal->IsNumber()) {
+                start = startVal->ToNumber<int32_t>();
+            }
+            JSRef<JSVal> endVal = optionObj->GetProperty("end");
+            if (endVal->IsNumber()) {
+                end = endVal->ToNumber<int32_t>();
+            }
+        }
+    }
+    auto controller = controllerWeak_.Upgrade();
+    if (controller) {
+        controller->ScrollToVisible({ .start = start, .end = end });
+    } else {
+        TAG_LOGW(AceLogTag::ACE_TEXT_FIELD, "ScrollToVisible: The JSTextEditableController is NULL");
+    }
+}
+
 void JSTextEditableController::StopEditing()
 {
     auto controller = controllerWeak_.Upgrade();
@@ -305,4 +339,44 @@ void JSTextEditableController::StopEditing()
         TAG_LOGW(AceLogTag::ACE_TEXT_FIELD, "StopEditing: The JSTextEditableController is NULL");
     }
 }
+
+void JSTextEditableControllerBinding::SetPlaceholderStyledString(const JSCallbackInfo& info)
+{
+    if (info.Length() != 1 || !info[0]->IsObject()) {
+        return;
+    }
+    auto* spanString = JSRef<JSObject>::Cast(info[0])->Unwrap<JSSpanString>();
+    if (!spanString) {
+        return;
+    }
+    auto spanStringController = spanString->GetController();
+    CHECK_NULL_VOID(spanStringController);
+    placeholderStyledString_ = spanStringController;
+    auto controller = controllerWeak_.Upgrade();
+    CHECK_NULL_VOID(controller);
+    controller->SetPlaceholderStyledString(spanStringController);
+    auto thisObj = info.This();
+    thisObj->SetPropertyObject("STYLED_PLACEHOLDER_IN_CONTROLLER", info[0]);
+}
+
+RefPtr<SpanString> JSTextEditableController::GetPlaceholderStyledString() const
+{
+    return placeholderStyledString_.Upgrade();
+}
+
+void JSTextEditableController::ClearPlaceholderStyledString()
+{
+    placeholderStyledString_ = nullptr;
+}
+
+void JSTextEditableController::DeleteBackward()
+{
+    auto controller = controllerWeak_.Upgrade();
+    if (controller) {
+        controller->DeleteBackward();
+    } else {
+        TAG_LOGW(AceLogTag::ACE_TEXT_FIELD, "DeleteBackward: The JSTextEditableController is null");
+    }
+}
+
 } // namespace OHOS::Ace::Framework

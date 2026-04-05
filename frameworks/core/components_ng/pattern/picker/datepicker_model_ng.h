@@ -19,7 +19,7 @@
 #include "base/i18n/localization.h"
 #include "base/utils/macros.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components/picker/picker_base_component.h"
+#include "core/components/dialog/dialog_theme.h"
 #include "core/components_ng/pattern/picker/datepicker_event_hub.h"
 #include "core/components_ng/pattern/picker/datepicker_layout_property.h"
 #include "core/components_ng/pattern/picker/picker_model.h"
@@ -87,11 +87,11 @@ private:
     static RefPtr<FrameNode> CreateColumnNode();
     static RefPtr<FrameNode> CreateButtonNode();
     void CreateDateColumn(const RefPtr<FrameNode>& columnNode, const RefPtr<FrameNode>& dateNode);
-    static void ParseResTextStyle(const PickerTextStyle& textStyleOpt, const std::string& textStyleType,
-        std::function<void(const PickerTextStyle&)> updateTextStyleFunc);
-    static void ParseDisappearTextStyleResObj(const PickerTextStyle& textStyleOpt);
-    static void ParseSelectedTextStyleResObj(const PickerTextStyle& textStyleOpt);
-    static void ParseNormalTextStyleResObj(const PickerTextStyle& textStyleOpt);
+    static void ParseResTextStyle(FrameNode* frameNode, const PickerTextStyle& textStyleOpt,
+        const std::string& textStyleType, std::function<void(const PickerTextStyle&)> updateTextStyleFunc);
+    static void ParseDisappearTextStyleResObj(FrameNode* frameNode, const PickerTextStyle& textStyleOpt);
+    static void ParseSelectedTextStyleResObj(FrameNode* frameNode, const PickerTextStyle& textStyleOpt);
+    static void ParseNormalTextStyleResObj(FrameNode* frameNode, const PickerTextStyle& textStyleOpt);
 
     std::string dateOrder = "";
     std::string dateTimeOrder = "";

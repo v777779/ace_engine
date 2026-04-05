@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,12 +16,11 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_SCROLLABLE_SCROLLABLE_PAINT_METHOD_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_SCROLLABLE_SCROLLABLE_PAINT_METHOD_H
 
-#include "core/components_ng/pattern/scrollable/scrollable_paint_property.h"
 #include "core/components_ng/render/node_paint_method.h"
 
 namespace OHOS::Ace::NG {
-class ACE_EXPORT ScrollablePaintMethod : public NodePaintMethod {
-    DECLARE_ACE_TYPE(ScrollablePaintMethod, NodePaintMethod)
+class ACE_FORCE_EXPORT ScrollablePaintMethod : public NodePaintMethod {
+    DECLARE_ACE_TYPE(ScrollablePaintMethod, NodePaintMethod);
 public:
     ScrollablePaintMethod() = default;
     ScrollablePaintMethod(bool vertical, bool isReverse, bool isVerticalReverse = false)
@@ -34,19 +33,29 @@ public:
         overlayRenderContext_ = overlayRenderContext;
     }
 
-    void SetFadingInfo(bool isFadingTop, bool isFadingBottom, bool hasFadingEdge, float percentFading = 0.0f,
+    void SetFadingInfo(bool isFadingTop, bool isFadingBottom, float percentFading = 0.0f,
         float startPercent = 0.0f, float endPercent = 1.0f)
     {
         isFadingTop_ = isFadingTop;
         isFadingBottom_ = isFadingBottom;
-        hasFadingEdge_ = hasFadingEdge;
         percentFading_ = percentFading;
         startPercent_ = startPercent;
         endPercent_ = endPercent;
     }
 
+    void SetHasFadingEdge(bool hasFadingEdge)
+    {
+        hasFadingEdge_ = hasFadingEdge;
+    }
+
+    void SetNeedUpdateFadingEdge(bool needUpdate)
+    {
+        needUpdateFadingEdge_ = needUpdate;
+    }
+
 protected:
     void UpdateFadingGradient(const RefPtr<RenderContext>& renderContext);
+    void UpdateOverlayFadingGradient();
 
     /**
      * @brief Try to set content clip to render context.
@@ -63,6 +72,7 @@ private:
     RefPtr<RenderContext> overlayRenderContext_;
     bool isFadingTop_ = false;
     bool isFadingBottom_ = false;
+    bool needUpdateFadingEdge_ = false;
     bool hasFadingEdge_ = false;
     float percentFading_ = 0.0f;
     float startPercent_ = 0.0f;

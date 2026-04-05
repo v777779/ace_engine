@@ -21,10 +21,12 @@
 #include "core/common/ai/data_url_analyzer_mgr.h"
 #include "core/components/text_overlay/text_overlay_theme.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "core/components_ng/pattern/text/text_pattern.h"
 
 namespace OHOS::Ace {
 
 constexpr int32_t AI_TEXT_MAX_LENGTH = 500;
+constexpr int32_t AI_TEXT_SELECT_DETECT_MAX_LENGTH = 255;
 constexpr int32_t AI_TEXT_GAP = 100;
 constexpr int32_t AI_DELAY_TIME = 100;
 constexpr uint32_t SECONDS_TO_MILLISECONDS = 1000;
@@ -34,17 +36,8 @@ constexpr uint8_t ALL_DETECT_FINISH = URL_DETECT_FINISH | OTHER_DETECT_FINISH;
 
 const std::string ALL_TEXT_DETECT_TYPES = "phoneNum,url,email,location,datetime";
 const std::string TEXT_DETECT_TYPES_WITHOUT_URL = "phoneNum,email,location,datetime";
-
-const std::unordered_map<TextDataDetectType, std::string> TEXT_DETECT_MAP = {
-    { TextDataDetectType::PHONE_NUMBER, "phoneNum" }, { TextDataDetectType::URL, "url" },
-    { TextDataDetectType::EMAIL, "email" }, { TextDataDetectType::ADDRESS, "location" },
-    { TextDataDetectType::DATE_TIME, "datetime" }
-};
-const std::unordered_map<std::string, TextDataDetectType> TEXT_DETECT_MAP_REVERSE = {
-    { "phoneNum", TextDataDetectType::PHONE_NUMBER }, { "url", TextDataDetectType::URL },
-    { "email", TextDataDetectType::EMAIL }, { "location", TextDataDetectType::ADDRESS },
-    { "datetime", TextDataDetectType::DATE_TIME }
-};
+const std::string ASK_CELIA_TAG = "askCelia";
+const std::u16string DETECT_NULL_STRING = u"NULL";
 
 void DataDetectorAdapter::GetAIEntityMenu()
 {
@@ -59,7 +52,7 @@ void DataDetectorAdapter::GetAIEntityMenu()
             TAG_LOGI(AceLogTag::ACE_TEXT, "Get AI entity menu from ai_engine");
             DataDetectorMgr::GetInstance().GetAIEntityMenu(dataDetectorAdapter->textDetectResult_);
         },
-        "ArkUITextInitDataDetect", PriorityType::VIP);
+        "ArkUITextInitDataDetect");
 }
 
 bool DataDetectorAdapter::ShowAIEntityMenu(
@@ -120,7 +113,7 @@ bool DataDetectorAdapter::GetAiEntityMenuOptions(const AISpan& aiSpan, const Ref
 std::function<void()> DataDetectorAdapter::GetPreviewMenuOptionCallback(
     TextDataDetectType type, const std::string& content)
 {
-    return [weak = WeakClaim(this), content, type, mainId = Container::CurrentIdSafelyWithCheck()]() {
+    return [content, type, mainId = Container::CurrentIdSafelyWithCheck()]() {
         ContainerScope scope(mainId);
         auto pipeline = NG::PipelineContext::GetCurrentContextSafelyWithCheck();
         CHECK_NULL_VOID(pipeline);
@@ -177,8 +170,26 @@ void DataDetectorAdapter::OnClickAIMenuOption(const AISpan& aiSpan,
     auto bundleName = runtimeContext->GetBundleName();
 
     hasClickedMenuOption_ = true;
+    if (aiSpan.type == TextDataDetectType::ASK_CELIA) {
+        auto vectorStringFunc = textDetectResult_.menuOptionAndAction.find(ASK_CELIA_TAG);
+        if (vectorStringFunc == textDetectResult_.menuOptionAndAction.end()) {
+            TAG_LOGW(AceLogTag::ACE_TEXT, "No askCelia option");
+        } else {
+            auto funcVariant = vectorStringFunc->second.begin()->second;
+            if (std::holds_alternative<std::function<void(int, std::string)>>(funcVariant) &&
+                std::get<std::function<void(int, std::string)>>(funcVariant)) {
+                TAG_LOGI(AceLogTag::ACE_TEXT, "DataDetectorAdapter::OnClickAIMenuOption, call ask celia");
+                std::get<std::function<void(int, std::string)>>(funcVariant)(true, aiSpan.content);
+                ReportStatisticEvent(pipeline, aiSpan.type);
+            }
+        }
+        hasClickedMenuOption_ = false;
+        return;
+    }
+    bool isAIOptionClicked = true;
     if (onClickMenu_ && std::holds_alternative<std::function<std::string()>>(menuOption.second)) {
         onClickMenu_(std::get<std::function<std::string()>>(menuOption.second)());
+        isAIOptionClicked = false;
     } else if (std::holds_alternative<std::function<void(sptr<IRemoteObject>, std::string)>>(menuOption.second)) {
         std::get<std::function<void(sptr<IRemoteObject>, std::string)>>(menuOption.second)(token, aiSpan.content);
     } else if (std::holds_alternative<std::function<void(int32_t, std::string)>>(menuOption.second)) {
@@ -191,6 +202,9 @@ void DataDetectorAdapter::OnClickAIMenuOption(const AISpan& aiSpan,
             static_cast<int32_t>(textForAI_.length()), aiSpan.start, static_cast<int32_t>(aiSpan.content.length()));
     } else {
         TAG_LOGW(AceLogTag::ACE_TEXT, "No matching menu option");
+    }
+    if (isAIOptionClicked) {
+        ReportStatisticEvent(pipeline, aiSpan.type);
     }
     hasClickedMenuOption_ = false;
 }
@@ -247,7 +261,8 @@ void DataDetectorAdapter::SetTextDetectTypes(const std::string& textDetectTypes)
 
 bool DataDetectorAdapter::ParseOriText(const std::unique_ptr<JsonValue>& entityJson, std::u16string& text)
 {
-    TAG_LOGI(AceLogTag::ACE_TEXT, "Parse origin text entry");
+    TAG_LOGI(AceLogTag::ACE_TEXT, "TextAI: Parse origin text entry, id: %{public}i",
+        GetHost() ? GetHost()->GetId() : -1);
     auto runtimeContext = Platform::AceContainer::GetRuntimeContext(Container::CurrentId());
     CHECK_NULL_RETURN(runtimeContext, false);
     if (runtimeContext->GetBundleName() != entityJson->GetString("bundleName")) {
@@ -258,7 +273,7 @@ bool DataDetectorAdapter::ParseOriText(const std::unique_ptr<JsonValue>& entityJ
     }
     auto aiSpanArray = entityJson->GetValue("entity");
     if (aiSpanArray->IsNull() || !aiSpanArray->IsArray()) {
-        TAG_LOGW(AceLogTag::ACE_TEXT, "Wrong AI entity");
+        TAG_LOGW(AceLogTag::ACE_TEXT, "TextAI: Wrong AI entity");
         return false;
     }
 
@@ -282,7 +297,7 @@ bool DataDetectorAdapter::ParseOriText(const std::unique_ptr<JsonValue>& entityJ
         GetAIEntityMenu();
     }
 
-    TAG_LOGI(AceLogTag::ACE_TEXT, "Parse origin text successful");
+    TAG_LOGI(AceLogTag::ACE_TEXT, "TextAI: Parse origin text successful");
     return true;
 }
 
@@ -296,12 +311,12 @@ void DataDetectorAdapter::PreprocessTextDetect()
     if (textDetectTypes_.empty()) {
         aiDetectFlag_ |= OTHER_DETECT_FINISH;
     }
-    if (hasUrlType_) {
+    if (!hasUrlType_) {
         aiDetectFlag_ |= URL_DETECT_FINISH;
     }
 }
 
-void DataDetectorAdapter::InitTextDetect(int32_t startPos, std::string detectText)
+void DataDetectorAdapter::InitTextDetect(int32_t startPos, std::string detectText, uint64_t taskId)
 {
     CHECK_NULL_VOID(!textDetectTypes_.empty());
     TextDataDetectInfo info;
@@ -312,71 +327,108 @@ void DataDetectorAdapter::InitTextDetect(int32_t startPos, std::string detectTex
     CHECK_NULL_VOID(context);
     int32_t instanceID = context->GetInstanceId();
     auto textFunc = [weak = WeakClaim(this),
-        instanceID, startPos, detectTypesSet = textDetectTypesSet_](const TextDataDetectResult result) {
+        instanceID, startPos, detectTypesSet = textDetectTypesSet_, taskId](const TextDataDetectResult result) {
         ContainerScope scope(instanceID);
         auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+        TAG_LOGD(AceLogTag::ACE_TEXT, "detectBackgroundTaskCallback, taskId=%{public}" PRIu64 "", taskId);
         CHECK_NULL_VOID(context);
         auto uiTaskExecutor = SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::UI);
         uiTaskExecutor.PostTask(
-            [result, weak, instanceID, startPos, detectTypesSet] {
+            [result, weak, instanceID, startPos, detectTypesSet, taskId] {
+                TAG_LOGD(AceLogTag::ACE_TEXT, "detectParseResult, taskId=%{public}" PRIu64 "", taskId);
                 ContainerScope scope(instanceID);
                 auto dataDetectorAdapter = weak.Upgrade();
-                CHECK_NULL_VOID(dataDetectorAdapter);
+                CHECK_NULL_VOID(dataDetectorAdapter && dataDetectorAdapter->CheckTaskId(taskId));
                 if (detectTypesSet != dataDetectorAdapter->textDetectTypesSet_) {
                     return;
                 }
                 dataDetectorAdapter->ParseAIResult(result, startPos);
+                dataDetectorAdapter->ParseSelectAIResult();
+                dataDetectorAdapter->UpdateAISelectMenu();
                 dataDetectorAdapter->MarkDirtyNode();
             },
-            "ArkUITextParseAIResult", PriorityType::IMMEDIATE);
+            "ArkUITextParseAIResult");
     };
 
     auto backgroundExecutor = SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::BACKGROUND);
     backgroundExecutor.PostTask(
-        [info, textFunc] {
+        [info, textFunc, taskId] {
             TAG_LOGI(AceLogTag::ACE_TEXT, "DataDetectorAdapter::InitTextDetect, start AI detect, length: %{public}zu",
                 info.text.size());
+            TAG_LOGD(AceLogTag::ACE_TEXT, "detectBackgroundTask, taskId=%{public}" PRIu64 "", taskId);
             DataDetectorMgr::GetInstance().DataDetect(info, textFunc);
         },
-        "ArkUITextInitDataDetect", PriorityType::IMMEDIATE);
+        "ArkUITextInitDataDetect");
 }
 
-void DataDetectorAdapter::HandleTextUrlDetect()
+void DataDetectorAdapter::SetParseSelectAIResCallBack(std::function<void()>&& task)
+{
+    parseSelectAIResCallBack_ = std::move(task);
+}
+
+void DataDetectorAdapter::ParseSelectAIResult()
+{
+    if (parseSelectAIResCallBack_ != nullptr) {
+        parseSelectAIResCallBack_();
+        parseSelectAIResCallBack_ = nullptr;
+    }
+}
+
+void DataDetectorAdapter::SetUpdateAISelectMenuCallBack(std::function<void()>&& task)
+{
+    updateAISelectMenuCallBack_ = std::move(task);
+}
+
+void DataDetectorAdapter::UpdateAISelectMenu()
+{
+    if (updateAISelectMenuCallBack_ != nullptr) {
+        updateAISelectMenuCallBack_();
+        updateAISelectMenuCallBack_ = nullptr;
+    }
+}
+
+void DataDetectorAdapter::HandleTextUrlDetect(uint64_t taskId)
 {
     auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
     CHECK_NULL_VOID(context);
     int32_t instanceID = context->GetInstanceId();
     auto textFunc = [weak = WeakClaim(this),
-        instanceID, detectTypesSet = textDetectTypesSet_](const std::vector<UrlEntity>& urlEntities) {
+        instanceID, detectTypesSet = textDetectTypesSet_, taskId](const std::vector<UrlEntity>& urlEntities) {
         ContainerScope scope(instanceID);
+        TAG_LOGD(AceLogTag::ACE_TEXT, "urlBackgroundTaskCallback, taskId=%{public}" PRIu64 "", taskId);
         auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
         CHECK_NULL_VOID(context);
         auto uiTaskExecutor = SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::UI);
         uiTaskExecutor.PostTask(
-            [urlEntities, weak, instanceID, detectTypesSet] {
+            [urlEntities, weak, instanceID, detectTypesSet, taskId] {
                 ContainerScope scope(instanceID);
                 auto dataDetectorAdapter = weak.Upgrade();
-                CHECK_NULL_VOID(dataDetectorAdapter);
+                CHECK_NULL_VOID(dataDetectorAdapter && dataDetectorAdapter->CheckTaskId(taskId));
+                TAG_LOGD(AceLogTag::ACE_TEXT, "urlParseResult, taskId=%{public}" PRIu64 "", taskId);
                 if (detectTypesSet != dataDetectorAdapter->textDetectTypesSet_) {
                     return;
                 }
                 dataDetectorAdapter->HandleUrlResult(urlEntities);
                 dataDetectorAdapter->MarkDirtyNode();
             },
-            "ArkUITextUrlParseResult", PriorityType::IMMEDIATE);
+            "ArkUITextUrlParseResult");
     };
 
     auto backgroundExecutor = SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::BACKGROUND);
     backgroundExecutor.PostTask(
-        [text = UtfUtils::Str16DebugToStr8(textForAI_), func = std::move(textFunc)] {
-            TAG_LOGI(AceLogTag::ACE_TEXT, "Start url entity detect using AI");
+        [text = UtfUtils::Str16DebugToStr8(textForAI_), func = std::move(textFunc), taskId] {
+            TAG_LOGI(AceLogTag::ACE_TEXT,
+                "TextAI: Start url entity detect using AI, length: %{public}zu", text.length());
+            TAG_LOGD(AceLogTag::ACE_TEXT, "urlBackgroundTask, taskId=%{public}" PRIu64 "", taskId);
             func(DataUrlAnalyzerMgr::GetInstance().AnalyzeUrls(text));
         },
-        "ArkUITextInitUrlDetect", PriorityType::IMMEDIATE);
+        "ArkUITextInitUrlDetect");
 }
 
 void DataDetectorAdapter::HandleUrlResult(std::vector<UrlEntity> urlEntities)
 {
+    TAG_LOGI(AceLogTag::ACE_TEXT, "DataDetectorAdapter::HandleUrlResult, id: %{public}i",
+        GetHost() ? GetHost()->GetId() : -1);
     for (const auto& entity : urlEntities) {
         auto iter = aiSpanMap_.find(entity.charOffset);
         if (iter != aiSpanMap_.end() && iter->second.content.length() >= entity.text.length()) {
@@ -389,6 +441,10 @@ void DataDetectorAdapter::HandleUrlResult(std::vector<UrlEntity> urlEntities)
         aiSpan.content = entity.text;
         aiSpan.type = TextDataDetectType::URL;
         aiSpanMap_[aiSpan.start] = aiSpan;
+        TAG_LOGI(AceLogTag::ACE_TEXT, "TextAI: the url entity length is: %{public}zu", aiSpan.content.length());
+    }
+    if (textDetectResult_.menuOptionAndAction.empty()) {
+        GetAIEntityMenu();
     }
     aiDetectFlag_ |= URL_DETECT_FINISH;
     if (aiDetectFlag_ == ALL_DETECT_FINISH) {
@@ -402,6 +458,17 @@ void DataDetectorAdapter::ParseAIResult(const TextDataDetectResult& result, int3
         result.entity.size(), GetHost() ? GetHost()->GetId() : -1);
     auto entityJson = JsonUtil::ParseJsonString(result.entity);
     CHECK_NULL_VOID(entityJson);
+    // Remove time entity result cache.
+    // Do not remove url (the results are accepted from other function, will lose url result)
+    auto aiSpanIterator = aiSpanMap_.begin();
+    while (aiSpanIterator != aiSpanMap_.end()) {
+        if (aiSpanIterator->second.type == TextDataDetectType::DATE_TIME &&
+            aiSpanIterator->first >= startPos && aiSpanIterator->first < startPos + AI_TEXT_MAX_LENGTH) {
+            aiSpanIterator = aiSpanMap_.erase(aiSpanIterator);
+        } else {
+            ++aiSpanIterator;
+        }
+    }
     for (const auto& type : TEXT_DETECT_MAP) {
         auto jsonValue = entityJson->GetValue(type.second);
         ParseAIJson(jsonValue, type.first, startPos);
@@ -418,6 +485,8 @@ void DataDetectorAdapter::ParseAIResult(const TextDataDetectResult& result, int3
 
 void DataDetectorAdapter::FireFinalResult()
 {
+    TAG_LOGI(AceLogTag::ACE_TEXT,
+        "TextAI: FireFinalResult, id: %{public}i", GetHost() ? GetHost()->GetId() : -1);
     aiDetectInitialized_ = true;
     auto entityJsonArray = JsonUtil::CreateArray(true);
     // process with overlapping entities, leaving only the earlier ones
@@ -449,7 +518,7 @@ void DataDetectorAdapter::ParseAIJson(
     const std::unique_ptr<JsonValue>& jsonValue, TextDataDetectType type, int32_t startPos)
 {
     if (!jsonValue || !jsonValue->IsArray()) {
-        TAG_LOGW(AceLogTag::ACE_TEXT, "Wrong AI result");
+        TAG_LOGW(AceLogTag::ACE_TEXT, "TextAI: Wrong AI result");
         return;
     }
 
@@ -458,6 +527,7 @@ void DataDetectorAdapter::ParseAIJson(
         auto charOffset = item->GetInt("charOffset");
         auto oriText = item->GetString("oriText");
         auto wOriText = UtfUtils::Str8ToStr16(oriText);
+        auto startTimestamp = item->GetInt64("startTimestamp", -1);
         int32_t end = startPos + charOffset + static_cast<int32_t>(wOriText.length());
         if (charOffset < 0 || startPos + charOffset >= static_cast<int32_t>(textForAI_.length()) ||
             end >= startPos + AI_TEXT_MAX_LENGTH || oriText.empty()) {
@@ -481,20 +551,25 @@ void DataDetectorAdapter::ParseAIJson(
         item->Put("costTime", costTime.count());
         item->Put("resultCode", textDetectResult_.code);
         entityJson_[start] = item->ToString();
-        TAG_LOGI(AceLogTag::ACE_TEXT, "size of the entity json is: %{public}zu", entityJson_[start].size());
+        TAG_LOGI(AceLogTag::ACE_TEXT, "TextAI: length of the entity oriText is: %{public}zu", oriText.length());
 
         AISpan aiSpan;
         aiSpan.start = start;
         aiSpan.end = end;
         aiSpan.content = oriText;
         aiSpan.type = type;
+        if (startTimestamp != -1) {
+            aiSpan.params["startTimestamp"] = std::to_string(startTimestamp);
+        }
         aiSpanMap_[aiSpan.start] = aiSpan;
     }
 }
 
-std::function<void()> DataDetectorAdapter::GetDetectDelayTask(const std::map<int32_t, AISpan>& aiSpanMap)
+std::function<void()> DataDetectorAdapter::GetDetectDelayTask(const std::map<int32_t, AISpan>& aiSpanMap,
+    uint64_t taskId)
 {
-    return [aiSpanMap, weak = WeakClaim(this)]() {
+    return [aiSpanMap, weak = WeakClaim(this), taskId]() {
+        TAG_LOGD(AceLogTag::ACE_TEXT, "startDetectDelayTask, taskId=%{public}" PRIu64 "", taskId);
         auto dataDetectorAdapter = weak.Upgrade();
         CHECK_NULL_VOID(dataDetectorAdapter && !dataDetectorAdapter->textForAI_.empty());
         TAG_LOGI(AceLogTag::ACE_TEXT, "DataDetectorAdapter, delayed whole task executed, id: %{public}i",
@@ -524,7 +599,7 @@ std::function<void()> DataDetectorAdapter::GetDetectDelayTask(const std::map<int
                 ++aiSpanMapIt;
             }
             if (!isSameDetectText) {
-                dataDetectorAdapter->InitTextDetect(startPos, detectText);
+                dataDetectorAdapter->InitTextDetect(startPos, detectText, taskId);
                 if (detectTextIdx < dataDetectorAdapter->detectTexts_.size()) {
                     dataDetectorAdapter->detectTexts_[detectTextIdx] = detectText;
                 } else {
@@ -535,7 +610,7 @@ std::function<void()> DataDetectorAdapter::GetDetectDelayTask(const std::map<int
             startPos += AI_TEXT_MAX_LENGTH - AI_TEXT_GAP;
         } while (startPos + AI_TEXT_GAP < wTextForAILength && (!dataDetectorAdapter->textDetectTypes_.empty()));
         if (dataDetectorAdapter->hasUrlType_) {
-            dataDetectorAdapter->HandleTextUrlDetect();
+            dataDetectorAdapter->HandleTextUrlDetect(taskId);
         }
         if (hasSame) {
             dataDetectorAdapter->MarkDirtyNode();
@@ -543,14 +618,20 @@ std::function<void()> DataDetectorAdapter::GetDetectDelayTask(const std::map<int
     };
 }
 
-void DataDetectorAdapter::StartAITask()
+void DataDetectorAdapter::StartAITask(bool clearAISpanMap, bool isSelectDetect)
 {
-    if (textForAI_.empty() || (!typeChanged_ && lastTextForAI_ == textForAI_)) {
+    TAG_LOGI(AceLogTag::ACE_TEXT, "DataDetectorAdapter::StartAITask, prepare to post task");
+    if (!isSelectDetect && (textForAI_.empty() || (!typeChanged_ && lastTextForAI_ == textForAI_))) {
         MarkDirtyNode();
         return;
     }
+    if (isSelectDetect && (textForAI_.size() > AI_TEXT_SELECT_DETECT_MAX_LENGTH || lastTextForAI_ == textForAI_)) {
+        if (textForAI_.size() > AI_TEXT_SELECT_DETECT_MAX_LENGTH) {
+            textForAI_ = DETECT_NULL_STRING;
+        }
+    }
     std::map<int32_t, AISpan> aiSpanMapCopy;
-    if (!typeChanged_) {
+    if (!typeChanged_ && !isSelectDetect) {
         aiSpanMapCopy = aiSpanMap_;
     }
     detectTexts_.clear();
@@ -561,12 +642,14 @@ void DataDetectorAdapter::StartAITask()
     CHECK_NULL_VOID(context);
     auto taskExecutor = context->GetTaskExecutor();
     CHECK_NULL_VOID(taskExecutor);
+    ++taskId_;
+    TAG_LOGD(AceLogTag::ACE_TEXT, "StartAITask, taskId=%{public}" PRIu64 "", taskId_);
     aiDetectDelayTask_.Cancel();
-    aiDetectDelayTask_.Reset(GetDetectDelayTask(aiSpanMapCopy));
+    aiDetectDelayTask_.Reset(GetDetectDelayTask(aiSpanMapCopy, taskId_));
     TAG_LOGI(AceLogTag::ACE_TEXT, "DataDetectorAdapter::StartAITask, post whole task, id: %{public}i",
         GetHost() ? GetHost()->GetId() : -1);
     taskExecutor->PostDelayedTask(
-        aiDetectDelayTask_, TaskExecutor::TaskType::UI, AI_DELAY_TIME, "ArkUITextStartAIDetect");
+        aiDetectDelayTask_, TaskExecutor::TaskType::UI, isSelectDetect ? 0 : AI_DELAY_TIME, "ArkUITextStartAIDetect");
 }
 
 void DataDetectorAdapter::MarkDirtyNode() const
@@ -578,4 +661,20 @@ void DataDetectorAdapter::MarkDirtyNode() const
     CHECK_NULL_VOID(layoutProperty);
     layoutProperty->OnPropertyChangeMeasure();
 }
+
+bool DataDetectorAdapter::IsAskCeliaSupported()
+{
+    return DataDetectorMgr::GetInstance().IsAskCeliaSupported();
+}
+
+void DataDetectorAdapter::ReportStatisticEvent(const RefPtr<NG::PipelineContext>& pipeline, TextDataDetectType type)
+{
+    CHECK_NULL_VOID(pipeline);
+    auto iter = REPORT_TYPE_MAP.find(type);
+    CHECK_NULL_VOID(iter != REPORT_TYPE_MAP.end());
+    StatisticEventType eventType = iter->second;
+    TAG_LOGI(AceLogTag::ACE_TEXT, "SendStatisticEvent, type=%{public}d", eventType);
+    pipeline->GetStatisticEventReporter()->SendEvent(eventType);
+}
+
 } // namespace OHOS::Ace

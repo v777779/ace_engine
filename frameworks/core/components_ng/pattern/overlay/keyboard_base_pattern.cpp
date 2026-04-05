@@ -14,8 +14,10 @@
  */
 
 #include "core/components_ng/pattern/overlay/keyboard_base_pattern.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 
 #include "base/log/dump_log.h"
+#include "base/utils/multi_thread.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
@@ -65,9 +67,11 @@ void KeyboardPattern::DumpInfo()
 
 void KeyboardPattern::OnModifyDone()
 {
-    auto context = OHOS::Ace::NG::PipelineContext::GetCurrentContext();
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto context = host->GetContext();
     CHECK_NULL_VOID(context);
-    context->AddOnAreaChangeNode(GetHost()->GetId());
+    context->AddOnAreaChangeNode(host->GetId());
 }
 
 void KeyboardPattern::OnAreaChangedInner()
@@ -142,9 +146,32 @@ float KeyboardPattern::GetKeyboardHeight()
 
 void KeyboardPattern::OnDetachFromFrameNode(FrameNode* node)
 {
+    // call OnDetachFromFrameNodeMultiThread() by multi thread
+    THREAD_SAFE_NODE_CHECK(node, OnDetachFromFrameNode, node);
     auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
+    CHECK_NULL_VOID(node);
     pipeline->RemoveOnAreaChangeNode(node->GetId());
+}
+
+void KeyboardPattern::OnDetachFromFrameNodeMultiThread(FrameNode* node)
+{
+    // nothing, thread unsafe
+}
+
+void KeyboardPattern::OnDetachFromMainTree()
+{
+    auto host = GetHost();
+    THREAD_SAFE_NODE_CHECK(host, OnDetachFromMainTree);
+}
+
+void KeyboardPattern::OnDetachFromMainTreeMultiThread()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    pipeline->RemoveOnAreaChangeNode(host->GetId());
 }
 
 void KeyboardPattern::DumpInfo(std::unique_ptr<JsonValue>& json)

@@ -57,7 +57,7 @@ enum class SubwindowType {
 };
 
 class ACE_EXPORT Subwindow : public AceType {
-    DECLARE_ACE_TYPE(Subwindow, AceType)
+    DECLARE_ACE_TYPE(Subwindow, AceType);
 
 public:
     static RefPtr<Subwindow> CreateSubwindow(int32_t instanceId);
@@ -73,6 +73,8 @@ public:
         const RefPtr<NG::FrameNode>& targetNode, const NG::OffsetF& offset) = 0;
     virtual void ShowMenuNG(std::function<void()>&& buildFunc, std::function<void()>&& previewBuildFunc,
         const NG::MenuParam& menuParam, const RefPtr<NG::FrameNode>& targetNode, const NG::OffsetF& offset) = 0;
+    virtual bool SetReceiveDragEventEnabled(bool enabled) = 0;
+    virtual bool GetIsReceiveDragEventEnabled() = 0;
     virtual bool ShowPreviewNG(bool isStartDraggingFromSubWindow) = 0;
     virtual void SetWindowTouchable(bool touchable) = 0;
     virtual void HidePreviewNG() = 0;
@@ -244,9 +246,20 @@ public:
     virtual bool IsSameDisplayWithParentWindow(bool useInitializedId = false) = 0;
     virtual OHOS::Ace::MenuWindowState GetAttachState() {return MenuWindowState::DEFAULT;};
     virtual OHOS::Ace::MenuWindowState GetDetachState() {return MenuWindowState::DEFAULT;};
+    virtual bool GetDestroyInHide() = 0;
+    virtual void SetDestroyInHide(bool destroyInHide) = 0;
 
     virtual void ShowBindSheetNG(bool isShow, std::function<void(const std::string&)>&& callback,
-        std::function<RefPtr<NG::UINode>()>&& buildNodeFunc, std::function<RefPtr<NG::UINode>()>&& buildtitleNodeFunc,
+        std::function<RefPtr<NG::UINode>(int32_t)>&& buildNodeFunc,
+        std::function<RefPtr<NG::UINode>()>&& buildtitleNodeFunc, NG::SheetStyle& sheetStyle,
+        std::function<void()>&& onAppear, std::function<void()>&& onDisappear, std::function<void()>&& shouldDismiss,
+        std::function<void(const int32_t)>&& onWillDismiss, std::function<void()>&& onWillAppear,
+        std::function<void()>&& onWillDisappear, std::function<void(const float)>&& onHeightDidChange,
+        std::function<void(const float)>&& onDetentsDidChange, std::function<void(const float)>&& onWidthDidChange,
+        std::function<void(const float)>&& onTypeDidChange, std::function<void()>&& sheetSpringBack,
+        const RefPtr<NG::FrameNode>& targetNode) = 0;
+    virtual int32_t ShowBindSheetByUIContext(
+        const RefPtr<NG::FrameNode>& sheetContentNode, std::function<void()>&& buildtitleNodeFunc,
         NG::SheetStyle& sheetStyle, std::function<void()>&& onAppear, std::function<void()>&& onDisappear,
         std::function<void()>&& shouldDismiss, std::function<void(const int32_t)>&& onWillDismiss,
         std::function<void()>&& onWillAppear, std::function<void()>&& onWillDisappear,
@@ -254,14 +267,20 @@ public:
         std::function<void(const float)>&& onDetentsDidChange,
         std::function<void(const float)>&& onWidthDidChange,
         std::function<void(const float)>&& onTypeDidChange,
-        std::function<void()>&& sheetSpringBack, const RefPtr<NG::FrameNode>& targetNode) = 0;
+        std::function<void()>&& sheetSpringBack,
+        int32_t targetId) = 0;
+    
+    virtual int32_t UpdateBindSheetByUIContext(
+        const RefPtr<NG::FrameNode> &sheetContentNode, const NG::SheetStyle &sheetStyle, bool isPartialUpdate) = 0;
+    virtual int32_t CloseBindSheetByUIContext(const RefPtr<NG::FrameNode> &sheetContentNode) = 0;
     virtual void SwitchFollowParentWindowLayout(bool freeMultiWindowEnable) = 0;
     virtual bool NeedFollowParentWindowLayout() = 0;
     virtual void AddFollowParentWindowLayoutNode(int32_t nodeId) = 0;
     virtual void RemoveFollowParentWindowLayoutNode(int32_t nodeId) = 0;
     virtual void SetNodeId(int32_t nodeId) = 0;
     virtual int32_t GetNodeId() const = 0;
-
+    virtual void SetWindowAnchorInfo(const NG::OffsetF& offset, SubwindowType type, int32_t nodeId) = 0;
+#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
     // ArkTS 1.2
     virtual void ShowToastStatic(const NG::ToastInfo& toastInfo, std::function<void(int32_t)>&& callback) = 0;
     virtual void CloseToastStatic(const int32_t toastId, std::function<void(int32_t)>&& callback) = 0;
@@ -270,6 +289,7 @@ public:
         std::function<void(int32_t, int32_t)>&& callback) = 0;
     virtual void OpenCustomDialogStatic(DialogProperties &dialogProps,
         std::function<void(int32_t)> &&callback) = 0;
+#endif
 
 private:
     int32_t subwindowId_ = 0;

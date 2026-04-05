@@ -69,6 +69,10 @@ void TextPaintMethod::DoStartTextRace()
     option.delay = layoutProperty->GetTextMarqueeDelay().value_or(0);
     option.fadeout = layoutProperty->GetTextMarqueeFadeout().value_or(theme->GetIsTextFadeout());
     option.startPolicy = layoutProperty->GetTextMarqueeStartPolicy().value_or(theme->GetMarqueeStartPolicy());
+    option.updatePolicy = layoutProperty->GetTextMarqueeUpdatePolicy().value_or(MarqueeUpdatePolicy::DEFAULT);
+    if (layoutProperty->HasTextMarqueeSpacing()) {
+        option.spacing = layoutProperty->GetTextMarqueeSpacing().value();
+    }
 
     textContentModifier_->StartTextRace(option);
 }
@@ -174,6 +178,14 @@ void TextPaintMethod::UpdateOverlayModifier(PaintWrapper* paintWrapper)
     if (selection.GetTextStart() != selection.GetTextEnd()) {
         auto rects = pManager->GetTextBoxesForSelect(selection.GetTextStart(), selection.GetTextEnd());
         selectedRects = CalculateSelectedRect(rects, contentRect.Width());
+    }
+    if (selection.highlightStart.has_value() && selection.highlightEnd.has_value() &&
+        selection.highlightStart.value() != selection.highlightEnd.value()) {
+        auto lighHightRects =
+            pManager->GetTextBoxesForSelect(selection.highlightStart.value(), selection.highlightEnd.value());
+        textOverlayModifier_->SetHighlightRects(lighHightRects);
+    } else {
+        textOverlayModifier_->ResetHighlightRects();
     }
     textOverlayModifier_->SetContentRect(contentRect);
     textOverlayModifier_->SetShowSelect(textPattern->GetShowSelect());

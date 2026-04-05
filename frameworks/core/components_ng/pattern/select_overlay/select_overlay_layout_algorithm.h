@@ -112,6 +112,9 @@ private:
     float GetCustomMenuMaxHeight(float topSafeArea, float bottomSafeArea);
     void UpdateMainWindowOffset(LayoutWrapper* layoutWrapper);
     bool GetIsMenuShowInSubWindow(LayoutWrapper* layoutWrapper);
+    bool AdjustToInfo(LayoutWrapper *layoutWrapper, OffsetF &menuOffset, const RectF &menuRect, OffsetF &windowOffset,
+        std::shared_ptr<SelectOverlayInfo> &info);
+    uint32_t GetSafeAreaTop();
 
     std::shared_ptr<SelectOverlayInfo> info_;
 

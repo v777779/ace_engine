@@ -19,7 +19,7 @@
 #include "base/geometry/size.h"
 #include "base/memory/referenced.h"
 #include "base/utils/noncopyable.h"
-#include "core/components/video/video_controller_v2.h"
+#include "core/components_ng/pattern/video/video_controller_v2.h"
 #include "core/components_ng/image_provider/image_loading_context.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/video/video_accessibility_property.h"
@@ -47,6 +47,11 @@ public:
     ~VideoPattern() override;
 
     bool IsEnableMatchParent() override
+    {
+        return true;
+    }
+
+    bool IsEnableFix() override
     {
         return true;
     }
@@ -106,11 +111,18 @@ public:
         return loop_;
     }
 
+    void UpdateControllerBar();
+
     void SetSurfaceBackgroundColor(Color color);
 
     virtual bool IsFullScreen() const;
 
     void OnColorConfigurationUpdate() override;
+
+    void UpdateShowImagePreview(bool showImagePreview)
+    {
+        showImagePreview_ = showImagePreview;
+    }
 
     void UpdateShowFirstFrame(bool showFirstFrame)
     {
@@ -273,15 +285,44 @@ public:
 
     void SetCurrentVolume(float currentVolume);
     float GetCurrentVolume() const;
-    static bool ParseCommand(const std::string& command);
     int32_t OnInjectionEvent(const std::string& command) override;
+    PlaybackStatus GetCurrentPlaybackStatus() const
+    {
+        return currentPlaybackStatus_;
+    }
+    bool GetsIsProgressInjectCmd() const
+    {
+        return isProgressInjectCmd_;
+    }
+    double GetLastProgressRate() const
+    {
+        return lastProgressRate_;
+    }
+    double GetLastSetProgressRate() const
+    {
+        return lastSetProgressRate_;
+    }
+    void SetIsProgressInjectCmd(bool isProgressInjectCmd)
+    {
+        isProgressInjectCmd_ = isProgressInjectCmd;
+    }
+    void SetLastProgressRate(double lastProgressRate)
+    {
+        lastProgressRate_ = lastProgressRate;
+    }
+    void SetLastSetProgressRate(double lastSetProgressRate)
+    {
+        lastSetProgressRate_ = lastSetProgressRate;
+    }
 
 #ifdef RENDER_EXTRACT_SUPPORTED
     void OnTextureRefresh(void* surface);
 #endif
-    
+
     void SetVideoController(const RefPtr<VideoControllerV2>& videoController);
     RefPtr<VideoControllerV2> GetVideoController();
+
+    void SetContentTransition(ContentTransitionType contentTransition);
 
 protected:
     void OnUpdateTime(uint32_t time, int pos) const;
@@ -297,8 +338,11 @@ protected:
     WeakPtr<RenderContext> renderContextForMediaPlayerWeakPtr_;
 #endif
 
+    void OnAttachToFrameNodeMultiThread(const RefPtr<FrameNode>& host);
+
 private:
     void OnAttachToFrameNode() override;
+    void OnAttachToMainTree() override;
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
     void OnDetachFromMainTree() override;
     void OnModifyDone() override;
@@ -351,7 +395,6 @@ private:
     void OnSliderChange(float posTime, int32_t mode);
 
     void UpdatePreviewImage();
-    void UpdateControllerBar();
     void UpdateVideoProperty();
 
     RefPtr<FrameNode> CreateSVG();
@@ -382,6 +425,7 @@ private:
 
 #ifdef RENDER_EXTRACT_SUPPORTED
     void* GetNativeWindow(int32_t instanceId, int64_t textureId);
+    void UpdatePreparedVideoSize(const RefPtr<FrameNode>& host);
 #endif
 
     void RegisterRenderContextCallBack();
@@ -395,12 +439,21 @@ private:
     void UpdateAnalyzerOverlay();
     void UpdateAnalyzerUIConfig(const RefPtr<NG::GeometryNode>& geometryNode);
     void UpdateOverlayVisibility(VisibleType type);
+    void UpdateBackgroundColor();
 
     void OnKeySpaceEvent();
     void MoveByStep(int32_t step);
     void AdjustVolume(int32_t step);
 
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
+
+    void SaveCurrentPlaybackStatus(PlaybackStatus status);
+    static int32_t ParseCommand(const std::string& command, PlaybackStatus& status, double& speed);
+    void ReportChangeEvent(PlaybackStatus status, double playbackSpeed, uint32_t currentPos);
+    void ReportCommandResult(const std::string& event, const std::string& result, const std::string& reason = "");
+    void ReportChangeEventOnUIThread(PlaybackStatus status, double playbackSpeed, uint32_t currentPos);
+    void ReportCommandResultOnUIThread(
+        const std::string& event, const std::string& result, const std::string& reason = "");
 
     RefPtr<VideoControllerV2> videoControllerV2_;
     RefPtr<FrameNode> controlBar_;
@@ -411,6 +464,7 @@ private:
 
     // Video src.
     VideoSourceInfo videoSrcInfo_;
+    bool showImagePreview_ = false;
     bool showFirstFrame_ = false;
     bool isInitialState_ = true; // Initial state is true. Play or seek will set it to false.
     bool isPlaying_ = false;
@@ -445,6 +499,15 @@ private:
     Rect lastBoundsRect_;
     Rect contentRect_;
     std::shared_ptr<ImageAnalyzerManager> imageAnalyzerManager_;
+
+    ContentTransitionType contentTransition_ = ContentTransitionType::IDENTITY;
+    Color surfaceBgColor_ = Color::BLACK;
+
+    PlaybackStatus currentPlaybackStatus_ = PlaybackStatus::NONE;
+    std::string currentInjectedStatusCmd_ = "";
+    bool isProgressInjectCmd_ = false;
+    double lastProgressRate_ = 0.0;
+    double lastSetProgressRate_ = 1.0;
 
     ACE_DISALLOW_COPY_AND_MOVE(VideoPattern);
 };

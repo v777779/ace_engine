@@ -17,6 +17,8 @@
 
 #include "bridge/declarative_frontend/jsview/models/view_abstract_model_impl.h"
 #include "bridge/declarative_frontend/view_stack_processor.h"
+#include "core/components/focusable/focusable_component.h"
+#include "core/components/gesture_listener/gesture_listener_component.h"
 
 namespace OHOS::Ace::Framework {
 void TextModelImpl::Create(const std::string& content)
@@ -67,7 +69,9 @@ void TextModelImpl::SetTextColor(const Color& value)
 }
 
 void TextModelImpl::SetTextShadow(const std::vector<Shadow>& value) {}
+
 void TextModelImpl::SetTextCaretColor(const Color& value) {}
+
 void TextModelImpl::SetSelectedBackgroundColor(const Color& value) {}
 
 void TextModelImpl::SetItalicFontStyle(Ace::FontStyle value)
@@ -212,9 +216,11 @@ void TextModelImpl::SetLetterSpacing(const Dimension& value)
 
 void TextModelImpl::SetLineSpacing(const Dimension& value) {}
 
+void TextModelImpl::SetIsOnlyBetweenLines(bool isOnlyBetweenLines) {}
+
 void TextModelImpl::SetOptimizeTrailingSpace(bool trim) {}
 
-void TextModelImpl::SetIsOnlyBetweenLines(bool isOnlyBetweenLines) {}
+void TextModelImpl::SetCompressLeadingPunctuation(bool enabled) {}
 
 void TextModelImpl::SetGradientShaderStyle(NG::Gradient& gradient) {}
 
@@ -247,6 +253,10 @@ void TextModelImpl::SetHeightAdaptivePolicy(TextHeightAdaptivePolicy value) {}
 void TextModelImpl::SetTextDetectEnable(bool value) {}
 
 void TextModelImpl::SetTextDetectConfig(const TextDetectConfig& textDetectConfig) {}
+
+void TextModelImpl::SetSelectDetectEnable(bool value) {};
+
+void TextModelImpl::ResetSelectDetectEnable() {}
 
 void TextModelImpl::OnSetWidth()
 {

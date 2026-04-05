@@ -16,11 +16,13 @@
 #include "core/components_ng/render/adapter/drawing_image.h"
 
 #include "include/core/SkGraphics.h"
-#include "core/components_ng/property/measure_utils.h"
-#include "frameworks/core/components_ng/render/adapter/image_painter_utils.h"
-#include "frameworks/core/image/image_cache.h"
-#include "core/pipeline/pipeline_base.h"
 #include "pipeline/rs_recording_canvas.h"
+
+#include "core/components_ng/property/measure_utils.h"
+#include "core/components_ng/render/adapter/drawing_lattice_impl.h"
+#include "core/components_ng/render/adapter/image_painter_utils.h"
+#include "core/image/image_cache.h"
+#include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -83,12 +85,13 @@ bool ConvertSlice(const ImagePaintConfig& config, RectF& result, float rawImageW
     return true;
 }
 
-void UpdateRSFilter(const ImagePaintConfig& config, RSFilter& filter)
+void UpdateRSFilter(const ImagePaintConfig& config, RSFilter& filter, bool isHdr = false)
 {
     if (config.colorFilter_.colorFilterMatrix_) {
         RSColorMatrix colorMatrix;
         colorMatrix.SetArray(config.colorFilter_.colorFilterMatrix_->data());
-        filter.SetColorFilter(RSRecordingColorFilter::CreateMatrixColorFilter(colorMatrix));
+        filter.SetColorFilter(RSRecordingColorFilter::CreateMatrixColorFilter(
+            colorMatrix, isHdr ? RSClamp::NO_CLAMP : RSClamp::YES_CLAMP));
     } else if (config.colorFilter_.colorFilterDrawing_) {
         auto colorFilterSptrAddr = static_cast<std::shared_ptr<RSColorFilter>*>(
             config.colorFilter_.colorFilterDrawing_->GetDrawingColorFilterSptrAddr());
@@ -98,7 +101,8 @@ void UpdateRSFilter(const ImagePaintConfig& config, RSFilter& filter)
     } else if (ImageRenderMode::TEMPLATE == config.renderMode_) {
         RSColorMatrix colorMatrix;
         colorMatrix.SetArray(GRAY_COLOR_MATRIX);
-        filter.SetColorFilter(RSRecordingColorFilter::CreateMatrixColorFilter(colorMatrix));
+        filter.SetColorFilter(RSRecordingColorFilter::CreateMatrixColorFilter(
+            colorMatrix, isHdr ? RSClamp::NO_CLAMP : RSClamp::YES_CLAMP));
     }
 }
 } // namespace
@@ -157,6 +161,8 @@ RSColorType DrawingImage::PixelFormatToRSColorType(const RefPtr<PixelMap>& pixma
             return RSColorType::COLORTYPE_ALPHA_8;
         case PixelFormat::RGBA_F16:
             return RSColorType::COLORTYPE_RGBA_F16;
+        case PixelFormat::RGBA_1010102:
+            return RSColorType::COLORTYPE_RGBA_1010102;
         case PixelFormat::UNKNOWN:
         case PixelFormat::ARGB_8888:
         case PixelFormat::RGB_888:
@@ -246,7 +252,14 @@ void DrawingImage::DrawToRSCanvas(
     if (isDrawAnimate_) {
         RSSamplingOptions options;
         ImagePainterUtils::ClipRRect(canvas, dstRect, radiusXY);
+        const auto& config = GetPaintConfig();
+        RSBrush brush;
+        if (config.antiAlias_) {
+            brush.SetAntiAlias(true);
+        }
+        canvas.AttachBrush(brush);
         canvas.DrawImageRect(*image, srcRect, dstRect, options);
+        canvas.DetachBrush();
     } else {
         const auto& config = GetPaintConfig();
         if (config.resizableLattice_ && DrawImageLattice(canvas, srcRect, dstRect, radiusXY)) {
@@ -263,10 +276,10 @@ bool DrawingImage::DrawImageLattice(
     RSCanvas& canvas, const RSRect& srcRect, const RSRect& dstRect, const BorderRadiusArray& radiusXY)
 {
     const auto& config = GetPaintConfig();
-    const auto& drawingLattice = config.resizableLattice_;
+    auto drawingLattice = AceType::DynamicCast<DrawingLatticeImpl>(config.resizableLattice_);
     CHECK_NULL_RETURN(drawingLattice, false);
-    auto latticeSptrAddr =
-        static_cast<std::shared_ptr<Rosen::Drawing::Lattice>*>(drawingLattice->GetDrawingLatticeSptrAddr());
+    auto* lattice = drawingLattice->GetLattice();
+    CHECK_NULL_RETURN(lattice, false);
     RSBrush brush;
     auto filterMode = RSFilterMode::NEAREST;
     switch (config.imageInterpolation_) {
@@ -279,29 +292,24 @@ bool DrawingImage::DrawImageLattice(
             break;
     }
 
+    if (config.antiAlias_) {
+        brush.SetAntiAlias(true);
+    }
     auto filter = brush.GetFilter();
     UpdateRSFilter(config, filter);
     brush.SetFilter(filter);
     auto& recordingCanvas = static_cast<Rosen::ExtendRecordingCanvas&>(canvas);
     auto radii = ImagePainterUtils::ToRSRadius(radiusXY);
-    std::vector<RSPoint> radius;
-    for (size_t ii = 0; ii < 4; ii++) {
-        RSPoint point(radii[ii].GetX(), radii[ii].GetY());
-        radius.emplace_back(point);
-    }
-    recordingCanvas.ClipAdaptiveRoundRect(radius);
     recordingCanvas.Scale(config.scaleX_, config.scaleY_);
 
     RSPoint pointRadius[4] = {};
-    for (size_t i = 0; i < 4; i++) {
-        pointRadius[i] = radius[i];
-    }
-    auto lattice = *(*latticeSptrAddr);
+    ImagePainterUtils::ClipAdaptiveRRect(
+        recordingCanvas, radii, config.antiAlias_, pointRadius);
     if (SystemProperties::GetDebugEnabled()) {
-        PrintDrawingLatticeConfig(lattice);
+        PrintDrawingLatticeConfig(*lattice);
     }
     recordingCanvas.AttachBrush(brush);
-    recordingCanvas.DrawImageLattice(image_.get(), *(*latticeSptrAddr), dstRect, filterMode);
+    recordingCanvas.DrawImageLattice(image_.get(), *lattice, dstRect, filterMode);
     recordingCanvas.DetachBrush();
     return true;
 }
@@ -326,23 +334,19 @@ bool DrawingImage::DrawImageNine(
             break;
     }
 
+    if (config.antiAlias_) {
+        brush.SetAntiAlias(true);
+    }
     auto filter = brush.GetFilter();
     UpdateRSFilter(config, filter);
     brush.SetFilter(filter);
     auto& recordingCanvas = static_cast<Rosen::ExtendRecordingCanvas&>(canvas);
     auto radii = ImagePainterUtils::ToRSRadius(radiusXY);
-    std::vector<RSPoint> radius;
-    for (int ii = 0; ii < 4; ii++) {
-        RSPoint point(radii[ii].GetX(), radii[ii].GetY());
-        radius.emplace_back(point);
-    }
-    recordingCanvas.ClipAdaptiveRoundRect(radius);
     recordingCanvas.Scale(config.scaleX_, config.scaleY_);
 
     RSPoint pointRadius[4] = {};
-    for (int i = 0; i < 4; i++) {
-        pointRadius[i] = radius[i];
-    }
+    ImagePainterUtils::ClipAdaptiveRRect(
+        recordingCanvas, radii, config.antiAlias_, pointRadius);
     RSRectI rsCenterRect(centerRect.GetX(), centerRect.GetY(), centerRect.GetX() + centerRect.Width(),
         centerRect.GetY() + centerRect.Height());
     recordingCanvas.AttachBrush(brush);
@@ -355,22 +359,18 @@ bool DrawingImage::DrawWithRecordingCanvas(RSCanvas& canvas, const BorderRadiusA
 {
     RSBrush brush;
     auto config = GetPaintConfig();
+    if (config.antiAlias_) {
+        brush.SetAntiAlias(true);
+    }
     RSSamplingOptions options;
     ImagePainterUtils::AddFilter(brush, options, config);
     auto radii = ImagePainterUtils::ToRSRadius(radiusXY);
     auto& recordingCanvas = static_cast<Rosen::ExtendRecordingCanvas&>(canvas);
-    std::vector<RSPoint> radius;
-    for (int ii = 0; ii < 4; ii++) {
-        RSPoint point(radii[ii].GetX(), radii[ii].GetY());
-        radius.emplace_back(point);
-    }
-    recordingCanvas.ClipAdaptiveRoundRect(radius);
     recordingCanvas.Scale(config.scaleX_, config.scaleY_);
 
     RSPoint pointRadius[4] = {};
-    for (int i = 0; i < 4; i++) {
-        pointRadius[i] = radius[i];
-    }
+    ImagePainterUtils::ClipAdaptiveRRect(
+        recordingCanvas, radii, config.antiAlias_, pointRadius);
     Rosen::Drawing::AdaptiveImageInfo rsImageInfo = {
         static_cast<int32_t>(config.imageFit_), static_cast<int32_t>(config.imageRepeat_),
         {pointRadius[0], pointRadius[1], pointRadius[2], pointRadius[3]}, 1.0, GetUniqueID(),
@@ -387,6 +387,10 @@ void DrawingImage::DrawRect(RSCanvas& canvas, const RSRect& srcRect, const RSRec
 {
     auto& recordingCanvas = static_cast<Rosen::Drawing::RecordingCanvas&>(canvas);
     RSBrush brush;
+    const auto& config = GetPaintConfig();
+    if (config.antiAlias_) {
+        brush.SetAntiAlias(true);
+    }
     RSSamplingOptions options;
     RSRect dst = RSRect(dstRect.GetLeft(), dstRect.GetTop(), dstRect.GetRight(), dstRect.GetBottom());
     RSRect src = RSRect(srcRect.GetLeft(), srcRect.GetTop(), srcRect.GetRight(), srcRect.GetBottom());

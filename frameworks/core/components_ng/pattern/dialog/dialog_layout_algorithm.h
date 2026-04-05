@@ -60,7 +60,10 @@ private:
     void UpdateCustomMaskNodeLayout(const RefPtr<FrameNode>& dialog);
     LayoutConstraintF CreateDialogChildConstraint(LayoutWrapper* layoutWrapper, float height, float width);
     void Distribute(float& scrollHeight, float& listHeight, float restHeight);
-    void AnalysisHeightOfChild(LayoutWrapper* layoutWrapper);
+    void AnalysisHeightOfChild(LayoutWrapper* layoutWrapper, bool isTitleCenter);
+    void AnalysisLayoutOfTitleColumn(
+        LayoutWrapper* layoutWrapper, const RefPtr<LayoutWrapper>& title, bool isTitleCenter);
+    void AnalysisLayoutOfTitle(const RefPtr<LayoutWrapper>& title);
     void AnalysisLayoutOfContent(LayoutWrapper* layoutWrapper, const RefPtr<LayoutWrapper>& scroll);
     void AvoidScreen(OffsetF& topLeftPoint, const RefPtr<DialogLayoutProperty>& prop, SizeF childSize);
 
@@ -70,6 +73,7 @@ private:
     void ComputeInnerLayoutParam(LayoutConstraintF& innerLayout, const RefPtr<DialogLayoutProperty>& dialogProp);
     double GetMaxWidthBasedOnGridType(const RefPtr<GridColumnInfo>& info, GridSizeType type, DeviceType deviceType);
     int32_t GetDeviceColumns(GridSizeType type, DeviceType deviceType);
+
     OffsetF ComputeChildPosition(
         const SizeF& childSize, const RefPtr<DialogLayoutProperty>& prop, const SizeF& slefSize);
     bool SetAlignmentSwitch(SizeF& maxSize, const SizeF& childSize, OffsetF& topLeftPoint);
@@ -91,6 +95,8 @@ private:
 
     OffsetF AdjustChildPosition(
         OffsetF& topLeftPoint, const OffsetF& dialogOffset, const SizeF& childSize, bool needAvoidKeyboard);
+    void DialogOverflowAdjust(
+        OffsetF& childOffset, const SizeF& childSize, bool dialogCorrectionEnabled);
 
     SizeF UpdateHeightWithSafeArea(SizeF size);
     void UpdateSafeArea(const RefPtr<FrameNode>& frameNode);
@@ -98,8 +104,8 @@ private:
         LayoutConstraintF& childLayoutConstraint, RefPtr<LayoutWrapper>& childLayoutWrapper);
     void AdjustHeightForKeyboard(LayoutWrapper* layoutWrapper, const RefPtr<LayoutWrapper>& child);
     void UpdateIsScrollHeightNegative(LayoutWrapper* layoutWrapper, float height);
-    void UpdateChildMaxSizeHeight(SizeT<float>& maxSize);
     void ParseSubwindowId(const RefPtr<DialogLayoutProperty>& dialogProp);
+    void UpdateChildMaxSizeHeight(SizeT<float>& maxSize);
 
     void ResizeDialogSubwindow(bool expandDisplay, bool isShowInSubWindow, bool isShowInFloatingWindow);
 
@@ -118,12 +124,15 @@ private:
     bool isShowInSubWindow_ = false;
     bool isSuitableForElderly_ = false;
     bool isSuitOldMeasure_ = false;
+    bool needAdaptForceSplitMode_ = false;
     float dialogMaxHeight_ = 0.0f;
     int32_t gridCount_ = -1;
     int32_t subWindowId_ = -1;
     DimensionOffset dialogOffset_;
     DialogAlignment alignment_ = DialogAlignment::DEFAULT;
     TouchingBoundaryType touchingBoundaryFlag_ = TouchingBoundaryType::NotTouchBoundary;
+
+    RefPtr<DialogTheme> dialogTheme_ = nullptr;
 
     bool expandDisplay_ = false;
     double expandDisplayValidHeight_ = 0.0;
@@ -148,6 +157,7 @@ private:
     float embeddedDialogOffsetY_ = 0.0f;
     float stackRootDialogOffsetY_ = 0.0f;
     float safeAreaBottomLength_ = 0.0f;
+    float floatButtonsHeight_ = 0.0f;
 
     WeakPtr<PipelineContext> context_ = nullptr;
 

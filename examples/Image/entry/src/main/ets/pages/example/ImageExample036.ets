@@ -24,7 +24,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 @Component
 struct loadurlTest {
   @State renderMode: ImageRenderMode = ImageRenderMode.Original
-  @State res: Resource | string = $r('app.media.app_icon_1')
+  @State res: Resource | string = $r('app.media.startIcon')
   @State errorIf1: string = 'None'
   @State errorIf2: string = 'None'
   @State errorIf3: string = 'None'
@@ -90,18 +90,24 @@ struct loadurlTest {
         Divider()
         Button('ClearCache')
           .onClick(() => {
-            let cacheDir = this.getUIContext().getHostContext()?.cacheDir;
-            let fileNames = fs.listFileSync(cacheDir)
-            console.info(`AceImage, fileName: ${cacheDir}`)
-            for (let i = 0; i < fileNames.length; i++) {
-              try {
-                fs.unlink(cacheDir + '/' + fileNames[i])
-                console.info(`AceImage, fileName: ${cacheDir} + '/' + ${fileNames[i]}`)
-              } catch (err) {
-                console.log('AceImage FileUtils deleteFile Method has error, err msg=' +
-                (err as BusinessError).message + ' err code=' +
-                (err as BusinessError).code);
+            try {
+              let cacheDir = this.getUIContext().getHostContext()?.cacheDir;
+              let fileNames = fs.listFileSync(cacheDir)
+              console.info(`AceImage, fileName: ${cacheDir}`)
+              for (let i = 0; i < fileNames.length; i++) {
+                try {
+                  fs.unlink(cacheDir + '/' + fileNames[i])
+                  console.info(`AceImage, fileName: ${cacheDir}/${fileNames[i]}`)
+                } catch (err) {
+                  console.log('AceImage FileUtils deleteFile Method has error, err msg=' +
+                  (err as BusinessError).message + ' err code=' +
+                  (err as BusinessError).code);
+                }
               }
+            } catch (err) {
+              console.log('AceImage FileUtils deleteFile Method has error, err msg=' +
+              (err as BusinessError).message + ' err code=' +
+              (err as BusinessError).code);
             }
           })
       }

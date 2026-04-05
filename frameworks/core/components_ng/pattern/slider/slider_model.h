@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -101,6 +101,9 @@ public:
         float toValue = std::numeric_limits<float>::quiet_NaN();
     };
 
+    using SliderStepItemAccessibility = std::string;
+    using SliderShowStepOptions = std::unordered_map<uint32_t, SliderStepItemAccessibility>;
+
     static SliderModel* GetInstance();
     virtual ~SliderModel() = default;
 
@@ -109,6 +112,7 @@ public:
     virtual void SetDirection(Axis value) = 0;
     virtual void SetReverse(bool value) = 0;
     virtual void SetBlockColor(const Color& value) = 0;
+    virtual void SetLinearGradientBlockColor(const NG::Gradient& value) = 0;
     virtual void SetTrackBackgroundColor(const Color& value) = 0;
     virtual void SetTrackBackgroundColor(const NG::Gradient& value, bool isResourceColor = false) = 0;
     virtual void SetSelectColor(const Color& value) = 0;
@@ -116,7 +120,7 @@ public:
     virtual void SetMinLabel(float value) = 0;
     virtual void SetMaxLabel(float value) = 0;
     virtual void SetMinResponsiveDistance(float value) {};
-    virtual void SetShowSteps(bool value) = 0;
+    virtual void SetShowSteps(bool value, const std::optional<SliderShowStepOptions>& options = std::nullopt) = 0;
     virtual void SetShowTips(bool value, const std::optional<std::string>& content) = 0;
     virtual void SetThickness(const Dimension& value) = 0;
     virtual void SetBlockBorderColor(const Color& value) = 0;

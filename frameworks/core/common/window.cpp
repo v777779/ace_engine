@@ -15,13 +15,15 @@
 
 #include "core/common/window.h"
 
+#include "base/utils/layout_break_point.h"
 #include "core/common/container.h"
+#include "core/components_ng/base/observer_handler.h"
 
 namespace OHOS::Ace {
 Window::Window(std::unique_ptr<PlatformWindow> platformWindow) : platformWindow_(std::move(platformWindow))
 {
     CHECK_NULL_VOID(platformWindow_);
-    auto&& callback = [this](uint64_t nanoTimestamp, uint32_t frameCount) { OnVsync(nanoTimestamp, frameCount); };
+    auto&& callback = [this](uint64_t nanoTimestamp, uint64_t frameCount) { OnVsync(nanoTimestamp, frameCount); };
     platformWindow_->RegisterVsyncCallback(callback);
     LOGI("Window Created success.");
 }
@@ -43,7 +45,7 @@ void Window::SetRootRenderNode(const RefPtr<RenderNode>& root)
     platformWindow_->SetRootRenderNode(root);
 }
 
-void Window::OnVsync(uint64_t nanoTimestamp, uint32_t frameCount)
+void Window::OnVsync(uint64_t nanoTimestamp, uint64_t frameCount)
 {
     isRequestVsync_ = false;
 
@@ -102,34 +104,44 @@ int64_t Window::GetDeadlineByFrameCount(int64_t deadline, int64_t ts, int64_t fr
     return deadline;
 }
 
-WidthBreakpoint Window::GetWidthBreakpoint(const WidthLayoutBreakPoint& layoutBreakpoints) const
+WidthBreakpoint GetCalcWidthBreakpoint(
+    const OHOS::Ace::WidthLayoutBreakPoint &finalBreakpoints, double density, double width)
 {
-    double density = PipelineBase::GetCurrentDensity();
-    double width = 0.0;
-    if (NearZero(density)) {
-        width = GetCurrentWindowRect().Width();
-    } else {
-        width = GetCurrentWindowRect().Width() / density;
-    }
-
     WidthBreakpoint breakpoint;
-    if (width < layoutBreakpoints.widthVPXS_) {
+    if (finalBreakpoints.widthVPXS_ < 0 || GreatNotEqual(finalBreakpoints.widthVPXS_ * density, width)) {
         breakpoint = WidthBreakpoint::WIDTH_XS;
-    } else if (width < layoutBreakpoints.widthVPSM_) {
+    } else if (finalBreakpoints.widthVPSM_ < 0 || GreatNotEqual(finalBreakpoints.widthVPSM_ * density, width)) {
         breakpoint = WidthBreakpoint::WIDTH_SM;
-    } else if (width < layoutBreakpoints.widthVPMD_) {
+    } else if (finalBreakpoints.widthVPMD_ < 0 || GreatNotEqual(finalBreakpoints.widthVPMD_ * density, width)) {
         breakpoint = WidthBreakpoint::WIDTH_MD;
-    } else if (width < layoutBreakpoints.widthVPLG_) {
+    } else if (finalBreakpoints.widthVPLG_ < 0 || GreatNotEqual(finalBreakpoints.widthVPLG_ * density, width)) {
         breakpoint = WidthBreakpoint::WIDTH_LG;
-    } else {
+    } else if (finalBreakpoints.widthVPXL_ < 0 || GreatNotEqual(finalBreakpoints.widthVPXL_ * density, width)) {
         breakpoint = WidthBreakpoint::WIDTH_XL;
+    } else {
+        breakpoint = WidthBreakpoint::WIDTH_XXL;
     }
     return breakpoint;
+}
+
+WidthBreakpoint Window::GetWidthBreakpoint(const WidthLayoutBreakPoint &layoutBreakpoints) const
+{
+    auto width = GetCurrentWindowRect().Width();
+    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    if (pipeline) {
+        width = pipeline->CalcPageWidth(width);
+    }
+    double density = PipelineBase::GetCurrentDensity();
+    return GetCalcWidthBreakpoint(layoutBreakpoints, density, width);
 }
 
 HeightBreakpoint Window::GetHeightBreakpoint(const HeightLayoutBreakPoint& layoutBreakpoints) const
 {
     auto width = GetCurrentWindowRect().Width();
+    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    if (pipeline) {
+        width = pipeline->CalcPageWidth(width);
+    }
     auto height = GetCurrentWindowRect().Height();
     auto aspectRatio = 0.0;
     if (NearZero(width)) {
@@ -147,5 +159,19 @@ HeightBreakpoint Window::GetHeightBreakpoint(const HeightLayoutBreakPoint& layou
         breakpoint = HeightBreakpoint::HEIGHT_LG;
     }
     return breakpoint;
+}
+
+void Window::NotifyBreakpointChangeIfNeeded(int32_t instanceId, const WidthLayoutBreakPoint& widthLayoutBreakpoints,
+    const HeightLayoutBreakPoint& heightLayoutBreakpoints)
+{
+    WindowSizeBreakpoint newBreakpoint;
+    newBreakpoint.widthBreakpoint = GetWidthBreakpoint(widthLayoutBreakpoints);
+    newBreakpoint.heightBreakpoint = GetHeightBreakpoint(heightLayoutBreakpoints);
+
+    if (newBreakpoint.widthBreakpoint != currentBreakpoint_.widthBreakpoint ||
+        newBreakpoint.heightBreakpoint != currentBreakpoint_.heightBreakpoint) {
+        currentBreakpoint_ = newBreakpoint;
+        NG::UIObserverHandler::GetInstance().NotifyWinSizeLayoutBreakpointChangeFunc(instanceId, newBreakpoint);
+    }
 }
 } // namespace OHOS::Ace

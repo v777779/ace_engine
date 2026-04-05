@@ -16,10 +16,8 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_IMAGE_IMAGE_PROVIDER_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_IMAGE_IMAGE_PROVIDER_H
 
+#include <cstdint>
 #include <string>
-
-#include "include/codec/SkCodec.h"
-#include "draw/color.h"
 
 #include "base/memory/ace_type.h"
 #include "base/resource/internal_resource.h"
@@ -31,6 +29,8 @@
 #include "core/pipeline/pipeline_base.h"
 
 class SkSVGDOM;
+template<typename T>
+class sk_sp;
 namespace OHOS::Ace {
 
 class ImageObject;
@@ -78,7 +78,7 @@ public:
         const std::string src);
 
     // get out source image data asynchronously.
-    static void FetchImageObject(const ImageSourceInfo& imageInfo, const ImageObjSuccessCallback& successCallback,
+    ACE_FORCE_EXPORT static void FetchImageObject(const ImageSourceInfo& imageInfo, const ImageObjSuccessCallback& successCallback,
         const UploadSuccessCallback& uploadSuccessCallback, const FailedCallback& failedCallback,
         const WeakPtr<PipelineBase>& context, bool syncMode, bool useSkiaSvg, bool needAutoResize,
         const OnPostBackgroundTask& onBackgroundTaskPostCallback = nullptr);
@@ -92,10 +92,10 @@ public:
 
     static bool IsWideGamut(const std::shared_ptr<RSColorSpace>& rsColorSpace);
 
-    static bool NeedExchangeWidthAndHeight(SkEncodedOrigin origin);
+    static bool NeedExchangeWidthAndHeight(int32_t encodedOrigin);
 
     // This is a synchronization interface for getting out source image.
-    static std::shared_ptr<RSImage> GetDrawingImage(
+    ACE_FORCE_EXPORT static std::shared_ptr<RSImage> GetDrawingImage(
         const std::string& src, const WeakPtr<PipelineBase> context, Size targetSize = Size());
 
     static RefPtr<ImageObject> GeneratorAceImageObject(
@@ -109,9 +109,9 @@ public:
 
     static RefPtr<ImageObject> QueryImageObjectFromCache(
         const ImageSourceInfo& imageInfo, const RefPtr<PipelineBase>& pipelineContext);
-    static Rosen::Drawing::ColorType PixelFormatToDrawingColorType(const RefPtr<PixelMap>& pixmap);
-    static Rosen::Drawing::AlphaType AlphaTypeToDrawingAlphaType(const RefPtr<PixelMap>& pixmap);
-    static RSBitmapFormat MakeRSBitmapFormatFromPixelMap(const RefPtr<PixelMap>& pixmap);
+    static int32_t PixelFormatToDrawingColorType(const RefPtr<PixelMap>& pixmap);
+    static int32_t AlphaTypeToDrawingAlphaType(const RefPtr<PixelMap>& pixmap);
+    ACE_FORCE_EXPORT static RSBitmapFormat MakeRSBitmapFormatFromPixelMap(const RefPtr<PixelMap>& pixmap);
     static std::shared_ptr<RSColorSpace> ColorSpaceToDrawingColorSpace(const RefPtr<PixelMap>& pixmap);
     static RSImageInfo MakeRSImageInfoFromPixelMap(const RefPtr<PixelMap>& pixmap);
 

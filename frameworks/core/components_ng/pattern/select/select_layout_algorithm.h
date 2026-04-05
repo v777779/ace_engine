@@ -17,7 +17,7 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_SELECT_SELECT_LAYOUT_ALGORITHM_H
 
 #include "core/components/select/select_theme.h"
-#include "core/components_ng/layout/layout_algorithm.h"
+#include "core/components_ng/layout/box_layout_algorithm.h"
 #include "core/components_ng/layout/layout_wrapper.h"
 
 namespace OHOS::Ace::NG {
@@ -40,6 +40,8 @@ private:
     void NeedAgingUpdateParams(LayoutWrapper* layoutWrapper);
     void UpdateOptionsMaxLines(const std::vector<RefPtr<FrameNode>>& options, int32_t maxLines);
     void UpdateMargin(LayoutWrapper* layoutWrapper, RefPtr<SelectTheme> theme);
+    void RemoveParentRestrictionsForFixIdeal(
+        const RefPtr<LayoutProperty> layoutProperty, LayoutConstraintF& childConstraint);
     float fontScale_ = 0.0f;
 
     ACE_DISALLOW_COPY_AND_MOVE(SelectLayoutAlgorithm);

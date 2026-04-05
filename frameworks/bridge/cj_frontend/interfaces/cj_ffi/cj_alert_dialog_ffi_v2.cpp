@@ -45,10 +45,15 @@ constexpr int32_t ALERT_DIALOG_VALID_PRIMARY_BUTTON_NUM = 1;
 uint32_t ColorAlphaAdapt(uint32_t origin)
 {
     uint32_t result = origin;
-    if ((origin >> COLOR_ALPHA_OFFSET) == 0) {
-        result = origin | COLOR_ALPHA_VALUE;
+    // After Api22, alpha is handled on the cangjie.
+    if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        return result;
+    } else {
+        if ((origin >> COLOR_ALPHA_OFFSET) == 0) {
+            result = origin | COLOR_ALPHA_VALUE;
+        }
+        return result;
     }
-    return result;
 }
 
 extern "C" {
@@ -333,7 +338,7 @@ void FfiOHOSShowAlertDialogParamWithConfirmShadowStyle(
         auto container = Container::Current();
         auto pipelineContext = container->GetPipelineContext();
         auto shadowTheme = pipelineContext->GetTheme<ShadowTheme>();
-        if (!shadowTheme) {
+        if (shadowTheme) {
             shadow = shadowTheme->GetShadow(style, colorMode);
         }
     }
@@ -402,9 +407,10 @@ void FfiOHOSShowAlertDialogParamWithButtonsShadowStyle(NativeAlertDialogParamV2 
     auto colorMode = Container::CurrentColorMode();
     if (style != ShadowStyle::None) {
         auto container = Container::Current();
+        CHECK_NULL_VOID(container);
         auto pipelineContext = container->GetPipelineContext();
         auto shadowTheme = pipelineContext->GetTheme<ShadowTheme>();
-        if (!shadowTheme) {
+        if (shadowTheme) {
             shadow = shadowTheme->GetShadow(style, colorMode);
         }
     }
@@ -507,9 +513,10 @@ void FfiOHOSShowAlertDialogParamWithOptionsShadowStyle(NativeAlertDialogParamV2 
     auto colorMode = Container::CurrentColorMode();
     if (style != ShadowStyle::None) {
         auto container = Container::Current();
+        CHECK_NULL_VOID(container);
         auto pipelineContext = container->GetPipelineContext();
         auto shadowTheme = pipelineContext->GetTheme<ShadowTheme>();
-        if (!shadowTheme) {
+        if (shadowTheme) {
             shadow = shadowTheme->GetShadow(style, colorMode);
         }
     }
@@ -522,7 +529,7 @@ void FfiOHOSShowAlertDialogParamWithOptionsShadowStyle(NativeAlertDialogParamV2 
     ParseButtonArrayV2(properties, buttons, "buttons");
 
     // Parse buttons direction.
-    if (buttonDirection >= 0 && buttonDirection <= static_cast<int32_t>(DIALOG_BUTTONS_DIRECTION.size())) {
+    if (buttonDirection >= 0 && buttonDirection < static_cast<int32_t>(DIALOG_BUTTONS_DIRECTION.size())) {
         properties.buttonDirection = DIALOG_BUTTONS_DIRECTION[buttonDirection];
     }
 
@@ -555,7 +562,7 @@ void FfiOHOSShowAlertDialogParamWithOptionsShadowOptions(NativeAlertDialogParamV
     ParseButtonArrayV2(properties, buttons, "buttons");
 
     // Parse buttons direction.
-    if (buttonDirection >= 0 && buttonDirection <= static_cast<int32_t>(DIALOG_BUTTONS_DIRECTION.size())) {
+    if (buttonDirection >= 0 && buttonDirection < static_cast<int32_t>(DIALOG_BUTTONS_DIRECTION.size())) {
         properties.buttonDirection = DIALOG_BUTTONS_DIRECTION[buttonDirection];
     }
 

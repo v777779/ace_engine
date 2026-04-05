@@ -18,7 +18,7 @@
 #include "base/geometry/rect.h"
 #include "base/utils/utils.h"
 #include "core/components/common/properties/color.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components_ng/pattern/picker/datepicker_pattern.h"
 #include "core/components_ng/pattern/picker/datepicker_row_layout_property.h"
 #include "core/pipeline_ng/pipeline_context.h"
@@ -32,7 +32,7 @@ constexpr float DIVIDER_LINE_WIDTH = 1.0f;
 
 CanvasDrawFunction DatePickerPaintMethod::GetForegroundDrawFunction(PaintWrapper* paintWrapper)
 {
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_RETURN(pipeline, nullptr);
     auto theme = pipeline->GetTheme<PickerTheme>();
     CHECK_NULL_RETURN(theme, nullptr);

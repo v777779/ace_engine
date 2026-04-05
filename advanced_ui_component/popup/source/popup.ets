@@ -16,7 +16,7 @@
 import display from '@ohos.display';
 import mediaquery from '@ohos.mediaquery';
 import { Theme } from '@ohos.arkui.theme';
-import { LengthMetrics } from '@ohos.arkui.node'
+import { LengthMetrics } from '@ohos.arkui.node';
 import componentUtils from '@ohos.arkui.componentUtils';
 import { SymbolGlyphModifier, Configuration } from '@kit.ArkUI';
 import { systemDateTime } from '@kit.BasicServicesKit';
@@ -50,6 +50,7 @@ interface ButtonTheme {
   fontWeight: FontWeight;
   hoverColor: ResourceColor;
   backgroundColor: ResourceColor;
+  responseRegion: Length;
 }
 
 interface MessageTheme {
@@ -69,6 +70,7 @@ interface CloseButtonTheme {
   symbolStyle: SymbolGlyphModifier;
   symbolSize: string;
   accessibilityMessage: Resource;
+  responseRegion: Length;
 }
 
 interface WindowsTheme {
@@ -128,7 +130,8 @@ export const defaultTheme: PopupTheme = {
     minFontSize: 9,
     fontWeight: FontWeight.Medium,
     hoverColor: $r('sys.color.ohos_id_color_hover'),
-    backgroundColor: $r('sys.color.ohos_id_color_background_transparent')
+    backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
+    responseRegion: $r('sys.float.popup_button_response_region')
   },
   message: {
     fontSize: $r('sys.float.ohos_id_text_size_body2'),
@@ -163,7 +166,8 @@ export const defaultTheme: PopupTheme = {
     hoverColor: $r('sys.color.ohos_id_color_hover'),
     backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
     symbolSize: '18vp',
-    accessibilityMessage: $r('sys.string.off_used_for_accessibility_text')
+    accessibilityMessage: $r('sys.string.off_used_for_accessibility_text'),
+    responseRegion: $r('sys.float.popup_close_button_response_region')
   },
 };
 
@@ -276,12 +280,15 @@ export struct PopupComponent {
   @State buttonHeight: number = 0;
   @State messageMaxWeight: number | undefined = 0;
   @State beforeScreenStatus: boolean | undefined = undefined;
-  @State currentScreenStatus: boolean = true;
+  @State currentScreenStatus: boolean | undefined = undefined;
   @State applySizeOptions: ConstraintSizeOptions | undefined = undefined;
   @State closeButtonBackgroundColor: ResourceColor = $r('sys.color.ohos_id_color_background_transparent');
   @State firstButtonBackgroundColor: ResourceColor = $r('sys.color.ohos_id_color_background_transparent');
   @State secondButtonBackgroundColor: ResourceColor = $r('sys.color.ohos_id_color_background_transparent');
   @State closeButtonFillColorWithTheme: ResourceColor = $r('sys.color.icon_secondary');
+  @State scrollMaxHeight: number | undefined = undefined;
+  @State firstButtonHeight: number = 0;
+  @State secondButtonHeight: number = 0;
   private listener = mediaquery.matchMediaSync('(orientation: landscape)')
 
   private getIconWidth(): Dimension {
@@ -302,9 +309,9 @@ export struct PopupComponent {
 
   private getIconMargin(): LocalizedMargin {
     return {
-      start: new LengthMetrics(this.theme.button.margin.start.value / 2, this.theme.button.margin.start.unit),
-      end: new LengthMetrics(this.theme.icon.margin.start.value - (this.theme.button.margin.end.value / 2)
-        , this.theme.button.margin.start.unit)
+      start: new LengthMetrics(this.theme.button.margin.start!.value / 2, this.theme.button.margin.start!.unit),
+      end: new LengthMetrics(this.theme.icon.margin.start!.value - (this.theme.button.margin.end!.value / 2)
+        , this.theme.button.margin.start!.unit)
     }
   }
 
@@ -318,7 +325,7 @@ export struct PopupComponent {
 
   private getTitlePadding(): LocalizedPadding {
     return {
-      start: new LengthMetrics(this.theme.button.margin.start.value / 2, this.theme.button.margin.start.unit),
+      start: new LengthMetrics(this.theme.button.margin.start!.value / 2, this.theme.button.margin.start!.unit),
       end: this.theme.closeButton.margin.end
     }
   }
@@ -395,14 +402,10 @@ export struct PopupComponent {
 
   private getMessagePadding(): LocalizedPadding {
     let padding: LocalizedPadding
-    if (this.title.text !== '' && this.title.text !== void (0)) {
-      padding = { start: LengthMetrics.vp(this.theme.button.margin.start.value / 2) }
-    } else {
       padding = {
         start: LengthMetrics.vp(this.theme.button.margin.start.value / 2),
         end: LengthMetrics.vp(this.theme.closeButton.margin.end.value)
       }
-    }
     return padding
   }
 
@@ -430,10 +433,10 @@ export struct PopupComponent {
           textMaxWeight = -1
         }
       }
-      textMaxWeight -= (this.theme.windows.padding.start.value - (this.theme.button.margin.end.value / 2))
-      textMaxWeight -= this.theme.windows.padding.end.value
-      textMaxWeight -= this.theme.button.margin.start.value / 2
-      textMaxWeight -= this.theme.closeButton.margin.end.value
+      textMaxWeight -= (this.theme.windows.padding.start!.value - (this.theme.button.margin.end!.value / 2))
+      textMaxWeight -= this.theme.windows.padding.end!.value
+      textMaxWeight -= this.theme.button.margin.start!.value / 2
+      textMaxWeight -= this.theme.closeButton.margin.end!.value
       textMaxWeight -= this.getCloseButtonWidth() as number
     }
     return textMaxWeight
@@ -445,15 +448,15 @@ export struct PopupComponent {
 
   private getButtonMargin(): LocalizedMargin {
     return {
-      top: LengthMetrics.vp(this.theme.button.textMargin.top.value / 2 - 4),
-      bottom: LengthMetrics.vp(this.theme.button.textMargin.bottom.value / 2 - 4),
-      start: LengthMetrics.vp(this.theme.button.margin.start.value / 2 - 4),
-      end: LengthMetrics.vp(this.theme.button.margin.end.value / 2 - 4)
+      top: LengthMetrics.vp(this.theme.button.textMargin.top!.value / 2 - 4),
+      bottom: LengthMetrics.vp(this.theme.button.textMargin.bottom!.value / 2 - 4),
+      start: LengthMetrics.vp(this.theme.button.margin.start!.value / 2 - 4),
+      end: LengthMetrics.vp(this.theme.button.margin.end!.value / 2 - 4)
     }
   }
 
   private getButtonTextMargin(): LocalizedMargin {
-    return { top: LengthMetrics.vp(this.theme.button.textMargin.bottom.value) }
+    return { top: LengthMetrics.vp(this.theme.button.textMargin.bottom!.value) }
   }
 
   private getButtonTextPadding(): LocalizedPadding {
@@ -500,11 +503,48 @@ export struct PopupComponent {
     return this.theme.button.fontWeight
   }
 
+  private getBtnResponseRegion(actualWidth: number, actualHeight: number, minSizeVp: number): Rectangle | undefined {
+    if (actualWidth === 0 || actualHeight === 0 || minSizeVp <= 0) {
+      return undefined;
+    }
+
+    let needExpandWidth = actualWidth === -1 ? false : (actualWidth < minSizeVp);
+    let needExpandHeight = actualHeight < minSizeVp;
+
+    if (!needExpandWidth && !needExpandHeight) {
+      return undefined;
+    }
+
+    let regionWidth = needExpandWidth ? minSizeVp : '100%';
+    let regionHeight = needExpandHeight ? minSizeVp : '100%';
+    let offsetX = needExpandWidth ? (minSizeVp - actualWidth) / 2 : 0;
+    let offsetY = needExpandHeight ? (minSizeVp - actualHeight) / 2 : 0;
+
+    return {
+      x: -offsetX,
+      y: -offsetY,
+      width: regionWidth,
+      height: regionHeight
+    };
+  }
+
+  private getCloseBtnResponseRegion(): Rectangle | undefined {
+    let responseRegionValue = this.toVp(this.theme.closeButton.responseRegion);
+    return this.getBtnResponseRegion(this.theme.closeButton.size.width as number,
+      this.theme.closeButton.size.height as number, responseRegionValue)
+  }
+
+  private getNormalBtnResponseRegion(height: number): Rectangle | undefined {
+    let responseRegionValue = this.toVp(this.theme.button.responseRegion);
+    return this.getBtnResponseRegion(-1, height, responseRegionValue)
+  }
+
+
   private getWindowsPadding(): LocalizedPadding {
     let top = this.theme.windows.padding.top;
     let bottom =
-      LengthMetrics.vp(this.theme.windows.padding.bottom.value - (this.theme.button.textMargin.bottom.value / 2));
-    let start = LengthMetrics.vp(this.theme.windows.padding.start.value - (this.theme.button.margin.end.value / 2));
+      LengthMetrics.vp(this.theme.windows.padding.bottom!.value - (this.theme.button.textMargin.bottom!.value / 2));
+    let start = LengthMetrics.vp(this.theme.windows.padding.start!.value - (this.theme.button.margin.end!.value / 2));
     let end = this.theme.windows.padding.end;
     let resolvedMaxWidth = this.toVp(this.maxWidth);
     if (resolvedMaxWidth === 0) {
@@ -528,35 +568,42 @@ export struct PopupComponent {
   }
 
   aboutToAppear() {
-    this.listener.on("change", (mediaQueryResult: mediaquery.MediaQueryResult) => {
-      this.currentScreenStatus = mediaQueryResult.matches
+    this.listener.on('change', (mediaQueryResult: mediaquery.MediaQueryResult) => {
+      setTimeout(() => {
+        this.currentScreenStatus = mediaQueryResult.matches
+        this.setScrollMaxHeight(undefined, true)
+      }, 10)
     })
   }
 
   aboutToDisappear() {
-    this.listener.off("change")
+    this.listener.off('change')
   }
 
-  getScrollMaxHeight(): number | undefined {
+  setScrollMaxHeight(maxHeight: number | undefined, forceChange: boolean = false) {
     let scrollMaxHeight: number | undefined = undefined;
-    if (this.currentScreenStatus !== this.beforeScreenStatus) {
+    if (maxHeight) {
+      scrollMaxHeight = maxHeight!;
+    } else {
       this.applySizeOptions = this.getApplyMaxSize();
-      this.beforeScreenStatus = this.currentScreenStatus
-      return scrollMaxHeight;
+      let maxHeightInDisplay = this.applySizeOptions?.maxHeight as number;
+      if (this.applyHeight && !forceChange) {
+        scrollMaxHeight = Math.min(this.applyHeight, maxHeightInDisplay)
+      } else {
+        scrollMaxHeight = maxHeightInDisplay;
+      }
     }
-    scrollMaxHeight = px2vp(componentUtils.getRectangleById(this.applycontentKey).size?.height)
     scrollMaxHeight -= this.titleHeight
     scrollMaxHeight -= this.buttonHeight
-    scrollMaxHeight -= this.theme.windows.padding.top.value
-    scrollMaxHeight -= (this.theme.button.textMargin.bottom.value / 2)
-    scrollMaxHeight -= this.theme.title.margin.bottom.value
-    scrollMaxHeight -= (this.theme.windows.padding.bottom.value -
-      (this.theme.button.textMargin.bottom.value / 2))
+    scrollMaxHeight -= this.theme.windows.padding.top!.value
+    scrollMaxHeight -= (this.theme.button.textMargin.bottom!.value / 2)
+    scrollMaxHeight -= this.theme.title.margin.bottom!.value
+    scrollMaxHeight -= (this.theme.windows.padding.bottom!.value -
+      (this.theme.button.textMargin.bottom!.value / 2))
     if (Math.floor(this.textHeight) > Math.floor(scrollMaxHeight + 1)) {
-      return scrollMaxHeight
+      this.scrollMaxHeight = scrollMaxHeight;
     } else {
-      scrollMaxHeight = undefined
-      return scrollMaxHeight
+      this.scrollMaxHeight = undefined;
     }
   }
 
@@ -689,7 +736,8 @@ export struct PopupComponent {
 
   private getTitleTextAlign(): TextAlign {
     let titleAlign = TextAlign.Start;
-    if ((Configuration.getLocale().dir === 'rtl') && this.popupDirection === Direction.Auto) {
+    if ((Configuration.getLocale().dir === 'rtl') && 
+      (this.popupDirection === Direction.Auto || this.popupDirection === undefined)) {
       titleAlign = TextAlign.End;
     }
     return titleAlign
@@ -740,6 +788,7 @@ export struct PopupComponent {
               .backgroundColor(this.closeButtonBackgroundColor)
               .flexShrink(0)
               .accessibilityText(this.theme.closeButton.accessibilityMessage)
+              .responseRegion(this.getCloseBtnResponseRegion())
               .onHover((isHover: boolean) => {
                 if (isHover) {
                   this.closeButtonBackgroundColor = this.getCloseButtonHoverColor()
@@ -755,10 +804,11 @@ export struct PopupComponent {
             }
           }
           .direction(this.popupDirection)
-          .width("100%")
+          .width('100%')
           .margin(this.getTitleMargin())
           .onAreaChange((_, rect) => {
             this.titleHeight = rect.height as number
+            this.setScrollMaxHeight(undefined);
           })
 
           Scroll() {
@@ -768,17 +818,19 @@ export struct PopupComponent {
               .fontColor(this.getMessageFontColor())
               .fontWeight(this.getMessageFontWeight())
               .constraintSize({ minHeight: this.getCloseButtonHeight() })
+              .textAlign(this.getTitleTextAlign())
               .onAreaChange((_, rect) => {
                 this.textHeight = rect.height as number
+                this.setScrollMaxHeight(undefined);
               })
           }
           .direction(this.popupDirection)
-          .width("100%")
+          .width('100%')
           .align(Alignment.TopStart)
           .padding(this.getMessagePadding())
           .scrollBar(BarState.Auto)
           .scrollable(ScrollDirection.Vertical)
-          .constraintSize({ maxHeight: this.getScrollMaxHeight() })
+          .constraintSize({ maxHeight: this.scrollMaxHeight })
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: false })
 
           Flex({ wrap: FlexWrap.Wrap }) {
@@ -812,6 +864,10 @@ export struct PopupComponent {
                   this.buttons?.[0]?.action();
                 }
               })
+              .onAreaChange((_, rect) => {
+                this.firstButtonHeight = rect.height as number;
+              })
+              .responseRegion(this.getNormalBtnResponseRegion(this.firstButtonHeight))
             }
             if (this.buttons?.[1]?.text !== '' && this.buttons?.[1]?.text !== void (0)) {
               Button() {
@@ -843,6 +899,10 @@ export struct PopupComponent {
                   this.buttons?.[1]?.action();
                 }
               })
+              .onAreaChange((_, rect) => {
+                this.secondButtonHeight = rect.height as number;
+              })
+              .responseRegion(this.getNormalBtnResponseRegion(this.secondButtonHeight))
             }
           }
           .direction(this.popupDirection)
@@ -855,6 +915,7 @@ export struct PopupComponent {
             } else {
               this.buttonHeight = 0
             }
+            this.setScrollMaxHeight(undefined);
           })
         }
         .direction(this.popupDirection)
@@ -863,6 +924,7 @@ export struct PopupComponent {
         Column() {
           Flex().height(0).onAreaChange((_, rect) => {
             this.titleHeight = rect.height as number
+            this.setScrollMaxHeight(undefined);
           })
           Row() {
             Scroll() {
@@ -872,8 +934,10 @@ export struct PopupComponent {
                 .fontColor(this.getMessageFontColor())
                 .fontWeight(this.getMessageFontWeight())
                 .constraintSize({ maxWidth: this.messageMaxWeight, minHeight: this.getCloseButtonHeight() })
+                .textAlign(this.getTitleTextAlign())
                 .onAreaChange((_, rect) => {
                   this.textHeight = rect.height as number
+                  this.setScrollMaxHeight(undefined);
                 })
             }
             .direction(this.popupDirection)
@@ -883,7 +947,7 @@ export struct PopupComponent {
             .padding(this.getMessagePadding())
             .scrollBar(BarState.Auto)
             .scrollable(ScrollDirection.Vertical)
-            .constraintSize({ maxHeight: this.getScrollMaxHeight() })
+            .constraintSize({ maxHeight: this.scrollMaxHeight })
 
             if (this.showClose || this.showClose === void (0)) {
               Button() {
@@ -902,6 +966,7 @@ export struct PopupComponent {
               .backgroundColor(this.closeButtonBackgroundColor)
               .flexShrink(0)
               .accessibilityText(this.theme.closeButton.accessibilityMessage)
+              .responseRegion(this.getCloseBtnResponseRegion())
               .onHover((isHover: boolean) => {
                 if (isHover) {
                   this.closeButtonBackgroundColor = this.getCloseButtonHoverColor()
@@ -950,6 +1015,10 @@ export struct PopupComponent {
                   this.buttons?.[0]?.action();
                 }
               })
+              .onAreaChange((_, rect) => {
+                this.firstButtonHeight = rect.height as number;
+              })
+              .responseRegion(this.getNormalBtnResponseRegion(this.firstButtonHeight))
             }
             if (this.buttons?.[1]?.text !== '' && this.buttons?.[1]?.text !== void (0)) {
               Button() {
@@ -981,6 +1050,10 @@ export struct PopupComponent {
                   this.buttons?.[1]?.action();
                 }
               })
+              .onAreaChange((_, rect) => {
+                this.secondButtonHeight = rect.height as number;
+              })
+              .responseRegion(this.getNormalBtnResponseRegion(this.secondButtonHeight))
             }
           }
           .direction(this.popupDirection)
@@ -993,6 +1066,7 @@ export struct PopupComponent {
             } else {
               this.buttonHeight = 0
             }
+            this.setScrollMaxHeight(undefined);
           })
         }
         .direction(this.popupDirection)
@@ -1007,6 +1081,7 @@ export struct PopupComponent {
     .key(this.applycontentKey)
     .onAreaChange((_, rect) => {
       this.applyHeight = rect.height as number
+      this.setScrollMaxHeight(this.applyHeight)
     })
   }
 }

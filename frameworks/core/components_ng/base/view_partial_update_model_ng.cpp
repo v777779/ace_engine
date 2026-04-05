@@ -88,6 +88,8 @@ RefPtr<AceType> ViewPartialUpdateModelNG::CreateNode(NodeInfoPU&& info)
     customNode->SetClearAllRecycleFunc(std::move(info.clearAllRecycleFunc));
     customNode->SetOnRecycleFunc(std::move(info.recycleFunc));
     customNode->SetOnReuseFunc(std::move(info.reuseFunc));
+    customNode->SetTriggerLifecycleFunction(std::move(info.triggerLifecycleFunc));
+    customNode->SetCreatorId(std::to_string(info.creatorId));
     return customNode;
 }
 
@@ -95,7 +97,10 @@ bool ViewPartialUpdateModelNG::MarkNeedUpdate(const WeakPtr<AceType>& node)
 {
     auto weakNode = AceType::DynamicCast<NG::CustomNodeBase>(node);
     auto customNode = weakNode.Upgrade();
-    CHECK_NULL_RETURN(customNode, false);
+    if (!customNode) {
+        LOGW("customNode invalid");
+        return false;
+    }
     customNode->MarkNeedUpdate();
     return true;
 }
@@ -128,5 +133,15 @@ bool ViewPartialUpdateModelNG::AllowReusableV2Descendant(const WeakPtr<AceType>&
     bool result = ((node->GetParent() == nullptr) || (node->GetParent()->GetTag() == V2::JS_VIEW_ETS_TAG) ||
                    (node->IsAllowReusableV2Descendant()));
     return result;
+}
+
+bool ViewPartialUpdateModelNG::RegisterUpdateJSInstanceCallback(
+    const WeakPtr<AceType>& node, std::function<void(int32_t)>&& instanceChangeCallback)
+{
+    auto weakNode = AceType::DynamicCast<NG::CustomNode>(node);
+    auto customNode = weakNode.Upgrade();
+    CHECK_NULL_RETURN(customNode, false);
+    customNode->RegisterUpdateJSInstanceCallback(std::move(instanceChangeCallback));
+    return true;
 }
 } // namespace OHOS::Ace::NG

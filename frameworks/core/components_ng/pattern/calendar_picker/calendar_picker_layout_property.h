@@ -50,7 +50,7 @@ public:
         if (filter.IsFastFilter()) {
             return;
         }
-        auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+        auto pipeline = PipelineBase::GetCurrentContext();
         CHECK_NULL_VOID(pipeline);
         RefPtr<CalendarTheme> calendarTheme = pipeline->GetTheme<CalendarTheme>();
         CHECK_NULL_VOID(calendarTheme);
@@ -95,6 +95,7 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP_ITEM(TextStyle, FontSize, FontSize, Dimension, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP_ITEM(TextStyle, TextColor, Color, Color, PROPERTY_UPDATE_MEASURE_SELF);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP_ITEM(TextStyle, FontWeight, Weight, FontWeight, PROPERTY_UPDATE_MEASURE);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(NormalTextColorSetByUser, bool, PROPERTY_UPDATE_MEASURE_SELF);
 
 protected:
     RefPtr<LayoutProperty> Clone() const override

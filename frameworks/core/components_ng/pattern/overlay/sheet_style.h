@@ -23,7 +23,18 @@
 #include "core/components/common/properties/color.h"
 #include "core/components/common/properties/decoration.h"
 #include "core/components/common/properties/placement.h"
+#include "core/components_ng/pattern/overlay/modal_style.h"
 #include "core/components_ng/pattern/overlay/sheet_theme.h"
+#include "core/components_ng/property/border_property.h"
+#include "core/common/resource/resource_object.h"
+#include "ui/properties/ui_material.h"
+
+#define ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(name)                                   \
+public:                                                                             \
+    void Set##name##ResObj(RefPtr<ResourceObject>& obj) { prop##name##Obj_ = obj; }       \
+    const RefPtr<ResourceObject>& Get##name##ResObj() const { return prop##name##Obj_; }  \
+private:                                                                            \
+    RefPtr<ResourceObject> prop##name##Obj_
 
 namespace OHOS::Ace::NG {
 constexpr float SHEET_VELOCITY_THRESHOLD = 1000.0f;
@@ -32,7 +43,6 @@ constexpr float CURVE_STIFFNESS = 328.0f;
 constexpr float CURVE_DAMPING = 36.0f;
 constexpr float MEDIUM_SIZE = 0.6f;
 constexpr float MEDIUM_SIZE_PRE = 0.5f;
-constexpr float POPUP_LARGE_SIZE = 0.9f;
 constexpr int32_t SHEET_ANIMATION_DURATION = 580;
 
 enum SheetMode {
@@ -46,9 +56,11 @@ enum SheetType {
     SHEET_CENTER,
     SHEET_POPUP,
     SHEET_SIDE = 3,
+    SHEET_CONTENT_COVER = 4,
     SHEET_BOTTOMLANDSPACE,
     SHEET_BOTTOM_FREE_WINDOW,
     SHEET_BOTTOM_OFFSET,
+    SHEET_MINIMIZE,
 };
 
 enum class SheetAccessibilityDetents {
@@ -197,6 +209,16 @@ struct SheetStyle {
     std::optional<Placement> placement;
     std::optional<bool> placementOnTarget;
     std::optional<bool> showInSubWindow;
+    std::optional<ModalTransition> modalTransition;
+    std::optional<RenderStrategy> radiusRenderStrategy;
+    RefPtr<UiMaterial> systemMaterial;
+
+    SheetStyle() = default;
+    // constructor for image generator dialog
+    SheetStyle(SheetHeight sheetHeight, std::optional<bool> showCloseIcon, std::optional<SheetType> sheetType,
+        std::optional<Color> backgroundColor, std::optional<Color>maskColor, std::optional<Dimension> width):
+        sheetHeight(sheetHeight), showCloseIcon(showCloseIcon), sheetType(sheetType),
+        backgroundColor(backgroundColor), maskColor(maskColor), width(width) {}
 
     bool operator==(const SheetStyle& sheetStyle) const
     {
@@ -216,7 +238,8 @@ struct SheetStyle {
                 hoverModeArea == sheetStyle.hoverModeArea && radius == sheetStyle.radius &&
                 detentSelection == sheetStyle.detentSelection && sheetEffectEdge == sheetStyle.sheetEffectEdge &&
                 placement == sheetStyle.placement && placementOnTarget == sheetStyle.placementOnTarget &&
-                showInSubWindow == sheetStyle.showInSubWindow);
+                showInSubWindow == sheetStyle.showInSubWindow && modalTransition == sheetStyle.modalTransition &&
+                radiusRenderStrategy == sheetStyle.radiusRenderStrategy && systemMaterial == sheetStyle.systemMaterial);
     }
 
     void PartialUpdate(const SheetStyle& sheetStyle)
@@ -262,7 +285,62 @@ struct SheetStyle {
         placement = sheetStyle.placement.has_value() ? sheetStyle.placement : placement;
         placementOnTarget = sheetStyle.placementOnTarget.has_value() ?
             sheetStyle.placementOnTarget : placementOnTarget;
+        modalTransition = sheetStyle.modalTransition.has_value() ? sheetStyle.modalTransition : modalTransition;
+        radiusRenderStrategy =
+            sheetStyle.radiusRenderStrategy.has_value() ? sheetStyle.radiusRenderStrategy : radiusRenderStrategy;
+        systemMaterial = sheetStyle.systemMaterial ? sheetStyle.systemMaterial : systemMaterial;
     }
+
+    // Register the set/get method of the resource.
+    void SetDetentsResObjs(std::vector<RefPtr<ResourceObject>>&& resObjs)
+    {
+        detentsObj_ = std::move(resObjs);
+    }
+
+    const std::vector<RefPtr<ResourceObject>>& GetDetentsResObjs() const
+    {
+        return detentsObj_;
+    }
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(SheetHeight);
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(DetentSelection);
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(SheetWidth);
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(ShowClose);
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(MaskColor);
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(MainTitle);
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(SubTitle);
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(BorderWidth);
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(BorderColor);
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(Radius);
+    ACE_SHEET_CREATE_RESOURCE_FUNCTIONS(BackgroundColor);
+    std::vector<RefPtr<ResourceObject>> detentsObj_;
+};
+
+struct BindSheetCreateParam {
+    bool isStartByUIContext = false;
+    SheetStyle style;
+    RefPtr<FrameNode> targetNode = nullptr;
+    RefPtr<UINode> sheetContentNode = nullptr;
+    std::function<void(const std::string&)> callback = nullptr;
+    std::function<RefPtr<UINode>()> buildtitleNodeFunc = nullptr;
+    std::function<void()> onAppear = nullptr;
+    std::function<void()> onDisappear = nullptr;
+    std::function<void()> shouldDismiss = nullptr;
+    std::function<void(const int32_t)> onWillDismiss = nullptr;
+    std::function<void()> onWillAppear = nullptr;
+    std::function<void()> onWillDisappear = nullptr;
+    std::function<void(const float)> onHeightDidChange = nullptr;
+    std::function<void(const float)> onDetentsDidChange = nullptr;
+    std::function<void(const float)> onWidthDidChange = nullptr;
+    std::function<void(const float)> onTypeDidChange = nullptr;
+    std::function<void()> sheetSpringBack = nullptr;
+
+    BindSheetCreateParam() = default;
+    // use for image generator
+    BindSheetCreateParam(SheetStyle style, RefPtr<FrameNode> targetNode, RefPtr<UINode> sheetContentNode,
+        std::function<void(const int32_t)>&& onWillDismiss, std::function<void()>&& springBack, bool byUIContext) :
+        isStartByUIContext(byUIContext), style(style), targetNode(targetNode), sheetContentNode(sheetContentNode),
+        onWillDismiss(std::move(onWillDismiss)), sheetSpringBack(std::move(springBack))
+        {}
 };
 } // namespace OHOS::Ace::NG
 

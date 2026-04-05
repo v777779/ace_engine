@@ -18,156 +18,34 @@
 
 #include <utility>
 
-#include "base/geometry/offset.h"
-#include "base/memory/ace_type.h"
-#include "base/utils/time_util.h"
+#include "ui/event/touch_event.h"
+#include "ui/gestures/gesture_info.h"
 #include "core/components_ng/event/event_constants.h"
 #include "core/components_ng/event/target_component.h"
-#include "core/event/ace_events.h"
 #include "core/event/axis_event.h"
-
-namespace OHOS::MMI {
-class PointerEvent;
-} // namespace OHOS::MMI
-
-namespace OHOS::Ace::NG {
-class FrameNode;
-} // namespace OHOS::Ace::NG
 
 namespace OHOS::Ace {
 
-struct TouchPoint final {
-    int32_t id = 0;
-    float x = 0.0f;
-    float y = 0.0f;
-    float screenX = 0.0f;
-    float screenY = 0.0f;
-    double globalDisplayX = 0.0;
-    double globalDisplayY = 0.0;
-    TimeStamp downTime;
-    double size = 0.0;
-    float force = 0.0f;
-    std::optional<float> tiltX;
-    std::optional<float> tiltY;
-    std::optional<float> rollAngle;
-    SourceTool sourceTool = SourceTool::UNKNOWN;
-    bool isPressed = false;
-    int32_t originalId = 0;
-    int32_t operatingHand = 0;
-    int32_t width;
-    int32_t height;
+// Forward declarations
+namespace NG {
+class NGGestureRecognizer;
+} // namespace NG
 
-    void CovertId();
-    int32_t GetOriginalReCovertId() const;
-};
-
-/**
- * @brief TouchEvent contains the active change point and a list of all touch points.
- */
-struct TouchEvent final : public PointerEvent {
-    ~TouchEvent() = default;
-    // the active changed point info
-    // The ID is used to identify the point of contact between the finger and the screen. Different fingers have
-    // different ids.
-    int32_t id = 0;
-    TouchType type = TouchType::UNKNOWN;
-    TouchType pullType = TouchType::UNKNOWN;
-    double size = 0.0;
-    float force = 0.0f;
-    std::optional<float> tiltX;
-    std::optional<float> tiltY;
-    std::optional<float> rollAngle;
-    int64_t deviceId = 0;
-    int32_t targetDisplayId = 0;
-    SourceType sourceType = SourceType::NONE;
-    SourceTool sourceTool = SourceTool::UNKNOWN;
-    int32_t touchEventId = 0;
-    int32_t operatingHand = 0;
-    bool isInterpolated = false;
-    bool isMouseTouchTest = false;
-    bool isFalsified = false;
-    // all points on the touch screen.
-    std::vector<TouchPoint> pointers;
-    std::shared_ptr<const MMI::PointerEvent> pointerEvent { nullptr };
-    // historical points
-    std::vector<TouchEvent> history;
-    std::vector<KeyCode> pressedKeyCodes_;
-    std::list<std::string> childTouchTestList;
-    // Coordinates relative to the upper-left corner of the current component
-    float localX = 0.0f;
-    float localY = 0.0f;
-    int32_t originalId = 0;
-    bool isInjected = false;
-    bool isPrivacyMode = false;
-    // Save historical touch point slope.
-    float inputXDeltaSlope = 0.0f;
-    float inputYDeltaSlope = 0.0f;
-    bool isPassThroughMode = false;
-    TimeStamp pressedTime;
-    int32_t width = 0;
-    int32_t height = 0;
-    float targetPositionX = 0.0;
-    float targetPositionY = 0.0;
-    float targetGlobalPositionX = 0.0;
-    float targetGlobalPositionY = 0.0;
-    float widthArea = 0.0;
-    float heightArea = 0.0;
-    uint64_t modifierKeyState = 0;
-
-    TouchEvent()
-    {
-        eventType = UIInputEventType::TOUCH;
-    }
-    TouchEvent& SetId(int32_t id);
-    TouchEvent& SetX(float x);
-    TouchEvent& SetY(float y);
-    TouchEvent& SetScreenX(float screenX);
-    TouchEvent& SetScreenY(float screenY);
-    TouchEvent& SetGlobalDisplayX(double globalDisplayX);
-    TouchEvent& SetGlobalDisplayY(double globalDisplayY);
-    TouchEvent& SetTime(TimeStamp time);
-    TimeStamp GetTimeStamp() const;
-    TouchEvent& SetType(TouchType type);
-    TouchEvent& SetPullType(TouchType pullType);
-    TouchEvent& SetSize(double size);
-    TouchEvent& SetForce(float force);
-    TouchEvent& SetTiltX(std::optional<float> tiltX);
-    TouchEvent& SetTiltY(std::optional<float> tiltY);
-    TouchEvent& SetRollAngle(std::optional<float> rollAngle);
-    TouchEvent& SetDeviceId(int64_t deviceId);
-    TouchEvent& SetTargetDisplayId(int32_t targetDisplayId);
-    TouchEvent& SetSourceType(SourceType sourceType);
-    TouchEvent& SetSourceTool(SourceTool sourceTool);
-    TouchEvent& SetTouchEventId(int32_t touchEventId);
-    TouchEvent& SetIsInterpolated(bool isInterpolated);
-    TouchEvent& SetPointers(std::vector<TouchPoint> pointers);
-    TouchEvent& SetPointerEvent(std::shared_ptr<const MMI::PointerEvent> pointerEvent);
-    TouchEvent& SetOriginalId(int32_t originalId);
-    TouchEvent& SetIsInjected(bool isInjected);
-    TouchEvent& SetInputXDeltaSlope(float inputXDeltaSlope);
-    TouchEvent& SetInputYDeltaSlope(float inputYDeltaSlope);
-    TouchEvent& SetPressedKeyCodes(const std::vector<KeyCode>& pressedKeyCodes);
-    TouchEvent& SetIsPassThroughMode(bool isPassThroughMode);
-    TouchEvent& SetOperatingHand(int32_t operatingHand);
-    TouchEvent& SetPressedTime(TimeStamp pressedTime);
-    TouchEvent& SetWidth(int32_t width);
-    TouchEvent& SetHeight(int32_t height);
-    TouchEvent CloneWith(float scale) const;
-    TouchEvent CloneWith(float scale, float offsetX, float offsetY, std::optional<int32_t> pointId) const;
-    void ToJsonValue(std::unique_ptr<JsonValue>& json) const;
-    void FromJson(const std::unique_ptr<JsonValue>& json);
-    Offset GetOffset() const;
-    Offset GetScreenOffset() const;
-    Offset GetGlobalDisplayOffset() const;
-    int32_t GetTargetDisplayId() const;
-    void CovertId();
-    int32_t GetOriginalReCovertId() const;
-    TouchEvent CreateScalePoint(float scale) const;
-    TouchEvent UpdateScalePoint(float scale, float offsetX, float offsetY, int32_t pointId) const;
-    TouchEvent UpdatePointers() const;
-    bool IsPenHoverEvent() const;
-    std::shared_ptr<MMI::PointerEvent> GetTouchEventPointerEvent() const;
-    int32_t GetEventIdentity() const;
+enum class MouseAction : int32_t {
+    NONE = 0,
+    PRESS = 1,
+    RELEASE = 2,
+    MOVE = 3,
+    WINDOW_ENTER = 4,
+    WINDOW_LEAVE = 5,
+    HOVER,
+    HOVER_ENTER,
+    HOVER_MOVE,
+    HOVER_EXIT,
+    PULL_DOWN,
+    PULL_MOVE,
+    PULL_UP,
+    CANCEL
 };
 
 namespace Platform {
@@ -194,13 +72,16 @@ struct TouchRestrict final {
     {
         forbiddenType |= gestureType;
     }
-    SourceType sourceType = SourceType::NONE;
-    SourceType hitTestType = SourceType::TOUCH;
-    InputEventType inputEventType = InputEventType::TOUCH_SCREEN;
     TouchEvent touchEvent = {};
     std::list<std::string> childTouchTestList = {};
+    SourceType sourceType = SourceType::NONE;
+    SourceTool sourceTool = SourceTool::UNKNOWN;
+    SourceType hitTestType = SourceType::TOUCH;
+    MouseAction mouseAction = MouseAction::NONE;
+    InputEventType inputEventType = InputEventType::TOUCH_SCREEN;
     // use to dump event tree
     NG::EventTreeType touchTestType = NG::EventTreeType::TOUCH;
+    bool isCoastingAxisEvent = false;
 };
 
 class TouchCallBackInfo : public BaseEventInfo {
@@ -236,83 +117,6 @@ private:
     float localY_ = 0.0f;
     TouchType touchType_ = TouchType::UNKNOWN;
     TimeStamp time_;
-};
-
-class ACE_FORCE_EXPORT TouchLocationInfo : public BaseEventInfo {
-    DECLARE_RELATIONSHIP_OF_CLASSES(TouchLocationInfo, TypeInfoBase);
-
-public:
-    explicit TouchLocationInfo(int32_t fingerId) : BaseEventInfo("default")
-    {
-        fingerId_ = fingerId;
-    }
-    explicit TouchLocationInfo(const std::string& type, int32_t fingerId) : BaseEventInfo(type)
-    {
-        fingerId_ = fingerId;
-    }
-    ~TouchLocationInfo() override = default;
-    TouchLocationInfo& SetGlobalLocation(const Offset& globalLocation);
-    TouchLocationInfo& SetLocalLocation(const Offset& localLocation);
-    TouchLocationInfo& SetScreenLocation(const Offset& screenLocation);
-    TouchLocationInfo& SetGlobalDisplayLocation(const Offset& globalDisplayLocation);
-    const Offset& GetGlobalDisplayLocation() const
-    {
-        return globalDisplayLocation_;
-    }
-    const Offset& GetScreenLocation() const
-    {
-        return screenLocation_;
-    }
-    const Offset& GetLocalLocation() const
-    {
-        return localLocation_;
-    }
-    const Offset& GetGlobalLocation() const
-    {
-        return globalLocation_;
-    }
-    int32_t GetFingerId() const
-    {
-        return fingerId_;
-    }
-    void SetSize(double size);
-    double GetSize() const;
-    void SetTouchDeviceId(int64_t deviceId);
-    int64_t GetTouchDeviceId() const;
-    TouchType GetTouchType() const
-    {
-        return touchType_;
-    }
-    void SetTouchType(TouchType type);
-
-    void SetPressedTime(TimeStamp pressedTime);
-    TimeStamp GetPressedTime() const;
-    void SetWidth(int32_t width);
-    int32_t GetWidth() const;
-    void SetHeight(int32_t height);
-    int32_t GetHeight() const;
-
-private:
-    // The finger id is used to identify the point of contact between the finger and the screen. Different fingers have
-    // different ids.
-    int32_t fingerId_ = -1;
-    // global position at which the touch point contacts the screen.
-    Offset globalLocation_;
-    // Different from global location, The local location refers to the location of the contact point relative to the
-    // current node which has the recognizer.
-    Offset localLocation_;
-    Offset screenLocation_;
-    // The location where the touch point touches the screen when there are multiple screens.
-    Offset globalDisplayLocation_;
-    // finger touch size
-    double size_ = 0.0;
-    // input device id
-    int64_t touchDeviceId_ = 0;
-    // touch type
-    TouchType touchType_ = TouchType::UNKNOWN;
-    TimeStamp pressedTime_;
-    int32_t width_ = 0;
-    int32_t height_ = 0;
 };
 
 using GetEventTargetImpl = std::function<std::optional<EventTarget>()>;
@@ -376,7 +180,7 @@ public:
     {
         return direction_;
     }
-    void SetTouchRestrict(const TouchRestrict& touchRestrict);
+    ACE_FORCE_EXPORT void SetTouchRestrict(const TouchRestrict& touchRestrict);
     void SetGetEventTargetImpl(const GetEventTargetImpl& getEventTargetImpl);
     std::optional<EventTarget> GetEventTarget() const;
     // Coordinate offset is used to calculate the local location of the touch point in the render node.
@@ -392,7 +196,7 @@ public:
     virtual void AttachFrameNode(const WeakPtr<NG::FrameNode>& node);
     WeakPtr<NG::FrameNode> GetAttachedNode() const;
     virtual RefPtr<GestureSnapshot> Dump() const;
-    void SetTargetComponent(const RefPtr<NG::TargetComponent>& targetComponent);
+    ACE_FORCE_EXPORT void SetTargetComponent(const RefPtr<NG::TargetComponent>& targetComponent);
     RefPtr<NG::TargetComponent> GetTargetComponent();
     void SetIsPostEventResult(bool isPostEventResult);
     bool IsPostEventResult() const;
@@ -404,70 +208,25 @@ private:
     };
 
 protected:
-    Offset coordinateOffset_;
-    GetEventTargetImpl getEventTargetImpl_;
     TouchRestrict touchRestrict_ { TouchRestrict::NONE };
-    Offset subPipelineGlobalOffset_;
-    float viewScale_ = 1.0f;
-    std::string nodeName_ = "NULL";
-    int32_t nodeId_ = -1;
     WeakPtr<NG::FrameNode> node_ = nullptr;
-    Axis direction_ = Axis::NONE;
+    Offset coordinateOffset_;
+    Offset subPipelineGlobalOffset_;
+    GetEventTargetImpl getEventTargetImpl_;
+    std::string nodeName_ = "NULL";
     RefPtr<NG::TargetComponent> targetComponent_;
-    bool isPostEventResult_ = false;
     std::optional<TimeStamp> firstInputTime_;
+    float viewScale_ = 1.0f;
+    int32_t nodeId_ = -1;
+    Axis direction_ = Axis::NONE;
+    bool isPostEventResult_ = false;
 };
 
 using TouchTestResult = std::list<RefPtr<TouchEventTarget>>;
-using ResponseLinkResult = std::list<RefPtr<NG::NGGestureRecognizer>>;
-
-class TouchEventInfo : public BaseEventInfo {
-    DECLARE_RELATIONSHIP_OF_CLASSES(TouchEventInfo, BaseEventInfo);
-
-public:
-    explicit TouchEventInfo(const std::string& type) : BaseEventInfo(type) {}
-    ~TouchEventInfo() override = default;
-    void AddTouchLocationInfo(TouchLocationInfo&& info);
-    void AddChangedTouchLocationInfo(TouchLocationInfo&& info);
-    void AddHistoryLocationInfo(TouchLocationInfo&& info);
-    const std::list<TouchLocationInfo>& GetTouches() const
-    {
-        return touches_;
-    }
-    const std::list<TouchLocationInfo>& GetChangedTouches() const
-    {
-        return changedTouches_;
-    }
-    
-    // use for ArkTs1.2 interop
-    void SetTouches(std::list<TouchLocationInfo>&& touches)
-    {
-        touches_ = std::move(touches);
-    }
-    void SetChangedTouches(std::list<TouchLocationInfo>&& changedTouches)
-    {
-        changedTouches_ = std::move(changedTouches);
-    }
-    const std::list<TouchLocationInfo>& GetHistory() const;
-    void AddHistoryPointerEvent(const std::shared_ptr<MMI::PointerEvent>& info);
-    const std::list<std::shared_ptr<MMI::PointerEvent>>& GetHistoryPointerEvent() const;
-    void SetPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
-    const std::shared_ptr<MMI::PointerEvent>& GetPointerEvent() const;
-    void SetTouchEventsEnd(bool isTouchEventsEnd);
-    bool GetTouchEventsEnd() const;
-    TouchEvent ConvertToTouchEvent() const;
-
-private:
-    std::shared_ptr<MMI::PointerEvent> pointerEvent_;
-    std::list<TouchLocationInfo> touches_;
-    std::list<TouchLocationInfo> changedTouches_;
-    std::list<TouchLocationInfo> history_;
-    std::list<std::shared_ptr<MMI::PointerEvent>> historyPointerEvent_;
-    bool isTouchEventsEnd_ { false };
-};
+using ResponseLinkResult = std::list<WeakPtr<NG::NGGestureRecognizer>>;
 
 class ACE_EXPORT GestureEventResult : public AceType {
-    DECLARE_ACE_TYPE(GestureEventResult, AceType)
+    DECLARE_ACE_TYPE(GestureEventResult, AceType);
 
 public:
     GestureEventResult() = default;
@@ -495,10 +254,6 @@ private:
     TouchEventInfo touchEvent_;
     RefPtr<GestureEventResult> result_;
 };
-
-using TouchEventFunc = std::function<void(TouchEventInfo&)>;
-using OnTouchEventCallback = std::function<void(const TouchEventInfo&)>;
-using CatchTouchEventCallback = std::function<void()>;
 
 } // namespace OHOS::Ace
 

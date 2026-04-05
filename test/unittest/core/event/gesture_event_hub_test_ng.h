@@ -21,10 +21,10 @@
 #define protected public
 #undef SECURITY_COMPONENT_ENABLE
 
-#include "test/mock/base/mock_pixel_map.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_udmf.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/image/mock_pixel_map.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/geometry/axis.h"
 #include "base/geometry/ng/offset_t.h"
@@ -65,14 +65,16 @@ RefPtr<MockTaskExecutor> MOCK_TASK_EXECUTOR;
 constexpr float DRAG_DISTANCE = 10.5f;
 const PanDirection DRAG_DIRECTION = { PanDirection::LEFT };
 constexpr int32_t FINGERS_NUMBER = 2;
-constexpr int32_t parallelIndex_1 = 2;
-constexpr int32_t parallelIndex_2 = 0;
+constexpr int32_t PARALLEL_INDEX_1 = 2;
+constexpr int32_t PARALLEL_INDEX_2 = 0;
 constexpr float PREVIEW_DOWN_SCALE = 0.8f;
 constexpr float PREVIEW_UP_SCALE = 1.2f;
 constexpr float EXPECT_SCALE = 1.0f;
 constexpr float PREVIEW_NEGA_SCALE = -1.0f;
 constexpr int32_t PIXELMAP_WIDTH_LARGE = 200;
+constexpr int32_t PIXELMAP_WIDTH = 100;
 constexpr int32_t PIXELMAP_HEIGHT = 200;
+constexpr int32_t INSTANCE_ID = 123;
 constexpr float SIZE_X = 100.0f;
 constexpr float SIZE_Y = 100.0f;
 constexpr float INIT_MOVE_X = 50.0f;
@@ -81,6 +83,20 @@ constexpr float LAST_MOVE_X = 30.0f;
 constexpr float LAST_MOVE_Y = 30.0f;
 constexpr float TOTAL_MOVE_X = 20.0f;
 constexpr float TOTAL_MOVE_Y = 20.0f;
+constexpr float SIZE_ZERO = 0.0f;
+constexpr float DEFAULT_SCALE = 1.0f;
+constexpr float FRAME_OFFSET_X = 30.0f;
+constexpr float FRAME_OFFSET_Y = 40.0f;
+constexpr float FRAME_WIDTH = 30.0f;
+constexpr float FRAME_HEIGHT = 60.0f;
+constexpr float MOVE_OFFSET_X = 10.0f;
+constexpr float MOVE_OFFSET_Y = 10.0f;
+constexpr float GESTURE_GLOBAL_X = 10.0f;
+constexpr float GESTURE_GLOBAL_Y = 20.0f;
+constexpr float INNER_OFFSET_X = 5.0f;
+constexpr float INNER_OFFSET_Y = 10.0f;
+constexpr float DRAG_OFFSET_X = 40.0f;
+constexpr float DRAG_OFFSET_Y = 40.0f;
 } // namespace
 
 class GestureEventHubTestNg : public testing::Test {
@@ -89,6 +105,16 @@ public:
     static void TearDownTestSuite();
 };
 class GestureEventHubTestCoverageNg : public testing::Test {
+public:
+    static void SetUpTestSuite();
+    static void TearDownTestSuite();
+};
+class GestureEventHubTestFiveNg : public testing::Test {
+public:
+    static void SetUpTestSuite();
+    static void TearDownTestSuite();
+};
+class GestureEventHubTestSixNg : public testing::Test {
 public:
     static void SetUpTestSuite();
     static void TearDownTestSuite();

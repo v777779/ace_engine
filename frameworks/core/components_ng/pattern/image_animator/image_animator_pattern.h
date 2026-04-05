@@ -16,11 +16,11 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_IMAGE_ANIMATOR_IMAGE_ANIMATOR_PATTERN_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_IMAGE_ANIMATOR_IMAGE_ANIMATOR_PATTERN_H
 
-#include "core/components/declaration/image/image_animator_declaration.h"
+#include "base/image/controlled_animator.h"
 #include "core/components_ng/base/frame_node.h"
-#include "core/components_ng/pattern/image_animator/controlled_animator.h"
 #include "core/components_ng/pattern/image_animator/image_animator_event_hub.h"
 #include "core/components_ng/pattern/pattern.h"
+#include "core/components_ng/pattern/image/image_properties.h"
 
 namespace OHOS::Ace::NG {
 class InspectorFilter;
@@ -47,6 +47,7 @@ public:
     void OnModifyDone() override;
 
     void OnAttachToFrameNode() override;
+
     void OnAttachToMainTree() override;
     void OnAttachToFrameNodeMultiThread();
     void OnAttachToMainTreeMultiThread();
@@ -104,14 +105,14 @@ public:
         fixedSize_ = fixedSize;
     }
 
-    void OnInActive() override
+    void OnInActiveImageAnimator()
     {
         if (status_ == ControlledAnimator::ControlStatus::RUNNING) {
             controlledAnimator_->Pause();
         }
     }
 
-    void OnActive() override
+    void OnActiveImageAnimator()
     {
         if (status_ == ControlledAnimator::ControlStatus::RUNNING &&
             controlledAnimator_->GetControlStatus() != ControlledAnimator::ControlStatus::RUNNING) {
@@ -151,11 +152,6 @@ public:
         return static_cast<int32_t>(images_.size());
     }
 
-    const ImageProperties& GetImage(int32_t index)
-    {
-        return images_[index];
-    }
-
     bool CheckIfNeedVisibleAreaChange()
     {
         return isAutoMonitorInvisibleArea_;
@@ -171,10 +167,26 @@ public:
         isAutoMonitorInvisibleArea_ = isAutoMonitorInvisibleArea;
     }
 
+    bool IsEnableMatchParent() override
+    {
+        return true;
+    }
+
+    bool IsEnableFix() override
+    {
+        return true;
+    }
+
+    void SetVisible(bool visible)
+    {
+        visible_ = visible;
+    }
+
 private:
     std::vector<PictureInfo> CreatePictureAnimation(int32_t size);
     void UpdateEventCallback();
     std::string ImagesToString() const;
+    void CheckClearUserDefinedSize(const RefPtr<LayoutProperty>& layoutProperty);
     void AdaptSelfSize();
     void SetShowingIndex(int32_t index);
     void DisablePreAnimatedImageAnimation(uint32_t index);
@@ -195,6 +207,7 @@ private:
     void ResetFormAnimationStartTime();
     void ResetFormAnimationFlag();
     void RunAnimatorByStatus(int32_t index);
+    void ShowIndex(int32_t index);
     void UpdateBorderRadius();
     void RegisterVisibleAreaChange();
     void OnVisibleAreaChange(bool visible = true, double ratio = 0.0);
@@ -213,11 +226,13 @@ private:
     bool imagesChangedFlag_ = false;
     bool firstUpdateEvent_ = true;
     bool isStatic_ = false;
+    bool showingIndexByStoppedOrPaused_ = false;
     bool isLayouted_ = false;
     int64_t formAnimationStartTime_ = 0;
     int32_t formAnimationRemainder_ = 0;
     bool isFormAnimationStart_ = true;
     bool isFormAnimationEnd_ = false;
+    bool visible_ = false;
     bool isAutoMonitorInvisibleArea_ = false; // Controls whether the system's onVisibleAreaChange callback is used to
                                               // manage the play and stop behavior of ImageAnimator.
 };

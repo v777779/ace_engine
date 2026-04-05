@@ -15,6 +15,7 @@
 #include "core/interfaces/native/node/web_modifier.h"
 
 #include "bridge/common/utils/utils.h"
+#include "core/components_ng/pattern/text/text_model.h"
 #include "core/components_ng/pattern/web/web_model_ng.h"
 #include "core/interfaces/native/node/node_drag_modifier.h"
 #include "core/pipeline_ng/pipeline_context.h"
@@ -26,27 +27,35 @@ constexpr bool DEFAULT_FILE_ACCESS_ENABLED = false;
 constexpr bool DEFAULT_DOM_STORAGE_ACCESS_ENABLED = false;
 constexpr MixedModeContent DEFAULT_MIXED_MODE = MixedModeContent::MIXED_CONTENT_NEVER_ALLOW;
 constexpr int32_t DEFAULT_ZOOM_ACCESS_ENABLED = true;
+constexpr bool DEFAULT_ZOOM_CONTROL_ACCESS = false;
 constexpr WebCacheMode DEFAULT_CACHE_MODE = WebCacheMode::DEFAULT;
 constexpr WebDarkMode DEFAULT_DARK_MODE = WebDarkMode::Off;
 constexpr int32_t DEFAULT_MULTIWINDOW_ACCESS_ENABLED = false;
 constexpr int32_t DEFAULT_ALLOW_WINDOWOPEN_METHOD = false;
-constexpr WebKeyboardAvoidMode DEFAULT_KEYBOAED_AVIOD_MODE = WebKeyboardAvoidMode::RESIZE_CONTENT;
-constexpr bool DEFAULT_VERTICALSCROLL_BAR_ACCESS_ENABLED = true;
-constexpr bool DEFAULT_HORIZONTALSCROLL_BAR_ACCESS_ENABLED = true;
+constexpr WebKeyboardAvoidMode DEFAULT_KEYBOARD_AVOID_MODE = WebKeyboardAvoidMode::RESIZE_VISUAL;
+constexpr bool DEFAULT_VERTICAL_SCROLL_BAR_ACCESS_ENABLED = false;
+constexpr bool DEFAULT_HORIZONTAL_SCROLL_BAR_ACCESS_ENABLED = false;
 constexpr int32_t DEFAULT_TEXT_ZOOM_RATIO = 100;
 constexpr float DEFAULT_INITIAL_SCALE = 100.0f;
-constexpr bool DEFAULT_GEOLOCATION_ACCESS_ENABLED = true;
+constexpr bool DEFAULT_GEOLOCATION_ACCESS_ENABLED = false;
 constexpr bool DEFAULT_DATABASE_ACCESS_ENABLED = false;
-constexpr bool DEFAULT_OVERVIEWMODE_ACCESS_ENABLED = true;
+constexpr bool DEFAULT_OVERVIEW_MODE_ACCESS = false;
 constexpr bool DEFAULT_FORCEDARK_ACCESS_ENABLED = false;
 constexpr bool DEFAULT_PINCH_SMOOTH_ENABLED = false;
 constexpr bool DEFAULT_META_VIEWPORT_ENABLED = true;
 constexpr bool DEFAULT_ENABLE_FOLLOW_SYSTEM_FONT_WEIGHT = false;
 constexpr bool DEFAULT_NATIVE_EMBED_MODE_ENABLE = false;
-constexpr int32_t DEFAULT_MINFONT_SIZE = 8;
-constexpr int32_t DEFAULT_DEFAULTFONT_SIZE = 16;
-constexpr int32_t DEFAULT_DEFAULTFIXEDFONT_SIZE = 13;
-constexpr int32_t DEFAULT_MINLOGICALFONT_SIZE = 8;
+constexpr bool DEFAULT_ENABLE_IMAGE_ANALYZER = true;
+constexpr bool DEFAULT_FORCE_ENABLE_ZOOM_ENABLED = false;
+constexpr bool DEFAULT_AUTO_FILL_ENABLED = true;
+constexpr bool DEFAULT_ENABLE_DEFAULT_CONTEXT_MENU = true;
+constexpr bool DEFAULT_DRAG_ENABLED = true;
+constexpr ScrollbarLayoutPolicy DEFAULT_SCROLLBAR_LAYOUT_POLICY = ScrollbarLayoutPolicy::CONTENT;
+constexpr int32_t DEFAULT_MINFONT_SIZE = 0;
+constexpr int32_t DEFAULT_DEFAULTFONT_SIZE = 0;
+constexpr int32_t DEFAULT_DEFAULTFIXEDFONT_SIZE = 0;
+constexpr int32_t DEFAULT_MINLOGICALFONT_SIZE = 0;
+constexpr int32_t DEFAULT_SCROLLDIRECTIONALLOCK_NESTED_SCROLL = 1;
 constexpr char DEFAULT_WEBSTANDARD_FONT[] = "sans serif";
 constexpr char DEFAULT_WEBSERIF_FONT[] = "serif";
 constexpr char DEFAULT_WEBSANSSERIF_FONT[] = "sans-serif";
@@ -55,15 +64,23 @@ constexpr char DEFAULT_WEBFANTASY_FONT[] = "fantasy";
 constexpr char DEFAULT_WEBCURSIVE_FONT[] = "cursive";
 constexpr WebLayoutMode DEFAULT_LAYOUT_MODE = WebLayoutMode::NONE;
 constexpr bool DEFAULT_NATIVE_EMBED_OPTIONS = false;
-constexpr bool DEFAULT_IMAGE_ACCESS_ENABLED = true;
-constexpr bool DEFAULT_ONLINEIMAGE_ACCESS_ENABLED = true;
+constexpr bool DEFAULT_IMAGE_ACCESS_ENABLED = false;
+constexpr bool DEFAULT_ONLINE_IMAGE_ACCESS_ENABLED = false;
 constexpr bool MEDIA_PLAY_GESTURE_ACCESS_ENABLED = true;
 constexpr bool DEFAULT_MEDIA_OPTIONS_ENABLED = true;
+constexpr bool DEFAULT_BACK_TO_TOP_ENABLED = true;
 constexpr int32_t DEFAULT_RESUMEINTERVAL = 0;
 constexpr CopyOptions DEFAULT_COPY_OPTIONS_VALUE = CopyOptions::Local;
 constexpr bool DEFAULT_BLOCK_NETWORK_ENABLED = false;
 constexpr OverScrollMode DEFAULT_OVERSCROLL_MODE = OverScrollMode::NEVER;
 constexpr GestureFocusMode DEFAULT_GESTURE_FOCUS_MODE = GestureFocusMode::DEFAULT;
+constexpr WebRotateEffect DEFAULT_WEB_ROTATE_EFFECT = WebRotateEffect::TOPLEFT_EFFECT;
+constexpr bool DEFAULT_ENABLE_DATA_DETECTOR = false;
+constexpr bool DEFAULT_ENABLE_SELECTED_DATA_DETECTOR = true;
+const std::vector<double> BLANK_SCREEN_DETECTION_DEFAULT_TIMING = { 1.0, 3.0, 5.0 };
+constexpr bool DEFAULT_WEB_MEDIA_AV_SESSION_ENABLED = true;
+constexpr bool DEFAULT_NATIVE_MEDIA_PLAYER_ENABLED = false;
+constexpr bool DEFAULT_NATIVE_MEDIA_PLAYER_SHOULDOVERLAY = false;
 } // namespace
 
 void SetJavaScriptAccess(ArkUINodeHandle node, ArkUI_Bool value)
@@ -148,6 +165,20 @@ void ResetZoomAccessEnabled(ArkUINodeHandle node)
     WebModelNG::SetZoomAccessEnabled(frameNode, DEFAULT_ZOOM_ACCESS_ENABLED);
 }
 
+void SetZoomControlAccess(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetZoomControlAccess(frameNode, value);
+}
+
+void ResetZoomControlAccess(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetZoomControlAccess(frameNode, DEFAULT_ZOOM_CONTROL_ACCESS);
+}
+
 void SetCacheMode(ArkUINodeHandle node, ArkUI_Int32 value)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -215,7 +246,7 @@ void ResetKeyboardAvoidMode(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    WebModelNG::SetKeyboardAvoidMode(frameNode, DEFAULT_KEYBOAED_AVIOD_MODE);
+    WebModelNG::SetKeyboardAvoidMode(frameNode, DEFAULT_KEYBOARD_AVOID_MODE);
 }
 
 void SetOnControllerAttached(ArkUINodeHandle node, void* extraParam)
@@ -248,7 +279,7 @@ void ResetVerticalScrollBarAccessEnabled(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    WebModelNG::SetVerticalScrollBarAccessEnabled(frameNode, DEFAULT_VERTICALSCROLL_BAR_ACCESS_ENABLED);
+    WebModelNG::SetVerticalScrollBarAccessEnabled(frameNode, DEFAULT_VERTICAL_SCROLL_BAR_ACCESS_ENABLED);
 }
 
 void SetHorizontalScrollBarAccessEnabled(ArkUINodeHandle node, ArkUI_Bool value)
@@ -262,7 +293,7 @@ void ResetHorizontalScrollBarAccessEnabled(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    WebModelNG::SetHorizontalScrollBarAccessEnabled(frameNode, DEFAULT_HORIZONTALSCROLL_BAR_ACCESS_ENABLED);
+    WebModelNG::SetHorizontalScrollBarAccessEnabled(frameNode, DEFAULT_HORIZONTAL_SCROLL_BAR_ACCESS_ENABLED);
 }
 
 void SetTextZoomRatio(ArkUINodeHandle node, ArkUI_Int32 value)
@@ -392,6 +423,36 @@ void ResetOnRequestSelectedCallBack(ArkUINodeHandle node)
     WebModelNG::SetOnRequestFocus(frameNode, nullptr);
 }
 
+void SetOnFirstScreenPaint(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    if (extraParam) {
+        auto* onFirstScreenPaintCallBackPtr =
+            reinterpret_cast<std::function<void(const FirstScreenPaintEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(onFirstScreenPaintCallBackPtr);
+        auto onFirstScreenPaintCallBack = *onFirstScreenPaintCallBackPtr;
+        auto callback = [onFirstScreenPaintCallBack](const BaseEventInfo* event) {
+            CHECK_NULL_VOID(event);
+            auto firstScreenPaint = static_cast<const FirstScreenPaintEvent*>(event);
+            if (firstScreenPaint) {
+                auto& nonConstEvent = const_cast<FirstScreenPaintEvent&>(*firstScreenPaint);
+                onFirstScreenPaintCallBack(nonConstEvent);
+            }
+        };
+        WebModelNG::SetOnFirstScreenPaint(frameNode, std::move(callback));
+    } else {
+        WebModelNG::SetOnFirstScreenPaint(frameNode, nullptr);
+    }
+}
+
+void ResetOnFirstScreenPaint(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto callback = [](const BaseEventInfo* info) {};
+    WebModelNG::SetOnFirstScreenPaint(frameNode, callback);
+}
+
 void SetOnContextMenuHideCallBack(ArkUINodeHandle node, void* extraParam)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -480,7 +541,7 @@ void ResetOverviewModeAccess(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    WebModelNG::SetOverviewModeAccessEnabled(frameNode, DEFAULT_OVERVIEWMODE_ACCESS_ENABLED);
+    WebModelNG::SetOverviewModeAccessEnabled(frameNode, DEFAULT_OVERVIEW_MODE_ACCESS);
 }
 
 void SetForceDarkAccess(ArkUINodeHandle node, ArkUI_Bool value)
@@ -759,6 +820,58 @@ void ResetOnNativeEmbedGestureEvent(ArkUINodeHandle node)
     WebModelNG::SetNativeEmbedGestureEventId(frameNode, nullptr);
 }
 
+void SetOnNativeEmbedMouseEvent(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto* originalCallbackPtr = reinterpret_cast<std::function<void(NativeEmbeadMouseInfo&)>*>(extraParam);
+    CHECK_NULL_VOID(originalCallbackPtr);
+    if (extraParam) {
+        auto adaptedCallback = [originalCallback = *originalCallbackPtr](const BaseEventInfo* event) {
+            if (auto mouseEvent = static_cast<const NativeEmbeadMouseInfo*>(event)) {
+                auto& onNativeEmbedMouse = const_cast<NativeEmbeadMouseInfo&>(*mouseEvent);
+                originalCallback(onNativeEmbedMouse);
+            }
+        };
+        WebModelNG::SetNativeEmbedMouseEventId(frameNode, std::move(adaptedCallback));
+    } else {
+        WebModelNG::SetNativeEmbedMouseEventId(frameNode, nullptr);
+    }
+}
+
+void ResetOnNativeEmbedMouseEvent(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetNativeEmbedMouseEventId(frameNode, nullptr);
+}
+
+void SetOnNativeEmbedObjectParamChange(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto* originalCallbackPtr = reinterpret_cast<std::function<void(NativeEmbedParamDataInfo&)>*>(extraParam);
+    CHECK_NULL_VOID(originalCallbackPtr);
+    if (extraParam) {
+        auto adaptedCallback = [originalCallback = *originalCallbackPtr](const BaseEventInfo* event) {
+            if (auto changeEvent = static_cast<const NativeEmbedParamDataInfo*>(event)) {
+                auto& onNativeEmbedObjectParamChange = const_cast<NativeEmbedParamDataInfo&>(*changeEvent);
+                originalCallback(onNativeEmbedObjectParamChange);
+            }
+        };
+        WebModelNG::SetNativeEmbedObjectParamChangeId(frameNode, std::move(adaptedCallback));
+    } else {
+        WebModelNG::SetNativeEmbedObjectParamChangeId(frameNode, nullptr);
+    }
+}
+
+void ResetOnNativeEmbedObjectParamChange(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetNativeEmbedObjectParamChangeId(frameNode, nullptr);
+}
+
 void SetRegisterNativeEmbedRule(ArkUINodeHandle node, ArkUI_CharPtr tag, ArkUI_CharPtr type)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -770,7 +883,7 @@ void ResetRegisterNativeEmbedRule(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    WebModelNG::RegisterNativeEmbedRule(frameNode, nullptr, nullptr);
+    WebModelNG::RegisterNativeEmbedRule(frameNode, "", "");
 }
 
 void SetNativeEmbedOptions(ArkUINodeHandle node, ArkUI_Bool value)
@@ -853,7 +966,6 @@ void SetOnFullScreenExit(ArkUINodeHandle node, void* extraParam)
     }
 }
 
-
 void ResetOnFullScreenExit(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -886,7 +998,7 @@ void ResetOnlineImageAccess(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    WebModelNG::SetOnLineImageAccessEnabled(frameNode, DEFAULT_ONLINEIMAGE_ACCESS_ENABLED);
+    WebModelNG::SetOnLineImageAccessEnabled(frameNode, DEFAULT_ONLINE_IMAGE_ACCESS_ENABLED);
 }
 
 void SetMediaPlayGestureAccess(ArkUINodeHandle node, ArkUI_Bool value)
@@ -1062,7 +1174,10 @@ void SetJavaScriptOnDocumentStart(ArkUINodeHandle node, ArkUI_ScriptItemArray* v
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    ScriptItems SecriptInfos;
+    if (size <= 0) {
+        return;
+    }
+    ScriptItems scriptInfos;
     for (int32_t i = 0; i < size; ++i) {
         std::string script;
         ScriptItemsByOrder scriptRules;
@@ -1076,9 +1191,9 @@ void SetJavaScriptOnDocumentStart(ArkUINodeHandle node, ArkUI_ScriptItemArray* v
             tmp.push_back(sc);
         }
         scriptRules = tmp;
-        SecriptInfos.insert(std::make_pair(script, scriptRules));
+        scriptInfos.insert(std::make_pair(script, scriptRules));
     }
-    WebModelNG::JavaScriptOnDocumentStart(frameNode, SecriptInfos);
+    WebModelNG::JavaScriptOnDocumentStart(frameNode, scriptInfos);
 }
 
 void ResetJavaScriptOnDocumentStart(ArkUINodeHandle node)
@@ -1092,7 +1207,10 @@ void SetJavaScriptOnDocumentEnd(ArkUINodeHandle node, ArkUI_ScriptItemArray* val
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    ScriptItems SecriptInfos;
+    if (size <= 0) {
+        return;
+    }
+    ScriptItems scriptInfos;
     for (int32_t i = 0; i < size; ++i) {
         std::string script;
         ScriptItemsByOrder scriptRules;
@@ -1106,9 +1224,9 @@ void SetJavaScriptOnDocumentEnd(ArkUINodeHandle node, ArkUI_ScriptItemArray* val
             tmp.push_back(sc);
         }
         scriptRules = tmp;
-        SecriptInfos.insert(std::make_pair(script, scriptRules));
+        scriptInfos.insert(std::make_pair(script, scriptRules));
     }
-    WebModelNG::JavaScriptOnDocumentEnd(frameNode, SecriptInfos);
+    WebModelNG::JavaScriptOnDocumentEnd(frameNode, scriptInfos);
 }
 
 void ResetJavaScriptOnDocumentEnd(ArkUINodeHandle node)
@@ -1419,6 +1537,32 @@ void ResetOnWindowNew(ArkUINodeHandle node)
     WebModelNG::SetWindowNewEvent(frameNode, nullptr);
 }
 
+void SetOnWindowNewExt(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (extraParam) {
+        auto* originalCallbackPtr = reinterpret_cast<std::function<void(WebWindowNewExtEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(originalCallbackPtr);
+        auto adaptedCallback = [originalCallback = *originalCallbackPtr](const std::shared_ptr<BaseEventInfo>& event) {
+            auto* onWindowNewExt = static_cast<WebWindowNewExtEvent*>(event.get());
+            if (onWindowNewExt != nullptr) {
+                originalCallback(*onWindowNewExt);
+            }
+        };
+        WebModelNG::SetWindowNewExtEvent(frameNode, std::move(adaptedCallback));
+    } else {
+        WebModelNG::SetWindowNewExtEvent(frameNode, nullptr);
+    }
+}
+
+void ResetOnWindowNewExt(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetWindowNewExtEvent(frameNode, nullptr);
+}
+
 void SetOnPermissionRequest(ArkUINodeHandle node, void* extraParam)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -1634,6 +1778,117 @@ void ResetOnShowFileSelector(ArkUINodeHandle node)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     WebModelNG::SetOnShowFileSelector(frameNode, nullptr);
+}
+
+void SetOnTextSelectionChange(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    if (extraParam) {
+        auto* onTextSelectionChangeCallBackPtr =
+            reinterpret_cast<std::function<void(const TextSelectionChangedEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(onTextSelectionChangeCallBackPtr);
+        auto onTextSelectionChangeCallBack = *onTextSelectionChangeCallBackPtr;
+        auto callback = [onTextSelectionChangeCallBack](const BaseEventInfo* event) {
+            CHECK_NULL_VOID(event);
+            auto textSelectionChangedEvent = static_cast<const TextSelectionChangedEvent*>(event);
+            if (textSelectionChangedEvent) {
+                auto& nonConstEvent = const_cast<TextSelectionChangedEvent&>(*textSelectionChangedEvent);
+                onTextSelectionChangeCallBack(nonConstEvent);
+            }
+        };
+        WebModelNG::SetOnTextSelectionChange(frameNode, std::move(callback));
+    } else {
+        WebModelNG::SetOnTextSelectionChange(frameNode, nullptr);
+    }
+}
+
+void ResetOnTextSelectionChange(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto callback = [](const BaseEventInfo* info) {};
+    WebModelNG::SetOnTextSelectionChange(frameNode, callback);
+}
+
+void SetOnDetectedBlankScreen(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    if (extraParam) {
+        auto* onDetectedBlankScreenCallBackPtr =
+            reinterpret_cast<std::function<void(const DetectedBlankScreenEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(onDetectedBlankScreenCallBackPtr);
+        auto onDetectedBlankScreenCallBack = *onDetectedBlankScreenCallBackPtr;
+        auto callback = [onDetectedBlankScreenCallBack](const BaseEventInfo* event) {
+            CHECK_NULL_VOID(event);
+            auto detectedBlankScreenEvent = static_cast<const DetectedBlankScreenEvent*>(event);
+            if (detectedBlankScreenEvent) {
+                auto& nonConstEvent = const_cast<DetectedBlankScreenEvent&>(*detectedBlankScreenEvent);
+                onDetectedBlankScreenCallBack(nonConstEvent);
+            }
+        };
+        WebModelNG::SetOnDetectedBlankScreen(frameNode, std::move(callback));
+    } else {
+        WebModelNG::SetOnDetectedBlankScreen(frameNode, nullptr);
+    }
+}
+
+void ResetOnDetectedBlankScreen(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto callback = [](const BaseEventInfo* info) {};
+    WebModelNG::SetOnDetectedBlankScreen(frameNode, callback);
+}
+
+void SetBlankScreenDetectionConfig(
+    ArkUINodeHandle node, const struct ArkUIBlankScreenDetectionConfigStruct* arkUIBlankScreenDetectionConfig)
+{
+    if (!arkUIBlankScreenDetectionConfig) {
+        return;
+    }
+    BlankScreenDetectionConfig detectConfig;
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    std::vector<double> detectionTiming;
+    std::vector<int32_t> detectionMethods;
+    auto timing = arkUIBlankScreenDetectionConfig->detectionTiming;
+    auto timingLength = arkUIBlankScreenDetectionConfig->detectionTimingLength;
+    auto methods = arkUIBlankScreenDetectionConfig->detectionMethods;
+    auto methodsLength = arkUIBlankScreenDetectionConfig->detectionMethodsLength;
+    auto contentfulNodesCountThreshold = arkUIBlankScreenDetectionConfig->contentfulNodesCountThreshold;
+    if (contentfulNodesCountThreshold < 0) {
+        contentfulNodesCountThreshold = 0;
+    }
+    for (int i = 0; i < timingLength; i++) {
+        if (timing[i] > 0.0) {
+            detectionTiming.emplace_back(timing[i]);
+        }
+    }
+    if (detectionTiming.size() == 0) {
+        detectionTiming = BLANK_SCREEN_DETECTION_DEFAULT_TIMING;
+    } else {
+        std::sort(detectionTiming.begin(), detectionTiming.end());
+    }
+    for (int i = 0; i < methodsLength; i++) {
+        if (methods[i] == 0) {
+            detectionMethods.emplace_back(methods[i]);
+        }
+    }
+    if (detectionMethods.size() == 0) {
+        detectionMethods = { 0 };
+    }
+    detectConfig.enable = arkUIBlankScreenDetectionConfig->enable;
+    detectConfig.detectionTiming = detectionTiming;
+    detectConfig.detectionMethods = detectionMethods;
+    detectConfig.contentfulNodesCountThreshold = contentfulNodesCountThreshold;
+    WebModelNG::SetBlankScreenDetectionConfig(frameNode, detectConfig);
+}
+
+void ResetBlankScreenDetectionConfig(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    BlankScreenDetectionConfig detectConfig;
+    WebModelNG::SetBlankScreenDetectionConfig(frameNode, detectConfig);
 }
 
 void SetOnContextMenuShow(ArkUINodeHandle node, void* extraParam)
@@ -1984,6 +2239,440 @@ void ResetGestureFocusMode(ArkUINodeHandle node)
     WebModelNG::SetGestureFocusMode(frameNode, DEFAULT_GESTURE_FOCUS_MODE);
 }
 
+void SetRotateRenderEffect(ArkUINodeHandle node, ArkUI_Int32 value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetRotateRenderEffect(frameNode, WebRotateEffect(value));
+}
+
+void ResetRotateRenderEffect(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetRotateRenderEffect(frameNode, DEFAULT_WEB_ROTATE_EFFECT);
+}
+
+void SetEnableDataDetector(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableDataDetector(frameNode, value);
+}
+
+void ResetEnableDataDetector(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableDataDetector(frameNode, DEFAULT_ENABLE_DATA_DETECTOR);
+}
+
+void SetDataDetectorConfigWithEvent(
+    ArkUINodeHandle node, const struct ArkUITextDetectConfigStruct* arkUITextDetectConfig)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextDetectConfig detectConfig;
+    detectConfig.types = arkUITextDetectConfig->types;
+    if (arkUITextDetectConfig->onResult) {
+        detectConfig.onResult =
+            std::move(*(reinterpret_cast<std::function<void(const std::string&)>*>(arkUITextDetectConfig->onResult)));
+    }
+    detectConfig.entityColor = Color(arkUITextDetectConfig->entityColor);
+    detectConfig.entityDecorationType = TextDecoration(arkUITextDetectConfig->entityDecorationType);
+    detectConfig.entityDecorationColor = Color(arkUITextDetectConfig->entityDecorationColor);
+    detectConfig.entityDecorationStyle = TextDecorationStyle(arkUITextDetectConfig->entityDecorationStyle);
+    detectConfig.enablePreviewMenu = arkUITextDetectConfig->entityEnablePreviewMenu;
+    WebModelNG::SetDataDetectorConfig(frameNode, detectConfig);
+}
+
+void ResetDataDetectorConfigWithEvent(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TextDetectConfig detectConfig;
+    WebModelNG::SetDataDetectorConfig(frameNode, detectConfig);
+}
+
+void SetEnableSelectedDataDetector(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableSelectedDataDetector(frameNode, value);
+}
+
+void ResetEnableSelectedDataDetector(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableSelectedDataDetector(frameNode, DEFAULT_ENABLE_SELECTED_DATA_DETECTOR);
+}
+
+void SetOnSslErrorEventReceive(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (extraParam) {
+        auto* webSslErrorEventPtr = reinterpret_cast<std::function<bool(WebSslErrorEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(webSslErrorEventPtr);
+        auto webSslErrorEventCallback = *webSslErrorEventPtr;
+        auto callback = [webSslErrorEventCallback](const BaseEventInfo* event) {
+            CHECK_NULL_RETURN(event, false);
+            auto webSslErrorEvent = static_cast<const WebSslErrorEvent*>(event);
+            if (webSslErrorEvent) {
+                auto& nonConstEvent = const_cast<WebSslErrorEvent&>(*webSslErrorEvent);
+                return webSslErrorEventCallback(nonConstEvent);
+            }
+            return false;
+        };
+        WebModelNG::SetOnSslErrorRequest(frameNode, std::move(callback));
+    } else {
+        WebModelNG::SetOnSslErrorRequest(frameNode, nullptr);
+    }
+}
+
+void ResetOnSslErrorEventReceive(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetOnSslErrorRequest(frameNode, nullptr);
+}
+
+void SetOnClientAuthenticationRequest(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (extraParam) {
+        auto* webSslSelectCertEventPtr = reinterpret_cast<std::function<bool(WebSslSelectCertEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(webSslSelectCertEventPtr);
+        auto callback = [webSslSelectCertEventCallback = *webSslSelectCertEventPtr](const BaseEventInfo* event) {
+            CHECK_NULL_RETURN(event, false);
+            auto webSslSelectCertEvent = static_cast<const WebSslSelectCertEvent*>(event);
+            if (webSslSelectCertEvent) {
+                auto& nonConstEvent = const_cast<WebSslSelectCertEvent&>(*webSslSelectCertEvent);
+                return webSslSelectCertEventCallback(nonConstEvent);
+            }
+            return false;
+        };
+        WebModelNG::SetOnClientAuthenticationRequest(frameNode, std::move(callback));
+    } else {
+        WebModelNG::SetOnClientAuthenticationRequest(frameNode, nullptr);
+    }
+}
+
+void ResetOnClientAuthenticationRequest(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetOnClientAuthenticationRequest(frameNode, nullptr);
+}
+
+void SetOnInterceptRequest(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (extraParam) {
+        auto* originalCallbackPtr =
+            reinterpret_cast<std::function<RefPtr<WebResponse>(OnInterceptRequestEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(originalCallbackPtr);
+        auto callback = [originalCallback = *originalCallbackPtr](const BaseEventInfo* event) {
+            if (event == nullptr) {
+                return RefPtr<WebResponse>(nullptr);
+            }
+            if (auto scrollEvent = static_cast<const OnInterceptRequestEvent*>(event)) {
+                auto& nonConstEvent = const_cast<OnInterceptRequestEvent&>(*scrollEvent);
+                return originalCallback(nonConstEvent);
+            }
+            return RefPtr<WebResponse>(nullptr);
+        };
+        WebModelNG::SetOnInterceptRequest(frameNode, std::move(callback));
+    } else {
+        WebModelNG::SetOnInterceptRequest(frameNode, nullptr);
+    }
+}
+
+void ResetOnInterceptRequest(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetOnInterceptRequest(frameNode, nullptr);
+}
+
+void SetOnFaviconReceived(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (extraParam) {
+        auto* originalCallbackPtr = reinterpret_cast<std::function<void(FaviconReceivedEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(originalCallbackPtr);
+        auto adaptedCallback = [originalCallback = *originalCallbackPtr](const std::shared_ptr<BaseEventInfo>& event) {
+            auto* onFaviconReceived = static_cast<FaviconReceivedEvent*>(event.get());
+            if (onFaviconReceived != nullptr) {
+                originalCallback(*onFaviconReceived);
+            }
+        };
+        WebModelNG::SetFaviconReceivedId(frameNode, std::move(adaptedCallback));
+    } else {
+        WebModelNG::SetFaviconReceivedId(frameNode, nullptr);
+    }
+}
+
+void ResetOnFaviconReceived(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetFaviconReceivedId(frameNode, nullptr);
+}
+
+void SetOnBeforeUnload(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (extraParam) {
+        auto* webDialogEventPtr = reinterpret_cast<std::function<bool(WebDialogEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(webDialogEventPtr);
+        auto callback = [webDialogEventCallback = *webDialogEventPtr](const BaseEventInfo* event) {
+            CHECK_NULL_RETURN(event, false);
+            auto webDialogEvent = static_cast<const WebDialogEvent*>(event);
+            if (webDialogEvent) {
+                auto& nonConstEvent = const_cast<WebDialogEvent&>(*webDialogEvent);
+                return webDialogEventCallback(nonConstEvent);
+            }
+            return false;
+        };
+        WebModelNG::SetOnBeforeUnload(frameNode, std::move(callback), DialogEventType::DIALOG_EVENT_BEFORE_UNLOAD);
+    } else {
+        WebModelNG::SetOnBeforeUnload(frameNode, nullptr, DialogEventType::DIALOG_EVENT_BEFORE_UNLOAD);
+    }
+}
+
+void ResetOnBeforeUnload(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetOnBeforeUnload(frameNode, nullptr, DialogEventType::DIALOG_EVENT_BEFORE_UNLOAD);
+}
+
+void SetJavaScriptProxy(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (extraParam) {
+        auto* jsProxyCallback = reinterpret_cast<std::function<void()>*>(extraParam);
+        WebModelNG::SetJavaScriptProxy(frameNode, std::move(*jsProxyCallback));
+    } else {
+        WebModelNG::SetJavaScriptProxy(frameNode, nullptr);
+    }
+}
+
+void ResetJavaScriptProxy(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetJavaScriptProxy(frameNode, nullptr);
+}
+
+void SetEnableImageAnalyzer(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableImageAnalyzer(frameNode, value);
+}
+
+void ResetEnableImageAnalyzer(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableImageAnalyzer(frameNode, DEFAULT_ENABLE_IMAGE_ANALYZER);
+}
+
+void SetEnableAutoFill(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableAutoFill(frameNode, value);
+}
+
+void ResetEnableAutoFill(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableAutoFill(frameNode, DEFAULT_AUTO_FILL_ENABLED);
+}
+
+void SetEnableDefaultContextMenu(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableDefaultContextMenu(frameNode, value);
+}
+
+void ResetEnableDefaultContextMenu(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableDefaultContextMenu(frameNode, DEFAULT_ENABLE_DEFAULT_CONTEXT_MENU);
+}
+
+void SetEnableScrollDirectionalLock(ArkUINodeHandle node, ArkUI_Bool enabled, ArkUI_Int32 type)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableScrollDirectionalLock(frameNode, enabled, type);
+}
+
+void ResetEnableScrollDirectionalLock(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    // Default: enabled=true, type=NESTED_SCROLL(1)
+    WebModelNG::SetEnableScrollDirectionalLock(frameNode, true, DEFAULT_SCROLLDIRECTIONALLOCK_NESTED_SCROLL);
+}
+
+void SetEnableNativeMediaPlayer(ArkUINodeHandle node, ArkUI_Bool enable, ArkUI_Bool shouldOverlay)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetNativeVideoPlayerConfig(frameNode, enable, shouldOverlay);
+}
+
+void ResetEnableNativeMediaPlayer(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetNativeVideoPlayerConfig(frameNode,
+        DEFAULT_NATIVE_MEDIA_PLAYER_ENABLED, DEFAULT_NATIVE_MEDIA_PLAYER_SHOULDOVERLAY);
+}
+
+void SetEnableWebAVSession(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetWebMediaAVSessionEnabled(frameNode, value);
+}
+
+void ResetEnableWebAVSession(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetWebMediaAVSessionEnabled(frameNode, DEFAULT_WEB_MEDIA_AV_SESSION_ENABLED);
+}
+
+void SetEnableDrag(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableDrag(frameNode, value);
+}
+
+void ResetEnableDrag(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetEnableDrag(frameNode, DEFAULT_DRAG_ENABLED);
+}
+
+void SetForceEnableZoom(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetForceEnableZoom(frameNode, value);
+}
+
+void ResetForceEnableZoom(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetForceEnableZoom(frameNode, DEFAULT_FORCE_ENABLE_ZOOM_ENABLED);
+}
+
+void SetBackToTop(ArkUINodeHandle node, ArkUI_Bool value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetBackToTop(frameNode, value);
+}
+
+void ResetBackToTop(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetBackToTop(frameNode, DEFAULT_BACK_TO_TOP_ENABLED);
+}
+
+void SetScrollbarLayoutPolicy(ArkUINodeHandle node, ArkUI_Int32 value)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetScrollbarLayoutPolicy(frameNode, static_cast<ScrollbarLayoutPolicy>(value));
+}
+
+void ResetScrollbarLayoutPolicy(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetScrollbarLayoutPolicy(frameNode, DEFAULT_SCROLLBAR_LAYOUT_POLICY);
+}
+
+void SetOnCameraCaptureStateChanged(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (extraParam) {
+        auto* onCameraCaptureStateChangedCallBackPtr =
+            reinterpret_cast<std::function<void(const CameraCaptureStateEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(onCameraCaptureStateChangedCallBackPtr);
+        auto onCameraCaptureStateChangedCallBack = *onCameraCaptureStateChangedCallBackPtr;
+        auto callback = [onCameraCaptureStateChangedCallBack](const BaseEventInfo* event) {
+            CHECK_NULL_VOID(event);
+            auto cameraCaptureStateEvent = static_cast<const CameraCaptureStateEvent*>(event);
+            if (cameraCaptureStateEvent) {
+                auto& nonConstEvent = const_cast<CameraCaptureStateEvent&>(*cameraCaptureStateEvent);
+                onCameraCaptureStateChangedCallBack(nonConstEvent);
+            }
+        };
+        WebModelNG::SetCameraCaptureStateChangedId(frameNode, std::move(callback));
+    } else {
+        WebModelNG::SetCameraCaptureStateChangedId(frameNode, nullptr);
+    }
+}
+
+void ResetOnCameraCaptureStateChanged(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetCameraCaptureStateChangedId(frameNode, nullptr);
+}
+
+void SetOnMicrophoneCaptureStateChanged(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    if (extraParam) {
+        auto* onMicrophoneCaptureStateChangedCallBackPtr =
+            reinterpret_cast<std::function<void(const MicrophoneCaptureStateEvent&)>*>(extraParam);
+        CHECK_NULL_VOID(onMicrophoneCaptureStateChangedCallBackPtr);
+        auto onMicrophoneCaptureStateChangedCallBack = *onMicrophoneCaptureStateChangedCallBackPtr;
+        auto callback = [onMicrophoneCaptureStateChangedCallBack](const BaseEventInfo* event) {
+            CHECK_NULL_VOID(event);
+            auto microphoneCaptureStateEvent = static_cast<const MicrophoneCaptureStateEvent*>(event);
+            if (microphoneCaptureStateEvent) {
+                auto& nonConstEvent = const_cast<MicrophoneCaptureStateEvent&>(*microphoneCaptureStateEvent);
+                onMicrophoneCaptureStateChangedCallBack(nonConstEvent);
+            }
+        };
+        WebModelNG::SetMicrophoneCaptureStateChangedId(frameNode, std::move(callback));
+    } else {
+        WebModelNG::SetMicrophoneCaptureStateChangedId(frameNode, nullptr);
+    }
+}
+
+void ResetOnMicrophoneCaptureStateChanged(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    WebModelNG::SetMicrophoneCaptureStateChangedId(frameNode, nullptr);
+}
+
 namespace NodeModifier {
 const ArkUIWebModifier* GetWebModifier()
 {
@@ -2003,6 +2692,8 @@ const ArkUIWebModifier* GetWebModifier()
         .resetMixedMode = ResetMixedMode,
         .setZoomAccessEnabled = SetZoomAccessEnabled,
         .resetZoomAccessEnabled = ResetZoomAccessEnabled,
+        .setZoomControlAccess = SetZoomControlAccess,
+        .resetZoomControlAccess = ResetZoomControlAccess,
         .setCacheMode = SetCacheMode,
         .resetCacheMode = ResetCacheMode,
         .setDarkMode = SetDarkMode,
@@ -2075,6 +2766,10 @@ const ArkUIWebModifier* GetWebModifier()
         .resetOnNativeEmbedLifecycleChange = ResetOnNativeEmbedLifecycleChange,
         .setOnNativeEmbedGestureEvent = SetOnNativeEmbedGestureEvent,
         .resetOnNativeEmbedGestureEvent = ResetOnNativeEmbedGestureEvent,
+        .setOnNativeEmbedMouseEvent = SetOnNativeEmbedMouseEvent,
+        .resetOnNativeEmbedMouseEvent = ResetOnNativeEmbedMouseEvent,
+        .setOnNativeEmbedObjectParamChange = SetOnNativeEmbedObjectParamChange,
+        .resetOnNativeEmbedObjectParamChange = ResetOnNativeEmbedObjectParamChange,
         .setRegisterNativeEmbedRule = SetRegisterNativeEmbedRule,
         .resetRegisterNativeEmbedRule = ResetRegisterNativeEmbedRule,
         .setNativeEmbedOptions = SetNativeEmbedOptions,
@@ -2133,6 +2828,8 @@ const ArkUIWebModifier* GetWebModifier()
         .resetOnRenderProcessRespondingCallBack = ResetOnRenderProcessRespondingCallBack,
         .setOnWindowNew = SetOnWindowNew,
         .resetOnWindowNew = ResetOnWindowNew,
+        .setOnWindowNewExt = SetOnWindowNewExt,
+        .resetOnWindowNewExt = ResetOnWindowNewExt,
         .setOnGeolocationShow = SetOnGeolocationShow,
         .resetOnGeolocationShow = ResetOnGeolocationShow,
         .setOnPermissionRequest = SetOnPermissionRequest,
@@ -2151,6 +2848,16 @@ const ArkUIWebModifier* GetWebModifier()
         .resetOnPromptCallBack = ResetOnPromptCallBack,
         .setOnShowFileSelector = SetOnShowFileSelector,
         .resetOnShowFileSelector = ResetOnShowFileSelector,
+        .setOnTextSelectionChange = SetOnTextSelectionChange,
+        .resetOnTextSelectionChange = ResetOnTextSelectionChange,
+        .setOnDetectedBlankScreen = SetOnDetectedBlankScreen,
+        .resetOnDetectedBlankScreen = ResetOnDetectedBlankScreen,
+        .setBlankScreenDetectionConfig = SetBlankScreenDetectionConfig,
+        .resetBlankScreenDetectionConfig = ResetBlankScreenDetectionConfig,
+        .setOnFirstScreenPaint = SetOnFirstScreenPaint,
+        .resetOnFirstScreenPaint = ResetOnFirstScreenPaint,
+        .setEnableImageAnalyzer = SetEnableImageAnalyzer,
+        .resetEnableImageAnalyzer = ResetEnableImageAnalyzer,
         .setOnContextMenuShow = SetOnContextMenuShow,
         .resetOnContextMenuShow = ResetOnContextMenuShow,
         .setOnSafeBrowsingCheckResultCallBack = SetOnSafeBrowsingCheckResultCallBack,
@@ -2177,6 +2884,48 @@ const ArkUIWebModifier* GetWebModifier()
         .resetOnDataResubmitted = ResetOnDataResubmitted,
         .setGestureFocusMode = SetGestureFocusMode,
         .resetGestureFocusMode = ResetGestureFocusMode,
+        .setRotateRenderEffect = SetRotateRenderEffect,
+        .resetRotateRenderEffect = ResetRotateRenderEffect,
+        .setEnableDataDetector = SetEnableDataDetector,
+        .resetEnableDataDetector = ResetEnableDataDetector,
+        .setDataDetectorConfigWithEvent = SetDataDetectorConfigWithEvent,
+        .resetDataDetectorConfigWithEvent = ResetDataDetectorConfigWithEvent,
+        .setEnableSelectedDataDetector = SetEnableSelectedDataDetector,
+        .resetEnableSelectedDataDetector = ResetEnableSelectedDataDetector,
+        .setOnSslErrorEventReceive = SetOnSslErrorEventReceive,
+        .resetOnSslErrorEventReceive = ResetOnSslErrorEventReceive,
+        .setOnClientAuthenticationRequest = SetOnClientAuthenticationRequest,
+        .resetOnClientAuthenticationRequest = ResetOnClientAuthenticationRequest,
+        .setOnInterceptRequest = SetOnInterceptRequest,
+        .resetOnInterceptRequest = ResetOnInterceptRequest,
+        .setOnFaviconReceived = SetOnFaviconReceived,
+        .resetOnFaviconReceived = ResetOnFaviconReceived,
+        .setOnBeforeUnload = SetOnBeforeUnload,
+        .resetOnBeforeUnload = ResetOnBeforeUnload,
+        .setJavaScriptProxy = SetJavaScriptProxy,
+        .resetJavaScriptProxy = ResetJavaScriptProxy,
+        .setForceEnableZoom = SetForceEnableZoom,
+        .resetForceEnableZoom = ResetForceEnableZoom,
+        .setBackToTop = SetBackToTop,
+        .resetBackToTop = ResetBackToTop,
+        .setOnCameraCaptureStateChanged = SetOnCameraCaptureStateChanged,
+        .resetOnCameraCaptureStateChanged = ResetOnCameraCaptureStateChanged,
+        .setOnMicrophoneCaptureStateChanged = SetOnMicrophoneCaptureStateChanged,
+        .resetOnMicrophoneCaptureStateChanged = ResetOnMicrophoneCaptureStateChanged,
+        .setEnableAutoFill = SetEnableAutoFill,
+        .resetEnableAutoFill = ResetEnableAutoFill,
+        .setEnableDefaultContextMenu = SetEnableDefaultContextMenu,
+        .resetEnableDefaultContextMenu = ResetEnableDefaultContextMenu,
+        .setEnableScrollDirectionalLock = SetEnableScrollDirectionalLock,
+        .resetEnableScrollDirectionalLock = ResetEnableScrollDirectionalLock,
+        .setEnableNativeMediaPlayer = SetEnableNativeMediaPlayer,
+        .resetEnableNativeMediaPlayer = ResetEnableNativeMediaPlayer,
+        .setEnableWebAVSession = SetEnableWebAVSession,
+        .resetEnableWebAVSession = ResetEnableWebAVSession,
+        .setEnableDrag = SetEnableDrag,
+        .resetEnableDrag = ResetEnableDrag,
+        .setScrollbarLayoutPolicy = SetScrollbarLayoutPolicy,
+        .resetScrollbarLayoutPolicy = ResetScrollbarLayoutPolicy,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
     return &modifier;
@@ -2200,6 +2949,8 @@ const CJUIWebModifier* GetCJUIWebModifier()
         .resetMixedMode = ResetMixedMode,
         .setZoomAccessEnabled = SetZoomAccessEnabled,
         .resetZoomAccessEnabled = ResetZoomAccessEnabled,
+        .setZoomControlAccess = SetZoomControlAccess,
+        .resetZoomControlAccess = ResetZoomControlAccess,
         .setCacheMode = SetCacheMode,
         .resetCacheMode = ResetCacheMode,
         .setDarkMode = SetDarkMode,
@@ -2272,6 +3023,10 @@ const CJUIWebModifier* GetCJUIWebModifier()
         .resetOnNativeEmbedLifecycleChange = ResetOnNativeEmbedLifecycleChange,
         .setOnNativeEmbedGestureEvent = SetOnNativeEmbedGestureEvent,
         .resetOnNativeEmbedGestureEvent = ResetOnNativeEmbedGestureEvent,
+        .setOnNativeEmbedMouseEvent = SetOnNativeEmbedMouseEvent,
+        .resetOnNativeEmbedMouseEvent = ResetOnNativeEmbedMouseEvent,
+        .setOnNativeEmbedObjectParamChange = SetOnNativeEmbedObjectParamChange,
+        .resetOnNativeEmbedObjectParamChange = ResetOnNativeEmbedObjectParamChange,
         .setRegisterNativeEmbedRule = SetRegisterNativeEmbedRule,
         .resetRegisterNativeEmbedRule = ResetRegisterNativeEmbedRule,
         .setNativeEmbedOptions = SetNativeEmbedOptions,
@@ -2330,6 +3085,8 @@ const CJUIWebModifier* GetCJUIWebModifier()
         .resetOnRenderProcessRespondingCallBack = ResetOnRenderProcessRespondingCallBack,
         .setOnWindowNew = SetOnWindowNew,
         .resetOnWindowNew = ResetOnWindowNew,
+        .setOnWindowNewExt = SetOnWindowNewExt,
+        .resetOnWindowNewExt = ResetOnWindowNewExt,
         .setOnGeolocationShow = SetOnGeolocationShow,
         .resetOnGeolocationShow = ResetOnGeolocationShow,
         .setOnPermissionRequest = SetOnPermissionRequest,
@@ -2348,6 +3105,16 @@ const CJUIWebModifier* GetCJUIWebModifier()
         .resetOnPromptCallBack = ResetOnPromptCallBack,
         .setOnShowFileSelector = SetOnShowFileSelector,
         .resetOnShowFileSelector = ResetOnShowFileSelector,
+        .setOnTextSelectionChange = SetOnTextSelectionChange,
+        .resetOnTextSelectionChange = ResetOnTextSelectionChange,
+        .setOnDetectedBlankScreen = SetOnDetectedBlankScreen,
+        .resetOnDetectedBlankScreen = ResetOnDetectedBlankScreen,
+        .setBlankScreenDetectionConfig = SetBlankScreenDetectionConfig,
+        .resetBlankScreenDetectionConfig = ResetBlankScreenDetectionConfig,
+        .setOnFirstScreenPaint = SetOnFirstScreenPaint,
+        .resetOnFirstScreenPaint = ResetOnFirstScreenPaint,
+        .setEnableImageAnalyzer = SetEnableImageAnalyzer,
+        .resetEnableImageAnalyzer = ResetEnableImageAnalyzer,
         .setOnContextMenuShow = SetOnContextMenuShow,
         .resetOnContextMenuShow = ResetOnContextMenuShow,
         .setOnSafeBrowsingCheckResultCallBack = SetOnSafeBrowsingCheckResultCallBack,
@@ -2374,6 +3141,48 @@ const CJUIWebModifier* GetCJUIWebModifier()
         .resetOnDataResubmitted = ResetOnDataResubmitted,
         .setGestureFocusMode = SetGestureFocusMode,
         .resetGestureFocusMode = ResetGestureFocusMode,
+        .setRotateRenderEffect = SetRotateRenderEffect,
+        .resetRotateRenderEffect = ResetRotateRenderEffect,
+        .setEnableDataDetector = SetEnableDataDetector,
+        .resetEnableDataDetector = ResetEnableDataDetector,
+        .setDataDetectorConfigWithEvent = SetDataDetectorConfigWithEvent,
+        .resetDataDetectorConfigWithEvent = ResetDataDetectorConfigWithEvent,
+        .setEnableSelectedDataDetector = SetEnableSelectedDataDetector,
+        .resetEnableSelectedDataDetector = ResetEnableSelectedDataDetector,
+        .setOnSslErrorEventReceive = SetOnSslErrorEventReceive,
+        .resetOnSslErrorEventReceive = ResetOnSslErrorEventReceive,
+        .setOnClientAuthenticationRequest = SetOnClientAuthenticationRequest,
+        .resetOnClientAuthenticationRequest = ResetOnClientAuthenticationRequest,
+        .setOnInterceptRequest = SetOnInterceptRequest,
+        .resetOnInterceptRequest = ResetOnInterceptRequest,
+        .setOnFaviconReceived = SetOnFaviconReceived,
+        .resetOnFaviconReceived = ResetOnFaviconReceived,
+        .setOnBeforeUnload = SetOnBeforeUnload,
+        .resetOnBeforeUnload = ResetOnBeforeUnload,
+        .setJavaScriptProxy = SetJavaScriptProxy,
+        .resetJavaScriptProxy = ResetJavaScriptProxy,
+        .setForceEnableZoom = SetForceEnableZoom,
+        .resetForceEnableZoom = ResetForceEnableZoom,
+        .setBackToTop = SetBackToTop,
+        .resetBackToTop = ResetBackToTop,
+        .setOnCameraCaptureStateChanged = SetOnCameraCaptureStateChanged,
+        .resetOnCameraCaptureStateChanged = ResetOnCameraCaptureStateChanged,
+        .setOnMicrophoneCaptureStateChanged = SetOnMicrophoneCaptureStateChanged,
+        .resetOnMicrophoneCaptureStateChanged = ResetOnMicrophoneCaptureStateChanged,
+        .setEnableAutoFill = SetEnableAutoFill,
+        .resetEnableAutoFill = ResetEnableAutoFill,
+        .setEnableDefaultContextMenu = SetEnableDefaultContextMenu,
+        .resetEnableDefaultContextMenu = ResetEnableDefaultContextMenu,
+        .setEnableScrollDirectionalLock = SetEnableScrollDirectionalLock,
+        .resetEnableScrollDirectionalLock = ResetEnableScrollDirectionalLock,
+        .setEnableNativeMediaPlayer = SetEnableNativeMediaPlayer,
+        .resetEnableNativeMediaPlayer = ResetEnableNativeMediaPlayer,
+        .setEnableWebAVSession = SetEnableWebAVSession,
+        .resetEnableWebAVSession = ResetEnableWebAVSession,
+        .setEnableDrag = SetEnableDrag,
+        .resetEnableDrag = ResetEnableDrag,
+        .setScrollbarLayoutPolicy = SetScrollbarLayoutPolicy,
+        .resetScrollbarLayoutPolicy = ResetScrollbarLayoutPolicy,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
     return &modifier;

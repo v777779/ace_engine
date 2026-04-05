@@ -171,8 +171,18 @@ public:
     void OnSurfaceChanged(int32_t width, int32_t height) override;
     void OnLayoutCompleted(const std::string& componentId) override;
     void OnDrawCompleted(const std::string& componentId) override;
-    void OnDrawChildrenCompleted(const std::string& componentId) override;
+    void OnDrawChildrenCompleted(const std::string& componentId, const std::vector<int32_t>& childIds) override;
+    void OnLayoutChildrenCompleted(const std::string& componentId) override;
     bool IsDrawChildrenCallbackFuncExist(const std::string& componentId) override;
+    bool IsLayoutChildrenCallbackFuncExist(const std::string& componentId) override;
+ 
+    void OnLayoutCompleted(int32_t uniqueId) override;
+    void OnDrawCompleted(int32_t uniqueId) override;
+    void OnDrawChildrenCompleted(int32_t uniqueId) override;
+    void OnLayoutChildrenCompleted(int32_t uniqueId) override;
+    bool IsDrawChildrenCallbackFuncExist(int32_t uniqueId) override;
+    bool IsLayoutChildrenCallbackFuncExist(int32_t uniqueId) override;
+
     void DumpFrontend() const override;
     std::string GetPagePath() const override;
     void TriggerGarbageCollection() override;
@@ -181,6 +191,9 @@ public:
     void SetColorMode(ColorMode colorMode) override;
     void RebuildAllPages() override;
     void NotifyAppStorage(const std::string& key, const std::string& value) override;
+    void CallStateMgmtCleanUpIdleTaskFunc(int64_t maxTimeInNs) override;
+    std::vector<std::optional<std::string>> CallGetStateMgmtInfo(const std::vector<int32_t>& nodeIds,
+        const std::string& propertyName, const std::string& jsonPath) override;
     RefPtr<AceEventHandler> GetEventHandler() override
     {
         return handler_;
@@ -265,6 +278,8 @@ protected:
 
 private:
     void InitializeFrontendDelegate(const RefPtr<TaskExecutor>& taskExecutor);
+    void* CreateDynamicPage(int32_t pageId, const std::string& url,
+        const std::string& params, bool recoverable) override;
 
     RefPtr<AceEventHandler> handler_;
     RefPtr<Framework::JsEngine> jsEngine_;

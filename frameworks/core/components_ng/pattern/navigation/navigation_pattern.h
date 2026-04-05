@@ -19,6 +19,7 @@
 #include "base/memory/referenced.h"
 #include "base/system_bar/system_bar_style.h"
 #include "core/components_ng/base/ui_node.h"
+#include "core/components_ng/manager/avoid_info/avoid_info_manager.h"
 #include "core/components_ng/pattern/navigation/custom_safe_area_expander.h"
 #include "core/components_ng/pattern/navigation/inner_navigation_controller.h"
 #include "core/components_ng/pattern/navigation/navigation_declaration.h"
@@ -27,13 +28,18 @@
 #include "core/components_ng/pattern/navigation/navigation_layout_algorithm.h"
 #include "core/components_ng/pattern/navigation/navigation_layout_property.h"
 #include "core/components_ng/pattern/navigation/navigation_stack.h"
-#include "core/components_ng/pattern/navigation/title_bar_layout_property.h"
-#include "core/components_ng/pattern/navigation/title_bar_node.h"
 #include "core/components_ng/pattern/navigation/navigation_transition_proxy.h"
 #include "core/components_ng/pattern/navrouter/navdestination_group_node.h"
+#include "core/components_ng/pattern/navrouter/navdestination_context.h"
 #include "core/components_ng/pattern/pattern.h"
+#include "interfaces/inner_api/ace/ui_content_config.h"
+
+namespace OHOS::Ace {
+class WindowManager;
+}
 
 namespace OHOS::Ace::NG {
+class ToolbarManager;
 
 using namespace Framework;
 using OnNavigationAnimation = std::function<NavigationTransition(RefPtr<NavDestinationContext>,
@@ -52,16 +58,19 @@ public:
 
     RefPtr<LayoutProperty> CreateLayoutProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<NavigationLayoutProperty>();
     }
 
     RefPtr<EventHub> CreateEventHub() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<NavigationEventHub>();
     }
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
+        ACE_UINODE_TRACE(GetHost());
         auto layoutAlgorithm = MakeRefPtr<NavigationLayoutAlgorithm>();
         layoutAlgorithm->SetRealNavBarWidth(realNavBarWidth_);
         layoutAlgorithm->SetIfNeedInit(ifNeedInit_);
@@ -69,7 +78,11 @@ public:
     }
 
     void OnAttachToFrameNode() override;
+    void OnAttachToFrameNodeMultiThread();
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
+    void OnDetachFromFrameNodeMultiThread(FrameNode* frameNode);
+    void ContentChangeByDetaching(PipelineContext* pipeline) override;
+
     void OnModifyDone() override;
     void OnWindowHide() override;
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config) override;
@@ -77,6 +90,7 @@ public:
     void UpdateColorModeForNodes(const std::optional<std::pair<std::string, RefPtr<UINode>>>& newTopNavPath);
 
     void OnLanguageConfigurationUpdate() override;
+    void OnDpiConfigurationUpdate() override;
 
     FocusPattern GetFocusPattern() const override
     {
@@ -105,7 +119,7 @@ public:
 
     bool JudgeFoldStateChangeAndUpdateState();
 
-    void SetNavigationStack(const RefPtr<NavigationStack>& navigationStack);
+    void SetNavigationStack(const RefPtr<NavigationStack>& navigationStack, bool needUpdateCallback = true);
 
     const RefPtr<NavigationStack>& GetNavigationStack()
     {
@@ -264,10 +278,24 @@ public:
         userSetNavBarWidthFlag_ = userSetNavBarWidthFlag;
     }
 
+    bool GetUserSetDividerInvisibleFlag() const
+    {
+        return userSetDividerInvisibleFlag_;
+    }
+
+    void SetUserSetDividerInvisibleFlag(bool userSetDividerInvisibleFlag)
+    {
+        userSetDividerInvisibleFlag_ = userSetDividerInvisibleFlag;
+    }
+
     void SetInitNavBarWidth(const Dimension& initNavBarWidth)
     {
-        realNavBarWidth_ = static_cast<float>(initNavBarWidth.ConvertToPx());
         initNavBarWidthValue_ = initNavBarWidth;
+    }
+
+    void SetRealNavBarWidthValue(float navBarWidth)
+    {
+        realNavBarWidth_ = navBarWidth;
     }
 
     Dimension GetInitNavBarWidth() const
@@ -278,6 +306,11 @@ public:
     void SetIfNeedInit(bool ifNeedInit)
     {
         ifNeedInit_ = ifNeedInit;
+    }
+
+    void SetStartTime(int64_t startTime)
+    {
+        startTime_ = startTime;
     }
 
     void UpdateContextRect(
@@ -317,16 +350,17 @@ public:
 
     void OnNavBarStateChange(bool modeChange);
 
-    static void FireNavigationChange(const RefPtr<UINode>& node, bool isShow, bool isFirst);
+    static void FireNavigationChange(const RefPtr<UINode>& node, bool isShow, bool isFirst, bool isFromWindow);
 
     static void FireNavigationLifecycle(const RefPtr<UINode>& node, NavDestinationLifecycle lifecycle,
         NavDestinationActiveReason reason = NavDestinationActiveReason::TRANSITION);
 
-    static void FireNavigationInner(const RefPtr<UINode>& node, bool isShow);
+    static void FireNavigationInner(const RefPtr<UINode>& node, bool isShow, bool isFromWindow);
 
     static void FireNavigationStateChange(const RefPtr<UINode>& node, bool isShow);
 
-    static void FireNavigationLifecycleChange(const RefPtr<UINode>& node, NavDestinationLifecycle lifecycle);
+    static void FireNavigationLifecycleChange(const RefPtr<UINode>& node, NavDestinationLifecycle lifecycle,
+        NavDestVisibilityChangeReason reason = NavDestVisibilityChangeReason::TRANSITION);
 
     static bool CheckParentDestinationIsOnhide(const RefPtr<NavDestinationGroupNode>& destinationNode);
     static bool CheckDestinationIsPush(const RefPtr<NavDestinationGroupNode>& destinationNode);
@@ -340,15 +374,13 @@ public:
     void FireOnInactiveLifecycle(const RefPtr<NavDestinationGroupNode>& curDestination,
         NavDestinationActiveReason reason);
 
-    void FireOnShowLifecycle(const RefPtr<NavDestinationGroupNode>& curDestination);
-
-    // type: will_show + on_show, will_hide + on_hide, hide, show, willShow, willHide
-    void NotifyDialogChange(NavDestinationLifecycle lifecycle, bool isFromStandard);
+    void FireOnShowLifecycle(
+        const RefPtr<NavDestinationGroupNode>& curDestination, NavDestVisibilityChangeReason reason);
     void NotifyPageHide(const std::string& pageName);
     void CheckContentNeedMeasure(const RefPtr<FrameNode>& node);
     void DumpInfo() override;
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void SetIsCustomAnimation(bool isCustom)
     {
         isCustomAnimation_ = isCustom;
@@ -379,11 +411,11 @@ public:
     void AttachNavigationStackToParent();
     void DetachNavigationStackFromParent();
 
-    void AddToDumpManager();
-    void RemoveFromDumpManager();
+    void AttachToManager();
+    void DetachFromManager();
 
     void NotifyDestinationLifecycle(const RefPtr<UINode>& destinationNode, NavDestinationLifecycle lifecycle,
-        NavDestinationActiveReason reason = NavDestinationActiveReason::TRANSITION);
+        NavDestLifecycleReason reason = NavDestinationActiveReason::TRANSITION);
     void AbortAnimation(RefPtr<NavigationGroupNode>& hostNode);
 
     void SetParentCustomNode(const RefPtr<UINode>& parentNode)
@@ -397,9 +429,12 @@ public:
     }
 
     void SetSystemBarStyle(const RefPtr<SystemBarStyle>& style);
+    void SetSystemBarStyleMultiThread(const RefPtr<SystemBarStyle>& style);
 
     void OnAttachToMainTree() override;
+    void OnAttachToMainTreeMultiThread();
     void OnDetachFromMainTree() override;
+    void OnDetachFromMainTreeMultiThread();
 
     bool IsFullPageNavigation() const
     {
@@ -442,8 +477,8 @@ public:
         const RefPtr<NavDestinationGroupNode>& newTopNavDestination, bool isPopPage, bool isNeedVisible);
 
     bool IsLastStdChange();
-    void ReplaceAnimation(const RefPtr<NavDestinationGroupNode>& preTopNavDestination,
-        const RefPtr<NavDestinationGroupNode>& newTopNavDestination);
+    bool ReplaceTransition(const RefPtr<NavDestinationGroupNode>& preTopNavDestination,
+        const RefPtr<NavDestinationGroupNode>& newTopNavDestination, bool isAnimated = true);
     void TransitionWithDialogAnimation(const RefPtr<NavDestinationGroupNode>& preTopNavDestination,
         const RefPtr<NavDestinationGroupNode>& newTopNavDestination, bool isPopPage);
     void FollowStdNavdestinationAnimation(const RefPtr<NavDestinationGroupNode>& preTopNavDestination,
@@ -453,6 +488,7 @@ public:
     std::unique_ptr<JsonValue> GetNavdestinationJsonArray();
     std::unique_ptr<JsonValue> GetTopNavdestinationJson(bool needParam);
     RefPtr<NavigationPattern> GetParentNavigationPattern();
+    SizeF GetNavigationFrameSize();
     void RestoreJsStackIfNeeded();
 
     RefPtr<FrameNode> GetNavBasePageNode() const
@@ -527,20 +563,24 @@ public:
     {
         return forceSplitUseNavBar_;
     }
+    bool IsNavBarIsHome() const
+    {
+        return navBarIsHome_;
+    }
 
-    bool IsHomeNodeTouched() const
+    std::optional<bool> IsHomeNodeTouched() const
     {
         return homeNodeTouched_;
     }
-    void SetIsHomeNodeTouched(bool touch)
+    void SetIsHomeNodeTouched(const std::optional<bool>& touch)
     {
         homeNodeTouched_ = touch;
     }
     bool IsForceSplitSupported(const RefPtr<PipelineContext>& context);
 
-    RefPtr<NavDestinationGroupNode> GetHomeNode() const
+    RefPtr<NavDestinationGroupNode> GetForceSplitHomeDestination() const
     {
-        return homeNode_.Upgrade();
+        return forceSplitHomeDest_.Upgrade();
     }
     const std::vector<WeakPtr<NavDestinationGroupNode>>& GetPrimaryNodes() const
     {
@@ -555,23 +595,95 @@ public:
         primaryNodesToBeRemoved_ = primaryNodesToBeRemoved;
     }
     void RecognizeHomePageIfNeeded();
-    void TryForceSplitIfNeeded(const SizeF& frameSize);
-    void SwapNavDestinationAndPlaceHolder(bool needFireLifecycle);
+    void TryForceSplitIfNeeded();
+    void SwapNavDestinationAndProxyNode(bool needFireLifecycle);
     bool IsPrimaryNode(const RefPtr<NavDestinationGroupNode>& destNode) const;
     // Only used for the toolbar in 'container_modal' component
     void SetToolbarManagerNavigationMode(NavigationMode mode);
 
+    void SetIsTargetForceSplitNav(bool isTargetForceSplitNav)
+    {
+        isTargetForceSplitNav_ = isTargetForceSplitNav;
+    }
+    bool GetIsTargetForceSplitNav() const
+    {
+        return isTargetForceSplitNav_;
+    }
+
     bool CreateHomeDestination(RefPtr<UINode>& customNode, RefPtr<NavDestinationGroupNode>& homeDest);
-    bool IsHomeDestinationVisible();
+    bool IsHomeDestinationOrNavBarVisible();
     void FireHomeDestinationLifeCycleIfNeeded(NavDestinationLifecycle lifecycle, bool isModeChange = false,
-        NavDestinationActiveReason reason = NavDestinationActiveReason::TRANSITION);
+        NavDestLifecycleReason reason = NavDestinationActiveReason::TRANSITION);
 
     bool CheckNeedCreate(int32_t index);
 
+    void SetEnableVisibilityLifecycleWithContentCover(bool isEnable)
+    {
+        enableVisibilityLifecycleWithContentCover_ = isEnable;
+    }
+
+    bool GetEnableVisibilityLifecycleWithContentCover() const
+    {
+        return enableVisibilityLifecycleWithContentCover_;
+    }
+
+    bool CanForceSplitLayout() const
+    {
+        return canForceSplitLayout_;
+    }
+
+    bool IsTopFullScreenPage() const
+    {
+        return isTopFullScreenPage_;
+    }
+
+    bool IsTopFullScreenChanged() const
+    {
+        return isTopFullScreenChanged_;
+    }
+    
+    bool CheckNeedInitRangeCalculation(SizeF& newSize)
+    {
+        return newSize != navigationSize_;
+    }
+    bool GetIsNavBarWidthChange() const
+    {
+        return isNavBarWidthChange_;
+    }
+    void SetIsNavBarWidthChange(bool isChange)
+    {
+        isNavBarWidthChange_ = isChange;
+    }
+
+    void FireNavigateChangeCallback();
+
+    void FireChangeCallbackAfterLayout();
+
+    //-------for force split------- begin------
+    bool CreateRelatedDestination(
+        const std::string& name, RefPtr<UINode>& customNode, RefPtr<NavDestinationGroupNode>& relatedDest);
+    bool IsRelatedDestinationShouldVisible();
+    bool IsRelatedDestinationAtTop();
+    void FireRelatedDestinationLifecycleForModeChange();
+    bool IsSplitDisplay() const
+    {
+        return isSplitDisplay_;
+    }
+    void SetIsSplitDisplay(bool isSplit)
+    {
+        isSplitDisplay_ = isSplit;
+    }
+    void UpdateForceSplitHomeDestVisibility();
+    //-------for force split------- end------
+
 private:
+    void UpdateCanForceSplitLayout();
+    void NotifyDialogLifecycle(NavDestinationLifecycle lifecycle, bool isFromStandard,
+        NavDestVisibilityChangeReason reason = NavDestVisibilityChangeReason::TRANSITION);
+    void ClearNavigationCustomTransition();
     bool IsDestinationNeedHideInPush(
         const RefPtr<NavigationGroupNode>& hostNode, const RefPtr<NavDestinationGroupNode>& destNode) const;
-    void FirePrimaryNodesLifecycle(NavDestinationLifecycle lifecycle);
+    void FirePrimaryNodesLifecycle(NavDestinationLifecycle lifecycle, NavDestVisibilityChangeReason reason);
     void FireOnNewParam(const RefPtr<UINode>& uiNode);
     void UpdateIsFullPageNavigation(const RefPtr<FrameNode>& host);
     void UpdateSystemBarStyleOnFullPageStateChange(const RefPtr<WindowManager>& windowManager);
@@ -612,6 +724,8 @@ private:
     RefPtr<FrameNode> GetNavBarNodeOrHomeDestination() const;
     RefPtr<FrameNode> GetContentNode() const;
     RefPtr<FrameNode> GetDividerNode() const;
+    void FireInterceptionBeforeLifeCycleEvent(
+        const std::optional<std::pair<std::string, RefPtr<UINode>>>& from, const int32_t index);
     void FireInterceptionEvent(bool isBefore,
         const std::optional<std::pair<std::string, RefPtr<UINode>>>& newTopNavPath);
     void InitDividerPanEvent(const RefPtr<GestureEventHub>& gestureHub);
@@ -633,7 +747,7 @@ private:
     void FireNavBarWidthChangeEvent(const RefPtr<LayoutWrapper>& layoutWrapper);
     void NotifyPageShow(const std::string& pageName);
     void ProcessPageShowEvent();
-    int32_t FireNavDestinationStateChange(NavDestinationLifecycle lifecycle);
+    int32_t FireNavDestinationStateChange(NavDestinationLifecycle lifecycle, NavDestVisibilityChangeReason reason);
     void UpdatePreNavDesZIndex(const RefPtr<FrameNode> &preTopNavDestination,
         const RefPtr<FrameNode> &newTopNavDestination, int32_t preLastStandardIndex = -1);
     void UpdateNavPathList();
@@ -692,12 +806,13 @@ private:
         std::vector<WeakPtr<NavDestinationNodeBase>>& invisibleNodes,
         std::vector<WeakPtr<NavDestinationNodeBase>>& visibleNodes);
     void OnAllTransitionAnimationFinish();
+    void SetRequestedOrientationIfNeeded();
     void UpdatePageLevelConfigForSizeChanged();
     void UpdatePageLevelConfigForSizeChangedWhenNoAnimation();
     RefPtr<NavDestinationNodeBase> GetLastStandardNodeOrNavBar();
     void HideSystemBarIfNeeded();
     void ShowOrRestoreSystemBarIfNeeded();
-    bool IsEquivalentToStackMode();
+    bool IsRealStackDisplay();
     void ClearPageAndNavigationConfig();
     bool CustomizeExpandSafeArea() override;
 
@@ -709,23 +824,20 @@ private:
     void RegisterForceSplitListener(PipelineContext* context, int32_t nodeId);
     void UnregisterForceSplitListener(PipelineContext* context, int32_t nodeId);
     void ProcessSameTopNavPath();
-    void CalcNavDestinationNodeIndex(std::vector<RefPtr<NavDestinationGroupNode>>& destNodes,
-        int32_t& homeNodeIndex, int32_t& lastStandardIndex);
-    void AdjustPrimaryAndPlaceHolderPosition(
+    void GetNavDestinationsAndHomeIndex(
+        std::vector<RefPtr<NavDestinationGroupNode>>& destNodes, std::optional<int32_t>& homeIndex);
+    void AdjustPrimaryAndProxyNodePosition(
         const RefPtr<FrameNode>& primaryContentNode, const RefPtr<FrameNode>& navContentNode,
-        const std::vector<RefPtr<NavDestinationGroupNode>>& destNodes,
-        int32_t homeNodeIndex, int32_t lastStandardIndex);
+        const std::vector<RefPtr<NavDestinationGroupNode>>& destNodes, std::optional<int32_t> homeIndex);
     void UpdatePrimaryContentIfNeeded(const RefPtr<FrameNode>& primaryContentNode,
         const std::vector<WeakPtr<NavDestinationGroupNode>>& prePrimaryNodes);
     void AdjustNodeForDestForceSplit(bool needTriggerLifecycle);
     void AdjustNodeForNonDestForceSplit(bool needTriggerLifecycle);
     void ClearSecondaryNodesIfNeeded(NavPathList&& preList);
-    void UpdateNavContentAndPlaceHolderVisibility(const RefPtr<FrameNode>& navContentNode,
-        const RefPtr<FrameNode>& phNode, const std::vector<RefPtr<NavDestinationGroupNode>>& stackNodes);
 
     bool IsTopPrimaryNode(const RefPtr<NavDestinationGroupNode>& node);
     
-    int32_t GetFirstNewStandardDestinationIndex(const NavPathList& preList, const NavPathList& curList);
+    int32_t GetFirstNewDestinationIndex(const NavPathList& preList, const NavPathList& curList);
 
     void AppendFilterNodesFromHideNodes(std::set<RefPtr<NavDestinationGroupNode>>& filterNodes);
     void AppendFilterNodesForWillHideLifecycle(std::set<RefPtr<NavDestinationGroupNode>>& filterNodes);
@@ -747,6 +859,35 @@ private:
     void FireHomeDestinationLifecycleForTransition(NavDestinationLifecycle lifecycle);
     RefPtr<NavDestinationContext> GetHomeDestinationContext();
     bool GetHomeDestinationName(const RefPtr<FrameNode>& hostNode, std::string& name);
+    void TriggerPerformanceCheck(const RefPtr<NavDestinationGroupNode>& topDestination, std::string fromPath);
+    NavigateChangeInfo ConvertNavDestinationContext(const RefPtr<NavDestinationContext>& context);
+    void LoadCompleteManagerStartCollect();
+    void LoadCompleteManagerStopCollect();
+    void ContentChangeReport(const RefPtr<FrameNode>& keyNode);
+    void ContentChangeOnTransitionStart(const RefPtr<FrameNode>& keyNode);
+    void UpdatePlaceholderVisibilityIfNeeded();
+
+    //-------for force split------- begin------
+    bool IsNavBarValid();
+    bool IsHideNavBarInForceSplitModeNeeded();
+    void ReplaceNodeWithProxyNodeIfNeeded(
+        const RefPtr<FrameNode>& navContentNode, const RefPtr<NavDestinationGroupNode>& node);
+    void RestoreNodeFromProxyNodeIfNeeded(const RefPtr<FrameNode>& primaryContentNode,
+        const RefPtr<FrameNode>& navContentNode, const RefPtr<NavDestinationGroupNode>& node);
+    void ReorderPrimaryNodes(const RefPtr<FrameNode>& primaryContentNode,
+        const std::vector<WeakPtr<NavDestinationGroupNode>>& nodes);
+    void NotifyForceFullScreenChangeIfNeeded(const std::vector<std::string>& allNames);
+    void UpdatePlaceholderOrRelatedPageVisible(bool phIsVisible);
+    void UpdateNavContentAndChildVisibility(const RefPtr<FrameNode>& navContentNode, bool isVisible);
+    void FireRelatedDestinationLifecycleForTransition(NavDestinationLifecycle lifecycle);
+    void FireRelatedDestinationLifecycleInner(bool isOnShow, bool isFromWindow);
+    RefPtr<NavDestinationGroupNode> GetNonTopForceSplitHomeDestination();
+    RefPtr<NavDestinationGroupNode> GetVisibleRelatedDestination();
+    RefPtr<NavDestinationGroupNode> GetTopRelatedDestination();
+    void ProcessHideNavBarChangeInForceSplit();
+    void ReportPrimaryTopChangeIfNeeded(const WeakPtr<NavDestinationGroupNode>& prePrimaryTop);
+    void ReportTopDestinationInForceSplit();
+    //-------for force split------- end  ------
 
     NavigationMode navigationMode_ = NavigationMode::AUTO;
     std::function<void(std::string)> builder_;
@@ -764,6 +905,7 @@ private:
     std::optional<RefPtr<SystemBarStyle>> currStyle_;
     bool addByNavRouter_ = false;
     bool ifNeedInit_ = true;
+    int64_t startTime_ = 0;
     float preNavBarWidth_ = 0.0f;
     float realNavBarWidth_ = DEFAULT_NAV_BAR_WIDTH.ConvertToPx();
     float initNavBarWidth_ = DEFAULT_NAV_BAR_WIDTH.ConvertToPx();
@@ -773,7 +915,9 @@ private:
     bool userSetNavBarRangeFlag_ = false;
     bool userSetMinContentFlag_ = false;
     bool userSetNavBarWidthFlag_ = false;
+    bool userSetDividerInvisibleFlag_ = false;
     bool isChanged_ = false; // check navigation top page is change
+    bool isNavBarWidthChange_ = false;
     Dimension initNavBarWidthValue_ = DEFAULT_NAV_BAR_WIDTH;
     Dimension minNavBarWidthValue_ = 0.0_vp;
     Dimension maxNavBarWidthValue_ = 0.0_vp;
@@ -809,16 +953,24 @@ private:
 
     std::vector<WeakPtr<NavDestinationNodeBase>> preVisibleNodes_;
     int32_t runningTransitionCount_ = 0;
-    bool isTransitionAnimationAborted_ = false;
+    bool windowSizeChangedDuringTransition_ = false;
+    bool enableVisibilityLifecycleWithContentCover_ = true;
+    bool enableLockOrientation_ = false;
 
     //-------for force split------- begin------
     bool forceSplitSuccess_ = false;
+    bool canForceSplitLayout_ = false;
+    bool isTopFullScreenPage_ = false;
+    bool isTopFullScreenChanged_ = false;
     bool forceSplitUseNavBar_ = false;
-    bool homeNodeTouched_ = false;
-    WeakPtr<NavDestinationGroupNode> homeNode_;
+    std::optional<bool> homeNodeTouched_;
+    bool navBarIsHome_ = false;
+    bool isTargetForceSplitNav_ = false;
+    WeakPtr<NavDestinationGroupNode> forceSplitHomeDest_;
     std::vector<WeakPtr<NavDestinationGroupNode>> prePrimaryNodes_;
     std::vector<WeakPtr<NavDestinationGroupNode>> primaryNodes_;
     std::vector<RefPtr<NavDestinationGroupNode>> primaryNodesToBeRemoved_;
+    bool isSplitDisplay_ = false;
     //-------for force split------- end  ------
 };
 

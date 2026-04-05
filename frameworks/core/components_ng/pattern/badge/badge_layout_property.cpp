@@ -39,7 +39,7 @@ void BadgeLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, const In
     if (filter.IsFastFilter()) {
         return;
     }
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto badgeTheme = pipeline->GetTheme<BadgeTheme>();
     CHECK_NULL_VOID(badgeTheme);
@@ -63,6 +63,11 @@ void BadgeLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, const In
     jsonValue->Put("borderWidth", GetBadgeBorderWidth().value_or(badgeTheme->GetBadgeBorderWidth()).ToString().c_str());
     jsonValue->Put(
         "fontWeight", V2::ConvertWrapFontWeightToStirng(GetBadgeFontWeight().value_or(FontWeight::NORMAL)).c_str());
+    jsonValue->Put("outerBorderColor",
+        GetBadgeOuterBorderColor().value_or(badgeTheme->GetBadgeOuterBorderColor()).ColorToString().c_str());
+    jsonValue->Put("outerBorderWidth",
+        GetBadgeOuterBorderWidth().value_or(badgeTheme->GetBadgeOuterBorderWidth()).ToString().c_str());
+    jsonValue->Put("enableAutoAvoidance", GetIsEnableAutoAvoidance().value_or(false));
 
     json->PutExtAttr("style", jsonValue->ToString().c_str(), filter);
 }

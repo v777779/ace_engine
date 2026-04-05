@@ -217,7 +217,12 @@ void CalendarPickerPattern::UpdateEdgeAlign()
     }
 
     layoutProperty->UpdateDialogAlignType(rtlAlignType);
-    layoutProperty->UpdateDialogOffset(DimensionOffset(Dimension(rtlX), offset_.GetY()));
+
+    if (std::isfinite(offset_.GetX().ConvertToPx()) && std::isfinite(offset_.GetY().ConvertToPx())) {
+        layoutProperty->UpdateDialogOffset(DimensionOffset(Dimension(rtlX), offset_.GetY()));
+    } else {
+        layoutProperty->UpdateDialogOffset(DimensionOffset(Dimension(), Dimension()));
+    }
 }
 
 bool CalendarPickerPattern::OnDirtyLayoutWrapperSwap(
@@ -457,7 +462,10 @@ bool CalendarPickerPattern::ReportChangeEvent(const std::string& compName,
 
 void CalendarPickerPattern::FireChangeEvents(const std::string& info)
 {
-    ReportChangeEvent("CalendarPicker", "onChange", info);
+    if (!IsDialogShow()) {
+        ReportChangeEvent("CalendarPicker", "onChange", info);
+    }
+
     auto eventHub = GetEventHub<CalendarPickerEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->UpdateInputChangeEvent(info);
@@ -1261,6 +1269,23 @@ void CalendarPickerPattern::OnWindowSizeChanged(int32_t width, int32_t height, W
 
 void CalendarPickerPattern::OnColorConfigurationUpdate()
 {
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pickerProperty = host->GetLayoutProperty<CalendarPickerLayoutProperty>();
+    CHECK_NULL_VOID(pickerProperty);
+    auto pipelineContext = host->GetContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto calendarTheme = pipelineContext->GetTheme<CalendarTheme>(host->GetThemeScopeId());
+    CHECK_NULL_VOID(calendarTheme);
+    if (!pickerProperty->GetNormalTextColorSetByUser().value_or(false)) {
+        pickerProperty->UpdateColor(calendarTheme->GetEntryFontColor());
+    }
+    auto renderContext = host->GetRenderContext();
+    CHECK_NULL_VOID(renderContext);
+    BorderColorProperty borderColor;
+    borderColor.SetColor(calendarTheme->GetEntryBorderColor());
+    renderContext->UpdateBorderColor(borderColor);
+
     if (IsDialogShow()) {
         return;
     }
@@ -1479,10 +1504,11 @@ void CalendarPickerPattern::UpdateTextStyle(const PickerTextStyle& textStyle)
     auto pickerProperty = host->GetLayoutProperty<CalendarPickerLayoutProperty>();
     CHECK_NULL_VOID(pickerProperty);
 
-    if (pipelineContext->IsSystmColorChange()) {
-        pickerProperty->UpdateColor(textStyle.textColor.value_or(calendarTheme->GetEntryFontColor()));
+    if (pipelineContext->IsSystemColorChange()) {
+        Color defaultColor = pickerProperty->GetColor().value_or(calendarTheme->GetEntryFontColor());
+        pickerProperty->UpdateColor(textStyle.textColor.value_or(defaultColor));
 
-        Dimension fontSize = calendarTheme->GetEntryFontSize();
+        Dimension fontSize = pickerProperty->GetFontSize().value_or(calendarTheme->GetEntryFontSize());
         if (textStyle.fontSize.has_value() && textStyle.fontSize->IsValid()) {
             fontSize = textStyle.fontSize.value();
         }
@@ -1493,4 +1519,19 @@ void CalendarPickerPattern::UpdateTextStyle(const PickerTextStyle& textStyle)
         host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
     }
 }
+
+void CalendarPickerPattern::BeforeCreateLayoutWrapper()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto layoutProperty = host->GetLayoutProperty<CalendarPickerLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    auto layoutPolicy = layoutProperty->GetLayoutPolicyProperty();
+    CHECK_NULL_VOID(layoutPolicy.has_value());
+
+    if (layoutPolicy->IsWidthMatch() || layoutPolicy->IsHeightMatch()) {
+        layoutProperty->ClearUserDefinedIdealSize(false, true);
+    }
+}
+
 } // namespace OHOS::Ace::NG

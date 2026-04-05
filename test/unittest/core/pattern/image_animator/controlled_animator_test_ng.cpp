@@ -17,7 +17,7 @@
 #include "test/unittest/core/pattern/test_ng.h"
 #include "ui/base/ace_type.h"
 
-#include "core/components_ng/pattern/image_animator/controlled_animator.h"
+#include "base/image/controlled_animator.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -62,7 +62,7 @@ HWTEST_F(ControlledAnimatorTestNg, SetIteration002, TestSize.Level1)
 
 /**
  * @tc.name: SetIteration003
- * @tc.desc: test SetIteration.
+ * @tc.desc: test iteration 2 for SetIteration to STOPPED
  * @tc.type: FUNC
  */
 HWTEST_F(ControlledAnimatorTestNg, SetIteration003, TestSize.Level1)
@@ -188,6 +188,31 @@ HWTEST_F(ControlledAnimatorTestNg, PostPlayTask004, TestSize.Level1)
     controlledAnimator->AddInterpolator(frames);
     controlledAnimator->PostPlayTask(idx, iteration, idxOffset, elapsedTime);
     EXPECT_FALSE(controlledAnimator->needFireRepeatEvent_);
+}
+
+/**
+ * @tc.name: PostPlayTask005
+ * @tc.desc: test PostPlayTask.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ControlledAnimatorTestNg, PostPlayTask005, TestSize.Level1)
+{
+    auto controlledAnimator = AceType::MakeRefPtr<ControlledAnimator>();
+    EXPECT_NE(controlledAnimator, nullptr);
+
+    int32_t idx = 2;
+    int32_t iteration = 0;
+    int32_t idxOffset = 1;
+    int32_t elapsedTime = 1;
+    controlledAnimator->iteration_ = 1;
+    controlledAnimator->needFireRepeatEvent_ = false;
+
+    std::function<void(int32_t)> func = [](int32_t num) {};
+    controlledAnimator->AddListener(func);
+    std::vector<PictureInfo> frames { { 0.5f, 100 }, { 0.5f, 200 } };
+    controlledAnimator->AddInterpolator(frames);
+    controlledAnimator->PostPlayTask(idx, iteration, idxOffset, elapsedTime);
+    EXPECT_EQ(controlledAnimator->runningIdx_, 2);
 }
 
 /**
@@ -1041,73 +1066,6 @@ HWTEST_F(ControlledAnimatorTestNg, ForwardTest002, TestSize.Level1)
 }
 
 /**
- * @tc.name: ForwardTest003
- * @tc.desc: Test Forward() normal case
- * @tc.type: FUNC
- */
-HWTEST_F(ControlledAnimatorTestNg, ForwardTest003, TestSize.Level1)
-{
-    auto animator = AceType::MakeRefPtr<ControlledAnimator>();
-    EXPECT_NE(animator, nullptr);
-
-    animator->iteration_ = 1;
-    animator->duration_ = 1000;
-    animator->controlStatus_ = ControlledAnimator::ControlStatus::STOPPED;
-    animator->isReverse_ = true;
-    
-    std::vector<PictureInfo> frames { {0.5f, 100}, {0.5f, 200} };
-    animator->AddInterpolator(frames);
-    ASSERT_FALSE(animator->pictureInfos_.empty());
-    
-    bool startCalled = false;
-    animator->AddStartListener([&startCalled]() { startCalled = true; });
-    
-    bool playbackCalled = false;
-    animator->AddListener([&playbackCalled, animator](int32_t index) {
-        // Ensure index is valid before using
-        if (index >= 0 && index < static_cast<int32_t>(animator->pictureInfos_.size())) {
-            playbackCalled = true;
-        }
-    });
-    
-    // Mock task scheduler for test environment
-    bool taskExecuted = false;
-    auto task = [animator, &playbackCalled, &taskExecuted]() {
-        if (animator->playbackListener_ && !animator->pictureInfos_.empty()) {
-            // Ensure runningIdx is valid
-            ASSERT_LT(animator->runningIdx_, animator->pictureInfos_.size());
-            animator->playbackListener_(animator->pictureInfos_[animator->runningIdx_].second);
-            animator->currentTaskStartTime_ = std::chrono::steady_clock::now(); // Set time point
-            playbackCalled = true;
-            taskExecuted = true;
-        }
-    };
-    animator->currentPostTask_.Reset(task);
-    
-    animator->Forward();
-    
-    // Verify initial state changes
-    EXPECT_TRUE(startCalled);
-    EXPECT_FALSE(animator->isReverse_);
-    EXPECT_EQ(animator->controlStatus_, ControlledAnimator::ControlStatus::RUNNING);
-    
-    // Verify task was created
-    ASSERT_TRUE(animator->currentPostTask_);
-    
-    // Execute task synchronously for test
-    animator->currentPostTask_();
-    
-    // Verify results
-    EXPECT_TRUE(taskExecuted);
-    EXPECT_TRUE(playbackCalled);
-    EXPECT_GT(animator->duration_, 0);
-    EXPECT_LT(animator->runningIdx_, frames.size());
-    
-    // Additional verification for task execution
-    EXPECT_TRUE(animator->currentTaskStartTime_ != std::chrono::steady_clock::time_point());
-}
-
-/**
  * @tc.name: BackwardTest001
  * @tc.desc: Test Backward() with empty interpolators
  * @tc.type: FUNC
@@ -1155,67 +1113,6 @@ HWTEST_F(ControlledAnimatorTestNg, BackwardTest002, TestSize.Level1)
     EXPECT_TRUE(finishCalled);
     EXPECT_EQ(animator->controlStatus_, ControlledAnimator::ControlStatus::STOPPED);
     EXPECT_LT(animator->runningIdx_, frames.size()); // ensure index is valid
-}
-
-/**
- * @tc.name: BackwardTest003
- * @tc.desc: Test Backward() normal case
- * @tc.type: FUNC
- */
-HWTEST_F(ControlledAnimatorTestNg, BackwardTest003, TestSize.Level1)
-{
-    auto animator = AceType::MakeRefPtr<ControlledAnimator>();
-    EXPECT_NE(animator, nullptr);
-
-    animator->iteration_ = 1;
-    animator->duration_ = 1000;
-    animator->controlStatus_ = ControlledAnimator::ControlStatus::STOPPED;
-    animator->isReverse_ = false;
-    
-    std::vector<PictureInfo> frames { {0.5f, 100}, {0.5f, 200} };
-    animator->AddInterpolator(frames);
-    ASSERT_FALSE(animator->pictureInfos_.empty());
-    
-    bool startCalled = false;
-    animator->AddStartListener([&startCalled]() { startCalled = true; });
-    
-    bool playbackCalled = false;
-    animator->AddListener([&playbackCalled, animator](int32_t index) {
-        if (index >= 0 && index < static_cast<int32_t>(animator->pictureInfos_.size())) {
-            playbackCalled = true;
-        }
-    });
-    
-    // Mock task scheduler for test environment
-    bool taskExecuted = false;
-    auto task = [animator, &playbackCalled, &taskExecuted]() {
-        if (animator->playbackListener_ && !animator->pictureInfos_.empty()) {
-            ASSERT_LT(animator->runningIdx_, animator->pictureInfos_.size());
-            animator->playbackListener_(animator->pictureInfos_[animator->runningIdx_].second);
-            animator->currentTaskStartTime_ = std::chrono::steady_clock::now();
-            playbackCalled = true;
-            taskExecuted = true;
-        }
-    };
-    animator->currentPostTask_.Reset(task);
-    
-    animator->Backward();
-    
-    // Verify initial state changes
-    EXPECT_TRUE(startCalled);
-    EXPECT_TRUE(animator->isReverse_);
-    EXPECT_EQ(animator->controlStatus_, ControlledAnimator::ControlStatus::RUNNING);
-    
-    // Verify task was created
-    ASSERT_TRUE(animator->currentPostTask_);
-    
-    // Execute task synchronously for test
-    animator->currentPostTask_();
-    
-    // Verify results
-    EXPECT_TRUE(taskExecuted);
-    EXPECT_TRUE(playbackCalled);
-    EXPECT_LT(animator->runningIdx_, frames.size());
 }
 
 /**

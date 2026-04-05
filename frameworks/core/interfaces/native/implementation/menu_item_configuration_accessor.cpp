@@ -13,108 +13,28 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
+#include "base/log/log_wrapper.h"
+#include "core/common/dynamic_module_helper.h"
+#include "core/components_ng/pattern/menu/menu_layout_property.h"
 #include "core/interfaces/native/utility/converter.h"
+#include "core/interfaces/native/utility/reverse_converter.h"
+#include "core/interfaces/native/implementation/menu_item_configuration_peer.h"
 #include "arkoala_api_generated.h"
+#include "ui/base/utils/utils.h"
 
 namespace OHOS::Ace::NG::GeneratedModifier {
-namespace MenuItemConfigurationAccessor {
-void DestroyPeerImpl(Ark_MenuItemConfiguration peer)
-{
-}
-Ark_MenuItemConfiguration CtorImpl()
-{
-    return nullptr;
-}
-Ark_NativePointer GetFinalizerImpl()
-{
-    return reinterpret_cast<void *>(&DestroyPeerImpl);
-}
-void TriggerSelectImpl(Ark_MenuItemConfiguration peer,
-                       const Ark_Number* index,
-                       const Ark_String* value)
-{
-}
-Ark_Boolean GetEnabledImpl(Ark_MenuItemConfiguration peer)
-{
-    return {};
-}
-void SetEnabledImpl(Ark_MenuItemConfiguration peer,
-                    Ark_Boolean enabled)
-{
-}
-Ark_ContentModifier GetContentModifierImpl(Ark_MenuItemConfiguration peer)
-{
-    return {};
-}
-void SetContentModifierImpl(Ark_MenuItemConfiguration peer,
-                            const Ark_Object* contentModifier)
-{
-}
-Ark_ResourceStr GetValueImpl(Ark_MenuItemConfiguration peer)
-{
-    return {};
-}
-void SetValueImpl(Ark_MenuItemConfiguration peer,
-                  const Ark_ResourceStr* value)
-{
-}
-Opt_ResourceStr GetIconImpl(Ark_MenuItemConfiguration peer)
-{
-    return {};
-}
-void SetIconImpl(Ark_MenuItemConfiguration peer,
-                 const Ark_ResourceStr* icon)
-{
-}
-Opt_SymbolGlyphModifier GetSymbolIconImpl(Ark_MenuItemConfiguration peer)
-{
-    return {};
-}
-void SetSymbolIconImpl(Ark_MenuItemConfiguration peer,
-                       const Ark_SymbolGlyphModifier* symbolIcon)
-{
-}
-Ark_Boolean GetSelectedImpl(Ark_MenuItemConfiguration peer)
-{
-    return {};
-}
-void SetSelectedImpl(Ark_MenuItemConfiguration peer,
-                     Ark_Boolean selected)
-{
-}
-Ark_Number GetIndexImpl(Ark_MenuItemConfiguration peer)
-{
-    return {};
-}
-void SetIndexImpl(Ark_MenuItemConfiguration peer,
-                  const Ark_Number* index)
-{
-}
-} // MenuItemConfigurationAccessor
 const GENERATED_ArkUIMenuItemConfigurationAccessor* GetMenuItemConfigurationAccessor()
 {
-    static const GENERATED_ArkUIMenuItemConfigurationAccessor MenuItemConfigurationAccessorImpl {
-        MenuItemConfigurationAccessor::DestroyPeerImpl,
-        MenuItemConfigurationAccessor::CtorImpl,
-        MenuItemConfigurationAccessor::GetFinalizerImpl,
-        MenuItemConfigurationAccessor::TriggerSelectImpl,
-        MenuItemConfigurationAccessor::GetEnabledImpl,
-        MenuItemConfigurationAccessor::SetEnabledImpl,
-        MenuItemConfigurationAccessor::GetContentModifierImpl,
-        MenuItemConfigurationAccessor::SetContentModifierImpl,
-        MenuItemConfigurationAccessor::GetValueImpl,
-        MenuItemConfigurationAccessor::SetValueImpl,
-        MenuItemConfigurationAccessor::GetIconImpl,
-        MenuItemConfigurationAccessor::SetIconImpl,
-        MenuItemConfigurationAccessor::GetSymbolIconImpl,
-        MenuItemConfigurationAccessor::SetSymbolIconImpl,
-        MenuItemConfigurationAccessor::GetSelectedImpl,
-        MenuItemConfigurationAccessor::SetSelectedImpl,
-        MenuItemConfigurationAccessor::GetIndexImpl,
-        MenuItemConfigurationAccessor::SetIndexImpl,
-    };
-    return &MenuItemConfigurationAccessorImpl;
+    static const GENERATED_ArkUIMenuItemConfigurationAccessor* accessor = nullptr;
+    if (accessor == nullptr) {
+        auto module = DynamicModuleHelper::GetInstance().GetDynamicModule("MenuItem");
+        if (module == nullptr) {
+            LOGF("Can't find MenuItemConfigurationAccessor dynamic module");
+            abort();
+        }
+        accessor = reinterpret_cast<const GENERATED_ArkUIMenuItemConfigurationAccessor*>(
+            module->GetCustomModifier("configurationAccessor"));
+    }
+    return accessor;
 }
-
-}
+} // namespace OHOS::Ace::NG::GeneratedModifier

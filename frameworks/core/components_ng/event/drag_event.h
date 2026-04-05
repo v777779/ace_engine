@@ -17,27 +17,39 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_EVENT_DRAG_EVENT_H
 
 #include <functional>
-#include <list>
+#include <memory>
+
+#include "ui/gestures/gesture_event.h"
 
 #include "base/memory/ace_type.h"
-#include "base/memory/referenced.h"
-#include "core/components/common/properties/blur_style_option.h"
+#include "core/components/common/properties/shadow.h"
 #include "core/components_ng/event/gesture_event_actuator.h"
-#include "core/components_ng/gestures/recognizers/sequenced_recognizer.h"
-#include "core/gestures/drag_event.h"
+#include "core/components_ng/property/border_property.h"
+#include "core/gestures/drag_constants.h"
+#include "core/gestures/gesture_info.h"
+
+namespace OHOS::Ace {
+class CalcDimensionRect;
+class PixelMap;
+}
 
 namespace OHOS::Ace::NG {
+
+struct OptionsAfterApplied;
 
 class GestureEventHub;
 class PanRecognizer;
 class LongPressRecognizer;
+class SequencedRecognizer;
+class TouchEventImpl;
 class FrameNode;
 class OverlayManager;
 class ScrollablePattern;
 struct GatherNodeChildInfo;
+class UINode;
 
 class DragEvent : public AceType {
-    DECLARE_ACE_TYPE(DragEvent, AceType)
+    DECLARE_ACE_TYPE(DragEvent, AceType);
 public:
     DragEvent(GestureEventFunc&& actionStart, GestureEventFunc&& actionUpdate, GestureEventFunc&& actionEnd,
         GestureEventNoParameter&& actionCancel)
@@ -95,12 +107,12 @@ private:
     std::vector<KeyCode> pressedKeyCodes_;
 };
 
-class ACE_EXPORT DragEventActuator : public GestureEventActuator {
-    DECLARE_ACE_TYPE(DragEventActuator, GestureEventActuator)
+class ACE_FORCE_EXPORT DragEventActuator : public GestureEventActuator {
+    DECLARE_ACE_TYPE(DragEventActuator, GestureEventActuator);
 public:
     DragEventActuator(
         const WeakPtr<GestureEventHub>& gestureEventHub, PanDirection direction, int32_t fingers, float distance);
-    ~DragEventActuator() override = default;
+    ~DragEventActuator() override;
 
     void ReplaceDragEvent(const RefPtr<DragEvent>& dragEvent)
     {
@@ -144,8 +156,11 @@ public:
     static void UpdatePreviewAttr(const RefPtr<FrameNode>& frameNode, const RefPtr<FrameNode>& imageNode);
     static void UpdateGatherAnimatePosition(
         std::vector<GatherNodeChildInfo>& gatherNodeChildrenInfo, const OffsetF& GatherNodeOffset);
+    static void UpdateGatherAnimatePosition(
+        const RefPtr<FrameNode>& gatherNode, const OffsetF& GatherNodeOffset);
     static void SetPreviewDefaultAnimateProperty(const RefPtr<FrameNode>& imageNode);
-    static void ExecutePreDragAction(const PreDragStatus preDragStatus, const RefPtr<FrameNode>& frameNode = nullptr);
+    ACE_FORCE_EXPORT static void ExecutePreDragAction(
+        const PreDragStatus preDragStatus, const RefPtr<FrameNode>& frameNode = nullptr);
     static void ExecutePreDragFunc(const RefPtr<FrameNode>& node, const PreDragStatus preDragStatus,
         const PreDragStatus onPreDragStatus);
     void SetPixelMap(const RefPtr<DragEventActuator>& actuator);
@@ -221,9 +236,21 @@ public:
         return defaultOnDragStartExecuted_;
     }
 
-    const OptionsAfterApplied& GetOptionsAfterApplied()
+    const OptionsAfterApplied& GetOptionsAfterApplied();
+
+    void SetIsForDragDrop(bool isForDragDrop)
     {
-        return optionsAfterApplied_;
+        isForDragDrop_ = isForDragDrop;
+    }
+
+    void SetRestartDrag(bool isRestartDrag)
+    {
+        isRestartDrag_ = isRestartDrag;
+    }
+
+    bool GetRestartDrag() const
+    {
+        return isRestartDrag_;
     }
 
     bool GetIsNewFwk() const
@@ -239,21 +266,6 @@ public:
     int32_t GetLastTouchFingerId()
     {
         return lastTouchFingerId_;
-    }
-    
-    void SetRestartDrag(bool isRestartDrag)
-    {
-        isRestartDrag_ = isRestartDrag;
-    }
-
-    bool GetRestartDrag() const
-    {
-        return isRestartDrag_;
-    }
-
-    void SetIsForDragDrop(bool isForDragDrop)
-    {
-        isForDragDrop_ = isForDragDrop;
     }
 
     void CopyDragEvent(const RefPtr<DragEventActuator>& dragEventActuator);
@@ -284,7 +296,7 @@ public:
     void HandleTouchMoveEvent();
     void HandleTouchCancelEvent();
     const RefPtr<FrameNode> GetItemParentNode() const;
-    RefPtr<FrameNode> GetFrameNode();
+    RefPtr<FrameNode> GetFrameNode() const;
     static void PrepareShadowParametersForDragData(const RefPtr<FrameNode>& frameNode,
        std::unique_ptr<JsonValue>& arkExtraInfoJson, float scale);
     static void PrepareRadiusParametersForDragData(const RefPtr<FrameNode>& frameNode,
@@ -295,6 +307,8 @@ public:
 
     inline static void FlushSyncGeometryNodeTasks();
 
+    void SetResponseRegionMapFull();
+    void ResetResponseRegionMap();
     void SetResponseRegionFull();
     void ResetResponseRegion();
     static void ResetDragStatus();
@@ -305,6 +319,7 @@ public:
     virtual void NotifyDragStart() {};
     virtual void NotifyDragEnd() {};
     virtual void NotifyPreDragStatus(const PreDragStatus preDragStatus) {};
+
 
     void SetIsThumbnailCallbackTriggered(bool isThumbnailCallbackTriggered)
     {
@@ -331,6 +346,7 @@ public:
 
     void CallTimerCallback(const RefPtr<FrameNode>& frameNode);
     void SetExecTimerCallback(bool isExecCallback);
+    void RemovePixelMap();
 protected:
     DragEventActuator(const WeakPtr<GestureEventHub>& gestureEventHub);
 
@@ -368,6 +384,7 @@ private:
     bool isNotInPreviewState_ = false;
     std::vector<GatherNodeChildInfo> gatherNodeChildrenInfo_;
     std::vector<DimensionRect> responseRegion_;
+    std::unordered_map<ResponseRegionSupportedTool, std::vector<CalcDimensionRect>> responseRegionMap_;
     bool isSelectedItemNode_ = false;
     bool isOnBeforeLiftingAnimation_ = false;
     bool isDragPrepareFinish_ = false;
@@ -376,7 +393,7 @@ private:
     bool isDragUserReject_ = false;
     bool defaultOnDragStartExecuted_ = false;
     bool isResponseRegionFull_ = false;
-    OptionsAfterApplied optionsAfterApplied_;
+    std::unique_ptr<OptionsAfterApplied> optionsAfterApplied_;
 
     PanDirection direction_;
     int32_t fingers_ = 1;
@@ -384,9 +401,9 @@ private:
     float preScaleValue_ = 1.0f;
     bool isRedragStart_ = false;
     int32_t lastTouchFingerId_ = 0;
-    bool isNewFwk_ = false;
-    bool isRestartDrag_ = false;
     bool isForDragDrop_ = false;
+    bool isRestartDrag_ = false;
+    bool isNewFwk_ = false;
     bool isExecCallback_ = false;
 };
 

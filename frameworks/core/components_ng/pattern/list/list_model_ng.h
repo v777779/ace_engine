@@ -18,7 +18,7 @@
 #include "base/utils/macros.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/list/list_model.h"
-#include "core/components_v2/list/list_properties.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 
 namespace OHOS::Ace::NG {
 
@@ -32,6 +32,7 @@ public:
     void SetListDirection(Axis axis) override;
     void SetScrollBar(DisplayMode scrollBar) override;
     void SetScrollBarColor(const std::string& value) override;
+    void SetScrollBarColor(const std::optional<Color>& scrollBarColor) override;
     void SetScrollBarWidth(const std::string& value) override;
     void SetEdgeEffect(EdgeEffect edgeEffect, bool alwaysEnabled, EffectEdge edge = EffectEdge::ALL) override;
     void SetEditMode(bool editMode) override;
@@ -46,6 +47,7 @@ public:
     void SetLaneGutter(const Dimension& laneGutter) override;
     void SetListItemAlign(V2::ListItemAlign listItemAlign) override;
     void SetCachedCount(int32_t cachedCount, bool show = false) override;
+    void SetCacheRange(NG::CacheRange cacheRange, bool show = false) override;
     void SetMultiSelectable(bool selectable) override;
     void SetHasWidth(bool hasWidth) override {}
     void SetHasHeight(bool hasHeight) override {}
@@ -60,6 +62,7 @@ public:
     void SetMaintainVisibleContentPosition(bool enabled) override;
     void SetStackFromEnd(bool enabled) override;
     void SetSyncLoad(bool enabled) override;
+    void SetEditModeOptions(EditModeOptions& editModeOptions) override;
     void SetOnScroll(OnScrollEvent&& onScroll) override;
     void SetOnScrollBegin(OnScrollBeginEvent&& onScrollBegin) override;
     void SetOnScrollFrameBegin(OnScrollFrameBeginEvent&& onScrollFrameBegin) override;
@@ -76,7 +79,9 @@ public:
     void SetOnItemDragLeave(OnItemDragLeaveFunc&& onItemDragLeave) override;
     void SetOnItemDragMove(OnItemDragMoveFunc&& onItemDragMove) override;
     void SetOnItemDrop(OnItemDropFunc&& onItemDrop) override;
-    RefPtr<ListChildrenMainSize> GetOrCreateListChildrenMainSize() override;
+    void SetItemFillPolicy(PresetFillType fillType) override;
+    void ResetItemFillPolicy() override;
+    RefPtr<ListChildrenMainSize> GetOrCreateListChildrenMainSize(FrameNode* node = nullptr) override;
     void ParseResObjDividerStrokeWidth(const RefPtr<ResourceObject>& resObj) override;
     void ParseResObjDividerColor(const RefPtr<ResourceObject>& resObj) override;
     void ParseResObjDividerStartMargin(const RefPtr<ResourceObject>& resObj) override;
@@ -85,6 +90,9 @@ public:
     void CreateWithResourceObjLaneGutter(const RefPtr<ResourceObject>& resObj) override;
     void CreateWithResourceObjLaneConstrain(const RefPtr<ResourceObject>& resObjMinLengthValue,
         const RefPtr<ResourceObject>& resObjMaxLengthValue) override;
+    void CreateWithResourceObjScrollBarColor(const RefPtr<ResourceObject>& resObj) override;
+    void SetScrollSnapAnimationSpeed(ScrollSnapAnimationSpeed speed) override;
+    void SetSupportEmptyBranchInLazyLoading(bool supportEmptyBranch) override;
 
     static RefPtr<ScrollControllerBase> GetOrCreateController(FrameNode* frameNode);
     static void ScrollToEdge(FrameNode* frameNode, ScrollEdgeType scrollEdgeType, bool smooth);
@@ -96,6 +104,9 @@ public:
     static void SetShowCached(FrameNode* frameNode, bool show);
     static int32_t GetCachedCount(FrameNode* frameNode);
     static bool GetShowCached(FrameNode* frameNode);
+    static void SetCacheRange(FrameNode* frameNode, int32_t min, int32_t max);
+    static void ResetCacheRange(FrameNode* frameNode);
+    static CacheRange GetCacheRange(FrameNode* frameNode);
     static int32_t GetScrollEnabled(FrameNode* frameNode);
     static void SetScrollEnabled(FrameNode* frameNode, bool enableScrollInteraction);
     static int32_t GetSticky(FrameNode* frameNode);
@@ -116,6 +127,9 @@ public:
     static void SetListScrollBarColor(FrameNode* frameNode, const std::string& value);
     static void SetLanes(FrameNode* frameNode, int32_t lanes);
     static int32_t GetLanes(FrameNode* frameNode);
+    static void SetItemFillPolicy(FrameNode* frameNode, PresetFillType fillType);
+    static void ResetItemFillPolicy(FrameNode* frameNode);
+    static int32_t GetItemFillPolicy(FrameNode* frameNode);
     static void SetLaneConstrain(FrameNode* frameNode, const Dimension& laneMinLength, const Dimension& laneMaxLength);
     static void SetLaneMinLength(FrameNode* frameNode, const Dimension& laneMinLength);
     static float GetLaneMinLength(FrameNode* frameNode);
@@ -130,6 +144,7 @@ public:
     static float GetListSpace(FrameNode* frameNode);
     static void SetListSpace(FrameNode* frameNode, const Dimension& space);
     static int32_t GetEdgeEffectAlways(FrameNode* frameNode);
+    static EffectEdge GetEffectEdge(FrameNode* frameNode);
     static void SetScrollSnapAlign(FrameNode* frameNode, ScrollSnapAlign scrollSnapAlign);
     static int32_t GetScrollSnapAlign(FrameNode* frameNode);
     static void SetContentStartOffset(FrameNode* frameNode, float startOffset);
@@ -143,6 +158,8 @@ public:
     static bool GetListStackFromEnd(FrameNode* frameNode);
     static void SetListSyncLoad(FrameNode* frameNode, bool enabled);
     static bool GetListSyncLoad(FrameNode* frameNode);
+    static void SetEditModeOptions(FrameNode* frameNode, EditModeOptions& editModeOptions);
+    static EditModeOptions GetEditModeOptions(FrameNode* frameNode);
     static void SetOnScroll(FrameNode* frameNode, OnScrollEvent&& onScroll);
     static void SetOnScrollFrameBegin(FrameNode* frameNode, OnScrollFrameBeginEvent&& onScrollFrameBegin);
     static void SetOnScrollStart(FrameNode* frameNode, OnScrollStartEvent&& onScrollStart);
@@ -168,11 +185,13 @@ public:
     static void SetOnReachEnd(FrameNode* frameNode, OnReachEvent&& onReachEnd);
     static void SetListChildrenMainSize(
         FrameNode* frameNode, float defaultSize, const std::vector<float>& mainSize);
+    static void SetListChildrenMainSize(FrameNode* frameNode, RefPtr<ListChildrenMainSize>& childrenSize);
     static void ResetListChildrenMainSize(FrameNode* frameNode);
     static int32_t GetInitialIndex(FrameNode* frameNode);
     static V2::ItemDivider GetDivider(FrameNode* frameNode);
     static void SetScroller(FrameNode* frameNode, RefPtr<ScrollControllerBase> scroller, RefPtr<ScrollProxy> proxy);
-    static void SetOnScrollVisibleContentChange(FrameNode* frameNode, OnScrollVisibleContentChangeEvent&& onScrollVisibleContentChange);
+    static void SetOnScrollVisibleContentChange(
+        FrameNode* frameNode, OnScrollVisibleContentChangeEvent&& onScrollVisibleContentChange);
     static void SetOnItemMove(FrameNode* frameNode, OnItemMoveEvent&& onItemMove);
     static void SetOnItemDragStart(FrameNode* frameNode, OnItemDragStartFunc&& onItemDragStart);
     static void SetOnItemDragEnter(FrameNode* frameNode, OnItemDragEnterFunc&& onItemDragEnter);
@@ -191,6 +210,12 @@ public:
     static void ParseResObjDividerEndMargin(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
     static void CreateWithResourceObjLaneConstrain(FrameNode* frameNode,
         const RefPtr<ResourceObject>& resObjMinLengthValue, const RefPtr<ResourceObject>& resObjMaxLengthValue);
+    static void CreateWithResourceObjScrollBarColor(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void SetScrollBarColor(FrameNode* frameNode, const std::optional<Color>& scrollBarColor);
+    static void SetScrollSnapAnimationSpeed(FrameNode* frameNode, ScrollSnapAnimationSpeed speed);
+    static ScrollSnapAnimationSpeed GetScrollSnapAnimationSpeed(FrameNode* frameNode);
+    static void SetSupportEmptyBranchInLazyLoading(FrameNode* frameNode, bool supportEmptyBranch);
+    static bool GetSupportEmptyBranchInLazyLoading(FrameNode* frameNode);
 
 private:
     void AddDragFrameNodeToManager() const;

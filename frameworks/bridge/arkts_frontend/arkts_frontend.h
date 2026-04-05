@@ -44,11 +44,18 @@ enum class ArkolaMessageType : int32_t {
 };
 
 using InspectorFunc = std::function<void()>;
+using InspectorFuncWithParameter = std::function<void(std::vector<int32_t>)>;
+using CounterFunc = std::function<bool()>;
 using MediaQueryCallback = std::function<void(const std::string& callbackId, const std::string& args)>;
 class InspectorEvent : public virtual AceType {
     DECLARE_ACE_TYPE(InspectorEvent, AceType)
 public:
-    explicit InspectorEvent(InspectorFunc&& callback) : callback_(std::move(callback)) {}
+    explicit InspectorEvent(InspectorFunc&& callback, CounterFunc&& counter)
+        : callback_(std::move(callback)), counter_(std::move(counter))
+    {}
+    explicit InspectorEvent(InspectorFuncWithParameter&& callback, CounterFunc&& counter)
+        : callbackWithParameter_(std::move(callback)), counter_(std::move(counter))
+    {}
     ~InspectorEvent() override = default;
 
     void operator()() const
@@ -57,9 +64,23 @@ public:
             callback_();
         }
     }
+
+    void operator()(std::vector<int32_t> params) const
+    {
+        if (callbackWithParameter_) {
+            callbackWithParameter_(params);
+        }
+    }
+
+    bool HasCallback() const
+    {
+        return !counter_() ;
+    }
     
 private:
     InspectorFunc callback_;
+    InspectorFuncWithParameter callbackWithParameter_;
+    CounterFunc counter_;
 };
 /**
  * @brief Proxy class to interact with Koala frontend and static ArkTS runtime.
@@ -70,42 +91,26 @@ class ACE_FORCE_EXPORT ArktsFrontend : public Frontend {
 
 public:
     explicit ArktsFrontend(void* runtime);
-    ~ArktsFrontend() override = default;
+    ~ArktsFrontend() override;
 
     void SetMediaQueryCallback(MediaQueryCallback&& mediaQueryCallback)
     {
         mediaQueryCallbacks_ = mediaQueryCallback;
     }
-    bool Initialize(FrontendType type, const RefPtr<TaskExecutor>& taskExecutor) override
-    {
-        taskExecutor_ = taskExecutor;
-
-        auto mediaQueryCallback = [weakEngine = AceType::WeakClaim(this)](
-                                         const std::string& callbackId, const std::string& args) {
-            auto arktsFrontend = weakEngine.Upgrade();
-            if (!arktsFrontend) {
-                return;
-            }
-            arktsFrontend->CallbackMediaQuery(callbackId, args);
-        };
-        SetMediaQueryCallback(std::move(mediaQueryCallback));
-        return true;
-    }
+    bool Initialize(FrontendType type, const RefPtr<TaskExecutor>& taskExecutor) override;
 
     void Destroy() override;
 
     void AttachPipelineContext(const RefPtr<PipelineBase>& context) override;
     void AttachSubPipelineContext(const RefPtr<PipelineBase>& context) override;
+
     void SetAssetManager(const RefPtr<AssetManager>& assetManager) override {}
 
     UIContentErrorCode RunPage(const std::string& url, const std::string& params) override;
     UIContentErrorCode RunPage(
         const std::shared_ptr<std::vector<uint8_t>>& content, const std::string& params) override;
 
-    UIContentErrorCode RunPageByNamedRouter(const std::string& name, const std::string& params) override
-    {
-        return UIContentErrorCode::NO_ERRORS;
-    }
+    UIContentErrorCode RunPageByNamedRouter(const std::string& name, const std::string& params) override;
 
     void ReplacePage(const std::string& url, const std::string& params) override {}
 
@@ -113,7 +118,8 @@ public:
 
     void AddPage(const RefPtr<AcePage>& page) override {}
 
-    void PushExtender(const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode) override;
+    void PushExtender(
+        const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode) override;
     void PushNamedRouteExtender(
         const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode) override;
     void ReplaceExtender(
@@ -123,9 +129,30 @@ public:
     void RunPageExtender(
         const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode) override;
     void BackExtender(const std::string& url, const std::string& params) override;
+    void BackToIndexExtender(int32_t index, const std::string& params) override;
     void ClearExtender() override;
     void ShowAlertBeforeBackPageExtender(const std::string& url) override;
     void HideAlertBeforeBackPageExtender() override;
+
+    void* CreateDynamicExtender(const std::string& url, bool recoverable) override;
+    void PushDynamicExtender(
+        const PageRouterOptions& options, std::function<void()>&& finishCallback, void* pageNode) override;
+    void ReplaceDynamicExtender(
+        const PageRouterOptions& options, std::function<void()>&& finishCallback, void* pageNode) override;
+
+    void PushFromDynamicExtender(const std::string& url, const std::string& params, bool recoverable,
+        const std::function<void(const std::string&, int32_t)>& callback, uint32_t routerMode) override;
+    void ReplaceFromDynamicExtender(const std::string& url, const std::string& params, bool recoverable,
+        const std::function<void(const std::string&, int32_t)>& callback, uint32_t routerMode) override;
+    void BackFromDynamicExtender(const std::string& url, const std::string& params) override;
+    void ClearFromDynamicExtender() override;
+    int32_t GetLengthFromDynamicExtender() override;
+    int32_t GetStackSizeFromDynamicExtender() override;
+    std::string GetParamsFromDynamicExtender() override;
+    bool GetStateByUrlFromDynamicExtender(const std::string& url, std::vector<RouterStateInfo>& stateArray) override;
+    bool GetStateByIndexFromDynamicExtender(int32_t index, RouterStateInfo& state) override;
+    bool GetStateFromDynamicExtender(RouterStateInfo& state) override;
+    int32_t GetCurrentPageIndex() const override;
 
     RefPtr<AcePage> GetPage(int32_t /*pageId*/) const override
     {
@@ -257,7 +284,7 @@ public:
         );
     }
 
-    void OnDrawChildrenCompleted(const std::string& componentId) override
+    void OnDrawChildrenCompleted(const std::string& componentId, const std::vector<int32_t>& childIds) override
     {
         auto iter = drawChildrenCallbacks_.find(componentId);
         if (iter == drawChildrenCallbacks_.end()) {
@@ -266,12 +293,14 @@ public:
         if (taskExecutor_ == nullptr) {
             return;
         }
-        auto&& observer = iter->second;
-        taskExecutor_->PostTask(
-            [observer] {
-                (*observer)();
-            }, TaskExecutor::TaskType::JS, "ArkUIDrawChildrenCompleted"
-        );
+        for (auto&& observer : iter->second) {
+            taskExecutor_->PostTask(
+                [observer, childIds] {
+                    (*observer)(childIds);
+                    (*observer)();
+                    }, TaskExecutor::TaskType::JS, "ArkUIDrawChildrenCompleted"
+            );
+        }
     }
 
     void DumpFrontend() const override {}
@@ -342,7 +371,10 @@ public:
     void RegisterDrawChildrenInspectorCallback(const RefPtr<InspectorEvent>& drawChildrenFunc,
         const std::string& componentId)
     {
-        drawChildrenCallbacks_[componentId] = drawChildrenFunc;
+        if (drawChildrenFunc == nullptr) {
+            return;
+        }
+        drawChildrenCallbacks_[componentId].emplace(drawChildrenFunc);
     }
 
     void UnregisterLayoutInspectorCallback(const std::string& componentId)
@@ -355,15 +387,57 @@ public:
         drawCallbacks_.erase(componentId);
     }
 
-    void UnregisterDrawChildrenInspectorCallback(const std::string& componentId)
+    void UnregisterDrawChildrenInspectorCallback(const RefPtr<InspectorEvent>& event, const std::string& componentId)
     {
-        drawChildrenCallbacks_.erase(componentId);
+        if (drawChildrenCallbacks_.empty()) {
+            return;
+        }
+        auto iter = drawChildrenCallbacks_.find(componentId);
+        if (iter != drawChildrenCallbacks_.end()) {
+            iter->second.erase(event);
+            if (iter->second.empty()) {
+                drawChildrenCallbacks_.erase(componentId);
+            }
+        }
     }
 
     bool IsDrawChildrenCallbackFuncExist(const std::string& componentId) override
     {
-        return drawChildrenCallbacks_.find(componentId) != drawChildrenCallbacks_.end();
+        auto iter = drawChildrenCallbacks_.find(componentId);
+        if (iter == drawChildrenCallbacks_.end()) {
+            return false;
+        }
+        for (const auto& f : iter->second) {
+            if (f && f->HasCallback()) {
+                return true;
+            }
+        }
+        return false;
     }
+    void OnLayoutChildrenCompleted(const std::string& componentId) override;
+    bool IsLayoutChildrenCallbackFuncExist(const std::string& componentId) override;
+ 
+    void OnLayoutCompleted(int32_t uniqueId) override;
+    void OnDrawCompleted(int32_t uniqueId) override;
+    void OnDrawChildrenCompleted(int32_t uniqueId) override;
+    void OnLayoutChildrenCompleted(int32_t uniqueId) override;
+    bool IsDrawChildrenCallbackFuncExist(int32_t uniqueId) override;
+    bool IsLayoutChildrenCallbackFuncExist(int32_t uniqueId) override;
+
+    
+    void RegisterLayoutChildrenInspectorCallback(const RefPtr<InspectorEvent>& layoutChildrenFunc,
+        const std::string& componentId);
+    void RegisterLayoutInspectorCallback(const RefPtr<InspectorEvent>& layoutFunc, int32_t uniqueId);
+    void RegisterDrawInspectorCallback(const RefPtr<InspectorEvent>& drawFunc, int32_t uniqueId);
+    void RegisterDrawChildrenInspectorCallback(const RefPtr<InspectorEvent>& drawChildrenFunc,
+        const int32_t uniqueId);
+    void RegisterLayoutChildrenInspectorCallback(const RefPtr<InspectorEvent>& layoutChildrenFunc,
+        const int32_t uniqueId);
+    void UnregisterLayoutChildrenInspectorCallback(const std::string& componentId);
+    void UnregisterLayoutInspectorCallback(int32_t uniqueId);
+    void UnregisterDrawInspectorCallback(int32_t uniqueId);
+    void UnregisterDrawChildrenInspectorCallback(const int32_t uniqueId);
+    void UnregisterLayoutChildrenInspectorCallback(const int32_t uniqueId);
 
     virtual void CallbackMediaQuery(const std::string& callbackId, const std::string& args)
     {
@@ -386,7 +460,7 @@ public:
 
     void SetHostContext(int32_t instanceId, ani_ref* context) override;
 
-    ani_ref* GetHostContext(int32_t instanceId) override;
+    ani_ref* GetHostContext() override;
 
     RefPtr<NG::PageRouterManager> GetPageRouterManager()
     {
@@ -399,9 +473,17 @@ public:
     static void PreloadAceModule(void* aniEnv);
     static void* preloadArkTSRuntime;
     void OpenStateMgmtInterop() override;
-    void NotifyArkoalaConfigurationChange() override;
+    void NotifyArkoalaConfigurationChange(bool isNeedUpdate) override;
     void InitXBarProxy() override;
+    void RemoveAvailableInstanceId(int32_t instanceId);
+    void AddAvailableInstanceId(int32_t instanceId);
 protected:
+    bool LoadNavDestinationPage(const std::string bundleName, const std::string& moduleName,
+        const std::string& pageSourceFile, bool isSingleton);
+    bool GetNavigationRegisterClassName(const std::string& pageSourceFile, std::string& className);
+    bool GetNearestNonBootRuntimeLinker();
+
+    ani_ref linkerRef_ = nullptr;
     RefPtr<TaskExecutor> taskExecutor_;
     RefPtr<NG::PipelineContext> pipeline_;
     ani_vm* vm_ = nullptr;
@@ -417,7 +499,12 @@ protected:
     
     std::map<std::string, RefPtr<InspectorEvent>> layoutCallbacks_;
     std::map<std::string, RefPtr<InspectorEvent>> drawCallbacks_;
-    std::map<std::string, RefPtr<InspectorEvent>> drawChildrenCallbacks_;
+    std::map<std::string, std::set<RefPtr<InspectorEvent>>> drawChildrenCallbacks_;
+    std::map<std::string, RefPtr<InspectorEvent>> layoutChildrenCallbacks_;
+    std::map<int32_t, RefPtr<InspectorEvent>> uniqueIdLayoutCallbacks_;
+    std::map<int32_t, RefPtr<InspectorEvent>> uniqueIdDrawCallbacks_;
+    std::map<int32_t, RefPtr<InspectorEvent>> uniqueIdDrawChildrenCallbacks_;
+    std::map<int32_t, RefPtr<InspectorEvent>> uniqueIdLayoutChildrenCallbacks_;
     MediaQueryCallback mediaQueryCallbacks_;
     RefPtr<Framework::MediaQueryInfo> mediaQueryInfo_ = AceType::MakeRefPtr<Framework::MediaQueryInfo>();
     std::function<void(ArktsFrontend*)> mediaUpdateCallback_;

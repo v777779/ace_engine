@@ -20,13 +20,14 @@
 
 #define private public
 #define protected public
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "ui/properties/ui_material.h"
 
 #include "base/geometry/axis.h"
 #include "base/geometry/dimension.h"
@@ -75,9 +76,11 @@ constexpr int32_t NODE_ID = 1;
 constexpr int32_t FRAMENODE_ID = 2;
 constexpr int32_t MUMBER_ONE = 1;
 constexpr int32_t MUMBER_TWO = 2;
+constexpr uint32_t COUNT = 10;
 constexpr float FLOAT_ZERO = 0.0f;
 constexpr float FLOAT_ONE = 1.0f;
 constexpr float FLOAT_FIVE = 5.0f;
+constexpr float FLOAT_TEN = 10.0f;
 constexpr float FLOAT_TWENTY = 20.0f;
 constexpr float FLOAT_FIFTY = 50.0f;
 constexpr float SLIDER_CONTENT_MODIFIER_TRACK_BORDER_RADIUS = 10.0f;
@@ -264,8 +267,8 @@ HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest005, TestSize.Level1)
     ASSERT_NE(sliderPattern, nullptr);
     auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, FRAMENODE_ID, sliderPattern);
     ASSERT_NE(frameNode, nullptr);
-    frameNode->accessibilityProperty_ = AceType::MakeRefPtr<AccessibilityProperty>();
-    auto accessibilityProperty = frameNode->accessibilityProperty_;
+    frameNode->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<AccessibilityProperty>();
+    auto accessibilityProperty = frameNode->GetOrCreateAccessibilityProperty();
     ASSERT_NE(accessibilityProperty, nullptr);
     accessibilityProperty->accessibilityLevel_ = AccessibilityProperty::Level::NO_HIDE_DESCENDANTS;
     sliderPattern->frameNode_ = std::move(frameNode);
@@ -316,8 +319,8 @@ HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest008, TestSize.Level1)
     ASSERT_NE(frameNode, nullptr);
     frameNode->paintProperty_ = AceType::MakeRefPtr<SliderPaintProperty>();
     ASSERT_NE(frameNode->paintProperty_, nullptr);
-    frameNode->accessibilityProperty_ = AceType::MakeRefPtr<AccessibilityProperty>();
-    auto accessibilityProperty = frameNode->accessibilityProperty_;
+    frameNode->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<AccessibilityProperty>();
+    auto accessibilityProperty = frameNode->GetOrCreateAccessibilityProperty();
     ASSERT_NE(accessibilityProperty, nullptr);
     AceApplicationInfo::GetInstance().isAccessibilityEnabled_ = true;
     sliderPattern->contentModifierNode_ = AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, NODE_ID, sliderPattern);
@@ -339,8 +342,8 @@ HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest009, TestSize.Level1)
     frameNode->paintProperty_ = AceType::MakeRefPtr<SliderPaintProperty>();
     auto sliderPaintProperty = frameNode->GetPaintProperty<SliderPaintProperty>();
     ASSERT_NE(sliderPaintProperty, nullptr);
-    frameNode->accessibilityProperty_ = AceType::MakeRefPtr<AccessibilityProperty>();
-    auto accessibilityProperty = frameNode->accessibilityProperty_;
+    frameNode->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<AccessibilityProperty>();
+    auto accessibilityProperty = frameNode->GetOrCreateAccessibilityProperty();
     ASSERT_NE(accessibilityProperty, nullptr);
     AceApplicationInfo::GetInstance().isAccessibilityEnabled_ = true;
     sliderPattern->contentModifierNode_ = nullptr;
@@ -1056,11 +1059,11 @@ HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest044, TestSize.Level1)
     auto accessibilityNodeOne =
         AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, NODE_ID, AceType::MakeRefPtr<SliderPattern>());
     ASSERT_NE(accessibilityNodeOne, nullptr);
-    accessibilityNodeOne->accessibilityProperty_ = AceType::MakeRefPtr<TextAccessibilityProperty>();
+    accessibilityNodeOne->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<TextAccessibilityProperty>();
     auto accessibilityNodeTwo =
         AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, NODE_ID, AceType::MakeRefPtr<SliderPattern>());
     ASSERT_NE(accessibilityNodeTwo, nullptr);
-    accessibilityNodeTwo->accessibilityProperty_ = AceType::MakeRefPtr<TextAccessibilityProperty>();
+    accessibilityNodeTwo->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<TextAccessibilityProperty>();
     sliderPattern->pointAccessibilityNodeVec_ = { accessibilityNodeOne, accessibilityNodeTwo };
     auto sliderPaintProperty = frameNode->GetPaintProperty<SliderPaintProperty>();
     ASSERT_NE(sliderPaintProperty, nullptr);
@@ -1069,7 +1072,7 @@ HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest044, TestSize.Level1)
     sliderPaintProperty->UpdateValidSlideRange(range);
     sliderPattern->frameNode_ = std::move(frameNode);
     sliderPattern->UpdateStepPointsAccessibilityVirtualNodeSelected();
-    EXPECT_EQ(accessibilityNodeTwo->accessibilityProperty_->accessibilityDescription_, std::nullopt);
+    EXPECT_EQ(accessibilityNodeTwo->GetOrCreateAccessibilityProperty()->accessibilityDescription_, std::nullopt);
 }
 
 /**
@@ -1091,18 +1094,54 @@ HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest045, TestSize.Level1)
     auto accessibilityNodeOne =
         AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, NODE_ID, AceType::MakeRefPtr<SliderPattern>());
     ASSERT_NE(accessibilityNodeOne, nullptr);
-    accessibilityNodeOne->accessibilityProperty_ = AceType::MakeRefPtr<TextAccessibilityProperty>();
+    accessibilityNodeOne->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<TextAccessibilityProperty>();
     auto accessibilityNodeTwo =
         AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, NODE_ID, AceType::MakeRefPtr<SliderPattern>());
     ASSERT_NE(accessibilityNodeTwo, nullptr);
-    accessibilityNodeTwo->accessibilityProperty_ = AceType::MakeRefPtr<TextAccessibilityProperty>();
+    accessibilityNodeTwo->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<TextAccessibilityProperty>();
     sliderPattern->pointAccessibilityNodeVec_ = { accessibilityNodeOne, accessibilityNodeTwo };
     auto sliderPaintProperty = frameNode->GetPaintProperty<SliderPaintProperty>();
     ASSERT_NE(sliderPaintProperty, nullptr);
     sliderPaintProperty->UpdateStep(FLOAT_FIVE);
     sliderPattern->frameNode_ = std::move(frameNode);
     sliderPattern->UpdateStepPointsAccessibilityVirtualNodeSelected();
-    EXPECT_EQ(accessibilityNodeTwo->accessibilityProperty_->accessibilityDescription_, std::nullopt);
+    EXPECT_EQ(accessibilityNodeTwo->GetOrCreateAccessibilityProperty()->accessibilityDescription_, std::nullopt);
+}
+
+/**
+ * @tc.name: SliderPatternTwoTest046
+ * @tc.desc: Test UpdateStepPointsAccessibilityVirtualNodeSelected
+ * @tc.type: FUNC
+ */
+HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest046, TestSize.Level1)
+{
+    auto sliderPattern = AceType::MakeRefPtr<SliderPattern>();
+    ASSERT_NE(sliderPattern, nullptr);
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, FRAMENODE_ID, sliderPattern);
+    ASSERT_NE(frameNode, nullptr);
+    auto sliderPatternOne = AceType::MakeRefPtr<SliderPattern>();
+    sliderPattern->parentAccessibilityNode_ =
+        AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, NODE_ID, sliderPatternOne);
+    ASSERT_NE(sliderPattern->parentAccessibilityNode_, nullptr);
+    sliderPattern->pointAccessibilityNodeEventVec_.push_back([](GestureEvent& info) {});
+    auto accessibilityNodeOne =
+        AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, NODE_ID, AceType::MakeRefPtr<SliderPattern>());
+    ASSERT_NE(accessibilityNodeOne, nullptr);
+    accessibilityNodeOne->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<TextAccessibilityProperty>();
+    auto accessibilityNodeTwo =
+        AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, NODE_ID, AceType::MakeRefPtr<SliderPattern>());
+    ASSERT_NE(accessibilityNodeTwo, nullptr);
+    accessibilityNodeTwo->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<TextAccessibilityProperty>();
+    sliderPattern->pointAccessibilityNodeVec_ = { accessibilityNodeOne, accessibilityNodeTwo };
+    auto sliderPaintProperty = frameNode->GetPaintProperty<SliderPaintProperty>();
+    ASSERT_NE(sliderPaintProperty, nullptr);
+    RefPtr<SliderModel::SliderValidRange> range = AceType::MakeRefPtr<SliderModel::SliderValidRange>();
+    range->fromValue = FLOAT_TEN;
+    sliderPaintProperty->UpdateStep(FLOAT_FIVE);
+    sliderPaintProperty->UpdateValidSlideRange(range);
+    sliderPattern->frameNode_ = std::move(frameNode);
+    sliderPattern->UpdateStepPointsAccessibilityVirtualNodeSelected();
+    EXPECT_EQ(accessibilityNodeOne->GetOrCreateAccessibilityProperty()->accessibilityDescription_, " ");
 }
 
 /**
@@ -1129,11 +1168,11 @@ HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest047, TestSize.Level1)
     auto accessibilityNodeOne =
         AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, NODE_ID, AceType::MakeRefPtr<SliderPattern>());
     ASSERT_NE(accessibilityNodeOne, nullptr);
-    accessibilityNodeOne->accessibilityProperty_ = AceType::MakeRefPtr<TextAccessibilityProperty>();
+    accessibilityNodeOne->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<TextAccessibilityProperty>();
     auto accessibilityNodeTwo =
         AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, NODE_ID, AceType::MakeRefPtr<SliderPattern>());
     ASSERT_NE(accessibilityNodeTwo, nullptr);
-    accessibilityNodeTwo->accessibilityProperty_ = AceType::MakeRefPtr<TextAccessibilityProperty>();
+    accessibilityNodeTwo->GetOrCreateAccessibilityProperty() = AceType::MakeRefPtr<TextAccessibilityProperty>();
     sliderPattern->pointAccessibilityNodeVec_ = { accessibilityNodeOne, accessibilityNodeTwo };
     auto sliderPaintProperty = frameNode->GetPaintProperty<SliderPaintProperty>();
     ASSERT_NE(sliderPaintProperty, nullptr);
@@ -1141,6 +1180,78 @@ HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest047, TestSize.Level1)
     sliderPaintProperty->UpdateStep(FLOAT_FIVE);
     sliderPattern->frameNode_ = std::move(frameNode);
     sliderPattern->UpdateStepPointsAccessibilityVirtualNodeSelected();
-    EXPECT_FALSE(accessibilityNodeOne->accessibilityProperty_->isSelected_);
+    EXPECT_FALSE(accessibilityNodeOne->GetOrCreateAccessibilityProperty()->isSelected_);
+}
+
+/**
+ * @tc.name: SliderPatternTwoTest048
+ * @tc.desc: Test DumpInfo
+ * @tc.type: FUNC
+ */
+HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest048, TestSize.Level1)
+{
+    auto sliderPattern = AceType::MakeRefPtr<SliderPattern>();
+    ASSERT_NE(sliderPattern, nullptr);
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::SLIDER_ETS_TAG, FRAMENODE_ID, sliderPattern);
+    ASSERT_NE(frameNode, nullptr);
+    auto sliderPaintProperty = frameNode->GetPaintProperty<SliderPaintProperty>();
+    ASSERT_NE(sliderPaintProperty, nullptr);
+    Gradient gradient;
+    GradientColor color(Color::BLACK);
+    gradient.AddColor(color);
+    sliderPaintProperty->UpdateBlockGradientColor(gradient);
+    sliderPattern->frameNode_ = std::move(frameNode);
+    sliderPattern->DumpInfo();
+    EXPECT_EQ(DumpLog::GetInstance().description_.back(), "BlockLinearGradientColor: #00000000 \n");
+}
+
+/**
+ * @tc.name: SliderPatternTwoTest049
+ * @tc.desc: Test AdjustStepAccessibilityVirtualNode
+ * @tc.type: FUNC
+ */
+HWTEST_F(SliderPatternTwoTestNg, SliderPatternTwoTest049, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frame node and set contentSize.
+     */
+    auto frameNode = FrameNode::GetOrCreateFrameNode(V2::SLIDER_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<SliderPattern>(); });
+    ASSERT_NE(frameNode, nullptr);
+    auto sliderPattern = frameNode->GetPattern<SliderPattern>();
+    ASSERT_NE(sliderPattern, nullptr);
+    auto geometryNode = frameNode->GetGeometryNode();
+    ASSERT_NE(geometryNode, nullptr);
+    geometryNode->SetContentSize(SizeF(FLOAT_FIFTY, FLOAT_FIFTY));
+    /**
+     * @tc.steps: step2. make start point is negative.
+     * @tc.expected: step2. the size of the pointSize will become smaller.
+     */
+    auto pointSize = SizeF(FLOAT_TEN, FLOAT_TEN);
+    auto negativePoint = PointF(-FLOAT_FIVE, -FLOAT_FIVE);
+    sliderPattern->AdjustStepAccessibilityVirtualNode(pointSize, negativePoint, COUNT, 0);
+    EXPECT_EQ(pointSize, SizeF(FLOAT_FIVE, FLOAT_FIVE));
+    /**
+     * @tc.steps: step3. make start point is positive.
+     * @tc.expected: step3. the size of the pointSize will not change.
+     */
+    pointSize = SizeF(FLOAT_TEN, FLOAT_TEN);
+    auto positivePoint = PointF(FLOAT_FIVE, FLOAT_FIVE);
+    sliderPattern->AdjustStepAccessibilityVirtualNode(pointSize, positivePoint, COUNT, 0);
+    EXPECT_EQ(pointSize, SizeF(FLOAT_TEN, FLOAT_TEN));
+    /**
+     * @tc.steps: step4. make end point is enough.
+     * @tc.expected: step4. the size of the pointSize will not change.
+     */
+    auto enoughPoint = PointF(FLOAT_FIFTY - FLOAT_TEN, FLOAT_FIFTY - FLOAT_TEN);
+    sliderPattern->AdjustStepAccessibilityVirtualNode(pointSize, enoughPoint, COUNT, COUNT - 1);
+    EXPECT_EQ(pointSize, SizeF(FLOAT_TEN, FLOAT_TEN));
+    /**
+     * @tc.steps: step5. make end point is exceeded.
+     * @tc.expected: step5. the size of the pointSize will become smaller.
+     */
+    auto exceededPoint = PointF(FLOAT_FIFTY - FLOAT_FIVE, FLOAT_FIFTY - FLOAT_FIVE);
+    sliderPattern->AdjustStepAccessibilityVirtualNode(pointSize, exceededPoint, COUNT, COUNT - 1);
+    EXPECT_EQ(pointSize, SizeF(FLOAT_FIVE, FLOAT_FIVE));
 }
 } // namespace OHOS::Ace::NG

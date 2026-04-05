@@ -32,11 +32,11 @@
 #include "core/components/common/layout/align_declaration.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/layout/layout_param.h"
+#include "core/components/common/layout/position_param.h"
 #include "core/components/common/properties/motion_path_option.h"
 #include "core/components/common/properties/state_attributes.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_v2/extensions/events/event_extensions.h"
-#include "core/components_v2/inspector/inspector_node.h"
 #include "core/event/axis_event.h"
 #include "core/event/mouse_raw_recognizer.h"
 #include "core/event/touch_event.h"
@@ -46,9 +46,15 @@
 #include "core/pipeline/base/render_layer.h"
 #include "core/pipeline/pipeline_context.h"
 
+namespace OHOS::Ace::V2 {
+
+class InspectorNode;
+
+}
+
 namespace OHOS::Ace {
 
-extern const Dimension FOCUS_BOUNDARY;
+ACE_FORCE_EXPORT extern const Dimension FOCUS_BOUNDARY;
 
 class Component;
 
@@ -61,8 +67,12 @@ constexpr uint32_t FIND_MAX_COUNT = 64;
 using HoverAndPressCallback = std::function<void(const Color&)>;
 using Rosen::RSNode;
 
+#ifdef NG_BUILD
 // RenderNode is the base class for different render backend, represent a render unit for render pipeline.
 class ACE_EXPORT RenderNode : public PropertyAnimatable, public AnimatableProperties, public virtual AceType {
+#else
+class ACE_FORCE_EXPORT RenderNode : public PropertyAnimatable, public AnimatableProperties, public virtual AceType {
+#endif
     DECLARE_ACE_TYPE(RenderNode, PropertyAnimatable, AceType);
 
 public:
@@ -1094,15 +1104,9 @@ public:
         return responseRegionList_;
     }
 
-    const WeakPtr<V2::InspectorNode>& GetInspectorNode() const
-    {
-        return inspector_;
-    }
+    const WeakPtr<V2::InspectorNode>& GetInspectorNode() const;
 
-    void SetInspectorNode(const RefPtr<V2::InspectorNode>& inspectorNode)
-    {
-        inspector_ = inspectorNode;
-    }
+    void SetInspectorNode(const RefPtr<V2::InspectorNode>& inspectorNode);
 
     virtual void SetNeedClip(bool needClip)
     {

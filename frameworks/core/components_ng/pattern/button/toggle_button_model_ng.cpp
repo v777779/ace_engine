@@ -52,7 +52,7 @@ void ToggleButtonModelNG::SetIsOn(bool isOn)
     CHECK_NULL_VOID(eventHub);
     eventHub->SetCurrentUIState(UI_STATE_SELECTED, isOn);
 
-    ACE_UPDATE_PAINT_PROPERTY(ToggleButtonPaintProperty, IsOn, isOn);
+    ACE_UPDATE_NODE_PAINT_PROPERTY(ToggleButtonPaintProperty, IsOn, isOn, frameNode);
 }
 
 void ToggleButtonModelNG::SetBackgroundColor(const Color& backgroundColor, bool flag)
@@ -64,19 +64,42 @@ void ToggleButtonModelNG::SetBackgroundColor(const Color& backgroundColor, bool 
     auto buttonPattern = stack->GetMainFrameNodePattern<ToggleButtonPattern>();
     if (buttonPattern) {
         if (flag) {
-            ACE_UPDATE_PAINT_PROPERTY(ToggleButtonPaintProperty, BackgroundColor, backgroundColor);
+            ACE_UPDATE_NODE_PAINT_PROPERTY(ToggleButtonPaintProperty, BackgroundColor, backgroundColor, frameNode);
         } else {
-            ACE_RESET_PAINT_PROPERTY_WITH_FLAG(ToggleButtonPaintProperty, BackgroundColor, PROPERTY_UPDATE_RENDER);
+            ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
+                ToggleButtonPaintProperty, BackgroundColor, PROPERTY_UPDATE_RENDER, frameNode);
         }
         return;
     }
     NG::ViewAbstract::SetBackgroundColor(backgroundColor);
 }
 
+void ToggleButtonModelNG::SetBackgroundColor(FrameNode* frameNode, const Color& backgroundColor, bool flag)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto buttonPattern = AceType::DynamicCast<ToggleButtonPattern>(frameNode->GetPattern());
+    if (buttonPattern) {
+        if (flag) {
+            ACE_UPDATE_NODE_PAINT_PROPERTY(ToggleButtonPaintProperty, BackgroundColor, backgroundColor, frameNode);
+        } else {
+            ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
+                ToggleButtonPaintProperty, BackgroundColor, PROPERTY_UPDATE_RENDER, frameNode);
+        }
+        return;
+    }
+    NG::ViewAbstract::SetBackgroundColor(frameNode, backgroundColor);
+}
+
 void ToggleButtonModelNG::SetSelectedColor(FrameNode* frameNode, const Color& selectedColor)
 {
     ACE_UPDATE_NODE_PAINT_PROPERTY(ToggleButtonPaintProperty, SelectedColor, selectedColor, frameNode);
     ACE_UPDATE_NODE_PAINT_PROPERTY(ToggleButtonPaintProperty, SelectedColorSetByUser, true, frameNode);
+}
+
+void ToggleButtonModelNG::SetSelectedColorSetByUser(FrameNode* frameNode, const bool isByUser)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_PAINT_PROPERTY(ToggleButtonPaintProperty, SelectedColorSetByUser, isByUser, frameNode);
 }
 
 void ToggleButtonModelNG::ResetSelectedColor(FrameNode* frameNode)

@@ -16,6 +16,7 @@
 #include "bridge/cj_frontend/interfaces/cj_ffi/cj_button_ffi.h"
 
 #include "bridge/common/utils/utils.h"
+#include "core/components/button/button_theme.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/edge.h"
 #include "core/components_ng/pattern/button/button_model.h"
@@ -52,7 +53,11 @@ void FfiOHOSAceFrameworkButtonCreateWithChildAndOptions(ButtonOptions buttonOpti
     CreateWithPara params;
     params.parseSuccess = true;
     params.optionSetFirst = true;
-    params.type = static_cast<ButtonType>(buttonOptions.shape);
+    if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        params.type = BUTTON_TYPES[buttonOptions.shape];
+    } else {
+        params.type = static_cast<ButtonType>(buttonOptions.shape);
+    }
     params.stateEffect = buttonOptions.stateEffect;
     params.buttonStyleMode = static_cast<ButtonStyleMode>(buttonOptions.buttonStyle);
     params.controlSize = static_cast<ControlSize>(buttonOptions.controlSize);
@@ -68,7 +73,11 @@ void FfiOHOSAceFrameworkButtonCreateWithButtonOptions(ButtonOptions buttonOption
     params.parseSuccess = true;
     params.optionSetFirst = true;
     params.label = "";
-    params.type = static_cast<ButtonType>(buttonOptions.shape);
+    if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        params.type = BUTTON_TYPES[buttonOptions.shape];
+    } else {
+        params.type = static_cast<ButtonType>(buttonOptions.shape);
+    }
     params.stateEffect = buttonOptions.stateEffect;
     params.buttonStyleMode = static_cast<ButtonStyleMode>(buttonOptions.buttonStyle);
     params.controlSize = static_cast<ControlSize>(buttonOptions.controlSize);
@@ -108,7 +117,11 @@ void FfiOHOSAceFrameworkButtonCreateWithLabelAndOptions(const char* label, Butto
     params.label = label;
     params.parseSuccess = true;
     params.optionSetFirst = true;
-    params.type = static_cast<ButtonType>(buttonOptions.shape);
+    if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        params.type = BUTTON_TYPES[buttonOptions.shape];
+    } else {
+        params.type = static_cast<ButtonType>(buttonOptions.shape);
+    }
     params.stateEffect = buttonOptions.stateEffect;
     params.buttonStyleMode = static_cast<ButtonStyleMode>(buttonOptions.buttonStyle);
     params.controlSize = static_cast<ControlSize>(buttonOptions.controlSize);
@@ -129,6 +142,15 @@ void FfiOHOSAceFrameworkButtonSetFontSize(double fontSize, int32_t unit)
 {
     Dimension value(fontSize, static_cast<DimensionUnit>(unit));
     ButtonModel::GetInstance()->SetFontSize(value);
+}
+
+// reset button font size from buttontheme
+void FfiOHOSAceFrameworkButtonResetFontSize()
+{
+    auto buttonTheme = GetTheme<ButtonTheme>();
+    CHECK_NULL_VOID(buttonTheme);
+    CalcDimension fontSize = buttonTheme->GetTextStyle().GetFontSize();
+    ButtonModel::GetInstance()->SetFontSize(fontSize);
 }
 
 void FfiOHOSAceFrameworkButtonSetFontWeight(const char* fontWeight)

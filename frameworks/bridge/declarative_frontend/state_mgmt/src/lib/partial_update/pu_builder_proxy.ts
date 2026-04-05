@@ -49,17 +49,25 @@ function makeBuilderParameterProxy(builderName: string, source: Object): Object 
                 staticHook!.addRef = val;
                 return true;
             }
-            throw Error(`@Builder '${builderName}': Invalid attempt to set(write to) parameter '${prop.toString()}' error!`);
+            throw new BusinessError(INVALID_SET_IN_BUILDER, `@Builder '${builderName}': Invalid attempt to set(write to) parameter '${prop.toString()}' error!`);
         },
         get(target, prop) {
+            if (InteropConfigureStateMgmt.needsInterop() && prop === '__builder_param_get_target') {
+                return target;
+            }
             const prop1 = prop.toString().trim().startsWith('__')
                 ? prop.toString().trim().substring(2)
                 : prop.toString().trim();
             stateMgmtConsole.debug(`get - prop ${prop.toString()} prop1 ${prop1}`);
-            if (!(typeof target === 'object') && (prop1 in target)) {
-                throw Error(`@Builder '${builderName}': '${prop1}' used but not a function parameter error!`);
+            let value;
+            if (InteropConfigureStateMgmt.needsInterop() && target instanceof Map) {
+                value = target.get(prop1);
+            } else {
+                if (!(typeof target === 'object') && (prop1 in target)) {
+                    throw Error(`@Builder '${builderName}': '${prop1}' used but not a function parameter error!`);
+                }
+                value = target[prop1];
             }
-            const value = target[prop1];
             if (typeof value !== 'function') {
                 stateMgmtConsole.debug(`      - no fun`);
                 return value;
@@ -69,7 +77,7 @@ function makeBuilderParameterProxy(builderName: string, source: Object): Object 
                 staticHook!.addRef();
             }
             const funcRet = value();
-            if ((typeof funcRet === 'object') && ('get' in funcRet)) {
+            if (funcRet && (typeof funcRet === 'object') && ('get' in funcRet)) {
                 if (prop1 !== prop) {
                     stateMgmtConsole.debug(`      - func - is ObservedPropertybstract - ret ObservedPropertyObject`);
                     return funcRet;

@@ -20,6 +20,7 @@
 #include "core/components_ng/pattern/bubble/bubble_pattern.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/overlay/overlay_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 using namespace testing;
 using namespace testing::ext;
 namespace OHOS::Ace::NG {
@@ -155,7 +156,6 @@ HWTEST_F(OverlayManagerPopupTestNg, PopupTest002, TestSize.Level1)
     auto targetId1 = targetNodes[0]->GetId();
     auto targetId2 = targetNodes[1]->GetId();
     rootNode->isLayoutComplete_ = true;
-    
     auto pipeline = rootNode->GetContextRefPtr();
     CHECK_NULL_VOID(pipeline);
     pipeline->SetInstallationFree(0);
@@ -1835,8 +1835,46 @@ HWTEST_F(OverlayManagerPopupTestNg, PopupTest035, TestSize.Level1)
     EXPECT_TRUE(overlayManager->popupMap_.empty());
 }
 /**
+ * @tc.name: PopupTest036
+ * @tc.desc: Test IsAccessibilityModal function of BubbleAccessibilityProperty.
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerPopupTestNg, PopupTest036, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create target node.
+     */
+    auto targetNode = CreateTargetNode();
+    auto targetId = targetNode->GetId();
+    auto targetTag = targetNode->GetTag();
+    auto popupId = ElementRegister::GetInstance()->MakeUniqueId();
+    auto popupNode = FrameNode::CreateFrameNode(V2::POPUP_ETS_TAG, popupId,
+                        AceType::MakeRefPtr<BubblePattern>(targetId, targetTag));
+    ASSERT_NE(popupNode, nullptr);
+    auto accessibilityProperty = popupNode->GetAccessibilityProperty<AccessibilityProperty>();
+    ASSERT_NE(accessibilityProperty, nullptr);
+
+    /**
+     * @tc.steps: step2. get modal attribute from accessibilityProperty.
+     * @tc.expected: modal is true.
+     */
+    auto isModal = accessibilityProperty->IsAccessibilityModal();
+    EXPECT_TRUE(isModal);
+
+    /**
+     * @tc.steps: step3. set IsModal false to BubbleLayoutProperty, then get modal attribute from accessibilityProperty.
+     * @tc.expected: modal is false.
+     */
+    auto layoutProp = popupNode->GetLayoutProperty<BubbleLayoutProperty>();
+    ASSERT_NE(layoutProp, nullptr);
+    layoutProp->UpdateIsModal(false);
+    isModal = accessibilityProperty->IsAccessibilityModal();
+    EXPECT_FALSE(isModal);
+}
+
+/**
  * @tc.name: ToastTest001
- * @tc.desc: Test OverlayManager::ClearToast.
+ * @tc.desc: Test OverlayManager::ShowToast.
  * @tc.type: FUNC
  */
 HWTEST_F(OverlayManagerPopupTestNg, ToastTest001, TestSize.Level1)
@@ -1852,7 +1890,7 @@ HWTEST_F(OverlayManagerPopupTestNg, ToastTest001, TestSize.Level1)
     ASSERT_NE(overlayManager, nullptr);
     /**
      * @tc.steps: step2. call ShowToast.
-     * @tc.expected: toastMap_ is empty
+     * @tc.expected: toastMap_ is not empty
      */
     auto toastInfo =
         NG::ToastInfo { .message = MESSAGE, .duration = DURATION, .bottom = BOTTOMSTRING, .isRightToLeft = true };
@@ -1878,11 +1916,13 @@ HWTEST_F(OverlayManagerPopupTestNg, HideAllPopupsWithoutAnimation001, TestSize.L
      * @tc.expected: Push popup successfully
      */
     auto rootNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
+    ASSERT_NE(rootNode, nullptr);
     auto overlayManager = AceType::MakeRefPtr<OverlayManager>(rootNode);
     auto targetId1 = targetNodes[0]->GetId();
     auto targetId2 = targetNodes[1]->GetId();
     rootNode->isLayoutComplete_ = true;
-    
+
+    popups[0].markNeedUpdate = true;
     auto pipeline = rootNode->GetContextRefPtr();
     CHECK_NULL_VOID(pipeline);
     pipeline->SetInstallationFree(0);
@@ -1897,5 +1937,88 @@ HWTEST_F(OverlayManagerPopupTestNg, HideAllPopupsWithoutAnimation001, TestSize.L
     overlayManager->HideAllPopupsWithoutAnimation();
     EXPECT_FALSE(overlayManager->popupMap_[targetId1].isCurrentOnShow);
     EXPECT_FALSE(overlayManager->popupMap_[targetId2].isCurrentOnShow);
+}
+
+/**
+ * @tc.name: ShowTipsInSubwindow001
+ * @tc.desc: Test ShowTipsInSubwindow function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerPopupTestNg, ShowTipsInSubwindow001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create target node.
+     */
+    auto targetNode = CreateTargetNode();
+    ASSERT_NE(targetNode, nullptr);
+    auto stageNode = FrameNode::CreateFrameNode(
+        V2::STAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StagePattern>());
+    auto rootNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
+    stageNode->MountToParent(rootNode);
+    targetNode->MountToParent(stageNode);
+    rootNode->MarkDirtyNode();
+
+    PopupInfo popupInfo;
+    popupInfo.target = AceType::WeakClaim(AceType::RawPtr(targetNode));
+    MockPipelineContext::SetUp();
+    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(rootNode);
+    MockPipelineContext::GetCurrent()->overlayManager_ = overlayManager;
+    overlayManager->tipsEnterAndLeaveInfoMap_[targetNode->GetId()] = { { 0, true } };
+    overlayManager->ShowTipsInSubwindow(targetNode->GetId(), popupInfo, 0);
+    EXPECT_FALSE(overlayManager->tipsInfoList_.empty());
+
+    overlayManager->tipsEnterAndLeaveInfoMap_[targetNode->GetId()] = { { 0, true } };
+    popupInfo.isTips = false;
+    popupInfo.popupNode = stageNode;
+    overlayManager->UpdatePopupMap(targetNode->GetId(), popupInfo);
+    overlayManager->ShowTipsInSubwindow(targetNode->GetId(), popupInfo, 0);
+    EXPECT_FALSE(overlayManager->tipsInfoList_.empty());
+    
+    MockPipelineContext::TearDown();
+}
+
+/**
+ * @tc.name: ErasePopupTest001
+ * @tc.desc: Test OverlayManager::ErasePopup.
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerPopupTestNg, ErasePopupTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create target node and popupInfo.
+     */
+    auto targetNode = CreateTargetNode();
+    auto targetId = targetNode->GetId();
+    auto targetTag = targetNode->GetTag();
+    auto popupId = ElementRegister::GetInstance()->MakeUniqueId();
+    auto popupNode = FrameNode::CreateFrameNode(V2::POPUP_ETS_TAG, popupId,
+                        AceType::MakeRefPtr<BubblePattern>(targetId, targetTag));
+    PopupInfo popupInfo;
+    popupInfo.popupId = popupId;
+    popupInfo.popupNode = popupNode;
+    popupInfo.target = targetNode;
+    popupInfo.markNeedUpdate = true;
+    popupInfo.isBlockEvent = false;
+
+    /**
+     * @tc.steps: step2. create overlayManager and call ShowPopupAnimation.
+     * @tc.expected: transitionStatus_ and visibility of layoutProperty is updated successfully
+     */
+    auto layoutProp = popupNode->GetLayoutProperty<BubbleLayoutProperty>();
+    ASSERT_NE(layoutProp, nullptr);
+    layoutProp->UpdateUseCustom(false);
+    auto rootNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
+    ASSERT_NE(rootNode, nullptr);
+    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(rootNode);
+    ASSERT_NE(overlayManager, nullptr);
+    rootNode->isLayoutComplete_ = true;
+    auto popupPattern = popupInfo.popupNode->GetPattern<BubblePattern>();
+    ASSERT_NE(popupPattern, nullptr);
+    int32_t number = 0;
+    std::function<void(int32_t)> onWillDismiss1 = [&number](int32_t reason) { number = number + 1; };
+    overlayManager->ShowPopup(targetId, popupInfo, move(onWillDismiss1), true);
+    overlayManager->ErasePopup(targetId);
+    EXPECT_EQ(number, 0);
+    EXPECT_TRUE(overlayManager->popupMap_.empty());
 }
 } // namespace OHOS::Ace::NG

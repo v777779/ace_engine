@@ -18,6 +18,7 @@
 #include "base/log/log_wrapper.h"
 #include "base/memory/ace_type.h"
 #include "base/utils/utils.h"
+#include "core/components_ng/pattern/text/span/span_string.h"
 #include "core/components_ng/pattern/text_field/text_field_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -78,7 +79,12 @@ void TextFieldController::SetTextSelection(
     int32_t length = static_cast<int32_t>(wideText.length());
     selectionStart = std::clamp(selectionStart, 0, length);
     selectionEnd = std::clamp(selectionEnd, 0, length);
-    textFieldPattern->SetSelectionFlag(selectionStart, selectionEnd, options);
+    textFieldPattern->ScheduleTaskWithLayoutDeferral(
+        [weak = WeakPtr(textFieldPattern), selectionStart, selectionEnd, options]() {
+            auto pattern = weak.Upgrade();
+            CHECK_NULL_VOID(pattern);
+            pattern->SetSelectionFlag(selectionStart, selectionEnd, options);
+        });
 }
 
 Rect TextFieldController::GetTextContentRect()
@@ -115,6 +121,13 @@ int32_t TextFieldController::GetTextContentLinesNum()
     }
     lines = getTextContentLinesNum_();
     return lines;
+}
+
+void TextFieldController::ScrollToVisible(const TextScrollOptions& options)
+{
+    auto textFieldPattern = AceType::DynamicCast<TextFieldPattern>(pattern_.Upgrade());
+    CHECK_NULL_VOID(textFieldPattern);
+    textFieldPattern->OnScrollToVisible(options);
 }
 
 void TextFieldController::StopEditing()
@@ -210,6 +223,34 @@ SelectionInfo TextFieldController::GetSelection()
     auto textFieldPattern = AceType::DynamicCast<TextFieldPattern>(pattern_.Upgrade());
     CHECK_NULL_RETURN(textFieldPattern, {});
     return textFieldPattern->GetSelection();
+}
+
+void TextFieldController::SetPlaceholderStyledString(const RefPtr<SpanStringBase>& value)
+{
+    auto textFieldPattern = AceType::DynamicCast<TextFieldPattern>(pattern_.Upgrade());
+    CHECK_NULL_VOID(textFieldPattern);
+    auto textField = DynamicCast<TextFieldPattern>(textFieldPattern);
+    CHECK_NULL_VOID(textField);
+    auto host = textField->GetHost();
+    if (host) {
+        ACE_UINODE_TRACE(host);
+    }
+    auto spanString = AceType::DynamicCast<SpanString>(value);
+    if (spanString) {
+        textFieldPattern->SetPlaceholderStyledString(spanString);
+    }
+}
+
+void TextFieldController::DeleteBackward()
+{
+    auto textFieldPattern = AceType::DynamicCast<TextFieldPattern>(pattern_.Upgrade());
+    CHECK_NULL_VOID(textFieldPattern);
+    if (textFieldPattern->IsPreviewTextInputting()) {
+        TAG_LOGI(AceLogTag::ACE_TEXT_FIELD, "Skipping delete operation: preview text inputting");
+        return;
+    }
+
+    textFieldPattern->HandleOnDelete(true);
 }
 
 } // namespace OHOS::Ace::NG

@@ -25,6 +25,8 @@ public:
     ApsMonitor() = default;
     virtual ~ApsMonitor() = default;
     virtual void SetApsScene(const std::string& sceneName, bool onOff) = 0;
+    virtual void ReSetApsClient() = 0;
+    virtual float GetApsSdrRatio(const std::string& pkgName, int32_t indexForUsingClient) = 0;
 };
 
 } // namespace OHOS::Ace

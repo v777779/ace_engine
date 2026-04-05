@@ -13,8 +13,12 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_abstract.h"
+#include "core/interfaces/native/implementation/click_event_peer.h"
+#include "core/interfaces/native/implementation/hover_event_peer.h"
+#include "core/interfaces/native/implementation/key_event_peer.h"
+#include "core/interfaces/native/implementation/mouse_event_peer.h"
+#include "core/interfaces/native/implementation/touch_event_peer.h"
 #include "core/interfaces/native/implementation/ui_common_event_peer.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
@@ -44,15 +48,15 @@ void SetOnClickImpl(Ark_UICommonEvent peer, const Opt_Callback_ClickEvent_Void* 
     auto arkOnClick = Converter::GetOptPtr(callback_);
     if (arkOnClick) {
         auto onClick = [arkCallback = CallbackHelper(arkOnClick.value())](GestureEvent& info) {
-            auto clickEvent = Converter::ArkClickEventSync(info);
+            auto clickEvent = Converter::SyncEvent<Ark_ClickEvent>(info);
             arkCallback.InvokeSync(clickEvent.ArkValue());
         };
-        ViewAbstract::SetJSFrameNodeOnClick(rawPtr, std::move(onClick));
+        ViewAbstract::SetFrameNodeCommonOnClick(rawPtr, std::move(onClick));
     } else {
         ViewAbstract::ClearJSFrameNodeOnClick(rawPtr);
     }
 }
-void SetOnTouchImpl(Ark_UICommonEvent peer, const Opt_Callback_TouchEvent_Void* callback_)
+void SetOnTouchImpl(Ark_UICommonEvent peer, const Opt_Callback_TouchEventProxy_Void* callback_)
 {
     CHECK_NULL_VOID(peer);
     auto refPtr = peer->node.Upgrade();
@@ -61,15 +65,30 @@ void SetOnTouchImpl(Ark_UICommonEvent peer, const Opt_Callback_TouchEvent_Void* 
     auto arkOnTouch = Converter::GetOptPtr(callback_);
     if (arkOnTouch) {
         auto onTouch = [arkCallback = CallbackHelper(arkOnTouch.value())](TouchEventInfo& info) {
-            auto touchEvent = Converter::ArkTouchEventSync(info);
-            arkCallback.InvokeSync(touchEvent.ArkValue());
+            Ark_TouchEventProxy proxy = {
+                .target = Converter::ArkValue<Ark_EventTarget>(info.GetTarget()),
+                .timeStamp = Converter::ArkValue<Ark_Int64>(
+                    static_cast<int64_t>(info.GetTimeStamp().time_since_epoch().count())),
+                .pressure = Converter::ArkValue<Ark_Float64>(info.GetForce()),
+                .tiltX = Converter::ArkValue<Ark_Float64>(static_cast<double>(info.GetTiltX().value_or(0))),
+                .tiltY = Converter::ArkValue<Ark_Float64>(static_cast<double>(info.GetTiltY().value_or(0))),
+                .sourceTool = Converter::ArkValue<Ark_SourceTool>(info.GetSourceTool()),
+                .deviceId = Converter::ArkValue<Opt_Int32>(info.GetDeviceId()),
+                .targetDisplayId = Converter::ArkValue<Opt_Int32>(info.GetTargetDisplayId()),
+                .type = Converter::ArkValue<Ark_TouchType>(info.GetChangedTouches().front().GetTouchType()),
+                .touches = Converter::ArkValue<Array_TouchObject>(info.GetTouches(), Converter::FC),
+                .changedTouches = Converter::ArkValue<Array_TouchObject>(info.GetChangedTouches(), Converter::FC),
+                .ptr = &info
+            };
+            arkCallback.InvokeSync(proxy);
         };
-        ViewAbstract::SetJSFrameNodeOnTouch(rawPtr, std::move(onTouch));
+        ViewAbstract::SetFrameNodeCommonOnTouch(rawPtr, std::move(onTouch));
     } else {
         ViewAbstract::ClearJSFrameNodeOnTouch(rawPtr);
     }
 }
-void SetOnAppearImpl(Ark_UICommonEvent peer, const Opt_Callback_Void* callback_)
+void SetOnAppearImpl(Ark_UICommonEvent peer,
+                     const Opt_VoidCallback* callback_)
 {
     CHECK_NULL_VOID(peer);
     auto refPtr = peer->node.Upgrade();
@@ -77,13 +96,14 @@ void SetOnAppearImpl(Ark_UICommonEvent peer, const Opt_Callback_Void* callback_)
     auto rawPtr = Referenced::RawPtr(refPtr);
     auto arkOnAppear = Converter::GetOptPtr(callback_);
     if (arkOnAppear) {
-        auto onAppear = [arkCallback = CallbackHelper(arkOnAppear.value())]() { arkCallback.Invoke(); };
-        ViewAbstract::SetJSFrameNodeOnAppear(rawPtr, std::move(onAppear));
+        auto onAppear = [arkCallback = CallbackHelper(arkOnAppear.value())]() { arkCallback.InvokeSync(); };
+        ViewAbstract::SetFrameNodeCommonOnAppear(rawPtr, std::move(onAppear));
     } else {
         ViewAbstract::ClearJSFrameNodeOnAppear(rawPtr);
     }
 }
-void SetOnDisappearImpl(Ark_UICommonEvent peer, const Opt_Callback_Void* callback_)
+void SetOnDisappearImpl(Ark_UICommonEvent peer,
+                        const Opt_VoidCallback* callback_)
 {
     CHECK_NULL_VOID(peer);
     auto refPtr = peer->node.Upgrade();
@@ -91,8 +111,8 @@ void SetOnDisappearImpl(Ark_UICommonEvent peer, const Opt_Callback_Void* callbac
     auto rawPtr = Referenced::RawPtr(refPtr);
     auto arkOnDisAppear = Converter::GetOptPtr(callback_);
     if (arkOnDisAppear) {
-        auto onDisAppear = [arkCallback = CallbackHelper(arkOnDisAppear.value())]() { arkCallback.Invoke(); };
-        ViewAbstract::SetJSFrameNodeOnDisappear(rawPtr, std::move(onDisAppear));
+        auto onDisAppear = [arkCallback = CallbackHelper(arkOnDisAppear.value())]() { arkCallback.InvokeSync(); };
+        ViewAbstract::SetFrameNodeCommonOnDisappear(rawPtr, std::move(onDisAppear));
     } else {
         ViewAbstract::ClearJSFrameNodeOnDisappear(rawPtr);
     }
@@ -107,7 +127,7 @@ void SetOnKeyEventImpl(Ark_UICommonEvent peer, const Opt_Callback_KeyEvent_Void*
     std::optional<Callback_KeyEvent_Void> arkOnKey = callback_ ? Converter::GetOpt(*callback_) : std::nullopt;
     if (arkOnKey) {
         auto onKey = [arkCallback = CallbackHelper(arkOnKey.value())](KeyEventInfo& info) {
-            auto keyEvent = Converter::ArkKeyEventSync(info);
+            auto keyEvent = Converter::SyncEvent<Ark_KeyEvent>(info);
             arkCallback.InvokeSync(keyEvent.ArkValue());
             LOGW("arkCallback does not return value");
             return false;
@@ -117,7 +137,8 @@ void SetOnKeyEventImpl(Ark_UICommonEvent peer, const Opt_Callback_KeyEvent_Void*
         ViewAbstract::ClearJSFrameNodeOnKeyCallback(rawPtr);
     }
 }
-void SetOnFocusImpl(Ark_UICommonEvent peer, const Opt_Callback_Void* callback_)
+void SetOnFocusImpl(Ark_UICommonEvent peer,
+                    const Opt_VoidCallback* callback_)
 {
     CHECK_NULL_VOID(peer);
     auto refPtr = peer->node.Upgrade();
@@ -131,7 +152,8 @@ void SetOnFocusImpl(Ark_UICommonEvent peer, const Opt_Callback_Void* callback_)
         ViewAbstract::ClearJSFrameNodeOnFocusCallback(rawPtr);
     }
 }
-void SetOnBlurImpl(Ark_UICommonEvent peer, const Opt_Callback_Void* callback_)
+void SetOnBlurImpl(Ark_UICommonEvent peer,
+                   const Opt_VoidCallback* callback_)
 {
     CHECK_NULL_VOID(peer);
     auto refPtr = peer->node.Upgrade();
@@ -154,11 +176,11 @@ void SetOnHoverImpl(Ark_UICommonEvent peer, const Opt_HoverCallback* callback_)
     auto arkOnHover = Converter::GetOptPtr(callback_);
     if (arkOnHover) {
         auto onHover = [arkCallback = CallbackHelper(arkOnHover.value())](bool isHover, HoverInfo& info) {
-            auto hoverEvent = Converter::ArkHoverEventSync(info);
+            auto hoverEvent = Converter::SyncEvent<Ark_HoverEvent>(info);
             auto arkIsHover = Converter::ArkValue<Ark_Boolean>(isHover);
             arkCallback.InvokeSync(arkIsHover, hoverEvent.ArkValue());
         };
-        ViewAbstract::SetJSFrameNodeOnHover(rawPtr, std::move(onHover));
+        ViewAbstract::SetFrameNodeCommonOnHover(rawPtr, std::move(onHover));
     } else {
         ViewAbstract::ClearJSFrameNodeOnHover(rawPtr);
     }
@@ -172,10 +194,10 @@ void SetOnMouseImpl(Ark_UICommonEvent peer, const Opt_Callback_MouseEvent_Void* 
     auto arkOnMouse = Converter::GetOptPtr(callback_);
     if (arkOnMouse) {
         auto onMouse = [arkCallback = CallbackHelper(arkOnMouse.value())](MouseInfo& info) {
-            auto mouseEvent = Converter::ArkMouseEventSync(info);
+            auto mouseEvent = Converter::SyncEvent<Ark_MouseEvent>(info);
             arkCallback.InvokeSync(mouseEvent.ArkValue());
         };
-        ViewAbstract::SetJSFrameNodeOnMouse(rawPtr, std::move(onMouse));
+        ViewAbstract::SetFrameNodeCommonOnMouse(rawPtr, std::move(onMouse));
     } else {
         ViewAbstract::ClearJSFrameNodeOnMouse(rawPtr);
     }
@@ -201,9 +223,9 @@ void SetOnSizeChangeImpl(Ark_UICommonEvent peer, const Opt_SizeChangeCallback* c
                 &ctx);
             newValue.width = Converter::ArkValue<Opt_Length>(PipelineBase::Px2VpWithCurrentDensity(rect.Width()),
                 &ctx);
-            arkCallback.Invoke(oldValue, newValue);
+            arkCallback.InvokeSync(oldValue, newValue);
         };
-        ViewAbstract::SetJSFrameNodeOnSizeChange(rawPtr, std::move(onSizeChanged));
+        ViewAbstract::SetFrameNodeCommonOnSizeChange(rawPtr, std::move(onSizeChanged));
     } else {
         ViewAbstract::ClearJSFrameNodeOnSizeChange(rawPtr);
     }
@@ -225,15 +247,15 @@ void SetOnVisibleAreaApproximateChangeImpl(
                                bool isExpanding, double currentRatio) {
         auto arkIsExpanding = Converter::ArkValue<Ark_Boolean>(isExpanding);
         auto arkCurrentRatio = Converter::ArkValue<Ark_Float64>(currentRatio);
-        arkCallback.Invoke(arkIsExpanding, arkCurrentRatio);
+        arkCallback.InvokeSync(arkIsExpanding, arkCurrentRatio);
     };
     std::vector<double> ratioList = Converter::Convert<std::vector<double>>(options->ratios);
     auto expectedUpdateIntervalValue = Converter::OptConvert<int32_t>(options->expectedUpdateInterval);
     if (expectedUpdateIntervalValue.has_value()) {
-        ViewAbstract::SetJSFrameNodeOnVisibleAreaApproximateChange(
+        ViewAbstract::SetFrameNodeCommonOnVisibleAreaApproximateChange(
             rawPtr, std::move(onVisibleChange), ratioList, expectedUpdateIntervalValue.value());
     } else {
-        ViewAbstract::SetJSFrameNodeOnVisibleAreaApproximateChange(rawPtr, std::move(onVisibleChange), ratioList);
+        ViewAbstract::SetFrameNodeCommonOnVisibleAreaApproximateChange(rawPtr, std::move(onVisibleChange), ratioList);
     }
 }
 } // namespace UICommonEventAccessor

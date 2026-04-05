@@ -16,6 +16,7 @@
 
 #include "cj_view_context_ffi.h"
 #include "cj_lambda.h"
+#include "adapter/ohos/entrance/ace_container.h"
 #include "base/log/jank_frame_report.h"
 #include "core/common/ace_engine.h"
 #include "core/components_ng/base/view_stack_model.h"
@@ -38,11 +39,25 @@ int64_t GetFormAnimationTimeInterval(const RefPtr<PipelineBase>& pipelineContext
     return (GetMicroTickCount() - pipelineContext->GetFormAnimationStartTime()) / MICROSEC_TO_MILLISEC;
 }
 
+int64_t GetDurationInterval(int64_t interval)
+{
+    int64_t duration = 0;
+    if (interval < DEFAULT_DURATION) {
+        duration = DEFAULT_DURATION - interval;
+    }
+    return duration;
+}
+
 bool CheckIfSetFormAnimationDuration(const RefPtr<PipelineBase>& pipelineContext, const AnimationOption& option)
 {
     CHECK_NULL_RETURN(pipelineContext, false);
+    int64_t interval = GetFormAnimationTimeInterval(pipelineContext);
+    int64_t duration = 0;
+    if (interval < DEFAULT_DURATION) {
+        duration = DEFAULT_DURATION - interval;
+    }
     return pipelineContext->IsFormAnimationFinishCallback() && pipelineContext->IsFormRenderExceptDynamicComponent() &&
-        option.GetDuration() > (DEFAULT_DURATION - GetFormAnimationTimeInterval(pipelineContext));
+        option.GetDuration() > duration;
 }
 
 bool CheckContainer(const RefPtr<Container>& container)
@@ -103,6 +118,17 @@ void AnimateToForStageMode(const RefPtr<PipelineBase>& pipelineContext, Animatio
 }
 
 extern "C" {
+int64_t FfiOHOSAceFrameworkViewContextGetHostContext()
+{
+    auto container = Container::CurrentSafelyWithCheck();
+    CHECK_NULL_RETURN(container, 0);
+    auto aceContainer = OHOS::Ace::AceType::DynamicCast<OHOS::Ace::Platform::AceContainer>(container);
+    CHECK_NULL_RETURN(aceContainer, 0);
+    auto context = aceContainer->GetAbilityContext();
+    CHECK_NULL_RETURN(context, 0);
+    return reinterpret_cast<int64_t>(context.get());
+}
+
 void FfiOHOSAceFrameworkViewContextAnimation(NativeOptionAnimateParam animateOptParam)
 {
     ACE_FUNCTION_TRACE();
@@ -129,12 +155,12 @@ void FfiOHOSAceFrameworkViewContextAnimation(NativeOptionAnimateParam animateOpt
         return;
     }
     ParseCjAnimation(animateParam, animateOpt);
+    int64_t duration = GetDurationInterval(GetFormAnimationTimeInterval(pipelineContextBase));
     if (pipelineContextBase->IsFormAnimationFinishCallback() &&
-        pipelineContextBase->IsFormRenderExceptDynamicComponent() &&
-        animateOpt.GetDuration() > (DEFAULT_DURATION - GetFormAnimationTimeInterval(pipelineContextBase))) {
-        animateOpt.SetDuration(DEFAULT_DURATION - GetFormAnimationTimeInterval(pipelineContextBase));
+        pipelineContextBase->IsFormRenderExceptDynamicComponent() && animateOpt.GetDuration() > duration) {
+        animateOpt.SetDuration(duration);
         TAG_LOGW(AceLogTag::ACE_FORM, "[Form animation]  Form animation SetDuration: %{public}lld ms",
-            static_cast<long long>(DEFAULT_DURATION - GetFormAnimationTimeInterval(pipelineContextBase)));
+            static_cast<long long>(duration));
     }
 
     if (SystemProperties::GetRosenBackendEnabled()) {
@@ -164,15 +190,15 @@ void FfiOHOSAceFrameworkViewContextAnimationTo(NativeAnimateParam animateParam, 
     }
     AnimationOption animateOpt;
     ParseCjAnimation(animateParam, animateOpt);
+    int64_t duration = GetDurationInterval(GetFormAnimationTimeInterval(pipelineContextBase));
     if (CheckIfSetFormAnimationDuration(pipelineContextBase, animateOpt)) {
-        animateOpt.SetDuration(DEFAULT_DURATION - GetFormAnimationTimeInterval(pipelineContextBase));
+        animateOpt.SetDuration(duration);
         TAG_LOGW(AceLogTag::ACE_FORM, "[Form animation]  Form animation SetDuration: %{public}lld ms",
-            static_cast<long long>(DEFAULT_DURATION - GetFormAnimationTimeInterval(pipelineContextBase)));
+            static_cast<long long>(duration));
     }
     if (SystemProperties::GetRosenBackendEnabled()) {
         if (pipelineContextBase->IsLayouting()) {
-            TAG_LOGW(AceLogTag::ACE_ANIMATION,
-                "Pipeline layouting, post animateTo, dur:%{public}d, curve:%{public}s",
+            TAG_LOGW(AceLogTag::ACE_ANIMATION, "Pipeline layouting, post animateTo, dur:%{public}d, curve:%{public}s",
                 animateOpt.GetDuration(), animateOpt.GetCurve() ? animateOpt.GetCurve()->ToString().c_str() : "");
             pipelineContextBase->GetTaskExecutor()->PostTask(
                 [id = Container::CurrentIdSafely(), animateOpt, callback, isImmediately]() mutable {

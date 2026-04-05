@@ -19,11 +19,11 @@
 #include "core/components_ng/pattern/web/ani/richtext_model_static.h"
 #undef private
 #include "core/components_ng/pattern/web/web_pattern.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #define private public
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 #undef private
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -64,11 +64,6 @@ HWTEST_F(RichTextModelStaticTest, Create_001, TestSize.Level1)
     auto webData = webPattern->GetWebData();
     EXPECT_EQ(webData.has_value(), true);
     EXPECT_EQ(webData.value(), data);
-    const std::string dataStr = "<p>p text for test</p>";
-    RichTextModelStatic::SetRichTextOptions(AccessibilityManager::RawPtr(frameNode), dataStr);
-    webData = webPattern->GetWebData();
-    EXPECT_EQ(webData.has_value(), true);
-    EXPECT_EQ(webData.value(), dataStr);
 }
 
 /**

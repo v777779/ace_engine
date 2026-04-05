@@ -26,6 +26,7 @@
 #include "core/common/recorder/node_data_cache.h"
 #include "core/components_ng/base/simplified_inspector.h"
 #include "core/components_ng/pattern/pattern.h"
+#include "frameworks/bridge/common/utils/engine_helper.h"
 
 namespace OHOS::Ace {
 namespace {
@@ -49,10 +50,21 @@ std::string GetCurrentPageParam()
     auto container = Container::CurrentSafely();
     CHECK_NULL_RETURN(container, "");
     auto frontend = container->GetFrontend();
-    if (frontend) {
-        return frontend->GetTopNavDestinationInfo(false, true);
+    CHECK_NULL_RETURN(frontend, "");
+    auto result = frontend->GetTopNavDestinationInfo(false, true);
+    if (!result.empty() && result != "{}") {
+        return result;
     }
-    return "";
+
+    auto delegate = EngineHelper::GetCurrentDelegate();
+    CHECK_NULL_RETURN(delegate, "");
+    auto paramJson = JsonUtil::Create();
+    result = delegate->GetParams();
+    if (result.empty() || result == "{}") {
+        result = delegate->GetInitParams();
+    }
+    paramJson->Put("params", result.c_str());
+    return paramJson->ToString();
 }
 } // namespace
 
@@ -91,7 +103,7 @@ extern "C" ACE_FORCE_EXPORT void OHOS_ACE_GetSimplifiedInspectorTree(const TreeP
         tree = std::to_string(container->GetWindowId());
         return;
     }
-    if (params.infoType == InspectorInfoType::WEB_LANG) {
+    if (params.infoType == InspectorInfoType::WEB_LANG && params.webId > 0) {
         tree = GetWebLanguageByNodeId(params.webId);
         return;
     }
@@ -121,10 +133,23 @@ extern "C" ACE_FORCE_EXPORT void OHOS_ACE_GetSimplifiedInspectorTreeAsync(
     }
 }
 
+extern "C" ACE_FORCE_EXPORT void OHOS_ACE_ExecuteCommandAsync(const UICommandParams& params, UICommandResult&& callback)
+{
+    auto inspector = std::make_shared<NG::SimplifiedInspector>(0, params);
+    auto collector = std::make_shared<Recorder::InspectorTreeCollector>(std::move(callback), false);
+    inspector->ExecuteUICommand(collector);
+}
+
+extern "C" ACE_FORCE_EXPORT void OHOS_ACE_GetComponentImageInfo(
+    const ComponentParams& params, std::shared_ptr<ComponentResult>& result)
+{
+    auto inspector = std::make_shared<NG::SimplifiedInspector>(0, params);
+    inspector->GetComponentImageInfo(result);
+}
+
 namespace Recorder {
 constexpr char HA_CLIENT_SO_PATH[] = "libha_ace_engine.z.so";
 
-static bool g_loaded = false;
 static void* g_handle = nullptr;
 static std::once_flag g_loadFlag;
 
@@ -153,11 +178,7 @@ void InitHandler()
 
 void Init()
 {
-    if (g_loaded) {
-        return;
-    }
     std::call_once(g_loadFlag, [] { InitHandler(); });
-    g_loaded = true;
 }
 
 void DeInit()
@@ -165,7 +186,6 @@ void DeInit()
     if (g_handle) {
         dlclose(g_handle);
         g_handle = nullptr;
-        g_loaded = false;
     }
 }
 } // namespace OHOS::Ace::Recorder

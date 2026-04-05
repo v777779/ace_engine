@@ -19,25 +19,25 @@
 #include <mutex>
 
 #include "core/components/dialog/dialog_properties.h"
-#include "core/components/picker/picker_data.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_data.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components_ng/pattern/picker/picker_type_define.h"
 
 namespace OHOS::Ace {
 using DateChangeEvent = std::function<void(const BaseEventInfo* info)>;
 struct PickerDialogInfo {
-    bool isLunar;
+    bool isLunar = false;
     PickerDate parseStartDate;
     PickerDate parseEndDate;
     PickerDate parseSelectedDate;
     PickerTime parseStartTime;
     PickerTime parseEndTime;
     PickerTime pickerTime;
-    bool isUseMilitaryTime;
-    bool isSelectedTime;
-    bool isStartDate;
-    bool isEndDate;
-    bool isSelectedDate;
+    bool isUseMilitaryTime = false;
+    bool isSelectedTime = false;
+    bool isStartDate = false;
+    bool isEndDate = false;
+    bool isSelectedDate = false;
     bool enableHoverMode = false;
     bool isEnableCascade = false;
     std::optional<DialogAlignment> alignment;

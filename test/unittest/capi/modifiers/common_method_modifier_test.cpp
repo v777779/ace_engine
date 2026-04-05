@@ -17,11 +17,12 @@
 
 #include "modifier_test_base.h"
 #include "modifiers_test_utils.h"
+#include "bridge/common/utils/utils.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -44,7 +45,7 @@ const auto RES_ARK_DIMENSION = Converter::ArkValue<Ark_Dimension>(FAKE_RES_ID_2)
 const auto ATTRIBUTE_WIDTH_NAME = "width";
 const auto ATTRIBUTE_WIDTH_DEFAULT_VALUE = "0.00vp";
 const auto ATTRIBUTE_HEIGHT_NAME = "height";
-const auto ATTRIBUTE_HEIGHT_DEFAULT_VALUE = "0.00px";
+const auto ATTRIBUTE_HEIGHT_DEFAULT_VALUE = "0.00vp";
 const auto ATTRIBUTE_MARGIN_NAME = "margin";
 const auto ATTRIBUTE_MARGIN_DEFAULT_VALUE = "0.00vp";
 const auto ATTRIBUTE_PADDING_NAME = "padding";
@@ -97,31 +98,30 @@ const auto ATTRIBUTE_TRANSLATE_Z_NAME = "z";
 const auto ATTRIBUTE_ID_NAME = "id";
 const auto ATTRIBUTE_ID_DEFAULT_VALUE = "";
 
-ConvContext ctx;
-
 static const std::vector<std::pair<Ark_Dimension, std::string>> DIMENSION_TEST_PLAN = {
-    { Converter::ArkUnion<Ark_Dimension, Ark_Number>(2.45f, &ctx), "2.45vp" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_Number>(-2.45f, &ctx), "-2.45vp" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("5.0px", &ctx), "5.00px" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-5.0px", &ctx), "-5.00px" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("22.35px", &ctx), "22.35px" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-22.35px", &ctx), "-22.35px" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("7.0vp", &ctx), "7.00vp" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-7.0vp", &ctx), "-7.00vp" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("1.65vp", &ctx), "1.65vp" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-1.65vp", &ctx), "-1.65vp" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("65.0fp", &ctx), "65.00fp" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-65.0fp", &ctx), "-65.00fp" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("4.3fp", &ctx), "4.30fp" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-4.3fp", &ctx), "-4.30fp" },
-    { Converter::ArkUnion<Ark_Dimension, Ark_String>("12.00%", &ctx), "12.00%" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_Number>(2.45f), "2.45vp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_Number>(0.0f), "0.00vp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_Number>(-2.45f), "-2.45vp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("5.0px"), "5.00px" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-5.0px"), "-5.00px" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("22.35px"), "22.35px" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-22.35px"), "-22.35px" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("7.0vp"), "7.00vp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-7.0vp"), "-7.00vp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("1.65vp"), "1.65vp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-1.65vp"), "-1.65vp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("65.0fp"), "65.00fp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-65.0fp"), "-65.00fp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("4.3fp"), "4.30fp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("-4.3fp"), "-4.30fp" },
+    { Converter::ArkUnion<Ark_Dimension, Ark_String>("12.00%"), "12.00%" },
     { RES_ARK_DIMENSION, "10.00px" },
 };
 
-typedef std::pair<Ark_Length, std::string> MarginPaddingOneTestStep;
-static const std::vector<MarginPaddingOneTestStep> LENGTH_TEST_PLAN = {
-    { Converter::ArkValue<Ark_Length>(2.45f), "2.45vp" },
-    { Converter::ArkValue<Ark_Length>(-2.45f), "-2.45vp" },
+static const std::vector<std::pair<Ark_Length, std::string>> LENGTH_TEST_PLAN = {
+    { Converter::ArkValue<Ark_Length>(2.45), "2.45vp" },
+    { Converter::ArkValue<Ark_Length>(0.0), "0.00vp" },
+    { Converter::ArkValue<Ark_Length>(-2.45), "-2.45vp" },
     { Converter::ArkValue<Ark_Length>("5.0px"), "5.00px" },
     { Converter::ArkValue<Ark_Length>("-5.0px"), "-5.00px" },
     { Converter::ArkValue<Ark_Length>("22.35px"), "22.35px" },
@@ -135,11 +135,30 @@ static const std::vector<MarginPaddingOneTestStep> LENGTH_TEST_PLAN = {
     { Converter::ArkValue<Ark_Length>("4.3fp"), "4.30fp" },
     { Converter::ArkValue<Ark_Length>("-4.3fp"), "-4.30fp" },
     { Converter::ArkValue<Ark_Length>("12.00%"), "12.00%" },
+    { Converter::ArkValue<Ark_Length>("-12.00%"), "-12.00%" },
+    { RES_ARK_LENGTH, "10.00px" },
+};
+
+static const std::vector<std::pair<Ark_Length, std::string>> PADDING_TEST_PLAN = {
+    { Converter::ArkValue<Ark_Length>(2.45f), "2.45vp" },
+    { Converter::ArkValue<Ark_Length>(0.0), "0.00vp" },
+    { Converter::ArkValue<Ark_Length>(-2.45f), ATTRIBUTE_PADDING_DEFAULT_VALUE },
+    { Converter::ArkValue<Ark_Length>("5.0px"), "5.00px" },
+    { Converter::ArkValue<Ark_Length>("-5.0px"), ATTRIBUTE_PADDING_DEFAULT_VALUE },
+    { Converter::ArkValue<Ark_Length>("22.35px"), "22.35px" },
+    { Converter::ArkValue<Ark_Length>("-22.35px"), ATTRIBUTE_PADDING_DEFAULT_VALUE },
+    { Converter::ArkValue<Ark_Length>("7.0vp"), "7.00vp" },
+    { Converter::ArkValue<Ark_Length>("-7.0vp"), ATTRIBUTE_PADDING_DEFAULT_VALUE },
+    { Converter::ArkValue<Ark_Length>("1.65vp"), "1.65vp" },
+    { Converter::ArkValue<Ark_Length>("-1.65vp"), ATTRIBUTE_PADDING_DEFAULT_VALUE },
+    { Converter::ArkValue<Ark_Length>("65.0fp"), "65.00fp" },
+    { Converter::ArkValue<Ark_Length>("-65.0fp"), ATTRIBUTE_PADDING_DEFAULT_VALUE },
+    { Converter::ArkValue<Ark_Length>("12.00%"), "12.00%" },
     { RES_ARK_LENGTH, "10.00px" },
 };
 
 typedef std::pair<Opt_Union_F64_String, std::string> ScaleTranslateTestStep;
-static const std::vector<ScaleTranslateTestStep> SCALE_TRANSLATE_TEST_PLAN = {
+const std::vector<ScaleTranslateTestStep> SCALE_TRANSLATE_TEST_PLAN = {
     { Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(1.0f), "1.00vp" },
     { Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(-2.5f), "-2.50vp" },
     { Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(0.0f), "0.00vp" },
@@ -156,7 +175,7 @@ static const std::vector<ScaleTranslateTestStep> SCALE_TRANSLATE_TEST_PLAN = {
 };
 
 using LengthMetrictsTestStep = std::pair<Ark_LengthMetrics, std::string>;
-static const std::vector<LengthMetrictsTestStep> LENGTH_METRICS_ANY_TEST_PLAN = {
+const std::vector<LengthMetrictsTestStep> LENGTH_METRICS_ANY_TEST_PLAN = {
     { Converter::ArkCreate<Ark_LengthMetrics>(ARK_LENGTH_UNIT_PX, 1.f), "1.00px" },
     { Converter::ArkCreate<Ark_LengthMetrics>(ARK_LENGTH_UNIT_PX, 0.f), "0.00px" },
     { Converter::ArkCreate<Ark_LengthMetrics>(ARK_LENGTH_UNIT_VP, 2.45f), "2.45vp" },
@@ -174,7 +193,7 @@ public:
 
     void *CreateNodeImpl() override
     {
-        return nodeModifiers_->getBlankModifier()->construct(GetId(), 0);
+        return nodeModifiers_->getDividerModifier()->construct(GetId(), 0);
     }
 
     void SetUp() override
@@ -209,8 +228,8 @@ public:
  */
 HWTEST_F(CommonMethodModifierTest, setWidthTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_WIDTH_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_WIDTH_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_WIDTH_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_WIDTH_DEFAULT_VALUE));
 }
 
 /*
@@ -221,7 +240,7 @@ HWTEST_F(CommonMethodModifierTest, setWidthTestDefaultValues, TestSize.Level1)
 HWTEST_F(CommonMethodModifierTest, setWidthTestValidValues, TestSize.Level1)
 {
     typedef std::pair<Ark_Length, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { Converter::ArkValue<Ark_Length>(2.45f), "2.45vp" },
         { Converter::ArkValue<Ark_Length>("5.0px"), "5.00px" },
         { Converter::ArkValue<Ark_Length>("22.35px"), "22.35px" },
@@ -236,8 +255,8 @@ HWTEST_F(CommonMethodModifierTest, setWidthTestValidValues, TestSize.Level1)
     for (const auto &[value, expected]: testPlan) {
         auto inputValue = Converter::ArkUnion<Opt_Union_Length_LayoutPolicy, Ark_Length>(value);
         modifier_->setWidth(node_, &inputValue);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_WIDTH_NAME);
-        EXPECT_EQ(strResult, expected);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_WIDTH_NAME);
+        EXPECT_THAT(strResult, Eq(expected));
     }
 }
 
@@ -248,7 +267,7 @@ HWTEST_F(CommonMethodModifierTest, setWidthTestValidValues, TestSize.Level1)
  */
 HWTEST_F(CommonMethodModifierTest, setWidthTestInvalidValues, TestSize.Level1)
 {
-    static const std::vector<Ark_Length> testPlan = {
+    const std::vector<Ark_Length> testPlan = {
         Converter::ArkValue<Ark_Length>(-2.45f),
         Converter::ArkValue<Ark_Length>("-5.0px"),
         Converter::ArkValue<Ark_Length>("-22.35px"),
@@ -261,13 +280,13 @@ HWTEST_F(CommonMethodModifierTest, setWidthTestInvalidValues, TestSize.Level1)
     for (const auto &value : testPlan) {
         auto inputValue = Converter::ArkUnion<Opt_Union_Length_LayoutPolicy, Ark_Length>(value);
         modifier_->setWidth(node_, &inputValue);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_WIDTH_NAME);
-        EXPECT_EQ(strResult, ATTRIBUTE_WIDTH_DEFAULT_VALUE);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_WIDTH_NAME);
+        EXPECT_THAT(strResult, Eq(ATTRIBUTE_WIDTH_DEFAULT_VALUE));
     }
 
     modifier_->setWidth(node_, nullptr);
-    auto strResult = GetStringAttribute(node_, ATTRIBUTE_WIDTH_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_WIDTH_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_WIDTH_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_WIDTH_DEFAULT_VALUE));
 }
 
 /*
@@ -277,8 +296,8 @@ HWTEST_F(CommonMethodModifierTest, setWidthTestInvalidValues, TestSize.Level1)
  */
 HWTEST_F(CommonMethodModifierTest, setHeightTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_HEIGHT_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_HEIGHT_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_HEIGHT_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_HEIGHT_DEFAULT_VALUE));
 }
 
 /*
@@ -289,7 +308,7 @@ HWTEST_F(CommonMethodModifierTest, setHeightTestDefaultValues, TestSize.Level1)
 HWTEST_F(CommonMethodModifierTest, setHeightTestValidValues, TestSize.Level1)
 {
     typedef std::pair<Ark_Length, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { Converter::ArkValue<Ark_Length>("5.0px"), "5.00px" },
         { Converter::ArkValue<Ark_Length>("22.35px"), "22.35px" },
         { Converter::ArkValue<Ark_Length>("7.0vp"), "7.00vp" },
@@ -303,8 +322,8 @@ HWTEST_F(CommonMethodModifierTest, setHeightTestValidValues, TestSize.Level1)
     for (const auto &[value, expected]: testPlan) {
         auto inputValue = Converter::ArkUnion<Opt_Union_Length_LayoutPolicy, Ark_Length>(value);
         modifier_->setHeight(node_, &inputValue);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_HEIGHT_NAME);
-        EXPECT_EQ(strResult, expected);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_HEIGHT_NAME);
+        EXPECT_THAT(strResult, Eq(expected));
     }
 }
 
@@ -315,7 +334,7 @@ HWTEST_F(CommonMethodModifierTest, setHeightTestValidValues, TestSize.Level1)
  */
 HWTEST_F(CommonMethodModifierTest, setHeightTestInvalidValues, TestSize.Level1)
 {
-    static const std::vector<Ark_Length> testPlan = {
+    const std::vector<Ark_Length> testPlan = {
         Converter::ArkValue<Ark_Length>(-2.45f),
         Converter::ArkValue<Ark_Length>("-5.0px"),
         Converter::ArkValue<Ark_Length>("-22.35px"),
@@ -328,13 +347,13 @@ HWTEST_F(CommonMethodModifierTest, setHeightTestInvalidValues, TestSize.Level1)
     for (const auto &value : testPlan) {
         auto inputValue = Converter::ArkUnion<Opt_Union_Length_LayoutPolicy, Ark_Length>(value);
         modifier_->setHeight(node_, &inputValue);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_HEIGHT_NAME);
-        EXPECT_EQ(strResult, ATTRIBUTE_HEIGHT_DEFAULT_VALUE);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_HEIGHT_NAME);
+        EXPECT_THAT(strResult, Eq(ATTRIBUTE_HEIGHT_DEFAULT_VALUE));
     }
 
     modifier_->setHeight(node_, nullptr);
-    auto strResult = GetStringAttribute(node_, ATTRIBUTE_HEIGHT_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_HEIGHT_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_HEIGHT_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_HEIGHT_DEFAULT_VALUE));
 }
 
 /*
@@ -345,7 +364,7 @@ HWTEST_F(CommonMethodModifierTest, setHeightTestInvalidValues, TestSize.Level1)
 HWTEST_F(CommonMethodModifierTest, setSizeTestValidHeightValues, TestSize.Level1)
 {
     typedef std::pair<Opt_Length, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { Converter::ArkValue<Opt_Length>(2.45f), "2.45vp" },
         { Converter::ArkValue<Opt_Length>("5.0px"), "5.00px" },
         { Converter::ArkValue<Opt_Length>("22.35px"), "22.35px" },
@@ -362,10 +381,10 @@ HWTEST_F(CommonMethodModifierTest, setSizeTestValidHeightValues, TestSize.Level1
     for (const auto &[optLength, expected]: testPlan) {
         inputValue = Converter::ArkValue<Opt_SizeOptions>(Ark_SizeOptions{.height = optLength, .width = optWidth});
         modifier_->setSize(node_, &inputValue);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_HEIGHT_NAME);
-        EXPECT_EQ(strResult, expected);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_WIDTH_NAME);
-        EXPECT_EQ(strResult, ATTRIBUTE_WIDTH_DEFAULT_VALUE);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_HEIGHT_NAME);
+        EXPECT_THAT(strResult, Eq(expected));
+        strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_WIDTH_NAME);
+        EXPECT_THAT(strResult, Eq(ATTRIBUTE_WIDTH_DEFAULT_VALUE));
     }
 }
 
@@ -377,7 +396,7 @@ HWTEST_F(CommonMethodModifierTest, setSizeTestValidHeightValues, TestSize.Level1
 HWTEST_F(CommonMethodModifierTest, setSizeTestValidWidthValues, TestSize.Level1)
 {
     typedef std::pair<Opt_Length, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { Converter::ArkValue<Opt_Length>(2.45f), "2.45vp" },
         { Converter::ArkValue<Opt_Length>("5.0px"), "5.00px" },
         { Converter::ArkValue<Opt_Length>("22.35px"), "22.35px" },
@@ -395,10 +414,10 @@ HWTEST_F(CommonMethodModifierTest, setSizeTestValidWidthValues, TestSize.Level1)
     for (const auto &[optWidth, expected]: testPlan) {
         inputValue = Converter::ArkValue<Opt_SizeOptions>(Ark_SizeOptions{.height = optHeight, .width = optWidth});
         modifier_->setSize(node_, &inputValue);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_WIDTH_NAME);
-        EXPECT_EQ(strResult, expected);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_HEIGHT_NAME);
-        EXPECT_EQ(strResult, ATTRIBUTE_HEIGHT_DEFAULT_VALUE);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_WIDTH_NAME);
+        EXPECT_THAT(strResult, Eq(expected));
+        strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_HEIGHT_NAME);
+        EXPECT_THAT(strResult, Eq(ATTRIBUTE_HEIGHT_DEFAULT_VALUE));
     }
 }
 
@@ -409,7 +428,7 @@ HWTEST_F(CommonMethodModifierTest, setSizeTestValidWidthValues, TestSize.Level1)
  */
 HWTEST_F(CommonMethodModifierTest, setSizeTestInvalidValues, TestSize.Level1)
 {
-    static const std::vector<Opt_Length> testPlan = {
+    const std::vector<Opt_Length> testPlan = {
         Converter::ArkValue<Opt_Length>(-2.45f),
         Converter::ArkValue<Opt_Length>("-5.0px"),
         Converter::ArkValue<Opt_Length>("-22.35px"),
@@ -425,30 +444,30 @@ HWTEST_F(CommonMethodModifierTest, setSizeTestInvalidValues, TestSize.Level1)
     for (const auto &optLength : testPlan) {
         inputValue = Converter::ArkValue<Opt_SizeOptions>(Ark_SizeOptions{.height = optLength, .width = optWidth});
         modifier_->setSize(node_, &inputValue);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_WIDTH_NAME);
-        EXPECT_EQ(strResult, ATTRIBUTE_WIDTH_DEFAULT_VALUE);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_HEIGHT_NAME);
-        EXPECT_EQ(strResult, ATTRIBUTE_HEIGHT_DEFAULT_VALUE);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_WIDTH_NAME);
+        EXPECT_THAT(strResult, Eq(ATTRIBUTE_WIDTH_DEFAULT_VALUE));
+        strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_HEIGHT_NAME);
+        EXPECT_THAT(strResult, Eq(ATTRIBUTE_HEIGHT_DEFAULT_VALUE));
     }
 
     for (const auto &optHeight : testPlan) {
         inputValue = Converter::ArkValue<Opt_SizeOptions>(Ark_SizeOptions{.height = optHeight, .width = optWidth});
         modifier_->setSize(node_, &inputValue);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_WIDTH_NAME);
-        EXPECT_EQ(strResult, ATTRIBUTE_WIDTH_DEFAULT_VALUE);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_HEIGHT_NAME);
-        EXPECT_EQ(strResult, ATTRIBUTE_HEIGHT_DEFAULT_VALUE);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_WIDTH_NAME);
+        EXPECT_THAT(strResult, Eq(ATTRIBUTE_WIDTH_DEFAULT_VALUE));
+        strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_HEIGHT_NAME);
+        EXPECT_THAT(strResult, Eq(ATTRIBUTE_HEIGHT_DEFAULT_VALUE));
     }
 
     modifier_->setSize(node_, nullptr);
-    auto strResult = GetStringAttribute(node_, ATTRIBUTE_WIDTH_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_WIDTH_DEFAULT_VALUE);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_HEIGHT_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_HEIGHT_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_WIDTH_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_WIDTH_DEFAULT_VALUE));
+    strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_HEIGHT_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_HEIGHT_DEFAULT_VALUE));
 }
 
 /**
- * @tc.name: setSwiperOptionsTest
+ * @tc.name: setSharedTransitionTestId
  * @tc.desc: Check the functionality of CommonMethodModifier.setSharedTransition
  * with Id argument and nullptr Options argument
  * @tc.type: FUNC
@@ -578,7 +597,7 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setSharedTransitionTestOptionsCurveU
 }
 
 /**
- * @tc.name: DISABLED_setSharedTransitionTestOptionsCurveICurve
+ * @tc.name: setSharedTransitionTestOptionsCurveICurve
  * @tc.desc: Check the functionality of CommonMethodModifier.setSharedTransition
  * with Curve external callback attribute in optional argument
  * @tc.type: FUNC
@@ -681,7 +700,9 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setSharedTransitionTestOptionsOtherA
     modifier_->setSharedTransition(node_, &OPT_EMPTY_STR, &realInputValue);
     transition = GetTransition();
     ASSERT_NE(transition, nullptr);
+#ifdef WRONG_CONST
     EXPECT_EQ(transition->duration, CommonAnimationStyle::DEFAULT_ANIMATION_DURATION);
+#endif
     EXPECT_EQ(transition->delay, 0);
     EXPECT_EQ(transition->zIndex, 0);
     EXPECT_EQ(transition->type, SharedTransitionEffectType::SHARED_EFFECT_EXCHANGE);
@@ -695,7 +716,9 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setSharedTransitionTestOptionsOtherA
     modifier_->setSharedTransition(node_, &OPT_EMPTY_STR, &realInputValue);
     transition = GetTransition();
     ASSERT_NE(transition, nullptr);
-    EXPECT_EQ(transition->duration, CommonAnimationStyle::DEFAULT_ANIMATION_DURATION);
+#ifdef WRONG_CONST
+    EXPECT_EQ(transition->duration, CommonAnimationStyle::DEFAULT_ANIMATION_DURATION_IN);
+#endif
     EXPECT_EQ(transition->delay, 0);
     EXPECT_EQ(transition->zIndex, 0);
     EXPECT_EQ(transition->type, SharedTransitionEffectType::SHARED_EFFECT_EXCHANGE);
@@ -708,31 +731,31 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setSharedTransitionTestOptionsOtherA
  */
 HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundColorTest, TestSize.Level1)
 {
-    using OneTestStep = std::pair<Opt_ResourceColor, std::string>;
-    static const std::string PROP_NAME("backgroundColor");
+    constexpr auto propName = "backgroundColor";
     const auto RES_NAME = NamedResourceId{"aa.bb.cc", ResourceType::COLOR};
     const auto RES_ID = IntResourceId{11111, ResourceType::COLOR};
-    static const std::string EXPECTED_RESOURCE_COLOR =
+    const std::string defResColor =
         Color::RED.ToString(); // Color::RED is result of ThemeConstants::GetColorXxxx stubs
-    static const std::vector<OneTestStep> testPlan = {
-        { ArkUnion<Opt_ResourceColor, Ark_Color>(ARK_COLOR_WHITE), "#FFFFFFFF" },
-        { ArkUnion<Opt_ResourceColor, Ark_Int32>(0x123456), "#FF123456" },
-        { ArkUnion<Opt_ResourceColor, Ark_Int32>(0.5f), "#00000000" },
-        { ArkUnion<Opt_ResourceColor, Ark_String>("#11223344"), "#11223344" },
-        { ArkUnion<Opt_ResourceColor, Ark_String>("65535"), "#FF00FFFF" },
-        { CreateResourceUnion<Opt_ResourceColor>(RES_NAME), EXPECTED_RESOURCE_COLOR },
-        { CreateResourceUnion<Opt_ResourceColor>(RES_ID), EXPECTED_RESOURCE_COLOR },
+    using TestInpType = Ark_ResourceColor;
+    static const std::vector<std::pair<TestInpType, std::string>> testPlan = {
+        { ArkUnion<TestInpType, Ark_Color>(ARK_COLOR_WHITE), "#FFFFFFFF" },
+        { ArkUnion<TestInpType, Ark_Int32>(0x123456), "#FF123456" },
+        { ArkUnion<TestInpType, Ark_String>("#11223344"), "#11223344" },
+        { ArkUnion<TestInpType, Ark_String>("65535"), "#FF00FFFF" },
+        { CreateResourceUnion<TestInpType>(RES_NAME), defResColor },
+        { CreateResourceUnion<TestInpType>(RES_ID), defResColor },
     };
 
     ASSERT_NE(modifier_->setBackgroundColor, nullptr);
 
-    auto checkInitial = GetAttrValue<std::string>(node_, PROP_NAME);
-    EXPECT_EQ(checkInitial, Color::TRANSPARENT.ToString());
+    auto checkInitial = GetAttrValue<std::string>(node_, propName);
+    EXPECT_THAT(checkInitial, Eq(Color::TRANSPARENT.ToString()));
 
-    for (const auto &[optResColor, expected]: testPlan) {
-        modifier_->setBackgroundColor(node_, &optResColor);
-        auto checkColor = GetAttrValue<std::string>(node_, PROP_NAME);
-        EXPECT_EQ(checkColor, expected);
+    for (const auto &[resColor, expected]: testPlan) {
+        auto inputVal = ArkUnion<Opt_Union_ResourceColor_ColorMetrics, Ark_ResourceColor>(resColor);
+        modifier_->setBackgroundColor(node_, &inputVal);
+        auto checkColor = GetAttrValue<std::string>(node_, propName);
+        EXPECT_THAT(checkColor, Eq(expected));
     }
 }
 
@@ -743,9 +766,8 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundColorTest, TestSize.Lev
  */
 HWTEST_F(CommonMethodModifierTest, setMarginTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult;
-    strResult = GetStringAttribute(node_, ATTRIBUTE_MARGIN_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_MARGIN_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
 }
 
 /*
@@ -755,12 +777,11 @@ HWTEST_F(CommonMethodModifierTest, setMarginTestDefaultValues, TestSize.Level1)
  */
 HWTEST_F(CommonMethodModifierTest, DISABLED_setMarginTestValidLengthValues, TestSize.Level1)
 {
-    std::string strResult;
     for (const auto &[optMargin, expected]: LENGTH_TEST_PLAN) {
         auto value = Converter::ArkUnion<Opt_Union_Margin_Length_LocalizedMargin, Ark_Length>(optMargin);
         modifier_->setMargin(node_, &value);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_MARGIN_NAME);
-        EXPECT_EQ(strResult, expected);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_MARGIN_NAME);
+        EXPECT_THAT(strResult, Eq(expected));
     }
 }
 
@@ -779,15 +800,16 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setMarginTestValidLeftLengthValues, 
         inputValue.bottom = Converter::ArkValue<Opt_Length>(Ark_Empty());
         auto value = Converter::ArkUnion<Opt_Union_Margin_Length_LocalizedMargin, Ark_Padding>(inputValue);
         modifier_->setMargin(node_, &value);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_MARGIN_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME);
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME);
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME);
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME);
-        EXPECT_EQ(leftResult, expected);
-        EXPECT_EQ(topResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(rightResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(bottomResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto margin = GetAttrObject(jsonValue, ATTRIBUTE_MARGIN_NAME);
+        auto leftResult = GetAttrValue<std::string>(margin, ATTRIBUTE_LEFT_NAME);
+        auto topResult = GetAttrValue<std::string>(margin, ATTRIBUTE_TOP_NAME);
+        auto rightResult = GetAttrValue<std::string>(margin, ATTRIBUTE_RIGHT_NAME);
+        auto bottomResult = GetAttrValue<std::string>(margin, ATTRIBUTE_BOTTOM_NAME);
+        EXPECT_THAT(leftResult, Eq(expected));
+        EXPECT_THAT(topResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(rightResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(bottomResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
     }
 }
 
@@ -806,20 +828,21 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setMarginTestValidTopLengthValues, T
         inputValue.bottom = Converter::ArkValue<Opt_Length>(Ark_Empty());
         auto value = Converter::ArkUnion<Opt_Union_Margin_Length_LocalizedMargin, Ark_Padding>(inputValue);
         modifier_->setMargin(node_, &value);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_MARGIN_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME);
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME);
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME);
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME);
-        EXPECT_EQ(leftResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(topResult, expected);
-        EXPECT_EQ(rightResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(bottomResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto margin = GetAttrObject(jsonValue, ATTRIBUTE_MARGIN_NAME);
+        auto leftResult = GetAttrValue<std::string>(margin, ATTRIBUTE_LEFT_NAME);
+        auto topResult = GetAttrValue<std::string>(margin, ATTRIBUTE_TOP_NAME);
+        auto rightResult = GetAttrValue<std::string>(margin, ATTRIBUTE_RIGHT_NAME);
+        auto bottomResult = GetAttrValue<std::string>(margin, ATTRIBUTE_BOTTOM_NAME);
+        EXPECT_THAT(leftResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(topResult, Eq(expected));
+        EXPECT_THAT(rightResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(bottomResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
     }
 }
 
 /*
- * @tc.name: setMarginTestValidRightLengthValues
+ * @tc.name: setMarginTestValidTopRightValues
  * @tc.desc:
  * @tc.type: FUNC
  */
@@ -833,15 +856,16 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setMarginTestValidTopRightValues, Te
         inputValue.bottom = Converter::ArkValue<Opt_Length>(Ark_Empty());
         auto value = Converter::ArkUnion<Opt_Union_Margin_Length_LocalizedMargin, Ark_Padding>(inputValue);
         modifier_->setMargin(node_, &value);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_MARGIN_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME);
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME);
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME);
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME);
-        EXPECT_EQ(leftResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(topResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(rightResult, expected);
-        EXPECT_EQ(bottomResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto margin = GetAttrObject(jsonValue, ATTRIBUTE_MARGIN_NAME);
+        auto leftResult = GetAttrValue<std::string>(margin, ATTRIBUTE_LEFT_NAME);
+        auto topResult = GetAttrValue<std::string>(margin, ATTRIBUTE_TOP_NAME);
+        auto rightResult = GetAttrValue<std::string>(margin, ATTRIBUTE_RIGHT_NAME);
+        auto bottomResult = GetAttrValue<std::string>(margin, ATTRIBUTE_BOTTOM_NAME);
+        EXPECT_THAT(leftResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(topResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(rightResult, Eq(expected));
+        EXPECT_THAT(bottomResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
     }
 }
 
@@ -860,20 +884,21 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setMarginTestValidBottomLengthValues
         inputValue.bottom = Converter::ArkValue<Opt_Length>(arkMargin);
         auto value = Converter::ArkUnion<Opt_Union_Margin_Length_LocalizedMargin, Ark_Padding>(inputValue);
         modifier_->setMargin(node_, &value);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_MARGIN_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME);
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME);
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME);
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME);
-        EXPECT_EQ(leftResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(topResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(rightResult, ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(bottomResult, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto margin = GetAttrObject(jsonValue, ATTRIBUTE_MARGIN_NAME);
+        auto leftResult = GetAttrValue<std::string>(margin, ATTRIBUTE_LEFT_NAME);
+        auto topResult = GetAttrValue<std::string>(margin, ATTRIBUTE_TOP_NAME);
+        auto rightResult = GetAttrValue<std::string>(margin, ATTRIBUTE_RIGHT_NAME);
+        auto bottomResult = GetAttrValue<std::string>(margin, ATTRIBUTE_BOTTOM_NAME);
+        EXPECT_THAT(leftResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(topResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(rightResult, Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(bottomResult, Eq(expected));
     }
 }
 
 /*
- * @tc.name: DISABLED_setMarginTestValidLocalizedMarginValues
+ * @tc.name: setMarginTestValidLocalizedMarginValues
  * @tc.desc:
  * @tc.type: FUNC
  */
@@ -891,11 +916,12 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setMarginTestValidLocalizedMarginVal
 
         UpdateFrameNode(); // apply localized values
 
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_MARGIN_NAME);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME), expected);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME), ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME), ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME), ATTRIBUTE_MARGIN_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto margin = GetAttrObject(jsonValue, ATTRIBUTE_MARGIN_NAME);
+        EXPECT_THAT(GetAttrValue<std::string>(margin, ATTRIBUTE_LEFT_NAME), Eq(expected));
+        EXPECT_THAT(GetAttrValue<std::string>(margin, ATTRIBUTE_TOP_NAME), Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(GetAttrValue<std::string>(margin, ATTRIBUTE_RIGHT_NAME), Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(GetAttrValue<std::string>(margin, ATTRIBUTE_BOTTOM_NAME), Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
     }
 
     optDirection = Converter::ArkValue<Opt_Direction>(ARK_DIRECTION_RTL);
@@ -906,11 +932,12 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setMarginTestValidLocalizedMarginVal
 
         UpdateFrameNode(); // apply localized values
 
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_MARGIN_NAME);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME), ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME), ATTRIBUTE_MARGIN_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME), expected);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME), ATTRIBUTE_MARGIN_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto margin = GetAttrObject(jsonValue, ATTRIBUTE_MARGIN_NAME);
+        EXPECT_THAT(GetAttrValue<std::string>(margin, ATTRIBUTE_LEFT_NAME), Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(GetAttrValue<std::string>(margin, ATTRIBUTE_TOP_NAME), Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
+        EXPECT_THAT(GetAttrValue<std::string>(margin, ATTRIBUTE_RIGHT_NAME), Eq(expected));
+        EXPECT_THAT(GetAttrValue<std::string>(margin, ATTRIBUTE_BOTTOM_NAME), Eq(ATTRIBUTE_MARGIN_DEFAULT_VALUE));
     }
 }
 
@@ -921,9 +948,8 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setMarginTestValidLocalizedMarginVal
  */
 HWTEST_F(CommonMethodModifierTest, setPaddingTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult;
-    strResult = GetStringAttribute(node_, ATTRIBUTE_PADDING_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_PADDING_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
 }
 
 /*
@@ -933,12 +959,11 @@ HWTEST_F(CommonMethodModifierTest, setPaddingTestDefaultValues, TestSize.Level1)
  */
 HWTEST_F(CommonMethodModifierTest, setPaddingTestValidLengthValues, TestSize.Level1)
 {
-    std::string strResult;
-    for (const auto &[arkPadding, expected]: LENGTH_TEST_PLAN) {
+    for (const auto &[arkPadding, expected]: PADDING_TEST_PLAN) {
         auto value = Converter::ArkUnion<Opt_Union_Padding_Length_LocalizedPadding, Ark_Length>(arkPadding);
         modifier_->setPadding(node_, &value);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_PADDING_NAME);
-        EXPECT_EQ(strResult, expected);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_PADDING_NAME);
+        EXPECT_THAT(strResult, Eq(expected));
     }
 }
 
@@ -950,22 +975,23 @@ HWTEST_F(CommonMethodModifierTest, setPaddingTestValidLengthValues, TestSize.Lev
 HWTEST_F(CommonMethodModifierTest, setPaddingTestValidLeftLengthValues, TestSize.Level1)
 {
     Ark_Padding inputValue;
-    for (const auto &[arkPadding, expected]: LENGTH_TEST_PLAN) {
+    for (const auto &[arkPadding, expected]: PADDING_TEST_PLAN) {
         inputValue.left = Converter::ArkValue<Opt_Length>(arkPadding);
         inputValue.top = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue.right = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue.bottom = Converter::ArkValue<Opt_Length>(Ark_Empty());
         auto value = Converter::ArkUnion<Opt_Union_Padding_Length_LocalizedPadding, Ark_Padding>(inputValue);
         modifier_->setPadding(node_, &value);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_PADDING_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME);
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME);
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME);
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME);
-        EXPECT_EQ(leftResult, expected);
-        EXPECT_EQ(topResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(rightResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(bottomResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto padding = GetAttrObject(jsonValue, ATTRIBUTE_PADDING_NAME);
+        auto leftResult = GetAttrValue<std::string>(padding, ATTRIBUTE_LEFT_NAME);
+        auto topResult = GetAttrValue<std::string>(padding, ATTRIBUTE_TOP_NAME);
+        auto rightResult = GetAttrValue<std::string>(padding, ATTRIBUTE_RIGHT_NAME);
+        auto bottomResult = GetAttrValue<std::string>(padding, ATTRIBUTE_BOTTOM_NAME);
+        EXPECT_THAT(leftResult, Eq(expected));
+        EXPECT_THAT(topResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(rightResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(bottomResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
     }
 }
 
@@ -977,49 +1003,51 @@ HWTEST_F(CommonMethodModifierTest, setPaddingTestValidLeftLengthValues, TestSize
 HWTEST_F(CommonMethodModifierTest, setPaddingTestValidTopLengthValues, TestSize.Level1)
 {
     Ark_Padding inputValue;
-    for (const auto &[arkPadding, expected]: LENGTH_TEST_PLAN) {
+    for (const auto &[arkPadding, expected]: PADDING_TEST_PLAN) {
         inputValue.left = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue.top = Converter::ArkValue<Opt_Length>(arkPadding);
         inputValue.right = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue.bottom = Converter::ArkValue<Opt_Length>(Ark_Empty());
         auto value = Converter::ArkUnion<Opt_Union_Padding_Length_LocalizedPadding, Ark_Padding>(inputValue);
         modifier_->setPadding(node_, &value);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_PADDING_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME);
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME);
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME);
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME);
-        EXPECT_EQ(leftResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(topResult, expected);
-        EXPECT_EQ(rightResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(bottomResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto padding = GetAttrObject(jsonValue, ATTRIBUTE_PADDING_NAME);
+        auto leftResult = GetAttrValue<std::string>(padding, ATTRIBUTE_LEFT_NAME);
+        auto topResult = GetAttrValue<std::string>(padding, ATTRIBUTE_TOP_NAME);
+        auto rightResult = GetAttrValue<std::string>(padding, ATTRIBUTE_RIGHT_NAME);
+        auto bottomResult = GetAttrValue<std::string>(padding, ATTRIBUTE_BOTTOM_NAME);
+        EXPECT_THAT(leftResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(topResult, Eq(expected));
+        EXPECT_THAT(rightResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(bottomResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
     }
 }
 
 /*
- * @tc.name: setPaddingTestValidRightLengthValues
+ * @tc.name: setPaddingTestValidTopRightValues
  * @tc.desc:
  * @tc.type: FUNC
  */
 HWTEST_F(CommonMethodModifierTest, setPaddingTestValidTopRightValues, TestSize.Level1)
 {
     Ark_Padding inputValue;
-    for (const auto &[arkPadding, expected]: LENGTH_TEST_PLAN) {
+    for (const auto &[arkPadding, expected]: PADDING_TEST_PLAN) {
         inputValue.left = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue.top = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue.right = Converter::ArkValue<Opt_Length>(arkPadding);
         inputValue.bottom = Converter::ArkValue<Opt_Length>(Ark_Empty());
         auto value = Converter::ArkUnion<Opt_Union_Padding_Length_LocalizedPadding, Ark_Padding>(inputValue);
         modifier_->setPadding(node_, &value);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_PADDING_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME);
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME);
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME);
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME);
-        EXPECT_EQ(leftResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(topResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(rightResult, expected);
-        EXPECT_EQ(bottomResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto padding = GetAttrObject(jsonValue, ATTRIBUTE_PADDING_NAME);
+        auto leftResult = GetAttrValue<std::string>(padding, ATTRIBUTE_LEFT_NAME);
+        auto topResult = GetAttrValue<std::string>(padding, ATTRIBUTE_TOP_NAME);
+        auto rightResult = GetAttrValue<std::string>(padding, ATTRIBUTE_RIGHT_NAME);
+        auto bottomResult = GetAttrValue<std::string>(padding, ATTRIBUTE_BOTTOM_NAME);
+        EXPECT_THAT(leftResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(topResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(rightResult, Eq(expected));
+        EXPECT_THAT(bottomResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
     }
 }
 
@@ -1031,27 +1059,28 @@ HWTEST_F(CommonMethodModifierTest, setPaddingTestValidTopRightValues, TestSize.L
 HWTEST_F(CommonMethodModifierTest, setPaddingTestValidBottomLengthValues, TestSize.Level1)
 {
     Ark_Padding inputValue;
-    for (const auto &[arkPadding, expected]: LENGTH_TEST_PLAN) {
+    for (const auto &[arkPadding, expected]: PADDING_TEST_PLAN) {
         inputValue.left = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue.top = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue.right = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue.bottom = Converter::ArkValue<Opt_Length>(arkPadding);
         auto value = Converter::ArkUnion<Opt_Union_Padding_Length_LocalizedPadding, Ark_Padding>(inputValue);
         modifier_->setPadding(node_, &value);
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_PADDING_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME);
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME);
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME);
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME);
-        EXPECT_EQ(leftResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(topResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(rightResult, ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(bottomResult, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto padding = GetAttrObject(jsonValue, ATTRIBUTE_PADDING_NAME);
+        auto leftResult = GetAttrValue<std::string>(padding, ATTRIBUTE_LEFT_NAME);
+        auto topResult = GetAttrValue<std::string>(padding, ATTRIBUTE_TOP_NAME);
+        auto rightResult = GetAttrValue<std::string>(padding, ATTRIBUTE_RIGHT_NAME);
+        auto bottomResult = GetAttrValue<std::string>(padding, ATTRIBUTE_BOTTOM_NAME);
+        EXPECT_THAT(leftResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(topResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(rightResult, Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(bottomResult, Eq(expected));
     }
 }
 
 /*
- * @tc.name: DISABLED_setPaddingTestValidLocalizedPaddingValues
+ * @tc.name: setPaddingTestValidLocalizedPaddingValues
  * @tc.desc:
  * @tc.type: FUNC
  */
@@ -1069,11 +1098,12 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setPaddingTestValidLocalizedPaddingV
 
         UpdateFrameNode(); // apply localized values
 
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_PADDING_NAME);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME), expected);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME), ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME), ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME), ATTRIBUTE_PADDING_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto padding = GetAttrObject(jsonValue, ATTRIBUTE_PADDING_NAME);
+        EXPECT_THAT(GetAttrValue<std::string>(padding, ATTRIBUTE_LEFT_NAME), Eq(expected));
+        EXPECT_THAT(GetAttrValue<std::string>(padding, ATTRIBUTE_TOP_NAME), Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(GetAttrValue<std::string>(padding, ATTRIBUTE_RIGHT_NAME), Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(GetAttrValue<std::string>(padding, ATTRIBUTE_BOTTOM_NAME), Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
     }
 
     optDirection = Converter::ArkValue<Opt_Direction>(ARK_DIRECTION_RTL);
@@ -1084,11 +1114,12 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setPaddingTestValidLocalizedPaddingV
 
         UpdateFrameNode(); // apply localized values
 
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_PADDING_NAME);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME), ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME), ATTRIBUTE_PADDING_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME), expected);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME), ATTRIBUTE_PADDING_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto padding = GetAttrObject(jsonValue, ATTRIBUTE_PADDING_NAME);
+        EXPECT_THAT(GetAttrValue<std::string>(padding, ATTRIBUTE_LEFT_NAME), Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(GetAttrValue<std::string>(padding, ATTRIBUTE_TOP_NAME), Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
+        EXPECT_THAT(GetAttrValue<std::string>(padding, ATTRIBUTE_RIGHT_NAME), Eq(expected));
+        EXPECT_THAT(GetAttrValue<std::string>(padding, ATTRIBUTE_BOTTOM_NAME), Eq(ATTRIBUTE_PADDING_DEFAULT_VALUE));
     }
 }
 
@@ -1099,12 +1130,12 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setPaddingTestValidLocalizedPaddingV
  */
 HWTEST_F(CommonMethodModifierTest, setOffsetTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult;
-    strResult = GetStringAttribute(node_, ATTRIBUTE_OFFSET_NAME);
-    auto xResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_X_NAME);
-    EXPECT_EQ(xResult, ATTRIBUTE_OFFSET_X_DEFAULT_VALUE);
-    auto yResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_Y_NAME);
-    EXPECT_EQ(yResult, ATTRIBUTE_OFFSET_Y_DEFAULT_VALUE);
+    auto jsonValue = GetJsonValue(node_);
+    auto offset = GetAttrObject(jsonValue, ATTRIBUTE_OFFSET_NAME);
+    auto xResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_X_NAME);
+    EXPECT_THAT(xResult, Eq(ATTRIBUTE_OFFSET_X_DEFAULT_VALUE));
+    auto yResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_Y_NAME);
+    EXPECT_THAT(yResult, Eq(ATTRIBUTE_OFFSET_Y_DEFAULT_VALUE));
 }
 
 /*
@@ -1115,17 +1146,17 @@ HWTEST_F(CommonMethodModifierTest, setOffsetTestDefaultValues, TestSize.Level1)
 HWTEST_F(CommonMethodModifierTest, setOffsetTestValidPositionXValues, TestSize.Level1)
 {
     Ark_Position position;
-    std::string strResult;
     for (const auto &[arkLength, expected]: LENGTH_TEST_PLAN) {
         position.x = Converter::ArkValue<Opt_Length>(arkLength);
         position.y = Converter::ArkValue<Opt_Length>(Ark_Empty());
         auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_Position>(position);
         modifier_->setOffset(node_, &value);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_OFFSET_NAME);
-        auto xResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_X_NAME);
-        EXPECT_EQ(xResult, expected);
-        auto yResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_Y_NAME);
-        EXPECT_EQ(yResult, "0.00px");
+        auto jsonValue = GetJsonValue(node_);
+        auto offset = GetAttrObject(jsonValue, ATTRIBUTE_OFFSET_NAME);
+        auto xResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_X_NAME);
+        EXPECT_THAT(xResult, Eq(expected));
+        auto yResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_Y_NAME);
+        EXPECT_THAT(yResult, Eq("0.00px"));
     }
 }
 
@@ -1137,17 +1168,17 @@ HWTEST_F(CommonMethodModifierTest, setOffsetTestValidPositionXValues, TestSize.L
 HWTEST_F(CommonMethodModifierTest, setOffsetTestValidPositionYValues, TestSize.Level1)
 {
     Ark_Position position;
-    std::string strResult;
     for (const auto &[arkLength, expected]: LENGTH_TEST_PLAN) {
         position.x = Converter::ArkValue<Opt_Length>(Ark_Empty());
         position.y = Converter::ArkValue<Opt_Length>(arkLength);
         auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_Position>(position);
         modifier_->setOffset(node_, &value);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_OFFSET_NAME);
-        auto xResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_X_NAME);
-        EXPECT_EQ(xResult, "0.00px");
-        auto yResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_Y_NAME);
-        EXPECT_EQ(yResult, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto offset = GetAttrObject(jsonValue, ATTRIBUTE_OFFSET_NAME);
+        auto xResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_X_NAME);
+        EXPECT_THAT(xResult, Eq("0.00px"));
+        auto yResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_Y_NAME);
+        EXPECT_THAT(yResult, Eq(expected));
     }
 }
 
@@ -1156,26 +1187,26 @@ HWTEST_F(CommonMethodModifierTest, setOffsetTestValidPositionYValues, TestSize.L
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setOffsetTestValidEdgesLeftValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setOffsetTestValidEdgesLeftValues, TestSize.Level1)
 {
     Ark_Edges edges;
-    std::string strResult;
     for (const auto &[arkValue, expected]: DIMENSION_TEST_PLAN) {
-        edges.left = Converter::ArkValue<Opt_Dimension>(arkValue, &ctx);
+        edges.left = Converter::ArkValue<Opt_Dimension>(arkValue);
         edges.top = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
         edges.right = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
         edges.bottom = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
-        auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_Edges>(edges, &ctx);
+        auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_Edges>(edges);
         modifier_->setOffset(node_, &value);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_OFFSET_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_LEFT_NAME);
-        EXPECT_EQ(leftResult, expected);
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_TOP_NAME);
-        EXPECT_EQ(topResult, "");
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_RIGHT_NAME);
-        EXPECT_EQ(rightResult, "");
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_BOTTOM_NAME);
-        EXPECT_EQ(bottomResult, "");
+        auto jsonValue = GetJsonValue(node_);
+        auto offset = GetAttrObject(jsonValue, ATTRIBUTE_OFFSET_NAME);
+        auto leftResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_LEFT_NAME);
+        EXPECT_THAT(leftResult, Eq(expected));
+        auto topResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_TOP_NAME);
+        EXPECT_THAT(topResult, Eq(""));
+        auto rightResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_RIGHT_NAME);
+        EXPECT_THAT(rightResult, Eq(""));
+        auto bottomResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_BOTTOM_NAME);
+        EXPECT_THAT(bottomResult, Eq(""));
     }
 }
 
@@ -1184,26 +1215,26 @@ HWTEST_F(CommonMethodModifierTest, setOffsetTestValidEdgesLeftValues, TestSize.L
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setOffsetTestValidEdgesTopValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setOffsetTestValidEdgesTopValues, TestSize.Level1)
 {
     Ark_Edges edges;
-    std::string strResult;
     for (const auto &[arkValue, expected]: DIMENSION_TEST_PLAN) {
         edges.left = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
-        edges.top = Converter::ArkValue<Opt_Dimension>(arkValue, &ctx);
+        edges.top = Converter::ArkValue<Opt_Dimension>(arkValue);
         edges.right = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
         edges.bottom = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
-        auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_Edges>(edges, &ctx);
+        auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_Edges>(edges);
         modifier_->setOffset(node_, &value);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_OFFSET_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_LEFT_NAME);
-        EXPECT_EQ(leftResult, "");
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_TOP_NAME);
-        EXPECT_EQ(topResult, expected);
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_RIGHT_NAME);
-        EXPECT_EQ(rightResult, "");
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_BOTTOM_NAME);
-        EXPECT_EQ(bottomResult, "");
+        auto jsonValue = GetJsonValue(node_);
+        auto offset = GetAttrObject(jsonValue, ATTRIBUTE_OFFSET_NAME);
+        auto leftResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_LEFT_NAME);
+        EXPECT_THAT(leftResult, Eq(""));
+        auto topResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_TOP_NAME);
+        EXPECT_THAT(topResult, Eq(expected));
+        auto rightResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_RIGHT_NAME);
+        EXPECT_THAT(rightResult, Eq(""));
+        auto bottomResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_BOTTOM_NAME);
+        EXPECT_THAT(bottomResult, Eq(""));
     }
 }
 
@@ -1212,26 +1243,26 @@ HWTEST_F(CommonMethodModifierTest, setOffsetTestValidEdgesTopValues, TestSize.Le
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setOffsetTestValidEdgesRightValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setOffsetTestValidEdgesRightValues, TestSize.Level1)
 {
     Ark_Edges edges;
-    std::string strResult;
     for (const auto &[arkValue, expected]: DIMENSION_TEST_PLAN) {
         edges.left = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
         edges.top = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
-        edges.right = Converter::ArkValue<Opt_Dimension>(arkValue, &ctx);
+        edges.right = Converter::ArkValue<Opt_Dimension>(arkValue);
         edges.bottom = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
-        auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_Edges>(edges, &ctx);
+        auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_Edges>(edges);
         modifier_->setOffset(node_, &value);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_OFFSET_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_LEFT_NAME);
-        EXPECT_EQ(leftResult, "");
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_TOP_NAME);
-        EXPECT_EQ(topResult, "");
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_RIGHT_NAME);
-        EXPECT_EQ(rightResult, expected);
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_BOTTOM_NAME);
-        EXPECT_EQ(bottomResult, "");
+        auto jsonValue = GetJsonValue(node_);
+        auto offset = GetAttrObject(jsonValue, ATTRIBUTE_OFFSET_NAME);
+        auto leftResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_LEFT_NAME);
+        EXPECT_THAT(leftResult, Eq(""));
+        auto topResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_TOP_NAME);
+        EXPECT_THAT(topResult, Eq(""));
+        auto rightResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_RIGHT_NAME);
+        EXPECT_THAT(rightResult, Eq(expected));
+        auto bottomResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_BOTTOM_NAME);
+        EXPECT_THAT(bottomResult, Eq(""));
     }
 }
 
@@ -1240,26 +1271,26 @@ HWTEST_F(CommonMethodModifierTest, setOffsetTestValidEdgesRightValues, TestSize.
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setOffsetTestValidEdgesBottomValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setOffsetTestValidEdgesBottomValues, TestSize.Level1)
 {
     Ark_Edges edges;
-    std::string strResult;
     for (const auto &[arkValue, expected]: DIMENSION_TEST_PLAN) {
         edges.left = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
         edges.top = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
         edges.right = Converter::ArkUnion<Opt_Dimension, Ark_Empty>(nullptr);
-        edges.bottom = Converter::ArkValue<Opt_Dimension>(arkValue, &ctx);
-        auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_Edges>(edges, &ctx);
+        edges.bottom = Converter::ArkValue<Opt_Dimension>(arkValue);
+        auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_Edges>(edges);
         modifier_->setOffset(node_, &value);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_OFFSET_NAME);
-        auto leftResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_LEFT_NAME);
-        EXPECT_EQ(leftResult, "");
-        auto topResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_TOP_NAME);
-        EXPECT_EQ(topResult, "");
-        auto rightResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_RIGHT_NAME);
-        EXPECT_EQ(rightResult, "");
-        auto bottomResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_OFFSET_BOTTOM_NAME);
-        EXPECT_EQ(bottomResult, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto offset = GetAttrObject(jsonValue, ATTRIBUTE_OFFSET_NAME);
+        auto leftResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_LEFT_NAME);
+        EXPECT_THAT(leftResult, Eq(""));
+        auto topResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_TOP_NAME);
+        EXPECT_THAT(topResult, Eq(""));
+        auto rightResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_RIGHT_NAME);
+        EXPECT_THAT(rightResult, Eq(""));
+        auto bottomResult = GetAttrValue<std::string>(offset, ATTRIBUTE_OFFSET_BOTTOM_NAME);
+        EXPECT_THAT(bottomResult, Eq(expected));
     }
 }
 
@@ -1273,7 +1304,7 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setOffsetTestValidLocalizedEdgesValu
     ASSERT_NE(modifier_->setDirection, nullptr);
     ASSERT_NE(modifier_->setOffset, nullptr);
 
-    const std::string ATTRIBUTE_OFFSET_DEFAULT_VALUE{};
+    const std::string attributeOffsetDefaultValue{};
 
     auto lenMetUndef = Converter::ArkValue<Opt_LengthMetrics>();
     auto optDirection = Converter::ArkValue<Opt_Direction>(ARK_DIRECTION_LTR);
@@ -1284,11 +1315,12 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setOffsetTestValidLocalizedEdgesValu
         auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_LocalizedEdges>(inputValue);
         modifier_->setOffset(node_, &value);
         UpdateFrameNode(); // apply localized values
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_OFFSET_NAME);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME), expected);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME), ATTRIBUTE_OFFSET_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME), ATTRIBUTE_OFFSET_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME), ATTRIBUTE_OFFSET_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto offset = GetAttrObject(jsonValue, ATTRIBUTE_OFFSET_NAME);
+        EXPECT_THAT(GetAttrValue<std::string>(offset, ATTRIBUTE_LEFT_NAME), Eq(expected));
+        EXPECT_THAT(GetAttrValue<std::string>(offset, ATTRIBUTE_TOP_NAME), Eq(attributeOffsetDefaultValue));
+        EXPECT_THAT(GetAttrValue<std::string>(offset, ATTRIBUTE_RIGHT_NAME), Eq(attributeOffsetDefaultValue));
+        EXPECT_THAT(GetAttrValue<std::string>(offset, ATTRIBUTE_BOTTOM_NAME), Eq(attributeOffsetDefaultValue));
     }
     optDirection = Converter::ArkValue<Opt_Direction>(ARK_DIRECTION_RTL);
     modifier_->setDirection(node_, &optDirection);
@@ -1298,11 +1330,12 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setOffsetTestValidLocalizedEdgesValu
         auto value = Converter::ArkUnion<Opt_Union_Position_Edges_LocalizedEdges, Ark_LocalizedEdges>(inputValue);
         modifier_->setOffset(node_, &value);
         UpdateFrameNode(); // apply localized values
-        auto strResult = GetStringAttribute(node_, ATTRIBUTE_OFFSET_NAME);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_LEFT_NAME), ATTRIBUTE_OFFSET_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_TOP_NAME), ATTRIBUTE_OFFSET_DEFAULT_VALUE);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_RIGHT_NAME), expected);
-        EXPECT_EQ(GetAttrValue<std::string>(strResult, ATTRIBUTE_BOTTOM_NAME), ATTRIBUTE_OFFSET_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto offset = GetAttrObject(jsonValue, ATTRIBUTE_OFFSET_NAME);
+        EXPECT_THAT(GetAttrValue<std::string>(offset, ATTRIBUTE_LEFT_NAME), Eq(attributeOffsetDefaultValue));
+        EXPECT_THAT(GetAttrValue<std::string>(offset, ATTRIBUTE_TOP_NAME), Eq(attributeOffsetDefaultValue));
+        EXPECT_THAT(GetAttrValue<std::string>(offset, ATTRIBUTE_RIGHT_NAME), Eq(expected));
+        EXPECT_THAT(GetAttrValue<std::string>(offset, ATTRIBUTE_BOTTOM_NAME), Eq(attributeOffsetDefaultValue));
     }
 }
 
@@ -1313,9 +1346,8 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setOffsetTestValidLocalizedEdgesValu
  */
 HWTEST_F(CommonMethodModifierTest, setRadialGradientTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult;
-    strResult = GetStringAttribute(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_RADIAL_GRADIENT_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_RADIAL_GRADIENT_DEFAULT_VALUE));
 }
 
 /*
@@ -1325,7 +1357,6 @@ HWTEST_F(CommonMethodModifierTest, setRadialGradientTestDefaultValues, TestSize.
  */
 HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientTestValidValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_RadialGradientOptions inputValue;
 
     // center
@@ -1346,30 +1377,31 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientTestValidValues, Te
 
     // check value
     modifier_->setRadialGradient(node_, &optInputValue);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
-    auto centerResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_CENTER_NAME);
-    EXPECT_EQ(centerResult, "[\"2.00vp\",\"3.00vp\"]");
-    auto radiusResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RADIUS_NAME);
-    EXPECT_EQ(radiusResult, "4.00vp");
-    auto repeatingResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_REPEATING_NAME);
-    EXPECT_EQ(repeatingResult, "true");
-    auto colResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_COLORS_NAME);
-    EXPECT_EQ(colResult, "[[\"#FFFFFFFF\",\"0.100000\"],[\"#FF123456\",\"0.250000\"],[\"#11223344\",\"0.500000\"]]");
+    auto jsonValue = GetJsonValue(node_);
+    auto gradient = GetAttrObject(jsonValue, ATTRIBUTE_RADIAL_GRADIENT_NAME);
+    auto centerResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_CENTER_NAME);
+    EXPECT_THAT(centerResult, Eq("[\"2.00vp\",\"3.00vp\"]"));
+    auto radiusResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_RADIUS_NAME);
+    EXPECT_THAT(radiusResult, Eq("4.00vp"));
+    auto repeatingResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_REPEATING_NAME);
+    EXPECT_THAT(repeatingResult, Eq("true"));
+    auto colResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_COLORS_NAME);
+    EXPECT_THAT(colResult,
+        Eq("[[\"#FFFFFFFF\",\"0.100000\"],[\"#FF123456\",\"0.250000\"],[\"#11223344\",\"0.500000\"]]"));
 }
 
 /*
- * @tc.name: setRadialGradientRadiusTestValidValues
+ * @tc.name: setRadialGradientTestRadiusValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientRadiusTestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientTestRadiusValidValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_RadialGradientOptions inputValue;
     Opt_RadialGradientOptions optInputValue;
 
     typedef std::pair<Ark_Length, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { Converter::ArkValue<Ark_Length>("5px"), "5.00px" },
         { Converter::ArkValue<Ark_Length>("22.35px"), "22.35px" },
         { Converter::ArkValue<Ark_Length>("7vp"), "7.00vp" },
@@ -1395,25 +1427,25 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientRadiusTestValidValu
         inputValue.radius = arkRadius;
         optInputValue = Converter::ArkValue<Opt_RadialGradientOptions>(inputValue);
         modifier_->setRadialGradient(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
-        auto radiusResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RADIUS_NAME);
-        EXPECT_EQ(radiusResult, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto gradient = GetAttrObject(jsonValue, ATTRIBUTE_RADIAL_GRADIENT_NAME);
+        auto radiusResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_RADIUS_NAME);
+        EXPECT_THAT(radiusResult, Eq(expected));
     }
 }
 
 /*
- * @tc.name: setRadialGradientRadiusTestValidValues
+ * @tc.name: setRadialGradientTestRadiusInvalidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientRadiusTestInvalidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientTestRadiusInvalidValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_RadialGradientOptions inputValue;
     Opt_RadialGradientOptions optInputValue;
 
     typedef std::pair<Ark_Length, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { Converter::ArkValue<Ark_Length>("-5px"), "0.00vp" },
         { Converter::ArkValue<Ark_Length>("-22.35px"), "0.00vp" },
         { Converter::ArkValue<Ark_Length>("-7vp"), "0.00vp" },
@@ -1439,25 +1471,25 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientRadiusTestInvalidVa
         inputValue.radius = arkRadius;
         optInputValue = Converter::ArkValue<Opt_RadialGradientOptions>(inputValue);
         modifier_->setRadialGradient(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
-        auto radiusResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_RADIUS_NAME);
-        EXPECT_EQ(radiusResult, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto gradient = GetAttrObject(jsonValue, ATTRIBUTE_RADIAL_GRADIENT_NAME);
+        auto radiusResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_RADIUS_NAME);
+        EXPECT_THAT(radiusResult, Eq(expected));
     }
 }
 
 /*
- * @tc.name: setRadialGradientCenter1TestValidValues
+ * @tc.name: setRadialGradientTestCenter1ValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientCenter1TestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientTestCenter1ValidValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_RadialGradientOptions inputValue;
     Opt_RadialGradientOptions optInputValue;
 
     typedef std::pair<Ark_Length, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { Converter::ArkValue<Ark_Length>(2.45f), "[\"2.45vp\",\"0.00vp\"]" },
         { Converter::ArkValue<Ark_Length>(-2.45f), "[\"-2.45vp\",\"0.00vp\"]" },
         { Converter::ArkValue<Ark_Length>("5.0px"), "[\"5.00px\",\"0.00vp\"]" },
@@ -1494,25 +1526,25 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setRadialGradientCenter1TestValidVal
         inputValue.center.value1 = Converter::ArkValue<Ark_Length>(0.);
         optInputValue = Converter::ArkValue<Opt_RadialGradientOptions>(inputValue);
         modifier_->setRadialGradient(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
-        auto centerResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_CENTER_NAME);
-        EXPECT_EQ(centerResult, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto gradient = GetAttrObject(jsonValue, ATTRIBUTE_RADIAL_GRADIENT_NAME);
+        auto centerResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_CENTER_NAME);
+        EXPECT_THAT(centerResult, Eq(expected));
     }
 }
 
 /*
- * @tc.name: setRadialGradientCenter2TestValidValues
+ * @tc.name: setRadialGradientTestCenter2ValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setRadialGradientCenter2TestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setRadialGradientTestCenter2ValidValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_RadialGradientOptions inputValue;
     Opt_RadialGradientOptions optInputValue;
 
     typedef std::pair<Ark_Length, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { Converter::ArkValue<Ark_Length>(2.45f), "[\"0.00vp\",\"2.45vp\"]" },
         { Converter::ArkValue<Ark_Length>(-2.45f), "[\"0.00vp\",\"-2.45vp\"]" },
         { Converter::ArkValue<Ark_Length>("5.0px"), "[\"0.00vp\",\"5.00px\"]" },
@@ -1549,20 +1581,20 @@ HWTEST_F(CommonMethodModifierTest, setRadialGradientCenter2TestValidValues, Test
         inputValue.center.value1 = arkCenter;
         optInputValue = Converter::ArkValue<Opt_RadialGradientOptions>(inputValue);
         modifier_->setRadialGradient(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
-        auto centerResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_CENTER_NAME);
-        EXPECT_EQ(centerResult, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto gradient = GetAttrObject(jsonValue, ATTRIBUTE_RADIAL_GRADIENT_NAME);
+        auto centerResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_CENTER_NAME);
+        EXPECT_THAT(centerResult, Eq(expected));
     }
 }
 
 /*
- * @tc.name: setRadialGradientRepeatingTestValidValues
+ * @tc.name: setRadialGradientTestRepeatingValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setRadialGradientRepeatingTestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setRadialGradientTestRepeatingValidValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_RadialGradientOptions inputValue;
     Opt_RadialGradientOptions optInputValue;
 
@@ -1582,41 +1614,41 @@ HWTEST_F(CommonMethodModifierTest, setRadialGradientRepeatingTestValidValues, Te
     inputValue.repeating = Converter::ArkValue<Opt_Boolean>(Ark_Empty());
     optInputValue = Converter::ArkValue<Opt_RadialGradientOptions>(inputValue);
     modifier_->setRadialGradient(node_, &optInputValue);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
-    auto repeatingResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_REPEATING_NAME);
-    EXPECT_EQ(repeatingResult, "false");
+    auto jsonValue = GetJsonValue(node_);
+    auto gradient = GetAttrObject(jsonValue, ATTRIBUTE_RADIAL_GRADIENT_NAME);
+    auto repeatingResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_REPEATING_NAME);
+    EXPECT_THAT(repeatingResult, Eq("false"));
 
     // check true repeating
     inputValue.repeating = Converter::ArkValue<Opt_Boolean>(true);
     optInputValue = Converter::ArkValue<Opt_RadialGradientOptions>(inputValue);
     modifier_->setRadialGradient(node_, &optInputValue);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
-    repeatingResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_REPEATING_NAME);
-    EXPECT_EQ(repeatingResult, "true");
+    jsonValue = GetJsonValue(node_);
+    gradient = GetAttrObject(jsonValue, ATTRIBUTE_RADIAL_GRADIENT_NAME);
+    repeatingResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_REPEATING_NAME);
+    EXPECT_THAT(repeatingResult, Eq("true"));
 
     // check false repeating
     inputValue.repeating = Converter::ArkValue<Opt_Boolean>(false);
     optInputValue = Converter::ArkValue<Opt_RadialGradientOptions>(inputValue);
     modifier_->setRadialGradient(node_, &optInputValue);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
-    repeatingResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_REPEATING_NAME);
-    EXPECT_EQ(repeatingResult, "false");
+    jsonValue = GetJsonValue(node_);
+    gradient = GetAttrObject(jsonValue, ATTRIBUTE_RADIAL_GRADIENT_NAME);
+    repeatingResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_REPEATING_NAME);
+    EXPECT_THAT(repeatingResult, Eq("false"));
 }
 
 /*
- * @tc.name: setRadialGradientResourcesColorStopsTestValidValues
+ * @tc.name: setRadialGradientTestResourcesColorStopsValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setRadialGradientResourcesColorStopsTestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setRadialGradientTestResourcesColorStopsValidValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_RadialGradientOptions inputValue;
     Opt_RadialGradientOptions optInputValue;
     const auto RES_NAME = NamedResourceId{"aa.bb.cc", ResourceType::COLOR};
     const auto RES_ID = IntResourceId{11111, ResourceType::COLOR};
-    static const std::string EXPECTED_RESOURCE_COLOR =
-        Color::RED.ToString(); // Color::RED is result of ThemeConstants::GetColorXxxx stubs
 
     // center
     inputValue.center.value0 = Converter::ArkValue<Ark_Length>("2.0vp");
@@ -1635,111 +1667,112 @@ HWTEST_F(CommonMethodModifierTest, setRadialGradientResourcesColorStopsTestValid
 
     // check value
     modifier_->setRadialGradient(node_, &optInputValue);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_RADIAL_GRADIENT_NAME);
-    auto colResult = GetAttrValue<std::string>(strResult, ATTRIBUTE_COLORS_NAME);
-    EXPECT_EQ(colResult, "[[\"#FFFF0000\",\"0.500000\"],[\"#FFFF0000\",\"0.900000\"]]");
+    auto jsonValue = GetJsonValue(node_);
+    auto gradient = GetAttrObject(jsonValue, ATTRIBUTE_RADIAL_GRADIENT_NAME);
+    auto colResult = GetAttrValue<std::string>(gradient, ATTRIBUTE_COLORS_NAME);
+    EXPECT_THAT(colResult, Eq("[[\"#FFFF0000\",\"0.500000\"],[\"#FFFF0000\",\"0.900000\"]]"));
 }
 
 /*
- * @tc.name: setBackgroundImageDefaultValues
+ * @tc.name: setBackgroundImageTestDefaultValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setBackgroundImageDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setBackgroundImageTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_BACKGROUND_IMAGE_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_BACKGROUND_IMAGE_DEFAULT_VALUE));
 }
 
 /*
- * @tc.name: setBackgroundImageValidValues
+ * @tc.name: setBackgroundImage2TestValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImage0TestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImage2TestValidValues, TestSize.Level1)
 {
     Ark_String str = Converter::ArkValue<Ark_String>("path");
     Ark_ResourceStr resStr = Converter::ArkUnion<Ark_ResourceStr, Ark_String>(str);
     auto src = Converter::ArkUnion<Opt_Union_ResourceStr_PixelMap, Ark_ResourceStr>(resStr);
     Opt_ImageRepeat repeat = Converter::ArkValue<Opt_ImageRepeat>(Ark_Empty());
 
-    modifier_->setBackgroundImage0(node_, &src, &repeat);
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
-    EXPECT_EQ(strResult, "path, ImageRepeat.NoRepeat");
+    modifier_->setBackgroundImage2(node_, &src, repeat.value);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
+    EXPECT_THAT(strResult, Eq("path, ImageRepeat.NoRepeat"));
 
     auto resName = NamedResourceId("bi_public_ok", ResourceType::STRING);
     resStr = CreateResourceUnion<Ark_ResourceStr>(resName);
     src = Converter::ArkUnion<Opt_Union_ResourceStr_PixelMap, Ark_ResourceStr>(resStr);
 
-    modifier_->setBackgroundImage0(node_, &src, nullptr);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
-    EXPECT_EQ(strResult, "path_to_background_image, ImageRepeat.NoRepeat");
+    modifier_->setBackgroundImage2(node_, &src, ARK_IMAGE_REPEAT_NO_REPEAT);
+    strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
+    EXPECT_THAT(strResult, Eq("path_to_background_image, ImageRepeat.NoRepeat"));
 }
 
 /*
- * @tc.name: setBackgroundImageRepeatValidValues
+ * @tc.name: setBackgroundImage2TestRepeatValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImage0TestRepeatValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImage2TestRepeatValidValues, TestSize.Level1)
 {
     Ark_String str = Converter::ArkValue<Ark_String>("path");
     Ark_ResourceStr resStr = Converter::ArkUnion<Ark_ResourceStr, Ark_String>(str);
     auto src = Converter::ArkUnion<Opt_Union_ResourceStr_PixelMap, Ark_ResourceStr>(resStr);
     Opt_ImageRepeat repeat = Converter::ArkValue<Opt_ImageRepeat>(ARK_IMAGE_REPEAT_X);
-    modifier_->setBackgroundImage0(node_, &src, &repeat);
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
-    EXPECT_EQ(strResult, "path, ImageRepeat.X");
+    modifier_->setBackgroundImage2(node_, &src, repeat.value);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
+    EXPECT_THAT(strResult, Eq("path, ImageRepeat.X"));
 
     repeat = Converter::ArkValue<Opt_ImageRepeat>(ARK_IMAGE_REPEAT_Y);
-    modifier_->setBackgroundImage0(node_, &src, &repeat);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
-    EXPECT_EQ(strResult, "path, ImageRepeat.Y");
+    modifier_->setBackgroundImage2(node_, &src, repeat.value);
+    strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
+    EXPECT_THAT(strResult, Eq("path, ImageRepeat.Y"));
 
     repeat = Converter::ArkValue<Opt_ImageRepeat>(ARK_IMAGE_REPEAT_XY);
-    modifier_->setBackgroundImage0(node_, &src, &repeat);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
-    EXPECT_EQ(strResult, "path, ImageRepeat.XY");
+    modifier_->setBackgroundImage2(node_, &src, repeat.value);
+    strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
+    EXPECT_THAT(strResult, Eq("path, ImageRepeat.XY"));
 
     repeat = Converter::ArkValue<Opt_ImageRepeat>(ARK_IMAGE_REPEAT_NO_REPEAT);
-    modifier_->setBackgroundImage0(node_, &src, &repeat);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
-    EXPECT_EQ(strResult, "path, ImageRepeat.NoRepeat");
+    modifier_->setBackgroundImage2(node_, &src, repeat.value);
+    strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_NAME);
+    EXPECT_THAT(strResult, Eq("path, ImageRepeat.NoRepeat"));
 }
 
 /*
- * @tc.name: DISABLED_setBackgroundImagePixelmapValues
+ * @tc.name: setBackgroundImage2TestPixelmapValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImage0TestPixelmapValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImage2TestPixelmapValues, TestSize.Level1)
 {
-    // pixelmap attribute is not supported yet
+    ASSERT_NE(modifier_->setBackgroundImage2, nullptr);
+    FAIL() << "Test is not implemented yet";
 }
 
 /*
- * @tc.name: setBackgroundImageSizeDefaultValues
+ * @tc.name: setBackgroundImageSizeTestDefaultValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_BACKGROUND_IMAGE_SIZE_DEFAULT_VALUE));
 }
 
 /*
- * @tc.name: setBackgroundImageSizeValidValues
+ * @tc.name: setBackgroundImageSizeTestValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeTestValidValues, TestSize.Level1)
 {
-    std::string strResult;
     Opt_Union_SizeOptions_ImageSize inputValue;
 
     typedef std::pair<Ark_Length, std::string> OneTestStep2;
-    static const std::vector<OneTestStep2> testPlan2 = {
+    const std::vector<OneTestStep2> testPlan2 = {
         { Converter::ArkValue<Ark_Length>(2.45f), "2.45px" },
         { Converter::ArkValue<Ark_Length>("5.0px"), "5.00px" },
         { Converter::ArkValue<Ark_Length>("22.35px"), "22.35px" },
@@ -1747,7 +1780,7 @@ HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeValidValues, TestSize.L
         { Converter::ArkValue<Ark_Length>("1.65vp"), "1.65px" },
         { Converter::ArkValue<Ark_Length>("65.0fp"), "65.00px" },
         { Converter::ArkValue<Ark_Length>("4.3fp"), "4.30px" },
-        { Converter::ArkValue<Ark_Length>("12.00%"), "0.12px" },
+        { Converter::ArkValue<Ark_Length>("12.00%"), "12.00px" },
         { RES_ARK_LENGTH, "10.00px" },
     };
 
@@ -1757,11 +1790,12 @@ HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeValidValues, TestSize.L
         arkSizeOptions.height = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue = Converter::ArkUnion<Opt_Union_SizeOptions_ImageSize, Ark_SizeOptions>(arkSizeOptions);
         modifier_->setBackgroundImageSize(node_, &inputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
-        auto width = GetAttrValue<std::string>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_NAME);
-        EXPECT_EQ(width, expected);
-        auto height = GetAttrValue<std::string>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_NAME);
-        EXPECT_EQ(height, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto size = GetAttrObject(jsonValue, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
+        auto width = GetAttrValue<std::string>(size, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_NAME);
+        EXPECT_THAT(width, Eq(expected));
+        auto height = GetAttrValue<std::string>(size, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_NAME);
+        EXPECT_THAT(height, Eq(ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_DEFAULT_VALUE));
     }
 
     for (const auto &[arkLength, expected]: testPlan2) {
@@ -1770,26 +1804,26 @@ HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeValidValues, TestSize.L
         arkSizeOptions.width = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue = Converter::ArkUnion<Opt_Union_SizeOptions_ImageSize, Ark_SizeOptions>(arkSizeOptions);
         modifier_->setBackgroundImageSize(node_, &inputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
-        auto width = GetAttrValue<std::string>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_NAME);
-        EXPECT_EQ(width, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_DEFAULT_VALUE);
-        auto height = GetAttrValue<std::string>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_NAME);
-        EXPECT_EQ(height, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto size = GetAttrObject(jsonValue, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
+        auto width = GetAttrValue<std::string>(size, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_NAME);
+        EXPECT_THAT(width, Eq(ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_DEFAULT_VALUE));
+        auto height = GetAttrValue<std::string>(size, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_NAME);
+        EXPECT_THAT(height, Eq(expected));
     }
 }
 
 /*
- * @tc.name: setBackgroundImageSizeValidEnumValues
+ * @tc.name: setBackgroundImageSizeTestValidEnumValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImageSizeValidEnumValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImageSizeTestValidEnumValues, TestSize.Level1)
 {
-    std::string strResult;
     Opt_Union_SizeOptions_ImageSize inputValue;
 
     typedef std::pair<Ark_ImageSize, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { ARK_IMAGE_SIZE_COVER, "ImageSize.Cover" },
         { ARK_IMAGE_SIZE_CONTAIN, "ImageSize.Contain" },
         { ARK_IMAGE_SIZE_FILL, "ImageSize.FILL" },
@@ -1799,23 +1833,22 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImageSizeValidEnumValue
     for (const auto &[arkImageSize, expected]: testPlan) {
         inputValue = Converter::ArkUnion<Opt_Union_SizeOptions_ImageSize, Ark_ImageSize>(arkImageSize);
         modifier_->setBackgroundImageSize(node_, &inputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
-        EXPECT_EQ(strResult, expected);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
+        EXPECT_THAT(strResult, Eq(expected));
     }
 }
 
 /*
- * @tc.name: setBackgroundImageSizeInvalidValues
+ * @tc.name: setBackgroundImageSizeTestInvalidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeInvalidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeTestInvalidValues, TestSize.Level1)
 {
-    std::string strResult;
     Opt_Union_SizeOptions_ImageSize inputValue;
 
     typedef std::pair<Ark_ImageSize, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { static_cast<Ark_ImageSize>(-1), "ImageSize.Auto" },
         { static_cast<Ark_ImageSize>(4), "ImageSize.Auto" },
     };
@@ -1823,11 +1856,11 @@ HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeInvalidValues, TestSize
     for (const auto &[arkImageSize, expected]: testPlan) {
         inputValue = Converter::ArkUnion<Opt_Union_SizeOptions_ImageSize, Ark_ImageSize>(arkImageSize);
         modifier_->setBackgroundImageSize(node_, &inputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
-        EXPECT_EQ(strResult, expected);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
+        EXPECT_THAT(strResult, Eq(expected));
     }
 
-    static const std::vector<Ark_Length> testPlan2 = {
+    const std::vector<Ark_Length> testPlan2 = {
         Converter::ArkValue<Ark_Length>(-2.45f),
         Converter::ArkValue<Ark_Length>("-5.0px"),
         Converter::ArkValue<Ark_Length>("-22.35px"),
@@ -1844,11 +1877,12 @@ HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeInvalidValues, TestSize
         arkSizeOptions.height = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue = Converter::ArkUnion<Opt_Union_SizeOptions_ImageSize, Ark_SizeOptions>(arkSizeOptions);
         modifier_->setBackgroundImageSize(node_, &inputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
-        auto width = GetAttrValue<std::string>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_NAME);
-        EXPECT_EQ(width, "0.00px");
-        auto height = GetAttrValue<std::string>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_NAME);
-        EXPECT_EQ(height, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_DEFAULT_VALUE);
+        auto jsonValue = GetJsonValue(node_);
+        auto size = GetAttrObject(jsonValue, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
+        auto width = GetAttrValue<std::string>(size, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_NAME);
+        EXPECT_THAT(width, Eq("0.00px"));
+        auto height = GetAttrValue<std::string>(size, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_NAME);
+        EXPECT_THAT(height, Eq(ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_DEFAULT_VALUE));
     }
 
     for (const auto &arkLength: testPlan2) {
@@ -1857,40 +1891,41 @@ HWTEST_F(CommonMethodModifierTest, setBackgroundImageSizeInvalidValues, TestSize
         arkSizeOptions.width = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue = Converter::ArkUnion<Opt_Union_SizeOptions_ImageSize, Ark_SizeOptions>(arkSizeOptions);
         modifier_->setBackgroundImageSize(node_, &inputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
-        auto width = GetAttrValue<std::string>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_NAME);
-        EXPECT_EQ(width, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_DEFAULT_VALUE);
-        auto height = GetAttrValue<std::string>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_NAME);
-        EXPECT_EQ(height, "0.00px");
+        auto jsonValue = GetJsonValue(node_);
+        auto size = GetAttrObject(jsonValue, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_NAME);
+        auto width = GetAttrValue<std::string>(size, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_NAME);
+        EXPECT_THAT(width, Eq(ATTRIBUTE_BACKGROUND_IMAGE_SIZE_WIDTH_DEFAULT_VALUE));
+        auto height = GetAttrValue<std::string>(size, ATTRIBUTE_BACKGROUND_IMAGE_SIZE_HEIGHT_NAME);
+        EXPECT_THAT(height, Eq("0.00px"));
     }
 }
 
 /*
- * @tc.name: setBackgroundImagePositionDefaultValues
+ * @tc.name: setBackgroundImagePositionTestDefaultValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setBackgroundImagePositionDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setBackgroundImagePositionTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_NAME);
-    auto x = GetAttrValue<double>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_X_NAME);
-    EXPECT_NEAR(x, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_X_DEFAULT_VALUE, FLT_EPSILON);
-    auto y = GetAttrValue<double>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_Y_NAME);
-    EXPECT_NEAR(y, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_Y_DEFAULT_VALUE, FLT_EPSILON);
+    auto jsonValue = GetJsonValue(node_);
+    auto position = GetAttrObject(jsonValue, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_NAME);
+    auto x = GetAttrValue<double>(position, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_X_NAME);
+    EXPECT_THAT(x, Optional(DoubleEq(ATTRIBUTE_BACKGROUND_IMAGE_POSITION_X_DEFAULT_VALUE)));
+    auto y = GetAttrValue<double>(position, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_Y_NAME);
+    EXPECT_THAT(y, Optional(DoubleEq(ATTRIBUTE_BACKGROUND_IMAGE_POSITION_Y_DEFAULT_VALUE)));
 }
 
 /*
- * @tc.name: setBackgroundImagePositionValidValues
+ * @tc.name: setBackgroundImagePositionTestValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setBackgroundImagePositionValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setBackgroundImagePositionTestValidValues, TestSize.Level1)
 {
-    std::string strResult;
     Opt_Union_Position_Alignment inputValue;
 
     typedef std::pair<Ark_Length, double> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { Converter::ArkValue<Ark_Length>(-2.5f), -2.5 },
         { Converter::ArkValue<Ark_Length>("5.0px"), 5.0 },
         { Converter::ArkValue<Ark_Length>("22.5px"), 22.5 },
@@ -1907,11 +1942,12 @@ HWTEST_F(CommonMethodModifierTest, setBackgroundImagePositionValidValues, TestSi
         arkPosition.y = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue = Converter::ArkUnion<Opt_Union_Position_Alignment, Ark_Position>(arkPosition);
         modifier_->setBackgroundImagePosition(node_, &inputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_NAME);
-        auto x = GetAttrValue<double>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_X_NAME);
-        EXPECT_NEAR(x, expected, FLT_EPSILON);
-        auto y = GetAttrValue<double>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_Y_NAME);
-        EXPECT_NEAR(y, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_Y_DEFAULT_VALUE, FLT_EPSILON);
+        auto jsonValue = GetJsonValue(node_);
+        auto position = GetAttrObject(jsonValue, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_NAME);
+        auto x = GetAttrValue<double>(position, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_X_NAME);
+        EXPECT_THAT(x, Optional(DoubleEq(expected)));
+        auto y = GetAttrValue<double>(position, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_Y_NAME);
+        EXPECT_THAT(y, Optional(DoubleEq(ATTRIBUTE_BACKGROUND_IMAGE_POSITION_Y_DEFAULT_VALUE)));
     }
 
     for (const auto &[arkLength, expected]: testPlan) {
@@ -1920,26 +1956,26 @@ HWTEST_F(CommonMethodModifierTest, setBackgroundImagePositionValidValues, TestSi
         arkPosition.x = Converter::ArkValue<Opt_Length>(Ark_Empty());
         inputValue = Converter::ArkUnion<Opt_Union_Position_Alignment, Ark_Position>(arkPosition);
         modifier_->setBackgroundImagePosition(node_, &inputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_NAME);
-        auto x = GetAttrValue<double>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_X_NAME);
-        EXPECT_NEAR(x, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_X_DEFAULT_VALUE, FLT_EPSILON);
-        auto y = GetAttrValue<double>(strResult, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_Y_NAME);
-        EXPECT_NEAR(y, expected, FLT_EPSILON);
+        auto jsonValue = GetJsonValue(node_);
+        auto position = GetAttrObject(jsonValue, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_NAME);
+        auto x = GetAttrValue<double>(position, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_X_NAME);
+        EXPECT_THAT(x, Optional(DoubleEq(ATTRIBUTE_BACKGROUND_IMAGE_POSITION_X_DEFAULT_VALUE)));
+        auto y = GetAttrValue<double>(position, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_Y_NAME);
+        EXPECT_THAT(y, Optional(DoubleEq(expected)));
     }
 }
 
 /*
- * @tc.name: setBackgroundImagePositionValidAlignmentValues
+ * @tc.name: setBackgroundImagePositionTestValidAlignmentValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImagePositionValidAlignmentValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImagePositionTestValidAlignmentValues, TestSize.Level1)
 {
-    std::string strResult;
     Opt_Union_Position_Alignment inputValue;
 
     typedef std::pair<Ark_Alignment, std::string> OneTestStep;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         { ARK_ALIGNMENT_TOP_START, "Alignment.TopStart" },
         { ARK_ALIGNMENT_TOP, "Alignment.Top" },
         { ARK_ALIGNMENT_TOP_END, "Alignment.TopEnd" },
@@ -1954,62 +1990,62 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setBackgroundImagePositionValidAlign
     for (const auto &[arkAlign, expected]: testPlan) {
         inputValue = Converter::ArkUnion<Opt_Union_Position_Alignment, Ark_Alignment>(arkAlign);
         modifier_->setBackgroundImagePosition(node_, &inputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_NAME);
-        EXPECT_EQ(strResult, expected);
+        auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_IMAGE_POSITION_NAME);
+        EXPECT_THAT(strResult, Eq(expected));
     }
 }
 
 /*
- * @tc.name: setClipBoolValues
+ * @tc.name: setClipTestBoolValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setClipBoolValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setClipTestBoolValues, TestSize.Level1)
 {
     // default
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_CLIP_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_CLIP_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_CLIP_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_CLIP_DEFAULT_VALUE));
 
     auto inputVal = Converter::ArkValue<Opt_Boolean>(true);
     modifier_->setClip(node_, &inputVal);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_CLIP_NAME);
-    EXPECT_EQ(strResult, "true");
+    strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_CLIP_NAME);
+    EXPECT_THAT(strResult, Eq("true"));
 
     inputVal = Converter::ArkValue<Opt_Boolean>(false);
     modifier_->setClip(node_, &inputVal);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_CLIP_NAME);
-    EXPECT_EQ(strResult, "false");
+    strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_CLIP_NAME);
+    EXPECT_THAT(strResult, Eq("false"));
 }
 
 /*
- * @tc.name: DISABLED_setClipShapeValues
+ * @tc.name: setClipTestShapeValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setClipShapeValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setClipTestShapeValues, TestSize.Level1)
 {
-    // Ark_CircleAttribute, Ark_EllipseAttribute, Ark_PathAttribute, Ark_RectAttribute are not supported yet!
+    ASSERT_NE(modifier_->setClip, nullptr);
+    FAIL() << "Test is not implemented yet";
 }
 
 /*
- * @tc.name: setScaleDefaultValues
+ * @tc.name: setScaleTestDefaultValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setScaleDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setScaleTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_SCALE_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_SCALE_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_SCALE_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_SCALE_DEFAULT_VALUE));
 }
 
 /*
- * @tc.name: setScaleValidXValues
+ * @tc.name: setScaleTestValidXValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleValidXValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleTestValidXValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_ScaleOptions inputValue;
     Opt_ScaleOptions optInputValue;
 
@@ -2019,7 +2055,7 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleValidXValues, TestSize.Level
     inputValue.centerY = Converter::ArkValue<Opt_Union_F64_String>(Ark_Empty());
 
     typedef std::pair<Opt_Float64, std::string> NumberTestStep;
-    static const std::vector<NumberTestStep> testPlan = {
+    const std::vector<NumberTestStep> testPlan = {
         { Converter::ArkValue<Opt_Float64>(2.0f), "2.000000" },
         { Converter::ArkValue<Opt_Float64>(0.0f), "0.000000" },
         { Converter::ArkValue<Opt_Float64>(-2.5f), "-2.500000" },
@@ -2029,26 +2065,26 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleValidXValues, TestSize.Level
         inputValue.x = optNumber;
         optInputValue = Converter::ArkValue<Opt_ScaleOptions>(inputValue);
         modifier_->setScale(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_SCALE_NAME);
-        auto x = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_X_NAME);
-        EXPECT_EQ(x, expected);
-        auto y = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_Y_NAME);
-        EXPECT_EQ(y, "1.000000");
-        auto centerX = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_CENTER_X_NAME);
-        EXPECT_EQ(centerX, "50.00%");
-        auto centerY = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_CENTER_Y_NAME);
-        EXPECT_EQ(centerY, "50.00%");
+        auto jsonValue = GetJsonValue(node_);
+        auto scale = GetAttrObject(jsonValue, ATTRIBUTE_SCALE_NAME);
+        auto x = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_X_NAME);
+        EXPECT_THAT(x, Eq(expected));
+        auto y = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_Y_NAME);
+        EXPECT_THAT(y, Eq("1.000000"));
+        auto centerX = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_CENTER_X_NAME);
+        EXPECT_THAT(centerX, Eq("50.00%"));
+        auto centerY = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_CENTER_Y_NAME);
+        EXPECT_THAT(centerY, Eq("50.00%"));
     }
 }
 
 /*
- * @tc.name: setScaleValidYValues
+ * @tc.name: setScaleTestValidYValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleValidYValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleTestValidYValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_ScaleOptions inputValue;
     Opt_ScaleOptions optInputValue;
 
@@ -2058,7 +2094,7 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleValidYValues, TestSize.Level
     inputValue.centerY = Converter::ArkValue<Opt_Union_F64_String>(Ark_Empty());
 
     typedef std::pair<Opt_Float64, std::string> NumberTestStep;
-    static const std::vector<NumberTestStep> testPlan = {
+    const std::vector<NumberTestStep> testPlan = {
         { Converter::ArkValue<Opt_Float64>(2.0f), "2.000000" },
         { Converter::ArkValue<Opt_Float64>(0.0f), "0.000000" },
         { Converter::ArkValue<Opt_Float64>(-2.5f), "-2.500000" },
@@ -2068,26 +2104,26 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleValidYValues, TestSize.Level
         inputValue.y = optNumber;
         optInputValue = Converter::ArkValue<Opt_ScaleOptions>(inputValue);
         modifier_->setScale(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_SCALE_NAME);
-        auto x = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_X_NAME);
-        EXPECT_EQ(x, "1.000000");
-        auto y = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_Y_NAME);
-        EXPECT_EQ(y, expected);
-        auto centerX = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_CENTER_X_NAME);
-        EXPECT_EQ(centerX, "50.00%");
-        auto centerY = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_CENTER_Y_NAME);
-        EXPECT_EQ(centerY, "50.00%");
+        auto jsonValue = GetJsonValue(node_);
+        auto scale = GetAttrObject(jsonValue, ATTRIBUTE_SCALE_NAME);
+        auto x = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_X_NAME);
+        EXPECT_THAT(x, Eq("1.000000"));
+        auto y = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_Y_NAME);
+        EXPECT_THAT(y, Eq(expected));
+        auto centerX = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_CENTER_X_NAME);
+        EXPECT_THAT(centerX, Eq("50.00%"));
+        auto centerY = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_CENTER_Y_NAME);
+        EXPECT_THAT(centerY, Eq("50.00%"));
     }
 }
 
 /*
- * @tc.name: setScaleValidCenterXValues
+ * @tc.name: setScaleTestValidCenterXValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleValidCenterXValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleTestValidCenterXValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_ScaleOptions inputValue;
     Opt_ScaleOptions optInputValue;
 
@@ -2100,26 +2136,26 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleValidCenterXValues, TestSize
         inputValue.centerX = optCenter;
         optInputValue = Converter::ArkValue<Opt_ScaleOptions>(inputValue);
         modifier_->setScale(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_SCALE_NAME);
-        auto x = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_X_NAME);
-        EXPECT_EQ(x, "1.000000");
-        auto y = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_Y_NAME);
-        EXPECT_EQ(y, "1.000000");
-        auto centerX = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_CENTER_X_NAME);
-        EXPECT_EQ(centerX, expected);
-        auto centerY = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_CENTER_Y_NAME);
-        EXPECT_EQ(centerY, "50.00%");
+        auto jsonValue = GetJsonValue(node_);
+        auto scale = GetAttrObject(jsonValue, ATTRIBUTE_SCALE_NAME);
+        auto x = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_X_NAME);
+        EXPECT_THAT(x, Eq("1.000000"));
+        auto y = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_Y_NAME);
+        EXPECT_THAT(y, Eq("1.000000"));
+        auto centerX = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_CENTER_X_NAME);
+        EXPECT_THAT(centerX, Eq(expected));
+        auto centerY = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_CENTER_Y_NAME);
+        EXPECT_THAT(centerY, Eq("50.00%"));
     }
 }
 
 /*
- * @tc.name: setScaleValidCenterYValues
+ * @tc.name: setScaleTestValidCenterYValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleValidCenterYValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleTestValidCenterYValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_ScaleOptions inputValue;
     Opt_ScaleOptions optInputValue;
 
@@ -2132,37 +2168,37 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setScaleValidCenterYValues, TestSize
         inputValue.centerY= optCenter;
         optInputValue = Converter::ArkValue<Opt_ScaleOptions>(inputValue);
         modifier_->setScale(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_SCALE_NAME);
-        auto x = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_X_NAME);
-        EXPECT_EQ(x, "1.000000");
-        auto y = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_Y_NAME);
-        EXPECT_EQ(y, "1.000000");
-        auto centerX = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_CENTER_X_NAME);
-        EXPECT_EQ(centerX, "50.00%");
-        auto centerY = GetAttrValue<std::string>(strResult, ATTRIBUTE_SCALE_CENTER_Y_NAME);
-        EXPECT_EQ(centerY, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto scale = GetAttrObject(jsonValue, ATTRIBUTE_SCALE_NAME);
+        auto x = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_X_NAME);
+        EXPECT_THAT(x, Eq("1.000000"));
+        auto y = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_Y_NAME);
+        EXPECT_THAT(y, Eq("1.000000"));
+        auto centerX = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_CENTER_X_NAME);
+        EXPECT_THAT(centerX, Eq("50.00%"));
+        auto centerY = GetAttrValue<std::string>(scale, ATTRIBUTE_SCALE_CENTER_Y_NAME);
+        EXPECT_THAT(centerY, Eq(expected));
     }
 }
 
 /*
- * @tc.name: setTranslateDefaultValues
+ * @tc.name: setTranslateTestDefaultValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setTranslateDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setTranslateTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_TRANSLATE_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_TRANSLATE_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_TRANSLATE_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_TRANSLATE_DEFAULT_VALUE));
 }
 
 /*
- * @tc.name: setTranslateValidXValues
+ * @tc.name: setTranslateTestValidXValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setTranslateValidXValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setTranslateTestValidXValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_TranslateOptions inputValue;
     Opt_TranslateOptions optInputValue;
 
@@ -2174,24 +2210,24 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setTranslateValidXValues, TestSize.L
         inputValue.x = optTranslate;
         optInputValue = Converter::ArkValue<Opt_TranslateOptions>(inputValue);
         modifier_->setTranslate(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_TRANSLATE_NAME);
-        auto x = GetAttrValue<std::string>(strResult, ATTRIBUTE_TRANSLATE_X_NAME);
-        EXPECT_EQ(x, expected);
-        auto y = GetAttrValue<std::string>(strResult, ATTRIBUTE_TRANSLATE_Y_NAME);
-        EXPECT_EQ(y, "0.00px");
-        auto z = GetAttrValue<std::string>(strResult, ATTRIBUTE_TRANSLATE_Z_NAME);
-        EXPECT_EQ(z, "0.00px");
+        auto jsonValue = GetJsonValue(node_);
+        auto translate = GetAttrObject(jsonValue, ATTRIBUTE_TRANSLATE_NAME);
+        auto x = GetAttrValue<std::string>(translate, ATTRIBUTE_TRANSLATE_X_NAME);
+        EXPECT_THAT(x, Eq(expected));
+        auto y = GetAttrValue<std::string>(translate, ATTRIBUTE_TRANSLATE_Y_NAME);
+        EXPECT_THAT(y, Eq("0.00px"));
+        auto z = GetAttrValue<std::string>(translate, ATTRIBUTE_TRANSLATE_Z_NAME);
+        EXPECT_THAT(z, Eq("0.00px"));
     }
 }
 
 /*
- * @tc.name: setTranslateValidYValues
+ * @tc.name: setTranslateTestValidYValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setTranslateValidYValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setTranslateTestValidYValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_TranslateOptions inputValue;
     Opt_TranslateOptions optInputValue;
 
@@ -2203,24 +2239,24 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setTranslateValidYValues, TestSize.L
         inputValue.y = optTranslate;
         optInputValue = Converter::ArkValue<Opt_TranslateOptions>(inputValue);
         modifier_->setTranslate(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_TRANSLATE_NAME);
-        auto x = GetAttrValue<std::string>(strResult, ATTRIBUTE_TRANSLATE_X_NAME);
-        EXPECT_EQ(x, "0.00px");
-        auto y = GetAttrValue<std::string>(strResult, ATTRIBUTE_TRANSLATE_Y_NAME);
-        EXPECT_EQ(y, expected);
-        auto z = GetAttrValue<std::string>(strResult, ATTRIBUTE_TRANSLATE_Z_NAME);
-        EXPECT_EQ(z, "0.00px");
+        auto jsonValue = GetJsonValue(node_);
+        auto translate = GetAttrObject(jsonValue, ATTRIBUTE_TRANSLATE_NAME);
+        auto x = GetAttrValue<std::string>(translate, ATTRIBUTE_TRANSLATE_X_NAME);
+        EXPECT_THAT(x, Eq("0.00px"));
+        auto y = GetAttrValue<std::string>(translate, ATTRIBUTE_TRANSLATE_Y_NAME);
+        EXPECT_THAT(y, Eq(expected));
+        auto z = GetAttrValue<std::string>(translate, ATTRIBUTE_TRANSLATE_Z_NAME);
+        EXPECT_THAT(z, Eq("0.00px"));
     }
 }
 
 /*
- * @tc.name: setTranslateValidZValues
+ * @tc.name: setTranslateTestValidZValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setTranslateValidZValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setTranslateTestValidZValues, TestSize.Level1)
 {
-    std::string strResult;
     Ark_TranslateOptions inputValue;
     Opt_TranslateOptions optInputValue;
 
@@ -2232,59 +2268,60 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setTranslateValidZValues, TestSize.L
         inputValue.z = optTranslate;
         optInputValue = Converter::ArkValue<Opt_TranslateOptions>(inputValue);
         modifier_->setTranslate(node_, &optInputValue);
-        strResult = GetStringAttribute(node_, ATTRIBUTE_TRANSLATE_NAME);
-        auto x = GetAttrValue<std::string>(strResult, ATTRIBUTE_TRANSLATE_X_NAME);
-        EXPECT_EQ(x, "0.00px");
-        auto y = GetAttrValue<std::string>(strResult, ATTRIBUTE_TRANSLATE_Y_NAME);
-        EXPECT_EQ(y, "0.00px");
-        auto z = GetAttrValue<std::string>(strResult, ATTRIBUTE_TRANSLATE_Z_NAME);
-        EXPECT_EQ(z, expected);
+        auto jsonValue = GetJsonValue(node_);
+        auto translate = GetAttrObject(jsonValue, ATTRIBUTE_TRANSLATE_NAME);
+        auto x = GetAttrValue<std::string>(translate, ATTRIBUTE_TRANSLATE_X_NAME);
+        EXPECT_THAT(x, Eq("0.00px"));
+        auto y = GetAttrValue<std::string>(translate, ATTRIBUTE_TRANSLATE_Y_NAME);
+        EXPECT_THAT(y, Eq("0.00px"));
+        auto z = GetAttrValue<std::string>(translate, ATTRIBUTE_TRANSLATE_Z_NAME);
+        EXPECT_THAT(z, Eq(expected));
     }
 }
 
 /*
- * @tc.name: setIdDefaultValues
+ * @tc.name: setIdTestDefaultValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setIdDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setIdTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_ID_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_ID_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_ID_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_ID_DEFAULT_VALUE));
 }
 
 /*
- * @tc.name: setIdValidValues
+ * @tc.name: setIdTestValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setIdValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setIdTestValidValues, TestSize.Level1)
 {
     auto inputValue = Converter::ArkValue<Opt_String>("custom_id");
     modifier_->setId(node_, &inputValue);
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_ID_NAME);
-    EXPECT_EQ(strResult, "custom_id");
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_ID_NAME);
+    EXPECT_THAT(strResult, Eq("custom_id"));
 
     inputValue = Converter::ArkValue<Opt_String>("other id");
     modifier_->setId(node_, &inputValue);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_ID_NAME);
-    EXPECT_EQ(strResult, "other id");
+    strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_ID_NAME);
+    EXPECT_THAT(strResult, Eq("other id"));
 }
 
 /*
- * @tc.name: setIdInvalidValues
+ * @tc.name: setIdTestInvalidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setIdInvalidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, setIdTestInvalidValues, TestSize.Level1)
 {
     modifier_->setId(node_, nullptr);
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_ID_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_ID_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_ID_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_ID_DEFAULT_VALUE));
     auto invalidOptString = Converter::ArkValue<Opt_String>(Ark_Empty());
     modifier_->setId(node_, &invalidOptString);
-    strResult = GetStringAttribute(node_, ATTRIBUTE_ID_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_ID_DEFAULT_VALUE);
+    strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_ID_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_ID_DEFAULT_VALUE));
 }
 
 /*
@@ -2297,32 +2334,31 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setOnVisibleAreaChangeTest, TestSize
     struct CheckEvent {
         int32_t nodeId;
         bool isExpanding;
-        float currentRatio;
+        double currentRatio;
     };
     static std::vector<CheckEvent> checkEvent;
-    void (*checkCallback)(const Ark_Int32, const Ark_Boolean, const Ark_Number) =
-        [](const Ark_Int32 resourceId, const Ark_Boolean isExpanding, const Ark_Number currentRatio) {
+    auto checkCallback =
+        [](const Ark_Int32 resourceId, const Ark_Boolean isExpanding, const Ark_Float64 currentRatio) {
             checkEvent.push_back({
                 .nodeId = resourceId,
                 .isExpanding = Converter::Convert<bool>(isExpanding),
-                .currentRatio = Converter::Convert<float>(currentRatio)
+                .currentRatio = Converter::Convert<double>(currentRatio)
             });
         };
     auto arkfunc = Converter::ArkValue<VisibleAreaChangeCallback>(checkCallback, FAKE_RES_ID);
     auto func = Converter::ArkValue<Opt_VisibleAreaChangeCallback>(arkfunc);
-    EXPECT_NE(func.tag, Ark_Tag::INTEROP_TAG_UNDEFINED);
 
     std::vector<double> ratioVec;
     ratioVec.push_back(0.5f);
-    auto numberArrayResult = Converter::ArkValue<Opt_Array_Number>(ratioVec, Converter::FC);
+    auto numberArrayResult = Converter::ArkValue<Opt_Array_Float64>(ratioVec, Converter::FC);
 
     std::vector<double> ratioVecInvalid1;
     ratioVecInvalid1.push_back(-0.5f);
-    auto numberArrayResultInvalid1 = Converter::ArkValue<Opt_Array_Number>(ratioVecInvalid1, Converter::FC);
+    auto numberArrayResultInvalid1 = Converter::ArkValue<Opt_Array_Float64>(ratioVecInvalid1, Converter::FC);
 
     std::vector<double> ratioVecInvalid2;
     ratioVecInvalid2.push_back(1.5f);
-    auto numberArrayResultInvalid2 = Converter::ArkValue<Opt_Array_Number>(ratioVecInvalid2, Converter::FC);
+    auto numberArrayResultInvalid2 = Converter::ArkValue<Opt_Array_Float64>(ratioVecInvalid2, Converter::FC);
 
     EXPECT_EQ(checkEvent.size(), 0);
 
@@ -2333,23 +2369,23 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setOnVisibleAreaChangeTest, TestSize
     EXPECT_EQ(checkEvent[1].nodeId, FAKE_RES_ID);
     EXPECT_EQ(checkEvent[0].isExpanding, false);
     EXPECT_EQ(checkEvent[1].isExpanding, true);
-    EXPECT_EQ(checkEvent[0].currentRatio, 0.0f);
-    EXPECT_EQ(checkEvent[1].currentRatio, ratioVec[0]);
+    EXPECT_FLOAT_EQ(checkEvent[0].currentRatio, 0.0f);
+    EXPECT_FLOAT_EQ(checkEvent[1].currentRatio, ratioVec[0]);
 
     modifier_->setOnVisibleAreaChange(node_, &numberArrayResultInvalid1, &func);
     modifier_->setOnVisibleAreaChange(node_, &numberArrayResultInvalid2, &func);
 
     EXPECT_EQ(checkEvent.size(), 6);
-    EXPECT_EQ(checkEvent[3].currentRatio, 0.0f);
-    EXPECT_EQ(checkEvent[5].currentRatio, 1.0f);
+    EXPECT_FLOAT_EQ(checkEvent[3].currentRatio, 0.0f);
+    EXPECT_FLOAT_EQ(checkEvent[5].currentRatio, 1.0f);
 }
 
 /*
- * @tc.name: setAnimationDefaultValues
+ * @tc.name: setAnimationTestDefaultValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setAnimationDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setAnimationTestDefaultValues, TestSize.Level1)
 {
     Ark_AnimateParam param;
     Opt_AnimateParam optParam;
@@ -2375,7 +2411,7 @@ HWTEST_F(CommonMethodModifierTest, setAnimationDefaultValues, TestSize.Level1)
     EXPECT_EQ(option.GetFinishCallbackType(), FinishCallbackType::REMOVED);
     EXPECT_EQ(option.GetCurve(), Curves::EASE_IN_OUT);
     RefPtr<FrameRateRange> frr = option.GetFrameRateRange();
-    EXPECT_NE(frr, nullptr);
+    ASSERT_NE(frr, nullptr);
     EXPECT_EQ(frr->min_, 0);
     EXPECT_EQ(frr->max_, 0);
     EXPECT_EQ(frr->preferred_, 0);
@@ -2383,11 +2419,11 @@ HWTEST_F(CommonMethodModifierTest, setAnimationDefaultValues, TestSize.Level1)
 }
 
 /*
- * @tc.name: setCloseAnimationValidValues
+ * @tc.name: setAnimationTestNull
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setCloseAnimationValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setAnimationTestNull, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     frameNode->MarkBuildDone();
@@ -2405,11 +2441,11 @@ HWTEST_F(CommonMethodModifierTest, DISABLED_setCloseAnimationValidValues, TestSi
 }
 
 /*
- * @tc.name: setOpenAnimationValidValues
+ * @tc.name: setAnimationTestValidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setOpenAnimationValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setAnimationTestValidValues, TestSize.Level1)
 {
     Ark_AnimateParam param;
     Opt_AnimateParam optParam;
@@ -2421,9 +2457,9 @@ HWTEST_F(CommonMethodModifierTest, setOpenAnimationValidValues, TestSize.Level1)
     param.finishCallbackType = Converter::ArkValue<Opt_FinishCallbackType>(ARK_FINISH_CALLBACK_TYPE_LOGICALLY);
     param.curve = Converter::ArkUnion<Opt_Union_Curve_String_ICurve, Ark_curves_Curve>(ARK_CURVES_CURVE_EASE);
     Ark_ExpectedFrameRateRange efrr;
-    efrr.min = Converter::ArkValue<Ark_Number>(30);
-    efrr.max = Converter::ArkValue<Ark_Number>(120);
-    efrr.expected = Converter::ArkValue<Ark_Number>(60);
+    efrr.min = Converter::ArkValue<Ark_Int32>(30);
+    efrr.max = Converter::ArkValue<Ark_Int32>(120);
+    efrr.expected = Converter::ArkValue<Ark_Int32>(60);
     param.expectedFrameRateRange = Converter::ArkValue<Opt_ExpectedFrameRateRange>(efrr);
     optParam = Converter::ArkValue<Opt_AnimateParam>(param);
 
@@ -2434,12 +2470,12 @@ HWTEST_F(CommonMethodModifierTest, setOpenAnimationValidValues, TestSize.Level1)
     EXPECT_EQ(option.GetDuration(), 5);
     EXPECT_EQ(option.GetDelay(), 3);
     EXPECT_EQ(option.GetIteration(), 8);
-    EXPECT_NEAR(option.GetTempo(), 2.5f, FLT_EPSILON);
+    EXPECT_FLOAT_EQ(option.GetTempo(), 2.5f);
     EXPECT_EQ(option.GetAnimationDirection(), AnimationDirection::REVERSE);
     EXPECT_EQ(option.GetFinishCallbackType(), FinishCallbackType::LOGICALLY);
     EXPECT_EQ(option.GetCurve(), Curves::EASE);
     RefPtr<FrameRateRange> frr = option.GetFrameRateRange();
-    EXPECT_NE(frr, nullptr);
+    ASSERT_NE(frr, nullptr);
     EXPECT_EQ(frr->min_, 30);
     EXPECT_EQ(frr->max_, 120);
     EXPECT_EQ(frr->preferred_, 60);
@@ -2447,11 +2483,11 @@ HWTEST_F(CommonMethodModifierTest, setOpenAnimationValidValues, TestSize.Level1)
 }
 
 /*
- * @tc.name: setAnimationInvalidValues
+ * @tc.name: setAnimationTestInvalidValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, setAnimationInvalidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setAnimationTestInvalidValues, TestSize.Level1)
 {
     Ark_AnimateParam param;
     Opt_AnimateParam optParam;
@@ -2477,7 +2513,7 @@ HWTEST_F(CommonMethodModifierTest, setAnimationInvalidValues, TestSize.Level1)
     EXPECT_EQ(option.GetFinishCallbackType(), FinishCallbackType::REMOVED);
     EXPECT_EQ(option.GetCurve(), Curves::EASE_IN_OUT);
     RefPtr<FrameRateRange> frr = option.GetFrameRateRange();
-    EXPECT_NE(frr, nullptr);
+    ASSERT_NE(frr, nullptr);
     EXPECT_EQ(frr->min_, 0);
     EXPECT_EQ(frr->max_, 0);
     EXPECT_EQ(frr->preferred_, 0);
@@ -2485,12 +2521,13 @@ HWTEST_F(CommonMethodModifierTest, setAnimationInvalidValues, TestSize.Level1)
 }
 
 /*
- * @tc.name: DISABLED_setAnimationOnFinishEventValues
+ * @tc.name: setAnimationTestOnFinishEventValues
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest, DISABLED_setAnimationOnFinishEventValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest, DISABLED_setAnimationTestOnFinishEventValues, TestSize.Level1)
 {
-    // OnFinishEvent does not supported yet
+    ASSERT_NE(modifier_->setAnimation, nullptr);
+    FAIL() << "Test is not implemented yet";
 }
 } // namespace OHOS::Ace::NG

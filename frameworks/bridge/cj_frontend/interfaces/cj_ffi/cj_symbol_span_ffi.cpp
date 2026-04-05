@@ -20,7 +20,6 @@
 #include "bridge/common/utils/utils.h"
 #include "core/common/container.h"
 #include "core/components_ng/pattern/text/symbol_span_model.h"
-#include "core/components_ng/pattern/text/text_model.h"
 
 using namespace OHOS::Ace;
 using namespace OHOS::Ace::Framework;
@@ -32,10 +31,15 @@ constexpr uint32_t COLOR_ALPHA_VALUE = 0xFF000000;
 uint32_t ColorAlphaAdapt(uint32_t origin)
 {
     uint32_t result = origin;
-    if ((origin >> COLOR_ALPHA_OFFSET) == 0) {
-        result = origin | COLOR_ALPHA_VALUE;
+    // After Api22, alpha is handled on the cangjie.
+    if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        return result;
+    } else {
+        if ((origin >> COLOR_ALPHA_OFFSET) == 0) {
+            result = origin | COLOR_ALPHA_VALUE;
+        }
+        return result;
     }
-    return result;
 }
 } // namespace
 

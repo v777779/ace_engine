@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -20,29 +20,32 @@
 
 #include "base/geometry/calc_dimension.h"
 #include "base/geometry/ng/offset_t.h"
+#include "base/geometry/ng/rect_t.h"
 #include "base/geometry/ng/size_t.h"
 #include "base/utils/macros.h"
 #include "core/components_ng/property/border_property.h"
 #include "core/components_ng/property/calc_length.h"
 #include "core/components_ng/property/layout_constraint.h"
+#include "core/components_ng/property/layout_policy_property.h"
 #include "core/components_ng/property/measure_property.h"
-
+#include "core/components_ng/property/magic_layout_property.h"
+#include "frameworks/core/common/window.h"
 namespace OHOS::Ace::NG {
 ACE_FORCE_EXPORT std::optional<float> ConvertToPx(const CalcLength& value, const ScaleProperty& scaleProperty,
     float percentReference = -1.0f, const std::vector<std::string>& rpnexp = std::vector<std::string>());
+ACE_FORCE_EXPORT std::optional<float> ConvertToPx(const std::optional<CalcLength>& value,
+    const ScaleProperty& scaleProperty, float percentReference = -1.0f,
+    const std::vector<std::string>& rpnexp = std::vector<std::string>());
 
-std::optional<float> ConvertToPx(const std::optional<CalcLength>& value, const ScaleProperty& scaleProperty,
-    float percentReference = -1.0f, const std::vector<std::string>& rpnexp = std::vector<std::string>());
-
-std::optional<float> ConvertToPx(
+ACE_FORCE_EXPORT std::optional<float> ConvertToPx(
     const Dimension& dimension, const ScaleProperty& scaleProperty, float percentReference = -1.0f);
 
-SizeF ConvertToSize(const CalcSize& size, const ScaleProperty& scaleProperty,
+ACE_FORCE_EXPORT SizeF ConvertToSize(const CalcSize& size, const ScaleProperty& scaleProperty,
     const SizeF& percentReference = SizeF(-1.0f, -1.0f),
     const std::pair<std::vector<std::string>, std::vector<std::string>>& calcRpnexp =
         std::pair<std::vector<std::string>, std::vector<std::string>>());
 
-OptionalSizeF ConvertToOptionalSize(const CalcSize& size, const ScaleProperty& scaleProperty,
+ACE_FORCE_EXPORT OptionalSizeF ConvertToOptionalSize(const CalcSize& size, const ScaleProperty& scaleProperty,
     const SizeF& percentReference = SizeF(-1.0f, -1.0f),
     const std::pair<std::vector<std::string>, std::vector<std::string>>& calcRpnexp =
         std::pair<std::vector<std::string>, std::vector<std::string>>());
@@ -56,11 +59,19 @@ PaddingPropertyF ConvertToPaddingPropertyF(const std::unique_ptr<PaddingProperty
 PaddingPropertyF ConvertToPaddingPropertyF(const PaddingProperty& padding, const ScaleProperty& scaleProperty,
     float percentReference = -1.0f, bool roundPixel = true, bool nonNegative = false);
 
+PaddingPropertyF ConvertWithResidueToPaddingPropertyF(const std::unique_ptr<PaddingProperty>& padding,
+    const ScaleProperty& scaleProperty, const PaddingPropertyF& fract, float percentReference = -1.0f,
+    bool nonNegative = false);
+
+PaddingPropertyF ConvertWithResidueToPaddingPropertyF(const PaddingProperty& padding,
+    const ScaleProperty& scaleProperty, const PaddingPropertyF& fract, float percentReference = -1.0f,
+    bool nonNegative = false);
+
 MarginPropertyF ConvertToMarginPropertyF(const std::unique_ptr<MarginProperty>& margin,
     const ScaleProperty& scaleProperty, float percentReference = -1.0f, bool roundPixel = true);
 
-MarginPropertyF ConvertToMarginPropertyF(const MarginProperty& margin, const ScaleProperty& scaleProperty,
-    float percentReference = -1.0f, bool roundPixel = true);
+ACE_FORCE_EXPORT MarginPropertyF ConvertToMarginPropertyF(const MarginProperty& margin,
+    const ScaleProperty& scaleProperty, float percentReference = -1.0f, bool roundPixel = true);
 
 BorderWidthPropertyF ConvertToBorderWidthPropertyF(const std::unique_ptr<BorderWidthProperty>& borderWidth,
     const ScaleProperty& scaleProperty, float percentReference = -1.0f, bool roundPixel = true);
@@ -77,21 +88,23 @@ ACE_FORCE_EXPORT void MinusPaddingToSize(const PaddingPropertyF& padding, SizeF&
 
 ACE_FORCE_EXPORT void MinusPaddingToNonNegativeSize(const PaddingPropertyF& padding, SizeF& size);
 
-void AddPaddingToSize(const PaddingPropertyF& padding, OptionalSizeF& size);
+ACE_FORCE_EXPORT void AddPaddingToSize(const PaddingPropertyF& padding, OptionalSizeF& size);
 
-void MinusPaddingToSize(const PaddingPropertyF& padding, OptionalSizeF& size);
+ACE_FORCE_EXPORT void MinusPaddingToSize(const PaddingPropertyF& padding, OptionalSizeF& size);
 
-float GetCrossAxisSize(const SizeF& size, Axis axis);
+PaddingPropertyF AdjacentExpandToRect(RectF& adjustingRect, PaddingPropertyF& frameExpand, RectF& frameRect);
+
+ACE_FORCE_EXPORT float GetCrossAxisSize(const SizeF& size, Axis axis);
 
 float GetMainAxisOffset(const OffsetF& offset, Axis axis);
 
-float GetMainAxisSize(const SizeF& size, Axis axis);
+ACE_FORCE_EXPORT float GetMainAxisSize(const SizeF& size, Axis axis);
 
 void SetCrossAxisSize(float value, Axis axis, SizeF& size);
 
-std::optional<float> GetCrossAxisSize(const OptionalSizeF& size, Axis axis);
+ACE_FORCE_EXPORT std::optional<float> GetCrossAxisSize(const OptionalSizeF& size, Axis axis);
 
-std::optional<float> GetMainAxisSize(const OptionalSizeF& size, Axis axis);
+ACE_FORCE_EXPORT std::optional<float> GetMainAxisSize(const OptionalSizeF& size, Axis axis);
 
 void SetCrossAxisSize(float value, Axis axis, OptionalSizeF& size);
 
@@ -99,6 +112,13 @@ void SetMainAxisSize(float value, Axis axis, OptionalSizeF& size);
 
 void UpdateOptionSizeByMaxOrMinCalcLayoutConstraint(OptionalSizeF& frameSize,
     const std::optional<CalcSize>& calcLayoutConstraintMaxMinSize, const SizeT<float> percentReference, bool IsMaxSize);
+
+OptionalSizeF CalcLayoutPolicySingleSide(const std::optional<NG::LayoutPolicyProperty>& childLayoutPolicy,
+    const std::unique_ptr<MeasureProperty>& childCalcLayoutConstraint,
+    const std::optional<LayoutConstraintF>& parentConstraint, const MagicItemProperty& magicItemProperty);
+void UpdateSingleSideByMaxOrMinCalcLayoutConstraint(OptionalSizeF& frameSize,
+    const std::optional<CalcSize>& calcLayoutConstraintMaxMinSize,
+    const std::optional<LayoutConstraintF>& parentConstraint, bool IsMaxSize);
 
 ACE_FORCE_EXPORT PaddingProperty ConvertToCalcPaddingProperty(const std::optional<CalcDimension>& top,
     const std::optional<CalcDimension>& bottom, const std::optional<CalcDimension>& left,
@@ -138,8 +158,9 @@ ACE_FORCE_EXPORT OptionalSizeF CreateIdealSize(
  * @param needToConstrain constraint the result idealSize or not by min and max size in layoutConstraint.
  * @return SizeF the node size info.
  */
-OptionalSizeF CreateIdealSizeByPercentRef(const LayoutConstraintF& layoutConstraint, Axis axis, MeasureType measureType,
-    bool needToConstrain = false, const std::unique_ptr<MeasureProperty>& rawConstraint = nullptr);
+ACE_FORCE_EXPORT OptionalSizeF CreateIdealSizeByPercentRef(const LayoutConstraintF& layoutConstraint, Axis axis,
+    MeasureType measureType, bool needToConstrain = false,
+    const std::unique_ptr<MeasureProperty>& rawConstraint = nullptr);
 
 /**
  * @brief Constrain node IdealSize by LayoutPolicy.
@@ -150,7 +171,7 @@ OptionalSizeF CreateIdealSizeByPercentRef(const LayoutConstraintF& layoutConstra
  * @param axis the axis of this node.
  * @return SizeF the node size info.
  */
-OptionalSizeF ConstrainIdealSizeByLayoutPolicy(const LayoutConstraintF& layoutConstraint,
+ACE_FORCE_EXPORT OptionalSizeF ConstrainIdealSizeByLayoutPolicy(const LayoutConstraintF& layoutConstraint,
     LayoutCalPolicy widthLayoutPolicy, LayoutCalPolicy heightLayoutPolicy, Axis axis);
 
 /**
@@ -169,8 +190,10 @@ void CreateChildrenConstraint(SizeF& size, const PaddingPropertyF& padding);
  * @param calcLayoutConstraint the calcLayoutConstraint of this node.
  * @param percentReference the percentReference of this node.
  */
-OptionalSizeF UpdateOptionSizeByCalcLayoutConstraint(const OptionalSize<float>& frameSize,
+ACE_FORCE_EXPORT OptionalSizeF UpdateOptionSizeByCalcLayoutConstraint(const OptionalSize<float>& frameSize,
     const std::unique_ptr<MeasureProperty>& calcLayoutConstraint, const SizeT<float> percentReference);
+
+WidthBreakpoint GetCommonWidthBreakpoint(double width, double density);
 } // namespace OHOS::Ace::NG
 
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PROPERTIES_MEASURE_UTILS_H

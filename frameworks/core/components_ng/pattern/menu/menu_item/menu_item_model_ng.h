@@ -58,13 +58,14 @@ public:
     static void SetFontSize(FrameNode* frameNode, const Dimension& fontSize);
     static void SetFontWeight(FrameNode* frameNode, FontWeight weight);
     static void SetFontFamily(FrameNode* frameNode, const std::vector<std::string>& families);
+    static void SetSelectedChangeEvent(FrameNode* frameNode, std::function<void(bool)>&& selectedChangeEvent);
     static void SetFontStyle(FrameNode* frameNode, Ace::FontStyle style);
     static void SetSelectIcon(FrameNode* frameNode, bool isShow = false);
     static void SetSelectIconSrc(FrameNode* frameNode, const std::string& src);
     static void SetSelectIconSymbol(FrameNode* frameNode, std::function<void(WeakPtr<NG::FrameNode>)>&& symbolApply);
     static void SetOnChange(FrameNode* frameNode, std::function<void(bool)>&& onChange);
     static RefPtr<FrameNode> CreateMenuItem(OptionParam&& param, const MenuParam& menuParam);
-    static void SetSelectedChangeEvent(FrameNode* frameNode, std::function<void(bool)>&& selectedChangeEvent);
+    static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
     static void CreateWithColorResourceObj(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj,
         MenuItemFontColorType type);
     static void CreateWithDimensionFpResourceObj(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj,

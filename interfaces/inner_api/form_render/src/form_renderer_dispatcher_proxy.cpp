@@ -50,7 +50,7 @@ void FormRendererDispatcherProxy::DispatchPointerEvent(
 
     int32_t size = 0;
     reply.ReadInt32(size);
-    if (size < 0) {
+    if (size < 0 || size > INT32_MAX) {
         HILOG_ERROR("Serialized gesture size is not valid!");
     } else {
         auto buffer = static_cast<const char*>(reply.ReadRawData(size));
@@ -88,8 +88,8 @@ void FormRendererDispatcherProxy::SetAllowUpdate(bool allowUpdate)
     }
 }
 
-void FormRendererDispatcherProxy::DispatchSurfaceChangeEvent(float width, float height, uint32_t reason,
-    const std::shared_ptr<Rosen::RSTransaction>& rsTransaction, float borderWidth)
+void FormRendererDispatcherProxy::DispatchSurfaceChangeEvent(const OHOS::AppExecFwk::FormSurfaceInfo& formSurfaceInfo,
+    uint32_t reason, const std::shared_ptr<Rosen::RSTransaction>& rsTransaction)
 {
     MessageParcel data;
     if (!WriteInterfaceToken(data)) {
@@ -97,13 +97,8 @@ void FormRendererDispatcherProxy::DispatchSurfaceChangeEvent(float width, float 
         return;
     }
 
-    if (!data.WriteFloat(width)) {
-        HILOG_ERROR("write width fail, action error");
-        return;
-    }
-
-    if (!data.WriteFloat(height)) {
-        HILOG_ERROR("write height fail, action error");
+    if (!data.WriteParcelable(&formSurfaceInfo)) {
+        HILOG_ERROR("write formSurfaceInfo fail");
         return;
     }
 
@@ -125,11 +120,6 @@ void FormRendererDispatcherProxy::DispatchSurfaceChangeEvent(float width, float 
             return;
         }
         rsTransaction->SetParentPid(pid);
-    }
-
-    if (!data.WriteFloat(borderWidth)) {
-        HILOG_ERROR("write borderWidth fail, action error");
-        return;
     }
 
     MessageParcel reply;
@@ -168,6 +158,28 @@ void FormRendererDispatcherProxy::SetObscured(bool isObscured)
     int32_t error = SendRequest(
         static_cast<uint32_t>(IFormRendererDispatcher::Message::SET_OBSCURED),
         data, reply, option);
+    if (error != ERR_OK) {
+        HILOG_ERROR("failed to SendRequest: %{public}d", error);
+    }
+}
+
+void FormRendererDispatcherProxy::SetColorMode(int32_t colorMode)
+{
+    MessageParcel data;
+    if (!WriteInterfaceToken(data)) {
+        HILOG_ERROR("failed to write interface token");
+        return;
+    }
+ 
+    if (!data.WriteInt32(colorMode)) {
+        HILOG_ERROR("write colorMode fail, action error");
+        return;
+    }
+ 
+    MessageParcel reply;
+    MessageOption option;
+    int32_t error =
+        SendRequest(static_cast<uint32_t>(IFormRendererDispatcher::Message::SET_COLOR_MODE), data, reply, option);
     if (error != ERR_OK) {
         HILOG_ERROR("failed to SendRequest: %{public}d", error);
     }

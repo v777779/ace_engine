@@ -16,14 +16,12 @@
 import { IObserve, OBSERVE } from '../decorator';
 import { IObservedObject, RenderIdType } from '../decorator';
 import { IBindingSource, ITrackedDecoratorRef } from './mutableStateMeta';
-import { TypeChecker } from '#components';
 import { StateMgmtTool } from '#stateMgmtTool';
 import { NullableObject } from './types';
-import { StateManagerImpl } from '@koalaui/runtime';
-import { StateMgmtConsole } from '../tools/stateMgmtDFX';
 import { MonitorFunctionDecorator, MonitorValueInternal } from '../decoratorImpl/decoratorMonitor';
 import { ComputedDecoratedVariable, IComputedDecoratorRef } from '../decoratorImpl/decoratorComputed';
 import { PersistenceV2Impl } from '../storage/persistenceV2';
+import { GlobalStateManager } from '@koalaui/runtime';
 
 type TaskType<T> = () => T;
 
@@ -36,6 +34,7 @@ enum NotifyMutableStateMode {
 export class ObserveSingleton implements IObserve {
     public static readonly instance: ObserveSingleton = new ObserveSingleton();
     public static readonly InvalidRenderId: RenderIdType | undefined = undefined;
+    public static readonly RenderingPause: int = -1;
     public static readonly RenderingComponent: int = 0;
     public static readonly RenderingComponentV1: int = 1;
     public static readonly RenderingComponentV2: int = 2;
@@ -49,6 +48,8 @@ export class ObserveSingleton implements IObserve {
     public renderingComponentRef?: ITrackedDecoratorRef;
     private monitorPathRefsChanged_ = new Set<WeakRef<ITrackedDecoratorRef>>();
     private computedPropRefsChanged_ = new Set<WeakRef<ITrackedDecoratorRef>>();
+    private monitorPathRefsDelayed_ = new Set<WeakRef<ITrackedDecoratorRef>>();
+    private computedPropRefsDelayed_ = new Set<WeakRef<ITrackedDecoratorRef>>();
     private queuedMutableStateChanges_ = new Set<WeakRef<IBindingSource>>();
     private persistencePropRefsChanged_ = new Set<WeakRef<ITrackedDecoratorRef>>();
     private finalizationRegistry = new FinalizationRegistry<WeakRef<ITrackedDecoratorRef>>(
@@ -65,7 +66,7 @@ export class ObserveSingleton implements IObserve {
 
     get renderingId(): RenderIdType | undefined {
         const id =
-            (StateMgmtTool.getGlobalStateManager() as StateManagerImpl).current?.id ?? ObserveSingleton.InvalidRenderId;
+            GlobalStateManager.instance.currentScope?.id ?? ObserveSingleton.InvalidRenderId;
         return id;
     }
     set renderingId(value: RenderIdType | undefined) {
@@ -121,9 +122,11 @@ export class ObserveSingleton implements IObserve {
     public addDirtyRef(trackedRef: ITrackedDecoratorRef): void {
         if (trackedRef.id >= PersistenceV2Impl.MIN_PERSISTENCE_ID) {
             this.persistencePropRefsChanged_.add(trackedRef.weakThis);
-            return;
-        }
-        if (trackedRef.id >= MonitorFunctionDecorator.MIN_MONITOR_ID) {
+        } else if (trackedRef.id >= MonitorFunctionDecorator.MIN_SYNC_MONITOR_ID) {
+            const currentMonitor = (trackedRef as MonitorValueInternal).monitor;
+            currentMonitor.notifyChangesForPath(trackedRef);
+            currentMonitor.runMonitorFunction();
+        } else if (trackedRef.id >= MonitorFunctionDecorator.MIN_MONITOR_ID) {
             this.monitorPathRefsChanged_.add(trackedRef.weakThis);
         } else if (trackedRef.id >= ComputedDecoratedVariable.MIN_COMPUTED_ID) {
             this.computedPropRefsChanged_.add(trackedRef.weakThis);
@@ -178,9 +181,15 @@ export class ObserveSingleton implements IObserve {
     private updateDirtyComputedProps(computedProps: Set<WeakRef<ITrackedDecoratorRef>>): void {
         computedProps.forEach((computedPropWeak: WeakRef<ITrackedDecoratorRef>) => {
             let computedPropRef = computedPropWeak.deref();
-            computedPropRef?.clearReverseBindings();
-            if (computedPropRef) {
-                (computedPropRef as IComputedDecoratorRef).fireChange();
+            if (!computedPropRef) {
+                return;
+            }
+            const computed = computedPropRef as IComputedDecoratorRef;
+            if (computed.isFreeze()) {
+                this.computedPropRefsDelayed_.add(computedPropWeak);
+            } else {
+                computedPropRef!.clearReverseBindings();
+                computed.fireChange();
             }
         });
     }
@@ -191,7 +200,9 @@ export class ObserveSingleton implements IObserve {
             let monitorPath = monitorPathRef.deref();
             if (monitorPath) {
                 let monitor: MonitorFunctionDecorator = (monitorPath as MonitorValueInternal).monitor;
-                if (monitor.notifyChangesForPath(monitorPath)) {
+                if (monitor.isFreeze()) {
+                    this.monitorPathRefsDelayed_.add(monitorPathRef);
+                } else if (monitor.notifyChangesForPath(monitorPath)) {
                     monitors.add(monitor);
                 }
             }
@@ -199,6 +210,27 @@ export class ObserveSingleton implements IObserve {
         return monitors;
     }
 
+    public unFreezeDelayedComputedProps(): void {
+        this.computedPropRefsDelayed_.forEach((weak) => {
+            this.computedPropRefsChanged_.add(weak);
+        });
+        this.computedPropRefsDelayed_.clear();
+    }
+
+    public clearDelayedComputedWhenReuse(): void {
+        this.computedPropRefsChanged_.clear();
+    }
+
+    public clearDelayedMonitorWhenReuse(): void {
+        this.monitorPathRefsDelayed_.clear();
+    }
+
+    public unFreezeDelayedMonitorPaths(): void {
+        this.monitorPathRefsDelayed_.forEach((weak) => {
+            this.monitorPathRefsChanged_.add(weak);
+        });
+        this.monitorPathRefsDelayed_.clear();
+    }
     /* Execute given task
      * apply state changes to incremental engine immediately that occur while executing the task
      * this is the regular operation mode, therefore the function is rather redundant and given

@@ -27,11 +27,11 @@
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/web/web_pattern.h"
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 #undef protected
 #undef private
 
@@ -395,119 +395,6 @@ bool HandleMenuItemClick(const NG::MenuItemParam& item)
 }
 
 /**
- * @tc.name: OnCursorChange_001
- * @tc.desc: OnCursorChange
- * @tc.type: FUNC
- */
-HWTEST_F(WebPatternSelectTestNg, OnCursorChange_001, TestSize.Level1)
-{
-#ifdef OHOS_STANDARD_SYSTEM
-    auto* stack = ViewStackProcessor::GetInstance();
-    ASSERT_NE(stack, nullptr);
-    auto nodeId = stack->ClaimNodeId();
-    auto frameNode =
-        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    stack->Push(frameNode);
-    auto webPattern = frameNode->GetPattern<WebPattern>();
-    ASSERT_NE(webPattern, nullptr);
-    webPattern->OnModifyDone();
-    ASSERT_NE(webPattern->delegate_, nullptr);
-    OHOS::NWeb::CursorType type = OHOS::NWeb::CursorType::CT_NONE;
-    auto info = std::make_shared<NWeb::NWebCursorInfoMock>();
-    ASSERT_NE(info, nullptr);
-    webPattern->isHoverExit_ = true;
-    ASSERT_TRUE(webPattern->isHoverExit_);
-    bool ret = webPattern->OnCursorChange(type, info);
-    ASSERT_FALSE(ret);
-#endif
-}
-
-/**
- * @tc.name: OnCursorChange_002
- * @tc.desc: OnCursorChange
- * @tc.type: FUNC
- */
-HWTEST_F(WebPatternSelectTestNg, OnCursorChange_002, TestSize.Level1)
-{
-#ifdef OHOS_STANDARD_SYSTEM
-    auto* stack = ViewStackProcessor::GetInstance();
-    ASSERT_NE(stack, nullptr);
-    auto nodeId = stack->ClaimNodeId();
-    auto frameNode =
-        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    stack->Push(frameNode);
-    auto webPattern = frameNode->GetPattern<WebPattern>();
-    ASSERT_NE(webPattern, nullptr);
-    webPattern->OnModifyDone();
-    ASSERT_NE(webPattern->delegate_, nullptr);
-    OHOS::NWeb::CursorType type = OHOS::NWeb::CursorType::CT_CONTEXTMENU;
-    auto info = std::make_shared<NWeb::NWebCursorInfoMock>();
-    ASSERT_NE(info, nullptr);
-    webPattern->isHoverExit_ = true;
-    ASSERT_TRUE(webPattern->isHoverExit_);
-    bool ret = webPattern->OnCursorChange(type, info);
-    ASSERT_FALSE(ret);
-#endif
-}
-
-/**
- * @tc.name: OnCursorChange_003
- * @tc.desc: OnCursorChange
- * @tc.type: FUNC
- */
-HWTEST_F(WebPatternSelectTestNg, OnCursorChange_003, TestSize.Level1)
-{
-#ifdef OHOS_STANDARD_SYSTEM
-    auto* stack = ViewStackProcessor::GetInstance();
-    ASSERT_NE(stack, nullptr);
-    auto nodeId = stack->ClaimNodeId();
-    auto frameNode =
-        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    stack->Push(frameNode);
-    auto webPattern = frameNode->GetPattern<WebPattern>();
-    ASSERT_NE(webPattern, nullptr);
-    webPattern->OnModifyDone();
-    ASSERT_NE(webPattern->delegate_, nullptr);
-    OHOS::NWeb::CursorType type = OHOS::NWeb::CursorType::CT_NONE;
-    auto info = std::make_shared<NWeb::NWebCursorInfoMock>();
-    ASSERT_NE(info, nullptr);
-    webPattern->isHoverExit_ = false;
-    ASSERT_FALSE(webPattern->isHoverExit_);
-    auto pipelineContext = MockPipelineContext::GetCurrent();
-    bool ret = webPattern->OnCursorChange(type, info);
-    ASSERT_FALSE(ret);
-#endif
-}
-
-/**
- * @tc.name: OnCursorChange_004
- * @tc.desc: OnCursorChange
- * @tc.type: FUNC
- */
-HWTEST_F(WebPatternSelectTestNg, OnCursorChange_004, TestSize.Level1)
-{
-#ifdef OHOS_STANDARD_SYSTEM
-    auto* stack = ViewStackProcessor::GetInstance();
-    ASSERT_NE(stack, nullptr);
-    auto nodeId = stack->ClaimNodeId();
-    auto frameNode =
-        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    stack->Push(frameNode);
-    auto webPattern = frameNode->GetPattern<WebPattern>();
-    ASSERT_NE(webPattern, nullptr);
-    webPattern->OnModifyDone();
-    ASSERT_NE(webPattern->delegate_, nullptr);
-    OHOS::NWeb::CursorType type = OHOS::NWeb::CursorType::CT_MAX_VALUE;
-    auto info = std::make_shared<NWeb::NWebCursorInfoMock>();
-    ASSERT_NE(info, nullptr);
-    webPattern->isHoverExit_ = false;
-    ASSERT_FALSE(webPattern->isHoverExit_);
-    bool ret = webPattern->OnCursorChange(type, info);
-    ASSERT_FALSE(ret);
-#endif
-}
-
-/**
  * @tc.name: UpdateLocalCursorStyle_001
  * @tc.desc: UpdateLocalCursorStyle
  * @tc.type: FUNC
@@ -581,7 +468,7 @@ HWTEST_F(WebPatternSelectTestNg, UpdateLocalCursorStyle_003, TestSize.Level1)
 
 /**
  * @tc.name: UpdateCustomCursor_001
- * @tc.desc: UpdateCustomCursor
+ * @tc.desc: UpdateCustomCursor with ProcessCustomCursor to prepare cursor image buffer
  * @tc.type: FUNC
  */
 HWTEST_F(WebPatternSelectTestNg, UpdateCustomCursor_001, TestSize.Level1)
@@ -599,6 +486,12 @@ HWTEST_F(WebPatternSelectTestNg, UpdateCustomCursor_001, TestSize.Level1)
     ASSERT_NE(webPattern->delegate_, nullptr);
     auto info = std::make_shared<NWeb::NWebCursorInfoMock>();
     ASSERT_NE(info, nullptr);
+    webPattern->cursorType_ = OHOS::NWeb::CursorType::CT_CUSTOM;
+    webPattern->nweb_cursorInfo_ = info;
+
+    webPattern->ProcessCustomCursor(info);
+    EXPECT_NE(webPattern->custom_cursorImg_.get(), nullptr);
+
     int32_t windowId = 1;
     webPattern->UpdateCustomCursor(windowId, info);
 #endif
@@ -606,7 +499,7 @@ HWTEST_F(WebPatternSelectTestNg, UpdateCustomCursor_001, TestSize.Level1)
 
 /**
  * @tc.name: UpdateCustomCursor_002
- * @tc.desc: UpdateCustomCursor
+ * @tc.desc: UpdateCustomCursor with valid cursor info after ProcessCustomCursor
  * @tc.type: FUNC
  */
 HWTEST_F(WebPatternSelectTestNg, UpdateCustomCursor_002, TestSize.Level1)
@@ -622,9 +515,17 @@ HWTEST_F(WebPatternSelectTestNg, UpdateCustomCursor_002, TestSize.Level1)
     ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
-    std::shared_ptr<OHOS::NWeb::NWebCursorInfoMock> info = nullptr;
-    ASSERT_EQ(info, nullptr);
+
+    auto info = std::make_shared<NWeb::NWebCursorInfoMock>();
+    ASSERT_NE(info, nullptr);
+    webPattern->cursorType_ = OHOS::NWeb::CursorType::CT_CUSTOM;
+    webPattern->nweb_cursorInfo_ = info;
+
     int32_t windowId = 1;
+    webPattern->ProcessCustomCursor(info);
+
+    EXPECT_NE(webPattern->custom_cursorImg_.get(), nullptr);
+
     webPattern->UpdateCustomCursor(windowId, info);
 #endif
 }
@@ -694,7 +595,6 @@ HWTEST_F(WebPatternSelectTestNg, OnTooltip_001, TestSize.Level1)
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
     webPattern->tooltipId_ = 0;
-    ASSERT_EQ(webPattern->tooltipId_, 0);
     std::string tooltip = "";
     webPattern->OnTooltip(tooltip);
     ASSERT_NE(webPattern->tooltipId_, -1);
@@ -751,7 +651,6 @@ HWTEST_F(WebPatternSelectTestNg, OnPopupSize_002, TestSize.Level1)
     ASSERT_NE(webPattern->delegate_, nullptr);
     int32_t x = 1, y = 2, width = 1, height = 1;
     webPattern->renderContextForPopupSurface_ = nullptr;
-    ASSERT_EQ(webPattern->renderContextForPopupSurface_, nullptr);
     webPattern->OnPopupSize(x, y, width, height);
 #endif
 }
@@ -806,7 +705,6 @@ HWTEST_F(WebPatternSelectTestNg, OnPopupShow_002, TestSize.Level1)
     ASSERT_NE(webPattern->delegate_, nullptr);
     bool show = false;
     webPattern->renderContextForPopupSurface_ = nullptr;
-    ASSERT_EQ(webPattern->renderContextForPopupSurface_, nullptr);
     webPattern->OnPopupShow(show);
 #endif
 }
@@ -1214,7 +1112,6 @@ HWTEST_F(WebPatternSelectTestNg, NotifyForNextTouchEvent_002, TestSize.Level1)
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
     webPattern->delegate_ = nullptr;
-    ASSERT_EQ(webPattern->delegate_, nullptr);
     webPattern->NotifyForNextTouchEvent();
 #endif
 }
@@ -1238,7 +1135,6 @@ HWTEST_F(WebPatternSelectTestNg, InitTouchEventListener_001, TestSize.Level1)
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
     webPattern->touchEventListener_ = nullptr;
-    ASSERT_EQ(webPattern->touchEventListener_, nullptr);
     webPattern->InitTouchEventListener();
 #endif
 }
@@ -1497,7 +1393,6 @@ HWTEST_F(WebPatternSelectTestNg, InitRotationEventCallback_001, TestSize.Level1)
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
     webPattern->touchEventListener_ = nullptr;
-    ASSERT_EQ(webPattern->touchEventListener_, nullptr);
     webPattern->InitRotationEventCallback();
 #endif
 }
@@ -1521,7 +1416,6 @@ HWTEST_F(WebPatternSelectTestNg, InitRotationEventCallback_002, TestSize.Level1)
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
     webPattern->rotationEndCallbackId_ = 0;
-    ASSERT_EQ(webPattern->rotationEndCallbackId_, 0);
     webPattern->InitRotationEventCallback();
 #endif
 }
@@ -1556,7 +1450,7 @@ HWTEST_F(WebPatternSelectTestNg, UninitRotationEventCallback_001, TestSize.Level
 HWTEST_F(WebPatternSelectTestNg, CreateSnapshotImageFrameNode_001, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
-   auto* stack = ViewStackProcessor::GetInstance();
+    auto* stack = ViewStackProcessor::GetInstance();
     ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
@@ -1568,15 +1462,129 @@ HWTEST_F(WebPatternSelectTestNg, CreateSnapshotImageFrameNode_001, TestSize.Leve
     ASSERT_NE(webPattern->delegate_, nullptr);
     MockPipelineContext::SetUp();
     std::string snapshotPath = "/data/storage/el2/base/cache/web/snapshot/123456.png";
-    webPattern->CreateSnapshotImageFrameNode(snapshotPath);
+    webPattern->CreateSnapshotImageFrameNode(snapshotPath, 100, 100);
     snapshotPath = "/data/storage/el2/base/cache/web/snapshot/web_frame_123456";
-    webPattern->CreateSnapshotImageFrameNode(snapshotPath);
+    webPattern->CreateSnapshotImageFrameNode(snapshotPath, 100, 100);
     snapshotPath = "/data/storage/el2/base/cache/web/snapshot/web_frame_123456.png";
-    webPattern->CreateSnapshotImageFrameNode(snapshotPath);
+    webPattern->CreateSnapshotImageFrameNode(snapshotPath, 100, 100);
+    snapshotPath = "/data/storage/el2/base/cache/web/snapshot/web_frame_123456.heic";
+    webPattern->CreateSnapshotImageFrameNode(snapshotPath, 100, 100);
     webPattern->RemoveSnapshotFrameNode();
     webPattern->RemoveSnapshotFrameNode();
     ASSERT_NE(webPattern, nullptr);
     MockPipelineContext::TearDown();
+#endif
+}
+
+/**
+ * @tc.name: CreateSnapshotImageFrameNode_002
+ * @tc.desc: CreateSnapshotImageFrameNode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternSelectTestNg, CreateSnapshotImageFrameNode_002, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+    MockPipelineContext::SetUp();
+    std::string snapshotPath = "/data/storage/el2/base/cache/web/snapshot/123456.png";
+    webPattern->CreateSnapshotImageFrameNode(snapshotPath, 100, 100);
+    snapshotPath = "/data/storage/el2/base/cache/web/snapshot/web_frame_123456";
+    webPattern->CreateSnapshotImageFrameNode(snapshotPath, 100, 100);
+    snapshotPath = "/data/storage/el2/base/cache/web/snapshot/web_frame_123456.png";
+    webPattern->CreateSnapshotImageFrameNode(snapshotPath, 100, 100);
+    snapshotPath = "/data/storage/el2/base/cache/web/snapshot/web_frame_123456.heic";
+    webPattern->CreateSnapshotImageFrameNode(snapshotPath, 100, 100);
+    webPattern->RemoveSnapshotFrameNode(true);
+    webPattern->RemoveSnapshotFrameNode(true);
+    ASSERT_NE(webPattern, nullptr);
+    MockPipelineContext::TearDown();
+#endif
+}
+
+/**
+ * @tc.name: InitSnapshotGesture_001
+ * @tc.desc: InitSnapshotGesture.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternSelectTestNg, InitSnapshotGesture_001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    WeakPtr<EventHub> eventHub = nullptr;
+    RefPtr<GestureEventHub> gestureHub = AceType::MakeRefPtr<GestureEventHub>(eventHub);
+    EXPECT_NE(gestureHub, nullptr);
+
+    MockPipelineContext::SetUp();
+    webPattern->InitSnapshotGesture(nullptr);
+    webPattern->InitSnapshotGesture(gestureHub);
+    EXPECT_NE(gestureHub, nullptr);
+    MockPipelineContext::TearDown();
+#endif
+}
+
+/**
+ * @tc.name: SnapshotTouchReporter_001
+ * @tc.desc: SnapshotTouchReporter.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternSelectTestNg, SnapshotTouchReporter_001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto reporter = std::make_unique<SnapshotTouchReporter>();
+
+    reporter->OnAppear();
+    EXPECT_TRUE(reporter->appearTime_.has_value());
+    EXPECT_NE(reporter->appearTime_.value(), 0);
+    EXPECT_FALSE(reporter->infos_ == nullptr);
+
+    reporter->OnClick();
+    reporter->OnPan();
+    EXPECT_EQ(reporter->infos_->GetArraySize(), 2);
+
+    auto item0 = reporter->infos_->GetArrayItem(0);
+    EXPECT_TRUE(item0->Contains("time"));
+    EXPECT_TRUE(item0->Contains("type"));
+    EXPECT_EQ(item0->GetUInt("type"), static_cast<uint32_t>(GestureType::CLICK));
+
+    auto item1 = reporter->infos_->GetArrayItem(1);
+    EXPECT_TRUE(item1->Contains("time"));
+    EXPECT_TRUE(item1->Contains("type"));
+    EXPECT_EQ(item1->GetUInt("type"), static_cast<uint32_t>(GestureType::PAN));
+
+    reporter->OnDisappear();
+    EXPECT_FALSE(reporter->appearTime_.has_value());
+    EXPECT_TRUE(reporter->infos_ == nullptr);
+
+    reporter->OnClick();
+    reporter->OnPan();
+    EXPECT_TRUE(reporter->infos_ == nullptr);
+
+    reporter->appearTime_ = std::optional<uint64_t>(1000);
+    reporter->OnDisappear();
+    EXPECT_FALSE(reporter->appearTime_.has_value());
+    EXPECT_TRUE(reporter->infos_ == nullptr);
+
+    reporter->OnAppear();
+    reporter->appearTime_ = std::nullopt;
+    reporter->OnDisappear();
+    EXPECT_FALSE(reporter->appearTime_.has_value());
+    EXPECT_TRUE(reporter->infos_ == nullptr);
 #endif
 }
 

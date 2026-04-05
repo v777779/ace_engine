@@ -37,12 +37,14 @@ namespace OHOS::Ace::NG {
 class NodePaintMethod;
 
 // PaintWrapper are used to flush dirty render task.
-class PaintWrapper : public virtual AceType {
-    DECLARE_ACE_TYPE(PaintWrapper, AceType)
+class ACE_FORCE_EXPORT PaintWrapper : public virtual AceType {
+    DECLARE_ACE_TYPE(PaintWrapper, AceType);
 
 public:
     PaintWrapper(WeakPtr<RenderContext> renderContext, RefPtr<GeometryNode> geometryNode,
-        RefPtr<PaintProperty> paintProperty, RefPtr<ExtensionHandler> handler = nullptr);
+        RefPtr<PaintProperty> paintProperty);
+    PaintWrapper(WeakPtr<RenderContext> renderContext, RefPtr<GeometryNode> geometryNode,
+        RefPtr<PaintProperty> paintProperty, RefPtr<ExtensionHandler> handler);
     ~PaintWrapper() override;
 
     void SetNodePaintMethod(const RefPtr<NodePaintMethod>& nodePaintImpl);
@@ -94,22 +96,25 @@ public:
     bool HasForegroundColor() const
     {
         auto renderContext = renderContext_.Upgrade();
+        CHECK_NULL_RETURN(renderContext, false);
         return renderContext->HasForegroundColor();
     }
 
     bool HasForegroundColorStrategy() const
     {
         auto renderContext = renderContext_.Upgrade();
+        CHECK_NULL_RETURN(renderContext, false);
         return renderContext->HasForegroundColorStrategy();
     }
 
     Color GetForegroundColor() const
     {
         auto renderContext = renderContext_.Upgrade();
+        CHECK_NULL_RETURN(renderContext, Color::FOREGROUND);
         return renderContext->GetForegroundColor().value_or(Color::FOREGROUND);
     }
 
-    void FlushOverlayModifier();
+    ACE_FORCE_EXPORT void FlushOverlayModifier();
 
     void FlushContentModifier();
 

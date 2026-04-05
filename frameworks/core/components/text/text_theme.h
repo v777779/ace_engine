@@ -75,7 +75,6 @@ public:
             theme->textStyle_.SetLineSpacing(pattern->GetAttr<Dimension>("text_line_spacing", 0.0_vp));
             theme->textStyle_.SetFontWeight(static_cast<FontWeight>(pattern->GetAttr<double>("text_font_weight", 0.0)));
             theme->textStyle_.SetTextAlign(static_cast<TextAlign>(pattern->GetAttr<double>("text_align", 0.0)));
-            theme->textStyle_.SetFontForegroudGradiantColor(FontForegroudGradiantColor());
             theme->selectedColor_ = pattern->GetAttr<Color>(PATTERN_BG_COLOR_SELECTED, Color(0x33007dff));
             auto draggable = pattern->GetAttr<std::string>("draggable", "0");
             theme->draggable_ = StringUtils::StringToInt(draggable);
@@ -101,6 +100,8 @@ public:
             theme->fadeoutWidth_ = pattern->GetAttr<Dimension>("text_fadeout_width", 16.0_vp);
             theme->marqueeStartPolicy_ = static_cast<MarqueeStartPolicy>(static_cast<int32_t>(
                 pattern->GetAttr<double>("text_marquee_start_policy", 0.0)));
+            auto textSupportCeliaAsk = pattern->GetAttr<std::string>("menu_celia_ask_is_support", "0");
+            theme->isSupportAskCelia_ = StringUtils::StringToInt(textSupportCeliaAsk);
         }
     };
 
@@ -166,6 +167,7 @@ public:
     {
         return dragBackgroundColor_;
     }
+
     const Color& GetUrlDisabledColor() const
     {
         return urlDisabledColor_;
@@ -185,10 +187,15 @@ public:
     {
         return urlPressColor_;
     }
-	
+
     MarqueeStartPolicy GetMarqueeStartPolicy() const
     {
         return marqueeStartPolicy_;
+    }
+
+    bool IsSupportAskCelia() const
+    {
+        return isSupportAskCelia_;
     }
 
 protected:
@@ -211,6 +218,7 @@ private:
     Color urlDefaultColor_;
     Color urlHoverColor_;
     Color urlPressColor_;
+    bool isSupportAskCelia_;
 };
 
 } // namespace OHOS::Ace

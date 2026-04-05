@@ -30,18 +30,20 @@ class WantParamsWrapOhos : public WantParamsWrap {
 
 public:
     WantParamsWrapOhos(napi_env env, napi_value value);
+    explicit WantParamsWrapOhos(OHOS::AAFwk::WantParams params) : params_(params) {}
     ~WantParamsWrapOhos() = default;
     const AAFwk::WantParams& GetWantParams() const
     {
         return params_;
     }
+    std::string ToString() const override;
 
 private:
     AAFwk::WantParams params_;
 };
 
 class WantWrapOhos : public WantWrap {
-    DECLARE_ACE_TYPE(WantWrapOhos, WantWrap)
+    DECLARE_ACE_TYPE(WantWrapOhos, WantWrap);
 
 public:
     explicit WantWrapOhos(const AAFwk::Want& want);

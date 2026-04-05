@@ -14,8 +14,11 @@
  */
 
 #include "scroll_test_ng.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+
+#include "core/components_ng/pattern/scroll_bar/scroll_bar_model_ng.h"
 
 namespace OHOS::Ace::NG {
 class ScrollEventTestNg : public ScrollTestNg {
@@ -1319,7 +1322,7 @@ HWTEST_F(ScrollEventTestNg, EnablePaging001, TestSize.Level1)
     SizeF viewPortExtent(WIDTH, viewPortLength * 11);
     pattern_->viewPortExtent_ = viewPortExtent;
     pattern_->SetIntervalSize(Dimension(static_cast<double>(viewPortLength)));
-    pattern_->CaleSnapOffsets();
+    pattern_->CaleSnapOffsets(frameNode_);
 
     /**
      * @tc.steps: step2. dragDistance and dragSpeed less than threshold
@@ -1894,6 +1897,41 @@ HWTEST_F(ScrollEventTestNg, OnScrollStartStop003, TestSize.Level1)
 }
 
 /**
+* @tc.name: OnScrollStartStop004
+* @tc.desc: Test OnScrollStart and OnScrollStart in AnimateTo
+* @tc.type: FUNC
+*/
+HWTEST_F(ScrollEventTestNg, OnScrollStartStop004, TestSize.Level1)
+{
+    /**
+    * @tc.steps: step1. Initialize variables and callback
+    * @tc.expected: Variables initialized successfully.
+    */
+    ScrollModelNG model = CreateScroll();
+    int32_t isScrollStartCalled = 0;
+    OnScrollStartEvent scrollStart = [&isScrollStartCalled]() { isScrollStartCalled++; };
+    model.SetOnScrollStart(std::move(scrollStart));
+    int32_t isScrollStopCalled = 0;
+    OnScrollStopEvent scrollStop = [&isScrollStopCalled]() {
+        isScrollStopCalled++;
+    };
+    model.SetOnScrollStop(std::move(scrollStop));
+    CreateContent();
+    CreateScrollDone();
+
+    /**
+    * @tc.steps: step2. Trigger AnimateTo 2 times.
+    * @tc.expected: isScrollStopCalled and isScrollStopCalled should be true.
+    */
+    AnimateTo(Dimension(ITEM_MAIN_SIZE), 500, nullptr, true);
+    AnimateTo(Dimension(0), 500, nullptr, true);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(isScrollStartCalled, 1);
+    EXPECT_EQ(isScrollStopCalled, 1);
+}
+
+/**
  * @tc.name: OnColorConfigurationUpdate001
  * @tc.desc: Test OnColorConfigurationUpdate
  * @tc.type: FUNC
@@ -1943,7 +1981,7 @@ HWTEST_F(ScrollEventTestNg, SpringFinalPosition001, TestSize.Level1)
     EXPECT_TRUE(TickPosition(dragDelta / TICK));
     EXPECT_TRUE(TickPosition(0));
     auto scrollable = pattern_->GetScrollableEvent()->GetScrollable();
-    EXPECT_EQ(scrollable->springOffsetProperty_->Get(), -1);
+    EXPECT_EQ(scrollable->springOffsetProperty_->GetStagingValue(), -1);
 }
 
 #ifdef SUPPORT_DIGITAL_CROWN
@@ -1988,7 +2026,7 @@ HWTEST_F(ScrollEventTestNg, HandleCrownActionUpdate001, TestSize.Level1)
     ASSERT_NE(scrollable, nullptr);
     GestureEvent info;
     info.mainDelta_ = 1.0;
-    auto mainDelta = 2.0;
+    mainDelta = 2.0;
     TimeStamp ts = std::chrono::high_resolution_clock::now();
     scrollable->HandleCrownActionUpdate(ts, 0.0, info);
     EXPECT_NE(info.mainDelta_, mainDelta);
@@ -1998,11 +2036,11 @@ HWTEST_F(ScrollEventTestNg, HandleCrownActionUpdate001, TestSize.Level1)
 #endif
 
 /**
- * @tc.name: HandleCrownActionEnd002
+ * @tc.name: HandleCrownActionEnd001
  * @tc.desc: Test HandleCrownActionEnd
  * @tc.type: FUNC
  */
-HWTEST_F(ScrollEventTestNg, HandleCrownActionEnd002, TestSize.Level1)
+HWTEST_F(ScrollEventTestNg, HandleCrownActionEnd001, TestSize.Level1)
 {
     ScrollModelNG model = CreateScroll();
     model.SetEdgeEffect(EdgeEffect::SPRING, true, EffectEdge::END);
@@ -2017,6 +2055,89 @@ HWTEST_F(ScrollEventTestNg, HandleCrownActionEnd002, TestSize.Level1)
     scrollable->isTouching_ = false;
     scrollable->HandleTouchDown(true);
     EXPECT_FALSE(scrollable->isTouching_);
+}
+
+/**
+ * @tc.name: ScrollBarOverDrag001
+ * @tc.desc: Test overDrag by scrollbar.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollEventTestNg, ScrollBarOverDrag001, TestSize.Level1)
+{
+    auto container = AceType::DynamicCast<Container>(MockContainer::Current());
+    ASSERT_NE(container, nullptr);
+    container->SetApiTargetVersion((int32_t)PlatformVersion::VERSION_TWENTY_THREE);
+    StackModelNG stackModel;
+    stackModel.Create();
+
+    ScrollModelNG model = CreateScroll();
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    CreateContent();
+
+    ScrollBarModelNG scrollBarModel;
+    scrollBarModel.Create(
+        pattern_->GetScrollBarProxy(), true, true, static_cast<int>(Axis::VERTICAL), static_cast<int>(DisplayMode::ON));
+    auto scrollBarPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<ScrollBarPattern>();
+    CreateScrollDone();
+
+    float dragDelta = 100.f;
+    GestureEvent info;
+    info.SetMainDelta(-dragDelta);
+    info.SetInputEventType(InputEventType::TOUCH_SCREEN);
+    scrollBarPattern->scrollBar_->HandleDragStart(info);
+    scrollBarPattern->scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+    EXPECT_LE(std::abs(pattern_->GetTotalOffset()), dragDelta);
+
+    scrollBarPattern->scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+
+    scrollBarPattern->scrollBar_->HandleDragEnd(info);
+    EXPECT_LE(std::abs(pattern_->GetTotalOffset()), dragDelta * 2);
+}
+
+/**
+ * @tc.name: ScrollBarOverDrag002
+ * @tc.desc: Test overDrag by scrollbar trigger scroll event.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollEventTestNg, ScrollBarOverDrag002, TestSize.Level1)
+{
+    auto container = AceType::DynamicCast<Container>(MockContainer::Current());
+    ASSERT_NE(container, nullptr);
+    container->SetApiTargetVersion((int32_t)PlatformVersion::VERSION_TWENTY_THREE);
+    StackModelNG stackModel;
+    stackModel.Create();
+
+    bool isStart = false;
+    bool isStop = false;
+    OnScrollStartEvent startEvent = [&isStart]() { isStart = true; };
+    OnScrollStopEvent stopEvent = [&isStop]() { isStop = true; };
+
+    ScrollModelNG model = CreateScroll();
+    model.SetOnScrollStart(std::move(startEvent));
+    model.SetOnScrollStop(std::move(stopEvent));
+    CreateContent();
+
+    ScrollBarModelNG scrollBarModel;
+    scrollBarModel.Create(
+        pattern_->GetScrollBarProxy(), true, true, static_cast<int>(Axis::VERTICAL), static_cast<int>(DisplayMode::ON));
+    auto scrollBarPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<ScrollBarPattern>();
+    CreateScrollDone();
+
+    float dragDelta = 100.f;
+    GestureEvent info;
+    info.SetMainDelta(-dragDelta);
+    info.SetInputEventType(InputEventType::TOUCH_SCREEN);
+    scrollBarPattern->scrollBar_->HandleDragStart(info);
+    EXPECT_TRUE(isStart);
+    scrollBarPattern->scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->GetTotalOffset(), 0);
+
+    scrollBarPattern->scrollBar_->HandleDragEnd(info);
+    FlushUITasks();
+    EXPECT_TRUE(isStop);
 }
 
 /**
@@ -2091,5 +2212,163 @@ HWTEST_F(ScrollEventTestNg, onWillStopDragging002, TestSize.Level1)
 
     EXPECT_TRUE(isOnWillStopDraggingCallBack);
     EXPECT_FLOAT_EQ(willStopDraggingVelocity.Value(), info.GetMainVelocity());
+}
+
+/**
+ * @tc.name: onWillStartDragging001
+ * @tc.desc: Test onWillStartDragging001
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollEventTestNg, onWillStartDragging001, TestSize.Level1)
+{
+    bool isOnWillStartDraggingCallBack = false;
+    auto onWillStartDragging = [&isOnWillStartDraggingCallBack]() {
+        isOnWillStartDraggingCallBack = true;
+    };
+    ScrollModelNG model = CreateScroll();
+    CreateContent();
+    CreateScrollDone();
+
+    eventHub_->SetOnWillStartDragging(onWillStartDragging);
+
+    GestureEvent info;
+    info.SetMainVelocity(-1200.f);
+    info.SetMainDelta(-200.f);
+    auto scrollable = pattern_->GetScrollableEvent()->GetScrollable();
+    scrollable->HandleTouchDown();
+    scrollable->HandleDragStart(info);
+    scrollable->HandleDragUpdate(info);
+    FlushUITasks();
+
+    scrollable->HandleTouchUp();
+    scrollable->HandleDragEnd(info);
+    FlushUITasks();
+
+    EXPECT_TRUE(isOnWillStartDraggingCallBack);
+}
+
+/**
+ * @tc.name: onDidStopDragging001
+ * @tc.desc: Test onDidStopDragging001
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollEventTestNg, onDidStopDragging001, TestSize.Level1)
+{
+    bool isDidStopDraggingCallBack = false;
+    bool isFlingAfterDrag = false;
+    auto onDidStopDragging = [&isDidStopDraggingCallBack, &isFlingAfterDrag](bool isWillFling) {
+    isDidStopDraggingCallBack = true;
+    isFlingAfterDrag = isWillFling;
+    };
+    ScrollModelNG model = CreateScroll();
+    CreateContent();
+    CreateScrollDone();
+
+    eventHub_->SetOnDidStopDragging(onDidStopDragging);
+
+    GestureEvent info;
+    info.SetMainVelocity(-1200.f);
+    info.SetMainDelta(-200.f);
+    auto scrollable = pattern_->GetScrollableEvent()->GetScrollable();
+    scrollable->HandleTouchDown();
+    scrollable->HandleDragStart(info);
+    scrollable->HandleDragUpdate(info);
+    FlushUITasks();
+
+    scrollable->HandleTouchUp();
+    scrollable->HandleDragEnd(info);
+    FlushUITasks();
+
+    EXPECT_TRUE(isDidStopDraggingCallBack);
+    EXPECT_TRUE(isFlingAfterDrag);
+}
+
+/**
+ * @tc.name: OnWillStartFling001
+ * @tc.desc: Test OnWillStartFling event is triggered when drag end with high velocity
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollEventTestNg, OnWillStartFling001, TestSize.Level1)
+{
+    bool isOnWillStartFlingCalled = false;
+    auto onWillStartFling = [&isOnWillStartFlingCalled]() {
+        isOnWillStartFlingCalled = true;
+    };
+    ScrollModelNG model = CreateScroll();
+    CreateContent();
+    CreateScrollDone();
+
+    eventHub_->SetOnWillStartFling(onWillStartFling);
+
+    /**
+     * @tc.steps: step1. Drag with high velocity and release
+     * @tc.expected: OnWillStartFling event should be triggered
+     */
+    GestureEvent info;
+    info.SetMainVelocity(-1200.f);
+    info.SetMainDelta(-200.f);
+    auto scrollable = pattern_->GetScrollableEvent()->GetScrollable();
+    scrollable->HandleTouchDown();
+    scrollable->HandleDragStart(info);
+    scrollable->HandleDragUpdate(info);
+    FlushUITasks();
+
+    scrollable->HandleTouchUp();
+    scrollable->HandleDragEnd(info);
+    FlushUITasks();
+
+    EXPECT_TRUE(isOnWillStartFlingCalled);
+}
+
+/**
+ * @tc.name: OnDidStopFling001
+ * @tc.desc: Test OnDidStopFling event is triggered when fling stops
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollEventTestNg, OnDidStopFling001, TestSize.Level1)
+{
+    bool isOnDidStopFlingCalled = false;
+    auto onDidStopFling = [&isOnDidStopFlingCalled]() {
+        isOnDidStopFlingCalled = true;
+    };
+    ScrollModelNG model = CreateScroll();
+    CreateContent();
+    CreateScrollDone();
+
+    eventHub_->SetOnDidStopFling(onDidStopFling);
+
+    /**
+     * @tc.steps: step1. First drag with high velocity to trigger fling
+     * @tc.expected: Fling animation starts
+     */
+    GestureEvent info;
+    info.SetMainVelocity(-1200.f);
+    info.SetMainDelta(-200.f);
+    auto scrollable = pattern_->GetScrollableEvent()->GetScrollable();
+    scrollable->HandleTouchDown();
+    scrollable->HandleDragStart(info);
+    scrollable->HandleDragUpdate(info);
+    FlushUITasks();
+
+    scrollable->HandleTouchUp();
+    scrollable->HandleDragEnd(info);
+    FlushUITasks();
+
+    /**
+     * @tc.steps: step2. Second drag with low velocity to stop fling
+     * @tc.expected: OnDidStopFling event should be triggered
+     */
+    info.SetMainVelocity(-10.f);
+    info.SetMainDelta(-5.f);
+    scrollable->HandleTouchDown();
+    scrollable->HandleDragStart(info);
+    scrollable->HandleDragUpdate(info);
+    FlushUITasks();
+
+    scrollable->HandleTouchUp();
+    scrollable->HandleDragEnd(info);
+    FlushUITasks();
+
+    EXPECT_TRUE(isOnDidStopFlingCalled);
 }
 } // namespace OHOS::Ace::NG

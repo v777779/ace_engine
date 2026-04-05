@@ -22,7 +22,7 @@
 namespace OHOS::Ace::NG {
 
 class NodeContainerEventHub : public EventHub {
-    DECLARE_ACE_TYPE(NodeContainerEventHub, EventHub)
+    DECLARE_ACE_TYPE(NodeContainerEventHub, EventHub);
 public:
     void SetControllerAboutToAppear(std::function<void()>&& onAppearCallback)
     {
@@ -68,13 +68,13 @@ public:
 
     void FireOnDisappear() override;
 
-    void FireOnWillBind(int32_t containerId) override;
+    void FireOnWillBind(int32_t containerId);
 
-    void FireOnWillUnbind(int32_t containerId) override;
+    void FireOnWillUnbind(int32_t containerId);
 
-    void FireOnBind(int32_t containerId) override;
+    void FireOnBind(int32_t containerId);
 
-    void FireOnUnbind(int32_t containerId) override;
+    void FireOnUnbind(int32_t containerId);
 
     void FireOnAttach() override;
 

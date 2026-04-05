@@ -21,29 +21,28 @@
 #include "core/components_ng/base/view_abstract_model_ng.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/web/web_event_hub.h"
-#if !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM)
-#include "base/web/webview/ohos_nweb/include/nweb_helper.h"
 #include "core/components_ng/pattern/web/web_pattern.h"
-#else
-#include "core/components_ng/pattern/web/cross_platform/web_pattern.h"
-#endif
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/pipeline_ng/pipeline_context.h"
 #if !defined(ANDROID_PLATFORM) && !defined(IOS_PLATFORM)
 #include "nweb_helper.h"
+#include "arkweb_utils.h"
+#else
+#include "base/web/webview/arkweb_utils/arkweb_utils.h"
 #endif
 
 namespace OHOS::Ace::NG {
 void WebModelNG::Create(const std::string& src, const RefPtr<WebController>& webController, RenderMode renderMode,
-    bool incognitoMode, const std::string& sharedRenderProcessToken)
+    bool incognitoMode, const std::string& sharedRenderProcessToken, bool emulateTouchFromMouseEvent)
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::WEB_ETS_TAG, nodeId);
     auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::WEB_ETS_TAG, nodeId, [src, webController, renderMode, incognitoMode, sharedRenderProcessToken]() {
+        V2::WEB_ETS_TAG, nodeId, [src, webController, renderMode,
+                                  incognitoMode, sharedRenderProcessToken, emulateTouchFromMouseEvent]() {
             return AceType::MakeRefPtr<WebPattern>(
-                src, webController, renderMode, incognitoMode, sharedRenderProcessToken);
+                src, webController, renderMode, incognitoMode, sharedRenderProcessToken, emulateTouchFromMouseEvent);
         });
     frameNode->AddFlag(NodeFlag::WEB_TAG);
     stack->Push(frameNode);
@@ -61,18 +60,22 @@ void WebModelNG::Create(const std::string& src, const RefPtr<WebController>& web
     webPattern->SetRenderMode(renderMode);
     webPattern->SetIncognitoMode(incognitoMode);
     webPattern->SetSharedRenderProcessToken(sharedRenderProcessToken);
+    webPattern->SetEmulateTouchFromMouseEvent(emulateTouchFromMouseEvent);
 }
 
 void WebModelNG::Create(const std::string& src, std::function<void(int32_t)>&& setWebIdCallback,
     std::function<void(const std::string&)>&& setHapPathCallback, int32_t parentWebId, bool popup,
-    RenderMode renderMode, bool incognitoMode, const std::string& sharedRenderProcessToken)
+    RenderMode renderMode, bool incognitoMode, const std::string& sharedRenderProcessToken,
+    bool emulateTouchFromMouseEvent)
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
     auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::WEB_ETS_TAG, nodeId, [src, setWebIdCallback, renderMode, incognitoMode, sharedRenderProcessToken]() {
+        V2::WEB_ETS_TAG, nodeId, [src, setWebIdCallback, renderMode, incognitoMode,
+                                  sharedRenderProcessToken, emulateTouchFromMouseEvent]() {
             return AceType::MakeRefPtr<WebPattern>(
-                src, std::move(setWebIdCallback), renderMode, incognitoMode, sharedRenderProcessToken);
+                src, std::move(setWebIdCallback), renderMode, incognitoMode,
+                sharedRenderProcessToken, emulateTouchFromMouseEvent);
         });
     frameNode->AddFlag(NodeFlag::WEB_TAG);
     stack->Push(frameNode);
@@ -92,6 +95,7 @@ void WebModelNG::Create(const std::string& src, std::function<void(int32_t)>&& s
     webPattern->SetRenderMode(renderMode);
     webPattern->SetIncognitoMode(incognitoMode);
     webPattern->SetSharedRenderProcessToken(sharedRenderProcessToken);
+    webPattern->SetEmulateTouchFromMouseEvent(emulateTouchFromMouseEvent);
 }
 
 void WebModelNG::SetCustomScheme(const std::string& cmdLine)
@@ -434,6 +438,17 @@ void WebModelNG::SetOnFileSelectorShow(std::function<bool(const BaseEventInfo* i
     webEventHub->SetOnFileSelectorShowEvent(std::move(uiCallback));
 }
 
+void WebModelNG::SetAISessionOptions(uint32_t type, const AISessionCallback&& onCreateAISession,
+    const AISessionCallback&& onExecuteAIAction, const AISessionCallback&& onDestroyAISession)
+{
+#if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->GetAgentEventReporter()->SetAISessionOptions(type, std::move(onCreateAISession),
+        std::move(onExecuteAIAction), std::move(onDestroyAISession));
+#endif
+}
+
 void WebModelNG::SetOnContextMenuShow(std::function<bool(const BaseEventInfo* info)>&& jsCallback)
 {
     auto func = jsCallback;
@@ -526,6 +541,13 @@ void WebModelNG::SetZoomAccessEnabled(bool isZoomAccessEnabled)
     auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
     webPattern->UpdateZoomAccessEnabled(isZoomAccessEnabled);
+}
+
+void WebModelNG::SetZoomControlAccess(bool zoomControlAccess)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateZoomControlAccess(zoomControlAccess);
 }
 
 void WebModelNG::SetGeolocationAccessEnabled(bool isGeolocationAccessEnabled)
@@ -809,6 +831,13 @@ void WebModelNG::SetWindowNewEvent(std::function<void(const std::shared_ptr<Base
     auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
     CHECK_NULL_VOID(webEventHub);
     webEventHub->SetOnWindowNewEvent(std::move(jsCallback));
+}
+
+void WebModelNG::SetWindowNewExtEvent(std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& jsCallback)
+{
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnWindowNewExtEvent(std::move(jsCallback));
 }
 
 void WebModelNG::SetActivateContentEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback)
@@ -1186,6 +1215,24 @@ void WebModelNG::SetNativeEmbedGestureEventId(std::function<void(const BaseEvent
     webEventHub->SetOnNativeEmbedGestureEvent(std::move(uiCallback));
 }
 
+void WebModelNG::SetNativeEmbedMouseEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnNativeEmbedMouseEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetNativeEmbedObjectParamChangeId(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnNativeEmbedObjectParamChangeEvent(std::move(uiCallback));
+}
+
 void WebModelNG::SetLayoutMode(WebLayoutMode mode)
 {
     auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
@@ -1222,27 +1269,27 @@ void WebModelNG::JavaScriptOnDocumentStart(const ScriptItems& scriptItems)
 }
 
 void WebModelNG::JavaScriptOnDocumentStartByOrder(const ScriptItems& scriptItems,
-    const ScriptItemsByOrder& scriptItemsByOrder)
+    const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder)
 {
     auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
-    webPattern->JavaScriptOnDocumentStartByOrder(scriptItems, scriptItemsByOrder);
+    webPattern->JavaScriptOnDocumentStartByOrder(scriptItems, scriptRegexItems, scriptItemsByOrder);
 }
 
 void WebModelNG::JavaScriptOnDocumentEndByOrder(const ScriptItems& scriptItems,
-    const ScriptItemsByOrder& scriptItemsByOrder)
+    const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder)
 {
     auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
-    webPattern->JavaScriptOnDocumentEndByOrder(scriptItems, scriptItemsByOrder);
+    webPattern->JavaScriptOnDocumentEndByOrder(scriptItems, scriptRegexItems, scriptItemsByOrder);
 }
 
 void WebModelNG::JavaScriptOnHeadReadyByOrder(const ScriptItems& scriptItems,
-    const ScriptItemsByOrder& scriptItemsByOrder)
+    const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder)
 {
     auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
-    webPattern->JavaScriptOnHeadReadyByOrder(scriptItems, scriptItemsByOrder);
+    webPattern->JavaScriptOnHeadReadyByOrder(scriptItems, scriptRegexItems, scriptItemsByOrder);
 }
 
 void WebModelNG::JavaScriptOnDocumentEnd(const ScriptItems& scriptItems)
@@ -1275,12 +1322,38 @@ void WebModelNG::SetOpenAppLinkFunction(std::function<void(const std::shared_ptr
     webPattern->SetOnOpenAppLinkCallback(std::move(jsCallback));
 }
 
+void WebModelNG::SetWebNativeMessageConnectFunction(
+    std::function<void(const std::shared_ptr<BaseEventInfo>&)>&& jsCallback)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+
+    webPattern->SetWebNativeMessageConnectCallback(std::move(jsCallback));
+}
+
+void WebModelNG::SetWebNativeMessageDisconnectFunction(
+    std::function<void(const std::shared_ptr<BaseEventInfo>&)>&& jsCallback)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+
+    webPattern->SetWebNativeMessageDisConnectCallback(std::move(jsCallback));
+}
+
 void WebModelNG::SetWebDetachFunction(std::function<void(int32_t)>&& jsCallback)
 {
     auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
 
     webPattern->SetSetWebDetachCallback(std::move(jsCallback));
+}
+
+void WebModelNG::SetFaviconFunction(std::function<void(const std::shared_ptr<BaseEventInfo>&)>&& jsCallback)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+
+    webPattern->SetFaviconFunction(std::move(jsCallback));
 }
 
 void WebModelNG::SetTextAutosizing(bool isTextAutosizing)
@@ -1295,6 +1368,16 @@ void WebModelNG::SetNativeVideoPlayerConfig(bool enable, bool shouldOverlay)
     auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
 
+    webPattern->UpdateNativeVideoPlayerConfig(std::make_tuple(enable, shouldOverlay));
+}
+
+void WebModelNG::SetNativeVideoPlayerConfig(FrameNode* frameNode, bool enable, bool shouldOverlay)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    TAG_LOGD(AceLogTag::ACE_WEB,
+        "[SetNativeVideoPlayerConfig] enable=%{public}d, shouldOverlay=%{public}d", enable, shouldOverlay);
     webPattern->UpdateNativeVideoPlayerConfig(std::make_tuple(enable, shouldOverlay));
 }
 
@@ -1323,6 +1406,15 @@ void WebModelNG::SetViewportFitChangedId(std::function<void(const BaseEventInfo*
     auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
     CHECK_NULL_VOID(webEventHub);
     webEventHub->SetOnViewportFitChangedEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetCameraCaptureStateChangedId(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnCameraCaptureStateChangedEvent(std::move(uiCallback));
 }
 
 void WebModelNG::SetSelectionMenuOptions(const WebMenuOptionsParam& webMenuOption)
@@ -1411,6 +1503,14 @@ void WebModelNG::SetWebMediaAVSessionEnabled(bool isEnabled)
     webPattern->UpdateWebMediaAVSessionEnabled(isEnabled);
 }
 
+void WebModelNG::SetWebMediaAVSessionEnabled(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateWebMediaAVSessionEnabled(isEnabled);
+}
+
 void WebModelNG::SetEnableDataDetector(bool isEnabled)
 {
     auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
@@ -1425,10 +1525,25 @@ void WebModelNG::SetDataDetectorConfig(const TextDetectConfig& config)
     webPattern->UpdateDataDetectorConfig(config);
 }
 
+void WebModelNG::SetEnableSelectedDataDetector(bool isEnabled)
+{
+    RETURN_IF_CALLING_FROM_M114();
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableSelectedDataDetector(isEnabled);
+}
+
+void WebModelNG::SetForceEnableZoom(bool isEnabled)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateForceEnableZoom(isEnabled);
+}
+
 void WebModelNG::SetJsEnabled(FrameNode* frameNode, bool isJsEnabled)
 {
     CHECK_NULL_VOID(frameNode);
-    auto webPattern = AceType::DynamicCast<WebPattern>(frameNode->GetPattern());
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
     webPattern->UpdateJsEnabled(isJsEnabled);
 }
@@ -1436,7 +1551,7 @@ void WebModelNG::SetJsEnabled(FrameNode* frameNode, bool isJsEnabled)
 void WebModelNG::SetFileAccessEnabled(FrameNode* frameNode, bool isFileAccessEnabled)
 {
     CHECK_NULL_VOID(frameNode);
-    auto webPattern = AceType::DynamicCast<WebPattern>(frameNode->GetPattern());
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
     webPattern->UpdateFileAccessEnabled(isFileAccessEnabled);
 }
@@ -1444,7 +1559,7 @@ void WebModelNG::SetFileAccessEnabled(FrameNode* frameNode, bool isFileAccessEna
 void WebModelNG::SetDomStorageAccessEnabled(FrameNode* frameNode, bool isDomStorageAccessEnabled)
 {
     CHECK_NULL_VOID(frameNode);
-    auto webPattern = AceType::DynamicCast<WebPattern>(frameNode->GetPattern());
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
     webPattern->UpdateDomStorageAccessEnabled(isDomStorageAccessEnabled);
 }
@@ -1460,9 +1575,17 @@ void WebModelNG::SetMixedMode(FrameNode* frameNode, MixedModeContent mixedConten
 void WebModelNG::SetZoomAccessEnabled(FrameNode* frameNode, bool isZoomAccessEnabled)
 {
     CHECK_NULL_VOID(frameNode);
-    auto webPattern = AceType::DynamicCast<WebPattern>(frameNode->GetPattern());
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
     webPattern->UpdateZoomAccessEnabled(isZoomAccessEnabled);
+}
+
+void WebModelNG::SetZoomControlAccess(FrameNode* frameNode, bool zoomControlAccess)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateZoomControlAccess(zoomControlAccess);
 }
 
 void WebModelNG::SetCacheMode(FrameNode* frameNode, WebCacheMode cacheMode)
@@ -1484,7 +1607,7 @@ void WebModelNG::SetDarkMode(FrameNode* frameNode, WebDarkMode mode)
 void WebModelNG::SetMultiWindowAccessEnabled(FrameNode* frameNode, bool isMultiWindowAccessEnable)
 {
     CHECK_NULL_VOID(frameNode);
-    auto webPattern = AceType::DynamicCast<WebPattern>(frameNode->GetPattern());
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
     webPattern->UpdateMultiWindowAccessEnabled(isMultiWindowAccessEnable);
 }
@@ -1492,9 +1615,33 @@ void WebModelNG::SetMultiWindowAccessEnabled(FrameNode* frameNode, bool isMultiW
 void WebModelNG::SetAllowWindowOpenMethod(FrameNode* frameNode, bool isAllowWindowOpenMethod)
 {
     CHECK_NULL_VOID(frameNode);
-    auto webPattern = AceType::DynamicCast<WebPattern>(frameNode->GetPattern());
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
     webPattern->UpdateAllowWindowOpenMethod(isAllowWindowOpenMethod);
+}
+
+void WebModelNG::SetOnLoadStarted(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnLoadStartedEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetOnLoadFinished(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnLoadFinishedEvent(std::move(uiCallback));
 }
 
 void WebModelNG::SetOnScroll(FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& jsCallback)
@@ -1785,6 +1932,26 @@ void WebModelNG::SetNativeEmbedGestureEventId(
     auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
     CHECK_NULL_VOID(webEventHub);
     webEventHub->SetOnNativeEmbedGestureEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetNativeEmbedMouseEventId(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnNativeEmbedMouseEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetNativeEmbedObjectParamChangeId(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnNativeEmbedObjectParamChangeEvent(std::move(uiCallback));
 }
 
 void WebModelNG::RegisterNativeEmbedRule(FrameNode* frameNode, const std::string& tag, const std::string& type)
@@ -2115,6 +2282,15 @@ void WebModelNG::SetWindowNewEvent(
     webEventHub->SetOnWindowNewEvent(std::move(jsCallback));
 }
 
+void WebModelNG::SetWindowNewExtEvent(
+    FrameNode* frameNode, std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& jsCallback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnWindowNewExtEvent(std::move(jsCallback));
+}
+
 void WebModelNG::SetOnFullScreenEnter(FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& jsCallback)
 {
     CHECK_NULL_VOID(frameNode);
@@ -2195,6 +2371,19 @@ void WebModelNG::SetOnShowFileSelector(
     auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
     CHECK_NULL_VOID(webEventHub);
     webEventHub->SetOnFileSelectorShowEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetOnTextSelectionChange(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo> &info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnTextSelectionChangeEvent(std::move(uiCallback));
 }
 
 void WebModelNG::SetOnContextMenuShow(FrameNode* frameNode, std::function<bool(const BaseEventInfo* info)>&& jsCallback)
@@ -2338,6 +2527,33 @@ void WebModelNG::SetOnDataResubmitted(
     webEventHub->SetOnDataResubmittedEvent(std::move(dataResubmittedId));
 }
 
+void WebModelNG::SetEnableDataDetector(FrameNode* frameNode, bool isEnabled)
+{
+    RETURN_IF_CALLING_FROM_M114();
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableDataDetector(isEnabled);
+}
+
+void WebModelNG::SetDataDetectorConfig(FrameNode* frameNode, const TextDetectConfig& config)
+{
+    RETURN_IF_CALLING_FROM_M114();
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateDataDetectorConfig(config);
+}
+
+void WebModelNG::SetEnableSelectedDataDetector(FrameNode* frameNode, bool isEnabled)
+{
+    RETURN_IF_CALLING_FROM_M114();
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableSelectedDataDetector(isEnabled);
+}
+
 void WebModelNG::SetGestureFocusMode(GestureFocusMode mode)
 {
     auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
@@ -2351,5 +2567,372 @@ void WebModelNG::SetGestureFocusMode(FrameNode* frameNode, GestureFocusMode mode
     auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
     CHECK_NULL_VOID(webPattern);
     webPattern->UpdateGestureFocusMode(mode);
+}
+
+void WebModelNG::SetRotateRenderEffect(WebRotateEffect effect)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateRotateRenderEffect(effect);
+}
+
+void WebModelNG::SetRotateRenderEffect(FrameNode* frameNode, WebRotateEffect effect)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateRotateRenderEffect(effect);
+}
+
+void WebModelNG::SetOnSslErrorRequest(FrameNode* frameNode, std::function<bool(const BaseEventInfo* info)>&& jsCallback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) -> bool {
+        CHECK_NULL_RETURN(info, false);
+        return func(info.get());
+    };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnSslErrorRequestEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetOnClientAuthenticationRequest(
+    FrameNode* frameNode, std::function<bool(const BaseEventInfo* info)>&& jsCallback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) -> bool {
+        CHECK_NULL_RETURN(info, false);
+        return func(info.get());
+    };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnSslSelectCertRequestEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetOnInterceptRequest(
+    FrameNode* frameNode, std::function<RefPtr<WebResponse>(const BaseEventInfo* info)>&& jsCallback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) -> RefPtr<WebResponse> {
+        CHECK_NULL_RETURN(info, nullptr);
+        return func(info.get());
+    };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnInterceptRequestEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetFaviconReceivedId(FrameNode* frameNode, OnWebAsyncFunc&& faviconReceivedId)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnFaviconReceivedEvent(std::move(faviconReceivedId));
+}
+
+void WebModelNG::SetOnBeforeUnload(
+    FrameNode* frameNode, std::function<bool(const BaseEventInfo* info)>&& jsCallback, int dialogEventType)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) -> bool {
+        CHECK_NULL_RETURN(info, false);
+        return func(info.get());
+    };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnCommonDialogEvent(std::move(uiCallback), static_cast<DialogEventType>(dialogEventType));
+}
+
+void WebModelNG::SetOnTextSelectionChange(std::function<void(const BaseEventInfo *info)> &&jsCallback)
+{
+    auto func = std::move(jsCallback);
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo> &info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnTextSelectionChangeEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetOnDetectedBlankScreen(std::function<void(const BaseEventInfo *info)> &&jsCallback)
+{
+    auto func = std::move(jsCallback);
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo> &info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnDetectedBlankScreenEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetEnableAutoFill(bool isEnabled)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableAutoFill(isEnabled);
+}
+
+void WebModelNG::SetEnableAutoFill(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableAutoFill(isEnabled);
+}
+
+void WebModelNG::SetEnableDrag(bool isEnabled)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableDrag(isEnabled);
+}
+ 	 
+void WebModelNG::SetEnableDrag(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableDrag(isEnabled);
+}
+
+void WebModelNG::SetBlankScreenDetectionConfig(bool enable, const std::vector<double> &detectionTiming,
+    const std::vector<int32_t> &detectionMethods, int32_t contentfulNodesCountThreshold)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    BlankScreenDetectionConfig config{enable, detectionTiming, detectionMethods, contentfulNodesCountThreshold};
+    webPattern->UpdateBlankScreenDetectionConfig(config);
+}
+
+void WebModelNG::SetOnFirstScreenPaint(std::function<void(const BaseEventInfo *info)> &&jsCallback)
+{
+    auto func = std::move(jsCallback);
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo> &info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnFirstScreenPaintEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetEnableImageAnalyzer(bool isEnabled)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableImageAnalyzer(isEnabled);
+}
+
+void WebModelNG::SetOnDetectedBlankScreen(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo> &info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnDetectedBlankScreenEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetBlankScreenDetectionConfig(FrameNode* frameNode, const BlankScreenDetectionConfig& detectConfig)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateBlankScreenDetectionConfig(detectConfig);
+}
+
+void WebModelNG::SetOnFirstScreenPaint(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = std::move(jsCallback);
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo> &info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnFirstScreenPaintEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetEnableImageAnalyzer(FrameNode* frameNode,  bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableImageAnalyzer(isEnabled);
+}
+
+void WebModelNG::SetOnPdfScrollAtBottom(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnPdfScrollAtBottomEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetOnPdfLoadEvent(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnPdfLoadEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetJavaScriptProxy(FrameNode* frameNode, std::function<void()>&& jsProxyCallback)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->SetJsProxyCallback(std::move(jsProxyCallback));
+}
+
+void WebModelNG::SetForceEnableZoom(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateForceEnableZoom(isEnabled);
+}
+
+void WebModelNG::SetSafeBrowsingCheckFinishId(
+    std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& safeBrowsingCheckFinishId)
+{
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnSafeBrowsingCheckFinishEvent(std::move(safeBrowsingCheckFinishId));
+}
+
+void WebModelNG::SetOnSafeBrowsingCheckFinish(
+    FrameNode* frameNode, std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& safeBrowsingCheckFinish)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnSafeBrowsingCheckFinishEvent(std::move(safeBrowsingCheckFinish));
+}
+
+void WebModelNG::SetBackToTop(bool isBackToTop)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateBackToTop(isBackToTop);
+}
+
+void WebModelNG::SetBackToTop(FrameNode* frameNode, bool isBackToTop)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateBackToTop(isBackToTop);
+}
+
+void WebModelNG::SetOnMediaCastEnter(std::function<void()>&& jsCallback)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->SetOnMediaCastEnterCallback(std::move(jsCallback));
+}
+
+void WebModelNG::SetOnVerifyPinRequest(std::function<bool(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) -> bool {
+        CHECK_NULL_RETURN(info, false);
+        return func(info.get());
+    };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnVerifyPinRequestEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetCameraCaptureStateChangedId(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnCameraCaptureStateChangedEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetMicrophoneCaptureStateChangedId(std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnMicrophoneCaptureStateChangedEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetMicrophoneCaptureStateChangedId(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& jsCallback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto func = jsCallback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnMicrophoneCaptureStateChangedEvent(std::move(uiCallback));
+}
+
+void WebModelNG::SetEnableDefaultContextMenu(bool isEnabled)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableDefaultContextMenu(isEnabled);
+}
+
+void WebModelNG::SetEnableDefaultContextMenu(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateEnableDefaultContextMenu(isEnabled);
+}
+
+void WebModelNG::SetEnableScrollDirectionalLock(bool enabled, int32_t type)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->EnableScrollDirectionalLock(enabled, static_cast<ScrollDirectionalLockType>(type));
+}
+
+void WebModelNG::SetEnableScrollDirectionalLock(FrameNode* frameNode, bool enabled, int32_t type)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->EnableScrollDirectionalLock(enabled, static_cast<ScrollDirectionalLockType>(type));
+}
+
+void WebModelNG::SetScrollbarLayoutPolicy(ScrollbarLayoutPolicy layoutPolicy)
+{
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateScrollbarLayoutPolicy(layoutPolicy);
+}
+
+void WebModelNG::SetScrollbarLayoutPolicy(FrameNode* frameNode, ScrollbarLayoutPolicy layoutPolicy)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<WebPattern>();
+    CHECK_NULL_VOID(webPattern);
+    webPattern->UpdateScrollbarLayoutPolicy(layoutPolicy);
 }
 } // namespace OHOS::Ace::NG

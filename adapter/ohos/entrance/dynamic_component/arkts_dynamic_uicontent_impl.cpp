@@ -158,6 +158,8 @@ void AddResConfigInfo(
     }
     auto resourceManager = context->GetResourceManager();
     std::unique_ptr<Global::Resource::ResConfig> resConfig(Global::Resource::CreateResConfig());
+    CHECK_NULL_VOID(resConfig);
+    CHECK_NULL_VOID(resourceManager);
     resourceManager->GetResConfig(*resConfig);
     aceResCfg.SetMcc(resConfig->GetMcc());
     aceResCfg.SetMnc(resConfig->GetMnc());
@@ -339,7 +341,6 @@ UIContentErrorCode ArktsDynamicUIContentImpl::CommonInitializeDc(const std::stri
     // after frontend initialize
     HandleCommonInitializeWindowFocus();
     HandleSurfaceChanged(aceView, deviceWidth, deviceHeight, isModelJson);
-    SetAniLocalContextFromHost();
     return errorCode;
 }
 
@@ -405,7 +406,7 @@ void ArktsDynamicUIContentImpl::CommonInitializeDeviceInfo(
         deviceWidth = defaultDisplay->GetWidth();
         deviceHeight = defaultDisplay->GetHeight();
     }
-
+    SystemProperties::ReadSystemParametersCallOnce();
     SystemProperties::InitDeviceInfo(
         deviceWidth, deviceHeight, deviceHeight >= deviceWidth ? 0 : 1, density, false);
 }
@@ -422,6 +423,10 @@ void ArktsDynamicUIContentImpl::CommonInitializeResourceManager(ColorMode &color
     auto resourceManager = context->GetResourceManager();
     if (resourceManager != nullptr) {
         resourceManager->GetResConfig(*resConfig);
+        if (resConfig == nullptr) {
+            TAG_LOGE(aceLogTag_, "init resConfig failed!");
+            return;
+        }
         auto localeInfo = resConfig->GetLocaleInfo();
         Platform::AceApplicationInfoImpl::GetInstance().SetResourceManager(resourceManager);
         if (localeInfo != nullptr) {
@@ -698,22 +703,5 @@ void ArktsDynamicUIContentImpl::HandleSurfaceChanged(
     if (context) {
         UpdateFontScale(context->GetConfiguration());
     }
-}
-
-void ArktsDynamicUIContentImpl::SetAniLocalContextFromHost()
-{
-    if (uIContentType_ != UIContentType::DYNAMIC_COMPONENT) {
-        return;
-    }
-    auto container = Container::GetContainer(instanceId_);
-    CHECK_NULL_VOID(container);
-    auto aceContainer = AceType::DynamicCast<Platform::AceContainer>(container);
-    CHECK_NULL_VOID(aceContainer);
-    if (!aceContainer->IsArkTsFrontEnd()) {
-        return;
-    }
-    auto arktsFrontend = aceContainer->GetFrontend();
-    CHECK_NULL_VOID(arktsFrontend);
-    arktsFrontend->SetHostContext(instanceId_, arktsFrontend->GetHostContext(hostInstanceId_));
 }
 } // namespace OHOS::Ace::NG

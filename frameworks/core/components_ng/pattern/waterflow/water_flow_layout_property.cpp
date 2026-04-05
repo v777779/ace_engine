@@ -20,8 +20,10 @@
 #include "base/utils/utils.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/inspector_filter.h"
+#include "core/components_ng/pattern/waterflow/layout/water_flow_layout_utils.h"
 #include "core/components_ng/pattern/waterflow/water_flow_pattern.h"
 #include "core/components_v2/inspector/utils.h"
+#include "frameworks/core/components_ng/property/templates_parser.h"
 
 namespace OHOS::Ace::NG {
 void WaterFlowLayoutProperty::ResetWaterflowLayoutInfoAndMeasure() const
@@ -35,9 +37,25 @@ void WaterFlowLayoutProperty::ResetWaterflowLayoutInfoAndMeasure() const
     host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF_AND_CHILD);
 }
 
+std::string WaterFlowLayoutProperty::GetItemFillPolicyString() const
+{
+    auto mode = propItemFillPolicy_.value_or(PresetFillType::BREAKPOINT_DEFAULT);
+    switch (mode) {
+        case PresetFillType::BREAKPOINT_DEFAULT:
+            return "PresetFillType.BREAKPOINT_DEFAULT";
+        case PresetFillType::BREAKPOINT_SM1MD2LG3:
+            return "PresetFillType.BREAKPOINT_SM1MD2LG3";
+        case PresetFillType::BREAKPOINT_SM2MD3LG5:
+            return "PresetFillType.BREAKPOINT_SM2MD3LG5";
+        default:
+            break;
+    }
+    return "PresetFillType.BREAKPOINT_DEFAULT";
+}
+
 void WaterFlowLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
 {
-    LayoutProperty::ToJsonValue(json, filter);
+    ScrollableLayoutProperty::ToJsonValue(json, filter);
     /* no fixed attr below, just return */
     if (filter.IsFastFilter()) {
         return;
@@ -62,12 +80,12 @@ void WaterFlowLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, cons
                                                 .c_str());
         jsonConstraintSize->Put("maxWidth", itemLayoutConstraint_->maxSize.value_or(CalcSize())
                                                 .Width()
-                                                .value_or(CalcLength(Infinity<double>(), DimensionUnit::VP))
+                                                .value_or(CalcLength(LayoutInfinity<float>(), DimensionUnit::VP))
                                                 .ToString()
                                                 .c_str());
         jsonConstraintSize->Put("maxHeight", itemLayoutConstraint_->maxSize.value_or(CalcSize())
                                                 .Height()
-                                                .value_or(CalcLength(Infinity<double>(), DimensionUnit::VP))
+                                                .value_or(CalcLength(LayoutInfinity<float>(), DimensionUnit::VP))
                                                 .ToString()
                                                 .c_str());
         json->PutExtAttr("itemConstraintSize", jsonConstraintSize->ToString().c_str(), filter);
@@ -75,7 +93,11 @@ void WaterFlowLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, cons
         json->PutExtAttr("itemConstraintSize", "0", filter);
     }
     json->PutExtAttr("enableScrollInteraction", propScrollEnabled_.value_or(true), filter);
-    json->PutExtAttr("syncLoad", propSyncLoad_.value_or(false), filter);
+    json->PutExtAttr("syncLoad", propSyncLoad_.value_or(true), filter);
+    if (!propItemFillPolicy_.has_value()) {
+        return;
+    }
+    json->PutExtAttr("itemFillPolicy", GetItemFillPolicyString().c_str(), filter);
 }
 
 std::string WaterFlowLayoutProperty::GetWaterflowDirectionStr() const
@@ -87,17 +109,7 @@ std::string WaterFlowLayoutProperty::GetWaterflowDirectionStr() const
 RefPtr<LayoutProperty> WaterFlowLayoutProperty::Clone() const
 {
     auto value = MakeRefPtr<WaterFlowLayoutProperty>();
-    value->LayoutProperty::UpdateLayoutProperty(DynamicCast<LayoutProperty>(this));
-    value->propRowsTemplate_ = CloneRowsTemplate();
-    value->propColumnsTemplate_ = CloneColumnsTemplate();
-    value->propRowsGap_ = CloneRowsGap();
-    value->propColumnsGap_ = CloneColumnsGap();
-    value->propWaterflowDirection_ = CloneWaterflowDirection();
-    value->propScrollEnabled_ = CloneScrollEnabled();
-    value->propSyncLoad_ = CloneSyncLoad();
-    if (itemLayoutConstraint_) {
-        value->itemLayoutConstraint_ = std::make_unique<MeasureProperty>(*itemLayoutConstraint_);
-    }
+    Clone(value);
     return value;
 }
 
@@ -129,6 +141,20 @@ void WaterFlowLayoutProperty::OnColumnsGapUpdate(Dimension /* columnsGap */) con
     auto host = GetHost();
     if (GetAxis() == Axis::HORIZONTAL || UseSegmentedLayout(host) || SWLayout(host)) {
         ResetWaterflowLayoutInfoAndMeasure();
+    }
+}
+
+std::optional<std::string> WaterFlowLayoutProperty::GetFinalColumnsTemplate(double width)
+{
+    auto itemFillPolicy = GetItemFillPolicy();
+    if (itemFillPolicy.has_value()) {
+        const auto& contentConstraintOps = GetContentLayoutConstraint();
+        CHECK_NULL_RETURN(contentConstraintOps, std::nullopt);
+        auto contentConstraint = contentConstraintOps.value();
+        auto density = contentConstraint.scaleProperty.vpScale;
+        return BuildItemFillPolicyColumns(itemFillPolicy.value(), width, density);
+    } else {
+        return GetColumnsTemplate();
     }
 }
 } // namespace OHOS::Ace::NG

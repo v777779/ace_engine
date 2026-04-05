@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,6 +16,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_UTILITY_REVERSE_CONVERTER_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_UTILITY_REVERSE_CONVERTER_H
 
+#include "ui/base/macros.h"
 #pragma once
 
 // SORTED_SECTION
@@ -26,32 +27,7 @@
 #include <type_traits>
 #include <vector>
 
-// SORTED_SECTION
-#include "base/geometry/dimension.h"
-#include "core/common/ime/text_input_action.h"
-#include "core/common/resource/resource_object.h"
-#include "core/components/common/properties/paint_state.h"
-#include "core/components/image/image_event.h"
-#include "core/components/picker/picker_base_component.h"
-#include "core/components/web/web_event.h"
-#include "core/components_ng/gestures/recognizers/click_recognizer.h"
-#include "core/components_ng/gestures/recognizers/long_press_recognizer.h"
-#include "core/components_ng/gestures/recognizers/pan_recognizer.h"
-#include "core/components_ng/gestures/recognizers/pinch_recognizer.h"
-#include "core/components_ng/gestures/recognizers/rotation_recognizer.h"
-#include "core/components_ng/gestures/recognizers/swipe_recognizer.h"
-#include "core/components_ng/pattern/dialog/dialog_pattern.h"
-#include "core/components_ng/pattern/list/list_item_group_pattern.h"
-#include "core/components_ng/pattern/navigation/navigation_declaration.h"
-#include "core/components_ng/pattern/navigation/navigation_transition_proxy.h"
-#include "core/components_ng/pattern/overlay/sheet_presentation_pattern.h"
-#include "core/components_ng/pattern/refresh/refresh_layout_property.h"
-#include "core/components_ng/pattern/rich_editor/rich_editor_event_hub.h"
-#include "core/components_ng/pattern/rich_editor/rich_editor_model.h"
-#include "core/components_ng/pattern/rich_editor/selection_info.h"
-#include "core/components_ng/pattern/scroll/scroll_event_hub.h"
-#include "core/components_ng/pattern/scrollable/scrollable_properties.h"
-// this is for excluding the conflics with macros which defined
+// this is for excluding the conflicts with macros which defined
 // in ../../prebuilts/mingw-w64/ohos/linux-x86_64/clang-mingw/x86_64-w64-mingw32/include/nb30.h
 #ifdef REGISTERING
 #undef REGISTERING
@@ -59,38 +35,170 @@
 #ifdef REGISTERED
 #undef REGISTERED
 #endif
-#include "core/components_ng/pattern/security_component/security_component_common.h"
-#include "core/components_ng/pattern/slider/slider_model.h"
-#include "core/components_ng/pattern/tabs/tabs_model.h"
-#include "core/components_ng/pattern/text/span/span_string.h"
-#include "core/components_ng/pattern/text_field/text_field_event_hub.h"
-#include "core/components_ng/pattern/waterflow/water_flow_sections.h"
-#include "core/components_v2/list/list_properties.h"
-#include "core/interfaces/native/implementation/accessiblt_hover_event_peer.h"
-#include "core/interfaces/native/implementation/axis_event_peer.h"
-#include "core/interfaces/native/implementation/base_gesture_event_peer.h"
-#include "core/interfaces/native/implementation/click_event_peer.h"
-#include "core/interfaces/native/implementation/drag_event_peer.h"
-#include "core/interfaces/native/implementation/focus_axis_event_peer.h"
-#include "core/interfaces/native/implementation/gesture_event_peer.h"
-#include "core/interfaces/native/implementation/gesture_recognizer_peer_impl.h"
-#include "core/interfaces/native/implementation/hover_event_peer.h"
-#include "core/interfaces/native/implementation/key_event_peer.h"
-#include "core/interfaces/native/implementation/mouse_event_peer.h"
-#include "core/interfaces/native/implementation/nav_destination_context_peer.h"
-#include "core/interfaces/native/implementation/nav_path_info_peer_impl.h"
-#include "core/interfaces/native/implementation/navigation_transition_proxy_peer.h"
-#include "core/interfaces/native/implementation/submit_event_peer.h"
-#include "core/interfaces/native/implementation/swipe_recognizer_peer.h"
-#include "core/interfaces/native/implementation/touch_event_peer.h"
-#include "core/interfaces/native/utility/peer_utils.h"
-#include "interfaces/inner_api/ace/ai/image_analyzer.h"
-#include "interfaces/native/ui_input_event.h"
+#ifdef DELETE
+#undef DELETE
+#endif
 
-#include "core/gestures/drag_event.h"
+#include "base/geometry/ng/rect_t.h" // Using type
+#include "core/components_ng/pattern/slider/slider_model.h" // Inner types
+#include "core/components_ng/property/border_property.h" // Using type
+#include "core/components_ng/property/measure_property.h" // Using type
+#include "interfaces/native/ui_input_event.h" // Unscoped enum types
+
+#include "arkoala_api_generated.h"
 #include "generated/converter_generated.h"
-#include "ace_engine_types.h"
+#include "peer_utils.h"
+#include "patch.h"
 
+// Forward declarations
+namespace OHOS::Ace {
+// SORTED_SECTION
+class CheckboxGroupResult;
+class DatePickerChangeEvent;
+class DragEvent;
+class DragSpringLoadingContext;
+class ItemDragInfo;
+class LoadImageFailEvent;
+class LoadImageSuccessEvent;
+class PickerDate;
+class Rect;
+class RichEditorAbstractSpanResult;
+class SelectionInfo;
+class SpanBase;
+class TouchLocationInfo;
+struct MouseHistoricalPoint;
+class BaseEventInfo;
+enum class AccessibilityActionInterceptResult : uint32_t;
+enum class AccessibilityHoverAction;
+enum class AccessibilityInterfaceAction : uint32_t;
+enum class AutoCapitalizationMode;
+enum class AutoCapitalizationMode;
+enum class Axis;
+enum class AxisAction;
+enum class BarPosition;
+enum class BindSheetDismissReason;
+enum class BlurStyle;
+enum class CanvasUnit;
+enum class CommonSubType;
+enum class CrownAction;
+enum class DimensionUnit;
+enum class DisplayMode;
+enum class DragBehavior;
+enum class EdgeEffect;
+enum class FoldStatus : uint32_t;
+enum class FontStyle;
+enum class FontWeight;
+enum class GestureTypeName;
+enum class ImageFit;
+enum class KeyAction;
+enum class KeyIntention;
+enum class LayoutStyle;
+enum class LineBreakStrategy;
+enum class ListItemGroupArea;
+enum class MenuPolicy;
+enum class MouseAction;
+enum class MouseButton;
+enum class NativeEmbedParamStatus;
+enum class NativeEmbedStatus;
+enum class NavigationType;
+enum class NestedScrollMode;
+enum class PromptActionCommonState;
+enum class RenderProcessNotRespondingReason;
+enum class ResourceType : uint32_t;
+enum class ScopeType;
+enum class ScrollAlign;
+enum class ScrollEdge;
+enum class ScrollSource;
+enum class ScrollState;
+enum class SecurityComponentHandleResult : int32_t;
+enum class ShadowType;
+enum class SharedTransitionEffectType;
+enum class SheetType;
+enum class SourceTool;
+enum class SourceType;
+enum class SpanType;
+enum class SuperscriptStyle;
+enum class SwipeActionState : uint32_t;
+enum class TabAnimateMode;
+enum class TabBarMode;
+enum class TextAlign;
+enum class TextDecoration;
+enum class TextDecorationStyle;
+enum class TextDeleteDirection;
+enum class TextFlipDirection;
+enum class TextInputAction;
+enum class TextOverflow;
+enum class TouchType : size_t;
+enum class TransitionEdge;
+enum class VerticalAlign;
+enum class ViewportFit;
+enum class WordBreak;
+struct ChangeValueInfo;
+struct CustomSpanMetrics;
+struct EmbedInfo;
+struct EventTarget;
+struct EventLocationInfo;
+struct FingerInfo;
+struct FontMetrics;
+struct ImageStyleResult;
+struct ListItemGroupIndex;
+struct ListItemIndex;
+struct NativeEmbedParamItem;
+struct PanDirection;
+struct PreviewText;
+struct SwipeDirection;
+struct SymbolSpanStyle;
+struct TextBackgroundStyle;
+struct TextRange;
+struct TextStyleResult;
+
+namespace NG {
+class NavDestinationContext;
+class NavigationTransitionProxy;
+class PanRecognizer;
+class PinchRecognizer;
+class SwipeRecognizer;
+class RotationRecognizer;
+class ClickRecognizer;
+class LongPressRecognizer;
+class NGGestureRecognizer;
+enum class DialogDismissReason;
+enum class NavigationMode;
+enum class NavigationOperation;
+enum class NavigationTitleMode;
+enum class RefereeState;
+enum class RichEditorDeleteDirection;
+struct DrawableLeadingMargin;
+struct KeyboardOptions;
+struct LeadingMargin;
+struct LeadingMarginSpanOptions;
+struct MenuItemParam;
+
+// Forward declaration for GestureTriggerInfo (defined in gesture_trigger_info_peer.h)
+struct GestureTriggerInfo;
+
+namespace Converter {
+enum class ConsoleMessageSource;
+enum class MessageLevel;
+enum class RenderExitReason;
+enum class SslError;
+enum class ThreatType;
+struct Header;
+
+} // namespace Converter
+} // namespace NG
+namespace V2 {
+enum class ListItemAlign;
+enum class ListItemGroupStyle;
+enum class ListItemStyle;
+enum class ScrollSnapAlign;
+enum class StickyStyle : uint32_t;
+enum class SwipeEdgeEffect;
+
+} // namespace V2
+} // namespace OHOS::Ace
+
+using FONT_FEATURES_LIST = std::list<std::pair<std::string, int32_t>>;
 using Ark_Empty = InteropVoid;
 
 namespace OHOS::Ace::NG::Converter {
@@ -126,8 +234,8 @@ namespace OHOS::Ace::NG::Converter {
 
     class ConvContext {
     public:
-        Ark_String Store(const std::string_view& src);
-        void *Allocate(std::size_t size);
+        Ark_String ACE_FORCE_EXPORT Store(const std::string_view& src);
+        ACE_FORCE_EXPORT void *Allocate(std::size_t size);
         void Clear();
         template<typename T>
         T AllocateArray(std::size_t size)
@@ -160,6 +268,11 @@ namespace OHOS::Ace::NG::Converter {
     }
 
     inline void AssignArkValue(Ark_Float64& dst, const int32_t& src)
+    {
+        dst = static_cast<Ark_Float64>(src);
+    }
+
+    inline void AssignArkValue(Ark_Float64& dst, const size_t& src)
     {
         dst = static_cast<Ark_Float64>(src);
     }
@@ -199,63 +312,60 @@ namespace OHOS::Ace::NG::Converter {
     void AssignArkValue(Ark_AccessibilityActionInterceptResult& dst, const AccessibilityActionInterceptResult& src);
     void AssignArkValue(Ark_AccessibilityHoverType& dst, const AccessibilityHoverAction& src);
     void AssignArkValue(Ark_AnimationMode& dst, const TabAnimateMode& src);
-    void AssignArkValue(Ark_Area& dst, const BaseEventInfo& src);
+    void AssignArkValue(Ark_Area& dst, const BaseEventInfo& src, ConvContext *ctx);
+    void AssignArkValue(Ark_AutoCapitalizationMode& dst, const AutoCapitalizationMode& src);
     void AssignArkValue(Ark_Axis& dst, const Axis& src);
     void AssignArkValue(Ark_AxisAction& dst, const AxisAction& src);
-    void AssignArkValue(Ark_AxisModel& dst, const AxisModel& src);
     void AssignArkValue(Ark_BarMode& dst, const TabBarMode& src);
     void AssignArkValue(Ark_BarPosition& dst, const BarPosition& src);
     void AssignArkValue(Ark_BarState& dst, const DisplayMode& src);
     void AssignArkValue(Ark_BlurStyle& dst, const BlurStyle& src);
     void AssignArkValue(Ark_BorderRadiuses& dst, const BorderRadiusProperty& src, ConvContext *ctx);
     void AssignArkValue(Ark_Buffer& dst, const std::string& src);
-    void AssignArkValue(Ark_CaretOffset& dst, const NG::OffsetF& src);
-    void AssignArkValue(Ark_CheckboxGroupResult& dst, const CheckboxGroupResult& src);
+    void AssignArkValue(Ark_ConsoleMessageSource& dst, const ConsoleMessageSource& src);
     void AssignArkValue(Ark_CrownAction& dst, const CrownAction& src);
-    void AssignArkValue(Ark_CustomSpanDrawInfo& dst, const CustomSpanOptions& src);
-    void AssignArkValue(Ark_CustomSpanMetrics& dst, const CustomSpanMetrics& src);
-    void AssignArkValue(Ark_CustomSpanMeasureInfo& dst, const CustomSpanMeasureInfo& src);
-    void AssignArkValue(Ark_Date& dst, const DatePickerChangeEvent& src);
+    void AssignArkValue(Ark_arkui_component_enums_Color& dst, const Color& src);
     void AssignArkValue(Ark_Date& dst, const PickerDate& src);
-    void AssignArkValue(Ark_Date& dst, const std::string& src);
-    void AssignArkValue(Ark_DecorationStyleResult& dst, const RichEditorAbstractSpanResult& src, ConvContext *ctx);
-    void AssignArkValue(Ark_DecorationStyleResult& dst, const TextStyleResult& src, ConvContext *ctx);
-    void AssignArkValue(Ark_Dimension& dst, const Dimension& src, ConvContext *ctx);
-    void AssignArkValue(Ark_Dimension& dst, const char *src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_Date& dst, const std::string& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_Dimension& dst, const Dimension& src, ConvContext *ctx);
+    void AssignArkValue(Ark_Dimension& dst, const char* src);
     void AssignArkValue(Ark_Dimension& dst, const float& src);
-    void AssignArkValue(Ark_Dimension& dst, const int64_t& src);
+    void AssignArkValue(Ark_Dimension& dst, const int64_t& id);
     void AssignArkValue(Ark_Dimension& dst, const std::string& src, ConvContext *ctx);
     void AssignArkValue(Ark_DismissReason& dst, const BindSheetDismissReason& src);
-    void AssignArkValue(Ark_DismissReason& dst, const DialogDismissReason& src);
     void AssignArkValue(Ark_DragBehavior& dst, const DragBehavior& src);
     void AssignArkValue(Ark_DragEvent& dragEvent, const RefPtr<OHOS::Ace::DragEvent>& info);
-    void AssignArkValue(Ark_DragResult& dst, const DragRet& src);
+    void AssignArkValue(
+        Ark_dragController_SpringLoadingContext& dst, const RefPtr<OHOS::Ace::DragSpringLoadingContext>& src);
     void AssignArkValue(Ark_Edge& dst, const ScrollEdge& src);
     void AssignArkValue(Ark_EdgeEffect& dst, const EdgeEffect& src);
     void AssignArkValue(Ark_EdgeEffectOptions& dst, const bool& src);
     void AssignArkValue(Ark_EffectDirection& dst, const OHOS::Ace::CommonSubType& src);
     void AssignArkValue(Ark_EffectScope& dst, const OHOS::Ace::ScopeType& src);
-    void AssignArkValue(Ark_EnterKeyType& dst, const TextInputAction& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_EnterKeyType& dst, const TextInputAction& src);
+    void AssignArkValue(Ark_EventLocationInfo& dst, const EventLocationInfo& src);
     void AssignArkValue(Ark_EventTarget& dst, const EventTarget& src, ConvContext *ctx);
     void AssignArkValue(Ark_FingerInfo& dst, const FingerInfo& src);
-    void AssignArkValue(Ark_Float64& dst, const double& src);
-    void AssignArkValue(Ark_FoldStatus& dst, const FoldStatus& src);
-    void AssignArkValue(Ark_font_FontInfo& dst, const FontInfo& src, ConvContext *ctx);
-    void AssignArkValue(Ark_FontStyle& dst, const OHOS::Ace::FontStyle& src);
+    void AssignArkValue(Ark_FlipDirection& dst, const TextFlipDirection& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_Float64& dst, const Dimension& src);
+    void AssignArkValue(Ark_Float64& dst, const LeadingMargin& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_Float64& dst, const double& src);
+    void AssignArkValue(Ark_InnerGestureTriggerInfo& dst, const GestureTriggerInfo& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_FoldStatus& dst, const FoldStatus& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_FontStyle& dst, const OHOS::Ace::FontStyle& src);
     void AssignArkValue(Ark_FontWeight& dst, OHOS::Ace::FontWeight src);
+    void AssignArkValue(Ark_Frame& dst, const RectF& src);
     void AssignArkValue(Ark_GestureControl_GestureType &dst, const GestureTypeName &src);
-    void AssignArkValue(Ark_GestureInfo &dst, const GestureInfo &src);
-    void AssignArkValue(Ark_GestureRecognizer &dst, const RefPtr<NG::NGGestureRecognizer>& src);
     void AssignArkValue(Ark_GestureRecognizerState &dst, const NG::RefereeState& src);
     void AssignArkValue(Ark_Header& dst, const Header& src, ConvContext *ctx);
     void AssignArkValue(Ark_HistoricalPoint& dst, const OHOS::Ace::TouchLocationInfo& src);
-    void AssignArkValue(Ark_ImageAnalyzerType& dst, const ImageAnalyzerType& src);
+    void AssignArkValue(Ark_MouseHistoricalPoint& dst, const OHOS::Ace::MouseHistoricalPoint& src);
     void AssignArkValue(Ark_ImageError& dst, const LoadImageFailEvent& src);
-    void AssignArkValue(Ark_ImageFit& dst, const ImageFit& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_ImageFit& dst, const ImageFit& src);
     void AssignArkValue(Ark_ImageLoadResult& dst, const LoadImageSuccessEvent& src);
-    void AssignArkValue(Ark_ImageSpanAlignment& dst, const VerticalAlign& src);
-    void AssignArkValue(Ark_Int32& dst, const uint32_t& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_ImageSpanAlignment& dst, const VerticalAlign& src);
     void AssignArkValue(Ark_Int32& dst, const Dimension& src);
+    void AssignArkValue(Ark_Int32& dst, const uint32_t& src);
     void AssignArkValue(Ark_IntentionCode& dst, const KeyIntention& src);
     void AssignArkValue(Ark_InteractionHand& dst, const ArkUI_InteractionHand& src);
     void AssignArkValue(Ark_ItemDragInfo& dst, const ItemDragInfo& src);
@@ -264,15 +374,18 @@ namespace OHOS::Ace::NG::Converter {
     void AssignArkValue(Ark_KeyboardOptions& dst, const KeyboardOptions& src, ConvContext *ctx);
     void AssignArkValue(Ark_LayoutStyle& dst, const LayoutStyle& src);
     void AssignArkValue(Ark_LeadingMarginPlaceholder& dst, const LeadingMargin& src, ConvContext *ctx);
+    void AssignArkValue(Ark_LeadingMarginSpan& dst, const DrawableLeadingMargin& src);
+    void AssignArkValue(Ark_LeadingMarginSpanDrawInfo& dst, const LeadingMarginSpanOptions& src);
     void AssignArkValue(Ark_Length& dst, const CalcDimension& src, ConvContext *ctx);
     void AssignArkValue(Ark_Length& dst, const CalcLength& src, ConvContext *ctx);
     void AssignArkValue(Ark_Length& dst, const Dimension& src, ConvContext *ctx);
-    void AssignArkValue(Ark_Length& dst, const char *src);
+    void AssignArkValue(Ark_Length& dst, const char* src);
     void AssignArkValue(Ark_Length& dst, const double& src);
     void AssignArkValue(Ark_Length& dst, const float& src);
-    void AssignArkValue(Ark_Length& dst, const int64_t& src);
+    void AssignArkValue(Ark_Length& dst, const int64_t& id);
     void AssignArkValue(Ark_Length& dst, const std::string& src, ConvContext *ctx);
     void AssignArkValue(Ark_LengthMetrics& dst, const Dimension& src);
+    void AssignArkValue(Ark_LengthMetricsCustom& dst, const CalcDimension& src);
     void AssignArkValue(Ark_LengthMetricsUnit& dst, const OHOS::Ace::CanvasUnit& src);
     void AssignArkValue(Ark_LengthUnit& dst, const DimensionUnit& src);
     void AssignArkValue(Ark_LineBreakStrategy& dst, const LineBreakStrategy& src);
@@ -281,13 +394,13 @@ namespace OHOS::Ace::NG::Converter {
     void AssignArkValue(Ark_ListItemGroupArea& dst, const int& src);
     void AssignArkValue(Ark_ListItemGroupStyle& dst, const V2::ListItemGroupStyle& src);
     void AssignArkValue(Ark_ListItemStyle& dst, const V2::ListItemStyle& src);
-    void AssignArkValue(Ark_LongPressRecognizer &dst, const RefPtr<NG::LongPressRecognizer>& src);
-    void AssignArkValue(Ark_MarqueeState& dst, int32_t src);
     void AssignArkValue(Ark_MenuPolicy& dst, const MenuPolicy& src);
     void AssignArkValue(Ark_MessageLevel& dst, const MessageLevel& src);
     void AssignArkValue(Ark_MouseAction& dst, const MouseAction& src);
     void AssignArkValue(Ark_MouseButton& dst, const MouseButton& src);
     void AssignArkValue(Ark_NativeEmbedInfo& dst, const EmbedInfo& src);
+    void AssignArkValue(Ark_NativeEmbedParamItem& dst, const NativeEmbedParamItem& src);
+    void AssignArkValue(Ark_NativeEmbedParamStatus& dst, const NativeEmbedParamStatus& src);
     void AssignArkValue(Ark_NativeEmbedStatus& dst, const NativeEmbedStatus& src);
     void AssignArkValue(Ark_NavContentInfo& dst, const RefPtr<NG::NavDestinationContext>& src);
     void AssignArkValue(Ark_NavDestinationContext& dst, const RefPtr<NG::NavDestinationContext>& src);
@@ -296,10 +409,7 @@ namespace OHOS::Ace::NG::Converter {
     void AssignArkValue(Ark_NavigationTitleMode& dst, const NavigationTitleMode& src);
     void AssignArkValue(Ark_NavigationTransitionProxy& dst, const RefPtr<NavigationTransitionProxy>& src);
     void AssignArkValue(Ark_NestedScrollMode& dst, const NestedScrollMode& src);
-    void AssignArkValue(Ark_NestedScrollOptions& dst, const NestedScrollOptions& src);
     void AssignArkValue(Ark_Number& dst, const Dimension& src);
-    void AssignArkValue(Ark_Float64& dst, const Dimension& src);
-    void AssignArkValue(Ark_Float64& dst, const LeadingMargin& src);
     void AssignArkValue(Ark_Number& dst, const double& src);
     void AssignArkValue(Ark_Number& dst, const float& src);
     void AssignArkValue(Ark_Number& dst, const int32_t& src);
@@ -307,131 +417,108 @@ namespace OHOS::Ace::NG::Converter {
     void AssignArkValue(Ark_Number& dst, const uint32_t& src);
     void AssignArkValue(Ark_Number& dst, const uint64_t& src);
     void AssignArkValue(Ark_OffsetResult& dst, const Offset& src, ConvContext *ctx);
-    void AssignArkValue(Ark_Padding& dst, const PaddingProperty& src, ConvContext *ctx);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_Padding& dst, const PaddingProperty& src, ConvContext *ctx);
     void AssignArkValue(Ark_PanDirection& dst, const PanDirection& src);
+    void AssignArkValue(Ark_PanRecognizer &dst, const RefPtr<NG::PanRecognizer>& src, ConvContext *ctx);
+    void AssignArkValue(Ark_PinchRecognizer &dst, const RefPtr<NG::PinchRecognizer>& src, ConvContext *ctx);
+    void AssignArkValue(Ark_RotationRecognizer &dst, const RefPtr<NG::RotationRecognizer>& src, ConvContext *ctx);
+    void AssignArkValue(Ark_SwipeRecognizer &dst, const RefPtr<NG::SwipeRecognizer>& src, ConvContext *ctx);
+    void AssignArkValue(Ark_TapRecognizer &dst, const RefPtr<NG::ClickRecognizer>& src, ConvContext *ctx);
+    void AssignArkValue(Ark_GestureRecognizer &dst, const RefPtr<NG::NGGestureRecognizer>& src, ConvContext *ctx);
+    void AssignArkValue(Ark_LongPressRecognizer &dst, const RefPtr<NG::LongPressRecognizer>& src, ConvContext *ctx);
+    // Two-parameter versions for gesture recognizers
+    void AssignArkValue(Ark_GestureRecognizer &dst, const RefPtr<NG::NGGestureRecognizer>& src);
+    void AssignArkValue(Ark_TapRecognizer &dst, const RefPtr<NG::ClickRecognizer>& src);
+    void AssignArkValue(Ark_LongPressRecognizer &dst, const RefPtr<NG::LongPressRecognizer>& src);
     void AssignArkValue(Ark_PanRecognizer &dst, const RefPtr<NG::PanRecognizer>& src);
-    void AssignArkValue(Ark_PasteButtonOnClickResult& dst, const SecurityComponentHandleResult& src);
     void AssignArkValue(Ark_PinchRecognizer &dst, const RefPtr<NG::PinchRecognizer>& src);
+    void AssignArkValue(Ark_SwipeRecognizer &dst, const RefPtr<NG::SwipeRecognizer>& src);
+    void AssignArkValue(Ark_RotationRecognizer &dst, const RefPtr<NG::RotationRecognizer>& src);
+    void AssignArkValue(Ark_PasteButtonOnClickResult& dst, const SecurityComponentHandleResult& src);
     void AssignArkValue(Ark_Position& dst, const OffsetF& src, ConvContext *ctx);
-    void AssignArkValue(Ark_PreviewText& dst, const PreviewText& src, ConvContext *ctx);
-    void AssignArkValue(Ark_PreviewText& dst, const PreviewTextInfo& src, ConvContext *ctx);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_PreviewText& dst, const PreviewText& src, ConvContext *ctx);
     void AssignArkValue(Ark_RectResult& dst, const OHOS::Ace::Rect& src);
     void AssignArkValue(Ark_RectResult& dst, const RectF& src);
-    void AssignArkValue(Ark_Rectangle& dst, const Rect& src);
-    void AssignArkValue(Ark_RefreshStatus& dst, const RefreshStatus& src);
     void AssignArkValue(Ark_RenderExitReason& dst, const RenderExitReason& src);
     void AssignArkValue(Ark_RenderProcessNotRespondingReason& dst, const RenderProcessNotRespondingReason& src);
-    void AssignArkValue(Ark_Resource& dst, const ResourceObject& src, ConvContext *ctx);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_Resource& dst, const ResourceObject& src, ConvContext *ctx);
+    void AssignArkValue(Ark_ResourceStr &dst, const char *src, ConvContext *ctx);
     void AssignArkValue(Ark_ResourceStr &dst, const std::string& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorChangeValue& dst, const RichEditorChangeValue& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorDeleteDirection& dst, const RichEditorDeleteDirection& src);
-    void AssignArkValue(Ark_RichEditorDeleteValue& dst, const RichEditorDeleteValue& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorImageSpanResult& dst, const ResultObject& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorImageSpanResult& dst, const RichEditorAbstractSpanResult& src, ConvContext *ctx);
+    void AssignArkValue(Ark_LinearGradientOptions& dst, const NG::Gradient& src, ConvContext *ctx);
+    void AssignArkValue(Ark_RadialGradientOptions& dst, const NG::Gradient& src, ConvContext *ctx);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_RichEditorDeleteDirection& dst, const RichEditorDeleteDirection& src);
     void AssignArkValue(Ark_RichEditorImageSpanStyleResult& dst, const ImageStyleResult& src);
-    void AssignArkValue(Ark_RichEditorInsertValue& dst, const RichEditorInsertValue& src);
-    void AssignArkValue(Ark_RichEditorLayoutStyle& dst, const ImageStyleResult& src);
-    void AssignArkValue(Ark_RichEditorParagraphResult& dst, const ParagraphInfo& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorParagraphStyle& dst, const ParagraphInfo& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorParagraphStyle& dst, const TextStyleResult& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorRange& dst, const BaseEventInfo& src);
-    void AssignArkValue(Ark_RichEditorSelection& dst, const BaseEventInfo& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorSelection& dst, const SelectionInfo& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorSpanPosition& dst, const RichEditorAbstractSpanResult& src);
-    void AssignArkValue(Ark_RichEditorSpanPosition& dst, const SpanPosition& src);
-    void AssignArkValue(Ark_RichEditorSymbolSpanStyle& dst, const SymbolSpanStyle& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorTextSpanResult& dst, const ResultObject& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorTextSpanResult& dst, const RichEditorAbstractSpanResult& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorTextStyleResult& dst, const RichEditorAbstractSpanResult& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorTextStyleResult& dst, const TextStyleResult& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RichEditorUrlStyle& dst, const std::u16string& src, ConvContext *ctx);
-    void AssignArkValue(Ark_RotationRecognizer &dst, const RefPtr<NG::RotationRecognizer>& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_RichEditorLayoutStyle& dst, const ImageStyleResult& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_RichEditorParagraphStyle& dst, const TextStyleResult& src, ConvContext *ctx);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_RichEditorRange& dst, const BaseEventInfo& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_RichEditorSelection& dst, const SelectionInfo& src, ConvContext *ctx);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_RichEditorSymbolSpanStyle& dst, const SymbolSpanStyle& src, ConvContext *ctx);
     void AssignArkValue(Ark_SaveButtonOnClickResult& dst, const SecurityComponentHandleResult& src);
     void AssignArkValue(Ark_ScrollAlign& dst, const ScrollAlign& src);
     void AssignArkValue(Ark_ScrollSnapAlign& dst, const V2::ScrollSnapAlign& src);
-    void AssignArkValue(Ark_ScrollSource& dst, const ScrollSource& src);
-    void AssignArkValue(Ark_ScrollState& dst, const ScrollState& src);
-    void AssignArkValue(Ark_SectionOptions& dst, const WaterFlowSections::Section& src);
-    void AssignArkValue(Ark_SelectStatus& dst, const int32_t& src);
-    void AssignArkValue(Ark_ShadowOptions& dst, const Shadow& src, ConvContext* ctx);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_ScrollSource& dst, const ScrollSource& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_ScrollState& dst, const ScrollState& src);
+    void ACE_FORCE_EXPORT AssignArkValue(Ark_SelectStatus& dst, const int32_t& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_ShadowOptions& dst, const Shadow& src, ConvContext* ctx);
     void AssignArkValue(Ark_ShadowType& dst, const ShadowType& src);
     void AssignArkValue(Ark_SharedTransitionEffectType& dst, const SharedTransitionEffectType& src);
     void AssignArkValue(Ark_SheetType& dst, const SheetType& src);
     void AssignArkValue(Ark_Size& dst, const SizeF& src);
-    void AssignArkValue(Ark_SliderChangeMode& dst, const SliderModel::SliderChangeMode& src);
+    void AssignArkValue(Ark_SizeResult& dst, const SizeF& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_SliderChangeMode& dst, const SliderModel::SliderChangeMode& src);
     void AssignArkValue(Ark_SourceTool& dst, const SourceTool& src);
     void AssignArkValue(Ark_SourceType& dst, const SourceType& src);
-    void AssignArkValue(Ark_SpanStyle& span, const RefPtr<OHOS::Ace::SpanBase>& baseSpan);
+    void AssignArkValue(Ark_SpanStyle& dst, const RefPtr<OHOS::Ace::SpanBase>& src);
     void AssignArkValue(Ark_SslError& dst, const SslError& src);
     void AssignArkValue(Ark_StickyStyle& dst, const V2::StickyStyle& src);
     void AssignArkValue(Ark_String& dst, const CalcDimension& src, ConvContext *ctx);
     void AssignArkValue(Ark_String& dst, const Color& src, ConvContext *ctx);
     void AssignArkValue(Ark_String& dst, const Dimension& src, ConvContext *ctx);
     void AssignArkValue(Ark_String& dst, const FONT_FEATURES_LIST& src, ConvContext *ctx);
-    void AssignArkValue(Ark_String& dst, const std::u16string& src, ConvContext *ctx);
-    void AssignArkValue(Ark_StyledString& dst, const StyledStringPeer& src);
-    void AssignArkValue(Ark_StyledStringKey& dst, OHOS::Ace::SpanType src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_String& dst, const std::u16string& src, ConvContext *ctx);
+    void AssignArkValue(Ark_StyledStringKey& dst, SpanType src);
+    void AssignArkValue(Ark_SuperscriptStyle& dst, const SuperscriptStyle& src);
     void AssignArkValue(Ark_SwipeActionState& dst, const SwipeActionState& src);
-    void AssignArkValue(Ark_SwipeDirection &dst, const OHOS::Ace::SwipeDirection &src);
+    void AssignArkValue(Ark_SwipeDirection& dst, const SwipeDirection& src);
     void AssignArkValue(Ark_SwipeEdgeEffect& dst, const V2::SwipeEdgeEffect& src);
-    void AssignArkValue(Ark_SwipeRecognizer &dst, const RefPtr<NG::SwipeRecognizer>& src);
-    void AssignArkValue(Ark_TapRecognizer &dst, const RefPtr<NG::ClickRecognizer>& src);
     void AssignArkValue(Ark_TextAlign& dst, const TextAlign& src);
-    void AssignArkValue(Ark_TextBackgroundStyle& dst, const TextBackgroundStyle& src, ConvContext *ctx);
-    void AssignArkValue(Ark_TextChangeOptions& dst, const ChangeValueInfo& src, ConvContext *ctx);
-    void AssignArkValue(Ark_LengthMetricsCustom& dst, const CalcDimension& src);
-    void AssignArkValue(Ark_NavPathInfo& dst, const OHOS::Ace::NG::GeneratedModifier::NavigationContext::PathInfo& src);
-    void AssignArkValue(
-        Ark_NavPathStack& dst, const RefPtr<NG::GeneratedModifier::NavigationContext::NavigationStack>& src);
-    void AssignArkValue(Ark_TextDecorationStyle& dst, const OHOS::Ace::TextDecorationStyle& src);
-    void AssignArkValue(Ark_TextDecorationType& dst, const OHOS::Ace::TextDecoration& src);
-    void AssignArkValue(Ark_TextDeleteDirection& dst, const TextDeleteDirection& src);
-    void AssignArkValue(Ark_font_UIFontFallbackInfo& dst, const FallbackInfo& src, ConvContext* ctx);
-    void AssignArkValue(Ark_font_UIFontFallbackGroupInfo& dst, const FallbackGroup& src, ConvContext* ctx);
-    void AssignArkValue(Ark_font_UIFontAdjustInfo& dst, const AdjustInfo& src);
-    void AssignArkValue(Ark_font_UIFontAliasInfo& dst, const AliasInfo& src, ConvContext* ctx);
-    void AssignArkValue(Ark_font_UIFontGenericInfo& dst, const FontGenericInfo& src, ConvContext* ctx);
-    void AssignArkValue(Ark_font_UIFontConfig& dst, const FontConfigJsonInfo& src, ConvContext* ctx);
-    void AssignArkValue(Ark_TextMenuItem& dst, const NG::MenuItemParam& src, ConvContext* ctx);
-    void AssignArkValue(Ark_TextMetrics& dst, const OHOS::Ace::TextMetrics& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_TextBackgroundStyle& dst, const TextBackgroundStyle& src, ConvContext *ctx);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_TextChangeOptions& dst, const ChangeValueInfo& value, ConvContext *ctx);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_TextChangeReason& dst, const TextChangeReason& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_TextDecorationStyle& dst, const TextDecorationStyle& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_TextDecorationType& dst, const TextDecoration& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_TextDeleteDirection& dst, const TextDeleteDirection& src);
+    void AssignArkValue(Ark_TextDirection& dst, const TextDirection& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_TextMenuItem& dst, const NG::MenuItemParam& src, ConvContext* ctx);
     void AssignArkValue(Ark_TextOverflow& dst, const TextOverflow& src);
     void AssignArkValue(Ark_TextRange& dst, const SelectionInfo& src);
-    void AssignArkValue(Ark_TextRange& dst, const TextRange& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_TextRange& dst, const TextRange& src);
+    void AssignArkValue(Ark_TextVerticalAlign& dst, const TextVerticalAlign& src);
+    void AssignArkValue(Ark_TextVerticalAlign& dst, const int32_t& src);
     void AssignArkValue(Ark_ThreatType& dst, const ThreatType& src);
-    void AssignArkValue(Ark_TimePickerResult& dst, const std::string& src);
+    ACE_FORCE_EXPORT void AssignArkValue(Ark_TimePickerResult& dst, const std::string& src);
     void AssignArkValue(Ark_TouchObject& dst, const OHOS::Ace::TouchLocationInfo& src);
-    void AssignArkValue(Ark_TouchTestInfo& dst, const OHOS::Ace::NG::TouchTestInfo& src);
     void AssignArkValue(Ark_TouchType& dst, const TouchType& src);
     void AssignArkValue(Ark_TransitionEdge& dst, const TransitionEdge& src);
-    void AssignArkValue(Ark_TransitionEffect& dst, const RefPtr<NG::ChainedTransitionEffect>& src);
-    void AssignArkValue(Ark_Tuple_Dimension_Dimension& dst, const std::pair<const Dimension, const Dimension>& src);
+    void AssignArkValue(Ark_Vector2& dst, const OffsetF& src);
     void AssignArkValue(Ark_ViewportFit& dst, const ViewportFit& src);
     void AssignArkValue(Ark_VisibleListContentInfo& dst, const ListItemGroupIndex& src);
     void AssignArkValue(Ark_VisibleListContentInfo& dst, const ListItemIndex& src);
     void AssignArkValue(Ark_WebNavigationType& dst, const NavigationType& src);
-    void AssignArkValue(Ark_WordBreak& dst, const WordBreak& src);
-    void AssignArkValue(Ark_uiObserver_NavigationInfo& dst, const std::shared_ptr<OHOS::Ace::NG::NavigationInfo>& src);
-    void AssignArkValue(Ark_unifiedDataChannel_UnifiedData& dst, const RefPtr<UnifiedData>& src);
+    void AssignArkValue(Ark_WordBreak& dst, const OHOS::Ace::WordBreak& src);
+    void AssignArkValue(Ark_drawing_FontMetrics& dst, const FontMetrics& src, ConvContext *ctx);
+    void AssignArkValue(Ark_promptAction_CommonState& dst, const PromptActionCommonState& src);
 
+    template<typename T, std::enable_if_t<std::is_same_v<T, GestureRecognizerJudgeBeginCallback>, bool> = true>
+    void AssignArkValue(T& dst, const std::function<void(Ark_VMContext, Ark_Int32, Ark_BaseGestureEvent,
+        Ark_GestureRecognizer, Array_GestureRecognizer, Array_TouchRecognizer, Callback_GestureJudgeResult_Void)>& src)
+    {
+        dst = Converter::ArkValue<T>(src);
+    }
     // Long declarations
     void AssignArkValue(Ark_Tuple_Dimension_Dimension& dst, const std::pair<const Dimension, const Dimension>& src,
         ConvContext *ctx);
-    void AssignArkValue(Ark_text_Affinity& dst, const TextAffinity& src);
-    void AssignArkValue(Ark_common2D_Rect& dst, const OHOS::Ace::NG::RectT<float>& src);
-    void AssignArkValue(Ark_text_TextDirection& dst, const OHOS::Ace::TextDirection& src);
-    void AssignArkValue(Ark_text_TextBox& dst, const ParagraphManager::TextBox& src);
-    void AssignArkValue(Ark_text_LineMetrics& dst, const OHOS::Ace::TextLineMetrics& src, ConvContext *ctx);
-    void AssignArkValue(Map_Int32_text_RunMetrics& dst, const std::map<size_t, RunMetrics>& src, ConvContext *ctx);
-    void AssignArkValue(Ark_text_RunMetrics& dst, const RunMetrics& src, ConvContext *ctx);
-    void AssignArkValue(Ark_text_TextStyle& dst, const TextStyle& src, ConvContext *ctx);
-    void AssignArkValue(Ark_text_Decoration& dst, const TextDecoration& src, ConvContext *ctx);
-    void AssignArkValue(Ark_text_TextDecorationType& dst, const TextDecoration& src, ConvContext *ctx);
-    void AssignArkValue(Ark_common2D_Color& dst, const Color& src, ConvContext *ctx);
-    void AssignArkValue(Ark_text_FontWeight& dst, const FontWeight& src, ConvContext *ctx);
-    void AssignArkValue(Ark_text_FontStyle& dst, const OHOS::Ace::FontStyle& src, ConvContext *ctx);
-    void AssignArkValue(Ark_text_TextBaseline& dst, const TextBaseline& src, ConvContext *ctx);
-    void AssignArkValue(Ark_text_EllipsisMode& dst, const EllipsisMode& src, ConvContext *ctx);
-    void AssignArkValue(Ark_drawing_FontMetrics& dst, const FontMetrics& src, ConvContext *ctx);
+    // DO NOT ADD NEW DECLARATIONS HERE!!! Add in alphabetic order above!
 
     // SORTED_SECTION
     template<> Ark_LengthMetrics ArkCreate(Ark_LengthUnit unit, float value);
@@ -442,14 +529,15 @@ namespace OHOS::Ace::NG::Converter {
 
     // Passthrough version
     template<typename T>
-    void AssignArkValue(T &dst, const T& src, ConvContext *ctx)
+    ACE_FORCE_EXPORT void AssignArkValue(T &dst, const T& src, ConvContext *ctx)
     {
         dst = src;
     }
 
     template<typename To, typename From>
-    std::enable_if_t<std::is_pointer_v<To> && std::is_pointer_v<From> && std::is_assignable_v<To&, From>>
-    AssignArkValue(To& dst, const From& src)
+    ACE_FORCE_EXPORT
+        std::enable_if_t<std::is_pointer_v<To> && std::is_pointer_v<From> && std::is_assignable_v<To&, From>>
+        AssignArkValue(To& dst, const From& src)
     {
         dst = src;
     }
@@ -459,14 +547,14 @@ namespace OHOS::Ace::NG::Converter {
         std::enable_if_t<!IsOptional<To>::value &&
             !IsArray<To>::value &&
             !IsMap<To>::value, bool> = false>
-    void AssignArkValue(To& dts, const From& src, ConvContext *ctx)
+    ACE_FORCE_EXPORT void AssignArkValue(To& dts, const From& src, ConvContext *ctx)
     {
         AssignArkValue(dts, src);
     }
 
     // Handle optional types
     template<typename To, typename From, std::enable_if_t<IsOptional<To>::value, bool> = true>
-    void AssignArkValue(To& dst, const From& src, ConvContext *ctx = nullptr)
+    ACE_FORCE_EXPORT void AssignArkValue(To& dst, const From& src, ConvContext *ctx = nullptr)
     {
         if constexpr (std::is_same_v<From, Ark_Empty> || std::is_same_v<From, std::nullopt_t>) {
             dst.tag = INTEROP_TAG_UNDEFINED;
@@ -477,7 +565,7 @@ namespace OHOS::Ace::NG::Converter {
     }
 
     template<typename To, typename From, std::enable_if_t<IsOptional<To>::value, bool> = true>
-    void AssignArkValue(To& dst, const std::optional<From>& src, ConvContext *ctx = nullptr)
+    ACE_FORCE_EXPORT void AssignArkValue(To& dst, const std::optional<From>& src, ConvContext *ctx = nullptr)
     {
         if (src.has_value()) {
             dst.tag = INTEROP_TAG_OBJECT;
@@ -495,7 +583,7 @@ namespace OHOS::Ace::NG::Converter {
 
     // Array with context
     template<typename To, typename Cont>
-    std::enable_if_t<IsArray<To>::value> AssignArkValue(To& dst, const Cont& src, ConvContext *ctx)
+    ACE_FORCE_EXPORT std::enable_if_t<IsArray<To>::value> AssignArkValue(To& dst, const Cont& src, ConvContext *ctx)
     {
         using Val = std::remove_pointer_t<decltype(dst.array)>;
         dst = ctx->AllocateArray<To>(src.size());
@@ -506,7 +594,7 @@ namespace OHOS::Ace::NG::Converter {
 
     // Map with context
     template<typename To, typename Cont>
-    std::enable_if_t<IsMap<To>::value> AssignArkValue(To& dst, const Cont& src, ConvContext *ctx)
+    ACE_FORCE_EXPORT std::enable_if_t<IsMap<To>::value> AssignArkValue(To& dst, const Cont& src, ConvContext *ctx)
     {
         using KeyT = std::remove_pointer_t<decltype(dst.keys)>;
         using ValT = std::remove_pointer_t<decltype(dst.values)>;
@@ -815,6 +903,15 @@ namespace OHOS::Ace::NG::Converter {
     // Create Ark_CallbackResource with async callback.
     template <typename T,
         std::enable_if_t<std::is_same_v<decltype(T().resource), Ark_CallbackResource>, bool> = true>
+    T ArkCallback(decltype(T().call) callbackFunc, Ark_Int32 resId = 0)
+    {
+        return T { .resource = { .resourceId = resId, .hold = nullptr, .release = nullptr },
+            .call = callbackFunc, .callSync = nullptr
+        };
+    }
+
+    template <typename T,
+        std::enable_if_t<std::is_same_v<decltype(T().resource), Ark_CallbackResource>, bool> = true>
     T ArkValue(decltype(T().call) callbackFunc, Ark_Int32 resId = 0)
     {
         return T { .resource = { .resourceId = resId, .hold = nullptr, .release = nullptr },
@@ -823,6 +920,15 @@ namespace OHOS::Ace::NG::Converter {
     }
 
     // Create Ark_CallbackResource with sync callback.
+    template <typename T,
+        std::enable_if_t<std::is_same_v<decltype(T().resource), Ark_CallbackResource>, bool> = true>
+    T ArkCallback(decltype(T().callSync) callbackFunc, Ark_Int32 resId = 0)
+    {
+        return T { .resource = { .resourceId = resId, .hold = nullptr, .release = nullptr },
+            .call = nullptr, .callSync = callbackFunc
+        };
+    }
+
     template <typename T,
         std::enable_if_t<std::is_same_v<decltype(T().resource), Ark_CallbackResource>, bool> = true>
     T ArkValue(decltype(T().callSync) callbackFunc, Ark_Int32 resId = 0)
@@ -840,6 +946,13 @@ namespace OHOS::Ace::NG::Converter {
         return T { .resource = { .resourceId = id, .hold = nullptr, .release = nullptr },
             .call = callback, .callSync = callbackSync
         };
+    }
+
+    // Optional callback
+    template <typename T, typename... Args>
+    std::enable_if_t<IsOptional<T>::value, T> ArkCallback(Args... args)
+    {
+        return ArkValue<T>(ArkCallback<decltype(T().value)>(args...));
     }
 
     template<typename Ark_Type, typename Peer = std::remove_pointer_t<Ark_Type>,
@@ -868,18 +981,6 @@ namespace OHOS::Ace::NG::Converter {
         Peer* const peer_ = PeerUtils::CreatePeer<Peer>();
         const std::shared_ptr<typename Peer::EventInfo> info_ = peer_->eventInfo;
     };
-
-    using ArkAccessibilityHoverEventSync = SyncEvent<Ark_AccessibilityHoverEvent>;
-    using ArkAxisEventSync = SyncEvent<Ark_AxisEvent>;
-    using ArkClickEventSync = SyncEvent<Ark_ClickEvent>;
-    using ArkFocusAxisEventSync = SyncEvent<Ark_FocusAxisEvent>;
-    using ArkGestureEventSync = SyncEvent<Ark_GestureEvent>;
-    using ArkHoverEventSync = SyncEvent<Ark_HoverEvent>;
-    using ArkKeyEventSync = SyncEvent<Ark_KeyEvent>;
-    using ArkMouseEventSync = SyncEvent<Ark_MouseEvent>;
-    using ArkSubmitEventSync = SyncEvent<Ark_SubmitEvent>;
-    using ArkTouchEventSync = SyncEvent<Ark_TouchEvent>;
-    using ArkAxisEventSync = SyncEvent<Ark_AxisEvent>;
 } // namespace OHOS::Ace::NG::Converter
 
 #endif  // FOUNDATION_ACE_FRAMEWORKS_CORE_UTILITY_REVERSE_CONVERTER_H

@@ -23,10 +23,10 @@
 #define private public
 #include "core/components_ng/pattern/navigation/navigation_model_ng.h"
 #include "core/components_ng/pattern/navigation/navigation_pattern.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -259,6 +259,7 @@ HWTEST_F(NavigationSyncStackTestNg, NavigationSyncStackTestNg004, TestSize.Level
     NavigationModelNG navigationModel;
     navigationModel.Create();
     auto mockNavPathStack = AceType::MakeRefPtr<MockNavigationStack>();
+    ASSERT_NE(mockNavPathStack, nullptr);
     navigationModel.SetNavigationStack(mockNavPathStack);
     RefPtr<NavigationGroupNode> navigationNode =
         AceType::DynamicCast<NavigationGroupNode>(ViewStackProcessor::GetInstance()->Finish());

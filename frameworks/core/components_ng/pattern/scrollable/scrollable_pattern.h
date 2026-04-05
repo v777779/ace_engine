@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -20,36 +20,51 @@
 #include <vector>
 
 #include "base/geometry/axis.h"
+#include "core/animation/bezier_variable_velocity_motion.h"
 #include "core/animation/select_motion.h"
 #include "core/animation/spring_curve.h"
-#include "core/animation/bezier_variable_velocity_motion.h"
 #include "core/animation/velocity_motion.h"
 #include "core/components_ng/base/frame_scene_status.h"
 #include "core/components_ng/event/drag_event.h"
-#include "core/components_ng/pattern/navigation/nav_bar_pattern.h"
-#include "core/components_ng/pattern/navrouter/navdestination_pattern.h"
-#include "core/components_ng/pattern/overlay/sheet_presentation_pattern.h"
-#include "core/components_ng/pattern/pattern.h"
-#include "core/components_ng/pattern/scroll/inner/scroll_bar.h"
-#include "core/components_ng/pattern/scroll/inner/scroll_bar_overlay_modifier.h"
-#include "core/components_ng/pattern/scroll_bar/proxy/scroll_bar_proxy.h"
-#include "core/components_ng/pattern/scrollable/nestable_scroll_container.h"
-#include "core/components_ng/pattern/scrollable/refresh_coordination.h"
-#include "core/components_ng/pattern/scrollable/scrollable_controller.h"
-#include "core/components_ng/pattern/scrollable/scrollable_coordination_event.h"
-#include "core/components_ng/pattern/scrollable/scrollable_paint_method.h"
-#include "core/components_ng/pattern/scrollable/scrollable_paint_property.h"
-#include "core/components_ng/pattern/scrollable/scrollable_properties.h"
-#include "core/components_ng/pattern/scrollable/scrollable_theme.h"
-#include "core/components_ng/render/animation_utils.h"
-#include "core/event/mouse_event.h"
 #include "core/components_ng/event/scrollable_event.h"
+#include "core/components_ng/manager/content_change_manager/content_change_manager.h"
+#include "core/components_ng/pattern/scrollable/nestable_scroll_container.h"
+#include "core/components_ng/pattern/scrollable/scrollable.h"
+#include "core/components_ng/pattern/scrollable/scrollable_properties.h"
+#include "core/components_ng/pattern/scroll/inner/scroll_bar.h"
+#include "core/components_ng/pattern/scroll_bar/proxy/scroll_bar_proxy.h"
+#include "core/components_ng/pattern/scrollable/scrollable_controller.h"
+#include "core/components_ng/render/animation_utils.h"
 #ifdef SUPPORT_DIGITAL_CROWN
 #include "core/event/crown_event.h"
 #endif
 #include "core/event/statusbar/statusbar_event_proxy.h"
+#include "core/components/scroll/scroll_controller_base.h"
+
+namespace OHOS::Ace {
+class ScrollControllerBase;
+enum class ScrollAlign : int;
+enum class ScrollEdgeType : size_t;
+}
+
 namespace OHOS::Ace::NG {
 class InspectorFilter;
+class GestureEventHub;
+class InputEvent;
+class InputEventHub;
+class NavDestinationPatternBase;
+class RefreshCoordination;
+enum class RefreshCoordinationMode : char;
+class Scrollable;
+class ScrollableController;
+class ScrollablePaintMethod;
+class ScrollBar;
+struct ScrollBarProperty;
+class ScrollBarOverlayModifier;
+class ScrollBarProxy;
+class ScrollEdgeEffect;
+class SheetPresentationPattern;
+class TouchEventImpl;
 #ifndef WEARABLE_PRODUCT
 constexpr double FRICTION = 0.6;
 constexpr double API11_FRICTION = 0.7;
@@ -71,13 +86,35 @@ enum class ModalSheetCoordinationMode : char {
     SHEET_SCROLL = 1,
     SCROLLABLE_SCROLL = 2,
 };
+enum class ScrollToDirection {
+    NONE = 0,
+    FORWARD,
+    BACKWARD
+};
+enum class ScrollError {
+    SCROLL_NO_ERROR,
+    SCROLL_TOP_ERROR,
+    SCROLL_BOTTOM_ERROR,
+    SCROLL_NOT_SCROLLABLE_ERROR,
+    SCROLL_ERROR_OTHER
+};
 struct ScrollOffsetAbility {
     std::function<bool(float)> scrollFunc = nullptr;
     Axis axis = Axis::VERTICAL;
     float contentStartOffset = 0.0f;
     float contentEndOffset = 0.0f;
 };
-class ScrollablePattern : public NestableScrollContainer, public virtual StatusBarClickListener {
+struct ScrollOnInjectionEventInfo {
+    bool isScrollByRatio = false;
+    bool isScrollByOffset = false;
+    bool isScrollByTargetId = false;
+    int reportEventId = 0;
+    int32_t targetId = -1;
+    float ratio = 0.0f;
+    double scrollOffset = 0.0;
+};
+
+class ACE_FORCE_EXPORT ScrollablePattern : public NestableScrollContainer, public virtual StatusBarClickListener {
     DECLARE_ACE_TYPE(ScrollablePattern, NestableScrollContainer);
 
 public:
@@ -155,9 +192,9 @@ public:
     {
         return !IsAtBottom();
     }
-    virtual bool OutBoundaryCallback()
+    virtual bool OutBoundaryCallback(bool useCurrentDelta = true)
     {
-        return IsOutOfBoundary();
+        return IsOutOfBoundary(useCurrentDelta);
     }
 
     virtual bool IsOutOfBoundary(bool useCurrentDelta = true)
@@ -165,7 +202,23 @@ public:
         return false;
     }
 
+    virtual bool TryFreeScroll(double offset, Axis axis)
+    {
+        return false;
+    }
+
+    virtual bool FreeOverScrollWithDelta(Axis axis, double delta)
+    {
+        return false;
+    }
+
+    virtual bool CanOverScrollWithDelta(double delta, bool isNestScroller = false);
+
     virtual void OnTouchDown(const TouchEventInfo& info);
+
+    void OnTouchpadInteraction(PointF point);
+
+    virtual void ProcessFreeScrollOverDrag(const OffsetF velocity) {};
 
     void AddScrollEvent();
     RefPtr<ScrollableEvent> GetScrollableEvent()
@@ -187,6 +240,10 @@ public:
     bool ScrollableIdle()
     {
         return !scrollableEvent_ || scrollableEvent_->Idle();
+    }
+    bool ScrollBarIdle()
+    {
+        return !scrollBarProxy_ || scrollBarProxy_->Idle();
     }
     void SetScrollEnabled(bool enabled)
     {
@@ -234,6 +291,7 @@ public:
     void SetScrollBarProxy(const RefPtr<ScrollBarProxy>& scrollBarProxy);
     virtual RefPtr<ScrollBarOverlayModifier> CreateOverlayModifier();
     void CreateScrollBarOverlayModifier();
+    virtual void AdjustOffset(float& delta, int32_t source) {}
 
     float GetScrollableDistance() const
     {
@@ -388,14 +446,39 @@ public:
     {
         scrollAbort_ = abort;
     }
-    void PlaySpringAnimation(
-        float position, float velocity, float mass, float stiffness, float damping, bool useTotalOffset = true);
+    void PlaySpringAnimation(float position, float velocity, float mass, float stiffness, float damping,
+                            bool useTotalOffset = true);
     void PlayCurveAnimation(float position, float duration, const RefPtr<Curve>& curve, bool canOverScroll);
-    virtual float GetTotalOffset() const
+    virtual double GetTotalOffset() const
     {
         return 0.0f;
     }
+
+    /* ============================= Free Scroll Enhancements ============================= */
+    virtual Offset GetFreeScrollOffset() const
+    {
+        return {};
+    }
+    virtual bool FreeScrollBy(const OffsetF& delta, bool canOverScroll = false)
+    {
+        return false;
+    }
+    virtual bool FreeScrollPage(bool reverse, bool smooth)
+    {
+        return false;
+    }
+    virtual bool FreeScrollToEdge(ScrollEdgeType type, bool smooth, std::optional<float> velocity)
+    {
+        return false;
+    }
+    virtual void FreeScrollTo(const ScrollControllerBase::ScrollToParam& param) {}
+    /* ============================================================================== */
+
     virtual float GetContentStartOffset() const
+    {
+        return 0.0f;
+    }
+    virtual float GetContentEndOffset() const
     {
         return 0.0f;
     }
@@ -407,13 +490,14 @@ public:
     virtual void OnAnimateStop() {}
     virtual void ScrollTo(float position);
     virtual void AnimateTo(
-        float position, float duration, const RefPtr<Curve> &curve, bool smooth, bool canOverScroll = false,
+        float position, float duration, const RefPtr<Curve>& curve, bool smooth, bool canOverScroll = false,
         bool useTotalOffset = true);
     virtual bool CanOverScroll(int32_t source)
     {
         auto canOverScroll =
             (IsScrollableSpringEffect() && source != SCROLL_FROM_AXIS && source != SCROLL_FROM_BAR && IsScrollable() &&
-                (!ScrollableIdle() || animateOverScroll_ || animateCanOverScroll_));
+                (!ScrollableIdle() || animateOverScroll_ || animateCanOverScroll_ ||
+                    source == SCROLL_FROM_BAR_OVER_DRAG));
         if (canOverScroll != lastCanOverScroll_) {
             lastCanOverScroll_ = canOverScroll;
             AddScrollableFrameInfo(source);
@@ -435,6 +519,20 @@ public:
     bool GetCanStayOverScroll() const
     {
         return canStayOverScroll_;
+    }
+    void ChangeAnimateOverScroll()
+    {
+        if (GetScrollSource() == SCROLL_FROM_JUMP && GetCanStayOverScroll()) {
+            SetAnimateCanOverScroll(false);
+        }
+    }
+    void ChangeCanStayOverScroll()
+    {
+        if (GetIsOverScroll()) {
+            if (!IsOutOfBoundary()) {
+                SetIsOverScroll(false);
+            }
+        }
     }
     void MarkSelectedItems();
     bool ShouldSelectScrollBeStopped();
@@ -510,6 +608,9 @@ public:
     static ScrollState GetScrollState(int32_t scrollSource);
 
     static ScrollSource ConvertScrollSource(int32_t source);
+
+    static int32_t ScrollToTarget(
+        RefPtr<FrameNode>& scrollable, RefPtr<FrameNode>& target, float targetOffset, ScrollAlign targetAlign);
 
     float CalculateFriction(float gamma)
     {
@@ -655,23 +756,14 @@ public:
         return false;
     }
 
-    void SetNeedLinked(bool needLinked)
-    {
-        needLinked_ = needLinked;
-    }
-
     void SetAnimateCanOverScroll(bool animateCanOverScroll)
     {
         bool isScrollable = !(IsAtBottom() && IsAtTop() && !GetAlwaysEnabled());
         animateCanOverScroll_ = isScrollable && animateCanOverScroll;
     }
 
-    virtual std::vector<RefPtr<FrameNode>> GetVisibleSelectedItems()
-    {
-        std::vector<RefPtr<FrameNode>> children;
-        return children;
-    }
     void InitScrollBarGestureEvent();
+
     virtual void InitScrollBarClickEvent();
     void HandleClickEvent();
     void InitScrollBarMouseEvent();
@@ -737,7 +829,7 @@ public:
 
     PositionMode GetPositionMode();
 
-    void HandleMoveEventInComp(const PointF& point);
+    void HandleMoveEventInComp(const PointF& point, bool needExpandHotZone = false);
     void HandleLeaveHotzoneEvent();
     void SetHotZoneScrollCallback(std::function<void(void)>&& func)
     {
@@ -837,6 +929,15 @@ public:
 
     void OnStatusBarClick() override;
 
+    void SetIsAllowMouse(bool enableScrollWithMouse)
+    {
+        isAllowMouse_ = enableScrollWithMouse;
+    }
+    virtual bool GetIsAllowMouse() const
+    {
+        return isAllowMouse_;
+    }
+
     void GetRepeatCountInfo(
         RefPtr<UINode> node, int32_t& repeatDifference, int32_t& firstRepeatCount, int32_t& totalChildCount);
 
@@ -854,10 +955,54 @@ public:
 
     void MarkScrollBarProxyDirty();
 
-    RefPtr<ScrollBar> GetScrollableScrollBar() const
+    bool ChildPreMeasureHelperEnabled() override
+    {
+        return true;
+    }
+    bool PostponedTaskForIgnoreEnabled() override
+    {
+        return true;
+    }
+
+    bool NeedCustomizeSafeAreaPadding() override
+    {
+        return true;
+    }
+
+    PaddingPropertyF CustomizeSafeAreaPadding(PaddingPropertyF safeAreaPadding, bool needRotate) override;
+
+    bool ChildTentativelyLayouted() override
+    {
+        return true;
+    }
+
+    bool AccumulatingTerminateHelper(RectF& adjustingRect, ExpandEdges& totalExpand, bool fromSelf = false,
+        LayoutSafeAreaType ignoreType = NG::LAYOUT_SAFE_AREA_TYPE_SYSTEM) override;
+
+    void SetNeedFullSafeArea(bool needFullSafeArea)
+    {
+        needFullSafeArea_ = needFullSafeArea;
+    }
+
+    RefPtr<ScrollBar> GetScrollBar() const
     {
         return scrollBar_;
     }
+
+    bool IsInitialized() const
+    {
+        return isInitialized_;
+    }
+    void ProcessScrollOverDrag(double velocity, bool isNestScroller);
+
+    static double GetDefaultFriction();
+
+    void SetCanOverScroll(bool val);
+
+    void ContentChangeReport(const RefPtr<FrameNode>& keyNode, uint32_t type = ContentChangeManager::NONE);
+
+    void ContentChangeOnScrollStart(const RefPtr<FrameNode>& keyNode);
+
 protected:
     void SuggestOpIncGroup(bool flag);
     void OnAttachToFrameNode() override;
@@ -867,10 +1012,7 @@ protected:
     void OnDetachFromFrameNodeMultiThread(FrameNode* frameNode);
     void OnDetachFromMainTree() override;
     void OnDetachFromMainTreeMultiThread();
-    RefPtr<ScrollBar> GetScrollBar() const
-    {
-        return scrollBar_;
-    }
+    void ContentChangeByDetaching(PipelineContext* pipeline) override;
     void UpdateScrollBarRegion(float offset, float estimatedHeight, Size viewPort, Offset viewOffset);
 
     EdgeEffect GetEdgeEffect() const;
@@ -888,9 +1030,11 @@ protected:
     void FireObserverOnScrollStop();
     void FireObserverOnDidScroll(float finalOffset);
     void FireObserverOnScrollerAreaChange(float finalOffset);
+    float FireObserverOnWillScroll(float offset);
 
     virtual void OnScrollStop(const OnScrollStopEvent& onScrollStop, const OnScrollStopEvent& onJSFrameNodeScrollStop);
     void FireOnScrollStop(const OnScrollStopEvent& onScrollStop, const OnScrollStopEvent& onJSFrameNodeScrollStop);
+    void FireObserverOnPanActionEnd(GestureEvent& info);
 
     float FireOnWillScroll(float offset) const;
 
@@ -926,7 +1070,6 @@ protected:
     std::unordered_map<int32_t, ItemSelectedStatus> itemToBeSelected_;
     bool animateOverScroll_ = false;
     bool animateCanOverScroll_ = false;
-    bool lastCanOverScroll_ = false;
 
     RefPtr<ScrollBarOverlayModifier> GetScrollBarOverlayModifier() const
     {
@@ -957,28 +1100,57 @@ protected:
         return scrollOriginChild_.Upgrade();
     }
 
-    void SetCanOverScroll(bool val);
     bool GetCanOverScroll() const;
+    bool lastCanOverScroll_ = false;
+    bool lastScrollFromInjection_ = false;
+    bool isAllowMouse_ = false;
 
     void CheckScrollBarOff();
-
-    void RecordScrollEvent(Recorder::EventType eventType);
 
     bool IsBackToTopRunning() const
     {
         return isBackToTopRunning_;
     }
 
-    std::string ParseCommand(const std::string& command);
+    std::string ParseCommand(const std::string& command, ScrollOnInjectionEventInfo& scrollOnInjectionEventInfo);
+    void ReportScroll(bool isJump, ScrollError error, int32_t reportEventId);
+    int32_t OnInjectionEventByRatio(const std::string& command);
+    ScrollError ScrollByRatio(bool reverse, float ratio);
+    void HandleScrollByRatio(bool isScrollByRatio, bool reverse, float ratio, int reportEventId);
+    void HandleScrollByOffset(double scrollOffset, int reportEventId);
+    void HandleScrollByTargetId(int32_t targetId, int reportEventId);
+
+    virtual int32_t GetFirstIndex() const
+    {
+        return -1;
+    }
+
+    virtual void FillReportOnItemStopParams(std::unique_ptr<JsonValue>& params);
+    void ReportOnItemScrollStop(const std::string& event);
+
+    void SetLastScrollFromInjection(bool val)
+    {
+        lastScrollFromInjection_ = val;
+    }
 
 #ifdef SUPPORT_DIGITAL_CROWN
     void SetDigitalCrownEvent();
     CrownSensitivity crownSensitivity_ = CrownSensitivity::MEDIUM;
 #endif
+
+    void RecordScrollEvent(Recorder::EventType eventType);
+
 private:
     virtual void OnScrollEndCallback() {};
 
     void RegisterScrollBarEventTask();
+    void RegisterScrollBarOverDragEventTask();
+    void RegisterScrollBarMarginCallback();
+    std::pair<double, double> GetAutoAdjustAvoidOffset();
+    void CalcPaddingAvoidDistByMainAxis(
+        const std::unique_ptr<PaddingProperty>& property, std::pair<double, double>& offset, bool isRtl);
+    void CalcBorderWidthAvoidDistByMainAxis(
+        const std::unique_ptr<BorderWidthProperty>& property, std::pair<double, double>& offset, bool isRtl);
     bool OnScrollPosition(double& offset, int32_t source);
     void ProcessNavBarReactOnStart();
     float ProcessNavBarReactOnUpdate(float offset);
@@ -993,9 +1165,13 @@ private:
     float GetScrollDelta(float offset, bool& stopAnimation);
 
     void InitTouchEvent(const RefPtr<GestureEventHub>& gestureHub);
+    void RegisterTouchpadInteractionCallback();
     void RegisterWindowStateChangedCallback();
     void OnTouchTestDone(const std::shared_ptr<BaseGestureEvent>& baseGestureEvent,
-        const std::list<RefPtr<NGGestureRecognizer>>& activeRecognizers);
+        const std::list<WeakPtr<NGGestureRecognizer>>& activeRecognizers);
+    bool IsNeedPreventRecognizer(const RefPtr<NGGestureRecognizer>& recognizer,
+        bool isChild, bool isHitTestBlock) const;
+    bool IsInComponent(PointF point);
 
     // select with mouse
     virtual void MultiSelectWithoutKeyboard(const RectF& selectedZone) {};
@@ -1021,6 +1197,7 @@ private:
     /******************************************************************************
      * NestableScrollContainer implementations
      */
+    void HandleExtScroll(float velocity = 0.f);
     ScrollResult HandleScroll(
         float offset, int32_t source, NestedState state = NestedState::GESTURE, float velocity = 0.f) override;
     bool HandleScrollVelocity(float velocity, const RefPtr<NestableScrollContainer>& child = nullptr) override;
@@ -1060,6 +1237,7 @@ private:
     void ProcessSpringEffect(float velocity, bool needRestart = false);
     void SetEdgeEffect(EdgeEffect edgeEffect);
     void SetHandleScrollCallback(const RefPtr<Scrollable>& scrollable);
+    void SetHandleExtScrollCallback(const RefPtr<Scrollable>& scrollable);
     void SetOverScrollCallback(const RefPtr<Scrollable>& scrollable);
     void SetIsReverseCallback(const RefPtr<Scrollable>& scrollable);
     void SetOnScrollStartRec(const RefPtr<Scrollable>& scrollable);
@@ -1072,20 +1250,18 @@ private:
     void SetDragFRCSceneCallback(const RefPtr<Scrollable>& scrollable);
     void SetOnContinuousSliding(const RefPtr<Scrollable>& scrollable);
     void SetGetSnapTypeCallback(const RefPtr<Scrollable>& scrollable);
+    void SetPanActionEndEvent(const RefPtr<Scrollable>& scrollable);
     void SetOnWillStopDraggingCallback(const RefPtr<Scrollable>& scrollable);
+    void SetOnWillStartDraggingCallback(const RefPtr<Scrollable>& scrollable);
+    void SetOnDidStopDraggingCallback(const RefPtr<Scrollable>& scrollable);
+    void SetOnWillStartFlingCallback(const RefPtr<Scrollable>& scrollable);
+    void SetOnDidStopFlingCallback(const RefPtr<Scrollable>& scrollable);
     RefPtr<Scrollable> CreateScrollable();
 
     // Scrollable::UpdateScrollPosition
     bool HandleScrollImpl(float offset, int32_t source);
     void NotifyMoved(bool value);
-    void CreateRefreshCoordination()
-    {
-        if (!refreshCoordination_) {
-            auto host = GetHost();
-            CHECK_NULL_VOID(host);
-            refreshCoordination_ = AceType::MakeRefPtr<RefreshCoordination>(host);
-        }
-    }
+    void CreateRefreshCoordination();
     float GetVelocity() const;
     bool NeedSplitScroll(OverScrollOffset& overOffsets, int32_t source);
     RefreshCoordinationMode CoordinateWithRefresh(double& offset, int32_t source, bool isAtTop);
@@ -1094,9 +1270,12 @@ private:
     ModalSheetCoordinationMode CoordinateWithSheet(double& offset, int32_t source, bool isAtTop);
     bool NeedCoordinateScrollWithNavigation(double offset, int32_t source, const OverScrollOffset& overOffsets);
     void SetUiDvsyncSwitch(bool on);
+    void SetUiDVSyncCommandTime(uint64_t time);
     void SetNestedScrolling(bool nestedScrolling);
     void InitRatio();
     void SetOnHiddenChangeForParent();
+    virtual void ResetForExtScroll() {};
+    void OnSyncGeometryNode(const DirtySwapConfig& config) override;
     void ReportOnItemStopEvent();
 
     Axis axis_ = Axis::VERTICAL;
@@ -1157,7 +1336,6 @@ private:
     EdgeEffect edgeEffect_ = EdgeEffect::NONE;
     bool edgeEffectAlwaysEnabled_ = false;
     EffectEdge effectEdge_ = EffectEdge::ALL;
-    bool needLinked_ = true;
 
     RefPtr<NodeAnimatablePropertyFloat> springOffsetProperty_;
     RefPtr<NodeAnimatablePropertyFloat> curveOffsetProperty_;
@@ -1179,20 +1357,21 @@ private:
     RefPtr<VelocityMotion> fixedVelocityMotion_;
     std::function<void(void)> hotZoneScrollCallback_;
     void UnRegister2DragDropManager(FrameNode* frameNode);
-    float IsInHotZone(const PointF& point);
+    float IsInHotZone(const PointF& point, bool needExpandHotZone = false);
     void HotZoneScroll(const float offset);
     void StopHotzoneScroll();
     void HandleHotZone(const DragEventType& dragEventType, const RefPtr<NotifyDragEvent>& notifyDragEvent);
     bool isVertical() const;
     void AddHotZoneSenceInterface(SceneStatus scene);
-    RefPtr<InputEvent> mouseEvent_;
-    bool isMousePressed_ = false;
-    RefPtr<ClickRecognizer> clickRecognizer_;
+    float GetDVSyncOffset();
     Offset locationInfo_;
     WeakPtr<NestableScrollContainer> scrollOriginChild_;
     float nestedScrollVelocity_ = 0.0f;
     uint64_t nestedScrollTimestamp_ = 0;
-    bool prevHasFadingEdge_ = false;
+    RefPtr<ClickRecognizer> clickRecognizer_;
+    RefPtr<InputEvent> mouseEvent_;
+    bool isMousePressed_ = false;
+    bool preHasFadingEdge_ = false;
     float scrollStartOffset_ = 0.0f;
 
     bool isRoundScroll_ = false;
@@ -1204,6 +1383,11 @@ private:
     bool backToTop_ = false;
     bool useDefaultBackToTop_ = true;
     bool isHitTestBlock_ = false;
+    std::queue<std::pair<uint64_t, float>> offsets_;
+    bool isExtScroll_ = false;
+    bool isNeedCollectOffset_ = false;
+    bool needFullSafeArea_ = false;
+    ScrollToDirection scrollToDirection_ = ScrollToDirection::NONE;
 };
 } // namespace OHOS::Ace::NG
 

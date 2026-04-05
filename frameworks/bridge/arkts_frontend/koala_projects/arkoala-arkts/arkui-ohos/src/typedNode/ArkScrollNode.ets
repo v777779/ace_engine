@@ -13,12 +13,33 @@
  * limitations under the License.
  */
 
-import { int32, int64, float32, unsafeCast } from "@koalaui/common"
-import { ArkScrollableNode } from "./ArkScrollableNode";
-import { ScrollAttribute, ArkScrollPeer, Scroller, ScrollDirection, ScrollOnWillScrollCallback, ScrollOnScrollCallback,
-    OnScrollEdgeCallback, VoidCallback, BarState, Color, OnScrollFrameBeginCallback, NestedScrollOptions, ScrollSnapOptions,
-    OffsetOptions, EdgeEffect, EdgeEffectOptions, AttributeModifier, ScrollableCommonMethod, CommonMethod } from "../framework";
-import { Resource } from "global.resource"
+import { int32 } from '@koalaui/common';
+import { ArkScrollableNode } from './ArkScrollableNode';
+import {
+  ScrollAttribute,
+  ArkScrollPeer,
+  Scroller,
+  ScrollDirection,
+  ScrollOnWillScrollCallback,
+  ScrollOnScrollCallback,
+  OnScrollEdgeCallback,
+  VoidCallback,
+  BarState,
+  Color,
+  OnScrollFrameBeginCallback,
+  NestedScrollOptions,
+  ScrollSnapOptions,
+  OffsetOptions,
+  EdgeEffect,
+  EdgeEffectOptions,
+  AttributeModifier,
+  ScrollableCommonMethod,
+  CommonMethod,
+  SizeResult,
+  Bindable,
+  ScrollOnDidZoomCallback
+} from '../framework';
+import { Resource } from 'global.resource'
 export class ArkScrollNode extends ArkScrollableNode implements ScrollAttribute {
     constructParam(...param: Object[]): this {
         if (param.length > 1) {
@@ -47,6 +68,30 @@ export class ArkScrollNode extends ArkScrollableNode implements ScrollAttribute 
     scrollable(value: ScrollDirection | undefined): this {
         const value_casted = value as (ScrollDirection | undefined)
         this.getPeer()?.setScrollableAttribute(value_casted)
+        this.markDirty()
+        return this
+    }
+    maxZoomScale(value: double | undefined): this {
+        const value_casted = value as (double | undefined)
+        this.getPeer()?.setMaxZoomScaleAttribute(value_casted)
+        this.markDirty()
+        return this
+    }
+    minZoomScale(value: double | undefined): this {
+        const value_casted = value as (double | undefined)
+        this.getPeer()?.setMinZoomScaleAttribute(value_casted)
+        this.markDirty()
+        return this
+    }
+    zoomScale(value: double | Bindable<double> | undefined): this {
+        const value_casted = value as (double | Bindable<double> | undefined)
+        this.getPeer()?.setZoomScaleAttribute(value_casted)
+        this.markDirty()
+        return this
+    }
+    enableBouncesZoom(value: boolean | undefined): this {
+        const value_casted = value as (boolean | undefined)
+        this.getPeer()?.setEnableBouncesZoomAttribute(value_casted)
         this.markDirty()
         return this
     }
@@ -80,14 +125,32 @@ export class ArkScrollNode extends ArkScrollableNode implements ScrollAttribute 
         this.markDirty()
         return this
     }
+    onDidZoom(value: ScrollOnDidZoomCallback | undefined): this {
+        const value_casted = value as (ScrollOnDidZoomCallback | undefined)
+        this.getPeer()?.setOnDidZoomAttribute(value_casted)
+        this.markDirty()
+        return this
+    }
+    onZoomStart(value: VoidCallback | undefined): this {
+        const value_casted = value as (VoidCallback | undefined)
+        this.getPeer()?.setOnZoomStartAttribute(value_casted)
+        this.markDirty()
+        return this
+    }
+    onZoomStop(value: VoidCallback | undefined): this {
+        const value_casted = value as (VoidCallback | undefined)
+        this.getPeer()?.setOnZoomStopAttribute(value_casted)
+        this.markDirty()
+        return this
+    }
     scrollBar(value: BarState | undefined): this {
         const value_casted = value as (BarState | undefined)
         this.getPeer()?.setScrollBarAttribute(value_casted)
         this.markDirty()
         return this
     }
-    scrollBarColor(value: Color | int32 | string | undefined): this {
-        const value_casted = value as (Color | int32 | string | undefined)
+    scrollBarColor(value: Color | int32 | string | Resource | undefined): this {
+        const value_casted = value as (Color | int32 | string | Resource | undefined)
         this.getPeer()?.setScrollBarColorAttribute(value_casted)
         this.markDirty()
         return this
@@ -147,7 +210,8 @@ export class ArkScrollNode extends ArkScrollableNode implements ScrollAttribute 
         this.markDirty()
         return this
     }
-    attributeModifier(value: AttributeModifier<ScrollAttribute> | AttributeModifier<ScrollableCommonMethod> | AttributeModifier<CommonMethod> | undefined): this {
-        throw new Error("Unimplemented method attributeModifier")
+    attributeModifier(value: AttributeModifier<ScrollAttribute> | AttributeModifier<ScrollableCommonMethod> |
+        AttributeModifier<CommonMethod> | undefined): this {
+        throw new Error('Unimplemented method attributeModifier')
     }
 }

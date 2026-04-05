@@ -24,7 +24,7 @@ class InputEventHub;
 class FrameNode;
 
 class InputEvent : public virtual AceType {
-    DECLARE_ACE_TYPE(InputEvent, AceType)
+    DECLARE_ACE_TYPE(InputEvent, AceType);
 public:
     explicit InputEvent(OnMouseEventFunc&& callback) : onMouseCallback_(std::move(callback)) {}
 
@@ -33,10 +33,12 @@ public:
     explicit InputEvent(OnHoverFunc&& callback) : onHoverEventCallback_(std::move(callback)) {}
 
     explicit InputEvent(OnHoverMoveFunc&& callback) : onHoverMoveCallback_(std::move(callback)) {}
-    
+
     explicit InputEvent(OnAxisEventFunc&& callback) : onAxisCallback_(std::move(callback)) {}
 
     explicit InputEvent(OnAccessibilityHoverFunc&& callback) : onAccessibilityHoverFunc_(std::move(callback)) {}
+
+    explicit InputEvent(OnCoastingAxisEventFunc&& callback) : onCoastingAxisCallback_(std::move(callback)) {}
 
     ~InputEvent() override = default;
 
@@ -97,6 +99,13 @@ public:
         }
     }
 
+    void operator()(CoastingAxisInfo& info) const
+    {
+        if (onCoastingAxisCallback_) {
+            onCoastingAxisCallback_(info);
+        }
+    }
+
     void operator()(HoverInfo& info) const
     {
         if (onHoverMoveCallback_) {
@@ -136,15 +145,16 @@ private:
     OnHoverFunc onHoverEventCallback_;
     OnHoverMoveFunc onHoverMoveCallback_;
     OnAxisEventFunc onAxisCallback_;
+    OnCoastingAxisEventFunc onCoastingAxisCallback_;
     OnAccessibilityHoverFunc onAccessibilityHoverFunc_;
     bool istips_ = false;
     bool followCursor_ = false;
 };
 
-class ACE_EXPORT InputEventActuator : public virtual AceType {
-    DECLARE_ACE_TYPE(InputEventActuator, AceType)
+class ACE_FORCE_EXPORT InputEventActuator : public virtual AceType {
+    DECLARE_ACE_TYPE(InputEventActuator, AceType);
 public:
-    explicit InputEventActuator(const WeakPtr<InputEventHub>& inputEventHub);
+    ACE_FORCE_EXPORT explicit InputEventActuator(const WeakPtr<InputEventHub>& inputEventHub);
     ~InputEventActuator() override = default;
 
     void ClearUserCallback()
@@ -220,6 +230,14 @@ public:
         userCallback_ = MakeRefPtr<InputEvent>(std::move(callback));
     }
 
+    void ReplaceInputEvent(OnCoastingAxisEventFunc&& callback)
+    {
+        if (userCallback_) {
+            userCallback_.Reset();
+        }
+        userCallback_ = MakeRefPtr<InputEvent>(std::move(callback));
+    }
+
     void ReplaceInputEvent(OnAccessibilityHoverFunc&& callback)
     {
         if (userCallback_) {
@@ -242,6 +260,14 @@ public:
     void RemoveInputEvent(const RefPtr<InputEvent>& inputEvent)
     {
         inputEvents_.remove(inputEvent);
+    }
+
+    void RemoveAllTipsEvents()
+    {
+        inputEvents_.remove_if([](const RefPtr<InputEvent>& event) {
+            CHECK_NULL_RETURN(event, false);
+            return event->GetIstips();
+        });
     }
 
     void OnCollectMouseEvent(const OffsetF& coordinateOffset, const GetEventTargetImpl& getEventTargetImpl,
@@ -271,6 +297,8 @@ public:
     void OnCollectAxisEvent(
         const OffsetF& coordinateOffset, const GetEventTargetImpl& getEventTargetImpl, AxisTestResult& onAxisResult);
 
+    void OnCollectCoastingAxisEvent(AxisTestResult& onAxisResult);
+
 private:
     WeakPtr<InputEventHub> inputEventHub_;
     RefPtr<MouseEventTarget> mouseEventTarget_;
@@ -280,6 +308,7 @@ private:
     RefPtr<HoverEventTarget> penHoverEventTarget_;
     RefPtr<HoverEventTarget> penHoverMoveEventTarget_;
     RefPtr<AxisEventTarget> axisEventTarget_;
+    RefPtr<AxisEventTarget> coastingAxisEventTarget_;
     std::list<RefPtr<InputEvent>> inputEvents_;
     RefPtr<InputEvent> userCallback_;
     RefPtr<InputEvent> userJSFrameNodeCallback_;

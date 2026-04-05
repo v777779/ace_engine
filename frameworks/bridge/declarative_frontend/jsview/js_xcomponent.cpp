@@ -25,6 +25,7 @@
 #include "bridge/declarative_frontend/jsview/js_view_common_def.h"
 #include "bridge/declarative_frontend/jsview/js_xcomponent_controller.h"
 #include "bridge/declarative_frontend/jsview/models/xcomponent_model_impl.h"
+#include "core/common/statistic_event_reporter.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/xcomponent/xcomponent_model.h"
@@ -34,6 +35,7 @@
 
 namespace OHOS::Ace {
 namespace {
+constexpr int32_t HDR_BRIGHTNESS_PARAM_SIZE = 2;
 XComponentType ConvertToXComponentType(const std::string& type)
 {
     if (type == "surface") {
@@ -46,6 +48,15 @@ XComponentType ConvertToXComponentType(const std::string& type)
         return XComponentType::NODE;
     }
     return XComponentType::SURFACE;
+}
+
+void SendStatisticEvent(StatisticEventType type)
+{
+    auto context = PipelineBase::GetCurrentContextSafely();
+    CHECK_NULL_VOID(context);
+    auto statisticEventReporter = context->GetStatisticEventReporter();
+    CHECK_NULL_VOID(statisticEventReporter);
+    statisticEventReporter->SendEvent(type);
 }
 } // namespace
 
@@ -220,11 +231,14 @@ void JSXComponent::Create(const JSCallbackInfo& info)
         XComponentModel::GetInstance()->Create(
             options.id, options.xcomponentType, options.libraryName, options.xcomponentController);
     }
+    auto frameNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ACE_UINODE_TRACE(frameNode);
     if (!options.libraryName.has_value() && options.xcomponentController && !controllerObj->IsUndefined()) {
         SetControllerCallback(controllerObj, info.GetExecutionContext());
     }
 
-    auto detachCallback = [](const std::string& xcomponentId) {
+    auto detachCallback = [frameNode](const std::string& xcomponentId) {
+        ACE_UINODE_TRACE(frameNode);
         XComponentClient::GetInstance().DeleteControllerFromJSXComponentControllersMap(xcomponentId);
         XComponentClient::GetInstance().DeleteFromJsValMapById(xcomponentId);
     };
@@ -262,9 +276,20 @@ void JSXComponent::ExtractInfoToXComponentOptions(
         options.xcomponentController = GetXComponentController(controllerObj, options.id, info.GetExecutionContext());
     }
     if (type->IsString()) {
+        SendStatisticEvent(StatisticEventType::XCOMPONENT_TYPE_USE_STRING);
         options.xcomponentType = ConvertToXComponentType(type->ToString());
     } else if (type->IsNumber()) {
         options.xcomponentType = static_cast<XComponentType>(type->ToNumber<int32_t>());
+        switch (options.xcomponentType) {
+            case XComponentType::COMPONENT:
+                SendStatisticEvent(StatisticEventType::XCOMPONENT_TYPE_COMPONENT);
+                break;
+            case XComponentType::NODE:
+                SendStatisticEvent(StatisticEventType::XCOMPONENT_TYPE_NODE);
+                break;
+            default:
+                break;
+        }
     }
     if (screenIdValue->IsNumber()) {
         options.screenId = screenIdValue->ToNumber<uint64_t>();
@@ -281,6 +306,7 @@ void* JSXComponent::Create(const XComponentParams& params)
         static_cast<float>(params.width), static_cast<float>(params.height), params.xcomponentId,
         static_cast<XComponentType>(params.xcomponentType), params.libraryName, xcomponentController));
     CHECK_NULL_RETURN(frameNode, nullptr);
+    ACE_UINODE_TRACE(frameNode);
     frameNode->SetIsArkTsFrameNode(true);
     auto pattern = frameNode->GetPattern<NG::XComponentPattern>();
     CHECK_NULL_RETURN(pattern, nullptr);
@@ -299,6 +325,7 @@ void* JSXComponent::Create(const XComponentParams& params)
         [weak = AceType::WeakClaim(AceType::RawPtr(frameNode))]() {
             auto frameNode = weak.Upgrade();
             CHECK_NULL_VOID(frameNode);
+            ACE_UINODE_TRACE(frameNode);
             auto xcPattern = frameNode->GetPattern<NG::XComponentPattern>();
             CHECK_NULL_VOID(xcPattern);
             xcPattern->XComponentSizeInit();
@@ -329,6 +356,7 @@ bool JSXComponent::ChangeRenderType(int32_t renderType)
 {
     auto xcFrameNode = AceType::DynamicCast<NG::FrameNode>(frameNode_);
     CHECK_NULL_RETURN(xcFrameNode, false);
+    ACE_UINODE_TRACE(xcFrameNode);
     auto pattern = xcFrameNode->GetPattern<NG::XComponentPattern>();
     CHECK_NULL_RETURN(pattern, false);
     return pattern->ChangeRenderType(static_cast<NodeRenderType>(renderType));
@@ -341,8 +369,10 @@ void JSXComponent::JsOnLoad(const JSCallbackInfo& args)
     }
     auto jsFunc = AceType::MakeRefPtr<JsXComponentOnloadFunction>(JSRef<JSFunc>::Cast(args[0]));
     WeakPtr<NG::FrameNode> targetNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ACE_UINODE_TRACE(targetNode);
     auto onLoad = [execCtx = args.GetExecutionContext(), func = std::move(jsFunc), node = targetNode](
                       const std::string& xcomponentId) {
+        ACE_UINODE_TRACE(node);
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("XComponent.onLoad");
         PipelineContext::SetCallBackNode(node);
@@ -357,6 +387,7 @@ void JSXComponent::RegisterOnCreate(const JsiExecutionContext& execCtx, const Lo
 {
     auto frameNode = AceType::DynamicCast<NG::FrameNode>(frameNode_);
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
 
     if (!func->IsFunction(execCtx.vm_)) {
         return;
@@ -365,6 +396,7 @@ void JSXComponent::RegisterOnCreate(const JsiExecutionContext& execCtx, const Lo
     auto jsFunc = panda::Global<panda::FunctionRef>(execCtx.vm_, Local<panda::FunctionRef>(func));
     auto onLoad = [execCtx, funcRef = std::move(jsFunc), node = AceType::WeakClaim(AceType::RawPtr(frameNode))](
                       const std::string& xcomponentId) {
+        ACE_UINODE_TRACE(node);
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("XComponentNode.onCreate");
         PipelineContext::SetCallBackNode(node);
@@ -382,6 +414,7 @@ void JSXComponent::RegisterOnDestroy(const JsiExecutionContext& execCtx, const L
 {
     auto frameNode = AceType::DynamicCast<NG::FrameNode>(frameNode_);
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
 
     if (!func->IsFunction(execCtx.vm_)) {
         return;
@@ -390,6 +423,7 @@ void JSXComponent::RegisterOnDestroy(const JsiExecutionContext& execCtx, const L
     auto jsFunc = panda::Global<panda::FunctionRef>(execCtx.vm_, Local<panda::FunctionRef>(func));
     auto onDestroy = [execCtx, funcRef = std::move(jsFunc), node = AceType::WeakClaim(AceType::RawPtr(frameNode))](
                          const std::string& xcomponentId) {
+        ACE_UINODE_TRACE(node);
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("XComponentNode.onDestroy");
         PipelineContext::SetCallBackNode(node);
@@ -405,8 +439,10 @@ void JSXComponent::JsOnDestroy(const JSCallbackInfo& args)
     }
     auto jsFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(), JSRef<JSFunc>::Cast(args[0]));
     WeakPtr<NG::FrameNode> targetNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ACE_UINODE_TRACE(targetNode);
     auto onDestroy = [execCtx = args.GetExecutionContext(), func = std::move(jsFunc), node = targetNode](
                          const std::string& xcomponentId) {
+        ACE_UINODE_TRACE(node);
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("XComponent.onDestroy");
         PipelineContext::SetCallBackNode(node);
@@ -419,6 +455,7 @@ void JSXComponent::JsOnDestroy(const JSCallbackInfo& args)
 
 void JSXComponent::JsOnAppear(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
@@ -429,6 +466,7 @@ void JSXComponent::JsOnAppear(const JSCallbackInfo& args)
 
 void JSXComponent::JsOnDisAppear(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
@@ -439,6 +477,7 @@ void JSXComponent::JsOnDisAppear(const JSCallbackInfo& args)
 
 void JSXComponent::JsOnAttach(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
@@ -449,6 +488,7 @@ void JSXComponent::JsOnAttach(const JSCallbackInfo& args)
 
 void JSXComponent::JsOnDetach(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
@@ -459,6 +499,7 @@ void JSXComponent::JsOnDetach(const JSCallbackInfo& args)
 
 void JSXComponent::JsOnTouch(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
@@ -469,16 +510,18 @@ void JSXComponent::JsOnTouch(const JSCallbackInfo& args)
 
 void JSXComponent::JsOnClick(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
         return;
     }
-    JSViewAbstract::JsOnClick(args);
+    JSInteractableView::JsOnClick(args);
 }
 
 void JSXComponent::JsOnKeyEvent(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
@@ -489,6 +532,7 @@ void JSXComponent::JsOnKeyEvent(const JSCallbackInfo& args)
 
 void JSXComponent::JsOnMouse(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
@@ -499,17 +543,19 @@ void JSXComponent::JsOnMouse(const JSCallbackInfo& args)
 
 void JSXComponent::JsOnHover(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
         return;
     }
-    JSViewAbstract::JsOnHover(args);
+    JSInteractableView::JsOnHover(args);
 }
 
 
 void JSXComponent::JsOnFocus(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
@@ -520,6 +566,7 @@ void JSXComponent::JsOnFocus(const JSCallbackInfo& args)
 
 void JSXComponent::JsOnBlur(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     auto libraryName = XComponentModel::GetInstance()->GetLibraryName();
     if (!XComponentModel::IsCommonEventAvailable(type, libraryName)) {
@@ -530,6 +577,7 @@ void JSXComponent::JsOnBlur(const JSCallbackInfo& args)
 
 void JSXComponent::JsBackgroundColor(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (!XComponentModel::IsBackGroundColorAvailable(type)) {
         return;
@@ -546,6 +594,7 @@ void JSXComponent::JsBackgroundColor(const JSCallbackInfo& args)
 
 void JSXComponent::JsBackgroundImage(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -555,6 +604,7 @@ void JSXComponent::JsBackgroundImage(const JSCallbackInfo& args)
 
 void JSXComponent::JsBackgroundImageSize(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -564,6 +614,7 @@ void JSXComponent::JsBackgroundImageSize(const JSCallbackInfo& args)
 
 void JSXComponent::JsBackgroundImagePosition(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -574,6 +625,7 @@ void JSXComponent::JsBackgroundImagePosition(const JSCallbackInfo& args)
 
 void JSXComponent::JsOpacity(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type == XComponentType::SURFACE || type == XComponentType::COMPONENT) {
         return;
@@ -583,6 +635,7 @@ void JSXComponent::JsOpacity(const JSCallbackInfo& args)
 
 void JSXComponent::JsBlur(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -592,6 +645,7 @@ void JSXComponent::JsBlur(const JSCallbackInfo& args)
 
 void JSXComponent::JsBackdropBlur(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -601,6 +655,7 @@ void JSXComponent::JsBackdropBlur(const JSCallbackInfo& args)
 
 void JSXComponent::JsGrayscale(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -610,6 +665,7 @@ void JSXComponent::JsGrayscale(const JSCallbackInfo& args)
 
 void JSXComponent::JsBrightness(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -619,6 +675,7 @@ void JSXComponent::JsBrightness(const JSCallbackInfo& args)
 
 void JSXComponent::JsSaturate(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -628,6 +685,7 @@ void JSXComponent::JsSaturate(const JSCallbackInfo& args)
 
 void JSXComponent::JsContrast(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -637,6 +695,7 @@ void JSXComponent::JsContrast(const JSCallbackInfo& args)
 
 void JSXComponent::JsInvert(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -646,6 +705,7 @@ void JSXComponent::JsInvert(const JSCallbackInfo& args)
 
 void JSXComponent::JsSepia(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -655,6 +715,7 @@ void JSXComponent::JsSepia(const JSCallbackInfo& args)
 
 void JSXComponent::JsHueRotate(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -664,6 +725,7 @@ void JSXComponent::JsHueRotate(const JSCallbackInfo& args)
 
 void JSXComponent::JsColorBlend(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -673,6 +735,7 @@ void JSXComponent::JsColorBlend(const JSCallbackInfo& args)
 
 void JSXComponent::JsSphericalEffect(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -682,6 +745,7 @@ void JSXComponent::JsSphericalEffect(const JSCallbackInfo& args)
 
 void JSXComponent::JsLightUpEffect(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -691,6 +755,7 @@ void JSXComponent::JsLightUpEffect(const JSCallbackInfo& args)
 
 void JSXComponent::JsPixelStretchEffect(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -700,6 +765,7 @@ void JSXComponent::JsPixelStretchEffect(const JSCallbackInfo& args)
 
 void JSXComponent::JsLinearGradientBlur(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::NODE) {
         return;
@@ -709,6 +775,7 @@ void JSXComponent::JsLinearGradientBlur(const JSCallbackInfo& args)
 
 void JSXComponent::JsEnableAnalyzer(bool enable)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type == XComponentType::COMPONENT || type == XComponentType::NODE) {
         return;
@@ -718,6 +785,7 @@ void JSXComponent::JsEnableAnalyzer(bool enable)
 
 void JSXComponent::JsRenderFit(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type == XComponentType::COMPONENT || type == XComponentType::NODE || args.Length() != 1) {
         return;
@@ -741,6 +809,7 @@ void JSXComponent::JsRenderFit(const JSCallbackInfo& args)
 
 void JSXComponent::JsEnableSecure(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::SURFACE || args.Length() != 1) {
         return;
@@ -754,23 +823,43 @@ void JSXComponent::JsEnableSecure(const JSCallbackInfo& args)
 
 void JSXComponent::JsHdrBrightness(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
-    if (type != XComponentType::SURFACE || args.Length() != 1) {
+    if (type != XComponentType::SURFACE || args.Length() < 1 || args.Length() > HDR_BRIGHTNESS_PARAM_SIZE) {
         return;
     }
     // set hdrBrightness on SurfaceNode when type is SURFACE
+    float hdrBrightness = 1.0f;
     if (args[0]->IsNumber()) {
-        float hdrBrightness = args[0]->ToNumber<float>();
-        XComponentModel::GetInstance()->HdrBrightness(std::clamp(hdrBrightness, 0.0f, 1.0f));
+        hdrBrightness = args[0]->ToNumber<float>();
+        hdrBrightness = std::clamp(hdrBrightness, 0.0f, 1.0f);
+    }
+
+    // Parse optional HdrType parameter
+    if (args.Length() == HDR_BRIGHTNESS_PARAM_SIZE && args[1]->IsNumber()) {
+        int32_t hdrTypeValue = args[1]->ToNumber<int32_t>();
+        HdrType hdrType = static_cast<HdrType>(hdrTypeValue);
+        XComponentModel::GetInstance()->HdrBrightness(hdrBrightness, hdrType);
     } else {
-        XComponentModel::GetInstance()->HdrBrightness(1.0f);
+        // Use default single-parameter method for backward compatibility
+        XComponentModel::GetInstance()->HdrBrightness(hdrBrightness);
     }
 }
 
 void JSXComponent::JsBlendMode(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type == XComponentType::TEXTURE && Container::LessThanAPITargetVersion(PlatformVersion::VERSION_EIGHTEEN)) {
+        BlendMode blendMode = BlendMode::NONE;
+        BlendApplyType blendApplyType = BlendApplyType::FAST;
+        if (JSViewAbstract::ParseBlendMode(args, blendMode, blendApplyType)) {
+            // To maintain backward compatibility, we need to set blendApplyType ONLY here
+            // blendApplyType is ignored if blendMode is BlendMode::NONE
+            // so we use BlendMode::SRC_OVER, which visually matches NONE.
+            ViewAbstractModel::GetInstance()->SetBlendMode(BlendMode::SRC_OVER);
+            ViewAbstractModel::GetInstance()->SetBlendApplyType(blendApplyType);
+        }
         return;
     }
 
@@ -779,6 +868,7 @@ void JSXComponent::JsBlendMode(const JSCallbackInfo& args)
 
 void JSXComponent::JsEnableTransparentLayer(const JSCallbackInfo& args)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     auto type = XComponentModel::GetInstance()->GetType();
     if (type != XComponentType::SURFACE || args.Length() != 1) {
         return;

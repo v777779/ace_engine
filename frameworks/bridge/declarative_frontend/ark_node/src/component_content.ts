@@ -12,19 +12,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-class ComponentContent extends Content implements IDisposable {
+/// <reference path="./content.ts" />
+class ComponentContentCommonBase extends Content {
   // the name of "builderNode_" is used in ace_engine/interfaces/native/node/native_node_napi.cpp.
-  private builderNode_: BuilderNode;
+  protected builderNode_: BuilderNode | ReactiveBuilderNode;
   private attachNodeRef_: NativeStrongRef;
   private parentWeak_: WeakRef<FrameNode> | undefined;
-  private disposable_: Disposable;
-  constructor(uiContext: UIContext, builder: WrappedBuilder<[]> | WrappedBuilder<[Object]>, params?: Object, options?: BuildOptions) {
+  private _isDisposed: boolean;
+  protected instanceId_: number;
+  constructor() {
     super();
-    let builderNode = new BuilderNode(uiContext, {});
-    this.builderNode_ = builderNode;
-    this.builderNode_.build(builder, params ?? undefined, options);
-    this.disposable_ = new Disposable();
+    this._isDisposed = false;
   }
 
   public update(params: Object) {
@@ -33,6 +31,13 @@ class ComponentContent extends Content implements IDisposable {
 
   public getFrameNode(): FrameNode | null | undefined {
     return this.builderNode_.getFrameNodeWithoutCheck();
+  }
+  public getFrameNodePtr(): NodePtr | undefined{
+    let frameNode = this.builderNode_.getFrameNode();
+    if (frameNode !== null) {
+      return frameNode.nodePtr_;
+    }
+    return undefined;
   }
   public setAttachedParent(parent: WeakRef<FrameNode> | undefined) {
     this.parentWeak_ = parent;
@@ -56,19 +61,23 @@ class ComponentContent extends Content implements IDisposable {
     this.builderNode_.onRecycleWithBindObject();
   }
   public dispose(): void {
+    this._isDisposed = true;
     if (this.getNodePtr()) {
       getUINativeModule().frameNode.fireArkUIObjectLifecycleCallback(new WeakRef(this), 'ComponentContent', this.getFrameNode()?.getNodeType() || 'ComponentContent', this.getNodePtr());
     }
-    this.disposable_.dispose();
     this.detachFromParent();
     this.attachNodeRef_?.dispose();
     this.builderNode_?.dispose();
   }
 
-  public isDisposed(): boolean {
-    return this.disposable_.isDisposed() && (this.builderNode_ ? this.builderNode_.isDisposed() : true);
+  public isTransferred(): boolean {
+    return false;
   }
-  
+
+  public isDisposed(): boolean {
+    return this._isDisposed && (this.builderNode_?.isDisposed() ?? true);
+  }
+
   public detachFromParent() {
     if (this.parentWeak_ === undefined) {
       return;
@@ -97,5 +106,40 @@ class ComponentContent extends Content implements IDisposable {
 
   public inheritFreezeOptions(enable: boolean): void {
     this.builderNode_.inheritFreezeOptions(enable);
+  }
+
+  public getInstanceId(): number {
+    return this.instanceId_;
+  }
+
+  protected createBuilderNode(uiContext: UIContext, nodePtr: number, frameNodePtr: number): void {
+    let jsBuilderNode = JSBuilderNode.createForTrans(uiContext, nodePtr, frameNodePtr);
+    this.builderNode_ = new BuilderNode(uiContext, {}, jsBuilderNode);
+  }
+}
+
+class ComponentContent extends ComponentContentCommonBase {
+  constructor(uiContext: UIContext, builder: WrappedBuilder<[]> | WrappedBuilder<[Object]>, params?: Object, options?: BuildOptions) {
+    super();   
+    this.instanceId_ = uiContext.instanceId_;
+    if (this.isTransferred() == false) {
+      let builderNode = new BuilderNode(uiContext, {});
+      this.builderNode_ = builderNode;
+      this.builderNode_.build(builder, params ?? undefined, options);
+    }
+  }
+}
+
+class ReactiveComponentContent extends ComponentContentCommonBase {
+  constructor(uiContext: UIContext, builder: WrappedBuilder<[]> | WrappedBuilder<[Object]>, options?: BuildOptions, ...params: Object[]) {
+    super();
+    let reactiveBuilderNode = new ReactiveBuilderNode(uiContext, {});
+    this.builderNode_ = reactiveBuilderNode;
+    this.builderNode_.build(builder, options, ...params);
+  }
+  public flushState(): void {
+    if (this.builderNode_ instanceof ReactiveBuilderNode) {
+      (this.builderNode_ as ReactiveBuilderNode)?.flushState();
+    }
   }
 }

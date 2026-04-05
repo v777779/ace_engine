@@ -103,14 +103,21 @@ void SpanModelNG::SetFont(const Font& value)
     } else {
         ResetItalicFontStyle();
     }
-}
-
-void SpanModelNG::ResetFont()
-{
-    ResetFontSize();
-    ResetFontWeight();
-    ResetFontFamily();
-    ResetItalicFontStyle();
+    if (value.variableFontWeight.has_value()) {
+        SetVariableFontWeight(value.variableFontWeight.value());
+    } else {
+        ResetVariableFontWeight();
+    }
+    if (value.enableVariableFontWeight.has_value()) {
+        SetEnableVariableFontWeight(value.enableVariableFontWeight.value());
+    } else {
+        ResetEnableVariableFontWeight();
+    }
+    if (value.enableDeviceFontWeightCategory.has_value()) {
+        SetEnableDeviceFontWeightCategory(value.enableDeviceFontWeightCategory.value());
+    } else {
+        ResetEnableDeviceFontWeightCategory();
+    }
 }
 
 void SpanModelNG::SetFontSize(const Dimension& value)
@@ -128,11 +135,6 @@ void SpanModelNG::SetTextColor(const Color& value)
     auto spanNode = AceType::DynamicCast<SpanNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
     CHECK_NULL_VOID(spanNode);
     spanNode->UpdateSpanTextColor(value);
-}
-
-void SpanModelNG::ResetTextColor()
-{
-    ACE_RESET_SPAN_PROPERTY(TextColor);
 }
 
 void SpanModelNG::SetItalicFontStyle(Ace::FontStyle value)
@@ -153,6 +155,36 @@ void SpanModelNG::SetFontWeight(Ace::FontWeight value)
 void SpanModelNG::ResetFontWeight()
 {
     ACE_RESET_SPAN_PROPERTY(FontWeight);
+}
+
+void SpanModelNG::SetVariableFontWeight(int32_t value)
+{
+    ACE_UPDATE_SPAN_PROPERTY(VariableFontWeight, value);
+}
+
+void SpanModelNG::ResetVariableFontWeight()
+{
+    ACE_RESET_SPAN_PROPERTY(VariableFontWeight);
+}
+
+void SpanModelNG::SetEnableVariableFontWeight(bool value)
+{
+    ACE_UPDATE_SPAN_PROPERTY(EnableVariableFontWeight, value);
+}
+
+void SpanModelNG::ResetEnableVariableFontWeight()
+{
+    ACE_RESET_SPAN_PROPERTY(EnableVariableFontWeight);
+}
+
+void SpanModelNG::SetEnableDeviceFontWeightCategory(bool value)
+{
+    ACE_UPDATE_SPAN_PROPERTY(EnableDeviceFontWeightCategory, value);
+}
+
+void SpanModelNG::ResetEnableDeviceFontWeightCategory()
+{
+    ACE_RESET_SPAN_PROPERTY(EnableDeviceFontWeightCategory);
 }
 
 void SpanModelNG::SetFontFamily(const std::vector<std::string>& value)
@@ -192,6 +224,8 @@ void SpanModelNG::SetTextCase(Ace::TextCase value)
 
 void SpanModelNG::SetTextShadow(const std::vector<Shadow>& value)
 {
+    ACE_UPDATE_SPAN_PROPERTY(TextShadow, value);
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
     auto spanNode = AceType::DynamicCast<SpanNode>(ViewStackProcessor::GetInstance()->GetMainElementNode());
     CHECK_NULL_VOID(spanNode);
     auto index = 0;
@@ -213,12 +247,12 @@ void SpanModelNG::SetTextShadow(const std::vector<Shadow>& value)
         spanNode->AddResObj(key, resObj, std::move(updateFunc));
         index ++;
     }
-    ACE_UPDATE_SPAN_PROPERTY(TextShadow, value);
 }
 
 void SpanModelNG::SetTextShadow(UINode* uiNode, const std::vector<Shadow>& value)
 {
     ACE_UPDATE_NODE_SPAN_PROPERTY(TextShadow, value, uiNode);
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
     auto spanNode = AceType::DynamicCast<SpanNode>(uiNode);
     CHECK_NULL_VOID(spanNode);
     auto index = 0;
@@ -359,6 +393,42 @@ void SpanModelNG::SetFontWeight(UINode* uiNode, FontWeight value)
 void SpanModelNG::ResetFontWeight(UINode *uiNode)
 {
     ACE_RESET_NODE_SPAN_PROPERTY(FontWeight, uiNode);
+}
+
+void SpanModelNG::SetVariableFontWeight(UINode* uiNode, int32_t value)
+{
+    auto spanNode = AceType::DynamicCast<SpanNode>(uiNode);
+    CHECK_NULL_VOID(spanNode);
+    spanNode->UpdateVariableFontWeight(value);
+}
+
+void SpanModelNG::ResetVariableFontWeight(UINode *uiNode)
+{
+    ACE_RESET_NODE_SPAN_PROPERTY(VariableFontWeight, uiNode);
+}
+
+void SpanModelNG::SetEnableVariableFontWeight(UINode* uiNode, bool value)
+{
+    auto spanNode = AceType::DynamicCast<SpanNode>(uiNode);
+    CHECK_NULL_VOID(spanNode);
+    spanNode->UpdateEnableVariableFontWeight(value);
+}
+
+void SpanModelNG::ResetEnableVariableFontWeight(UINode *uiNode)
+{
+    ACE_RESET_NODE_SPAN_PROPERTY(EnableVariableFontWeight, uiNode);
+}
+
+void SpanModelNG::SetEnableDeviceFontWeightCategory(UINode* uiNode, bool value)
+{
+    auto spanNode = AceType::DynamicCast<SpanNode>(uiNode);
+    CHECK_NULL_VOID(spanNode);
+    spanNode->UpdateEnableDeviceFontWeightCategory(value);
+}
+
+void SpanModelNG::ResetEnableDeviceFontWeightCategory(UINode *uiNode)
+{
+    ACE_RESET_NODE_SPAN_PROPERTY(EnableDeviceFontWeightCategory, uiNode);
 }
 
 void SpanModelNG::SetTextCase(UINode* uiNode, TextCase value)
@@ -504,23 +574,30 @@ void SpanModelNG::SetFont(UINode* uiNode, const Font& value)
 {
     if (value.fontSize.has_value()) {
         SetFontSize(uiNode, value.fontSize.value());
-    } else {
-        ResetFontSize(uiNode);
     }
     if (value.fontWeight.has_value()) {
         SetFontWeight(uiNode, value.fontWeight.value());
-    } else {
-        ResetFontWeight(uiNode);
     }
     if (!value.fontFamilies.empty()) {
         SetFontFamily(uiNode, value.fontFamilies);
-    } else {
-        ResetFontFamily(uiNode);
     }
     if (value.fontStyle.has_value()) {
         SetItalicFontStyle(uiNode, value.fontStyle.value());
+    }
+    if (value.variableFontWeight.has_value()) {
+        SetVariableFontWeight(uiNode, value.variableFontWeight.value());
     } else {
-        ResetItalicFontStyle(uiNode);
+        ResetVariableFontWeight(uiNode);
+    }
+    if (value.enableVariableFontWeight.has_value()) {
+        SetEnableVariableFontWeight(uiNode, value.enableVariableFontWeight.value());
+    } else {
+        ResetEnableVariableFontWeight(uiNode);
+    }
+    if (value.enableDeviceFontWeightCategory.has_value()) {
+        SetEnableDeviceFontWeightCategory(uiNode, value.enableDeviceFontWeightCategory.value());
+    } else {
+        ResetEnableDeviceFontWeightCategory(uiNode);
     }
 }
 
@@ -530,12 +607,14 @@ void SpanModelNG::ResetFont(UINode *uiNode)
     ResetFontWeight(uiNode);
     ResetFontFamily(uiNode);
     ResetItalicFontStyle(uiNode);
+    ResetVariableFontWeight(uiNode);
+    ResetEnableVariableFontWeight(uiNode);
+    ResetEnableDeviceFontWeightCategory(uiNode);
 }
 
 void SpanModelNG::CreateContainSpan()
 {
     auto* stack = ViewStackProcessor::GetInstance();
-    CHECK_NULL_VOID(stack);
     auto nodeId = stack->ClaimNodeId();
     auto spanNode = ContainerSpanNode::GetOrCreateSpanNode(nodeId);
     stack->Push(spanNode);
@@ -546,7 +625,7 @@ void SpanModelNG::SetTextBackgroundStyle(const TextBackgroundStyle& style)
     auto baseSpan = AceType::DynamicCast<BaseSpan>(ViewStackProcessor::GetInstance()->GetMainElementNode());
     CHECK_NULL_VOID(baseSpan);
     baseSpan->SetTextBackgroundStyle(style);
-
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
     RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
     auto key = "textbackgroundStyle";
     auto&& updateFunc = [style, weak = WeakPtr<BaseSpan>(baseSpan)](const RefPtr<ResourceObject>& resObj) {
@@ -564,7 +643,7 @@ void SpanModelNG::SetTextBackgroundStyle(UINode* uiNode, const TextBackgroundSty
     auto spanNode = AceType::DynamicCast<SpanNode>(uiNode);
     CHECK_NULL_VOID(spanNode);
     spanNode->SetTextBackgroundStyle(style);
-
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
     RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
     auto key = "textbackgroundStyle";
     auto&& updateFunc = [style, weak = AceType::WeakClaim(spanNode)](const RefPtr<ResourceObject>& resObj) {
@@ -582,7 +661,7 @@ void SpanModelNG::SetTextBackgroundStyleByBaseSpan(UINode* uiNode, const TextBac
     auto spanNode = AceType::DynamicCast<BaseSpan>(uiNode);
     CHECK_NULL_VOID(spanNode);
     spanNode->SetTextBackgroundStyle(style);
-
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
     RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
     auto key = "textbackgroundStyle";
     auto&& updateFunc = [style, weak = AceType::WeakClaim(spanNode)](const RefPtr<ResourceObject>& resObj) {
@@ -593,6 +672,16 @@ void SpanModelNG::SetTextBackgroundStyleByBaseSpan(UINode* uiNode, const TextBac
         spanNode->SetTextBackgroundStyle(styleValue);
     };
     spanNode->AddResObj(key, resObj, std::move(updateFunc));
+}
+
+void SpanModelNG::ResetTextBackgroundStyleByBaseSpan(UINode* uiNode)
+{
+    auto spanNode = AceType::DynamicCast<SpanNode>(uiNode);
+    CHECK_NULL_VOID(spanNode);
+    auto spanItem = spanNode->GetSpanItem();
+    CHECK_NULL_VOID(spanItem);
+    spanItem->backgroundStyle = std::nullopt;
+    spanNode->RequestTextFlushDirty();
 }
 
 std::u16string SpanModelNG::GetContent(UINode* uiNode)

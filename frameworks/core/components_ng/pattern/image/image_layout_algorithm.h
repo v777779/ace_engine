@@ -35,9 +35,8 @@ public:
     void Measure(LayoutWrapper* layoutWrapper) override;
 
     void Layout(LayoutWrapper* layoutWrapper) override;
-
-    static void PerformImageAnimationLayout(LayoutWrapper* layoutWrapper);
-    static bool IsImageAnimationLayout(LayoutWrapper* layoutWrapper);
+    void UpdateFrameSizeWithLayoutPolicy(
+        LayoutWrapper* layoutWrapper, OptionalSizeF& imageFrameSize, const std::optional<SizeF>& rawImageSize);
 
 private:
     ACE_DISALLOW_COPY_AND_MOVE(ImageLayoutAlgorithm);

@@ -88,6 +88,12 @@ void JSTextTimer::Create(const JSCallbackInfo& info)
             }
         }
     }
+    int32_t startTime = 0;
+    auto startTimeObj = paramObject->GetProperty("startTime");
+    if (startTimeObj->IsNumber()) {
+        startTime = startTimeObj->ToNumber<int32_t>();
+    }
+    TextTimerModel::GetInstance()->SetStartTime(startTime);
 
     auto controllerObj = paramObject->GetProperty("controller");
     if (controllerObj->IsObject()) {
@@ -248,7 +254,7 @@ void JSTextTimer::SetTextShadow(const JSCallbackInfo& info)
     }
     std::vector<Shadow> shadows;
     ParseTextShadowFromShadowObject(info[0], shadows);
-    if (!shadows.empty()) {
+    if (!shadows.empty() || SystemProperties::ConfigChangePerform()) {
         TextTimerModel::GetInstance()->SetTextShadow(shadows);
     }
 }
@@ -281,6 +287,9 @@ void JSTextTimer::SetFontWeight(const JSCallbackInfo& info)
     std::string weight;
     if (fontWeight->IsNumber()) {
         weight = std::to_string(fontWeight->ToNumber<int32_t>());
+        if (SystemProperties::ConfigChangePerform()) {
+            TextTimerModel::GetInstance()->CreateWithResourceObj(JsTextTimerResourceType::FONTWEIGHT, nullptr);
+        }
     } else {
         if (SystemProperties::ConfigChangePerform()) {
             RefPtr<ResourceObject> resObj;
@@ -290,7 +299,8 @@ void JSTextTimer::SetFontWeight(const JSCallbackInfo& info)
             ParseJsString(fontWeight, weight);
         }
     }
-    TextTimerModel::GetInstance()->SetFontWeight(ConvertStrToFontWeight(weight));
+    TextTimerModel::GetInstance()->SetFontWeight(
+        ConvertStrToFontWeight(weight, textTheme->GetTextStyle().GetFontWeight()));
     TextTimerModel::GetInstance()->SetFontWeightByUser(true);
 }
 

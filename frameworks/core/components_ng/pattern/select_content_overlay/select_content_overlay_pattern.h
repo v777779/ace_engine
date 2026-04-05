@@ -30,7 +30,7 @@ public:
     {}
     ~SelectContentOverlayPattern() override = default;
 
-    void UpdateMenuIsShow(bool menuIsShow, bool noAnimation = false);
+    void UpdateMenuIsShow(bool menuIsShow, bool noAnimation = false, bool showSubMenu = false);
     void UpdateMenuInfo(const SelectMenuInfo& info);
     void UpdateIsShowHandleLine(bool isShowHandleLine);
     void UpdateIsSingleHandle(bool isSingleHandle);
@@ -41,7 +41,6 @@ public:
     void UpdateSelectArea(const RectF& selectArea) override;
     void SetHandleCircleIsShow(bool isFirst, bool isShow);
     void SetIsHandleLineShow(bool isShow);
-    void UpdateMenuAccessibility(bool menuIsShow);
 
 protected:
     void CheckHandleReverse() override;

@@ -16,9 +16,9 @@
 #include "gtest/gtest.h"
 #define protected public
 #define private public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_abstract_model_ng.h"
@@ -1419,5 +1419,26 @@ HWTEST_F(ShortCutsTestNg, ShortCutsTest040, TestSize.Level1)
     ViewAbstract::SetKeyboardShortcut(VALUE_Y, std::move(keys), callback);
     EXPECT_EQ(eventManager->keyboardShortcutNode_.size(), 1);
     keys.clear();
+}
+
+/**
+ * @tc.name: ShortCutsTest041
+ * @tc.desc: Test the KeyEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ShortCutsTestNg, ShortCutsTest041, TestSize.Level1)
+{
+    KeyEvent event;
+    const RefPtr<FrameNode> targetNode = FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
+    ViewStackProcessor::GetInstance()->Push(targetNode);
+    auto keyEventManager = PipelineContext::GetCurrentContext()->GetEventManager();
+    event.code = KeyCode::KEY_TAB;
+    event.action = KeyAction::DOWN;
+    event.isPreIme = false;
+    event.pressedCodes = {KeyCode::KEY_TAB};
+    auto ret = keyEventManager->TriggerKeyEventDispatch(event);
+    EXPECT_TRUE(ret);
+    ret = keyEventManager->TriggerKeyEventDispatch(event);
+    EXPECT_FALSE(ret);
 }
 } // namespace OHOS::Ace::NG

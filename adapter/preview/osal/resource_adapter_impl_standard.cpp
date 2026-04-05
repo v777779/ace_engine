@@ -35,6 +35,7 @@ constexpr char DELIMITER[] = "/";
 #endif
 
 constexpr uint32_t OHOS_THEME_ID = 125829872; // ohos_theme
+constexpr uint32_t INVALID_RESOURCE_ID = UINT32_MAX;
 
 void CheckThemeId(int32_t& themeId)
 {
@@ -106,7 +107,8 @@ const char* PATTERN_MAP[] = {
     THEME_PATTERN_RICH_EDITOR,
     THEME_PATTERN_CONTAINER_MODAL,
     THEME_PATTERN_APP,
-    THEME_PATTERN_LINEAR_INDICATOR
+    THEME_PATTERN_CONTAINER_PICKER,
+    THEME_PATTERN_CORNER_MARK
 };
 } // namespace
 
@@ -172,12 +174,13 @@ void ResourceAdapterImpl::SetAppHasDarkRes(bool hasDarkRes)
 }
 
 RefPtr<ResourceAdapter> ResourceAdapter::CreateNewResourceAdapter(
-    const std::string& bundleName, const std::string& moduleName, bool fromTheme)
+    const std::string& bundleName, const std::string& moduleName, int32_t& actualInstanceId)
 {
     auto container = Container::CurrentSafely();
     CHECK_NULL_RETURN(container, nullptr);
     auto aceContainer = AceType::DynamicCast<Platform::AceContainer>(container);
     CHECK_NULL_RETURN(aceContainer, nullptr);
+    actualInstanceId = aceContainer->GetInstanceId();
     
     RefPtr<ResourceAdapter> newResourceAdapter = nullptr;
     auto context = aceContainer->GetAbilityContextByModule(bundleName, moduleName);
@@ -206,9 +209,9 @@ RefPtr<ResourceAdapter> ResourceAdapter::CreateNewResourceAdapter(
 void ResourceAdapterImpl::UpdateConfig(const ResourceConfiguration& config, bool themeFlag)
 {
     auto resConfig = ConvertConfigToGlobal(config);
-    LOGI("UpdateConfig ori=%{public}d, dpi=%{public}f, device=%{public}d", resConfig->GetDirection(),
-        resConfig->GetScreenDensity(), resConfig->GetDeviceType());
     if (resConfig != nullptr) {
+        LOGI("UpdateConfig ori=%{public}d, dpi=%{public}f, device=%{public}d", resConfig->GetDirection(),
+            resConfig->GetScreenDensity(), resConfig->GetDeviceType());
         resourceManager_->UpdateResConfig(*resConfig);
     }
 }
@@ -602,5 +605,18 @@ RefPtr<ResourceAdapter> ResourceAdapterImpl::GetOverrideResourceAdapter(
     }
     auto overrideResMgr = resourceManager_->GetOverrideResourceManager(overrideResConfig);
     return AceType::MakeRefPtr<ResourceAdapterImpl>(overrideResMgr);
+}
+
+uint32_t ResourceAdapterImpl::GetResId(const std::string &resTypeName) const
+{
+    uint32_t resId = INVALID_RESOURCE_ID;
+    CHECK_NULL_RETURN(resourceManager_, INVALID_RESOURCE_ID);
+    auto state = resourceManager_->GetResId(resTypeName, resId);
+    if (state != Global::Resource::SUCCESS) {
+        TAG_LOGW(AceLogTag::ACE_RESOURCE, "Get resId by name error, name=%s, errorCode=%{public}d",
+            resTypeName.c_str(), state);
+        return INVALID_RESOURCE_ID;
+    }
+    return resId;
 }
 } // namespace OHOS::Ace

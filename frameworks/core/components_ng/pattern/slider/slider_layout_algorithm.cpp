@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -42,8 +42,10 @@ RefPtr<SliderTheme> GetTheme()
 SizeF SliderLayoutAlgorithm::CalculateHotSize(
     LayoutWrapper* layoutWrapper, const SizeF& blockSize, float themeBlockHotSize)
 {
+    CHECK_NULL_RETURN(layoutWrapper, SizeF());
     auto frameNode = layoutWrapper->GetHostNode();
     CHECK_NULL_RETURN(frameNode, SizeF());
+    ACE_UINODE_TRACE(frameNode);
     auto sliderLayoutProperty = DynamicCast<SliderLayoutProperty>(layoutWrapper->GetLayoutProperty());
     CHECK_NULL_RETURN(sliderLayoutProperty, SizeF());
     auto sliderMode = sliderLayoutProperty->GetSliderMode().value_or(SliderModel::SliderMode::OUTSET);
@@ -67,6 +69,7 @@ std::optional<SizeF> SliderLayoutAlgorithm::MeasureContent(
 {
     auto frameNode = layoutWrapper->GetHostNode();
     CHECK_NULL_RETURN(frameNode, std::nullopt);
+    ACE_UINODE_TRACE(frameNode);
     auto pattern = frameNode->GetPattern<SliderPattern>();
     CHECK_NULL_RETURN(pattern, std::nullopt);
     if (pattern->UseContentModifier()) {
@@ -84,6 +87,15 @@ std::optional<SizeF> SliderLayoutAlgorithm::MeasureContent(
 
     float width = contentConstraint.selfIdealSize.Width().value_or(contentConstraint.maxSize.Width());
     float height = contentConstraint.selfIdealSize.Height().value_or(contentConstraint.maxSize.Height());
+    auto layoutPolicy = GetLayoutPolicy(layoutWrapper);
+    if (layoutPolicy.has_value() && layoutPolicy->IsMatch()) {
+        if (layoutPolicy->IsWidthMatch()) {
+            width = contentConstraint.parentIdealSize.Width().value();
+        }
+        if (layoutPolicy->IsHeightMatch()) {
+            height = contentConstraint.parentIdealSize.Height().value();
+        }
+    }
     Axis direction = sliderLayoutProperty->GetDirection().value_or(Axis::HORIZONTAL);
     if (direction == Axis::HORIZONTAL && GreaterOrEqualToInfinity(width)) {
         width = static_cast<float>(theme->GetLayoutMaxLength().ConvertToPx());
@@ -113,10 +125,14 @@ std::optional<SizeF> SliderLayoutAlgorithm::MeasureContent(
     }
     blockSize_ = sliderLayoutProperty->GetBlockSizeValue(SizeF(blockDiameter, blockDiameter));
     blockHotSize_ = CalculateHotSize(layoutWrapper, blockSize_, static_cast<float>(themeBlockHotSize.ConvertToPx()));
+    pattern->UpdateSliderParams(trackThickness_, blockSize_, blockHotSize_);
     auto mode = sliderLayoutProperty->GetSliderMode().value_or(SliderModel::SliderMode::OUTSET);
     auto sliderWidth = CalculateSliderWidth(width, height, direction, hotBlockShadowWidth, mode);
     float sliderLength =
         CalculateSliderLength(width, height, direction, mode, (pattern->HasPrefix() || pattern->HasSuffix()));
+    if (layoutPolicy.has_value() && (layoutPolicy->IsFix() || layoutPolicy->IsWrap())) {
+        return SizeF(0.0, 0.0);
+    }
     return direction == Axis::HORIZONTAL ? SizeF(sliderLength, sliderWidth) : SizeF(sliderWidth, sliderLength);
 }
 
@@ -154,8 +170,10 @@ float SliderLayoutAlgorithm::CalculateSliderWidth(
 void SliderLayoutAlgorithm::GetStyleThemeValue(LayoutWrapper* layoutWrapper, Dimension& themeTrackThickness,
     Dimension& themeBlockSize, Dimension& hotBlockShadowWidth, Dimension& themeBlockHotSize)
 {
+    CHECK_NULL_VOID(layoutWrapper);
     auto frameNode = layoutWrapper->GetHostNode();
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto sliderLayoutProperty = DynamicCast<SliderLayoutProperty>(layoutWrapper->GetLayoutProperty());
     CHECK_NULL_VOID(sliderLayoutProperty);
     auto pipeline = frameNode->GetContext();
@@ -183,11 +201,15 @@ void SliderLayoutAlgorithm::GetStyleThemeValue(LayoutWrapper* layoutWrapper, Dim
 
 void SliderLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
 {
-    auto layoutConstraint = layoutWrapper->GetLayoutProperty()->CreateChildConstraint();
-    auto sliderLayoutProperty = DynamicCast<SliderLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    CHECK_NULL_VOID(layoutWrapper);
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(layoutProperty);
+    auto layoutConstraint = layoutProperty->CreateChildConstraint();
+    auto sliderLayoutProperty = DynamicCast<SliderLayoutProperty>(layoutProperty);
     CHECK_NULL_VOID(sliderLayoutProperty);
     auto frameNode = layoutWrapper->GetHostNode();
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto pattern = frameNode->GetPattern<SliderPattern>();
     CHECK_NULL_VOID(pattern);
     if (!pattern->UseContentModifier()) {
@@ -209,7 +231,6 @@ void SliderLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
             CHECK_NULL_VOID(prefixChild);
             SetChildConstraint(prefixChild, maxWidth, maxHeight);
         }
-
         if (pattern->HasSuffix()) {
             auto suffixChild = layoutWrapper->GetOrCreateChildByIndex(0);
             if (pattern->HasPrefix()) {
@@ -242,6 +263,7 @@ void SliderLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
 {
     auto host = layoutWrapper->GetHostNode();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto pattern = DynamicCast<SliderPattern>(host->GetPattern());
     CHECK_NULL_VOID(pattern);
     if (pattern->UseContentModifier()) {
@@ -371,4 +393,13 @@ void SliderLayoutAlgorithm::CalculateBlockOffset(
     child->Layout();
 }
 
+std::optional<NG::LayoutPolicyProperty> SliderLayoutAlgorithm::GetLayoutPolicy(LayoutWrapper* layoutWrapper)
+{
+    CHECK_NULL_RETURN(layoutWrapper, NG::LayoutPolicyProperty());
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_RETURN(layoutProperty, NG::LayoutPolicyProperty());
+    auto layoutPolicy = layoutProperty->GetLayoutPolicyProperty();
+    CHECK_NULL_RETURN(layoutPolicy, NG::LayoutPolicyProperty());
+    return layoutPolicy;
+}
 } // namespace OHOS::Ace::NG

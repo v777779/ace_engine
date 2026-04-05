@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,16 +16,24 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_SCROLLABLE_SCROLLABLE_MODEL_NG_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_SCROLLABLE_SCROLLABLE_MODEL_NG_H
 
+#include "base/memory/referenced.h"
 #include "base/utils/macros.h"
+#include "base/geometry/shape.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/scrollable/scrollable_paint_property.h"
 #include "core/components_ng/pattern/scrollable/scrollable_properties.h"
 
 #ifdef SUPPORT_DIGITAL_CROWN
 #include "core/event/crown_event.h"
 #endif
+
+namespace OHOS::Ace {
+class ResourceObject;
+class ShapeRect;
+}
+
 namespace OHOS::Ace::NG {
+class FrameNode;
 
 constexpr Dimension DEFAULT_FADING_EDGE_LENGTH_SCROLLABLE = Dimension(32.0f, DimensionUnit::VP); // default value
 class ACE_FORCE_EXPORT ScrollableModelNG {
@@ -54,6 +62,10 @@ public:
     static void SetContentClip(ContentClipMode mode, const RefPtr<ShapeRect>& rect);
     static void SetMaxFlingSpeed(double max);
     static void SetOnWillStopDragging(OnWillStopDraggingEvent&& onWillStopDragging);
+    static void SetOnWillStartDragging(OnWillStartDraggingEvent&& event) ;
+    static void SetOnDidStopDragging(OnDidStopDraggingEvent&& event);
+    static void SetOnWillStartFling(OnWillStartFlingEvent&& event);
+    static void SetOnDidStopFling(OnDidStopFlingEvent&& event);
 
     static void SetEdgeEffect(
         FrameNode* frameNode, EdgeEffect edgeEffect, bool alwaysEnabled, EffectEdge effectEdge = EffectEdge::ALL);
@@ -65,6 +77,7 @@ public:
 
     static int32_t GetEdgeEffect(FrameNode* frameNode);
     static int32_t GetAlwaysEnabled(FrameNode* frameNode);
+    static EffectEdge GetEffectEdge(FrameNode* frameNode);
     static void SetOnScroll(FrameNode* frameNode, OnScrollEvent&& onScroll);
     static void SetOnScrollStart(FrameNode* frameNode, OnScrollStartEvent&& onScrollStart);
     static void SetOnScrollStop(FrameNode* frameNode, OnScrollStopEvent&& onScrollStop);
@@ -82,10 +95,15 @@ public:
     static bool GetFadingEdge(FrameNode* frameNode);
     static float GetFadingEdgeLength(FrameNode* frameNode);
     static void SetOnWillStopDragging(FrameNode* frameNode, OnWillStopDraggingEvent&& onWillStopDragging);
+    static void SetOnWillStartDragging(FrameNode* frameNode, OnWillStartDraggingEvent&& event) ;
+    static void SetOnDidStopDragging(FrameNode* frameNode, OnDidStopDraggingEvent&& event);
+    static void SetOnWillStartFling(FrameNode* frameNode, OnWillStartFlingEvent&& event);
+    static void SetOnDidStopFling(FrameNode* frameNode, OnDidStopFlingEvent&& event);
 
 #ifdef SUPPORT_DIGITAL_CROWN
     static void SetDigitalCrownSensitivity(CrownSensitivity sensitivity);
 #endif
+
     static void ResetScrollBarWidth(FrameNode* frameNode);
     static void ResetScrollBarColor(FrameNode* frameNode);
     static void SetNestedScroll(FrameNode* frameNode, const NestedScrollOptions& nestedOpt);
@@ -96,11 +114,36 @@ public:
     static void SetBackToTop(FrameNode* frameNode, bool backToTop);
     static void SetBackToTopMultiThread(FrameNode* frameNode, bool backToTop);
     static void ResetBackToTop(FrameNode* frameNode);
+    static void ResetBackToTopMultiThread(FrameNode* frameNode);
     static bool GetBackToTop(FrameNode* frameNode);
+    static void SetEnableScrollWithMouse(bool enableScrollWithMouse);
+    static void SetEnableScrollWithMouse(FrameNode* frameNode, bool enableScrollWithMouse);
+    static void ResetEnableScrollWithMouse(FrameNode* frameNode);
+    static bool GetEnableScrollWithMouse(FrameNode* frameNode);
     static void SetScrollBarMargin(const ScrollBarMargin& scrollBarMargin);
     static void SetScrollBarMargin(FrameNode* frameNode, const ScrollBarMargin& scrollBarMargin);
     static void ResetScrollBarMargin(FrameNode* frameNode);
     static void GetScrollBarMargin(FrameNode* frameNode, ScrollBarMargin& scrollBarMargin);
+    static void SetContentStartOffset(float offset);
+    static void SetContentEndOffset(float offset);
+    static void SetContentStartOffset(FrameNode* frameNode, float offset);
+    static void SetContentEndOffset(FrameNode* frameNode, float offset);
+    static void ResetContentStartOffset();
+    static void ResetContentEndOffset();
+    static void ResetContentStartOffset(FrameNode* frameNode);
+    static void ResetContentEndOffset(FrameNode* frameNode);
+    static float GetContentStartOffset(FrameNode* frameNode);
+    static float GetContentEndOffset(FrameNode* frameNode);
+    static void CreateWithResourceObjContentStartOffset(const RefPtr<ResourceObject>& resObj);
+    static void CreateWithResourceObjContentEndOffset(const RefPtr<ResourceObject>& resObj);
+    static void CreateWithResourceObjContentStartOffset(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void CreateWithResourceObjContentEndOffset(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+
+    static void CreateWithResourceObjScrollBarColor(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj);
+    static void SetAutoAdjustScrollBarMargin(std::optional<bool> autoAdjust);
+    static void SetAutoAdjustScrollBarMargin(FrameNode* frameNode, std::optional<bool> autoAdjust);
+    static void ResetAutoAdjustScrollBarMargin(FrameNode* frameNode);
+    static bool GetAutoAdjustScrollBarMargin(FrameNode* frameNode);
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_SCROLLABLE_SCROLLABLE_MODEL_H

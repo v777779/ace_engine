@@ -22,7 +22,9 @@
 #include "core/components_ng/pattern/container_modal/container_modal_toolbar.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_property.h"
-
+#ifdef ENABLE_ROSEN_BACKEND
+#include "render_service_client/core/ui/rs_ui_director.h"
+#endif
 namespace OHOS::Ace::NG {
 
 namespace {
@@ -184,13 +186,13 @@ void ContainerModalPattern::InitContainerEvent()
                 controlButtonsLayoutProperty->UpdateVisibility(VisibleType::VISIBLE);
                 AnimationUtils::Animate(option, [controlButtonsContext]() {
                     controlButtonsContext->OnTransformTranslateUpdate({ 0.0f, 0.0f, 0.0f });
-                });
+                }, nullptr, nullptr, container->GetContextRefPtr());
                 floatingContext->OnTransformTranslateUpdate({ 0.0f, static_cast<float>(-titlePopupDistance), 0.0f });
                 floatingLayoutProperty->UpdateVisibility(
                     container->floatingTitleSettedShow_ ? VisibleType::VISIBLE : VisibleType::GONE);
                 AnimationUtils::Animate(option, [floatingContext]() {
                     floatingContext->OnTransformTranslateUpdate({ 0.0f, 0.0f, 0.0f });
-                });
+                }, nullptr, nullptr, container->GetContextRefPtr());
             }
             return;
         }
@@ -211,7 +213,7 @@ void ContainerModalPattern::InitContainerEvent()
             [floatingLayoutProperty, id = Container::CurrentId()]() {
                 ContainerScope scope(id);
                 floatingLayoutProperty->UpdateVisibility(VisibleType::GONE);
-            });
+            }, nullptr, container->GetContextRefPtr());
     });
 
     // init mouse event
@@ -231,13 +233,13 @@ void ContainerModalPattern::InitContainerEvent()
             controlButtonsLayoutProperty->UpdateVisibility(VisibleType::VISIBLE);
             AnimationUtils::Animate(option, [controlButtonsContext]() {
                 controlButtonsContext->OnTransformTranslateUpdate({ 0.0f, 0.0f, 0.0f });
-            });
+            }, nullptr, nullptr, container->GetContextRefPtr());
             floatingContext->OnTransformTranslateUpdate({ 0.0f, static_cast<float>(-titlePopupDistance), 0.0f });
             floatingLayoutProperty->UpdateVisibility(
                 container->floatingTitleSettedShow_ ? VisibleType::VISIBLE : VisibleType::GONE);
             AnimationUtils::Animate(option, [floatingContext]() {
                 floatingContext->OnTransformTranslateUpdate({ 0.0f, 0.0f, 0.0f });
-            });
+            }, nullptr, nullptr, container->GetContextRefPtr());
         }
 
         if (!container->CanHideFloatingTitle()) {
@@ -256,7 +258,7 @@ void ContainerModalPattern::InitContainerEvent()
                 [floatingLayoutProperty, id = Container::CurrentId()]() {
                     ContainerScope scope(id);
                     floatingLayoutProperty->UpdateVisibility(VisibleType::GONE);
-                });
+                }, nullptr, container->GetContextRefPtr());
         }
     });
 }
@@ -281,7 +283,8 @@ void ContainerModalPattern::AddPanEvent(const RefPtr<FrameNode>& controlButtonsN
             TAG_LOGI(AceLogTag::ACE_APPBAR, "container window pan recognized. currentWindowMode = %{public}d",
                 currentWindowMode);
             if ((windowManager->GetCurrentWindowMaximizeMode() != MaximizeMode::MODE_AVOID_SYSTEM_BAR) &&
-                (event.GetSourceTool() != SourceTool::TOUCHPAD)) {
+                (event.GetSourceTool() != SourceTool::TOUCHPAD) &&
+                (event.GetInputEventType() != InputEventType::AXIS)) {
                 windowManager->WindowStartMove();
                 SubwindowManager::GetInstance()->ClearToastInSubwindow();
             }
@@ -543,13 +546,27 @@ void ContainerModalPattern::SetWindowContainerColor(const Color& activeColor, co
     inactiveColor_ = inactiveColor;
     isCustomColor_ = true;
     renderContext->UpdateBackgroundColor(GetContainerColor(isFocus_));
-
+    SetContainerWindowTransparent();
     CHECK_NULL_VOID(titleMgr_);
     if (IsContainerModalTransparent()) {
         titleMgr_->UpdateTargetNodesBarMargin();
     } else {
         titleMgr_->ResetExpandStackNode();
     }
+}
+
+void ContainerModalPattern::SetContainerWindowTransparent()
+{
+#ifdef ENABLE_ROSEN_BACKEND
+    auto containerNode = GetHost();
+    CHECK_NULL_VOID(containerNode);
+    auto pipeline = containerNode->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    auto reUiDirector = pipeline->GetRSUIDirector();
+    CHECK_NULL_VOID(reUiDirector);
+    auto color = GetContainerColor(isFocus_);
+    reUiDirector->SetContainerWindowTransparent(color.GetAlpha() == 0);
+#endif
 }
 
 Color ContainerModalPattern::GetContainerColor(bool isFocus)
@@ -613,9 +630,11 @@ void ContainerModalPattern::SetContainerModalTitleVisible(bool customTitleSetted
         titleMgr_->ResetExpandStackNode();
     }
 
-    titleMgr_->UpdateToolbarShow(isTitleShow_, customTitleSettedShow_);
-    CHECK_NULL_VOID(floatTitleMgr_);
-    floatTitleMgr_->UpdateToolbarShow(isTitleShow_, customTitleSettedShow_);
+    if (!isSetContainerModalTitleHeight_) {
+        titleMgr_->UpdateToolbarShow(isTitleShow_, customTitleSettedShow_);
+        CHECK_NULL_VOID(floatTitleMgr_);
+        floatTitleMgr_->UpdateToolbarShow(isTitleShow_, customTitleSettedShow_);
+    }
 }
 
 bool ContainerModalPattern::GetContainerModalTitleVisible(bool isImmersive)
@@ -638,31 +657,59 @@ void ContainerModalPattern::SetContainerModalTitleHeight(int32_t height)
         height = 0;
     }
     titleHeight_ = Dimension(Dimension(height, DimensionUnit::PX).ConvertToVp(), DimensionUnit::VP);
-    SetControlButtonsRowHeight(titleHeight_);
-    SetContainerModalTitleWithoutButtonsHeight(titleHeight_);
+    SetControlButtonsRowHeight();
+    auto customTitleRow = GetCustomTitleRow();
+    UpdateRowHeight(customTitleRow, titleHeight_);
+    auto gestureRow = GetGestureRow();
+    UpdateRowHeight(gestureRow, titleHeight_);
 }
 
-void ContainerModalPattern::SetContainerModalTitleWithoutButtonsHeight(Dimension height)
+void ContainerModalPattern::SetControlButtonsRowHeight()
 {
-    auto customTitleRow = GetCustomTitleRow();
-    UpdateRowHeight(customTitleRow, height);
-    auto gestureRow = GetGestureRow();
-    UpdateRowHeight(gestureRow, height);
+    auto controlButtonsRowHeight = titleHeight_;
+    if (!isTitleShow_ && floatTitleMgr_ != nullptr) {
+        if (floatTitleMgr_->hasNavOrSideBarNodes_) {
+            controlButtonsRowHeight = toolBarTitleHeight_;
+        } else {
+            controlButtonsRowHeight = CONTAINER_TITLE_HEIGHT;
+        }
+    } else if (!customTitleSettedShow_ && !isSetContainerModalTitleHeight_) {
+        controlButtonsRowHeight = CONTAINER_TITLE_HEIGHT;
+    }
+    auto controlButtonsRow = GetControlButtonRow();
+    UpdateRowHeight(controlButtonsRow, controlButtonsRowHeight);
+    CallButtonsRectChange();
+}
+
+void ContainerModalPattern::SetToolbarTitleHeight()
+{
+    SetControlButtonsRowHeight();
+    if (!isSetContainerModalTitleHeight_) {
+        titleHeight_ = toolBarTitleHeight_;
+        auto customTitleRow = GetCustomTitleRow();
+        UpdateRowHeight(customTitleRow, toolBarTitleHeight_);
+        auto gestureRow = GetGestureRow();
+        UpdateRowHeight(gestureRow, toolBarTitleHeight_);
+    }
     if (floatTitleMgr_ != nullptr) {
         auto floatingTitleRow = GetFloatingTitleRow();
         CHECK_NULL_VOID(floatingTitleRow);
-        UpdateRowHeight(floatingTitleRow, height);
+        UpdateRowHeight(floatingTitleRow, toolBarTitleHeight_);
     }
+    int32_t height = 0;
+    auto controlButtonsRow = GetControlButtonRow();
+    CHECK_NULL_VOID(controlButtonsRow);
+    auto buttonsContext = controlButtonsRow->GetRenderContext();
+    CHECK_NULL_VOID(buttonsContext);
+    auto rect = buttonsContext->GetPaintRectWithoutTransform();
+    auto buttonPopupDistance =
+        floatTitleMgr_ ? 0.0f : ((titleHeight_.ConvertToPx() - CONTAINER_TITLE_HEIGHT.ConvertToPx()) / 2);
+    buttonsContext->OnTransformTranslateUpdate(
+        { 0.0f, static_cast<float>(height - buttonPopupDistance - rect.GetY()), 0.0f });
+
     if (titleMgr_ != nullptr) {
         titleMgr_->UpdateTargetNodesBarMargin();
     }
-}
-
-void ContainerModalPattern::SetControlButtonsRowHeight(Dimension height)
-{
-    auto controlButtonsRow = GetControlButtonRow();
-    UpdateRowHeight(controlButtonsRow, height);
-    CallButtonsRectChange();
 }
 
 int32_t ContainerModalPattern::GetContainerModalTitleHeight()
@@ -853,6 +900,7 @@ void ContainerModalPattern::InitLayoutProperty()
     InitTitleRowLayoutProperty(GetCustomTitleRow(), false);
     InitTitleRowLayoutProperty(GetFloatingTitleRow(), true);
     InitButtonsLayoutProperty();
+    isSetContainerModalTitleHeight_ = false;
 
     containerModal->MarkModifyDone();
 }
@@ -864,8 +912,11 @@ void ContainerModalPattern::InitTitleRowLayoutProperty(RefPtr<FrameNode> titleRo
     CHECK_NULL_VOID(titleRowProperty);
     titleRowProperty->UpdateMeasureType(MeasureType::MATCH_PARENT);
     auto rowHeight = CONTAINER_TITLE_HEIGHT;
-    if (!isFloating || (isFloating && floatTitleMgr_ != nullptr)) {
+    if (!isFloating) {
         rowHeight = (CONTAINER_TITLE_HEIGHT == titleHeight_) ? CONTAINER_TITLE_HEIGHT : titleHeight_;
+    }
+    if (isFloating && floatTitleMgr_ != nullptr && GetIsHaveToolBar()) {
+        rowHeight = toolBarTitleHeight_;
     }
     titleRowProperty->UpdateUserDefinedIdealSize(
         CalcSize(CalcLength(1.0, DimensionUnit::PERCENT), CalcLength(rowHeight)));
@@ -915,7 +966,7 @@ void ContainerModalPattern::InitColumnTouchTestFunc()
     auto column = GetColumnNode();
     CHECK_NULL_VOID(column);
     auto eventHub = column->GetOrCreateGestureEventHub();
-    if (customTitleSettedShow_) {
+    if (titleMgr_ && titleMgr_->GetIsUpdateTargetNode() && customTitleSettedShow_) {
         eventHub->SetOnTouchTestFunc(nullptr);
         return;
     }
@@ -1062,9 +1113,13 @@ void ContainerModalPattern::CallSetContainerWindow(bool considerFloatingWindow)
     windowPaintRect_ = expectRect;
 
     CHECK_NULL_VOID(titleMgr_);
-    titleMgr_->UpdateToolbarShow(isTitleShow_, customTitleSettedShow_);
     CHECK_NULL_VOID(floatTitleMgr_);
-    floatTitleMgr_->UpdateToolbarShow(isTitleShow_, customTitleSettedShow_);
+    if (!isSetContainerModalTitleHeight_) {
+        titleMgr_->UpdateToolbarShow(isTitleShow_, customTitleSettedShow_);
+        floatTitleMgr_->UpdateToolbarShow(isTitleShow_, customTitleSettedShow_);
+    } else {
+        SetControlButtonsRowHeight();
+    }
 }
 
 void ContainerModalPattern::UpdateRowHeight(const RefPtr<FrameNode>& row, Dimension height)
@@ -1132,5 +1187,29 @@ void ContainerModalPattern::UpdateContainerBgColor()
     } else {
         containerContext->UpdateBackgroundColor(GetContainerColor(isFocus_));
     }
+}
+RefPtr<PipelineContext> ContainerModalPattern::GetContextRefPtr()
+{
+    auto containerNode = GetHost();
+    CHECK_NULL_RETURN(containerNode, nullptr);
+    return containerNode->GetContextRefPtr();
+}
+
+bool ContainerModalPattern::CheckNodeOnContainerModalTitle(const RefPtr<FrameNode>& node)
+{
+    CHECK_NULL_RETURN(node, false);
+    auto containerNode = GetHost();
+    CHECK_NULL_RETURN(containerNode, false);
+    auto parent = node->GetParent();
+    while (parent) {
+        if (parent == containerNode) {
+            break;
+        }
+        if (parent->GetTag() == V2::TOOLBARITEM_ETS_TAG) {
+            return true;
+        }
+        parent = parent->GetParent();
+    }
+    return false;
 }
 } // namespace OHOS::Ace::NG

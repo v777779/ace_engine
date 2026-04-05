@@ -21,17 +21,20 @@
 
 #include "base/memory/ace_type.h"
 #include "core/components_ng/base/modifier.h"
+#include "core/components_ng/render/paragraph.h"
 
 namespace OHOS::Ace::NG {
 class Pattern;
 
-class TextOverlayModifier : public OverlayModifier {
-    DECLARE_ACE_TYPE(TextOverlayModifier, OverlayModifier)
+class ACE_FORCE_EXPORT TextOverlayModifier : public OverlayModifier {
+    DECLARE_ACE_TYPE(TextOverlayModifier, OverlayModifier);
 
 public:
-    TextOverlayModifier();
+    TextOverlayModifier(const WeakPtr<Pattern>& pattern = nullptr);
 
     void onDraw(DrawingContext& drawingContext) override;
+
+    void onDrawHighlight(DrawingContext& drawingContext);
 
     void SetPrintOffset(const OffsetF& paintOffset);
 
@@ -45,9 +48,7 @@ public:
     {
         contentRect_ = contentRect;
     }
-
-    void SetSelectedForegroundColorAndRects(const std::vector<RectF>& selectedUrlRects,
-        uint32_t selectedUrlColor);
+    void SetSelectedForegroundColorAndRects(const std::vector<RectF>& selectedUrlRects, uint32_t selectedUrlColor);
     void ClearSelectedForegroundColorAndRects();
     void SetIsClip(bool isClip)
     {
@@ -56,11 +57,29 @@ public:
     }
 
     void SetShowSelect(bool value);
+    void SetSingleLine(bool value);
 
     std::vector<RectF> GetSelectedRects() const;
+    void SetHighlightOpacity(float value)
+    {
+        CHECK_NULL_VOID(highlightOpacityAnimation_);
+        highlightOpacityAnimation_->Set(value);
+    }
+
+    void SetHighlightRects(const std::vector<std::pair<std::vector<RectF>, ParagraphStyle>>& highlightRects)
+    {
+        highlightRects_ = highlightRects;
+    }
+
+    void ResetHighlightRects()
+    {
+        highlightRects_.clear();
+    }
+
 protected:
     std::optional<RectF> contentRect_;
     RefPtr<PropertyBool> showSelect_;
+    WeakPtr<Pattern> pattern_;
 
 private:
     bool IsSelectedRectsChanged(const std::vector<RectF>& selectedRects);
@@ -69,11 +88,13 @@ private:
     RefPtr<PropertyInt> cursorColor_;
     RefPtr<PropertyInt> selectedColor_;
     RefPtr<PropertyBool> changeSelectedRects_;
-    RefPtr<PropertyBool> isClip_;;
+    RefPtr<PropertyBool> isClip_;
     std::vector<RectF> selectedRects_;
-
     std::vector<RectF> selectedUrlRects_;
+    std::vector<std::pair<std::vector<RectF>, ParagraphStyle>> highlightRects_;
     RefPtr<PropertyInt> selectedUrlColor_;
+    RefPtr<AnimatablePropertyFloat> highlightOpacityAnimation_;
+    bool isSingleLineMode_ = false;
     ACE_DISALLOW_COPY_AND_MOVE(TextOverlayModifier);
 };
 } // namespace OHOS::Ace::NG

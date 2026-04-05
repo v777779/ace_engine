@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,18 +13,21 @@
  * limitations under the License.
  */
 #include "core/components_ng/pattern/checkboxgroup/checkboxgroup_pattern.h"
-#include "interfaces/inner_api/ui_session/ui_session_manager.h"
+
 #include "base/log/dump_log.h"
+#include "base/utils/multi_thread.h"
 #include "core/components_ng/pattern/checkbox/checkbox_pattern.h"
+#include "core/components_ng/pattern/overlay/group_manager.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 namespace OHOS::Ace::NG {
 namespace {
 const Color ITEM_FILL_COLOR = Color::TRANSPARENT;
-
+const char NAVDESTINATION_CONTENT_ETS_TAG[] = "NavDestinationContent";
 inline std::string ToString(const CheckBoxGroupPaintProperty::SelectStatus& status)
 {
-    static const LinearEnumMapNode<CheckBoxGroupPaintProperty::SelectStatus, std::string> table[] = {
+    const LinearEnumMapNode<CheckBoxGroupPaintProperty::SelectStatus, std::string> table[] = {
         { CheckBoxGroupPaintProperty::SelectStatus::ALL, "ALL" },
         { CheckBoxGroupPaintProperty::SelectStatus::PART, "PART" },
         { CheckBoxGroupPaintProperty::SelectStatus::NONE, "NONE" },
@@ -41,9 +44,22 @@ void CheckBoxGroupPattern::OnAttachToFrameNode()
     host->GetLayoutProperty()->UpdateAlignment(Alignment::CENTER);
 }
 
+void CheckBoxGroupPattern::OnDetachFromMainTree()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    THREAD_SAFE_NODE_CHECK(host, OnDetachFromMainTree);
+}
+
 void CheckBoxGroupPattern::OnDetachFromFrameNode(FrameNode* frameNode)
 {
     CHECK_NULL_VOID(frameNode);
+    THREAD_SAFE_NODE_CHECK(frameNode, OnDetachFromFrameNode);
+    OnDetachFromFrameNodeImpl(frameNode);
+}
+
+void CheckBoxGroupPattern::OnDetachFromFrameNodeImpl(FrameNode* frameNode)
+{
     auto groupManager = GetGroupManager();
     CHECK_NULL_VOID(groupManager);
     std::string group = "";
@@ -55,10 +71,24 @@ void CheckBoxGroupPattern::OnDetachFromFrameNode(FrameNode* frameNode)
     groupManager->RemoveCheckBoxGroup(group, frameNode->GetId());
 }
 
+bool CheckBoxGroupPattern::IsArkTSStatic()
+{
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_RETURN(pipeline, false);
+    return pipeline->GetFrontendType() == FrontendType::ARK_TS
+ 	         || pipeline->GetFrontendType() == FrontendType::DYNAMIC_HYBRID_STATIC
+ 	         || pipeline->GetFrontendType() == FrontendType::STATIC_HYBRID_DYNAMIC;
+}
+
 void CheckBoxGroupPattern::OnModifyDone()
 {
     Pattern::OnModifyDone();
-    UpdateState();
+    FireBuilder();
+    if (!IsArkTSStatic()) {
+        UpdateState();
+    }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto pipeline = PipelineBase::GetCurrentContext();
@@ -230,6 +260,9 @@ void CheckBoxGroupPattern::HandleMouseEvent(bool isHover)
 
 void CheckBoxGroupPattern::OnClick()
 {
+    if (UseContentModifier()) {
+        return;
+    }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto paintProperty = host->GetPaintProperty<CheckBoxGroupPaintProperty>();
@@ -246,6 +279,9 @@ void CheckBoxGroupPattern::OnClick()
 void CheckBoxGroupPattern::OnTouchDown()
 {
     TAG_LOGD(AceLogTag::ACE_SELECT_COMPONENT, "checkboxgroup touch down %{public}d", isHover_);
+    if (UseContentModifier()) {
+        return;
+    }
     if (isHover_) {
         touchHoverType_ = TouchHoverAnimationType::HOVER_TO_PRESS;
     } else {
@@ -259,6 +295,9 @@ void CheckBoxGroupPattern::OnTouchDown()
 void CheckBoxGroupPattern::OnTouchUp()
 {
     TAG_LOGD(AceLogTag::ACE_SELECT_COMPONENT, "checkboxgroup touch up %{public}d", isHover_);
+    if (UseContentModifier()) {
+        return;
+    }
     if (isHover_) {
         touchHoverType_ = TouchHoverAnimationType::PRESS_TO_HOVER;
     } else {
@@ -293,6 +332,9 @@ void CheckBoxGroupPattern::UpdateUIStatus(bool check)
         uiStatus_ = check ? UIStatus::PART_TO_ON : UIStatus::PART_TO_OFF;
     } else {
         uiStatus_ = check ? UIStatus::OFF_TO_ON : UIStatus::ON_TO_OFF;
+    }
+    if (UseContentModifier()) {
+        FireBuilder();
     }
     host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
 }
@@ -642,6 +684,68 @@ void CheckBoxGroupPattern::UpdateModifierParam(CheckBoxGroupModifier::Parameters
     }
 }
 
+void CheckBoxGroupPattern::SetCheckBoxGroupSelect(bool select)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto eventHub = host->GetEventHub<EventHub>();
+    CHECK_NULL_VOID(eventHub);
+    if (!eventHub->IsEnabled()) {
+        return;
+    }
+    auto paintProperty = host->GetPaintProperty<CheckBoxGroupPaintProperty>();
+    CHECK_NULL_VOID(paintProperty);
+    paintProperty->UpdateCheckBoxGroupSelect(select);
+    updateFlag_ = true;
+    UpdateState();
+    OnModifyDone();
+}
+
+void CheckBoxGroupPattern::FireBuilder()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    if (!makeFunc_.has_value()) {
+        host->RemoveChildAndReturnIndex(contentModifierNode_);
+        if (contentModifierNode_) {
+            contentModifierNode_ = nullptr;
+            host->MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE);
+        }
+        return;
+    }
+    auto node = BuildContentModifierNode();
+    if (contentModifierNode_ == node) {
+        return;
+    }
+    auto renderContext = host->GetRenderContext();
+    CHECK_NULL_VOID(renderContext);
+    renderContext->UpdateBackgroundColor(Color::TRANSPARENT);
+    host->RemoveChildAndReturnIndex(contentModifierNode_);
+    contentModifierNode_ = node;
+    CHECK_NULL_VOID(contentModifierNode_);
+    host->AddChild(contentModifierNode_, 0);
+    host->MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE);
+}
+
+RefPtr<FrameNode> CheckBoxGroupPattern::BuildContentModifierNode()
+{
+    if (!makeFunc_.has_value()) {
+        return nullptr;
+    }
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, nullptr);
+    auto eventHub = host->GetEventHub<CheckBoxGroupEventHub>();
+    CHECK_NULL_RETURN(eventHub, nullptr);
+    auto name = eventHub->GetGroupName();
+    auto enabled = eventHub->IsEnabled();
+    auto paintProperty = host->GetPaintProperty<CheckBoxGroupPaintProperty>();
+    CHECK_NULL_RETURN(paintProperty, nullptr);
+    auto selectStatus = paintProperty->GetSelectStatus();
+    CheckBoxGroupConfiguration checkBoxGroupConfiguration(name, selectStatus, enabled);
+    auto makeFunc = makeFunc_.value();
+    return makeFunc(checkBoxGroupConfiguration);
+}
+
 void CheckBoxGroupPattern::OnColorConfigurationUpdate()
 {
     auto host = GetHost();
@@ -713,11 +817,22 @@ void CheckBoxGroupPattern::OnAttachToMainTree()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    THREAD_SAFE_NODE_CHECK(host, OnAttachToMainTree);
+    OnAttachToMainTreeImpl(host);
+}
+
+void CheckBoxGroupPattern::OnAttachToMainTreeImpl(const RefPtr<FrameNode>& host)
+{
+    CHECK_NULL_VOID(host);
+    if (IsArkTSStatic()) {
+        UpdateGroupManager();
+        UpdateState();
+    }
     auto groupManager = GetGroupManager();
     CHECK_NULL_VOID(groupManager);
     auto parent = host->GetParent();
     while (parent) {
-        if (parent->GetTag() == V2::NAVDESTINATION_CONTENT_ETS_TAG) {
+        if (parent->GetTag() == NAVDESTINATION_CONTENT_ETS_TAG) {
             currentNavId_ = std::to_string(parent->GetId());
             groupManager->SetLastNavId(currentNavId_);
             UpdateState();
@@ -744,6 +859,13 @@ std::string CheckBoxGroupPattern::GetGroupNameWithNavId()
     auto groupManager = GetGroupManager();
     CHECK_NULL_RETURN(groupManager, eventHub->GetGroupName());
     return eventHub->GetGroupName() + groupManager->GetLastNavId();
+}
+
+void CheckBoxGroupPattern::UpdateGroupManager()
+{
+    auto manager = GroupManager::GetGroupManager();
+    CHECK_NULL_VOID(manager.Upgrade());
+    groupManager_ = manager;
 }
 
 RefPtr<GroupManager> CheckBoxGroupPattern::GetGroupManager()
@@ -813,7 +935,7 @@ std::optional<bool> CheckBoxGroupPattern::ParseSelectStatus(const std::string& c
         return std::nullopt;
     }
 
-    if (!json->GetValue("selectStatus")->IsBool() || !json->Contains("selectStatus")) {
+    if (!json->Contains("selectStatus") || !json->GetValue("selectStatus")->IsBool()) {
         return std::nullopt;
     }
 
@@ -834,24 +956,19 @@ int32_t CheckBoxGroupPattern::OnInjectionEvent(const std::string& command)
         status == CheckBoxGroupPaintProperty::SelectStatus::ALL) {
         CHECK_EQUAL_RETURN(selectStatus.value(), currentStatus, RET_SUCCESS);
     }
-    auto pattern = host->GetPattern<CheckBoxGroupPattern>();
-    CHECK_NULL_RETURN(pattern, RET_FAILED);
-    pattern->SetUpdateFlag(true);
+    SetUpdateFlag(true);
     auto eventHub = host->GetEventHub<CheckBoxGroupEventHub>();
     CHECK_NULL_RETURN(eventHub, RET_FAILED);
     eventHub->SetCurrentUIState(UI_STATE_SELECTED, selectStatus.value());
     paintProperty->UpdateCheckBoxGroupSelect(selectStatus.value());
-    pattern->UpdateState();
-    pattern->ReportChangeEvent(selectStatus.value());
+    UpdateState();
+    ReportChangeEvent(selectStatus.value());
 
     return RET_SUCCESS;
 }
 
 void CheckBoxGroupPattern::ReportChangeEvent(bool selectStatus)
 {
-    if (!UiSessionManager::GetInstance()->IsHasReportObject()) {
-        return;
-    }
     auto params = JsonUtil::Create();
     CHECK_NULL_VOID(params);
     params->Put("selectStatus", selectStatus);
@@ -863,6 +980,7 @@ void CheckBoxGroupPattern::ReportChangeEvent(bool selectStatus)
     CHECK_NULL_VOID(host);
     auto id = host->GetId();
     json->Put("nodeId", id);
-    UiSessionManager::GetInstance()->ReportComponentChangeEvent("result", json->ToString().c_str());
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent("result", json->ToString(),
+        ComponentEventType::COMPONENT_EVENT_SELECT);
 }
 } // namespace OHOS::Ace::NG

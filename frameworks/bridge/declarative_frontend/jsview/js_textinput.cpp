@@ -25,12 +25,13 @@
 #include "frameworks/bridge/declarative_frontend/engine/functions/js_clipboard_function.h"
 #include "frameworks/bridge/declarative_frontend/engine/functions/js_function.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_text_editable_controller.h"
+#include "frameworks/bridge/declarative_frontend/jsview/js_text_editable_controller_binding.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_textfield.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_view_common_def.h"
 #include "frameworks/bridge/declarative_frontend/view_stack_processor.h"
 #include "frameworks/core/common/ime/text_input_action.h"
 #include "frameworks/core/common/ime/text_input_type.h"
-#include "frameworks/core/components/text_field/text_field_component.h"
+#include "frameworks/compatible/components/text_field/text_field_component.h"
 #include "frameworks/core/components/text_field/textfield_theme.h"
 #include "frameworks/core/components_ng/pattern/text_field/text_content_type.h"
 
@@ -71,6 +72,7 @@ void JSTextInput::JSBind(BindingTarget globalObj)
     JSClass<JSTextInput>::StaticMethod("inputFilter", &JSTextField::SetInputFilter);
     JSClass<JSTextInput>::StaticMethod("showPasswordIcon", &JSTextField::SetShowPasswordIcon);
     JSClass<JSTextInput>::StaticMethod("textAlign", &JSTextField::SetTextAlign);
+    JSClass<JSTextInput>::StaticMethod("textDirection", &JSTextField::SetTextDirection);
     JSClass<JSTextInput>::StaticMethod("style", &JSTextField::SetInputStyle);
     JSClass<JSTextInput>::StaticMethod("hoverEffect", &JSTextField::JsHoverEffect);
     JSClass<JSTextInput>::StaticMethod("copyOption", &JSTextField::SetCopyOption);
@@ -90,7 +92,9 @@ void JSTextInput::JSBind(BindingTarget globalObj)
     JSClass<JSTextInput>::StaticMethod("onChange", &JSTextField::SetOnChange);
     JSClass<JSTextInput>::StaticMethod("onTextSelectionChange", &JSTextField::SetOnTextSelectionChange);
     JSClass<JSTextInput>::StaticMethod("onContentScroll", &JSTextField::SetOnContentScroll);
+    JSClass<JSTextInput>::StaticMethod("onWillCopy", &JSTextField::SetOnWillCopy);
     JSClass<JSTextInput>::StaticMethod("onCopy", &JSTextField::SetOnCopy);
+    JSClass<JSTextInput>::StaticMethod("onWillCut", &JSTextField::SetOnWillCut);
     JSClass<JSTextInput>::StaticMethod("onCut", &JSTextField::SetOnCut);
     JSClass<JSTextInput>::StaticMethod("onPaste", &JSTextField::SetOnPaste);
     JSClass<JSTextInput>::StaticMethod("onClick", &JSTextField::SetOnClick);
@@ -111,8 +115,10 @@ void JSTextInput::JSBind(BindingTarget globalObj)
     JSClass<JSTextInput>::StaticMethod("customKeyboard", &JSTextField::SetCustomKeyboard);
     JSClass<JSTextInput>::StaticMethod("passwordRules", &JSTextField::SetPasswordRules);
     JSClass<JSTextInput>::StaticMethod("enableAutoFill", &JSTextField::SetEnableAutoFill);
+    JSClass<JSTextInput>::StaticMethod("enableSelectedDataDetector", &JSTextField::SetSelectDetectEnable);
     JSClass<JSTextInput>::StaticMethod("enableAutoFillAnimation", &JSTextField::SetEnableAutoFillAnimation);
     JSClass<JSTextInput>::StaticMethod("cancelButton", &JSTextField::SetCancelButton);
+    JSClass<JSTextInput>::StaticMethod("voiceButton", &JSTextField::SetVoiceButton);
     JSClass<JSTextInput>::StaticMethod("selectAll", &JSTextField::SetSelectAllValue);
     JSClass<JSTextInput>::StaticMethod("lineBreakStrategy", &JSTextField::SetLineBreakStrategy);
     JSClass<JSTextInput>::StaticMethod("showCounter", &JSTextField::SetShowCounter);
@@ -142,6 +148,12 @@ void JSTextInput::JSBind(BindingTarget globalObj)
     JSClass<JSTextInput>::StaticMethod("strokeColor", &JSTextField::SetStrokeColor);
     JSClass<JSTextInput>::StaticMethod("enableAutoSpacing", &JSTextField::SetEnableAutoSpacing);
     JSClass<JSTextInput>::StaticMethod("onWillAttachIME", &JSTextField::SetOnWillAttachIME);
+    JSClass<JSTextInput>::StaticMethod("orphanCharOptimization", &JSTextField::SetOrphanCharOptimization);
+    JSClass<JSTextInput>::StaticMethod("compressLeadingPunctuation", &JSTextField::SetCompressLeadingPunctuation);
+    JSClass<JSTextInput>::StaticMethod("includeFontPadding", &JSTextField::SetIncludeFontPadding);
+    JSClass<JSTextInput>::StaticMethod("fallbackLineSpacing", &JSTextField::SetFallbackLineSpacing);
+    JSClass<JSTextInput>::StaticMethod("selectedDragPreviewStyle", &JSTextField::SetSelectedDragPreviewStyle);
+    JSClass<JSTextInput>::StaticMethod("accessibilityText", &JSTextField::SetAccessibilityText);
     JSClass<JSTextInput>::InheritAndBind<JSViewAbstract>(globalObj);
 }
 
@@ -153,6 +165,6 @@ void JSTextInput::Create(const JSCallbackInfo& info)
 void JSTextInputController::JSBind(BindingTarget globalObj)
 {
     JSClass<JSTextEditableController>::Declare("TextInputController");
-    JSTextEditableController::JSBind(globalObj);
+    JSTextEditableControllerBinding::JSBind(globalObj);
 }
 } // namespace OHOS::Ace::Framework

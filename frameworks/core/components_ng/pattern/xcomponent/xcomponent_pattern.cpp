@@ -18,15 +18,19 @@
 #include <cmath>
 #include <cstdlib>
 
+#include "interfaces/inner_api/ace/ui_content.h"
 #include "interfaces/native/event/ui_input_event_impl.h"
 #include "interfaces/native/ui_input_event.h"
 
+#include "adapter/ohos/entrance/aps_monitor_impl.h"
+#include "base/display_manager/display_manager.h"
 #include "base/geometry/ng/point_t.h"
 #include "base/geometry/ng/size_t.h"
 #include "base/log/dump_log.h"
 #include "base/log/frame_report.h"
 #include "base/log/log_wrapper.h"
 #include "base/memory/ace_type.h"
+#include "base/perfmonitor/perf_monitor.h"
 #include "base/ressched/ressched_report.h"
 #include "base/utils/system_properties.h"
 #include "base/utils/multi_thread.h"
@@ -34,9 +38,12 @@
 #include "core/common/ace_engine.h"
 #include "core/common/ace_view.h"
 #include "core/common/ai/image_analyzer_manager.h"
+#include "core/common/statistic_event_reporter.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/event/gesture_event_hub.h"
 #include "core/components_ng/pattern/xcomponent/xcomponent_controller_ng.h"
+#include "core/components_ng/pattern/xcomponent/xcomponent_resolution_config.h"
+#include "core/components_ng/property/accessibility_property.h"
 #include "core/event/axis_event.h"
 #ifdef NG_BUILD
 #include "bridge/declarative_frontend/ng/declarative_frontend_ng.h"
@@ -47,7 +54,11 @@
 #ifdef ENABLE_ROSEN_BACKEND
 #include "core/components_ng/render/adapter/rosen_render_context.h"
 #include "feature/anco_manager/rs_ext_node_operation.h"
-#include "transaction/rs_interfaces.h"
+#include "screen_manager/screen_types.h"
+#include "transaction/rs_transaction.h"
+#include "transaction/rs_transaction_handler.h"
+#include "ui/rs_ui_context.h"
+#include "ui/rs_ui_director.h"
 #endif
 #ifdef RENDER_EXTRACT_SUPPORTED
 #include "core/components_ng/render/adapter/render_surface_impl.h"
@@ -70,6 +81,46 @@ namespace OHOS::Ace::NG {
 namespace {
 
 const std::string BUFFER_USAGE_XCOMPONENT = "xcomponent";
+#ifdef ENABLE_ROSEN_BACKEND
+constexpr char X_COMPONENT_COMPENSATION_ANGLE[] = "xcomponentCompensationAngle";
+const int32_t ROTATION_0 = 0;
+const int32_t ROTATION_90 = 90;
+const int32_t ROTATION_180 = 180;
+const int32_t ROTATION_270 = 270;
+constexpr char UNKNOWN[] = "0";
+constexpr char FULL[] = "1";
+constexpr char MAIN[] = "2";
+constexpr char SUB[] = "3";
+constexpr char COORDINATION[] = "4";
+#endif
+
+#if defined(RENDER_EXTRACT_SUPPORTED) && defined(IOS_PLATFORM)
+const int TEXTURETYPE_XCOMPONENT = 1;
+#endif
+
+void SendStatisticEvent(RefPtr<FrameNode> frameNode, StatisticEventType type)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto context = frameNode->GetContextRefPtr();
+    CHECK_NULL_VOID(context);
+    auto statisticEventReporter = context->GetStatisticEventReporter();
+    CHECK_NULL_VOID(statisticEventReporter);
+    statisticEventReporter->SendEvent(type);
+}
+
+void SendStatisticEvent(RefPtr<FrameNode> frameNode, std::list<StatisticEventType>& types)
+{
+    CHECK_NULL_VOID(!types.empty());
+    CHECK_NULL_VOID(frameNode);
+    auto context = frameNode->GetContextRefPtr();
+    CHECK_NULL_VOID(context);
+    auto statisticEventReporter = context->GetStatisticEventReporter();
+    CHECK_NULL_VOID(statisticEventReporter);
+    for (auto type : types) {
+        statisticEventReporter->SendEvent(type);
+    }
+    types.clear();
+}
 } // namespace
 
 XComponentPattern::XComponentPattern(const std::optional<std::string>& id, XComponentType type,
@@ -84,40 +135,7 @@ XComponentPattern::XComponentPattern(const std::optional<std::string>& id, XComp
         InitNativeXComponent();
     }
     RegisterSurfaceCallbackModeEvent();
-}
-
-std::string XComponentPattern::XComponentTypeToString(XComponentType type)
-{
-    switch (type) {
-        case XComponentType::UNKNOWN:
-            return "unknown";
-        case XComponentType::SURFACE:
-            return "surface";
-        case XComponentType::COMPONENT:
-            return "component";
-        case XComponentType::TEXTURE:
-            return "texture";
-        case XComponentType::NODE:
-            return "node";
-        default:
-            return "unknown";
-    }
-}
-
-std::string XComponentPattern::XComponentNodeTypeToString(XComponentNodeType type)
-{
-    switch (type) {
-        case XComponentNodeType::UNKNOWN:
-            return "unknown";
-        case XComponentNodeType::TYPE_NODE:
-            return "type_node";
-        case XComponentNodeType::DECLARATIVE_NODE:
-            return "declarative_node";
-        case XComponentNodeType::CNODE:
-            return "cnode";
-        default:
-            return "unknown";
-    }
+    UpdateSdrRatioIfNeed();
 }
 
 void XComponentPattern::AdjustNativeWindowSize(float width, float height)
@@ -175,6 +193,8 @@ void XComponentPattern::InitSurface()
 #endif
     renderSurface_->SetInstanceId(GetHostInstanceId());
     renderSurface_->SetBufferUsage(BUFFER_USAGE_XCOMPONENT);
+    std::string xComponentType = GetType() == XComponentType::SURFACE ? "s" : "t";
+    renderSurface_->SetBufferTypeLeak(BUFFER_USAGE_XCOMPONENT + "-" + xComponentType + "-" + GetId());
     if (type_ == XComponentType::SURFACE) {
         InitializeRenderContext();
         if (!SystemProperties::GetExtSurfaceEnabled()) {
@@ -185,12 +205,15 @@ void XComponentPattern::InitSurface()
             pipelineContext->AddOnAreaChangeNode(host->GetId());
             extSurfaceClient_ = MakeRefPtr<XComponentExtSurfaceCallbackClient>(WeakClaim(this));
             renderSurface_->SetExtSurfaceCallback(extSurfaceClient_);
-#ifdef RENDER_EXTRACT_SUPPORTED
-            RegisterRenderContextCallBack();
-#endif
         }
         handlingSurfaceRenderContext_ = renderContextForSurface_;
     } else if (type_ == XComponentType::TEXTURE) {
+#ifdef RENDER_EXTRACT_SUPPORTED
+        RegisterRenderContextCallBack();
+#ifdef IOS_PLATFORM
+        renderSurface_->SetPatternType(TEXTURETYPE_XCOMPONENT);
+#endif
+#endif
         renderSurface_->SetRenderContext(renderContext);
         renderSurface_->SetIsTexture(true);
         renderContext->OnNodeNameUpdate(GetId());
@@ -206,21 +229,34 @@ void XComponentPattern::InitSurface()
     surfaceId_ = renderSurface_->GetUniqueId();
     initialSurfaceId_ = surfaceId_;
     UpdateTransformHint();
-    RegisterSurfaceRenderContext();
+    RegisterNode();
 }
 
-void XComponentPattern::RegisterSurfaceRenderContext()
+#ifdef RENDER_EXTRACT_SUPPORTED
+void XComponentPattern::OnTextureRefresh(int32_t instanceId, int64_t textureId)
+{
+    auto container = AceEngine::Get().GetContainer(instanceId);
+    CHECK_NULL_VOID(container);
+    auto nativeView = container->GetAceView();
+    CHECK_NULL_VOID(nativeView);
+    auto nativeWindow = const_cast<void*>(nativeView->GetNativeWindowById(textureId));
+    CHECK_NULL_VOID(nativeWindow);
+    CHECK_NULL_VOID(handlingSurfaceRenderContext_);
+    handlingSurfaceRenderContext_->MarkNewFrameAvailable(nativeWindow);
+}
+#endif
+
+void XComponentPattern::RegisterNode()
 {
     if (type_ == XComponentType::SURFACE) {
-        XComponentInnerSurfaceController::RegisterSurfaceRenderContext(
-            initialSurfaceId_, WeakPtr(handlingSurfaceRenderContext_));
+        XComponentInnerSurfaceController::RegisterNode(initialSurfaceId_, WeakPtr(GetHost()));
     }
 }
 
-void XComponentPattern::UnregisterSurfaceRenderContext()
+void XComponentPattern::UnregisterNode()
 {
     if (type_ == XComponentType::SURFACE) {
-        XComponentInnerSurfaceController::UnregisterSurfaceRenderContext(initialSurfaceId_);
+        XComponentInnerSurfaceController::UnregisterNode(initialSurfaceId_);
     }
 }
 
@@ -251,6 +287,7 @@ void XComponentPattern::RegisterTransformHintCallback(PipelineContext* context)
 
 void XComponentPattern::Initialize()
 {
+    ACE_UINODE_TRACE(GetHost());
     if (type_ == XComponentType::SURFACE || type_ == XComponentType::TEXTURE) {
         InitSurface();
         InitEvent();
@@ -264,15 +301,22 @@ void XComponentPattern::Initialize()
             InitNativeNodeCallbacks();
         }
     }
-    if (!isTypedNode_) {
-        InitializeAccessibility();
-    }
 }
 
 void XComponentPattern::OnAttachToMainTree()
 {
     auto host = GetHost();
+    if (type_ == XComponentType::SURFACE) {
+        CHECK_NULL_VOID(host);
+        auto renderContext = host->GetRenderContext();
+        CHECK_NULL_VOID(renderContext);
+        CHECK_NULL_VOID(handlingSurfaceRenderContext_);
+        auto bkColor = renderContext->GetBackgroundColor().value_or(Color::BLACK);
+        handlingSurfaceRenderContext_->UpdateBackgroundColor(
+            (bkColor.GetAlpha() < UINT8_MAX) ? Color::TRANSPARENT : bkColor);
+    }
     THREAD_SAFE_NODE_CHECK(host, OnAttachToMainTree, host);
+    SendStatisticEvent(host, statisticEventTypes_);
     TAG_LOGI(AceLogTag::ACE_XCOMPONENT, "XComponent[%{public}s] AttachToMainTree", GetId().c_str());
     ACE_SCOPED_TRACE("XComponent[%s] AttachToMainTree", GetId().c_str());
     isOnTree_ = true;
@@ -284,9 +328,22 @@ void XComponentPattern::OnAttachToMainTree()
         if (needRecoverDisplaySync_ && displaySync_ && !displaySync_->IsOnPipeline()) {
             TAG_LOGD(AceLogTag::ACE_XCOMPONENT, "OnAttachToMainTree:recover displaySync: "
                 "%{public}s(%{public}" PRIu64 ")", GetId().c_str(), displaySync_->GetId());
-            displaySync_->AddToPipelineOnContainer();
+            WeakPtr<PipelineBase> pipelineContext = host->GetContextRefPtr();
+            displaySync_->AddToPipeline(pipelineContext);
             needRecoverDisplaySync_ = false;
         }
+    }
+    displaySync_->NotifyXComponentExpectedFrameRate(GetId());
+    CHECK_NULL_VOID(renderSurface_);
+    auto customNode = host->GetParentCustomNode();
+    CHECK_NULL_VOID(customNode);
+    auto pipelineContext = host->GetContextRefPtr();
+    CHECK_NULL_VOID(pipelineContext);
+    auto bundleName = pipelineContext->GetBundleName();
+    PerfMonitor::GetPerfMonitor()->ReportSurface(renderSurface_->GetUniqueIdNum(), renderSurface_->GetPSurfaceName(),
+        customNode->GetJSViewName(), bundleName.c_str(), getpid());
+    if (pipelineContext->GetXComponentDisplayConstraintEnabled()) {
+        host->RegisterNodeChangeListener();
     }
 }
 
@@ -309,23 +366,107 @@ void XComponentPattern::OnDetachFromMainTree()
             needRecoverDisplaySync_ = true;
         }
     }
+    displaySync_->NotifyXComponentExpectedFrameRate(GetId(), 0);
+    host->UnregisterNodeChangeListener();
 }
 
-void XComponentPattern::InitializeRenderContext()
+#ifdef ENABLE_ROSEN_BACKEND
+std::string FoldDisplayModeToString(FoldDisplayMode foldDisplayMode)
 {
+    switch (foldDisplayMode) {
+        case FoldDisplayMode::UNKNOWN: return UNKNOWN;
+        case FoldDisplayMode::FULL: return FULL;
+        case FoldDisplayMode::MAIN: return MAIN;
+        case FoldDisplayMode::SUB: return SUB;
+        case FoldDisplayMode::COORDINATION: return COORDINATION;
+        default: return "0";
+    }
+}
+ 
+Rosen::ScreenRotation RotationIntToScreenRotation(int32_t rotation)
+{
+    switch (rotation) {
+        case ROTATION_0: return Rosen::ScreenRotation::ROTATION_0;
+        case ROTATION_90: return Rosen::ScreenRotation::ROTATION_90;
+        case ROTATION_180: return Rosen::ScreenRotation::ROTATION_180;
+        case ROTATION_270: return Rosen::ScreenRotation::ROTATION_270;
+        default: return Rosen::ScreenRotation::INVALID_SCREEN_ROTATION;
+    }
+}
+ 
+std::unique_ptr<JsonValue> GetXComponentCompensationAngle(const std::string& angleConfigJson)
+{
+    if (angleConfigJson == "") {
+        LOGE("UIContent set compensation angle empty");
+        return nullptr;
+    }
+    auto jsonConfig = JsonUtil::ParseJsonString(angleConfigJson);
+    if (jsonConfig == nullptr) {
+        LOGE("UIContent set compensasion angle %{public}s is invalid", angleConfigJson.c_str());
+        return nullptr;
+    }
+    auto angleConfig = jsonConfig->GetObject(X_COMPONENT_COMPENSATION_ANGLE);
+    if (angleConfig == nullptr) {
+        LOGE("UIContent can not get angle info from %{public}s", angleConfigJson.c_str());
+        return nullptr;
+    }
+    auto result = angleConfig->ToString();
+    LOGI("get angle info: %{public}s", result.c_str());
+    return JsonUtil::ParseJsonString(result);
+}
+ 
+void SetCompensationAngleToRS(const RefPtr<RenderContext>& renderContext, FoldDisplayMode foldDisplayMode,
+    const std::string& xcomponentId)
+{
+#ifndef CROSS_PLATFORM
+    auto context = AceType::DynamicCast<NG::RosenRenderContext>(renderContext);
+    CHECK_NULL_VOID(context);
+    std::shared_ptr<Rosen::RSNode> rsNode = context->GetRSNode();
+    CHECK_NULL_VOID(rsNode);
+    std::shared_ptr<Rosen::RSSurfaceNode> rsSurfaceNode = std::static_pointer_cast<Rosen::RSSurfaceNode>(rsNode);
+    CHECK_NULL_VOID(rsSurfaceNode);
+    auto& angleConfigJsonStr = UIContent::GetXComponentCompensationAngle();
+    auto angleConfigJson = GetXComponentCompensationAngle(angleConfigJsonStr);
+    CHECK_NULL_VOID(angleConfigJson);
+    auto displyMode = FoldDisplayModeToString(foldDisplayMode);
+    int32_t rotationInt = angleConfigJson->GetInt(displyMode, -1);
+    auto rotation = RotationIntToScreenRotation(rotationInt);
+    if (rotation == Rosen::ScreenRotation::INVALID_SCREEN_ROTATION) {
+        TAG_LOGW(AceLogTag::ACE_XCOMPONENT,
+            "XComponent[%{public}s]'s can not get rotation FoldDisplayMode %{public}s angleConfig %{public}s",
+            xcomponentId.c_str(), displyMode.c_str(), angleConfigJson->ToString().c_str());
+        return;
+    }
+    TAG_LOGW(AceLogTag::ACE_XCOMPONENT, "XComponent[%{public}s]'s set rotation %{public}d",
+        xcomponentId.c_str(), rotationInt);
+    rsSurfaceNode->SetAppRotationCorrection(rotation);
+#endif
+}
+#endif
+
+void XComponentPattern::InitializeRenderContext(bool isThreadSafeNode)
+{
+    ACE_UINODE_TRACE(GetHost());
     renderContextForSurface_ = RenderContext::Create();
 #ifdef RENDER_EXTRACT_SUPPORTED
     auto contextType = type_ == XComponentType::TEXTURE ? RenderContext::ContextType::HARDWARE_TEXTURE
                                                         : RenderContext::ContextType::HARDWARE_SURFACE;
-    RenderContext::ContextParam param = { contextType, GetId() + "Surface", RenderContext::PatternType::XCOM };
+    RenderContext::ContextParam param = { contextType, "xcomponentSurface", RenderContext::PatternType::XCOM };
 #else
     RenderContext::ContextParam param = { RenderContext::ContextType::HARDWARE_SURFACE,
                                           GetId() + "Surface", RenderContext::PatternType::XCOM };
+    if (isThreadSafeNode) {
+        TAG_LOGI(AceLogTag::ACE_XCOMPONENT, "Create SurfaceNode[%{public}s] with SkipCheckInMultiInstance",
+            GetId().c_str());
+        param.isSkipCheckInMultiInstance = true;
+    }
 #endif
-
     renderContextForSurface_->InitContext(false, param);
 
     renderContextForSurface_->UpdateBackgroundColor(Color::BLACK);
+#ifdef ENABLE_ROSEN_BACKEND
+    SetCompensationAngleToRS(renderContextForSurface_, DisplayManager::GetInstance().GetFoldDisplayMode(), GetId());
+#endif
 }
 
 #ifdef RENDER_EXTRACT_SUPPORTED
@@ -343,26 +484,43 @@ RenderSurface::RenderSurfaceType XComponentPattern::CovertToRenderSurfaceType(co
 
 void XComponentPattern::RegisterRenderContextCallBack()
 {
+    InitializeRenderContext();
     CHECK_NULL_VOID(renderContextForSurface_);
-    auto OnAreaChangedCallBack = [weak = WeakClaim(this)](float x, float y, float w, float h) mutable {
-        auto pattern = weak.Upgrade();
-        CHECK_NULL_VOID(pattern);
-        auto host = pattern->GetHost();
-        CHECK_NULL_VOID(host);
-        auto geometryNode = host->GetGeometryNode();
-        CHECK_NULL_VOID(geometryNode);
-        auto xcomponentNodeSize = geometryNode->GetContentSize();
-        auto xcomponentNodeOffset = geometryNode->GetContentOffset();
-        auto transformRelativeOffset = host->GetTransformRelativeOffset();
-        Rect rect = Rect(transformRelativeOffset.GetX() + xcomponentNodeOffset.GetX(),
-            transformRelativeOffset.GetY() + xcomponentNodeOffset.GetY(), xcomponentNodeSize.Width(),
-            xcomponentNodeSize.Height());
-        if (pattern->renderSurface_) {
-            pattern->renderSurface_->SetExtSurfaceBoundsSync(rect.Left(), rect.Top(),
-                rect.Width(), rect.Height());
+    extSurfaceClient_ = MakeRefPtr<XComponentExtSurfaceCallbackClient>(WeakClaim(this));
+    if (extSurfaceClient_) {
+        renderSurface_->SetExtSurfaceCallback(extSurfaceClient_);
+    }
+    handlingSurfaceRenderContext_ = renderContextForSurface_;
+    renderSurfaceWeakPtr_ = renderSurface_;
+
+    auto OnAttachCallBack = [weak = WeakClaim(this)](int64_t textureId, bool isAttach) {
+        auto xcPattern = weak.Upgrade();
+        CHECK_NULL_VOID(xcPattern);
+        if (auto renderSurface = xcPattern->renderSurfaceWeakPtr_.Upgrade(); renderSurface) {
+            renderSurface->AttachToGLContext(textureId, isAttach);
         }
     };
-    renderContextForSurface_->SetSurfaceChangedCallBack(OnAreaChangedCallBack);
+    renderContextForSurface_->AddAttachCallBack(OnAttachCallBack);
+
+    auto OnUpdateCallBack = [weak = WeakClaim(this)](std::vector<float>& matrix) {
+        auto xcPattern = weak.Upgrade();
+        CHECK_NULL_VOID(xcPattern);
+        if (auto renderSurface = xcPattern->renderSurfaceWeakPtr_.Upgrade(); renderSurface) {
+            renderSurface->UpdateTextureImage(matrix);
+        }
+    };
+    renderContextForSurface_->AddUpdateCallBack(OnUpdateCallBack);
+
+#ifdef IOS_PLATFORM
+    auto OnInitTypeCallback = [weak = WeakClaim(this)](int32_t& type) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        if (pattern->renderSurface_) {
+            pattern->renderSurface_->GetTextureIsVideo(type);
+        }
+    };
+    renderContextForSurface_->AddInitTypeCallBack(OnInitTypeCallback);
+#endif
 }
 
 void XComponentPattern::RequestFocus()
@@ -378,8 +536,79 @@ void XComponentPattern::RequestFocus()
 }
 #endif
 
+void XComponentPattern::PushType(StatisticEventType type)
+{
+    statisticEventTypes_.emplace_back(type);
+}
+
+void XComponentPattern::OnFrameNodeChanged(FrameNodeChangeInfoFlag flag)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto context = host->GetContextRefPtr();
+    CHECK_NULL_VOID(context);
+    if (context->GetXComponentDisplayConstraintEnabled()) {
+        AddLayoutTask();
+    }
+}
+
+void XComponentPattern::AddLayoutTask()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    auto displayWindowRect = pipeline->GetDisplayWindowRectInfo();
+
+    auto windowWidth = displayWindowRect.Width();
+    auto windowHeight = displayWindowRect.Height();
+
+    auto windowRelativeOffset = host->GetTransformRelativeOffset();
+
+    auto relativeOffsetX = windowRelativeOffset.GetX();
+    auto relativeOffsetY = windowRelativeOffset.GetY();
+    auto xcomponentWidth = drawSize_.Width();
+    auto xcomponentHeight = drawSize_.Height();
+
+    auto overlapWidth = fmin(windowWidth - relativeOffsetX, xcomponentWidth) - fmax(-relativeOffsetX, 0);
+    auto overlapHeight = fmin(windowHeight - relativeOffsetY, xcomponentHeight) - fmax(-relativeOffsetY, 0);
+    auto overlapOffsetX = fmax(-relativeOffsetX, 0);
+    auto overlapOffsetY = fmax(-relativeOffsetY, 0);
+
+    if (NearZero(surfaceSize_.Width()) || NearZero(surfaceSize_.Height())) {
+        TAG_LOGW(AceLogTag::ACE_XCOMPONENT, "xcLOG XComponent[%{public}s] surfaceSize is near zero, skip scaling.",
+            GetId().c_str());
+        return;
+    }
+
+    auto scaleX = overlapWidth / surfaceSize_.Width();
+    auto scaleY = overlapHeight / surfaceSize_.Height();
+    auto scale = std::min(scaleX, scaleY);
+
+    scale = std::max(scale, 0.0);
+
+    SizeF newSurfaceSize(surfaceSize_.Width() * scale, surfaceSize_.Height() * scale);
+    surfaceSize_ = newSurfaceSize;
+
+    surfaceOffset_.SetX((overlapWidth - surfaceSize_.Width()) / 2.0f + overlapOffsetX);
+    surfaceOffset_.SetY((overlapHeight - surfaceSize_.Height()) / 2.0f + overlapOffsetY);
+    RectF newPaintRect = { surfaceOffset_, surfaceSize_ };
+    if (paintRect_ == newPaintRect) {
+        return;
+    }
+    paintRect_ = newPaintRect;
+    CHECK_NULL_VOID(handlingSurfaceRenderContext_);
+    handlingSurfaceRenderContext_->SetBounds(
+        paintRect_.GetX(), paintRect_.GetY(), paintRect_.Width(), paintRect_.Height());
+    handlingSurfaceRenderContext_->RequestNextFrame();
+}
+
 void XComponentPattern::OnAttachToFrameNode()
 {
+    auto host = GetHost();
+    if (host) {
+        nodeId_ = std::to_string(host->GetId());
+    }
     Initialize();
     if (FrameReport::GetInstance().GetEnable()) {
         FrameReport::GetInstance().EnableSelfRender();
@@ -405,7 +634,7 @@ void XComponentPattern::OnModifyDone()
 
 void XComponentPattern::OnAreaChangedInner()
 {
-#ifndef RENDER_EXTRACT_SUPPORTED
+#ifdef RENDER_EXTRACT_SUPPORTED
     if (SystemProperties::GetExtSurfaceEnabled()) {
         auto host = GetHost();
         CHECK_NULL_VOID(host);
@@ -453,9 +682,15 @@ void XComponentPattern::SetSurfaceNodeToGraphic()
 
 void XComponentPattern::OnRebuildFrame()
 {
+#ifdef RENDER_EXTRACT_SUPPORTED
+    if (type_ != XComponentType::SURFACE && type_ != XComponentType::TEXTURE) {
+        return;
+    }
+#else
     if (type_ != XComponentType::SURFACE) {
         return;
     }
+#endif
     if (!renderSurface_->IsSurfaceValid()) {
         return;
     }
@@ -464,16 +699,17 @@ void XComponentPattern::OnRebuildFrame()
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
     CHECK_NULL_VOID(handlingSurfaceRenderContext_);
+    auto pipeline = host->GetContext();
+    handlingSurfaceRenderContext_->SetRSUIContext(pipeline);
     renderContext->AddChild(handlingSurfaceRenderContext_, 0);
     SetSurfaceNodeToGraphic();
 }
 
 void XComponentPattern::OnDetachFromFrameNode(FrameNode* frameNode)
 {
-    UnregisterSurfaceRenderContext();
+    UnregisterNode();
     CHECK_NULL_VOID(frameNode);
     THREAD_SAFE_NODE_CHECK(frameNode, OnDetachFromFrameNode, frameNode);
-    UninitializeAccessibility(frameNode);
     if (isTypedNode_) {
         if (surfaceCallbackMode_ == SurfaceCallbackMode::PIP) {
             HandleSurfaceDestroyed(frameNode);
@@ -494,11 +730,6 @@ void XComponentPattern::OnDetachFromFrameNode(FrameNode* frameNode)
                 eventHub->FireDetachEvent(id_.value());
             }
             eventHub->FireControllerDestroyedEvent(surfaceId_, GetId());
-#ifdef RENDER_EXTRACT_SUPPORTED
-            if (renderContextForSurface_) {
-                renderContextForSurface_->RemoveSurfaceChangedCallBack();
-            }
-#endif
         }
     }
 
@@ -564,6 +795,20 @@ void XComponentPattern::OnAttachContext(PipelineContext* context)
         }
         initialContext_ = nullptr;
     }
+    if (!isTypedNode_) {
+        InitializeAccessibility();
+    }
+#ifdef ENABLE_ROSEN_BACKEND
+    foldDisplayCallbackId_ = context->RegisterFoldDisplayModeChangedCallback(
+        [weak = WeakClaim(this)](FoldDisplayMode foldDisplayMode) {
+            auto pattern = weak.Upgrade();
+            CHECK_NULL_VOID(pattern);
+            auto displyMode = FoldDisplayModeToString(foldDisplayMode);
+            TAG_LOGI(AceLogTag::ACE_XCOMPONENT, "XComponent[%{public}s]'s FoldDisplayMode change to %{public}s",
+                pattern->GetId().c_str(), displyMode.c_str());
+            SetCompensationAngleToRS(pattern->renderContextForSurface_, foldDisplayMode, pattern->GetId());
+        });
+#endif
 }
 
 void XComponentPattern::OnDetachContext(PipelineContext* context)
@@ -571,7 +816,9 @@ void XComponentPattern::OnDetachContext(PipelineContext* context)
     CHECK_NULL_VOID(context);
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    UninitializeAccessibility(host.GetRawPtr());
     context->RemoveWindowStateChangedCallback(host->GetId());
+    context->UnRegisterFoldDisplayModeChangedCallback(foldDisplayCallbackId_);
 }
 
 void XComponentPattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
@@ -618,9 +865,16 @@ void XComponentPattern::BeforeSyncGeometryProperties(const DirtySwapConfig& conf
     globalPosition_ = geometryNode->GetFrameOffset();
     localPosition_ = geometryNode->GetContentOffset();
 
-    if (IsSupportImageAnalyzerFeature()) {
-        UpdateAnalyzerUIConfig(geometryNode);
-    }
+    auto context = host->GetContext();
+    CHECK_NULL_VOID(context);
+    context->AddAfterLayoutTask([weak = WeakClaim(this)]() {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        auto host = pattern->GetHost();
+        CHECK_NULL_VOID(host);
+        auto geometryNode = host->GetGeometryNode();
+        pattern->UpdateAnalyzerUIConfig(geometryNode);
+    });
     const auto& [offsetChanged, sizeChanged, needFireNativeEvent] = UpdateSurfaceRect();
     if (!hasXComponentInit_) {
         initSize_ = paintRect_.GetSize();
@@ -640,17 +894,33 @@ void XComponentPattern::BeforeSyncGeometryProperties(const DirtySwapConfig& conf
             static_cast<int32_t>(drawSize_.Width()), static_cast<int32_t>(drawSize_.Height()));
     }
     HandleSurfaceChangeEvent(false, offsetChanged, sizeChanged, needFireNativeEvent, config.frameOffsetChange);
+#else
+    if (type_ == XComponentType::TEXTURE) {
+        auto transformRelativeOffset = host->GetTransformRelativeOffset();
+        renderSurface_->SetExtSurfaceBounds(
+            static_cast<int32_t>(transformRelativeOffset.GetX() + localPosition_.GetX()),
+            static_cast<int32_t>(transformRelativeOffset.GetY() + localPosition_.GetY()),
+            static_cast<int32_t>(drawSize_.Width()), static_cast<int32_t>(drawSize_.Height()));
+        if (handlingSurfaceRenderContext_) {
+            handlingSurfaceRenderContext_->SetBounds(
+                paintRect_.GetX(), paintRect_.GetY(), paintRect_.Width(), paintRect_.Height());
+        }
+    }
 #endif
     if (type_ == XComponentType::SURFACE && renderType_ == NodeRenderType::RENDER_TYPE_TEXTURE) {
         AddAfterLayoutTaskForExportTexture();
     }
     host->MarkNeedSyncRenderTree();
+    if (context->GetXComponentDisplayConstraintEnabled()) {
+        AddLayoutTask();
+    }
 }
 
 void XComponentPattern::DumpInfo()
 {
     DumpLog::GetInstance().AddDesc(std::string("xcomponentId: ").append(id_.value_or("no id")));
-    DumpLog::GetInstance().AddDesc(std::string("xcomponentType: ").append(XComponentTypeToString(type_)));
+    DumpLog::GetInstance().AddDesc(std::string("xcomponentType: ").append(
+        XComponentUtils::XComponentTypeToString(type_)));
     DumpLog::GetInstance().AddDesc(std::string("libraryName: ").append(libraryname_.value_or("no library name")));
     DumpLog::GetInstance().AddDesc(std::string("surfaceId: ").append(surfaceId_));
     DumpLog::GetInstance().AddDesc(std::string("surfaceRect: ").append(paintRect_.ToString()));
@@ -664,6 +934,7 @@ void XComponentPattern::DumpAdvanceInfo()
         std::string("enableTransparentLayer: ").append(isTransparentLayer_ ? "true" : "false"));
     DumpLog::GetInstance().AddDesc(
         std::string("screenId: ").append(screenId_.has_value() ? std::to_string(screenId_.value()).c_str() : ""));
+    DumpLog::GetInstance().AddDesc(std::string("isOpaque: ").append(isOpaque_ ? "true" : "false"));
     if (renderSurface_) {
         renderSurface_->DumpInfo();
     }
@@ -695,6 +966,7 @@ void XComponentPattern::NativeXComponentDispatchTouchEvent(
     const auto* callback = nativeXComponentImpl_->GetCallback();
     CHECK_NULL_VOID(callback);
     CHECK_NULL_VOID(callback->DispatchTouchEvent);
+    LOG_CALLBACK(callback->DispatchTouchEvent);
     callback->DispatchTouchEvent(nativeXComponent_.get(), surface);
 }
 
@@ -705,9 +977,13 @@ void XComponentPattern::InitNativeWindow(float textureWidth, float textureHeight
     auto context = host->GetContextRefPtr();
     CHECK_NULL_VOID(context);
     CHECK_NULL_VOID(renderSurface_);
+#ifndef RENDER_EXTRACT_SUPPORTED
+// crossplatform xcomponent need recreate nativeWindow even if a nativeWindow already exists
+// so crossplatform xcomponent cannot do the following condition check
     if (renderSurface_->GetNativeWindow()) {
         return;
     }
+#endif
     if (renderSurface_->IsSurfaceValid() && (type_ == XComponentType::SURFACE || type_ == XComponentType::TEXTURE)) {
         float viewScale = context->GetViewScale();
         renderSurface_->CreateNativeWindow();
@@ -727,7 +1003,6 @@ void XComponentPattern::XComponentSizeInit()
     } else {
         AdjustNativeWindowSize(initSize_.Width(), initSize_.Height());
     }
-    
 #ifdef RENDER_EXTRACT_SUPPORTED
     if (xcomponentController_ && renderSurface_) {
         surfaceId_ = renderSurface_->GetUniqueId();
@@ -803,7 +1078,7 @@ void XComponentPattern::UninitializeAccessibility(FrameNode* frameNode)
     auto accessibilityManager = pipeline->GetAccessibilityManager();
     CHECK_NULL_VOID(accessibilityManager);
     if (accessibilityManager->IsRegister() && accessibilityChildTreeCallback_) {
-        accessibilityChildTreeCallback_->OnDeregister();
+        OnAccessibilityChildTreeDeregister(frameNode);
     }
     accessibilityManager->DeregisterAccessibilityChildTreeCallback(accessibilityId);
     accessibilityChildTreeCallback_ = nullptr;
@@ -858,13 +1133,18 @@ bool XComponentPattern::OnAccessibilityChildTreeRegister(uint32_t windowId, int3
     return accessibilityManager->RegisterInteractionOperationAsChildTree(registration);
 }
 
-bool XComponentPattern::OnAccessibilityChildTreeDeregister()
+bool XComponentPattern::OnAccessibilityChildTreeDeregister(FrameNode* frameNode)
 {
     TAG_LOGI(AceLogTag::ACE_XCOMPONENT, "OnAccessibilityChildTreeDeregister, "
         "windowId: %{public}u, treeId: %{public}d.", windowId_, treeId_);
-    auto host = GetHost();
-    CHECK_NULL_RETURN(host, false);
-    auto pipeline = host->GetContextRefPtr();
+    RefPtr<PipelineContext> pipeline;
+    if (!frameNode) {
+        auto host = GetHost();
+        CHECK_NULL_RETURN(host, false);
+        pipeline = host->GetContextRefPtr();
+    } else {
+        pipeline = frameNode->GetContextRefPtr();
+    }
     CHECK_NULL_RETURN(pipeline, false);
     auto accessibilityManager = pipeline->GetAccessibilityManager();
     CHECK_NULL_RETURN(accessibilityManager, false);
@@ -944,6 +1224,7 @@ void XComponentPattern::InitNativeNodeCallbacks()
         CHECK_NULL_VOID(host);
         host->AddChild(node);
         host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+        SendStatisticEvent(host, StatisticEventType::XCOMPONENT_NATIVE_ATTACH_NATIVE_ROOT_NODE);
     };
 
     auto OnDetachRootNativeNode = [](void* container, void* root) {
@@ -953,6 +1234,7 @@ void XComponentPattern::InitNativeNodeCallbacks()
         auto host = AceType::Claim(reinterpret_cast<NG::FrameNode*>(container));
         CHECK_NULL_VOID(host);
         host->RemoveChild(node);
+        SendStatisticEvent(host, StatisticEventType::XCOMPONENT_NATIVE_DETACH_NATIVE_ROOT_NODE);
     };
 
     nativeXComponentImpl_->registerNativeNodeCallbacks(
@@ -1136,14 +1418,15 @@ void XComponentPattern::HandleTouchEvent(const TouchEventInfo& info)
     if (touchInfoList.empty()) {
         return;
     }
+    UpdateSdrRatioIfNeed();
     const auto& touchInfo = touchInfoList.front();
     const auto& screenOffset = touchInfo.GetGlobalLocation();
     const auto& localOffset = touchInfo.GetLocalLocation();
     touchEventPoint_.id = touchInfo.GetFingerId();
-    touchEventPoint_.screenX = static_cast<float>(screenOffset.GetX());
-    touchEventPoint_.screenY = static_cast<float>(screenOffset.GetY());
-    touchEventPoint_.x = static_cast<float>(localOffset.GetX());
-    touchEventPoint_.y = static_cast<float>(localOffset.GetY());
+    touchEventPoint_.screenX = static_cast<float>(screenOffset.GetX() * xcomponentTouchSdrRatio_);
+    touchEventPoint_.screenY = static_cast<float>(screenOffset.GetY() * xcomponentTouchSdrRatio_);
+    touchEventPoint_.x = static_cast<float>(localOffset.GetX() * xcomponentTouchSdrRatio_);
+    touchEventPoint_.y = static_cast<float>(localOffset.GetY() * xcomponentTouchSdrRatio_);
     touchEventPoint_.size = touchInfo.GetSize();
     touchEventPoint_.force = touchInfo.GetForce();
     touchEventPoint_.deviceId = touchInfo.GetTouchDeviceId();
@@ -1199,6 +1482,7 @@ void XComponentPattern::HandleMouseHoverEvent(bool isHover)
     const auto* callback = nativeXComponentImpl_->GetMouseEventCallback();
     CHECK_NULL_VOID(callback);
     CHECK_NULL_VOID(callback->DispatchHoverEvent);
+    LOG_CALLBACK(callback->DispatchHoverEvent);
     callback->DispatchHoverEvent(nativeXComponent_.get(), isHover);
 }
 
@@ -1214,6 +1498,7 @@ void XComponentPattern::NativeXComponentDispatchMouseEvent(const OH_NativeXCompo
     const auto* callback = nativeXComponentImpl_->GetMouseEventCallback();
     CHECK_NULL_VOID(callback);
     CHECK_NULL_VOID(callback->DispatchMouseEvent);
+    LOG_CALLBACK(callback->DispatchMouseEvent);
     callback->DispatchMouseEvent(nativeXComponent_.get(), surface);
 }
 
@@ -1238,6 +1523,7 @@ void XComponentPattern::SetTouchPoint(
     uint32_t index = 0;
     for (auto iterator = touchInfoList.begin(); iterator != touchInfoList.end() && index < OH_MAX_TOUCH_POINTS_NUMBER;
          iterator++) {
+        UpdateSdrRatioIfNeed();
         OH_NativeXComponent_TouchPoint ohTouchPoint;
         const auto& pointTouchInfo = *iterator;
         const auto& pointWindowOffset = pointTouchInfo.GetGlobalLocation();
@@ -1245,10 +1531,10 @@ void XComponentPattern::SetTouchPoint(
         const auto& pointDisplayOffset = pointTouchInfo.GetScreenLocation();
         ohTouchPoint.id = pointTouchInfo.GetFingerId();
         // screenX and screenY implementation wrong but should not modify for maintaining compatibility
-        ohTouchPoint.screenX = static_cast<float>(pointWindowOffset.GetX());
-        ohTouchPoint.screenY = static_cast<float>(pointWindowOffset.GetY());
-        ohTouchPoint.x = static_cast<float>(pointLocalOffset.GetX());
-        ohTouchPoint.y = static_cast<float>(pointLocalOffset.GetY());
+        ohTouchPoint.screenX = static_cast<float>(pointWindowOffset.GetX() * xcomponentTouchSdrRatio_);
+        ohTouchPoint.screenY = static_cast<float>(pointWindowOffset.GetY() * xcomponentTouchSdrRatio_);
+        ohTouchPoint.x = static_cast<float>(pointLocalOffset.GetX() * xcomponentTouchSdrRatio_);
+        ohTouchPoint.y = static_cast<float>(pointLocalOffset.GetY() * xcomponentTouchSdrRatio_);
         ohTouchPoint.type = XComponentUtils::ConvertNativeXComponentTouchEvent(touchType);
         ohTouchPoint.size = pointTouchInfo.GetSize();
         ohTouchPoint.force = pointTouchInfo.GetForce();
@@ -1259,8 +1545,8 @@ void XComponentPattern::SetTouchPoint(
         XComponentTouchPoint xcomponentTouchPoint;
         xcomponentTouchPoint.tiltX = pointTouchInfo.GetTiltX().value_or(0.0f);
         xcomponentTouchPoint.tiltY = pointTouchInfo.GetTiltY().value_or(0.0f);
-        xcomponentTouchPoint.windowX = static_cast<float>(pointWindowOffset.GetX());
-        xcomponentTouchPoint.windowY = static_cast<float>(pointWindowOffset.GetY());
+        xcomponentTouchPoint.windowX = static_cast<float>(pointWindowOffset.GetX() * xcomponentTouchSdrRatio_);
+        xcomponentTouchPoint.windowY = static_cast<float>(pointWindowOffset.GetY() * xcomponentTouchSdrRatio_);
         xcomponentTouchPoint.displayX = static_cast<float>(pointDisplayOffset.GetX());
         xcomponentTouchPoint.displayY = static_cast<float>(pointDisplayOffset.GetY());
         xcomponentTouchPoint.sourceToolType =
@@ -1311,6 +1597,7 @@ void XComponentPattern::FireExternalEvent(
     RefPtr<NG::PipelineContext> context, const std::string& componentId, const uint32_t nodeId, const bool isDestroy)
 {
     CHECK_NULL_VOID(context);
+    ACE_UINODE_TRACE(GetHost());
 #ifdef NG_BUILD
     auto frontEnd = AceType::DynamicCast<DeclarativeFrontendNG>(context->GetFrontend());
 #else
@@ -1343,6 +1630,8 @@ void XComponentPattern::SetHandlingRenderContextForSurface(const RefPtr<RenderCo
     CHECK_NULL_VOID(host);
     auto renderContext = host->GetRenderContext();
     renderContext->ClearChildren();
+    auto pipeline = host->GetContext();
+    handlingSurfaceRenderContext_->SetRSUIContext(pipeline);
     renderContext->AddChild(handlingSurfaceRenderContext_, 0);
     handlingSurfaceRenderContext_->SetBounds(
         paintRect_.GetX(), paintRect_.GetY(), paintRect_.Width(), paintRect_.Height());
@@ -1377,6 +1666,22 @@ XComponentControllerErrorCode XComponentPattern::SetExtController(const RefPtr<X
     return XCOMPONENT_CONTROLLER_NO_ERROR;
 }
 
+std::shared_ptr<Rosen::RSUIContext> XComponentPattern::GetRSUIContext(const RefPtr<FrameNode>& frameNode)
+{
+#ifdef ENABLE_ROSEN_BACKEND
+    CHECK_NULL_RETURN(frameNode, nullptr);
+    auto pipeline = frameNode->GetContext();
+    CHECK_NULL_RETURN(pipeline, nullptr);
+    auto window = pipeline->GetWindow();
+    CHECK_NULL_RETURN(window, nullptr);
+    auto rsUIDirector = window->GetRSUIDirector();
+    CHECK_NULL_RETURN(rsUIDirector, nullptr);
+    auto rsUIContext = rsUIDirector->GetRSUIContext();
+    return rsUIContext;
+#endif
+    return nullptr;
+}
+
 XComponentControllerErrorCode XComponentPattern::ResetExtController(const RefPtr<XComponentPattern>& extPattern)
 {
     if (!extPattern) {
@@ -1386,8 +1691,30 @@ XComponentControllerErrorCode XComponentPattern::ResetExtController(const RefPtr
     if (!curExtPattern || curExtPattern != extPattern) {
         return XCOMPONENT_CONTROLLER_RESET_ERROR;
     }
+#ifdef ENABLE_ROSEN_BACKEND
+    auto host = GetHost();
+    auto rsUIContext = GetRSUIContext(host);
+    auto extHost = extPattern->GetHost();
+    auto extRsUIContext = GetRSUIContext(extHost);
+    auto rsTransHandler = rsUIContext ? rsUIContext->GetRSTransaction() : nullptr;
+    auto extRsTransHandler = extRsUIContext ? extRsUIContext->GetRSTransaction() : nullptr;
+    if (rsTransHandler) {
+        rsTransHandler->Begin();
+    }
+    if (extRsTransHandler) {
+        extRsTransHandler->Begin();
+    }
+#endif
     RestoreHandlingRenderContextForSurface();
     extPattern->RestoreHandlingRenderContextForSurface();
+#ifdef ENABLE_ROSEN_BACKEND
+    if (rsTransHandler) {
+        rsTransHandler->Commit();
+    }
+    if (extRsTransHandler) {
+        extRsTransHandler->Commit();
+    }
+#endif
     extPattern_.Reset();
     return XCOMPONENT_CONTROLLER_NO_ERROR;
 }
@@ -1401,14 +1728,8 @@ void XComponentPattern::HandleSetExpectedRateRangeEvent()
     CHECK_NULL_VOID(range);
     FrameRateRange frameRateRange;
     frameRateRange.Set(range->min, range->max, range->expected);
-    displaySync_->SetExpectedFrameRateRange(frameRateRange);
-#ifdef ENABLE_ROSEN_BACKEND
-    if (frameRateRange.preferred_ != lastFrameRateRange_.preferred_) {
-        Rosen::RSInterfaces::GetInstance().NotifyXComponentExpectedFrameRate(GetId(), frameRateRange.preferred_);
-    }
-    lastFrameRateRange_.Set(range->min, range->max, range->expected);
-#endif
-    TAG_LOGD(AceLogTag::ACE_XCOMPONENT, "Id: %{public}" PRIu64 " SetExpectedFrameRateRange"
+    displaySync_->NotifyXComponentExpectedFrameRate(GetId(), isOnTree_, frameRateRange);
+    TAG_LOGD(AceLogTag::ACE_XCOMPONENT, "Id: %{public}" PRIu64 " NotifyXComponentExpectedFrameRate"
         "{%{public}d, %{public}d, %{public}d}", displaySync_->GetId(), range->min, range->max, range->expected);
 }
 
@@ -1426,7 +1747,13 @@ void XComponentPattern::HandleOnFrameEvent()
     });
     TAG_LOGD(AceLogTag::ACE_XCOMPONENT, "Id: %{public}" PRIu64 " RegisterOnFrame",
         displaySync_->GetId());
-    displaySync_->AddToPipelineOnContainer();
+    auto host = GetHost();
+    if (host) {
+        WeakPtr<PipelineBase> pipelineContext = host->GetContextRefPtr();
+        displaySync_->AddToPipeline(pipelineContext);
+    } else {
+        displaySync_->AddToPipelineOnContainer();
+    }
 }
 
 void XComponentPattern::HandleUnregisterOnFrameEvent()
@@ -1471,6 +1798,8 @@ bool XComponentPattern::StopTextureExport()
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_RETURN(renderContext, false);
     renderContext->ClearChildren();
+    auto pipeline = host->GetContext();
+    handlingSurfaceRenderContext_->SetRSUIContext(pipeline);
     renderContext->AddChild(handlingSurfaceRenderContext_, 0);
     renderContext->SetIsNeedRebuildRSTree(true);
     return true;
@@ -1492,6 +1821,7 @@ void XComponentPattern::AddAfterLayoutTaskForExportTexture()
 bool XComponentPattern::ExportTextureAvailable()
 {
     auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
     auto parnetNodeContainer = host->GetNodeContainer();
     CHECK_NULL_RETURN(parnetNodeContainer, false);
     auto parent = parnetNodeContainer->GetAncestorNodeOfFrame(false);
@@ -1671,14 +2001,16 @@ void XComponentPattern::OnSurfaceCreated()
     if (isNativeXComponent_) {
         CHECK_NULL_VOID(nativeXComponentImpl_);
         CHECK_NULL_VOID(nativeXComponent_);
-        nativeXComponentImpl_->SetXComponentWidth(static_cast<int32_t>(width));
-        nativeXComponentImpl_->SetXComponentHeight(static_cast<int32_t>(height));
+        UpdateSdrRatioIfNeed();
+        nativeXComponentImpl_->SetXComponentWidth(static_cast<int32_t>(width * xcomponentSizeSdrRatio_));
+        nativeXComponentImpl_->SetXComponentHeight(static_cast<int32_t>(height * xcomponentSizeSdrRatio_));
         nativeXComponentImpl_->SetSurface(nativeWindow_);
         const auto* callback = nativeXComponentImpl_->GetCallback();
         CHECK_NULL_VOID(callback);
         CHECK_NULL_VOID(callback->OnSurfaceCreated);
         TAG_LOGI(AceLogTag::ACE_XCOMPONENT, "XComponent[%{public}s] native OnSurfaceCreated", GetId().c_str());
         ACE_SCOPED_TRACE("XComponent[%s] NativeSurfaceCreated[w:%f,h:%f]", GetId().c_str(), width, height);
+        LOG_CALLBACK(callback->OnSurfaceCreated);
         callback->OnSurfaceCreated(nativeXComponent_.get(), nativeWindow_);
     } else {
         auto host = GetHost();
@@ -1702,14 +2034,16 @@ void XComponentPattern::OnSurfaceChanged(const RectF& surfaceRect, bool needResi
     if (isNativeXComponent_) {
         CHECK_NULL_VOID(nativeXComponent_);
         CHECK_NULL_VOID(nativeXComponentImpl_);
-        nativeXComponentImpl_->SetXComponentWidth(static_cast<int32_t>(width));
-        nativeXComponentImpl_->SetXComponentHeight(static_cast<int32_t>(height));
+        UpdateSdrRatioIfNeed();
+        nativeXComponentImpl_->SetXComponentWidth(static_cast<int32_t>(width * xcomponentSizeSdrRatio_));
+        nativeXComponentImpl_->SetXComponentHeight(static_cast<int32_t>(height * xcomponentSizeSdrRatio_));
         auto* surface = const_cast<void*>(nativeXComponentImpl_->GetSurface());
         const auto* callback = nativeXComponentImpl_->GetCallback();
         CHECK_NULL_VOID(callback);
         CHECK_NULL_VOID(callback->OnSurfaceChanged);
         {
             ACE_SCOPED_TRACE("XComponent[%s] native OnSurfaceChanged[w:%f,h:%f]", GetId().c_str(), width, height);
+            LOG_CALLBACK(callback->OnSurfaceChanged);
             callback->OnSurfaceChanged(nativeXComponent_.get(), surface);
         }
     } else {
@@ -1731,6 +2065,7 @@ void XComponentPattern::OnSurfaceDestroyed(FrameNode* frameNode)
         CHECK_NULL_VOID(callback->OnSurfaceDestroyed);
         TAG_LOGI(AceLogTag::ACE_XCOMPONENT, "XComponent[%{public}s] native OnSurfaceDestroyed", GetId().c_str());
         ACE_SCOPED_TRACE("XComponent[%s] native OnSurfaceDestroyed", GetId().c_str());
+        LOG_CALLBACK(callback->OnSurfaceDestroyed);
         callback->OnSurfaceDestroyed(nativeXComponent_.get(), surface);
         nativeXComponentImpl_->SetSurface(nullptr);
     } else if (isTypedNode_) {
@@ -1743,6 +2078,20 @@ void XComponentPattern::OnSurfaceDestroyed(FrameNode* frameNode)
         auto eventHub = frameNode->GetEventHub<XComponentEventHub>();
         CHECK_NULL_VOID(eventHub);
         eventHub->FireControllerDestroyedEvent(surfaceId_, GetId());
+#ifdef RENDER_EXTRACT_SUPPORTED
+    } else {
+        RefPtr<FrameNode> host;
+        if (!frameNode) {
+            host = GetHost();
+            CHECK_NULL_VOID(host);
+            frameNode = Referenced::RawPtr(host);
+        }
+        CHECK_NULL_VOID(frameNode);
+        auto eventHub = frameNode->GetEventHub<XComponentEventHub>();
+        CHECK_NULL_VOID(eventHub);
+        TAG_LOGI(AceLogTag::ACE_XCOMPONENT, "XComponent[%{public}s] native OnSurfaceDestroyed", GetId().c_str());
+        eventHub->FireControllerDestroyedEvent(surfaceId_, GetId());
+#endif
     }
 }
 
@@ -2000,7 +2349,9 @@ void XComponentPattern::CreateAnalyzerOverlay()
 
 void XComponentPattern::UpdateAnalyzerOverlay()
 {
-    auto context = GetHost()->GetRenderContext();
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto context = host->GetRenderContext();
     CHECK_NULL_VOID(context);
     auto pixelMap = context->GetThumbnailPixelMap();
     CHECK_NULL_VOID(pixelMap);
@@ -2056,7 +2407,7 @@ void XComponentPattern::SetRenderFit(RenderFit renderFit)
 void XComponentPattern::DumpInfo(std::unique_ptr<JsonValue>& json)
 {
     json->Put("xcomponentId", id_.value_or("no id").c_str());
-    json->Put("xcomponentType", XComponentTypeToString(type_).c_str());
+    json->Put("xcomponentType", XComponentUtils::XComponentTypeToString(type_).c_str());
     json->Put("libraryName", libraryname_.value_or("no library name").c_str());
     json->Put("surfaceId", surfaceId_.c_str());
     json->Put("surfaceRect", paintRect_.ToString().c_str());
@@ -2095,6 +2446,17 @@ void XComponentPattern::HdrBrightness(float hdrBrightness)
     CHECK_NULL_VOID(renderContextForSurface_);
     renderContextForSurface_->SetHDRBrightness(std::clamp(hdrBrightness, 0.0f, 1.0f));
     hdrBrightness_ = std::clamp(hdrBrightness, 0.0f, 1.0f);
+}
+
+void XComponentPattern::HdrBrightness(float hdrBrightness, HdrType hdrType)
+{
+    if (type_ != XComponentType::SURFACE) {
+        return;
+    }
+    CHECK_NULL_VOID(renderContextForSurface_);
+    renderContextForSurface_->SetHDRBrightness(std::clamp(hdrBrightness, 0.0f, 1.0f), static_cast<uint32_t>(hdrType));
+    hdrBrightness_ = std::clamp(hdrBrightness, 0.0f, 1.0f);
+    hdrType_ = hdrType;
 }
 
 void XComponentPattern::EnableTransparentLayer(bool isTransparentLayer)
@@ -2179,4 +2541,40 @@ void XComponentPattern::UnlockCanvasAndPost(RSCanvas* canvas)
         TAG_LOGW(AceLogTag::ACE_XCOMPONENT, "XComponent[%{public}s] UnlockCanvasAndPost failed", GetId().c_str());
     }
 }
+
+void XComponentPattern::SetSurfaceIsOpaque(bool isOpaque)
+{
+    isOpaque_ = isOpaque;
+    if (type_ == XComponentType::SURFACE) {
+        CHECK_NULL_VOID(renderContextForSurface_);
+        renderContextForSurface_->SetSurfaceBufferOpaque(isOpaque);
+    } else if (type_ == XComponentType::TEXTURE) {
+        CHECK_NULL_VOID(renderSurface_);
+        renderSurface_->SetSurfaceBufferOpaque(isOpaque);
+    }
+}
+
+void XComponentPattern::UpdateSdrRatioIfNeed()
+{
+    if (xcomponentTouchSdrRatio_ < std::numeric_limits<float>::epsilon() &&
+        xcomponentSizeSdrRatio_ < std::numeric_limits<float>::epsilon()) {
+        std::lock_guard<std::mutex> lock(SDR_RATIOS_MUTEX);
+        if (SDR_RATIOS.empty()) {
+            xcomponentTouchSdrRatio_ = static_cast<float>(NG::RatioValue::RATIO_DEFAULT);
+            xcomponentSizeSdrRatio_ = static_cast<float>(NG::RatioValue::RATIO_DEFAULT);
+        }
+        xcomponentTouchSdrRatio_ = SDR_RATIOS[static_cast<int32_t>(NG::IndexForUsingClient::XCOMPONENT_TOUCH) - 1] <
+            std::numeric_limits<float>::epsilon() ?
+            static_cast<float>(NG::RatioValue::RATIO_DEFAULT) :
+            SDR_RATIOS[static_cast<int32_t>(NG::IndexForUsingClient::XCOMPONENT_TOUCH) - 1];
+        xcomponentSizeSdrRatio_ = SDR_RATIOS[static_cast<int32_t>(NG::IndexForUsingClient::XCOMPONENT_SIZE) - 1] <
+            std::numeric_limits<float>::epsilon() ?
+            static_cast<float>(NG::RatioValue::RATIO_DEFAULT) :
+            SDR_RATIOS[static_cast<int32_t>(NG::IndexForUsingClient::XCOMPONENT_SIZE) - 1];
+        TAG_LOGD(AceLogTag::ACE_XCOMPONENT,
+            "XComponentPattern[UpdateSdrRatioIfNeed] touchSdrRatio_:%{public}f, sizeSdrRatio_:%{public}f",
+            xcomponentTouchSdrRatio_, xcomponentSizeSdrRatio_);
+    }
+}
+
 } // namespace OHOS::Ace::NG

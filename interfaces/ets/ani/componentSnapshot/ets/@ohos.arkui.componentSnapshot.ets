@@ -15,8 +15,11 @@
 
 import image from '@ohos.multimedia.image';
 import { BusinessError, AsyncCallback } from '@ohos.base';
-import { CustomBuilder } from '@ohos.arkui.component';
+import { CustomBuilder, DynamicRangeMode } from '@ohos.arkui.component';
 import { ComponentContent } from '@ohos.arkui.node';
+import colorSpaceManager from '@ohos.graphics.colorSpaceManager';
+
+export type NodeIdentity = string | int;
 
 export default namespace componentSnapshot {
 
@@ -44,15 +47,43 @@ export default namespace componentSnapshot {
 
     export type SnapshotRegionType = SnapshotRegion | LocalizedSnapshotRegion;
 
+    export interface ColorModeOptions {  
+        colorSpace?: colorSpaceManager.ColorSpace
+        isAuto?: boolean
+    }
+
+    export interface DynamicRangeModeOptions {
+        dynamicRangeMode?: DynamicRangeMode
+        isAuto?: boolean
+    }
+
     export interface SnapshotOptions {
         scale?: double
         waitUntilRenderFinished?: boolean
         region?: SnapshotRegionType
+        colorMode?: ColorModeOptions
+        dynamicRangeMode?: DynamicRangeModeOptions
     }
 
+    export interface SnapshotSizeLimitation {
+        maxWidth: int
+        maxHeight: int
+    }
+    
+    class SnapshotSizeLimitationInner implements SnapshotSizeLimitation {
+        maxWidth: int
+        maxHeight: int
+        constructor(maxWidth: int, maxHeight: int) {
+            this.maxWidth = maxWidth;
+            this.maxHeight = maxHeight;
+        }
+    }
     export native function get(id: string, callback: AsyncCallback<image.PixelMap>, options?: SnapshotOptions): void;
-    export native function get(id: string, options?: SnapshotOptions): Promise<image.PixelMap>;
-    export native function getSync(id: string, options?: SnapshotOptions): image.PixelMap;
-    export native function getWithUniqueId(uniqueId: number, options?: SnapshotOptions): Promise<image.PixelMap>;
-    export native function getSyncWithUniqueId(uniqueId: number, options?: SnapshotOptions): image.PixelMap;
+    export native function get(id: string, options?: SnapshotOptions): Promise<image.PixelMap> | null;
+    export native function getSync(id: string, options?: SnapshotOptions): image.PixelMap | null;
+    export native function getWithUniqueId(uniqueId: int, options?: SnapshotOptions): Promise<image.PixelMap> | null;
+    export native function getSyncWithUniqueId(uniqueId: int, options?: SnapshotOptions): image.PixelMap;
+    export native function getWithRange(start: NodeIdentity, end: NodeIdentity, isStartRect: boolean,
+        options?: SnapshotOptions): Promise<image.PixelMap> | null;
+    export native function getSizeLimitation(): SnapshotSizeLimitation;
 }

@@ -19,13 +19,18 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_canvas_image.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_canvas_image.h"
+#include "ui/properties/ui_material.h"
 
+#include "core/components_ng/base/extension_handler.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/gauge/gauge_pattern.h"
 #include "core/components_ng/pattern/image/image_paint_method.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
+#include "core/components_ng/pattern/list/list_content_modifier.h"
 #include "core/components_ng/pattern/list/list_pattern.h"
 #include "core/components_ng/pattern/menu/menu_pattern.h"
 #include "core/components_ng/pattern/node_container/node_container_layout_algorithm.h"
@@ -33,6 +38,7 @@
 #include "core/components_ng/pattern/node_container/node_container_node.h"
 #include "core/components_ng/pattern/node_container/node_container_pattern.h"
 #include "core/components_ng/pattern/render_node/render_node_pattern.h"
+#include "core/components_ng/pattern/custom/custom_node.h"
 #include "core/components_ng/render/paint_wrapper.h"
 
 using namespace testing;
@@ -41,6 +47,27 @@ using namespace testing::ext;
 namespace OHOS::Ace::NG {
 namespace {
 const std::string CHILD_NODE = "ChildNode";
+const std::string RENDER_NODE = "RenderNode";
+const double EPS = 1e-6;
+
+class MockNodeContainerPattern : public NodeContainerPattern {
+public:
+    explicit MockNodeContainerPattern(bool enableChildrenMatchParent = true)
+        : enableChildrenMatchParent_(enableChildrenMatchParent) {}
+
+    bool IsEnableChildrenMatchParent() override
+    {
+        return enableChildrenMatchParent_;
+    }
+
+    void SetEnableChildrenMatchParent(bool enable)
+    {
+        enableChildrenMatchParent_ = enable;
+    }
+
+private:
+    bool enableChildrenMatchParent_ = true;
+};
 } // namespace
 
 class NodeContainerTestNg : public testing::Test {
@@ -182,8 +209,8 @@ HWTEST_F(NodeContainerTestNg, NodeContainerLayoutAlgorithmMeasure001, TestSize.L
     layoutWrapper.GetContentChanges().ToString();
     auto layoutAlgorithm = AceType::MakeRefPtr<NodeContainerLayoutAlgorithm>();
     ASSERT_NE(layoutAlgorithm, nullptr);
-    RefPtr<FrameNode> childNodeOne = FrameNode::CreateFrameNode("RenderNode", 0, AceType::MakeRefPtr<Pattern>());
-    RefPtr<FrameNode> childNodeTwo = FrameNode::CreateFrameNode("ChildNode", 0, AceType::MakeRefPtr<Pattern>());
+    RefPtr<FrameNode> childNodeOne = FrameNode::CreateFrameNode(RENDER_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    RefPtr<FrameNode> childNodeTwo = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
 
     /**
      * @tc.steps: step2. update layoutWrapper.
@@ -200,7 +227,7 @@ HWTEST_F(NodeContainerTestNg, NodeContainerLayoutAlgorithmMeasure001, TestSize.L
      * @tc.steps: step3. call the function Measure.
      */
     layoutAlgorithm->Measure(&layoutWrapper);
-    EXPECT_EQ(layoutWrapper.GetGeometryNode()->GetFrameSize().Width(), 0.0);
+    EXPECT_NEAR(layoutWrapper.GetGeometryNode()->GetFrameSize().Width(), 0.0, EPS);
 }
 
 /**
@@ -208,56 +235,219 @@ HWTEST_F(NodeContainerTestNg, NodeContainerLayoutAlgorithmMeasure001, TestSize.L
  * @tc.desc: Test the Measure function of NodeContainerLayoutAlgorithm.
  * @tc.type: FUNC
  */
- HWTEST_F(NodeContainerTestNg, NodeContainerLayoutAlgorithmMeasure002, TestSize.Level1)
- {
-     /**
-      * @tc.steps: step1. create frameNode.
-      */
-     RefPtr<FrameNode> nodeContainerNode = CreateNode();
-     ASSERT_NE(nodeContainerNode, nullptr);
-     RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-     ASSERT_NE(geometryNode, nullptr);
-     RefPtr<FrameNode> childHostNode = FrameNode::CreateFrameNode("ChildNode", 0, AceType::MakeRefPtr<Pattern>());
-     ASSERT_NE(childHostNode, nullptr);
-     auto layoutWrapper = LayoutWrapperNode(nodeContainerNode, geometryNode, nodeContainerNode->GetLayoutProperty());
-     auto layoutWrapperTwo = LayoutWrapperNode(childHostNode, geometryNode, childHostNode->GetLayoutProperty());
+HWTEST_F(NodeContainerTestNg, NodeContainerLayoutAlgorithmMeasure002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    auto layoutWrapper = LayoutWrapperNode(nodeContainerNode, geometryNode, nodeContainerNode->GetLayoutProperty());
 
-     auto contentChanges = layoutWrapper.GetContentChanges();
-     contentChanges.UpdateFlags(std::nullopt, std::nullopt);
-     layoutWrapper.GetContentChanges().ToString();
-     auto layoutAlgorithm = AceType::MakeRefPtr<NodeContainerLayoutAlgorithm>();
-     ASSERT_NE(layoutAlgorithm, nullptr);
-     RefPtr<FrameNode> childNodeOne = FrameNode::CreateFrameNode("RenderNode", 0, AceType::MakeRefPtr<Pattern>());
-     RefPtr<FrameNode> childNodeTwo = FrameNode::CreateFrameNode("ChildNode", 0, AceType::MakeRefPtr<Pattern>());
+    auto contentChanges = layoutWrapper.GetContentChanges();
+    contentChanges.UpdateFlags(std::nullopt, std::nullopt);
+    layoutWrapper.GetContentChanges().ToString();
+    auto layoutAlgorithm = AceType::MakeRefPtr<NodeContainerLayoutAlgorithm>();
+    ASSERT_NE(layoutAlgorithm, nullptr);
+    RefPtr<FrameNode> childNodeOne = FrameNode::CreateFrameNode(RENDER_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    RefPtr<FrameNode> childNodeTwo = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
      
-     auto childLayoutProperty=childNodeTwo->GetLayoutProperty();
-     ASSERT_NE(childLayoutProperty, nullptr);
-     childLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
-     auto childLayoutPropertyOne=childNodeOne->GetLayoutProperty();
-     ASSERT_NE(childLayoutPropertyOne, nullptr);
-     childLayoutPropertyOne->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
-     /**
-      * @tc.steps: step2. update layoutWrapper.
-      */
-     auto childLayoutWrapperOne = childNodeOne->CreateLayoutWrapper();
-     ASSERT_NE(childLayoutWrapperOne, nullptr);
-     auto childLayoutWrapperTwo = childNodeTwo->CreateLayoutWrapper();
-     ASSERT_NE(childLayoutWrapperTwo, nullptr);
-     layoutWrapper.cachedList_ = std::list<RefPtr<LayoutWrapper>>();
-     layoutWrapper.cachedList_.push_back(childLayoutWrapperOne);
-     layoutWrapper.cachedList_.push_back(childLayoutWrapperTwo);
-     layoutWrapperTwo.cachedList_ = std::list<RefPtr<LayoutWrapper>>();
-     layoutWrapperTwo.cachedList_.push_back(childLayoutWrapperOne);
-     layoutWrapperTwo.cachedList_.push_back(childLayoutWrapperTwo);
-     /**
-      * @tc.steps: step3. call the function Measure.
-      */
-     layoutAlgorithm->Measure(&layoutWrapper);
-     layoutAlgorithm->Measure(&layoutWrapperTwo);
+    auto childLayoutProperty=childNodeTwo->GetLayoutProperty();
+    ASSERT_NE(childLayoutProperty, nullptr);
+    childLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
+    auto childLayoutPropertyOne=childNodeOne->GetLayoutProperty();
+    ASSERT_NE(childLayoutPropertyOne, nullptr);
+    childLayoutPropertyOne->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
+    /**
+     * @tc.steps: step2. update layoutWrapper.
+     */
+    auto childLayoutWrapperOne = childNodeOne->CreateLayoutWrapper();
+    ASSERT_NE(childLayoutWrapperOne, nullptr);
+    auto childLayoutWrapperTwo = childNodeTwo->CreateLayoutWrapper();
+    ASSERT_NE(childLayoutWrapperTwo, nullptr);
+    layoutWrapper.cachedList_ = std::list<RefPtr<LayoutWrapper>>();
+    layoutWrapper.cachedList_.push_back(childLayoutWrapperOne);
+    layoutWrapper.cachedList_.push_back(childLayoutWrapperTwo);
+    /**
+     * @tc.steps: step3. call the function Measure.
+     */
+    layoutAlgorithm->Measure(&layoutWrapper);
 
-     EXPECT_EQ(layoutWrapper.GetGeometryNode()->GetFrameSize().Width(), 0.0);
-     EXPECT_EQ(layoutWrapperTwo.GetGeometryNode()->GetFrameSize().Width(), 0.0);
- }
+    EXPECT_NEAR(layoutWrapper.GetGeometryNode()->GetFrameSize().Width(), 0.0, EPS);
+}
+
+/**
+ * @tc.name: NodeContainerLayoutAlgorithmMeasure003
+ * @tc.desc: Test the Measure function when isEnabledChildrenMatchParent is false and layoutPolicy has value.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerLayoutAlgorithmMeasure003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode with mock pattern returning false for IsEnableChildrenMatchParent.
+     */
+    auto nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto mockPattern = AceType::MakeRefPtr<MockNodeContainerPattern>(false);
+    nodeContainerNode->pattern_ = mockPattern;
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    auto layoutWrapper = LayoutWrapperNode(nodeContainerNode, geometryNode, nodeContainerNode->GetLayoutProperty());
+    auto contentChanges = layoutWrapper.GetContentChanges();
+    contentChanges.UpdateFlags(std::nullopt, std::nullopt);
+    layoutWrapper.GetContentChanges().ToString();
+    auto layoutAlgorithm = AceType::MakeRefPtr<NodeContainerLayoutAlgorithm>();
+    ASSERT_NE(layoutAlgorithm, nullptr);
+    RefPtr<FrameNode> childNode = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    auto childLayoutProperty = childNode->GetLayoutProperty();
+    ASSERT_NE(childLayoutProperty, nullptr);
+    childLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
+
+    /**
+     * @tc.steps: step2. update layoutWrapper.
+     */
+    auto childLayoutWrapper = childNode->CreateLayoutWrapper();
+    ASSERT_NE(childLayoutWrapper, nullptr);
+    layoutWrapper.cachedList_ = std::list<RefPtr<LayoutWrapper>>();
+    layoutWrapper.cachedList_.push_back(childLayoutWrapper);
+
+    /**
+     * @tc.steps: step3. call the function Measure.
+     */
+    layoutAlgorithm->Measure(&layoutWrapper);
+    EXPECT_NEAR(layoutWrapper.GetGeometryNode()->GetFrameSize().Width(), 0.0, EPS);
+}
+
+/**
+ * @tc.name: NodeContainerLayoutAlgorithmMeasure004
+ * @tc.desc: Test the Measure function when widthLayoutPolicy is MATCH_PARENT and heightLayoutPolicy is NO_MATCH.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerLayoutAlgorithmMeasure004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto mockPattern = AceType::MakeRefPtr<MockNodeContainerPattern>(true);
+    nodeContainerNode->pattern_ = mockPattern;
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    auto layoutWrapper = LayoutWrapperNode(nodeContainerNode, geometryNode, nodeContainerNode->GetLayoutProperty());
+    auto contentChanges = layoutWrapper.GetContentChanges();
+    contentChanges.UpdateFlags(std::nullopt, std::nullopt);
+    layoutWrapper.GetContentChanges().ToString();
+    auto layoutAlgorithm = AceType::MakeRefPtr<NodeContainerLayoutAlgorithm>();
+    ASSERT_NE(layoutAlgorithm, nullptr);
+    RefPtr<FrameNode> childNode = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    auto childLayoutProperty = childNode->GetLayoutProperty();
+    ASSERT_NE(childLayoutProperty, nullptr);
+    childLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
+    childLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::NO_MATCH, false);
+
+    /**
+     * @tc.steps: step2. update layoutWrapper.
+     */
+    auto childLayoutWrapper = childNode->CreateLayoutWrapper();
+    ASSERT_NE(childLayoutWrapper, nullptr);
+    layoutWrapper.cachedList_ = std::list<RefPtr<LayoutWrapper>>();
+    layoutWrapper.cachedList_.push_back(childLayoutWrapper);
+
+    /**
+     * @tc.steps: step3. call the function Measure.
+     */
+    layoutAlgorithm->Measure(&layoutWrapper);
+    EXPECT_NEAR(layoutWrapper.GetGeometryNode()->GetFrameSize().Width(), 0.0, EPS);
+}
+
+/**
+ * @tc.name: NodeContainerLayoutAlgorithmMeasure005
+ * @tc.desc: Test the Measure function when widthLayoutPolicy is NO_MATCH and heightLayoutPolicy is MATCH_PARENT.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerLayoutAlgorithmMeasure005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto mockPattern = AceType::MakeRefPtr<MockNodeContainerPattern>(true);
+    nodeContainerNode->pattern_ = mockPattern;
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    auto layoutWrapper = LayoutWrapperNode(nodeContainerNode, geometryNode, nodeContainerNode->GetLayoutProperty());
+    auto contentChanges = layoutWrapper.GetContentChanges();
+    contentChanges.UpdateFlags(std::nullopt, std::nullopt);
+    layoutWrapper.GetContentChanges().ToString();
+    auto layoutAlgorithm = AceType::MakeRefPtr<NodeContainerLayoutAlgorithm>();
+    ASSERT_NE(layoutAlgorithm, nullptr);
+    RefPtr<FrameNode> childNode = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    auto childLayoutProperty = childNode->GetLayoutProperty();
+    ASSERT_NE(childLayoutProperty, nullptr);
+    childLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::NO_MATCH, true);
+    childLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, false);
+
+    /**
+     * @tc.steps: step2. update layoutWrapper.
+     */
+    auto childLayoutWrapper = childNode->CreateLayoutWrapper();
+    ASSERT_NE(childLayoutWrapper, nullptr);
+    layoutWrapper.cachedList_ = std::list<RefPtr<LayoutWrapper>>();
+    layoutWrapper.cachedList_.push_back(childLayoutWrapper);
+
+    /**
+     * @tc.steps: step3. call the function Measure.
+     */
+    layoutAlgorithm->Measure(&layoutWrapper);
+    EXPECT_NEAR(layoutWrapper.GetGeometryNode()->GetFrameSize().Width(), 0.0, EPS);
+}
+
+/**
+ * @tc.name: NodeContainerLayoutAlgorithmMeasure006
+ * @tc.desc: Test the Measure function when both widthLayoutPolicy and heightLayoutPolicy are NO_MATCH.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerLayoutAlgorithmMeasure006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode.
+     */
+    auto nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto mockPattern = AceType::MakeRefPtr<MockNodeContainerPattern>(true);
+    nodeContainerNode->pattern_ = mockPattern;
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    auto layoutWrapper = LayoutWrapperNode(nodeContainerNode, geometryNode, nodeContainerNode->GetLayoutProperty());
+    auto contentChanges = layoutWrapper.GetContentChanges();
+    contentChanges.UpdateFlags(std::nullopt, std::nullopt);
+    layoutWrapper.GetContentChanges().ToString();
+    auto layoutAlgorithm = AceType::MakeRefPtr<NodeContainerLayoutAlgorithm>();
+    ASSERT_NE(layoutAlgorithm, nullptr);
+    RefPtr<FrameNode> childNode = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    auto childLayoutProperty = childNode->GetLayoutProperty();
+    ASSERT_NE(childLayoutProperty, nullptr);
+    childLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::NO_MATCH, true);
+    childLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::NO_MATCH, false);
+
+    /**
+     * @tc.steps: step2. update layoutWrapper.
+     */
+    auto childLayoutWrapper = childNode->CreateLayoutWrapper();
+    ASSERT_NE(childLayoutWrapper, nullptr);
+    layoutWrapper.cachedList_ = std::list<RefPtr<LayoutWrapper>>();
+    layoutWrapper.cachedList_.push_back(childLayoutWrapper);
+
+    /**
+     * @tc.steps: step3. call the function Measure.
+     */
+    layoutAlgorithm->Measure(&layoutWrapper);
+    EXPECT_NEAR(layoutWrapper.GetGeometryNode()->GetFrameSize().Width(), 0.0, EPS);
+}
 
 /**
  * @tc.name: NodeContainerModelNGSetMakeFunction001
@@ -425,6 +615,34 @@ HWTEST_F(NodeContainerTestNg, NodeContainerNodeOnRecycle001, TestSize.Level1)
     nodeContainerNode->pattern_ = pattern;
     SystemProperties::developerModeOn_ = false;
     EXPECT_EQ(flag, true);
+}
+
+/**
+ * @tc.name: NodeContainerNodeOnRecycle002
+ * @tc.desc: Test the OnRecycle function of NodeContainerNode with null destroy callback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerNodeOnRecycle002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create nodeContainerNode.
+     */
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    
+    /**
+     * @tc.steps: step2: add null destroy callback to trigger if (destroyCallback.second) false branch.
+     * @tc.expected: process success without crash.
+     */
+    std::function<void()> nullCallback;
+    nodeContainerNode->PushDestroyCallbackWithTag(std::move(nullCallback), "nullTag");
+    
+    /**
+     * @tc.steps: step3: call OnRecycle directly.
+     * @tc.expected: process success without crash.
+     */
+    nodeContainerNode->OnRecycle();
+    EXPECT_TRUE(true);
 }
 
 /**
@@ -718,6 +936,40 @@ HWTEST_F(NodeContainerTestNg, NodeContainerPatternOnDirtyLayoutWrapperSwap008, T
 }
 
 /**
+ * @tc.name: NodeContainerPatternOnDirtyLayoutWrapperSwap009
+ * @tc.desc: Test the OnDirtyLayoutWrapperSwap function when HandleTextureExport returns false.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerPatternOnDirtyLayoutWrapperSwap009, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create node and get pattern.
+     */
+    RefPtr<FrameNode> node = FrameNode::CreateFrameNode("node", 1, AceType::MakeRefPtr<NodeContainerPattern>());
+    ASSERT_NE(node, nullptr);
+    auto pattern = AceType::DynamicCast<NodeContainerPattern>(node->GetPattern());
+    ASSERT_NE(pattern, nullptr);
+    RefPtr<LayoutWrapper> layoutWrapper = node->CreateLayoutWrapper(true, true);
+
+    /**
+     * @tc.steps: step2: set surfaceId and exportTextureNode to trigger texture export logic.
+     */
+    pattern->surfaceId_ = 1U;
+    auto exportNode = AceType::MakeRefPtr<FrameNode>("exportNode", -1, AceType::MakeRefPtr<Pattern>());
+    pattern->exportTextureNode_ = AceType::WeakClaim(AceType::RawPtr(exportNode));
+
+    /**
+     * @tc.steps: step3: call OnDirtyLayoutWrapperSwap with config that triggers texture export.
+     * @tc.expected: HandleTextureExport returns false, triggering the if(!ret) branch.
+     */
+    DirtySwapConfig config;
+    config.skipMeasure = false;
+    config.skipLayout = false;
+    config.frameSizeChange = false;
+    EXPECT_FALSE(pattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config));
+}
+
+/**
  * @tc.name: PaintWrapperTest001
  * @tc.desc: Test cast to PaintWrapper
  * @tc.type: FUNC
@@ -949,6 +1201,33 @@ HWTEST_F(NodeContainerTestNg, NodeContainerModelNGSetOnAttach001, TestSize.Level
 }
 
 /**
+ * @tc.name: NodeContainerEventHubFireOnAttach002
+ * @tc.desc: Test the FireOnAttach function of NodeContainerEventHub without callback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerEventHubFireOnAttach002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create nodeContainerNode without setting onAttach callback.
+     */
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto eventHub = nodeContainerNode->GetEventHub<NodeContainerEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    
+    /**
+     * @tc.steps: step2: call FireOnAttach directly without callback.
+     * @tc.expected: process success without crash.
+     */
+    eventHub->FireOnAttach();
+    
+    /**
+     * @tc.steps: step3: verify no crash occurred.
+     */
+    EXPECT_TRUE(true);
+}
+
+/**
  * @tc.name: NodeContainerModelNGSetOnDetach001
  * @tc.desc: Test the SetOnDetach function of NodeContainerModelNG.
  * @tc.type: FUNC
@@ -971,6 +1250,33 @@ HWTEST_F(NodeContainerTestNg, NodeContainerModelNGSetOnDetach001, TestSize.Level
     CHECK_NULL_VOID(eventHub);
     eventHub->FireOnDetach();
     EXPECT_EQ(flag, 1);
+}
+
+/**
+ * @tc.name: NodeContainerEventHubFireOnDetach002
+ * @tc.desc: Test the FireOnDetach function of NodeContainerEventHub without callback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerEventHubFireOnDetach002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create nodeContainerNode without setting onDetach callback.
+     */
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto eventHub = nodeContainerNode->GetEventHub<NodeContainerEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    
+    /**
+     * @tc.steps: step2: call FireOnDetach directly without callback.
+     * @tc.expected: process success without crash.
+     */
+    eventHub->FireOnDetach();
+    
+    /**
+     * @tc.steps: step3: verify no crash occurred.
+     */
+    EXPECT_TRUE(true);
 }
 
 /**
@@ -1002,6 +1308,54 @@ HWTEST_F(NodeContainerTestNg, NodeContainerModelNGSetOnWillBind001, TestSize.Lev
 }
 
 /**
+ * @tc.name: NodeContainerPatternFireOnWillBind002
+ * @tc.desc: Test the FireOnWillBind function of NodeContainerPattern without callback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerPatternFireOnWillBind002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create nodeContainerNode without setting onWillBind callback.
+     */
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto pattern = nodeContainerNode->GetPattern<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto nodeContainerId = nodeContainerNode->GetId();
+    
+    /**
+     * @tc.steps: step2. call FireOnWillBind directly without callback.
+     * @tc.expected: process success without crash.
+     */
+    pattern->FireOnWillBind(nodeContainerId);
+    
+    /**
+     * @tc.steps: step3. verify no crash occurred.
+     */
+    EXPECT_TRUE(true);
+}
+
+/**
+ * @tc.name: NodeContainerPatternFireOnWillBind003
+ * @tc.desc: Test FireOnWillBind function when GetNodeContainerEventHub returns null.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerPatternFireOnWillBind003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create pattern directly without ViewStackProcessor setup.
+     */
+    auto pattern = AceType::MakeRefPtr<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+    
+    /**
+     * @tc.steps: step2: call FireOnWillBind when GetNodeContainerEventHub returns null.
+     * @tc.expected: process success without crash.
+     */
+    pattern->FireOnWillBind(1);
+}
+
+/**
  * @tc.name: NodeContainerModelNGSetOnWillUnbind001
  * @tc.desc: Test the SetOnWillUnbind function of NodeContainerModelNG.
  * @tc.type: FUNC
@@ -1027,6 +1381,54 @@ HWTEST_F(NodeContainerTestNg, NodeContainerModelNGSetOnWillUnbind001, TestSize.L
     CHECK_NULL_VOID(pattern);
     pattern->FireOnWillUnbind(nodeContainerId);
     EXPECT_EQ(flag, nodeContainerId);
+}
+
+/**
+ * @tc.name: NodeContainerPatternFireOnWillUnbind002
+ * @tc.desc: Test the FireOnWillUnbind function of NodeContainerPattern without callback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerPatternFireOnWillUnbind002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create node: create nodeContainerNode without setting onWillUnbind callback.
+     */
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto pattern = nodeContainerNode->GetPattern<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto nodeContainerId = nodeContainerNode->GetId();
+    
+    /**
+     * @tc.steps: step2: call FireOnWillUnbind directly without callback.
+     * @tc.expected: process success without crash.
+     */
+    pattern->FireOnWillUnbind(nodeContainerId);
+    
+    /**
+     * @tc.steps: step3: verify no crash occurred.
+     */
+    EXPECT_TRUE(true);
+}
+
+/**
+ * @tc.name: NodeContainerPatternFireOnWillUnbind003
+ * @tc.desc: Test FireOnWillUnbind function when GetNodeContainerEventHub returns null.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerPatternFireOnWillUnbind003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create pattern directly without ViewStackProcessor setup.
+     */
+    auto pattern = AceType::MakeRefPtr<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+    
+    /**
+     * @tc.steps: step2: call FireOnWillUnbind when GetNodeContainerEventHub returns null.
+     * @tc.expected: process success without crash.
+     */
+    pattern->FireOnWillUnbind(1);
 }
 
 /**
@@ -1083,6 +1485,54 @@ HWTEST_F(NodeContainerTestNg, NodeContainerModelNGSetOnUnbind001, TestSize.Level
     CHECK_NULL_VOID(pattern);
     pattern->FireOnUnbind(nodeContainerId);
     EXPECT_EQ(flag, nodeContainerId);
+}
+
+/**
+ * @tc.name: NodeContainerPatternFireOnUnbind002
+ * @tc.desc: Test the FireOnUnbind function of NodeContainerPattern without callback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerPatternFireOnUnbind002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create nodeContainerNode without setting onUnbind callback.
+     */
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto pattern = nodeContainerNode->GetPattern<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto nodeContainerId = nodeContainerNode->GetId();
+    
+    /**
+     * @tc.steps: step2: call FireOnUnbind directly without callback.
+     * @tc.expected: process success without crash.
+     */
+    pattern->FireOnUnbind(nodeContainerId);
+    
+    /**
+     * @tc.steps: step3: verify no crash occurred.
+     */
+    EXPECT_TRUE(true);
+}
+
+/**
+ * @tc.name: NodeContainerPatternFireOnUnbind003
+ * @tc.desc: Test FireOnUnbind function when GetNodeContainerEventHub returns null.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerPatternFireOnUnbind003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create pattern directly without ViewStackProcessor setup.
+     */
+    auto pattern = AceType::MakeRefPtr<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+    
+    /**
+     * @tc.steps: step2: call FireOnUnbind when GetNodeContainerEventHub returns null.
+     * @tc.expected: process success without crash.
+     */
+    pattern->FireOnUnbind(1);
 }
 
 /**
@@ -1182,5 +1632,531 @@ HWTEST_F(NodeContainerTestNg, HandleTextureExport002, TestSize.Level1)
      */
     auto surfaceIdNull = elementRegister->GetSurfaceIdByEmbedNode(nullptr);
     EXPECT_EQ(surfaceIdNull, 0U);
+}
+
+/**
+ * @tc.name: HandleTextureExport003
+ * @tc.desc: Test HandleTextureExport function when frameNode is null.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, HandleTextureExport003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create node and get pattern.
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    auto pattern = AceType::DynamicCast<NodeContainerPattern>(frameNode->GetPattern());
+    pattern->surfaceId_ = 1U;
+    
+    auto exportNode = AceType::MakeRefPtr<FrameNode>("exportNode", -1, AceType::MakeRefPtr<Pattern>());
+    pattern->exportTextureNode_ = AceType::WeakClaim(AceType::RawPtr(exportNode));
+
+    /**
+     * @tc.steps: step2: call HandleTextureExport with null frameNode.
+     * @tc.expected: ret is false, skipping frameNode related logic.
+     */
+    bool ret = pattern->HandleTextureExport(false, nullptr);
+    EXPECT_FALSE(ret);
+}
+
+/**
+ * @tc.name: HandleTextureExport004
+ * @tc.desc: Test HandleTextureExport function when isStop is true and elementRegister is not null.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, HandleTextureExport004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create node and get pattern.
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    auto pattern = AceType::DynamicCast<NodeContainerPattern>(frameNode->GetPattern());
+    auto frameNodeRef = FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
+    pattern->surfaceId_ = 1U;
+    
+    auto exportNode = AceType::MakeRefPtr<FrameNode>("exportNode", -1, AceType::MakeRefPtr<Pattern>());
+    pattern->exportTextureNode_ = AceType::WeakClaim(AceType::RawPtr(exportNode));
+
+    /**
+     * @tc.steps: step2: call HandleTextureExport with isStop true.
+     * @tc.expected: elementRegister is not null, triggering UnregisterEmbedNode.
+     */
+    auto elementRegister = ElementRegister::GetInstance();
+    EXPECT_TRUE(elementRegister);
+    bool ret = pattern->HandleTextureExport(true, frameNode);
+    EXPECT_FALSE(ret);
+}
+
+/**
+ * @tc.name: HandleTextureExport005
+ * @tc.desc: Test HandleTextureExport function when isStop is false and elementRegister is not null.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, HandleTextureExport005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create node and get pattern.
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    auto pattern = AceType::DynamicCast<NodeContainerPattern>(frameNode->GetPattern());
+    auto frameNodeRef = FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
+    pattern->surfaceId_ = 1U;
+    
+    auto exportNode = AceType::MakeRefPtr<FrameNode>("exportNode", -1, AceType::MakeRefPtr<Pattern>());
+    pattern->exportTextureNode_ = AceType::WeakClaim(AceType::RawPtr(exportNode));
+
+    /**
+     * @tc.steps: step2: call HandleTextureExport with isStop false.
+     * @tc.expected: elementRegister is not null, triggering RegisterEmbedNode.
+     */
+    auto elementRegister = ElementRegister::GetInstance();
+    EXPECT_TRUE(elementRegister);
+    bool ret = pattern->HandleTextureExport(false, frameNode);
+    EXPECT_FALSE(ret);
+}
+
+/**
+ * @tc.name: CheckBeforeAddNode001
+ * @tc.desc: Test CheckBeforeAddNode when newNode is neither ArkTsFrameNode nor RootBuilderNode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, CheckBeforeAddNode001, TestSize.Level1)
+{
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto pattern = nodeContainerNode->GetPattern<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    auto newNode = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(newNode, nullptr);
+
+    newNode->SetIsRootBuilderNode(false);
+    newNode->SetIsArkTsFrameNode(false);
+
+    pattern->AddBaseNode(newNode);
+
+    ASSERT_EQ(nodeContainerNode->GetChildAtIndex(0), nullptr);
+}
+
+/**
+ * @tc.name: CheckBeforeAddNode002
+ * @tc.desc: Test CheckBeforeAddNode when newNode has a different parent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, CheckBeforeAddNode002, TestSize.Level1)
+{
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto pattern = nodeContainerNode->GetPattern<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    auto otherParent = FrameNode::CreateFrameNode("OtherParent", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(otherParent, nullptr);
+
+    auto newNode = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(newNode, nullptr);
+
+    newNode->SetIsRootBuilderNode(false);
+    newNode->SetIsArkTsFrameNode(true);
+
+    otherParent->AddChild(newNode);
+
+    pattern->AddBaseNode(newNode);
+
+    ASSERT_NE(nodeContainerNode->GetChildAtIndex(0), nullptr);
+    ASSERT_EQ(nodeContainerNode->GetChildAtIndex(0)->GetId(), newNode->GetId());
+}
+
+/**
+ * @tc.name: CheckBeforeAddNode003
+ * @tc.desc: Test CheckBeforeAddNode when newNode is RootBuilderNode but not ArkTsFrameNode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, CheckBeforeAddNode003, TestSize.Level1)
+{
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto pattern = nodeContainerNode->GetPattern<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    auto newNode = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(newNode, nullptr);
+
+    newNode->SetIsRootBuilderNode(true);
+    newNode->SetIsArkTsFrameNode(false);
+
+    pattern->AddBaseNode(newNode);
+
+    ASSERT_NE(nodeContainerNode->GetChildAtIndex(0), nullptr);
+    ASSERT_EQ(nodeContainerNode->GetChildAtIndex(0)->GetId(), newNode->GetId());
+}
+
+/**
+ * @tc.name: CheckBeforeAddNode004
+ * @tc.desc: Test CheckBeforeAddNode when newNode has same parent as hostNode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, CheckBeforeAddNode004, TestSize.Level1)
+{
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto pattern = nodeContainerNode->GetPattern<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    auto newNode = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(newNode, nullptr);
+
+    newNode->SetIsRootBuilderNode(false);
+    newNode->SetIsArkTsFrameNode(true);
+
+    nodeContainerNode->AddChild(newNode);
+
+    pattern->AddBaseNode(newNode);
+
+    ASSERT_NE(nodeContainerNode->GetChildAtIndex(0), nullptr);
+    ASSERT_EQ(nodeContainerNode->GetChildAtIndex(0)->GetId(), newNode->GetId());
+}
+
+/**
+ * @tc.name: CheckBeforeAddNode005
+ * @tc.desc: Test CheckBeforeAddNode with both conditions failing.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, CheckBeforeAddNode005, TestSize.Level1)
+{
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto pattern = nodeContainerNode->GetPattern<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    auto otherParent = FrameNode::CreateFrameNode("OtherParent", 1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(otherParent, nullptr);
+
+    auto newNode = FrameNode::CreateFrameNode(CHILD_NODE, 0, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(newNode, nullptr);
+
+    newNode->SetIsRootBuilderNode(false);
+    newNode->SetIsArkTsFrameNode(false);
+
+    otherParent->AddChild(newNode);
+
+    pattern->AddBaseNode(newNode);
+
+    ASSERT_EQ(nodeContainerNode->GetChildAtIndex(0), nullptr);
+}
+
+
+/**
+ * @tc.name: AddBaseNode001
+ * @tc.desc: Test the add base node.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, AddBaseNode001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create modelNg.
+     */
+    NodeContainerModelNG modelNg;
+    modelNg.Create();
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_TRUE(frameNode);
+    auto pattern = AceType::DynamicCast<NodeContainerPattern>(frameNode->GetPattern());
+    ASSERT_TRUE(pattern);
+    auto frameNodeRef = FrameNode::CreateFrameNode("testAddBaseNode", 1, AceType::MakeRefPtr<Pattern>(), true);
+    ASSERT_TRUE(frameNodeRef);
+    auto frameNodeChild = FrameNode::CreateFrameNode("testAddBaseNode", 2, AceType::MakeRefPtr<Pattern>(), true);
+    ASSERT_TRUE(frameNodeChild);
+    frameNode->AddChild(frameNodeChild);
+
+    /**
+     * @tc.steps: step2. call AddBaseNode.
+     */
+    auto layoutProperty = frameNode->GetLayoutProperty();
+    ASSERT_TRUE(layoutProperty);
+    pattern->AddBaseNode(nullptr);
+    EXPECT_EQ(layoutProperty->GetPropertyChangeFlag(), NG::PROPERTY_UPDATE_MEASURE | NG::PROPERTY_UPDATE_LAYOUT);
+    pattern->AddBaseNode(frameNodeRef);
+    EXPECT_EQ(layoutProperty->GetPropertyChangeFlag(), NG::PROPERTY_UPDATE_MEASURE | NG::PROPERTY_UPDATE_LAYOUT);
+}
+
+/**
+ * @tc.name: NodeContainer Alignment test
+ * @tc.desc: Test the NodeContainer Alignment property.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerAlignmentTest, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create modelNg.
+     */
+    auto frameNode = NodeContainerModelNG::CreateFrameNode(0);
+    ASSERT_TRUE(frameNode);
+
+    /**
+     * @tc.steps: step2. the Alignment is Alignment::TOP_LEFT
+     */
+    auto layoutProperty = frameNode->GetLayoutProperty();
+    ASSERT_TRUE(layoutProperty);
+    ASSERT_TRUE(layoutProperty->GetPositionProperty());
+    auto alignment = layoutProperty->GetPositionProperty()->GetAlignment();
+    EXPECT_EQ(alignment, Alignment::TOP_LEFT);
+}
+
+/**
+ * @tc.name: NodeContainerEventHubFireOnAppear001
+ * @tc.desc: Test the FireOnAppear function of NodeContainerEventHub.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerEventHubFireOnAppear001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create node and get eventHub.
+     */
+    RefPtr<FrameNode> node = CreateNode();
+    ASSERT_NE(node, nullptr);
+    node->context_ = AceType::RawPtr(MockPipelineContext::pipeline_);
+    if (node->context_) {
+        node->context_->taskExecutor_ = AceType::MakeRefPtr<::testing::NiceMock<MockTaskExecutor>>();
+    }
+    auto eventHub = node->GetEventHub<NodeContainerEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    int32_t flag = 0;
+    auto onAppearCallback = [&flag]() { flag = 1; };
+
+    /**
+     * @tc.steps: step2. set callback and call FireOnAppear.
+     * @tc.expected: callback is triggered.
+     */
+    eventHub->SetControllerAboutToAppear(std::move(onAppearCallback));
+    eventHub->FireOnAppear();
+    EXPECT_EQ(flag, 1);
+    if (node->context_) {
+        node->context_->taskExecutor_ = nullptr;
+        node->context_ = nullptr;
+    }
+}
+
+/**
+ * @tc.name: NodeContainerEventHubFireOnAppear002
+ * @tc.desc: Test the FireOnAppear function of NodeContainerEventHub without callback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerEventHubFireOnAppear002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create nodeContainerNode without setting onAppear callback.
+     */
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto eventHub = nodeContainerNode->GetEventHub<NodeContainerEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    
+    /**
+     * @tc.steps: step2: call FireOnAppear directly without callback.
+     * @tc.expected: process success without crash.
+     */
+    eventHub->FireOnAppear();
+    
+    /**
+     * @tc.steps: step3: verify no crash occurred.
+     */
+    EXPECT_TRUE(true);
+}
+
+/**
+ * @tc.name: NodeContainerEventHubFireOnAppear003
+ * @tc.desc: Test the FireOnAppear function of NodeContainerEventHub when callback is overwritten.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerEventHubFireOnAppear003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create node and get eventHub.
+     */
+    RefPtr<FrameNode> node = CreateNode();
+    ASSERT_NE(node, nullptr);
+    node->context_ = AceType::RawPtr(MockPipelineContext::pipeline_);
+    if (node->context_) {
+        node->context_->taskExecutor_ = AceType::MakeRefPtr<::testing::NiceMock<MockTaskExecutor>>();
+    }
+    auto eventHub = node->GetEventHub<NodeContainerEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    int32_t flag = 0;
+    auto onAppearCallback = [&flag, eventHub]() {
+        flag = 1;
+        eventHub->SetControllerAboutToAppear([]() {});
+    };
+
+    /**
+     * @tc.steps: step2. set callback and call FireOnAppear.
+     * @tc.expected: callback is triggered.
+     */
+    eventHub->SetControllerAboutToAppear(std::move(onAppearCallback));
+    eventHub->FireOnAppear();
+    EXPECT_EQ(flag, 1);
+    if (node->context_) {
+        node->context_->taskExecutor_ = nullptr;
+        node->context_ = nullptr;
+    }
+}
+
+/**
+ * @tc.name: NodeContainerEventHubFireOnDisappear001
+ * @tc.desc: Test the FireOnDisappear function of NodeContainerEventHub.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerEventHubFireOnDisappear001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create node and get eventHub.
+     */
+    RefPtr<FrameNode> node = CreateNode();
+    ASSERT_NE(node, nullptr);
+    auto eventHub = node->GetEventHub<NodeContainerEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    int32_t flag = 0;
+    auto onDisappearCallback = [&flag]() { flag = 1; };
+
+    /**
+     * @tc.steps: step2. set callback and call FireOnDisappear.
+     * @tc.expected: callback is triggered.
+     */
+    eventHub->SetControllerAboutToDisappear(std::move(onDisappearCallback));
+    eventHub->FireOnDisappear();
+    EXPECT_EQ(flag, 1);
+}
+
+/**
+ * @tc.name: NodeContainerEventHubFireOnDisappear002
+ * @tc.desc: Test the FireOnDisappear function of NodeContainerEventHub without callback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerEventHubFireOnDisappear002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create node and get eventHub without setting callback.
+     */
+    RefPtr<FrameNode> node = CreateNode();
+    ASSERT_NE(node, nullptr);
+    auto eventHub = node->GetEventHub<NodeContainerEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    
+    /**
+     * @tc.steps: step2. call FireOnDisappear directly without callback.
+     * @tc.expected: process success without crash.
+     */
+    eventHub->FireOnDisappear();
+    
+    /**
+     * @tc.steps: step3. verify no crash occurred.
+     */
+    EXPECT_TRUE(true);
+}
+
+/**
+ * @tc.name: NodeContainerFireOnBind001
+ * @tc.desc: Test the FireOnBind function of NodeContainerEventHub.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerFireOnBind001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create node and get eventHub.
+     */
+    RefPtr<FrameNode> node = CreateNode();
+    ASSERT_NE(node, nullptr);
+    auto eventHub = node->GetEventHub<NodeContainerEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    int32_t flag = 0;
+    auto onBindCallback = [&flag](int32_t containerId) { flag = 1; };
+
+    /**
+     * @tc.steps: step2. call FireOnBind when onBindCallback_ is nullptr.
+     * @tc.expected: callback is not triggered.
+     */
+    eventHub->SetControllerOnBind(onBindCallback);
+    eventHub->SetControllerOnBind(nullptr);
+    eventHub->FireOnBind(1);
+    EXPECT_EQ(flag, 0);
+}
+
+/*
+ * @tc.name: NodeContainerFireOnUnbind001
+ * @tc.desc: Test the FireOnUnbind function of NodeContainerEventHub.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerFireOnUnbind001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create node and get eventHub.
+     */
+    RefPtr<FrameNode> node = CreateNode();
+    ASSERT_NE(node, nullptr);
+    auto eventHub = node->GetEventHub<NodeContainerEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    int32_t flag = 0;
+    auto onUnbindCallback = [&flag](int32_t containerId) { flag = 1; };
+
+    /**
+     * @tc.steps: step2. call FireOnUnbind when onUnbindCallback_ is nullptr.
+     * @tc.expected: callback is not triggered.
+     */
+    eventHub->SetControllerOnUnbind(onUnbindCallback);
+    eventHub->SetControllerOnUnbind(nullptr);
+    eventHub->FireOnUnbind(1);
+    EXPECT_EQ(flag, 0);
+}
+
+/**
+ * @tc.name: NodeContainerPatternFireOnBind002
+ * @tc.desc: Test FireOnBind function when GetNodeContainerEventHub returns null.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerPatternFireOnBind002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1: create pattern directly without ViewStackProcessor setup.
+     */
+    auto pattern = AceType::MakeRefPtr<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+    
+    /**
+     * @tc.steps: step2: call FireOnBind when GetNodeContainerEventHub returns null.
+     * @tc.expected: process success without crash.
+     */
+    pattern->FireOnBind(1);
+}
+
+/**
+ * @tc.name: NodeContainerPatternAddBaseNode_InvalidNode
+ * @tc.desc: Test AddBaseNode with invalid node (neither ArkTsFrameNode nor RootBuilderNode).
+ * @tc.type: FUNC
+ */
+HWTEST_F(NodeContainerTestNg, NodeContainerPatternAddBaseNode_InvalidNode, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create nodeContainerNode and pattern.
+     */
+    RefPtr<FrameNode> nodeContainerNode = CreateNode();
+    ASSERT_NE(nodeContainerNode, nullptr);
+    auto pattern = nodeContainerNode->GetPattern<NodeContainerPattern>();
+    ASSERT_NE(pattern, nullptr);
+    /**
+     * @tc.steps: step2. Create an invalid child node (not ArkTsFrameNode and not RootBuilderNode).
+     * @tc.expected: The invalid node should be rejected and child should remain null.
+     */
+    auto invalidChildNode = FrameNode::CreateFrameNode("InvalidNode", 0, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(invalidChildNode, nullptr);
+    // Note: By default, FrameNode is not ArkTsFrameNode and not RootBuilderNode
+    EXPECT_FALSE(invalidChildNode->IsArkTsFrameNode());
+    EXPECT_FALSE(invalidChildNode->GetIsRootBuilderNode());
+    
+    pattern->AddBaseNode(invalidChildNode);
+    
+    /**
+     * @tc.steps: step3. Verify the invalid node was not added.
+     * @tc.expected: nodeContainerNode should have no children.
+     */
+    EXPECT_EQ(nodeContainerNode->GetChildAtIndex(0), nullptr);
 }
 } // namespace OHOS::Ace::NG

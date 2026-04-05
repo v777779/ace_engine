@@ -16,32 +16,16 @@
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/pattern/shape/shape_model_ng.h"
 #include "core/components_ng/pattern/shape/shape_model_static.h"
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/shape/shape_abstract_model_ng.h"
-#include "arkoala_api_generated.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/validators.h"
+
 #if defined(PIXEL_MAP_SUPPORTED)
 #include "pixel_map.h"
 #include "base/image/pixel_map.h"
 #endif
 
 static const double STROKE_MITER_LIMIT_MIN_VALUE = 1.0;
-
-namespace {
-OHOS::Ace::RefPtr<OHOS::Ace::PixelMap> ConvertPixelMap(const Opt_image_PixelMap* value)
-{
-    CHECK_NULL_RETURN(value, nullptr);
-    CHECK_EQUAL_RETURN(value->tag, InteropTag::INTEROP_TAG_UNDEFINED, nullptr);
-    auto arkPixelMap = value->value;
-    CHECK_NULL_RETURN(arkPixelMap, nullptr);
-#if defined(PIXEL_MAP_SUPPORTED)
-    return arkPixelMap->pixelMap;
-#else
-    return nullptr;
-#endif
-}
-} // namespace
 
 namespace OHOS::Ace::NG {
 struct ShapeOptions {
@@ -83,7 +67,8 @@ void SetShapeOptionsImpl(Ark_NativePointer node,
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     ViewAbstract::SetFocusable(frameNode, true);
-    ShapeModelStatic::InitBox(frameNode, ConvertPixelMap(value));
+    auto pixelMap = Converter::OptConvertPtr<RefPtr<PixelMap>>(value).value_or(nullptr);
+    ShapeModelStatic::InitBox(frameNode, pixelMap);
 }
 } // ShapeInterfaceModifier
 namespace ShapeAttributeModifier {
@@ -111,12 +96,12 @@ void SetFillImpl(Ark_NativePointer node,
     ShapeModelStatic::SetFill(frameNode, Converter::OptConvertPtr<Color>(value).value_or(Color::BLACK));
 }
 void SetStrokeDashOffsetImpl(Ark_NativePointer node,
-                             const Opt_Union_F64_String* value)
+                             const Opt_Length* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     auto strokeDashOffset = Converter::OptConvertPtr<Dimension>(value);
-    Validator::ValidatePositive(strokeDashOffset);
+    Validator::ValidateNonNegative(strokeDashOffset);
     Validator::ValidateNonPercent(strokeDashOffset);
     ShapeModelStatic::SetStrokeDashOffset(frameNode, strokeDashOffset);
 }
@@ -125,7 +110,7 @@ void SetStrokeDashArrayImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    auto convValue = Converter::OptConvert<std::vector<std::optional<Dimension>>>(*value);
+    auto convValue = Converter::OptConvertPtr<std::vector<std::optional<Dimension>>>(value);
     if (!convValue) {
         ShapeModelNG::SetStrokeDashArray(frameNode, {});
         return;
@@ -159,7 +144,7 @@ void SetStrokeLineJoinImpl(Ark_NativePointer node,
     ShapeModelStatic::SetStrokeLineJoin(frameNode, intLineJoinStyle);
 }
 void SetStrokeMiterLimitImpl(Ark_NativePointer node,
-                             const Opt_Union_F64_String* value)
+                             const Opt_Length* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -188,7 +173,7 @@ void SetFillOpacityImpl(Ark_NativePointer node,
     ShapeModelStatic::SetFillOpacity(frameNode, strokeOpacity);
 }
 void SetStrokeWidthImpl(Ark_NativePointer node,
-                        const Opt_Union_F64_String* value)
+                        const Opt_Length* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -210,25 +195,24 @@ void SetAntiAliasImpl(Ark_NativePointer node,
     ShapeModelNG::SetAntiAlias(frameNode, *convValue);
 }
 void SetMeshImpl(Ark_NativePointer node,
-                 const Opt_Array_Float64* value,
+                 const Opt_Array_F64* value,
                  const Opt_Int32* column,
                  const Opt_Int32* row)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    auto mesh = Converter::OptConvertPtr<std::vector<float>>(value);
-    CHECK_NULL_VOID(mesh);
+    auto mesh = Converter::OptConvertPtr<std::vector<float>>(value).value_or(std::vector<float>());
     auto columnValue = Converter::OptConvertPtr<int32_t>(column).value_or(0);
     auto rowValue = Converter::OptConvertPtr<int32_t>(row).value_or(0);
-    auto meshSize = mesh->size();
+    auto meshSize = mesh.size();
     columnValue = columnValue > 0 ? columnValue : 0;
     rowValue = rowValue > 0 ? rowValue : 0;
     auto tempMeshSize = (columnValue + 1) * (rowValue + 1) * 2;
     if (static_cast<size_t>(tempMeshSize) != meshSize) {
-        ShapeModelNG::SetBitmapMesh(frameNode, std::move(*mesh), 0, 0);
+        ShapeModelNG::SetBitmapMesh(frameNode, std::move(mesh), 0, 0);
         return;
     }
-    ShapeModelNG::SetBitmapMesh(frameNode, std::move(*mesh), columnValue, rowValue);
+    ShapeModelNG::SetBitmapMesh(frameNode, std::move(mesh), columnValue, rowValue);
 }
 } // ShapeAttributeModifier
 const GENERATED_ArkUIShapeModifier* GetShapeModifier()

@@ -41,21 +41,27 @@ public:
     static void SetIsVertical(FrameNode* frameNode, bool isVertical);
     static void SetScrollable(FrameNode* frameNode, bool scrollable);
     static void SetScrollableBarModeOptions(FrameNode* frameNode, const ScrollableBarModeOptions& option);
-    static void SetTabBarMode(FrameNode* frameNode, const std::optional<TabBarMode>& tabBarModeOpt);
+    static void SetTabBarMode(FrameNode* frameNode, const TabBarMode& tabBarMode);
     static void SetTabBarWidth(FrameNode* frameNode, const std::optional<Dimension>& tabBarWidth);
     static void SetTabBarHeight(FrameNode* frameNode, const std::optional<Dimension>& tabBarHeightOpt);
+    static void SetBarAdaptiveHeight(FrameNode* frameNode, bool barAdaptiveHeight);
+    static void SetAnimationCurve(FrameNode* frameNode, const RefPtr<Curve>& curve);
+    static void SetNoMinHeightLimit(FrameNode* frameNode, bool noMinHeightLimit);
     static void SetAnimationDuration(FrameNode* frameNode, float duration);
     static void SetAnimateMode(FrameNode* frameNode, const std::optional<TabAnimateMode>& modeOpt);
     static void SetEdgeEffect(FrameNode* frameNode, const std::optional<int32_t>& edgeEffect);
+    static void SetNestedScroll(FrameNode* frameNode, int32_t nestedScrollMode);
     static void SetOnChange(FrameNode* frameNode, std::function<void(const BaseEventInfo*)>&& onChange);
     static void SetOnSelected(FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& onSelected);
     static void SetOnTabBarClick(FrameNode* frameNode, std::function<void(const BaseEventInfo*)>&& onTabBarClick);
     static void SetOnUnselected(FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& onUnselected);
+    static void SetOnContentDidScroll(FrameNode* frameNode, ContentDidScrollEvent&& onContentDidScroll);
     static void SetOnAnimationStart(FrameNode* frameNode, AnimationStartEvent&& onAnimationStart);
     static void SetOnAnimationEnd(FrameNode* frameNode, AnimationEndEvent&& onAnimationEnd);
     static void SetOnGestureSwipe(FrameNode* frameNode, GestureSwipeEvent&& onGestureSwipe);
     static void SetFadingEdge(FrameNode* frameNode, bool fadingEdge);
-    static void SetDivider(FrameNode* frameNode, const std::optional<TabsItemDivider>& dividerOpt);
+    static void SetDivider(FrameNode* frameNode, const TabsItemDivider& dividerOpt);
+    static void SetDividerColorByUser(FrameNode* frameNode, bool isByUser);
     static void InitDivider(FrameNode* frameNode);
     static void SetBarOverlap(FrameNode* frameNode, bool barOverlap);
     static void SetBarBackgroundBlurStyle(FrameNode* frameNode, const BlurStyleOption& styleOption);
@@ -70,6 +76,7 @@ public:
         std::optional<TabsCacheMode> cacheMode);
     static void SetOnChangeEvent(FrameNode* frameNode, std::function<void(const BaseEventInfo*)>&& onChangeEvent);
     static void ApplyAttributesFinish(FrameNode* frameNode);
+    static void ResetScrollableBarModeOptions(FrameNode* frameNode);
 
 private:
     static RefPtr<TabsNode> GetOrCreateTabsNode(
@@ -79,6 +86,7 @@ private:
     static void InitTabsNode(RefPtr<TabsNode> tabsNode, const RefPtr<SwiperController>& swiperController);
     static void InitSelectedMaskNode(const RefPtr<FrameNode>& selectedMaskNode);
     static void InitUnselectedMaskNode(const RefPtr<FrameNode>& maskNode);
+    static void InitImageIndicatorNode(const RefPtr<FrameNode>& indicatorNode);
     static void InitAccessibilityZIndex(RefPtr<FrameNode>& swiperNode, RefPtr<FrameNode>& tabBarNode);
     static RefPtr<TabBarLayoutProperty> GetTabBarLayoutProperty(FrameNode* frameNode);
     static RefPtr<SwiperLayoutProperty> GetSwiperLayoutProperty(FrameNode* frameNode);

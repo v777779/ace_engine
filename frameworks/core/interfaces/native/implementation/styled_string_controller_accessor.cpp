@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
 #include "core/interfaces/native/utility/converter.h"
+#include "core/interfaces/native/utility/reverse_converter.h"
 #include "arkoala_api_generated.h"
 
 namespace OHOS::Ace::NG::GeneratedModifier {
@@ -39,8 +39,9 @@ void SetStyledStringImpl(Ark_StyledStringController peer,
     auto peerRE = reinterpret_cast<RichEditorStyledStringControllerPeer*>(peer);
     GetRichEditorStyledStringControllerAccessor()->setStyledString(peerRE, styledString);
 }
-Ark_MutableStyledString GetStyledStringImpl(Ark_StyledStringController peer)
+Opt_MutableStyledString GetStyledStringImpl(Ark_StyledStringController peer)
 {
+    CHECK_NULL_RETURN(peer, Converter::ArkValue<Opt_MutableStyledString>(Ark_Empty()));
     auto peerRE = reinterpret_cast<RichEditorStyledStringControllerPeer*>(peer);
     return GetRichEditorStyledStringControllerAccessor()->getStyledString(peerRE);
 }

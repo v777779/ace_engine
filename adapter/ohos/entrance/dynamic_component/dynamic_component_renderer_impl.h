@@ -28,6 +28,13 @@
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/window_scene/scene/system_window_scene.h"
 
+namespace OHOS {
+namespace Rosen {
+    class RSUIContext;
+    class RSTransaction;
+}
+}
+
 namespace OHOS::Ace::NG {
 
 class DynamicComponentRendererImpl : public DynamicComponentRenderer {
@@ -84,6 +91,11 @@ public:
     void NotifyForeground() override;
     void NotifyBackground() override;
 
+    static std::shared_ptr<Rosen::RSUIContext> GetRSUIContextByInstanceId(int32_t instanceId);
+    static std::shared_ptr<Rosen::RSTransaction> GetSyncRSTransactionByInstanceId(int32_t instanceId);
+    std::shared_ptr<Rosen::RSTransaction> GetCommonRSTransactionByRSUIcontext(
+        const std::shared_ptr<Rosen::RSUIContext>& rsUIContext);
+
     static std::shared_ptr<AnimationOption> CopyAnimationOption(AnimationOption animationOpt)
     {
         // CustomCurve and FinishCallback cannot be passed to child thread
@@ -107,6 +119,7 @@ private:
     void DeleteWorkerUsing(void *worker);
     void OnDestroyContent();
     void AfterDestroyContent();
+    void UnRegisterContainerHandler();
 
     void CreateIsolatedContent();
     void CreateDynamicContent();
@@ -126,6 +139,14 @@ private:
     void BuildDynamicInitialConfig(DynamicInitialConfig& dynamicInitialConfig);
     RefPtr<SystemWindowScene> GetWindowScene();
     int32_t GetWindowSceneId();
+    void UpdateIsolatedViewportConfig(
+        const SizeF& size, float density, int32_t orientation, AnimationOption animationOpt,
+        const OffsetF& offset);
+    void UpdateDynamicViewportConfig(
+        const SizeF& size, float density, int32_t orientation, AnimationOption animationOpt,
+        const OffsetF& offset);
+
+    int32_t GetSCBOrientation(const RefPtr<FrameNode>& windowSceneNode);
 
     bool contentReady_ = false;
     std::function<void()> contentReadyCallback_;

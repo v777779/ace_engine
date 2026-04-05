@@ -15,14 +15,8 @@
 
 #include <cstdint>
 
-#include "arkoala_api_generated.h"
-#include "ui/base/utils/utils.h"
-
-#include "core/components_ng/base/ui_node.h"
-#include "base/utils/utils.h"
 #include "core/interfaces/arkoala/arkoala_api.h"
 #include "core/interfaces/native/utility/callback_helper.h"
-#include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/components_ng/syntax/arkoala_lazy_node.h"
 
@@ -72,13 +66,17 @@ void SyncItemDragEvent(
     lazyNode->SetItemDragEvent(std::move(onLongPressCallback), std::move(onDragStartCallback),
         std::move(onMoveThroughCallback), std::move(onDropCallback));
 }
-void NotifyChangeImpl(Ark_NativePointer node, int32_t startIdx, int32_t endIdx, int32_t changeCnt)
+void NotifyChangeImpl(Ark_VMContext vmContext,
+                      Ark_NativePointer node,
+                      Ark_Int32 startIndex,
+                      Ark_Int32 endIndex,
+                      Ark_Int32 count)
 {
     auto* uiNode = reinterpret_cast<UINode*>(node);
     CHECK_NULL_VOID(uiNode);
     auto lazyNode = AceType::DynamicCast<ArkoalaLazyNode>(uiNode);
     CHECK_NULL_VOID(lazyNode);
-    lazyNode->OnDataChange(startIdx, changeCnt, UINode::NotificationType::START_CHANGE_POSITION);
+    lazyNode->OnDataChange(startIndex, count, UINode::NotificationType::START_CHANGE_POSITION);
 }
 void SyncImpl(Ark_NativePointer node,
               Ark_Int32 totalCount,
@@ -92,9 +90,13 @@ void SyncImpl(Ark_NativePointer node,
 
     lazyNode->SetTotalCount(totalCount);
     lazyNode->SetCallbacks(
-        [callback = CallbackHelper(*creator)](
-            int32_t index) { return AceType::DynamicCast<UINode>(callback.BuildSync(index)); },
-        [cb = CallbackHelper(*updater)](int32_t start, int32_t end) { cb.InvokeSync(start, end); });
+        [callback = CallbackHelper(*creator)](int32_t index) {
+            return AceType::DynamicCast<UINode>(callback.BuildSync(index));
+        },
+        [cb = CallbackHelper(*updater)](
+            int32_t start, int32_t end, int32_t cacheStart, int32_t cacheEnd, bool isLoop) {
+            cb.InvokeSync(start, end, cacheStart, cacheEnd, isLoop);
+        });
 }
 void SyncOnMoveOpsImpl(Ark_NativePointer node,
                        const Callback_OnMoveFromTo* onMoveFromToOps,

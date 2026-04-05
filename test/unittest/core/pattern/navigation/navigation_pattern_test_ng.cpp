@@ -21,16 +21,23 @@
 
 #define protected public
 #define private public
-#include "base/ressched/ressched_report.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+
 #include "base/perfmonitor/perf_monitor.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "base/ressched/ressched_report.h"
+#include "base/utils/system_properties.h"
 #include "core/components/button/button_theme.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/ui_node.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/divider/divider_pattern.h"
 #include "core/components_ng/pattern/navigation/bar_item_node.h"
 #include "core/components_ng/pattern/navigation/bar_item_pattern.h"
+#include "core/components_ng/pattern/navigation/nav_bar_pattern.h"
 #include "core/components_ng/pattern/navigation/navigation_model_ng.h"
 #include "core/components_ng/pattern/navigation/navigation_pattern.h"
 #include "core/components_ng/pattern/navigation/title_bar_pattern.h"
@@ -39,9 +46,6 @@
 #include "core/components_ng/pattern/navigation/tool_bar_pattern.h"
 #include "core/components_ng/pattern/scroll/scroll_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -1878,7 +1882,7 @@ HWTEST_F(NavigationPatternTestNg, NavDestinationDialogTest002, TestSize.Level1)
     config.skipMeasure = true;
     config.skipLayout = true;
     navigationPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config);
-    navigationPattern->NotifyDialogChange(NavDestinationLifecycle::ON_SHOW, true);
+    navigationPattern->NotifyDialogLifecycle(NavDestinationLifecycle::ON_SHOW, true);
     auto navDestinationPatternA = AceType::DynamicCast<NavDestinationPattern>(navDestinationA->GetPattern());
     EXPECT_NE(navDestinationPatternA, nullptr);
     auto navDestinationPatternB = AceType::DynamicCast<NavDestinationPattern>(navDestinationB->GetPattern());
@@ -2038,5 +2042,154 @@ HWTEST_F(NavigationPatternTestNg, NavigationPatternTest_018, TestSize.Level1)
     EXPECT_NE(ResSchedReport::GetInstance().loadPageOn_, true);
     ResSchedReport::GetInstance().TriggerModuleSerializer();
     EXPECT_EQ(ResSchedReport::GetInstance().loadPageOn_, true);
+}
+
+
+/**
+ * @tc.name: NavigationPatternTest_019
+ * @tc.desc: Test Navigation HandleDrag
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavigationPatternTestNg, NavigationPatternTest_019, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create Navigation ,then get pattern.
+     */
+    auto pattern = AceType::MakeRefPtr<NavigationPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    pattern->frameNode_ = frameNode;
+    auto layoutProperty = pattern->GetLayoutProperty<NavigationLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    LayoutConstraintF layoutConstraint;
+    layoutConstraint.selfIdealSize.width_ = 10.0;
+    layoutConstraint.selfIdealSize.height_ = 10.0;
+    layoutProperty->UpdateLayoutConstraint(layoutConstraint);
+    pattern->HandleDragStart();
+    pattern->HandleDragEnd();
+    /**
+     * @tc.steps: step2. check pattern->preNavBarWidth_.
+     * @tc.expected: preNavBarWidth_ is correct.
+     */
+    EXPECT_EQ(pattern->preNavBarWidth_, static_cast<float>(DEFAULT_NAVBAR_WIDTH.ConvertToPx()));
+    pattern->preNavBarWidth_ = 0;
+    pattern->userSetMinContentFlag_ = true;
+    pattern->userSetNavBarRangeFlag_ = false;
+    pattern->HandleDragUpdate(FLOAT_260);
+    EXPECT_EQ(pattern->realNavBarWidth_, 0.0);
+}
+
+/**
+ * @tc.name: NavigationEventHubTest001
+ * @tc.desc: Test Navigation EventHub
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavigationPatternTestNg, NavigationEventHubTest001, TestSize.Level1)
+{
+    MockPipelineContextGetTheme();
+    NavigationModelNG navigationModel;
+    navigationModel.Create();
+    navigationModel.SetTitle("navigationModel", false);
+    navigationModel.SetNavigationStack();
+    RefPtr<FrameNode> frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    bool isSelected = true;
+    auto onChange = [&isSelected](bool select) { isSelected = select; };
+    auto navigationEventHub = AceType::DynamicCast<NavigationEventHub>(frameNode->GetEventHub<EventHub>());
+    ASSERT_NE(navigationEventHub, nullptr);
+    navigationEventHub->isVisible_ = true;
+    navigationEventHub->SetOnNavBarStateChange(std::move(onChange));
+    navigationEventHub->FireNavBarStateChangeEvent(false);
+    EXPECT_EQ(navigationEventHub->isVisible_, false);
+}
+
+/**
+ * @tc.name: NavigationEventHubTest002
+ * @tc.desc: Test Navigation EventHub
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavigationPatternTestNg, NavigationEventHubTest002, TestSize.Level1)
+{
+    MockPipelineContextGetTheme();
+    NavigationModelNG navigationModel;
+    navigationModel.Create();
+    navigationModel.SetTitle("navigationModel", false);
+    navigationModel.SetNavigationStack();
+    RefPtr<FrameNode> frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto navigationEventHub = AceType::DynamicCast<NavigationEventHub>(frameNode->GetEventHub<EventHub>());
+    ASSERT_NE(navigationEventHub, nullptr);
+    navigationEventHub->isVisible_ = true;
+    navigationEventHub->SetOnNavBarStateChange(nullptr);
+    navigationEventHub->FireNavBarStateChangeEvent(false);
+    EXPECT_EQ(navigationEventHub->isVisible_, false);
+}
+
+/**
+ * @tc.name: NavigationEventHubTest003
+ * @tc.desc: Test Navigation EventHub
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavigationPatternTestNg, NavigationEventHubTest003, TestSize.Level1)
+{
+    MockPipelineContextGetTheme();
+    NavigationModelNG navigationModel;
+    navigationModel.Create();
+    navigationModel.SetTitle("navigationModel", false);
+    navigationModel.SetNavigationStack();
+    RefPtr<FrameNode> frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto navigationEventHub = AceType::DynamicCast<NavigationEventHub>(frameNode->GetEventHub<EventHub>());
+    ASSERT_NE(navigationEventHub, nullptr);
+    navigationEventHub->isVisible_ = true;
+    navigationEventHub->FireNavBarStateChangeEvent(true);
+    EXPECT_EQ(navigationEventHub->isVisible_, true);
+}
+
+/**
+ * @tc.name: NavigationEventHubTest004
+ * @tc.desc: Test Navigation EventHub
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavigationPatternTestNg, NavigationEventHubTest004, TestSize.Level1)
+{
+    MockPipelineContextGetTheme();
+    NavigationModelNG navigationModel;
+    navigationModel.Create();
+    navigationModel.SetTitle("navigationModel", false);
+    navigationModel.SetNavigationStack();
+    RefPtr<FrameNode> frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    bool isSelected = true;
+    auto onChange = [&isSelected](bool select) { isSelected = select; };
+    auto navigationEventHub = AceType::DynamicCast<NavigationEventHub>(frameNode->GetEventHub<EventHub>());
+    ASSERT_NE(navigationEventHub, nullptr);
+    navigationEventHub->isVisible_ = false;
+    navigationEventHub->SetOnNavBarStateChange(std::move(onChange));
+    navigationEventHub->FireNavBarStateChangeEvent(true);
+    EXPECT_EQ(navigationEventHub->isVisible_, true);
+}
+
+/**
+ * @tc.name: NavigationEventHubTest005
+ * @tc.desc: Test Navigation EventHub
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavigationPatternTestNg, NavigationEventHubTest005, TestSize.Level1)
+{
+    MockPipelineContextGetTheme();
+    NavigationModelNG navigationModel;
+    navigationModel.Create();
+    navigationModel.SetTitle("navigationModel", false);
+    navigationModel.SetNavigationStack();
+    RefPtr<FrameNode> frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto navigationEventHub = AceType::DynamicCast<NavigationEventHub>(frameNode->GetEventHub<EventHub>());
+    ASSERT_NE(navigationEventHub, nullptr);
+    navigationEventHub->isVisible_ = false;
+    navigationEventHub->SetOnNavBarStateChange(nullptr);
+    navigationEventHub->FireNavBarStateChangeEvent(false);
+    EXPECT_EQ(navigationEventHub->isVisible_, false);
 }
 } // namespace OHOS::Ace::NG

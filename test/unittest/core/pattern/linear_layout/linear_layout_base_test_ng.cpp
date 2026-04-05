@@ -14,7 +14,7 @@
  */
 
 #include "linear_layout_base_test_ng.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 void LinearLayoutBaseTestNG::SetUpTestSuite()
@@ -28,7 +28,7 @@ void LinearLayoutBaseTestNG::TearDownTestSuite()
     TestNG::TearDownTestSuite();
 }
 
-void LinearLayoutBaseTestNG::SetUp() 
+void LinearLayoutBaseTestNG::SetUp()
 {
     ViewStackProcessor::GetInstance()->ClearStack();
 }

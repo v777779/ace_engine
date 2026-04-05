@@ -43,6 +43,7 @@ bool InputEventHub::ProcessMouseTestHit(const OffsetF& coordinateOffset, TouchTe
     }
     auto host = GetFrameNode();
     CHECK_NULL_RETURN(host, false);
+    ACE_UINODE_TRACE(host);
     if (accessibilityHoverEventActuator_) {
         accessibilityHoverEventActuator_->OnCollectAccessibilityHoverEvent(
             coordinateOffset, getEventTargetImpl, result, host);
@@ -80,13 +81,20 @@ bool InputEventHub::ProcessPenHoverTestHit(const OffsetF& coordinateOffset, Touc
     return false;
 }
 
-bool InputEventHub::ProcessAxisTestHit(const OffsetF& coordinateOffset, AxisTestResult& onAxisResult)
+bool InputEventHub::ProcessAxisTestHit(
+    const OffsetF& coordinateOffset, AxisTestResult& onAxisResult, bool isCoastingAxis)
 {
     auto eventHub = eventHub_.Upgrade();
     auto getEventTargetImpl = eventHub ? eventHub->CreateGetEventTargetImpl() : nullptr;
 
-    if (axisEventActuator_) {
+    if (axisEventActuator_ && !isCoastingAxis) {
         axisEventActuator_->OnCollectAxisEvent(coordinateOffset, getEventTargetImpl, onAxisResult);
+        return false;
+    }
+
+    if (coastingAxisEventActuator_ && isCoastingAxis) {
+        coastingAxisEventActuator_->OnCollectCoastingAxisEvent(onAxisResult);
+        return false;
     }
     return false;
 }
@@ -129,4 +137,15 @@ void InputEventHub::SetHoverEffect(HoverEffectType type)
     hoverEffectType_ = type;
 }
 
+void InputEventHub::AddTouchpadInteractionListenerInner(TouchpadInteractionCallback&& callback)
+{
+    auto frameNode = GetFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto pipeline = frameNode->GetContextWithCheck();
+    CHECK_NULL_VOID(pipeline);
+    auto eventManager = pipeline->GetEventManager();
+    CHECK_NULL_VOID(eventManager);
+    auto weakPtr = WeakPtr<FrameNode>(frameNode);
+    eventManager->AddTouchpadInteractionListenerInner(frameNode->GetId(), { weakPtr, std::move(callback) });
+}
 } // namespace OHOS::Ace::NG

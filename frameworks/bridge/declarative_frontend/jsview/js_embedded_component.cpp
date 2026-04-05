@@ -39,6 +39,8 @@
 #include "frameworks/core/components_ng/base/view_abstract_model.h"
 
 namespace OHOS::Ace::Framework {
+const CalcDimension EMBEDDED_COMPONENT_MIN_WIDTH(10.0f, DimensionUnit::VP);
+const CalcDimension EMBEDDED_COMPONENT_MIN_HEIGHT(10.0f, DimensionUnit::VP);
 
 void JSEmbeddedComponent::JSBind(BindingTarget globalObj)
 {
@@ -67,16 +69,17 @@ void JSEmbeddedComponent::Create(const JSCallbackInfo& info)
     auto wantObj = JSRef<JSObject>::Cast(info[0]);
     RefPtr<OHOS::Ace::WantWrap> want = CreateWantWrapFromNapiValue(wantObj);
 
-    NG::SessionType sessionType = NG::DEFAULT_EMBEDDED_SESSION_TYPE;
+    NG::SessionType sessionType = NG::SessionType::EMBEDDED_UI_EXTENSION;
     if (info.Length() > 1 && info[1]->IsNumber()) {
         sessionType = static_cast<NG::SessionType>(info[1]->ToNumber<int32_t>());
     }
 
     UIExtensionModel::GetInstance()->Create(want, sessionType);
-    ViewAbstractModel::GetInstance()->SetWidth(NG::EMBEDDED_COMPONENT_MIN_WIDTH);
-    ViewAbstractModel::GetInstance()->SetHeight(NG::EMBEDDED_COMPONENT_MIN_HEIGHT);
-    ViewAbstractModel::GetInstance()->SetMinWidth(NG::EMBEDDED_COMPONENT_MIN_WIDTH);
-    ViewAbstractModel::GetInstance()->SetMinHeight(NG::EMBEDDED_COMPONENT_MIN_HEIGHT);
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ViewAbstractModel::GetInstance()->SetWidth(EMBEDDED_COMPONENT_MIN_WIDTH);
+    ViewAbstractModel::GetInstance()->SetHeight(EMBEDDED_COMPONENT_MIN_HEIGHT);
+    ViewAbstractModel::GetInstance()->SetMinWidth(EMBEDDED_COMPONENT_MIN_WIDTH);
+    ViewAbstractModel::GetInstance()->SetMinHeight(EMBEDDED_COMPONENT_MIN_HEIGHT);
 }
 
 void JSEmbeddedComponent::OnTerminated(const JSCallbackInfo& info)
@@ -85,10 +88,12 @@ void JSEmbeddedComponent::OnTerminated(const JSCallbackInfo& info)
         return;
     }
     WeakPtr<NG::FrameNode> frameNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ACE_UINODE_TRACE(frameNode);
     auto jsFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(), JSRef<JSFunc>::Cast(info[0]));
     auto instanceId = ContainerScope::CurrentId();
     auto onTerminated = [execCtx = info.GetExecutionContext(), func = std::move(jsFunc), instanceId, node = frameNode](
                             int32_t code, const RefPtr<WantWrap>& wantWrap) {
+        ACE_UINODE_TRACE(node);
         ContainerScope scope(instanceId);
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("EmbeddedComponent.onTerminated");
@@ -119,10 +124,12 @@ void JSEmbeddedComponent::OnError(const JSCallbackInfo& info)
         return;
     }
     WeakPtr<NG::FrameNode> frameNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ACE_UINODE_TRACE(frameNode);
     auto jsFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(), JSRef<JSFunc>::Cast(info[0]));
     auto instanceId = ContainerScope::CurrentId();
     auto onError = [execCtx = info.GetExecutionContext(), func = std::move(jsFunc), instanceId, node = frameNode](
                        int32_t code, const std::string& name, const std::string& message) {
+        ACE_UINODE_TRACE(node);
         ContainerScope scope(instanceId);
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("EmbeddedComponent.onError");
@@ -141,6 +148,7 @@ void JSEmbeddedComponent::OnError(const JSCallbackInfo& info)
 
 void JSEmbeddedComponent::JsWidth(const JSCallbackInfo& info)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     if (info[0]->IsUndefined()) {
         return;
     }
@@ -153,6 +161,7 @@ void JSEmbeddedComponent::JsWidth(const JSCallbackInfo& info)
 
 void JSEmbeddedComponent::JsHeight(const JSCallbackInfo& info)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     if (info[0]->IsUndefined()) {
         return;
     }

@@ -15,9 +15,7 @@
 # USE FOLLOWING COMMAND:
 # ../../tools/gen_gni.py --json arktsconfig.json --output common.gni --gn-tool ../../../../../../../../../prebuilts/build-tools/linux-x86/bin/gn
 
-koalaui_arkui_incremental_files = [
-  "src/state.ets",
-]
+koalaui_arkui_incremental_files = [ "src/state.ets" ]
 
 koalaui_arkui_incremental_path_keys = [ "@koalaui/compat" ]
 

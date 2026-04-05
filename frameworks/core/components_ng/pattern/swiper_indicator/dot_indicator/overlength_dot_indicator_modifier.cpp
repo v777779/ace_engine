@@ -32,7 +32,9 @@ constexpr int32_t LEFT_FIRST_POINT_INDEX = 0;
 constexpr int32_t SECOND_POINT_INDEX = 1;
 constexpr int32_t THIRD_POINT_INDEX = 2;
 constexpr uint32_t ITEM_HALF_WIDTH = 0;
+constexpr uint32_t ITEM_HALF_HEIGHT = 1;
 constexpr uint32_t SELECTED_ITEM_HALF_WIDTH = 2;
+constexpr uint32_t SELECTED_ITEM_HALF_HEIGHT = 3;
 constexpr float HALF_FLOAT = 0.5f;
 constexpr int32_t OVERLONG_SMALL_COUNT = 2;
 constexpr int32_t DOUBLE_INT = 2;
@@ -58,6 +60,58 @@ void OverlengthDotIndicatorModifier::onDraw(DrawingContext& context)
 
     PaintBackground(context, contentProperty, maxDisplayCount_, isBindIndicator_);
     PaintContent(context, contentProperty);
+    isDrawbackground_ = false;
+}
+
+void OverlengthDotIndicatorModifier::PaintBackground(
+    DrawingContext& context, const ContentProperty& contentProperty, int32_t maxDisplayCount, bool isBindIndicator)
+{
+    auto itemWidth = contentProperty.itemHalfSizes[ITEM_HALF_WIDTH] * 2;
+    auto itemHeight = contentProperty.itemHalfSizes[ITEM_HALF_HEIGHT] * 2;
+    auto selectedItemWidth = contentProperty.itemHalfSizes[SELECTED_ITEM_HALF_WIDTH] * 2;
+    auto selectedItemHeight = contentProperty.itemHalfSizes[SELECTED_ITEM_HALF_HEIGHT] * 2;
+    auto pointNumber = static_cast<float>(contentProperty.vectorBlackPointCenterX.size());
+    float allPointDiameterSum = itemWidth * static_cast<float>(pointNumber + 1);
+    if (isCustomSize_) {
+        allPointDiameterSum = itemWidth * static_cast<float>(pointNumber - 1) + selectedItemWidth;
+    }
+    float allPointSpaceSum = static_cast<float>(GetIndicatorDotItemSpace().ConvertToPx()) * (pointNumber - 1);
+
+    if (maxDisplayCount > 0) {
+        allPointSpaceSum = static_cast<float>(GetIndicatorDotItemSpace().ConvertToPx()) * (maxDisplayCount - 1);
+        allPointDiameterSum = itemWidth * (maxDisplayCount - OVERLONG_SMALL_COUNT - 1) + selectedItemWidth +
+                              itemWidth * SECOND_SMALLEST_POINT_RATIO + itemWidth * SMALLEST_POINT_RATIO;
+    }
+
+    // Background necessary property
+    float rectWidth =
+        contentProperty.indicatorPadding + allPointDiameterSum + allPointSpaceSum + contentProperty.indicatorPadding;
+    auto indicatorTheme = GetSwiperIndicatorTheme();
+    CHECK_NULL_VOID(indicatorTheme);
+    auto indicatorHeightPadding = indicatorTheme->GetIndicatorBgHeight().ConvertToPx();
+    float rectHeight = indicatorHeightPadding + itemHeight + indicatorHeightPadding;
+    if (selectedItemHeight > itemHeight) {
+        rectHeight = indicatorHeightPadding + selectedItemHeight + indicatorHeightPadding;
+    }
+
+    auto [rectLeft, rectRight, rectTop, rectBottom] =
+        CalcAndAdjustIndicatorPaintRect(contentProperty, rectWidth, rectHeight);
+    rectLeft_ = rectLeft;
+    rectRight_ = rectRight;
+    rectTop_ = rectTop;
+    rectBottom_ = rectBottom;
+    CHECK_NULL_VOID(contentProperty.backgroundColor.GetAlpha());
+    // Paint background
+    RSCanvas& canvas = context.canvas;
+    RSBrush brush;
+    brush.SetAntiAlias(true);
+    brush.SetColor(ToRSColor(contentProperty.backgroundColor));
+    canvas.AttachBrush(brush);
+    auto radius = axis_ == Axis::HORIZONTAL ? rectHeight : rectWidth;
+    backgroundStart_ = axis_ == Axis::HORIZONTAL ? rectLeft : rectTop;
+    backgroundEnd_ = axis_ == Axis::HORIZONTAL ? rectRight : rectBottom;
+    canvas.DrawRoundRect({ { rectLeft, rectTop, rectRight, rectBottom }, radius, radius });
+    canvas.DetachBrush();
 }
 
 std::pair<float, float> OverlengthDotIndicatorModifier::GetTouchBottomCenterX(ContentProperty& contentProperty)
@@ -99,8 +153,14 @@ void OverlengthDotIndicatorModifier::PaintContent(DrawingContext& context, Conte
     OffsetF centerDilateDistance = centerDistance * contentProperty.longPointDilateRatio;
     leftCenter -= (centerDilateDistance - centerDistance) * HALF_FLOAT;
     rightCenter += (centerDilateDistance - centerDistance) * HALF_FLOAT;
-    PaintSelectedIndicator(
-        canvas, leftCenter, rightCenter, contentProperty.itemHalfSizes * contentProperty.longPointDilateRatio, true);
+
+    float regionLeft = axis_ == Axis::VERTICAL ? rectTop_ : rectLeft_;
+    float regionRight = axis_ == Axis::VERTICAL ? rectBottom_ : rectRight_;
+    auto itemHalfSizes = contentProperty.itemHalfSizes * contentProperty.longPointDilateRatio;
+    auto selectedItemHalfWidth = itemHalfSizes[SELECTED_ITEM_HALF_WIDTH];
+    leftCenter = { std::max(leftCenter.GetX(), regionLeft + selectedItemHalfWidth), leftCenter.GetY() };
+    rightCenter = { std::min(rightCenter.GetX(), regionRight - selectedItemHalfWidth), leftCenter.GetY() };
+    PaintSelectedIndicator(canvas, leftCenter, rightCenter, itemHalfSizes, true);
 }
 
 void OverlengthDotIndicatorModifier::PaintBlackPoint(DrawingContext& context, ContentProperty& contentProperty)
@@ -127,8 +187,10 @@ void OverlengthDotIndicatorModifier::PaintBlackPoint(DrawingContext& context, Co
             // new point color
             paintColor = paintColor.BlendOpacity(contentProperty.newPointOpacity / FULL_ALPHA);
         }
-
-        PaintUnselectedIndicator(canvas, center, width, height, LinearColor(paintColor));
+        if (isDrawbackground_ || (center.GetX() - width * HALF_FLOAT > backgroundStart_ &&
+                                     center.GetX() + width * HALF_FLOAT < backgroundEnd_)) {
+            PaintUnselectedIndicator(canvas, center, width, height, LinearColor(paintColor));
+        }
     }
 }
 
@@ -177,9 +239,16 @@ void OverlengthDotIndicatorModifier::UpdateShrinkPaintProperty(const OffsetF& ma
         longPointRightCenterX_->Set(longPointCenterX.second);
     }
 
-    vectorBlackPointCenterX_->Set(animationEndCenterX_);
-    unselectedIndicatorWidth_->Set(animationEndIndicatorWidth_);
-    unselectedIndicatorHeight_->Set(animationEndIndicatorHeight_);
+    AnimationOption option;
+    option.SetDuration(0);
+    option.SetCurve(Curves::LINEAR);
+    AnimationUtils::StartAnimation(option, [weak = WeakClaim(this)]() {
+        auto modifier = weak.Upgrade();
+        CHECK_NULL_VOID(modifier);
+        modifier->vectorBlackPointCenterX_->Set(modifier->animationEndCenterX_);
+        modifier->unselectedIndicatorWidth_->Set(modifier->animationEndIndicatorWidth_);
+        modifier->unselectedIndicatorHeight_->Set(modifier->animationEndIndicatorHeight_);
+    });
     itemHalfSizes_->Set(normalItemHalfSizes);
     normalToHoverPointDilateRatio_->Set(NORMAL_FADING_RATIO);
     hoverToNormalPointDilateRatio_->Set(NORMAL_FADING_RATIO);
@@ -299,7 +368,7 @@ void OverlengthDotIndicatorModifier::PlayBlackPointsAnimation(const LinearVector
     }, [weak = WeakClaim(this)]() {
         auto modifier = weak.Upgrade();
         CHECK_NULL_VOID(modifier);
-
+        modifier->isSelectedColorAnimEnd_ = true;
         if (!modifier->NeedUpdateWhenAnimationFinish()) {
             return;
         }
@@ -668,8 +737,10 @@ void OverlengthDotIndicatorModifier::PlayIndicatorAnimation(const OffsetF& margi
     PlayBlackPointsAnimation(itemHalfSizes);
 
     std::vector<std::pair<float, float>> pointCenterX;
-    if ((currentSelectedIndex_ == 0 && targetSelectedIndex_ == maxDisplayCount_ - 1) ||
-        (currentSelectedIndex_ == maxDisplayCount_ - 1 && targetSelectedIndex_ == 0)) {
+    bool isTouchBottomTypeLoop = touchBottomTypeLoop != TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_NONE ||
+                                 (currentSelectedIndex_ == 0 && targetSelectedIndex_ == maxDisplayCount_ - 1) ||
+                                 (currentSelectedIndex_ == maxDisplayCount_ - 1 && targetSelectedIndex_ == 0);
+    if (isTouchBottomTypeLoop) {
         auto currentSelectedIndex =
             isHorizontalAndRTL_ ? maxDisplayCount_ - 1 - currentSelectedIndex_ : currentSelectedIndex_;
         overlongSelectedStartCenterX_.first = animationEndCenterX_[currentSelectedIndex];

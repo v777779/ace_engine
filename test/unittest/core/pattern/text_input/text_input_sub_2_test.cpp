@@ -15,7 +15,7 @@
 
 #include "text_input_base.h"
 
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/pattern/stage/page_pattern.h"
 
@@ -424,7 +424,7 @@ HWTEST_F(TextFieldUXTest, DoProcessAutoFill001, TestSize.Level1)
      * @tc.steps: step2. Call DoProcessAutoFill, case Popup
      */
     pattern->needToRequestKeyboardInner_ = true;
-    pattern->DoProcessAutoFill();
+    pattern->DoProcessAutoFill(RequestAutoFillReason::SINGLE_CLICK);
     EXPECT_EQ(pattern->needToRequestKeyboardInner_, true);
 }
 
@@ -466,7 +466,7 @@ HWTEST_F(TextFieldUXTest, DoProcessAutoFill002, TestSize.Level1)
      * @tc.steps: step2. Call DoProcessAutoFill, case notPopup,ProcessAutoFill,notImeShow
      */
     pattern->needToRequestKeyboardInner_ = true;
-    pattern->DoProcessAutoFill();
+    pattern->DoProcessAutoFill(RequestAutoFillReason::SINGLE_CLICK);
     EXPECT_EQ(pattern->needToRequestKeyboardInner_, true);
 }
 
@@ -531,7 +531,6 @@ HWTEST_F(TextFieldUXTest, OnCut001, TestSize.Level1)
     RefPtr<TextFieldPattern> pattern = frameNode->GetPattern<TextFieldPattern>();
     auto pipeline = MockPipelineContext::GetCurrent();
     pattern->OnAttachContext(Referenced::RawPtr(pipeline));
-    ASSERT_EQ(pipeline->GetInstanceId(), pipeline->GetInstanceId());
 
     pattern->OnDetachContext(Referenced::RawPtr(pipeline));
     ASSERT_EQ(pipeline->GetInstanceId(), 0);
@@ -555,7 +554,6 @@ HWTEST_F(TextFieldUXTest, OnCut002, TestSize.Level1)
     RefPtr<TextFieldPattern> pattern = frameNode->GetPattern<TextFieldPattern>();
     auto pipeline = MockPipelineContext::GetCurrent();
     pattern->OnAttachContext(Referenced::RawPtr(pipeline));
-    ASSERT_EQ(pipeline->GetInstanceId(), pipeline->GetInstanceId());
 
     pattern->OnDetachContext(Referenced::RawPtr(pipeline));
     ASSERT_EQ(pipeline->GetInstanceId(), 0);

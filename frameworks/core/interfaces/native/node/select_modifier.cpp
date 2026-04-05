@@ -17,6 +17,7 @@
 #include "core/components/select/select_theme.h"
 #include "core/components_ng/base/view_abstract_model_ng.h"
 #include "core/components_ng/pattern/select/select_model_ng.h"
+#include "core/common/resource/resource_parse_utils.h"
 #include "frameworks/bridge/common/utils/utils.h"
 
 namespace OHOS::Ace::NG {
@@ -29,6 +30,10 @@ const int32_t DEFAULT_SELECT = 0;
 constexpr int32_t OFFSET_OF_VALUE = 1;
 constexpr int32_t OFFSET_OF_UNIT = 2;
 constexpr int32_t OFFSET_OF_NEXT = 3;
+constexpr int32_t BORDER_SIDE_LEFT_INDEX = 0;
+constexpr int32_t BORDER_SIDE_RIGHT_INDEX = 1;
+constexpr int32_t BORDER_SIDE_TOP_INDEX = 2;
+constexpr int32_t BORDER_SIDE_BOTTOM_INDEX = 3;
 constexpr int32_t SIZE_OF_COLOR_ARRAY = 8;
 constexpr int32_t SIZE_OF_WIDTH_ARRAY = 12;
 constexpr TextDirection DEFAULT_SELECT_DIRECTION = TextDirection::AUTO;
@@ -106,7 +111,7 @@ void SetSelectFontColorPtr(ArkUINodeHandle node, ArkUI_Uint32 color, void* fontC
     if (SystemProperties::ConfigChangePerform()) {
         auto* frameNode = reinterpret_cast<FrameNode*>(node);
         CHECK_NULL_VOID(frameNode);
-        SelectModelNG::SetFontColorByUser(frameNode, true);
+        SelectModelNG::SetFontColorByUser(frameNode);
         if (fontColorRawPtr) {
             auto* fontColor = reinterpret_cast<ResourceObject*>(fontColorRawPtr);
             auto fontColorResObj = AceType::Claim(fontColor);
@@ -131,6 +136,7 @@ void SetSelectedOptionBgColorPtr(ArkUINodeHandle node, ArkUI_Uint32 color, void*
     if (SystemProperties::ConfigChangePerform()) {
         auto* frameNode = reinterpret_cast<FrameNode*>(node);
         CHECK_NULL_VOID(frameNode);
+        SelectModelNG::SetSelectedOptionBgColorByUser(frameNode);
         if (optionBgColorRawPtr) {
             auto* bgColor = reinterpret_cast<ResourceObject*>(optionBgColorRawPtr);
             auto bgColorResObj = AceType::Claim(bgColor);
@@ -156,6 +162,7 @@ void SetOptionBgColorPtr(ArkUINodeHandle node, ArkUI_Uint32 color, void* optionB
     if (SystemProperties::ConfigChangePerform()) {
         auto* frameNode = reinterpret_cast<FrameNode*>(node);
         CHECK_NULL_VOID(frameNode);
+        SelectModelNG::SetOptionBgColorByUser(frameNode);
         if (optionBgColorRawPtr) {
             auto* bgColor = reinterpret_cast<ResourceObject*>(optionBgColorRawPtr);
             auto bgColorResObj = AceType::Claim(bgColor);
@@ -180,7 +187,7 @@ void SetOptionFontColorPtr(ArkUINodeHandle node, ArkUI_Uint32 color, void* fontC
     if (SystemProperties::ConfigChangePerform()) {
         auto* frameNode = reinterpret_cast<FrameNode*>(node);
         CHECK_NULL_VOID(frameNode);
-        SelectModelNG::SetOptionFontColorByUser(frameNode, true);
+        SelectModelNG::SetOptionFontColorByUser(frameNode);
         if (fontColorRawPtr) {
             auto* fontColor = reinterpret_cast<ResourceObject*>(fontColorRawPtr);
             auto fontColorResObj = AceType::Claim(fontColor);
@@ -205,6 +212,7 @@ void SetSelectedOptionFontColorPtr(ArkUINodeHandle node, ArkUI_Uint32 color, voi
     if (SystemProperties::ConfigChangePerform()) {
         auto* frameNode = reinterpret_cast<FrameNode*>(node);
         CHECK_NULL_VOID(frameNode);
+        SelectModelNG::SetSelectedOptionFontColorByUser(frameNode);
         if (fontColorRawPtr) {
             auto* fontColor = reinterpret_cast<ResourceObject*>(fontColorRawPtr);
             auto fontColorResObj = AceType::Claim(fontColor);
@@ -410,6 +418,7 @@ void ResetSelectedOptionBgColor(ArkUINodeHandle node)
     CHECK_NULL_VOID(selectTheme);
     SelectModelNG::SetSelectedOptionBgColor(frameNode, selectTheme->GetSelectedColor());
     if (SystemProperties::ConfigChangePerform()) {
+        SelectModelNG::SetSelectedOptionBgColorByUser(frameNode, false);
         SelectModelNG::CreateWithColorResourceObj(frameNode, nullptr, SelectColorType::SELECTED_OPTION_BG_COLOR);
     }
 }
@@ -422,6 +431,7 @@ void ResetOptionBgColor(ArkUINodeHandle node)
     CHECK_NULL_VOID(selectTheme);
     SelectModelNG::SetOptionBgColor(frameNode, selectTheme->GetBackgroundColor());
     if (SystemProperties::ConfigChangePerform()) {
+        SelectModelNG::SetOptionBgColorByUser(frameNode, false);
         SelectModelNG::CreateWithColorResourceObj(frameNode, nullptr, SelectColorType::OPTION_BG_COLOR);
     }
 }
@@ -447,6 +457,7 @@ void ResetSelectedOptionFontColor(ArkUINodeHandle node)
     CHECK_NULL_VOID(selectTheme);
     SelectModelNG::SetSelectedOptionFontColor(frameNode, selectTheme->GetSelectedColorText());
     if (SystemProperties::ConfigChangePerform()) {
+        SelectModelNG::SetSelectedOptionFontColorByUser(frameNode, false);
         SelectModelNG::CreateWithColorResourceObj(frameNode, nullptr, SelectColorType::SELECTED_OPTION_FONT_COLOR);
     }
 }
@@ -634,8 +645,6 @@ void SetSelectValue(ArkUINodeHandle node, ArkUI_CharPtr* values, ArkUI_CharPtr* 
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    CHECK_NULL_VOID(values);
-    CHECK_NULL_VOID(icons);
     std::vector<SelectParam> params;
     for (uint32_t i = 0; i < length; i++) {
         if (!values[i]) {
@@ -671,7 +680,7 @@ void SetMenuBgColorPtr(ArkUINodeHandle node, ArkUI_Uint32 color, void* menuBgCol
     if (SystemProperties::ConfigChangePerform()) {
         auto* frameNode = reinterpret_cast<FrameNode*>(node);
         CHECK_NULL_VOID(frameNode);
-        SelectModelNG::SetMenuBackgroundColorByUser(frameNode, false);
+        SelectModelNG::SetMenuBackgroundColorByUser(frameNode);
         if (menuBgColorRawPtr) {
             auto* menuBgColor = reinterpret_cast<ResourceObject*>(menuBgColorRawPtr);
             auto menuBgColorResObj = AceType::Claim(menuBgColor);
@@ -680,6 +689,50 @@ void SetMenuBgColorPtr(ArkUINodeHandle node, ArkUI_Uint32 color, void* menuBgCol
         } else {
             SelectModelNG::CreateWithColorResourceObj(frameNode, nullptr, SelectColorType::MENU_BACKGROUND_COLOR);
         }
+    }
+}
+
+void SetSelectBackgroundColor(ArkUINodeHandle node, uint32_t color)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    SelectModelNG::BackgroundColor(frameNode, Color(color));
+}
+
+void SetSelectBackgroundColorWithColorSpace(ArkUINodeHandle node, ArkUI_Uint32 color, ArkUI_Int32 colorSpace)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    Color backgroundColor { color };
+    if (ColorSpace::DISPLAY_P3 == colorSpace) {
+        backgroundColor.SetColorSpace(ColorSpace::DISPLAY_P3);
+    } else {
+        backgroundColor.SetColorSpace(ColorSpace::SRGB);
+    }
+    SelectModelNG::BackgroundColor(frameNode, backgroundColor);
+}
+
+void SetSelectBackgroundColorWithColorSpacePtr(ArkUINodeHandle node, ArkUI_Uint32 color,
+    ArkUI_Int32 colorSpace, void* colorRawPtr)
+{
+    CHECK_NULL_VOID(node);
+    SetSelectBackgroundColorWithColorSpace(node, color, colorSpace);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto* frameNode = reinterpret_cast<FrameNode*>(node);
+        CHECK_NULL_VOID(frameNode);
+        auto* color = reinterpret_cast<ResourceObject*>(colorRawPtr);
+        auto colorResObj = AceType::Claim(color);
+        SelectModelNG::CreateWithColorResourceObj(frameNode, colorResObj, SelectColorType::BACKGROUND_COLOR);
+    }
+}
+
+void ResetSelectBackgroundColor(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    SelectModelNG::ResetBackgroundColor(frameNode);
+    if (SystemProperties::ConfigChangePerform()) {
+        SelectModelNG::CreateWithColorResourceObj(frameNode, nullptr, SelectColorType::BACKGROUND_COLOR);
     }
 }
 
@@ -713,23 +766,48 @@ void ResetMenuBgBlurStyle(ArkUINodeHandle node)
     SelectModelNG::SetMenuBackgroundBlurStyle(frameNode, styleOption);
 }
 
-void SetSelectDivider(ArkUINodeHandle node, ArkUI_Uint32 color, const ArkUI_Float32* values,
-    const ArkUI_Int32* units, ArkUI_Int32 length)
+RefPtr<ResourceObject> ClaimDividerResourceObj(void* rawPtr)
+{
+    if (!rawPtr) {
+        return nullptr;
+    }
+    auto* resource = reinterpret_cast<ResourceObject*>(rawPtr);
+    return AceType::Claim(resource);
+}
+
+void RegisterDividerResource(FrameNode* frameNode, void* rawPtr, SelectDividerResourceType type)
+{
+    auto resObj = ClaimDividerResourceObj(rawPtr);
+    SelectModelNG::CreateWithDividerResourceObj(frameNode, resObj, type);
+}
+
+void SetSelectDivider(ArkUINodeHandle node, const ArkUISelectDividerArgs* args)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-
-    if (length != DEFAULT_GROUP_DIVIDER_VALUES_COUNT) {
+    CHECK_NULL_VOID(args);
+    CHECK_NULL_VOID(args->values);
+    CHECK_NULL_VOID(args->units);
+    if (args->length != DEFAULT_GROUP_DIVIDER_VALUES_COUNT) {
         return;
     }
 
     NG::SelectDivider divider;
-    divider.color = Color(color);
-    divider.strokeWidth = Dimension(values[0], static_cast<OHOS::Ace::DimensionUnit>(units[0]));
-    divider.startMargin = Dimension(values[1], static_cast<OHOS::Ace::DimensionUnit>(units[1]));
-    divider.endMargin = Dimension(values[2], static_cast<OHOS::Ace::DimensionUnit>(units[2]));
-
+    divider.color = Color(args->color);
+    divider.strokeWidth = Dimension(args->values[0], static_cast<OHOS::Ace::DimensionUnit>(args->units[0]));
+    divider.startMargin = Dimension(args->values[1], static_cast<OHOS::Ace::DimensionUnit>(args->units[1]));
+    divider.endMargin = Dimension(args->values[2], static_cast<OHOS::Ace::DimensionUnit>(args->units[2]));
     SelectModelNG::SetDivider(frameNode, divider);
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    SelectModelNG::SetDividerPropertiesSetByUser(frameNode, static_cast<bool>(args->hasStrokeWidth),
+        static_cast<bool>(args->hasColor), static_cast<bool>(args->hasStartMargin),
+        static_cast<bool>(args->hasEndMargin));
+    RegisterDividerResource(frameNode, args->strokeWidthRawPtr, SelectDividerResourceType::STROKE_WIDTH);
+    RegisterDividerResource(frameNode, args->colorRawPtr, SelectDividerResourceType::COLOR);
+    RegisterDividerResource(frameNode, args->startMarginRawPtr, SelectDividerResourceType::START_MARGIN);
+    RegisterDividerResource(frameNode, args->endMarginRawPtr, SelectDividerResourceType::END_MARGIN);
 }
 
 void ResetSelectDivider(ArkUINodeHandle node)
@@ -754,6 +832,14 @@ void ResetSelectDivider(ArkUINodeHandle node)
         divider.endMargin = defaultMargin;
     }
     SelectModelNG::SetDivider(frameNode, divider);
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    SelectModelNG::SetDividerPropertiesSetByUser(frameNode, false, false, false, false);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::STROKE_WIDTH);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::COLOR);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::START_MARGIN);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::END_MARGIN);
 }
 
 void ResetSelectDividerNull(ArkUINodeHandle node)
@@ -777,6 +863,14 @@ void ResetSelectDividerNull(ArkUINodeHandle node)
         divider.endMargin = defaultMargin;
     }
     SelectModelNG::SetDivider(frameNode, divider);
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    SelectModelNG::SetDividerPropertiesSetByUser(frameNode, false, false, false, false);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::STROKE_WIDTH);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::COLOR);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::START_MARGIN);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::END_MARGIN);
 }
 
 void SetSelectDirection(ArkUINodeHandle node, ArkUI_Int32 direction)
@@ -793,11 +887,15 @@ void ResetSelectDirection(ArkUINodeHandle node)
     SelectModelNG::SetLayoutDirection(frameNode, DEFAULT_SELECT_DIRECTION);
 }
 
-void SetSelectDividerStyle(ArkUINodeHandle node, ArkUIMenuDividerOptions* dividerInfo)
+void SetSelectDividerStyle(ArkUINodeHandle node, const ArkUISelectDividerStyleArgs* args)
 {
+    CHECK_NULL_VOID(node);
+    CHECK_NULL_VOID(args);
+    CHECK_NULL_VOID(args->dividerInfo);
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
 
+    const auto* dividerInfo = args->dividerInfo;
     NG::SelectDivider divider;
     divider.isDividerStyle = true;
     divider.strokeWidth = Dimension(dividerInfo->strokeWidth.value,
@@ -809,12 +907,30 @@ void SetSelectDividerStyle(ArkUINodeHandle node, ArkUIMenuDividerOptions* divide
         static_cast<OHOS::Ace::DimensionUnit>(dividerInfo->endMargin.units));
     DividerMode mode = dividerInfo->mode == 1 ? DividerMode::EMBEDDED_IN_MENU: DividerMode::FLOATING_ABOVE_MENU;
     SelectModelNG::SetDividerStyle(frameNode, divider, mode);
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    SelectModelNG::SetDividerPropertiesSetByUser(frameNode, static_cast<bool>(args->hasStrokeWidth),
+        static_cast<bool>(args->hasColor), static_cast<bool>(args->hasStartMargin),
+        static_cast<bool>(args->hasEndMargin));
+    RegisterDividerResource(frameNode, args->strokeWidthRawPtr, SelectDividerResourceType::STROKE_WIDTH);
+    RegisterDividerResource(frameNode, args->colorRawPtr, SelectDividerResourceType::COLOR);
+    RegisterDividerResource(frameNode, args->startMarginRawPtr, SelectDividerResourceType::START_MARGIN);
+    RegisterDividerResource(frameNode, args->endMarginRawPtr, SelectDividerResourceType::END_MARGIN);
 }
 
 void ResetSelectDividerStyle(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     SelectModelNG::ResetDividerStyle(frameNode);
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    SelectModelNG::SetDividerPropertiesSetByUser(frameNode, false, false, false, false);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::STROKE_WIDTH);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::COLOR);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::START_MARGIN);
+    RegisterDividerResource(frameNode, nullptr, SelectDividerResourceType::END_MARGIN);
 }
 
 void SetOnSelectExt(ArkUINodeHandle node, void (*eventReceiver)(ArkUINodeHandle node,
@@ -846,30 +962,58 @@ void SetOptionalBorderColor(
     offset = offset + OFFSET_OF_UNIT;
 }
 
-void SetMenuOutline(ArkUINodeHandle node, const ArkUI_Float32* width, ArkUI_Int32 widthSize, const ArkUI_Uint32* color,
-    ArkUI_Int32 colorSize)
+void AddRadiusResource(BorderColorProperty& borderColors, void** resObjs)
+{
+    auto* leftResPtr = reinterpret_cast<ResourceObject*>(resObjs[BORDER_SIDE_LEFT_INDEX]);
+    auto leftColorResObj = AceType::Claim(leftResPtr);
+    auto* rightResPtr = reinterpret_cast<ResourceObject*>(resObjs[BORDER_SIDE_RIGHT_INDEX]);
+    auto rightColorResObj = AceType::Claim(rightResPtr);
+    auto* topResPtr = reinterpret_cast<ResourceObject*>(resObjs[BORDER_SIDE_TOP_INDEX]);
+    auto topColorResObj = AceType::Claim(topResPtr);
+    auto* bottomResPtr = reinterpret_cast<ResourceObject*>(resObjs[BORDER_SIDE_BOTTOM_INDEX]);
+    auto bottomColorResObj = AceType::Claim(bottomResPtr);
+    if (leftColorResObj) {
+        ADD_RADIUS_RESOURCE(resObjs[BORDER_SIDE_LEFT_INDEX], borderColors, leftColor);
+    }
+    if (rightColorResObj) {
+        ADD_RADIUS_RESOURCE(resObjs[BORDER_SIDE_RIGHT_INDEX], borderColors, rightColor);
+    }
+    if (topColorResObj) {
+        ADD_RADIUS_RESOURCE(resObjs[BORDER_SIDE_TOP_INDEX], borderColors, topColor);
+    }
+    if (bottomColorResObj) {
+        ADD_RADIUS_RESOURCE(resObjs[BORDER_SIDE_BOTTOM_INDEX], borderColors, bottomColor);
+    }
+}
+
+void SetMenuOutline(ArkUINodeHandle node, const ArkUISelectOutlineArgs* args)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    if ((width == nullptr) || (widthSize != SIZE_OF_WIDTH_ARRAY) || (color == nullptr) ||
-        colorSize != SIZE_OF_COLOR_ARRAY) {
+    CHECK_NULL_VOID(args);
+    if ((args->width == nullptr) || (args->widthSize != SIZE_OF_WIDTH_ARRAY) || (args->color == nullptr) ||
+        args->colorSize != SIZE_OF_COLOR_ARRAY) {
         return;
     }
     MenuParam menuParam;
     int32_t widthoffset = 0;
     NG::BorderWidthProperty borderWidth;
-    SetOptionalBorder(borderWidth.leftDimen, width, widthSize, widthoffset);
-    SetOptionalBorder(borderWidth.rightDimen, width, widthSize, widthoffset);
-    SetOptionalBorder(borderWidth.topDimen, width, widthSize, widthoffset);
-    SetOptionalBorder(borderWidth.bottomDimen, width, widthSize, widthoffset);
+    SetOptionalBorder(borderWidth.leftDimen, args->width, args->widthSize, widthoffset);
+    SetOptionalBorder(borderWidth.rightDimen, args->width, args->widthSize, widthoffset);
+    SetOptionalBorder(borderWidth.topDimen, args->width, args->widthSize, widthoffset);
+    SetOptionalBorder(borderWidth.bottomDimen, args->width, args->widthSize, widthoffset);
     menuParam.outlineWidth = borderWidth;
 
     int32_t colorOffset = 0;
     NG::BorderColorProperty borderColors;
-    SetOptionalBorderColor(borderColors.leftColor, color, colorSize, colorOffset);
-    SetOptionalBorderColor(borderColors.rightColor, color, colorSize, colorOffset);
-    SetOptionalBorderColor(borderColors.topColor, color, colorSize, colorOffset);
-    SetOptionalBorderColor(borderColors.bottomColor, color, colorSize, colorOffset);
+    SetOptionalBorderColor(borderColors.leftColor, args->color, args->colorSize, colorOffset);
+    SetOptionalBorderColor(borderColors.rightColor, args->color, args->colorSize, colorOffset);
+    SetOptionalBorderColor(borderColors.topColor, args->color, args->colorSize, colorOffset);
+    SetOptionalBorderColor(borderColors.bottomColor, args->color, args->colorSize, colorOffset);
+    if (SystemProperties::ConfigChangePerform()) {
+        CHECK_NULL_VOID(args->resObjs);
+        AddRadiusResource(borderColors, args->resObjs);
+    }
     menuParam.outlineColor = borderColors;
     SelectModelNG::SetMenuOutline(frameNode, menuParam);
 }
@@ -887,8 +1031,6 @@ void SetSelectSymbolValue(ArkUINodeHandle node, ArkUI_CharPtr* values,
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    CHECK_NULL_VOID(values);
-    CHECK_NULL_VOID(symbolFunction);
 
     std::vector<SelectParam> params(length);
     for (uint32_t i = 0; i < length; i++) {
@@ -896,10 +1038,26 @@ void SetSelectSymbolValue(ArkUINodeHandle node, ArkUI_CharPtr* values,
             return;
         }
         params[i].text = values[i];
-        auto symbolCallback = reinterpret_cast<std::function<void(WeakPtr<NG::FrameNode>)>*>(symbolFunction[i]);
-        params[i].symbolIcon = *symbolCallback;
+        if (symbolFunction != nullptr && symbolFunction[i] != nullptr) {
+            auto symbolCallback = reinterpret_cast<std::function<void(WeakPtr<NG::FrameNode>)>*>(symbolFunction[i]);
+            params[i].symbolIcon = *symbolCallback;
+        }
     }
     SelectModelNG::InitSelect(frameNode, params);
+}
+
+void SetArrowColor(ArkUINodeHandle node, const ArkUI_Uint32 arrowColor)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    SelectModelNG::SetArrowColor(frameNode, Color(arrowColor));
+}
+
+void SetShowDefaultSelectedIcon(ArkUINodeHandle node, ArkUI_Bool show)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    SelectModelNG::SetShowDefaultSelectedIcon(frameNode, show);
 }
 
 void SetAvoidance(ArkUINodeHandle node, ArkUI_Int32 modeValue)
@@ -925,6 +1083,67 @@ void ResetAvoidance(ArkUINodeHandle node)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     SelectModelNG::SetAvoidance(frameNode, AvoidanceMode::COVER_TARGET);
+}
+
+void SetMenuKeyboardAvoidMode(ArkUINodeHandle node, ArkUI_Int32 modeValue)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    std::optional<MenuKeyboardAvoidMode> mode = std::nullopt;
+    switch (modeValue) {
+        case static_cast<ArkUI_Int32>(MenuKeyboardAvoidMode::NONE):
+            mode = MenuKeyboardAvoidMode::NONE;
+            break;
+        case static_cast<ArkUI_Int32>(MenuKeyboardAvoidMode::TRANSLATE_AND_RESIZE):
+            mode = MenuKeyboardAvoidMode::TRANSLATE_AND_RESIZE;
+            break;
+        default:
+            break;
+    }
+    SelectModelNG::SetKeyboardAvoidMode(frameNode, mode);
+}
+
+void ResetMenuKeyboardAvoidMode(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    SelectModelNG::SetKeyboardAvoidMode(frameNode, std::nullopt);
+}
+
+void SetMinKeyboardAvoidDistance(ArkUINodeHandle node, ArkUI_Float32 value, ArkUI_Int32 unit)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto unitEnum = static_cast<OHOS::Ace::DimensionUnit>(unit);
+    if (unitEnum == DimensionUnit::INVALID) {
+        SelectModelNG::SetMinKeyboardAvoidDistance(frameNode, std::nullopt);
+    } else {
+        std::optional<Dimension> distance = CalcDimension(value, unitEnum);
+        SelectModelNG::SetMinKeyboardAvoidDistance(frameNode, distance);
+    }
+}
+
+void ResetMinKeyboardAvoidDistance(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    SelectModelNG::SetMinKeyboardAvoidDistance(frameNode, std::nullopt);
+}
+
+void SetMenuSystemMaterial(ArkUINodeHandle node, void* menuSystemMaterial)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto* castMenuSystemMaterial = reinterpret_cast<UiMaterial*>(menuSystemMaterial);
+    auto refPtrMenuSystemMaterial = castMenuSystemMaterial ? castMenuSystemMaterial->Copy() : nullptr;
+    SelectModelNG::SetMenuSystemMaterial(frameNode, refPtrMenuSystemMaterial);
+}
+
+void ResetMenuSystemMaterial(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    SelectModelNG::SetMenuSystemMaterial(frameNode, nullptr);
 }
 
 namespace NodeModifier {
@@ -998,6 +1217,18 @@ const ArkUISelectModifier* GetSelectModifier()
         .setOptionFontColorPtr = SetOptionFontColorPtr,
         .setSelectedOptionFontColorPtr = SetSelectedOptionFontColorPtr,
         .setMenuBgColorPtr = SetMenuBgColorPtr,
+        .setArrowColor = SetArrowColor,
+        .setShowDefaultSelectedIcon = SetShowDefaultSelectedIcon,
+        .setSelectBackgroundColor = SetSelectBackgroundColor,
+        .setSelectBackgroundColorWithColorSpace = SetSelectBackgroundColorWithColorSpace,
+        .resetSelectBackgroundColor = ResetSelectBackgroundColor,
+        .setSelectBackgroundColorWithColorSpacePtr = SetSelectBackgroundColorWithColorSpacePtr,
+        .setMenuKeyboardAvoidMode = SetMenuKeyboardAvoidMode,
+        .resetMenuKeyboardAvoidMode = ResetMenuKeyboardAvoidMode,
+        .setMinKeyboardAvoidDistance = SetMinKeyboardAvoidDistance,
+        .resetMinKeyboardAvoidDistance = ResetMinKeyboardAvoidDistance,
+        .setMenuSystemMaterial = SetMenuSystemMaterial,
+        .resetMenuSystemMaterial = ResetMenuSystemMaterial,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
 

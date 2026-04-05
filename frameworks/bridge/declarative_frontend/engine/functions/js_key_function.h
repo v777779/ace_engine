@@ -22,7 +22,7 @@
 namespace OHOS::Ace::Framework {
 
 class JsKeyFunction : public JsFunction {
-    DECLARE_ACE_TYPE(JsKeyFunction, JsFunction)
+    DECLARE_ACE_TYPE(JsKeyFunction, JsFunction);
 
 public:
     explicit JsKeyFunction(const JSRef<JSFunc>& jsFunction)
@@ -32,12 +32,9 @@ public:
     {
         ExecuteJS();
     }
-    void Execute(OHOS::Ace::KeyEventInfo& event);
+    void Execute(EcmaVM* vm, OHOS::Ace::KeyEventInfo& event);
 
-    JSRef<JSVal> ExecuteWithValue(OHOS::Ace::KeyEventInfo& event);
-
-private:
-    JSRef<JSObject> createKeyEvent(OHOS::Ace::KeyEventInfo& keyEvent);
+    JSRef<JSVal> ExecuteWithValue(EcmaVM* vm, OHOS::Ace::KeyEventInfo& event);
 };
 
 } // namespace OHOS::Ace::Framework

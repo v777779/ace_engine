@@ -29,7 +29,6 @@
 #include "core/components/dialog/dialog_properties.h"
 #include "core/components/theme/theme.h"
 #include "core/components/theme/theme_constants.h"
-#include "core/components/theme/theme_constants_defines.h"
 
 namespace OHOS::Ace {
 namespace {
@@ -45,7 +44,9 @@ constexpr int DEFAULT_DIALOG_COLUMN_MEASURE_TYPE = 1;
 constexpr int DIALOG_TITLE_MAX_LINES_VALUE = 2;
 constexpr float DEFAULT_ALIGN_DIALOG = 3.0;
 constexpr float SHADOW_NONE = 6.0;
-
+constexpr Dimension DIALOG_BUTTON_BORDER_RADIUS = 20.0_vp;
+// default FontWeight::MEDIUM
+constexpr float DIALOG_TITLE_TEXT_FONT_WEIGHT = 13.0;
 } // namespace
 /**
  * DialogTheme defines color and styles of DialogComponent. DialogTheme should be built
@@ -58,7 +59,7 @@ public:
     class Builder {
     public:
         Builder() = default;
-        ~Builder() = default;
+        virtual ~Builder() = default;
 
         RefPtr<DialogTheme> Build(const RefPtr<ThemeConstants>& themeConstants) const
         {
@@ -273,11 +274,6 @@ public:
         return buttonDefaultFontColor_;
     }
 
-    int GetDialogBackgroundBlurStyle() const
-    {
-        return dialogBackgroundBlurStyle_;
-    }
-
     double GetFrameStart() const
     {
         return frameStart_;
@@ -462,31 +458,6 @@ public:
         return columnMeasureType_;
     }
 
-    int32_t GetDialogDoubleBorderEnable() const
-    {
-        return dialogDoubleBorderEnable_;
-    }
-
-    double GetDialogOuterBorderWidth() const
-    {
-        return dialogOuterBorderWidth_;
-    }
-
-    Color GetDialogOuterBorderColor() const
-    {
-        return dialogOuterBorderColor_;
-    }
-
-    double GetDialogInnerBorderWidth() const
-    {
-        return dialogInnerBorderWidth_;
-    }
-
-    Color GetDialogInnerBorderColor() const
-    {
-        return dialogInnerBorderColor_;
-    }
-
     double GetMinFontScaleForElderly() const
     {
         return minFontScaleForElderly_;
@@ -526,8 +497,38 @@ public:
     {
         return dialogLandscapeHeightBoundary_;
     }
+    
+    int32_t GetDialogDoubleBorderEnable() const
+    {
+        return dialogDoubleBorderEnable_;
+    }
 
-    const Color& GetBackgroudBorderColor() const
+    double GetDialogOuterBorderWidth() const
+    {
+        return dialogOuterBorderWidth_;
+    }
+
+    Color GetDialogOuterBorderColor() const
+    {
+        return dialogOuterBorderColor_;
+    }
+
+    double GetDialogInnerBorderWidth() const
+    {
+        return dialogInnerBorderWidth_;
+    }
+
+    Color GetDialogInnerBorderColor() const
+    {
+        return dialogInnerBorderColor_;
+    }
+
+    int GetDialogBackgroundBlurStyle() const
+    {
+        return dialogBackgroundBlurStyle_;
+    }
+
+    const Color& GetBackgroundBorderColor() const
     {
         return backgroundBorderColor_;
     }
@@ -587,6 +588,11 @@ public:
         return normalButtonFontSize_;
     }
 
+    const Dimension& GetButtonBorderRadius() const
+    {
+        return buttonBorderRadius_;
+    }
+
     const std::string& GetCancelText() const
     {
         return cancelText_;
@@ -599,13 +605,22 @@ public:
 
 protected:
     DialogTheme() = default;
-
-private:
-    Radius radius_;
     Color backgroundColor_;
     TextStyle titleTextStyle_;
     TextStyle subtitleTextStyle_;
     TextStyle contentTextStyle_;
+    Color buttonBackgroundColor_;
+    Color buttonClickedColor_;
+    Color commonButtonBgColor_;
+    Color emphasizeButtonBgColor_;
+    Color emphasizeButtonTextColor_;
+    Color buttonDefaultFontColor_;
+    Color buttonHighlightBgColor_;
+    Color dividerColor_;
+    Color buttonHighlightFontColor_;
+
+private:
+    Radius radius_;
     Dimension titleMinFontSize_;
     Dimension contentMinFontSize_;
     Dimension buttonBottomTopMargin_;
@@ -626,13 +641,7 @@ private:
     Dimension dividerLength_;
     Dimension dividerBetweenButtonWidth_;
     Dimension dialogLandscapeHeightBoundary_;
-    Color buttonBackgroundColor_;
-    Color buttonClickedColor_;
-    Color buttonHighlightBgColor_;
-    Color buttonHighlightFontColor_;
     Color buttonDefaultBgColor_;
-    Color buttonDefaultFontColor_;
-    Color emphasizeButtonTextColor_;
     Dimension translateValue_;
     double frameStart_ = 0.0;
     double frameEnd_ = 1.0;
@@ -652,10 +661,7 @@ private:
     int32_t animationDurationOut_ = 250;
     Color maskColorStart_;
     Color maskColorEnd_;
-    Color dividerColor_;
-    Color commonButtonBgColor_;
     Color commonButtonTextColor_;
-    Color emphasizeButtonBgColor_;
     Dimension dividerWidth_;
     Dimension dividerHeight_;
     Edge dividerPadding_;
@@ -702,6 +708,7 @@ private:
     uint32_t shadowDialog_ = 6;
     int32_t alignDialog_ = 3;
     Dimension normalButtonFontSize_;
+    Dimension buttonBorderRadius_;
     Color colorBgWithBlur_;
     Color backgroundBorderColor_;
     int dialogBackgroundBlurStyle_ = static_cast<int>(BlurStyle::COMPONENT_ULTRA_THICK);

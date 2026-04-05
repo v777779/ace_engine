@@ -15,6 +15,7 @@
 
 #include "core/components_ng/pattern/text/text_select_overlay.h"
 
+#include "core/components_ng/pattern/select_overlay/select_overlay_property.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -157,6 +158,9 @@ void TextSelectOverlay::OnResetTextSelection()
 
 void TextSelectOverlay::OnHandleMove(const RectF& handleRect, bool isFirst)
 {
+    if (!SelectOverlayIsOn()) {
+        return;
+    }
     auto textPattern = GetPattern<TextPattern>();
     CHECK_NULL_VOID(textPattern);
     auto host = textPattern->GetHost();
@@ -232,19 +236,35 @@ void TextSelectOverlay::OnHandleMoveDone(const RectF& rect, bool isFirst)
     }
     textPattern->UpdateAIMenuOptions();
     overlayManager->MarkInfoChange((isFirst ? DIRTY_FIRST_HANDLE : DIRTY_SECOND_HANDLE) | DIRTY_SELECT_AREA |
-                                   DIRTY_SELECT_TEXT | DIRTY_COPY_ALL_ITEM | DIRTY_AI_MENU_ITEM);
+                                   DIRTY_SELECT_TEXT | DIRTY_COPY_ALL_ITEM | DIRTY_AI_MENU_ITEM | DIRTY_ASK_CELIA);
     if (textPattern->CheckSelectedTypeChange()) {
         CloseOverlay(false, CloseReason::CLOSE_REASON_NORMAL);
         ProcessOverlay({ .animation = true });
     }
+    textPattern->SelectAIDetect();
     overlayManager->SetHandleCircleIsShow(isFirst, true);
     if (textPattern->GetTextSelector().SelectNothing()) {
         TAG_LOGI(AceLogTag::ACE_TEXT, "Close the selectoverlay when nothing is selected.");
         CloseOverlay(false, CloseReason::CLOSE_REASON_NORMAL);
     }
+    textPattern->ReportSelectedText();
     auto host = textPattern->GetHost();
     CHECK_NULL_VOID(host);
     host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
+}
+
+void TextSelectOverlay::SetTextSelectionHolderId(int32_t id)
+{
+    auto overlayManager = SelectContentOverlayManager::GetOverlayManager();
+    CHECK_NULL_VOID(overlayManager);
+    overlayManager->SetTextSelectionHolderId(id);
+}
+
+void TextSelectOverlay::RemoveTextSelectionHolderId(int32_t id)
+{
+    auto overlayManager = SelectContentOverlayManager::GetOverlayManager();
+    CHECK_NULL_VOID(overlayManager);
+    overlayManager->RemoveTextSelectionHolderId(id);
 }
 
 std::string TextSelectOverlay::GetSelectedText()
@@ -329,17 +349,24 @@ void TextSelectOverlay::OnUpdateMenuInfo(SelectMenuInfo& menuInfo, SelectOverlay
     menuInfo.showTranslate = menuInfo.showCopy && textPattern->IsShowTranslate() && IsNeedMenuTranslate();
     menuInfo.showSearch = menuInfo.showCopy && textPattern->IsShowSearch() && IsNeedMenuSearch();
     menuInfo.showShare = menuInfo.showCopy && IsSupportMenuShare() && IsNeedMenuShare();
-    if (textPattern->IsShowAIMenuOption()) {
+    if (textPattern->IsShowAIMenuOption() && !textPattern->GetAIItemOption().empty()) {
         // do not support two selected ai entity, hence it's enough to pick first item to determine type
         auto firstSpanItem = textPattern->GetAIItemOption().begin()->second;
         menuInfo.aiMenuOptionType = firstSpanItem.type;
     } else {
         menuInfo.aiMenuOptionType = TextDataDetectType::INVALID;
     }
+    menuInfo.isAskCeliaEnabled = textPattern->IsAskCeliaEnabled();
+    menuInfo.isShowAskCeliaInRightClick = textPattern->IsShowAskCeliaInRightClick();
     menuInfo.menuIsShow = IsShowMenu();
     menuInfo.showCut = false;
     menuInfo.showPaste = false;
     menuInfo.hasOnPrepareMenuCallback = onPrepareMenuCallback_ ? true : false;
+    if ((dirtyFlag & DIRTY_SELECT_AI_DETECT) == DIRTY_SELECT_AI_DETECT) {
+        auto manager = SelectContentOverlayManager::GetOverlayManager();
+        CHECK_NULL_VOID(manager);
+        menuInfo.menuIsShow = manager->IsMenuShow();
+    }
 }
 
 void TextSelectOverlay::OnUpdateSelectOverlayInfo(SelectOverlayInfo& overlayInfo, int32_t requestCode)
@@ -404,6 +431,9 @@ void TextSelectOverlay::OnMenuItemAction(OptionMenuActionId id, OptionMenuType t
         case OptionMenuActionId::SHARE:
             HandleOnShare();
             break;
+        case OptionMenuActionId::ASK_CELIA:
+            textPattern->HandleOnAskCelia();
+            break;
         default:
             TAG_LOGI(AceLogTag::ACE_TEXT, "Unsupported menu option id %{public}d", id);
             break;
@@ -428,8 +458,39 @@ void TextSelectOverlay::OnMenuItemAction(OptionMenuActionId id, OptionMenuType t
     }
 }
 
+void TextSelectOverlay::IsAIMenuOptionChanged(SelectMenuInfo& menuInfo)
+{
+    auto textPattern = GetPattern<TextPattern>();
+    CHECK_NULL_VOID(textPattern);
+
+    auto oldIsShowAIMenuOption = textPattern->IsShowAIMenuOption();
+    auto oldIsShowAskCelia = textPattern->IsAskCeliaEnabled();
+    TextDataDetectType oldAiMenuOptionType = TextDataDetectType::INVALID;
+    if (textPattern->IsShowAIMenuOption() && !textPattern->GetAIItemOption().empty()) {
+        oldAiMenuOptionType = textPattern->GetAIItemOption().begin()->second.type;
+    }
+    textPattern->UpdateAIMenuOptions();
+    menuInfo.isShowAIMenuOptionChanged =
+        oldIsShowAIMenuOption != textPattern->IsShowAIMenuOption() ||
+        oldIsShowAskCelia != textPattern->IsAskCeliaEnabled();
+
+    if (textPattern->IsShowAIMenuOption()) {
+        // do not support two selected ai entity, hence it's enough to pick first item to determine type
+        auto firstSpanItem = textPattern->GetAIItemOption().begin()->second; // null check
+        menuInfo.aiMenuOptionType = firstSpanItem.type;
+    } else {
+        menuInfo.aiMenuOptionType = TextDataDetectType::INVALID;
+    }
+    menuInfo.isShowAIMenuOptionChanged |= oldAiMenuOptionType != menuInfo.aiMenuOptionType;
+    menuInfo.isAskCeliaEnabled = textPattern->IsAskCeliaEnabled();
+}
+
 void TextSelectOverlay::OnCloseOverlay(OptionMenuType menuType, CloseReason reason, RefPtr<OverlayInfo> info)
 {
+    auto isDragging = GetIsHandleDragging();
+    if (isDragging) {
+        TriggerScrollableParentToScroll(FindScrollableParent(), Offset(), true);
+    }
     BaseTextSelectOverlay::OnCloseOverlay(menuType, reason, info);
     auto textPattern = GetPattern<TextPattern>();
     CHECK_NULL_VOID(textPattern);
@@ -460,13 +521,12 @@ void TextSelectOverlay::OnAncestorNodeChanged(FrameNodeChangeInfoFlag flag)
         CHECK_NULL_VOID(textPattern);
         textPattern->UpdateParentGlobalOffset();
         textPattern->CalculateHandleOffsetAndShowOverlay();
+        UpdateViewPort();
         if (isDragging && isDraggingFirstHandle_) {
-            UpdateViewPort();
             UpdateSecondHandleOffset();
             return;
         }
         if (isDragging && !isDraggingFirstHandle_) {
-            UpdateViewPort();
             UpdateFirstHandleOffset();
             return;
         }
@@ -486,7 +546,12 @@ void TextSelectOverlay::OnHandleLevelModeChanged(HandleLevelMode mode)
         textPattern->CalculateHandleOffsetAndShowOverlay();
         UpdateAllHandlesOffset();
     }
-    BaseTextSelectOverlay::OnHandleLevelModeChanged(mode);
+    if (mode == HandleLevelMode::OVERLAY) {
+        BaseTextSelectOverlay::OnHandleLevelModeChanged(mode);
+    } else {
+        BaseTextSelectOverlay::SetHandleLevelMode(mode);
+        BaseTextSelectOverlay::UpdateViewPort();
+    }
 }
 
 void TextSelectOverlay::OnHandleMoveStart(const GestureEvent& event, bool isFirst)
@@ -568,6 +633,7 @@ void TextSelectOverlay::TriggerScrollableParentToScroll(
     auto scrollableFrameRect = scrollableHost->GetPaintRectWithTransform();
     auto host = GetOwner();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto hostRect = host->GetPaintRectWithTransform();
     auto hostSize = hostRect.Height();
     auto scrollableParentSize = scrollableFrameRect.Height();
@@ -583,6 +649,7 @@ void TextSelectOverlay::TriggerScrollableParentToScroll(
     notifyDragEvent->SetY(globalOffset.GetY());
     scrollablePattern->HandleOnDragStatusCallback(
         isStopAutoScroll ? DragEventType::DROP : DragEventType::MOVE, notifyDragEvent);
+    isTriggerParentToScroll_ = !isStopAutoScroll;
 }
 
 const RefPtr<ScrollablePattern> TextSelectOverlay::FindScrollableParent()
@@ -651,18 +718,58 @@ bool TextSelectOverlay::GetRenderClipValue() const
     return renderContext->GetClipEdge().value_or(defaultClipValue);
 }
 
-bool TextSelectOverlay::CheckTouchInHostNode(const PointF& touchPoint)
+std::optional<SelectOverlayInfo> TextSelectOverlay::GetSelectOverlayInfo()
 {
-    auto host = GetOwner();
-    CHECK_NULL_RETURN(host, false);
-    auto geo = host->GetGeometryNode();
-    CHECK_NULL_RETURN(geo, false);
-    auto rect = RectF(OffsetF(0.0f, 0.0f), geo->GetFrameSize());
+    auto manager = GetManager<SelectContentOverlayManager>();
+    CHECK_NULL_RETURN(manager, std::optional<SelectOverlayInfo>());
+    return manager->GetSelectOverlayInfo();
+}
+
+bool TextSelectOverlay::ChangeSecondHandleHeight(const GestureEvent& event, bool isOverlayMode)
+{
+    if (isOverlayMode || CheckSwitchToMode(HandleLevelMode::OVERLAY)) {
+        return false;
+    }
+    auto secondHandleInfo = GetSecondHandleInfo();
+    CHECK_NULL_RETURN(secondHandleInfo, false);
+    auto handleRect = secondHandleInfo->localPaintRect;
+    auto height = handleRect.Height();
     auto textPattern = GetPattern<TextPattern>();
     CHECK_NULL_RETURN(textPattern, false);
+    textPattern->CalculateDefaultHandleHeight(height);
+    auto touchOffset = event.GetLocalLocation();
+    bool isTouchHandleCircle = GreatNotEqual(touchOffset.GetY(), handleRect.Bottom());
+    auto handleOffsetY =
+        isTouchHandleCircle ? handleRect.Bottom() - height : static_cast<float>(touchOffset.GetY()) - height / 2.0f;
+    auto secondHandle = textPattern->GetTextSelector().secondHandle;
+    secondHandle.SetTop(handleOffsetY + handleGlobalOffset_.GetY());
+    secondHandle.SetHeight(height);
+    textPattern->UpdateTextSelectorSecondHandle(secondHandle);
+    return true;
+}
 
-    auto selectedArea = GetSelectArea();
-    selectedArea.SetOffset(selectedArea.GetOffset() - textPattern->GetParentGlobalOffset());
-    return rect.IsInRegion(touchPoint) || selectedArea.IsInRegion(touchPoint);
+void TextSelectOverlay::GetVisibleDragViewHandles(RectF& first, RectF& second)
+{
+    auto selectOverlayInfo = GetSelectOverlayInfos();
+    CHECK_NULL_VOID(selectOverlayInfo);
+    RectF firstHandle;
+    RectF secondHandle;
+    if (!GetDragViewHandleRects(firstHandle, secondHandle)) {
+        return;
+    }
+    if (selectOverlayInfo->firstHandle.isShow) {
+        first = firstHandle;
+    }
+    if (selectOverlayInfo->secondHandle.isShow) {
+        second = secondHandle;
+    }
+}
+
+void TextSelectOverlay::UpdateAISelectMenu()
+{
+    auto manager = GetManager<SelectContentOverlayManager>();
+    CHECK_NULL_VOID(manager);
+    manager->MarkInfoChange(DIRTY_ALL_MENU_ITEM | DIRTY_SELECT_AI_DETECT);
+    manager->FocusFirstFocusableChildInMenu();
 }
 } // namespace OHOS::Ace::NG

@@ -22,9 +22,12 @@ namespace OHOS::Ace::NG {
 
 RefPtr<FrameNode> LinearSplitModelNGStatic::CreateFrameNode(int32_t nodeId, SplitType splitType)
 {
-    std::string tag = splitType == SplitType::ROW_SPLIT ? V2::ROW_SPLIT_ETS_TAG : V2::COLUMN_SPLIT_ETS_TAG;
+    std::string tag = splitType == SplitType::ROW_SPLIT ? ROW_SPLIT_ETS_TAG : COLUMN_SPLIT_ETS_TAG;
     auto frameNode = FrameNode::GetOrCreateFrameNode(
         tag, nodeId, [splitType]() { return AceType::MakeRefPtr<LinearSplitPattern>(splitType); });
+    if (frameNode && frameNode->GetRenderContext()) {
+        frameNode->GetRenderContext()->UpdateClipEdge(true);
+    }
     return frameNode;
 }
 
@@ -32,7 +35,7 @@ void LinearSplitModelNGStatic::SetDivider(FrameNode* frameNode, NG::SplitType sp
     const std::optional<ColumnSplitDivider>& optDivider)
 {
     CHECK_NULL_VOID(frameNode);
-    if (optDivider.has_value()) {
+    if (optDivider) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearSplitLayoutProperty, Divider, optDivider.value(), frameNode);
     } else {
         ACE_RESET_NODE_LAYOUT_PROPERTY(LinearSplitLayoutProperty, Divider, frameNode);

@@ -33,9 +33,9 @@ class ACE_FORCE_EXPORT LongPressGesture : public Gesture {
 public:
     LongPressGesture(
         int32_t fingers, bool repeat, int32_t duration, bool isForDrag = false, bool isDisableMouseLeft = false,
-        bool isLimitFingerCount = false)
+        bool isLimitFingerCount = false, double allowableMovement = 15.0)
         : Gesture(fingers, isLimitFingerCount), repeat_(repeat), duration_(duration), isForDrag_(isForDrag),
-          isDisableMouseLeft_(isDisableMouseLeft)
+          isDisableMouseLeft_(isDisableMouseLeft), allowableMovement_(allowableMovement)
     {
         if (gestureInfo_) {
             gestureInfo_->SetType(GestureTypeName::LONG_PRESS_GESTURE);
@@ -46,6 +46,16 @@ public:
         }
     }
     ~LongPressGesture() override = default;
+
+    void SetAllowableMovement(double allowableMovement)
+    {
+        allowableMovement_ = allowableMovement;
+    }
+
+    double GetAllowableMovement() const
+    {
+        return allowableMovement_;
+    }
 
 #ifdef ARKUI_CAPI_UNITTEST
     bool GetRepeat()
@@ -66,6 +76,7 @@ private:
     int32_t duration_ = 500;
     bool isForDrag_ = false;
     bool isDisableMouseLeft_ = false;
+    double allowableMovement_ = 15.0;
 };
 
 } // namespace OHOS::Ace::NG

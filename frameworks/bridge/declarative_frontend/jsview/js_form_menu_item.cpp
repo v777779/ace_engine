@@ -28,13 +28,91 @@
 #include "bridge/declarative_frontend/jsview/js_utils.h"
 #include "bridge/declarative_frontend/jsview/models/form_model_impl.h"
 #include "bridge/declarative_frontend/jsview/models/menu_item_model_impl.h"
-#include "bridge/declarative_frontend/jsview/js_menu_item.h"
+#include "bridge/declarative_frontend/jsview/models/menu_model_impl.h"
 #include "bridge/declarative_frontend/view_stack_processor.h"
+#include "core/common/resource/resource_parse_utils.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_abstract_model.h"
+#include "core/components_ng/base/view_stack_model.h"
 #include "core/components_ng/pattern/form/form_model_ng.h"
-#include "core/components_ng/pattern/menu/menu_item/menu_item_model.h"
 #include "core/components_ng/pattern/menu/menu_item/menu_item_model_ng.h"
+#include "core/components_ng/pattern/menu/menu_model_ng.h"
+#include "core/common/dynamic_module_helper.h"
+#include "core/interfaces/native/node/menu_item_modifier.h"
+
+namespace OHOS::Ace {
+std::unique_ptr<MenuItemModel> MenuItemModel::instance_ = nullptr;
+std::mutex MenuItemModel::mutex_;
+
+NG::MenuItemModelNG* GetMenuItemModel()
+{
+    static NG::MenuItemModelNG* menuItemModel = nullptr;
+    if (menuItemModel == nullptr) {
+        auto* module = DynamicModuleHelper::GetInstance().GetDynamicModule("MenuItem");
+        if (module == nullptr) {
+            LOGF("Can't find MenuItem dynamic module");
+            abort();
+        }
+        menuItemModel = reinterpret_cast<NG::MenuItemModelNG*>(module->GetModel());
+    }
+    return menuItemModel;
+}
+
+NG::MenuModelNG* GetMenuModel()
+{
+    static NG::MenuModelNG* menuModel = nullptr;
+    if (menuModel == nullptr) {
+        auto* module = DynamicModuleHelper::GetInstance().GetDynamicModule("Menu");
+        if (module == nullptr) {
+            LOGF("Can't find Menu dynamic module");
+            abort();
+        }
+        menuModel = reinterpret_cast<NG::MenuModelNG*>(module->GetModel());
+    }
+    return menuModel;
+}
+
+MenuItemModel* MenuItemModel::GetInstance()
+{
+    if (!instance_) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!instance_) {
+#ifdef NG_BUILD
+            instance_.reset(GetMenuItemModel());
+#else
+            if (Container::IsCurrentUseNewPipeline()) {
+                instance_.reset(GetMenuItemModel());
+            } else {
+                instance_.reset(new Framework::MenuItemModelImpl());
+            }
+#endif
+        }
+    }
+    return instance_.get();
+}
+
+std::unique_ptr<MenuModel> MenuModel::instance_ = nullptr;
+std::mutex MenuModel::mutex_;
+
+MenuModel* MenuModel::GetInstance()
+{
+    if (!instance_) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!instance_) {
+#ifdef NG_BUILD
+            instance_.reset(GetMenuModel());
+#else
+            if (Container::IsCurrentUseNewPipeline()) {
+                instance_.reset(GetMenuModel());
+            } else {
+                instance_.reset(new Framework::MenuModelImpl());
+            }
+#endif
+        }
+    }
+    return instance_.get();
+}
+} // namespace OHOS::Ace
 
 namespace OHOS::Ace::Framework {
 namespace {
@@ -44,11 +122,125 @@ constexpr int NUM_FUN_3 = 2;
 constexpr int NUM_CALLBACKNUM = 2;
 }
 
+void JSFormMenuItem::ParseMenuItemOptionsResource(
+    const JSCallbackInfo& info, const JSRef<JSObject>& menuItemObj, MenuItemProperties& menuItemProps)
+{
+    std::string startIconPath;
+    std::string contentStr;
+    std::string endIconPath;
+    std::string labelStr;
+    RefPtr<ResourceObject> contentStrObj;
+    RefPtr<ResourceObject> labelStrObj;
+    RefPtr<ResourceObject> startIconObj;
+    RefPtr<ResourceObject> endIconObj;
+    std::function<void(WeakPtr<NG::FrameNode>)> symbolApply;
+
+    auto startIcon = menuItemObj->GetProperty("startIcon");
+    auto content = menuItemObj->GetProperty("content");
+    auto endIcon = menuItemObj->GetProperty("endIcon");
+    auto label = menuItemObj->GetProperty("labelInfo");
+    auto symbolStart = menuItemObj->GetProperty("symbolStartIcon");
+    auto symbolEnd = menuItemObj->GetProperty("symbolEndIcon");
+
+    if (symbolStart->IsObject()) {
+        JSViewAbstract::SetSymbolOptionApply(info, symbolApply, symbolStart);
+        menuItemProps.startApply = symbolApply;
+    } else if (ParseJsMedia(startIcon, startIconPath, startIconObj)) {
+        std::string bundleName;
+        std::string moduleName;
+        GetJsMediaBundleInfo(startIcon, bundleName, moduleName);
+        ImageSourceInfo imageSourceInfo(startIconPath, bundleName, moduleName);
+        menuItemProps.startIcon = imageSourceInfo;
+    }
+    ParseJsString(content, contentStr, contentStrObj);
+    menuItemProps.content = contentStr;
+    if (symbolEnd->IsObject()) {
+        JSViewAbstract::SetSymbolOptionApply(info, symbolApply, symbolEnd);
+        menuItemProps.endApply = symbolApply;
+    } else if (ParseJsMedia(endIcon, endIconPath, endIconObj)) {
+        std::string bundleName;
+        std::string moduleName;
+        GetJsMediaBundleInfo(endIcon, bundleName, moduleName);
+        ImageSourceInfo imageSourceInfo(endIconPath, bundleName, moduleName);
+        menuItemProps.endIcon = imageSourceInfo;
+    }
+    if (ParseJsString(label, labelStr, labelStrObj)) {
+        menuItemProps.labelInfo = labelStr;
+    }
+    if (SystemProperties::ConfigChangePerform()) {
+        AddMenuItemOptionsResource(contentStrObj, labelStrObj, menuItemProps);
+    }
+}
+
+void JSFormMenuItem::AddMenuItemOptionsResource(const RefPtr<ResourceObject>& contentStrObj,
+    const RefPtr<ResourceObject>& labelStrObj, MenuItemProperties& menuItemProps)
+{
+    if (contentStrObj) {
+        menuItemProps.AddResource(
+            "MenuItem.Content", contentStrObj, [](const RefPtr<ResourceObject>& resObj, MenuItemProperties& props) {
+                std::string contentStr;
+                CHECK_NE_VOID(ResourceParseUtils::ParseResString(resObj, contentStr), true);
+                props.content = contentStr;
+            });
+    }
+    if (labelStrObj) {
+        menuItemProps.AddResource(
+            "MenuItem.Label", labelStrObj, [](const RefPtr<ResourceObject>& resObj, MenuItemProperties& props) {
+                std::string labelInfoStr;
+                CHECK_NE_VOID(ResourceParseUtils::ParseResString(resObj, labelInfoStr), true);
+                props.labelInfo = labelInfoStr;
+            });
+    }
+}
+
+void JSFormMenuItem::Create(const JSCallbackInfo& info)
+{
+    if (info.Length() < 1 || (!info[0]->IsObject() && !info[0]->IsFunction())) {
+        MenuItemModel::GetInstance()->Create(nullptr);
+        return;
+    }
+    // custom menu item
+    if (info[0]->IsFunction()) {
+        auto builderFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSFunc>::Cast(info[0]));
+        CHECK_NULL_VOID(builderFunc);
+        RefPtr<NG::UINode> customNode;
+        {
+            ViewStackModel::GetInstance()->NewScope();
+            builderFunc->Execute();
+            customNode = AceType::DynamicCast<NG::UINode>(ViewStackModel::GetInstance()->Finish());
+        }
+        CHECK_NULL_VOID(customNode);
+        MenuItemModel::GetInstance()->Create(customNode);
+    } else {
+        auto menuItemObj = JSRef<JSObject>::Cast(info[0]);
+        MenuItemProperties menuItemProps;
+        ParseMenuItemOptionsResource(info, menuItemObj, menuItemProps);
+        auto builder = menuItemObj->GetProperty("builder");
+        if (!builder.IsEmpty() && builder->IsFunction()) {
+            auto subBuilderFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSFunc>::Cast(builder));
+            CHECK_NULL_VOID(subBuilderFunc);
+            auto targetNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+            auto subBuildFunc = [execCtx = info.GetExecutionContext(), func = std::move(subBuilderFunc),
+                                    node = targetNode]() {
+                JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
+                ACE_SCORING_EVENT("MenuItem SubBuilder");
+                PipelineContext::SetCallBackNode(node);
+                func->ExecuteJS();
+            };
+            menuItemProps.buildFunc = std::move(subBuildFunc);
+        }
+        MenuItemModel::GetInstance()->Create(menuItemProps);
+    }
+    auto modifier = NG::NodeModifier::GetMenuItemInnerModifier();
+    CHECK_NULL_VOID(modifier);
+    modifier->menuItemApplyTheme();
+}
+
 void JSFormMenuItem::JSBind(BindingTarget globalObj)
 {
     JSClass<JSFormMenuItem>::Declare("FormMenuItem");
     MethodOptions opt = MethodOptions::NONE;
-    JSClass<JSFormMenuItem>::StaticMethod("create", &JSMenuItem::Create, opt);
+    JSClass<JSFormMenuItem>::StaticMethod("create", &JSFormMenuItem::Create, opt);
     JSClass<JSFormMenuItem>::StaticMethod("onClick", &JSInteractableView::JsOnClick);
     JSClass<JSFormMenuItem>::StaticMethod("onRequestPublishFormWithSnapshot",
         &JSFormMenuItem::JsOnRequestPublishFormWithSnapshot);

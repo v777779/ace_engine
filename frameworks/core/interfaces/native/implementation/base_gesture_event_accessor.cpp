@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/implementation/base_gesture_event_peer.h"
@@ -50,7 +49,31 @@ void SetFingerListImpl(Ark_BaseGestureEvent peer,
     std::list<FingerInfo> list = Converter::Convert<std::list<FingerInfo>>(*fingerList);
     eventInfo->SetFingerList(list);
 }
-
+Opt_Array_FingerInfo GetFingerInfosImpl(Ark_BaseGestureEvent peer)
+{
+    CHECK_NULL_RETURN(peer, {});
+    auto info = peer->GetBaseGestureInfo();
+    CHECK_NULL_RETURN(info, {});
+    const std::list<FingerInfo>& fingerList = info->GetFingerList();
+    std::list<FingerInfo> fingerInfos;
+    std::list<FingerInfo> touchFingers;
+    std::list<FingerInfo> otherFingers;
+    for (const auto& finger : fingerList) {
+        if (finger.sourceType_ == SourceType::TOUCH &&
+            finger.sourceTool_ == SourceTool::FINGER) {
+            touchFingers.push_back(finger);
+        } else {
+            otherFingers.push_back(finger);
+        }
+    }
+    fingerInfos.splice(fingerInfos.end(), touchFingers);
+    fingerInfos.splice(fingerInfos.end(), otherFingers);
+    return Converter::ArkValue<Opt_Array_FingerInfo>(fingerInfos, Converter::FC);
+}
+void SetFingerInfosImpl(Ark_BaseGestureEvent peer,
+                        const Opt_Array_FingerInfo* fingerInfos)
+{
+}
 } // BaseGestureEventAccessor
 const GENERATED_ArkUIBaseGestureEventAccessor* GetBaseGestureEventAccessor()
 {
@@ -60,6 +83,8 @@ const GENERATED_ArkUIBaseGestureEventAccessor* GetBaseGestureEventAccessor()
         BaseGestureEventAccessor::GetFinalizerImpl,
         BaseGestureEventAccessor::GetFingerListImpl,
         BaseGestureEventAccessor::SetFingerListImpl,
+        BaseGestureEventAccessor::GetFingerInfosImpl,
+        BaseGestureEventAccessor::SetFingerInfosImpl,
     };
     return &BaseGestureEventAccessorImpl;
 }

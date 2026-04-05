@@ -17,13 +17,10 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_BASE_LAYOUT_CONSTANTS_H
 
 #include <cstdint>
-#include <string>
 
 #include "ui/properties/flex.h"
-
-#include "base/utils/linear_map.h"
-#include "base/utils/utils.h"
 #include "ui/view/components/tabs/tabs_constants.h"
+#include "ui/common/layout/constants.h"
 
 namespace OHOS::Ace {
 
@@ -70,143 +67,6 @@ enum class HoverModeAreaType {
     BOTTOM_SCREEN = 1,
 };
 
-enum class AccessibilityRoleType {
-    ACTION_SHEET = 0,
-    ALERT_DIALOG = 1,
-    INDEXER_COMPONENT = 2,
-    BADGE_COMPONENT = 3,
-    BLANK = 4,
-    BUTTON = 5,
-    BACK_BUTTON = 6,
-    SHEET_DRAG_BAR = 7,
-    CALENDAR_PICKER = 8,
-    CALENDAR = 9,
-    CANVAS = 10,
-    CANVAS_GRADIENT = 11,
-    CANVAS_PATTERN = 12,
-    CHECKBOX = 13,
-    CHECKBOX_GROUP = 14,
-    CIRCLE = 15,
-    COLUMN_SPLIT = 16,
-    COLUMN = 17,
-    CANVAS_RENDERING_CONTEXT_2D = 18,
-    CHART = 19,
-    COUNTER = 20,
-    CONTAINER_MODAL = 21,
-    DATA_PANEL = 22,
-    DATE_PICKER = 23,
-    DIALOG = 24,
-    DIVIDER = 25,
-    DRAG_BAR = 26,
-    EFFECT_COMPONENT = 27,
-    ELLIPSE = 28,
-    FLEX = 29,
-    FLOW_ITEM = 30,
-    FORM_COMPONENT = 31,
-    FORM_LINK = 32,
-    GAUGE = 33,
-    GRID = 34,
-    GRID_COL = 35,
-    GRID_CONTAINER = 36,
-    GRID_ITEM = 37,
-    GRID_ROW = 38,
-    HYPERLINK = 39,
-    IMAGE = 40,
-    IMAGE_ANIMATOR = 41,
-    ROLE_IMAGE_BITMAP = 42,
-    IMAGE_DATA = 43,
-    IMAGE_SPAN = 44,
-    LABEL = 45,
-    LINE = 46,
-    LIST = 47,
-    LIST_ITEM = 48,
-    LIST_ITEM_GROUP = 49,
-    LOADING_PROGRESS = 50,
-    MARQUEE = 51,
-    MATRIX2D = 52,
-    MENU = 53,
-    MENU_ITEM = 54,
-    MENU_ITEM_GROUP = 55,
-    NAV_DESTINATION = 56,
-    NAV_ROUTER = 57,
-    NAVIGATION = 58,
-    NAVIGATION_BAR = 59,
-    NAVIGATION_MENU = 60,
-    NAVIGATOR = 61,
-    OFFSCREEN_CANVAS = 62,
-    OFFSCREEN_CANVAS_RENDERING_CONTEXT2D = 63,
-    OPTION = 64,
-    PANEL = 65,
-    PAPER_PAGE = 66,
-    PATH = 67,
-    PATH2D = 68,
-    PATTERN_LOCK = 69,
-    PICKER = 70,
-    PICKER_VIEW = 71,
-    PLUGIN_COMPONENT = 72,
-    POLYGON = 73,
-    POLYLINE = 74,
-    POPUP = 75,
-    PROGRESS = 76,
-    QRCODE = 77,
-    RADIO = 78,
-    RATING = 79,
-    RECT = 80,
-    REFRESH = 81,
-    RELATIVE_CONTAINER = 82,
-    REMOTE_WINDOW = 83,
-    RICH_EDITOR = 84,
-    RICH_TEXT = 85,
-    ROLE_PAGER = 86,
-    ROW = 87,
-    ROW_SPLIT = 88,
-    SCROLL = 89,
-    SCROLL_BAR = 90,
-    SEARCH = 91,
-    SEARCH_FIELD = 92,
-    SELECT = 93,
-    SHAPE = 94,
-    SIDEBAR_CONTAINER = 95,
-    SLIDER = 96,
-    SPAN = 97,
-    STACK = 98,
-    STEPPER = 99,
-    STEPPER_ITEM = 100,
-    SWIPER = 101,
-    SWIPER_INDICATOR = 102,
-    SWITCH = 103,
-    SYMBOL_GLYPH = 104,
-    TAB_CONTENT = 105,
-    TAB_BAR = 106,
-    TABS = 107,
-    TEXT = 108,
-    TEXT_CLOCK = 109,
-    TEXT_ENTRY = 110,
-    TEXT_INPUT = 111,
-    TEXT_PICKER = 112,
-    TEXT_TIMER = 113,
-    TEXT_AREA = 114,
-    TEXT_FIELD = 115,
-    TIME_PICKER = 116,
-    TITLE_BAR = 117,
-    TOGGLER = 118,
-    UI_EXTENSION_COMPONENT = 119,
-    VIDEO = 120,
-    WATER_FLOW = 121,
-    WEB = 122,
-    XCOMPONENT = 123,
-    ROLE_NONE = 124,
-};
-
-enum class AccessibilitySamePageMode {
-    SEMI_SILENT = 0,
-    FULL_SILENT = 1,
-};
-
-enum class FocusDrawLevel {
-    SELF = 0,
-    TOP = 1,
-};
 
 enum class ButtonStyleMode { NORMAL, EMPHASIZE, TEXT };
 
@@ -341,43 +201,27 @@ enum class TextVerticalAlign {
     TOP = 3,
 };
 
-namespace StringUtils {
-inline std::string ToString(const TextAlign& textAlign)
-{
-    static const LinearEnumMapNode<TextAlign, std::string> table[] = {
-        { TextAlign::START, "START" },
-        { TextAlign::CENTER, "CENTER" },
-        { TextAlign::END, "END" },
-        { TextAlign::JUSTIFY, "JUSTIFY" },
-        { TextAlign::LEFT, "LEFT" },
-        { TextAlign::RIGHT, "RIGHT" },
-    };
-    auto iter = BinarySearchFindIndex(table, ArraySize(table), textAlign);
-    return iter != -1 ? table[iter].value : "";
-}
-
-inline std::string ToString(const TextVerticalAlign& textVerticalAlign)
-{
-    static const LinearEnumMapNode<TextVerticalAlign, std::string> table[] = {
-        { TextVerticalAlign::BASELINE, "BASELINE" },
-        { TextVerticalAlign::BOTTOM, "BOTTOM" },
-        { TextVerticalAlign::CENTER, "CENTER" },
-        { TextVerticalAlign::TOP, "TOP" },
-    };
-    auto iter = BinarySearchFindIndex(table, ArraySize(table), textVerticalAlign);
-    return iter != -1 ? table[iter].value : "";
-}
-} // namespace StringUtils
+enum class TextContentAlign {
+    TOP = 0,
+    CENTER,
+    BOTTOM,
+};
 
 enum class TextMarqueeState {
     START = 0,
     BOUNCE,
     FINISH,
+    STOP,
 };
 
 enum class MarqueeStartPolicy {
     DEFAULT = 0,
     ON_FOCUS,
+};
+
+enum class MarqueeUpdatePolicy {
+    DEFAULT = 0,
+    PRESERVE_POSITION,
 };
 
 enum class TextDataDetectType {
@@ -387,6 +231,7 @@ enum class TextDataDetectType {
     EMAIL,
     ADDRESS,
     DATE_TIME,
+    ASK_CELIA, // ask Celia tag, not a valid ai entity
 };
 
 enum class LineBreakStrategy {
@@ -423,32 +268,6 @@ enum class TextSelectableMode {
     UNSELECTABLE,
 };
 
-namespace StringUtils {
-inline std::string ToString(const TextSelectableMode& textSelectableMode)
-{
-    static const LinearEnumMapNode<TextSelectableMode, std::string> table[] = {
-        { TextSelectableMode::SELECTABLE_UNFOCUSABLE, "SELECTABLE_UNFOCUSABLE" },
-        { TextSelectableMode::SELECTABLE_FOCUSABLE, "SELECTABLE_FOCUSABLE" },
-        { TextSelectableMode::UNSELECTABLE, "UNSELECTABLE" }
-    };
-    auto iter = BinarySearchFindIndex(table, ArraySize(table), textSelectableMode);
-    return iter != -1 ? table[iter].value : "";
-}
-} // namespace StringUtils
-
-namespace StringUtils {
-inline std::string ToString(const TextOverflow& textOverflow)
-{
-    static const LinearEnumMapNode<TextOverflow, std::string> table[] = {
-        { TextOverflow::NONE, "NONE" },
-        { TextOverflow::CLIP, "CLIP" },
-        { TextOverflow::ELLIPSIS, "ELLIPSIS" },
-        { TextOverflow::MARQUEE, "MARQUEE" },
-    };
-    auto iter = BinarySearchFindIndex(table, ArraySize(table), textOverflow);
-    return iter != -1 ? table[iter].value : "";
-}
-} // namespace StringUtils
 
 // overflow-x: visible|hidden|scroll|auto|no-display|no-content;
 enum class TextFieldOverflowX {
@@ -460,13 +279,6 @@ enum class TextFieldOverflowX {
     NO_CONTENT,
 };
 
-enum class TextDirection {
-    LTR,
-    RTL,
-    INHERIT,
-    AUTO,
-};
-
 enum class TextDecoration {
     NONE,
     UNDERLINE,
@@ -474,21 +286,6 @@ enum class TextDecoration {
     LINE_THROUGH,
     INHERIT,
 };
-
-namespace StringUtils {
-inline std::string ToString(const TextDecoration& textDecoration)
-{
-    static const LinearEnumMapNode<TextDecoration, std::string> table[] = {
-        { TextDecoration::NONE, "NONE" },
-        { TextDecoration::UNDERLINE, "UNDERLINE" },
-        { TextDecoration::OVERLINE, "OVERLINE" },
-        { TextDecoration::LINE_THROUGH, "LINE_THROUGH" },
-        { TextDecoration::INHERIT, "INHERIT" },
-    };
-    auto iter = BinarySearchFindIndex(table, ArraySize(table), textDecoration);
-    return iter != -1 ? table[iter].value : "";
-}
-} // namespace StringUtils
 
 enum class TextDecorationStyle {
     SOLID,
@@ -499,23 +296,6 @@ enum class TextDecorationStyle {
     INITIAL,
     INHERIT,
 };
-
-namespace StringUtils {
-inline std::string ToString(const TextDecorationStyle& textDecorationStyle)
-{
-    static const LinearEnumMapNode<TextDecorationStyle, std::string> table[] = {
-        { TextDecorationStyle::SOLID, "SOLID" },
-        { TextDecorationStyle::DOUBLE, "DOUBLE" },
-        { TextDecorationStyle::DOTTED, "DOTTED" },
-        { TextDecorationStyle::DASHED, "DASHED" },
-        { TextDecorationStyle::WAVY, "WAVY" },
-        { TextDecorationStyle::INITIAL, "INITIAL" },
-        { TextDecorationStyle::INHERIT, "INHERIT" }
-    };
-    auto iter = BinarySearchFindIndex(table, ArraySize(table), textDecorationStyle);
-    return iter != -1 ? table[iter].value : "";
-}
-} // namespace StringUtils
 
 enum class TextHeightAdaptivePolicy {
     MAX_LINES_FIRST,
@@ -586,32 +366,6 @@ enum class TextChangeReason {
     STYLUS = 12
 };
 
-namespace StringUtils {
-inline std::string ToString(const ImageFit& imageFit)
-{
-    static const LinearEnumMapNode<ImageFit, std::string> table[] = {
-        { ImageFit::FILL, "FILL" },
-        { ImageFit::CONTAIN, "CONTAIN" },
-        { ImageFit::COVER, "COVER" },
-        { ImageFit::FITWIDTH, "FITWIDTH" },
-        { ImageFit::FITHEIGHT, "FITHEIGHT" },
-        { ImageFit::NONE, "NONE" },
-        { ImageFit::SCALE_DOWN, "SCALE_DOWN" },
-        { ImageFit::TOP_LEFT, "TOP_LEFT" },
-        { ImageFit::TOP, "TOP" },
-        { ImageFit::TOP_END, "TOP_END" },
-        { ImageFit::START, "START" },
-        { ImageFit::CENTER, "CENTER" },
-        { ImageFit::END, "END" },
-        { ImageFit::BOTTOM_START, "BOTTOM_START" },
-        { ImageFit::BOTTOM, "BOTTOM" },
-        { ImageFit::BOTTOM_END, "BOTTOM_END" },
-    };
-    auto iter = BinarySearchFindIndex(table, ArraySize(table), imageFit);
-    return iter != -1 ? table[iter].value : "";
-}
-} // namespace StringUtils
-
 enum class DynamicRangeMode {
     HIGH = 0,
     CONSTRAINT,
@@ -679,6 +433,12 @@ enum class BorderStyle {
     NONE,
 };
 
+enum class RenderStrategy {
+    FAST = 0,
+    OFFSCREEN,
+    MAX
+};
+
 enum class BorderImageRepeat {
     SPACE,
     STRETCH,
@@ -711,6 +471,7 @@ enum class SrcType {
     RESOURCE_ID, // default resource which src is internal resource id
     PIXMAP,
     ASTC,
+    STREAM,
 };
 
 enum class WrapAlignment {
@@ -922,21 +683,6 @@ enum class MarqueeDynamicSyncSceneType {
     ANIMATE = 1,
 };
 
-namespace StringUtils {
-inline std::string ToString(const VerticalAlign& verticalAlign)
-{
-    static const LinearEnumMapNode<VerticalAlign, std::string> table[] = {
-        { VerticalAlign::TOP, "TOP" },
-        { VerticalAlign::CENTER, "CENTER" },
-        { VerticalAlign::BOTTOM, "BOTTOM" },
-        { VerticalAlign::BASELINE, "BASELINE" },
-        { VerticalAlign::NONE, "NONE" },
-    };
-    auto iter = BinarySearchFindIndex(table, ArraySize(table), verticalAlign);
-    return iter != -1 ? table[iter].value : "";
-}
-} // namespace StringUtils
-
 enum class CalendarType {
     NORMAL = 0,
     SIMPLE,
@@ -985,20 +731,6 @@ enum class CopyOptions {
     Local,
     Distributed,
 };
-
-namespace StringUtils {
-inline std::string ToString(const CopyOptions& copyOptions)
-{
-    static const LinearEnumMapNode<CopyOptions, std::string> table[] = {
-        { CopyOptions::None, "None" },
-        { CopyOptions::InApp, "InApp" },
-        { CopyOptions::Local, "Local" },
-        { CopyOptions::Distributed, "Distributed" },
-    };
-    auto iter = BinarySearchFindIndex(table, ArraySize(table), copyOptions);
-    return iter != -1 ? table[iter].value : "";
-}
-} // namespace StringUtils
 
 enum class VisibleType {
     VISIBLE = 0,
@@ -1066,6 +798,12 @@ enum class XComponentNodeType {
     CNODE,
 };
 
+enum class HdrType {
+    DEFAULT = 0,
+    AIHDR = 1,
+    EDR = 2,
+};
+
 enum class RenderMode { ASYNC_RENDER = 0, SYNC_RENDER };
 
 inline constexpr uint32_t STATE_NORMAL = 0;
@@ -1086,22 +824,6 @@ enum class TabBarStyle {
 enum class GestureJudgeResult {
     CONTINUE = 0,
     REJECT = 1,
-};
-
-enum class GestureTypeName {
-    UNKNOWN = -1,
-    TAP_GESTURE = 0,
-    LONG_PRESS_GESTURE = 1,
-    PAN_GESTURE = 2,
-    PINCH_GESTURE = 3,
-    SWIPE_GESTURE = 4,
-    ROTATION_GESTURE = 5,
-    DRAG = 6,
-    CLICK = 7,
-    BOXSELECT = 8,
-    WEBSCROLL = 9,
-    TEXTFIELD_BOXSELECT = 10,
-    CONTEXT_MENU_HOVER = 11,
 };
 
 enum class ModifierKey {
@@ -1244,7 +966,29 @@ enum class DividerMode {
 enum class LayoutType : int32_t {
     NONE = 0,
     MEASURE_FOR_IGNORE = 1,
-    LAYOUT_FOR_IGNORE = 2
+    LAYOUT_FOR_IGNORE = 2,
+    TRAVERSE_FOR_IGNORE = 3
+};
+
+enum class ListItemSwipeActionDirection {
+    START = 0,
+    END = 1,
+};
+
+enum class ContentTransitionType : int32_t {
+    IDENTITY = 0,
+    OPACITY = 1,
+};
+
+enum class ScrollSnapAnimationSpeed {
+    NORMAL = 0,
+    SLOW = 1,
+};
+
+enum class PresetFillType {
+    BREAKPOINT_DEFAULT = 0,
+    BREAKPOINT_SM1MD2LG3,
+    BREAKPOINT_SM2MD3LG5,
 };
 } // namespace OHOS::Ace
 

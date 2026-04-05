@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,7 +23,7 @@
 #include <optional>
 
 #include "display_manager.h"
-#include "dm_common.h"
+
 #include "interfaces/inner_api/ace/arkui_rect.h"
 #include "interfaces/inner_api/ace/viewport_config.h"
 #include "native_engine/native_reference.h"
@@ -57,16 +57,19 @@ class AccessibilityElementInfo;
 
 namespace OHOS::Ace {
 class FontManager;
+class UIEventTracker;
 }
 
+namespace OHOS::AppExecFwk {
+class FormAshmem;
+}
 namespace OHOS::Ace::Platform {
-#ifdef ACE_ENABLE_VK
 class HighContrastObserver;
-#endif
 
 using UIEnvCallback = std::function<void(const OHOS::Ace::RefPtr<OHOS::Ace::PipelineContext>& context)>;
 using SharePanelCallback = std::function<void(const std::string& bundleName, const std::string& abilityName)>;
 using AbilityOnQueryCallback = std::function<void(const std::string& queryWord)>;
+using AbilityOnCalendarCallback = std::function<void(const std::map<std::string, std::string>& params)>;
 using DataHandlerErr = OHOS::Rosen::DataHandlerErr;
 using SubSystemId = OHOS::Rosen::SubSystemId;
 using DataConsumeCallback = OHOS::Rosen::DataConsumeCallback;
@@ -194,6 +197,11 @@ public:
         return taskExecutor_;
     }
 
+    const std::shared_ptr<UIEventTracker>& GetUIEventTracker() const
+    {
+        return uiEventTracker_;
+    }
+
     void SetAssetManager(const RefPtr<AssetManager>& assetManager)
     {
         assetManager_ = assetManager;
@@ -314,10 +322,10 @@ public:
         uiWindow_->SetRequestedOrientation(dmOrientation);
     }
 
-    RefPtr<PageViewportConfig> GetCurrentViewportConfig() const;
-    RefPtr<PageViewportConfig> GetTargetViewportConfig(
-        std::optional<Orientation> orientation, std::optional<bool> enableStatusBar,
-        std::optional<bool> statusBarAnimation, std::optional<bool> enableNavIndicator) const;
+    bool GetPageViewportConfig(
+        const PageViewportConfigParams& currentParams, RefPtr<PageViewportConfig>& currentConfig,
+        const PageViewportConfigParams& targetParams, RefPtr<PageViewportConfig>& targetConfig) const;
+    void PrintCachedCurrentViewportConfig() const;
 
     uint64_t GetDisplayId() const override
     {
@@ -356,6 +364,9 @@ public:
     bool DumpExistDarkRes(const std::vector<std::string>& params);
 
     bool OnDumpInfo(const std::vector<std::string>& params);
+
+    void DumpSimplifyTreeWithParamConfig(
+        std::shared_ptr<JsonValue>& root, ParamConfig config, bool isInSubWindow) override;
 
     void TriggerGarbageCollection() override;
 
@@ -406,10 +417,10 @@ public:
         }
     }
 
-    void OnOpenLinkOnMapSearch(const std::string& address)
+    void OnStartAbilityOnCalendar(const std::map<std::string, std::string>& params)
     {
-        if (linkOnMapSearch_) {
-            linkOnMapSearch_(address);
+        if (abilityOnCalendar_) {
+            abilityOnCalendar_(params);
         }
     }
 
@@ -517,9 +528,9 @@ public:
         abilityOnJumpBrowser_ = std::move(callback);
     }
 
-    void SetOpenLinkOnMapSearch(AbilityOnQueryCallback&& callback)
+    void SetAbilityOnCalendar(AbilityOnCalendarCallback&& callback)
     {
-        linkOnMapSearch_ = callback;
+        abilityOnCalendar_ = std::move(callback);
     }
 
     static void CreateContainer(int32_t instanceId, FrontendType type, const std::string& instanceName,
@@ -580,7 +591,7 @@ public:
         windowName_ = name;
     }
 
-    std::string& GetWindowName()
+    std::string GetWindowName() const override
     {
         return windowName_;
     }
@@ -621,6 +632,7 @@ public:
     void ProcessColorModeUpdate(
         ResourceConfiguration& resConfig, ConfigurationChange& configurationChange, const ParsedConfig& parsedConfig);
     void CheckForceVsync(const ParsedConfig& parsedConfig);
+    bool GetWhiteListStatus();
     void OnFrontUpdated(const ConfigurationChange& configurationChange, const std::string& configuration);
     void UpdateConfiguration(
         const ParsedConfig& parsedConfig, const std::string& configuration, bool abilityLevel = false);
@@ -653,7 +665,7 @@ public:
     }
 
     void SetToken(sptr<IRemoteObject>& token);
-    sptr<IRemoteObject> GetToken();
+    sptr<IRemoteObject> GetToken() override;
     void SetParentToken(sptr<IRemoteObject>& token);
     sptr<IRemoteObject> GetParentToken();
     uint32_t GetParentWindowType() const;
@@ -714,7 +726,8 @@ public:
     int32_t RequestAutoFill(const RefPtr<NG::FrameNode>& node, AceAutoFillType autoFillType, bool isNewPassWord,
         bool& isPopup, uint32_t& autoFillSessionId, bool isNative = true,
         const std::function<void()>& onFinish = nullptr,
-        const std::function<void()>& onUIExtNodeBindingCompleted = nullptr) override;
+        const std::function<void()>& onUIExtNodeBindingCompleted = nullptr,
+        AceAutoFillTriggerType triggerType = AceAutoFillTriggerType::AUTO_REQUEST) override;
     bool IsNeedToCreatePopupWindow(const AceAutoFillType& autoFillType) override;
     bool RequestAutoSave(const RefPtr<NG::FrameNode>& node, const std::function<void()>& onFinish,
         const std::function<void()>& onUIExtNodeBindingCompleted, bool isNative = true,
@@ -852,7 +865,9 @@ public:
         auto rect = uiWindow_->GetHostWindowRect(hostWindowId);
         return Rect(rect.posX_, rect.posY_, rect.width_, rect.height_);
     }
-    void UpdateColorMode(uint32_t colorMode) override;
+    void UpdateColorMode(uint32_t colorMode,
+        const ParsedConfig& parsedConfig, const std::string& configuration);
+    void ReloadThemeCache();
     void FireUIExtensionEventCallback(uint32_t eventId);
     void FireAccessibilityEventCallback(uint32_t eventId, int64_t parameter);
 
@@ -875,7 +890,7 @@ public:
     bool GetLastMovingPointerPosition(DragPointerEvent& dragPointerEvent) override;
 
     Rect GetDisplayAvailableRect() const override;
-    
+
     // Get the available rect of the full screen.
     Rect GetFoldExpandAvailableRect() const override;
 
@@ -909,6 +924,7 @@ public:
 
     UIContentErrorCode RunIntentPage();
     void SetIsFormRender(bool isFormRender) override;
+
     RefPtr<Frontend> GetSubFrontend() const override
     {
         CHECK_NE_RETURN(type_ == FrontendType::STATIC_HYBRID_DYNAMIC ||
@@ -937,12 +953,15 @@ public:
             return FrontendType::ARK_TS;
         }
     }
+    void RegisterTerminateUIExtension(AbilityRuntimeContextCallback&& callback) override;
+    void TerminateUIExtensionInner() override;
 
 private:
     virtual bool MaybeRelease() override;
     void InitializeFrontend();
     void InitializeCallback();
     void InitializeTask(std::shared_ptr<TaskWrapper> taskWrapper = nullptr);
+    void InitializeUIEventTracker();
     void InitWindowCallback();
 
     void AttachView(std::shared_ptr<Window> window, const RefPtr<AceView>& view, double density, float width,
@@ -980,19 +999,22 @@ private:
         std::optional<bool> enable, std::optional<bool> animation);
 
     void FlushReloadTask(bool needReloadTransition, const ConfigurationChange& configurationChange);
-    void InitSystemBarConfig();
-    bool IsFullScreenWindow() const override
-    {
-        CHECK_NULL_RETURN(uiWindow_, false);
-        return uiWindow_->GetWindowMode() == Rosen::WindowMode::WINDOW_MODE_FULLSCREEN;
-    }
+
+    void UpdateSubContainerDensity(ResourceConfiguration& resConfig);
+
     void InitializeStaticHybridDynamic(std::shared_ptr<OHOS::AppExecFwk::Ability> aceAbility);
     void InitializeDynamicHybridStatic(std::shared_ptr<OHOS::AppExecFwk::Ability> aceAbility);
     void NotifyArkoalaConfigurationChange(const ConfigurationChange& configurationChange);
 
+    void LoadCompleteManagerStartCollect(const std::string& url) override;
+    void LoadCompleteManagerStopCollect() override;
+
+    void InitForceSplitManager();
+
     int32_t instanceId_ = 0;
     RefPtr<AceView> aceView_;
     RefPtr<TaskExecutor> taskExecutor_;
+    std::shared_ptr<UIEventTracker> uiEventTracker_;
     RefPtr<AssetManager> assetManager_;
     RefPtr<PlatformResRegister> resRegister_;
     RefPtr<PipelineBase> pipelineContext_;
@@ -1054,7 +1076,7 @@ private:
     AbilityOnQueryCallback abilityOnQueryCallback_ = nullptr;
     AbilityOnQueryCallback abilityOnInstallAppInStore_ = nullptr;
     AbilityOnQueryCallback abilityOnJumpBrowser_ = nullptr;
-    AbilityOnQueryCallback linkOnMapSearch_ = nullptr;
+    AbilityOnCalendarCallback abilityOnCalendar_ = nullptr;
 
     std::atomic_flag isDumping_ = ATOMIC_FLAG_INIT;
 
@@ -1074,11 +1096,9 @@ private:
 
     bool lastThemeHasSkin_ = false;
 
-#ifdef ACE_ENABLE_VK
     void SubscribeHighContrastChange();
     void UnsubscribeHighContrastChange();
     std::shared_ptr<HighContrastObserver> highContrastObserver_ = nullptr;
-#endif
     // for multiple frontEnd
     // valid only when type_ is STATIC_HYBRID_DYNAMIC or DYNAMIC_HYBRID_STATIC
     RefPtr<Frontend> subFrontend_ = nullptr;

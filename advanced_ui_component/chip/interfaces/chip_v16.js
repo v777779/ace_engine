@@ -1,18 +1,17 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the 'License');
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an 'AS IS' BASIS,
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 if (!('finalizeConstruction' in ViewPU.prototype)) {
   Reflect.set(ViewPU.prototype, 'finalizeConstruction', () => {});
 }
@@ -48,6 +47,40 @@ export var AccessibilitySelectedType;
 const RESOURCE_TYPE_STRING = 10003;
 const RESOURCE_TYPE_FLOAT = 10002;
 const RESOURCE_TYPE_INTEGER = 10007;
+class LengthMetricsUtils {
+  constructor() {}
+  static getInstance() {
+    if (!LengthMetricsUtils.instance) {
+      LengthMetricsUtils.instance = new LengthMetricsUtils();
+    }
+    return LengthMetricsUtils.instance;
+  }
+  isNaturalNumber(metrics) {
+    return metrics.value >= 0;
+  }
+}
+class LengthMetricsCache {
+  static get(key, defaultValue) {
+    if (LengthMetricsCache._cache.has(key)) {
+      return LengthMetricsCache._cache.get(key);
+    }
+    try {
+      const res = {
+        id: -1,
+        type: 10002,
+        params: [key],
+        bundleName: '__harDefaultBundleName__',
+        moduleName: '__harDefaultModuleName__',
+      };
+      const metrics = LengthMetrics.resource(res);
+      LengthMetricsCache._cache.set(key, metrics);
+      return metrics;
+    } catch (error) {
+      return defaultValue;
+    }
+  }
+}
+LengthMetricsCache._cache = new Map();
 export function Chip(options, parent = null) {
   const __options__ = options;
   {
@@ -77,11 +110,15 @@ export function Chip(options, parent = null) {
               chipAccessibilityLevel: options.accessibilityLevel,
               onClose: options.onClose,
               onClicked: options.onClicked,
+              maxFontScale: options.maxFontScale,
+              minFontScale: options.minFontScale,
+              chipPadding: options.padding,
+              chipFontSize: options.fontSize,
             },
             undefined,
             elmtId,
             () => {},
-            { page: 'library/src/main/ets/components/MainPage.ets', line: 224, col: 3 }
+            { page: 'library/src/main/ets/components/MainPage.ets', line: 278, col: 3 }
           );
           ViewPU.create(componentCall);
           let paramsLambda = () => {
@@ -106,6 +143,10 @@ export function Chip(options, parent = null) {
               chipAccessibilityLevel: options.accessibilityLevel,
               onClose: options.onClose,
               onClicked: options.onClicked,
+              maxFontScale: options.maxFontScale,
+              minFontScale: options.minFontScale,
+              chipPadding: options.padding,
+              chipFontSize: options.fontSize,
             };
           };
           componentCall.paramsGenerator_ = paramsLambda;
@@ -129,6 +170,10 @@ export function Chip(options, parent = null) {
             chipAccessibilitySelectedType: options.accessibilitySelectedType,
             chipAccessibilityDescription: options.accessibilityDescription,
             chipAccessibilityLevel: options.accessibilityLevel,
+            maxFontScale: options.maxFontScale,
+            minFontScale: options.minFontScale,
+            chipPadding: options.padding,
+            chipFontSize: options.fontSize,
           });
         }
       },
@@ -256,6 +301,13 @@ export class ChipComponent extends ViewPU {
           bundleName: '__harDefaultBundleName__',
           moduleName: '__harDefaultModuleName__',
         },
+        activatedFontWeight: {
+          id: -1,
+          type: 10002,
+          params: ['sys.float.chip_activated_text_font_weight'],
+          bundleName: '__harDefaultBundleName__',
+          moduleName: '__harDefaultModuleName__',
+        },
         normalMargin: {
           left: 6,
           right: 6,
@@ -270,38 +322,14 @@ export class ChipComponent extends ViewPU {
         },
         defaultFontSize: 14,
         localizedNormalMargin: {
-          start: LengthMetrics.resource({
-            id: -1,
-            type: 10002,
-            params: ['sys.float.chip_normal_text_margin'],
-            bundleName: '__harDefaultBundleName__',
-            moduleName: '__harDefaultModuleName__',
-          }),
-          end: LengthMetrics.resource({
-            id: -1,
-            type: 10002,
-            params: ['sys.float.chip_normal_text_margin'],
-            bundleName: '__harDefaultBundleName__',
-            moduleName: '__harDefaultModuleName__',
-          }),
+          start: LengthMetricsCache.get('sys.float.chip_normal_text_margin', LengthMetrics.vp(6)),
+          end: LengthMetricsCache.get('sys.float.chip_normal_text_margin', LengthMetrics.vp(6)),
           top: LengthMetrics.vp(0),
           bottom: LengthMetrics.vp(0),
         },
         localizedSmallMargin: {
-          start: LengthMetrics.resource({
-            id: -1,
-            type: 10002,
-            params: ['sys.float.chip_small_text_margin'],
-            bundleName: '__harDefaultBundleName__',
-            moduleName: '__harDefaultModuleName__',
-          }),
-          end: LengthMetrics.resource({
-            id: -1,
-            type: 10002,
-            params: ['sys.float.chip_small_text_margin'],
-            bundleName: '__harDefaultBundleName__',
-            moduleName: '__harDefaultModuleName__',
-          }),
+          start: LengthMetricsCache.get('sys.float.chip_small_text_margin', LengthMetrics.vp(4)),
+          end: LengthMetricsCache.get('sys.float.chip_small_text_margin', LengthMetrics.vp(4)),
           top: LengthMetrics.vp(0),
           bottom: LengthMetrics.vp(0),
         },
@@ -402,20 +430,8 @@ export class ChipComponent extends ViewPU {
             moduleName: '__harDefaultModuleName__',
           },
         ],
-        normalSymbolFontSize: LengthMetrics.resource({
-          id: -1,
-          type: 10002,
-          params: ['sys.float.chip_normal_icon_size'],
-          bundleName: '__harDefaultBundleName__',
-          moduleName: '__harDefaultModuleName__',
-        }).value,
-        smallSymbolFontSize: LengthMetrics.resource({
-          id: -1,
-          type: 10002,
-          params: ['sys.float.chip_small_icon_size'],
-          bundleName: '__harDefaultBundleName__',
-          moduleName: '__harDefaultModuleName__',
-        }).value,
+        normalSymbolFontSize: LengthMetricsCache.get('sys.float.chip_normal_icon_size', LengthMetrics.vp(16)).value,
+        smallSymbolFontSize: LengthMetricsCache.get('sys.float.chip_small_icon_size', LengthMetrics.vp(16)).value,
         defaultEffect: -1,
       },
       chipNode: {
@@ -432,6 +448,20 @@ export class ChipComponent extends ViewPU {
           id: -1,
           type: 10002,
           params: ['sys.float.chip_small_height'],
+          bundleName: '__harDefaultBundleName__',
+          moduleName: '__harDefaultModuleName__',
+        },
+        activatedNormalHeight: {
+          id: -1,
+          type: 10002,
+          params: ['sys.float.chip_activated_normal_height'],
+          bundleName: '__harDefaultBundleName__',
+          moduleName: '__harDefaultModuleName__',
+        },
+        activatedSmallHeight: {
+          id: -1,
+          type: 10002,
+          params: ['sys.float.chip_activated_small_height'],
           bundleName: '__harDefaultBundleName__',
           moduleName: '__harDefaultModuleName__',
         },
@@ -494,6 +524,13 @@ export class ChipComponent extends ViewPU {
           bundleName: '__harDefaultBundleName__',
           moduleName: '__harDefaultModuleName__',
         },
+        activatedBorderWidth: {
+          id: -1,
+          type: 10002,
+          params: ['sys.float.chip_activated_border_width'],
+          bundleName: '__harDefaultBundleName__',
+          moduleName: '__harDefaultModuleName__',
+        },
         borderWidth: 2,
         focusBtnScaleX: {
           id: -1,
@@ -510,38 +547,26 @@ export class ChipComponent extends ViewPU {
           moduleName: '__harDefaultModuleName__',
         },
         localizedNormalPadding: {
-          start: LengthMetrics.resource({
-            id: -1,
-            type: 10002,
-            params: ['sys.float.chip_normal_text_padding'],
-            bundleName: '__harDefaultBundleName__',
-            moduleName: '__harDefaultModuleName__',
-          }),
-          end: LengthMetrics.resource({
-            id: -1,
-            type: 10002,
-            params: ['sys.float.chip_normal_text_padding'],
-            bundleName: '__harDefaultBundleName__',
-            moduleName: '__harDefaultModuleName__',
-          }),
+          start: LengthMetricsCache.get('sys.float.chip_normal_text_padding', LengthMetrics.vp(16)),
+          end: LengthMetricsCache.get('sys.float.chip_normal_text_padding', LengthMetrics.vp(16)),
           top: LengthMetrics.vp(4),
           bottom: LengthMetrics.vp(4),
         },
         localizedSmallPadding: {
-          start: LengthMetrics.resource({
-            id: -1,
-            type: 10002,
-            params: ['sys.float.chip_small_text_padding'],
-            bundleName: '__harDefaultBundleName__',
-            moduleName: '__harDefaultModuleName__',
-          }),
-          end: LengthMetrics.resource({
-            id: -1,
-            type: 10002,
-            params: ['sys.float.chip_small_text_padding'],
-            bundleName: '__harDefaultBundleName__',
-            moduleName: '__harDefaultModuleName__',
-          }),
+          start: LengthMetricsCache.get('sys.float.chip_small_text_padding', LengthMetrics.vp(12)),
+          end: LengthMetricsCache.get('sys.float.chip_small_text_padding', LengthMetrics.vp(12)),
+          top: LengthMetrics.vp(4),
+          bottom: LengthMetrics.vp(4),
+        },
+        localizedActivatedNormalPadding: {
+          start: LengthMetricsCache.get('sys.float.chip_activated_normal_text_padding', LengthMetrics.vp(16)),
+          end: LengthMetricsCache.get('sys.float.chip_activated_normal_text_padding', LengthMetrics.vp(16)),
+          top: LengthMetrics.vp(4),
+          bottom: LengthMetrics.vp(4),
+        },
+        localizedActivatedSmallPadding: {
+          start: LengthMetricsCache.get('sys.float.chip_activated_small_text_padding', LengthMetrics.vp(12)),
+          end: LengthMetricsCache.get('sys.float.chip_activated_small_text_padding', LengthMetrics.vp(12)),
           top: LengthMetrics.vp(4),
           bottom: LengthMetrics.vp(4),
         },
@@ -638,6 +663,10 @@ export class ChipComponent extends ViewPU {
       this,
       'chipAccessibilityLevel'
     );
+    this.__maxFontScale = new SynchedPropertyObjectOneWayPU(params.maxFontScale, this, 'maxFontScale');
+    this.__minFontScale = new SynchedPropertyObjectOneWayPU(params.minFontScale, this, 'minFontScale');
+    this.__chipPadding = new SynchedPropertyObjectOneWayPU(params.chipPadding, this, 'chipPadding');
+    this.__chipFontSize = new SynchedPropertyObjectOneWayPU(params.chipFontSize, this, 'chipFontSize');
     this.__isChipExist = new ObservedPropertySimplePU(true, this, 'isChipExist');
     this.__chipScale = new ObservedPropertyObjectPU({ x: 1, y: 1 }, this, 'chipScale');
     this.__chipOpacity = new ObservedPropertySimplePU(1, this, 'chipOpacity');
@@ -646,7 +675,7 @@ export class ChipComponent extends ViewPU {
     this.__breakPoint = new ObservedPropertySimplePU(BreakPointsType.SM, this, 'breakPoint');
     this.__fontSizeScale = new ObservedPropertySimplePU(1, this, 'fontSizeScale');
     this.isSuffixIconFocusStyleCustomized = this.resourceToNumber(this.theme.suffixIcon.isShowMargin, 0) !== 0;
-    this.isSuffixIconFocusable = this.resourceToNumber(this.theme.suffixIcon.isShowMargin, 0) !== 0;
+    this.isSuffixIconFocusable = this.resourceToNumber(this.theme.suffixIcon.isShowMargin, 0) !== 1;
     this.onClose = undefined;
     this.onClicked = undefined;
     this.__chipNodeInFocus = new ObservedPropertySimplePU(false, this, 'chipNodeInFocus');
@@ -751,6 +780,10 @@ export class ChipComponent extends ViewPU {
     this.__chipAccessibilitySelectedType.reset(params.chipAccessibilitySelectedType);
     this.__chipAccessibilityDescription.reset(params.chipAccessibilityDescription);
     this.__chipAccessibilityLevel.reset(params.chipAccessibilityLevel);
+    this.__maxFontScale.reset(params.maxFontScale);
+    this.__minFontScale.reset(params.minFontScale);
+    this.__chipPadding.reset(params.chipPadding);
+    this.__chipFontSize.reset(params.chipFontSize);
   }
   purgeVariableDependenciesOnElmtId(rmElmtId) {
     this.__chipSize.purgeDependencyOnElmtId(rmElmtId);
@@ -771,6 +804,10 @@ export class ChipComponent extends ViewPU {
     this.__chipAccessibilitySelectedType.purgeDependencyOnElmtId(rmElmtId);
     this.__chipAccessibilityDescription.purgeDependencyOnElmtId(rmElmtId);
     this.__chipAccessibilityLevel.purgeDependencyOnElmtId(rmElmtId);
+    this.__maxFontScale.purgeDependencyOnElmtId(rmElmtId);
+    this.__minFontScale.purgeDependencyOnElmtId(rmElmtId);
+    this.__chipPadding.purgeDependencyOnElmtId(rmElmtId);
+    this.__chipFontSize.purgeDependencyOnElmtId(rmElmtId);
     this.__isChipExist.purgeDependencyOnElmtId(rmElmtId);
     this.__chipScale.purgeDependencyOnElmtId(rmElmtId);
     this.__chipOpacity.purgeDependencyOnElmtId(rmElmtId);
@@ -799,6 +836,10 @@ export class ChipComponent extends ViewPU {
     this.__chipAccessibilitySelectedType.aboutToBeDeleted();
     this.__chipAccessibilityDescription.aboutToBeDeleted();
     this.__chipAccessibilityLevel.aboutToBeDeleted();
+    this.__maxFontScale.aboutToBeDeleted();
+    this.__minFontScale.aboutToBeDeleted();
+    this.__chipPadding.aboutToBeDeleted();
+    this.__chipFontSize.aboutToBeDeleted();
     this.__isChipExist.aboutToBeDeleted();
     this.__chipScale.aboutToBeDeleted();
     this.__chipOpacity.aboutToBeDeleted();
@@ -918,6 +959,30 @@ export class ChipComponent extends ViewPU {
   set chipAccessibilityLevel(newValue) {
     this.__chipAccessibilityLevel.set(newValue);
   }
+  get maxFontScale() {
+    return this.__maxFontScale.get();
+  }
+  set maxFontScale(newValue) {
+    this.__maxFontScale.set(newValue);
+  }
+  get minFontScale() {
+    return this.__minFontScale.get();
+  }
+  set minFontScale(newValue) {
+    this.__minFontScale.set(newValue);
+  }
+  get chipPadding() {
+    return this.__chipPadding.get();
+  }
+  set chipPadding(newValue) {
+    this.__chipPadding.set(newValue);
+  }
+  get chipFontSize() {
+    return this.__chipFontSize.get();
+  }
+  set chipFontSize(newValue) {
+    this.__chipFontSize.set(newValue);
+  }
   get isChipExist() {
     return this.__isChipExist.get();
   }
@@ -998,7 +1063,7 @@ export class ChipComponent extends ViewPU {
     }
   }
   isSetActiveChipBgColor() {
-    if (this.chipNodeActivatedBackgroundColor) {
+    if (!this.chipNodeActivatedBackgroundColor) {
       return false;
     }
     try {
@@ -1012,7 +1077,7 @@ export class ChipComponent extends ViewPU {
     }
   }
   isSetNormalChipBgColor() {
-    if (this.chipNodeBackgroundColor) {
+    if (!this.chipNodeBackgroundColor) {
       return false;
     }
     try {
@@ -1045,7 +1110,7 @@ export class ChipComponent extends ViewPU {
       Button.enabled(this.isChipEnabled());
       Button.direction(this.chipDirection);
       Button.backgroundColor(this.getChipBackgroundColor());
-      Button.borderWidth(this.theme.chipNode.defaultBorderWidth);
+      Button.borderWidth(this.getChipNodeBorderWidth());
       Button.borderColor(this.getChipNodeBorderColor());
       Button.borderRadius(this.getChipBorderRadius());
       Button.scale(ObservedObject.GetRawObject(this.chipScale));
@@ -1103,7 +1168,9 @@ export class ChipComponent extends ViewPU {
         this.ifElseBranchUpdateFunction(0, () => {
           this.observeComponentCreation2((elmtId, isInitialRender) => {
             SymbolGlyph.create();
-            SymbolGlyph.fontSize(this.defaultSymbolFontsize());
+            SymbolGlyph.fontSize(this.getFontSizeForSymbol());
+            SymbolGlyph.maxFontScale(ObservedObject.GetRawObject(this.maxFontScale));
+            SymbolGlyph.minFontScale(ObservedObject.GetRawObject(this.minFontScale));
             SymbolGlyph.fontColor(this.getDefaultSymbolColor(IconType.PREFIX_SYMBOL));
             SymbolGlyph.flexShrink(0);
             SymbolGlyph.attributeModifier.bind(this)(this.getPrefixSymbolModifier());
@@ -1143,6 +1210,8 @@ export class ChipComponent extends ViewPU {
       Text.fontColor(this.getLabelFontColor());
       Text.fontFamily(this.getLabelFontFamily());
       Text.fontWeight(this.getLabelFontWeight());
+      Text.maxFontScale(ObservedObject.GetRawObject(this.maxFontScale));
+      Text.minFontScale(ObservedObject.GetRawObject(this.minFontScale));
       Text.margin(this.getLabelMargin());
     }, Text);
     Text.pop();
@@ -1166,7 +1235,9 @@ export class ChipComponent extends ViewPU {
           }, Button);
           this.observeComponentCreation2((elmtId, isInitialRender) => {
             SymbolGlyph.create();
-            SymbolGlyph.fontSize(this.defaultSymbolFontsize());
+            SymbolGlyph.fontSize(this.getFontSizeForSymbol());
+            SymbolGlyph.maxFontScale(ObservedObject.GetRawObject(this.maxFontScale));
+            SymbolGlyph.minFontScale(ObservedObject.GetRawObject(this.minFontScale));
             SymbolGlyph.fontColor(this.getDefaultSymbolColor(IconType.SUFFIX_SYMBOL));
             SymbolGlyph.attributeModifier.bind(this)(this.getSuffixSymbolModifier());
             SymbolGlyph.effectStrategy(SymbolEffectStrategy.NONE);
@@ -1215,6 +1286,12 @@ export class ChipComponent extends ViewPU {
             Button.accessibilityText(this.getCloseIconAccessibilityText());
             Button.accessibilityDescription(this.getCloseIconAccessibilityDescription());
             Button.accessibilityLevel(this.getCloseIconAccessibilityLevel());
+            Button.responseRegion({
+              x: { "id": -1, "type": 10002, params: ['sys.float.chip_touch_hot_zone_x'], "bundleName": "__harDefaultBundleName__", "moduleName": "__harDefaultModuleName__" },
+              y: { "id": -1, "type": 10002, params: ['sys.float.chip_touch_hot_zone_y'], "bundleName": "__harDefaultBundleName__", "moduleName": "__harDefaultModuleName__" },
+              width: { "id": -1, "type": 10002, params: ['sys.float.chip_touch_hot_zone_width'], "bundleName": "__harDefaultBundleName__", "moduleName": "__harDefaultModuleName__" },
+              height: { "id": -1, "type": 10002, params: ['sys.float.chip_touch_hot_zone_height'], "bundleName": "__harDefaultBundleName__", "moduleName": "__harDefaultModuleName__" }
+            });
             Button.onClick(() => {
               if (!this.isChipEnabled()) {
                 return;
@@ -1232,7 +1309,9 @@ export class ChipComponent extends ViewPU {
               bundleName: '__harDefaultBundleName__',
               moduleName: '__harDefaultModuleName__',
             });
-            SymbolGlyph.fontSize(this.defaultSymbolFontsize());
+            SymbolGlyph.fontSize(this.getCloseOptionsFontsize());
+            SymbolGlyph.maxFontScale(ObservedObject.GetRawObject(this.maxFontScale));
+            SymbolGlyph.minFontScale(ObservedObject.GetRawObject(this.minFontScale));
             SymbolGlyph.fontColor(this.getDefaultSymbolColor(IconType.SUFFIX_SYMBOL));
           }, SymbolGlyph);
           Button.pop();
@@ -1474,14 +1553,23 @@ export class ChipComponent extends ViewPU {
     const constraintSize = {};
     if (typeof this.chipSize === 'string') {
       constraintSize.maxWidth = this.getChipMaxWidth();
-      constraintSize.minHeight =
-        this.chipSize === ChipSize.SMALL ? this.theme.chipNode.smallHeight : this.theme.chipNode.normalHeight;
+      if (this.chipSize === ChipSize.SMALL) {
+        constraintSize.minHeight = this.isChipActivated()
+          ? this.theme.chipNode.activatedSmallHeight
+          : this.theme.chipNode.smallHeight;
+      } else {
+        constraintSize.minHeight = this.isChipActivated()
+          ? this.theme.chipNode.activatedNormalHeight
+          : this.theme.chipNode.normalHeight;
+      }
     } else {
       if (typeof this.chipSize?.width === 'undefined' || !this.isValidLength(this.chipSize.width)) {
         constraintSize.maxWidth = this.getChipMaxWidth();
       }
       if (typeof this.chipSize?.height === 'undefined' || !this.isValidLength(this.chipSize.height)) {
-        constraintSize.minHeight = this.theme.chipNode.normalHeight;
+        constraintSize.minHeight = this.isChipActivated()
+          ? this.theme.chipNode.activatedNormalHeight
+          : this.theme.chipNode.normalHeight;
       }
     }
     return constraintSize;
@@ -1516,10 +1604,39 @@ export class ChipComponent extends ViewPU {
     }
     return chipSize;
   }
+  copyPadding(src) {
+    return {
+      top: src.top,
+      bottom: src.bottom,
+      start: src.start,
+      end: src.end,
+    };
+  }
   getChipPadding() {
-    return this.isSmallChipSize()
-      ? this.theme.chipNode.localizedSmallPadding
-      : this.theme.chipNode.localizedNormalPadding;
+    let chipTheme = this.theme.chipNode;
+    let res;
+    if (this.isSmallChipSize()) {
+      res = this.isChipActivated()
+        ? this.copyPadding(chipTheme.localizedActivatedSmallPadding)
+        : this.copyPadding(chipTheme.localizedSmallPadding);
+    } else {
+      res = this.isChipActivated()
+        ? this.copyPadding(chipTheme.localizedActivatedNormalPadding)
+        : this.copyPadding(chipTheme.localizedNormalPadding);
+    }
+    if (this.chipPadding?.top && LengthMetricsUtils.getInstance().isNaturalNumber(this.chipPadding.top)) {
+      res.top = this.chipPadding.top;
+    }
+    if (this.chipPadding?.bottom && LengthMetricsUtils.getInstance().isNaturalNumber(this.chipPadding.bottom)) {
+      res.bottom = this.chipPadding.bottom;
+    }
+    if (this.chipPadding?.start && LengthMetricsUtils.getInstance().isNaturalNumber(this.chipPadding.start)) {
+      res.start = this.chipPadding.start;
+    }
+    if (this.chipPadding?.end && LengthMetricsUtils.getInstance().isNaturalNumber(this.chipPadding.end)) {
+      res.end = this.chipPadding.end;
+    }
+    return res;
   }
   getLabelMargin() {
     const localizedLabelMargin = {
@@ -1579,14 +1696,28 @@ export class ChipComponent extends ViewPU {
   }
   getLabelFontWeight() {
     if (this.isChipActivated()) {
-      return FontWeight.Medium;
+      return this.resourceToNumber(this.theme.label.activatedFontWeight, FontWeight.Medium);
     }
     return this.resourceToNumber(this.theme.label.fontWeight, FontWeight.Regular);
   }
   getLabelFontFamily() {
     return this.label?.fontFamily ?? this.theme.label.fontFamily;
   }
-  defaultSymbolFontsize() {
+  getFontSizeForSymbol() {
+    if (!!this.chipFontSize && this.isValidLength(this.chipFontSize)) {
+      return this.chipFontSize;
+    }
+    return this.isSmallChipSize()
+      ? this.theme.defaultSymbol.smallSymbolFontSize
+      : this.theme.defaultSymbol.normalSymbolFontSize;
+  }
+  getCloseOptionsFontsize() {
+    if (!!this.closeOptions?.fontSize && this.isValidLength(this.closeOptions?.fontSize)) {
+      return this.closeOptions.fontSize;
+    }
+    if (!!this.chipFontSize && this.isValidLength(this.chipFontSize)) {
+      return this.chipFontSize;
+    }
     return this.isSmallChipSize()
       ? this.theme.defaultSymbol.smallSymbolFontSize
       : this.theme.defaultSymbol.normalSymbolFontSize;
@@ -1601,6 +1732,10 @@ export class ChipComponent extends ViewPU {
     let themeChipNode = this.theme.chipNode;
     return this.isChipActivated() ? themeChipNode.activatedBorderColor : themeChipNode.borderColor;
   }
+  getChipNodeBorderWidth() {
+    let themeChipNode = this.theme.chipNode;
+    return this.isChipActivated() ? themeChipNode.activatedBorderWidth : themeChipNode.defaultBorderWidth;
+  }
   getLabelFontColor() {
     if (this.isChipActivated()) {
       return this.label?.activatedFontColor ?? this.getActiveFontColor();
@@ -1610,6 +1745,9 @@ export class ChipComponent extends ViewPU {
   getLabelFontSize() {
     if (typeof this.label.fontSize !== 'undefined' && this.isValidLength(this.label.fontSize)) {
       return this.label.fontSize;
+    }
+    if (!!this.chipFontSize && this.isValidLength(this.chipFontSize)) {
+      return this.chipFontSize;
     }
     if (this.isSmallChipSize()) {
       return this.theme.label.smallFontSize;
@@ -1707,31 +1845,35 @@ export class ChipComponent extends ViewPU {
   isChipActivated() {
     return this.chipActivated ?? false;
   }
-  resourceToNumber(resource, defaultValue) {
-    if (!resource || !resource.type) {
-      console.error('[Chip] failed: resource get fail');
-      return defaultValue;
-    }
+  getResourceNumber(resource) {
     const resourceManager = this.getUIContext().getHostContext()?.resourceManager;
     if (!resourceManager) {
       console.error('[Chip] failed to get resourceManager');
-      return defaultValue;
+      return null;
     }
     switch (resource.type) {
       case RESOURCE_TYPE_FLOAT:
       case RESOURCE_TYPE_INTEGER:
         try {
           if (resource.id !== -1) {
-            return resourceManager.getNumber(resource);
+            return resourceManager.getNumber(resource.id);
           }
           return resourceManager.getNumberByName(resource.params[0].split('.')[2]);
         } catch (error) {
-          console.error(`[Chip] get resource error, return defaultValue`);
-          return defaultValue;
+          console.error(`[Chip] get resource error`);
+          return null;
         }
       default:
-        return defaultValue;
+        return null;
     }
+  }
+  resourceToNumber(resource, defaultValue) {
+    if (!resource || !resource.type) {
+      console.error('[Chip] failed: resource get fail');
+      return defaultValue;
+    }
+    const result = this.getResourceNumber(resource);
+    return result !== null ? result : defaultValue;
   }
   isValidLength(length) {
     if (typeof length === 'number') {
@@ -1740,20 +1882,16 @@ export class ChipComponent extends ViewPU {
       return this.isValidLengthString(length);
     } else if (typeof length === 'object') {
       const resource = length;
-      const resourceManager = this.getUIContext().getHostContext()?.resourceManager;
-      if (!resourceManager) {
-        console.error('[Chip] failed to get resourceManager.');
-        return false;
-      }
-      switch (resource.type) {
-        case RESOURCE_TYPE_FLOAT:
-        case RESOURCE_TYPE_INTEGER:
-          return resourceManager.getNumber(resource) >= 0;
-        case RESOURCE_TYPE_STRING:
-          return this.isValidLengthString(resourceManager.getStringSync(resource));
-        default:
+      if (resource.type === RESOURCE_TYPE_STRING) {
+        const resourceManager = this.getUIContext().getHostContext()?.resourceManager;
+        if (!resourceManager) {
+          console.error('[Chip] failed to get resourceManager.');
           return false;
+        }
+        return this.isValidLengthString(resourceManager.getStringSync(resource));
       }
+      const result = this.getResourceNumber(resource);
+      return result !== null && result >= 0;
     }
     return false;
   }
@@ -1763,6 +1901,25 @@ export class ChipComponent extends ViewPU {
       return false;
     }
     return Number.parseInt(matches[1], 10) >= 0;
+  }
+  chipZoomOut() {
+    if (this.isSuffixIconFocusStyleCustomized) {
+      this.chipScale = {
+        x: 1,
+        y: 1,
+      };
+    }
+  }
+  chipZoomIn() {
+    if (this.isSuffixIconFocusStyleCustomized) {
+      this.chipScale = {
+        x: this.resourceToNumber(this.theme.chipNode.focusBtnScaleX, 1),
+        y: this.resourceToNumber(this.theme.chipNode.focusBtnScaleY, 1),
+      };
+    }
+  }
+  isNeedShowCloseIconMargin() {
+    return this.isClosable() && this.isSuffixIconFocusStyleCustomized;
   }
   initialRender() {
     this.observeComponentCreation2((elmtId, isInitialRender) => {
@@ -1776,25 +1933,6 @@ export class ChipComponent extends ViewPU {
       }
     }, If);
     If.pop();
-  }
-  chipZoomOut() {
-   if (this.isSuffixIconFocusStyleCustomized) {
-    this.chipScale = {
-     x: 1,
-     y: 1,
-    };
-   }
-  }
-  chipZoomIn() {
-   if (this.isSuffixIconFocusStyleCustomized) {
-     this.chipScale = {
-      x: this.resourceToNumber(this.theme.chipNode.focusBtnScaleX, 1),
-      y: this.resourceToNumber(this.theme.chipNode.focusBtnScaleY, 1),
-     };
-    }
-  }
-  isNeedShowCloseIconMargin() {
-    return this.isClosable() && this.isSuffixIconFocusStyleCustomized;
   }
   rerender() {
     this.updateDirtyElements();

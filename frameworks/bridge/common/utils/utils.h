@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -35,6 +35,7 @@
 #include "base/log/log.h"
 #include "base/resource/asset_manager.h"
 #include "base/utils/linear_map.h"
+#include "base/utils/macros.h"
 #include "base/utils/string_utils.h"
 #include "base/utils/utils.h"
 #include "core/animation/animation_pub.h"
@@ -48,6 +49,7 @@
 #include "core/components/common/properties/decoration.h"
 #include "core/components/common/properties/text_style.h"
 #include "frameworks/bridge/common/dom/dom_type.h"
+#include "frameworks/core/components_ng/property/border_property.h"
 
 namespace OHOS::Ace::Framework {
 
@@ -224,20 +226,12 @@ inline FontWeight ConvertStrToFontWeight(const std::string& weight, FontWeight d
     return StringUtils::StringToFontWeight(weight, defaultFontWeight);
 }
 
-inline TextDecoration ConvertStrToTextDecoration(const std::string& textDecoration)
+inline int32_t GetFontWeightNumericValue(FontWeight fontWeight)
 {
-    // this map should be sorted by key.
-    static const LinearMapNode<TextDecoration> textDecorationTable[] = {
-        { DOM_TEXT_DECORATION_INHERIT, TextDecoration::INHERIT },
-        { DOM_TEXT_DECORATION_LINETHROUGH, TextDecoration::LINE_THROUGH },
-        { DOM_TEXT_DECORATION_NONE, TextDecoration::NONE },
-        { DOM_TEXT_DECORATION_OVERLINE, TextDecoration::OVERLINE },
-        { DOM_TEXT_DECORATION_UNDERLINE, TextDecoration::UNDERLINE },
-    };
-
-    auto index = BinarySearchFindIndex(textDecorationTable, ArraySize(textDecorationTable), textDecoration.c_str());
-    return index < 0 ? TextDecoration::NONE : textDecorationTable[index].value;
+    return StringUtils::GetFontWeightNumericValue(fontWeight);
 }
+
+ACE_FORCE_EXPORT TextDecoration ConvertStrToTextDecoration(const std::string& textDecoration);
 
 inline TextDecorationStyle ConvertStrToTextDecorationStyle(const std::string& textDecorationStyle)
 {
@@ -282,24 +276,9 @@ inline VerticalAlign ConvertStrToTextVerticalAlign(const std::string& align)
     return index < 0 ? VerticalAlign::NONE : textVerticalAlignTable[index].value;
 }
 
-inline FontStyle ConvertStrToFontStyle(const std::string& fontStyle)
-{
-    return fontStyle == DOM_TEXT_FONT_STYLE_ITALIC ? FontStyle::ITALIC : FontStyle::NORMAL;
-}
+ACE_FORCE_EXPORT FontStyle ConvertStrToFontStyle(const std::string& fontStyle);
 
-inline TextAlign ConvertStrToTextAlign(const std::string& align)
-{
-    static const LinearMapNode<TextAlign> textAlignTable[] = {
-        { DOM_CENTER, TextAlign::CENTER },
-        { DOM_END, TextAlign::END },
-        { DOM_LEFT, TextAlign::LEFT },
-        { DOM_RIGHT, TextAlign::RIGHT },
-        { DOM_START, TextAlign::START },
-    };
-
-    auto index = BinarySearchFindIndex(textAlignTable, ArraySize(textAlignTable), align.c_str());
-    return index < 0 ? TextAlign::CENTER : textAlignTable[index].value;
-}
+ACE_FORCE_EXPORT TextAlign ConvertStrToTextAlign(const std::string& align);
 
 inline TextOverflow ConvertStrToTextOverflow(const std::string& overflow)
 {
@@ -356,21 +335,7 @@ inline FlexDirection ConvertStrToFlexDirection(const std::string& flexKey)
     return flexKey == DOM_FLEX_COLUMN ? FlexDirection::COLUMN : FlexDirection::ROW;
 }
 
-inline FlexAlign ConvertStrToFlexAlign(const std::string& flexKey)
-{
-    static const LinearMapNode<FlexAlign> flexMap[] = {
-        { DOM_ALIGN_ITEMS_BASELINE, FlexAlign::BASELINE },
-        { DOM_JUSTIFY_CONTENT_CENTER, FlexAlign::CENTER },
-        { DOM_JUSTIFY_CONTENT_END, FlexAlign::FLEX_END },
-        { DOM_JUSTIFY_CONTENT_START, FlexAlign::FLEX_START },
-        { DOM_JUSTIFY_CONTENT_AROUND, FlexAlign::SPACE_AROUND },
-        { DOM_JUSTIFY_CONTENT_BETWEEN, FlexAlign::SPACE_BETWEEN },
-        { DOM_JUSTIFY_CONTENT_EVENLY, FlexAlign::SPACE_EVENLY },
-        { DOM_ALIGN_ITEMS_STRETCH, FlexAlign::STRETCH },
-    };
-    auto index = BinarySearchFindIndex(flexMap, ArraySize(flexMap), flexKey.c_str());
-    return index < 0 ? FlexAlign::FLEX_START : flexMap[index].value;
-}
+ACE_FORCE_EXPORT FlexAlign ConvertStrToFlexAlign(const std::string& flexKey);
 
 inline Offset ConvertStrToOffset(const std::string& value)
 {
@@ -529,7 +494,8 @@ inline GradientDirection StrToGradientDirection(const std::string& direction)
 
 std::string CurveIntToString(int curve);
 
-bool ParseBackgroundImagePosition(const std::string& value, BackgroundImagePosition& backgroundImagePosition);
+ACE_FORCE_EXPORT bool ParseBackgroundImagePosition(
+    const std::string& value, BackgroundImagePosition& backgroundImagePosition);
 
 bool ParseBackgroundImageSize(const std::string& value, BackgroundImageSize& backgroundImageSize);
 

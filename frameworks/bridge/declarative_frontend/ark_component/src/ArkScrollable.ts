@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -95,6 +95,20 @@ class BackToTopModifier extends ModifierWithKey<boolean> {
   }
 }
 
+class EnableScrollWithMouseModifier extends ModifierWithKey<boolean> {
+  constructor(value: boolean) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('enableScrollWithMouse');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().scrollable.resetEnableScrollWithMouse(node);
+    } else {
+      getUINativeModule().scrollable.setEnableScrollWithMouse(node, this.value);
+    }
+  }
+}
+
 class ScrollBarMarginModifier extends ModifierWithKey<ScrollBarMargin> {
   constructor(value: ScrollBarMargin) {
     super(value);
@@ -109,16 +123,86 @@ class ScrollBarMarginModifier extends ModifierWithKey<ScrollBarMargin> {
   }
 }
 
-class onWillStopDraggingModifier extends ModifierWithKey<(velocity: number) => void> {
+class AutoAdjustScrollBarMarginModifier extends ModifierWithKey<boolean> {
+  constructor(value: boolean) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('autoAdjustScrollBarMargin');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().scrollable.resetAutoAdjustScrollBarMargin(node);
+    } else {
+      getUINativeModule().scrollable.setAutoAdjustScrollBarMargin(node, this.value);
+    }
+  }
+}
+
+class OnWillStopDraggingModifier extends ModifierWithKey<(velocity: number) => void> {
   constructor(value: (velocity: number) => void) {
     super(value);
   }
   static identity: Symbol = Symbol('onWillStopDragging');
-  applyPeer(node: KNode, reset: boolean): void { 
+  applyPeer(node: KNode, reset: boolean): void {
     if (reset) {
       getUINativeModule().scrollable.resetOnWillStopDragging(node);
     } else {
       getUINativeModule().scrollable.setOnWillStopDragging(node, this.value);
+    }
+  }
+}
+
+class OnWillStartDraggingModifier extends ModifierWithKey<() => void> {
+  constructor(value: () => void) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('onWillStartDragging');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().scrollable.resetOnWillStartDragging(node);
+    } else {
+      getUINativeModule().scrollable.setOnWillStartDragging(node, this.value);
+    }
+  }
+}
+
+class OnDidStopDraggingModifier extends ModifierWithKey<(isWillFling: boolean) => void> {
+  constructor(value: (isWillFling: boolean) => void) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('onDidStopDragging');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().scrollable.resetOnDidStopDragging(node);
+    } else {
+      getUINativeModule().scrollable.setOnDidStopDragging(node, this.value);
+    }
+  }
+}
+
+class OnWillStartFlingModifier extends ModifierWithKey<() => void> {
+  constructor(value: () => void) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('onWillStartFling');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().scrollable.resetOnWillStartFling(node);
+    } else {
+      getUINativeModule().scrollable.setOnWillStartFling(node, this.value);
+    }
+  }
+}
+
+class OnDidStopFlingModifier extends ModifierWithKey<() => void> {
+  constructor(value: () => void) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('onDidStopFling');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().scrollable.resetOnDidStopFling(node);
+    } else {
+      getUINativeModule().scrollable.setOnDidStopFling(node, this.value);
     }
   }
 }
@@ -135,6 +219,34 @@ class OnReachEndModifier extends ModifierWithKey<() => void> {
             getUINativeModule().scrollable.setOnReachEnd(node, this.value);
         }
     }
+}
+
+class ContentStartOffsetModifier extends ModifierWithKey<number | Resource> {
+  constructor(value: number | Resource) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('contentStartOffset');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().scrollable.resetContentStartOffset(node);
+    } else {
+      getUINativeModule().scrollable.setContentStartOffset(node, this.value);
+    }
+  }
+}
+
+class ContentEndOffsetModifier extends ModifierWithKey<number | Resource> {
+  constructor(value: number | Resource) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('contentEndOffset');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().scrollable.resetContentEndOffset(node);
+    } else {
+      getUINativeModule().scrollable.setContentEndOffset(node, this.value);
+    }
+  }
 }
 
 /**
@@ -175,12 +287,44 @@ export class ArkScrollable<T> extends ArkComponent implements ScrollableCommonMe
       modifierWithKey(this._modifiersWithKeys, BackToTopModifier.identity, BackToTopModifier, value);
       return this;
     }
+    enableScrollWithMouse(value: boolean): this {
+      modifierWithKey(this._modifiersWithKeys, EnableScrollWithMouseModifier.identity, EnableScrollWithMouseModifier, value);
+      return this;
+    }
     scrollBarMargin(margin: ScrollBarMargin): T {
       modifierWithKey(this._modifiersWithKeys, ScrollBarMarginModifier.identity, ScrollBarMarginModifier, margin);
       return this;
     }
+    autoAdjustScrollBarMargin(value: boolean): T {
+      modifierWithKey(this._modifiersWithKeys, AutoAdjustScrollBarMarginModifier.identity, AutoAdjustScrollBarMarginModifier, value);
+      return this;
+    }
     onWillStopDragging(callback: (velocity: number) => void) : this {
       modifierWithKey(this._modifiersWithKeys, OnWillStopDraggingModifier.identity, OnWillStopDraggingModifier, callback);
+      return this;
+    }
+    onWillStartDragging(callback: () => void) : this {
+      modifierWithKey(this._modifiersWithKeys, OnWillStartDraggingModifier.identity, OnWillStartDraggingModifier, callback);
+      return this;
+    }
+    onDidStopDragging(callback: (isAnimate: boolean) => void) : this {
+      modifierWithKey(this._modifiersWithKeys, OnDidStopDraggingModifier.identity, OnDidStopDraggingModifier, callback);
+      return this;
+    }
+    onWillStartFling(callback: () => void) : this {
+      modifierWithKey(this._modifiersWithKeys, OnWillStartFlingModifier.identity, OnWillStartFlingModifier, callback);
+      return this;
+    }
+    onDidStopFling(callback: () => void) : this {
+      modifierWithKey(this._modifiersWithKeys, OnDidStopFlingModifier.identity, OnDidStopFlingModifier, callback);
+      return this;
+    }
+    contentStartOffset(value: number | Resource): T {
+      modifierWithKey(this._modifiersWithKeys, ContentStartOffsetModifier.identity, ContentStartOffsetModifier, value);
+      return this;
+    }
+    contentEndOffset(value: number | Resource): T {
+      modifierWithKey(this._modifiersWithKeys, ContentEndOffsetModifier.identity, ContentEndOffsetModifier, value);
       return this;
     }
 }

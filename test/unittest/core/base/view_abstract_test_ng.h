@@ -18,9 +18,9 @@
 #include "gtest/gtest.h"
 #define protected public
 #define private public
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/error/error_code.h"
 #include "core/components/common/layout/position_param.h"
@@ -30,11 +30,13 @@
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/base/view_abstract_model_ng.h"
+#include "core/components_ng/base/view_abstract_model_static.h"
 #include "core/components_ng/base/view_stack_model.h"
 #include "core/components_ng/base/view_stack_model_ng.h"
 #include "core/components_ng/layout/layout_property.h"
 #include "core/components_ng/pattern/bubble/bubble_pattern.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
+#include "core/components_ng/pattern/menu/menu_manager.h"
 #include "core/components_ng/pattern/menu/menu_pattern.h"
 #include "core/components_ng/pattern/menu/wrapper/menu_wrapper_pattern.h"
 #include "core/components_ng/pattern/navigation/navigation_model_ng.h"
@@ -104,6 +106,54 @@ int32_t flag = 0;
 const ImageSourceInfo imageSourceInfo = ImageSourceInfo("common/images/mmm.jpg", "abstract", "abstract");
 }; // namespace
 class ViewAbstractTestNg : public testing::Test {
+public:
+    static void SetUpTestSuite();
+    static void TearDownTestSuite();
+    void SetUp() override
+    {
+        auto* stack = ViewStackProcessor::GetInstance();
+        auto nodeId = stack->ClaimNodeId();
+        auto frameNode =
+            FrameNode::GetOrCreateFrameNode("components", nodeId, []() { return AceType::MakeRefPtr<Pattern>(); });
+        stack->Push(frameNode);
+    }
+    void TearDown() override
+    {
+        auto* stack = ViewStackProcessor::GetInstance();
+        if (stack) {
+            stack->ClearStack();
+        }
+    }
+};
+class ViewAbstractTestFourNg : public testing::Test {
+public:
+    static void SetUpTestSuite();
+    static void TearDownTestSuite();
+    void SetUp() override
+    {
+        auto* stack = ViewStackProcessor::GetInstance();
+        auto nodeId = stack->ClaimNodeId();
+        auto frameNode =
+            FrameNode::GetOrCreateFrameNode("components", nodeId, []() { return AceType::MakeRefPtr<Pattern>(); });
+        stack->Push(frameNode);
+    }
+    void TearDown() override {}
+};
+class ViewAbstractTestThreeNg : public testing::Test {
+public:
+    static void SetUpTestSuite();
+    static void TearDownTestSuite();
+    void SetUp() override
+    {
+        auto* stack = ViewStackProcessor::GetInstance();
+        auto nodeId = stack->ClaimNodeId();
+        auto frameNode =
+            FrameNode::GetOrCreateFrameNode("components", nodeId, []() { return AceType::MakeRefPtr<Pattern>(); });
+        stack->Push(frameNode);
+    }
+    void TearDown() override {}
+};
+class ViewAbstractTestFiveNg : public testing::Test {
 public:
     static void SetUpTestSuite();
     static void TearDownTestSuite();

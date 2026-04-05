@@ -17,7 +17,6 @@
 #include "frameworks/core/interfaces/native/implementation/length_metrics_peer.h"
 #include "core/interfaces/native/implementation/line_height_style_peer.h"
 #include "accessor_test_base.h"
-#include "node_api.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "gmock/gmock.h"

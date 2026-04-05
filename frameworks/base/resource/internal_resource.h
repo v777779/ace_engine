@@ -113,6 +113,8 @@ public:
         IC_COPY_SVG,
         IC_PASTE_SVG,
         IC_SELECT_ALL_SVG,
+        IC_AUTO_FILL_SVG,
+        IC_PASSWORD_VAULT_SVG,
         IC_SHARE_SVG,
         IC_TRANSLATE_SVG,
         IC_SEARCH_SVG,
@@ -129,6 +131,9 @@ public:
         CONTAINER_MODAL_WINDOW_MINIMIZE,
         CONTAINER_MODAL_WINDOW_RECOVER,
         IC_PERSON_FILL_SVG,
+        IC_LINK_SVG,
+        IC_LOACTION_SVG,
+        IC_DUE_CONTROL_SVG,
         SVG_END = 20000,
 
         // 20001 - 30000 is reserved for i18n resource.

@@ -31,6 +31,7 @@
 #include "base/utils/type_definition.h"
 #include "core/event/ace_events.h"
 #include "core/gestures/velocity.h"
+#include "ui/gestures/gesture_info.h"
 
 namespace OHOS::Ace {
 
@@ -42,9 +43,6 @@ constexpr Dimension DEFAULT_PEN_PAN_DISTANCE = 8.0_vp;
 constexpr int32_t DEFAULT_SLIDE_FINGER = DEFAULT_PAN_FINGER;
 constexpr double DEFAULT_SLIDE_SPEED = 300.0;
 constexpr int32_t DEFAULT_LONG_PRESS_DURATION = 100;
-
-class GestureRecognizer;
-class PipelineBase;
 
 struct TransformConfig {
     double scaleX = 1.0;
@@ -68,21 +66,6 @@ struct TransformConfig {
 
 struct AncestorNodeInfo {
     int parentId = 0;
-};
-
-enum class GesturePriority {
-    Begin = -1,
-    Low = 0,
-    High,
-    Parallel,
-    End,
-};
-
-enum class GestureMask {
-    Begin = -1,
-    Normal = 0,
-    IgnoreInternal,
-    End,
 };
 
 enum class GestureMode {
@@ -111,12 +94,10 @@ enum class DragEventAction {
     DRAG_EVENT_PULL_THROW,
 };
 
-enum class InputEventType {
-    TOUCH_SCREEN = 0,
-    TOUCH_PAD,
-    MOUSE_BUTTON,
-    AXIS,
-    KEYBOARD,
+enum class RecognizerDelayStatus {
+    NONE = 0,
+    START,
+    END,
 };
 
 struct PanDirection final {
@@ -164,7 +145,8 @@ public:
     void SetDistance(double distance)
     {
         distance_ = distance;
-        distanceMap_[SourceTool::UNKNOWN] = Dimension(distance_, DimensionUnit::PX);
+        distanceMap_[SourceTool::UNKNOWN] = Dimension(
+            Dimension(distance_, DimensionUnit::PX).ConvertToVp(), DimensionUnit::VP);
         for (const auto& callback : onPanDistanceIds_) {
             (callback.second.GetCallback())(distance);
         }
@@ -264,21 +246,11 @@ using SwipeDirectionFuncType = OnSwipeDirectionFunc::FunctionType;
 using OnSwipeSpeedFunc = EventCallback<void(double speed)>;
 using SwipeSpeedFuncType = OnSwipeSpeedFunc::FunctionType;
 
-struct FingerInfo {
-    int32_t fingerId_ = -1;
-    int32_t operatingHand_ = 0;
-    // global position at which the touch point contacts the screen.
-    Offset globalLocation_;
-    // Different from global location, The local location refers to the location of the contact point relative to the
-    // current node which has the recognizer.
+struct EventLocationInfo {
     Offset localLocation_;
-
-    //screen position at which the touch point contacts the screen.
-    Offset screenLocation_;
-    // The location where the touch point touches the screen when there are multiple screens.
+    Offset windowLocation_;
+    Offset displayLocation_;
     Offset globalDisplayLocation_;
-    SourceType sourceType_ = SourceType::NONE;
-    SourceTool sourceTool_ = SourceTool::UNKNOWN;
 };
 } // namespace OHOS::Ace
 

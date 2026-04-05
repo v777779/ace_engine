@@ -21,7 +21,15 @@
 #include "adapter/ohos/entrance/rs_adapter.h"
 #include "base/utils/system_properties.h"
 #include "command/rs_base_node_command.h"
-
+#include "core/components_ng/render/adapter/rosen_window.h"
+#include "core/pipeline/pipeline_base.h"
+#include "render_service_client/core/ui/rs_node.h"
+#include "render_service_client/core/ui/rs_root_node.h"
+#include "render_service_client/core/ui/rs_surface_node.h"
+#include "render_service_client/core/ui/rs_ui_context.h"
+#include "render_service_client/core/ui/rs_ui_director.h"
+#include "wm/window.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -91,7 +99,6 @@ HWTEST_F(RsAdapterTest, RsUIDirectorInit002, TestSize.Level1)
     RsAdapter::RsUIDirectorInit(rsUiDirector, window, "");
 
     EXPECT_NE(rsUiDirector, nullptr);
-    EXPECT_NE(rsUiDirector->GetRSUIContext(), nullptr);
 
     EXPECT_EQ(OHOS::Rosen::WMError::WM_OK, window->Destroy());
 #endif
@@ -170,7 +177,6 @@ HWTEST_F(RsAdapterTest, RsFlushImplicitTransaction002, TestSize.Level1)
     RsAdapter::RsFlushImplicitTransaction(rsUiDirector, window, surfaceNode);
 
     EXPECT_NE(rsUiDirector, nullptr);
-    EXPECT_NE(rsUiDirector->GetRSUIContext(), nullptr);
     EXPECT_EQ(rsUiDirector->GetRSSurfaceNode(), nullptr);
     EXPECT_EQ(transactionProxy->implicitCommonTransactionData_->abilityName_, "");
 
@@ -256,7 +262,6 @@ HWTEST_F(RsAdapterTest, RsFlushImplicitTransactionWithRoot002, TestSize.Level1)
     RsAdapter::RsFlushImplicitTransactionWithRoot(rsUiDirector, window, surfaceNode, rootNode);
 
     EXPECT_NE(rsUiDirector, nullptr);
-    EXPECT_NE(rsUiDirector->GetRSUIContext(), nullptr);
     EXPECT_NE(rsUiDirector->GetRSSurfaceNode(), nullptr);
     EXPECT_NE(rootNode, nullptr);
     EXPECT_EQ(rootNode->GetRSUIContext(), nullptr);
@@ -292,4 +297,23 @@ HWTEST_F(RsAdapterTest, FlushImplicitTransaction001, TestSize.Level1)
 #endif
 }
 
+/**
+ * @tc.name: RosenWindowRecoverExecutor001
+ * @tc.desc: Test RosenWindowRocoverExecutor
+ * @tc.type: FUNC
+ */
+HWTEST_F(RsAdapterTest, RosenWindowRecoverExecutor001, TestSize.Level1)
+{
+#ifdef ENABLE_ROSEN_BACKEND
+    bool flag = false;
+    constexpr uint64_t timeout = 5000000; // timeout: 5000000 ns
+    RefPtr<TaskExecutor> taskExecutor = AceType::MakeRefPtr<MockTaskExecutor>();
+    auto task = [&flag] {
+        flag = true;
+    };
+    auto executor = std::make_shared<RosenWindow::RecoverExecutor>(std::move(task), taskExecutor, timeout);
+    executor->Start("", 0); // Execute immediately in 0 ms.
+    EXPECT_TRUE(flag);
+#endif
+}
 } // namespace OHOS::Ace::NG

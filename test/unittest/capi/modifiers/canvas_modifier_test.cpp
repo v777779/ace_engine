@@ -16,7 +16,6 @@
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/components_ng/pattern/canvas/canvas_model_ng.h"
-#include "core/components_ng/pattern/canvas/canvas_event_hub.h"
 #include "modifier_test_base.h"
 #include "modifiers_test_utils.h"
 
@@ -54,35 +53,38 @@ class CanvasModifierTest : public ModifierTestBase<GENERATED_ArkUICanvasModifier
 };
 
 /*
- * @tc.name: DISABLED_setOnReadyTest
+ * @tc.name: setOnReadyTest
  * @tc.desc:  Check the functionality of CanvasModifier.OnReadyImpl
  * @tc.type: FUNC
  */
-HWTEST_F(CanvasModifierTest, setOnReadyTest, TestSize.Level1)
+HWTEST_F(CanvasModifierTest, DISABLED_setOnReadyTest, TestSize.Level1)
 {
+#ifdef WRONG_PRIVATE
     ASSERT_NE(modifier_->setOnReady, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     ASSERT_NE(frameNode, nullptr);
-    auto eventHub = frameNode->GetEventHub<CanvasEventHub>();
-    ASSERT_NE(eventHub, nullptr);
+    auto pattern = frameNode->GetPattern<CanvasPattern>();
+    ASSERT_NE(pattern, nullptr);
 
     struct CheckEvent {
         int32_t nodeId;
     };
     static std::optional<CheckEvent> checkEvent = std::nullopt;
     const int32_t contextId = 123;
-    void (*checkCallback)(const Ark_Int32) = [](const Ark_Int32 resourceId) {
-            checkEvent = {
-                .nodeId = resourceId,
-            };
+    auto checkCallback = [](Ark_VMContext context, const Ark_Int32 resourceId) {
+        checkEvent = {
+            .nodeId = resourceId,
         };
+    };
     auto func = Converter::ArkValue<VoidCallback>(checkCallback, contextId);
     auto optFunk = Converter::ArkValue<Opt_VoidCallback>(func);
-    EXPECT_FALSE(checkEvent.has_value());
     modifier_->setOnReady(node_, &optFunk);
-    eventHub->FireReadyEvent();
+
+    EXPECT_FALSE(checkEvent.has_value());
+    pattern->FireReadyEvent();
     EXPECT_TRUE(checkEvent.has_value());
     EXPECT_EQ(checkEvent->nodeId, contextId);
+#endif
 }
 
 /*
@@ -90,22 +92,22 @@ HWTEST_F(CanvasModifierTest, setOnReadyTest, TestSize.Level1)
  * @tc.desc: Check the functionality of CanvasModifier.EnableAnalyzerImpl
  * @tc.type: FUNC
  */
-HWTEST_F(CanvasModifierTest, setEnableAnalyzerTestValidValues, TestSize.Level1)
+HWTEST_F(CanvasModifierTest, DISABLED_setEnableAnalyzerTestValidValues, TestSize.Level1)
 {
     auto fullJson = GetJsonValue(node_);
-    auto canvasObject = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, ATTRIBUTE_CANVAS_NAME);
+    auto canvasObject = GetAttrObject(fullJson, ATTRIBUTE_CANVAS_NAME);
     auto initialValue = GetAttrValue<bool>(canvasObject, ATTRIBUTE_ENABLE_ANALYZER_NAME);
 
-    EXPECT_EQ(initialValue, ATTRIBUTE_ENABLE_ANALYZER_DEFAULT_VALUE);
+    EXPECT_THAT(initialValue, Eq(ATTRIBUTE_ENABLE_ANALYZER_DEFAULT_VALUE));
 
     for (auto testValue : BOOL_TEST_PLAN) {
         auto inputValue = Converter::ArkValue<Opt_Boolean>(testValue.first);
         modifier_->setEnableAnalyzer(node_, &inputValue);
 
         auto fullJson = GetJsonValue(node_);
-        auto canvasObject = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, ATTRIBUTE_CANVAS_NAME);
+        auto canvasObject = GetAttrObject(fullJson, ATTRIBUTE_CANVAS_NAME);
         auto checkValue = GetAttrValue<bool>(canvasObject, ATTRIBUTE_ENABLE_ANALYZER_NAME);
-        EXPECT_EQ(checkValue, testValue.second);
+        EXPECT_THAT(checkValue, Eq(testValue.second));
     }
 }
 

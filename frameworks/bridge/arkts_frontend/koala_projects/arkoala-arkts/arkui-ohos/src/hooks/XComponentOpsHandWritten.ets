@@ -13,25 +13,86 @@
  * limitations under the License.
  */
 
-import { SerializerBase, runtimeType, RuntimeType, InteropNativeModule, toPeerPtr } from "@koalaui/interop"
-import { ArkXComponentComponent, XComponentOptions, XComponentParameters, NativeXComponentParameters, XComponentController, XComponentOptionsInternal, SurfaceRect } from "#generated";
+import { SerializerBase, runtimeType, RuntimeType, InteropNativeModule, toPeerPtr, KPointer } from "@koalaui/interop"
+import { ArkXComponentComponent, ImageAIOptions, XComponentOptions, XComponentParameters, NativeXComponentParameters, XComponentController, XComponentControllerExtender, XComponentOptionsInternal, SurfaceRect, ImageAnalyzerConfig } from "#generated";
 import { ArkUIAniModule } from "arkui.ani";
 
+function wrapXComponentImageAIOptions(peerPtr: KPointer, imageAIOptions: ImageAIOptions): void{
+    let imageAIOptionsObj = ESValue.instantiateEmptyObject()
+    let types = imageAIOptions.types
+    if (types !== undefined) {
+        let typesObj = ESValue.instantiateEmptyArray()
+        for (let i = 0; i < types.length; i++) {
+            typesObj.setProperty(i, Number(types[i]))
+        }
+        imageAIOptionsObj.setProperty('types', typesObj)
+    }
+    let aiController = imageAIOptions.aiController
+    if ((aiController !== undefined) && (aiController instanceof ESValue)) {
+        imageAIOptionsObj.setProperty('aiController', aiController)
+    }
+    const global = ESValue.getGlobal()
+    const imageAIOptionsFunc = global.getProperty('wrapXComponentImageAIOptions')
+    if (!(imageAIOptionsFunc.isNull() || imageAIOptionsFunc.isUndefined())) {
+        imageAIOptionsFunc.invoke(ESObject.wrap(peerPtr), imageAIOptionsObj)
+    }
+}
+
 export class XComponentOpsHandWritten {
-    static hookSetXComponentOptionsImpl(component: ArkXComponentComponent, params: XComponentParameters | XComponentOptions | NativeXComponentParameters): void {
+    static hookSetXComponentOptionsImpl(component: ArkXComponentComponent,
+        params: XComponentParameters | XComponentOptions | NativeXComponentParameters): void {
         const peer = component.getPeer();
         if (peer === undefined) {
             return;
         }
+        let peerPtr = peer.peer.ptr
         if (params instanceof XComponentOptions) {
-            const value = params as XComponentOptions
+            let value_casted = params as XComponentOptions
             const options: XComponentOptionsInternal = {
-                onSurfaceCreated: value.controller.onSurfaceCreated as ((surfaceId: string) => void),
-                onSurfaceChanged: value.controller.onSurfaceChanged as ((surfaceId: string, surfaceRect: SurfaceRect) => void),
-                onSurfaceDestroyed: value.controller.onSurfaceDestroyed as ((surfaceId: string) => void)
+                onSurfaceCreated: value_casted.controller.onSurfaceCreated as ((surfaceId: string) => void),
+                onSurfaceChanged: value_casted.controller.onSurfaceChanged as ((surfaceId: string, surfaceRect: SurfaceRect) => void),
+                onSurfaceDestroyed: value_casted.controller.onSurfaceDestroyed as ((surfaceId: string) => void)
             } as XComponentOptionsInternal;
-            ArkUIAniModule._XComponent_SetXComponentControllerCallback(toPeerPtr(value.controller), options);
+            ArkUIAniModule._XComponent_SetXComponentControllerCallback(toPeerPtr(value_casted.controller), options);
+
+            // wrap imageAIOptions
+            const optImageAIOptions = value_casted.imageAIOptions;
+            if (optImageAIOptions !== undefined) {
+                const imageAIOptions = optImageAIOptions as ImageAIOptions;
+                wrapXComponentImageAIOptions(peerPtr, imageAIOptions);
+            }
         }
-        peer.setXComponentOptionsAttribute(params);
+        if (params instanceof NativeXComponentParameters) {
+            let value_casted = params as NativeXComponentParameters
+            // wrap imageAIOptions
+            const optImageAIOptions = value_casted.imageAIOptions;
+            if (optImageAIOptions !== undefined) {
+                const imageAIOptions = optImageAIOptions as ImageAIOptions;
+                wrapXComponentImageAIOptions(peerPtr, imageAIOptions);
+            }
+        }
+    }
+    static hookXComponentStartImageAnalyzerImpl(
+        controller: XComponentController, config: ImageAnalyzerConfig): Promise<void> {
+        const peer = controller.getPeer();
+        if (peer === undefined) {
+            return XComponentControllerExtender.startImageAnalyzer(controller, config);
+        }
+        const peerPtr = peer.ptr;
+        let configObj = ESValue.instantiateEmptyObject();
+        let types = config.types;
+        if (types !== undefined) {
+            let typesObj = ESValue.instantiateEmptyArray();
+            for (let i = 0; i < types.length; i++) {
+                typesObj.setProperty(i, Number(types[i]));
+            }
+            configObj.setProperty('types', typesObj);
+        }
+        const global = ESValue.getGlobal();
+        const analyzerConfigFunc = global.getProperty('hookXComponentSetAnalyzerConfig');
+        if (!(analyzerConfigFunc.isNull() || analyzerConfigFunc.isUndefined())) {
+            analyzerConfigFunc.invoke(ESObject.wrap(peerPtr), configObj);
+        }
+        return XComponentControllerExtender.startImageAnalyzer(controller, config);
     }
 }

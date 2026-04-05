@@ -13,13 +13,26 @@
  * limitations under the License.
  */
 
-import { int32, int64, float32, unsafeCast } from "@koalaui/common"
-import { RuntimeType, runtimeType } from "@koalaui/interop";
-import { ArkScrollableNode } from "./ArkScrollableNode";
-import { WaterFlowAttribute, ArkWaterFlowPeer, WaterFlowOptions, ConstraintSizeOptions, Length, FlexDirection, NestedScrollOptions,
-    OnScrollFrameBeginCallback, OnWillScrollCallback, OnScrollCallback, AttributeModifier, ScrollableCommonMethod, CommonMethod
-} from "../framework";
-import { Resource } from "global.resource"
+import { int32 } from '@koalaui/common';
+import { RuntimeType, runtimeType } from '@koalaui/interop';
+import { ArkScrollableNode } from './ArkScrollableNode';
+import {
+  WaterFlowAttribute,
+  ArkWaterFlowPeer,
+  WaterFlowOptions,
+  ConstraintSizeOptions,
+  Length,
+  ItemFillPolicy,
+  FlexDirection,
+  NestedScrollOptions,
+  OnScrollFrameBeginCallback,
+  OnWillScrollCallback,
+  OnScrollCallback,
+  AttributeModifier,
+  ScrollableCommonMethod,
+  CommonMethod
+} from '../framework';
+import { Resource } from 'global.resource'
 export class ArkWaterFlowNode extends ArkScrollableNode implements WaterFlowAttribute {
     constructParam(...param: Object[]): this {
         if (param.length > 1) {
@@ -43,10 +56,10 @@ export class ArkWaterFlowNode extends ArkScrollableNode implements WaterFlowAttr
         return this;
     }
     allowChildTypes(): string[] {
-        return ["FlowItem"];
+        return ['FlowItem'];
     }
-    columnsTemplate(value: string | undefined): this {
-        const value_casted = value as (string | undefined)
+    columnsTemplate(value: string | ItemFillPolicy | undefined): this {
+        const value_casted = value as (string | ItemFillPolicy | undefined)
         this.getPeer()?.setColumnsTemplateAttribute(value_casted)
         this.markDirty()
         return this
@@ -102,20 +115,22 @@ export class ArkWaterFlowNode extends ArkScrollableNode implements WaterFlowAttr
     cachedCount(count: int32 | undefined, show?: boolean): this {
         const count_type = runtimeType(count)
         const show_type = runtimeType(show)
-        if (((RuntimeType.NUMBER == count_type) || (RuntimeType.UNDEFINED == count_type)) && (RuntimeType.UNDEFINED == show_type)) {
+        if (((RuntimeType.NUMBER == count_type) || (RuntimeType.UNDEFINED == count_type)) &&
+            (RuntimeType.UNDEFINED == show_type)) {
             const value_casted = count as (int32 | undefined)
             this.getPeer()?.setCachedCount0Attribute(value_casted)
             this.markDirty()
             return this
         }
-        if (((RuntimeType.NUMBER == count_type) || (RuntimeType.UNDEFINED == count_type)) && ((RuntimeType.BOOLEAN == show_type) || (RuntimeType.UNDEFINED == show_type))) {
+        if (((RuntimeType.NUMBER == count_type) || (RuntimeType.UNDEFINED == count_type)) &&
+            ((RuntimeType.BOOLEAN == show_type) || (RuntimeType.UNDEFINED == show_type))) {
             const count_casted = count as (int32 | undefined)
             const show_casted = show as (boolean | undefined)
             this.getPeer()?.setCachedCount1Attribute(count_casted, show_casted)
             this.markDirty()
             return this
         }
-        throw new Error("Can not select appropriate overload")
+        throw new Error('Can not select appropriate overload')
     }
     cachedCount(value: int32 | undefined): this {
         const count_type = runtimeType(value)
@@ -125,7 +140,13 @@ export class ArkWaterFlowNode extends ArkScrollableNode implements WaterFlowAttr
             this.markDirty()
             return this
         }
-        throw new Error("Can not select appropriate overload")
+        throw new Error('Can not select appropriate overload')
+    }
+    syncLoad(value: boolean | undefined): this {
+        const value_casted = value as (boolean | undefined)
+        this.getPeer()?.setSyncLoadAttribute(value_casted)
+        this.markDirty()
+        return this
     }
     onReachStart(value: (() => void) | undefined): this {
         const value_casted = value as ((() => void) | undefined)
@@ -163,7 +184,13 @@ export class ArkWaterFlowNode extends ArkScrollableNode implements WaterFlowAttr
         this.markDirty()
         return this
     }
-    attributeModifier(value: AttributeModifier<WaterFlowAttribute> | AttributeModifier<ScrollableCommonMethod> | AttributeModifier<CommonMethod> | undefined): this {
-        throw new Error("Unimplemented method attributeModifier")
+    supportEmptyBranchInLazyLoading(supported: boolean | undefined): this {
+ 	    this.getPeer()?.setSupportEmptyBranchInLazyLoadingAttribute(supported)
+ 	    this.markDirty()
+ 	    return this
+ 	}
+    attributeModifier(value: AttributeModifier<WaterFlowAttribute> | AttributeModifier<ScrollableCommonMethod> |
+        AttributeModifier<CommonMethod> | undefined): this {
+        throw new Error('Unimplemented method attributeModifier')
     }
 }

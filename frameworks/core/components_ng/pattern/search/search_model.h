@@ -37,8 +37,7 @@ public:
     virtual void SetCaretColor(const Color& color);
     virtual void ResetCaretColor();
     virtual void SetSearchIconSize(const Dimension& value);
-    virtual void SetSearchIconColor(const Color& color);
-    virtual void ResetSearchIconColor();
+    virtual void SetSearchIconColor(const Color& color) {};
     virtual void SetSearchSrcPath(const std::string& src, const std::string& bundleName, const std::string& moduleName);
     virtual void SetSearchSymbolIcon(std::function<void(WeakPtr<NG::FrameNode>)> iconSymbol);
     virtual void SetSearchDefaultIcon();
@@ -48,12 +47,9 @@ public:
     virtual void SetCancelImageIcon(NG::IconOptions &iconOptions);
     virtual void SetRightIconSrcPath(const std::string& src);
     virtual void SetCancelButtonStyle(CancelButtonStyle cancelButtonStyle);
-    virtual void SetCancelIconSize(const Dimension& value);
-    virtual void SetCancelIconColor(const Color& color);
-    virtual void ResetCancelIconColor();
+    virtual void SetCancelIconColor(const Color& color) {};
     virtual void SetSearchButtonFontSize(const Dimension& value);
-    virtual void SetSearchButtonFontColor(const Color& color);
-    virtual void ResetSearchButtonFontColor();
+    virtual void SetSearchButtonFontColor(const Color& color, bool isTheme = false);
     virtual void SetSearchButtonAutoDisable(bool needToDisable);
     virtual void SetPlaceholderColor(const Color& color);
     virtual void ResetPlaceholderColor();
@@ -76,7 +72,9 @@ public:
     virtual void SetOnChange(std::function<void(const ChangeValueInfo&)>&& onChange);
     virtual void SetOnTextSelectionChange(std::function<void(int32_t, int32_t)>&& func) = 0;
     virtual void SetOnScroll(std::function<void(float, float)>&& func) = 0;
+    virtual void SetOnWillCopy(std::function<bool(const std::u16string&)>&& func) = 0;
     virtual void SetOnCopy(std::function<void(const std::u16string&)>&& func);
+    virtual void SetOnWillCut(std::function<bool(const std::u16string&)>&& func) = 0;
     virtual void SetOnCut(std::function<void(const std::u16string&)>&& func);
     virtual void SetOnPaste(std::function<void(const std::u16string&)>&& func);
     virtual void SetOnPasteWithEvent(std::function<void(const std::u16string&, NG::TextCommonEvent&)>&& func);
@@ -90,12 +88,15 @@ public:
     virtual void SetLetterSpacing(const Dimension& value) {};
     virtual void SetLineHeight(const Dimension& value) {};
     virtual void SetHalfLeading(bool value) {};
+    virtual void SetDividerColor(const Color& color) = 0;
+    virtual void ResetDividerColor() = 0;
     virtual void SetAdaptMinFontSize(const Dimension& value) {};
     virtual void SetAdaptMaxFontSize(const Dimension& value) {};
     virtual void SetTextDecoration(Ace::TextDecoration value) {};
     virtual void SetTextDecorationColor(const Color& value) {};
     virtual void SetTextDecorationStyle(Ace::TextDecorationStyle value) {};
     virtual void SetCustomKeyboard(const std::function<void()>&& buildFunc, bool supportAvoidance = false);
+    virtual void SetCustomKeyboardWithNode(NG::FrameNode* customKeyboard, bool supportAvoidance = false) {};
     virtual void SetSearchEnterKeyType(TextInputAction value);
     virtual void SetSearchCapitalizationMode(AutoCapitalizationMode value);
     virtual void SetMaxLength(uint32_t value);
@@ -122,8 +123,17 @@ public:
     virtual void SetStrokeColor(const Color& value) {};
     virtual void ResetStrokeColor() {};
     virtual void SetEnableAutoSpacing(bool enabled) = 0;
-    virtual void SetOnWillAttachIME(std::function<void(const IMEClient&)>&& func);
+    virtual void SetCompressLeadingPunctuation(bool enabled) = 0;
+    virtual void SetOnWillAttachIME(IMEAttachCallback&& func);
     virtual void SetUserMargin() {};
+    virtual void SetSelectDetectEnable(bool value) = 0;
+    virtual void ResetSelectDetectEnable() = 0;
+    virtual void SetTextDirection(TextDirection value) {}
+    virtual void ResetTextDirection() {}
+    virtual void SetIncludeFontPadding(bool enabled) {};
+    virtual void SetFallbackLineSpacing(bool enabled) {};
+    virtual void SetSelectedDragPreviewStyle(const Color& value) {};
+    virtual void ResetSelectedDragPreviewStyle() {};
 
 private:
     static std::unique_ptr<SearchModel> instance_;

@@ -60,6 +60,7 @@ public:
         for (int i = 0; i < totalCount; ++i) {
             lazyNode->GetFrameChildByIndex(i, true, false, true);
         }
+        lazyNode->SetTotalCount(totalCount);
     }
 
     RefPtr<TestUINode> CreateTestUINode(int32_t nodeId)
@@ -90,7 +91,8 @@ public:
         uiNode->AddChild(columnNode);
         return uiNode;
     };
-    ArkoalaLazyNode::UpdateRangeCb updateRangeCb_ = [](int32_t start, int32_t end) {};
+    ArkoalaLazyNode::UpdateRangeCb updateRangeCb_ = [](
+        int32_t start, int32_t end, int32_t cacheStart, int32_t cacheEnd, bool isLoop) {};
 };
 
 const int32_t INDEX_1 = 1;
@@ -102,7 +104,7 @@ const int32_t CACHED_COUNT = 2;
 
 /**
  * @tc.name: ArkoalaLazyNodeTest001
- * @tc.desc: Test ArkoalaLazyNode GetFrameChildByIndex.
+ * @tc.desc: Test ArkoalaLazyNode GetFrameChildByIndex
  * @tc.type: FUNC
  */
 TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest001)
@@ -113,9 +115,12 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest001)
     auto lazyNode = AceType::MakeRefPtr<ArkoalaLazyNode>(GetNextId());
     EXPECT_EQ(lazyNode->GetTag(), V2::JS_LAZY_FOR_EACH_ETS_TAG);
     lazyNode->SetCallbacks([](int32_t idx) { return ColumnModelNG::CreateFrameNode(-1); },
-        [](int32_t start, int32_t end) {
+        [](int32_t start, int32_t end, int32_t cacheStart, int32_t cacheEnd, bool isLoop) {
             EXPECT_EQ(start, INDEX_8);
             EXPECT_EQ(end, INDEX_8);
+            EXPECT_EQ(cacheStart, 0);
+            EXPECT_EQ(cacheEnd, 0);
+            EXPECT_FALSE(isLoop);
         });
     lazyNode->SetTotalCount(TOTAL_COUNT);
     EXPECT_EQ(lazyNode->FrameCount(), TOTAL_COUNT);
@@ -157,7 +162,7 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest001)
 
 /**
  * @tc.name: ArkoalaLazyNodeTest002
- * @tc.desc: Test ArkoalaLazyNode GetChildByIndex.
+ * @tc.desc: Test ArkoalaLazyNode GetChildByIndex
  * @tc.type: FUNC
  */
 TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest002)
@@ -173,7 +178,8 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest002)
         EXPECT_EQ(uiNode->GetChildren().size(), 1);
         return uiNode;
     };
-    ArkoalaLazyNode::UpdateRangeCb updateRangeCb = [](int32_t start, int32_t end) {};
+    ArkoalaLazyNode::UpdateRangeCb updateRangeCb = [](
+        int32_t start, int32_t end, int32_t cacheStart, int32_t cacheEnd, bool isLoop) {};
     lazyNode->SetCallbacks(createItemCb, updateRangeCb);
 
     /**
@@ -196,7 +202,7 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest002)
 
 /**
  * @tc.name: ArkoalaLazyNodeTest003
- * @tc.desc: Test ArkoalaLazyNode GetFrameNode.
+ * @tc.desc: Test ArkoalaLazyNode GetFrameNode
  * @tc.type: FUNC
  */
 TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest003)
@@ -205,7 +211,8 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest003)
     ArkoalaLazyNode::CreateItemCb createItemCb = [this](int32_t idx) {
         return ColumnModelNG::CreateFrameNode(GetNextId());
     };
-    ArkoalaLazyNode::UpdateRangeCb updateRangeCb = [](int32_t start, int32_t end) {};
+    ArkoalaLazyNode::UpdateRangeCb updateRangeCb = [](
+        int32_t start, int32_t end, int32_t cacheStart, int32_t cacheEnd, bool isLoop) {};
     lazyNode->SetCallbacks(createItemCb, updateRangeCb);
     lazyNode->SetTotalCount(TOTAL_COUNT);
 
@@ -215,7 +222,7 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest003)
 
 /**
  * @tc.name: ArkoalaLazyNodeTest004
- * @tc.desc: Test ArkoalaLazyNode DumpInfo.
+ * @tc.desc: Test ArkoalaLazyNode DumpInfo
  * @tc.type: FUNC
  */
 TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest004)
@@ -239,7 +246,7 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest004)
 
 /**
  * @tc.name: ArkoalaLazyNodeTest005
- * @tc.desc: Test ArkoalaLazyNode OnDataChange.
+ * @tc.desc: Test ArkoalaLazyNode OnDataChange
  * @tc.type: FUNC
  */
 TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest005)
@@ -252,17 +259,14 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest005)
 
 /**
  * @tc.name: ArkoalaLazyNodeTest006
- * @tc.desc: Test ArkoalaLazyNode IsNodeInRange.
+ * @tc.desc: Test ArkoalaLazyNode OnDataChange
  * @tc.type: FUNC
  */
 TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest006)
 {
-    auto lazyNode = CreateLazyForEachNode(GetNextId());
-    RangeType range = { INDEX_1, INDEX_9 };
-    bool ret = lazyNode->IsNodeInRange(0, range);
-    EXPECT_FALSE(ret);
-    ret = lazyNode->IsNodeInRange(INDEX_8, range);
-    EXPECT_TRUE(ret);
+    auto repeatNode = CreateRepeatNode(GetNextId());
+    EXPECT_NE(repeatNode, nullptr);
+    repeatNode->OnDataChange(0, TOTAL_COUNT, UINode::NotificationType::START_CHANGE_POSITION);
 }
 
 /**
@@ -343,14 +347,14 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest010)
  */
 TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest011)
 {
-    auto lazyNode = CreateLazyForEachNode(GetNextId());
-    EXPECT_EQ(lazyNode->children_.size(), 0);
-    CreateChildren(lazyNode, TOTAL_COUNT);
-    auto ret = lazyNode->GetChildren();
+    auto repeatNode = CreateRepeatNode(GetNextId());
+    EXPECT_EQ(repeatNode->children_.size(), 0);
+    CreateChildren(repeatNode, TOTAL_COUNT);
+    auto ret = repeatNode->GetChildren();
     EXPECT_EQ(ret.size(), TOTAL_COUNT);
 
-    lazyNode->children_.clear();
-    ret = lazyNode->GetChildren();
+    repeatNode->children_.clear();
+    ret = repeatNode->GetChildren();
     EXPECT_EQ(ret.size(), TOTAL_COUNT);
 }
 
@@ -361,10 +365,10 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest011)
  */
 TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest012)
 {
-    auto lazyNode = CreateLazyForEachNode(GetNextId());
-    CreateChildren(lazyNode, TOTAL_COUNT);
+    auto repeatNode = CreateRepeatNode(GetNextId());
+    CreateChildren(repeatNode, TOTAL_COUNT);
     std::list<RefPtr<UINode>> ret;
-    lazyNode->ForEachL1Node([&ret, this](int32_t index, const RefPtr<UINode>& node) {
+    repeatNode->ForEachL1Node([&ret, this](int32_t index, const RefPtr<UINode>& node) {
         ret.push_back(node);
     });
     EXPECT_EQ(ret.size(), TOTAL_COUNT);
@@ -397,6 +401,41 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest014)
     lazyNode->children_.clear();
     lazyNode->RequestSyncTree();
     EXPECT_EQ(lazyNode->children_.size(), 0);
+}
+
+/**
+ * @tc.name: RebuildCache001
+ * @tc.desc: Test Rebuild Cache for LazyForEach and Repeat node.
+ * @tc.type: FUNC
+ */
+TEST_F(ArkoalaLazyNodeTest, RebuildCache001)
+{
+    int32_t total_4 = 4;
+    int32_t total_8 = 8;
+    int32_t cache = 4;
+    /**
+     * @tc.steps: step1. Test Rebuild Cache for LazyForEach node
+     */
+    auto lazyNode = CreateLazyForEachNode(GetNextId());
+    CreateChildren(lazyNode, TOTAL_COUNT);
+    lazyNode->DoSetActiveChildRange(1, total_4, cache, cache, false);
+    lazyNode->GetChildren();
+    EXPECT_EQ(lazyNode->children_.size(), total_4);
+    lazyNode->DoSetActiveChildRange(1, total_8, cache, cache, false);
+    lazyNode->GetChildren();
+    EXPECT_EQ(lazyNode->children_.size(), total_8);
+
+    /**
+     * @tc.steps: step2. Test Rebuild Cache for Repeat node
+     */
+    auto repeatNode = CreateRepeatNode(GetNextId());
+    CreateChildren(repeatNode, TOTAL_COUNT);
+    repeatNode->DoSetActiveChildRange(1, total_4, 0, 0, false);
+    repeatNode->GetChildren();
+    EXPECT_EQ(repeatNode->children_.size(), total_4);
+    repeatNode->DoSetActiveChildRange(1, total_8, cache, cache, false);
+    repeatNode->GetChildren();
+    EXPECT_EQ(repeatNode->children_.size(), total_4);
 }
 
 /**
@@ -440,6 +479,11 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest016)
  */
 TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest017)
 {
+    /**
+     * @tc.steps: step1. Test attached nodes for LazyForEach node
+     * @tc.expected: Only nodes in active range and cache range are attached,
+     *   and the size of node4Index is same with active range plus cache range.
+     */
     int32_t totalCount = 50;
     auto lazyNode = CreateLazyForEachNode(GetNextId());
     CreateChildren(lazyNode, totalCount);
@@ -447,14 +491,49 @@ TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest017)
     lazyNode->DoSetActiveChildRange(INDEX_1, INDEX_9, cachedCount, cachedCount, false);
     int32_t result_size = INDEX_9 - INDEX_1 + 1 + cachedCount * 2;
     EXPECT_EQ(static_cast<int32_t>(lazyNode->node4Index_.Size()), result_size);
-    EXPECT_EQ(static_cast<int32_t>(lazyNode->GetChildren().size()), result_size);
+    int32_t children_size = INDEX_9 - INDEX_1 + 1;
+    EXPECT_EQ(static_cast<int32_t>(lazyNode->GetChildren().size()), children_size);
 
+    /**
+     * @tc.steps: step2. Test attached nodes for Repeat node
+     * @tc.expected: Only nodes in active range are attached, and the size of node4Index is same with active range.
+     */
     auto repeatNode = CreateRepeatNode(GetNextId());
     CreateChildren(repeatNode, totalCount);
     repeatNode->DoSetActiveChildRange(INDEX_1, INDEX_9, cachedCount, cachedCount, false);
     int32_t result_size_2 = INDEX_9 - INDEX_1 + 1 + cachedCount * 2;
     EXPECT_EQ(static_cast<int32_t>(repeatNode->node4Index_.Size()), result_size_2);
     EXPECT_EQ(static_cast<int32_t>(repeatNode->GetChildren().size()), result_size_2);
+}
+
+/**
+ * @tc.name: ArkoalaLazyNodeTest018
+ * @tc.desc: Test ArkoalaLazyNode ForEachL1NodeWithOnMove.
+ * @tc.type: FUNC
+ */
+TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest018)
+{
+    auto repeatNode = CreateRepeatNode(GetNextId());
+    CreateChildren(repeatNode, TOTAL_COUNT);
+    std::list<RefPtr<UINode>> ret;
+    repeatNode->ForEachL1NodeWithOnMove([&ret, this](const RefPtr<UINode>& node) {
+        ret.push_back(node);
+    });
+    EXPECT_EQ(ret.size(), TOTAL_COUNT);
+}
+
+/**
+ * @tc.name: ArkoalaLazyNodeTest019
+ * @tc.desc: Test ArkoalaLazyNode BuildAllChildren.
+ * @tc.type: FUNC
+ */
+TEST_F(ArkoalaLazyNodeTest, ArkoalaLazyNodeTest019)
+{
+    auto lazyNode = CreateLazyForEachNode(GetNextId());
+    int32_t totalCount = 50;
+    CreateChildren(lazyNode, totalCount);
+    lazyNode->BuildAllChildren();
+    EXPECT_EQ(lazyNode->children_.size(), totalCount);
 }
 
 /**
@@ -559,5 +638,310 @@ TEST_F(ArkoalaLazyNodeTest, ConvertFromToIndex002)
     EXPECT_EQ(mappedIndex, 5);
     mappedIndex = lazyNode->ConvertFromToIndexRevert(6);
     EXPECT_EQ(mappedIndex, 6);
+}
+
+/**
+ * @tc.name: IsInActiveRange001
+ * @tc.desc: Test ArkoalaLazyNode IsInActiveRange.
+ * @tc.type: FUNC
+ */
+TEST_F(ArkoalaLazyNodeTest, IsInActiveRange001)
+{
+    auto lazyNode = AceType::MakeRefPtr<ArkoalaLazyNode>(GetNextId());
+    lazyNode->totalCount_ = 10;
+    lazyNode->isLoop_ = false;
+    int32_t cachedCount = 2;
+    int32_t activeStart = 3;
+    int32_t activeEnd = 5;
+    ActiveRangeParam activeRangeParam = {activeStart, activeEnd, cachedCount, cachedCount};
+    bool isInRange;
+
+    /**
+     * @tc.steps: step1. Test index in active range
+     * @tc.expected: index [3,5] should be in active range
+     */
+    isInRange = lazyNode->IsInActiveRange(3, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInActiveRange(5, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+
+    /**
+     * @tc.steps: step2. Test index out of active range
+     * @tc.expected: index [0,2] & [6,9] should be out of active range
+     */
+    isInRange = lazyNode->IsInActiveRange(0, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInActiveRange(2, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInActiveRange(6, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInActiveRange(9, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+}
+
+/**
+ * @tc.name: IsInActiveRange002
+ * @tc.desc: Test ArkoalaLazyNode IsInActiveRange with isLoop = true.
+ * @tc.type: FUNC
+ */
+TEST_F(ArkoalaLazyNodeTest, IsInActiveRange002)
+{
+    auto lazyNode = AceType::MakeRefPtr<ArkoalaLazyNode>(GetNextId());
+    lazyNode->totalCount_ = 10;
+    lazyNode->isLoop_ = true;
+    int32_t cachedCount = 2;
+    int32_t activeStart = 7;
+    int32_t activeEnd = 1;
+    ActiveRangeParam activeRangeParam = {activeStart, activeEnd, cachedCount, cachedCount};
+    bool isInRange;
+
+    /**
+     * @tc.steps: step1. Test index in active range
+     * @tc.expected: index [7,9] & [0,1] should be in active range
+     */
+    isInRange = lazyNode->IsInActiveRange(7, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInActiveRange(9, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInActiveRange(0, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInActiveRange(1, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+
+    /**
+     * @tc.steps: step2. Test index out of active range
+     * @tc.expected: index [2,6] should be out of active range
+     */
+    isInRange = lazyNode->IsInActiveRange(2, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInActiveRange(6, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+}
+
+/**
+ * @tc.name: IsInCacheRange001
+ * @tc.desc: Test ArkoalaLazyNode IsInCacheRange.
+ * @tc.type: FUNC
+ */
+TEST_F(ArkoalaLazyNodeTest, IsInCacheRange001)
+{
+    auto lazyNode = AceType::MakeRefPtr<ArkoalaLazyNode>(GetNextId());
+    lazyNode->totalCount_ = 10;
+    lazyNode->isLoop_ = false;
+    int32_t cachedCount = 2;
+    bool isInRange;
+    ActiveRangeParam activeRangeParam;
+
+    /**
+     * @tc.steps: step1. Test linear container boundary scenario
+     * @tc.expected: (0,2,2,2) -> [0,4]
+     */
+    activeRangeParam = {0, 2, cachedCount, cachedCount};
+    isInRange = lazyNode->IsInCacheRange(0, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(4, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(-1, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(5, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    /**
+     * @tc.steps: step2. Test linear container normal scenario
+     * @tc.expected: (3,5,2,2) -> [1,7]
+     */
+    activeRangeParam = {3, 5, cachedCount, cachedCount};
+    isInRange = lazyNode->IsInCacheRange(1, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(7, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(0, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(8, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    /**
+     * @tc.steps: step3. Test linear container boundary scenario
+     * @tc.expected: (7,9,2,2) -> [5,9]
+     */
+    activeRangeParam = {7, 9, cachedCount, cachedCount};
+    isInRange = lazyNode->IsInCacheRange(5, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(9, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(4, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(10, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+}
+
+/**
+ * @tc.name: IsInCacheRange002
+ * @tc.desc: Test ArkoalaLazyNode IsInCacheRange with isLoop = true.
+ * @tc.type: FUNC
+ */
+TEST_F(ArkoalaLazyNodeTest, IsInCacheRange002)
+{
+    auto lazyNode = AceType::MakeRefPtr<ArkoalaLazyNode>(GetNextId());
+    lazyNode->totalCount_ = 10;
+    lazyNode->isLoop_ = true;
+    int32_t cachedCount = 2;
+    bool isInRange;
+    ActiveRangeParam activeRangeParam;
+
+    /**
+     * @tc.steps: step1. Test loop container normal scenario
+     * @tc.expected: (3,5,2,2,true) -> [1,7]
+     */
+    activeRangeParam = {3, 5, cachedCount, cachedCount};
+    isInRange = lazyNode->IsInCacheRange(1, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(7, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(0, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(8, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    /**
+     * @tc.steps: step2. Test loop container boundary scenario
+     * @tc.expected: (0,2,2,2,true) -> [0,4] & [8,9]
+     */
+    activeRangeParam = {0, 2, cachedCount, cachedCount};
+    isInRange = lazyNode->IsInCacheRange(0, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(4, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(8, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(9, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(5, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(7, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    /**
+     * @tc.steps: step3. Test loop container boundary scenario
+     * @tc.expected: (7,9,2,2,true) -> [0,1] & [5,9]
+     */
+    activeRangeParam = {7, 9, cachedCount, cachedCount};
+    isInRange = lazyNode->IsInCacheRange(0, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(1, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(5, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(9, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(2, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(4, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+}
+
+/**
+ * @tc.name: IsInCacheRange003
+ * @tc.desc: Test ArkoalaLazyNode IsInCacheRange with isLoop = true.
+ * @tc.type: FUNC
+ */
+TEST_F(ArkoalaLazyNodeTest, IsInCacheRange003)
+{
+    auto lazyNode = AceType::MakeRefPtr<ArkoalaLazyNode>(GetNextId());
+    lazyNode->totalCount_ = 10;
+    lazyNode->isLoop_ = true;
+    int32_t cachedCount = 2;
+    bool isInRange;
+    ActiveRangeParam activeRangeParam;
+
+    /**
+     * @tc.steps: step1. Test loop container end to end connected scenario
+     * @tc.expected: (9,1,2,2,true) -> [0,3] & [7,9]
+     */
+    activeRangeParam = {9, 1, cachedCount, cachedCount};
+    isInRange = lazyNode->IsInCacheRange(0, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(3, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(7, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(9, activeRangeParam);
+    EXPECT_TRUE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(4, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(6, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    /**
+     * @tc.steps: step2. Test loop container full scenario
+     * @tc.expected: (5,2,2,2,true) -> all in range
+     */
+    activeRangeParam = {5, 2, cachedCount, cachedCount};
+    for (int32_t i = 0; i < lazyNode->totalCount_; ++i) {
+        isInRange = lazyNode->IsInCacheRange(i, activeRangeParam);
+        EXPECT_TRUE(isInRange);
+    }
+    isInRange = lazyNode->IsInCacheRange(-1, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+    isInRange = lazyNode->IsInCacheRange(10, activeRangeParam);
+    EXPECT_FALSE(isInRange);
+}
+
+/**
+ * @tc.name: IsInCacheRange004
+ * @tc.desc: Test ArkoalaLazyNode IsInCacheRange with isLoop = true.
+ * @tc.type: FUNC
+ */
+TEST_F(ArkoalaLazyNodeTest, IsInCacheRange004)
+{
+    auto lazyNode = AceType::MakeRefPtr<ArkoalaLazyNode>(GetNextId());
+    int32_t total = 3;
+    lazyNode->totalCount_ = total;
+    lazyNode->isLoop_ = true;
+    int32_t cachedCount = 1;
+    bool isInRange;
+    ActiveRangeParam activeRangeParam;
+
+    /**
+     * @tc.steps: step1. Test loop container full coverage case
+     * @tc.expected: (0,1,1,1,true) -> [0,2]
+     */
+    activeRangeParam = {0, 1, cachedCount, cachedCount};
+    for (int32_t i = 0; i < lazyNode->totalCount_; ++i) {
+        isInRange = lazyNode->IsInCacheRange(i, activeRangeParam);
+        EXPECT_TRUE(isInRange);
+    }
+}
+
+/**
+ * @tc.name: NeedBuildAll001
+ * @tc.desc: Test ArkoalaLazyNode needBuildAll_ flag and BuildAll
+ * @tc.type: FUNC
+ */
+TEST_F(ArkoalaLazyNodeTest, NeedBuildAll001)
+{
+    /**
+     * @tc.steps: step1. Test needBuildAll_ flag
+     * @tc.expected: needBuildAll_ flag should be set and get correctly
+     */
+    auto lazyNode = CreateLazyForEachNode(GetNextId());
+    EXPECT_TRUE(lazyNode->needBuildAll_);
+    lazyNode->SetNeedBuildAll(false);
+    EXPECT_FALSE(lazyNode->needBuildAll_);
+
+    auto repeatNode = CreateRepeatNode(GetNextId());
+    EXPECT_TRUE(repeatNode->needBuildAll_);
+    repeatNode->SetNeedBuildAll(false);
+    EXPECT_FALSE(repeatNode->needBuildAll_);
+
+    /**
+     * @tc.steps: step2. Test ArkoalaLazyNode BuildAllChildren
+     * @tc.expected: all children should be built
+     */
+    int32_t totalCount = 50;
+    lazyNode->SetNeedBuildAll(true);
+    lazyNode->SetTotalCount(totalCount);
+    lazyNode->BuildAllChildren();
+    EXPECT_EQ(lazyNode->GetChildren().size(), totalCount);
+
+    repeatNode->SetNeedBuildAll(true);
+    repeatNode->SetTotalCount(totalCount);
+    repeatNode->BuildAllChildren();
+    EXPECT_EQ(repeatNode->GetChildren().size(), totalCount);
 }
 } // namespace OHOS::Ace::NG

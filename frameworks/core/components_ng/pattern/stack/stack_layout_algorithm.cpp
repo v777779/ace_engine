@@ -25,14 +25,11 @@ StackLayoutAlgorithm::StackLayoutAlgorithm() = default;
 
 void StackLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
 {
-    auto host = layoutWrapper->GetHostNode();
-    if (host && !host->GetIgnoreLayoutProcess() && GetNeedPostponeForIgnore()) {
-        return;
-    }
     PerformLayout(layoutWrapper);
     for (auto&& child : layoutWrapper->GetAllChildrenWithBuild()) {
         child->Layout();
     }
+    HandleStackContentOverflow(layoutWrapper);
 }
 
 // Called to perform layout render node and child.
@@ -40,8 +37,10 @@ void StackLayoutAlgorithm::PerformLayout(LayoutWrapper* layoutWrapper)
 {
     // update child position.
     auto frameSize = layoutWrapper->GetGeometryNode()->GetFrameSize();
-    const auto& padding = layoutWrapper->GetLayoutProperty()->CreatePaddingAndBorder();
-    auto layoutDirection = layoutWrapper->GetLayoutProperty()->GetLayoutDirection();
+    const auto& stackLayoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(stackLayoutProperty);
+    const auto& padding = stackLayoutProperty->CreatePaddingAndBorder();
+    auto layoutDirection = stackLayoutProperty->GetLayoutDirection();
     if (layoutDirection == TextDirection::AUTO) {
         layoutDirection = AceApplicationInfo::GetInstance().IsRightToLeft() ? TextDirection::RTL : TextDirection::LTR;
     }
@@ -59,8 +58,6 @@ void StackLayoutAlgorithm::PerformLayout(LayoutWrapper* layoutWrapper)
     }
     // Update child position.
     for (const auto& child : layoutWrapper->GetAllChildrenWithBuild()) {
-        auto childNode = child->GetHostNode();
-        auto host = layoutWrapper->GetHostNode();
         auto childAlign = align;
         auto childLayoutProperty = child->GetLayoutProperty();
         if (childLayoutProperty && childLayoutProperty->GetPositionProperty() &&
@@ -69,6 +66,8 @@ void StackLayoutAlgorithm::PerformLayout(LayoutWrapper* layoutWrapper)
                 childLayoutProperty->GetPositionProperty()->GetLayoutGravity().value_or(Alignment::CENTER);
             childAlign = Alignment::GetAlignment(layoutDirection, rawChildAlign.GetAlignmentStr(TextDirection::AUTO));
         }
+        auto childNode = child->GetHostNode();
+        auto host = layoutWrapper->GetHostNode();
         if (host && childNode && childNode->GetLayoutProperty() &&
             childNode->GetLayoutProperty()->IsIgnoreOptsValid()) {
             IgnoreLayoutSafeAreaOpts& opts = *(childNode->GetLayoutProperty()->GetIgnoreLayoutSafeAreaOpts());

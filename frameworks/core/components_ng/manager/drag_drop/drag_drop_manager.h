@@ -23,6 +23,7 @@
 #include "base/utils/noncopyable.h"
 #include "core/common/clipboard/clipboard.h"
 #include "core/common/interaction/interaction_data.h"
+#include "core/common/udmf/udmf_client.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_proxy.h"
 #include "core/components_ng/manager/drag_drop/utils/internal_drag_action.h"
@@ -36,6 +37,7 @@ class GridColumnInfo;
 namespace OHOS::Rosen {
 class RSSyncTransactionController;
 class RSSyncTransactionHandler;
+class RSTransaction;
 } // namespace OHOS::Rosen
 namespace OHOS::Ace::NG {
 class DragDropSpringLoadingDetector;
@@ -64,7 +66,7 @@ class ACE_EXPORT DragDropManager : public virtual AceType {
 
 public:
     DragDropManager();
-    ~DragDropManager() override = default;
+    ~DragDropManager();
 
     RefPtr<DragDropProxy> CreateAndShowItemDragOverlay(
         const RefPtr<PixelMap>& pixelMap, const GestureEvent& info, const RefPtr<EventHub>& eventHub);
@@ -148,9 +150,9 @@ public:
         const std::string& udKey, int32_t count = 0);
     void OnDragDrop(RefPtr<OHOS::Ace::DragEvent>& event, const RefPtr<FrameNode>& dragFrameNode,
         const OHOS::Ace::DragPointerEvent& pointerEvent);
-    std::function<void(const DragRet&)> GetStopDragCallBack(const RefPtr<FrameNode>& dragFrameNode,
-        const DragPointerEvent& pointerEvent, const RefPtr<OHOS::Ace::DragEvent>& event,
-        const std::string& extraParams);
+    std::function<void(const DragRet&, const DragBehavior&, const bool&)> GetStopDragCallBack(
+        const RefPtr<FrameNode>& dragFrameNode, const DragPointerEvent& pointerEvent,
+        const RefPtr<OHOS::Ace::DragEvent>& event, const std::string& extraParams);
     bool PostStopDrag(const RefPtr<FrameNode>& dragFrameNode, const DragPointerEvent& pointerEvent,
         const RefPtr<OHOS::Ace::DragEvent>& event, const std::string& extraParams);
     void HandleStopDrag(const RefPtr<FrameNode>& dragFrameNode, const DragPointerEvent& pointerEvent,
@@ -166,7 +168,7 @@ public:
         const RefPtr<FrameNode>& node = nullptr);
     void OnTextDragEnd(float globalX, float globalY, const std::string& extraInfo);
     void onDragCancel();
-    void OnDragAsyncEnd();
+    void OnDragEnd();
     void SetCallAnsyncDragEnd(const std::function<void(DragStartRequestStatus)>& cb);
     void OnItemDragStart(float globalX, float globalY, const RefPtr<FrameNode>& frameNode);
     void OnItemDragMove(float globalX, float globalY, int32_t draggedIndex, DragType dragType);
@@ -213,8 +215,9 @@ public:
     bool CheckDragDropProxy(int64_t id) const;
     void NotifyEnterTextEditorArea();
     void FireOnEditableTextComponent(const RefPtr<FrameNode>& frameNode, DragEventType type);
-    void FireOnDragLeave(const RefPtr<FrameNode>& preTargetFrameNode_, const DragPointerEvent& pointerEven,
+    void FireOnDragLeave(const RefPtr<FrameNode>& preTargetFrameNode_, const DragPointerEvent& pointerEvent,
         const std::string& extraInfo);
+    bool ShouldSkipDragMoveOutForSubwindow() const;
 
     bool IsWindowConsumed() const
     {
@@ -386,6 +389,8 @@ public:
         RectF dragPreviewRect;
         bool isMenuShow = false;
         NG::DraggingSizeChangeEffect sizeChangeEffect = DraggingSizeChangeEffect::DEFAULT;
+        bool isDragController = false;
+        bool isSceneBoardTouchDrag = false;
     } DragPreviewInfo;
     bool IsNeedScaleDragPreview();
     void DoDragMoveAnimate(const DragPointerEvent& pointerEvent);
@@ -495,10 +500,8 @@ public:
         return dragAnimationPointerEvent_;
     }
 
-    void SetDragAnimationPointerEvent(const DragPointerEvent& pointerEvent)
-    {
-        dragAnimationPointerEvent_ = pointerEvent;
-    }
+    void SetDragAnimationPointerEvent(
+        const DragPointerEvent& pointerEvent, const RefPtr<NG::FrameNode>& node = nullptr);
 
     bool IsDragFwkShow() const
     {
@@ -568,6 +571,13 @@ public:
 
     float GetCurrentDistance(float x, float y);
 
+    static double GetMaxWidthBaseOnGridSystem(const RefPtr<PipelineBase>& pipeline);
+
+    static std::shared_ptr<ScaleDataInfo> GetScaleInfo(float width, float height, bool textDraggable);
+
+    static std::shared_ptr<ScaleDataInfo> CalculateScale(
+        float width, float height, float widthLimit, float heightLimit);
+
     uint32_t GetDampingOverflowCount() const
     {
         return dampingOverflowCount_;
@@ -582,12 +592,6 @@ public:
     {
         dampingOverflowCount_++;
     }
-    static double GetMaxWidthBaseOnGridSystem(const RefPtr<PipelineBase>& pipeline);
-
-    static std::shared_ptr<ScaleDataInfo> GetScaleInfo(float width, float height, bool textDraggable);
-
-    static std::shared_ptr<ScaleDataInfo> CalculateScale(
-        float width, float height, float widthLimit, float heightLimit);
 
     RefPtr<FrameNode> GetMenuWrapperNode()
     {
@@ -648,6 +652,12 @@ public:
         return preDragPointerEvent_;
     }
 
+    void SetLastDragPointerEvent(const DragPointerEvent& pointerEvent, const RefPtr<NG::FrameNode>& node = nullptr)
+    {
+        lastRootNode_ = node;
+        lastDragPointerEvent_ = pointerEvent;
+    }
+
     void SetIsReDragStart(bool isReDragStart)
     {
         isReDragStart_ = isReDragStart;
@@ -658,24 +668,49 @@ public:
         dragStartAnimationRate_ = rate;
     }
 
-    void SetDragStartPoint(double globalX, double globalY)
-    {
-        dragStartPoint_ = { globalX, globalY };
-    }
-    
     bool CheckIsFolderSubwindowBoundary(float x, float y, int32_t instanceId);
 
     bool CheckIsUIExtensionBoundary(float x, float y, int32_t instanceId);
 
     void UpdatePointInfoForFinger(int32_t pointerId, Point point);
 
-    void HandleTouchEvent(const TouchEvent& event);
+    void HandleTouchEvent(const TouchEvent& event, const RefPtr<NG::FrameNode>& node = nullptr);
     void HandleMouseEvent(const MouseEvent& event);
     void HandlePipelineOnHide();
 
     void ResetBundleInfo();
 
     void RequireBundleInfo();
+
+    void SetRootNode(RefPtr<FrameNode>& rootNode)
+    {
+        rootNode_ = rootNode;
+    }
+    
+    void SetIsFlushDragEvent(bool isFlushed)
+    {
+        isFlushed_ = isFlushed;
+    }
+
+    void DispatchLastDragEventVoluntarily(bool isTrans);
+
+    void SetDragStartPoint(double globalX, double globalY)
+    {
+        dragStartPoint_ = { globalX, globalY };
+    }
+
+
+#ifdef ENABLE_ROSEN_BACKEND
+    void InitSyncTransaction();
+
+    void ResetSyncTransaction();
+
+    void OpenSyncTransaction();
+
+    void CloseSyncTransaction();
+
+    std::shared_ptr<Rosen::RSTransaction> GetRSTransaction();
+#endif
 
 private:
     double CalcDragPreviewDistanceWithPoint(
@@ -734,13 +769,13 @@ private:
         const RefPtr<OverlayManager>& overlayManager, const RefPtr<NodeAnimatablePropertyFloat>& property, Point point);
     void StartDragTransitionAnimation(const Offset& newOffset, AnimationOption option,
         const RefPtr<OverlayManager>& overlayManager, const RefPtr<NodeAnimatablePropertyFloat>& property, Point point);
-    void ReportOnItemDropEvent(
-        DragType dragType, const RefPtr<FrameNode>& dragFrameNode, double dropPositionX, double dropPositionY);
     void NotifyDragSpringLoadingMove(const RefPtr<FrameNode>& dragFrameNode, const std::string& extraInfo);
     void NotifyDragSpringLoadingIntercept(std::string_view extraParams);
     void SetRSSyncTransaction(OHOS::Rosen::RSSyncTransactionController** transactionController,
         std::shared_ptr<Rosen::RSSyncTransactionHandler>& transactionHandler,
         const RefPtr<NG::PipelineContext>& pipeline);
+    void ReportOnItemDropEvent(
+        DragType dragType, const RefPtr<FrameNode>& dragFrameNode, double dropPositionX, double dropPositionY);
 
     std::map<int32_t, WeakPtr<FrameNode>> gridDragFrameNodes_;
     std::map<int32_t, WeakPtr<FrameNode>> listDragFrameNodes_;
@@ -750,9 +785,12 @@ private:
     RefPtr<FrameNode> draggedGridFrameNode_;
     RefPtr<FrameNode> preGridTargetFrameNode_;
     RefPtr<FrameNode> itemDragOverlayNode_;
+    RefPtr<FrameNode> rootNode_ = nullptr;
+    RefPtr<FrameNode> lastRootNode_ = nullptr;
     RefPtr<Clipboard> clipboard_;
     Point preMovePoint_ = Point(0, 0);
     DragPointerEvent preDragPointerEvent_;
+    DragPointerEvent lastDragPointerEvent_;
     uint64_t preTimeStamp_ = 0L;
     std::function<void(const std::string&)> addDataCallback_ = nullptr;
     std::function<void(const std::string&)> getDataCallback_ = nullptr;
@@ -765,6 +803,7 @@ private:
     std::unordered_map<int32_t, std::function<void(const DragPointerEvent&)>> pullEventListener_;
     DragCursorStyleCore dragCursorStyleCore_ = DragCursorStyleCore::DEFAULT;
     std::map<std::string, int64_t> summaryMap_;
+    DragSummaryInfo dragSummaryInfo_;
     uint32_t recordSize_ = 0;
     int64_t currentId_ = -1;
     int32_t currentPointerId_ = -1;
@@ -782,9 +821,10 @@ private:
     bool isDragNodeNeedClean_ = false;
     bool isAnyDraggableHit_ = false;
     bool isReDragStart_ = false;
+    bool isFlushed_ = false;
     VelocityTracker velocityTracker_;
-    DragDropMgrState dragDropState_ = DragDropMgrState::IDLE;
     Rect previewRect_ { -1, -1, -1, -1 };
+    DragDropMgrState dragDropState_ = DragDropMgrState::IDLE;
     DragPreviewInfo info_;
     DragPointerEvent dragDropPointerEvent_;
     DragPointerEvent dragAnimationPointerEvent_;
@@ -806,11 +846,11 @@ private:
     OffsetF dragMovePosition_ = OffsetF(0.0f, 0.0f);
     OffsetF lastDragMovePosition_ = OffsetF(0.0f, 0.0f);
     OffsetF dragTotalMovePosition_ = OffsetF(0.0f, 0.0f);
-    uint32_t dampingOverflowCount_ = 0;
-    std::shared_ptr<OHOS::Ace::NG::ArkUIInteralDragAction> dragAction_;
     RefPtr<GridColumnInfo> columnInfo_;
+    uint32_t dampingOverflowCount_ = 0;
     WeakPtr<FrameNode> menuWrapperNode_;
     WeakPtr<OverlayManager> subwindowOverlayManager_;
+    std::shared_ptr<OHOS::Ace::NG::ArkUIInteralDragAction> dragAction_;
     ACE_DISALLOW_COPY_AND_MOVE(DragDropManager);
     bool grayedState_ = false;
     Point dragStartPoint_ { 0, 0 };
@@ -821,6 +861,10 @@ private:
     bool isPullThrow_ = false;
     int32_t BundlecurrentPullId_ = -1;
     DragBundleInfo dragBundleInfo_;
+#ifdef ENABLE_ROSEN_BACKEND
+    OHOS::Rosen::RSSyncTransactionController* transactionController_ = nullptr;
+    std::shared_ptr<Rosen::RSSyncTransactionHandler> transactionHandler_ = nullptr;
+#endif
 };
 } // namespace OHOS::Ace::NG
 

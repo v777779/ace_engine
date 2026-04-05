@@ -18,7 +18,7 @@
 #include "base/geometry/dimension.h"
 #include "base/utils/utf_helper.h"
 #include "core/components/common/properties/alignment.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_stack_processor.h"
@@ -42,7 +42,7 @@ void TextModelStatic::SetFontSize(FrameNode* frameNode, const std::optional<Dime
             ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, FontSize, value.value(), frameNode);
         }
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, FontSize, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, FontSize, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -60,7 +60,8 @@ void TextModelStatic::SetItalicFontStyle(FrameNode* frameNode, const std::option
     if (value.has_value()) {
         TextModelNG::SetItalicFontStyle(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, ItalicFontStyle, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, ItalicFontStyle, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -69,7 +70,7 @@ void TextModelStatic::SetFontWeight(FrameNode* frameNode, const std::optional<Ac
     if (value.has_value()) {
         TextModelNG::SetFontWeight(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, FontWeight, frameNode);
+        TextModelNG::SetFontWeight(frameNode, FontWeight::NORMAL);
     }
 }
 
@@ -92,7 +93,17 @@ void TextModelStatic::SetTextAlign(FrameNode* frameNode, const std::optional<Ace
     if (value.has_value()) {
         TextModelNG::SetTextAlign(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextAlign, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, TextAlign, PROPERTY_UPDATE_MEASURE, frameNode);
+    }
+}
+
+void TextModelStatic::SetTextDirection(FrameNode* frameNode, const std::optional<TextDirection>& valueOpt)
+{
+    if (valueOpt.has_value()) {
+        TextModelNG::SetTextDirection(frameNode, valueOpt.value());
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, TextDirection, PROPERTY_UPDATE_MEASURE_SELF, frameNode);
     }
 }
 
@@ -110,7 +121,7 @@ void TextModelStatic::SetLineHeight(FrameNode* frameNode, const std::optional<Di
     if (value.has_value()) {
         TextModelNG::SetLineHeight(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, LineHeight, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, LineHeight, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -119,7 +130,7 @@ void TextModelStatic::SetLineSpacing(FrameNode* frameNode, const std::optional<D
     if (value.has_value()) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, LineSpacing, value.value(), frameNode);
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, LineSpacing, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, LineSpacing, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -138,7 +149,8 @@ void TextModelStatic::SetTextDecorationColor(FrameNode* frameNode, const std::op
     if (value.has_value()) {
         TextModelNG::SetTextDecorationColor(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextDecorationColor, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, TextDecorationColor, PROPERTY_UPDATE_MEASURE_SELF, frameNode);
     }
 }
 
@@ -147,7 +159,8 @@ void TextModelStatic::SetTextDecorationStyle(FrameNode* frameNode, const std::op
     if (value.has_value()) {
         TextModelNG::SetTextDecorationStyle(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextDecorationStyle, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, TextDecorationStyle, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -156,7 +169,7 @@ void TextModelStatic::SetTextCase(FrameNode* frameNode, const std::optional<Ace:
     if (value.has_value()) {
         TextModelNG::SetTextCase(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextCase, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, TextCase, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -165,7 +178,7 @@ void TextModelStatic::SetMaxLines(FrameNode* frameNode, const std::optional<uint
     if (value.has_value()) {
         TextModelNG::SetMaxLines(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, MaxLines, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, MaxLines, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -174,7 +187,8 @@ void TextModelStatic::SetAdaptMinFontSize(FrameNode* frameNode, const std::optio
     if (value.has_value()) {
         TextModelNG::SetAdaptMinFontSize(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, AdaptMinFontSize, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, AdaptMinFontSize, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -183,7 +197,8 @@ void TextModelStatic::SetAdaptMaxFontSize(FrameNode* frameNode, const std::optio
     if (value.has_value()) {
         TextModelNG::SetAdaptMaxFontSize(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, AdaptMaxFontSize, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, AdaptMaxFontSize, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -210,7 +225,7 @@ void TextModelStatic::SetFontFamily(FrameNode* frameNode, const std::optional<st
     if (value.has_value()) {
         TextModelNG::SetFontFamily(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, FontFamily, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, FontFamily, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -228,7 +243,8 @@ void TextModelStatic::SetTextShadow(FrameNode* frameNode, const std::optional<st
     if (value.has_value()) {
         TextModelNG::SetTextShadow(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextShadow, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, TextShadow, PROPERTY_UPDATE_MEASURE_SELF, frameNode);
     }
 }
 
@@ -238,7 +254,8 @@ void TextModelStatic::SetHeightAdaptivePolicy(FrameNode* frameNode,
     if (value.has_value()) {
         TextModelNG::SetHeightAdaptivePolicy(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, HeightAdaptivePolicy, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, HeightAdaptivePolicy, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -247,7 +264,7 @@ void TextModelStatic::SetTextIndent(FrameNode* frameNode, const std::optional<Di
     if (value.has_value()) {
         TextModelNG::SetTextIndent(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextIndent, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, TextIndent, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -256,7 +273,8 @@ void TextModelStatic::SetBaselineOffset(FrameNode* frameNode, const std::optiona
     if (value.has_value()) {
         TextModelNG::SetBaselineOffset(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, BaselineOffset, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, BaselineOffset, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -282,7 +300,7 @@ void TextModelStatic::SetLetterSpacing(FrameNode* frameNode, const std::optional
     if (value.has_value()) {
         TextModelNG::SetLetterSpacing(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, LetterSpacing, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, LetterSpacing, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -291,7 +309,7 @@ void TextModelStatic::SetWordBreak(FrameNode* frameNode, const std::optional<Ace
     if (value.has_value()) {
         TextModelNG::SetWordBreak(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, WordBreak, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, WordBreak, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -300,7 +318,8 @@ void TextModelStatic::SetLineBreakStrategy(FrameNode* frameNode, const std::opti
     if (value.has_value()) {
         TextModelNG::SetLineBreakStrategy(frameNode, value.value());
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, LineBreakStrategy, frameNode);
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, LineBreakStrategy, PROPERTY_UPDATE_MEASURE, frameNode);
     }
 }
 
@@ -337,12 +356,22 @@ void TextModelStatic::SetSelectedBackgroundColor(FrameNode* frameNode, const std
 }
 
 void TextModelStatic::SetSelectionMenuOptions(FrameNode* frameNode,
-    const NG::OnCreateMenuCallback&& onCreateMenuCallback, const NG::OnMenuItemClickCallback&& onMenuItemClick)
+    const NG::OnCreateMenuCallback&& onCreateMenuCallback, const NG::OnMenuItemClickCallback&& onMenuItemClick,
+    const NG::OnPrepareMenuCallback&& onPrepareMenuCallback)
 {
     CHECK_NULL_VOID(frameNode);
     auto textPattern = frameNode->GetPattern<TextPattern>();
     CHECK_NULL_VOID(textPattern);
-    textPattern->OnSelectionMenuOptionsUpdate(std::move(onCreateMenuCallback), std::move(onMenuItemClick), nullptr);
+    textPattern->OnSelectionMenuOptionsUpdate(std::move(onCreateMenuCallback), std::move(onMenuItemClick),
+        std::move(onPrepareMenuCallback));
+}
+
+void TextModelStatic::ResetSelectionMenuOptions(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(textPattern);
+    textPattern->OnSelectionMenuOptionsUpdate(nullptr, nullptr, nullptr);
 }
 
 void TextModelStatic::BindSelectionMenu(FrameNode* frameNode, TextSpanType& spanType,
@@ -365,4 +394,119 @@ void TextModelStatic::SetEnableHapticFeedback(FrameNode* frameNode, const std::o
     TextModelNG::SetEnableHapticFeedback(frameNode, state.value_or(true));
 }
 
+void TextModelStatic::SetCompressLeadingPunctuation(FrameNode* frameNode, const std::optional<bool>& enable)
+{
+    TextModelNG::SetCompressLeadingPunctuation(frameNode, enable.value_or(false));
+}
+
+void TextModelStatic::SetOrphanCharOptimization(FrameNode* frameNode, const std::optional<bool>& valueOpt)
+{
+    TextModelNG::SetOrphanCharOptimization(frameNode, valueOpt.value_or(false));
+}
+
+void TextModelStatic::SetIncludeFontPadding(FrameNode* frameNode, const std::optional<bool>& valueOpt)
+{
+    TextModelNG::SetIncludeFontPadding(frameNode, valueOpt.value_or(false));
+}
+
+void TextModelStatic::SetFallbackLineSpacing(FrameNode* frameNode, const std::optional<bool>& valueOpt)
+{
+    TextModelNG::SetFallbackLineSpacing(frameNode, valueOpt.value_or(false));
+}
+
+void TextModelStatic::SetSelectedDragPreviewStyle(FrameNode* frameNode, const std::optional<Color>& color)
+{
+    if (color.has_value()) {
+        TextModelNG::SetSelectedDragPreviewStyle(frameNode, color.value());
+        return;
+    }
+    TextModelNG::ResetSelectedDragPreviewStyle(frameNode);
+}
+
+void TextModelStatic::SetOptimizeTrailingSpace(FrameNode* frameNode, const std::optional<bool>& valueOpt)
+{
+    TextModelNG::SetOptimizeTrailingSpace(frameNode, valueOpt.value_or(false));
+}
+
+void TextModelStatic::SetEnableAutoSpacing(FrameNode* frameNode, const std::optional<bool>& valueOpt)
+{
+    TextModelNG::SetEnableAutoSpacing(frameNode, valueOpt.value_or(false));
+}
+
+void TextModelStatic::SetIsOnlyBetweenLines(FrameNode* frameNode, const std::optional<bool>& valueOpt)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, IsOnlyBetweenLines, valueOpt.value_or(false), frameNode);
+}
+
+void TextModelStatic::SetTextContentAlign(FrameNode* frameNode, const std::optional<TextContentAlign>& valueOpt)
+{
+    if (valueOpt.has_value()) {
+        TextModelNG::SetTextContentAlign(frameNode, valueOpt.value());
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextContentAlign, frameNode);
+    }
+}
+
+void TextModelStatic::SetMinLines(FrameNode* frameNode, const std::optional<uint32_t>& valueOpt)
+{
+    if (valueOpt.has_value()) {
+        TextModelNG::SetMinLines(frameNode, valueOpt.value());
+    } else {
+        TextModelNG::ResetMinLines(frameNode);
+    }
+}
+
+void TextModelStatic::SetMinimumLineHeight(FrameNode* frameNode, const std::optional<Dimension>& valueOpt)
+{
+    if (valueOpt.has_value()) {
+        TextModelNG::SetMinimumLineHeight(frameNode, valueOpt.value());
+    } else {
+        TextModelNG::ResetMinimumLineHeight(frameNode);
+    }
+}
+
+void TextModelStatic::SetMaximumLineHeight(FrameNode* frameNode, const std::optional<Dimension>& valueOpt)
+{
+    if (valueOpt.has_value()) {
+        TextModelNG::SetMaximumLineHeight(frameNode, valueOpt.value());
+    } else {
+        TextModelNG::ResetMaximumLineHeight(frameNode);
+    }
+}
+
+void TextModelStatic::SetLineHeightMultiply(FrameNode* frameNode, const std::optional<double>& valueOpt)
+{
+    if (valueOpt.has_value()) {
+        TextModelNG::SetLineHeightMultiply(frameNode, valueOpt.value());
+    } else {
+        TextModelNG::ResetLineHeightMultiply(frameNode);
+    }
+}
+
+void TextModelStatic::SetContentTransition(
+    FrameNode* frameNode, const std::optional<TextEffectStrategy> value,
+    const std::optional<TextFlipDirection> direction, const std::optional<bool> enableBlur)
+{
+    if (value.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextEffectStrategy, value.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            TextLayoutProperty, TextEffectStrategy, PROPERTY_UPDATE_MEASURE_SELF, frameNode);
+    }
+    if (direction.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextFlipDirection, direction.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextFlipDirection, frameNode);
+    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextFlipEnableBlur, enableBlur.value_or(false), frameNode);
+}
+
+void TextModelStatic::SetSelectDetectEnable(FrameNode* frameNode, const std::optional<bool>& value)
+{
+    if (value.has_value()) {
+        TextModelNG::SetSelectDetectEnable(frameNode, value.value());
+    } else {
+        TextModelNG::ResetSelectDetectEnable(frameNode);
+    }
+}
 } // namespace OHOS::Ace::NG

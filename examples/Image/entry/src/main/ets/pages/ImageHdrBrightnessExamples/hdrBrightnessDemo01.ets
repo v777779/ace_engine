@@ -48,12 +48,13 @@ struct hdrBrightnessDemo01 {
     } else {
       console.info('imageInfo.isHdr: ' + imageInfo.isHdr)
     }
+    imageSource?.release()
   }
 
   build() {
     Column() {
       // Display the image and apply dynamic HDR brightness
-      Image($r('app.media.img_1'))
+      Image($r('app.media.startIcon'))
         .width('50%')           // Set image width to 50% of the screen
         .height('auto')         // Height adjusts automatically to maintain aspect ratio
         .margin({ top: 160 })   // Top margin spacing

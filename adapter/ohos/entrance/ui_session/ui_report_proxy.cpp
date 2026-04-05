@@ -15,9 +15,44 @@
 
 #include "interfaces/inner_api/ui_session/ui_report_proxy.h"
 
+#include "pixel_map.h"
+
+#include "adapter/ohos/entrance/ui_session/include/large_string_ashmem.h"
+#include "adapter/ohos/entrance/ui_session/include/ui_session_log.h"
 #include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
-#include "adapter/ohos/entrance/ui_session/include/ui_service_hilog.h"
+namespace {
+void WriteWebImagesStruct(const std::map<int32_t, std::map<int32_t,
+    std::shared_ptr<OHOS::Media::PixelMap>>>& webImages, OHOS::MessageParcel& messageData)
+{
+    for (const auto& mapIter : webImages) {
+        if (!messageData.WriteInt32(mapIter.first)) {
+            LOGW("SendArkWebImagesById write webImages id failed");
+            return;
+        }
+        size_t webImagesMapSize = mapIter.second.size();
+        if (!messageData.WriteUint64(webImagesMapSize)) {
+            LOGW("SendArkWebImagesById write webImagesMapSize failed");
+            return;
+        }
+        for (const auto& webImageIdIter : mapIter.second) {
+            if (!messageData.WriteInt32(webImageIdIter.first)) {
+                LOGW("SendArkWebImagesById write webImages result id failed");
+                return;
+            }
+            bool nextPixelMapIsAvailable = webImageIdIter.second != nullptr;
+            if (!messageData.WriteBool(nextPixelMapIsAvailable)) {
+                LOGW("SendArkWebImagesById write nextPixelMapIsAvailable failed");
+                return;
+            }
+            if (nextPixelMapIsAvailable && !webImageIdIter.second->Marshalling(messageData)) {
+                LOGW("SendArkWebImagesById write webImage nextPixelMap failed");
+                return;
+            }
+        }
+    }
+}
+} // namespace
 
 namespace OHOS::Ace {
 void UiReportProxy::ReportClickEvent(const std::string& data)
@@ -33,8 +68,9 @@ void UiReportProxy::ReportClickEvent(const std::string& data)
         LOGW("ReportClickEvent write data failed");
         return;
     }
-    if (Remote()->SendRequest(REPORT_CLICK_EVENT, messageData, reply, option) != ERR_NONE) {
-        LOGW("ReportClickEvent send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_CLICK_EVENT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportClickEvent send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
@@ -51,8 +87,9 @@ void UiReportProxy::ReportRouterChangeEvent(const std::string& data)
         LOGW("ReportRouterChangeEvent write data failed");
         return;
     }
-    if (Remote()->SendRequest(REPORT_SWITCH_EVENT, messageData, reply, option) != ERR_NONE) {
-        LOGW("ReportRouterChangeEvent send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_SWITCH_EVENT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportRouterChangeEvent send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
@@ -69,8 +106,9 @@ void UiReportProxy::ReportComponentChangeEvent(const std::string& data)
         LOGW("ReportComponentChangeEvent write data failed");
         return;
     }
-    if (Remote()->SendRequest(REPORT_COMPONENT_EVENT, messageData, reply, option) != ERR_NONE) {
-        LOGW("ReportComponentChangeEvent send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_COMPONENT_EVENT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportComponentChangeEvent send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
@@ -87,8 +125,28 @@ void UiReportProxy::ReportSearchEvent(const std::string& data)
         LOGW("ReportSearchEvent write data failed");
         return;
     }
-    if (Remote()->SendRequest(REPORT_SEARCH_EVENT, messageData, reply, option) != ERR_NONE) {
-        LOGW("ReportSearchEvent send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_SEARCH_EVENT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportSearchEvent send request failed, errorCode is %{public}d", sendRequestErrorCode);
+    }
+}
+
+void UiReportProxy::ReportTextChangeEvent(const std::string& data)
+{
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option;
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("ReportTextChangeEvent write interface token failed");
+        return;
+    }
+    if (!messageData.WriteString(data)) {
+        LOGW("ReportTextChangeEvent write data failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_TEXT_CHANGE_EVENT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportTextChangeEvent send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
@@ -101,7 +159,16 @@ void UiReportProxy::ReportInspectorTreeValue(const std::string& data, int32_t pa
         LOGW("ReportInspectorTreeValue write interface token failed");
         return;
     }
-    if (!messageData.WriteString(data)) {
+    sptr<LargeStringAshmem> largeStringAshmem = new (std::nothrow) LargeStringAshmem();
+    if (largeStringAshmem == nullptr) {
+        LOGW("ReportInspectorTreeValue alloc shmem failed");
+        return;
+    }
+    if (!largeStringAshmem->WriteToAshmem(std::to_string(REPORT_INSPECTOR_VALUE), data, data.length())) {
+        LOGW("ReportInspectorTreeValue write to shmem failed");
+        return;
+    }
+    if (!messageData.WriteParcelable(largeStringAshmem)) {
         LOGW("ReportInspectorTreeValue write data  failed");
         return;
     }
@@ -113,8 +180,36 @@ void UiReportProxy::ReportInspectorTreeValue(const std::string& data, int32_t pa
         LOGW("ReportInspectorTreeValue write data  failed");
         return;
     }
-    if (Remote()->SendRequest(REPORT_INSPECTOR_VALUE, messageData, reply, option) != ERR_NONE) {
-        LOGW("ReportInspectorTreeValue send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_INSPECTOR_VALUE, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportInspectorTreeValue send request failed, errorCode is %{public}d", sendRequestErrorCode);
+    }
+}
+
+void UiReportProxy::ReportHitTestNodeInfos(const std::string& data, int32_t partNum, bool isLastPart)
+{
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option;
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("ReportHitTestNodeInfos write interface token failed");
+        return;
+    }
+    if (!messageData.WriteString(data)) {
+        LOGW("ReportHitTestNodeInfos write data  failed");
+        return;
+    }
+    if (!messageData.WriteInt32(partNum)) {
+        LOGW("ReportHitTestNodeInfos write data  failed");
+        return;
+    }
+    if (!messageData.WriteBool(isLastPart)) {
+        LOGW("ReportHitTestNodeInfos write data  failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_HIT_TEST_NODE_INFOS, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportHitTestNodeInfos send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
@@ -144,8 +239,91 @@ void UiReportProxy::ReportWebUnfocusEvent(int64_t accessibilityId, const std::st
         LOGW("ReportWebUnfocusEvent write data  failed");
         return;
     }
-    if (Remote()->SendRequest(REPORT_WEB_UNFOCUS_EVENT, messageData, reply, option) != ERR_NONE) {
-        LOGW("ReportWebUnfocusEvent send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_WEB_UNFOCUS_EVENT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportWebUnfocusEvent send request failed, errorCode is %{public}d", sendRequestErrorCode);
+    }
+}
+
+void UiReportProxy::ReportScrollEvent(const std::string& data)
+{
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option;
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("ReportScrollEvent write interface token failed");
+        return;
+    }
+    if (!messageData.WriteString(data)) {
+        LOGW("ReportScrollEvent write data  failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_SCROLL_EVENT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportScrollEvent send request failed, errorCode is %{public}d", sendRequestErrorCode);
+    }
+}
+
+void UiReportProxy::ReportLifeCycleEvent(const std::string& data)
+{
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option;
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("ReportLifeCycleEvent write interface token failed");
+        return;
+    }
+    if (!messageData.WriteString(data)) {
+        LOGW("ReportLifeCycleEvent write data  failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_LIFE_CYCLE_EVENT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportLifeCycleEvent send request failed, errorCode is %{public}d", sendRequestErrorCode);
+    }
+}
+
+void UiReportProxy::ReportSelectTextEvent(const std::string& data)
+{
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option;
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("ReportLifeCycleEvent write interface token failed");
+        return;
+    }
+    if (!messageData.WriteString(data)) {
+        LOGW("ReportLifeCycleEvent write data  failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_SELECT_TEXT_EVENT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportLifeCycleEvent send request failed, errorCode is %{public}d", sendRequestErrorCode);
+    }
+}
+
+void UiReportProxy::SendSpecifiedContentOffsets(const std::vector<std::pair<float, float>>& offsets)
+{
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option(MessageOption::TF_ASYNC);
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("SendSpecifiedContentOffsets write interface token failed");
+        return;
+    }
+    if (!messageData.WriteInt32(offsets.size())) {
+        LOGW("SendSpecifiedContentOffsets write size failed");
+        return;
+    }
+    for (auto& offset : offsets) {
+        if (!messageData.WriteFloat(offset.first) || (!messageData.WriteFloat(offset.second))) {
+            LOGW("SendSpecifiedContentOffsets write data failed");
+            return;
+        }
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_SPECIFIED_CONTENT_OFFSETS, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendSpecifiedContentOffsets send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
@@ -162,8 +340,9 @@ void UiReportProxy::SendBaseInfo(const std::string& data)
         LOGW("SendBaseInfo write data  failed");
         return;
     }
-    if (Remote()->SendRequest(SEND_BASE_INFO, messageData, reply, option) != ERR_NONE) {
-        LOGW("SendBaseInfo send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_BASE_INFO, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendBaseInfo send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
@@ -180,8 +359,9 @@ void UiReportProxy::SendCurrentLanguage(const std::string& data)
         LOGW("SendCurrentLanguage write data  failed");
         return;
     }
-    if (Remote()->SendRequest(SEND_CURRENT_LANGUAGE, messageData, reply, option) != ERR_NONE) {
-        LOGW("SendCurrentLanguage send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_CURRENT_LANGUAGE, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendCurrentLanguage send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
@@ -198,8 +378,9 @@ void UiReportProxy::SendCurrentPageName(const std::string& data)
         LOGW("SendCurrentPageName write data  failed");
         return;
     }
-    if (Remote()->SendRequest(SEND_CURRENT_PAGE_NAME, messageData, reply, option) != ERR_NONE) {
-        LOGW("SendCurrentPageName send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_CURRENT_PAGE_NAME, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendCurrentPageName send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
@@ -220,8 +401,9 @@ void UiReportProxy::SendWebText(int32_t nodeId, std::string res)
         LOGW("SendWebText write data  failed");
         return;
     }
-    if (Remote()->SendRequest(SEND_TEXT, messageData, reply, option) != ERR_NONE) {
-        LOGW("SendWebText send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_TEXT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendWebText send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
@@ -252,49 +434,204 @@ void UiReportProxy::SendShowingImage(std::vector<std::pair<int32_t, std::shared_
         return;
     }
     for (auto& map : maps) {
-        if (!messageData.WriteInt32(map.first)) {
-            LOGW("SendShowingImage write id failed");
+        if (map.second == nullptr) {
+            LOGW("SendShowingImage empty pixelMap");
+            continue;
+        }
+        if (!messageData.WriteInt32(map.first) || !map.second->Marshalling(messageData)) {
+            LOGW("SendShowingImage write data failed");
             return;
         }
-        std::vector<uint8_t> buf;
-        map.second->EncodeTlv(buf);
-        auto dataSize = buf.size();
-        sptr<Ashmem> ashmem = Ashmem::CreateAshmem((std::to_string(map.first)).c_str(), dataSize);
-        if (ashmem == nullptr) {
-            LOGW("Create shared memory failed");
-            return;
-        }
-        // Set the read/write mode of the ashme.
-        if (!ashmem->MapReadAndWriteAshmem()) {
-            ClearAshmem(ashmem);
-            LOGW("Map shared memory fail");
-            return;
-        }
-        // Write the size and content of each item to the ashmem.
-        int32_t offset = 0;
-        if (!ashmem->WriteToAshmem(reinterpret_cast<uint8_t*>(buf.data()), dataSize, offset)) {
-            LOGW("Write info to shared memory fail");
-            ClearAshmem(ashmem);
-            return;
-        }
-
-        if (!messageData.WriteAshmem(ashmem)) {
-            ClearAshmem(ashmem);
-            LOGW("Write ashmem to tempParcel fail");
-            return;
-        }
-        ClearAshmem(ashmem);
     }
-    if (Remote()->SendRequest(SEND_IMAGES, messageData, reply, option) != ERR_NONE) {
-        LOGW("SendShowingImage send request failed");
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_IMAGES, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendShowingImage send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 
-void UiReportProxy::ClearAshmem(sptr<Ashmem>& optMem)
+void UiReportProxy::SendArkUIImagesById(int32_t windowId,
+    const std::unordered_map<int32_t, std::shared_ptr<Media::PixelMap>>& componentImages,
+    MultiImageQueryErrorCode arkUIErrorCode)
 {
-    if (optMem != nullptr) {
-        optMem->UnmapAshmem();
-        optMem->CloseAshmem();
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option(MessageOption::TF_ASYNC);
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("SendArkUIImagesById write interface token failed");
+        return;
+    }
+    if (!messageData.WriteInt32(windowId)) {
+        LOGW("SendArkUIImagesById write windowId failed");
+        return;
+    }
+    size_t componentImagesSize = componentImages.size();
+    if (!messageData.WriteUint64(componentImagesSize)) {
+        LOGW("SendArkUIImagesById write componentImagesSize failed");
+        return;
+    }
+    for (const auto& mapIter : componentImages) {
+        if (!messageData.WriteInt32(mapIter.first)) {
+            LOGW("SendArkUIImagesById write componentImages id failed");
+            return;
+        }
+        bool nextPixelMapIsAvailable = mapIter.second != nullptr;
+        if (!messageData.WriteBool(nextPixelMapIsAvailable)) {
+            LOGW("SendArkUIImagesById write nextPixelMapIsAvailable failed");
+            return;
+        }
+        if (nextPixelMapIsAvailable && !mapIter.second->Marshalling(messageData)) {
+            LOGW("SendArkUIImagesById write nextPixelMap failed");
+            return;
+        }
+    }
+    if (!messageData.WriteInt32(static_cast<int32_t>(arkUIErrorCode))) {
+        LOGW("SendArkUIImagesById write arkUIErrorCode failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_ARKUI_IMAGES_BY_ID, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendArkUIImagesById send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return;
+    }
+}
+
+void UiReportProxy::SendArkWebImagesById(int32_t windowId, const std::map<int32_t, std::map<int32_t,
+    std::shared_ptr<Media::PixelMap>>>& webImages, MultiImageQueryErrorCode arkWebErrorCode)
+{
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option(MessageOption::TF_ASYNC);
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("SendArkWebImagesById write interface token failed");
+        return;
+    }
+    if (!messageData.WriteInt32(windowId)) {
+        LOGW("SendArkWebImagesById write windowId failed");
+        return;
+    }
+    size_t webImagesSize = webImages.size();
+    if (!messageData.WriteUint64(webImagesSize)) {
+        LOGW("SendArkWebImagesById write webImagesSize failed");
+        return;
+    }
+    WriteWebImagesStruct(webImages, messageData);
+    if (!messageData.WriteInt32(static_cast<int32_t>(arkWebErrorCode))) {
+        LOGW("SendArkWebImagesById write arkWebErrorCode failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_ARKWEB_IMAGES_BY_ID, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendArkWebImagesById send request failed, errorCode is %{public}d", sendRequestErrorCode);
+        return;
+    }
+}
+
+void UiReportProxy::SendExeAppAIFunctionResult(uint32_t result)
+{
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option(MessageOption::TF_ASYNC);
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("SendExeAppAIFunctionResult write interface token failed");
+        return;
+    }
+    if (!messageData.WriteUint32(result)) {
+        LOGW("SendExeAppAIFunctionResult write result  failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_EXE_APP_AI_FUNCTION_RESULT, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendExeAppAIFunctionResult send request failed, errorCode is %{public}d", sendRequestErrorCode);
+    }
+}
+
+void UiReportProxy::SendContentChange(ChangeType type, const std::string& simpleTree)
+{
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option(MessageOption::TF_ASYNC);
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("SendContentChange write interface token failed");
+        return;
+    }
+    if (!messageData.WriteInt32(static_cast<int32_t>(type))) {
+        LOGW("SendContentChange write type failed");
+        return;
+    }
+    if (!messageData.WriteString(simpleTree)) {
+        LOGW("SendContentChange write simple tree failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_CONTENT_CHANGE, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendContentChange send request failed, errorCode is %{public}d", sendRequestErrorCode);
+    }
+}
+
+void UiReportProxy::ReportGetStateMgmtInfo(std::vector<std::string> results)
+{
+    MessageParcel messageData;
+    MessageParcel reply;
+    MessageOption option(MessageOption::TF_ASYNC);
+    if (!messageData.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("ReportGetStateMgmtInfo write interface token failed");
+        return;
+    }
+    if (!messageData.WriteStringVector(results)) {
+        LOGW("ReportGetStateMgmtInfo WriteStringVector failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(REPORT_STATE_MGMT_INFO, messageData, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("ReportGetStateMgmtInfo send request failed, errorCode is %{public}d", sendRequestErrorCode);
+    }
+}
+
+void UiReportProxy::SendWebInfoRequestResult(
+    uint32_t windowId,
+    int32_t webId,
+    const std::string& request,
+    const std::string& result, WebRequestErrorCode errorCode)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option(MessageOption::TF_ASYNC);
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        LOGW("SendWebInfoRequestResult write interface token failed");
+        return;
+    }
+    if (!data.WriteUint32(windowId)) {
+        LOGW("SendWebInfoRequestResult write windowId failed");
+        return;
+    }
+    if (!data.WriteInt32(webId)) {
+        LOGW("SendWebInfoRequestResult write webId failed");
+        return;
+    }
+    if (!data.WriteString(request)) {
+        LOGW("SendWebInfoRequestResult write request failed");
+        return;
+    }
+    sptr<LargeStringAshmem> largeStringAshmem = new (std::nothrow) LargeStringAshmem();
+    if (largeStringAshmem == nullptr) {
+        LOGW("SendWebInfoRequestResult alloc shmem failed");
+        return;
+    }
+    if (!largeStringAshmem->WriteToAshmem(std::to_string(SEND_WEB_INFO_BY_REQUEST), result, result.length())) {
+        LOGW("SendWebInfoRequestResult write to shmem failed");
+        return;
+    }
+    if (!data.WriteParcelable(largeStringAshmem)) {
+        LOGW("SendWebInfoRequestResult write result failed");
+        return;
+    }
+    if (!data.WriteInt32(static_cast<int32_t>(errorCode))) {
+        LOGW("SendWebInfoRequestResult write errorCode failed");
+        return;
+    }
+    int32_t sendRequestErrorCode = Remote()->SendRequest(SEND_WEB_INFO_BY_REQUEST, data, reply, option);
+    if (sendRequestErrorCode != ERR_NONE) {
+        LOGW("SendWebInfoRequestResult send request failed, errorCode is %{public}d", sendRequestErrorCode);
     }
 }
 } // namespace OHOS::Ace

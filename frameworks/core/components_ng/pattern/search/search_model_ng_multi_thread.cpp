@@ -43,6 +43,9 @@ const std::string DROP_TYPE_STYLED_STRING = "ApplicationDefinedType";
 const std::string INSPECTOR_PREFIX = "__SearchField__";
 const std::vector<std::string> SPECICALIZED_INSPECTOR_INDEXS = { "", "Image__", "CancelImage__", "CancelButton__",
     "Button__", "Divider__" };
+constexpr int32_t DIVIDER_INDEX = 5;
+const char DIVIDER_ETS_TAG[] = "Divider";
+const char SEARCH_Field_ETS_TAG[] = "SearchField";
 } // namespace
 
 void SearchModelNG::CreateTextFieldMultiThread(const RefPtr<SearchNode>& parentNode,
@@ -52,7 +55,8 @@ void SearchModelNG::CreateTextFieldMultiThread(const RefPtr<SearchNode>& parentN
     CHECK_NULL_VOID(searchTheme);
     auto nodeId = parentNode->GetTextFieldId();
     auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::SEARCH_Field_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<SearchTextFieldPattern>(); });
+        SEARCH_Field_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<SearchTextFieldPattern>(); });
+    ACE_UINODE_TRACE(frameNode);
     auto textFieldLayoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
     auto textFieldPaintProperty = frameNode->GetPaintProperty<TextFieldPaintProperty>();
     std::set<std::string> allowDropSet({ DROP_TYPE_PLAIN_TEXT, DROP_TYPE_HYPERLINK, DROP_TYPE_STYLED_STRING });
@@ -73,15 +77,12 @@ void SearchModelNG::CreateTextFieldMultiThread(const RefPtr<SearchNode>& parentN
         if (!hasTextFieldNode) {
             textFieldLayoutProperty->UpdateTextColor(searchTheme->GetTextColor());
             textFieldLayoutProperty->UpdatePlaceholderTextColor(searchTheme->GetPlaceholderColor());
+            std::string info = "ModelNG::Cre Mul isT";
+            pattern->SetPlaceholderColorInfo(info);
         }
     }
     pattern->SetTextFieldController(AceType::MakeRefPtr<TextFieldController>());
     pattern->GetTextFieldController()->SetPattern(AceType::WeakClaim(AceType::RawPtr(pattern)));
-    pattern->SetTextEditController(AceType::MakeRefPtr<TextEditController>());
-    pattern->InitSurfaceChangedCallback();
-    pattern->RegisterWindowSizeCallback();
-    pattern->SetTextFadeoutCapacity(true);
-    pattern->InitSurfacePositionChangedCallback();
     TextFieldUpdateContextMultiThread(frameNode);
     if (!hasTextFieldNode) {
         auto pattern = parentNode->GetPattern<SearchPattern>();
@@ -89,7 +90,6 @@ void SearchModelNG::CreateTextFieldMultiThread(const RefPtr<SearchNode>& parentN
         pattern->SetTextFieldNode(frameNode);
         frameNode->MountToParent(parentNode);
     }
-    
     auto searchPattern = parentNode->GetPattern<SearchPattern>();
     CHECK_NULL_VOID(searchPattern);
     searchPattern->ProcessTextFieldDefaultStyleAndBehaviors();
@@ -112,6 +112,25 @@ void SearchModelNG::TextFieldUpdateContextMultiThread(const RefPtr<FrameNode>& f
     textFieldPaintProperty->UpdateBorderRadiusFlagByUser(borderRadius);
     pattern->SetEnableTouchAndHoverEffect(true);
     textFieldPaintProperty->UpdateBackgroundColor(Color::TRANSPARENT);
+}
+
+void SearchModelNG::CreateDividerMultiThread(const RefPtr<SearchNode>& parentNode, bool hasDividerNode)
+{
+    if (hasDividerNode) {
+        return;
+    }
+    auto parentInspector = parentNode->GetInspectorIdValue("");
+    auto nodeId = parentNode->GetDividerId();
+    auto dividerNode = FrameNode::GetOrCreateFrameNode(
+        DIVIDER_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<DividerPattern>(); });
+    CHECK_NULL_VOID(dividerNode);
+    ACE_UINODE_TRACE(dividerNode);
+    dividerNode->UpdateInspectorId(INSPECTOR_PREFIX + SPECICALIZED_INSPECTOR_INDEXS[DIVIDER_INDEX] + parentInspector);
+    dividerNode->MountToParent(parentNode);
+    dividerNode->MarkModifyDone();
+    auto searchPattern = parentNode->GetPattern<SearchPattern>();
+    CHECK_NULL_VOID(searchPattern);
+    searchPattern->ProcessDividerDefaultStyleAndBehaviors();
 }
 
 } // namespace OHOS::Ace::NG

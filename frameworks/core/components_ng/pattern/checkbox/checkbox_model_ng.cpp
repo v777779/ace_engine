@@ -14,15 +14,20 @@
  */
 
 #include "core/components_ng/pattern/checkbox/checkbox_model_ng.h"
+#include "checkbox_model.h"
 
 #include "core/common/resource/resource_parse_utils.h"
 #include "core/components/checkable/checkable_theme.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/pattern/checkbox/checkbox_pattern.h"
+#include "core/components_ng/pattern/checkbox/toggle_checkbox_pattern.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
+namespace {
 constexpr float CHECK_BOX_MARK_SIZE_INVALID_VALUE = -1.0f;
+const char CHECKBOX_ETS_TAG[] = "Toggle";
+} // namespace
 
 void CheckBoxModelNG::Create(
     const std::optional<std::string>& name, const std::optional<std::string>& groupName, const std::string& tagName)
@@ -47,7 +52,7 @@ void CheckBoxModelNG::Create(
 
 RefPtr<FrameNode> CheckBoxModelNG::CreateFrameNode(int32_t nodeId)
 {
-    auto frameNode = FrameNode::CreateFrameNode(V2::CHECK_BOX_ETS_TAG, nodeId, AceType::MakeRefPtr<CheckBoxPattern>());
+    auto frameNode = FrameNode::CreateFrameNode(CHECK_BOX_ETS_TAG, nodeId, AceType::MakeRefPtr<CheckBoxPattern>());
     CHECK_NULL_RETURN(frameNode, nullptr);
     return frameNode;
 }
@@ -171,6 +176,12 @@ void CheckBoxModelNG::SetSelectedColor(FrameNode* frameNode, const Color& color)
 {
     ACE_UPDATE_NODE_PAINT_PROPERTY(CheckBoxPaintProperty, CheckBoxSelectedColor, color, frameNode);
     ACE_UPDATE_NODE_PAINT_PROPERTY(CheckBoxPaintProperty, CheckBoxSelectedColorFlagByUser, true, frameNode);
+}
+
+void CheckBoxModelNG::SetSelectedColorFlagByUser(FrameNode* frameNode, const bool isByUser)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_PAINT_PROPERTY(CheckBoxPaintProperty, CheckBoxSelectedColorFlagByUser, isByUser, frameNode);
 }
 
 void CheckBoxModelNG::SetUnSelectedColor(FrameNode* frameNode, const Color& color)
@@ -393,6 +404,11 @@ void CheckBoxModelNG::ResetComponentColor(FrameNode* frameNode, const CheckBoxCo
             color = theme->GetInactiveColor();
             ACE_UPDATE_NODE_PAINT_PROPERTY(CheckBoxPaintProperty, CheckBoxUnSelectedColor, color, frameNode);
             break;
+        case CheckBoxColorType::STROKE_COLOR:
+            ResetCheckMarkColor(frameNode);
+            color = theme->GetPointColor();
+            ACE_UPDATE_NODE_PAINT_PROPERTY(CheckBoxPaintProperty, CheckBoxCheckMarkColor, color, frameNode);
+            break;
         default:
             break;
     }
@@ -407,6 +423,9 @@ void CheckBoxModelNG::UpdateComponentColor(FrameNode* frameNode, const CheckBoxC
             break;
         case CheckBoxColorType::UN_SELECTED_COLOR:
             SetUnSelectedColor(frameNode, color);
+            break;
+        case CheckBoxColorType::STROKE_COLOR:
+            SetCheckMarkColor(frameNode, color);
             break;
         default:
             break;
@@ -511,5 +530,97 @@ void CheckBoxModelNG::SetIsUserSetMargin(FrameNode* frameNode, bool isUserSet)
     auto pattern = frameNode->GetPattern<CheckBoxPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetIsUserSetMargin(isUserSet);
+}
+
+void CheckBoxModelNG::SetBuilder(FrameNode* frameNode, std::optional<std::function<void(void)>>& buildFunc)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto checkBoxPattern = frameNode->GetPattern<CheckBoxPattern>();
+    CHECK_NULL_VOID(checkBoxPattern);
+    checkBoxPattern->SetIndicatorBuilder(buildFunc);
+}
+
+RefPtr<FrameNode> CheckBoxModelNG::CreateToggleCheckboxFrameNode(int32_t nodeId)
+{
+    auto frameNode = FrameNode::CreateFrameNode(
+        CHECKBOX_ETS_TAG, nodeId, AceType::MakeRefPtr<ToggleCheckBoxPattern>());
+    CHECK_NULL_RETURN(frameNode, nullptr);
+    return frameNode;
+}
+
+void CheckBoxModelNG::SetToggleBuilderFunc(FrameNode* frameNode, SwitchMakeCallback&& makeFunc)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto checkBoxPattern = frameNode->GetPattern<CheckBoxPattern>();
+    CHECK_NULL_VOID(checkBoxPattern);
+    checkBoxPattern->SetToggleBuilderFunc(std::move(makeFunc));
+}
+
+bool CheckBoxModelNG::IsToggleCheckboxPattern(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, false);
+    auto pattern = frameNode->GetPattern();
+    CHECK_NULL_RETURN(pattern, false);
+    return AceType::InstanceOf<ToggleCheckBoxPattern>(pattern);
+}
+
+void CheckBoxModelNG::SetChangeEvent(FrameNode* frameNode, ChangeEvent&& changeEvent)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<CheckBoxEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetChangeEvent(std::move(changeEvent));
+}
+
+bool CheckBoxModelNG::IsCheckboxContentModifierNodeId(FrameNode* frameNode, int32_t nodeId)
+{
+    CHECK_NULL_RETURN(frameNode, false);
+    auto pattern = frameNode->GetPattern<CheckBoxPattern>();
+    CHECK_NULL_RETURN(pattern, false);
+    auto modifierNode = pattern->GetContentModifierNode();
+    CHECK_NULL_RETURN(modifierNode, false);
+    return modifierNode->GetId() == nodeId;
+}
+
+void CheckBoxModelNG::UpdatePaintPropertyBySettingData(
+    FrameNode* frameNode, const CheckboxSettingData& data, bool isLunar)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto checkboxPaintProps = frameNode->GetPaintProperty<CheckBoxPaintProperty>();
+    CHECK_NULL_VOID(checkboxPaintProps);
+    checkboxPaintProps->UpdateCheckBoxSelect(isLunar);
+    if (data.selectedColor.has_value()) {
+        checkboxPaintProps->UpdateCheckBoxSelectedColor(data.selectedColor.value());
+    }
+    if (data.unselectedColor.has_value()) {
+        checkboxPaintProps->UpdateCheckBoxUnSelectedColor(data.unselectedColor.value());
+    }
+    if (data.strokeColor.has_value()) {
+        checkboxPaintProps->UpdateCheckBoxCheckMarkColor(data.strokeColor.value());
+    }
+    auto checkboxPattern = frameNode->GetPattern<CheckBoxPattern>();
+    CHECK_NULL_VOID(checkboxPattern);
+    checkboxPattern->SaveCheckboxSettingData(data);
+}
+
+void CheckBoxModelNG::CreateCheckbox(
+    const std::optional<std::string>& name, const std::optional<std::string>& groupName, const std::string& tagName)
+{
+    auto* stack = ViewStackProcessor::GetInstance();
+    CHECK_NULL_VOID(stack);
+    int32_t nodeId = stack->ClaimNodeId();
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", tagName.c_str(), nodeId);
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(tagName, nodeId, []() { return AceType::MakeRefPtr<CheckBoxPattern>(); });
+    ViewStackProcessor::GetInstance()->Push(frameNode);
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<NG::CheckBoxEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    if (name.has_value()) {
+        eventHub->SetName(name.value());
+    }
+    if (groupName.has_value()) {
+        eventHub->SetGroupName(groupName.value());
+    }
 }
 } // namespace OHOS::Ace::NG

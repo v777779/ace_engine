@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 #include "test/unittest/core/manager/drag_drop_manager_test_ng.h"
-#include "test/mock/core/common/mock_udmf.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -437,6 +437,16 @@ HWTEST_F(DragDropManagerTestNgNew, DragDropManagerFireOnDragEventTest001, TestSi
     dragDropManager->FireOnDragEvent(frameNode, point, DragEventType::LEAVE, EXTRA_INFO);
     EXPECT_EQ(onDropInfo, "");
     dragDropManager->FireOnDragEvent(frameNode, point, DragEventType::START, EXTRA_INFO);
+    EXPECT_EQ(onDropInfo, "");
+
+    /**
+     * @tc.steps: step4. call FireOnDragEvent with UIExtensionComponent
+     * @tc.expected: step4. FireOnDrop will be called
+     */
+    auto UIExtensionComponent =
+        AceType::MakeRefPtr<FrameNode>(V2::DYNAMIC_COMPONENT_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(UIExtensionComponent, nullptr);
+    dragDropManager->FireOnDragEvent(UIExtensionComponent, point, DragEventType::START, EXTRA_INFO);
     EXPECT_EQ(onDropInfo, "");
 }
 
@@ -1421,7 +1431,7 @@ HWTEST_F(DragDropManagerTestNgNew, DragDropManagerTest049, TestSize.Level1)
      */
     dragDropManager->summaryMap_.clear();
     auto mockUdmfClient = static_cast<MockUdmfClient*>(UdmfClient::GetInstance());
-    EXPECT_CALL(*mockUdmfClient, IsBelongsTo(_, _)).WillOnce(testing::Return(true));
+    EXPECT_CALL(*mockUdmfClient, IsAppropriateType(_, _)).WillRepeatedly(testing::Return(true));
     dragDropManager->UpdateDragAllowDrop(frameNode, DragBehavior::COPY, -1);
     EXPECT_TRUE(dragDropManager->summaryMap_.empty());
 
@@ -2122,7 +2132,9 @@ HWTEST_F(DragDropManagerTestNgNew, DragDropManagerTest072, TestSize.Level1)
     /**
      * @tc.steps: step2. Invoke RequestDragSummaryInfoAndPrivilege
      */
-    int ret = InteractionInterface::GetInstance()->AddPrivilege();
+    string signature;
+    DragEventData dragEventData;
+    int ret = InteractionInterface::GetInstance()->AddPrivilege(signature, dragEventData);
     dragDropManager->RequestDragSummaryInfoAndPrivilege();
     EXPECT_FALSE(ret != 0);
     EXPECT_FALSE(SystemProperties::GetDebugEnabled());
@@ -2237,12 +2249,29 @@ HWTEST_F(DragDropManagerTestNgNew, DragDropManagerTest075, TestSize.Level1)
 }
 
 /**
-* @tc.name: DragDropManagerTest076
+ * @tc.name: DragDropManagerTest076
+ * @tc.desc: Test IsAnyDraggableHit Funcition When isAnyDraggableHit_ Is False
+ * @tc.type: FUNC
+ * @tc.author:
+ */
+HWTEST_F(DragDropManagerTestNgNew, DragDropManagerTest076, TestSize.Level1)
+{
+    auto dragDropManager = AceType::MakeRefPtr<DragDropManager>();
+    ASSERT_NE(dragDropManager, nullptr);
+    auto pipelineContext = MockPipelineContext::GetCurrentContext();
+    ASSERT_NE(pipelineContext, nullptr);
+    dragDropManager->SetIsAnyDraggableHit(false);
+    bool result = dragDropManager->IsAnyDraggableHit(pipelineContext, 0);
+    EXPECT_FALSE(result);
+}
+
+/**
+* @tc.name: DragDropManagerTest077
 * @tc.desc: Test GetScaleInfo with scale
 * @tc.type: FUNC
 * @tc.author:
 */
-HWTEST_F(DragDropManagerTestNgNew, DragDropManagerTest076, TestSize.Level1)
+HWTEST_F(DragDropManagerTestNgNew, DragDropManagerTest077, TestSize.Level1)
 {
     constexpr float WIDTH_UNKOWN = 00.0f;
     constexpr float HEIGHT_UNKOWN = 00.0f;
@@ -2259,23 +2288,6 @@ HWTEST_F(DragDropManagerTestNgNew, DragDropManagerTest076, TestSize.Level1)
     auto scaleLarge = DragDropManager::GetScaleInfo(WIDTH_LARGE, HEIGHT_LARGE, false);
     ASSERT_NE(scaleLarge, nullptr);
     EXPECT_NE(scaleLarge->scale, 1);
-}
-
-/**
- * @tc.name: IsAnyDraggableHit001
- * @tc.desc: Test IsAnyDraggableHit Funcition When isAnyDraggableHit_ Is False
- * @tc.type: FUNC
- * @tc.author:
- */
-HWTEST_F(DragDropManagerTestNgNew, DragDropManagerTest077, TestSize.Level1)
-{
-    auto dragDropManager = AceType::MakeRefPtr<DragDropManager>();
-    ASSERT_NE(dragDropManager, nullptr);
-    auto pipelineContext = MockPipelineContext::GetCurrentContext();
-    ASSERT_NE(pipelineContext, nullptr);
-    dragDropManager->SetIsAnyDraggableHit(false);
-    bool result = dragDropManager->IsAnyDraggableHit(pipelineContext, 0);
-    EXPECT_FALSE(result);
 }
 
 /**
@@ -2376,5 +2388,43 @@ HWTEST_F(DragDropManagerTestNgNew, DragDropManagerTest082, TestSize.Level1)
     eventManager->touchTestResults_[0] = hitTestResult;
     bool result = dragDropManager->IsAnyDraggableHit(pipelineContext, 0);
     EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: DragDropManagerTest083
+ * @tc.desc: Test DoDragStartAnimation with RefPtr<OverlayManager>& overlayManager and GestureEvent
+ * @tc.type: FUNC
+ * @tc.author:
+ */
+HWTEST_F(DragDropManagerTestNgNew, DragDropManagerTest083, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. construct a DragDropManager.
+     * @tc.expected: dragDropManager is not null.
+     */
+    auto dragDropManager = AceType::MakeRefPtr<DragDropManager>();
+    ASSERT_NE(dragDropManager, nullptr);
+
+    /**
+     * @tc.steps: step2. Construct frameNode and overlayManager and update the properties.
+     * @tc.expected: frameNode and geometryNode are not null.
+     */
+    RefPtr<UINode> frameNode = AceType::MakeRefPtr<FrameNode>(NODE_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(AceType::DynamicCast<FrameNode>(frameNode));
+    ASSERT_NE(overlayManager, nullptr);
+
+    /**
+     * @tc.steps: step3. call DoDragStartAnimation into arguments overlayManager and event.
+     * @tc.expected: retFlag is false.
+     */
+    GestureEvent event;
+    dragDropManager->SetIsDragWithContextMenu(true);
+    auto frameNode2 = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>(), false);
+    ASSERT_NE(frameNode2, nullptr);
+    auto guestureEventHub = frameNode2->GetOrCreateGestureEventHub();
+    PreparedInfoForDrag drag;
+    dragDropManager->DoDragStartAnimation(overlayManager, event, guestureEventHub, drag);
+    ASSERT_EQ(DragDropGlobalController::GetInstance().GetStartDragVsyncTime(), 0);
 }
 } // namespace OHOS::Ace::NG

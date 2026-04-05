@@ -67,13 +67,15 @@ void ScrollBarOverlayModifier::onDraw(DrawingContext& drawingContext)
         RSBrush brush;
         brush.SetBlendMode(RSBlendMode::SRC_OVER);
         brush.SetAntiAlias(true);
-        RSRect fgRect(barX, barY, barX + barWidth, barY + barHeight);
+        RSRect fgRect(barX + adjustOffset_.GetX(), barY + adjustOffset_.GetY(),
+            barX + barWidth + adjustOffset_.GetX(), barY + barHeight + adjustOffset_.GetY());
         double filletRadius = barWidth * HALF;
         RSColor barColor = ToRSColor(barColor_->Get().BlendOpacity(opacity_->Get() / FULL_ALPHA));
         brush.SetColor(barColor);
         canvas.AttachBrush(brush);
         canvas.DrawRoundRect({ fgRect, filletRadius, filletRadius });
         canvas.DetachBrush();
+        SetBoundsRect(RectF { barX, barY, barWidth, barHeight });
     }
 }
 

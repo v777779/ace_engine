@@ -37,7 +37,7 @@ enum class RadioIndicatorType {
     CUSTOM,
 };
 
-class ACE_EXPORT RadioModelNG : public OHOS::Ace::RadioModel {
+class ACE_FORCE_EXPORT RadioModelNG : public OHOS::Ace::RadioModel {
 public:
     void Create(const std::optional<std::string>& value, const std::optional<std::string>& group,
         const std::optional<int32_t>& indicator) override;
@@ -65,13 +65,13 @@ public:
     static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
     void SetBuilder(std::function<void()>&& buildFunc) override;
     static void SetRadioIndicator(int32_t indicator);
-    static void SetCheckedBackgroundColorSetByUser(FrameNode* frameNode, bool flag);
-    static void SetUncheckedBorderColorSetByUser(FrameNode* frameNode, bool flag);
-    static void SetIndicatorColorSetByUser(FrameNode* frameNode, bool flag);
     static void SetChecked(FrameNode* frameNode, bool isChecked);
     static void SetCheckedBackgroundColor(FrameNode* frameNode, const Color& color);
     static void SetUncheckedBorderColor(FrameNode* frameNode, const Color& color);
     static void SetIndicatorColor(FrameNode* frameNode, const Color& color);
+    static void SetCheckedBackgroundColorSetByUser(FrameNode* frameNode, bool flag);
+    static void SetUncheckedBorderColorSetByUser(FrameNode* frameNode, bool flag);
+    static void SetIndicatorColorSetByUser(FrameNode* frameNode, bool flag);
     static void SetWidth(FrameNode* frameNode, const Dimension& width);
     static void SetHeight(FrameNode* frameNode, const Dimension& height);
     static void SetHoverEffect(FrameNode* frameNode, HoverEffectType hoverEffect);
@@ -79,11 +79,8 @@ public:
     static void SetIsUserSetMargin(FrameNode* frameNode, bool isUserSet);
     static void SetResponseRegion(FrameNode* frameNode, const std::vector<DimensionRect>& responseRegion);
     static void SetBuilderFunc(FrameNode* frameNode, NG::RadioMakeCallback&& jsMake);
-    static void SetBuilder(FrameNode* frameNode, std::function<void()>&& builder);
     static void SetChangeValue(FrameNode* frameNode, bool value);
     static void SetOnChange(FrameNode* frameNode, ChangeEvent&& onChange);
-    static void SetOnChangeEvent(FrameNode* frameNode, ChangeEvent&& onChangeEvent);
-    static void SetRadioIndicatorType(FrameNode* frameNode, const std::optional<int32_t>& indicator);
     static bool GetChecked(FrameNode* frameNode);
     static Color GetCheckedBackgroundColor(FrameNode* frameNode);
     static Color GetUncheckedBorderColor(FrameNode* frameNode);
@@ -94,6 +91,12 @@ public:
     static std::string GetRadioGroup(FrameNode* frameNode);
     static void SetRadioOptions(FrameNode* frameNode, const std::string& value,
         const std::string& group, int32_t indicator);
+    static void CreateRadio(const std::optional<std::string>& value, const std::optional<std::string>& group,
+        const std::optional<int32_t>& indicator);
+    static void SetBuilderStatic(FrameNode* frameNode, std::function<void()>&& buildFunc);
+    static void SetOnChangeEventStatic(FrameNode* frameNode, ChangeEvent&& onChangeEvent);
+    static void SetUncheckedBorderColorByJSRadioThemeStatic(FrameNode* frameNode, bool flag);
+    static void SetIndicatorColorByJSRadioThemeStatic(FrameNode* frameNode, bool flag);
 private:
     static std::string ColorTypeToString(const RadioColorType radioColorType);
 };

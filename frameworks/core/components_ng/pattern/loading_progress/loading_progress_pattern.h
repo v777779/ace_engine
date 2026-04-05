@@ -26,7 +26,7 @@
 
 namespace OHOS::Ace::NG {
 // ProgressPattern is the base class for text render node to perform paint progress.
-class LoadingProgressPattern : public Pattern {
+class ACE_FORCE_EXPORT LoadingProgressPattern : public Pattern {
     DECLARE_ACE_TYPE(LoadingProgressPattern, Pattern);
 
 public:
@@ -44,7 +44,7 @@ public:
             CHECK_NULL_RETURN(paintProperty, nullptr);
             auto loadingOwner =
                 paintProperty->GetLoadingProgressOwner().value_or(LoadingProgressOwner::SELF);
-            loadingProgressModifier_ = AceType::MakeRefPtr<LoadingProgressModifier>(loadingOwner);
+            loadingProgressModifier_ = AceType::MakeRefPtr<LoadingProgressModifier>(loadingOwner, WeakClaim(this));
             loadingProgressModifier_->SetUseContentModifier(UseContentModifier());
             InitThemeValues();
         }
@@ -106,6 +106,16 @@ public:
         colorLock_ = colorLock;
     }
 
+    bool IsEnableMatchParent() override
+    {
+        return true;
+    }
+
+    bool IsEnableFix() override
+    {
+        return true;
+    }
+
 private:
     void RegisterVisibleAreaChange();
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, bool skipMeasure, bool skipLayout) override;
@@ -118,13 +128,12 @@ private:
     void OnDetachFromFrameNodeMultiThread(FrameNode* frameNode) {}
     void OnAttachToMainTreeMultiThread();
     void OnDetachFromMainTreeMultiThread();
-
     void OnModifyDone() override;
     void OnWindowHide() override;
     void OnWindowShow() override;
     void DumpInfo() override;
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void StartAnimation();
     void StopAnimation();
     void FireBuilder();

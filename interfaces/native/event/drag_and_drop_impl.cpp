@@ -71,7 +71,7 @@ ArkUI_ErrorCode OH_ArkUI_DragEvent_GetDragSource(ArkUI_DragEvent* event, char* b
 {
     auto dragEvent = reinterpret_cast<ArkUIDragEvent*>(event);
 
-    if (!event || !bundleName || !dragEvent || !dragEvent->bundleName ||
+    if (!event || !bundleName || !dragEvent ||
         static_cast<int32_t>(strlen(dragEvent->bundleName)) >= length) {
         return ARKUI_ERROR_CODE_PARAM_INVALID;
     }
@@ -179,7 +179,12 @@ void OH_ArkUI_DragAction_Dispose(ArkUI_DragAction* dragAction)
     if (!dragAction) {
         return;
     }
-    delete reinterpret_cast<ArkUIDragAction*>(dragAction);
+    auto* dragActions = reinterpret_cast<ArkUIDragAction*>(dragAction);
+    if (dragActions && dragActions->pixelmapNativeList) {
+        delete[] reinterpret_cast<OH_PixelmapNative**>(dragActions->pixelmapNativeList);
+        dragActions->pixelmapNativeList = nullptr;
+    }
+    delete dragActions;
     dragAction = nullptr;
 }
 
@@ -219,7 +224,22 @@ int32_t OH_ArkUI_DragAction_SetPixelMaps(ArkUI_DragAction* dragAction, OH_Pixelm
     if (count < size || size < 0) {
         return ARKUI_ERROR_CODE_PARAM_INVALID;
     }
-    dragActions->pixelmapNativeList = reinterpret_cast<void**>(pixelmapArray);
+    if (dragActions->pixelmapNativeList) {
+        delete[] reinterpret_cast<OH_PixelmapNative**>(dragActions->pixelmapNativeList);
+        dragActions->pixelmapNativeList = nullptr;
+    }
+
+    // Allocate new array and copy pointers
+    auto* copiedArray = new OH_PixelmapNative* [size];
+    if (!copiedArray) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+
+    for (int32_t index = 0; index < size; index++) {
+        copiedArray[index] = pixelmapArray[index];
+    }
+
+    dragActions->pixelmapNativeList = reinterpret_cast<void**>(copiedArray);
     dragActions->size = size;
     return ARKUI_ERROR_CODE_NO_ERROR;
 }
@@ -532,7 +552,6 @@ int32_t OH_ArkUI_SetNodeDragPreview(ArkUI_NodeHandle node, OH_PixelmapNative* pr
     impl->getDragAdapterAPI()->setDragPreview(node->uiNodeHandle, &pixelMap);
     return ARKUI_ERROR_CODE_NO_ERROR;
 }
-
 int32_t OH_ArkUI_SetNodeAllowedDropDataTypes(ArkUI_NodeHandle node, const char* typesArray[], int32_t count)
 {
     auto* fullImpl = OHOS::Ace::NodeModel::GetFullImpl();
@@ -863,6 +882,33 @@ int32_t OH_ArkUI_NotifyDragResult(int32_t requestIdentify, ArkUI_DragResult resu
     return ARKUI_ERROR_CODE_NO_ERROR;
 }
 
+int32_t OH_ArkUI_NotifySuggestedDropOperation(int32_t requestIdentify, ArkUI_DropOperation operation)
+{
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    if (!impl || ((operation != ARKUI_DROP_OPERATION_COPY) && (operation != ARKUI_DROP_OPERATION_MOVE))) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    auto ret =
+        impl->getDragAdapterAPI()->notifySuggestedDropOperation(requestIdentify, static_cast<ArkUI_Int32>(operation));
+    if (ret == -1) {
+        return ARKUI_ERROR_CODE_DRAG_DROP_OPERATION_NOT_ALLOWED;
+    }
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_NotifyDisableDefaultDropAnimation(int32_t requestIdentify, bool disable)
+{
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    if (!impl) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    auto ret = impl->getDragAdapterAPI()->notifyDisableDropAnimation(requestIdentify, disable);
+    if (ret == -1) {
+        return ARKUI_ERROR_CODE_DRAG_DROP_OPERATION_NOT_ALLOWED;
+    }
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
 int32_t OH_ArkUI_NotifyDragEndPendingDone(int32_t requestIdentify)
 {
     const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
@@ -876,7 +922,7 @@ int32_t OH_ArkUI_NotifyDragEndPendingDone(int32_t requestIdentify)
     return ARKUI_ERROR_CODE_NO_ERROR;
 }
 
-ArkUI_ErrorCode OH_ArkUI_EnableDropDisallowedBadge(ArkUI_ContextHandle uiContext, bool enabled)
+int32_t OH_ArkUI_EnableDropDisallowedBadge(ArkUI_ContextHandle uiContext, bool enabled)
 {
     auto* fullImpl = OHOS::Ace::NodeModel::GetFullImpl();
     if (!fullImpl || !uiContext) {

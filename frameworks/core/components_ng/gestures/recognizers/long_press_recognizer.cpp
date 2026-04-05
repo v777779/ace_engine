@@ -13,28 +13,28 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/observer_handler.h"
 #include "core/components_ng/gestures/recognizers/long_press_recognizer.h"
+
+#include "core/components_ng/base/observer_handler.h"
+#include "core/components_ng/gestures/recognizers/gestures_extra_handler.h"
+#include "core/pipeline_ng/pipeline_context.h"
 #include "core/components_ng/manager/event/json_child_report.h"
 #include "core/common/reporter/reporter.h"
+#include "core/common/statistic_event_reporter.h"
 #include "core/components_ng/manager/event/json_report.h"
 #include "core/components_ng/event/event_constants.h"
 
-#include "core/components_ng/gestures/recognizers/gestures_extra_handler.h"
-#include "core/pipeline_ng/pipeline_context.h"
-
 namespace OHOS::Ace::NG {
 namespace {
-constexpr double MAX_THRESHOLD = 15.0;
 constexpr int32_t MAX_LONGPRESS_FINGERS = 10;
 constexpr int32_t DEFAULT_LONGPRESS_FINGERS = 1;
 constexpr int32_t DEFAULT_LONGPRESS_DURATION = 500;
 } // namespace
 
-LongPressRecognizer::LongPressRecognizer(
-    int32_t duration, int32_t fingers, bool repeat, bool isForDrag, bool isDisableMouseLeft, bool isLimitFingerCount)
+LongPressRecognizer::LongPressRecognizer(int32_t duration, int32_t fingers, bool repeat, bool isForDrag,
+    bool isDisableMouseLeft, bool isLimitFingerCount, double allowableMovement)
     : MultiFingersRecognizer(fingers, isLimitFingerCount), duration_(duration), repeat_(repeat), isForDrag_(isForDrag),
-      isDisableMouseLeft_(isDisableMouseLeft)
+      isDisableMouseLeft_(isDisableMouseLeft), allowableMovement_(allowableMovement)
 {
     if (fingers_ > MAX_LONGPRESS_FINGERS || fingers_ < DEFAULT_LONGPRESS_FINGERS) {
         fingers_ = DEFAULT_LONGPRESS_FINGERS;
@@ -80,11 +80,7 @@ void LongPressRecognizer::OnAccepted()
         isPostEventResult_, touchPoint.postEventNodeId);
     UpdateFingerListInfo();
     SendCallbackMsg(onAction_, false, GestureCallbackType::START);
-    if (isLimitFingerCount_ && hasRepeated_) {
-        return;
-    }
     if (repeat_) {
-        hasRepeated_ = true;
         StartRepeatTimer();
     }
 }
@@ -139,7 +135,7 @@ void LongPressRecognizer::HandleTouchDownEvent(const TouchEvent& event)
 
     int32_t curDuration = duration_;
 #if defined(OHOS_STANDARD_SYSTEM) && !defined(PREVIEW)
-    if (!IsPostEventResult()) {
+    if (!IsPostEventResult() || event.passThrough) {
         int64_t currentTimeStamp = GetSysTimestamp();
         int64_t eventTimeStamp = static_cast<int64_t>(event.time.time_since_epoch().count());
         if (currentTimeStamp > eventTimeStamp) {
@@ -150,9 +146,8 @@ void LongPressRecognizer::HandleTouchDownEvent(const TouchEvent& event)
     }
 #endif
     int64_t currentTimeStamp = GetSysTimestamp();
-    extraInfo_ += "currentTimeStamp: " + std::to_string(currentTimeStamp);
-    extraInfo_ += ", curDuration: " + std::to_string(curDuration);
-    extraInfo_ += ", duration_: " + std::to_string(duration_);
+    extraInfo_ += "curTimeStamp: " + std::to_string(currentTimeStamp);
+    extraInfo_ += ", Duration: " + std::to_string(curDuration)  + "(cur) - " + std::to_string(duration_);
     extraInfo_ += ".";
     if (isForDrag_ && event.sourceType == SourceType::MOUSE) {
         curDuration = 0;
@@ -209,7 +204,6 @@ void LongPressRecognizer::HandleTouchUpEvent(const TouchEvent& event)
             SendCallbackMsg(onAction_, false, GestureCallbackType::START);
         }
         if (static_cast<int32_t>(touchPoints_.size()) == 0) {
-            hasRepeated_ = false;
             int64_t overTime = GetSysTimestamp();
             int64_t inputTime = overTime;
             if (firstInputTime_.has_value()) {
@@ -242,7 +236,7 @@ void LongPressRecognizer::HandleTouchMoveEvent(const TouchEvent& event)
         return;
     }
     Offset offset = event.GetOffset() - touchPoints_[event.id].GetOffset();
-    if (offset.GetDistance() > MAX_THRESHOLD) {
+    if (offset.GetDistance() > allowableMovement_) {
         TAG_LOGI(AceLogTag::ACE_GESTURE, "LongPress move over max threshold");
         extraInfo_ += "Reject: move over max threshold.";
         Adjudicate(AceType::Claim(this), GestureDisposal::REJECT);
@@ -299,9 +293,15 @@ void LongPressRecognizer::HandleOverdueDeadline(bool isCatchMode)
             return;
         }
     }
+    if (CheckLimitFinger()) {
+        extraInfo_ += " isLFC: " + std::to_string(isLimitFingerCount_);
+        Adjudicate(AceType::Claim(this), GestureDisposal::REJECT);
+        return;
+    }
     auto onGestureJudgeBeginResult = TriggerGestureJudgeCallback();
     if (onGestureJudgeBeginResult == GestureJudgeResult::REJECT) {
-        TAG_LOGI(AceLogTag::ACE_GESTURE, "Long press reject as judge result is reject");
+        auto node = GetAttachedNode().Upgrade();
+        TAG_LOGI(AceLogTag::ACE_GESTURE, "Long press judge reject, %{public}s", node ? node->GetTag().c_str() : "");
         extraInfo_ += "Reject: judge reject.";
         Adjudicate(AceType::Claim(this), GestureDisposal::REJECT);
         if (gestureInfo_ && gestureInfo_->GetType() == GestureTypeName::DRAG) {
@@ -309,10 +309,6 @@ void LongPressRecognizer::HandleOverdueDeadline(bool isCatchMode)
             CHECK_NULL_VOID(dragEventActuator);
             dragEventActuator->SetIsDragUserReject(true);
         }
-        return;
-    }
-    if (CheckLimitFinger()) {
-        Adjudicate(AceType::Claim(this), GestureDisposal::REJECT);
         return;
     }
     Adjudicate(AceType::Claim(this), GestureDisposal::ACCEPT);
@@ -395,6 +391,13 @@ void LongPressRecognizer::SendCallbackMsg(
     std::string callbackName = GetCallbackName(callback);
     ACE_SCOPED_TRACE("LongPressRecognizer %s", callbackName.c_str());
     auto extraHandlingResult = GestureExtraHandler::IsGestureShouldBeAbandoned(AceType::Claim(this));
+    if (extraHandlingResult) {
+        auto frameNode = GetAttachedNode().Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto context = frameNode->GetContext();
+        CHECK_NULL_VOID(context);
+        context->GetStatisticEventReporter()->SendEvent(StatisticEventType::GESTURE_TWO_FINGER_LONGPRESS_TRIGGER_INFO);
+    }
     if ((gestureInfo_ && gestureInfo_->GetDisposeTag()) || extraHandlingResult ||
         (!isOnActionTriggered_ && type != GestureCallbackType::START)) {
         return;
@@ -406,6 +409,9 @@ void LongPressRecognizer::SendCallbackMsg(
         isOnActionTriggered_ = true;
     }
     TriggerCallbackMsg(callback, isRepeat, type);
+    if (type == GestureCallbackType::END || type == GestureCallbackType::CANCEL) {
+        localMatrix_.clear();
+    }
 }
 
 void LongPressRecognizer::TriggerCallbackMsg(
@@ -443,9 +449,11 @@ void LongPressRecognizer::TriggerCallbackMsg(
         info.SetPressedKeyCodes(lastTouchEvent_.pressedKeyCodes_);
         info.SetInputEventType(inputEventType_);
         info.CopyConvertInfoFrom(lastTouchEvent_.convertInfo);
+        info.SetPassThrough(lastTouchEvent_.passThrough);
         // callback may be overwritten in its invoke so we copy it first
         auto callbackFunction = *callback;
         HandleGestureAccept(info, type, GestureListenerType::LONG_PRESS);
+        ACE_BENCH_MARK_TRACE("LongPressGesture_end");
         callbackFunction(info);
         HandleReports(info, type);
         if (type == GestureCallbackType::START && longPressRecorder_ && *longPressRecorder_) {
@@ -479,8 +487,6 @@ void LongPressRecognizer::OnResetStatus()
     auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
     CHECK_NULL_VOID(context);
     context->RemoveGestureTask(task_);
-    globalPoint_ = Point();
-    hasRepeated_ = false;
     longPressFingerCountForSequence_ = 0;
     isOnActionTriggered_ = false;
 }
@@ -494,7 +500,7 @@ bool LongPressRecognizer::ReconcileFrom(const RefPtr<NGGestureRecognizer>& recog
     }
 
     if (curr->duration_ != duration_ || curr->fingers_ != fingers_ || curr->repeat_ != repeat_ ||
-        curr->priorityMask_ != priorityMask_) {
+        curr->priorityMask_ != priorityMask_ || !NearEqual(curr->allowableMovement_, allowableMovement_)) {
         if (refereeState_ == RefereeState::SUCCEED && static_cast<int32_t>(touchPoints_.size()) > 0) {
             ACE_SCOPED_TRACE("LongPressRecognizer onActionCancel");
             SendCallbackMsg(onActionCancel_, false, GestureCallbackType::CANCEL);
@@ -534,6 +540,7 @@ RefPtr<GestureSnapshot> LongPressRecognizer::Dump() const
         << "isForDrag: " << isForDrag_ << ", "
         << "repeat: " << repeat_ << ", "
         << "fingers: " << fingers_ << ", "
+        << "allowableMovement: " << allowableMovement_ << ", "
         << DumpGestureInfo();
     info->customInfo = oss.str();
     return info;
@@ -567,6 +574,27 @@ GestureJudgeResult LongPressRecognizer::TriggerGestureJudgeCallback()
         return GestureJudgeResult::CONTINUE;
     }
     auto info = std::make_shared<LongPressGestureEvent>();
+    UpdateGestureEventInfo(info);
+    if (gestureInfo_) {
+        gestureInfo_->SetInputEventType(inputEventType_);
+    }
+    if (gestureRecognizerJudgeFunc &&
+        gestureRecognizerJudgeFunc(info, Claim(this), responseLinkRecognizer_) == GestureJudgeResult::REJECT) {
+        return GestureJudgeResult::REJECT;
+    }
+    if (!gestureRecognizerJudgeFunc && callback && callback(gestureInfo_, info) == GestureJudgeResult::REJECT) {
+        // If outer callback exits, prioritize checking outer callback. If outer reject, return reject.
+        return GestureJudgeResult::REJECT;
+    }
+    if (callbackNative && callbackNative(gestureInfo_, info) == GestureJudgeResult::REJECT) {
+        // If outer callback doesn't exit or accept, check inner callback. If inner reject, return reject.
+        return GestureJudgeResult::REJECT;
+    }
+    return GestureJudgeResult::CONTINUE;
+}
+
+void LongPressRecognizer::UpdateGestureEventInfo(std::shared_ptr<LongPressGestureEvent>& info)
+{
     info->SetTimeStamp(time_);
     info->SetDeviceId(deviceId_);
     info->SetRepeat(repeat_);
@@ -578,9 +606,6 @@ GestureJudgeResult LongPressRecognizer::TriggerGestureJudgeCallback()
     info->SetSourceDevice(deviceType_);
     info->SetTarget(GetEventTarget().value_or(EventTarget()));
     info->SetForce(trackPoint.force);
-    if (gestureInfo_) {
-        gestureInfo_->SetInputEventType(inputEventType_);
-    }
     if (trackPoint.tiltX.has_value()) {
         info->SetTiltX(trackPoint.tiltX.value());
     }
@@ -595,19 +620,8 @@ GestureJudgeResult LongPressRecognizer::TriggerGestureJudgeCallback()
     info->SetRawInputEvent(lastPointEvent_);
     info->SetRawInputDeviceId(deviceId_);
     info->SetLastAction(lastAction_);
-    if (gestureRecognizerJudgeFunc &&
-        gestureRecognizerJudgeFunc(info, Claim(this), responseLinkRecognizer_) == GestureJudgeResult::REJECT) {
-        return GestureJudgeResult::REJECT;
-    }
-    if (!gestureRecognizerJudgeFunc && callback && callback(gestureInfo_, info) == GestureJudgeResult::REJECT) {
-        // If outer callback exits, prioritize checking outer callback. If outer reject, return reject.
-        return GestureJudgeResult::REJECT;
-    }
-    if (callbackNative && callbackNative(gestureInfo_, info) == GestureJudgeResult::REJECT) {
-        // If outer callback doesn't exit or accept, check inner callback. If inner reject, return reject.
-        return GestureJudgeResult::REJECT;
-    }
-    return GestureJudgeResult::CONTINUE;
+    info->SetPressedKeyCodes(trackPoint.pressedKeyCodes_);
+    info->SetTargetDisplayId(lastTouchEvent_.targetDisplayId);
 }
 
 RefPtr<DragEventActuator> LongPressRecognizer::GetDragEventActuator()
@@ -647,4 +661,21 @@ OnAccessibilityEventFunc LongPressRecognizer::GetOnAccessibilityEventFunc()
     return callback;
 }
 
+std::string LongPressRecognizer::GetGestureInfoString() const
+{
+    std::string gestureInfoStr = MultiFingersRecognizer::GetGestureInfoString();
+    gestureInfoStr.append(",UCM:");
+    gestureInfoStr.append(std::to_string(useCatchMode_));
+    gestureInfoStr.append(",FD:");
+    gestureInfoStr.append(std::to_string(isForDrag_));
+    gestureInfoStr.append(",DML:");
+    gestureInfoStr.append(std::to_string(isDisableMouseLeft_));
+    gestureInfoStr.append(",LFCFS:");
+    gestureInfoStr.append(std::to_string(longPressFingerCountForSequence_));
+    gestureInfoStr.append(",OAT:");
+    gestureInfoStr.append(std::to_string(isOnActionTriggered_));
+    gestureInfoStr.append(",LA:");
+    gestureInfoStr.append(std::to_string(lastAction_));
+    return gestureInfoStr;
+}
 } // namespace OHOS::Ace::NG

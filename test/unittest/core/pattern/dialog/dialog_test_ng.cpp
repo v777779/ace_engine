@@ -17,14 +17,16 @@
 
 #define private public
 #define protected public
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "core/common/recorder/event_recorder.h"
 
 #include "core/components/button/button_theme.h"
+#include "core/components/common/layout/grid_column_info.h"
+#include "core/components/common/layout/grid_container_info.h"
 #include "core/components/dialog/dialog_properties.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/dialog/dialog_event_hub.h"
@@ -62,17 +64,7 @@ const double_t WIDTH_E = 112.0;
 const double_t DIVISOR = 2.0;
 const Dimension DIMENSION_RADIUS(10.0, DimensionUnit::PX);
 constexpr int BUTTONINDEX_TEST_1 = 1;
-constexpr int BUTTONINDEX_TEST_2 = -1;
-constexpr int BUTTONINDEX_TEST_3 = -2;
-constexpr int DIALOG_TITLE_AVE_BY_2 = 2;
-const Dimension DIALOG_TITLE_PADDING { 10.0, DimensionUnit::VP };
-const Dimension BORDER_WIDTH_PX_A { 10.0, DimensionUnit::PX };
-const Dimension BORDER_WIDTH_PX_B { 20.0, DimensionUnit::PX };
-const Dimension BORDER_WIDTH_PX_C { 30.0, DimensionUnit::PX };
-const Dimension BORDER_WIDTH_PX_D { 40.0, DimensionUnit::PX };
-constexpr float FONT_MAX_SIZE_SCALE = 2.0f;
-constexpr float FONT_SIZE_SCALE_TEST1 = 1.75f;
-constexpr float FONT_SIZE_SCALE_TEST2 = 3.20f;
+const Dimension DIALOG_BUTTON_BORDER_RADIUS { 20.0, DimensionUnit::VP };
 } // namespace
 
 class MockDialogTheme : public DialogTheme, public ButtonTheme {
@@ -248,6 +240,9 @@ void DialogPatternTestNg::CheckTextMarquee(RefPtr<FrameNode> buttonNode)
     EXPECT_EQ(textProps->GetTextOverflow(), TextOverflow::MARQUEE);
     EXPECT_EQ(textProps->GetTextMarqueeStartPolicy(), MarqueeStartPolicy::ON_FOCUS);
     EXPECT_TRUE(textProps->GetTextMarqueeFadeout());
+    NG::BorderRadiusProperty borderRadius;
+    borderRadius.SetRadius(DIALOG_BUTTON_BORDER_RADIUS);
+    EXPECT_EQ(buttonProp->GetBorderRadius(), borderRadius);
 }
 
 /**
@@ -256,7 +251,7 @@ void DialogPatternTestNg::CheckTextMarquee(RefPtr<FrameNode> buttonNode)
  * @tc.type: FUNC
  * @tc.author: zhoutianer
  */
-HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator004, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator004, TestSize.Level0)
 {
     auto dialogEventHub = AceType::MakeRefPtr<DialogEventHub>();
     bool isCalled = false;
@@ -271,7 +266,7 @@ HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator004, TestSize.Level1)
  * @tc.type: FUNC
  * @tc.author: zhoutianer
  */
-HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator005, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator005, TestSize.Level0)
 {
     auto dialogEventHub = AceType::MakeRefPtr<DialogEventHub>();
     dialogEventHub->FireCancelEvent();
@@ -284,7 +279,7 @@ HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator005, TestSize.Level1)
  * @tc.type: FUNC
  * @tc.author: zhoutianer
  */
-HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator006, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator006, TestSize.Level0)
 {
     bool isCalled = false;
     auto dialogEventHub = AceType::MakeRefPtr<DialogEventHub>();
@@ -304,7 +299,7 @@ HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator006, TestSize.Level1)
  * @tc.type: FUNC
  * @tc.author: zhoutianer
  */
-HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator0007, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator0007, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create dialogEventHub object.
@@ -325,7 +320,7 @@ HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator0007, TestSize.Level1)
  * @tc.desc: Test AlertDialog with button color and text color
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator0020, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator0020, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create params and DialogLayoutAlgorithm object.
@@ -379,7 +374,7 @@ HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator0020, TestSize.Level1)
  * @tc.desc: Test Dialog IsAlignmentByWholeScreen
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator0021, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator0021, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create params and DialogLayoutAlgorithm object.
@@ -430,7 +425,7 @@ HWTEST_F(DialogPatternTestNg, DialogFrameNodeCreator0021, TestSize.Level1)
  * @tc.desc: Test Action Sheet Accessibility Property
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogAccessibilityProperty001, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogAccessibilityProperty001, TestSize.Level0)
 {
     int32_t backupApiVersion = AceApplicationInfo::GetInstance().GetApiTargetVersion();
     AceApplicationInfo::GetInstance().SetApiTargetVersion(static_cast<int32_t>(PlatformVersion::VERSION_ELEVEN));
@@ -462,7 +457,7 @@ HWTEST_F(DialogPatternTestNg, DialogAccessibilityProperty001, TestSize.Level1)
  * @tc.desc: Test AlertDialog with button color and text color
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, ToJsonValue, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, ToJsonValue, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create dialogNode and dialogTheme instance.
@@ -482,7 +477,7 @@ HWTEST_F(DialogPatternTestNg, ToJsonValue, TestSize.Level1)
     pattern->title_ = TITLE;
     pattern->message_ = MESSAGE;
     /**
-     * @tc.steps: step3. test AlertDialog with button color and text color
+     * @tc.steps: step3. test AlertDialog with button color and text color.
      * @tc.expected: json->GetKey() equal to "".
      */
     std::unique_ptr<JsonValue> json = JsonUtil::Create(true);
@@ -495,7 +490,7 @@ HWTEST_F(DialogPatternTestNg, ToJsonValue, TestSize.Level1)
  * @tc.desc: Dialog already in close
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, PopDialog, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, PopDialog, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create dialogNode and dialogTheme instance.
@@ -522,7 +517,7 @@ HWTEST_F(DialogPatternTestNg, PopDialog, TestSize.Level1)
  * @tc.desc: Test Alert Accessibility Property
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogAccessibilityProperty002, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogAccessibilityProperty002, TestSize.Level0)
 {
     int32_t backupApiVersion = AceApplicationInfo::GetInstance().GetApiTargetVersion();
     AceApplicationInfo::GetInstance().SetApiTargetVersion(static_cast<int32_t>(PlatformVersion::VERSION_ELEVEN));
@@ -554,7 +549,7 @@ HWTEST_F(DialogPatternTestNg, DialogAccessibilityProperty002, TestSize.Level1)
  * @tc.desc: Test GetMaxWidthBasedOnGridType function
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest001, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest001, TestSize.Level0)
 {
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
@@ -587,10 +582,10 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest001, TestSize.Level1)
  * @tc.desc: Test CreateDialogNode
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest002, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest002, TestSize.Level0)
 {
     /**
-     * @tc.steps: step1. set properties
+     * @tc.steps: step1. set properties.
      */
     const DialogType types[] = { DialogType::ALERT_DIALOG, DialogType::ACTION_SHEET, DialogType::COMMON };
     SetDialogTheme();
@@ -636,7 +631,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest002, TestSize.Level1)
  * @tc.desc: Verify function CreateDialogNode
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, CustomDialogTestNg001, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, CustomDialogTestNg001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create DialogProperties.
@@ -664,7 +659,7 @@ HWTEST_F(DialogPatternTestNg, CustomDialogTestNg001, TestSize.Level1)
  * @tc.desc: Verify function CreateDialogNode
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, CustomDialogTestNg002, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, CustomDialogTestNg002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create DialogProperties.
@@ -693,7 +688,7 @@ HWTEST_F(DialogPatternTestNg, CustomDialogTestNg002, TestSize.Level1)
  * @tc.desc: Verify function CreateDialogNode
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, CustomDialogTestNg003, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, CustomDialogTestNg003, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create DialogProperties.
@@ -722,7 +717,7 @@ HWTEST_F(DialogPatternTestNg, CustomDialogTestNg003, TestSize.Level1)
  * @tc.desc: Verify function GetCloseAnimation and GetOpenAnimation
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, CustomDialogTestNg004, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, CustomDialogTestNg004, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create DialogProperties.
@@ -741,18 +736,12 @@ HWTEST_F(DialogPatternTestNg, CustomDialogTestNg004, TestSize.Level1)
      */
     auto result = DialogView::CreateDialogNode(param, nullptr);
     EXPECT_TRUE(result);
-    if (!result) {
-        return;
-    }
     /**
      * @tc.steps: step3. create dialogPattern.
      * @tc.expected: the dialogPattern created successfully.
      */
     auto dialogPattern = result->GetPattern<DialogPattern>();
     EXPECT_TRUE(dialogPattern);
-    if (!dialogPattern) {
-        return;
-    }
     if (dialogPattern->GetOpenAnimation().has_value()) {
         EXPECT_EQ(dialogPattern->GetOpenAnimation().value().GetDelay(), animationOption.GetDelay());
     }
@@ -767,7 +756,7 @@ HWTEST_F(DialogPatternTestNg, CustomDialogTestNg004, TestSize.Level1)
  * @tc.desc: Verify function HandleClick
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, CustomDialogTestNg005, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, CustomDialogTestNg005, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create GestureEvent and DialogProperties.
@@ -808,7 +797,7 @@ HWTEST_F(DialogPatternTestNg, CustomDialogTestNg005, TestSize.Level1)
  * @tc.desc: Verify function HandleClick
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, CustomDialogTestNg006, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, CustomDialogTestNg006, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create GestureEvent and DialogProperties.
@@ -849,10 +838,10 @@ HWTEST_F(DialogPatternTestNg, CustomDialogTestNg006, TestSize.Level1)
  * @tc.desc: CreateDialogNode
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest005, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest005, TestSize.Level0)
 {
     /**
-     * @tc.steps: step1. set properties
+     * @tc.steps: step1. set properties.
      */
     const DialogType types[] = { DialogType::ALERT_DIALOG, DialogType::ACTION_SHEET, DialogType::COMMON };
     SetDialogTheme();
@@ -893,10 +882,10 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest005, TestSize.Level1)
  * @tc.desc: CreateDialogNode
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest006, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest006, TestSize.Level0)
 {
     /**
-     * @tc.steps: step1. set properties
+     * @tc.steps: step1. set properties.
      */
     const DialogButtonDirection directions[] = { DialogButtonDirection::AUTO, DialogButtonDirection::HORIZONTAL,
         DialogButtonDirection::VERTICAL };
@@ -926,10 +915,10 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest006, TestSize.Level1)
  * @tc.desc: Test DialogPattern OnColorConfigurationUpdate.
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest007, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest007, TestSize.Level0)
 {
     /**
-     * @tc.steps: step1. set properties
+     * @tc.steps: step1. set properties.
      * @tc.expected: step1. Create Dialog and get DialogPattern successfully.
      */
     SetDialogTheme();
@@ -945,7 +934,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest007, TestSize.Level1)
     ASSERT_NE(dialogPattern, nullptr);
     auto dialogTheme = AceType::MakeRefPtr<DialogTheme>();
     /**
-     * @tc.steps: step2. Call OnColorConfigurationUpdate
+     * @tc.steps: step2. Call OnColorConfigurationUpdate.
      * @tc.expected: step2. cover branch customStyle == false.
      */
     dialogPattern->OnColorConfigurationUpdate();
@@ -963,7 +952,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest007, TestSize.Level1)
     EXPECT_TRUE(dialogPattern);
     ASSERT_NE(dialogPattern, nullptr);
     /**
-     * @tc.steps: step4. Call OnColorConfigurationUpdate
+     * @tc.steps: step4. Call OnColorConfigurationUpdate.
      * @tc.expected: step4. cover branch menuNode_ is not null.
      */
     dialogPattern->OnColorConfigurationUpdate();
@@ -975,7 +964,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest007, TestSize.Level1)
  * @tc.desc: Test CreateDialogNode function with maskRect.
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest008, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest008, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. set maskRect width and height in positive number.
@@ -1018,7 +1007,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest008, TestSize.Level1)
  * @tc.desc: Test CreateDialogNode function with maskRect.
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest009, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest009, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. set maskRect width and height in negative number.
@@ -1061,7 +1050,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest009, TestSize.Level1)
  * @tc.desc: Test dialogLayoutAlgorithm.MultipleDialog function.
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest011, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest011, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create overlayManager and DialogLayoutAlgorithm instance.
@@ -1103,6 +1092,13 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest011, TestSize.Level1)
      * @tc.expected: dialogLayoutAlgorithm.touchingBoundaryFlag_. equal to TouchingBoundaryType::TouchBottomBoundary.
      */
     EXPECT_EQ(dialogLayoutAlgorithm.touchingBoundaryFlag_, TouchingBoundaryType::TouchBottomBoundary);
+    SizeF newChildSize(1.0, 1.0);
+    SizeF newSelfSize(1000.0, 1000.0);
+    auto dialog = overlayManager->ShowDialog(props, nullptr);
+    ASSERT_NE(dialog, nullptr);
+    auto dialogProp = AceType::DynamicCast<DialogLayoutProperty>(dialog->GetLayoutProperty());
+    dialogLayoutAlgorithm.MultipleDialog(dialogProp, newChildSize, newSelfSize, overlayManager);
+    EXPECT_EQ(dialogLayoutAlgorithm.touchingBoundaryFlag_, TouchingBoundaryType::NotTouchBoundary);
 }
 
 /**
@@ -1110,7 +1106,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest011, TestSize.Level1)
  * @tc.desc: Test dialog UpdateContentRenderContext.
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest012, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest012, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. mock PlatformVersion VERSION_ELEVEN.
@@ -1166,7 +1162,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest012, TestSize.Level1)
  * @tc.desc: Dialog already in close
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, PopDialog02, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, PopDialog02, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create DialogLayoutAlgorithm and overlayManager instance.
@@ -1230,7 +1226,7 @@ HWTEST_F(DialogPatternTestNg, PopDialog02, TestSize.Level1)
  * @tc.desc: Test dialog UpdateContentRenderContext.
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest013, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest013, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create dialogTheme.
@@ -1282,7 +1278,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest013, TestSize.Level1)
  * @tc.desc: Test DialogLayoutAlgorithm::Distribute function
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogLayoutAlgorithm003, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogLayoutAlgorithm003, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create DialogLayoutAlgorithm instance.
@@ -1290,8 +1286,8 @@ HWTEST_F(DialogPatternTestNg, DialogLayoutAlgorithm003, TestSize.Level1)
     DialogLayoutAlgorithm algorithm;
 
     /**
-     * @tc.steps: step2. execute Distribute
-     * @tc.expected: prop is set as expected
+     * @tc.steps: step2. execute Distribute.
+     * @tc.expected: prop is set as expected.
      */
     float scrollHeight = 10.0f, listHeight = 10.0f, restHeight = 4.0f;
     algorithm.Distribute(scrollHeight, listHeight, restHeight);
@@ -1311,7 +1307,7 @@ HWTEST_F(DialogPatternTestNg, DialogLayoutAlgorithm003, TestSize.Level1)
  * @tc.desc: fullfill DialogPattern function branch
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest014, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest014, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create GestureEvent and DialogProperties.
@@ -1353,7 +1349,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest014, TestSize.Level1)
  * @tc.desc: fullfill DialogPattern function branch
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest015, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest015, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create GestureEvent and DialogProperties.
@@ -1398,7 +1394,7 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest015, TestSize.Level1)
  * @tc.desc: fullfill DialogPattern function branch
  * @tc.type: FUNC
  */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest016, TestSize.Level1)
+HWTEST_F(DialogPatternTestNg, DialogPatternTest016, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create GestureEvent and DialogProperties.
@@ -1439,699 +1435,5 @@ HWTEST_F(DialogPatternTestNg, DialogPatternTest016, TestSize.Level1)
     Recorder::EventRecorder::Get().globalSwitch_[index] = true;
     dialogPattern->RecordEvent(BUTTONINDEX_TEST_1);
     EXPECT_EQ(dialogPattern->dialogProperties_.buttons.at(BUTTONINDEX_TEST_1).text, "second button");
-}
-/**
- * @tc.name: DialogPatternTest017
- * @tc.desc: fullfill DialogPattern function branch
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest017, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create GestureEvent and DialogProperties.
-     * @tc.expected: the GestureEvent and DialogProperties created successfully.
-     */
-    GestureEvent info;
-    Offset globalLocation(10, 6);
-    OffsetF translate(10, 5);
-    DialogProperties param;
-    param.autoCancel = true;
-    param.buttons = btnItems;
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<DialogTheme>()));
-    /**
-     * @tc.steps: step2. create dialog node.
-     * @tc.expected: the dialog node created successfully.
-     */
-    auto child = FrameNode::GetOrCreateFrameNode(
-        V2::CUSTOM_DIALOG_COMPONENT_TAG, 0, []() { return AceType::MakeRefPtr<DialogPattern>(nullptr, nullptr); });
-    auto Dialog = DialogView::CreateDialogNode(param, child);
-    EXPECT_TRUE(Dialog);
-    ASSERT_NE(Dialog, nullptr);
-    child->GetGeometryNode()->SetMarginFrameOffset(translate);
-    EXPECT_EQ(Dialog->TotalChildCount(), 1);
-    /**
-     * @tc.steps: step3. create dialogPattern.
-     * @tc.expected: the dialogPattern created successfully.
-     */
-    Recorder::EventParamsBuilder builderTest1;
-    builderTest1.SetEventType(Recorder::EventType::DIALOG_CANCEL);
-    Recorder::EventParamsBuilder builderTest2;
-    builderTest2.SetEventType(Recorder::EventType::DIALOG_ACTION);
-    auto dialogPattern = Dialog->GetPattern<DialogPattern>();
-    ASSERT_NE(dialogPattern, nullptr);
-    ASSERT_NE(dialogPattern, nullptr);
-    info.SetGlobalLocation(globalLocation);
-    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(Dialog);
-    CHECK_NULL_VOID(overlayManager);
-    auto index = static_cast<int32_t>(Recorder::EventCategory::CATEGORY_COMPONENT);
-    Recorder::EventRecorder::Get().eventSwitch_[index] = true;
-    Recorder::EventRecorder::Get().globalSwitch_[index] = true;
-    dialogPattern->RecordEvent(BUTTONINDEX_TEST_2);
-    EXPECT_EQ(builderTest1.GetEventType(), Recorder::EventType::DIALOG_CANCEL);
-
-    dialogPattern->RecordEvent(BUTTONINDEX_TEST_3);
-    EXPECT_EQ(builderTest2.GetEventType(), Recorder::EventType::DIALOG_ACTION);
-}
-
-/**
- * @tc.name: CustomDialogControllerModelNGTest001
- * @tc.desc: Test CustomDialogControllerModelNG SetOpenDialog
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, CustomDialogControllerModelNGTest001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Create CustomDialogControllerModelNG.
-     */
-    CustomDialogControllerModelNG controllerModel;
-    DialogProperties props{
-            .type = DialogType::ACTION_SHEET,
-            .title = "dialog test",
-            .content = "dialog content test",
-        };
-    bool pending = true, isShown = true;
-    auto controller = AceType::MakeRefPtr<AceType>();
-    std::vector<WeakPtr<AceType>> dialogs;
-    auto dialogComponent = AceType::MakeRefPtr<AceType>();
-    auto customDialog = AceType::MakeRefPtr<AceType>();
-    std::list<DialogOperation> dialogOperation;
-    bool hasBind = false;
-
-    /**
-     * @tc.steps: step2. execute SetOpenDialog and SetCloseDialog
-     * @tc.expected: prop is set as expected
-     */
-    controllerModel.SetOpenDialog(props, controller, dialogs, pending, isShown,
-        []() {}, []() {}, dialogComponent, customDialog, dialogOperation, hasBind);
-    props.onStatusChanged(true);
-    props.onStatusChanged(false);
-    controllerModel.SetCloseDialog(props, controller, dialogs, pending, isShown,
-        []() {}, dialogComponent, customDialog, dialogOperation);
-
-    props.isShowInSubWindow = true;
-    props.isModal = false;
-    controllerModel.SetOpenDialog(props, controller, dialogs, pending, isShown,
-        []() {}, []() {}, dialogComponent, customDialog, dialogOperation, hasBind);
-    controllerModel.SetCloseDialog(props, controller, dialogs, pending, isShown,
-        []() {}, dialogComponent, customDialog, dialogOperation);
-    EXPECT_TRUE(props.isShowInSubWindow);
-    EXPECT_FALSE(props.isModal);
-}
-
-/**
- * @tc.name: CustomDialogControllerModelNGTest002
- * @tc.desc: Test CustomDialogControllerModelNG SetOpenDialogWithNode
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, CustomDialogControllerModelNGTest002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Create CustomDialogControllerModelNG.
-     */
-    CustomDialogControllerModelNG controllerModel;
-    DialogProperties props{
-            .type = DialogType::ACTION_SHEET,
-            .title = "dialog test",
-            .content = "dialog content test",
-        };
-
-    /**
-     * @tc.steps: step2. execute SetOpenDialogWithNode
-     * @tc.expected: prop is set as expected
-     */
-    controllerModel.SetOpenDialogWithNode(props, nullptr);
-    props.isShowInSubWindow = true;
-    controllerModel.SetOpenDialogWithNode(props, nullptr);
-    props.isModal = true;
-    props.isSceneBoardDialog = false;
-    controllerModel.SetOpenDialogWithNode(props, nullptr);
-    EXPECT_TRUE(props.isShowInSubWindow);
-    EXPECT_TRUE(props.isModal);
-}
-
-/**
- * @tc.name: DialogPatternTest020
- * @tc.desc: Test dialogPattern.UpdatePropertyForElderly function
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest020, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create DialogProperties.
-     * @tc.expected: the DialogProperties created successfully.
-     */
-    DialogProperties props;
-    props.type = DialogType::ALERT_DIALOG;
-    props.title = TITLE;
-    props.content = MESSAGE;
-    props.buttonDirection = DialogButtonDirection::HORIZONTAL;
-    vector<ButtonInfo> btnItems = {
-        ButtonInfo {
-            .text = "main button",
-            .bgColor = Color::BLACK,
-        },
-        ButtonInfo {
-            .text = "second button",
-            .bgColor = Color::BLUE,
-        },
-        ButtonInfo {
-            .text = "three button",
-            .bgColor = Color::BLUE,
-        },
-    };
-    props.buttons = btnItems;
-    /**
-     * @tc.steps: step2. create dialog node and dialogForOld node.
-     * @tc.expected: the dialog node and dialogForOld node created successfully.
-     */
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<DialogTheme>()));
-    auto dialog = DialogView::CreateDialogNode(props, nullptr);
-    ASSERT_NE(dialog, nullptr);
-    auto dialogPattern = dialog->GetPattern<DialogPattern>();
-    ASSERT_NE(dialogPattern, nullptr);
-    float expectedFontScale = 2.0f;
-    auto pipeline = PipelineContext::GetCurrentContext();
-    CHECK_NULL_VOID(pipeline);
-    pipeline->SetFontScale(expectedFontScale);
-    SystemProperties::orientation_ = DeviceOrientation::LANDSCAPE;
-    MockPipelineContext::GetCurrent()->windowManager_ = AceType::MakeRefPtr<WindowManager>();
-    MockPipelineContext::GetCurrent()->windowManager_->SetWindowGetModeCallBack(
-        []() -> WindowMode { return WindowMode::WINDOW_MODE_FULLSCREEN; });
-    auto dialogForOld = DialogView::CreateDialogNode(props, nullptr);
-    ASSERT_NE(dialogForOld, nullptr);
-    auto dialogPatternOld = dialogForOld->GetPattern<DialogPattern>();
-    ASSERT_NE(dialogPatternOld, nullptr);
-
-    EXPECT_EQ(dialogPattern->isSuitableForElderly_, false);
-    EXPECT_EQ(dialogPattern->notAdapationAging_, false);
-
-    EXPECT_EQ(dialogPatternOld->isSuitableForElderly_, false);
-    EXPECT_EQ(dialogPatternOld->notAdapationAging_, true);
-}
-
-/**
- * @tc.name: DialogPatternTest021
- * @tc.desc: Test dialogPattern.NeedsButtonDirectionChange function
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest021, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create DialogProperties.
-     * @tc.expected: the DialogProperties created successfully.
-     */
-    DialogProperties props;
-    props.type = DialogType::ALERT_DIALOG;
-    props.title = TITLE;
-    props.content = MESSAGE;
-    props.buttonDirection = DialogButtonDirection::HORIZONTAL;
-    vector<ButtonInfo> btnItems = {
-        ButtonInfo {
-            .text = "main button",
-            .bgColor = Color::BLACK,
-        },
-        ButtonInfo {
-            .text = "second button",
-            .bgColor = Color::BLUE,
-        },
-        ButtonInfo {
-            .text = "three button",
-            .bgColor = Color::BLUE,
-        },
-    };
-    props.buttons = btnItems;
-    /**
-     * @tc.steps: step2. create dialog node.
-     * @tc.expected: the dialog node created successfully.
-     */
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<DialogTheme>()));
-    auto dialog = DialogView::CreateDialogNode(props, nullptr);
-    ASSERT_NE(dialog, nullptr);
-    auto dialogPattern = dialog->GetPattern<DialogPattern>();
-    ASSERT_NE(dialogPattern, nullptr);
-    EXPECT_EQ(dialogPattern->buttonContainer_->GetTag(), V2::ROW_ETS_TAG);
-    
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<ButtonTheme>()));
-    dialogPattern->isSuitableForElderly_ = true;
-    dialogPattern->AddButtonAndDivider(btnItems, dialogPattern->buttonContainer_, false);
-    SystemProperties::orientation_ = DeviceOrientation::PORTRAIT;
-    dialogPattern->BuildChild(props);
-    EXPECT_EQ(dialogPattern->buttonContainer_->GetTag(), V2::COLUMN_ETS_TAG);
-}
-
-/**
- * @tc.name: DialogPatternTest022
- * @tc.desc: Test dialogPattern.UpdateDeviceOrientation function
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest022, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step2. create DialogProperties.
-     * @tc.expected: the DialogProperties created successfully.
-     */
-    DialogProperties props;
-    props.type = DialogType::ALERT_DIALOG;
-    props.title = TITLE;
-    props.content = MESSAGE;
-    props.buttonDirection = DialogButtonDirection::HORIZONTAL;
-    vector<ButtonInfo> btnItems = {
-        ButtonInfo {
-            .text = "main button",
-            .bgColor = Color::BLACK,
-        },
-        ButtonInfo {
-            .text = "second button",
-            .bgColor = Color::BLUE,
-        },
-    };
-    props.buttons = btnItems;
-
-    /**
-     * @tc.steps: step3. create dialog node.
-     * @tc.expected: the dialog node created successfully.
-     */
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<DialogTheme>()));
-    float expectedFontScale = 3.0f;
-    float actualFontScale = 2.0f;
-    auto pipeline = PipelineContext::GetCurrentContext();
-    CHECK_NULL_VOID(pipeline);
-    pipeline->SetFontScale(expectedFontScale);
-    auto dialog = DialogView::CreateDialogNode(props, nullptr);
-    ASSERT_NE(dialog, nullptr);
-    auto dialogPattern = dialog->GetPattern<DialogPattern>();
-    ASSERT_NE(dialogPattern, nullptr);
-    dialogPattern->deviceOrientation_ = DeviceOrientation::PORTRAIT;
-    SystemProperties::orientation_ = DeviceOrientation::LANDSCAPE;
-    auto dialogLayoutProps = dialog->GetLayoutProperty<DialogLayoutProperty>();
-    auto buttonLayoutConstraint = dialogLayoutProps->GetLayoutConstraint();
-    dialog->Measure(buttonLayoutConstraint);
-    CHECK_NULL_VOID(dialogPattern->titleContainer_);
-    auto children = dialogPattern->titleContainer_->GetChildren();
-    for (auto child : children) {
-        auto textNode = AceType::DynamicCast<FrameNode>(dialogPattern->titleContainer_->GetChildAtIndex(0));
-        CHECK_NULL_VOID(textNode);
-        auto titleProp = AceType::DynamicCast<TextLayoutProperty>(textNode->GetLayoutProperty());
-        CHECK_NULL_VOID(titleProp);
-        EXPECT_EQ(titleProp->GetMaxFontScale().value_or(1.0), actualFontScale);
-    }
-}
-
-/**
- * @tc.name: DialogPatternTest028
- * @tc.desc: DialogPattern borderWidth
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest028, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create GestureEvent and DialogProperties.
-     * @tc.expected: the GestureEvent and DialogProperties created successfully.
-     */
-    DialogProperties param;
-    BorderWidthPropertyT<Dimension> testPropertyT;
-
-    testPropertyT.leftDimen = BORDER_WIDTH_PX_A;
-    testPropertyT.rightDimen = BORDER_WIDTH_PX_B;
-    testPropertyT.topDimen = BORDER_WIDTH_PX_C;
-    testPropertyT.bottomDimen = BORDER_WIDTH_PX_D;
-
-    param.borderWidth = testPropertyT;
-
-    // isRightToLeft is true
-    AceApplicationInfo::GetInstance().isRightToLeft_ = true;
-
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<DialogTheme>()));
-    /**
-     * @tc.steps: step2. create dialog node.
-     * @tc.expected: the dialog node created successfully.
-     */
-    auto child = FrameNode::GetOrCreateFrameNode(
-        V2::CUSTOM_DIALOG_COMPONENT_TAG, 0, []() { return AceType::MakeRefPtr<DialogPattern>(nullptr, nullptr); });
-
-    auto Dialog = DialogView::CreateDialogNode(param, child);
-    EXPECT_TRUE(Dialog);
-    ASSERT_NE(Dialog, nullptr);
-    EXPECT_EQ(Dialog->TotalChildCount(), 1);
-    /**
-     * @tc.steps: step3. create dialogPattern.
-     * @tc.expected: pattern->dialogProperties_.borderWidth.value() equal to testPropertyT .
-     */
-    auto pattern = Dialog->GetPattern<DialogPattern>();
-    ASSERT_NE(pattern, nullptr);
-    EXPECT_EQ(pattern->dialogProperties_.borderWidth.value(), testPropertyT);
-}
-
-
-/**
- * @tc.name: DialogPatternTest029
- * @tc.desc: Test CreateDialogNode function with maskRect.
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest029, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. set maskRect width and height in positive number.
-     * @tc.expected: step1. Create maskRect successfully.
-     */
-    DialogLayoutAlgorithm dialogLayoutAlgorithm;
-    DialogProperties props;
-    /**
-     * @tc.steps: step2. Create Dialog and get DialogPattern.
-     * @tc.expected: step2. Create Dialog and DialogPattern successfully.
-     */
-    auto dialog = DialogView::CreateDialogNode(props, nullptr);
-    ASSERT_NE(dialog, nullptr);
-    //isRightToLeft is true
-    AceApplicationInfo::GetInstance().isRightToLeft_ = true;
-    OffsetF topLeftPoint_(30.0, 10.0);
-
-    auto contentNode = AceType::DynamicCast<FrameNode>(dialog->GetFirstChild());
-    ASSERT_NE(contentNode, nullptr);
-    auto childLayoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(
-        contentNode, contentNode->GetGeometryNode(), contentNode->GetLayoutProperty());
-    auto layoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(dialog, dialog->GetGeometryNode(), dialog->GetLayoutProperty());
-    layoutWrapper->AppendChild(childLayoutWrapper);
-    auto frameNode = layoutWrapper->GetHostNode();
-    auto childSize = childLayoutWrapper->GetGeometryNode()->GetMarginFrameSize();
-
-    dialogLayoutAlgorithm.ProcessMaskRect(
-        DimensionRect(Dimension(childSize.Width()), Dimension(childSize.Height()), DimensionOffset(topLeftPoint_)),
-        frameNode);
-
-    /**
-     * @tc.steps: step3. test GetMouseResponseRegion function.
-     * @tc.expected: step3. return width equal to widthDimen.
-     */
-    auto hub = dialog->GetEventHub<DialogEventHub>();
-    auto gestureHub = hub->GetOrCreateGestureEventHub();
-    std::vector<DimensionRect> mouseResponseRegion;
-    mouseResponseRegion = gestureHub->GetMouseResponseRegion();
-    EXPECT_EQ(mouseResponseRegion[0].GetOffset().GetX().Value(), 30.0);
-}
-
-/**
- * @tc.name: DialogPatternTest030
- * @tc.desc: Test dialogPattern.BuildTitle
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest030, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step0. create and update DialogProperties.
-     * @tc.expected: the DialogProperties created and update successfully.
-     */
-    DialogProperties props;
-    UpdateDialogProperties(props);
-    props.subtitle = "";
-    /**
-     * @tc.steps: step1. Create mock theme manager
-     */
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    auto textTheme = AceType::MakeRefPtr<TextTheme>();
-    auto dialogTheme = AceType::MakeRefPtr<DialogTheme>();
-    auto buttonTheme = AceType::MakeRefPtr<ButtonTheme>();
-    textTheme->isTextFadeout_ = true;
-    dialogTheme->paddingSingleTitle_ = DIALOG_TITLE_PADDING;
-    dialogTheme->button_type_ = 1;
-    dialogTheme->buttonTextSize_ = 0.0_vp;
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([=](ThemeType type) -> RefPtr<Theme> {
-        if (type == TextTheme::TypeId()) {
-            return textTheme;
-        } else if (type == DialogTheme::TypeId()) {
-            return dialogTheme;
-        } else {
-            return buttonTheme;
-        }
-    });
-    /**
-     * @tc.steps: step2. create dialog node.
-     * @tc.expected: the dialog node created successfully.
-     */
-    auto dialog = DialogView::CreateDialogNode(props, nullptr);
-    ASSERT_NE(dialog, nullptr);
-    auto dialogPattern = dialog->GetPattern<DialogPattern>();
-    ASSERT_NE(dialogPattern, nullptr);
-    dialogPattern->isSuitableForElderly_ = true;
-    dialogPattern->AddButtonAndDivider(btnItems, dialogPattern->buttonContainer_, false);
-    SystemProperties::orientation_ = DeviceOrientation::PORTRAIT;
-    dialogPattern->BuildChild(props);
-    EXPECT_EQ(dialogPattern->titleContainer_->GetTag(), V2::ROW_ETS_TAG);
-    /**
-     * @tc.steps: step2. get titleTextNode && subTitleTextNode.
-     * @tc.expected: The text padding is equal to dialogTheme_->GetPaddingSingleTitle().ConvertToPx() /
-     * DIALOG_TITLE_AVE_BY_2 when only have title.
-     */
-    auto titleTextNode = AceType::DynamicCast<FrameNode>(dialogPattern->titleContainer_->GetChildAtIndex(0));
-    ASSERT_NE(titleTextNode, nullptr);
-    auto titleProp = AceType::DynamicCast<TextLayoutProperty>(titleTextNode->GetLayoutProperty());
-    ASSERT_NE(titleProp, nullptr);
-    const auto& titlePadding = titleProp->GetPaddingProperty();
-    auto topPadding = titlePadding->top.value_or(CalcLength(0.0_vp)).GetDimension().ConvertToPx();
-    auto bottomPadding = titlePadding->bottom.value_or(CalcLength(0.0_vp)).GetDimension().ConvertToPx();
-    auto padding = DIALOG_TITLE_PADDING.ConvertToPx() / DIALOG_TITLE_AVE_BY_2;
-    EXPECT_EQ(topPadding, padding);
-    EXPECT_EQ(bottomPadding, padding);
-    /**
-     * @tc.steps: step2. get ButtonNode.
-     * @tc.expected: Check the param value
-     */
-    EXPECT_EQ(dialogPattern->buttonContainer_->GetTag(), V2::COLUMN_ETS_TAG);
-    for (auto child : dialogPattern->buttonContainer_->GetChildren()) {
-        if (child->GetTag() != V2::BUTTON_ETS_TAG) {
-            continue;
-        }
-        auto buttonNode = AceType::DynamicCast<FrameNode>(child);
-        CheckTextMarquee(buttonNode);
-    }
-}
-
-/**
- * @tc.name: DialogPatternTest031
- * @tc.desc: Test dialogPattern.BuildTitle
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest031, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step0. create and update DialogProperties.
-     * @tc.expected: the DialogProperties created and update successfully.
-     */
-    DialogProperties props;
-    UpdateDialogProperties(props);
-    /**
-     * @tc.steps: step1. Create mock theme manager
-     */
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    auto textTheme = AceType::MakeRefPtr<TextTheme>();
-    auto dialogTheme = AceType::MakeRefPtr<DialogTheme>();
-    auto buttonTheme = AceType::MakeRefPtr<ButtonTheme>();
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([=](ThemeType type) -> RefPtr<Theme> {
-        if (type == TextTheme::TypeId()) {
-            return textTheme;
-        } else if (type == DialogTheme::TypeId()) {
-            return dialogTheme;
-        } else {
-            return buttonTheme;
-        }
-    });
-    /**
-     * @tc.steps: step2. create dialog node.
-     * @tc.expected: the dialog node created successfully.
-     */
-    auto dialog = DialogView::CreateDialogNode(props, nullptr);
-    ASSERT_NE(dialog, nullptr);
-    auto dialogPattern = dialog->GetPattern<DialogPattern>();
-    ASSERT_NE(dialogPattern, nullptr);
-    dialogPattern->BuildChild(props);
-    ASSERT_NE(dialogPattern->titleContainer_, nullptr);
-    EXPECT_EQ(dialogPattern->titleContainer_->GetTag(), V2::COLUMN_ETS_TAG);
-    auto titleNode = AceType::DynamicCast<FrameNode>(dialogPattern->titleContainer_->GetChildAtIndex(0));
-    auto subTitleNode = AceType::DynamicCast<FrameNode>(dialogPattern->titleContainer_->GetChildAtIndex(1));
-    ASSERT_NE(titleNode, nullptr);
-    ASSERT_NE(subTitleNode, nullptr);
-    EXPECT_EQ(titleNode->GetTag(), V2::ROW_ETS_TAG);
-    EXPECT_EQ(subTitleNode->GetTag(), V2::ROW_ETS_TAG);
-    /**
-     * @tc.steps: step2. get titleTextNode && subTitleTextNode.
-     * @tc.expected: The text padding is equal to dialogTheme->GetPaddingTopTitle() when have title && subTitle.
-     */
-    auto titleTextNode = AceType::DynamicCast<FrameNode>(titleNode->GetChildAtIndex(0));
-    auto subTitleTextNode = AceType::DynamicCast<FrameNode>(subTitleNode->GetChildAtIndex(0));
-    ASSERT_NE(titleTextNode, nullptr);
-    ASSERT_NE(subTitleTextNode, nullptr);
-    EXPECT_EQ(titleTextNode->GetTag(), V2::TEXT_ETS_TAG);
-    EXPECT_EQ(subTitleTextNode->GetTag(), V2::TEXT_ETS_TAG);
-    auto titleProp = AceType::DynamicCast<TextLayoutProperty>(titleTextNode->GetLayoutProperty());
-    auto subTitleProp = AceType::DynamicCast<TextLayoutProperty>(subTitleTextNode->GetLayoutProperty());
-    ASSERT_NE(titleProp, nullptr);
-    ASSERT_NE(subTitleProp, nullptr);
-    const auto& titlePadding = titleProp->GetPaddingProperty();
-    const auto& subTitlePadding = subTitleProp->GetPaddingProperty();
-    auto topPadding = titlePadding->top.value_or(CalcLength(0.0_vp)).GetDimension().ConvertToPx();
-    auto bottomPadding = subTitlePadding->bottom.value_or(CalcLength(0.0_vp)).GetDimension().ConvertToPx();
-    EXPECT_EQ(topPadding, dialogTheme->GetPaddingTopTitle().ConvertToPx());
-    EXPECT_EQ(bottomPadding, dialogTheme->GetPaddingTopTitle().ConvertToPx());
-}
-
-/**
- * @tc.name: DialogPatternTest032
- * @tc.desc: Test dialogPattern.BuildTitle
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest032, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step0. create and update DialogProperties.
-     * @tc.expected: the DialogProperties created and update successfully.
-     */
-    auto pipeline = PipelineContext::GetCurrentContext();
-    ASSERT_NE(pipeline, nullptr);
-    pipeline->SetFollowSystem(true);
-    pipeline->SetMaxAppFontScale(FONT_SIZE_SCALE_TEST2);
-    DialogProperties props;
-    UpdateDialogProperties(props);
-    /**
-     * @tc.steps: step1. Create mock theme manager
-     */
-    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
-    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
-    auto textTheme = AceType::MakeRefPtr<TextTheme>();
-    auto dialogTheme = AceType::MakeRefPtr<DialogTheme>();
-    auto buttonTheme = AceType::MakeRefPtr<ButtonTheme>();
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([=](ThemeType type) -> RefPtr<Theme> {
-        if (type == TextTheme::TypeId()) {
-            return textTheme;
-        } else if (type == DialogTheme::TypeId()) {
-            return dialogTheme;
-        } else {
-            return buttonTheme;
-        }
-    });
-    /**
-     * @tc.steps: step2. create dialog node.
-     * @tc.expected: the dialog node created successfully.
-     */
-    auto dialog = DialogView::CreateDialogNode(props, nullptr);
-    ASSERT_NE(dialog, nullptr);
-    auto dialogPattern = dialog->GetPattern<DialogPattern>();
-    ASSERT_NE(dialogPattern, nullptr);
-    dialogPattern->BuildChild(props);
-    ASSERT_NE(dialogPattern->titleContainer_, nullptr);
-    EXPECT_EQ(dialogPattern->titleContainer_->GetTag(), V2::COLUMN_ETS_TAG);
-    auto titleNode = AceType::DynamicCast<FrameNode>(dialogPattern->titleContainer_->GetChildAtIndex(0));
-    auto subTitleNode = AceType::DynamicCast<FrameNode>(dialogPattern->titleContainer_->GetChildAtIndex(1));
-    ASSERT_NE(titleNode, nullptr);
-    ASSERT_NE(subTitleNode, nullptr);
-    EXPECT_EQ(titleNode->GetTag(), V2::ROW_ETS_TAG);
-    EXPECT_EQ(subTitleNode->GetTag(), V2::ROW_ETS_TAG);
-    /**
-     * @tc.steps: step3. get titleTextNode && subTitleTextNode.
-     * @tc.expected: The text padding is equal to dialogTheme->GetPaddingTopTitle() when have title && subTitle.
-     */
-    auto titleTextNode = AceType::DynamicCast<FrameNode>(titleNode->GetChildAtIndex(0));
-    auto subTitleTextNode = AceType::DynamicCast<FrameNode>(subTitleNode->GetChildAtIndex(0));
-    ASSERT_NE(titleTextNode, nullptr);
-    ASSERT_NE(subTitleTextNode, nullptr);
-    EXPECT_EQ(titleTextNode->GetTag(), V2::TEXT_ETS_TAG);
-    EXPECT_EQ(subTitleTextNode->GetTag(), V2::TEXT_ETS_TAG);
-    auto titleProp = AceType::DynamicCast<TextLayoutProperty>(titleTextNode->GetLayoutProperty());
-    auto subTitleProp = AceType::DynamicCast<TextLayoutProperty>(subTitleTextNode->GetLayoutProperty());
-    ASSERT_NE(titleProp, nullptr);
-    ASSERT_NE(subTitleProp, nullptr);
-    EXPECT_EQ(titleProp->GetMaxFontScale().value(), FONT_MAX_SIZE_SCALE);
-    EXPECT_EQ(subTitleProp->GetMaxFontScale().value(), FONT_MAX_SIZE_SCALE);
-}
-
-/**
- * @tc.name: DialogPatternTest033
- * @tc.desc: Test dialogPattern.BuildTitle
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest033, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step0. create and update DialogProperties.
-     * @tc.expected: the DialogProperties created and update successfully.
-     */
-    auto pipeline = PipelineContext::GetCurrentContext();
-    ASSERT_NE(pipeline, nullptr);
-    pipeline->SetFollowSystem(true);
-    pipeline->SetMaxAppFontScale(FONT_SIZE_SCALE_TEST1);
-    DialogProperties props;
-    UpdateDialogProperties(props);
-    /**
-     * @tc.steps: step1. create dialog node.
-     * @tc.expected: the dialog node created successfully.
-     */
-    auto dialog = DialogView::CreateDialogNode(props, nullptr);
-    ASSERT_NE(dialog, nullptr);
-    auto dialogPattern = dialog->GetPattern<DialogPattern>();
-    ASSERT_NE(dialogPattern, nullptr);
-    dialogPattern->BuildChild(props);
-    ASSERT_NE(dialogPattern->titleContainer_, nullptr);
-    EXPECT_EQ(dialogPattern->titleContainer_->GetTag(), V2::COLUMN_ETS_TAG);
-    auto titleNode = AceType::DynamicCast<FrameNode>(dialogPattern->titleContainer_->GetChildAtIndex(0));
-    auto subTitleNode = AceType::DynamicCast<FrameNode>(dialogPattern->titleContainer_->GetChildAtIndex(1));
-    ASSERT_NE(titleNode, nullptr);
-    ASSERT_NE(subTitleNode, nullptr);
-    EXPECT_EQ(titleNode->GetTag(), V2::ROW_ETS_TAG);
-    EXPECT_EQ(subTitleNode->GetTag(), V2::ROW_ETS_TAG);
-    /**
-     * @tc.steps: step2. get titleTextNode && subTitleTextNode.
-     * @tc.expected: The text padding is equal to dialogTheme->GetPaddingTopTitle() when have title && subTitle.
-     */
-    auto titleTextNode = AceType::DynamicCast<FrameNode>(titleNode->GetChildAtIndex(0));
-    auto subTitleTextNode = AceType::DynamicCast<FrameNode>(subTitleNode->GetChildAtIndex(0));
-    ASSERT_NE(titleTextNode, nullptr);
-    ASSERT_NE(subTitleTextNode, nullptr);
-    EXPECT_EQ(titleTextNode->GetTag(), V2::TEXT_ETS_TAG);
-    EXPECT_EQ(subTitleTextNode->GetTag(), V2::TEXT_ETS_TAG);
-    auto titleProp = AceType::DynamicCast<TextLayoutProperty>(titleTextNode->GetLayoutProperty());
-    auto subTitleProp = AceType::DynamicCast<TextLayoutProperty>(subTitleTextNode->GetLayoutProperty());
-    ASSERT_NE(titleProp, nullptr);
-    ASSERT_NE(subTitleProp, nullptr);
-    EXPECT_EQ(titleProp->GetMaxFontScale().value(), FONT_SIZE_SCALE_TEST1);
-    EXPECT_EQ(subTitleProp->GetMaxFontScale().value(), FONT_SIZE_SCALE_TEST1);
-}
-
-/**
- * @tc.name: DialogPatternTest034
- * @tc.desc: Test AdjustHoverModeForWaterfall
- * @tc.type: FUNC
- */
-HWTEST_F(DialogPatternTestNg, DialogPatternTest034, TestSize.Level1)
-{
-    DialogLayoutAlgorithm dialogLayoutAlgorithm;
-    auto frameNode = AceType::MakeRefPtr<FrameNode>("test1", 1, AceType::MakeRefPtr<DialogPattern>(nullptr, nullptr));
-    ASSERT_NE(frameNode, nullptr);
-    auto dialogLayoutProperty = AceType::MakeRefPtr<DialogLayoutProperty>();
-    ASSERT_NE(dialogLayoutProperty, nullptr);
-    dialogLayoutProperty->UpdateEnableHoverMode(true);
-    frameNode->layoutProperty_ = dialogLayoutProperty;
-    dialogLayoutAlgorithm.AdjustHoverModeForWaterfall(frameNode);
-    EXPECT_FALSE(dialogLayoutAlgorithm.isHoverMode_);
-    MockSystemProperties::g_isSuperFoldDisplayDevice = true;
-    RefPtr<MockContainer> containerOne = AceType::MakeRefPtr<MockContainer>();
-    RefPtr<MockContainer> containerTwo = AceType::MakeRefPtr<MockContainer>();
-    MockContainer::Current()->GetMockDisplayInfo()->SetFoldStatus(FoldStatus::HALF_FOLD);
-    AceEngine::Get().AddContainer(0, containerOne);
-    AceEngine::Get().AddContainer(1, containerTwo);
-    dialogLayoutAlgorithm.AdjustHoverModeForWaterfall(frameNode);
-    EXPECT_TRUE(dialogLayoutAlgorithm.isHoverMode_);
 }
 } // namespace OHOS::Ace::NG

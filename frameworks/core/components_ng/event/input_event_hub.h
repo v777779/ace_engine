@@ -18,6 +18,7 @@
 
 #include <list>
 
+#include "base/geometry/ng/point_t.h"
 #include "base/memory/ace_type.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/event/input_event.h"
@@ -27,9 +28,15 @@ namespace OHOS::Ace::NG {
 
 class EventHub;
 
+using TouchpadInteractionCallback = std::function<void(PointF)>;
+struct TouchpadInteractionListener {
+    WeakPtr<FrameNode> frameNode;
+    TouchpadInteractionCallback callback;
+};
+
 // The gesture event hub is mainly used to handle common gesture events.
 class ACE_EXPORT InputEventHub : public virtual AceType {
-    DECLARE_ACE_TYPE(InputEventHub, AceType)
+    DECLARE_ACE_TYPE(InputEventHub, AceType);
 public:
     explicit InputEventHub(const WeakPtr<EventHub>& eventHub);
     ~InputEventHub() override = default;
@@ -42,7 +49,7 @@ public:
         }
         mouseEventActuator_->ReplaceInputEvent(std::move(onMouseEventFunc));
     }
-    void SetJSFrameNodeOnMouseEvent(OnMouseEventFunc&& onMouseEventFunc)
+    void SetFrameNodeCommonOnMouseEvent(OnMouseEventFunc&& onMouseEventFunc)
     {
         if (!mouseEventActuator_) {
             mouseEventActuator_ = MakeRefPtr<InputEventActuator>(WeakClaim(this));
@@ -64,6 +71,14 @@ public:
             return;
         }
         mouseEventActuator_->RemoveInputEvent(onMouseEvent);
+    }
+
+    void RemoveAllTipsMouseEvents()
+    {
+        if (!mouseEventActuator_) {
+            return;
+        }
+        mouseEventActuator_->RemoveAllTipsEvents();
     }
 
     void SetHoverEffect(HoverEffectType type);
@@ -120,7 +135,7 @@ public:
         return false;
     }
 
-    void SetJSFrameNodeOnHoverEvent(OnHoverFunc&& onHoverEventFunc)
+    void SetFrameNodeCommonOnHoverEvent(OnHoverFunc&& onHoverEventFunc)
     {
         if (!hoverEventActuator_) {
             hoverEventActuator_ = MakeRefPtr<InputEventActuator>(WeakClaim(this));
@@ -128,14 +143,14 @@ public:
         hoverEventActuator_->ReplaceJSFrameNodeInputEvent(std::move(onHoverEventFunc));
     }
 
-    void SetJSFrameNodeOnHoverMoveEvent(OnHoverMoveFunc&& onHoverMoveEventFunc)
+    void SetFrameNodeCommonOnHoverMoveEvent(OnHoverMoveFunc&& onHoverMoveEventFunc)
     {
         if (!hoverMoveEventActuator_) {
             hoverMoveEventActuator_ = MakeRefPtr<InputEventActuator>(WeakClaim(this));
         }
         hoverMoveEventActuator_->ReplaceJSFrameNodeInputEvent(std::move(onHoverMoveEventFunc));
     }
-    
+
     void AddOnHoverEvent(const RefPtr<InputEvent>& onHoverEvent)
     {
         if (!hoverEventActuator_) {
@@ -151,7 +166,15 @@ public:
         }
         hoverEventActuator_->RemoveInputEvent(onHoverEvent);
     }
-    
+
+    void RemoveAllTipsHoverEvents()
+    {
+        if (!hoverEventActuator_) {
+            return;
+        }
+        hoverEventActuator_->RemoveAllTipsEvents();
+    }
+
     void AddOnHoverMoveEvent(const RefPtr<InputEvent>& onHoverMoveEvent)
     {
         if (!hoverMoveEventActuator_) {
@@ -176,6 +199,22 @@ public:
         axisEventActuator_->ReplaceInputEvent(std::move(onAxisEventFunc));
     }
 
+    void SetCoastingAxisEvent(OnCoastingAxisEventFunc&& onCoastingAxisEventFunc)
+    {
+        if (!coastingAxisEventActuator_) {
+            coastingAxisEventActuator_ = MakeRefPtr<InputEventActuator>(WeakClaim(this));
+        }
+        coastingAxisEventActuator_->ReplaceInputEvent(std::move(onCoastingAxisEventFunc));
+    }
+
+    bool HasCoastingAxisEvent()
+    {
+        if (coastingAxisEventActuator_) {
+            return coastingAxisEventActuator_->HasUserCallback();
+        }
+        return false;
+    }
+
     void AddOnAxisEvent(const RefPtr<InputEvent>& onAxisEvent)
     {
         if (!axisEventActuator_) {
@@ -198,7 +237,7 @@ public:
 
     bool ProcessPenHoverTestHit(const OffsetF& coordinateOffset, TouchTestResult& result);
 
-    bool ProcessAxisTestHit(const OffsetF& coordinateOffset, AxisTestResult& onAxisResult);
+    bool ProcessAxisTestHit(const OffsetF& coordinateOffset, AxisTestResult& onAxisResult, bool isCoastingAxis = false);
 
     RefPtr<FrameNode> GetFrameNode() const;
 
@@ -263,6 +302,15 @@ public:
         }
     }
 
+    void ClearUserOnCoastingAxisEvent()
+    {
+        if (coastingAxisEventActuator_) {
+            coastingAxisEventActuator_->ClearUserCallback();
+        }
+    }
+
+    void AddTouchpadInteractionListenerInner(TouchpadInteractionCallback&& listener);
+
 private:
     WeakPtr<EventHub> eventHub_;
     RefPtr<InputEventActuator> mouseEventActuator_;
@@ -270,6 +318,7 @@ private:
     RefPtr<InputEventActuator> hoverMoveEventActuator_;
     RefPtr<InputEventActuator> hoverEffectActuator_;
     RefPtr<InputEventActuator> axisEventActuator_;
+    RefPtr<InputEventActuator> coastingAxisEventActuator_;
     RefPtr<InputEventActuator> accessibilityHoverEventActuator_;
 
     RefPtr<InputEvent> showMenu_;

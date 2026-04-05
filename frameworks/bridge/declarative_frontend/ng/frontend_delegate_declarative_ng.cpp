@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -569,6 +569,12 @@ void FrontendDelegateDeclarativeNG::GetRouterStateByUrl(std::string& url, std::v
     pageRouterManager_->GetStateByUrl(url, stateArray);
 }
 
+std::string FrontendDelegateDeclarativeNG::GetInitParams()
+{
+    CHECK_NULL_RETURN(pageRouterManager_, "");
+    return pageRouterManager_->GetInitParams();
+}
+
 std::string FrontendDelegateDeclarativeNG::GetParams()
 {
     CHECK_NULL_RETURN(pageRouterManager_, "");
@@ -766,6 +772,7 @@ void FrontendDelegateDeclarativeNG::ShowDialog(const PromptDialogAttr& dialogAtt
         .isShowInSubWindow = dialogAttr.showInSubWindow,
         .isModal = dialogAttr.isModal,
         .enableHoverMode = dialogAttr.enableHoverMode,
+        .hasInvertColor = dialogAttr.hasInvertColor,
         .maskRect = dialogAttr.maskRect,
         .levelOrder = dialogAttr.levelOrder,
         .dialogLevelMode = dialogAttr.dialogLevelMode,
@@ -868,7 +875,8 @@ DialogProperties FrontendDelegateDeclarativeNG::ParsePropertiesFromAttr(const Pr
 {
     DialogProperties dialogProperties = {
         .autoCancel = dialogAttr.autoCancel, .customStyle = dialogAttr.customStyle,
-        .onWillDismiss = dialogAttr.customOnWillDismiss, .maskColor = dialogAttr.maskColor,
+        .onWillDismiss = dialogAttr.customOnWillDismiss,
+        .onWillDismissRelease = dialogAttr.customOnWillDismissRelease, .maskColor = dialogAttr.maskColor,
         .backgroundColor = dialogAttr.backgroundColor, .borderRadius = dialogAttr.borderRadius,
         .isShowInSubWindow = dialogAttr.showInSubWindow, .isModal = dialogAttr.isModal,
         .enableHoverMode = dialogAttr.enableHoverMode, .customBuilder = dialogAttr.customBuilder,
@@ -878,6 +886,7 @@ DialogProperties FrontendDelegateDeclarativeNG::ParsePropertiesFromAttr(const Pr
         .borderWidth = dialogAttr.borderWidth,
         .borderColor = dialogAttr.borderColor, .borderStyle = dialogAttr.borderStyle, .shadow = dialogAttr.shadow,
         .width = dialogAttr.width, .height = dialogAttr.height,
+        .hasInvertColor = dialogAttr.hasInvertColor,
         .isUserCreatedDialog = dialogAttr.isUserCreatedDialog,
         .maskRect = dialogAttr.maskRect,
         .transitionEffect = dialogAttr.transitionEffect, .contentNode = dialogAttr.contentNode,
@@ -1101,13 +1110,14 @@ void FrontendDelegateDeclarativeNG::OnDrawCompleted(const std::string& component
         TaskExecutor::TaskType::JS, "ArkUIDrawCompleted");
 }
 
-void FrontendDelegateDeclarativeNG::OnDrawChildrenCompleted(const std::string& componentId)
+void FrontendDelegateDeclarativeNG::OnDrawChildrenCompleted(const std::string& componentId,
+    const std::vector<int32_t>& childIds)
 {
     taskExecutor_->PostTask(
-        [weak = AceType::WeakClaim(this), componentId] {
+        [weak = AceType::WeakClaim(this), componentId, childIds] {
             auto delegate = weak.Upgrade();
             if (delegate && delegate->drawChildrenInspectorCallback_) {
-                delegate->drawChildrenInspectorCallback_(componentId);
+                delegate->drawChildrenInspectorCallback_(componentId, childIds);
             }
         },
         TaskExecutor::TaskType::JS, "ArkUIDrawChildrenCompleted");
@@ -1397,13 +1407,22 @@ std::pair<int32_t, std::shared_ptr<Media::PixelMap>> FrontendDelegateDeclarative
     return {ERROR_CODE_INTERNAL_ERROR, nullptr};
 }
 
-void FrontendDelegateDeclarativeNG::GetSnapshotWithRange(const NG::NodeIdentity startID, const NG::NodeIdentity endID,
+void FrontendDelegateDeclarativeNG::GetSnapshotWithRange(const NG::NodeIdentity& startID, const NG::NodeIdentity& endID,
     const bool isStartRect,
     std::function<void(std::shared_ptr<Media::PixelMap>, int32_t, std::function<void()>)>&& callback,
     const NG::SnapshotOptions& options)
 {
 #ifdef ENABLE_ROSEN_BACKEND
     NG::ComponentSnapshot::GetWithRange(startID, endID, isStartRect, std::move(callback), options);
+#endif
+}
+
+NG::SnapshotSizeLimitation FrontendDelegateDeclarativeNG::GetSizeLimitation()
+{
+#ifdef ENABLE_ROSEN_BACKEND
+    return NG::ComponentSnapshot::GetSizeLimitation();
+#else
+    return {};
 #endif
 }
 

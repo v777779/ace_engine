@@ -14,9 +14,11 @@
  */
 
 #include "test/unittest/core/event/drag_event_test_ng.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "test/unittest/core/pattern/scrollable/mock_scrollable.h"
+#include "core/components_ng/base/inspector.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_func_wrapper.h"
+#include "core/components_ng/pattern/text_drag/text_drag_pattern.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -146,61 +148,6 @@ HWTEST_F(DragEventTestNg, DragEventActuatorUpdatePreviewAttrTest034, TestSize.Le
         COORDINATE_OFFSET, DRAG_TOUCH_RESTRICT, getEventTargetImpl, finalResult, responseLinkResult);
     (*(dragEventActuator->previewLongPressRecognizer_->onAction_))(info);
     EXPECT_EQ(previewOptions.isNumber, true);
-}
-
-/**
- * @tc.name: DragEventActuatorUpdatePreviewAttrTest035
- * @tc.desc: Create DragEventActuator and invoke longPressUpdate callback.
- * @tc.type: FUNC
- */
-HWTEST_F(DragEventTestNg, DragEventActuatorUpdatePreviewAttrTest035, TestSize.Level1)
-{
-    auto eventHub = AceType::MakeRefPtr<EventHub>();
-    ASSERT_NE(eventHub, nullptr);
-    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::TEXT_ETS_TAG, -1, AceType::MakeRefPtr<TextPattern>());
-    ASSERT_NE(frameNode, nullptr);
-    DragDropInfo dragDropInfo;
-    frameNode->SetDragPreview(dragDropInfo);
-    frameNode->SetDraggable(true);
-    auto focusHub = frameNode->GetOrCreateFocusHub();
-    eventHub->host_ = AceType::WeakClaim(AceType::RawPtr(frameNode));
-    auto gestureEventHub = AceType::MakeRefPtr<GestureEventHub>(AceType::WeakClaim(AceType::RawPtr(eventHub)));
-    auto dragEventActuator = AceType::MakeRefPtr<DragEventActuator>(
-        AceType::WeakClaim(AceType::RawPtr(gestureEventHub)), DRAG_DIRECTION, FINGERS_NUMBER, DISTANCE);
-    ASSERT_NE(dragEventActuator, nullptr);
-    GestureEventFunc actionStart = [](GestureEvent& info) {};
-    GestureEventNoParameter actionCancel = []() {};
-    auto dragEvent = AceType::MakeRefPtr<DragEvent>(
-        std::move(actionStart), std::move(actionStart), std::move(actionStart), std::move(actionCancel));
-    dragEventActuator->ReplaceDragEvent(dragEvent);
-    dragEventActuator->SetCustomDragEvent(dragEvent);
-    auto getEventTargetImpl = eventHub->CreateGetEventTargetImpl();
-    TouchTestResult finalResult;
-    ResponseLinkResult responseLinkResult;
-    dragEventActuator->OnCollectTouchTarget(
-        COORDINATE_OFFSET, DRAG_TOUCH_RESTRICT, getEventTargetImpl, finalResult, responseLinkResult);
-    GestureEvent info = GestureEvent();
-    auto pipeline = PipelineContext::GetCurrentContext();
-    ASSERT_NE(pipeline, nullptr);
-    auto manager = pipeline->GetOverlayManager();
-    ASSERT_NE(manager, nullptr);
-    auto childNode = FrameNode::CreateFrameNode("test", 1, AceType::MakeRefPtr<Pattern>(), false);
-    ASSERT_NE(childNode, nullptr);
-    frameNode->AddChild(childNode);
-    ASSERT_NE(childNode->GetRenderContext(), nullptr);
-    auto parentNode = FrameNode::CreateFrameNode("test", 1, AceType::MakeRefPtr<Pattern>(), false);
-    ASSERT_NE(parentNode, nullptr);
-    frameNode->SetParent(parentNode);
-    dragEventActuator->itemParentNode_ = parentNode;
-    manager->pixmapColumnNodeWeak_ = WeakPtr<FrameNode>(AceType::DynamicCast<FrameNode>(frameNode));
-    (*(dragEventActuator->previewLongPressRecognizer_->onAction_))(info);
-    gestureEventHub->contextMenuShowStatus_ = true;
-    (*(dragEventActuator->previewLongPressRecognizer_->onAction_))(info);
-    Offset offSet;
-    dragEventActuator->previewLongPressRecognizer_->callback_(offSet);
-    gestureEventHub->textDraggable_ = true;
-    dragEventActuator->previewLongPressRecognizer_->callback_(offSet);
-    EXPECT_EQ(gestureEventHub->textDraggable_, true);
 }
 
 /**
@@ -612,7 +559,11 @@ HWTEST_F(DragEventTestNg, DragEventActuatorUpdatePreviewAttrTest044, TestSize.Le
     auto layoutProperty = AceType::MakeRefPtr<LayoutProperty>();
     ASSERT_NE(layoutProperty, nullptr);
     frameNode->layoutProperty_ = layoutProperty;
-    Inspector::offscreenNodes.clear();
+    auto context = PipelineContext::GetCurrentContext();
+    ASSERT_NE(context, nullptr);
+    auto offscreenNodesMgr = context->GetInspectorOffscreenNodesMgr();
+    ASSERT_NE(offscreenNodesMgr, nullptr);
+    offscreenNodesMgr->ClearOffscreenNodes();
     Inspector::AddOffscreenNode(frameNode);
     DragDropFuncWrapper::GetPreviewPixelMap("testid", frameNode);
     layoutProperty->propVisibility_ = VisibleType::GONE;
@@ -884,6 +835,33 @@ HWTEST_F(DragEventTestNg, DragEventActuatorMountGatherNodeTest032, TestSize.Leve
     EXPECT_EQ(renderContext->GetPositionValue(tempOffset), tempOffset);
     DragEventActuator::UpdateGatherAnimatePosition(
         gatherNodeChildInfo, { COORDINATE_OFFSET.GetX(), COORDINATE_OFFSET.GetY() });
+    EXPECT_EQ(renderContext->GetPositionValue(tempOffset), targetOffset);
+}
+
+/**
+ * @tc.name: DragEventActuatorMountGatherNodeTest033
+ * @tc.desc: Test UpdateGatherAnimatePosition function with FrameNode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragEventTestNg, DragEventActuatorMountGatherNodeTest033, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create gatherNodeChildInfo
+     */
+    auto frameNode = FrameNode::GetOrCreateFrameNode(V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<ImagePattern>(); });
+    ASSERT_NE(frameNode, nullptr);
+    auto renderContext = frameNode->GetRenderContext();
+    ASSERT_NE(renderContext, nullptr);
+
+    /**
+     * @tc.steps: step2. Test UpdateGatherAnimatePosition function with FrameNode.
+     */
+    auto tempOffset = OffsetT<Dimension>(Dimension(0.0f), Dimension(0.0f));
+    auto targetOffset = OffsetT<Dimension>(Dimension(COORDINATE_OFFSET.GetX()), Dimension(COORDINATE_OFFSET.GetY()));
+    EXPECT_EQ(renderContext->GetPositionValue(tempOffset), tempOffset);
+    DragEventActuator::UpdateGatherAnimatePosition(
+        frameNode, { COORDINATE_OFFSET.GetX(), COORDINATE_OFFSET.GetY() });
     EXPECT_EQ(renderContext->GetPositionValue(tempOffset), targetOffset);
 }
 

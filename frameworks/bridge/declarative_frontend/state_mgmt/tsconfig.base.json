@@ -15,6 +15,9 @@
     "src/lib/common/ifelse_native.d.ts",
     "src/lib/common/ark_component.d.ts",
 
+    // declarations for types missing in runtime (for 3rd party libs compilation)
+    "src/lib/common/runtime-stubs.d.ts",
+
     // interop configure
     "src/lib/interop/interop_configure.ts",
     "src/lib/interop/interop_module.ts",
@@ -35,6 +38,7 @@
     "src/lib/sdk/persistent_storage.ts",
     "src/lib/sdk/environment.ts",
     "src/lib/sdk/i_repeat.ts",
+    "src/lib/sdk/i_monitor.d.ts",
 
     // common
     "src/lib/common/state_mgmt_console_trace.ts",
@@ -45,7 +49,6 @@
     "src/lib/common/custom_dialog_controller.ts",
     "src/lib/common/utils.ts",
     "src/lib/common/state_mgmt_dfx.ts",
-    "src/lib/common/arkts_util.d.ts",
     "src/lib/common/finalization_registry.d.ts",
     "src/lib/common/weakref_pool.ts",
     "src/lib/common/arkui_object_finalization_register_proxy.ts",
@@ -69,6 +72,7 @@
     "src/lib/puv2_common/puv2_updatefunc.ts",
     "src/lib/puv2_common/puv2_view_native_base.d.ts",
     "src/lib/puv2_common/puv2_view_base.ts",
+    "src/lib/puv2_common/pu_lifecycle.ts",
 
     // partial_update specific
     "src/lib/partial_update/pu_types_events.ts",
@@ -93,10 +97,21 @@
     "src/lib/v2/v2_computed.ts",
     "src/lib/v2/v2_view.ts",
     "src/lib/v2/v2_decorators.ts",
-    "src/lib/v2/v2_json_coder.ts",
+    "src/lib/v2/v2_data_coder/json2.ts",
+    "src/lib/v2/v2_data_coder/data_coder.ts",
+    "src/lib/v2/v2_data_coder/json_coder.ts",
     "src/lib/v2/v2_make_observed.ts",
     "src/lib/v2/v2_recycle_pool.ts",
     "src/lib/common/sendable_type.ts",
+
+    // env
+    "src/lib/v2/v2_env.ts",
+    "src/lib/env_base/env_factory.ts",
+    "src/lib/env_base/i_env_value.ts",
+    "src/lib/env_base/i_env_breakpoint.ts",
+    "src/lib/env_base/window_env/i_env_windowsize.ts",
+    "src/lib/env_base/window_env/i_env_windowavoidarea.ts",
+    "src/lib/common/module_map.d.ts",
 
     // partial_update specific
     "src/lib/partial_update/pu_repeat.ts",
@@ -107,6 +122,8 @@
     // sdk
     "src/lib/sdk/v2_persistence.ts",
     "src/lib/sdk/ui_utils.ts",
+    "src/lib/sdk/observed_util.ts",
+    "src/lib/sdk/business_error.ts",
 
     // common
     "src/lib/common/gesture_span.ts",
@@ -116,18 +133,22 @@
     "src/lib/interop/interop.ts",
     "src/lib/interop/interop_storage.ts",
     "src/lib/interop/interop_builder.ts",
+    "src/lib/interop/interop_view.ts",
     "src/lib/interop/v2_builder.ts",
     "src/lib/interop/v2_interop_storage.ts",
 
     // init
     "src/index.ts",
   ],
+
   "compilerOptions": {
+    "allowJs": true,
     "module": "none",
     "target": "ES2016",
     "outDir": "./distRelease/",
     "outFile": "./distRelease/stateMgmt.js",
-    "rootDir": "./src/",
+    "rootDir": "./",
+    "moduleResolution": "node",
     "declaration": true,
     "noEmitOnError": true,
     "experimentalDecorators": true,

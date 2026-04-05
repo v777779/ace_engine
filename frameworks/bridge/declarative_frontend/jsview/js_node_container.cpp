@@ -52,27 +52,6 @@ void RemoveFromNodeControllerMap(EcmaVM* vm, int32_t nodeId)
     }
 }
 
-void BindFunc(const Framework::JSCallbackInfo& info, const RefPtr<NG::FrameNode>& frameNode)
-{
-    CHECK_NULL_VOID(frameNode);
-    CHECK_NULL_VOID(!frameNode->HasOnNodeDestroyCallback());
-    EcmaVM* vm = info.GetVm();
-    CHECK_NULL_VOID(vm);
-    auto global = JSNApi::GetGlobalObject(vm);
-    auto funcName = panda::StringRef::NewFromUtf8(vm, "__RemoveFromNodeControllerMap__");
-    auto obj = global->Get(vm, funcName);
-    auto nodeContainerEventHub = frameNode->GetEventHub<NG::NodeContainerEventHub>();
-    auto weakEventHub = AceType::WeakClaim(AceType::RawPtr(nodeContainerEventHub));
-    if (obj->IsFunction(vm)) {
-        frameNode->SetOnNodeDestroyCallback([vm, weakEventHub](int32_t nodeId) {
-            auto eventHub = weakEventHub.Upgrade();
-            CHECK_NULL_VOID(eventHub);
-            eventHub->FireOnWillUnbind(nodeId);
-            RemoveFromNodeControllerMap(vm, nodeId);
-            eventHub->FireOnUnbind(nodeId);
-        });
-    }
-}
 
 void AddToNodeControllerMap(EcmaVM* vm, int32_t nodeId, const Framework::JSRef<Framework::JSObject>& object)
 {
@@ -113,6 +92,30 @@ NodeContainerModel* NodeContainerModel::GetInstance()
 } // namespace OHOS::Ace
 
 namespace OHOS::Ace::Framework {
+
+void JSNodeContainer::BindFunc(const JSCallbackInfo& info, const RefPtr<NG::FrameNode>& frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(!frameNode->HasOnNodeDestroyCallback());
+    EcmaVM* vm = info.GetVm();
+    CHECK_NULL_VOID(vm);
+    auto global = JSNApi::GetGlobalObject(vm);
+    auto funcName = panda::StringRef::NewFromUtf8(vm, "__RemoveFromNodeControllerMap__");
+    auto obj = global->Get(vm, funcName);
+    auto nodeContainerEventHub = frameNode->GetEventHub<NG::NodeContainerEventHub>();
+    auto weakEventHub = AceType::WeakClaim(AceType::RawPtr(nodeContainerEventHub));
+    if (obj->IsFunction(vm)) {
+        frameNode->SetOnNodeDestroyCallback([vm, weakEventHub, execCtx = info.GetExecutionContext()](int32_t nodeId) {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
+            auto eventHub = weakEventHub.Upgrade();
+            CHECK_NULL_VOID(eventHub);
+            eventHub->FireOnWillUnbind(nodeId);
+            RemoveFromNodeControllerMap(vm, nodeId);
+            eventHub->FireOnUnbind(nodeId);
+        });
+    }
+}
+
 void JSNodeContainer::Create(const JSCallbackInfo& info)
 {
     NodeContainerModel* nodeContainerModelInstance = NodeContainerModel::GetInstance();
@@ -203,7 +206,7 @@ void JSNodeContainer::SetNodeController(const JSRef<JSObject>& object, JsiExecut
     CHECK_NULL_VOID(nodeContainerModelInstance);
 
     auto jsFunc = JSRef<JSFunc>::Cast(jsMakeNodeFunc);
-    auto containerId = Container::CurrentId();
+    auto containerId = Container::CurrentIdSafely();
     RefPtr<JsFunction> jsMake = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(object), jsFunc);
     nodeContainerModelInstance->SetMakeFunction(
         [func = std::move(jsMake), containerId, execCtx]() -> RefPtr<NG::UINode> {
@@ -331,7 +334,7 @@ void JSNodeContainer::SetOnTouchEventFunc(const JSRef<JSObject>& object, JsiExec
     auto onTouch = [execCtx, func = std::move(jsOnTouchFunc), node = frameNode](TouchEventInfo& info) {
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         PipelineContext::SetCallBackNode(node);
-        func->Execute(info);
+        func->Execute(execCtx.vm_, info);
     };
     nodeContainerModelInstance->SetOnTouchEvent(std::move(onTouch));
 }

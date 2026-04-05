@@ -20,7 +20,6 @@
 #include <deque>
 #include <vector>
 
-#include "core/components_ng/pattern/waterflow/layout/water_flow_layout_algorithm_base.h"
 #include "core/components_ng/pattern/waterflow/layout/water_flow_layout_info_base.h"
 
 namespace OHOS::Ace::NG {
@@ -150,8 +149,8 @@ public:
      */
     float DistanceToBottom(int32_t item, float mainSize, float mainGap) const;
 
-    int32_t StartIndex() const;
-    int32_t EndIndex() const;
+    int32_t StartIndex() const override;
+    int32_t EndIndex() const override;
     inline bool ItemInView(int32_t idx) const
     {
         return !lanes_.empty() && idx >= StartIndex() && idx <= EndIndex();
@@ -176,7 +175,7 @@ public:
     float StartPos() const;
     inline float StartPosWithMargin() const
     {
-        return StartPos() - TopMargin();
+        return StartPos() - TopMargin() - contentStartOffset_;
     }
 
     void ClearDataFrom(int32_t idx, const std::vector<float>& mainGap);
@@ -259,6 +258,7 @@ public:
     float GetCachedHeightInLanes(int32_t idx) const;
     void SetHeightInLanes(int32_t idx, float mainHeight);
     bool HaveRecordIdx(int32_t idx) const;
+    float CalcMaxHeight(int itemCnt);
 
     void InvalidatedOffset() override
     {
@@ -284,7 +284,6 @@ public:
 
     // maximum content height encountered so far
     float maxHeight_ = 0.0f;
-    float footerHeight_ = 0.0f;
 
     // record the new startIndex_ after changing the datasource, corresponding to the old startIndex_.
     int32_t newStartIndex_ = EMPTY_NEW_START_INDEX;
@@ -329,6 +328,11 @@ private:
      * @brief Sync state when there has no items in lanes.
      */
     void SyncOnEmptyLanes(float mainSize);
+
+	/**
+	 * @brief Handle end-of-content detection and adjust endIndex for zero-height trailing items
+	 */
+    void HandleItemEnd(int32_t itemCnt, float mainSize);
 
     /**
      * @brief cache main-axis length of measured FlowItems.

@@ -17,6 +17,7 @@
 
 #include "frameworks/core/components_ng/event/gesture_event_hub.h"
 
+
 namespace OHOS::Ace {
 void DragEvent::SetData(const RefPtr<UnifiedData>& unifiedData)
 {
@@ -67,4 +68,5 @@ void DragEvent::SetDragDropInfoCustomNode(void* customNode)
 {
     dragDropInfoCustomNode_ = customNode;
 }
+
 } // namespace OHOS::Ace

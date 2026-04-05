@@ -23,7 +23,6 @@
 #include "core/components/common/properties/radius.h"
 #include "core/components/theme/theme.h"
 #include "core/components/theme/theme_constants.h"
-#include "core/components/theme/theme_constants_defines.h"
 #include "core/components_ng/pattern/search/search_model.h"
 
 namespace OHOS::Ace {
@@ -72,6 +71,8 @@ public:
             theme->rightPadding_ = pattern->GetAttr<Dimension>("search_text_field_padding_right", 0.0_vp);
             theme->rightPaddingWithoutButton_ =
                 pattern->GetAttr<Dimension>("search_text_field_right_padding_without_button", 12.0_vp);
+            theme->rightPaddingWithButton_ =
+                pattern->GetAttr<Dimension>("search_text_field_right_padding_with_button", 0.0_vp);
             theme->fontWeight_ = FontWeight(static_cast<int32_t>(pattern->GetAttr<double>("search_font_weight", 0.0)));
             theme->borderRadius_ = Radius(pattern->GetAttr<Dimension>("search_text_field_border_radius", 0.0_vp));
             theme->blockRightShade_ = static_cast<int32_t>(pattern->GetAttr<double>("search_block_right_shade", 0.0));
@@ -96,6 +97,15 @@ public:
             theme->cancelButtonStyle_ = static_cast<CancelButtonStyle>(
                 static_cast<int32_t>(pattern->GetAttr<double>("search_cancel_button_style", 2.0f)));
             theme->searchFocusPadding_ = pattern->GetAttr<Dimension>("search_focus_glow_padding", 0.0_vp);
+            theme->searchNormalColor_ = pattern->GetAttr<Color>("search_normal_color", Color::TRANSPARENT);
+            theme->searchCancelButtonHoverColor_ =
+                pattern->GetAttr<Color>("search_cancel_button_hover_color", Color());
+            theme->searchCancelButtonPressColor_ =
+                pattern->GetAttr<Color>("search_cancel_button_press_color", Color());
+            theme->searchCancelButtonFocusColor_ =
+                pattern->GetAttr<Color>("search_cancel_button_focus_color", Color());
+            theme->searchCancelButtonFocusPadding_ =
+                pattern->GetAttr<Dimension>("search_cancel_button_focus_padding", 0.0_vp);
             ParsePatternIconTheme(pattern, theme);
         }
 
@@ -231,7 +241,6 @@ public:
         return searchButtonSpace_;
     }
 
-
     const Dimension& GetIconHeight() const
     {
         return iconHeight_;
@@ -303,6 +312,11 @@ public:
         return rightPaddingWithoutButton_;
     }
 
+    const Dimension& GetRightPaddingWithButton() const
+    {
+        return rightPaddingWithButton_;
+    }
+
     const Color& GetBorderColor() const
     {
         return borderColor_;
@@ -331,6 +345,31 @@ public:
     const Dimension& GetSearchFocusPadding() const
     {
         return searchFocusPadding_;
+    }
+
+    const Color& GetSearchNormalColor() const
+    {
+        return searchNormalColor_;
+    }
+
+    const Color& GetSearchCancelButtonHoverColor() const
+    {
+        return searchCancelButtonHoverColor_;
+    }
+
+    const Color& GetSearchCancelButtonPressColor() const
+    {
+        return searchCancelButtonPressColor_;
+    }
+
+    const Color& GetSearchCancelButtonFocusColor() const
+    {
+        return searchCancelButtonFocusColor_;
+    }
+
+    const Dimension& GetSearchCancelButtonFocusPadding() const
+    {
+        return searchCancelButtonFocusPadding_;
     }
 
 protected:
@@ -372,12 +411,18 @@ private:
     uint32_t cancelSymbolId_ = 0;
     Dimension symbolIconHeight_;
     Dimension rightPaddingWithoutButton_;
+    Dimension rightPaddingWithButton_;
     Color borderColor_;
     Dimension borderWidth_;
     Color focusBgColor_;
     bool needFocusBox_ = false;
     Dimension searchFocusPadding_;
     Dimension buttonFontSize_;
+    Color searchNormalColor_;
+    Color searchCancelButtonHoverColor_;
+    Color searchCancelButtonPressColor_;
+    Color searchCancelButtonFocusColor_;
+    Dimension searchCancelButtonFocusPadding_;
 };
 
 } // namespace OHOS::Ace

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,8 +17,8 @@
 
 #include "gtest/gtest.h"
 #define private public
-#include "test/mock/core/common/mock_image_analyzer_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_image_analyzer_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components/web/resource/web_delegate.h"
 #include "core/components_ng/pattern/web/web_pattern.h"
@@ -28,6 +28,7 @@
 
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_v2/inspector/inspector_constants.h"
+#include "arkweb_utils.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -120,6 +121,13 @@ public:
     {
         // Do nothing or implement actual behavior
     }
+
+    DragOperationsMask GetAllowedDragOperation() const override
+    {
+        return DragOperationsMask::DRAG_ALLOW_EVERY;
+    }
+
+    void SetAllowedDragOperation(DragOperationsMask allowed_op) override {}
 };
 
 class CustomNWebTouchHandleState : public OHOS::NWeb::NWebTouchHandleState {
@@ -233,7 +241,7 @@ public:
     {
         return false;
     }
-    bool OutBoundaryCallback() override
+    bool OutBoundaryCallback(bool useCurrentDelta = true) override
     {
         return false;
     }
@@ -265,7 +273,7 @@ public:
 
     void StopAnimate() override {}
 
-    float GetTotalOffset() const override
+    double GetTotalOffset() const override
     {
         return 0.0f;
     }
@@ -334,12 +342,6 @@ public:
     bool IsScrollSnap() override
     {
         return false;
-    }
-
-    std::vector<RefPtr<FrameNode>> GetVisibleSelectedItems() override
-    {
-        std::vector<RefPtr<FrameNode>> children;
-        return children;
     }
 
     void InitScrollBarClickEvent() override {}
@@ -421,10 +423,130 @@ HWTEST_F(WebPatternFocusTestNg, OnTextSelected_001, TestSize.Level1)
     ASSERT_NE(webPattern->delegate_, nullptr);
     webPattern->overlayCreating_ = false;
     webPattern->awaitingOnTextSelected_ = true;
+    webPattern->imageOverlayStatus_ = ImageOverlayStatus::HOLD_CREATE;
     webPattern->OnTextSelected();
     ASSERT_NE(webPattern->delegate_, nullptr);
     EXPECT_TRUE(webPattern->overlayCreating_);
     EXPECT_FALSE(webPattern->awaitingOnTextSelected_);
+    EXPECT_EQ(webPattern->imageOverlayStatus_, ImageOverlayStatus::TOUCH_HOLD);
+    // not touch holding OnTextSelected
+    webPattern->overlayCreating_ = false;
+    webPattern->awaitingOnTextSelected_ = true;
+    webPattern->imageOverlayStatus_ = ImageOverlayStatus::NONE;
+    webPattern->OnTextSelected();
+    EXPECT_FALSE(webPattern->overlayCreating_);
+    EXPECT_FALSE(webPattern->awaitingOnTextSelected_);
+#endif
+}
+
+/**
+ * @tc.name: OnTextSelected_002
+ * @tc.desc: OnTextSelected.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternFocusTestNg, OnTextSelected_002, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+
+    webPattern->awaitingOnTextSelected_ = false;
+    webPattern->overlayCreating_ = true;
+    webPattern->imageOverlayStatus_ = ImageOverlayStatus::NONE;
+    webPattern->OnTextSelected();
+
+    webPattern->overlayCreating_ = false;
+    webPattern->OnTextSelected();
+
+    webPattern->imageOverlayStatus_ = ImageOverlayStatus::TOUCH_HOLD;
+    webPattern->OnTextSelected();
+    EXPECT_EQ(webPattern->imageOverlayStatus_, ImageOverlayStatus::NONE);
+#endif
+}
+
+/**
+ * @tc.name: DestroyOverlayOnNoResponse_001
+ * @tc.desc: DestroyOverlayOnNoResponse.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternFocusTestNg, DestroyOverlayOnNoResponse_001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+
+    webPattern->awaitingOnTextSelected_ = false;
+    webPattern->overlayCreating_ = true;
+    webPattern->DestroyOverlayOnNoResponse();
+    EXPECT_TRUE(webPattern->overlayCreating_);
+
+    webPattern->awaitingOnTextSelected_ = true;
+    webPattern->DestroyOverlayOnNoResponse();
+    EXPECT_FALSE(webPattern->overlayCreating_);
+#endif
+}
+
+/**
+ * @tc.name: UpdateImageOverlayStatus_001
+ * @tc.desc: UpdateImageOverlayStatus.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternFocusTestNg, UpdateImageOverlayStatus_001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+
+    // TOUCH_HOLD
+    webPattern->imageOverlayStatus_ = ImageOverlayStatus::NONE;
+    webPattern->UpdateImageOverlayStatus(ImageOverlayEvent::TOUCH_PRESS);
+    webPattern->UpdateImageOverlayStatus(ImageOverlayEvent::TOUCH_PRESS);
+    EXPECT_EQ(webPattern->imageOverlayStatus_, ImageOverlayStatus::TOUCH_HOLD);
+
+    // TOUCH_RELEASE
+    webPattern->UpdateImageOverlayStatus(ImageOverlayEvent::TOUCH_RELEASE);
+    EXPECT_EQ(webPattern->imageOverlayStatus_, ImageOverlayStatus::NONE);
+
+    // CREATE_OVERLAY
+    webPattern->imageOverlayStatus_ = ImageOverlayStatus::TOUCH_HOLD;
+    webPattern->UpdateImageOverlayStatus(ImageOverlayEvent::CREATE_OVERLAY);
+    webPattern->UpdateImageOverlayStatus(ImageOverlayEvent::CREATE_OVERLAY);
+    EXPECT_EQ(webPattern->imageOverlayStatus_, ImageOverlayStatus::HOLD_CREATE);
+
+    // CREATE_OVERLAY_RELEASE
+    webPattern->UpdateImageOverlayStatus(ImageOverlayEvent::CREATE_OVERLAY_RELEASE);
+    webPattern->UpdateImageOverlayStatus(ImageOverlayEvent::CREATE_OVERLAY_RELEASE);
+    EXPECT_EQ(webPattern->imageOverlayStatus_, ImageOverlayStatus::TOUCH_HOLD);
+
+    // INVALID
+    webPattern->imageOverlayStatus_ = ImageOverlayStatus::HOLD_CREATE;
+    webPattern->UpdateImageOverlayStatus(static_cast<ImageOverlayEvent>(100));
+    EXPECT_EQ(webPattern->imageOverlayStatus_, ImageOverlayStatus::HOLD_CREATE);
+
 #endif
 }
 
@@ -508,11 +630,11 @@ HWTEST_F(WebPatternFocusTestNg, DestroyAnalyzerOverlay_003, TestSize.Level1)
 }
 
 /**
- * @tc.name: OnAccessibilityHoverEvent
- * @tc.desc: OnAccessibilityHoverEvent.
+ * @tc.name: OnAccessibilityHoverEvent1
+ * @tc.desc: OnAccessibilityHoverEvent1.
  * @tc.type: FUNC
  */
-HWTEST_F(WebPatternFocusTestNg, OnAccessibilityHoverEvent, TestSize.Level1)
+HWTEST_F(WebPatternFocusTestNg, OnAccessibilityHoverEvent1, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
@@ -525,13 +647,57 @@ HWTEST_F(WebPatternFocusTestNg, OnAccessibilityHoverEvent, TestSize.Level1)
     ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
-
-    const NG::PointF point(20, 100);
     SourceType sourceType = SourceType::NONE;
     AccessibilityHoverEventType eventType = AccessibilityHoverEventType::MOVE;
     TimeStamp time;
-    webPattern->OnAccessibilityHoverEvent(point, sourceType, eventType, time);
+    if (IS_CALLING_FROM_M114()) {
+        auto result1 = webPattern->GetWebAccessibilityIdBySurfaceId("arbitraryString");
+        ASSERT_EQ(result1, -1);
+    } else {
+        auto result2 = webPattern->GetWebAccessibilityIdBySurfaceId("hoverSurfaceId");
+        ASSERT_EQ(result2, -1);
+
+        const NG::PointF point(20, 100);
+        webPattern->OnAccessibilityHoverEvent(point, sourceType, eventType, time);
+        result2 = webPattern->GetWebAccessibilityIdBySurfaceId("hoverSurfaceId");
+        ASSERT_NE(result2, -1);
+    }
+#endif
+}
+
+/**
+ * @tc.name: OnAccessibilityHoverEvent2
+ * @tc.desc: OnAccessibilityHoverEvent2.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternFocusTestNg, OnAccessibilityHoverEvent2, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
+    SourceType sourceType = SourceType::NONE;
+    AccessibilityHoverEventType eventType = AccessibilityHoverEventType::MOVE;
+    TimeStamp time;
+    if (IS_CALLING_FROM_M114()) {
+        auto result1 = webPattern->GetWebAccessibilityIdBySurfaceId("arbitraryString");
+        ASSERT_EQ(result1, -1);
+    } else {
+        auto result2 = webPattern->GetWebAccessibilityIdBySurfaceId("hoverSurfaceId");
+        ASSERT_NE(result2, -1);
+
+        const NG::PointF point(-1, -1);
+        webPattern->OnAccessibilityHoverEvent(point, sourceType, eventType, time);
+        result2 = webPattern->GetWebAccessibilityIdBySurfaceId("hoverSurfaceId");
+        ASSERT_EQ(result2, -1);
+    }
 #endif
 }
 
@@ -630,21 +796,26 @@ HWTEST_F(WebPatternFocusTestNg, GetWebAccessibilityIdBySurfaceId002, TestSize.Le
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
 
-    auto result1 = webPattern->GetWebAccessibilityIdBySurfaceId("existSurfaceId");
-    ASSERT_EQ(result1, 123);
-    auto result2 = webPattern->GetWebAccessibilityIdBySurfaceId("existSurfaceIdOther");
-    ASSERT_EQ(result2, 456);
-    auto result3 = webPattern->GetWebAccessibilityIdBySurfaceId("noexistSurfaceId");
-    ASSERT_EQ(result3, -1);
+    if (IS_CALLING_FROM_M114()) {
+        auto result = webPattern->GetWebAccessibilityIdBySurfaceId("arbitraryString");
+        ASSERT_EQ(result, -1);
+    } else {
+        auto result1 = webPattern->GetWebAccessibilityIdBySurfaceId("existSurfaceId");
+        ASSERT_EQ(result1, 123);
+        auto result2 = webPattern->GetWebAccessibilityIdBySurfaceId("existSurfaceIdOther");
+        ASSERT_EQ(result2, 456);
+        auto result3 = webPattern->GetWebAccessibilityIdBySurfaceId("noexistSurfaceId");
+        ASSERT_EQ(result3, -1);
+    }
 #endif
 }
 
 /**
- * @tc.name: RegisterTextBlurCallback
- * @tc.desc: RegisterTextBlurCallback.
+ * @tc.name: GetWebAccessibilityIdBySurfaceId003
+ * @tc.desc: GetWebAccessibilityIdBySurfaceId delegate_ is not null
  * @tc.type: FUNC
  */
-HWTEST_F(WebPatternFocusTestNg, RegisterTextBlurCallback, TestSize.Level1)
+HWTEST_F(WebPatternFocusTestNg, GetWebAccessibilityIdBySurfaceId003, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
@@ -657,33 +828,13 @@ HWTEST_F(WebPatternFocusTestNg, RegisterTextBlurCallback, TestSize.Level1)
     ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
-
-    WebPattern::TextBlurCallback callback = [](int64_t id, const std::string& data) {};
-    webPattern->RegisterTextBlurCallback(std::move(callback));
-    EXPECT_TRUE(webPattern->textBlurAccessibilityEnable_);
-#endif
-}
-
-/**
- * @tc.name: UnRegisterTextBlurCallback
- * @tc.desc: UnRegisterTextBlurCallback.
- * @tc.type: FUNC
- */
-HWTEST_F(WebPatternFocusTestNg, UnRegisterTextBlurCallback, TestSize.Level1)
-{
-#ifdef OHOS_STANDARD_SYSTEM
-    auto* stack = ViewStackProcessor::GetInstance();
-    ASSERT_NE(stack, nullptr);
-    auto nodeId = stack->ClaimNodeId();
-    auto frameNode =
-        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    stack->Push(frameNode);
-    auto webPattern = frameNode->GetPattern<WebPattern>();
-    ASSERT_NE(webPattern, nullptr);
-    webPattern->OnModifyDone();
-    ASSERT_NE(webPattern->delegate_, nullptr);
-    webPattern->UnRegisterTextBlurCallback();
-    EXPECT_FALSE(webPattern->textBlurAccessibilityEnable_);
+    if (IS_CALLING_FROM_M114()) {
+        auto result = webPattern->GetWebAccessibilityIdBySurfaceId("existSurfaceId");
+        ASSERT_EQ(result, -1);
+    } else {
+        auto result1 = webPattern->GetWebAccessibilityIdBySurfaceId("existSurfaceId");
+        ASSERT_EQ(result1, 123);
+    }
 #endif
 }
 
@@ -733,14 +884,14 @@ HWTEST_F(WebPatternFocusTestNg, OnSetAccessibilityChildTree_001, TestSize.Level1
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    frameNode->accessibilityProperty_ = nullptr;
+    frameNode->GetOrCreateAccessibilityProperty() = nullptr;
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
     ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
     webPattern->OnSetAccessibilityChildTree(33, 33);
-    EXPECT_EQ(frameNode->accessibilityProperty_, nullptr);
+    EXPECT_EQ(frameNode->GetOrCreateAccessibilityProperty(), nullptr);
 #endif
 }
 
@@ -763,7 +914,7 @@ HWTEST_F(WebPatternFocusTestNg, OnSetAccessibilityChildTree_002, TestSize.Level1
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
     webPattern->OnSetAccessibilityChildTree(33, 33);
-    EXPECT_EQ(frameNode->accessibilityProperty_->GetChildTreeId(), 33);
+    EXPECT_EQ(frameNode->GetOrCreateAccessibilityProperty()->GetChildTreeId(), 33);
 #endif
 }
 /**

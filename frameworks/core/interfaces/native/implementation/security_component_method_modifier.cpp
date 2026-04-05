@@ -13,12 +13,10 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/security_component/security_component_model_ng.h"
+#include "core/interfaces/native/utility/ace_engine_types.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/validators.h"
-#include "core/interfaces/native/generated/interface/ui_node_api.h"
-#include "arkoala_api_generated.h"
 
 namespace OHOS::Ace::NG::Converter {
 template<>
@@ -70,6 +68,10 @@ void SetWidthImpl(Ark_NativePointer node,
     const Opt_Union_Length_LayoutPolicy* value);
 void SetHeightImpl(Ark_NativePointer node,
     const Opt_Union_Length_LayoutPolicy* value);
+void SetFocusBoxImpl(Ark_NativePointer node,
+    const Opt_FocusBoxStyle* value);
+void SetAlignRulesImpl(Ark_NativePointer node,
+    const Opt_Union_AlignRuleOption_LocalizedAlignRuleOptions* value);
 } // namespace CommonMethodModifier
 namespace SecurityComponentMethodModifier {
 Ark_NativePointer ConstructImpl(Ark_Int32 id,
@@ -85,6 +87,7 @@ void SetIconSizeImpl(Ark_NativePointer node,
     CHECK_NULL_VOID(value);
     auto valueOpt = Converter::OptConvert<Dimension>(*value);
     Validator::ValidateNonNegative(valueOpt);
+    Validator::ValidateNonPercent(valueOpt);
     SecurityComponentModelNG::SetIconSize(frameNode, valueOpt);
 }
 void SetLayoutDirectionImpl(Ark_NativePointer node,
@@ -332,6 +335,7 @@ void SetAlignImpl(Ark_NativePointer node,
 void SetAlignRulesImpl(Ark_NativePointer node,
                        const Opt_Union_AlignRuleOption_LocalizedAlignRuleOptions* alignRule)
 {
+    CommonMethodModifier::SetAlignRulesImpl(node, alignRule);
 }
 void SetIdImpl(Ark_NativePointer node,
                const Opt_String* description)
@@ -413,6 +417,13 @@ void SetEnabledImpl(Ark_NativePointer node,
 {
     CommonMethodModifier::SetEnabledImpl(node, respond);
 }
+void SetFocusBoxImpl(Ark_NativePointer node,
+                     const Opt_FocusBoxStyle* style)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CommonMethodModifier::SetFocusBoxImpl(node, style);
+}
 } // SecurityComponentMethodModifier
 const GENERATED_ArkUISecurityComponentMethodModifier* GetSecurityComponentMethodModifier()
 {
@@ -452,6 +463,7 @@ const GENERATED_ArkUISecurityComponentMethodModifier* GetSecurityComponentMethod
         SecurityComponentMethodModifier::SetMaxFontSizeImpl,
         SecurityComponentMethodModifier::SetHeightAdaptivePolicyImpl,
         SecurityComponentMethodModifier::SetEnabledImpl,
+        SecurityComponentMethodModifier::SetFocusBoxImpl,
     };
     return &ArkUISecurityComponentMethodModifierImpl;
 }

@@ -18,8 +18,16 @@
 #include "core/common/resource/resource_parse_utils.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/menu/menu_item/menu_item_pattern.h"
+#include "core/components_ng/pattern/menu/menu_tag_constants.h"
 
 namespace OHOS::Ace::NG {
+RefPtr<FrameNode> MenuItemModelNG::CreateFrameNode(int32_t nodeId)
+{
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        MENU_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<MenuItemPattern>(); });
+    return frameNode;
+}
+
 void MenuItemModelNG::CreateWithColorResourceObj(const RefPtr<ResourceObject>& resObj, MenuItemFontColorType type)
 {
     CHECK_NULL_VOID(resObj);
@@ -310,9 +318,9 @@ void MenuItemModelNG::Create(const RefPtr<UINode>& customNode)
 {
     auto* stack = ViewStackProcessor::GetInstance();
     int32_t nodeId = stack->ClaimNodeId();
-    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::MENU_ITEM_ETS_TAG, nodeId);
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", MENU_ITEM_ETS_TAG, nodeId);
     auto menuItem = FrameNode::GetOrCreateFrameNode(
-        V2::MENU_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<CustomMenuItemPattern>(); });
+        MENU_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<CustomMenuItemPattern>(); });
     CHECK_NULL_VOID(menuItem);
     stack->Push(menuItem);
 
@@ -357,7 +365,7 @@ void MenuItemModelNG::Create(const MenuItemProperties& menuItemProps)
     auto* stack = ViewStackProcessor::GetInstance();
     int32_t nodeId = stack->ClaimNodeId();
     auto menuItem = FrameNode::GetOrCreateFrameNode(
-        V2::MENU_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<MenuItemPattern>(); });
+        MENU_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<MenuItemPattern>(); });
     CHECK_NULL_VOID(menuItem);
     stack->Push(menuItem);
 
@@ -366,7 +374,7 @@ void MenuItemModelNG::Create(const MenuItemProperties& menuItemProps)
     auto theme = pipeline->GetTheme<SelectTheme>();
     CHECK_NULL_VOID(theme);
 
-    SetupMenuItemProperties(menuItem, theme); 
+    SetupMenuItemProperties(menuItem, theme);
 
     auto buildFunc = menuItemProps.buildFunc;
     auto pattern = menuItem->GetPattern<MenuItemPattern>();
@@ -384,7 +392,7 @@ RefPtr<FrameNode> MenuItemModelNG::CreateMenuItem(OptionParam&& param, const Men
     int32_t nodeId = stack->ClaimNodeId();
 
     auto menuItem = FrameNode::GetOrCreateFrameNode(
-        V2::MENU_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<MenuItemPattern>(); });
+        MENU_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<MenuItemPattern>(); });
     CHECK_NULL_RETURN(menuItem, nullptr);
 
     auto renderContext = menuItem->GetRenderContext();
@@ -430,7 +438,7 @@ void MenuItemModelNG::SetupMenuItemProperties(const RefPtr<FrameNode>& menuItem,
     renderContext->UpdateBorderRadius(border);
 
     if (menuItem->GetChildren().empty()) {
-        auto leftRow = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        auto leftRow = FrameNode::CreateFrameNode(ROW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
             AceType::MakeRefPtr<LinearLayoutPattern>(false));
         CHECK_NULL_VOID(leftRow);
         auto leftRowLayoutProps = leftRow->GetLayoutProperty<LinearLayoutProperty>();
@@ -440,7 +448,7 @@ void MenuItemModelNG::SetupMenuItemProperties(const RefPtr<FrameNode>& menuItem,
         leftRowLayoutProps->UpdateSpace(theme->GetIconContentPadding());
 
         leftRow->MountToParent(menuItem);
-        auto rightRow = FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        auto rightRow = FrameNode::CreateFrameNode(ROW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
             AceType::MakeRefPtr<LinearLayoutPattern>(false));
         CHECK_NULL_VOID(rightRow);
         auto rightRowLayoutProps = rightRow->GetLayoutProperty<LinearLayoutProperty>();
@@ -472,9 +480,7 @@ void MenuItemModelNG::UpdateMenuProperty(const RefPtr<NG::FrameNode>& menuItem, 
             CHECK_NULL_VOID(menuProperty);
             MenuItemProperties& menuItemPropsValue = const_cast<MenuItemProperties&>(menuItemProps);
             menuItemPropsValue.ReloadResources(menuItemPropsValue);
-            menuProperty->UpdateStartIcon(menuItemPropsValue.startIcon.value_or(ImageSourceInfo("")));
             menuProperty->UpdateContent(menuItemPropsValue.content);
-            menuProperty->UpdateEndIcon(menuItemPropsValue.endIcon.value_or(ImageSourceInfo("")));
             menuProperty->UpdateLabel(menuItemPropsValue.labelInfo.value_or(""));
             frameNode->MarkModifyDone();
             frameNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
@@ -611,6 +617,14 @@ void MenuItemModelNG::SetLabelFontFamily(const std::vector<std::string> &familie
 void MenuItemModelNG::SetSelectedChangeEvent(std::function<void(bool)>&& selectedChangeEvent)
 {
     auto eventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<MenuItemEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetSelectedChangeEvent(selectedChangeEvent);
+}
+
+void MenuItemModelNG::SetSelectedChangeEvent(FrameNode* frameNode, std::function<void(bool)>&& selectedChangeEvent)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<MenuItemEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetSelectedChangeEvent(selectedChangeEvent);
 }

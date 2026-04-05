@@ -25,6 +25,7 @@ void ColumnModelNG::Create(const std::optional<Dimension>& space, AlignDeclarati
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
+    ACE_UINODE_TRACE(nodeId);
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::COLUMN_ETS_TAG, nodeId);
     auto frameNode = FrameNode::GetOrCreateFrameNode(
         V2::COLUMN_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
@@ -34,6 +35,8 @@ void ColumnModelNG::Create(const std::optional<Dimension>& space, AlignDeclarati
     CHECK_NULL_VOID(space);
     if (GreatOrEqual(space->Value(), 0.0)) {
         ACE_UPDATE_LAYOUT_PROPERTY(LinearLayoutProperty, Space, space.value());
+    } else {
+        LOGE("Column: the space value is illegal due to space is less than zero");
     }
 }
 
@@ -41,6 +44,7 @@ void ColumnModelNG::Create(const RefPtr<ResourceObject>& spaceResObj, AlignDecla
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
+    ACE_UINODE_TRACE(nodeId);
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::COLUMN_ETS_TAG, nodeId);
     auto frameNode = FrameNode::GetOrCreateFrameNode(
         V2::COLUMN_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
@@ -79,16 +83,18 @@ void ColumnModelNG::Create(const RefPtr<ResourceObject>& spaceResObj, AlignDecla
 
 void ColumnModelNG::SetSpace(FrameNode* frameNode, const std::optional<Dimension>& space)
 {
-    if (space && GreatOrEqual(space->Value(), 0.0)) {
+    CHECK_NULL_VOID(space);
+    if (GreatOrEqual(space->Value(), 0.0)) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, Space, space.value(), frameNode);
     } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, Space, frameNode);
+        LOGE("Column: the space value is illegal due to space is less than zero");
     }
 }
 
 void ColumnModelNG::SetSpace(FrameNode* frameNode, const RefPtr<ResourceObject>& spaceResObj)
 {
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto pattern = frameNode->GetPattern<LinearLayoutPattern>();
     CHECK_NULL_VOID(pattern);
     auto&& updateFunc = [weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
@@ -161,22 +167,14 @@ void ColumnModelNG::SetIsReverse(FrameNode* frameNode, bool isReverse)
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(FlexLayoutProperty, IsReverse, isReverse, frameNode);
 }
 
-void ColumnModelNG::SetJustifyContent(FrameNode* frameNode, const std::optional<FlexAlign>& valueOpt)
+void ColumnModelNG::SetJustifyContent(FrameNode* frameNode, FlexAlign flexAlign)
 {
-    if (valueOpt) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, MainAxisAlign, valueOpt.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, MainAxisAlign, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, MainAxisAlign, flexAlign, frameNode);
 }
 
-void ColumnModelNG::SetAlignItems(FrameNode* frameNode, const std::optional<FlexAlign>& valueOpt)
+void ColumnModelNG::SetAlignItems(FrameNode* frameNode, FlexAlign flexAlign)
 {
-    if (valueOpt) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, CrossAxisAlign, valueOpt.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, CrossAxisAlign, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, CrossAxisAlign, flexAlign, frameNode);
 }
 
 FlexAlign ColumnModelNG::GetJustifyContent(FrameNode* frameNode)
@@ -191,5 +189,21 @@ FlexAlign ColumnModelNG::GetAlignItems(FrameNode* frameNode)
     FlexAlign value = FlexAlign::CENTER;
     ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(LinearLayoutProperty, CrossAxisAlign, value, frameNode, value);
     return value;
+}
+
+double ColumnModelNG::GetSpace(FrameNode* frameNode)
+{
+    auto space = CalcDimension(0.0, DimensionUnit::VP);
+    CHECK_NULL_RETURN(frameNode, space.Value());
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(LinearLayoutProperty, Space, space, frameNode, space);
+    return space.Value();
+}
+
+bool ColumnModelNG::GetIsReverse(FrameNode* frameNode)
+{
+    bool isReverse = false;
+    CHECK_NULL_RETURN(frameNode, isReverse);
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(FlexLayoutProperty, IsReverse, isReverse, frameNode, isReverse);
+    return isReverse;
 }
 } // namespace OHOS::Ace::NG

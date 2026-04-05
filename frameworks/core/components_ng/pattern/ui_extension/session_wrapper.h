@@ -16,7 +16,6 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_UI_EXTENSION_SESSION_WRAPPER_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_UI_EXTENSION_SESSION_WRAPPER_H
 
-#include <cstdint>
 #include <list>
 #include <map>
 #include <memory>
@@ -160,6 +159,8 @@ public:
 
     virtual void NotifyHostWindowMode(int32_t mode) {}
     virtual void ReDispatchWantParams() {}
+
+    virtual void UpdateInstanceId(int32_t instanceId) {}
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_UI_EXTENSION_SESSION_WRAPPER_H

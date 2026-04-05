@@ -68,8 +68,10 @@ public:
     void SetEntry(int32_t row, int32_t col, double value);
     bool IsIdentityMatrix() const;
     int32_t Count() const;
+    Point TransformPoint(const Point& point);
 
     bool operator==(const Matrix4& matrix) const;
+    bool operator==(const double (&matrix)[4][4]) const;
     Matrix4 operator*(double num);
     Matrix4 operator*(const Matrix4& matrix);
 
@@ -101,6 +103,7 @@ public:
         }
     }
     std::string ToString() const;
+    void CopyMatrix(double (&matrix)[4][4]);
 
 private:
     static Matrix4 CreateInvert(const Matrix4& matrix);

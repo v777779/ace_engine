@@ -13,22 +13,59 @@
  * limitations under the License.
  */
 
-#include "base/utils/utf_helper.h"
 #include "core/components_ng/pattern/menu/menu_item_group/menu_item_group_pattern.h"
 
+#include "core/components_ng/pattern/menu/menu_divider/menu_divider_pattern.h"
 #include "core/components_ng/pattern/menu/menu_item/menu_item_pattern.h"
+#include "core/components_ng/pattern/menu/menu_tag_constants.h"
 
 namespace OHOS::Ace::NG {
+void MenuItemGroupPattern::CreateBottomDivider()
+{
+    if (bottomDivider_) {
+        return;
+    }
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    bottomDivider_ = FrameNode::GetOrCreateFrameNode(MENU_DIVIDER_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<MenuDividerPattern>(); });
+    auto dividerPattern = bottomDivider_->GetPattern<MenuDividerPattern>();
+    dividerPattern->BindMenuItem(host);
+}
+
+void MenuItemGroupPattern::AttachBottomDivider()
+{
+    CreateBottomDivider();
+    CHECK_NULL_VOID(bottomDivider_);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto parent = host->GetParent();
+    CHECK_NULL_VOID(parent);
+    RemoveBottomDivider();
+    auto index = parent->GetChildIndex(host);
+    if (index >= 0) {
+        bottomDivider_->MountToParent(parent, ++index);
+    }
+}
+
+void MenuItemGroupPattern::RemoveBottomDivider()
+{
+    CHECK_NULL_VOID(bottomDivider_);
+    auto dividerParent = bottomDivider_->GetParent();
+    if (dividerParent) {
+        dividerParent->RemoveChild(bottomDivider_);
+    }
+}
+
 void MenuItemGroupPattern::OnMountToParentDone()
 {
     ModifyFontSize();
-    ModifyDivider();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     bool needDivider = false;
     const auto& children = host->GetChildren();
     for (const auto& child : children) {
-        if (child && child->GetTag() == V2::MENU_ITEM_ETS_TAG) {
+        if (child && child->GetTag() == MENU_ITEM_ETS_TAG) {
             auto itemNode = AceType::DynamicCast<FrameNode>(child);
             CHECK_NULL_VOID(itemNode);
             auto itemPattern = itemNode->GetPattern<MenuItemPattern>();
@@ -44,6 +81,7 @@ void MenuItemGroupPattern::ModifyFontSize()
 {
     auto menu = GetMenu();
     CHECK_NULL_VOID(menu);
+    ACE_UINODE_TRACE(menu);
     auto menuProperty = menu->GetLayoutProperty<MenuLayoutProperty>();
     CHECK_NULL_VOID(menuProperty);
     auto menuFontSize = menuProperty->GetFontSize();
@@ -72,12 +110,13 @@ void MenuItemGroupPattern::AddHeader(const RefPtr<NG::UINode>& header)
     CHECK_NULL_VOID(host);
     if (headerIndex_ < 0) {
         headerIndex_ = itemStartIndex_;
-        host->AddChild(header);
+        host->AddChild(header, headerIndex_);
         itemStartIndex_++;
     } else {
         host->ReplaceChild(host->GetChildAtIndex(headerIndex_), header);
     }
     auto frameNode = AceType::DynamicCast<FrameNode>(header);
+    header_ = frameNode;
     CHECK_NULL_VOID(frameNode);
     if (headerContent_) {
         auto pipeline = headerContent_->GetContext();
@@ -98,12 +137,13 @@ void MenuItemGroupPattern::AddFooter(const RefPtr<NG::UINode>& footer)
     CHECK_NULL_VOID(host);
     if (footerIndex_ < 0) {
         footerIndex_ = itemStartIndex_;
-        host->AddChild(footer);
+        host->AddChild(footer, footerIndex_);
         itemStartIndex_++;
     } else {
         host->ReplaceChild(host->GetChildAtIndex(footerIndex_), footer);
     }
     auto frameNode = AceType::DynamicCast<FrameNode>(footer);
+    footer_ = frameNode;
     CHECK_NULL_VOID(frameNode);
     if (footerContent_) {
         auto pipeline = footerContent_->GetContext();
@@ -124,7 +164,7 @@ RefPtr<FrameNode> MenuItemGroupPattern::GetMenu()
     CHECK_NULL_RETURN(host, nullptr);
     auto parent = host->GetParent();
     while (parent) {
-        if (parent->GetTag() == V2::MENU_ETS_TAG) {
+        if (parent->GetTag() == MENU_ETS_TAG) {
             return DynamicCast<FrameNode>(parent);
         }
         parent = parent->GetParent();
@@ -132,18 +172,10 @@ RefPtr<FrameNode> MenuItemGroupPattern::GetMenu()
     return nullptr;
 }
 
-std::u16string MenuItemGroupPattern::GetHeaderContent() const
+std::u16string MenuItemGroupPattern::GetHeaderContent()
 {
     CHECK_NULL_RETURN(headerContent_, u"");
     auto content = headerContent_->GetLayoutProperty<TextLayoutProperty>();
-    CHECK_NULL_RETURN(content, u"");
-    return content->GetContentValue(u"");
-}
-
-std::u16string MenuItemGroupPattern::GetFooterContent() const
-{
-    CHECK_NULL_RETURN(footerContent_, u"");
-    auto content = footerContent_->GetLayoutProperty<TextLayoutProperty>();
     CHECK_NULL_RETURN(content, u"");
     return content->GetContentValue(u"");
 }
@@ -172,6 +204,7 @@ void MenuItemGroupPattern::ModifyDivider()
 {
     auto menu = GetMenu();
     CHECK_NULL_VOID(menu);
+    ACE_UINODE_TRACE(menu);
     auto menuProperty = menu->GetLayoutProperty<MenuLayoutProperty>();
     CHECK_NULL_VOID(menuProperty);
     auto host = GetHost();
@@ -188,6 +221,7 @@ void MenuItemGroupPattern::ModifyDivider()
         paintProperty->UpdateNeedFooterDivider(true);
     }
     paintProperty->UpdateDividerMode(menuProperty->GetItemGroupDividerModeValue(DividerMode::FLOATING_ABOVE_MENU));
+    host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
 }
 
 void MenuItemGroupPattern::OnExtItemPressed(bool press, bool beforeGroup)
@@ -215,7 +249,7 @@ void MenuItemGroupPattern::OnIntItemPressed(int32_t index, bool press)
     if (index == itemStartIndex_ && headerContent_ == nullptr) {
         OnExtItemPressed(press, true); // beforeGroup=true just to hide header divider
         auto prevNode = parent->GetChildAtIndex(currentIndex - 1);
-        if (prevNode != nullptr && prevNode->GetTag() == V2::MENU_ITEM_GROUP_ETS_TAG) {
+        if (prevNode != nullptr && prevNode->GetTag() == MENU_ITEM_GROUP_ETS_TAG) {
             auto prevFrameNode = DynamicCast<FrameNode>(prevNode);
             CHECK_NULL_VOID(prevFrameNode);
             auto pattern = prevFrameNode->GetPattern<MenuItemGroupPattern>();
@@ -226,7 +260,7 @@ void MenuItemGroupPattern::OnIntItemPressed(int32_t index, bool press)
     if (size > 0 && index == static_cast<int32_t>(size - 1) && footerContent_ == nullptr) {
         OnExtItemPressed(press, false); // beforeGroup=false just to hide footer divider
         auto nextNode = parent->GetChildAtIndex(currentIndex + 1);
-        if (nextNode != nullptr && nextNode->GetTag() == V2::MENU_ITEM_GROUP_ETS_TAG) {
+        if (nextNode != nullptr && nextNode->GetTag() == MENU_ITEM_GROUP_ETS_TAG) {
             auto nextFrameNode = DynamicCast<FrameNode>(nextNode);
             CHECK_NULL_VOID(nextFrameNode);
             auto pattern = nextFrameNode->GetPattern<MenuItemGroupPattern>();
@@ -293,10 +327,5 @@ void MenuItemGroupPattern::OnColorConfigurationUpdate()
         UpdateHeaderColor();
         ModifyFontSize();
     }
-}
-void MenuItemGroupPattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
-{
-    json->PutExtAttr("header", UtfUtils::Str16ToStr8(GetHeaderContent()).c_str(), filter);
-    json->PutExtAttr("footer", UtfUtils::Str16ToStr8(GetFooterContent()).c_str(), filter);
 }
 } // namespace OHOS::Ace::NG

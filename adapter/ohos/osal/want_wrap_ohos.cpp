@@ -17,6 +17,7 @@
 
 #include "napi_common_want.h"
 
+#include "base/log/log_wrapper.h"
 #include "base/utils/utils.h"
 
 namespace OHOS::Ace {
@@ -24,9 +25,17 @@ RefPtr<WantParamsWrap> WantParamsWrap::CreateWantWrap(napi_env env, napi_value v
 {
     return AceType::MakeRefPtr<WantParamsWrapOhos>(env, value);
 }
+RefPtr<WantParamsWrap> WantParamsWrap::CreateWantWrap(const OHOS::AAFwk::WantParams& params)
+{
+    return AceType::MakeRefPtr<WantParamsWrapOhos>(params);
+}
 WantParamsWrapOhos::WantParamsWrapOhos(napi_env env, napi_value value)
 {
     AppExecFwk::UnwrapWantParams(env, value, params_);
+}
+std::string WantParamsWrapOhos::ToString() const
+{
+    return params_.ToString();
 }
 
 napi_value WantWrap::ConvertToNativeValue(const OHOS::AAFwk::Want& want, napi_env env)

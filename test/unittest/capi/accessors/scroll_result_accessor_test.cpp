@@ -16,7 +16,6 @@
 #include "gmock/gmock.h"
 
 #include "accessor_test_base.h"
-#include "node_api.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/implementation/scroll_result_peer.h"
@@ -45,11 +44,11 @@ public:
 };
 
 /**
- * @tc.name: setGetOffsetRemain
+ * @tc.name: setOffsetRemainTestSetGetOffsetRemain
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(ScrollResultAccessorTest, setGetOffsetRemain, TestSize.Level1)
+HWTEST_F(ScrollResultAccessorTest, setOffsetRemainTestSetGetOffsetRemain, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getOffsetRemain, nullptr);
     ASSERT_NE(accessor_->setOffsetRemain, nullptr);

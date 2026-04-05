@@ -24,7 +24,7 @@
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/event/touch_event.h"
 #include "core/pipeline_ng/pipeline_context.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -168,6 +168,7 @@ public:
     {
         return 0;
     }
+
     int32_t GetSelectY() override
     {
         return 0;
@@ -408,6 +409,101 @@ HWTEST_F(WebPatternTest, OnWindowShowTest011, TestSize.Level1)
 }
 
 /**
+ * @tc.name: OnWindowShowTest02
+ * @tc.desc: Test OnWindowShow.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, OnWindowShowTest02, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    g_webPattern->OnModifyDone();
+    auto host = g_webPattern->GetHost();
+    EXPECT_NE(host, nullptr);
+
+    g_webPattern->isWindowShow_ = false;
+    g_webPattern->isVisible_ = false;
+    
+    g_webPattern->offlineWebInited_ = false;
+    host->UpdateNodeStatus(NodeStatus::BUILDER_NODE_ON_MAINTREE);
+    g_webPattern->OnWindowShow();
+    EXPECT_FALSE(g_webPattern->isWindowShow_);
+
+    g_webPattern->offlineWebInited_ = false;
+    host->UpdateNodeStatus(NodeStatus::BUILDER_NODE_OFF_MAINTREE);
+    g_webPattern->OnWindowShow();
+    EXPECT_FALSE(g_webPattern->isWindowShow_);
+
+    g_webPattern->offlineWebInited_ = true;
+    host->UpdateNodeStatus(NodeStatus::BUILDER_NODE_ON_MAINTREE);
+    g_webPattern->OnWindowShow();
+    EXPECT_FALSE(g_webPattern->isWindowShow_);
+
+    g_webPattern->offlineWebInited_ = true;
+    host->UpdateNodeStatus(NodeStatus::BUILDER_NODE_OFF_MAINTREE);
+    g_webPattern->OnWindowShow();
+    EXPECT_FALSE(g_webPattern->isWindowShow_);
+#endif
+}
+
+/**
+ * @tc.name: OnWindowShowTest03
+ * @tc.desc: Test OnWindowShow.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, OnWindowShowTest03, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    g_webPattern->OnModifyDone();
+    auto host = g_webPattern->GetHost();
+    EXPECT_NE(host, nullptr);
+    auto layoutProperty = host->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    g_webPattern->offlineWebInited_ = false;
+    host->UpdateNodeStatus(NodeStatus::BUILDER_NODE_OFF_MAINTREE);
+
+    g_webPattern->isWindowShow_ = false;
+    g_webPattern->isVisible_ = true;
+    layoutProperty->UpdateVisibility(VisibleType::INVISIBLE);
+    EXPECT_EQ(layoutProperty->GetVisibility(), VisibleType::INVISIBLE);
+    g_webPattern->OnWindowShow();
+    EXPECT_FALSE(g_webPattern->isWindowShow_);
+
+    g_webPattern->isWindowShow_ = false;
+    g_webPattern->isVisible_ = true;
+    layoutProperty->UpdateVisibility(VisibleType::VISIBLE);
+    EXPECT_EQ(layoutProperty->GetVisibility(), VisibleType::VISIBLE);
+    g_webPattern->OnWindowShow();
+    EXPECT_TRUE(g_webPattern->isWindowShow_);
+#endif
+}
+
+/**
+ * @tc.name: OnWindowShowTest04
+ * @tc.desc: Test OnWindowShow.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, OnWindowShowTest04, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    g_webPattern->OnModifyDone();
+    auto host = g_webPattern->GetHost();
+    EXPECT_NE(host, nullptr);
+    auto layoutProperty = host->GetLayoutProperty();
+    g_webPattern->offlineWebInited_ = true;
+    host->UpdateNodeStatus(NodeStatus::BUILDER_NODE_ON_MAINTREE);
+
+    g_webPattern->isWindowShow_ = true;
+    g_webPattern->isOfflineWebEvictFrameBuffersEnable_ = false;
+    g_webPattern->OnWindowShow();
+    EXPECT_TRUE(g_webPattern->isWindowShow_);
+
+    g_webPattern->isOfflineWebEvictFrameBuffersEnable_ = true;
+    g_webPattern->OnWindowShow();
+    EXPECT_TRUE(g_webPattern->isWindowShow_);
+#endif
+}
+
+/**
  * @tc.name: MenuAvoidKeyboard
  * @tc.desc: Test MenuAvoidKeyboard.
  * @tc.type: FUNC
@@ -464,9 +560,510 @@ HWTEST_F(WebPatternTest, ProcessVirtualKeyBoardHideAvoidMenu, TestSize.Level1)
     g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
     result = g_webPattern->ProcessVirtualKeyBoardHideAvoidMenu(0, 1280, false);
     EXPECT_TRUE(result);
+
     g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
     result = g_webPattern->ProcessVirtualKeyBoardHideAvoidMenu(0, 1280, true);
     EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: VirtualKeyBoard UpdateTextFieldStatus
+ * @tc.desc: Test UpdateTextFieldStatus.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, UpdateTextFieldStatus, TestSize.Level1)
+{
+    g_webPattern->isImeStatus_ = WebPattern::VkState::VK_HIDE;
+    g_webPattern->UpdateTextFieldStatus(true, true);
+    EXPECT_TRUE(g_webPattern->isImeStatus_ == WebPattern::VkState::VK_SHOW);
+
+    g_webPattern->isImeStatus_ = WebPattern::VkState::VK_SHOW;
+    g_webPattern->UpdateTextFieldStatus(false, false);
+    EXPECT_TRUE(g_webPattern->isImeStatus_ == WebPattern::VkState::VK_HIDE);
+}
+
+/**
+ * @tc.name: VirtualKeyBoard IsImeStatusShow
+ * @tc.desc: Test IsImeStatusShow.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, IsImeStatusShow, TestSize.Level1)
+{
+    g_webPattern->isImeStatus_ = WebPattern::VkState::VK_HIDE;
+    EXPECT_TRUE(!g_webPattern->IsImeStatusShow());
+
+    g_webPattern->isImeStatus_ = WebPattern::VkState::VK_SHOW;
+    EXPECT_TRUE(g_webPattern->IsImeStatusShow());
+}
+
+/**
+ * @tc.name: ProcessVirtualKeyBoardShow
+ * @tc.desc: Test ProcessVirtualKeyBoardShow.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, ProcessVirtualKeyBoardShow, TestSize.Level1)
+{
+    bool result;
+    g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
+    g_webPattern->keyBoardAvoidMode_ = WebKeyboardAvoidMode::DEFAULT;
+    result = g_webPattern->ProcessVirtualKeyBoardShow(0, 200, 300, false);
+    EXPECT_TRUE(result);
+
+    g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
+    g_webPattern->keyBoardAvoidMode_ = WebKeyboardAvoidMode::RETURN_TO_UICONTEXT;
+    result = g_webPattern->ProcessVirtualKeyBoardShow(0, 200, 300, false);
+    EXPECT_FALSE(result);
+
+    g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
+    g_webPattern->keyBoardAvoidMode_ = WebKeyboardAvoidMode::RETURN_TO_UICONTEXT;
+    result = g_webPattern->ProcessVirtualKeyBoardShow(0, 200, 300, true);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: ProcessVirtualKeyBoardHide
+ * @tc.desc: Test ProcessVirtualKeyBoardHide.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, ProcessVirtualKeyBoardHide, TestSize.Level1)
+{
+    bool result;
+    g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
+    g_webPattern->keyBoardAvoidMode_ = WebKeyboardAvoidMode::DEFAULT;
+    result = g_webPattern->ProcessVirtualKeyBoardHide(0, 200, false);
+    EXPECT_TRUE(result);
+
+    g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
+    g_webPattern->keyBoardAvoidMode_ = WebKeyboardAvoidMode::RETURN_TO_UICONTEXT;
+    result = g_webPattern->ProcessVirtualKeyBoardHide(0, 200, false);
+    EXPECT_FALSE(result);
+
+    g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
+    g_webPattern->keyBoardAvoidMode_ = WebKeyboardAvoidMode::RETURN_TO_UICONTEXT;
+    result = g_webPattern->ProcessVirtualKeyBoardHide(0, 200, true);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: JudgeWebKeyBoardAvoidMode
+ * @tc.desc: Test JudgeWebKeyBoardAvoidMode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, JudgeWebKeyBoardAvoidMode, TestSize.Level1)
+{
+    bool result;
+    g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
+    g_webPattern->keyBoardAvoidMode_ = WebKeyboardAvoidMode::DEFAULT;
+    result = g_webPattern->JudgeWebKeyBoardAvoidMode(false);
+    EXPECT_TRUE(result);
+
+    g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
+    g_webPattern->keyBoardAvoidMode_ = WebKeyboardAvoidMode::RETURN_TO_UICONTEXT;
+    result = g_webPattern->JudgeWebKeyBoardAvoidMode(false);
+    EXPECT_FALSE(result);
+
+    g_webPattern->isVirtualKeyBoardShow_ = WebPattern::VkState::VK_SHOW;
+    g_webPattern->keyBoardAvoidMode_ = WebKeyboardAvoidMode::RETURN_TO_UICONTEXT;
+    result = g_webPattern->JudgeWebKeyBoardAvoidMode(true);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: UpdateScrollBarWithBorderRadius
+ * @tc.desc: Test UpdateScrollBarWithBorderRadius.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, UpdateScrollBarWithBorderRadius, TestSize.Level1)
+{
+    std::string src = "web_test";
+    RefPtr<WebController> controller = AceType::MakeRefPtr<WebController>();
+    ASSERT_NE(controller, nullptr);
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::WEB_ETS_TAG, nodeId, [src, controller]() { return AceType::MakeRefPtr<WebPattern>(src, controller); });
+    ASSERT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+
+    RefPtr<WebPattern> webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    auto host = webPattern->GetHost();
+    ASSERT_NE(host, nullptr);
+    auto renderContext = host->GetRenderContext();
+    ASSERT_NE(renderContext, nullptr);
+    BorderRadiusProperty borderRadius;
+
+    webPattern->UpdateScrollBarWithBorderRadius();
+    bool borderRadiusStructHasValue = renderContext->GetBorderRadius().has_value();
+    EXPECT_FALSE(borderRadiusStructHasValue);
+    webPattern->UpdateScrollBarWithBorderRadius();
+    bool hasBorderRadiusValue = borderRadius.radiusTopLeft.has_value();
+    EXPECT_FALSE(hasBorderRadiusValue);
+    
+    borderRadius.radiusTopLeft = Dimension(10.0f);
+    borderRadius.radiusTopRight = Dimension(20.0f);
+    borderRadius.radiusBottomLeft = Dimension(30.0f);
+    borderRadius.radiusBottomRight = Dimension(40.0f);
+    renderContext->UpdateBorderRadius(borderRadius);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+    auto clipState = renderContext->GetClipEdge().value_or(false);
+    webPattern->UpdateScrollBarWithBorderRadius();
+    renderContext->UpdateClipEdge(true);
+    clipState = renderContext->GetClipEdge().value_or(false);
+    webPattern->UpdateScrollBarWithBorderRadius();
+
+    borderRadiusStructHasValue = renderContext->GetBorderRadius().has_value();
+    webPattern->UpdateScrollBarWithBorderRadius();
+    EXPECT_TRUE(borderRadiusStructHasValue);
+    hasBorderRadiusValue = !borderRadius.radiusTopLeft.has_value();
+    webPattern->UpdateScrollBarWithBorderRadius();
+    EXPECT_FALSE(hasBorderRadiusValue);
+}
+
+/**
+ * @tc.name: IsShowHandle
+ * @tc.desc: Test IsShowHandle
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, IsShowHandle, TestSize.Level1)
+{
+    std::string src = "web_test";
+    RefPtr<WebController> controller = AceType::MakeRefPtr<WebController>();
+    ASSERT_NE(controller, nullptr);
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::WEB_ETS_TAG, nodeId, [src, controller]() { return AceType::MakeRefPtr<WebPattern>(src, controller); });
+    ASSERT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+
+    RefPtr<WebPattern> webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    auto result = webPattern->IsShowHandle();
+    EXPECT_FALSE(result);
+    webPattern->webSelectOverlay_ = AceType::MakeRefPtr<WebSelectOverlay>(webPattern);
+    ASSERT_NE(webPattern->webSelectOverlay_, nullptr);
+    webPattern->webSelectOverlay_->isShowHandle_ = true;
+    result = webPattern->IsShowHandle();
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: HandleMouseToTouchEvent
+ * @tc.desc: Test HandleMouseToTouchEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, HandleMouseToTouchEvent, TestSize.Level1)
+{
+    bool result;
+    g_webPattern->emulateTouchFromMouseEvent_ = false;
+    MouseInfo info;
+    result = g_webPattern->HandleMouseToTouchEvent(0.0, false, info);
+    EXPECT_FALSE(result);
+    g_webPattern->emulateTouchFromMouseEvent_ = true;
+    info.SetButton(MouseButton::NONE_BUTTON);
+
+    result = g_webPattern->HandleMouseToTouchEvent(0.0, false, info);
+    EXPECT_FALSE(result);
+    info.SetButton(MouseButton::LEFT_BUTTON);
+    info.SetAction(MouseAction::NONE);
+    result = g_webPattern->HandleMouseToTouchEvent(0.0, false, info);
+    EXPECT_FALSE(result);
+
+    for (TouchLocationInfo& location : g_webPattern->touchEventInfo_.changedTouches_) {
+        location.SetTouchType(TouchType::DOWN);
+    }
+    info.SetAction(MouseAction::PRESS);
+    result = g_webPattern->HandleMouseToTouchEvent(0.0, false, info);
+    EXPECT_TRUE(result);
+
+    for (TouchLocationInfo& location : g_webPattern->touchEventInfo_.changedTouches_) {
+        location.SetTouchType(TouchType::MOVE);
+    }
+    info.SetAction(MouseAction::PRESS);
+    result = g_webPattern->HandleMouseToTouchEvent(0.0, false, info);
+    EXPECT_TRUE(result);
+
+    for (TouchLocationInfo& location : g_webPattern->touchEventInfo_.changedTouches_) {
+        location.SetTouchType(TouchType::UP);
+    }
+    info.SetAction(MouseAction::PRESS);
+    result = g_webPattern->HandleMouseToTouchEvent(0.0, false, info);
+    EXPECT_TRUE(result);
+
+    for (TouchLocationInfo& location : g_webPattern->touchEventInfo_.changedTouches_) {
+        location.SetTouchType(TouchType::DOWN);
+    }
+    info.SetAction(MouseAction::PRESS);
+    result = g_webPattern->HandleMouseToTouchEvent(0.0, false, info);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: OnClippedSelectionBoundsChanged
+ * @tc.desc: Test OnClippedSelectionBoundsChanged
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, OnClippedSelectionBoundsChanged, TestSize.Level1)
+{
+    std::string src = "web_test";
+    RefPtr<WebController> controller = AceType::MakeRefPtr<WebController>();
+    ASSERT_NE(controller, nullptr);
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::WEB_ETS_TAG, nodeId, [src, controller]() { return AceType::MakeRefPtr<WebPattern>(src, controller); });
+    ASSERT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+
+    RefPtr<WebPattern> webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->webSelectOverlay_ = nullptr;
+    webPattern->OnClippedSelectionBoundsChanged(1, 2, 3, 4);
+    webPattern->webSelectOverlay_ = AceType::MakeRefPtr<WebSelectOverlay>(webPattern);
+    ASSERT_NE(webPattern->webSelectOverlay_, nullptr);
+    webPattern->OnClippedSelectionBoundsChanged(1, 2, 3, 4);
+    EXPECT_EQ(webPattern->webSelectOverlay_->selectArea_.Left(), 1);
+    EXPECT_EQ(webPattern->webSelectOverlay_->selectArea_.Top(), 2);
+    EXPECT_EQ(webPattern->webSelectOverlay_->selectArea_.Width(), 3);
+    EXPECT_EQ(webPattern->webSelectOverlay_->selectArea_.Height(), 4);
+}
+
+/**
+ * @tc.name: CleanupWebPatternResource
+ * @tc.desc: Test CleanupWebPatternResource
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, CleanupWebPatternResource, TestSize.Level1)
+{
+    MockPipelineContext::SetUp();
+    g_webPattern->offlineWebInited_ = true;
+    g_webPattern->CleanupWebPatternResource();
+    EXPECT_TRUE(g_webPattern->offlineWebInited_);
+    MockPipelineContext::TearDown();
+}
+
+/**
+ * @tc.name: NotifyOverlayRotation
+ * @tc.desc: Test NotifyOverlayRotation
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, NotifyOverlayRotation, TestSize.Level1)
+{
+    std::string src = "web_test";
+    RefPtr<WebController> controller = AceType::MakeRefPtr<WebController>();
+    ASSERT_NE(controller, nullptr);
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::WEB_ETS_TAG, nodeId, [src, controller]() { return AceType::MakeRefPtr<WebPattern>(src, controller); });
+    ASSERT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+
+    RefPtr<WebPattern> webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->webSelectOverlay_ = AceType::MakeRefPtr<WebSelectOverlay>(webPattern);
+    ASSERT_NE(webPattern->webSelectOverlay_, nullptr);
+    webPattern->webSelectOverlay_->selectTemporarilyHidden_ = true;
+    webPattern->webSelectOverlay_->webSelectInfo_.menuInfo.menuIsShow = true;
+    webPattern->NotifyOverlayRotation();
+    EXPECT_EQ(webPattern->webSelectOverlay_->webSelectInfo_.menuInfo.menuIsShow, true);
+    webPattern->webSelectOverlay_->webSelectInfo_.menuInfo.menuIsShow = false;
+    webPattern->NotifyOverlayRotation();
+    EXPECT_EQ(webPattern->webSelectOverlay_->webSelectInfo_.menuInfo.menuIsShow, false);
+}
+
+/**
+ * @tc.name: ShowMagnifierTest001
+ * @tc.desc: Test ShowMagnifier with isMove=false.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, ShowMagnifierTest001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    std::string src = "web_test";
+    RefPtr<WebController> controller = AceType::MakeRefPtr<WebController>();
+    ASSERT_NE(controller, nullptr);
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::WEB_ETS_TAG, nodeId, [src, controller]() { return AceType::MakeRefPtr<WebPattern>(src, controller); });
+    ASSERT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+
+    RefPtr<WebPattern> webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+
+    webPattern->magnifierController_ = AceType::MakeRefPtr<MagnifierController>(WeakPtr<Pattern>(webPattern));
+    ASSERT_NE(webPattern->magnifierController_, nullptr);
+
+    int32_t centerX = 100;
+    int32_t centerY = 200;
+
+    webPattern->ShowMagnifier(centerX, centerY, false);
+    OffsetF offset = webPattern->magnifierController_->GetLocalOffset();
+    EXPECT_NEAR(offset.GetX(), centerX, 0.01f);
+    EXPECT_NEAR(offset.GetY(), centerY, 0.01f);
+#endif
+}
+
+/**
+ * @tc.name: ShowMagnifierTest002
+ * @tc.desc: Test ShowMagnifier with isMove=true and same position (early return).
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, ShowMagnifierTest002, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    std::string src = "web_test";
+    RefPtr<WebController> controller = AceType::MakeRefPtr<WebController>();
+    ASSERT_NE(controller, nullptr);
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::WEB_ETS_TAG, nodeId, [src, controller]() { return AceType::MakeRefPtr<WebPattern>(src, controller); });
+    ASSERT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+
+    RefPtr<WebPattern> webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+
+    webPattern->magnifierController_ = AceType::MakeRefPtr<MagnifierController>(WeakPtr<Pattern>(webPattern));
+    ASSERT_NE(webPattern->magnifierController_, nullptr);
+
+    int32_t centerX = 100;
+    int32_t centerY = 200;
+
+    webPattern->ShowMagnifier(centerX, centerY, false);
+    OffsetF initialOffset = webPattern->magnifierController_->GetLocalOffset();
+
+    webPattern->ShowMagnifier(centerX, centerY, true);
+    OffsetF sameOffset = webPattern->magnifierController_->GetLocalOffset();
+    EXPECT_NEAR(sameOffset.GetX(), initialOffset.GetX(), 0.01f);
+    EXPECT_NEAR(sameOffset.GetY(), initialOffset.GetY(), 0.01f);
+#endif
+}
+
+/**
+ * @tc.name: ShowMagnifierTest003
+ * @tc.desc: Test ShowMagnifier with isMove=true and different X coordinate.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, ShowMagnifierTest003, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    std::string src = "web_test";
+    RefPtr<WebController> controller = AceType::MakeRefPtr<WebController>();
+    ASSERT_NE(controller, nullptr);
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::WEB_ETS_TAG, nodeId, [src, controller]() { return AceType::MakeRefPtr<WebPattern>(src, controller); });
+    ASSERT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+
+    RefPtr<WebPattern> webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+
+    webPattern->magnifierController_ = AceType::MakeRefPtr<MagnifierController>(WeakPtr<Pattern>(webPattern));
+    ASSERT_NE(webPattern->magnifierController_, nullptr);
+
+    int32_t centerX = 100;
+    int32_t centerY = 200;
+    int32_t newCenterX = 150;
+
+    webPattern->ShowMagnifier(centerX, centerY, false);
+    webPattern->ShowMagnifier(newCenterX, centerY, true);
+
+    OffsetF offset = webPattern->magnifierController_->GetLocalOffset();
+    EXPECT_NEAR(offset.GetX(), newCenterX, 0.01f);
+    EXPECT_NEAR(offset.GetY(), centerY, 0.01f);
+#endif
+}
+
+/**
+ * @tc.name: ShowMagnifierTest004
+ * @tc.desc: Test ShowMagnifier with isMove=true and different Y coordinate.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, ShowMagnifierTest004, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    std::string src = "web_test";
+    RefPtr<WebController> controller = AceType::MakeRefPtr<WebController>();
+    ASSERT_NE(controller, nullptr);
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::WEB_ETS_TAG, nodeId, [src, controller]() { return AceType::MakeRefPtr<WebPattern>(src, controller); });
+    ASSERT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+
+    RefPtr<WebPattern> webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+
+    webPattern->magnifierController_ = AceType::MakeRefPtr<MagnifierController>(WeakPtr<Pattern>(webPattern));
+    ASSERT_NE(webPattern->magnifierController_, nullptr);
+
+    int32_t centerX = 100;
+    int32_t centerY = 200;
+    int32_t newCenterY = 250;
+
+    webPattern->ShowMagnifier(centerX, centerY, false);
+    webPattern->ShowMagnifier(centerX, newCenterY, true);
+
+    OffsetF offset = webPattern->magnifierController_->GetLocalOffset();
+    EXPECT_NEAR(offset.GetX(), centerX, 0.01f);
+    EXPECT_NEAR(offset.GetY(), newCenterY, 0.01f);
+#endif
+}
+
+/**
+ * @tc.name: ShowMagnifierTest005
+ * @tc.desc: Test ShowMagnifier with isMove=true and different X and Y coordinates.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTest, ShowMagnifierTest005, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    std::string src = "web_test";
+    RefPtr<WebController> controller = AceType::MakeRefPtr<WebController>();
+    ASSERT_NE(controller, nullptr);
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::WEB_ETS_TAG, nodeId, [src, controller]() { return AceType::MakeRefPtr<WebPattern>(src, controller); });
+    ASSERT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+
+    RefPtr<WebPattern> webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+
+    webPattern->magnifierController_ = AceType::MakeRefPtr<MagnifierController>(WeakPtr<Pattern>(webPattern));
+    ASSERT_NE(webPattern->magnifierController_, nullptr);
+
+    int32_t centerX = 100;
+    int32_t centerY = 200;
+    int32_t newCenterX = 150;
+    int32_t newCenterY = 250;
+
+    webPattern->ShowMagnifier(centerX, centerY, false);
+    webPattern->ShowMagnifier(newCenterX, newCenterY, true);
+
+    OffsetF offset = webPattern->magnifierController_->GetLocalOffset();
+    EXPECT_NEAR(offset.GetX(), newCenterX, 0.01f);
+    EXPECT_NEAR(offset.GetY(), newCenterY, 0.01f);
+#endif
 }
 
 } // namespace OHOS::Ace::NG

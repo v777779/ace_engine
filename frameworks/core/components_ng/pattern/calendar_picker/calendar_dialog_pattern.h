@@ -25,6 +25,7 @@
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/swiper/swiper_pattern.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 
 namespace OHOS::Ace::NG {
 class CalendarDialogPattern : public LinearLayoutPattern {
@@ -100,6 +101,7 @@ public:
 
     void OnColorConfigurationUpdate() override;
     void OnLanguageConfigurationUpdate() override;
+    void OnFontScaleConfigurationUpdate() override;
 
     void UpdateCaretInfoToController();
 
@@ -124,6 +126,8 @@ public:
     bool CanReportChangeEvent(const PickerDate& pickerDate);
 
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
+
+    int32_t OnInjectionEvent(const std::string& command) override;
 
 private:
     void OnModifyDone() override;
@@ -173,6 +177,16 @@ private:
     void UpdateSwiperNode(const ObtainedMonth& monthData, bool isPrev);
     void UpdateSwiperNodeFocusedDay(const CalendarDay& focusedDay, bool isPrev);
     void MarkMonthNodeDirty();
+
+    bool IsDateInRange(const CalendarDay& day);
+
+    bool IsJsonValid(const std::unique_ptr<JsonValue>& json);
+    bool IsJsonObject(const std::unique_ptr<JsonValue>& json);
+    bool ReportCommandResultEvent(int32_t nodeId, const std::string& event,
+        bool isSuccess, const std::string& reason);
+    bool ReportChangeEvent(const std::string& compName,
+        const std::string& eventName, const std::string& eventData);
+    bool CheckCalendarParamDate(const std::unique_ptr<JsonValue>& paramJson, const std::string& command);
 
     int32_t focusAreaID_ = 0;
     int32_t focusAreaIDWithoutWeek_ = 0;

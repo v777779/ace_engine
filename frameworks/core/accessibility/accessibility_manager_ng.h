@@ -40,6 +40,7 @@ struct AccessibilityHoverState {
     TimeStamp time;
     bool idle = true;
     AccessibilityHoverEventType eventType = AccessibilityHoverEventType::MOVE;
+    std::vector<WeakPtr<FrameNode>> nodeTransparent;
 };
 
 struct HandleHoverEventParam {
@@ -97,6 +98,7 @@ private:
     struct HandleTransparentCallbackParam {
         int32_t currentHoveringId = 0;
         int32_t lastHoveringId = 0;
+        PointF point = PointF{0, 0};
     };
 
     /*
@@ -118,7 +120,7 @@ private:
     bool IsEventTypeChangeDirectHandleHover(
         AccessibilityHoverEventType eventType,
         AccessibilityHoverEventType prevEventType);
-    bool IsHandlePipelineAccessibilityHoverEnter(const RefPtr<NG::FrameNode>& root);
+    bool IsHandlePipelineAccessibilityHoverEnter(const RefPtr<NG::FrameNode>& root) const;
     void HandlePipelineAccessibilityHoverEnter(
         const RefPtr<NG::FrameNode>& root,
         TouchEvent& event,
@@ -127,10 +129,10 @@ private:
     bool HandleAccessibilityHoverTransparentCallback(bool transform,
         const RefPtr<FrameNode>& root,
         const HandleTransparentCallbackParam& param,
-        const PointF& point,
-        const TouchEvent& event);
+        const TouchEvent& event,
+        AccessibilityHoverState& hoverState);
     bool ExecuteChildNodeHoverTransparentCallback(const RefPtr<FrameNode>& root,  const PointF& point,
-        const TouchEvent& event);
+        const TouchEvent& event, AccessibilityHoverState& hoverState);
 
     AccessibilityHoverStateManager hoverStateManager_;
 };

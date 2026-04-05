@@ -18,6 +18,7 @@
 
 #include "ui/animation/curve.h"
 #include "ui/base/ace_type.h"
+#include "ui/event/touch_event.h"
 #include "ui/base/geometry/dimension.h"
 #include "ui/properties/scrollable_properties.h"
 #include "ui/view/frame_node.h"
@@ -32,13 +33,19 @@ public:
     using OnScrollStopEvent = std::function<void()>;
     using OnDidScrollEvent = std::function<void(Dimension, ScrollSource, bool, bool)>;
     using OnScrollerAreaChangeEvent = std::function<void(Dimension, ScrollSource, bool, bool)>;
+    using OnWillScrollEventEx = std::function<void(ScrollFrameResult&, ScrollState, ScrollSource)>;
+    using TwoDimensionOnWillScrollEvent = std::function<void(ScrollFrameResult&,
+        ScrollFrameResult&, ScrollState, ScrollSource)>;
     struct Observer {
+        TouchEventFunc onTouchEvent;
         OnReachEvent onReachStartEvent;
         OnReachEvent onReachEndEvent;
         OnScrollStartEvent onScrollStartEvent;
         OnScrollStopEvent onScrollStopEvent;
         OnDidScrollEvent onDidScrollEvent;
         OnScrollerAreaChangeEvent onScrollerAreaChangeEvent;
+        OnWillScrollEventEx onWillScrollEventEx;
+        TwoDimensionOnWillScrollEvent twoDimensionOnWillScrollEvent;
     };
     Scroller() = default;
     virtual ~Scroller() = default;
@@ -55,6 +62,8 @@ public:
         const RefPtr<Curve>& curve, bool smooth, bool canOverScroll = false) = 0;
 
     virtual bool operator==(const Ace::RefPtr<Scroller>& other) const = 0;
+    virtual RefPtr<FrameNode> GetBindingFrameNode() = 0;
+    virtual void SetCanOverScroll(bool canOverScroll) = 0;
 };
 
 } // namespace OHOS::Ace::Kit

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,9 +15,12 @@
 
 #include "core/components_ng/pattern/toggle/switch_pattern.h"
 
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
+
 #include "base/log/dump_log.h"
 #include "core/common/recorder/node_data_cache.h"
 #include "core/components/toggle/toggle_theme.h"
+#include "core/components_ng/property/position_property.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
@@ -26,6 +29,8 @@ constexpr int32_t DEFAULT_DURATION = 200;
 const Color ITEM_FILL_COLOR = Color::TRANSPARENT;
 constexpr double NUMBER_TWO = 2.0;
 constexpr int32_t  HOTZONE_SPACE = 2;
+const std::string INJECTION_CMD_FORMAT_ERROR = "Invalid injection command format.";
+const std::string COMPONENT_IN_READONLY = "The component is in read-only state.";
 } // namespace
 
 void SwitchPattern::OnAttachToFrameNode()
@@ -318,6 +323,7 @@ void SwitchPattern::MarkIsSelected(bool isSelected)
     auto eventHub = GetEventHub<SwitchEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->UpdateChangeEvent(isSelected);
+    ReportChangeEvent(isSelected);
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     eventHub->SetCurrentUIState(UI_STATE_SELECTED, isSelected);
@@ -357,7 +363,7 @@ void SwitchPattern::OnChange()
     CHECK_NULL_VOID(paintMethod_);
     auto switchModifier = paintMethod_->GetSwitchModifier();
     CHECK_NULL_VOID(switchModifier);
-    switchModifier->SetIsOn(isOn_.value());
+    switchModifier->SetIsOn(isOn_.value_or(false));
     switchPaintProperty->UpdateIsOn(isOn_.value_or(false));
     UpdateChangeEvent();
     host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
@@ -382,11 +388,13 @@ float SwitchPattern::GetSwitchContentOffsetX() const
     return geometryNode->GetContentOffset().GetX();
 }
 
-void SwitchPattern::UpdateChangeEvent() const
+void SwitchPattern::UpdateChangeEvent()
 {
     auto switchEventHub = GetEventHub<SwitchEventHub>();
     CHECK_NULL_VOID(switchEventHub);
-    switchEventHub->UpdateChangeEvent(isOn_.value());
+    auto isOn = isOn_.value_or(false);
+    switchEventHub->UpdateChangeEvent(isOn);
+    ReportChangeEvent(isOn);
 }
 
 void SwitchPattern::OnClick()
@@ -687,11 +695,11 @@ void SwitchPattern::HandleDragEnd()
     auto mainSize = GetSwitchWidth();
     auto contentOffset = GetSwitchContentOffsetX();
     if ((direction_ == TextDirection::RTL &&
-        ((isOn_.value() && dragOffsetX_ - contentOffset > mainSize / 2) ||
-        (!isOn_.value() && dragOffsetX_ - contentOffset <= mainSize / 2))) ||
+        ((isOn_.value_or(false) && dragOffsetX_ - contentOffset > mainSize / 2) ||
+        (!isOn_.value_or(false) && dragOffsetX_ - contentOffset <= mainSize / 2))) ||
         (direction_ != TextDirection::RTL &&
-        ((isOn_.value() && dragOffsetX_ - contentOffset < mainSize / 2) ||
-        (!isOn_.value() && dragOffsetX_ - contentOffset >= mainSize / 2)))) {
+        ((isOn_.value_or(false) && dragOffsetX_ - contentOffset < mainSize / 2) ||
+        (!isOn_.value_or(false) && dragOffsetX_ - contentOffset >= mainSize / 2)))) {
         OnClick();
     }
     isDragEvent_ = false;
@@ -756,6 +764,10 @@ void SwitchPattern::OnColorConfigurationUpdate()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    auto pipeline = PipelineBase::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    auto switchTheme = pipeline->GetTheme<SwitchTheme>(host->GetThemeScopeId());
+    CHECK_NULL_VOID(switchTheme);
     CHECK_NULL_VOID(paintMethod_);
     auto switchModifier = paintMethod_->GetSwitchModifier();
     CHECK_NULL_VOID(switchModifier);
@@ -763,7 +775,7 @@ void SwitchPattern::OnColorConfigurationUpdate()
     if (SystemProperties::ConfigChangePerform()) {
         auto pipeline = host->GetContext();
         CHECK_NULL_VOID(pipeline);
-        auto theme = pipeline->GetTheme<SwitchTheme>();
+        auto theme = pipeline->GetTheme<SwitchTheme>(host->GetThemeScopeId());
         CHECK_NULL_VOID(theme);
         auto pops = host->GetPaintProperty<SwitchPaintProperty>();
         CHECK_NULL_VOID(pops);
@@ -821,6 +833,15 @@ void SwitchPattern::DumpInfo()
     if (paintProperty->HasTrackBorderRadius()) {
         DumpLog::GetInstance().AddDesc(
             "TrackBorderRadius: " + paintProperty->GetTrackBorderRadius().value().ToString());
+    }
+}
+
+void SwitchPattern::DumpSimplifyInfoOnlyForParamConfig(std::shared_ptr<JsonValue>& json, ParamConfig config)
+{
+    auto paintProperty = GetPaintProperty<SwitchPaintProperty>();
+    CHECK_NULL_VOID(paintProperty);
+    if (paintProperty->HasIsOn() && config.interactionInfo) {
+        json->Put("isOn", paintProperty->GetIsOn().value() ? "true" : "false");
     }
 }
 
@@ -888,5 +909,88 @@ RefPtr<FrameNode> SwitchPattern::BuildContentModifierNode()
     }
     ToggleConfiguration toggleConfiguration(enabled, isOn);
     return (makeFunc_.value())(toggleConfiguration);
+}
+
+bool SwitchPattern::ParseCommand(const std::string& command, bool& isOn)
+{
+    auto jsonObj = JsonUtil::ParseJsonString(command);
+    if (!jsonObj->IsValid() || !jsonObj->IsObject()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return false;
+    }
+    auto cmdObj = jsonObj->GetValue("cmd");
+    if (!cmdObj->IsValid() || !cmdObj->IsString()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return false;
+    }
+    auto cmdType = cmdObj->GetString();
+    if (cmdType != "onToggleChange") {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return false;
+    }
+    auto paramJson = jsonObj->GetValue("params");
+    if (!paramJson->IsValid() || !paramJson->IsObject()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return false;
+    }
+    auto isOnJson = paramJson->GetValue("isOn");
+    if (!isOnJson->IsValid() || !isOnJson->IsBool()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return false;
+    }
+    isOn = isOnJson->GetBool();
+    return true;
+}
+
+int32_t SwitchPattern::OnInjectionEvent(const std::string& command)
+{
+    bool isOn = false;
+    auto ret = ParseCommand(command, isOn);
+    CHECK_EQUAL_RETURN(ret, false, RET_FAILED);
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, RET_FAILED);
+    auto eventHub = host->GetEventHub<EventHub>();
+    CHECK_NULL_RETURN(eventHub, RET_FAILED);
+    if (!eventHub->IsEnabled()) {
+        ReportInjectionResult(false, COMPONENT_IN_READONLY);
+        return RET_FAILED;
+    }
+    SetSwitchIsOn(isOn);
+    ReportInjectionResult(true, "");
+    return RET_SUCCESS;
+}
+
+void SwitchPattern::ReportChangeEvent(bool isOn)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto nodeId = host->GetId();
+    auto params = JsonUtil::Create();
+    CHECK_NULL_VOID(params);
+    params->Put("nodeId", nodeId);
+    params->Put("isOn", isOn);
+    auto json = JsonUtil::Create();
+    CHECK_NULL_VOID(json);
+    json->Put("event", "onToggleChange");
+    json->Put("params", params);
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent(
+        "result", json->ToString(), ComponentEventType::COMPONENT_EVENT_SELECT);
+}
+
+bool SwitchPattern::ReportInjectionResult(bool isSuccess, const std::string& reason)
+{
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    auto nodeId = host->GetId();
+    CHECK_NULL_RETURN(nodeId, false);
+    auto result = JsonUtil::Create();
+    CHECK_NULL_RETURN(result, false);
+    result->Put("nodeId", nodeId);
+    result->Put("event", "onToggleChange");
+    result->Put("result", isSuccess ? "success" : "failed");
+    result->Put("reason", reason.c_str());
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent(
+        "ToggleResult", result->ToString(), ComponentEventType::COMPONENT_EVENT_SELECT);
+    return true;
 }
 } // namespace OHOS::Ace::NG

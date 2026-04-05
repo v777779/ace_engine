@@ -166,7 +166,6 @@ napi_valuetype ExtNapiUtils::GetValueType(napi_env env, napi_value value)
 
 std::string ExtNapiUtils::GetStringFromValueUtf8(napi_env env, napi_value value)
 {
-    static constexpr size_t max_length = 2048;
     if (GetValueType(env, value) != napi_string) {
         return {};
     }
@@ -174,16 +173,11 @@ std::string ExtNapiUtils::GetStringFromValueUtf8(napi_env env, napi_value value)
     std::string result;
     size_t stringLength = 0;
     NAPI_CALL_BASE(env, napi_get_value_string_utf8(env, value, nullptr, 0, &stringLength), result);
-    if (stringLength == 0 || stringLength > max_length) {
+    if (stringLength == 0) {
         return result;
     }
 
-    auto deleter = [](char* s) { free(reinterpret_cast<void*>(s)); };
-    char* strTmp = static_cast<char*>(malloc(stringLength + 1));
-    if (strTmp == nullptr) {
-        return result;
-    }
-    std::unique_ptr<char, decltype(deleter)> str(strTmp, deleter);
+    std::unique_ptr<char[]> str = std::make_unique<char[]>(stringLength + 1);
     if (memset_s(str.get(), stringLength + 1, 0, stringLength + 1) != EOK) {
         return result;
     }
@@ -270,6 +264,7 @@ RefPtr<ThemeConstants> ExtNapiUtils::GetThemeConstants(napi_env env, napi_value 
     auto cardId = CardScope::CurrentId();
     if (cardId != INVALID_CARD_ID) {
         auto container = Container::Current();
+        CHECK_NULL_RETURN(container, nullptr);
         auto weak = container->GetCardPipeline(cardId);
         auto cardPipelineContext = weak.Upgrade();
         CHECK_NULL_RETURN(cardPipelineContext, nullptr);
@@ -318,17 +313,17 @@ bool ExtNapiUtils::ParseColorFromResource(napi_env env, napi_value value, Color&
     }
     if (colorId == ERROR_COLOR_ID) {
         uint32_t length;
-        napi_get_array_length(env, jsParams, &length);
-        auto jsonArray = JsonUtil::CreateArray(true);
-        for (uint32_t i = 0; i < length; i++) {
-            napi_value elementValue;
-            napi_get_element(env, jsParams, i, &elementValue);
-            std::string key = std::to_string(i);
-            jsonArray->Put(key.c_str(), PutJsonValue(env, elementValue, key));
+        napi_status status = napi_get_array_length(env, jsParams, &length);
+        if (status != napi_ok || length == 0) {
+            return false;
         }
-        std::string strKey = std::to_string(0);
-        std::string colorName = jsonArray->GetValue(strKey.c_str())->GetValue(strKey.c_str())->ToString();
-        colorResult = themeConstants->GetColorByName(colorName);
+        napi_value elementValue;
+        status = napi_get_element(env, jsParams, 0, &elementValue);
+        if (status != napi_ok) {
+            return false;
+        }
+        std::string stringValue = ExtNapiUtils::GetStringFromValueUtf8(env, elementValue);
+        colorResult = themeConstants->GetColorByName(stringValue);
         return true;
     }
     napi_value jsType = GetNamedProperty(env, value, "type");

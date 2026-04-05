@@ -19,7 +19,6 @@
 #include "key_event.h"
 #include "pointer_event.h"
 #include "input_manager.h"
-
 #include "base/geometry/ng/offset_t.h"
 #include "base/geometry/ng/vector.h"
 #include "base/log/log.h"
@@ -27,11 +26,14 @@
 #include "core/event/axis_event.h"
 #include "core/event/key_event.h"
 #include "core/event/mouse_event.h"
-#include "core/event/focus_axis_event.h"
 #include "core/event/touch_event.h"
 #include "core/event/pointer_event.h"
 #include "core/event/crown_event.h"
 #include "core/interfaces/arkoala/arkoala_api.h"
+
+namespace OHOS::Ace::NG {
+struct FocusAxisEvent;
+}
 
 namespace OHOS::Ace::Platform {
 namespace {
@@ -85,10 +87,10 @@ void SetTouchEventType(int32_t orgAction, TouchEvent& event);
 void CalculatePointerEvent(const std::shared_ptr<MMI::PointerEvent>& point, const RefPtr<NG::FrameNode>& frameNode,
     bool useRealtimeMatrix = false);
 
-void ConvertCrownEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, CrownEvent& event);
-
 void CalculatePointerEvent(const NG::OffsetF& offsetF, const std::shared_ptr<MMI::PointerEvent>& point,
     const NG::VectorF& scale, int32_t udegree = 0);
+
+void ConvertCrownEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent, CrownEvent& event);
 
 void CalculateWindowCoordinate(const NG::OffsetF& offsetF, const std::shared_ptr<MMI::PointerEvent>& point,
     const NG::VectorF& scale, const int32_t udegree = 0);
@@ -115,13 +117,18 @@ bool GetPointerEventToolType(const std::shared_ptr<MMI::PointerEvent>& pointerEv
 
 void SetClonedPointerEvent(const MMI::PointerEvent* pointerEvent, ArkUITouchEvent* arkUITouchEventCloned);
 
-void SetPostPointerEvent(const MMI::PointerEvent* pointerEvent, TouchEvent& touchEvent);
+void SetPostPointerEvent(TouchEvent& touchEvent, ArkUITouchEvent* arkUITouchEventCloned);
+
+void DestroyRawPointerEvent(ArkUITouchEvent* arkUITouchEvent);
 
 TouchType GetTouchTypeFromPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
 
 AxisAction GetAxisActionFromPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
 
 MouseAction GetMouseActionFromPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
+
+bool ProcessMouseToTouchEvent(const MouseEvent& event, TouchEvent& touchEvent, int32_t pointerAction);
+
 } // namespace OHOS::Ace::Platform
 
 #endif // FOUNDATION_ACE_ADAPTER_OHOS_ENTRANCE_MMI_EVENT_CONVERTOR_H

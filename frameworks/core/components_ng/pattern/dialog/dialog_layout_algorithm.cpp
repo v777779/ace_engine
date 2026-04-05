@@ -14,13 +14,17 @@
  */
 
 #include "core/components_ng/pattern/dialog/dialog_layout_algorithm.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 
 #include "base/subwindow/subwindow_manager.h"
+#include "base/utils/feature_param.h"
 #include "core/common/ace_engine.h"
+#include "core/components/common/layout/grid_column_info.h"
 #include "core/components/container_modal/container_modal_constants.h"
 #include "core/components_ng/pattern/dialog/dialog_pattern.h"
 #include "core/components_ng/pattern/overlay/overlay_manager.h"
 #include "core/components_ng/pattern/text/text_layout_algorithm.h"
+#include "core/components_ng/pattern/linear_layout/linear_layout_property.h"
 #include "core/components_ng/property/measure_utils.h"
 #include "core/components_ng/pattern/overlay/dialog_manager.h"
 
@@ -31,6 +35,8 @@ namespace {
 constexpr double DIALOG_HEIGHT_RATIO = 0.8;
 constexpr double DIALOG_HEIGHT_RATIO_FOR_LANDSCAPE = 0.9;
 constexpr double DIALOG_HEIGHT_RATIO_FOR_CAR = 0.95;
+// Using UX spec: Limit dialog to 9/10 of viewport height, centered.
+constexpr double DIALOG_VIEWPORT_HEIGHT_RATIO = 0.9;
 constexpr Dimension DIALOG_MIN_HEIGHT = 70.0_vp;
 constexpr Dimension FULLSCREEN = 100.0_pct;
 constexpr Dimension MULTIPLE_DIALOG_OFFSET_X = 48.0_vp;
@@ -43,6 +49,9 @@ constexpr double HALF = 2.0;
 constexpr double LANDSCAPE_DIALOG_WIDTH_RATIO = 0.75;
 constexpr Dimension SCROLL_MIN_HEIGHT_SUITOLD = 100.0_vp;
 constexpr int32_t TEXT_ALIGN_CONTENT_CENTER = 1;
+constexpr int32_t TEXT_ALIGN_TITLE_CENTER = 1;
+constexpr int32_t ROW_CHILD_INDEX = 0;
+constexpr int32_t ONE_PX = 1;
 } // namespace
 
 void DialogLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
@@ -50,16 +59,24 @@ void DialogLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     CHECK_NULL_VOID(layoutWrapper);
     auto hostNode = layoutWrapper->GetHostNode();
     CHECK_NULL_VOID(hostNode);
+    ACE_UINODE_TRACE(hostNode);
     auto pipeline = hostNode->GetContext();
     CHECK_NULL_VOID(pipeline);
-    auto dialogTheme = pipeline->GetTheme<DialogTheme>();
-    CHECK_NULL_VOID(dialogTheme);
     auto dialogProp = AceType::DynamicCast<DialogLayoutProperty>(layoutWrapper->GetLayoutProperty());
     CHECK_NULL_VOID(dialogProp);
     auto dialogPattern = hostNode->GetPattern<DialogPattern>();
     CHECK_NULL_VOID(dialogPattern);
+    dialogTheme_ = dialogPattern->GetDialogTheme();
+    CHECK_NULL_VOID(dialogTheme_);
+    auto navigationManager = pipeline->GetNavigationManager();
+    CHECK_NULL_VOID(navigationManager);
+    auto forceSplitMgr = AceType::DynamicCast<ForceSplitManager>(pipeline->GetForceSplitManager());
+    CHECK_NULL_VOID(forceSplitMgr);
+    NG::RectF floatButtons;
+    dialogPattern->GetWindowButtonRect(floatButtons);
+    floatButtonsHeight_ = floatButtons.Height();
     auto parent = hostNode->GetParent();
-    expandDisplay_ = dialogTheme->GetExpandDisplay() || dialogPattern->IsShowInFreeMultiWindow();
+    expandDisplay_ = dialogTheme_->GetExpandDisplay() || dialogPattern->IsShowInFreeMultiWindow();
     keyboardAvoidMode_ = dialogPattern->GetDialogProperties().keyboardAvoidMode;
     keyboardAvoidDistance_ = dialogPattern->GetDialogProperties().keyboardAvoidDistance;
     isUIExtensionSubWindow_ = dialogPattern->IsUIExtensionSubWindow();
@@ -69,10 +86,12 @@ void DialogLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     isShowInSubWindow_ = dialogProp->GetShowInSubWindowValue(false);
     isModal_ = dialogProp->GetIsModal().value_or(true);
     hasAddMaskNode_ = (dialogPattern->GetDialogProperties().maskTransitionEffect != nullptr ||
-                       dialogPattern->GetDialogProperties().dialogTransitionEffect != nullptr) &&
-                       isModal_ && !isShowInSubWindow_;
+        dialogPattern->GetDialogProperties().dialogTransitionEffect != nullptr) &&
+        isModal_ && !isShowInSubWindow_;
     auto enableHoverMode = dialogProp->GetEnableHoverMode().value_or(false);
     hoverModeArea_ = dialogProp->GetHoverModeArea().value_or(HoverModeAreaType::BOTTOM_SCREEN);
+    needAdaptForceSplitMode_ = pipeline->IsDisplayInForceSplitMode() && !IsEmbeddedDialog(hostNode) &&
+                                (forceSplitMgr->GetDialogSupportSplit());
     auto safeAreaManager = pipeline->GetSafeAreaManager();
     auto keyboardInsert = safeAreaManager->GetKeyboardInset();
     isKeyBoardShow_ = keyboardInsert.IsValid();
@@ -98,7 +117,11 @@ void DialogLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     UpdateSafeArea(hostNode);
     isShowInFloatingWindow_ = dialogPattern->IsShowInFloatingWindow();
     ResizeDialogSubwindow(dialogPattern->IsShowInFreeMultiWindow(), isShowInSubWindow_, isShowInFloatingWindow_);
-    const auto& layoutConstraint = dialogProp->GetLayoutConstraint();
+    auto layoutConstraint = dialogProp->GetLayoutConstraint();
+    if (needAdaptForceSplitMode_) {
+        layoutConstraint->percentReference.SetWidth(layoutConstraint->percentReference.Width() / HALF);
+        layoutConstraint->maxSize.SetWidth(layoutConstraint->maxSize.Width() / HALF);
+    }
     const auto& parentIdealSize = layoutConstraint->parentIdealSize;
     OptionalSizeF realSize;
     // dialog size fit screen.
@@ -124,10 +147,14 @@ void DialogLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     layoutWrapper->GetGeometryNode()->SetContentSize(realSize.ConvertToSizeT());
     // update child layout constraint
     auto childLayoutConstraint = layoutWrapper->GetLayoutProperty()->CreateChildConstraint();
-    const auto& children = layoutWrapper->GetAllChildrenWithBuild();
-    if (children.empty()) {
-        return;
+    if (needAdaptForceSplitMode_) {
+        childLayoutConstraint.percentReference.SetWidth(childLayoutConstraint.percentReference.Width() / HALF);
+        childLayoutConstraint.maxSize.SetWidth(childLayoutConstraint.maxSize.Width() / HALF);
+        childLayoutConstraint.minSize.SetWidth(ONE_PX);
+        childLayoutConstraint.minSize.SetHeight(ONE_PX);
     }
+    const auto& children = layoutWrapper->GetAllChildrenWithBuild();
+    CHECK_NULL_VOID(!children.empty());
     auto child = children.front();
     // constraint child size unless developer is using customStyle
     if (!customSize_) {
@@ -140,10 +167,23 @@ void DialogLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
         childLayoutConstraint.UpdateMaxSizeWithCheck(maxSize);
         ComputeInnerLayoutParam(childLayoutConstraint, dialogProp);
         UpdateChildLayoutConstraint(dialogProp, childLayoutConstraint, child);
+        // remove the height of the floating button
+        auto childMaxSize = childLayoutConstraint.maxSize;
+        auto maxHeightWithoutFloatButton = layoutConstraint->maxSize.Height() - floatButtonsHeight_;
+        childMaxSize.SetHeight(std::min(childMaxSize.Height(), maxHeightWithoutFloatButton));
+        childLayoutConstraint.UpdateMaxSizeWithCheck(childMaxSize);
+        childLayoutConstraint.percentReference.SetHeight(
+            std::min(childLayoutConstraint.percentReference.Height(), maxHeightWithoutFloatButton));
     }
 
     if (isSuitableForElderly_ && SystemProperties::GetDeviceOrientation() == DeviceOrientation::LANDSCAPE) {
-        childLayoutConstraint.maxSize.SetWidth(LANDSCAPE_DIALOG_WIDTH_RATIO * pipeline->GetRootWidth());
+        float widthRatio = needAdaptForceSplitMode_ ?
+            (LANDSCAPE_DIALOG_WIDTH_RATIO * pipeline->GetRootWidth() / HALF) :
+            (LANDSCAPE_DIALOG_WIDTH_RATIO * pipeline->GetRootWidth());
+        childLayoutConstraint.maxSize.SetWidth(widthRatio);
+        if (needAdaptForceSplitMode_) {
+            childLayoutConstraint.percentReference.SetWidth(widthRatio);
+        }
     }
     // childSize_ and childOffset_ is used in Layout.
     child->Measure(childLayoutConstraint);
@@ -151,12 +191,14 @@ void DialogLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
         if (isSuitOldMeasure_) {
             dialogMaxHeight_ = childLayoutConstraint.maxSize.Height();
         }
-        AnalysisHeightOfChild(layoutWrapper);
+        AnalysisHeightOfChild(layoutWrapper, dialogTheme_->GetTextAlignTitle() == TEXT_ALIGN_TITLE_CENTER);
     }
 }
 
 void DialogLayoutAlgorithm::AdjustHoverModeForWaterfall(const RefPtr<FrameNode>& frameNode)
 {
+    CHECK_NULL_VOID(expandDisplay_);
+    ACE_UINODE_TRACE(frameNode);
     auto pattern = frameNode->GetPattern<DialogPattern>();
     CHECK_NULL_VOID(pattern);
     auto dialogProp = DynamicCast<DialogLayoutProperty>(frameNode->GetLayoutProperty());
@@ -215,7 +257,9 @@ void DialogLayoutAlgorithm::UpdateChildMaxSizeHeight(SizeT<float>& maxSize)
 void DialogLayoutAlgorithm::UpdateChildLayoutConstraint(const RefPtr<DialogLayoutProperty>& dialogProp,
     LayoutConstraintF& childLayoutConstraint, RefPtr<LayoutWrapper>& childLayoutWrapper)
 {
+    CHECK_NULL_VOID(childLayoutWrapper && dialogProp);
     auto childLayoutProperty = childLayoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(childLayoutProperty);
     auto dialogWidth = dialogProp->GetWidth().value_or(Dimension(-1, DimensionUnit::VP));
     auto dialogHeight = dialogProp->GetHeight().value_or(Dimension(-1, DimensionUnit::VP));
     if (NonNegative(dialogHeight.Value())) {
@@ -229,7 +273,7 @@ void DialogLayoutAlgorithm::UpdateChildLayoutConstraint(const RefPtr<DialogLayou
         dialogHeight.ConvertToPxWithSize(childLayoutConstraint.maxSize.Height())));
 }
 
-void DialogLayoutAlgorithm::AnalysisHeightOfChild(LayoutWrapper* layoutWrapper)
+void DialogLayoutAlgorithm::AnalysisHeightOfChild(LayoutWrapper* layoutWrapper, bool isTitleCenter)
 {
     float scrollHeight = 0.0f;
     float listHeight = 0.0f;
@@ -250,6 +294,7 @@ void DialogLayoutAlgorithm::AnalysisHeightOfChild(LayoutWrapper* layoutWrapper)
             listHeight = grandson->GetGeometryNode()->GetMarginFrameSize().Height();
         } else {
             restHeight -= grandson->GetGeometryNode()->GetMarginFrameSize().Height();
+            AnalysisLayoutOfTitleColumn(layoutWrapper, grandson, isTitleCenter);
         }
     }
 
@@ -278,10 +323,57 @@ void DialogLayoutAlgorithm::AnalysisHeightOfChild(LayoutWrapper* layoutWrapper)
     }
 }
 
+void DialogLayoutAlgorithm::AnalysisLayoutOfTitleColumn(LayoutWrapper* layoutWrapper,
+    const RefPtr<LayoutWrapper>& title, bool isTitleCenter)
+{
+    if (!isTitleCenter) {
+        return;
+    }
+    auto hostNode = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(hostNode);
+    ACE_UINODE_TRACE(hostNode);
+    auto dialogPattern = hostNode->GetPattern<DialogPattern>();
+    CHECK_NULL_VOID(dialogPattern);
+    auto isTitleEmpty = dialogPattern->GetTitle().empty();
+    auto isSubtitleEmpty = dialogPattern->GetSubtitle().empty();
+    if (isTitleEmpty && isSubtitleEmpty) {
+        return;
+    }
+    if (!isTitleEmpty && !isSubtitleEmpty) {
+        auto titleChildren = title->GetAllChildrenWithBuild();
+        for (const auto& titleChild : titleChildren) {
+            AnalysisLayoutOfTitle(titleChild);
+        }
+    } else {
+        AnalysisLayoutOfTitle(title);
+    }
+}
+
+void DialogLayoutAlgorithm::AnalysisLayoutOfTitle(const RefPtr<LayoutWrapper>& title)
+{
+    auto hostNode = title->GetHostNode();
+    CHECK_NULL_VOID(hostNode);
+    if (hostNode->GetTag() != V2::ROW_ETS_TAG) {
+        return;
+    }
+    auto textNode = AceType::DynamicCast<FrameNode>(title->GetChildByIndex(ROW_CHILD_INDEX));
+    CHECK_NULL_VOID(textNode);
+    auto layoutAlgorithmWrapper = DynamicCast<LayoutAlgorithmWrapper>(textNode->GetLayoutAlgorithm());
+    CHECK_NULL_VOID(layoutAlgorithmWrapper);
+    auto textLayoutAlgorithm = DynamicCast<TextLayoutAlgorithm>(layoutAlgorithmWrapper->GetLayoutAlgorithm());
+    CHECK_NULL_VOID(textLayoutAlgorithm);
+    if (!GreatNotEqual(textLayoutAlgorithm->GetLineCount(), 1)) {
+        auto titleRowProps = hostNode->GetLayoutProperty<LinearLayoutProperty>();
+        CHECK_NULL_VOID(titleRowProps);
+        titleRowProps->UpdateMainAxisAlign(FlexAlign::CENTER);
+    }
+}
+
 void DialogLayoutAlgorithm::AnalysisLayoutOfContent(LayoutWrapper* layoutWrapper, const RefPtr<LayoutWrapper>& scroll)
 {
     auto hostNode = layoutWrapper->GetHostNode();
     CHECK_NULL_VOID(hostNode);
+    ACE_UINODE_TRACE(hostNode);
     auto dialogPattern = hostNode->GetPattern<DialogPattern>();
     CHECK_NULL_VOID(dialogPattern);
     auto text = scroll->GetAllChildrenWithBuild().front();
@@ -295,12 +387,10 @@ void DialogLayoutAlgorithm::AnalysisLayoutOfContent(LayoutWrapper* layoutWrapper
     CHECK_NULL_VOID(textLayoutAlgorithm);
     auto pipelineContext = GetPipelineContext();
     CHECK_NULL_VOID(pipelineContext);
-    auto dialogTheme = pipelineContext->GetTheme<DialogTheme>();
-    CHECK_NULL_VOID(dialogTheme);
+    CHECK_NULL_VOID(dialogTheme_);
     auto scrollPropery = scroll->GetLayoutProperty();
     CHECK_NULL_VOID(scrollPropery);
-    if ((dialogPattern->GetTitle().empty() && dialogPattern->GetSubtitle().empty()) ||
-        dialogTheme->GetTextAlignContent() == TEXT_ALIGN_CONTENT_CENTER) {
+    if (dialogTheme_->GetTextAlignContent() == TEXT_ALIGN_CONTENT_CENTER) {
         if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_ELEVEN) &&
             GreatNotEqual(textLayoutAlgorithm->GetLineCount(), 1)) {
             scrollPropery->UpdateAlignment(Alignment::CENTER_LEFT);
@@ -308,7 +398,16 @@ void DialogLayoutAlgorithm::AnalysisLayoutOfContent(LayoutWrapper* layoutWrapper
             scrollPropery->UpdateAlignment(Alignment::CENTER);
         }
     } else {
-        scrollPropery->UpdateAlignment(Alignment::CENTER_LEFT);
+        if (dialogPattern->GetTitle().empty() && dialogPattern->GetSubtitle().empty()) {
+            if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_ELEVEN) &&
+                GreatNotEqual(textLayoutAlgorithm->GetLineCount(), 1)) {
+                scrollPropery->UpdateAlignment(Alignment::CENTER_LEFT);
+            } else {
+                scrollPropery->UpdateAlignment(Alignment::CENTER);
+            }
+        } else {
+            scrollPropery->UpdateAlignment(Alignment::CENTER_LEFT);
+        }
     }
 }
 
@@ -329,7 +428,10 @@ void DialogLayoutAlgorithm::Distribute(float& scrollHeight, float& listHeight, f
 LayoutConstraintF DialogLayoutAlgorithm::CreateDialogChildConstraint(
     LayoutWrapper* layoutWrapper, float height, float width)
 {
-    auto childConstraint = layoutWrapper->GetLayoutProperty()->CreateChildConstraint();
+    LayoutConstraintF childConstraint;
+    auto dialogLayoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_RETURN(dialogLayoutProperty, childConstraint);
+    childConstraint = dialogLayoutProperty->CreateChildConstraint();
     childConstraint.minSize.SetHeight(height);
     childConstraint.maxSize.SetHeight(height);
     childConstraint.percentReference.SetHeight(height);
@@ -349,13 +451,12 @@ bool DialogLayoutAlgorithm::ComputeInnerLayoutSizeParam(LayoutConstraintF& inner
     CHECK_NULL_RETURN(Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWELVE), false);
     auto pipeline = GetPipelineContext();
     CHECK_NULL_RETURN(pipeline, false);
-    auto dialogTheme = pipeline->GetTheme<DialogTheme>();
-    CHECK_NULL_RETURN(dialogTheme, false);
+    CHECK_NULL_RETURN(dialogTheme_, false);
 
     auto maxSize = innerLayout.maxSize;
     auto width =
-        maxSize.Width() - dialogTheme->GetMarginLeft().ConvertToPx() - dialogTheme->GetMarginRight().ConvertToPx();
-    auto defaultMaxWidth = dialogTheme->GetContainerMaxWidth().ConvertToPx();
+        maxSize.Width() - dialogTheme_->GetMarginLeft().ConvertToPx() - dialogTheme_->GetMarginRight().ConvertToPx();
+    auto defaultMaxWidth = dialogTheme_->GetContainerMaxWidth().ConvertToPx();
     width = defaultMaxWidth < width ? defaultMaxWidth : width;
     if (dialogProp->GetWidth().has_value()) {
         auto dialogWidth = dialogProp->GetWidth().value_or(Dimension(-1, DimensionUnit::VP));
@@ -368,7 +469,7 @@ bool DialogLayoutAlgorithm::ComputeInnerLayoutSizeParam(LayoutConstraintF& inner
     auto defaultMinHeight = DIALOG_MIN_HEIGHT.ConvertToPx();
     auto defaultMaxHeight = IsGetExpandDisplayValidHeight(dialogProp) ? expandDisplayValidHeight_ : maxSize.Height();
     innerLayout.minSize = SizeF(width, defaultMinHeight);
-    double ratioHeight = dialogTheme->GetDialogRatioHeight();
+    double ratioHeight = dialogTheme_->GetDialogRatioHeight();
     innerLayout.maxSize = SizeF(width, defaultMaxHeight * ratioHeight);
 
     if (dialogProp->GetHeight().has_value()) {
@@ -388,7 +489,10 @@ bool DialogLayoutAlgorithm::ComputeInnerLayoutSizeParam(LayoutConstraintF& inner
     if (isSuitableForElderly_) {
         if (SystemProperties::GetDeviceOrientation() == DeviceOrientation::LANDSCAPE) {
             innerLayout.minSize = SizeF(width, 0.0);
-            innerLayout.maxSize.SetWidth(pipeline->GetRootWidth() * LANDSCAPE_DIALOG_WIDTH_RATIO);
+            float widthRatio = needAdaptForceSplitMode_ ?
+                (LANDSCAPE_DIALOG_WIDTH_RATIO * pipeline->GetRootWidth() / HALF) :
+                (LANDSCAPE_DIALOG_WIDTH_RATIO * pipeline->GetRootWidth());
+            innerLayout.maxSize.SetWidth(widthRatio);
         }
     }
     // update percentRef
@@ -402,6 +506,7 @@ bool DialogLayoutAlgorithm::IsGetExpandDisplayValidHeight(const RefPtr<DialogLay
         expandDisplay_ && isShowInSubWindow_ && dialogProp && !(isModal_ && isUIExtensionSubWindow_), false);
     auto dialog = dialogProp->GetHost();
     CHECK_NULL_RETURN(dialog, false);
+    ACE_UINODE_TRACE(dialog);
     auto pipelineContext = DialogManager::GetMainPipelineContext(dialog);
     CHECK_NULL_RETURN(pipelineContext, false);
     auto expandDisplayValidHeight =
@@ -538,9 +643,10 @@ void DialogLayoutAlgorithm::ClipCustomMaskNode(const RefPtr<FrameNode>& dialog, 
 void DialogLayoutAlgorithm::ProcessMaskRect(
     std::optional<DimensionRect> maskRect, const RefPtr<FrameNode>& dialog, bool isMask)
 {
+    CHECK_NULL_VOID(dialog);
+    ACE_UINODE_TRACE(dialog);
     auto dialogContext = dialog->GetRenderContext();
     CHECK_NULL_VOID(dialogContext);
-    auto hub = dialog->GetEventHub<DialogEventHub>();
     auto width = maskRect->GetWidth();
     auto height = maskRect->GetHeight();
     auto offset = maskRect->GetOffset();
@@ -565,7 +671,12 @@ void DialogLayoutAlgorithm::ProcessMaskRect(
             dialogContext->UpdateClipEdge(true);
         }
     }
-    auto gestureHub = hub->GetOrCreateGestureEventHub();
+    auto dialogPattern = dialog->GetPattern<DialogPattern>();
+    CHECK_NULL_VOID(dialogPattern);
+    auto extraMaskNode = dialogPattern->GetExtraMaskNode();
+    auto maskNode = extraMaskNode ? extraMaskNode : dialog;
+    auto gestureHub = maskNode->GetOrCreateGestureEventHub();
+    CHECK_NULL_VOID(gestureHub);
     std::vector<DimensionRect> mouseResponseRegion;
     mouseResponseRegion.emplace_back(width, height, offset);
     gestureHub->SetMouseResponseRegion(mouseResponseRegion);
@@ -618,16 +729,17 @@ void DialogLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     CHECK_NULL_VOID(dialogProp);
     auto pipelineContext = GetPipelineContext();
     CHECK_NULL_VOID(pipelineContext);
-    auto dialogTheme = pipelineContext->GetTheme<DialogTheme>();
-    CHECK_NULL_VOID(dialogTheme);
+    auto dialogPattern = frameNode->GetPattern<DialogPattern>();
+    CHECK_NULL_VOID(dialogPattern);
+    dialogTheme_ = dialogPattern->GetDialogTheme();
+    CHECK_NULL_VOID(dialogTheme_);
     ParseSubwindowId(dialogProp);
     auto selfSize = layoutWrapper->GetGeometryNode()->GetFrameSize();
     const auto& children = layoutWrapper->GetAllChildrenWithBuild();
     if (children.empty()) {
         return;
     }
-    auto dialogPattern = frameNode->GetPattern<DialogPattern>();
-    CHECK_NULL_VOID(dialogPattern);
+
     if (isModal_ && dialogPattern->GetDialogProperties().maskRect.has_value()) {
         std::optional<DimensionRect> maskRect = GetMaskRect(frameNode);
         ProcessMaskRect(maskRect, frameNode, true);
@@ -639,7 +751,7 @@ void DialogLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     auto childSize = child->GetGeometryNode()->GetMarginFrameSize();
     dialogChildSize_ = childSize;
     // is PcDevice MultipleDialog Offset to the bottom right
-    if (dialogTheme->GetMultipleDialogDisplay() != "stack" && !dialogProp->GetIsModal().value_or(true) &&
+    if (dialogTheme_->GetMultipleDialogDisplay() != "stack" && !dialogProp->GetIsModal().value_or(true) &&
         dialogProp->GetShowInSubWindowValue(false)) {
         auto pipeline = frameNode->GetContextRefPtr();
         auto currentId = pipeline ? pipeline->GetInstanceId() : Container::CurrentIdSafely();
@@ -670,6 +782,7 @@ void DialogLayoutAlgorithm::AvoidScreen(
     CHECK_NULL_VOID(dialogProp);
     auto dialogNode = dialogProp->GetHost();
     CHECK_NULL_VOID(dialogNode);
+    ACE_UINODE_TRACE(dialogNode);
     auto pipelineContext = dialogNode->GetContextRefPtr();
     CHECK_NULL_VOID(pipelineContext);
     auto containerId = pipelineContext->GetInstanceId();
@@ -685,7 +798,13 @@ void DialogLayoutAlgorithm::AvoidScreen(
     }
     auto overScreen = LessNotEqual(availableRect.Width(), childSize.Width()) ||
                       LessNotEqual(availableRect.Height(), childSize.Height());
-    auto needAvoidScreen = DialogManager::GetInstance().IsPcOrFreeMultiWindow(dialogNode) && !overScreen;
+    // The following situations trigger avoidance:
+    // 1.PC or freemultiwindowMode, customstyle is false.
+    // 2.hopper UEC subwindow non-modal dialog.
+    auto needAvoidScreen =
+        ((DialogManager::GetInstance().IsPcOrFreeMultiWindow(dialogNode) && !customSize_) ||
+            (SystemProperties::IsSuperFoldDisplayDevice() && !isModal_ && isUIExtensionSubWindow_)) &&
+        !overScreen;
     if (!needAvoidScreen) {
         return;
     }
@@ -696,7 +815,7 @@ void DialogLayoutAlgorithm::AvoidScreen(
         static_cast<float>(availableRect.Bottom() - childSize.Height()));
     left = std::clamp(static_cast<float>(left - wrapperOffset_.GetX()), 0.0f,
         static_cast<float>(wrapperSize_.Width() - childSize.Width()));
-    top = std::clamp(static_cast<float>(top - wrapperOffset_.GetY()), 0.0f,
+    top = std::clamp(static_cast<float>(top - wrapperOffset_.GetY()), floatButtonsHeight_,
         static_cast<float>(wrapperSize_.Height() - childSize.Height()));
     topLeftPoint.SetX(left);
     topLeftPoint.SetY(top);
@@ -715,6 +834,7 @@ void DialogLayoutAlgorithm::ParseSubwindowId(const RefPtr<DialogLayoutProperty>&
     subWindowId_ = Container::CurrentId();
     auto dialogNode = dialogProp->GetHost();
     CHECK_NULL_VOID(dialogNode);
+    ACE_UINODE_TRACE(dialogNode);
     auto pipeline = dialogNode->GetContextRefPtr();
     CHECK_NULL_VOID(pipeline);
     subWindowId_ = pipeline->GetInstanceId();
@@ -726,6 +846,8 @@ void DialogLayoutAlgorithm::AdjustHeightForKeyboard(LayoutWrapper* layoutWrapper
         keyboardAvoidMode_ == KeyboardAvoidMode::NONE) {
         return;
     }
+    auto hostNode = layoutWrapper->GetHostNode();
+    ACE_UINODE_TRACE(hostNode);
     auto childLayoutProperty = child->GetLayoutProperty();
     auto dialogProp = DynamicCast<DialogLayoutProperty>(layoutWrapper->GetLayoutProperty());
     CHECK_NULL_VOID(childLayoutProperty);
@@ -824,9 +946,12 @@ OffsetF DialogLayoutAlgorithm::ComputeChildPosition(
     OffsetF topLeftPoint;
     auto pipelineContext = GetPipelineContext();
     CHECK_NULL_RETURN(pipelineContext, OffsetF());
-    auto dialogTheme = pipelineContext->GetTheme<DialogTheme>();
-    const auto& layoutConstraint = prop->GetLayoutConstraint();
-    CHECK_NULL_RETURN(dialogTheme, OffsetF());
+    auto layoutConstraint = prop->GetLayoutConstraint();
+    if (needAdaptForceSplitMode_) {
+        layoutConstraint->percentReference.SetWidth(layoutConstraint->percentReference.Width() / HALF);
+        layoutConstraint->maxSize.SetWidth(layoutConstraint->maxSize.Width() / HALF);
+    }
+    CHECK_NULL_RETURN(dialogTheme_, OffsetF());
     auto dialogOffsetX =
         ConvertToPx(CalcLength(dialogOffset_.GetX()), layoutConstraint->scaleProperty, selfSize.Width());
     auto dialogOffsetY =
@@ -847,8 +972,11 @@ OffsetF DialogLayoutAlgorithm::ComputeChildPosition(
         keyboardAvoidMode_ == KeyboardAvoidMode::NONE) {
         needAvoidKeyboard = false;
     }
+    if (needAdaptForceSplitMode_) {
+        topLeftPoint.SetX(topLeftPoint.GetX() + pipelineContext->GetRootWidth() / HALF);
+    }
     auto childOffset = AdjustChildPosition(topLeftPoint, dialogOffset, childSize, needAvoidKeyboard);
-    AvoidScreen(childOffset, prop, childSize);
+    AvoidScreen(childOffset, prop, dialogChildSize_);
     return childOffset;
 }
 
@@ -977,9 +1105,8 @@ double DialogLayoutAlgorithm::GetPaddingBottom() const
 {
     auto pipelineContext = GetPipelineContext();
     CHECK_NULL_RETURN(pipelineContext, 0);
-    auto dialogTheme = pipelineContext->GetTheme<DialogTheme>();
-    CHECK_NULL_RETURN(dialogTheme, 0);
-    auto bottom = dialogTheme->GetDefaultDialogMarginBottom();
+    CHECK_NULL_RETURN(dialogTheme_, 0);
+    auto bottom = dialogTheme_->GetDefaultDialogMarginBottom();
     if (keyboardAvoidDistance_.has_value()) {
         return pipelineContext->NormalizeToPx(keyboardAvoidDistance_.value());
     } else {
@@ -1005,11 +1132,17 @@ OffsetF DialogLayoutAlgorithm::AdjustChildPosition(
     auto childOffset = topLeftPoint + dialogOffset;
     auto manager = pipelineContext->GetSafeAreaManager();
     auto keyboardInsert = manager->GetKeyboardInset();
+    TAG_LOGD(AceLogTag::ACE_DIALOG, "keyboardInsert: %{public}s", keyboardInsert.ToString().c_str());
+    auto dialogCorrectionEnabled = FeatureParam::IsDialogCorrectionEnabled();
+    DialogOverflowAdjust(childOffset, childSize, dialogCorrectionEnabled);
     auto childBottom = childOffset.GetY() + childSize.Height() + embeddedDialogOffsetY_ + stackRootDialogOffsetY_;
     auto paddingBottom = static_cast<float>(GetPaddingBottom());
     if (needAvoidKeyboard && keyboardInsert.Length() > 0 && childBottom > (keyboardInsert.start - paddingBottom)) {
         auto limitPos = std::min(childOffset.GetY(),
             static_cast<float>(safeAreaInsets_.top_.Length() + AVOID_LIMIT_PADDING.ConvertToPx()));
+        if (dialogCorrectionEnabled) {
+            limitPos = static_cast<float>(safeAreaInsets_.top_.Length() + AVOID_LIMIT_PADDING.ConvertToPx());
+        }
         childOffset.SetY(childOffset.GetY() - (childBottom - (keyboardInsert.start - paddingBottom)));
 
         if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWELVE) && childOffset.GetY() < limitPos) {
@@ -1026,6 +1159,66 @@ OffsetF DialogLayoutAlgorithm::AdjustChildPosition(
     return childOffset;
 }
 
+void DialogLayoutAlgorithm::DialogOverflowAdjust(
+    OffsetF& childOffset, const SizeF& childSize, bool dialogCorrectionEnabled)
+{
+    if (!dialogCorrectionEnabled) {
+        return;
+    }
+
+    auto availableTop = GreatNotEqual(safeAreaInsets_.top_.Length(), 0) ? safeAreaInsets_.top_.end : 0;
+    auto availableBottom  =
+        GreatNotEqual(safeAreaInsets_.bottom_.Length(), 0) ? safeAreaInsets_.bottom_.start : wrapperSize_.Height();
+    // Calculate the dialog’s allowed vertical range
+    auto limitAreaPadding = ((1 - DIALOG_VIEWPORT_HEIGHT_RATIO) / HALF) * (availableBottom  - availableTop);
+    auto limitTop = availableTop + limitAreaPadding;
+    auto limitBottom = availableBottom  - limitAreaPadding;
+    // Adjust allowed area for foldable devices
+    if (isHoverMode_) {
+        if (hoverModeArea_ == HoverModeAreaType::TOP_SCREEN) {
+            limitBottom = foldCreaseRect.Top();
+        } else {
+            limitTop = foldCreaseRect.Bottom();
+        }
+    }
+    if (GreatNotEqual(limitTop, limitBottom)) {
+        return;
+    }
+
+    // Case 1: Dialog exceeds the upper limit
+    float childBottom = 0.0f;
+    if (LessNotEqual(childOffset.GetY(), limitTop)) {
+        childOffset.SetY(limitTop);
+        childBottom = childOffset.GetY() + childSize.Height() + embeddedDialogOffsetY_ + stackRootDialogOffsetY_;
+        if (GreatNotEqual(childBottom, limitBottom)) {
+            resizeFlag_ = true;
+            dialogChildSize_ = childSize;
+            if (GreatNotEqual(childBottom - limitBottom, dialogChildSize_.Height())) {
+                dialogChildSize_.MinusHeight(dialogChildSize_.Height());
+            } else {
+                dialogChildSize_.MinusHeight(childBottom - limitBottom);
+            }
+        }
+        return;
+    }
+
+    // Case 2: Dialog exceeds the lower limit
+    childBottom = childOffset.GetY() + childSize.Height() + embeddedDialogOffsetY_ + stackRootDialogOffsetY_;
+    if (GreatNotEqual(childBottom, limitBottom)) {
+        childOffset.SetY(childOffset.GetY() - (childBottom - limitBottom));
+        if (LessNotEqual(childOffset.GetY(), limitTop)) {
+            resizeFlag_ = true;
+            dialogChildSize_ = childSize;
+            if (GreatNotEqual(limitTop - childOffset.GetY(), dialogChildSize_.Height())) {
+                dialogChildSize_.MinusHeight(dialogChildSize_.Height());
+            } else {
+                dialogChildSize_.MinusHeight(limitTop - childOffset.GetY());
+            }
+            childOffset.SetY(limitTop);
+        }
+    }
+}
+
 void DialogLayoutAlgorithm::UpdateSafeArea(const RefPtr<FrameNode>& frameNode)
 {
     auto container = Container::Current();
@@ -1037,6 +1230,10 @@ void DialogLayoutAlgorithm::UpdateSafeArea(const RefPtr<FrameNode>& frameNode)
         CHECK_NULL_VOID(container);
         ContainerScope scope(currentId);
     }
+    auto pipelineContext = container->GetPipelineContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto context = AceType::DynamicCast<NG::PipelineContext>(pipelineContext);
+    CHECK_NULL_VOID(context);
     safeAreaInsets_ = OverlayManager::GetSafeAreaInsets(frameNode);
     if (!IsEmbeddedDialog(frameNode)) {
         safeAreaBottomLength_ = safeAreaInsets_.bottom_.Length();

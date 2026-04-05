@@ -20,6 +20,7 @@
 
 #include "base/memory/referenced.h"
 #include "bridge/declarative_frontend/jsview/js_gesture.h"
+#include "core/components_ng/gestures/recognizers/click_recognizer.h"
 #include "core/components_ng/gestures/recognizers/gesture_recognizer.h"
 #include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
 #include "core/components_ng/pattern/swiper/swiper_pattern.h"
@@ -80,7 +81,7 @@ public:
     {
         pattern_ = pattern;
     }
-
+    
     // use for ArkTs1.2 interop
     int64_t GetPatternPointer()
     {
@@ -320,10 +321,12 @@ public:
     void Update(const RefPtr<NG::LongPressRecognizer>& recognizer)
     {
         JSMultiFingerRecognizer::Update(recognizer);
+        allowableMovement_ = recognizer->GetAllowableMovement();
         duration_ = recognizer->GetDuration();
         repeat_ = recognizer->GetIsRepeat();
     }
 
+    void GetAllowableMovement(const JSCallbackInfo& args);
     void GetDuration(const JSCallbackInfo& args);
     void GetRepeat(const JSCallbackInfo& args);
     void SetRepeat(bool repeat);
@@ -343,6 +346,7 @@ private:
         }
     }
 
+    double allowableMovement_ = 15.0;
     int32_t duration_ = 500;
     bool repeat_ = false;
 };

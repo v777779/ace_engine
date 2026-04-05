@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,6 +17,7 @@
 #define FOUNDATION_ACE_FRAMEWORKS_COMPONENTS_NG_PROPERTIES_BORDER_PROPERTY_H
 
 #include <optional>
+#include <unordered_map>
 #include <functional>
 #include "base/geometry/dimension.h"
 #include "base/json/json_util.h"
@@ -28,7 +29,7 @@ namespace OHOS::Ace::NG {
 class InspectorFilter;
 
 template<typename T>
-struct BorderRadiusPropertyT {
+struct ACE_FORCE_EXPORT BorderRadiusPropertyT {
     std::optional<T> radiusTopLeft;
     std::optional<T> radiusTopRight;
     std::optional<T> radiusBottomRight;
@@ -88,7 +89,7 @@ struct BorderRadiusPropertyT {
 };
 
 template<>
-struct BorderRadiusPropertyT<Dimension> {
+struct ACE_FORCE_EXPORT BorderRadiusPropertyT<Dimension> {
     std::optional<Dimension> radiusTopLeft;
     std::optional<Dimension> radiusTopRight;
     std::optional<Dimension> radiusBottomRight;
@@ -114,9 +115,10 @@ struct BorderRadiusPropertyT<Dimension> {
           radiusBottomLeft(radiusBottomLeft)
     {}
 
-    bool operator==(const BorderRadiusPropertyT<Dimension>& value) const;
+    ACE_FORCE_EXPORT bool operator==(const BorderRadiusPropertyT<Dimension>& value) const;
+    bool operator!=(const BorderRadiusPropertyT<Dimension>& value) const;
 
-    void SetRadius(const Dimension& borderRadius);
+    ACE_FORCE_EXPORT void SetRadius(const Dimension& borderRadius);
 
     bool UpdateWithCheck(const BorderRadiusPropertyT<Dimension>& value);
 
@@ -138,7 +140,19 @@ struct BorderRadiusPropertyT<Dimension> {
             .append("]");
         return str;
     }
-    
+
+    bool HasPercentUnit()
+    {
+        return (radiusTopLeft.has_value() && radiusTopLeft.value().Unit() == DimensionUnit::PERCENT) ||
+            (radiusTopRight.has_value() && radiusTopRight.value().Unit() == DimensionUnit::PERCENT) ||
+            (radiusBottomRight.has_value() && radiusBottomRight.value().Unit() == DimensionUnit::PERCENT) ||
+            (radiusBottomLeft.has_value() && radiusBottomLeft.value().Unit() == DimensionUnit::PERCENT) ||
+            (radiusTopStart.has_value() && radiusTopStart.value().Unit() == DimensionUnit::PERCENT) ||
+            (radiusTopEnd.has_value() && radiusTopEnd.value().Unit() == DimensionUnit::PERCENT) ||
+            (radiusBottomEnd.has_value() && radiusBottomEnd.value().Unit() == DimensionUnit::PERCENT) ||
+            (radiusBottomStart.has_value() && radiusBottomStart.value().Unit() == DimensionUnit::PERCENT);
+    }
+
     void AddResource(
         const std::string& key,
         const RefPtr<ResourceObject>& resObj,
@@ -162,6 +176,14 @@ struct BorderRadiusPropertyT<Dimension> {
         }
     }
 
+    void RemoveResource(const std::string& key)
+    {
+        auto iter = resMap_.find(key);
+        if (iter != resMap_.end()) {
+            resMap_.erase(iter);
+        }
+    }
+
     void ClearResources()
     {
         resMap_.clear();
@@ -175,7 +197,7 @@ struct BorderRadiusPropertyT<float> {
     std::optional<float> radiusBottomRight;
     std::optional<float> radiusBottomLeft;
 
-    bool operator==(const BorderRadiusPropertyT<float>& value) const
+    ACE_FORCE_EXPORT bool operator==(const BorderRadiusPropertyT<float>& value) const
     {
         if (radiusTopLeft.has_value() ^ value.radiusTopLeft.has_value()) {
             return false;
@@ -245,7 +267,7 @@ struct BorderColorProperty {
         bottomColor = borderColor;
     }
 
-    bool operator==(const BorderColorProperty& value) const
+    ACE_FORCE_EXPORT bool operator==(const BorderColorProperty& value) const
     {
         return (leftColor == value.leftColor) && (rightColor == value.rightColor) && (topColor == value.topColor) &&
                (bottomColor == value.bottomColor);
@@ -276,6 +298,14 @@ struct BorderColorProperty {
     {
         for (const auto& [key, resourceUpdater] : resMap_) {
             resourceUpdater.updateFunc(resourceUpdater.resObj, *this);
+        }
+    }
+
+    void RemoveResource(const std::string& key)
+    {
+        auto iter = resMap_.find(key);
+        if (iter != resMap_.end()) {
+            resMap_.erase(iter);
         }
     }
 };
@@ -325,7 +355,7 @@ struct BorderWidthPropertyT {
 };
 
 template<>
-struct BorderWidthPropertyT<Dimension> {
+struct ACE_FORCE_EXPORT BorderWidthPropertyT<Dimension> {
     std::optional<Dimension> leftDimen;
     std::optional<Dimension> topDimen;
     std::optional<Dimension> rightDimen;
@@ -339,9 +369,9 @@ struct BorderWidthPropertyT<Dimension> {
     };
     std::unordered_map<std::string, resourceUpdater> resMap_;
 
-    void SetBorderWidth(const Dimension& borderWidth);
+    ACE_FORCE_EXPORT void SetBorderWidth(const Dimension& borderWidth);
 
-    bool operator==(const BorderWidthPropertyT& value) const;
+    ACE_FORCE_EXPORT bool operator==(const BorderWidthPropertyT& value) const;
 
     bool UpdateWithCheck(const BorderWidthPropertyT& value);
 
@@ -384,7 +414,7 @@ struct BorderWidthPropertyT<float> {
     std::optional<float> rightDimen;
     std::optional<float> bottomDimen;
 
-    bool operator==(const BorderWidthPropertyT<float>& value) const
+    ACE_FORCE_EXPORT bool operator==(const BorderWidthPropertyT<float>& value) const
     {
         if (leftDimen.has_value() ^ value.leftDimen.has_value()) {
             return false;
@@ -426,16 +456,16 @@ struct BorderWidthPropertyT<float> {
     }
 };
 
-struct BorderStyleProperty {
+struct ACE_FORCE_EXPORT BorderStyleProperty {
     std::optional<BorderStyle> styleLeft;
     std::optional<BorderStyle> styleRight;
     std::optional<BorderStyle> styleTop;
     std::optional<BorderStyle> styleBottom;
     bool multiValued = false;
 
-    void SetBorderStyle(const BorderStyle& borderStyle);
+    ACE_FORCE_EXPORT void SetBorderStyle(const BorderStyle& borderStyle);
 
-    bool operator==(const BorderStyleProperty& value) const;
+    ACE_FORCE_EXPORT bool operator==(const BorderStyleProperty& value) const;
 
     void ToJsonValue(std::unique_ptr<JsonValue>& json, std::unique_ptr<JsonValue>& borderJson,
         const InspectorFilter& filter, bool isOutline = false) const;

@@ -17,12 +17,19 @@
 
 #include "cj_lambda.h"
 
+#include "bridge/cj_frontend/interfaces/cj_ffi/utils.h"
 #include "bridge/common/utils/utils.h"
+#include "core/components/select/select_theme.h"
 #include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/pattern/select/select_model_ng.h"
+#include "core/common/container.h"
 
 using namespace OHOS::Ace;
 using namespace OHOS::Ace::Framework;
+
+namespace {
+const std::vector<TextDirection> TEXT_DIRECTIONS = { TextDirection::LTR, TextDirection::RTL, TextDirection::AUTO };
+}
 
 extern "C" {
 VectorNativeSelectOptionHandle FFICJCreateVectorNativeSelectOption(int64_t size)
@@ -104,9 +111,25 @@ void FfiOHOSAceFrameworkSelectSetFontColor(uint32_t color)
     SelectModel::GetInstance()->SetFontColor(Color(color));
 }
 
+void FfiOHOSAceFrameworkSelectResetFontColor()
+{
+    SelectModel::GetInstance()->ResetFontColor();
+}
+
 void FfiOHOSAceFrameworkSelectSetSelectedOptionBgColor(uint32_t color)
 {
     SelectModel::GetInstance()->SetSelectedOptionBgColor(Color(color));
+}
+
+// reset select SelectedOptionBgColor from SelectTheme
+void FfiOHOSAceFrameworkSelectResetSelectedOptionBgColor()
+{
+    auto pipeline = PipelineBase::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    auto theme = pipeline->GetTheme<SelectTheme>();
+    CHECK_NULL_VOID(theme);
+    Color bgColor = theme->GetSelectedColor();
+    SelectModel::GetInstance()->SetSelectedOptionBgColor(bgColor);
 }
 
 void FfiOHOSAceFrameworkSelectSetSelectedOptionFont(
@@ -121,6 +144,16 @@ void FfiOHOSAceFrameworkSelectSetSelectedOptionFont(
 void FfiOHOSAceFrameworkSelectSetSelectedOptionFontColor(uint32_t color)
 {
     SelectModel::GetInstance()->SetSelectedOptionFontColor(Color(color));
+}
+
+void FfiOHOSAceFrameworkSelectResetSelectedOptionFontColor()
+{
+    auto pipeline = PipelineBase::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    auto theme = pipeline->GetTheme<SelectTheme>();
+    CHECK_NULL_VOID(theme);
+    Color textColor = theme->GetSelectedColorText();
+    SelectModel::GetInstance()->SetSelectedOptionFontColor(textColor);
 }
 
 void FfiOHOSAceFrameworkSelectSetOptionBgColor(uint32_t color)
@@ -140,6 +173,16 @@ void FfiOHOSAceFrameworkSelectSetOptionFont(
 void FfiOHOSAceFrameworkSelectSetOptionFontColor(uint32_t color)
 {
     SelectModel::GetInstance()->SetOptionFontColor(Color(color));
+}
+
+void FfiOHOSAceFrameworkSelectResetOptionFontColor()
+{
+    auto pipeline = PipelineBase::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    auto theme = pipeline->GetTheme<SelectTheme>();
+    CHECK_NULL_VOID(theme);
+    Color textColor = theme->GetMenuFontColor();
+    SelectModel::GetInstance()->SetOptionFontColor(textColor);
 }
 
 void FfiOHOSAceFrameworkSelectSetSpace(double width, int32_t widthUnit)
@@ -173,6 +216,13 @@ void FfiOHOSAceFrameworkSelectSetOptionWidth(double width, int32_t widthUnit)
     SelectModel::GetInstance()->SetHasOptionWidth(true);
     Dimension dimStrokeWidth(width, static_cast<DimensionUnit>(widthUnit));
     SelectModel::GetInstance()->SetOptionWidth(dimStrokeWidth);
+}
+
+void FfiOHOSAceFrameworkSelectResetOptionWidth()
+{
+    CalcDimension value;
+    SelectModel::GetInstance()->SetHasOptionWidth(false);
+    SelectModel::GetInstance()->SetOptionWidth(value);
 }
 
 void FfiOHOSAceFrameworkSelectSetOptionWidthWithMode(const char* value)
@@ -234,10 +284,17 @@ void FfiOHOSAceFrameworkSelectSetPadding(double padding, uint32_t unit)
 void FfiOHOSAceFrameworkSelectSetDirection(int32_t value)
 {
     TextDirection direction = TextDirection::AUTO;
-    if (value >= static_cast<int32_t>(TextDirection::LTR) && value <= static_cast<int32_t>(TextDirection::AUTO)) {
-        direction = static_cast<TextDirection>(value);
+    if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWENTY_THREE)) {
+        if (Utils::CheckParamsValid(value, TEXT_DIRECTIONS.size())) {
+            direction = TEXT_DIRECTIONS[value];
+        }
+    } else {
+        if (value >= static_cast<int32_t>(TextDirection::LTR) &&
+            value <= static_cast<int32_t>(TextDirection::AUTO)) {
+            direction = static_cast<TextDirection>(value);
+        }
     }
-    SelectModel::GetInstance()->SetLayoutDirection(static_cast<TextDirection>(value));
+    SelectModel::GetInstance()->SetLayoutDirection(direction);
 }
 
 void FfiOHOSAceFrameworkSelectOnSelect(void (*callback)(int32_t index, const char* value))

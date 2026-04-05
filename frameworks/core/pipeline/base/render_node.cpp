@@ -21,6 +21,7 @@
 
 #include "core/animation/native_curve_helper.h"
 #include "core/components/remote_window/rosen_render_remote_window.h"
+#include "core/pipeline/base/rs_node_adapter.h"
 #endif
 
 #include "base/log/dump_log.h"
@@ -29,6 +30,7 @@
 #include "core/components/root/render_root.h"
 #include "core/components/scroll/render_single_child_scroll.h"
 #include "core/components/transform/render_transform.h"
+#include "core/components_v2/inspector/inspector_node.h"
 
 namespace OHOS::Ace {
 namespace {
@@ -207,6 +209,16 @@ void RenderNode::MovePosition(int32_t slot)
     children.insert(it, self);
 }
 
+const WeakPtr<V2::InspectorNode>& RenderNode::GetInspectorNode() const
+{
+    return inspector_;
+}
+
+void RenderNode::SetInspectorNode(const RefPtr<V2::InspectorNode>& inspectorNode)
+{
+    inspector_ = inspectorNode;
+}
+
 void RenderNode::ClearChildren()
 {
     children_.clear();
@@ -382,7 +394,10 @@ void RenderNode::RenderWithContext(RenderContext& context, const Offset& offset)
             context.SetClipHole(Rect());
         }
     } else {
-        context.SetClipHole(context_.Upgrade()->GetTransparentHole());
+        auto pipeline = context_.Upgrade();
+        if (pipeline) {
+            context.SetClipHole(pipeline->GetTransparentHole());
+        }
     }
     Paint(context, offset);
     for (const auto& item : SortChildrenByZIndex(disappearingNodes_)) {
@@ -2017,8 +2032,10 @@ bool RenderNode::IsPaintOutOfParent()
 void RenderNode::UpdatePosition()
 {
     if (isPaintGeometryTransition_) {
-        nonStrictPaintRect_.SetLeft(paintX_.Value() - GetParent().Upgrade()->GetTransitionGlobalOffset().GetX());
-        nonStrictPaintRect_.SetTop(paintY_.Value() - GetParent().Upgrade()->GetTransitionGlobalOffset().GetY());
+        auto parentNode = GetParent().Upgrade();
+        CHECK_NULL_VOID(parentNode);
+        nonStrictPaintRect_.SetLeft(paintX_.Value() - parentNode->GetTransitionGlobalOffset().GetX());
+        nonStrictPaintRect_.SetTop(paintY_.Value() - parentNode->GetTransitionGlobalOffset().GetY());
     }
 }
 
@@ -2176,15 +2193,7 @@ std::shared_ptr<RSNode> RenderNode::CreateRSNode() const
     if (!SystemProperties::GetMultiInstanceEnabled()) {
         return Rosen::RSCanvasNode::Create();
     }
-    auto pipelineContext = GetContext().Upgrade();
-    if (pipelineContext) {
-        auto rsUIDirector = pipelineContext->GetRSUIDirector();
-        if (rsUIDirector) {
-            auto rsContext = rsUIDirector->GetRSUIContext();
-            return Rosen::RSCanvasNode::Create(false, false, rsContext);
-        }
-    }
-    return Rosen::RSCanvasNode::Create();
+    return RsNodeAdapter::CreateCanvasNode();
 #else
     return nullptr;
 #endif

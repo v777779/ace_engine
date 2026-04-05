@@ -15,11 +15,13 @@
 
 #include "tabs_test_ng.h"
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter_v2.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "core/common/agingadapation/aging_adapation_dialog_theme.h"
 #include "core/components/dialog/dialog_theme.h"
@@ -49,6 +51,7 @@ RefPtr<Theme> GetTheme(ThemeType type)
         tabTheme->bottomTabSymbolOn_ = Color::BLUE;
         tabTheme->bottomTabIconOff_ = Color::BLACK;
         tabTheme->tabBarFocusedColor_ = Color::GRAY;
+        tabTheme->activeIndicatorColor_ = Color::RED;
         return tabTheme;
     } else {
         return AceType::MakeRefPtr<DialogTheme>();
@@ -72,6 +75,8 @@ void TabsTestNg::SetUpTestSuite()
 void TabsTestNg::TearDownTestSuite()
 {
     TestNG::TearDownTestSuite();
+    ResetMockResourceData();
+    g_isConfigChangePerform = false;
 }
 
 void TabsTestNg::SetUp() {}
@@ -99,6 +104,8 @@ void TabsTestNg::TearDown()
     dividerRenderProperty_ = nullptr;
     ClearOldNodes(); // Each testCase will create new list at begin
     AceApplicationInfo::GetInstance().isRightToLeft_ = false;
+    ResetMockResourceData();
+    g_isConfigChangePerform = false;
 }
 
 void TabsTestNg::GetTabs()
@@ -130,7 +137,7 @@ TabsModelNG TabsTestNg::CreateTabs(BarPosition barPosition, int32_t index)
     ResetElmtId();
     ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(GetElmtId());
     TabsModelNG model;
-    model.Create(barPosition, index, nullptr, nullptr);
+    model.Create(barPosition, index, nullptr);
     ViewAbstract::SetWidth(CalcLength(TABS_WIDTH));
     ViewAbstract::SetHeight(CalcLength(TABS_HEIGHT));
     auto tabNode = AceType::DynamicCast<TabsNode>(ViewStackProcessor::GetInstance()->GetMainFrameNode());
@@ -488,7 +495,8 @@ HWTEST_F(TabsTestNg, TabsNodeToJsonValue002, TestSize.Level2)
     frameNode_->ToJsonValue(json, filter);
     EXPECT_TRUE(filter.IsFastFilter());
     EXPECT_EQ(json->ToString(), "{\"id\":\"\",\"isLayoutDirtyMarked\":false,\"isRenderDirtyMarked\":false,"
-    "\"isMeasureBoundary\":false,\"hasPendingRequest\":false,\"isFirstBuilding\":false}");
+                                "\"isMeasureBoundary\":false,\"hasPendingRequest\":false,\"isFirstBuilding\":false,"
+                                "\"enableClickSoundEffect\":true}");
 }
 
 /**
@@ -810,72 +818,44 @@ HWTEST_F(TabsTestNg, DragSwiper003, TestSize.Level1)
 }
 
 /**
- * @tc.name: OnInjectionEventTest001
- * @tc.desc: test OnInjectionEvent
+ * @tc.name: OnColorModeChangeTest001
+ * @tc.desc: Test Tabs OnColorModeChange
  * @tc.type: FUNC
  */
-HWTEST_F(TabsTestNg, OnInjectionEventTest001, TestSize.Level1)
+HWTEST_F(TabsTestNg, OnColorModeChangeTest001, TestSize.Level1)
 {
+    g_isConfigChangePerform = true;
+
     /**
      * @tc.steps: step1. create tabs and set parameters.
      */
-    int32_t currentIndex = 0;
-    auto event = [&currentIndex](const BaseEventInfo* info) {
-        const auto* tabInfo = TypeInfoHelper::DynamicCast<TabContentChangeEvent>(info);
-        if (tabInfo != nullptr) {
-            currentIndex = tabInfo->GetIndex();
-        }
-    };
-    MockAnimationManager::Enable(true);
-    MockAnimationManager::GetInstance().SetTicks(1);
     TabsModelNG model = CreateTabs();
-    model.SetOnChange(std::move(event));
     CreateTabContents(TABCONTENT_NUMBER);
     CreateTabsDone(model);
-    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    CHECK_NULL_VOID(frameNode);
-    auto pattern = frameNode->GetPattern<TabsPattern>();
-    CHECK_NULL_VOID(pattern);
-    std::string command = R"({"cmd":"changeIndex","params":{"index":2}})";
-    pattern->OnInjectionEvent(command);
-    EXPECT_EQ(currentIndex, 2);
-    command = R"({"cmd":"changeIndex","params":{"index":100}})";
-    pattern->OnInjectionEvent(command);
-    EXPECT_EQ(currentIndex, 0);
-    command = R"({"cmd":"changeIndex","params":{"index":-10}})";
-    pattern->OnInjectionEvent(command);
-    EXPECT_EQ(currentIndex, 0);
-}
-
-/**
- * @tc.name: SetOnTabBarClickTest001
- * @tc.desc: Test Tabs SetOnTabBarClick
- * @tc.type: FUNC
- */
-HWTEST_F(TabsTestNg, SetOnTabBarClickTest001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create tabs and set parameters.
-     */
-    int32_t currentIndex = 0;
-    auto event = [&currentIndex](const BaseEventInfo* info) {
-        const auto* tabInfo = TypeInfoHelper::DynamicCast<TabContentChangeEvent>(info);
-        if (tabInfo != nullptr) {
-            currentIndex = tabInfo->GetIndex();
-        }
-    };
-    TabsModelNG model = CreateTabs();
-    model.SetOnTabBarClick(std::move(event));
-    CreateTabContents(TABCONTENT_NUMBER);
-    CreateTabsDone(model);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_NE(layoutProperty_, nullptr);
+    ASSERT_NE(dividerRenderProperty_, nullptr);
 
     /**
-     * @tc.steps: step2. Test SetOnTabBarClick function.
-     * @tc.expected:pattern_->onTabBarClickEvent_ not null.
+     * @tc.steps: step2. reset data.
      */
-    EXPECT_NE(pattern_->onTabBarClickEvent_, nullptr);
-    HandleClick(1);
-    EXPECT_EQ(currentIndex, 1);
+    int32_t colorMode = static_cast<int32_t>(ColorMode::DARK);
+    layoutProperty_->ResetDividerColorSetByUser();
+    dividerRenderProperty_->ResetDividerColor();
+    pattern_->OnColorModeChange(colorMode);
+    EXPECT_TRUE(dividerRenderProperty_->HasDividerColor());
+
+    layoutProperty_->UpdateDividerColorSetByUser(false);
+    dividerRenderProperty_->ResetDividerColor();
+    pattern_->OnColorModeChange(colorMode);
+    EXPECT_TRUE(dividerRenderProperty_->HasDividerColor());
+
+    layoutProperty_->UpdateDividerColorSetByUser(true);
+    dividerRenderProperty_->ResetDividerColor();
+    pattern_->OnColorModeChange(colorMode);
+    EXPECT_FALSE(dividerRenderProperty_->HasDividerColor());
+
+    g_isConfigChangePerform = false;
 }
 
 /**
@@ -922,5 +902,176 @@ HWTEST_F(TabsTestNg, TabContentCreatePaddingWithResourceObj001, TestSize.Level1)
     EXPECT_TRUE(TabContentModelNG::CreateIndicatorWidthWithResourceObj(frameNode, resObj));
     EXPECT_TRUE(TabContentModelNG::CreateIndicatorBorderRadiusWithResourceObj(frameNode, resObj));
     EXPECT_TRUE(TabContentModelNG::CreateIndicatorMarginTopWithResourceObj(frameNode, resObj));
+}
+
+/**
+ * @tc.name: GetTargetIndexTest001
+ * @tc.desc: test GetTargetIndex
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsTestNg, GetTargetIndexTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create tabs and set parameters.
+     */
+    TabsModelNG model = CreateTabs();
+    model.SetTabBarMode(TabBarMode::SCROLLABLE);
+    model.SetIsVertical(false);
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+    ASSERT_NE(pattern_, nullptr);
+    std::list<std::string> commands = { { R"({"cmd":"changeIndex","params":})" },
+        { "" },
+        { R"({"cmd":"change"})" },
+        { R"({"params":"111111111"})" },
+        { R"({"cmd":"changeIndex","params":{}})" } };
+
+    int32_t targetIndex = 0;
+    for (const auto& command : commands) {
+        bool ret = pattern_->GetTargetIndex(command, targetIndex);
+        EXPECT_EQ(ret, false);
+    }
+}
+
+/**
+ * @tc.name: OnInjectionEventTest001
+ * @tc.desc: test OnInjectionEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsTestNg, OnInjectionEventTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create tabs and set parameters.
+     */
+    int32_t currentIndex = 0;
+    auto event = [&currentIndex](const BaseEventInfo* info) {
+        const auto* tabInfo = TypeInfoHelper::DynamicCast<TabContentChangeEvent>(info);
+        if (tabInfo != nullptr) {
+            currentIndex = tabInfo->GetIndex();
+        }
+    };
+    MockAnimationManager::Enable(true);
+    MockAnimationManager::GetInstance().SetTicks(1);
+    TabsModelNG model = CreateTabs();
+    model.SetOnChange(std::move(event));
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_NE(tabBarPattern_, nullptr);
+    std::map<std::string, int32_t> commands = { { R"({"cmd":"changeIndex","params":{"index":"2"}})", 2 },
+        { R"({"cmd":"changeIndex","params":{"index":"100"}})", 0 },
+        { R"({"cmd":"changeIndex","params":{"index":"-10"}})", 0 },
+        { R"({"cmd":"changeIndex","params":{"index":"1"}})", 1 } };
+
+    for (const auto& command : commands) {
+        bool ret = pattern_->OnInjectionEvent(command.first);
+        ASSERT_NE(ret, false);
+        EXPECT_EQ(tabBarPattern_->jumpIndex_, command.second);
+    }
+}
+
+/**
+ * @tc.name: FireAnimationEndOnForceEvent001
+ * @tc.desc: Test FireAnimationEndOnForceEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsTestNg, FireAnimationEndOnForceEvent001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. get SwiperEventHub.
+     */
+    auto onGestureSwipe = [](int32_t index, const AnimationCallbackInfo& info) {};
+    TabsModelNG model = CreateTabs();
+    model.SetOnGestureSwipe(std::move(onGestureSwipe));
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+    ASSERT_NE(swiperNode_, nullptr);
+    auto eventHub = swiperNode_->GetEventHub<SwiperEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    ASSERT_NE(frameNode_, nullptr);
+    eventHub->SetTabsId(frameNode_->GetId());
+    AnimationStartEventPtr nullEvent = nullptr;
+    eventHub->AddAnimationStartEvent(nullEvent);
+    eventHub->FireAnimationStartEvent(0, 1, {});
+    ASSERT_EQ(eventHub->aniStartCalledCount_, 1);
+    /**
+     * @tc.steps: step2. call FireAnimationEndOnForceEvent.
+     */
+    eventHub->FireAnimationEndOnForceEvent(1, {
+                                                  .currentOffset = 1.23f,
+                                                  .targetOffset = -4.56f,
+                                                  .velocity = 78.9f,
+                                              });
+    ASSERT_EQ(eventHub->aniStartCalledCount_, 0);
+}
+
+/**
+ * @tc.name: SetOnTabBarClickTest001
+ * @tc.desc: Test Tabs SetOnTabBarClick
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsTestNg, SetOnTabBarClickTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create tabs and set parameters.
+     */
+    int32_t currentIndex = 0;
+    auto event = [&currentIndex](const BaseEventInfo* info) {
+        const auto* tabInfo = TypeInfoHelper::DynamicCast<TabContentChangeEvent>(info);
+        if (tabInfo != nullptr) {
+            currentIndex = tabInfo->GetIndex();
+        }
+    };
+    TabsModelNG model = CreateTabs();
+    model.SetOnTabBarClick(std::move(event));
+    ASSERT_NE(tabBarPattern_, nullptr);
+    tabBarPattern_->ChangeIndex(1);
+    /**
+     * @tc.steps: step3. Test SetOnTabBarClick function.
+     * @tc.expected:pattern_->onTabBarClickEvent_ not null.
+     */
+    ASSERT_NE(pattern_, nullptr);
+    EXPECT_NE(pattern_->onTabBarClickEvent_, nullptr);
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+    HandleClick(1);
+    EXPECT_EQ(currentIndex, 1);
+}
+
+/**
+ * @tc.name: OnColorConfigurationUpdate001
+ * @tc.desc: OnColorConfigurationUpdate
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsTestNg, OnColorConfigurationUpdate001, TestSize.Level1)
+{
+    CreateTabs();
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    auto tabsNode = AceType::DynamicCast<TabsNode>(frameNode);
+    ASSERT_NE(tabsNode, nullptr);
+
+    auto property = tabsNode->GetLayoutProperty<TabsLayoutProperty>();
+    ASSERT_NE(property, nullptr);
+
+    auto tabsPattern = tabsNode->GetPattern<TabsPattern>();
+    ASSERT_NE(tabsPattern, nullptr);
+
+    tabsPattern->OnColorConfigurationUpdate();
+
+    property->propDividerColorSetByUser_ = false;
+    tabsPattern->OnColorConfigurationUpdate();
+
+    property->propDividerColorSetByUser_ = true;
+    tabsPattern->OnColorConfigurationUpdate();
+
+    auto dividerFrameNode = AceType::DynamicCast<FrameNode>(tabsNode->GetDivider());
+    ASSERT_NE(dividerFrameNode, nullptr);
+    auto dividerRenderProperty = dividerFrameNode->GetPaintProperty<DividerRenderProperty>();
+    ASSERT_NE(dividerRenderProperty, nullptr);
+    dividerRenderProperty->propDividerColor_ = Color::RED;
+    tabsPattern->OnColorConfigurationUpdate();
+    EXPECT_EQ(dividerRenderProperty->propDividerColor_, Color::RED);
 }
 } // namespace OHOS::Ace::NG

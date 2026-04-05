@@ -21,7 +21,7 @@
 #include "base/geometry/dimension.h"
 #include "core/common/resource/resource_object.h"
 #include "core/components/common/properties/color.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/badge/badge_layout_property.h"
 
@@ -38,21 +38,26 @@ struct BadgeParameters {
     std::optional<Color> badgeColor;
     std::optional<Color> badgeTextColor;
     std::optional<Color> badgeBorderColor;
+    std::optional<Color> badgeOuterBorderColor;
     std::optional<Dimension> badgeFontSize;
     std::optional<Dimension> badgeCircleSize;
     std::optional<Dimension> badgeBorderWidth;
+    std::optional<Dimension> badgeOuterBorderWidth;
     std::optional<FontWeight> badgeFontWeight;
+    std::optional<bool> isEnableAutoAvoidance;
 
     RefPtr<ResourceObject> resourceBadgeValueObject;
     RefPtr<ResourceObject> resourceColorObject;
     RefPtr<ResourceObject> resourceBadgeColorObject;
     RefPtr<ResourceObject> resourceBorderColorObject;
+    RefPtr<ResourceObject> resourceOuterBorderColorObject;
     RefPtr<ResourceObject> resourceFontWeightObject;
     RefPtr<ResourceObject> resourceBadgeSizeObject;
     RefPtr<ResourceObject> resourceFontSizeObject;
     RefPtr<ResourceObject> resourceBadgePositionXObject;
     RefPtr<ResourceObject> resourceBadgePositionYObject;
     RefPtr<ResourceObject> resourceBorderWidthObject;
+    RefPtr<ResourceObject> resourceOuterBorderWidthObject;
     
     bool badgePositionXByUser = false;
     bool badgePositionYByUser = false;
@@ -62,6 +67,8 @@ struct BadgeParameters {
     bool badgeColorByUser = false;
     bool badgeBorderWidthByUser = false;
     bool badgeBorderColorByUser = false;
+    bool badgeOuterBorderWidthByUser = false;
+    bool badgeOuterBorderColorByUser = false;
 };
 } // namespace OHOS::Ace
 

@@ -22,11 +22,12 @@
 
 #define private public
 #define protected public
-#include "test/mock/base/mock_subwindow.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "core/components/common/layout/grid_column_info.h"
+#include "test/mock/frameworks/base/subwindow/mock_subwindow.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/error/error_code.h"
 #include "base/geometry/dimension.h"
@@ -40,17 +41,19 @@
 #include "base/window/foldable_window.h"
 #include "core/common/ace_engine.h"
 #include "core/common/container.h"
+#include "core/common/multi_thread_build_manager.h"
 #include "core/components/common/layout/grid_system_manager.h"
 #include "core/components/common/properties/alignment.h"
 #include "core/components/common/properties/color.h"
 #include "core/components/dialog/dialog_theme.h"
 #include "core/components/drag_bar/drag_bar_theme.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components/select/select_theme.h"
 #include "core/components/theme/icon_theme.h"
 #include "core/components/toast/toast_theme.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/bubble/bubble_event_hub.h"
 #include "core/components_ng/pattern/bubble/bubble_pattern.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
@@ -625,6 +628,8 @@ HWTEST_F(OverlayManagerToastTestNg, AdjustOffsetForKeyboard, TestSize.Level1)
      */
     auto toastNode = ToastView::CreateToastNode(toastInfo);
     ASSERT_NE(toastNode, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
     auto toastPattern = toastNode->GetPattern<ToastPattern>();
     ASSERT_NE(toastPattern, nullptr);
     auto layoutAlgorithm = toastPattern->CreateLayoutAlgorithm();
@@ -634,7 +639,7 @@ HWTEST_F(OverlayManagerToastTestNg, AdjustOffsetForKeyboard, TestSize.Level1)
     double toastBottom = 100;
     float textHeight = 100;
     bool needResizeBottom = false;
-    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom);
+    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom, layoutWrapper);
     EXPECT_FALSE(toastPattern->IsDefaultToast());
 }
 
@@ -665,7 +670,7 @@ HWTEST_F(OverlayManagerToastTestNg, GetTextLayoutConstraint, TestSize.Level1)
     RefPtr<LayoutWrapperNode> layoutWrapper =
         AceType::MakeRefPtr<LayoutWrapperNode>(toastNode, geometryNode, toastNode->GetLayoutProperty());
 
-    
+
     layoutAlgorithm->GetTextLayoutConstraint(AceType::RawPtr(layoutWrapper));
     EXPECT_FALSE(toastPattern->IsDefaultToast());
 }
@@ -795,6 +800,13 @@ HWTEST_F(OverlayManagerToastTestNg, ToastLayoutAlgorithmLayout002, TestSize.Leve
     toastLayoutAlgorithm.Layout(layoutWrapper);
 
     toastPattern->GetToastInfo().alignment = static_cast<int32_t>(ToastAlignment::DEFAULT);
+    toastLayoutAlgorithm.Layout(layoutWrapper);
+
+    auto context = toastNode->GetContext();
+    ASSERT_NE(context, nullptr);
+    auto toastTheme = context->GetTheme<ToastTheme>();
+    ASSERT_NE(toastTheme, nullptr);
+    toastTheme->toastDoubleBorderEnable_ = true;
     toastLayoutAlgorithm.Layout(layoutWrapper);
 }
 
@@ -1330,7 +1342,7 @@ HWTEST_F(OverlayManagerToastTestNg, ToastPatternOnDetachFromFrameNode, TestSize.
     CHECK_NULL_VOID(pipeline);
     toastPattern->foldDisplayModeChangedCallbackId_ = std::nullopt;
     toastPattern->halfFoldHoverChangedCallbackId_ = std::nullopt;
-    toastPattern->OnDetachFromFrameNode(nullptr);
+    toastPattern->OnDetachFromFrameNode(AceType::RawPtr(toastNode));
 }
 
 /**
@@ -1623,6 +1635,8 @@ HWTEST_F(OverlayManagerToastTestNg, ToastPatternAdjustOffsetForKeyboard001, Test
      */
     auto toastNode = ToastView::CreateToastNode(toastInfo);
     ASSERT_NE(toastNode, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
     auto toastPattern = toastNode->GetPattern<ToastPattern>();
     ASSERT_NE(toastPattern, nullptr);
     Dimension offsetY = Dimension(0.0);
@@ -1636,7 +1650,7 @@ HWTEST_F(OverlayManagerToastTestNg, ToastPatternAdjustOffsetForKeyboard001, Test
     ASSERT_NE(context, nullptr);
     context->safeAreaManager_ = nullptr;
     EXPECT_EQ(context->GetSafeAreaManager(), nullptr);
-    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom);
+    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom, layoutWrapper);
 
     auto container = AceType::DynamicCast<MockContainer>(Container::Current());
     ASSERT_NE(container, nullptr);
@@ -1646,7 +1660,7 @@ HWTEST_F(OverlayManagerToastTestNg, ToastPatternAdjustOffsetForKeyboard001, Test
     context->safeAreaManager_->keyboardAvoidMode_ = KeyBoardAvoidMode::OFFSET;
     context->safeAreaManager_->keyboardInset_ = { .start = 0, .end = 1 };
     EXPECT_TRUE(toastPattern->IsAlignedWithHostWindow());
-    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom);
+    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom, layoutWrapper);
     EXPECT_FALSE(needResizeBottom);
 
     container->ResetContainer();
@@ -1672,6 +1686,8 @@ HWTEST_F(OverlayManagerToastTestNg, ToastPatternAdjustOffsetForKeyboard002, Test
     ASSERT_NE(toastNode, nullptr);
     auto toastPattern = toastNode->GetPattern<ToastPattern>();
     ASSERT_NE(toastPattern, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
     Dimension offsetY = Dimension(0.0);
     double toastBottom = 0.0;
     float textHeight = 10.0f;
@@ -1692,7 +1708,9 @@ HWTEST_F(OverlayManagerToastTestNg, ToastPatternAdjustOffsetForKeyboard002, Test
     context->safeAreaManager_->keyboardInset_ = { .start = 0, .end = 1 };
     auto toastSubwindow = SubwindowManager::GetInstance()->GetToastSubwindow(Container::CurrentId());
     EXPECT_EQ(toastSubwindow, nullptr);
-    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom);
+    toastPattern->wrapperRect_.y_ = context->GetRootHeight();
+    toastPattern->originalTextHeight_ = textHeight;
+    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom, layoutWrapper);
     EXPECT_TRUE(needResizeBottom);
 
     needResizeBottom = false;
@@ -1702,7 +1720,7 @@ HWTEST_F(OverlayManagerToastTestNg, ToastPatternAdjustOffsetForKeyboard002, Test
     EXPECT_CALL(*mockSubwindow, GetChildContainerId()).Times(1).WillOnce(Return(0));
     SubwindowManager::GetInstance()->AddToastSubwindow(Container::CurrentId(), mockSubwindow);
     ASSERT_NE(SubwindowManager::GetInstance()->GetToastSubwindow(Container::CurrentId()), nullptr);
-    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom);
+    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom, layoutWrapper);
     EXPECT_TRUE(needResizeBottom);
 
     container->ResetContainer();
@@ -1729,6 +1747,8 @@ HWTEST_F(OverlayManagerToastTestNg, ToastPatternAdjustOffsetForKeyboard003, Test
      */
     auto toastNode = ToastView::CreateToastNode(toastInfo);
     ASSERT_NE(toastNode, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
     auto toastPattern = toastNode->GetPattern<ToastPattern>();
     ASSERT_NE(toastPattern, nullptr);
     Dimension offsetY = Dimension(0.0);
@@ -1757,7 +1777,9 @@ HWTEST_F(OverlayManagerToastTestNg, ToastPatternAdjustOffsetForKeyboard003, Test
     auto deviceHeight = context->GetRootHeight();
     textHeight = deviceHeight;
 
-    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom);
+    toastPattern->wrapperRect_.y_ = context->GetRootHeight();
+    toastPattern->originalTextHeight_ = textHeight;
+    toastPattern->AdjustOffsetForKeyboard(offsetY, toastBottom, textHeight, needResizeBottom, layoutWrapper);
     EXPECT_TRUE(needResizeBottom);
 
     container->ResetContainer();
@@ -2046,7 +2068,787 @@ HWTEST_F(OverlayManagerToastTestNg, OnAttachToFrameNode001, TestSize.Level1)
     ASSERT_NE(pipeline, nullptr);
     auto currentCallBackId = pipeline->callbackId_;
     toastPattern->OnAttachToFrameNode();
-    toastPattern->OnDetachFromFrameNode(nullptr);
+    toastPattern->OnDetachFromFrameNode(AceType::RawPtr(toastNode));
     EXPECT_EQ(toastPattern->rowKeyboardCallbackId_, currentCallBackId + CALLBACK_COUNT);
 }
+
+/**
+ * @tc.name: OnWindowSizeChanged001
+ * @tc.desc: Increase the coverage of ToastPattern::OnWindowSizeChanged function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, OnWindowSizeChanged001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. ready toastInfo.
+     */
+    auto toastInfo =
+        NG::ToastInfo { .message = MESSAGE, .duration = DURATION};
+    toastInfo.showMode = ToastShowMode::TOP_MOST;
+    /**
+     * @tc.steps: step2. create ToastNode toastPattern.
+     */
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+
+    auto pipeline = toastNode->GetContext();
+    ASSERT_NE(pipeline, nullptr);
+
+    MockContainer::SetUp();
+    auto container = MockContainer::Current();
+    container->isSubContainer_ = true;
+    AceEngine::Get().AddContainer(pipeline->GetInstanceId(), container);
+
+    auto overlayManager = pipeline->GetOverlayManager();
+
+    toastPattern->OnWindowSizeChanged(0, 0,  WindowSizeChangeReason::ROTATION);
+    EXPECT_TRUE(overlayManager->toastMap_.empty());
+    toastPattern->OnWindowSizeChanged(0, 0,  WindowSizeChangeReason::DRAG_MOVE);
+    EXPECT_TRUE(overlayManager->toastMap_.empty());
+}
+
+/**
+ * @tc.name: OnAttachToMainTreeMultiThread001
+ * @tc.desc: Test OnAttachToMainTreeMultiThread in a simulated multi-thread environment.
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, OnAttachToMainTreeMultiThread001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create a toast node in UI thread environment.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto frameNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<ToastPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Simulate non-UI thread environment and call OnAttachToMainTree.
+     * @tc.expected: The call is routed to OnAttachToMainTreeMultiThread, which calls OnAttachToFrameNodeImpl.
+     */
+    bool isUIThread = MultiThreadBuildManager::isUIThread_;
+    MultiThreadBuildManager::isUIThread_ = false;
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
+
+    pattern->OnAttachToMainTree();
+    pattern->OnAttachToMainTreeMultiThread();
+
+    MultiThreadBuildManager::isUIThread_ = isUIThread;
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(false);
+
+    /**
+     * @tc.steps: step3. Verify the effect of OnAttachToFrameNodeImpl.
+     * @tc.expected: The property should be set correctly.
+     */
+    auto accessibilityProperty = frameNode->GetAccessibilityProperty<AccessibilityProperty>();
+    ASSERT_NE(accessibilityProperty, nullptr);
+    EXPECT_FALSE(accessibilityProperty->IsAccessibilityGroup());
+}
+
+/**
+ * @tc.name: OnDetachFromMainTreeMultiThread001
+ * @tc.desc: Test OnDetachFromMainTreeMultiThread to verify callback unregistration.
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, OnDetachFromMainTreeMultiThread001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create a toast node and attach it to register callbacks.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto frameNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<ToastPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    // Attach to register callbacks and get valid IDs.
+    pattern->OnAttachToMainTree();
+    // After registration, the ID should be a non-zero value.
+    EXPECT_NE(pattern->rowKeyboardCallbackId_, 0);
+
+    /**
+     * @tc.steps: step2. Simulate non-UI thread environment and call OnDetachFromMainTree.
+     * @tc.expected: The call is routed to OnDetachFromMainTreeMultiThread, which unregisters callbacks.
+     */
+    bool isUIThread = MultiThreadBuildManager::isUIThread_;
+    MultiThreadBuildManager::isUIThread_ = false;
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
+
+    pattern->OnDetachFromMainTree();
+    pattern->OnDetachFromMainTreeMultiThread();
+
+    MultiThreadBuildManager::isUIThread_ = isUIThread;
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(false);
+    EXPECT_NE(pattern->rowKeyboardCallbackId_, 0);
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment001
+ * @tc.desc: Test DEFAULT mode - always avoid title bar
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare safeAreaTop, pipelineContext and toast layout property.
+     * @tc.expected: All required parameters are valid.
+     */
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+
+    /**
+     * @tc.steps: step3. Set container modal title height in mock pipeline.
+     * @tc.expected: Title bar height is configured successfully.
+     */
+    auto mockPipeline = AceType::DynamicCast<MockPipelineContext>(pipelineContext);
+    ASSERT_NE(mockPipeline, nullptr);
+    const int32_t titleBarHeight = 50;
+    mockPipeline->SetContainerModalTitleHeight(titleBarHeight);
+
+    /**
+     * @tc.steps: step4. Set showMode to DEFAULT and call CalculateTitleBarHeightForTopAlignment.
+     * @tc.expected: safeAreaTop increases by title bar height.
+     */
+    toastProp->UpdateShowMode(ToastShowMode::DEFAULT);
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, static_cast<float>(titleBarHeight));
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment002
+ * @tc.desc: Test TOP_MOST mode - always avoid title bar
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare safeAreaTop, pipelineContext and toast layout property.
+     * @tc.expected: All required parameters are valid.
+     */
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+
+    /**
+     * @tc.steps: step3. Set container modal title height in mock pipeline.
+     * @tc.expected: Title bar height is configured successfully.
+     */
+    auto mockPipeline = AceType::DynamicCast<MockPipelineContext>(pipelineContext);
+    ASSERT_NE(mockPipeline, nullptr);
+    const int32_t titleBarHeight = 50;
+    mockPipeline->SetContainerModalTitleHeight(titleBarHeight);
+
+    /**
+     * @tc.steps: step4. Set showMode to TOP_MOST and call CalculateTitleBarHeightForTopAlignment.
+     * @tc.expected: safeAreaTop increases by title bar height.
+     */
+    toastProp->UpdateShowMode(ToastShowMode::TOP_MOST);
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, static_cast<float>(titleBarHeight));
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment003
+ * @tc.desc: Test SYSTEM_TOP_MOST with same origin
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare safeAreaTop, pipelineContext and toast layout property.
+     * @tc.expected: All required parameters are valid.
+     */
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+
+    /**
+     * @tc.steps: step3. Set container modal title height in mock pipeline.
+     * @tc.expected: Title bar height is configured successfully.
+     */
+    auto mockPipeline = AceType::DynamicCast<MockPipelineContext>(pipelineContext);
+    ASSERT_NE(mockPipeline, nullptr);
+    const int32_t titleBarHeight = 50;
+    mockPipeline->SetContainerModalTitleHeight(titleBarHeight);
+
+    /**
+     * @tc.steps: step4. Set showMode to SYSTEM_TOP_MOST and mock a system toast subwindow
+     * with the same origin as the parent window.
+     * @tc.expected: needAvoidTitleBar becomes true and safeAreaTop increases by title bar height.
+     */
+    toastProp->UpdateShowMode(ToastShowMode::SYSTEM_TOP_MOST);
+    MockContainer::UpdateCurrent(0);
+
+    auto mockSubwindow = AceType::MakeRefPtr<MockSubwindow>();
+    ASSERT_NE(mockSubwindow, nullptr);
+    Rect parentRect(0, 0, 100, 100);
+    EXPECT_CALL(*mockSubwindow, GetParentWindowRect()).WillRepeatedly(Return(parentRect));
+    EXPECT_CALL(*mockSubwindow, GetWindowRect()).WillRepeatedly(Return(NG::RectF(0, 0, 100, 100)));
+    SubwindowManager::GetInstance()->AddSystemToastWindow(0, mockSubwindow);
+
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, static_cast<float>(titleBarHeight));
+
+    /**
+     * @tc.steps: step5. Clear mock subwindow state and restore container id.
+     * @tc.expected: Global test state is restored.
+     */
+    SubwindowManager::GetInstance()->ClearToastInSystemSubwindow();
+    MockContainer::UpdateCurrent(-1);
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment004
+ * @tc.desc: Test SYSTEM_TOP_MOST with different origin
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare safeAreaTop, pipelineContext and toast layout property.
+     * @tc.expected: All required parameters are valid.
+     */
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+
+    auto mockPipeline = AceType::DynamicCast<MockPipelineContext>(pipelineContext);
+    ASSERT_NE(mockPipeline, nullptr);
+    mockPipeline->SetContainerModalTitleHeight(50);
+
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+    toastProp->UpdateShowMode(ToastShowMode::SYSTEM_TOP_MOST);
+
+    constexpr int32_t testContainerId = 1;
+    ASSERT_LT(testContainerId, MIN_SUBCONTAINER_ID);
+
+    /**
+     * @tc.steps: step3. Mock a system toast subwindow whose origin is different from parent window.
+     * @tc.expected: The fetched subwindow is valid and its origin differs from parentRect.
+     */
+    SubwindowManager::GetInstance()->ClearToastInSystemSubwindow();
+    MockContainer::UpdateCurrent(testContainerId);
+
+    auto mockSubwindow = AceType::MakeRefPtr<MockSubwindow>();
+    ASSERT_NE(mockSubwindow, nullptr);
+    Rect parentRect(0, 0, 100, 100);
+    EXPECT_CALL(*mockSubwindow, GetParentWindowRect()).WillRepeatedly(Return(parentRect));
+    EXPECT_CALL(*mockSubwindow, GetWindowRect()).WillRepeatedly(Return(NG::RectF(0, 10, 100, 100)));
+    SubwindowManager::GetInstance()->AddSystemToastWindow(testContainerId, mockSubwindow);
+
+    auto fetchedSubwindow = SubwindowManager::GetInstance()->GetSystemToastWindow(testContainerId);
+    ASSERT_EQ(fetchedSubwindow, mockSubwindow);
+    auto fetchedParentRect = fetchedSubwindow->GetParentWindowRect();
+    auto fetchedToastRect = fetchedSubwindow->GetWindowRect();
+    ASSERT_FALSE(NearEqual(fetchedToastRect.Left(), fetchedParentRect.Left()) &&
+        NearEqual(fetchedToastRect.Top(), fetchedParentRect.Top()));
+
+    /**
+     * @tc.steps: step4. Call CalculateTitleBarHeightForTopAlignment.
+     * @tc.expected: safeAreaTop remains unchanged because title bar should not be avoided.
+     */
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, 0.0f);
+
+    /**
+     * @tc.steps: step5. Clear mock subwindow state and restore container id.
+     * @tc.expected: Global test state is restored.
+     */
+    SubwindowManager::GetInstance()->ClearToastInSystemSubwindow();
+    MockContainer::UpdateCurrent(0);
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment005
+ * @tc.desc: Test SYSTEM_TOP_MOST with Left not equal but Top equal
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare safeAreaTop, pipelineContext and toast layout property.
+     * @tc.expected: All required parameters are valid.
+     */
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+
+    /**
+     * @tc.steps: step3. Set title bar height and configure SYSTEM_TOP_MOST mode.
+     * @tc.expected: Mock pipeline and toast property are configured successfully.
+     */
+    auto mockPipeline = AceType::DynamicCast<MockPipelineContext>(pipelineContext);
+    ASSERT_NE(mockPipeline, nullptr);
+    mockPipeline->SetContainerModalTitleHeight(50);
+
+    constexpr int32_t testContainerId = 3;
+    ASSERT_LT(testContainerId, MIN_SUBCONTAINER_ID);
+
+    toastProp->UpdateShowMode(ToastShowMode::SYSTEM_TOP_MOST);
+    SubwindowManager::GetInstance()->ClearToastInSystemSubwindow();
+    MockContainer::UpdateCurrent(testContainerId);
+    ASSERT_EQ(MockContainer::CurrentId(), testContainerId);
+
+    /**
+     * @tc.steps: step4. Mock a subwindow with different left and same top.
+     * @tc.expected: The stored subwindow is valid and origin comparison returns false.
+     */
+    auto mockSubwindow = AceType::MakeRefPtr<MockSubwindow>();
+    ASSERT_NE(mockSubwindow, nullptr);
+    Rect parentRect(0, 0, 100, 100);
+    EXPECT_CALL(*mockSubwindow, GetParentWindowRect()).WillRepeatedly(Return(parentRect));
+    EXPECT_CALL(*mockSubwindow, GetWindowRect()).WillRepeatedly(Return(NG::RectF(10, 0, 100, 100)));
+    SubwindowManager::GetInstance()->AddSystemToastWindow(testContainerId, mockSubwindow);
+
+    auto fetchedSubwindow = SubwindowManager::GetInstance()->GetSystemToastWindow(testContainerId);
+    ASSERT_EQ(fetchedSubwindow, mockSubwindow);
+    auto fetchedParentRect = fetchedSubwindow->GetParentWindowRect();
+    auto fetchedToastRect = fetchedSubwindow->GetWindowRect();
+    ASSERT_FALSE(NearEqual(fetchedToastRect.Left(), fetchedParentRect.Left()) &&
+        NearEqual(fetchedToastRect.Top(), fetchedParentRect.Top()));
+
+    /**
+     * @tc.steps: step5. Call CalculateTitleBarHeightForTopAlignment.
+     * @tc.expected: safeAreaTop remains unchanged.
+     */
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, 0.0f);
+
+    /**
+     * @tc.steps: step6. Clear mock subwindow state and restore container id.
+     * @tc.expected: Global test state is restored.
+     */
+    SubwindowManager::GetInstance()->ClearToastInSystemSubwindow();
+    MockContainer::UpdateCurrent(0);
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment006
+ * @tc.desc: Test SYSTEM_TOP_MOST with toastSubwindow is nullptr
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare safeAreaTop, pipelineContext and toast layout property.
+     * @tc.expected: All required parameters are valid.
+     */
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+
+    /**
+     * @tc.steps: step3. Set title bar height and configure SYSTEM_TOP_MOST mode with nullptr subwindow.
+     * @tc.expected: Current container id is valid and GetSystemToastWindow returns nullptr.
+     */
+    auto mockPipeline = AceType::DynamicCast<MockPipelineContext>(pipelineContext);
+    ASSERT_NE(mockPipeline, nullptr);
+    mockPipeline->SetContainerModalTitleHeight(50);
+
+    constexpr int32_t testContainerId = 5;
+    ASSERT_LT(testContainerId, MIN_SUBCONTAINER_ID);
+
+    toastProp->UpdateShowMode(ToastShowMode::SYSTEM_TOP_MOST);
+    SubwindowManager::GetInstance()->ClearToastInSystemSubwindow();
+    MockContainer::UpdateCurrent(testContainerId);
+    ASSERT_EQ(MockContainer::CurrentId(), testContainerId);
+    ASSERT_EQ(SubwindowManager::GetInstance()->GetSystemToastWindow(testContainerId), nullptr);
+
+    /**
+     * @tc.steps: step4. Call CalculateTitleBarHeightForTopAlignment.
+     * @tc.expected: safeAreaTop remains unchanged.
+     */
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, 0.0f);
+
+    /**
+     * @tc.steps: step5. Restore container id.
+     * @tc.expected: Global test state is restored.
+     */
+    MockContainer::UpdateCurrent(0);
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment007
+ * @tc.desc: Test with nullptr pipelineContext
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare nullptr pipelineContext and valid toast layout property.
+     * @tc.expected: pipelineContext is nullptr and toastProp is valid.
+     */
+    float safeAreaTop = 0.0f;
+    RefPtr<PipelineContext> pipelineContextNull = nullptr;
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+
+    /**
+     * @tc.steps: step3. Call CalculateTitleBarHeightForTopAlignment with nullptr pipelineContext.
+     * @tc.expected: Function returns directly and safeAreaTop remains unchanged.
+     */
+    toastProp->propShowMode_ = ToastShowMode::DEFAULT;
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContextNull, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, 0.0f);
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment008
+ * @tc.desc: Test with nullptr toastProp
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment008, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare valid pipelineContext and nullptr toastProp.
+     * @tc.expected: pipelineContext is valid and toastProp is nullptr.
+     */
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+    RefPtr<ToastLayoutProperty> toastPropNull = nullptr;
+
+    /**
+     * @tc.steps: step3. Call CalculateTitleBarHeightForTopAlignment with nullptr toastProp.
+     * @tc.expected: Function returns directly and safeAreaTop remains unchanged.
+     */
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastPropNull);
+    EXPECT_FLOAT_EQ(safeAreaTop, 0.0f);
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment009
+ * @tc.desc: Test SYSTEM_TOP_MOST with currentId < 0 and container is nullptr
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment009, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare safeAreaTop, pipelineContext and toast layout property.
+     * @tc.expected: pipelineContext and toastProp are valid.
+     */
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+
+    /**
+     * @tc.steps: step3. Set SYSTEM_TOP_MOST mode, make currentId invalid and clear active container.
+     * @tc.expected: Function falls back safely when container is nullptr.
+     */
+    toastProp->UpdateShowMode(ToastShowMode::SYSTEM_TOP_MOST);
+    MockContainer::UpdateCurrent(-1);
+    auto oldContainer = MockContainer::container_;
+    MockContainer::container_ = nullptr;
+
+    /**
+     * @tc.steps: step4. Call CalculateTitleBarHeightForTopAlignment.
+     * @tc.expected: safeAreaTop remains unchanged.
+     */
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, 0.0f);
+
+    /**
+     * @tc.steps: step5. Restore container and current id.
+     * @tc.expected: Global test state is restored.
+     */
+    MockContainer::container_ = oldContainer;
+    MockContainer::UpdateCurrent(0);
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment010
+ * @tc.desc: Test SYSTEM_TOP_MOST in subcontainer with different origin
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment010, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare safeAreaTop, pipelineContext and toast layout property.
+     * @tc.expected: pipelineContext and toastProp are valid.
+     */
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+
+    /**
+     * @tc.steps: step3. Set SYSTEM_TOP_MOST and configure title bar height.
+     * @tc.expected: Mock pipeline and toast property are configured successfully.
+     */
+    auto mockPipeline = AceType::DynamicCast<MockPipelineContext>(pipelineContext);
+    ASSERT_NE(mockPipeline, nullptr);
+    const int32_t titleBarHeight = 50;
+    mockPipeline->SetContainerModalTitleHeight(titleBarHeight);
+    toastProp->UpdateShowMode(ToastShowMode::SYSTEM_TOP_MOST);
+
+    /**
+     * @tc.steps: step4. Build subcontainer path and mock a system toast subwindow
+     * whose origin is different from parent window.
+     * @tc.expected: The function fetches subwindow by parentContainerId and does not avoid title bar.
+     */
+    constexpr int32_t subContainerId = MIN_SUBCONTAINER_ID + 10;
+    constexpr int32_t parentContainerId = 100;
+
+    SubwindowManager::GetInstance()->ClearToastInSystemSubwindow();
+    SubwindowManager::GetInstance()->AddParentContainerId(subContainerId, parentContainerId);
+    MockContainer::UpdateCurrent(subContainerId);
+
+    auto mockSubwindow = AceType::MakeRefPtr<MockSubwindow>();
+    ASSERT_NE(mockSubwindow, nullptr);
+    Rect parentRect(0, 0, 100, 100);
+    EXPECT_CALL(*mockSubwindow, GetParentWindowRect()).WillRepeatedly(Return(parentRect));
+    EXPECT_CALL(*mockSubwindow, GetWindowRect()).WillRepeatedly(Return(NG::RectF(10, 10, 100, 100)));
+    SubwindowManager::GetInstance()->AddSystemToastWindow(parentContainerId, mockSubwindow);
+
+    auto fetchedSubwindow = SubwindowManager::GetInstance()->GetSystemToastWindow(parentContainerId);
+    ASSERT_NE(fetchedSubwindow, nullptr);
+
+    /**
+     * @tc.steps: step5. Call CalculateTitleBarHeightForTopAlignment.
+     * @tc.expected: safeAreaTop remains unchanged.
+     */
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, 0.0f);
+
+    /**
+     * @tc.steps: step6. Clear mock state and restore current id.
+     * @tc.expected: Global test state is restored.
+     */
+    SubwindowManager::GetInstance()->ClearToastInSystemSubwindow();
+    MockContainer::UpdateCurrent(0);
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment011
+ * @tc.desc: Test fallback to custom title height when container modal title height is invalid
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment011, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create toast node and get ToastPattern.
+     * @tc.expected: Toast node and pattern are created successfully.
+     */
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Prepare safeAreaTop, pipelineContext and toast layout property.
+     * @tc.expected: All required parameters are valid.
+     */
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+
+    /**
+     * @tc.steps: step3. Set DEFAULT mode to ensure title bar avoidance is needed.
+     * Configure container modal title height as invalid.
+     * @tc.expected: Fallback branch uses custom title height.
+     */
+    auto mockPipeline = AceType::DynamicCast<MockPipelineContext>(pipelineContext);
+    ASSERT_NE(mockPipeline, nullptr);
+    toastProp->UpdateShowMode(ToastShowMode::DEFAULT);
+    mockPipeline->SetContainerModalTitleHeight(0);
+
+    auto expectedHeight = pipelineContext->GetCustomTitleHeight().ConvertToPx();
+
+    /**
+     * @tc.steps: step4. Call CalculateTitleBarHeightForTopAlignment.
+     * @tc.expected: safeAreaTop increases by custom title height.
+     */
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, expectedHeight);
+}
+
+/**
+ * @tc.name: CalculateTitleBarHeightForTopAlignment012
+ * @tc.desc: Test SYSTEM_TOP_MOST in subcontainer with same origin
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerToastTestNg, CalculateTitleBarHeightForTopAlignment012, TestSize.Level1)
+{
+    auto toastInfo = NG::ToastInfo { .message = MESSAGE, .duration = DURATION };
+    auto toastNode = ToastView::CreateToastNode(toastInfo);
+    ASSERT_NE(toastNode, nullptr);
+    auto toastPattern = toastNode->GetPattern<ToastPattern>();
+    ASSERT_NE(toastPattern, nullptr);
+
+    float safeAreaTop = 0.0f;
+    auto pipelineContext = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto layoutWrapper = toastNode->CreateLayoutWrapper(true, true);
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto toastProp = AceType::DynamicCast<ToastLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    ASSERT_NE(toastProp, nullptr);
+
+    auto mockPipeline = AceType::DynamicCast<MockPipelineContext>(pipelineContext);
+    ASSERT_NE(mockPipeline, nullptr);
+    const int32_t titleBarHeight = 50;
+    mockPipeline->SetContainerModalTitleHeight(titleBarHeight);
+    toastProp->UpdateShowMode(ToastShowMode::SYSTEM_TOP_MOST);
+
+    constexpr int32_t subContainerId = MIN_SUBCONTAINER_ID;
+    constexpr int32_t parentContainerId = 0;
+
+    SubwindowManager::GetInstance()->ClearToastInSystemSubwindow();
+    SubwindowManager::GetInstance()->AddParentContainerId(subContainerId, parentContainerId);
+    MockContainer::UpdateCurrent(subContainerId);
+
+    auto mockSubwindow = AceType::MakeRefPtr<MockSubwindow>();
+    ASSERT_NE(mockSubwindow, nullptr);
+    Rect parentRect(0, 0, 100, 100);
+    EXPECT_CALL(*mockSubwindow, GetParentWindowRect()).WillRepeatedly(Return(parentRect));
+    EXPECT_CALL(*mockSubwindow, GetWindowRect()).WillRepeatedly(Return(NG::RectF(0, 0, 100, 100)));
+    SubwindowManager::GetInstance()->AddSystemToastWindow(parentContainerId, mockSubwindow);
+
+    toastPattern->CalculateTitleBarHeightForTopAlignment(safeAreaTop, pipelineContext, toastProp);
+    EXPECT_FLOAT_EQ(safeAreaTop, static_cast<float>(titleBarHeight));
+
+    SubwindowManager::GetInstance()->ClearToastInSystemSubwindow();
+    MockContainer::UpdateCurrent(0);
+}
+
 } // namespace OHOS::Ace::NG

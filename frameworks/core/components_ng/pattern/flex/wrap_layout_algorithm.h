@@ -59,7 +59,7 @@ struct ContentInfo {
     }
 };
 
-class ACE_EXPORT WrapLayoutAlgorithm : public LayoutAlgorithm {
+class ACE_FORCE_EXPORT WrapLayoutAlgorithm : public LayoutAlgorithm {
     DECLARE_ACE_TYPE(WrapLayoutAlgorithm, LayoutAlgorithm);
 
 public:
@@ -110,7 +110,12 @@ private:
     void CalcFlexGrowLayout(
         const RefPtr<LayoutWrapper>& itemWrapper, const FlexItemProperties& flexItemProperties, float remainSpace);
 
-    void UpdatePercentSensitive(LayoutWrapper *layoutWrapper);
+    void UpdatePercentSensitive(LayoutWrapper *layoutWrapper, bool usingWidthPercent, bool usingHeightPercent);
+    void UpdateFixLengthLimit(const RefPtr<LayoutProperty>& layoutProp,
+        const std::optional<LayoutConstraintF>& layoutConstraint, bool& isMainAxisAdaptive);
+    void UpdateFrameSizeWhenAdaptive(const RefPtr<LayoutProperty>& layoutProp, bool needFillMainAxis);
+    void UpdateChildPositionWidthIgnoreLayoutSafeArea(
+        const RefPtr<LayoutWrapper>& childlayoutWrapper, const OffsetF& originOffset);
     WrapDirection direction_ = WrapDirection::VERTICAL;
     WrapAlignment alignment_ = WrapAlignment::START;
     WrapAlignment mainAlignment_ = WrapAlignment::START;
@@ -122,6 +127,7 @@ private:
     bool isColumnReverse_ = false;
     bool isRightDirection_ = false;
     bool isDialogStretch_ = false;
+    bool isPixelRoundAfterMeasure_ = false;
     float totalMainLength_ = 0.0f;
     float totalCrossLength_ = 0.0f;
     Dimension spacing_;
@@ -132,6 +138,8 @@ private:
     OffsetF frameOffset_;
     bool hasIdealWidth_ = false;
     bool hasIdealHeight_ = false;
+    bool isHeightPercentSensitive_ = false;
+    bool isWidthPercentSensitive_ = false;
 
     // Should be clear after Layout.
     std::list<ContentInfo> contentList_;

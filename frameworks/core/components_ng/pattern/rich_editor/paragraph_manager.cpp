@@ -52,6 +52,40 @@ bool ParagraphManager::DidExceedMaxLines() const
     }
     return res;
 }
+
+bool ParagraphManager::DidExceedMaxLinesInner() const
+{
+    bool res = false;
+    for (auto&& info : paragraphs_) {
+        auto paragraph = info.paragraph;
+        CHECK_NULL_RETURN(paragraph, false);
+        res |= paragraph->DidExceedMaxLinesInner();
+    }
+    return res;
+}
+
+std::string ParagraphManager::GetDumpInfo() const
+{
+    std::string dumpInfo = "";
+    for (auto&& info : paragraphs_) {
+        dumpInfo += "[";
+        auto paragraph = info.paragraph;
+        CHECK_NULL_RETURN(paragraph, dumpInfo);
+        dumpInfo += paragraph->GetDumpInfo();
+        dumpInfo += "]";
+    }
+    return dumpInfo;
+}
+
+int32_t ParagraphManager::GetParagraphLength() const
+{
+    int32_t totalLength = 0;
+    for (const auto& info : paragraphs_) {
+        totalLength += (info.end - info.start);
+    }
+    return totalLength;
+}
+
 float ParagraphManager::GetLongestLine() const
 {
     float res = 0.0f;
@@ -170,6 +204,121 @@ PositionWithAffinity ParagraphManager::GetGlyphPositionAtCoordinate(Offset offse
         "Current paragraph, final position = %{public}zu and affinity = %{public}d", finalResult.position_,
         finalResult.affinity_);
     return finalResult;
+}
+
+PositionWithAffinity ParagraphManager::GetCharacterPositionAtCoordinate(Offset offset)
+{
+    PositionWithAffinity finalResult(0, TextAffinity::UPSTREAM);
+    CHECK_NULL_RETURN(!paragraphs_.empty(), finalResult);
+    if (LessNotEqual(offset.GetY(), 0.0)) {
+        return finalResult;
+    }
+    int idx = 0;
+    for (auto it = paragraphs_.begin(); it != paragraphs_.end(); ++it, ++idx) {
+        auto& info = *it;
+        if (LessOrEqual(offset.GetY(), info.paragraph->GetHeight()) ||
+            (idx == static_cast<int>(paragraphs_.size()) - 1)) {
+            auto result = info.paragraph->GetCharacterPositionAtCoordinate(offset);
+            finalResult.position_ = result.position_ + static_cast<size_t>(info.start);
+            finalResult.affinity_ = static_cast<TextAffinity>(result.affinity_);
+            return finalResult;
+        }
+        // get offset relative to each paragraph
+        offset.SetY(offset.GetY() - info.paragraph->GetHeight());
+    }
+    auto info = paragraphs_.back();
+    auto result = info.paragraph->GetCharacterPositionAtCoordinate(offset);
+    finalResult.position_ = static_cast<size_t>(info.end);
+    finalResult.affinity_ = static_cast<TextAffinity>(result.affinity_);
+    return finalResult;
+}
+
+std::pair<TextRange, TextRange> ParagraphManager::GetGlyphRangeForCharacterRange(int32_t start, int32_t end)
+{
+    std::pair<TextRange, TextRange> textRanges;
+    bool isInvalidRange = (start < 0) || (end <= 0) || paragraphs_.empty() || (start >= end);
+    CHECK_NULL_RETURN(!isInvalidRange, textRanges);
+    int idx = 0;
+    TextRange glyphRange { .start = 0, .end = 0 };
+    TextRange charRange { .start = 0, .end = 0 };
+    int32_t glyphLength = 0;
+    int32_t charLength = 0;
+    bool isStart = true;
+    bool isEnd = true;
+    for (auto it = paragraphs_.begin(); it != paragraphs_.end(); ++it, ++idx) {
+        auto& info = *it;
+        auto paragraphLength = static_cast<int32_t>(info.end - info.start);
+        auto actualRange =
+            info.paragraph->GetCharacterRangeForGlyphRange(0, paragraphLength);
+        if (isStart && start >= charLength && start < charLength + actualRange.first.end) {
+            auto range = info.paragraph->GetGlyphRangeForCharacterRange(start - charLength, actualRange.first.end);
+            glyphRange.start = glyphLength + range.first.start;
+            charRange.start = charLength + range.second.start;
+            isStart = false;
+        }
+        if (!isStart && isEnd &&
+            ((end > charLength && end <= charLength + actualRange.first.end) ||
+                (idx == static_cast<int>(paragraphs_.size()) - 1))) {
+            auto range = info.paragraph->GetGlyphRangeForCharacterRange(0, end - charLength);
+            glyphRange.end = glyphLength + range.first.end;
+            charRange.end = charLength + range.second.end;
+            isEnd = false;
+        }
+        CHECK_NULL_RETURN(isStart || isEnd, std::make_pair(glyphRange, charRange));
+        CHECK_NULL_RETURN(!isStart || !isEnd || !(idx == static_cast<int>(paragraphs_.size()) - 1),
+            std::make_pair(TextRange { -1, -1 }, TextRange { -1, -1 }));
+        glyphLength += actualRange.second.end == -1 ? 0 : actualRange.second.end;
+        charLength += actualRange.first.end == -1 ? 0 : actualRange.first.end;
+    }
+    auto info = paragraphs_.back();
+    auto range = info.paragraph->GetGlyphRangeForCharacterRange(start, end);
+    textRanges.first = range.first;
+    textRanges.second = range.second;
+    return textRanges;
+}
+
+std::pair<TextRange, TextRange> ParagraphManager::GetCharacterRangeForGlyphRange(int32_t start, int32_t end)
+{
+    std::pair<TextRange, TextRange> textRanges;
+    bool isInvalidRange = (start < 0) || (end <= 0) || paragraphs_.empty() || (start >= end);
+    CHECK_NULL_RETURN(!isInvalidRange, textRanges);
+    int idx = 0;
+    TextRange charRange { .start = 0, .end = 0 };
+    TextRange glyphRange { .start = 0, .end = 0 };
+    int32_t charLength = 0;
+    int32_t glyphLength = 0;
+    bool isStart = true;
+    bool isEnd = true;
+    for (auto it = paragraphs_.begin(); it != paragraphs_.end(); ++it, ++idx) {
+        auto& info = *it;
+        auto paragraphLength = static_cast<int32_t>(info.end - info.start);
+        auto actualRange =
+            info.paragraph->GetCharacterRangeForGlyphRange(0, paragraphLength);
+        if (isStart && start >= glyphLength && start < glyphLength + actualRange.second.end) {
+            auto range = info.paragraph->GetCharacterRangeForGlyphRange(start - glyphLength, info.end - glyphLength);
+            charRange.start = charLength + range.first.start;
+            glyphRange.start = glyphLength + range.second.start;
+            isStart = false;
+        }
+        if (!isStart && isEnd &&
+            ((end > glyphLength && end <= glyphLength + actualRange.second.end) ||
+                (idx == static_cast<int>(paragraphs_.size()) - 1))) {
+            auto range = info.paragraph->GetCharacterRangeForGlyphRange(0, end - glyphLength);
+            charRange.end = charLength + range.first.end;
+            glyphRange.end = glyphLength + range.second.end;
+            isEnd = false;
+        }
+        CHECK_NULL_RETURN(isStart || isEnd, std::make_pair(charRange, glyphRange));
+        CHECK_NULL_RETURN(!isStart || !isEnd || !(idx == static_cast<int>(paragraphs_.size()) - 1),
+            std::make_pair(TextRange { -1, -1 }, TextRange { -1, -1 }));
+        charLength += actualRange.first.end == -1 ? 0 : actualRange.first.end;
+        glyphLength += actualRange.second.end == -1 ? 0 : actualRange.second.end;
+    }
+    auto info = paragraphs_.back();
+    auto range = info.paragraph->GetCharacterRangeForGlyphRange(start, end);
+    textRanges.first = range.first;
+    textRanges.second = range.second;
+    return textRanges;
 }
 
 int32_t ParagraphManager::GetGlyphIndexByCoordinate(Offset offset, bool isSelectionPos) const
@@ -305,6 +454,86 @@ void ParagraphManager::GetPaintRegion(RectF& boundsRect, float x, float y) const
         auto rect = info.paragraph->GetPaintRegion(x, y);
         boundsRect = boundsRect.CombineRectT(rect);
         y += info.paragraph->GetHeight();
+    }
+}
+
+void ParagraphManager::PaintAllLeadingMarginSpan(DrawingContext& drawingContext,
+    const OffsetT<float>& offset)
+{
+    auto paragraphs = GetParagraphs();
+    size_t lineCount = 0;
+    for (auto&& paragraphInfo : paragraphs) {
+        const auto& drawableLeadingMargin = paragraphInfo.paragraphStyle.drawableLeadingMargin;
+        auto currentParagraphLineCount = paragraphInfo.paragraph->GetLineCount();
+        if (!drawableLeadingMargin.has_value() || currentParagraphLineCount <= 0) {
+            lineCount += currentParagraphLineCount;
+            continue;
+        }
+        if (SystemProperties::GetTextTraceEnabled()) {
+            ACE_TEXT_SCOPED_TRACE("ParagraghManager::PaintLeadingMarginSpan");
+        }
+        CHECK_NULL_VOID(paragraphInfo.paragraph);
+        const auto& leadingMarginOnDraw = drawableLeadingMargin.value().onDraw_;
+        CHECK_NULL_VOID(leadingMarginOnDraw);
+        for (size_t i = 0; i < currentParagraphLineCount; i++) {
+            auto lineMetrics = GetLineMetrics(lineCount + i);
+            if (paragraphInfo.paragraph->empty()) {
+                CaretMetricsF caretMetricsF;
+                paragraphInfo.paragraph->HandleCaretWhenEmpty(caretMetricsF, true);
+                lineMetrics.x = caretMetricsF.offset.GetX();
+                lineMetrics.height = caretMetricsF.height;
+            }
+            LeadingMarginSpanOptions options;
+            options.x = paragraphInfo.paragraphStyle.direction != TextDirection::RTL ?
+                lineMetrics.x + offset.GetX() : lineMetrics.x + offset.GetX() + lineMetrics.width;
+            options.direction = paragraphInfo.paragraphStyle.direction;
+            options.top = lineMetrics.y + offset.GetY();
+            options.baseline = lineMetrics.baseline + offset.GetY();
+            options.bottom = options.top + lineMetrics.height;
+            options.start = lineMetrics.startIndex;
+            options.end = lineMetrics.endIndex;
+            if (i == 0) {
+                options.first = true;
+            }
+            leadingMarginOnDraw(drawingContext, options);
+        }
+        lineCount += currentParagraphLineCount;
+    }
+}
+
+void ParagraphManager::PaintLeadingMarginSpan(const ParagraphManager::ParagraphInfo& paragraphInfo,
+    const OffsetT<float>& offset, DrawingContext& drawingContext)
+{
+    const auto& drawableLeadingMargin = paragraphInfo.paragraphStyle.drawableLeadingMargin;
+    CHECK_NULL_VOID(drawableLeadingMargin.has_value());
+    if (SystemProperties::GetTextTraceEnabled()) {
+        ACE_TEXT_SCOPED_TRACE("ParagraphManager::PaintLeadingMarginSpan");
+    }
+    CHECK_NULL_VOID(paragraphInfo.paragraph);
+    const auto& leadingMarginOnDraw = drawableLeadingMargin.value().onDraw_;
+    CHECK_NULL_VOID(leadingMarginOnDraw);
+    CHECK_NULL_VOID(paragraphInfo.topLineIndex >= 0 && paragraphInfo.topLineIndex <= paragraphInfo.bottomLineIndex);
+    for (size_t i = paragraphInfo.topLineIndex; i <= paragraphInfo.bottomLineIndex; i++) {
+        auto lineMetrics = GetLineMetrics(i);
+        if (paragraphInfo.paragraph->empty()) {
+            CaretMetricsF caretMetricsF;
+            paragraphInfo.paragraph->HandleCaretWhenEmpty(caretMetricsF, true);
+            lineMetrics.x = caretMetricsF.offset.GetX();
+            lineMetrics.height = caretMetricsF.height;
+        }
+        LeadingMarginSpanOptions options;
+        options.x = paragraphInfo.paragraphStyle.direction != TextDirection::RTL ?
+            lineMetrics.x + offset.GetX() : lineMetrics.x + offset.GetX() + lineMetrics.width;
+        options.direction = paragraphInfo.paragraphStyle.direction;
+        options.top = lineMetrics.y + offset.GetY();
+        options.baseline = lineMetrics.baseline + offset.GetY();
+        options.bottom = options.top + lineMetrics.height;
+        options.start = lineMetrics.startIndex;
+        options.end = lineMetrics.endIndex;
+        if (i == paragraphInfo.topLineIndex) {
+            options.first = true;
+        }
+        leadingMarginOnDraw(drawingContext, options);
     }
 }
 
@@ -619,6 +848,8 @@ bool ParagraphManager::IsSelectLineHeadAndUseLeadingMargin(int32_t start) const
         if (auto paragraph = curParagraph.paragraph; curParagraph.start == start && paragraph) {
             auto leadingMargin = paragraph->GetParagraphStyle().leadingMargin;
             CHECK_EQUAL_RETURN(leadingMargin && leadingMargin.value().IsValid(), true, true);
+            auto drawableLeadingMargin = paragraph->GetParagraphStyle().drawableLeadingMargin;
+            CHECK_EQUAL_RETURN(drawableLeadingMargin && drawableLeadingMargin.value().IsValid(), true, true);
         }
         auto next = std::next(iter);
         if (next != paragraphs_.end()) {
@@ -626,6 +857,8 @@ bool ParagraphManager::IsSelectLineHeadAndUseLeadingMargin(int32_t start) const
             if (auto paragraph = nextParagraph.paragraph; nextParagraph.start == start + 1) {
                 auto leadingMargin = paragraph->GetParagraphStyle().leadingMargin;
                 CHECK_EQUAL_RETURN(leadingMargin && leadingMargin.value().IsValid(), true, true);
+                auto drawableLeadingMargin = paragraph->GetParagraphStyle().drawableLeadingMargin;
+                CHECK_EQUAL_RETURN(drawableLeadingMargin && drawableLeadingMargin.value().IsValid(), true, true);
             }
         }
     }

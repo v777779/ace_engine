@@ -23,6 +23,17 @@ namespace OHOS::Ace::NG {
 #define HAND_NONE 0
 #define HAND_LEFT 1
 #define HAND_RIGHT 2
+
+enum NativePtrTag {
+    NATIVE_PTR_TAG_AXIS_INFO = 0,
+    NATIVE_PTR_TAG_MOUSE_INFO,
+    NATIVE_PTR_TAG_TOUCH_EVENT_INFO,
+    NATIVE_PTR_TAG_GESTURE_EVENT,
+    NATIVE_PTR_TAG_HOVER_INFO,
+    NATIVE_PTR_TAG_FOCUS_AXIS_EVENT_INFO,
+    NATIVE_PTR_TAG_KEY_EVENT_INFO,
+};
+
 class FrameNodeBridge {
 public:
     static ArkUINodeHandle GetFrameNode(ArkUIRuntimeCallInfo* runtimeCallInfo);
@@ -40,15 +51,17 @@ public:
     static void FireLayoutCallback(EcmaVM* vm, JsWeak<panda::CopyableGlobal<panda::ObjectRef>> object,
         OffsetF& position, Local<panda::StringRef> funcName);
     static std::function<void(OffsetF& position)> GetLayoutFunc(EcmaVM* vm, Local<panda::ObjectRef> obj);
-    static Local<panda::ObjectRef> CreateTouchEventInfo(EcmaVM* vm, TouchEventInfo& info);
+    static void ReleaseNativePtrFunc(void* env, void* nativePtr, void* data);
+    static Local<panda::ObjectRef> CreateTouchEventInfo(EcmaVM* vm, TouchEventInfo* infoPtr);
     static Local<panda::ObjectRef> CreateTouchEventInfoObj(EcmaVM* vm, TouchEventInfo& info);
-    static Local<panda::ObjectRef> CreateGestureEventInfo(EcmaVM* vm, GestureEvent& info);
-    static Local<panda::ObjectRef> CreateMouseInfo(EcmaVM* vm, MouseInfo& info);
+    static Local<panda::ObjectRef> CreateGestureEventInfo(EcmaVM* vm, GestureEvent* infoPtr);
+    static Local<panda::ObjectRef> CreateMouseInfo(EcmaVM* vm, MouseInfo* infoPtr);
     static Local<panda::ObjectRef> CreateMouseInfoObj(EcmaVM* vm, MouseInfo& info);
-    static Local<panda::ObjectRef> CreateHoverInfo(EcmaVM* vm, HoverInfo& info);
+    static Local<panda::ObjectRef> CreateHoverInfo(EcmaVM* vm, HoverInfo* infoPtr);
     static ArkUINativeModuleValue MakeFrameNodeInfo(EcmaVM* vm, ArkUINodeHandle frameNode);
     static ArkUINativeModuleValue IsModifiable(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue CreateFrameNode(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue CreateNativeStrongRefWithPtrVal(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue CreateTransFrameNode(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue CreateTypedFrameNode(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue CreateTransTypedFrameNode(ArkUIRuntimeCallInfo* runtimeCallInfo);
@@ -71,6 +84,19 @@ public:
     static ArkUINativeModuleValue MoveTo(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetIdByNodePtr(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetFrameNodeRawPtr(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetOnClick(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetOnTouch(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetOnAppear(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetOnDisappear(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static Local<panda::ObjectRef> CreateKeyEventInfoObj(EcmaVM* vm, KeyEventInfo* infoPtr);
+    static ArkUINativeModuleValue SetOnKeyEvent(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetOnFocus(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetOnBlur(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetOnHover(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetOnMouse(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetOnSizeChange(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue PropertyUpdate(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue SetOnVisibleAreaApproximateChange(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetPositionToParent(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetPositionToScreen(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetPositionToWindow(ArkUIRuntimeCallInfo* runtimeCallInfo);
@@ -85,12 +111,17 @@ public:
     static ArkUINativeModuleValue GetConfigMargin(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetConfigSize(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetId(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue GetNodeInstanceId(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetNodeType(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetOpacity(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue IsVisible(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue IsClipToFrame(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue IsAttached(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue IsOnMainTree(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetInspectorInfo(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue CreateFrameNodes(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue GetFrameNodeById(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue GetFrameNodeByUniqueId(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetCustomPropertyCapiByKey(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetCustomPropertyModiferByKey(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetRemoveCustomProperties(ArkUIRuntimeCallInfo* runtimeCallInfo);
@@ -100,22 +131,9 @@ public:
     static ArkUINativeModuleValue MeasureNode(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue LayoutNode(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetNeedsLayout(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetOnClick(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetOnTouch(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetOnAppear(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetOnDisappear(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetOnAttach(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetOnDetach(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static Local<panda::ObjectRef> CreateKeyEventInfoObj(EcmaVM* vm, KeyEventInfo& info);
-    static ArkUINativeModuleValue SetOnKeyEvent(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetOnFocus(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetOnBlur(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetOnHover(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetOnHoverMove(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetOnMouse(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetOnSizeChange(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue SetOnVisibleAreaApproximateChange(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue PropertyUpdate(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue RegisterFrameCallback(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue MarkDirty(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue CreateNodeContent(ArkUIRuntimeCallInfo* runtimeCallInfo);
@@ -128,8 +146,6 @@ public:
     static ArkUINativeModuleValue SetCrossLanguageOptions(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetCrossLanguageOptions(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue CheckIfCanCrossLanguageAttributeSetting(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue AddSupportedStates(ArkUIRuntimeCallInfo* runtimeCallInfo);
-    static ArkUINativeModuleValue RemoveSupportedStates(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue CreateAnimation(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue CancelAnimations(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetNodePropertyValue(ArkUIRuntimeCallInfo* runtimeCallInfo);
@@ -148,8 +164,21 @@ public:
     static ArkUINativeModuleValue SetOnGridScrollIndex(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue SetOnWaterFlowScrollIndex(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue GetInteractionEventBindingInfo(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue AddSupportedStates(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue RemoveSupportedStates(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue UpdateConfiguration(ArkUIRuntimeCallInfo* runtimeCallInfo);
     static ArkUINativeModuleValue FireArkUIObjectLifecycleCallback(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue ApplyAttributesFinish(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue AdoptChild(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue RemoveAdoptedChild(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue IsOnRenderTree(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue ConvertPoint(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue ConvertPositionToWindow(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue ConvertPositionFromWindow(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    // ArkTsCard start
+    static ArkUINativeModuleValue CreateTypedFrameNodeFormLiteSet(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    static ArkUINativeModuleValue CreateTypedFrameNodeFormFullSet(ArkUIRuntimeCallInfo* runtimeCallInfo);
+    // ArkTsCard end
 };
 
 } // namespace OHOS::Ace::NG

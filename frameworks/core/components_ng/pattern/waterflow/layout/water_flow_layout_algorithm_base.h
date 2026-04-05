@@ -52,6 +52,17 @@ public:
     { /* callback when cache layout ends */
     }
 
+    // record the previous layout index range for selective clearing mechanism
+    int32_t prevStartIndex_ = -1;
+    int32_t prevEndIndex_ = -1;
+
+    // Flag indicating if layout phase is completed.
+    bool isLayouted_ = true;
+
+    // Record the index range after measurement completion
+    int32_t measuredStartIndex_ = -1;
+    int32_t measuredEndIndex_ = -1;
+
 protected:
     /**
      * @brief Register an IdleTask to preload (create/measure/layout) items in cache range.
@@ -76,8 +87,27 @@ protected:
 
     bool CheckNeedLayout(const RefPtr<LayoutWrapper>& layoutWrapper, bool isCache) const
     {
-        return (!isCache && layoutWrapper->CheckNeedForceMeasureAndLayout()) || expandSafeArea_;
+        return (!isCache && layoutWrapper->CheckNeedForceMeasureAndLayout()) || expandSafeArea_ ||
+               layoutWrapper->IsIgnoreOptsValid();
     }
+
+    /**
+    * Init unlayouted items collection from layout info when not layouted.
+    */
+    void InitUnlayoutedItems();
+
+    /**
+     * Clear layout algorithms only for measured items to preserve component states
+     */
+    void ClearUnlayoutedItems(LayoutWrapper* layoutWrapper);
+
+    /**
+    * @brief Get the layout information for the current water flow layout algorithm.
+    * @return RefPtr to the layout information base object.
+    */
+    virtual RefPtr<WaterFlowLayoutInfoBase> LayoutInfo() const = 0;
+
+    void CalcContentOffset(LayoutWrapper* layoutWrapper, const RefPtr<WaterFlowLayoutInfoBase>& info, float mainSize);
 
     bool syncLoad_ = false;
 
@@ -97,6 +127,5 @@ private:
     bool expandSafeArea_ = false;
 };
 
-enum class WaterFlowLayoutMode { TOP_DOWN = 0, SLIDING_WINDOW = 1 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_WATERFLOW_WATER_FLOW_LAYOUT_BASE_H

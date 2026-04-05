@@ -93,10 +93,18 @@ void ButtonModelNG::SetButtonStyle(const std::optional<ButtonStyleMode>& buttonS
     }
 }
 
+void ButtonModelNG::SetButtonStyleOnly(const std::optional<ButtonStyleMode>& buttonStyle)
+{
+    if (buttonStyle.has_value()) {
+        ACE_UPDATE_LAYOUT_PROPERTY(ButtonLayoutProperty, ButtonStyle, buttonStyle.value());
+    }
+}
+
 void ButtonModelNG::ParseButtonResColor(
     const RefPtr<ResourceObject>& resObj, Color& result, const ButtonColorType buttonColorType)
 {
-    auto parseFlag = ResourceParseUtils::ParseResColor(resObj, result);
+    bool adaptMaterial = buttonColorType == ButtonColorType::FONT_COLOR;
+    auto parseFlag = ResourceParseUtils::ParseResColor(resObj, result, adaptMaterial);
     CHECK_EQUAL_VOID(parseFlag, true);
     auto context = PipelineBase::GetCurrentContextSafely();
     CHECK_NULL_VOID(context);
@@ -199,7 +207,7 @@ void ButtonModelNG::UpdateDefaultFamilies(
     CHECK_NULL_VOID(buttonTheme);
     value = buttonTheme->GetTextStyle().GetFontFamilies();
 
-    if (pipelineContext->IsSystmColorChange()) {
+    if (pipelineContext->IsSystemColorChange()) {
         switch (buttonStringType) {
             case ButtonStringType::FONT_FAMILY:
                 SetFontFamily(frameNode, value);
@@ -220,7 +228,7 @@ void ButtonModelNG::UpdateComponentFamilies(
     auto pipelineContext = frameNode->GetContext();
     CHECK_NULL_VOID(pipelineContext);
     auto buttonTheme = pipelineContext->GetTheme<ButtonTheme>();
-    if (pipelineContext->IsSystmColorChange()) {
+    if (pipelineContext->IsSystemColorChange()) {
         switch (buttonStringType) {
             case ButtonStringType::FONT_FAMILY:
                 SetFontFamily(frameNode, value);
@@ -423,6 +431,13 @@ void ButtonModelNG::SetRole(const std::optional<ButtonRole>& buttonRole)
     }
 }
 
+void ButtonModelNG::SetRoleOnly(const std::optional<ButtonRole>& buttonRole)
+{
+    if (buttonRole.has_value()) {
+        ACE_UPDATE_LAYOUT_PROPERTY(ButtonLayoutProperty, ButtonRole, buttonRole.value());
+    }
+}
+
 void ButtonModelNG::SetControlSize(const std::optional<ControlSize>& controlSize)
 {
     if (controlSize.has_value()) {
@@ -513,7 +528,7 @@ void ButtonModelNG::SetControlSize(FrameNode* frameNode, const std::optional<Con
 
 void ButtonModelNG::CreateWithLabel(const CreateWithPara& para, std::list<RefPtr<Component>>& buttonChildren)
 {
-    CreateWithLabel(para.label.value());
+    CreateWithLabel(para.label.value_or(""));
     SetTypeAndStateEffect(para.type, para.stateEffect);
     SetButtonStyle(para.buttonStyleMode);
     SetControlSize(para.controlSize);
@@ -528,6 +543,7 @@ void ButtonModelNG::CreateWithLabel(const std::string& label)
     auto buttonNode = FrameNode::GetOrCreateFrameNode(
         V2::BUTTON_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     CHECK_NULL_VOID(buttonNode);
+    ACE_UINODE_TRACE(buttonNode);
     if (buttonNode->GetChildren().empty()) {
         auto textNode = FrameNode::CreateFrameNode(
             V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
@@ -559,6 +575,7 @@ void ButtonModelNG::CreateWithLabel(const std::string& label)
 void ButtonModelNG::SetLabel(FrameNode* frameNode, const char* label)
 {
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     if (frameNode->GetChildren().empty()) {
         auto textNode = FrameNode::CreateFrameNode(
             V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
@@ -620,6 +637,7 @@ RefPtr<FrameNode> ButtonModelNG::CreateFrameNode(int32_t nodeId)
 {
     auto frameNode = FrameNode::CreateFrameNode(V2::BUTTON_ETS_TAG, nodeId, AceType::MakeRefPtr<ButtonPattern>());
     CHECK_NULL_RETURN(frameNode, nullptr);
+    ACE_UINODE_TRACE(frameNode);
     auto layoutProperty = frameNode->GetLayoutProperty<ButtonLayoutProperty>();
     CHECK_NULL_RETURN(layoutProperty, nullptr);
     if (layoutProperty->GetPaddingProperty()) {
@@ -649,6 +667,7 @@ void ButtonModelNG::Padding(const PaddingProperty& paddingNew, const Edge& paddi
     NG::ViewAbstract::SetPadding(paddingNew);
     auto button = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(button);
+    ACE_UINODE_TRACE(button);
     auto pattern = button->GetPattern<ButtonPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetHasCustomPadding(true);
@@ -874,6 +893,28 @@ void ButtonModelNG::SetLabelStyle(FrameNode* frameNode, const ButtonParameters& 
     if (buttonParameters.fontStyle.has_value()) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(ButtonLayoutProperty, FontStyle, buttonParameters.fontStyle.value(), frameNode);
     }
+    if (buttonParameters.textAlign.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(ButtonLayoutProperty, TextAlign, buttonParameters.textAlign.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(ButtonLayoutProperty, TextAlign, frameNode);
+    }
+}
+
+void ButtonModelNG::ResetTextAlign()
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    ResetTextAlign(frameNode);
+}
+
+void ButtonModelNG::ResetTextAlign(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY(ButtonLayoutProperty, TextAlign, frameNode);
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetFirstChild());
+    CHECK_NULL_VOID(textNode);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_VOID(textLayoutProperty);
+    textLayoutProperty->ResetTextAlign();
 }
 
 void ButtonModelNG::SetSize(

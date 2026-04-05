@@ -97,6 +97,10 @@ public:
      */
     static void JsMoveDeletedElmtIds(const JSCallbackInfo& info);
 
+    static void JsPushPrebuildCompCmd(const JSCallbackInfo& info);
+
+    static bool JsCheckIsPrebuildTimeout();
+
     /*
     * Orders a frame request and registers a callback on next vsync
     */
@@ -111,10 +115,6 @@ public:
     static void JsPush(const JSCallbackInfo& info);
     
     static void JsPop();
-
-    static void JsPushPrebuildCompCmd(const JSCallbackInfo& info);
-
-    static bool JsCheckIsPrebuildTimeout();
 
 private:
     static void JSVisualState(const JSCallbackInfo& info);

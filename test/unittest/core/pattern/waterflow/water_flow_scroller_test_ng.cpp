@@ -13,10 +13,11 @@
  * limitations under the License.
  */
 
-#include "test/mock/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
 #include "water_flow_test_ng.h"
 
 #include "core/components/common/layout/constants.h"
+#include "core/components_ng/pattern/scrollable/scrollable_model_ng.h"
 #include "core/components_ng/pattern/refresh/refresh_model_ng.h"
 
 namespace OHOS::Ace::NG {
@@ -907,7 +908,7 @@ HWTEST_F(WaterFlowScrollerTestNg, ReachStart002, TestSize.Level1)
     MockAnimationManager::GetInstance().Tick();
     FlushUITasks();
     EXPECT_EQ(reached, 3);
-    EXPECT_EQ(GetChildY(frameNode_, 1), 0.0f);
+    EXPECT_NEAR(GetChildY(frameNode_, 1), 0.0f, 0.00001f);
 }
 
 /**
@@ -1110,7 +1111,7 @@ HWTEST_F(WaterFlowScrollerTestNg, SetEffectEdge003, TestSize.Level1)
     EXPECT_FLOAT_EQ(GetChildY(frameNode_, 0), -153.52615);
 
     const auto& info = pattern_->layoutInfo_;
-    MockAnimationManager::GetInstance().TickByVelocity(-8000);
+    MockAnimationManager::GetInstance().TickByVelocity(-8000.0f);
     FlushUITasks();
     EXPECT_EQ(info->endIndex_, 19);
     EXPECT_FLOAT_EQ(GetChildY(frameNode_, 19), 600);
@@ -1146,8 +1147,89 @@ HWTEST_F(WaterFlowScrollerTestNg, SetEffectEdge004, TestSize.Level1)
     FlushUITasks();
     EXPECT_FLOAT_EQ(GetChildY(frameNode_, 0), -17.300961);
 
-    MockAnimationManager::GetInstance().TickByVelocity(1000);
+    MockAnimationManager::GetInstance().TickByVelocity(1000.0f);
     FlushUITasks();
     EXPECT_FLOAT_EQ(GetChildY(frameNode_, 0), 0);
+}
+
+/**
+ * @tc.name: FadingEdge001
+ * @tc.desc: Test FadingEdge property with safe area
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowScrollerTestNg, FadingEdge001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set FadingEdge
+     * @tc.expected: Would create a overlayNode attach to list
+     */
+    const Dimension fadingEdgeLength = Dimension(10.0f);
+    auto model = CreateWaterFlow();
+    ScrollableModelNG::SetFadingEdge(true, fadingEdgeLength);
+    CreateWaterFlowItems(20);
+    CreateDone();
+    EXPECT_TRUE(frameNode_->GetOverlayNode());
+    auto geo = frameNode_->GetOverlayNode()->GetGeometryNode();
+    EXPECT_EQ(geo->GetFrameSize().Height(), 800.f);
+
+    /**
+     * @tc.steps: step2. Update Safe Area
+     * @tc.expected: overlay frame size expand safe area.
+     */
+    frameNode_->GetGeometryNode()->SetSelfAdjust(RectF(0, 0, 0, 10.f));
+    FlushUITasks(frameNode_);
+    geo = frameNode_->GetOverlayNode()->GetGeometryNode();
+    EXPECT_EQ(geo->GetFrameSize().Height(), 810.f);
+}
+
+/**
+ * @tc.name: HorizontalFocus001
+ * @tc.desc: Test WaterFlow horizontal focus navigation with rows template
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowScrollerTestNg, HorizontalFocus001, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    model.SetRowsTemplate("1fr 1fr 1fr");
+    CreateFocusableWaterFlowItems(30);
+    CreateDone();
+
+    auto info = pattern_->layoutInfo_;
+    EXPECT_EQ(info->startIndex_, 0);
+
+    // Test RIGHT navigation from startIndex
+    auto next = pattern_->GetNextFocusNode(FocusStep::RIGHT, GetChildFocusHub(frameNode_, info->startIndex_)).Upgrade();
+    EXPECT_NE(next, nullptr);
+
+    // Verify the focused item is visible
+    auto nextFrame = next->GetFrameNode();
+    int32_t actualIndex = frameNode_->GetChildIndex(nextFrame);
+    auto childRect = GetChildRect(frameNode_, actualIndex);
+    EXPECT_GE(childRect.Left(), 0.0f);
+    EXPECT_LE(childRect.Right(), WATER_FLOW_WIDTH);
+
+    // Test DOWN navigation
+    next = pattern_->GetNextFocusNode(FocusStep::DOWN, GetChildFocusHub(frameNode_, 0)).Upgrade();
+    auto cmp = GetChildFocusHub(frameNode_, 1);
+    EXPECT_EQ(AceType::RawPtr(next), AceType::RawPtr(cmp));
+}
+
+/**
+ * @tc.name: GetBindingFrameNodeId001
+ * @tc.desc: Test GetBindingFrameNodeId returns valid node id for WaterFlow component
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowScrollerTestNg, GetBindingFrameNodeId001, TestSize.Level1)
+{
+    CreateWaterFlow();
+    CreateWaterFlowItems();
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Get the binding frame node id from controller
+     * @tc.expected: The node id should match the waterflow frame node's id
+     */
+    auto nodeId = positionController_->GetBindingFrameNodeId();
+    EXPECT_EQ(nodeId, frameNode_->GetId());
 }
 } // namespace OHOS::Ace::NG

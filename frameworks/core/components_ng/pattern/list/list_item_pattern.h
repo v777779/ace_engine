@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,18 +19,22 @@
 #include "base/memory/referenced.h"
 #include "base/utils/noncopyable.h"
 #include "base/utils/utils.h"
+#include "core/animation/spring_motion.h"
+#include "core/components/scroll/scroll_controller_base.h"
 #include "core/components/list/list_item_theme.h"
-#include "core/components_ng/pattern/list/list_item_accessibility_property.h"
+#include "core/components_ng/event/focus_type.h"
 #include "core/components_ng/pattern/list/list_item_drag_manager.h"
-#include "core/components_ng/pattern/list/list_item_event_hub.h"
-#include "core/components_ng/pattern/list/list_item_layout_property.h"
-#include "core/components_ng/pattern/list/list_layout_property.h"
-#include "core/components_ng/pattern/pattern.h"
+#include "core/components_ng/pattern/list/list_properties.h"
+#include "core/components_ng/pattern/scrollable/selectable_item_pattern.h"
 #include "core/components_ng/syntax/shallow_builder.h"
 #include "core/pipeline_ng/ui_task_scheduler.h"
 
 namespace OHOS::Ace::NG {
+class ForEachBaseNode;
 class InspectorFilter;
+} // namespace OHOS::Ace::NG
+
+namespace OHOS::Ace::NG {
 
 enum class ListItemSwipeIndex {
     SWIPER_END = -1,
@@ -41,8 +45,8 @@ enum class ListItemSwipeIndex {
 
 using PendingSwipeFunc = std::function<void()>;
 
-class ACE_EXPORT ListItemPattern : public Pattern {
-    DECLARE_ACE_TYPE(ListItemPattern, Pattern);
+class ACE_FORCE_EXPORT ListItemPattern : public SelectableItemPattern {
+    DECLARE_ACE_TYPE(ListItemPattern, SelectableItemPattern);
 
 public:
     void SwipeCommon(ListItemSwipeIndex targetState);
@@ -55,7 +59,9 @@ public:
     explicit ListItemPattern(const RefPtr<ShallowBuilder>& shallowBuilder, V2::ListItemStyle listItemStyle)
         : listItemStyle_(listItemStyle), shallowBuilder_(shallowBuilder)
     {}
-    ~ListItemPattern() override = default;
+    ~ListItemPattern() override;
+
+    void OnRecycle() override;
 
     void SetShallowBuilder(const RefPtr<ShallowBuilder>&& shallowBuilder);
 
@@ -64,48 +70,20 @@ public:
         return false;
     }
 
-    void BeforeCreateLayoutWrapper() override
-    {
-        if (shallowBuilder_ && !shallowBuilder_->IsExecuteDeepRenderDone()) {
-            shallowBuilder_->ExecuteDeepRender();
-            shallowBuilder_.Reset();
-        }
-    }
+    void BeforeCreateLayoutWrapper() override;
 
-    void OnCollectRemoved() override
-    {
-        shallowBuilder_.Reset();
-    }
+    void OnCollectRemoved() override;
 
     bool RenderCustomChild(int64_t deadline) override;
 
-    FocusPattern GetFocusPattern() const override
-    {
-        if (listItemStyle_ == V2::ListItemStyle::CARD) {
-            auto pipelineContext = PipelineBase::GetCurrentContextSafelyWithCheck();
-            CHECK_NULL_RETURN(pipelineContext, FocusPattern());
-            auto listItemTheme = pipelineContext->GetTheme<ListItemTheme>();
-            CHECK_NULL_RETURN(listItemTheme, FocusPattern());
-            FocusPaintParam paintParam;
-            paintParam.SetPaintColor(listItemTheme->GetItemFocusBorderColor());
-            paintParam.SetPaintWidth(listItemTheme->GetItemFocusBorderWidth());
-            return { FocusType::SCOPE, true, FocusStyleType::INNER_BORDER, paintParam };
-        }
-        return { FocusType::SCOPE, true };
-    }
+    FocusPattern GetFocusPattern() const override;
 
-    RefPtr<LayoutProperty> CreateLayoutProperty() override
-    {
-        return MakeRefPtr<ListItemLayoutProperty>();
-    }
+    RefPtr<LayoutProperty> CreateLayoutProperty() override;
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override;
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config) override;
 
-    RefPtr<EventHub> CreateEventHub() override
-    {
-        return MakeRefPtr<ListItemEventHub>();
-    }
+    RefPtr<EventHub> CreateEventHub() override;
 
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
 
@@ -158,16 +136,6 @@ public:
 
     void MarkIsSelected(bool isSelected);
 
-    bool IsSelected() const
-    {
-        return isSelected_;
-    }
-
-    void SetSelected(bool selected)
-    {
-        isSelected_ = selected;
-    }
-
     bool Selectable() const
     {
         return selectable_;
@@ -201,12 +169,9 @@ public:
         indexInListItemGroup_ = index;
     }
 
-    RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override
-    {
-        return MakeRefPtr<ListItemAccessibilityProperty>();
-    }
+    RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override;
 
-    V2::ListItemStyle GetListItemStyle() const
+    V2::ListItemStyle GetListItemStyle()
     {
         return listItemStyle_;
     }
@@ -219,6 +184,9 @@ public:
     void CloseSwipeAction(OnFinishFunc&& onFinishCallback);
     void CloseSwipeActionMultiThread(OnFinishFunc&& onFinishCallback);
 
+    void ExpandSwipeAction(ListItemSwipeActionDirection direction);
+    void ExpandSwipeActionWithAnimate(ListItemSwipeIndex index);
+
     void FireOnFinishEvent() const
     {
         if (onFinishEvent_) {
@@ -230,20 +198,8 @@ public:
     float GetEstimateHeight(float estimateHeight, Axis axis) const;
     bool ClickJudge(const PointF& localPoint);
 
-    void InitDragManager(RefPtr<ForEachBaseNode> forEach)
-    {
-        if (!dragManager_) {
-            dragManager_ = MakeRefPtr<ListItemDragManager>(GetHost(), forEach);
-            dragManager_->InitDragDropEvent();
-        }
-    }
-    void DeInitDragManager()
-    {
-        if (dragManager_) {
-            dragManager_->DeInitDragDropEvent();
-            dragManager_ = nullptr;
-        }
-    }
+    void InitDragManager(RefPtr<ForEachBaseNode> forEach);
+    void DeInitDragManager();
 
     SwipeActionState GetSwipeActionState();
 
@@ -265,6 +221,10 @@ public:
     }
 
     void SetDeleteArea();
+
+    void OnHoverWithHightLight(bool isHover) override;
+    void OnPaintFocusState(bool isFocus) override;
+    void NotifyItemState(ItemState itemState, bool isEffective);
 
 protected:
     void OnModifyDone() override;
@@ -339,7 +299,6 @@ private:
 
     // selectable
     bool selectable_ = true;
-    bool isSelected_ = false;
 
     // drag sort
     RefPtr<ListItemDragManager> dragManager_;
@@ -350,7 +309,8 @@ private:
     bool isLayouted_ = false;
     bool isSpringMotionRunning_ = false;
     bool isDragging_ = false;
-
+    std::optional<ListItemSwipeIndex> expandSwipeAction_;
+    
     PendingSwipeFunc pendingSwipeFunc_ = nullptr;
 
     ACE_DISALLOW_COPY_AND_MOVE(ListItemPattern);

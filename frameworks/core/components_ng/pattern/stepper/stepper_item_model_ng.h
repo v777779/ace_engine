@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,27 +23,18 @@ namespace OHOS::Ace::NG {
 
 class ACE_EXPORT StepperItemModelNG : public StepperItemModel {
 public:
-    enum class ItemState {
-        NORMAL,
-        DISABLED,
-        WAITING,
-        SKIP
-    };
-
-    static const std::map<ItemState, std::string> ITEM_STATE;
-
     void Create() override;
     void SetPrevLabel(const std::string& leftLabel) override;
     void SetNextLabel(const std::string& rightLabel) override;
     void SetStatus(const std::string& labelStatus) override;
     void ResetPrevLabel() override;
     void ResetNextLabel() override;
-    static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
+    static void CreateFrameNode();
     static void SetNextLabel(FrameNode* frameNode, const std::string& rightLabel);
     static void ResetNextLabel(FrameNode* frameNode);
     static void SetPrevLabel(FrameNode* frameNode, const std::string& leftLabel);
     static void ResetPrevLabel(FrameNode* frameNode);
-    static void SetStatus(FrameNode* frameNode, const std::optional<std::string>& labelStatus);
+    static void SetStatus(FrameNode* frameNode, const std::string& labelStatus);
     static void ResetStatus(FrameNode* frameNode);
 };
 

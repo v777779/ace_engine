@@ -24,6 +24,7 @@
 
 #include "base/memory/referenced.h"
 #include "interfaces/inner_api/ace/ai/image_analyzer.h"
+#include "ui/base/utils/utils.h"
 
 namespace OHOS::Ace::NG {
 class PeerUtils {
@@ -44,7 +45,9 @@ public:
     template<typename T>
     static void DestroyPeer(T *peer)
     {
-        CHECK_NULL_VOID(peer);
+        if (!peer) {
+            return;
+        }
 #ifdef ARKUI_CAPI_UNITTEST
         auto pos = peerMap_.find(peer);
         if (pos == peerMap_.end()) {

@@ -35,7 +35,14 @@ let ColoringStrategy;
   ColoringStrategy.INVERT = 'invert';
   ColoringStrategy.AVERAGE = 'average';
   ColoringStrategy.PRIMARY = 'primary';
+  ColoringStrategy.CONTRAST = 'contrast';
 })(ColoringStrategy || (ColoringStrategy = {}));
+
+var CompetitionStrategy;
+(function (CompetitionStrategy) {
+    CompetitionStrategy[CompetitionStrategy["DEFAULT"] = 0] = "DEFAULT";
+    CompetitionStrategy[CompetitionStrategy["COMPETITION"] = 1] = "COMPETITION";
+})(CompetitionStrategy || (CompetitionStrategy = {}));
 
 let TextInputStyle;
 (function (TextInputStyle) {
@@ -56,6 +63,8 @@ let TextAlign;
   TextAlign[TextAlign.End = 2] = 'End';
   TextAlign[TextAlign.Justify = 3] = 'Justify';
   TextAlign[TextAlign.JUSTIFY = 3] = 'JUSTIFY';
+  TextAlign[TextAlign.LEFT = 4] = 'LEFT';
+  TextAlign[TextAlign.RIGHT = 5] = 'RIGHT';
 })(TextAlign || (TextAlign = {}));
 
 let TextVerticalAlign;
@@ -65,6 +74,13 @@ let TextVerticalAlign;
   TextVerticalAlign[TextVerticalAlign.CENTER = 2] = 'CENTER';
   TextVerticalAlign[TextVerticalAlign.TOP = 3] = 'TOP';
 })(TextVerticalAlign || (TextVerticalAlign = {}));
+
+let TextContentAlign;
+(function (TextContentAlign) {
+  TextContentAlign[TextContentAlign.TOP = 0] = 'TOP';
+  TextContentAlign[TextContentAlign.CENTER = 1] = 'CENTER';
+  TextContentAlign[TextContentAlign.BOTTOM = 2] = 'BOTTOM';
+})(TextContentAlign || (TextContentAlign = {}));
 
 let TextDataDetectorType;
 (function (TextDataDetectorType) {
@@ -118,6 +134,12 @@ let SecurityDpiFollowStrategy;
   SecurityDpiFollowStrategy[SecurityDpiFollowStrategy.FOLLOW_UI_EXTENSION_ABILITY_DPI = 1] = 'follow-ui-extension-ability-dpi';
 })(SecurityDpiFollowStrategy || (SecurityDpiFollowStrategy = {}));
 
+let PreviewDpiFollowStrategy;
+(function (PreviewDpiFollowStrategy) {
+  PreviewDpiFollowStrategy[PreviewDpiFollowStrategy.FOLLOW_HOST_DPI = 0] = 'follow-host-dpi';
+  PreviewDpiFollowStrategy[PreviewDpiFollowStrategy.FOLLOW_UI_EXTENSION_ABILITY_DPI = 1] = 'follow-ui-extension-ability-dpi';
+})(PreviewDpiFollowStrategy || (PreviewDpiFollowStrategy = {}));
+
 let WindowModeFollowStrategy;
 (function (WindowModeFollowStrategy) {
   WindowModeFollowStrategy[WindowModeFollowStrategy.FOLLOW_HOST_WINDOW_MODE = 0] = 'follow-host-window-mode';
@@ -129,6 +151,8 @@ let EllipsisMode;
   EllipsisMode[EllipsisMode.START = 0] = 'start';
   EllipsisMode[EllipsisMode.CENTER = 1] = 'center';
   EllipsisMode[EllipsisMode.END = 2] = 'end';
+  EllipsisMode[EllipsisMode.MULTILINE_START = 3] = 'multiline-start';
+  EllipsisMode[EllipsisMode.MULTILINE_CENTER = 4] = 'multiline-center';
 })(EllipsisMode || (EllipsisMode = {}));
 
 let LineBreakStrategy;
@@ -192,6 +216,12 @@ let BorderStyle;
   BorderStyle[BorderStyle.Dashed = 1] = 'Dashed';
   BorderStyle[BorderStyle.Dotted = 2] = 'Dotted';
 })(BorderStyle || (BorderStyle = {}));
+
+let RenderStrategy;
+(function (RenderStrategy) {
+  RenderStrategy[RenderStrategy.FAST = 0] = 'FAST';
+  RenderStrategy[RenderStrategy.OFFSCREEN = 1] = 'OFFSCREEN';
+})(RenderStrategy || (RenderStrategy = {}));
 
 let LineCapStyle;
 (function (LineCapStyle) {
@@ -442,6 +472,7 @@ let BlendApplyType;
 (function (BlendApplyType) {
   BlendApplyType[BlendApplyType.FAST = 0] = 'FAST';
   BlendApplyType[BlendApplyType.OFFSCREEN = 1] = 'OFFSCREEN';
+  BlendApplyType[BlendApplyType.OFFSCREEN_WITH_BACKGROUND = 2] = 'OFFSCREEN_WITH_BACKGROUND';
 })(BlendApplyType || (BlendApplyType = {}));
 
 let TextOverflow;
@@ -598,6 +629,8 @@ let MouseAction;
   MouseAction[MouseAction.Release = 2] = 'Release';
   MouseAction[MouseAction.Move = 3] = 'Move';
   MouseAction[MouseAction.Hover = 4] = 'Hover';
+  MouseAction[MouseAction.ENTER_WINDOW = 4] = 'ENTER_WINDOW';
+  MouseAction[MouseAction.LEAVE_WINDOW = 5] = 'LEAVE_WINDOW';
   MouseAction[MouseAction.CANCEL = 13] = 'CANCEL';
 })(MouseAction || (MouseAction = {}));
 
@@ -695,22 +728,52 @@ let FlipDirection;
 class LayoutPolicy {
   id_ = '';
 
-  constructor(id) {
+  constructor(id, internal = false) {
+    if (!internal) {
+      const layoutPolicy = LayoutPolicy.fromId(id);
+      if (layoutPolicy !== undefined) {
+        return layoutPolicy;
+      }
+    }
     this.id_ = id;
   }
 
   static get matchParent() {
-    return new LayoutPolicy('matchParent');
+    if (this.matchParent_ === undefined) {
+      this.matchParent_ = new LayoutPolicy('matchParent', true);
+    }
+    return this.matchParent_;
   }
 
   static get wrapContent() {
-    return new LayoutPolicy('wrapContent');
+    if (this.wrapContent_ === undefined) {
+      this.wrapContent_ = new LayoutPolicy('wrapContent', true);
+    }
+    return this.wrapContent_;
   }
 
   static get fixAtIdealSize() {
-    return new LayoutPolicy('fixAtIdealSize');
+    if (this.fixAtIdealSize_ === undefined) {
+      this.fixAtIdealSize_ = new LayoutPolicy('fixAtIdealSize', true);
+    }
+    return this.fixAtIdealSize_;
+  }
+
+  static fromId(id) {
+    switch (id) {
+      case 'matchParent':
+        return LayoutPolicy.matchParent;
+      case 'wrapContent':
+        return LayoutPolicy.wrapContent;
+      case 'fixAtIdealSize':
+        return LayoutPolicy.fixAtIdealSize;
+      default:
+        return undefined;
+    }
   }
 }
+
+globalThis.LayoutPolicy = LayoutPolicy;
 
 var BlurStyle;
 (function (BlurStyle) {
@@ -763,6 +826,7 @@ let ScrollDirection;
   ScrollDirection[ScrollDirection.Horizontal = 1] = 'Horizontal';
   ScrollDirection[ScrollDirection.Free = 2] = 'Free';
   ScrollDirection[ScrollDirection.None = 3] = 'None';
+  ScrollDirection[ScrollDirection.FREE = 4] = 'FREE';
 })(ScrollDirection || (ScrollDirection = {}));
 
 let Sticky;
@@ -777,6 +841,7 @@ let StickyStyle;
   StickyStyle[StickyStyle.None = 0] = 'None';
   StickyStyle[StickyStyle.Header = 1] = 'Header';
   StickyStyle[StickyStyle.Footer = 2] = 'Footer';
+  StickyStyle[StickyStyle.BOTH = 3] = 'BOTH';
 })(StickyStyle || (StickyStyle = {}));
 
 let ScrollSnapAlign;
@@ -1144,6 +1209,7 @@ let NavigationMode;
   NavigationMode[NavigationMode.Stack = 0] = 'Stack';
   NavigationMode[NavigationMode.Split = 1] = 'Split';
   NavigationMode[NavigationMode.Auto = 2] = 'Auto';
+  NavigationMode[NavigationMode.AUTO_WITH_ASPECT_RATIO = 3] = 'AUTO_WITH_ASPECT_RATIO';
 })(NavigationMode || (NavigationMode = {}));
 
 let NavRouteMode;
@@ -1171,6 +1237,16 @@ let NavDestinationMode;
   NavDestinationMode[NavDestinationMode.DIALOG = 1] = 'DIALOG';
 }(NavDestinationMode || (NavDestinationMode = {})));
 
+let NavDestinationActiveReason;
+(function (NavDestinationActiveReason) {
+  NavDestinationActiveReason[NavDestinationActiveReason.TRANSITION = 0] = 'TRANSITION';
+  NavDestinationActiveReason[NavDestinationActiveReason.CONTENT_COVER = 1] = 'CONTENT_COVER';
+  NavDestinationActiveReason[NavDestinationActiveReason.SHEET = 2] = 'SHEET';
+  NavDestinationActiveReason[NavDestinationActiveReason.DIALOG = 3] = 'DIALOG';
+  NavDestinationActiveReason[NavDestinationActiveReason.OVERLAY = 4] = 'OVERLAY';
+  NavDestinationActiveReason[NavDestinationActiveReason.APP_STATE = 5] = 'APP_STATE';
+}(NavDestinationActiveReason || (NavDestinationActiveReason = {})));
+
 let NavigationSystemTransitionType;
 (function (NavigationSystemTransitionType) {
   NavigationSystemTransitionType[NavigationSystemTransitionType.DEFAULT = 0] = 'DEFAULT';
@@ -1182,6 +1258,13 @@ let NavigationSystemTransitionType;
   NavigationSystemTransitionType[NavigationSystemTransitionType.SLIDE_RIGHT = 6] = 'SLIDE_RIGHT';
   NavigationSystemTransitionType[NavigationSystemTransitionType.SLIDE_BOTTOM = 7] = 'SLIDE_BOTTOM';
 }(NavigationSystemTransitionType || (NavigationSystemTransitionType = {})));
+
+let VisibilityChangeReason;
+(function (VisibilityChangeReason) {
+  VisibilityChangeReason[VisibilityChangeReason.TRANSITION = 0] = 'TRANSITION';
+  VisibilityChangeReason[VisibilityChangeReason.CONTENT_COVER = 1] = 'CONTENT_COVER';
+  VisibilityChangeReason[VisibilityChangeReason.APP_STATE = 2] = 'APP_STATE';
+}(VisibilityChangeReason || (VisibilityChangeReason = {})));
 
 let NavigationOperation;
 (function (NavigationOperation) {
@@ -1318,7 +1401,8 @@ let SourceType;
   SourceType[SourceType.Unknown = 0] = 'Unknown';
   SourceType[SourceType.Mouse = 1] = 'Mouse';
   SourceType[SourceType.TouchScreen = 2] = 'TouchScreen';
-  SourceType[SourceType.Keyboard = 4] = 'Keyboard';
+  SourceType[SourceType.KEY = 4] = 'KEY';
+  SourceType[SourceType.JOYSTICK = 5] = 'JOYSTICK';
 })(SourceType || (SourceType = {}));
 
 let SourceTool;
@@ -1368,6 +1452,11 @@ let PlaybackSpeed;
   PlaybackSpeed.Speed_Forward_1_25_X = '1.25';
   PlaybackSpeed.Speed_Forward_1_75_X = '1.75';
   PlaybackSpeed.Speed_Forward_2_00_X = '2.00';
+  PlaybackSpeed.SPEED_FORWARD_0_50_X = '0.50';
+  PlaybackSpeed.SPEED_FORWARD_1_50_X = '1.50';
+  PlaybackSpeed.SPEED_FORWARD_3_00_X = '3.00';
+  PlaybackSpeed.SPEED_FORWARD_0_25_X = '0.25';
+  PlaybackSpeed.SPEED_FORWARD_0_125_X = '0.125';
 })(PlaybackSpeed || (PlaybackSpeed = {}));
 
 let MixedMode;
@@ -1447,6 +1536,24 @@ let FileSelectorMode;
   FileSelectorMode[FileSelectorMode.FileSaveMode = 3] = 'FileSaveMode';
 })(FileSelectorMode || (FileSelectorMode = {}));
 
+let AISessionType;
+(function (AISessionType) {
+  AISessionType[AISessionType.TRANSLATOR = 1] = 'TRANSLATOR';
+  AISessionType[AISessionType.LANGUAGE_DETECTOR = 2] = 'LANGUAGE_DETECTOR';
+  AISessionType[AISessionType.SUMMARIZER = 3] = 'SUMMARIZER';
+  AISessionType[AISessionType.WRITER = 4] = 'WRITER';
+  AISessionType[AISessionType.REWRITER = 5] = 'REWRITER';
+  AISessionType[AISessionType.PROMPT = 6] = 'PROMPT';
+  AISessionType[AISessionType.PROOFREADER = 7] = 'PROOFREADER';
+})(AISessionType || (AISessionType = {}));
+
+let AISessionResultType;
+(function (AISessionResultType) {
+  AISessionResultType[AISessionResultType.SUCCESS = 0] = 'SUCCESS';
+  AISessionResultType[AISessionResultType.FAILURE = 1] = 'FAILURE';
+  AISessionResultType[AISessionResultType.RUNNING = 2] = 'RUNNING';
+})(AISessionResultType || (AISessionResultType = {}));
+
 let ProtectedResourceType;
 (function (ProtectedResourceType) {
   ProtectedResourceType.MidiSysex = 'TYPE_MIDI_SYSEX';
@@ -1524,7 +1631,14 @@ let WebKeyboardAvoidMode;
   WebKeyboardAvoidMode[WebKeyboardAvoidMode.RESIZE_VISUAL = 0] = 'RESIZE_VISUAL';
   WebKeyboardAvoidMode[WebKeyboardAvoidMode.RESIZE_CONTENT = 1] = 'RESIZE_CONTENT';
   WebKeyboardAvoidMode[WebKeyboardAvoidMode.OVERLAYS_CONTENT = 2] = 'OVERLAYS_CONTENT';
+  WebKeyboardAvoidMode[WebKeyboardAvoidMode.RETURN_TO_UICONTEXT = 3] = 'RETURN_TO_UICONTEXT';
 })(WebKeyboardAvoidMode || (WebKeyboardAvoidMode = {}));
+
+let ScrollDirectionalLockType;
+(function (ScrollDirectionalLockType) {
+  ScrollDirectionalLockType[ScrollDirectionalLockType.ALL = 0] = 'ALL';
+  ScrollDirectionalLockType[ScrollDirectionalLockType.NESTED_SCROLL = 1] = 'NESTED_SCROLL';
+})(ScrollDirectionalLockType || (ScrollDirectionalLockType = {}));
 
 let KeyboardAppearance;
 (function (KeyboardAppearance) {
@@ -1603,14 +1717,34 @@ class BounceSymbolEffect extends SymbolEffect {
 }
 
 class ReplaceSymbolEffect extends SymbolEffect {
-  constructor(scope) {
+  constructor(scope, replaceType) {
     super();
     this.type = 'ReplaceSymbolEffect';
     this.scope = scope;
+    this.replaceType_ = replaceType;
+    if (this.replaceType_ === 1) {
+      this.type = 'QuickReplaceSymbolEffect';
+    } else if (this.replaceType_ === 2) {
+      this.type = 'DisableSymbolEffect';
+    }
   }
   scope(value) {
     this.scope = value;
     return this;
+  }
+
+  set replaceType(value) {
+    this.replaceType_ = value;
+    this.type = 'ReplaceSymbolEffect';
+    if (this.replaceType_ === 1) {
+      this.type = 'QuickReplaceSymbolEffect';
+    } else if (this.replaceType_ === 2) {
+      this.type = 'DisableSymbolEffect';
+    }
+  }
+
+  get replaceType() {
+    return this.replaceType_;
   }
 }
 
@@ -1621,27 +1755,15 @@ class PulseSymbolEffect extends SymbolEffect {
   }
 }
 
-class DisableSymbolEffect extends SymbolEffect {
-  constructor(scope) {
-    super();
-    this.type = 'DisableSymbolEffect';
-    this.scope = scope;
-  }
-  scope(value) {
-    this.scope = value;
-    return this;
-  }
+class ContentTransition{
 }
 
-class QuickReplaceSymbolEffect extends SymbolEffect {
-  constructor(scope) {
+class NumericTextTransition extends ContentTransition {
+  constructor(options) {
     super();
-    this.type = 'QuickReplaceSymbolEffect';
-    this.scope = scope;
-  }
-  scope(value) {
-    this.scope = value;
-    return this;
+    this.type = 'NumericTextTransition';
+    this.flipDirection = options.flipDirection;
+    this.enableBlur = options.enableBlur;
   }
 }
 
@@ -1831,6 +1953,15 @@ let ContextMenuMediaType;
   ContextMenuMediaType[ContextMenuMediaType.Image = 1] = 'Image';
 })(ContextMenuMediaType || (ContextMenuMediaType = {}));
 
+let ContextMenuDataMediaType;
+(function (ContextMenuDataMediaType) {
+  ContextMenuDataMediaType[ContextMenuDataMediaType.None = 0] = 'None';
+  ContextMenuDataMediaType[ContextMenuDataMediaType.Image = 1] = 'Image';
+  ContextMenuDataMediaType[ContextMenuDataMediaType.Video = 2] = 'Video';
+  ContextMenuDataMediaType[ContextMenuDataMediaType.Audio = 3] = 'Audio';
+  ContextMenuDataMediaType[ContextMenuDataMediaType.Canvas = 4] = 'Canvas';
+})(ContextMenuDataMediaType || (ContextMenuDataMediaType = {}));
+
 let ContextMenuInputFieldType;
 (function (ContextMenuInputFieldType) {
   ContextMenuInputFieldType[ContextMenuInputFieldType.None = 0] = 'None';
@@ -1864,6 +1995,14 @@ let TouchTestStrategy;
   TouchTestStrategy.FORWARD_COMPETITION = 1;
   TouchTestStrategy.FORWARD = 2;
 })(TouchTestStrategy || (TouchTestStrategy = {}));
+
+let ResponseRegionSupportedTool;
+(function (ResponseRegionSupportedTool) {
+  ResponseRegionSupportedTool.ALL = 0;
+  ResponseRegionSupportedTool.FINGER = 1;
+  ResponseRegionSupportedTool.PEN = 2;
+  ResponseRegionSupportedTool.MOUSE = 3;
+})(ResponseRegionSupportedTool || (ResponseRegionSupportedTool = {}));
 
 let EffectLayer;
 (function (EffectLayer) {
@@ -1902,6 +2041,7 @@ let SheetType;
   SheetType[SheetType.CENTER = 1] = 'CENTER';
   SheetType[SheetType.POPUP = 2] = 'POPUP';
   SheetType[SheetType.SIDE = 3] = 'SIDE';
+  SheetType[SheetType.CONTENT_COVER = 4] = 'CONTENT_COVER';
 })(SheetType || (SheetType = {}));
 
 let SheetMode;
@@ -2007,6 +2147,10 @@ let GestureControl;
     GestureType[GestureType.ROTATION_GESTURE = 5] = 'ROTATION_GESTURE';
     GestureType[GestureType.DRAG = 6] = 'DRAG';
     GestureType[GestureType.CLICK = 7] = 'CLICK';
+    GestureType[GestureType.BOX_SELECT_GESTURE = 8] = 'BOX_SELECT_GESTURE';
+    GestureType[GestureType.WEB_SCROLL_GESTURE = 9] = 'WEB_SCROLL_GESTURE';
+    GestureType[GestureType.TEXT_FIELD_SELECT_GESTURE = 10] = 'TEXT_FIELD_SELECT_GESTURE';
+    GestureType[GestureType.CONTEXT_MENU_HOVER_GESTURE = 11] = 'CONTEXT_MENU_HOVER_GESTURE';
   })(GestureType = GestureControl.GestureType || (GestureControl.GestureType = {}));
 })(GestureControl || (GestureControl = {}));
 
@@ -2021,6 +2165,12 @@ let KeyboardAvoidMode;
     KeyboardAvoidMode[KeyboardAvoidMode.DEFAULT = 0] = 'DEFAULT';
     KeyboardAvoidMode[KeyboardAvoidMode.NONE = 1] = 'NONE';
 })(KeyboardAvoidMode || (KeyboardAvoidMode = {}));
+
+let ScrollbarLayoutPolicy;
+(function (ScrollbarLayoutPolicy) {
+  ScrollbarLayoutPolicy[ScrollbarLayoutPolicy.CONTENT = 0] = 'CONTENT';
+  ScrollbarLayoutPolicy[ScrollbarLayoutPolicy.SYSTEM = 1] = 'SYSTEM';
+})(ScrollbarLayoutPolicy || (ScrollbarLayoutPolicy = {}));
 
 class SubTabBarStyle {
   constructor(content) {
@@ -2321,6 +2471,22 @@ class ColorContent {
   }
 }
 
+class ContentTransitionEffect {
+  contentTransitionType_ = '';
+
+  constructor(contentTransitionType) {
+    this.contentTransitionType_ = contentTransitionType;
+  }
+
+  static get IDENTITY() {
+    return new ContentTransitionEffect('IDENTITY');
+  }
+
+  static get OPACITY() {
+    return new ContentTransitionEffect('OPACITY');
+  }
+}
+
 class TextMenuItemId {
   id_ = '';
 
@@ -2350,6 +2516,14 @@ class TextMenuItemId {
 
   static get SELECT_ALL() {
     return new TextMenuItemId('OH_DEFAULT_SELECT_ALL');
+  }
+
+  static get autoFill() {
+    return new TextMenuItemId('OH_DEFAULT_AUTO_FILL');
+  }
+
+  static get passwordVault() {
+    return new TextMenuItemId('OH_DEFAULT_PASSWORD_VAULT');
   }
 
   static get TRANSLATE() {
@@ -2395,6 +2569,11 @@ class TextMenuItemId {
   static get dateTime() {
     return new TextMenuItemId('OH_DEFAULT_AI_MENU_DATETIME');
   }
+
+  static get askAI() {
+    return new TextMenuItemId('OH_DEFAULT_ASK_CELIA');
+  }
+
 }
 
 globalThis.TextMenuItemId = TextMenuItemId;
@@ -2511,6 +2690,22 @@ class NavPathStack {
   setPathStack(pathStack, animated) {
     this.nativeStack?.setPathStack(this, pathStack, animated);
   }
+  updatePreTopInfo() {
+    if (this.pathArray.length === undefined || this.pathArray.length === 0) {
+        this.nativeStack.preTopInfo = undefined;
+        return;
+    }
+    this.nativeStack.preTopInfo = this.pathArray[this.pathArray.length - 1];
+  }
+  isPushOperation() {
+    const preTopInfo = this.nativeStack.preTopInfo;
+    if (preTopInfo === undefined) {
+        return true;
+    }
+    return this.pathArray.findIndex((info)=>{ // If the top of the previous stack exists, the next stack operation is push.
+        return info === preTopInfo;
+    }) !== -1;
+  }
   getJsIndexFromNativeIndex(index) {
     for (let i = 0; i < this.pathArray.length; i++) {
       if (this.pathArray[i].index === index) {
@@ -2522,7 +2717,7 @@ class NavPathStack {
   initNavPathIndex(pathName) {
     this.popArray = [];
     for (let i = 0; i < this.pathArray.length && i < pathName.length; i++) {
-      if (pathName[i] === this.pathArray[i].name && this.isReplace !== 1) {
+      if (pathName[i] === this.pathArray[i].name) {
         this.pathArray[i].index = i;
       }
     }
@@ -2657,12 +2852,52 @@ class NavPathStack {
     if (!this.checkPathValid(info)) {
       return;
     }
-    let [launchMode, animated] = this.parseNavigationOptions(optionParam);
-    let [ret, _] = this.pushWithLaunchModeAndAnimated(info, launchMode, animated, false);
+    // parseNavigationOptions
+    let launchMode = LaunchMode.STANDARD;
+    let animated = true;
+    if (typeof optionParam === 'boolean') {
+      animated = optionParam;
+    } else if (optionParam !== undefined && optionParam !== null) {
+      if (typeof optionParam.animated === 'boolean') {
+        animated = optionParam.animated;
+      }
+      if (optionParam.launchMode !== undefined && optionParam.launchMode !== null) {
+        launchMode = optionParam.launchMode;
+      }
+    }
+    // pushWithLaunchModeAndAnimated
+    let ret = false;
+    if (launchMode === LaunchMode.MOVE_TO_TOP_SINGLETON || launchMode === LaunchMode.POP_TO_SINGLETON) {
+      let index = this.pathArray.findIndex(element => element.name === info.name);
+      if (index !== -1) {
+        this.pathArray[index].param = info.param;
+        this.pathArray[index].onPop = info.onPop;
+        this.pathArray[index].needUpdate = true;
+        this.pathArray[index].isEntry = info.isEntry;
+        this.pathArray[index].singletonMoved = true;
+        this.hasSingletonMoved = true;
+        if (launchMode === LaunchMode.MOVE_TO_TOP_SINGLETON) {
+          this.moveIndexToTop(index, animated);
+        } else {
+          this.innerPopToIndex(index, undefined, animated, false);
+        }
+        ret = true;
+      }
+    }
     if (ret) {
       return;
     }
-    [info.index, info.navDestinationId] = this.findInPopArray(info.name);
+    // find in pop array
+    info.index = -1;
+    info.navDestinationId = undefined;
+    for (let i = this.popArray.length - 1; i >= 0; i--) {
+      if (info.name === this.popArray[i].name) {
+        let infoFind = this.popArray.splice(i, 1);
+        info.index = infoFind[0].index;
+        info.navDestinationId = infoFind[0].navDestinationId;
+        break;
+      }
+    }
     if (launchMode === LaunchMode.NEW_INSTANCE) {
       info.needBuildNewInstance = true;
     }
@@ -2748,10 +2983,49 @@ class NavPathStack {
     return undefined;
   }
   replacePath(info, optionParam) {
-    if (!this.checkPathValid(info)) {
+    if (info === undefined || info === null) {
       return;
     }
-    this.doReplaceInner(info, optionParam);
+    let launchMode = LaunchMode.STANDARD;
+    let animated = true;
+    if (typeof optionParam === 'boolean') {
+      animated = optionParam;
+    } else if (optionParam !== undefined && optionParam !== null) {
+      if (typeof optionParam.animated === 'boolean') {
+        animated = optionParam.animated;
+      }
+      if (optionParam.launchMode !== undefined && optionParam.launchMode !== null) {
+        launchMode = optionParam.launchMode;
+      }
+    }
+    let index = -1;
+    if (launchMode === LaunchMode.MOVE_TO_TOP_SINGLETON || launchMode === LaunchMode.POP_TO_SINGLETON) {
+      index = this.pathArray.findIndex(element => element.name === info.name);
+      if (index !== -1) {
+        this.pathArray[index].param = info.param;
+        this.pathArray[index].onPop = info.onPop;
+        this.pathArray[index].index = -1;
+        if (index !== this.pathArray.length - 1) {
+          let targetInfo = this.pathArray.splice(index, 1);
+          if (launchMode === LaunchMode.MOVE_TO_TOP_SINGLETON) {
+            this.pathArray.pop();
+          } else {
+            this.pathArray.splice(index);
+          }
+          this.pathArray.push(targetInfo[0]);
+        }
+      }
+    }
+    if (index === -1) {
+      if (this.pathArray.length !== 0) {
+        this.pathArray.pop();
+      }
+      this.pathArray.push(info);
+      this.pathArray[this.pathArray.length - 1].index = -1;
+    }
+    this.isReplace = 1;
+    this.animated = animated;
+    this.nativeStack?.onStateChanged();
   }
   replaceDestination(info, navigationOptions) {
     if (!this.checkPathValid(info)) {
@@ -2971,8 +3245,12 @@ class NavPathStack {
     this.isReplace = 0;
     this.nativeStack?.onStateChanged();
   }
-  removeInvalidPage(index) {
+  removeInvalidPage(index, name) {
     if (index >= this.pathArray.length || index < 0) {
+      return;
+    }
+    if (this.pathArray[index].name !== name) {
+      console.warn('[AceNavigation] cannot find info to remove: ', name);
       return;
     }
     if (this.pathArray[index].replacedDestinationInfo !== undefined) {
@@ -3063,7 +3341,17 @@ class NavPathStack {
       return '';
     }
     try {
-      return JSON.stringify(this.pathArray[index].param);
+      let serializeCount = 0;
+      const MAX_COUNT = 10000;
+      const serializeFilter = (key, value) => {
+        serializeCount++;
+        if (serializeCount > MAX_COUNT) {
+          console.warn('AceNavigation', 'too many iterations during serialize navigation param!');
+          throw new Error('too many iterations');
+        }
+        return value;
+      }
+      return JSON.stringify(this.pathArray[index].param, serializeFilter);
     } catch (error) {
       return '';
     }
@@ -3072,12 +3360,488 @@ class NavPathStack {
 
 globalThis.NavPathStack = NavPathStack;
 
+class InteropNavPathStackModule {
+  static pushPathCallback = undefined;
+  static pushDestinationCallback = undefined;
+  static pushPathByNameCallback = undefined;
+  static pushDestinationByNameCallback = undefined;
+  static replacePathCallback = undefined;
+  static replaceDestinationCallback = undefined;
+  static replacePathByNameCallback = undefined;
+  static removeByIndexesCallback = undefined;
+  static removeByNameCallback = undefined;
+  static removeByNavDestinationIdCallback = undefined;
+  static popCallback = undefined;
+  static popToNameCallback = undefined;
+  static popToIndexCallback = undefined;
+  static moveToTopCallback = undefined;
+  static moveIndexToTopCallback = undefined;
+  static clearCallback = undefined;
+  static getAllPathNameCallback = undefined;
+  static getParamByNameCallback = undefined;
+  static getIndexByNameCallback = undefined;
+  static getParentCallback = undefined; // not impl yet
+  static sizeCallback = undefined;
+  static disableAnimationCallback = undefined;
+  static setInterceptionCallback = undefined;
+  static getPathStackCallback = undefined;
+  static setPathStackCallback = undefined;
+  static getParamByIndexCallback = undefined;
+}
+
+function registeNavPushPathCallback(pushPathCallback) {
+  InteropNavPathStackModule.pushPathCallback = pushPathCallback;
+}
+
+function registeNavPushDestinationCallback(pushDestinationCallback) {
+  InteropNavPathStackModule.pushDestinationCallback = pushDestinationCallback;
+}
+
+function registeNavPushPathByNameCallback(pushPathByNameCallback) {
+  InteropNavPathStackModule.pushPathByNameCallback = pushPathByNameCallback;
+}
+
+function registeNavPushDestinationByNameCallback(pushDestinationByNameCallback) {
+  InteropNavPathStackModule.pushDestinationByNameCallback = pushDestinationByNameCallback;
+}
+
+function registeNavReplacePathCallback(replacePathCallback) {
+  InteropNavPathStackModule.replacePathCallback = replacePathCallback;
+}
+
+function registeNavReplaceDestinationCallback(replaceDestinationCallback) {
+  InteropNavPathStackModule.replaceDestinationCallback = replaceDestinationCallback;
+}
+
+function registeNavReplacePathByNameCallback(replacePathByNameCallback) {
+  InteropNavPathStackModule.replacePathByNameCallback = replacePathByNameCallback;
+}
+
+function registeNavRemoveByIndexesCallback(removeByIndexesCallback) {
+  InteropNavPathStackModule.removeByIndexesCallback = removeByIndexesCallback;
+}
+
+function registeNavRemoveByNameCallback(removeByNameCallback) {
+  InteropNavPathStackModule.removeByNameCallback = removeByNameCallback;
+}
+
+function registeNavRemoveByNavDestinationIdCallback(removeByNavDestinationIdCallback) {
+  InteropNavPathStackModule.removeByNavDestinationIdCallback = removeByNavDestinationIdCallback;
+}
+
+function registeNavPopCallback(popCallback) {
+  InteropNavPathStackModule.popCallback = popCallback;
+}
+
+function registeNavPopToNameCallback(popToNameCallback) {
+  InteropNavPathStackModule.popToNameCallback = popToNameCallback;
+}
+
+function registeNavPopToIndexCallback(popToIndexCallback) {
+  InteropNavPathStackModule.popToIndexCallback = popToIndexCallback;
+}
+
+function registeNavMoveToTopCallback(moveToTopCallback) {
+  InteropNavPathStackModule.moveToTopCallback = moveToTopCallback;
+}
+
+function registeNavMoveIndexToTopCallback(moveIndexToTopCallback) {
+  InteropNavPathStackModule.moveIndexToTopCallback = moveIndexToTopCallback;
+}
+
+function registeNavClearCallback(clearCallback) {
+  InteropNavPathStackModule.clearCallback = clearCallback;
+}
+
+function registeNavGetAllPathNameCallback(getAllPathNameCallback) {
+  InteropNavPathStackModule.getAllPathNameCallback = getAllPathNameCallback;
+}
+
+function registeNavGetParamByNameCallback(getParamByNameCallback) {
+  InteropNavPathStackModule.getParamByNameCallback = getParamByNameCallback;
+}
+
+function registeNavGetIndexByNameCallback(getIndexByNameCallback) {
+  InteropNavPathStackModule.getIndexByNameCallback = getIndexByNameCallback;
+}
+
+function registeNavGetParentCallback(getParentCallback) {
+  InteropNavPathStackModule.getParentCallback = getParentCallback;
+}
+
+function registeNavSizeCallback(sizeCallback) {
+  InteropNavPathStackModule.sizeCallback = sizeCallback;
+}
+
+function registeNavDisableAnimationCallback(disableAnimationCallback) {
+  InteropNavPathStackModule.disableAnimationCallback = disableAnimationCallback;
+}
+
+function registeNavSetInterceptionCallback(setInterceptionCallback) {
+  InteropNavPathStackModule.setInterceptionCallback = setInterceptionCallback;
+}
+
+function registeNavGetPathStackCallback(getPathStackCallback) {
+  InteropNavPathStackModule.getPathStackCallback = getPathStackCallback;
+}
+
+function registeNavSetPathStackCallback(setPathStackCallback) {
+  InteropNavPathStackModule.setPathStackCallback = setPathStackCallback;
+}
+
+function registeNavGetParamByIndexCallback(getParamByIndexCallback) {
+  InteropNavPathStackModule.getParamByIndexCallback = getParamByIndexCallback;
+}
+
+class NavPathStackExtent extends NavPathStack {
+  constructor() {
+    super();
+    this.staticStack = undefined;
+  }
+  // for native use
+  setNativeStack(stack) {
+    this.staticStack = stack;
+  }
+  getPathStack() {
+    if (!InteropNavPathStackModule.getPathStackCallback) {
+      console.warn('AceNavigation', 'invalid static getPathStackCallback');
+      return [];
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return [];
+    }
+    return JSON.parse(InteropNavPathStackModule.getPathStackCallback(this.staticStack));
+  }
+  setPathStack(pathStack, animated) {
+    if (!InteropNavPathStackModule.setPathStackCallback) {
+      console.warn('AceNavigation', 'invalid static setPathStackCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.setPathStackCallback(this.staticStack, JSON.stringify(pathStack), animated);
+  }
+  getParent() {
+    if (!InteropNavPathStackModule.getParentCallback) {
+      console.warn('AceNavigation', 'invalid static getParentCallback');
+      return undefined;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return undefined;
+    }
+    // need copy construct and return new NavPathStackExtend
+    return JSON.parse(InteropNavPathStackModule.getParentCallback(this.staticStack));
+  }
+  pushPathByName(name, param, onPop, animated) {
+    let realAnimated = animated;
+    if (typeof onPop === 'boolean') {
+      realAnimated = onPop;
+    }
+    if (!InteropNavPathStackModule.pushPathByNameCallback) {
+      console.warn('AceNavigation', 'invalid static pushPathByNameCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.pushPathByNameCallback(this.staticStack, name, JSON.stringify(param), realAnimated);
+  }
+  pushDestinationByName(name, param, onPop, animated) {
+    let realAnimated = animated;
+    if (typeof onPop === 'boolean') {
+      realAnimated = onPop;
+    }
+    if (!InteropNavPathStackModule.pushDestinationByNameCallback) {
+      console.warn('AceNavigation', 'invalid static pushDestinationByNameCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.pushDestinationByNameCallback(this.staticStack, name, JSON.stringify(param), realAnimated);
+  }
+  pushPath(info, optionParam) {
+    if (!this.checkPathValid(info)) {
+      console.warn('AceNavigation', 'invalid input info');
+      return;
+    }
+    if (!InteropNavPathStackModule.pushPathCallback) {
+      console.warn('AceNavigation', 'invalid static pushPathCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.pushPathCallback(this.staticStack, JSON.stringify(info), optionParam);
+  }
+  pushDestination(info, optionParam) {
+    if (!this.checkPathValid(info)) {
+      console.warn('AceNavigation', 'invalid input info');
+      return undefined;
+    }
+    if (!InteropNavPathStackModule.pushDestinationCallback) {
+      console.warn('AceNavigation', 'invalid static pushDestinationCallback');
+      return undefined;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return undefined;
+    }
+    return InteropNavPathStackModule.pushDestinationCallback(this.staticStack, JSON.stringify(info), optionParam);
+  }
+  replacePath(info, optionParam) {
+    if (!this.checkPathValid(info)) {
+      console.warn('AceNavigation', 'invalid input info');
+      return;
+    }
+    if (!InteropNavPathStackModule.replacePathCallback) {
+      console.warn('AceNavigation', 'invalid static replacePathCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.replacePathCallback(this.staticStack, JSON.stringify(info), optionParam);
+  }
+  replaceDestination(info, navigationOptions) {
+    if (!this.checkPathValid(info)) {
+      console.warn('AceNavigation', 'invalid input info');
+      return undefined;
+    }
+    if (!InteropNavPathStackModule.replaceDestinationCallback) {
+      console.warn('AceNavigation', 'invalid static replaceDestinationCallback');
+      return undefined;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return undefined;
+    }
+    return InteropNavPathStackModule.replaceDestinationCallback(this.staticStack, JSON.stringify(info), navigationOptions);
+  }
+  replacePathByName(name, param, animated) {
+    if (!InteropNavPathStackModule.replacePathByNameCallback) {
+      console.warn('AceNavigation', 'invalid static replacePathByNameCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.replacePathByNameCallback(this.staticStack, name, JSON.stringify(param), animated);
+  }
+  pop(result, animated) {
+    if (!InteropNavPathStackModule.popCallback) {
+      console.warn('AceNavigation', 'invalid static popCallback');
+      return undefined;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return undefined;
+    }
+    return InteropNavPathStackModule.popCallback(this.staticStack, animated);
+  }
+  popToName(name, result, animated) {
+    if (!InteropNavPathStackModule.popToNameCallback) {
+      console.warn('AceNavigation', 'invalid static popToNameCallback');
+      return -1;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return -1;
+    }
+    return InteropNavPathStackModule.popToNameCallback(this.staticStack, name, result, animated);
+  }
+  popToIndex(index, result, animated) {
+    if (!InteropNavPathStackModule.popToIndexCallback) {
+      console.warn('AceNavigation', 'invalid static popToIndexCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.popToIndexCallback(this.staticStack, index, result, animated);
+  }
+  moveToTop(name, animated) {
+    if (!InteropNavPathStackModule.moveToTopCallback) {
+      console.warn('AceNavigation', 'invalid static moveToTopCallback');
+      return -1;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return -1;
+    }
+    return InteropNavPathStackModule.moveToTopCallback(this.staticStack, name, animated);
+  }
+  moveIndexToTop(index, animated) {
+    if (!InteropNavPathStackModule.moveIndexToTopCallback) {
+      console.warn('AceNavigation', 'invalid static moveIndexToTopCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.moveIndexToTopCallback(this.staticStack, index, animated);
+  }
+  clear(animated) {
+    if (!InteropNavPathStackModule.clearCallback) {
+      console.warn('AceNavigation', 'invalid static clearCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.clearCallback(this.staticStack, animated);
+  }
+  removeByIndexes(indexes) {
+    if (!InteropNavPathStackModule.removeByIndexesCallback) {
+      console.warn('AceNavigation', 'invalid static removeByIndexesCallback');
+      return 0;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return 0;
+    }
+    return InteropNavPathStackModule.removeByIndexesCallback(this.staticStack, indexes);
+  }
+  removeByName(name) {
+    if (!InteropNavPathStackModule.removeByNameCallback) {
+      console.warn('AceNavigation', 'invalid static removeByNameCallback');
+      return -1;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return -1;
+    }
+    return InteropNavPathStackModule.removeByNameCallback(this.staticStack, name);
+  }
+  removeByNavDestinationId(navDestinationId) {
+    if (!InteropNavPathStackModule.removeByNavDestinationIdCallback) {
+      console.warn('AceNavigation', 'invalid static removeByNavDestinationIdCallback');
+      return false;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return false;
+    }
+    return InteropNavPathStackModule.removeByNavDestinationIdCallback(this.staticStack, navDestinationId);
+  }
+  getAllPathName() {
+    // if need interop?
+    if (!InteropNavPathStackModule.getAllPathNameCallback) {
+      console.warn('AceNavigation', 'invalid static getAllPathNameCallback');
+      return [];
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return [];
+    }
+    let staticResult = InteropNavPathStackModule.getAllPathNameCallback(this.staticStack);
+    return JSON.parse(staticResult);
+  }
+  getSerializedParamByIndexInner(index) {
+    if (!InteropNavPathStackModule.getParamByIndexCallback) {
+      console.warn('AceNavigation', 'invalid static getParamByIndexCallback');
+      return '';
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return '';
+    }
+    return InteropNavPathStackModule.getParamByIndexCallback(this.staticStack, index);
+  }
+
+  getParamByIndex(index) {
+    let serializedParam = this.getSerializedParamByIndexInner(index);
+    if (serializedParam === '') {
+      return undefined;
+    }
+    return JSON.parse(serializedParam);
+  }
+  getParamByName(name) {
+    if (!InteropNavPathStackModule.getParamByNameCallback) {
+      console.warn('AceNavigation', 'invalid static getParamByNameCallback');
+      return undefined;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return undefined;
+    }
+    return JSON.parse(InteropNavPathStackModule.getParamByNameCallback(this.staticStack, name));
+  }
+  getIndexByName(name) {
+    if (!InteropNavPathStackModule.getIndexByNameCallback) {
+      console.warn('AceNavigation', 'invalid static getIndexByNameCallback');
+      return [];
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return [];
+    }
+    return JSON.parse(InteropNavPathStackModule.getIndexByNameCallback(this.staticStack, name));
+  }
+  size() {
+    if (!InteropNavPathStackModule.sizeCallback) {
+      console.warn('AceNavigation', 'invalid static sizeCallback');
+      return 0;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return 0;
+    }
+    return InteropNavPathStackModule.sizeCallback(this.staticStack);
+  }
+  disableAnimation(disableAnimation) {
+    if (!InteropNavPathStackModule.disableAnimationCallback) {
+      console.warn('AceNavigation', 'invalid static disableAnimationCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.disableAnimationCallback(this.staticStack, disableAnimation);
+  }
+  setInterception(interception) {
+    // NOT-IMPL-YET
+    if (!InteropNavPathStackModule.setInterceptionCallback) {
+      console.warn('AceNavigation', 'invalid static setInterceptionCallback');
+      return;
+    }
+    if (!this.staticStack) {
+      console.warn('AceNavigation', 'invalid static stack');
+      return;
+    }
+    InteropNavPathStackModule.setInterceptionCallback(this.staticStack, interception);
+  }
+}
+
+globalThis.NavPathStackExtent = NavPathStackExtent;
+
 class WaterFlowSections {
   constructor() {
     this.sectionArray = [];
-    // indicate class has changed.
+    // native waterflow section, implement in cpp
+    this.nativeSection = undefined;
     this.changeFlag = true;
-    this.changeArray = [];
+  }
+
+  setNativeSection(section) {
+    UIUtilsImpl.instance().getTarget(this).nativeSection = section;
+  }
+
+  getNativeSection() {
+    return UIUtilsImpl.instance().getTarget(this).nativeSection;
   }
 
   isNonNegativeInt32(input) {
@@ -3131,7 +3895,9 @@ class WaterFlowSections {
     }
     intDeleteCount = intDeleteCount < 0 ? 0 : intDeleteCount;
 
-    this.changeArray.push({ start: intStart, deleteCount: intDeleteCount, sections: sections ? sections : [] });
+    if (this.nativeSection) {
+      this.nativeSection.onSectionChanged({ start: intStart, deleteCount: intDeleteCount, sections: sections ? sections : [], allSections: this.sectionArray });
+    }
     this.changeFlag = !this.changeFlag;
     return true;
   }
@@ -3142,7 +3908,9 @@ class WaterFlowSections {
     }
     let oldLength = this.sectionArray.length;
     this.sectionArray.push(section);
-    this.changeArray.push({ start: oldLength, deleteCount: 0, sections: [section] });
+    if (this.nativeSection) {
+      this.nativeSection.onSectionChanged({ start: oldLength, deleteCount: 0, sections: [section], allSections: this.sectionArray });
+    }
     this.changeFlag = !this.changeFlag;
     return true;
   }
@@ -3155,7 +3923,9 @@ class WaterFlowSections {
     this.sectionArray.splice(sectionIndex, 1, section);
 
     let intStart = this.toArrayIndex(sectionIndex, oldLength);
-    this.changeArray.push({ start: intStart, deleteCount: 1, sections: [section] });
+    if (this.nativeSection) {
+      this.nativeSection.onSectionChanged({ start: intStart, deleteCount: 1, sections: [section], allSections: this.sectionArray });
+    }
     this.changeFlag = !this.changeFlag;
     return true;
   }
@@ -3169,7 +3939,7 @@ class WaterFlowSections {
   }
 
   clearChanges() {
-    UIUtilsImpl.instance().getTarget(this).changeArray.splice(0);
+
   }
 }
 
@@ -3194,9 +3964,16 @@ class ChildrenMainSize {
     }
     this.defaultMainSize = childDefaultSize;
     this.sizeArray = [];
+    this.nativeMainSize = undefined;
     this.changeFlag = true;
-    // -1: represent newly created.
-    this.changeArray = [ { start: -1 } ];
+  }
+
+  setNativeMainSize(value) {
+    this.nativeMainSize = value;
+  }
+
+  getNativeMainSize() {
+    return this.nativeMainSize;
   }
 
   set childDefaultSize(value) {
@@ -3204,6 +3981,9 @@ class ChildrenMainSize {
       throw new ChildrenMainSizeParamError('The parameter check failed.', '401');
     }
     this.defaultMainSize = value;
+    if (this.nativeMainSize) {
+      this.nativeMainSize.onDefaultSizeUpdate(value);
+    }
   }
 
   get childDefaultSize() {
@@ -3220,10 +4000,14 @@ class ChildrenMainSize {
     let deleteCountValue = deleteCount && !(this.isInvalid(deleteCount)) ? Math.trunc(deleteCount) : 0;
     if (paramCount === 1) {
       this.sizeArray.splice(startValue);
-      this.changeArray.push({ start: startValue });
+      if (this.nativeMainSize) {
+        this.nativeMainSize.onStateChanged({ start: startValue });
+      }
     } else if (paramCount === 2) {
       this.sizeArray.splice(startValue, deleteCountValue);
-      this.changeArray.push({ start: startValue, deleteCount: deleteCountValue });
+      if (this.nativeMainSize) {
+        this.nativeMainSize.onStateChanged({ start: startValue, deleteCount: deleteCountValue });
+      }
     } else if (paramCount === 3) {
       let childrenSizeLength = childrenSize ? childrenSize.length : 0;
       if (childrenSizeLength === 0) {
@@ -3239,7 +4023,9 @@ class ChildrenMainSize {
         this.sizeArray.push(-1);
       }
       this.sizeArray.splice(startValue, deleteCountValue, ...childrenSize);
-      this.changeArray.push({ start: startValue, deleteCount: deleteCountValue, childrenSize: childrenSize });
+      if (this.nativeMainSize) {
+        this.nativeMainSize.onStateChanged({ start: startValue, deleteCount: deleteCountValue, childrenSize: childrenSize });
+      }
     }
     this.changeFlag = !this.changeFlag;
   }
@@ -3256,7 +4042,9 @@ class ChildrenMainSize {
       this.sizeArray.push(-1);
     }
     this.sizeArray.splice(startValue, 1, childSize);
-    this.changeArray.push({ start: startValue, deleteCount: 1, childrenSize: [childSize] });
+    if (this.nativeMainSize) {
+      this.nativeMainSize.onStateChanged({ start: startValue, deleteCount: 1, childrenSize: [childSize] });
+    }
     this.changeFlag = !this.changeFlag;
   }
 
@@ -3291,6 +4079,12 @@ let AvoidanceMode;
   AvoidanceMode[AvoidanceMode.COVER_TARGET = 0] = 'COVER_TARGET';
   AvoidanceMode[AvoidanceMode.AVOID_AROUND_TARGET = 1] = 'AVOID_AROUND_TARGET';
 })(AvoidanceMode || (AvoidanceMode = {}));
+
+let MenuKeyboardAvoidMode;
+(function (MenuKeyboardAvoidMode) {
+  MenuKeyboardAvoidMode[MenuKeyboardAvoidMode.NONE = 0] = 'NONE';
+  MenuKeyboardAvoidMode[MenuKeyboardAvoidMode.TRANSLATE_AND_RESIZE = 1] = 'TRANSLATE_AND_RESIZE';
+})(MenuKeyboardAvoidMode || (MenuKeyboardAvoidMode = {}));
 
 let ToolbarItemStatus;
 (function (ToolbarItemStatus) {
@@ -3388,6 +4182,8 @@ let SaveButtonOnClickResult;
     'SUCCESS';
   SaveButtonOnClickResult[SaveButtonOnClickResult.TEMPORARY_AUTHORIZATION_FAILED = 1] =
     'TEMPORARY_AUTHORIZATION_FAILED ';
+  SaveButtonOnClickResult[SaveButtonOnClickResult.CANCELED_BY_USER = 2] =
+    'CANCELED_BY_USER';
 })(SaveButtonOnClickResult || (SaveButtonOnClickResult = {}));
 
 let ObscuredReasons;
@@ -3413,8 +4209,17 @@ let ListItemGroupStyle;
   ListItemGroupStyle[ListItemGroupStyle.CARD = 1] = 'CARD';
 })(ListItemGroupStyle || (ListItemGroupStyle = {}));
 
+let ListItemGroupArea;
+(function (ListItemGroupArea) {
+  ListItemGroupArea[ListItemGroupArea.NONE = 0] = 'NONE';
+  ListItemGroupArea[ListItemGroupArea.IN_LIST_ITEM_AREA = 1] = 'IN_LIST_ITEM_AREA';
+  ListItemGroupArea[ListItemGroupArea.IN_HEADER_AREA = 2] = 'IN_HEADER_AREA';
+  ListItemGroupArea[ListItemGroupArea.IN_FOOTER_AREA = 3] = 'IN_FOOTER_AREA';
+})(ListItemGroupArea || (ListItemGroupArea = {}));
+
 let DragResult;
 (function (DragResult) {
+  DragResult[DragResult.UNKNOWN = -1] = 'UNKNOWN';
   DragResult[DragResult.DRAG_SUCCESSFUL = 0] = 'DRAG_SUCCESSFUL';
   DragResult[DragResult.DRAG_FAILED = 1] = 'DRAG_FAILED';
   DragResult[DragResult.DRAG_CANCELED = 2] = 'DRAG_CANCELED';
@@ -3580,6 +4385,12 @@ let SwiperNestedScrollMode;
   SwiperNestedScrollMode[SwiperNestedScrollMode.SELF_FIRST = 1] = 'SELF_FIRST';
 })(SwiperNestedScrollMode || (SwiperNestedScrollMode = {}));
 
+let TabsNestedScrollMode;
+(function (TabsNestedScrollMode) {
+  TabsNestedScrollMode[TabsNestedScrollMode.SELF_ONLY = 0] = 'SELF_ONLY';
+  TabsNestedScrollMode[TabsNestedScrollMode.SELF_FIRST = 1] = 'SELF_FIRST';
+})(TabsNestedScrollMode || (TabsNestedScrollMode = {}));
+
 let PageFlipMode;
 (function (PageFlipMode) {
   PageFlipMode[PageFlipMode.CONTINUOUS = 0] = 'CONTINUOUS';
@@ -3725,9 +4536,24 @@ let DividerMode;
 function wrapBuilder(builder) {
   return new WrappedBuilder(builder);
 }
+
 class WrappedBuilder {
   constructor(builder) {
     this.builder = builder;
+  }
+}
+
+function mutableBuilder(builder) {
+  return new MutableBuilder(builder);
+}
+
+class MutableBuilder {
+  constructor(builder) {
+    this.builder = builder;
+  }
+  // Only for internal toolchain usage.
+  _dispatchBuilder(builder, ...args) {
+    this.mutableBuilderImpl.bind(this)(builder, ...args);
   }
 }
 
@@ -3752,6 +4578,7 @@ let MarqueeState;
   MarqueeState[MarqueeState.START = 0] = 'START';
   MarqueeState[MarqueeState.BOUNCE = 1] = 'BOUNCE';
   MarqueeState[MarqueeState.FINISH = 2] = 'FINISH';
+  MarqueeState[MarqueeState.STOP = 3] = 'STOP';
 })(MarqueeState || (MarqueeState = {}));
 
 let MarqueeStartPolicy;
@@ -3759,6 +4586,12 @@ let MarqueeStartPolicy;
   MarqueeStartPolicy[MarqueeStartPolicy.DEFAULT = 0] = 'DEFAULT';
   MarqueeStartPolicy[MarqueeStartPolicy.ON_FOCUS = 1] = 'ON_FOCUS';
 })(MarqueeStartPolicy || (MarqueeStartPolicy = {}));
+
+let MarqueeUpdatePolicy;
+(function (MarqueeUpdatePolicy) {
+  MarqueeUpdatePolicy[MarqueeUpdatePolicy.DEFAULT = 0] = 'DEFAULT';
+  MarqueeUpdatePolicy[MarqueeUpdatePolicy.PRESERVE_POSITION = 1] = 'PRESERVE_POSITION';
+})(MarqueeUpdatePolicy || (MarqueeUpdatePolicy = {}));
 
 let NativeEmbedStatus;
 (function (NativeEmbedStatus) {
@@ -3835,6 +4668,17 @@ let StyledStringKey;
   StyledStringKey[StyledStringKey.USER_DATA = 500] = 'USER_DATA';
 })(StyledStringKey || (StyledStringKey = {}));
 
+// ColorPlaceholder enum declaration synchronized with units.d.ts as a pure string enum.
+// Using a simple object literal avoids generating numeric reverse mappings.
+const ColorPlaceholder = {
+  NONE: 'NONE',
+  SURFACE: 'SURFACE',
+  SURFACE_CONTRAST: 'SURFACE_CONTRAST',
+  TEXT_CONTRAST: 'TEXT_CONTRAST',
+  ACCENT: 'ACCENT',
+  FOREGROUND: 'FOREGROUND',
+};
+
 class CustomSpan extends NativeCustomSpan {
   type_ = 'CustomSpan';
 }
@@ -3842,6 +4686,18 @@ class CustomSpan extends NativeCustomSpan {
 class UserDataSpan {
   type_ = 'ExtSpan';
 }
+
+class LeadingMarginSpan extends NativeLeadingMarginSpan {
+  type_ = 'LeadingMarginSpan';
+}
+
+let TextDirection;
+(function (TextDirection) {
+  TextDirection[TextDirection.LTR = 0] = 'LTR';
+  TextDirection[TextDirection.RTL = 1] = 'RTL';
+  TextDirection[TextDirection.DEFAULT = 2] = 'DEFAULT';
+  TextDirection[TextDirection.AUTO = 3] = 'AUTO';
+})(TextDirection || (TextDirection = {}));
 
 let FocusPriority;
 (function (FocusPriority) {
@@ -4057,11 +4913,13 @@ let WebElementType;
 (function (WebElementType) {
   WebElementType[WebElementType.IMAGE = 1] = 'IMAGE';
   WebElementType[WebElementType.LINK = 2] = 'LINK';
+  WebElementType[WebElementType.TEXT = 3] = 'TEXT';
 })(WebElementType || (WebElementType = {}));
 
 let WebResponseType;
 (function (WebResponseType) {
   WebResponseType[WebResponseType.LONG_PRESS = 1] = 'LONG_PRESS';
+  WebResponseType[WebResponseType.RIGHT_CLICK = 2] = 'RIGHT_CLICK';
 })(WebResponseType || (WebResponseType = {}));
 
 class ImageAnalyzerController {
@@ -4084,13 +4942,13 @@ class ImageAnalyzerController {
   }
 }
 
-var WebNavigationType;
+let WebNavigationType;
 (function (WebNavigationType) {
-  WebNavigationType[WebNavigationType['UNKNOWN'] = 0] = 'UNKNOWN';
-  WebNavigationType[WebNavigationType['MAIN_FRAME_NEW_ENTRY'] = 1] = 'MAIN_FRAME_NEW_ENTRY';
-  WebNavigationType[WebNavigationType['MAIN_FRAME_EXISTING_ENTRY'] = 2] = 'MAIN_FRAME_EXISTING_ENTRY';
-  WebNavigationType[WebNavigationType['NAVIGATION_TYPE_NEW_SUBFRAME'] = 4] = 'NAVIGATION_TYPE_NEW_SUBFRAME';
-  WebNavigationType[WebNavigationType['NAVIGATION_TYPE_AUTO_SUBFRAME'] = 5] = 'NAVIGATION_TYPE_AUTO_SUBFRAME';
+  WebNavigationType[WebNavigationType.UNKNOWN = 0] = 'UNKNOWN';
+  WebNavigationType[WebNavigationType.MAIN_FRAME_NEW_ENTRY = 1] = 'MAIN_FRAME_NEW_ENTRY';
+  WebNavigationType[WebNavigationType.MAIN_FRAME_EXISTING_ENTRY = 2] = 'MAIN_FRAME_EXISTING_ENTRY';
+  WebNavigationType[WebNavigationType.NAVIGATION_TYPE_NEW_SUBFRAME = 4] = 'NAVIGATION_TYPE_NEW_SUBFRAME';
+  WebNavigationType[WebNavigationType.NAVIGATION_TYPE_AUTO_SUBFRAME = 5] = 'NAVIGATION_TYPE_AUTO_SUBFRAME';
 })(WebNavigationType || (WebNavigationType = {}));
 
 let AxisModel;
@@ -4103,6 +4961,17 @@ let AxisModel;
   AxisModel[AxisModel.ABS_BRAKE = 5] = 'ABS_BRAKE';
   AxisModel[AxisModel.ABS_HAT0X = 6] = 'ABS_HAT0X';
   AxisModel[AxisModel.ABS_HAT0Y = 7] = 'ABS_HAT0Y';
+  AxisModel[AxisModel.ABS_RX = 8] = 'ABS_RX';
+  AxisModel[AxisModel.ABS_RY = 9] = 'ABS_RY';
+  AxisModel[AxisModel.ABS_THROTTLE = 10] = 'ABS_THROTTLE';
+  AxisModel[AxisModel.ABS_RUDDER = 11] = 'ABS_RUDDER';
+  AxisModel[AxisModel.ABS_WHEEL = 12] = 'ABS_WHEEL';
+  AxisModel[AxisModel.ABS_HAT1X = 13] = 'ABS_HAT1X';
+  AxisModel[AxisModel.ABS_HAT1Y = 14] = 'ABS_HAT1Y';
+  AxisModel[AxisModel.ABS_HAT2X = 15] = 'ABS_HAT2X';
+  AxisModel[AxisModel.ABS_HAT2Y = 16] = 'ABS_HAT2Y';
+  AxisModel[AxisModel.ABS_HAT3X = 17] = 'ABS_HAT3X';
+  AxisModel[AxisModel.ABS_HAT3Y = 18] = 'ABS_HAT3Y';
 })(AxisModel || (AxisModel = {}));
 
 let CrownSensitivity;
@@ -4171,21 +5040,18 @@ let AxisAction;
   AxisAction[AxisAction.CANCEL = 4] = 'CANCEL';
 })(AxisAction || (AxisAction = {}));
 
+let AxisType;
+(function (AxisType) {
+  AxisType[AxisType.VERTICAL_AXIS = 0] = 'VERTICAL_AXIS';
+  AxisType[AxisType.HORIZONTAL_AXIS = 1] = 'HORIZONTAL_AXIS';
+  AxisType[AxisType.PINCH_AXIS = 2] = 'PINCH_AXIS';
+})(AxisType || (AxisType = {}));
+
 let WebBypassVsyncCondition;
 (function (WebBypassVsyncCondition) {
   WebBypassVsyncCondition[WebBypassVsyncCondition.NONE = 0] = 'NONE';
   WebBypassVsyncCondition[WebBypassVsyncCondition.SCROLLBY_FROM_ZERO_OFFSET = 1] = 'SCROLLBY_FROM_ZERO_OFFSET';
 })(WebBypassVsyncCondition || (WebBypassVsyncCondition = {}));
-
-let CommonState;
-(function (CommonState) {
-  CommonState[CommonState.UNINITIALIZED = 0] = 'UNINITIALIZED';
-  CommonState[CommonState.INITIALIZED = 1] = 'INITIALIZED';
-  CommonState[CommonState.APPEARING = 2] = 'APPEARING';
-  CommonState[CommonState.APPEARED = 3] = 'APPEARED';
-  CommonState[CommonState.DISAPPEARING = 4] = 'DISAPPEARING';
-  CommonState[CommonState.DISAPPEARED = 5] = 'DISAPPEARED';
-})(CommonState || (CommonState = {}));
 
 let EventQueryType;
 (function (EventQueryType) {
@@ -4249,3 +5115,169 @@ let GestureFocusMode;
   GestureFocusMode[GestureFocusMode.DEFAULT = 0] = 'DEFAULT';
   GestureFocusMode[GestureFocusMode.GESTURE_TAP_AND_LONG_PRESS = 1] = 'GESTURE_TAP_AND_LONG_PRESS';
 })(GestureFocusMode || (GestureFocusMode = {}));
+
+let PdfLoadResult;
+(function (PdfLoadResult) {
+  PdfLoadResult[PdfLoadResult.LOAD_SUCCESS = 0] = 'LOAD_SUCCESS';
+  PdfLoadResult[PdfLoadResult.PARSE_ERROR_FILE = 1] = 'PARSE_ERROR_FILE';
+  PdfLoadResult[PdfLoadResult.PARSE_ERROR_FORMAT = 2] = 'PARSE_ERROR_FORMAT';
+  PdfLoadResult[PdfLoadResult.PARSE_ERROR_PASSWORD = 3] = 'PARSE_ERROR_PASSWORD';
+  PdfLoadResult[PdfLoadResult.PARSE_ERROR_HANDLER = 4] = 'PARSE_ERROR_HANDLER';
+})(PdfLoadResult || (PdfLoadResult = {}));
+
+let ReplaceEffectType;
+(function (ReplaceEffectType) {
+  ReplaceEffectType[ReplaceEffectType.SEQUENTIAL = 0] = 'SEQUENTIAL';
+  ReplaceEffectType[ReplaceEffectType.CROSS_FADE = 1] = 'CROSS_FADE';
+  ReplaceEffectType[ReplaceEffectType.SLASH_OVERLAY = 2] = 'SLASH_OVERLAY';
+})(ReplaceEffectType || (ReplaceEffectType = {}));
+
+let PickerIndicatorType;
+(function (PickerIndicatorType) {
+  PickerIndicatorType[PickerIndicatorType.BACKGROUND = 0] = 'BACKGROUND';
+  PickerIndicatorType[PickerIndicatorType.DIVIDER = 1] = 'DIVIDER';
+})(PickerIndicatorType || (PickerIndicatorType = {}));
+
+let BlankScreenDetectionMethod;
+(function (BlankScreenDetectionMethod) {
+  BlankScreenDetectionMethod[BlankScreenDetectionMethod.DETECTION_CONTENTFUL_NODES_SEVENTEEN = 0] =
+    'DETECTION_CONTENTFUL_NODES_SEVENTEEN';
+})(BlankScreenDetectionMethod || (BlankScreenDetectionMethod = {}));
+
+let ListItemSwipeActionDirection;
+(function (ListItemSwipeActionDirection) {
+  ListItemSwipeActionDirection[ListItemSwipeActionDirection.START = 0] = 'START';
+  ListItemSwipeActionDirection[ListItemSwipeActionDirection.END = 1] = 'END';
+})(ListItemSwipeActionDirection || (ListItemSwipeActionDirection = {}));
+
+let ScrollSnapAnimationSpeed;
+(function (ScrollSnapAnimationSpeed) {
+  ScrollSnapAnimationSpeed[ScrollSnapAnimationSpeed.NORMAL = 0] = 'NORMAL';
+  ScrollSnapAnimationSpeed[ScrollSnapAnimationSpeed.SLOW = 1] = 'SLOW';
+})(ScrollSnapAnimationSpeed || (ScrollSnapAnimationSpeed = {}));
+
+let NavigationPolicy;
+(function (NavigationPolicy) {
+  NavigationPolicy[NavigationPolicy.NEW_POPUP = 0] = 'NEW_POPUP';
+  NavigationPolicy[NavigationPolicy.NEW_WINDOW = 1] = 'NEW_WINDOW';
+  NavigationPolicy[NavigationPolicy.NEW_BACKGROUND_TAB = 2] = 'NEW_BACKGROUND_TAB';
+  NavigationPolicy[NavigationPolicy.NEW_FOREGROUND_TAB = 3] = 'NEW_FOREGROUND_TAB';
+})(NavigationPolicy || (NavigationPolicy = {}));
+
+let NativeEmbedParamStatus;
+(function (NativeEmbedParamStatus) {
+  NativeEmbedParamStatus.ADD = 0;
+  NativeEmbedParamStatus.UPDATE = 1;
+  NativeEmbedParamStatus.DELETE = 2;
+})(NativeEmbedParamStatus || (NativeEmbedParamStatus = {}));
+
+let DetectedBlankScreenReason;
+(function (DetectedBlankScreenReason) {
+  DetectedBlankScreenReason.NO_CONTENTFUL_NODES = 0;
+  DetectedBlankScreenReason.SUB_THRESHOLD_CONTENTFUL_NODES = 1;
+})(DetectedBlankScreenReason || (DetectedBlankScreenReason = {}));
+
+let WebRotateEffect;
+(function (WebRotateEffect) {
+  WebRotateEffect[WebRotateEffect.TOPLEFT_EFFECT = 0] = 'TOPLEFT_EFFECT';
+  WebRotateEffect[WebRotateEffect.RESIZE_COVER_EFFECT = 1] = 'RESIZE_COVER_EFFECT';
+})(WebRotateEffect || (WebRotateEffect = {}));
+
+let PresetFillType;
+(function (PresetFillType) {
+  PresetFillType[PresetFillType.BREAKPOINT_DEFAULT = 0] = 'BREAKPOINT_DEFAULT';
+  PresetFillType[PresetFillType.BREAKPOINT_SM1MD2LG3 = 1] = 'BREAKPOINT_SM1MD2LG3';
+  PresetFillType[PresetFillType.BREAKPOINT_SM2MD3LG5 = 2] = 'BREAKPOINT_SM2MD3LG5';
+})(PresetFillType || (PresetFillType = {}));
+
+let RawInputEventType;
+(function (RawInputEventType) {
+  RawInputEventType[RawInputEventType.TOUCH = 0] = 'TOUCH';
+  RawInputEventType[RawInputEventType.MOUSE = 1] = 'MOUSE';
+})(RawInputEventType || (RawInputEventType = {}));
+
+let SystemProperties;
+(function (SystemProperties) {
+  SystemProperties.BREAK_POINT = 'system.arkui.breakpoint';
+  SystemProperties.WINDOW_SIZE = 'system.window.size';
+  SystemProperties.WINDOW_SIZE_PX = 'system.window.size.px';
+  SystemProperties.WINDOW_AVOID_AREA = 'system.window.avoidarea';
+  SystemProperties.WINDOW_AVOID_AREA_PX = 'system.window.avoidarea.px';
+})(SystemProperties || (SystemProperties = {}));
+
+let PinVerifyResult;
+(function (PinVerifyResult) {
+  PinVerifyResult[PinVerifyResult.PIN_VERIFICATION_SUCCESS = 0] = 'PIN_VERIFICATION_SUCCESS';
+  PinVerifyResult[PinVerifyResult.PIN_VERIFICATION_FAILED = 1] = 'PIN_VERIFICATION_FAILED';
+})(PinVerifyResult || (PinVerifyResult = {}));
+
+let CredentialType;
+(function (CredentialType) {
+  CredentialType[CredentialType.CREDENTIAL_USER = 2] = 'CREDENTIAL_USER';
+  CredentialType[CredentialType.CREDENTIAL_APP = 3] = 'CREDENTIAL_APP';
+  CredentialType[CredentialType.CREDENTIAL_UKEY = 4] = 'CREDENTIAL_UKEY';
+})(CredentialType || (CredentialType = {}));
+
+let ResolveStrategy;
+(function (ResolveStrategy) {
+    ResolveStrategy[ResolveStrategy.CALLING_SCOPE = 0] = 'CALLING_SCOPE';
+    ResolveStrategy[ResolveStrategy.LAST_FOCUS = 1] = 'LAST_FOCUS';
+    ResolveStrategy[ResolveStrategy.MAX_INSTANCE_ID = 2] = 'MAX_INSTANCE_ID';
+    ResolveStrategy[ResolveStrategy.UNIQUE = 3] = 'UNIQUE';
+    ResolveStrategy[ResolveStrategy.LAST_FOREGROUND = 4] = 'LAST_FOREGROUND';
+    ResolveStrategy[ResolveStrategy.UNDEFINED = 5] = 'UNDEFINED';
+})(ResolveStrategy || (ResolveStrategy = {}));
+
+let ThreatType;
+(function (ThreatType) {
+  ThreatType[ThreatType.THREAT_ILLEGAL = 0] = 'THREAT_ILLEGAL';
+  ThreatType[ThreatType.THREAT_FRAUD = 1] = 'THREAT_FRAUD';
+  ThreatType[ThreatType.THREAT_RISK = 2] = 'THREAT_RISK';
+  ThreatType[ThreatType.THREAT_WARNING = 3] = 'THREAT_WARNING';
+  ThreatType[ThreatType.THREAT_NONE = 4] = 'THREAT_NONE';
+  ThreatType[ThreatType.THREAT_UNPROCESSED = 5] = 'THREAT_UNPROCESSED';
+})(ThreatType || (ThreatType = {}));
+
+let ConsoleMessageSource
+(function (ConsoleMessageSource) {
+  ConsoleMessageSource[ConsoleMessageSource.XML = 0] = 'XML';
+  ConsoleMessageSource[ConsoleMessageSource.JAVASCRIPT = 1] = 'JAVASCRIPT';
+  ConsoleMessageSource[ConsoleMessageSource.NETWORK = 2] = 'NETWORK';
+  ConsoleMessageSource[ConsoleMessageSource.CONSOLE_API = 3] = 'CONSOLE_API';
+  ConsoleMessageSource[ConsoleMessageSource.STORAGE = 4] = 'STORAGE';
+  ConsoleMessageSource[ConsoleMessageSource.RENDERING = 5] = 'RENDERING';
+  ConsoleMessageSource[ConsoleMessageSource.SECURITY = 6] = 'SECURITY';
+  ConsoleMessageSource[ConsoleMessageSource.OTHER = 7] = 'OTHER';
+  ConsoleMessageSource[ConsoleMessageSource.DEPRECATION = 8] = 'DEPRECATION';
+  ConsoleMessageSource[ConsoleMessageSource.WORKER = 9] = 'WORKER';
+  ConsoleMessageSource[ConsoleMessageSource.VIOLATION = 10] = 'VIOLATION';
+  ConsoleMessageSource[ConsoleMessageSource.INTERVENTION = 11] = 'INTERVENTION';
+  ConsoleMessageSource[ConsoleMessageSource.RECOMMENDATION = 12] = 'RECOMMENDATION';
+})(ConsoleMessageSource || (ConsoleMessageSource = {}));
+
+let DialogDisplayMode;
+(function (DialogDisplayMode) {
+  DialogDisplayMode[DialogDisplayMode.SCREEN_BASED = 0] = 'SCREEN_BASED';
+  DialogDisplayMode[DialogDisplayMode.WINDOW_BASED = 1] = 'WINDOW_BASED';
+})(DialogDisplayMode || (DialogDisplayMode = {}));
+
+let CameraCaptureState;
+(function (CameraCaptureState) {
+  CameraCaptureState[CameraCaptureState.NONE = 0] = 'NONE';
+  CameraCaptureState[CameraCaptureState.PAUSED = 1] = 'PAUSED';
+  CameraCaptureState[CameraCaptureState.ACTIVE = 2] = 'ACTIVE';
+})(CameraCaptureState || (CameraCaptureState = {}));
+
+let HdrType;
+(function (HdrType) {
+  HdrType[HdrType.DEFAULT = 0] = 'DEFAULT';
+  HdrType[HdrType.AIHDR = 1] = 'AIHDR';
+  HdrType[HdrType.EDR = 2] = 'EDR';
+})(HdrType || (HdrType = {}));
+
+let MicrophoneCaptureState;
+(function (MicrophoneCaptureState) {
+  MicrophoneCaptureState[MicrophoneCaptureState.NONE = 0] = 'NONE';
+  MicrophoneCaptureState[MicrophoneCaptureState.PAUSED = 1] = 'PAUSED';
+  MicrophoneCaptureState[MicrophoneCaptureState.ACTIVE = 2] = 'ACTIVE';
+})(MicrophoneCaptureState || (MicrophoneCaptureState = {}));

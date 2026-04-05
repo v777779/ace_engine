@@ -17,10 +17,12 @@
 
 #include "form_constants.h"
 #include "form_info_base.h"
+#include "form_surface_info.h"
 #include "locale_config.h"
 #include "locale_info.h"
 #include "pointer_event.h"
 #include "transaction/rs_interfaces.h"
+#include "render_service_client/core/ui/rs_ui_director.h"
 
 #include "adapter/ohos/entrance/ace_container.h"
 #include "adapter/ohos/osal/resource_adapter_impl_v2.h"
@@ -30,20 +32,21 @@
 #include "base/log/log_wrapper.h"
 #include "base/utils/string_utils.h"
 #include "base/utils/system_properties.h"
+#include "core/common/udmf/udmf_client.h"
 #include "core/common/form_manager.h"
 #include "core/components/form/resource/form_manager_delegate.h"
-#include "core/components_ng/pattern/form/form_node.h"
 #include "core/components_ng/pattern/shape/rect_pattern.h"
+#include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/render/adapter/rosen_render_context.h"
-#include "render_service_client/core/ui/rs_ui_director.h"
+#include "core/components_ng/pattern/form/form_node.h"
+#include "core/components_ng/pattern/form/form_scoped_rs_transaction.h"
+#include "core/components_ng/pattern/form/form_snapshot_check.h"
+#include "core/components_ng/pattern/form/form_snapshot_util.h"
 
 #if OHOS_STANDARD_SYSTEM
 #include "form_info.h"
 #endif
-
-#include "core/common/udmf/udmf_client.h"
-#include "form_pattern.h"
 
 static const int64_t MAX_NUMBER_OF_JS = 0x20000000000000;
 
@@ -53,9 +56,9 @@ constexpr double FORM_CLICK_OPEN_LIMIT_DISTANCE = 20.0;
 constexpr uint32_t DELAY_TIME_FOR_FORM_SUBCONTAINER_CACHE = 30000;
 constexpr uint32_t DELAY_TIME_FOR_FORM_SNAPSHOT_3S = 3000;
 constexpr uint32_t DELAY_TIME_FOR_FORM_SNAPSHOT_EXTRA = 200;
-constexpr uint32_t DELAY_TIME_FOR_SET_NON_TRANSPARENT = 70;
-constexpr uint32_t DELAY_TIME_FOR_DELETE_IMAGE_NODE = 300;
+constexpr uint32_t DELAY_TIME_FOR_DELETE_IMAGE_NODE = 200;
 constexpr uint32_t DELAY_TIME_FOR_RESET_MANUALLY_CLICK_FLAG = 3000;
+constexpr uint32_t DELAY_TIME_FOR_RM_IMG_WHEN_UPDATING_SIZE = 60;
 constexpr double ARC_RADIUS_TO_DIAMETER = 2.0;
 constexpr double NON_TRANSPARENT_VAL = 1.0;
 constexpr double TRANSPARENT_VAL = 0;
@@ -64,13 +67,19 @@ constexpr int32_t DOUBLE = 2;
 constexpr char FORM_DIMENSION_SPLITTER = '*';
 constexpr int32_t FORM_SHAPE_CIRCLE = 2;
 constexpr double TIME_LIMIT_FONT_SIZE_BASE = 14.0;
+#ifdef ARKUI_WEARABLE
+constexpr double FORBIDDEN_ICON_STYLE = 64.0;
+#else
 constexpr double FORBIDDEN_ICON_STYLE = 32.0;
 constexpr double FORBIDDEN_ICON_STYLE_1_2 = 24.0;
+#endif
 constexpr double TIBETAN_TIME_LIMIT_FONT_SIZE_BASE = 9.0;
 constexpr double ONE_DIMENSION_TIME_LIMIT_FONT_SIZE_BASE = 14.0;
 constexpr float MAX_FONT_SCALE = 1.3f;
 constexpr char TIME_LIMIT_RESOURCE_NAME[] = "form_disable_time_limit";
 constexpr char APP_LOCKED_RESOURCE_NAME[] = "form_disable_app_locked";
+constexpr char DEVELOPER_MODE_TIPS_RESOURCE_NAME[] = "desc_developer_mode_tips";
+constexpr char DUE_CONTROL_RESOURCE_NAME[] = "due_control_form";
 constexpr float FORBIDDEN_STYLE_PADDING = 12;
 constexpr uint32_t ROOT_BG_COLOR_DARK = 0xFF2E3033;
 constexpr uint32_t ROOT_BG_COLOR_LIGHT = 0xFFF1F3F5;
@@ -86,6 +95,18 @@ constexpr int32_t FORM_COMPONENT_UPDATE_VALID_DURATION = 1000;
 constexpr uint32_t DELAY_TIME_FOR_FORM_SNAPSHOT_10S = 10000;
 constexpr char NO_FORM_DUMP[] = "-noform";
 constexpr char PID_FLAG[] = "pidflag";
+constexpr float DEFAULT_VIEW_SCALE = 1.0f;
+constexpr char COLUMN_ROLE[] = "column";
+
+// Relationship between form styles and resource text content
+const static std::unordered_map<FormStyleAttribution, std::pair<const char*, FormChildNodeType>> FORM_STYLE_RES_MAP = {
+    { FormStyleAttribution::PARENT_CONTROL, { TIME_LIMIT_RESOURCE_NAME, FormChildNodeType::TIME_LIMIT_TEXT_NODE } },
+    { FormStyleAttribution::APP_LOCK, { APP_LOCKED_RESOURCE_NAME, FormChildNodeType::APP_LOCKED_TEXT_NODE } },
+    { FormStyleAttribution::DEVELOPER_MODE_TIPS,
+        { DEVELOPER_MODE_TIPS_RESOURCE_NAME, FormChildNodeType::DEVELOPER_MODE_TIPS_TEXT_NODE } },
+    { FormStyleAttribution::DUE_DISABLE, { DUE_CONTROL_RESOURCE_NAME, FormChildNodeType::DUE_CONTROL_TEXT_NODE } },
+    { FormStyleAttribution::DUE_REMOVE, { DUE_CONTROL_RESOURCE_NAME, FormChildNodeType::DUE_CONTROL_TEXT_NODE } }
+};
 
 class FormSnapshotCallback : public Rosen::SurfaceCaptureCallback {
 public:
@@ -110,23 +131,45 @@ private:
     WeakPtr<FormPattern> weakFormPattern_ = nullptr;
 };
 
-void PostTask(const TaskExecutor::Task& task, TaskExecutor::TaskType type, const std::string& name)
+void PostDelayedTask(
+    const TaskExecutor::Task &task, TaskExecutor::TaskType type, int32_t delayTime, const std::string &name)
 {
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto taskExecutor = pipeline->GetTaskExecutor();
     CHECK_NULL_VOID(taskExecutor);
-    taskExecutor->PostTask(task, type, name, PriorityType::HIGH);
+    taskExecutor->PostDelayedTask(task, type, delayTime, name, PriorityType::HIGH);
 }
 
-void PostUITask(const TaskExecutor::Task& task, const std::string& name)
+void PostDelayedUITask(const TaskExecutor::Task &task, int32_t delayTime, const std::string &name)
 {
-    PostTask(task, TaskExecutor::TaskType::UI, name);
+    PostDelayedTask(task, TaskExecutor::TaskType::UI, delayTime, name);
 }
 
-void PostBgTask(const TaskExecutor::Task& task, const std::string& name)
+void PostUITask(const TaskExecutor::Task &task, const std::string &name)
 {
-    PostTask(task, TaskExecutor::TaskType::BACKGROUND, name);
+    PostDelayedTask(task, TaskExecutor::TaskType::UI, 0, name);
+}
+
+void PostBgTask(const TaskExecutor::Task &task, const std::string &name)
+{
+    PostDelayedTask(task, TaskExecutor::TaskType::BACKGROUND, 0, name);
+}
+
+void RemoveUITask(const std::string &name)
+{
+    auto pipeline = PipelineBase::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    auto taskExecutor = pipeline->GetTaskExecutor();
+    CHECK_NULL_VOID(taskExecutor);
+    taskExecutor->RemoveTask(TaskExecutor::TaskType::UI, name);
+}
+
+int64_t GetCurrentTimestamp()
+{
+    auto nowSys = std::chrono::steady_clock::now();
+    auto epoch = nowSys.time_since_epoch();
+    return static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(epoch).count());
 }
 } // namespace
 
@@ -152,21 +195,16 @@ void FormPattern::OnAttachToFrameNode()
     InitFormManagerDelegate();
     auto eventHub = host->GetEventHub<FormEventHub>();
     CHECK_NULL_VOID(eventHub);
-    eventHub->SetOnCache([weak = WeakClaim(this)]() {
+    eventHub->SetOnCache([weak = WeakClaim(this), scopeId = Container::CurrentId()]() {
         auto pattern = weak.Upgrade();
         CHECK_NULL_VOID(pattern);
-        auto host = pattern->GetHost();
-        CHECK_NULL_VOID(host);
-        auto context = host->GetContextRefPtr();
-        CHECK_NULL_VOID(context);
         auto subContainer = pattern->GetSubContainer();
         CHECK_NULL_VOID(subContainer);
-        auto uiTaskExecutor =
-            SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::UI);
         auto id = subContainer->GetRunningCardId();
-        TAG_LOGI(AceLogTag::ACE_FORM, "FormPattern::OnAttachToFrameNode, cardId: %{public}" PRId64, id);
+        TAG_LOGI(AceLogTag::ACE_FORM, "FormPattern::FormCacheCallback, cardId: %{public}" PRId64, id);
         FormManager::GetInstance().AddSubContainer(id, subContainer);
-        uiTaskExecutor.PostDelayedTask(
+        ContainerScope containerScope(scopeId);
+        PostDelayedUITask(
             [id, nodeId = subContainer->GetNodeId()] {
                 auto cachedSubContainer = FormManager::GetInstance().GetSubContainer(id);
                 if (cachedSubContainer != nullptr && cachedSubContainer->GetNodeId() == nodeId) {
@@ -179,7 +217,6 @@ void FormPattern::OnAttachToFrameNode()
     InitClickEvent();
 
     scopeId_ = Container::CurrentId();
-    EventReport::StartFormModifyTimeoutReportTimer(cardInfo_.id, cardInfo_.bundleName, cardInfo_.cardName);
 }
 
 void FormPattern::InitClickEvent()
@@ -263,12 +300,7 @@ void FormPattern::HandleUnTrustForm()
         }
     }
 
-    host->MarkDirtyNode(PROPERTY_UPDATE_LAYOUT);
-    auto parent = host->GetParent();
-    CHECK_NULL_VOID(parent);
-    parent->MarkNeedSyncRenderTree();
-    parent->RebuildRenderContextTree();
-    host->GetRenderContext()->RequestNextFrame();
+    RequestRender();
 }
 
 void FormPattern::UpdateBackgroundColorWhenUnTrustForm()
@@ -285,38 +317,41 @@ void FormPattern::UpdateBackgroundColorWhenUnTrustForm()
 
 void FormPattern::HandleSnapshot(uint32_t delayTime, const std::string& nodeIdStr)
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
-    CHECK_NULL_VOID(pipeline);
-    auto executor = pipeline->GetTaskExecutor();
-    CHECK_NULL_VOID(executor);
     snapshotTimestamp_ = GetCurrentTimestamp();
+
+    ContainerScope containerScope(scopeId_);
     if (isDynamic_) {
         if (formChildrenNodeMap_.find(FormChildNodeType::FORM_STATIC_IMAGE_NODE) != formChildrenNodeMap_.end()) {
-            executor->RemoveTask(TaskExecutor::TaskType::UI, "ArkUIFormSetNonTransparentAfterRecover_" + nodeIdStr);
-            executor->RemoveTask(TaskExecutor::TaskType::UI, "ArkUIFormDeleteImageNodeAfterRecover_" + nodeIdStr);
-            RemoveFrsNode();
-            ReleaseRenderer();
-            UnregisterAccessibility();
-            isSnapshot_ = true;
-            needSnapshotAgain_ = false;
+            RemoveUITask("ArkUIFormDeleteImageNodeAfterRecover_" + nodeIdStr);
+            PostUITask([weak = WeakClaim(this)] {
+                auto formPattern = weak.Upgrade();
+                CHECK_NULL_VOID(formPattern);
+                formPattern->RemoveFrsNode();
+                formPattern->ReleaseRenderer();
+                formPattern->UnregisterAccessibility();
+                formPattern->isSnapshot_ = true;
+                formPattern->needSnapshotAgain_ = false;
+                }, "ArkUIFormRemoveFrsNode");
             return;
         }
     }
-
+    if (!isDynamic_ && IsAccessibilityState()) {
+        TAG_LOGW(AceLogTag::ACE_FORM, "IsAccessibilityState, static form not recycled");
+        return;
+    }
     isStaticFormSnaping_ = true;
-    executor->PostDelayedTask(
+    PostDelayedUITask(
         [weak = WeakClaim(this), delayTime]() mutable {
             auto form = weak.Upgrade();
             CHECK_NULL_VOID(form);
             int64_t currentTime = GetCurrentTimestamp();
             if (currentTime - form->snapshotTimestamp_ < delayTime) {
-                TAG_LOGD(AceLogTag::ACE_FORM, "another snapshot task has been posted.");
+                TAG_LOGW(AceLogTag::ACE_FORM, "another snapshot task has been posted.");
                 return;
             }
             form->isStaticFormSnaping_ = false;
             form->TakeSurfaceCaptureForUI();
-        },
-        TaskExecutor::TaskType::UI, delayTime, "ArkUIFormTakeSurfaceCapture_" + nodeIdStr);
+        }, delayTime, "ArkUIFormTakeSurfaceCapture_" + nodeIdStr);
 }
 
 void FormPattern::HandleStaticFormEvent(const PointF& touchPoint)
@@ -329,7 +364,7 @@ void FormPattern::HandleStaticFormEvent(const PointF& touchPoint)
         TAG_LOGE(AceLogTag::ACE_FORM, "dynamic form.");
         return;
     }
-    if (!shouldResponseClick_) {
+    if (!shouldResponseClick_ && !IsAccessibilityState()) {
         TAG_LOGE(AceLogTag::ACE_FORM, "shouldResponseClick_ is false.");
         return;
     }
@@ -353,6 +388,35 @@ void FormPattern::HandleEnableForm(const bool enable)
     auto newFormSpecialStyle = formSpecialStyle_;
     newFormSpecialStyle.SetIsForbiddenByParentControl(!enable);
     HandleFormStyleOperation(newFormSpecialStyle);
+}
+
+void FormPattern::ProcessCheckForm()
+{
+    if (!formManagerBridge_) {
+        TAG_LOGE(AceLogTag::ACE_FORM, "ProcessCheckForm formManagerBridge_ is null");
+        return;
+    }
+    TAG_LOGI(AceLogTag::ACE_FORM, "ProcessCheckForm isSnapshot_:%{public}d", isSnapshot_);
+    auto checker = std::make_shared<FormSnapshotCheck>(formManagerBridge_);
+    if (isSnapshot_) {
+        auto pixelMap = pixelMap_->GetPixelMapSharedPtr();
+        if (!pixelMap) {
+            TAG_LOGE(AceLogTag::ACE_FORM, "ProcessCheckForm pixelMap_ is null");
+            return;
+        }
+        checker->OnSurfaceCapture(pixelMap);
+        return;
+    }
+
+    ContainerScope scope(scopeId_);
+    PostUITask(
+        [weak = WeakClaim(this), checker] {
+            auto pattern = weak.Upgrade();
+            CHECK_NULL_VOID(pattern);
+            CHECK_NULL_VOID(pattern->formManagerBridge_);
+            pattern->SnapshotSurfaceNode(checker);
+        },
+        "ArkUIFormSnapshotSurfaceNodeForChecking");
 }
 
 void FormPattern::TakeSurfaceCaptureForUI()
@@ -380,26 +444,32 @@ void FormPattern::TakeSurfaceCaptureForUI()
         return;
     }
 
-    if (formChildrenNodeMap_.find(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE)
-        == formChildrenNodeMap_.end()) {
-        SnapshotSurfaceNode();
+    if (formChildrenNodeMap_.find(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE) == formChildrenNodeMap_.end()) {
+        if (!isDynamic_ && IsAccessibilityState()) {
+            TAG_LOGW(AceLogTag::ACE_FORM, "IsAccessibilityState, static form not recycled");
+            return;
+        }
+        SnapshotSurfaceNode(std::make_shared<FormSnapshotCallback>(WeakClaim(this)));
         return;
     }
     UpdateChildNodeOpacity(FormChildNodeType::FORM_SURFACE_NODE, NON_TRANSPARENT_VAL);
     host->MarkDirtyNode(PROPERTY_UPDATE_LAYOUT);
-    auto context = host->GetContext();
-    CHECK_NULL_VOID(context);
-    auto uiTaskExecutor = SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::UI);
-    uiTaskExecutor.PostDelayedTask(
+    if (!isDynamic_ && IsAccessibilityState()) {
+        TAG_LOGW(AceLogTag::ACE_FORM, "IsAccessibilityState, static form not recycled");
+        return;
+    }
+
+    ContainerScope containerScope(scopeId_);
+    PostDelayedUITask(
         [weak = WeakClaim(this)] {
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
-            pattern->SnapshotSurfaceNode();
+            pattern->SnapshotSurfaceNode(std::make_shared<FormSnapshotCallback>(weak));
         },
         DELAY_TIME_FOR_FORM_SNAPSHOT_EXTRA, "ArkUIFormDelaySnapshotSurfaceNode");
 }
 
-void FormPattern::SnapshotSurfaceNode()
+void FormPattern::SnapshotSurfaceNode(std::shared_ptr<Rosen::SurfaceCaptureCallback> callback)
 {
     auto externalContext = DynamicCast<NG::RosenRenderContext>(GetExternalRenderContext());
     CHECK_NULL_VOID(externalContext);
@@ -407,7 +477,7 @@ void FormPattern::SnapshotSurfaceNode()
     CHECK_NULL_VOID(rsNode);
     externalContext->AddRsNodeForCapture();
     auto& rsInterface = Rosen::RSInterfaces::GetInstance();
-    rsInterface.TakeSurfaceCaptureForUI(rsNode, std::make_shared<FormSnapshotCallback>(WeakClaim(this)));
+    rsInterface.TakeSurfaceCaptureForUI(rsNode, callback);
 }
 
 void FormPattern::OnSnapshot(std::shared_ptr<Media::PixelMap> pixelMap)
@@ -417,33 +487,59 @@ void FormPattern::OnSnapshot(std::shared_ptr<Media::PixelMap> pixelMap)
     CHECK_NULL_VOID(host);
     auto context = host->GetContext();
     CHECK_NULL_VOID(context);
+    if (!pixelMap) {
+        TAG_LOGW(AceLogTag::ACE_FORM, "FormPattern::OnSnapshot pixelmap is null");
+        return;
+    }
+
+    if (!isDynamic_ && FormSnapshotUtil::IsTransparent(pixelMap)) {
+        TAG_LOGW(AceLogTag::ACE_FORM, "FormPattern::OnSnapshot pixelmap is transparent");
+        needSnapshotAgain_ = true;
+        return;
+    }
+
     auto uiTaskExecutor =
         SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::UI);
     uiTaskExecutor.PostTask([weak = WeakClaim(this), pixelMap] {
         auto formPattern = weak.Upgrade();
         CHECK_NULL_VOID(formPattern);
         formPattern->HandleOnSnapshot(pixelMap);
-        }, "ArkUIFormHandleOnSnapshot");
+        }, "ArkUIFormHandleOnSnapshot", PriorityType::HIGH);
 }
 
 void FormPattern::HandleOnSnapshot(std::shared_ptr<Media::PixelMap> pixelMap)
 {
-    TAG_LOGI(AceLogTag::ACE_FORM, "call.");
+    TAG_LOGI(AceLogTag::ACE_FORM, "HandleOnSnapshot.");
     CHECK_NULL_VOID(pixelMap);
+
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto context = host->GetContext();
+    CHECK_NULL_VOID(context);
+    auto executor = context->GetTaskExecutor();
+    CHECK_NULL_VOID(executor);
+
+    std::string nodeIdStr = std::to_string(host->GetId());
+    executor->RemoveTask(TaskExecutor::TaskType::UI, std::string("DelayRemoveFormChildNode").append(nodeIdStr));
+
+    executor->RemoveTask(
+        TaskExecutor::TaskType::UI, std::string("ArkUIFormDeleteImageNodeAfterRecover_").append(nodeIdStr));
+
     pixelMap_ = PixelMap::CreatePixelMap(reinterpret_cast<void*>(&pixelMap));
     UpdateStaticCard();
     isSnapshot_ = true;
     needSnapshotAgain_ = false;
 }
 
-void FormPattern::OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId, int64_t accessibilityId)
+bool FormPattern::OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId, int64_t accessibilityId)
 {
-    TAG_LOGD(AceLogTag::ACE_FORM, "call, treeId: %{public}d, id: %{public}" PRId64, treeId, accessibilityId);
+    TAG_LOGD(AceLogTag::ACE_FORM, "OnAccessibilityChildTreeRegister, treeId: %{public}d, id: %{public}" PRId64, treeId,
+        accessibilityId);
     if (formManagerBridge_ == nullptr) {
         TAG_LOGE(AceLogTag::ACE_FORM, "formManagerBridge_ is null");
-        return;
+        return false;
     }
-    formManagerBridge_->OnAccessibilityChildTreeRegister(windowId, treeId, accessibilityId);
+    return formManagerBridge_->OnAccessibilityChildTreeRegister(windowId, treeId, accessibilityId);
 }
 
 void FormPattern::OnAccessibilityChildTreeDeregister()
@@ -487,14 +583,8 @@ void FormPattern::SetNonTransparentAfterRecover()
 {
     ACE_FUNCTION_TRACE();
     // set frs node non transparent
-    if (formChildrenNodeMap_.find(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE)
-        == formChildrenNodeMap_.end()) {
+    if (formChildrenNodeMap_.find(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE) == formChildrenNodeMap_.end()) {
         UpdateChildNodeOpacity(FormChildNodeType::FORM_SURFACE_NODE, NON_TRANSPARENT_VAL);
-        //update form after updateChildNodeOpacity
-        auto host = GetHost();
-        CHECK_NULL_VOID(host);
-        host->MarkDirtyNode(PROPERTY_UPDATE_LAYOUT);
-        TAG_LOGI(AceLogTag::ACE_FORM, "setOpacity:1");
     } else {
         TAG_LOGW(AceLogTag::ACE_FORM, "has forbidden node");
     }
@@ -503,25 +593,31 @@ void FormPattern::SetNonTransparentAfterRecover()
 void FormPattern::DeleteImageNodeAfterRecover(bool needHandleCachedClick)
 {
     ACE_FUNCTION_TRACE();
+    SetNonTransparentAfterRecover();
+
+    // delete image rs node and frame node
+    RemoveFormChildNode(FormChildNodeType::FORM_STATIC_IMAGE_NODE);
+    RequestRender();
+    // handle cached pointer event
+    if (needHandleCachedClick && formManagerBridge_) {
+        formManagerBridge_->HandleCachedClickEvents();
+    }
+}
+
+void FormPattern::RequestRender()
+{
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
 
-    // delete image rs node and frame node
-    RemoveFormChildNode(FormChildNodeType::FORM_STATIC_IMAGE_NODE);
-
     host->MarkDirtyNode(PROPERTY_UPDATE_LAYOUT);
     auto parent = host->GetParent();
-    CHECK_NULL_VOID(parent);
-    parent->MarkNeedSyncRenderTree();
-    parent->RebuildRenderContextTree();
-    renderContext->RequestNextFrame();
-
-    // handle cached pointer event
-    if (needHandleCachedClick && formManagerBridge_) {
-        formManagerBridge_->HandleCachedClickEvents();
+    if (parent) {
+        parent->MarkNeedSyncRenderTree();
+        parent->RebuildRenderContextTree();
     }
+    renderContext->RequestNextFrame();
 }
 
 RefPtr<FrameNode> FormPattern::CreateImageNode()
@@ -580,6 +676,7 @@ void FormPattern::UpdateImageNode()
     externalContext->SetVisible(true);
     if (formChildrenNodeMap_.find(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE)
         != formChildrenNodeMap_.end()) {
+        TAG_LOGI(AceLogTag::ACE_FORM, "imageNode SetOpacity:0");
         externalContext->SetOpacity(TRANSPARENT_VAL);
     }
     imageNode->MarkModifyDone();
@@ -596,12 +693,7 @@ void FormPattern::RemoveFrsNode()
     CHECK_NULL_VOID(renderContext);
     renderContext->RemoveChild(externalRenderContext_);
 
-    host->MarkDirtyNode(PROPERTY_UPDATE_LAYOUT);
-    auto parent = host->GetParent();
-    CHECK_NULL_VOID(parent);
-    parent->MarkNeedSyncRenderTree();
-    parent->RebuildRenderContextTree();
-    host->GetRenderContext()->RequestNextFrame();
+    RequestRender();
 }
 
 void FormPattern::ReleaseRenderer()
@@ -634,9 +726,16 @@ void FormPattern::OnVisibleChange(bool isVisible)
     isVisible_ = isVisible;
 }
 
+void FormPattern::OnColorConfigurationUpdate()
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    OnModifyDone();
+}
+
 void FormPattern::OnModifyDone()
 {
-    EventReport::StopFormModifyTimeoutReportTimer(cardInfo_.id);
     Pattern::OnModifyDone();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
@@ -686,16 +785,20 @@ void FormPattern::OnModifyDone()
         bool isEnable = wantWrap->GetWant().GetBoolParam(OHOS::AppExecFwk::Constants::FORM_ENABLE_SKELETON_KEY, false);
         TAG_LOGD(AceLogTag::ACE_FORM, "FORM_ENABLE_SKELETON_KEY %{public}d", isEnable);
     }
+    if (cardInfo_.width != info.width || cardInfo_.height != info.height || cardInfo_.borderWidth != info.borderWidth) {
+        isBeenLayout_ = false;
+    }
+    info.colorMode = formColorMode_;
+    GetWantParam(info);
     HandleFormComponent(info);
 
-    auto accessibilityProperty = host->GetAccessibilityProperty<AccessibilityProperty>();
-    CHECK_NULL_VOID(accessibilityProperty);
-    accessibilityProperty->SetAccessibilityLevel(AccessibilityProperty::Level::NO_STR);
+    SetFormAccessibilityAction();
 }
 
 bool FormPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config)
 {
     if (config.skipMeasure && config.skipLayout) {
+        TAG_LOGW(AceLogTag::ACE_FORM, "skip measure and layout");
         return false;
     }
     isBeenLayout_ = true;
@@ -722,7 +825,9 @@ bool FormPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, c
     layoutProperty->UpdateRequestFormInfo(info);
     info.obscuredMode = isFormObscured_;
     info.obscuredMode |= formSpecialStyle_.IsForbidden() || formSpecialStyle_.IsLocked();
+    info.colorMode = formColorMode_;
     UpdateBackgroundColorWhenUnTrustForm();
+    GetWantParam(info);
     HandleFormComponent(info);
     return true;
 }
@@ -733,12 +838,75 @@ void FormPattern::HandleFormComponent(RequestFormInfo& info)
     if (info.bundleName != cardInfo_.bundleName || info.abilityName != cardInfo_.abilityName ||
         info.moduleName != cardInfo_.moduleName || info.cardName != cardInfo_.cardName ||
         info.dimension != cardInfo_.dimension || info.renderingMode != cardInfo_.renderingMode) {
-        info.obscuredMode |= (CheckFormBundleForbidden(info.bundleName) ||
-            IsFormBundleProtected(info.bundleName, info.id));
         AddFormComponent(info);
     } else {
         UpdateFormComponent(info);
     }
+}
+
+void FormPattern::GetWantParam(RequestFormInfo& info)
+{
+    auto wantWrap = info.wantWrap;
+    if (!wantWrap) {
+        TAG_LOGE(AceLogTag::ACE_FORM, "wantWrap not exit");
+        return;
+    }
+    auto want = wantWrap->GetWant();
+    float width = static_cast<float>(info.width.Value());
+    float height = static_cast<float>(info.height.Value());
+    float layoutWidth = GetNumberFromParams(want, OHOS::AppExecFwk::Constants::PARAM_LAYOUT_WIDTH_KEY, width);
+    layoutWidth = NearEqual(layoutWidth, width) ? layoutWidth :
+        static_cast<float>(Dimension(layoutWidth, DimensionUnit::VP).ConvertToPx());
+    float layoutHeight = GetNumberFromParams(want, OHOS::AppExecFwk::Constants::PARAM_LAYOUT_HEIGHT_KEY, height);
+    layoutHeight = NearEqual(layoutHeight, height) ? layoutHeight :
+        static_cast<float>(Dimension(layoutHeight, DimensionUnit::VP).ConvertToPx());
+    bool isEnable = want.GetBoolParam(OHOS::AppExecFwk::Constants::FORM_ENABLE_SKELETON_KEY, false);
+    formViewScale_ = CalculateViewScale(width, height, layoutWidth, layoutHeight);
+    info.formViewScale = formViewScale_;
+    TAG_LOGD(AceLogTag::ACE_FORM, "FormPattern::GetWantParam FORM_ENABLE_SKELETON_KEY %{public}d,"
+        " layoutWidth %{public}f, layoutHeight %{public}f, viewScale: %{public}f, formId: %{public}" PRId64,
+        isEnable, layoutWidth, layoutHeight, formViewScale_, info.id);
+}
+
+float FormPattern::CalculateViewScale(float width, float height, float layoutWidth, float layoutHeight)
+{
+    bool isDefaultScale = NearZero(width) || NearZero(height) || NearZero(layoutWidth) || NearZero(layoutHeight);
+    if (isDefaultScale) {
+        return DEFAULT_VIEW_SCALE;
+    }
+    float widthScale = NearEqual(layoutWidth, width) ? DEFAULT_VIEW_SCALE : layoutWidth / width;
+    float heightScale = NearEqual(layoutHeight, height) ?  DEFAULT_VIEW_SCALE : layoutHeight / height;
+    float viewScale = (widthScale >= heightScale) ? widthScale : heightScale;
+    viewScale = LessOrEqual(viewScale, 0.0f) ? DEFAULT_VIEW_SCALE : viewScale;
+    return viewScale;
+}
+
+float FormPattern::GetNumberFromParams(const AAFwk::Want& want, const std::string& key, float defaultValue)
+{
+    auto params = want.GetParams();
+    if (!params.HasParam(key)) {
+        return defaultValue;
+    }
+    int typeId = params.GetDataType(params.GetParam(key));
+    float result = 0.0;
+    switch (typeId) {
+        case VALUE_TYPE_INT: {
+            int value = want.GetIntParam(key, 0);
+            result = (value != 0) ? static_cast<float>(value) : defaultValue;
+            break;
+        }
+        case VALUE_TYPE_DOUBLE: {
+            result = static_cast<float>(want.GetDoubleParam(key, static_cast<double>(defaultValue)));
+            break;
+        }
+        default: {
+            result = defaultValue;
+            break;
+        }
+    }
+    TAG_LOGD(AceLogTag::ACE_FORM, "FormPattern::GetNumberFromParams key: %{public}s, typeId: %{public}d,"
+        " result: %{public}f", key.c_str(), typeId, result);
+    return result;
 }
 
 void FormPattern::AddFormComponent(const RequestFormInfo& info)
@@ -752,8 +920,8 @@ void FormPattern::AddFormComponent(const RequestFormInfo& info)
         TAG_LOGW(AceLogTag::ACE_FORM, "Invalid form size.");
         return;
     }
-    TAG_LOGW(AceLogTag::ACE_FORM, "width: %{public}f   height: %{public}f  borderWidth: %{public}f",
-        info.width.Value(), info.height.Value(), info.borderWidth);
+    TAG_LOGW(AceLogTag::ACE_FORM, "width: %{public}f   height: %{public}f  borderWidth: %{public}f"
+        "  formViewScale: %{public}f", info.width.Value(), info.height.Value(), info.borderWidth, info.formViewScale);
     cardInfo_ = info;
     if (info.dimension == static_cast<int32_t>(OHOS::AppExecFwk::Constants::Dimension::DIMENSION_1_1)
         || info.shape == FORM_SHAPE_CIRCLE) {
@@ -788,23 +956,31 @@ void FormPattern::AddFormComponentTask(const RequestFormInfo& info, RefPtr<Pipel
         TAG_LOGE(AceLogTag::ACE_FORM, "Form manager delegate is nullptr.");
         return;
     }
+    bool isFormBundleForbidden = CheckFormBundleForbidden(info.bundleName);
+    bool isFormProtected = IsFormBundleProtected(info.bundleName, 0) && !IsFormBundleExempt(info.id);
+    bool isShowDeveloperTips = false;
+    if (!SystemProperties::GetDeveloperModeOn()) {
+        isShowDeveloperTips = IsFormBundleDebugSignature(info.bundleName);
+    }
+    cardInfo_.obscuredMode |= isFormBundleForbidden || isFormProtected || isShowDeveloperTips;
+    bool isDueDisable =
+        IsFormDueControl(info.bundleName, info.moduleName, info.abilityName, info.cardName, info.dimension, true);
+    bool isDueRemove =
+        IsFormDueControl(info.bundleName, info.moduleName, info.abilityName, info.cardName, info.dimension, false);
 #if OHOS_STANDARD_SYSTEM
-    formManagerBridge_->AddForm(pipeline, info, formInfo);
+    formManagerBridge_->AddForm(pipeline, cardInfo_, formInfo);
 #else
-    formManagerBridge_->AddForm(pipeline, info);
+    formManagerBridge_->AddForm(pipeline, cardInfo_);
 #endif
 
-    bool isFormBundleForbidden = CheckFormBundleForbidden(info.bundleName);
-    if (formInfo.transparencyEnabled && isFormBundleForbidden) {
-        TAG_LOGI(AceLogTag::ACE_FORM, "transparencyEnabled.");
-        formSpecialStyle_.SetInitDone();
-        return;
-    }
-    bool isFormProtected = IsFormBundleProtected(info.bundleName, info.id);
-    if (isFormProtected || isFormBundleForbidden)  {
+    if (!info.exemptAppLock && (isFormProtected || isFormBundleForbidden || isShowDeveloperTips ||
+        isDueDisable || isDueRemove))  {
         auto newFormSpecialStyle = formSpecialStyle_;
         newFormSpecialStyle.SetIsLockedByAppLock(isFormProtected);
         newFormSpecialStyle.SetIsForbiddenByParentControl(isFormBundleForbidden);
+        newFormSpecialStyle.SetIsShowDeveloperTips(isShowDeveloperTips);
+        newFormSpecialStyle.SetIsDisableByDue(isDueDisable);
+        newFormSpecialStyle.SetIsRemoveByDue(isDueRemove);
         newFormSpecialStyle.SetInitDone();
         PostUITask([weak = WeakClaim(this), info, newFormSpecialStyle] {
             ACE_SCOPED_TRACE("ArkUILoadDisableFormStyle");
@@ -872,7 +1048,8 @@ void FormPattern::UpdateFormComponent(const RequestFormInfo& info)
             formManagerBridge_->SetAllowUpdate(cardInfo_.allowUpdate);
         }
     }
-    if (cardInfo_.width != info.width || cardInfo_.height != info.height || cardInfo_.borderWidth != info.borderWidth) {
+    if (cardInfo_.width != info.width || cardInfo_.height != info.height ||
+        cardInfo_.borderWidth != info.borderWidth || !NearEqual(cardInfo_.formViewScale, info.formViewScale)) {
         UpdateFormComponentSize(info);
     }
     if (cardInfo_.obscuredMode != info.obscuredMode) {
@@ -899,29 +1076,16 @@ void FormPattern::UpdateFormComponent(const RequestFormInfo& info)
     }
     UpdateSpecialStyleCfg();
     UpdateConfiguration();
+    UpdateColorMode(info.colorMode);
 }
 
 void FormPattern::UpdateFormComponentSize(const RequestFormInfo& info)
 {
-    TAG_LOGI(AceLogTag::ACE_FORM,
-        "update size, id: %{public}" PRId64 "  width: %{public}f  height: %{public}f  borderWidth: %{public}f",
-        info.id, info.width.Value(), info.height.Value(), info.borderWidth);
-    cardInfo_.width = info.width;
-    cardInfo_.height = info.height;
-    cardInfo_.borderWidth = info.borderWidth;
-    auto externalRenderContext = DynamicCast<NG::RosenRenderContext>(GetExternalRenderContext());
-    CHECK_NULL_VOID(externalRenderContext);
-
-    externalRenderContext->SetBounds(round(cardInfo_.borderWidth), round(cardInfo_.borderWidth),
-        round(cardInfo_.width.Value() - cardInfo_.borderWidth * DOUBLE),
-        round(cardInfo_.height.Value() - cardInfo_.borderWidth * DOUBLE));
-
-    if (formManagerBridge_) {
-        formManagerBridge_->NotifySurfaceChange(info.width.Value(), info.height.Value(), info.borderWidth);
-    } else {
-        TAG_LOGE(AceLogTag::ACE_FORM, "form manager delagate is nullptr, card id is %{public}" PRId64 ".",
-            cardInfo_.id);
-    }
+    TAG_LOGW(AceLogTag::ACE_FORM,
+        "update size, id: %{public}" PRId64 "  width: %{public}f  height: %{public}f  borderWidth: %{public}f"
+        "  formViewScale: %{public}f.", info.id, info.width.Value(), info.height.Value(),
+        info.borderWidth, info.formViewScale);
+    UpdateFormSurface(info);
 
     auto imageNode = GetFormChildNode(FormChildNodeType::FORM_STATIC_IMAGE_NODE);
     auto disableStyleRootNode = GetFormChildNode(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE);
@@ -958,6 +1122,32 @@ void FormPattern::UpdateFormComponentSize(const RequestFormInfo& info)
     }
 }
 
+void FormPattern::UpdateFormSurface(const RequestFormInfo& info)
+{
+    cardInfo_.width = info.width;
+    cardInfo_.height = info.height;
+    cardInfo_.formViewScale = info.formViewScale;
+    cardInfo_.borderWidth = info.borderWidth;
+    auto externalRenderContext = DynamicCast<NG::RosenRenderContext>(GetExternalRenderContext());
+    CHECK_NULL_VOID(externalRenderContext);
+
+    externalRenderContext->SetBounds(round(cardInfo_.borderWidth), round(cardInfo_.borderWidth),
+        round(cardInfo_.width.Value() - cardInfo_.borderWidth * DOUBLE),
+        round(cardInfo_.height.Value() - cardInfo_.borderWidth * DOUBLE));
+
+    OHOS::AppExecFwk::FormSurfaceInfo formSurfaceInfo;
+    formSurfaceInfo.width = info.width.Value();
+    formSurfaceInfo.height = info.height.Value();
+    formSurfaceInfo.formViewScale = info.formViewScale;
+    formSurfaceInfo.borderWidth = info.borderWidth;
+    if (formManagerBridge_) {
+        formManagerBridge_->NotifySurfaceChange(formSurfaceInfo);
+    } else {
+        TAG_LOGE(AceLogTag::ACE_FORM, "form manager delagate is nullptr, card id is %{public}" PRId64 ".",
+            cardInfo_.id);
+    }
+}
+
 void FormPattern::UpdateSpecialStyleCfg()
 {
     auto columnNode = GetFormChildNode(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE);
@@ -973,6 +1163,14 @@ void FormPattern::UpdateSpecialStyleCfg()
     if (attribution == FormStyleAttribution::APP_LOCK) {
         UpdateForbiddenIcon(FormChildNodeType::APP_LOCKED_IMAGE_NODE);
         UpdateForbiddenText(FormChildNodeType::APP_LOCKED_TEXT_NODE);
+    }
+    if (attribution == FormStyleAttribution::DEVELOPER_MODE_TIPS) {
+        UpdateForbiddenIcon(FormChildNodeType::DEVELOPER_MODE_TIPS_IMAGE_NODE);
+        UpdateForbiddenText(FormChildNodeType::DEVELOPER_MODE_TIPS_TEXT_NODE);
+    }
+    if (attribution == FormStyleAttribution::DUE_DISABLE || attribution == FormStyleAttribution::DUE_REMOVE) {
+        UpdateForbiddenIcon(FormChildNodeType::DUE_CONTROL_IMAGE_NODE);
+        UpdateForbiddenText(FormChildNodeType::DUE_CONTROL_TEXT_NODE);
     }
 }
 
@@ -1035,35 +1233,33 @@ void FormPattern::LoadDisableFormStyle(const RequestFormInfo& info, bool isRefre
             TAG_LOGE(AceLogTag::ACE_FORM, "LoadDisableFormStyle failed, form manager deleget is null!");
             return;
         }
-
         formManagerBridge_->SetObscured(isFormObscured_);
         return;
     }
-
     if (!isRefresh && GetFormChildNode(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE) != nullptr) {
         TAG_LOGW(AceLogTag::ACE_FORM, "Form disable style node already exist.");
         return;
     }
 
     TAG_LOGI(AceLogTag::ACE_FORM, "FormPattern::LoadDisableFormStyle");
-    RemoveFormChildNode(FormChildNodeType::APP_LOCKED_IMAGE_NODE);
-    RemoveFormChildNode(FormChildNodeType::APP_LOCKED_TEXT_NODE);
-    RemoveFormChildNode(FormChildNodeType::TIME_LIMIT_TEXT_NODE);
-    RemoveFormChildNode(FormChildNodeType::TIME_LIMIT_IMAGE_NODE);
-    RemoveFormChildNode(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE);
-    int32_t dimension = cardInfo_.dimension;
-    int32_t dimensionHeight = GetFormDimensionHeight(dimension);
+    RemoveFormStyleChildNode();
+    int32_t dimensionHeight = GetFormDimensionHeight(cardInfo_.dimension);
     if (dimensionHeight <= 0) {
         TAG_LOGE(AceLogTag::ACE_FORM, "LoadDisableFormStyle failed, invalid dimensionHeight!");
         return;
     }
 
     RefPtr<FrameNode> rootNode = nullptr;
+#ifdef ARKUI_WEARABLE
+    rootNode =  CreateColumnNode(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE);
+#else
     if (cardInfo_.dimension == static_cast<int32_t>(OHOS::AppExecFwk::Constants::Dimension::DIMENSION_1_2)) {
         rootNode = CreateRowNode(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE);
     } else {
         rootNode = CreateColumnNode(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE);
     }
+#endif
+    SetMaskRootNodeAccessibilityAction(rootNode);
     CHECK_NULL_VOID(rootNode);
     auto renderContext = rootNode->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
@@ -1096,6 +1292,14 @@ RefPtr<FrameNode> FormPattern::CreateIconNode(bool isRowStyle)
         imageNode = CreateForbiddenImageNode(InternalResource::ResourceId::APP_LOCK_SVG, isRowStyle);
         AddFormChildNode(FormChildNodeType::APP_LOCKED_IMAGE_NODE, imageNode);
     }
+    if (attribution == FormStyleAttribution::DEVELOPER_MODE_TIPS) {
+        imageNode = CreateForbiddenImageNode(InternalResource::ResourceId::APP_LOCK_SVG, isRowStyle);
+        AddFormChildNode(FormChildNodeType::DEVELOPER_MODE_TIPS_IMAGE_NODE, imageNode);
+    }
+    if (attribution == FormStyleAttribution::DUE_DISABLE || attribution == FormStyleAttribution::DUE_REMOVE) {
+        imageNode = CreateForbiddenImageNode(InternalResource::ResourceId::IC_DUE_CONTROL_SVG, isRowStyle);
+        AddFormChildNode(FormChildNodeType::DUE_CONTROL_IMAGE_NODE, imageNode);
+    }
     return imageNode;
 }
 
@@ -1103,13 +1307,10 @@ RefPtr<FrameNode> FormPattern::CreateTextNode(bool isRowStyle)
 {
     auto attribution = formSpecialStyle_.GetFormStyleAttribution();
     RefPtr<FrameNode> textNode = nullptr;
-    if (attribution == FormStyleAttribution::PARENT_CONTROL) {
-        textNode = CreateForbiddenTextNode(TIME_LIMIT_RESOURCE_NAME, isRowStyle);
-        AddFormChildNode(FormChildNodeType::TIME_LIMIT_TEXT_NODE, textNode);
-    }
-    if (attribution == FormStyleAttribution::APP_LOCK) {
-        textNode = CreateForbiddenTextNode(APP_LOCKED_RESOURCE_NAME, isRowStyle);
-        AddFormChildNode(FormChildNodeType::APP_LOCKED_TEXT_NODE, textNode);
+    auto it = FORM_STYLE_RES_MAP.find(attribution);
+    if (it != FORM_STYLE_RES_MAP.end()) {
+        textNode = CreateForbiddenTextNode(it->second.first, isRowStyle);
+        AddFormChildNode(it->second.second, textNode);
     }
     return textNode;
 }
@@ -1117,14 +1318,11 @@ RefPtr<FrameNode> FormPattern::CreateTextNode(bool isRowStyle)
 void FormPattern::RemoveDisableFormStyle(const RequestFormInfo& info)
 {
     if (!IsMaskEnableForm(info)) {
+        InitializeFormAccessibility();
         UpdateChildNodeOpacity(FormChildNodeType::FORM_SURFACE_NODE, NON_TRANSPARENT_VAL);
         UpdateChildNodeOpacity(FormChildNodeType::FORM_STATIC_IMAGE_NODE, NON_TRANSPARENT_VAL);
         UpdateChildNodeOpacity(FormChildNodeType::FORM_SKELETON_NODE, CONTENT_BG_OPACITY);
-        RemoveFormChildNode(FormChildNodeType::APP_LOCKED_IMAGE_NODE);
-        RemoveFormChildNode(FormChildNodeType::APP_LOCKED_TEXT_NODE);
-        RemoveFormChildNode(FormChildNodeType::TIME_LIMIT_TEXT_NODE);
-        RemoveFormChildNode(FormChildNodeType::TIME_LIMIT_IMAGE_NODE);
-        RemoveFormChildNode(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE);
+        RemoveFormStyleChildNode();
         return;
     }
     if (!formManagerBridge_) {
@@ -1249,9 +1447,9 @@ RefPtr<FrameNode> FormPattern::CreateForbiddenTextNode(std::string resourceName,
     auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
     CHECK_NULL_RETURN(textLayoutProperty, nullptr);
     if (isRowStyle) {
-        PaddingProperty padding;
-        padding.right = CalcLength(FORBIDDEN_STYLE_PADDING, DimensionUnit::VP);
-        textLayoutProperty->UpdatePadding(padding);
+        // The text content occupies all the remaining space in the ROW component.
+        textLayoutProperty->UpdateLayoutWeight(1);
+        textLayoutProperty->UpdateHeightAdaptivePolicy(TextHeightAdaptivePolicy::LAYOUT_CONSTRAINT_FIRST);
     }
     textLayoutProperty->UpdateContent(content);
     textLayoutProperty->UpdateFontWeight(FontWeight::MEDIUM);
@@ -1290,9 +1488,14 @@ RefPtr<FrameNode> FormPattern::CreateForbiddenImageNode(InternalResource::Resour
     auto imageRenderProperty = imageNode->GetPaintProperty<ImageRenderProperty>();
     CHECK_NULL_RETURN(imageRenderProperty, nullptr);
     imageRenderProperty->UpdateSvgFillColor(newColor);
+#ifdef ARKUI_WEARABLE
+    CalcSize idealSize = { CalcLength(FORBIDDEN_ICON_STYLE, DimensionUnit::PX),
+        CalcLength(FORBIDDEN_ICON_STYLE, DimensionUnit::PX) };
+#else
     double iconSize = isRowStyle ? FORBIDDEN_ICON_STYLE_1_2 : FORBIDDEN_ICON_STYLE;
     CalcSize idealSize = { CalcLength(iconSize, DimensionUnit::VP),
         CalcLength(iconSize, DimensionUnit::VP) };
+#endif
     imageLayoutProperty->UpdateUserDefinedIdealSize(idealSize);
     auto externalContext = DynamicCast<NG::RosenRenderContext>(imageNode->GetRenderContext());
     CHECK_NULL_RETURN(externalContext, nullptr);
@@ -1398,9 +1601,15 @@ RefPtr<FrameNode> FormPattern::CreateColumnNode(FormChildNodeType formChildNodeT
         layoutProperty->UpdateMainAxisAlign(FlexAlign::CENTER);
         auto space = Dimension(8, DimensionUnit::VP);
         layoutProperty->UpdateSpace(space);
+        PaddingProperty padding;
+        padding.left = CalcLength(FORBIDDEN_STYLE_PADDING, DimensionUnit::VP);
+        padding.right = CalcLength(FORBIDDEN_STYLE_PADDING, DimensionUnit::VP);
+        layoutProperty->UpdatePadding(padding);
 
         columnNode->AddChild(CreateIconNode(false));
+#ifndef ARKUI_WEARABLE
         columnNode->AddChild(CreateTextNode(false));
+#endif
     } else {
         layoutProperty->UpdateCrossAxisAlign(FlexAlign::FLEX_START);
     }
@@ -1463,6 +1672,7 @@ void FormPattern::InitFormManagerDelegate()
     }
     int32_t instanceID = context->GetInstanceId();
     accessibilitySessionAdapter_ = AceType::MakeRefPtr<AccessibilitySessionAdapterForm>(formManagerBridge_);
+    formManagerBridge_->SetFormLayoutWrapper(WeakClaim(this));
     formManagerBridge_->AddFormAcquireCallback([weak = WeakClaim(this), instanceID, pipeline](int64_t id,
                                                    const std::string& path,
                                                    const std::string& module, const std::string& data,
@@ -1483,7 +1693,7 @@ void FormPattern::InitFormManagerDelegate()
             CHECK_NULL_VOID(container);
             container->SetWindowConfig({ formJsInfo.formWindow.designWidth, formJsInfo.formWindow.autoDesignWidth });
             container->RunCard(id, path, module, data, imageDataMap, formJsInfo.formSrc, frontendType, uiSyntax);
-            }, "ArkUIFormRunCard");
+            }, "ArkUIFormRunCard", PriorityType::HIGH);
     });
 
     InitAddFormUpdateAndErrorCallback(instanceID);
@@ -1492,6 +1702,8 @@ void FormPattern::InitFormManagerDelegate()
     InitAddUnTrustAndSnapshotCallback(instanceID);
     InitOtherCallback(instanceID);
     InitUpdateFormDoneCallback(instanceID);
+    InitDueControlFormCallback(instanceID);
+    InitFormRenderDiedCallback();
     const std::function<void(bool isRotate, const std::shared_ptr<Rosen::RSTransaction>& rsTransaction)>& callback =
         [this](bool isRotate, const std::shared_ptr<Rosen::RSTransaction>& rsTransaction) {
             FormManager::GetInstance().NotifyIsSizeChangeByRotate(isRotate, rsTransaction);
@@ -1531,26 +1743,27 @@ void FormPattern::ProcDeleteImageNode(const AAFwk::Want& want)
     if (want.GetBoolParam(OHOS::AppExecFwk::Constants::FORM_IS_RECOVER_FORM, false)) {
         DelayDeleteImageNode(want.GetBoolParam(
             OHOS::AppExecFwk::Constants::FORM_IS_RECOVER_FORM_TO_HANDLE_CLICK_EVENT, false));
+    } else if (want.GetBoolParam(OHOS::AppExecFwk::Constants::FORM_IS_STATIC_FORM_UPDATE_SIZE, false)) {
+        DelayRemoveFormChildNode(FormChildNodeType::FORM_STATIC_IMAGE_NODE,
+            DELAY_TIME_FOR_RM_IMG_WHEN_UPDATING_SIZE);
     } else {
         DelayRemoveFormChildNode(FormChildNodeType::FORM_STATIC_IMAGE_NODE);
     }
 }
 
-void FormPattern::DelayRemoveFormChildNode(FormChildNodeType formChildNodeType)
+void FormPattern::DelayRemoveFormChildNode(FormChildNodeType formChildNodeType, uint32_t delay)
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto context = host->GetContext();
-    CHECK_NULL_VOID(context);
     std::string nodeIdStr = std::to_string(host->GetId());
-    auto uiTaskExecutor = SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::UI);
-    uiTaskExecutor.PostDelayedTask(
+
+    ContainerScope containerScope(scopeId_);
+    PostDelayedUITask(
         [weak = WeakClaim(this), formChildNodeType] {
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
             pattern->RemoveFormChildNode(formChildNodeType);
-        },
-        DELAY_TIME_FOR_DELETE_IMAGE_NODE, "DelayRemoveFormChildNode" + nodeIdStr);
+        }, delay, "DelayRemoveFormChildNode" + nodeIdStr);
 }
 
 void FormPattern::AttachRSNode(const std::shared_ptr<Rosen::RSSurfaceNode>& node, const AAFwk::Want& want)
@@ -1569,9 +1782,15 @@ void FormPattern::AttachRSNode(const std::shared_ptr<Rosen::RSSurfaceNode>& node
         boundWidth = size.Width() - cardInfo_.borderWidth * DOUBLE;
         boundHeight = size.Height() - cardInfo_.borderWidth * DOUBLE;
     }
-    TAG_LOGI(AceLogTag::ACE_FORM,
-        "attach rs node, id: %{public}" PRId64 "  width: %{public}f  height: %{public}f  borderWidth: %{public}f",
-        cardInfo_.id, boundWidth, boundHeight, cardInfo_.borderWidth);
+    TAG_LOGW(AceLogTag::ACE_FORM,
+        "attach rs node, id: %{public}" PRId64
+        " width: %{public}f height: %{public}f borderWidth: %{public}f boundWidth: %{public}f boundHeight: %{public}f",
+        cardInfo_.id,
+        cardInfo_.width.Value(),
+        cardInfo_.height.Value(),
+        cardInfo_.borderWidth,
+        boundWidth,
+        boundHeight);
     externalRenderContext->SetBounds(round(cardInfo_.borderWidth), round(cardInfo_.borderWidth),
         round(boundWidth), round(boundHeight));
 
@@ -1584,7 +1803,7 @@ void FormPattern::AttachRSNode(const std::shared_ptr<Rosen::RSSurfaceNode>& node
             isRecover,
             isSkeletonAnimEnable_,
             isTransparencyEnable_);
-        externalRenderContext->SetOpacity(TRANSPARENT_VAL);
+        node->SetAlpha(TRANSPARENT_VAL);
     } else {
         TAG_LOGI(AceLogTag::ACE_FORM, "surfaceNode: %{public}s setOpacity:1,%{public}d,"
                                   "%{public}d,%{public}d",
@@ -1592,7 +1811,7 @@ void FormPattern::AttachRSNode(const std::shared_ptr<Rosen::RSSurfaceNode>& node
             isRecover,
             isSkeletonAnimEnable_,
             isTransparencyEnable_);
-        externalRenderContext->SetOpacity(NON_TRANSPARENT_VAL);
+        node->SetAlpha(NON_TRANSPARENT_VAL);
     }
 
     auto renderContext = host->GetRenderContext();
@@ -1624,17 +1843,10 @@ void FormPattern::FireFormSurfaceNodeCallback(
     CHECK_NULL_VOID(host);
     isDynamic_ = want.GetBoolParam(OHOS::AppExecFwk::Constants::FORM_IS_DYNAMIC, false);
     UpdateFormBaseConfig(isDynamic_);
-
+    SetFormAccessibilityAction();
     ProcDeleteImageNode(want);
 
-    host->MarkDirtyNode(PROPERTY_UPDATE_LAYOUT);
-    auto parent = host->GetParent();
-    CHECK_NULL_VOID(parent);
-    parent->MarkNeedSyncRenderTree();
-    parent->RebuildRenderContextTree();
-    auto renderContext = host->GetRenderContext();
-    CHECK_NULL_VOID(renderContext);
-    renderContext->RequestNextFrame();
+    RequestRender();
     OnLoadEvent();
 
     auto formNode = DynamicCast<FormNode>(host);
@@ -1644,21 +1856,20 @@ void FormPattern::FireFormSurfaceNodeCallback(
     if (isEnableSkeleton && !isTransparencyEnable_) {
         TAG_LOGI(AceLogTag::ACE_FORM, "FireFormSurfaceNodeCallback delay %{public}d,%{public}d",
             isTransparencyEnable_, isEnableSkeleton);
-        auto context = host->GetContext();
-        CHECK_NULL_VOID(context);
         if (!ShouldDoSkeletonAnimation()) {
             TAG_LOGE(AceLogTag::ACE_FORM, "not do skeleton animation");
             SetExternalRenderOpacity(NON_TRANSPARENT_VAL);
             return;
         }
         std::string nodeIdStr = std::to_string(host->GetId());
-        auto uiTaskExecutor = SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::UI);
-        uiTaskExecutor.PostDelayedTask(
+        ContainerScope containerScope(scopeId_);
+        PostDelayedUITask(
             [weak = WeakClaim(this)] {
                 auto pattern = weak.Upgrade();
                 CHECK_NULL_VOID(pattern);
                 pattern->DoSkeletonAnimation();
-            }, FORM_UNLOCK_ANIMATION_DELAY, "DoSkeletonAnimation_" + nodeIdStr);
+            },
+            FORM_UNLOCK_ANIMATION_DELAY, "DoSkeletonAnimation_" + nodeIdStr);
     }
 }
 
@@ -1666,18 +1877,9 @@ void FormPattern::DelayDeleteImageNode(bool needHandleCachedClick)
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto context = host->GetContext();
-    CHECK_NULL_VOID(context);
     std::string nodeIdStr = std::to_string(host->GetId());
-    auto uiTaskExecutor = SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::UI);
-    uiTaskExecutor.PostDelayedTask(
-        [weak = WeakClaim(this)] {
-            auto pattern = weak.Upgrade();
-            CHECK_NULL_VOID(pattern);
-            pattern->SetNonTransparentAfterRecover();
-        },
-        DELAY_TIME_FOR_SET_NON_TRANSPARENT, "ArkUIFormSetNonTransparentAfterRecover_" + nodeIdStr);
-    uiTaskExecutor.PostDelayedTask(
+    ContainerScope containerScope(scopeId_);
+    PostDelayedUITask(
         [weak = WeakClaim(this), needHandleCachedClick] {
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
@@ -1688,25 +1890,7 @@ void FormPattern::DelayDeleteImageNode(bool needHandleCachedClick)
 
 void FormPattern::FireFormSurfaceChangeCallback(float width, float height, float borderWidth)
 {
-    auto externalRenderContext = DynamicCast<NG::RosenRenderContext>(GetExternalRenderContext());
-    CHECK_NULL_VOID(externalRenderContext);
-    TAG_LOGI(AceLogTag::ACE_FORM,
-        "FireFormSurfaceChangeCallback, "
-        "id: %{public}" PRId64 "  width: %{public}f  height: %{public}f  borderWidth: %{public}f",
-        cardInfo_.id, width, height, borderWidth);
-    externalRenderContext->SetBounds(round(borderWidth), round(borderWidth), round(width - borderWidth * DOUBLE),
-        round(height - borderWidth * DOUBLE));
-    auto host = GetHost();
-    CHECK_NULL_VOID(host);
-    auto renderContext = host->GetRenderContext();
-    CHECK_NULL_VOID(renderContext);
     isUnTrust_ = false;
-    host->MarkDirtyNode(PROPERTY_UPDATE_LAYOUT);
-    auto parent = host->GetParent();
-    CHECK_NULL_VOID(parent);
-    parent->MarkNeedSyncRenderTree();
-    parent->RebuildRenderContextTree();
-    renderContext->RequestNextFrame();
 }
 
 void FormPattern::FireFormSurfaceDetachCallback()
@@ -1869,7 +2053,7 @@ void FormPattern::OnLoadEvent()
         auto pattern = weak.Upgrade();
         CHECK_NULL_VOID(pattern);
         pattern->FireOnLoadEvent();
-        }, "ArkUIFormFireLoadEvent");
+        }, "ArkUIFormFireLoadEvent", PriorityType::HIGH);
 }
 
 void FormPattern::OnActionEvent(const std::string& action)
@@ -1881,16 +2065,19 @@ void FormPattern::OnActionEvent(const std::string& action)
     }
     auto eventAction = JsonUtil::ParseJsonString(action);
     if (!eventAction->IsValid()) {
+        TAG_LOGE(AceLogTag::ACE_FORM, "event action is invalid.");
         return;
     }
 
     auto actionType = eventAction->GetValue("action");
     if (!actionType->IsValid()) {
+        TAG_LOGE(AceLogTag::ACE_FORM, "action type is invalid.");
         return;
     }
 
     auto type = actionType->GetString();
     if (type != "router" && type != "message" && type != "call") {
+        TAG_LOGE(AceLogTag::ACE_FORM, "action type: %{public}s is error.", type.c_str());
         return;
     }
 
@@ -1901,7 +2088,7 @@ void FormPattern::OnActionEvent(const std::string& action)
         EventReport::ReportNonManualPostCardActionInfo(cardInfo_.cardName, cardInfo_.bundleName, cardInfo_.abilityName,
             cardInfo_.moduleName, cardInfo_.dimension);
         if ("router" == type && !AceApplicationInfo::GetInstance().IsAccessibilityEnabled()) {
-            TAG_LOGI(AceLogTag::ACE_FORM, "postcardaction is not manually click.");
+            TAG_LOGW(AceLogTag::ACE_FORM, "postcardaction is not manually click.");
             return;
         }
     }
@@ -1923,11 +2110,11 @@ void FormPattern::OnActionEvent(const std::string& action)
                 auto eventAction = JsonUtil::ParseJsonString(action);
                 TAG_LOGI(AceLogTag::ACE_FORM, "UI task execute begin.");
                 pattern->FireOnRouterEvent(eventAction);
-                }, "ArkUIFormFireRouterEvent");
+                }, "ArkUIFormFireRouterEvent", PriorityType::HIGH);
         }
     }
 
-    formManagerBridge_->OnActionEvent(action);
+    formManagerBridge_->OnActionEvent(action, isManuallyClick_);
 }
 
 bool FormPattern::ISAllowUpdate() const
@@ -1975,6 +2162,7 @@ void FormPattern::DispatchPointerEvent(const std::shared_ptr<MMI::PointerEvent>&
 void FormPattern::RemoveSubContainer()
 {
     auto host = GetHost();
+    CHECK_NULL_VOID(host);
     auto eventHub = host->GetEventHub<FormEventHub>();
     if (eventHub) {
         eventHub->FireOnCache();
@@ -2017,16 +2205,25 @@ void FormPattern::UpdateConfiguration()
     }
 }
 
+void FormPattern::UpdateColorMode(int32_t colorMode)
+{
+    if (cardInfo_.colorMode != colorMode) {
+        cardInfo_.colorMode = colorMode;
+        if (formManagerBridge_) {
+            formManagerBridge_->SetColorMode(colorMode);
+        }
+    }
+}
+
 void FormPattern::OnLanguageConfigurationUpdate()
 {
     RefPtr<FrameNode> textNode = nullptr;
     std::string content;
-    if (formSpecialStyle_.GetFormStyleAttribution() != FormStyleAttribution::PARENT_CONTROL) {
-        GetResourceContent(APP_LOCKED_RESOURCE_NAME, content);
-        textNode = GetFormChildNode(FormChildNodeType::APP_LOCKED_TEXT_NODE);
-    } else {
-        GetResourceContent(TIME_LIMIT_RESOURCE_NAME, content);
-        textNode = GetFormChildNode(FormChildNodeType::TIME_LIMIT_TEXT_NODE);
+    auto attribution = formSpecialStyle_.GetFormStyleAttribution();
+    auto it = FORM_STYLE_RES_MAP.find(attribution);
+    if (it != FORM_STYLE_RES_MAP.end()) {
+        GetResourceContent(it->second.first, content);
+        textNode = GetFormChildNode(it->second.second);
     }
     CHECK_NULL_VOID(textNode);
     auto host = GetHost();
@@ -2118,6 +2315,17 @@ void FormPattern::RemoveFormChildNode(FormChildNodeType formChildNodeType)
     host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
 }
 
+void FormPattern::SwitchRenderGroup(bool isRenderGroup)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto renderContext = host->GetRenderContext();
+    CHECK_NULL_VOID(renderContext);
+    ACE_SCOPED_TRACE("%s id:%" PRIu64 " isRenderGroup:%d", __func__, renderContext->GetNodeId(), isRenderGroup);
+    renderContext->UpdateRenderGroup(isRenderGroup);
+    renderContext->RequestNextFrame();
+}
+
 RefPtr<FrameNode> FormPattern::GetFormChildNode(FormChildNodeType formChildNodeType) const
 {
     auto iter = formChildrenNodeMap_.find(formChildNodeType);
@@ -2151,9 +2359,13 @@ double FormPattern::GetTimeLimitFontSize()
 
 bool FormPattern::IsMaskEnableForm(const RequestFormInfo& info)
 {
+#ifdef ARKUI_WEARABLE
+    return false;
+#else
     return info.shape == FORM_SHAPE_CIRCLE || info.renderingMode ==
         static_cast<int32_t>(OHOS::AppExecFwk::Constants::RenderingMode::SINGLE_COLOR) ||
         info.dimension == static_cast<int32_t>(OHOS::AppExecFwk::Constants::Dimension::DIMENSION_1_1);
+#endif
 }
 
 void FormPattern::UpdateChildNodeOpacity(FormChildNodeType formChildNodeType, double opacity)
@@ -2163,7 +2375,9 @@ void FormPattern::UpdateChildNodeOpacity(FormChildNodeType formChildNodeType, do
     if (formChildNodeType == FormChildNodeType::FORM_SURFACE_NODE) {
         auto externalRenderContext = DynamicCast<NG::RosenRenderContext>(GetExternalRenderContext());
         CHECK_NULL_VOID(externalRenderContext);
-        externalRenderContext->OnOpacityUpdate(opacity);
+        auto rsNode = externalRenderContext->GetRSNode();
+        CHECK_NULL_VOID(rsNode);
+        rsNode->SetAlpha(opacity);
     } else if (formChildNodeType == FormChildNodeType::FORM_STATIC_IMAGE_NODE ||
         formChildNodeType == FormChildNodeType::FORM_SKELETON_NODE) {
         auto childNode = GetFormChildNode(formChildNodeType);
@@ -2193,19 +2407,16 @@ void FormPattern::DelayResetManuallyClickFlag()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto context = host->GetContext();
-    CHECK_NULL_VOID(context);
-    auto executor = context->GetTaskExecutor();
-    CHECK_NULL_VOID(executor);
     std::string nodeIdStr = std::to_string(host->GetId());
-    executor->RemoveTask(TaskExecutor::TaskType::UI, std::string("ArkUIFormResetManuallyClickFlag").append(nodeIdStr));
-    executor->PostDelayedTask(
+    ContainerScope containerScope(scopeId_);
+    RemoveUITask(std::string("ArkUIFormResetManuallyClickFlag").append(nodeIdStr));
+    PostDelayedUITask(
         [weak = WeakClaim(this)] {
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
             pattern->isManuallyClick_ = false;
         },
-        TaskExecutor::TaskType::UI, DELAY_TIME_FOR_RESET_MANUALLY_CLICK_FLAG,
+        DELAY_TIME_FOR_RESET_MANUALLY_CLICK_FLAG,
         std::string("ArkUIFormResetManuallyClickFlag").append(nodeIdStr));
 }
 
@@ -2252,7 +2463,9 @@ void FormPattern::SetExternalRenderOpacity(double opacity)
 {
     auto externalRenderContext = DynamicCast<NG::RosenRenderContext>(GetExternalRenderContext());
     CHECK_NULL_VOID(externalRenderContext);
-    externalRenderContext->SetOpacity(opacity);
+    auto rsNode = externalRenderContext->GetRSNode();
+    CHECK_NULL_VOID(rsNode);
+    rsNode->SetAlpha(opacity);
 }
 
 bool FormPattern::ShouldDoSkeletonAnimation()
@@ -2292,15 +2505,31 @@ void FormPattern::DoSkeletonAnimation()
         return;
     }
 
+    auto context = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(context);
+    auto externalRenderContext = DynamicCast<NG::RosenRenderContext>(GetExternalRenderContext());
+    CHECK_NULL_VOID(externalRenderContext);
+    auto rsNode = externalRenderContext->GetRSNode();
+    CHECK_NULL_VOID(rsNode);
+    auto lastFrameChild = AceType::DynamicCast<FrameNode>(skeletonNode);
+    CHECK_NULL_VOID(lastFrameChild);
+    RefPtr<OHOS::Ace::NG::RenderContext> childRenderContext = lastFrameChild->GetRenderContext();
+    CHECK_NULL_VOID(childRenderContext);
+
+    std::unique_ptr<FormScopedRSTransaction> formScopedRSTransaction = nullptr;
+    if (SystemProperties::IsFormSkeletonRSTransactionEnabled()) {
+        formScopedRSTransaction = std::make_unique<FormScopedRSTransaction>(scopeId_);
+    }
+    // Switch off render group of the form node before doing animation
+    SwitchRenderGroup(false);
     std::function<void()> finishCallback = [weak = WeakClaim(this)]() {
         auto pattern = weak.Upgrade();
         CHECK_NULL_VOID(pattern);
         pattern->RemoveFormChildNode(FormChildNodeType::FORM_SKELETON_NODE);
+        pattern->SwitchRenderGroup(true);
         TAG_LOGD(AceLogTag::ACE_FORM, "DoSkeletonAnimation finishCallBack");
     };
 
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
-    CHECK_NULL_VOID(context);
     AnimationOption option = AnimationOption();
     option.SetDuration(FORM_UNLOCK_ANIMATION_DUATION);
     option.SetCurve(Curves::FRICTION);
@@ -2312,14 +2541,11 @@ void FormPattern::DoSkeletonAnimation()
     context->FlushUITasks();
 
     optionAlpha.SetDuration(FORM_UNLOCK_ANIMATION_DUATION);
-    auto externalRenderContext = DynamicCast<NG::RosenRenderContext>(GetExternalRenderContext());
-    CHECK_NULL_VOID(externalRenderContext);
+    // Before executing the animation, restore alpha to opacity.
+    externalRenderContext->SetOpacity(TRANSPARENT_VAL);
+    rsNode->SetAlpha(NON_TRANSPARENT_VAL);
     externalRenderContext->OpacityAnimation(optionAlpha, 0, 1);
 
-    auto lastFrameChild = AceType::DynamicCast<FrameNode>(skeletonNode);
-    CHECK_NULL_VOID(lastFrameChild);
-    RefPtr<OHOS::Ace::NG::RenderContext> childRenderContext = lastFrameChild->GetRenderContext();
-    CHECK_NULL_VOID(childRenderContext);
     childRenderContext->OpacityAnimation(optionAlpha, 1, 0);
     context->CloseImplicitAnimation();
 }
@@ -2361,7 +2587,7 @@ void FormPattern::InitAddFormUpdateAndErrorCallback(int32_t instanceID)
                         form->GetSubContainer()->UpdateCard(data, imageDataMap);
                     }
                 },
-                "ArkUIFormUpdateCard");
+                "ArkUIFormUpdateCard", PriorityType::HIGH);
         });
 
     formManagerBridge_->AddFormErrorCallback(
@@ -2376,7 +2602,7 @@ void FormPattern::InitAddFormUpdateAndErrorCallback(int32_t instanceID)
                     CHECK_NULL_VOID(form);
                     form->FireOnErrorEvent(code, msg);
                 },
-                "ArkUIFormFireErrorEvent");
+                "ArkUIFormFireErrorEvent", PriorityType::HIGH);
         });
 }
 
@@ -2397,14 +2623,14 @@ void FormPattern::InitAddUninstallAndSurfaceNodeCallback(int32_t instanceID)
                 CHECK_NULL_VOID(form);
                 form->FireOnUninstallEvent(formId);
             },
-            "ArkUIFormFireUninstallEvent");
+            "ArkUIFormFireUninstallEvent", PriorityType::HIGH);
     });
 
     formManagerBridge_->AddFormSurfaceNodeCallback(
         [weak = WeakClaim(this), instanceID](
             const std::shared_ptr<Rosen::RSSurfaceNode>& node, const AAFwk::Want& want) {
             ContainerScope scope(instanceID);
-            auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+            auto pipeline = PipelineContext::GetCurrentContext();
             CHECK_NULL_VOID(pipeline);
             auto executor = pipeline->GetTaskExecutor();
             CHECK_NULL_VOID(executor);
@@ -2416,7 +2642,7 @@ void FormPattern::InitAddUninstallAndSurfaceNodeCallback(int32_t instanceID)
                     CHECK_NULL_VOID(form);
                     form->FireFormSurfaceNodeCallback(node, want);
                 },
-                "ArkUIFormFireSurfaceNodeCallback");
+                "ArkUIFormFireSurfaceNodeCallback", PriorityType::HIGH);
         });
 }
 
@@ -2438,7 +2664,7 @@ void FormPattern::InitAddFormSurfaceChangeAndDetachCallback(int32_t instanceID)
                     CHECK_NULL_VOID(form);
                     form->FireFormSurfaceChangeCallback(width, height, borderWidth);
                 },
-                "ArkUIFormFireSurfaceChange");
+                "ArkUIFormFireSurfaceChange", PriorityType::HIGH);
         });
 
     formManagerBridge_->AddFormSurfaceDetachCallback([weak = WeakClaim(this), instanceID]() {
@@ -2473,7 +2699,7 @@ void FormPattern::InitAddUnTrustAndSnapshotCallback(int32_t instanceID)
                 CHECK_NULL_VOID(formPattern);
                 formPattern->HandleUnTrustForm();
             },
-            "ArkUIFormHandleUnTrust");
+            "ArkUIFormHandleUnTrust", PriorityType::HIGH);
     });
 
     formManagerBridge_->AddSnapshotCallback([weak = WeakClaim(this), instanceID](const uint32_t& delayTime) {
@@ -2526,7 +2752,7 @@ void FormPattern::InitOtherCallback(int32_t instanceID)
             auto formPattern = weak.Upgrade();
             CHECK_NULL_VOID(formPattern);
             formPattern->HandleEnableForm(enable);
-            }, "ArkUIFormHandleEnableForm");
+            }, "ArkUIFormHandleEnableForm", PriorityType::HIGH);
         });
 
     formManagerBridge_->AddLockFormCallback([weak = WeakClaim(this), instanceID, pipeline](const bool lock) {
@@ -2539,7 +2765,7 @@ void FormPattern::InitOtherCallback(int32_t instanceID)
             auto formPattern = weak.Upgrade();
             CHECK_NULL_VOID(formPattern);
             formPattern->HandleLockEvent(lock);
-            }, "ArkUIFormHandleLockForm");
+            }, "ArkUIFormHandleLockForm", PriorityType::HIGH);
         });
 }
 
@@ -2558,7 +2784,7 @@ void FormPattern::InitUpdateFormDoneCallback(int32_t instanceID)
             auto formPattern = weak.Upgrade();
             CHECK_NULL_VOID(formPattern);
             formPattern->FireOnUpdateFormDone(formId);
-            }, "ArkUIFormFireUpdateDoneEvent");
+            }, "ArkUIFormFireUpdateDoneEvent", PriorityType::HIGH);
     });
 }
 
@@ -2586,7 +2812,7 @@ void FormPattern::enhancesSubContainer(bool hasContainer)
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
             pattern->FireOnAcquiredEvent(id);
-            }, "ArkUIFormFireAcquiredEvent");
+            }, "ArkUIFormFireAcquiredEvent", PriorityType::HIGH);
     });
 
     subContainer_->SetFormLoadCallback([weak = WeakClaim(this)]() {
@@ -2697,8 +2923,18 @@ bool FormPattern::IsFormBundleProtected(const std::string& bundleName, int64_t f
     return formManagerBridge_->IsFormBundleProtected(bundleName, formId);
 }
 
+bool FormPattern::IsFormBundleDebugSignature(const std::string& bundleName) const
+{
+    CHECK_NULL_RETURN(formManagerBridge_, false);
+    return formManagerBridge_->IsFormBundleDebugSignature(bundleName);
+}
+
 void FormPattern::HandleLockEvent(bool isLock)
 {
+    if (cardInfo_.exemptAppLock) {
+        TAG_LOGW(AceLogTag::ACE_FORM, "Is funInteraction form, no need continue.");
+        return;
+    }
     auto newFormSpecialStyle = formSpecialStyle_;
     newFormSpecialStyle.SetIsLockedByAppLock(isLock);
     HandleFormStyleOperation(newFormSpecialStyle);
@@ -2746,7 +2982,7 @@ void FormPattern::UpdateForbiddenRootNodeStyle(const RefPtr<RenderContext> &rend
 
 void FormPattern::ReAddStaticFormSnapshotTimer()
 {
-    if (isDynamic_) {
+    if (isDynamic_ || IsAccessibilityState()) {
         return;
     }
 
@@ -2805,5 +3041,151 @@ void FormPattern::GetRSUIContext()
     if (!rsUIContext_) {
         TAG_LOGE(AceLogTag::ACE_FORM, "FormPattern: rsUIContext_ is nullptr");
     }
+}
+
+void FormPattern::RemoveFormStyleChildNode()
+{
+    RemoveFormChildNode(FormChildNodeType::APP_LOCKED_IMAGE_NODE);
+    RemoveFormChildNode(FormChildNodeType::APP_LOCKED_TEXT_NODE);
+    RemoveFormChildNode(FormChildNodeType::TIME_LIMIT_TEXT_NODE);
+    RemoveFormChildNode(FormChildNodeType::TIME_LIMIT_IMAGE_NODE);
+    RemoveFormChildNode(FormChildNodeType::DEVELOPER_MODE_TIPS_TEXT_NODE);
+    RemoveFormChildNode(FormChildNodeType::DEVELOPER_MODE_TIPS_IMAGE_NODE);
+    RemoveFormChildNode(FormChildNodeType::DUE_CONTROL_IMAGE_NODE);
+    RemoveFormChildNode(FormChildNodeType::DUE_CONTROL_TEXT_NODE);
+    RemoveFormChildNode(FormChildNodeType::FORM_FORBIDDEN_ROOT_NODE);
+}
+
+void FormPattern::InitializeFormAccessibility()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto formNode = DynamicCast<FormNode>(host);
+    CHECK_NULL_VOID(formNode);
+    SetFormAccessibilityAction();
+    formNode->InitializeFormAccessibility();
+    formNode->NotifyAccessibilityChildTreeRegister();
+}
+
+void FormPattern::SetMaskRootNodeAccessibilityAction(RefPtr<FrameNode> &forbiddenRootNode)
+{
+    CHECK_NULL_VOID(forbiddenRootNode);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto formNode = DynamicCast<FormNode>(host);
+    CHECK_NULL_VOID(formNode);
+    formNode->ResetAccessibilityChildTreeCallbackAndDeregister();
+    if (!isDynamic_) {
+        auto hostAccessibilityProperty = host->GetAccessibilityProperty<AccessibilityProperty>();
+        CHECK_NULL_VOID(hostAccessibilityProperty);
+        hostAccessibilityProperty->SetAccessibilityLevel(AccessibilityProperty::Level::NO_STR);
+    }
+
+    auto accessibilityProperty = forbiddenRootNode->GetAccessibilityProperty<AccessibilityProperty>();
+    CHECK_NULL_VOID(accessibilityProperty);
+    accessibilityProperty->SetAccessibilityLevel(AccessibilityProperty::Level::YES_STR);
+
+    std::string content;
+    auto attribution = formSpecialStyle_.GetFormStyleAttribution();
+    auto it = FORM_STYLE_RES_MAP.find(attribution);
+    if (it != FORM_STYLE_RES_MAP.end()) {
+        GetResourceContent(it->second.first, content);
+    }
+    accessibilityProperty->SetAccessibilityText(content);
+    accessibilityProperty->SetAccessibilityGroup(true);
+}
+
+void FormPattern::SetFormAccessibilityAction()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto accessibilityProperty = host->GetAccessibilityProperty<AccessibilityProperty>();
+    CHECK_NULL_VOID(accessibilityProperty);
+    if (isDynamic_ || formSpecialStyle_.IsForbidden() || formSpecialStyle_.IsLocked()) {
+        accessibilityProperty->SetAccessibilityLevel(AccessibilityProperty::Level::NO_STR);
+    } else if (IsAccessibilityState()) {
+        accessibilityProperty->SetAccessibilityLevel(AccessibilityProperty::Level::YES_STR);
+        accessibilityProperty->SetAccessibilityRole(COLUMN_ROLE);
+    }
+}
+
+bool FormPattern::OnAccessibilityStateChange(bool state)
+{
+    if (IsAccessibilityState() == state) {
+        return false;
+    }
+
+    TAG_LOGI(AceLogTag::ACE_FORM, "OnAccessibilityStateChange: %{public}d", state);
+    SetAccessibilityState(state);
+
+    if (isDynamic_) {
+        return false;
+    }
+
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_RETURN(pipeline, false);
+
+    if (state) {
+        UnregisterAccessibility();
+    }
+
+    auto taskExecutor = SingleTaskExecutor::Make(pipeline->GetTaskExecutor(), TaskExecutor::TaskType::BACKGROUND);
+    taskExecutor.PostTask([weak = WeakClaim(this)] {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        CHECK_NULL_VOID(pattern->formManagerBridge_);
+        pattern->formManagerBridge_->ReAddForm();
+        }, "ReAddForm", PriorityType::HIGH);
+    return true;
+}
+
+void FormPattern::InitDueControlFormCallback(int32_t instanceID)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContext();
+    formManagerBridge_->AddDueControlFormCallback(
+        [weak = WeakClaim(this), instanceID, pipeline](const bool isDisablePolicy, const bool isControl) {
+        ContainerScope scope(instanceID);
+        CHECK_NULL_VOID(pipeline);
+        auto uiTaskExecutor =
+            SingleTaskExecutor::Make(pipeline->GetTaskExecutor(), TaskExecutor::TaskType::UI);
+        uiTaskExecutor.PostTask([weak, instanceID, isDisablePolicy, isControl] {
+            ContainerScope scope(instanceID);
+            auto formPattern = weak.Upgrade();
+            CHECK_NULL_VOID(formPattern);
+            formPattern->HandleFormDueControl(isDisablePolicy, isControl);
+            }, "ArkUIFormHandleDueControlEvent", PriorityType::HIGH);
+    });
+}
+
+void FormPattern::HandleFormDueControl(bool isDisablePolicy, bool isControl)
+{
+    auto newFormSpecialStyle = formSpecialStyle_;
+    if (isDisablePolicy) {
+        newFormSpecialStyle.SetIsDisableByDue(isControl);
+    } else {
+        newFormSpecialStyle.SetIsRemoveByDue(isControl);
+    }
+    HandleFormStyleOperation(newFormSpecialStyle);
+}
+
+bool FormPattern::IsFormDueControl(const std::string &bundleName, const std::string &moduleName,
+    const std::string &abilityName, const std::string &formName, const int32_t dimension, const bool isDisablePolicy)
+{
+    CHECK_NULL_RETURN(formManagerBridge_, false);
+    return formManagerBridge_->CheckFormDueControl(
+        bundleName, moduleName, abilityName, formName, dimension, isDisablePolicy);
+}
+
+void FormPattern::InitFormRenderDiedCallback()
+{
+    formManagerBridge_->AddFormRenderDiedCallback([weak = WeakClaim(this)] () {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->UnregisterAccessibility();
+    });
 }
 } // namespace OHOS::Ace::NG

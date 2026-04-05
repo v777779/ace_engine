@@ -15,11 +15,11 @@
 
 #include "text_input_base.h"
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_resource_adapter_v2.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_udmf.h"
-#include "test/mock/core/render/mock_paragraph.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter_v2.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
 #include "core/components_ng/pattern/text/span/span_string.h"
 #include "core/components_ng/pattern/select_overlay/select_overlay_pattern.h"
 
@@ -142,43 +142,45 @@ HWTEST_F(TextFieldPatternTestTwo, InitDragDropCallBack001, TestSize.Level0)
     auto eventHub = textFieldNode->GetEventHub<EventHub>();
     pattern->dragStatus_ = DragStatus::ON_DROP;
     pattern->isDetachFromMainTree_ = false;
-    eventHub->onDragEnd_.operator()(event);
+    eventHub->GetOnDragEnd().operator()(event);
     pattern->dragStatus_ = DragStatus::ON_DROP;
     pattern->isDetachFromMainTree_ = true;
-    eventHub->onDragEnd_.operator()(event);
+    eventHub->GetOnDragEnd().operator()(event);
     pattern->dragStatus_ = DragStatus::DRAGGING;
     pattern->isDetachFromMainTree_ = true;
-    eventHub->onDragEnd_.operator()(event);
+    eventHub->GetOnDragEnd().operator()(event);
     pattern->dragStatus_ = DragStatus::DRAGGING;
     pattern->isDetachFromMainTree_ = false;
-    eventHub->onDragEnd_.operator()(event);
+    eventHub->GetOnDragEnd().operator()(event);
     auto focusHub = pattern->GetFocusHub();
     focusHub->currentFocus_ = true;
     pattern->dragStatus_ = DragStatus::DRAGGING;
-    eventHub->onDragEnd_.operator()(nullptr);
+    eventHub->GetOnDragEnd().operator()(nullptr);
     event->SetResult(DragRet::DRAG_SUCCESS);
     pattern->dragStatus_ = DragStatus::DRAGGING;
-    eventHub->onDragEnd_.operator()(event);
+    eventHub->GetOnDragEnd().operator()(event);
     event->SetResult(DragRet::DRAG_DEFAULT);
     pattern->dragValue_ = u"Test";
     pattern->dragStatus_ = DragStatus::DRAGGING;
-    eventHub->onDragEnd_.operator()(event);
+    eventHub->GetOnDragEnd().operator()(event);
     pattern->dragValue_= pattern->contentController_->GetSelectedValue(pattern->dragTextStart_, pattern->dragTextEnd_);
     pattern->dragStatus_ = DragStatus::DRAGGING;
-    eventHub->onDragEnd_.operator()(event);
+    eventHub->GetOnDragEnd().operator()(event);
     auto paintProperty = pattern->GetPaintProperty<TextFieldPaintProperty>();
     paintProperty->UpdateInputStyle(InputStyle::INLINE);
     pattern->dragStatus_ = DragStatus::DRAGGING;
-    eventHub->onDragEnd_.operator()(event);
+    eventHub->GetOnDragEnd().operator()(event);
     paintProperty->UpdateInputStyle(InputStyle::DEFAULT);
     pattern->dragStatus_ = DragStatus::DRAGGING;
-    eventHub->onDragEnd_.operator()(event);
+    eventHub->GetOnDragEnd().operator()(event);
     focusHub->currentFocus_ = false;
     pattern->dragStatus_ = DragStatus::DRAGGING;
-    eventHub->onDragEnd_.operator()(event);
-    eventHub->onDragEnter_.operator()(event, extraParams);
+    eventHub->GetOnDragEnd().operator()(event);
+    eventHub->GetOrCreateDragDropCallbackSet()->GetOrCreateInnerDragDropCallback()->
+        onDragEnter.operator()(event, extraParams);
     pattern->dragStatus_ = DragStatus::ON_DROP;
-    eventHub->onDragEnter_.operator()(event, extraParams);
+    eventHub->GetOrCreateDragDropCallbackSet()->GetOrCreateInnerDragDropCallback()->
+        onDragEnter.operator()(event, extraParams);
     EXPECT_EQ(pattern->dragStatus_, DragStatus::ON_DROP);
 }
 
@@ -832,47 +834,6 @@ HWTEST_F(TextFieldPatternTestTwo, GetMaxLines001, TestSize.Level0)
 }
 
 /**
- * @tc.name: TextAreaInputRectUpdate001
- * @tc.desc: test TextAreaInputRectUpdate
- * @tc.type: FUNC
- */
-HWTEST_F(TextFieldPatternTestTwo, TextAreaInputRectUpdate001, TestSize.Level0)
-{
-    auto textFieldNode = FrameNode::GetOrCreateFrameNode(V2::TEXTINPUT_ETS_TAG,
-        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextFieldPattern>(); });
-    ASSERT_NE(textFieldNode, nullptr);
-    auto pattern = textFieldNode->GetPattern<TextFieldPattern>();
-    ASSERT_NE(pattern, nullptr);
-
-    ASSERT_NE(pattern->contentController_, nullptr);
-    pattern->contentController_->content_ = u"Test";
-    pattern->paragraph_ = MockParagraph::GetOrCreateMockParagraph();
-    ASSERT_NE(pattern->paragraph_, nullptr);
-
-    auto layoutProperty = textFieldNode->GetLayoutProperty<TextFieldLayoutProperty>();
-    ASSERT_NE(layoutProperty, nullptr);
-    layoutProperty->GetOrCreateTextLineStyle();
-    ASSERT_NE(layoutProperty->propTextLineStyle_, nullptr);
-    layoutProperty->propTextLineStyle_->UpdateTextAlign(TextAlign::START);
-
-    auto rect = RectF(1.0f, 1.0f, 2.0f, 1.0f);
-    pattern->contentRect_ = RectF(1.0f, 1.0f, -10.0f, 10.0f);
-    layoutProperty->propTextLineStyle_->UpdateMaxLines(1);
-    pattern->TextAreaInputRectUpdate(rect);
-    EXPECT_EQ(rect.Width(), 2.0f);
-
-    layoutProperty->propTextLineStyle_->UpdateMaxLines(2);
-    pattern->TextAreaInputRectUpdate(rect);
-    layoutProperty->propTextLineStyle_->UpdateTextAlign(TextAlign::CENTER);
-    pattern->TextAreaInputRectUpdate(rect);
-    layoutProperty->propTextLineStyle_->UpdateTextAlign(TextAlign::END);
-    pattern->TextAreaInputRectUpdate(rect);
-    layoutProperty->propTextLineStyle_->UpdateTextAlign(TextAlign::LEFT);
-    pattern->TextAreaInputRectUpdate(rect);
-    EXPECT_EQ(rect.Width(), 2.0f);
-}
-
-/**
  * @tc.name: GetMarginBottom001
  * @tc.desc: test GetMarginBottom
  * @tc.type: FUNC
@@ -978,6 +939,8 @@ HWTEST_F(TextFieldPatternTestTwo, UpdateErrorTextMargin001, TestSize.Level0)
     layoutProperty->margin_ = std::make_unique<MarginProperty>();
     ASSERT_NE(layoutProperty->margin_, nullptr);
     layoutProperty->margin_->bottom.emplace(Dimension(100.0));
+
+    // set showError and update error textmargin
     pattern->SetShowError();
     pattern->UpdateErrorTextMargin();
 
@@ -985,6 +948,13 @@ HWTEST_F(TextFieldPatternTestTwo, UpdateErrorTextMargin001, TestSize.Level0)
     pattern->UpdateErrorTextMargin();
     MockParagraph::enabled_ = true;
     EXPECT_NE(layoutProperty->margin_->bottom->GetDimension().ConvertToPx(), 100.0);
+
+    // set showError and update error textmargin
+    pattern->SetShowError();
+    pattern->UpdateErrorTextMargin();
+
+    // use showErrorOnTV
+    pattern->SetShowErrorForTV();
 }
 
 /**
@@ -1132,38 +1102,39 @@ HWTEST_F(TextFieldPatternTestTwo, NotifyFillRequestSuccess001, TestSize.Level0)
     auto nodeWrap = AceType::MakeRefPtr<TextFieldPatternTestTwoPageNodeInfoWrap>();
     ASSERT_NE(nodeWrap, nullptr);
 
-    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED);
+    auto triggerType = AceAutoFillTriggerType::AUTO_REQUEST;
+    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED, triggerType);
 
     nodeWrap->SetValue("Test");
     pattern->lastAutoFillTextValue_ = "";
-    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED);
+    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED, triggerType);
     EXPECT_EQ(pattern->lastAutoFillTextValue_, "Test");
 
     /* Simulate contentControl_ as nullptr */
     auto contentController = pattern->contentController_;
     pattern->contentController_ = nullptr;
-    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED);
+    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED, triggerType);
     pattern->contentController_ = contentController;
 
     nodeWrap->SetIsFocus(true);
-    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED);
+    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED, triggerType);
 
     /* Give the pattern focus */
     auto focusHub = pattern->GetFocusHub();
     ASSERT_NE(focusHub, nullptr);
     focusHub->currentFocus_ = true;
-    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_NEW_PASSWORD);
+    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_NEW_PASSWORD, triggerType);
 
     auto layoutProperty = pattern->GetLayoutProperty<TextFieldLayoutProperty>();
     ASSERT_NE(layoutProperty, nullptr);
     layoutProperty->UpdateTextContentType(TextContentType::NEW_PASSWORD);
     pattern->lastAutoFillTextValue_ = "";
-    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_NEW_PASSWORD);
+    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_NEW_PASSWORD, triggerType);
     EXPECT_NE(pattern->lastAutoFillTextValue_, "Test");
 
     viewDataWrap->SetOtherAccount(true);
     pattern->lastAutoFillTextValue_ = "";
-    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_NEW_PASSWORD);
+    pattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_NEW_PASSWORD, triggerType);
     EXPECT_NE(pattern->lastAutoFillTextValue_, "Test");
 }
 
@@ -1283,6 +1254,14 @@ HWTEST_F(TextFieldPatternTestTwo, ProcessFocusStyle001, TestSize.Level0)
     pattern->inlineSelectAllFlag_ = true;
     pattern->ProcessFocusStyle();
     EXPECT_EQ(pattern->inlineSelectAllFlag_, true);
+
+    auto pipeline = PipelineBase::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto theme = pipeline->GetTheme<TextFieldTheme>();
+    ASSERT_NE(theme, nullptr);
+    theme->hoverAndPressBgColorEnabled_ = true;
+    pattern->ProcessFocusStyle();
+    EXPECT_EQ(pattern->IsTV(), true);
 }
 
 /**
@@ -1420,6 +1399,11 @@ HWTEST_F(TextFieldPatternTestTwo, CheckIfNeedToResetKeyboard001, TestSize.Level0
     pattern->keyboard_ = TextInputType::UNSPECIFIED;
     pattern->CheckIfNeedToResetKeyboard();
     EXPECT_EQ(pattern->keyboard_, TextInputType::TEXT);
+
+    pattern->isCustomKeyboardAttached_ = false;
+    pattern->keyboard_ = TextInputType::ONE_TIME_CODE;
+    pattern->CheckIfNeedToResetKeyboard();
+    EXPECT_EQ(pattern->keyboard_, TextInputType::TEXT);
 }
 
 /**
@@ -1437,6 +1421,7 @@ HWTEST_F(TextFieldPatternTestTwo, AddTextFireOnChange001, TestSize.Level0)
     auto layoutProperty = textFieldNode->GetLayoutProperty<TextFieldLayoutProperty>();
     ASSERT_NE(layoutProperty, nullptr);
     layoutProperty->UpdateTextInputType(TextInputType::USER_NAME);
+    pattern->textObscured_ = true;
     pattern->contentController_->content_ = u"abcd";
     pattern->textCache_ = "abc";
     pattern->AddTextFireOnChange();
@@ -1458,6 +1443,7 @@ HWTEST_F(TextFieldPatternTestTwo, AddTextFireOnChange002, TestSize.Level0)
     auto layoutProperty = textFieldNode->GetLayoutProperty<TextFieldLayoutProperty>();
     ASSERT_NE(layoutProperty, nullptr);
     layoutProperty->UpdateTextInputType(TextInputType::VISIBLE_PASSWORD);
+    pattern->textObscured_ = true;
     pattern->contentController_->content_ = u"abc";
     pattern->textCache_ = "abcd";
     pattern->AddTextFireOnChange();
@@ -1479,9 +1465,142 @@ HWTEST_F(TextFieldPatternTestTwo, AddTextFireOnChange003, TestSize.Level0)
     auto layoutProperty = textFieldNode->GetLayoutProperty<TextFieldLayoutProperty>();
     ASSERT_NE(layoutProperty, nullptr);
     layoutProperty->UpdateTextInputType(TextInputType::USER_NAME);
+    pattern->textObscured_ = false;
     pattern->contentController_->content_ = u"abcd content";
     pattern->textCache_ = "abcdefg";
     pattern->AddTextFireOnChange();
     EXPECT_EQ(pattern->textCache_, "abcd content");
+}
+
+/**
+ * @tc.name: AddTextFireOnChange004
+ * @tc.desc: Test AddTextFireOnChange IsInPasswordMode with content removed
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestTwo, AddTextFireOnChange004, TestSize.Level0)
+{
+    auto textFieldNode = FrameNode::GetOrCreateFrameNode(V2::TEXTINPUT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextFieldPattern>(); });
+    ASSERT_NE(textFieldNode, nullptr);
+    auto pattern = textFieldNode->GetPattern<TextFieldPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto layoutProperty = textFieldNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateTextInputType(TextInputType::VISIBLE_PASSWORD);
+    pattern->textObscured_ = false;
+    pattern->contentController_->content_ = u"abcd";
+    pattern->textCache_ = "abc";
+    pattern->AddTextFireOnChange();
+    EXPECT_EQ(pattern->textCache_, "abcd");
+}
+
+/**
+ * @tc.name: RegisterFontCallback in form card.
+ * @tc.desc: test register form callback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestTwo, RegisterFormFontCallback, TestSize.Level0)
+{
+    auto fontManager = FontManager::Create();
+    ASSERT_NE(fontManager, nullptr);
+    CreateTextField(DEFAULT_TEXT);
+    EXPECT_TRUE(fontManager->formLoadCallbacks_.empty());
+    bool hasChanged = false;
+    auto fontChangeCallback = [&]() { hasChanged = true; };
+    fontManager->RegisterCallbackNG(WeakPtr(frameNode_), "myFont", fontChangeCallback);
+    std::map<std::string, FormLoadFontCallbackInfo> formMap;
+    FormLoadFontCallbackInfo formCallbackInfo = { fontChangeCallback, 12345 };
+    formMap.emplace("myFont", formCallbackInfo);
+    fontManager->formLoadCallbacks_.emplace(WeakPtr(frameNode_), formMap);
+    fontChangeCallback();
+    EXPECT_TRUE(hasChanged);
+}
+
+/**
+ * @tc.name: UpdateFocusOffsetIfNeed001
+ * @tc.desc: test testInput text UpdateFocusOffsetIfNeed
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestTwo, UpdateFocusOffsetIfNeed001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. create target node.
+     */
+    auto textFieldNode = FrameNode::GetOrCreateFrameNode(V2::TEXTINPUT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextFieldPattern>(); });
+    ASSERT_NE(textFieldNode, nullptr);
+    RefPtr<TextFieldPattern> pattern = textFieldNode->GetPattern<TextFieldPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    auto pipeline = PipelineBase::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto theme = pipeline->GetTheme<TextFieldTheme>();
+    ASSERT_NE(theme, nullptr);
+    theme->hoverAndPressBgColorEnabled_ = true;
+    pattern->ProcessFocusStyle();
+    EXPECT_EQ(pattern->IsTV(), true);
+
+    RoundRect paintRect;
+    pattern->UpdateFocusOffsetIfNeed(paintRect);
+    EXPECT_EQ(paintRect.GetCornerRadius(RoundRect::CornerPos::TOP_LEFT_POS).x, 0.0f);
+}
+
+/**
+ * @tc.name: onWillCopy
+ * @tc.desc: test onWillCopy
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestTwo, onWillCopy, TestSize.Level0)
+{
+    TextFieldModelNG textFieldModelNG;
+
+    auto textFieldNode = FrameNode::GetOrCreateFrameNode(V2::TEXTINPUT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextFieldPattern>(); });
+    ASSERT_NE(textFieldNode, nullptr);
+    auto eventHub = textFieldNode->GetEventHub<TextFieldEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    EXPECT_EQ(eventHub->onWillCopy_, nullptr);
+    std::u16string expected = u"Hello";
+    EXPECT_TRUE(eventHub->FireOnWillCopy(expected));
+    std::u16string value = u"";
+    bool result = false;
+    auto onWillCopyResult = [&value, &result](const std::u16string& param) -> bool {
+        value = param;
+        return result;
+    };
+    textFieldModelNG.SetOnWillCopy(AceType::RawPtr(textFieldNode), onWillCopyResult);
+    EXPECT_FALSE(eventHub->FireOnWillCopy(expected));
+    EXPECT_EQ(expected, value);
+    result = true;
+    EXPECT_TRUE(eventHub->FireOnWillCopy(expected));
+}
+
+/**
+ * @tc.name: onWillCut
+ * @tc.desc: test onWillCut
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestTwo, onWillCut, TestSize.Level0)
+{
+    TextFieldModelNG textFieldModelNG;
+    auto textFieldNode = FrameNode::GetOrCreateFrameNode(V2::TEXTINPUT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextFieldPattern>(); });
+    ASSERT_NE(textFieldNode, nullptr);
+    auto eventHub = textFieldNode->GetEventHub<TextFieldEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    EXPECT_EQ(eventHub->onWillCopy_, nullptr);
+    std::u16string expected = u"Hello";
+    EXPECT_TRUE(eventHub->FireOnWillCut(expected));
+    std::u16string value = u"";
+    bool result = false;
+    auto onWillCutResult = [&value, &result](const std::u16string& param) -> bool {
+        value = param;
+        return result;
+    };
+    textFieldModelNG.SetOnWillCut(AceType::RawPtr(textFieldNode), onWillCutResult);
+    EXPECT_FALSE(eventHub->FireOnWillCut(expected));
+    EXPECT_EQ(expected, value);
+    result = true;
+    EXPECT_TRUE(eventHub->FireOnWillCut(expected));
 }
 } // namespace OHOS::Ace::NG

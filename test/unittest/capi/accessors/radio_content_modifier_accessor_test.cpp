@@ -42,11 +42,11 @@ static const std::string TEST_DEFAULT_VALUE = "";
 static constexpr bool TEST_DEFAULT_CHECKED = false;
 
 /**
- * @tc.name: RadioContentModifierHelperAccessorTest
+ * @tc.name: contentModifierRadioTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(RadioContentModifierHelperAccessor, radioContentModifierHelperAccessorTest, TestSize.Level1)
+HWTEST_F(RadioContentModifierHelperAccessor, contentModifierRadioTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->contentModifierRadio, nullptr);
 
@@ -66,18 +66,10 @@ HWTEST_F(RadioContentModifierHelperAccessor, radioContentModifierHelperAccessorT
     };
     static std::optional<CheckEvent> checkEvent = std::nullopt;
 
-    Ark_Object obj = {
-        .resource = Ark_CallbackResource {
-            .resourceId = TEST_OBJ_ID,
-            .hold = [](InteropInt32){},
-            .release = [](InteropInt32){},
-        }
-    };
+    auto obj = Converter::ArkCreate<Ark_Object>(TEST_OBJ_ID);
 
-    auto modifierCallback = [](const Ark_Int32 resourceId,
-        const Ark_NativePointer parentNode,
-        const Ark_RadioConfiguration config,
-        const Callback_Pointer_Void continuation) {
+    auto modifierCallback = [](const Ark_Int32 resourceId, const Ark_NativePointer parentNode,
+        const Ark_RadioConfiguration config, const Callback_Pointer_Void continuation) {
             auto navigationNode = reinterpret_cast<FrameNode *>(parentNode);
             checkEvent = {
                 .nodeId = navigationNode->GetId(),

@@ -42,7 +42,6 @@
 #include "core/components_ng/pattern/list/list_pattern.h"
 #include "core/components_ng/pattern/stack/stack_pattern.h"
 #include "core/components_ng/pattern/text/text_layout_property.h"
-#include "core/components_ng/pattern/text/text_model.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/property/border_property.h"
 #include "core/components_ng/property/calc_length.h"
@@ -50,7 +49,7 @@
 #include "core/components_ng/property/measure_utils.h"
 #include "core/components_ng/property/property.h"
 #include "core/components_v2/inspector/inspector_constants.h"
-#include "core/components_v2/list/list_properties.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 #include "core/event/mouse_event.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
@@ -66,6 +65,7 @@ void IndexerPattern::OnModifyDone()
     Pattern::OnModifyDone();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto layoutProperty = host->GetLayoutProperty<IndexerLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
 
@@ -220,7 +220,7 @@ void IndexerPattern::BuildArrayValueItems()
         layoutProperty->UpdateIsPopup(false);
         for (int32_t index = 0; index < indexerSize; index++) {
             auto indexerChildNode = FrameNode::CreateFrameNode(
-                V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+                TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
             CHECK_NULL_VOID(indexerChildNode);
             InitChildInputEvent(indexerChildNode, index);
             host->AddChild(indexerChildNode);
@@ -765,6 +765,7 @@ void IndexerPattern::ApplyIndexChanged(
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto layoutProperty = host->GetLayoutProperty<IndexerLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
     if (layoutProperty->GetAdaptiveWidthValue(false)) {
@@ -991,25 +992,25 @@ void IndexerPattern::ShowBubble()
 
 RefPtr<FrameNode> IndexerPattern::CreatePopupNode()
 {
-    auto columnNode = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+    auto columnNode = FrameNode::CreateFrameNode(COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
         AceType::MakeRefPtr<LinearLayoutPattern>(true));
     CHECK_NULL_RETURN(columnNode, nullptr);
 
     if (!autoCollapse_) {
         auto letterNode = FrameNode::CreateFrameNode(
-            V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+            TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
         CHECK_NULL_RETURN(letterNode, nullptr);
         auto letterStackNode = FrameNode::CreateFrameNode(
-            V2::STACK_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StackPattern>());
+            STACK_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StackPattern>());
         CHECK_NULL_RETURN(letterStackNode, nullptr);
         letterStackNode->AddChild(letterNode);
         columnNode->AddChild(letterStackNode);
     }
     auto listNode = FrameNode::CreateFrameNode(
-        V2::LIST_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ListPattern>());
+        LIST_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ListPattern>());
     CHECK_NULL_RETURN(listNode, nullptr);
     auto listStackNode = FrameNode::CreateFrameNode(
-        V2::STACK_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StackPattern>());
+        STACK_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StackPattern>());
     CHECK_NULL_RETURN(listStackNode, nullptr);
     listStackNode->AddChild(listNode);
     columnNode->AddChild(listStackNode);
@@ -1350,7 +1351,7 @@ void IndexerPattern::CreateBubbleListView()
 {
     CHECK_NULL_VOID(popupNode_);
     auto listNode = Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWELVE)
-                        ? FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+                        ? FrameNode::CreateFrameNode(LIST_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
                             AceType::MakeRefPtr<ListPattern>())
                         : DynamicCast<FrameNode>(popupNode_->GetLastChild()->GetFirstChild());
     CHECK_NULL_VOID(listNode);
@@ -1364,10 +1365,10 @@ void IndexerPattern::CreateBubbleListView()
 
     if (autoCollapse_) {
         auto letterNode = FrameNode::CreateFrameNode(
-            V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+            TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
         CHECK_NULL_VOID(letterNode);
         auto listItemNode =
-            FrameNode::CreateFrameNode(V2::LIST_ITEM_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+            FrameNode::CreateFrameNode(LIST_ITEM_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
                 AceType::MakeRefPtr<ListItemPattern>(nullptr, V2::ListItemStyle::NONE));
         listItemNode->AddChild(letterNode);
         listNode->AddChild(listItemNode);
@@ -1375,10 +1376,10 @@ void IndexerPattern::CreateBubbleListView()
 
     for (uint32_t i = 0; i < currentListData_.size(); i++) {
         auto listItemNode =
-            FrameNode::CreateFrameNode(V2::LIST_ITEM_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+            FrameNode::CreateFrameNode(LIST_ITEM_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
                 AceType::MakeRefPtr<ListItemPattern>(nullptr, V2::ListItemStyle::NONE));
         auto textNode = FrameNode::CreateFrameNode(
-            V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+            TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
         listItemNode->AddChild(textNode);
         AddListItemClickListener(listItemNode, i);
         listNode->AddChild(listItemNode);
@@ -1691,7 +1692,8 @@ void IndexerPattern::OnListItemClick(int32_t index)
     ReportPoupSelectEvent();
     if (onPopupSelected) {
         onPopupSelected(index);
-        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "onPopupSelected");
+        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "onPopupSelected",
+            ComponentEventType::COMPONENT_EVENT_SELECT);
     }
     ChangeListItemsSelectedStyle(index);
 }
@@ -1784,10 +1786,13 @@ void IndexerPattern::ItemSelectedInAnimation(RefPtr<FrameNode>& itemNode)
     AnimationOption option;
     option.SetDuration(INDEXER_SELECT_DURATION);
     option.SetCurve(Curves::LINEAR);
-    AnimationUtils::Animate(option, [renderContext, id = Container::CurrentId(), selectedBackgroundColor]() {
-        ContainerScope scope(id);
-        renderContext->UpdateBackgroundColor(selectedBackgroundColor);
-    });
+    AnimationUtils::Animate(
+        option,
+        [renderContext, id = Container::CurrentId(), selectedBackgroundColor]() {
+            ContainerScope scope(id);
+            renderContext->UpdateBackgroundColor(selectedBackgroundColor);
+        },
+        nullptr, nullptr, Claim(pipelineContext));
 }
 
 void IndexerPattern::ItemSelectedOutAnimation(RefPtr<FrameNode>& itemNode)
@@ -1798,10 +1803,14 @@ void IndexerPattern::ItemSelectedOutAnimation(RefPtr<FrameNode>& itemNode)
     AnimationOption option;
     option.SetDuration(INDEXER_SELECT_DURATION);
     option.SetCurve(Curves::LINEAR);
-    AnimationUtils::Animate(option, [renderContext, id = Container::CurrentId()]() {
-        ContainerScope scope(id);
-        renderContext->UpdateBackgroundColor(Color::TRANSPARENT);
-    });
+    auto pipeline = itemNode->GetContextRefPtr();
+    AnimationUtils::Animate(
+        option,
+        [renderContext, id = Container::CurrentId()]() {
+            ContainerScope scope(id);
+            renderContext->UpdateBackgroundColor(Color::TRANSPARENT);
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void IndexerPattern::IndexerHoverInAnimation()
@@ -1818,10 +1827,13 @@ void IndexerPattern::IndexerHoverInAnimation()
     AnimationOption option;
     option.SetDuration(INDEXER_HOVER_IN_DURATION);
     option.SetCurve(Curves::FRICTION);
-    AnimationUtils::Animate(option, [renderContext, id = Container::CurrentId(), slipHoverBackgroundColor]() {
-        ContainerScope scope(id);
-        renderContext->UpdateBackgroundColor(slipHoverBackgroundColor);
-    });
+    AnimationUtils::Animate(
+        option,
+        [renderContext, id = Container::CurrentId(), slipHoverBackgroundColor]() {
+            ContainerScope scope(id);
+            renderContext->UpdateBackgroundColor(slipHoverBackgroundColor);
+        },
+        nullptr, nullptr, Claim(pipelineContext));
 }
 
 void IndexerPattern::IndexerHoverOutAnimation()
@@ -1833,10 +1845,14 @@ void IndexerPattern::IndexerHoverOutAnimation()
     AnimationOption option;
     option.SetDuration(INDEXER_HOVER_OUT_DURATION);
     option.SetCurve(Curves::FRICTION);
-    AnimationUtils::Animate(option, [renderContext, id = Container::CurrentId()]() {
-        ContainerScope scope(id);
-        renderContext->UpdateBackgroundColor(Color::TRANSPARENT);
-    });
+    auto pipeline = host->GetContextRefPtr();
+    AnimationUtils::Animate(
+        option,
+        [renderContext, id = Container::CurrentId()]() {
+            ContainerScope scope(id);
+            renderContext->UpdateBackgroundColor(Color::TRANSPARENT);
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void IndexerPattern::IndexerPressInAnimation()
@@ -1855,10 +1871,13 @@ void IndexerPattern::IndexerPressInAnimation()
     AnimationOption option;
     option.SetDuration(INDEXER_PRESS_IN_DURATION);
     option.SetCurve(Curves::SHARP);
-    AnimationUtils::Animate(option, [renderContext, id = Container::CurrentId(), backgroundColor]() {
-        ContainerScope scope(id);
-        renderContext->UpdateBackgroundColor(backgroundColor);
-    });
+    AnimationUtils::Animate(
+        option,
+        [renderContext, id = Container::CurrentId(), backgroundColor]() {
+            ContainerScope scope(id);
+            renderContext->UpdateBackgroundColor(backgroundColor);
+        },
+        nullptr, nullptr, Claim(pipelineContext));
 }
 
 void IndexerPattern::IndexerPressOutAnimation()
@@ -1877,19 +1896,25 @@ void IndexerPattern::IndexerPressOutAnimation()
     AnimationOption option;
     option.SetDuration(INDEXER_PRESS_OUT_DURATION);
     option.SetCurve(Curves::SHARP);
-    AnimationUtils::Animate(option, [renderContext, id = Container::CurrentId(), backgroundColor]() {
-        ContainerScope scope(id);
-        renderContext->UpdateBackgroundColor(backgroundColor);
-    });
+    AnimationUtils::Animate(
+        option,
+        [renderContext, id = Container::CurrentId(), backgroundColor]() {
+            ContainerScope scope(id);
+            renderContext->UpdateBackgroundColor(backgroundColor);
+        },
+        nullptr, nullptr, Claim(pipelineContext));
 }
 
 void IndexerPattern::StartBubbleAppearAnimation()
 {
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
     animationId_ = GenerateAnimationId();
     UpdatePopupVisibility(VisibleType::VISIBLE);
     AnimationOption option;
     option.SetCurve(Curves::SHARP);
     option.SetDuration(INDEXER_BUBBLE_ENTER_DURATION);
+    auto pipeline = host->GetContextRefPtr();
     AnimationUtils::Animate(
         option,
         [id = Container::CurrentId(), weak = AceType::WeakClaim(this)]() {
@@ -1897,7 +1922,8 @@ void IndexerPattern::StartBubbleAppearAnimation()
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
             pattern->UpdatePopupOpacity(1.0f);
-        });
+        },
+        nullptr, nullptr, pipeline);
 }
 
 void IndexerPattern::StartDelayTask(uint32_t duration)
@@ -1938,6 +1964,9 @@ void IndexerPattern::StartBubbleDisappearAnimation()
     AnimationOption option;
     option.SetCurve(Curves::SHARP);
     option.SetDuration(INDEXER_BUBBLE_EXIT_DURATION);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
     AnimationUtils::Animate(
         option,
         [id = Container::CurrentId(), weak = AceType::WeakClaim(this)]() {
@@ -1956,7 +1985,8 @@ void IndexerPattern::StartBubbleDisappearAnimation()
             if (NearZero(renderContext->GetOpacityValue(0.0f))) {
                 pattern->UpdatePopupVisibility(VisibleType::GONE);
             }
-        });
+        },
+        nullptr, pipeline);
 }
 
 void IndexerPattern::UpdatePopupOpacity(float ratio)
@@ -2014,7 +2044,7 @@ void IndexerPattern::FireOnSelect(int32_t selectIndex, bool fromPress)
                 TAG_LOGD(AceLogTag::ACE_ALPHABET_INDEXER, "item %{public}d is selected", actualIndex);
                 onSelected(actualIndex); // fire onSelected with an item's index from original array
             }
-            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Indexer.onSelected");
+            ReportSelectChangeData(host->GetId(), selectIndex);
             TAG_LOGI(AceLogTag::ACE_ALPHABET_INDEXER,
                 "nodeId:[%{public}d] Indexer reportComponentChangeEvent onSelected", GetHost()->GetId());
         }
@@ -2028,6 +2058,17 @@ void IndexerPattern::SetAccessibilityAction()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    auto accessibilityProperty = host->GetAccessibilityProperty<AccessibilityProperty>();
+    accessibilityProperty->SetActionScrollForward([weakPtr = WeakClaim(this)]() {
+        auto indexerPattern = weakPtr.Upgrade();
+        CHECK_NULL_VOID(indexerPattern);
+        indexerPattern->MoveIndexByStep(1);
+    });
+    accessibilityProperty->SetActionScrollBackward([weakPtr = WeakClaim(this)]() {
+        auto indexerPattern = weakPtr.Upgrade();
+        CHECK_NULL_VOID(indexerPattern);
+        indexerPattern->MoveIndexByStep(-1);
+    });
     auto childrenNode = host->GetChildren();
     for (auto& iter : childrenNode) {
         auto textNode = DynamicCast<NG::FrameNode>(iter);
@@ -2241,7 +2282,8 @@ void IndexerPattern::DumpInfo(std::unique_ptr<JsonValue>& json)
 void IndexerPattern::ReportSelectEvent()
 {
     if (initialized_ && selectChanged_) {
-        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Indexer.onSelected");
+        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Indexer.onSelected",
+            ComponentEventType::COMPONENT_EVENT_SELECT);
         TAG_LOGI(AceLogTag::ACE_ALPHABET_INDEXER, "nodeId:[%{public}d] Indexer reportComponentChangeEvent onSelected",
             GetHost()->GetId());
     }
@@ -2249,8 +2291,103 @@ void IndexerPattern::ReportSelectEvent()
 
 void IndexerPattern::ReportPoupSelectEvent()
 {
-    UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Indexer.onPopupSelect");
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Indexer.onPopupSelect",
+        ComponentEventType::COMPONENT_EVENT_SELECT);
     TAG_LOGI(AceLogTag::ACE_ALPHABET_INDEXER, "nodeId:[%{public}d] Indexer reportComponentChangeEvent onPopupSelect",
         GetHost()->GetId());
+}
+
+void IndexerPattern::ReportInjectionEvent(bool result, std::string reason)
+{
+    auto alphabetIndexerResult = InspectorJsonUtil::CreateObject();
+    CHECK_NULL_VOID(alphabetIndexerResult);
+    alphabetIndexerResult->Put("event", "setAlphabetIndexer");
+    if (result) {
+        alphabetIndexerResult->Put("result", "success");
+    } else {
+        alphabetIndexerResult->Put("result", "fail");
+        alphabetIndexerResult->Put("reason", reason.c_str());
+    }
+
+    auto json = InspectorJsonUtil::Create();
+    CHECK_NULL_VOID(json);
+    json->Put("alphabetIndexerResult", alphabetIndexerResult);
+
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", json->ToString().c_str(),
+        ComponentEventType::COMPONENT_EVENT_SELECT);
+}
+
+bool IndexerPattern::ParseCommand(const std::string& command, int32_t& selected)
+{
+    auto json = JsonUtil::ParseJsonString(command);
+    if (!json || json->IsNull()) {
+        return false;
+    }
+    auto cmdType = json->GetString("cmd");
+    if (cmdType != "setAlphabetIndexer") {
+        return false;
+    }
+    auto paramJson = json->GetValue("params");
+    CHECK_NULL_RETURN(paramJson, false);
+    if (!paramJson->IsObject()) {
+        return false;
+    }
+    if (!paramJson->Contains("value")) {
+        return false;
+    }
+    if (!paramJson->GetValue("value")->IsNumber()) {
+        return false;
+    }
+    selected = paramJson->GetInt("value");
+    return true;
+}
+
+int32_t IndexerPattern::OnInjectionEvent(const std::string& command)
+{
+    int select = selected_;
+    bool ret = ParseCommand(command, select);
+    if (!ret) {
+        ReportInjectionEvent(false, "InvalidCommand");
+        TAG_LOGE(AceLogTag::ACE_ALPHABET_INDEXER, "OnInjectionEvent InvalidCommand");
+        return RET_FAILED;
+    }
+    if (select < 0 || select >= itemCount_) {
+        ReportInjectionEvent(false, "InvalidIndex");
+        TAG_LOGE(AceLogTag::ACE_ALPHABET_INDEXER, "OnInjectionEvent InvalidIndex");
+        return RET_FAILED;
+    }
+    if (select == selected_ && collapsedIndex_ == lastCollapsedIndex_) {
+        ReportInjectionEvent(true, "");
+        return RET_SUCCESS;
+    }
+    selected_ = select;
+    FireOnSelect(selected_, false);
+    selectedChangedForHaptic_ = lastSelected_ != selected_ || collapsedIndex_ != lastCollapsedIndex_;
+    lastSelected_ = select;
+    lastCollapsedIndex_ = collapsedIndex_;
+    if (isHover_) {
+        IndexerPressInAnimation();
+    }
+    childFocusIndex_ = -1;
+    childHoverIndex_ = -1;
+    ApplyIndexChanged(true, true);
+    ReportInjectionEvent(true, "");
+    return RET_SUCCESS;
+}
+
+void IndexerPattern::ReportSelectChangeData(int32_t nodeId, int32_t currentIndex)
+{
+    auto result = JsonUtil::Create();
+    auto resultParams = JsonUtil::Create();
+    CHECK_NULL_VOID(result);
+    CHECK_NULL_VOID(resultParams);
+
+    result->Put("nodeId", nodeId);
+    result->Put("event", "Indexer.onSelect");
+    std::string currentIndexStr = std::to_string(currentIndex);
+    resultParams->Put("index", currentIndexStr.c_str());
+    result->Put("params", resultParams);
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", result->ToString(),
+        ComponentEventType::COMPONENT_EVENT_SELECT);
 }
 } // namespace OHOS::Ace::NG

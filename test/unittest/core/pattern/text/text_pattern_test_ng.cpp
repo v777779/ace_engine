@@ -16,13 +16,18 @@
 
 #include "base/memory/ace_type.h"
 #include "core/components_ng/base/frame_node.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/text/span_node.h"
-#include "base/utils/system_properties.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter_v2.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 namespace OHOS::Ace::NG {
 
 void TextPatternTestNg::SetUp() {}
-
 void TextPatternTestNg::TearDown() {}
 
 /**
@@ -137,6 +142,18 @@ HWTEST_F(TextPatternTestNg, GetSpansInfo002, TestSize.Level1)
     GetSpansMethod method = GetSpansMethod::ONSELECT;
     textPattern->GetSpansInfo(start, end, method);
     EXPECT_EQ(realStart, 0);
+
+    /*
+        step2: get spans info
+    */
+    textPattern->GetSpansInfo(start, end, method);
+    EXPECT_NE(realStart, 10);
+
+    /*
+        step3: get spans info
+    */
+    textPattern->GetSpansInfo(start, end, method);
+    EXPECT_NE(realStart, 10);
 }
 
 /**
@@ -152,6 +169,12 @@ HWTEST_F(TextPatternTestNg, GetSpansInfo003, TestSize.Level1)
     int32_t end = 1;
     std::int32_t realEnd = 0;
     GetSpansMethod method = GetSpansMethod::GETSPANS;
+    textPattern->GetSpansInfo(start, end, method);
+    EXPECT_EQ(realEnd, 0);
+
+    /*
+        step3: get spans info
+    */
     textPattern->GetSpansInfo(start, end, method);
     EXPECT_EQ(realEnd, 0);
 }
@@ -188,7 +211,7 @@ HWTEST_F(TextPatternTestNg, GetTextContentLength002, TestSize.Level1)
 
 /**
  * @tc.name: GetSelectedText001
- * @tc.desc: Test GetSelectedText
+ * @tc.desc: Test GetSelectedText with selectionStart > selectionEnd
  * @tc.type: FUNC
  */
 HWTEST_F(TextPatternTestNg, GetSelectedText001, TestSize.Level1)
@@ -209,7 +232,7 @@ HWTEST_F(TextPatternTestNg, GetSelectedText001, TestSize.Level1)
 
 /**
  * @tc.name: GetSelectedText002
- * @tc.desc: Test GetSelectedText
+ * @tc.desc: Test GetSelectedText with selectionStart = selectionEnd
  * @tc.type: FUNC
  */
 HWTEST_F(TextPatternTestNg, GetSelectedText002, TestSize.Level1)
@@ -251,6 +274,7 @@ HWTEST_F(TextPatternTestNg, HandleClickEvent001, TestSize.Level1)
     auto textPattern = AceType::MakeRefPtr<TextPattern>();
     ASSERT_NE(textPattern, nullptr);
     GestureEvent info;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
     textPattern->HandleClickEvent(info);
     EXPECT_EQ(textPattern->dataDetectorAdapter_->hasClickedAISpan_, false);
@@ -266,6 +290,7 @@ HWTEST_F(TextPatternTestNg, HandleClickEvent002, TestSize.Level1)
     auto textPattern = AceType::MakeRefPtr<TextPattern>();
     ASSERT_NE(textPattern, nullptr);
     GestureEvent info;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
     textPattern->HandleClickEvent(info);
     EXPECT_EQ(textPattern->dataDetectorAdapter_->hasClickedAISpan_, false);
@@ -326,6 +351,7 @@ HWTEST_F(TextPatternTestNg, HandleSingleClickEvent001, TestSize.Level1)
     auto textPattern = AceType::MakeRefPtr<TextPattern>();
     ASSERT_NE(textPattern, nullptr);
     GestureEvent info;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
     textPattern->HandleSingleClickEvent(info);
     EXPECT_EQ(textPattern->selectOverlay_->originalMenuIsShow_, true);
@@ -341,6 +367,7 @@ HWTEST_F(TextPatternTestNg, HandleSingleClickEvent002, TestSize.Level1)
     auto textPattern = AceType::MakeRefPtr<TextPattern>();
     ASSERT_NE(textPattern, nullptr);
     GestureEvent info;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->hasClickedAISpan_ = false;
     textPattern->HandleSingleClickEvent(info);
     EXPECT_EQ(textPattern->selectOverlay_->originalMenuIsShow_, true);
@@ -508,6 +535,7 @@ HWTEST_F(TextPatternTestNg, RecoverCopyOption001, TestSize.Level1)
     textPattern->isSpanStringMode_ = true;
     textPattern->textDetectEnable_ = true;
     textPattern->enabled_ = true;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->aiDetectInitialized_ = false;
     textPattern->RecoverCopyOption();
     EXPECT_EQ(textPattern->dataDetectorAdapter_->textForAI_, textPattern->textForDisplay_);
@@ -527,6 +555,7 @@ HWTEST_F(TextPatternTestNg, RecoverCopyOption002, TestSize.Level1)
     textPattern->isSpanStringMode_ = false;
     textPattern->textDetectEnable_ = true;
     textPattern->enabled_ = true;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->aiDetectInitialized_ = false;
     textPattern->RecoverCopyOption();
     EXPECT_EQ(textPattern->dataDetectorAdapter_->textForAI_, textPattern->textForDisplay_);
@@ -546,6 +575,7 @@ HWTEST_F(TextPatternTestNg, RecoverCopyOption003, TestSize.Level1)
     textPattern->isSpanStringMode_ = true;
     textPattern->textDetectEnable_ = true;
     textPattern->enabled_ = false;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->aiDetectInitialized_ = false;
     textPattern->RecoverCopyOption();
     EXPECT_EQ(textPattern->dataDetectorAdapter_->textForAI_, textPattern->textForDisplay_);
@@ -565,6 +595,7 @@ HWTEST_F(TextPatternTestNg, RecoverCopyOption004, TestSize.Level1)
     textPattern->isSpanStringMode_ = true;
     textPattern->textDetectEnable_ = true;
     textPattern->enabled_ = true;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->aiDetectInitialized_ = true;
     textPattern->RecoverCopyOption();
     EXPECT_EQ(textPattern->dataDetectorAdapter_->textForAI_, textPattern->textForDisplay_);
@@ -584,6 +615,7 @@ HWTEST_F(TextPatternTestNg, RecoverCopyOption005, TestSize.Level1)
     textPattern->isSpanStringMode_ = false;
     textPattern->textDetectEnable_ = true;
     textPattern->enabled_ = false;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->aiDetectInitialized_ = false;
     textPattern->RecoverCopyOption();
     EXPECT_EQ(textPattern->dataDetectorAdapter_->textForAI_, textPattern->textForDisplay_);
@@ -603,8 +635,11 @@ HWTEST_F(TextPatternTestNg, RecoverCopyOption006, TestSize.Level1)
     textPattern->isSpanStringMode_ = true;
     textPattern->textDetectEnable_ = true;
     textPattern->enabled_ = false;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->aiDetectInitialized_ = true;
     textPattern->RecoverCopyOption();
+    GestureEvent info;
+    textPattern->HandleSingleClickEvent(info);
     EXPECT_EQ(textPattern->dataDetectorAdapter_->textForAI_, textPattern->textForDisplay_);
 }
 
@@ -622,6 +657,7 @@ HWTEST_F(TextPatternTestNg, RecoverCopyOption007, TestSize.Level1)
     textPattern->isSpanStringMode_ = false;
     textPattern->textDetectEnable_ = true;
     textPattern->enabled_ = true;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->aiDetectInitialized_ = true;
     textPattern->RecoverCopyOption();
     EXPECT_EQ(textPattern->dataDetectorAdapter_->textForAI_, textPattern->textForDisplay_);
@@ -641,6 +677,7 @@ HWTEST_F(TextPatternTestNg, RecoverCopyOption008, TestSize.Level1)
     textPattern->isSpanStringMode_ = false;
     textPattern->textDetectEnable_ = true;
     textPattern->enabled_ = false;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->aiDetectInitialized_ = false;
     textPattern->RecoverCopyOption();
     EXPECT_EQ(textPattern->dataDetectorAdapter_->textForAI_, textPattern->textForDisplay_);
@@ -731,13 +768,22 @@ HWTEST_F(TextPatternTestNg, HandleMouseLeftButton002, TestSize.Level1)
  */
 HWTEST_F(TextPatternTestNg, HandleMouseLeftButton003, TestSize.Level1)
 {
-    auto textPattern = AceType::MakeRefPtr<TextPattern>();
+    TextModelNG textModelNG;
+    textModelNG.Create(u"Hello World");
+    textModelNG.SetCopyOption(CopyOptions::InApp);
+    auto host = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(host, nullptr);
+    auto textPattern = host->GetPattern<TextPattern>();
     ASSERT_NE(textPattern, nullptr);
+    auto paragraph = MockParagraph::GetOrCreateMockParagraph();
+    EXPECT_CALL(*paragraph, GetGlyphIndexByCoordinate).WillOnce(Return(1));
+    textPattern->pManager_->AddParagraph({ .paragraph = paragraph, .start = 0, .end = 100 });
     MouseInfo info;
     Offset textOffset;
     info.action_ = MouseAction::RELEASE;
     textPattern->HandleMouseLeftButton(info, textOffset);
     EXPECT_EQ(textPattern->mouseStatus_, MouseStatus::RELEASED);
+    textPattern->pManager_.Reset();
 }
 
 /**
@@ -835,6 +881,7 @@ HWTEST_F(TextPatternTestNg, HandleMouseLeftReleaseAction005, TestSize.Level1)
     Offset textOffset;
     textPattern->mouseStatus_ = MouseStatus::PRESSED;
     textPattern->status_ = Status::FLOATING;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
     textPattern->isDoubleClick_ = false;
     textPattern->isTryEntityDragging_ = false;
@@ -855,6 +902,7 @@ HWTEST_F(TextPatternTestNg, HandleMouseLeftReleaseAction006, TestSize.Level1)
     Offset textOffset;
     textPattern->mouseStatus_ = MouseStatus::MOVE;
     textPattern->status_ = Status::FLOATING;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
     textPattern->isDoubleClick_ = false;
     textPattern->isTryEntityDragging_ = false;
@@ -875,6 +923,7 @@ HWTEST_F(TextPatternTestNg, HandleMouseLeftReleaseAction007, TestSize.Level1)
     Offset textOffset;
     textPattern->mouseStatus_ = MouseStatus::NONE;
     textPattern->status_ = Status::FLOATING;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
     textPattern->isDoubleClick_ = false;
     textPattern->isTryEntityDragging_ = false;
@@ -895,6 +944,7 @@ HWTEST_F(TextPatternTestNg, HandleMouseLeftReleaseAction008, TestSize.Level1)
     Offset textOffset;
     textPattern->mouseStatus_ = MouseStatus::PRESSED;
     textPattern->status_ = Status::DRAGGING;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
     textPattern->isDoubleClick_ = false;
     textPattern->isTryEntityDragging_ = false;
@@ -915,6 +965,7 @@ HWTEST_F(TextPatternTestNg, HandleMouseLeftReleaseAction009, TestSize.Level1)
     Offset textOffset;
     textPattern->mouseStatus_ = MouseStatus::MOVE;
     textPattern->status_ = Status::DRAGGING;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
     textPattern->isDoubleClick_ = false;
     textPattern->isTryEntityDragging_ = false;
@@ -935,6 +986,7 @@ HWTEST_F(TextPatternTestNg, HandleMouseLeftReleaseAction010, TestSize.Level1)
     Offset textOffset;
     textPattern->mouseStatus_ = MouseStatus::NONE;
     textPattern->status_ = Status::DRAGGING;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     textPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
     textPattern->isDoubleClick_ = false;
     textPattern->isTryEntityDragging_ = false;
@@ -955,6 +1007,12 @@ HWTEST_F(TextPatternTestNg, HandleMouseLeftMoveAction001, TestSize.Level1)
     Offset textOffset;
     textPattern->isMousePressed_ = false;
     textPattern->mouseStatus_ = MouseStatus::PRESSED;
+    textPattern->HandleMouseLeftMoveAction(info, textOffset);
+    EXPECT_NE(textPattern->mouseStatus_, MouseStatus::MOVE);
+
+    textPattern->mouseStatus_ = MouseStatus::RELEASED;
+    textPattern->blockPress_ = true;
+    textPattern->shiftFlag_ = false;
     textPattern->HandleMouseLeftMoveAction(info, textOffset);
     EXPECT_NE(textPattern->mouseStatus_, MouseStatus::MOVE);
 }
@@ -1857,6 +1915,7 @@ HWTEST_F(TextPatternTestNg, OnVisibleChange001, TestSize.Level1)
     textPattern->textSelector_.baseOffset = 1;
     textPattern->textSelector_.destinationOffset = 1;
     textPattern->OnVisibleChange(isVisible);
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     EXPECT_EQ(textPattern->dataDetectorAdapter_->aiDetectDelayTask_.Cancel(), true);
 }
 
@@ -1874,6 +1933,7 @@ HWTEST_F(TextPatternTestNg, OnVisibleChange002, TestSize.Level1)
     bool isVisible = false;
     textPattern->textDetectEnable_ = true;
     textPattern->OnVisibleChange(isVisible);
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     EXPECT_EQ(textPattern->dataDetectorAdapter_->aiDetectDelayTask_.Cancel(), true);
 }
 
@@ -1888,9 +1948,9 @@ HWTEST_F(TextPatternTestNg, OnVisibleChange003, TestSize.Level1)
     ASSERT_NE(frameNode, nullptr);
     auto textPattern = frameNode->GetPattern<TextPattern>();
     ASSERT_NE(textPattern, nullptr);
-    bool isVisible = false;
     textPattern->textDetectEnable_ = false;
-    textPattern->OnVisibleChange(isVisible);
+    textPattern->OnVisibleChange(false);
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     EXPECT_EQ(textPattern->dataDetectorAdapter_->aiDetectDelayTask_.Cancel(), true);
 }
 
@@ -1909,6 +1969,7 @@ HWTEST_F(TextPatternTestNg, OnVisibleChange004, TestSize.Level1)
     textPattern->textDetectEnable_ = false;
     textPattern->enabled_ = false;
     textPattern->OnVisibleChange(isVisible);
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     EXPECT_EQ(textPattern->dataDetectorAdapter_->aiDetectDelayTask_.Cancel(), true);
 }
 
@@ -1927,6 +1988,7 @@ HWTEST_F(TextPatternTestNg, OnVisibleChange005, TestSize.Level1)
     textPattern->textDetectEnable_ = true;
     textPattern->enabled_ = true;
     textPattern->OnVisibleChange(isVisible);
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
     EXPECT_EQ(textPattern->dataDetectorAdapter_->aiDetectDelayTask_.Cancel(), true);
 }
 
@@ -2108,76 +2170,412 @@ HWTEST_F(TextPatternTestNg, GetOriginCaretPosition002, TestSize.Level1)
 }
 
 /**
- * @tc.name: CloseSelectOverlay001
- * @tc.desc: Test CloseSelectOverlay to cover if branch when selectOverlayProxy_ is not null and not closed
+ * @tc.name: ParseOriText001
+ * @tc.desc: Test ParseOriText
  * @tc.type: FUNC
  */
-HWTEST_F(TextPatternTestNg, CloseSelectOverlay001, TestSize.Level1)
+HWTEST_F(TextPatternTestNg, ParseOriText001, TestSize.Level1)
 {
     auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
     ASSERT_NE(frameNode, nullptr);
     auto textPattern = frameNode->GetPattern<TextPattern>();
     ASSERT_NE(textPattern, nullptr);
-    
-    // Create and set up a selectOverlayProxy_ that is not closed
-    textPattern->selectOverlayProxy_ = AceType::MakeRefPtr<SelectOverlayProxy>(frameNode);
-    // Make sure it's not closed by not calling Close() on it
-    
-    bool animation = true;
-    
-    // Execute the method
-    textPattern->CloseSelectOverlay(animation);
-    
-    // Verify that selectOverlay_ CloseOverlay was called
-    EXPECT_EQ(textPattern->selectOverlay_, 1); // Check that selectOverlay_ exists
+    std::u16string currentText = u"bundleName";
+    textPattern->textForDisplay_ = u"asdfghjkl";
+    textPattern->childNodes_.emplace_back(frameNode);
+    textPattern->ParseOriText(currentText);
+    EXPECT_NE(textPattern->textForDisplay_, u"");
 }
 
 /**
- * @tc.name: CloseSelectOverlay002
- * @tc.desc: Test CloseSelectOverlay to cover else branch when selectOverlayProxy_ is null
+ * @tc.name: UpdateSpanItemDragStatus001
+ * @tc.desc: Test UpdateSpanItemDragStatus
  * @tc.type: FUNC
  */
-HWTEST_F(TextPatternTestNg, CloseSelectOverlay002, TestSize.Level1)
+HWTEST_F(TextPatternTestNg, UpdateSpanItemDragStatus001, TestSize.Level1)
 {
     auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
     ASSERT_NE(frameNode, nullptr);
     auto textPattern = frameNode->GetPattern<TextPattern>();
     ASSERT_NE(textPattern, nullptr);
-    
-    // Ensure selectOverlayProxy_ is null
-    textPattern->selectOverlayProxy_ = nullptr;
-    
-    bool animation = false;
-    
-    // Execute the method
-    textPattern->CloseSelectOverlay(animation);
-    
-    // Verify that selectOverlay_ CloseOverlay was still called
-    EXPECT_EQ(textPattern->selectOverlay_, 1); // Check that selectOverlay_ exists
+    textPattern->isSpanStringMode_ = true;
+    std::list<ResultObject> resultObjects;
+    bool isDragging = true;
+    textPattern->UpdateSpanItemDragStatus(resultObjects, isDragging);
+    EXPECT_EQ(textPattern->dragSpanItems_.empty(), true);
+}
+
+
+/**
+ * @tc.name: GetOrCreatePreviewMenuController001
+ * @tc.desc: Test GetOrCreatePreviewMenuController
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, GetOrCreatePreviewMenuController001, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    TextStyle textStyle;
+    WeakPtr<TextPattern> weakPattern = textPattern;
+    RefPtr<PreviewMenuController> controller = AceType::MakeRefPtr<PreviewMenuController>(weakPattern);
+    textPattern->previewController_ = controller;
+    textPattern->GetOrCreatePreviewMenuController();
+    EXPECT_NE(textPattern->blockPress_, true);
 }
 
 /**
- * @tc.name: CloseSelectOverlay003
- * @tc.desc: Test CloseSelectOverlay to cover else branch when selectOverlayProxy_ is closed
+ * @tc.name: GetOrCreatePreviewMenuController002
+ * @tc.desc: Test GetOrCreatePreviewMenuController
  * @tc.type: FUNC
  */
-HWTEST_F(TextPatternTestNg, CloseSelectOverlay003, TestSize.Level1)
+HWTEST_F(TextPatternTestNg, GetOrCreatePreviewMenuController002, TestSize.Level1)
 {
     auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
     ASSERT_NE(frameNode, nullptr);
     auto textPattern = frameNode->GetPattern<TextPattern>();
     ASSERT_NE(textPattern, nullptr);
-    
-    // Create and set up a selectOverlayProxy_ that is closed
-    textPattern->selectOverlayProxy_ = AceType::MakeRefPtr<SelectOverlayProxy>(frameNode);
-    textPattern->selectOverlayProxy_->Close(false); // Close it
-    
-    bool animation = true;
-    
-    // Execute the method
-    textPattern->CloseSelectOverlay(animation);
-    
-    // Verify that selectOverlay_ CloseOverlay was still called
-    EXPECT_EQ(textPattern->selectOverlay_, 1); // Check that selectOverlay_ exists
+    TextStyle textStyle;
+    textPattern->previewController_ = nullptr;
+    textPattern->GetOrCreatePreviewMenuController();
+    EXPECT_NE(textPattern->blockPress_, true);
+}
+
+/**
+ * @tc.name: IsPreviewMenuShow001
+ * @tc.desc: Test TextPattern IsPreviewMenuShow function
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, IsPreviewMenuShow001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create the TextPattern.
+     */
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Test when previewController_ is null
+     * @tc.expected: Returns false
+     */
+    pattern->previewController_ = nullptr;
+    EXPECT_FALSE(pattern->IsPreviewMenuShow());
+
+    /**
+     * @tc.steps: step3. Create PreviewMenuController and test when menu is not showing
+     * @tc.expected: Returns false
+     */
+    RefPtr<TextPattern> textPattern = AceType::MakeRefPtr<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    RefPtr<PreviewMenuController> controller = AceType::MakeRefPtr<PreviewMenuController>(textPattern);
+    pattern->previewController_ = controller;
+    EXPECT_FALSE(pattern->IsPreviewMenuShow());
+
+    pattern->previewController_->isShow_ = true;
+
+    /**
+     * @tc.steps: step4. Test when menu is showing
+     * @tc.expected: Returns true
+     */
+    // Note: This part would need implementation of ShowPreviewMenu in PreviewMenuController
+    EXPECT_TRUE(pattern->IsPreviewMenuShow());
+}
+
+/**
+ * @tc.name: AddPixelMapToUdmfData001
+ * @tc.desc: Test AddPixelMapToUdmfData
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, AddPixelMapToUdmfData001, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    void* voidPtr = static_cast<void*>(new char[0]);
+    RefPtr<PixelMap> pixelMap = PixelMap::CreatePixelMap(voidPtr);
+    ASSERT_NE(pixelMap, nullptr);
+    auto unifiedData = AceType::MakeRefPtr<MockUnifiedData>();
+    ASSERT_NE(unifiedData, nullptr);
+    textPattern->AddPixelMapToUdmfData(pixelMap, unifiedData);
+    EXPECT_NE(textPattern->pManager_, nullptr);
+}
+
+/**
+ * @tc.name: AddPixelMapToUdmfData002
+ * @tc.desc: Test AddPixelMapToUdmfData
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, AddPixelMapToUdmfData002, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    RefPtr<PixelMap> pixelMap = nullptr;
+    auto unifiedData = AceType::MakeRefPtr<MockUnifiedData>();
+    ASSERT_NE(unifiedData, nullptr);
+    textPattern->AddPixelMapToUdmfData(pixelMap, unifiedData);
+    EXPECT_NE(textPattern->pManager_, nullptr);
+}
+
+/**
+ * @tc.name: AddPixelMapToUdmfData003
+ * @tc.desc: Test AddPixelMapToUdmfData
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, AddPixelMapToUdmfData003, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    void* voidPtr = static_cast<void*>(new char[0]);
+    RefPtr<PixelMap> pixelMap = PixelMap::CreatePixelMap(voidPtr);
+    ASSERT_NE(pixelMap, nullptr);
+    auto unifiedData = nullptr;
+    textPattern->AddPixelMapToUdmfData(pixelMap, unifiedData);
+    EXPECT_NE(textPattern->pManager_, nullptr);
+}
+
+/**
+ * @tc.name: AddPixelMapToUdmfData004
+ * @tc.desc: Test AddPixelMapToUdmfData
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, AddPixelMapToUdmfData004, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    RefPtr<PixelMap> pixelMap = nullptr;
+    auto unifiedData = nullptr;
+    textPattern->AddPixelMapToUdmfData(pixelMap, unifiedData);
+    EXPECT_NE(textPattern->pManager_, nullptr);
+}
+
+/**
+ * @tc.name: AddUdmfData001
+ * @tc.desc: Test AddUdmfData
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, AddUdmfData001, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    textPattern->styledString_ = AceType::MakeRefPtr<MutableSpanString>(u"");
+    ASSERT_NE(textPattern->styledString_, nullptr);
+    RefPtr<Ace::DragEvent> event = AceType::MakeRefPtr<OHOS::Ace::DragEvent>();
+    textPattern->isSpanStringMode_ = true;
+    textPattern->AddUdmfData(event);
+    EXPECT_EQ(textPattern->dragResultObjects_.empty(), true);
+    textPattern->isSpanStringMode_ = false;
+    textPattern->AddUdmfData(event);
+}
+
+/**
+ * @tc.name: HandleSelectionUp001
+ * @tc.desc: Test HandleSelectionUp
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, HandleSelectionUp001, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    textPattern->textSelector_.firstHandle = { 1, 2, 1, 2 };
+    textPattern->textSelector_.secondHandle = { 1, 2, 1, 2 };
+    textPattern->HandleSelectionUp();
+    EXPECT_NE(textPattern->textSelector_.GetEnd(), 0);
+}
+
+/**
+ * @tc.name: InitUrlTouchEvent001
+ * @tc.desc: Test InitUrlTouchEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, InitUrlTouchEvent001, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    textPattern->urlTouchEventInitialized_ = false;
+    textPattern->InitUrlTouchEvent();
+    EXPECT_EQ(textPattern->urlTouchEventInitialized_, true);
+}
+
+/**
+ * @tc.name: HandleMouseRightButton001
+ * @tc.desc: Test HandleMouseRightButton
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, HandleMouseRightButton001, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    MouseInfo info;
+    info.SetAction(MouseAction::PRESS);
+    Offset textOffset;
+    textPattern->HandleMouseRightButton(info, textOffset);
+    EXPECT_EQ(textPattern->selectOverlay_, 1);
+}
+
+/**
+ * @tc.name: HandleMouseLeftReleaseAction020
+ * @tc.desc: Test HandleMouseLeftReleaseAction
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, HandleMouseLeftReleaseAction020, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    MouseInfo info;
+    info.SetAction(MouseAction::NONE);
+    Offset textOffset;
+    textPattern->isDoubleClick_ = true;
+    textPattern->mouseStatus_ = MouseStatus::PRESSED;
+    textPattern->status_ = Status::DRAGGING;
+    ASSERT_NE(textPattern->GetDataDetectorAdapter(), nullptr);
+    textPattern->dataDetectorAdapter_->hasClickedAISpan_ = true;
+    textPattern->HandleMouseLeftReleaseAction(info, textOffset);
+    EXPECT_EQ(textPattern->isMousePressed_, false);
+}
+
+/**
+ * @tc.name: HandleMouseLeftPressAction001
+ * @tc.desc: Test HandleMouseLeftPressAction
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, HandleMouseLeftPressAction001, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    MouseInfo info;
+    info.SetAction(MouseAction::MOVE);
+    Offset textOffset;
+    textPattern->HandleMouseLeftPressAction(info, textOffset);
+    EXPECT_NE(textPattern->blockPress_, true);
+}
+
+/**
+ * @tc.name: HandleSetStyledString01
+ * @tc.desc: Test UpdateStyledStringByColorMode
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, HandleSetStyledString01, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    textPattern->UpdateStyledStringByColorMode();
+    auto spanString = AceType::MakeRefPtr<SpanString>(u"1234455");
+    textPattern->SetStyledString(spanString);
+}
+
+/**
+ * @tc.name: TextNewMaterialFunctions
+ * @tc.desc: Test functions in text new material requirements.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, TextNewMaterialFunctions, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, 0, AceType::MakeRefPtr<TextPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+    textPattern->CreateModifier();
+    bool drawCalledFlag = false;
+    ExternalDrawCallbackInfo callbackInfo;
+    textPattern->SetExternalDrawCallback(
+        [flag = &drawCalledFlag, callInfo = &callbackInfo](const ExternalDrawCallbackInfo& info) {
+            *flag = true;
+            *callInfo = info;
+            return true;
+        });
+    Testing::MockCanvas rsCanvas;
+    auto pManager = textPattern->GetParagraphManager();
+    ASSERT_NE(pManager, nullptr);
+    pManager->AddParagraph({ .paragraph = nullptr, .start = 0, .end = 100 });
+    textPattern->contentMod_->DrawText(rsCanvas, pManager, textPattern);
+    EXPECT_TRUE(drawCalledFlag);
+    EXPECT_EQ(callbackInfo.paintX, 0.0f);
+    EXPECT_EQ(callbackInfo.paintY, 0.0f);
+    EXPECT_EQ(callbackInfo.width, 0.0f);
+    EXPECT_EQ(callbackInfo.height, 0.0f);
+    EXPECT_TRUE(callbackInfo.isFontChanged);
+    EXPECT_EQ(callbackInfo.fontSize, 14.0f);
+    auto drawParagraph = textPattern->GetDrawParagraph();
+    EXPECT_EQ(drawParagraph, std::nullopt);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest001
+ * @tc.desc: Test TextPattern OnInjectionEventTest
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPatternTestNg, OnInjectionEventTest001, TestSize.Level1)
+{
+    auto frameNode = FrameNode::CreateFrameNode(
+        V2::TEXT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<OHOS::Ace::NG::TextPattern>()
+    );
+    ASSERT_NE(frameNode, nullptr);
+
+    auto textPattern = frameNode->GetPattern<OHOS::Ace::NG::TextPattern>();
+    ASSERT_NE(textPattern, nullptr);
+
+    std::string command = R"({"cmd":"selectText", "selectionStart":2, "selectionEnd":3})";
+    auto ret = textPattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"copy"})";
+    ret = textPattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    auto textLayoutProperty = frameNode->GetLayoutProperty<OHOS::Ace::NG::TextLayoutProperty>();
+    ASSERT_NE(textLayoutProperty, nullptr);
+    std::string content = "Hello World";
+    textLayoutProperty->UpdateContent(content);
+    textPattern->OnModifyDone();
+
+    /**
+     * @tc.steps: step3. Test OnInjectionEvent with commands
+     * @tc.expected: OnInjectionEvent return RET_FAILED or RET_SUCCESS accordingly
+     */
+    command = R"()";
+    ret = textPattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_FAILED);
+
+    command = R"({)";
+    ret = textPattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_FAILED);
+
+    command = R"({"cmd":"selectText"})";
+    ret = textPattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_FAILED);
+
+    command = R"({"cmd":"selectText", "selectionStart":2, "selectionEnd":3})";
+    ret = textPattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"copy"})";
+    ret = textPattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
 }
 } // namespace OHOS::Ace::NG

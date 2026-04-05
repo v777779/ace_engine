@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -24,8 +24,8 @@
 #include "bridge/declarative_frontend/engine/functions/js_function.h"
 #include "bridge/declarative_frontend/jsview/js_utils.h"
 #include "bridge/declarative_frontend/jsview/js_view_common_def.h"
-#include "bridge/declarative_frontend/jsview/models/list_item_model_impl.h"
 #include "core/common/container.h"
+#include "core/common/dynamic_module_helper.h"
 #include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/base/view_stack_model.h"
 #include "core/components_ng/base/view_stack_processor.h"
@@ -49,7 +49,10 @@ ListItemModel* ListItemModel::GetInstance()
             if (Container::IsCurrentUseNewPipeline()) {
                 instance_.reset(new NG::ListItemModelNG());
             } else {
-                instance_.reset(new Framework::ListItemModelImpl());
+                static auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("list-item");
+                static ListItemModel* instance =
+                    loader ? reinterpret_cast<ListItemModel*>(loader->CreateModel()) : nullptr;
+                return instance;
             }
 #endif
         }
@@ -206,6 +209,12 @@ void JSListItem::SetSelected(const JSCallbackInfo& info)
     }
 }
 
+void JSListItem::BindContextMenu(const JSCallbackInfo& info)
+{
+    JSViewAbstract::JsBindContextMenu(info);
+    ListItemModel::GetInstance()->BindContextMenu();
+}
+
 void JSListItem::JsParseDeleteArea(const JsiExecutionContext& context, const JSRef<JSVal>& jsValue,
     bool isStartArea, NG::FrameNode* node)
 {
@@ -348,8 +357,8 @@ void JSListItem::ParseBuilder(const JSRef<JSObject>& obj, OnDeleteEvent&& onDele
         RefPtr<NG::FrameNode> builderNode;
         ParseBuilderComponentContent(builderComponentObject, builderNode);
         ListItemModel::GetInstance()->SetDeleteAreaWithFrameNode(builderNode, std::move(onDelete),
-            std::move(onEnterDeleteArea), std::move(onExitDeleteArea), std::move(onStateChange), length, isStartArea,
-            node);
+            std::move(onEnterDeleteArea), std::move(onExitDeleteArea), std::move(onStateChange),
+            length, isStartArea, node);
     } else {
         std::function<void()> builderAction;
         auto builderObject = obj->GetProperty("builder");
@@ -357,9 +366,9 @@ void JSListItem::ParseBuilder(const JSRef<JSObject>& obj, OnDeleteEvent&& onDele
             auto builderFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSFunc>::Cast(builderObject));
             builderAction = [builderFunc]() { builderFunc->Execute(); };
         }
-        ListItemModel::GetInstance()->SetDeleteArea(std::move(builderAction), std::move(onDelete),
-            std::move(onEnterDeleteArea), std::move(onExitDeleteArea), std::move(onStateChange), length, isStartArea,
-            node);
+    ListItemModel::GetInstance()->SetDeleteArea(std::move(builderAction), std::move(onDelete),
+        std::move(onEnterDeleteArea), std::move(onExitDeleteArea), std::move(onStateChange),
+        length, isStartArea, node);
     }
 }
 
@@ -472,6 +481,7 @@ void JSListItem::JSBind(BindingTarget globalObj)
     JSClass<JSListItem>::StaticMethod("borderRadius", &JSListItem::JsBorderRadius);
     JSClass<JSListItem>::StaticMethod("swipeAction", &JSListItem::SetSwiperAction);
     JSClass<JSListItem>::StaticMethod("selected", &JSListItem::SetSelected);
+    JSClass<JSListItem>::StaticMethod("bindContextMenu", &JSListItem::BindContextMenu);
 
     JSClass<JSListItem>::StaticMethod("onClick", &JSInteractableView::JsOnClick);
     JSClass<JSListItem>::StaticMethod("onAttach", &JSInteractableView::JsOnAttach);

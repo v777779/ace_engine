@@ -25,6 +25,8 @@ class SynchedPropertyTwoWayPU<C> extends ObservedPropertyAbstractPU<C>
 
   private source_: ObservedPropertyObjectAbstract<C>;
   
+  private rootSource_?: ObservedPropertyObjectAbstract<C>;
+  
   private fakeSourceBackup_: ObservedPropertyObjectAbstract<C>;
 
   constructor(source: ObservedPropertyObjectAbstract<C>,
@@ -32,6 +34,13 @@ class SynchedPropertyTwoWayPU<C> extends ObservedPropertyAbstractPU<C>
     thisPropertyName: PropertyInfo) {
     super(owningChildView, thisPropertyName);
     this.source_ = source;
+    if (InteropConfigureStateMgmt.needsInterop()) {
+      let rootSource: ObservedPropertyObjectAbstract<C> = source;
+      if (rootSource instanceof SynchedPropertyTwoWayPU<C>) {
+        rootSource = rootSource.getRootSource();
+      }
+      this.rootSource_ = rootSource;
+    }
     if (this.source_) {
       // register to the parent property
       this.source_.addSubscriber(this);
@@ -99,13 +108,17 @@ class SynchedPropertyTwoWayPU<C> extends ObservedPropertyAbstractPU<C>
     stateMgmtProfiler.end();
   }
 
-  public syncPeerTrackedPropertyHasChanged(eventSource: ObservedPropertyAbstractPU<C>, changedTrackedObjectPropertyName: string): void {
+  public syncPeerTrackedPropertyHasChanged(eventSource: ObservedPropertyAbstractPU<C>, changedTrackedObjectPropertyName: string, isSync: boolean = false): void {
     stateMgmtProfiler.begin('SynchedPropertyTwoWayPU.syncPeerTrackedPropertyHasChanged');
     if (!this.changeNotificationIsOngoing_) {
       stateMgmtConsole.debug(`${this.debugInfo()}: syncPeerTrackedPropertyHasChanged: from peer '${eventSource && eventSource.debugInfo && eventSource.debugInfo()}', changed property '${changedTrackedObjectPropertyName}'.`);
-      this.notifyTrackedObjectPropertyHasChanged(changedTrackedObjectPropertyName);
+      this.notifyTrackedObjectPropertyHasChanged(changedTrackedObjectPropertyName, isSync);
     }
     stateMgmtProfiler.end();
+  }
+
+  public getRootSource(): ObservedPropertyObjectAbstract<C> | undefined {
+    return this.rootSource_;
   }
 
   public getUnmonitored(): C {
@@ -159,7 +172,7 @@ class SynchedPropertyTwoWayPU<C> extends ObservedPropertyAbstractPU<C>
     if (renderingElmtId >= 0) {
       if (!isTracked) {
         stateMgmtConsole.applicationError(`${this.debugInfo()}: onOptimisedObjectPropertyRead read NOT TRACKED property '${readPropertyName}' during rendering!`);
-        throw new Error(`Illegal usage of not @Track'ed property '${readPropertyName}' on UI!`);
+        throw new BusinessError(NON_TRACK_PROPERTY_ON_UI, `Illegal usage of not @Track'ed property '${readPropertyName}' on UI!`);
       } else {
         stateMgmtConsole.debug(`${this.debugInfo()}: onOptimisedObjectPropertyRead: ObservedObject property '@Track ${readPropertyName}' read.`);
         if (this.getUnmonitored() === readObservedObject) {
@@ -168,6 +181,35 @@ class SynchedPropertyTwoWayPU<C> extends ObservedPropertyAbstractPU<C>
       }
     }
     stateMgmtProfiler.end();
+  }
+
+  private isSameType(a: unknown, b: unknown): [boolean, string, string] {
+    if (a === null && b === null) {
+      return [true, 'null', 'null'];
+    }
+    if (a === null) {
+      return [false, 'null', typeof b];
+    }
+    if (b === null) {
+      return [false, typeof a, 'null'];
+    }
+
+    // check SimpleType
+    const typeA = typeof a;
+    const typeB = typeof b;
+    if (typeA !== 'object' && typeB !== 'object') {
+      return [typeA === typeB, typeA, typeB];
+    }
+    // check built-in type
+    const objectTypeA = Object.prototype.toString.call(a);
+    const objectTypeB = Object.prototype.toString.call(b);
+    if (objectTypeA !== objectTypeB) {
+      return [false, objectTypeA, objectTypeB];
+    }
+    // check class instance
+    const classConstructorA = (a as object).constructor;
+    const classConstructorB = (b as object).constructor;
+    return [classConstructorA === classConstructorB, classConstructorA.name, classConstructorB.name];
   }
 
   /**
@@ -183,20 +225,30 @@ class SynchedPropertyTwoWayPU<C> extends ObservedPropertyAbstractPU<C>
     let newRaw = ObservedObject.GetRawObject(newSource.getUnmonitored());
     let fakeRaw = ObservedObject.GetRawObject(this.source_.getUnmonitored());
     // if the new source value type is not same with the old one, cannot connect
-    if (typeof newRaw  !== typeof fakeRaw) {
-      stateMgmtConsole.applicationError(`connect ${(newSource as ObservedPropertyObjectPU<any>).debugInfo()} to ${this.debugInfo()}.The types are not same.`)
-      return;
+    const [isSame, typeNew, typeFake] = this.isSameType(newRaw, fakeRaw);
+    if (!isSame) {
+      const error = `cannot connect ${this.debugInfo()} (type ${typeFake})
+        to ${(newSource as unknown as ObservedPropertyObjectPU<any>).debugInfo()} (type ${typeNew}). Their types are not same.`;
+      stateMgmtConsole.applicationError(error);
+      throw new TypeError(error);
     }
-    this.fakeSourceBackup_ = this.source_;
+    if (this.source_.__isFake_ObservedPropertyAbstract_Internal()) {
+      this.fakeSourceBackup_ = this.source_;
+    }
     this.source_ = newSource;
     // register two-way sync to the new source
     this.source_.addSubscriber(this);
+    if (newRaw === fakeRaw) {
+      stateMgmtConsole.debug(`the new value ${(newSource as unknown as ObservedPropertyObjectPU<any>).debugInfo()} value
+        same with the default value ${this.debugInfo()}. ignore it.`);
+      return;
+    }
     this.syncFromSource();
   }
 
   public resetFakeSource(): void {
     if (!this.fakeSourceBackup_) {
-      stateMgmtConsole.warn(`${this.debugInfo()} does not have the fake source backup, need to check the build node does not amount to parent ever`)
+      stateMgmtConsole.warn(`${this.debugInfo()} does not have the fake source backup, need to check the build node does not amount to parent ever`);
       return;
     }
 
@@ -206,28 +258,32 @@ class SynchedPropertyTwoWayPU<C> extends ObservedPropertyAbstractPU<C>
   }
 
   private syncFromSource(): void {
-    this.shouldInstallTrackedObjectReadCb = TrackedObject.needsPropertyReadCb(this.source_);
-    this.syncPeerHasChanged(this.source_ as ObservedPropertyAbstractPU<any>);
-    let raw = ObservedObject.GetRawObject(this.source_.getUnmonitored());
-    if (this.shouldInstallTrackedObjectReadCb) {
-      Object.keys(raw)
+    const isTrack = this.shouldInstallTrackedObjectReadCb;
+    this.shouldInstallTrackedObjectReadCb = TrackedObject.needsPropertyReadCb(this.source_.getUnmonitored());
+    this.syncPeerHasChanged(this.source_ as ObservedPropertyAbstractPU<any>, true);
+    let newValue = ObservedObject.GetRawObject(this.source_.getUnmonitored());
+    let oldValue = ObservedObject.GetRawObject(this.fakeSourceBackup_.getUnmonitored());
+    if (isTrack && this.shouldInstallTrackedObjectReadCb) {
+      Object.keys(newValue)
         .forEach(propName => {
           // Collect only @Track'ed changed properties
-          if (Reflect.has(raw as undefined as object, `${TrackedObject.___TRACKED_PREFIX}${propName}`)) {
+          if (typeof propName === 'string' && Reflect.has(newValue as unknown as object, `${TrackedObject.___TRACKED_PREFIX}${propName}`)) {
             // if the source is track property, need to notify the property update
-            this.syncPeerTrackedPropertyHasChanged(this.source_ as ObservedPropertyAbstractPU<any>, propName);
+            if (oldValue[propName] !== newValue[propName]) {
+              this.syncPeerTrackedPropertyHasChanged(this.source_ as ObservedPropertyAbstractPU<any>, propName, true);
+            }
           }
         });
     }
 
     // sort the view according to the view id
     const dirtyView = Array.from(SyncedViewRegistry.dirtyNodesList)
-      .map((weak) => weak.deref())
+      .map((weak) => weak?.deref())
       .filter((view): view is ViewPU => view instanceof ViewPU)
       .sort((view1, view2) => view1.id__() - view2.id__());
 
     dirtyView.forEach((view: ViewPU) => {
-      view.dirtyElementIdsNeedsUpdateSynchronously_.forEach((elementId: number) => {
+      view.dirtyElementIdsNeedsUpdateSynchronously_?.forEach((elementId: number) => {
         view.UpdateElement(elementId);
       })
     })

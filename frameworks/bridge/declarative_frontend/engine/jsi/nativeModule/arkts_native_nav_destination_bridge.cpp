@@ -14,6 +14,8 @@
  */
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_native_nav_destination_bridge.h"
 
+#include "base/log/ace_scoring_log.h"
+#include "bridge/declarative_frontend/engine/js_converter.h"
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_native_navigation_utils.h"
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_utils.h"
 #include "bridge/declarative_frontend/jsview/js_navigation_utils.h"
@@ -21,6 +23,8 @@
 #include "core/components_ng/base/view_stack_model.h"
 #include "core/components_ng/pattern/navrouter/navdestination_model_ng.h"
 #include "bridge/declarative_frontend/jsview/js_navdestination_context.h"
+#include "bridge/declarative_frontend/jsview/js_navdestination_scrollable_processor.h"
+
 namespace OHOS::Ace::NG {
 constexpr int NUM_0 = 0;
 constexpr int NUM_1 = 1;
@@ -33,6 +37,7 @@ constexpr int32_t JS_ENUM_TRANSITIONTYPE_EXPLODE = 5;
 constexpr int32_t JS_ENUM_TRANSITIONTYPE_SLIDE_RIGHT = 6;
 constexpr int32_t JS_ENUM_TRANSITIONTYPE_SLIDE_BOTTOM = 7;
 constexpr int32_t MIN_INFO_LENGTH = 2;
+constexpr uint32_t ARGC_TWO = 2;
 constexpr char MORE_BUTTON_OPTIONS_PROPERTY[] = "moreButtonOptions";
 
 // sources in js_window_utils.h
@@ -158,7 +163,7 @@ ArkUINativeModuleValue NavDestinationBridge::SetToolBarConfiguration(ArkUIRuntim
     NG::NavigationToolbarOptions options;
     NavDestinationModelNG::ResetResObj(
         frameNode, NavDestinationPatternType::NAV_DESTINATION, "navigation.navigationToolbarOptions");
-    JSNavigationUtils::ParseToolbarOptions(info, options);
+    JSNavigationUtils::ParseToolbarOptions(info, options, NUM_2);
     NavDestinationModel::GetInstance()->SetToolBarOptions(std::move(options));
     return panda::JSValueRef::Undefined(vm);
 }
@@ -167,6 +172,39 @@ ArkUINativeModuleValue NavDestinationBridge::ResetToolBarConfiguration(ArkUIRunt
 {
     EcmaVM* vm = runtimeCallInfo->GetVM();
     CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::SetBackgroundColor(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM *vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::JSValueRef::Undefined(vm));
+    CHECK_EQUAL_RETURN(runtimeCallInfo->GetArgsNumber() < ARGC_TWO, true, panda::JSValueRef::Undefined(vm));
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+    Color color;
+    RefPtr<ResourceObject> backgroundColorResObj;
+    Local<JSValueRef> secondArg = runtimeCallInfo->GetCallArgRef(1);
+    auto nodeInfo = ArkTSUtils::MakeNativeNodeInfo(nativeNode);
+    if (!ArkTSUtils::ParseJsColorAlpha(vm, secondArg, color, backgroundColorResObj, nodeInfo)) {
+        GetArkUINodeModifiers()->getNavDestinationModifier()->resetNavDestinationBackgroundColor(nativeNode);
+        return panda::JSValueRef::Undefined(vm);
+    }
+    auto bgColorRawPtr = AceType::RawPtr(backgroundColorResObj);
+    GetArkUINodeModifiers()->getNavDestinationModifier()->setNavDestinationBackgroundColorWithColorSpace(
+        nativeNode, color.GetValue(), color.GetColorSpace(), bgColorRawPtr);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::ResetBackgroundColor(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::JSValueRef::Undefined(vm));
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+    GetArkUINodeModifiers()->getNavDestinationModifier()->resetNavDestinationBackgroundColor(nativeNode);
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -256,13 +294,29 @@ ArkUINativeModuleValue NavDestinationBridge::SetBackButtonIcon(ArkUIRuntimeCallI
 #endif
     std::string bundleName;
     std::string moduleName;
+    std::function<void(WeakPtr<NG::FrameNode>)> iconSymbol = nullptr;
+    auto isSymbol = info[1]->IsObject() && src.empty() && pixMap == nullptr;
+    if (isSymbol) {
+        Framework::JSViewAbstract::SetSymbolOptionApply(info, iconSymbol, info[1]);
+    }
     
     Framework::JSViewAbstract::GetJsMediaBundleInfo(info[1], bundleName, moduleName);
     if (SystemProperties::ConfigChangePerform() && backButtonIconResObj) {
-        NavDestinationModelNG::SetBackButtonIcon(frameNode, noPixMap, pixMap, backButtonIconResObj);
+        NavDestinationModelNG::SetBackButtonIcon(frameNode, iconSymbol, noPixMap, pixMap, backButtonIconResObj);
     } else {
-        NavDestinationModelNG::SetBackButtonIcon(frameNode, src, noPixMap, pixMap);
+        NavDestinationModelNG::SetBackButtonIcon(frameNode, iconSymbol, src, noPixMap, pixMap);
     }
+    GetArkUINodeModifiers()->getNavDestinationModifier()->resetNavDestinationBackButtonText(nativeNode);
+    // add accessibilityText
+    RefPtr<ResourceObject> textResourceObj;
+    std::string textString;
+    Local<JSValueRef> jsText = runtimeCallInfo->GetCallArgRef(NUM_2);
+    if (!ArkTSUtils::ParseJsString(vm, jsText, textString, textResourceObj)) {
+        return panda::JSValueRef::Undefined(vm);
+    }
+    GetArkUINodeModifiers()->getNavDestinationModifier()
+        ->setNavDestinationBackButtonText(nativeNode, textString.c_str(),
+                                          AceType::RawPtr(textResourceObj));
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -304,7 +358,8 @@ ArkUINativeModuleValue NavDestinationBridge::ResetBackButtonIcon(ArkUIRuntimeCal
     bool noPixMap = false;
     RefPtr<PixelMap> pixMap = nullptr;
     std::string src;
-    NavDestinationModelNG::SetBackButtonIcon(frameNode, src, noPixMap, pixMap);
+    NavDestinationModelNG::SetBackButtonIcon(frameNode, nullptr, src, noPixMap, pixMap);
+    GetArkUINodeModifiers()->getNavDestinationModifier()->resetNavDestinationBackButtonText(nativeNode);
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -451,6 +506,16 @@ ArkUINativeModuleValue NavDestinationBridge::SetMenus(ArkUIRuntimeCallInfo* runt
     } else if (menusArg->IsObject(vm)) {
         GetArkUINodeModifiers()->getNavDestinationModifier()->resetMenus(nativeNode);
     }
+    // deal menu options
+    Framework::JsiCallbackInfo info = Framework::JsiCallbackInfo(runtimeCallInfo);
+    if (info.Length() <= NUM_2 || !info[NUM_2]->IsObject()) {
+        return panda::StringRef::Undefined(vm);
+    }
+    NG::NavigationMenuOptions options;
+    auto optObj = JSRef<JSObject>::Cast(info[NUM_2]);
+    auto moreButtonProperty = optObj->GetProperty("moreButtonOptions");
+    JSNavigationUtils::ParseMenuOptions(moreButtonProperty, options);
+    NavDestinationModel::GetInstance()->SetMenuOptions(std::move(options));
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -461,6 +526,10 @@ ArkUINativeModuleValue NavDestinationBridge::ResetMenus(ArkUIRuntimeCallInfo* ru
     Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
     auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
     GetArkUINodeModifiers()->getNavDestinationModifier()->resetMenus(nativeNode);
+    NG::NavigationMenuOptions options;
+    NavDestinationModelNG::GetInstance()->SetMenuOptions(std::move(options));
+    NavDestinationModelNG::ResetResObj(reinterpret_cast<FrameNode*>(nativeNode),
+        NavDestinationPatternType::TITLE_BAR, "navDestination.navigationMenuOptions");
     return panda::JSValueRef::Undefined(vm);
 }
 
@@ -662,11 +731,12 @@ ArkUINativeModuleValue NavDestinationBridge::SetOnShown(ArkUIRuntimeCallInfo* ru
     auto frameNode = reinterpret_cast<FrameNode*>(nativeNode);
     CHECK_NULL_RETURN(frameNode, panda::JSValueRef::Undefined(vm));
     panda::Local<panda::FunctionRef> func = callbackArg->ToObject(vm);
-    std::function<void()> onShown = [vm, func = panda::CopyableGlobal(vm, func), frameNode]() {
+    std::function<void(int32_t)> onShown = [vm, func = panda::CopyableGlobal(vm, func), frameNode](int32_t reason) {
         panda::LocalScope pandaScope(vm);
         panda::TryCatch trycatch(vm);
         PipelineContext::SetCallBackNode(AceType::Claim(frameNode));
-        func->Call(vm, func.ToLocal(), nullptr, NUM_0);
+        panda::Local<panda::JSValueRef> params[1] = { panda::IntegerRef::New(vm, reason) };
+        func->Call(vm, func.ToLocal(), params, NUM_1);
     };
     nodeModifiers->getNavDestinationModifier()->setNavDestinationOnShown(nativeNode, reinterpret_cast<void*>(&onShown));
     return panda::JSValueRef::Undefined(vm);
@@ -702,11 +772,12 @@ ArkUINativeModuleValue NavDestinationBridge::SetOnHidden(ArkUIRuntimeCallInfo* r
     auto frameNode = reinterpret_cast<FrameNode*>(nativeNode);
     CHECK_NULL_RETURN(frameNode, panda::JSValueRef::Undefined(vm));
     panda::Local<panda::FunctionRef> func = callbackArg->ToObject(vm);
-    std::function<void()> OnHidden = [vm, func = panda::CopyableGlobal(vm, func), frameNode]() {
+    std::function<void(int32_t)> OnHidden = [vm, func = panda::CopyableGlobal(vm, func), frameNode](int32_t reason) {
         panda::LocalScope pandaScope(vm);
         panda::TryCatch trycatch(vm);
         PipelineContext::SetCallBackNode(AceType::Claim(frameNode));
-        func->Call(vm, func.ToLocal(), nullptr, 0);
+        panda::Local<panda::JSValueRef> params[1] = { panda::IntegerRef::New(vm, static_cast<int32_t>(reason)) };
+        func->Call(vm, func.ToLocal(), params, NUM_1);
     };
     nodeModifiers->getNavDestinationModifier()->setNavDestinationOnHidden(
         nativeNode, reinterpret_cast<void*>(&OnHidden));
@@ -890,6 +961,175 @@ ArkUINativeModuleValue NavDestinationBridge::ResetOnWillDisappear(ArkUIRuntimeCa
     return panda::JSValueRef::Undefined(vm);
 }
 
+ArkUINativeModuleValue NavDestinationBridge::SetBindToScrollable(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    using namespace OHOS::Ace::Framework;
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    JsiCallbackInfo info = JsiCallbackInfo(runtimeCallInfo);
+    std::function<void(const RefPtr<NG::NavDestinationScrollableProcessor>& processor)> bindFunc =
+        [vm, &info](const RefPtr<NG::NavDestinationScrollableProcessor>& processor) {
+        auto jsProcessor = AceType::DynamicCast<JSNavDestinationScrollableProcessor>(processor);
+        CHECK_NULL_VOID(jsProcessor);
+        panda::LocalScope pandaScope(vm);
+        panda::TryCatch trycatch(vm);
+        if (info.Length() < 2 || !info[1]->IsArray()) {
+            jsProcessor->UnbindScrollable();
+        } else {
+            jsProcessor->BindToScrollable(info[1]);
+        }
+    };
+    nodeModifiers->getNavDestinationModifier()->setBindToScrollable(
+        nativeNode, reinterpret_cast<void*>(&bindFunc));
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::ResetBindToScrollable(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    using namespace OHOS::Ace::Framework;
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    nodeModifiers->getNavDestinationModifier()->resetBindToScrollable(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::SetBindToNestedScrollable(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    using namespace OHOS::Ace::Framework;
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    JsiCallbackInfo info = JsiCallbackInfo(runtimeCallInfo);
+    std::function<void(const RefPtr<NG::NavDestinationScrollableProcessor>& processor)> bindFunc =
+        [vm, &info](const RefPtr<NG::NavDestinationScrollableProcessor>& processor) {
+        auto jsProcessor = AceType::DynamicCast<JSNavDestinationScrollableProcessor>(processor);
+        CHECK_NULL_VOID(jsProcessor);
+        panda::LocalScope pandaScope(vm);
+        panda::TryCatch trycatch(vm);
+        if (info.Length() < 2 || !info[1]->IsArray()) {
+            jsProcessor->UnbindNestedScrollable();
+        } else {
+            jsProcessor->BindToNestedScrollable(info[1]);
+        }
+    };
+    nodeModifiers->getNavDestinationModifier()->setBindToNestedScrollable(
+        nativeNode, reinterpret_cast<void*>(&bindFunc));
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::ResetBindToNestedScrollable(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    nodeModifiers->getNavDestinationModifier()->resetBindToNestedScrollable(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::SetOnActive(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    Local<JSValueRef> callbackArg = runtimeCallInfo->GetCallArgRef(1);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+    auto frameNode = reinterpret_cast<FrameNode*>(nativeNode);
+    CHECK_NULL_RETURN(frameNode, panda::NativePointerRef::New(vm, nullptr));
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::NativePointerRef::New(vm, nullptr));
+    if (callbackArg->IsUndefined() || callbackArg->IsNull() || !callbackArg->IsFunction(vm)) {
+        nodeModifiers->getNavDestinationModifier()->resetNavDestinationOnActive(nativeNode);
+        return panda::JSValueRef::Undefined(vm);
+    }
+    panda::Local<panda::FunctionRef> func = callbackArg->ToObject(vm);
+    std::function<void(NG::NavDestinationActiveReason)> callback =
+        [vm, frameNode, func = panda::CopyableGlobal(vm, func)](NG::NavDestinationActiveReason reason) {
+            panda::LocalScope pandaScope(vm);
+            panda::TryCatch trycatch(vm);
+            PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
+            panda::Local<panda::JSValueRef> params[1] = { panda::IntegerRef::New(vm, static_cast<int32_t>(reason)) };
+            func->Call(vm, func.ToLocal(), params, 1);
+        };
+    nodeModifiers->getNavDestinationModifier()->setNavDestinationOnActive(
+        nativeNode, reinterpret_cast<void*>(&callback));
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::ResetOnActive(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    nodeModifiers->getNavDestinationModifier()->resetNavDestinationOnActive(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::SetOnInactive(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> firstArg = runtimeCallInfo->GetCallArgRef(0);
+    Local<JSValueRef> callbackArg = runtimeCallInfo->GetCallArgRef(1);
+    CHECK_NULL_RETURN(firstArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(firstArg->ToNativePointer(vm)->Value());
+    auto frameNode = reinterpret_cast<FrameNode*>(nativeNode);
+    CHECK_NULL_RETURN(frameNode, panda::NativePointerRef::New(vm, nullptr));
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::NativePointerRef::New(vm, nullptr));
+    if (callbackArg->IsUndefined() || callbackArg->IsNull() || !callbackArg->IsFunction(vm)) {
+        nodeModifiers->getNavDestinationModifier()->resetNavDestinationOnInactive(nativeNode);
+        return panda::JSValueRef::Undefined(vm);
+    }
+    panda::Local<panda::FunctionRef> func = callbackArg->ToObject(vm);
+    std::function<void(NG::NavDestinationActiveReason)> callback =
+        [vm, frameNode, func = panda::CopyableGlobal(vm, func)](NG::NavDestinationActiveReason reason) {
+            panda::LocalScope pandaScope(vm);
+            panda::TryCatch trycatch(vm);
+            PipelineContext::SetCallBackNode(AceType::WeakClaim(frameNode));
+            panda::Local<panda::JSValueRef> params[1] = { panda::IntegerRef::New(vm, static_cast<int32_t>(reason)) };
+            func->Call(vm, func.ToLocal(), params, 1);
+        };
+    nodeModifiers->getNavDestinationModifier()->setNavDestinationOnInactive(
+        nativeNode, reinterpret_cast<void*>(&callback));
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::ResetOnInactive(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    nodeModifiers->getNavDestinationModifier()->resetNavDestinationOnInactive(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
 ArkUINativeModuleValue NavDestinationBridge::SetOnBackPressed(ArkUIRuntimeCallInfo* runtimeCallInfo)
 {
     EcmaVM* vm = runtimeCallInfo->GetVM();
@@ -975,6 +1215,91 @@ ArkUINativeModuleValue NavDestinationBridge::ResetOnReady(ArkUIRuntimeCallInfo* 
     auto nodeModifiers = GetArkUINodeModifiers();
     CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
     nodeModifiers->getNavDestinationModifier()->resetNavDestinationOnReady(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::SetOnResult(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    using namespace OHOS::Ace::Framework;
+    JsiCallbackInfo callbackArg = JsiCallbackInfo(runtimeCallInfo);
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    if (!callbackArg[NUM_1]->IsFunction()) {
+        nodeModifiers->getNavDestinationModifier()->resetNavDestinationOnResult(nativeNode);
+        return panda::JSValueRef::Undefined(vm);
+    }
+    
+    auto onResultCallback = JSRef<JSFunc>::Cast(callbackArg[NUM_1]);
+    std::function<void(const RefPtr<NavPathInfo>&)> onResult = [execCtx = callbackArg.GetExecutionContext(),
+                                                                   func = std::move(onResultCallback)](
+                                                                   const RefPtr<NG::NavPathInfo>& info) {
+        auto pathInfo = AceType::DynamicCast<JSNavPathInfo>(info);
+        CHECK_NULL_VOID(pathInfo);
+        pathInfo->SetNavDestinationPopCallback(func);
+    };
+    nodeModifiers->getNavDestinationModifier()->setNavDestinationOnResult(
+        nativeNode, reinterpret_cast<void*>(&onResult));
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::ResetOnResult(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    nodeModifiers->getNavDestinationModifier()->resetNavDestinationOnResult(nativeNode);
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::SetOnNewParam(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    using namespace OHOS::Ace::Framework;
+    JsiCallbackInfo callbackArg = JsiCallbackInfo(runtimeCallInfo);
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    if (!callbackArg[NUM_1]->IsFunction()) {
+        nodeModifiers->getNavDestinationModifier()->resetNavDestinationOnNewParam(nativeNode);
+        return panda::JSValueRef::Undefined(vm);
+    }
+    auto onNewParamCallback =
+        AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(), JSRef<JSFunc>::Cast(callbackArg[NUM_1]));
+    std::function<void(napi_value)> onNewParam = [execCtx = callbackArg.GetExecutionContext(),
+                                                     func = std::move(onNewParamCallback)](napi_value param) {
+        JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
+        ACE_SCORING_EVENT("NavDestination.onNewParam");
+        JSRef<JSVal> params[NUM_1];
+        params[NUM_0] = JsConverter::ConvertNapiValueToJsVal(param);
+        func->ExecuteJS(NUM_1, params);
+    };
+    nodeModifiers->getNavDestinationModifier()->setNavDestinationOnNewParam(
+        nativeNode, reinterpret_cast<void*>(&onNewParam));
+    return panda::JSValueRef::Undefined(vm);
+}
+
+ArkUINativeModuleValue NavDestinationBridge::ResetOnNewParam(ArkUIRuntimeCallInfo* runtimeCallInfo)
+{
+    EcmaVM* vm = runtimeCallInfo->GetVM();
+    CHECK_NULL_RETURN(vm, panda::NativePointerRef::New(vm, nullptr));
+    Local<JSValueRef> nodeArg = runtimeCallInfo->GetCallArgRef(NUM_0);
+    CHECK_NULL_RETURN(nodeArg->IsNativePointer(vm), panda::JSValueRef::Undefined(vm));
+    auto nativeNode = nodePtr(nodeArg->ToNativePointer(vm)->Value());
+    auto nodeModifiers = GetArkUINodeModifiers();
+    CHECK_NULL_RETURN(nodeModifiers, panda::JSValueRef::Undefined(vm));
+    nodeModifiers->getNavDestinationModifier()->resetNavDestinationOnNewParam(nativeNode);
     return panda::JSValueRef::Undefined(vm);
 }
 } // namespace OHOS::Ace::NG

@@ -18,14 +18,13 @@
 
 #include "base/memory/ace_type.h"
 #include "core/components_ng/event/event_hub.h"
-#include "core/components_ng/event/gesture_event_hub.h"
 
 namespace OHOS::Ace::NG {
 
 using DialogOnCancelEvent = std::function<void()>;
 
 class DialogEventHub : public EventHub {
-    DECLARE_ACE_TYPE(DialogEventHub, EventHub)
+    DECLARE_ACE_TYPE(DialogEventHub, EventHub);
 
 public:
     DialogEventHub() = default;

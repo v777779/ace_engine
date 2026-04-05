@@ -21,6 +21,7 @@
 #include "base/i18n/localization.h"
 #include "core/components_ng/pattern/text/text_layout_property.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
+#include "core/components_ng/property/position_property.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -31,6 +32,7 @@ constexpr int32_t SECONDS_OF_HUNDRED = 100;
 constexpr int32_t SECONDS_OF_TEN = 10;
 constexpr int32_t DEFAULT_SCALE = 1;
 constexpr double DEFAULT_COUNT = 60000.0;
+constexpr int32_t DEFAULT_START_TIME = 0;
 const std::string DEFAULT_FORMAT = "HH:mm:ss.SS";
 } // namespace
 
@@ -95,8 +97,8 @@ void TextTimerPattern::InitTimerDisplay()
         auto context = host->GetContextRefPtr();
         CHECK_NULL_VOID(context);
         scheduler_ = SchedulerBuilder::Build(callback, context);
-        auto count = isCountDown_ ? inputCount_ : 0;
-        UpdateTextTimer(static_cast<uint32_t>(count));
+        auto initialTime = isCountDown_ ? inputCount_ : startTime_;
+        UpdateTextTimer(initialTime);
         return;
     }
     if (resetCount_) {
@@ -115,6 +117,8 @@ void TextTimerPattern::Tick(uint64_t duration)
         auto elapsedTime = GetMillisecondsDuration(GetFormatDuration(elapsedTime_));
         tmpValue =
             (inputCount_ >= static_cast<double>(elapsedTime_)) ? (inputCount_ - static_cast<double>(elapsedTime)) : 0;
+    } else {
+        tmpValue += startTime_;
     }
     if (isCountDown_ && tmpValue <= 0) {
         UpdateTextTimer(0);
@@ -122,7 +126,7 @@ void TextTimerPattern::Tick(uint64_t duration)
         return;
     }
 
-    UpdateTextTimer(static_cast<uint32_t>(tmpValue));
+    UpdateTextTimer(tmpValue);
 }
 
 void TextTimerPattern::UpdateTextLayoutProperty(
@@ -161,40 +165,44 @@ void TextTimerPattern::OnModifyDone()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
 
     if (host->GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_EIGHTEEN)) {
         Pattern::OnModifyDone();
     }
 
-    if (!textNode_) {
-        textNode_ = GetTextNode();
+    FireBuilder();
+    if (!UseContentModifier()) {
+        if (!textNode_) {
+            textNode_ = GetTextNode();
+        }
+        CHECK_NULL_VOID(textNode_);
+        auto textLayoutProperty = textNode_->GetLayoutProperty<TextLayoutProperty>();
+        CHECK_NULL_VOID(textLayoutProperty);
+        textLayoutProperty->UpdateTextOverflow(TextOverflow::NONE);
+        if (textLayoutProperty->GetPositionProperty()) {
+            textLayoutProperty->UpdateAlignment(
+                textLayoutProperty->GetPositionProperty()->GetAlignment().value_or(Alignment::CENTER));
+        } else {
+            textLayoutProperty->UpdateAlignment(Alignment::CENTER);
+        }
+        auto textTimerProperty = host->GetLayoutProperty<TextTimerLayoutProperty>();
+        CHECK_NULL_VOID(textTimerProperty);
+        textLayoutProperty->UpdateTextOverflow(TextOverflow::NONE);
+        UpdateTextLayoutProperty(textTimerProperty, textLayoutProperty);
+        auto textContext = textNode_->GetRenderContext();
+        CHECK_NULL_VOID(textContext);
+        textContext->SetClipToFrame(false);
+        textContext->UpdateClipEdge(false);
+        textNode_->MarkModifyDone();
     }
-    CHECK_NULL_VOID(textNode_);
-    auto textLayoutProperty = textNode_->GetLayoutProperty<TextLayoutProperty>();
-    CHECK_NULL_VOID(textLayoutProperty);
-    textLayoutProperty->UpdateTextOverflow(TextOverflow::NONE);
-    if (textLayoutProperty->GetPositionProperty()) {
-        textLayoutProperty->UpdateAlignment(
-            textLayoutProperty->GetPositionProperty()->GetAlignment().value_or(Alignment::CENTER));
-    } else {
-        textLayoutProperty->UpdateAlignment(Alignment::CENTER);
-    }
-    auto textTimerProperty = host->GetLayoutProperty<TextTimerLayoutProperty>();
-    CHECK_NULL_VOID(textTimerProperty);
-    textLayoutProperty->UpdateTextOverflow(TextOverflow::NONE);
-    UpdateTextLayoutProperty(textTimerProperty, textLayoutProperty);
-    auto textContext = textNode_->GetRenderContext();
-    CHECK_NULL_VOID(textContext);
-    textContext->SetClipToFrame(false);
-    textContext->UpdateClipEdge(false);
     isCountDown_ = GetIsCountDown();
     inputCount_ = GetInputCount();
+    startTime_ = GetStartTime();
 
     InitTextTimerController();
     InitTimerDisplay();
-    textNode_->MarkModifyDone();
     RegisterVisibleAreaChangeCallback();
-    FireBuilder();
 }
 
 void TextTimerPattern::RegisterVisibleAreaChangeCallback()
@@ -213,7 +221,7 @@ void TextTimerPattern::RegisterVisibleAreaChangeCallback()
         pattern->OnVisibleAreaChange(visible);
     };
     std::vector<double> ratioList = {0.0};
-    pipeline->AddVisibleAreaChangeNode(host, ratioList, callback, false);
+    pipeline->AddVisibleAreaChangeNode(host, ratioList, callback, false, true);
 }
 
 void TextTimerPattern::OnVisibleAreaChange(bool visible)
@@ -226,6 +234,10 @@ void TextTimerPattern::OnVisibleAreaChange(bool visible)
         if (!childNode) {
             host->AddChild(textNode_);
             host->RebuildRenderContextTree();
+            if (SystemProperties::ConfigChangePerform()) {
+                host->MarkModifyDone();
+                host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
+            }
         }
     } else {
         host->RemoveChild(textNode_);
@@ -233,7 +245,7 @@ void TextTimerPattern::OnVisibleAreaChange(bool visible)
     }
 }
 
-void TextTimerPattern::UpdateTextTimer(uint32_t elapsedTime)
+void TextTimerPattern::UpdateTextTimer(double elapsedTime)
 {
     if (UseContentModifier()) {
         FireBuilder();
@@ -246,9 +258,18 @@ void TextTimerPattern::UpdateTextTimer(uint32_t elapsedTime)
     CHECK_NULL_VOID(textLayoutProperty);
 
     // format time text.
-    std::string timerText = Localization::GetInstance()->FormatDuration(elapsedTime, GetFormat());
+    bool isNegative = false;
+    if (elapsedTime < 0) {
+        elapsedTime = -elapsedTime;
+        isNegative = true;
+    }
+    std::string timerText =
+        Localization::GetInstance()->FormatDuration(static_cast<uint32_t>(elapsedTime), GetFormat());
     if (timerText.empty()) {
         timerText = Localization::GetInstance()->FormatDuration(elapsedTime, DEFAULT_FORMAT);
+    }
+    if (isNegative) {
+        timerText.insert(0, "-");
     }
     textLayoutProperty->UpdateContent(timerText); // Update time text.
     if (CheckMeasureFlag(textLayoutProperty->GetPropertyChangeFlag()) ||
@@ -279,6 +300,13 @@ double TextTimerPattern::GetInputCount() const
     return textTimerLayoutProperty->GetInputCount().value_or(DEFAULT_COUNT);
 }
 
+int32_t TextTimerPattern::GetStartTime() const
+{
+    auto textTimerLayoutProperty = GetLayoutProperty<TextTimerLayoutProperty>();
+    CHECK_NULL_RETURN(textTimerLayoutProperty, DEFAULT_START_TIME);
+    return textTimerLayoutProperty->GetStartTime().value_or(DEFAULT_START_TIME);
+}
+
 void TextTimerPattern::HandleStart()
 {
     if (scheduler_ && !scheduler_->IsActive()) {
@@ -300,8 +328,8 @@ void TextTimerPattern::HandleReset()
     }
     elapsedTime_ = 0;
     lastElapsedTime_ = 0;
-    auto count = isCountDown_ ? inputCount_ : 0;
-    UpdateTextTimer(static_cast<uint32_t>(count));
+    auto initialTime = isCountDown_ ? inputCount_ : startTime_;
+    UpdateTextTimer(initialTime);
 }
 
 RefPtr<FrameNode> TextTimerPattern::GetTextNode()
@@ -351,13 +379,30 @@ void TextTimerPattern::ResetCount()
 
 void TextTimerPattern::FireBuilder()
 {
-    if (!makeFunc_.has_value()) {
-        return;
-    }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    if (!makeFunc_.has_value()) {
+        if (UseContentModifier()) {
+            host->RemoveChild(contentModifierNode_);
+            host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+            contentModifierNode_ = nullptr;
+            CHECK_NE_VOID(host->GetChildren().empty(), true);
+            auto textId = GetTextId();
+            auto textNode = FrameNode::GetOrCreateFrameNode(V2::TEXT_ETS_TAG, textId,
+                []() { return AceType::MakeRefPtr<TextPattern>(); });
+            CHECK_NULL_VOID(textNode);
+            textNode->MarkModifyDone();
+            textNode->MountToParent(host);
+            textNode_ = textNode;
+            Tick(0);
+        }
+        return;
+    }
+    auto node = BuildContentModifierNode();
+    CHECK_EQUAL_VOID(contentModifierNode_, node);
+    textNode_.Reset();
     host->RemoveChildAtIndex(0);
-    contentModifierNode_ = BuildContentModifierNode();
+    contentModifierNode_ = node;
     CHECK_NULL_VOID(contentModifierNode_);
     host->AddChild(contentModifierNode_, 0);
     host->MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE);
@@ -379,7 +424,8 @@ RefPtr<FrameNode> TextTimerPattern::BuildContentModifierNode()
     auto isCountDown = textTimerLayoutProperty->GetIsCountDown().value_or(false);
     auto started = scheduler_ && scheduler_->IsActive();
     auto elapsedTime = GetFormatDuration(elapsedTime_);
-    TextTimerConfiguration textTimerConfiguration(count, isCountDown, started, elapsedTime, enabled);
+    auto startTime = GetStartTime();
+    TextTimerConfiguration textTimerConfiguration(count, isCountDown, started, elapsedTime, enabled, startTime);
     return (makeFunc_.value())(textTimerConfiguration);
 }
 
@@ -392,6 +438,7 @@ void TextTimerPattern::DumpInfo()
         DumpLog::GetInstance().AddDesc("isCountDown: false");
     auto format = textTimerLayoutProperty->GetFormat().value_or(DEFAULT_FORMAT);
     DumpLog::GetInstance().AddDesc("format: ", format);
+    DumpLog::GetInstance().AddDesc("startTime: ", GetStartTime());
     auto elapsedTime = GetFormatDuration(elapsedTime_);
     DumpLog::GetInstance().AddDesc("elapsedTime: ", elapsedTime);
 }
@@ -402,6 +449,7 @@ void TextTimerPattern::DumpInfo(std::unique_ptr<JsonValue>& json)
     CHECK_NULL_VOID(textTimerLayoutProperty);
     json->Put("isCountDown", textTimerLayoutProperty->GetIsCountDown().value_or(false));
     json->Put("format", textTimerLayoutProperty->GetFormat().value_or(DEFAULT_FORMAT).c_str());
+    json->Put("startTime", std::to_string(GetStartTime()).c_str());
     json->Put("elapsedTime", std::to_string(GetFormatDuration(elapsedTime_)).c_str());
 }
 
@@ -415,7 +463,7 @@ void TextTimerPattern::UpdateTextColor(const Color& color, bool isFirstLoad)
     CHECK_NULL_VOID(renderContext);
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
-    if (isFirstLoad || pipelineContext->IsSystmColorChange()) {
+    if (isFirstLoad || pipelineContext->IsSystemColorChange()) {
         layoutProperty->UpdateTextColor(color);
         renderContext->UpdateForegroundColor(color);
         renderContext->ResetForegroundColorStrategy();
@@ -431,7 +479,7 @@ void TextTimerPattern::UpdateFontWeight(const FontWeight& value, bool isFirstLoa
     CHECK_NULL_VOID(layoutProperty);
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
-    if (isFirstLoad || pipelineContext->IsSystmColorChange()) {
+    if (isFirstLoad || pipelineContext->IsSystemColorChange()) {
         layoutProperty->UpdateFontWeight(value);
     }
 }
@@ -444,7 +492,7 @@ void TextTimerPattern::UpdateFontSize(const Dimension& value, bool isFirstLoad)
     CHECK_NULL_VOID(layoutProperty);
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
-    if (isFirstLoad || pipelineContext->IsSystmColorChange()) {
+    if (isFirstLoad || pipelineContext->IsSystemColorChange()) {
         layoutProperty->UpdateFontSize(value);
     }
 }
@@ -452,6 +500,10 @@ void TextTimerPattern::UpdateFontSize(const Dimension& value, bool isFirstLoad)
 void TextTimerPattern::OnColorModeChange(uint32_t colorMode)
 {
     Pattern::OnColorModeChange(colorMode);
+    if (UseContentModifier()) {
+        // If contentModifier is used, the color mode change is perceived by the components inside the contentModifier.
+        return;
+    }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto pipelineContext = host->GetContext();
@@ -471,14 +523,15 @@ void TextTimerPattern::UpdateFontFamily(const std::vector<std::string>& fontFami
     CHECK_NULL_VOID(layoutProperty);
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
-    if (isFirstLoad || pipelineContext->IsSystmColorChange()) {
+    if (isFirstLoad || pipelineContext->IsSystemColorChange()) {
         layoutProperty->UpdateFontFamily(fontFamilies);
     }
 }
 
 void TextTimerPattern::OnColorConfigurationUpdate()
 {
-    if (!SystemProperties::ConfigChangePerform()) {
+    if (!SystemProperties::ConfigChangePerform() || UseContentModifier()) {
+        // If contentModifier is used, the color mode change is perceived by the components inside the contentModifier.
         return;
     }
 

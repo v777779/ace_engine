@@ -21,7 +21,7 @@
 
 #include "interfaces/native/node/styled_string.h"
 
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/pattern/text/text_model.h"
 
 namespace OHOS::Ace::NG {
@@ -36,6 +36,7 @@ public:
     static void SetMaxFontScale(FrameNode* frameNode, const std::optional<float>& value);
     static void SetItalicFontStyle(FrameNode* frameNode, const std::optional<Ace::FontStyle>& value);
     static void SetTextAlign(FrameNode* frameNode, const std::optional<Ace::TextAlign>& value);
+    static void SetTextDirection(FrameNode* frameNode, const std::optional<TextDirection>& valueOpt);
     static void SetTextColor(FrameNode* frameNode, const std::optional<Color>& value);
     static void SetFontSize(FrameNode* frameNode, const std::optional<Dimension>& value);
     static void SetLineHeight(FrameNode* frameNode, const std::optional<Dimension>& value);
@@ -63,12 +64,28 @@ public:
     static void SetSelectedBackgroundColor(FrameNode* frameNode, const std::optional<Color>& value);
     static void SetHalfLeading(FrameNode* frameNode, const std::optional<bool>& valueOpt);
     static void SetEnableHapticFeedback(FrameNode* frameNode, const std::optional<bool>& state);
-
+    static void SetCompressLeadingPunctuation(FrameNode* frameNode, const std::optional<bool>& valueOpt);
+    static void SetOrphanCharOptimization(FrameNode* frameNode, const std::optional<bool>& valueOpt);
     static void SetTextSelectableMode(FrameNode* frameNode, const std::optional<TextSelectableMode>& value);
     static void BindSelectionMenu(FrameNode* frameNode, TextSpanType& spanType, TextResponseType& responseType,
         std::function<void()>&& buildFunc, SelectMenuParam& menuParam);
     static void SetSelectionMenuOptions(FrameNode* frameNode, const NG::OnCreateMenuCallback&& onCreateMenuCallback,
-        const NG::OnMenuItemClickCallback&& onMenuItemClick);
+        const NG::OnMenuItemClickCallback&& onMenuItemClick, const NG::OnPrepareMenuCallback&& onPrepareMenuCallback);
+    static void ResetSelectionMenuOptions(FrameNode* frameNode);
+    static void SetIncludeFontPadding(FrameNode* frameNode, const std::optional<bool>& valueOpt);
+    static void SetFallbackLineSpacing(FrameNode* frameNode, const std::optional<bool>& valueOpt);
+    static void SetSelectedDragPreviewStyle(FrameNode* frameNode, const std::optional<Color>& value);
+    static void SetOptimizeTrailingSpace(FrameNode* frameNode, const std::optional<bool>& valueOpt);
+    static void SetEnableAutoSpacing(FrameNode* frameNode, const std::optional<bool>& valueOpt);
+    static void SetIsOnlyBetweenLines(FrameNode* frameNode, const std::optional<bool>& valueOpt);
+    static void SetTextContentAlign(FrameNode* frameNode, const std::optional<TextContentAlign>& valueOpt);
+    static void SetMinLines(FrameNode* frameNode, const std::optional<uint32_t>& valueOpt);
+    static void SetMinimumLineHeight(FrameNode* frameNode, const std::optional<Dimension>& valueOpt);
+    static void SetMaximumLineHeight(FrameNode* frameNode, const std::optional<Dimension>& valueOpt);
+    static void SetLineHeightMultiply(FrameNode* frameNode, const std::optional<double>& valueOpt);
+    static void SetContentTransition(FrameNode* frameNode, const std::optional<TextEffectStrategy> value,
+        const std::optional<TextFlipDirection> direction, const std::optional<bool> enableBlur);
+    static void SetSelectDetectEnable(FrameNode* frameNode, const std::optional<bool>& value);
 };
 } // namespace OHOS::Ace::NG
 

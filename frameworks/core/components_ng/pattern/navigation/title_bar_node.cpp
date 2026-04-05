@@ -44,6 +44,7 @@ TitleBarNode::~TitleBarNode()
 RefPtr<TitleBarNode> TitleBarNode::GetOrCreateTitleBarNode(
     const std::string& tag, int32_t nodeId, const std::function<RefPtr<Pattern>(void)>& patternCreator)
 {
+    ACE_UINODE_TRACE(nodeId);
     auto frameNode = GetFrameNode(tag, nodeId);
     CHECK_NULL_RETURN(!frameNode, AceType::DynamicCast<TitleBarNode>(frameNode));
     auto pattern = patternCreator ? patternCreator() : MakeRefPtr<Pattern>();
@@ -69,5 +70,51 @@ void TitleBarNode::MarkIsInitialTitle(bool isInitialTitle)
 {
     auto pattern = GetPattern<TitleBarPattern>();
     pattern->MarkIsInitialTitle(isInitialTitle);
+}
+
+void TitleBarNode::OnAttachToMainTree(bool recursive)
+{
+    FrameNode::OnAttachToMainTree(recursive);
+    menuBarChangeListenerId_ =
+        AppBarView::AddRectChangeListener(GetContextRefPtr(), [weakTitleBar = WeakClaim(this)](const RectF& rect) {
+            auto titleBarNode = weakTitleBar.Upgrade();
+            CHECK_NULL_VOID(titleBarNode);
+            auto context = titleBarNode->GetContext();
+            CHECK_NULL_VOID(context);
+            titleBarNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+            context->RequestFrame();
+        });
+    auto parent = GetParent();
+    while (parent) {
+        auto tag = parent->GetTag();
+        if (tag == V2::SHEET_PAGE_TAG || tag == V2::MODAL_PAGE_TAG) {
+            isParentModalOrSheet_ = true;
+        }
+        parent = parent->GetParent();
+    }
+}
+
+void TitleBarNode::OnDetachFromMainTree(bool recursive, PipelineContext* context)
+{
+    FrameNode::OnDetachFromMainTree(recursive, context);
+    if (menuBarChangeListenerId_ != -1) {
+        AppBarView::RemoveRectChangeListener(Claim(context), menuBarChangeListenerId_);
+    }
+    isParentModalOrSheet_ = false;
+}
+
+void TitleBarNode::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
+{
+    FrameNode::ToJsonValue(json, filter);
+    auto titleBarPattern = GetPattern<TitleBarPattern>();
+    CHECK_NULL_VOID(titleBarPattern);
+    auto titleBarOptions = titleBarPattern->GetTitleBarOptions();
+    titleBarOptions.ToJsonValue(json, filter);
+}
+
+bool TitleBarNode::IsChildEmpty() const
+{
+    bool isMenuEmpty = menu_ ? menu_->GetChildren().empty() : true;
+    return !title_ && !subtitle_ && !backButton_ && isMenuEmpty;
 }
 } // namespace OHOS::Ace::NG

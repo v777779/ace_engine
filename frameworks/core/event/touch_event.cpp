@@ -16,7 +16,9 @@
 #include "core/event/touch_event.h"
 
 #include "base/input_manager/input_manager.h"
+#include "base/utils/time_util.h"
 #include "core/common/ace_application_info.h"
+#include "core/components_ng/event/target_component.h"
 #include "core/event/mouse_event.h"
 #include "core/event/key_event.h"
 
@@ -168,6 +170,12 @@ TouchEvent& TouchEvent::SetTouchEventId(int32_t touchEventId)
     return *this;
 }
 
+TouchEvent& TouchEvent::SetEventHandleId(int32_t eventHandleId)
+{
+    this->eventHandleId = eventHandleId;
+    return *this;
+}
+
 TouchEvent& TouchEvent::SetIsInterpolated(bool isInterpolated)
 {
     this->isInterpolated = isInterpolated;
@@ -227,12 +235,6 @@ TouchEvent& TouchEvent::SetIsPassThroughMode(bool isPassThroughMode)
     return *this;
 }
 
-TouchEvent& TouchEvent::SetOperatingHand(int32_t operatingHand)
-{
-    this->operatingHand = operatingHand;
-    return *this;
-}
-
 TouchEvent& TouchEvent::SetPressedTime(TimeStamp pressedTime)
 {
     this->pressedTime = pressedTime;
@@ -248,6 +250,24 @@ TouchEvent& TouchEvent::SetWidth(int32_t width)
 TouchEvent& TouchEvent::SetHeight(int32_t height)
 {
     this->height = height;
+    return *this;
+}
+
+TouchEvent& TouchEvent::SetOperatingHand(int32_t operatingHand)
+{
+    this->operatingHand = operatingHand;
+    return *this;
+}
+
+TouchEvent& TouchEvent::SetXReverse(int32_t xReverse)
+{
+    this->xReverse = xReverse;
+    return *this;
+}
+
+TouchEvent& TouchEvent::SetYReverse(int32_t yReverse)
+{
+    this->yReverse = yReverse;
     return *this;
 }
 
@@ -290,13 +310,16 @@ TouchEvent TouchEvent::CloneWith(float scale, float offsetX, float offsetY, std:
     event.inputYDeltaSlope = inputYDeltaSlope;
     event.eventType = UIInputEventType::TOUCH;
     event.isPassThroughMode = isPassThroughMode;
-    event.operatingHand = operatingHand;
     event.width = width;
     event.height = height;
     event.pressedTime = pressedTime;
-    event.convertInfo = convertInfo;
     event.passThrough = passThrough;
-    // Only set postEventNodeId when the event supports passThrough
+    event.operatingHand = operatingHand;
+    event.convertInfo = convertInfo;
+    event.sensorTime = sensorTime;
+    event.processTime = processTime;
+    event.eventHandleId = eventHandleId;
+    event.isNewReferee = isNewReferee;
     if (passThrough) {
         event.postEventNodeId = postEventNodeId;
     }
@@ -485,8 +508,9 @@ TouchEvent TouchEvent::UpdatePointers() const
 
 bool TouchEvent::IsPenHoverEvent() const
 {
-    return sourceTool == SourceTool::PEN && (type == TouchType::PROXIMITY_IN || type == TouchType::PROXIMITY_OUT ||
-                                                (type == TouchType::MOVE && NearZero(force)));
+    return sourceTool == SourceTool::PEN &&
+           (type == TouchType::LEVITATE_IN_WINDOW || type == TouchType::LEVITATE_MOVE ||
+               type == TouchType::LEVITATE_OUT_WINDOW);
 }
 
 int32_t TouchEvent::GetTargetDisplayId() const
@@ -500,6 +524,11 @@ int32_t TouchEvent::GetEventIdentity() const
         return id;
     }
     return originalId;
+}
+
+bool TouchEvent::ConvertFromMouse() const
+{
+    return sourceType == SourceType::MOUSE && !(convertInfo.first == UIInputEventType::MOUSE);
 }
 
 void TouchCallBackInfo::SetScreenX(float screenX)

@@ -28,7 +28,7 @@
 namespace OHOS::Ace::NG {
 
 class ACE_EXPORT PolygonPaintMethod : public ShapePaintMethod {
-    DECLARE_ACE_TYPE(PolygonPaintMethod, ShapePaintMethod)
+    DECLARE_ACE_TYPE(PolygonPaintMethod, ShapePaintMethod);
 public:
     PolygonPaintMethod() = default;
     PolygonPaintMethod(
@@ -42,7 +42,9 @@ public:
     CanvasDrawFunction GetContentDrawFunction(PaintWrapper* paintWrapper) override
     {
         CHECK_NULL_RETURN(paintWrapper, nullptr);
-        auto shapePaintProperty = DynamicCast<PolygonPaintProperty>(paintWrapper->GetPaintProperty()->Clone());
+        auto paintProperty = paintWrapper->GetPaintProperty();
+        CHECK_NULL_RETURN(paintProperty, nullptr);
+        auto shapePaintProperty = DynamicCast<PolygonPaintProperty>(paintProperty->Clone());
         CHECK_NULL_RETURN(shapePaintProperty, nullptr);
 
         if (propertiesFromAncestor_) {
@@ -64,9 +66,7 @@ public:
         CHECK_EQUAL_RETURN(contentSize.IsPositive(), false, nullptr);
         return [shapePaintProperty, isClose = isClose_, paintWrapper](RSCanvas& canvas) {
                     PolygonPainter::DrawPolygon(canvas, *shapePaintProperty, isClose);
-                    if (paintWrapper) {
-                        paintWrapper->FlushOverlayModifier();
-                    }
+                    paintWrapper->FlushOverlayModifier();
                 };
     }
 

@@ -19,7 +19,9 @@
 #include "base/utils/multi_thread.h"
 #include "core/components/theme/icon_theme.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
+#include "core/components_ng/pattern/overlay/group_manager.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 namespace OHOS::Ace::NG {
 
@@ -29,7 +31,6 @@ const Color ITEM_FILL_COLOR = Color::TRANSPARENT;
 
 constexpr int32_t DEFAULT_RADIO_ANIMATION_DURATION = 200;
 constexpr int32_t DEFAULT_RADIO_ANIMATION_DURATION_CIRCLE = 150;
-constexpr float DEFAULT_CUSTOM_SCALE = 0.7F;
 constexpr float INDICATOR_MIN_SCALE = 0.8F;
 constexpr float INDICATOR_MAX_SCALE = 1.0F;
 constexpr float INDICATOR_MIN_OPACITY = 0.0F;
@@ -100,14 +101,7 @@ void RadioPattern::UpdateIndicatorType()
     CHECK_NULL_VOID(renderContext);
     renderContext->UpdateTransformScale({ INDICATOR_MAX_SCALE, INDICATOR_MAX_SCALE });
     renderContext->UpdateOpacity(1);
-    if (!radioModifier_) {
-        radioModifier_ = AceType::MakeRefPtr<RadioModifier>();
-    }
-    if (!radioPaintProperty->HasRadioCheck()) {
-        radioPaintProperty->UpdateRadioCheck(false);
-    }
-    if (!radioPaintProperty->GetRadioCheckValue()) {
-        radioModifier_->InitOpacityScale(false);
+    if (!radioPaintProperty->GetRadioCheckValue(false)) {
         SetBuilderState();
     }
 }
@@ -118,14 +112,30 @@ void RadioPattern::OnModifyDone()
     FireBuilder();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    if (!makeFunc_.has_value() && host->GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWELVE)) {
-        UpdateIndicatorType();
-    }
-    UpdateState();
-    auto* pipeline = host->GetContextWithCheck();
+    auto* pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto radioTheme = pipeline->GetTheme<RadioTheme>();
     CHECK_NULL_VOID(radioTheme);
+    if (!makeFunc_.has_value() && host->GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWELVE)) {
+        auto radioPaintProperty = host->GetPaintProperty<RadioPaintProperty>();
+        if (!radioModifier_) {
+            radioModifier_ = AceType::MakeRefPtr<RadioModifier>();
+        }
+        if (radioPaintProperty && !radioPaintProperty->HasRadioCheck()) {
+            radioPaintProperty->UpdateRadioCheck(false);
+        }
+        if (radioPaintProperty && !radioPaintProperty->GetRadioCheckValue()) {
+            radioModifier_->InitOpacityScale(false);
+        }
+        auto callback = [weak = WeakClaim(this)]() {
+            auto radio = weak.Upgrade();
+            if (radio) {
+                radio->UpdateIndicatorType();
+            }
+        };
+        pipeline->AddBuildFinishCallBack(callback);
+    }
+    UpdateState();
     hotZoneHorizontalPadding_ = radioTheme->GetHotZoneHorizontalPadding();
     hotZoneVerticalPadding_ = radioTheme->GetHotZoneVerticalPadding();
     InitDefaultMargin();
@@ -214,7 +224,9 @@ void RadioPattern::HandleFocusEvent()
 {
     CHECK_NULL_VOID(radioModifier_);
     AddIsFocusActiveUpdateEvent();
-    auto pipeline = PipelineContext::GetCurrentContext();
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
     CHECK_NULL_VOID(pipeline);
     if (pipeline->GetIsFocusActive()) {
         OnIsFocusActiveUpdate(true);
@@ -238,16 +250,20 @@ void RadioPattern::AddIsFocusActiveUpdateEvent()
         };
     }
 
-    auto pipline = PipelineContext::GetCurrentContext();
-    CHECK_NULL_VOID(pipline);
-    pipline->AddIsFocusActiveUpdateEvent(GetHost(), isFocusActiveUpdateEvent_);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    pipeline->AddIsFocusActiveUpdateEvent(host, isFocusActiveUpdateEvent_);
 }
 
 void RadioPattern::RemoveIsFocusActiveUpdateEvent()
 {
-    auto pipline = PipelineContext::GetCurrentContext();
-    CHECK_NULL_VOID(pipline);
-    pipline->RemoveIsFocusActiveUpdateEvent(GetHost());
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    pipeline->RemoveIsFocusActiveUpdateEvent(host);
 }
 
 void RadioPattern::OnIsFocusActiveUpdate(bool isFocusAcitve)
@@ -279,13 +295,13 @@ void RadioPattern::ImageNodeCreate()
     CHECK_NULL_VOID(radioPaintProperty);
     auto imageProperty = builderChildNode_->GetLayoutProperty<ImageLayoutProperty>();
     CHECK_NULL_VOID(imageProperty);
-    imageProperty->UpdateUserDefinedIdealSize(GetChildContentSize());
-    auto imageSourceInfo = GetImageSourceInfoFromTheme(radioPaintProperty->GetRadioIndicator().value_or(0));
-    UpdateInternalResource(imageSourceInfo);
-    auto* pipeline = host->GetContextWithCheck();
+    auto* pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto radioTheme = pipeline->GetTheme<RadioTheme>();
     CHECK_NULL_VOID(radioTheme);
+    imageProperty->UpdateUserDefinedIdealSize(GetChildContentSize(radioTheme));
+    auto imageSourceInfo = GetImageSourceInfoFromTheme(radioPaintProperty->GetRadioIndicator().value_or(0), radioTheme);
+    UpdateInternalResource(imageSourceInfo);
     auto indicatorColor = radioPaintProperty->GetRadioIndicatorColor().value_or(Color(radioTheme->GetPointColor()));
     auto imageRenderProperty = builderChildNode_->GetPaintProperty<ImageRenderProperty>();
     CHECK_NULL_VOID(imageRenderProperty);
@@ -340,6 +356,7 @@ void RadioPattern::MarkIsSelected(bool isSelected)
     CHECK_NULL_VOID(host);
     TAG_LOGD(AceLogTag::ACE_SELECT_COMPONENT, "radio node %{public}d fire change event %{public}d", host->GetId(),
         isSelected);
+    ReportOnChangeEvent(host->GetId(), isSelected);
     if (isSelected) {
         eventHub->UpdateCurrentUIState(UI_STATE_SELECTED);
         host->OnAccessibilityEvent(AccessibilityEventType::SELECTED);
@@ -473,6 +490,7 @@ void RadioPattern::OnClick()
         paintProperty->UpdateRadioCheck(true);
         UpdateState();
     }
+    ReportOnChangeEvent(host->GetId(), paintProperty->GetRadioCheckValue(false));
 }
 
 void RadioPattern::OnTouchDown()
@@ -526,6 +544,7 @@ void RadioPattern::CheckPageNode()
     if (pageNode->GetId() != prePageId) {
         auto eventHub = host->GetEventHub<RadioEventHub>();
         CHECK_NULL_VOID(eventHub);
+        UpdateGroupManager();
         auto groupManager = GetGroupManager();
         CHECK_NULL_VOID(groupManager);
         auto group = eventHub->GetGroup();
@@ -619,6 +638,7 @@ void RadioPattern::UpdateUncheckStatus(const RefPtr<FrameNode>& frameNode)
         CHECK_NULL_VOID(radioEventHub);
         TAG_LOGI(AceLogTag::ACE_SELECT_COMPONENT, "radio node %{public}d fire unselect event", frameNode->GetId());
         radioEventHub->UpdateChangeEvent(false);
+        ReportOnChangeEvent(frameNode->GetId(), false);
         isOnAnimationFlag_ = false;
     }
     preCheck_ = false;
@@ -626,11 +646,13 @@ void RadioPattern::UpdateUncheckStatus(const RefPtr<FrameNode>& frameNode)
 
 void RadioPattern::startEnterAnimation()
 {
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
     auto springCurve = AceType::MakeRefPtr<InterpolatingSpring>(DEFAULT_INTERPOLATINGSPRING_VELOCITY,
         DEFAULT_INTERPOLATINGSPRING_MASS, DEFAULT_INTERPOLATINGSPRING_STIFFNESS, DEFAULT_INTERPOLATINGSPRING_DAMPING);
     AnimationOption delayOption;
 
-    auto pipeline = GetContext();
+    auto pipeline = host->GetContextRefPtr();
     CHECK_NULL_VOID(pipeline);
     auto radioTheme = pipeline->GetTheme<RadioTheme>();
     CHECK_NULL_VOID(radioTheme);
@@ -660,7 +682,7 @@ void RadioPattern::startEnterAnimation()
             renderContext->UpdateTransformScale({ INDICATOR_MAX_SCALE, INDICATOR_MAX_SCALE });
             renderContext->UpdateOpacity(INDICATOR_MAX_OPACITY);
         },
-        nullptr);
+        nullptr, nullptr, pipeline);
 }
 
 void RadioPattern::startExitAnimation()
@@ -669,7 +691,9 @@ void RadioPattern::startExitAnimation()
         DEFAULT_INTERPOLATINGSPRING_MASS, DEFAULT_INTERPOLATINGSPRING_STIFFNESS, DEFAULT_INTERPOLATINGSPRING_DAMPING);
     AnimationOption delayOption;
 
-    auto pipeline = GetContext();
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
     CHECK_NULL_VOID(pipeline);
     auto radioTheme = pipeline->GetTheme<RadioTheme>();
     CHECK_NULL_VOID(radioTheme);
@@ -689,21 +713,16 @@ void RadioPattern::startExitAnimation()
             renderContext->UpdateTransformScale({ INDICATOR_MIN_SCALE, INDICATOR_MIN_SCALE });
             renderContext->UpdateOpacity(INDICATOR_MIN_OPACITY);
         },
-        nullptr);
+        nullptr, nullptr, pipeline);
     auto eventHub = builderChildNode_->GetEventHub<EventHub>();
     if (eventHub) {
         eventHub->SetEnabled(false);
     }
 }
 
-ImageSourceInfo RadioPattern::GetImageSourceInfoFromTheme(int32_t RadioIndicator)
+ImageSourceInfo RadioPattern::GetImageSourceInfoFromTheme(int32_t RadioIndicator, const RefPtr<RadioTheme>& radioTheme)
 {
     ImageSourceInfo imageSourceInfo;
-    auto host = GetHost();
-    CHECK_NULL_RETURN(host, imageSourceInfo);
-    auto* pipeline = host->GetContextWithCheck();
-    CHECK_NULL_RETURN(pipeline, imageSourceInfo);
-    auto radioTheme = pipeline->GetTheme<RadioTheme>();
     CHECK_NULL_RETURN(radioTheme, imageSourceInfo);
     switch (RadioIndicator) {
         case static_cast<int32_t>(RadioIndicatorType::TICK):
@@ -724,12 +743,10 @@ void RadioPattern::UpdateInternalResource(ImageSourceInfo& sourceInfo)
     CHECK_NULL_VOID(sourceInfo.IsInternalResource());
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto* pipeline = host->GetContextWithCheck();
+    auto* pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto iconTheme = pipeline->GetTheme<IconTheme>();
     CHECK_NULL_VOID(iconTheme);
-    auto radioTheme = pipeline->GetTheme<RadioTheme>();
-    CHECK_NULL_VOID(radioTheme);
     auto iconPath = iconTheme->GetIconPath(sourceInfo.GetResourceId());
     if (iconPath.empty()) {
         return;
@@ -755,7 +772,9 @@ void RadioPattern::LoadBuilder()
         builder_();
         customNode = NG::ViewStackProcessor::GetInstance()->Finish();
         CHECK_NULL_VOID(customNode);
-        builderChildNode_ = AceType::DynamicCast<FrameNode>(customNode);
+        auto firstFrameNode = customNode->GetFrameChildByIndex(0, false);
+        CHECK_NULL_VOID(firstFrameNode);
+        builderChildNode_ = AceType::DynamicCast<FrameNode>(firstFrameNode);
         CHECK_NULL_VOID(builderChildNode_);
         preTypeIsBuilder_ = true;
         builderChildNode_->MountToParent(host);
@@ -763,50 +782,37 @@ void RadioPattern::LoadBuilder()
     }
 }
 
-void RadioPattern::InitializeParam(
-    Dimension& defaultWidth, Dimension& defaultHeight, Dimension& horizontalPadding, Dimension& verticalPadding)
+CalcSize RadioPattern::GetChildContentSize(const RefPtr<RadioTheme>& radioTheme)
 {
+    CHECK_NULL_RETURN(radioTheme, CalcSize());
     auto host = GetHost();
-    CHECK_NULL_VOID(host);
-    auto* pipeline = host->GetContextWithCheck();
-    CHECK_NULL_VOID(pipeline);
-    auto radioTheme = pipeline->GetTheme<RadioTheme>();
-    CHECK_NULL_VOID(radioTheme);
-    defaultWidth = radioTheme->GetWidth();
-    defaultHeight = radioTheme->GetHeight();
-    horizontalPadding = radioTheme->GetDefaultPaddingSize();
-    verticalPadding = radioTheme->GetDefaultPaddingSize();
-}
-
-CalcSize RadioPattern::GetChildContentSize()
-{
-    auto host = GetHost();
+    CHECK_NULL_RETURN(host, CalcSize());
     auto layoutProperty = host->GetLayoutProperty<LayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, CalcSize());
     auto &&layoutConstraint = layoutProperty->GetCalcLayoutConstraint();
     if (layoutConstraint && layoutConstraint->selfIdealSize) {
         auto selfIdealSize = layoutConstraint->selfIdealSize;
         if (selfIdealSize->IsValid()) {
-            auto height = selfIdealSize->Height()->GetDimension() * DEFAULT_CUSTOM_SCALE;
-            auto width = selfIdealSize->Width()->GetDimension() * DEFAULT_CUSTOM_SCALE;
+            auto height = selfIdealSize->Height()->GetDimension() * DEFAULT_RADIO_IMAGE_SCALE;
+            auto width = selfIdealSize->Width()->GetDimension() * DEFAULT_RADIO_IMAGE_SCALE;
             auto length = std::min(width, height);
             return CalcSize(NG::CalcLength(length), NG::CalcLength(length));
         }
         if (selfIdealSize->Width().has_value()) {
-            auto width = selfIdealSize->Width()->GetDimension() * DEFAULT_CUSTOM_SCALE;
+            auto width = selfIdealSize->Width()->GetDimension() * DEFAULT_RADIO_IMAGE_SCALE;
             return CalcSize(NG::CalcLength(width), NG::CalcLength(width));
         }
         if (selfIdealSize->Height().has_value()) {
-            auto height = selfIdealSize->Height()->GetDimension() * DEFAULT_CUSTOM_SCALE;
+            auto height = selfIdealSize->Height()->GetDimension() * DEFAULT_RADIO_IMAGE_SCALE;
             return CalcSize(NG::CalcLength(height), NG::CalcLength(height));
         }
     }
-    Dimension defaultWidth;
-    Dimension defaultHeight;
-    Dimension horizontalPadding;
-    Dimension verticalPadding;
-    InitializeParam(defaultWidth, defaultHeight, horizontalPadding, verticalPadding);
-    auto width = (defaultWidth - horizontalPadding * RADIO_PADDING_COUNT) * DEFAULT_CUSTOM_SCALE;
-    auto height = (defaultHeight - verticalPadding * RADIO_PADDING_COUNT) * DEFAULT_CUSTOM_SCALE;
+    Dimension defaultWidth = radioTheme->GetWidth();
+    Dimension defaultHeight = radioTheme->GetHeight();
+    Dimension horizontalPadding = radioTheme->GetDefaultPaddingSize();
+    Dimension verticalPadding = radioTheme->GetDefaultPaddingSize();
+    auto width = (defaultWidth - horizontalPadding * RADIO_PADDING_COUNT) * DEFAULT_RADIO_IMAGE_SCALE;
+    auto height = (defaultHeight - verticalPadding * RADIO_PADDING_COUNT) * DEFAULT_RADIO_IMAGE_SCALE;
     return CalcSize(NG::CalcLength(width), NG::CalcLength(height));
 }
 
@@ -837,7 +843,9 @@ void RadioPattern::UpdateGroupCheckStatus(
         TAG_LOGI(AceLogTag::ACE_SELECT_COMPONENT, "radio node %{public}d fire group change event %{public}d",
             frameNode->GetId(), check);
         radioEventHub->UpdateChangeEvent(check);
+        ReportOnChangeEvent(frameNode->GetId(), check);
     }
+    ReportInitOnChangeEvent(frameNode->GetId(), check);
 }
 
 void RadioPattern::UpdateUIStatus(bool check)
@@ -882,7 +890,7 @@ void RadioPattern::GetInnerFocusPaintRect(RoundRect& paintRect)
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto* pipeline = host->GetContextWithCheck();
+    auto* pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto radioTheme = pipeline->GetTheme<RadioTheme>();
     CHECK_NULL_VOID(radioTheme);
@@ -1016,6 +1024,7 @@ void RadioPattern::SetRadioChecked(bool check)
     paintProperty->UpdateRadioCheck(check);
     UpdateState();
     OnModifyDone();
+    ReportOnChangeEvent(host->GetId(), check);
 }
 
 void RadioPattern::DumpInfo ()
@@ -1055,6 +1064,7 @@ void RadioPattern::UpdateRadioComponentColor(const Color& color, const RadioColo
     CHECK_NULL_VOID(pipelineContext);
     auto paintProperty = GetPaintProperty<RadioPaintProperty>();
     CHECK_NULL_VOID(paintProperty);
+
     switch (radioColorType) {
         case RadioColorType::CHECKED_BACKGROUND_COLOR:
             paintProperty->UpdateRadioCheckedBackgroundColor(color);
@@ -1112,6 +1122,13 @@ RefPtr<FrameNode> RadioPattern::BuildContentModifierNode()
     }
     RadioConfiguration radioConfiguration(value, isChecked, enabled);
     return (makeFunc_.value())(radioConfiguration);
+}
+
+void RadioPattern::UpdateGroupManager()
+{
+    auto manager = GroupManager::GetGroupManager();
+    CHECK_NULL_VOID(manager.Upgrade());
+    groupManager_ = manager;
 }
 
 RefPtr<GroupManager> RadioPattern::GetGroupManager()
@@ -1178,5 +1195,77 @@ void RadioPattern::OnColorConfigurationUpdate()
     }
     host->MarkModifyDone();
     host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
+}
+
+void RadioPattern::OnColorModeChange(uint32_t colorMode)
+{
+    Pattern::OnColorModeChange(colorMode);
+    InitDefaultMargin();
+}
+
+int32_t RadioPattern::OnInjectionEvent(const std::string& command)
+{
+    TAG_LOGD(AceLogTag::ACE_SELECT_COMPONENT,
+        "OnInjectionEvent radio report: %{public}s!", command.c_str());
+    auto json = JsonUtil::ParseJsonString(command);
+    CHECK_NULL_RETURN(IsJsonValid(json), RET_FAILED);
+    CHECK_NULL_RETURN(IsJsonObject(json), RET_FAILED);
+
+    std::string cmd = json->GetString("cmd");
+    bool value = true;
+    auto paramJson = json->GetValue("params");
+    if (IsJsonObject(paramJson)) {
+        value = paramJson->GetBool("value", false);
+    }
+    if (cmd == "checked") {
+        SetRadioChecked(value);
+        return RET_SUCCESS;
+    }
+    return RET_FAILED;
+}
+
+bool RadioPattern::ReportInitOnChangeEvent(int32_t nodeId, bool isChecked)
+{
+    if (!isFirstCreated_) {
+        return false;
+    }
+    if (!isChecked) {
+        return false;
+    }
+    return ReportOnChangeEvent(nodeId, true, true);
+}
+
+bool RadioPattern::ReportOnChangeEvent(int32_t nodeId, bool isChecked, bool force)
+{
+    if (!force) {
+        if (preCheck_ == isChecked) {
+            return false;
+        }
+    }
+
+    auto params = InspectorJsonUtil::CreateObject();
+    CHECK_NULL_RETURN(params, false);
+    params->Put("checked", isChecked);
+    auto value = InspectorJsonUtil::Create();
+    CHECK_NULL_RETURN(value, false);
+    value->Put("Radio", "onChange");
+    value->Put("params", params);
+    TAG_LOGD(AceLogTag::ACE_SELECT_COMPONENT,
+        "ReportOnChangeEvent radio report: %{public}s!", value->ToString().c_str());
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent(nodeId, "event", value,
+        ComponentEventType::COMPONENT_EVENT_SELECT);
+    return true;
+}
+
+bool RadioPattern::IsJsonValid(const std::unique_ptr<JsonValue>& json)
+{
+    CHECK_NULL_RETURN(json, false);
+    return json->IsValid();
+}
+
+bool RadioPattern::IsJsonObject(const std::unique_ptr<JsonValue>& json)
+{
+    CHECK_NULL_RETURN(json, false);
+    return json->IsObject();
 }
 } // namespace OHOS::Ace::NG

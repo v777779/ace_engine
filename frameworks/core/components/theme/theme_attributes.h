@@ -90,6 +90,8 @@ extern const char THEME_PATTERN_AGING_ADAPATION_DIALOG[];
 extern const char THEME_PATTERN_SCROLLABLE[];
 extern const char THEME_PATTERN_APP[];
 extern const char THEME_PATTERN_LINEAR_INDICATOR[];
+extern const char THEME_PATTERN_CONTAINER_PICKER[];
+extern const char THEME_PATTERN_CORNER_MARK[];
  
 
 // pattern general attributes
@@ -201,6 +203,8 @@ extern const char POPUP_BUTTON_TEXT_FONT_SIZE[];
 // pattern attributes for badge
 extern const char BADGE_BORDER_COLOR[];
 extern const char BADGE_BORDER_WIDTH[];
+extern const char BADGE_OUTER_BORDER_COLOR[];
+extern const char BADGE_OUTER_BORDER_WIDTH[];
 extern const char BADGE_AGE_FONT_SIZE[];
 extern const char BADGE_AGE_SIZE[];
 extern const char BADGE_AFE_ADD_PADDING[];

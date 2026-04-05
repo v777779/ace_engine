@@ -46,9 +46,24 @@
       "buildFunction": "DialogFocusableBuilder"
     },
     {
+      "name": "AlertDialogAvoid",
+      "pageSourceFile": "src/main/ets/pages/components/dialog/alertDialogAvoidTest.ets",
+      "buildFunction": "AlertDialogAvoidBuilder"
+    },
+    {
+      "name": "CustomDialogAvoid",
+      "pageSourceFile": "src/main/ets/pages/components/dialog/customDialogAvoidTest.ets",
+      "buildFunction": "CustomDialogAvoidBuilder"
+    },
+    {
       "name": "EmbeddedDialogPageOne",
       "pageSourceFile": "src/main/ets/pages/components/dialog/embeddedDialogPageOne.ets",
       "buildFunction": "EmbeddedDialogPageOneBuilder"
+    },
+    {
+      "name": "DialogLevel0",
+      "pageSourceFile": "src/main/ets/pages/components/dialog/dialogLevel0.ets",
+      "buildFunction": "DialogLevelOBuilder"
     },
     {
       "name": "MenuIndex",
@@ -186,6 +201,56 @@
       "buildFunction": "bindContextMenuPreviewBuilder"
     },
     {
+      "name": "MenuLevel0",
+      "pageSourceFile": "src/main/ets/pages/components/menu/menuLevel0.ets",
+      "buildFunction": "MenuLevel0Builder"
+    },
+    {
+      "name": "MenuLevel1",
+      "pageSourceFile": "src/main/ets/pages/components/menu/menuLevel1.ets",
+      "buildFunction": "MenuLevel1Builder"
+    },
+    {
+      "name": "MenuLevel2",
+      "pageSourceFile": "src/main/ets/pages/components/menu/menuLevel2.ets",
+      "buildFunction": "MenuLevel2Builder"
+    },
+    {
+      "name": "stackMenuAvoid",
+      "pageSourceFile": "src/main/ets/pages/components/menu/stackMenuAvoid.ets",
+      "buildFunction": "stackMenuAvoidBuilder"
+    },
+    {
+      "name": "MultiLevelSubMenu",
+      "pageSourceFile": "src/main/ets/pages/components/menu/MultiLevelSubMenu.ets",
+      "buildFunction": "MultiLevelSubMenuBuilder"
+    },
+    {
+      "name": "MenuTestLevel0_0",
+      "pageSourceFile": "src/main/ets/pages/components/menu/MenuTestLevel0_0.ets",
+      "buildFunction": "MenuTestLevel0_0Builder"
+    },
+    {
+      "name": "MenuTestLevel01",
+      "pageSourceFile": "src/main/ets/pages/components/menu/MenuTestLevel01.ets",
+      "buildFunction": "MenuTestLevel01Builder"
+    },
+    {
+      "name": "MenuTestLevel010",
+      "pageSourceFile": "src/main/ets/pages/components/menu/MenuTestLevel010.ets",
+      "buildFunction": "MenuTestLevel010Builder"
+    },
+    {
+      "name": "MenuTestLevel011",
+      "pageSourceFile": "src/main/ets/pages/components/menu/MenuTestLevel011.ets",
+      "buildFunction": "MenuTestLevel011Builder"
+    },
+    {
+      "name": "MenuTestLevel012",
+      "pageSourceFile": "src/main/ets/pages/components/menu/MenuTestLevel012.ets",
+      "buildFunction": "MenuTestLevel012Builder"
+    },
+    {
       "name": "OverlayIndex",
       "pageSourceFile": "src/main/ets/pages/components/overlay/Index.ets",
       "buildFunction": "OverlayIndexBuilder"
@@ -199,6 +264,16 @@
       "name": "OverlayManagerHitTest",
       "pageSourceFile": "src/main/ets/pages/components/overlay/overlayManagerHitTest.ets",
       "buildFunction": "OverlayManagerHitBuilder"
+    },
+    {
+      "name": "OverlayManagerScene",
+      "pageSourceFile": "src/main/ets/pages/components/overlay/overlayManagerDemo.ets",
+      "buildFunction": "OverlayManagerSceneBuilder"
+    },
+    {
+      "name": "OverlayManagerBasicApi",
+      "pageSourceFile": "src/main/ets/pages/components/overlay/overlayManagerDemo.ets",
+      "buildFunction": "OverlayManagerBasicApiBuilder"
     },
 
     {
@@ -257,6 +332,181 @@
       "buildFunction": "PopupComplexBuilder"
     },
     {
+      "name": "popupMutiTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupMutiTest.ets",
+      "buildFunction": "PopupMutiBuilder"
+    },
+    {
+      "name": "openPopupTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/openPopupTest.ets",
+      "buildFunction": "OpenPopupBuilder"
+    },
+    {
+      "name": "popupBlurTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupBlurTest.ets",
+      "buildFunction": "PopupBlurBuilder"
+    },
+    {
+      "name": "popupBuilderTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupBuilderTest.ets",
+      "buildFunction": "PopupBuilderTestBuilder"
+    },
+    {
+      "name": "PopupKeyboardTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/PopupKeyboardTest.ets",
+      "buildFunction": "PopupKeyboardBuilder"
+    },
+    {
+      "name": "UIContextPopupTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/UIContextPopup.ets",
+      "buildFunction": "UIContextPopupBuilder"
+    },
+    {
+      "name": "PopupBigTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupBigTest.ets",
+      "buildFunction": "PopupBigBuilder"
+    },
+    {
+      "name": "AdvancedPopupTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/AdvancedPopup.ets",
+      "buildFunction": "AdvancePopupBuilder"
+    },
+    {
+      "name": "PopupTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/PopupTest.ets",
+      "buildFunction": "PopupTestBuilder"
+    },
+    {
+      "name": "PopupDoubleBorderTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/PopupDoubleBorderTest.ets",
+      "buildFunction": "PopupDoubleBorderBuilder"
+    },
+    {
+      "name": "PopupAccessibilityModel",
+      "pageSourceFile": "src/main/ets/pages/components/popup/PopupAccessibilityModel.ets",
+      "buildFunction": "PopupAccessibilityModelBuilder"
+    },
+    {
+      "name": "PopupBorderTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupBorderTest.ets",
+      "buildFunction": "PopupBorderBuilder"
+    },
+    {
+      "name": "PopupDismiss01Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupDismiss01Test.ets",
+      "buildFunction": "PopupDismiss01Builder"
+    },
+    {
+      "name": "PopupListTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupListTest.ets",
+      "buildFunction": "PopupListBuilder"
+    },
+    {
+      "name": "PopupAnimationTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupAnimationTest.ets",
+      "buildFunction": "PopupAnimationBuilder"
+    },
+    {
+      "name": "PopupLifecycleTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupLifecycleTest.ets",
+      "buildFunction": "PopupLifecycleBuilder"
+    },
+    {
+      "name": "PopupNestedTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupNestedTest.ets",
+      "buildFunction": "PopupNestedBuilder"
+    },
+    {
+      "name": "PopupTouchTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupTouchTest.ets",
+      "buildFunction": "PopupTouchBuilder"
+    },
+    {
+      "name": "PopupTabsTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupTabsTest.ets",
+      "buildFunction": "PopupTabsBuilder"
+    },
+    {
+      "name": "PopupWaterFlowTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/popupWaterFlowTest.ets",
+      "buildFunction": "PopupWaterFlowBuilder"
+    },
+    {
+      "name": "TipsAvoidTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/tipsAvoidTest.ets",
+      "buildFunction": "TipsAvoidBuilder"
+    },
+    {
+      "name": "TipsStyleTest",
+      "pageSourceFile": "src/main/ets/pages/components/popup/tipsStyleTest.ets",
+      "buildFunction": "TipsStyleBuilder"
+    },
+    {
+      "name": "SoftKeyboardLevel00Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_0.ets",
+      "buildFunction": "SoftKeyboardLevel00Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel01Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_1.ets",
+      "buildFunction": "SoftKeyboardLevel01Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel02Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_2.ets",
+      "buildFunction": "SoftKeyboardLevel02Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel03Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_3.ets",
+      "buildFunction": "SoftKeyboardLevel03Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel04Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_4.ets",
+      "buildFunction": "SoftKeyboardLevel04Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel05Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_5.ets",
+      "buildFunction": "SoftKeyboardLevel05Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel06Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_6.ets",
+      "buildFunction": "SoftKeyboardLevel06Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel07Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_7.ets",
+      "buildFunction": "SoftKeyboardLevel07Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel08Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_8.ets",
+      "buildFunction": "SoftKeyboardLevel08Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel09Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_9.ets",
+      "buildFunction": "SoftKeyboardLevel09Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel010Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_10.ets",
+      "buildFunction": "SoftKeyboardLevel10Builder"
+    },
+    {
+      "name": "SoftKeyboardLevel011Test",
+      "pageSourceFile": "src/main/ets/pages/components/popup/keyboardTest/SoftKeyboardLevel0_11.ets",
+      "buildFunction": "SoftKeyboardLevel11Builder"
+    },
+    {
+      "name": "MenuComplex",
+      "pageSourceFile": "src/main/ets/pages/components/menu/MenuComplexTest.ets",
+      "buildFunction": "MenuComplexBuilder"
+    },
+    {
       "name": "ToastIndex",
       "pageSourceFile": "src/main/ets/pages/components/toast/Index.ets",
       "buildFunction": "ToastIndexBuilder"
@@ -275,6 +525,46 @@
       "name": "toastPositionTest",
       "pageSourceFile": "src/main/ets/pages/components/toast/toastPositionTest.ets",
       "buildFunction": "ToastPositionBuilder"
+    },
+    {
+      "name": "ToastScene",
+      "pageSourceFile": "src/main/ets/pages/components/toast/toastScene.ets",
+      "buildFunction": "ToastSceneBuilder"
+    },
+    {
+      "name": "ActionSheetAdvanced",
+      "pageSourceFile": "src/main/ets/pages/components/dialog/actionSheetAdvanced.ets",
+      "buildFunction": "ActionSheetAdvancedBuilder"
+    },
+    {
+      "name": "AlertDialogExtended",
+      "pageSourceFile": "src/main/ets/pages/components/dialog/alertDialogExtended.ets",
+      "buildFunction": "AlertDialogExtendedBuilder"
+    },
+    {
+      "name": "toastDurationTest",
+      "pageSourceFile": "src/main/ets/pages/components/toast/toastDurationTest.ets",
+      "buildFunction": "ToastDurationBuilder"
+    },
+    {
+      "name": "toastAnimationTest",
+      "pageSourceFile": "src/main/ets/pages/components/toast/toastAnimationTest.ets",
+      "buildFunction": "ToastAnimationBuilder"
+    },
+    {
+      "name": "toastLifecycleTest",
+      "pageSourceFile": "src/main/ets/pages/components/toast/toastLifecycleTest.ets",
+      "buildFunction": "ToastLifecycleBuilder"
+    },
+    {
+      "name": "toastInteractionTest",
+      "pageSourceFile": "src/main/ets/pages/components/toast/toastInteractionTest.ets",
+      "buildFunction": "ToastInteractionBuilder"
+    },
+    {
+      "name": "toastAdvancedTest",
+      "pageSourceFile": "src/main/ets/pages/components/toast/toastAdvancedTest.ets",
+      "buildFunction": "ToastAdvancedBuilder"
     }
   ]
 }

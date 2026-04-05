@@ -128,6 +128,26 @@ void SetNavDestinationIdImpl(Ark_NavDestinationContext peer,
     auto id = Converter::OptConvertPtr<std::string>(navDestinationId).value_or("");
     peer->handler->SetNavDestinationId(std::atol(id.c_str()));
 }
+Opt_NavDestinationMode GetModeImpl(Ark_NavDestinationContext peer)
+{
+    Opt_NavDestinationMode defaultValue = {
+        .tag = InteropTag::INTEROP_TAG_UNDEFINED
+    };
+    CHECK_NULL_RETURN(peer && peer->handler, defaultValue);
+    Opt_NavDestinationMode arkMode = {
+        .tag = InteropTag::INTEROP_TAG_OBJECT,
+        .value = static_cast<Ark_NavDestinationMode>(peer->handler->GetMode())
+    };
+    return arkMode;
+}
+void SetModeImpl(Ark_NavDestinationContext peer,
+                 const Opt_NavDestinationMode* mode)
+{
+    CHECK_NULL_VOID(peer && peer->handler);
+    CHECK_NULL_VOID(mode);
+    auto setMode = Converter::OptConvert<NG::NavDestinationMode>(*mode).value_or(NG::NavDestinationMode::STANDARD);
+    peer->handler->SetMode(setMode);
+}
 } // NavDestinationContextAccessor
 const GENERATED_ArkUINavDestinationContextAccessor* GetNavDestinationContextAccessor()
 {
@@ -142,6 +162,8 @@ const GENERATED_ArkUINavDestinationContextAccessor* GetNavDestinationContextAcce
         NavDestinationContextAccessor::SetPathStackImpl,
         NavDestinationContextAccessor::GetNavDestinationIdImpl,
         NavDestinationContextAccessor::SetNavDestinationIdImpl,
+        NavDestinationContextAccessor::GetModeImpl,
+        NavDestinationContextAccessor::SetModeImpl,
     };
     return &NavDestinationContextAccessorImpl;
 }

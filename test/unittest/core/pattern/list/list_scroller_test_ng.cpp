@@ -14,7 +14,8 @@
  */
 
 #include "list_test_ng.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "core/components_ng/pattern/scrollable/scrollable.h"
 
 #define private public
 #define protected public
@@ -471,6 +472,48 @@ HWTEST_F(ListScrollerTestNg, ScrollToIndex009, TestSize.Level1)
             !pattern_->isInitialized_) &&
         GreatOrEqual(pattern_->startMainPos_, pattern_->contentStartOffset_);
     EXPECT_FALSE(scrollDownToStart);
+}
+
+/**
+ * @tc.name: ScrollToIndexTwice001
+ * @tc.desc: Test the state after calling ScrollToIndex twice
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListScrollerTestNg, ScrollToIndexTwice001, TestSize.Level1)
+{
+    /**
+     * @tc.cases: Create the List
+     * @tc.expected: Create the List successfully and index range is 0-3
+     */
+    ListModelNG model = CreateList();
+    model.SetListDirection(Axis::VERTICAL);
+    CreateListItems(12);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetStartIndex(), 0);
+    EXPECT_EQ(pattern_->GetEndIndex(), 3);
+
+    /**
+     * @tc.cases: ScrollToIndex with the 7 index and then ScrollToIndex with the 0 index
+     * @tc.expected: targetIndex_ is 7, and then changed to 0
+     */
+    pattern_->ScrollToIndex(7, true, ScrollAlign::START);
+    EXPECT_EQ(pattern_->targetIndex_.value_or(-1), 7);
+    pattern_->ScrollToIndex(0, true, ScrollAlign::START);
+    EXPECT_EQ(pattern_->targetIndex_.value_or(-1), -1);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->GetStartIndex(), 0);
+    EXPECT_EQ(pattern_->GetEndIndex(), 3);
+
+    /**
+     * @tc.cases: ScrollToIndex with the 1 index and then ScrollToIndex with the 0 index
+     * @tc.expected: targetIndex_ invalid, but aniamte state change from true to false
+     */
+    pattern_->ScrollToIndex(1, true, ScrollAlign::START);
+    EXPECT_TRUE(pattern_->AnimateRunning());
+    EXPECT_EQ(pattern_->targetIndex_.value_or(-1), -1);
+    pattern_->ScrollToIndex(0, true, ScrollAlign::START);
+    EXPECT_FALSE(pattern_->AnimateRunning());
+    EXPECT_EQ(pattern_->targetIndex_.value_or(-1), -1);
 }
 
 /**
@@ -1859,5 +1902,54 @@ HWTEST_F(ListScrollerTestNg, SetAutoScale001, TestSize.Level1)
     itemModel.SetAutoScale(Referenced::RawPtr(frameNode), false);
     itemModel.CreateFrameNode(0, true);
     EXPECT_EQ(pattern->GetListItemStyle(), V2::ListItemStyle::CARD);
+}
+
+/**
+ * @tc.name: BigItemScrollWithScrollbar
+ * @tc.desc: Test BigItemScrollWithScrollbar
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListScrollerTestNg, BigItemScrollWithScrollbar, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetScrollBar(DisplayMode::ON);
+    ViewStackProcessor::GetInstance()->StartGetAccessRecordingFor(GetElmtId());
+    ListItemModelNG itemModel;
+    itemModel.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    Axis axis = layoutProperty_->GetListDirection().value_or(Axis::VERTICAL);
+    SetSize(axis, CalcLength(FILL_LENGTH), CalcLength(1000));
+    CreateDone();
+
+    auto scrollBar = pattern_->GetScrollBar();
+    GestureEvent info;
+    info.SetMainVelocity(-1200.f);
+    info.SetMainDelta(-2000.f);
+    scrollBar->HandleDragUpdate(info);
+    auto scrollableEvent = pattern_->GetScrollableEvent();
+    ASSERT_NE(scrollableEvent, nullptr);
+    auto scrollable = scrollableEvent->GetScrollable();
+    EXPECT_NE(scrollable->callback_, nullptr);
+    scrollable->HandleTouchUp();
+
+    EXPECT_EQ(scrollable->state_, Scrollable::AnimationState::IDLE);
+}
+
+/**
+ * @tc.name: GetBindingFrameNodeId001
+ * @tc.desc: Test GetBindingFrameNodeId returns valid node id for List component
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListScrollerTestNg, GetBindingFrameNodeId001, TestSize.Level1)
+{
+    CreateList();
+    CreateListItems();
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Get the binding frame node id from controller
+     * @tc.expected: The node id should match the list frame node's id
+     */
+    auto nodeId = positionController_->GetBindingFrameNodeId();
+    EXPECT_EQ(nodeId, frameNode_->GetId());
 }
 } // namespace OHOS::Ace::NG

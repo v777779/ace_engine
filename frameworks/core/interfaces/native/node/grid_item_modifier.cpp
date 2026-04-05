@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -21,6 +21,7 @@
 namespace OHOS::Ace::NG {
 
 constexpr int32_t DEFAULT_GRID_ITEM_VALUE = 0;
+const int32_t ERROR_INT_CODE = -1;
 
 void SetGridItemSelectable(ArkUINodeHandle node, ArkUI_Bool selectable)
 {
@@ -36,6 +37,14 @@ void ResetGridItemSelectable(ArkUINodeHandle node)
     GridItemModelNG::SetSelectable(frameNode, true);
 }
 
+ArkUI_Bool GetGridItemSelectable(ArkUINodeHandle node)
+{
+    CHECK_NULL_RETURN(node, true);
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, true);
+    return GridItemModelNG::GetSelectable(frameNode);
+}
+
 void SetGridItemSelected(ArkUINodeHandle node, ArkUI_Bool selected)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -48,6 +57,14 @@ void ResetGridItemSelected(ArkUINodeHandle node)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     GridItemModelNG::SetSelected(frameNode, false);
+}
+
+ArkUI_Bool GetGridItemSelected(ArkUINodeHandle node)
+{
+    CHECK_NULL_RETURN(node, false);
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, false);
+    return GridItemModelNG::GetSelected(frameNode);
 }
 
 void SetGridItemRowStart(ArkUINodeHandle node, int32_t rowStart)
@@ -113,6 +130,20 @@ void SetGridItemOptions(ArkUINodeHandle node, ArkUI_Int32 style)
     GridItemModelNG::SetGridItemStyle(frameNode, static_cast<GridItemStyle>(style));
 }
 
+void ResetGridItemOptions(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    GridItemModelNG::SetGridItemStyle(frameNode, GridItemStyle::NONE);
+}
+
+ArkUI_Int32 GetGridItemOptions(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, ERROR_INT_CODE);
+    return static_cast<int32_t>(GridItemModelNG::GetGridItemStyle(frameNode));
+}
+
 void SetGridItemOnSelect(ArkUINodeHandle node, void* callback)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -131,15 +162,40 @@ void ResetGridItemOnSelect(ArkUINodeHandle node)
     CHECK_NULL_VOID(frameNode);
     GridItemModelNG::SetOnSelect(frameNode, nullptr);
 }
+
 namespace NodeModifier {
+void SetOnGridItemSelect(ArkUINodeHandle node, void* extraParam)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto onEvent = [extraParam](bool isSelected) {
+        ArkUINodeEvent event;
+        event.kind = COMPONENT_ASYNC_EVENT;
+        event.extraParam = reinterpret_cast<intptr_t>(extraParam);
+        event.componentAsyncEvent.subKind = ON_GRID_ITEM_SELECT;
+        event.componentAsyncEvent.data[0].i32 = isSelected;
+        SendArkUISyncEvent(&event);
+    };
+    GridItemModelNG::SetOnSelect(frameNode, std::move(onEvent));
+}
+
+void ResetOnGridItemSelect(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    GridItemModelNG::SetOnSelect(frameNode, nullptr);
+}
+
 const ArkUIGridItemModifier* GetGridItemModifier()
 {
     CHECK_INITIALIZED_FIELDS_BEGIN(); // don't move this line
     static const ArkUIGridItemModifier modifier = {
         .setGridItemSelectable = SetGridItemSelectable,
         .resetGridItemSelectable = ResetGridItemSelectable,
+        .getGridItemSelectable  = GetGridItemSelectable,
         .setGridItemSelected = SetGridItemSelected,
         .resetGridItemSelected = ResetGridItemSelected,
+        .getGridItemSelected = GetGridItemSelected,
         .setGridItemRowStart = SetGridItemRowStart,
         .resetGridItemRowStart = ResetGridItemRowStart,
         .setGridItemRowEnd = SetGridItemRowEnd,
@@ -149,8 +205,12 @@ const ArkUIGridItemModifier* GetGridItemModifier()
         .setGridItemColumnEnd = SetGridItemColumnEnd,
         .resetGridItemColumnEnd = ResetGridItemColumnEnd,
         .setGridItemOptions = SetGridItemOptions,
+        .resetGridItemOptions = ResetGridItemOptions,
+        .getGridItemOptions = GetGridItemOptions,
         .setGridItemOnSelect = SetGridItemOnSelect,
         .resetGridItemOnSelect = ResetGridItemOnSelect,
+        .setOnGridItemSelect = SetOnGridItemSelect,
+        .resetOnGridItemSelect = ResetOnGridItemSelect,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
     return &modifier;

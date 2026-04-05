@@ -18,7 +18,7 @@
 
 #include "base/utils/utf_helper.h"
 #include "core/common/ime/text_input_type.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components/text_field/textfield_theme.h"
 #include "core/components_ng/base/inspector_filter.h"
 #include "core/components_ng/layout/layout_property.h"
@@ -131,14 +131,37 @@ public:
         json->PutExtAttr("maxFontSize", GetAdaptMaxFontSize().value_or(Dimension()).ToString().c_str(), filter);
         json->PutExtAttr("heightAdaptivePolicy", V2::ConvertWrapTextHeightAdaptivePolicyToString(
             GetHeightAdaptivePolicy().value_or(TextHeightAdaptivePolicy::MAX_LINES_FIRST)).c_str(), filter);
-        json->PutExtAttr("wordBreak",
-            V2::ConvertWrapWordBreakToString(GetWordBreak().value_or(WordBreak::BREAK_WORD)).c_str(), filter);
-        json->PutExtAttr("textOverflow",
-            V2::ConvertWrapTextOverflowToString(GetTextOverflow().value_or(TextOverflow::CLIP)).c_str(), filter);
+        json->Put("wordBreak",
+            V2::ConvertWrapWordBreakToString(GetWordBreak().value_or(WordBreak::BREAK_WORD)).c_str());
+        json->Put("textOverflow",
+            V2::ConvertWrapTextOverflowToString(GetTextOverflow().value_or(TextOverflow::CLIP)).c_str());
         json->PutExtAttr("textIndent", GetTextIndent().value_or(0.0_vp).ToString().c_str(), filter);
         json->PutExtAttr("stopBackPress", GetStopBackPress().value_or(true), filter);
         json->PutExtAttr("onlyBetweenLines", GetIsOnlyBetweenLines().value_or(false) ? "true" : "false", filter);
+        ToJsonValueMore(json, filter);
+    }
+
+    void ToJsonValueMore(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
+    {
         json->PutExtAttr("enableAutoSpacing", std::to_string(GetEnableAutoSpacing().value_or(false)).c_str(), filter);
+        json->PutExtAttr("scrollBarColor", GetScrollBarColorValue((Color(0x66182431))).ColorToString().c_str(), filter);
+        json->PutExtAttr("orphanCharOptimization",
+            GetOrphanCharOptimization().value_or(false) ? "true" : "false", filter);
+        json->PutExtAttr("compressLeadingPunctuation", std::to_string(
+            GetCompressLeadingPunctuation().value_or(false)).c_str(), filter);
+        json->PutExtAttr("textDirection",
+            StringUtils::ToString(GetTextDirection().value_or(TextDirection::INHERIT)).c_str(), filter);
+        json->PutExtAttr("includeFontPadding", std::to_string(
+            GetIncludeFontPadding().value_or(false)).c_str(), filter);
+        json->PutExtAttr("fallbackLineSpacing", std::to_string(
+            GetFallbackLineSpacing().value_or(false)).c_str(), filter);
+        json->PutExtAttr("selectedDragPreviewStyle",
+            GetSelectedDragPreviewStyleValue(GetSelectedDragPreviewStyleColor()).ColorToString().c_str(), filter);
+        json->PutExtAttr("selectionMenuHidden", GetSelectionMenuHidden().value_or(false) ? "true" : "false", filter);
+        json->PutExtAttr("lineBreakStrategy",
+            V2::ConvertWrapLineBreakStrategyToString(GetLineBreakStrategy().value_or(LineBreakStrategy::GREEDY))
+                .c_str(),
+            filter);
     }
 
     const std::function<void(WeakPtr<NG::FrameNode>)>& GetCancelIconSymbol() const
@@ -161,11 +184,25 @@ public:
             decorations.value()[0] : TextDecoration::NONE;
     }
 
+    Color GetSelectedDragPreviewStyleColor() const
+    {
+        auto host = GetHost();
+        CHECK_NULL_RETURN(host, Color::WHITE);
+        auto themeScopeId = host->GetThemeScopeId();
+        auto context = host->GetContext();
+        CHECK_NULL_RETURN(context, Color::WHITE);
+        auto theme = context->GetTheme<TextTheme>(themeScopeId);
+        CHECK_NULL_RETURN(theme, Color::WHITE);
+        return theme->GetDragBackgroundColor();
+    }
+
     ACE_DEFINE_PROPERTY_GROUP(FontStyle, FontStyle);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FontStyle, FontSize, Dimension, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FontStyle, MinFontScale, float, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FontStyle, MaxFontScale, float, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FontStyle, TextColor, Color, PROPERTY_UPDATE_MEASURE_SELF);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(CounterTextColor, Color, PROPERTY_UPDATE_MEASURE);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(CounterTextOverflowColor, Color, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FontStyle, ItalicFontStyle, Ace::FontStyle, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FontStyle, FontWeight, FontWeight, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FontStyle, FontFamily, std::vector<std::string>, PROPERTY_UPDATE_MEASURE);
@@ -179,6 +216,7 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FontStyle, TextDecorationStyle, TextDecorationStyle, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FontStyle, StrokeWidth, Dimension, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(FontStyle, StrokeColor, Color, PROPERTY_UPDATE_MEASURE);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(SelectedDragPreviewStyle, Color, PROPERTY_UPDATE_MEASURE);
 
     ACE_DEFINE_PROPERTY_GROUP(TextLineStyle, TextLineStyle);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(TextLineStyle, TextAlign, TextAlign, PROPERTY_UPDATE_MEASURE_SELF);
@@ -197,6 +235,9 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(TextLineStyle, TextIndent, Dimension, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(TextLineStyle, NumberOfLines, int32_t, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(TextLineStyle, EllipsisMode, EllipsisMode, PROPERTY_UPDATE_MEASURE);
+    ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(TextLineStyle, OrphanCharOptimization, bool, PROPERTY_UPDATE_MEASURE);
+    ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(TextLineStyle, CompressLeadingPunctuation, bool, PROPERTY_UPDATE_MEASURE);
+    ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(TextLineStyle, TextDirection, TextDirection, PROPERTY_UPDATE_MEASURE_SELF);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(Value, std::u16string, PROPERTY_UPDATE_NORMAL);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(PreviewText, PreviewText, PROPERTY_UPDATE_NORMAL);
 
@@ -258,7 +299,7 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(EnableAutoFillAnimation, bool, PROPERTY_UPDATE_MEASURE);
 
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(SelectAllValue, bool, PROPERTY_UPDATE_NORMAL);
-
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ScrollBarColor, Color, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(CleanNodeStyle, CleanNodeStyle, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(IconSize, CalcDimension, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(IconSrc, std::string, PROPERTY_UPDATE_MEASURE);
@@ -271,6 +312,9 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ShowHighlightBorder, bool, PROPERTY_UPDATE_MEASURE);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(StopBackPress, bool, PROPERTY_UPDATE_NORMAL);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(EnableAutoSpacing, bool, PROPERTY_UPDATE_MEASURE);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(IncludeFontPadding, bool, PROPERTY_UPDATE_MEASURE);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(FallbackLineSpacing, bool, PROPERTY_UPDATE_MEASURE);
+    ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(IsShowVoiceButton, bool, PROPERTY_UPDATE_MEASURE);
 
 protected:
     void Clone(RefPtr<LayoutProperty> property) const override
@@ -307,6 +351,7 @@ protected:
         value->propShowPasswordText_ = CloneShowPasswordText();
         value->propCleanNodeStyle_ = CloneCleanNodeStyle();
         value->propIconSize_ = CloneIconSize();
+        value->propIconSrc_ =  CloneIconSrc();
         value->propIconColor_ = CloneIconColor();
         value->propIsShowSymbol_ = CloneIsShowSymbol();
         value->propSelectAllValue_ = CloneSelectAllValue();
@@ -316,6 +361,8 @@ protected:
         value->propModuleName_ = CloneModuleName();
         value->propStopBackPress_ = CloneStopBackPress();
         value->propEnableAutoSpacing_ = CloneEnableAutoSpacing();
+        value->propIncludeFontPadding_ = CloneIncludeFontPadding();
+        value->propFallbackLineSpacing_ = CloneFallbackLineSpacing();
     }
 
     ACE_DISALLOW_COPY_AND_MOVE(TextFieldLayoutProperty);

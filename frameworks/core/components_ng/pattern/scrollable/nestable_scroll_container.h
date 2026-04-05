@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,14 +16,15 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_SCROLLABLE_NESTABLE_SCROLL_CONTAINER_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_SCROLLABLE_NESTABLE_SCROLL_CONTAINER_H
 
+#include "base/geometry/axis.h"
 #include "base/memory/ace_type.h"
 #include "base/utils/noncopyable.h"
 #include "core/components_ng/pattern/pattern.h"
-#include "core/components_ng/pattern/scrollable/scrollable.h"
+#include "core/components_ng/pattern/scrollable/scrollable_properties.h"
 
 namespace OHOS::Ace::NG {
-class NestableScrollContainer : public virtual Pattern {
-    DECLARE_ACE_TYPE(NestableScrollContainer, Pattern)
+class ACE_FORCE_EXPORT NestableScrollContainer : public virtual Pattern {
+    DECLARE_ACE_TYPE(NestableScrollContainer, Pattern);
 public:
     NestableScrollContainer() = default;
     ~NestableScrollContainer() override = default;
@@ -118,6 +119,16 @@ public:
         return webNestedScrollExisted_;
     }
 
+    bool GetNeedLinked() const
+    {
+        return needLinked_;
+    }
+
+    void SetNeedLinked(bool needLinked)
+    {
+        needLinked_ = needLinked;
+    }
+
 protected:
     /**
      * @brief Helper function. Searches for the parent NestableScrollContainer of the current instance.
@@ -179,6 +190,7 @@ private:
     bool isSearchRefresh_ = true;
     bool isNestedInterrupt_ = false; // nested scroll interrupted by change of nested mode
     bool webNestedScrollExisted_ = false;
+    bool needLinked_ = true;
     ACE_DISALLOW_COPY_AND_MOVE(NestableScrollContainer);
 };
 } // namespace OHOS::Ace::NG

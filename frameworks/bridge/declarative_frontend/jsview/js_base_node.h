@@ -24,11 +24,12 @@
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/ui_node.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/manager/post_event/post_event_manager.h"
 #include "frameworks/bridge/declarative_frontend/engine/bindings_defines.h"
 
 namespace OHOS::Ace::Framework {
 class JSBaseNode : public AceType {
-    DECLARE_ACE_TYPE(JSBaseNode, AceType)
+    DECLARE_ACE_TYPE(JSBaseNode, AceType);
 public:
     JSBaseNode() = default;
     JSBaseNode(const NG::OptionalSizeF& size, NodeRenderType renderType, std::string surfaceId)
@@ -41,10 +42,13 @@ public:
     static void DestructorCallback(JSBaseNode* node);
     void FinishUpdateFunc(const JSCallbackInfo& info);
     void Create(const JSCallbackInfo& info);
+    void CreateReactive(const JSCallbackInfo& info);
     void BuildNode(const JSCallbackInfo& info);
+    void BuildReactiveNode(const JSCallbackInfo& info);
     void ProccessNode(bool isSupportExportTexture, bool isSupportLazyBuild);
     void PostTouchEvent(const JSCallbackInfo& info);
     void PostInputEvent(const JSCallbackInfo& info);
+    void PostInputEventWithStrategy(const JSCallbackInfo& info);
     void UpdateStart(const JSCallbackInfo& info);
     void UpdateEnd(const JSCallbackInfo& info);
     void OnRecycleWithBindThis(const JSCallbackInfo& info);
@@ -65,8 +69,20 @@ private:
     bool ParamMouseEvent(const JSCallbackInfo& info, MouseEvent& mouseEvent);
     bool ParamAxisEvent(const JSCallbackInfo& info, AxisEvent& axisEvent);
     bool GetChangedTouches(const JSCallbackInfo& info, TouchEvent& touchEvent);
+    RefPtr<NG::UINode> GetAndExecBuilderFunc(const JSCallbackInfo& info);
+    RefPtr<NG::UINode> GetAndExecMultiArgsBuilderFunc(const JSCallbackInfo& info);
+    void SetNodeFunc(RefPtr<NG::UINode> newNode, const JSCallbackInfo& info);
+    void SetUpdateNodeFunc(const JSCallbackInfo& info);
+    void GetAndRegisterUpdateInstanceFunc(const JSCallbackInfo& info);
+    int32_t GetStrategy(const JSCallbackInfo& info);
+    void PostTouchEventWithStrategy(const JSCallbackInfo& info, const RefPtr<NG::UINode>& node,
+        const RefPtr<NG::PostEventManager>& postEventManager, int32_t competitionStrategy);
+    void PostMouseEventWithStrategy(const JSCallbackInfo& info, const RefPtr<NG::UINode>& node,
+        const RefPtr<NG::PostEventManager>& postEventManager, int32_t competitionStrategy);
+    void PostAxisEventWithStrategy(const JSCallbackInfo& info, const RefPtr<NG::UINode>& node,
+        const RefPtr<NG::PostEventManager>& postEventManager, int32_t competitionStrategy);
     RefPtr<NG::FrameNode> viewNode_;
-    RefPtr<NG::UINode> realNode_;
+    WeakPtr<NG::UINode> realNode_;
     NG::OptionalSizeF size_;
     NodeRenderType renderType_ = NodeRenderType::RENDER_TYPE_DISPLAY;
     std::string surfaceId_;

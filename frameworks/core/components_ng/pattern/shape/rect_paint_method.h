@@ -25,7 +25,7 @@
 namespace OHOS::Ace::NG {
 
 class ACE_EXPORT RectPaintMethod : public ShapePaintMethod {
-    DECLARE_ACE_TYPE(RectPaintMethod, ShapePaintMethod)
+    DECLARE_ACE_TYPE(RectPaintMethod, ShapePaintMethod);
 public:
     RectPaintMethod() = default;
     RectPaintMethod(
@@ -59,9 +59,7 @@ public:
 
         return [rect = rect_, rectPaintProperty, paintWrapper](RSCanvas& canvas) {
                     RectPainter::DrawRect(canvas, rect, *rectPaintProperty);
-                    if (paintWrapper) {
-                        paintWrapper->FlushOverlayModifier();
-                    }
+                    paintWrapper->FlushOverlayModifier();
                 };
     }
 

@@ -16,7 +16,7 @@
 #include "frameworks/bridge/declarative_frontend/jsview/js_grid_container.h"
 
 #include "base/log/ace_trace.h"
-#include "bridge/declarative_frontend/jsview/models/grid_container_model_impl.h"
+#include "core/common/dynamic_module_helper.h"
 #include "frameworks/core/components/common/layout/grid_system_manager.h"
 #include "frameworks/core/components_ng/base/view_stack_model.h"
 #include "frameworks/core/components_ng/pattern/grid_container/grid_container_model_ng.h"
@@ -32,8 +32,12 @@ GridContainerModel* GridContainerModel::GetInstance()
         static NG::GridContainerModelNG instance;
         return &instance;
     } else {
-        static Framework::GridContainerModelImpl instance;
-        return &instance;
+        static auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("grid-container");
+        if (loader == nullptr) {
+            LOGF("Can't find grid-container loader");
+            abort();
+        }
+        return reinterpret_cast<GridContainerModel*>(loader->CreateModel());
     }
 #endif
 }
@@ -88,9 +92,33 @@ void JSGridContainer::Pop()
 void JSGridContainer::JSBind(BindingTarget globalObj)
 {
     JSClass<JSGridContainer>::Declare("GridContainer");
-    JSClass<JSGridContainer>::StaticMethod("create", &JSGridContainer::Create, MethodOptions::NONE);
-    JSClass<JSGridContainer>::StaticMethod("pop", &JSGridContainer::Pop, MethodOptions::NONE);
-    JSClass<JSGridContainer>::InheritAndBind<JSColumn>(globalObj);
+    MethodOptions opt = MethodOptions::NONE;
+    JSClass<JSGridContainer>::StaticMethod("create", &JSGridContainer::Create, opt);
+    JSClass<JSGridContainer>::StaticMethod("pop", &JSGridContainer::Pop, opt);
+
+    JSClass<JSGridContainer>::StaticMethod("createWithWrap", &JSColumn::CreateWithWrap, opt);
+    JSClass<JSGridContainer>::StaticMethod("fillParent", &JSFlex::SetFillParent, opt);
+    JSClass<JSGridContainer>::StaticMethod("wrapContent", &JSFlex::SetWrapContent, opt);
+    JSClass<JSGridContainer>::StaticMethod("justifyContent", &JSColumn::SetJustifyContent, opt);
+    JSClass<JSGridContainer>::StaticMethod("alignItems", &JSColumn::SetAlignItems, opt);
+    JSClass<JSGridContainer>::StaticMethod("reverse", &JSColumn::SetReverse, opt);
+    JSClass<JSGridContainer>::StaticMethod("alignContent", &JSFlex::SetAlignContent, opt);
+    JSClass<JSGridContainer>::StaticMethod("height", &JSFlex::JsHeight, opt);
+    JSClass<JSGridContainer>::StaticMethod("width", &JSFlex::JsWidth, opt);
+    JSClass<JSGridContainer>::StaticMethod("size", &JSFlex::JsSize, opt);
+    JSClass<JSGridContainer>::StaticMethod("onAttach", &JSInteractableView::JsOnAttach);
+    JSClass<JSGridContainer>::StaticMethod("onAppear", &JSInteractableView::JsOnAppear);
+    JSClass<JSGridContainer>::StaticMethod("onDetach", &JSInteractableView::JsOnDetach);
+    JSClass<JSGridContainer>::StaticMethod("onDisAppear", &JSInteractableView::JsOnDisAppear);
+    JSClass<JSGridContainer>::StaticMethod("onTouch", &JSInteractableView::JsOnTouch);
+    JSClass<JSGridContainer>::StaticMethod("onHover", &JSInteractableView::JsOnHover);
+    JSClass<JSGridContainer>::StaticMethod("onKeyEvent", &JSInteractableView::JsOnKey);
+    JSClass<JSGridContainer>::StaticMethod("onDeleteEvent", &JSInteractableView::JsOnDelete);
+    JSClass<JSGridContainer>::StaticMethod("onClick", &JSInteractableView::JsOnClick);
+    JSClass<JSGridContainer>::StaticMethod("onPan", &JSInteractableView::JsOnPan);
+    JSClass<JSGridContainer>::StaticMethod("remoteMessage", &JSInteractableView::JsCommonRemoteMessage);
+    JSClass<JSGridContainer>::StaticMethod("pointLight", &JSViewAbstract::JsPointLight, opt);
+    JSClass<JSGridContainer>::InheritAndBind<JSContainerBase>(globalObj);
 }
 
 } // namespace OHOS::Ace::Framework

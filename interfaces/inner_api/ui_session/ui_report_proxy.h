@@ -48,14 +48,44 @@ public:
     void ReportSearchEvent(const std::string& data) override;
 
     /**
+     * @description: notify stub side to execute text change callback
+     */
+    void ReportTextChangeEvent(const std::string& data) override;
+
+    /**
      * @description: notify stub side to report inspector value
      */
     void ReportInspectorTreeValue(const std::string& data, int32_t partNum, bool isLastPart) override;
 
     /**
+     * @description: notify stub side to report the information of hit test node
+     */
+    void ReportHitTestNodeInfos(const std::string& data, int32_t partNum, bool isLastPart) override;
+
+    /**
      * @description: notify stub side to report web unfocus value
      */
     void ReportWebUnfocusEvent(int64_t accessibilityId, const std::string& data) override;
+
+    /**
+     * @description: notify stub side to report scroll value
+     */
+    void ReportScrollEvent(const std::string& data) override;
+
+    /**
+     * @description: notify stub side to report life cycle value
+     */
+    void ReportLifeCycleEvent(const std::string& data) override;
+
+    /**
+     * @description: notify stub side to report select text value
+     */
+    void ReportSelectTextEvent(const std::string& data) override;
+
+    /**
+     * @description: notify stub side to report select text offsets
+     */
+    void SendSpecifiedContentOffsets(const std::vector<std::pair<float, float>>& offsets) override;
 
     /**
      * @description: notify stub side to report web unfocus value
@@ -66,7 +96,19 @@ public:
     void SendCurrentPageName(const std::string& data) override;
     void SendWebText(int32_t nodeId, std::string res) override;
     void SendShowingImage(std::vector<std::pair<int32_t, std::shared_ptr<Media::PixelMap>>> maps) override;
-    void ClearAshmem(sptr<Ashmem>& optMem);
+    void SendArkUIImagesById(int32_t windowId,
+        const std::unordered_map<int32_t, std::shared_ptr<Media::PixelMap>>& componentImages,
+        MultiImageQueryErrorCode arkUIErrorCode) override;
+    void SendArkWebImagesById(int32_t windowId, const std::map<int32_t, std::map<int32_t,
+            std::shared_ptr<Media::PixelMap>>>& webImages, MultiImageQueryErrorCode arkWebErrorCode) override;
+    void SendExeAppAIFunctionResult(uint32_t result) override;
+    void SendContentChange(ChangeType type, const std::string& simpleTree) override;
+    void ReportGetStateMgmtInfo(std::vector<std::string> results) override;
+    void SendWebInfoRequestResult(
+        uint32_t windowId,
+        int32_t webId,
+        const std::string& request,
+        const std::string& result, WebRequestErrorCode errorCode) override;
 
 private:
     static inline BrokerDelegator<UiReportProxy> delegator_;

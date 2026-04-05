@@ -127,6 +127,48 @@ HWTEST_F(GridLayoutRangeTest, CheckMultiRow001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: LayoutRangeSolver::CheckMultiRow002
+ * @tc.desc: Test LayoutRangeSolver::CheckMultiRow
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutRangeTest, CheckMultiRow002, TestSize.Level1)
+{
+    GridLayoutOptions option;
+    option.irregularIndexes = {
+        1, // [1 x 2]
+        2, // [1 x 0]
+        3, // [1 x -1]
+    };
+    auto onGetIrregularSizeByIndex = [](int32_t index) -> GridItemSize {
+        if (index == 1) {
+            return { .rows = 2, .columns = 1 };
+        }
+        if (index == 2) {
+            return { .rows = 1, .columns =0 };
+        }
+        return { .rows = 1, .columns = -1 };
+    };
+
+    option.getSizeByIndex = std::move(onGetIrregularSizeByIndex);
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr 1fr 1fr");
+    model.SetLayoutOptions(option);
+    CreateDone();
+
+    GridLayoutInfo info;
+    info.crossCount_ = 3;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 2 }, { 2, 5 } } },  // 0 | 2 | 5
+        { 1, { { 0, 1 }, { 1, 3 }, { 2, 6 } } },  // 1 | 3 | 6
+        { 2, { { 0, -1 }, { 1, 4 }, { 2, 7 } } }, // 1 | 4 | 7
+    };
+
+    GridLayoutRangeSolver solver(&info, AceType::RawPtr(frameNode_));
+    EXPECT_EQ(solver.CheckMultiRow(0), std::make_pair(0, 0));
+    EXPECT_EQ(solver.CheckMultiRow(1), std::make_pair(1, 1));
+}
+
+/**
  * @tc.name: LayoutRangeSolver::SolveBackward001
  * @tc.desc: Test LayoutRangeSolver::SolveBackward
  * @tc.type: FUNC
@@ -793,6 +835,119 @@ HWTEST_F(GridLayoutRangeTest, Focus002, TestSize.Level1)
         EXPECT_EQ(pattern_->focusHandler_.focusIndex_, i);
         curFocus = next.Upgrade();
     }
+}
+
+/**
+ * @tc.name: CheckMultiRow003
+ * @tc.desc: Test CheckMultiRow with sparse gridMatrix (missing columns)
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutRangeTest, CheckMultiRow003, TestSize.Level1)
+{
+    GridLayoutOptions option;
+    option.irregularIndexes = { 3 };  // Item 3 is multi-row
+    option.getSizeByIndex = [](int32_t index) -> GridItemSize {
+        return { .rows = 2, .columns = 2 };
+    };
+
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetLayoutOptions(option);
+    CreateDone();
+
+    // Sparse matrix: row 1 is missing column 1
+    GridLayoutInfo info;
+    info.crossCount_ = 2;
+    info.gridMatrix_ = {
+        { 0, { { 0, 1 }, { 1, 2 } } },      // Row 0: complete {1, 2}
+        { 1, { { 0, -3 } } },                // Row 1: column 1 is MISSING!
+        { 2, { { 0, -3 }, { 1, -3 } } },     // Row 2: complete {-3, -3}
+    };
+    info.axis_ = Axis::VERTICAL;
+
+    GridLayoutRangeSolver solver(&info, AceType::RawPtr(frameNode_));
+
+    // Before fix: CRASH (at(1).at(1) throws std::out_of_range)
+    // After fix: should safely return without crash
+    auto result = solver.CheckMultiRow(2);
+    EXPECT_EQ(result, std::make_pair(0, 3));
+}
+
+/**
+ * @tc.name: CheckMultiRow004
+ * @tc.desc: Test CheckMultiRow with empty row
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutRangeTest, CheckMultiRow004, TestSize.Level1)
+{
+    GridLayoutOptions option;
+    option.irregularIndexes = { 2 };  // Item 2 is multi-row
+    option.getSizeByIndex = [](int32_t index) -> GridItemSize {
+        return { .rows = 2, .columns = 1 };
+    };
+
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetLayoutOptions(option);
+    CreateDone();
+
+    // Middle row is completely empty
+    GridLayoutInfo info;
+    info.crossCount_ = 1;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },  // Row 0: {0, 1}
+        { 1, {} },                         // Row 1: EMPTY!
+        { 2, { { 0, -2 } } },             // Row 2: {-2}
+    };
+    info.axis_ = Axis::VERTICAL;
+
+    GridLayoutRangeSolver solver(&info, AceType::RawPtr(frameNode_));
+
+    // Before fix: CRASH when accessing empty row
+    // After fix: should safely stop traversal
+    auto result = solver.CheckMultiRow(2);
+    EXPECT_EQ(result, std::make_pair(1, 2));
+}
+
+/**
+ * @tc.name: CheckMultiRow005
+ * @tc.desc: Test CheckMultiRow with multiple sparse rows
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutRangeTest, CheckMultiRow005, TestSize.Level1)
+{
+    GridLayoutOptions option;
+    option.irregularIndexes = { 5, 8 };
+    option.getSizeByIndex = [](int32_t index) -> GridItemSize {
+        if (index == 5) {
+            return { .rows = 3, .columns = 2 };
+        }
+        return { .rows = 2, .columns = 2 };
+    };
+
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr");
+    model.SetLayoutOptions(option);
+    CreateDone();
+
+    // Multi-row sparse matrix with multiple missing columns
+    GridLayoutInfo info;
+    info.crossCount_ = 3;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 }, { 2, 2 } } },           // Row 0: complete
+        { 1, { { 0, -5 }, { 2, 3 } } },                     // Row 1: column 1 is MISSING
+        { 2, { { 0, -5 }, { 1, -5 }, { 2, -5 } } },       // Row 2: complete
+        { 3, { { 0, 4 }, { 2, 5 } } },                     // Row 3: column 1 is MISSING
+        { 4, { { 0, -8 }, { 1, -8 }, { 2, 6 } } },       // Row 4: complete
+    };
+    info.axis_ = Axis::VERTICAL;
+
+    GridLayoutRangeSolver solver(&info, AceType::RawPtr(frameNode_));
+
+    // Starting from row 4, should traverse upward to find item 8's start row
+    // Should safely handle missing columns in between
+    auto result = solver.CheckMultiRow(4);
+    EXPECT_EQ(result, std::make_pair(3, 8));
 }
 
 /**

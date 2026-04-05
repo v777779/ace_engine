@@ -37,7 +37,6 @@ template("ace_unittest") {
   ace_unittest_name = target_name
   ace_unittest_config = [ "$ace_root/test/unittest:ace_unittest_config" ]
   ace_external_deps = [ "googletest:gmock" ]
-  flutter_sources = []
   flutter_external_deps = []
   ace_unittest_deps = []
   include_dir = []
@@ -71,6 +70,10 @@ template("ace_unittest") {
     ace_unittest_deps += invoker.extra_deps
   }
 
+  if (defined(invoker.deps)) {
+    ace_unittest_deps += invoker.deps
+  }
+
   if (defined(invoker.include_dirs)) {
     include_dir = invoker.include_dirs
   }
@@ -95,11 +98,10 @@ template("ace_unittest") {
 
       sources = []
       sources += invoker.sources
-      sources += flutter_sources
 
-      deps = ace_unittest_deps
+      deps = []
+      deps += ace_unittest_deps
       deps += [
-        "$ace_root/frameworks/core/components/theme:build_theme_code",
         "$ace_root/test/unittest:ace_base",
         "$ace_root/test/unittest:ace_components_base",
         "$ace_root/test/unittest:ace_components_event",
@@ -124,14 +126,17 @@ template("ace_unittest") {
     ohos_unittest(ace_unittest_name) {
       module_out_path = "ace_engine/${module_name}/${module_output}"
       if (ace_unittest_name == "display_sync_manager_test_ng") {
-        module_out_path = "ace_engine/Graphic_2d_LTPO_DisplaySync/${module_output}"
+        module_out_path =
+            "ace_engine/Graphic_2d_LTPO_DisplaySync/${module_output}"
+      } else if (ace_unittest_name == "window_scene_test") {
+        module_out_path = "ace_engine/window_manager/${module_output}"
       }
       sources = []
       sources += invoker.sources
-      sources += flutter_sources
       include_dirs = []
       include_dirs += include_dir
-      deps = ace_unittest_deps
+      deps = []
+      deps += ace_unittest_deps
       deps += [
         "$ace_root/frameworks/core/components/theme:build_theme_code",
         "$ace_root/test/unittest:ace_base",
@@ -172,25 +177,10 @@ template("ace_unittest") {
       module_out_path = "ace_engine/${module_name}/${module_output}"
       sources = []
       sources += invoker.sources
-      sources += flutter_sources
       include_dirs = []
       include_dirs += include_dir
-      deps = ace_unittest_deps
-      deps += [
-        "$ace_root/frameworks/core/components/theme:build_theme_code",
-        "$ace_root/test/unittest:ace_base",
-        "$ace_root/test/unittest:ace_components_base",
-        "$ace_root/test/unittest:ace_components_event",
-        "$ace_root/test/unittest:ace_components_gestures",
-        "$ace_root/test/unittest:ace_components_layout",
-        "$ace_root/test/unittest:ace_components_manager",
-        "$ace_root/test/unittest:ace_components_pattern",
-        "$ace_root/test/unittest:ace_components_property",
-        "$ace_root/test/unittest:ace_components_render",
-        "$ace_root/test/unittest:ace_components_syntax",
-        "$ace_root/test/unittest:ace_core_animation",
-        "$ace_root/test/unittest:ace_core_extra",
-      ]
+      deps = []
+      deps += ace_unittest_deps
 
       configs = []
       configs = ace_unittest_config

@@ -17,11 +17,12 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_EVENT_FOCUS_HANDLER_H
 
 #include "focus_state.h"
-#include "core/event/focus_axis_event.h"
 #include "core/event/crown_event.h"
 #include "core/event/key_event.h"
 #include "core/gestures/gesture_event.h"
 namespace OHOS::Ace::NG {
+struct FocusAxisEvent;
+
 #define ACE_DEFINE_FOCUS_EVENT(func, type, name)                               \
 public:                                                                        \
     void Set##func(type&& (name))                                              \
@@ -69,7 +70,7 @@ struct FocusEvent {
 };
 
 class ACE_EXPORT FocusCallbackEvents : public virtual AceType {
-    DECLARE_ACE_TYPE(FocusCallbackEvents, AceType)
+    DECLARE_ACE_TYPE(FocusCallbackEvents, AceType);
 public:
     FocusCallbackEvents() = default;
     ~FocusCallbackEvents() override = default;
@@ -103,8 +104,8 @@ enum class OnKeyEventType : int32_t {
     CONTEXT_MENU = 1,
 };
 
-class FocusEventHandler : public virtual FocusState {
-    DECLARE_ACE_TYPE(FocusEventHandler, FocusState)
+class ACE_FORCE_EXPORT FocusEventHandler : public virtual FocusState {
+    DECLARE_ACE_TYPE(FocusEventHandler, FocusState);
 public:
     FocusEventHandler() = default;
     ~FocusEventHandler() override = default;
@@ -140,6 +141,7 @@ protected:
     ACE_DEFINE_FOCUS_EVENT(OnKeyEventDispatchCallback, OnKeyEventDispatchFunc, onKeyEventDispatchCallback)
     ACE_DEFINE_FOCUS_EVENT(OnCrownCallback, OnCrownCallbackFunc, onCrownEventCallback)
     ACE_DEFINE_FOCUS_EVENT(OnCrownEventInternal, OnCrownEventFunc, onCrownEventsInternal)
+
     std::unordered_map<OnKeyEventType, OnKeyEventFunc> onKeyEventsInternal_;
     bool isNodeNeedKey_ { false }; // extension use only
     RefPtr<FocusCallbackEvents> focusCallbackEvents_;

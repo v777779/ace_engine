@@ -23,7 +23,10 @@
 #include "core/components_ng/property/menu_property.h"
 
 namespace OHOS::Ace {
+struct TextDetectConfig;
 using ScriptItems = std::map<std::string, std::vector<std::string>>;
+using ScriptRegexItems = std::map<std::string, std::vector<std::pair<std::string, std::string>>>;
+using SetFaviconCallback = std::function<void(const std::shared_ptr<BaseEventInfo>&)>;
 class ACE_FORCE_EXPORT WebModel {
 public:
     static WebModel* GetInstance();
@@ -31,11 +34,11 @@ public:
 
     virtual void Create(const std::string& src, const RefPtr<WebController>& webController,
         RenderMode renderMode = RenderMode::ASYNC_RENDER, bool incognitoMode = false,
-        const std::string& sharedRenderProcessToken = "") = 0;
+        const std::string& sharedRenderProcessToken = "", bool emulateTouchFromMouseEvent = false) = 0;
     virtual void Create(const std::string& src, std::function<void(int32_t)>&& setWebIdCallback,
         std::function<void(const std::string&)>&& setHapPathCallback, int32_t parentWebId, bool popup,
         RenderMode renderMode = RenderMode::ASYNC_RENDER, bool incognitoMode = false,
-        const std::string& sharedRenderProcessToken = "") = 0;
+        const std::string& sharedRenderProcessToken = "", bool emulateTouchFromMouseEvent = false) = 0;
     virtual Color GetDefaultBackgroundColor() { return Color::WHITE; }
     virtual void SetCustomScheme(const std::string& cmdLine) = 0;
     virtual void SetFocusable(bool focusable) {};
@@ -66,6 +69,8 @@ public:
     virtual void SetOnUrlLoadIntercept(std::function<bool(const BaseEventInfo* info)>&& jsCallback) = 0;
     virtual void SetOnLoadIntercept(std::function<bool(const BaseEventInfo* info)>&& jsCallback) = 0;
     virtual void SetOnFileSelectorShow(std::function<bool(const BaseEventInfo* info)>&& jsCallback) = 0;
+    virtual void SetAISessionOptions(uint32_t type, const AISessionCallback&& onCreateAISession,
+        const AISessionCallback&& onExecuteAIAction, const AISessionCallback&& onDestroyAISession) {}
     virtual void SetOnContextMenuShow(std::function<bool(const BaseEventInfo* info)>&& jsCallback) = 0;
     virtual void SetOnContextMenuHide(std::function<void(const BaseEventInfo* info)>&& jsCallback) = 0;
     virtual void SetNewDragStyle(bool isNewDragStyle) {}
@@ -77,6 +82,7 @@ public:
     virtual void SetImageAccessEnabled(bool isImageAccessEnabled) = 0;
     virtual void SetMixedMode(MixedModeContent mixedMode) = 0;
     virtual void SetZoomAccessEnabled(bool isZoomAccessEnabled) = 0;
+    virtual void SetZoomControlAccess(bool zoomControlAccess) {}
     virtual void SetGeolocationAccessEnabled(bool isGeolocationAccessEnabled) = 0;
     virtual void SetJsProxyCallback(std::function<void()>&& jsProxyCallback) = 0;
     virtual void SetUserAgent(const std::string& userAgent) = 0;
@@ -111,6 +117,7 @@ public:
     virtual void SetOnDrop(std::function<void(const RefPtr<DragEvent>&, const std::string&)>&& onDropId) = 0;
     virtual void SetPinchSmoothModeEnabled(bool isPinchSmoothModeEnabled) = 0;
     virtual void SetWindowNewEvent(std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& jsCallback) = 0;
+    virtual void SetWindowNewExtEvent(std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& jsCallback) = 0;
     virtual void SetActivateContentEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback) = 0;
     virtual void SetWindowExitEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback) = 0;
 
@@ -169,6 +176,8 @@ public:
     virtual void SetNativeEmbedLifecycleChangeId(std::function<void(const BaseEventInfo* info)>&& jsCallback) = 0;
     virtual void SetNativeEmbedVisibilityChangeId(std::function<void(const BaseEventInfo* info)>&& jsCallback) = 0;
     virtual void SetNativeEmbedGestureEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback) = 0;
+    virtual void SetNativeEmbedMouseEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback) = 0;
+    virtual void SetNativeEmbedObjectParamChangeId(std::function<void(const BaseEventInfo* info)>&& jsCallback) = 0;
     virtual void SetScreenCaptureRequestEventId(std::function<void(const BaseEventInfo* info)>&& jsCallback) {};
     virtual void SetNestedScroll(const NestedScrollOptions& nestedOpt) {}
     virtual void SetNestedScrollExt(const NestedScrollOptionsExt& nestedOpt) {}
@@ -177,11 +186,11 @@ public:
     virtual void SetBlurOnKeyboardHideMode(BlurOnKeyboardHideMode mode) {}
     virtual void JavaScriptOnDocumentStart(const ScriptItems& scriptItems) {};
     virtual void JavaScriptOnDocumentStartByOrder(const ScriptItems& scriptItems,
-        const ScriptItemsByOrder& scriptItemsByOrder) {};
+        const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder) {};
     virtual void JavaScriptOnDocumentEndByOrder(const ScriptItems& scriptItems,
-        const ScriptItemsByOrder& scriptItemsByOrder) {};
+        const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder) {};
     virtual void JavaScriptOnHeadReadyByOrder(const ScriptItems& scriptItems,
-        const ScriptItemsByOrder& scriptItemsByOrder) {};
+        const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder) {};
     virtual void JavaScriptOnDocumentEnd(const ScriptItems& scriptItems) {};
     virtual void SetOverScrollMode(OverScrollMode mode) {}
     virtual void SetCopyOptionMode(CopyOptions mode) {};
@@ -189,7 +198,12 @@ public:
     virtual void SetDefaultFileSelectorShow(std::function<void(const std::shared_ptr<BaseEventInfo>&)>&& jsCallback) {};
     virtual void SetPermissionClipboard(std::function<void(const std::shared_ptr<BaseEventInfo>&)>&& jsCallback) {};
     virtual void SetOpenAppLinkFunction(std::function<void(const std::shared_ptr<BaseEventInfo>&)>&& jsCallback) {};
+    virtual void SetWebNativeMessageConnectFunction(
+        std::function<void(const std::shared_ptr<BaseEventInfo>&)>&& jsCallback) {};
+    virtual void SetWebNativeMessageDisconnectFunction(
+        std::function<void(const std::shared_ptr<BaseEventInfo>&)>&& jsCallback) {};
     virtual void SetWebDetachFunction(std::function<void(int32_t)>&& jsCallback) {};
+    virtual void SetFaviconFunction(std::function<void(const std::shared_ptr<BaseEventInfo>&)>&& jsCallback) {};
     virtual void SetIntelligentTrackingPreventionResultId(
         std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&&
             intelligentTrackingPreventionResultId) {};
@@ -214,11 +228,36 @@ public:
     virtual void SetOptimizeParserBudgetEnabled(bool enable) = 0;
     virtual void SetEnableFollowSystemFontWeight(bool enableFollowSystemFontWeight) {};
     virtual void SetWebMediaAVSessionEnabled(bool isEnabled) {};
+    virtual void SetOnLoadStarted(std::function<void(const BaseEventInfo* info)>&& jsCallback) = 0;
+    virtual void SetOnLoadFinished(std::function<void(const BaseEventInfo* info)>&& jsCallback) = 0;
     virtual void SetEnableDataDetector(bool isEnabled) {};
     virtual void SetDataDetectorConfig(const TextDetectConfig& config) {};
+    virtual void SetEnableSelectedDataDetector(bool isEnabled) {};
     virtual void SetBypassVsyncCondition(WebBypassVsyncCondition condition) {}
     virtual void SetDefaultBackgroundColor() {};
     virtual void SetGestureFocusMode(GestureFocusMode mode) {}
+    virtual void SetRotateRenderEffect(WebRotateEffect effect) {}
+    virtual void SetOnDetectedBlankScreen(std::function<void(const BaseEventInfo* info)>&& jsCallback) {}
+    virtual void SetBlankScreenDetectionConfig(bool enable, const std::vector<double>& detectionTiming,
+        const std::vector<int32_t>& detectionMethods, int32_t contentfulNodesCountThreshold) {}
+    virtual void SetOnFirstScreenPaint(std::function<void(const BaseEventInfo* info)>&& jsCallback) {}
+    virtual void SetEnableImageAnalyzer(bool isEnabled) {}
+    virtual void SetEnableAutoFill(bool isEnabled) {}
+    virtual void SetEnableDrag(bool isEnabled) {}
+    virtual void SetOnPdfScrollAtBottom(std::function<void(const BaseEventInfo* info)>&& jsCallback) {}
+    virtual void SetOnPdfLoadEvent(std::function<void(const BaseEventInfo* info)>&& jsCallback) {}
+    virtual void SetForceEnableZoom(bool isEnabled) {}
+    virtual void SetSafeBrowsingCheckFinishId(
+        std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& safeBrowsingCheckFinishId) {};
+    virtual void SetBackToTop(bool isBackToTop) {};
+    virtual void SetOnMediaCastEnter(std::function<void()>&& jsCallback) {};
+    virtual void SetOnVerifyPinRequest(std::function<bool(const BaseEventInfo* info)>&& jsCallback) {};
+    virtual void SetCameraCaptureStateChangedId(std::function<void(const BaseEventInfo* info)> && jsCallback) {}
+    virtual void SetMicrophoneCaptureStateChangedId(std::function<void(const BaseEventInfo* info)> && jsCallback) {}
+    virtual void SetOnTextSelectionChange(std::function<void(const BaseEventInfo* info)>&& jsCallback) {}
+    virtual void SetEnableDefaultContextMenu(bool isEnabled) {}
+    virtual void SetEnableScrollDirectionalLock(bool enabled, int32_t type) {}
+    virtual void SetScrollbarLayoutPolicy(ScrollbarLayoutPolicy layoutPolicy) {}
 private:
     static std::unique_ptr<WebModel> instance_;
     static std::mutex mutex_;

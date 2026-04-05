@@ -17,11 +17,74 @@
 
 #include "base/log/dump_log.h"
 #include "base/utils/multi_thread.h"
+#include "core/components_ng/base/inspector_filter.h"
+#include "core/components_ng/pattern/grid/grid_item_accessibility_property.h"
+#include "core/components_ng/pattern/grid/grid_item_event_hub.h"
+#include "core/components_ng/pattern/grid/grid_item_layout_algorithm.h"
+#include "core/components_ng/pattern/grid/grid_item_layout_property.h"
+#include "core/components_ng/pattern/grid/grid_item_theme.h"
 #include "core/components_ng/pattern/grid/grid_pattern.h"
+#include "core/components_ng/syntax/shallow_builder.h"
 namespace OHOS::Ace::NG {
 namespace {
 const Color ITEM_FILL_COLOR = Color::TRANSPARENT;
 } // namespace
+
+GridItemPattern::GridItemPattern(const RefPtr<ShallowBuilder>& shallowBuilder) : shallowBuilder_(shallowBuilder) {}
+
+GridItemPattern::GridItemPattern(const RefPtr<ShallowBuilder>& shallowBuilder, GridItemStyle gridItemStyle)
+    : shallowBuilder_(shallowBuilder), gridItemStyle_(gridItemStyle)
+{}
+
+GridItemPattern::~GridItemPattern() = default;
+
+RefPtr<LayoutAlgorithm> GridItemPattern::CreateLayoutAlgorithm()
+{
+    return MakeRefPtr<GridItemLayoutAlgorithm>();
+}
+
+RefPtr<LayoutProperty> GridItemPattern::CreateLayoutProperty()
+{
+    return MakeRefPtr<GridItemLayoutProperty>();
+}
+
+RefPtr<EventHub> GridItemPattern::CreateEventHub()
+{
+    return MakeRefPtr<GridItemEventHub>();
+}
+
+RefPtr<AccessibilityProperty> GridItemPattern::CreateAccessibilityProperty()
+{
+    return MakeRefPtr<GridItemAccessibilityProperty>();
+}
+
+FocusPattern GridItemPattern::GetFocusPattern() const
+{
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, FocusPattern());
+    auto pipeline = host->GetContext();
+    CHECK_NULL_RETURN(pipeline, FocusPattern());
+    auto theme = pipeline->GetTheme<GridItemTheme>();
+    CHECK_NULL_RETURN(theme, FocusPattern());
+    auto focusColor = theme->GetGridItemFocusColor();
+    FocusPaintParam focusPaintParam;
+    focusPaintParam.SetPaintColor(focusColor);
+    return { FocusType::SCOPE, true, FocusStyleType::CUSTOM_REGION, focusPaintParam };
+}
+
+void GridItemPattern::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
+{
+    Pattern::ToJsonValue(json, filter);
+    if (filter.IsFastFilter()) {
+        json->PutFixedAttr("selectable", selectable_ ? "true" : "false", filter, FIXED_ATTR_SELECTABLE);
+        return;
+    }
+    json->PutExtAttr("style", gridItemStyle_ == GridItemStyle::NONE ? "NONE" : "PLAIN", filter);
+    json->PutExtAttr("forceRebuild", forceRebuild_ ? "true" : "false", filter);
+    json->PutFixedAttr("selectable", selectable_ ? "true" : "false", filter, FIXED_ATTR_SELECTABLE);
+    json->PutExtAttr("selected", isSelected_ ? "true" : "false", filter);
+}
+
 void GridItemPattern::OnAttachToFrameNode()
 {
     auto host = GetHost();
@@ -334,26 +397,6 @@ void GridItemPattern::DumpAdvanceInfo()
     }
 }
 
-void GridItemPattern::UpdateGridItemStyle(GridItemStyle gridItemStyle)
-{
-    auto host = GetHost();
-    // call UpdateGridItemStyleMultiThread by multi thread;
-    FREE_NODE_CHECK(host, UpdateGridItemStyle, gridItemStyle);
-    gridItemStyle_ = gridItemStyle;
-    CHECK_NULL_VOID(host);
-    auto pipeline = host->GetContextRefPtr();
-    CHECK_NULL_VOID(pipeline);
-    auto theme = pipeline->GetTheme<GridItemTheme>();
-    CHECK_NULL_VOID(theme);
-    auto renderContext = host->GetRenderContext();
-    CHECK_NULL_VOID(renderContext);
-    if (gridItemStyle_ == GridItemStyle::PLAIN) {
-        renderContext->UpdateBorderRadius(theme->GetGridItemBorderRadius());
-    } else if (gridItemStyle_ == GridItemStyle::NONE) {
-        renderContext->UpdateBorderRadius(BorderRadiusProperty());
-    }
-}
-
 void GridItemPattern::DumpAdvanceInfo(std::unique_ptr<JsonValue>& json)
 {
     auto property = GetLayoutProperty<GridItemLayoutProperty>();
@@ -388,6 +431,26 @@ void GridItemPattern::DumpAdvanceInfo(std::unique_ptr<JsonValue>& json)
         default: {
             break;
         }
+    }
+}
+
+void GridItemPattern::UpdateGridItemStyle(GridItemStyle gridItemStyle)
+{
+    auto host = GetHost();
+    // call UpdateGridItemStyleMultiThread by multi thread;
+    FREE_NODE_CHECK(host, UpdateGridItemStyle, gridItemStyle);
+    gridItemStyle_ = gridItemStyle;
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    auto theme = pipeline->GetTheme<GridItemTheme>();
+    CHECK_NULL_VOID(theme);
+    auto renderContext = host->GetRenderContext();
+    CHECK_NULL_VOID(renderContext);
+    if (gridItemStyle_ == GridItemStyle::PLAIN) {
+        renderContext->UpdateBorderRadius(theme->GetGridItemBorderRadius());
+    } else if (gridItemStyle_ == GridItemStyle::NONE) {
+        renderContext->UpdateBorderRadius(BorderRadiusProperty());
     }
 }
 

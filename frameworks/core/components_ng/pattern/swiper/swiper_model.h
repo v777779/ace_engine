@@ -18,22 +18,26 @@
 
 #include <mutex>
 
-#include "base/geometry/axis.h"
 #include "base/geometry/dimension.h"
-#include "base/memory/referenced.h"
 #include "base/utils/macros.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components/declaration/swiper/swiper_declaration.h"
 #include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/pattern/scrollable/scrollable_properties.h"
 #include "core/components_ng/pattern/swiper/swiper_content_transition_proxy.h"
 #include "core/components_v2/inspector/inspector_composed_component.h"
+#include "core/components/swiper/swiper_controller.h"
+#include "core/components_ng/pattern/swiper/swiper_constants.h"
 #ifdef SUPPORT_DIGITAL_CROWN
 #include "core/event/crown_event.h"
 #endif
+#include "ui/animation/animation_option.h"
 
 namespace OHOS::Ace::Framework {
 class JSIndicatorController;
+}
+
+namespace OHOS::Ace::NG {
+class JSIndicatorControllerBase;
 }
 
 namespace OHOS::Ace {
@@ -121,13 +125,6 @@ struct SwiperArrowParameters {
     std::unordered_set<std::string> parametersByUser;
 };
 
-struct AnimationCallbackInfo {
-    std::optional<float> currentOffset;
-    std::optional<float> targetOffset;
-    std::optional<float> velocity;
-    bool isForceStop = false;
-};
-
 struct SwiperMarginOptions {
     float margin;
     bool ignoreBlank;
@@ -179,6 +176,7 @@ public:
     virtual void SetItemSpace(const Dimension& itemSpace);
     virtual void SetCachedCount(int32_t cachedCount);
     virtual void SetCachedIsShown(bool isShown) {}
+    virtual void SetCachedIndependent(bool independent) {}
     virtual void SetOnChange(std::function<void(const BaseEventInfo* info)>&& onChange);
     virtual void SetOnUnselected(std::function<void(const BaseEventInfo* info)>&& onUnselected) {}
     virtual void SetOnAnimationStart(std::function<void(const BaseEventInfo* info)>&& onAnimationStart) {}
@@ -211,17 +209,23 @@ public:
     virtual void SetCustomContentTransition(SwiperContentAnimatedTransition& transition) {}
     virtual void SetOnContentDidScroll(ContentDidScrollEvent&& onContentDidScroll) {}
     virtual void SetOnContentWillScroll(ContentWillScrollEvent&& onContentWillScroll) {}
+    virtual void SetOnScrollStateChanged(
+        std::function<void(const BaseEventInfo* info)>&& onScrollStateChanged) {}
     virtual void SetPageFlipMode(int32_t pageFlipMode) {}
     virtual void SetDigitalCrownSensitivity(int32_t sensitivity) {}
     virtual void SetDisableTransitionAnimation(bool isDisable) {}
     virtual void SetBindIndicator(bool bind) {}
     virtual void SetJSIndicatorController(std::function<void()> resetFunc) {}
+    virtual void ResetJSIndicatorController() {}
     virtual void SetOnSelected(std::function<void(const BaseEventInfo* info)>&& onSelected) {}
-    virtual void SetIndicatorController(Framework::JSIndicatorController* controller) {}
-    virtual Framework::JSIndicatorController* GetIndicatorController() { return nullptr; }
+    virtual void SetIndicatorController(RefPtr<NG::JSIndicatorControllerBase> controller) {}
+    virtual RefPtr<NG::JSIndicatorControllerBase> GetIndicatorController() { return nullptr; }
     virtual void SetMaintainVisibleContentPosition(bool value) {}
     virtual void ProcessNextMarginWithResourceObj(const RefPtr<ResourceObject>& resObj) {}
     virtual void ProcessPreviousMarginWithResourceObj(const RefPtr<ResourceObject>& resObj) {};
+    virtual void SetFillType(int32_t fillType) {}
+    virtual void ResetFillType() {}
+    virtual void ResetDisplayCountWithObject() {}
 
 private:
     static std::unique_ptr<SwiperModel> instance_;

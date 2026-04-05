@@ -23,13 +23,17 @@
 #include "adapter/ohos/osal/want_wrap_ohos.h"
 #include "core/common/window.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/ui_extension/dynamic_component/dynamic_pattern.h"
+#include "core/components_ng/pattern/ui_extension/dynamic_component/dynamic_touch_delegate.h"
 #include "core/components_ng/pattern/ui_extension/session_wrapper.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_model.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_model_ng.h"
-#include "frameworks/core/components_ng/pattern/ui_extension/platform_pattern.h"
-#include "frameworks/core/event/pointer_event.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "core/components_ng/pattern/ui_extension/platform_pattern.h"
+#include "core/components_ng/property/accessibility_property.h"
+#include "core/event/pointer_event.h"
+
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -44,6 +48,13 @@ namespace {
     const OffsetF CONTENT_OFFSET = OffsetF(50.0, 60.0);
     const std::string TAG = "Test node tag";
 } // namespace
+
+#ifdef WINDOW_SCENE_SUPPORTED
+const RefPtr<UIExtensionManager>& PipelineContext::GetUIExtensionManager()
+{
+    return uiExtensionManager_;
+}
+#endif
 
 class DynamicPatternTestNg : public testing::Test {
 public:
@@ -394,7 +405,7 @@ HWTEST_F(DynamicPatternTestNg, DynamicPatternTest009, TestSize.Level1)
     EXPECT_EQ(property->GetChildWindowId(), 1);
     EXPECT_EQ(property->GetChildTreeId(), 1);
 
-    frameNode->accessibilityProperty_ = nullptr;
+    frameNode->GetOrCreateAccessibilityProperty() = nullptr;
     pattern->InitializeAccessibility();
     pattern->OnSetAccessibilityChildTree(1, 1);
     pattern->OnAccessibilityChildTreeRegister(1, 1, 1);
@@ -472,12 +483,13 @@ HWTEST_F(DynamicPatternTestNg, DynamicPatternTest011, TestSize.Level1)
 
     /**
      * @tc.steps: step2. test WrapExtensionAbilityId.
-     * @tc.expected: expect result is 202.
+     * @tc.expected: expect result is 302.
      */
+    dynamicPattern->uiExtensionId_ = 3;
     int64_t extensionOffset = 100;
     int64_t abilityId = 2;
     auto result0 = dynamicPattern->WrapExtensionAbilityId(extensionOffset, abilityId);
-    EXPECT_EQ(result0, 202);
+    EXPECT_EQ(result0, 302);
 
     /**
      * @tc.steps: step3. test GetAccessibilitySessionAdapter.
@@ -979,6 +991,210 @@ HWTEST_F(DynamicPatternTestNg, GetAccessibilityParentRect003, TestSize.Level1)
 }
 
 /**
+ * @tc.name: DelegateTouchEventTest001
+ * @tc.desc: Test DelegateTouchEvent when pattern is nullptr
+ * @tc.type: FUNC
+ */
+HWTEST_F(DynamicPatternTestNg, DelegateTouchEventTest001, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-begin DelegateTouchEventTest001";
+
+    /**
+     * @tc.steps: step1. construct delegate
+     */
+    WeakPtr<DynamicPattern> pattern = nullptr;
+    auto delegate = DynamicTouchDelegate(pattern);
+
+    /**
+     * @tc.steps: step2. test DelegateTouchEvent
+     */
+    TouchEvent point;
+    delegate.DelegateTouchEvent(point);
+    SUCCEED();
+
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-end DelegateTouchEventTest001";
+}
+
+/**
+ * @tc.name: DelegateTouchEventTest002
+ * @tc.desc: Test DelegateTouchEvent when pointerEvent is nullptr
+ * @tc.type: FUNC
+ */
+HWTEST_F(DynamicPatternTestNg, DelegateTouchEventTest002, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-begin DelegateTouchEventTest002";
+
+    /**
+     * @tc.steps: step1. construct delegate
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<DynamicPattern>();
+    EXPECT_NE(pattern, nullptr);
+    auto delegate = DynamicTouchDelegate(pattern);
+
+    /**
+     * @tc.steps: step2. test DelegateTouchEvent
+     */
+    TouchEvent point;
+    EXPECT_EQ(point.pointerEvent, nullptr);
+    delegate.DelegateTouchEvent(point);
+    SUCCEED();
+
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-end DelegateTouchEventTest002";
+}
+
+/**
+ * @tc.name: OnAccessibilityParentRectInfoUpdateTest001
+ * @tc.desc: Test OnAccessibilityParentRectInfoUpdate
+ * @tc.type: FUNC
+ */
+HWTEST_F(DynamicPatternTestNg, OnAccessibilityParentRectInfoUpdateTest001, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-begin OnAccessibilityParentRectInfoUpdateTest001";
+
+#ifdef OHOS_STANDARD_SYSTEM
+
+    /**
+     * @tc.steps: step1. construct dynamicPattern
+     */
+    auto dynamicPattern = CreateDynamicComponent();
+    EXPECT_NE(dynamicPattern, nullptr);
+    IsolatedInfo curDynamicInfo;
+    void* runtime = nullptr;
+    auto pattern = AceType::MakeRefPtr<DynamicPattern>();
+    RefPtr<FrameNode> frameNode = FrameNode::CreateFrameNode(TAG, 1, pattern);
+    dynamicPattern->dynamicComponentRenderer_ =
+        DynamicComponentRenderer::Create(frameNode, runtime, curDynamicInfo);
+
+    /**
+     * @tc.steps: step2. test OnAccessibilityParentRectInfoUpdate
+     */
+    dynamicPattern->OnAccessibilityParentRectInfoUpdate();
+    SUCCEED();
+#endif
+
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-end OnAccessibilityParentRectInfoUpdateTest001";
+}
+
+/**
+ * @tc.name: OnFrameNodeChangedTest001
+ * @tc.desc: Test OnFrameNodeChanged when frameNodeChangeInfoFlag is none
+ * @tc.type: FUNC
+ */
+HWTEST_F(DynamicPatternTestNg, OnFrameNodeChangedTest001, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-begin OnFrameNodeChangedTest001";
+
+#ifdef OHOS_STANDARD_SYSTEM
+
+    /**
+     * @tc.steps: step1. construct dynamicPattern
+     */
+    auto dynamicPattern = CreateDynamicComponent();
+    EXPECT_NE(dynamicPattern, nullptr);
+    FrameNodeChangeInfoFlag frameNodeChangeInfoFlag = FRAME_NODE_CHANGE_INFO_NONE;
+
+    /**
+     * @tc.steps: step2. test OnFrameNodeChanged
+     */
+    dynamicPattern->OnFrameNodeChanged(frameNodeChangeInfoFlag);
+    SUCCEED();
+
+#endif
+
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-end OnFrameNodeChangedTest001";
+}
+
+/**
+ * @tc.name: OnFrameNodeChangedTest002
+ * @tc.desc: Test OnFrameNodeChanged when frameNodeChangeInfoFlag geometry change
+ * @tc.type: FUNC
+ */
+HWTEST_F(DynamicPatternTestNg, OnFrameNodeChangedTest002, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-begin OnFrameNodeChangedTest002";
+
+#ifdef OHOS_STANDARD_SYSTEM
+
+    /**
+     * @tc.steps: step1. construct dynamicPattern
+     */
+    auto dynamicPattern = CreateDynamicComponent();
+    EXPECT_NE(dynamicPattern, nullptr);
+    FrameNodeChangeInfoFlag frameNodeChangeInfoFlag = FRAME_NODE_CHANGE_GEOMETRY_CHANGE;
+
+    /**
+     * @tc.steps: step2. test OnFrameNodeChanged
+     */
+    dynamicPattern->OnFrameNodeChanged(frameNodeChangeInfoFlag);
+    SUCCEED();
+
+#endif
+
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-end OnFrameNodeChangedTest002";
+}
+
+/**
+ * @tc.name: OnFrameNodeChangedTest003
+ * @tc.desc: Test OnFrameNodeChanged when frameNodeChangeInfoFlag transform change
+ * @tc.type: FUNC
+ */
+HWTEST_F(DynamicPatternTestNg, OnFrameNodeChangedTest003, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-begin OnFrameNodeChangedTest003";
+
+#ifdef OHOS_STANDARD_SYSTEM
+
+    /**
+     * @tc.steps: step1. construct dynamicPattern
+     */
+    auto dynamicPattern = CreateDynamicComponent();
+    EXPECT_NE(dynamicPattern, nullptr);
+    FrameNodeChangeInfoFlag frameNodeChangeInfoFlag = FRAME_NODE_CHANGE_TRANSFORM_CHANGE;
+
+    /**
+     * @tc.steps: step2. test OnFrameNodeChanged
+     */
+    dynamicPattern->OnFrameNodeChanged(frameNodeChangeInfoFlag);
+    SUCCEED();
+
+#endif
+
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-end OnFrameNodeChangedTest003";
+}
+
+/**
+ * @tc.name: OnFrameNodeChangedTest004
+ * @tc.desc: Test OnFrameNodeChanged when frameNodeChangeInfoFlag all change
+ * @tc.type: FUNC
+ */
+HWTEST_F(DynamicPatternTestNg, OnFrameNodeChangedTest004, TestSize.Level1)
+{
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-begin OnFrameNodeChangedTest004";
+
+#ifdef OHOS_STANDARD_SYSTEM
+
+    /**
+     * @tc.steps: step1. construct dynamicPattern
+     */
+    auto dynamicPattern = CreateDynamicComponent();
+    EXPECT_NE(dynamicPattern, nullptr);
+    FrameNodeChangeInfoFlag frameNodeChangeInfoFlag =
+        (FRAME_NODE_CHANGE_GEOMETRY_CHANGE | FRAME_NODE_CHANGE_TRANSFORM_CHANGE);
+
+    /**
+     * @tc.steps: step2. test OnFrameNodeChanged
+     */
+    dynamicPattern->OnFrameNodeChanged(frameNodeChangeInfoFlag);
+    SUCCEED();
+
+#endif
+
+    GTEST_LOG_(INFO) << "DynamicPatternTestNg-end OnFrameNodeChangedTest004";
+}
+
+/**
  * @tc.name: DynamicPatternTest026
  * @tc.desc: Test PlatformContainerHandler GetDCAccessibilityParentRect
  * @tc.type: FUNC
@@ -1055,7 +1271,7 @@ HWTEST_F(DynamicPatternTestNg, DynamicPatternTest028, TestSize.Level1)
      */
     auto dynamicPattern = CreateDynamicComponent();
     EXPECT_NE(dynamicPattern, nullptr);
- 
+
     /**
      * @tc.steps: step2. call HandleTouchEvent.
      * @tc.expected: test HandleTouchEvent with different pointerEvent.
@@ -1064,16 +1280,16 @@ HWTEST_F(DynamicPatternTestNg, DynamicPatternTest028, TestSize.Level1)
     pointerEvent->SetPointerAction(OHOS::MMI::PointerEvent::POINTER_ACTION_PULL_MOVE);
     auto ret = dynamicPattern->HandleTouchEvent(pointerEvent);
     EXPECT_FALSE(ret);
- 
+
     pointerEvent->SetPointerAction(OHOS::MMI::PointerEvent::POINTER_ACTION_PULL_UP);
     ret = dynamicPattern->HandleTouchEvent(pointerEvent);
     EXPECT_FALSE(ret);
- 
+
     pointerEvent->SetPointerAction(OHOS::MMI::PointerEvent::POINTER_ACTION_UP);
     ret = dynamicPattern->HandleTouchEvent(pointerEvent);
     EXPECT_FALSE(ret);
 }
- 
+
 /**
  * @tc.name: DynamicPatternTest029
  * @tc.desc: Test DynamicPattern HandleMouseEvent
@@ -1086,7 +1302,7 @@ HWTEST_F(DynamicPatternTestNg, DynamicPatternTest029, TestSize.Level1)
      */
     auto dynamicPattern = CreateDynamicComponent();
     EXPECT_NE(dynamicPattern, nullptr);
- 
+
     /**
      * @tc.steps: step2. call HandleMouseEvent.
      * @tc.expected: test HandleTouchEvent with different action.
@@ -1097,23 +1313,39 @@ HWTEST_F(DynamicPatternTestNg, DynamicPatternTest029, TestSize.Level1)
     mouseInfo.SetPointerEvent(pointerEvent);
     dynamicPattern->HandleMouseEvent(mouseInfo);
     EXPECT_FALSE(dynamicPattern->lastPointerEvent_);
- 
+
     mouseInfo.SetSourceDevice(SourceType::MOUSE);
     mouseInfo.SetPullAction(MouseAction::PULL_MOVE);
     dynamicPattern->HandleMouseEvent(mouseInfo);
     EXPECT_FALSE(dynamicPattern->lastPointerEvent_);
- 
+
     mouseInfo.SetPullAction(MouseAction::PULL_UP);
     dynamicPattern->HandleMouseEvent(mouseInfo);
     EXPECT_FALSE(dynamicPattern->lastPointerEvent_);
- 
+
     mouseInfo.SetPullAction(MouseAction::PRESS);
     dynamicPattern->HandleMouseEvent(mouseInfo);
     EXPECT_TRUE(dynamicPattern->lastPointerEvent_);
- 
+
     mouseInfo.SetPullAction(MouseAction::RELEASE);
     dynamicPattern->HandleMouseEvent(mouseInfo);
     EXPECT_TRUE(dynamicPattern->lastPointerEvent_);
 }
 
+/**
+ * @tc.name: GetAccessibilityParentRect031
+ * @tc.desc: Test PlatformContainerHandler GetAccessibilityParentRect pattern nullptr return false
+ * @tc.type: FUNC
+ */
+HWTEST_F(DynamicPatternTestNg, DynamicPatternTest031, TestSize.Level1)
+{
+    PlatformContainerHandler handler;
+    EXPECT_FALSE(handler.IsAllowCrossProcessNesting());
+
+    handler.allowCrossProcessNesting_ = true;
+    EXPECT_TRUE(handler.IsAllowCrossProcessNesting());
+
+    handler.allowCrossProcessNesting_ = false;
+    EXPECT_FALSE(handler.IsAllowCrossProcessNesting());
+}
 } // namespace OHOS::Ace::NG

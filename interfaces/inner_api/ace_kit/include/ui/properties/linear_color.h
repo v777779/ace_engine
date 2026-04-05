@@ -16,6 +16,7 @@
 #ifndef FOUNDATION_ACE_INTERFACES_INNER_API_ACE_KIT_INCLUDE_BASE_PROPERTIES_LINEAR_COLOR_H
 #define FOUNDATION_ACE_INTERFACES_INNER_API_ACE_KIT_INCLUDE_BASE_PROPERTIES_LINEAR_COLOR_H
 
+#include <algorithm>
 #include "ui/properties/color.h"
 
 namespace OHOS::Ace {
@@ -31,7 +32,8 @@ public:
         blue_ = static_cast<int16_t>(argb & 0xFF);
     }
     explicit LinearColor(const Color& color)
-        : alpha_(color.GetAlpha()), red_(color.GetRed()), green_(color.GetGreen()), blue_(color.GetBlue())
+        : alpha_(color.GetAlpha()), red_(color.GetRed()), green_(color.GetGreen()), blue_(color.GetBlue()),
+            placeholder_(color.GetPlaceholder())
     {}
     LinearColor(int16_t alpha, int16_t red, int16_t green, int16_t blue)
         : alpha_(alpha), red_(red), green_(green), blue_(blue)
@@ -68,6 +70,12 @@ public:
     bool operator==(const LinearColor& color) const
     {
         return alpha_ == color.GetAlpha() && red_ == color.GetRed() && green_ == color.GetGreen() &&
+               blue_ == color.GetBlue() && placeholder_ == color.placeholder_;
+    }
+
+    bool CompareColorExceptHolder(const LinearColor& color) const
+    {
+        return alpha_ == color.GetAlpha() && red_ == color.GetRed() && green_ == color.GetGreen() &&
                blue_ == color.GetBlue();
     }
 
@@ -95,6 +103,11 @@ public:
         return *this;
     }
 
+    bool operator!=(const LinearColor& color) const
+    {
+        return !operator==(color);
+    }
+
     int16_t GetRed() const
     {
         return red_;
@@ -117,10 +130,10 @@ public:
 
     uint32_t GetValue() const
     {
-        return (static_cast<uint32_t>(std::clamp<uint16_t>(blue_, 0, UINT8_MAX))) |
-               (static_cast<uint32_t>((std::clamp<uint16_t>(green_, 0, UINT8_MAX)) << 8)) |
-               (static_cast<uint32_t>((std::clamp<uint16_t>(red_, 0, UINT8_MAX)) << 16)) |
-               (static_cast<uint32_t>((std::clamp<uint16_t>(alpha_, 0, UINT8_MAX)) << 24));
+        return (static_cast<uint32_t>(std::clamp<int16_t>(blue_, 0, UINT8_MAX))) |
+               (static_cast<uint32_t>((std::clamp<int16_t>(green_, 0, UINT8_MAX)) << 8)) |
+               (static_cast<uint32_t>((std::clamp<int16_t>(red_, 0, UINT8_MAX)) << 16)) |
+               (static_cast<uint32_t>((std::clamp<int16_t>(alpha_, 0, UINT8_MAX)) << 24));
     }
 
     Color BlendOpacity(double opacityRatio) const
@@ -140,11 +153,17 @@ public:
             static_cast<uint8_t>(std::clamp<int16_t>(blue_, 0, UINT8_MAX)));
     }
 
+    ColorPlaceholder GetPlaceholder() const
+    {
+        return placeholder_;
+    }
+
 private:
     int16_t alpha_;
     int16_t red_;
     int16_t green_;
     int16_t blue_;
+    ColorPlaceholder placeholder_ = ColorPlaceholder::NONE;
 };
 
 } // namespace OHOS::Ace

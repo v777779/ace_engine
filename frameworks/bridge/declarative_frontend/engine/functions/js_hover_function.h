@@ -21,13 +21,13 @@
 namespace OHOS::Ace::Framework {
 
 class JsHoverFunction : public JsFunction {
-    DECLARE_ACE_TYPE(JsHoverFunction, JsFunction)
+    DECLARE_ACE_TYPE(JsHoverFunction, JsFunction);
 
 public:
     explicit JsHoverFunction(const JSRef<JSFunc>& jsFunction) : JsFunction(JSRef<JSObject>(), jsFunction) {}
     ~JsHoverFunction() override = default;
-    void HoverExecute(bool isHover, HoverInfo& hoverInfo);
-    void HoverMoveExecute(HoverInfo& hoverInfo);
+    void HoverExecute(EcmaVM* vm, bool isHover, HoverInfo& hoverInfo);
+    void HoverMoveExecute(EcmaVM* vm, HoverInfo& hoverInfo);
     void AccessibilityHoverExecute(bool isHover, AccessibilityHoverInfo& hoverInfo);
 };
 

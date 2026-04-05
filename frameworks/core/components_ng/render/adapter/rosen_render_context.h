@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -25,17 +25,14 @@
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkRefCnt.h"
 #include "render_service_client/core/animation/rs_particle_params.h"
-#if defined(MODIFIER_NG)
 #include "render_service_client/core/modifier_ng/appearance/rs_alpha_modifier.h"
 #include "render_service_client/core/modifier_ng/appearance/rs_behind_window_filter_modifier.h"
 #include "render_service_client/core/modifier_ng/appearance/rs_mask_modifier.h"
 #include "render_service_client/core/modifier_ng/geometry/rs_bounds_clip_modifier.h"
 #include "render_service_client/core/modifier_ng/geometry/rs_frame_clip_modifier.h"
 #include "render_service_client/core/modifier_ng/geometry/rs_transform_modifier.h"
+#include "render_service_client/core/feature/window_keyframe/rs_window_keyframe_node.h"
 #include "render_service_client/core/ui/rs_canvas_node.h"
-#else
-#include "core/components_ng/render/adapter/rosen_modifier_property.h"
-#endif
 #include "render_service_client/core/ui/rs_node.h"
 #include "render_service_client/core/ui/rs_texture_export.h"
 #include "render_service_client/core/ui/rs_ui_context.h"
@@ -68,10 +65,12 @@ class OverlayTextModifier;
 class GradientStyleModifier;
 class PipelineContext;
 class RosenRenderContext : public RenderContext {
-    DECLARE_ACE_TYPE(RosenRenderContext, NG::RenderContext)
+    DECLARE_ACE_TYPE(RosenRenderContext, NG::RenderContext);
 public:
     RosenRenderContext() = default;
     ~RosenRenderContext() override;
+
+    void SetEffectLayer(const ContextParam& param);
 
     void SetSurfaceChangedCallBack(const std::function<void(float, float, float, float)>& callback) override;
 
@@ -82,9 +81,13 @@ public:
     void AddUpdateCallBack(const std::function<void(std::vector<float>&)>& updateCallback) override;
     void AddInitTypeCallBack(const std::function<void(int32_t&)>& initTypeCallback) override;
 
-    void InitContext(bool isRoot, const std::optional<ContextParam>& param) override;
+    void InitContext(bool isRoot, const std::optional<ContextParam>& param, FrameNode* host = nullptr) override;
 
-    void InitContext(bool isRoot, const std::optional<ContextParam>& param, bool isLayoutNode) override;
+    void InitContext(bool isRoot, const std::optional<ContextParam>& param, bool isLayoutNode,
+        FrameNode* host = nullptr) override;
+
+    void CreateNodeByType(
+        const ContextParam& param, bool isTextureExportNode, std::shared_ptr<Rosen::RSUIContext>& rsContext);
 
     void SyncGeometryFrame(const RectF& paintRect);
 
@@ -161,7 +164,7 @@ public:
 
     void ClearFocusState() override;
 
-    const std::shared_ptr<Rosen::RSNode>& GetRSNode();
+    ACE_FORCE_EXPORT const std::shared_ptr<Rosen::RSNode>& GetRSNode();
 
     void SetRSNode(const std::shared_ptr<Rosen::RSNode>& rsNode);
 
@@ -175,37 +178,20 @@ public:
 
     void StopRecordingIfNeeded() override;
 
-    void SetDrawContentAtLast(bool useDrawContentLastOrder) override
-    {
-        CHECK_NULL_VOID(rsNode_);
-        rsNode_->SetPaintOrder(useDrawContentLastOrder);
-    }
+    void SetDrawContentAtLast(bool useDrawContentLastOrder) override;
 
-    void SetClipToFrame(bool useClip) override
-    {
-        CHECK_NULL_VOID(rsNode_);
-        rsNode_->SetClipToFrame(useClip);
-    }
+    void SetClipToFrame(bool useClip) override;
 
-    void SetClipToBounds(bool useClip) override
-    {
-        CHECK_NULL_VOID(rsNode_);
-        rsNode_->SetClipToBounds(useClip);
-    }
+    void SetClipToBounds(bool useClip) override;
 
-    void SetVisible(bool visible) override
-    {
-        CHECK_NULL_VOID(rsNode_);
-        rsNode_->SetVisible(visible);
-    }
+    void SetVisible(bool visible) override;
 
-#if defined(MODIFIER_NG)
+    void BindColorPicker(ColorPlaceholder placeholder, ColorPickStrategy strategy, uint32_t interval) override;
+
     template<typename ModifierName, auto Setter, typename T>
     void AddOrUpdateModifier(std::shared_ptr<ModifierName>& modifier, const T& value);
-#else
-    template<typename ModifierName, typename T>
-    void SetAnimatableProperty(std::shared_ptr<ModifierName>& modifier, const T& value);
-#endif
+    void SetNeedCallbackAreaChange();
+    void SetNeedCallbackAreaChangeMultiThread();
 
     void FlushContentDrawFunction(CanvasDrawFunction&& contentDraw) override;
 
@@ -218,21 +204,40 @@ public:
     void AnimateHoverEffectScaleMultiThread(bool isHovered);
     void AnimateHoverEffectBoardMultiThread(bool isHovered);
     void UpdateBackBlurRadius(const Dimension& radius) override;
+    void UpdateBackBlurRadiusMultiThread(const Dimension& radius);
     void UpdateBackBlurStyle(
         const std::optional<BlurStyleOption>& bgBlurStyle, const SysOptions& sysOptions = SysOptions()) override;
+    void UpdateBackBlurStyleMultiThread(
+        const std::optional<BlurStyleOption>& bgBlurStyle, const SysOptions& sysOptions = SysOptions());
+    void UpdateBackBlurStyleMultiThreadInner(
+        const std::optional<BlurStyleOption>& bgBlurStyle, const SysOptions& sysOptions);
     void UpdateBackgroundEffect(
         const std::optional<EffectOption>& effectOption, const SysOptions& sysOptions = SysOptions()) override;
+    void UpdateBackgroundEffectMultiThread(
+        const std::optional<EffectOption>& effectOption, const SysOptions& sysOptions = SysOptions());
+    void UpdateBackgroundEffectMultiThreadInner(
+        const std::optional<EffectOption>& effectOption, const SysOptions& sysOptions);
     void UpdateMotionBlur(const MotionBlurOption& motionBlurOption) override;
+    void UpdateMotionBlurMultiThread(const MotionBlurOption& motionBlurOption);
     void UpdateBackBlur(
         const Dimension& radius, const BlurOption& blurOption, const SysOptions& sysOptions = SysOptions()) override;
+    void UpdateBackBlurMultiThread(
+        const Dimension& radius, const BlurOption& blurOption, const SysOptions& sysOptions = SysOptions());
     void UpdateNodeBackBlur(const Dimension& radius, const BlurOption& blurOption) override;
+    void UpdateNodeBackBlurMultiThread(const Dimension& radius, const BlurOption& blurOption);
     void UpdateFrontBlur(
         const Dimension& radius, const BlurOption& blurOption, const SysOptions& sysOptions = SysOptions()) override;
+    void UpdateFrontBlurMultiThread(
+        const Dimension& radius, const BlurOption& blurOption, const SysOptions& sysOptions);
     void UpdateFrontBlurRadius(const Dimension& radius) override;
+    void UpdateFrontBlurRadiusMultiThread(const Dimension& radius);
     void UpdateFrontBlurStyle(
         const std::optional<BlurStyleOption>& fgBlurStyle, const SysOptions& sysOptions = SysOptions()) override;
+    void UpdateFrontBlurStyleMultiThread(
+        const std::optional<BlurStyleOption>& fgBlurStyle, const SysOptions& sysOptions = SysOptions());
     void OnForegroundEffectUpdate(float radius) override;
     void ResetBackBlurStyle() override;
+    void ResetBackBlurStyleMultiThread();
     void OnSphericalEffectUpdate(double radio) override;
     void OnPixelStretchEffectUpdate(const PixStretchEffectOption& option) override;
     void OnLightUpEffectUpdate(double radio) override;
@@ -243,7 +248,11 @@ public:
     void UpdateBackgroundFilter(const OHOS::Rosen::Filter* backgroundFilter) override;
     void UpdateForegroundFilter(const OHOS::Rosen::Filter* foregroundFilter) override;
     void UpdateCompositingFilter(const OHOS::Rosen::Filter* compositingFilter) override;
-    void UpdateBrightnessBlender(const OHOS::Rosen::BrightnessBlender* brightnessBlender) override;
+    void UpdateUiMaterialFilter(const OHOS::Rosen::Filter* materialFilter) override;
+    void UpdateBlender(const OHOS::Rosen::Blender* blender) override;
+    void SetSDFShape(const std::shared_ptr<OHOS::Rosen::RSNGShapeBase>& shape) override;
+    void SetShadowPath(const std::string path) override;
+    void ResetShadowPath() override;
 
     Rosen::SHADOW_COLOR_STRATEGY ToShadowColorStrategy(ShadowColorStrategy shadowColorStrategy);
     void OnBackShadowUpdate(const Shadow& shadow) override;
@@ -307,9 +316,11 @@ public:
     void SetBounds(float positionX, float positionY, float width, float height) override;
     void SetSecurityLayer(bool isSecure) override;
     void SetHDRBrightness(float hdrBrightness) override;
+    void SetHDRBrightness(float hdrBrightness, uint32_t type) override;
     void SetImageHDRBrightness(float hdrBrightness) override;
     void SetImageHDRPresent(bool hdrPresent) override;
     void SetTransparentLayer(bool isTransparentLayer) override;
+    void SetSurfaceBufferOpaque(bool isOpaque) override;
     void SetScreenId(uint64_t screenId) override;
     void SetAlwaysSnapshot(bool enable) override;
     void OnTransformTranslateUpdate(const TranslateOptions& value) override;
@@ -318,7 +329,9 @@ public:
     bool StopTextureExport() override;
     void SetSurfaceRotation(bool isLock) override;
     void SetRenderFit(RenderFit renderFit) override;
+    void OnRenderStrategyUpdate(RenderStrategy renderStrategy) override;
     PipelineContext* GetPipelineContext() const;
+    void SetUnionSpacing(float spacing) override;
 
     RectF GetPaintRectWithTransform() override;
 
@@ -353,12 +366,13 @@ public:
 
     void ClearDrawCommands() override;
 
+    void RemoveOverlayModifier(const RefPtr<OverlayModifier>& modifier) override;
     void RemoveContentModifier(const RefPtr<ContentModifier>& modifier) override;
 
     void OpacityAnimation(const AnimationOption& option, double begin, double end) override;
     void ScaleAnimation(const AnimationOption& option, double begin, double end) override;
 
-    void PaintAccessibilityFocus() override;
+    void PaintAccessibilityFocus(bool isRectUpdate = false) override;
 
     void UpdateAccessibilityRoundRect() override;
 
@@ -375,9 +389,9 @@ public:
     void OnPositionEdgesUpdate(const EdgesParam& value) override;
     void RecalculatePosition() override;
     void OnZIndexUpdate(int32_t value) override;
+    void OnZIndexUpdateMultiThread(const RefPtr<FrameNode>& parent);
     void DumpInfo() override;
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override;
     void DumpSimplifyStagingProperties(std::unique_ptr<JsonValue>& json);
     void DumpAdvanceInfo() override;
     void DumpAdvanceInfo(std::unique_ptr<JsonValue>& json) override;
@@ -402,7 +416,10 @@ public:
     void CreateBackgroundPixelMap(const RefPtr<FrameNode>& customNode) override;
     void OnIsTransitionBackgroundUpdate(bool isTransitionBackground) override {}
     void OnBuilderBackgroundFlagUpdate(bool isBuilderBackground) override;
-    void OnBackgroundIgnoresLayoutSafeAreaEdgesUpdate(uint32_t edges) override;
+    uint32_t GetCurrentBackgroundTaskId() const override
+    {
+        return backgroundTaskId_;
+    }
 
     void ColorToRSColor(const Color& color, OHOS::Rosen::RSColor& rsColor);
     void OnBackgroundColorUpdate(const Color& value) override;
@@ -445,12 +462,15 @@ public:
     void SetShadowRadius(float radius) override;
     void SetRenderFrameOffset(const OffsetF& offset) override;
     void SetScale(float scaleX, float scaleY) override;
+    void SetScrollScale(float scale) override;
+    void ResetScrollScale() override;
     void SetBackgroundColor(uint32_t colorValue) override;
     void SetRenderPivot(float pivotX, float pivotY) override;
     void SetFrame(float positionX, float positionY, float width, float height) override;
     void SetOpacity(float opacity) override;
     void SetTranslate(float translateX, float translateY, float translateZ) override;
     void SetHostNode(const WeakPtr<FrameNode>& host) override;
+    void SetHostNodeMultiThread(const WeakPtr<FrameNode>& host);
 
     OffsetF GetBaseTransalteInXY() const override;
     void SetBaseTranslateInXY(const OffsetF& offset) override;
@@ -482,6 +502,7 @@ public:
     void MarkUiFirstNode(bool isUiFirstNode) override;
 
     void SetRSUIContext(PipelineContext* context) override;
+    void SetRSUIContextMultiThread(PipelineContext* context);
 
     void SetDrawNode() override;
     bool AddNodeToRsTree() override;
@@ -489,16 +510,18 @@ public:
     RefPtr<FrameNode> GetFrameNodeById(int32_t frameNodeId);
     bool CanNodeBeDeleted(const RefPtr<FrameNode>& node) const;
     void GetLiveChildren(const RefPtr<FrameNode>& node, std::list<RefPtr<FrameNode>>& childNodes);
+    void AddCornerMarkNodeToChildren(const RefPtr<FrameNode>& node, std::list<RefPtr<FrameNode>>& childNodes);
     void AddRsNodeForCapture();
     static bool initDrawNodeChangeCallback_;
+    static bool initPropertyNodeChangeCallback_;
 
-    void FreezeCanvasNode(bool freezeFlag = false);
-    void RemoveCanvasNode();
+    void FreezeKeyFrameNode(bool freezeFlag = false);
+    void RemoveKeyFrameNode();
     void CheckAnimationParametersValid(int32_t& animationParam);
-    bool SetCanvasNodeOpacityAnimation(int32_t duration, int32_t delay, bool isDragEnd = false);
-    void LinkCanvasNodeToRootNode(const RefPtr<FrameNode>& rootNode);
-    void CreateCanvasNode();
-    std::shared_ptr<Rosen::RSCanvasNode> GetCanvasNode() const;
+    bool SetKeyFrameNodeOpacityAnimation(int32_t duration, int32_t delay, bool isDragEnd = false);
+    void LinkKeyFrameNodeToRootNode(const RefPtr<FrameNode>& rootNode);
+    void CreateKeyFrameNode();
+    std::shared_ptr<Rosen::RSWindowKeyFrameNode> GetKeyFrameNode() const;
 
     void AddKeyFrameAnimateEndCallback(const std::function<void()>& callback)
     {
@@ -520,14 +543,22 @@ public:
         isDraggingFlag_ = isDraggingFlag;
     }
 
-    bool GetReDraggingFlag() const
+    bool GetHasKeyFrameCache() const
     {
-        return reDraggingFlag_;
+        return hasKeyFrameCache_;
     }
 
-    void SetReDraggingFlag(bool reDraggingFlag)
+    void SetHasKeyFrameCache(bool hasCache)
     {
-        reDraggingFlag_ = reDraggingFlag;
+        hasKeyFrameCache_ = hasCache;
+    }
+
+    bool IsOnRenderTree() override
+    {
+        if (!rsNode_) {
+            return false;
+        }
+        return rsNode_->GetIsOnTheTree();
     }
 
     void SetAnimationPropertyValue(AnimationPropertyType property, const std::vector<float>& value) override;
@@ -535,6 +566,12 @@ public:
     std::vector<float> GetRenderNodePropertyValue(AnimationPropertyType property) override;
     void SyncRSPropertyToRenderContext(AnimationPropertyType property) override;
     void RemoveFromTree() override;
+
+    void SetNeedUseCmdlistDrawRegion(bool needUseCmdlistDrawRegion) override;
+
+    void UpdateCustomBackground() override;
+
+    void UpdateOverlayText() override;
 
 protected:
     void OnBackgroundImageUpdate(const ImageSourceInfo& src) override;
@@ -615,11 +652,14 @@ protected:
 
     void OnUseEffectUpdate(bool useEffect) override;
     void OnUseEffectTypeUpdate(EffectType effectType) override;
+    void OnUseUnionEffectUpdate(bool useUnion) override;
     bool GetStatusByEffectTypeAndWindow() override;
     void OnUseShadowBatchingUpdate(bool useShadowBatching) override;
     void OnFreezeUpdate(bool isFreezed) override;
     void OnRenderGroupUpdate(bool isRenderGroup) override;
+    void UpdateAdaptiveGroup(bool isRenderGroup, bool useAdaptiveFilter) override;
     void OnSuggestedRenderGroupUpdate(bool isRenderGroup) override;
+    void OnExcludeFromRenderGroupUpdate(bool exclude) override;
     void OnRenderFitUpdate(RenderFit renderFit) override;
     void OnNodeNameUpdate(const std::string& id) override;
     void OnAttractionEffectUpdate(const AttractionEffect& effect) override;
@@ -640,12 +680,14 @@ protected:
     bool HasValidBgImageResizable();
     void OnTransitionInFinish();
     void OnTransitionOutFinish();
+    RefPtr<UINode> GetModalNode(const RefPtr<UINode>& breakPointParent);
     void RemoveDefaultTransition();
     void FireTransitionUserCallback(bool isTransitionIn);
     void PostTransitionUserOutCallback();
     void SetTransitionPivot(const SizeF& frameSize, bool transitionIn);
     void SetPivot(float xPivot, float yPivot, float zPivot = 0.0f);
     void SetPositionToRSNode();
+    void SetPositionToRSNodeMultiThread();
     std::shared_ptr<Rosen::RSUIContext> GetRSUIContext(PipelineContext* pipeline);
 
     // Convert BorderRadiusProperty to Rosen::Vector4f
@@ -678,9 +720,14 @@ protected:
     void SetRsParticleImage(std::shared_ptr<Rosen::RSImage>& rsImagePtr, std::string& imageSource);
     void PaintRSBgImage();
     void PaintPixmapBgImage();
+    void OnPaintBackgroundDynamic(bool requestNextFrame = true);
+    void ScheduleBackgroundPaint(bool requestNextFrame = true);
+    bool CancelDynamicImageLoadingTasks();
     void PaintBorderImageGradient();
     void PaintMouseSelectRect(const RectF& rect, const Color& fillColor, const Color& strokeColor);
     void UpdateForeBlurStyleForColorMode(const std::optional<BlurStyleOption>& fgBlurStyle,
+        const SysOptions& sysOptions);
+    void UpdateForeBlurStyleForColorModeMultiThread(const std::optional<BlurStyleOption>& fgBlurStyle,
         const SysOptions& sysOptions);
     void SetBackBlurFilter();
     void SetFrontBlurFilter();
@@ -712,13 +759,8 @@ protected:
     template<typename T, typename D>
     void SetGraphicModifier(std::shared_ptr<T>& modifier, D data);
 
-#if defined(MODIFIER_NG)
     void AddModifier(const std::shared_ptr<Rosen::ModifierNG::RSModifier>& modifier);
     void RemoveModifier(const std::shared_ptr<Rosen::ModifierNG::RSModifier>& modifier);
-#else
-    void AddModifier(const std::shared_ptr<Rosen::RSModifier>& modifier);
-    void RemoveModifier(const std::shared_ptr<Rosen::RSModifier>& modifier);
-#endif
 
     // helper function to update one of the graphic effects
     template<typename T, typename D>
@@ -746,8 +788,7 @@ protected:
     float OnePixelValueRounding(float value, bool isRound, bool forceCeil, bool forceFloor);
     void RoundToPixelGrid();
     void RoundToPixelGrid(bool isRound, uint16_t flag);
-    void OnePixelRounding();
-    void OnePixelRounding(uint16_t flag = 0);
+    void OnePixelRounding(uint16_t flag);
     Matrix4 GetMatrix();
     bool IsUniRenderEnabled() override;
     void AddFrameNodeInfoToRsNode();
@@ -824,7 +865,6 @@ protected:
     std::shared_ptr<OverlayTextModifier> overlayTextModifier_ = nullptr;
     std::shared_ptr<GradientStyleModifier> gradientStyleModifier_;
 
-#if defined(MODIFIER_NG)
     std::shared_ptr<Rosen::ModifierNG::RSBoundsClipModifier> clipBoundModifier_;
     std::shared_ptr<Rosen::ModifierNG::RSFrameClipModifier> customClipToFrameModifier_;
     std::shared_ptr<Rosen::ModifierNG::RSMaskModifier> clipMaskModifier_;
@@ -840,6 +880,7 @@ protected:
     std::shared_ptr<Rosen::ModifierNG::RSTransformModifier> rotationZUserModifier_;
     std::shared_ptr<Rosen::ModifierNG::RSTransformModifier> cameraDistanceUserModifier_;
     std::shared_ptr<Rosen::ModifierNG::RSTransformModifier> scaleXYUserModifier_;
+    std::shared_ptr<Rosen::ModifierNG::RSTransformModifier> scrollScaleModifier_;
     std::shared_ptr<Rosen::ModifierNG::RSAlphaModifier> alphaUserModifier_;
     std::shared_ptr<Rosen::ModifierNG::RSAlphaModifier> alphaModifier_;
     // translate modifiers for interruption
@@ -847,31 +888,6 @@ protected:
     // for page orientation feature.
     std::shared_ptr<Rosen::ModifierNG::RSTransformModifier> baseTranslateInXYModifier_;
     std::shared_ptr<Rosen::ModifierNG::RSTransformModifier> baseRotateInZModifier_;
-#else
-    std::shared_ptr<Rosen::RSClipBoundsModifier> clipBoundModifier_;
-    std::shared_ptr<Rosen::RSCustomClipToFrameModifier> customClipToFrameModifier_;
-    std::shared_ptr<Rosen::RSMaskModifier> clipMaskModifier_;
-    std::optional<TransformMatrixModifier> transformModifier_;
-    std::shared_ptr<Rosen::RSProperty<Rosen::Vector2f>> pivotProperty_;
-    std::unique_ptr<SharedTransitionModifier> sharedTransitionModifier_;
-    std::optional<WindowBlurModifier> windowBlurModifier_;
-    // translate, rotation, scale, alpha modifier for developer
-    std::shared_ptr<Rosen::RSTranslateModifier> translateXYUserModifier_;
-    std::shared_ptr<Rosen::RSTranslateZModifier> translateZUserModifier_;
-    std::shared_ptr<Rosen::RSRotationXModifier> rotationXUserModifier_;
-    std::shared_ptr<Rosen::RSRotationYModifier> rotationYUserModifier_;
-    std::shared_ptr<Rosen::RSRotationModifier> rotationZUserModifier_;
-    std::shared_ptr<Rosen::RSCameraDistanceModifier> cameraDistanceUserModifier_;
-    std::shared_ptr<Rosen::RSScaleModifier> scaleXYUserModifier_;
-    std::shared_ptr<Rosen::RSAlphaModifier> alphaUserModifier_;
-    std::shared_ptr<Rosen::RSAlphaModifier> alphaModifier_;
-    // translate modifiers for interruption
-    std::shared_ptr<Rosen::RSTranslateModifier> translateXYModifier_;
-    // for page orientation feature.
-    std::shared_ptr<Rosen::RSTranslateModifier> baseTranslateInXYModifier_;
-    std::shared_ptr<Rosen::RSRotationModifier> baseRotateInZModifier_;
-#endif
-
     // graphics modifiers
     struct GraphicModifiers {
         std::shared_ptr<GrayScaleModifier> grayScale;
@@ -903,18 +919,14 @@ protected:
 
     std::shared_ptr<Rosen::RSTextureExport> rsTextureExport_;
 
-    std::shared_ptr<Rosen::RSCanvasNode> canvasNode_;
+    std::shared_ptr<Rosen::RSWindowKeyFrameNode> keyFrameNode_;
     std::function<void()> callbackAnimateEnd_ = nullptr;
     std::function<void()> callbackCachedAnimateAction_ = nullptr;
     bool isDraggingFlag_ = false;
-    bool reDraggingFlag_ = false;
+    bool hasKeyFrameCache_ = false;
     PipelineContext* pipeline_;
 
-#if defined(MODIFIER_NG)
     template <typename Modifier, RSPropertyType PropertyType, typename ValueType>
-#else
-    template <typename Modifier, typename ValueType>
-#endif
     friend class PropertyTransitionEffectTemplate;
 
     friend class RosenPivotTransitionEffect;
@@ -923,6 +935,12 @@ protected:
 
 private:
     void ModifyCustomBackground();
+    bool ShouldSkipAffineTransformation(std::shared_ptr<RSNode> rsNode);
+
+    uint32_t backgroundTaskId_ = 0;
+    static std::timed_mutex taskMtx_;
+    CancelableCallback<void()> pendingDecodeTask_;
+    CancelableCallback<void()> pendingUITask_;
 };
 } // namespace OHOS::Ace::NG
 

@@ -48,8 +48,8 @@ public:
     static void SetOnInactive(FrameNode* frameNode, std::function<void(int32_t)>&& onInactive);
     static void SetCustomTransition(FrameNode* frameNode, NG::NavDestinationTransitionDelegate transitionDelegate);
     static void SetHideTitleBar(FrameNode* frameNode, bool hideTitleBar, bool animated = false);
-    static void SetOnShown(FrameNode* frameNode, std::function<void()>&& onShow);
-    static void SetOnHidden(FrameNode* frameNode, std::function<void()>&& onHidden);
+    static void SetOnShown(FrameNode* frameNode, std::function<void(int32_t)>&& onShow);
+    static void SetOnHidden(FrameNode* frameNode, std::function<void(int32_t)>&& onHidden);
     static void SetOnBackPressed(FrameNode* frameNode, std::function<bool()>&& onBackPressed);
     static void SetNavDestinationMode(FrameNode* frameNode, const std::optional<NavDestinationMode>& mode);
     static void SetOnReady(FrameNode* frameNode, std::function<void(RefPtr<NavDestinationContext>)>&& onReady);
@@ -74,7 +74,11 @@ public:
     static void SetEnableStatusBar(FrameNode* frameNode, const std::optional<std::pair<bool, bool>>& statusBar);
     static void SetEnableNavigationIndicator(FrameNode* frameNode, const std::optional<bool>& navigationIndicator);
     static void SetHideItemText(FrameNode* frameNode, bool isHideItemText);
+    static void SetSystemBarStyle(FrameNode* frameNode, const Color& contentColor);
     static void SetPreferredOrientation(FrameNode* frameNode, const std::optional<Orientation>& ori);
+    static void SetOnNewParam(
+        FrameNode* frameNode, std::function<void(const RefPtr<NavPathInfo>&)>&& onNewParamCallback);
+    static void SetOnPop(FrameNode* frameNode, std::function<void(const RefPtr<NavPathInfo>&)>&& popCallback);
 };
 } // namespace OHOS::Ace::NG
 

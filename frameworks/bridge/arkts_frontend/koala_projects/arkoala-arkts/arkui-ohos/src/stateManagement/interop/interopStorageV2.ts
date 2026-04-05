@@ -56,7 +56,7 @@ export class InteropAppStorageV2 {
         // 1.1 part call 1.2 functions
         const getValue = (key: string): object | undefined => {
             const obj = AppStorageV2Impl.instance().getValue(key);
-            if (obj == undefined) {
+            if (obj === undefined) {
                 return undefined
             }
             return obj;
@@ -90,8 +90,21 @@ export class InteropAppStorageV2 {
         );
     }
 
-    public connect<T extends object>(ttype: Type, key: string, defaultCreator?: StorageDefaultCreator<T>): T | undefined {
-        if (ttype.isPrimitive()) {
+    public connect<T extends object>(ttype: Class, key: string, defaultCreator?: StorageDefaultCreator<T>): T | undefined {
+        if (ttype.isPrimitive() ||
+            ttype === Class.from<void>() ||
+            ttype === Class.from<null>() ||
+            ttype === Class.from<undefined>() ||
+            ttype === Class.from<Boolean>() ||
+            ttype === Class.from<Byte>() ||
+            ttype === Class.from<Short>() ||
+            ttype === Class.from<Int>() ||
+            ttype === Class.from<Long>() ||
+            ttype === Class.from<Char>() ||
+            ttype === Class.from<Float>() ||
+            ttype === Class.from<Double>() ||
+            ttype === Class.from<Number>() ||
+            ttype === Class.from<String>()) {
             throw new Error(StorageHelper.INVALID_DEFAULT_VALUE_PRIMITIVE);
         }
         if (!StorageHelper.isKeyValid(key)) {
@@ -108,16 +121,16 @@ export class InteropAppStorageV2 {
         return AppStorageV2Impl.instance().connect<T>(ttype, key, defaultCreator);
     }
 
-    public connect<T extends object>(ttype: Type, defaultCreator?: StorageDefaultCreator<T>): T | undefined {
+    public connect<T extends object>(ttype: Class, defaultCreator?: StorageDefaultCreator<T>): T | undefined {
         return InteropAppStorageV2.instance().connect<T>(ttype, transferTypeName(ttype.getName()), defaultCreator);
     }
 
-    public remove(keyOrType: string | Type): void {
+    public remove(keyOrType: string | Class): void {
         // delete 1.2
         const isDeleted = AppStorageV2Impl.instance().removeByInterop(keyOrType);
         if (!isDeleted) {
             // keyOrType is verified in remove function
-            const key = StorageHelper.getKeyOrTypeNameWithChecks(keyOrType);
+            const key = StorageHelper.getKeyOrTypeNameWithChecks<Any>(keyOrType);
             // delete 1.1
             this.removeDynamicValue_(key);
         }

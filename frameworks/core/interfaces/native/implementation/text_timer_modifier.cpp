@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
+#include "core/interfaces/native/utility/ace_engine_types.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -33,6 +33,7 @@ struct TextTimerOptions {
     std::optional<bool> isCountDown;
     std::optional<int64_t> count;
     std::optional<Ark_TextTimerController> controller;
+    std::optional<int32_t> startTime;
 };
 
 namespace Converter {
@@ -43,6 +44,7 @@ TextTimerOptions Convert(const Ark_TextTimerOptions& src)
     dst.isCountDown = Converter::OptConvert<bool>(src.isCountDown);
     dst.count = Converter::OptConvert<int64_t>(src.count);
     dst.controller = Converter::OptConvert<Ark_TextTimerController>(src.controller);
+    dst.startTime = Converter::OptConvert<int32_t>(src.startTime);
     return dst;
 }
 } // namespace Converter
@@ -71,6 +73,7 @@ void SetTextTimerOptionsImpl(Ark_NativePointer node,
         opts->count.reset();
     }
     TextTimerModelStatic::SetInputCount(frameNode, opts->count);
+    TextTimerModelStatic::SetStartTime(frameNode, opts->startTime);
 
     CHECK_NULL_VOID(opts->controller);
     auto textTimerController = TextTimerModelNG::InitTextController(frameNode);
@@ -124,7 +127,13 @@ void SetFontColorImpl(Ark_NativePointer node,
     CHECK_NULL_VOID(context);
     auto theme = context->GetTheme<TextTheme>();
     CHECK_NULL_VOID(theme);
-    TextTimerModelStatic::SetFontColor(frameNode, color.value_or(theme->GetTextStyle().GetTextColor()));
+    if (color.has_value()) {
+        TextTimerModelStatic::SetFontColor(frameNode, color.value());
+        TextTimerModelStatic::SetTextColorByUser(frameNode, true);
+    } else {
+        TextTimerModelStatic::SetFontColor(frameNode, theme->GetTextStyle().GetTextColor());
+        TextTimerModelStatic::SetTextColorByUser(frameNode, false);
+    }
 }
 void SetFontSizeImpl(Ark_NativePointer node,
                      const Opt_Length* value)
@@ -137,7 +146,13 @@ void SetFontSizeImpl(Ark_NativePointer node,
     }
     Validator::ValidateNonNegative(convValue);
     Validator::ValidateNonPercent(convValue);
-    TextTimerModelStatic::SetFontSize(frameNode, convValue.value_or(DEFAULT_FONT_SIZE));
+    if (convValue.has_value()) {
+        TextTimerModelStatic::SetFontSize(frameNode, convValue.value());
+        TextTimerModelStatic::SetFontSizeByUser(frameNode, true);
+    } else {
+        TextTimerModelStatic::SetFontSize(frameNode, DEFAULT_FONT_SIZE);
+        TextTimerModelStatic::SetFontSizeByUser(frameNode, false);
+    }
 }
 void SetFontStyleImpl(Ark_NativePointer node,
                       const Opt_FontStyle* value)
@@ -153,7 +168,13 @@ void SetFontWeightImpl(Ark_NativePointer node,
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     auto weight = Converter::OptConvertPtr<Ace::FontWeight>(value);
-    TextTimerModelStatic::SetFontWeight(frameNode, weight.value_or(DEFAULT_FONT_WEIGHT));
+    if (weight.has_value()) {
+        TextTimerModelStatic::SetFontWeight(frameNode, weight.value());
+        TextTimerModelStatic::SetFontWeightByUser(frameNode, true);
+    } else {
+        TextTimerModelStatic::SetFontWeight(frameNode, DEFAULT_FONT_WEIGHT);
+        TextTimerModelStatic::SetFontWeightByUser(frameNode, false);
+    }
 }
 void SetFontFamilyImpl(Ark_NativePointer node,
                        const Opt_ResourceStr* value)
@@ -164,12 +185,14 @@ void SetFontFamilyImpl(Ark_NativePointer node,
     auto optValue = Converter::OptConvertPtr<Converter::FontFamilies>(value);
     if (!optValue) {
         TextTimerModelStatic::SetFontFamily(frameNode, DEFAULT_FONT_FAMILY);
+        TextTimerModelStatic::SetFontFamilyByUser(frameNode, false);
         return;
     }
     if (auto fontfamiliesOpt = optValue; fontfamiliesOpt) {
         families = fontfamiliesOpt->families;
     }
     TextTimerModelStatic::SetFontFamily(frameNode, families);
+    TextTimerModelStatic::SetFontFamilyByUser(frameNode, true);
 }
 // fix Opt_Callback_Number_Number_Void > Opt_Callback_Int64_Int64_Void this is time so int64 is required
 void SetOnTimerImpl(Ark_NativePointer node,

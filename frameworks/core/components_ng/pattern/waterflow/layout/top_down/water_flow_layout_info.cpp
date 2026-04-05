@@ -157,7 +157,7 @@ OverScrollOffset WaterFlowLayoutInfo::GetOverScrolledDelta(float delta) const
 {
     OverScrollOffset offset = { 0, 0 };
     if (startIndex_ == 0) {
-        auto startPos = currentOffset_;
+        auto startPos = currentOffset_ - contentStartOffset_;
         auto newStartPos = startPos + delta;
         if (startPos > 0 && newStartPos > 0) {
             offset.start = delta;
@@ -170,9 +170,9 @@ OverScrollOffset WaterFlowLayoutInfo::GetOverScrolledDelta(float delta) const
         }
     }
     if (itemEnd_) {
-        auto endPos = currentOffset_ + maxHeight_;
-        if (GreatNotEqual(lastMainSize_, currentOffset_ + maxHeight_)) {
-            endPos = currentOffset_ + lastMainSize_;
+        auto endPos = currentOffset_ + maxHeight_ + contentEndOffset_;
+        if (GreatNotEqual(lastMainSize_ - contentStartOffset_, currentOffset_ + maxHeight_ + contentEndOffset_)) {
+            endPos = currentOffset_ + lastMainSize_ - contentStartOffset_ - contentEndOffset_;
         }
         auto newEndPos = endPos + delta;
         if (endPos < lastMainSize_ && newEndPos < lastMainSize_) {
@@ -320,8 +320,13 @@ void WaterFlowLayoutInfo::ClearCacheAfterIndex(int32_t currentIndex)
         }
     }
 
-    if (static_cast<size_t>(currentIndex + 1) < itemInfos_.size()) {
-        itemInfos_.resize(currentIndex + 1);
+    // to pass taint data detection by tools.
+    int32_t newIndex = currentIndex + 1;
+    if (newIndex >= 0) {
+        size_t newSize = static_cast<size_t>(newIndex);
+        if (newSize < itemInfos_.size()) {
+            itemInfos_.resize(newSize);
+        }
     }
 
     auto it = std::upper_bound(endPosArray_.begin(), endPosArray_.end(), currentIndex,
@@ -338,8 +343,10 @@ void WaterFlowLayoutInfo::ClearCacheAfterIndex(int32_t currentIndex)
 
 bool WaterFlowLayoutInfo::ReachStart(float prevOffset, bool firstLayout) const
 {
-    auto scrollUpToReachTop = (LessNotEqual(prevOffset, 0.0) || firstLayout) && GreatOrEqual(currentOffset_, 0.0);
-    auto scrollDownToReachTop = GreatNotEqual(prevOffset, 0.0) && LessOrEqual(currentOffset_, 0.0);
+    auto scrollUpToReachTop = (LessNotEqual(prevOffset, contentStartOffset_) || firstLayout) &&
+                              GreatOrEqual(currentOffset_, contentStartOffset_);
+    auto scrollDownToReachTop =
+        GreatNotEqual(prevOffset, contentStartOffset_) && LessOrEqual(currentOffset_, contentStartOffset_);
     return scrollUpToReachTop || scrollDownToReachTop;
 }
 
@@ -348,7 +355,7 @@ bool WaterFlowLayoutInfo::ReachEnd(float prevOffset, bool firstLayout) const
     if (!offsetEnd_) {
         return false;
     }
-    float minOffset = lastMainSize_ - maxHeight_;
+    float minOffset = lastMainSize_ - maxHeight_ - contentEndOffset_;
     auto scrollDownToReachEnd =
         (GreatNotEqual(prevOffset, minOffset) || firstLayout) && LessOrEqual(currentOffset_, minOffset);
     auto scrollUpToReachEnd = LessNotEqual(prevOffset, minOffset) && GreatOrEqual(currentOffset_, minOffset);
@@ -429,19 +436,20 @@ void WaterFlowLayoutInfo::SetNextSegmentStartPos(int32_t itemIdx)
 void WaterFlowLayoutInfo::Sync(float mainSize, bool canOverScrollStart, bool canOverScrollEnd)
 {
     // adjust offset when it can't overScroll at top
-    if (!canOverScrollStart) {
-        currentOffset_ = std::min(currentOffset_, 0.0f);
+    if (!canOverScrollStart && GreatNotEqual(currentOffset_, contentStartOffset_)) {
+        currentOffset_ = contentStartOffset_;
     }
+
     endIndex_ = FastSolveEndIndex(mainSize + expandHeight_);
 
     maxHeight_ = GetMaxMainHeight();
 
-    itemStart_ = GreatOrEqual(currentOffset_, 0.0f);
+    itemStart_ = GreatOrEqual(currentOffset_, contentStartOffset_);
     itemEnd_ = endIndex_ >= 0 && endIndex_ == GetChildrenCount() - 1;
-    offsetEnd_ = itemEnd_ && GreatOrEqual(mainSize - currentOffset_, maxHeight_);
+    offsetEnd_ = itemEnd_ && GreatOrEqual(mainSize - currentOffset_, maxHeight_ + contentEndOffset_);
     // adjust offset when it can't overScroll at bottom
-    if (offsetEnd_ && Negative(currentOffset_) && !canOverScrollEnd) {
-        currentOffset_ = std::min(-maxHeight_ + mainSize, 0.0f);
+    if (offsetEnd_ && LessNotEqual(currentOffset_, contentStartOffset_) && !canOverScrollEnd) {
+        currentOffset_ = std::min(-maxHeight_ - contentEndOffset_ + mainSize, contentStartOffset_);
     }
 
     startIndex_ = FastSolveStartIndex();
@@ -449,12 +457,12 @@ void WaterFlowLayoutInfo::Sync(float mainSize, bool canOverScrollStart, bool can
 
 bool WaterFlowLayoutInfo::IsAtTopWithDelta()
 {
-    return GreatOrEqual(currentOffset_, 0.0f);
+    return GreatOrEqual(currentOffset_, contentStartOffset_);
 }
 
 bool WaterFlowLayoutInfo::IsAtBottomWithDelta()
 {
-    return itemEnd_ && GreatOrEqual(lastMainSize_ - currentOffset_, maxHeight_);
+    return itemEnd_ && GreatOrEqual(lastMainSize_ - currentOffset_, maxHeight_ + contentEndOffset_);
 }
 
 void WaterFlowLayoutInfo::InitSegments(const std::vector<WaterFlowSections::Section>& sections, int32_t start)
@@ -471,9 +479,13 @@ void WaterFlowLayoutInfo::InitSegments(const std::vector<WaterFlowSections::Sect
     }
 
     segmentCache_.clear();
-    if (static_cast<size_t>(start) < segmentStartPos_.size()) {
-        segmentStartPos_.resize(start);
-        // startPos of next segment can only be determined after margins_ is reinitialized.
+    // to pass taint data detection by tools.
+    if (start >= 0) {
+        size_t startSize = static_cast<size_t>(start);
+        if (startSize < segmentStartPos_.size()) {
+            segmentStartPos_.resize(startSize);
+            // startPos of next segment can only be determined after margins_ is reinitialized.
+        }
     }
 
     int32_t lastValidItem = (start > 0) ? segmentTails_[start - 1] : -1;
@@ -541,16 +553,16 @@ float WaterFlowLayoutInfo::JumpToTargetAlign(const std::pair<float, float>& item
     ScrollAlign align = align_;
     switch (align) {
         case ScrollAlign::START:
-            targetPosition = -item.first;
+            targetPosition = -item.first + contentStartOffset_;
             break;
         case ScrollAlign::END:
-            targetPosition = lastMainSize_ - (item.first + item.second);
+            targetPosition = lastMainSize_ - (item.first + item.second) - contentEndOffset_;
             break;
         case ScrollAlign::AUTO:
-            if (currentOffset_ + item.first < 0) {
-                targetPosition = -item.first;
-            } else if (currentOffset_ + item.first + item.second > lastMainSize_) {
-                targetPosition = lastMainSize_ - (item.first + item.second);
+            if (currentOffset_ + item.first < contentStartOffset_) {
+                targetPosition = -item.first + contentStartOffset_;
+            } else if (currentOffset_ + item.first + item.second > lastMainSize_ - contentEndOffset_) {
+                targetPosition = lastMainSize_ - (item.first + item.second) - contentEndOffset_;
             } else {
                 targetPosition = currentOffset_;
             }
@@ -587,11 +599,12 @@ float WaterFlowLayoutInfo::CalcTargetPosition(int32_t idx, int32_t crossIdx) con
 
 bool WaterFlowLayoutInfo::OutOfBounds() const
 {
-    bool outOfStart = itemStart_ && Positive(currentOffset_);
-    bool outOfEnd = offsetEnd_ && LessNotEqual(currentOffset_ + maxHeight_, lastMainSize_);
+    bool outOfStart = itemStart_ && GreatNotEqual(currentOffset_, contentStartOffset_);
+    bool outOfEnd = offsetEnd_ &&
+                    LessNotEqual(currentOffset_ + maxHeight_ + contentEndOffset_, lastMainSize_);
     // not outOfEnd when content size < mainSize but currentOffset_ == 0
-    if (LessNotEqual(maxHeight_, lastMainSize_)) {
-        outOfEnd &= Negative(currentOffset_);
+    if (LessNotEqual(maxHeight_ + contentEndOffset_ + contentStartOffset_, lastMainSize_)) {
+        outOfEnd &= Negative(currentOffset_ - contentStartOffset_);
     }
     return outOfStart || outOfEnd;
 }
@@ -600,10 +613,16 @@ float WaterFlowLayoutInfo::CalcOverScroll(float mainSize, float delta) const
 {
     float res = 0;
     if (itemStart_) {
-        res = currentOffset_ + delta;
+        res = currentOffset_ - contentStartOffset_ + delta;
     }
     if (offsetEnd_) {
-        res = mainSize - (GetMaxMainHeight() + currentOffset_ - delta);
+		// Fix over-scroll when content doesn't fill the viewport.
+		// Use totalOffset delta to avoid excessive friction at low scroll speed.
+        if (GetMaxMainHeight() < mainSize) {
+            res = currentOffset_ - contentStartOffset_ + delta;
+        } else {
+            res = mainSize - (GetMaxMainHeight() + contentEndOffset_ + currentOffset_ - delta);
+        }
     }
     return res;
 }
@@ -614,7 +633,7 @@ float WaterFlowLayoutInfo::EstimateTotalHeight() const
     if (!itemInfos_.empty()) {
         // in segmented layout
         childCount = static_cast<int32_t>(itemInfos_.size());
-    } else if (maxHeight_ && repeatDifference_ == 0) {
+    } else if (itemEnd_ && repeatDifference_ == 0) {
         // in original layout, already reach end.
         return maxHeight_;
     } else {
@@ -627,7 +646,9 @@ float WaterFlowLayoutInfo::EstimateTotalHeight() const
     if (childCount == 0) {
         return 0;
     }
-    auto estimateHeight = GetMaxMainHeight() / childCount * totalChildrenCount;
+    auto total = totalChildrenCount - (footerIndex_ >= 0 ? 1 : 0);
+    auto footHeight = footerIndex_ >= 0 ? footerHeight_ : 0.0f;
+    auto estimateHeight = GetMaxMainHeight() / childCount * total + footHeight;
     return estimateHeight;
 }
 
@@ -648,9 +669,9 @@ int32_t WaterFlowLayoutInfo::GetLastItem() const
 
 void WaterFlowLayoutInfo::UpdateItemStart(bool canOverScrollStart)
 {
-    if (currentOffset_ >= 0) {
+    if (GreatOrEqual(currentOffset_, contentStartOffset_)) {
         if (!canOverScrollStart) {
-            currentOffset_ = 0;
+            currentOffset_ = contentStartOffset_;
         }
         itemStart_ = true;
     } else {

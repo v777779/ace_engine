@@ -27,7 +27,7 @@
 
 namespace OHOS::Ace {
 class RenderingContext2DModel : public AceType {
-    DECLARE_ACE_TYPE(RenderingContext2DModel, AceType)
+    DECLARE_ACE_TYPE(RenderingContext2DModel, AceType);
 
 public:
     RenderingContext2DModel()
@@ -41,6 +41,11 @@ public:
     virtual void SetFillText(const PaintState& state, const FillTextInfo& fillTextInfo) = 0;
     virtual void SetStrokeText(const PaintState& state, const FillTextInfo& fillTextInfo) = 0;
     virtual void SetAntiAlias(bool anti) = 0;
+    virtual std::optional<bool> GetAntialiasExt() const
+    {
+        return std::nullopt;
+    }
+    virtual void SetAntialiasExt(std::optional<bool> isEnabled) {}
     virtual void SetFontWeight(const FontWeight& weight) = 0;
     virtual void SetFontStyle(const FontStyle& fontStyle) = 0;
     virtual void SetFontFamilies(const std::vector<std::string>& families) = 0;
@@ -137,13 +142,14 @@ public:
         pattern->SetTranslateY(transform.translateY);
     }
 
+    virtual void SetPatternInstanceId(int32_t id) {};
 protected:
     int32_t apiVersion_ = 0;
     ACE_DISALLOW_COPY_AND_MOVE(RenderingContext2DModel);
 };
 
 class CanvasRenderingContext2DModel : public RenderingContext2DModel {
-    DECLARE_ACE_TYPE(CanvasRenderingContext2DModel, RenderingContext2DModel)
+    DECLARE_ACE_TYPE(CanvasRenderingContext2DModel, RenderingContext2DModel);
 
 public:
     CanvasRenderingContext2DModel() = default;
@@ -170,7 +176,7 @@ protected:
 };
 
 class OffscreenCanvasRenderingContext2DModel : public RenderingContext2DModel {
-    DECLARE_ACE_TYPE(OffscreenCanvasRenderingContext2DModel, RenderingContext2DModel)
+    DECLARE_ACE_TYPE(OffscreenCanvasRenderingContext2DModel, RenderingContext2DModel);
 
 public:
     OffscreenCanvasRenderingContext2DModel() = default;

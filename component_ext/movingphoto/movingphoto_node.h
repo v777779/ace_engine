@@ -24,7 +24,6 @@ namespace OHOS::Ace::NG {
 
 constexpr int32_t VIDEO_NODE_INDEX = 0;
 constexpr int32_t IMAGE_NODE_INDEX = 0;
-constexpr int32_t COLUMN_NODE_INDEX = 1;
 
 class ACE_EXPORT MovingPhotoNode : public FrameNode {
     DECLARE_ACE_TYPE(MovingPhotoNode, FrameNode);
@@ -32,7 +31,10 @@ class ACE_EXPORT MovingPhotoNode : public FrameNode {
 public:
     MovingPhotoNode(const std::string& tag, int32_t nodeId, const RefPtr<Pattern>& pattern, bool isRoot = false)
         : FrameNode(tag, nodeId, pattern, isRoot)
-    {}
+    {
+        // MovingPhoto consumes too much memory and is unsuitable for using th asynchronous release.
+        RegisterReleaseFunc(false);
+    }
     ~MovingPhotoNode() override = default;
 
     static RefPtr<MovingPhotoNode> GetOrCreateMovingPhotoNode(
@@ -64,9 +66,17 @@ public:
         return videoId_.value();
     }
 
-    RefPtr<UINode> GetVideo()
+    RefPtr<UINode> GetVideo(int32_t index)
     {
-        return GetChildAtIndex(COLUMN_NODE_INDEX)->GetChildAtIndex(VIDEO_NODE_INDEX);
+        auto childNode = GetChildAtIndex(index);
+        if (childNode == nullptr) {
+            return nullptr;
+        }
+        auto videoNode = childNode->GetChildAtIndex(VIDEO_NODE_INDEX);
+        if (videoNode == nullptr) {
+            return nullptr;
+        }
+        return videoNode;
     }
 
     bool HasVideoNode()
@@ -82,9 +92,9 @@ public:
         return columnId_.value();
     }
 
-    RefPtr<UINode> GetColumn()
+    RefPtr<UINode> GetColumn(int32_t index)
     {
-        return GetChildAtIndex(COLUMN_NODE_INDEX);
+        return GetChildAtIndex(index);
     }
 
     bool HasColumnNode()

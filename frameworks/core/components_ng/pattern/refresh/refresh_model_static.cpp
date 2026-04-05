@@ -84,6 +84,17 @@ void RefreshModelStatic::SetPullToRefresh(FrameNode* frameNode, const std::optio
     }
 }
 
+void RefreshModelStatic::SetPullUpToCancelRefresh(
+    FrameNode* frameNode, const std::optional<bool>& pullUpToCancelRefresh)
+{
+    if (pullUpToCancelRefresh) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+            RefreshLayoutProperty, PullUpToCancelRefresh, pullUpToCancelRefresh.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, PullUpToCancelRefresh, frameNode);
+    }
+}
+
 void RefreshModelStatic::SetPullDownRatio(FrameNode* frameNode, const std::optional<float>& pullDownRatio)
 {
     if (pullDownRatio) {
@@ -131,5 +142,14 @@ void RefreshModelStatic::SetChangeEvent(FrameNode* frameNode, RefreshChangeEvent
     auto eventHub = frameNode->GetEventHub<RefreshEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetChangeEvent(std::move(changeEvent));
+}
+
+void RefreshModelStatic::SetMaxPullDownDistance(FrameNode* frameNode, const std::optional<float>& maxDistance)
+{
+    if (maxDistance.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, MaxPullDownDistance, maxDistance.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, MaxPullDownDistance, frameNode);
+    }
 }
 } // namespace OHOS::Ace::NG

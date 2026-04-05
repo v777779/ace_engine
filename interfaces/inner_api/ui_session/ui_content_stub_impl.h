@@ -16,8 +16,6 @@
 #ifndef FOUNDATION_ACE_INTERFACE_UI_CONTENT_STUB_IMPL_H
 #define FOUNDATION_ACE_INTERFACE_UI_CONTENT_STUB_IMPL_H
 
-#include <singleton.h>
-
 #include "iremote_object.h"
 #include "ui_content_errors.h"
 #include "ui_content_stub.h"
@@ -31,21 +29,35 @@ public:
     {
         return 0;
     }
-    int32_t GetInspectorTree(const std::function<void(std::string, int32_t, bool)>& eventCallback) override;
+    int32_t GetInspectorTree(const std::function<void(std::string, int32_t, bool)>& eventCallback,
+        ParamConfig config = ParamConfig()) override;
     int32_t RegisterClickEventCallback(const EventCallback& eventCallback) override;
     int32_t RegisterRouterChangeEventCallback(const EventCallback& eventCallback) override;
     int32_t RegisterSearchEventCallback(const EventCallback& eventCallback) override;
-    int32_t RegisterComponentChangeEventCallback(const EventCallback& eventCallback) override;
+    int32_t RegisterTextChangeEventCallback(const EventCallback& eventCallback) override;
+    int32_t RegisterComponentChangeEventCallback(const EventCallback& eventCallback,
+        uint32_t mask = ComponentEventType::COMPONENT_EVENT_ALL) override;
     int32_t RegisterWebUnfocusEventCallback(
         const std::function<void(int64_t accessibilityId, const std::string& data)>& eventCallback) override;
+    int32_t RegisterScrollEventCallback(const EventCallback& eventCallback) override;
+    int32_t RegisterLifeCycleEventCallback(const EventCallback& eventCallback) override;
+    int32_t RegisterSelectTextEventCallback(const EventCallback& eventCallback) override;
     int32_t SendCommand(int32_t id, const std::string& command) override;
     int32_t SendCommandAsync(int32_t id, const std::string& command) override;
     int32_t SendCommand(const std::string command) override;
     int32_t UnregisterClickEventCallback() override;
     int32_t UnregisterSearchEventCallback() override;
+    int32_t UnregisterTextChangeEventCallback() override;
     int32_t UnregisterRouterChangeEventCallback() override;
     int32_t UnregisterComponentChangeEventCallback() override;
     int32_t UnregisterWebUnfocusEventCallback() override;
+    int32_t UnregisterScrollEventCallback() override;
+    int32_t UnregisterLifeCycleEventCallback() override;
+    int32_t UnregisterSelectTextEventCallback() override;
+    int32_t GetSpecifiedContentOffsets(int32_t id, const std::string& content,
+        const std::function<void(std::vector<std::pair<float, float>>)>& eventCallback) override;
+    int32_t HighlightSpecifiedContent(int32_t id, const std::string& content,
+        const std::vector<std::string>& nodeIds, const std::string& configs) override;
     bool IsConnect() override;
     int32_t ResetTranslateTextAll() override;
     int32_t ResetTranslateText(int32_t nodeId) override;
@@ -61,7 +73,32 @@ public:
     int32_t GetCurrentImagesShowing(
         const std::function<void(std::vector<std::pair<int32_t, std::shared_ptr<Media::PixelMap>>>)>& finishCallback)
         override;
-    int32_t GetVisibleInspectorTree(const std::function<void(std::string, int32_t, bool)>& eventCallback) override;
+    int32_t GetImagesById(
+        const std::vector<int32_t>& arkUIIds,
+        const std::function<void(int32_t, const std::unordered_map<int32_t, std::shared_ptr<Media::PixelMap>>&,
+            MultiImageQueryErrorCode)>& arkUIfinishCallback,
+        const std::map<int32_t, std::vector<int32_t>>& arkWebs,
+        const std::function<void(int32_t, const std::map<int32_t, std::map<int32_t,
+            std::shared_ptr<Media::PixelMap>>>&, MultiImageQueryErrorCode)>& arkWebfinishCallback) override;
+    int32_t GetVisibleInspectorTree(const std::function<void(std::string, int32_t, bool)>& eventCallback,
+        ParamConfig config = ParamConfig()) override;
+    int32_t GetLatestHitTestNodeInfosForTouch(
+        const std::function<void(std::string, int32_t, bool)>& eventCallback,
+        InteractionParamConfig config = InteractionParamConfig()) override;
+    int32_t ExeAppAIFunction(
+        const std::string& funcName, const std::string& params, const std::function<void(uint32_t)>& finishCallback)
+        override;
+    int32_t RegisterContentChangeCallback(const ContentChangeConfig& config,
+        [[maybe_unused]] const std::function<void(ChangeType type, const std::string& simpleTree)> callback) override;
+    int32_t UnregisterContentChangeCallback() override;
+    int32_t GetStateMgmtInfo(const std::string& componentName, const std::string& propertyName,
+        const std::string& jsonPath, const std::function<void(std::vector<std::string>)>& eventCallback,
+        bool onlyVisible = false) override;
+
+    int32_t GetWebInfoByRequest(
+        int32_t webId,
+        const std::string& request,
+        const GetWebInfoByRequestCallback& finishCallback) override;
 };
 } // namespace OHOS::Ace
 #endif // FOUNDATION_ACE_INTERFACE_UI_CONTENT_STUB_IMPL_H

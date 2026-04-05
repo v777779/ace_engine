@@ -18,10 +18,7 @@
 
 #include <memory>
 #include <mutex>
-#ifdef ARKUI_CAPI_UNITTEST
-#include "test/unittest/capi/stubs/mock_shader_input_buffer.h"
-#include "test/unittest/capi/stubs/mock_custom_render_descriptor.h"
-#else
+
 #include "custom/custom_render_descriptor.h"
 #include "custom/shader_input_buffer.h"
 #include "data_type/constants.h"
@@ -29,7 +26,7 @@
 #include "data_type/gltf_animation.h"
 #include "data_type/light.h"
 #include "data_type/position.h"
-#endif // ARKUI_CAPI_UNITTEST
+
 #include "base/geometry/animatable_float.h"
 #include "base/geometry/quaternion.h"
 #include "base/geometry/vec3.h"
@@ -67,6 +64,7 @@ public:
     virtual void AddShaderImageTexture(const std::string& path) = 0;
     virtual void AddShaderInputBuffer(const std::shared_ptr<Render3D::ShaderInputBuffer>& buffer) = 0;
     virtual std::optional<std::shared_ptr<Render3D::ShaderInputBuffer>> GetShaderInputBuffer() = 0;
+    virtual void SetBackgroundColor(uint32_t argb) = 0;
 
 private:
     static std::unique_ptr<ModelView> instance_;

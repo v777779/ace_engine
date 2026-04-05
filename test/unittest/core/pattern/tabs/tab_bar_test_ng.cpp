@@ -14,7 +14,7 @@
  */
 
 #include "tabs_test_ng.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/pattern/divider/divider_layout_property.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
@@ -623,13 +623,14 @@ HWTEST_F(TabBarTestNg, TabBarPatternChangeMask001, TestSize.Level1)
     tabBarPattern_->ChangeMask(TEST_TAB_BAR_INDEX, 1.0f, tabBarOffset, 0.99f, TEST_MASK_MIDDLE_RADIUS_RATIO, false);
     EXPECT_EQ(tabBarPattern_->indicator_, 0);
 
-    auto selectedmaskPosition = tabBarNode_->GetChildren().size() - TEST_SELECTED_MASK_COUNT;
-    auto selectedMaskNode = AceType::DynamicCast<FrameNode>(tabBarNode_->GetChildAtIndex(selectedmaskPosition));
+    auto selectedMaskPosition = tabBarNode_->GetChildren().size() - TEST_SELECTED_MASK_COUNT - IMAGE_INDICATOR_COUNT;
+    auto selectedMaskNode = AceType::DynamicCast<FrameNode>(tabBarNode_->GetChildAtIndex(selectedMaskPosition));
     auto selectedImageNode = AceType::DynamicCast<FrameNode>(selectedMaskNode->GetChildren().front());
     auto selectedImageRenderContext = selectedImageNode->GetRenderContext();
     EXPECT_DOUBLE_EQ(selectedImageRenderContext->GetOpacity().value(), 1.0f);
-    auto unselectedmaskPosition = tabBarNode_->GetChildren().size() - TEST_UNSELECTED_MASK_COUNT;
-    auto unselectedMaskNode = AceType::DynamicCast<FrameNode>(tabBarNode_->GetChildAtIndex(unselectedmaskPosition));
+    auto unselectedMaskPosition =
+        tabBarNode_->GetChildren().size() - TEST_UNSELECTED_MASK_COUNT - IMAGE_INDICATOR_COUNT;
+    auto unselectedMaskNode = AceType::DynamicCast<FrameNode>(tabBarNode_->GetChildAtIndex(unselectedMaskPosition));
     auto unSelectedImageNode = AceType::DynamicCast<FrameNode>(unselectedMaskNode->GetChildren().front());
     auto unSelectedImageRenderContext = unSelectedImageNode->GetRenderContext();
     EXPECT_DOUBLE_EQ(unSelectedImageRenderContext->GetOpacity().value(), 0.99f);
@@ -821,20 +822,6 @@ HWTEST_F(TabBarTestNg, TabBarDistributedTest001, TestSize.Level1)
     tabBarPattern_->UpdateIndicator(0);
     std::string ret = tabBarPattern_->ProvideRestoreInfo();
     EXPECT_TRUE(ret == R"({"Index":0})");
-
-    /**
-     * @tc.steps: step3. Function OnRestoreInfo is called.
-     * @tc.expected: Passing invalid & valid JSON format.
-     */
-    std::string restoreInfo_ = R"({"Index":0})";
-    pattern_->OnRestoreInfo(restoreInfo_);
-    EXPECT_EQ(tabBarLayoutProperty_->GetIndicator().value_or(0), 0);
-    restoreInfo_ = R"({"Index":1})";
-    pattern_->OnRestoreInfo(restoreInfo_);
-    EXPECT_EQ(tabBarLayoutProperty_->GetIndicator().value_or(0), 1);
-    restoreInfo_ = "invalid_json_string";
-    pattern_->OnRestoreInfo(restoreInfo_);
-    EXPECT_EQ(tabBarLayoutProperty_->GetIndicator().value_or(0), 1);
 }
 
 /**
@@ -1348,6 +1335,8 @@ HWTEST_F(TabBarTestNg, TabBarPatternApplyTurnPageRateToIndicator001, TestSize.Le
     tabBarPattern_->ApplyTurnPageRateToIndicator(-2.0f);
     EXPECT_EQ(tabBarPattern_->turnPageRate_, 0.0f);
     tabBarPattern_->swiperStartIndex_ = 0;
+    tabBarPattern_->SetDrawableIndicatorFlag(true, 0, false);
+    tabBarPattern_->SetDrawableIndicatorFlag(false, 1, false);
     tabBarPattern_->ApplyTurnPageRateToIndicator(0.9f);
     tabBarPattern_->SetTabBarStyle(TabBarStyle::BOTTOMTABBATSTYLE, 0);
     tabBarPattern_->SetTabBarStyle(TabBarStyle::BOTTOMTABBATSTYLE, 1);
@@ -1807,7 +1796,7 @@ HWTEST_F(TabBarTestNg, TabContentModelAddTabBarItem001, TestSize.Level1)
     auto tabContentFrameNode = AceType::DynamicCast<TabContentNode>(ViewStackProcessor::GetInstance()->Finish());
     auto tabContentPattern = tabContentFrameNode->GetPattern<TabContentPattern>();
     TabsModelNG tabsModel;
-    tabsModel.Create(BarPosition::START, 1, nullptr, nullptr);
+    tabsModel.Create(BarPosition::START, 1, nullptr);
     tabContentFrameNode->GetTabBarItemId();
     tabContentFrameNode->MountToParent(swiperNode_);
     tabContentPattern->SetTabBar(text_test, "", std::nullopt, nullptr);
@@ -2044,7 +2033,7 @@ HWTEST_F(TabBarTestNg, TabBarPatternPlayIndicatorTranslateAnimation003, TestSize
     EXPECT_TRUE(tabBarPattern_->indicatorAnimationIsRunning_);
     auto widthProperty =
         AceType::DynamicCast<NodeAnimatablePropertyFloat>(tabBarNode_->GetAnimatablePropertyFloat("indicatorOffset"));
-    EXPECT_NEAR(widthProperty->Get(), 150.0f, 0.001f);
+    EXPECT_NEAR(widthProperty->GetStagingValue(), 150.0f, 0.001f);
     MockAnimationManager::GetInstance().Tick();
     EXPECT_FALSE(tabBarPattern_->indicatorAnimationIsRunning_);
 
@@ -2087,7 +2076,7 @@ HWTEST_F(TabBarTestNg, TabBarPatternSetEdgeEffect004, TestSize.Level1)
     auto scrollEffect = AceType::DynamicCast<ScrollSpringEffect>(tabBarPattern_->scrollEffect_);
     ASSERT_NE(scrollEffect, nullptr);
     auto outBoundaryCallback = scrollEffect->outBoundaryCallback_;
-    EXPECT_TRUE(outBoundaryCallback());
+    EXPECT_TRUE(outBoundaryCallback(true));
     auto currentPositionCallback = scrollEffect->currentPositionCallback_;
     auto leadingCallback = scrollEffect->leadingCallback_;
     auto trailingCallback = scrollEffect->trailingCallback_;

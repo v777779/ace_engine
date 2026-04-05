@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,15 +16,36 @@
 #include "core/common/dynamic_module_helper.h"
 
 #include <memory>
-#include <string>
 
 #include "compatible/components/component_loader.h"
-#include "ui/base/utils/utils.h"
+#include "interfaces/inner_api/ace/utils.h"
 
-#include "base/json/json_util.h"
 #include "base/utils/utils.h"
+#include "core/common/dynamic_module.h"
+#include "base/log/log.h"
 
 namespace OHOS::Ace {
+namespace {
+#ifdef WINDOWS_PLATFORM
+#ifdef UNICODE
+const std::wstring COMPATIABLE_LIB = L"libace_compatible_components.dll";
+const std::wstring DYNAMIC_MODULE_LIB_PREFIX = L"libarkui_";
+const std::wstring DYNAMIC_MODULE_LIB_POSTFIX = L".dll";
+#else
+const std::string COMPATIABLE_LIB = "libace_compatible_components.dll";
+const std::string DYNAMIC_MODULE_LIB_PREFIX = "libarkui_";
+const std::string DYNAMIC_MODULE_LIB_POSTFIX = ".dll";
+#endif
+#elif MAC_PLATFORM
+const std::string COMPATIABLE_LIB = "libace_compatible_components.dylib";
+const std::string DYNAMIC_MODULE_LIB_PREFIX = "libarkui_";
+const std::string DYNAMIC_MODULE_LIB_POSTFIX = ".dylib";
+#else
+const std::string COMPATIABLE_LIB = "libace_compatible_components.z.so";
+const std::string DYNAMIC_MODULE_LIB_PREFIX = "libarkui_";
+const std::string DYNAMIC_MODULE_LIB_POSTFIX = ".z.so";
+#endif
+} // namespace
 DynamicModuleHelper& DynamicModuleHelper::GetInstance()
 {
     static DynamicModuleHelper instance;
@@ -33,45 +54,104 @@ DynamicModuleHelper& DynamicModuleHelper::GetInstance()
 
 std::unique_ptr<ComponentLoader> DynamicModuleHelper::GetLoaderByName(const char* name)
 {
-    CHECK_NULL_RETURN(componentLoaderFunc_, nullptr);
-    return nullptr;
-}
-
-void* DynamicModuleHelper::CreateCanvasRenderingContextModel(bool isOffscreen)
-{
-    CHECK_NULL_RETURN(canvasRenderingContextLoaderFunc_, nullptr);
-    return nullptr;
-}
-
-void* DynamicModuleHelper::CreateCanvasBridge(CanvasBridgeParams& params)
-{
-    CHECK_NULL_RETURN(canvasBridgeLoaderFunc_, nullptr);
-    return nullptr;
-}
-
-DynamicModuleHelper::DynamicModuleHelper()
-{
-    LoadLibrary();
-}
-
-DynamicModuleHelper::~DynamicModuleHelper()
-{
-    CloseLibrary();
-}
-
-bool DynamicModuleHelper::LoadLibrary()
-{
-    if (!compatibleLibLoaded_) {
-        compatibleLibLoaded_ = true;
+    if (compatibleLoaderFunc_) {
+        return std::unique_ptr<ComponentLoader>(compatibleLoaderFunc_(name));
     }
-    return compatibleLibHandle_ != nullptr;
+    LIBHANDLE handle = LOADLIB(COMPATIABLE_LIB.c_str());
+#if defined(WINDOWS_PLATFORM) && defined(UNICODE)
+    LOGI("Load compatible lib %{public}ls", COMPATIABLE_LIB.c_str());
+#else
+    LOGI("Load compatible lib %{public}s", COMPATIABLE_LIB.c_str());
+#endif
+    auto* createSym = reinterpret_cast<ComponentLoaderFunc>(LOADSYM(handle, COMPATIABLE_COMPONENT_LOADER));
+    CHECK_NULL_RETURN(createSym, nullptr);
+    compatibleLoaderFunc_ = createSym;
+    return std::unique_ptr<ComponentLoader>(compatibleLoaderFunc_(name));
 }
 
-void DynamicModuleHelper::CloseLibrary() {}
-
-void* DynamicModuleHelper::LoadSymbol(const char* symName)
+DynamicModule* DynamicModuleHelper::GetDynamicModule(const std::string& name)
 {
-    return nullptr;
+    // Double-checked locking pattern for better performance
+    {
+        std::lock_guard<std::mutex> lock(moduleMapMutex_);
+        auto iter = moduleMap_.find(name);
+        if (iter != moduleMap_.end()) {
+            return iter->second.get();
+        }
+    }
+    static const std::unordered_map<std::string, std::string> soMap = {
+        {"DynamicLayout", "dynamiclayout"},
+        {"Counter", "counter"},
+        { "DataPanel", "datapanel" },
+        {"Checkbox", "checkbox"},
+        {"CheckboxGroup", "checkbox"},
+        {"Gauge", "gauge"},
+        {"Sidebar", "sidebar"},
+        {"QRCode", "qrcode"},
+        {"PatternLock", "patternlock"},
+        {"TextClock", "textclock"},
+        {"Rating", "rating"},
+        { "FlowItem", "waterflow" },
+        { "WaterFlow", "waterflow" },
+        { "ColumnSplit", "linearsplit" },
+        { "RowSplit", "linearsplit" },
+        {"Marquee", "marquee"},
+        { "Stepper", "stepper" },
+        { "StepperItem", "stepper" },
+        {"Radio", "radio"},
+        { "Slider", "slider" },
+        { "FolderStack", "folderstack" },
+        { "Search", "search" },
+        { "TimePicker", "timepicker" },
+        { "TimePickerDialog", "timepicker" },
+        {"CalendarPicker", "calendarpicker"},
+        {"CalendarPickerDialog", "calendarpicker"},
+        {"Indexer", "indexer"},
+        { "Hyperlink", "hyperlink" },
+        {"SymbolGlyph", "symbol"},
+        {"Richeditor", "richeditor"},
+        { "Menu", "menu" },
+        { "MenuItem", "menu" },
+        { "MenuItemGroup", "menu" },
+    };
+    // Load module without holding the lock (LOADLIB/LOADSYM may be slow)
+    auto it = soMap.find(name);
+    if (it == soMap.end()) {
+        LOGI("No shared library mapping found for nativeModule: %{public}s", name.c_str());
+        return nullptr;
+    }
+#ifdef WINDOWS_PLATFORM
+    std::wstring nameW = std::wstring(it->second.begin(), it->second.end());
+    auto libName = DYNAMIC_MODULE_LIB_PREFIX + nameW + DYNAMIC_MODULE_LIB_POSTFIX;
+#else
+    auto libName = DYNAMIC_MODULE_LIB_PREFIX + it->second + DYNAMIC_MODULE_LIB_POSTFIX;
+#endif
+    LIBHANDLE handle = LOADLIB(libName.c_str());
+    CHECK_NULL_RETURN(handle, nullptr);
+    auto* createSym =
+        reinterpret_cast<DynamicModuleCreateFunc>(LOADSYM(handle, (DYNAMIC_MODULE_CREATE + name).c_str()));
+    CHECK_NULL_RETURN(createSym, nullptr);
+    DynamicModule* module = createSym();
+    CHECK_NULL_RETURN(module, nullptr);
+    LOGI("First load %{public}s nativeModule finish", name.c_str());
+
+    // Lock again to insert into map
+    {
+        std::lock_guard<std::mutex> lock(moduleMapMutex_);
+        // Check again in case another thread already loaded it
+        auto iter = moduleMap_.find(name);
+        if (iter != moduleMap_.end()) {
+            // Another thread already loaded it, use that one
+            delete module;
+            return iter->second.get();
+        }
+        moduleMap_.emplace(name, std::unique_ptr<DynamicModule>(module));
+        return module;
+    }
 }
+
+#ifdef ENABLE_PRELOAD_DYNAMIC_MODULE
+void DynamicModuleHelper::TriggerPageFaultForPreLoad() {}
+#endif
 
 } // namespace OHOS::Ace

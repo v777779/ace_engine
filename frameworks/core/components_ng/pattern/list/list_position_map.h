@@ -16,28 +16,21 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_LIST_LIST_POSITION_MAP_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_LIST_LIST_POSITION_MAP_H
 
-
-#include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <optional>
-#include <tuple>
-#include <queue>
+#include <utility>
 
-#include "base/geometry/dimension.h"
 #include "base/memory/referenced.h"
 #include "base/utils/utils.h"
-#include "core/components_ng/base/ui_node.h"
-#include "core/components_ng/syntax/lazy_for_each_node.h"
-#include "core/components_ng/syntax/repeat_virtual_scroll_node.h"
-#include "core/components_ng/syntax/repeat_virtual_scroll_2_node.h"
 #include "core/components_ng/pattern/list/list_children_main_size.h"
-#include "core/components_ng/pattern/list/list_item_group_pattern.h"
-#include "core/components_ng/property/measure_property.h"
 
 
 namespace OHOS::Ace::NG {
-class ListItemGroupPattern;
+class FrameNode;
+class LayoutWrapper;
+class UINode;
 
 struct ListPositionInfo {
     float mainPos;
@@ -52,7 +45,7 @@ enum class ListPosMapUpdate {
 };
 
 class ListPositionMap : public virtual AceType {
-    DECLARE_ACE_TYPE(ListPositionMap, AceType)
+    DECLARE_ACE_TYPE(ListPositionMap, AceType);
 public:
     ListPositionMap() = default;
     ~ListPositionMap() override = default;
@@ -93,7 +86,7 @@ public:
 
     ListPosMapUpdate CheckPosMapUpdateRule();
 
-    void UpdatePosMapStart(float delta, float& listCurrentPos, float space,
+    void UpdatePosMapStart(float delta, double& listCurrentPos, float space,
         int32_t startIndex, float startPos, bool groupAtStart);
 
     void UpdatePosMapEnd(int32_t prevEndIndex, float space, bool groupAtEnd);
@@ -137,6 +130,10 @@ public:
     std::pair<int32_t, float> GetStartIndexAndPos() const;
 
     std::pair<int32_t, float> GetEndIndexAndPos() const;
+
+    int32_t GetEntryAtOrBeforeIndex(int32_t index) const;
+
+    int32_t GetEntryAtOrAfterIndex(int32_t index) const;
 
     void OptimizeBeforeMeasure(int32_t& beginIndex, float& beginPos, const float offset, const float contentSize);
 

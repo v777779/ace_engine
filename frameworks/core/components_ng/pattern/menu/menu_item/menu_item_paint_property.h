@@ -16,13 +16,12 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_MENU_MENU_ITEM_MENU_ITEM_PAINT_PROPERTY_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_MENU_MENU_ITEM_MENU_ITEM_PAINT_PROPERTY_H
 
-#include "core/components/common/properties/text_style.h"
 #include "core/components_ng/pattern/select/select_properties.h"
 #include "core/components_ng/render/paint_property.h"
 
 namespace OHOS::Ace::NG {
 class ACE_EXPORT MenuItemPaintProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(MenuItemPaintProperty, PaintProperty)
+    DECLARE_ACE_TYPE(MenuItemPaintProperty, PaintProperty);
 
 public:
     MenuItemPaintProperty(bool isOption = false) : isOption_(isOption) {}

@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_paragraph.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
 #include "test/unittest/core/pattern/test_ng.h"
 #include "test/unittest/core/pattern/text_input/mock/mock_text_field_select_overlay.h"
 
@@ -858,6 +858,17 @@ HWTEST_F(TextFieldModifyTest, DoCallback014, TestSize.Level1)
     pattern_->SetAccessibilityAction();
     accessibilityProperty->actionMoveTextImpl_.operator()(1, true);
     EXPECT_EQ(pattern_->selectController_->GetCaretIndex(), 6);
+
+    auto switchEditableFunc = accessibilityProperty->GetSwitchEditableModeFunc();
+    ASSERT_NE(switchEditableFunc, nullptr);
+    switchEditableFunc(true);
+    EXPECT_EQ(pattern_->requestFocusReason_, RequestFocusReason::SWITCH_EDITABLE);
+    pattern_->isCaretTwinkling_ = true;
+    auto focusHub = pattern_->GetFocusHub();
+    ASSERT_NE(focusHub, nullptr);
+    focusHub->SetCurrentFocus(true);
+    switchEditableFunc(false);
+    EXPECT_FALSE(pattern_->isCaretTwinkling_);
 }
 
 /**
@@ -1394,7 +1405,7 @@ HWTEST_F(TextFieldModifyTest, DumpViewDataPageNode001, TestSize.Level1)
     /**
      * @tc.steps: step3. call DumpViewDataPageNode.
      */
-    pattern_->NotifyFillRequestSuccess(viewData, info, autoFillType);
+    pattern_->NotifyFillRequestSuccess(viewData, info, autoFillType, AceAutoFillTriggerType::AUTO_REQUEST);
     EXPECT_EQ(pattern_->selectController_->caretInfo_.index, 0);
 }
 
@@ -1499,13 +1510,13 @@ HWTEST_F(TextFieldModifyTest, CheckTextAlignByDirection, TestSize.Level1)
      */
     auto direction = TextDirection::RTL;
     auto textAlign = TextAlign::START;
-    pattern_->CheckTextAlignByDirection(textAlign, direction);
+    textAlign = pattern_->CheckTextAlignByDirection(textAlign, direction);
     EXPECT_EQ(textAlign, TextAlign::END);
 
     FlushLayoutTask(frameNode_);
     GetFocus();
     textAlign = TextAlign::END;
-    pattern_->CheckTextAlignByDirection(textAlign, direction);
+    textAlign = pattern_->CheckTextAlignByDirection(textAlign, direction);
     EXPECT_EQ(textAlign, TextAlign::START);
 }
 
@@ -1519,14 +1530,14 @@ HWTEST_F(TextFieldModifyTest, CreateFrameNode001, TestSize.Level1)
     /**
      * @tc.steps: step1. Initialize text input.
      */
-    auto frameNode1 = TextFieldModelNG::CreateFrameNode(ID, u"", u"", false);
+    auto frameNode1 = TextFieldModelNG::CreateTextInputNode(ID, u"", u"");
     EXPECT_NE(frameNode1, nullptr);
  
     /**
      * @tc.steps: step2. Set CustomerDraggable true. Call function OnModifyDone.
      * @tc.expected: Check if the text draggable.
      */
-    auto frameNode2 = TextFieldModelNG::CreateFrameNode(ID, u"", HELLO_TEXT_U16, true);
+    auto frameNode2 = TextFieldModelNG::CreateTextAreaNode(ID, u"", HELLO_TEXT_U16);
     EXPECT_NE(frameNode2, nullptr);
 }
  
@@ -1915,6 +1926,7 @@ HWTEST_F(TextFieldModifyTest, SetTextFieldText001, TestSize.Level1)
         model.SetTextFieldText(frameNode, HELLO_TEXT_U16);
         auto textValue = pattern->GetTextValue();
         EXPECT_EQ(textValue, HELLO_TEXT);
+        EXPECT_TRUE(pattern->isTextChangedAtCreation_);
     });
 }
 } // namespace OHOS::Ace::NG

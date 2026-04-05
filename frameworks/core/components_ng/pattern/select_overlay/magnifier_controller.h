@@ -37,11 +37,11 @@ public:
     void OpenMagnifier();
     void CloseMagnifier();
 
-    bool UpdateMagnifierOffsetX(OffsetF& magnifierPaintOffset, VectorF& magnifierOffset,
-        const OffsetF& basePaintOffset);
-    bool UpdateMagnifierOffsetY(OffsetF& magnifierPaintOffset, VectorF& magnifierOffset,
-        const OffsetF& basePaintOffset);
+    bool UpdateMagnifierOffsetX(OffsetF& magnifierPaintOffset, VectorF& magnifierOffset, VectorF& zoomOffset);
+    bool UpdateMagnifierOffsetY(OffsetF& magnifierPaintOffset, VectorF& magnifierOffset, VectorF& zoomOffset);
     bool UpdateMagnifierOffset();
+    bool UpdateMagnifierEdgeY(const RefPtr<PipelineContext>& pipelineContext, float& magnifierY,
+        float& patternVisibleBottom, float& windowScale, int32_t& screenHeight);
 
     void UpdateShowMagnifier(bool isShowMagnifier = false);
 
@@ -50,15 +50,8 @@ public:
         return isShowMagnifier_;
     }
 
-    void SetLocalOffset(OffsetF localOffset, std::optional<OffsetF> localOffsetWithoutTrans = std::nullopt)
-    {
-        localOffsetChanged_ = localOffset != localOffset_;
-        localOffset_.SetX(localOffset.GetX());
-        localOffset_.SetY(localOffset.GetY());
-        localOffsetWithoutTrans_ = localOffsetWithoutTrans;
-        magnifierNodeExist_ = true;
-        UpdateShowMagnifier(true);
-    }
+    ACE_FORCE_EXPORT void SetLocalOffset(
+        const OffsetF& localOffset, const std::optional<OffsetF>& localOffsetWithoutTrans = std::nullopt);
 
     OffsetF GetLocalOffset() const
     {
@@ -80,12 +73,18 @@ public:
 
     uint32_t ArgbToRgba(const uint32_t& color);
 
-    void RemoveMagnifierFrameNode();
+    ACE_FORCE_EXPORT void RemoveMagnifierFrameNode();
 
     void SetColorModeChange(const bool& colorModeChange)
     {
         colorModeChange_ = colorModeChange;
     }
+
+    bool IsColorModeChange() const
+    {
+        return colorModeChange_;
+    }
+
     RefPtr<FrameNode> GetRootNode();
 
     RefPtr<UINode> FindWindowScene(const RefPtr<FrameNode>& targetNode);
@@ -110,9 +109,10 @@ private:
     RefPtr<FrameNode> magnifierFrameNode_ = nullptr;
     bool isShowMagnifier_ = false;
     OffsetF localOffset_;
+    OffsetF globalOffset_;
+    OffsetF patternOffset_;
     std::optional<OffsetF> localOffsetWithoutTrans_;
     WeakPtr<Pattern> pattern_;
-    bool localOffsetChanged_ = false;
     bool removeFrameNode_ = false;
     bool colorModeChange_ = false;
     bool magnifierNodeExist_ = false;

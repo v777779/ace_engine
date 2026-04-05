@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -22,19 +22,19 @@
 #include "core/components/checkable/checkable_theme.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/event/event_hub.h"
-#include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/toggle/switch_accessibility_property.h"
 #include "core/components_ng/pattern/toggle/switch_event_hub.h"
 #include "core/components_ng/pattern/toggle/switch_layout_algorithm.h"
 #include "core/components_ng/pattern/toggle/switch_paint_method.h"
 #include "core/components_ng/pattern/toggle/switch_paint_property.h"
+#include "core/components_ng/pattern/toggle/toggle_base_pattern.h"
 #include "core/components_ng/pattern/toggle/toggle_model_ng.h"
 #include "core/components/theme/app_theme.h"
 
 namespace OHOS::Ace::NG {
 
-class SwitchPattern : public Pattern {
-    DECLARE_ACE_TYPE(SwitchPattern, Pattern);
+class SwitchPattern : public ToggleBasePattern {
+    DECLARE_ACE_TYPE(SwitchPattern, ToggleBasePattern);
 
 public:
     SwitchPattern() = default;
@@ -145,6 +145,8 @@ public:
     void SetSwitchIsOn(bool value);
     bool OnThemeScopeUpdate(int32_t themeScopeId) override;
     void DumpInfo() override;
+    void DumpSimplifyInfoOnlyForParamConfig(
+        std::shared_ptr<JsonValue>& json, ParamConfig config = ParamConfig()) override;
     void SetIsUserSetMargin(bool isUserSetMargin)
     {
         isUserSetMargin_ = isUserSetMargin;
@@ -154,6 +156,13 @@ public:
     {
         return true;
     }
+
+    bool IsEnableFix() override
+    {
+        return true;
+    }
+    int32_t OnInjectionEvent(const std::string& command) override;
+
 private:
     void OnAttachToFrameNode() override;
     void OnModifyDone() override;
@@ -164,7 +173,7 @@ private:
     RefPtr<Curve> GetCurve() const;
     int32_t GetDuration() const;
     int32_t nodeId_ = -1;
-    void UpdateChangeEvent() const;
+    void UpdateChangeEvent();
     void OnChange();
     void OnTouchDown();
     void OnTouchUp();
@@ -206,6 +215,9 @@ private:
     void InitDefaultMargin();
     void ResetDefaultMargin();
     RefPtr<FrameNode> BuildContentModifierNode();
+    bool ParseCommand(const std::string& command, bool& isOn);
+    void ReportChangeEvent(bool isOn);
+    bool ReportInjectionResult(bool isSuccess, const std::string& reason);
     std::optional<SwitchMakeCallback> makeFunc_;
     RefPtr<FrameNode> contentModifierNode_;
 

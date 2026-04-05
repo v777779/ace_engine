@@ -36,6 +36,11 @@
 #include "ui/rs_ui_context.h"
 #include "ui/rs_ui_director.h"
 
+#include "key_event.h"
+#include "pointer_event.h"
+#include "adapter/ohos/entrance/ace_view_ohos.h"
+#include "core/pipeline_ng/pipeline_context.h"
+
 #ifndef ACE_UNITTEST
 #ifdef ENABLE_STANDARD_INPUT
 #include "input_method_controller.h"
@@ -49,7 +54,7 @@ RefPtr<UINode> WindowSceneHelper::FindWindowScene(const RefPtr<FrameNode>& targe
 
     auto container = Container::Current();
     if (!container || !container->IsSceneBoardWindow() || !container->IsSceneBoardEnabled()) {
-        TAG_LOGD(AceLogTag::ACE_KEYBOARD, "Container nullptr Or not SceneBoardWindow.");
+        TAG_LOGD(AceLogTag::ACE_KEYBOARD, "Container null Or not SceneBoardWindow.");
         return nullptr;
     }
 
@@ -80,7 +85,7 @@ sptr<Rosen::Session> GetCurSession(const RefPtr<FrameNode>& focusedFrameNode)
 
     auto windowScenePattern = windowSceneFrameNode->GetPattern<SystemWindowScene>();
     if (windowScenePattern == nullptr) {
-        TAG_LOGD(AceLogTag::ACE_KEYBOARD, "windowScenePattern is nullptr.");
+        TAG_LOGD(AceLogTag::ACE_KEYBOARD, "windowScenePattern is null.");
         return nullptr;
     }
 
@@ -104,7 +109,7 @@ int32_t WindowSceneHelper::GetFocusSystemWindowId(const RefPtr<FrameNode>& focus
     bool isWindowScene = IsWindowScene(focusedFrameNode);
     sptr<Rosen::Session> window2patternSession = GetCurSession(focusedFrameNode);
     if (window2patternSession == nullptr) {
-        TAG_LOGD(AceLogTag::ACE_KEYBOARD, "The session between window and pattern is nullptr.");
+        TAG_LOGD(AceLogTag::ACE_KEYBOARD, "The session between window and pattern is null.");
         return focusSystemWindowId;
     }
     if (isWindowScene) {
@@ -137,6 +142,13 @@ bool WindowSceneHelper::IsFocusWindowSceneCloseKeyboard(const RefPtr<FrameNode>&
     sptr<Rosen::Session> window2patternSession = GetCurSession(focusedFrameNode);
     if (window2patternSession == nullptr) {
         TAG_LOGW(AceLogTag::ACE_KEYBOARD, "The session between window and pattern is nullptr.");
+        if (focusedFrameNode && focusedFrameNode->GetTag() == V2::WINDOW_SCENE_ETS_TAG) {
+            auto windowScenePattern = focusedFrameNode->GetPattern<SystemWindowScene>();
+            CHECK_NULL_RETURN(windowScenePattern, false);
+            auto window2patternSession = windowScenePattern->GetSession();
+            CHECK_NULL_RETURN(window2patternSession, false);
+            return window2patternSession->GetSCBKeepKeyboardFlag();
+        }
         return false;
     }
 
@@ -157,7 +169,17 @@ void WindowSceneHelper::IsWindowSceneCloseKeyboard(const RefPtr<FrameNode>& fram
     if (!saveKeyboard && !isNeedKeyBoard) {
         auto inputMethod = MiscServices::InputMethodController::GetInstance();
         if (inputMethod) {
-            inputMethod->RequestHideInput(true);
+            auto pipeline = frameNode->GetContext();
+            CHECK_NULL_VOID(pipeline);
+            auto systemWindowId = pipeline->GetFocusWindowId();
+            ConvertSystemWindowId(frameNode, systemWindowId);
+            auto container = Container::Current();
+            if (!container) {
+                inputMethod->RequestHideInput(systemWindowId, true);
+            } else {
+                auto displayId = container->GetCurrentDisplayId();
+                inputMethod->RequestHideInput(systemWindowId, true, displayId);
+            }
             inputMethod->Close();
             TAG_LOGI(AceLogTag::ACE_KEYBOARD, "scbSoftKeyboard Closes Successfully.");
         }
@@ -179,7 +201,17 @@ void WindowSceneHelper::IsCloseKeyboard(const RefPtr<FrameNode>& frameNode)
     if (!saveKeyboard && !isNeedKeyBoard) {
         auto inputMethod = MiscServices::InputMethodController::GetInstance();
         if (inputMethod) {
-            inputMethod->RequestHideInput(true);
+            auto pipeline = frameNode->GetContext();
+            CHECK_NULL_VOID(pipeline);
+            auto systemWindowId = pipeline->GetFocusWindowId();
+            ConvertSystemWindowId(frameNode, systemWindowId);
+            auto container = Container::Current();
+            if (!container) {
+                inputMethod->RequestHideInput(systemWindowId, true);
+            } else {
+                auto displayId = container->GetCurrentDisplayId();
+                inputMethod->RequestHideInput(systemWindowId, true, displayId);
+            }
             inputMethod->Close();
             TAG_LOGI(AceLogTag::ACE_KEYBOARD, "SoftKeyboard Closes Successfully.");
         }
@@ -198,13 +230,16 @@ void CaculatePoint(const RefPtr<FrameNode>& node, const std::shared_ptr<OHOS::MM
     auto rect = renderContext->GetPaintRectWithoutTransform();
     MMI::PointerEvent::PointerItem item;
     if (pointerEvent->GetPointerItem(pointerId, item)) {
+        auto windowX = item.GetWindowX();
+        auto windowY = item.GetWindowY();
         PointF tmp(item.GetWindowX() + rect.GetX(), item.GetWindowY() + rect.GetY());
         renderContext->GetPointTransform(tmp);
         item.SetWindowX(static_cast<int32_t>(std::round(tmp.GetX())));
         item.SetWindowY(static_cast<int32_t>(std::round(tmp.GetY())));
         if (pointerEvent->GetSourceType() == OHOS::MMI::PointerEvent::SOURCE_TYPE_TOUCHSCREEN) {
             // CaculatePoint for double XY Position.
-            PointF tmpPos(item.GetWindowXPos() + rect.GetX(), item.GetWindowYPos() + rect.GetY());
+            PointF tmpPos((NearZero(item.GetWindowXPos()) ? windowX : item.GetWindowXPos()) + rect.GetX(),
+                (NearZero(item.GetWindowYPos()) ? windowY : item.GetWindowYPos()) + rect.GetY());
             renderContext->GetPointTransform(tmpPos);
             item.SetWindowXPos(tmpPos.GetX());
             item.SetWindowYPos(tmpPos.GetY());
@@ -421,5 +456,14 @@ std::string WindowSceneHelper::RSUIContextToStr(const std::shared_ptr<Rosen::RSU
         << static_cast<int32_t>(rsUIContext->GetToken() >> 32) // 32: tid's offset position in the token
         << "]";
     return oss.str();
+}
+
+void WindowSceneHelper::ConvertSystemWindowId(const RefPtr<FrameNode>& frameNode, uint32_t& systemWindowId)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto focusSystemWindowId = WindowSceneHelper::GetFocusSystemWindowId(frameNode);
+    if (focusSystemWindowId != 0) {
+        systemWindowId = static_cast<uint32_t>(focusSystemWindowId);
+    }
 }
 } // namespace OHOS::Ace::NG

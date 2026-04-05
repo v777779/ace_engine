@@ -46,8 +46,7 @@ private:
         SizeT<float> size = SizeT<float>(0.0f, 0.0f);
         SizeT<float> contentSize = SizeT<float>(0.0f, 0.0f);
         Alignment align = Alignment::CENTER;
-        RefPtr<TextInputResponseArea> responseArea = nullptr;
-        RefPtr<TextInputResponseArea> cleanResponseArea = nullptr;
+        RefPtr<TextFieldPattern> pattern = nullptr;
     };
 
     struct UpdateTextRectParams {
@@ -55,8 +54,6 @@ private:
         RefPtr<TextFieldPattern> pattern = nullptr;
         SizeT<float> contentSize = SizeT<float>(0.0f, 0.0f);
         bool isRTL = false;
-        RefPtr<TextInputResponseArea> responseArea = nullptr;
-        RefPtr<TextInputResponseArea> cleanResponseArea = nullptr;
         OffsetF contentOffset = OffsetF(0.0f, 0.0f);
     };
     void UpdateContentPosition(const UpdateContentPositionParams& params,
@@ -64,8 +61,9 @@ private:
     void UpdateTextRect(const UpdateTextRectParams& params);
     bool IsFontSizeNonPositive(const TextStyle& textStyle) const;
     void MeasureAutoFillIcon(LayoutWrapper* layoutWrapper);
-    void LayoutAutoFillIcon(LayoutWrapper* layoutWrapper);
+    void LayoutAutoFillIcon(LayoutWrapper* layoutWrapper, float unitNodeWidth);
     void MeasureCounterWithPolicy(LayoutWrapper* layoutWrapper, float nonContentWidth);
+    TextDirection GetTextDirection(const RefPtr<LayoutProperty>& layoutProperty);
 
     SizeF autoFillIconSizeMeasure_;
 };

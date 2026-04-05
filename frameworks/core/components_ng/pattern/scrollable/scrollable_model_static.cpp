@@ -14,8 +14,11 @@
  */
 
 #include "core/components_ng/pattern/scrollable/scrollable_model_static.h"
+#include "base/utils/multi_thread.h"
 #include "base/utils/utils.h"
+#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/scrollable/scrollable_event_hub.h"
+#include "core/components_ng/pattern/scrollable/scrollable_layout_property.h"
 #include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -36,6 +39,40 @@ void ScrollableModelStatic::SetScrollBarMode(FrameNode* frameNode, const std::op
     }
 }
 
+void ScrollableModelStatic::UpdateScrollBarColorWithTheme(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto context = frameNode->GetContext();
+    CHECK_NULL_VOID(context);
+    auto scrollBarTheme = context->GetTheme<ScrollBarTheme>();
+    CHECK_NULL_VOID(scrollBarTheme);
+    auto defaultScrollBarColor = scrollBarTheme->GetForegroundColor();
+    auto pattern = frameNode->GetPattern<ScrollablePattern>();
+    CHECK_NULL_VOID(pattern);
+    auto scrollBar = pattern->GetScrollBar();
+    CHECK_NULL_VOID(scrollBar);
+    scrollBar->SetForegroundColor(defaultScrollBarColor);
+}
+
+void ScrollableModelStatic::UpdateScrollBarWidthWithTheme(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto context = frameNode->GetContext();
+    CHECK_NULL_VOID(context);
+    auto scrollBarTheme = context->GetTheme<ScrollBarTheme>();
+    CHECK_NULL_VOID(scrollBarTheme);
+    auto defaultScrollBarWidth = scrollBarTheme->GetNormalWidth();
+    auto pattern = frameNode->GetPattern<ScrollablePattern>();
+    CHECK_NULL_VOID(pattern);
+    auto scrollBar = pattern->GetScrollBar();
+    CHECK_NULL_VOID(scrollBar);
+    scrollBar->SetActiveWidth(defaultScrollBarWidth);
+    scrollBar->SetTouchWidth(defaultScrollBarWidth);
+    scrollBar->SetInactiveWidth(defaultScrollBarWidth);
+    scrollBar->SetNormalWidth(defaultScrollBarWidth);
+    scrollBar->SetIsUserNormalWidth(false);
+}
+
 void ScrollableModelStatic::SetScrollBarColor(FrameNode* frameNode, const std::optional<Color>& value)
 {
     if (value) {
@@ -43,17 +80,19 @@ void ScrollableModelStatic::SetScrollBarColor(FrameNode* frameNode, const std::o
     } else {
         ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
             ScrollablePaintProperty, ScrollBarColor, PROPERTY_UPDATE_RENDER, frameNode);
-        auto context = frameNode->GetContext();
-        CHECK_NULL_VOID(context);
-        auto scrollBarTheme = context->GetTheme<ScrollBarTheme>();
-        CHECK_NULL_VOID(scrollBarTheme);
-        auto defaultScrollBarColor = scrollBarTheme->GetForegroundColor();
-        auto pattern = frameNode->GetPattern<ScrollablePattern>();
-        CHECK_NULL_VOID(pattern);
-        auto scrollBar = pattern->GetScrollableScrollBar();
-        CHECK_NULL_VOID(scrollBar);
-        scrollBar->SetForegroundColor(defaultScrollBarColor);
+        FREE_NODE_CHECK(frameNode, SetScrollBarColor, frameNode, std::nullopt);
+        UpdateScrollBarColorWithTheme(frameNode);
     }
+}
+
+void ScrollableModelStatic::SetScrollBarColorMultiThread(FrameNode* frameNode, const std::optional<Color>& value)
+{
+    CHECK_NULL_VOID(frameNode);
+    frameNode->PostAfterAttachMainTreeTask([weak = AceType::WeakClaim(frameNode)]() {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        ScrollableModelStatic::UpdateScrollBarColorWithTheme(AceType::RawPtr(frameNode));
+    });
 }
 
 void ScrollableModelStatic::SetScrollBarWidth(FrameNode* frameNode, const std::optional<Dimension>& value)
@@ -64,21 +103,19 @@ void ScrollableModelStatic::SetScrollBarWidth(FrameNode* frameNode, const std::o
         CHECK_NULL_VOID(frameNode);
         ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
             ScrollablePaintProperty, ScrollBarWidth, PROPERTY_UPDATE_RENDER, frameNode);
-        auto context = frameNode->GetContext();
-        CHECK_NULL_VOID(context);
-        auto scrollBarTheme = context->GetTheme<ScrollBarTheme>();
-        CHECK_NULL_VOID(scrollBarTheme);
-        auto defaultScrollBarWidth = scrollBarTheme->GetNormalWidth();
-        auto pattern = frameNode->GetPattern<ScrollablePattern>();
-        CHECK_NULL_VOID(pattern);
-        auto scrollBar = pattern->GetScrollableScrollBar();
-        CHECK_NULL_VOID(scrollBar);
-        scrollBar->SetActiveWidth(defaultScrollBarWidth);
-        scrollBar->SetTouchWidth(defaultScrollBarWidth);
-        scrollBar->SetInactiveWidth(defaultScrollBarWidth);
-        scrollBar->SetNormalWidth(defaultScrollBarWidth);
-        scrollBar->SetIsUserNormalWidth(false);
+        FREE_NODE_CHECK(frameNode, SetScrollBarWidth, frameNode, std::nullopt);
+        UpdateScrollBarWidthWithTheme(frameNode);
     }
+}
+
+void ScrollableModelStatic::SetScrollBarWidthMultiThread(FrameNode* frameNode, const std::optional<Dimension>& value)
+{
+    CHECK_NULL_VOID(frameNode);
+    frameNode->PostAfterAttachMainTreeTask([weak = AceType::WeakClaim(frameNode)]() {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        ScrollableModelStatic::UpdateScrollBarWidthWithTheme(AceType::RawPtr(frameNode));
+    });
 }
 
 void ScrollableModelStatic::SetNestedScroll(FrameNode* frameNode,
@@ -149,6 +186,14 @@ void ScrollableModelStatic::SetOnScrollStop(FrameNode* frameNode, OnScrollStopEv
     eventHub->SetOnScrollStop(std::move(onScrollStop));
 }
 
+void ScrollableModelStatic::SetOnScrollFrameBegin(FrameNode* frameNode, OnScrollFrameBeginEvent&& ScrollFrameBegin)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<ScrollableEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnScrollFrameBegin(std::move(ScrollFrameBegin));
+}
+
 void ScrollableModelStatic::SetMaxFlingSpeed(FrameNode* frameNode, const std::optional<double>& max)
 {
     CHECK_NULL_VOID(frameNode);
@@ -176,6 +221,8 @@ void ScrollableModelStatic::SetDigitalCrownSensitivity(FrameNode* frameNode,
 void ScrollableModelStatic::SetBackToTop(FrameNode* frameNode, bool backToTop)
 {
     CHECK_NULL_VOID(frameNode);
+    // call SetBackToTopMultiThread by multi thread
+    FREE_NODE_CHECK(frameNode, SetBackToTop, frameNode, backToTop);
     auto pattern = frameNode->GetPattern<ScrollablePattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetBackToTop(backToTop);
@@ -185,6 +232,7 @@ void ScrollableModelStatic::SetBackToTop(FrameNode* frameNode, bool backToTop)
 void ScrollableModelStatic::ResetBackToTop(FrameNode* frameNode)
 {
     CHECK_NULL_VOID(frameNode);
+    FREE_NODE_CHECK(frameNode, ResetBackToTop, frameNode);
     auto pattern = frameNode->GetPattern<ScrollablePattern>();
     CHECK_NULL_VOID(pattern);
     pattern->ResetBackToTop();
@@ -198,7 +246,11 @@ void ScrollableModelStatic::SetEdgeEffect(
     CHECK_NULL_VOID(frameNode);
     auto pattern = frameNode->GetPattern<ScrollablePattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->SetEdgeEffect(edgeEffect.value_or(EdgeEffect::NONE), alwaysEnabled.value_or(false), effectEdge);
+    if (frameNode->GetTag() == V2::LIST_ETS_TAG) {
+        pattern->SetEdgeEffect(edgeEffect.value_or(EdgeEffect::SPRING), alwaysEnabled.value_or(false), effectEdge);
+    } else {
+        pattern->SetEdgeEffect(edgeEffect.value_or(EdgeEffect::NONE), alwaysEnabled.value_or(false), effectEdge);
+    }
     frameNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
 }
 
@@ -212,6 +264,111 @@ void ScrollableModelStatic::SetFadingEdge(FrameNode* frameNode, const std::optio
     }
     ACE_UPDATE_NODE_PAINT_PROPERTY(ScrollablePaintProperty, FadingEdgeLength,
         fadingEdgeLength.value_or(DEFAULT_FADING_EDGE_LENGTH_SCROLLABLE), frameNode);
+}
+
+void ScrollableModelStatic::SetBackToTopMultiThread(FrameNode* frameNode, bool backToTop)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ScrollablePattern>();
+    CHECK_NULL_VOID(pattern);
+    frameNode->PostAfterAttachMainTreeTask([weak = AceType::WeakClaim(AceType::RawPtr(pattern)), backToTop]() {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->SetBackToTop(backToTop);
+    });
+
+    pattern->UseDefaultBackToTop(false);
+}
+
+void ScrollableModelStatic::ResetBackToTopMultiThread(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ScrollablePattern>();
+    CHECK_NULL_VOID(pattern);
+    frameNode->PostAfterAttachMainTreeTask([weak = AceType::WeakClaim(AceType::RawPtr(pattern))]() {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->ResetBackToTop();
+    });
+    pattern->UseDefaultBackToTop(true);
+}
+
+void ScrollableModelStatic::SetScrollBarMargin(FrameNode* frameNode, const ScrollBarMargin& scrollBarMargin)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_PAINT_PROPERTY(ScrollablePaintProperty, ScrollBarMargin, scrollBarMargin, frameNode);
+}
+
+
+void ScrollableModelStatic::SetContentStartOffset(FrameNode* frameNode, const std::optional<float>& offset)
+{
+    if (offset.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(ScrollableLayoutProperty, ContentStartOffset, offset.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(ScrollableLayoutProperty, ContentStartOffset, frameNode);
+    }
+}
+
+void ScrollableModelStatic::SetContentEndOffset(FrameNode* frameNode, const std::optional<float>& offset)
+{
+    if (offset.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(ScrollableLayoutProperty, ContentEndOffset, offset.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(ScrollableLayoutProperty, ContentEndOffset, frameNode);
+    }
+}
+
+void ScrollableModelStatic::SetOnWillStartDragging(FrameNode* frameNode, OnWillStartDraggingEvent&& event)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<ScrollableEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnWillStartDragging(std::move(event));
+}
+
+void ScrollableModelStatic::SetOnWillStopDragging(FrameNode* frameNode, OnWillStopDraggingEvent&& onWillStopDragging)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<ScrollableEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnWillStopDragging(std::move(onWillStopDragging));
+}
+
+void ScrollableModelStatic::SetOnDidStopDragging(FrameNode* frameNode, OnDidStopDraggingEvent&& event)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<ScrollableEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnDidStopDragging(std::move(event));
+}
+void ScrollableModelStatic::SetOnWillStartFling(FrameNode* frameNode, OnWillStartFlingEvent&& event)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<ScrollableEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnWillStartFling(std::move(event));
+}
+
+void ScrollableModelStatic::SetOnDidStopFling(FrameNode* frameNode, OnDidStopFlingEvent&& event)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<ScrollableEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnDidStopFling(std::move(event));
+}
+void ScrollableModelStatic::SetEnableScrollWithMouse(FrameNode* frameNode, bool enabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ScrollablePattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetIsAllowMouse(enabled);
+}
+
+void ScrollableModelStatic::SetAutoAdjustScrollBarMargin(FrameNode* frameNode, std::optional<bool> autoAdjust)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_PAINT_PROPERTY(
+        ScrollablePaintProperty, AutoAdjustScrollBarMargin, autoAdjust.value_or(false), frameNode);
 }
 } // namespace OHOS::Ace::NG
  

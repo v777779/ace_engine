@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+* Copyright (c) 2025 Huawei Device Co., Ltd.
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
 * You may obtain a copy of the License at
@@ -16,8 +16,13 @@
 #include "core/components_ng/pattern/grid/grid_item_model_static.h"
 
 #include "base/utils/multi_thread.h"
+#include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/event/state_style_manager.h"
+#include "core/components_ng/pattern/grid/grid_item_event_hub.h"
+#include "core/components_ng/pattern/grid/grid_item_layout_property.h"
 #include "core/components_ng/pattern/grid/grid_item_pattern.h"
 #include "core/components_ng/pattern/scrollable/scrollable_item.h"
+#include "core/components_ng/syntax/shallow_builder.h"
  
 namespace OHOS::Ace::NG {
 RefPtr<FrameNode> GridItemModelStatic::CreateFrameNode(int32_t nodeId)
@@ -86,7 +91,7 @@ void GridItemModelStatic::SetColumnEnd(FrameNode* frameNode, int32_t columnEnd)
 void GridItemModelStatic::SetGridItemStyle(FrameNode* frameNode, GridItemStyle gridItemStyle)
 {
     CHECK_NULL_VOID(frameNode);
-    auto pattern = frameNode->GetPatternPtr<GridItemPattern>();
+    auto pattern = frameNode->GetPattern<GridItemPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->UpdateGridItemStyle(gridItemStyle);
 }

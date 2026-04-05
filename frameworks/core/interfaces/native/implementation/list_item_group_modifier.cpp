@@ -64,7 +64,7 @@ void SetListItemGroupOptionsImpl(Ark_NativePointer node,
             auto builder = [uiNode]() -> RefPtr<UINode> {
                 return uiNode;
             };
-            ListItemGroupModelStatic::SetHeader(AceType::RawPtr(headerNode), std::move(builder));
+            // ListItemGroupModelStatic::SetHeader(AceType::RawPtr(headerNode), std::move(builder));
             }, node);
     }
     auto footer = Converter::OptConvert<CustomNodeBuilder>(arkOptions.value().footer);
@@ -75,7 +75,7 @@ void SetListItemGroupOptionsImpl(Ark_NativePointer node,
             auto builder = [uiNode]() -> RefPtr<UINode> {
                 return uiNode;
             };
-            ListItemGroupModelStatic::SetFooter(AceType::RawPtr(footerNode), std::move(builder));
+            // ListItemGroupModelStatic::SetFooter(AceType::RawPtr(footerNode), std::move(builder));
             }, node);
     }
 }
@@ -88,6 +88,7 @@ void SetDividerImpl(Ark_NativePointer node,
     CHECK_NULL_VOID(frameNode);
     auto options = value ? Converter::OptConvert<Ark_ListDividerOptions>(*value) : std::nullopt;
     V2::ItemDivider dividerAns;
+    bool needGetThemeColor = false;
     if (options.has_value()) {
         auto widthOpt = Converter::OptConvert<Dimension>(options->strokeWidth);
         dividerAns.strokeWidth = widthOpt.value_or(0.0_vp);
@@ -99,28 +100,12 @@ void SetDividerImpl(Ark_NativePointer node,
         if (colorOpt.has_value()) {
             dividerAns.color = colorOpt.value();
         } else {
-            auto listTheme = ListItemGroupModifier::GetListTheme();
-            if (listTheme) {
-                dividerAns.color = listTheme->GetDividerColor();
-            }
+            needGetThemeColor = true;
         }
+        ListItemGroupModelStatic::SetDivider(frameNode, dividerAns, needGetThemeColor);
+    } else {
+        ListItemGroupModelStatic::SetDivider(frameNode, std::nullopt);
     }
-    ListItemGroupModelStatic::SetDivider(frameNode, dividerAns);
-}
-void SetChildrenMainSizeImpl(Ark_NativePointer node,
-                             const Opt_ChildrenMainSize* value)
-{
-    auto frameNode = reinterpret_cast<FrameNode *>(node);
-    CHECK_NULL_VOID(frameNode);
-    auto optValue = Converter::GetOptPtr(value);
-    if (!optValue) {
-        ListItemGroupModelStatic::ResetListChildrenMainSize(frameNode);
-        return;
-    }
-    auto peer = *optValue;
-    CHECK_NULL_VOID(peer);
-    RefPtr<ListChildrenMainSize> handler = ListItemGroupModelStatic::GetOrCreateListChildrenMainSize(frameNode);
-    peer->SetHandler(handler);
 }
 } // ListItemGroupAttributeModifier
 const GENERATED_ArkUIListItemGroupModifier* GetListItemGroupModifier()
@@ -129,7 +114,6 @@ const GENERATED_ArkUIListItemGroupModifier* GetListItemGroupModifier()
         ListItemGroupModifier::ConstructImpl,
         ListItemGroupInterfaceModifier::SetListItemGroupOptionsImpl,
         ListItemGroupAttributeModifier::SetDividerImpl,
-        ListItemGroupAttributeModifier::SetChildrenMainSizeImpl,
     };
     return &ArkUIListItemGroupModifierImpl;
 }

@@ -14,6 +14,7 @@
  */
 #include "core/components_ng/pattern/data_panel/data_panel_pattern.h"
 
+#include "core/components_ng/property/position_property.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
@@ -32,7 +33,7 @@ bool DataPanelPattern::OnDirtyLayoutWrapperSwap(
 RefPtr<NodePaintMethod> DataPanelPattern::CreateNodePaintMethod()
 {
     if (!dataPanelModifier_) {
-        dataPanelModifier_ = AceType::MakeRefPtr<DataPanelModifier>();
+        dataPanelModifier_ = AceType::MakeRefPtr<DataPanelModifier>(WeakClaim(this));
     }
     auto paintMethod = MakeRefPtr<DataPanelPaintMethod>(dataPanelModifier_);
     auto host = GetHost();
@@ -95,9 +96,10 @@ void DataPanelPattern::FireBuilder()
         host->MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE);
         return;
     }
+    auto node = BuildContentModifierNode();
+    CHECK_EQUAL_VOID(contentModifierNode_, node);
     host->RemoveChildAtIndex(0);
-    CHECK_NULL_VOID(makeFunc_);
-    contentModifierNode_ = BuildContentModifierNode();
+    contentModifierNode_ = node;
     CHECK_NULL_VOID(contentModifierNode_);
     host->AddChild(contentModifierNode_, 0);
     host->MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE);
@@ -105,6 +107,7 @@ void DataPanelPattern::FireBuilder()
 
 RefPtr<FrameNode> DataPanelPattern::BuildContentModifierNode()
 {
+    CHECK_NULL_RETURN(makeFunc_, nullptr);
     auto host = GetHost();
     CHECK_NULL_RETURN(host, nullptr);
     auto paintProperty = host->GetPaintProperty<DataPanelPaintProperty>();
@@ -136,7 +139,7 @@ void DataPanelPattern::UpdateTrackBackground(const Color& color, bool isFirstLoa
     CHECK_NULL_VOID(paintProperty);
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
-    if (isFirstLoad || pipelineContext->IsSystmColorChange()) {
+    if (isFirstLoad || pipelineContext->IsSystemColorChange()) {
         paintProperty->UpdateTrackBackground(color);
     }
     if (host->GetRerenderable()) {
@@ -152,7 +155,7 @@ void DataPanelPattern::UpdateStrokeWidth(const CalcDimension& strokeWidth, bool 
     CHECK_NULL_VOID(pipelineContext);
     auto paintProperty = host->GetPaintProperty<DataPanelPaintProperty>();
     CHECK_NULL_VOID(paintProperty);
-    if (isFirstLoad || pipelineContext->IsSystmColorChange()) {
+    if (isFirstLoad || pipelineContext->IsSystemColorChange()) {
         paintProperty->UpdateStrokeWidth(strokeWidth);
     }
     if (host->GetRerenderable()) {
@@ -211,5 +214,10 @@ void DataPanelPattern::OnColorConfigurationUpdate()
         paintProperty->UpdateValueColors(colors);
         host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
     }
+}
+
+FocusPattern DataPanelPattern::GetFocusPattern() const
+{
+    return { FocusType::NODE, false, FocusStyleType::OUTER_BORDER };
 }
 } // namespace OHOS::Ace::NG

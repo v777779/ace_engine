@@ -19,6 +19,7 @@ import { ObserveSingleton } from '../base/observeSingleton';
 import { NullableObject } from '../base/types';
 import { UIUtils } from '../utils';
 import { uiUtils } from '../base/uiUtilsImpl';
+import { StateMgmtDFX, ObservedObjectRegistry } from '../tools/stateMgmtDFX';
 
 /**
  * implementation of V1 @Link
@@ -60,6 +61,9 @@ export class LinkDecoratedVariable<T> extends DecoratedV1VariableBase<T> impleme
         // if initial value is object, register so that property changes trigger
         // @Watch function exec
         // registerWatchtoSource is done in factory
+
+        // Register the relationship between this Link variable and the observed object it uses
+        this.registerToObservedObject(initValue);
     }
 
     public getInfo(): string {
@@ -67,15 +71,19 @@ export class LinkDecoratedVariable<T> extends DecoratedV1VariableBase<T> impleme
     }
 
     public get(): T {
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`${this.decorator} ${this.getTraceInfo()}`);
+        this.selfTrack();
         return this.sourceGet_();
     }
 
     public set(newValue: T): void {
         const oldValue = this.sourceGet_();
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`${this.decorator} ${oldValue === newValue} ${this.setTraceInfo()}`);
         if (oldValue !== newValue) {
             if (this.sourceSet_ === undefined) {
                 throw new Error(`${this.getInfo()}: Can not set @Link value. @Link source is immutable error.`);
             }
+            this.checkValueIsNotFunction(newValue);
             const value = uiUtils.makeV1Observed(newValue);
             // @Watch
             // if new value is object, register so that property changes trigger
@@ -83,6 +91,10 @@ export class LinkDecoratedVariable<T> extends DecoratedV1VariableBase<T> impleme
             // unregister if old value is an object
             this.unregisterWatchFromObservedObjectChanges(oldValue);
             this.registerWatchForObservedObjectChanges(value);
+
+            // Update ObservedObjectRegistry registration
+            this.updateObservedObjectRegistration(oldValue, value);
+
             // a @Link set  truggers a meta.fireChange on the source XXXDecoratedVariable
             // set also get above.
             this.sourceSet_!(value);
@@ -93,5 +105,14 @@ export class LinkDecoratedVariable<T> extends DecoratedV1VariableBase<T> impleme
 
     public getSource(): IDecoratedV1Variable<T> {
         return this.source_;
+    }
+
+    public aboutToBeDeletedInternal(): void {
+        // Unregister from the observed object before deletion
+        const currentValue = this.sourceGet_();
+        this.unregisterFromObservedObject(currentValue);
+
+        // Call parent's cleanup
+        super.aboutToBeDeletedInternal();
     }
 }

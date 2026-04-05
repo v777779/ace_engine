@@ -17,6 +17,7 @@ import { KeyCode } from '@ohos.multimodalInput.keyCode';
 import util from '@ohos.util';
 import { LengthMetrics, LengthUnit } from '@ohos.arkui.node';
 import I18n from '@ohos.i18n';
+import uiMaterial from '@ohos.arkui.uiMaterial';
 
 const MIN_ITEM_COUNT = 2
 const MAX_ITEM_COUNT = 5
@@ -25,10 +26,10 @@ const MAX_MAX_FONT_SCALE: number = 2
 const MIN_MAX_FONT_SCALE: number = 1
 const RESOURCE_TYPE_FLOAT = 10002;
 const RESOURCE_TYPE_INTEGER = 10007;
-const CAPSULE_FOCUS_SELECTED_OFFSET: number = 4;
 // Space character for selected accessibility description - prevents screen readers from announcing
 const ACCESSIBILITY_SELECTED_DESCRIPTION = ' ';
 const ACCESSIBILITY_DEFAULT_DESCRIPTION = '';
+const CAPSULE_FOCUS_SELECTED_OFFSET: number = 4;
 
 interface SegmentButtonThemeInterface {
   SEGMENT_TEXT_VERTICAL_PADDING: Resource;
@@ -52,10 +53,12 @@ interface SegmentButtonThemeInterface {
   SEGMENT_BUTTON_NORMAL_BORDER_RADIUS: Length | BorderRadiuses | LocalizedBorderRadiuses,
   SEGMENT_ITEM_TEXT_OVERFLOW: Resource,
   SEGMENT_BUTTON_FOCUS_TEXT_COLOR: ResourceColor,
-  SEGMENT_BUTTON_SHADOW: Resource,
   SEGMENT_FOCUS_STYLE_CUSTOMIZED: Resource,
   SEGMENT_BUTTON_CONTAINER_SHAPE: Resource,
-  SEGMENT_BUTTON_SELECTED_BACKGROUND_SHAPE: Resource
+  SEGMENT_BUTTON_SELECTED_BACKGROUND_SHAPE: Resource,
+  SEGMENT_BUTTON_UNSELECTED_FONT_WEIGHT: Resource,
+  SEGMENT_BUTTON_BORDER_WIDTH: DimensionNoPercentage,
+  SEGMENT_BUTTON_BORDER_COLOR: ResourceColor,
 }
 
 const segmentButtonTheme: SegmentButtonThemeInterface = {
@@ -76,14 +79,16 @@ const segmentButtonTheme: SegmentButtonThemeInterface = {
   SEGMENT_BUTTON_NORMAL_BORDER_RADIUS: $r('sys.float.segment_button_normal_border_radius'),
   SEGMENT_ITEM_TEXT_OVERFLOW: $r('sys.float.segment_marquee'),
   SEGMENT_BUTTON_FOCUS_TEXT_COLOR: $r('sys.color.segment_button_focus_text_primary'),
-  SEGMENT_BUTTON_SHADOW: $r('sys.float.segment_button_shadow'),
   SEGMENT_TEXT_HORIZONTAL_PADDING: $r('sys.float.segment_button_text_l_r_padding'),
   SEGMENT_TEXT_VERTICAL_PADDING: $r('sys.float.segment_button_text_u_d_padding'),
   SEGMENT_TEXT_CAPSULE_VERTICAL_PADDING: $r('sys.float.segment_button_text_capsule_u_d_padding'),
   SEGMENT_BUTTON_FOCUS_CUSTOMIZED_BG_COLOR: $r('sys.color.segment_button_focus_backboard_primary'),
   SEGMENT_FOCUS_STYLE_CUSTOMIZED: $r('sys.float.segment_focus_control'),
   SEGMENT_BUTTON_CONTAINER_SHAPE: $r('sys.float.segmentbutton_container_shape'),
-  SEGMENT_BUTTON_SELECTED_BACKGROUND_SHAPE: $r('sys.float.segmentbutton_selected_background_shape')
+  SEGMENT_BUTTON_SELECTED_BACKGROUND_SHAPE: $r('sys.float.segmentbutton_selected_background_shape'),
+  SEGMENT_BUTTON_UNSELECTED_FONT_WEIGHT: $r('sys.float.segment_button_unselected_font_weight'),
+  SEGMENT_BUTTON_BORDER_WIDTH: $r('sys.float.segment_button_border_width'),
+  SEGMENT_BUTTON_BORDER_COLOR: $r('sys.color.segment_button_border_color'),
 }
 
 interface Point {
@@ -98,6 +103,24 @@ function nearEqual(first: number, second: number): boolean {
 function validateLengthMetrics(value: LengthMetrics | undefined, defaultValue: LengthMetrics): LengthMetrics {
   const actualValue = value ?? defaultValue;
   return (actualValue.value < 0 || actualValue.unit === LengthUnit.PERCENT) ? defaultValue : actualValue;
+}
+
+function initFontWeight(defaultValue: FontWeight) {
+  const value = LengthMetrics.resource(segmentButtonTheme.SEGMENT_BUTTON_UNSELECTED_FONT_WEIGHT).value;
+  switch (value) {
+    case 100:
+      return FontWeight.Lighter;
+    case 400:
+      return FontWeight.Regular;
+    case 500:
+      return FontWeight.Medium;
+    case 700:
+      return FontWeight.Bold;
+    case 900:
+      return FontWeight.Bolder;
+    default:
+      return defaultValue;
+  }
 }
 
 interface SegmentButtonTextItem {
@@ -146,6 +169,7 @@ interface CommonSegmentButtonOptions {
   borderRadiusMode?: BorderRadiusMode
   backgroundBorderRadius?: LengthMetrics
   itemBorderRadius?: LengthMetrics
+  backgroundSystemMaterial?: uiMaterial.Material
 }
 
 type ItemRestriction<T> = [T, T, T?, T?, T?]
@@ -332,6 +356,7 @@ export class SegmentButtonOptions {
   public borderRadiusMode?: BorderRadiusMode
   public backgroundBorderRadius?: LengthMetrics
   public itemBorderRadius?: LengthMetrics
+  public backgroundSystemMaterial?: uiMaterial.Material
   private _buttons: SegmentButtonItemOptionsArray | undefined = void 0
 
   get buttons() {
@@ -352,7 +377,7 @@ export class SegmentButtonOptions {
     this.selectedFontColor = options.selectedFontColor ?? segmentButtonTheme.TAB_SELECTED_FONT_COLOR
     this.fontSize = options.fontSize ?? segmentButtonTheme.FONT_SIZE
     this.selectedFontSize = options.selectedFontSize ?? segmentButtonTheme.SELECTED_FONT_SIZE
-    this.fontWeight = options.fontWeight ?? FontWeight.Regular
+    this.fontWeight = options.fontWeight ?? initFontWeight(FontWeight.Regular)
     this.selectedFontWeight = options.selectedFontWeight ?? FontWeight.Medium
     this.backgroundColor = options.backgroundColor ?? segmentButtonTheme.BACKGROUND_COLOR
     this.selectedBackgroundColor = options.selectedBackgroundColor ?? segmentButtonTheme.TAB_SELECTED_BACKGROUND_COLOR
@@ -360,9 +385,9 @@ export class SegmentButtonOptions {
     this.buttonPadding = options.buttonPadding
     this.textPadding = options.textPadding
     this.type = options.type
-    this.backgroundBlurStyle =
-      options.backgroundBlurStyle ??
-        LengthMetrics.resource(segmentButtonTheme.BACKGROUND_BLUR_STYLE).value as BlurStyle;
+    this.backgroundBlurStyle =	 
+       options.backgroundBlurStyle ??	 
+         LengthMetrics.resource(segmentButtonTheme.BACKGROUND_BLUR_STYLE).value as BlurStyle;	 
     this.localizedTextPadding = options.localizedTextPadding
     this.localizedButtonPadding = options.localizedButtonPadding
     this.direction = options.direction ?? Direction.Auto
@@ -389,8 +414,9 @@ export class SegmentButtonOptions {
     } else {
       this.showText = true
     }
-    let themePadding = LengthMetrics.resource($r('sys.float.segment_button_baseplate_padding')).value;
+    let themePadding = LengthMetrics.resource($r('sys.float.padding_level2')).value;
     this.componentPadding = this.multiply ? 0 : themePadding;
+    this.backgroundSystemMaterial = options.backgroundSystemMaterial
   }
 
   public onButtonsUpdated() {
@@ -425,7 +451,8 @@ export class SegmentButtonOptions {
       direction: options.direction,
       borderRadiusMode: options.borderRadiusMode,
       backgroundBorderRadius: options.backgroundBorderRadius,
-      itemBorderRadius: options.itemBorderRadius
+      itemBorderRadius: options.itemBorderRadius,
+      backgroundSystemMaterial: options.backgroundSystemMaterial
     })
   }
 
@@ -451,7 +478,8 @@ export class SegmentButtonOptions {
       direction: options.direction,
       borderRadiusMode: options.borderRadiusMode,
       backgroundBorderRadius: options.backgroundBorderRadius,
-      itemBorderRadius: options.itemBorderRadius
+      itemBorderRadius: options.itemBorderRadius,
+      backgroundSystemMaterial: options.backgroundSystemMaterial
     })
   }
 }
@@ -491,6 +519,7 @@ struct SelectItem {
   @Consume selectedItemPosition: LocalizedEdges
   @Consume zoomScaleArray: number[]
   @Consume buttonBorderRadius: LocalizedBorderRadiuses[]
+  @Prop isSegmentFocusStyleCustomized: boolean;
 
   build() {
     if (this.selectedIndexes !== void 0 && this.selectedIndexes.length !== 0) {
@@ -500,11 +529,9 @@ struct SelectItem {
         .size(this.buttonItemsSize[this.selectedIndexes[0]])
         .backgroundColor(this.options.selectedBackgroundColor ??
           (this.options.type === 'tab' ? segmentButtonTheme.TAB_SELECTED_BACKGROUND_COLOR :
-          segmentButtonTheme.CAPSULE_SELECTED_BACKGROUND_COLOR))
+            segmentButtonTheme.CAPSULE_SELECTED_BACKGROUND_COLOR))
         .position(this.selectedItemPosition)
         .scale({ x: this.zoomScaleArray[this.selectedIndexes[0]], y: this.zoomScaleArray[this.selectedIndexes[0]] })
-        .shadow(resourceToNumber(this.getUIContext()?.getHostContext(), segmentButtonTheme.SEGMENT_BUTTON_SHADOW,
-          0) as ShadowStyle)
     }
   }
 }
@@ -684,8 +711,6 @@ struct SegmentButtonItem {
       }
     }
     .direction(this.options.direction)
-    .focusScopePriority(this.groupId,
-      Math.min(...this.selectedIndexes) === this.index ? FocusPriority.PREVIOUS : FocusPriority.AUTO)
     .justifyContent(FlexAlign.Center)
     .padding(this.getButtonPadding())
     .constraintSize({ minHeight: segmentButtonTheme.CONSTRAINT_SIZE_MIN_HEIGHT })
@@ -934,7 +959,8 @@ struct SegmentButtonItemArrayComponent {
     .direction(this.options.direction)
     .size({ width: 1, height: 1 })
     .align(Alignment.Center)
-    // 当前仅TV场景isSegmentFocusStyleCustomized为true,TV场景需要使用按键内置的focus样式，故隐藏此高级组件自定义的focus样式
+    // Currently, isSegmentFocusStyleCustomized is set to true only on TV.
+    // Since the TV requires the use of the built-in focus style, the custom focus style is hidden.
     .visibility(!this.isSegmentFocusStyleCustomized && this.focusIndex === index ? Visibility.Visible : Visibility.None)
   }
 
@@ -1079,13 +1105,15 @@ struct SegmentButtonItemArrayComponent {
                   // Calculate height of items
                   this.buttonItemsRealHeight[index] = newValue.height as number
                   let maxHeight = Math.max(...this.buttonItemsRealHeight.slice(0, this.options.buttons ?
-                  this.options.buttons.length : 0))
+                    this.options.buttons.length : 0))
                   for (let index = 0; index < this.buttonItemsSize.length; index++) {
                     this.buttonItemsSize[index] = { width: this.buttonItemsSize[index].width, height: maxHeight }
                   }
                   this.calculateBorderRadius()
                 })
             }
+            .focusScopePriority(this.groupId,
+              Math.min(...this.selectedIndexes) === index ? FocusPriority.PREVIOUS : FocusPriority.AUTO)
             .type(ButtonType.Normal)
             .stateEffect(false)
             .hoverEffect(HoverEffect.None)
@@ -1174,13 +1202,13 @@ struct SegmentButtonItemArrayComponent {
                 animateTo({ duration: 250, curve: Curve.Friction }, () => {
                   this.hoverColorArray[index].hoverColor =
                     this.isSegmentFocusStyleCustomized && this.focusIndex === index ?
-                    segmentButtonTheme.SEGMENT_BUTTON_FOCUS_CUSTOMIZED_BG_COLOR : segmentButtonTheme.HOVER_COLOR;
+                      segmentButtonTheme.SEGMENT_BUTTON_FOCUS_CUSTOMIZED_BG_COLOR : segmentButtonTheme.HOVER_COLOR;
                 })
               } else {
                 animateTo({ duration: 250, curve: Curve.Friction }, () => {
                   this.hoverColorArray[index].hoverColor =
                     this.isSegmentFocusStyleCustomized && this.focusIndex === index ?
-                    segmentButtonTheme.SEGMENT_BUTTON_FOCUS_CUSTOMIZED_BG_COLOR : Color.Transparent;
+                      segmentButtonTheme.SEGMENT_BUTTON_FOCUS_CUSTOMIZED_BG_COLOR : Color.Transparent;
                 })
               }
             })
@@ -1224,10 +1252,10 @@ struct SegmentButtonItemArrayComponent {
     if (this.selectedIndexes !== void 0 && this.selectedIndexes.length !== 0 &&
       this.selectedIndexes[0] === index) { // 选中态
       this.hoverColorArray[index].hoverColor = this.isDefaultSelectedBgColor() ?
-      segmentButtonTheme.SEGMENT_BUTTON_FOCUS_CUSTOMIZED_BG_COLOR : this.options.selectedBackgroundColor;
+        segmentButtonTheme.SEGMENT_BUTTON_FOCUS_CUSTOMIZED_BG_COLOR : this.options.selectedBackgroundColor;
     } else { // 未选中态
       this.hoverColorArray[index].hoverColor = this.options.backgroundColor === segmentButtonTheme.BACKGROUND_COLOR ?
-      segmentButtonTheme.SEGMENT_BUTTON_FOCUS_CUSTOMIZED_BG_COLOR : this.options.backgroundColor;
+        segmentButtonTheme.SEGMENT_BUTTON_FOCUS_CUSTOMIZED_BG_COLOR : this.options.backgroundColor;
     }
   }
 }
@@ -1242,6 +1270,7 @@ class ItemProperty {
 
 @Component
 export struct SegmentButton {
+  @Prop enableStateAnimation: boolean = false
   @ObjectLink @Watch('onOptionsChange') options: SegmentButtonOptions
   @Link @Watch('onSelectedChange') selectedIndexes: number[]
   public onItemClicked?: Callback<number>
@@ -1282,10 +1311,8 @@ export struct SegmentButton {
   private panGestureStartPoint: Point = { x: 0, y: 0 }
   private isPanGestureMoved: boolean = false
   @State shouldMirror: boolean = false
-  private isSegmentFocusStyleCustomized: boolean =
-    resourceToNumber(this.getUIContext()?.getHostContext(), segmentButtonTheme.SEGMENT_FOCUS_STYLE_CUSTOMIZED, 1.0) ===
-      0.0;
   private isGestureInProgress: boolean = false;
+  private isCustomizedCache?: boolean;
 
   onItemsPositionChange() {
     if (this.options === void 0 || this.options.buttons === void 0) {
@@ -1355,7 +1382,7 @@ export struct SegmentButton {
     }
     this.updateSelectedIndexes()
     this.setItemsSelected()
-    if (this.doSelectedChangeAnimate) {
+    if (this.doSelectedChangeAnimate  || this.enableStateAnimation) {
       this.updateAnimatedProperty(this.getSelectedChangeCurve())
     } else {
       this.updateAnimatedProperty(null)
@@ -1403,6 +1430,17 @@ export struct SegmentButton {
     return false
   }
 
+  private isSegmentFocusStyleCustomized(): boolean {
+    if (this.isCustomizedCache === undefined) {
+      this.isCustomizedCache = resourceToNumber(
+        this.getUIContext()?.getHostContext(), 
+        segmentButtonTheme.SEGMENT_FOCUS_STYLE_CUSTOMIZED,
+        1.0
+      ) < 0.1; //PC platform returns 0.0, default returns 1.0, using <0.1 to differentiate platform styles.
+    }
+    return this.isCustomizedCache;
+  }
+
   build() {
     Stack() {
       if (this.options !== void 0 && this.options.buttons != void 0) {
@@ -1431,6 +1469,11 @@ export struct SegmentButton {
             this.componentSize.height as number / 2
           ))
           .backgroundBlurStyle(this.options.backgroundBlurStyle, undefined, { disableSystemAdaptation: true })
+          .borderWidth(this.options.backgroundSystemMaterial ? undefined 
+          : segmentButtonTheme.SEGMENT_BUTTON_BORDER_WIDTH)
+          .borderColor(this.options.backgroundSystemMaterial ? undefined 
+          : segmentButtonTheme.SEGMENT_BUTTON_BORDER_COLOR)
+          .systemMaterial(this.options.backgroundSystemMaterial)
         }
         Stack() {
           if (this.options.type === 'capsule' && (this.options.multiply ?? false)) {
@@ -1443,7 +1486,8 @@ export struct SegmentButton {
             SelectItem({
               optionsArray: this.options.buttons,
               options: this.options,
-              selectedIndexes: $selectedIndexes
+              selectedIndexes: $selectedIndexes,
+              isSegmentFocusStyleCustomized: this.isSegmentFocusStyleCustomized()
             })
           }
         }
@@ -1465,7 +1509,7 @@ export struct SegmentButton {
           selectedIndexes: $selectedIndexes,
           maxFontScale: this.getMaxFontSize(),
           onItemClicked: this.onItemClicked,
-          isSegmentFocusStyleCustomized: this.isSegmentFocusStyleCustomized
+          isSegmentFocusStyleCustomized: this.isSegmentFocusStyleCustomized()
         })
       }
     }
@@ -1497,7 +1541,7 @@ export struct SegmentButton {
     })
     .accessibilityLevel('no')
     .priorityGesture(
-      GestureGroup(GestureMode.Parallel,
+      GestureGroup(GestureMode.Exclusive,
         TapGesture()
           .onAction((event: GestureEvent) => {
             if (this.isGestureInProgress) {
@@ -1579,7 +1623,7 @@ export struct SegmentButton {
               this.doSelectedChangeAnimate = false
             }
           }),
-        PanGesture()
+        PanGesture({direction: PanDirection.Horizontal})
           .onActionStart((event: GestureEvent) => {
             this.isGestureInProgress = true;
             if (this.options === void 0 || this.options.buttons === void 0) {
@@ -1739,7 +1783,7 @@ export struct SegmentButton {
       this.buttonItemsSelected.forEach((selected, index) => {
         this.buttonItemProperty[index].fontColor = selected ?
           this.options.selectedFontColor ?? (this.options.type === 'tab' ?
-          segmentButtonTheme.TAB_SELECTED_FONT_COLOR : segmentButtonTheme.CAPSULE_SELECTED_FONT_COLOR) :
+            segmentButtonTheme.TAB_SELECTED_FONT_COLOR : segmentButtonTheme.CAPSULE_SELECTED_FONT_COLOR) :
           this.options.fontColor ?? segmentButtonTheme.FONT_COLOR
       })
     }
@@ -1752,7 +1796,7 @@ export struct SegmentButton {
       this.buttonItemProperty[index].fontSize = selected ? this.options.selectedFontSize ??
       segmentButtonTheme.SELECTED_FONT_SIZE : this.options.fontSize ?? segmentButtonTheme.FONT_SIZE
       this.buttonItemProperty[index].fontWeight = selected ? this.options.selectedFontWeight ?? FontWeight.Medium :
-        this.options.fontWeight ?? FontWeight.Regular
+        this.options.fontWeight ?? initFontWeight(FontWeight.Regular)
       this.buttonItemProperty[index].isSelected = selected
     })
   }

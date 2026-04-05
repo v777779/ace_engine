@@ -16,7 +16,7 @@
 
 import { Drawer } from 'common/src/main/ets/components/Drawer';
 import { ColorBlock, IconBlock, RadioBlock, SliderBlock, useEnabled } from 'common';
-import { ColorMetrics, componentUtils, curves, LengthMetrics, matrix4, promptAction } from '@kit.ArkUI';
+import { ColorMetrics, componentUtils, curves, LengthMetrics, matrix4, promptAction, SymbolGlyphModifier } from '@kit.ArkUI';
 import { formatDate } from 'common/src/main/ets/utils/timeUtil';
 import { BlockTag } from 'common/src/main/ets/model/BlockTag';
 import { pointer } from '@kit.InputKit';
@@ -159,6 +159,10 @@ export struct MenuBootcamp {
   @State menuItemGroupDividerEndMargin: number = 16;
   @State enableSubMenuExpandingMode: boolean = false;
   @State subMenuExpandingMode: SubMenuExpandingMode = SubMenuExpandingMode.SIDE_EXPAND;
+  @State enableSubMenuExpandSymbol: boolean = false;
+  @State subMenuExpandSymbol: boolean = false;
+  @State subMenuEmbeddedExpandSymbol: 	SymbolGlyphModifier = new SymbolGlyphModifier($r('sys.symbol.chevron_down')).fontColor([Color.Red]).fontSize('24vp');
+  @State subMenuStackExpandSymbol: 	SymbolGlyphModifier = new SymbolGlyphModifier($r('sys.symbol.chevron_forward')).fontColor([Color.Red]).fontSize('20vp').padding('2vp');
   //part1
   // size
   @State enableCompWidth: boolean = false;
@@ -637,6 +641,12 @@ export struct MenuBootcamp {
   //compEvent
   @StorageLink('Block') listEventTriggeredTags: Array<BlockTag> = [];
   @State listEventTriggeredTagsTemp: Array<BlockTag> = [];
+  @State config: DragSpringLoadingConfiguration = {
+    stillTimeLimit: 200,
+    updateInterval: 300,
+    updateNotifyCount: 4,
+    updateToFinishInterval: 300
+  };
   scroller: Scroller = new Scroller()
 
   aboutToAppear(): void {
@@ -782,6 +792,9 @@ export struct MenuBootcamp {
         LengthMetrics.vp(this.menuItemGroupDividerEndMargin))
     })
     .subMenuExpandingMode(useEnabled(this.enableSubMenuExpandingMode, this.subMenuExpandingMode))
+    .subMenuExpandSymbol(useEnabled(this.subMenuExpandSymbol,
+      useEnabled(useEnabled(this.enableSubMenuExpandingMode, this.subMenuExpandingMode) ==
+      SubMenuExpandingMode.EMBEDDED_EXPAND, this.subMenuEmbeddedExpandSymbol, this.subMenuStackExpandSymbol)))
     //part1
     .width(useEnabled(this.enableCompWidth, this.compWidth))
     .height(useEnabled(this.enableCompHeight, this.compHeight))
@@ -1412,6 +1425,20 @@ export struct MenuBootcamp {
       this.compEventTriggeredLog('自定义事件拦截onChildTouchTest触发')
       return HitTestMode.Default;
     })
+    .onDragSpringLoading((context: SpringLoadingContext) => {
+      if (context.state = 0) {
+        this.compEventTriggeredLog('自定义事件拦截onDragSpringLoading.BEGIN触发')
+      } else if(context.state = 1) {
+        this.compEventTriggeredLog('自定义事件拦截onDragSpringLoading.UPDATE触发')
+      } else if(context.state = 2) {
+        this.compEventTriggeredLog('自定义事件拦截onDragSpringLoading.END触发')
+      } else if(context.state = 3) {
+        this.compEventTriggeredLog('自定义事件拦截onDragSpringLoading.CANCEL触发')
+      }
+      if (context.currentNotifySequence = 5) {
+        this.compEventTriggeredLog('自定义事件拦截onDragSpringLoading.currentNotifySequence触发')
+      }
+    }, this.config)
   }
 
   @Builder
@@ -1541,6 +1568,16 @@ export struct MenuBootcamp {
             { label: 'SIDE_EXPAND', value: SubMenuExpandingMode.SIDE_EXPAND },
             { label: 'EMBEDDED_EXPAND', value: SubMenuExpandingMode.EMBEDDED_EXPAND },
             { label: 'STACK_EXPAND', value: SubMenuExpandingMode.STACK_EXPAND }
+          ]
+        })
+
+        RadioBlock({
+          title: '是否设置自定义子菜单展开符号',
+          isEnabled: this.enableSubMenuExpandSymbol,
+          value: this.subMenuExpandSymbol,
+          dataSource: [
+            { label: '设置', value: true },
+            { label: '不设置', value: false }
           ]
         })
 

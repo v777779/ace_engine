@@ -83,6 +83,7 @@ void JSDynamicComponent::Create(const JSCallbackInfo& info)
     auto hapPathValue = dynamicComponentArg->GetProperty("hapPath");
     auto abcPathValue = dynamicComponentArg->GetProperty("abcPath");
     auto entryPointValue = dynamicComponentArg->GetProperty("entryPoint");
+    auto allowCrossProcessNestingValue = dynamicComponentArg->GetProperty("allowCrossProcessNesting");
     auto backgroundTransparentValue = dynamicComponentArg->GetProperty("backgroundTransparent");
     if (!entryPointValue->IsString()) {
         TAG_LOGW(AceLogTag::ACE_DYNAMIC_COMPONENT, "DynamicComponent argument type is invalid");
@@ -93,9 +94,16 @@ void JSDynamicComponent::Create(const JSCallbackInfo& info)
     if (backgroundTransparentValue->IsBoolean()) {
         backgroundTransparent = backgroundTransparentValue->ToBoolean();
     }
+    auto allowCrossProcessNesting = false;
+    if (allowCrossProcessNestingValue->IsBoolean()) {
+        allowCrossProcessNesting = allowCrossProcessNestingValue->ToBoolean();
+        TAG_LOGI(AceLogTag::ACE_DYNAMIC_COMPONENT, "DynamicComponent allowCrossProcessNesting = %{public}d",
+            allowCrossProcessNesting);
+    }
     NG::UIExtensionConfig config;
     config.sessionType = NG::SessionType::DYNAMIC_COMPONENT;
     config.backgroundTransparent = backgroundTransparent;
+    config.allowCrossProcessNesting = allowCrossProcessNesting;
     NG::DynamicModelNG::GetInstance()->Create(config);
     ViewAbstractModel::GetInstance()->SetWidth(DYNAMIC_COMPONENT_MIN_WIDTH);
     ViewAbstractModel::GetInstance()->SetHeight(DYNAMIC_COMPONENT_MIN_HEIGHT);
@@ -103,6 +111,7 @@ void JSDynamicComponent::Create(const JSCallbackInfo& info)
     ViewAbstractModel::GetInstance()->SetMinHeight(DYNAMIC_COMPONENT_MIN_HEIGHT);
     auto frameNode = NG::ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto pattern = frameNode->GetPattern<NG::DynamicPattern>();
     if (pattern && pattern->HasDynamicRenderer()) {
         TAG_LOGI(AceLogTag::ACE_DYNAMIC_COMPONENT, "dynamic renderer already exists");
@@ -135,15 +144,16 @@ void JSDynamicComponent::Create(const JSCallbackInfo& info)
             [weak, entryPoint, env]() {
                 auto frameNode = weak.Upgrade();
                 CHECK_NULL_VOID(frameNode);
+                ACE_UINODE_TRACE(frameNode);
                 NG::DynamicModelNG::GetInstance()->InitializeDynamicComponent(
                     frameNode, "", "", entryPoint, env);
-            },
-            TaskExecutor::TaskType::UI, "ArkUIDynamicComponentInitialize");
+            }, TaskExecutor::TaskType::UI, "ArkUIDynamicComponentInitialize");
     });
 }
 
 void JSDynamicComponent::SetIsReportFrameEvent(const JSCallbackInfo& info)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     bool isReportFrameEvent = false;
     if (info[0]->IsBoolean()) {
         isReportFrameEvent = info[0]->ToBoolean();
@@ -155,17 +165,19 @@ void JSDynamicComponent::SetIsReportFrameEvent(const JSCallbackInfo& info)
 void JSDynamicComponent::JsOnError(const JSCallbackInfo& info)
 {
     if (info.Length() < 1 || !info[0]->IsFunction()) {
-        TAG_LOGW(AceLogTag::ACE_ISOLATED_COMPONENT, "onError argument is invalid");
+        TAG_LOGW(AceLogTag::ACE_DYNAMIC_COMPONENT, "onError argument is invalid");
         return;
     }
 
     WeakPtr<NG::FrameNode> frameNode =
         AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ACE_UINODE_TRACE(frameNode);
     auto execCtx = info.GetExecutionContext();
     auto jsFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(), JSRef<JSFunc>::Cast(info[0]));
     auto instanceId = Container::CurrentId();
     auto onError = [execCtx, func = std::move(jsFunc), instanceId, node = frameNode]
         (int32_t code, const std::string& name, const std::string& message) {
+            ACE_UINODE_TRACE(node);
             ContainerScope scope(instanceId);
             JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             ACE_SCORING_EVENT("DynamicComponent.onError");
@@ -188,6 +200,7 @@ void JSDynamicComponent::SetOnSizeChanged(const JSCallbackInfo& info)
 
 void JSDynamicComponent::Width(const JSCallbackInfo& info)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     if (info[0]->IsUndefined()) {
         return;
     }
@@ -200,6 +213,7 @@ void JSDynamicComponent::Width(const JSCallbackInfo& info)
 
 void JSDynamicComponent::Height(const JSCallbackInfo& info)
 {
+    ACE_UINODE_TRACE(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
     if (info[0]->IsUndefined()) {
         return;
     }

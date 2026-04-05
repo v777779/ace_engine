@@ -61,7 +61,7 @@ public:
     virtual void SetTitlebarOptions(NG::NavigationTitlebarOptions&& opt) {}
     virtual void SetCustomTitle(const RefPtr<AceType>& customNode) = 0;
     virtual void SetTitleHeight(const Dimension& height, bool isValid = true) = 0;
-    virtual void SetTitleHeight(const RefPtr<ResourceObject>& resObj) = 0;
+    virtual void SetTitleHeight(const Dimension& height, const RefPtr<ResourceObject>& resObj) {}
     virtual void SetTitleMode(NG::NavigationTitleMode mode) = 0;
     virtual void SetSubtitle(const std::string& subtitle) = 0;
     virtual void SetEnableModeChangeAnimation(bool isEnable) = 0;
@@ -140,6 +140,17 @@ public:
     virtual bool UseHomeDestination() const { return false; }
     virtual void SetHomePathInfoWithCallback(
         std::function<void(const RefPtr<NG::NavigationStack>&)>&& setHomePathInfoCallback) {}
+    virtual void SetEnableVisibilityLifecycleWithContentCover(bool isEnable) {}
+
+    virtual void UpdateDividerColor(const Color& color, const RefPtr<ResourceObject>& res) {}
+
+    virtual void UpdateDividerStartMargin(const CalcDimension& start, const RefPtr<ResourceObject>& res) {}
+
+    virtual void UpdateDividerEndMargin(const CalcDimension& end, const RefPtr<ResourceObject>& res) {}
+
+    virtual void UpdateDefineColor(bool isDefined) {}
+
+    virtual void UpdateDividerVisibility(bool isShow) {}
 
 private:
     static std::unique_ptr<NavigationModel> instance_;

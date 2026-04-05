@@ -48,13 +48,12 @@ ani_long ExtractorsToDrawingCanvasPtr(ani_env* env, [[maybe_unused]]ani_object a
     auto* canvasAni = reinterpret_cast<Rosen::Drawing::AniCanvas*>(nativeObj);
     CHECK_NULL_RETURN(canvasAni, {});
     auto rsCanvas = canvasAni->GetCanvas();
-    CHECK_NULL_RETURN(rsCanvas, {});
     return reinterpret_cast<ani_long>(rsCanvas);
 }
 
 ani_object ExtractorsFromDrawingCanvasPtr(ani_env* env, [[maybe_unused]] ani_object aniClass, ani_long drawingCanvasPtr)
 {
-    auto* rsCanvas = reinterpret_cast<Rosen::Drawing::Canvas*>(drawingCanvasPtr);
+    auto rsCanvas = reinterpret_cast<OHOS::Rosen::Drawing::Canvas*>(drawingCanvasPtr);
     CHECK_NULL_RETURN(rsCanvas, nullptr);
     return Rosen::Drawing::AniCanvas::CreateAniCanvas(env, rsCanvas);
 }

@@ -26,13 +26,13 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_media_player.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/common/mock_image_analyzer_manager.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_media_player.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/common/mock_image_analyzer_manager.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
 
 #include "base/geometry/ng/size_t.h"
 #include "base/json/json_util.h"
@@ -40,14 +40,16 @@
 #include "base/resource/internal_resource.h"
 #include "core/common/ai/image_analyzer_mgr.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components/video/video_theme.h"
-#include "core/components/video/video_utils.h"
+#include "core/components_ng/pattern/video/video_theme.h"
+#include "core/components_ng/pattern/video/video_utils.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/layout/layout_algorithm.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_property.h"
 #include "core/components_ng/pattern/root/root_pattern.h"
+#include "core/components_ng/pattern/slider/slider_pattern.h"
 #include "core/components_ng/pattern/text/text_layout_property.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/video/video_full_screen_node.h"
@@ -55,6 +57,7 @@
 #include "core/components_ng/pattern/video/video_layout_algorithm.h"
 #include "core/components_ng/pattern/video/video_layout_property.h"
 #include "core/components_ng/pattern/video/video_model_ng.h"
+#include "core/components_ng/pattern/video/video_model_static.h"
 #include "core/components_ng/pattern/video/video_node.h"
 #include "core/components_ng/pattern/video/video_pattern.h"
 #include "core/components_ng/pattern/video/video_styles.h"
@@ -1211,6 +1214,11 @@ HWTEST_F(VideoTestExtraAddNg, ChangePlayerStatus001, TestSize.Level1)
     videoPattern->duration_ = 0;
     videoPattern->ChangePlayerStatus(status);
     EXPECT_EQ(videoPattern->duration_, 0);
+
+    status = PlaybackStatus::STOPPED;
+    videoPattern->isStop_ = false;
+    videoPattern->ChangePlayerStatus(status);
+    EXPECT_TRUE(videoPattern->isStop_);
 }
 
 /**
@@ -1350,22 +1358,28 @@ HWTEST_F(VideoTestExtraAddNg, Stop001, TestSize.Level1)
     videoPattern->mediaPlayer_ = mockMediaPlayer;
 
     videoPattern->isStop_ = false;
+    videoPattern->isSeeking_ = true;
     videoPattern->Stop();
     EXPECT_TRUE(videoPattern->isStop_);
+    EXPECT_FALSE(videoPattern->isSeeking_);
 
     mockMediaPlayer = AceType::MakeRefPtr<MockMediaPlayer>();
     EXPECT_CALL(*mockMediaPlayer, IsMediaPlayerValid()).WillRepeatedly(Return(false));
     videoPattern->mediaPlayer_ = mockMediaPlayer;
 
     videoPattern->isStop_ = false;
+    videoPattern->isSeeking_ = true;
     videoPattern->Stop();
     EXPECT_FALSE(videoPattern->isStop_);
+    EXPECT_TRUE(videoPattern->isSeeking_);
 
     videoPattern->mediaPlayer_ = nullptr;
 
     videoPattern->isStop_ = false;
+    videoPattern->isSeeking_ = true;
     videoPattern->Stop();
     EXPECT_FALSE(videoPattern->isStop_);
+    EXPECT_TRUE(videoPattern->isSeeking_);
 }
 
 /**
@@ -1450,19 +1464,55 @@ HWTEST_F(VideoTestExtraAddNg, RecoverState001, TestSize.Level1)
     ASSERT_NE(fullScreenPattern, nullptr);
     /* Indirectly call the RecoverState function by calling the ExitFullScreen function */
     EXPECT_TRUE(fullScreenPattern->ExitFullScreen());
+}
 
-    mockMediaPlayer = AceType::MakeRefPtr<MockMediaPlayer>();
+/**
+ * @tc.name: RecoverState002
+ * @tc.desc: Test RecoverState
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestExtraAddNg, RecoverState002, TestSize.Level1)
+{
+    VideoModelNG videoModelNG;
+    auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
+    videoModelNG.Create(videoController);
+    auto frameNode = AceType::Claim<FrameNode>(ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto videoPattern = AceType::DynamicCast<VideoPattern>(frameNode->GetPattern());
+    ASSERT_NE(videoPattern, nullptr);
+
+    auto mockMediaPlayer = AceType::MakeRefPtr<MockMediaPlayer>();
     EXPECT_CALL(*mockMediaPlayer, IsMediaPlayerValid()).WillRepeatedly(Return(false));
     videoPattern->mediaPlayer_ = mockMediaPlayer;
 
     videoPattern->FullScreen();
 
-    videoFullScreenNode = videoPattern->GetFullScreenNode();
+    auto videoFullScreenNode = videoPattern->GetFullScreenNode();
     ASSERT_NE(videoFullScreenNode, nullptr);
-    fullScreenPattern = AceType::DynamicCast<VideoFullScreenPattern>(videoFullScreenNode->GetPattern());
+    auto fullScreenPattern = AceType::DynamicCast<VideoFullScreenPattern>(videoFullScreenNode->GetPattern());
+    fullScreenPattern->currentPos_ = 5;
     ASSERT_NE(fullScreenPattern, nullptr);
     /* Indirectly call the RecoverState function by calling the ExitFullScreen function */
     EXPECT_TRUE(fullScreenPattern->ExitFullScreen());
+
+    auto layoutProperty = frameNode->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(layoutProperty);
+    RefPtr<UINode> controlBar = nullptr;
+    auto children = frameNode->GetChildren();
+    for (const auto& child : children) {
+        if (child->GetTag() == V2::ROW_ETS_TAG) {
+            controlBar = child;
+            break;
+        }
+    }
+    ASSERT_TRUE(controlBar);
+    auto sliderNode = AceType::DynamicCast<FrameNode>(controlBar->GetChildAtIndex(2));
+    ASSERT_TRUE(sliderNode);
+    auto sliderPattern = AceType::DynamicCast<SliderPattern>(sliderNode->GetPattern());
+    sliderPattern->CalcSliderValue();
+    ASSERT_TRUE(sliderPattern);
+    auto value = sliderPattern->value_;
+    EXPECT_EQ(value, 5);
 
     videoPattern->mediaPlayer_ = nullptr;
 
@@ -1477,15 +1527,67 @@ HWTEST_F(VideoTestExtraAddNg, RecoverState001, TestSize.Level1)
 }
 
 /**
- * @tc.name: CallVideoPatternMeasureVideoContentLayoutFunc
- * @tc.desc: Test ApplyImageFit
+ * @tc.name: VideoModelStaticEnableAnalyzerTest
+ * @tc.desc: Test VideoModelStatic::EnableAnalyzer
  * @tc.type: FUNC
  */
-HWTEST_F(VideoTestExtraAddNg, CallVideoPatternMeasureVideoContentLayoutFunc, TestSize.Level1)
+HWTEST_F(VideoTestExtraAddNg, VideoModelStaticEnableAnalyzerTest, TestSize.Level1)
 {
     /**
-     * @tc.steps: step1. Create a video and get the videoPattern.
-     * @tc.expected: step1. Create and get successfully.
+     * @tc.steps: step1. Create Video
+     * @tc.expected: step1. Create Video successfully
+     */
+    VideoModelNG videoModelNG;
+    auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
+    videoModelNG.Create(videoController);
+    auto frameNode = AceType::Claim<FrameNode>(ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto videoPattern = AceType::DynamicCast<VideoPattern>(frameNode->GetPattern());
+    ASSERT_NE(videoPattern, nullptr);
+    /**
+     * @tc.steps: step2. Call VideoModelStatic::EnableAnalyzer
+     * @tc.expected: step2. enable analyzer is updated
+     */
+    VideoModelStatic::EnableAnalyzer(AceType::RawPtr(frameNode), true);
+    EXPECT_TRUE(videoPattern->isEnableAnalyzer_);
+}
+
+/**
+ * @tc.name: VideoPatternUINodeTraceTest001
+ * @tc.desc: Verify ACE_UINODE_TRACE is called in VideoModelNG::Create
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestExtraAddNg, VideoPatternUINodeTraceTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Reset trace and create Video.
+     * @tc.expected: Video created successfully.
+     */
+    ResetLastTraceId();
+    VideoModelNG videoModelNG;
+    auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
+    videoModelNG.Create(videoController);
+    auto frameNode = AceType::Claim<FrameNode>(ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Verify ACE_UINODE_TRACE was called during Create.
+     * @tc.expected: Trace ID matches the video node ID.
+     */
+    uint64_t traceId = GetLastTraceId();
+    EXPECT_GT(traceId, 0);
+}
+
+/**
+ * @tc.name: VideoPatternUINodeTraceTest002
+ * @tc.desc: Verify ACE_UINODE_TRACE is called in VideoPattern::SetMethodCall
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestExtraAddNg, VideoPatternUINodeTraceTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Video and reset trace.
+     * @tc.expected: Video created successfully.
      */
     VideoModelNG videoModelNG;
     auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
@@ -1495,60 +1597,73 @@ HWTEST_F(VideoTestExtraAddNg, CallVideoPatternMeasureVideoContentLayoutFunc, Tes
     auto videoPattern = AceType::DynamicCast<VideoPattern>(frameNode->GetPattern());
     ASSERT_NE(videoPattern, nullptr);
 
+    ResetLastTraceId();
     /**
-     * @tc.steps: step2. Create and set Video LayoutProperty.
-     * @tc.expected: step2. Create successfully.
+     * @tc.steps: step2. Call SetMethodCall which should trigger ACE_UINODE_TRACE.
+     * @tc.expected: Trace ID is updated.
      */
-    DirtySwapConfig config;
-    config.skipMeasure = false;
-    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    auto videoLayoutProperty = frameNode->GetLayoutProperty<VideoLayoutProperty>();
-    ASSERT_NE(videoLayoutProperty, nullptr);
-    auto layoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, videoLayoutProperty);
-    layoutWrapper->skipMeasureContent_ = false;
+    videoPattern->SetMethodCall();
+    uint64_t traceId = GetLastTraceId();
+    EXPECT_EQ(traceId, static_cast<uint64_t>(frameNode->GetId()));
+}
 
-    auto layoutAlgorithm = AceType::MakeRefPtr<LayoutAlgorithmWrapper>(AceType::MakeRefPtr<LayoutAlgorithm>());
-    layoutWrapper->layoutAlgorithm_ = layoutAlgorithm;
-    layoutWrapper->layoutAlgorithm_->skipMeasure_ = false;
-
-    std::unique_ptr<VideoStyle> tempPtr = std::make_unique<VideoStyle>();
-    videoLayoutProperty->propVideoStyle_ = std::move(tempPtr);
-    videoLayoutProperty->propVideoStyle_->propVideoSize = SizeF(VIDEO_WIDTH, VIDEO_HEIGHT);
-    geometryNode->SetContentSize(SizeF(SCREEN_WIDTH_SMALL, SCREEN_HEIGHT_SMALL));
-
+/**
+ * @tc.name: VideoPatternUINodeTraceTest003
+ * @tc.desc: Verify ACE_UINODE_TRACE is called in VideoPattern::EnableAnalyzer
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestExtraAddNg, VideoPatternUINodeTraceTest003, TestSize.Level1)
+{
     /**
-     * @tc.steps: step3. Set OjectFit.
-     * @tc.expected: step3. Call MeasureVideoContentLayout Func.
+     * @tc.steps: step1. Create Video and reset trace.
+     * @tc.expected: Video created successfully.
      */
-    auto mockRenderContext = AceType::MakeRefPtr<MockRenderContext>();
-    videoPattern->renderContextForMediaPlayer_ = mockRenderContext;
-    ASSERT_NE(videoPattern->renderContextForMediaPlayer_, nullptr);
+    VideoModelNG videoModelNG;
+    auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
+    videoModelNG.Create(videoController);
+    auto frameNode = AceType::Claim<FrameNode>(ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto videoPattern = AceType::DynamicCast<VideoPattern>(frameNode->GetPattern());
+    ASSERT_NE(videoPattern, nullptr);
+    videoPattern->imageAnalyzerManager_ = nullptr;
 
-    videoLayoutProperty->UpdateObjectFit(ImageFit::TOP_LEFT);
-    EXPECT_FALSE(videoPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config));
+    ResetLastTraceId();
+    /**
+     * @tc.steps: step2. Call EnableAnalyzer which should trigger ACE_UINODE_TRACE.
+     * @tc.expected: Trace ID is updated.
+     */
+    videoPattern->EnableAnalyzer(true);
+    uint64_t traceId = GetLastTraceId();
+    EXPECT_EQ(traceId, static_cast<uint64_t>(frameNode->GetId()));
+}
 
-    videoLayoutProperty->UpdateObjectFit(ImageFit::TOP);
-    EXPECT_FALSE(videoPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config));
+/**
+ * @tc.name: VideoPatternUINodeTraceTest004
+ * @tc.desc: Verify ACE_UINODE_TRACE is called in VideoPattern::SetImageAIOptions
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestExtraAddNg, VideoPatternUINodeTraceTest004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Video and reset trace.
+     * @tc.expected: Video created successfully.
+     */
+    VideoModelNG videoModelNG;
+    auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
+    videoModelNG.Create(videoController);
+    auto frameNode = AceType::Claim<FrameNode>(ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ASSERT_NE(frameNode, nullptr);
+    auto videoPattern = AceType::DynamicCast<VideoPattern>(frameNode->GetPattern());
+    ASSERT_NE(videoPattern, nullptr);
+    videoPattern->imageAnalyzerManager_ = nullptr;
 
-    videoLayoutProperty->UpdateObjectFit(ImageFit::TOP_END);
-    EXPECT_FALSE(videoPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config));
-
-    videoLayoutProperty->UpdateObjectFit(ImageFit::START);
-    EXPECT_FALSE(videoPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config));
-
-    videoLayoutProperty->UpdateObjectFit(ImageFit::CENTER);
-    EXPECT_FALSE(videoPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config));
-
-    videoLayoutProperty->UpdateObjectFit(ImageFit::END);
-    EXPECT_FALSE(videoPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config));
-
-    videoLayoutProperty->UpdateObjectFit(ImageFit::BOTTOM_START);
-    EXPECT_FALSE(videoPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config));
-
-    videoLayoutProperty->UpdateObjectFit(ImageFit::BOTTOM);
-    EXPECT_FALSE(videoPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config));
-
-    videoLayoutProperty->UpdateObjectFit(ImageFit::BOTTOM_END);
-    EXPECT_FALSE(videoPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config));
+    ResetLastTraceId();
+    /**
+     * @tc.steps: step2. Call SetImageAIOptions which should trigger ACE_UINODE_TRACE.
+     * @tc.expected: Trace ID is updated.
+     */
+    videoPattern->SetImageAIOptions(nullptr);
+    uint64_t traceId = GetLastTraceId();
+    EXPECT_EQ(traceId, static_cast<uint64_t>(frameNode->GetId()));
 }
 } // namespace OHOS::Ace::NG

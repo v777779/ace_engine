@@ -44,7 +44,7 @@ protected:
     /**
      * @brief Check if Sections info align with actual children and if internal data structures are consistent.
      */
-    static bool IsSectionValid(const RefPtr<WaterFlowLayoutInfoBase>& info, int32_t childrenCnt);
+    bool IsSectionValid(const RefPtr<WaterFlowLayoutInfoBase>& info, int32_t childrenCnt);
 
     /**
      * @return true if the item is a cache item outside viewport.
@@ -80,13 +80,18 @@ public:
 
     bool PreloadItem(LayoutWrapper* host, int32_t itemIdx, int64_t deadline) override;
 
+    bool MeasureInNextFrame() const override
+    {
+        return info_->measureInNextFrame_;
+    }
+
 private:
     /**
      * @brief Initialize member variables from LayoutProperty.
      *
      * @param frameSize of WaterFlow component.
      */
-    void Init(const SizeF& frameSize);
+    void Init(const SizeF& frameSize, double originalWidth);
 
     /**
      * @brief check if any items in view have changed height.
@@ -100,7 +105,7 @@ private:
      *
      * @param frameSize
      */
-    void RegularInit(const SizeF& frameSize);
+    void RegularInit(const SizeF& frameSize, double originalWidth);
     void InitFooter(float crossSize);
 
     /**
@@ -179,6 +184,11 @@ private:
 
     bool IsForWard() const;
 
+    /**
+    * Perform measurement based on current layout strategy.
+    */
+    void PerformMeasurement();
+
     RefPtr<WaterFlowSections> sections_;
 
     // WaterFlow node's main-axis length
@@ -188,6 +198,11 @@ private:
     mutable std::optional<float> postJumpOffset_;
 
     RefPtr<WaterFlowLayoutInfo> info_;
+
+    RefPtr<WaterFlowLayoutInfoBase> LayoutInfo() const override
+    {
+        return info_;
+    }
 
     ACE_DISALLOW_COPY_AND_MOVE(WaterFlowSegmentedLayout);
 };

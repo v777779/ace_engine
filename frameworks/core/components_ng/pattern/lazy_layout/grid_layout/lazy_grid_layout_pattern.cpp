@@ -16,6 +16,7 @@
 #include "core/components_ng/pattern/lazy_layout/grid_layout/lazy_grid_layout_pattern.h"
 
 #include "base/log/dump_log.h"
+#include "core/components_ng/pattern/list/list_layout_property.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
@@ -24,7 +25,23 @@ RefPtr<LayoutAlgorithm> LazyGridLayoutPattern::CreateLayoutAlgorithm()
 {
     auto layoutAlgorithm = MakeRefPtr<LazyGridLayoutAlgorithm>(layoutInfo_);
     layoutAlgorithm->SetAxis(axis_);
+    // DynamicLayout support: set flag if DynamicLayout
+    // Alignment is now obtained from common properties (PositionProperty), no need to pass separately
+    if (isDynamicLayout_) {
+        layoutAlgorithm->SetDynamicLayout(true);
+    }
     return layoutAlgorithm;
+}
+
+FocusPattern LazyGridLayoutPattern::GetFocusPattern() const
+{
+    return { FocusType::SCOPE, true };
+}
+
+ScopeFocusAlgorithm LazyGridLayoutPattern::GetScopeFocusAlgorithm()
+{
+    return ScopeFocusAlgorithm(ScopeFocusDirection::UNIVERSAL, false, true,
+        ScopeType::OTHERS);
 }
 
 bool LazyGridLayoutPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config)
@@ -37,10 +54,54 @@ bool LazyGridLayoutPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>
     auto layoutAlgorithm = DynamicCast<LazyGridLayoutAlgorithm>(layoutAlgorithmWrapper->GetLayoutAlgorithm());
     CHECK_NULL_RETURN(layoutAlgorithm, false);
     itemTotalCount_ = layoutAlgorithm->GetTotalItemCount();
+    FireOnVisibleIndexesChange();
     if (layoutInfo_->NeedPredict()) {
         PostIdleTask();
     }
     return false;
+}
+
+std::pair<int32_t, int32_t> LazyGridLayoutPattern::GetVisibleIndexesRangeForCallback() const
+{
+    if (!layoutInfo_) {
+        return { -1, -1 };
+    }
+    auto totalItemCount = layoutInfo_->totalItemCount_;
+    if (totalItemCount <= 0) {
+        return { -1, -1 };
+    }
+    if (layoutInfo_->startIndex_ < 0 || layoutInfo_->endIndex_ < 0) {
+        return { -1, -1 };
+    }
+    if (layoutInfo_->startIndex_ >= totalItemCount || layoutInfo_->endIndex_ >= totalItemCount) {
+        return { -1, -1 };
+    }
+    return { layoutInfo_->startIndex_, layoutInfo_->endIndex_ };
+}
+
+void LazyGridLayoutPattern::FireOnVisibleIndexesChange()
+{
+    CHECK_NULL_VOID(onVisibleIndexesChange_);
+    auto currentRange = GetVisibleIndexesRangeForCallback();
+    FireOnVisibleIndexesChange(currentRange);
+}
+
+void LazyGridLayoutPattern::FireOnVisibleIndexesChange(const std::pair<int32_t, int32_t>& range)
+{
+    CHECK_NULL_VOID(onVisibleIndexesChange_);
+    auto currentRange = range;
+    if (hasVisibleIndexesChangeFired_ && currentRange == lastVisibleIndexesRange_) {
+        return;
+    }
+    onVisibleIndexesChange_(currentRange.first, currentRange.second);
+    lastVisibleIndexesRange_ = currentRange;
+    hasVisibleIndexesChangeFired_ = true;
+}
+
+void LazyGridLayoutPattern::OnInActive()
+{
+    CHECK_NULL_VOID(onVisibleIndexesChange_);
+    FireOnVisibleIndexesChange({ -1, -1 });
 }
 
 void LazyGridLayoutPattern::PostIdleTask()
@@ -74,8 +135,16 @@ void LazyGridLayoutPattern::ProcessIdleTask(int64_t deadline)
     layoutInfo_->deadline_.reset();
 }
 
+bool LazyGridLayoutPattern::IsDynamicLayout() const
+{
+    return isDynamicLayout_;
+}
+
 void LazyGridLayoutPattern::OnAttachToMainTree()
 {
+    if (isDynamicLayout_) {
+        return;
+    }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     host->SetNeedLazyLayout(true);
@@ -92,11 +161,25 @@ void LazyGridLayoutPattern::OnAttachToMainTree()
             parent = parent->GetParent();
             continue;
         }
-        if (parent->GetTag() != V2::WATERFLOW_ETS_TAG) {
+        if (parent->GetTag() != V2::WATERFLOW_ETS_TAG &&
+            parent->GetTag() != V2::SCROLL_ETS_TAG &&
+            !IsVerticalList(parent)) {
             LOGF_ABORT("LazyGridLayout cannot be used under the %{public}s", parent->GetTag().c_str());
         }
         return;
     }
+}
+
+bool LazyGridLayoutPattern::IsVerticalList(const RefPtr<UINode>& node)
+{
+    if (node->GetTag() != V2::LIST_ETS_TAG) {
+        return false;
+    }
+    auto frameNode = AceType::DynamicCast<FrameNode>(node);
+    CHECK_NULL_RETURN(frameNode, false);
+    auto layoutProperty = frameNode->GetLayoutProperty<ListLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, false);
+    return layoutProperty->GetListDirection().value_or(Axis::VERTICAL) == Axis::VERTICAL;
 }
 
 void LazyGridLayoutPattern::DumpAdvanceInfo()

@@ -23,9 +23,7 @@
 #include "core/components_ng/pattern/menu/menu_pattern.h"
 #include "core/components_ng/pattern/menu/preview/menu_preview_pattern.h"
 #include "core/components_ng/pattern/menu/wrapper/menu_wrapper_pattern.h"
-#include "core/components_ng/pattern/navigation/navigation_declaration.h"
 #include "core/components_ng/pattern/select/select_model.h"
-#include "core/components_ng/pattern/text/text_styles.h"
 
 namespace OHOS::Ace::NG {
 
@@ -101,6 +99,7 @@ public:
     static void SetMenuHoverScaleStatus(int32_t targetId, MenuHoverScaleStatus status);
     static void RemoveMenuHoverScaleStatus(int32_t targetId);
     static MenuHoverScaleStatus GetMenuHoverScaleStatus(int32_t targetId);
+    static void SetMenuSystemMaterial(const RefPtr<FrameNode>& menuNode, const MenuParam& menuParam);
 
 private:
     static void UpdateMenuPaintProperty(
@@ -140,7 +139,8 @@ private:
         std::map<std::string, AlignRule>& alignMap);
     static void UpdateMenuOutlineWithArrow(
         const RefPtr<FrameNode>& menuNode, const RefPtr<FrameNode>& wrapperNode, const MenuParam& menuParam);
-    static void ReloadMenuParam(const MenuParam& menuParam);
+    static void ReloadMenuParam(const RefPtr<FrameNode>& menuNode, const MenuParam& menuParam);
+    static void UpdateMenuLayoutProperty(const RefPtr<FrameNode>& menuNode, const MenuParam& menuParam);
 };
 } // namespace OHOS::Ace::NG
 

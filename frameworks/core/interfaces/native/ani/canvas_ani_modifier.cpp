@@ -23,10 +23,11 @@
 #include "core/components/common/properties/color.h"
 #include "core/components/common/properties/paint_state.h"
 #include "core/components_ng/pattern/canvas/canvas_renderer_type.h"
+#include "core/interfaces/native/implementation/canvas_renderer_peer_impl.h"
 #include "core/interfaces/native/implementation/canvas_rendering_context2d_peer_impl.h"
+#include "core/interfaces/native/implementation/drawing_canvas_peer_impl.h"
 #include "core/interfaces/native/implementation/drawing_rendering_context_peer_impl.h"
 #include "core/interfaces/native/implementation/image_bitmap_peer_impl.h"
-#include "core/interfaces/native/implementation/image_data_peer.h"
 #include "core/interfaces/native/implementation/pixel_map_peer.h"
 #include "core/interfaces/native/utility/peer_utils.h"
 #include "core/pipeline/pipeline_base.h"
@@ -181,10 +182,9 @@ void PutImageData0(ArkUICanvasRenderer peer, uint8_t* buffer, ani_size bufferLen
     CHECK_NULL_VOID(peer);
     auto peerImpl = reinterpret_cast<GeneratedModifier::CanvasRendererPeerImpl*>(peer);
     CHECK_NULL_VOID(peerImpl);
-    auto density = peerImpl->GetDensity();
     Ace::ImageData imageData = {
-        .x = static_cast<int32_t>(dx * density),
-        .y = static_cast<int32_t>(dy * density),
+        .x = static_cast<int32_t>(dx),
+        .y = static_cast<int32_t>(dy),
         .dirtyWidth = static_cast<int32_t>(width),
         .dirtyHeight = static_cast<int32_t>(height),
         .data = std::vector<uint32_t>(),
@@ -199,14 +199,13 @@ void PutImageData1(ArkUICanvasRenderer peer, uint8_t* buffer, ani_size bufferLen
     CHECK_NULL_VOID(peer);
     auto peerImpl = reinterpret_cast<GeneratedModifier::CanvasRendererPeerImpl*>(peer);
     CHECK_NULL_VOID(peerImpl);
-    auto density = peerImpl->GetDensity();
     Ace::ImageData imageData = {
-        .x = static_cast<int32_t>(dx * density),
-        .y = static_cast<int32_t>(dy * density),
-        .dirtyX = static_cast<int32_t>(dirtyX * density),
-        .dirtyY = static_cast<int32_t>(dirtyY * density),
-        .dirtyWidth = static_cast<int32_t>(dirtyWidth * density),
-        .dirtyHeight = static_cast<int32_t>(dirtyHeight * density),
+        .x = static_cast<int32_t>(dx),
+        .y = static_cast<int32_t>(dy),
+        .dirtyX = static_cast<int32_t>(dirtyX),
+        .dirtyY = static_cast<int32_t>(dirtyY),
+        .dirtyWidth = static_cast<int32_t>(dirtyWidth),
+        .dirtyHeight = static_cast<int32_t>(dirtyHeight),
         .data = std::vector<uint32_t>(),
     };
     auto imgWidth = static_cast<int32_t>(width);
@@ -226,7 +225,7 @@ void* GetDrawingCanvas(ArkUIDrawingRenderingContext peer)
     CHECK_NULL_RETURN(peerImpl, nullptr);
     auto drawingCanvasPeer = peerImpl->GetCanvas();
     CHECK_NULL_RETURN(drawingCanvasPeer, nullptr);
-    return drawingCanvasPeer;
+    return reinterpret_cast<void*>(drawingCanvasPeer->GetCanvas());
 }
 
 ani_int GetCanvasId(ArkUICanvasRenderingContext peer)
@@ -234,6 +233,20 @@ ani_int GetCanvasId(ArkUICanvasRenderingContext peer)
     auto peerImpl = reinterpret_cast<GeneratedModifier::CanvasRenderingContext2DPeerImpl*>(peer);
     CHECK_NULL_RETURN(peerImpl, -1);
     return peerImpl->GetCanvasId();
+}
+
+void SetAttachCallbackId(ArkUICanvasRenderingContext peer, ani_int attachCallbackId)
+{
+    auto peerImpl = reinterpret_cast<GeneratedModifier::CanvasRenderingContext2DPeerImpl*>(peer);
+    CHECK_NULL_VOID(peerImpl);
+    peerImpl->SetAttachCallbackId(attachCallbackId);
+}
+
+void SetDetachCallbackId(ArkUICanvasRenderingContext peer, ani_int detachCallbackId)
+{
+    auto peerImpl = reinterpret_cast<GeneratedModifier::CanvasRenderingContext2DPeerImpl*>(peer);
+    CHECK_NULL_VOID(peerImpl);
+    peerImpl->SetDetachCallbackId(detachCallbackId);
 }
 } // namespace CanvasAniModifier
 
@@ -251,6 +264,8 @@ const ArkUIAniCanvasModifier* GetCanvasAniModifier()
         .putImageData1 = CanvasAniModifier::PutImageData1,
         .getDrawingCanvas = CanvasAniModifier::GetDrawingCanvas,
         .getCanvasId = CanvasAniModifier::GetCanvasId,
+        .setAttachCallbackId = CanvasAniModifier::SetAttachCallbackId,
+        .setDetachCallbackId = CanvasAniModifier::SetDetachCallbackId,
     };
     return &impl;
 }

@@ -130,7 +130,9 @@ void ArcSwiperPattern::SaveCircleDotIndicatorProperty(const RefPtr<FrameNode>& i
     CHECK_NULL_VOID(layoutProperty);
     auto paintProperty = indicatorNode->GetPaintProperty<CircleDotIndicatorPaintProperty>();
     CHECK_NULL_VOID(paintProperty);
-    auto pipelineContext = GetHost()->GetContext();
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
     auto swiperIndicatorTheme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
     CHECK_NULL_VOID(swiperIndicatorTheme);
@@ -158,7 +160,9 @@ std::string ArcSwiperPattern::GetArcDotIndicatorStyle() const
     auto swiperParameters = GetSwiperArcDotParameters();
     CHECK_NULL_RETURN(swiperParameters, "");
     auto jsonValue = JsonUtil::Create(true);
-    auto pipelineContext = GetHost()->GetContext();
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, "");
+    auto pipelineContext = host->GetContext();
     CHECK_NULL_RETURN(pipelineContext, "");
     auto swiperIndicatorTheme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
     CHECK_NULL_RETURN(swiperIndicatorTheme, "");
@@ -187,7 +191,9 @@ std::shared_ptr<SwiperArcDotParameters> ArcSwiperPattern::GetSwiperArcDotParamet
 {
     if (swiperArcDotParameters_ == nullptr) {
         swiperArcDotParameters_ = std::make_shared<SwiperArcDotParameters>();
-        auto pipelineContext = GetHost()->GetContext();
+        auto host = GetHost();
+        CHECK_NULL_RETURN(host, swiperArcDotParameters_);
+        auto pipelineContext = host->GetContext();
         CHECK_NULL_RETURN(pipelineContext, swiperArcDotParameters_);
         auto swiperIndicatorTheme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
 
@@ -340,7 +346,8 @@ std::shared_ptr<AnimationUtils::Animation> ArcSwiperPattern::Animation(bool exit
             renderContext->UpdateTranslateInXY(param.offset);
         }
     };
-    return AnimationUtils::StartAnimation(param.option, propertyCallback, finishCallback);
+    return AnimationUtils::StartAnimation(
+        param.option, propertyCallback, finishCallback, nullptr /* repeatCallback */, frameNode->GetContextRefPtr());
 }
 
 void ArcSwiperPattern::PlayHorizontalExitAnimation(const OffsetF& offset, const RefPtr<FrameNode>& frameNode,
@@ -855,7 +862,10 @@ void ArcSwiperPattern::PlayPropertyTranslateDefaultAnimation(const OffsetF& offs
         swiperPattern->itemPositionInAnimation_ = swiperPattern->itemPosition_;
     };
     ElementRegister::GetInstance()->ReSyncGeometryTransition(GetHost(), option);
-    AnimationUtils::Animate(option, propertyUpdateCallback, finishCallback);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    AnimationUtils::Animate(
+        option, propertyUpdateCallback, finishCallback, nullptr /* repeatCallback */, host->GetContextRefPtr());
 }
 
 void ArcSwiperPattern::UsePropertyAnimation(const OffsetF& offset)

@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/text/symbol_span_model_ng.h"
 #include "core/components_ng/pattern/text/symbol_span_model_static.h"
+#include "core/interfaces/native/utility/ace_engine_types.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -54,8 +54,8 @@ void SetFontSizeImpl(Ark_NativePointer node,
                      const Opt_Union_F64_String_Resource* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
-    CHECK_NULL_VOID(frameNode);
-    auto optValue = Converter::OptConvertPtr<Dimension>(value);
+    CHECK_NULL_VOID(frameNode && value);
+    auto optValue = Converter::OptConvertFromArkNumStrRes(*value);
     Validator::ValidateNonNegative(optValue);
     Validator::ValidateNonPercent(optValue);
     SymbolSpanModelStatic::SetFontSize(frameNode, optValue);
@@ -68,8 +68,7 @@ void SetFontColorImpl(Ark_NativePointer node,
     auto optColorVec = Converter::OptConvert<std::vector<std::optional<Color>>>(*value);
     std::vector<Color> colorVec;
     if (!optColorVec) {
-        // Implement Reset value
-        SymbolSpanModelNG::SetFontColor(frameNode, colorVec);
+        SymbolSpanModelNG::ResetFontColor(frameNode);
         return;
     }
     for (std::optional<Color> color: *optColorVec) {

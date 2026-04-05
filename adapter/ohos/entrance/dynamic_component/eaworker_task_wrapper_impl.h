@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -27,8 +27,10 @@ public:
     explicit EaWorkerTaskWrapperImpl(int32_t hostInstanceId, int32_t workerId);
     ~EaWorkerTaskWrapperImpl() override;
     bool WillRunOnCurrentThread() override;
-    void Call(const TaskExecutor::Task& task) override;
-    void Call(const TaskExecutor::Task& task, uint32_t delayTime) override;
+    void Call(const TaskExecutor::Task& task,
+        PriorityType priorityType = PriorityType::LOW) override;
+    void Call(const TaskExecutor::Task& task, uint32_t delayTime,
+        PriorityType priorityType = PriorityType::LOW) override;
 
     void SetCurrentPthread(const pthread_t& threadId);
 

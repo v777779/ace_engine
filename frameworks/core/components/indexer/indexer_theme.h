@@ -27,7 +27,6 @@
 #include "core/components/theme/theme.h"
 #include "core/components/theme/theme_attributes.h"
 #include "core/components/theme/theme_constants.h"
-#include "core/components/theme/theme_constants_defines.h"
 #include "core/components/theme/theme_style.h"
 
 namespace OHOS::Ace {
@@ -299,9 +298,9 @@ private:
         ParseDimensionAttributes(indexerPattern, theme);
         ParseTextStyleAttributes(indexerPattern, theme);
         theme->accessibilityExpand_ = indexerPattern->GetAttr<std::string>("filter_accessibility_expand", "");
+        theme->accessibilityCollapsed_ = indexerPattern->GetAttr<std::string>("filter_accessibility_expanded", "");
         theme->accessibilityExpanded_ = indexerPattern->GetAttr<std::string>("filter_accessibility_collapse", "");
         theme->accessibilityCollapse_ = indexerPattern->GetAttr<std::string>("filter_accessibility_collapsed", "");
-        theme->accessibilityCollapsed_ = indexerPattern->GetAttr<std::string>("filter_accessibility_expanded", "");
         if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWELVE)) {
             theme->popupBackgroundColor_ = indexerPattern->GetAttr<Color>(
                 "popup_background_color_api_twelve", Color(POPUP_BACKGROUND_COLOR_API_TWELVE));

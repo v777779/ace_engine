@@ -18,6 +18,7 @@
 
 #include <mutex>
 
+#include "base/utils/linear_map.h"
 #include "core/common/resource/resource_object.h"
 #include "core/components_ng/pattern/checkbox/checkbox_event_hub.h"
 
@@ -26,7 +27,8 @@ enum class CheckBoxStyle { CIRCULAR_STYLE = 0, SQUARE_STYLE };
 enum class OriginalCheckBoxStyle { CIRCULAR_STYLE = 0, SQUARE_STYLE, NONE };
 enum class CheckBoxColorType {
     SELECTED_COLOR,
-    UN_SELECTED_COLOR
+    UN_SELECTED_COLOR,
+    STROKE_COLOR
 };
 class ACE_FORCE_EXPORT CheckBoxModel {
 public:
@@ -34,9 +36,9 @@ public:
     virtual ~CheckBoxModel() = default;
 
     virtual void Create(const std::optional<std::string>& name, const std::optional<std::string>& groupName,
-        const std::string& tagName) = 0;
-    virtual void SetSelect(bool isSelected) = 0;
-    virtual void SetSelectedColor(const Color& color) = 0;
+        const std::string& tagName);
+    virtual void SetSelect(bool isSelected);
+    virtual void SetSelectedColor(const Color& color);
     virtual void SetUnSelectedColor(const Color& color) {}
     virtual void SetBuilder(std::optional<std::function<void(void)>>& buildFunc) {};
     virtual void SetCheckMarkColor(const Color& color) {}

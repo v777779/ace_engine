@@ -16,20 +16,23 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_system_properties.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
 #include "test/unittest/core/rosen/rosen_render_context_test.h"
+#include "test/unittest/core/rosen/mock_animated_image.h"
+#include "core/components_ng/render/adapter/pixelmap_image.h"
 #include "core/components_ng/render/drawing.h"
 
 #include "core/components_ng/pattern/stage/page_pattern.h"
-#if defined(MODIFIER_NG)
 #include "modifier_ng/background/rs_background_shader_modifier.h"
-#endif
 
 #undef private
 #undef protected
 
 using namespace testing;
 using namespace testing::ext;
+namespace {
+constexpr uint64_t MAX_WAITING_TIME_FOR_TASKS = 1000; // 1000ms
+} // namespace
 
 namespace OHOS::Ace::NG {
 namespace {} // namespace
@@ -344,9 +347,7 @@ HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew011, TestSize.Level1)
     EXPECT_EQ(rosenRenderContext->GetRSNode()->GetStagingProperties().GetFrame().data_[1], 1.0);
     rosenRenderContext->SetRenderPivot(1.0, 0.0);
     EXPECT_EQ(rosenRenderContext->GetRSNode()->GetStagingProperties().GetPivot().x_, 1.0);
-    rosenRenderContext->SetBackgroundColor(SHAPE_MASK_DEFAULT_COLOR);
-    EXPECT_EQ(rosenRenderContext->GetRSNode()->GetStagingProperties().GetBackgroundColor(),
-        OHOS::Rosen::RSColor::FromArgbInt(SHAPE_MASK_DEFAULT_COLOR));
+
     rosenRenderContext->SetScale(1.0, 0.0);
     rosenRenderContext->PaintPixmapBgImage();
     rosenRenderContext->PaintRSBgImage();
@@ -437,7 +438,6 @@ HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew014, TestSize.Level1)
     rosenRenderContext->transitionEffect_ = AceType::MakeRefPtr<RosenTransitionEffect>();
     rosenRenderContext->NotifyTransition(true);
     rosenRenderContext->OnMouseSelectUpdate(true, Color(SHAPE_MASK_DEFAULT_COLOR), Color(SHAPE_MASK_DEFAULT_COLOR));
-    EXPECT_EQ(rosenRenderContext->GetRSNode()->GetModifierIds().size(), 1);
     rosenRenderContext->MarkDrivenRenderFramePaintState(true);
     rosenRenderContext->MarkDrivenRenderItemIndex(1);
     rosenRenderContext->MarkDrivenRender(true);
@@ -609,11 +609,7 @@ HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew019, TestSize.Level1)
     EXPECT_EQ(rosenRenderContext->GetRSNode()->GetStagingProperties().GetShadowOffsetY(), 0.0);
 }
 
-#if defined(MODIFIER_NG)
 using RSModifier = Rosen::ModifierNG::RSModifier;
-#else
-using RSModifier = Rosen::RSModifier;
-#endif
 
 /**
  * @tc.name: RosenRenderContextTestNew020
@@ -626,12 +622,8 @@ HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew020, TestSize.Level1)
         FrameNode::GetOrCreateFrameNode("frame", -1, []() { return AceType::MakeRefPtr<PagePattern>(nullptr); });
     auto rosenRenderContext = InitRosenRenderContext(frameNode);
     auto property = std::make_shared<Rosen::RSProperty<bool>>();
-#if defined(MODIFIER_NG)
     std::shared_ptr<RSModifier> modifier = std::make_shared<Rosen::ModifierNG::RSBackgroundShaderModifier>();
     modifier->AttachProperty(Rosen::ModifierNG::RSPropertyType::BACKGROUND_SHADER, property);
-#else
-    std::shared_ptr<RSModifier> modifier = std::make_shared<Rosen::RSBackgroundShaderModifier>(property);
-#endif
     rosenRenderContext->AddModifier(modifier);
     rosenRenderContext->paintRect_ = RectF(1.0, 1.0, 1.0, 1.0);
     BrightnessOption option;
@@ -679,12 +671,8 @@ HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew021, TestSize.Level1)
         FrameNode::GetOrCreateFrameNode("frame", -1, []() { return AceType::MakeRefPtr<PagePattern>(nullptr); });
     auto rosenRenderContext = InitRosenRenderContext(frameNode);
     auto property = std::make_shared<Rosen::RSProperty<bool>>();
-#if defined(MODIFIER_NG)
     std::shared_ptr<RSModifier> modifier = std::make_shared<Rosen::ModifierNG::RSBackgroundShaderModifier>();
     modifier->AttachProperty(Rosen::ModifierNG::RSPropertyType::BACKGROUND_SHADER, property);
-#else
-    std::shared_ptr<RSModifier> modifier = std::make_shared<Rosen::RSBackgroundShaderModifier>(property);
-#endif
     rosenRenderContext->AddModifier(modifier);
     rosenRenderContext->paintRect_ = RectF(1.0, 1.0, 1.0, 1.0);
     rosenRenderContext->OnBackBlendApplyTypeUpdate(BlendApplyType::OFFSCREEN);
@@ -785,7 +773,7 @@ HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew023, TestSize.Level1)
     EXPECT_FALSE(rosenRenderContext->IsUniRenderEnabled());
     rosenRenderContext->SetOpacity(1.0);
     EXPECT_EQ(rosenRenderContext->GetRSNode()->GetStagingProperties().GetAlpha(), 1.0);
-    rosenRenderContext->PaintAccessibilityFocus();
+    rosenRenderContext->PaintAccessibilityFocus(false);
     rosenRenderContext->PaintFocusState(1.0_vp, Color::BLACK, 0.0_vp, true);
     rosenRenderContext->SetFrame(0.0, 1.0, 0.0, 1.0);
     EXPECT_EQ(rosenRenderContext->GetRSNode()->GetStagingProperties().GetFrame().data_[1], 1.0);
@@ -835,14 +823,6 @@ HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew024, TestSize.Level1)
         OHOS::Rosen::RSColor::FromArgbInt((Color::BLUE).GetValue()));
     EXPECT_EQ(rosenRenderContext->GetRSNode()->GetStagingProperties().GetBorderColor().data_[1],
         OHOS::Rosen::RSColor::FromArgbInt((Color::BLUE).GetValue()));
-    rosenRenderContext->OnOffsetUpdate(offset);
-    rosenRenderContext->OnPositionUpdate(offset);
-    rosenRenderContext->ResetBlendBgColor();
-    EXPECT_EQ(rosenRenderContext->GetRSNode()->GetStagingProperties().GetBackgroundColor(),
-        OHOS::Rosen::RSColor::FromArgbInt((Color::TRANSPARENT).GetValue()));
-    rosenRenderContext->BlendBgColor(Color::BLACK);
-    EXPECT_EQ(rosenRenderContext->GetRSNode()->GetStagingProperties().GetBackgroundColor(),
-        OHOS::Rosen::RSColor::FromArgbInt((Color::BLACK).GetValue()));
 }
 
 /**
@@ -862,24 +842,6 @@ HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew025, TestSize.Level1)
     rosenRenderContext->InitAccessibilityFocusModidifer(roundRect, Color::BLACK, 20.0f);
     EXPECT_NE(rosenRenderContext->accessibilityFocusStateModifier_, nullptr);
 }
-
-/**
- * @tc.name: RosenRenderContextTestNew026
- * @tc.desc: OnBackgroundColorUpdate().
- * @tc.type: FUNC
- */
-HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew026, TestSize.Level1)
-{
-    auto frameNode =
-        FrameNode::GetOrCreateFrameNode("frame", -1, []() { return AceType::MakeRefPtr<PagePattern>(nullptr); });
-    RefPtr<RosenRenderContext> rosenRenderContext = InitRosenRenderContext(frameNode);
-    rosenRenderContext->OnBackgroundColorUpdate(Color::BLUE);
-    auto rsNdoe = rosenRenderContext->GetRSNode();
-    auto stagingProperties = rsNdoe->GetStagingProperties();
-    auto color = stagingProperties.GetBackgroundColor();
-    EXPECT_EQ(color, OHOS::Rosen::RSColor::FromArgbInt(Color::BLUE.GetValue()));
-}
-
 
 /**
  * @tc.name: RosenRenderContextTestNew027
@@ -1130,6 +1092,22 @@ HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew040, TestSize.Level1)
 }
 
 /**
+ * @tc.name: RSUIContext002
+ * @tc.desc: Test RSUIContext001 Func.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RosenRenderContextTest, RSUIContext002, TestSize.Level1)
+{
+    auto frameNode = FrameNode::GetOrCreateFrameNode("frame", -1, []() { return AceType::MakeRefPtr<Pattern>(); });
+    ASSERT_NE(frameNode, nullptr);
+    ComponentSnapshot snapshot;
+    snapshot.SetRSUIContext(frameNode, nullptr);
+    auto pipeline = MockPipelineContext::GetCurrentContext();
+    auto rsUIContext = snapshot.GetRSUIContext(pipeline);
+    EXPECT_EQ(rsUIContext, nullptr);
+}
+
+/**
  * @tc.name: RosenRenderContextTestNew041
  * @tc.desc: GetClipToFrame().
  * @tc.type: FUNC
@@ -1200,5 +1178,166 @@ HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew044, TestSize.Level1)
     g_isConfigChangePerform = false;
     std::string blurStyleStr = pattern->GetResCacheMapByKey("foregroundBlurStyle.blurStyle");
     EXPECT_EQ(blurStyleStr, "");
+}
+
+/**
+ * @tc.name: RosenRenderContextTestNew045
+ * @tc.desc: CanNodeBeDeleted().
+ * @tc.type: FUNC
+ */
+HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew045, TestSize.Level1)
+{
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode("frame", -1, []() { return AceType::MakeRefPtr<PagePattern>(nullptr); });
+    RefPtr<RosenRenderContext> rosenRenderContext = InitRosenRenderContext(frameNode);
+
+    bool canBeDeleted = false;
+    auto pageNode = FrameNode::CreateFrameNode(V2::PAGE_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>(), true);
+    canBeDeleted = rosenRenderContext->CanNodeBeDeleted(pageNode);
+    EXPECT_EQ(canBeDeleted, false);
+    canBeDeleted = rosenRenderContext->CanNodeBeDeleted(nullptr);
+    EXPECT_EQ(canBeDeleted, false);
+}
+
+/**
+ * @tc.name: RosenRenderContextTestNew046
+ * @tc.desc: CancelTask().
+ * @tc.type: FUNC
+ */
+HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew046, TestSize.Level1)
+{
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode("frame", -1, []() { return AceType::MakeRefPtr<PagePattern>(nullptr); });
+    RefPtr<RosenRenderContext> rosenRenderContext = InitRosenRenderContext(frameNode);
+    EXPECT_EQ(rosenRenderContext->CancelDynamicImageLoadingTasks(), true);
+    rosenRenderContext->pendingDecodeTask_.Reset([]() {});
+    rosenRenderContext->pendingUITask_.Reset([]() {});
+    rosenRenderContext->OnPaintBackgroundDynamic();
+    EXPECT_EQ(rosenRenderContext->CancelDynamicImageLoadingTasks(), true);
+    {
+        if (!rosenRenderContext->taskMtx_.try_lock_for(std::chrono::milliseconds(MAX_WAITING_TIME_FOR_TASKS))) {
+            return;
+        }
+        // Adopt the already acquired lock
+        std::scoped_lock lock(std::adopt_lock, rosenRenderContext->taskMtx_);
+        rosenRenderContext->OnPaintBackgroundDynamic();
+        EXPECT_EQ(rosenRenderContext->CancelDynamicImageLoadingTasks(), false);
+    }
+}
+
+/**
+ * @tc.name: RosenRenderContextTestNew047
+ * @tc.desc: ScheduleBackgroundPaint().
+ * @tc.type: FUNC
+ */
+HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew047, TestSize.Level1)
+{
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode("frame", -1, []() { return AceType::MakeRefPtr<PagePattern>(nullptr); });
+    RefPtr<RosenRenderContext> rosenRenderContext = InitRosenRenderContext(frameNode);
+    rosenRenderContext->rsNode_ = nullptr;
+    rosenRenderContext->pendingDecodeTask_.Reset({});
+    rosenRenderContext->bgImage_ = AceType::MakeRefPtr<PixelMapImage>();
+    rosenRenderContext->ScheduleBackgroundPaint();
+    EXPECT_FALSE(rosenRenderContext->pendingDecodeTask_);
+    auto bgImage = AceType::MakeRefPtr<MockAnimatedImage>();
+    rosenRenderContext->bgImage_ = bgImage;
+    rosenRenderContext->UpdateBackgroundImageSyncMode(true);
+    bgImage->firstPixelMap = nullptr;
+    rosenRenderContext->ScheduleBackgroundPaint();
+    EXPECT_FALSE(rosenRenderContext->pendingDecodeTask_);
+    bgImage->firstPixelMap = AceType::MakeRefPtr<MockPixelMap>();
+    rosenRenderContext->ScheduleBackgroundPaint();
+    EXPECT_FALSE(rosenRenderContext->pendingDecodeTask_);
+    rosenRenderContext->UpdateBackgroundImageSyncMode(false);
+    rosenRenderContext->ScheduleBackgroundPaint();
+    EXPECT_TRUE(rosenRenderContext->pendingDecodeTask_);
+}
+
+/**
+ * @tc.name: RosenRenderContextTestNew048
+ * @tc.desc: OnBackBlendApplyTypeUpdate().
+ * @tc.type: FUNC
+ */
+HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew048, TestSize.Level1)
+{
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode("frame", -1, []() { return AceType::MakeRefPtr<PagePattern>(nullptr); });
+    RefPtr<RosenRenderContext> rosenRenderContext = InitRosenRenderContext(frameNode);
+    auto property = std::make_shared<Rosen::RSProperty<bool>>();
+    std::shared_ptr<RSModifier> modifier = std::make_shared<Rosen::ModifierNG::RSBackgroundShaderModifier>();
+    modifier->AttachProperty(Rosen::ModifierNG::RSPropertyType::BACKGROUND_SHADER, property);
+    rosenRenderContext->AddModifier(modifier);
+    rosenRenderContext->paintRect_ = RectF(1.0, 1.0, 1.0, 1.0);
+    rosenRenderContext->OnBackBlendApplyTypeUpdate(BlendApplyType::FAST);
+    rosenRenderContext->OnBackBlendModeUpdate(BlendMode::SATURATION);
+    rosenRenderContext->AnimateHoverEffectScale(true);
+    EXPECT_FALSE(rosenRenderContext->isHoveredScale_);
+    MotionBlurOption motionBlurOption;
+    motionBlurOption.radius = 5;
+    rosenRenderContext->UpdateMotionBlur(motionBlurOption);
+    rosenRenderContext->AnimateHoverEffectBoard(true);
+    EXPECT_FALSE(rosenRenderContext->isHoveredBoard_);
+    rosenRenderContext->UpdateFrontBlurRadius(0.0_px);
+    EXPECT_EQ(rosenRenderContext->GetFrontBlurRadius().value(), 0.0_px);
+}
+
+/**
+ * @tc.name: RosenRenderContextTestNew049
+ * @tc.desc: OnBackBlendApplyTypeUpdate().
+ * @tc.type: FUNC
+ */
+HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew049, TestSize.Level1)
+{
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode("frame", -1, []() { return AceType::MakeRefPtr<PagePattern>(nullptr); });
+    RefPtr<RosenRenderContext> rosenRenderContext = InitRosenRenderContext(frameNode);
+    auto property = std::make_shared<Rosen::RSProperty<bool>>();
+    std::shared_ptr<RSModifier> modifier = std::make_shared<Rosen::ModifierNG::RSBackgroundShaderModifier>();
+    modifier->AttachProperty(Rosen::ModifierNG::RSPropertyType::BACKGROUND_SHADER, property);
+    rosenRenderContext->AddModifier(modifier);
+    rosenRenderContext->paintRect_ = RectF(1.0, 1.0, 1.0, 1.0);
+    rosenRenderContext->OnBackBlendApplyTypeUpdate(BlendApplyType::OFFSCREEN_WITH_BACKGROUND);
+    rosenRenderContext->OnBackBlendModeUpdate(BlendMode::SATURATION);
+    rosenRenderContext->AnimateHoverEffectScale(true);
+    EXPECT_FALSE(rosenRenderContext->isHoveredScale_);
+    MotionBlurOption motionBlurOption;
+    motionBlurOption.radius = 5;
+    rosenRenderContext->UpdateMotionBlur(motionBlurOption);
+    rosenRenderContext->AnimateHoverEffectBoard(true);
+    EXPECT_FALSE(rosenRenderContext->isHoveredBoard_);
+    rosenRenderContext->UpdateFrontBlurRadius(0.0_px);
+    EXPECT_EQ(rosenRenderContext->GetFrontBlurRadius().value(), 0.0_px);
+}
+
+/**
+ * @tc.name: RosenRenderContextTestNew050
+ * @tc.desc: OnBackBlendApplyTypeUpdate().
+ * @tc.type: FUNC
+ */
+HWTEST_F(RosenRenderContextTest, RosenRenderContextTestNew050, TestSize.Level1)
+{
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode("frame", -1, []() { return AceType::MakeRefPtr<PagePattern>(nullptr); });
+    RefPtr<RosenRenderContext> rosenRenderContext = InitRosenRenderContext(frameNode);
+    auto property = std::make_shared<Rosen::RSProperty<bool>>();
+    std::shared_ptr<RSModifier> modifier = std::make_shared<Rosen::ModifierNG::RSBackgroundShaderModifier>();
+    modifier->AttachProperty(Rosen::ModifierNG::RSPropertyType::BACKGROUND_SHADER, property);
+    auto container = MockContainer::Current();
+    ASSERT_NE(container, nullptr);
+    container->SetApiTargetVersion(static_cast<int32_t>(PlatformVersion::VERSION_EIGHTEEN));
+    rosenRenderContext->AddModifier(modifier);
+    rosenRenderContext->paintRect_ = RectF(1.0, 1.0, 1.0, 1.0);
+    rosenRenderContext->OnBackBlendApplyTypeUpdate(BlendApplyType::MAX);
+    rosenRenderContext->OnBackBlendModeUpdate(BlendMode::SATURATION);
+    rosenRenderContext->AnimateHoverEffectScale(true);
+    EXPECT_FALSE(rosenRenderContext->isHoveredScale_);
+    MotionBlurOption motionBlurOption;
+    motionBlurOption.radius = 5;
+    rosenRenderContext->UpdateMotionBlur(motionBlurOption);
+    rosenRenderContext->AnimateHoverEffectBoard(true);
+    EXPECT_FALSE(rosenRenderContext->isHoveredBoard_);
+    rosenRenderContext->UpdateFrontBlurRadius(0.0_px);
+    EXPECT_EQ(rosenRenderContext->GetFrontBlurRadius().value(), 0.0_px);
 }
 } // namespace OHOS::Ace::NG

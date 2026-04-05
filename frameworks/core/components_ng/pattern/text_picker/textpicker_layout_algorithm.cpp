@@ -40,7 +40,7 @@ GradientColor CreatePercentGradientColor(float percent, Color color)
 
 void TextPickerLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto pickerTheme = pipeline->GetTheme<PickerTheme>();
     CHECK_NULL_VOID(pickerTheme);
@@ -108,14 +108,18 @@ void TextPickerLayoutAlgorithm::GetColumnSize(const RefPtr<TextPickerLayoutPrope
     isDefaultPickerItemHeight_ = layoutProperty->HasDefaultPickerItemHeight();
     if (isDefaultPickerItemHeight_) {
         auto defaultPickerItemHeightValue = layoutProperty->GetDefaultPickerItemHeightValue();
-        if (LessOrEqual(defaultPickerItemHeightValue.Value(), 0.0f)) {
+        if (LessOrEqual(defaultPickerItemHeightValue.Value(), 0.0f) ||
+            !std::isfinite(defaultPickerItemHeightValue.ConvertToPx())) {
             isDefaultPickerItemHeight_ = false;
         } else {
             UpdateDefaultPickerItemHeightLPX(pickerNode, defaultPickerItemHeightValue);
         }
     }
     uint32_t showCount = pickerTheme->GetShowCountPortrait();
-    if (SystemProperties::GetDeviceOrientation() == DeviceOrientation::LANDSCAPE) {
+    auto container = Container::Current();
+    CHECK_NULL_VOID(container);
+    auto isFloatingWindow = container->IsFloatingWindow();
+    if (SystemProperties::GetDeviceOrientation() == DeviceOrientation::LANDSCAPE && !isFloatingWindow) {
         showCount = pickerTheme->GetShowCountLandscape();
     }
     auto textPickerPattern = pickerNode->GetPattern<TextPickerPattern>();
@@ -201,7 +205,7 @@ void TextPickerLayoutAlgorithm::ChangeTextStyle(uint32_t index, uint32_t showOpt
     const RefPtr<LayoutWrapper>& childLayoutWrapper, LayoutWrapper* layoutWrapper)
 {
     SizeF frameSize = { -1.0f, -1.0f };
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto pickerTheme = pipeline->GetTheme<PickerTheme>();
     CHECK_NULL_VOID(pickerTheme);
@@ -226,7 +230,7 @@ void TextPickerLayoutAlgorithm::ChangeTextStyle(uint32_t index, uint32_t showOpt
 void TextPickerLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
 {
     CHECK_NULL_VOID(layoutWrapper);
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto pickerTheme = pipeline->GetTheme<PickerTheme>();
     CHECK_NULL_VOID(pickerTheme);

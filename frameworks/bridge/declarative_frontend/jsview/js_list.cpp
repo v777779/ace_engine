@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,6 +14,7 @@
  */
 
 #include "bridge/declarative_frontend/jsview/js_list.h"
+
 #include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 #include "base/geometry/axis.h"
@@ -22,15 +23,16 @@
 #include "bridge/declarative_frontend/jsview/js_interactable_view.h"
 #include "bridge/declarative_frontend/jsview/js_scrollable.h"
 #include "bridge/declarative_frontend/jsview/js_view_common_def.h"
-#include "bridge/declarative_frontend/jsview/models/list_model_impl.h"
+#include "bridge/declarative_frontend/jsview/js_list_children_main_size.h"
 #include "core/common/container.h"
+#include "core/common/dynamic_module_helper.h"
 #include "core/components_ng/base/view_stack_model.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/pattern/list/list_layout_property.h"
 #include "core/components_ng/pattern/list/list_model.h"
 #include "core/components_ng/pattern/list/list_model_ng.h"
 #include "core/components_ng/pattern/list/list_position_controller.h"
 #include "core/components_ng/pattern/scroll_bar/proxy/scroll_bar_proxy.h"
-
 namespace OHOS::Ace {
 
 std::unique_ptr<ListModel> ListModel::instance_ = nullptr;
@@ -47,7 +49,9 @@ ListModel* ListModel::GetInstance()
             if (Container::IsCurrentUseNewPipeline()) {
                 instance_.reset(new NG::ListModelNG());
             } else {
-                instance_.reset(new Framework::ListModelImpl());
+                static auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("list");
+                static ListModel* instance = loader ? reinterpret_cast<ListModel*>(loader->CreateModel()) : nullptr;
+                return instance;
             }
 #endif
         }
@@ -74,37 +78,6 @@ static constexpr int ARGS_LENGTH = 2;
 }
 
 namespace {
-bool ParseChange(const JSRef<JSObject>& changeObject, const float defaultSize, int32_t& start,
-    int32_t& deleteCount, std::vector<float>& newChildrenSize)
-{
-    if (!JSViewAbstract::ParseJsInteger<int32_t>(changeObject->GetProperty("start"), start) || start < 0) {
-        return false;
-    }
-    if (!(changeObject->HasProperty("deleteCount"))) {
-        // If only input one parameter, set -1 to deleteCount for deleting elements after index 'start' in the array.
-        deleteCount = -1;
-    } else if (!JSViewAbstract::ParseJsInteger<int32_t>(changeObject->GetProperty("deleteCount"), deleteCount) ||
-        deleteCount < 0) {
-        deleteCount = 0;
-    }
-    auto childrenSizeValue = changeObject->GetProperty("childrenSize");
-    if (childrenSizeValue->IsArray()) {
-        auto childrenSize = JSRef<JSArray>::Cast(childrenSizeValue);
-        auto childrenSizeCount = childrenSize->Length();
-        for (size_t j = 0; j < childrenSizeCount; ++j) {
-            // -1.0: represent default size.
-            double childSize = -1.0;
-            if (!JSViewAbstract::ParseJsDouble(childrenSize->GetValueAt(j), childSize) || Negative(childSize)) {
-                // -1.0f: represent default size.
-                newChildrenSize.emplace_back(-1.0f);
-            } else {
-                newChildrenSize.emplace_back(Dimension(childSize, DimensionUnit::VP).ConvertToPx());
-            }
-        }
-    }
-    return true;
-}
-
 void SyncChildrenSize(const JSRef<JSObject>& childrenSizeObj, RefPtr<NG::ListChildrenMainSize> childrenSize)
 {
     auto sizeArray = childrenSizeObj->GetProperty("sizeArray");
@@ -126,6 +99,73 @@ void SyncChildrenSize(const JSRef<JSObject>& childrenSizeObj, RefPtr<NG::ListChi
     }
     childrenSize->SyncChildrenSizeOver();
 }
+
+void CallSetNativeMainSize(const JSRef<JSObject>& childrenSizeObj,
+    const JSRef<JSObject>& nativeMainSize)
+{
+    auto property = childrenSizeObj->GetProperty("setNativeMainSize");
+    if (property->IsFunction()) {
+        auto setnativeMainSizeFunc = JSRef<JSFunc>::Cast(property);
+        JSRef<JSVal> params[1];
+        params[0] = JSRef<JSVal>::Cast(nativeMainSize);
+        setnativeMainSizeFunc->Call(childrenSizeObj, 1, params);
+    }
+}
+
+void InitNativeMainSize(const JSRef<JSObject>& childrenSizeObj, RefPtr<NG::ListChildrenMainSize> listChildrenMainSize,
+    NG::FrameNode* node = nullptr)
+{
+    auto nativeMainSize = JSClass<JSListChildrenMainSize>::NewInstance();
+    if (nativeMainSize->IsEmpty()) {
+        return;
+    }
+    auto nativeMainSizeObj = JSRef<JSObject>::Cast(nativeMainSize);
+    JSListChildrenMainSize* jsChildrenMainSize = nativeMainSizeObj->Unwrap<JSListChildrenMainSize>();
+    if (jsChildrenMainSize == nullptr) {
+        return;
+    }
+    auto frameNode = AceType::WeakClaim(node ? node : NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    jsChildrenMainSize->SetHost(frameNode);
+
+    auto id = Container::CurrentId();
+    auto onStateCallback = [id, weak = AceType::WeakClaim(AceType::RawPtr(listChildrenMainSize)),
+                               nativeMainSize = AceType::WeakClaim(jsChildrenMainSize)](
+                               size_t start, size_t deleteCount, std::vector<float>&& newChildrenSize) {
+        ContainerScope scope(id);
+        auto jsChildrenMainSize = nativeMainSize.Upgrade();
+        CHECK_NULL_VOID(jsChildrenMainSize);
+        auto frameNode =  jsChildrenMainSize->GetHost();
+        CHECK_NULL_VOID(frameNode);
+        auto context = frameNode->GetContext();
+        CHECK_NULL_VOID(context);
+        context->AddBuildFinishCallBack([start, deleteCount, change = std::move(newChildrenSize), weak]() {
+            auto listChildrenMainSize = weak.Upgrade();
+            CHECK_NULL_VOID(listChildrenMainSize);
+            listChildrenMainSize->ChangeData(start, deleteCount, change);
+        });
+        context->RequestFrame();
+    };
+    jsChildrenMainSize->SetOnStateChangedCallback(onStateCallback);
+
+    auto updateSizeCallback = [id, weak = AceType::WeakClaim(AceType::RawPtr(listChildrenMainSize)),
+                                  nativeMainSize = AceType::WeakClaim(jsChildrenMainSize)](double defaultSize) {
+        ContainerScope scope(id);
+        auto jsChildrenMainSize = nativeMainSize.Upgrade();
+        CHECK_NULL_VOID(jsChildrenMainSize);
+        auto frameNode =  jsChildrenMainSize->GetHost();
+        CHECK_NULL_VOID(frameNode);
+        auto context = frameNode->GetContext();
+        context->AddBuildFinishCallBack([defaultSize, weak]() {
+            auto listChildrenMainSize = weak.Upgrade();
+            CHECK_NULL_VOID(listChildrenMainSize);
+            listChildrenMainSize->UpdateDefaultSize(Dimension(defaultSize, DimensionUnit::VP).ConvertToPx());
+        });
+        context->RequestFrame();
+    };
+    jsChildrenMainSize->SetOnDefaultSizeUpdate(updateSizeCallback);
+
+    CallSetNativeMainSize(childrenSizeObj, nativeMainSize);
+}
 } // namespace
 
 void JSList::SetDirection(int32_t direction)
@@ -145,9 +185,15 @@ void JSList::SetScrollBar(const JSCallbackInfo& info)
 
 void JSList::SetScrollBarColor(const JSCallbackInfo& info)
 {
-    auto scrollBarColor = JSScrollable::ParseBarColor(info);
-    if (!scrollBarColor.empty()) {
-        ListModel::GetInstance()->SetScrollBarColor(scrollBarColor);
+    Color color;
+    RefPtr<ResourceObject> resObj;
+    if (JSViewAbstract::ParseJsColor(info[0], color, resObj)) {
+        ListModel::GetInstance()->SetScrollBarColor(color);
+    } else {
+        ListModel::GetInstance()->SetScrollBarColor(std::nullopt);
+    }
+    if (SystemProperties::ConfigChangePerform()) {
+        ListModel::GetInstance()->CreateWithResourceObjScrollBarColor(resObj);
     }
 }
 
@@ -189,12 +235,28 @@ void JSList::SetCachedCount(const JSCallbackInfo& info)
     if (info.Length() == 2) {
         show = info[1]->ToBoolean();
     }
+
+    if (info[0]->IsObject()) {
+        NG::CacheRange cacheRange = { 1, 1 };
+        JSRef<JSObject> obj = JSRef<JSObject>::Cast(info[0]);
+        int32_t minCacheCount = !obj->GetProperty("minCount")->IsNumber() ? 1 :
+                                obj->GetProperty("minCount")->ToNumber<int32_t>();
+        int32_t maxCacheCount = !obj->GetProperty("maxCount")->IsNumber() ? minCacheCount :
+                                obj->GetProperty("maxCount")->ToNumber<int32_t>();
+        minCacheCount = minCacheCount < 0 ? 1 : minCacheCount;
+        maxCacheCount = maxCacheCount < 0 ? minCacheCount : maxCacheCount;
+        cacheRange.min = minCacheCount;
+        cacheRange.max = maxCacheCount;
+        ListModel::GetInstance()->SetCacheRange(cacheRange, show);
+        return;
+    }
     ListModel::GetInstance()->SetCachedCount(cachedCount, show);
 }
 
 void JSList::SetScroller(RefPtr<JSScroller> scroller)
 {
     if (scroller) {
+        scroller->SetInstanceId(Container::CurrentId());
         RefPtr<ScrollControllerBase> listController = ListModel::GetInstance()->CreateScrollController();
         scroller->SetController(listController);
 
@@ -235,7 +297,6 @@ void JSList::Create(const JSCallbackInfo& args)
         if (scrollerValue->IsObject()) {
             void* scroller = JSRef<JSObject>::Cast(scrollerValue)->Unwrap<JSScroller>();
             RefPtr<JSScroller> jsScroller = Referenced::Claim(reinterpret_cast<JSScroller*>(scroller));
-            jsScroller->SetInstanceId(Container::CurrentId());
             SetScroller(jsScroller);
         }
     }
@@ -250,48 +311,36 @@ void JSList::SetChildrenMainSize(const JSCallbackInfo& args)
     SetChildrenMainSize(JSRef<JSObject>::Cast(args[0]));
 }
 
-void JSList::SetChildrenMainSize(const JSRef<JSObject>& childrenSizeObj)
+void JSList::SetChildrenMainSize(const JSRef<JSObject>& childrenSizeObj, NG::FrameNode* node)
 {
     double defaultSize = 0.0f;
     if (!ParseJsDouble(childrenSizeObj->GetProperty("childDefaultSize"), defaultSize) || !NonNegative(defaultSize)) {
         TAG_LOGW(AceLogTag::ACE_LIST, "JSList input parameter defaultSize check failed.");
         return;
     }
-    auto listChildrenMainSize = ListModel::GetInstance()->GetOrCreateListChildrenMainSize();
+    auto listChildrenMainSize = ListModel::GetInstance()->GetOrCreateListChildrenMainSize(node);
     CHECK_NULL_VOID(listChildrenMainSize);
-    listChildrenMainSize->UpdateDefaultSize(Dimension(defaultSize, DimensionUnit::VP).ConvertToPx());
 
-    if (listChildrenMainSize->NeedSync()) {
-        SyncChildrenSize(childrenSizeObj, listChildrenMainSize);
-    } else {
-        auto changes = childrenSizeObj->GetProperty("changeArray");
-        if (!changes->IsArray()) {
-            return;
-        }
-        auto changeArray = JSRef<JSArray>::Cast(changes);
-        auto length = changeArray->Length();
-        for (size_t i = 0; i < length; ++i) {
-            auto change = changeArray->GetValueAt(i);
-            if (!change->IsObject()) {
-                continue;
-            }
-            auto changeObject = JSRef<JSObject>::Cast(change);
-            int32_t start = 0;
-            int32_t deleteCount = 0;
-            std::vector<float> newChildrenSize;
-            if (!ParseChange(changeObject, defaultSize, start, deleteCount, newChildrenSize)) {
-                SyncChildrenSize(childrenSizeObj, listChildrenMainSize);
-                break;
-            }
-            listChildrenMainSize->ChangeData(start, deleteCount, newChildrenSize);
-        }
-    }
-    auto clearFunc = childrenSizeObj->GetProperty("clearChanges");
-    if (!clearFunc->IsFunction()) {
+    // Used for makeObserved to listen and refresh status.
+    childrenSizeObj->GetProperty("changeFlag");
+    auto property = childrenSizeObj->GetProperty("getNativeMainSize");
+    if (!property->IsFunction()) {
         return;
     }
-    auto func = JSRef<JSFunc>::Cast(clearFunc);
-    JSRef<JSVal>::Cast(func->Call(childrenSizeObj));
+    auto getNativeMainSizeFunc = JSRef<JSFunc>::Cast(property);
+    auto nativeMainSize = getNativeMainSizeFunc->Call(childrenSizeObj);
+    JSListChildrenMainSize* jsChildrenMainSize = nullptr;
+    if (nativeMainSize->IsObject()) {
+        auto nativeMainSizeObj = JSRef<JSObject>::Cast(nativeMainSize);
+        jsChildrenMainSize = nativeMainSizeObj->Unwrap<JSListChildrenMainSize>();
+    }
+    auto frameNode = node ? node : NG::ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    if (nativeMainSize->IsEmpty() || !nativeMainSize->IsObject() || listChildrenMainSize->NeedSync() ||
+        (jsChildrenMainSize && !jsChildrenMainSize->IsHostEqual(frameNode))) {
+        InitNativeMainSize(childrenSizeObj, listChildrenMainSize);
+        listChildrenMainSize->UpdateDefaultSize(Dimension(defaultSize, DimensionUnit::VP).ConvertToPx());
+        SyncChildrenSize(childrenSizeObj, listChildrenMainSize);
+    }
 }
 
 void JSList::SetChainAnimation(const JSCallbackInfo& args)
@@ -346,6 +395,45 @@ void JSList::SetListItemAlign(int32_t itemAlignment)
     ListModel::GetInstance()->SetListItemAlign(static_cast<V2::ListItemAlign>(itemAlignment));
 }
 
+bool SetFillType(const JSRef<JSObject>& jsObj)
+{
+    auto fillTypeParam = jsObj->GetProperty("fillType");
+    auto minLengthParam = jsObj->GetProperty("minLength");
+    auto maxLengthParam = jsObj->GetProperty("maxLength");
+    if (!fillTypeParam->IsNull() && !fillTypeParam->IsUndefined()) {
+        auto itemFillPolicy = JSScrollable::ParsePresetFillType(fillTypeParam);
+        if (itemFillPolicy.has_value()) {
+            ListModel::GetInstance()->SetItemFillPolicy(itemFillPolicy.value());
+        } else {
+            ListModel::GetInstance()->SetItemFillPolicy(PresetFillType::BREAKPOINT_DEFAULT);
+        }
+        ListModel::GetInstance()->SetLanes(1);
+        return true;
+    } else {
+        if ((minLengthParam->IsNull() || minLengthParam->IsUndefined()) &&
+            (maxLengthParam->IsNull() || maxLengthParam->IsUndefined())) {
+            ListModel::GetInstance()->SetItemFillPolicy(PresetFillType::BREAKPOINT_DEFAULT);
+            return true;
+        } else {
+            ListModel::GetInstance()->ResetItemFillPolicy();
+            return false;
+        }
+    }
+}
+
+bool SetLineNum(const JSCallbackInfo& info)
+{
+    int32_t laneNum = 1;
+    if (JSViewAbstract::ParseJsInteger<int32_t>(info[0], laneNum)) {
+        // when [lanes] is set, [laneConstrain_] of list component will be reset to std::nullopt
+        ListModel::GetInstance()->SetLanes(laneNum);
+        ListModel::GetInstance()->ResetItemFillPolicy();
+        ListModel::GetInstance()->SetLaneConstrain(-1.0_vp, -1.0_vp);
+        return true;
+    }
+    return false;
+}
+
 void JSList::SetLanes(const JSCallbackInfo& info)
 {
     if (info.Length() < 1) {
@@ -365,18 +453,16 @@ void JSList::SetLanes(const JSCallbackInfo& info)
         }
         ListModel::GetInstance()->SetLaneGutter(laneGutter);
     }
-
-    int32_t laneNum = 1;
-    if (ParseJsInteger<int32_t>(info[0], laneNum)) {
-        // when [lanes] is set, [laneConstrain_] of list component will be reset to std::nullopt
-        ListModel::GetInstance()->SetLanes(laneNum);
-        ListModel::GetInstance()->SetLaneConstrain(-1.0_vp, -1.0_vp);
+    if (SetLineNum(info)) {
         return;
     }
     RefPtr<ResourceObject> resObjMinLengthValue;
     RefPtr<ResourceObject> resObjMaxLengthValue;
     if (info[0]->IsObject()) {
         JSRef<JSObject> jsObj = JSRef<JSObject>::Cast(info[0]);
+        if (SetFillType(jsObj)) {
+            return;
+        }
         auto minLengthParam = jsObj->GetProperty("minLength");
         auto maxLengthParam = jsObj->GetProperty("maxLength");
         if (minLengthParam->IsNull() || maxLengthParam->IsNull()) {
@@ -403,20 +489,6 @@ void JSList::SetLanes(const JSCallbackInfo& info)
 void JSList::SetSticky(int32_t sticky)
 {
     ListModel::GetInstance()->SetSticky(static_cast<V2::StickyStyle>(sticky));
-}
-
-void JSList::SetContentStartOffset(const JSCallbackInfo& info)
-{
-    double value = 0.0;
-    ParseJsDouble(info[0], value);
-    ListModel::GetInstance()->SetContentStartOffset(value);
-}
-
-void JSList::SetContentEndOffset(const JSCallbackInfo& info)
-{
-    double value = 0.0;
-    ParseJsDouble(info[0], value);
-    ListModel::GetInstance()->SetContentEndOffset(value);
 }
 
 void JSList::SetScrollSnapAlign(int32_t scrollSnapAlign)
@@ -521,6 +593,7 @@ void JSList::ScrollCallback(const JSCallbackInfo& args)
     if (args[0]->IsFunction()) {
         auto onScroll = [execCtx = args.GetExecutionContext(), func = JSRef<JSFunc>::Cast(args[0])](
                             const CalcDimension& scrollOffset, const ScrollState& scrollState) {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             auto params = ConvertToJSValues(scrollOffset, scrollState);
             func->Call(JSRef<JSObject>(), params.size(), params.data());
             return;
@@ -587,6 +660,26 @@ void JSList::SetSyncLoad(const JSCallbackInfo& args)
     ListModel::GetInstance()->SetSyncLoad(enabled);
 }
 
+void JSList::SetEditModeOptions(const JSCallbackInfo& info)
+{
+    NG::EditModeOptions options;
+    JSScrollable::ParseEditModeOptions(info, options);
+    ListModel::GetInstance()->SetEditModeOptions(options);
+}
+
+void JSList::SetScrollSnapAnimationSpeed(const JSCallbackInfo& args)
+{
+    ScrollSnapAnimationSpeed speed = ScrollSnapAnimationSpeed::NORMAL;
+    if (args.Length() == 1 && args[0]->IsNumber()) {
+        int32_t num = args[0]->ToNumber<int32_t>();
+        if (num >= static_cast<int32_t>(ScrollSnapAnimationSpeed::NORMAL) &&
+            num <= static_cast<int32_t>(ScrollSnapAnimationSpeed::SLOW)) {
+            speed = static_cast<ScrollSnapAnimationSpeed>(num);
+        }
+    }
+    ListModel::GetInstance()->SetScrollSnapAnimationSpeed(speed);
+}
+
 void JSList::ReachStartCallback(const JSCallbackInfo& args)
 {
     if (args.Length() <= 0) {
@@ -595,7 +688,8 @@ void JSList::ReachStartCallback(const JSCallbackInfo& args)
     if (args[0]->IsFunction()) {
         auto onReachStart = [execCtx = args.GetExecutionContext(), func = JSRef<JSFunc>::Cast(args[0])]() {
             func->Call(JSRef<JSObject>());
-            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "onReachStart");
+            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "onReachStart",
+                ComponentEventType::COMPONENT_EVENT_SCROLL);
             return;
         };
         ListModel::GetInstance()->SetOnReachStart(std::move(onReachStart));
@@ -613,7 +707,8 @@ void JSList::ReachEndCallback(const JSCallbackInfo& args)
     if (args[0]->IsFunction()) {
         auto onReachEnd = [execCtx = args.GetExecutionContext(), func = JSRef<JSFunc>::Cast(args[0])]() {
             func->Call(JSRef<JSObject>());
-            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "onReachEnd");
+            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "onReachEnd",
+                ComponentEventType::COMPONENT_EVENT_SCROLL);
             return;
         };
         ListModel::GetInstance()->SetOnReachEnd(std::move(onReachEnd));
@@ -648,12 +743,13 @@ void JSList::ScrollStopCallback(const JSCallbackInfo& args)
     if (args[0]->IsFunction()) {
         auto onScrollStop = [execCtx = args.GetExecutionContext(), func = JSRef<JSFunc>::Cast(args[0])]() {
             func->Call(JSRef<JSObject>());
-            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "onScrollStop");
+            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "onScrollStop",
+                ComponentEventType::COMPONENT_EVENT_SCROLL);
             return;
         };
         ListModel::GetInstance()->SetOnScrollStop(std::move(onScrollStop));
     } else {
-        ListModel::GetInstance()->SetOnScrollIndex(nullptr);
+        ListModel::GetInstance()->SetOnScrollStop(nullptr);
     }
     args.ReturnSelf();
 }
@@ -663,6 +759,7 @@ void JSList::ItemDeleteCallback(const JSCallbackInfo& args)
     if (args[0]->IsFunction()) {
         auto onItemDelete = [execCtx = args.GetExecutionContext(), func = JSRef<JSFunc>::Cast(args[0])](
                                 int32_t index) -> bool {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx, false);
             auto params = ConvertToJSValues(index);
             func->Call(JSRef<JSObject>(), params.size(), params.data());
             return true;
@@ -838,7 +935,8 @@ void JSList::ItemDropCallback(const JSCallbackInfo& info)
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("List.onItemDrop");
         func->ItemDropExecute(dragInfo, itemIndex, insertIndex, isSuccess);
-        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "List.onItemDrop");
+        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "List.onItemDrop",
+            ComponentEventType::COMPONENT_EVENT_SCROLL);
     };
     ListModel::GetInstance()->SetOnItemDrop(onItemDrop);
 }
@@ -908,10 +1006,21 @@ void JSList::ScrollFrameBeginCallback(const JSCallbackInfo& args)
     }
 }
 
+void JSList::SetSupportEmptyBranchInLazyLoading(const JSCallbackInfo& args)
+{
+    bool supportEmptyBranch = false;
+    JSRef<JSVal> arg0 = args[0];
+    if (arg0->IsBoolean()) {
+        supportEmptyBranch = arg0->ToBoolean();
+    }
+    ListModel::GetInstance()->SetSupportEmptyBranchInLazyLoading(supportEmptyBranch);
+}
+
 void JSList::JSBind(BindingTarget globalObj)
 {
     JSClass<JSList>::Declare("List");
     JSClass<JSList>::StaticMethod("create", &JSList::Create);
+
     JSClass<JSList>::StaticMethod("width", &JSList::JsWidth);
     JSClass<JSList>::StaticMethod("height", &JSList::JsHeight);
     JSClass<JSList>::StaticMethod("clip", &JSScrollable::JsClip);
@@ -930,16 +1039,17 @@ void JSList::JSBind(BindingTarget globalObj)
     JSClass<JSList>::StaticMethod("alignListItem", &JSList::SetListItemAlign);
     JSClass<JSList>::StaticMethod("lanes", &JSList::SetLanes);
     JSClass<JSList>::StaticMethod("sticky", &JSList::SetSticky);
-    JSClass<JSList>::StaticMethod("contentStartOffset", &JSList::SetContentStartOffset);
-    JSClass<JSList>::StaticMethod("contentEndOffset", &JSList::SetContentEndOffset);
     JSClass<JSList>::StaticMethod("nestedScroll", &JSList::SetNestedScroll);
     JSClass<JSList>::StaticMethod("enableScrollInteraction", &JSList::SetScrollEnabled);
     JSClass<JSList>::StaticMethod("scrollSnapAlign", &JSList::SetScrollSnapAlign);
     JSClass<JSList>::StaticMethod("friction", &JSList::SetFriction);
     JSClass<JSList>::StaticMethod("focusWrapMode", &JSList::SetFocusWrapMode);
     JSClass<JSList>::StaticMethod("maintainVisibleContentPosition", &JSList::MaintainVisibleContentPosition);
+    JSClass<JSList>::StaticMethod("supportEmptyBranchInLazyLoading", &JSList::SetSupportEmptyBranchInLazyLoading);
     JSClass<JSList>::StaticMethod("stackFromEnd", &JSList::SetStackFromEnd);
     JSClass<JSList>::StaticMethod("syncLoad", &JSList::SetSyncLoad);
+    JSClass<JSList>::StaticMethod("editModeOptions", &JSList::SetEditModeOptions);
+    JSClass<JSList>::StaticMethod("scrollSnapAnimationSpeed", &JSList::SetScrollSnapAnimationSpeed);
     JSClass<JSList>::StaticMethod("onScroll", &JSList::ScrollCallback);
     JSClass<JSList>::StaticMethod("onReachStart", &JSList::ReachStartCallback);
     JSClass<JSList>::StaticMethod("onReachEnd", &JSList::ReachEndCallback);
@@ -951,6 +1061,7 @@ void JSList::JSBind(BindingTarget globalObj)
     JSClass<JSList>::StaticMethod("onScrollVisibleContentChange", &JSList::ScrollVisibleContentChangeCallback);
     JSClass<JSList>::StaticMethod("onScrollBegin", &JSList::ScrollBeginCallback);
     JSClass<JSList>::StaticMethod("onScrollFrameBegin", &JSList::ScrollFrameBeginCallback);
+
     JSClass<JSList>::StaticMethod("onClick", &JSInteractableView::JsOnClick);
     JSClass<JSList>::StaticMethod("onTouch", &JSInteractableView::JsOnTouch);
     JSClass<JSList>::StaticMethod("onHover", &JSInteractableView::JsOnHover);
@@ -975,9 +1086,9 @@ void JSListScroller::JSBind(BindingTarget globalObj)
 {
     JSClass<JSListScroller>::Declare("ListScroller");
     JSClass<JSListScroller>::CustomMethod("getItemRectInGroup", &JSListScroller::GetItemRectInGroup);
-    JSClass<JSListScroller>::CustomMethod("scrollToItemInGroup", &JSListScroller::ScrollToItemInGroup);
     JSClass<JSListScroller>::CustomMethod("closeAllSwipeActions", &JSListScroller::CloseAllSwipeActions);
     JSClass<JSListScroller>::CustomMethod("getVisibleListContentInfo", &JSListScroller::GetVisibleListContentInfo);
+    JSClass<JSListScroller>::CustomMethod("scrollToItemInGroup", &JSListScroller::ScrollToItemInGroup);
     JSClass<JSListScroller>::InheritAndBind<JSScroller>(globalObj, JSListScroller::Constructor,
         JSListScroller::Destructor);
 }
@@ -998,6 +1109,10 @@ void JSListScroller::Destructor(JSListScroller* scroller)
 
 void JSListScroller::GetItemRectInGroup(const JSCallbackInfo& args)
 {
+    JSListScroller* jsScroller = JSRef<JSObject>::Cast(args.This())->Unwrap<JSListScroller>();
+    if (jsScroller == nullptr) {
+        return;
+    }
     int32_t index = -1;
     int32_t indexInGroup = -1;
     // Parameter passed into function must be 2.
@@ -1008,7 +1123,8 @@ void JSListScroller::GetItemRectInGroup(const JSCallbackInfo& args)
     auto scrollController = GetController().Upgrade();
     if (scrollController) {
         ContainerScope scope(GetInstanceId());
-        auto rectObj = CreateRectangle(scrollController->GetItemRectInGroup(index, indexInGroup));
+        JSRef<JSObject> rectObj = JSRef<JSObject>::Make(
+            jsScroller->CreateRectangle(scrollController->GetItemRectInGroup(index, indexInGroup)));
         JSRef<JSVal> rect = JSRef<JSObject>::Cast(rectObj);
         args.SetReturnValue(rect);
     } else {

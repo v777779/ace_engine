@@ -21,6 +21,14 @@
 #include "core/components_ng/pattern/gauge/gauge_pattern.h"
 
 namespace OHOS::Ace::NG {
+RefPtr<FrameNode> GaugeModelStatic::CreateFrameNode(int32_t nodeId)
+{
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", GAUGE_ETS_TAG, nodeId);
+    return FrameNode::GetOrCreateFrameNode(
+        GAUGE_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<GaugePattern>(); }
+    );
+}
+
 void GaugeModelStatic::SetValue(FrameNode* frameNode, const std::optional<float>& value)
 {
     if (value) {
@@ -89,6 +97,18 @@ void GaugeModelStatic::SetDescription(FrameNode* frameNode, const RefPtr<AceType
     frameNode->MarkModifyDone();
 }
 
+void GaugeModelStatic::ReSetDescription(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(GaugeLayoutProperty, IsShowDescription, false, frameNode);
+    frameNode->MarkModifyDone();
+}
+
+void GaugeModelStatic::SetIsShowLimitValue(FrameNode* frameNode, bool isShowLimitValue)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(GaugeLayoutProperty, IsShowLimitValue, isShowLimitValue, frameNode);
+}
+
 void GaugeModelStatic::SetGradientColors(FrameNode* frameNode, const std::vector<LinearGradientColorSteps>& colors,
     const std::vector<float>& values, const GaugeType& type)
 {
@@ -97,6 +117,9 @@ void GaugeModelStatic::SetGradientColors(FrameNode* frameNode, const std::vector
         ColorStopArray colorStopArray;
         for (const auto& item2: item1) {
             colorStopArray.push_back(std::make_pair(item2.first.value_or(ERROR_COLOR), item2.second));
+        }
+        if (item1.empty()) {
+            colorStopArray.push_back(std::make_pair(ERROR_COLOR, Dimension(0.f)));
         }
         convColors.push_back(colorStopArray);
     }

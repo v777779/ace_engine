@@ -24,7 +24,9 @@ import {
     Bindable
 } from "../framework";
 import { Resource } from "global.resource";
-import { ContentModifier } from "#handwritten";
+import { ContentModifier, hookSelectSetDividerMethod } from "#handwritten";
+import { hookSelectContentModifier } from '../hooks/content_modifiers/ContentModifierHooks';
+import { default as uiMaterial } from "@ohos.arkui.uiMaterial"
 
 export class ArkSelectNode extends ArkBaseNode implements SelectAttribute {
     constructParam(...param: Object[]): this {
@@ -52,8 +54,13 @@ export class ArkSelectNode extends ArkBaseNode implements SelectAttribute {
         return this;
     }
     selected(value: int | Resource | Bindable<int> | Bindable<Resource> | undefined): this {
-        const value_casted = value as (int | Resource | Bindable<int> | Bindable<Resource> | undefined);
-        this.getPeer()?.setSelectedAttribute(value_casted);
+        const value_type = runtimeType(value);
+        if ((RuntimeType.BOOLEAN === value_type) || (RuntimeType.UNDEFINED === value_type)) {
+            const value_casted = value as (int | Resource | undefined);
+            this.getPeer()?.setSelectedAttribute(value_casted);
+            this.markDirty();
+            return this;
+        }
         this.markDirty();
         return this;
     }
@@ -160,12 +167,12 @@ export class ArkSelectNode extends ArkBaseNode implements SelectAttribute {
         return this;
     }
     menuItemContentModifier(value: ContentModifier<MenuItemConfiguration> | undefined): this {
+        hookSelectContentModifier(this.getPeer(), value);
         this.markDirty();
         return this;
     }
     divider(value: DividerOptions | null | undefined): this {
-        const value_casted = value as ( DividerOptions | null | undefined);
-        this.getPeer()?.setDividerAttribute(value_casted);  
+        hookSelectSetDividerMethod(this.getPeer(), value);
         this.markDirty();
         return this;
     }
@@ -211,9 +218,27 @@ export class ArkSelectNode extends ArkBaseNode implements SelectAttribute {
         this.markDirty();
         return this;
     }
+    setShowInSubWindow(value: boolean | undefined): this {
+        const value_casted = value as (boolean | undefined);
+        this.getPeer()?.setShowInSubWindowAttribute(value_casted);
+        this.markDirty();
+        return this;
+    }
+    showDefaultSelectedIcon(value: boolean | undefined): this {
+        const value_casted = value as (boolean | undefined);
+        this.getPeer()?.setShowDefaultSelectedIconAttribute(value_casted);
+        this.markDirty();
+        return this;
+    }
     backgroundColor(value: ResourceColor | undefined): this {
         const value_casted = value as (ResourceColor | undefined)
         this.getPeer()?.setBackgroundColorAttribute(value_casted)
+        this.markDirty();
+        return this;
+    }
+    menuSystemMaterial(value: uiMaterial.Material | undefined): this {
+        const value_casted = value as (uiMaterial.Material | undefined)
+        this.getPeer()?.setMenuSystemMaterialAttribute(value_casted)
         this.markDirty();
         return this;
     }

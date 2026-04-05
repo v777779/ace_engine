@@ -15,7 +15,9 @@
 
 #include "core/components_ng/pattern/scrollable/scrollable_paint_property.h"
 
+#include "core/components/scroll/scroll_bar_theme.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "base/log/dump_log.h"
 
 namespace OHOS::Ace::NG {
 std::string ScrollablePaintProperty::ContentClipToStr() const
@@ -38,6 +40,92 @@ std::string ScrollablePaintProperty::ContentClipToStr() const
     }
 }
 
+void ScrollablePaintProperty::DumpInfo()
+{
+    auto scrollBarMode = GetScrollBarMode().value_or(DisplayMode::OFF);
+    if (scrollBarMode == DisplayMode::OFF) {
+        DumpLog::GetInstance().AddDesc("innerScrollBarState: OFF");
+    } else if (scrollBarMode == DisplayMode::AUTO) {
+        DumpLog::GetInstance().AddDesc("innerScrollBarState: AUTO");
+    } else if (scrollBarMode == DisplayMode::ON) {
+        DumpLog::GetInstance().AddDesc("innerScrollBarState: ON");
+    }
+    auto scrollBarWidth = GetScrollBarWidth();
+    scrollBarWidth.has_value() ? DumpLog::GetInstance().AddDesc(std::string("scrollBarWidth: ")
+        .append(scrollBarWidth.value().ToString()))
+        : DumpLog::GetInstance().AddDesc("scrollBarWidth: None");
+    auto scrollBarColor = GetScrollBarColor();
+    scrollBarColor.has_value() ? DumpLog::GetInstance().AddDesc(std::string("scrollBarColor: ")
+        .append(scrollBarColor.value().ColorToString()))
+        : DumpLog::GetInstance().AddDesc("scrollBarColor: None");
+    auto scrollBarMargin = GetScrollBarMargin();
+    scrollBarMargin.has_value() ? DumpLog::GetInstance().AddDesc(std::string("scrollBarMargin: ")
+        .append(scrollBarMargin.value().ToString()))
+        : DumpLog::GetInstance().AddDesc("scrollBarMargin: None");
+    auto fadingEdge = GetFadingEdge();
+    fadingEdge.has_value() ? DumpLog::GetInstance().AddDesc(std::string("fadingEdge: ")
+        .append(fadingEdge.value() ? "true" : "false"))
+        : DumpLog::GetInstance().AddDesc("fadingEdge: None");
+    auto fadingEdgeLength = GetFadingEdgeLength();
+    fadingEdgeLength.has_value() ? DumpLog::GetInstance().AddDesc(std::string("fadingEdgeLength: ")
+        .append(fadingEdgeLength.value().ToString()))
+        : DumpLog::GetInstance().AddDesc("fadingEdgeLength: None");
+    auto clipContent = GetContentClip();
+    clipContent.has_value() ? DumpLog::GetInstance().AddDesc(std::string("clipContent: ").append(
+        clipContent.value().first == ContentClipMode::CONTENT_ONLY ? "CONTENT_ONLY" :
+        clipContent.value().first == ContentClipMode::BOUNDARY ? "BOUNDARY" :
+        clipContent.value().first == ContentClipMode::CUSTOM ? "CUSTOM" :
+        clipContent.value().first == ContentClipMode::SAFE_AREA ? "SAFE_AREA" : "DEFAULT"))
+        : DumpLog::GetInstance().AddDesc("clipContent: None");
+}
+
+void ScrollablePaintProperty::DumpInfo(std::unique_ptr<JsonValue>& json)
+{
+    auto scrollBarMode = GetScrollBarMode().value_or(DisplayMode::OFF);
+    if (scrollBarMode == DisplayMode::OFF) {
+        json->Put("innerScrollBarState", "OFF");
+    } else if (scrollBarMode == DisplayMode::AUTO) {
+        json->Put("innerScrollBarState", "AUTO");
+    } else if (scrollBarMode == DisplayMode::ON) {
+        json->Put("innerScrollBarState", "ON");
+    }
+    auto scrollBarWidth = GetScrollBarWidth();
+    json->Put("scrollBarWidth", scrollBarWidth.has_value() ? scrollBarWidth.value().ToString().c_str() : "None");
+    auto scrollBarColor = GetScrollBarColor();
+    json->Put("scrollBarColor", scrollBarColor.has_value() ? scrollBarColor.value().ColorToString().c_str() : "None");
+    auto scrollBarMargin = GetScrollBarMargin();
+    json->Put("scrollBarMargin",
+        scrollBarMargin.has_value() ? scrollBarMargin.value().ToString().c_str() : "None");
+    auto fadingEdge = GetFadingEdge();
+    json->Put("fadingEdge", fadingEdge.has_value() ? (fadingEdge.value() ? "true" : "false") : "None");
+    auto fadingEdgeLength = GetFadingEdgeLength();
+    json->Put("fadingEdgeLength", fadingEdgeLength.has_value() ? fadingEdgeLength.value().ToString().c_str() : "None");
+    auto clipContent = GetContentClip();
+    if (clipContent.has_value()) {
+        const char* clipMode = "DEFAULT";
+        switch (clipContent.value().first) {
+            case ContentClipMode::CONTENT_ONLY:
+                clipMode = "CONTENT_ONLY";
+                break;
+            case ContentClipMode::BOUNDARY:
+                clipMode = "BOUNDARY";
+                break;
+            case ContentClipMode::SAFE_AREA:
+                clipMode = "SAFE_AREA";
+                break;
+            case ContentClipMode::CUSTOM:
+                clipMode = "CUSTOM";
+                break;
+            case ContentClipMode::DEFAULT:
+                clipMode = "DEFAULT";
+                break;
+        }
+        json->Put("clipContent", clipMode);
+    } else {
+        json->Put("clipContent", "None");
+    }
+}
+
 void ScrollablePaintProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
 {
     PaintProperty::ToJsonValue(json, filter);
@@ -53,9 +141,11 @@ void ScrollablePaintProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, cons
             ? propScrollBarProperty_->propScrollBarMargin.value_or(ScrollBarMargin()).ToString().c_str()
             : ScrollBarMargin().ToString().c_str(),
         filter);
-    json->PutExtAttr("fadingEdge",
-        propFadingEdgeProperty_ ? propFadingEdgeProperty_->propFadingEdge.value_or(false) : false, filter);
-    json->PutExtAttr("defaultFadingEdge", false, filter);
+    json->PutExtAttr("autoAdjustScrollBarMargin",
+        propScrollBarProperty_->GetAutoAdjustScrollBarMargin().value_or(false) ? "true" : "false", filter);
+    bool defaultFadingEdge = GetDefaultFadingEdge().value_or(false);
+    json->PutExtAttr("fadingEdge", GetFadingEdge().value_or(defaultFadingEdge), filter);
+    json->PutExtAttr("defaultFadingEdge", defaultFadingEdge, filter);
     auto fadingEdgeOption = JsonUtil::Create(true);
     fadingEdgeOption->Put("fadingEdgeLength",
         propFadingEdgeProperty_
@@ -66,7 +156,6 @@ void ScrollablePaintProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, cons
             : Dimension(32.0, DimensionUnit::VP).ToString().c_str()); // 32.0: default fading edge length
     json->PutExtAttr("fadingEdgeOption", fadingEdgeOption, filter);
     json->PutExtAttr("clipContent", ContentClipToStr().c_str(), filter);
-    json->PutExtAttr("clipContentRect", GetClipContentRectString(), filter);
 }
 
 Color ScrollablePaintProperty::GetBarColor() const
@@ -110,38 +199,6 @@ std::string ScrollablePaintProperty::GetBarStateString() const
             break;
     }
     return "BarState.Off";
-}
-
-std::unique_ptr<JsonValue> ScrollablePaintProperty::GetClipContentRectString() const
-{
-    auto resultJSON = JsonUtil::Create(true);
-    auto clip = propContentClip_->second;
-    if (clip) {
-        resultJSON->Put("width", clip->GetWidth().ToString().c_str());
-        resultJSON->Put("height", clip->GetHeight().ToString().c_str());
-        resultJSON->Put("topLeftRadius", clip->GetTopLeftRadius().ToString().c_str());
-        resultJSON->Put("topRightRadius", clip->GetTopRightRadius().ToString().c_str());
-        resultJSON->Put("bottomRightRadius", clip->GetBottomRightRadius().ToString().c_str());
-        resultJSON->Put("bottomLeftRadius", clip->GetBottomLeftRadius().ToString().c_str());
-        resultJSON->Put("offset", GetDimensionOffsetJSON(clip->GetOffset()));
-        resultJSON->Put("position", GetDimensionOffsetJSON(clip->GetPosition()));
-        resultJSON->Put("color", clip->GetColor().ColorToString().c_str());
-        resultJSON->Put("strokeColor", static_cast<int32_t>(clip->GetStrokeColor()));
-        resultJSON->Put("strokeWidth", clip->GetStrokeWidth());
-    }
-    return resultJSON;
-}
-
-std::unique_ptr<JsonValue> ScrollablePaintProperty::GetDimensionOffsetJSON(const DimensionOffset& offset) const
-{
-    auto offsetJSON = JsonUtil::Create(true);
-    offsetJSON->Put("x", offset.GetX().ToString().c_str());
-    offsetJSON->Put("y", offset.GetY().ToString().c_str());
-    auto offsetZ = offset.GetZ();
-    if (offsetZ) {
-        offsetJSON->Put("z", offsetZ->ToString().c_str());
-    }
-    return offsetJSON;
 }
 
 void ScrollablePaintProperty::CloneProps(const ScrollablePaintProperty* src)

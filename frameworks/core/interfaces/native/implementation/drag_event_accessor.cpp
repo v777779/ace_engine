@@ -13,14 +13,12 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
 #include "core/interfaces/native/utility/accessor_utils.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/implementation/drag_event_peer.h"
 #include "core/interfaces/native/implementation/unified_data_peer.h"
-#include "unified_data_peer.h"
 
 namespace OHOS::Ace::NG::Converter {
     template<>
@@ -36,7 +34,7 @@ namespace OHOS::Ace::NG::Converter {
         }
     }
 
-    void AssignArkValue(Ark_DragResult& dst, const DragRet& src)
+    void AssignArkValue(Ark_DragResult& dst, const DragRet& src, ConvContext *ctx)
     {
         switch (src) {
             case DragRet::DRAG_SUCCESS: dst = ARK_DRAG_RESULT_DRAG_SUCCESSFUL; break;
@@ -114,32 +112,20 @@ void SetDataImpl(Ark_DragEvent peer,
     CHECK_NULL_VOID(peer);
     CHECK_NULL_VOID(peer->dragInfo);
     CHECK_NULL_VOID(unifiedData);
+    peer->dragInfo->SetUseDataLoadParams(false);
     peer->dragInfo->SetData(unifiedData->unifiedData);
 }
-Ark_unifiedDataChannel_UnifiedData GetDataImpl(Ark_DragEvent peer)
+Opt_unifiedDataChannel_UnifiedData GetDataImpl(Ark_DragEvent peer)
 {
-    const auto unifiedPeer = PeerUtils::CreatePeer<unifiedDataChannel_UnifiedDataPeer>();
-    CHECK_NULL_RETURN(peer, unifiedPeer);
-    CHECK_NULL_RETURN(peer->dragInfo, unifiedPeer);
+    Opt_unifiedDataChannel_UnifiedData arkUnifiedData =
+        Converter::ArkValue<Opt_unifiedDataChannel_UnifiedData>();
+    CHECK_NULL_RETURN(peer, arkUnifiedData);
+    CHECK_NULL_RETURN(peer->dragInfo, arkUnifiedData);
     auto data = peer->dragInfo->GetData();
-    CHECK_NULL_RETURN(data, unifiedPeer);
+    CHECK_NULL_RETURN(data, arkUnifiedData);
+    const auto unifiedPeer = PeerUtils::CreatePeer<unifiedDataChannel_UnifiedDataPeer>();
     unifiedPeer->unifiedData = data;
-    return unifiedPeer;
-}
-Ark_unifiedDataChannel_Summary GetSummaryImpl(Ark_DragEvent peer)
-{
-    Ark_unifiedDataChannel_Summary arkValue{};
-#ifdef WRONG_GEN1
-    CHECK_NULL_RETURN(peer, arkValue);
-    auto info = peer->dragInfo;
-    CHECK_NULL_RETURN(info, arkValue);
-    auto summary = info->GetSummary();
-    arkValue.summary = Converter::ArkValue<Map_String_Int64>(summary, Converter::FC);
-    for (const auto &item: summary) {
-        arkValue.totalSize += ArkValue<Ark_Int64>(item.second);
-    }
-#endif
-    return arkValue;
+    return Converter::ArkValue<Opt_unifiedDataChannel_UnifiedData>(unifiedPeer);
 }
 void SetResultImpl(Ark_DragEvent peer,
                    Ark_DragResult dragResult)
@@ -193,7 +179,7 @@ Ark_Float64 GetVelocityImpl(Ark_DragEvent peer)
     return Converter::ArkValue<Ark_Float64>(value);
 }
 void ExecuteDropAnimationImpl(Ark_DragEvent peer,
-                              const Callback_Void* customDropAnimation)
+                              const VoidCallback* customDropAnimation)
 {
     CHECK_NULL_VOID(customDropAnimation);
     CHECK_NULL_VOID(peer);
@@ -204,9 +190,47 @@ void ExecuteDropAnimationImpl(Ark_DragEvent peer,
     };
     info->SetDropAnimation(std::move(customDropAnimationCallback));
 }
-void EnableInternalDropAnimationImpl(Ark_DragEvent peer,
-                                     const Ark_String* configuration)
+Ark_Int32 GetDisplayIdImpl(Ark_DragEvent peer)
 {
+    const auto errValue = Converter::ArkValue<Ark_Int32>(-1);
+    CHECK_NULL_RETURN(peer, errValue);
+    auto info = peer->dragInfo;
+    CHECK_NULL_RETURN(info, errValue);
+    const auto value = info->GetDisplayId();
+    return Converter::ArkValue<Ark_Int32>(value);
+}
+Ark_String GetDragSourceImpl(Ark_DragEvent peer)
+{
+    std::string errStr = "";
+    const auto errValue = Converter::ArkValue<Ark_String>(errStr);
+    CHECK_NULL_RETURN(peer, errValue);
+    CHECK_NULL_RETURN(peer->dragInfo, errValue);
+    auto& value = peer->dragInfo->GetDragSource();
+    return Converter::ArkValue<Ark_String>(value);
+}
+Ark_Boolean IsRemoteImpl(Ark_DragEvent peer)
+{
+    const auto errValue = Converter::ArkValue<Ark_Boolean>(false);
+    CHECK_NULL_RETURN(peer, errValue);
+    CHECK_NULL_RETURN(peer->dragInfo, errValue);
+    auto isRemote = peer->dragInfo->isRemoteDev();
+    return Converter::ArkValue<Ark_Boolean>(isRemote);
+}
+Ark_Float64 GetGlobalDisplayXImpl(Ark_DragEvent peer)
+{
+    const auto errValue = Converter::ArkValue<Ark_Float64>(0);
+    CHECK_NULL_RETURN(peer, errValue);
+    CHECK_NULL_RETURN(peer->dragInfo, errValue);
+    const auto value = PipelineBase::Px2VpWithCurrentDensity(peer->dragInfo->GetGlobalDisplayX());
+    return Converter::ArkValue<Ark_Float64>(value);
+}
+Ark_Float64 GetGlobalDisplayYImpl(Ark_DragEvent peer)
+{
+    const auto errValue = Converter::ArkValue<Ark_Float64>(0);
+    CHECK_NULL_RETURN(peer, errValue);
+    CHECK_NULL_RETURN(peer->dragInfo, errValue);
+    const auto value = PipelineBase::Px2VpWithCurrentDensity(peer->dragInfo->GetGlobalDisplayY());
+    return Converter::ArkValue<Ark_Float64>(value);
 }
 Ark_DragBehavior GetDragBehaviorImpl(Ark_DragEvent peer)
 {
@@ -242,21 +266,42 @@ void SetUseCustomDropAnimationImpl(Ark_DragEvent peer,
     CHECK_NULL_VOID(peer->dragInfo);
     peer->dragInfo->UseCustomAnimation(Convert<bool>(useCustomDropAnimation));
 }
-Opt_ModifierKeyStateGetter GetGetModifierKeyStateImpl(Ark_DragEvent peer)
+Opt_Union_I32_Array_I32 GetAutoHideComponentUniqueIdsImpl(Ark_DragEvent peer)
 {
-    const auto invalid = Converter::ArkValue<Opt_ModifierKeyStateGetter>(Ark_Empty());
+    auto invalid = ArkUnion<Opt_Union_I32_Array_I32>(Ark_Empty());
     CHECK_NULL_RETURN(peer, invalid);
-    auto info = peer->dragInfo;
-    CHECK_NULL_RETURN(info, invalid);
-    auto getter = CallbackKeeper::RegisterReverseCallback<ModifierKeyStateGetter,
-            std::function<void(const Array_String, const Callback_Boolean_Void)>>([info]
-            (const Array_String keys, const Callback_Boolean_Void continuation) {
-        auto eventKeys = info->GetPressedKeyCodes();
-        auto keysStr = Converter::Convert<std::vector<std::string>>(keys);
-        Ark_Boolean arkResult = Converter::ArkValue<Ark_Boolean>(AccessorUtils::CheckKeysPressed(keysStr, eventKeys));
-        CallbackHelper(continuation).InvokeSync(arkResult);
-    });
-    return Converter::ArkValue<Opt_ModifierKeyStateGetter, ModifierKeyStateGetter>(getter);
+    CHECK_NULL_RETURN(peer->dragInfo, invalid);
+    const auto& uniqueIds = peer->dragInfo->GetAutoHideComponentUniqueIds();
+    if (uniqueIds.empty()) {
+        return invalid;
+    }
+    if (uniqueIds.size() == 1) {
+        return ArkUnion<Opt_Union_I32_Array_I32, Ark_Int32>(uniqueIds.front());
+    }
+    return ArkUnion<Opt_Union_I32_Array_I32, Array_I32>(uniqueIds, FC);
+}
+void SetAutoHideComponentUniqueIdsImpl(Ark_DragEvent peer,
+                                       const Opt_Union_I32_Array_I32* autoHideComponentUniqueIds)
+{
+    CHECK_NULL_VOID(peer);
+    CHECK_NULL_VOID(peer->dragInfo);
+    std::vector<int32_t> uniqueIds;
+    auto autoHideComponentUniqueIdsOpt = GetOptPtr(autoHideComponentUniqueIds);
+    if (autoHideComponentUniqueIdsOpt) {
+        switch (autoHideComponentUniqueIdsOpt->selector) {
+            case SELECTOR_ID_0:
+                uniqueIds.emplace_back(Convert<int32_t>(autoHideComponentUniqueIdsOpt->value0));
+                break;
+            case SELECTOR_ID_1:
+                uniqueIds = Convert<std::vector<int32_t>>(autoHideComponentUniqueIdsOpt->value1);
+                break;
+            default:
+                LOGE("Unexpected selector in autoHideComponentUniqueIds: %{public}d",
+                    autoHideComponentUniqueIdsOpt->selector);
+                return;
+        }
+    }
+    peer->dragInfo->SetAutoHideComponentUniqueIds(uniqueIds);
 }
 void SetGetModifierKeyStateImpl(Ark_DragEvent peer,
                                 const Opt_ModifierKeyStateGetter* getModifierKeyState)
@@ -276,7 +321,6 @@ const GENERATED_ArkUIDragEventAccessor* GetDragEventAccessor()
         DragEventAccessor::GetWindowYImpl,
         DragEventAccessor::SetDataImpl,
         DragEventAccessor::GetDataImpl,
-        DragEventAccessor::GetSummaryImpl,
         DragEventAccessor::SetResultImpl,
         DragEventAccessor::GetResultImpl,
         DragEventAccessor::GetPreviewRectImpl,
@@ -284,12 +328,17 @@ const GENERATED_ArkUIDragEventAccessor* GetDragEventAccessor()
         DragEventAccessor::GetVelocityYImpl,
         DragEventAccessor::GetVelocityImpl,
         DragEventAccessor::ExecuteDropAnimationImpl,
-        DragEventAccessor::EnableInternalDropAnimationImpl,
+        DragEventAccessor::GetDisplayIdImpl,
+        DragEventAccessor::GetDragSourceImpl,
+        DragEventAccessor::IsRemoteImpl,
+        DragEventAccessor::GetGlobalDisplayXImpl,
+        DragEventAccessor::GetGlobalDisplayYImpl,
         DragEventAccessor::GetDragBehaviorImpl,
         DragEventAccessor::SetDragBehaviorImpl,
         DragEventAccessor::GetUseCustomDropAnimationImpl,
         DragEventAccessor::SetUseCustomDropAnimationImpl,
-        DragEventAccessor::GetGetModifierKeyStateImpl,
+        DragEventAccessor::GetAutoHideComponentUniqueIdsImpl,
+        DragEventAccessor::SetAutoHideComponentUniqueIdsImpl,
         DragEventAccessor::SetGetModifierKeyStateImpl,
     };
     return &DragEventAccessorImpl;

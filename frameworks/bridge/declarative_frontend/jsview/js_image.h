@@ -32,7 +32,6 @@ class JSImage : public JSViewAbstract, public JSInteractableView {
 public:
     static void Create(const JSCallbackInfo& info);
     static void CreateImage(const JSCallbackInfo& info, bool isImageSpan = false);
-    static void CreateImageAnimation(std::vector<RefPtr<PixelMap>>& pixelMaps, int32_t duration, int32_t iterations);
     static void CheckIsCard(std::string& src, const JSRef<JSVal>& jsValue);
     static bool CheckResetImage(const bool& srcValid, const JSCallbackInfo& info);
     static void HandleLoadImageSuccess(const BaseEventInfo& param);
@@ -60,6 +59,7 @@ public:
     static void SetHdrBrightness(const JSCallbackInfo& info);
     static void SetEnhancedImageQuality(const JSCallbackInfo& info);
     static void SetOrientation(const JSCallbackInfo& info);
+    static void SetAltError(const JSCallbackInfo& args);
 
     static void JsBorder(const JSCallbackInfo& info);
     static void JsBorderRadius(const JSCallbackInfo& info);
@@ -75,9 +75,11 @@ public:
     static void JsSetDraggable(const JSCallbackInfo& info);
     static void JsOnDragStart(const JSCallbackInfo& info);
     static void SetCopyOption(const JSCallbackInfo& info);
+    static void JsAntiAlias(const JSCallbackInfo& info);
 
     static void EnableAnalyzer(bool isEnableAnalyzer);
     static void AnalyzerConfig(const JSCallbackInfo& info);
+    static void SupportSvg2(const JSCallbackInfo& info);
     static void ParseResizableSlice(const JSRef<JSObject>& info);
     static void ParseResizableLattice(const JSRef<JSObject>& info);
     static void JsImageResizable(const JSCallbackInfo& info);
@@ -85,6 +87,15 @@ public:
     static ImageType ParseImageType(const JSRef<JSVal>& jsValue);
     static void ConstructorCallback(const JSCallbackInfo& info);
     static void DestructorCallback(ImageColorFilter* obj);
+    static bool ParseContentTransitionEffect(const JSRef<JSVal>& jsValue, ContentTransitionType& contentTransitionType);
+    static void SetContentTransition(const JSCallbackInfo& info);
+    static bool IsImageAltObject(JSRef<JSVal> val);
+    static void ParseAltImageAlt(JSRef<JSVal> val, bool isCard, int32_t type);
+    static void HandleAltType(int32_t type, const ImageSourceInfo& srcInfo);
+    static void SetImageLengthMetricsBorderRadiusWithResObj(JSRef<JSObject>& object, CalcDimension& topLeft,
+        CalcDimension& topRight, CalcDimension& bottomLeft, CalcDimension& bottomRight);
+    static void SetImageBorderRadiusWithResObj(JSRef<JSObject>& object, CalcDimension& topLeft, CalcDimension& topRight,
+        CalcDimension& bottomLeft, CalcDimension& bottomRight);
 
 protected:
     static void SetBorder(const Border& border);

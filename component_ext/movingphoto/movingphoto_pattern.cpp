@@ -22,6 +22,10 @@
 #include "base/image/pixel_map.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "core/pipeline/base/element_register.h"
+#if defined(PLAYER_FRAMEWORK_EXISTS)
+#include "meta/meta.h"
+#endif
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -32,7 +36,7 @@ constexpr float NORMAL_SCALE = 1.0f;
 constexpr float ZOOM_IN_SCALE = 1.1f;
 constexpr double NORMAL_PLAY_SPEED = 1.0;
 constexpr int32_t HALF = 2;
-constexpr int32_t ROUND_XMAGE_MODE_VALUE = 10;
+constexpr int32_t ROUND_XMAGE_MODE_VALUE = 0;
 constexpr int64_t PERIOD_START = 0;
 constexpr int32_t PREPARE_RETURN = 0;
 constexpr int64_t VIDEO_PLAYTIME_START_POSITION = 0;
@@ -50,11 +54,14 @@ const std::string HW_MNOTE_XMAGE_TOP = "HwMnoteXmageTop";
 const std::string HW_MNOTE_XMAGE_RIGHT = "HwMnoteXmageRight";
 const std::string HW_MNOTE_XMAGE_BOTTOM = "HwMnoteXmageBottom";
 const std::string DEFAULT_EXIF_VALUE = "default_exif_value";
+const std::string SCALING_FACTOR = "com.openharmony.scaling_factor";
 constexpr int32_t ANALYZER_DELAY_TIME = 100;
 constexpr int32_t ANALYZER_CAPTURE_DELAY_TIME = 1000;
 constexpr int32_t AVERAGE_VALUE = 2;
 constexpr int32_t US_CONVERT = 1000;
 constexpr int32_t ROUND_XMAGE_PIXEL_GAP = 2;
+constexpr int32_t EIGHTY_TO_HUNDRED_TIME = 3000;
+constexpr int32_t NODE_COUNT = 2;
 }
 MovingPhotoPattern::MovingPhotoPattern(const RefPtr<MovingPhotoController>& controller)
     : instanceId_(Container::CurrentId()), controller_(controller)
@@ -84,10 +91,6 @@ void MovingPhotoPattern::OnAttachToFrameNode()
     CHECK_NULL_VOID(host);
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
-    static RenderContext::ContextParam cParam = { RenderContext::ContextType::HARDWARE_SURFACE, "MediaPlayerSurface",
-                                                  RenderContext::PatternType::DEFAULT };
-    columnRenderContext_->InitContext(false, cParam);
-    columnRenderContext_->UpdateBackgroundColor(Color::TRANSPARENT);
     static RenderContext::ContextParam param = { RenderContext::ContextType::HARDWARE_SURFACE, "MediaPlayerSurface",
                                                  RenderContext::PatternType::VIDEO };
     renderContextForMediaPlayer_->InitContext(false, param);
@@ -109,6 +112,7 @@ void MovingPhotoPattern::OnAttachToFrameNode()
     SetEnableTransitionImpl(uiTaskExecutor);
     SetPlaybackPeriodImpl(uiTaskExecutor);
     SetEnableAutoPlayImpl(uiTaskExecutor);
+    SetNotifyTransitionImpl(uiTaskExecutor);
     RegisterVisibleAreaChange();
 }
 
@@ -211,7 +215,11 @@ void MovingPhotoPattern::SetPlaybackPeriodImpl(const SingleTaskExecutor& uiTaskE
                 auto pattern = weak.Upgrade();
                 CHECK_NULL_VOID(pattern);
                 ContainerScope scope(pattern->instanceId_);
-                pattern->SetPlaybackPeriod(startTime, endTime);
+                bool isSetPeriod = false;
+                isSetPeriod = pattern->SetPlaybackPeriod(startTime, endTime);
+                if (!isSetPeriod) {
+                    pattern->FireMediaPlayerError();
+                }
             }, "ArkUISetPlaybackPeriod");
     });
 }
@@ -226,6 +234,19 @@ void MovingPhotoPattern::SetEnableAutoPlayImpl(const SingleTaskExecutor& uiTaskE
                 ContainerScope scope(pattern->instanceId_);
                 pattern->EnableAutoPlay(enabled);
             }, "ArkUIEnableAutoPlay");
+    });
+}
+
+void MovingPhotoPattern::SetNotifyTransitionImpl(const SingleTaskExecutor& uiTaskExecutor)
+{
+    controller_->SetNotifyTransitionImpl([weak = WeakClaim(this), uiTaskExecutor]() {
+        uiTaskExecutor.PostTask(
+            [weak]() {
+                auto pattern = weak.Upgrade();
+                CHECK_NULL_VOID(pattern);
+                ContainerScope scope(pattern->instanceId_);
+                pattern->NotifyTransition();
+            }, "ArkUINotifyTransition");
     });
 }
 
@@ -256,12 +277,13 @@ void MovingPhotoPattern::OnRebuildFrame()
     CHECK_NULL_VOID(host);
     auto movingPhotoNode = AceType::DynamicCast<MovingPhotoNode>(host);
     CHECK_NULL_VOID(movingPhotoNode);
-    auto column = AceType::DynamicCast<FrameNode>(movingPhotoNode->GetColumn());
+    int32_t childCount = movingPhotoNode->GetTotalChildCount();
+    CHECK_NULL_VOID(childCount >= 1);
+    auto column = AceType::DynamicCast<FrameNode>(movingPhotoNode->GetColumn(childCount - 1));
     CHECK_NULL_VOID(column);
     auto columnRenderContext = column->GetRenderContext();
-    columnRenderContext->AddChild(columnRenderContext_, 0);
     columnRenderContext->SetClipToBounds(true);
-    auto video = AceType::DynamicCast<FrameNode>(movingPhotoNode->GetVideo());
+    auto video = AceType::DynamicCast<FrameNode>(movingPhotoNode->GetVideo(childCount - 1));
     CHECK_NULL_VOID(video);
     auto renderContext = video->GetRenderContext();
     renderContext->AddChild(renderContextForMediaPlayer_, 0);
@@ -362,6 +384,7 @@ void MovingPhotoPattern::HandleLongPress(GestureEvent& info)
         mediaPlayer_->GetDuration(duration);
         SetAutoPlayPeriod(PERIOD_START, duration * US_CONVERT);
     }
+    isGestureTriggeredLongPress_ = true;
     Start();
 }
 
@@ -400,7 +423,6 @@ void MovingPhotoPattern::HandleTouchEvent(TouchEventInfo& info)
 
 void MovingPhotoPattern::UpdateImageNode()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "UpdateImageNode start.%{public}d", movingPhotoFormat_);
     if (startAnimationFlag_) {
         needUpdateImageNode_ = true;
         return;
@@ -415,13 +437,15 @@ void MovingPhotoPattern::UpdateImageNode()
     auto imagePattern = image->GetPattern<ImagePattern>();
     CHECK_NULL_VOID(imagePattern);
     imagePattern->SetOrientation(ImageRotateOrientation::AUTO);
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto set HDR.%{public}d", dynamicRangeMode_);
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "UpdateImageNode set HDR. %{public}d, format. %{public}d",
+        dynamicRangeMode_, movingPhotoFormat_);
     auto layoutProperty = GetLayoutProperty<MovingPhotoLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
+    auto imageLayoutProperty = image->GetLayoutProperty<ImageLayoutProperty>();
+    CHECK_NULL_VOID(imageLayoutProperty);
     if (!layoutProperty->HasImageSourceInfo()) {
         TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "image info is null.");
-        auto posterLayoutProperty = image->GetLayoutProperty<ImageLayoutProperty>();
-        posterLayoutProperty->UpdateVisibility(VisibleType::INVISIBLE);
+        imageLayoutProperty->UpdateVisibility(VisibleType::INVISIBLE);
         image->MarkModifyDone();
         return;
     }
@@ -429,14 +453,12 @@ void MovingPhotoPattern::UpdateImageNode()
     auto imageFit = layoutProperty->GetObjectFitValue(ImageFit::COVER);
     if (!imageSourceInfo.IsValid()) {
         TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "image info is invalid.");
-        auto posterLayoutProperty = image->GetLayoutProperty<ImageLayoutProperty>();
-        posterLayoutProperty->UpdateVisibility(VisibleType::INVISIBLE);
+        imageLayoutProperty->UpdateVisibility(VisibleType::INVISIBLE);
         image->MarkModifyDone();
         return;
     }
     if (image) {
         image->SetDraggable(false);
-        auto imageLayoutProperty = image->GetLayoutProperty<ImageLayoutProperty>();
         imageLayoutProperty->UpdateVisibility(VisibleType::VISIBLE);
         imageLayoutProperty->UpdateImageSourceInfo(imageSourceInfo);
         MovingPhotoFormatConvert(movingPhotoFormat_);
@@ -444,7 +466,50 @@ void MovingPhotoPattern::UpdateImageNode()
         imageLayoutProperty->UpdateImageFit(imageFit);
         image->MarkModifyDone();
     }
-    RegisterImageEvent();
+    RegisterImageEvent(image);
+}
+
+void MovingPhotoPattern::UpdateTempImageNode(const ImageSourceInfo& imageSourceInfo)
+{
+    if (startAnimationFlag_) {
+        needUpdateImageNode_ = true;
+        return;
+    }
+    auto image = GetTempNode();
+    CHECK_NULL_VOID(image);
+    UpdateImageHdrMode(image);
+    auto imagePattern = image->GetPattern<ImagePattern>();
+    CHECK_NULL_VOID(imagePattern);
+    imagePattern->SetOrientation(ImageRotateOrientation::AUTO);
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "UpdateTempImageNode set HDR. %{public}d, format. %{public}d",
+        dynamicRangeMode_, movingPhotoFormat_);
+    auto layoutProperty = GetLayoutProperty<MovingPhotoLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    auto imageLayoutProperty = image->GetLayoutProperty<ImageLayoutProperty>();
+    CHECK_NULL_VOID(imageLayoutProperty);
+    if (!layoutProperty->HasImageSourceInfo()) {
+        TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "UpdateTempImageNode imageInfo is null.");
+        imageLayoutProperty->UpdateVisibility(VisibleType::INVISIBLE);
+        image->MarkModifyDone();
+        return;
+    }
+    auto imageFit = layoutProperty->GetObjectFitValue(ImageFit::COVER);
+    if (!imageSourceInfo.IsValid()) {
+        TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "UpdateTempImageNode imageInfo is invalid.");
+        imageLayoutProperty->UpdateVisibility(VisibleType::INVISIBLE);
+        image->MarkModifyDone();
+        return;
+    }
+    if (image) {
+        image->SetDraggable(false);
+        imageLayoutProperty->UpdateVisibility(VisibleType::VISIBLE);
+        imageLayoutProperty->UpdateImageSourceInfo(imageSourceInfo);
+        MovingPhotoFormatConvert(movingPhotoFormat_);
+        imagePattern->SetExternalDecodeFormat(imageFormat_);
+        imageLayoutProperty->UpdateImageFit(imageFit);
+        image->MarkModifyDone();
+    }
+    RegisterTransitionImageEvent(image);
 }
 
 void MovingPhotoPattern::UpdateImageHdrMode(const RefPtr<FrameNode>& imageNode)
@@ -460,7 +525,7 @@ void MovingPhotoPattern::UpdateImageHdrMode(const RefPtr<FrameNode>& imageNode)
 
 void MovingPhotoPattern::MovingPhotoFormatConvert(MovingPhotoFormat format)
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "MovingPhotoFormatConvert %{public}d.", format);
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "MovingPhotoFormatConvert1 %{public}d.", format);
     switch (format) {
         case MovingPhotoFormat::RGBA_8888:
             imageFormat_ = PixelFormat::RGBA_8888;
@@ -502,16 +567,11 @@ void MovingPhotoPattern::DynamicRangeModeConvert(DynamicRangeMode rangeMode)
     TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "DynamicRangeModeConvert %{public}d.", rangeMode);
 }
 
-void MovingPhotoPattern::RegisterImageEvent()
+void MovingPhotoPattern::RegisterImageEvent(const RefPtr<FrameNode>& imageNode)
 {
     TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "MovingPhoto RegisterImageEvent start.");
-    auto host = GetHost();
-    CHECK_NULL_VOID(host);
-    auto movingPhoto = AceType::DynamicCast<MovingPhotoNode>(host);
-    CHECK_NULL_VOID(movingPhoto);
-    auto image = AceType::DynamicCast<FrameNode>(movingPhoto->GetImage());
-    CHECK_NULL_VOID(image);
-    auto imageHub = image->GetEventHub<ImageEventHub>();
+    CHECK_NULL_VOID(imageNode);
+    auto imageHub = imageNode->GetEventHub<ImageEventHub>();
     CHECK_NULL_VOID(imageHub);
     auto imageCompleteEventCallback = [weak = WeakClaim(this)](const LoadImageSuccessEvent& info) {
         auto pattern = weak.Upgrade();
@@ -519,6 +579,32 @@ void MovingPhotoPattern::RegisterImageEvent()
         pattern->HandleImageCompleteEvent(info);
     };
     imageHub->SetOnComplete(imageCompleteEventCallback);
+    auto imageErrorEventCallback = [weak = WeakClaim(this)](const LoadImageFailEvent& info) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->HandleImageErrorEvent(info);
+    };
+    imageHub->SetOnError(imageErrorEventCallback);
+}
+
+void MovingPhotoPattern::RegisterTransitionImageEvent(const RefPtr<FrameNode>& imageNode)
+{
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "MovingPhoto RegisterImageEvent Transition start.");
+    CHECK_NULL_VOID(imageNode);
+    auto imageHub = imageNode->GetEventHub<ImageEventHub>();
+    CHECK_NULL_VOID(imageHub);
+    auto imageCompleteEventCallback = [weak = WeakClaim(this)](const LoadImageSuccessEvent& info) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->HandleTransitionImageCompleteEvent(info);
+    };
+    imageHub->SetOnComplete(imageCompleteEventCallback);
+    auto imageErrorEventCallback = [weak = WeakClaim(this)](const LoadImageFailEvent& info) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->HandleImageErrorEvent(info);
+    };
+    imageHub->SetOnError(imageErrorEventCallback);
 }
 
 void MovingPhotoPattern::HandleImageCompleteEvent(const LoadImageSuccessEvent& info)
@@ -527,6 +613,29 @@ void MovingPhotoPattern::HandleImageCompleteEvent(const LoadImageSuccessEvent& i
     TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "HandleImageCompleteEvent start:%{public}d.", loadingStatus);
     if (loadingStatus == IMAGE_DECODE_COMPLETE) {
         FireMediaPlayerImageComplete();
+    }
+}
+
+void MovingPhotoPattern::HandleImageErrorEvent(const LoadImageFailEvent& info)
+{
+    auto errorStatus = info.GetErrorInfo();
+    TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "OnHandleImageErrorEventCallback Start.");
+    CHECK_NULL_VOID(errorStatus.errorMessage.c_str());
+    TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "HandleImageErrorEvent errorCode:%{public}d.  errorMessage:%{public}s.",
+        errorStatus.errorCode, errorStatus.errorMessage.c_str());
+    FireMediaPlayerImageError();
+}
+
+void MovingPhotoPattern::HandleTransitionImageCompleteEvent(const LoadImageSuccessEvent& info)
+{
+    auto loadingStatus = info.GetLoadingStatus();
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "HandleTransitionImageCompleteEvent start:%{public}d.", loadingStatus);
+    if (loadingStatus == IMAGE_DECODE_COMPLETE) {
+        FireMediaPlayerImageComplete();
+        if (notifyTransitionFlag_) {
+            TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "HandleTransitionImageCompleteEvent EightyToHundredAnimation.");
+            EightyToHundredAnimation();
+        }
     }
 }
 
@@ -594,10 +703,6 @@ void MovingPhotoPattern::ResetMediaPlayer()
     CHECK_NULL_VOID(mediaPlayer_);
     isPrepared_ = false;
     isStopAnimation_ = false;
-    int32_t duration = DURATION_FLAG;
-    mediaPlayer_->GetDuration(duration);
-    autoPlayPeriodStartTime_ = PERIOD_START;
-    autoPlayPeriodEndTime_ = duration;
     ContainerScope scope(instanceId_);
     auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
@@ -662,7 +767,7 @@ void MovingPhotoPattern::RegisterMediaPlayerEvent()
     };
 
     auto&& errorEvent = [movingPhotoPattern, uiTaskExecutor]() {
-        uiTaskExecutor.PostSyncTask([movingPhotoPattern] {
+        uiTaskExecutor.PostTask([movingPhotoPattern] {
             auto movingPhoto = movingPhotoPattern.Upgrade();
             CHECK_NULL_VOID(movingPhoto);
             ContainerScope scope(movingPhoto->instanceId_);
@@ -714,12 +819,7 @@ void MovingPhotoPattern::UpdatePlayMode()
         if (historyAutoAndRepeatLevel_ == PlaybackMode::AUTO) {
             SetAutoPlayPeriod(autoPlayPeriodStartTime_, autoPlayPeriodEndTime_);
         }
-        if (autoAndRepeatLevel_ == PlaybackMode::AUTO && currentPlayStatus_ == PlaybackStatus::PREPARED) {
-            isSetAutoPlayPeriod_ = false;
-            ResetMediaPlayer();
-        } else {
-            MediaResetToPlay();
-        }
+        MediaResetToPlay();
         isChangePlayMode_ = false;
     }
 }
@@ -758,6 +858,13 @@ void MovingPhotoPattern::FireMediaPlayerImageComplete()
     auto eventHub = GetEventHub<MovingPhotoEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->FireCompleteEvent();
+}
+
+void MovingPhotoPattern::FireMediaPlayerImageError()
+{
+    auto eventHub = GetEventHub<MovingPhotoEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->FireErrorEvent();
 }
 
 void MovingPhotoPattern::FireMediaPlayerStart()
@@ -824,7 +931,6 @@ void MovingPhotoPattern::OnResolutionChange()
 
 void MovingPhotoPattern::OnStartRenderFrame()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "MediaPlayer OnStartRenderFrame.");
 }
 
 void MovingPhotoPattern::OnStartedStatusCallback()
@@ -856,14 +962,9 @@ bool MovingPhotoPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& d
     auto movingPhotoNodeSize = geometryNode->GetContentSize();
     auto layoutProperty = GetLayoutProperty<MovingPhotoLayoutProperty>();
     CHECK_NULL_RETURN(layoutProperty, false);
-    SizeF videoFrameSize;
-    if (isXmageMode_) {
-        videoFrameSize = MeasureModeContentLayout(movingPhotoNodeSize, layoutProperty);
-    } else {
-        videoFrameSize = MeasureContentLayout(movingPhotoNodeSize, layoutProperty);
-    }
-    if (xmageModeValue_ == ROUND_XMAGE_MODE_VALUE) {
-        SetRenderContextBoundsInRoundXmage(movingPhotoNodeSize, videoFrameSize);
+    SizeF videoFrameSize = SetVideoFrameSize(movingPhotoNodeSize, layoutProperty);
+    if (xmageModeValue_ != ROUND_XMAGE_MODE_VALUE) {
+        SetRenderContextBoundsInXmage(movingPhotoNodeSize, videoFrameSize);
     } else {
         SetRenderContextBounds(movingPhotoNodeSize, videoFrameSize);
     }
@@ -885,7 +986,9 @@ bool MovingPhotoPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& d
     host->MarkNeedSyncRenderTree();
     auto movingPhoto = AceType::DynamicCast<MovingPhotoNode>(host);
     CHECK_NULL_RETURN(movingPhoto, false);
-    auto video = AceType::DynamicCast<FrameNode>(movingPhoto->GetVideo());
+    int32_t childCount = movingPhoto->GetTotalChildCount();
+    CHECK_NULL_RETURN(childCount >= 1, false);
+    auto video = AceType::DynamicCast<FrameNode>(movingPhoto->GetVideo(childCount - 1));
     CHECK_NULL_RETURN(video, false);
     video->GetRenderContext()->SetClipToBounds(true);
     if (currentPlayStatus_ != PlaybackStatus::STARTED) {
@@ -905,28 +1008,18 @@ void MovingPhotoPattern::SetRenderContextBounds(const SizeF& movingPhotoNodeSize
         ratio = CalculateRatio(movingPhotoNodeSize);
     }
     if (columnRenderContext_) {
-        if (isXmageMode_) {
-            columnRenderContext_->SetBounds((movingPhotoNodeSize.Width() - videoFrameSize.Width()) / HALF, 0,
-                videoFrameSize.Width(), videoFrameSize.Height() - xmageHeight * ratio);
-        } else {
-            columnRenderContext_->SetBounds((movingPhotoNodeSize.Width() - videoFrameSize.Width()) / HALF,
-                (movingPhotoNodeSize.Height() - videoFrameSize.Height()) / HALF,
-                videoFrameSize.Width(), videoFrameSize.Height());
-        }
+        columnRenderContext_->SetBounds((movingPhotoNodeSize.Width() - videoFrameSize.Width()) / HALF,
+            (movingPhotoNodeSize.Height() - videoFrameSize.Height()) / HALF,
+            videoFrameSize.Width(), videoFrameSize.Height());
     }
     if (renderContextForMediaPlayer_) {
-        if (isXmageMode_) {
-            renderContextForMediaPlayer_->SetBounds((movingPhotoNodeSize.Width() - videoFrameSize.Width()) / HALF, 0,
-                videoFrameSize.Width(), videoFrameSize.Height() - xmageHeight * ratio);
-        } else {
-            renderContextForMediaPlayer_->SetBounds((movingPhotoNodeSize.Width() - videoFrameSize.Width()) / HALF,
-                (movingPhotoNodeSize.Height() - videoFrameSize.Height()) / HALF,
-                videoFrameSize.Width(), videoFrameSize.Height());
-        }
+        renderContextForMediaPlayer_->SetBounds((movingPhotoNodeSize.Width() - videoFrameSize.Width()) / HALF,
+            (movingPhotoNodeSize.Height() - videoFrameSize.Height()) / HALF,
+            videoFrameSize.Width(), videoFrameSize.Height());
     }
 }
 
-void MovingPhotoPattern::SetRenderContextBoundsInRoundXmage(
+void MovingPhotoPattern::SetRenderContextBoundsInXmage(
     const SizeF& movingPhotoNodeSize, const SizeF& videoFrameSize)
 {
     auto layoutProperty = GetLayoutProperty<MovingPhotoLayoutProperty>();
@@ -945,6 +1038,7 @@ void MovingPhotoPattern::SetRenderContextBoundsInRoundXmage(
         imageSize = layoutProperty->GetImageSize().value();
         xmageOffsetRatio = pattern->CalculateXmageOffsetRatio(movingPhotoNodeSize);
     }
+
     if (columnRenderContext_) {
         columnRenderContext_->SetBounds(0, 0, imageSize.Width() * xmageOffsetRatio.Width() + ROUND_XMAGE_PIXEL_GAP,
             imageSize.Height() * xmageOffsetRatio.Height() + ROUND_XMAGE_PIXEL_GAP);
@@ -955,6 +1049,21 @@ void MovingPhotoPattern::SetRenderContextBoundsInRoundXmage(
             imageSize.Height() * xmageOffsetRatio.Height() + ROUND_XMAGE_PIXEL_GAP);
     }
 }
+
+SizeF MovingPhotoPattern::SetVideoFrameSize(const SizeF& layoutSize,
+    const RefPtr<MovingPhotoLayoutProperty>& layoutProperty)
+{
+    if (isXmageMode_) {
+        return MeasureModeContentLayout(layoutSize, layoutProperty);
+    } else {
+        if (autoAndRepeatLevel_ == PlaybackMode::REPEAT) {
+            return CalculateFitFill(layoutSize);
+        } else {
+            return MeasureContentLayout(layoutSize, layoutProperty);
+        }
+    }
+}
+
 SizeF MovingPhotoPattern::CalculateFitContain(const SizeF& rawSize, const SizeF& layoutSize)
 {
     if (NearZero(rawSize.Height()) || NearZero(rawSize.Width()) || NearZero(layoutSize.Height())) {
@@ -1179,56 +1288,9 @@ int32_t MovingPhotoPattern::GetImageFd() const
     return fd;
 }
 
-void MovingPhotoPattern::GetXmageHeight()
-{
-    int32_t fd = GetImageFd();
-    CHECK_NULL_VOID(fd >= 0);
-    auto imageSrc = ImageSource::Create(fd);
-    close(fd);
-    CHECK_NULL_VOID(imageSrc);
-    auto host = GetHost();
-    CHECK_NULL_VOID(host);
-    auto imageLength = imageSrc->GetProperty(IMAGE_LENGTH);
-    auto imageWidth = imageSrc->GetProperty(IMAGE_WIDTH);
-    if (imageLength.empty() || imageWidth.empty() || imageLength == DEFAULT_EXIF_VALUE ||
-        imageWidth == DEFAULT_EXIF_VALUE) {
-        TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto imageLength or imageWidth is null");
-        return;
-    }
-
-    float imageW = StringUtils::StringToFloat(imageWidth);
-    float imageL = StringUtils::StringToFloat(imageLength);
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto imageW.%{public}f, imageL %{public}f",
-             imageW, imageL);
-
-    std::string modeValue = imageSrc->GetProperty(HW_MNOTE_XMAGE_MODE);
-    SizeF imageSize = SizeF(-1, -1);
-    if (!modeValue.empty() && modeValue != DEFAULT_EXIF_VALUE) {
-        isXmageMode_ = true;
-        std::string bottomValue = imageSrc->GetProperty(HW_MNOTE_XMAGE_BOTTOM);
-        if (bottomValue.empty() || bottomValue == DEFAULT_EXIF_VALUE) {
-            TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto bottomValue is null");
-            return;
-        }
-        float bottomV = StringUtils::StringToFloat(bottomValue);
-        TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto bottomV.%{public}f", bottomV);
-        imageSize = SizeF(imageW, bottomV);
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(MovingPhotoLayoutProperty, XmageHeight, imageL - bottomV, host);
-        TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto XmageHeight.%{public}f", imageL - bottomV);
-    } else {
-        isXmageMode_ = false;
-        imageSize = SizeF(imageW, imageL);
-    }
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(MovingPhotoLayoutProperty, ImageSize, imageSize, host);
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto imageSize imageW.%{public}f, imageL %{public}f",
-             imageSize.Width(), imageSize.Height());
-}
-
 void MovingPhotoPattern::SetXmagePosition()
 {
     TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto SetXmagePosition");
-    isXmageMode_ = false;
-    xmageModeValue_ = 0;
     int32_t fd = GetImageFd();
     CHECK_NULL_VOID(fd >= 0);
     auto imageSrc = ImageSource::Create(fd);
@@ -1246,38 +1308,35 @@ void MovingPhotoPattern::SetXmagePosition()
  
     float imageW = StringUtils::StringToFloat(imageWidth);
     float imageL = StringUtils::StringToFloat(imageLength);
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto imageW.%{public}f, imageL %{public}f",
-             imageW, imageL);
  
     std::string modeValue = imageSrc->GetProperty(HW_MNOTE_XMAGE_MODE);
     SizeF imageSize = SizeF(-1, -1);
-    if (!modeValue.empty() && modeValue != DEFAULT_EXIF_VALUE) {
+    if (!modeValue.empty() && modeValue != DEFAULT_EXIF_VALUE && !IsAllZeroPositionInXmage(imageSrc)) {
         isXmageMode_ = true;
         xmageModeValue_ = StringUtils::StringToInt(modeValue);
         TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto xmageModeValue_ = %{public}d", xmageModeValue_);
-        if (xmageModeValue_ == ROUND_XMAGE_MODE_VALUE) {
-            UpdateRoundXmageProperty(imageSrc, imageSize, imageW, imageL, host);
-        } else {
-            std::string bottomValue = imageSrc->GetProperty(HW_MNOTE_XMAGE_BOTTOM);
-            if (bottomValue.empty() || bottomValue == DEFAULT_EXIF_VALUE) {
-                TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto bottomValue is null");
-                return;
-            }
-            float bottomV = StringUtils::StringToFloat(bottomValue);
-            TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto bottomV.%{public}f", bottomV);
-            imageSize = SizeF(imageW, bottomV);
-            ACE_UPDATE_NODE_LAYOUT_PROPERTY(MovingPhotoLayoutProperty, XmageHeight, imageL - bottomV, host);
-            TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto XmageHeight.%{public}f", imageL - bottomV);
+        if (xmageModeValue_ != ROUND_XMAGE_MODE_VALUE) {
+            UpdateXmageProperty(imageSrc, imageSize, imageW, imageL, host);
         }
     } else {
+        isXmageMode_ = false;
+        xmageModeValue_ = 0;
         imageSize = SizeF(imageW, imageL);
     }
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(MovingPhotoLayoutProperty, ImageSize, imageSize, host);
     TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto imageSize imageW.%{public}f, imageL %{public}f",
             imageSize.Width(), imageSize.Height());
 }
+
+bool MovingPhotoPattern::IsAllZeroPositionInXmage(const RefPtr<ImageSource>& imageSrc)
+{
+    return imageSrc->GetProperty(HW_MNOTE_XMAGE_LEFT) == "0" &&
+           imageSrc->GetProperty(HW_MNOTE_XMAGE_TOP) == "0" &&
+           imageSrc->GetProperty(HW_MNOTE_XMAGE_RIGHT) == "0" &&
+           imageSrc->GetProperty(HW_MNOTE_XMAGE_BOTTOM) == "0";
+}
  
-void MovingPhotoPattern::UpdateRoundXmageProperty(
+void MovingPhotoPattern::UpdateXmageProperty(
     RefPtr<ImageSource> imageSrc, SizeF& imageSize, float imageW, float imageL, RefPtr<FrameNode>& host)
 {
     std::string xmageLeft = imageSrc->GetProperty(HW_MNOTE_XMAGE_LEFT);
@@ -1295,7 +1354,7 @@ void MovingPhotoPattern::UpdateRoundXmageProperty(
     imageSize = SizeF(xRight - xLeft, xBottom - xTop);
     SizeF xmageOffset = SizeF(xLeft, xTop);
     SizeF xmageRawSize = SizeF(imageW, imageL);
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto roundXmage(%{public}f, %{public}f, %{public}f, %{public}f)",
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingPhoto Xmage(%{public}f, %{public}f, %{public}f, %{public}f)",
         xLeft, xTop, xRight, xBottom);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(MovingPhotoLayoutProperty, XmageOffset, xmageOffset, host);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(MovingPhotoLayoutProperty, XmageRawSize, xmageRawSize, host);
@@ -1375,7 +1434,6 @@ void MovingPhotoPattern::OnMediaPlayerStatusChanged(PlaybackStatus status)
 {
     isUsedMediaPlayerStatusChanged_ = true;
     currentPlayStatus_ = status;
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "Player current status is %{public}d.", status);
     switch (status) {
         case PlaybackStatus::ERROR:
             TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "Player current status is ERROR.");
@@ -1427,6 +1485,9 @@ void MovingPhotoPattern::OnMediaPlayerInitialized()
     }
     isAutoChangePlayMode_ = false;
     PrepareSurface();
+    if (cameraPostprocessingEnabled_) {
+        mediaPlayer_->EnableCameraPostprocessing();
+    }
     if (mediaPlayer_->PrepareAsync() != PREPARE_RETURN) {
         TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "prepare MediaPlayer failed.");
     }
@@ -1454,7 +1515,7 @@ void MovingPhotoPattern::OnMediaPlayerPrepared()
     mediaPlayer_->SetParameter(VIDEO_SCALE, 1);
     UpdateMediaPlayerSpeed();
     UpdateMediaPlayerMuted();
-    VisiblePlayback();
+    PreparedToPlay();
     FireMediaPlayerPrepared();
 }
 
@@ -1490,9 +1551,9 @@ void MovingPhotoPattern::HideImageNode()
     image->MarkModifyDone();
 }
 
-void MovingPhotoPattern::VisiblePlayback()
+void MovingPhotoPattern::PreparedToPlay()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto VisiblePlayback.");
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto PreparedToPlay.");
     if (!isVisible_) {
         return;
     }
@@ -1500,7 +1561,6 @@ void MovingPhotoPattern::VisiblePlayback()
         autoAndRepeatLevel_ == PlaybackMode::NONE) {
         autoAndRepeatLevel_ = PlaybackMode::REPEAT;
         historyAutoAndRepeatLevel_ = PlaybackMode::REPEAT;
-        isRepeatChangePlayMode_ = false;
     }
     if (historyAutoAndRepeatLevel_ != PlaybackMode::NONE &&
         autoAndRepeatLevel_ == PlaybackMode::NONE) {
@@ -1508,6 +1568,7 @@ void MovingPhotoPattern::VisiblePlayback()
     } else {
         SelectPlaybackMode(autoAndRepeatLevel_);
     }
+    isRepeatChangePlayMode_ = false;
 }
 
 void MovingPhotoPattern::SelectPlaybackMode(PlaybackMode mode)
@@ -1528,13 +1589,15 @@ void MovingPhotoPattern::StartPlayback()
         TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "HandleTouchEvent IsRefreshMovingPhotoReturn.");
         return;
     }
+
     if (currentPlayStatus_ == PlaybackStatus::STOPPED) {
         mediaPlayer_->PrepareAsync();
     }
     isPlayByController_ = true;
     isFastKeyUp_ = false;
     if (isSetAutoPlayPeriod_ && (currentPlayStatus_ == PlaybackStatus::PLAYBACK_COMPLETE ||
-        currentPlayStatus_ == PlaybackStatus::PAUSED)) {
+        currentPlayStatus_ == PlaybackStatus::PAUSED ||
+        currentPlayStatus_ == PlaybackStatus::PREPARED)) {
         int32_t duration = DURATION_FLAG;
         mediaPlayer_->GetDuration(duration);
         TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "StartPlayback duration:%{public}d.",
@@ -1546,15 +1609,18 @@ void MovingPhotoPattern::StartPlayback()
 
 void MovingPhotoPattern::StartAnimation()
 {
+    TAG_LOGD(AceLogTag::ACE_MOVING_PHOTO, "movingphoto StartAnimation start");
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto movingPhoto = AceType::DynamicCast<MovingPhotoNode>(host);
     CHECK_NULL_VOID(movingPhoto);
+    int32_t childCount = movingPhoto->GetTotalChildCount();
+    CHECK_NULL_VOID(childCount >= 1);
     auto image = AceType::DynamicCast<FrameNode>(movingPhoto->GetImage());
     CHECK_NULL_VOID(image);
     auto imageRsContext = image->GetRenderContext();
     CHECK_NULL_VOID(imageRsContext);
-    auto video = AceType::DynamicCast<FrameNode>(movingPhoto->GetVideo());
+    auto video = AceType::DynamicCast<FrameNode>(movingPhoto->GetVideo(childCount - 1));
     CHECK_NULL_VOID(video);
     auto videoRsContext = video->GetRenderContext();
     CHECK_NULL_VOID(videoRsContext);
@@ -1575,7 +1641,6 @@ void MovingPhotoPattern::StartAnimation()
     animationOption.SetCurve(Curves::FRICTION);
     animationOption.SetOnFinishEvent([movingPhotoPattern]() {
         auto movingPhoto = movingPhotoPattern.Upgrade();
-        TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto StartAnimation OnFinishEvent.");
         CHECK_NULL_VOID(movingPhoto);
         if (movingPhoto->currentPlayStatus_ == PlaybackStatus::PAUSED
             || movingPhoto->currentPlayStatus_ == PlaybackStatus::STOPPED
@@ -1596,10 +1661,21 @@ void MovingPhotoPattern::StartAnimation()
 void MovingPhotoPattern::RsContextUpdateTransformScale(const RefPtr<RenderContext>& imageRsContext,
     const RefPtr<RenderContext>& videoRsContext, PlaybackMode playbackMode)
 {
-    if (playbackMode == PlaybackMode::REPEAT || playbackMode == PlaybackMode::AUTO || !isEnableTransition_) {
+    if (playbackMode == PlaybackMode::REPEAT || playbackMode == PlaybackMode::AUTO ||
+        isRefreshMovingPhoto_ || !isEnableTransition_) {
         videoRsContext->UpdateTransformScale({NORMAL_SCALE, NORMAL_SCALE});
         imageRsContext->UpdateTransformScale({NORMAL_SCALE, NORMAL_SCALE});
     } else {
+#if defined(PLAYER_FRAMEWORK_EXISTS)
+        float scale = isEnableTransition_ ? GetGlobalInfo() : ZOOM_IN_SCALE;
+        if (isXmageMode_) {
+            videoRsContext->UpdateTransformScale({scale, scale});
+            imageRsContext->UpdateTransformScale({NORMAL_SCALE, NORMAL_SCALE});
+        } else {
+            videoRsContext->UpdateTransformScale({scale, scale});
+            imageRsContext->UpdateTransformScale({scale, scale});
+        }
+#else
         if (isXmageMode_) {
             videoRsContext->UpdateTransformScale({ZOOM_IN_SCALE, ZOOM_IN_SCALE});
             imageRsContext->UpdateTransformScale({NORMAL_SCALE, NORMAL_SCALE});
@@ -1607,6 +1683,7 @@ void MovingPhotoPattern::RsContextUpdateTransformScale(const RefPtr<RenderContex
             videoRsContext->UpdateTransformScale({ZOOM_IN_SCALE, ZOOM_IN_SCALE});
             imageRsContext->UpdateTransformScale({ZOOM_IN_SCALE, ZOOM_IN_SCALE});
         }
+#endif
     }
 }
 
@@ -1649,7 +1726,7 @@ void MovingPhotoPattern::PauseVideo()
         TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "HandleTouchEvent IsRefreshMovingPhotoReturn.");
         return;
     }
-    TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "movingphoto Pause video.");
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto Pause video.");
     isStopAnimation_ = true;
     Pause();
 }
@@ -1659,18 +1736,20 @@ void MovingPhotoPattern::ResetVideo()
     isFastKeyUp_ = false;
     if (currentPlayStatus_ == PlaybackStatus::ERROR) {
         ResetMediaPlayer();
+        return;
     }
     if (currentPlayStatus_ == PlaybackStatus::STOPPED) {
         mediaPlayer_->PrepareAsync();
     }
+    int32_t duration = DURATION_FLAG;
+    mediaPlayer_->GetDuration(duration);
+    autoPlayPeriodStartTime_ = PERIOD_START;
+    autoPlayPeriodEndTime_ = duration * US_CONVERT;
     if (currentPlayStatus_ == PlaybackStatus::STARTED) {
         Pause();
     }
+    SetAutoPlayPeriod(autoPlayPeriodStartTime_, autoPlayPeriodEndTime_);
     TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "movingphoto reset video.");
-    int32_t duration = DURATION_FLAG;
-    mediaPlayer_->GetDuration(duration);
-    SetAutoPlayPeriod(PERIOD_START, duration);
-    Seek(0);
     historyAutoAndRepeatLevel_ = PlaybackMode::NONE;
     autoAndRepeatLevel_ = PlaybackMode::NONE;
     isSetAutoPlayPeriod_ = false;
@@ -1679,6 +1758,7 @@ void MovingPhotoPattern::ResetVideo()
 
 void MovingPhotoPattern::RestartVideo()
 {
+    isFastKeyUp_ = false;
     if (!mediaPlayer_ || !mediaPlayer_->IsMediaPlayerValid()) {
         TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "MediaPlayer is null or invalid.");
         return;
@@ -1688,6 +1768,7 @@ void MovingPhotoPattern::RestartVideo()
     }
     TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto restart video.");
     isPlayByController_ = true;
+    autoAndRepeatLevel_ = historyAutoAndRepeatLevel_;
     ContainerScope scope(instanceId_);
     auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
@@ -1701,6 +1782,25 @@ void MovingPhotoPattern::RestartVideo()
         "ArkUIMovingPhotoUpdateMuted");
 }
 
+float MovingPhotoPattern::GetGlobalInfo()
+{
+    float scale = ZOOM_IN_SCALE;
+#if defined(PLAYER_FRAMEWORK_EXISTS)
+    if (!mediaPlayer_ || !mediaPlayer_->IsMediaPlayerValid()) {
+        TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "MediaPlayer is null or invalid.");
+        return ZOOM_IN_SCALE;
+    }
+    std::shared_ptr<OHOS::Media::Meta> meta = std::make_shared<OHOS::Media::Meta>();
+    mediaPlayer_->GetGlobalInfo(meta);
+    if (meta && meta->GetData(SCALING_FACTOR, scale)) {
+        TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto get scale: %{public}f", scale);
+    } else {
+        TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto scale use default data");
+    }
+#endif
+    return scale;
+}
+
 void MovingPhotoPattern::SetEnableTransition(bool enabled)
 {
     TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto SetEnableTransition %{public}d.", enabled);
@@ -1709,25 +1809,25 @@ void MovingPhotoPattern::SetEnableTransition(bool enabled)
 
 bool MovingPhotoPattern::GetEnableTransition()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto SetEnableTransition %{public}d.", isEnableTransition_);
     return isEnableTransition_;
 }
 
-void MovingPhotoPattern::SetPlaybackPeriod(int64_t startTime, int64_t endTime)
+bool MovingPhotoPattern::SetPlaybackPeriod(int64_t startTime, int64_t endTime)
 {
     TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto setPlaybackPeriod.");
     if (startTime < VIDEO_PLAYTIME_START_POSITION || startTime >= endTime) {
-        TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "MeidaPlayer SetAutoPlayPeriod error.");
-        return;
+        TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "MeidaPlayer SetPlaybackPeriod error.");
+        return false;
     }
-    if (!mediaPlayer_ || !mediaPlayer_->IsMediaPlayerValid()) {
-        TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "MediaPlayer is null or invalid.");
-        return;
+    if (!mediaPlayer_ || !mediaPlayer_->IsMediaPlayerValid() || currentPlayStatus_ == PlaybackStatus::STARTED) {
+        TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "MediaPlayer is invalid or currentPlayStatus is STARTED.");
+        return false;
     }
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto SetPlaybackPeriod.");
     autoPlayPeriodStartTime_ = startTime;
     autoPlayPeriodEndTime_ = endTime;
+    isSetAutoPlayPeriod_ = true;
     mediaPlayer_->SetPlayRangeUsWithMode(startTime, endTime, SeekMode::SEEK_CLOSEST);
+    return true;
 }
 
 void MovingPhotoPattern::EnableAutoPlay(bool enabled)
@@ -1737,16 +1837,16 @@ void MovingPhotoPattern::EnableAutoPlay(bool enabled)
         !mediaPlayer_->IsMediaPlayerValid()) {
         return;
     }
-    if (currentPlayStatus_ == PlaybackStatus::PLAYBACK_COMPLETE || currentPlayStatus_ == PlaybackStatus::PAUSED) {
-        SetAutoPlayPeriod(autoPlayPeriodStartTime_, autoPlayPeriodEndTime_);
-    }
     if (currentPlayStatus_ == PlaybackStatus::STARTED || !isPrepared_) {
         TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto play status is STARTED or isPrepared is :%{public}d",
             isPrepared_);
         return;
     }
-    historyAutoAndRepeatLevel_ = PlaybackMode::AUTO;
-    autoAndRepeatLevel_ = PlaybackMode::AUTO;
+    if (!isPlayByController_ &&
+        (currentPlayStatus_ == PlaybackStatus::PLAYBACK_COMPLETE || currentPlayStatus_ == PlaybackStatus::PAUSED)) {
+        TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto set autoplay period.");
+        SetAutoPlayPeriod(autoPlayPeriodStartTime_, autoPlayPeriodEndTime_);
+    }
     if (currentPlayStatus_ == PlaybackStatus::STOPPED) {
         mediaPlayer_->PrepareAsync();
     }
@@ -1763,6 +1863,11 @@ void MovingPhotoPattern::RefreshMovingPhoto()
         TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "movingphoto RefreshMovingPhoto uri is null.");
         return;
     }
+    if (notifyTransitionFlag_) {
+        refreshTransitionFlag_ = true;
+        DetachTempImageFromFrameNode();
+    }
+    isRefreshMovingPhoto_ = true;
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto layoutProperty = GetLayoutProperty<MovingPhotoLayoutProperty>();
@@ -1784,12 +1889,12 @@ void MovingPhotoPattern::RefreshMovingPhoto()
     }
     imageSrc += "?date_modified = " + std::to_string(GetMicroTickCount());
     ImageSourceInfo src;
+    handleImageError_ = false;
     src.SetSrc(imageSrc);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(MovingPhotoLayoutProperty, ImageSourceInfo, src, host);
     UpdateImageNode();
     fd_ = dataProvider->ReadMovingPhotoVideo(uri_);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(MovingPhotoLayoutProperty, VideoSource, fd_.GetValue(), host);
-    isRefreshMovingPhoto_ = true;
     isSetAutoPlayPeriod_ = false;
     RefreshMovingPhotoSceneManager();
     ResetMediaPlayer();
@@ -1809,7 +1914,9 @@ void MovingPhotoPattern::RefreshMovingPhotoSceneManager()
         Pause();
         auto movingPhoto = AceType::DynamicCast<MovingPhotoNode>(host);
         CHECK_NULL_VOID(movingPhoto);
-        auto video = AceType::DynamicCast<FrameNode>(movingPhoto->GetVideo());
+        int32_t childCount = movingPhoto->GetTotalChildCount();
+        CHECK_NULL_VOID(childCount >= 1);
+        auto video = AceType::DynamicCast<FrameNode>(movingPhoto->GetVideo(childCount - 1));
         CHECK_NULL_VOID(video);
         video->GetRenderContext()->SetClipToBounds(true);
         video->GetRenderContext()->UpdateOpacity(0.0);
@@ -1817,10 +1924,128 @@ void MovingPhotoPattern::RefreshMovingPhotoSceneManager()
         autoAndRepeatLevel_ = PlaybackMode::AUTO;
         isAutoChangePlayMode_ = true;
     }
+    autoPlayPeriodStartTime_ = -1;
+    autoPlayPeriodEndTime_ = -1;
+}
+
+void MovingPhotoPattern::NotifyTransition()
+{
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto NotifyTransition start.");
+    if (notifyTransitionFlag_) {
+        TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "movingphoto notifyTransition started.");
+        return;
+    }
+    notifyTransitionFlag_ = true;
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto movingPhoto = AceType::DynamicCast<MovingPhotoNode>(host);
+    CHECK_NULL_VOID(movingPhoto);
+    auto image = AceType::DynamicCast<FrameNode>(movingPhoto->GetImage());
+    CHECK_NULL_VOID(image);
+    AddTempNode(image, host);
+    auto pipeline = PipelineBase::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    auto dataProvider = AceType::DynamicCast<DataProviderManagerStandard>(pipeline->GetDataProviderManager());
+    CHECK_NULL_VOID(dataProvider);
+    std::string imageSrc = dataProvider->GetMovingPhotoImageUri(uri_);
+    auto imageCache = pipeline->GetImageCache();
+    if (imageCache) {
+        ImageSourceInfo srcKey;
+        srcKey.SetSrc(imageSrc);
+        imageCache->ClearCacheImgObj(srcKey.GetKey());
+    }
+    imageSrc += "?date_modified = " + std::to_string(GetMicroTickCount());
+    ImageSourceInfo src;
+    src.SetSrc(imageSrc);
+    UpdateTempImageNode(src);
+}
+
+void MovingPhotoPattern::EightyToHundredAnimation()
+{
+    TAG_LOGD(AceLogTag::ACE_MOVING_PHOTO, "movingphoto EightyToHundredAnimation start.");
+    auto image = GetTempNode();
+    CHECK_NULL_VOID(image);
+    auto imageLayoutProperty = image->GetLayoutProperty<ImageLayoutProperty>();
+    CHECK_NULL_VOID(imageLayoutProperty);
+    auto imageRsContext = image->GetRenderContext();
+    CHECK_NULL_VOID(imageRsContext);
+
+    imageRsContext->UpdateOpacity(0);
+    image->MarkModifyDone();
+    auto movingPhotoPattern = WeakClaim(this);
+    AnimationOption option;
+    option.SetDuration(EIGHTY_TO_HUNDRED_TIME);
+    option.SetCurve(Curves::EASE);
+    option.SetOnFinishEvent([movingPhotoPattern]() {
+        TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto EightyToHundredAnimation finish.");
+        auto movingPhoto = movingPhotoPattern.Upgrade();
+        CHECK_NULL_VOID(movingPhoto);
+        movingPhoto->notifyTransitionFlag_ = false;
+        if (!movingPhoto->refreshTransitionFlag_) {
+            movingPhoto->DetachFirstImageFromFrameNode();
+        }
+        movingPhoto->refreshTransitionFlag_ = false;
+    });
+    AnimationUtils::Animate(option, [imageRsContext]() {
+            imageRsContext->UpdateOpacity(1.0);
+        }, option.GetOnFinishEvent());
+}
+
+void MovingPhotoPattern::AddTempNode(const RefPtr<FrameNode>& imageNode,
+                                     const RefPtr<FrameNode>& movingPhotoNode)
+{
+    CHECK_NULL_VOID(imageNode);
+    CHECK_NULL_VOID(movingPhotoNode);
+    std::optional<int32_t> tempImageId_ = ElementRegister::GetInstance()->MakeUniqueId();
+    CHECK_NULL_VOID(tempImageId_.has_value());
+    auto tempImageNode = FrameNode::GetOrCreateFrameNode(
+        V2::IMAGE_ETS_TAG, tempImageId_.value(), []() { return AceType::MakeRefPtr<ImagePattern>(); });
+    movingPhotoNode->AddChildAfter(tempImageNode, imageNode);
+}
+
+void MovingPhotoPattern::DetachFirstImageFromFrameNode()
+{
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto DetachFirstImageFromFrameNode.");
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto movingPhoto = AceType::DynamicCast<MovingPhotoNode>(host);
+    CHECK_NULL_VOID(movingPhoto);
+    CHECK_NULL_VOID(movingPhoto->GetTotalChildCount() > NODE_COUNT);
+    auto image = AceType::DynamicCast<FrameNode>(movingPhoto->GetImage());
+    CHECK_NULL_VOID(image);
+    host->RemoveChild(image);
+}
+
+void MovingPhotoPattern::DetachTempImageFromFrameNode()
+{
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto DetachTempImageFromFrameNode.");
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto image = GetTempNode();
+    CHECK_NULL_VOID(image);
+    host->RemoveChild(image);
+}
+
+RefPtr<FrameNode> MovingPhotoPattern::GetTempNode()
+{
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, nullptr);
+    auto movingPhoto = AceType::DynamicCast<MovingPhotoNode>(host);
+    CHECK_NULL_RETURN(movingPhoto, nullptr);
+    CHECK_NULL_RETURN(movingPhoto->GetTotalChildCount() > NODE_COUNT, nullptr);
+    auto firstImage = AceType::DynamicCast<FrameNode>(movingPhoto->GetImage());
+    CHECK_NULL_RETURN(firstImage, nullptr);
+    auto imageIndex = movingPhoto->GetChildIndex(firstImage);
+    CHECK_NULL_RETURN(imageIndex < movingPhoto->GetTotalChildCount() - 1, nullptr);
+    auto image = AceType::DynamicCast<FrameNode>(movingPhoto->GetChildAtIndex(imageIndex + 1));
+    return image;
 }
 
 void MovingPhotoPattern::StopAnimation()
 {
+    if (handleImageError_) {
+        return;
+    }
     isStopAnimation_ = false;
     startAnimationFlag_ = false;
     if (historyAutoAndRepeatLevel_ == PlaybackMode::REPEAT) {
@@ -1834,13 +2059,15 @@ void MovingPhotoPattern::StopAnimation()
     CHECK_NULL_VOID(host);
     auto movingPhoto = AceType::DynamicCast<MovingPhotoNode>(host);
     CHECK_NULL_VOID(movingPhoto);
+    int32_t childCount = movingPhoto->GetTotalChildCount();
+    CHECK_NULL_VOID(childCount >= 1);
     auto image = AceType::DynamicCast<FrameNode>(movingPhoto->GetImage());
     CHECK_NULL_VOID(image);
     auto imageLayoutProperty = image->GetLayoutProperty<ImageLayoutProperty>();
     CHECK_NULL_VOID(imageLayoutProperty);
     auto imageRsContext = image->GetRenderContext();
     CHECK_NULL_VOID(imageRsContext);
-    auto video = AceType::DynamicCast<FrameNode>(movingPhoto->GetVideo());
+    auto video = AceType::DynamicCast<FrameNode>(movingPhoto->GetVideo(childCount - 1));
     CHECK_NULL_VOID(video);
     auto videoRsContext = video->GetRenderContext();
     CHECK_NULL_VOID(videoRsContext);
@@ -1949,6 +2176,7 @@ void MovingPhotoPattern::RepeatPlay(bool isRepeatPlay)
     }
     if (!isRepeatPlay && historyAutoAndRepeatLevel_ == PlaybackMode::REPEAT) {
         isChangePlayMode_ = true;
+        autoAndRepeatLevel_ = PlaybackMode::NONE;
         historyAutoAndRepeatLevel_ = PlaybackMode::NONE;
         Pause();
         StopAnimation();
@@ -1957,6 +2185,11 @@ void MovingPhotoPattern::RepeatPlay(bool isRepeatPlay)
         historyAutoAndRepeatLevel_ = PlaybackMode::REPEAT;
         autoAndRepeatLevel_ = PlaybackMode::REPEAT;
     }
+}
+
+FocusPattern MovingPhotoPattern::GetFocusPattern() const
+{
+    return { FocusType::NODE, false };
 }
 
 void MovingPhotoPattern::AutoPlayPeriod(int64_t startTime, int64_t endTime)
@@ -1986,7 +2219,7 @@ void MovingPhotoPattern::SetAutoPlayPeriod(int64_t startTime, int64_t endTime)
 
 void MovingPhotoPattern::HandleImageAnalyzerPlayCallBack()
 {
-    TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "HandleImageAnalyzerPlayCallBack start.");
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "HandleImageAnalyzerPlayCallBack start.");
     isFastKeyUp_ = false;
     if (currentPlayStatus_ == PlaybackStatus::STARTED || !isPrepared_ || isPlayByController_) {
         return;
@@ -2014,6 +2247,10 @@ void MovingPhotoPattern::HandleImageAnalyzerPlayCallBack()
 
 void MovingPhotoPattern::Start()
 {
+    if (handleImageError_) {
+        TAG_LOGE(AceLogTag::ACE_MOVING_PHOTO, "movingphoto HandleImageError %{public}d.", handleImageError_);
+        return;
+    }
     TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "movingphoto start play.");
     if (!mediaPlayer_ || !mediaPlayer_->IsMediaPlayerValid()) {
         TAG_LOGW(AceLogTag::ACE_MOVING_PHOTO, "MediaPlayer is null or invalid.");
@@ -2028,6 +2265,13 @@ void MovingPhotoPattern::Start()
     ContainerScope scope(instanceId_);
     auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
+    if (cameraPostprocessingEnabled_) {
+        if (isGestureTriggeredLongPress_) {
+            mediaPlayer_->SetCameraPostprocessing(true);
+            isGestureTriggeredLongPress_ = false;
+        }
+        mediaPlayer_->SetCameraPostprocessing(false);
+    }
 
     auto platformTask = SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::BACKGROUND);
     platformTask.PostTask(
@@ -2140,40 +2384,16 @@ void MovingPhotoPattern::UpdateMediaPlayerMuted()
 
 void MovingPhotoPattern::OnAreaChangedInner()
 {
-    if (!SystemProperties::GetExtSurfaceEnabled()) {
-        return;
-    }
-    auto host = GetHost();
-    CHECK_NULL_VOID(host);
-    auto geometryNode = host->GetGeometryNode();
-    CHECK_NULL_VOID(geometryNode);
-    auto videoNodeSize = geometryNode->GetContentSize();
-    auto layoutProperty = GetLayoutProperty<MovingPhotoLayoutProperty>();
-    CHECK_NULL_VOID(layoutProperty);
-    auto videoFrameSize = MeasureContentLayout(videoNodeSize, layoutProperty);
-    auto transformRelativeOffset = host->GetTransformRelativeOffset();
-
-    Rect rect = Rect(transformRelativeOffset.GetX() + (videoNodeSize.Width() - videoFrameSize.Width()) / HALF,
-        transformRelativeOffset.GetY() + (videoNodeSize.Height() - videoFrameSize.Height()) / HALF,
-        videoFrameSize.Width(), videoFrameSize.Height());
-    if (renderSurface_ && (rect != lastBoundsRect_)) {
-        columnSurface_->SetExtSurfaceBounds(rect.Left(), rect.Top(), rect.Width(), rect.Height());
-        renderSurface_->SetExtSurfaceBounds(rect.Left(), rect.Top(), rect.Width(), rect.Height());
-        lastBoundsRect_ = rect;
-    }
 }
 
 void MovingPhotoPattern::OnVisibleChange(bool isVisible)
 {
     CHECK_NULL_VOID(mediaPlayer_);
-    if (!isVisible) {
-        StopPlayback();
-    }
+    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "OnVisibleChange status: %{public}d.", isVisible);
 }
 
 void MovingPhotoPattern::OnWindowHide()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto OnWindowHide.");
     if (historyAutoAndRepeatLevel_ == PlaybackMode::AUTO) {
         PausePlayback();
     } else if (historyAutoAndRepeatLevel_ == PlaybackMode::REPEAT) {
@@ -2197,7 +2417,6 @@ void MovingPhotoPattern::OnWindowHide()
 
 void MovingPhotoPattern::OnWindowShow()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto OnWindowShow.");
     CHECK_NULL_VOID(mediaPlayer_);
     if (autoAndRepeatLevel_ == PlaybackMode::REPEAT && currentPlayStatus_ == PlaybackStatus::STOPPED) {
         mediaPlayer_->PrepareAsync();
@@ -2215,7 +2434,6 @@ void MovingPhotoPattern::AddWindowStateChangedCallback()
 
 void MovingPhotoPattern::RegisterVisibleAreaChange()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto RegisterVisibleAreaChange.");
     if (hasVisibleChangeRegistered_) {
         return;
     }
@@ -2230,7 +2448,7 @@ void MovingPhotoPattern::RegisterVisibleAreaChange()
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     std::vector<double> ratioList = {1.0};
-    pipeline->AddVisibleAreaChangeNode(host, ratioList, callback, false);
+    pipeline->AddVisibleAreaChangeNode(host, ratioList, callback, false, true);
     hasVisibleChangeRegistered_ = true;
 }
 
@@ -2238,9 +2456,7 @@ void MovingPhotoPattern::VisibleAreaCallback(bool visible)
 {
     TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto VisibleAreaCallback:%{public}d.", visible);
     if (visible) {
-        if (historyAutoAndRepeatLevel_ == PlaybackMode::AUTO &&
-            (currentPlayStatus_ == PlaybackStatus::PLAYBACK_COMPLETE ||
-            currentPlayStatus_ == PlaybackStatus::PAUSED)) {
+        if (historyAutoAndRepeatLevel_ == PlaybackMode::AUTO) {
             isSetAutoPlayPeriod_ = true;
             SetAutoPlayPeriod(autoPlayPeriodStartTime_, autoPlayPeriodEndTime_);
         }
@@ -2276,7 +2492,6 @@ void MovingPhotoPattern::EnableAnalyzer(bool enabled)
 
 void MovingPhotoPattern::SetImageAIOptions(void* options)
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto SetImageAIOptions");
     if (!imageAnalyzerManager_) {
         imageAnalyzerManager_ = std::make_shared<ImageAnalyzerManager>(GetHost(), ImageAnalyzerHolder::MOVINGPHOTO);
     }
@@ -2286,7 +2501,6 @@ void MovingPhotoPattern::SetImageAIOptions(void* options)
 
 bool MovingPhotoPattern::IsSupportImageAnalyzer()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto IsSupportImageAnalyzer");
     auto host = GetHost();
     CHECK_NULL_RETURN(host, false);
     auto layoutProperty = host->GetLayoutProperty<MovingPhotoLayoutProperty>();
@@ -2297,7 +2511,6 @@ bool MovingPhotoPattern::IsSupportImageAnalyzer()
 
 bool MovingPhotoPattern::ShouldUpdateImageAnalyzer()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto ShouldUpdateImageAnalyzer");
     auto layoutProperty = GetLayoutProperty<MovingPhotoLayoutProperty>();
     CHECK_NULL_RETURN(layoutProperty, false);
     const auto& constraint = layoutProperty->GetCalcLayoutConstraint();
@@ -2317,7 +2530,6 @@ bool MovingPhotoPattern::ShouldUpdateImageAnalyzer()
 
 void MovingPhotoPattern::StartImageAnalyzer()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto StartImageAnalyzer");
     if (!IsSupportImageAnalyzer() || !imageAnalyzerManager_) {
         return;
     }
@@ -2343,7 +2555,6 @@ void MovingPhotoPattern::StartImageAnalyzer()
 
 void MovingPhotoPattern::CreateAnalyzerOverlay()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto CreateAnalyzerOverlay");
     CHECK_NULL_VOID(imageAnalyzerManager_);
     if (imageAnalyzerManager_->IsOverlayCreated()) {
         return;
@@ -2369,7 +2580,6 @@ void MovingPhotoPattern::CreateAnalyzerOverlay()
 
 void MovingPhotoPattern::StartUpdateImageAnalyzer()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto StartUpdateImageAnalyzer");
     CHECK_NULL_VOID(imageAnalyzerManager_);
     if (!imageAnalyzerManager_->IsOverlayCreated()) {
         return;
@@ -2396,7 +2606,6 @@ void MovingPhotoPattern::StartUpdateImageAnalyzer()
 
 void MovingPhotoPattern::UpdateAnalyzerOverlay()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto UpdateAnalyzerOverlay");
     CHECK_NULL_VOID(imageAnalyzerManager_);
     if (!IsSupportImageAnalyzer() || !imageAnalyzerManager_->IsOverlayCreated()) {
         return;
@@ -2417,7 +2626,6 @@ void MovingPhotoPattern::UpdateAnalyzerOverlay()
 
 void MovingPhotoPattern::UpdateAnalyzerUIConfig(const RefPtr<NG::GeometryNode>& geometryNode)
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto UpdateAnalyzerUIConfig");
     auto movingPhotoNodeSize = geometryNode->GetContentSize();
     auto layoutProperty = GetLayoutProperty<MovingPhotoLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
@@ -2441,7 +2649,8 @@ void MovingPhotoPattern::UpdateAnalyzerUIConfig(const RefPtr<NG::GeometryNode>& 
         auto padding  = layoutProperty->CreatePaddingAndBorder();
         OffsetF contentOffset = { contentRect_.Left() - padding.left.value_or(0),
                                   contentRect_.Top() - padding.top.value_or(0) };
-        PixelMapInfo info = { contentRect_.GetSize().Width(), contentRect_.GetSize().Height(), contentOffset };
+        PixelMapInfo info = { contentRect_.GetSize().Width(), contentRect_.GetSize().Height(),
+            { contentOffset.GetX(), contentOffset.GetY() } };
         CHECK_NULL_VOID(imageAnalyzerManager_);
         imageAnalyzerManager_->UpdateAnalyzerUIConfig(geometryNode, info);
     }
@@ -2456,7 +2665,6 @@ void MovingPhotoPattern::DestroyAnalyzerOverlay()
 
 bool MovingPhotoPattern::GetAnalyzerState()
 {
-    TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "movingphoto GetAnalyzerState");
     CHECK_NULL_RETURN(imageAnalyzerManager_, false);
     return imageAnalyzerManager_->IsOverlayCreated();
 }
@@ -2562,5 +2770,33 @@ MovingPhotoPattern::~MovingPhotoPattern()
         TAG_LOGI(AceLogTag::ACE_MOVING_PHOTO, "~MovingPhotoPattern DestroyAnalyzerOverlay.");
         DestroyAnalyzerOverlay();
     }
+}
+
+void MovingPhotoPattern::SetMovingPhotoController(const RefPtr<MovingPhotoController>& movingPhotoController)
+{
+    if (controller_) {
+        return;
+    }
+    CHECK_NULL_VOID(movingPhotoController);
+    controller_ = movingPhotoController;
+    ContainerScope scope(instanceId_);
+    auto context = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(context);
+    auto uiTaskExecutor = SingleTaskExecutor::Make(context->GetTaskExecutor(), TaskExecutor::TaskType::UI);
+    SetStartPlaybackImpl(uiTaskExecutor);
+    SetStopPlaybackImpl(uiTaskExecutor);
+    SetRefreshMovingPhotoImpl(uiTaskExecutor);
+    SetPauseImpl(uiTaskExecutor);
+    SetResetImpl(uiTaskExecutor);
+    SetRestartImpl(uiTaskExecutor);
+    SetEnableTransitionImpl(uiTaskExecutor);
+    SetPlaybackPeriodImpl(uiTaskExecutor);
+    SetEnableAutoPlayImpl(uiTaskExecutor);
+    RegisterVisibleAreaChange();
+}
+
+RefPtr<MovingPhotoController> MovingPhotoPattern::GetMovingPhotoController()
+{
+    return controller_;
 }
 } // namespace OHOS::Ace::NG

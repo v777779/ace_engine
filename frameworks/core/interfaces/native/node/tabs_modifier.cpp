@@ -162,6 +162,17 @@ void SetTabOnUnselected(ArkUINodeHandle node, void* callback)
         TabsModelNG::SetOnUnselected(frameNode, nullptr);
     }
 }
+void SetTabsOnContentDidScroll(ArkUINodeHandle node, void* callback)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (callback) {
+        auto onContentDidScroll = reinterpret_cast<std::function<void(int32_t, int32_t, float, float)>*>(callback);
+        TabsModelNG::SetOnContentDidScroll(frameNode, std::move(*onContentDidScroll));
+    } else {
+        TabsModelNG::SetOnContentDidScroll(frameNode, nullptr);
+    }
+}
 void SetBarBackgroundColor(ArkUINodeHandle node, ArkUI_Uint32 color)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -407,6 +418,12 @@ void ResetTabOnUnselected(ArkUINodeHandle node)
     CHECK_NULL_VOID(frameNode);
     TabsModelNG::SetOnUnselected(frameNode, nullptr);
 }
+void ResetTabsOnContentDidScroll(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TabsModelNG::SetOnContentDidScroll(frameNode, nullptr);
+}
 void ResetBarBackgroundColor(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -539,6 +556,20 @@ void ResetTabEdgeEffect(ArkUINodeHandle node)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     TabsModelNG::SetEdgeEffect(frameNode, NUM_0);
+}
+
+void SetTabsNestedScroll(ArkUINodeHandle node, ArkUI_Int32 (*values)[1])
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TabsModelNG::SetNestedScroll(frameNode, (*values)[0]);
+}
+
+void ResetTabsNestedScroll(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    TabsModelNG::SetNestedScroll(frameNode, NUM_0);
 }
 
 void SetTabPageFlipMode(ArkUINodeHandle node, ArkUI_Int32 pageFlipMode)
@@ -837,6 +868,7 @@ const ArkUITabsModifier* GetTabsModifier()
         .setDividerColorByUser = SetDividerColorByUser,
         .setFadingEdge = SetFadingEdge,
         .setTabOnUnselected = SetTabOnUnselected,
+        .setTabsOnContentDidScroll = SetTabsOnContentDidScroll,
         .setBarBackgroundColor = SetBarBackgroundColor,
         .setBarBackgroundBlurStyle = SetBarBackgroundBlurStyle,
         .setBarOverlap = SetBarOverlap,
@@ -858,6 +890,7 @@ const ArkUITabsModifier* GetTabsModifier()
         .resetDivider = ResetDivider,
         .resetFadingEdge = ResetFadingEdge,
         .resetTabOnUnselected = ResetTabOnUnselected,
+        .resetTabsOnContentDidScroll = ResetTabsOnContentDidScroll,
         .resetBarBackgroundColor = ResetBarBackgroundColor,
         .resetBarBackgroundBlurStyle = ResetBarBackgroundBlurStyle,
         .resetBarOverlap = ResetBarOverlap,
@@ -876,6 +909,8 @@ const ArkUITabsModifier* GetTabsModifier()
         .resetTabClip = ResetTabClip,
         .setTabEdgeEffect = SetTabEdgeEffect,
         .resetTabEdgeEffect = ResetTabEdgeEffect,
+        .setTabsNestedScroll = SetTabsNestedScroll,
+        .resetTabsNestedScroll = ResetTabsNestedScroll,   
         .setTabPageFlipMode = SetTabPageFlipMode,
         .resetTabPageFlipMode = ResetTabPageFlipMode,
         .setTabWidthAuto = SetTabWidthAuto,

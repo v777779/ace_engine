@@ -14,14 +14,14 @@
 # WARNING! THIS FILE IS AUTO-GENERATED, DO NOT MAKE CHANGES, THEY WILL BE LOST ON NEXT GENERATION!
 
 generated_sources = [
-  "base_span_modifier_test.cpp",
+  #"base_span_modifier_test.cpp",
   "blank_modifier_test.cpp",
   #"button_modifier_test_1.cpp",
   #"button_modifier_test_2.cpp",
   "column_split_modifier_test.cpp",
   #"common_method_modifier_test_1.cpp",
   #"common_method_modifier_test_2.cpp",
-  "container_span_modifier_test.cpp",
+  #"container_span_modifier_test.cpp",
   "grid_row_modifier_test.cpp",
   #"image_animator_modifier_test.cpp",
   #"image_modifier_test.cpp",

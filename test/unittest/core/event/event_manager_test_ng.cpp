@@ -295,7 +295,6 @@ HWTEST_F(EventManagerTestNg, EventManagerTest011, TestSize.Level1)
      */
     auto eventManager = AceType::MakeRefPtr<EventManager>();
     ASSERT_NE(eventManager, nullptr);
-
     /**
      * @tc.steps: step2. Create FrameNode and Call TouchTest
      * @tc.expected: touchTestResults_ has the touchPoint.id of instance
@@ -448,6 +447,7 @@ HWTEST_F(EventManagerTestNg, EventManagerTest014, TestSize.Level1)
     event.action = AxisAction::BEGIN;
     Container::SetCurrentUsePartialUpdate(true);
     AceForwardCompatibility::isNewPipeline_ = true;
+    eventManager->TouchTest(event, frameNode, touchRestrict);
     eventManager->DispatchTouchEvent(event);
     auto container = Container::Current();
     container->useNewPipeline_ = true;
@@ -876,6 +876,11 @@ HWTEST_F(EventManagerTestNg, EventManagerTest023, TestSize.Level1)
     event.type = TouchType::UP;
     ret = eventManager->DispatchTouchEvent(event);
     EXPECT_TRUE(ret);
+
+    event.id = 1;
+    eventManager->downFingerIds_[1] = 1;
+    ret = eventManager->DispatchTouchEvent(event);
+    EXPECT_FALSE(ret);
 }
 
 /**
@@ -1469,321 +1474,89 @@ HWTEST_F(EventManagerTestNg, SwipeRecognizerAxisDirection001, TestSize.Level1)
 }
 
 /**
- * @tc.name: ExclusiveRecognizerAxisDirection001
- * @tc.desc: Test GetAxisDirection() of ExclusiveRecognizer.
+ * @tc.name: AddHitTestInfoRecord
+ * @tc.desc: Test AddHitTestInfoRecord.
  * @tc.type: FUNC
  */
-HWTEST_F(EventManagerTestNg, ExclusiveRecognizerAxisDirection001, TestSize.Level1)
+HWTEST_F(EventManagerTestNg, AddHitTestInfoRecord001, TestSize.Level1)
 {
     /**
-     * @tc.steps: step1. Create pan recognizers.
-     * @tc.expected: recognizers is not null and axis direction is correct.
+     * @tc.steps: step1. Create EventManager.
+     * @tc.expected: eventManager is not null.
      */
-    auto panHorizontal1 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::HORIZONTAL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panHorizontal1, nullptr);
-    auto panHorizontal2 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::HORIZONTAL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panHorizontal2, nullptr);
-
-    auto panVertical1 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::VERTICAL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panVertical1, nullptr);
-    auto panVertical2 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::VERTICAL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panVertical2, nullptr);
-
-    auto panFree1 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::ALL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panFree1, nullptr);
-    auto panFree2 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::ALL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panFree2, nullptr);
-
+    auto eventManager = AceType::MakeRefPtr<EventManager>();
+    ASSERT_NE(eventManager, nullptr);
+    auto node1 = FrameNode::GetOrCreateFrameNode("node1", 1001, nullptr);
+    ASSERT_NE(node1, nullptr);
+    auto node2 = FrameNode::GetOrCreateFrameNode("node2", 1002, nullptr);
+    ASSERT_NE(node2, nullptr);
     /**
-     * @tc.steps: step2. Create exclusive recognizers.
-     * @tc.expected: recognizers is not null and axis direction is correct.
+     * @tc.steps: step2. set hitTestRecordInfo_.
      */
-    std::vector<RefPtr<NGGestureRecognizer>> recognizers;
-    recognizers.clear();
-    recognizers.emplace_back(panHorizontal1);
-    recognizers.emplace_back(panHorizontal2);
-    auto exclusiveDoubleHorizontal = AceType::MakeRefPtr<ExclusiveRecognizer>(recognizers);
-    ASSERT_NE(exclusiveDoubleHorizontal, nullptr);
-    EXPECT_EQ(exclusiveDoubleHorizontal->GetAxisDirection(), Axis::HORIZONTAL);
-
-    recognizers.clear();
-    recognizers.emplace_back(panVertical1);
-    recognizers.emplace_back(panVertical2);
-    auto exclusiveDoubleVertical = AceType::MakeRefPtr<ExclusiveRecognizer>(recognizers);
-    ASSERT_NE(exclusiveDoubleVertical, nullptr);
-    EXPECT_EQ(exclusiveDoubleVertical->GetAxisDirection(), Axis::VERTICAL);
-
-    recognizers.clear();
-    recognizers.emplace_back(panFree1);
-    recognizers.emplace_back(panFree2);
-    auto exclusiveDoubleFree = AceType::MakeRefPtr<ExclusiveRecognizer>(recognizers);
-    ASSERT_NE(exclusiveDoubleFree, nullptr);
-    EXPECT_EQ(exclusiveDoubleFree->GetAxisDirection(), Axis::FREE);
-
-    recognizers.clear();
-    recognizers.emplace_back(panHorizontal1);
-    recognizers.emplace_back(panVertical1);
-    auto exclusiveHorizontalVertical = AceType::MakeRefPtr<ExclusiveRecognizer>(recognizers);
-    ASSERT_NE(exclusiveHorizontalVertical, nullptr);
-    EXPECT_EQ(exclusiveHorizontalVertical->GetAxisDirection(), Axis::FREE);
-
-    recognizers.clear();
-    recognizers.emplace_back(panHorizontal1);
-    recognizers.emplace_back(panFree1);
-    auto exclusiveHorizontalFree = AceType::MakeRefPtr<ExclusiveRecognizer>(recognizers);
-    ASSERT_NE(exclusiveHorizontalFree, nullptr);
-    EXPECT_EQ(exclusiveHorizontalFree->GetAxisDirection(), Axis::FREE);
-
-    recognizers.clear();
-    recognizers.emplace_back(panVertical1);
-    recognizers.emplace_back(panFree1);
-    auto exclusiveVerticalFree = AceType::MakeRefPtr<ExclusiveRecognizer>(recognizers);
-    ASSERT_NE(exclusiveVerticalFree, nullptr);
-    EXPECT_EQ(exclusiveVerticalFree->GetAxisDirection(), Axis::FREE);
+    HitTestRecordInfo info;
+    info.isRealTouch = true;
+    info.screenX = 0.0f;
+    info.screenY = 0.0f;
+    info.fingerId = 0;
+    info.type = TouchType::DOWN;
+    eventManager->hitTestRecordInfo_ = info;
+    /**
+     * @tc.steps: step3. AddHitTestInfoRecord.
+     * @tc.expected: size is correct.
+     */
+    eventManager->AddHitTestInfoRecord(nullptr);
+    EXPECT_EQ(static_cast<int32_t>(eventManager->touchHitTestInfos_.size()), 0);
+    eventManager->AddHitTestInfoRecord(node1);
+    EXPECT_EQ(static_cast<int32_t>(eventManager->touchHitTestInfos_.size()), 1);
+    EXPECT_EQ(static_cast<int32_t>(eventManager->touchHitTestInfos_[0].hitNodeInfos.size()), 1);
+    eventManager->AddHitTestInfoRecord(node2);
+    EXPECT_EQ(static_cast<int32_t>(eventManager->touchHitTestInfos_.size()), 1);
+    EXPECT_EQ(static_cast<int32_t>(eventManager->touchHitTestInfos_[0].hitNodeInfos.size()), 2);
 }
 
 /**
- * @tc.name: ParallelRecognizerAxisDirection001
- * @tc.desc: Test GetAxisDirection() of ParallelRecognizer.
+ * @tc.name: AddHitTestInfoRecord
+ * @tc.desc: Test AddHitTestInfoRecord.
  * @tc.type: FUNC
  */
-HWTEST_F(EventManagerTestNg, ParallelRecognizerAxisDirection001, TestSize.Level1)
+HWTEST_F(EventManagerTestNg, AddHitTestInfoRecord002, TestSize.Level1)
 {
     /**
-     * @tc.steps: step1. Create pan recognizers.
-     * @tc.expected: recognizers is not null and axis direction is correct.
+     * @tc.steps: step1. Create EventManager.
+     * @tc.expected: eventManager is not null.
      */
-    auto panHorizontal1 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::HORIZONTAL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panHorizontal1, nullptr);
-    auto panHorizontal2 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::HORIZONTAL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panHorizontal2, nullptr);
-
-    auto panVertical1 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::VERTICAL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panVertical1, nullptr);
-    auto panVertical2 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::VERTICAL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panVertical2, nullptr);
-
-    auto panFree1 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::ALL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panFree1, nullptr);
-    auto panFree2 = AceType::MakeRefPtr<PanRecognizer>(
-        DEFAULT_PAN_FINGER, PanDirection { PanDirection::ALL }, DEFAULT_PAN_DISTANCE.ConvertToPx());
-    ASSERT_NE(panFree2, nullptr);
-
+    auto eventManager = AceType::MakeRefPtr<EventManager>();
+    ASSERT_NE(eventManager, nullptr);
+    auto node1 = FrameNode::GetOrCreateFrameNode("node1", 1001, nullptr);
+    ASSERT_NE(node1, nullptr);
+    auto node2 = FrameNode::GetOrCreateFrameNode("node2", 1002, nullptr);
+    ASSERT_NE(node2, nullptr);
     /**
-     * @tc.steps: step2. Create parallel recognizers.
-     * @tc.expected: recognizers is not null and axis direction is correct.
+     * @tc.steps: step2. set hitTestRecordInfo_.
      */
-    std::vector<RefPtr<NGGestureRecognizer>> recognizers;
-    recognizers.clear();
-    recognizers.emplace_back(panHorizontal1);
-    recognizers.emplace_back(panHorizontal2);
-    auto parallelDoubleHorizontal = AceType::MakeRefPtr<ParallelRecognizer>(recognizers);
-    ASSERT_NE(parallelDoubleHorizontal, nullptr);
-    EXPECT_EQ(parallelDoubleHorizontal->GetAxisDirection(), Axis::HORIZONTAL);
-
-    recognizers.clear();
-    recognizers.emplace_back(panVertical1);
-    recognizers.emplace_back(panVertical2);
-    auto parallelDoubleVertical = AceType::MakeRefPtr<ParallelRecognizer>(recognizers);
-    ASSERT_NE(parallelDoubleVertical, nullptr);
-    EXPECT_EQ(parallelDoubleVertical->GetAxisDirection(), Axis::VERTICAL);
-
-    recognizers.clear();
-    recognizers.emplace_back(panFree1);
-    recognizers.emplace_back(panFree2);
-    auto parallelDoubleFree = AceType::MakeRefPtr<ParallelRecognizer>(recognizers);
-    ASSERT_NE(parallelDoubleFree, nullptr);
-    EXPECT_EQ(parallelDoubleFree->GetAxisDirection(), Axis::FREE);
-
-    recognizers.clear();
-    recognizers.emplace_back(panHorizontal1);
-    recognizers.emplace_back(panVertical1);
-    auto parallelHorizontalVertical = AceType::MakeRefPtr<ParallelRecognizer>(recognizers);
-    ASSERT_NE(parallelHorizontalVertical, nullptr);
-    EXPECT_EQ(parallelHorizontalVertical->GetAxisDirection(), Axis::FREE);
-
-    recognizers.clear();
-    recognizers.emplace_back(panHorizontal1);
-    recognizers.emplace_back(panFree1);
-    auto parallelHorizontalFree = AceType::MakeRefPtr<ParallelRecognizer>(recognizers);
-    ASSERT_NE(parallelHorizontalFree, nullptr);
-    EXPECT_EQ(parallelHorizontalFree->GetAxisDirection(), Axis::FREE);
-
-    recognizers.clear();
-    recognizers.emplace_back(panVertical1);
-    recognizers.emplace_back(panFree1);
-    auto parallelVerticalFree = AceType::MakeRefPtr<ParallelRecognizer>(recognizers);
-    ASSERT_NE(parallelVerticalFree, nullptr);
-    EXPECT_EQ(parallelVerticalFree->GetAxisDirection(), Axis::FREE);
+    HitTestRecordInfo info;
+    info.isRealTouch = true;
+    info.screenX = 0.0f;
+    info.screenY = 0.0f;
+    info.fingerId = 0;
+    info.type = TouchType::DOWN;
+    eventManager->hitTestRecordInfo_ = info;
+    /**
+     * @tc.steps: step3. AddHitTestInfoRecord.
+     * @tc.expected: size is correct.
+     */
+    eventManager->AddHitTestInfoRecord(nullptr);
+    EXPECT_EQ(static_cast<int32_t>(eventManager->touchHitTestInfos_.size()), 0);
+    eventManager->AddHitTestInfoRecord(node1);
+    EXPECT_EQ(static_cast<int32_t>(eventManager->touchHitTestInfos_.size()), 1);
+    EXPECT_EQ(static_cast<int32_t>(eventManager->touchHitTestInfos_[0].hitNodeInfos.size()), 1);
+    eventManager->AddHitTestInfoRecord(node2);
+    EXPECT_EQ(static_cast<int32_t>(eventManager->touchHitTestInfos_.size()), 1);
+    EXPECT_EQ(static_cast<int32_t>(eventManager->touchHitTestInfos_[0].hitNodeInfos.size()), 2);
+    auto json = eventManager->GetLastHitTestNodeInfosForTouch(false);
+    EXPECT_NE(static_cast<int32_t>(json.size()), 0);
+    json = eventManager->GetLastHitTestNodeInfosForTouch(true);
+    EXPECT_NE(static_cast<int32_t>(json.size()), 0);
 }
 
-/**
- * @tc.name: EventManagerTest090
- * @tc.desc: Test DispatchMouseEventNG
- * @tc.type: FUNC
- */
-HWTEST_F(EventManagerTestNg, EventManagerTest090, TestSize.Level1)
-{
-    auto eventManager = AceType::MakeRefPtr<EventManager>();
-    ASSERT_NE(eventManager, nullptr);
-    MouseEvent event;
-    event.mockFlushEvent = true;
-    bool result = eventManager->DispatchMouseEventNG(event);
-    EXPECT_FALSE(result);
-}
-
-/**
- * @tc.name: EventManagerTest091
- * @tc.desc: Test DispatchMouseEventNG
- * @tc.type: FUNC
- */
-HWTEST_F(EventManagerTestNg, EventManagerTest091, TestSize.Level1)
-{
-    auto eventManager = AceType::MakeRefPtr<EventManager>();
-    ASSERT_NE(eventManager, nullptr);
-    MouseEvent event;
-    event.mockFlushEvent = false;
-    bool result = eventManager->DispatchMouseEventNG(event);
-    EXPECT_FALSE(result);
-}
-
-/**
- * @tc.name: EventManagerTest092
- * @tc.desc: Test CheckAndLogLastReceivedTouchEventInfo
- * @tc.type: FUNC
- */
-HWTEST_F(EventManagerTestNg, EventManagerTest092, TestSize.Level1)
-{
-    auto eventManager = AceType::MakeRefPtr<EventManager>();
-    ASSERT_NE(eventManager, nullptr);
-    int32_t eventId = 1;
-    auto type = TouchType::MOVE;
-    eventManager->CheckAndLogLastReceivedTouchEventInfo(eventId, type);
-    EXPECT_EQ(eventManager->lastReceivedEvent_.eventId, eventId);
-}
-
-/**
- * @tc.name: EventManagerTest093
- * @tc.desc: Test CheckAndLogLastConsumedTouchEventInfo
- * @tc.type: FUNC
- */
-HWTEST_F(EventManagerTestNg, EventManagerTest093, TestSize.Level1)
-{
-    auto eventManager = AceType::MakeRefPtr<EventManager>();
-    ASSERT_NE(eventManager, nullptr);
-    int32_t eventId = 1;
-    auto type = TouchType::MOVE;
-    eventManager->CheckAndLogLastConsumedTouchEventInfo(eventId, type);
-    EXPECT_EQ(eventManager->lastConsumedEvent_.eventId, eventId);
-}
-
-/**
- * @tc.name: EventManagerTest094
- * @tc.desc: Test CheckAndLogLastReceivedMouseEventInfo
- * @tc.type: FUNC
- */
-HWTEST_F(EventManagerTestNg, EventManagerTest094, TestSize.Level1)
-{
-    auto eventManager = AceType::MakeRefPtr<EventManager>();
-    ASSERT_NE(eventManager, nullptr);
-    int32_t eventId = 1;
-    auto action = MouseAction::MOVE;
-    eventManager->CheckAndLogLastReceivedMouseEventInfo(eventId, action);
-    EXPECT_EQ(eventManager->lastReceivedEvent_.eventId, eventId);
-}
-
-/**
- * @tc.name: EventManagerTest095
- * @tc.desc: Test CheckAndLogLastConsumedMouseEventInfo
- * @tc.type: FUNC
- */
-HWTEST_F(EventManagerTestNg, EventManagerTest095, TestSize.Level1)
-{
-    auto eventManager = AceType::MakeRefPtr<EventManager>();
-    ASSERT_NE(eventManager, nullptr);
-    int32_t eventId = 1;
-    auto action = MouseAction::MOVE;
-    eventManager->CheckAndLogLastConsumedMouseEventInfo(eventId, action);
-    EXPECT_EQ(eventManager->lastConsumedEvent_.eventId, eventId);
-}
-
-/**
- * @tc.name: EventManagerTest096
- * @tc.desc: Test CheckAndLogLastReceivedAxisEventInfo
- * @tc.type: FUNC
- */
-HWTEST_F(EventManagerTestNg, EventManagerTest096, TestSize.Level1)
-{
-    auto eventManager = AceType::MakeRefPtr<EventManager>();
-    ASSERT_NE(eventManager, nullptr);
-    int32_t eventId = 1;
-    auto action = AxisAction::NONE;
-    eventManager->CheckAndLogLastReceivedAxisEventInfo(eventId, action);
-    EXPECT_EQ(eventManager->lastReceivedEvent_.eventId, eventId);
-}
-
-/**
- * @tc.name: EventManagerTest097
- * @tc.desc: Test CheckAndLogLastConsumedAxisEventInfo
- * @tc.type: FUNC
- */
-HWTEST_F(EventManagerTestNg, EventManagerTest097, TestSize.Level1)
-{
-    auto eventManager = AceType::MakeRefPtr<EventManager>();
-    ASSERT_NE(eventManager, nullptr);
-    int32_t eventId = 1;
-    auto action = AxisAction::NONE;
-    eventManager->CheckAndLogLastConsumedAxisEventInfo(eventId, action);
-    EXPECT_EQ(eventManager->lastConsumedEvent_.eventId, eventId);
-}
-
-/**
- * @tc.name: EventManagerTest098
- * @tc.desc: Test RemoveOverlayByESC
- * @tc.type: FUNC
- */
-HWTEST_F(EventManagerTestNg, EventManagerTest098, TestSize.Level1)
-{
-    auto eventManager = AceType::MakeRefPtr<EventManager>();
-    KeyEvent event;
-
-    event.code = KeyCode::KEY_ESCAPE;
-    event.action = KeyAction::DOWN;
-    EXPECT_FALSE(eventManager->RemoveOverlayByESC(event));
-    event.code = KeyCode::KEY_CTRL_LEFT;
-    event.action = KeyAction::UP;
-    EXPECT_FALSE(eventManager->RemoveOverlayByESC(event));
-    event.code = KeyCode::KEY_ESCAPE;
-    event.action = KeyAction::UP;
-    EXPECT_FALSE(eventManager->RemoveOverlayByESC(event));
-    event.code = KeyCode::KEY_CTRL_LEFT;
-    event.action = KeyAction::DOWN;
-    EXPECT_FALSE(eventManager->RemoveOverlayByESC(event));
-
-    MockContainer::SetUp();
-    auto container = MockContainer::Current();
-    container->isSubContainer_ = true;
-    container->isDialogContainer_ = true;
-    EXPECT_FALSE(eventManager->RemoveOverlayByESC(event));
-    container->isSubContainer_ = false;
-    container->isDialogContainer_ = false;
-    EXPECT_FALSE(eventManager->RemoveOverlayByESC(event));
-        container->isSubContainer_ = true;
-    container->isDialogContainer_ = false;
-    EXPECT_FALSE(eventManager->RemoveOverlayByESC(event));
-    container->isSubContainer_ = false;
-    container->isDialogContainer_ = true;
-    EXPECT_FALSE(eventManager->RemoveOverlayByESC(event));
-}
 } // namespace OHOS::Ace::NG

@@ -20,6 +20,7 @@
 #include <string>
 
 #include "base/geometry/dimension.h"
+#include "base/utils/multi_thread.h"
 #include "core/components/common/properties/color.h"
 #include "core/components/common/properties/shadow.h"
 #include "core/components_ng/base/frame_node.h"
@@ -51,7 +52,8 @@ public:
         if (!progressModifier_) {
             ProgressAnimatableProperty progressAnimatableProperty {};
             InitAnimatableProperty(progressAnimatableProperty);
-            progressModifier_ = AceType::MakeRefPtr<ProgressModifier>(GetHost(), progressAnimatableProperty);
+            progressModifier_ = AceType::MakeRefPtr<ProgressModifier>(
+                GetHost(), progressAnimatableProperty, WeakClaim(this));
         }
         bool isRtl = progressLayoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
         if (isRightToLeft_ != isRtl) {
@@ -92,10 +94,7 @@ public:
 
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
 
-    FocusPattern GetFocusPattern() const override
-    {
-        return { FocusType::NODE, true, FocusStyleType::CUSTOM_REGION };
-    }
+    FocusPattern GetFocusPattern() const override;
 
     void SetTextFromUser(bool value)
     {
@@ -113,11 +112,16 @@ public:
     {
         if (!makeFunc) {
             makeFunc_ = std::nullopt;
+            auto host = GetHost();
+            CHECK_NULL_VOID(host);
+            FREE_NODE_CHECK(host, SetBuilderFunc);
             OnModifyDone();
             return;
         }
         makeFunc_ = std::move(makeFunc);
     }
+
+    void SetBuilderFuncMultiThread();
 
     bool UseContentModifier() const
     {
@@ -165,6 +169,16 @@ public:
         isModifierInitiatedBgColor_ = value;
     }
 
+    bool IsEnableMatchParent() override
+    {
+        return true;
+    }
+
+    bool IsEnableFix() override
+    {
+        return true;
+    }
+
     bool OnThemeScopeUpdate(int32_t themeScopeId) override;
     void UpdateGradientColor(const NG::Gradient& gradient, bool isFirstLoad);
     void UpdateColor(const Color& color, bool isFirstLoad);
@@ -175,12 +189,15 @@ private:
     void InitColorProperty(ProgressAnimatableProperty& progressAnimatableProperty,
         const RefPtr<ProgressTheme>& progressTheme, const RefPtr<ProgressPaintProperty>& paintProperty);
     void CalculateStrokeWidth(const SizeF& contentSize);
+    void RegisterVisibleAreaChange();
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config) override;
     void OnAttachToFrameNode() override;
+    void OnDetachFromFrameNode(FrameNode* frameNode) override;
+    void OnDetachFromMainTree() override;
     void OnModifyDone() override;
     void DumpInfo() override;
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
     void OnLanguageConfigurationUpdate() override;
     void InitTouchEvent();
     void RemoveTouchEvent();
@@ -209,6 +226,7 @@ private:
     void FireBuilder();
     void ReportProgressEvent();
     void OnColorConfigurationUpdate() override;
+    void ProcessColorOnColorConfigurationUpdate();
     RefPtr<FrameNode> BuildContentModifierNode();
     std::optional<ProgressMakeCallback> makeFunc_;
     RefPtr<FrameNode> contentModifierNode_;
@@ -240,6 +258,7 @@ private:
     bool isModifierInitiatedColor_ = false;
     bool isModifierInitiatedBgColor_ = false;
     double reportLastValue_ = 0.0f;
+    bool hasVisibleChangeRegistered_ = false;
     ACE_DISALLOW_COPY_AND_MOVE(ProgressPattern);
 };
 } // namespace OHOS::Ace::NG

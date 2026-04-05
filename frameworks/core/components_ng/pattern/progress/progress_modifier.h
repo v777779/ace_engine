@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -22,6 +22,7 @@
 #include "core/common/container.h"
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/base/modifier.h"
+#include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/progress/progress_date.h"
 #include "core/components_ng/render/drawing.h"
 
@@ -40,7 +41,8 @@ class ProgressModifier : public ContentModifier {
 public:
     explicit ProgressModifier(
         const WeakPtr<FrameNode>& host,
-        const ProgressAnimatableProperty& progressAnimatableProperty = ProgressAnimatableProperty {});
+        const ProgressAnimatableProperty& progressAnimatableProperty = ProgressAnimatableProperty {},
+        const WeakPtr<Pattern>& pattern = nullptr);
     ~ProgressModifier() override = default;
     void onDraw(DrawingContext& context) override;
 
@@ -77,6 +79,12 @@ public:
     void SetRingProgressLeftPadding(const Dimension& ringProgressLeftPadding);
 
     Color CalculateHoverPressColor(const Color& color);
+    void SetGradientColor(const NG::Gradient& gradient)
+    {
+        ringProgressColors_->Set(GradientArithmetic(gradient));
+    }
+    void StopAllLoopAnimation();
+    void SetInVisibleArea(bool value);
 
 private:
     void PaintScaleRingForApiNine(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize) const;
@@ -85,6 +93,7 @@ private:
 
     void ContentDrawWithFunction(DrawingContext& context);
     void PaintLinear(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize) const;
+    void PaintLinearWithGradient(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize) const;
     void PaintLinearSweeping(
         RSCanvas& canvas, const OffsetF& offset, const RSPath& path, bool isHorizontal, const SizeF& contentSize) const;
     void PaintRing(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize) const;
@@ -100,7 +109,11 @@ private:
     void PaintTrailing(RSCanvas& canvas, const RingProgressData& ringProgressData) const;
     void PaintScaleRing(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize) const;
     void PaintMoon(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize) const;
+    void PaintCapsuleGradient(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize,
+        const float borderRadius, RSBrush& brush) const;
     void PaintCapsule(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize,
+        const float borderRadius) const;
+    void PaintCapsuleWithGradient(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize,
         const float borderRadius) const;
     void PaintCapsuleLeftBorder(RSPath& path, const OffsetF& offset, const SizeF& contentSize,
         const float borderRadius) const;
@@ -109,6 +122,8 @@ private:
     void PaintCapsuleProgressLessRadiusScene(RSPath& path, const OffsetF& offset, const SizeF& contentSize,
         const float borderRadius) const;
     void PaintCapsuleProgressGreaterRadiusScene(RSPath& path, const OffsetF& offset, const SizeF& contentSize,
+        const float borderRadius) const;
+    void PaintVerticalCapsuleWithGradient(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize,
         const float borderRadius) const;
     void PaintVerticalCapsule(RSCanvas& canvas, const OffsetF& offset, const SizeF& contentSize,
         const float borderRadius) const;
@@ -142,9 +157,9 @@ private:
     inline bool IsDynamicComponent()
     {
         auto container = Container::Current();
-        return container && container->IsDynamicRender();
+        return container && container->IsDynamicRender() &&
+               container->GetUIContentType() == UIContentType::DYNAMIC_COMPONENT;
     }
-    uint32_t GetThemeScopeId() const;
 
     // Animatable
     RefPtr<AnimatablePropertyFloat> strokeWidth_; // After adjusting to the content width and height
@@ -189,8 +204,11 @@ private:
     bool isSweeping_ = false;
     float sweepingDateBackup_ = 0.0f;
     bool dateUpdated_ = false;
+    bool inVisibleArea_ = false;
     Dimension ringProgressLeftPadding_ = 0.0_vp;
     WeakPtr<FrameNode> host_;
+    WeakPtr<Pattern> pattern_;
+    std::shared_ptr<AnimationUtils::Animation> animation_;
 
     ACE_DISALLOW_COPY_AND_MOVE(ProgressModifier);
 };

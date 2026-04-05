@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "core/components_ng/pattern/stage/content_root_pattern.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 
 #include "core/components/container_modal/container_modal_constants.h"
 #include "core/pipeline_ng/pipeline_context.h"
@@ -32,7 +33,9 @@ void ContentRootPattern::BeforeCreateLayoutWrapper()
 
 SafeAreaInsets ContentRootPattern::CreateSafeAreaInsets() const
 {
-    auto pipeline = PipelineContext::GetCurrentContext();
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, {});
+    auto pipeline = host->GetContext();
     CHECK_NULL_RETURN(pipeline, {});
 
     auto manager = pipeline->GetSafeAreaManager();

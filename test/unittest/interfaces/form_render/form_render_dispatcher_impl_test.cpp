@@ -46,7 +46,7 @@ public:
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest002, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest002, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
@@ -67,7 +67,7 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest002, TestSize
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest003, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest003, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
@@ -88,7 +88,7 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest003, TestSize
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest004, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest004, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
@@ -109,7 +109,7 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest004, TestSize
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest005, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest005, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
@@ -127,7 +127,7 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest005, TestSize
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest006, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest006, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
@@ -148,7 +148,7 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest006, TestSize
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest007, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest007, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
@@ -166,7 +166,7 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest007, TestSize
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest008, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest008, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
@@ -186,7 +186,7 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest008, TestSize
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest009, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest009, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
@@ -206,7 +206,7 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest009, TestSize
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest010, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest010, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
@@ -229,14 +229,15 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest010, TestSize
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest011, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest011, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
-    float width = 11;
-    float height = 22;
+    OHOS::AppExecFwk::FormSurfaceInfo formSurfaceInfo;
+    formSurfaceInfo.width = 11;
+    formSurfaceInfo.height = 22;
     if (renderDispatcher != nullptr) {
-        renderDispatcher->DispatchSurfaceChangeEvent(width, height);
+        renderDispatcher->DispatchSurfaceChangeEvent(formSurfaceInfo);
         flag = true;
     }
     EXPECT_TRUE(flag);
@@ -249,14 +250,15 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest011, TestSize
  **@tc.desc: 1. system running normally
  *           2. test FormRendererDispatcherImpl
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest012, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest012, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     bool flag = false;
-    float width = 11;
-    float height = 22;
+    OHOS::AppExecFwk::FormSurfaceInfo formSurfaceInfo;
+    formSurfaceInfo.width = 11;
+    formSurfaceInfo.height = 22;
     if (renderDispatcher != nullptr) {
-        renderDispatcher->DispatchSurfaceChangeEvent(width, height);
+        renderDispatcher->DispatchSurfaceChangeEvent(formSurfaceInfo);
         flag = true;
     }
     EXPECT_TRUE(flag);
@@ -267,7 +269,7 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest012, TestSize
  * @tc.desc: test FormRendererDispatcherImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest013, TestSize.Level1)
+HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest013, TestSize.Level0)
 {
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     constexpr uint32_t code = static_cast<uint32_t>(IFormRendererDispatcher::Message::DISPATCH_POINTER_EVENT);
@@ -332,13 +334,9 @@ HWTEST_F(FormRenderDispatcherImplTest, FormRenderDispatcherImplTest016, TestSize
     sptr<FormRendererDispatcherImpl> renderDispatcher = GetFormRendererDispatcherImpl();
     constexpr uint32_t code = static_cast<uint32_t>(IFormRendererDispatcher::Message::DISPATCH_SURFACE_CHANGE_EVENT);
     MessageParcel data;
+    OHOS::AppExecFwk::FormSurfaceInfo formSurfaceInfo;
     data.WriteInterfaceToken(FormRendererDispatcherImpl::GetDescriptor());
-    float width = 1.0;
-    float height = 1.0;
-    float borderWidth = 1.0;
-    data.WriteBool(width);
-    data.WriteBool(height);
-    data.WriteBool(borderWidth);
+    data.WriteParcelable(&formSurfaceInfo);
     MessageParcel reply;
     MessageOption option;
     if (renderDispatcher != nullptr) {

@@ -182,12 +182,12 @@ void ParseCommonAndCustomTitle(const JSRef<JSObject>& jsObj)
             return;
         }
     }
-    if (SystemProperties::ConfigChangePerform() && heightResObj) {
-        NavDestinationModel::GetInstance()->SetTitleHeight(heightResObj);
-        return;
-    }
     if (!isValid || titleHeight.Value() < 0) {
         NavDestinationModel::GetInstance()->SetTitleHeight(Dimension(), true);
+        return;
+    }
+    if (SystemProperties::ConfigChangePerform() && heightResObj) {
+        NavDestinationModel::GetInstance()->SetTitleHeight(titleHeight, heightResObj);
         return;
     }
     NavDestinationModel::GetInstance()->SetTitleHeight(titleHeight);
@@ -429,14 +429,15 @@ void JSNavDestination::SetOnShown(const JSCallbackInfo& info)
 
     auto onShownCallback = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(), JSRef<JSFunc>::Cast(info[0]));
     WeakPtr<NG::FrameNode> targetNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
-    auto onShown = [execCtx = info.GetExecutionContext(), func = std::move(onShownCallback), node = targetNode]() {
-        JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
-        ACE_SCORING_EVENT("NavDestination.onShown");
-        PipelineContext::SetCallBackNode(node);
-        JSRef<JSVal> params[1];
-        params[0] = JSRef<JSVal>::Make(ToJSValue("undefined"));
-        func->ExecuteJS(1, params);
-    };
+    auto onShown =
+        [execCtx = info.GetExecutionContext(), func = std::move(onShownCallback), node = targetNode](int32_t reason) {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
+            ACE_SCORING_EVENT("NavDestination.onShown");
+            PipelineContext::SetCallBackNode(node);
+            JSRef<JSVal> params[1];
+            params[0] = JSRef<JSVal>::Make(ToJSValue(reason));
+            func->ExecuteJS(1, params);
+        };
     NavDestinationModel::GetInstance()->SetOnShown(std::move(onShown));
     info.ReturnSelf();
 }
@@ -448,12 +449,15 @@ void JSNavDestination::SetOnHidden(const JSCallbackInfo& info)
     }
     auto onHiddenCallback = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(), JSRef<JSFunc>::Cast(info[0]));
     WeakPtr<NG::FrameNode> targetNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
-    auto onHidden = [execCtx = info.GetExecutionContext(), func = std::move(onHiddenCallback), node = targetNode]() {
-        JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
-        ACE_SCORING_EVENT("NavDestination.onHidden");
-        PipelineContext::SetCallBackNode(node);
-        func->ExecuteJS();
-    };
+    auto onHidden =
+        [execCtx = info.GetExecutionContext(), func = std::move(onHiddenCallback), node = targetNode](int32_t reason) {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
+            ACE_SCORING_EVENT("NavDestination.onHidden");
+            PipelineContext::SetCallBackNode(node);
+            JSRef<JSVal> params[1];
+            params[0] = JSRef<JSVal>::Make(ToJSValue(reason));
+            func->ExecuteJS(1, params);
+        };
     NavDestinationModel::GetInstance()->SetOnHidden(std::move(onHidden));
     info.ReturnSelf();
 }
@@ -550,9 +554,20 @@ void JSNavDestination::SetMenus(const JSCallbackInfo& info)
 void JSNavDestination::SetBackgroundColor(const JSCallbackInfo& info)
 {
     Color backgroundColor;
-    bool isValid = ParseJsColor(info[0], backgroundColor);
+    RefPtr<ResourceObject> backgroundColorResObj;
+    bool isValid = ParseJsColor(info[0], backgroundColor, backgroundColorResObj);
+    NavDestinationModel::GetInstance()->SetBackgroundColor(backgroundColor, isValid, backgroundColorResObj);
+}
 
-    NavDestinationModel::GetInstance()->SetBackgroundColor(backgroundColor, isValid);
+void JSNavDestination::SetFreeze(const JSCallbackInfo& info)
+{
+    bool freeze = false;
+    bool isValid = false;
+    if (info.Length() > 0 && info[0]->IsBoolean()) {
+        freeze = info[0]->ToBoolean();
+        isValid = true;
+    }
+    NavDestinationModel::GetInstance()->SetFreeze(freeze, isValid);
 }
 
 void JSNavDestination::SetWillAppear(const JSCallbackInfo& info)
@@ -727,7 +742,11 @@ void JSNavDestination::BindToScrollable(const JSCallbackInfo& info)
     auto bindFunc = [&info](const RefPtr<NG::NavDestinationScrollableProcessor>& processor) {
         auto jsProcessor = AceType::DynamicCast<JSNavDestinationScrollableProcessor>(processor);
         CHECK_NULL_VOID(jsProcessor);
-        jsProcessor->BindToScrollable(info);
+        if (info.Length() < 1 || !info[0]->IsArray()) {
+            jsProcessor->UnbindScrollable();
+        } else {
+            jsProcessor->BindToScrollable(info[0]);
+        }
     };
     NavDestinationModel::GetInstance()->UpdateBindingWithScrollable(std::move(bindFunc));
 }
@@ -737,7 +756,11 @@ void JSNavDestination::BindToNestedScrollable(const JSCallbackInfo& info)
     auto bindFunc = [&info](const RefPtr<NG::NavDestinationScrollableProcessor>& processor) {
         auto jsProcessor = AceType::DynamicCast<JSNavDestinationScrollableProcessor>(processor);
         CHECK_NULL_VOID(jsProcessor);
-        jsProcessor->BindToNestedScrollable(info);
+        if (info.Length() < 1 || !info[0]->IsArray()) {
+            jsProcessor->UnbindNestedScrollable();
+        } else {
+            jsProcessor->BindToNestedScrollable(info[0]);
+        }
     };
     NavDestinationModel::GetInstance()->UpdateBindingWithScrollable(std::move(bindFunc));
 }
@@ -789,6 +812,7 @@ void JSNavDestination::JSBind(BindingTarget globalObj)
     JSClass<JSNavDestination>::StaticMethod("hideBackButton", &JSNavDestination::SetHideBackButton);
     JSClass<JSNavDestination>::StaticMethod("backButtonIcon", &JSNavDestination::SetBackButtonIcon);
     JSClass<JSNavDestination>::StaticMethod("backgroundColor", &JSNavDestination::SetBackgroundColor);
+    JSClass<JSNavDestination>::StaticMethod("freeze", &JSNavDestination::SetFreeze);
     JSClass<JSNavDestination>::StaticMethod("onShown", &JSNavDestination::SetOnShown);
     JSClass<JSNavDestination>::StaticMethod("onHidden", &JSNavDestination::SetOnHidden);
     JSClass<JSNavDestination>::StaticMethod("onBackPressed", &JSNavDestination::SetOnBackPressed);

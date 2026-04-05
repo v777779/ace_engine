@@ -3,13 +3,16 @@ import { NavPathStack, NavigationOperation, NavBar } from 'arkui/framework'
 import { UIContext } from '@ohos/arkui/UIContext';
 import UIAbilityContext from 'application.UIAbilityContext';
 import { NavDestinationMode } from 'arkui/framework'
+import { HeightBreakpoint, WidthBreakpoint } from '/arkui/component/enums';
 import { int32 } from "@koalaui/common"
+import { Size } from 'arkui/Graphics'
+import { Axis } from '/arkui/component/enums';
 
 declare namespace uiObserver {
     export class DensityInfo {
         density: double;
     }
-    type Callback<T,V = void> = (data: T) => V
+    type Callback_<T,V = void> = (data: T) => V
       
     export class UIObserver {
         on(type: string, callback: object): void;
@@ -18,51 +21,80 @@ declare namespace uiObserver {
         on(type: string, options: NavDestinationSwitchObserverOptions, callback: object): void;
         off(type: string, options: NavDestinationSwitchObserverOptions, callback?: object): void;
 
-        onScrollEvent(options: ObserverOptions, callback: Callback<ScrollEventInfo>): void;
-        offScrollEvent(options: ObserverOptions, callback: Callback<ScrollEventInfo>): void;
-        onScrollEvent(callback: Callback<ScrollEventInfo>): void;
-        offScrollEvent(callback: Callback<ScrollEventInfo>): void;
+        onScrollEvent(options: ObserverOptions, callback: Callback_<ScrollEventInfo>): void;
+        offScrollEvent(options: ObserverOptions, callback: Callback_<ScrollEventInfo>): void;
+        onScrollEvent(callback: Callback_<ScrollEventInfo>): void;
+        offScrollEvent(callback: Callback_<ScrollEventInfo>): void;
 
-        onNavDestinationUpdate(callback: Callback<NavDestinationInfo>): void;
-        offNavDestinationUpdate(callback?: Callback<NavDestinationInfo>): void;
+        onNavDestinationUpdate(callback: Callback_<NavDestinationInfo>): void;
+
+        onWindowSizeLayoutBreakpointChange(callback: Callback_<WindowSizeLayoutBreakpointInfo>): void;
+        offWindowSizeLayoutBreakpointChange(callback?: Callback_<WindowSizeLayoutBreakpointInfo>): void;
+
+        offNavDestinationUpdate(callback?: Callback_<NavDestinationInfo>): void;
         onNavDestinationUpdate(
             options: NavDestinationSwitchObserverOptions,
-            callback: Callback<NavDestinationInfo>
+            callback: Callback_<NavDestinationInfo>
         ): void;
         offNavDestinationUpdate(
             options: NavDestinationSwitchObserverOptions,
-            callback?: Callback<NavDestinationInfo>
+            callback?: Callback_<NavDestinationInfo>
         ): void;
 
-        onRouterPageUpdate(callback: Callback<RouterPageInfo>): void;
-        offRouterPageUpdate(callback?: Callback<RouterPageInfo>): void;
+        onRouterPageUpdate(callback: Callback_<RouterPageInfo>): void;
+        offRouterPageUpdate(callback?: Callback_<RouterPageInfo>): void;
 
-        onNavDestinationSwitch(callback: Callback<NavDestinationSwitchInfo>): void;
-        offNavDestinationSwitch(callback?: Callback<NavDestinationSwitchInfo>): void;
+        onNavDestinationSwitch(callback: Callback_<NavDestinationSwitchInfo>): void;
+        offNavDestinationSwitch(callback?: Callback_<NavDestinationSwitchInfo>): void;
         onNavDestinationSwitch(
             observerOptions: NavDestinationSwitchObserverOptions,
-            callback: Callback<NavDestinationSwitchInfo>
+            callback: Callback_<NavDestinationSwitchInfo>
           ): void;
         offNavDestinationSwitch(
             observerOptions: NavDestinationSwitchObserverOptions,
-            callback?: Callback<NavDestinationSwitchInfo>
+            callback?: Callback_<NavDestinationSwitchInfo>
           ): void;
 
-        onDensityUpdate(callback: Callback<DensityInfo>): void;
-        offDensityUpdate(callback?: Callback<DensityInfo>): void;
+        onTabChange(callback: Callback_<TabContentInfo>): void;
+        offTabChange(callback?: Callback_<TabContentInfo>): void;
+        onTabChange(options: ObserverOptions, callback: Callback_<TabContentInfo>): void;
+        offTabChange(options: ObserverOptions, callback?: Callback_<TabContentInfo>): void;
 
-        onWillDraw(callback: Callback<void>): void;
-        offWillDraw(callback?: Callback<void>): void;
+        onTabContentUpdate(callback: Callback_<TabContentInfo>): void;
+        offTabContentUpdate(callback?: Callback_<TabContentInfo>): void;
+        onTabContentUpdate(options: ObserverOptions, callback: Callback_<TabContentInfo>): void;
+        offTabContentUpdate(options: ObserverOptions, callback?: Callback_<TabContentInfo>): void;
 
-        onDidLayout(callback: Callback<void>): void;
-        offDidLayout(callback?: Callback<void>): void;
+        onDensityUpdate(callback: Callback_<DensityInfo>): void;
+        offDensityUpdate(callback?: Callback_<DensityInfo>): void;
 
-        onTabContentUpdate(callback: Callback<TabContentInfo>): void;
-        offTabContentUpdate(callback?: Callback<TabContentInfo>): void;
-        onTabContentUpdate(options: ObserverOptions, callback: Callback<TabContentInfo>): void;
-        offTabContentUpdate(options: ObserverOptions, callback?: Callback<TabContentInfo>): void;
+        onWillDraw(callback: Callback_<void>): void;
+        offWillDraw(callback?: Callback_<void>): void;
+
+        onDidLayout(callback: Callback_<void>): void;
+        offDidLayout(callback?: Callback_<void>): void;
+
+        onRouterPageSizeChange(callback: Callback_<RouterPageInfo>): void;
+        offRouterPageSizeChange(callback?: Callback_<RouterPageInfo>): void;
+
+        onNavDestinationSizeChange(callback: Callback_<NavDestinationInfo>): void;
+        offNavDestinationSizeChange(callback?: Callback_<NavDestinationInfo>): void;
+
+        onNavDestinationSizeChangeByUniqueId(navigationUniqueId: int, callback: Callback_<NavDestinationInfo>): void;
+        offNavDestinationSizeChangeByUniqueId(navigationUniqueId: int, callback?: Callback_<NavDestinationInfo>): void;
+
+        onTextChange(callback: Callback_<TextChangeEventInfo>): void;
+        offTextChange(callback?: Callback_<TextChangeEventInfo>): void;
+        onTextChange(identity: ObserverOptions, callback: Callback_<TextChangeEventInfo>): void;
+        offTextChange(identity: ObserverOptions, callback?: Callback_<TextChangeEventInfo>): void;
     }
     export function createUIObserver(id: number): UIObserver;
+
+    export class SizeInner implements Size {
+        width: number;
+        height: number;
+        constructor(width: number, height: number);
+    }
 
     export enum NavDestinationState {
         ON_SHOWN = 0,
@@ -79,6 +111,15 @@ declare namespace uiObserver {
     export interface NavigationInfo {
         navigationId: string;
         pathStack: NavPathStack;
+        uniqueId: int32 | undefined;
+    }
+
+    export interface NavDestinationSwitchInfo {
+
+        context: UIAbilityContext | UIContext;
+        from: NavDestinationInfo | NavBar;
+        to: NavDestinationInfo | NavBar;
+        operation: NavigationOperation;
     }
 
     export class RouterPageInfo {
@@ -88,6 +129,7 @@ declare namespace uiObserver {
         path: string;
         state: RouterPageState;
         pageId: string;
+        size?: Size;
     }
 
     export interface NavDestinationInfo {
@@ -99,15 +141,14 @@ declare namespace uiObserver {
         navDestinationId: string;
         uniqueId?: int32;
         mode?: NavDestinationMode;
+        size?: Size;
     }
 
-    export interface NavDestinationSwitchInfo {
-        context: UIAbilityContext | UIContext;
-        from: NavDestinationInfo | NavBar;
-        to: NavDestinationInfo | NavBar;
-        operation: NavigationOperation;
+    export interface WindowSizeLayoutBreakpointInfo {
+        widthBreakpoint: WidthBreakpoint;
+        heightBreakpoint: HeightBreakpoint;
     }
-
+    
     export enum RouterPageState {
         ABOUT_TO_APPEAR = 0,
         ABOUT_TO_DISAPPEAR = 1,
@@ -118,32 +159,50 @@ declare namespace uiObserver {
     export interface NavDestinationSwitchObserverOptions {
         navigationId: ResourceStr;
     }
-    export interface ObserverOptions {
-      id: string
+
+    export interface TextChangeEventInfo {
+        id: string;
+        uniqueId: int;
+        content: string;
     }
+
     export interface ScrollEventInfo {
         id: string;
-        uniqueId: number;
+        uniqueId: int;
         scrollEvent: ScrollEventType;
-        offset: number;
+        offset: double;
+        axis: Axis;
     }
+
     export enum ScrollEventType {
       SCROLL_START = 0,
       SCROLL_STOP = 1
     }
 
-    export class TabContentInfo {
+    export enum TabContentState {
+        ON_SHOW = 0,
+        ON_HIDE = 1
+    }
+
+    export interface TabContentInfo {
         tabContentId: string;
         tabContentUniqueId: int;
         state: TabContentState;
         index: int;
         id: string;
         uniqueId: int;
+        lastIndex?: int;
     }
 
-    export enum TabContentState {
-        ON_SHOW = 0,
-        ON_HIDE = 1
+    export interface ObserverOptions {
+        id: string;
+    }
+}
+
+namespace uiObserverImpl {
+    export class WindowSizeLayoutBreakpointImpl implements uiObserver.WindowSizeLayoutBreakpointInfo {
+        widthBreakpoint: WidthBreakpoint = WidthBreakpoint.WIDTH_XS;
+        heightBreakpoint: HeightBreakpoint = HeightBreakpoint.HEIGHT_SM;
     }
 }
 

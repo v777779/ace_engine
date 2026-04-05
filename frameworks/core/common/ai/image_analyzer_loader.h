@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Huawei Device Co., Ltd.
+ * Copyright (C) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -20,14 +20,14 @@
 
 #include <memory>
 
-#include "js_native_api_types.h"
-
 #include "interfaces/inner_api/ace/ai/image_analyzer_interface.h"
 
+typedef struct napi_env__* napi_env;
 namespace OHOS::Ace {
-using ImageAnalyzerInstance = std::unique_ptr<ImageAnalyzerInterface, std::function<void (ImageAnalyzerInterface*)>>;
+using ImageAnalyzerInstance = std::unique_ptr<ImageAnalyzerInterface, std::function<void(ImageAnalyzerInterface*)>>;
 
-class ACE_FORCE_EXPORT ImageAnalyzerLoader : public std::enable_shared_from_this<ImageAnalyzerLoader> {
+class __attribute__((visibility("default"))) ImageAnalyzerLoader
+    : public std::enable_shared_from_this<ImageAnalyzerLoader> {
 public:
     static std::shared_ptr<ImageAnalyzerLoader> Load();
     ~ImageAnalyzerLoader();
@@ -42,8 +42,8 @@ public:
 private:
     bool Init();
     void Close();
-    
-    void *libraryHandle_ = nullptr;
+
+    void* libraryHandle_ = nullptr;
     ImageAnalyzerInterface* (*createImageAnalyzerInstance_)(napi_env) = nullptr;
     void (*destroyImageAnalyzerInstance_)(ImageAnalyzerInterface*) = nullptr;
 };

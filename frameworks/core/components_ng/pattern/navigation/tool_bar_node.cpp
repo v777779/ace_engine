@@ -15,6 +15,7 @@
 
 #include "core/components_ng/pattern/navigation/tool_bar_node.h"
 
+#include "core/components_ng/pattern/navigation/navdestination_pattern_base.h"
 #include "core/components_ng/pattern/navigation/tool_bar_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -39,6 +40,7 @@ NavToolbarNode::~NavToolbarNode()
 RefPtr<NavToolbarNode> NavToolbarNode::GetOrCreateToolbarNode(
     const std::string& tag, int32_t nodeId, const std::function<RefPtr<Pattern>(void)>& patternCreator)
 {
+    ACE_UINODE_TRACE(nodeId);
     auto frameNode = GetFrameNode(tag, nodeId);
     CHECK_NULL_RETURN(!frameNode, AceType::DynamicCast<NavToolbarNode>(frameNode));
     auto pattern = patternCreator ? patternCreator() : MakeRefPtr<Pattern>();
@@ -46,5 +48,26 @@ RefPtr<NavToolbarNode> NavToolbarNode::GetOrCreateToolbarNode(
     toolbarNode->InitializePatternAndContext();
     ElementRegister::GetInstance()->AddUINode(toolbarNode);
     return toolbarNode;
+}
+
+void NavToolbarNode::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
+{
+    auto toolBarPattern = GetPattern<NavToolbarPattern>();
+    CHECK_NULL_VOID(toolBarPattern);
+    auto toolBarOptions = toolBarPattern->GetToolBarOptions();
+    toolBarOptions.ToJsonValue(json, filter);
+    auto moreButtonOptions = toolBarPattern->GetToolbarMoreButtonOptions();
+    auto mbOptionJson = JsonUtil::Create(true);
+    moreButtonOptions.ToJsonValue(mbOptionJson, filter);
+    json->PutExtAttr("moreButtonOptions", mbOptionJson, filter);
+}
+
+bool NavToolbarNode::IsHideToolBar() const
+{
+    auto navNode = AceType::DynamicCast<NavDestinationNodeBase>(GetParent());
+    CHECK_NULL_RETURN(navNode, false);
+    auto navLayoutProperty = navNode->GetLayoutProperty<NavDestinationLayoutPropertyBase>();
+    CHECK_NULL_RETURN(navLayoutProperty, false);
+    return navLayoutProperty->GetHideToolBarValue(false);
 }
 } // namespace OHOS::Ace::NG

@@ -129,6 +129,8 @@ export struct ButtonBootcamp {
   @State overflow: TextOverflow = TextOverflow.Clip;
   @State enableMaxLines: boolean = false;
   @State maxLines: number = 1;
+  @State enableTextAlign: boolean = false;
+  @State textAlign: TextAlign = TextAlign.Start;
   @State enableLabelNum: boolean = false;
   @State labelNum: number = 2;
   @State enableRole: boolean = false;
@@ -631,6 +633,12 @@ export struct ButtonBootcamp {
   @StorageLink('Block') listEventTriggeredTags: Array<BlockTag> = [];
   @State listEventTriggeredTagsTemp: Array<BlockTag> = [];
   @State selection: string | null = null;
+  @State config: DragSpringLoadingConfiguration = {
+    stillTimeLimit: 200,
+    updateInterval: 300,
+    updateNotifyCount: 4,
+    updateToFinishInterval: 300
+  };
   scroller: Scroller = new Scroller()
 
   aboutToAppear(): void {
@@ -731,7 +739,7 @@ export struct ButtonBootcamp {
   Content() {
     Column() {
       Button(
-        this.enableLabelNum ? '按钮'.repeat(this.labelNum / 2) : '按钮',
+        this.enableLabelNum ? '按钮按钮 '.repeat(this.labelNum / 2) : '按钮',
         {
           type: useEnabled(this.enableBtnType, this.btnType),
           buttonStyle: useEnabled(this.enableButtonStyle, this.buttonStyle),
@@ -743,6 +751,7 @@ export struct ButtonBootcamp {
         .labelStyle({
           overflow: useEnabled(this.enableOverFlow, this.overflow),
           maxLines: useEnabled(this.enableMaxLines, this.maxLines),
+          textAlign: useEnabled(this.enableTextAlign, this.textAlign),
         })//part1
         .width(useEnabled(this.enableCompWidth, this.compWidth))
         .height(useEnabled(this.enableCompHeight, this.compHeight))
@@ -1382,6 +1391,21 @@ export struct ButtonBootcamp {
           this.compEventTriggeredLog('自定义事件拦截onChildTouchTest触发')
           return HitTestMode.Default;
         })
+        .onDragSpringLoading((context: SpringLoadingContext) => {
+          if (context.state = 0) {
+            this.compEventTriggeredLog('自定义事件拦截onDragSpringLoading.BEGIN触发')
+          } else if(context.state = 1) {
+            this.compEventTriggeredLog('自定义事件拦截onDragSpringLoading.UPDATE触发')
+          } else if(context.state = 2) {
+            this.compEventTriggeredLog('自定义事件拦截onDragSpringLoading.END触发')
+          } else if(context.state = 3) {
+            this.compEventTriggeredLog('自定义事件拦截onDragSpringLoading.CANCEL触发')
+          }
+          if (context.currentNotifySequence = 5) {
+            this.compEventTriggeredLog('自定义事件拦截onDragSpringLoading.currentNotifySequence触发')
+          }
+        }, this.config)
+
     }
 
   }
@@ -1451,6 +1475,18 @@ export struct ButtonBootcamp {
           dataSource: [
             { label: '1', value: 1 },
             { label: '2', value: 2 }
+          ]
+        })
+
+        RadioBlock({
+          title: 'labelStyle.textAlign',
+          isEnabled: $enableTextAlign,
+          value: $textAlign,
+          dataSource: [
+            { label: 'Start', value: TextAlign.Start },
+            { label: 'Center', value: TextAlign.Center },
+            { label: 'End', value: TextAlign.End },
+            { label: 'JUSTIFY', value: TextAlign.JUSTIFY },
           ]
         })
 

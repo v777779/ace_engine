@@ -15,13 +15,14 @@
 
 #include "text_base.h"
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_paragraph.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
 
 #include "core/components/text_overlay/text_overlay_theme.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/root/root_pattern.h"
 #include "core/components_ng/pattern/text/span_model_ng.h"
 #include "core/components_ng/pattern/text/text_model_ng.h"
@@ -72,7 +73,6 @@ std::pair<RefPtr<FrameNode>, RefPtr<TextPattern>> TextBases::Init()
     auto pipeline = PipelineContext::GetCurrentContext();
     pipeline->rootNode_ =
         FrameNode::CreateFrameNodeWithTree(V2::ROOT_ETS_TAG, ROOT_NODE_ID, Referenced::MakeRefPtr<RootPattern>());
-
     auto clipboard = ClipboardProxy::GetInstance()->GetClipboard(pipeline->GetTaskExecutor());
     pattern->clipboard_ = clipboard;
     return { frameNode, pattern };
@@ -205,6 +205,9 @@ RefPtr<FrameNode> TextBases::CreateTextParagraph(const std::u16string& createVal
     }
     if (testProperty.maxLinesValue.has_value()) {
         textModel.SetMaxLines(testProperty.maxLinesValue.value());
+    }
+    if (testProperty.minLinesValue.has_value()) {
+        textModel.SetMinLines(testProperty.minLinesValue.value());
     }
     if (testProperty.lineHeightValue.has_value()) {
         textModel.SetLineHeight(testProperty.lineHeightValue.value());

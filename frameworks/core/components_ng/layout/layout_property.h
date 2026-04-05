@@ -148,7 +148,7 @@ public:
     {
         return localizedBackgroundIgnoresLayoutSafeAreaEdges_.value_or(NG::LAYOUT_SAFE_AREA_EDGE_NONE);
     }
-
+    
     RefPtr<GeometryTransition> GetGeometryTransition() const;
 
     MeasureType GetMeasureType(MeasureType defaultType = MeasureType::MATCH_CONTENT) const
@@ -196,6 +196,13 @@ public:
 
     void ResetGeometryTransition();
 
+    void SetGeometryTransitionInfo(const std::string& id,
+        bool followWithoutTransition = false, bool doRegisterSharedTransition = true);
+    std::tuple<std::string, bool, bool> GetGeometryTransitionInfo() const
+    {
+        return geometryTransitionInfo_;
+    }
+
     void UpdateAspectRatio(float ratio);
     void ResetAspectRatio();
 
@@ -231,7 +238,11 @@ public:
 
     virtual void UpdateCalcMaxSize(const CalcSize& value);
 
-    std::pair<std::vector<std::string>, std::vector<std::string>> CalcToString(const CalcSize& calcSize);
+    void CalcToString(const CalcSize& calcSize, std::pair<std::vector<std::string>, std::vector<std::string>>& result);
+
+    bool IsExpandConstraintDependencySatisfied() const;
+
+    IgnoreLayoutSafeAreaOpts GenIgnoreOpts() const;
 
     virtual void ExpandConstraintWithSafeArea();
 
@@ -313,7 +324,7 @@ public:
     PaddingPropertyF CreatePaddingAndBorder(bool includeSafeAreaPadding = true, bool forceReCreate = false);
     PaddingPropertyF CreatePaddingAndBorderWithDefault(float paddingHorizontalDefault, float paddingVerticalDefault,
         float borderHorizontalDefault, float borderVerticalDefault);
-    BorderWidthPropertyF CreateBorder();
+    BorderWidthPropertyF CreateBorder(bool isRoundPixel = false);
 
     MarginPropertyF CreateMargin();
     MarginPropertyF CreateMarginWithoutCache();
@@ -452,15 +463,18 @@ public:
     void CheckLocalizedBorderImageWidth(const TextDirection& direction);
     void CheckLocalizedBorderImageOutset(const TextDirection& direction);
     void CheckLocalizedSafeAreaPadding(const TextDirection& direction);
+    void CheckLocalizedAlignment(const TextDirection& direction);
     void CheckIgnoreLayoutSafeArea(const TextDirection& direction);
     void CheckBackgroundLayoutSafeAreaEdges(const TextDirection& direction);
-    void CheckLocalizedAlignment(const TextDirection& direction);
+    bool DecideMirror();
 
     virtual void OnPropertyChangeMeasure() {}
 
     std::string LayoutInfoToString();
-
     std::string GetAlignmentStringFromLocalized(TextDirection layoutDirection, std::string localizedAlignment);
+
+    void UpdateIsUserSetBackgroundColor(bool value);
+    bool GetIsUserSetBackgroundColor() const;
 
 protected:
     void UpdateLayoutProperty(const LayoutProperty* layoutProperty);
@@ -478,8 +492,7 @@ private:
     void ConstraintContentByPadding();
     void ConstraintContentByBorder();
     void ConstraintContentBySafeAreaPadding();
-    PaddingPropertyF CreateSafeAreaPadding();
-    bool DecideMirror();
+    PaddingPropertyF CreateSafeAreaPadding(bool adjustingRound = false);
 
     const std::string PixelRoundToJsonValue() const;
 
@@ -524,6 +537,8 @@ private:
 
     WeakPtr<GeometryTransition> geometryTransition_;
 
+    std::tuple<std::string, bool, bool> geometryTransitionInfo_ = std::make_tuple("", false, true);
+
     WeakPtr<FrameNode> host_;
 
     bool usingPosition_ = true;
@@ -540,6 +555,8 @@ private:
     bool needOffsetLocalizedEdges_ = false;
     bool needLazyLayout_ = false;
     bool isUserSetVisibility_ = false;
+
+    bool isUserSetBackgroundColor_ = false;
 
     ACE_DISALLOW_COPY_AND_MOVE(LayoutProperty);
 };

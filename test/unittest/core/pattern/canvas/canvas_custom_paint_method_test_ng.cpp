@@ -23,15 +23,13 @@
 
 #define protected public
 #define private public
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
-#include "core/components_ng/pattern/canvas/canvas_event_hub.h"
 #include "core/components_ng/pattern/canvas/canvas_layout_algorithm.h"
 #include "core/components_ng/pattern/canvas/canvas_model.h"
 #include "core/components_ng/pattern/canvas/canvas_model_ng.h"
 #include "core/components_ng/pattern/canvas/canvas_modifier.h"
-#include "core/components_ng/pattern/canvas/canvas_paint_mem.h"
 #include "core/components_ng/pattern/canvas/canvas_paint_method.h"
 #include "core/components_ng/pattern/canvas/canvas_pattern.h"
 #include "core/components_ng/pattern/canvas/custom_paint_paint_method.h"
@@ -89,6 +87,7 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest0011, TestSiz
      * @tc.steps2: When FilterType is GRAYSCALE, call the function CheckFilterProperty.
      * @tc.expected: return value are as expected.
      */
+    EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::GRAYSCALE, ""));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::GRAYSCALE, "0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::GRAYSCALE, "-0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::GRAYSCALE, "10"));
@@ -101,6 +100,7 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest0011, TestSiz
      * @tc.steps3: When FilterType is SEPIA, call the function CheckFilterProperty.
      * @tc.expected: return value are as expected.
      */
+    EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::SEPIA, ""));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::SEPIA, "0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::SEPIA, "-0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::SEPIA, "10"));
@@ -113,6 +113,7 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest0011, TestSiz
      * @tc.steps4: When FilterType is SATURATE, call the function CheckFilterProperty.
      * @tc.expected: return value are as expected.
      */
+    EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::SATURATE, ""));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::SATURATE, "0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::SATURATE, "-0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::SATURATE, "10"));
@@ -125,6 +126,7 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest0011, TestSiz
      * @tc.steps5: When FilterType is INVERT, call the function CheckFilterProperty.
      * @tc.expected: return value are as expected.
      */
+    EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::INVERT, ""));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::INVERT, "0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::INVERT, "-0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::INVERT, "10"));
@@ -152,6 +154,7 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest0012, TestSiz
      * @tc.steps2: When FilterType is OPACITY, call the function CheckFilterProperty.
      * @tc.expected: return value are as expected.
      */
+    EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::OPACITY, ""));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::OPACITY, "0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::OPACITY, "-0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::OPACITY, "10"));
@@ -164,6 +167,7 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest0012, TestSiz
      * @tc.steps3: When FilterType is BRIGHTNESS, call the function CheckFilterProperty.
      * @tc.expected: return value are as expected.
      */
+    EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::BRIGHTNESS, ""));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::BRIGHTNESS, "0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::BRIGHTNESS, "-0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::BRIGHTNESS, "10"));
@@ -176,6 +180,7 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest0012, TestSiz
      * @tc.steps4: When FilterType is CONTRAST, call the function CheckFilterProperty.
      * @tc.expected: return value are as expected.
      */
+    EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::CONTRAST, ""));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::CONTRAST, "0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::CONTRAST, "-0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::CONTRAST, "10"));
@@ -203,6 +208,7 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest002, TestSize
      * @tc.steps2: When FilterType is BLUR, call the function CheckFilterProperty.
      * @tc.expected: return value are as expected.
      */
+    EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::BLUR, ""));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::BLUR, "0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::BLUR, "-0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::BLUR, "10px"));
@@ -223,6 +229,7 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest002, TestSize
      * @tc.steps3: When FilterType is HUE_ROTATE, call the function CheckFilterProperty.
      * @tc.expected: return value are as expected.
      */
+    EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::HUE_ROTATE, ""));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::HUE_ROTATE, "0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::HUE_ROTATE, "-0"));
     EXPECT_TRUE(paintMethod->CheckFilterProperty(FilterType::HUE_ROTATE, "10deg"));
@@ -1331,26 +1338,6 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest032, TestSize
 }
 
 /**
- * @tc.name: CanvasCustomPaintMethodTest033
- * @tc.desc: Test the function 'RestoreProperties' of the class 'CustomPaintPaintMethod'.
- * @tc.type: FUNC
- */
-
-HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest033, TestSize.Level1)
-{
-    /**
-     * @tc.steps1: initialize parameters.
-     * @tc.expected: All pointer is non-null.
-     */
-    auto paintMethod = AceType::MakeRefPtr<OffscreenCanvasPaintMethod>();
-    ASSERT_NE(paintMethod, nullptr);
-    paintMethod->SaveProperties();
-    paintMethod->RestoreProperties();
-    paintMethod->RestoreProperties();
-    EXPECT_TRUE(paintMethod->matrixStates_.empty());
-}
-
-/**
  * @tc.name: CanvasCustomPaintMethodTest034
  * @tc.desc: Test the function 'PutImageData' of the class 'CustomPaintPaintMethod'.
  * @tc.type: FUNC
@@ -1369,37 +1356,6 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest034, TestSize
     imageData1.pixelMap = pixelMap;
     paintMethod->PutImageData(imageData1);
     EXPECT_TRUE(imageData1.data.empty());
-}
-
-/**
- * @tc.name: CanvasCustomPaintMethodTest035
- * @tc.desc: Test the function 'TranslateMatrix' of the class 'CustomPaintPaintMethod'.
- * @tc.type: FUNC
- */
-
-HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest035, TestSize.Level1)
-{
-    /**
-     * @tc.steps1: initialize parameters.
-     * @tc.expected: All pointer is non-null.
-     */
-    auto paintMethod = AceType::MakeRefPtr<OffscreenCanvasPaintMethod>();
-    ASSERT_NE(paintMethod, nullptr);
-
-    /**
-     * @tc.steps2: Call the function TranslateMatrix.
-     */
-    double tx = .0;
-    double ty = .0;
-    paintMethod->TranslateMatrix(tx, ty);
-    ty = 1.0;
-    paintMethod->TranslateMatrix(tx, ty);
-    tx = 1.0;
-    ty = .0;
-    paintMethod->TranslateMatrix(tx, ty);
-    ty = 1.0;
-    paintMethod->TranslateMatrix(tx, ty);
-    EXPECT_TRUE(paintMethod->matrixStates_.empty());
 }
 
 /**
@@ -1444,11 +1400,11 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest036, TestSize
 }
 
 /**
- * @tc.name: CanvasCustomPaintMethodTest037
- * @tc.desc: Test the function 'SetHueRotateFilter' of the class 'CustomPaintPaintMethod'.
+ * @tc.name: CanvasCustomPaintMethodTest039
+ * @tc.desc: Test to function 'SetAntialiasExt' with different values.
  * @tc.type: FUNC
  */
-HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest037, TestSize.Level1)
+HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest039, TestSize.Level1)
 {
     /**
      * @tc.steps1: initialize parameters.
@@ -1456,236 +1412,39 @@ HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest037, TestSize
      */
     auto paintMethod = AceType::MakeRefPtr<OffscreenCanvasPaintMethod>();
     ASSERT_NE(paintMethod, nullptr);
-
-    RSColor color;
-    RSBrush brush(RSColor(0xffffffff));
-    RSPen pen;
-    paintMethod->state_.strokeState.SetLineDash({ { 1.0, 0.0 }, 1.0 });
-    paintMethod->state_.strokeState.SetLineDashOffset(1.0);
-    paintMethod->UpdateLineDash(pen);
-
-    paintMethod->SetFilterParam("none");
-    EXPECT_NE(paintMethod->colorFilter_, nullptr);
-
-    paintMethod->SetFilterParam("hue-rotate(90deg)");
-    paintMethod->SetHueRotateFilter("hue-rotate(90deg)");
-    EXPECT_NE(paintMethod->colorFilter_, nullptr);
-
-    paintMethod->SetFilterParam("hue-rotate(90turn)");
-    paintMethod->SetHueRotateFilter("hue-rotate(90turn)");
-    EXPECT_NE(paintMethod->colorFilter_, nullptr);
-    paintMethod->SetFilterParam("hue-rotate(90rad)");
-    paintMethod->SetHueRotateFilter("hue-rotate(90rad)");
-    EXPECT_NE(paintMethod->colorFilter_, nullptr);
-}
-
-/**
- * @tc.name: CanvasCustomPaintMethodTest038
- * @tc.desc: Test the function 'SetPaintImage' of the class 'CustomPaintPaintMethod'.
- * @tc.type: FUNC
- */
-HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest038, TestSize.Level1)
-{
     /**
-     * @tc.steps1: initialize parameters.
-     * @tc.expected: All pointer is non-null.
+     * @tc.steps2: Call to function SetAntialiasExt with true when settingsAntiAlias is false.
+     * @tc.expected: antiAlias is true, fontAntiAlias has value and is true.
      */
-    auto paintMethod = AceType::MakeRefPtr<OffscreenCanvasPaintMethod>();
-    ASSERT_NE(paintMethod, nullptr);
-    RSColor color;
-    RSBrush brush(RSColor(0xffffffff));
-    RSPen pen;
-    paintMethod->state_.strokeState.SetLineDash({ { 1.0, 0.0 }, 1.0 });
-    paintMethod->state_.strokeState.SetLineDashOffset(1.0);
-    paintMethod->UpdateLineDash(pen);
-    FilterProperty filter;
-    filter.filterParam_ = "test";
-    filter.filterType_ = FilterType::NONE;
-    paintMethod->SetPaintImage(&pen, &brush);
-    filter.filterType_ = FilterType::GRAYSCALE;
-    paintMethod->SetPaintImage(&pen, &brush);
-    float percentNum = 1.0f;
-    EXPECT_FALSE(paintMethod->CheckNumberAndPercentage(filter.filterParam_, true, percentNum));
-    filter.filterType_ = FilterType::SEPIA;
-    paintMethod->SetPaintImage(&pen, &brush);
-    EXPECT_FALSE(paintMethod->CheckNumberAndPercentage(filter.filterParam_, true, percentNum));
-    filter.filterType_ = FilterType::SATURATE;
-    paintMethod->SetPaintImage(&pen, &brush);
-    EXPECT_FALSE(paintMethod->CheckNumberAndPercentage(filter.filterParam_, true, percentNum));
-    filter.filterType_ = FilterType::HUE_ROTATE;
-    paintMethod->SetPaintImage(&pen, &brush);
-    EXPECT_FALSE(paintMethod->CheckNumberAndPercentage(filter.filterParam_, true, percentNum));
-}
-
-/**
- * @tc.name: CanvasCustomPaintMethodTest040
- * @tc.desc: Test the function 'InitImagePaint' of the class 'CustomPaintPaintMethod'.
- * @tc.type: FUNC
- */
-HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest040, TestSize.Level1)
-{
+    paintMethod->settingsAntiAlias_ = false;
+    paintMethod->SetAntialiasExt(true);
+    EXPECT_TRUE(paintMethod->antiAlias_);
+    EXPECT_TRUE(paintMethod->fontAntiAlias_.has_value());
+    EXPECT_TRUE(paintMethod->fontAntiAlias_.value());
     /**
-     * @tc.steps1: initialize parameters.
-     * @tc.expected: All pointer is non-null.
+     * @tc.steps3: Call to function SetAntialiasExt with false value when settingsAntiAlias is true.
+     * @tc.expected: antiAlias is false, fontAntiAlias has value and is false.
      */
-    auto paintMethod = AceType::MakeRefPtr<OffscreenCanvasPaintMethod>();
-    ASSERT_NE(paintMethod, nullptr);
-    RSPen pen;
-    paintMethod->state_.strokeState.SetLineDash({ { 1.0, 0.0 }, 1.0 });
-    paintMethod->state_.strokeState.SetLineDashOffset(1.0);
-    paintMethod->UpdateLineDash(pen);
-    RSBrush brush(RSColor(0xffffffff));
-    paintMethod->smoothingQuality_ = "medium";
-    float percentNum = 1.0f;
-    FilterProperty filter;
-    RSSamplingOptions options;
-    paintMethod->InitImagePaint(&pen, &brush, options);
-    EXPECT_FALSE(paintMethod->CheckNumberAndPercentage(filter.filterParam_, true, percentNum));
-    paintMethod->smoothingQuality_ = "high";
-    paintMethod->InitImagePaint(&pen, &brush, options);
-    EXPECT_FALSE(paintMethod->CheckNumberAndPercentage(filter.filterParam_, true, percentNum));
-    paintMethod->smoothingQuality_ = "test";
-    paintMethod->InitImagePaint(&pen, &brush, options);
-    paintMethod->smoothingEnabled_ = false;
-    paintMethod->smoothingQuality_ = "high";
-    paintMethod->InitImagePaint(&pen, &brush, options);
-    EXPECT_FALSE(paintMethod->CheckNumberAndPercentage(filter.filterParam_, true, percentNum));
-}
-
-/**
- * @tc.name: CanvasCustomPaintMethodTest041
- * @tc.desc: Test the function 'UpdatePaintShader' of the class 'CustomPaintPaintMethod'.
- * @tc.type: FUNC
- */
-HWTEST_F(CanvasCustomPaintMethodTestNg, CanvasCustomPaintMethodTest041, TestSize.Level1)
-{
-    auto paintMethod = AceType::MakeRefPtr<OffscreenCanvasPaintMethod>();
-    ASSERT_NE(paintMethod, nullptr);
-    RSPen pen;
-    paintMethod->state_.strokeState.SetLineDash({ { 1.0, 0.0 }, 1.0 });
-    paintMethod->state_.strokeState.SetLineDashOffset(1.0);
-    paintMethod->UpdateLineDash(pen);
-    RSBrush brush(RSColor(0xffffffff));
-    Ace::Gradient gradient;
-    paintMethod->UpdatePaintShader(&pen, &brush, gradient);
-    EXPECT_EQ(gradient.GetType(), Ace::GradientType::LINEAR);
-    gradient.type_ = Ace::GradientType::CONIC;
-    paintMethod->UpdatePaintShader(&pen, &brush, gradient);
-    EXPECT_EQ(gradient.GetType(), Ace::GradientType::CONIC);
-    gradient.type_ = Ace::GradientType::SWEEP;
-    paintMethod->UpdatePaintShader(&pen, &brush, gradient);
-    RSPoint beginPoint = RSPoint(static_cast<RSScalar>(gradient.GetBeginOffset().GetX()),
-        static_cast<RSScalar>(gradient.GetBeginOffset().GetY()));
-    RSPoint endPoint = RSPoint(
-        static_cast<RSScalar>(gradient.GetEndOffset().GetX()), static_cast<RSScalar>(gradient.GetEndOffset().GetY()));
-    EXPECT_FALSE(gradient.GetInnerRadius() <= 0.0 && beginPoint == endPoint);
-}
-
-/**
- * @tc.name: GetSystemDirectionTest
- * @tc.desc: Test the function 'GetSystemDirection' of the class 'CanvasPaintMethod'.
- * @tc.type: FUNC
- */
-HWTEST_F(CanvasCustomPaintMethodTestNg, GetSystemDirectionTest, TestSize.Level1)
-{
+    paintMethod->settingsAntiAlias_ = true;
+    paintMethod->SetAntialiasExt(false);
+    EXPECT_FALSE(paintMethod->antiAlias_);
+    EXPECT_TRUE(paintMethod->fontAntiAlias_.has_value());
+    EXPECT_FALSE(paintMethod->fontAntiAlias_.value());
     /**
-     * @tc.steps1: initialize parameters.
-     * @tc.expected: All pointer is non-null.
+     * @tc.steps4: Call to function SetAntialiasExt with undefined when settingsAntiAlias is true.
+     * @tc.expected: antiAlias is true, fontAntiAlias has no value.
      */
-    auto* stack = ViewStackProcessor::GetInstance();
-    auto nodeId = stack->ClaimNodeId();
-    auto contentModifier = AceType::MakeRefPtr<CanvasModifier>();
-    ASSERT_TRUE(contentModifier);
-    auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::CANVAS_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<CanvasPattern>(); });
-    ASSERT_TRUE(frameNode);
-    frameNode->layoutProperty_ = AceType::MakeRefPtr<LayoutProperty>();
-    auto paintMethod = AceType::MakeRefPtr<CanvasPaintMethod>(contentModifier, frameNode);
-    ASSERT_TRUE(paintMethod);
-    paintMethod->frameNode_ = std::move(frameNode);
-
+    paintMethod->settingsAntiAlias_ = true;
+    paintMethod->SetAntialiasExt(std::nullopt);
+    EXPECT_TRUE(paintMethod->antiAlias_);
+    EXPECT_FALSE(paintMethod->fontAntiAlias_.has_value());
     /**
-     * @tc.steps2: layoutDirection_ default is TextDirection::AUTO.
-     * @tc.expected: return TextDirection::LTR.
+     * @tc.steps5: Call to function SetAntialiasExt with undefined when settingsAntiAlias is false.
+     * @tc.expected: antiAlias is false, fontAntiAlias has no value.
      */
-    TextDirection ret = paintMethod->GetSystemDirection();
-    EXPECT_EQ(ret, TextDirection::LTR);
-
-    /**
-     * @tc.steps3: layoutDirection_ is not TextDirection::AUTO.
-     * @tc.expected: return TextDirection::INHERIT.
-     */
-    frameNode->layoutProperty_->layoutDirection_ = TextDirection::INHERIT;
-    ret = paintMethod->GetSystemDirection();
-    EXPECT_EQ(ret, TextDirection::INHERIT);
-}
-
-/**
- * @tc.name: GetImageDataTest
- * @tc.desc: Test the function 'GetImageData' of the class 'CanvasPaintMethod'.
- * @tc.type: FUNC
- */
-HWTEST_F(CanvasCustomPaintMethodTestNg, GetImageDataTest, TestSize.Level1)
-{
-    /**
-     * @tc.steps1: initialize parameters.
-     * @tc.expected: All pointer is non-null.
-     */
-    auto* stack = ViewStackProcessor::GetInstance();
-    auto nodeId = stack->ClaimNodeId();
-    auto contentModifier = AceType::MakeRefPtr<CanvasModifier>();
-    ASSERT_TRUE(contentModifier);
-    auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::CANVAS_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<CanvasPattern>(); });
-    ASSERT_TRUE(frameNode);
-    auto paintMethod = AceType::MakeRefPtr<CanvasPaintMethod>(contentModifier, frameNode);
-    ASSERT_TRUE(paintMethod);
-    /**
-     * @tc.steps2: invoked by default.
-     * @tc.expected: DrawBitmap(renderContext, currentBitmap) return false.
-     */
-    auto imageData = paintMethod->GetImageData(10, 10, 10, 10);
-    EXPECT_FALSE(imageData);
-}
-
-/**
-* @tc.name: UpdateRecordingCanvasTest
-* @tc.desc: Test the function 'UpdateRecordingCanvas' of the class 'CanvasPaintMethod'.
-* @tc.type: FUNC
-*/
-HWTEST_F(CanvasCustomPaintMethodTestNg, UpdateRecordingCanvasTest, TestSize.Level1)
-{
-    /**
-     * @tc.steps1: initialize parameters.
-     * @tc.expected: All pointer is non-null.
-     */
-    auto* stack = ViewStackProcessor::GetInstance();
-    auto nodeId = stack->ClaimNodeId();
-    auto contentModifier = AceType::MakeRefPtr<CanvasModifier>();
-    ASSERT_TRUE(contentModifier);
-    auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::CANVAS_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<CanvasPattern>(); });
-    ASSERT_TRUE(frameNode);
-    auto paintMethod = AceType::MakeRefPtr<CanvasPaintMethod>(contentModifier, frameNode);
-    ASSERT_TRUE(paintMethod);
-
-    /**
-     * @tc.steps2: invoked by default.
-     * @tc.expected: set paintMethod->needMarkDirty_ is true.
-     */
-    paintMethod->UpdateRecordingCanvas(10, 10);
-    EXPECT_TRUE(paintMethod->needMarkDirty_);
-
-    /**
-     * @tc.steps3: set apiTargetVersion is VERSION_THIRTEEN.
-     * @tc.expected: set paintMethod->needMarkDirty_ is true.
-     */
-    auto container = Container::Current();
-    ASSERT_TRUE(container);
-    auto apiVersion = container->GetApiTargetVersion();
-    container->SetApiTargetVersion(static_cast<int32_t>(PlatformVersion::VERSION_THIRTEEN));
-    paintMethod->UpdateRecordingCanvas(10, 10);
-    EXPECT_TRUE(paintMethod->needMarkDirty_);
-    container->SetApiTargetVersion(apiVersion);
+    paintMethod->settingsAntiAlias_ = false;
+    paintMethod->SetAntialiasExt(std::nullopt);
+    EXPECT_FALSE(paintMethod->antiAlias_);
+    EXPECT_FALSE(paintMethod->fontAntiAlias_.has_value());
 }
 } // namespace OHOS::Ace::NG

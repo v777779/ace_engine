@@ -35,7 +35,7 @@ public:
     ~DragPreview() = default;
 
     static void SetForegroundColor([[maybe_unused]] ani_env *env, [[maybe_unused]] ani_object object,
-        Ark_ResourceColor color, ani_long dragPreviewPtr)
+        ani_long colorValue, ani_long dragPreviewPtr)
     {
         CHECK_NULL_VOID(env);
         if (ANI_OK != env->CreateLocalScope(SPECIFIED_CAPACITY)) {
@@ -52,7 +52,8 @@ public:
             env->DestroyLocalScope();
             return;
         }
-        modifier->getDragControllerAniModifier()->aniDragPreviewSetForegroundColor(color, dragPreview->previewAsync_);
+        modifier->getDragControllerAniModifier()->aniDragPreviewSetForegroundColor(
+            colorValue, dragPreview->previewAsync_);
         env->DestroyLocalScope();
     }
 
@@ -86,20 +87,24 @@ public:
         env->DestroyLocalScope();
     }
 
-    void AniSerializer([[maybe_unused]] ani_env *env, ani_object& result)
+    bool AniSerializer([[maybe_unused]] ani_env *env, ani_object& result)
     {
         static const char *className = "@ohos.arkui.dragController.dragController.DragPreviewInner";
         ani_class cls;
         if (ANI_OK != env->FindClass(className, &cls)) {
             HILOGE("AceDrag, find DragPreviewInner calss fail");
-            return;
+            return false;
         }
         ani_method method;
-        if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", nullptr, &method)) {
+        if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", "l:", &method)) {
             HILOGE("AceDrag, find constructor method failed.");
-            return;
+            return false;
         }
-        env->Object_New(cls, method, &result, reinterpret_cast<ani_long>(this));
+        if (ANI_OK != env->Object_New(cls, method, &result, reinterpret_cast<ani_long>(this))) {
+            HILOGE("AceDrag, create DragPreview failed.");
+            return false;
+        }
+        return true;
     }
 
 private:

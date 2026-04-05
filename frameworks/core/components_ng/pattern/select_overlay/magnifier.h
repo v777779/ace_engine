@@ -35,6 +35,7 @@ constexpr Dimension MAGNIFIER_SHADOWSIZE = 10.0_vp;
 constexpr float MAGNIFIER_FACTOR = 1.4f;
 constexpr float MAGNIFIER_SHADOWSTRENGTH = 0.08f;
 constexpr int32_t ANIMATION_DURATION_150 = 150;
+constexpr float MAGNIFIER_SHADOW_SIZE_SCALE = 1.5f;
 } // namespace
 class Magnifier : public virtual AceType {
     DECLARE_ACE_TYPE(Magnifier, AceType);

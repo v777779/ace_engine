@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,7 +19,8 @@ import window from '@ohos.window'
 import common from '@ohos.app.ability.common'
 import { BusinessError } from '@kit.BasicServicesKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { SymbolGlyphModifier, LengthMetrics } from '@kit.ArkUI'
+import { i18n } from '@kit.LocalizationKit';
 
 export interface TabTitleBarMenuItem {
   value: ResourceStr;
@@ -100,6 +101,11 @@ export struct TabTitleBar {
   private rightContext2D: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings)
 
   @Builder
+  GradientMaskArray(context2D: CanvasRenderingContext2D, position: Array<number>) {
+    this.GradientMask(context2D, position[0], position[1], position[2], position[3]);
+  }
+
+  @Builder
   GradientMask(context2D: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) {
     Column() {
       Canvas(context2D)
@@ -159,6 +165,17 @@ export struct TabTitleBar {
     })
   }
 
+  private isRTL(): boolean {
+    try {
+      return i18n?.isRTL(i18n?.System?.getSystemLanguage()) ?? false;
+    } catch (exception) {
+      const code: number = (exception as BusinessError)?.code;
+      const message: string = (exception as BusinessError)?.message;
+      hilog.error(0x3900, 'AdvancedTabTitleBar', `Failed to check RTL status, code: ${code}, message: ${message}`);
+      return false;
+    }
+  }
+
   build() {
     Column() {
       Flex({
@@ -192,11 +209,19 @@ export struct TabTitleBar {
               .listDirection(Axis.Horizontal)
               .scrollBar(BarState.Off)
             }
-            this.GradientMask(this.leftContext2D, 0, TabTitleBar.totalHeight / 2,
-              TabTitleBar.gradientMaskWidth, TabTitleBar.totalHeight / 2)
+            this.GradientMaskArray(
+              this.isRTL() ? this.rightContext2D : this.leftContext2D,
+              this.isRTL() ?
+                [TabTitleBar.gradientMaskWidth, TabTitleBar.totalHeight / 2, 0, TabTitleBar.totalHeight / 2] :
+                [0, TabTitleBar.totalHeight / 2, TabTitleBar.gradientMaskWidth, TabTitleBar.totalHeight / 2]
+            )
           }
-          this.GradientMask(this.rightContext2D, TabTitleBar.gradientMaskWidth,
-            TabTitleBar.totalHeight / 2, 0, TabTitleBar.totalHeight / 2)
+          this.GradientMaskArray(
+            this.isRTL() ? this.leftContext2D : this.rightContext2D,
+            this.isRTL() ?
+              [0, TabTitleBar.totalHeight / 2, TabTitleBar.gradientMaskWidth, TabTitleBar.totalHeight / 2] :
+              [TabTitleBar.gradientMaskWidth, TabTitleBar.totalHeight / 2, 0, TabTitleBar.totalHeight / 2]
+          )
         }
         .blendMode(BlendMode.SRC_OVER, BlendApplyType.OFFSCREEN)
 
@@ -209,7 +234,7 @@ export struct TabTitleBar {
         }
       }
       .backgroundColor($r('sys.color.ohos_id_color_background'))
-      .margin({ right: $r('sys.float.ohos_id_max_padding_end') })
+      .margin({ end: LengthMetrics.resource($r('sys.float.ohos_id_max_padding_end')) })
       .onAreaChange((_oldValue, newValue) => {
         this.tabWidth = Number(newValue.width) - this.menuSectionWidth
       })
@@ -230,7 +255,7 @@ export struct TabTitleBar {
             yOffset: 0,
             animation: {
               duration: 300,
-              curve: Curve.EaseInOut
+              curve: Curve.EaseInOut,
             }
           })
         })
@@ -289,16 +314,16 @@ struct CollapsibleMenuSection {
   getMoreIconFgColor() {
     return this.isMoreIconOnClick
       ? $r('sys.color.ohos_id_color_titlebar_icon_pressed')
-      : $r('sys.color.ohos_id_color_titlebar_icon')
+      : $r('sys.color.ohos_id_color_titlebar_icon');
   }
 
   getMoreIconBgColor() {
     if (this.isMoreIconOnClick) {
-      return $r('sys.color.ohos_id_color_click_effect')
+      return $r('sys.color.ohos_id_color_click_effect');
     } else if (this.isMoreIconOnHover) {
-      return $r('sys.color.ohos_id_color_hover')
+      return $r('sys.color.ohos_id_color_hover');
     } else {
-      return Color.Transparent
+      return Color.Transparent;
     }
   }
 
@@ -310,7 +335,7 @@ struct CollapsibleMenuSection {
     } catch (exception) {
       let code: number = (exception as BusinessError)?.code;
       let message: string = (exception as BusinessError)?.message;
-      hilog.error(0x3900, 'tabTitleBar', `Faild to decideFontScale,cause, code: ${code}, message: ${message}`);
+      hilog.error(0x3900, 'AdvancedTabTitleBar', `Failed to decideFontScale,cause, code: ${code}, message: ${message}`);
     }
     this.menuItems.forEach((item, index) => {
       if (item.isEnabled && this.firstFocusableIndex === -1 &&
@@ -322,11 +347,11 @@ struct CollapsibleMenuSection {
   }
 
   decideFontScale(): number {
-      let uiContent: UIContext = this.getUIContext();
-      this.systemFontScale = (uiContent.getHostContext() as common.UIAbilityContext)?.config?.fontSizeScale ?? 1;
-      if (!this.isFollowingSystemFontScale) {
-        return 1;
-      }
+    let uiContent: UIContext = this.getUIContext();
+    this.systemFontScale = (uiContent.getHostContext() as common.UIAbilityContext)?.config?.fontSizeScale ?? 1;
+    if (!this.isFollowingSystemFontScale) {
+      return 1;
+    }
     return Math.min(this.systemFontScale, this.maxFontScale);
   }
 
@@ -441,7 +466,7 @@ struct CollapsibleMenuSection {
     .width(ImageMenuItem.imageHotZoneWidth + CollapsibleMenuSection.focusPadding * CollapsibleMenuSection.marginsNum)
     .margin({ top: CollapsibleMenuSection.focusPadding, bottom: CollapsibleMenuSection.focusPadding })
     .onAppear(() => {
-      focusControl.requestFocus(ImageMenuItem.focusablePrefix + this.firstFocusableIndex)
+      focusControl.requestFocus(ImageMenuItem.focusablePrefix + this.firstFocusableIndex);
     })
   }
 }
@@ -451,36 +476,36 @@ struct TabContentItem {
   item: TabTitleBarTabItem = { title: '' };
   index: number = 0;
   maxIndex: number = 0;
-  onCustomClick?: (index: number) => void
-  onImageComplete?: (width: number) => void
+  onCustomClick?: (index: number) => void;
+  onImageComplete?: (width: number) => void;
 
-  @Prop currentIndex: number
+  @Prop currentIndex: number;
 
-  @State isOnFocus: boolean = false
-  @State isOnHover: boolean = false
-  @State isOnClick: boolean = false
-  @State tabWidth: number = 0
+  @State isOnFocus: boolean = false;
+  @State isOnHover: boolean = false;
+  @State isOnClick: boolean = false;
+  @State tabWidth: number = 0;
 
-  @State imageWidth: number = 24
-  @State imageHeight: number = 24
+  @State imageWidth: number = 24;
+  @State imageHeight: number = 24;
 
-  static readonly imageSize = 24
-  static readonly symbolSize = '24vp'
-  static readonly imageHotZoneWidth = 48
-  static readonly imageMagnificationFactor = 1.4
-  static readonly buttonBorderRadius = 8
-  static readonly focusBorderWidth = 2
-  static readonly paddingLeft = 8
-  static readonly paddingRight = 8
-  static readonly marginFirst = 16
+  static readonly imageSize = 24;
+  static readonly symbolSize = '24vp';
+  static readonly imageHotZoneWidth = 48;
+  static readonly imageMagnificationFactor = 1.4;
+  static readonly buttonBorderRadius = 8;
+  static readonly focusBorderWidth = 2;
+  static readonly paddingLeft = 8;
+  static readonly paddingRight = 8;
+  static readonly marginFirst = 16;
 
   getBgColor() {
     if (this.isOnClick) {
-      return $r('sys.color.ohos_id_color_click_effect')
+      return $r('sys.color.ohos_id_color_click_effect');
     } else if (this.isOnHover) {
-      return $r('sys.color.ohos_id_color_hover')
+      return $r('sys.color.ohos_id_color_hover');
     } else {
-      return Color.Transparent
+      return Color.Transparent;
     }
   }
 
@@ -490,18 +515,18 @@ struct TabContentItem {
         radius: $r('sys.float.ohos_id_corner_radius_clicked'),
         width: TabContentItem.focusBorderWidth,
         color: $r('sys.color.ohos_id_color_focused_outline'),
-        style: BorderStyle.Solid
+        style: BorderStyle.Solid,
       }
     }
     return { width: 0 }
   }
 
   getImageScaleFactor(): number {
-    return this.index === this.currentIndex ? TabContentItem.imageMagnificationFactor : 1
+    return this.index === this.currentIndex ? TabContentItem.imageMagnificationFactor : 1;
   }
 
   getImageLayoutWidth(): number {
-    return TabContentItem.imageSize / Math.max(this.imageHeight, 1.0) * this.imageWidth
+    return TabContentItem.imageSize / Math.max(this.imageHeight, 1.0) * this.imageWidth;
   }
 
   private toStringFormat(resource: ResourceStr | undefined): string | undefined {
@@ -516,7 +541,7 @@ struct TabContentItem {
       } catch (err) {
         let code: number = (err as BusinessError)?.code;
         let message: string = (err as BusinessError)?.message;
-        hilog.error(0x3900, 'Ace', `Faild to TabTitleBar toStringFormat,code: ${code},message:${message}`);
+        hilog.error(0x3900, 'AdvancedTabTitleBar', `Failed to TabTitleBar toStringFormat,code: ${code},message:${message}`);
       }
       return resourceString;
     }
@@ -646,21 +671,21 @@ struct TabContentItem {
             .onHover((isOn) => this.isOnHover = isOn)
             .onKeyEvent((event) => {
               if (event.keyCode !== KeyCode.KEYCODE_ENTER && event.keyCode !== KeyCode.KEYCODE_SPACE) {
-                return
+                return;
               }
               if (event.type === KeyType.Down) {
-                this.isOnClick = true
+                this.isOnClick = true;
               }
               if (event.type === KeyType.Up) {
-                this.isOnClick = false
+                this.isOnClick = false;
               }
             })
             .onTouch((event) => {
               if (event.type === TouchType.Down) {
-                this.isOnClick = true
+                this.isOnClick = true;
               }
               if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                this.isOnClick = false
+                this.isOnClick = false;
               }
             })
             .onClick(() => this.onCustomClick && this.onCustomClick(this.index))
@@ -691,7 +716,7 @@ struct TabContentItem {
             normal: {
               .border({
                 radius: $r('sys.float.ohos_id_corner_radius_clicked'),
-                width: 0
+                width: 0,
               })
             }
           })
@@ -699,7 +724,7 @@ struct TabContentItem {
     }
     .margin({
       left: this.index === 0 ? TabContentItem.marginFirst : 0,
-      right: this.index === this.maxIndex ? 12 : 0
+      right: this.index === this.maxIndex ? 12 : 0,
     })
   }
 }
@@ -709,30 +734,30 @@ struct ImageMenuItem {
   item: TabTitleBarMenuItem = { value: '' };
   index: number = 0;
 
-  static readonly imageSize = 24
-  static readonly imageHotZoneWidth = 48
-  static readonly buttonBorderRadius = 8
-  static readonly focusBorderWidth = 2
-  static readonly disabledImageOpacity = 0.4
-  static readonly focusablePrefix = "Id-TabTitleBar-ImageMenuItem-"
+  static readonly imageSize = 24;
+  static readonly imageHotZoneWidth = 48;
+  static readonly buttonBorderRadius = 8;
+  static readonly focusBorderWidth = 2;
+  static readonly disabledImageOpacity = 0.4;
+  static readonly focusablePrefix = 'Id-TabTitleBar-ImageMenuItem-';
 
-  @State isOnFocus: boolean = false
-  @State isOnHover: boolean = false
-  @State isOnClick: boolean = false
+  @State isOnFocus: boolean = false;
+  @State isOnHover: boolean = false;
+  @State isOnClick: boolean = false;
 
   getFgColor() {
     return this.isOnClick
       ? $r('sys.color.ohos_id_color_titlebar_icon_pressed')
-      : $r('sys.color.ohos_id_color_titlebar_icon')
+      : $r('sys.color.ohos_id_color_titlebar_icon');
   }
 
   getBgColor() {
     if (this.isOnClick) {
-      return $r('sys.color.ohos_id_color_click_effect')
+      return $r('sys.color.ohos_id_color_click_effect');
     } else if (this.isOnHover) {
-      return $r('sys.color.ohos_id_color_hover')
+      return $r('sys.color.ohos_id_color_hover');
     } else {
-      return Color.Transparent
+      return Color.Transparent;
     }
   }
 
@@ -748,7 +773,7 @@ struct ImageMenuItem {
       } catch (err) {
         let code: number = (err as BusinessError)?.code;
         let message: string = (err as BusinessError)?.message;
-        hilog.error(0x3900, 'Ace', `Faild to TabTitleBar toStringFormat,code: ${code},message:${message}`);
+        hilog.error(0x3900, 'AdvancedTabTitleBar', `Failed to TabTitleBar toStringFormat,code: ${code},message:${message}`);
       }
       return resourceString;
     }
@@ -761,7 +786,7 @@ struct ImageMenuItem {
       } catch (err) {
         let code: number = (err as BusinessError)?.code;
         let message: string = (err as BusinessError)?.message;
-        hilog.error(0x3900, 'Ace', `Faild to TabTitleBar toStringFormat,code: ${code},message:${message}`);
+        hilog.error(0x3900, 'AdvancedTabTitleBar', `Failed to TabTitleBar toStringFormat,code: ${code},message:${message}`);
       }
     } else if (this.item.accessibilityText) {
       return this.item.accessibilityText as string;
@@ -815,52 +840,52 @@ struct ImageMenuItem {
           radius: $r('sys.float.ohos_id_corner_radius_clicked'),
           width: ImageMenuItem.focusBorderWidth,
           color: $r('sys.color.ohos_id_color_focused_outline'),
-          style: BorderStyle.Solid
+          style: BorderStyle.Solid,
         })
       },
       normal: {
         .border({
           radius: $r('sys.float.ohos_id_corner_radius_clicked'),
-          width: 0
+          width: 0,
         })
       }
     })
     .onFocus(() => {
       if (!this.item.isEnabled) {
-        return
+        return;
       }
-      this.isOnFocus = true
+      this.isOnFocus = true;
     })
     .onBlur(() => this.isOnFocus = false)
     .onHover((isOn) => {
       if (!this.item.isEnabled) {
-        return
+        return;
       }
-      this.isOnHover = isOn
+      this.isOnHover = isOn;
     })
     .onKeyEvent((event) => {
       if (!this.item.isEnabled) {
-        return
+        return;
       }
       if (event.keyCode !== KeyCode.KEYCODE_ENTER && event.keyCode !== KeyCode.KEYCODE_SPACE) {
-        return
+        return;
       }
       if (event.type === KeyType.Down) {
-        this.isOnClick = true
+        this.isOnClick = true;
       }
       if (event.type === KeyType.Up) {
-        this.isOnClick = false
+        this.isOnClick = false;
       }
     })
     .onTouch((event) => {
       if (!this.item.isEnabled) {
-        return
+        return;
       }
       if (event.type === TouchType.Down) {
-        this.isOnClick = true
+        this.isOnClick = true;
       }
       if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-        this.isOnClick = false
+        this.isOnClick = false;
       }
     })
     .onClick(() => this.item.isEnabled && this.item.action && this.item.action())
@@ -1002,7 +1027,7 @@ struct TabTitleBarDialog {
     } catch (exception) {
       let code: number = (exception as BusinessError)?.code;
       let message: string = (exception as BusinessError)?.message;
-      hilog.error(0x3900, 'tabTitleBar', `Faild to getMainWindowSync,cause, code: ${code}, message: ${message}`);
+      hilog.error(0x3900, 'AdvancedTabTitleBar', `Failed to getMainWindowSync,cause, code: ${code}, message: ${message}`);
     }
   }
 }

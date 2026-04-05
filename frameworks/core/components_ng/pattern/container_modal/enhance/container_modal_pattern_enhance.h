@@ -70,6 +70,7 @@ public:
     void OnMaxButtonClick();
     void OnMinButtonClick();
     void OnCloseButtonClick();
+    void AddPointLight();
     virtual void CallMenuWidthChange(int32_t resId);
     int32_t AddButtonsRectChangeListener(ButtonsRectChangeListener&& listener);
     void RemoveButtonsRectChangeListener(int32_t id);
@@ -107,6 +108,7 @@ private:
     void BuildMenuList();
 
     void NotifyButtonsRectChange(const RectF& containerModal, const RectF& buttonsRect) override;
+    void InitMenuDefaultRadius();
 
     VisibleType controlButtonVisibleBeforeAnim_;
     RefPtr<FrameNode> menuList_;

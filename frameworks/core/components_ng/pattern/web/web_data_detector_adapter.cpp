@@ -24,6 +24,7 @@
 #include "base/utils/utils.h"
 #include "core/common/ai/data_detector_mgr.h"
 #include "core/components_ng/pattern/rich_editor_drag/preview_menu_controller.h"
+#include "core/components_ng/pattern/text/text_model.h"
 #include "core/components_ng/pattern/web/web_pattern.h"
 #include "core/components/text_overlay/text_overlay_theme.h"
 #include "core/components/web/resource/web_delegate.h"
@@ -89,6 +90,13 @@ WebDataDetectorAdapter::WebDataDetectorAdapter(const WeakPtr<Pattern>& pattern, 
     TextDetectConfig defaultConfig;
     defaultConfig.types = ALL_TEXT_DETECT_TYPES;
     SetDataDetectorConfig(defaultConfig);
+    if (!Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        TAG_LOGW(AceLogTag::ACE_WEB, "Using API Version less than 22");
+        SetSelectDataDetectorEnable(false);
+        SetSelectedDataDetectorConfig(defaultConfig, true);
+    } else {
+        SetSelectedDataDetectorConfig(defaultConfig, false);
+    }
 }
 
 void WebDataDetectorAdapter::SetDataDetectorEnable(bool enable)
@@ -97,10 +105,16 @@ void WebDataDetectorAdapter::SetDataDetectorEnable(bool enable)
     newConfig_.enable = enable;
 }
 
+void WebDataDetectorAdapter::SetSelectDataDetectorEnable(bool enable)
+{
+    TAG_LOGI(AceLogTag::ACE_WEB, "WebDataDetectorAdapter::SetSelectDataDetectorConfig: %{public}d", enable);
+    selectConfig_.enable = enable;
+}
+
 void WebDataDetectorAdapter::SetDataDetectorConfig(const TextDetectConfig& config)
 {
     TAG_LOGI(AceLogTag::ACE_WEB, "WebDataDetectorAdapter::UpdateDataDetectorConfig");
-    newConfig_.types = config.types.empty() ? ALL_TEXT_DETECT_TYPES : config.types;
+    newConfig_.types = config.types.empty() ? ALL_TEXT_DETECT_TYPES : FilterAndMapTypes(config.types);
     newConfig_.color = config.entityColor.ToString();
     TAG_LOGD(AceLogTag::ACE_WEB, "WebDataDetectorAdapter::UpdateDataDetectorConfig dataDetectType_ : %{public}s",
         newConfig_.types.c_str());
@@ -120,18 +134,56 @@ void WebDataDetectorAdapter::SetDataDetectorConfig(const TextDetectConfig& confi
         newConfig_.enablePreview);
 }
 
+void WebDataDetectorAdapter::SetSelectedDataDetectorConfig(const TextDetectConfig& config, bool fromInner)
+{
+    TAG_LOGI(AceLogTag::ACE_WEB, "WebDataDetectorAdapter::SetSelectDataDetectorConfig start");
+    if (!fromInner) {
+        selectConfig_.useDDtypes = false;
+    }
+    selectConfig_.types = config.types.empty() ? ALL_TEXT_DETECT_TYPES : FilterAndMapTypes(config.types);
+}
+
+std::string WebDataDetectorAdapter::GetSelectDataDetectorTypes()
+{
+    if (!selectConfig_.enable) {
+        return "";
+    }
+    if (config_.enable) {
+        if (selectConfig_.useDDtypes) {
+            return config_.types.empty() ? ALL_TEXT_DETECT_TYPES : config_.types;
+        } else {
+            return selectConfig_.types;
+        }
+    } else {
+        return selectConfig_.types;
+    }
+}
+
+void WebDataDetectorAdapter::InitSelectDataDetector()
+{
+    InitAIMenu();
+}
+
 void WebDataDetectorAdapter::Init()
 {
     if (!IsAISupported()) {
         return;
     }
     bool flag = config_.enable != newConfig_.enable || !hasInit_;
+    if (resultCache_ && config_.types != newConfig_.types) {
+        resultCache_->Clear();
+    }
     config_ = newConfig_;
     TAG_LOGI(AceLogTag::ACE_WEB, "WebDataDetectorAdapter::Init config changed = %{public}d, enable = %{public}d", flag,
         config_.enable);
     ResetContextMap();
     if (!flag) {
         return;
+    }
+    if (!Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        TAG_LOGI(AceLogTag::ACE_WEB, "WebDataDetectorAdapter::Init SetSelectDataDetectorEnable = %{public}d",
+            config_.enable);
+        SetSelectDataDetectorEnable(config_.enable);
     }
     if (config_.enable) {
         InitJSProxy();
@@ -346,6 +398,7 @@ void WebDataDetectorAdapter::ParseAIResultByType(std::shared_ptr<DataDetectorReq
         mat.clean = item->GetString("oriText"); // u8 string
         mat.end = mat.start + UtfUtils::Str8DebugToStr16(mat.clean).length(); // u16 offset not include
         mat.entityType = detectType;
+        mat.params = ParseExtraParams(detectType, item);
         int pos = MatchInOffsets(mat, requestContext->detectOffsets);
         if (pos < 0) {
             continue;
@@ -408,6 +461,46 @@ void WebDataDetectorAdapter::SendResultToJS(const std::string& resultStr)
     pattern->RunJavascriptAsync(jsCode,  [](std::string result) {});
 }
 
+std::map<std::string, std::string> WebDataDetectorAdapter::AttrsToParams(const std::unique_ptr<JsonValue>& attrs)
+{
+    if (!attrs || !attrs->IsObject()) {
+        return {};
+    }
+    std::map<std::string, std::string> params;
+    for (auto key : extraParamKeys_) {
+        auto value = attrs->GetString(key);
+        if (!value.empty()) {
+            params[key] = value;
+        }
+    }
+    return params;
+}
+
+std::map<std::string, std::string> WebDataDetectorAdapter::ParseExtraParams(
+    const std::string& detectType, const std::unique_ptr<JsonValue>& item)
+{
+    if (!item || !item->IsObject()) {
+        return {};
+    }
+    auto type = ConvertTypeFromString(detectType);
+    if (type == TextDataDetectType::INVALID) {
+        return {};
+    }
+    std::map<std::string, std::string> params;
+    switch (type) {
+        case TextDataDetectType::DATE_TIME: {
+            auto startTimestamp = item->GetInt64("startTimestamp", -1);
+            if (startTimestamp != -1) {
+                params["startTimestamp"] = std::to_string(startTimestamp);
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    return params;
+}
+
 int32_t WebDataDetectorAdapter::MatchInOffsets(
     EntityMatch& match, const std::vector<std::pair<size_t, size_t>>& detectOffsets)
 {
@@ -454,6 +547,10 @@ std::string WebDataDetectorAdapter::GetResultJsonString(const std::string& reque
 
             auto attrsJson = JsonUtil::Create(false);
             attrsJson->Put("OhosArkWebType", match.entityType.c_str());
+            for (auto [k, v] : match.params) {
+                attrsJson->Put(k.c_str(), v.c_str());
+                extraParamKeys_.insert(k);
+            }
 
             matchJson->PutRef("attrs", std::move(attrsJson));
             matchArray->PutRef(std::move(matchJson));
@@ -483,7 +580,7 @@ void WebDataDetectorAdapter::ProcessClick(const std::string& jsonStr)
     auto outerHTML = msg->GetString("outerHTML");
     auto entityType = msg->GetString("entityType");
     if (auto touchTest = msg->GetBool("touchTest")) {
-        SetPreviewMenuAttr(ConvertTypeFromString(entityType), content);
+        SetPreviewMenuAttr(ConvertTypeFromString(entityType), content, AttrsToParams(msg->GetObject("attrs")));
         return;
     }
     SetPreviewMenuAttr();
@@ -683,7 +780,7 @@ void WebDataDetectorAdapter::OnClickAISelectMenuOption(TextDataDetectType type, 
 {
     TAG_LOGI(
         AceLogTag::ACE_WEB, "WebDataDetectorAdapter::OnClickAISelectMenuOption %{public}d", static_cast<int32_t>(type));
-    if (!GetDataDetectorEnable()) {
+    if (!GetSelectDataDetectorEnable()) {
         return;
     }
     if (textDetectResult_.menuOptionAndAction.empty()) {
@@ -709,7 +806,7 @@ void WebDataDetectorAdapter::OnClickAISelectMenuOption(TextDataDetectType type, 
 
 void WebDataDetectorAdapter::DetectSelectedText(const std::string& detectText)
 {
-    if (!GetDataDetectorEnable()) {
+    if (!GetSelectDataDetectorEnable()) {
         return;
     }
     TAG_LOGD(AceLogTag::ACE_WEB, "WebDataDetectorAdapter::DetectSelectedText");
@@ -726,7 +823,7 @@ void WebDataDetectorAdapter::DetectSelectedText(const std::string& detectText)
         CHECK_NULL_VOID(adapter);
         adapter->OnDetectSelectedTextDone(result);
     };
-    TextDataDetectInfo info { detectText, config_.types };
+    TextDataDetectInfo info { detectText, GetSelectDataDetectorTypes() };
     AIPostTask(
         [info, resultFunc]() {
             TAG_LOGI(AceLogTag::ACE_WEB,
@@ -892,7 +989,7 @@ bool WebDataDetectorAdapter::GetPreviewMenuBuilder(
         ViewStackProcessor::GetInstance()->Push(menuNode);
     };
     previewBuilder = [menuType = previewMenuType_, menuContent = previewMenuContent_,
-                         instanceId = Container::CurrentIdSafely()]() {
+                         menuExtraParams = previewMenuExtraParams_, instanceId = Container::CurrentIdSafely()]() {
         ContainerScope scope(instanceId);
         // arkui create preview menu static func
         PreviewMenuController::CreatePreviewMenu(menuType, menuContent, nullptr);
@@ -941,10 +1038,12 @@ RefPtr<FrameNode> WebDataDetectorAdapter::GetPreviewMenuNode(const AIMenuInfo& i
     return overlayManager->BuildAIEntityMenu(menuOptions);
 }
 
-void WebDataDetectorAdapter::SetPreviewMenuAttr(TextDataDetectType type, const std::string& content)
+void WebDataDetectorAdapter::SetPreviewMenuAttr(
+    TextDataDetectType type, const std::string& content, const std::map<std::string, std::string>& params)
 {
     previewMenuType_ = type;
     previewMenuContent_ = (type != TextDataDetectType::INVALID) ? content : "";
+    previewMenuExtraParams_ = (type != TextDataDetectType::INVALID) ? params : std::map<std::string, std::string>();
 }
 
 TextDataDetectType WebDataDetectorAdapter::ConvertTypeFromString(const std::string& type)
@@ -954,6 +1053,43 @@ TextDataDetectType WebDataDetectorAdapter::ConvertTypeFromString(const std::stri
         return TextDataDetectType::INVALID;
     }
     return static_cast<TextDataDetectType>(std::distance(TEXT_DETECT_LIST.begin(), it));
+}
+
+std::string WebDataDetectorAdapter::FilterAndMapTypes(const std::string& types)
+{
+    std::vector<std::string> typeStrings;
+    std::stringstream ss(types);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        if (!token.empty()) {
+            typeStrings.push_back(token);
+        }
+    }
+
+    std::set<TextDataDetectType> uniqueTypes;
+
+    for (const auto& typeStr : typeStrings) {
+        TextDataDetectType converted = ConvertTypeFromString(typeStr);
+        if (converted != TextDataDetectType::INVALID) {
+            uniqueTypes.insert(converted);
+        }
+    }
+
+    std::vector<std::string> resultStrings;
+    for (const auto& type : uniqueTypes) {
+        if (static_cast<size_t>(type) < TEXT_DETECT_LIST.size()) {
+            resultStrings.push_back(TEXT_DETECT_LIST[static_cast<size_t>(type)]);
+        }
+    }
+
+    std::stringstream resultStream;
+    for (size_t i = 0; i < resultStrings.size(); ++i) {
+        if (i > 0)
+            resultStream << ",";
+        resultStream << resultStrings[i];
+    }
+
+    return resultStream.str();
 }
 
 void WebDataDetectorAdapter::CloseAIMenu()

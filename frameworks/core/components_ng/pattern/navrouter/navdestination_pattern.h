@@ -46,11 +46,13 @@ public:
 
     RefPtr<LayoutProperty> CreateLayoutProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<NavDestinationLayoutProperty>();
     }
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
+        ACE_UINODE_TRACE(GetHost());
         auto layout = MakeRefPtr<NavDestinationLayoutAlgorithm>();
         layout->SetIsShown(isOnShow_);
         return layout;
@@ -58,6 +60,7 @@ public:
 
     RefPtr<EventHub> CreateEventHub() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<NavDestinationEventHub>();
     }
 
@@ -166,19 +169,23 @@ public:
 
     void DumpInfo() override;
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
 
     uint64_t GetNavDestinationId() const
     {
         return navDestinationId_;
     }
 
+    void OnAttachToMainTree() override;
+    void OnAttachToMainTreeMultiThread();
     void OnDetachFromMainTree() override;
+    void OnDetachFromMainTreeMultiThread();
 
     bool OverlayOnBackPressed();
 
     void CreateOverlayManager(bool isShow)
     {
+        ACE_UINODE_TRACE(GetHost());
         if (!overlayManager_ && isShow) {
             overlayManager_ = MakeRefPtr<OverlayManager>(GetHost());
         }
@@ -221,6 +228,7 @@ public:
     bool NeedIgnoreKeyboard();
 
     void SetSystemBarStyle(const RefPtr<SystemBarStyle>& style);
+    void SetSystemBarStyleMultiThread(const RefPtr<SystemBarStyle>& style);
     const std::optional<RefPtr<SystemBarStyle>>& GetBackupStyle() const
     {
         return backupStyle_;
@@ -298,10 +306,30 @@ public:
 
     void UpdateSerializedParam(const std::string& param)
     {
-        serializedParam_ = param;
+        if (param != "" && param != "{}" && param != "undefined") {
+            serializedParam_ = param;
+        }
     }
 
     void BeforeCreateLayoutWrapper() override;
+    std::optional<SizeF> GetCurrentNavDestinationSize() const
+    {
+        if (navDestinationContext_) {
+            return navDestinationContext_->GetCurrentSize();
+        }
+        return std::nullopt;
+    }
+    void NotifyNavDestinationSizeChange(const std::optional<SizeF>& size, int64_t notifyId);
+
+    void SetIsStatic(bool isStatic)
+    {
+        isStatic_ = isStatic;
+    }
+
+    bool GetIsStatic() const
+    {
+        return isStatic_;
+    }
 
 private:
     struct HideBarOnSwipeContext {
@@ -331,7 +359,9 @@ private:
         RefPtr<NavDestinationGroupNode>& hostNode, bool& needRunTitleBarAnimation);
     void OnFontScaleConfigurationUpdate() override;
     void OnAttachToFrameNode() override;
+    void OnAttachToFrameNodeMultiThread();
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
+    void OnDetachFromFrameNodeMultiThread(FrameNode* frameNode);
     void OnWindowSizeChanged(int32_t width, int32_t height, WindowSizeChangeReason type) override;
     void CloseLongPressDialog();
     void CheckIfOrientationChanged();
@@ -339,11 +369,12 @@ private:
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config) override;
     void CheckIfStatusBarConfigChanged();
     void CheckIfNavigationIndicatorConfigChagned();
+    void OnVisibleChange(bool isVisible) override;
 
     RefPtr<ShallowBuilder> shallowBuilder_;
     std::string name_;
-    RefPtr<NavDestinationContext> navDestinationContext_;
     std::string inspectorId_;
+    RefPtr<NavDestinationContext> navDestinationContext_;
     RefPtr<UINode> customNode_;
     RefPtr<OverlayManager> overlayManager_;
     bool isOnShow_ = false;
@@ -363,6 +394,9 @@ private:
     bool isFirstTimeCheckNavigationIndicatorConfig_ = true;
     RefPtr<TouchEventImpl> touchListener_ = nullptr;
     std::string serializedParam_ = "";
+    bool isStatic_ = false;
+    bool needNotifySizeChangeWhenVisible_ = false;
+    int64_t lastSizeChangeNotifyId_ = 0;
 };
 } // namespace OHOS::Ace::NG
 

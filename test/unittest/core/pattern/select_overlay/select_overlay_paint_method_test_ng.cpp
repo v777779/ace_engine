@@ -13,18 +13,14 @@
  * limitations under the License.
  */
 #include <vector>
-
 #include "gtest/gtest.h"
 #include "gtest/internal/gtest-internal.h"
-
 #define private public
 #define protected public
-
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 #include "base/geometry/dimension_rect.h"
 #include "base/geometry/ng/offset_t.h"
 #include "base/geometry/ng/rect_t.h"
@@ -45,6 +41,8 @@
 #include "core/components_ng/pattern/select_overlay/select_overlay_pattern.h"
 #include "core/components_ng/pattern/select_overlay/select_overlay_property.h"
 #include "core/pipeline/base/constants.h"
+#undef private
+#undef protected
 
 using namespace testing;
 using namespace testing::ext;
@@ -125,10 +123,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateOverlayModifier001, TestSize.Leve
 
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -180,10 +178,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateOverlayModifier002, TestSize.Leve
 
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -239,10 +237,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateOverlayModifier003, TestSize.Leve
 
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -308,10 +306,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateOverlayModifier004, TestSize.Leve
 
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -370,10 +368,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateOverlayModifier005, TestSize.Leve
 
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -441,10 +439,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier001, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -462,7 +460,6 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier001, TestSize.Leve
     auto selectOverlayPaintMethod = AceType::DynamicCast<SelectOverlayPaintMethod>(paintMethod);
     EXPECT_NE(selectOverlayPaintMethod, nullptr);
     selectOverlayPaintMethod->isCreated_ = false;
-    EXPECT_EQ(selectOverlayPaintMethod->isCreated_, false);
     /**
      * @tc.steps: step2. call UpdateContentModifier.
      * @tc.expected: the isCreated_ value is correct.
@@ -501,10 +498,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier002, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -522,7 +519,6 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier002, TestSize.Leve
     auto selectOverlayPaintMethod = AceType::DynamicCast<SelectOverlayPaintMethod>(paintMethod);
     EXPECT_NE(selectOverlayPaintMethod, nullptr);
     selectOverlayPaintMethod->isCreated_ = false;
-    EXPECT_EQ(selectOverlayPaintMethod->isCreated_, false);
     /**
      * @tc.steps: step2. call UpdateContentModifier.
      * @tc.expected: the isCreated_ value is correct.
@@ -562,10 +558,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier003, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -583,9 +579,7 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier003, TestSize.Leve
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     PaintWrapper* paintWrapper = nullptr;
     selectOverlayPaintMethod->isCreated_ = true;
-    EXPECT_EQ(selectOverlayPaintMethod->isCreated_, true);
     selectOverlayPaintMethod->handleIsShown_ = false;
-    EXPECT_EQ(selectOverlayPaintMethod->handleIsShown_, false);
     selectOverlayPaintMethod->UpdateContentModifier(paintWrapper);
     EXPECT_EQ(selectOverlayPaintMethod->handleIsShown_, false);
 }
@@ -620,10 +614,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier004, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -641,16 +635,13 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier004, TestSize.Leve
     auto selectOverlayPaintMethod = AceType::DynamicCast<SelectOverlayPaintMethod>(paintMethod);
     EXPECT_NE(selectOverlayPaintMethod, nullptr);
     selectOverlayPaintMethod->isCreated_ = false;
-    EXPECT_EQ(selectOverlayPaintMethod->isCreated_, false);
     /**
      * @tc.steps: step2. call UpdateContentModifier, mock TextOverlayTheme is nullptr.
      * @tc.expected: the handleIsShown_ value is correct.
      */
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(nullptr));
     selectOverlayPaintMethod->isCreated_ = true;
-    EXPECT_EQ(selectOverlayPaintMethod->isCreated_, true);
     selectOverlayPaintMethod->handleIsShown_ = false;
-    EXPECT_EQ(selectOverlayPaintMethod->handleIsShown_, false);
     selectOverlayPaintMethod->UpdateContentModifier(paintWrapper);
     EXPECT_EQ(selectOverlayPaintMethod->handleIsShown_, false);
 }
@@ -685,10 +676,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier005, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -711,9 +702,7 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier005, TestSize.Leve
      */
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayPaintMethod->isCreated_ = true;
-    EXPECT_EQ(selectOverlayPaintMethod->isCreated_, true);
     selectOverlayPaintMethod->handleIsShown_ = false;
-    EXPECT_EQ(selectOverlayPaintMethod->handleIsShown_, false);
     selectOverlayPaintMethod->UpdateContentModifier(paintWrapper);
     EXPECT_EQ(selectOverlayPaintMethod->isCreated_, true);
     EXPECT_EQ(selectOverlayPaintMethod->handleIsShown_, true);
@@ -745,10 +734,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier006, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -808,10 +797,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier007, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -834,11 +823,8 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier007, TestSize.Leve
      */
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayPaintMethod->isCreated_ = false;
-    EXPECT_EQ(selectOverlayPaintMethod->isCreated_, false);
     selectOverlayPaintMethod->handleIsShown_ = false;
-    EXPECT_EQ(selectOverlayPaintMethod->handleIsShown_, false);
     selectOverlayPaintMethod->hasShowAnimation_ = false;
-    EXPECT_EQ(selectOverlayPaintMethod->hasShowAnimation_, false);
     selectOverlayPaintMethod->UpdateContentModifier(paintWrapper);
     EXPECT_EQ(selectOverlayPaintMethod->isCreated_, false);
     EXPECT_EQ(selectOverlayPaintMethod->handleIsShown_, true);
@@ -871,10 +857,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier008, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -934,10 +920,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier009, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -998,10 +984,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier010, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -1068,10 +1054,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier011, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -1127,10 +1113,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier012, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -1188,10 +1174,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier013, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -1244,10 +1230,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier014, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -1301,10 +1287,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier015, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -1358,10 +1344,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier016, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -1415,10 +1401,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier017, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);
@@ -1474,10 +1460,10 @@ HWTEST_F(SelectOverlayPaintMethodTestNg, UpdateContentModifier018, TestSize.Leve
     ASSERT_NE(selectOverlayNode, nullptr);
     selectOverlayNode->CreateToolBar();
     EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<SelectTheme>()));
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<TextOverlayTheme>()));
     selectOverlayNode->backButton_ = FrameNode::GetOrCreateFrameNode("SelectMoreOrBackButton",
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
     EXPECT_NE(selectOverlayNode->backButton_, nullptr);
-    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<MenuTheme>()));
     selectOverlayNode->AddExtensionMenuOptions(infoPtr, 0);
     EXPECT_NE(selectOverlayNode->selectMenu_, nullptr);
     EXPECT_NE(selectOverlayNode->extensionMenu_, nullptr);

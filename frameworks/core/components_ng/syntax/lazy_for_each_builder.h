@@ -24,18 +24,18 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <functional>
 
-#include "base/log/ace_trace.h"
+#include "base/utils/macros.h"
 #include "base/utils/noncopyable.h"
-#include "base/utils/time_util.h"
-#include "base/utils/utils.h"
-#include "core/components_ng/base/frame_node.h"
-#include "core/components_ng/base/inspector.h"
-#include "core/components_ng/base/ui_node.h"
+#include "core/components_ng/property/layout_constraint.h"
+#include "ui/properties/dirty_flag.h"
 #include "core/components_v2/foreach/lazy_foreach_component.h"
-#include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
+
+class FrameNode;
+class UINode;
 
 typedef struct OperationInfo {
     OperationInfo():node(nullptr) {}
@@ -54,7 +54,7 @@ using LazyForEachChild = std::pair<std::string, RefPtr<UINode>>;
 using LazyForEachCacheChild = std::pair<int32_t, RefPtr<UINode>>;
 
 class ACE_EXPORT LazyForEachBuilder : public virtual AceType {
-    DECLARE_ACE_TYPE(NG::LazyForEachBuilder, AceType)
+    DECLARE_ACE_TYPE(NG::LazyForEachBuilder, AceType);
 public:
     LazyForEachBuilder() = default;
     ~LazyForEachBuilder() override = default;
@@ -134,15 +134,7 @@ public:
 
     void RecordOutOfBoundaryNodes(int32_t index);
 
-    void InvalidIndexOfChangedData(size_t index)
-    {
-        for (auto& [key, child] : expiringItem_) {
-            if (static_cast<size_t>(child.first) == index) {
-                child.first = -1;
-                break;
-            }
-        }
-    }
+    void InvalidIndexOfChangedData(size_t index);
 
     RefPtr<UINode> GetChildByKey(const std::string& key)
     {
@@ -163,15 +155,7 @@ public:
     void ResetMoveFromTo();
     int32_t ConvertFromToIndex(int32_t index);
 
-    void SetFlagForGeneratedItem(PropertyChangeFlag propertyChangeFlag)
-    {
-        for (const auto& item : cachedItems_) {
-            if (!item.second.second) {
-                continue;
-            }
-            item.second.second->ForceUpdateLayoutPropertyFlag(propertyChangeFlag);
-        }
-    }
+    void SetFlagForGeneratedItem(PropertyChangeFlag propertyChangeFlag);
 
     RefPtr<UINode> CacheItem(int32_t index, std::unordered_map<std::string, LazyForEachCacheChild>& cache,
         const std::optional<LayoutConstraintF>& itemConstraint, int64_t deadline, bool& isTimeout);
@@ -183,15 +167,7 @@ public:
 
     bool ProcessPreBuildingIndex(std::unordered_map<std::string, LazyForEachCacheChild>& cache, int64_t deadline,
         const std::optional<LayoutConstraintF>& itemConstraint, bool canRunLongPredictTask,
-        std::set<int32_t>& idleIndexes)
-    {
-        if (idleIndexes.find(preBuildingIndex_) == idleIndexes.end()) {
-            preBuildingIndex_ = -1;
-            return true;
-        }
-        idleIndexes.erase(preBuildingIndex_);
-        return PreBuildByIndex(preBuildingIndex_, cache, deadline, itemConstraint, canRunLongPredictTask);
-    }
+        std::set<int32_t>& idleIndexes);
 
     bool PreBuild(int64_t deadline, const std::optional<LayoutConstraintF>& itemConstraint, bool canRunLongPredictTask);
 
@@ -200,54 +176,25 @@ public:
 
     void LoadCacheByIndex(std::unordered_map<std::string, LazyForEachCacheChild>& cache, std::set<int32_t>& idleIndexes,
         const LazyForEachCacheChild& node, const std::string& key, const std::set<int32_t>::iterator& iter,
-        std::unordered_map<std::string, LazyForEachCacheChild>::iterator& expiringIter)
-    {
-        ProcessOffscreenNode(node.second, false);
-
-        if (node.first == preBuildingIndex_) {
-            cache.try_emplace(key, node);
-        } else {
-            cache.try_emplace(key, std::move(node));
-            cachedItems_.try_emplace(node.first, LazyForEachChild(key, nullptr));
-            idleIndexes.erase(iter);
-        }
-
-        expiringIter++;
-    }
+        std::unordered_map<std::string, LazyForEachCacheChild>::iterator& expiringIter);
 
     void LoadCacheByKey(std::unordered_map<std::string, LazyForEachCacheChild>& cache, std::set<int32_t>& idleIndexes,
         const LazyForEachCacheChild& node, const std::string& key,
-        std::unordered_map<std::string, LazyForEachCacheChild>::iterator& expiringIter)
-    {
-        NotifyDataDeleted(node.second, static_cast<size_t>(node.first), true);
-        ProcessOffscreenNode(node.second, true);
-        NotifyItemDeleted(RawPtr(node.second), key);
-
-        if (node.second) {
-            node.second->DetachFromMainTree();
-        }
-        if (DeleteExpiringItemImmediately()) {
-            expiringIter = expiringItem_.erase(expiringIter);
-        } else {
-            expiringIter++;
-        }
-    }
+        std::unordered_map<std::string, LazyForEachCacheChild>::iterator& expiringIter);
 
     void ProcessOffscreenNode(RefPtr<UINode> uiNode, bool remove);
 
-    void ClearAllOffscreenNode()
-    {
-        for (auto& [key, node] : expiringItem_) {
-            ProcessOffscreenNode(node.second, true);
-        }
-        for (auto& [key, node] : cachedItems_) {
-            ProcessOffscreenNode(node.second, true);
-        }
-    }
+    void ReorganizeOffscreenNode();
+
+    void ProcessOffscreenNodesNotInExpiring(const std::unordered_map<std::string, LazyForEachCacheChild>& cache);
+
+    void ClearAllOffscreenNode();
 
     virtual void ReleaseChildGroupById(const std::string& id) = 0;
 
     virtual void RegisterDataChangeListener(const RefPtr<V2::DataChangeListener>& listener) = 0;
+
+    virtual void RegisterDataChangeListenerHandler() {}
 
     virtual void UnregisterDataChangeListener(V2::DataChangeListener* listener) = 0;
 
@@ -302,6 +249,15 @@ public:
 
     void SetDestroying(bool isDestroying, bool cleanStatus);
     void NotifyColorModeChange(uint32_t colorMode, bool rerenderable);
+
+    void EnablePreBuild(bool enable)
+    {
+        enablePreBuild_ = enable;
+    }
+
+    std::string DumpHashKey();
+    void DumpInfo();
+    
 
 protected:
     virtual int32_t OnGetTotalCount() = 0;
@@ -360,6 +316,7 @@ private:
     bool needTransition = false;
     bool isLoop_ = false;
     bool useNewInterface_ = false;
+    bool enablePreBuild_ = true;
     ACE_DISALLOW_COPY_AND_MOVE(LazyForEachBuilder);
 };
 } // namespace OHOS::Ace::NG

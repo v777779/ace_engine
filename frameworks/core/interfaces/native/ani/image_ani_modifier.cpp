@@ -19,6 +19,7 @@
 #include "base/image/pixel_map.h"
 #include "base/image/drawing_color_filter.h"
 #include "base/log/log.h"
+#include "core/components_ng/pattern/image/image_model_ng.h"
 #include "core/components_ng/pattern/image/image_model_static.h"
 #include "core/drawable/drawable_descriptor.h"
 #include "core/interfaces/native/implementation/color_filter_peer.h"
@@ -44,7 +45,7 @@ void SetDrawableDescriptor(ArkUINodeHandle node, void* drawableDescriptor)
 void SetResizableLattice(ArkUINodeHandle node, void* aniLattice)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node);
-    auto lattice = DrawingLattice::CreateDrawingLatticeFromNative(aniLattice);
+    auto lattice = DrawingLattice::CreateDrawingLatticeFromSptr(aniLattice);
     ImageModelStatic::SetResizableLattice(frameNode, lattice);
 }
 
@@ -100,6 +101,34 @@ void* GetDrawingLatticePeer(void* drawingLatticePeerPtr)
     return reinterpret_cast<void*>(drawing_LatticePeer::Create(drawingLatticePeerPtr));
 }
 
+void SetImageOnErrorCallback(
+    ArkUINodeHandle node, std::function<void(const ArkUIAniImageOnErrorParams &param)>&& callback)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (!callback) {
+        ImageModelNG::SetOnError(frameNode, nullptr);
+        return;
+    }
+    std::function<void(const ArkUIAniImageOnErrorParams &param)>
+        callbackFun = std::move(callback);
+    std::function<void(const LoadImageFailEvent& info)> onErrorCallbackFun = [callbackFun](
+                                                                                 const LoadImageFailEvent& info) {
+        if (!callbackFun) {
+            return;
+        }
+        ArkUIAniImageOnErrorParams params;
+        params.errorMessage = info.GetErrorMessage();
+        params.componentWidth = static_cast<int32_t>(info.GetComponentWidth());
+        params.componentHeight = static_cast<int32_t>(info.GetComponentHeight());
+        params.errorCode = static_cast<int32_t>(info.GetErrorInfo().errorCode);
+        params.errorInfo = info.GetErrorInfo().errorMessage;
+        callbackFun(params);
+    };
+
+    ImageModelNG::SetOnError(frameNode, std::move(onErrorCallbackFun));
+}
+
 const ArkUIAniImageModifier* GetImageAniModifier()
 {
     static const ArkUIAniImageModifier impl = {
@@ -112,6 +141,7 @@ const ArkUIAniImageModifier* GetImageAniModifier()
         .getColorFilter = OHOS::Ace::NG::GetColorFilter,
         .getDrawingColorFilterPeer = OHOS::Ace::NG::GetDrawingColorFilterPeer,
         .getDrawingLatticePeer = OHOS::Ace::NG::GetDrawingLatticePeer,
+        .setImageOnErrorCallback = OHOS::Ace::NG::SetImageOnErrorCallback,
     };
     return &impl;
 }

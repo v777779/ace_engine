@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -25,7 +25,7 @@
 #include "core/common/resource/resource_object.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/event/gesture_event_hub.h"
-#include "core/components_v2/list/list_properties.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 
 namespace OHOS::Ace {
 
@@ -46,6 +46,7 @@ public:
     virtual void SetSelectable(bool selectable) = 0;
     virtual void SetSelected(bool selected) = 0;
     virtual void SetSelectChangeEvent(std::function<void(bool)>&& changeEvent) = 0;
+    virtual void BindContextMenu() {}
     // use SetDeleteArea to update builder function
     virtual void SetSwiperAction(std::function<void()>&& startAction, std::function<void()>&& endAction,
         OnOffsetChangeFunc&& onOffsetChangeFunc, V2::SwipeEdgeEffect edgeEffect,
@@ -56,11 +57,11 @@ public:
         OnEnterDeleteAreaEvent&& onEnterDeleteArea, OnExitDeleteAreaEvent&& onExitDeleteArea,
         OnStateChangedEvent&& onStateChange, const Dimension& length, bool isStartArea,
         NG::FrameNode* node = nullptr) = 0;
+    virtual void SetAutoScale(bool autoScale) {}
     virtual void SetDeleteAreaWithFrameNode(const RefPtr<NG::UINode>& builderComponent, OnDeleteEvent&& onDelete,
         OnEnterDeleteAreaEvent&& onEnterDeleteArea, OnExitDeleteAreaEvent&& onExitDeleteArea,
         OnStateChangedEvent&& onStateChange, const Dimension& length, bool isStartArea,
         NG::FrameNode* node) = 0;
-    virtual void SetAutoScale(bool autoScale) {}
     virtual void ParseResObjStartArea(const RefPtr<ResourceObject>& resObj) {};
     virtual void ParseResObjEndArea(const RefPtr<ResourceObject>& resObj) {};
 

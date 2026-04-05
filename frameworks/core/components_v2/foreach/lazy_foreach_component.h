@@ -34,7 +34,7 @@ typedef struct Operation {
 } Operation;
 
 class DataChangeListener : virtual public AceType {
-    DECLARE_ACE_TYPE(DataChangeListener, AceType)
+    DECLARE_ACE_TYPE(DataChangeListener, AceType);
 public:
     virtual void OnDataReloaded() = 0;
     virtual void OnDataAdded(size_t index) = 0;
@@ -49,7 +49,7 @@ public:
     virtual void OnDataMoveToNewPlace(size_t from, size_t to) {}
 };
 
-class ACE_EXPORT LazyForEachComponent : public V1::ForEachComponent {
+class ACE_FORCE_EXPORT LazyForEachComponent : public V1::ForEachComponent {
     DECLARE_ACE_TYPE(V2::LazyForEachComponent, V1::ForEachComponent);
 
 public:

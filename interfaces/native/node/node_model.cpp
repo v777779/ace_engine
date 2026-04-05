@@ -15,14 +15,15 @@
 
 #include "node_model.h"
 
-
 #include "event_converter.h"
 #include "interfaces/native/event/ui_input_event_impl.h"
 #include "node_extened.h"
 #include "node_model_safely.h"
 #include "style_modifier.h"
+#include "frameworks/core/interfaces/drawable/drawable_api.h"
 
 #include "base/error/error_code.h"
+#include "base/log/log_wrapper.h"
 #include "base/utils/utils.h"
 
 namespace OHOS::Ace::NodeModel {
@@ -49,15 +50,31 @@ void* FindFunction(void* library, const char* name)
 }
 #else
 #include <dlfcn.h>
+class AceModule final {
+public:
+    AceModule()
+    {
+        const char libname[] = "libace_compatible.z.so";
+        handle_ = dlopen(libname, RTLD_LAZY | RTLD_LOCAL);
+        if (!handle_) {
+            TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot load libace: %{public}s", dlerror());
+        }
+    }
+    ~AceModule() {}
+
+    void* GetHandle() const
+    {
+        return handle_;
+    }
+
+private:
+    void* handle_ = nullptr;
+};
+
 void* FindModule()
 {
-    const char libname[] = "libace_compatible.z.so";
-    void* result = dlopen(libname, RTLD_LAZY | RTLD_LOCAL);
-    if (result) {
-        return result;
-    }
-    TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot load libace: %{public}s", dlerror());
-    return nullptr;
+    static AceModule module;
+    return module.GetHandle();
 }
 
 void* FindFunction(void* library, const char* name)
@@ -67,6 +84,34 @@ void* FindFunction(void* library, const char* name)
 #endif
 
 ArkUIFullNodeAPI* impl = nullptr;
+constexpr int32_t ANIMATION_STOP_MODE_FIRST_FRAME = 0;
+constexpr int32_t ANIMATION_STOP_MODE_LAST_FRAME = 1;
+using GetArkUIDrawableDescriptorFunc = const ArkUIDrawableDescriptor* (*)();
+
+const ArkUIDrawableDescriptor* GetArkUIDrawableModifier()
+{
+    static const ArkUIDrawableDescriptor* modifier = nullptr;
+    static bool initialized = false;
+    if (initialized) {
+        return modifier;
+    }
+    initialized = true;
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return nullptr;
+    }
+    auto entry = reinterpret_cast<GetArkUIDrawableDescriptorFunc>(FindFunction(module, DRAWABLE_FUNC_NAME));
+    if (!entry) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find GetArkUIDrawableDescriptor");
+        return nullptr;
+    }
+    modifier = entry();
+    if (!modifier) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "GetArkUIDrawableDescriptor returned null");
+    }
+    return modifier;
+}
 
 bool InitialFullNodeImpl(int version)
 {
@@ -100,6 +145,7 @@ bool InitialFullNodeImpl(int version)
 
     impl->getBasicAPI()->registerNodeAsyncEventReceiver(OHOS::Ace::NodeModel::HandleInnerEvent);
     impl->getExtendedAPI()->registerCustomNodeAsyncEventReceiver(OHOS::Ace::NodeModel::HandleInnerCustomEvent);
+    impl->getBasicAPI()->registerNodeAsyncCommonEventReceiver(OHOS::Ace::NodeModel::HandleInnerNodeCommonEvent);
     return true;
 }
 } // namespace
@@ -114,16 +160,6 @@ bool InitialFullImpl()
     return InitialFullNodeImpl(ARKUI_NODE_API_VERSION);
 }
 
-struct InnerEventExtraParam {
-    int32_t targetId;
-    ArkUI_NodeHandle nodePtr;
-    void* userData;
-};
-
-struct ExtraData {
-    std::unordered_map<int64_t, InnerEventExtraParam*> eventMap;
-};
-
 std::set<ArkUI_NodeHandle> g_nodeSet;
 
 bool IsValidArkUINode(ArkUI_NodeHandle nodePtr)
@@ -131,11 +167,10 @@ bool IsValidArkUINode(ArkUI_NodeHandle nodePtr)
     if (!nodePtr) {
         return false;
     }
-    if (nodePtr->threadSafeNode) {
-        return IsValidArkUINodeMultiThread(nodePtr);
-    } else {
-        return g_nodeSet.count(nodePtr) > 0;
+    if (g_nodeSet.count(nodePtr) > 0) {
+        return true;
     }
+    return IsValidArkUINodeMultiThread(nodePtr);
 }
 
 ArkUI_NodeHandle CreateNode(ArkUI_NodeType type)
@@ -144,13 +179,14 @@ ArkUI_NodeHandle CreateNode(ArkUI_NodeType type)
         ARKUI_TOGGLE, ARKUI_LOADING_PROGRESS, ARKUI_TEXT_INPUT, ARKUI_TEXTAREA, ARKUI_BUTTON, ARKUI_PROGRESS,
         ARKUI_CHECKBOX, ARKUI_XCOMPONENT, ARKUI_DATE_PICKER, ARKUI_TIME_PICKER, ARKUI_TEXT_PICKER,
         ARKUI_CALENDAR_PICKER, ARKUI_SLIDER, ARKUI_RADIO, ARKUI_IMAGE_ANIMATOR, ARKUI_XCOMPONENT_TEXTURE,
-        ARKUI_CHECK_BOX_GROUP, ARKUI_STACK, ARKUI_SWIPER, ARKUI_SCROLL, ARKUI_LIST, ARKUI_LIST_ITEM,
+        ARKUI_CHECK_BOX_GROUP, ARKUI_RICH_EDITOR, ARKUI_STACK, ARKUI_SWIPER, ARKUI_SCROLL, ARKUI_LIST, ARKUI_LIST_ITEM,
         ARKUI_LIST_ITEM_GROUP, ARKUI_COLUMN, ARKUI_ROW, ARKUI_FLEX, ARKUI_REFRESH, ARKUI_WATER_FLOW, ARKUI_FLOW_ITEM,
-        ARKUI_RELATIVE_CONTAINER, ARKUI_GRID, ARKUI_GRID_ITEM, ARKUI_CUSTOM_SPAN };
+        ARKUI_RELATIVE_CONTAINER, ARKUI_GRID, ARKUI_GRID_ITEM, ARKUI_CUSTOM_SPAN, ARKUI_EMBEDDED_COMPONENT,
+        ARKUI_UNDEFINED, ARKUI_PICKER };
     // already check in entry point.
     uint32_t nodeType = type < MAX_NODE_SCOPE_NUM ? type : (type - MAX_NODE_SCOPE_NUM + BASIC_COMPONENT_NUM);
     const auto* impl = GetFullImpl();
-    if (nodeType >= sizeof(nodes) / sizeof(ArkUINodeType)) {
+    if (nodeType >= sizeof(nodes) / sizeof(ArkUINodeType) || nodes[nodeType] == ARKUI_UNDEFINED) {
         TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "node type: %{public}d NOT IMPLEMENT", type);
         return nullptr;
     }
@@ -197,6 +233,15 @@ void DisposeNativeSource(ArkUI_NodeHandle nativePtr)
         delete nativePtr->areaChangeRadio;
         nativePtr->areaChangeRadio = nullptr;
     }
+    if (nativePtr->commonEventListeners) {
+        auto commonEventListenersSet =
+            reinterpret_cast<std::map<uint32_t, void (*)(ArkUI_NodeEvent*)>*>(nativePtr->commonEventListeners);
+        if (commonEventListenersSet) {
+            commonEventListenersSet->clear();
+        }
+        delete commonEventListenersSet;
+        nativePtr->commonEventListeners = nullptr;
+    }
 }
 
 void DisposeNode(ArkUI_NodeHandle nativePtr)
@@ -221,15 +266,15 @@ int32_t AddChild(ArkUI_NodeHandle parentNode, ArkUI_NodeHandle childNode)
     if (!CheckIsCNode(parentNode) || !CheckIsCNode(childNode)) {
         return ERROR_CODE_NATIVE_IMPL_BUILDER_NODE_ERROR;
     }
-    // a
+    // already check in entry point.
     if (parentNode->type == -1) {
         return ERROR_CODE_NATIVE_IMPL_BUILDER_NODE_ERROR;
     }
     const auto* impl = GetFullImpl();
     // already check in entry point.
-    impl->getBasicAPI()->addChild(parentNode->uiNodeHandle, childNode->uiNodeHandle);
+    int result = impl->getBasicAPI()->addChild(parentNode->uiNodeHandle, childNode->uiNodeHandle);
     impl->getBasicAPI()->markDirty(parentNode->uiNodeHandle, ARKUI_DIRTY_FLAG_MEASURE_BY_CHILD_REQUEST);
-    return ERROR_CODE_NO_ERROR;
+    return result;
 }
 
 int32_t RemoveChild(ArkUI_NodeHandle parentNode, ArkUI_NodeHandle childNode)
@@ -261,10 +306,10 @@ int32_t InsertChildAfter(ArkUI_NodeHandle parentNode, ArkUI_NodeHandle childNode
         return ERROR_CODE_NATIVE_IMPL_BUILDER_NODE_ERROR;
     }
     const auto* impl = GetFullImpl();
-    impl->getBasicAPI()->insertChildAfter(
+    int result = impl->getBasicAPI()->insertChildAfter(
         parentNode->uiNodeHandle, childNode->uiNodeHandle, siblingNode ? siblingNode->uiNodeHandle : nullptr);
     impl->getBasicAPI()->markDirty(parentNode->uiNodeHandle, ARKUI_DIRTY_FLAG_MEASURE_BY_CHILD_REQUEST);
-    return ERROR_CODE_NO_ERROR;
+    return result;
 }
 
 int32_t InsertChildBefore(ArkUI_NodeHandle parentNode, ArkUI_NodeHandle childNode, ArkUI_NodeHandle siblingNode)
@@ -279,10 +324,10 @@ int32_t InsertChildBefore(ArkUI_NodeHandle parentNode, ArkUI_NodeHandle childNod
         return ERROR_CODE_NATIVE_IMPL_BUILDER_NODE_ERROR;
     }
     const auto* impl = GetFullImpl();
-    impl->getBasicAPI()->insertChildBefore(
+    int result = impl->getBasicAPI()->insertChildBefore(
         parentNode->uiNodeHandle, childNode->uiNodeHandle, siblingNode ? siblingNode->uiNodeHandle : nullptr);
     impl->getBasicAPI()->markDirty(parentNode->uiNodeHandle, ARKUI_DIRTY_FLAG_MEASURE_BY_CHILD_REQUEST);
-    return ERROR_CODE_NO_ERROR;
+    return result;
 }
 
 int32_t InsertChildAt(ArkUI_NodeHandle parentNode, ArkUI_NodeHandle childNode, int32_t position)
@@ -297,9 +342,9 @@ int32_t InsertChildAt(ArkUI_NodeHandle parentNode, ArkUI_NodeHandle childNode, i
         return ERROR_CODE_NATIVE_IMPL_BUILDER_NODE_ERROR;
     }
     const auto* impl = GetFullImpl();
-    impl->getBasicAPI()->insertChildAt(parentNode->uiNodeHandle, childNode->uiNodeHandle, position);
+    int result = impl->getBasicAPI()->insertChildAt(parentNode->uiNodeHandle, childNode->uiNodeHandle, position);
     impl->getBasicAPI()->markDirty(parentNode->uiNodeHandle, ARKUI_DIRTY_FLAG_MEASURE_BY_CHILD_REQUEST);
-    return ERROR_CODE_NO_ERROR;
+    return result;
 }
 
 void SetAttribute(ArkUI_NodeHandle node, ArkUI_NodeAttributeType attribute, const char* value)
@@ -307,12 +352,30 @@ void SetAttribute(ArkUI_NodeHandle node, ArkUI_NodeAttributeType attribute, cons
     SetNodeAttribute(node, attribute, value);
 }
 
+bool IsSupportAttributeTypeWithBindNative(ArkUI_NodeHandle node, ArkUI_NodeAttributeType attribute)
+{
+    if (!node || !node->isBindNative) {
+        return false;
+    }
+
+    static std::set<ArkUI_NodeAttributeType> supportAttributeType = {
+        NODE_XCOMPONENT_SURFACE_SIZE,
+        NODE_XCOMPONENT_SURFACE_RECT
+    };
+
+    if (supportAttributeType.find(attribute) != supportAttributeType.end()) {
+        return true;
+    }
+
+    return false;
+}
+
 int32_t SetAttribute(ArkUI_NodeHandle node, ArkUI_NodeAttributeType attribute, const ArkUI_AttributeItem* value)
 {
     if (node == nullptr) {
         return ERROR_CODE_PARAM_INVALID;
     }
-    if (node->type == -1 && attribute != NODE_LAYOUT_RECT) {
+    if (node->type == -1 && attribute != NODE_LAYOUT_RECT && !IsSupportAttributeTypeWithBindNative(node, attribute)) {
         return ERROR_CODE_NATIVE_IMPL_BUILDER_NODE_ERROR;
     }
     return SetNodeAttribute(node, attribute, value);
@@ -378,18 +441,23 @@ int32_t RegisterNodeEvent(ArkUI_NodeHandle nodePtr, ArkUI_NodeEventType eventTyp
             return ERROR_CODE_PARAM_INVALID;
         }
         ArkUI_Int32 radioLength = radio->size;
-        if (radioLength <= 0) {
+        auto visibleAreaEventOptions = reinterpret_cast<ArkUI_VisibleAreaEventOptions*>(radio->object);
+        if (radioLength <= 0 && !visibleAreaEventOptions) {
             return ERROR_CODE_PARAM_INVALID;
         }
+        radioLength =
+            visibleAreaEventOptions ? static_cast<ArkUI_Int32>(visibleAreaEventOptions->ratios.size()) : radio->size;
         ArkUI_Float32 radioList[radioLength];
         for (int i = 0; i < radioLength; ++i) {
-            if (LessNotEqual(radio->value[i].f32, 0.0f) || GreatNotEqual(radio->value[i].f32, 1.0f)) {
+            ArkUI_Float32 data =  visibleAreaEventOptions ? visibleAreaEventOptions->ratios[i] : radio->value[i].f32;
+            if (LessNotEqual(data, 0.0f) || GreatNotEqual(data, 1.0f)) {
                 return ERROR_CODE_PARAM_INVALID;
             }
-            radioList[i] = radio->value[i].f32;
+            radioList[i] = data;
         }
+        bool measureFromViewport = visibleAreaEventOptions ? visibleAreaEventOptions->measureFromViewport : false;
         impl->getNodeModifiers()->getCommonModifier()->setOnVisibleAreaChange(
-            nodePtr->uiNodeHandle, reinterpret_cast<int64_t>(nodePtr), radioList, radioLength);
+            nodePtr->uiNodeHandle, reinterpret_cast<int64_t>(nodePtr), radioList, radioLength, measureFromViewport);
     } else if (eventType == NODE_VISIBLE_AREA_APPROXIMATE_CHANGE_EVENT) {
         auto options = nodePtr->visibleAreaEventOptions;
         if (!options) {
@@ -413,7 +481,7 @@ int32_t RegisterNodeEvent(ArkUI_NodeHandle nodePtr, ArkUI_NodeEventType eventTyp
         }
         impl->getNodeModifiers()->getCommonModifier()->setOnVisibleAreaApproximateChange(nodePtr->uiNodeHandle,
             reinterpret_cast<int64_t>(nodePtr), radioList, radioLength,
-            visibleAreaEventOptions->expectedUpdateInterval);
+            visibleAreaEventOptions->expectedUpdateInterval, visibleAreaEventOptions->measureFromViewport);
     } else {
         impl->getBasicAPI()->registerNodeAsyncEvent(
             nodePtr->uiNodeHandle, static_cast<ArkUIEventSubKind>(originEventType), reinterpret_cast<int64_t>(nodePtr));
@@ -523,12 +591,25 @@ void HandleClickEvent(ArkUI_UIInputEvent& uiEvent, ArkUINodeEvent* innerEvent)
     uiEvent.inputEvent = &(innerEvent->clickEvent);
 }
 
+void HandleCoastingAxisEvent(ArkUI_UIInputEvent& uiEvent, ArkUINodeEvent* innerEvent)
+{
+    uiEvent.eventTypeId = C_COASTING_AXIS_EVENT_ID;
+    uiEvent.inputEvent = &(innerEvent->coastingAxisEvent);
+}
+
+void HandleCrownEvent(ArkUI_UIInputEvent& uiEvent, ArkUINodeEvent* innerEvent)
+{
+    uiEvent.inputType = ARKUI_UIINPUTEVENT_TYPE_DIGITAL_CROWN;
+    uiEvent.eventTypeId = C_DIGITAL_CROWN_ID;
+    uiEvent.inputEvent = &(innerEvent->crownEvent);
+}
+
 void HandleInnerNodeEvent(ArkUINodeEvent* innerEvent)
 {
     if (!innerEvent) {
         return;
     }
-    auto nativeNodeEventType = GetNativeNodeEventType(innerEvent);
+    auto nativeNodeEventType = GetNativeNodeEventType(innerEvent, false);
     if (nativeNodeEventType == -1) {
         return;
     }
@@ -566,6 +647,8 @@ void HandleInnerNodeEvent(ArkUINodeEvent* innerEvent)
             {NODE_ON_CLICK_EVENT, HandleClickEvent},
             {NODE_ON_HOVER_EVENT, HandleHoverEvent},
             {NODE_ON_HOVER_MOVE, HandleTouchEvent},
+            {NODE_ON_COASTING_AXIS_EVENT, HandleCoastingAxisEvent},
+            {NODE_ON_DIGITAL_CROWN, HandleCrownEvent},
         };
 
         auto it = eventHandlers.find(eventType);
@@ -589,17 +672,17 @@ void HandleInnerNodeEvent(ArkUINodeEvent* innerEvent)
     }
 }
 
-int32_t GetNativeNodeEventType(ArkUINodeEvent* innerEvent)
+int32_t GetNativeNodeEventType(ArkUINodeEvent* innerEvent, bool isCommonEvent)
 {
     int32_t invalidType = -1;
     auto* nodePtr = reinterpret_cast<ArkUI_NodeHandle>(innerEvent->extraParam);
-    if (!IsValidArkUINode(nodePtr)) {
+    if (!IsValidArkUINode(nodePtr) && !(isCommonEvent && nodePtr)) {
         return invalidType;
     }
-    if (!nodePtr->extraData) {
+    if (isCommonEvent ? !nodePtr->extraCommonData : !nodePtr->extraData) {
         return invalidType;
     }
-    auto extraData = reinterpret_cast<ExtraData*>(nodePtr->extraData);
+    auto extraData = reinterpret_cast<ExtraData*>(isCommonEvent ? nodePtr->extraCommonData : nodePtr->extraData);
     ArkUIEventSubKind subKind = static_cast<ArkUIEventSubKind>(-1);
     switch (innerEvent->kind) {
         case COMPONENT_ASYNC_EVENT:
@@ -638,6 +721,21 @@ int32_t GetNativeNodeEventType(ArkUINodeEvent* innerEvent)
         case HOVER_EVENT:
             subKind = static_cast<ArkUIEventSubKind>(innerEvent->hoverEvent.subKind);
             break;
+        case COASTING_AXIS_EVENT:
+            subKind = static_cast<ArkUIEventSubKind>(innerEvent->coastingAxisEvent.subKind);
+            break;
+        case CHILD_TOUCH_TEST_EVENT:
+            subKind = static_cast<ArkUIEventSubKind>(innerEvent->touchTestInfo.subKind);
+            break;
+        case DIGITAL_CROWN_EVENT:
+            subKind = static_cast<ArkUIEventSubKind>(innerEvent->crownEvent.subKind);
+            break;
+        case PREVENTABLE_EVENT:
+            subKind = static_cast<ArkUIEventSubKind>(innerEvent->preventableEvent.subKind);
+            break;
+        case TEXT_EDITOR_CHANGE_EVENT:
+            subKind = static_cast<ArkUIEventSubKind>(innerEvent->textEditorChangeEvent.subKind);
+            break;
         default:
             break; /* Empty */
     }
@@ -669,16 +767,103 @@ void TriggerNodeEvent(ArkUI_NodeEvent* event, std::set<void (*)(ArkUI_NodeEvent*
     if (!eventListenersSet) {
         return;
     }
-    if (eventListenersSet->size() == 1) {
-        auto eventListener = eventListenersSet->begin();
-        (*eventListener)(event);
-    } else if (eventListenersSet->size() > 1) {
-        for (const auto& eventListener : *eventListenersSet) {
-            (*eventListener)(event);
-            if (!IsValidArkUINode(event->node)) {
-                break;
-            }
+    // Copy listeners to a local vector to avoid UAF when user callbacks modify the original set
+    std::vector<void (*)(ArkUI_NodeEvent*)> listenersCopy;
+    listenersCopy.reserve(eventListenersSet->size());
+    for (const auto& listener : *eventListenersSet) {
+        listenersCopy.push_back(listener);
+    }
+
+    // Use the copy for iteration and callbacks
+    for (const auto& eventListener : listenersCopy) {
+        eventListener(event);
+        if (!IsValidArkUINode(event->node)) {
+            break;
         }
+    }
+}
+
+void HandleInnerNodeCommonEvent(ArkUINodeEvent* innerEvent)
+{
+    if (!innerEvent) {
+        return;
+    }
+
+    auto nativeNodeEventType = GetNativeNodeEventType(innerEvent, true);
+    if (nativeNodeEventType == -1) {
+        return;
+    }
+
+    auto eventType = static_cast<ArkUI_NodeEventType>(nativeNodeEventType);
+    auto* nodePtr = reinterpret_cast<ArkUI_NodeHandle>(innerEvent->extraParam);
+    auto extraCommonData = reinterpret_cast<ExtraData*>(nodePtr->extraCommonData);
+    if (!extraCommonData) {
+        return;
+    }
+
+    auto innerEventExtraParam = extraCommonData->eventMap.find(eventType);
+    if (innerEventExtraParam == extraCommonData->eventMap.end()) {
+        return;
+    }
+    ArkUI_NodeEvent event;
+    event.node = nodePtr;
+    event.eventId = innerEventExtraParam->second->targetId;
+    event.userData = innerEventExtraParam->second->userData;
+    if (event.node && !event.node->commonEventListeners) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Common event receiver is not register");
+        return;
+    }
+    if ((event.node && event.node->commonEventListeners) && ConvertEvent(innerEvent, &event)) {
+        event.targetId = innerEvent->nodeId;
+        ArkUI_UIInputEvent uiEvent;
+        std::map<ArkUI_NodeEventType, std::function<void(ArkUI_UIInputEvent&, ArkUINodeEvent*)>> eventHandlers = {
+            {NODE_TOUCH_EVENT, HandleTouchEvent},
+            {NODE_ON_TOUCH_INTERCEPT, HandleTouchEvent},
+            {NODE_ON_MOUSE, HandleMouseEvent},
+            {NODE_ON_KEY_EVENT, HandleKeyEvent},
+            {NODE_ON_KEY_PRE_IME, HandleKeyEvent},
+            {NODE_ON_FOCUS_AXIS, HandleFocusAxisEvent},
+            {NODE_DISPATCH_KEY_EVENT, HandleKeyEvent},
+            {NODE_ON_AXIS, HandleAxisEvent},
+            {NODE_ON_CLICK_EVENT, HandleClickEvent},
+            {NODE_ON_HOVER_EVENT, HandleHoverEvent},
+            {NODE_ON_HOVER_MOVE, HandleTouchEvent},
+        };
+
+        auto it = eventHandlers.find(eventType);
+        if (it != eventHandlers.end()) {
+            it->second(uiEvent, innerEvent);
+            uiEvent.apiVersion = innerEvent->apiVersion;
+            event.origin = &uiEvent;
+        } else {
+            event.origin = innerEvent;
+        }
+        HandleNodeCommonEvent(&event, nativeNodeEventType);
+    }
+}
+
+void HandleNodeCommonEvent(ArkUI_NodeEvent* event, int32_t eventType)
+{
+    if (!event) {
+        return;
+    }
+    if (event->node && event->node->commonEventListeners) {
+        auto commonEventListenersMap =
+            reinterpret_cast<std::map<uint32_t, void (*)(ArkUI_NodeEvent*)>*>(event->node->commonEventListeners);
+        TriggerNodeCommonEvent(event, eventType, commonEventListenersMap);
+    }
+}
+
+void TriggerNodeCommonEvent(ArkUI_NodeEvent* event, int32_t eventType,
+    std::map<uint32_t, void (*)(ArkUI_NodeEvent*)>* commonEventListenersMap)
+{
+    if (!commonEventListenersMap) {
+        return;
+    }
+    auto it = commonEventListenersMap->find(eventType);
+    if (it != commonEventListenersMap->end()) {
+        const auto& eventListener = it->second;
+        (*eventListener)(event);
     }
 }
 
@@ -806,6 +991,23 @@ void* GetParseJsMedia()
     return reinterpret_cast<void*>(parseJsMedia);
 }
 
+void* GetParseStaticResource()
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return nullptr;
+    }
+    void (*parseJsMedia)(int32_t, int32_t, const char* paramC, void* resource) = nullptr;
+    parseJsMedia = reinterpret_cast<void (*)(int32_t, int32_t, const char*, void*)>(
+        FindFunction(module, "OHOS_ACE_ParseStaticMedia"));
+    if (!parseJsMedia) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_ParseStaticMedia");
+        return nullptr;
+    }
+    return reinterpret_cast<void*>(parseJsMedia);
+}
+
 void IncreaseRefDrawable(void* object)
 {
     void* module = FindModule();
@@ -836,6 +1038,413 @@ void DecreaseRefDrawable(void* object)
         return;
     }
     decrease(object);
+}
+
+void* CreateDrawable(uint32_t type)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return nullptr;
+    }
+    void* (*create)(uint32_t type) = nullptr;
+    create = reinterpret_cast<void* (*)(uint32_t)>(FindFunction(module, "OHOS_ACE_CreateDrawableDescriptorByType"));
+    if (!create) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_CreateDrawableDescriptorByType");
+        return nullptr;
+    }
+    auto* drawable = create(type);
+    return drawable;
+}
+
+void SetPixelMaps(void* object, std::vector<std::shared_ptr<OHOS::Media::PixelMap>> pixelMaps)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return;
+    }
+    void (*setPixelMaps)(void* object, std::vector<std::shared_ptr<OHOS::Media::PixelMap>> pixelMaps) = nullptr;
+    setPixelMaps = reinterpret_cast<void (*)(void*, std::vector<std::shared_ptr<OHOS::Media::PixelMap>>)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_SetPixelMapList"));
+    if (!setPixelMaps) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_SetPixelMapList");
+        return;
+    }
+    setPixelMaps(object, pixelMaps);
+}
+
+void SetTotalDuration(void* object, int32_t duration)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return;
+    }
+    void (*setFunc)(void* object, int32_t duration) = nullptr;
+    setFunc = reinterpret_cast<void (*)(void*, int32_t)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_SetTotalDuration"));
+    if (!setFunc) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_SetTotalDuration");
+        return;
+    }
+    setFunc(object, duration);
+}
+
+int32_t GetTotalDuration(void* object)
+{
+    int32_t duration = -1;
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return duration;
+    }
+    int32_t (*getFunc)(void* object) = nullptr;
+    getFunc = reinterpret_cast<int32_t (*)(void*)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_GetTotalDuration"));
+    if (!getFunc) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_GetTotalDuration");
+        return duration;
+    }
+    duration = getFunc(object);
+    return duration;
+}
+
+void SetIterations(void* object, int32_t iterations)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return;
+    }
+    void (*setFunc)(void* object, int32_t iterations) = nullptr;
+    setFunc = reinterpret_cast<void (*)(void*, int32_t)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_SetIterations"));
+    if (!setFunc) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_SetIterations");
+        return;
+    }
+    setFunc(object, iterations);
+}
+
+int32_t GetIterations(void* object)
+{
+    int32_t iterations = -1;
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return iterations;
+    }
+    int32_t (*getFunc)(void* object) = nullptr;
+    getFunc = reinterpret_cast<int32_t (*)(void*)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_GetIterations"));
+    if (!getFunc) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_GetIterations");
+        return iterations;
+    }
+    iterations = getFunc(object);
+    return iterations;
+}
+
+int32_t SetFrameDurations(void* object, uint32_t* durations, size_t size)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    uint32_t (*getFunc)(void* object) = nullptr;
+    getFunc = reinterpret_cast<uint32_t (*)(void*)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_GetFrameCount"));
+    if (!getFunc) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_GetFrameCount");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    auto count = static_cast<size_t>(getFunc(object));
+    if (count != size || size == 0 || count == 0) {
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    std::vector<int32_t> frameVec;
+    for (size_t i = 0; i < size; i++) {
+        frameVec.emplace_back(durations[i]);
+    }
+    void (*setFunc)(void* object, std::vector<int32_t> durations) = nullptr;
+    setFunc = reinterpret_cast<void (*)(void*, std::vector<int32_t>)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_SetDurations"));
+    if (!setFunc) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_SetDurations");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    setFunc(object, frameVec);
+    return ERROR_CODE_NO_ERROR;
+}
+
+int32_t GetFrameDurations(void* object, uint32_t* durations, size_t* size)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    int32_t (*getFunc)(void* object, uint32_t* durations, size_t* size) = nullptr;
+    getFunc = reinterpret_cast<int32_t (*)(void*, uint32_t*, size_t*)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_GetDurations"));
+    if (!getFunc) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_GetDurations");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    return getFunc(object, durations, size);
+}
+
+int32_t SetAutoPlay(void* object, uint32_t autoPlay)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    bool isAutoPlay = (autoPlay != 0);
+    void (*setFunc)(void* object, bool autoPlay) = nullptr;
+    setFunc = reinterpret_cast<void (*)(void*, bool)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_SetAutoPlay"));
+    if (!setFunc) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_SetAutoPlay");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    setFunc(object, isAutoPlay);
+    return ERROR_CODE_NO_ERROR;
+}
+
+int32_t GetAutoPlay(void* object, uint32_t* autoPlay)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    int32_t (*getFunc)(void* object, uint32_t* autoPlay) = nullptr;
+    getFunc = reinterpret_cast<int32_t (*)(void*, uint32_t*)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_GetAutoPlay"));
+    if (!getFunc) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_GetAutoPlay");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    return getFunc(object, autoPlay);
+}
+
+int32_t SetStopMode(void* object, int32_t stopMode)
+{
+    if (!object || stopMode < ANIMATION_STOP_MODE_FIRST_FRAME || stopMode > ANIMATION_STOP_MODE_LAST_FRAME) {
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    auto modifier = GetArkUIDrawableModifier();
+    if (!modifier || !modifier->setAnimatedStopMode) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find setAnimatedStopMode");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    modifier->setAnimatedStopMode(object, stopMode);
+    return ERROR_CODE_NO_ERROR;
+}
+
+int32_t GetStopMode(void* object, int32_t* stopMode)
+{
+    if (!object || !stopMode) {
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    auto modifier = GetArkUIDrawableModifier();
+    if (!modifier || !modifier->getAnimatedStopMode) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find getAnimatedStopMode");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    auto value = modifier->getAnimatedStopMode(object);
+    if (value < ANIMATION_STOP_MODE_FIRST_FRAME || value > ANIMATION_STOP_MODE_LAST_FRAME) {
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    *stopMode = value;
+    return ERROR_CODE_NO_ERROR;
+}
+
+int32_t CreateAnimationController(
+    void* object, ArkUI_NodeHandle node, ArkUI_DrawableDescriptor_AnimationController** controller)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    const auto* impl = GetFullImpl();
+    int32_t nodeId = impl->getNodeModifiers()->getCommonModifier()->getNodeUniqueId(node->uiNodeHandle);
+    void* (*getFunc)(void* object, const int32_t id) = nullptr;
+    getFunc = reinterpret_cast<void* (*)(void*, const int32_t)>(
+        FindFunction(module, "OHOS_ACE_AnimatedDrawableDescriptor_GetAnimationControllerById"));
+    if (!getFunc) {
+        TAG_LOGE(
+            AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimatedDrawableDescriptor_GetAnimationControllerById");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    *controller = new ArkUI_DrawableDescriptor_AnimationController();
+    if (!controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    (*controller)->drawableDescriptor = object;
+    (*controller)->controller = getFunc(object, nodeId);
+    if (!(*controller)->controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get real animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    void (*increase)(void* object) = nullptr;
+    increase = reinterpret_cast<void (*)(void*)>(FindFunction(module, "OHOS_ACE_IncreaseRefDrawableDescriptor"));
+    if (!increase) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_IncreaseRefDrawableDescriptor");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    increase(object);
+    return ERROR_CODE_NO_ERROR;
+}
+
+void DisposeAnimationController(ArkUI_DrawableDescriptor_AnimationController* controller)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return;
+    }
+    if (!controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get animated controller");
+        return;
+    }
+    void (*decrease)(void* object) = nullptr;
+    decrease = reinterpret_cast<void (*)(void*)>(FindFunction(module, "OHOS_ACE_DecreaseRefDrawableDescriptor"));
+    if (!decrease) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_DecreaseRefDrawableDescriptor");
+        return;
+    }
+    decrease(controller->drawableDescriptor);
+    delete controller;
+    controller = nullptr;
+}
+
+int32_t StartAnimation(ArkUI_DrawableDescriptor_AnimationController* controller)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    auto func = reinterpret_cast<void (*)(void*)>(FindFunction(module, "OHOS_ACE_AnimationController_Start"));
+    if (!func) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimationController_Start");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    if (!controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    if (!controller->controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get real animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    func(controller->controller);
+    return ERROR_CODE_NO_ERROR;
+}
+
+int32_t StopAnimation(ArkUI_DrawableDescriptor_AnimationController* controller)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    auto func = reinterpret_cast<void (*)(void*)>(FindFunction(module, "OHOS_ACE_AnimationController_Stop"));
+    if (!func) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimationController_Stop");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    if (!controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    if (!controller->controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get real animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    func(controller->controller);
+    return ERROR_CODE_NO_ERROR;
+}
+
+int32_t ResumeAnimation(ArkUI_DrawableDescriptor_AnimationController* controller)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    auto func = reinterpret_cast<void (*)(void*)>(FindFunction(module, "OHOS_ACE_AnimationController_Resume"));
+    if (!func) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimationController_Resume");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    if (!controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    if (!controller->controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get real animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    func(controller->controller);
+    return ERROR_CODE_NO_ERROR;
+}
+
+int32_t PauseAnimation(ArkUI_DrawableDescriptor_AnimationController* controller)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    auto func = reinterpret_cast<void (*)(void*)>(FindFunction(module, "OHOS_ACE_AnimationController_Pause"));
+    if (!func) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimationController_Pause");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    if (!controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    if (!controller->controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get real animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    func(controller->controller);
+    return ERROR_CODE_NO_ERROR;
+}
+
+int32_t GetAnimationStatus(
+    ArkUI_DrawableDescriptor_AnimationController* controller, DrawableDescriptor_AnimationStatus* status)
+{
+    void* module = FindModule();
+    if (!module) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get module");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    int32_t (*getFunc)(void* object) = nullptr;
+    getFunc = reinterpret_cast<int32_t (*)(void*)>(FindFunction(module, "OHOS_ACE_AnimationController_GetStatus"));
+    if (!getFunc) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "Cannot find OHOS_ACE_AnimationController_GetStatus");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    if (!controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    if (!controller->controller) {
+        TAG_LOGE(AceLogTag::ACE_NATIVE_NODE, "fail to get real animated controller");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    *status = static_cast<DrawableDescriptor_AnimationStatus>(getFunc(controller->controller));
+    return ERROR_CODE_NO_ERROR;
 }
 
 bool CheckIsCNode(ArkUI_NodeHandle node)
@@ -913,6 +1522,9 @@ int32_t GetNodeTypeByTag(ArkUI_NodeHandle node)
         { OHOS::Ace::V2::GRID_ITEM_ETS_TAG, ArkUI_NodeType::ARKUI_NODE_GRID_ITEM },
         { OHOS::Ace::V2::CUSTOM_SPAN_NODE_ETS_TAG, ArkUI_NodeType::ARKUI_NODE_CUSTOM_SPAN },
         { OHOS::Ace::V2::EMBEDDED_COMPONENT_ETS_TAG, ArkUI_NodeType::ARKUI_NODE_EMBEDDED_COMPONENT },
+        { OHOS::Ace::V2::CONTAINER_PICKER_ETS_TAG, ArkUI_NodeType::ARKUI_NODE_PICKER },
+        { OHOS::Ace::V2::RICH_EDITOR_ETS_TAG, ArkUI_NodeType::ARKUI_NODE_TEXT_EDITOR  },
+        { OHOS::Ace::V2::CUSTOM_ETS_TAG, ArkUI_NodeType::ARKUI_NODE_CUSTOM },
     };
 
     const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
@@ -965,7 +1577,10 @@ std::string ConvertNodeTypeToTag(ArkUI_NodeType nodeType)
         { static_cast<uint32_t>(ArkUI_NodeType::ARKUI_NODE_CUSTOM_SPAN), OHOS::Ace::V2::CUSTOM_SPAN_NODE_ETS_TAG },
         { static_cast<uint32_t>(ArkUI_NodeType::ARKUI_NODE_EMBEDDED_COMPONENT),
             OHOS::Ace::V2::EMBEDDED_COMPONENT_ETS_TAG },
-        { static_cast<uint32_t>(ArkUI_NodeType::ARKUI_NODE_UNDEFINED), OHOS::Ace::V2::UNDEFINED_NODE_ETS_TAG }
+        { static_cast<uint32_t>(ArkUI_NodeType::ARKUI_NODE_PICKER), OHOS::Ace::V2::CONTAINER_PICKER_ETS_TAG },
+        { static_cast<uint32_t>(ArkUI_NodeType::ARKUI_NODE_UNDEFINED), OHOS::Ace::V2::UNDEFINED_NODE_ETS_TAG },
+        { static_cast<uint32_t>(ArkUI_NodeType::ARKUI_NODE_TEXT_EDITOR), OHOS::Ace::V2::RICH_EDITOR_ETS_TAG },
+        { static_cast<uint32_t>(ArkUI_NodeType::ARKUI_NODE_CUSTOM), OHOS::Ace::V2::CUSTOM_ETS_TAG },
     };
     auto iter = nodeTypeConvertMap.find(static_cast<uint32_t>(nodeType));
     if (iter == nodeTypeConvertMap.end()) {
@@ -978,6 +1593,55 @@ void RegisterBindNativeNode(ArkUI_NodeHandle node)
 {
     CHECK_NULL_VOID(node);
     g_nodeSet.emplace(node);
+}
+
+bool MakeCommonEventMap(ArkUI_NodeHandle node, ArkUI_NodeEventType eventType, void* userData,
+    void (*callback)(ArkUI_NodeEvent* event))
+{
+    if (!node->commonEventListeners) {
+        node->commonEventListeners = new std::map<uint32_t, void (*)(ArkUI_NodeEvent*)>();
+    }
+    auto eventListenersMap =
+        reinterpret_cast<std::map<uint32_t, void (*)(ArkUI_NodeEvent*)>*>(node->commonEventListeners);
+    if (!eventListenersMap) {
+        return false;
+    }
+    auto* extraParam = new InnerEventExtraParam({ 0, node, userData });
+    if (node->extraCommonData) {
+        auto* extraData = reinterpret_cast<ExtraData*>(node->extraCommonData);
+        auto result = extraData->eventMap.try_emplace(eventType, extraParam);
+        if (!result.second) {
+            result.first->second->targetId = 0;
+            result.first->second->userData = userData;
+            delete extraParam;
+        }
+    } else {
+        node->extraCommonData = new ExtraData();
+        auto* extraData = reinterpret_cast<ExtraData*>(node->extraCommonData);
+        extraData->eventMap[eventType] = extraParam;
+    }
+    eventListenersMap->insert({eventType, callback});
+    return true;
+}
+
+bool ClearCommonEventMap(ArkUI_NodeHandle node, ArkUI_NodeEventType eventType)
+{
+    if (!node->extraCommonData) {
+        return false;
+    }
+    auto* extraData = reinterpret_cast<ExtraData*>(node->extraCommonData);
+    auto& eventMap = extraData->eventMap;
+    auto innerEventExtraParam = eventMap.find(eventType);
+    if (innerEventExtraParam == eventMap.end()) {
+        return false;
+    }
+    delete innerEventExtraParam->second;
+    eventMap.erase(innerEventExtraParam);
+    if (eventMap.empty()) {
+        delete extraData;
+        node->extraCommonData = nullptr;
+    }
+    return true;
 }
 } // namespace OHOS::Ace::NodeModel
 

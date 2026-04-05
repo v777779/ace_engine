@@ -29,7 +29,7 @@ namespace OHOS::Ace::NG {
 using NavPathList = std::vector<std::pair<std::string, RefPtr<UINode>>>;
 class NavDestinationContext;
 class RouteInfo : public virtual AceType {
-    DECLARE_ACE_TYPE(NG::RouteInfo, AceType)
+    DECLARE_ACE_TYPE(NG::RouteInfo, AceType);
 public:
     RouteInfo() = default;
     virtual ~RouteInfo() = default;
@@ -40,8 +40,25 @@ public:
     }
 };
 
+class NavigationStackExtend : public virtual AceType {
+    DECLARE_ACE_TYPE(NG::NavigationStackExtend, AceType);
+public:
+    NavigationStackExtend() = default;
+    virtual ~NavigationStackExtend() = default;
+
+    virtual std::string GetSerializedParamByIndex(int32_t index)
+    {
+        return "";
+    }
+
+    virtual napi_value GetNavPathStackExtendObj()
+    {
+        return nullptr;
+    }
+};
+
 class ACE_FORCE_EXPORT NavigationStack : public virtual AceType {
-    DECLARE_ACE_TYPE(NG::NavigationStack, AceType)
+    DECLARE_ACE_TYPE(NG::NavigationStack, AceType);
 public:
     NavigationStack() = default;
     ~NavigationStack() override = default;
@@ -56,6 +73,11 @@ public:
     NavPathList& GetPreNavPathList()
     {
         return preNavPathList_;
+    }
+
+    virtual void* GetStaticStackPtr()
+    {
+        return nullptr;
     }
 
     virtual void SetOnStateChangedCallback(std::function<void()> callback) {}
@@ -190,6 +212,10 @@ public:
     virtual void FireNavigationInterception(bool isBefore, const RefPtr<NG::NavDestinationContext>& from,
         const RefPtr<NG::NavDestinationContext>& to, NavigationOperation operation, bool isAnimated) {}
 
+    virtual void FireNavigationInterceptionBeforeLifeCycle(const RefPtr<NavigationStack>& navigationStack,
+        const RefPtr<NG::NavDestinationContext>& from, const int32_t index, bool isAnimated)
+    {}
+
     virtual void FireNavigationModeChange(NavigationMode mode) {}
 
     virtual void OnAttachToParent(RefPtr<NavigationStack> parent) {}
@@ -281,6 +307,29 @@ public:
         return false;
     }
 
+    virtual bool CreateRelatedDestination(
+        const std::string& name, const WeakPtr<NG::UINode>& customNode, RefPtr<NG::UINode>& node)
+    {
+        return false;
+    }
+
+    virtual void UpdatePreTopInfo() {}
+
+    virtual bool IsStaticStack()
+    {
+        return false;
+    }
+
+    void SetNavigationStackExtend(const RefPtr<NavigationStackExtend>& navigationStackExtend)
+    {
+        navigationStackExtend_ = navigationStackExtend;
+    }
+
+    RefPtr<NavigationStackExtend> GetNavigationStackExtend() const
+    {
+        return navigationStackExtend_;
+    }
+
 protected:
     void MoveToTop(const std::string& name, const RefPtr<UINode>& navDestinationNode);
     void AddForDefault(const std::string& name, const RefPtr<UINode>& navDestinationNode,
@@ -303,6 +352,7 @@ protected:
     std::vector<std::pair<std::string, WeakPtr<UINode>>> navPathListBeforePoped_;
     bool isCurForceSetList_ = false;
     bool isPreForceSetList_ = false;
+    RefPtr<NavigationStackExtend> navigationStackExtend_ = nullptr;
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_NAVIGATION_NAVIGATION_STACK_H

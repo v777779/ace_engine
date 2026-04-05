@@ -19,15 +19,16 @@
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/components_ng/pattern/dialog/custom_dialog_controller_model_static.h"
+#include "core/components_ng/pattern/overlay/level_order.h"
 #include "core/components/theme/shadow_theme.h"
 
 namespace OHOS::Ace::NG::Converter {
 template<>
-inline void AssignCast(std::optional<KeyboardAvoidMode>& dst, const Ark_KeyboardAvoidMode& src)
+inline void AssignCast(std::optional<KeyboardAvoidMode>& dst, const Ark_arkui_component_common_KeyboardAvoidMode& src)
 {
     switch (src) {
-        case ARK_KEYBOARD_AVOID_MODE_DEFAULT: dst = KeyboardAvoidMode::DEFAULT; break;
-        case ARK_KEYBOARD_AVOID_MODE_NONE: dst = KeyboardAvoidMode::NONE; break;
+        case ARK_ARKUI_COMPONENT_COMMON_KEYBOARD_AVOID_MODE_DEFAULT: dst = KeyboardAvoidMode::DEFAULT; break;
+        case ARK_ARKUI_COMPONENT_COMMON_KEYBOARD_AVOID_MODE_NONE: dst = KeyboardAvoidMode::NONE; break;
         default: LOGE("Unexpected enum value in Ark_KeyboardAvoidMode: %{public}d", src);
     }
 }
@@ -217,8 +218,8 @@ void CustomDialogControllerPeerImpl::SetBuilder(
             auto builderFunc = [uiNode]() -> RefPtr<UINode> {
                 return uiNode;
             };
-            CustomDialogControllerModelStatic::SetOpenDialog(
-                controller->dialogProperties_, controller->dialogs_, weakPeer, std::move(builderFunc));
+            CustomDialogControllerModelStatic::SetOpenDialog(controller->dialogProperties_, controller->dialogs_,
+                weakPeer, std::move(builderFunc), controller->hasBind_);
         }, reinterpret_cast<Ark_NativePointer>(AceType::RawPtr(frameNode)));
     };
 }
@@ -241,8 +242,8 @@ void CustomDialogControllerPeerImpl::SetBuilderExtender(
             auto builderFunc = [uiNode]() -> RefPtr<UINode> {
                 return uiNode;
             };
-            CustomDialogControllerModelStatic::SetOpenDialog(
-                controller->dialogProperties_, controller->dialogs_, weakPeer, std::move(builderFunc));
+            CustomDialogControllerModelStatic::SetOpenDialog(controller->dialogProperties_, controller->dialogs_,
+                weakPeer, std::move(builderFunc), controller->hasBind_);
         }, reinterpret_cast<Ark_NativePointer>(AceType::RawPtr(frameNode)));
     };
 }
@@ -393,6 +394,11 @@ void CustomDialogControllerPeerImpl::SetDismiss(Opt_Callback_DismissDialogAction
     AddOnWillDismiss(dialogProperties_, onWillDismiss);
 }
 
+void CustomDialogControllerPeerImpl::SetDismiss(Opt_synthetic_Callback_DismissDialogAction_Void onWillDismiss)
+{
+    AddOnWillDismiss(dialogProperties_, onWillDismiss);
+}
+
 void CustomDialogControllerPeerImpl::SetWidth(Opt_Dimension width)
 {
     auto optWidth = OptConvertFromOptNumStrRes(width);
@@ -438,7 +444,8 @@ void CustomDialogControllerPeerImpl::SetBlurStyle(Opt_BlurStyle backgroundBlurSt
         std::optional<int32_t>(static_cast<int32_t>(result.value())) : std::nullopt;
 }
 
-void CustomDialogControllerPeerImpl::SetKeyboardAvoidMode(Opt_KeyboardAvoidMode keyboardAvoidMode)
+void CustomDialogControllerPeerImpl::SetKeyboardAvoidMode(
+    Opt_arkui_component_common_KeyboardAvoidMode keyboardAvoidMode)
 {
     auto result = Converter::OptConvert<KeyboardAvoidMode>(keyboardAvoidMode);
     if (result) {
@@ -579,11 +586,25 @@ void CustomDialogControllerPeerImpl::SetLevelOrder(Opt_LevelOrder levelOrder)
     dialogProperties_.levelOrder = result.value_or(NG::LevelOrder::ORDER_DEFAULT);
 }
 
+void CustomDialogControllerPeerImpl::SetLevelOrderExtender(Opt_LevelOrderExtender levelOrderExtender)
+{
+    auto result = Converter::OptConvert<double>(levelOrderExtender);
+    dialogProperties_.levelOrder = result.value_or(NG::LevelOrder::ORDER_DEFAULT);
+}
+
 void CustomDialogControllerPeerImpl::SetFocusable(Opt_Boolean focusable)
 {
     auto result = Converter::OptConvert<bool>(focusable);
     if (result.has_value()) {
         dialogProperties_.focusable = result.value();
+    }
+}
+
+void CustomDialogControllerPeerImpl::SetSystemMaterial(Opt_uiMaterial_Material systemMaterial)
+{
+    auto result = Converter::OptConvert<UiMaterial*>(systemMaterial).value_or(nullptr);
+    if (result) {
+        dialogProperties_.systemMaterial = result->Copy();
     }
 }
 
@@ -610,6 +631,11 @@ void CustomDialogControllerPeerImpl::CloseDialog()
 {
     ContainerScope scope(instanceId_);
     CustomDialogControllerModelStatic::SetCloseDialog(dialogProperties_, dialogs_, WeakClaim(this));
+}
+
+PromptActionCommonState CustomDialogControllerPeerImpl::GetState()
+{
+    return CustomDialogControllerModelStatic::GetState(dialogs_, hasBind_);
 }
 
 RefPtr<UINode> CustomDialogControllerPeerImpl::GetWindowScene() const

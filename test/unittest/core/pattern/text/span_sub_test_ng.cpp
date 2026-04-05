@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 
-#include "test/mock/core/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
 
-#include "core/components_ng/pattern/text/span_model_ng.h"
 #include "core/components_ng/pattern/image/image_model_ng.h"
+#include "core/components_ng/pattern/text/span_model_ng.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -64,6 +64,7 @@ HWTEST_F(SpanTestNg, SpanSetBaselineOffsetTest002, TestSize.Level1)
      * @tc.steps: step1. create span node
      */
     SpanModelNG spanModelNG;
+
     spanModelNG.Create(CREATE_VALUE_W);
 
     /**
@@ -902,7 +903,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset002, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -924,7 +926,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset003, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -946,7 +949,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset004, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -968,7 +972,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset005, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -990,7 +995,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset006, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1012,7 +1018,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset007, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1034,7 +1041,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset008, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1056,7 +1064,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset009, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1078,7 +1087,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset010, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1100,7 +1110,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset011, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1122,7 +1133,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset012, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1144,7 +1156,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset013, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1166,7 +1179,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset014, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1191,7 +1205,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset015, TestSize.Level1)
     imageInfoConfig.src = std::make_shared<std::string>("");
     imageInfoConfig.bundleName = "";
     imageInfoConfig.moduleName = "";
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1216,7 +1231,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset016, TestSize.Level1)
     imageInfoConfig.src = std::make_shared<std::string>("");
     imageInfoConfig.bundleName = "";
     imageInfoConfig.moduleName = "";
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1238,7 +1254,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset017, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1260,7 +1277,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset018, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1282,7 +1300,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset019, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1304,7 +1323,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset020, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1326,7 +1346,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset021, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1348,7 +1369,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset022, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1370,7 +1392,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset023, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1407,7 +1430,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset024, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1447,7 +1471,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset025, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1487,7 +1512,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset026, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -1527,7 +1553,8 @@ HWTEST_F(SpanTestNg, ImageSpanSetBaselineOffset027, TestSize.Level1)
     ImageModelNG imageSpan;
     ImageInfoConfig imageInfoConfig;
     RefPtr<PixelMap> pixMap = nullptr;
-    imageSpan.Create(imageInfoConfig, pixMap);
+    imageInfoConfig.pixelMap = pixMap;
+    imageSpan.Create(imageInfoConfig);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<ImageLayoutProperty>();

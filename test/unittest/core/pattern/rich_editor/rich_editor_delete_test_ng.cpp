@@ -15,13 +15,13 @@
 
 #include "test/unittest/core/pattern/rich_editor/rich_editor_common_test_ng.h"
 #include "core/components_ng/pattern/text_field/text_field_manager.h"
-#include "test/mock/core/common/mock_udmf.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_theme.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_model_ng.h"
 
@@ -31,6 +31,8 @@ using namespace testing::ext;
 namespace OHOS::Ace::NG {
 namespace {
 constexpr int32_t SYMBOL_SPAN_LENGTH = 2;
+const std::u16string PREVIEW_TEXT = u"nin'hao";
+const std::string INIT_NUMBER = "01234567";
 }
 class RichEditorDeleteTestNg : public RichEditorCommonTestNg {
 public:
@@ -90,7 +92,7 @@ RefPtr<RichEditorPattern> RichEditorDeleteTestNg::GetRichEditorPattern()
  * @tc.desc: test add delete text span
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetTextSpan, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetTextSpan, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor controller
@@ -137,7 +139,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetTextSpan, TestSize.Level1)
  * @tc.desc: test delete imagespan
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetImageSpan001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetImageSpan001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor controller
@@ -182,7 +184,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetImageSpan001, TestSize.Level1)
  * @tc.desc: test DeleteValueSetImageSpan
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetImageSpan002, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetImageSpan002, TestSize.Level0)
 {
     AddImageSpan();
     ASSERT_NE(richEditorNode_, nullptr);
@@ -218,7 +220,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetImageSpan002, TestSize.Level1)
  * @tc.desc: test DeleteValueSetImageSpan
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetImageSpan003, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetImageSpan003, TestSize.Level0)
 {
     AddImageSpan();
     ASSERT_NE(richEditorNode_, nullptr);
@@ -251,7 +253,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetImageSpan003, TestSize.Level1)
  * @tc.desc: test RichEditorPattern HandleOnDelete
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, HandleOnDelete001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, HandleOnDelete001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -261,11 +263,51 @@ HWTEST_F(RichEditorDeleteTestNg, HandleOnDelete001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: DeleteBackwardFunction001
+ * @tc.desc: test DeleteBackwardFunction
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, DeleteBackwardFunction001, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    richEditorPattern->previewTextRecord_.previewContent = u"123";
+    richEditorPattern->previewTextRecord_.previewTextHasStarted = true;
+    richEditorPattern->previewTextRecord_.startOffset = 0;
+    richEditorPattern->previewTextRecord_.endOffset = 0;
+    richEditorPattern->DeleteBackwardFunction();
+
+    EXPECT_EQ(richEditorPattern->IsPreviewTextInputting(), true);
+}
+
+/**
+ * @tc.name: DeleteBackwardFunction002
+ * @tc.desc: test DeleteBackwardFunction
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, DeleteBackwardFunction002, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    richEditorPattern->previewTextRecord_.previewContent = u"";
+    richEditorPattern->previewTextRecord_.previewTextHasStarted = false;
+    richEditorPattern->previewTextRecord_.startOffset = 0;
+    richEditorPattern->previewTextRecord_.endOffset = 0;
+    richEditorPattern->DeleteBackwardFunction();
+
+    EXPECT_FALSE(richEditorPattern->IsPreviewTextInputting());
+}
+
+/**
  * @tc.name: DeleteBackward001
  * @tc.desc: test DeleteBackward
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteBackward001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteBackward001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -285,7 +327,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteBackward001, TestSize.Level1)
  * @tc.desc: test DeleteBackward
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteBackward002, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteBackward002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -329,7 +371,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteBackward002, TestSize.Level1)
  * @tc.desc: test DeleteBackward
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteBackward003, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteBackward003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -364,12 +406,18 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteBackward003, TestSize.Level1)
  * @tc.desc: test DeleteForward
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteForward001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteForward001, TestSize.Level0)
 {
+    /**
+     * @tc.steps: step1. get richEditor pattern
+     */
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
 
+    /**
+     * @tc.steps: step2. DeleteForward with PreviewTextInputting
+     */
     richEditorPattern->previewTextRecord_.previewContent = u"123";
     richEditorPattern->previewTextRecord_.previewTextHasStarted = true;
     richEditorPattern->previewTextRecord_.startOffset = 0;
@@ -383,7 +431,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteForward001, TestSize.Level1)
  * @tc.desc: test DeleteBackwardOperation
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteBackwardOperation001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteBackwardOperation001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -401,7 +449,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteBackwardOperation001, TestSize.Level1)
  * @tc.desc: test DeleteBackwardOperation
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteBackwardOperation002, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteBackwardOperation002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -415,11 +463,80 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteBackwardOperation002, TestSize.Level1)
 }
 
 /**
+ * @tc.name: SetPreviewTextForDelete001
+ * @tc.desc: test SetPreviewTextForDelete
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, SetPreviewTextForDelete001, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    /**
+     * @tc.steps: step1. preview text invalid or not by IME
+     */
+    int32_t oriLength = 0;
+    bool isBackward = true;
+    bool isByIME = true;
+    richEditorPattern->previewTextRecord_.previewContent = u"";
+    EXPECT_TRUE(richEditorPattern->SetPreviewTextForDelete(oriLength, isBackward, isByIME));
+
+    isByIME = false;
+    EXPECT_TRUE(richEditorPattern->SetPreviewTextForDelete(oriLength, isBackward, isByIME));
+
+    richEditorPattern->caretPosition_ = 7;
+    richEditorPattern->previewTextRecord_.previewContent = PREVIEW_TEXT;
+    richEditorPattern->previewTextRecord_.previewTextHasStarted = true;
+    richEditorPattern->previewTextRecord_.startOffset = 0;
+    richEditorPattern->previewTextRecord_.endOffset = 7;
+    EXPECT_TRUE(richEditorPattern->SetPreviewTextForDelete(oriLength, isBackward, isByIME));
+
+    /**
+     * @tc.steps: step2. caretPosition_ invalid
+     */
+    isByIME = true;
+    richEditorPattern->caretPosition_ = -1;
+    EXPECT_TRUE(richEditorPattern->SetPreviewTextForDelete(oriLength, isBackward, isByIME));
+
+    richEditorPattern->caretPosition_ = 8;
+    EXPECT_TRUE(richEditorPattern->SetPreviewTextForDelete(oriLength, isBackward, isByIME));
+
+    /**
+     * @tc.steps: step3. deleteBackward
+     */
+    richEditorPattern->caretPosition_ = 7;
+    oriLength = 1;
+    EXPECT_FALSE(richEditorPattern->SetPreviewTextForDelete(oriLength, isBackward, isByIME));
+
+    /**
+     * @tc.steps: step4. deleteForward
+     */
+    oriLength = 1;
+    isBackward = false;
+    richEditorPattern->caretPosition_ = 0;
+    EXPECT_FALSE(richEditorPattern->SetPreviewTextForDelete(oriLength, isBackward, isByIME));
+
+    /**
+     * @tc.steps: step5. delete nothing
+     */
+    oriLength = 0;
+    EXPECT_FALSE(richEditorPattern->SetPreviewTextForDelete(oriLength, isBackward, isByIME));
+
+    /**
+     * @tc.steps: step6. all preview texts have been deleted
+     */
+    oriLength = 7;
+    EXPECT_FALSE(richEditorPattern->SetPreviewTextForDelete(oriLength, isBackward, isByIME));
+    EXPECT_FALSE(richEditorPattern->IsPreviewTextInputting());
+}
+
+/**
  * @tc.name: DeleteSpansByRange001
  * @tc.desc: test DeleteSpansByRange
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteSpansByRange001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteSpansByRange001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -456,7 +573,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteSpansByRange001, TestSize.Level1)
  * @tc.desc: test DeleteSpansByRange
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteSpansByRange002, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteSpansByRange002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -473,7 +590,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteSpansByRange002, TestSize.Level1)
  * @tc.desc: test GetDeletedSpan
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, GetDeletedSpan001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, GetDeletedSpan001, TestSize.Level0)
 {
     /**
      * @tc.step: step1. get richeditor pattern and add text span.
@@ -503,7 +620,7 @@ HWTEST_F(RichEditorDeleteTestNg, GetDeletedSpan001, TestSize.Level1)
  * @tc.desc: test DoDeleteActions
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DoDeleteActions001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DoDeleteActions001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -530,7 +647,7 @@ HWTEST_F(RichEditorDeleteTestNg, DoDeleteActions001, TestSize.Level1)
  * @tc.desc: test RichEditorPattern DeleteValueInStyledString
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteValueInStyledString001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteValueInStyledString001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -553,7 +670,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteValueInStyledString001, TestSize.Level1)
  * @tc.desc: test ProcessDeleteNodes
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, ProcessDeleteNodes001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, ProcessDeleteNodes001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -572,7 +689,7 @@ HWTEST_F(RichEditorDeleteTestNg, ProcessDeleteNodes001, TestSize.Level1)
  * @tc.desc: test ProcessDeleteNodes
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, ProcessDeleteNodes002, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, ProcessDeleteNodes002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -595,7 +712,7 @@ HWTEST_F(RichEditorDeleteTestNg, ProcessDeleteNodes002, TestSize.Level1)
     ASSERT_NE(spanNode, nullptr);
     auto spanItem = spanNode->GetSpanItem();
     ASSERT_NE(spanItem, nullptr);
-    auto textTemp = spanItem->content;
+    auto textTemp = u"";
     std::list<RichEditorAbstractSpanResult> list;
     list.emplace_back(span);
     richEditorPattern->ProcessDeleteNodes(list);
@@ -607,7 +724,7 @@ HWTEST_F(RichEditorDeleteTestNg, ProcessDeleteNodes002, TestSize.Level1)
  * @tc.desc: test DeleteContentRichEditor
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteContentRichEditor001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteContentRichEditor001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -628,7 +745,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteContentRichEditor001, TestSize.Level1)
  * @tc.desc: test DeleteSpansOperation
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteSpansOperation001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteSpansOperation001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. get richEditor pattern and controller
@@ -651,12 +768,19 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteSpansOperation001, TestSize.Level1)
  * @tc.desc: test DeleteSpansOperation
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteSpansOperation002, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteSpansOperation002, TestSize.Level0)
 {
+    /**
+     * @tc.steps: step1. get richEditor pattern
+     */
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
     richEditorPattern->isSpanStringMode_ = true;
+
+    /**
+     * @tc.steps: step2. set empty styledString
+     */
     RefPtr<SpanItem> spanItem = AceType::MakeRefPtr<SpanItem>();
     richEditorPattern->spans_.push_back(spanItem);
     richEditorPattern->styledString_ = AceType::MakeRefPtr<MutableSpanString>(u"");
@@ -665,8 +789,43 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteSpansOperation002, TestSize.Level1)
     auto newFrameNode = ImageSpanNode::GetOrCreateSpanNode(
         V2::IMAGE_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<RichEditorPattern>(); });
     richEditorNode_->children_.push_back(newFrameNode);
+
+    /**
+     * @tc.steps: step3. process delete operation
+     */
     richEditorPattern->DeleteSpansOperation(0, 5);
     EXPECT_EQ(richEditorPattern->textForDisplay_.size(), 0);
+}
+
+/**
+ * @tc.name: DeleteSpansOperation003
+ * @tc.desc: test DeleteSpansOperation
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, DeleteSpansOperation003, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. get richEditor pattern
+     */
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto contentNode = richEditorNode_->GetChildAtIndex(0);
+    ASSERT_NE(contentNode, nullptr);
+
+    /**
+     * @tc.steps: step2. add empty spans
+     */
+    AddSpan("");
+    AddSpan(INIT_NUMBER);
+    AddSpan("");
+    AddSpan(INIT_NUMBER);
+
+    /**
+     * @tc.steps: step2. test DeleteSpansOperation
+     */
+    richEditorPattern->DeleteSpansOperation(0, 8);
+    EXPECT_EQ(contentNode->GetChildren().size(), 1);
 }
 
 /**
@@ -674,7 +833,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteSpansOperation002, TestSize.Level1)
  * @tc.desc: test AIDeleteComb
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, AIDeleteComb001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, AIDeleteComb001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -700,7 +859,7 @@ HWTEST_F(RichEditorDeleteTestNg, AIDeleteComb001, TestSize.Level1)
  * @tc.desc: test HandleOnDeleteComb
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, HandleOnDeleteComb001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, HandleOnDeleteComb001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -721,7 +880,7 @@ HWTEST_F(RichEditorDeleteTestNg, HandleOnDeleteComb001, TestSize.Level1)
  * @tc.desc: test DeleteSpans
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteSpans001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteSpans001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -745,7 +904,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteSpans001, TestSize.Level1)
  * @tc.desc: test DeleteForwardOperation
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteForwardOperation001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteForwardOperation001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -762,7 +921,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteForwardOperation001, TestSize.Level1)
  * @tc.desc: test DeleteForwardOperation
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteForwardOperation002, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteForwardOperation002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -775,11 +934,45 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteForwardOperation002, TestSize.Level1)
 }
 
 /**
+ * @tc.name: DeleteForwardOperation003
+ * @tc.desc: Test DeleteForwardOperation to cover the branch when textContent.length() != GetTextContentLength()
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, DeleteForwardOperation003, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    auto span1 = AceType::MakeRefPtr<SpanItem>();
+    span1->content = u"Hello ";
+    span1->rangeStart = 0;
+    span1->position = 6;
+    auto span2 = AceType::MakeRefPtr<SpanItem>();
+    span2->content = u"World";
+    span2->rangeStart = 6;
+    span2->position = 15;
+
+    richEditorPattern->spans_.clear();
+    richEditorPattern->spans_.push_back(span1);
+    richEditorPattern->spans_.push_back(span2);
+    EXPECT_EQ(richEditorPattern->GetTextContentLength(), 15);
+
+    std::u16string textContent;
+    richEditorPattern->GetContentBySpans(textContent);
+    EXPECT_EQ(textContent.length(), 11);
+    richEditorPattern->caretPosition_ = 0;
+    int32_t length = 1;
+    auto ret = richEditorPattern->DeleteForwardOperation(length);
+    EXPECT_GE(ret.length(), 0);
+}
+
+/**
  * @tc.name: DeleteRange001
  * @tc.desc: test DeleteRange
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteRange001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteRange001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -796,7 +989,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteRange001, TestSize.Level1)
  * @tc.desc: test DeleteRange
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteRange002, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteRange002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -813,7 +1006,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteRange002, TestSize.Level1)
  * @tc.desc: test DeleteRange
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteRange003, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteRange003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -830,7 +1023,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteRange003, TestSize.Level1)
  * @tc.desc: test DeleteRange
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteRange004, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteRange004, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -857,7 +1050,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteRange004, TestSize.Level1)
  * @tc.desc: test DeleteRange
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteRange005, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteRange005, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -874,7 +1067,7 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteRange005, TestSize.Level1)
  * @tc.desc: test CalcDeleteValueObj delete builder span
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, CalcDeleteValueObj001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, CalcDeleteValueObj001, TestSize.Level0)
 {
     auto richEditorPattern = GetRichEditorPattern();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -897,7 +1090,7 @@ HWTEST_F(RichEditorDeleteTestNg, CalcDeleteValueObj001, TestSize.Level1)
  * @tc.desc: test InsertOrDeleteSpace
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, InsertOrDeleteSpace001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, InsertOrDeleteSpace001, TestSize.Level0)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -911,7 +1104,7 @@ HWTEST_F(RichEditorDeleteTestNg, InsertOrDeleteSpace001, TestSize.Level1)
  * @tc.desc: test InsertOrDeleteSpace
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, InsertOrDeleteSpace002, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, InsertOrDeleteSpace002, TestSize.Level0)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -941,7 +1134,7 @@ HWTEST_F(RichEditorDeleteTestNg, InsertOrDeleteSpace002, TestSize.Level1)
  * @tc.desc: test InsertOrDeleteSpace
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, InsertOrDeleteSpace003, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, InsertOrDeleteSpace003, TestSize.Level0)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -970,7 +1163,7 @@ HWTEST_F(RichEditorDeleteTestNg, InsertOrDeleteSpace003, TestSize.Level1)
  * @tc.desc: test DeleteValueSetSymbolSpan
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetSymbolSpan001, TestSize.Level1)
+HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetSymbolSpan001, TestSize.Level0)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -979,6 +1172,254 @@ HWTEST_F(RichEditorDeleteTestNg, DeleteValueSetSymbolSpan001, TestSize.Level1)
     RichEditorAbstractSpanResult spanResult;
     auto result = richEditorPattern->DeleteValueSetSymbolSpan(spanItem, spanResult);
     EXPECT_TRUE(result == SYMBOL_SPAN_LENGTH);
+}
+
+/**
+ * @tc.name: DeleteToMaxLength001
+ * @tc.desc: test DeleteToMaxLength001
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, DeleteToMaxLength001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. init
+     */
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. call function
+     */
+    richEditorPattern->DeleteToMaxLength(std::nullopt);
+    ASSERT_EQ(richEditorPattern->previewLongPress_, false);
+}
+
+/**
+ * @tc.name: DeleteToMaxLength002
+ * @tc.desc: test DeleteToMaxLength002
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, DeleteToMaxLength002, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. init
+     */
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. call function
+     */
+    int len = richEditorPattern->GetTextContentLength() - 1;
+    richEditorPattern->DeleteToMaxLength(len);
+    ASSERT_EQ(richEditorPattern->previewLongPress_, false);
+}
+
+/**
+ * @tc.name: DeleteToMaxLength003
+ * @tc.desc: test DeleteToMaxLength003
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, DeleteToMaxLength003, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    int32_t maxLen = 5;
+    // make textLength to 6
+    ClearSpan();
+    richEditorPattern->AddTextSpan(TEXT_SPAN_OPTIONS_1);
+    ASSERT_EQ(richEditorPattern->GetTextContentLength(), static_cast<int32_t>(INIT_VALUE_1.length()));
+    richEditorPattern->isSpanStringMode_ = true;
+    richEditorPattern->styledString_ = AceType::MakeRefPtr<MutableSpanString>(u"");
+    richEditorPattern->styledString_->SetSpanWatcher(AceType::WeakClaim(AceType::RawPtr(richEditorPattern)));
+    richEditorPattern->DeleteToMaxLength(maxLen);
+    richEditorPattern->isSpanStringMode_ = false;
+
+    // make textLength to 6
+    ClearSpan();
+    richEditorPattern->AddTextSpan(TEXT_SPAN_OPTIONS_1);
+    ASSERT_EQ(richEditorPattern->GetTextContentLength(), static_cast<int32_t>(INIT_VALUE_1.length()));
+    richEditorPattern->DeleteToMaxLength(maxLen);
+    ASSERT_EQ(richEditorPattern->GetTextContentLength(), maxLen);
+}
+
+/**
+ * @tc.name: RichEditorDelete001
+ * @tc.desc: test delete forward
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, RichEditorDelete001, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto contentNode = richEditorNode_->GetChildAtIndex(0);
+    ASSERT_NE(contentNode, nullptr);
+    AddImageSpan();
+    richEditorPattern->caretPosition_ = 0;
+    richEditorPattern->DeleteForward(1);
+    EXPECT_EQ(static_cast<int32_t>(contentNode->GetChildren().size()), 0);
+}
+
+/**
+ * @tc.name: RichEditorDelete002
+ * @tc.desc: test delete backforward
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, RichEditorDelete002, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto contentNode = richEditorNode_->GetChildAtIndex(0);
+    ASSERT_NE(contentNode, nullptr);
+    AddImageSpan();
+    richEditorPattern->caretPosition_ = richEditorPattern->GetTextContentLength();
+    richEditorPattern->DeleteBackward(1);
+    EXPECT_EQ(contentNode->GetChildren().size(), 0);
+    ClearSpan();
+    AddSpan(INIT_VALUE_1);
+    richEditorPattern->caretPosition_ = richEditorPattern->GetTextContentLength();
+    richEditorPattern->DeleteBackward(6);
+    EXPECT_EQ(contentNode->GetChildren().size(), 0);
+}
+
+/**
+ * @tc.name: RichEditorDelete003
+ * @tc.desc: test delete backforward
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, RichEditorDelete003, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto contentNode = richEditorNode_->GetChildAtIndex(0);
+    ASSERT_NE(contentNode, nullptr);
+    AddImageSpan();
+    richEditorPattern->caretPosition_ = 0;
+    richEditorPattern->DeleteBackward(1);
+    EXPECT_NE(static_cast<int32_t>(contentNode->GetChildren().size()), 0);
+    richEditorPattern->textSelector_ = TextSelector(0, 1);
+    richEditorPattern->caretPosition_ = 1;
+    richEditorPattern->DeleteBackward(1);
+    EXPECT_EQ(contentNode->GetChildren().size(), 0);
+    while (!richEditorPattern->spans_.empty()) {
+        richEditorPattern->spans_.pop_back();
+    }
+    richEditorPattern->DeleteBackward(1);
+    EXPECT_EQ(contentNode->GetChildren().size(), 0);
+}
+
+/**
+ * @tc.name: RichEditorDelete004
+ * @tc.desc: test delete backforward
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, RichEditorDelete004, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto contentNode = richEditorNode_->GetChildAtIndex(0);
+    ASSERT_NE(contentNode, nullptr);
+    richEditorPattern->AddTextSpan(TEXT_SPAN_OPTIONS_1); // add hello1
+    ASSERT_EQ(richEditorPattern->caretPosition_, 6);
+
+    richEditorPattern->DeleteBackward(1);
+    EXPECT_EQ(richEditorPattern->caretPosition_, 5);
+    richEditorPattern->DeleteBackward(2);
+    EXPECT_EQ(richEditorPattern->caretPosition_, 3);
+    richEditorPattern->DeleteBackward(3);
+    EXPECT_EQ(richEditorPattern->caretPosition_, 0);
+
+    EXPECT_EQ(contentNode->GetChildren().size(), 0);
+}
+
+/**
+ * @tc.name: RichEditorDelete005
+ * @tc.desc: test delete backforward
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, RichEditorDelete005, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto contentNode = richEditorNode_->GetChildAtIndex(0);
+    ASSERT_NE(contentNode, nullptr);
+    richEditorPattern->AddTextSpan(TEXT_SPAN_OPTIONS_1); // add hello1
+    ASSERT_EQ(richEditorPattern->caretPosition_, 6);
+    richEditorPattern->AddImageSpan(IMAGE_SPAN_OPTIONS_1);
+    ASSERT_EQ(richEditorPattern->caretPosition_, 7);
+    ASSERT_EQ(contentNode->GetChildren().size(), 2);
+
+    richEditorPattern->DeleteBackward(1);
+    EXPECT_EQ(richEditorPattern->caretPosition_, 6);
+}
+
+/**
+ * @tc.name: RichEditorDelete006
+ * @tc.desc: test delete backforward
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, RichEditorDelete006, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto contentNode = richEditorNode_->GetChildAtIndex(0);
+    ASSERT_NE(contentNode, nullptr);
+    richEditorPattern->AddTextSpan(TEXT_SPAN_OPTIONS_1); // add hello1
+    ASSERT_EQ(richEditorPattern->caretPosition_, 6);
+    richEditorPattern->AddSymbolSpan(SYMBOL_SPAN_OPTIONS_1);
+    ASSERT_EQ(richEditorPattern->caretPosition_, 8);
+    ASSERT_EQ(contentNode->GetChildren().size(), 2);
+
+    richEditorPattern->DeleteBackward(1);
+    EXPECT_EQ(richEditorPattern->caretPosition_, 6);
+    EXPECT_EQ(contentNode->GetChildren().size(), 1);
+}
+
+/**
+ * @tc.name: RichEditorDeleteForwardEmoji
+ * @tc.desc: test DeleteForward Emoji And Emoji Selected
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, RichEditorDeleteForwardEmoji, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    AddSpan("😄3😄😄");
+    richEditorPattern->caretPosition_ = 5;
+    richEditorPattern->textSelector_ = TextSelector(2, 5);
+    richEditorPattern->DeleteForward(1);
+    ASSERT_EQ(richEditorPattern->caretPosition_, 2);
+    richEditorPattern->DeleteForward(1);
+    ASSERT_EQ(richEditorPattern->caretPosition_, 2);
+}
+
+/**
+ * @tc.name: RichEditorDeleteBackwardEmoji
+ * @tc.desc: test DeleteBackward Emoji And Emoji Selected
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDeleteTestNg, RichEditorDeleteBackwardEmoji, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    AddSpan("😄3😄😄");
+    richEditorPattern->caretPosition_ = 5;
+    richEditorPattern->textSelector_ = TextSelector(2, 5);
+    richEditorPattern->DeleteBackward(1);
+    ASSERT_EQ(richEditorPattern->caretPosition_, 2);
+    richEditorPattern->DeleteBackward(1);
+    ASSERT_EQ(richEditorPattern->caretPosition_, 0);
 }
 
 }

@@ -57,7 +57,7 @@ void SwiperIndicatorPattern::OnModifyDone()
     Pattern::OnModifyDone();
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-
+    ACE_UINODE_TRACE(host);
     if (GetIndicatorType() == SwiperIndicatorType::DIGIT) {
         UpdateDigitalIndicator();
     } else {
@@ -376,7 +376,7 @@ void SwiperIndicatorPattern::HandleTouchClick(const GestureEvent& info)
     CHECK_NULL_VOID(host);
     auto paintProperty = host->GetPaintProperty<DotIndicatorPaintProperty>();
     CHECK_NULL_VOID(paintProperty);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto theme = pipeline->GetTheme<SwiperIndicatorTheme>();
     CHECK_NULL_VOID(theme);
@@ -476,7 +476,7 @@ void SwiperIndicatorPattern::HandleHoverEvent(bool isHover)
         CHECK_NULL_VOID(swiperPattern);
         auto swiperLayoutProperty = swiperPattern->GetLayoutProperty<SwiperLayoutProperty>();
         CHECK_NULL_VOID(swiperLayoutProperty);
-        if (swiperLayoutProperty->GetHoverShowValue(false) && !swiperPattern->GetIsAtHotRegion()) {
+        if (swiperLayoutProperty->GetHoverShowValue(false)) {
             swiperPattern->ArrowHover(isHover_, HOVER_INDICATOR);
         }
     }
@@ -535,14 +535,9 @@ void SwiperIndicatorPattern::HandleTouchEvent(const TouchEventInfo& info)
         return;
     }
     auto touchType = info.GetTouches().front().GetTouchType();
-    if (touchType == TouchType::UP) {
-        HandleTouchUp();
+    if (touchType == TouchType::UP || touchType == TouchType::CANCEL) {
         HandleDragEnd(0);
-        isPressed_ = false;
-    } else if (touchType == TouchType::CANCEL) {
         HandleTouchUp();
-        HandleDragEnd(0);
-        isPressed_ = false;
     }
     if (isPressed_) {
         HandleLongDragUpdate(info.GetTouches().front());
@@ -585,7 +580,7 @@ std::pair<int32_t, int32_t> SwiperIndicatorPattern::CalMouseClickIndexStartAndEn
 
 void SwiperIndicatorPattern::GetMouseClickIndex()
 {
-    auto pipelineContext = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipelineContext = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipelineContext);
     auto theme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
     CHECK_NULL_VOID(theme);
@@ -635,7 +630,7 @@ void SwiperIndicatorPattern::UpdateTextContent(const RefPtr<SwiperIndicatorLayou
     CHECK_NULL_VOID(layoutProperty);
     CHECK_NULL_VOID(firstTextNode);
     CHECK_NULL_VOID(lastTextNode);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto theme = pipeline->GetTheme<SwiperIndicatorTheme>();
     firstTextNode->SetInternal();
@@ -702,7 +697,7 @@ void SwiperIndicatorPattern::UpdateTextContentSub(const RefPtr<SwiperIndicatorLa
     CHECK_NULL_VOID(layoutProperty);
     CHECK_NULL_VOID(firstTextNode);
     CHECK_NULL_VOID(lastTextNode);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto theme = pipeline->GetTheme<SwiperIndicatorTheme>();
     CHECK_NULL_VOID(theme);
@@ -742,12 +737,15 @@ void SwiperIndicatorPattern::HandleDragStart(const GestureEvent& info)
 
 void SwiperIndicatorPattern::HandleDragEnd(double dragVelocity)
 {
+    if (!isPressed_) {
+        return;
+    }
     auto swiperNode = GetSwiperNode();
     CHECK_NULL_VOID(swiperNode);
     auto swiperPattern = swiperNode->GetPattern<SwiperPattern>();
     CHECK_NULL_VOID(swiperPattern);
-    swiperPattern->SetTurnPageRate(0.0f);
-    swiperPattern->SetGroupTurnPageRate(0.0f);
+    swiperPattern->SetTurnPageRate(swiperPattern->IsHorizontalAndRightToLeft() ? -1.0f : 0.0f);
+    swiperPattern->SetGroupTurnPageRate(swiperPattern->IsHorizontalAndRightToLeft() ? -1.0f : 0.0f);
     auto swiperPaintProperty = swiperPattern->GetPaintProperty<SwiperPaintProperty>();
     CHECK_NULL_VOID(swiperPaintProperty);
     auto autoPlay = swiperPaintProperty->GetAutoPlay().value_or(false);
@@ -755,12 +753,7 @@ void SwiperIndicatorPattern::HandleDragEnd(double dragVelocity)
         swiperPattern->SetIndicatorLongPress(false);
         swiperPattern->StartAutoPlay();
     }
-    if (swiperPattern->GetIndicatorType() == SwiperIndicatorType::ARC_DOT) {
-        isLongPressed_ = false;
-        if (IsHorizontalAndRightToLeft()) {
-            swiperPattern->SetTurnPageRate(-1.0f);
-        }
-    }
+    isLongPressed_ = false;
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     touchBottomType_ = TouchBottomType::NONE;
@@ -865,8 +858,8 @@ bool SwiperIndicatorPattern::CheckIsTouchBottom(const TouchLocationInfo& info)
                               ? touchOffset / INDICATOR_TOUCH_BOTTOM_MAX_DISTANCE.ConvertToPx() : 1;
     }
 
-    swiperPattern->SetTurnPageRate(0);
-    swiperPattern->SetGroupTurnPageRate(0.0f);
+    swiperPattern->SetTurnPageRate(swiperPattern->IsHorizontalAndRightToLeft() ? -1.0f : 0.0f);
+    swiperPattern->SetGroupTurnPageRate(swiperPattern->IsHorizontalAndRightToLeft() ? -1.0f : 0.0f);
     swiperPattern->SetTouchBottomRate(std::abs(touchBottomRate));
     TouchBottomType touchBottomType = TouchBottomType::NONE;
 
@@ -882,7 +875,7 @@ bool SwiperIndicatorPattern::CheckIsTouchBottom(const TouchLocationInfo& info)
         }
     }
 
-    if (currentIndex >= childrenSize - displayCount) {
+    if ((!swiperPattern->IsLoop() && currentIndex >= childrenSize - displayCount) || currentIndex == childrenSize - 1) {
         if (swiperPattern->IsHorizontalAndRightToLeft()) {
             if (NonPositive(touchOffset)) {
                 touchBottomType = TouchBottomType::START;
@@ -930,9 +923,7 @@ void SwiperIndicatorPattern::HandleLongPress(GestureEvent& info)
         swiperPattern->StopSpringAnimation();
         swiperPattern->StopAutoPlay();
     }
-    if (swiperPattern->GetIndicatorType() == SwiperIndicatorType::ARC_DOT) {
-        isLongPressed_ = true;
-    }
+    isLongPressed_ = true;
 }
 
 double SwiperIndicatorPattern::GetIndicatorDragAngleThreshold(bool isMaxAngle)
@@ -1023,7 +1014,7 @@ float SwiperIndicatorPattern::HandleTouchClickMargin()
     CHECK_NULL_RETURN(host, 0.0f);
     auto paintProperty = host->GetPaintProperty<DotIndicatorPaintProperty>();
     CHECK_NULL_RETURN(paintProperty, 0.0f);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_RETURN(pipeline, 0.0f);
     auto theme = pipeline->GetTheme<SwiperIndicatorTheme>();
     CHECK_NULL_RETURN(theme, 0.0f);

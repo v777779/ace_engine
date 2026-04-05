@@ -24,9 +24,10 @@
 
 namespace OHOS::Ace::NG {
 
+using ReLayoutParagraphStyleBitmap = std::bitset<static_cast<size_t>(ParagraphStyleAttribute::MAX_TEXT_STYLE)>;
 // Paragraph is interface for drawing text and text paragraph.
 class TxtParagraph : public Paragraph {
-    DECLARE_ACE_TYPE(NG::TxtParagraph, NG::Paragraph)
+    DECLARE_ACE_TYPE(NG::TxtParagraph, NG::Paragraph);
 
 public:
     TxtParagraph(const ParagraphStyle& paraStyle, std::shared_ptr<RSFontCollection> fontCollection)
@@ -73,6 +74,8 @@ public:
     void Layout(float width) override;
     // interfaces for reLayout
     void ReLayout(float width, const ParagraphStyle& paraStyle, const std::vector<TextStyle>& textStyles) override;
+    void ReLayout(float width, const ParagraphStyle& paraStyle, const std::vector<TextStyle>& textStyles,
+        const std::optional<TextStyle>& firstValidTextStyle) override;
     void ReLayoutForeground(const TextStyle& textStyle) override;
     float GetHeight() override;
     float GetTextWidth() override;
@@ -93,6 +96,9 @@ public:
     // interfaces for calculate the the specified paragraph position
     int32_t GetGlyphIndexByCoordinate(const Offset& offset, bool isSelectionPos = false) override;
     PositionWithAffinity GetGlyphPositionAtCoordinate(const Offset& offset) override;
+    PositionWithAffinity GetCharacterPositionAtCoordinate(const Offset& offset) override;
+    std::pair<TextRange, TextRange> GetGlyphRangeForCharacterRange(int32_t start, int32_t end) override;
+    std::pair<TextRange, TextRange> GetCharacterRangeForGlyphRange(int32_t start, int32_t end) override;
     void AdjustIndexForward(const Offset& offset, bool compareOffset, int32_t& index);
     void GetRectsForRange(int32_t start, int32_t end, std::vector<RectF>& selectedRects) override;
     std::pair<size_t, size_t> GetEllipsisTextRange() override;
@@ -112,13 +118,6 @@ public:
     {
         return GetParagraphLength() == 0;
     }
-    void SetParagraphId(uint32_t id) override
-    {
-        auto paragraph = GetParagraph();
-        if (paragraph) {
-            paragraph->SetParagraghId(id);
-        }
-    }
     LineMetrics GetLineMetricsByRectF(RectF& rect) override;
     TextLineMetrics GetLineMetrics(size_t lineNumber) override;
     RectF GetPaintRegion(float x, float y) override;
@@ -128,16 +127,24 @@ public:
     void TxtGetRectsForRange(int32_t start, int32_t end,
         RectHeightStyle heightStyle, RectWidthStyle widthStyle,
         std::vector<RectF>& selectedRects, std::vector<TextDirection>& textDirections) override;
-
     std::shared_ptr<RSParagraph> GetSharedParagraph()
     {
-        std::shared_ptr<RSParagraph> paragraphSharedPtr(paragraph_.get(), [](RSParagraph*) {});
+        std::shared_ptr<RSParagraph> paragraphSharedPtr(paragraph_.get(), [](RSParagraph *) {});
         return paragraphSharedPtr;
     }
 
+    bool DidExceedMaxLinesInner() override;
+    std::string GetDumpInfo() override;
+    std::optional<void*> GetRawParagraph() override;
+    int32_t GetPlaceholderCnt() const override
+    {
+        return placeholderCnt_;
+    }
+
 protected:
-    virtual Rosen::TextRectHeightStyle GetHeightStyle(bool needLineHighest);
     ParagraphStyle paraStyle_;
+    virtual Rosen::TextRectHeightStyle GetHeightStyle(bool needLineHighest);
+    virtual bool HandleCaretWhenEmpty(CaretMetricsF& result, bool needLineHighest) override;
     RSParagraph* GetParagraph();
     Rosen::RSSymbolAnimation rsSymbolAnimation_;
     std::unique_ptr<RSParagraph> paragraph_;
@@ -153,9 +160,9 @@ private:
         return text_.length() + placeholderCnt_;
     }
     float MakeEmptyOffsetX(bool isLtr);
-    bool HandleCaretWhenEmpty(CaretMetricsF& result, bool needLineHighest);
     void HandleTextAlign(CaretMetricsF& result, TextAlign align);
     void HandleLeadingMargin(CaretMetricsF& result, LeadingMargin leadingMargin);
+    void HandleLeadingMarginSpan(CaretMetricsF& result, DrawableLeadingMargin drawableLeadingMargin);
     void GetRectsForRangeInner(int32_t start, int32_t end, std::vector<RectF>& selectedRects,
         RectHeightPolicy rectHeightPolicy = RectHeightPolicy::COVER_LINE);
     int32_t AdjustIndexForEmoji(int32_t index);
@@ -165,6 +172,7 @@ private:
     bool IsTargetCharAtIndex(char16_t targetChar, int32_t index);
     bool IsIndexAtLineEnd(const Offset& offset, int32_t index);
     void ConvertTypographyStyle(Rosen::TypographyStyle& style, const ParagraphStyle& paraStyle);
+    void ConvertFontMetrics(FontMetrics& fontMetrics, const Rosen::Drawing::FontMetrics& rsFontMetrics);
 
     std::u16string text_;
     int32_t placeholderCnt_ = 0;

@@ -34,11 +34,13 @@ public:
     ~SwiperArrowPattern() override = default;
     RefPtr<LayoutProperty> CreateLayoutProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<SwiperArrowLayoutProperty>();
     }
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<SwiperArrowLayoutAlgorithm>();
     }
 
@@ -53,7 +55,7 @@ public:
 
     FocusPattern GetFocusPattern() const override
     {
-        auto pipelineContext = PipelineBase::GetCurrentContextSafelyWithCheck();
+        auto pipelineContext = PipelineBase::GetCurrentContext();
         CHECK_NULL_RETURN(pipelineContext, FocusPattern());
         auto swiperTheme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
         CHECK_NULL_RETURN(swiperTheme, FocusPattern());
@@ -99,6 +101,7 @@ private:
     void InitAccessibilityText();
     int32_t TotalCount() const;
     RefPtr<SwiperPattern> GetSwiperPattern() const;
+    void NotifySwiperTouchState(TouchType touchType) const;
 
     RefPtr<ClickEvent> buttonClickListener_;
     RefPtr<ClickEvent> arrowClickListener_;

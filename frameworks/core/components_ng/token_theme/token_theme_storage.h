@@ -28,6 +28,8 @@ namespace OHOS::Ace::NG {
 
 class ACE_EXPORT TokenThemeStorage final {
 public:
+    static constexpr int32_t INVALID_THEME_SCOPE_ID = -3;
+
     ACE_FORCE_EXPORT static TokenThemeStorage* GetInstance();
     ~TokenThemeStorage() = default;
 
@@ -48,9 +50,12 @@ public:
     const RefPtr<TokenTheme>& CacheGet(int32_t themeId);
     void CacheRemove(int32_t themeId);
 
-    RefPtr<TokenTheme> ObtainSystemTheme();
+    RefPtr<TokenTheme> ObtainSystemTheme(ColorMode themeColorMode = ColorMode::COLOR_MODE_UNDEFINED);
     
-    void SetIsThemeColorAvailable(bool isDark, int32_t idx, bool isColorAvailable);
+    void SetIsThemeColorAvailable(bool isDark, int32_t index, bool isColorAvailable);
+
+    void SetIsThemeColorSetByUser(int32_t themeId, bool isDark, int32_t index, bool isColorSetByUser);
+    void InitDarkThemeMapWithoutUserSet(int32_t themeId, bool isDark);
 
 private:
     static constexpr int32_t SYSTEM_THEME_LIGHT_ID = -1;
@@ -60,6 +65,8 @@ private:
     TokenThemeStorage();
     RefPtr<TokenTheme> CreateSystemTokenTheme(ColorMode colorMode);
     ColorMode CheckLocalAndSystemColorMode();
+    void ResetThemeColor(int32_t themeId, RefPtr<TokenTheme>& theme, RefPtr<TokenTheme>& defaultTheme,
+        ColorMode& colorMode);
 
     // key: scope id, value: theme id
     std::unordered_map<TokenThemeScopeId, int32_t> themeScopeMap_;
@@ -70,6 +77,8 @@ private:
 
     std::vector<bool> darkThemeColorsAvailable_ = std::vector<bool> (TokenColors::TOTAL_NUMBER, false);
     std::vector<bool> lightThemeColorsAvailable_ = std::vector<bool> (TokenColors::TOTAL_NUMBER, false);
+
+    std::unordered_map<int32_t, std::map<bool, std::vector<bool>>> themeColorSetByUser_;
 
     inline static RefPtr<TokenTheme> defaultLightTheme_ = nullptr;
     inline static RefPtr<TokenTheme> defaultDarkTheme_ = nullptr;

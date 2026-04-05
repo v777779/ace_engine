@@ -36,11 +36,15 @@ void TouchEventActuator::OnFlushTouchEventsEnd()
 
 bool TouchEventActuator::HandleEvent(const TouchEvent& point)
 {
+    bool isNeedPropagation = false;
     // if current node is forbidden by monopolize, upper nodes should not response either
     if (!ShouldResponse()) {
+        SetNeedPropagation(isNeedPropagation);
         return false;
     }
-    return TriggerTouchCallBack(point);
+    isNeedPropagation = TriggerTouchCallBack(point);
+    SetNeedPropagation(isNeedPropagation);
+    return isNeedPropagation;
 }
 
 bool TouchEventActuator::TriggerTouchCallBack(const TouchEvent& point)
@@ -136,6 +140,7 @@ TouchEventInfo TouchEventActuator::CreateTouchEventInfo(const TouchEvent& lastPo
     eventInfo.SetSourceTool(lastPoint.sourceTool);
     eventInfo.SetPressedKeyCodes(lastPoint.pressedKeyCodes_);
     eventInfo.SetOperatingHand(lastPoint.operatingHand);
+    eventInfo.SetEventHandleId(lastPoint.eventHandleId);
     if (isFlushTouchEventsEnd_) {
         // trigger callback of the last touch event during one vsync period
         eventInfo.SetTouchEventsEnd(true);
@@ -149,7 +154,8 @@ TouchLocationInfo TouchEventActuator::CreateChangedTouchInfo(const TouchEvent& l
 {
     TouchLocationInfo changedInfo("onTouch", lastPoint.GetOriginalReCovertId());
     PointF lastLocalPoint(lastPoint.x, lastPoint.y);
-    NGGestureRecognizer::Transform(lastLocalPoint, GetAttachedNode(), false, isPostEventResult_, event.postEventNodeId);
+    NGGestureRecognizer::Transform(lastLocalPoint, GetAttachedNode(), false,
+        isPostEventResult_ || event.passThrough, event.postEventNodeId);
     auto localX = static_cast<float>(lastLocalPoint.GetX());
     auto localY = static_cast<float>(lastLocalPoint.GetY());
     changedInfo.SetLocalLocation(Offset(localX, localY));
@@ -167,6 +173,9 @@ TouchLocationInfo TouchEventActuator::CreateChangedTouchInfo(const TouchEvent& l
     if (lastPoint.tiltY.has_value()) {
         changedInfo.SetTiltY(lastPoint.tiltY.value());
     }
+    if (lastPoint.rollAngle.has_value()) {
+        changedInfo.SetRollAngle(lastPoint.rollAngle.value());
+    }
     changedInfo.SetSourceTool(lastPoint.sourceTool);
     changedInfo.SetOperatingHand(lastPoint.operatingHand);
     return changedInfo;
@@ -182,7 +191,8 @@ TouchLocationInfo TouchEventActuator::CreateTouchItemInfo(
     double globalDisplayX = pointItem.globalDisplayX;
     double globalDisplayY = pointItem.globalDisplayY;
     PointF localPoint(globalX, globalY);
-    NGGestureRecognizer::Transform(localPoint, GetAttachedNode(), false, isPostEventResult_, event.postEventNodeId);
+    NGGestureRecognizer::Transform(
+        localPoint, GetAttachedNode(), false, isPostEventResult_ || event.passThrough, event.postEventNodeId);
     auto localX = static_cast<float>(localPoint.GetX());
     auto localY = static_cast<float>(localPoint.GetY());
     TouchLocationInfo info("onTouch", pointItem.GetOriginalReCovertId());
@@ -190,7 +200,7 @@ TouchLocationInfo TouchEventActuator::CreateTouchItemInfo(
     info.SetLocalLocation(Offset(localX, localY));
     info.SetScreenLocation(Offset(screenX, screenY));
     info.SetGlobalDisplayLocation(Offset(globalDisplayX, globalDisplayY));
-    info.SetTouchType(type);
+    info.SetTouchType((pointItem.originalId == event.originalId) ? type : TouchType::MOVE);
     info.SetForce(pointItem.force);
     info.SetPressedTime(pointItem.downTime);
     info.SetWidth(pointItem.width);
@@ -200,6 +210,9 @@ TouchLocationInfo TouchEventActuator::CreateTouchItemInfo(
     }
     if (pointItem.tiltY.has_value()) {
         info.SetTiltY(pointItem.tiltY.value());
+    }
+    if (pointItem.rollAngle.has_value()) {
+        info.SetRollAngle(pointItem.rollAngle.value());
     }
     info.SetSourceTool(pointItem.sourceTool);
     info.SetOperatingHand(pointItem.operatingHand);
@@ -215,7 +228,8 @@ TouchLocationInfo TouchEventActuator::CreateHistoryTouchItemInfo(const TouchEven
     double globalDisplayX = eventItem.globalDisplayX;
     double globalDisplayY = eventItem.globalDisplayY;
     PointF localPoint(globalX, globalY);
-    NGGestureRecognizer::Transform(localPoint, GetAttachedNode(), false, isPostEventResult_, event.postEventNodeId);
+    NGGestureRecognizer::Transform(
+        localPoint, GetAttachedNode(), false, isPostEventResult_ || event.passThrough, event.postEventNodeId);
     auto localX = static_cast<float>(localPoint.GetX());
     auto localY = static_cast<float>(localPoint.GetY());
     TouchLocationInfo historyInfo("onTouch", eventItem.GetOriginalReCovertId());
@@ -234,6 +248,9 @@ TouchLocationInfo TouchEventActuator::CreateHistoryTouchItemInfo(const TouchEven
     }
     if (eventItem.tiltY.has_value()) {
         historyInfo.SetTiltY(eventItem.tiltY.value());
+    }
+    if (eventItem.rollAngle.has_value()) {
+        historyInfo.SetRollAngle(eventItem.rollAngle.value());
     }
     historyInfo.SetSourceTool(eventItem.sourceTool);
     historyInfo.SetOperatingHand(eventItem.operatingHand);

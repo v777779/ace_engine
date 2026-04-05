@@ -40,6 +40,8 @@ public:
     void Layout(LayoutWrapper* layoutWrapper) override;
 
 private:
+    void RemoveParentRestrictionsForFixIdeal(
+        const RefPtr<LayoutProperty> layoutProperty, LayoutConstraintF& childConstraint);
     void CheckNeedMatchParent(LayoutWrapper* layoutWrapper,
         std::optional<LayoutConstraintF>& layoutConstraint);
     void CheckUserHeight(LayoutWrapper* layoutWrapper);
@@ -75,6 +77,9 @@ private:
     void CalcContentExpandWidth(std::optional<LayoutConstraintF>& layoutConstraint,
         float contentWidth, float leftRowWidth, float rightRowWidth);
     float CalcSelfHeight(float itemHeight, float bordersHeight);
+    bool NeedLimitRightRowWidth(LayoutWrapper* layoutWrapper);
+    void CalcLeftRowMinWidth(LayoutWrapper* layoutWrapper);
+    float GetLeftRowMinWidth(LayoutWrapper* layoutWrapper);
 
     float horInterval_ = 0.0f;
     float verInterval_ = 0.0f;

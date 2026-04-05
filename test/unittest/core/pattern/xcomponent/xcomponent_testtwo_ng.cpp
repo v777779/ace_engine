@@ -22,16 +22,17 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_image_analyzer_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/render/mock_render_surface.h"
-#include "test/mock/core/rosen/testing_canvas_utils.h"
-#include "test/mock/core/manager/mock_display_manager.h"
+#include "test/mock/frameworks/core/common/mock_image_analyzer_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_surface.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas_utils.h"
+#include "test/mock/frameworks/base/display_manager/mock_display_manager.h"
 
 #include "base/memory/ace_type.h"
 #include "base/utils/utils.h"
 #include "core/common/ai/image_analyzer_mgr.h"
+#include "core/common/statistic_event_reporter.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/xcomponent/xcomponent_controller_ng.h"
@@ -48,6 +49,7 @@
 #include "frameworks/core/gestures/press_recognizer.h"
 #include "frameworks/core/components_ng/pattern/node_container/node_container_pattern.h"
 #include "core/components_ng/pattern/xcomponent/xcomponent_accessibility_child_tree_callback.h"
+#include "core/components_ng/pattern/xcomponent/xcomponent_inner_surface_controller.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -72,7 +74,6 @@ const uint64_t XCOMPONENT_SCREEN_ID = 12345u;
 constexpr XComponentType XCOMPONENT_SURFACE_TYPE_VALUE = XComponentType::SURFACE;
 constexpr XComponentType XCOMPONENT_TEXTURE_TYPE_VALUE = XComponentType::TEXTURE;
 constexpr XComponentType XCOMPONENT_COMPONENT_TYPE_VALUE = XComponentType::COMPONENT;
-constexpr XComponentType XCOMPONENT_NODE_TYPE_VALUE = XComponentType::NODE;
 constexpr float MAX_WIDTH = 400.0f;
 constexpr float MAX_HEIGHT = 400.0f;
 constexpr uint32_t SURFACE_WIDTH_SIZE = 200;
@@ -264,8 +265,7 @@ HWTEST_F(XComponentTestTwoNg, BeforeSyncGeometryPropertiesTest, TestSize.Level1)
     frameNode->geometryNode_ = geometryNode;
     pattern->hasXComponentInit_ = false;
     pattern->isEnableAnalyzer_ = true;
-    auto imageAnalyzerManager =
-        std::make_shared<MockImageAnalyzerManager>(frameNode, ImageAnalyzerHolder::XCOMPONENT);
+    auto imageAnalyzerManager = std::make_shared<MockImageAnalyzerManager>(frameNode, ImageAnalyzerHolder::XCOMPONENT);
     bool extSurfaceEnabled = SystemProperties::extSurfaceEnabled_;
     SystemProperties::extSurfaceEnabled_ = true;
     imageAnalyzerManager->SetSupportImageAnalyzerFeature(true);
@@ -367,6 +367,44 @@ HWTEST_F(XComponentTestTwoNg, ResetExtControllerTest, TestSize.Level1)
 }
 
 /**
+ * @tc.name: ResetExtControllerTest001
+ * @tc.desc: Test ResetExtController Func.
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentTestTwoNg, ResetExtControllerTest001, TestSize.Level1)
+{
+    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
+    auto frameNode = CreateXComponentNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+
+    auto pattern = frameNode->GetPattern<XComponentPattern>();
+    ASSERT_TRUE(pattern);
+
+    auto result = pattern->ResetExtController(nullptr);
+    EXPECT_EQ(result, XCOMPONENT_CONTROLLER_BAD_PARAMETER);
+
+    auto extFrameNode = CreateXComponentNode(g_testProperty);
+    ASSERT_TRUE(extFrameNode);
+
+    auto extPattern = extFrameNode->GetPattern<XComponentPattern>();
+    ASSERT_TRUE(extPattern);
+
+    pattern->frameNode_ = nullptr;
+    extPattern->frameNode_ = nullptr;
+    result = pattern->ResetExtController(extPattern);
+    EXPECT_EQ(result, XCOMPONENT_CONTROLLER_RESET_ERROR);
+
+    g_testProperty.xcType = XCOMPONENT_TEXTURE_TYPE_VALUE;
+    auto frameNodeTmp = CreateXComponentNode(g_testProperty);
+    ASSERT_TRUE(frameNodeTmp);
+    pattern->extPattern_ = AceType::WeakClaim(AceType::RawPtr(pattern));
+    auto patternTmp = frameNodeTmp->GetPattern<XComponentPattern>();
+    ASSERT_TRUE(patternTmp);
+    result = pattern->ResetExtController(patternTmp);
+    EXPECT_EQ(result, XCOMPONENT_CONTROLLER_RESET_ERROR);
+}
+
+/**
  * @tc.name: HandleSurfaceChangeEventTest
  * @tc.desc: Test HandleSurfaceChangeEvent Func.
  * @tc.type: FUNC
@@ -443,8 +481,7 @@ HWTEST_F(XComponentTestTwoNg, StartImageAnalyzerTest, TestSize.Level1)
     std::optional<std::function<void(ImageAnalyzerState)>> callback;
     callback = processImage;
     pattern->isEnableAnalyzer_ = true;
-    auto imageAnalyzerManager =
-        std::make_shared<MockImageAnalyzerManager>(frameNode, ImageAnalyzerHolder::XCOMPONENT);
+    auto imageAnalyzerManager = std::make_shared<MockImageAnalyzerManager>(frameNode, ImageAnalyzerHolder::XCOMPONENT);
     bool extSurfaceEnabled = SystemProperties::extSurfaceEnabled_;
     SystemProperties::extSurfaceEnabled_ = true;
     imageAnalyzerManager->SetSupportImageAnalyzerFeature(true);
@@ -555,20 +592,20 @@ HWTEST_F(XComponentTestTwoNg, EnableSecureTest, TestSize.Level1)
     auto pattern = frameNode->GetPattern<XComponentPattern>();
     ASSERT_TRUE(pattern);
 
-    EXPECT_CALL(*AceType::DynamicCast<MockRenderContext>(pattern->renderContextForSurface_),
-                SetSecurityLayer(true)).WillOnce(Return());
+    EXPECT_CALL(*AceType::DynamicCast<MockRenderContext>(pattern->renderContextForSurface_), SetSecurityLayer(true))
+        .WillOnce(Return());
     pattern->EnableSecure(true);
-    EXPECT_CALL(*AceType::DynamicCast<MockRenderContext>(pattern->renderContextForSurface_),
-                SetSecurityLayer(false)).WillOnce(Return());
+    EXPECT_CALL(*AceType::DynamicCast<MockRenderContext>(pattern->renderContextForSurface_), SetSecurityLayer(false))
+        .WillOnce(Return());
     pattern->EnableSecure(false);
 
     pattern->type_ = XCOMPONENT_TEXTURE_TYPE_VALUE;
 
-    EXPECT_CALL(*AceType::DynamicCast<MockRenderContext>(pattern->renderContextForSurface_),
-                SetSecurityLayer(true)).Times(0);
+    EXPECT_CALL(*AceType::DynamicCast<MockRenderContext>(pattern->renderContextForSurface_), SetSecurityLayer(true))
+        .Times(0);
     pattern->EnableSecure(true);
-    EXPECT_CALL(*AceType::DynamicCast<MockRenderContext>(pattern->renderContextForSurface_),
-                SetSecurityLayer(false)).Times(0);
+    EXPECT_CALL(*AceType::DynamicCast<MockRenderContext>(pattern->renderContextForSurface_), SetSecurityLayer(false))
+        .Times(0);
     pattern->EnableSecure(false);
 }
 
@@ -640,6 +677,33 @@ HWTEST_F(XComponentTestTwoNg, OnAttachContextTest, TestSize.Level1)
     EXPECT_CALL(*AceType::DynamicCast<MockRenderSurface>(pattern->renderSurface_),
                 SetInstanceId(context->GetInstanceId())).WillOnce(Return());
     pattern->OnAttachContext(context);
+}
+
+/**
+ * @tc.name: OnAttachContextInitializeAccessibility
+ * @tc.desc: Test OnAttachContext Func Init Accessibilty.
+ * @tc.type: FUNC
+ */
+HWTEST_F(XComponentTestTwoNg, OnAttachContextShouldInitializeAccessibility, TestSize.Level1)
+{
+    // type = XCOMPONENT_SURFACE_TYPE_VALUE
+    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
+    g_testProperty.libraryName = std::nullopt;
+    auto frameNode = CreateXComponentNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+
+    auto pattern = frameNode->GetPattern<XComponentPattern>();
+    ASSERT_TRUE(pattern);
+
+    PipelineContext* context = frameNode->GetContext();
+    
+    pattern->isTypedNode_ = true;
+    pattern->OnAttachContext(context);
+    EXPECT_EQ(pattern->accessibilityChildTreeCallback_, nullptr);
+
+    pattern->isTypedNode_ = false;
+    pattern->OnAttachContext(context);
+    EXPECT_NE(pattern->accessibilityChildTreeCallback_, nullptr);
 }
 
 /**
@@ -877,8 +941,18 @@ HWTEST_F(XComponentTestTwoNg, SetXComponentSurfaceSizeTest, TestSize.Level1)
     ASSERT_TRUE(pattern);
     EXPECT_CALL(*AceType::DynamicCast<MockRenderSurface>(pattern->renderSurface_),
         ConfigSurface(SURFACE_WIDTH_SIZE, SURFACE_HEIGHT_SIZE))
+        .WillOnce(Return())
         .WillOnce(Return());
+    auto reporter = std::make_shared<StatisticEventReporter>();
+    PipelineContext* context = frameNode->GetContext();
+    context->statisticEventReporter_ = reporter;
+    frameNode->onMainTree_ = true;
     XComponentModelNG::SetXComponentSurfaceSize(Referenced::RawPtr(frameNode), SURFACE_WIDTH_SIZE, SURFACE_HEIGHT_SIZE);
+    EXPECT_EQ(reporter->statisitcEventMap_.size(), 1);
+    EXPECT_EQ(reporter->totalEventCount_, 1);
+    frameNode->onMainTree_ = false;
+    XComponentModelNG::SetXComponentSurfaceSize(Referenced::RawPtr(frameNode), SURFACE_WIDTH_SIZE, SURFACE_HEIGHT_SIZE);
+    EXPECT_EQ(pattern->statisticEventTypes_.size(), 1);
 }
 
 /**
@@ -957,24 +1031,23 @@ HWTEST_F(XComponentTestTwoNg, InitXComponentShouldNotCallInitNativeXComponentTes
 }
 
 /**
- * @tc.name: InitXComponentShouldCallInitAccessibilty
- * @tc.desc: Test InitXComponent Func Init Accessibilty when isTypedNode_ = true
+ * @tc.name: InitXComponentShouldNotCallInitAccessibilty
+ * @tc.desc: Test InitXComponent Func Not Init Accessibilty
  * @tc.type: FUNC
  */
 HWTEST_F(XComponentTestTwoNg, InitXComponentShouldCallInitAccessibilty, TestSize.Level1)
 {
-    // type = XCOMPONENT_SURFACE_TYPE_VALUE, isTypedNode_ = true, libraryName = std::nullopt
+    // type = XCOMPONENT_SURFACE_TYPE_VALUE, isTypedNode_ = false, libraryName = std::nullopt
     g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
     g_testProperty.libraryName = std::nullopt;
     auto frameNode = CreateXComponentNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     auto pattern = frameNode->GetPattern<XComponentPattern>();
     ASSERT_TRUE(pattern);
-    pattern->isTypedNode_ = true;
 
     XComponentModelNG().InitXComponent(Referenced::RawPtr(frameNode));
     EXPECT_EQ(pattern->isNativeXComponent_, false);
-    EXPECT_NE(pattern->accessibilityChildTreeCallback_, nullptr);
+    EXPECT_EQ(pattern->accessibilityChildTreeCallback_, nullptr);
 }
 
 /**
@@ -1356,11 +1429,11 @@ HWTEST_F(XComponentTestTwoNg, GetAccessibilityNodeCursorPositionTest, TestSize.L
 }
 
 /**
- * @tc.name: SendAccessibilityAsyncEventTest
+ * @tc.name: SendAccessibilityAsyncEventTest1
  * @tc.desc: Test SendAccessibilityAsyncEvent Func
  * @tc.type: FUNC
  */
-HWTEST_F(XComponentTestTwoNg, SendAccessibilityAsyncEventTest, TestSize.Level1)
+HWTEST_F(XComponentTestTwoNg, SendAccessibilityAsyncEventTest1, TestSize.Level1)
 {
     /**
      * @tc.step1: Create XComponent and XComponentAccessibilityProvider
@@ -1385,36 +1458,14 @@ HWTEST_F(XComponentTestTwoNg, SendAccessibilityAsyncEventTest, TestSize.Level1)
     auto callback = [](int32_t errorCode) {};
     int32_t ret = xComponentAccessibilityProvider->SendAccessibilityAsyncEvent(accessibilityEvent, callback);
     EXPECT_EQ(ret, 0);
-
-    /**
-     * @tc.step3: Call SendAccessibilityAsyncEvent Func when callback is null and thirdAccessibilityManager_ is not null
-     * @tc.expected: ret = 0
-     */
-    ret = xComponentAccessibilityProvider->SendAccessibilityAsyncEvent(accessibilityEvent, nullptr);
-    EXPECT_EQ(ret, 0);
-
-    /**
-     * @tc.step4: Call SendAccessibilityAsyncEvent Func when callback is not null and thirdAccessibilityManager_ is null
-     * @tc.expected: ret = -1
-     */
-    xComponentAccessibilityProvider->thirdAccessibilityManager_ = std::shared_ptr<ThirdAccessibilityManager>();
-    ret = xComponentAccessibilityProvider->SendAccessibilityAsyncEvent(accessibilityEvent, callback);
-    EXPECT_EQ(ret, -1);
-
-    /**
-     * @tc.step5: Call SendAccessibilityAsyncEvent Func when callback is null and thirdAccessibilityManager_ is null
-     * @tc.expected: ret = -1
-     */
-    ret = xComponentAccessibilityProvider->SendAccessibilityAsyncEvent(accessibilityEvent, nullptr);
-    EXPECT_EQ(ret, -1);
 }
 
 /**
- * @tc.name: SendThirdAccessibilityProviderTest
- * @tc.desc: Test SendThirdAccessibilityProvider Func
+ * @tc.name: SendAccessibilityAsyncEventTest2
+ * @tc.desc: Test SendAccessibilityAsyncEvent Func
  * @tc.type: FUNC
  */
-HWTEST_F(XComponentTestTwoNg, SendThirdAccessibilityProviderTest, TestSize.Level1)
+HWTEST_F(XComponentTestTwoNg, SendAccessibilityAsyncEventTest2, TestSize.Level1)
 {
     /**
      * @tc.step1: Create XComponent and XComponentAccessibilityProvider
@@ -1429,459 +1480,43 @@ HWTEST_F(XComponentTestTwoNg, SendThirdAccessibilityProviderTest, TestSize.Level
     ASSERT_TRUE(xComponentAccessibilityProvider);
 
     /**
-     * @tc.step2: Call SendThirdAccessibilityProvider Func
-     * @tc.expected: xComponentAccessibilityProvider->thirdAccessibilityManager_ is not null
+     * @tc.step2: Call SendAccessibilityAsyncEvent Func when callback is null and thirdAccessibilityManager_ is not null
+     * @tc.expected: ret = 0
      */
+    ArkUI_AccessibilityEventInfo accessibilityEvent;
     auto thirdAccessibilityManager = std::make_shared<ThirdAccessibilityManager>();
-    xComponentAccessibilityProvider->SendThirdAccessibilityProvider(thirdAccessibilityManager);
-    EXPECT_TRUE(xComponentAccessibilityProvider->thirdAccessibilityManager_.lock());
+    xComponentAccessibilityProvider->thirdAccessibilityManager_ = thirdAccessibilityManager;
+    int32_t ret = xComponentAccessibilityProvider->SendAccessibilityAsyncEvent(accessibilityEvent, nullptr);
+    EXPECT_EQ(ret, 0);
 }
 
 /**
- * @tc.name: OnRegisterTest
- * @tc.desc: Test OnRegister Func
+ * @tc.name: SendAccessibilityAsyncEventTest3
+ * @tc.desc: Test SendAccessibilityAsyncEvent Func
  * @tc.type: FUNC
  */
-HWTEST_F(XComponentTestTwoNg, OnRegisterTest, TestSize.Level1)
+HWTEST_F(XComponentTestTwoNg, SendAccessibilityAsyncEventTest3, TestSize.Level1)
 {
     /**
-     * @tc.step1: Create XComponent and XComponentAccessibilityChildTreeCallback
-     * @tc.expected: Create XComponent and XComponentAccessibilityChildTreeCallback Successfully
+     * @tc.step1: Create XComponent and XComponentAccessibilityProvider
+     * @tc.expected: Create XComponent and XComponentAccessibilityProvider Successfully
      */
     g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
     auto frameNode = CreateXComponentNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     auto pattern = frameNode->GetPattern<XComponentPattern>();
     ASSERT_TRUE(pattern);
-    int accessibilityId = 2;
-    auto xComponentAccessibilityChildTreeCallback =
-        std::make_shared<XComponentAccessibilityChildTreeCallback>(pattern, accessibilityId);
-    ASSERT_TRUE(xComponentAccessibilityChildTreeCallback);
+    auto xComponentAccessibilityProvider = std::make_shared<XComponentAccessibilityProvider>(pattern);
+    ASSERT_TRUE(xComponentAccessibilityProvider);
 
     /**
-     * @tc.step2: Call OnRegister Func when nativeProvider->IsRegister() is false
-     * @tc.expected: ret = false and xComponentAccessibilityChildTreeCallback->isReg_ = false
+     * @tc.step2: Call SendAccessibilityAsyncEvent Func when callback is not null and thirdAccessibilityManager_ is null
+     * @tc.expected: ret = -1
      */
-    uint32_t windowId = 1;
-    int32_t treeId = 2;
-    bool ret = xComponentAccessibilityChildTreeCallback->OnRegister(windowId, treeId);
-    EXPECT_FALSE(ret);
-    EXPECT_FALSE(xComponentAccessibilityChildTreeCallback->isReg_);
-}
-
-/**
- * @tc.name: OnDeregisterTest
- * @tc.desc: Test OnDeregister Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, OnDeregisterTest, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent and XComponentAccessibilityChildTreeCallback
-     * @tc.expected: Create XComponent and XComponentAccessibilityChildTreeCallback Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-    int accessibilityId = 2;
-    auto xComponentAccessibilityChildTreeCallback =
-        std::make_shared<XComponentAccessibilityChildTreeCallback>(pattern, accessibilityId);
-    ASSERT_TRUE(xComponentAccessibilityChildTreeCallback);
-
-    /**
-     * @tc.step2: Call OnDeregister Func
-     * @tc.expected: ret = false and xComponentAccessibilityChildTreeCallback->isReg_ = false
-     */
-    bool ret = xComponentAccessibilityChildTreeCallback->OnDeregister();
-    EXPECT_TRUE(ret);
-    EXPECT_FALSE(xComponentAccessibilityChildTreeCallback->isReg_);
-}
-
-/**
- * @tc.name: OnSetChildTreeTest
- * @tc.desc: Test OnSetChildTree Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, OnSetChildTreeTest, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent and XComponentAccessibilityChildTreeCallback
-     * @tc.expected: Create XComponent and XComponentAccessibilityChildTreeCallback Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-    int accessibilityId = 2;
-    auto xComponentAccessibilityChildTreeCallback =
-        std::make_shared<XComponentAccessibilityChildTreeCallback>(pattern, accessibilityId);
-    ASSERT_TRUE(xComponentAccessibilityChildTreeCallback);
-
-    /**
-     * @tc.step2: Call OnDeregister Func
-     * @tc.expected: ret = true
-     */
-    int32_t childWindowId = 1;
-    int32_t childTreeId = 2;
-    bool ret = xComponentAccessibilityChildTreeCallback->OnSetChildTree(childWindowId, childTreeId);
-    EXPECT_TRUE(ret);
-}
-
-/**
- * @tc.name: OnDumpChildInfoTest
- * @tc.desc: Test OnDumpChildInfo Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, OnDumpChildInfoTest, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent and XComponentAccessibilityChildTreeCallback
-     * @tc.expected: Create XComponent and XComponentAccessibilityChildTreeCallback Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-    int accessibilityId = 2;
-    auto xComponentAccessibilityChildTreeCallback =
-        std::make_shared<XComponentAccessibilityChildTreeCallback>(pattern, accessibilityId);
-    ASSERT_TRUE(xComponentAccessibilityChildTreeCallback);
-
-    /**
-     * @tc.step2: Call OnDumpChildInfo Func
-     * @tc.expected: ret = false
-     */
-    std::vector<std::string> params;
-    std::vector<std::string> info;
-    bool ret = xComponentAccessibilityChildTreeCallback->OnDumpChildInfo(params, info);
-    EXPECT_FALSE(ret);
-}
-
-/**
- * @tc.name: OnClearRegisterFlagTest
- * @tc.desc: Test OnClearRegisterFlag Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, OnClearRegisterFlagTest, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent and XComponentAccessibilityChildTreeCallback
-     * @tc.expected: Create XComponent and XComponentAccessibilityChildTreeCallback Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-    int accessibilityId = 2;
-    auto xComponentAccessibilityChildTreeCallback =
-        std::make_shared<XComponentAccessibilityChildTreeCallback>(pattern, accessibilityId);
-    ASSERT_TRUE(xComponentAccessibilityChildTreeCallback);
-
-    /**
-     * @tc.step2: Call OnClearRegisterFlag Func
-     * @tc.expected: isReg_ = false;
-     */
-    xComponentAccessibilityChildTreeCallback->OnClearRegisterFlag();
-    EXPECT_FALSE(xComponentAccessibilityChildTreeCallback->isReg_);
-}
-
-/**
- * @tc.name: EnableAnalyzerTest001
- * @tc.desc: Test EnableAnalyzer Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, EnableAnalyzerTest001, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent when Type = Surface
-     * @tc.expected: Create XComponent Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-
-    /**
-     * @tc.step2: Call EnableAnalyzer Func
-     * @tc.expected: isEnableAnalyzer_ = true;
-     */
-    XComponentModelNG::EnableAnalyzer(AceType::RawPtr(frameNode), true);
-    EXPECT_EQ(pattern->isEnableAnalyzer_, true);
-}
-
-/**
- * @tc.name: EnableAnalyzerTest002
- * @tc.desc: Test EnableAnalyzer Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, EnableAnalyzerTest002, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent when Type = Component
-     * @tc.expected: Create XComponent Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_COMPONENT_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-
-    /**
-     * @tc.step2: Call EnableAnalyzer Func
-     * @tc.expected: isEnableAnalyzer_ = false;
-     */
-    XComponentModelNG::EnableAnalyzer(AceType::RawPtr(frameNode), true);
-    EXPECT_EQ(pattern->isEnableAnalyzer_, false);
-}
-
-/**
- * @tc.name: EnableAnalyzerTest003
- * @tc.desc: Test EnableAnalyzer Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, EnableAnalyzerTest003, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent when Type = Node
-     * @tc.expected: Create XComponent Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_NODE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-
-    /**
-     * @tc.step2: Call EnableAnalyzer Func
-     * @tc.expected: isEnableAnalyzer_ = false;
-     */
-    XComponentModelNG::EnableAnalyzer(AceType::RawPtr(frameNode), true);
-    EXPECT_EQ(pattern->isEnableAnalyzer_, false);
-}
-
-/**
- * @tc.name: GetXComponentSurfaceRectTest
- * @tc.desc: Test GetXComponentSurfaceRect Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, GetXComponentSurfaceRectTest, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent when Type = Surface
-     * @tc.expected: Create XComponent Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-
-    /**
-     * @tc.step2: Call GetXComponentSurfaceRect Func
-     * @tc.expected: offsetX = OFFSET_X; offsetY = OFFSET_Y;
-     * surfaceWidth = SURFACE_WIDTH_SIZE; surfaceHeight = SURFACE_HEIGHT_SIZE
-     */
-    pattern->surfaceOffset_ = OffsetF(OFFSET_X, OFFSET_Y);
-    pattern->surfaceSize_ = SizeF(SURFACE_WIDTH_SIZE, SURFACE_HEIGHT_SIZE);
-    float offsetX = 0;
-    float offsetY = 0;
-    float surfaceWidth = 0;
-    float surfaceHeight = 0;
-    XComponentModelNG::GetXComponentSurfaceRect(
-        AceType::RawPtr(frameNode), offsetX, offsetY, surfaceWidth, surfaceHeight);
-    EXPECT_EQ(offsetX, OFFSET_X);
-    EXPECT_EQ(offsetY, OFFSET_Y);
-    EXPECT_EQ(surfaceWidth, SURFACE_WIDTH_SIZE);
-    EXPECT_EQ(surfaceHeight, SURFACE_HEIGHT_SIZE);
-}
-
-/**
- * @tc.name: OnDetachContextTest
- * @tc.desc: Test OnDetachContext Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, OnDetachContextTest, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent
-     * @tc.expected: Create XComponent Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-    PipelineContext* context = frameNode->GetContext();
-    ASSERT_TRUE(context);
-
-    /**
-     * @tc.step2: Call OnDetachContext Func
-     * @tc.expected: onWindowStateChangedCallbacks_ can not find nodeId by the frameNode
-     */
-    pattern->OnDetachContext(context);
-    EXPECT_EQ(context->onWindowStateChangedCallbacks_.find(frameNode->GetId()),
-        context->onWindowStateChangedCallbacks_.end());
-}
-
-/**
- * @tc.name: ToJsonValueTest
- * @tc.desc: Test ToJsonValue Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, ToJsonValueTest, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent
-     * @tc.expected: Create XComponent Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-    PipelineContext* context = frameNode->GetContext();
-    ASSERT_TRUE(context);
-
-    /**
-     * @tc.step2: Call ToJsonValueTest Func
-     * @tc.expected: EXPECT_EQ has no failure
-     */
-    pattern->isEnableAnalyzer_ = true;
-    pattern->isEnableSecure_ = true;
-    pattern->hdrBrightness_ = 0.5;
-    pattern->isTransparentLayer_ = true;
-    pattern->screenId_ = 12345;
-
-    InspectorFilter filter;
-    auto JsonValue = JsonUtil::Create(true);
-    pattern->ToJsonValue(JsonValue, filter);
-    EXPECT_EQ(JsonValue->GetString("enableAnalyzer"), "true");
-    EXPECT_EQ(JsonValue->GetString("enableSecure"), "true");
-    EXPECT_EQ(std::stof(JsonValue->GetString("hdrBrightness")), 0.5);
-    EXPECT_EQ(JsonValue->GetString("enableTransparentLayer"), "true");
-    EXPECT_EQ(std::stof(JsonValue->GetString("screenId")), 12345);
-    EXPECT_EQ(JsonValue->GetString("renderFit"), "RenderFit.RESIZE_FILL");
-}
-
-/**
- * @tc.name: LockCanvasTest
- * @tc.desc: Test LockCanvas Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, LockCanvasTest, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent
-     * @tc.expected: Create XComponent Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-    pattern->nativeWindow_ = new int();
-
-    /**
-     * @tc.step2: Call LockCanvasTest Func
-     * @tc.expected: first call's returnValue is not nullptr and second call's returnValue is nullptr
-     */
-    auto canvas = pattern->LockCanvas();
-    EXPECT_TRUE(canvas);
-    canvas = pattern->LockCanvas();
-    EXPECT_FALSE(canvas);
-    
-    // clear variables on the stack to prevent memory leaks
-    RSCanvasUtils::UnlockCanvas(canvas, reinterpret_cast<OHNativeWindow*>(pattern->nativeWindow_));
-    delete reinterpret_cast<int*>(pattern->nativeWindow_);
-    pattern->nativeWindow_ = nullptr;
-}
-
-/**
- * @tc.name: UnlockCanvasAndPostTest
- * @tc.desc: Test UnlockCanvasAndPost Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, UnlockCanvasAndPostTest, TestSize.Level1)
-{
-    /**
-     * @tc.step1: Create XComponent
-     * @tc.expected: Create XComponent Successfully
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-    pattern->nativeWindow_ = new int();
-
-    /**
-     * @tc.step2: Call UnlockCanvasAndPost Func
-     * @tc.expected: returnValue is false
-     */
-    auto canvas = pattern->LockCanvas();
-    EXPECT_TRUE(canvas);
-    pattern->UnlockCanvasAndPost(canvas);
-    EXPECT_FALSE(Testing::TestingCanvasUtils::GetInstance()->lockCanvas);
-    pattern->UnlockCanvasAndPost(canvas);
-    EXPECT_FALSE(Testing::TestingCanvasUtils::GetInstance()->lockCanvas);
-
-    // clear variables on the stack to prevent memory leaks
-    delete reinterpret_cast<int*>(pattern->nativeWindow_);
-    pattern->nativeWindow_ = nullptr;
-}
-
-/**
- * @tc.name: IsEnableMatchParentTest
- * @tc.desc: Test IsEnableMatchParent Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, IsEnableMatchParentTest, TestSize.Level1)
-{
-    /**
-     * @tc.steps1: initialize parameters.
-     * @tc.expected: All pointer is non-null.
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-
-    /**
-     * @tc.steps2: Check Function IsEnableMatchParent's return value.
-     * @tc.expected: Function IsEnableMatchParent returns true.
-     */
-    EXPECT_TRUE(pattern->IsEnableMatchParent());
-}
-
-/**
- * @tc.name: SetHasGotNativeXComponentTest
- * @tc.desc: Test SetHasGotNativeXComponent Func
- * @tc.type: FUNC
- */
-HWTEST_F(XComponentTestTwoNg, SetHasGotNativeXComponentTest, TestSize.Level1)
-{
-    /**
-     * @tc.steps1: initialize parameters.
-     * @tc.expected: All pointer is non-null.
-     */
-    g_testProperty.xcType = XCOMPONENT_SURFACE_TYPE_VALUE;
-    auto frameNode = CreateXComponentNode(g_testProperty);
-    ASSERT_TRUE(frameNode);
-    auto pattern = frameNode->GetPattern<XComponentPattern>();
-    ASSERT_TRUE(pattern);
-
-    /**
-     * @tc.steps2: Check Param hasGotNativeXComponent_'s value.
-     * @tc.expected: Param hasGotNativeXComponent_ equals true.
-     */
-    pattern->SetHasGotNativeXComponent(true);
-    EXPECT_TRUE(pattern->hasGotNativeXComponent_);
+    ArkUI_AccessibilityEventInfo accessibilityEvent;
+    xComponentAccessibilityProvider->thirdAccessibilityManager_ = std::shared_ptr<ThirdAccessibilityManager>();
+    auto callback = [](int32_t errorCode) {};
+    int32_t ret = xComponentAccessibilityProvider->SendAccessibilityAsyncEvent(accessibilityEvent, callback);
+    EXPECT_EQ(ret, -1);
 }
 } // namespace OHOS::Ace::NG

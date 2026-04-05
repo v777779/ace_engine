@@ -26,7 +26,7 @@ abstract class ViewBuildNodeBase {
     protected isView_: boolean;
     protected childrenWeakrefMap_ = new Map<number, WeakRef<IView>>();
     // Tracks all child BuilderNodes of this ViewBuildNodeBase instance using WeakRefs.
-    protected builderNodeWeakrefMap_ = new Map<number, WeakRef<ViewBuildNodeBase>>();
+    protected builderNodeWeakrefMap__?: Map<number, WeakRef<ViewBuildNodeBase>>;
     protected updateFuncByElmtId = new UpdateFuncsByElmtId();
     protected id_: number;
     protected shareLocalStorage_: LocalStorage = undefined;
@@ -34,7 +34,9 @@ abstract class ViewBuildNodeBase {
     // Refer to the buildNode parent if it exists.
     // It is undefined, if current node is created in view.
     // It is not undefined, if current node is created in buildNode.
-    protected __parentViewBuildNode__: ViewBuildNodeBase = undefined;
+    // view's builder parent, only view has __parentViewBuildNode__, buildernode does not have this
+    // buildernode parent see: __parentViewOfBuildNode
+    public __parentViewBuildNode__: ViewBuildNodeBase = undefined;
 
     // will find provide for consume only when __enableBuilderNodeConsume__ is true
     // to avoid the affect the performance for builderNode
@@ -54,9 +56,19 @@ abstract class ViewBuildNodeBase {
 
     constructor(isView: boolean) {
         this.isView_ = isView;
-        this.childrenWeakrefMap_ = new Map();
-        this.builderNodeWeakrefMap_ = new Map();
     }
+
+    get builderNodeWeakrefMap_(): Map<number, WeakRef<ViewBuildNodeBase>> | undefined {
+        return this.builderNodeWeakrefMap__;
+    }
+
+    getOrCreateBuilderNodeWeakrefMap(): Map<number, WeakRef<ViewBuildNodeBase>> {
+        if (!this.builderNodeWeakrefMap__) {
+            this.builderNodeWeakrefMap__ = new Map<number, WeakRef<ViewBuildNodeBase>>();
+        }
+        return this.builderNodeWeakrefMap__;
+    }
+
     // globally unique id, this is different from compilerAssignedUniqueChildId!
     id__(): number {
         return this.id_;
@@ -64,6 +76,18 @@ abstract class ViewBuildNodeBase {
     // overwritten by sub classes
     public debugInfo__(): string {
         return `ViewBuildNodeBase '${this.constructor.name}'[${this.id__()}]`;
+    }
+
+    public abstract UpdateElement(elmtId: number): void;
+    public abstract getInstanceId(): number;
+
+    public __isReactiveBuilderNode__ViewBuildNodeBase__Internal(): boolean {
+        return false;
+    }
+
+    public getElementNameById(elmtId: number): string {
+        const updateFuncRecord = this.updateFuncByElmtId.get(elmtId);
+        return updateFuncRecord ? updateFuncRecord.getComponentName() : 'unknown component name';
     }
 
     public debugInfoElmtId(elmtId: number, isProfiler: boolean = false): string | ElementType {
@@ -109,11 +133,10 @@ abstract class ViewBuildNodeBase {
      */
     public addChildBuilderNode(child: ViewBuildNodeBase): boolean {
         stateMgmtConsole.debug(`BuildNode ${child?.debugInfo__()} is added to the ${this.debugInfo__()}`);
-        if (this.builderNodeWeakrefMap_.has(child.id__())) {
-            stateMgmtConsole.warn(`${this.debugInfo__()}: addChildBuilderNode '${child?.debugInfo__()}' elmtId already exists ${child.id__()}. Internal error!`);
+        if (this.builderNodeWeakrefMap_?.has(child.id__())) {
             return false;
         }
-        this.builderNodeWeakrefMap_.set(child.id__(), new WeakRef(child));
+        this.getOrCreateBuilderNodeWeakrefMap().set(child.id__(), new WeakRef(child));
         // recursively check children for buildNode and view
         // if it has the default consume needs to reconnect the provide
         if (child.__enableBuilderNodeConsume__) {
@@ -128,17 +151,19 @@ abstract class ViewBuildNodeBase {
      * Invoke by buildNode when it attach to the view.
      */
     propagateToChildrenToConnected(): void {
-        if (this instanceof ViewPU && this.defaultConsume_.size > 0) {
+        if (this instanceof ViewPU && this.defaultConsume_ && this.defaultConsume_.size > 0) {
             this.reconnectToConsume()
+        } else if (this instanceof ViewV2 && this.defaultConsumerV2_ && this.defaultConsumerV2_.size > 0) {
+            this.__reconnectToConsumer__ViewV2__Internal();
         }
 
         this.childrenWeakrefMap_.forEach((weakRefChild) => {
             const child = weakRefChild?.deref();
-            if (child instanceof ViewPU && child.defaultConsume_.size > 0) {
+            if (child instanceof ViewPU || child instanceof ViewV2) {
                 child.propagateToChildrenToConnected();
             }
         })
-        this.builderNodeWeakrefMap_.forEach((weakRefChild) => {
+        this.builderNodeWeakrefMap_?.forEach((weakRefChild) => {
             const child = weakRefChild?.deref();
             if (child instanceof ViewBuildNodeBase && child.__enableBuilderNodeConsume__) {
                 child.propagateToChildrenToConnected();
@@ -152,24 +177,25 @@ abstract class ViewBuildNodeBase {
      */
     public removeChildBuilderNode(elmtId: number): void {
         stateMgmtConsole.debug(`BuildNode ${elmtId} is removed from the ${this.debugInfo__()}`);
-        if (!this.builderNodeWeakrefMap_.has(elmtId)) {
+        const weakBuilderNode = this.builderNodeWeakrefMap_?.get(elmtId);
+        if (!weakBuilderNode) {
             stateMgmtConsole.warn(`${this.debugInfo__()}: removeChildBuilderNode(${elmtId}) no child with this elmtId. Internal error!`);
             return;
         }
 
-        const buildNode: ViewBuildNodeBase = this.builderNodeWeakrefMap_.get(elmtId)?.deref();
+        const buildNode: ViewBuildNodeBase | undefined = weakBuilderNode.deref();
         // recursively check children for buildNode and view
         // if it has the default consume needs to reconnect the provide
         if (buildNode && buildNode.__enableBuilderNodeConsume__) {
             buildNode.propagateToChildrenToDisconnected();
         }
-        this.builderNodeWeakrefMap_.delete(elmtId);
+        this.builderNodeWeakrefMap_!.delete(elmtId);
     }
     /**
-     * Clears a child BuilderNode from this view
+     * Clears all child BuilderNodes from this view
      */
     public clearChildBuilderNode(): void {
-        this.builderNodeWeakrefMap_.clear();
+        this.builderNodeWeakrefMap_?.clear();
     }
 
     /**
@@ -178,16 +204,18 @@ abstract class ViewBuildNodeBase {
      * Invoke by buildNode when it attach to the view.
      */
     public propagateToChildrenToDisconnected(): void {
-        if (this instanceof ViewPU && this.reconnectConsume_.size > 0) {
+        if (this instanceof ViewPU && this.reconnectConsume_ && this.reconnectConsume_.size > 0) {
             this.disconnectedConsume();
+        } else if (this instanceof ViewV2 && this.connectConsumerV2_ && this.connectConsumerV2_.size > 0) {
+            this.__disconnectToConsumer__ViewV2__Internal();
         }
         this.childrenWeakrefMap_.forEach((weakRefChild) => {
             const child = weakRefChild?.deref();
-            if (child instanceof ViewPU && child.reconnectConsume_.size > 0) {
+            if (child instanceof ViewPU || child instanceof ViewV2) {
                 child.propagateToChildrenToDisconnected();
             }
         })
-        this.builderNodeWeakrefMap_.forEach((weakRefChild) => {
+        this.builderNodeWeakrefMap_?.forEach((weakRefChild) => {
             const child = weakRefChild?.deref();
             if (child instanceof ViewBuildNodeBase && child.__enableBuilderNodeConsume__) {
                 child.propagateToChildrenToDisconnected();
@@ -250,7 +278,7 @@ abstract class ViewBuildNodeBase {
             return;
         }
         if (this.isView_ || (!this.isView_ && Utils.isApiVersionEQAbove(16))) {
-            ViewBuildNodeBase.arkThemeScopeManager?.onIfElseBranchUpdateEnter()
+            ViewBuildNodeBase.arkThemeScopeManager?.onIfElseBranchUpdateEnter();
         }
         // branchid identifies uniquely the if .. <1> .. else if .<2>. else .<3>.branch
         // ifElseNode stores the most recent branch, so we can compare
@@ -277,11 +305,11 @@ abstract class ViewBuildNodeBase {
         branchfunc();
         this.ifElseBranchUpdateFunctionDirtyRetaken();
         if (this.isView_ || (!this.isView_ && Utils.isApiVersionEQAbove(16))) {
-            ViewBuildNodeBase.arkThemeScopeManager?.onIfElseBranchUpdateExit(removedChildElmtIds)
+            ViewBuildNodeBase.arkThemeScopeManager?.onIfElseBranchUpdateExit(removedChildElmtIds);
         }
     }
     public static setArkThemeScopeManager(mgr: ArkThemeScopeManager): void {
-        ViewBuildNodeBase.arkThemeScopeManager = mgr
+        ViewBuildNodeBase.arkThemeScopeManager = mgr;
     }
     public onWillApplyThemeInternally(): void {
         const theme = ViewBuildNodeBase.arkThemeScopeManager?.getFinalTheme(this);

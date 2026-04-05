@@ -53,11 +53,13 @@ protected:
     void OnLayoutFinished() override;
     void OnDrawingCompleted() override;
     void OnRemoveBlank() override;
-    void OnAddSnapshot() override;
+    void OnAddSnapshot(std::function<void()>&& callback = nullptr) override;
     void OnRemoveSnapshot() override;
     void OnAppRemoveStartingWindow() override;
     void OnUpdateSnapshotWindow() override;
     void OnPreLoadStartingWindowFinished() override;
+    void OnRestart() override;
+    void OnRemovePrelaunchStartingWindow() override;
 
 private:
     std::shared_ptr<Rosen::RSSurfaceNode> CreateLeashWindowNode();
@@ -76,6 +78,10 @@ private:
     void SubWindowAttachToFrameNode(sptr<Rosen::Session>& session);
     void SetSubSessionVisible();
     bool IsMainSessionRecent();
+    void InsertSurfaceNodeId(uint64_t nodeId);
+    void ClearSurfaceNodeId(uint64_t nodeId);
+    bool CheckPrelaunchForBufferAvailableCallback(CancelableCallback<void()>& task,
+        const std::function<void()>& uiTask);
 
     bool destroyed_ = false;
     OHOS::Rosen::WindowMode initWindowMode_ = OHOS::Rosen::WindowMode::WINDOW_MODE_UNDEFINED;

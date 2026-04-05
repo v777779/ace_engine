@@ -61,7 +61,13 @@ public:
         renderFunction_ = renderFunction;
     }
 
+    bool HasRenderFunction()
+    {
+        return renderFunction_ != nullptr;
+    }
+
     void Build(std::shared_ptr<std::list<ExtraInfo>> extraInfos) override;
+    void NodeDidBuild();
 
     int32_t FrameCount() const override
     {
@@ -102,7 +108,8 @@ public:
         bool addToRenderTree = false) override;
     bool RenderCustomChild(int64_t deadline) override;
     void SetJSViewActive(bool active, bool isLazyForEachNode = false, bool isReuse = false) override;
-    void OnDestroyingStateChange(bool isDestroying, bool cleanStatus) override;
+
+    void SetDestroying(bool isDestroying, bool cleanStatus) override;
 
     bool GetJsActive()
     {
@@ -112,6 +119,11 @@ public:
     void SetJsActive(bool active)
     {
         prevJsActive_ = active;
+    }
+
+    bool isDidBuild()
+    {
+        return isDidBuild_;
     }
 
     void SetExtraInfos(const std::list<ExtraInfo> extraInfos)
@@ -126,6 +138,8 @@ public:
 
     void DoSetActiveChildRange(
         int32_t start, int32_t end, int32_t cacheStart, int32_t cacheEnd, bool showCache = false) override;
+
+    void FireRecycleRenderFunc() override;
 
     const WeakPtr<UINode>& GetNavigationNode() const
     {
@@ -209,11 +223,14 @@ private:
     void DumpComponentInfo(std::unique_ptr<JsonValue>& componentInfo);
     void DumpDecoratorInfo(std::unique_ptr<JsonValue>& decoratorInfo);
 
+    RefPtr<CustomNode> FindParentCustomNode() const;
+
     std::string viewKey_;
     RenderFunction renderFunction_;
     RenderFunction completeReloadFunc_;
     bool needMarkParent_ = true;
     bool prevJsActive_ = true;
+    bool isDidBuild_ = false;
     std::list<ExtraInfo> extraInfos_;
     WeakPtr<UINode> navigationNode_;
     std::unique_ptr<ViewStackProcessor> prebuildViewStackProcessor_;

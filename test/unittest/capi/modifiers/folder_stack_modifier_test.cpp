@@ -55,31 +55,31 @@ class FolderStackModifierTest : public ModifierTestBase<
 HWTEST_F(FolderStackModifierTest, setAlignContentTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ALIGN_CONTENT_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_ALIGN_CONTENT_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_ALIGN_CONTENT_DEFAULT_VALUE));
 }
 
 // Valid values for attribute 'alignContent' of method 'alignContent'
-static std::vector<std::tuple<std::string, enum Ark_Alignment, std::string>> alignContentAlignContentValidValues = {
-    {"ARK_ALIGNMENT_TOP_START", Converter::ArkValue<enum Ark_Alignment>(ARK_ALIGNMENT_TOP_START),
+static std::vector<std::tuple<std::string, Ark_Alignment, std::string>> alignContentAlignContentValidValues = {
+    {"ARK_ALIGNMENT_TOP_START", Converter::ArkValue<Ark_Alignment>(ARK_ALIGNMENT_TOP_START),
         "Alignment.TopStart"},
-    {"ARK_ALIGNMENT_TOP", Converter::ArkValue<enum Ark_Alignment>(ARK_ALIGNMENT_TOP),
+    {"ARK_ALIGNMENT_TOP", Converter::ArkValue<Ark_Alignment>(ARK_ALIGNMENT_TOP),
         "Alignment.Top"},
-    {"ARK_ALIGNMENT_TOP_END", Converter::ArkValue<enum Ark_Alignment>(ARK_ALIGNMENT_TOP_END),
+    {"ARK_ALIGNMENT_TOP_END", Converter::ArkValue<Ark_Alignment>(ARK_ALIGNMENT_TOP_END),
         "Alignment.TopEnd"},
-    {"ARK_ALIGNMENT_START", Converter::ArkValue<enum Ark_Alignment>(ARK_ALIGNMENT_START),
+    {"ARK_ALIGNMENT_START", Converter::ArkValue<Ark_Alignment>(ARK_ALIGNMENT_START),
         "Alignment.Start"},
-    {"ARK_ALIGNMENT_CENTER", Converter::ArkValue<enum Ark_Alignment>(ARK_ALIGNMENT_CENTER),
+    {"ARK_ALIGNMENT_CENTER", Converter::ArkValue<Ark_Alignment>(ARK_ALIGNMENT_CENTER),
         "Alignment.Center"},
-    {"ARK_ALIGNMENT_END", Converter::ArkValue<enum Ark_Alignment>(ARK_ALIGNMENT_END),
+    {"ARK_ALIGNMENT_END", Converter::ArkValue<Ark_Alignment>(ARK_ALIGNMENT_END),
         "Alignment.End"},
-    {"ARK_ALIGNMENT_BOTTOM_START", Converter::ArkValue<enum Ark_Alignment>(ARK_ALIGNMENT_BOTTOM_START),
+    {"ARK_ALIGNMENT_BOTTOM_START", Converter::ArkValue<Ark_Alignment>(ARK_ALIGNMENT_BOTTOM_START),
         "Alignment.BottomStart"},
-    {"ARK_ALIGNMENT_BOTTOM", Converter::ArkValue<enum Ark_Alignment>(ARK_ALIGNMENT_BOTTOM),
+    {"ARK_ALIGNMENT_BOTTOM", Converter::ArkValue<Ark_Alignment>(ARK_ALIGNMENT_BOTTOM),
         "Alignment.Bottom"},
-    {"ARK_ALIGNMENT_BOTTOM_END", Converter::ArkValue<enum Ark_Alignment>(ARK_ALIGNMENT_BOTTOM_END),
+    {"ARK_ALIGNMENT_BOTTOM_END", Converter::ArkValue<Ark_Alignment>(ARK_ALIGNMENT_BOTTOM_END),
         "Alignment.BottomEnd"},
 };
 
@@ -91,7 +91,7 @@ static std::vector<std::tuple<std::string, enum Ark_Alignment, std::string>> ali
 HWTEST_F(FolderStackModifierTest, setAlignContentTestValidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_Alignment inputValueAlignContent;
     Ark_Alignment initValueAlignContent;
@@ -108,14 +108,14 @@ HWTEST_F(FolderStackModifierTest, setAlignContentTestValidValues, TestSize.Level
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ALIGN_CONTENT_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
 // Invalid values for attribute 'alignContent' of method 'alignContent'
-static std::tuple<std::string, enum Ark_Alignment> alignContentAlignContentInvalidValue = {
-    "static_cast<enum Ark_Alignment>(-1)",
-    Converter::ArkValue<enum Ark_Alignment>(static_cast<enum Ark_Alignment>(-1))
+static std::tuple<std::string, Ark_Alignment> alignContentAlignContentInvalidValue = {
+    "static_cast<Ark_Alignment>(-1)",
+    Converter::ArkValue<Ark_Alignment>(static_cast<Ark_Alignment>(-1))
 };
 
 /*
@@ -126,7 +126,7 @@ static std::tuple<std::string, enum Ark_Alignment> alignContentAlignContentInval
 HWTEST_F(FolderStackModifierTest, setAlignContentTestInvalidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_Alignment inputValueAlignContent;
     Ark_Alignment initValueAlignContent;
@@ -144,7 +144,7 @@ HWTEST_F(FolderStackModifierTest, setAlignContentTestInvalidValues, TestSize.Lev
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ALIGN_CONTENT_NAME);
     expectedStr = ATTRIBUTE_ALIGN_CONTENT_DEFAULT_VALUE;
-    EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(alignContentAlignContentInvalidValue);
+    EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(alignContentAlignContentInvalidValue);
 }
 
 /*
@@ -219,10 +219,10 @@ HWTEST_F(FolderStackModifierTest, setOnHoverStatusChangeTest, TestSize.Level1)
 HWTEST_F(FolderStackModifierTest, setEnableAnimationTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_ANIMATION_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_ENABLE_ANIMATION_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_ENABLE_ANIMATION_DEFAULT_VALUE));
 }
 
 // Valid values for attribute 'enableAnimation' of method 'enableAnimation'
@@ -239,7 +239,7 @@ static std::vector<std::tuple<std::string, Ark_Boolean, std::string>> enableAnim
 HWTEST_F(FolderStackModifierTest, setEnableAnimationTestValidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_Boolean inputValueEnableAnimation;
     Ark_Boolean initValueEnableAnimation;
@@ -256,7 +256,7 @@ HWTEST_F(FolderStackModifierTest, setEnableAnimationTestValidValues, TestSize.Le
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ENABLE_ANIMATION_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 
@@ -268,10 +268,10 @@ HWTEST_F(FolderStackModifierTest, setEnableAnimationTestValidValues, TestSize.Le
 HWTEST_F(FolderStackModifierTest, setAutoHalfFoldTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_AUTO_HALF_FOLD_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_AUTO_HALF_FOLD_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_AUTO_HALF_FOLD_DEFAULT_VALUE));
 }
 
 // Valid values for attribute 'autoHalfFold' of method 'autoHalfFold'
@@ -288,7 +288,7 @@ static std::vector<std::tuple<std::string, Ark_Boolean, std::string>> autoHalfFo
 HWTEST_F(FolderStackModifierTest, setAutoHalfFoldTestValidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
     Ark_Boolean inputValueAutoHalfFold;
     Ark_Boolean initValueAutoHalfFold;
@@ -305,7 +305,7 @@ HWTEST_F(FolderStackModifierTest, setAutoHalfFoldTestValidValues, TestSize.Level
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_AUTO_HALF_FOLD_NAME);
         expectedStr = std::get<2>(value);
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << std::get<0>(value);
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << std::get<0>(value);
     }
 }
 } // namespace OHOS::Ace::NG

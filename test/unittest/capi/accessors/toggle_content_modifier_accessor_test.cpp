@@ -41,11 +41,11 @@ static constexpr bool TEST_DEFAULT_ENABLED = true;
 static constexpr bool TEST_DEFAULT_IS_ON = false;
 
 /**
- * @tc.name: ToggleContentModifierHelperAccessor
+ * @tc.name: contentModifierToggleTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(ToggleContentModifierHelperAccessor, ToggleContentModifierHelperAccessorTest, TestSize.Level1)
+HWTEST_F(ToggleContentModifierHelperAccessor, contentModifierToggleTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->contentModifierToggle, nullptr);
 
@@ -64,13 +64,7 @@ HWTEST_F(ToggleContentModifierHelperAccessor, ToggleContentModifierHelperAccesso
     };
     static std::optional<CheckEvent> checkEvent = std::nullopt;
 
-    Ark_Object obj = {
-        .resource = Ark_CallbackResource {
-            .resourceId = TEST_OBJ_ID,
-            .hold = [](InteropInt32){},
-            .release = [](InteropInt32){},
-        }
-    };
+    auto obj = Converter::ArkCreate<Ark_Object>(TEST_OBJ_ID);
 
     auto modifierCallback = [](const Ark_Int32 resourceId,
         const Ark_NativePointer parentNode,

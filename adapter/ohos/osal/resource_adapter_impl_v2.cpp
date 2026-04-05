@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2023 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,7 +19,6 @@
 #include <queue>
 #include <unordered_set>
 
-#include "ability_context.h"
 #include "drawable_descriptor.h"
 #include "resource_adapter_impl_v2.h"
 
@@ -31,7 +30,9 @@
 namespace OHOS::Ace {
 namespace {
 constexpr uint32_t OHOS_THEME_ID = 125829872; // ohos_theme
+constexpr uint32_t RESOURCE_COLOR_TYPE = 10001; // ohos_theme
 const Color ERROR_VALUE_COLOR = Color(0xff000000);
+constexpr uint32_t INVALID_RESOURCE_ID = UINT32_MAX;
 
 void CheckThemeId(int32_t& themeId)
 {
@@ -52,13 +53,13 @@ const std::unordered_set<std::string> PATTERN_NOT_SYNC_LOAD_SET = { THEME_PATTER
     THEME_PATTERN_RICH_EDITOR, THEME_PATTERN_VIDEO, THEME_PATTERN_INDEXER, THEME_PATTERN_APP_BAR,
     THEME_PATTERN_ADVANCED_PATTERN, THEME_PATTERN_SECURITY_COMPONENT, THEME_PATTERN_FORM, THEME_PATTERN_SIDE_BAR,
     THEME_PATTERN_PATTERN_LOCK, THEME_PATTERN_GAUGE, THEME_PATTERN_SHEET, THEME_PATTERN_AGING_ADAPATION_DIALOG,
-    THEME_PATTERN_LINEAR_INDICATOR, THEME_BLUR_STYLE_COMMON, THEME_PATTERN_SHADOW, THEME_PATTERN_SCROLLABLE,
-    THEME_PATTERN_APP };
+    THEME_BLUR_STYLE_COMMON, THEME_PATTERN_SHADOW, THEME_PATTERN_SCROLLABLE,
+    THEME_PATTERN_APP, THEME_PATTERN_CONTAINER_PICKER };
 
 const std::unordered_set<std::string> PATTERN_SYNC_LOAD_SET = { THEME_PATTERN_BUTTON, THEME_PATTERN_CAMERA,
     THEME_PATTERN_LIST_ITEM, THEME_PATTERN_ARC_LIST, THEME_PATTERN_ARC_LIST_ITEM, THEME_PATTERN_PICKER,
     THEME_PATTERN_PROGRESS, THEME_PATTERN_SELECT, THEME_PATTERN_STEPPER, THEME_PATTERN_TEXT, THEME_PATTERN_TEXTFIELD,
-    THEME_PATTERN_TEXT_OVERLAY, THEME_PATTERN_CONTAINER_MODAL };
+    THEME_PATTERN_TEXT_OVERLAY, THEME_PATTERN_CONTAINER_MODAL, THEME_PATTERN_CORNER_MARK };
 
 const std::string PATTERN_ASYNC_LOAD_LIST[] = { THEME_BLUR_STYLE_COMMON, THEME_PATTERN_ICON, THEME_PATTERN_SHADOW };
 constexpr char RESOURCE_TOKEN_PATTERN[] = "\\[.+?\\]\\.(\\S+?\\.\\S+)";
@@ -87,26 +88,6 @@ DimensionUnit ParseDimensionUnit(const std::string& unit)
         return DimensionUnit::VP;
     }
 };
-
-RefPtr<ResourceAdapter> CreateAdapterWithAppContext(
-    const std::string& bundleName, const std::string& moduleName)
-{
-    auto appContext = OHOS::AbilityRuntime::Context::GetApplicationContext();
-    std::shared_ptr<Global::Resource::ResourceManager> resourceManager;
-    if (!bundleName.empty() && !bundleName.empty()) {
-        auto moduleContext = (appContext ? appContext->CreateModuleContext(bundleName, moduleName) : nullptr);
-        if (moduleContext) {
-            resourceManager = moduleContext->GetResourceManager();
-        }
-    }
-    if (appContext && !resourceManager) {
-        resourceManager = appContext->GetResourceManager();
-    }
-    if (!resourceManager) {
-        return nullptr;
-    }
-    return AceType::MakeRefPtr<ResourceAdapterImplV2>(resourceManager);
-}
 } // namespace
 
 RefPtr<ResourceAdapter> ResourceAdapter::CreateV2()
@@ -115,15 +96,13 @@ RefPtr<ResourceAdapter> ResourceAdapter::CreateV2()
 }
 
 RefPtr<ResourceAdapter> ResourceAdapter::CreateNewResourceAdapter(
-    const std::string& bundleName, const std::string& moduleName, bool fromTheme)
+    const std::string& bundleName, const std::string& moduleName, int32_t& actualInstanceId)
 {
-    auto container = Container::CurrentSafely();
-    if (!container && fromTheme) {
-        return CreateAdapterWithAppContext(bundleName, moduleName);
-    }
+    auto container = Container::CurrentSafelyWithCheck();
     CHECK_NULL_RETURN(container, nullptr);
     auto aceContainer = AceType::DynamicCast<Platform::AceContainer>(container);
     CHECK_NULL_RETURN(aceContainer, nullptr);
+    actualInstanceId = aceContainer->GetInstanceId();
     
     RefPtr<ResourceAdapter> newResourceAdapter = nullptr;
     auto context = aceContainer->GetAbilityContextByModule(bundleName, moduleName);
@@ -133,9 +112,19 @@ RefPtr<ResourceAdapter> ResourceAdapter::CreateNewResourceAdapter(
         resourceAdapterV2->SetAppHasDarkRes(aceContainer->GetResourceConfiguration().GetAppHasDarkRes());
         newResourceAdapter = resourceAdapterV2;
     } else {
+        if (!container->IsFormRender()) {
+            TAG_LOGW(AceLogTag::ACE_RESOURCE,
+                "[%{public}s][%{public}s][%{public}d] Context is null, create resAdapter by resInfo.",
+                bundleName.c_str(), moduleName.c_str(), container->GetInstanceId());
+        }
+
         newResourceAdapter = ResourceAdapter::CreateV2();
         auto resourceInfo = aceContainer->GetResourceInfo();
         newResourceAdapter->Init(resourceInfo);
+    }
+    if (newResourceAdapter) {
+        newResourceAdapter->SetBundleName(bundleName);
+        newResourceAdapter->SetModuleName(moduleName);
     }
 
     auto resConfig = aceContainer->GetResourceConfiguration();
@@ -422,6 +411,27 @@ RefPtr<ThemeStyle> ResourceAdapterImplV2::GetPatternByName(const std::string& pa
     return patternStyle;
 }
 
+void ResourceAdapterImplV2::DumpColorMode()
+{
+    auto manager = GetResourceManager();
+    CHECK_NULL_VOID(manager);
+    CHECK_NULL_VOID(resConfig_);
+    auto container = Container::CurrentSafelyWithCheck();
+    CHECK_NULL_VOID(container);
+    auto pipelineContext = DynamicCast<NG::PipelineContext>(container->GetPipelineContext());
+    CHECK_NULL_VOID(pipelineContext);
+    auto colorMode = resConfig_->GetColorMode();
+    auto sysColorMode = container->CurrentColorMode();
+    auto globalSysColorMode = ConvertColorModeToGlobal(sysColorMode);
+    auto localColorMode = pipelineContext->GetLocalColorMode();
+    auto globalLocalColorMode = ConvertColorModeToGlobal(localColorMode);
+    if (globalSysColorMode != colorMode && globalLocalColorMode != colorMode) {
+        TAG_LOGW(AceLogTag::ACE_RESOURCE,
+            "ColorMode exception: SysColorMode[%{public}d] | LocalColorMode[%{public}d] | CurColorMode[%{public}d]",
+            globalSysColorMode, globalLocalColorMode, colorMode);
+    }
+}
+
 Color ResourceAdapterImplV2::GetColor(uint32_t resId)
 {
     uint32_t result = 0;
@@ -429,12 +439,15 @@ Color ResourceAdapterImplV2::GetColor(uint32_t resId)
     CHECK_NULL_RETURN(manager, Color(result));
     auto state = manager->GetColorById(resId, result);
     if (state != Global::Resource::SUCCESS) {
-        TAG_LOGW(AceLogTag::ACE_RESOURCE, "Get color by id error, id=%{public}u", resId);
+        TAG_LOGW(AceLogTag::ACE_RESOURCE,
+            "Get color by id error, id=%{public}u, bundleName: %{public}s, moduleName: %{public}s", resId,
+            GetBundleName().c_str(), GetModuleName().c_str());
         auto host = NG::ViewStackProcessor::GetInstance()->GetMainElementNode();
         ResourceManager::GetInstance().AddResourceLoadError(ResourceErrorInfo(host ? host->GetId(): -1,
             std::to_string(resId), "Color", host ? host->GetTag().c_str() : "", GetCurrentTimestamp(), state));
         return ERROR_VALUE_COLOR;
     }
+    DumpColorMode();
     return Color(result);
 }
 
@@ -452,6 +465,7 @@ Color ResourceAdapterImplV2::GetColorByName(const std::string& resName)
         ResourceManager::GetInstance().AddResourceLoadError(ResourceErrorInfo(host ? host->GetId(): -1,
             resName, "Color", host ? host->GetTag().c_str() : "", GetCurrentTimestamp(), state));
     }
+    DumpColorMode();
     return Color(result);
 }
 
@@ -529,7 +543,10 @@ std::string ResourceAdapterImplV2::GetString(uint32_t resId)
     CHECK_NULL_RETURN(manager, strResult);
     auto state = manager->GetStringById(resId, strResult);
     if (state != Global::Resource::SUCCESS) {
-        TAG_LOGW(AceLogTag::ACE_RESOURCE, "Get string by id error, id=%{public}u, errorCode=%{public}d", resId, state);
+        TAG_LOGW(AceLogTag::ACE_RESOURCE,
+            "Get string by id error, id=%{public}u, errorCode=%{public}d, bundleName: %{public}s, moduleName: "
+            "%{public}s",
+            resId, state, GetBundleName().c_str(), GetModuleName().c_str());
         auto host = NG::ViewStackProcessor::GetInstance()->GetMainElementNode();
         ResourceManager::GetInstance().AddResourceLoadError(ResourceErrorInfo(host ? host->GetId(): -1,
             std::to_string(resId), "String", host ? host->GetTag().c_str() : "", GetCurrentTimestamp(), state));
@@ -550,6 +567,25 @@ std::string ResourceAdapterImplV2::GetStringByName(const std::string& resName)
         auto host = NG::ViewStackProcessor::GetInstance()->GetMainElementNode();
         ResourceManager::GetInstance().AddResourceLoadError(ResourceErrorInfo(host ? host->GetId(): -1,
             resName, "String", host ? host->GetTag().c_str() : "", GetCurrentTimestamp(), state));
+    }
+    return strResult;
+}
+
+std::string ResourceAdapterImplV2::GetStringFormatByName(const char* resName, ...)
+{
+    std::string strResult = "";
+    auto manager = GetResourceManager();
+    CHECK_NULL_RETURN(manager, strResult);
+    va_list args;
+    va_start(args, resName);
+    auto state = manager->GetStringFormatByName(strResult, resName, args);
+    va_end(args);
+    if (state != Global::Resource::SUCCESS) {
+        TAG_LOGW(AceLogTag::ACE_RESOURCE, "Get format string by name error, resName=%{public}s, errorCode=%{public}d",
+            resName, state);
+        auto host = NG::ViewStackProcessor::GetInstance()->GetMainElementNode();
+        ResourceManager::GetInstance().AddResourceLoadError(ResourceErrorInfo(host ? host->GetId() : -1, resName,
+            "String", host ? host->GetTag().c_str() : "", GetCurrentTimestamp(), state));
     }
     return strResult;
 }
@@ -1134,17 +1170,32 @@ bool ResourceAdapterImplV2::ExistDarkResById(const std::string& resourceId)
     if (resId == UINT32_MAX) {
         return false;
     }
+
     auto colorMode = GetResourceColorMode();
-    bool colorChanged = false;
-    if (colorMode == ColorMode::LIGHT) {
-        UpdateColorMode(ColorMode::DARK);
-        colorChanged = true;
-    }
     std::shared_ptr<Global::Resource::ResConfig> appResCfg(Global::Resource::CreateResConfig());
-    auto state = manager->GetResConfigById(resId, *appResCfg);
-    if (colorChanged) {
-        UpdateColorMode(ColorMode::LIGHT);
+    Global::Resource::RState state;
+
+    // If already in dark mode, query directly
+    if (colorMode == ColorMode::DARK) {
+        state = manager->GetResConfigById(resId, *appResCfg);
+    } else {
+        // Use override adapter to avoid global config switching
+        ResourceConfiguration darkConfig;
+        darkConfig.SetColorMode(ColorMode::DARK);
+        ConfigurationChange configChange { .colorModeUpdate = true };
+
+        auto darkAdapter = GetOverrideResourceAdapter(darkConfig, configChange);
+        CHECK_NULL_RETURN(darkAdapter, false);
+
+        auto darkAdapterV2 = AceType::DynamicCast<ResourceAdapterImplV2>(darkAdapter);
+        CHECK_NULL_RETURN(darkAdapterV2, false);
+
+        auto darkManager = darkAdapterV2->GetResourceManager();
+        CHECK_NULL_RETURN(darkManager, false);
+
+        state = darkManager->GetResConfigById(resId, *appResCfg);
     }
+
     return (state == Global::Resource::SUCCESS) &&
         (appResCfg->GetColorMode() == OHOS::Global::Resource::ColorMode::DARK);
 }
@@ -1154,32 +1205,54 @@ bool ResourceAdapterImplV2::ExistDarkResByName(const std::string& resourceName, 
     auto manager = GetResourceManager();
     CHECK_NULL_RETURN(manager, false);
     auto resType = StringUtils::StringToUintCheck(resourceType, UINT32_MAX);
-    if (resType < OHOS::Global::Resource::ResType::VALUES ||
+    if (resType == RESOURCE_COLOR_TYPE) {
+        resType = OHOS::Global::Resource::ResType::COLOR;
+    } else if (resType < OHOS::Global::Resource::ResType::VALUES ||
         resType > OHOS::Global::Resource::ResType::MAX_RES_TYPE) {
         return false;
     }
     auto type = static_cast<OHOS::Global::Resource::ResType>(resType);
+
     auto colorMode = GetResourceColorMode();
-    bool colorChanged = false;
-    if (colorMode == ColorMode::LIGHT) {
-        UpdateColorMode(ColorMode::DARK);
-        colorChanged = true;
-    }
     std::shared_ptr<Global::Resource::ResConfig> appResCfg(Global::Resource::CreateResConfig());
-    auto state = manager->GetResConfigByName(resourceName, type, *appResCfg);
-    if (colorChanged) {
-        UpdateColorMode(ColorMode::LIGHT);
+    Global::Resource::RState state;
+
+    // If already in dark mode, query directly
+    if (colorMode == ColorMode::DARK) {
+        state = manager->GetResConfigByName(resourceName, type, *appResCfg);
+    } else {
+        // Use override adapter to avoid global config switching
+        ResourceConfiguration darkConfig;
+        darkConfig.SetColorMode(ColorMode::DARK);
+        ConfigurationChange configChange { .colorModeUpdate = true };
+
+        auto darkAdapter = GetOverrideResourceAdapter(darkConfig, configChange);
+        CHECK_NULL_RETURN(darkAdapter, false);
+
+        auto darkAdapterV2 = AceType::DynamicCast<ResourceAdapterImplV2>(darkAdapter);
+        CHECK_NULL_RETURN(darkAdapterV2, false);
+
+        auto darkManager = darkAdapterV2->GetResourceManager();
+        CHECK_NULL_RETURN(darkManager, false);
+
+        state = darkManager->GetResConfigByName(resourceName, type, *appResCfg);
     }
+
     return (state == Global::Resource::SUCCESS) &&
         (appResCfg->GetColorMode() == OHOS::Global::Resource::ColorMode::DARK);
 }
 
 uint32_t ResourceAdapterImplV2::GetResId(const std::string &resTypeName) const
 {
-    uint32_t resId = -1;
+    uint32_t resId = INVALID_RESOURCE_ID;
     auto manager = GetResourceManager();
-    CHECK_NULL_RETURN(manager, -1);
-    manager->GetResId(resTypeName, resId);
+    CHECK_NULL_RETURN(manager, INVALID_RESOURCE_ID);
+    auto state = manager->GetResId(resTypeName, resId);
+    if (state != Global::Resource::SUCCESS) {
+        TAG_LOGW(AceLogTag::ACE_RESOURCE, "Get resId by name error, name=%s, errorCode=%{public}d",
+            resTypeName.c_str(), state);
+        return INVALID_RESOURCE_ID;
+    }
     return resId;
 }
 } // namespace OHOS::Ace

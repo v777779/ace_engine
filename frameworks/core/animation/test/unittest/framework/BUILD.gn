@@ -142,6 +142,7 @@ ohos_unittest("AnimationTest") {
     "$ace_root/frameworks/core/components/common/properties/page_transition_option.cpp",
     "$ace_root/frameworks/core/components/common/properties/scroll_bar.cpp",
     "$ace_root/frameworks/core/components/common/properties/shadow.cpp",
+    "$ace_root/frameworks/core/components/common/properties/text_enums.cpp",
     "$ace_root/frameworks/core/components/common/properties/text_style.cpp",
     "$ace_root/frameworks/core/components/display/render_display.cpp",
     "$ace_root/frameworks/core/components/focus_animation/render_focus_animation.cpp",
@@ -169,12 +170,12 @@ ohos_unittest("AnimationTest") {
     "$ace_root/frameworks/core/components/theme/theme_attributes.cpp",
     "$ace_root/frameworks/core/components/theme/theme_constants.cpp",
     "$ace_root/frameworks/core/components/theme/theme_manager_impl.cpp",
+    "$ace_root/frameworks/core/components/theme/theme_manager_multi_thread.cpp",
     "$ace_root/frameworks/core/components/theme/theme_utils.cpp",
     "$ace_root/frameworks/core/components/transform/click_spring_effect.cpp",
     "$ace_root/frameworks/core/components/transform/render_transform.cpp",
     "$ace_root/frameworks/core/pipeline/base/render_node.cpp",
     "$ace_root/test/mock/core/common/mock_ace_application_info.cpp",
-    "$root_out_dir/arkui/framework/core/components/theme/theme_constants_default.cpp",
 
     # mock
     "$ace_root/adapter/ohos/osal/log_wrapper.cpp",
@@ -196,25 +197,12 @@ ohos_unittest("AnimationTest") {
     "$ace_root/test/mock/core/common/mock_resource_adapter.cpp",
   ]
 
-  # add sources only needed by wearable like watch.
-  if (is_wearable_product) {
-    sources += [ "$root_out_dir/arkui/framework/core/components/theme/theme_constants_watch.cpp" ]
-  }
-
-  # add sources needed by phone and TV. wearable like watch do not need them
-  if (!is_wearable_product) {
-    sources += [
-      # theme
-      "$root_out_dir/arkui/framework/core/components/theme/theme_constants_tv.cpp",
-    ]
-  }
-
   configs = [
     "$ace_root:ace_test_config",
     ":config_animation_test",
   ]
 
-  deps = [ "$ace_root/frameworks/core/components/theme:build_theme_code" ]
+  deps = []
   external_deps += [
     "googletest:gmock_main",
     "googletest:gtest_main",

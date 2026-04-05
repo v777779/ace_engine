@@ -70,13 +70,16 @@ protected:
     void OnGraphicFill()
     {
         if (rsCanvas_) {
+            if (!path_.has_value()) {
+                return;
+            }
             auto smoothEdge = GetSmoothEdge();
             if (SystemProperties::GetDebugEnabled()) {
                 TAG_LOGD(AceLogTag::ACE_IMAGE, "svg path:%{public}s, smoothEdge = %{public}f",
                     path_->ConvertToSVGString().c_str(), smoothEdge);
             }
             if (!path_->IsValid()) {
-                TAG_LOGW(AceLogTag::ACE_IMAGE, "svg path is invalid");
+                TAG_LOGD(AceLogTag::ACE_IMAGE, "svg path is invalid");
             }
             DumpDrawPathInfo(path_.value());
             if (GreatNotEqual(smoothEdge, 0.0f)) {
@@ -146,6 +149,9 @@ protected:
 
     void OnGraphicStroke()
     {
+        if (!path_.has_value()) {
+            return;
+        }
         if (rsCanvas_) {
             auto smoothEdge = GetSmoothEdge();
             if (SystemProperties::GetDebugEnabled()) {
@@ -153,7 +159,7 @@ protected:
                     path_->ConvertToSVGString().c_str(), smoothEdge);
             }
             if (!path_->IsValid()) {
-                TAG_LOGW(AceLogTag::ACE_IMAGE, "svg path is invalid");
+                TAG_LOGD(AceLogTag::ACE_IMAGE, "svg path is invalid");
             }
             if (GreatNotEqual(smoothEdge, 0.0f)) {
                 RSFilter filter;
@@ -194,7 +200,6 @@ protected:
     void SetRadialGradient(const Size& viewPort, OHOS::Ace::Gradient& gradient);
     void SetGradientFillStyle(const std::optional<OHOS::Ace::Gradient>& gradient, std::vector<RSScalar> pos,
         std::vector<RSColorQuad> colors);
-    void ApplyTransform(RSRecordingPath& path);
 
     std::optional<RSRecordingPath> path_;
     RSBrush fillBrush_;

@@ -22,7 +22,7 @@
 #include "bridge/declarative_frontend/engine/functions/js_common_utils.h"
 #include "bridge/declarative_frontend/jsview/js_utils.h"
 #include "core/common/container.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/pattern/security_component/save_button/save_button_model_ng.h"
 #include "core/components_ng/pattern/security_component/security_component_model_ng.h"
@@ -272,6 +272,15 @@ void JSSaveButton::SetTipPosition(const JSCallbackInfo& info)
     SecurityComponentModelNG::SetTipPosition(static_cast<TipPosition>(value));
 }
 
+void JSSaveButton::SetUserCancelEvent(const JSCallbackInfo& info)
+{
+    if ((info.Length() < 1) || (!info[0]->IsBoolean())) {
+        return;
+    }
+    bool userCancelEvent = info[0]->ToBoolean();
+    SecurityComponentModelNG::SetUserCancelEvent(userCancelEvent);
+}
+
 void JSSaveButton::JSBind(BindingTarget globalObj)
 {
     JSClass<JSSaveButton>::Declare("SaveButton");
@@ -319,6 +328,8 @@ void JSSaveButton::JSBind(BindingTarget globalObj)
     JSClass<JSSaveButton>::StaticMethod("minFontSize", &JSSecButtonBase::SetMinFontSize);
     JSClass<JSSaveButton>::StaticMethod("heightAdaptivePolicy", &JSSecButtonBase::SetHeightAdaptivePolicy);
     JSClass<JSSaveButton>::StaticMethod("enabled", &JSViewAbstract::JsEnabled);
+    JSClass<JSSaveButton>::StaticMethod("userCancelEvent", &JSSaveButton::SetUserCancelEvent);
+    JSClass<JSSaveButton>::StaticMethod("focusBox", &JSSecButtonBase::SetFocusBox);
     JSClass<JSSaveButton>::Bind<>(globalObj);
 }
 } // namespace OHOS::Ace::Framework

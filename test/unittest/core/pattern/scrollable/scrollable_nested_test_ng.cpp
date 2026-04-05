@@ -15,11 +15,11 @@
 
 #include "scrollable_nested_test_ng.h"
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #define protected public
 #define private public
 #include "core/components_ng/pattern/list/list_item_model_ng.h"
@@ -650,7 +650,6 @@ HWTEST_F(ScrollableNestedTestNg, NestedScrollTest008, TestSize.Level1)
     auto listPattern = listNode->GetPattern<ListPattern>();
     auto scrollPattern = rootNode->GetPattern<ScrollPattern>();
     auto scrollScrollable = GetScrollable(rootNode);
-    scrollScrollable->InitFriction(FRICTION);
     scrollScrollable->ratio_ = 0;
     scrollPattern->ratio_ = 0;
 
@@ -659,7 +658,6 @@ HWTEST_F(ScrollableNestedTestNg, NestedScrollTest008, TestSize.Level1)
      * @tc.expected: parent over scroll
      */
     auto listScrollable = GetScrollable(listNode);
-    listScrollable->InitFriction(FRICTION);
     DragStart(listScrollable);
     DragUpdate(listScrollable, 100);
     FlushUITasks(rootNode);
@@ -690,7 +688,7 @@ HWTEST_F(ScrollableNestedTestNg, NestedScrollTest008, TestSize.Level1)
      * @tc.expected: Scroll spring animate back to top, remain velocity start list fling animation.
      */
     MockPipelineContext::GetCurrent()->SetVsyncTime(scrollScrollable->lastVsyncTime_ + 30 * MS);
-    MockAnimationManager::GetInstance().TickByVelocity(-60);
+    MockAnimationManager::GetInstance().TickByVelocity(-60.0f);
     FlushUITasks(rootNode);
     FlushUITasks(listNode);
     EXPECT_FLOAT_EQ(listPattern->currentOffset_, 0);
@@ -734,7 +732,6 @@ HWTEST_F(ScrollableNestedTestNg, NestedScrollTest009, TestSize.Level1)
     auto listPattern = listNode->GetPattern<ListPattern>();
     auto scrollPattern = rootNode->GetPattern<ScrollPattern>();
     auto scrollScrollable = GetScrollable(rootNode);
-    scrollScrollable->InitFriction(FRICTION);
     scrollScrollable->ratio_ = 0;
     scrollPattern->ratio_ = 0;
 
@@ -760,7 +757,6 @@ HWTEST_F(ScrollableNestedTestNg, NestedScrollTest009, TestSize.Level1)
      * @tc.expected: parent process scroll
      */
     auto listScrollable = GetScrollable(listNode);
-    listScrollable->InitFriction(FRICTION);
     DragStart(listScrollable);
     DragUpdate(listScrollable, -10);
     FlushUITasks(rootNode);
@@ -1114,5 +1110,255 @@ HWTEST_F(ScrollableNestedTestNg, BackToTopNestedScrollTest004, TestSize.Level1)
     FlushUITasks(listNode);
     EXPECT_FLOAT_EQ(listPattern->currentOffset_, 200);
     EXPECT_FLOAT_EQ(scrollPattern->currentOffset_, -200);
+}
+
+/**
+ * @tc.name: BackToTopNestedScrollTest005
+ * @tc.desc: Test the change in the number of listeners after setting backToTop.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableNestedTestNg, BackToTopNestedScrollTest005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List
+     */
+    ListModelNG listModel;
+    listModel.Create();
+    listModel.SetEdgeEffect(EdgeEffect::NONE, false);
+    ViewAbstract::SetWidth(CalcLength(SCROLLABLE_WIDTH));
+    ViewAbstract::SetHeight(CalcLength(SCROLLABLE_HEIGHT));
+    ListItemModelNG itemModel;
+    itemModel.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+    ViewAbstract::SetHeight(CalcLength(450));
+    ViewStackProcessor::GetInstance()->Pop();
+    RefPtr<UINode> element = ViewStackProcessor::GetInstance()->Finish();
+    auto listNode = AceType::DynamicCast<FrameNode>(element);
+    FlushUITasks(listNode);
+    auto* proxy = StatusBarEventProxy::GetInstance();
+    ASSERT_NE(proxy, nullptr);
+    EXPECT_EQ(proxy->GetStatusBarClickListener().size(), 0);
+
+    /**
+     * @tc.steps: step2. Set listPattern backToTop to true.
+     */
+    auto listPattern = listNode->GetPattern<ListPattern>();
+    listPattern->SetBackToTop(true);
+    FlushUITasks(listNode);
+    EXPECT_EQ(proxy->GetStatusBarClickListener().size(), 1);
+}
+
+/**
+ * @tc.name: BackToTopNestedScrollTest006
+ * @tc.desc: Set backToTop for scroll nested List, touchpad stop animation.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableNestedTestNg, BackToTopNestedScrollTest006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Scroll nested List
+     */
+    auto rootNode = CreatScrollNestedList(EdgeEffect::SPRING, EdgeEffect::NONE,
+        NestedScrollOptions {
+            .forward = NestedScrollMode::PARALLEL,
+            .backward = NestedScrollMode::PARALLEL,
+        });
+    FlushUITasks(rootNode);
+
+    auto colNode = GetChildFrameNode(rootNode, 0);
+    auto listNode = GetChildFrameNode(colNode, 1);
+    auto listPattern = listNode->GetPattern<ListPattern>();
+    auto scrollPattern = rootNode->GetPattern<ScrollPattern>();
+    auto scrollScrollable = GetScrollable(rootNode);
+    auto listScrollable = GetScrollable(listNode);
+
+    bool listOnScrollStop = false;
+    bool scrollOnScrollStop = false;
+    ListModelNG::SetOnScrollStop(AceType::RawPtr(listNode), [&listOnScrollStop]() { listOnScrollStop = true; });
+    ScrollModelNG::SetOnScrollStop(AceType::RawPtr(rootNode), [&scrollOnScrollStop]() { scrollOnScrollStop = true; });
+
+    /**
+     * @tc.steps: step2. When scroll back to top, touch touchpad trigger animate stop.
+     * @tc.expected: Scroll and list stop animation.
+     */
+    DragStart(listScrollable);
+    DragUpdate(listScrollable, -200);
+    listScrollable->lastMainDelta_ = 0.0;
+    DragEnd(listScrollable, 0);
+    FlushUITasks(rootNode);
+    FlushUITasks(listNode);
+    listPattern->backToTop_ = true;
+    scrollPattern->backToTop_ = true;
+    listPattern->isBackToTopRunning_ = true;
+    scrollPattern->isBackToTopRunning_ = true;
+    scrollPattern->OnStatusBarClick();
+    listPattern->OnStatusBarClick();
+
+    RefPtr<Animator> animator = AceType::MakeRefPtr<Animator>();
+    scrollPattern->animator_ = animator;
+    scrollPattern->isAnimationStop_ = false;
+    scrollPattern->scrollBarProxy_ = AceType::MakeRefPtr<NG::ScrollBarProxy>();
+    scrollPattern->nestedScrollVelocity_ = 200.0f;
+    scrollPattern->nestedScrollTimestamp_ = static_cast<uint64_t>(GetSysTimestamp());
+    PointF point(100.0f, 200.0f);
+    scrollPattern->OnTouchpadInteraction(point);
+    listPattern->OnTouchpadInteraction(point);
+    FlushUITasks(rootNode);
+    FlushUITasks(listNode);
+    EXPECT_TRUE(listOnScrollStop);
+    EXPECT_TRUE(scrollOnScrollStop);
+}
+
+/**
+ * @tc.name: NestedScrollFromAxis001
+ * @tc.desc: nested scroll from Axis
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableNestedTestNg, NestedScrollFromAxis001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Scroll nested List
+     */
+    auto rootNode = CreatScrollNestedList(EdgeEffect::NONE, EdgeEffect::NONE,
+        NestedScrollOptions {
+            .forward = NestedScrollMode::PARENT_FIRST,
+            .backward = NestedScrollMode::SELF_FIRST,
+        });
+    FlushUITasks(rootNode);
+
+    auto colNode = GetChildFrameNode(rootNode, 0);
+    auto listNode = GetChildFrameNode(colNode, 1);
+    auto listPattern = listNode->GetPattern<ListPattern>();
+    auto scrollPattern = rootNode->GetPattern<ScrollPattern>();
+    auto scrollScrollable = GetScrollable(rootNode);
+    auto listScrollable = GetScrollable(listNode);
+    listPattern->parent_ = scrollPattern;
+
+    /**
+     * @tc.steps: step2. scroll and list process scroll motion at the same time,
+     *   and list will make scroll reach to edge by nested scroll.
+     * @tc.expected: don't update scroll's currentPos_ when list processes scroll motion.
+     */
+    scrollPattern->currentOffset_ = -15.0f;
+    scrollScrollable->ProcessScrollMotion(10.0f, SCROLL_FROM_AXIS);
+    EXPECT_EQ(scrollPattern->currentOffset_, -5.0f);
+    EXPECT_EQ(scrollScrollable->currentPos_, 10.0f);
+    listScrollable->ProcessScrollMotion(10.0f, SCROLL_FROM_AXIS);
+    EXPECT_EQ(scrollPattern->currentOffset_, 0.0f);
+    EXPECT_EQ(scrollScrollable->currentPos_, 10.0f);
+}
+
+/**
+ * @tc.name: ListNestedScroll001
+ * @tc.desc: List is nested parent, last ListItem hight is zero.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollableNestedTestNg, ListNestedScroll001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create nested scroll, List is nested parent, last child hight is zero.
+     */
+    ListModelNG parentListModel;
+    parentListModel.Create();
+    ViewAbstract::SetWidth(CalcLength(SCROLLABLE_WIDTH));
+    ViewAbstract::SetHeight(CalcLength(SCROLLABLE_HEIGHT));
+        // first list item hight is SCROLLABLE_HEIGHT
+        ListItemModelNG itemModel1;
+        itemModel1.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+        ViewAbstract::SetWidth(CalcLength(SCROLLABLE_WIDTH));
+        ViewAbstract::SetHeight(CalcLength(SCROLLABLE_HEIGHT));
+            ListModelNG listModel;
+            listModel.Create();
+            listModel.SetEdgeEffect(EdgeEffect::NONE, false);
+            listModel.SetNestedScroll(NestedScrollOptions {
+                .forward = NestedScrollMode::SELF_FIRST,
+                .backward = NestedScrollMode::SELF_FIRST,
+            });
+            ViewAbstract::SetWidth(CalcLength(SCROLLABLE_WIDTH));
+            ViewAbstract::SetHeight(CalcLength(SCROLLABLE_HEIGHT));
+                ListItemModelNG itemModel;
+                itemModel.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+                ViewAbstract::SetHeight(CalcLength(LIST_ITEM_HEIGHT));
+                ViewStackProcessor::GetInstance()->Pop();
+            ViewStackProcessor::GetInstance()->Pop();
+        ViewStackProcessor::GetInstance()->Pop();
+        // second list item hight is zero
+        ListItemModelNG itemModel2;
+        itemModel2.Create([](int32_t) {}, V2::ListItemStyle::NONE);
+        ViewStackProcessor::GetInstance()->Pop();
+    RefPtr<UINode> element = ViewStackProcessor::GetInstance()->Finish();
+    auto rootNode = AceType::DynamicCast<FrameNode>(element);
+    FlushUITasks(rootNode);
+
+    auto itemNode = GetChildFrameNode(rootNode, 0);
+    auto listNode = GetChildFrameNode(itemNode, 0);
+    auto listPattern = listNode->GetPattern<ListPattern>();
+    auto parentListPattern = rootNode->GetPattern<ListPattern>();
+    auto parentListScrollable = GetScrollable(rootNode);
+    auto listScrollable = GetScrollable(listNode);
+    MockAnimationManager::GetInstance().SetTicks(2);
+
+    /**
+     * @tc.steps: step2. Scroll forward.
+     * @tc.expected: child list scroll.
+     */
+    DragStart(listScrollable);
+    DragUpdate(listScrollable, -150);
+    FlushUITasks(rootNode);
+    EXPECT_FLOAT_EQ(parentListPattern->currentOffset_, 0);
+    EXPECT_FLOAT_EQ(listPattern->currentOffset_, 150);
+
+    /**
+     * @tc.steps: step3. continue scroll forward.
+     * @tc.expected: parent list not scroll.
+     */
+    for (int32_t i = 0; i < 3; i++) {
+        DragUpdate(listScrollable, -100);
+        FlushUITasks(rootNode);
+        EXPECT_FLOAT_EQ(listPattern->currentOffset_, 200);
+        EXPECT_FLOAT_EQ(parentListPattern->currentOffset_, 0);
+    }
+
+    /**
+     * @tc.steps: step4. drag end with velocity.
+     * @tc.expected: parent list not scroll.
+     */
+    DragEnd(listScrollable, -1200);
+    FlushUITasks(rootNode);
+    EXPECT_FLOAT_EQ(parentListPattern->currentOffset_, 0);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks(rootNode);
+    EXPECT_FLOAT_EQ(parentListPattern->currentOffset_, 0);
+
+    /**
+     * @tc.steps: step5. Scroll backward.
+     * @tc.expected: child list scroll.
+     */
+    DragStart(listScrollable);
+    DragUpdate(listScrollable, 150);
+    FlushUITasks(rootNode);
+    EXPECT_FLOAT_EQ(parentListPattern->currentOffset_, 0);
+    EXPECT_FLOAT_EQ(listPattern->currentOffset_, 50);
+
+    /**
+     * @tc.steps: step6. continue scroll backward.
+     * @tc.expected: parent list not scroll.
+     */
+    for (int32_t i = 0; i < 3; i++) {
+        DragUpdate(listScrollable, 100);
+        FlushUITasks(rootNode);
+        EXPECT_FLOAT_EQ(listPattern->currentOffset_, 0);
+        EXPECT_FLOAT_EQ(parentListPattern->currentOffset_, 0);
+    }
+
+    /**
+     * @tc.steps: step7. drag end with velocity.
+     * @tc.expected: parent list not scroll.
+     */
+    DragEnd(listScrollable, 1200);
+    FlushUITasks(rootNode);
+    EXPECT_FLOAT_EQ(parentListPattern->currentOffset_, 0);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks(rootNode);
+    EXPECT_FLOAT_EQ(parentListPattern->currentOffset_, 0);
 }
 } // namespace OHOS::Ace::NG

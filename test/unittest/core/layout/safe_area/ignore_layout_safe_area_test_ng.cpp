@@ -19,12 +19,43 @@
 using namespace testing;
 using namespace testing::ext;
 namespace OHOS::Ace::NG {
+namespace {
+constexpr float WINDOW_WIDTH = 720.0f;
+constexpr float WINDOW_HEIGHT = 1280.0f;
+constexpr float SAFE_AREA_LENGTH_TOP = 80.0f;
+constexpr float SAFE_AREA_LENGTH_BOTTOM = 100.0f;
+constexpr float SAFE_AREA_LENGTH_LEFT = 20.0f;
+constexpr float SAFE_AREA_LENGTH_RIGHT = 20.0f;
+} // namespace
+
+void IgnoreLayoutSafeAreaOptsTestNg::InitSafeAreaManager()
+{
+    auto pipeline = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipeline, nullptr);
+    auto safeAreaManager = pipeline->GetSafeAreaManager();
+    ASSERT_NE(safeAreaManager, nullptr);
+    safeAreaManager->SetIsFullScreen(true);
+}
+
+void IgnoreLayoutSafeAreaOptsTestNg::InitSafeArea()
+{
+    auto pipeline = MockPipelineContext::GetCurrent();
+    ASSERT_NE(pipeline, nullptr);
+    SafeAreaInsets insets;
+    insets.top_ = { 0.0f, SAFE_AREA_LENGTH_TOP };
+    insets.left_ = { 0.0f, SAFE_AREA_LENGTH_LEFT };
+    insets.right_ = { WINDOW_WIDTH, WINDOW_WIDTH - SAFE_AREA_LENGTH_RIGHT };
+    insets.bottom_ = { WINDOW_HEIGHT - SAFE_AREA_LENGTH_BOTTOM, WINDOW_HEIGHT };
+    auto safeAreaManager = pipeline->GetSafeAreaManager();
+    ASSERT_NE(safeAreaManager, nullptr);
+    pipeline->UpdateSystemSafeArea(insets, false);
+}
 /**
  * @tc.name: TestOperatorEqual
  * @tc.desc: Test the operator== of IgnoreLayoutSafeAreaOpts.
  * @tc.type: FUNC
  */
-HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestOperatorEqual, TestSize.Level1)
+HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestOperatorEqual, TestSize.Level0)
 {
     IgnoreLayoutSafeAreaOpts opts1 = {
         .type = LAYOUT_SAFE_AREA_TYPE_KEYBOARD,
@@ -50,7 +81,7 @@ HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestOperatorEqual, TestSize.Level1)
  * @tc.desc: Test NeedUpdateWithCheck
  * @tc.type: FUNC
  */
-HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestNeedUpdateWithCheck, TestSize.Level1)
+HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestNeedUpdateWithCheck, TestSize.Level0)
 {
     IgnoreLayoutSafeAreaOpts opts = {
         .type = LAYOUT_SAFE_AREA_TYPE_KEYBOARD,
@@ -76,7 +107,7 @@ HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestNeedUpdateWithCheck, TestSize.Level
  * @tc.desc: Test the operator!= of IgnoreLayoutSafeAreaOpts.
  * @tc.type: FUNC
  */
-HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestOperatorNotEqual, TestSize.Level1)
+HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestOperatorNotEqual, TestSize.Level0)
 {
     IgnoreLayoutSafeAreaOpts opts1 = {
         .type = LAYOUT_SAFE_AREA_TYPE_KEYBOARD,
@@ -102,7 +133,7 @@ HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestOperatorNotEqual, TestSize.Level1)
  * @tc.desc: Test NeedIgnoreLayoutSafeArea
  * @tc.type: FUNC
  */
-HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestNeedIgnoreLayoutSafeArea, TestSize.Level1)
+HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestNeedIgnoreLayoutSafeArea, TestSize.Level0)
 {
     IgnoreLayoutSafeAreaOpts opts1 = {
         .type = LAYOUT_SAFE_AREA_TYPE_KEYBOARD,
@@ -119,7 +150,7 @@ HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestNeedIgnoreLayoutSafeArea, TestSize.
  * @tc.desc: Test IsTrivial
  * @tc.type: FUNC
  */
-HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestIsTrivial, TestSize.Level1)
+HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestIsTrivial, TestSize.Level0)
 {
     IgnoreLayoutSafeAreaOpts opts1 = {
         .type = LAYOUT_SAFE_AREA_TYPE_SYSTEM
@@ -136,7 +167,7 @@ HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestIsTrivial, TestSize.Level1)
  * @tc.desc: Test TypeToMask and EdgeToMask
  * @tc.type: FUNC
  */
-HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestTypeAndEdgeToMask, TestSize.Level1)
+HWTEST_F(IgnoreLayoutSafeAreaOptsTestNg, TestTypeAndEdgeToMask, TestSize.Level0)
 {
     EXPECT_EQ(IgnoreLayoutSafeAreaOpts::TypeToMask(uint32_t(1)), NG::LAYOUT_SAFE_AREA_TYPE_KEYBOARD);
     EXPECT_EQ(IgnoreLayoutSafeAreaOpts::TypeToMask(uint32_t(3)), 0);

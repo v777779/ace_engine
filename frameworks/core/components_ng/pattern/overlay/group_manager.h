@@ -24,8 +24,8 @@
 
 namespace OHOS::Ace::NG {
 
-class GroupManager : public virtual AceType {
-    DECLARE_ACE_TYPE(GroupManager, AceType)
+class ACE_FORCE_EXPORT GroupManager : public virtual AceType {
+    DECLARE_ACE_TYPE(GroupManager, AceType);
 
 public:
     GroupManager() = default;

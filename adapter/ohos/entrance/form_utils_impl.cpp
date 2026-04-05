@@ -52,6 +52,7 @@ int32_t FormUtilsImpl::RouterEvent(
         }
     }
     want.SetParam("params", params->ToString());
+    AddWantFreeInstallFlagForRouterEvent(eventAction->GetValue("flag"), want);
     auto abilityName = eventAction->GetValue("abilityName");
     if (uri->IsValid() && !abilityName->IsValid()) {
         auto uriStr = uri->GetString();
@@ -77,6 +78,16 @@ int32_t FormUtilsImpl::RouterEvent(
     return AppExecFwk::FormMgr::GetInstance().RouterEvent(formId, want, token_);
 }
 
+void FormUtilsImpl::AddWantFreeInstallFlagForRouterEvent(const std::unique_ptr<JsonValue> &flag, AAFwk::Want &want)
+{
+    if (flag->IsValid()) {
+        auto inputFlag = flag->GetUInt();
+        if (inputFlag & Want::FLAG_INSTALL_ON_DEMAND) {
+            want.AddFlags(Want::FLAG_INSTALL_ON_DEMAND);
+        }
+    }
+}
+
 int32_t FormUtilsImpl::RequestPublishFormEvent(const AAFwk::Want& want,
     const std::string& formBindingDataStr, int64_t& formId, std::string &errMsg)
 {
@@ -98,8 +109,8 @@ int32_t FormUtilsImpl::RequestPublishFormEvent(const AAFwk::Want& want,
     return externalErrorCode;
 }
 
-int32_t FormUtilsImpl::BackgroundEvent(
-    const int64_t formId, const std::string& action, const int32_t containerId, const std::string& defaultBundleName)
+int32_t FormUtilsImpl::BackgroundEvent(const int64_t formId, const std::string& action, const int32_t containerId,
+    const std::string& defaultBundleName, bool isManuallyClick)
 {
     ContainerScope scope(containerId);
     auto container = Container::Current();
@@ -138,6 +149,7 @@ int32_t FormUtilsImpl::BackgroundEvent(
         }
     }
     want.SetParam("params", params->ToString());
+    want.SetParam(OHOS::AppExecFwk::Constants::PARAM_FORM_MANUAL_CLICK_KEY, isManuallyClick);
     return AppExecFwk::FormMgr::GetInstance().BackgroundEvent(formId, want, token);
 }
 } // namespace OHOS::Ace

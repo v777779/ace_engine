@@ -20,8 +20,8 @@
 #define protected public
 #define private public
 
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
@@ -34,11 +34,12 @@
 #include "core/components_ng/pattern/button/toggle_button_paint_property.h"
 #include "core/components_ng/pattern/button/toggle_button_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
+#include "core/components_ng/property/position_property.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/event/touch_event.h"
 #include "core/pipeline/base/element_register.h"
 #include "core/pipeline_ng/ui_task_scheduler.h"
-#include "test/mock/base/mock_system_properties.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -54,7 +55,6 @@ const double dimensionValue = 1.0;
 const double childDimensionValue = 5.0;
 constexpr float HOVER_OPACITY = 0.05f;
 constexpr int32_t TOUCH_DURATION = 250;
-const Color FONT_COLOR = Color(0XFFFF0000);
 constexpr bool STATE_EFFECT = false;
 } // namespace
 
@@ -522,12 +522,11 @@ HWTEST_F(ToggleButtonTestNg, ToggleButtonPatternTest012, TestSize.Level1)
     auto togglebuttonEventHub = togglebuttonNode->GetEventHub<ButtonEventHub>();
     CHECK_NULL_VOID(togglebuttonEventHub);
     togglebuttonEventHub->SetStateEffect(STATE_EFFECT);
-    togglebuttonPattern->isSetClickedColor_ = false;
-    togglebuttonPattern->clickedColor_ = FONT_COLOR;
+    togglebuttonPattern->clickedColor_ = std::nullopt;
     togglebuttonPattern->OnTouchDown();
     togglebuttonPattern->OnTouchUp();
+    
     togglebuttonEventHub->SetStateEffect(IS_ON);
-    togglebuttonPattern->isSetClickedColor_ = false;
     togglebuttonEventHub->SetEnabled(false);
     togglebuttonPattern->OnTouchUp();
     EXPECT_FALSE(togglebuttonPattern->isOn_);
@@ -611,8 +610,10 @@ HWTEST_F(ToggleButtonTestNg, ToggleButtonPatternTest014, TestSize.Level1)
     // set toggleTheme to themeManager before using themeManager to get toggleTheme
     auto themeManagerSecond = AceType::MakeRefPtr<MockThemeManager>();
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManagerSecond);
-    EXPECT_CALL(*themeManagerSecond, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<ToggleTheme>()));
-    EXPECT_CALL(*themeManagerSecond, GetTheme(_, _)).WillRepeatedly(Return(AceType::MakeRefPtr<ToggleTheme>()));
+    auto toggleTheme = AceType::MakeRefPtr<ToggleTheme>();
+    toggleTheme->scaleHoverOrFocus_ = 1.05;
+    EXPECT_CALL(*themeManagerSecond, GetTheme(_)).WillRepeatedly(Return(toggleTheme));
+    EXPECT_CALL(*themeManagerSecond, GetTheme(_, _)).WillRepeatedly(Return(toggleTheme));
 
     /**
      * @tc.steps: step3. Creat child node but not set font size.
@@ -714,8 +715,10 @@ HWTEST_F(ToggleButtonTestNg, ToggleButtonPatternTest016, TestSize.Level1)
     // set toggleTheme to themeManager before using themeManager to get toggleTheme
     auto themeManagerSecond = AceType::MakeRefPtr<MockThemeManager>();
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManagerSecond);
-    EXPECT_CALL(*themeManagerSecond, GetTheme(_)).WillRepeatedly(Return(AceType::MakeRefPtr<ToggleTheme>()));
-    EXPECT_CALL(*themeManagerSecond, GetTheme(_, _)).WillRepeatedly(Return(AceType::MakeRefPtr<ToggleTheme>()));
+    auto toggleTheme = AceType::MakeRefPtr<ToggleTheme>();
+    toggleTheme->scaleHoverOrFocus_ = 1.05;
+    EXPECT_CALL(*themeManagerSecond, GetTheme(_)).WillRepeatedly(Return(toggleTheme));
+    EXPECT_CALL(*themeManagerSecond, GetTheme(_, _)).WillRepeatedly(Return(toggleTheme));
 
     /**
      * @tc.steps: step3. Creat child node but not set font size.
@@ -831,72 +834,10 @@ HWTEST_F(ToggleButtonTestNg, ToggleButtonPatternTest017, TestSize.Level1)
 
 /**
  * @tc.name: ToggleButtonPatternTest018
- * @tc.desc: test ToggleButtonPattern::HandleHoverEvent.
+ * @tc.desc: test ToggleButtonPattern::UpdateButtonStyle.
  * @tc.type: FUNC
  */
 HWTEST_F(ToggleButtonTestNg, ToggleButtonPatternTest018, TestSize.Level1)
-{
-    TestProperty testProperty;
-    testProperty.isOn = std::make_optional(IS_ON);
-    RefPtr<FrameNode> frameNode = CreateToggleButtonFrameNode(testProperty);
-    ASSERT_NE(frameNode, nullptr);
-    auto togglePattern = AceType::DynamicCast<ToggleButtonPattern>(frameNode->GetPattern());
-    ASSERT_NE(togglePattern, nullptr);
-    auto buttonFrameNode = AceType::MakeRefPtr<FrameNode>("Button", 1, AceType::MakeRefPtr<ButtonPattern>());
-    togglePattern->frameNode_ = std::move(buttonFrameNode);
-    togglePattern->HandleHoverEvent(true);
-    EXPECT_FALSE(togglePattern->isPress_);
-    auto eventHub = buttonFrameNode->GetEventHub<EventHub>();
-    eventHub->enabled_ = false;
-    togglePattern->frameNode_ = std::move(buttonFrameNode);
-    togglePattern->HandleHoverEvent(false);
-    EXPECT_FALSE(togglePattern->isScale_);
-    togglePattern->isScale_ = true;
-    togglePattern->HandleHoverEvent(false);
-    EXPECT_FALSE(togglePattern->isScale_);
-    togglePattern->isPress_ = true;
-    togglePattern->HandleHoverEvent(false);
-    EXPECT_EQ(buttonFrameNode->GetFirstChild(), nullptr);
-    togglePattern->isPress_ = false;
-    togglePattern->HandleHoverEvent(true);
-    EXPECT_EQ(buttonFrameNode->GetFirstChild(), nullptr);
-    auto inputEventHub = buttonFrameNode->GetOrCreateInputEventHub();
-    togglePattern->frameNode_ = std::move(buttonFrameNode);
-    inputEventHub->hoverEffectType_ = HoverEffectType::NONE;
-    togglePattern->HandleHoverEvent(true);
-    EXPECT_EQ(inputEventHub->GetHoverEffect(), HoverEffectType::NONE);
-    inputEventHub->hoverEffectType_ = HoverEffectType::SCALE;
-    togglePattern->HandleHoverEvent(true);
-    EXPECT_EQ(inputEventHub->GetHoverEffect(), HoverEffectType::SCALE);
-}
-
-/**
- * @tc.name: ToggleButtonPatternTest019
- * @tc.desc: test ToggleButtonPattern::OnAfterModifyDone.
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleButtonTestNg, ToggleButtonPatternTest019, TestSize.Level1)
-{
-    TestProperty testProperty;
-    testProperty.isOn = std::make_optional(IS_ON);
-    RefPtr<FrameNode> frameNode = CreateToggleButtonFrameNode(testProperty);
-    ASSERT_NE(frameNode, nullptr);
-    auto togglePattern = AceType::DynamicCast<ToggleButtonPattern>(frameNode->GetPattern());
-    ASSERT_NE(togglePattern, nullptr);
-    auto buttonFrameNode = AceType::MakeRefPtr<FrameNode>("Button", 1, AceType::MakeRefPtr<ButtonPattern>());
-    togglePattern->frameNode_ = std::move(buttonFrameNode);
-    togglePattern->OnAfterModifyDone();
-    buttonFrameNode->UpdateInspectorId("Toggle");
-    togglePattern->frameNode_ = std::move(buttonFrameNode);
-    togglePattern->OnAfterModifyDone();
-}
-
-/**
- * @tc.name: UpdateComponentColor
- * @tc.desc: test ToggleButtonPattern::UpdateComponentColor.
- * @tc.type: FUNC
- */
-HWTEST_F(ToggleButtonTestNg, UpdateComponentColor, TestSize.Level1)
 {
     /**
      * @tc.steps: step1. create bubble and get frameNode.
@@ -905,31 +846,46 @@ HWTEST_F(ToggleButtonTestNg, UpdateComponentColor, TestSize.Level1)
     testProperty.isOn = std::make_optional(IS_ON);
     RefPtr<FrameNode> frameNode = CreateToggleButtonFrameNode(testProperty);
     ASSERT_NE(frameNode, nullptr);
-    auto togglePattern = AceType::DynamicCast<ToggleButtonPattern>(frameNode->GetPattern());
-    ASSERT_NE(togglePattern, nullptr);
-    auto pipelineContext = frameNode->GetContext();
-    ASSERT_NE(pipelineContext, nullptr);
-    auto paintProperty = frameNode->GetPaintProperty<ToggleButtonPaintProperty>();
-    ASSERT_NE(paintProperty, nullptr);
 
     /**
-     * @tc.steps: step2. pattern UpdateComponentColor.
-     * @tc.expected: step2. check whether the function is executed successfully.
+     * @tc.steps: step2. get pattern and update frameNode.
+     * @tc.expected: step2. related function is called.
      */
-    std::vector<std::pair<bool, bool>> vec { { true, true }, { true, false }, { false, true }, { false, false } };
-    for (const auto& pair : vec) {
-        pipelineContext->SetIsSystemColorChange(pair.first);
-        frameNode->SetRerenderable(pair.second);
-        togglePattern->UpdateComponentColor(Color::RED, ToggleColorType::SWITCH_POINT_COLOR);
-        togglePattern->UpdateComponentColor(Color::RED, ToggleColorType::UN_SELECTED_COLOR);
-        if (pipelineContext->IsSystmColorChange() && pair.second) {
-            auto ret = paintProperty->GetSelectedColor();
-            EXPECT_EQ(ret.value_or(Color::BLACK), Color::BLACK);
-            togglePattern->UpdateComponentColor(Color::RED, ToggleColorType::SELECTED_COLOR);
-            ret = paintProperty->GetSelectedColor();
-            EXPECT_EQ(ret.value_or(Color::BLACK), Color::RED);
-        }
-    }
+    auto togglePattern = AceType::DynamicCast<ToggleButtonPattern>(frameNode->GetPattern());
+    ASSERT_NE(togglePattern, nullptr);
+
+    // set toggleTheme to themeManager before using themeManager to get toggleTheme
+    auto themeManagerSecond = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManagerSecond);
+    auto toggleTheme = AceType::MakeRefPtr<ToggleTheme>();
+    toggleTheme->scaleHoverOrFocus_ = 1.0;
+    EXPECT_CALL(*themeManagerSecond, GetTheme(_)).WillRepeatedly(Return(toggleTheme));
+    EXPECT_CALL(*themeManagerSecond, GetTheme(_, _)).WillRepeatedly(Return(toggleTheme));
+
+    /**
+     * @tc.steps: step3. Creat child node but not set font size.
+     * @tc.expected: step3. Child frame node's font size synchronized with parent.
+     */
+    RefPtr<FrameNode> childrenNode =
+        FrameNode::GetOrCreateFrameNode("childTag", 1, []() { return AceType::MakeRefPtr<TextPattern>(); });
+    frameNode->children_.emplace_back(childrenNode);
+    togglePattern->OnModifyDone();
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetFirstChild());
+    ASSERT_NE(textNode, nullptr);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    ASSERT_NE(textLayoutProperty, nullptr);
+
+    /**
+     * @tc.steps: step2. ToggleButtonPattern UpdateButtonStyle
+     * @tc.expected: Check the param value
+     */
+    togglePattern->SetIsFocus(true);
+    togglePattern->HandleFocusEvent();
+    togglePattern->AddIsFocusActiveUpdateEvent();
+    togglePattern->UpdateButtonStyle();
+    EXPECT_EQ(togglePattern->isScale_, false);
+    EXPECT_EQ(togglePattern->isCheckedShadow_, true);
+    EXPECT_EQ(togglePattern->isbgColorFocus_, true);
 }
 
 /**
@@ -971,5 +927,51 @@ HWTEST_F(ToggleButtonTestNg, OnColorConfigurationUpdate, TestSize.Level1)
         }
     }
     g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetBackgroundColor
+ * @tc.desc: test ToggleButtonModelNG::SetBackgroundColor.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ToggleButtonTestNg, SetBackgroundColor, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create bubble and get frameNode.
+     */
+    ToggleButtonModelNG toggleButtonModelNG;
+    auto* stack = ViewStackProcessor::GetInstance();
+    EXPECT_NE(stack, nullptr);
+    auto buttonNode = FrameNode::CreateFrameNode(V2::BUTTON_ETS_TAG, 1, AceType::MakeRefPtr<ButtonPattern>());
+    EXPECT_NE(buttonNode, nullptr);
+    stack->Push(buttonNode);
+
+    /**
+     * @tc.steps: step2. call SetBackgroundColor for button frameNode with flag true.
+     * @tc.expected: step2. context background color should be updated to BACKGROUND_COLOR.
+     */
+    toggleButtonModelNG.SetBackgroundColor(AceType::RawPtr(buttonNode), BACKGROUND_COLOR, true);
+    auto context = buttonNode->GetRenderContext();
+    EXPECT_NE(context, nullptr);
+    EXPECT_EQ(context->GetBackgroundColorValue(), BACKGROUND_COLOR);
+
+    /**
+     * @tc.steps: step3. create toggle frameNode and get its pattern and paint property.
+     */
+    auto toggleNode = FrameNode::CreateFrameNode(V2::TOGGLE_ETS_TAG, 1, AceType::MakeRefPtr<ToggleButtonPattern>());
+    EXPECT_NE(toggleNode, nullptr);
+    auto pattern = AceType::DynamicCast<ToggleButtonPattern>(toggleNode->GetPattern());
+    EXPECT_NE(pattern, nullptr);
+    auto paintProperty = pattern->GetPaintProperty<ToggleButtonPaintProperty>();
+    EXPECT_NE(paintProperty, nullptr);
+
+    /**
+     * @tc.steps: step4. call SetBackgroundColor for toggle frameNode with flag true or false.
+     * @tc.expected: step4. toggle background color should be updated.
+     */
+    toggleButtonModelNG.SetBackgroundColor(AceType::RawPtr(toggleNode), BACKGROUND_COLOR, true);
+    EXPECT_EQ(paintProperty->GetBackgroundColor(), BACKGROUND_COLOR);
+    toggleButtonModelNG.SetBackgroundColor(AceType::RawPtr(toggleNode), BACKGROUND_COLOR, false);
+    EXPECT_NE(paintProperty->GetBackgroundColor(), BACKGROUND_COLOR);
 }
 } // namespace OHOS::Ace::NG

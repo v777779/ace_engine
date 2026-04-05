@@ -135,29 +135,29 @@ class LengthMetrics {
   public value: number;
   public res: Resource;
   constructor(value: number, unit?: LengthUnit, res?: Resource) {
-      if (unit in LengthUnit) {
-          this.unit = unit;
-          this.value = value;
-      } else {
-          this.unit = LengthUnit.VP;
-          this.value = unit === undefined? value : 0;
-      }
-      this.res = res === undefined ? undefined : res;
+    if (unit in LengthUnit) {
+        this.unit = unit;
+        this.value = value;
+    } else {
+        this.unit = LengthUnit.VP;
+        this.value = unit === undefined ? value : 0;
+    }
+    this.res = res === undefined ? undefined : res;
   }
   static px(value: number) {
-      return new LengthMetrics(value, LengthUnit.PX);
+    return new LengthMetrics(value, LengthUnit.PX);
   }
   static vp(value: number) {
-      return new LengthMetrics(value, LengthUnit.VP);
+    return new LengthMetrics(value, LengthUnit.VP);
   }
   static fp(value: number) {
-      return new LengthMetrics(value, LengthUnit.FP);
+    return new LengthMetrics(value, LengthUnit.FP);
   }
   static percent(value: number) {
-      return new LengthMetrics(value, LengthUnit.PERCENT);
+    return new LengthMetrics(value, LengthUnit.PERCENT);
   }
   static lpx(value: number) {
-      return new LengthMetrics(value, LengthUnit.LPX);
+    return new LengthMetrics(value, LengthUnit.LPX);
   }
   static resource(res: Resource) {
     let length:Array<number> = getUINativeModule().nativeUtils.resoureToLengthMetrics(res);
@@ -166,7 +166,6 @@ class LengthMetrics {
 }
 
 declare interface Resource {}
-declare type BusinessError = any
 
 declare enum Color {
   White,
@@ -203,15 +202,15 @@ class ColorMetrics {
   private resourceId_: number;
   private colorSpace_: ColorSpace;
   private res_: Resource | undefined;
-  private static clamp(value: number): number {
-    return Math.min(Math.max(value, 0), MAX_CHANNEL_VALUE);
-  }
   private constructor(red: number, green: number, blue: number, alpha: number = MAX_CHANNEL_VALUE, res?: Resource) {
     this.red_ = ColorMetrics.clamp(red);
     this.green_ = ColorMetrics.clamp(green);
     this.blue_ = ColorMetrics.clamp(blue);
     this.alpha_ = ColorMetrics.clamp(alpha);
     this.res_ = res === undefined ? undefined : res;
+  }
+  private static clamp(value: number): number {
+    return Math.min(Math.max(value, 0), MAX_CHANNEL_VALUE);
   }
   private toNumeric(): number {
     return (this.alpha_ << 24) + (this.red_ << 16) + (this.green_ << 8) + this.blue_;
@@ -229,7 +228,7 @@ class ColorMetrics {
   static rgba(red: number, green: number, blue: number, alpha: number = MAX_ALPHA_VALUE): ColorMetrics {
     return new ColorMetrics(red, green, blue, alpha * MAX_CHANNEL_VALUE);
   }
-  static colorWithSpace(colorSpace: ColorSpace, red: number, green: number, blue: number, alpha?: number): ColorMetrics {
+  static colorWithSpace(colorSpace: ColorSpace, red: number, green: number, blue: number, alpha: number = MAX_ALPHA_VALUE): ColorMetrics {
     let redInt = Math.round(red * MAX_CHANNEL_VALUE);
     let greenInt = Math.round(green * MAX_CHANNEL_VALUE);
     let blueInt = Math.round(blue * MAX_CHANNEL_VALUE);
@@ -365,7 +364,9 @@ class ColorMetrics {
     return this.resourceId_;
   }
   setColorSpace(colorSpace: ColorSpace): void {
-    this.colorSpace_ = colorSpace;
+    if (ColorSpace.DISPLAY_P3 === colorSpace || ColorSpace.SRGB === colorSpace) {
+      this.colorSpace_ = colorSpace;
+    }
   }
   getColorSpace(): ColorSpace {
     return this.colorSpace_;
@@ -421,11 +422,20 @@ class ShapeMask extends BaseShape {
   public fillColor: number = 0XFF000000;
   public strokeColor: number = 0XFF000000;
   public strokeWidth: number = 0;
+  constructor(...args: []) {
+      super(...args);
+  }
 }
 
-class RenderNode extends Disposable {
+function checkCornerRadiusValid(corners: CornerRadius): boolean {
+  return !!(corners && (corners.topLeft) && (corners.topRight) && (corners.bottomRight) && (corners.bottomLeft));
+}
+
+class RenderNode {
+  private _isDisposed: boolean;
   private childrenList: Array<RenderNode>;
   private nodePtr: NodePtr;
+  private type: string; // use for transfer
   private parentRenderNode: WeakRef<RenderNode> | null;
   private backgroundColorValue: number;
   private clipToFrameValue: boolean;
@@ -456,9 +466,9 @@ class RenderNode extends Disposable {
   private apiTargetVersion: number;
 
   constructor(type: string, cptrVal: number = 0) {
-    super();
+    this._isDisposed = false;
     this.nodePtr = null;
-    this.type = type;     // for transfer to arkts1.2
+    this.type = type; // use for transfer
     this.childrenList = [];
     this.parentRenderNode = null;
     this.backgroundColorValue = 0;
@@ -489,7 +499,7 @@ class RenderNode extends Disposable {
       return;
     }
 
-    if (cptrVal == 0) {
+    if (cptrVal === 0 || cptrVal === null || cptrVal === undefined) {
       this._nativeRef = getUINativeModule().renderNode.createRenderNode(this);
     } else {
       this._nativeRef = getUINativeModule().renderNode.createRenderNodeWithPtrVal(this, cptrVal);
@@ -693,7 +703,7 @@ class RenderNode extends Disposable {
   get translation(): Vector2 {
     return this.translationValue;
   }
-  get lengthMetricsUnit() {
+  get lengthMetricsUnit(): LengthMetricsUnit {
     return this.lengthMetricsUnitValue;
   }
   get markNodeGroup() {
@@ -706,19 +716,22 @@ class RenderNode extends Disposable {
       return arg;
     }
   }
-  appendChild(node: RenderNode) {
+  appendChild(node: RenderNode): void{
     if (node === undefined || node === null) {
       return;
     }
     if (this.childrenList.findIndex(element => element === node) !== -1) {
       return;
     }
+    let result = getUINativeModule().renderNode.appendChild(this.nodePtr, node.nodePtr);
+    if (result === ERROR_CODE_NODE_IS_ADOPTED) {
+      throw { message: "The parameter 'node' is invalid: its corresponding FrameNode cannot be adopted.", code: 100025 };
+    }
     this.childrenList.push(node);
     node.parentRenderNode = new WeakRef(this);
-    getUINativeModule().renderNode.appendChild(this.nodePtr, node.nodePtr);
     getUINativeModule().renderNode.addBuilderNode(this.nodePtr, node.nodePtr);
   }
-  insertChildAfter(child: RenderNode, sibling: RenderNode | null) {
+  insertChildAfter(child: RenderNode, sibling: RenderNode | null): void{
     if (child === undefined || child === null) {
       return;
     }
@@ -726,18 +739,23 @@ class RenderNode extends Disposable {
     if (indexOfNode !== -1) {
       return;
     }
-    child.parentRenderNode = new WeakRef(this);
     let indexOfSibling = this.childrenList.findIndex(element => element === sibling);
     if (indexOfSibling === -1) {
       sibling === null;
     }
+    let result = 0;
+    let childrenListStartPosition = 0;
     if (sibling === undefined || sibling === null) {
-      this.childrenList.splice(0, 0, child);
-      getUINativeModule().renderNode.insertChildAfter(this.nodePtr, child.nodePtr, null);
+      result = getUINativeModule().renderNode.insertChildAfter(this.nodePtr, child.nodePtr, null);
     } else {
-      this.childrenList.splice(indexOfSibling + 1, 0, child);
-      getUINativeModule().renderNode.insertChildAfter(this.nodePtr, child.nodePtr, sibling.nodePtr);
+      childrenListStartPosition = indexOfSibling + 1;
+      result = getUINativeModule().renderNode.insertChildAfter(this.nodePtr, child.nodePtr, sibling.nodePtr);
     }
+    if (result === ERROR_CODE_NODE_IS_ADOPTED) {
+      throw { message: "The parameter 'child' is invalid: its corresponding FrameNode cannot be adopted.", code: 100025 };
+    }
+    this.childrenList.splice(childrenListStartPosition, 0, child);
+    child.parentRenderNode = new WeakRef(this);
     getUINativeModule().renderNode.addBuilderNode(this.nodePtr, child.nodePtr);
   }
   removeChild(node: RenderNode) {
@@ -821,9 +839,13 @@ class RenderNode extends Disposable {
     return getUINativeModule().renderNode.getNodeType(this.nodePtr);
   }
   dispose() {
-    super.dispose();
+    if (this.isDisposed()) {
+      return;
+    }
+    this._isDisposed = true;
     if (this.nodePtr) {
-      getUINativeModule().renderNode.fireArkUIObjectLifecycleCallback(new WeakRef(this), 'RenderNode', this.getNodeType() || 'RenderNode', this.nodePtr);
+      getUINativeModule().renderNode.fireArkUIObjectLifecycleCallback(new WeakRef(this),
+          'RenderNode', this.getNodeType() || 'RenderNode', this.nodePtr);
     }
     this._nativeRef?.dispose();
     this.baseNode_?.disposeNode();
@@ -832,7 +854,7 @@ class RenderNode extends Disposable {
     this.nodePtr = null;
   }
   isDisposed(): boolean {
-    return super.isDisposed() && (this._nativeRef === undefined || this._nativeRef === null);
+    return this._isDisposed && (this._nativeRef === undefined || this._nativeRef === null);
   }
   getNodePtr(): NodePtr {
     return this.nodePtr;
@@ -897,43 +919,45 @@ class RenderNode extends Disposable {
     } else {
       this.shapeMaskValue = shapeMask;
     }
-    if (this.shapeMaskValue.rect !== null) {
+    if (this.shapeMaskValue.rect !== null && this.shapeMaskValue.rect !== undefined) {
       const rectMask = this.shapeMaskValue.rect;
       getUINativeModule().renderNode.setRectMask(
         this.nodePtr, rectMask.left, rectMask.top, rectMask.right, rectMask.bottom,
         this.shapeMaskValue.fillColor, this.shapeMaskValue.strokeColor, this.shapeMaskValue.strokeWidth);
-    } else if (this.shapeMaskValue.circle !== null) {
+    } else if (this.shapeMaskValue.circle !== null && this.shapeMaskValue.circle !== undefined) {
       const circle = this.shapeMaskValue.circle;
       getUINativeModule().renderNode.setCircleMask(
         this.nodePtr, circle.centerX, circle.centerY, circle.radius,
         this.shapeMaskValue.fillColor, this.shapeMaskValue.strokeColor, this.shapeMaskValue.strokeWidth);
-    } else if (this.shapeMaskValue.roundRect !== null) {
-      const roundRect = this.shapeMask.roundRect;
+    } else if (this.shapeMaskValue.roundRect !== null && this.shapeMaskValue.roundRect !== undefined) {
+      const roundRect = this.shapeMaskValue.roundRect;
       const corners = roundRect.corners;
       const rect = roundRect.rect;
-      getUINativeModule().renderNode.setRoundRectMask(
-        this.nodePtr,
-        corners.topLeft.x,
-        corners.topLeft.y,
-        corners.topRight.x,
-        corners.topRight.y,
-        corners.bottomLeft.x,
-        corners.bottomLeft.y,
-        corners.bottomRight.x,
-        corners.bottomRight.y,
-        rect.left,
-        rect.top,
-        rect.right,
-        rect.bottom,
-        this.shapeMaskValue.fillColor,
-        this.shapeMaskValue.strokeColor,
-        this.shapeMaskValue.strokeWidth);
-    } else if (this.shapeMaskValue.oval !== null) {
+      if (checkCornerRadiusValid(corners) && rect) {
+        getUINativeModule().renderNode.setRoundRectMask(
+          this.nodePtr,
+          corners.topLeft.x,
+          corners.topLeft.y,
+          corners.topRight.x,
+          corners.topRight.y,
+          corners.bottomLeft.x,
+          corners.bottomLeft.y,
+          corners.bottomRight.x,
+          corners.bottomRight.y,
+          rect.left,
+          rect.top,
+          rect.right,
+          rect.bottom,
+          this.shapeMaskValue.fillColor,
+          this.shapeMaskValue.strokeColor,
+          this.shapeMaskValue.strokeWidth);
+      }
+    } else if (this.shapeMaskValue.oval !== null && this.shapeMaskValue.oval !== undefined) {
       const oval = this.shapeMaskValue.oval;
       getUINativeModule().renderNode.setOvalMask(
         this.nodePtr, oval.left, oval.top, oval.right, oval.bottom,
         this.shapeMaskValue.fillColor, this.shapeMaskValue.strokeColor, this.shapeMaskValue.strokeWidth);
-    } else if (this.shapeMaskValue.path !== null) {
+    } else if (this.shapeMaskValue.path !== null && this.shapeMaskValue.path !== undefined) {
       const path = this.shapeMaskValue.path;
       getUINativeModule().renderNode.setPath(
         this.nodePtr, path.commands, this.shapeMaskValue.fillColor, this.shapeMaskValue.strokeColor, this.shapeMaskValue.strokeWidth);
@@ -948,38 +972,40 @@ class RenderNode extends Disposable {
     } else {
       this.shapeClipValue = shapeClip;
     }
-    if (this.shapeClipValue.rect !== null) {
+    if (this.shapeClipValue.rect !== null && this.shapeClipValue.rect !== undefined) {
       const rectClip = this.shapeClipValue.rect;
       getUINativeModule().renderNode.setRectClip(
         this.nodePtr, rectClip.left, rectClip.top, rectClip.right, rectClip.bottom);
-    } else if (this.shapeClipValue.circle !== null) {
+    } else if (this.shapeClipValue.circle !== null && this.shapeClipValue.circle !== undefined) {
       const circle = this.shapeClipValue.circle;
       getUINativeModule().renderNode.setCircleClip(
         this.nodePtr, circle.centerX, circle.centerY, circle.radius);
-    } else if (this.shapeClipValue.roundRect !== null) {
+    } else if (this.shapeClipValue.roundRect !== null && this.shapeClipValue.roundRect !== undefined) {
       const roundRect = this.shapeClipValue.roundRect;
       const corners = roundRect.corners;
       const rect = roundRect.rect;
-      getUINativeModule().renderNode.setRoundRectClip(
-        this.nodePtr,
-        corners.topLeft.x,
-        corners.topLeft.y,
-        corners.topRight.x,
-        corners.topRight.y,
-        corners.bottomLeft.x,
-        corners.bottomLeft.y,
-        corners.bottomRight.x,
-        corners.bottomRight.y,
-        rect.left,
-        rect.top,
-        rect.right,
-        rect.bottom);
-    } else if (this.shapeClipValue.oval !== null) {
+      if (checkCornerRadiusValid(corners) && rect) {
+        getUINativeModule().renderNode.setRoundRectClip(
+          this.nodePtr,
+          corners.topLeft.x,
+          corners.topLeft.y,
+          corners.topRight.x,
+          corners.topRight.y,
+          corners.bottomLeft.x,
+          corners.bottomLeft.y,
+          corners.bottomRight.x,
+          corners.bottomRight.y,
+          rect.left,
+          rect.top,
+          rect.right,
+          rect.bottom);
+      }
+    } else if (this.shapeClipValue.oval !== null && this.shapeClipValue.oval !== undefined) {
       const oval = this.shapeClipValue.oval;
       getUINativeModule().renderNode.setOvalClip(
         this.nodePtr, oval.left, oval.top, oval.right, oval.bottom,
       );
-    } else if (this.shapeClipValue.path !== null) {
+    } else if (this.shapeClipValue.path !== null && this.shapeClipValue.path !== undefined) {
       const path = this.shapeClipValue.path;
       getUINativeModule().renderNode.setPathClip(
         this.nodePtr, path.commands);

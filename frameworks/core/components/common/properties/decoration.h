@@ -574,7 +574,8 @@ public:
     Decoration() = default;
     ~Decoration() override = default;
 
-    void SetContextAndCallback(const WeakPtr<PipelineContext>& context, const RenderNodeAnimationCallback& callback);
+    ACE_FORCE_EXPORT void SetContextAndCallback(
+        const WeakPtr<PipelineContext>& context, const RenderNodeAnimationCallback& callback);
 
     void AddShadow(const Shadow& shadow);
 
@@ -595,7 +596,7 @@ public:
         animationColor_ = animationColor;
     }
 
-    void SetGradient(const Gradient& gradient, const WeakPtr<PipelineContext>& context = nullptr,
+    ACE_FORCE_EXPORT void SetGradient(const Gradient& gradient, const WeakPtr<PipelineContext>& context = nullptr,
         const RenderNodeAnimationCallback& callback = nullptr);
 
     void SetBorderImageGradient(const Gradient& gradient)
@@ -907,8 +908,8 @@ public:
 
     // Indicate how much size the decoration taken, excluding the content size.
     Size GetOccupiedSize(double dipScale) const;
-    double HorizontalSpaceOccupied(double dipScale) const;
-    double VerticalSpaceOccupied(double dipScale) const;
+    ACE_FORCE_EXPORT double HorizontalSpaceOccupied(double dipScale) const;
+    ACE_FORCE_EXPORT double VerticalSpaceOccupied(double dipScale) const;
 
     Offset GetOffset(double dipScale) const;
 
@@ -1133,7 +1134,7 @@ struct PathArgs {
 };
 
 class ACE_FORCE_EXPORT CanvasPath2D : virtual public AceType {
-    DECLARE_ACE_TYPE(CanvasPath2D, AceType)
+    DECLARE_ACE_TYPE(CanvasPath2D, AceType);
 public:
     CanvasPath2D() = default;
     ~CanvasPath2D() = default;
@@ -1149,8 +1150,8 @@ public:
     void BezierCurveTo(double cp1x, double cp1y, double cp2x, double cp2y, double x, double y);
     void Ellipse(double x, double y, double radiusX, double radiusY, double rotation, double startAngle,
         double endAngle, double ccw);
-    void RoundRect(const class Rect& rect, const std::vector<double>& radii);
     void Rect(double x, double y, double width, double height);
+    void RoundRect(const class Rect& rect, const std::vector<double>& radii);
     void ClosePath();
     const std::vector<std::pair<PathCmd, PathArgs>>& GetCaches() const;
     std::string ToString() const;

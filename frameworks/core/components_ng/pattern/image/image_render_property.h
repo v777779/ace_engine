@@ -18,6 +18,7 @@
 
 #include "base/image/drawing_color_filter.h"
 #include "base/image/drawing_lattice.h"
+#include "base/image/image_resizable_slice.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/base/inspector_filter.h"
 #include "core/components_ng/property/border_property.h"
@@ -43,6 +44,8 @@ struct ImagePaintStyle {
     ACE_DEFINE_PROPERTY_GROUP_ITEM(SmoothEdge, float);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(DynamicMode, DynamicRangeMode);
     ACE_DEFINE_PROPERTY_GROUP_ITEM(HdrBrightness, float);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(ContentTransition, ContentTransitionType);
+    ACE_DEFINE_PROPERTY_GROUP_ITEM(AntiAlias, bool);
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
     {
         /* no fixed attr below, just return */
@@ -69,12 +72,19 @@ struct ImagePaintStyle {
         }
         json->PutExtAttr("colorFilter", colorFilter.c_str(), filter);
         json->PutExtAttr("hdrBrightness", propHdrBrightness.value_or(RenderConstants::DEFAULT_HDR_BRIGHTNESS), filter);
+        static const char* CONTENTTRANSITIONVALUE[] = { "ContentTransitionEffect.IDENTITY",
+            "ContentTransitionEffect.OPACITY" };
+        json->PutExtAttr("contentTransition",
+            CONTENTTRANSITIONVALUE[static_cast<int32_t>(
+                propContentTransition.value_or(ContentTransitionType::IDENTITY))],
+            filter);
+        json->PutExtAttr("antiAlias", propAntiAlias.value_or(false) ? "true" : "false", filter);
     }
 };
 
 // PaintProperty are used to set render properties.
 class ImageRenderProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(ImageRenderProperty, PaintProperty)
+    DECLARE_ACE_TYPE(ImageRenderProperty, PaintProperty);
 
 public:
     ImageRenderProperty() = default;
@@ -120,6 +130,9 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(ImagePaintStyle, HdrBrightness, float, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(
         ImagePaintStyle, ImageResizableSlice, ImageResizableSlice, PROPERTY_UPDATE_RENDER);
+    ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(
+        ImagePaintStyle, ContentTransition, ContentTransitionType, PROPERTY_UPDATE_RENDER);
+    ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(ImagePaintStyle, AntiAlias, bool, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(NeedBorderRadius, bool, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(BorderRadius, BorderRadiusProperty, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(ImageFit, ImageFit, PROPERTY_UPDATE_RENDER);

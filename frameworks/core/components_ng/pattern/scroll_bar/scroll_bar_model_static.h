@@ -22,12 +22,14 @@ namespace OHOS::Ace::NG {
 class ACE_EXPORT ScrollBarModelStatic {
 public:
     static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
+    static RefPtr<FrameNode> CreateArcScrollBarFrameNode(int32_t nodeId);
     static RefPtr<ScrollProxy> SetScrollBarProxy(FrameNode* frameNode, const RefPtr<ScrollProxy>& proxy);
     static void SetDirection(FrameNode* frameNode, const std::optional<Axis>& direction);
     static void SetState(FrameNode* frameNode, const std::optional<DisplayMode>& state);
     static void SetEnableNestedScroll(FrameNode* frameNode, const std::optional<bool>& enable);
     static void SetNestedScroll(RefPtr<FrameNode>& frameNode, RefPtr<ScrollablePattern>& pattern);
     static void UnSetNestedScroll(RefPtr<FrameNode>& frameNode, RefPtr<ScrollablePattern>& pattern);
+    static void SetScrollBarColor(FrameNode* frameNode, const std::optional<Color>& color);
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_SCROLL_BAR_SCROLL_BAR_MODEL_STATIC_H

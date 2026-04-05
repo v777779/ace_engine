@@ -19,7 +19,9 @@
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/select_overlay/select_overlay_property.h"
 #include "core/components_ng/pattern/scrollable/scrollable_properties.h"
+#include "core/components_ng/pattern/web/web_agent_event_reporter.h"
 #include "core/components_ng/pattern/web/web_event_hub.h"
+#include "core/components_ng/pattern/web/web_model_ng.h"
 #include "core/components_ng/pattern/web/web_pattern_property.h"
 
 namespace OHOS::Ace::NG {
@@ -28,7 +30,10 @@ const std::string DEFAULT_WEB_TEXT_ENCODING_FORMAT = "UTF-8";
 class WebPattern : public Pattern {
     DECLARE_ACE_TYPE(WebPattern, Pattern);
 public:
+    using SetWebDetachCallback = std::function<void(int32_t)>;
     using OnControllerAttachedCallback = std::function<void()>;
+    using DefaultFileSelectorShowCallback = std::function<void(const std::shared_ptr<BaseEventInfo>&)>;
+    using PermissionClipboardCallback = std::function<void(const std::shared_ptr<BaseEventInfo>&)>;
     WebPattern();
     ~WebPattern() override;
 
@@ -91,9 +96,23 @@ public:
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, DefaultTextEncodingFormat, std::string);
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, NativeEmbedRuleTag, std::string);
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, NativeEmbedRuleType, std::string);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, EnableDataDetector, bool);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, CssDisplayChangeEnabled, bool);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, BypassVsyncCondition, WebBypassVsyncCondition);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, AudioSessionType, WebAudioSessionType);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, BlankScreenDetectionConfig, BlankScreenDetectionConfig);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, RotateRenderEffect, WebRotateEffect);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, ForceEnableZoom, bool);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, BackToTop, bool);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, EnableSelectedDataDetector, bool);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, ZoomControlAccess, bool);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, GestureFocusMode, GestureFocusMode);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, EnableAutoFill, bool);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, EnableDefaultContextMenu, bool);
     using NativeVideoPlayerConfigType = std::tuple<bool, bool>;
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, NativeVideoPlayerConfig, NativeVideoPlayerConfigType);
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, SelectionMenuOptions, WebMenuOptionsParam);
+    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(WebProperty, EnableImageAnalyzer, bool);
 
     void SetWebSrc(const std::string &webSrc);
     void SetWebSrcStatic(const std::string &webSrc);
@@ -110,10 +129,16 @@ public:
 
     void JavaScriptOnDocumentStart(const ScriptItems&);
     void JavaScriptOnDocumentEnd(const ScriptItems&);
-    void JavaScriptOnHeadReadyByOrder(const ScriptItems& scriptItems, const ScriptItemsByOrder& scriptItemsByOrder);
+    void JavaScriptOnDocumentStartByOrder(const ScriptItems& scriptItems,
+        const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder) {}
+    void JavaScriptOnDocumentEndByOrder(const ScriptItems& scriptItems,
+        const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder) {}
+    void JavaScriptOnHeadReadyByOrder(const ScriptItems& scriptItems,
+        const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder) {}
 
     void SetWebController(const RefPtr<WebController>& webController);
     RefPtr<WebController> GetWebController() const;
+    RefPtr<WebAgentEventReporter> GetAgentEventReporter();
 
     void SetNewDragStyle(bool isNewDragStyle)
     {
@@ -121,6 +146,7 @@ public:
     }
 
     void SetPreviewSelectionMenu(const std::shared_ptr<WebPreviewSelectionMenuParam>& param) {}
+    void SetDefaultFileSelectorShowCallback(DefaultFileSelectorShowCallback&& Callback) {}
 
     void SetOnControllerAttachedCallback(OnControllerAttachedCallback&& callback);
     OnControllerAttachedCallback GetOnControllerAttachedCallback();
@@ -137,6 +163,16 @@ public:
         selectInfo.onCreateCallback.onCreateMenuCallback = onCreateMenuCallback_;
         selectInfo.onCreateCallback.onMenuItemClick = onMenuItemClick_;
     }
+
+    void SetSetWebDetachCallback(SetWebDetachCallback&& callback) {}
+    void SetPermissionClipboardCallback(PermissionClipboardCallback&& Callback) {}
+    void SetEmulateTouchFromMouseEvent(bool emulateTouchFromMouseEvent) {}
+    void UpdateDataDetectorConfig(const TextDetectConfig& config) {}
+    void SetJsProxyCallback(JsProxyCallback&& jsProxyCallback) {}
+    void EnableScrollDirectionalLock(bool enabled,
+        ScrollDirectionalLockType type = ScrollDirectionalLockType::NESTED_SCROLL);
+    void UpdateEnableDrag(bool enabled) {}
+    void UpdateScrollbarLayoutPolicy(ScrollbarLayoutPolicy policy) {}
 
 private:
     std::string GetMixedModeAsString() const;
@@ -218,6 +254,20 @@ private:
     void OnBlurOnKeyboardHideModeUpdate(int) {}
     void OnIntrinsicSizeEnabledUpdate(bool) {}
     void OnWebMediaAVSessionEnabledUpdate(bool) {}
+    void OnEnableDataDetectorUpdate(bool enable) {}
+    void OnCssDisplayChangeEnabledUpdate(bool value) {}
+    void OnBypassVsyncConditionUpdate(WebBypassVsyncCondition condition) {}
+    void OnAudioSessionTypeUpdate(WebAudioSessionType value) {}
+    void OnBlankScreenDetectionConfigUpdate(const BlankScreenDetectionConfig &config) {}
+    void OnRotateRenderEffectUpdate(WebRotateEffect effect) {}
+    void OnForceEnableZoomUpdate(bool value) {}
+    void OnBackToTopUpdate(bool isBackToTop) {}
+    void OnEnableSelectedDataDetectorUpdate(bool enable) {}
+    void OnZoomControlAccessUpdate(bool zoomControlAccess) {}
+    void OnEnableAutoFillUpdate(bool enable) {}
+    void OnEnableDefaultContextMenuUpdate(bool isEnabled) {}
+    void OnGestureFocusModeUpdate(GestureFocusMode mode) {}
+    void OnEnableImageAnalyzerUpdate(bool isEnabled) {}
 
     WebLayoutMode layoutMode_ = WebLayoutMode::NONE;
     NestedScrollOptionsExt nestedScroll_ = {
@@ -227,6 +277,7 @@ private:
         .scrollRight = NestedScrollMode::SELF_ONLY,
     };
     RefPtr<WebController> webController_;
+    RefPtr<WebAgentEventReporter> webAgentEventReporter_ = nullptr;
     std::optional<std::string> webData_;
     bool isNewDragStyle_ = false;
     OnControllerAttachedCallback onControllerAttachedCallback_ = nullptr;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,18 +19,47 @@ import { RenderNode } from "../RenderNode"
 import { ArkUIAniModule } from "arkui.ani"
 import hilog from '@ohos.hilog'
 import { Finalizable, runtimeType, RuntimeType, SerializerBase, registerCallback, wrapCallback, toPeerPtr, KPointer, MaterializedBase, InteropNativeModule } from "@koalaui/interop"
-import { TypeChecker, ArkUIGeneratedNativeModule } from "#components"
+import { ArkUIGeneratedNativeModule } from "#components"
 import { int16, uint32 } from "@koalaui/compat"
 import { ShapeClipTransfer } from "../handwritten/transfer/ShapeClipTransfer"
 import { ShapeMaskTransfer } from "../handwritten/transfer/ShapeMaskTransfer"
 import { TransferUtil } from "../handwritten/transfer/TransferUtil"
+
+function getRenderNodeColorInt(inVal: ESValue, name: string): int {
+    const propVal = inVal.getProperty(name);
+    if (propVal.typeOf() === 'string') {
+        let parStr = propVal.toString();
+        if (parStr.startsWith('#')) {
+            parStr = parStr.replace('#', '0x');
+        }
+        const nVal = Number(parStr);
+        return ArkUIAniModule._ToColorInt(Double.toLong(nVal));
+    } else if (propVal.typeOf() === 'number') {
+        const nVal = propVal.toNumber();
+        return ArkUIAniModule._ToColorInt(Double.toLong(nVal));
+    }
+    return 0;
+}
+
+function getRenderNodeEdgeColors(inVal: ESValue, name: string): NodeEdges<int> | undefined {
+    let borderVal = inVal.getProperty(name);
+    if (borderVal.isUndefined() || borderVal.isNull()) {
+        return undefined;
+    }
+    let left = getRenderNodeColorInt(borderVal, 'left') as int;
+    let top = getRenderNodeColorInt(borderVal, 'top') as int;
+    let right = getRenderNodeColorInt(borderVal, 'right') as int;
+    let bottom = getRenderNodeColorInt(borderVal, 'bottom') as int;
+    let egVal = {left: left, top: top, right: right, bottom: bottom} as NodeEdges<int>;
+    return egVal;
+}
 
 export class RenderNodeTransfer {
     private mapNodeStatic = new Map<int, RenderNode>();
     private mapNodeDynamic = new Map<int, ESValue>();
 
     private transProperty2Static(inVal: ESValue, rn: RenderNode): void {
-        rn.lengthMetricsUnit = TransferUtil.getPropNumber(inVal, "lengthMetricsUnitValue") as int as LengthMetricsUnit;
+        rn.lengthMetricsUnit = LengthMetricsUnit.fromValue((TransferUtil.getPropNumber(inVal, "lengthMetricsUnitValue")).toInt());
         let styleVal = TransferUtil.getPropBorderStyle(inVal, "borderStyleValue");
         if (styleVal) {
             rn.borderStyle = styleVal as NodeEdges<BorderStyle>;
@@ -39,7 +68,7 @@ export class RenderNodeTransfer {
         if (borderWidthVal) {
             rn.borderWidth = borderWidthVal as NodeEdges<number>;
         }
-        let borderColorVal = TransferUtil.getPropEdgesColor(inVal, "borderColorValue");
+        let borderColorVal = getRenderNodeEdgeColors(inVal, 'borderColorValue');
         if (borderColorVal) {
             rn.borderColor = borderColorVal as NodeEdges<int>;
         }
@@ -55,9 +84,9 @@ export class RenderNodeTransfer {
         if (clipVal) {
             rn.shapeClip = clipVal as ShapeClip;
         }
-        let colorVal = TransferUtil.getPropColorInt(inVal, "backgroundColorValue");
+        let colorVal = getRenderNodeColorInt(inVal, 'backgroundColorValue');
         if (colorVal !== undefined) {
-            rn.backgroundColor = colorVal as int;
+            rn.backgroundColor = colorVal.toInt();
         }
         rn.clipToFrame = TransferUtil.getPropBool(inVal, "clipToFrameValue");
         rn.frame = TransferUtil.getPropFrame(inVal, "frameValue");
@@ -66,9 +95,9 @@ export class RenderNodeTransfer {
         rn.rotation = TransferUtil.getPropVector3(inVal, "rotationValue");
 
         rn.scale = TransferUtil.getPropVector2(inVal, "scaleValue");
-        let ClrVal = TransferUtil.getPropColorInt(inVal, "shadowColorValue");
-        if (ClrVal !== undefined) {
-            rn.shadowColor = ClrVal as int;
+        let clrVal = getRenderNodeColorInt(inVal, 'shadowColorValue');
+        if (clrVal !== undefined) {
+            rn.shadowColor = clrVal.toInt();
         }
         rn.shadowOffset = TransferUtil.getPropVector2(inVal, "shadowOffsetValue");
         rn.label = TransferUtil.getPropString(inVal, "labelValue");
@@ -111,7 +140,6 @@ export class RenderNodeTransfer {
         }
         // get node type
         let typeStr : string | undefined = TransferUtil.getPropStringType(inVal, "type");
-        // new RenderNode
         let tsNode: RenderNode = new RenderNode(nodePtrVal, typeStr);
         this.mapNodeStatic.set(nodeId, tsNode);
         // tsNode set property
@@ -153,7 +181,7 @@ export class RenderNodeTransfer {
         if (module.isUndefined() || module.isNull()) {
             throw Error("The arkui.node is not defined, convert fail.");
         }
-        let clsName = module.getProperty('RenderNode');
+        let clsName = module.getProperty('default').getProperty('RenderNode');
         if (clsName.isUndefined() || clsName.isNull()) {
             throw Error("RenderNode is not a class, convert fail.");
         }
@@ -162,10 +190,8 @@ export class RenderNodeTransfer {
     }
 
     private transferProperty2Dynamic(inRn: RenderNode, outJs: ESValue) {
-        console.log("testTag. 2D prop...");
         // [peer, type, nodePtrVal, nodeId, _nativeRef ] init on constructor, apiTargetVersion not need
         TransferUtil.setPropNumber('lengthMetricsUnitValue', inRn.lengthMetricsUnit, outJs);
-
         if (inRn.borderStyle) {
             TransferUtil.setPropEdgeStyle('borderStyleValue', inRn.borderStyle!, outJs);
         }
@@ -184,7 +210,6 @@ export class RenderNodeTransfer {
         if (inRn.shapeClip) {
             TransferUtil.setPropShapeClip('shapeClipValue', inRn.shapeClip!, outJs);
         }
-
         TransferUtil.setPropColorLong('backgroundColorValue', inRn.backgroundColor, outJs);
         TransferUtil.setPropBool('clipToFrameValue', inRn.clipToFrame, outJs);
         TransferUtil.setPropFrame('frameValue', inRn.frame, outJs);
@@ -292,7 +317,7 @@ export class RenderNodeTransfer {
         if (input === null) {
             throw new Error("The input is not object, convert fail.");
         }
-
+    
         const trans = new RenderNodeTransfer();
         return trans.transfer2D(input);
     }

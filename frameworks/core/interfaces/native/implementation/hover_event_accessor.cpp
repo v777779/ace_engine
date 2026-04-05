@@ -13,8 +13,6 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
-#include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/implementation/hover_event_peer.h"
@@ -165,6 +163,46 @@ void StopPropagationImpl(Ark_HoverEvent peer)
     CHECK_NULL_VOID(info);
     info->SetStopPropagation(true);
 }
+Opt_Float64 GetGlobalDisplayXImpl(Ark_HoverEvent peer)
+{
+    CHECK_NULL_RETURN(peer, INVALID_OPT_FLOAT64);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_RETURN(info, INVALID_OPT_FLOAT64);
+    const auto value = PipelineBase::Px2VpWithCurrentDensity(info->GetGlobalDisplayLocation().GetX());
+    return Converter::ArkValue<Opt_Float64>(value);
+}
+void SetGlobalDisplayXImpl(Ark_HoverEvent peer,
+                           const Opt_Float64* globalDisplayX)
+{
+    CHECK_NULL_VOID(peer);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    auto globalDisplayLocation = info->GetGlobalDisplayLocation();
+    auto value = Converter::OptConvertPtr<double>(globalDisplayX);
+    auto xConvert = PipelineBase::Vp2PxWithCurrentDensity(value.value_or(DEFAULT_VALUE));
+    globalDisplayLocation.SetX(xConvert, globalDisplayLocation.GetXAnimationOption());
+    info->SetGlobalDisplayLocation(globalDisplayLocation);
+}
+Opt_Float64 GetGlobalDisplayYImpl(Ark_HoverEvent peer)
+{
+    CHECK_NULL_RETURN(peer, INVALID_OPT_FLOAT64);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_RETURN(info, INVALID_OPT_FLOAT64);
+    const auto value = PipelineBase::Px2VpWithCurrentDensity(info->GetGlobalDisplayLocation().GetY());
+    return Converter::ArkValue<Opt_Float64>(value);
+}
+void SetGlobalDisplayYImpl(Ark_HoverEvent peer,
+                           const Opt_Float64* globalDisplayY)
+{
+    CHECK_NULL_VOID(peer);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    auto globalDisplayLocation = info->GetGlobalDisplayLocation();
+    auto value = Converter::OptConvertPtr<double>(globalDisplayY);
+    auto yConvert = PipelineBase::Vp2PxWithCurrentDensity(value.value_or(DEFAULT_VALUE));
+    globalDisplayLocation.SetY(yConvert, globalDisplayLocation.GetYAnimationOption());
+    info->SetGlobalDisplayLocation(globalDisplayLocation);
+}
 } // HoverEventAccessor
 const GENERATED_ArkUIHoverEventAccessor* GetHoverEventAccessor()
 {
@@ -172,6 +210,7 @@ const GENERATED_ArkUIHoverEventAccessor* GetHoverEventAccessor()
         HoverEventAccessor::DestroyPeerImpl,
         HoverEventAccessor::ConstructImpl,
         HoverEventAccessor::GetFinalizerImpl,
+        HoverEventAccessor::StopPropagationImpl,
         HoverEventAccessor::GetXImpl,
         HoverEventAccessor::SetXImpl,
         HoverEventAccessor::GetYImpl,
@@ -184,7 +223,10 @@ const GENERATED_ArkUIHoverEventAccessor* GetHoverEventAccessor()
         HoverEventAccessor::SetDisplayXImpl,
         HoverEventAccessor::GetDisplayYImpl,
         HoverEventAccessor::SetDisplayYImpl,
-        HoverEventAccessor::StopPropagationImpl,
+        HoverEventAccessor::GetGlobalDisplayXImpl,
+        HoverEventAccessor::SetGlobalDisplayXImpl,
+        HoverEventAccessor::GetGlobalDisplayYImpl,
+        HoverEventAccessor::SetGlobalDisplayYImpl,
     };
     return &HoverEventAccessorImpl;
 }

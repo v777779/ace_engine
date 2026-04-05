@@ -22,9 +22,9 @@
 #include "interfaces/inner_api/ace/ai/image_analyzer.h"
 
 #include "base/geometry/dimension.h"
-#include "base/image/drawable_descriptor.h"
 #include "base/image/drawing_color_filter.h"
 #include "base/image/drawing_lattice.h"
+#include "base/image/image_resizable_slice.h"
 #include "base/image/pixel_map.h"
 #include "base/memory/referenced.h"
 #include "core/common/resource/resource_object.h"
@@ -32,16 +32,20 @@
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/border.h"
 #include "core/components/common/properties/color.h"
-#include "core/components/declaration/image/image_animator_declaration.h"
+#include "core/components/image/image_component.h"
 #include "core/components/image/image_event.h"
 #include "core/components_ng/event/gesture_event_hub.h"
+#include "core/drawable/drawable_descriptor.h"
 #include "core/image/image_source_info.h"
 
 namespace OHOS::Ace {
 enum class ImageResourceType { SRC, ALT, FILL_COLOR, BORDER_RADIUS };
 
 struct ACE_FORCE_EXPORT ImageInfoConfig {
+    ImageType type = ImageType::BASE;
     std::shared_ptr<std::string> src;
+    RefPtr<PixelMap> pixelMap;
+    RefPtr<DrawableDescriptor> drawable;
     std::string bundleName;
     std::string moduleName;
     bool isUriPureNumber = false;
@@ -52,9 +56,7 @@ class ACE_FORCE_EXPORT ImageModel {
 public:
     static ImageModel* GetInstance();
     virtual ~ImageModel() = default;
-    virtual void Create(const RefPtr<AceDrawableDescriptor>& drawable) {}
-    virtual void Create(const ImageInfoConfig& imageInfoConfig, RefPtr<PixelMap>& pixMap) = 0;
-
+    virtual void Create(ImageInfoConfig& imageInfoConfig) = 0;
     virtual void SetAlt(const ImageSourceInfo& src) = 0;
     virtual void SetBlur(double blur) = 0;
     virtual void SetBorder(const Border& border) = 0;
@@ -72,8 +74,6 @@ public:
     virtual void SetOnError(std::function<void(const LoadImageFailEvent& info)>&& callback) = 0;
     virtual void SetSvgAnimatorFinishEvent(std::function<void()>&& callback) = 0;
     virtual void ResetImage() = 0;
-    virtual void CreateAnimation(
-        const std::vector<ImageProperties>& imageList, int32_t duration, int32_t iteration) = 0;
     virtual void SetImageSourceSize(const std::pair<Dimension, Dimension>& size) = 0;
     virtual void SetImageFill(const Color& color) = 0;
     virtual void ResetImageFill() = 0;
@@ -108,6 +108,11 @@ public:
     virtual bool GetIsAnimation() = 0;
     virtual void CreateWithResourceObj(ImageResourceType resourceType, const RefPtr<ResourceObject>& resObject) = 0;
     virtual void SetImageFillSetByUser(bool value) = 0;
+    virtual void SetSupportSvg2(bool enable) = 0;
+    virtual void SetContentTransition(ContentTransitionType contentTransition) = 0;
+    virtual void SetAltError(const ImageSourceInfo& src) = 0;
+    virtual void SetAltPlaceholder(const ImageSourceInfo& src) = 0;
+    virtual void SetAntiAlias(bool antiAlias) = 0;
 
 private:
     static std::unique_ptr<ImageModel> instance_;

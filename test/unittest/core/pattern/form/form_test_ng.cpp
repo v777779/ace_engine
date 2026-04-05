@@ -26,10 +26,10 @@
 
 #include "mock/mock_form_utils.h"
 #include "mock/mock_sub_container.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 
 #include "base/utils/system_properties.h"
 #include "core/common/ace_engine.h"
@@ -38,11 +38,13 @@
 #include "core/components/form/resource/form_manager_delegate.h"
 #include "core/components/form/sub_container.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/form/form_event_hub.h"
 #include "core/components_ng/pattern/form/form_layout_property.h"
 #include "core/components_ng/pattern/form/form_model_ng.h"
 #include "core/components_ng/pattern/form/form_node.h"
 #include "core/components_ng/pattern/form/form_pattern.h"
+#include "core/components_ng/pattern/form/form_snapshot_check.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 
@@ -57,7 +59,7 @@ constexpr int64_t FORM_ID_OF_TDD = 123456;
 const std::string FORM_ID_STRING_OF_TDD = "123456";
 constexpr int32_t NODE_ID_OF_PARENT_NODE = 654321;
 const std::vector<ObscuredReasons> reasonsVector = { ObscuredReasons::PLACEHOLDER };
-constexpr double TIME_LIMIT_FONT_SIZE_BASE = 18.0;
+constexpr double TIME_LIMIT_FONT_SIZE_BASE = 14.0;
 RequestFormInfo formInfo;
 DirtySwapConfig config;
 FormModelNG formModelNG;
@@ -127,7 +129,7 @@ HWTEST_F(FormTestNg, FormNodeTest001, TestSize.Level1)
  * @tc.desc: Test OnDirtyLayoutWrapperSwap in Form Pattern.
  * @tc.type: FUNC
  */
-HWTEST_F(FormTestNg, OnDirtyLayoutWrapperSwap, TestSize.Level1)
+HWTEST_F(FormTestNg, OnDirtyLayoutWrapperSwap, TestSize.Level0)
 {
     RefPtr<FrameNode> frameNode = CreateFromNode();
     auto pattern = frameNode->GetPattern<FormPattern>();
@@ -203,7 +205,7 @@ HWTEST_F(FormTestNg, OnDirtyLayoutWrapperSwap, TestSize.Level1)
  * @tc.desc: create form node
  * @tc.type: FUNC
  */
-HWTEST_F(FormTestNg, FormModelNGTest001, TestSize.Level1)
+HWTEST_F(FormTestNg, FormModelNGTest001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Init FormModelNG object
@@ -240,7 +242,7 @@ HWTEST_F(FormTestNg, FormModelNGTest001, TestSize.Level1)
  * @tc.desc: create form node
  * @tc.type: FUNC
  */
-HWTEST_F(FormTestNg, FormModelNGTest002, TestSize.Level1)
+HWTEST_F(FormTestNg, FormModelNGTest002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Init FormModelNG object
@@ -294,7 +296,7 @@ HWTEST_F(FormTestNg, FormModelNGTest002, TestSize.Level1)
  * @tc.desc: create form node
  * @tc.type: FUNC
  */
-HWTEST_F(FormTestNg, FormModelNGTest003, TestSize.Level1)
+HWTEST_F(FormTestNg, FormModelNGTest003, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Init FormModelNG object
@@ -326,7 +328,7 @@ HWTEST_F(FormTestNg, FormModelNGTest003, TestSize.Level1)
  * @tc.desc: Test OnDirtyLayoutWrapperSwap in Form Pattern.
  * @tc.type: FUNC
  */
-HWTEST_F(FormTestNg, OnDirtyLayoutWrapperSwap002, TestSize.Level1)
+HWTEST_F(FormTestNg, OnDirtyLayoutWrapperSwap002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Init FormModelNG object
@@ -396,7 +398,7 @@ HWTEST_F(FormTestNg, OnDirtyLayoutWrapperSwap002, TestSize.Level1)
  * @tc.desc: Test OnDirtyLayoutWrapperSwap in Form Pattern.
  * @tc.type: FUNC
  */
-HWTEST_F(FormTestNg, OnDirtyLayoutWrapperSwap003, TestSize.Level1)
+HWTEST_F(FormTestNg, OnDirtyLayoutWrapperSwap003, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Init FormModelNG object
@@ -442,7 +444,7 @@ HWTEST_F(FormTestNg, OnDirtyLayoutWrapperSwap003, TestSize.Level1)
  * @tc.desc: Verify the InitFormManagerDelegate Interface of FormPattern work correctly.
  * @tc.type: FUNC
  */
-HWTEST_F(FormTestNg, InitFormManagerDelegate001, TestSize.Level1)
+HWTEST_F(FormTestNg, InitFormManagerDelegate001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Build a FormPattern and build a subContainer .
@@ -487,7 +489,7 @@ HWTEST_F(FormTestNg, InitFormManagerDelegate001, TestSize.Level1)
  * @tc.desc: Verify the CreateCardContainer Interface of FormPattern work correctly.
  * @tc.type: FUNC
  */
-HWTEST_F(FormTestNg, CreateCardContainer001, TestSize.Level1)
+HWTEST_F(FormTestNg, CreateCardContainer001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Build a FormPattern and build a subContainer .
@@ -523,7 +525,7 @@ HWTEST_F(FormTestNg, CreateCardContainer001, TestSize.Level1)
  * @tc.desc: Verify the CreateCardContainer Interface of FormPattern work correctly.
  * @tc.type: FUNC
  */
-HWTEST_F(FormTestNg, CreateCardContainer002, TestSize.Level1)
+HWTEST_F(FormTestNg, CreateCardContainer002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Build a FormPattern and build a subContainer .
@@ -594,7 +596,7 @@ HWTEST_F(FormTestNg, CreateCardContainer002, TestSize.Level1)
  * @tc.desc: Verify the OnRebuildFrame Interface of FormPattern work correctly.
  * @tc.type: FUNC
  */
-HWTEST_F(FormTestNg, OnRebuildFrame, TestSize.Level1)
+HWTEST_F(FormTestNg, OnRebuildFrame, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Build a FormPattern and build a subContainer .
@@ -1324,11 +1326,6 @@ HWTEST_F(FormTestNg, FormPatternTest007, TestSize.Level1)
     pattern->OnSnapshot(pixelMap);
     pattern->HandleOnSnapshot(pixelMap);
     ASSERT_EQ(pattern->isSnapshot_, false);
-
-    pixelMap = std::make_shared<Media::PixelMap>();
-    pattern->OnSnapshot(pixelMap);
-    pattern->HandleOnSnapshot(pixelMap);
-    ASSERT_EQ(pattern->isSnapshot_, true);
 }
 
 /**
@@ -1553,7 +1550,7 @@ HWTEST_F(FormTestNg, SnapshotSurfaceNode, TestSize.Level1)
     auto pattern = frameNode->GetPattern<FormPattern>();
     ASSERT_NE(pattern, nullptr);
     auto host = pattern->GetHost();
-    pattern->SnapshotSurfaceNode();
+    pattern->SnapshotSurfaceNode(std::make_shared<FormSnapshotCheck>(pattern->formManagerBridge_));
     ASSERT_NE(host, nullptr);
 }
 
@@ -1567,6 +1564,21 @@ HWTEST_F(FormTestNg, CheckFormBundleForbidden, TestSize.Level1)
     RefPtr<FrameNode> frameNode = CreateFromNode();
     auto pattern = frameNode->GetPattern<FormPattern>();
     ASSERT_NE(pattern, nullptr);
+    bool isForbidden = pattern->CheckFormBundleForbidden("MyBundleName");
+    ASSERT_EQ(isForbidden, false);
+}
+
+/**
+ * @tc.name: OnColorConfigurationUpdate
+ * @tc.desc: Test OnColorConfigurationUpdate in Form Pattern.
+ * @tc.type: FUNC
+ */
+HWTEST_F(FormTestNg, OnColorConfigurationUpdate, TestSize.Level1)
+{
+    RefPtr<FrameNode> frameNode = CreateFromNode();
+    auto pattern = frameNode->GetPattern<FormPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->OnColorConfigurationUpdate();
     bool isForbidden = pattern->CheckFormBundleForbidden("MyBundleName");
     ASSERT_EQ(isForbidden, false);
 }

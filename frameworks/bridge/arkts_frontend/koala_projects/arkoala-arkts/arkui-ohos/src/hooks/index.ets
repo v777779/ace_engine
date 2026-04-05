@@ -13,7 +13,9 @@ import { Configuration } from "@ohos.app.ability.Configuration";
 import { default as window } from "@ohos.window";
 import { default as uiObserver } from "@ohos.arkui.observer";
 import { UIContext } from "@ohos.arkui.UIContext";
+import { UIContextUtil } from 'arkui/base/UIContextUtil';
 import { AbilityInfo, WindowSize } from "bundleManager.AbilityInfo";
+import { ArkBaseNode } from '../typedNode/ArkBaseNode';
 import {
   ApplicationInfo,
   ModuleMetadata,
@@ -43,62 +45,132 @@ import { SymbolGlyphModifier } from "../SymbolGlyphModifier";
 import { TextModifier } from "../TextModifier";
 import { default as EventHub } from "application.EventHub";
 import { default as UIAbilityContext } from "application.UIAbilityContext";
-import { CommonMethod, StateStyles, ArkCommonMethodComponent, ArkCommonMethodPeer, CustomProperty, GestureMask, GestureType, Gesture, GestureGroup, UIGestureEvent, DragPreviewOptions, DragInteractionOptions, UniformDataType, DragEventInternal } from "#generated";
+import { CommonMethod, StateStyles, ArkCommonMethodComponent, ArkCommonMethodPeer, CustomProperty, GestureMask, GestureType, Gesture, GestureGroup, UIGestureEvent, DragPreviewOptions, DragInteractionOptions, UniformDataType, DragEventInternal, BaseEventInternal, KeyEventInternal, FunctionKey, ModifierKey, ModifierKeyStateGetter } from "#generated";
 import { CommonMethodModifier } from "../CommonMethodModifier"
-import { ArkXComponentComponent, XComponentOptions, XComponentParameters, NativeXComponentParameters } from "#generated";
-
+import { ModifierState } from '../CommonModifier';
 import { AnimateParam } from "#generated";
 import { GestureModifier } from "#generated";
-import { CanvasRenderer, ImageData, OffscreenCanvas, RenderingContextSettings, CanvasRenderingContext2D, Callback } from "#generated";
+import { CanvasRenderer, ImageData, CanvasRenderingContext2D, VoidCallback, } from "#generated";
 import { pointer } from "@koalaui/interop";
 import { ArkUIAniModule } from "arkui.ani"
 import { InteropNativeModule } from "@koalaui/interop"
-import { NavPathStack, NavPathInfo, NavigationOptions, PopInfo, ArkNavigationComponent } from "../component/navigation"
-import { PathStackUtils } from "../base/ArkNavPathStack"
-import { PageMapBuilder } from "../component/builder";
+import { ErrorCallback } from "@ohos.base";
+import { NavPathStack, NavigationModuleInfo, HomePathInfo, NavPathInfo, NavigationOptions, PopInfo, ArkNavigationComponent, ArkNavigationPeer } from "../component/navigation"
+import { NavDestinationContextInternal, RouteMapConfig } from "../component/navDestination"
+import { CustomBuilder, PageMapBuilder } from '../component/builder';
 import { NavigationOpsHandWritten } from "./NavigationOpsHandWritten";
-import { int32 } from "@koalaui/common"
-import { ArkImageComponent, ResourceStr, ImageContent, ImageAIOptions, ArkTabsComponent } from "#generated";
-import { ArkWaterFlowComponent, WaterFlowOptions } from "#generated";
+import { ArkImageComponent, ResourceStr, ImageContent, ImageAIOptions, ArkImagePeer, ImageErrorCallback, ArkTabsComponent } from "#generated";
+import { ArkWaterFlowComponent, WaterFlowOptions } from '#generated';
+import { ArkListItemGroupComponent, ListItemGroupOptions } from '#generated';
+import { ListItemGroupHandWritten } from './ListItemGroupHandWritten';
 import { ImageOpsHandWritten } from "./ImageOpsHandWritten";
 import { TabsOpsHandWritten } from "./TabsOpsHandWritten";
-import { WaterFlowHandWritten } from "./WaterFlowHandWritten";
+import { WaterFlowHandWritten } from './WaterFlowHandWritten';
+import { ArkCanvasComponent, CanvasRenderingContext2D, DrawingRenderingContext, CanvasParams } from "#generated";
+import { ArkVideoComponent, ArkVideoPeer, VideoOptions } from "#generated";
+import { ArkXComponentComponent, XComponentOptions, XComponentParameters, NativeXComponentParameters, XComponentController, ImageAnalyzerConfig } from "#generated";
+import { CanvasOpsHandWritten } from "./CanvasOpsHandWritten";
+import { VideoOpsHandWritten } from "./VideoOpsHandWritten";
 import { XComponentOpsHandWritten } from "./XComponentOpsHandWritten";
 import { PeerNode } from '../PeerNode';
 import { int32 } from "@koalaui/common";
 import { DrawModifier } from "arkui/component/common";
+import { ComponentContent } from 'arkui.ComponentContent';
 import { ArkTextPickerComponent, ArkTextPickerPeer, DividerOptions } from "#generated";
+import { ArkSelectComponent, ArkSelectPeer, DividerOptions } from "#generated";
+import { ArkSliderComponent, ArkSliderPeer, SliderExtender, SliderPrefixOptions, SliderSuffixOptions } from '#generated';
+import { SelectExtender } from "#generated"
+import { ArkWebComponent, JavaScriptProxy } from "#generated";
+import { ArkListComponent, ArkListPeer, ArkListItemGroupComponent, ArkListItemGroupPeer, ChildrenMainSize } from '#generated';
+import { ListHandWritten } from "./ListHandWritten"
+import { ArkWebComponent, JavaScriptProxy, CredentialType, MaterializedBase } from '#generated';
+import { WebHandWritten } from "./WebHandWritten";
+import { ArkSaveButtonComponent, ArkSaveButtonPeer, SaveButtonCallback, ArkPasteButtonComponent, ArkPasteButtonPeer, PasteButtonCallback } from '#generated';
+import { SaveButtonOpsHandWritten } from './SaveButtonOpsHandWritten';
+import { PasteButtonOpsHandWritten } from './PasteButtonOpsHandWritten';
+import { ArkDataPanelComponent, ArkDataPanelPeer, DataPanelShadowOptions, ArkGaugeComponent, ArkGaugePeer, GaugeIndicatorOptions, GaugeShadowOptions } from '#generated';
+import { DataPanelExtender, GaugeExtender } from '#generated';
+import { ArkToggleComponent, ToggleOptions } from "#generated";
+import { ToggleHandWritten } from "./ToggleHandWritten";
 
 export function hookId(component: object, value?: string) {}
 
+export interface KeyboardShortcut { value?: string | FunctionKey; keys?: Array<ModifierKey>; action?: () => void; }
+
+export function hookKeyboardShortcut(peer: ArkCommonMethodPeer, shortcuts: Array<KeyboardShortcut>): void {
+  if (shortcuts && shortcuts.length > 0) {
+    for (let i = 0; i < shortcuts.length; i++) {
+      const shortcut = shortcuts[i];
+      if (shortcut.value !== undefined && typeof shortcut.value === 'string') {
+        const strValue = shortcut.value as string;
+        if (strValue.length > 1) {
+            continue;
+        }
+      }
+      peer.setKeyboardShortcutAttribute(
+        shortcut.value as string | FunctionKey | undefined,
+        shortcut.keys as Array<ModifierKey> | undefined,
+        shortcut.action as (() => void) | undefined
+      );
+    }
+  }
+}
+
+export function hookMergeKeyboardShortcuts(
+  targetModifier: CommonMethodModifier,
+  sourceShortcuts: Array<KeyboardShortcut>): void {
+  if (sourceShortcuts && sourceShortcuts.length > 0) {
+    for (let i = 0; i < sourceShortcuts.length; i++) {
+      const shortcut = sourceShortcuts[i];
+      targetModifier.keyboardShortcut(shortcut.value, shortcut.keys, shortcut.action);
+    }
+  }
+}
+
 export function hookGesture(commonMethod: ArkCommonMethodComponent, gesture: GestureType | undefined, mask?: GestureMask): void {
+  hookGesture(commonMethod.getPeer(), gesture, mask)
+}
+
+export function hookGesture(peer: ArkCommonMethodPeer, gesture: GestureType | undefined, mask?: GestureMask): void {
     if (gesture instanceof Gesture) {
         let singleGesture = gesture as Gesture;
-        singleGesture.setGesture(0, commonMethod.getPeer(), mask);
+        singleGesture.setGesture(0, peer, mask);
     } else {
         let gestureGroup = gesture as GestureGroup;
-        gestureGroup.addGestureGroupToNode(0, commonMethod.getPeer(), mask)
+        gestureGroup.addGestureGroupToNode(0, peer, mask)
     }
 }
 
 export function hookPriorityGesture(commonMethod: ArkCommonMethodComponent, gesture: GestureType | undefined, mask?: GestureMask): void {
+  hookPriorityGesture(commonMethod.getPeer(), gesture, mask)
+}
+
+export function hookPriorityGesture(peer: ArkCommonMethodPeer, gesture: GestureType | undefined, mask?: GestureMask): void {
     if (gesture instanceof Gesture) {
         let singleGesture = gesture as Gesture;
-        singleGesture.setGesture(1, commonMethod.getPeer(), mask);
+        singleGesture.setGesture(1, peer, mask);
     } else {
         let gestureGroup = gesture as GestureGroup;
-        gestureGroup.addGestureGroupToNode(1, commonMethod.getPeer(), mask)
+        gestureGroup.addGestureGroupToNode(1, peer, mask)
     }
 }
 
 export function hookParallelGesture(commonMethod: ArkCommonMethodComponent, gesture: GestureType | undefined, mask?: GestureMask): void {
+   hookParallelGesture(commonMethod.getPeer(), gesture, mask)
+}
+
+export function hookParallelGesture(peer: ArkCommonMethodPeer, gesture: GestureType | undefined, mask?: GestureMask): void {
     if (gesture instanceof Gesture) {
         let singleGesture = gesture as Gesture;
-        singleGesture.setGesture(2, commonMethod.getPeer(), mask);
+        singleGesture.setGesture(2, peer, mask);
     } else {
         let gestureGroup = gesture as GestureGroup;
-        gestureGroup.addGestureGroupToNode(2, commonMethod.getPeer(), mask)
+        gestureGroup.addGestureGroupToNode(2, peer, mask)
     }
+}
+
+export function hookGestureModifier(peer: ArkCommonMethodPeer, value: GestureModifier | undefined) {
+  throw new Error("Not implemented")
 }
 
 export function hookGestureModifier(commonMethod: ArkCommonMethodComponent, value: GestureModifier | undefined): void {
@@ -116,18 +188,21 @@ export function hookGestureModifier(commonMethod: ArkCommonMethodComponent, valu
         gestureEvent = new UIGestureEvent();
         gestureEvent.setPeer(commonMethod.getPeer());
         commonMethod.setGestureEvent(gestureEvent);
+    } else {
+        gestureEvent = commonMethod.getGestureEvent();
     }
     gestureEvent!.clearGestures();
     value_casted.applyGesture(gestureEvent as UIGestureEvent);
 }
 
-export function hookAllowDrop(node: ArkCommonMethodComponent | ArkCommonMethodPeer, value: Array<UniformDataType> | null | undefined) : void {
+export function hookAllowDrop(node: ArkCommonMethodComponent | ArkCommonMethodPeer | ArkBaseNode,
+  value: Array<UniformDataType> | null | Array<string> | undefined) : void {
   if (!node) {
       return
   }
   if (value === null) {
-    if (node instanceof ArkCommonMethodComponent) {
-      let nodeComponent = node as ArkCommonMethodComponent
+    if (node instanceof ArkCommonMethodComponent || node instanceof ArkBaseNode) {
+      let nodeComponent = node as (ArkCommonMethodComponent | ArkBaseNode)
       ArkUIAniModule._Drag_Set_AllowDrop_Null(nodeComponent.getPeer().getPeerPtr())
     } else if (node instanceof ArkCommonMethodPeer) {
       let nodePeer = node as ArkCommonMethodPeer
@@ -135,9 +210,9 @@ export function hookAllowDrop(node: ArkCommonMethodComponent | ArkCommonMethodPe
     }
     return
   }
-  let array = value as (Array<UniformDataType> | undefined)
-  if (node instanceof ArkCommonMethodComponent) {
-    let nodeComponent = node as ArkCommonMethodComponent
+  let array = value as (Array<UniformDataType> | Array<string> | undefined)
+  if (node instanceof ArkCommonMethodComponent || node instanceof ArkBaseNode) {
+    let nodeComponent = node as (ArkCommonMethodComponent | ArkBaseNode)
     ArkUIAniModule._Drag_Set_AllowDrop(nodeComponent.getPeer().getPeerPtr(), array)
   } else if (node instanceof ArkCommonMethodPeer) {
     let nodePeer = node as ArkCommonMethodPeer
@@ -145,9 +220,10 @@ export function hookAllowDrop(node: ArkCommonMethodComponent | ArkCommonMethodPe
   }
 }
 
-export function hookDragPreviewOptions(node: ArkCommonMethodComponent | ArkCommonMethodPeer, value: DragPreviewOptions | undefined, options?: DragInteractionOptions) {
-  if (node instanceof ArkCommonMethodComponent) {
-    let nodeComponent = node as ArkCommonMethodComponent
+export function hookDragPreviewOptions(node: ArkCommonMethodComponent | ArkCommonMethodPeer | ArkBaseNode,
+  value: DragPreviewOptions | undefined, options?: DragInteractionOptions) {
+  if (node instanceof ArkCommonMethodComponent || node instanceof ArkBaseNode) {
+    let nodeComponent = node as (ArkCommonMethodComponent | ArkBaseNode)
     ArkUIAniModule._Drag_Set_DragPreviewOptions(nodeComponent.getPeer().getPeerPtr(), value, options)
   } else if (node instanceof ArkCommonMethodPeer) {
     let nodePeer = node as ArkCommonMethodPeer
@@ -155,29 +231,104 @@ export function hookDragPreviewOptions(node: ArkCommonMethodComponent | ArkCommo
   }
 }
 
-export function hookDragEventStartDataLoading(event: DragEventInternal, options: unifiedDataChannel.GetDataParams) : string {
+export function hookBaseEventGetModifierKeyState(event: BaseEventInternal): ModifierKeyStateGetter | undefined  {
+  let returnResult: ModifierKeyStateGetter = (keys: Array<string>) => {
+    return ArkUIAniModule._BaseEvent_getModifierKeyState(event!.peer!.ptr, keys);
+  }
+  return returnResult
+}
+
+export function hookTouchEventGetModifierKeyState(ptr: KPointer): ModifierKeyStateGetter | undefined  {
+  let returnResult: ModifierKeyStateGetter = (keys: Array<string>) => {
+    return ArkUIAniModule._TouchEvent_getModifierKeyState(ptr, keys);
+  }
+  return returnResult
+}
+
+export function hookDragEventGetModifierKeyState(event: DragEventInternal): ModifierKeyStateGetter | undefined  {
+  let returnResult: ModifierKeyStateGetter = (keys: Array<string>) => {
+    return ArkUIAniModule._DragEvent_getModifierKeyState(event!.peer!.ptr, keys);
+  }
+  return returnResult
+}
+
+export function hookKeyEventGetModifierKeyState(event: KeyEventInternal): ModifierKeyStateGetter | undefined  {
+  let returnResult: ModifierKeyStateGetter = (keys: Array<string>) => {
+    return ArkUIAniModule._KeyEvent_getModifierKeyState(event!.peer!.ptr, keys);
+  }
+  return returnResult
+}
+
+export function hookDragEventStartDataLoading(event: DragEventInternal, options: unifiedDataChannel.GetDataParams) :
+  string | undefined {
   return ArkUIAniModule._DragEvent_Start_Data_Loading(event.peer!.ptr, options)
 }
 
-export function hookDragEventGetSummary(event: DragEventInternal) : unifiedDataChannel.Summary {
+export function hookDragEventGetSummary(event: DragEventInternal) : unifiedDataChannel.Summary | undefined {
   return ArkUIAniModule._DragEvent_Get_Summary(event.peer!.ptr)
 }
 
-export function hookStateStyleImpl(
-  receiver: ArkCommonMethodComponent,
-  value: StateStyles | undefined
-) {
-    let currentState = receiver.getPeer().getOrCreateStateStyleMutable();
-    if (currentState === undefined) {
-      return;
+export function hookDragEventSetDataLoadParams(event: DragEventInternal, dataLoadParams: unifiedDataChannel.DataLoadParams) {
+  ArkUIAniModule._DragEvent_Set_Data_LoadParams(event.peer!.ptr, dataLoadParams)
+}
+
+export function hookEnableInternalDropAnimation(event: DragEventInternal, configuration: string) {
+  return ArkUIAniModule._DragEvent_Enable_InternalDropAnimation(event.peer!.ptr, configuration)
+}
+
+class StateStyleModifierState extends ModifierState {
+    fireChange(): void {
+        return;
+    }
+}
+
+class StateStyleCommonMethodModifier extends CommonMethodModifier {
+    constructor() {
+        super()
+        this._state = new StateStyleModifierState();
+    }
+}
+
+export function hookStateStyleImpl(receiver: ArkCommonMethodComponent, value: StateStyles | undefined) {
+  hookStateStyleImpl(receiver.getPeer(), value)
+}
+
+export function hookStateStyleImpl(peer: ArkCommonMethodPeer, value: StateStyles | undefined) {
+    if (value === undefined) {
+        return;
     }
     const UI_STATE_NORMAL = 0;
     const UI_STATE_PRESSED = 1;
     const UI_STATE_FOCUSED = 1 << 1;
     const UI_STATE_DISABLED = 1 << 2;
     const UI_STATE_SELECTED = 1 << 3;
+    
+    let curState = 0;
+    if (value?.normal) {
+        curState |= UI_STATE_NORMAL;
+    }
+    if (value?.pressed) {
+        curState |= UI_STATE_PRESSED;
+    }
+    if (value?.clicked) {
+        curState |= UI_STATE_PRESSED;
+    }
+    if (value?.focused) {
+        curState |= UI_STATE_FOCUSED;
+    }
+    if (value?.disabled) {
+        curState |= UI_STATE_DISABLED;
+    }
+    if (value?.selected) {
+        curState |= UI_STATE_SELECTED;
+    }
 
-    let cm = new CommonMethodModifier();
+    let currentState = peer.getOrCreateStateStyleMutable(curState);
+    if (currentState === undefined) {
+      return;
+    }
+
+    let cm = new StateStyleCommonMethodModifier();
 
     if (currentState.value === UI_STATE_NORMAL) {
         value?.normal?.(cm)
@@ -196,22 +347,95 @@ export function hookStateStyleImpl(
         value?.selected?.(cm)
     }
 
-    cm.applyModifierPatch(receiver.getPeer())
+    cm.applyModifierPatch(peer)
 }
 
 export class ElementIdToCustomProperties {
     constructor() { }
     static instance_: ElementIdToCustomProperties = new ElementIdToCustomProperties();
-    static _elementIdToCustomProperties = new Map<number, Map<string, CustomProperty>>();
+    public static _elementIdToCustomProperties = new Map<number, Map<string, CustomProperty>>();
+    public static _commonMethodModifierMap = new Map<CommonMethodModifier, Map<string, CustomProperty>>();
 }
-export function hookCustomPropertyImpl(component: ArkCommonMethodComponent, name: string, value: CustomProperty): void {
-    const nodeId = component.getPeer().getId();
+export function hookCustomPropertyImpl(component: ArkCommonMethodComponent | ArkCommonMethodPeer | ArkBaseNode,
+    name: string, value: CustomProperty, modifier?: CommonMethodModifier | undefined): void {
+    let commonMethodModifier: CommonMethodModifier;
+    if (component instanceof ArkCommonMethodComponent || component instanceof ArkBaseNode) {
+        const nodeId = component.getPeer().getId();
+        if (!ElementIdToCustomProperties._elementIdToCustomProperties.has(nodeId)) {
+            ElementIdToCustomProperties._elementIdToCustomProperties.set(nodeId, new Map<string, CustomProperty>());
+        };
+        const customProperties = ElementIdToCustomProperties._elementIdToCustomProperties.get(nodeId);
+        if (customProperties) {
+            customProperties.set(name, value);
+        }
+        const removeCallback: () => void = () => {
+            ElementIdToCustomProperties._elementIdToCustomProperties.delete(nodeId);
+        };
+        const getCallback: (name: string) => string | undefined = (name: string) => {
+            if (ElementIdToCustomProperties._elementIdToCustomProperties.has(nodeId)) {
+                const customPropertiesGet = ElementIdToCustomProperties._elementIdToCustomProperties.get(nodeId);
+                if (customPropertiesGet) {
+                    const propertyValue = customPropertiesGet.get(name);
+                    return propertyValue !== undefined ? JSON.stringify(propertyValue) : undefined;
+                }
+            }
+            return undefined;
+        };
+        const getAllCustomPropertiesCallback: () => string = () => {
+            if (ElementIdToCustomProperties._elementIdToCustomProperties.has(nodeId)) {
+                let allProperties: Record<string, CustomProperty> = new Record<string, CustomProperty>();
+                const nodeCustomProperties = ElementIdToCustomProperties._elementIdToCustomProperties.get(nodeId);
+                if (nodeCustomProperties === undefined || nodeCustomProperties === null) {
+                    return ''
+                }
+                const allKeys = Array.from(nodeCustomProperties!.keys());
+                for (let key of allKeys) {
+                    try {
+                        const propertyValue = nodeCustomProperties!.get(key);
+                        if (propertyValue === undefined) {
+                            allProperties.set(key, 'Unsupported Type')
+                        } else {
+                            allProperties.set(key, propertyValue)
+                        }
+                    } catch (e) {
+                        allProperties.set(key, 'Unsupported Type')
+                    }   
+                }
+                try {
+                    return JSON.stringify(allProperties);
+                } catch (e) {
+                    return '';
+                }
+            }
+            return '';
+        };
+        ArkUIAniModule._Common_SetCustomPropertyCallBack(component.getPeer().getPeerPtr(), removeCallback, getCallback,
+            getAllCustomPropertiesCallback);
+        return;
+    } else {
+        commonMethodModifier = (modifier as CommonMethodModifier)
+    }
+
+    if (!ElementIdToCustomProperties._commonMethodModifierMap.has(commonMethodModifier)) {
+        return;
+    }
+    const commonMethodModifierMap = ElementIdToCustomProperties._commonMethodModifierMap.get(commonMethodModifier);
+
+    let nodeId = -1;
+    if (component instanceof ArkCommonMethodPeer) {
+        let nodeComponent = component as ArkCommonMethodPeer
+        nodeId = nodeComponent.getId();
+    }
     if (!ElementIdToCustomProperties._elementIdToCustomProperties.has(nodeId)) {
         ElementIdToCustomProperties._elementIdToCustomProperties.set(nodeId, new Map<string, CustomProperty>());
     }
     const customProperties = ElementIdToCustomProperties._elementIdToCustomProperties.get(nodeId);
-    if (customProperties) {
-        customProperties.set(name, value);
+    if (commonMethodModifierMap) {
+        if (customProperties) {
+            commonMethodModifierMap.forEach((value, key)=>{
+              customProperties.set(key, value);
+            })
+        }
     }
     const removeCallback: () => void = () => {
         ElementIdToCustomProperties._elementIdToCustomProperties.delete(nodeId);
@@ -226,95 +450,148 @@ export function hookCustomPropertyImpl(component: ArkCommonMethodComponent, name
         }
         return undefined;
     };
-    ArkUIAniModule._Common_SetCustomPropertyCallBack(component.getPeer().getPeerPtr(), removeCallback, getCallback);
+    const getAllCustomPropertiesCallback: () => string = () => {
+        if (ElementIdToCustomProperties._elementIdToCustomProperties.has(nodeId)) {
+            let allProperties: Record<string, CustomProperty> = new Record<string, CustomProperty>();
+            const nodeCustomProperties = ElementIdToCustomProperties._elementIdToCustomProperties.get(nodeId);
+            if (nodeCustomProperties === undefined || nodeCustomProperties === null) {
+                return ''
+            }
+            const allKeys = Array.from(nodeCustomProperties!.keys());
+            for (let key of allKeys) {
+                try {
+                    const propertyValue = nodeCustomProperties!.get(key);
+                    if (propertyValue === undefined) {
+                        allProperties.set(key, 'Unsupported Type')
+                    } else {
+                        allProperties.set(key, propertyValue)
+                    }
+                } catch (e) {
+                    allProperties.set(key, 'Unsupported Type')
+                }   
+            }
+            try {
+                return JSON.stringify(allProperties);
+            } catch (e) {
+                return '';
+            }
+        }
+        return '';
+    };
+    if (component instanceof ArkCommonMethodPeer) {
+        let nodeComponent = component as ArkCommonMethodPeer
+        ArkUIAniModule._Common_SetCustomPropertyCallBack(nodeComponent.getPeerPtr(), removeCallback, getCallback,
+            getAllCustomPropertiesCallback);
+    }
+}
+
+export function hookCommonMethodModifierCustomProperty(component: CommonMethodModifier, name: string,
+    value: CustomProperty): void {
+    if (!ElementIdToCustomProperties._commonMethodModifierMap.has(component)) {
+        ElementIdToCustomProperties._commonMethodModifierMap.set(component, new Map<string, CustomProperty>());
+    }
+    const customProperties = ElementIdToCustomProperties._commonMethodModifierMap.get(component);
+    if (customProperties) {
+        customProperties.set(name, value);
+    }
 }
 
 export function hookDrawModifier(arkComponent: ArkCommonMethodComponent, value: DrawModifier | undefined): void {
+  hookDrawModifier(arkComponent.getPeer(), value)
+}
+
+export function hookDrawModifier(peer: ArkCommonMethodPeer, value: DrawModifier | undefined): void {
   if (value === undefined) {
     return;
   }
-  let classType: ClassType = (Type.of(value) as ClassType);
-  let numberOfFun = classType.getMethodsNum();
   let flag: int32 = 0;
-  for (let i = 0; i < numberOfFun; i++) {
-    if (classType.getMethod(i)?.getName() === "drawFront") {
-      flag |= (1 << 0);
-    } else if (classType.getMethod(i)?.getName() === "drawContent") {
-      flag |= (1 << 1);
-    } else if (classType.getMethod(i)?.getName() === "drawBehind") {
-      flag |= (1 << 2);
-    } else if (classType.getMethod(i)?.getName() === "drawForeground") {
-      flag |= (1 << 3);
+  let classType = Class.of(value);
+  for (let cls: Class | undefined = classType; cls != undefined; cls = cls!.getSuper()) {
+    const clsMethods = cls!.getInstanceMethods();
+    for (const method of clsMethods) {
+      let name = method.getName()
+      if (name == "drawFront") {
+        flag |= (1 << 0);
+      }
+      if (name == "drawContent") {
+        flag |= (1 << 1);
+      }
+      if (name == "drawBehind") {
+        flag |= (1 << 2);
+      }
+      if (name == "drawForeground") {
+        flag |= (1 << 3);
+      }
+      if (name == "drawOverlay") {
+        flag |= (1 << 4);
+      }
     }
-  }
-  if (flag) {
-    ArkUIAniModule._SetDrawModifier(arkComponent.getPeer().getPeerPtr(), flag, value!);
-    value.weakRefOfPeerNode = new WeakRef<PeerNode>(arkComponent.getPeer());
+    if (flag) {
+      ArkUIAniModule._SetDrawModifier(peer.getPeerPtr(), flag, value!);
+      value.weakRefOfPeerNode = new WeakRef<PeerNode>(peer);
+      break;
+    }
   }
 }
 
 export * from "./modifiers";
 export * from "./content_modifiers/ContentModifierHooks";
 export * from "./theme";
+export { NavDestinationBuilder, NavigationRouterMap } from "./NavigationOpsHandWritten";
 
 export function hookImageSetImageOptions(component: ArkImageComponent, src: image.PixelMap | ResourceStr | DrawableDescriptor | ImageContent, imageAIOptions?: ImageAIOptions): void {
     ImageOpsHandWritten.hookImageSetImageOptionsImpl(component, src, imageAIOptions);
+}
+
+export function hookImageOnError(receiver: ArkImageComponent | ArkImagePeer, value: ImageErrorCallback | undefined): void {
+    ImageOpsHandWritten.hookImageOnErrorImpl(receiver, value);
 }
 
 export function hookTabsApplyAttributesFinish(node: ArkTabsComponent): void  {
     TabsOpsHandWritten.hookTabsApplyAttributesFinish(node);
 }
 
-export function hookPushPathMethod(pathStack: NavPathStack, info: NavPathInfo, animated?: boolean | NavigationOptions | undefined): void {
-  PathStackUtils.pushPath(pathStack, info, animated);
+export function hookSetNavigationOptions(component: ArkNavigationComponent, pathInfos?: NavPathStack, moduleInfo?: NavigationModuleInfo): void {
+  NavigationOpsHandWritten.hookSetNavigationOptionsImpl(component, pathInfos, undefined, moduleInfo);
 }
 
-export function hookPushPathByNameMethod(pathStack: NavPathStack, name: string, param: Object | null | undefined, onPop?: ((parameter: PopInfo) => void) | boolean | undefined, animated?: boolean): void {
-  PathStackUtils.pushPathByName(pathStack, name, param, onPop, animated);
-}
-export function hookReplacePathMethod(pathStack: NavPathStack, info: NavPathInfo, animated?: boolean | NavigationOptions | undefined): void {
-  PathStackUtils.replacePath(pathStack, info, animated);
-}
-export function hookReplacePathByNameMethod(pathStack: NavPathStack, name: string, param: Object, animated?: boolean): void {
-  PathStackUtils.replacePathByName(pathStack, name, param, animated);
-}
-export function hookPopMethod(pathStack: NavPathStack, result?: boolean | undefined | Object, animated?: boolean): NavPathInfo | undefined {
-  return PathStackUtils.pop(pathStack, result, animated);
-}
-export function hookPopToNameMethod(pathStack: NavPathStack, name: string, result?: boolean | undefined | Object, animated?: boolean): int32 {
-  return PathStackUtils.popToName(pathStack, name, result, animated);
-}
-export function hookPopToIndexMethod(pathStack: NavPathStack, index: int32, result?: boolean | undefined | Object, animated?: boolean) {
-  PathStackUtils.popToIndex(pathStack, index, result, animated);
-}
-export function hookGetParamByIndexMethod(pathStack: NavPathStack, index: int32): Object | undefined {
-  return PathStackUtils.getParamByIndex(pathStack, index);
-}
-export function hookGetParamByNameMethod(pathStack: NavPathStack, name: string): Array<Object | null | undefined> {
-  return PathStackUtils.getParamByName(pathStack, name);
-}
-export function hookSetNavigationOptions(component: ArkNavigationComponent, pathInfos?: NavPathStack): void {
-  NavigationOpsHandWritten.hookSetNavigationOptionsImpl(component, pathInfos);
+export function hookSetNavigationOptions(component: ArkNavigationComponent, pathInfos?: NavPathStack, homeDestination?: HomePathInfo, moduleInfo?: NavigationModuleInfo): void {
+  NavigationOpsHandWritten.hookSetNavigationOptionsImpl(component, pathInfos, homeDestination, moduleInfo);
 }
 
 export function hookSetNavDestination(component: ArkNavigationComponent, value: PageMapBuilder | undefined): void {
-  NavigationOpsHandWritten.hookSetNavDestinationImpl(component, value);
+  NavigationOpsHandWritten.hookSetNavDestinationImpl(component.getPeer(), value);
 }
 
-export function hookSetXComponentOptions(component: ArkXComponentComponent, params: XComponentParameters | XComponentOptions | NativeXComponentParameters): void {
-  XComponentOpsHandWritten.hookSetXComponentOptionsImpl(component, params);
+export function hookSetNavDestination(peer: ArkNavigationPeer, value: PageMapBuilder | undefined): void {
+  NavigationOpsHandWritten.hookSetNavDestinationImpl(peer, value);
+}
+
+export function hookSplitPlaceholder(node: ArkNavigationComponent | ArkNavigationPeer, value: ComponentContent<Object>): void {
+  const navPeer: ArkNavigationPeer = node instanceof ArkNavigationComponent ?
+    (node as ArkNavigationComponent).getPeer() : (node as ArkNavigationPeer);
+  NavigationOpsHandWritten.hookSplitPlaceholderImpl(navPeer, value);
+}
+
+export function hookGetConfigInRouteMap(info: NavDestinationContextInternal): RouteMapConfig | undefined {
+  return NavigationOpsHandWritten.hookGetRouteConfigImpl(info);
 }
 
 const DIFF: number = 1e-10
 const int_MAX: number = 2147483647
 const PIXEL_SIZE: int = 4
+export function hookGetCanvas(peerPtr: CanvasRenderingContext2D): FrameNode | null {
+    const context: UIContext = UIContextUtil.getOrCreateCurrentUIContext() as UIContext
+    const nodeId: number = ArkUIAniModule._CanvasRenderingContext_GetCanvasId(peerPtr.peer!.ptr).toDouble()
+    return context.getFrameNodeByNodeId(nodeId)
+}
 export function getCanvasDensity(peerPtr: CanvasRenderer): number {
     return ArkUIAniModule._CanvasRenderer_GetCanvasDensity(peerPtr.peer!.ptr)
 }
 export function getSystemDensity(): number {
     return ArkUIAniModule._GetSystemDensity()
 }
-export function convertDimensionStrToNumber(value: string): number {
+export function convertDimensionStrToNumber(value: string, density: number): number {
     const regex : RegExp = new RegExp('(-?\\d+\\.?\\d+)(px|vp)?$', 'i')
     const match: RegExpMatchArray | null = value.match(regex)
     if (!match) {
@@ -322,17 +599,17 @@ export function convertDimensionStrToNumber(value: string): number {
     }
     let numericValue : number = 0
     let unitPart : string = ''
-    if (match.length > 1) {
+    if (match.length > 1 && match[1] !== undefined) {
         numericValue = Number.parseFloat(match[1] as string);
     }
-    if (match.length > 2) {
+    if (match.length > 2 && match[2] !== undefined) {
         unitPart = match[2] as string;
     }
-    if (unitPart === 'px' || !unitPart) {
+    if (unitPart === 'px') {
         return numericValue;
     }
-    if (unitPart === 'vp') {
-        return numericValue * getSystemDensity();
+    if (unitPart === 'vp' || !unitPart) {
+        return numericValue * density;
     }
     return 0;
 }
@@ -345,26 +622,26 @@ export function hookCreateImageData(peerPtr: CanvasRenderer, sw: number, sh: num
         const resObj = new ImageData(0, 0)
         return resObj
     }
-    const width_cast: int = width_value as int
-    const height_cast: int = height_value as int
+    const width_cast: int = width_value.toInt()
+    const height_cast: int = height_value.toInt()
     const length: int = width_cast * height_cast * PIXEL_SIZE
     const arrayBuffer: ArrayBuffer = new ArrayBuffer(length)
     const uint8View = new Uint8Array(arrayBuffer)
     for (let i = 0; i < length; i++) {
-        uint8View[i] = 0xffffffff
+        uint8View[i] = 0xffffffff.toInt()
     }
     const data: Uint8ClampedArray = new Uint8ClampedArray(arrayBuffer)
     const resObj: ImageData = new ImageData(width_cast, height_cast, data, LengthMetricsUnit.PX)
     return resObj
 }
 export function hookCreateImageData(peerPtr: CanvasRenderer, imagedata: ImageData): ImageData {
-    const width_cast: int = imagedata.width as int
-    const height_cast: int = imagedata.height as int
+    const width_cast: int = imagedata.width.toInt()
+    const height_cast: int = imagedata.height.toInt()
     const length: int = width_cast * height_cast * PIXEL_SIZE
     const arrayBuffer: ArrayBuffer = new ArrayBuffer(length)
     const uint8View = new Uint8Array(arrayBuffer)
     for (let i = 0; i < length; i++) {
-        uint8View[i] = 0xffffffff
+        uint8View[i] = 0xffffffff.toInt()
     }
     const data: Uint8ClampedArray = new Uint8ClampedArray(arrayBuffer)
     const resObj: ImageData = new ImageData(width_cast, height_cast, data, LengthMetricsUnit.PX)
@@ -380,49 +657,207 @@ export function hookGetImageData(peerPtr: CanvasRenderer, sx: number, sy: number
         const resObj = new ImageData(0, 0)
         return resObj
     }
-    const width_cast: int = width_value as int
-    const height_cast: int = height_value as int
+    const width_cast: int = width_value.toInt()
+    const height_cast: int = height_value.toInt()
     const resObj: ImageData = new ImageData(width_cast, height_cast, data, LengthMetricsUnit.PX)
     return resObj
 }
-export function hookPutImageData(peerPtr: CanvasRenderer, imagedata: ImageData, dx: number | string, dy: number | string): void {
-    let dx_type: int = RuntimeType.UNDEFINED
-    let dy_type: int = RuntimeType.UNDEFINED
-    dx_type = runtimeType(dx)
-    dy_type = runtimeType(dy)
-    let dx_val: number = (dx_type == RuntimeType.STRING) ? convertDimensionStrToNumber(dx as string) : (dx as number)
-    let dy_val: number = (dy_type == RuntimeType.STRING) ? convertDimensionStrToNumber(dy as string) : (dy as number)
-    ArkUIAniModule._CanvasRenderer_PutImageData0(peerPtr.peer!.ptr, imagedata.data, dx_val, dy_val, imagedata.width as int, imagedata.height as int)
+export function parseImageData(value: number | string, density: number): number {
+    let ret_val: number
+    if (value instanceof string) {
+        ret_val = convertDimensionStrToNumber(value as string, density)
+    } else {
+        let value_casted = value.toDouble()
+        ret_val = value_casted * density
+    }
+    return ret_val
 }
-export function hookPutImageData(peerPtr: CanvasRenderer, imagedata: ImageData, dx: number | string, dy: number | string, dirtyX: number | string, dirtyY: number | string, dirtyWidth: number | string, dirtyHeight: number | string): void {
+export function hookPutImageData(peerPtr: CanvasRenderer,
+    imagedata: ImageData, dx: number | string, dy: number | string): void {
+    const density = getCanvasDensity(peerPtr)
+    if (imagedata.data != undefined) {
+      ArkUIAniModule._CanvasRenderer_PutImageData0(peerPtr.peer!.ptr, imagedata.data as Uint8ClampedArray,
+        parseImageData(dx, density), parseImageData(dy, density), imagedata.width.toInt(), imagedata.height.toInt())
+    }
+}
+export function hookPutImageData(peerPtr: CanvasRenderer, imagedata: ImageData,
+    dx: number | string, dy: number | string, dirtyX: number | string, dirtyY: number | string,
+    dirtyWidth: number | string, dirtyHeight: number | string): void {
+    const density = getCanvasDensity(peerPtr)
+    if (imagedata.data != undefined) {
+      ArkUIAniModule._CanvasRenderer_PutImageData1(peerPtr.peer!.ptr, imagedata.data as Uint8ClampedArray,
+        parseImageData(dx, density), parseImageData(dy, density),
+        imagedata.width.toInt(), imagedata.height.toInt(),
+        parseImageData(dirtyX, density), parseImageData(dirtyY, density),
+        parseImageData(dirtyWidth, density), parseImageData(dirtyHeight, density))
+    }
+}
+let attachCallbackId: int = 0;
+let detachCallbackId: int = 0;
+const attachCallbackMap: Map<VoidCallback, int> = new Map<VoidCallback, int>()
+const detachCallbackMap: Map<VoidCallback, int> = new Map<VoidCallback, int>()
+export function registerAttach(peerPtr: CanvasRenderingContext2D, callback: VoidCallback): void {
+  let id: int = -1
+  if (attachCallbackMap.has(callback)) {
+    let res = attachCallbackMap.get(callback)
+    if (res !== undefined) {
+      id = res.toInt()
+    }
+  } else {
+    id = attachCallbackId
+    attachCallbackMap.set(callback, attachCallbackId++)    
+  }
+  ArkUIAniModule._CanvasRenderingContext_setAttachCallbackId(peerPtr.peer!.ptr, id)
+}
+export function unregisterAttach(peerPtr: CanvasRenderingContext2D, callback?: VoidCallback): void {
+  if (callback === undefined) {
+    attachCallbackMap.clear()
+    return
+  }
+  let id: int = -1
+  if (attachCallbackMap.has(callback)) {
+    let res = attachCallbackMap.get(callback)
+    if (res !== undefined) {
+      id = res.toInt()
+    }
+    attachCallbackMap.delete(callback)
+  }
+  ArkUIAniModule._CanvasRenderingContext_setAttachCallbackId(peerPtr.peer!.ptr, id)
+}
+export function registerDetach(peerPtr: CanvasRenderingContext2D, callback: VoidCallback): void {
+  let id: int = -1
+  if (detachCallbackMap.has(callback)) {
+    let res = detachCallbackMap.get(callback)
+    if (res !== undefined) {
+      id = res.toInt()
+    }
+  } else {
+    id = detachCallbackId
+    detachCallbackMap.set(callback, detachCallbackId++)    
+  }
+  ArkUIAniModule._CanvasRenderingContext_setDetachCallbackId(peerPtr.peer!.ptr, id)
+}
+export function unregisterDetach(peerPtr: CanvasRenderingContext2D, callback?: VoidCallback): void {
+  if (callback === undefined) {
+    detachCallbackMap.clear()
+    return
+  }
+  let id: int = -1
+  if (detachCallbackMap.has(callback)) {
+    let res = detachCallbackMap.get(callback)
+    if (res !== undefined) {
+      id = res.toInt()
+    }
+    detachCallbackMap.delete(callback)
+  }
+  ArkUIAniModule._CanvasRenderingContext_setDetachCallbackId(peerPtr.peer!.ptr, id)
+}
 
-    let dx_type: int = RuntimeType.UNDEFINED
-    let dy_type: int = RuntimeType.UNDEFINED
-    let dirtyX_type: int = RuntimeType.UNDEFINED
-    let dirtyY_type: int = RuntimeType.UNDEFINED
-    let dirtyWidth_type: int = RuntimeType.UNDEFINED
-    let dirtyHeight_type: int = RuntimeType.UNDEFINED
-    dx_type = runtimeType(dx)
-    dy_type = runtimeType(dy)
-    dirtyX_type = runtimeType(dirtyX)
-    dirtyY_type = runtimeType(dirtyY)
-    dirtyWidth_type = runtimeType(dirtyWidth)
-    dirtyHeight_type = runtimeType(dirtyHeight)
-    let dx_val: number = (dx_type == RuntimeType.STRING) ? convertDimensionStrToNumber(dx as string) : (dx as number)
-    let dy_val: number = (dy_type == RuntimeType.STRING) ? convertDimensionStrToNumber(dy as string) : (dy as number)
-    let dirtyX_val: number = (dirtyX_type == RuntimeType.STRING) ? convertDimensionStrToNumber(dirtyX as string) : (dirtyX as number)
-    let dirtyY_val: number = (dirtyY_type == RuntimeType.STRING) ? convertDimensionStrToNumber(dirtyY as string) : (dirtyY as number)
-    let dirtyWidth_val: number = (dirtyWidth_type == RuntimeType.STRING) ? convertDimensionStrToNumber(dirtyWidth as string) : (dirtyWidth as number)
-    let dirtyHeight_val: number = (dirtyHeight_type == RuntimeType.STRING) ? convertDimensionStrToNumber(dirtyHeight as string) : (dirtyHeight as number)
-    ArkUIAniModule._CanvasRenderer_PutImageData1(peerPtr.peer!.ptr, imagedata.data, dx_val, dy_val, imagedata.width as int, imagedata.height as int, dirtyX_val, dirtyY_val, dirtyWidth_val, dirtyHeight_val)
+export function hookSetCanvasOptions(component: ArkCanvasComponent,
+  context?: CanvasRenderingContext2D | DrawingRenderingContext, imageAIOptions?: ImageAIOptions): void {
+  CanvasOpsHandWritten.hookSetCanvasOptionsImpl(component, context, imageAIOptions);
 }
-export function hookGetContext(peerPtr: OffscreenCanvas, contextType: string, options: RenderingContextSettings)
-{
-  return peerPtr.getContext2d(options)
+
+export function hookSetCanvasOptions(component: ArkCanvasComponent, params: CanvasParams): void {
+  CanvasOpsHandWritten.hookSetCanvasOptionsImpl(component, params);
 }
+
+export function hookCanvasStartImageAnalyzer(
+  context: CanvasRenderingContext2D, config: ImageAnalyzerConfig): Promise<void> {
+  return CanvasOpsHandWritten.hookCanvasStartImageAnalyzerImpl(context, config);
+}
+
+export function hookSetVideoOptions(component: ArkVideoComponent, value: VideoOptions): void {
+  VideoOpsHandWritten.hookSetVideoOptionsImpl(component, value);
+}
+
+export function hookVideoAnalyzerConfig(
+  component: ArkVideoComponent | ArkVideoPeer, config: ImageAnalyzerConfig | undefined): void {
+  VideoOpsHandWritten.hookSetVideoAnalyzerConfigImpl(component, config);
+}
+
+export function hookSetXComponentOptions(component: ArkXComponentComponent,
+  params: XComponentParameters | XComponentOptions | NativeXComponentParameters): void {
+  XComponentOpsHandWritten.hookSetXComponentOptionsImpl(component, params);
+}
+
+export function hookXComponentStartImageAnalyzer(
+  controller: XComponentController, config: ImageAnalyzerConfig): Promise<void> {
+  return XComponentOpsHandWritten.hookXComponentStartImageAnalyzerImpl(controller, config);
+}
+
+export function hookSelectSetDividerMethod(
+  receiver: ArkSelectComponent | ArkSelectPeer, value?: DividerOptions | null | undefined): void {
+    const selectPeer: ArkSelectPeer = receiver instanceof ArkSelectComponent ? (receiver as ArkSelectComponent).getPeer() :
+       (receiver as ArkSelectPeer);
+    if (!selectPeer) {
+      return;
+    }
+    let value_casted: DividerOptions | undefined;
+    if (value === null) {
+      value_casted = {
+        strokeWidth: '0px',
+        startMargin: 0,
+        endMargin: 0,
+        color: '#00000000',
+      }
+    } else {
+      value_casted = value as (DividerOptions | undefined)
+    }
+    SelectExtender.setDivider(selectPeer.peer.ptr, value_casted)
+}
+
+export function hookSliderSetPrefixMethod(node: ArkSliderComponent | ArkSliderPeer,
+  content: ComponentContent<Object> | undefined, options?: SliderPrefixOptions | undefined): void {
+    const sliderPeer: ArkSliderPeer = node instanceof ArkSliderComponent ? (node as ArkSliderComponent).getPeer() :
+       (node as ArkSliderPeer);
+    if (!sliderPeer || !sliderPeer.peer || !sliderPeer.peer.ptr) {
+      return;
+    }
+    let ptr: KPointer = 0;
+    if (content != undefined && content.getNodePtr() !== undefined) {
+        ptr = content.getNodePtr() as KPointer;
+    }
+    let valueCasted: SliderPrefixOptions | undefined;
+    if (options === null || options === undefined) {
+      valueCasted = undefined;
+    } else {
+        valueCasted = options as SliderPrefixOptions;
+    }
+    SliderExtender.setPrefix(sliderPeer.peer.ptr, ptr, valueCasted);
+}
+
+export function hookSliderSetSuffixMethod(node: ArkSliderComponent | ArkSliderPeer,
+  content: ComponentContent<Object> | undefined, options?: SliderSuffixOptions | undefined): void {
+    const sliderPeer: ArkSliderPeer = node instanceof ArkSliderComponent ? (node as ArkSliderComponent).getPeer() :
+       (node as ArkSliderPeer);
+    if (!sliderPeer || !sliderPeer.peer || !sliderPeer.peer.ptr) {
+      return;
+    }
+    let ptr: KPointer = 0;
+    if (content != undefined && content.getNodePtr() !== undefined) {
+        ptr = content.getNodePtr() as KPointer;
+    } 
+    let valueCasted: SliderSuffixOptions | undefined;
+    if (options === null || options === undefined) {
+      valueCasted = undefined;
+    } else {
+        valueCasted = options as SliderSuffixOptions;
+    }
+    SliderExtender.setSuffix(sliderPeer.peer.ptr, ptr, valueCasted);
+}
+
 export function hookWaterFlowOptionsImpl(node: ArkWaterFlowComponent, options: WaterFlowOptions | undefined): void {
-    WaterFlowHandWritten.hookWaterFlowOptionsImpl(node, options)
+  WaterFlowHandWritten.hookWaterFlowOptionsImpl(node, options)
 }
+
+export function hookListItemGroupOptionsImpl(
+    node: ArkListItemGroupComponent,
+    options: ListItemGroupOptions | undefined
+): void {
+    ListItemGroupHandWritten.hookListItemGroupOptionsImpl(node, options)
+}
+
 export function hookTextPickerDivider(receiver: ArkTextPickerComponent | ArkTextPickerPeer,
   value: DividerOptions | null | undefined): void {
   const peer: ArkTextPickerPeer =
@@ -444,4 +879,128 @@ export function hookTextPickerDivider(receiver: ArkTextPickerComponent | ArkText
 
   const value_casted = value as (DividerOptions | null | undefined)
   peer.setDividerAttribute(value_casted)
+}
+
+export function hookListChildrenMainSizeImpl(node: ArkListComponent, value: ChildrenMainSize | undefined): void {
+  ListHandWritten.hookListChildrenMainSizeImpl(node.getPeer(), value)
+}
+
+export function hookListChildrenMainSizeImpl(peer: ArkListPeer, value: ChildrenMainSize | undefined): void {
+  ListHandWritten.hookListChildrenMainSizeImpl(peer, value)
+}
+
+export function hookListItemGroupChildrenMainSizeImpl(node: ArkListItemGroupComponent, value: ChildrenMainSize | undefined): void {
+  ListHandWritten.hookListItemGroupChildrenMainSizeImpl(node.getPeer(), value)
+}
+
+export function hookListItemGroupChildrenMainSizeImpl(peer: ArkListItemGroupPeer, value: ChildrenMainSize | undefined): void {
+  ListHandWritten.hookListItemGroupChildrenMainSizeImpl(peer, value)
+}
+
+export function hookJavaScriptProxy(
+  component: ArkWebComponent, value: JavaScriptProxy | undefined): void {
+  WebHandWritten.hookJavaScriptProxyImpl(component, value);
+}
+
+export function hookconfirm(
+  handler: MaterializedBase, priKeyFile: string, certChainFile: string): void {
+  WebHandWritten.hookConfirmImpl(handler, priKeyFile, certChainFile);
+}
+
+export function hookconfirm(
+  handler: MaterializedBase, authUri: string): void {
+  WebHandWritten.hookConfirmImpl(handler, authUri);
+}
+
+export function hookconfirm(
+  handler: MaterializedBase, identity: string, credentialTypeOrCertChainFile: CredentialType | string): void {
+  WebHandWritten.hookConfirmImpl(handler, identity, credentialTypeOrCertChainFile);
+}
+
+export function hookVideoOnError(
+  component: ArkVideoComponent | ArkVideoPeer, value: VoidCallback | ErrorCallback | undefined): void {
+    VideoOpsHandWritten.hookSetVideoOnErrorImpl(component, value);
+}
+
+export function hookSaveButtonOnClickImpl(
+  receiver: ArkSaveButtonComponent | ArkSaveButtonPeer, value: SaveButtonCallback | undefined): void {
+    SaveButtonOpsHandWritten.hookSaveButtonOnClickImpl(receiver, value);
+}
+
+export function hookPasteButtonOnClickImpl(
+  receiver: ArkPasteButtonComponent | ArkPasteButtonPeer, value: PasteButtonCallback | undefined): void {
+    PasteButtonOpsHandWritten.hookPasteButtonOnClickImpl(receiver, value);
+}
+
+export function hookGaugeIndicator(receiver: ArkGaugeComponent | ArkGaugePeer,
+  value: GaugeIndicatorOptions | null | undefined): void {
+
+  const gaugePeer: ArkGaugePeer =
+    receiver instanceof ArkGaugeComponent ? (receiver as ArkGaugeComponent).getPeer() :
+      (receiver as ArkGaugePeer);
+  if (!gaugePeer || !gaugePeer.peer || !gaugePeer.peer.ptr) {
+    return;
+  }
+
+  let value_casted: GaugeIndicatorOptions | undefined;
+  if (value === null) {
+    GaugeExtender.nullIndicator(gaugePeer.peer.ptr);
+  } else {
+    GaugeExtender.setIndicator(gaugePeer.peer.ptr, value);
+  }
+}
+
+export function hookGaugeTrackShadow(receiver: ArkGaugeComponent | ArkGaugePeer,
+  value: GaugeShadowOptions | null | undefined): void {
+
+  const gaugePeer: ArkGaugePeer =
+    receiver instanceof ArkGaugeComponent ? (receiver as ArkGaugeComponent).getPeer() :
+      (receiver as ArkGaugePeer);
+  if (!gaugePeer || !gaugePeer.peer || !gaugePeer.peer.ptr) {
+    return;
+  }
+
+  if (value === null) {
+    GaugeExtender.nullTrackShadow(gaugePeer.peer.ptr);
+  } else {
+    GaugeExtender.setTrackShadow(gaugePeer.peer.ptr, value);
+  }
+}
+
+export function hookGaugeDescription(receiver: ArkGaugeComponent | ArkGaugePeer,
+  value: CustomBuilder | null | undefined): void {
+
+  const gaugePeer: ArkGaugePeer =
+    receiver instanceof ArkGaugeComponent ? (receiver as ArkGaugeComponent).getPeer() :
+      (receiver as ArkGaugePeer);
+  if (!gaugePeer || !gaugePeer.peer || !gaugePeer.peer.ptr) {
+    return;
+  }
+
+  if (value === null) {
+    GaugeExtender.nullDescription(gaugePeer.peer.ptr);
+  } else {
+    GaugeExtender.setDescription(gaugePeer.peer.ptr, value)
+  }
+}
+
+export function hookDataPanelTrackShadow(receiver: ArkDataPanelComponent | ArkDataPanelPeer,
+  value: DataPanelShadowOptions | null | undefined): void {
+
+  const dataPanelPeer: ArkDataPanelPeer =
+    receiver instanceof ArkDataPanelComponent ? (receiver as ArkDataPanelComponent).getPeer() :
+      (receiver as ArkDataPanelPeer);
+  if (!dataPanelPeer || !dataPanelPeer.peer || !dataPanelPeer.peer.ptr) {
+    return;
+  }
+
+  if (value === null) {
+    DataPanelExtender.nullTrackShadow(dataPanelPeer.peer.ptr);
+  } else {
+    DataPanelExtender.setTrackShadow(dataPanelPeer.peer.ptr, value);
+  }
+}
+
+export function hookSetToggleOptions(toggle: ArkToggleComponent, options: ToggleOptions): void {
+  ToggleHandWritten.hookSetToggleOptions(toggle, options)
 }

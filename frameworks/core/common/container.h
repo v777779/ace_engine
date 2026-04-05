@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -54,8 +54,13 @@
 #include "core/event/non_pointer_event.h"
 #include "core/event/pointer_event.h"
 
+namespace OHOS {
+class IRemoteObject;
+template<typename T>
+class sptr;
+} // namespace OHOS
 namespace OHOS::Ace {
-
+struct CrownEvent;
 using PageTask = std::function<void()>;
 using TouchEventCallback = std::function<void(const TouchEvent&, const std::function<void()>&,
     const RefPtr<NG::FrameNode>&)>;
@@ -71,6 +76,8 @@ using DragEventCallBack = std::function<void(const DragPointerEvent&, const Drag
     const RefPtr<NG::FrameNode>&)>;
 using StopDragCallback = std::function<void()>;
 using CrownEventCallback = std::function<void(const CrownEvent&, const std::function<void()>&)>;
+using TouchpadInteractionBeginCallback = std::function<void(const NonPointerEvent&, const std::function<void()>&)>;
+using AbilityRuntimeContextCallback = std::function<void()>;
 
 class PipelineBase;
 
@@ -149,6 +156,9 @@ public:
 
     virtual void* GetView() const = 0;
 
+    virtual void DumpSimplifyTreeWithParamConfig(
+        std::shared_ptr<JsonValue>& root, ParamConfig config, bool isInSubWindow) {};
+
     // Trigger garbage collection
     virtual void TriggerGarbageCollection() {}
 
@@ -208,7 +218,6 @@ public:
     {
         return displayOrientation_;
     }
-    virtual bool IsFullScreenWindow() const { return true; }
 
     virtual RefPtr<DisplayInfo> GetDisplayInfo();
 
@@ -217,6 +226,15 @@ public:
     virtual bool IsFoldable();
 
     virtual FoldStatus GetCurrentFoldStatus();
+
+    virtual RefPtr<DisplayInfoUtils> GetDisplayInfoUtils()
+    {
+        return displayManager_;
+    }
+
+    virtual DisplaySourceMode GetDisplaySourceMode();
+
+    virtual bool IsNeedModifySize(const RefPtr<Container>& subContainer = nullptr);
 
     virtual FoldStatus GetFoldStatusFromListener()
     {
@@ -237,7 +255,20 @@ public:
         return {};
     }
 
-    void SetCreateTime(std::chrono::time_point<std::chrono::high_resolution_clock> time)
+    // Get the window name associated with this container
+    virtual std::string GetWindowName() const
+    {
+        return {};
+    }
+
+    // Get the creation timestamp of this container (in milliseconds since epoch)
+    // Returns timestamp recorded at container construction time
+    int64_t GetCreateTime() const
+    {
+        return createTime_;
+    }
+
+    void SetCreateTime(int64_t time)
     {
         createTime_ = time;
     }
@@ -353,6 +384,7 @@ public:
     static RefPtr<TaskExecutor> CurrentTaskExecutorSafelyWithCheck();
     static void UpdateCurrent(int32_t id);
     static ColorMode CurrentColorMode();
+    static std::string CurrentBundleName();
 
     void SetUseNewPipeline()
     {
@@ -369,11 +401,7 @@ public:
         return useNewPipeline_;
     }
 
-    static bool IsCurrentUseNewPipeline()
-    {
-        auto container = Current();
-        return container ? container->useNewPipeline_ : AceForwardCompatibility::IsUseNG();
-    }
+    static bool IsCurrentUseNewPipeline();
 
     // SetCurrentUsePartialUpdate is called when initial render on a page
     // starts, see zyz_view_register loadDocument() implementation
@@ -538,7 +566,8 @@ public:
     virtual int32_t RequestAutoFill(const RefPtr<NG::FrameNode>& node, AceAutoFillType autoFillType, bool isNewPassWord,
         bool& isPopup, uint32_t& autoFillSessionId, bool isNative = true,
         const std::function<void()>& onFinish = nullptr,
-        const std::function<void()>& onUIExtNodeBindingCompleted = nullptr)
+        const std::function<void()>& onUIExtNodeBindingCompleted = nullptr,
+        AceAutoFillTriggerType triggerType = AceAutoFillTriggerType::AUTO_REQUEST)
     {
         return AceAutoFillError::ACE_AUTO_FILL_DEFAULT;
     }
@@ -773,9 +802,10 @@ public:
 
     static bool CheckRunOnThreadByThreadId(int32_t currentId, bool defaultRes);
 
-    virtual void UpdateColorMode(uint32_t colorMode) {};
-
     virtual void TriggerModuleSerializer() {};
+
+    virtual sptr<IRemoteObject> GetToken();
+
     // Get the subFrontend of container
     virtual RefPtr<Frontend> GetSubFrontend() const { return nullptr; }
 
@@ -793,6 +823,21 @@ public:
         return srcEntrance_;
     }
 
+    void SetExtensionHostParams(const std::string& params)
+    {
+        extensionHostParams_ = params;
+    }
+
+    std::string GetExtensionHostParams() const
+    {
+        return extensionHostParams_;
+    }
+
+    virtual void LoadCompleteManagerStartCollect(const std::string& url) {};
+    virtual void LoadCompleteManagerStopCollect() {};
+    virtual void RegisterTerminateUIExtension(AbilityRuntimeContextCallback&& callback) {}
+    virtual void TerminateUIExtensionInner() {}
+
 protected:
     bool IsFontFileExistInPath(const std::string& path);
     std::vector<std::string> GetFontFamilyName(const std::string& path);
@@ -802,7 +847,9 @@ private:
     static bool IsIdAvailable(int32_t id);
 
 protected:
-    std::chrono::time_point<std::chrono::high_resolution_clock> createTime_;
+    // Container creation timestamp for enhanced error messages
+    // Used to provide context when container lookup fails
+    int64_t createTime_;
     bool firstUpdateData_ = true;
     std::string cardHapPath_;
     bool useNewPipeline_ = false;
@@ -834,6 +881,7 @@ private:
     UIContentType uIContentType_ = UIContentType::UNDEFINED;
     uint64_t currentDisplayId_ = 0;
     ColorMode colorMode_ = ColorMode::LIGHT;
+    std::string extensionHostParams_ = "";
     ACE_DISALLOW_COPY_AND_MOVE(Container);
 };
 

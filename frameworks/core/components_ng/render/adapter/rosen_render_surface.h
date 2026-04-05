@@ -40,7 +40,7 @@ struct SurfaceBufferNode;
 #endif
 
 class RosenRenderSurface : public RenderSurface {
-    DECLARE_ACE_TYPE(RosenRenderSurface, NG::RenderSurface)
+    DECLARE_ACE_TYPE(RosenRenderSurface, NG::RenderSurface);
 public:
     RosenRenderSurface() = default;
     ~RosenRenderSurface() override;
@@ -63,7 +63,7 @@ public:
 
     std::string GetUniqueId() const override;
 
-    uint64_t GetUniqueIdNum() const;
+    uint64_t GetUniqueIdNum() const override;
 
     void SetIsTexture(bool isTexture) override
     {
@@ -101,9 +101,19 @@ public:
         bufferUsage_ = usage;
     }
 
+    void SetBufferTypeLeak(const std::string& bufferTypeLeak) override
+    {
+        bufferTypeLeak_ = bufferTypeLeak;
+    }
+
     std::string GetBufferUsage() const
     {
         return bufferUsage_;
+    }
+
+    std::string GetBufferTypeLeak() const
+    {
+        return bufferTypeLeak_;
     }
 
     void SetWebSlideAxis(Axis axis) override
@@ -164,8 +174,9 @@ public:
     void Disconnect() const override;
 
     void DumpInfo() override;
-
-    void ReleaseSurfaceBufferById(uint32_t bufferId);
+#ifdef OHOS_PLATFORM
+    void ReleaseSurfaceBufferById(uint32_t bufferId, sptr<SyncFence> fence);
+#endif
 
 #ifdef OHOS_PLATFORM
     void ReleaseSurfaceBufferForRT(const Rosen::FinishCallbackRet& ret);
@@ -179,11 +190,18 @@ public:
 
     void OnWindowStateChange(bool isShow) override;
 
+    void SetSurfaceBufferOpaque(bool isOpaque) override;
+
 private:
     void MarkDirtyIfNeeded();
 
 #ifdef OHOS_PLATFORM
     void InsertSurfaceNode(const std::shared_ptr<SurfaceBufferNode>& surfaceNode);
+    std::string GetPSurfaceName() override
+    {
+        CHECK_NULL_RETURN(producerSurface_, "");
+        return producerSurface_->GetName();
+    }
 #endif
 
     std::mutex surfaceNodeMutex_;
@@ -192,6 +210,7 @@ private:
     OffsetF orgin_ { 0, 0 };
     std::string patternType_;
     std::string bufferUsage_;
+    std::string bufferTypeLeak_;
     int32_t queueSize_ = SURFACE_QUEUE_SIZE;
     Axis axis_ = Axis::NONE;
     float webOffset_ = 0.0;
@@ -215,6 +234,7 @@ private:
     std::atomic_bool isShow_ = true;
     std::atomic_bool isUniRender_ = true;
     std::atomic_int32_t sendCount_ = -1;
+    std::atomic_bool isOpaque_ = false;
 
     ACE_DISALLOW_COPY_AND_MOVE(RosenRenderSurface);
 };

@@ -21,13 +21,9 @@
 #include <unordered_map>
 #include <vector>
 
-#include "bindings_defines.h"
-
-#include "base/log/log.h"
-#include "base/memory/ace_type.h"
 #include "frameworks/bridge/common/utils/function_traits.h"
+#include "frameworks/bridge/declarative_frontend/engine/bindings_defines.h"
 #include "frameworks/bridge/declarative_frontend/engine/js_ref_ptr.h"
-#include "frameworks/bridge/declarative_frontend/engine/js_types.h"
 
 namespace OHOS::Ace::Framework {
 
@@ -39,7 +35,12 @@ enum MethodOptions : uint8_t {
 
 class IFunctionBinding {
 public:
-    IFunctionBinding(const char* name, MethodOptions options) : name_(name), options_(options) {}
+    thread_local static std::unordered_map<void*, std::vector<std::unique_ptr<IFunctionBinding>>> functions;
+    thread_local static void* runtime;
+    IFunctionBinding(const char* name, MethodOptions options) : name_(name), options_(options)
+    {
+        functions[runtime].emplace_back(this);
+    }
     virtual ~IFunctionBinding() {}
 
     const char* Name() const

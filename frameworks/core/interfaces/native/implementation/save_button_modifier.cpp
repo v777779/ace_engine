@@ -14,10 +14,10 @@
  */
 
 #include "core/common/multi_thread_build_manager.h"
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/security_component/save_button/save_button_common.h"
 #include "core/components_ng/pattern/security_component/save_button/save_button_model_ng.h"
 #include "core/components/common/layout/constants.h"
+#include "core/interfaces/native/implementation/click_event_peer.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -71,9 +71,6 @@ namespace SaveButtonModifier {
 Ark_NativePointer ConstructImpl(Ark_Int32 id,
                                 Ark_Int32 flags)
 {
-    if (MultiThreadBuildManager::IsParallelScope()) {
-        LOGF_ABORT("Unsupported UI components SaveButton used in ParallelizeUI");
-    }
     auto frameNode = SaveButtonModelNG::CreateFrameNode(id);
     CHECK_NULL_RETURN(frameNode, nullptr);
     frameNode->IncRefCount();
@@ -118,9 +115,9 @@ void SetOnClickImpl(Ark_NativePointer node,
             message = secEventValue->GetString("message", message);
         }
 #endif
-        const auto event = Converter::ArkClickEventSync(info);
+        const auto event = Converter::SyncEvent<Ark_ClickEvent>(info);
         Ark_SaveButtonOnClickResult arkResult = Converter::ArkValue<Ark_SaveButtonOnClickResult>(res);
-        auto error = Converter::ArkValue<Opt_BusinessError>();
+        auto error = Converter::ArkValue<Opt_BusinessErrorInterface_Void>();
         arkCallback.InvokeSync(event.ArkValue(), arkResult, error);
     };
 
@@ -131,16 +128,18 @@ void SetSetIconImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    //auto convValue = value ? Converter::OptConvert<type>(*value) : std::nullopt;
-    // SaveButtonModelNG::SetSetSetIcon(frameNode, convValue);
+    CHECK_NULL_VOID(value);
+    auto info = Converter::OptConvertPtr<ImageSourceInfo>(value);
+    SecurityComponentModelNG::SetIcon(frameNode, info);
 }
 void SetSetTextImpl(Ark_NativePointer node,
                     const Opt_Union_String_Resource* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    //auto convValue = value ? Converter::OptConvert<type>(*value) : std::nullopt;
-    // SaveButtonModelNG::SetSetSetText(frameNode, convValue);
+    CHECK_NULL_VOID(value);
+    auto convContent = Converter::OptConvertPtr<std::string>(value);
+    SecurityComponentModelNG::SetText(frameNode, convContent);
 }
 void SetIconSizeImpl(Ark_NativePointer node,
                      const Opt_Union_Dimension_SizeOptions* value)
@@ -182,16 +181,29 @@ void SetIconBorderRadiusImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    //auto convValue = value ? Converter::OptConvert<type>(*value) : std::nullopt;
-    // SaveButtonModelNG::SetSetIconBorderRadius(frameNode, convValue);
+    CHECK_NULL_VOID(value);
+    auto convValue = Converter::OptConvert<BorderRadiusProperty>(*value);
+    SecurityComponentModelNG::SetIconBorderRadius(frameNode, convValue);
 }
 void SetStateEffectImpl(Ark_NativePointer node,
                         const Opt_Boolean* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    //auto convValue = value ? Converter::OptConvert<type>(*value) : std::nullopt;
-    // SaveButtonModelNG::SetSetStateEffect(frameNode, convValue);
+    CHECK_NULL_VOID(value);
+    if (value->tag == INTEROP_TAG_UNDEFINED) {
+        return;
+    }
+    SecurityComponentModelNG::SetStateEffect(frameNode, value->value);
+}
+void SetUserCancelEventImpl(Ark_NativePointer node,
+                            const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(value);
+    auto convValue = Converter::OptConvertPtr<bool>(value);
+    SecurityComponentModelNG::SetUserCancelEvent(frameNode, convValue);
 }
 } // SaveButtonAttributeModifier
 const GENERATED_ArkUISaveButtonModifier* GetSaveButtonModifier()
@@ -205,6 +217,7 @@ const GENERATED_ArkUISaveButtonModifier* GetSaveButtonModifier()
         SaveButtonAttributeModifier::SetIconSizeImpl,
         SaveButtonAttributeModifier::SetIconBorderRadiusImpl,
         SaveButtonAttributeModifier::SetStateEffectImpl,
+        SaveButtonAttributeModifier::SetUserCancelEventImpl,
     };
     return &ArkUISaveButtonModifierImpl;
 }

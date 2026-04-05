@@ -20,10 +20,10 @@
 
 namespace OHOS::Ace {
 class ACE_EXPORT FileUriHelper : public AceType {
-    DECLARE_ACE_TYPE(FileUriHelper, AceType)
+    DECLARE_ACE_TYPE(FileUriHelper, AceType);
 
 public:
-    static std::string GetRealPath(std::string fileUriStr);
+    ACE_FORCE_EXPORT static std::string GetRealPath(std::string fileUriStr);
 };
 } // namespace OHOS::Ace
 

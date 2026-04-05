@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +15,6 @@
 
 import { Rect, Circle, RoundRect, CommandPath, Size, Frame, Vector2, Vector3, Matrix4, NodeEdges, Corners, ShapeMask, ShapeClip, LengthMetricsUnit, DrawContext } from '../../Graphics'
 import { KPointer } from '@koalaui/interop'
-import { unsafeCast, int32, int64, float32 } from '@koalaui/common'
 import { BorderStyle } from '../../component/enums'
 import { ArkUIAniModule } from 'arkui.ani'
 import { ShapeClipTransfer } from './ShapeClipTransfer'
@@ -47,7 +46,7 @@ export class TransferUtil {
        2. color = '#FF000000' -> number
        3. color = 0xFF000000  -> number
     */
-    static getPropColorInt(inVal: ESValue, name: string): int32 | undefined {
+    static getPropColorInt(inVal: ESValue, name: string): number | undefined {
         const propVal = inVal.getProperty(name);
         if (propVal.typeOf() === 'string') {
             let parStr = propVal.toString();
@@ -65,7 +64,7 @@ export class TransferUtil {
 
     // 通用工具函数
     private static invokeModuleFunction(moduleId: string, functionName: string, input: Object): ESValue | undefined {
-        const module = ESValue.load(moduleId);
+        const module = ESValue.load(moduleId).getProperty('default');
         const func = module.getProperty(functionName);
         const result = func.invoke(input);
         return result.isUndefined() || result.isNull() ? undefined : result;
@@ -168,7 +167,7 @@ export class TransferUtil {
     
         const getStyle = (property: string): BorderStyle | undefined => {
             const val = borderVal.getProperty(property);
-            return val.isNumber() ? Double.toInt(val.toNumber()) as BorderStyle : undefined;
+            return val.isNumber() ? BorderStyle.fromValue(Double.toInt(val.toNumber())) : undefined;
         };
     
         return {
@@ -194,7 +193,7 @@ export class TransferUtil {
     }
 
     // number color: 1.1(long) -> 1.2(int)
-    static getPropEdgesColor(inVal: ESValue, name: string): NodeEdges<int32> | undefined {
+    static getPropEdgesColor(inVal: ESValue, name: string): NodeEdges<number> | undefined {
         let borderVal = inVal.getProperty(name);
         if (borderVal.isUndefined() || borderVal.isNull()) {
             return undefined;
@@ -203,7 +202,7 @@ export class TransferUtil {
         let top = TransferUtil.getPropColorInt(borderVal, 'top');
         let right = TransferUtil.getPropColorInt(borderVal, 'right');
         let bottom = TransferUtil.getPropColorInt(borderVal, 'bottom');
-        let egVal = {left: left, top: top, right: right, bottom: bottom} as NodeEdges<int32>;
+        let egVal = {left: left, top: top, right: right, bottom: bottom} as NodeEdges<number>;
         return egVal;
     }
 
@@ -289,7 +288,7 @@ export class TransferUtil {
             return;
         }
     
-        const colorLong = ArkUIAniModule._ToColorLong(inVal);
+        const colorLong = ArkUIAniModule._ToColorLong(Double.toInt(inVal));
         outJs.setProperty(name, colorLong);
     }
 

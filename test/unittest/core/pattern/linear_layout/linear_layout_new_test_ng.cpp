@@ -17,8 +17,9 @@
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_abstract_model.h"
+#include "core/components_ng/pattern/linear_layout/column_model_ng.h"
 #include "core/components_ng/pattern/text/text_model_ng.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -32,7 +33,7 @@ class LinearLayoutNewTestNG : public LinearLayoutBaseTestNG {};
  * @tc.desc: Show an example of creating a test case.
  * @tc.type: ETS
  */
-HWTEST_F(LinearLayoutNewTestNG, Example, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, Example, TestSize.Level0)
 {
     // If this test is related to api versions, need to SetMinPlatformVersion
     auto pipeline = PipelineContext::GetCurrentContext();
@@ -87,7 +88,7 @@ HWTEST_F(LinearLayoutNewTestNG, Example, TestSize.Level1)
  * @tc.desc: test the measure result when setting layoutPolicy.
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest001, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest001, TestSize.Level0)
 {
     RefPtr<FrameNode> column1;
     auto column = CreateColumn([this, &column1](ColumnModelNG model) {
@@ -106,8 +107,8 @@ HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest001, TestSize.Level1)
     /* corresponding ets code:
         Column() {
           Column()
-            .width(LayoutPolicy.MATCH_PARENT)
-            .height(LayoutPolicy.MATCH_PARENT)
+            .width(LayoutPolicy.matchParent)
+            .height(LayoutPolicy.matchParent)
         }
         .width(500)
         .height(300)
@@ -135,7 +136,7 @@ HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest001, TestSize.Level1)
  * @tc.desc: test the measure result when setting layoutPolicy and other layoutConstraint.
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest002, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest002, TestSize.Level0)
 {
     RefPtr<FrameNode> column1, column2, column3;
     auto column = CreateColumn([this, &column1, &column2, &column3](ColumnModelNG model) {
@@ -173,8 +174,8 @@ HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest002, TestSize.Level1)
                 .height(300)
                 .flexShrink(2)
             Column()
-                .width(LayoutPolicy.MATCH_PARENT)
-                .height(LayoutPolicy.MATCH_PARENT)
+                .width(LayoutPolicy.matchParent)
+                .height(LayoutPolicy.matchParent)
                 .flexShrink(2)
         }
         .width(500)
@@ -219,7 +220,7 @@ HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest002, TestSize.Level1)
  * @tc.desc: test the measure result when setting matchParent.
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest003, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest003, TestSize.Level0)
 {
     RefPtr<FrameNode> columnInner;
     auto column = CreateColumn([this, &columnInner](ColumnModelNG model) {
@@ -267,7 +268,7 @@ HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest003, TestSize.Level1)
  * @tc.desc: test the measure result when setting wrapContent.
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest004, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest004, TestSize.Level0)
 {
     RefPtr<FrameNode> columnInner;
     auto column = CreateColumn([this, &columnInner](ColumnModelNG model) {
@@ -315,7 +316,7 @@ HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest004, TestSize.Level1)
  * @tc.desc: test the measure result when setting wrapContent and parent has constraint.
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest005, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest005, TestSize.Level0)
 {
     RefPtr<FrameNode> columnInner;
     RefPtr<FrameNode> columnOutter;
@@ -380,7 +381,7 @@ HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest005, TestSize.Level1)
  * @tc.desc: test the measure result when setting fixAtIdealSize.
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest006, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest006, TestSize.Level0)
 {
     RefPtr<FrameNode> columnInner;
     auto column = CreateColumn([this, &columnInner](ColumnModelNG model) {
@@ -428,7 +429,7 @@ HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest006, TestSize.Level1)
  * @tc.desc: test the measure result when setting fixAtIdealSize and parent has constraint.
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest007, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest007, TestSize.Level0)
 {
     RefPtr<FrameNode> columnInner;
     RefPtr<FrameNode> columnOutter;
@@ -489,11 +490,113 @@ HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest007, TestSize.Level1)
 }
 
 /**
+ * @tc.name: LayoutPolicyTest008
+ * @tc.desc: test the measure result when setting layoutPolicy and constraintSize.
+ * @tc.type: FUNC
+ */
+HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest008, TestSize.Level0)
+{
+    RefPtr<FrameNode> column1;
+    auto column = CreateColumn([this, &column1](ColumnModelNG model) {
+        ViewAbstract::SetWidth(CalcLength(500.0f));
+        ViewAbstract::SetHeight(CalcLength(300.0f));
+        column1 = CreateColumn([](ColumnModelNG model) {
+            ViewAbstractModelNG model1;
+            model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
+            model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, false);
+            ViewAbstract::SetMaxWidth(CalcLength(200.0f));
+            ViewAbstract::SetMaxHeight(CalcLength(200.0f));
+        });
+    });
+    ASSERT_NE(column, nullptr);
+    ASSERT_EQ(column->GetChildren().size(), 1);
+    CreateLayoutTask(column);
+
+    /* corresponding ets code:
+        Column() {
+          Column()
+            .width(LayoutPolicy.matchParent)
+            .height(LayoutPolicy.matchParent)
+            .constraintSize({ maxWidth: "200px", maxHeight: "200px" })
+        }
+        .width("500px")
+        .height("300px")
+    */
+
+    // Expect column's width is 500, height is 300 and offset is [0.0, 0.0].
+    auto geometryNode = column->GetGeometryNode();
+    ASSERT_NE(geometryNode, nullptr);
+    auto size = geometryNode->GetFrameSize();
+    auto offset = geometryNode->GetFrameOffset();
+    EXPECT_EQ(size, SizeF(500.0f, 300.0f));
+    EXPECT_EQ(offset, OffsetF(0.0f, 0.0f));
+
+    // Expect column1's width is 200, height is 200 and offset is [150.0, 0.0].
+    auto geometryNode1 = column1->GetGeometryNode();
+    ASSERT_NE(geometryNode1, nullptr);
+    auto size1 = geometryNode1->GetFrameSize();
+    auto offset1 = geometryNode1->GetFrameOffset();
+    EXPECT_EQ(size1, SizeF(500.0f, 300.0f));
+    EXPECT_EQ(offset1, OffsetF(0.0f, 0.0f));
+}
+
+/**
+ * @tc.name: LayoutPolicyTest009
+ * @tc.desc: test the measure result when setting layoutPolicy and constraintSize.
+ * @tc.type: FUNC
+ */
+HWTEST_F(LinearLayoutNewTestNG, LayoutPolicyTest009, TestSize.Level0)
+{
+    RefPtr<FrameNode> column1;
+    auto column = CreateColumn([this, &column1](ColumnModelNG model) {
+        ViewAbstract::SetWidth(CalcLength(100.0f));
+        ViewAbstract::SetHeight(CalcLength(100.0f));
+        column1 = CreateColumn([](ColumnModelNG model) {
+            ViewAbstractModelNG model1;
+            model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
+            model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, false);
+            ViewAbstract::SetMinWidth(CalcLength(200.0f));
+            ViewAbstract::SetMinHeight(CalcLength(200.0f));
+        });
+    });
+    ASSERT_NE(column, nullptr);
+    ASSERT_EQ(column->GetChildren().size(), 1);
+    CreateLayoutTask(column);
+
+    /* corresponding ets code:
+        Column() {
+          Column()
+            .width(LayoutPolicy.matchParent)
+            .height(LayoutPolicy.matchParent)
+            .constraintSize({ minWidth: "200px", minHeight: "200px" })
+        }
+        .width("100px")
+        .height("100px")
+    */
+
+    // Expect column's width is 100, height is 100 and offset is [0.0, 0.0].
+    auto geometryNode = column->GetGeometryNode();
+    ASSERT_NE(geometryNode, nullptr);
+    auto size = geometryNode->GetFrameSize();
+    auto offset = geometryNode->GetFrameOffset();
+    EXPECT_EQ(size, SizeF(100.0f, 100.0f));
+    EXPECT_EQ(offset, OffsetF(0.0f, 0.0f));
+
+    // Expect column1's width is 200, height is 200 and offset is [-50.0, 0.0].
+    auto geometryNode1 = column1->GetGeometryNode();
+    ASSERT_NE(geometryNode1, nullptr);
+    auto size1 = geometryNode1->GetFrameSize();
+    auto offset1 = geometryNode1->GetFrameOffset();
+    EXPECT_EQ(size1, SizeF(200.0f, 200.0f));
+    EXPECT_EQ(offset1, OffsetF(-50.0f, 0.0f));
+}
+
+/**
  * @tc.name: LinearIgnoreLayoutSafeArea001
  * @tc.desc: test linear ignoreLayoutSafeArea
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea001, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea001, TestSize.Level0)
 {
     RefPtr<FrameNode> row1;
     RefPtr<FrameNode> row2;
@@ -533,7 +636,7 @@ HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea001, TestSize.Level1)
  * @tc.desc: test linear ignoreLayoutSafeArea
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea002, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea002, TestSize.Level0)
 {
     RefPtr<FrameNode> row1;
     RefPtr<FrameNode> row2;
@@ -573,7 +676,7 @@ HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea002, TestSize.Level1)
  * @tc.desc: test linear ignoreLayoutSafeArea
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea003, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea003, TestSize.Level0)
 {
     RefPtr<FrameNode> column1;
     RefPtr<FrameNode> column2;
@@ -612,7 +715,7 @@ HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea003, TestSize.Level1)
  * @tc.desc: test linear ignoreLayoutSafeArea
  * @tc.type: FUNC
  */
-HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea004, TestSize.Level1)
+HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea004, TestSize.Level0)
 {
     RefPtr<FrameNode> column1;
     RefPtr<FrameNode> column2;
@@ -645,5 +748,73 @@ HWTEST_F(LinearLayoutNewTestNG, LinearIgnoreLayoutSafeArea004, TestSize.Level1)
     EXPECT_EQ(column1->GetGeometryNode()->GetFrameOffset(), OffsetF(200.0f, 190.0f));
     EXPECT_EQ(column2->GetGeometryNode()->GetFrameSize(), SizeF(100.0f, 50.0f));
     EXPECT_EQ(column2->GetGeometryNode()->GetFrameOffset(), OffsetF(190.0f, 240.0f));
+}
+
+/**
+ * @tc.name: LinearSpace001
+ * @tc.desc: test column space
+ * @tc.type: FUNC
+ */
+HWTEST_F(LinearLayoutNewTestNG, LinearSpace001, TestSize.Level0)
+{
+    ColumnModelNG model;
+    model.Create(CalcDimension(10.0, DimensionUnit::VP), nullptr, "");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutPropertyPtr<LinearLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    EXPECT_EQ(model.GetSpace(frameNode), 10.0);
+}
+
+/**
+ * @tc.name: LinearSpace002
+ * @tc.desc: test row space
+ * @tc.type: FUNC
+ */
+HWTEST_F(LinearLayoutNewTestNG, LinearSpace002, TestSize.Level0)
+{
+    RowModelNG model;
+    model.Create(CalcDimension(10.0, DimensionUnit::VP), nullptr, "");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutPropertyPtr<LinearLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    EXPECT_EQ(model.GetSpace(frameNode), 10.0);
+}
+
+/**
+ * @tc.name: LinearReverse001
+ * @tc.desc: test column reverse
+ * @tc.type: FUNC
+ */
+HWTEST_F(LinearLayoutNewTestNG, LinearReverse001, TestSize.Level0)
+{
+    ColumnModelNG model;
+    model.Create(CalcDimension(10.0, DimensionUnit::VP), nullptr, "");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutPropertyPtr<FlexLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    EXPECT_EQ(model.GetIsReverse(frameNode), false);
+    layoutProperty->UpdateIsReverse(true);
+    EXPECT_EQ(model.GetIsReverse(frameNode), true);
+}
+
+/**
+ * @tc.name: LinearReverse002
+ * @tc.desc: test row reverse
+ * @tc.type: FUNC
+ */
+HWTEST_F(LinearLayoutNewTestNG, LinearReverse002, TestSize.Level0)
+{
+    RowModelNG model;
+    model.Create(CalcDimension(10.0, DimensionUnit::VP), nullptr, "");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutPropertyPtr<FlexLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    EXPECT_EQ(model.GetIsReverse(frameNode), false);
+    layoutProperty->UpdateIsReverse(true);
+    EXPECT_EQ(model.GetIsReverse(frameNode), true);
 }
 } // namespace OHOS::Ace::NG

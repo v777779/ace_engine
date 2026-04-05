@@ -12,16 +12,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <limits>
-
 #include "core/text/text_emoji_processor.h"
 
+#include <limits>
 #include <unicode/uchar.h>
 
-#include "base/utils/string_utils.h"
-#include "base/utils/utils.h"
-#include "base/utils/utf_helper.h"
 #include "unicode/unistr.h"
+
+#include "base/log/log_wrapper.h"
+#include "base/utils/utf_helper.h"
 
 namespace OHOS::Ace {
 namespace {
@@ -703,6 +702,7 @@ void TextEmojiProcessor::OnTagQueueState(uint32_t codePoint, int32_t& state, int
 
 int32_t TextEmojiProcessor::GetEmojiLengthAtEnd(const std::u32string& u32Content, bool isCountNonEmoji)
 {
+    CHECK_NULL_RETURN(u32Content.length() != 0, 0);
     int32_t deleteCount = 0;
     int32_t lastVSCount = 0;
     int32_t state = STATE_BEGIN;

@@ -19,6 +19,7 @@
 
 #include "core/interfaces/native/implementation/render_node_peer_impl.h"
 #include "common_ani_modifier.h"
+#include "securec.h"
 #include "ui/properties/color.h"
 #include "base/log/log.h"
 #include "base/memory/ace_type.h"
@@ -31,6 +32,8 @@
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/pattern/render_node/render_node_pattern.h"
 #include "core/components_ng/pattern/custom_frame_node/custom_frame_node_pattern.h"
+#include "core/components_ng/pattern/marquee/marquee_model_ng.h"
+#include "core/interfaces/native/node/marquee_modifier.h"
 #include "core/components_ng/pattern/stack/stack_pattern.h"
 #include "core/components_ng/property/layout_constraint.h"
 #include "core/event/touch_event.h"
@@ -40,6 +43,7 @@
 #include "core/interfaces/native/implementation/hover_event_peer.h"
 #include "core/interfaces/native/implementation/mouse_event_peer.h"
 #include "core/interfaces/native/implementation/touch_event_peer.h"
+#include "core/interfaces/native/utility/accessor_utils.h"
 #include "core/components_ng/token_theme/token_theme_storage.h"
 #include "core/interfaces/native/ani/ani_theme.h"
 #include "core/interfaces/native/ani/ani_theme_module.h"
@@ -83,6 +87,7 @@ const int32_t FLAG_DRAW_FRONT = 1;
 const int32_t FLAG_DRAW_CONTENT = 1 << 1;
 const int32_t FLAG_DRAW_BEHIND = 1 << 2;
 const int32_t FLAG_DRAW_FOREGROUND = 1 << 3;
+const int32_t FLAG_DRAW_OVERLAY = 1 << 4;
 
 uint32_t ColorAlphaAdapt(uint32_t origin)
 {
@@ -94,7 +99,28 @@ uint32_t ColorAlphaAdapt(uint32_t origin)
 }
 } // namespace
 
+int32_t GetMainInstanceId(int32_t instanceId)
+{
+    if (instanceId >= MIN_SUBCONTAINER_ID && instanceId < MIN_PLUGIN_SUBCONTAINER_ID) {
+        auto manager = SubwindowManager::GetInstance();
+        return manager ? manager->GetParentContainerId(instanceId) : instanceId;
+    }
+    return instanceId;
+}
+
 static thread_local std::vector<int32_t> restoreInstanceIds_;
+static const std::unordered_set<std::string> g_clickPreventDefPattern = { "RichEditor", "Hyperlink" };
+static const std::unordered_set<std::string> g_touchPreventDefPattern = { "Hyperlink" };
+
+ani_boolean IsEasySplit(ArkUI_Int32 instanceId)
+{
+    auto context = NG::PipelineContext::GetContextByContainerId(instanceId);
+    if (context == nullptr) {
+        TAG_LOGE(AceLogTag::ACE_NAVIGATION, "IsEasySplit-ani can not get current context.");
+        return false;
+    }
+    return context->IsDisplayInForceSplitMode();
+}
 
 ani_ref* GetHostContext(ArkUI_Int32 key)
 {
@@ -108,15 +134,13 @@ ani_ref* GetHostContext(ArkUI_Int32 key)
         TAG_LOGE(AceLogTag::ACE_LAYOUT_INSPECTOR, "GetHostContext-ani can not get current frontend.");
         return nullptr;
     }
-    return frontend->GetHostContext(key);
+    return frontend->GetHostContext();
 }
 
 void SetFrameRateRange(ani_env* env, ani_long peerPtr, ani_object value, ArkUI_Int32 type)
 {
     NG::FrameNode* peer = reinterpret_cast<NG::FrameNode*>(peerPtr);
     CHECK_NULL_VOID(peer);
-    auto swiperPattern = peer->GetPattern();
-    CHECK_NULL_VOID(swiperPattern);
     ani_double min;
     ani_double max;
     ani_double expect;
@@ -133,8 +157,18 @@ void SetFrameRateRange(ani_env* env, ani_long peerPtr, ani_object value, ArkUI_I
         return;
     }
     auto frameRateRange = AceType::MakeRefPtr<FrameRateRange>(min, max, expect);
-    auto sceneType = static_cast<SwiperDynamicSyncSceneType>(type);
-    swiperPattern->SetFrameRateRange(frameRateRange, sceneType);
+
+    if (peer->GetTag() == V2::MARQUEE_ETS_TAG) {
+        auto sceneType = static_cast<MarqueeDynamicSyncSceneType>(type);
+        auto customModifier = NodeModifier::GetMarqueeCustomModifier();
+        CHECK_NULL_VOID(customModifier);
+        customModifier->setMarqueeFrameRateRange(peer, frameRateRange, sceneType);
+    } else {
+        auto swiperPattern = peer->GetPattern();
+        CHECK_NULL_VOID(swiperPattern);
+        auto sceneType = static_cast<SwiperDynamicSyncSceneType>(type);
+        swiperPattern->SetFrameRateRange(frameRateRange, sceneType);
+    }
 }
 
 void SyncInstanceId(ArkUI_Int32 instanceId)
@@ -191,7 +225,7 @@ void SetFrameNodeDrawCallback(ani_env* env, ani_long ptr, void* fnDrawCallbackFu
 
 ArkUI_Int32 GetCurrentInstanceId()
 {
-    return ContainerScope::CurrentId();
+    return Container::CurrentIdSafely();
 }
 
 ArkUI_Int32 GetFocusedInstanceId()
@@ -277,6 +311,7 @@ void SetCustomCallback(ani_long ptr, void* fnMeasure, void* fnLayout)
     auto* frameNodePeer = reinterpret_cast<FrameNodePeer*>(ptr);
     CHECK_NULL_VOID(frameNodePeer);
     auto frameNode = FrameNodePeer::GetFrameNodeByPeer(frameNodePeer);
+    CHECK_NULL_VOID(frameNode);
     frameNode->SetExtensionHandler(customNode);
 }
 
@@ -326,14 +361,12 @@ ani_int CreateWindowFreeContainer(ani_env *env, std::shared_ptr<OHOS::AbilityRun
         &nativeContext, FrontendType::ARK_TS);
     CHECK_NULL_RETURN(container, -1);
     int32_t instanceId = container->GetInstanceId();
-    ContainerScope::Add(instanceId);
     return instanceId;
 }
 
 void DestroyWindowFreeContainer(ani_int id)
 {
     Platform::WindowFreeContainer::DestroyWindowFreeContainer();
-    ContainerScope::RemoveAndCheck(static_cast<int32_t>(id));
 }
 
 ani_boolean CheckIsUIThread(ArkUI_Int32 instanceId)
@@ -386,8 +419,27 @@ void SetParallelScoped(ani_boolean parallel)
     MultiThreadBuildManager::SetIsParallelizeUI(parallel);
 }
 
+void CheckThreadValid(ani_boolean checkUIThread, ani_long node)
+{
+    if (checkUIThread) {
+        if (!MultiThreadBuildManager::CheckOnUIThread()) {
+            OHOS::Ace::NG::AccessorUtils::ThrowTSException(
+                ERROR_CODE_NATIVE_IMPL_NODE_ON_INVALID_THREAD, "The node is not running on main thread.");
+        }
+    } else {
+        auto* frameNodePeer = reinterpret_cast<FrameNodePeer*>(node);
+        CHECK_NULL_VOID(frameNodePeer);
+        auto frameNode = FrameNodePeer::GetFrameNodeByPeer(frameNodePeer);
+        if (!MultiThreadBuildManager::CheckNodeOnValidThread(AceType::RawPtr(frameNode))) {
+            OHOS::Ace::NG::AccessorUtils::ThrowTSException(
+                ERROR_CODE_NATIVE_IMPL_NODE_ON_INVALID_THREAD, "The node is not running on valid thread.");
+        }
+    }
+}
+
 static void SetCustomPropertyCallBack(ArkUINodeHandle node, std::function<void()>&& func,
-    std::function<std::string(const std::string&)>&& getFunc)
+    std::function<std::string(const std::string&)>&& getFunc,
+    std::function<std::string()>&& getAllCustomPropertiesFunc)
 {
     auto id = Container::CurrentIdSafelyWithCheck();
     ContainerScope scope(id);
@@ -397,7 +449,7 @@ static void SetCustomPropertyCallBack(ArkUINodeHandle node, std::function<void()
     }
     auto frameNode = reinterpret_cast<NG::FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
-    frameNode->SetCustomPropertyCallback(std::move(func), std::move(getFunc));
+    frameNode->SetCustomPropertyCallback(std::move(func), std::move(getFunc), std::move(getAllCustomPropertiesFunc));
 }
 
 static std::optional<std::string> GetCustomProperty(ani_env* env, ArkUINodeHandle node, const std::string& key)
@@ -475,8 +527,6 @@ ani_double Vp2px(ani_double value, ani_int instanceId)
     if (NearZero(value)) {
         return 0;
     }
-    auto context = PipelineBase::GetCurrentContext();
-    CHECK_NULL_RETURN(context, 0);
     ContainerScope cope(instanceId);
     double density = PipelineBase::GetCurrentDensity();
     return value * density;
@@ -487,8 +537,6 @@ ani_double Px2vp(ani_double value, ani_int instanceId)
     if (NearZero(value)) {
         return 0;
     }
-    auto context = PipelineBase::GetCurrentContext();
-    CHECK_NULL_RETURN(context, 0);
     ContainerScope cope(instanceId);
     double density = PipelineBase::GetCurrentDensity();
     if (NearZero(density)) {
@@ -502,8 +550,6 @@ ani_double Fp2px(ani_double value, ani_int instanceId)
     if (NearZero(value)) {
         return 0;
     }
-    auto context = PipelineBase::GetCurrentContext();
-    CHECK_NULL_RETURN(context, 0);
     ContainerScope cope(instanceId);
     double density = PipelineBase::GetCurrentDensity();
     if (NearZero(density)) {
@@ -524,8 +570,6 @@ ani_double Px2fp(ani_double value, ani_int instanceId)
     if (NearZero(value)) {
         return 0;
     }
-    auto context = PipelineBase::GetCurrentContext();
-    CHECK_NULL_RETURN(context, 0);
     ContainerScope cope(instanceId);
     double density = PipelineBase::GetCurrentDensity();
     if (NearZero(density)) {
@@ -548,8 +592,6 @@ ani_double Lpx2px(ani_double value, ani_int instanceId)
     if (NearZero(value)) {
         return 0;
     }
-    auto context = PipelineBase::GetCurrentContext();
-    CHECK_NULL_RETURN(context, 0);
     ContainerScope cope(instanceId);
     double density = PipelineBase::GetCurrentDensity();
     if (NearZero(density)) {
@@ -579,8 +621,6 @@ ani_double Px2lpx(ani_double value, ani_int instanceId)
     if (NearZero(value)) {
         return 0;
     }
-    auto context = PipelineBase::GetCurrentContext();
-    CHECK_NULL_RETURN(context, 0);
     ContainerScope cope(instanceId);
     CHECK_NULL_RETURN(value, 0);
     auto container = Container::Current();
@@ -602,15 +642,46 @@ ani_double Px2lpx(ani_double value, ani_int instanceId)
     return value / windowConfig.designWidthScale;
 }
 
+void SetIsRecycleInvisibleImageMemory(ani_boolean isRecycle, ani_int instanceId)
+{
+    auto container = AceEngine::Get().GetContainer(instanceId);
+    CHECK_NULL_VOID(container);
+    ContainerScope scope(instanceId);
+    auto context = container->GetPipelineContext();
+    CHECK_NULL_VOID(context);
+    context->SetIsRecycleInvisibleImageMemory(isRecycle);
+}
+
 std::optional<std::string> GetWindowName(ani_int instanceId)
 {
-    auto context = PipelineBase::GetCurrentContext();
+    auto container = AceEngine::Get().GetContainer(instanceId);
+    ContainerScope scope(instanceId);
+    auto context = container->GetPipelineContext();
     CHECK_NULL_RETURN(context, std::nullopt);
     auto window = context->GetWindow();
     CHECK_NULL_RETURN(window, std::nullopt);
-    ContainerScope cope(instanceId);
     std::string windowName = window->GetWindowName();
     return windowName;
+}
+
+ani_int GetWindowId(ani_int instanceId)
+{
+    auto container = AceEngine::Get().GetContainer(instanceId);
+    CHECK_NULL_RETURN(container, -1);
+    ContainerScope scope(instanceId);
+    auto context = container->GetPipelineContext();
+    CHECK_NULL_RETURN(context, -1);
+    return context->GetFocusWindowId();
+}
+
+ani_int GetWindowWidthBreakpoint()
+{
+    return ViewAbstract::GetWindowWidthBreakpoint();
+}
+
+ani_int GetWindowHeightBreakpoint()
+{
+    return ViewAbstract::GetWindowHeightBreakpoint();
 }
 
 void* TransferKeyEventPointer(ani_long nativePtr)
@@ -736,8 +807,8 @@ void* TransferHoverEventPointer(ani_long nativePtr)
 void* GetTouchEventPointer(ani_long nativePtr)
 {
     CHECK_NULL_RETURN(nativePtr, nullptr);
-    auto peer = reinterpret_cast<Ark_TouchEvent>(nativePtr);
-    return reinterpret_cast<void*>(peer->GetEventInfo());
+    // delete part
+    return nullptr;
 }
 
 void* GetMouseEventPointer(ani_long nativePtr)
@@ -818,7 +889,7 @@ void SetDefaultTheme(ani_env* env, const std::vector<Ark_ResourceColor>& colorAr
     std::vector<uint32_t> colors;
     std::vector<RefPtr<ResourceObject>> resObjs;
     AniThemeModule::ConvertToColorArray(colorArray, colors, resObjs);
-    NodeModifier::GetThemeModifier()->setDefaultTheme(colors.data(), isDarkValue);
+    NodeModifier::GetThemeModifier()->setDefaultTheme(colors.data(), isDarkValue, static_cast<void*>(&resObjs));
 }
 
 void UpdateColorMode(ani_int colorMode)
@@ -857,7 +928,8 @@ void CreateAndBindTheme(ani_env* env, ani_int themeScopeId, ani_int themeId,
         return;
     }
     auto themeModifier = NodeModifier::GetThemeModifier();
-    auto theme = themeModifier->createTheme(themeId, colors.data(), colorModeValue, static_cast<void*>(&resObjs));
+    auto theme = themeModifier->createTheme(themeId, colors.data(), colors.data(), colorModeValue,
+        static_cast<void*>(&resObjs), static_cast<void*>(&resObjs));
     CHECK_NULL_VOID(theme);
     ArkUINodeHandle node = themeModifier->getWithThemeNode(themeScopeId);
     if (!node) {
@@ -895,6 +967,7 @@ void SetImageCacheCount(ani_int value, ani_int instanceId)
         return;
     }
     auto container = AceEngine::Get().GetContainer(instanceId);
+    CHECK_NULL_VOID(container);
     ContainerScope scope(instanceId);
     auto pipelineContext = container->GetPipelineContext();
     CHECK_NULL_VOID(pipelineContext);
@@ -909,11 +982,200 @@ void SetImageRawDataCacheSize(ani_int value, ani_int instanceId)
         return;
     }
     auto container = AceEngine::Get().GetContainer(instanceId);
+    CHECK_NULL_VOID(container);
     ContainerScope scope(instanceId);
     auto pipelineContext = container->GetPipelineContext();
     CHECK_NULL_VOID(pipelineContext);
     auto imageCache = pipelineContext->GetImageCache();
     imageCache->SetDataCacheLimit(cacheSize);
+}
+
+void ApplyThemeScopeId(ani_env* env, ani_long ptr, ani_int themeScopeId)
+{
+    auto* selfPtr = reinterpret_cast<UINode*>(ptr);
+    if (selfPtr) {
+        selfPtr->SetThemeScopeId(themeScopeId);
+    }
+}
+
+template<typename T>
+void GetPressedModifierKey(ani_long nativePtr, char*** keys, ani_int* length)
+{
+    CHECK_NULL_VOID(nativePtr);
+    auto accessor = reinterpret_cast<T>(nativePtr);
+    CHECK_NULL_VOID(accessor && accessor->GetBaseInfo());
+    CHECK_NULL_VOID(keys && length);
+    auto eventKeys = accessor->GetBaseInfo()->GetPressedKeyCodes();
+    auto size = static_cast<int32_t>(eventKeys.size());
+    if (size <= 0) {
+        return;
+    }
+    *length = size;
+    *keys = new char* [size];
+    for (auto index = 0; index < size; index++) {
+        std::string keyStr;
+        switch (eventKeys[index]) {
+            case KeyCode::KEY_CTRL_LEFT:
+            case KeyCode::KEY_CTRL_RIGHT:
+                keyStr = "ctrl";
+                break;
+            case KeyCode::KEY_SHIFT_LEFT:
+            case KeyCode::KEY_SHIFT_RIGHT:
+                keyStr = "shift";
+                break;
+            case KeyCode::KEY_ALT_LEFT:
+            case KeyCode::KEY_ALT_RIGHT:
+                keyStr = "alt";
+                break;
+            case KeyCode::KEY_FN:
+                keyStr = "fn";
+                break;
+            default:
+                keyStr = "";
+                break;
+        }
+        (*keys)[index] = new char[keyStr.length() + 1];
+        auto result = strcpy_s((*keys)[index], keyStr.length() + 1, keyStr.c_str());
+        if (result != 0) {
+            TAG_LOGE(AceLogTag::ACE_INPUTKEYFLOW, "GetPressedModifierKey error: strcpy_s with error code: %d", result);
+            for (auto i = 0; i <= index; i++) {
+                delete[](*keys)[i];
+            }
+            delete[] * keys;
+            *keys = nullptr;
+            *length = 0;
+            return;
+        }
+    }
+}
+
+void GetPressedModifierKeyForTouch(ani_long nativePtr, char*** keys, ani_int* length)
+{
+    CHECK_NULL_VOID(nativePtr);
+    auto eventKeys = reinterpret_cast<BaseEventInfo*>(nativePtr)->GetPressedKeyCodes();
+    auto size = static_cast<int32_t>(eventKeys.size());
+    if (size <= 0) {
+        return;
+    }
+    *length = size;
+    *keys = new char* [size];
+    for (auto index = 0; index < size; index++) {
+        std::string keyStr;
+        switch (eventKeys[index]) {
+            case KeyCode::KEY_CTRL_LEFT:
+            case KeyCode::KEY_CTRL_RIGHT:
+                keyStr = "ctrl";
+                break;
+            case KeyCode::KEY_SHIFT_LEFT:
+            case KeyCode::KEY_SHIFT_RIGHT:
+                keyStr = "shift";
+                break;
+            case KeyCode::KEY_ALT_LEFT:
+            case KeyCode::KEY_ALT_RIGHT:
+                keyStr = "alt";
+                break;
+            case KeyCode::KEY_FN:
+                keyStr = "fn";
+                break;
+            default:
+                keyStr = "";
+                break;
+        }
+        (*keys)[index] = new char[keyStr.length() + 1];
+        auto result = strcpy_s((*keys)[index], keyStr.length() + 1, keyStr.c_str());
+        if (result != 0) {
+            TAG_LOGE(AceLogTag::ACE_INPUTKEYFLOW, "GetPressedModifierKey error: strcpy_s with error code: %d", result);
+            for (auto i = 0; i <= index; i++) {
+                delete[](*keys)[i];
+            }
+            delete[] * keys;
+            *keys = nullptr;
+            *length = 0;
+            return;
+        }
+    }
+}
+
+void GetBaseEventPressedModifierKey(ani_long nativePtr, char*** keys, ani_int* length)
+{
+    GetPressedModifierKey<Ark_BaseEvent>(nativePtr, keys, length);
+}
+
+void GetTouchEventPressedModifierKey(ani_long nativePtr, char*** keys, ani_int* length)
+{
+    GetPressedModifierKeyForTouch(nativePtr, keys, length);
+}
+
+void GetKeyEventPressedModifierKey(ani_long nativePtr, char*** keys, ani_int* length)
+{
+    GetPressedModifierKey<Ark_KeyEvent>(nativePtr, keys, length);
+}
+
+ani_boolean SetClickEventPreventDefault(ani_long nativePtr)
+{
+    CHECK_NULL_RETURN(nativePtr, true);
+    auto accessor = reinterpret_cast<Ark_ClickEvent>(nativePtr);
+    CHECK_NULL_RETURN(accessor && accessor->GetBaseInfo(), true);
+    auto eventInfo = accessor->GetBaseInfo();
+    CHECK_NULL_RETURN(eventInfo, true);
+    auto patternName = eventInfo->GetPatternName();
+    if (g_clickPreventDefPattern.find(patternName.c_str()) == g_clickPreventDefPattern.end()) {
+        return false;
+    }
+    eventInfo->SetPreventDefault(true);
+    return true;
+}
+
+ani_boolean SetTouchEventPreventDefault(ani_long nativePtr)
+{
+    CHECK_NULL_RETURN(nativePtr, true);
+    // delete part
+    return true;
+}
+void GetCallingScopeUIContext(int32_t& instanceId)
+{
+    instanceId = GetMainInstanceId(ContainerScope::CurrentId());
+}
+
+void GetLastFocusedUIContext(int32_t& instanceId)
+{
+    instanceId = GetMainInstanceId(ContainerScope::RecentActiveId());
+}
+
+void GetLastForegroundUIContext(int32_t& instanceId)
+{
+    instanceId = GetMainInstanceId(ContainerScope::RecentForegroundId());
+}
+
+void GetAllInstanceIds(std::vector<int32_t>& instanceIds)
+{
+    const auto allIds = ContainerScope::GetAllUIContexts();
+    std::set<int32_t> idSet;
+    for (const auto& id : allIds) {
+        idSet.emplace(GetMainInstanceId(id));
+    }
+    for (const auto& id : idSet) {
+        instanceIds.push_back(id);
+    }
+}
+
+void ResolveUIContext(std::vector<int32_t>& instnace)
+{
+    auto currnetId = ContainerScope::CurrentIdWithReason();
+    instnace.push_back(GetMainInstanceId(currnetId.first));
+    instnace.push_back(static_cast<int32_t>(currnetId.second));
+}
+
+ani_long GetPageRootNodeInStatic()
+{
+    auto context = NG::PipelineContext::GetCurrentContextSafely();
+    if (context) {
+        auto node = context->GetPageRootNode();
+        if (node) {
+            return reinterpret_cast<ani_long>(node.GetRawPtr());
+        }
+    }
+    return 0;
 }
 
 const ArkUIAniCommonModifier* GetCommonAniModifier()
@@ -943,6 +1205,7 @@ const ArkUIAniCommonModifier* GetCommonAniModifier()
         .onMeasureInnerMeasure = OHOS::Ace::NG::OnMeasureInnerMeasure,
         .onLayoutInnerLayout = OHOS::Ace::NG::OnLayoutInnerLayout,
         .setParallelScoped = OHOS::Ace::NG::SetParallelScoped,
+        .checkThreadValid = OHOS::Ace::NG::CheckThreadValid,
         .setCustomPropertyCallBack = OHOS::Ace::NG::SetCustomPropertyCallBack,
         .getCustomProperty = OHOS::Ace::NG::GetCustomProperty,
         .setOverlayComponent = OHOS::Ace::NG::SetOverlayComponent,
@@ -953,6 +1216,9 @@ const ArkUIAniCommonModifier* GetCommonAniModifier()
         .lpx2px = OHOS::Ace::NG::Lpx2px,
         .px2lpx = OHOS::Ace::NG::Px2lpx,
         .getWindowName = OHOS::Ace::NG::GetWindowName,
+        .getWindowId = OHOS::Ace::NG::GetWindowId,
+        .getWindowHeightBreakpoint = OHOS::Ace::NG::GetWindowHeightBreakpoint,
+        .getWindowWidthBreakpoint = OHOS::Ace::NG::GetWindowWidthBreakpoint,
         .transferKeyEventPointer = OHOS::Ace::NG::TransferKeyEventPointer,
         .createKeyEventAccessorWithPointer = OHOS::Ace::NG::CreateKeyEventAccessorWithPointer,
         .createEventTargetInfoAccessor = OHOS::Ace::NG::CreateEventTargetInfoAccessor,
@@ -974,6 +1240,7 @@ const ArkUIAniCommonModifier* GetCommonAniModifier()
         .getClickEventPointer = OHOS::Ace::NG::GetClickEventPointer,
         .getHoverEventPointer = OHOS::Ace::NG::GetHoverEventPointer,
         .frameNodeMarkDirtyNode = OHOS::Ace::NG::FrameNodeMarkDirtyNode,
+        .getColorValueByString = OHOS::Ace::NG::GetColorValueByString,
         .getColorValueByNumber = OHOS::Ace::NG::GetColorValueByNumber,
         .sendThemeToNative = OHOS::Ace::NG::SendThemeToNative,
         .removeThemeInNative = OHOS::Ace::NG::RemoveThemeInNative,
@@ -985,13 +1252,27 @@ const ArkUIAniCommonModifier* GetCommonAniModifier()
         .applyParentThemeScopeId = OHOS::Ace::NG::ApplyParentThemeScopeId,
         .getPx2VpWithCurrentDensity = OHOS::Ace::NG::GetPx2VpWithCurrentDensity,
         .setImageCacheCount = OHOS::Ace::NG::SetImageCacheCount,
-        .setImageRawDataCacheSize = OHOS::Ace::NG::SetImageRawDataCacheSize
+        .setImageRawDataCacheSize = OHOS::Ace::NG::SetImageRawDataCacheSize,
+        .applyThemeScopeId = OHOS::Ace::NG::ApplyThemeScopeId,
+        .setIsRecycleInvisibleImageMemory = OHOS::Ace::NG::SetIsRecycleInvisibleImageMemory,
+        .getBaseEventPressedModifierKey = OHOS::Ace::NG::GetBaseEventPressedModifierKey,
+        .getTouchEventPressedModifierKey = OHOS::Ace::NG::GetTouchEventPressedModifierKey,
+        .getKeyEventPressedModifierKey = OHOS::Ace::NG::GetKeyEventPressedModifierKey,
+        .setClickEventPreventDefault = OHOS::Ace::NG::SetClickEventPreventDefault,
+        .setTouchEventPreventDefault = OHOS::Ace::NG::SetTouchEventPreventDefault,
+        .getCallingScopeUIContext = OHOS::Ace::NG::GetCallingScopeUIContext,
+        .getLastFocusedUIContext = OHOS::Ace::NG::GetLastFocusedUIContext,
+        .getLastForegroundUIContext = OHOS::Ace::NG::GetLastForegroundUIContext,
+        .getAllInstanceIds = OHOS::Ace::NG::GetAllInstanceIds,
+        .resolveUIContext = OHOS::Ace::NG::ResolveUIContext,
+        .getPageRootNode = OHOS::Ace::NG::GetPageRootNodeInStatic,
+        .isEasySplit = OHOS::Ace::NG::IsEasySplit,
     };
     return &impl;
 }
 
 void SetDrawModifier(ani_long ptr, uint32_t flag, void* fnDrawBehindFun, void* fnDrawContentFun, void* fnDrawFrontFun,
-    void* fnDrawForegroundFun)
+    void* fnDrawForegroundFun, void* fnDrawOverlayFun)
 {
     auto* frameNode = reinterpret_cast<NG::FrameNode*>(ptr);
     CHECK_NULL_VOID(frameNode && frameNode->IsSupportDrawModifier());
@@ -1015,6 +1296,11 @@ void SetDrawModifier(ani_long ptr, uint32_t flag, void* fnDrawBehindFun, void* f
         auto* fnDrawForegroundFunPtr =
             static_cast<std::function<void(NG::DrawingContext & drawingContext)>*>(fnDrawForegroundFun);
         drawModifier->drawForegroundFunc = *fnDrawForegroundFunPtr;
+    }
+    if (flag & FLAG_DRAW_OVERLAY) {
+        auto* fnDrawOverlayFunPtr =
+            static_cast<std::function<void(NG::DrawingContext & drawingContext)>*>(fnDrawOverlayFun);
+        drawModifier->drawOverlayFunc = *fnDrawOverlayFunPtr;
     }
     frameNode->SetDrawModifier(drawModifier);
     if (frameNode) {

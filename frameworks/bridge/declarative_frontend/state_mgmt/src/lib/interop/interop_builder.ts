@@ -14,9 +14,10 @@
  */
 
 
-function __makeBuilderParameterStaticProxy_Interop_Internal(name: string, value: Object, sourceGetter: Object): Object {
+function __makeBuilderParameterStaticProxy_Interop_Internal(name: string, value: Object, sourceGetter: Object) : Object {
   if (InteropExtractorModule.makeBuilderParameterStaticProxy === undefined) {
-      throw new Error('makeBuilderParameterStaticProxy error!');
+      // only happened in toolchain error, internal error
+      throw new BusinessError(NOT_IMPLEMENT, 'makeBuilderParameterStaticProxy error!');
   }
   return InteropExtractorModule.makeBuilderParameterStaticProxy(name, value, sourceGetter);
 }
@@ -35,17 +36,29 @@ function startStaticHook(source: Object, addRef: () => void): Object | undefined
 * @returns  Creates a dynamic builder function that wraps a static builder
 */
 function createDynamicBuilder(
-  staticBuilder: (...args: any[]) => number
+  staticBuilder: (...args: any[]) => number | [number, ()=>void],
 ): (...args: any[]) => void {
   let func = function (...args: any[]): void {
-      this.observeComponentCreation2((elmtId: number, isInitialRender: boolean) => {
-          this.__interopInStaticRendering_internal_ = true;
-          if (isInitialRender) {
-              let pointer = staticBuilder(...args);
-              ViewStackProcessor.push(pointer);
-              ViewStackProcessor.pop();
+    let result;
+    this.observeComponentCreation2(
+      (elmtId: number, isInitialRender: boolean) => {
+        ObserveV2.getObserve().__interopInStaticRendering_internal_ = true;
+        if (isInitialRender) {
+          result = staticBuilder(...args);
+          let ptr = typeof result === 'number' ? result : result[0];
+          ViewStackProcessor.push(ptr);
+          ViewStackProcessor.pop();
+        } else {
+          args.forEach((arg) => {
+            if (arg && typeof arg === 'object' && 'value' in arg) {
+              arg.value;
+            }
+          });
+          if (result[1]) {
+            result[1]();
           }
-          this.__interopInStaticRendering_internal_ = false;
+        }
+        ObserveV2.getObserve().__interopInStaticRendering_internal_ = false;
       }, {});
   };
   return func;
@@ -62,16 +75,67 @@ function createDynamicUpdatableBuilder(
   let func = function (args: any): void {
       let stateMeta: [number, ()=>void]
       this.observeComponentCreation2((elmtId: number, isInitialRender: boolean) => {
-        this.__interopInStaticRendering_internal_ = true;
+        ObserveV2.getObserve().__interopInStaticRendering_internal_ = true;
           if (isInitialRender) {
               stateMeta = staticBuilder(args);
               ViewStackProcessor.push(stateMeta[0]);
               ViewStackProcessor.pop();
           } else {
+              Object.values(args).forEach(arg =>arg);
               stateMeta[1]()
           }
-          this.__interopInStaticRendering_internal_ = false;
+          ObserveV2.getObserve().__interopInStaticRendering_internal_ = false;
       }, {});
   };
   return func;
+}
+
+function enableCompatibleObservedV2ForStatic(value: Object, 
+  createFunc: Function, recordFunc: Function, updateFunc: Function): void {
+  const str = '__staticCompatibleFunc__';
+  value[str] = [createFunc, recordFunc, updateFunc];
+}
+
+function enableCompatibleObservedV2ForStaticMeta(value: Object, 
+  createFunc: Function, recordFunc: Function, updateFunc: Function): void {
+  const str = '__staticCompatibleMetaFunc__';
+  value[str] = [createFunc, recordFunc, updateFunc];
+}
+
+function createCompatibleStateMetaForStaticObservedV2(): [()=>void, ()=>void] {
+  let stateMeta = UIUtilsImpl.instance().makeObserved({value: 1});
+  let addRef = (): void => { stateMeta.value }
+  let fireChange = (): void => { stateMeta.value++ }
+  return [addRef, fireChange]
+}
+
+function isDynamicBuilderProxy(value: Object): boolean {
+    const str = '__builder_param_get_target';
+    return !!(value && value[str]);
+}
+
+function getBuilderParamProxyEntries(value: Object): any[] {
+    const res: any[] = [];
+    if (isDynamicBuilderProxy(value)) {
+        const str = '__builder_param_get_target';
+        const raw = value[str];
+        if (raw instanceof Map) {
+            const entries = Array.from(raw.entries());
+            entries.forEach((entry)=>{
+                if(typeof entry[1] === 'function') {
+                    res.push([entry[0], entry[1]()]);
+                }
+            })
+        }
+    }
+    return res;
+}
+
+function staticBuilderUpdate(builderViewV2: BuilderViewV2) {
+  for (let i = 1; i <= 10; i++) {
+    if (('arg' + i) in builderViewV2 && (builderViewV2['arg' + i] instanceof MutableBinding || builderViewV2['arg' + i] instanceof Binding)) {
+      invokeObserveFireChange(builderViewV2['arg' + i], 'value');
+    }
+  }
+  runPendingJobs();
 }

@@ -16,7 +16,6 @@
 #include "gmock/gmock.h"
 
 #include "accessor_test_base.h"
-#include "node_api.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/utility/validators.h"
 #include "core/interfaces/native/implementation/pan_recognizer_peer.h"
@@ -39,10 +38,13 @@ HWTEST_F(PanRecognizerAccessorTest, getPanGestureOptionsTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getPanGestureOptions, nullptr);
 
-    using TestStep = std::tuple<int32_t, double, PanDirection>;
-    static const std::vector<TestStep> testPlan = { { 1, 1.0f, { PanDirection::LEFT } },
-        { 1, 4.0f, { PanDirection::VERTICAL } }, { 2, 0.0f, { PanDirection::LEFT } },
-        { 3, 4.0f, { PanDirection::NONE } }, { 5, 10.0f, { PanDirection::RIGHT } } };
+    const std::vector<std::tuple<int32_t, double, PanDirection>> testPlan = {
+        { 1, 1.0f, { PanDirection::LEFT } },
+        { 1, 4.0f, { PanDirection::VERTICAL } },
+        { 2, 0.0f, { PanDirection::LEFT } },
+        { 3, 4.0f, { PanDirection::NONE } },
+        { 5, 10.0f, { PanDirection::RIGHT } },
+    };
 
     for (auto [fingers, distance, direction] : testPlan) {
         auto mockGestureRecognizer_ = AceType::MakeRefPtr<NG::PanRecognizer>(fingers, direction, distance);

@@ -17,8 +17,8 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_TEXT_PICKER_TEXT_PICKER_DIALOG_VIEW_H
 
 #include "base/utils/macros.h"
+#include "core/components/button/button_theme.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components/picker/picker_base_component.h"
 #include "core/components_ng/pattern/button/button_layout_property.h"
 #include "core/components_ng/pattern/text_picker/textpicker_event_hub.h"
 #include "core/components_ng/pattern/text_picker/textpicker_pattern.h"
@@ -149,6 +149,8 @@ private:
     static bool NeedAdaptForAging();
     static void SetTextDisappearProperties(const RefPtr<PickerTheme>& pickerTheme,
         const PickerTextProperties& properties);
+    static void SetTextNormalProperties(const RefPtr<PickerTheme>& pickerTheme,
+        const PickerTextProperties& properties);
     static void SetDefaultTextStyle(const NG::PickerTextStyle& value);
     static std::string GetDialogAgingButtonText(bool isNext);
     static std::string GetDialogNormalButtonText(bool isConfirm);
@@ -160,6 +162,8 @@ private:
     static Dimension selectedTextStyleFont_;
     static Dimension normalTextStyleFont_;
     static Dimension disappearTextStyleFont_;
+    static Color buttonColor_;
+    static bool useButtonFocusArea_;
 
 };
 } // namespace OHOS::Ace::NG

@@ -19,14 +19,15 @@
 
 #include "base/geometry/dimension.h"
 #include "base/geometry/dimension_rect.h"
+#include "base/geometry/calc_dimension_rect.h"
 #include "base/geometry/ng/offset_t.h"
 #include "base/geometry/ng/point_t.h"
 #include "base/geometry/offset.h"
-#include "base/subwindow/subwindow_manager.h"
 #include "base/utils/utils.h"
 #include "core/components/menu/menu_component.h"
 #include "core/components/text_overlay/text_overlay_theme.h"
 #include "core/components_ng/base/ui_node.h"
+#include "core/components_ng/manager/select_overlay/select_overlay_manager.h"
 #include "core/components_ng/pattern/menu/menu_layout_property.h"
 #include "core/components_ng/pattern/select_overlay/select_overlay_node.h"
 #include "core/components_ng/pattern/select_overlay/select_overlay_property.h"
@@ -151,7 +152,9 @@ void SelectOverlayPattern::AddMenuResponseRegion(std::vector<DimensionRect>& res
         safeAreaInsetsLeft = static_cast<float>(safeAreaInsets->left_.end);
         safeAreaInsetsTop = static_cast<float>(safeAreaInsets->top_.end);
     }
-    const auto& children = GetHost()->GetChildren();
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    const auto& children = host->GetChildren();
     for (const auto& it : children) {
         auto child = DynamicCast<FrameNode>(it);
         if (child == nullptr) {
@@ -755,8 +758,7 @@ void SelectOverlayPattern::StartHiddenHandleTask(bool isDelay)
         taskExecutor->PostDelayedTask(hiddenHandleTask_, TaskExecutor::TaskType::UI, HIDDEN_HANDLE_TIMER_MS,
             "ArkUISelectOverlayHiddenHandle");
     } else {
-        taskExecutor->PostTask(hiddenHandleTask_, TaskExecutor::TaskType::UI, "ArkUISelectOverlayHiddenHandle",
-                               PriorityType::VIP);
+        taskExecutor->PostTask(hiddenHandleTask_, TaskExecutor::TaskType::UI, "ArkUISelectOverlayHiddenHandle");
     }
 }
 
@@ -879,7 +881,9 @@ void SelectOverlayPattern::OnColorConfigurationUpdate()
 {
     auto host = DynamicCast<SelectOverlayNode>(GetHost());
     CHECK_NULL_VOID(host);
-    host->UpdateSelectMenuBg();
+    CHECK_NULL_VOID(info_);
+    auto caller = info_->callerFrameNode.Upgrade();
+    host->UpdateSelectMenuBg(caller);
     host->UpdateToolBarFromMainWindow(true, true);
 }
 
@@ -888,5 +892,108 @@ void SelectOverlayPattern::OnLanguageConfigurationUpdate()
     auto host = DynamicCast<SelectOverlayNode>(GetHost());
     CHECK_NULL_VOID(host);
     host->UpdateToolBarFromMainWindow(true, true);
+}
+
+void SelectOverlayPattern::OnAttachToMainTree()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto context = host->GetContext();
+    CHECK_NULL_VOID(context);
+    pipeline_ = context;
+    InitSurfaceChangedCallback();
+}
+
+void SelectOverlayPattern::OnDetachFromMainTree()
+{
+    if (surfaceChangeCallbackId_.has_value()) {
+        auto context = pipeline_.Upgrade();
+        CHECK_NULL_VOID(context);
+        context->UnregisterSurfaceChangedCallback(surfaceChangeCallbackId_.value());
+        surfaceChangeCallbackId_.reset();
+    }
+}
+
+void SelectOverlayPattern::InitSurfaceChangedCallback()
+{
+    CHECK_NULL_VOID(info_);
+    if (overlayMode_ == SelectOverlayMode::HANDLE_ONLY || info_->menuInfo.menuBuilder != nullptr ||
+        surfaceChangeCallbackId_.has_value()) {
+        return;
+    }
+    auto context = pipeline_.Upgrade();
+    CHECK_NULL_VOID(context);
+    surfaceChangeCallbackId_ = context->RegisterSurfaceChangedCallback(
+        [weak = WeakClaim(this)](
+            int32_t newWidth, int32_t newHeight, int32_t prevWidth, int32_t prevHeight, WindowSizeChangeReason reason) {
+            auto pattern = weak.Upgrade();
+            if (pattern) {
+                pattern->HandleSurfaceChanged();
+            }
+        });
+}
+
+void SelectOverlayPattern::HandleSurfaceChanged()
+{
+    auto context = pipeline_.Upgrade();
+    CHECK_NULL_VOID(context);
+    context->AddAfterLayoutTask([weak = WeakClaim(this)]() {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->UpdateToolBarWidth();
+    });
+}
+
+void SelectOverlayPattern::UpdateToolBarWidth()
+{
+    auto node = DynamicCast<SelectOverlayNode>(GetHost());
+    CHECK_NULL_VOID(node);
+    ContainerScope scope(node->GetScopeId());
+    float newMaxWidth;
+    node->GetDefaultButtonAndMenuWidth(newMaxWidth);
+    auto currentMaxWidth = node->GetMaxDefaultButtonAndMenuWidth();
+    if (NearEqual(currentMaxWidth, newMaxWidth)) {
+        return;
+    }
+    TAG_LOGI(AceLogTag::ACE_SELECT_OVERLAY, "UpdateToolBarWidth old %{public}f, new %{public}f", currentMaxWidth,
+        newMaxWidth);
+    node->UpdateToolBar(true, true);
+}
+
+void SelectOverlayPattern::OnMountToSubWindow()
+{
+    auto context = pipeline_.Upgrade();
+    CHECK_NULL_VOID(context);
+    context->AddAfterLayoutTask([weak = WeakClaim(this)]() {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->UpdateToolBarWidth();
+    });
+}
+
+void SelectOverlayPattern::UpdateMenuAccessibility(bool menuIsShow)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto containerId = GetContainerId();
+    RefPtr<PipelineContext> context = nullptr;
+    if (GetIsMenuShowInSubWindow() && containerId != -1) {
+        auto container = Container::GetContainer(containerId);
+        CHECK_NULL_VOID(container);
+        context = AceType::DynamicCast<PipelineContext>(container->GetPipelineContext());
+        CHECK_NULL_VOID(context);
+    } else {
+        context = PipelineContext::GetCurrentContextSafelyWithCheck();
+        CHECK_NULL_VOID(context);
+    }
+    auto selectOverlayManager = context->GetSelectOverlayManager();
+    CHECK_NULL_VOID(selectOverlayManager);
+    auto contentOverlayManager = selectOverlayManager->GetSelectContentOverlayManager();
+    CHECK_NULL_VOID(contentOverlayManager);
+    if (menuIsShow) {
+        contentOverlayManager->FocusFirstFocusableChildInMenu();
+    } else {
+        contentOverlayManager->NotifyAccessibilityOwner();
+    }
 }
 } // namespace OHOS::Ace::NG

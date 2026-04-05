@@ -40,14 +40,19 @@ class ArkNavDestinationComponent extends ArkComponent implements NavDestinationA
       NavDestinationTitleModifier, arkNavigationTitle);
     return this;
   }
-  menus(value: Array<NavigationMenuItem> | undefined): this {
+  menus(value: Array<NavigationMenuItem> | undefined, options?: NavigationMenuOptions): this {
     if (isUndefined(value)) {
       modifierWithKey(this._modifiersWithKeys, NavDestinationMenusModifier.identity,
         NavDestinationMenusModifier, undefined);
       return this;
     }
+    let config: ArkNavigationMenu = new ArkNavigationMenu();
+    config.menu = value;
+    if (!isNull(options)) {
+      config.options = options;
+    }
     modifierWithKey(this._modifiersWithKeys, NavDestinationMenusModifier.identity,
-        NavDestinationMenusModifier, value);
+        NavDestinationMenusModifier, config);
     return this;
   }
   hideTitleBar(isHide: boolean, animated?: boolean): this {
@@ -82,12 +87,22 @@ class ArkNavDestinationComponent extends ArkComponent implements NavDestinationA
     }
     return this;
   }
-  toolbarConfiguration(value: any): this {
+  toolbarConfiguration(value: Array<ToolbarItem> | undefined, options?: NavigationToolbarOptions | undefined): this {
+    let configuration = new ArkNavigationToolBarConfiguration();
+    configuration.value = value;
+    if (!isNull(options)) {
+      configuration.options = options;
+    }
     modifierWithKey(this._modifiersWithKeys, NavDestinationToolBarConfigurationModifier.identity,
-      NavDestinationToolBarConfigurationModifier, value);
+      NavDestinationToolBarConfigurationModifier, configuration);
     return this;
   }
-  backButtonIcon(value: any): this {
+  backButtonIcon(value: any, text?: ResourceStr): this {
+    let config: ArkNavBackButton = new ArkNavBackButton();
+    config.text = value;
+    if (!isNull(text)) {
+      config.text = text;
+    }
     modifierWithKey(this._modifiersWithKeys, NavDestinationBackButtonIconModifier.identity,
       NavDestinationBackButtonIconModifier, value);
     return this;
@@ -102,11 +117,11 @@ class ArkNavDestinationComponent extends ArkComponent implements NavDestinationA
       NavDestinationSystemTransitionModifier, value);
     return this;
   }
-  onShown(callback: () => void): this {
+  onShown(callback: (reason: VisibilityChangeReason) => void): this {
     modifierWithKey(this._modifiersWithKeys, NavDestinationOnShownModifier.identity, NavDestinationOnShownModifier, callback);
     return this;
   }
-  onHidden(callback: () => void): this {
+  onHidden(callback: (reason: VisibilityChangeReason) => void): this {
     modifierWithKey(this._modifiersWithKeys, NavDestinationOnHiddenModifier.identity, NavDestinationOnHiddenModifier, callback);
     return this;
   }
@@ -126,12 +141,28 @@ class ArkNavDestinationComponent extends ArkComponent implements NavDestinationA
     modifierWithKey(this._modifiersWithKeys, NavDestinationOnWillDisappearModifier.identity, NavDestinationOnWillDisappearModifier, callback);
     return this;
   }
+  onActive(callback: (reason: NavDestinationActiveReason) => void): this {
+    modifierWithKey(this._modifiersWithKeys, NavDestinationOnActiveModifier.identity, NavDestinationOnActiveModifier, callback);
+    return this;
+  }
+  onInactive(callback: (reason: NavDestinationInactiveReason) => void): this {
+    modifierWithKey(this._modifiersWithKeys, NavDestinationonInactiveModifier.identity, NavDestinationonInactiveModifier, callback);
+    return this;
+  }
   onBackPressed(callback: () => boolean): this {
     modifierWithKey(this._modifiersWithKeys, NavDestinationOnBackPressedModifier.identity, NavDestinationOnBackPressedModifier, callback);
     return this;
   }
   onReady(callback:Callback<NavDestinationContext>): this {
     modifierWithKey(this._modifiersWithKeys, NavDestinationOnReadyModifier.identity, NavDestinationOnReadyModifier, callback);
+    return this;
+  }
+  bindToScrollable(scrollers: Array<Scroller>): this {
+    modifierWithKey(this._modifiersWithKeys, NavDestinationBindToScrollableModifier.identity, NavDestinationBindToScrollableModifier, scrollers);
+    return this;
+  }
+  bindToNestedScrollable(scrollInfos: Array<NestedScrollInfo>): this {
+    modifierWithKey(this._modifiersWithKeys, NavDestinationBindToNestedScrollableModifier.identity, NavDestinationBindToNestedScrollableModifier, scrollInfos);
     return this;
   }
   ignoreLayoutSafeArea(types?: Array<SafeAreaType>, edges?: Array<SafeAreaEdge>): this {
@@ -198,18 +229,26 @@ class ArkNavDestinationComponent extends ArkComponent implements NavDestinationA
     modifierWithKey(this._modifiersWithKeys, NavDestinationSystemBarStyleModifier.identity, NavDestinationSystemBarStyleModifier, style);
     return this;
   }
+  onResult(callback: Optional<Callback<ESObject>>): this {
+    modifierWithKey(this._modifiersWithKeys, NavDestinationOnResultModifier.identity, NavDestinationOnResultModifier, callback);
+    return this;
+  }
+  onNewParam(callback: Optional<Callback<ESObject>>): this {
+    modifierWithKey(this._modifiersWithKeys, NavDestinationOnNewParamModifier.identity, NavDestinationOnNewParamModifier, callback);
+    return this;
+  }
 }
 
-class NavDestinationToolBarConfigurationModifier extends ModifierWithKey<Array<ToolbarItem> | undefined> {
-  constructor(value: Array<ToolbarItem> | undefined) {
+class NavDestinationToolBarConfigurationModifier extends ModifierWithKey<ArkNavigationToolBarConfiguration> {
+  constructor(value: ArkNavigationToolBarConfiguration) {
     super(value);
   }
   static identity: Symbol = Symbol('toolbarConfiguration');
   applyPeer(node: KNode, reset: boolean): void {
-    if (reset) {
+    if (reset || !this.value) {
       getUINativeModule().navDestination.resetToolBarConfiguration(node);
     } else {
-      getUINativeModule().navDestination.setToolBarConfiguration(node, this.value);
+      getUINativeModule().navDestination.setToolBarConfiguration(node, this.value.value, this.value.options);
     }
   }
   checkObjectDiff(): boolean {
@@ -234,8 +273,8 @@ class NavDestinationTitleModifier extends ModifierWithKey<ArkNavigationTitle | u
   }
 }
 
-class NavDestinationMenusModifier extends ModifierWithKey<Array<NavigationMenuItem> | undefined> {
-  constructor(value: Array<NavigationMenuItem> | undefined) {
+class NavDestinationMenusModifier extends ModifierWithKey<ArkNavigationMenu> {
+  constructor(value: ArkNavigationMenu) {
     super(value);
   }
   static identity: Symbol = Symbol('menus');
@@ -244,7 +283,7 @@ class NavDestinationMenusModifier extends ModifierWithKey<Array<NavigationMenuIt
     if (reset) {
       getUINativeModule().navDestination.resetMenus(node);
     } else {
-      getUINativeModule().navDestination.setMenus(node, this.value);
+      getUINativeModule().navDestination.setMenus(node, this.value.menu, this.value.options);
     }
   }
   checkObjectDiff(): boolean {
@@ -298,8 +337,26 @@ class NavDestinationHideToolBarModifier extends ModifierWithKey<ArkNavHideTitleB
   }
 }
 
-class NavDestinationBackButtonIconModifier extends ModifierWithKey<object> {
-  constructor(value: object) {
+class NavDestinationBackgroundColorModifier extends ModifierWithKey<ResourceColor> {
+  constructor(value: ResourceColor) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('navDestinationBackgroundColor');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().navDestination.resetBackgroundColor(node);
+    } else {
+      getUINativeModule().navDestination.setBackgroundColor(node, this.value);
+    }
+  }
+
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
+class NavDestinationBackButtonIconModifier extends ModifierWithKey<ArkNavBackButton> {
+  constructor(value: ArkNavBackButton) {
     super(value);
   }
   static identity: Symbol = Symbol('backButtonIcon');
@@ -307,7 +364,7 @@ class NavDestinationBackButtonIconModifier extends ModifierWithKey<object> {
     if (reset) {
       getUINativeModule().navDestination.resetBackButtonIcon(node);
     } else {
-      getUINativeModule().navDestination.setBackButtonIcon(node, this.value);
+      getUINativeModule().navDestination.setBackButtonIcon(node, this.value.icon, this.value.text);
     }
   }
 }
@@ -497,6 +554,34 @@ class NavDestinationOnWillAppearModifier extends ModifierWithKey<Callback<void>>
   }
 }
 
+class NavDestinationBindToScrollableModifier extends ModifierWithKey<Array<Scroller>> {
+  constructor(scrollers: Array<Scroller>) {
+    super(scrollers);
+  }
+  static identity: Symbol = Symbol('bindToScrollable');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().navDestination.resetBindToScrollable(node);
+    } else {
+      getUINativeModule().navDestination.setBindToScrollable(node, this.value);
+    }
+  }
+}
+
+class NavDestinationBindToNestedScrollableModifier extends ModifierWithKey<Array<NestedScrollInfo>> {
+  constructor(scrollInfos: Array<NestedScrollInfo>) {
+    super(scrollInfos);
+  }
+  static identity: Symbol = Symbol('bindToNestedScrollable');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().navDestination.resetBindToNestedScrollable(node);
+    } else {
+      getUINativeModule().navDestination.setBindToNestedScrollable(node, this.value);
+    }
+  }
+}
+
 class NavDestinationOnWillShowModifier extends ModifierWithKey<Callback<void>> {
   constructor(value: () => void) {
     super(value);
@@ -525,6 +610,34 @@ class NavDestinationOnWillDisappearModifier extends ModifierWithKey<Callback<voi
   }
 }
 
+class NavDestinationOnActiveModifier extends ModifierWithKey<Callback<void>> {
+  constructor(value: (reason: NavDestinationActiveReason) => void) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('onActive');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().navDestination.resetOnActive(node);
+    } else {
+      getUINativeModule().navDestination.setOnActive(node, this.value);
+    }
+  }
+}
+
+class NavDestinationOnInactiveModifier extends ModifierWithKey<Callback<void>> {
+  constructor(value: (reason: NavDestinationActiveReason) => void) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('onInactive');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().navDestination.resetOnInactive(node);
+    } else {
+      getUINativeModule().navDestination.setOnInactive(node, this.value);
+    }
+  }
+}
+
 class NavDestinationOnBackPressedModifier extends ModifierWithKey<()=> boolean> {
   constructor(value: ()=> boolean) {
     super(value);
@@ -549,6 +662,34 @@ class NavDestinationOnReadyModifier extends ModifierWithKey<Callback<NavDestinat
       getUINativeModule().navDestination.resetOnReady(node);
     } else {
       getUINativeModule().navDestination.setOnReady(node, this.value);
+    }
+  }
+}
+
+class NavDestinationOnResultModifier extends ModifierWithKey<Callback<ESObject>> {
+  constructor(value: (callback: ESObject) => void) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('onResult');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().navDestination.resetOnResult(node);
+    } else {
+      getUINativeModule().navDestination.setOnResult(node, this.value);
+    }
+  }
+}
+
+class NavDestinationonNewParamModifier extends ModifierWithKey<Callback<ESObject>> {
+  constructor(value: (callback: ESObject) => void) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('onNewParam');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().navDestination.resetonNewParam(node);
+    } else {
+      getUINativeModule().navDestination.setonNewParam(node, this.value);
     }
   }
 }

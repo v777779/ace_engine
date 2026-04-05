@@ -15,11 +15,11 @@
 
 #include "core/components_ng/pattern/swiper_indicator/indicator_common/indicator_model_ng.h"
 
-#include "core/components/swiper/swiper_component.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/swiper_indicator/indicator_common/indicator_pattern.h"
 #include "core/components_ng/pattern/swiper_indicator/indicator_common/swiper_indicator_layout_property.h"
 #include "core/common/resource/resource_parse_utils.h"
+#include "core/components_ng/pattern/swiper/swiper_change_event.h"
 
 namespace OHOS::Ace::NG {
 RefPtr<IndicatorController> IndicatorModelNG::Create()
@@ -28,6 +28,7 @@ RefPtr<IndicatorController> IndicatorModelNG::Create()
     CHECK_NULL_RETURN(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::INDICATOR_ETS_TAG, nodeId);
+    ACE_UINODE_TRACE(nodeId);
     auto indicatorNode = FrameNode::GetOrCreateFrameNode(
         V2::INDICATOR_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<IndicatorPattern>(); });
 
@@ -40,6 +41,7 @@ RefPtr<IndicatorController> IndicatorModelNG::Create()
 
 RefPtr<FrameNode> IndicatorModelNG::CreateFrameNode(int32_t nodeId)
 {
+    ACE_UINODE_TRACE(nodeId);
     return FrameNode::CreateFrameNode(
         V2::INDICATOR_ETS_TAG, nodeId, AceType::MakeRefPtr<IndicatorPattern>());
 }
@@ -231,7 +233,7 @@ void IndicatorModelNG::ProcessDotSizeWithResourceObj(FrameNode* frameNode, const
             CalcDimension result;
             bool parseOk = ResourceParseUtils::ParseResDimensionVpNG(theObj, result);
             if (!(parseOk && result > 0.0_vp)) {
-                auto pipelineContext = PipelineBase::GetCurrentContext();
+                auto pipelineContext = node->GetContext();
                 CHECK_NULL_VOID(pipelineContext);
                 auto theme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
                 CHECK_NULL_VOID(theme);
@@ -270,7 +272,7 @@ void IndicatorModelNG::ProcessDigitalFontSizeWithResourceObj(FrameNode* frameNod
             CalcDimension result;
             bool parseOk = ResourceParseUtils::ParseResDimensionFpNG(theObj, result);
             if (!parseOk || LessOrEqual(result.Value(), 0.0) || result.Unit() == DimensionUnit::PERCENT) {
-                auto pipelineContext = PipelineBase::GetCurrentContext();
+                auto pipelineContext = node->GetContext();
                 CHECK_NULL_VOID(pipelineContext);
                 auto theme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
                 CHECK_NULL_VOID(theme);
@@ -305,7 +307,7 @@ void IndicatorModelNG::ProcessDotColorWithResourceObj(FrameNode* frameNode, cons
             Color result;
             bool parseOk = ResourceParseUtils::ParseResColor(theObj, result);
             if (!parseOk) {
-                auto pipelineContext = PipelineBase::GetCurrentContext();
+                auto pipelineContext = node->GetContext();
                 CHECK_NULL_VOID(pipelineContext);
                 auto theme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
                 CHECK_NULL_VOID(theme);
@@ -336,7 +338,7 @@ void IndicatorModelNG::ProcessDigitalColorWithResourceObj(FrameNode* frameNode, 
             Color result;
             bool parseOk = ResourceParseUtils::ParseResColor(theObj, result);
             if (!parseOk) {
-                auto pipelineContext = PipelineBase::GetCurrentContext();
+                auto pipelineContext = node->GetContext();
                 CHECK_NULL_VOID(pipelineContext);
                 auto theme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
                 CHECK_NULL_VOID(theme);

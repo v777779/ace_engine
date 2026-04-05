@@ -35,8 +35,7 @@ namespace OHOS::Ace::NG {
 class SwiperPaintProperty;
 class ACE_EXPORT TabsModelNG : public OHOS::Ace::TabsModel {
 public:
-    void Create(BarPosition barPosition, int32_t index, const RefPtr<TabController>& tabController,
-        const RefPtr<SwiperController>& swiperController) override;
+    void Create(BarPosition barPosition, int32_t index, const RefPtr<SwiperController>& swiperController) override;
     void Pop() override;
     void SetIndex(int32_t index) override;
     void SetTabBarPosition(BarPosition tabBarPosition) override;
@@ -55,6 +54,7 @@ public:
     void SetOnChange(std::function<void(const BaseEventInfo*)>&& onChange) override;
     void SetOnTabBarClick(std::function<void(const BaseEventInfo*)>&& onTabBarClick) override;
     void SetOnUnselected(std::function<void(const BaseEventInfo*)>&& onUnselected) override;
+    void SetOnContentDidScroll(ContentDidScrollEvent&& onContentDidScroll) override;
     void SetOnAnimationStart(AnimationStartEvent&& onAnimationStart) override;
     void SetOnAnimationEnd(AnimationEndEvent&& onAnimationEnd) override;
     void SetOnGestureSwipe(GestureSwipeEvent&& gestureSwipe) override;
@@ -75,6 +75,7 @@ public:
     void SetOnContentWillChange(std::function<bool(int32_t, int32_t)>&& callback) override;
     void SetAnimateMode(TabAnimateMode mode) override;
     void SetEdgeEffect(EdgeEffect edgeEffect) override;
+    void SetNestedScroll(const NestedScrollOptions& nestedOpt) override;
     void SetBarBackgroundEffect(const EffectOption& effectOption) override;
     void SetPageFlipMode(int32_t pageFlipMode) override;
     void SetBarModifier(std::function<void(WeakPtr<NG::FrameNode>)>&& onApply) override;
@@ -88,6 +89,7 @@ public:
     static void SetTabBarMode(FrameNode* frameNode, TabBarMode tabBarMode);
     static void SetBarGridAlign(FrameNode* frameNode, const BarGridColumnOptions& BarGridColumnOptions);
     static void SetOnUnselected(FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& onUnselected);
+    static void SetOnContentDidScroll(FrameNode* frameNode, ContentDidScrollEvent&& onContentDidScroll);
     static void SetDivider(FrameNode* frameNode, const TabsItemDivider& divider);
     static void SetDividerColorByUser(FrameNode* frameNode, bool isByUser);
     static void SetEffectNodeOption(FrameNode* frameNode, const TabsEffectNodeOption& option);
@@ -109,6 +111,7 @@ public:
     static void SetClipEdge(FrameNode* frameNode, bool clipEdge);
     static void SetAnimateMode(FrameNode* frameNode, TabAnimateMode mode);
     static void SetEdgeEffect(FrameNode* frameNode, int32_t edgeEffect);
+    static void SetNestedScroll(FrameNode* frameNode, int32_t nestedOpt);
     static void SetTabBarIndex(FrameNode* frameNode, int32_t index);
     static void SetTabsController(FrameNode* frameNode, const RefPtr<SwiperController>& tabsController);
     static void SetBarModifier(FrameNode* frameNode, std::function<void(WeakPtr<NG::FrameNode>)>&& onApply);
@@ -148,7 +151,6 @@ public:
         bool isModifier = false);
     static void HandleBackgroundBlurStyleInactiveColor(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj,
         bool isModifier = false);
-    static void HandleApplyAttributesFinish(FrameNode* frameNode);
 
 private:
     static void InitTabsNode(RefPtr<TabsNode> tabsNode, const RefPtr<SwiperController>& swiperController);
@@ -156,6 +158,7 @@ private:
         const RefPtr<SwiperController>& swiperController);
     static void InitSelectedMaskNode(const RefPtr<FrameNode>& maskNode);
     static void InitUnselectedMaskNode(const RefPtr<FrameNode>& maskNode);
+    static void InitImageIndicatorNode(const RefPtr<FrameNode>& indicatorNode);
     static RefPtr<TabBarLayoutProperty> GetTabBarLayoutProperty();
     static RefPtr<TabBarPaintProperty> GetTabBarPaintProperty();
     static RefPtr<SwiperLayoutProperty> GetSwiperLayoutProperty();

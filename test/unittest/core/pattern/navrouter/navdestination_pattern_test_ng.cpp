@@ -18,7 +18,9 @@
 #define protected public
 #define private public
 #include "core/common/agingadapation/aging_adapation_dialog_util.h"
+#include "core/common/multi_thread_build_manager.h"
 #include "core/components/dialog/dialog_properties.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/dialog/dialog_pattern.h"
 #include "core/components_ng/pattern/dialog/dialog_view.h"
@@ -27,11 +29,11 @@
 #include "core/components_ng/pattern/navigation/tool_bar_pattern.h"
 #include "core/components_ng/pattern/navrouter/navdestination_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
-#include "test/mock/base/mock_system_bar_style.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/base/system_bar/mock_system_bar_style.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 #include "test/unittest/core/pattern/navigation/mock_navigation_stack.h"
 
 using namespace testing;
@@ -377,7 +379,7 @@ HWTEST_F(NavDestinationPatternTestNg, SetSystemBarStyle004, TestSize.Level1)
     });
 
     navDestinationPattern->SetSystemBarStyle(nullptr);
-    EXPECT_EQ(systemBarStyle, mockSystemBarStyle);
+    EXPECT_EQ(systemBarStyle, nullptr);
 }
 
 /**
@@ -1701,7 +1703,7 @@ HWTEST_F(NavDestinationPatternTestNg, GetSerializedParamTest001, TestSize.Level1
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
     auto navDestinationPattern = navDestinationNode->GetPattern<NavDestinationPattern>();
     ASSERT_NE(navDestinationPattern, nullptr);
-    const std::string param = "{}";
+    const std::string param = "param";
     navDestinationPattern->UpdateSerializedParam(param);
     ASSERT_EQ(navDestinationPattern->GetSerializedParam(), param);
     NavDestinationPatternTestNg::TearDownTestCase();
@@ -1740,5 +1742,197 @@ HWTEST_F(NavDestinationPatternTestNg, OnModifyDone, TestSize.Level1)
     ASSERT_EQ(layoutPolicy.has_value(), true);
     EXPECT_EQ(layoutPolicy->IsWidthWrap(), true);
     EXPECT_EQ(layoutPolicy->IsHeightMatch(), true);
+}
+
+/**
+ * @tc.name: ReCalcNavDestinationSize001
+ * @tc.desc: Test Navdestination constraintSize no branch
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavDestinationPatternTestNg, ReCalcNavDestinationSize001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create navdestinationNode
+     */
+    auto navDestinationNode = NavDestinationGroupNode::GetOrCreateGroupNode(V2::NAVDESTINATION_VIEW_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
+    auto navDestinationLayoutProperty = navDestinationNode->GetLayoutProperty<NavDestinationLayoutProperty>();
+    ASSERT_NE(navDestinationLayoutProperty, nullptr);
+
+    /**
+     * @tc.steps: step2. Update CalcSize
+     */
+    auto size = CalcSize(CalcLength(500), CalcLength(500));
+    navDestinationLayoutProperty->UpdateCalcMaxSize(size);
+    auto layoutWrapper = navDestinationNode->CreateLayoutWrapper();
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto geometryNode = layoutWrapper->GetGeometryNode();
+    ASSERT_NE(geometryNode, nullptr);
+    geometryNode->SetFrameSize(SizeF(600, 600));
+
+    auto navdestinationLayoutAlgorithm = AceType::MakeRefPtr<NavDestinationLayoutAlgorithm>();
+    ASSERT_NE(navdestinationLayoutAlgorithm, nullptr);
+
+    SizeF frameSize = SizeF(600, 600);
+    navdestinationLayoutAlgorithm->ReCalcNavDestinationSize(AceType::RawPtr(layoutWrapper), frameSize);
+
+    SizeF targetSize = SizeF(600, 600);
+    EXPECT_EQ(geometryNode->GetFrameSize(), targetSize);
+}
+
+/**
+ * @tc.name: UpdateSerializedParamTest001
+ * @tc.desc: Test UpdateSerializedParam function
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavDestinationPatternTestNg, UpdateSerializedParamTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create navdestinationNode
+     */
+    auto navDestinationNode = NavDestinationGroupNode::GetOrCreateGroupNode(V2::NAVDESTINATION_VIEW_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
+    ASSERT_NE(navDestinationNode, nullptr);
+    auto pattern = navDestinationNode->GetPattern<NavDestinationPattern>();
+    ASSERT_NE(pattern, nullptr);
+    ASSERT_EQ(pattern->serializedParam_, "");
+    /**
+    * @tc.steps: step2. test the specified arg for function call `UpdateSerializedParam`
+    */
+    pattern->UpdateSerializedParam("");
+    ASSERT_EQ(pattern->serializedParam_, "");
+    pattern->UpdateSerializedParam("{}");
+    ASSERT_EQ(pattern->serializedParam_, "");
+    pattern->UpdateSerializedParam("undefined");
+    ASSERT_EQ(pattern->serializedParam_, "");
+    /**
+    * @tc.steps: step3. test other arg for function call `UpdateSerializedParam`
+    */
+    const std::string paramOne = "paramOne";
+    pattern->UpdateSerializedParam(paramOne);
+    ASSERT_EQ(pattern->serializedParam_, paramOne);
+    const std::string paramTwo = "paramTwo";
+    pattern->UpdateSerializedParam(paramTwo);
+    ASSERT_EQ(pattern->serializedParam_, paramTwo);
+}
+
+
+/**
+ * @tc.name: OnAttachToMainTreeMultiThread
+ * @tc.desc: test OnAttachToFrameNodeMultiThread & OnAttachToMainTreeMultiThread.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavDestinationPatternTestNg, OnAttachToMainTreeMultiThread, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create navdestinationNode.
+     */
+    auto navDestinationNode = NavDestinationGroupNode::GetOrCreateGroupNode(V2::NAVDESTINATION_VIEW_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
+    ASSERT_NE(navDestinationNode, nullptr);
+    auto pattern = navDestinationNode->GetPattern<NavDestinationPattern>();
+    ASSERT_NE(pattern, nullptr);
+    /**
+     * @tc.steps: step2. Simulate MutltiThread Enviroment.
+     */
+    auto host = pattern->GetHost();
+    ASSERT_NE(host, nullptr);
+    host->isThreadSafeNode_ = true;
+    host->nodeId_ = host->nodeId_ + 1;
+    auto pipelineContext = navDestinationNode->GetContext();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto size = pipelineContext->onWindowStateChangedCallbacks_.size();
+    /**
+     * @tc.steps: step3. Call OnAttachToFrameNode.
+     * @tc.expected: OnAttachToFrameNodeMultiThread is called, nothing is done.
+     */
+    pattern->OnAttachToFrameNode(); // call OnAttachToFrameNodeMultiThread
+    EXPECT_EQ(size, pipelineContext->onWindowStateChangedCallbacks_.size());
+    /**
+     * @tc.steps: step3. Call OnAttachToMainTree.
+     * @tc.expected: OnAttachToMainTreeMultiThread is called, noting done.
+     */
+    pattern->OnAttachToMainTree(); // call OnAttachToMainTreeMultiThread
+    EXPECT_EQ(size + 1, pipelineContext->onWindowStateChangedCallbacks_.size());
+}
+
+/**
+ * @tc.name: OnDetachFromMainTreeMultiThread
+ * @tc.desc: test OnDetachFromFrameNodeMultiThread & OnDetachFromMainTreeMultiThread.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavDestinationPatternTestNg, OnDetachFromMainTreeMultiThread, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create navdestinationNode.
+     */
+    auto navDestinationNode = NavDestinationGroupNode::GetOrCreateGroupNode(V2::NAVDESTINATION_VIEW_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
+    ASSERT_NE(navDestinationNode, nullptr);
+    auto pattern = navDestinationNode->GetPattern<NavDestinationPattern>();
+    ASSERT_NE(pattern, nullptr);
+    /**
+     * @tc.steps: step2. Simulate MutltiThread Enviroment.
+     */
+    auto host = AceType::DynamicCast<NavDestinationGroupNode>(pattern->GetHost());
+    ASSERT_NE(host, nullptr);
+    host->isThreadSafeNode_ = true;
+    host->SetIsHomeDestination(true);
+    pattern->OnAttachToMainTree();
+    auto pipelineContext = navDestinationNode->GetContext();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto size = pipelineContext->onWindowStateChangedCallbacks_.size();
+    auto frameNode = FrameNode::CreateFrameNode("BackButton", 33, AceType::MakeRefPtr<TitleBarPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->isThreadSafeNode_ = true;
+    /**
+     * @tc.steps: step3. Call OnDetachFromFrameNode.
+     * @tc.expected: OnDetachFromFrameNodeMultiThread is called, nothing is done.
+     */
+    pattern->OnDetachFromFrameNode(AceType::RawPtr(frameNode)); // call OnDetachFromFrameNodeMultiThread
+    EXPECT_EQ(size, pipelineContext->onWindowStateChangedCallbacks_.size());
+    /**
+     * @tc.steps: step4. Call OnDetachFromMainTree.
+     * @tc.expected: OnDetachFromMainTreeMultiThread is called.
+     */
+    pattern->OnDetachFromMainTree(); // call OnDetachFromMainTreeMultiThread
+}
+
+/**
+ * @tc.name: SetSystemBarStyleMultiThread
+ * @tc.desc: test SetSystemBarStyleMultiThread.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavDestinationPatternTestNg, SetSystemBarStyleMultiThread, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Simulate non-UI thread environment and create a thread-safe select node.
+     */
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
+    bool isUIThread = MultiThreadBuildManager::isUIThread_;
+    MultiThreadBuildManager::isUIThread_ = false;
+    /**
+     * @tc.steps: step2. Create navdestinationNode.
+     */
+    auto navDestinationNode = NavDestinationGroupNode::GetOrCreateGroupNode(V2::NAVDESTINATION_VIEW_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
+    ASSERT_NE(navDestinationNode, nullptr);
+    auto pattern = navDestinationNode->GetPattern<NavDestinationPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto host = pattern->GetHost();
+    ASSERT_NE(host, nullptr);
+    host->isThreadSafeNode_ = true;
+    auto size = host->afterAttachMainTreeTasks_.size();
+    /**
+     * @tc.steps: step3. Call SetSystemBarStyleMultiThread.
+     * @tc.expected: afterAttachMainTreeTasks_.size()++.
+     */
+    pattern->SetSystemBarStyle(nullptr); // call SetSystemBarStyleMultiThread
+    EXPECT_EQ(size + 1, host->afterAttachMainTreeTasks_.size());
+    /**
+     * @tc.steps: step4. Restore environment.
+     */
+    MultiThreadBuildManager::isUIThread_ = isUIThread;
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(false);
 }
 } // namespace OHOS::Ace::NG

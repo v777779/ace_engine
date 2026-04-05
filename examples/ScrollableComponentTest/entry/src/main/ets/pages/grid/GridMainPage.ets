@@ -35,8 +35,29 @@ struct WaterFlowMainPage {
     new TextList(1, 'Back', 'pages/Index'),
     new TextList(2, 'GridObjectSort', 'pages/grid/GridObjectSort'),
     new TextList(3, 'BindSheetDrag', 'pages/grid/GridBindSheetDrag'),
+    new TextList(4, 'ItemDragWithVibrator', 'pages/grid/ItemDragWithVibrator'),
+    new TextList(5, 'GridScrollWithSelect', 'pages/grid/GridScrollWithSelect'),
+    new TextList(6, 'GridDragAndPan', 'pages/grid/GridDragAndPan'),
+    new TextList(7, 'GridCalculator', 'pages/grid/GridCalculator'),
+    new TextList(8, 'friction', 'pages/grid/friction/friction'),
+    new TextList(9, 'GridCAPI', 'pages/grid/GridCAPI'),
+    new TextList(10, 'GrdiDragSample', 'pages/grid/GrdiDragSample'),
+    new TextList(11, 'GridDragWithScroll', 'pages/grid/GridDragWithScroll'),
+
+    new TextList(19, 'GridIndex', 'pages/grid/GridIndex'),
+    new TextList(20, 'GridModifierIndex', 'pages/grid/GridModifierIndex'),
+    new TextList(21, 'scrollBarColor', 'pages/grid/scrollBarColor'),
+    new TextList(22, 'ScrollableGrid', 'pages/grid/CAPI/ScrollableGrid'),
+    new TextList(24, 'GridTest', 'pages/grid/CAPI/GridTest'),
+    new TextList(23, 'LayoutConstraints', 'pages/grid/LayoutConstraints/LayoutConstraints_MainPage'),
+    new TextList(24, 'GridSwiperDragSort', 'pages/grid/GridSwiperDragSort'),
+    new TextList(25, 'EditModeOptions', 'pages/grid/GridEditModeOptions'),
+    new TextList(26, 'PageGridDragEvent', 'pages/grid/PageGridDragEvent'),
+    new TextList(27, 'BindControllerDeclare', 'pages/grid/bindController/GridDeclare'),
+    new TextList(28, 'BindControllerCommand', 'pages/grid/bindController/GridCommand'),
   ]
   @State fontSize: Resource | undefined = undefined
+
   build() {
     Column() {
       Scroll(this.scroll) {

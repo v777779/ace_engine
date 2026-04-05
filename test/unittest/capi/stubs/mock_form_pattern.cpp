@@ -18,11 +18,7 @@
 #include "mock_form_manager_delegate.h"
 #include "core/components/form/sub_container.h"
 
-#ifndef ARKUI_CAPI_UNITTEST
 #include "pointer_event.h"
-#else
-#include "mock_pointer_event.h"
-#endif // ARKUI_CAPI_UNITTEST
 
 namespace OHOS::Ace::NG {
 FormPattern::FormPattern() = default;
@@ -38,8 +34,9 @@ void FormPattern::DispatchPointerEvent(const std::shared_ptr<MMI::PointerEvent>&
 {
 }
 
-void FormPattern::OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId, int64_t accessibilityId)
+bool FormPattern::OnAccessibilityChildTreeRegister(uint32_t windowId, int32_t treeId, int64_t accessibilityId)
 {
+    return true;
 }
 
 void FormPattern::OnAccessibilityChildTreeDeregister()
@@ -93,6 +90,15 @@ void FormPattern::DumpInfo()
 }
 
 void FormPattern::DumpInfo(std::unique_ptr<JsonValue>& json)
+{
+}
+
+bool FormPattern::OnAccessibilityStateChange(bool state)
+{
+    return false;
+}
+
+void FormPattern::OnColorConfigurationUpdate()
 {
 }
 } // namespace OHOS::Ace::NG

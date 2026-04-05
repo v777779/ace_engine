@@ -16,6 +16,7 @@
 #include "bridge/declarative_frontend/jsview/models/navigation_model_impl.h"
 
 #include "bridge/declarative_frontend/view_stack_processor.h"
+#include "core/components/navigation_bar/navigation_container_component.h"
 
 namespace OHOS::Ace::Framework {
 void NavigationModelImpl::Create(bool useHomeDestination)
@@ -52,11 +53,6 @@ void NavigationModelImpl::SetCustomTitle(const RefPtr<AceType>& customTitle)
 }
 
 void NavigationModelImpl::SetTitleHeight(const Dimension& height, bool isValid)
-{
-    return;
-}
-
-void NavigationModelImpl::SetTitleHeight(const RefPtr<ResourceObject>& resObj)
 {
     return;
 }

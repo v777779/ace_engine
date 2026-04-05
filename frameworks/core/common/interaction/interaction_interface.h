@@ -18,6 +18,7 @@
 
 #include "base/memory/ace_type.h"
 #include "core/common/interaction/interaction_data.h"
+#include "core/event/ace_events.h"
 
 namespace OHOS::Rosen {
     class RSTransaction;
@@ -55,15 +56,17 @@ public:
 
     virtual int32_t GetShadowOffset(ShadowOffsetData& shadowOffsetData) = 0;
 
-    virtual int32_t GetDragState(DragState& dragState) const = 0;
-
-    virtual int32_t GetDragSummary(std::map<std::string, int64_t>& summary) = 0;
+    virtual int32_t GetDragSummary(std::map<std::string, int64_t>& summary,
+        std::map<std::string, int64_t>& detailedSummary, std::map<std::string, std::vector<int32_t>>& summaryFormat,
+        int32_t& version, int64_t& totalSize, std::string& tag) = 0;
 
     virtual int32_t GetDragExtraInfo(std::string& extraInfo) = 0;
 
-    virtual int32_t EnterTextEditorArea(bool enable) = 0;
+    virtual int32_t GetDragState(DragState& dragState) const = 0;
 
-    virtual int32_t AddPrivilege() = 0;
+    virtual int32_t AddPrivilege(const std::string& signature, const DragEventData& dragEventData) = 0;
+
+    virtual int32_t EnterTextEditorArea(bool enable) = 0;
 
     virtual int32_t RegisterCoordinationListener(std::function<void()> dragOutCallback) = 0;
 
@@ -75,7 +78,7 @@ public:
 
     virtual void SetDraggableStateAsync(bool state, int64_t downTime) = 0;
 
-    virtual int32_t EnableInternalDropAnimation(const std::string& animationInfo) = 0;
+    virtual int32_t EnableInternalDropAnimation(const std::string &animationInfo) = 0;
 
     virtual bool IsDragStart() const = 0;
 };

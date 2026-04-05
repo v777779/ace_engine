@@ -43,6 +43,7 @@
 #ifdef INIT_ICU_DATA_PATH
 #include "unicode/putil.h"
 #endif
+
 #include "frameworks/simulator/common/include/context.h"
 
 namespace OHOS::Ace {
@@ -236,6 +237,11 @@ extern "C" ACE_FORCE_EXPORT void* OHOS_ACE_CreateSubWindowUIContent(void* abilit
     return new UIContentImpl(reinterpret_cast<OHOS::AppExecFwk::Ability*>(ability));
 }
 
+extern "C" ACE_FORCE_EXPORT int32_t OHOS_ACE_GetUIContentWindowID(int32_t instanceId)
+{
+    return UIContentImpl::GetUIContentWindowID(instanceId);
+}
+
 UIContentImpl::UIContentImpl(OHOS::AbilityRuntime::Context* context, void* runtime)
     : instanceId_(ACE_INSTANCE_ID), runtime_(runtime)
 {
@@ -254,12 +260,15 @@ UIContentImpl::UIContentImpl(OHOS::AbilityRuntime::Context* context, void* runti
     deviceWidth_ = options.deviceWidth;
     deviceHeight_ = options.deviceHeight;
     isRound_ = options.isRound;
+    isComponentMode_ = options.isComponentMode;
     onRouterChange_ = options.onRouterChange;
     deviceConfig_.orientation = static_cast<DeviceOrientation>(options.deviceConfig.orientation);
     deviceConfig_.deviceType = static_cast<DeviceType>(options.deviceConfig.deviceType);
     deviceConfig_.colorMode = static_cast<ColorMode>(options.deviceConfig.colorMode);
     deviceConfig_.density = options.deviceConfig.density;
     deviceConfig_.fontRatio = options.deviceConfig.fontRatio;
+    runArgs_.deviceConfig.orientation = deviceConfig_.orientation;
+    runArgs_.deviceConfig.density = deviceConfig_.density;
 
     bundleName_ = options.bundleName;
     compatibleVersion_ = options.compatibleVersion;
@@ -389,6 +398,7 @@ UIContentErrorCode UIContentImpl::CommonInitialize(OHOS::Rosen::Window* window,
     }
     container->SetInstallationFree(installationFree_);
     container->SetLabelId(labelId_);
+    AceContainer::SetComponentModeFlag(isComponentMode_);
     auto config = container->GetResourceConfiguration();
     config.SetDeviceType(SystemProperties::GetDeviceType());
     config.SetOrientation(SystemProperties::GetDeviceOrientation());
@@ -598,6 +608,12 @@ void UIContentImpl::UpdateViewportConfig(const ViewportConfig& config, OHOS::Ros
     container->UpdateDeviceConfig(deviceConfig_);
     viewPtr->NotifyDensityChanged(config.Density());
     viewPtr->NotifySurfaceChanged(config.Width(), config.Height());
+    if (deviceConfig_.orientation != runArgs_.deviceConfig.orientation ||
+        !NearEqual(deviceConfig_.density, runArgs_.deviceConfig.density)) {
+        container->NotifyConfigurationChange(false, ConfigurationChange({ false, false, true }));
+        runArgs_.deviceConfig.orientation = deviceConfig_.orientation;
+        runArgs_.deviceConfig.density = deviceConfig_.density;
+    }
 }
 
 void UIContentImpl::DumpInfo(const std::vector<std::string>& params, std::vector<std::string>& info)
@@ -635,7 +651,7 @@ int32_t UIContentImpl::CreateModalUIExtension(
 }
 
 void UIContentImpl::CloseModalUIExtension(int32_t sessionId) {}
-
+void UIContentImpl::SetFrameMetricsCallBack(std::function<void(FrameMetrics info)>&& callback) {}
 void UIContentImpl::SetStatusBarItemColor(uint32_t color)
 {
     ContainerScope scope(instanceId_);
@@ -688,11 +704,11 @@ void UIContentImpl::SurfaceChanged(
     viewPtr->NotifyDensityChanged(resolution);
     viewPtr->NotifySurfaceChanged(width, height, type);
     if ((orientation != runArgs_.deviceConfig.orientation && configChanges_.watchOrientation) ||
-        (resolution != runArgs_.deviceConfig.density && configChanges_.watchDensity) ||
+        (!NearEqual(resolution, runArgs_.deviceConfig.density) && configChanges_.watchDensity) ||
         ((width != runArgs_.deviceWidth || height != runArgs_.deviceHeight) && configChanges_.watchLayout)) {
         container->NativeOnConfigurationUpdated(ACE_INSTANCE_ID);
     }
-    if (orientation != runArgs_.deviceConfig.orientation || resolution != runArgs_.deviceConfig.density) {
+    if (orientation != runArgs_.deviceConfig.orientation || !NearEqual(resolution, runArgs_.deviceConfig.density)) {
         container->NotifyConfigurationChange(false, ConfigurationChange({ false, false, true }));
     }
     runArgs_.deviceConfig.orientation = orientation;
@@ -707,6 +723,7 @@ void UIContentImpl::LoadDocument(const std::string& url, const std::string& comp
     LOGI("Component Preview start:%{public}s, ", componentName.c_str());
     AceApplicationInfo::GetInstance().ChangeLocale(systemParams.language, systemParams.region);
     runArgs_.isRound = systemParams.isRound;
+    runArgs_.deviceConfig.deviceType = systemParams.deviceType;
     SurfaceChanged(systemParams.orientation, systemParams.density, systemParams.deviceWidth, systemParams.deviceHeight);
     DeviceConfig deviceConfig = {
         .orientation = systemParams.orientation,
@@ -766,5 +783,17 @@ bool UIContentImpl::OperateComponent(const std::string& attrsJson)
         TaskExecutor::TaskType::UI, "ArkUIOperateComponent");
     LOGI("Fast Preview end");
     return true;
+}
+
+int32_t UIContentImpl::GetUIContentWindowID(int32_t instanceId)
+{
+    auto container = Platform::AceContainer::GetContainer(instanceId);
+    CHECK_NULL_RETURN(container, -1);
+    auto pipelineContext = container->GetPipelineContext();
+    CHECK_NULL_RETURN(pipelineContext, -1);
+    auto windowId = pipelineContext->GetFocusWindowId();
+    LOGI(
+        "GetUIContentWindowID entry success instanceId:[%{public}d],windowId:[%{public}d]", instanceId, windowId);
+    return static_cast<int32_t>(windowId);
 }
 } // namespace OHOS::Ace

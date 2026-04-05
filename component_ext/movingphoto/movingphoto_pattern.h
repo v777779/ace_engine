@@ -32,7 +32,7 @@
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/render/media_player.h"
 #include "core/components_ng/render/render_surface.h"
-#include "core/components/video/video_utils.h"
+#include "core/components_ng/pattern/video/video_utils.h"
 #include "core/components/image/image_event.h"
 #include "interfaces/inner_api/ace/ai/image_analyzer.h"
 
@@ -85,6 +85,11 @@ public:
         return hdrBrightness_;
     }
  
+    bool GetCameraPostprocessingEnabled()
+    {
+        return cameraPostprocessingEnabled_;
+    }
+
     void SetHdrBrightness(float hdrBrightness);
 
     void OnVisibleChange(bool isVisible) override;
@@ -97,10 +102,7 @@ public:
 
     void RepeatPlay(bool isRepeatPlay);
 
-    FocusPattern GetFocusPattern() const override
-    {
-        return { FocusType::NODE, false };
-    }
+    FocusPattern GetFocusPattern() const override;
 
     void UpdateCurrentDateModified(int64_t currentDateModified)
     {
@@ -127,6 +129,11 @@ public:
         return isPlayWithMask_;
     }
 
+    void SetEnableCameraPostprocessing(bool isEnabled)
+    {
+        cameraPostprocessingEnabled_ = isEnabled;
+    }
+
     int64_t GetCurrentDateModified()
     {
         return currentDateModified_;
@@ -148,13 +155,15 @@ public:
 
     bool GetAnalyzerState();
 
-    void GetXmageHeight();
-
     float CalculateRatio(SizeF layoutSize);
 
     void SetXmagePosition();
  
     SizeF CalculateXmageOffsetRatio(SizeF layoutSize);
+
+    void SetMovingPhotoController(const RefPtr<MovingPhotoController>& movingPhotoController);
+
+    RefPtr<MovingPhotoController> GetMovingPhotoController();
 
 protected:
     int32_t instanceId_;
@@ -185,16 +194,18 @@ private:
     void HandleTouchEvent(TouchEventInfo& info);
 
     void UpdateImageNode();
+    void UpdateTempImageNode(const ImageSourceInfo& imageSourceInfo);
     void UpdateVideoNode();
     void UpdatePlayMode();
     void HandleImageAnalyzerMode();
     void UpdateImageHdrMode(const RefPtr<FrameNode>& imageNode);
     void MovingPhotoFormatConvert(MovingPhotoFormat format);
     void DynamicRangeModeConvert(DynamicRangeMode rangeMode);
-    void UpdateRoundXmageProperty(
+    void UpdateXmageProperty(
         RefPtr<ImageSource> imageSrc, SizeF& imageSize, float imageW, float imageL, RefPtr<FrameNode>& host);
     void SetRenderContextBounds(const SizeF& movingPhotoNodeSize, const SizeF& VideoFrameSize);
-    void SetRenderContextBoundsInRoundXmage(const SizeF& movingPhotoNodeSize, const SizeF& videoFrameSize);
+    void SetRenderContextBoundsInXmage(const SizeF& movingPhotoNodeSize, const SizeF& videoFrameSize);
+    SizeF SetVideoFrameSize(const SizeF& layoutSize, const RefPtr<MovingPhotoLayoutProperty>& layoutProperty);
     SizeF CalculateFitContain(const SizeF& rawSize, const SizeF& layoutSize);
     SizeF CalculateFitFill(const SizeF& layoutSize);
     SizeF CalculateFitCover(const SizeF& rawSize, const SizeF& layoutSize);
@@ -217,11 +228,15 @@ private:
     void PrepareSurface();
     void RegisterMediaPlayerEvent();
     void PrintMediaPlayerStatus(PlaybackStatus status);
-    void RegisterImageEvent();
+    void RegisterImageEvent(const RefPtr<FrameNode>& imageNode);
+    void RegisterTransitionImageEvent(const RefPtr<FrameNode>& imageNode);
     void HandleImageCompleteEvent(const LoadImageSuccessEvent& info);
+    void HandleImageErrorEvent(const LoadImageFailEvent& info);
+    void HandleTransitionImageCompleteEvent(const LoadImageSuccessEvent& info);
     void MediaResetToPlay();
 
     void FireMediaPlayerImageComplete();
+    void FireMediaPlayerImageError();
     void OnMediaPlayerStatusChanged(PlaybackStatus status);
     void OnMediaPlayerInitialized();
     void OnMediaPlayerPrepared();
@@ -243,7 +258,7 @@ private:
     void Stop();
     void Seek(int32_t position);
 
-    void VisiblePlayback();
+    void PreparedToPlay();
     void SelectPlaybackMode(PlaybackMode mode);
     void StartPlayback();
     void StartAnimation();
@@ -258,7 +273,8 @@ private:
     void RestartVideo();
     void SetEnableTransition(bool enabled);
     bool GetEnableTransition();
-    void SetPlaybackPeriod(int64_t startTime, int64_t endTime);
+    float GetGlobalInfo();
+    bool SetPlaybackPeriod(int64_t startTime, int64_t endTime);
     void EnableAutoPlay(bool enabled);
     void SetStartPlaybackImpl(const SingleTaskExecutor& uiTaskExecutor);
     void SetStopPlaybackImpl(const SingleTaskExecutor& uiTaskExecutor);
@@ -269,6 +285,13 @@ private:
     void SetEnableTransitionImpl(const SingleTaskExecutor& uiTaskExecutor);
     void SetPlaybackPeriodImpl(const SingleTaskExecutor& uiTaskExecutor);
     void SetEnableAutoPlayImpl(const SingleTaskExecutor& uiTaskExecutor);
+    void SetNotifyTransitionImpl(const SingleTaskExecutor& uiTaskExecutor);
+    void NotifyTransition();
+    void EightyToHundredAnimation();
+    void AddTempNode(const RefPtr<FrameNode>& imageNode, const RefPtr<FrameNode>& movingPhotoNode);
+    void DetachFirstImageFromFrameNode();
+    void DetachTempImageFromFrameNode();
+    RefPtr<FrameNode> GetTempNode();
     void StopAnimation();
     void StopAnimationCallback();
     void StartAutoPlay();
@@ -283,6 +306,7 @@ private:
 
     bool IsSupportImageAnalyzer();
     bool ShouldUpdateImageAnalyzer();
+    bool IsAllZeroPositionInXmage(const RefPtr<ImageSource>& imageSrc);
     void StartImageAnalyzer();
     void StartUpdateImageAnalyzer();
     void CreateAnalyzerOverlay();
@@ -301,11 +325,14 @@ private:
     RefPtr<PixelMap> pixelMap_;
 
     SharedFd fd_;
+    bool notifyTransitionFlag_ = false;
+    bool isRepeatChangePlayMode_ = false;
     int64_t autoPlayPeriodStartTime_ = -1;
     int64_t autoPlayPeriodEndTime_ = -1;
     float hdrBrightness_ = 1.0f;
     std::string uri_ = "";
     int32_t xmageModeValue_ = 0;
+    bool refreshTransitionFlag_ = false;
     bool isXmageMode_ = false;
     bool startAnimationFlag_ = false;
     bool isPrepared_ = false;
@@ -317,12 +344,14 @@ private:
     bool isSetAutoPlayPeriod_ = false;
     bool isVisible_ = false;
     bool isChangePlayMode_ = false;
-    bool isRepeatChangePlayMode_ = false;
     bool isAutoChangePlayMode_ = false;
     bool needUpdateImageNode_ = false;
     bool isPlayWithMask_ = false;
     bool isEnableTransition_ = true;
     bool isStopAnimation_ = false;
+    bool cameraPostprocessingEnabled_ = false;
+    bool isGestureTriggeredLongPress_ = false;
+    bool handleImageError_ = false;
     PlaybackStatus currentPlayStatus_ = PlaybackStatus::NONE;
     PlaybackMode autoAndRepeatLevel_ = PlaybackMode::NONE;
     PlaybackMode historyAutoAndRepeatLevel_ = PlaybackMode::NONE;
@@ -333,8 +362,6 @@ private:
 
     bool isEnableAnalyzer_ = false;
     bool isContentSizeChanged_ = false;
-    bool isAnalyzerCreated_ = false;
-    bool isPixelMapChanged_ = false;
     bool isAnalyzerPlaying_ = false;
     bool isRefreshMovingPhoto_ = false;
     bool isRefreshMovingPhotoPlaying_ = false;

@@ -37,6 +37,7 @@ struct SurfaceBufferNode {
     OffsetF orgin_ { 0, 0 };
     uint32_t bufferId_ {};
     uint32_t sendTimes_ = 0;
+    bool isOpaque_ = false;
 };
 #endif
 
@@ -193,6 +194,8 @@ void RosenRenderSurface::RegisterSurface() const
     CHECK_NULL_VOID(producerSurface_);
     const std::string usage = GetBufferUsage();
     producerSurface_->SetBufferName(usage);
+    const std::string bufferTypeLeak = GetBufferTypeLeak();
+    producerSurface_->SetBufferTypeLeak(bufferTypeLeak);
     auto* surfaceUtils = SurfaceUtils::GetInstance();
     CHECK_NULL_VOID(surfaceUtils);
     auto ret = surfaceUtils->Add(producerSurface_->GetUniqueId(), producerSurface_);
@@ -342,7 +345,7 @@ void RosenRenderSurface::DrawBuffer(int32_t width, int32_t height)
     CHECK_NULL_VOID(rsNode);
     rsNode->DrawOnNode(
 #ifndef USE_ROSEN_DRAWING
-        Rosen::RSModifierType::CONTENT_STYLE, [surfaceNode](const std::shared_ptr<SkCanvas>& canvas) {
+        Rosen::ModifierNG::RSModifierType::CONTENT_STYLE, [surfaceNode](const std::shared_ptr<SkCanvas>& canvas) {
             CHECK_NULL_VOID(canvas);
             Rosen::RSSurfaceBufferInfo info { surfaceNode->buffer_, surfaceNode->orgin_.GetX(),
                 surfaceNode->orgin_.GetY(), surfaceNode->buffer_->GetSurfaceBufferWidth(),
@@ -351,7 +354,7 @@ void RosenRenderSurface::DrawBuffer(int32_t width, int32_t height)
             CHECK_NULL_VOID(recordingCanvas);
             recordingCanvas->DrawSurfaceBuffer(info);
 #else
-        Rosen::RSModifierType::CONTENT_STYLE,
+        Rosen::ModifierNG::RSModifierType::CONTENT_STYLE,
         [surfaceNode](const std::shared_ptr<RSCanvas>& canvas) {
             CHECK_NULL_VOID(canvas);
             Rosen::DrawingSurfaceBufferInfo info { surfaceNode->buffer_, surfaceNode->orgin_.GetX(),
@@ -493,6 +496,7 @@ void RosenRenderSurface::ConsumeXComponentBuffer()
     auto surfaceNode = std::make_shared<SurfaceBufferNode>(surfaceBuffer, acquireFence, orgin_);
     CHECK_NULL_VOID(surfaceNode);
     surfaceNode->bufferId_ = surfaceBuffer->GetSeqNum();
+    surfaceNode->isOpaque_ = isOpaque_;
     InsertSurfaceNode(surfaceNode);
     ACE_SCOPED_TRACE("ConsumeXComponentBuffer[id:%u][sendTimes:%d][size:%u]", surfaceNode->bufferId_,
         surfaceNode->sendTimes_, static_cast<uint32_t>(buffersToDraw_.size()));
@@ -586,7 +590,8 @@ void RosenRenderSurface::DrawBufferForXComponent(
         ? GraphicTransformType::GRAPHIC_ROTATE_NONE
         : surfaceNode->buffer_->GetSurfaceBufferTransform();
     Rosen::DrawingSurfaceBufferInfo info { surfaceNode->buffer_, offsetX, offsetY, static_cast<int32_t>(width),
-        static_cast<int32_t>(height), getpid(), GetUniqueIdNum(), surfaceNode->acquireFence_, transform };
+        static_cast<int32_t>(height), getpid(), GetUniqueIdNum(), surfaceNode->acquireFence_, transform, {},
+        surfaceNode->sendTimes_ > 1 ? isOpaque_.load() : surfaceNode->isOpaque_ };
     recordingCanvas.DrawSurfaceBuffer(info);
 #endif
 }
@@ -615,7 +620,8 @@ void RosenRenderSurface::RegisterBufferCallback()
 #endif
 }
 
-void RosenRenderSurface::ReleaseSurfaceBufferById(uint32_t bufferId)
+#ifdef OHOS_PLATFORM
+void RosenRenderSurface::ReleaseSurfaceBufferById(uint32_t bufferId, sptr<SyncFence> fence)
 {
     std::lock_guard<std::mutex> lock(surfaceNodeMutex_);
     auto iter = buffersToDraw_.begin();
@@ -629,6 +635,7 @@ void RosenRenderSurface::ReleaseSurfaceBufferById(uint32_t bufferId)
             ACE_SCOPED_TRACE(
                 "ReleaseXComponentBuffer[id:%u][sendTimes:%d][isLast:%d]", bufferId, surfaceNode->sendTimes_, isLast);
             if (--surfaceNode->sendTimes_ <= 0 && !isLast) {
+                surfaceNode->releaseFence_ = fence;
                 consumerSurface_->ReleaseBuffer(surfaceNode->buffer_, surfaceNode->releaseFence_);
                 buffersToDraw_.erase(iter);
             }
@@ -638,6 +645,7 @@ void RosenRenderSurface::ReleaseSurfaceBufferById(uint32_t bufferId)
         }
     }
 }
+#endif
 
 void RosenRenderSurface::SetIsUniRender(bool isUniRender)
 {
@@ -731,6 +739,12 @@ void RosenRenderSurface::OnWindowStateChange(bool isShow)
     }
 }
 
+void RosenRenderSurface::SetSurfaceBufferOpaque(bool isOpaque)
+{
+    isOpaque_ = isOpaque;
+    MarkDirtyIfNeeded();
+}
+
 void DrawBufferListener::OnBufferAvailable()
 {
     auto renderSurface = renderSurface_.Upgrade();
@@ -745,16 +759,20 @@ void DrawBufferListener::OnBufferAvailable()
 #ifdef OHOS_PLATFORM
 void XComponentSurfaceBufferCallback::OnFinish(const Rosen::FinishCallbackRet& ret)
 {
-    ACE_SCOPED_TRACE(
-        "SurfaceBufferCallback::OnFinish[uid:%" PRIu64 "][size:%zu]", ret.uid, ret.surfaceBufferIds.size());
+    ACE_SCOPED_TRACE("SurfaceBufferCallback::OnFinish[uid:%" PRIu64 "][size:%zu] isUniRender:[%d]", ret.uid,
+        ret.surfaceBufferIds.size(), ret.isUniRender);
     auto renderSurface = renderSurface_.Upgrade();
     CHECK_NULL_VOID(renderSurface);
     if (ret.uid != renderSurface->GetUniqueIdNum()) {
         return;
     }
     if (ret.isUniRender) {
-        for (const auto& bufferId : ret.surfaceBufferIds) {
-            renderSurface->ReleaseSurfaceBufferById(bufferId);
+        auto surfaceBufferIds = ret.surfaceBufferIds;
+        auto releaseFences = ret.releaseFences;
+        auto idIter = surfaceBufferIds.begin();
+        auto fenceIter = releaseFences.begin();
+        for (; idIter != surfaceBufferIds.end() && fenceIter != releaseFences.end(); ++idIter, ++fenceIter) {
+            renderSurface->ReleaseSurfaceBufferById(*idIter, *fenceIter);
         }
     } else {
         renderSurface->ReleaseSurfaceBufferForRT(ret);

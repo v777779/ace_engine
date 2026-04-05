@@ -13,40 +13,55 @@
  * limitations under the License.
  */
 
-import { SerializerBase, runtimeType, RuntimeType } from "@koalaui/interop"
+import { SerializerBase, runtimeType, RuntimeType, pointer } from "@koalaui/interop"
 import { ArkUIGeneratedNativeModule } from "#components"
-import { ArkImageComponent, ResourceStr, ImageContent, ImageAIOptions } from "#generated"
+import { ArkImageComponent, ResourceStr, ImageContent, ImageAIOptions, ArkImagePeer, ImageErrorCallback, ImageError } from "#generated"
 import { default as image } from "@ohos.multimedia.image"
+import { BusinessError } from '#external'
 import { Resource } from "global.resource"
 import { DrawableDescriptor } from "@ohos.arkui.drawableDescriptor"
-import { DrawableDescriptor_serializer, image_PixelMap_serializer, Resource_serializer, ImageAIOptions_serializer } from "#generated"
+import { ImageAIOptions_serializer } from "#generated"
+import { image_PixelMap_serializer } from "./../framework/ohos.multimedia.image"
+import { global_resource_Resource_serializer } from './../framework/resource'
+import { DrawableDescriptor_serializer } from "./../framework/ohos.arkui.drawableDescriptor"
+import { ArkUIAniModule } from "arkui.ani";
+import { int32 } from "@koalaui/common";
+import { ObserveSingleton } from "../stateManagement/base/observeSingleton"
+
+class ImageErrorImpl implements ImageError {
+    componentWidth: int32;
+    componentHeight: int32;
+    message: string = "";
+    error?: BusinessError;
+    constructor() { }
+}
 
 export class ImageOpsHandWritten {
     static hookImageSetImageOptionsImpl(component: ArkImageComponent,
         src: image.PixelMap | ResourceStr | DrawableDescriptor | ImageContent, imageAIOptions?: ImageAIOptions): void {
         const thisSerializer: SerializerBase = SerializerBase.hold()
         if (src instanceof image.PixelMap) {
-            thisSerializer.writeInt8((0).toChar())
+            thisSerializer.writeInt8((0).toByte())
             const srcForIdx0 = src as image.PixelMap
             image_PixelMap_serializer.write(thisSerializer, srcForIdx0)
         } else if (src instanceof ResourceStr) {
-            thisSerializer.writeInt8((1).toChar())
+            thisSerializer.writeInt8((1).toByte())
             const srcForIdx1 = src as ResourceStr
             if (srcForIdx1 instanceof string) {
-                thisSerializer.writeInt8((0).toChar())
+                thisSerializer.writeInt8((0).toByte())
                 const srcForIdx1ForIdx0 = srcForIdx1 as string
                 thisSerializer.writeString(srcForIdx1ForIdx0)
             } else if (srcForIdx1 instanceof Resource) {
-                thisSerializer.writeInt8((1).toChar())
+                thisSerializer.writeInt8((1).toByte())
                 const srcForIdx1ForIdx1 = srcForIdx1 as Resource
-                Resource_serializer.write(thisSerializer, srcForIdx1ForIdx1)
+                global_resource_Resource_serializer.write(thisSerializer, srcForIdx1ForIdx1)
             }
         } else if (src instanceof DrawableDescriptor) {
-            thisSerializer.writeInt8((2).toChar())
+            thisSerializer.writeInt8((2).toByte())
             const srcForIdx2 = src as DrawableDescriptor
             DrawableDescriptor_serializer.write(thisSerializer, srcForIdx2)
         } else if (src instanceof ImageContent) {
-            thisSerializer.writeInt8((3).toChar())
+            thisSerializer.writeInt8((3).toByte())
             const srcForIdx3 = src as ImageContent
             thisSerializer.writeInt32(srcForIdx3.valueOf())
         }
@@ -84,5 +99,25 @@ export class ImageOpsHandWritten {
         ArkUIGeneratedNativeModule._ImageInterface_setImageOptions(peerPtr, thisSerializer.asBuffer(),
             thisSerializer.length())
         thisSerializer.release()
+    }
+
+    static hookImageOnErrorImpl(receiver: ArkImageComponent | ArkImagePeer, value: ImageErrorCallback | undefined): void {
+        let peerPtr: pointer;
+        if (receiver instanceof ArkImageComponent) {
+            peerPtr = receiver.getPeer().peer.ptr
+        } else if (receiver instanceof ArkImagePeer) {
+            peerPtr = receiver.peer.ptr
+        }
+        if (peerPtr === undefined) {
+            return;
+        }
+        const wrappedErrorCallback = (error: ImageError) => {
+            ObserveSingleton.instance.applyTaskDelayMutableStateChange(() => {
+                if (value) {
+                    value(error)
+                }
+            });
+        };
+        ArkUIAniModule._Image_SetOnErrorCallback(peerPtr, wrappedErrorCallback);
     }
 }

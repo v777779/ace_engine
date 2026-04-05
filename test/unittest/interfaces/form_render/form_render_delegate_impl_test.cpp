@@ -14,6 +14,8 @@
  */
 
 #include "gtest/gtest.h"
+#include "appexecfwk_errors.h"
+#include "form_mgr_errors.h"
 #include "interfaces/inner_api/form_render/include/form_renderer_delegate_impl.h"
 
 using namespace testing;
@@ -60,7 +62,7 @@ public:
  * @tc.desc: Test OnSurfaceCreate() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_001, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_001, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateImplTest_001 start";
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
@@ -69,20 +71,23 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_001, TestSize.Le
     formJsInfo.bundleName = "bundleName";
     formJsInfo.moduleName = "moduleName";
     formJsInfo.formId = -1;
-    EXPECT_EQ(renderDelegate->OnSurfaceCreate(nullptr, formJsInfo, want), ERR_NULL_OBJECT);
+    EXPECT_EQ(renderDelegate->OnSurfaceCreate(nullptr, formJsInfo, want), ERR_APPEXECFWK_FORM_INVALID_PARAM);
 
     std::string surfaceNodeName = "ArkTSCardNode";
     struct Rosen::RSSurfaceNodeConfig surfaceNodeConfig = { .SurfaceNodeName = surfaceNodeName };
     std::shared_ptr<Rosen::RSSurfaceNode> rsNode = OHOS::Rosen::RSSurfaceNode::Create(surfaceNodeConfig, true);
-    EXPECT_EQ(renderDelegate->OnSurfaceCreate(rsNode, formJsInfo, want), ERR_INVALID_DATA);
+    EXPECT_EQ(renderDelegate->OnSurfaceCreate(rsNode, formJsInfo, want), ERR_APPEXECFWK_FORM_INVALID_PARAM);
 
     formJsInfo.formId = 1;
-    EXPECT_EQ(renderDelegate->OnSurfaceCreate(rsNode, formJsInfo, want), ERR_INVALID_DATA);
+    EXPECT_EQ(renderDelegate->OnSurfaceCreate(rsNode, formJsInfo, want), ERR_APPEXECFWK_FORM_COMMON_CODE);
 
     std::string onSurfaceCreateKey;
-    auto onSurfaceCreate = [&onSurfaceCreateKey](const std::shared_ptr<Rosen::RSSurfaceNode>& /* surfaceNode */,
-        const OHOS::AppExecFwk::FormJsInfo& /* info */,
-        const AAFwk::Want& /* want */) { onSurfaceCreateKey = CHECK_KEY; };
+    auto onSurfaceCreate = [&onSurfaceCreateKey](const std::shared_ptr<Rosen::RSSurfaceNode> & /* surfaceNode */,
+                               const OHOS::AppExecFwk::FormJsInfo & /* info */,
+                               const AAFwk::Want & /* want */) -> int32_t {
+        onSurfaceCreateKey = CHECK_KEY;
+        return ERR_OK;
+    };
     renderDelegate->SetSurfaceCreateEventHandler(std::move(onSurfaceCreate));
     EXPECT_EQ(renderDelegate->OnSurfaceCreate(rsNode, formJsInfo, want), ERR_OK);
     GTEST_LOG_(INFO) << "FormRenderDelegateImplTest_001 end";
@@ -93,7 +98,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_001, TestSize.Le
  * @tc.desc: Test OnActionEvent() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_002, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_002, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateImplTest_002 start";
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
@@ -111,11 +116,11 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_002, TestSize.Le
  * @tc.desc: Test OnError() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_003, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_003, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateImplTest_003 start";
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
-    EXPECT_EQ(renderDelegate->OnError("", ""), ERR_INVALID_DATA);
+    EXPECT_EQ(renderDelegate->OnError("", ""), ERR_APPEXECFWK_FORM_COMMON_CODE);
 
     std::string onErrorEventKey;
     auto onError = [&onErrorEventKey](
@@ -130,7 +135,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_003, TestSize.Le
  * @tc.desc: Test OnSurfaceChange() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_004, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_004, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateImplTest_004 start";
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
@@ -149,12 +154,12 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_004, TestSize.Le
  * @tc.desc: Test OnSurfaceDetach() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_005, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_005, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateImplTest_005 start";
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
     uint16_t surfaceId= 11111;
-    EXPECT_EQ(renderDelegate->OnSurfaceDetach(surfaceId), ERR_INVALID_DATA);
+    EXPECT_EQ(renderDelegate->OnSurfaceDetach(surfaceId), ERR_APPEXECFWK_FORM_COMMON_CODE);
 
     std::string onSurfaceDetachEventKey;
     auto onSurfaceDetach = [&onSurfaceDetachEventKey]() { onSurfaceDetachEventKey = CHECK_KEY; };
@@ -168,7 +173,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_005, TestSize.Le
  * @tc.desc: Test OnFormLinkInfoUpdate() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_006, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_006, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateImplTest_006 start";
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
@@ -188,7 +193,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_006, TestSize.Le
  * @tc.desc: Test OnGetRectRelativeToWindow() function.
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_007, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_007, TestSize.Level0)
 {
     GTEST_LOG_(INFO) << "FormRenderDelegateImplTest_007 start";
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
@@ -210,7 +215,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_007, TestSize.Le
  * @tc.desc: test FormRendererDelegateImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_008, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_008, TestSize.Level0)
 {
     auto renderDelegate = SurfaceCreateOnFormRendererDelegateImpl();
     uint64_t surfaceId = 1;
@@ -234,7 +239,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_008, TestSize.Le
  * @tc.desc: test FormRendererDelegateImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_009, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_009, TestSize.Level0)
 {
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
     constexpr uint32_t code = static_cast<uint32_t>(IFormRendererDelegate::Message::ON_SURFACE_CREATE);
@@ -244,7 +249,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_009, TestSize.Le
     MessageParcel reply;
     MessageOption option;
     auto ans = renderDelegate->OnRemoteRequest(code, data, reply, option);
-    EXPECT_EQ(ans, ERR_INVALID_VALUE);
+    EXPECT_EQ(ans, ERR_APPEXECFWK_PARCEL_ERROR);
 }
 
 /**
@@ -252,7 +257,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_009, TestSize.Le
  * @tc.desc: test FormRendererDelegateImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_010, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_010, TestSize.Level0)
 {
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
     constexpr uint32_t code = static_cast<uint32_t>(IFormRendererDelegate::Message::ON_SURFACE_CREATE);
@@ -266,7 +271,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_010, TestSize.Le
     MessageParcel reply;
     MessageOption option;
     auto ans = renderDelegate->OnRemoteRequest(code, data, reply, option);
-    EXPECT_EQ(ans, ERR_INVALID_VALUE);
+    EXPECT_EQ(ans, ERR_APPEXECFWK_PARCEL_ERROR);
 }
 
 /**
@@ -274,7 +279,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_010, TestSize.Le
  * @tc.desc: test FormRendererDelegateImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_011, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_011, TestSize.Level0)
 {
     sptr<FormRendererDelegateImpl> renderDelegate = new FormRendererDelegateImpl();
     constexpr uint32_t code = static_cast<uint32_t>(IFormRendererDelegate::Message::ON_SURFACE_CREATE);
@@ -290,7 +295,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_011, TestSize.Le
     MessageParcel reply;
     MessageOption option;
     auto ans = renderDelegate->OnRemoteRequest(code, data, reply, option);
-    EXPECT_EQ(ans, ERR_INVALID_VALUE);
+    EXPECT_EQ(ans, ERR_APPEXECFWK_PARCEL_ERROR);
 }
 
 /**
@@ -298,7 +303,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_011, TestSize.Le
  * @tc.desc: test FormRendererDelegateImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_012, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_012, TestSize.Level0)
 {
     auto renderDelegate = SurfaceCreateOnFormRendererDelegateImpl();
     uint64_t surfaceId = 2;
@@ -314,7 +319,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_012, TestSize.Le
     MessageParcel reUseReply;
     MessageOption reUseOption;
     auto reUseAns = renderDelegate->OnRemoteRequest(reUseCode, reUseData, reUseReply, reUseOption);
-    EXPECT_EQ(reUseAns, ERR_INVALID_VALUE);
+    EXPECT_EQ(reUseAns, ERR_APPEXECFWK_FORM_SURFACE_NODE_NOT_FOUND);
 }
 
 /**
@@ -322,7 +327,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_012, TestSize.Le
  * @tc.desc: test FormRendererDelegateImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_013, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_013, TestSize.Level0)
 {
     auto renderDelegate = SurfaceCreateOnFormRendererDelegateImpl();
     uint64_t surfaceId = 1;
@@ -334,7 +339,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_013, TestSize.Le
     MessageParcel reUseReply;
     MessageOption reUseOption;
     auto reUseAns = renderDelegate->OnRemoteRequest(reUseCode, reUseData, reUseReply, reUseOption);
-    EXPECT_EQ(reUseAns, ERR_INVALID_VALUE);
+    EXPECT_EQ(reUseAns, ERR_APPEXECFWK_PARCEL_ERROR);
 }
 
 /**
@@ -342,7 +347,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_013, TestSize.Le
  * @tc.desc: test FormRendererDelegateImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_014, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_014, TestSize.Level0)
 {
     auto renderDelegate = SurfaceCreateOnFormRendererDelegateImpl();
     uint64_t surfaceId = 2;
@@ -356,7 +361,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_014, TestSize.Le
     MessageParcel reUseReply;
     MessageOption reUseOption;
     auto reUseAns = renderDelegate->OnRemoteRequest(reUseCode, reUseData, reUseReply, reUseOption);
-    EXPECT_EQ(reUseAns, ERR_INVALID_VALUE);
+    EXPECT_EQ(reUseAns, ERR_APPEXECFWK_FORM_SURFACE_NODE_NOT_FOUND);
 }
 
 /**
@@ -364,7 +369,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_014, TestSize.Le
  * @tc.desc: test FormRendererDelegateImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_015, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_015, TestSize.Level0)
 {
     auto renderDelegate = SurfaceCreateOnFormRendererDelegateImpl();
     uint64_t surfaceId = 2;
@@ -378,7 +383,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_015, TestSize.Le
     MessageParcel reUseReply;
     MessageOption reUseOption;
     auto reUseAns = renderDelegate->OnRemoteRequest(reUseCode, reUseData, reUseReply, reUseOption);
-    EXPECT_EQ(reUseAns, ERR_INVALID_VALUE);
+    EXPECT_EQ(reUseAns, ERR_APPEXECFWK_FORM_SURFACE_NODE_NOT_FOUND);
 }
 
 /**
@@ -386,7 +391,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_015, TestSize.Le
  * @tc.desc: test FormRendererDelegateImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_016, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_016, TestSize.Level0)
 {
     auto renderDelegate = SurfaceCreateOnFormRendererDelegateImpl();
     uint64_t surfaceId = 1;
@@ -406,7 +411,7 @@ HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_016, TestSize.Le
  * @tc.desc: test FormRendererDelegateImpl OnRemoteRequest event
  * @tc.type: FUNC
  */
-HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_017, TestSize.Level1)
+HWTEST_F(FormRenderDelegateImplTest, FormRenderDelegateImplTest_017, TestSize.Level0)
 {
     auto renderDelegate = SurfaceCreateOnFormRendererDelegateImpl();
     uint64_t surfaceId = 1;

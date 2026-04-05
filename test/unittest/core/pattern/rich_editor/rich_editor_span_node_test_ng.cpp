@@ -14,12 +14,12 @@
  */
 
 #include "test/unittest/core/pattern/rich_editor/rich_editor_common_test_ng.h"
-#include "test/mock/core/common/mock_udmf.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_theme.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_model_ng.h"
 
@@ -81,7 +81,7 @@ void RichEditorSpanNodeTestNg::TearDownTestSuite()
  * @tc.desc: test CreateTextSpanNode
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorSpanNodeTestNg, RichEditorPatternTestCreateTextSpanNode001, TestSize.Level1)
+HWTEST_F(RichEditorSpanNodeTestNg, RichEditorPatternTestCreateTextSpanNode001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -125,7 +125,7 @@ HWTEST_F(RichEditorSpanNodeTestNg, RichEditorPatternTestCreateTextSpanNode001, T
  * @tc.desc: test InsertValueToSpanNode
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorSpanNodeTestNg, InsertValueToSpanNode001, TestSize.Level1)
+HWTEST_F(RichEditorSpanNodeTestNg, InsertValueToSpanNode001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -152,7 +152,7 @@ HWTEST_F(RichEditorSpanNodeTestNg, InsertValueToSpanNode001, TestSize.Level1)
  * @tc.desc: test RemoveEmptySpanNodes
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes001, TestSize.Level1)
+HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -185,7 +185,7 @@ HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes001, TestSize.Level1)
  * @tc.desc: test RichEditorPattern RemoveEmptySpanNodes
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes002, TestSize.Level1)
+HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -200,7 +200,7 @@ HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes002, TestSize.Level1)
  * @tc.desc: test RemoveEmptySpanNodes
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes003, TestSize.Level1)
+HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -229,13 +229,16 @@ HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes003, TestSize.Level1)
  * @tc.desc: test RemoveEmptySpanNodes
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes004, TestSize.Level1)
+HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes004, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
     auto contentNode = richEditorNode_->GetChildAtIndex(0);
     ASSERT_NE(contentNode, nullptr);
+    /**
+     * @tc.steps: step1. init node
+     */
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
     auto newFrameNode = SpanNode::GetOrCreateSpanNode(V2::IMAGE_ETS_TAG, nodeId);
@@ -245,6 +248,9 @@ HWTEST_F(RichEditorSpanNodeTestNg, RemoveEmptySpanNodes004, TestSize.Level1)
     contentNode->children_.push_back(newAddFrameNode);
     richEditorPattern->RemoveEmptySpanNodes();
     bool emptySpanNodeRemoved = true;
+    /**
+     * @tc.steps: step2. test remove empty node
+     */
     for (const auto& child : contentNode->children_) {
         auto spanNode = AceType::DynamicCast<SpanNode>(child);
         if (spanNode && spanNode->GetSpanItem()->content.empty()) {

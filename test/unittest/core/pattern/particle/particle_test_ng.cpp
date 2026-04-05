@@ -16,10 +16,11 @@
 #include "gtest/gtest.h"
 #define protected public
 #define private public
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "ui/properties/ui_material.h"
 
 #include "core/components_ng/pattern/particle/particle_model_ng.h"
 #include "core/components_ng/pattern/particle/particle_pattern.h"
@@ -373,6 +374,26 @@ HWTEST_F(ParticleTestNg, ParticleToJsonValue001, TestSize.Level1)
     EXPECT_EQ(type, "ParticleType.POINT");
     EXPECT_EQ(count, "5");
     EXPECT_EQ(radius, "6.000000");
+}
+
+/**
+ * @tc.name: ParticleResObj002
+ * @tc.desc: Test CreateParticleResObj of particle
+ * @tc.type: FUNC
+ */
+HWTEST_F(ParticleTestNg, ParticleResObj002, TestSize.Level1)
+{
+    auto particleNode = FrameNode::GetOrCreateFrameNode(
+        V2::PARTICLE_ETS_TAG, 1, [count = 1]() { return AceType::MakeRefPtr<ParticlePattern>(count); });
+    ASSERT_NE(particleNode, nullptr);
+    auto pattern = AceType::DynamicCast<ParticlePattern>(particleNode->GetPattern());
+    ASSERT_NE(pattern, nullptr);
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);;
+    auto&& updateFunc = [](const RefPtr<ResourceObject>& resObj) {};
+    updateFunc(resObj);
+    pattern->AddResObj("particle.Update", resObj, std::move(updateFunc));
+    std::string particle = pattern->GetResCacheMapByKey("particle.Update");
+    EXPECT_EQ(particle, "");
 }
 
 /**
@@ -783,5 +804,126 @@ HWTEST_F(ParticleTestNg, ParticleTestAnnulus001, TestSize.Level1)
     }
     particlePattern->updateEmitterPosition(emitterVector);
     EXPECT_EQ(particlePattern->GetEmitterProperty().size(), 1);
+}
+
+/**
+ * @tc.name: ParticleTestAnnulusToJson001
+ * @tc.desc: Test GetEmitterJson
+ * @tc.type: FUNC
+ */
+HWTEST_F(ParticleTestNg, ParticleTestAnnulusToJson001, TestSize.Level1)
+{
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::PARTICLE_ETS_TAG, 1, [count = 1]() { return AceType::MakeRefPtr<ParticlePattern>(count); });
+    auto pattern = AceType::DynamicCast<ParticlePattern>(frameNode->GetPattern());
+    EXPECT_NE(pattern, nullptr);
+
+    EmitterProperty emitter;
+    emitter.index = 0;
+    emitter.position = { 3, 7 };
+    emitter.size = { 140, 300 };
+    emitter.emitRate = 5;
+    auto defaultCenterValue = CalcDimension(0.5, DimensionUnit::PERCENT);
+    std::pair<CalcDimension, CalcDimension> center = {
+        defaultCenterValue, defaultCenterValue
+    };
+    CalcDimension innerRadiusValue = CalcDimension(30, DimensionUnit::VP);
+    CalcDimension outerRadiusValue = CalcDimension(50, DimensionUnit::VP);
+    auto startAngle = 90;
+    auto endAngle = 270;
+    emitter.annulusRegion = {
+        center, innerRadiusValue, outerRadiusValue, startAngle, endAngle
+    };
+
+    std::vector<EmitterProperty> emitterVector;
+    emitterVector.push_back(emitter);
+    InspectorFilter testFilter;
+    testFilter.AddFilterAttr("focusable");
+    auto jsonValue = std::make_unique<JsonValue>();
+    pattern->updateEmitterPosition(emitterVector);
+    pattern->ToJsonValue(jsonValue, testFilter);
+    EXPECT_EQ(pattern->GetEmitterProperty().size(), 1);
+}
+
+/**
+ * @tc.name: UpdateRippleFieldsTest001
+ * @tc.desc: Test Particle Pattern func "UpdateRippleFields".
+ * @tc.type: FUNC
+ */
+HWTEST_F(ParticleTestNg, UpdateRippleFieldsTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode and get pattern.
+     */
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::PARTICLE_ETS_TAG, 1, [count = 1]() { return AceType::MakeRefPtr<ParticlePattern>(count); });
+    auto pattern = AceType::DynamicCast<ParticlePattern>(frameNode->GetPattern());
+    EXPECT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. create rippleFields.
+     */
+    ParticleRippleField rippleField;
+    rippleField.amplitude = 120.0f;
+    rippleField.wavelength = 360.0f;
+    rippleField.waveSpeed = 240.0f;
+    rippleField.attenuation = 0.1f;
+    Dimension centerX = Dimension(200, DimensionUnit::VP);
+    Dimension centerY = Dimension(300, DimensionUnit::VP);
+    rippleField.center = { centerX, centerY };
+    rippleField.region.shape = ParticleDisturbanceShapeType::RECT;
+    Dimension positionX = Dimension(0, DimensionUnit::VP);
+    Dimension positionY = Dimension(20, DimensionUnit::VP);
+    rippleField.region.position = { positionX, positionY };
+    Dimension sizeWidth = Dimension(250, DimensionUnit::VP);
+    Dimension sizeHeight = Dimension(250, DimensionUnit::VP);
+    rippleField.region.size = { sizeWidth, sizeHeight };
+    std::vector<ParticleRippleField> rippleVector;
+    rippleVector.push_back(rippleField);
+
+    /**
+     * @tc.steps: step2. call the "UpdateRippleFields" function.
+     */
+    pattern->UpdateRippleFields(rippleVector);
+    EXPECT_EQ(pattern->GetRippleField().size(), 1);
+    EXPECT_EQ(pattern->GetRippleField(), rippleVector);
+}
+
+/**
+ * @tc.name: UpdateVelocityFieldsTest001
+ * @tc.desc: Test Particle Pattern func "UpdateVelocityFields".
+ * @tc.type: FUNC
+ */
+HWTEST_F(ParticleTestNg, UpdateVelocityFieldsTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create frameNode and get pattern.
+     */
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        V2::PARTICLE_ETS_TAG, 1, [count = 1]() { return AceType::MakeRefPtr<ParticlePattern>(count); });
+    auto pattern = AceType::DynamicCast<ParticlePattern>(frameNode->GetPattern());
+    EXPECT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. create velocityField.
+     */
+    ParticleVelocityField velocityField;
+    velocityField.velocity = { 15.0f, 45.0f };
+    velocityField.region.shape = ParticleDisturbanceShapeType::RECT;
+    Dimension positionX = Dimension(0, DimensionUnit::VP);
+    Dimension positionY = Dimension(20, DimensionUnit::VP);
+    velocityField.region.position = { positionX, positionY };
+    Dimension sizeWidth = Dimension(250, DimensionUnit::VP);
+    Dimension sizeHeight = Dimension(250, DimensionUnit::VP);
+    velocityField.region.size = { sizeWidth, sizeHeight };
+    std::vector<ParticleVelocityField> velocityVector;
+    velocityVector.push_back(velocityField);
+
+    /**
+     * @tc.steps: step2. call the "UpdateVelocityFields" function.
+     */
+    pattern->UpdateVelocityFields(velocityVector);
+    EXPECT_EQ(pattern->GetVelocityField().size(), 1);
+    EXPECT_EQ(pattern->GetVelocityField(), velocityVector);
 }
 } // namespace OHOS::Ace::NG

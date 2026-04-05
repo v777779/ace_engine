@@ -22,9 +22,10 @@
 #define protected public
 #include "common_constants.h"
 #include "mock_schedule_task.h"
-#include "test/mock/core/common/mock_font_manager.h"
-#include "test/mock/core/common/mock_frontend.h"
+#include "test/mock/frameworks/core/common/mock_font_manager.h"
+#include "test/mock/frameworks/core/common/mock_frontend.h"
 
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace {
@@ -61,6 +62,11 @@ const int64_t RENDER_EVENT_ID = 10;
 constexpr int32_t EXCEPTIONAL_CURSOR = 99;
 constexpr int8_t RENDERINGMODE_FULL_COLOR = 0;
 constexpr int8_t RENDERINGMODE_SINGLE_COLOR = 1;
+constexpr uint32_t AI_CALL_SUCCESS = 0;
+constexpr uint32_t AI_CALLER_INVALID = 1;
+constexpr uint32_t AI_CALL_FUNCNAME_INVALID = 2;
+constexpr uint32_t AI_CALL_NODE_INVALID = 3;
+constexpr uint32_t AI_CALL_ENV_INVALID = 4;
 } // namespace
 
 class PipelineContextTestNg : public testing::Test {
@@ -82,6 +88,29 @@ private:
     static RefPtr<CustomNode> customNode_;
     static RefPtr<PipelineContext> context_;
 };
+
+class PipelineContextFourTestNg : public testing::Test {
+    public:
+    static void ResetEventFlag(int32_t testFlag);
+
+    static bool GetEventFlag(int32_t testFlag);
+
+    static void SetUpTestSuite();
+
+    static void TearDownTestSuite();
+
+    static void CreateCycleDirtyNode(int cycle, bool& flagUpdate);
+
+    static void AssertValidContext();
+
+private:
+    static ElementIdType frameNodeId_;
+    static ElementIdType customNodeId_;
+    static RefPtr<FrameNode> frameNode_;
+    static RefPtr<CustomNode> customNode_;
+    static RefPtr<PipelineContext> context_;
+};
+
 } // namespace NG
 } // namespace OHOS::Ace
 #endif // TEST_UNITTEST_CORE_PIPELINE_PIPELINE_CONTEXT_TEST_NG_H

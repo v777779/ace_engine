@@ -15,7 +15,9 @@
 
 #include "core/components_ng/pattern/indexer/indexer_layout_algorithm.h"
 
+#include "core/components_ng/pattern/linear_layout/linear_layout_property.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
+#include "core/components_ng/property/position_property.h"
 
 namespace OHOS::Ace::NG {
 
@@ -62,10 +64,6 @@ void IndexerLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
         heightLayoutPolicy = layoutPolicy.value().heightLayoutPolicy_.value_or(LayoutCalPolicy::NO_MATCH);
     }
     auto parentIdealSize = layoutConstraint.parentIdealSize;
-    if (widthLayoutPolicy == LayoutCalPolicy::MATCH_PARENT && parentIdealSize.Width().has_value()) {
-        // When the width parameter is MATCH_PARENT, set the width to be equal to the parent's width.
-        frameWidth = layoutConstraint.parentIdealSize.Width().value();
-    }
     if (widthLayoutPolicy == LayoutCalPolicy::FIX_AT_IDEAL_SIZE) {
         // When the width parameter is FIX_AT_IDEAL_SIZE, reset the width adaptive content area
         frameWidth = contentWidth + horizontalPadding;

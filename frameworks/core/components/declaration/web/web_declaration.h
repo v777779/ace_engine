@@ -52,10 +52,15 @@ struct WebEvent : Event {
     EventMarker nativeEmbedLifecycleChangeId;
     EventMarker nativeEmbedVisibilityChangeId;
     EventMarker nativeEmbedGestureEventId;
+    EventMarker nativeEmbedObjectParamChangeId;
     EventMarker renderProcessNotRespondingId;
     EventMarker renderProcessRespondingId;
     EventMarker viewportFitChangedId;
     EventMarker adsBlockedEventId;
+    EventMarker onLoadStartedEventId;
+    EventMarker onLoadFinishedEventId;
+    EventMarker cameraCaptureStateChangedId;
+    EventMarker microphoneCaptureStateChangedId;
 };
 
 struct WebMethod : Method {
@@ -119,6 +124,30 @@ public:
     {
         auto& event = static_cast<WebEvent&>(GetEvent(EventTag::SPECIALIZED_EVENT));
         return event.pageFinishEventId;
+    }
+
+    void SetOnLoadStartedEventId(const EventMarker& onLoadStartedEventId)
+    {
+        auto& event = MaybeResetEvent<WebEvent>(EventTag::SPECIALIZED_EVENT);
+        event.onLoadStartedEventId = onLoadStartedEventId;
+    }
+
+    const EventMarker& GetOnLoadStartedEventId() const
+    {
+        auto& event = static_cast<WebEvent&>(GetEvent(EventTag::SPECIALIZED_EVENT));
+        return event.onLoadStartedEventId;
+    }
+
+    void SetOnLoadFinishedEventId(const EventMarker& onLoadFinishedEventId)
+    {
+        auto& event = MaybeResetEvent<WebEvent>(EventTag::SPECIALIZED_EVENT);
+        event.onLoadFinishedEventId = onLoadFinishedEventId;
+    }
+
+    const EventMarker& GetOnLoadFinishedEventId() const
+    {
+        auto& event = static_cast<WebEvent&>(GetEvent(EventTag::SPECIALIZED_EVENT));
+        return event.onLoadFinishedEventId;
     }
 
     void SetTitleReceiveEventId(const EventMarker& titleReceiveEventId)
@@ -373,6 +402,18 @@ public:
         return event.nativeEmbedVisibilityChangeId;
     }
     
+    void SetNativeEmbedObjectParamChangeId(const EventMarker& embedObjectParamChangeId)
+    {
+        auto& event = MaybeResetEvent<WebEvent>(EventTag::SPECIALIZED_EVENT);
+        event.nativeEmbedObjectParamChangeId = embedObjectParamChangeId;
+    }
+
+    const EventMarker& GetNativeEmbedObjectParamChangeId() const
+    {
+        auto& event = static_cast<WebEvent&>(GetEvent(EventTag::SPECIALIZED_EVENT));
+        return event.nativeEmbedObjectParamChangeId;
+    }
+
     void SetNativeEmbedGestureEventId(const EventMarker& embedGestureEventId)
     {
         auto& event = MaybeResetEvent<WebEvent>(EventTag::SPECIALIZED_EVENT);
@@ -419,6 +460,30 @@ public:
     {
         auto& event = static_cast<WebEvent&>(GetEvent(EventTag::SPECIALIZED_EVENT));
         return event.viewportFitChangedId;
+    }
+
+    void SetCameraCaptureStateChangedId(const EventMarker& cameraCaptureStateChangedId)
+    {
+        auto& event = MaybeResetEvent<WebEvent>(EventTag::SPECIALIZED_EVENT);
+        event.cameraCaptureStateChangedId = cameraCaptureStateChangedId;
+    }
+
+    const EventMarker& GetCameraCaptureStateChangedId() const
+    {
+        auto& event = static_cast<WebEvent&>(GetEvent(EventTag::SPECIALIZED_EVENT));
+        return event.cameraCaptureStateChangedId;
+    }
+
+    void SetMicrophoneCaptureStateChangedId(const EventMarker& microphoneCaptureStateChangedId)
+    {
+        auto& event = MaybeResetEvent<WebEvent>(EventTag::SPECIALIZED_EVENT);
+        event.microphoneCaptureStateChangedId = microphoneCaptureStateChangedId;
+    }
+
+    const EventMarker& GetMicrophoneCaptureStateChangedId() const
+    {
+        auto& event = static_cast<WebEvent&>(GetEvent(EventTag::SPECIALIZED_EVENT));
+        return event.microphoneCaptureStateChangedId;
     }
 
     void SetAdsBlockedEventId(const EventMarker& adsBlockedEventId)

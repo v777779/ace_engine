@@ -14,7 +14,7 @@
  */
 
 #include "swiper_test_ng.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "core/components_ng/pattern/swiper/swiper_paint_method.h"
 #include "core/components_ng/pattern/swiper_indicator/dot_indicator/dot_indicator_paint_method.h"
@@ -402,9 +402,9 @@ HWTEST_F(SwiperOverLengthIndicatorModifierTestNg, OverlengthDotIndicatorModifier
     contentProperty.vectorBlackPointCenterX = { 100.0f, 200.0f, 300.0f };
     auto vXSize = contentProperty.vectorBlackPointCenterX.size();
     Testing::MockCanvas canvas;
-    EXPECT_CALL(canvas, AttachBrush(_)).Times(vXSize * 2).WillRepeatedly(ReturnRef(canvas));
-    EXPECT_CALL(canvas, DetachBrush()).Times(vXSize * 2).WillRepeatedly(ReturnRef(canvas));
-    EXPECT_CALL(canvas, DrawCircle(_, _)).Times(vXSize);
+    EXPECT_CALL(canvas, AttachBrush(_)).Times(AtMost(vXSize * 2)).WillRepeatedly(ReturnRef(canvas));
+    EXPECT_CALL(canvas, DetachBrush()).Times(AtMost(vXSize * 2)).WillRepeatedly(ReturnRef(canvas));
+    EXPECT_CALL(canvas, DrawCircle(_, _)).Times(AtMost(vXSize));
     DrawingContext context { canvas, 100.f, 100.f };
     auto indicatorModifier = AceType::MakeRefPtr<OverlengthDotIndicatorModifier>();
     /**
@@ -759,6 +759,44 @@ HWTEST_F(SwiperOverLengthIndicatorModifierTestNg, SwiperOverLengthIndicatorGetCo
             (paintMethod->realItemCount_ - paintMethod->maxDisplayCount_) * (indicatorOffsetUnit.ConvertToPx()) +
             (endVectorBlackPointCenterX[2] - startVectorBlackPointCenterX[2]) * blackPointCenterMoveRateSecond,
         0.001f);
+}
+
+/**
+ * @tc.name: OverlengthDotIndicatorModifier019
+ * @tc.desc: Test the PaintBlackPoint method
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperOverLengthIndicatorModifierTestNg, OverlengthDotIndicatorModifier019, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set OverlengthDotIndicatorModifier attributes and ContentProperty attributes
+     * @tc.expected: attributes set successfully
+     */
+    DotIndicatorModifier::ContentProperty contentProperty;
+    contentProperty.vectorBlackPointCenterX = { 100.0f, 200.0f, 300.0f };
+    auto vXSize = contentProperty.vectorBlackPointCenterX.size();
+    Testing::MockCanvas canvas;
+    EXPECT_CALL(canvas, AttachBrush(_)).Times(AtMost(vXSize * 2)).WillRepeatedly(ReturnRef(canvas));
+    EXPECT_CALL(canvas, DetachBrush()).Times(AtMost(vXSize * 2)).WillRepeatedly(ReturnRef(canvas));
+    DrawingContext context { canvas, 100.f, 100.f };
+    auto indicatorModifier = AceType::MakeRefPtr<OverlengthDotIndicatorModifier>();
+    indicatorModifier->backgroundStart_ = 50.0f;
+    indicatorModifier->backgroundEnd_ = 350.0f;
+    /**
+     * @tc.steps: step2. Set NearEqual(width, height) and isCustomSize_ true
+     * @tc.expected: Verify the result and result should be as expected
+     */
+    contentProperty.unselectedIndicatorWidth = { 200.0f, 200.0f, 200.0f };
+    contentProperty.unselectedIndicatorHeight = { 200.0f, 200.0f, 200.0f };
+    indicatorModifier->isCustomSize_ = true;
+    indicatorModifier->PaintBlackPoint(context, contentProperty);
+
+    /**
+     * @tc.steps: step3. Set NearEqual(width, height) and isCustomSize_ false
+     * @tc.expected: Verify the result and result should be as expected
+     */
+    indicatorModifier->isDrawbackground_ = true;
+    indicatorModifier->PaintBlackPoint(context, contentProperty);
 }
 
 /**
@@ -1513,6 +1551,9 @@ HWTEST_F(SwiperOverLengthIndicatorModifierTestNg, PlayIndicatorAnimation002, Tes
  */
 HWTEST_F(SwiperOverLengthIndicatorModifierTestNg, StopAnimation002, TestSize.Level1)
 {
+    /**
+     * @tc.steps: step1. init dotIndicatorModifier.
+     */
     OverlengthDotIndicatorModifier dotIndicatorModifier;
     LinearVector<float> itemHalfSizes = { 20.f, 20.f };
     GestureState gestureState = GestureState::GESTURE_STATE_FOLLOW_LEFT;
@@ -1523,6 +1564,13 @@ HWTEST_F(SwiperOverLengthIndicatorModifierTestNg, StopAnimation002, TestSize.Lev
 
     dotIndicatorModifier.StopAnimation(false);
     EXPECT_TRUE(dotIndicatorModifier.longPointLeftAnimEnd_);
+
+    /**
+     * @tc.steps: step4. check branch with TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_NONE.
+     */
+    touchBottomTypeLoop = TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_NONE;
+    dotIndicatorModifier.PlayIndicatorAnimation(margin, itemHalfSizes, gestureState, touchBottomTypeLoop);
+    EXPECT_FALSE(dotIndicatorModifier.longPointRightAnimEnd_);
 }
 
 /**

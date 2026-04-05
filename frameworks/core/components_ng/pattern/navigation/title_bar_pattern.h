@@ -36,11 +36,13 @@ public:
 
     RefPtr<LayoutProperty> CreateLayoutProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<TitleBarLayoutProperty>();
     }
 
     RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<TitleBarAccessibilityProperty>();
     }
 
@@ -313,7 +315,13 @@ private:
     void AnimateTo(float offset, bool isFullTitleMode = false);
 
     void OnAttachToFrameNode() override;
+    void OnAttachToFrameNodeMultiThread();
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
+    void OnDetachFromFrameNodeMultiThread(FrameNode* frameNode);
+    void OnAttachToMainTree() override;
+    void OnDetachFromMainTree() override;
+    void OnAttachToMainTreeMultiThread();
+    void OnDetachFromMainTreeMultiThread();
 
     void HandleDragStart(const GestureEvent& info);
     void HandleDragUpdate(const GestureEvent& info);
@@ -347,6 +355,7 @@ private:
         animation_.reset();
     }
     void UpdateBackgroundStyle(RefPtr<FrameNode>& host);
+    void UpdateBackgroundStyleMultiThread(RefPtr<FrameNode>& host);
     void MountSubTitle(const RefPtr<TitleBarNode>& hostNode);
     void ResetMainTitleProperty(const RefPtr<FrameNode>& textNode,
         const RefPtr<TitleBarLayoutProperty>& titleBarLayoutProperty,
@@ -357,7 +366,7 @@ private:
     void ApplyTitleModifier(const RefPtr<FrameNode>& textNode,
         const TextStyleApplyFunc& applyFunc, bool needCheckFontSizeIsSetted);
     void DumpInfo() override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
 
     void HandleLongPress(const RefPtr<FrameNode>& backButtonNode);
     void HandleLongPressActionEnd();

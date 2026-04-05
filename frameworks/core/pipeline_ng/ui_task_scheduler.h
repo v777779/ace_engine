@@ -79,13 +79,14 @@ public:
 
     // Called on Main Thread.
     void AddDirtyLayoutNode(const RefPtr<FrameNode>& dirty);
-    void AddIgnoreLayoutSafeAreaBundle(IgnoreLayoutSafeAreaBundle&& bundle);
+    void AddIgnoreLayoutSafeAreaBundle(IgnoreLayoutSafeAreaBundle&& bundle, bool postByTraverse = false);
     void AddLayoutNode(const RefPtr<FrameNode>& layoutNode);
     void AddDirtyRenderNode(const RefPtr<FrameNode>& dirty);
     void AddPredictTask(PredictTask&& task);
     void AddAfterLayoutTask(std::function<void()>&& task, bool isFlushInImplicitAnimationTask = false);
     void AddAfterRenderTask(std::function<void()>&& task);
     void AddPersistAfterLayoutTask(std::function<void()>&& task);
+    void AddAfterModifierTask(std::function<void()>&& task);
 
     void FlushLayoutTask(bool forceUseMainThread = false);
     void FlushRenderTask(bool forceUseMainThread = false);
@@ -96,6 +97,7 @@ public:
     void FlushAfterLayoutCallbackInImplicitAnimationTask();
     void FlushAfterRenderTask();
     void FlushPersistAfterLayoutTask();
+    void FlushAfterModifierTask();
     void ExpandSafeArea();
 
     void FlushDelayJsActive();
@@ -189,6 +191,7 @@ private:
     using RootDirtyMap = std::map<uint32_t, PageDirtySet>;
 
     std::vector<IgnoreLayoutSafeAreaBundle> ignoreLayoutSafeAreaBundles_;
+    std::list<RefPtr<FrameNode>> traverseSafeAreaBundles_;
     std::list<RefPtr<FrameNode>> dirtyLayoutNodes_;
     std::list<RefPtr<FrameNode>> layoutNodes_;
     RootDirtyMap dirtyRenderNodes_;
@@ -198,6 +201,7 @@ private:
     std::list<std::function<void()>> afterRenderTasks_;
     std::list<std::function<void()>> persistAfterLayoutTasks_;
     std::list<std::function<void()>> syncGeometryNodeTasks_;
+    std::list<std::function<void()>> afterModifierTasks_;
     std::set<FrameNode*, NodeCompare<FrameNode*>> safeAreaPaddingProcessTasks_;
     std::set<RefPtr<FrameNode>> singleDirtyNodesToFlush_;
     std::queue<bool> layoutWithImplicitAnimation_;

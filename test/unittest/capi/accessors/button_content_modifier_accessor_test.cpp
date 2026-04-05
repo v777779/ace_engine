@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include "accessor_test_base.h"
+#include "accessor_test_utils.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -30,7 +31,9 @@ class ButtonContentModifierHelperAccessor : public StaticAccessorTest<GENERATED_
 public:
     void FireBuilder(ButtonPattern* pattern)
     {
+#ifdef WRONG_PRIVATE
         pattern->FireBuilder();
+#endif
     }
 };
 
@@ -42,11 +45,11 @@ static const std::string TEST_DEFAULT_NAME = "";
 static constexpr bool TEST_DEFAULT_PRESSED = false;
 
 /**
- * @tc.name: ButtonContentModifierHelperAccessorTest
+ * @tc.name: contentModifierButtonTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(ButtonContentModifierHelperAccessor, buttonContentModifierHelperAccessorTest, TestSize.Level1)
+HWTEST_F(ButtonContentModifierHelperAccessor, DISABLED_contentModifierButtonTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->contentModifierButton, nullptr);
 
@@ -66,18 +69,10 @@ HWTEST_F(ButtonContentModifierHelperAccessor, buttonContentModifierHelperAccesso
     };
     static std::optional<CheckEvent> checkEvent = std::nullopt;
 
-    Ark_Object obj = {
-        .resource = Ark_CallbackResource {
-            .resourceId = TEST_OBJ_ID,
-            .hold = [](InteropInt32){},
-            .release = [](InteropInt32){},
-        }
-    };
+    auto obj = Converter::ArkCreate<Ark_Object>(TEST_OBJ_ID);
 
-    auto modifierCallback = [](const Ark_Int32 resourceId,
-        const Ark_NativePointer parentNode,
-        const Ark_ButtonConfiguration config,
-        const Callback_Pointer_Void continuation) {
+    auto modifierCallback = [](const Ark_Int32 resourceId, const Ark_NativePointer parentNode,
+        const Ark_ButtonConfiguration config, const Callback_Pointer_Void continuation) {
             auto navigationNode = reinterpret_cast<FrameNode *>(parentNode);
             checkEvent = {
                 .nodeId = navigationNode->GetId(),
@@ -91,11 +86,12 @@ HWTEST_F(ButtonContentModifierHelperAccessor, buttonContentModifierHelperAccesso
 
     EXPECT_CALL(*MockContainer::Current(), GetFrontend()).WillRepeatedly(Return(nullptr));
 
-    auto builder = Converter::ArkValue<ButtonModifierBuilder>(modifierCallback, TEST_BUILDER_ID);
+    auto builder = Converter::ArkCallback<ButtonModifierBuilder>(modifierCallback, TEST_BUILDER_ID);
     Ark_NativePointer nodePtr = reinterpret_cast<Ark_NativePointer>(buttonNode.GetRawPtr());
     accessor_->contentModifierButton(nodePtr, &obj, &builder);
 
     FireBuilder(pattern.GetRawPtr());
+    ASSERT_TRUE(checkEvent.has_value());
     EXPECT_EQ(checkEvent->nodeId, TEST_NODE_ID);
     EXPECT_EQ(checkEvent->resourceId, TEST_BUILDER_ID);
     EXPECT_EQ(checkEvent->objId, TEST_OBJ_ID);

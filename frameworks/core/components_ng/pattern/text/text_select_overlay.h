@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -25,7 +25,7 @@
 #include "core/components_ng/pattern/text/text_base.h"
 
 namespace OHOS::Ace::NG {
-class TextSelectOverlay : public BaseTextSelectOverlay {
+class ACE_FORCE_EXPORT TextSelectOverlay : public BaseTextSelectOverlay {
     DECLARE_ACE_TYPE(TextSelectOverlay, BaseTextSelectOverlay);
 
 public:
@@ -79,7 +79,17 @@ public:
         const RefPtr<ScrollablePattern> scrollableParent, const Offset& globalOffset, bool isStopAutoScroll);
     const RefPtr<ScrollablePattern> FindScrollableParent();
     std::optional<Color> GetHandleColor() override;
-    bool CheckTouchInHostNode(const PointF& touchPoint) override;
+    std::optional<SelectOverlayInfo> GetSelectOverlayInfo();
+    bool ChangeSecondHandleHeight(const GestureEvent& event, bool isOverlayMode) override;
+    void GetVisibleDragViewHandles(RectF& first, RectF& second);
+    void IsAIMenuOptionChanged(SelectMenuInfo& menuInfo) override;
+    void UpdateAISelectMenu();
+    bool IsTriggerParentToScroll() const
+    {
+        return isTriggerParentToScroll_;
+    }
+    void SetTextSelectionHolderId(int32_t id);
+    void RemoveTextSelectionHolderId(int32_t id);
 
 protected:
     OffsetF GetHandleReferenceOffset(const RectF& handleRect);
@@ -105,6 +115,7 @@ private:
     OffsetF handleGlobalOffset_;
     bool isDraggingFirstHandle_ = true;
     OffsetF hostPaintOffset_;
+    bool isTriggerParentToScroll_ = false;
     ACE_DISALLOW_COPY_AND_MOVE(TextSelectOverlay);
 };
 

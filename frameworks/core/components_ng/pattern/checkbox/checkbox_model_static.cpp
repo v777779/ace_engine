@@ -38,7 +38,7 @@ void CheckBoxModelStatic::SetSelect(FrameNode* frameNode, const std::optional<bo
     if (isSelected.has_value()) {
         ACE_UPDATE_NODE_PAINT_PROPERTY(CheckBoxPaintProperty, CheckBoxSelect, isSelected.value(), frameNode);
     } else {
-        ACE_RESET_NODE_PAINT_PROPERTY(CheckBoxPaintProperty, CheckBoxSelect, frameNode);
+        ACE_UPDATE_NODE_PAINT_PROPERTY(CheckBoxPaintProperty, CheckBoxSelect, false, frameNode);
     }
 }
 
@@ -73,6 +73,14 @@ void CheckBoxModelStatic::SetCheckMarkColor(FrameNode* frameNode, const std::opt
         ACE_RESET_NODE_PAINT_PROPERTY(CheckBoxPaintProperty, CheckBoxCheckMarkColor, frameNode);
         ACE_RESET_NODE_PAINT_PROPERTY(CheckBoxPaintProperty, CheckBoxCheckMarkColorFlagByUser, frameNode);
     }
+}
+
+void CheckBoxModelStatic::ResetCheckMarkColor(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
+        CheckBoxPaintProperty, CheckBoxCheckMarkColor, PROPERTY_UPDATE_RENDER, frameNode);
+    ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(
+        CheckBoxPaintProperty, CheckBoxCheckMarkColorFlagByUser, PROPERTY_UPDATE_RENDER, frameNode);
 }
 
 void CheckBoxModelStatic::SetCheckMarkSize(FrameNode* frameNode, const std::optional<Dimension>& size)
@@ -142,6 +150,6 @@ void CheckBoxModelStatic::TriggerChange(FrameNode* frameNode, bool value)
 {
     auto pattern = frameNode->GetPattern<CheckBoxPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->UpdateUIStatus(value);
+    pattern->SetCheckBoxSelect(value);
 }
 } // namespace OHOS::Ace::NG

@@ -16,6 +16,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_BASE_ROSEN_RENDER_CONTEXT_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_BASE_ROSEN_RENDER_CONTEXT_H
 
+#include "base/utils/macros.h"
 #include "base/geometry/rect.h"
 #include "core/components_ng/render/drawing_forward.h"
 #include "core/pipeline/base/render_context.h"
@@ -24,8 +25,12 @@
 
 namespace OHOS::Ace {
 
+#ifdef NG_BUILD
 class RosenRenderContext : public RenderContext {
-    DECLARE_ACE_TYPE(RosenRenderContext, RenderContext)
+#else
+class ACE_FORCE_EXPORT RosenRenderContext : public RenderContext {
+#endif
+    DECLARE_ACE_TYPE(RosenRenderContext, RenderContext);
 
 public:
     RosenRenderContext() = default;
@@ -39,7 +44,7 @@ public:
     void InitContext(
         const std::shared_ptr<RSNode>& rsNode, const Rect& rect, const Offset& initialOffset = Offset::Zero());
     RSCanvas* GetCanvas();
-    const std::shared_ptr<RSNode>& GetRSNode();
+    ACE_FORCE_EXPORT const std::shared_ptr<RSNode>& GetRSNode();
 
     void StartRecording();
     void StopRecordingIfNeeded();

@@ -15,7 +15,7 @@
 
 #include "gtest/gtest.h"
 
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "frameworks/core/components_ng/pattern/form_link/form_link_model_ng.h"
 #include "frameworks/core/components_ng/base/view_abstract.h"
 #include "frameworks/core/components_ng/base/view_stack_processor.h"
@@ -44,13 +44,12 @@ void FormLinkTest::TearDownTestSuite()
     MockPipelineContext::TearDown();
 }
 
-
 /**
  * @tc.name: FormLinkPatternTest001
  * @tc.desc: Test FormLinkPatternTest in Form Pattern.
  * @tc.type: FUNC
  */
-HWTEST_F(FormLinkTest, FormLinkPatternTest001, TestSize.Level1)
+HWTEST_F(FormLinkTest, FormLinkPatternTest001, TestSize.Level0)
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
@@ -61,7 +60,9 @@ HWTEST_F(FormLinkTest, FormLinkPatternTest001, TestSize.Level1)
     auto ret = std::make_shared<int64_t>(1);
     pattern->OnAttachToFrameNode();
     ASSERT_EQ(*ret, 1);
+
     pattern->OnAreaChangedInner();
+    pattern->SetAction("router");
     ASSERT_EQ(*ret, 1);
 }
 } // namespace OHOS::Ace::NG

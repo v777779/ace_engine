@@ -20,7 +20,7 @@
 #include "core/interfaces/native/implementation/canvas_rendering_context2d_peer_impl.h"
 #include "core/interfaces/native/implementation/rendering_context_settings_peer.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
-#include "test/mock/core/pattern/mock_canvas_pattern.h"
+#include "test/mock/frameworks/core/components_ng/pattern/mock_canvas_pattern.h"
 
 #include "accessor_test_base.h"
 
@@ -86,6 +86,10 @@ const std::vector<std::pair<QualityType, float>> OPT_IMAGE_QUALITY_TEST_PLAN {
     { Converter::ArkValue<QualityType>(1.25f), IMAGE_QUALITY_DEFAULT },
     { Converter::ArkValue<QualityType>(10.0f), IMAGE_QUALITY_DEFAULT },
     { Converter::ArkValue<QualityType>(Ark_Empty()), IMAGE_QUALITY_DEFAULT },
+};
+const std::vector<std::pair<CanvasUnit, bool>> GET_CONTEXT_2D_PLAN {
+    { CanvasUnit::DEFAULT, true},
+    { CanvasUnit::PX, false },
 };
 } // namespace
 
@@ -262,7 +266,7 @@ HWTEST_F(CanvasRenderingContext2DAccessorTest, DISABLED_onAttachTest, TestSize.L
     }
     int arkCounter = 0;
     for (size_t i = 0; i < eventsSize; ++i) {
-        accessor_->onAttach(vmContext_, peer_, &checkEvents[i].first);
+        accessor_->onAttach(peer_, &checkEvents[i].first);
         EXPECT_FALSE(checkEvents[i].second);
         for (size_t j = 0; j <= i; ++j) {
             mockPatternKeeper_->AttachRenderContext();
@@ -340,11 +344,11 @@ HWTEST_F(CanvasRenderingContext2DAccessorTest, DISABLED_offAttachTest, TestSize.
         };
         auto arkCallback = ArkValue<VoidCallback>(callback, i);
         checkEvents.emplace_back(std::make_pair(ArkValue<Opt_VoidCallback>(arkCallback), std::nullopt));
-        accessor_->onAttach(vmContext_, peer_, &arkCallback);
+        accessor_->onAttach(peer_, &arkCallback);
     }
     int arkCounter = 0;
     for (size_t i = 0; i < eventsSize; ++i) {
-        accessor_->offAttach(vmContext_, peer_, &checkEvents[i].first);
+        accessor_->offAttach(peer_, &checkEvents[i].first);
         checkEvents[i].second = std::nullopt;
         for (size_t j = 0; j < eventsSize; ++j) {
             mockPatternKeeper_->AttachRenderContext();
@@ -386,10 +390,10 @@ HWTEST_F(CanvasRenderingContext2DAccessorTest, DISABLED_offAttachTestAll, TestSi
         };
         auto arkCallback = ArkValue<VoidCallback>(callback, i);
         checkEvents.emplace_back(std::make_pair(ArkValue<Opt_VoidCallback>(arkCallback), std::nullopt));
-        accessor_->onAttach(vmContext_, peer_, &arkCallback);
+        accessor_->onAttach(peer_, &arkCallback);
     }
     auto optCallback = ArkValue<Opt_VoidCallback>();
-    accessor_->offAttach(vmContext_, peer_, &optCallback);
+    accessor_->offAttach(peer_, &optCallback);
     mockPatternKeeper_->AttachRenderContext();
     for (size_t j = 0; j < eventsSize; ++j) {
         EXPECT_FALSE(checkEvents[j].second);
@@ -408,6 +412,7 @@ HWTEST_F(CanvasRenderingContext2DAccessorTest, DISABLED_offDetachTest, TestSize.
     auto holder = TestHolder::GetInstance();
     holder->SetUp();
     ASSERT_TRUE(mockPatternKeeper_);
+    ASSERT_NE(accessor_, nullptr);
     ASSERT_NE(accessor_->onAttach, nullptr);
     struct CheckEvent {
         int32_t resourceId;
@@ -503,6 +508,34 @@ HWTEST_F(CanvasRenderingContext2DAccessorTest, DISABLED_toDataURLTest, TestSize.
             EXPECT_TRUE(holder->isCalled);
             holder->TearDown();
         }
+    }
+}
+
+/**
+ * @tc.name: getContext2DFromDrawingContextTest
+ * @tc.desc:
+ * @tc.type: FUNC
+ */
+HWTEST_F(CanvasRenderingContext2DAccessorTest, DISABLED_getContext2DFromDrawingContextTest, TestSize.Level1)
+{
+    auto holder = TestHolder::GetInstance();
+    ASSERT_NE(accessor_->getContext2DFromDrawingContext, nullptr);
+    for (auto& [unit, antialias] : GET_CONTEXT_2D_PLAN) {
+        holder->SetUp();
+        auto drawContextImpl = new DrawingRenderingContextPeerImpl();
+        drawContextImpl->SetUnit(unit);
+        auto arkDrawContext = reinterpret_cast<Ark_DrawingRenderingContext>(drawContextImpl);
+        RenderingContextOptions options;
+        options.antialias = antialias;
+        auto optRenderingContextOptions = Converter::ArkValue<Opt_RenderingContextOptions>(options);
+        auto context2d = accessor_->getContext2DFromDrawingContext(arkDrawContext, optRenderingContextOptions);
+        auto context2dImpl = reinterpret_cast<CanvasRenderingContext2DPeerImpl*>(context2d);
+
+        EXPECT_EQ(context2dImpl->GetUnit(), unit);
+        EXPECT_EQ(context2dImpl->anti_, antialias);
+        EXPECT_EQ(holder->antialias, antialias);
+        EXPECT_TRUE(holder->isCalled);
+        holder->TearDown();
     }
 }
 } // namespace OHOS::Ace::NG

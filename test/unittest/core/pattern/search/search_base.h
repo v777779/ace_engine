@@ -21,8 +21,8 @@
 
 #define protected public
 #define private public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
 #include "core/animation/curves.h"
 #include "core/components/button/button_theme.h"
@@ -36,6 +36,7 @@
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/event/event_hub.h"
 #include "core/components_ng/layout/layout_wrapper.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/button_layout_property.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/image/image_render_property.h"
@@ -50,11 +51,13 @@
 #include "core/components_ng/pattern/text_field/text_field_layout_property.h"
 #include "core/components_ng/pattern/text_field/text_field_paint_property.h"
 #include "core/components_ng/pattern/text_field/text_field_pattern.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/common/mock_theme_manager.h"
+#include "core/components_ng/pattern/button/button_event_hub.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
 #include "core/components_v2/inspector/inspector_constants.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "core/components/common/properties/text_style_parser.h"
+#include "core/common/ace_application_info.h"
 #undef protected
 #undef private
 
@@ -68,6 +71,8 @@ constexpr float COLUMN_HEIGHT = 200.0f;
 constexpr float FULL_SCREEN_WIDTH = 720.0f;
 constexpr float FULL_SCREEN_HEIGHT = 1136.0f;
 constexpr float ZERO = 0.0f;
+constexpr float MIN_FONT_SCALE = 0.5f;
+constexpr float MAX_FONT_SCALE = 2.0f;
 const SizeF CONTAINER_SIZE(FULL_SCREEN_WIDTH, FULL_SCREEN_HEIGHT);
 constexpr int32_t TEXTFIELD_INDEX = 0;
 constexpr int32_t IMAGE_INDEX = 1;
@@ -95,6 +100,10 @@ const std::u16string NUM_FILTER_U16 = u"[0-9]";
 const std::string FILTER_NUM_TEXT = "0123456789";
 const std::u16string FILTER_NUM_TEXT_U16 = u"0123456789";
 const Dimension DEFAULT_INDENT_SIZE = Dimension(5, DimensionUnit::VP);
+const Dimension LETTER_SPACING = Dimension(10, DimensionUnit::PX);
+const Dimension TEXT_INDENT = Dimension(5, DimensionUnit::PX);
+const Dimension SEARCH_BUTTON_FONT_SIZE = Dimension(20, DimensionUnit::VP);
+const Dimension CARET_WIDTH = Dimension(2, DimensionUnit::VP);
 
 class SearchBases : public testing::Test {
 public:

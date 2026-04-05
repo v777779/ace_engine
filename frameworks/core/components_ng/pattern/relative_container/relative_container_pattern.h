@@ -18,9 +18,11 @@
 
 #include "base/log/dump_log.h"
 #include "core/components_ng/base/distributed_ui.h"
+#include "core/components_ng/event/focus_hub.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/relative_container/relative_container_layout_algorithm.h"
 #include "core/components_ng/pattern/relative_container/relative_container_layout_property.h"
+#include "core/components_ng/property/flex_property.h"
 
 namespace OHOS::Ace::NG {
 

@@ -15,13 +15,14 @@
 
 #include "gtest/gtest.h"
 #include "base/memory/ace_type.h"
+
 #define private public
 #define protected public
+
 #include "core/components_ng/pattern/ui_extension/isolated_component/isolated_pattern.h"
 #include "core/components_ng/pattern/ui_extension/security_ui_extension_component/security_session_wrapper_impl.h"
 #include "core/components_ng/pattern/ui_extension/security_ui_extension_component/security_ui_extension_pattern.h"
 #include "core/components_ng/pattern/ui_extension/security_ui_extension_component/security_ui_extension_proxy.h"
-#include "core/components_ng/pattern/ui_extension/session_wrapper.h"
 #include "core/components_ng/pattern/ui_extension/session_wrapper_factory.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_component/modal_ui_extension_proxy_impl.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_component/ui_extension_pattern.h"
@@ -31,7 +32,6 @@
 #include "core/event/ace_events.h"
 #include "core/event/mouse_event.h"
 #include "core/event/touch_event.h"
-#include "core/event/key_event.h"
 #include "core/event/pointer_event.h"
 
 #include "session/host/include/extension_session.h"
@@ -48,12 +48,12 @@
 #include "core/components_ng/event/event_hub.h"
 #include "core/components_ng/pattern/pattern.h"
 
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
 #include "core/components_ng/render/adapter/rosen_window.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/render/mock_rosen_render_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+
 
 using namespace testing;
 using namespace testing::ext;
@@ -120,7 +120,7 @@ RefPtr<SecurityUIExtensionPattern> SecurityUIExtensionComponentTestNg::CreateSec
     auto placeholderId = ElementRegister::GetInstance()->MakeUniqueId();
     auto placeholderNode = FrameNode::GetOrCreateFrameNode(
         "placeholderNode", placeholderId, []() { return AceType::MakeRefPtr<Pattern>(); });
-    
+
     NG::UIExtensionConfig config;
     config.wantWrap = AceType::MakeRefPtr<WantWrapOhos>(want);
     config.placeholderNode = placeholderNode;
@@ -273,7 +273,8 @@ HWTEST_F(SecurityUIExtensionComponentTestNg, SecurityUIExtensionCallbackTest, Te
     /**
      * @tc.steps: step2. check sessionWrapper
      */
-    auto sessionWrapper = AceType::DynamicCast<SecuritySessionWrapperImpl>(pattern->sessionWrapper_);
+    auto sessionWrapper =
+        AceType::DynamicCast<SecuritySessionWrapperImpl>(pattern->sessionWrapper_);
     ASSERT_NE(sessionWrapper, nullptr);
     EXPECT_EQ(pattern->instanceId_, Container::CurrentId());
     EXPECT_EQ(pattern->instanceId_, sessionWrapper->instanceId_);
@@ -502,6 +503,7 @@ HWTEST_F(SecurityUIExtensionComponentTestNg, SecurityUIExtensionOnErrorTest, Tes
      */
     auto pattern = CreateSecurityUEC();
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+
     /**
      * @tc.steps: step2. Test onError
      */
@@ -623,7 +625,7 @@ HWTEST_F(SecurityUIExtensionComponentTestNg, SecurityUIExtensionHandleTouchEvent
     pattern->HandleTouchEvent(touchEventInfo);
     focusHub->currentFocus_ = false;
     pattern->HandleTouchEvent(touchEventInfo);
-    
+
     pointerEvent->SetPointerAction(MMI::PointerEvent::POINTER_ACTION_AXIS_BEGIN);
     pattern->HandleTouchEvent(touchEventInfo);
     pointerEvent->SetPointerAction(MMI::PointerEvent::POINTER_ACTION_LEAVE_WINDOW);
@@ -897,7 +899,7 @@ HWTEST_F(SecurityUIExtensionComponentTestNg, SecurityUIExtensionOnWindowTest, Te
 
 /**
  * @tc.name: SecurityUIExtensionVisibleTest
- * @tc.desc: Test pattern OnVisibleChangeInner function
+ * @tc.desc: Test pattern OnVisibleChange function
  * @tc.type: FUNC
  */
 HWTEST_F(SecurityUIExtensionComponentTestNg, SecurityUIExtensionVisibleTest, TestSize.Level1)
@@ -909,17 +911,17 @@ HWTEST_F(SecurityUIExtensionComponentTestNg, SecurityUIExtensionVisibleTest, Tes
     auto pattern = CreateSecurityUEC();
 
     /**
-     * @tc.steps: step2. OnVisibleChangeInner false, state change to BACKGROUND
+     * @tc.steps: step2. OnVisibleChange false, state change to BACKGROUND
      */
     pattern->state_ = SecurityUIExtensionPattern::AbilityState::FOREGROUND;
-    pattern->OnVisibleChangeInner(false);
+    pattern->OnVisibleChange(false);
     EXPECT_FALSE(pattern->isVisible_);
     ASSERT_EQ(pattern->state_, SecurityUIExtensionPattern::AbilityState::BACKGROUND);
 
     /**
-     * @tc.steps: step3. OnVisibleChangeInner true, state change to FOREGROUND
+     * @tc.steps: step3. OnVisibleChange true, state change to FOREGROUND
      */
-    pattern->OnVisibleChangeInner(true);
+    pattern->OnVisibleChange(true);
     EXPECT_TRUE(pattern->isVisible_);
     ASSERT_EQ(pattern->state_, SecurityUIExtensionPattern::AbilityState::FOREGROUND);
 #endif
@@ -1223,7 +1225,7 @@ HWTEST_F(SecurityUIExtensionComponentTestNg, SecurityUIExtensionChildTreeTest, T
     EXPECT_EQ(property->GetChildWindowId(), 1);
     EXPECT_EQ(property->GetChildTreeId(), 1);
 
-    uiExtensionNode->accessibilityProperty_ = nullptr;
+    uiExtensionNode->GetOrCreateAccessibilityProperty() = nullptr;
     InvalidSessionWrapper(pattern);
     pattern->InitializeAccessibility();
     pattern->OnSetAccessibilityChildTree(1, 1);
@@ -1356,7 +1358,7 @@ HWTEST_F(SecurityUIExtensionComponentTestNg, GetAccessibilityRectInfo, TestSize.
     EXPECT_EQ(uiExtensionNode->GetTag(), V2::UI_EXTENSION_COMPONENT_ETS_TAG);
     auto pattern = uiExtensionNode->GetPattern<SecurityUIExtensionPattern>();
     ASSERT_NE(pattern, nullptr);
- 
+
     /**
       * @tc.steps: step2. test RegisterEventProxyFlagCallback
     */
@@ -1402,6 +1404,9 @@ HWTEST_F(SecurityUIExtensionComponentTestNg, SecurityUIExtensionComponentTestNg0
     AAFwk::Want data;
     RSSubsystemId id = RSSubsystemId::ARKUI_UIEXT;
     pattern->UpdateWMSUIExtProperty(code, data, id);
+    auto options = UIExtOptions();
+    options.isSendBackground = true;
+    pattern->UpdateWMSUIExtProperty(code, data, id, options);
     pattern->state_ = SecurityUIExtensionPattern::AbilityState::FOREGROUND;
     pattern->UpdateWMSUIExtProperty(code, data, id);
 #endif
@@ -1689,14 +1694,14 @@ HWTEST_F(SecurityUIExtensionComponentTestNg, SecurityUIExtensionComponentLifeCyc
     pattern->OnWindowShow();
     EXPECT_EQ(pattern->state_, SecurityUIExtensionPattern::AbilityState::FOREGROUND);
     /**
-     * @tc.steps: step6. test Life Cycle OnVisibleChangeInner false
+     * @tc.steps: step6. test Life Cycle OnVisibleChange false
      */
-    pattern->OnVisibleChangeInner(false);
+    pattern->OnVisibleChange(false);
     EXPECT_EQ(pattern->state_, SecurityUIExtensionPattern::AbilityState::BACKGROUND);
     /**
-     * @tc.steps: step7. test Life Cycle OnVisibleChangeInner true
+     * @tc.steps: step7. test Life Cycle OnVisibleChange true
      */
-    pattern->OnVisibleChangeInner(true);
+    pattern->OnVisibleChange(true);
     EXPECT_EQ(pattern->state_, SecurityUIExtensionPattern::AbilityState::FOREGROUND);
     /**
      * @tc.steps: step8. test Life Cycle OnTerminated
@@ -1766,4 +1771,88 @@ HWTEST_F(SecurityUIExtensionComponentTestNg, SecurityUIExtensionComponentLifeCyc
     EXPECT_EQ(host->TotalChildCount(), 0);
 #endif
 }
+
+/**
+ * @tc.name: UpdateWant001
+ * @tc.desc: Test func UpdateWant
+ * @tc.type: FUNC
+ */
+HWTEST_F(SecurityUIExtensionComponentTestNg, UpdateWant001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. construct a SecurityUIExtensionComponent Node
+     */
+    auto pattern = CreateSecurityUEC();
+    ASSERT_NE(pattern, nullptr);
+    pattern->isVisible_ = true;
+    pattern->instanceId_= 2;
+    pattern->state_ = SecurityUIExtensionPattern::AbilityState::FOREGROUND;
+    pattern->needReNotifyForeground_ = false;
+    ValidSessionWrapper(pattern);
+    ASSERT_NE(pattern->sessionWrapper_, nullptr);
+    InvalidSession(pattern);
+    ASSERT_TRUE(pattern->CheckConstraint());
+
+    pattern->sessionType_ = SessionType::SECURITY_UI_EXTENSION_ABILITY;
+    OHOS::AAFwk::Want want;
+    pattern->UpdateWant(want);
+    EXPECT_FALSE(pattern->needReNotifyForeground_);
+
+    pattern->sessionType_ = SessionType::PREVIEW_UI_EXTENSION_ABILITY;
+    pattern->hasAttachContext_ = false;
+    pattern->hasMountToParent_ = true;
+    pattern->UpdateWant(want);
+    EXPECT_TRUE(pattern->needReNotifyForeground_);
+
+    pattern->needReNotifyForeground_ = false;
+    pattern->hasAttachContext_ = true;
+    pattern->hasMountToParent_ = false;
+    pattern->UpdateWant(want);
+    EXPECT_TRUE(pattern->needReNotifyForeground_);
+
+    pattern->needReNotifyForeground_ = false;
+    pattern->hasAttachContext_ = true;
+    pattern->hasMountToParent_ = true;
+    pattern->UpdateWant(want);
+    EXPECT_FALSE(pattern->needReNotifyForeground_);
+}
+
+/**
+ * @tc.name: InitializeTest002
+ * @tc.desc: Test pattern Initialize
+ * @tc.type: FUNC
+ */
+HWTEST_F(SecurityUIExtensionComponentTestNg, InitializeTest002, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    /**
+     * @tc.steps: step1. construct a SecurityUIExtensionComponent node and get pattern
+     */
+    auto pattern = CreateSecurityUEC();
+    pattern->Initialize();
+
+    EXPECT_TRUE(pattern->hasInitialized_);
+    ASSERT_NE(pattern->sessionWrapper_, nullptr);
+    ASSERT_NE(pattern->accessibilitySessionAdapter_, nullptr);
+#endif
+}
+
+/**
+ * @tc.name: TransferringCaller001
+ * @tc.desc: Test pattern TransferringCaller001
+ * @tc.type: FUNC
+ */
+HWTEST_F(SecurityUIExtensionComponentTestNg, TransferringCaller001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    /**
+     * @tc.steps: step1. construct a SecurityUIExtensionComponent node and get pattern
+     */
+    auto pattern = CreateSecurityUEC();
+    pattern->SetIsTransferringCaller(true);
+
+    EXPECT_TRUE(pattern->GetIsTransferringCaller());
+#endif
+}
+
 } //namespace OHOS::Ace::NG

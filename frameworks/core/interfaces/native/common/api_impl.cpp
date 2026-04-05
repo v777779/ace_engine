@@ -16,6 +16,8 @@
 #include <sstream>
 #include <vector>
 
+#include "api_impl.h"
+
 // SORTED_SECTION
 #include "base/error/error_code.h"
 #include "core/common/card_scope.h"
@@ -94,6 +96,7 @@ void SetCustomNodeDestroyCallback(void (*destroy)(Ark_NodeHandle nodeId))
 Ark_NodeHandle GetNodeByViewStack()
 {
     auto node = ViewStackProcessor::GetInstance()->Finish();
+    CHECK_NULL_RETURN(node, nullptr);
     node->IncRefCount();
     return reinterpret_cast<Ark_NodeHandle>(AceType::RawPtr(node));
 }
@@ -237,14 +240,22 @@ void ApplyModifierFinish(Ark_NodeHandle nodePtr)
     auto* frameNode = AceType::DynamicCast<FrameNode>(uiNode);
     if (frameNode) {
         frameNode->MarkModifyDone();
-        frameNode->MarkDirtyNode();
+        /*
+         * Conditions for MarkDirtyNode :
+         * This node should have a parent node to ensure that it is not in the process of being constructed.
+         */
+        if (frameNode->GetParent()) {
+            frameNode->MarkDirtyNode();
+        }
     }
 }
 
 void MarkDirty(Ark_NodeHandle nodePtr, Ark_UInt32 flag)
 {
     auto* uiNode = reinterpret_cast<UINode*>(nodePtr);
-    if (uiNode) {
+    if (uiNode && flag == PROPERTY_UPDATE_MEASURE_SELF_WHEN_ADD_CHILD && uiNode->GetParent()) {
+        uiNode->MarkDirtyNode(PROPERTY_UPDATE_BY_CHILD_REQUEST);
+    } else if (uiNode && flag != PROPERTY_UPDATE_MEASURE_SELF_WHEN_ADD_CHILD) {
         uiNode->MarkDirtyNode(flag);
     }
 }
@@ -459,6 +470,20 @@ Ark_Int32 GetAlignment(Ark_NodeHandle node)
     return companion->GetAlignmentValue();
 }
 
+void SetContentNode(void *node, const RefPtr<FrameNode>& value)
+{
+    auto* companion = GetCompanion(reinterpret_cast<Ark_NodeHandle>(node));
+    CHECK_NULL_VOID(companion);
+    companion->SetContentNode(value);
+}
+
+RefPtr<FrameNode> GetContentNode(void *node)
+{
+    auto* companion = GetCompanion(reinterpret_cast<Ark_NodeHandle>(node));
+    CHECK_NULL_RETURN(companion, nullptr);
+    return companion->GetContentNode();
+}
+
 void GetLayoutConstraint(Ark_NodeHandle node, Ark_Int32* value)
 {
     auto* frameNode = AceType::DynamicCast<FrameNode>(reinterpret_cast<UINode*>(node));
@@ -482,16 +507,6 @@ void GetLayoutConstraint(Ark_NodeHandle node, Ark_Int32* value)
 
 void SetChildTotalCount(Ark_NodeHandle node, int totalCount)
 {
-    // auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    // CHECK_NULL_VOID(frameNode);
-    // if (frameNode->GetTag() == OHOS::Ace::V2::LIST_ETS_TAG) {
-    //     ListModelNG::SetListItemTotalCount(frameNode, totalCount);
-    //     return;
-    // }
-    // if (frameNode->GetTag() == OHOS::Ace::V2::GRID_ETS_TAG) {
-    //     GridModelNG::SetGridItemTotalCount(frameNode, totalCount);
-    //     return;
-    // }
 }
 
 int IndexerChecker(Ark_VMContext vmContext, Ark_NodeHandle nodePtr)
@@ -509,7 +524,7 @@ void SetRangeUpdater(Ark_NodeHandle nodePtr, int updaterId)
         continuations.emplace(continuation->Id(), continuation);
         auto requestFunc = [updaterId, id = continuation->Id()](int start, int end) {
             ArkUINodeEvent event;
-            event.kind = ArkUIEventCategory::CALLBACK_EVENT;
+            event.kind = ArkUIEventCategory::CALL_BACK_EVENT;
             event.callback.id = updaterId;
             event.callback.continuationId = id;
             event.callback.numArgs = 2;
@@ -525,7 +540,7 @@ void SetRangeUpdater(Ark_NodeHandle nodePtr, int updaterId)
         continuations.emplace(continuation->Id(), continuation);
         auto requestFunc = [updaterId, id = continuation->Id()](int start, int end) {
             ArkUINodeEvent event;
-            event.kind = ArkUIEventCategory::CALLBACK_EVENT;
+            event.kind = ArkUIEventCategory::CALL_BACK_EVENT;
             event.callback.id = updaterId;
             event.callback.continuationId = id;
             event.callback.numArgs = 2;
@@ -548,24 +563,6 @@ inline T* fromBits(GENERATED_Ark_EventCallbackArg* args)
 
 void SetLazyItemIndexer(Ark_VMContext vmContext, Ark_NodeHandle nodePtr, int indexerId)
 {
-    // auto* frameNode = reinterpret_cast<FrameNode*>(nodePtr);
-    // CHECK_NULL_VOID(frameNode);
-    // auto getNodeByIndex = [vmContext, indexerId](int32_t index) -> OHOS::Ace::RefPtr<FrameNode> {
-    //     GENERATED_Ark_EventCallbackArg args[] = { { index }, { 0 }, { 0 } };
-    //     int found = GetCallbackMethod()->CallInt(vmContext, indexerId, 3, &args[0]);
-    //     if (found == 0) {
-    //         return nullptr;
-    //     }
-    //     return OHOS::Ace::AceType::Claim(fromBits<FrameNode>(&args[1]));
-    // };
-    // if (frameNode->GetTag() == OHOS::Ace::V2::LIST_ETS_TAG) {
-    //     ListModelNG::SetListItemGetFunc(frameNode, std::move(getNodeByIndex));
-    //     return;
-    // }
-    // if (frameNode->GetTag() == OHOS::Ace::V2::GRID_ETS_TAG) {
-    //     GridModelNG::SetGridItemGetFunc(frameNode, std::move(getNodeByIndex));
-    //     return;
-    // }
 }
 
 void EmitOnClick(Ark_NativePointer node, Ark_ClickEvent event)

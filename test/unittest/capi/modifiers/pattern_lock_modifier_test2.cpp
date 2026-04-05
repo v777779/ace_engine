@@ -17,7 +17,7 @@
 #include "core/interfaces/native/implementation/pattern_lock_controller_accessor_peer_impl.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
-#include "core/components_ng/pattern/patternlock/patternlock_model_ng.h"
+#include "core/components_ng/pattern/patternlock/patternlock_model_static.h"
 
 namespace OHOS::Ace::NG {
 
@@ -46,7 +46,7 @@ HWTEST_F(PatternLockModifierTest2, setPatternLockOptionsTest, TestSize.Level1)
     bool checkInvoke = false;
     auto frameNode = reinterpret_cast<FrameNode *>(node_);
     ASSERT_NE(frameNode, nullptr);
-    auto internalController = PatternLockModelNG::GetController(frameNode);
+    auto internalController = PatternLockModelStatic::GetController(frameNode);
     ASSERT_NE(internalController, nullptr);
     internalController->SetResetImpl([&checkInvoke]() {
         checkInvoke = true;

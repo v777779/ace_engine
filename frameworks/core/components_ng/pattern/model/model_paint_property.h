@@ -16,15 +16,11 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_MODEL_MODEL_PAINT_PROPERTY_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_MODEL_MODEL_PAINT_PROPERTY_H
 
-#ifdef ARKUI_CAPI_UNITTEST
-#include "test/unittest/capi/stubs/mock_shader_input_buffer.h"
-#include "test/unittest/capi/stubs/mock_custom_render_descriptor.h"
-#else
 #include "custom/custom_render_descriptor.h"
 #include "custom/shader_input_buffer.h"
 #include "data_type/geometry/geometry.h"
 #include "data_type/gltf_animation.h"
-#endif // ARKUI_CAPI_UNITTEST
+
 #include "base/geometry/animatable_float.h"
 #include "base/geometry/vec3.h"
 #include "core/components_ng/pattern/model/model_light.h"
@@ -35,7 +31,7 @@
 namespace OHOS::Ace::NG {
 
 class ModelPaintProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(ModelPaintProperty, PaintProperty)
+    DECLARE_ACE_TYPE(ModelPaintProperty, PaintProperty);
 
 public:
     ModelPaintProperty()
@@ -50,6 +46,7 @@ public:
         propModelCustomRender_ = nullptr;
         propModelSource_ = std::string {};
         propModelBackground_ = std::string{};
+        propBackgroundColor_ = 0x00000000; // transparent color, argb
     };
 
     ~ModelPaintProperty() override = default;
@@ -79,6 +76,7 @@ public:
         paintProperty->propRenderHeight_ = CloneRenderHeight();
         paintProperty->propRenderWidth_ = CloneRenderWidth();
         paintProperty->propRenderFrameRate_ = CloneRenderFrameRate();
+        paintProperty->propBackgroundColor_ = CloneBackgroundColor();
 
         paintProperty->needsCameraSetup_ = CloneNeedsCameraSetup();
         paintProperty->needsLightsSetup_ = CloneNeedsLightsSetup();
@@ -91,6 +89,9 @@ public:
         paintProperty->needsModelSourceSetup_ = CloneNeedsModelSourceSetup();
         paintProperty->needsModelBackgroundSetup_ = CloneNeedsModelBackgroundSetup();
         paintProperty->needsModelCameraMoveSetup_ = CloneNeedsModelCameraMoveSetup();
+        paintProperty->needsBackgroundColorSetup_ = CloneNeedsBackgroundColorSetup();
+        paintProperty->needsRenderHeightSetup_ = CloneNeedsRenderHeightSetup();
+        paintProperty->needsRenderWidthSetup_ = CloneNeedsRenderWidthSetup();
 
         return paintProperty;
     }
@@ -108,6 +109,9 @@ public:
         UpdateNeedsModelSourceSetup(false);
         UpdateNeedsModelBackgroundSetup(false);
         UpdateNeedsModelCameraMoveSetup(false);
+        UpdateNeedsBackgroundColorSetup(false);
+        UpdateNeedsRenderHeightSetup(false);
+        UpdateNeedsRenderWidthSetup(false);
     }
 
     void Reset() override
@@ -139,6 +143,7 @@ public:
         ResetRenderWidth();
         ResetRenderFrameRate();
         ResetFlagProperties();
+        ResetBackgroundColor();
     }
 
     void ModelLightsAnimationUpdate(const std::vector<RefPtr<ModelLight>>& lights)
@@ -203,6 +208,7 @@ public:
     DEFINE_NEEDS_SETUP_FLAG_TRIGGER_PROPERTY(RenderWidth, float, RenderWidth, PROPERTY_UPDATE_RENDER);
     DEFINE_NEEDS_SETUP_FLAG_TRIGGER_PROPERTY(RenderHeight, float, RenderHeight, PROPERTY_UPDATE_RENDER);
     DEFINE_NEEDS_SETUP_FLAG_TRIGGER_PROPERTY(RenderFrameRate, float, RenderFrameRate, PROPERTY_UPDATE_RENDER);
+    DEFINE_NEEDS_SETUP_FLAG_TRIGGER_PROPERTY(BackgroundColor, uint32_t, BackgroundColor, PROPERTY_UPDATE_RENDER);
     DEFINE_NEEDS_SETUP_FLAG_TRIGGER_PROPERTY(
         ModelCustomRender, std::shared_ptr<Render3D::CustomRenderDescriptor>, CustomRender,
         PROPERTY_UPDATE_RENDER);
@@ -244,6 +250,7 @@ public:
     DEFINE_NEEDS_SETUP_FLAG_PROPERTY(RenderFrameRate, false, PROPERTY_UPDATE_RENDER);
     DEFINE_NEEDS_SETUP_FLAG_PROPERTY(ModelBackground, false, PROPERTY_UPDATE_RENDER);
     DEFINE_NEEDS_SETUP_FLAG_PROPERTY(ModelCameraMove, false, PROPERTY_UPDATE_RENDER);
+    DEFINE_NEEDS_SETUP_FLAG_PROPERTY(BackgroundColor, false, PROPERTY_UPDATE_RENDER);
 
 private:
     ACE_DISALLOW_COPY_AND_MOVE(ModelPaintProperty);

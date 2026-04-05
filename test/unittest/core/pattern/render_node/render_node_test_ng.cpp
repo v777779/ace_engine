@@ -19,7 +19,8 @@
 #include "gtest/gtest.h"
 #define private public
 #define protected public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/render_node/render_node_pattern.h"
 #include "core/components_ng/pattern/render_node/render_node_paint_property.h"
 #include "core/components_ng/pattern/render_node/render_node_paint_method.h"
@@ -27,7 +28,7 @@
 #include "core/components_ng/pattern/render_node/render_node_layout_property.h"
 #include "core/components_ng/pattern/render_node/render_node_layout_algorithm.h"
 #include "core/components_ng/base/frame_node.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 #include "core/components_ng/render/drawing_forward.h"
 #include "core/components_ng/render/paint_wrapper.h"
 
@@ -142,6 +143,10 @@ HWTEST_F(RenderNodeTestNg, RenderNodeLayoutAlgorithm001, TestSize.Level1)
 
     SizeF frameSize(200, 200);
     geometryNode->SetFrameSize(frameSize);
+    renderNodeLayoutAlgorithm->Layout(AceType::RawPtr(layoutWrapper));
+    EXPECT_EQ(geometryNode->GetContentOffset(), OffsetF(0, 0));
+    SizeF frameSize2(300, 300);
+    geometryNode->SetFrameSize(frameSize2);
     renderNodeLayoutAlgorithm->Layout(AceType::RawPtr(layoutWrapper));
     EXPECT_EQ(geometryNode->GetContentOffset(), OffsetF(0, 0));
 }
@@ -315,10 +320,11 @@ HWTEST_F(RenderNodeTestNg, RenderNodeLayoutAlgorithmTest006, TestSize.Level1)
     layoutWrapper->cachedList_.push_back(childLayoutWrapperTwo);
     childLayoutWrapperTwo->GetLayoutProperty()->UpdateParentLayoutConstraint(layoutConstraintF);
     layoutWrapper->cachedList_.push_back(childLayoutWrapperThree);
+    childLayoutWrapperThree->layoutProperty_ = nullptr;
     layoutWrapper->GetLayoutProperty()->calcLayoutConstraint_ = std::make_unique<MeasureProperty>();
     layoutWrapper->GetLayoutProperty()->calcLayoutConstraint_->selfIdealSize =
         CalcSize(CalcLength(1.0), CalcLength(0.0));
     renderNodeLayoutAlgorithm->Measure(AceType::RawPtr(layoutWrapper));
     EXPECT_EQ(layoutWrapper->GetGeometryNode()->GetFrameSize().ToString(), "[1.00 x 0.00]");
 }
-}
+} // namespace OHOS::Ace::NG

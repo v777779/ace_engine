@@ -79,25 +79,37 @@ void NotifyCard(const RefPtr<StatusBarClickListener>& listener)
 
 void StatusBarEventProxyOhos::OnStatusBarClick()
 {
-    for (auto it = listeners_.begin(); it != listeners_.end();) {
-        auto listener = it->first.Upgrade();
+    std::set<std::pair<WeakPtr<StatusBarClickListener>, int32_t>> listenersCopy;
+    {
+        std::scoped_lock lock(listenersMutex_);
+        for (auto it = listeners_.begin(); it != listeners_.end();) {
+            auto listener = it->first.Upgrade();
+            if (listener) {
+                listenersCopy.insert(*it);
+                ++it;
+            } else {
+                it = listeners_.erase(it);
+            }
+        }
+    }
+
+    for (auto& pair : listenersCopy) {
+        auto listener = pair.first.Upgrade();
         if (listener) {
-            ContainerScope scope(it->second);
+            ContainerScope scope(pair.second);
             auto container = Container::Current();
             if (container && container->IsFRSCardContainer()) {
                 NotifyCard(listener);
             } else {
                 listener->OnStatusBarClick();
             }
-            ++it;
-        } else {
-            it = listeners_.erase(it);
         }
     }
 }
 
 void StatusBarEventProxyOhos::Register(const WeakPtr<StatusBarClickListener>& listener)
 {
+    std::scoped_lock lock(listenersMutex_);
     if (listeners_.empty()) {
         CommonEventManager::SubscribeCommonEvent(eventFwkSubscriber_);
     }
@@ -106,6 +118,7 @@ void StatusBarEventProxyOhos::Register(const WeakPtr<StatusBarClickListener>& li
 
 void StatusBarEventProxyOhos::UnRegister(const WeakPtr<StatusBarClickListener>& listener)
 {
+    std::scoped_lock lock(listenersMutex_);
     if (listeners_.empty()) {
         return;
     }

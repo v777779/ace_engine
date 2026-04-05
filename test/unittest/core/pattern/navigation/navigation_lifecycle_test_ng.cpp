@@ -20,17 +20,18 @@
 
 #define protected public
 #define private public
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "core/components/button/button_theme.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/ui_node.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/navigation/navigation_model_ng.h"
 #include "core/components_ng/pattern/navigation/navigation_pattern.h"
 #include "core/components_ng/pattern/scroll/scroll_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 #include "mock_navigation_route.h"
 
 using namespace testing;
@@ -128,6 +129,13 @@ void NavigationLifecycleTestNg::SetEvent(NavDestinationLifecycle lifecycle, int8
         lifecycleIndex++;
         stack->SetLifecycleIndex(lifecycleIndex);
     };
+    std::function<void(int32_t)>&& showHideCallback = [stack = stack, expectValue = expectValue](int32_t reason) {
+        auto lifecycleIndex = stack->GetLifecycleIndex();
+        EXPECT_EQ(lifecycleIndex, expectValue);
+        lifecycleIndex++;
+        stack->SetLifecycleIndex(lifecycleIndex);
+    };
+
     switch (lifecycle) {
         case NavDestinationLifecycle::ON_WILL_APPEAR: {
             eventHub->SetOnWillAppear(callback);
@@ -142,7 +150,7 @@ void NavigationLifecycleTestNg::SetEvent(NavDestinationLifecycle lifecycle, int8
             break;
         }
         case NavDestinationLifecycle::ON_SHOW: {
-            eventHub->SetOnShown(std::move(callback));
+            eventHub->SetOnShown(std::move(showHideCallback));
             break;
         }
         case NavDestinationLifecycle::ON_WILL_HIDE: {
@@ -150,7 +158,7 @@ void NavigationLifecycleTestNg::SetEvent(NavDestinationLifecycle lifecycle, int8
             break;
         }
         case NavDestinationLifecycle::ON_HIDE: {
-            eventHub->SetOnHidden(std::move(callback));
+            eventHub->SetOnHidden(std::move(showHideCallback));
             break;
         }
         case NavDestinationLifecycle::ON_WILL_DISAPPEAR: {

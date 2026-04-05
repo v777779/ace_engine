@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,17 +16,23 @@
 #include "core/common/dynamic_module_helper.h"
 
 #include <dlfcn.h>
+#include <link.h>
 #include <memory>
 
-#include "base/utils/utils.h"
 #include "compatible/components/component_loader.h"
+#include "interfaces/inner_api/ace/utils.h"
+
+#include "base/log/log_wrapper.h"
+#include "base/utils/utils.h"
 
 namespace OHOS::Ace {
 namespace {
 const std::string COMPATIABLE_LIB = "libace_compatible_components.z.so";
-const std::string COMPATIABLE_COMPONENT_LOADER = "OHOS_ACE_Compatible_GetLoader";
-const std::string COMPATIABLE_CANVAS_RENDERING_CONTEXT = "OHOS_ACE_Compatible_GetCanvasRenderingContext";
-const std::string COMPATIABLE_CANVAS_BRIDGE = "OHOS_ACE_Compatible_CreateCanvasBridge";
+const std::string DYNAMIC_MODULE_LIB_PREFIX = "libarkui_";
+const std::string DYNAMIC_MODULE_LIB_POSTFIX = ".z.so";
+#ifdef ENABLE_PRELOAD_DYNAMIC_MODULE
+constexpr int32_t PAGE_SIZE = 4096;
+#endif
 } // namespace
 DynamicModuleHelper& DynamicModuleHelper::GetInstance()
 {
@@ -36,69 +42,140 @@ DynamicModuleHelper& DynamicModuleHelper::GetInstance()
 
 std::unique_ptr<ComponentLoader> DynamicModuleHelper::GetLoaderByName(const char* name)
 {
-    if (!componentLoaderFunc_) {
-        componentLoaderFunc_ = reinterpret_cast<ComponentLoaderFunc>(LoadSymbol(COMPATIABLE_COMPONENT_LOADER.c_str()));
+    if (compatibleLoaderFunc_) {
+        return std::unique_ptr<ComponentLoader>(compatibleLoaderFunc_(name));
     }
-
-    CHECK_NULL_RETURN(componentLoaderFunc_, nullptr);
-    return std::unique_ptr<ComponentLoader>(componentLoaderFunc_(name));
+    void* handle = LOADLIB(COMPATIABLE_LIB.c_str());
+    auto* createSym = reinterpret_cast<ComponentLoaderFunc>(LOADSYM(handle, COMPATIABLE_COMPONENT_LOADER));
+    CHECK_NULL_RETURN(createSym, nullptr);
+    compatibleLoaderFunc_ = createSym;
+    return std::unique_ptr<ComponentLoader>(compatibleLoaderFunc_(name));
 }
 
-void* DynamicModuleHelper::CreateCanvasRenderingContextModel(bool isOffscreen)
+DynamicModule* DynamicModuleHelper::GetDynamicModule(const std::string& name)
 {
-    if (!canvasRenderingContextLoaderFunc_) {
-        canvasRenderingContextLoaderFunc_ =
-            reinterpret_cast<CanvasLoaderFunc>(LoadSymbol(COMPATIABLE_CANVAS_RENDERING_CONTEXT.c_str()));
+    // Double-checked locking pattern for better performance
+    {
+        std::lock_guard<std::mutex> lock(moduleMapMutex_);
+        auto iter = moduleMap_.find(name);
+        if (iter != moduleMap_.end()) {
+            return iter->second.get();
+        }
     }
-
-    CHECK_NULL_RETURN(canvasRenderingContextLoaderFunc_, nullptr);
-    return canvasRenderingContextLoaderFunc_(isOffscreen);
-}
-
-void* DynamicModuleHelper::CreateCanvasBridge(CanvasBridgeParams& params)
-{
-    if (!canvasBridgeLoaderFunc_) {
-        canvasBridgeLoaderFunc_ = reinterpret_cast<CanvasBridgeFunc>(LoadSymbol(COMPATIABLE_CANVAS_BRIDGE.c_str()));
+    static const std::unordered_map<std::string, std::string> soMap = {
+        { "CalendarPicker", "calendarpicker" },
+        { "CalendarPickerDialog", "calendarpicker" },
+        { "Checkbox", "checkbox" },
+        { "CheckboxGroup", "checkbox" },
+        { "ColumnSplit", "linearsplit" },
+        { "Counter", "counter" },
+        { "DataPanel", "datapanel" },
+        {"TextClock", "textclock"},
+        { "FlowItem", "waterflow" },
+        { "FolderStack", "folderstack" },
+        {"DynamicLayout", "dynamiclayout"},
+        { "Gauge", "gauge" },
+        { "Hyperlink", "hyperlink" },
+        { "Indexer", "indexer" },
+        { "Marquee", "marquee" },
+        { "PatternLock", "patternlock" },
+        { "QRCode", "qrcode" },
+        { "Radio", "radio" },
+        { "Rating", "rating" },
+        { "Richeditor", "richeditor" },
+        { "RowSplit", "linearsplit" },
+        { "Search", "search" },
+        { "Sidebar", "sidebar" },
+        { "Slider", "slider" },
+        { "Stepper", "stepper" },
+        { "StepperItem", "stepper" },
+        { "SymbolGlyph", "symbol" },
+        { "TimePicker", "timepicker" },
+        { "TimePickerDialog", "timepicker" },
+        { "WaterFlow", "waterflow" },
+        { "Menu", "menu" },
+        { "MenuItem", "menu" },
+        { "MenuItemGroup", "menu" },
+    };
+    auto it = soMap.find(name);
+    if (it == soMap.end()) {
+        LOGI("No shared library mapping found for nativeModule: %{public}s", name.c_str());
+        return nullptr;
     }
+    // Load module without holding the lock (dlopen/dlsym may be slow)
+    auto libName = DYNAMIC_MODULE_LIB_PREFIX + it->second + DYNAMIC_MODULE_LIB_POSTFIX;
+    auto* handle = dlopen(libName.c_str(), RTLD_LAZY);
+    LOGI("First load %{public}s nativeModule start", name.c_str());
+    CHECK_NULL_RETURN(handle, nullptr);
+    auto* createSym = reinterpret_cast<DynamicModuleCreateFunc>(dlsym(handle, (DYNAMIC_MODULE_CREATE + name).c_str()));
+    CHECK_NULL_RETURN(createSym, nullptr);
+    DynamicModule* module = createSym();
+    CHECK_NULL_RETURN(module, nullptr);
 
-    CHECK_NULL_RETURN(canvasBridgeLoaderFunc_, nullptr);
-    return canvasBridgeLoaderFunc_(params);
-}
-
-DynamicModuleHelper::DynamicModuleHelper()
-{
-    LoadLibrary();
-}
-
-DynamicModuleHelper::~DynamicModuleHelper()
-{
-    CloseLibrary();
-}
-
-bool DynamicModuleHelper::LoadLibrary()
-{
-    if (!compatibleLibLoaded_) {
-        compatibleLibHandle_ = dlopen(COMPATIABLE_LIB.c_str(), RTLD_LAZY);
-        CHECK_NULL_RETURN(compatibleLibHandle_, false);
-
-        compatibleLibLoaded_ = true;
+    // Lock again to insert into map
+    {
+        std::lock_guard<std::mutex> lock(moduleMapMutex_);
+        // Check again in case another thread already loaded it
+        auto iter = moduleMap_.find(name);
+        if (iter != moduleMap_.end()) {
+            // Another thread already loaded it, use that one
+            delete module;
+            return iter->second.get();
+        }
+        moduleMap_.emplace(name, std::unique_ptr<DynamicModule>(module));
+#ifdef ENABLE_PRELOAD_DYNAMIC_MODULE
+        TextSegmentInfo segmentInfo(libName, handle);
+        textInfoMap_.emplace(libName, segmentInfo);
+#endif
+        return module;
     }
-    return true;
 }
 
-void DynamicModuleHelper::CloseLibrary()
+#ifdef ENABLE_PRELOAD_DYNAMIC_MODULE
+static int32_t LibraryCallback(struct dl_phdr_info* info, size_t size, void* data)
 {
-    if (dlclose(compatibleLibHandle_) != 0) {
-        return;
+    TextSegmentInfo* segmentInfo = static_cast<TextSegmentInfo*>(data);
+
+    if (info->dlpi_name && strstr(info->dlpi_name, segmentInfo->libraryName_.c_str())) {
+        segmentInfo->libraryName_ = info->dlpi_name;
+        segmentInfo->baseAddress_ = reinterpret_cast<void*>(info->dlpi_addr);
+        // find first code bank
+        for (int i = 0; i < info->dlpi_phnum; ++i) {
+            const ElfW(Phdr)* phdr = &info->dlpi_phdr[i];
+            if (phdr->p_type == PT_LOAD && (phdr->p_flags & PF_X)) {
+                ElfW(Addr) textStartAddr = info->dlpi_addr + phdr->p_vaddr;
+                ElfW(Addr) textEndAddr = textStartAddr + phdr->p_memsz;
+                segmentInfo->textStart_ = reinterpret_cast<void*>(textStartAddr);
+                segmentInfo->textEnd_ = reinterpret_cast<void*>(textEndAddr);
+                segmentInfo->textSize_ = phdr->p_memsz;
+                segmentInfo->findFlag_ = true;
+                return true;
+            }
+        }
+        return true;
     }
-    compatibleLibHandle_ = nullptr;
-    compatibleLibLoaded_ = false;
+    return false;
 }
 
-void* DynamicModuleHelper::LoadSymbol(const char* symName)
+void DynamicModuleHelper::TriggerPageFaultForPreLoad()
 {
-    CHECK_NULL_RETURN(compatibleLibHandle_, nullptr);
-    return dlsym(compatibleLibHandle_, symName);
+    for (auto& pair : textInfoMap_) {
+        auto& segmentInfo = pair.second;
+        if (!segmentInfo.handle_) {
+            continue;
+        }
+        segmentInfo.findFlag_ = false;
+        if (dl_iterate_phdr(LibraryCallback, &segmentInfo) == 0 && !segmentInfo.findFlag_) {
+            continue;
+        }
+        char* base = (char*)segmentInfo.textStart_;
+        size_t size = segmentInfo.textSize_;
+        for (size_t off = 0; off < size; off += PAGE_SIZE) {
+            volatile char c = base[off];
+            (void)c;
+        }
+    }
 }
+#endif
 
 } // namespace OHOS::Ace

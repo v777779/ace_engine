@@ -17,64 +17,124 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_DRAWABLE_ANIMATED_DRAWABLE_DESCRIPTOR_H
 
 #include <memory>
+#include <shared_mutex>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
+#include "base/image/controlled_animator.h"
+#include "base/image/image_source.h"
 #include "core/drawable/drawable_descriptor.h"
+#include "core/drawable/drawable_descriptor_info.h"
 
 namespace OHOS::Ace {
 class ACE_FORCE_EXPORT AnimatedDrawableDescriptor : public DrawableDescriptor {
+    DECLARE_ACE_TYPE(AnimatedDrawableDescriptor, DrawableDescriptor);
+
 public:
+    enum class AnimationStopMode : int32_t {
+        FIRST_FRAME = 0,
+        LAST_FRAME = 1,
+    };
+
     AnimatedDrawableDescriptor() = default;
     ~AnimatedDrawableDescriptor() override = default;
 
     RefPtr<PixelMap> GetPixelMap() override;
 
-    int32_t GetTotalDuration();
+    int32_t GetOriginalWidth() override;
 
-    void SetDurations(const std::vector<int32_t>& durations);
+    int32_t GetOriginalHeight() override;
 
-    std::vector<int32_t> GetDurations();
+    DrawableDescriptorLoadResult LoadSync() override;
+
+    void LoadAsync(const LoadCallback&& callback) override;
 
     DrawableType GetDrawableType() const override
     {
         return DrawableType::ANIMATED;
     }
 
-    void SetRawData(uint8_t* data, size_t len)
-    {
-        rawData_.data.reset(data);
-        rawData_.len = len;
-    }
+    int32_t GetTotalDuration();
 
-    std::vector<RefPtr<PixelMap>> GetPixelMapList()
+    std::vector<int32_t> GetDurations();
+
+    void SetDurations(const std::vector<int32_t>& durations);
+
+    void SetPixelMapList(const std::vector<RefPtr<PixelMap>>& pixelMapList);
+
+    std::vector<RefPtr<PixelMap>> GetPixelMapList() const
     {
         return pixelMapList_;
     }
 
-    void SetPixelMapList(const std::vector<RefPtr<PixelMap>> pixelMapList)
+    uint32_t GetFrameCount() const;
+
+    int32_t GetIterations() const;
+
+    void SetAutoPlay(bool autoPlay)
     {
-        pixelMapList_ = pixelMapList;
+        autoPlay_ = autoPlay;
     }
 
-    int32_t GetIterations() const
+    bool GetAutoPlay() const
     {
-        return iterations_;
+        return autoPlay_;
+    }
+
+    void SetStopMode(AnimationStopMode stopMode)
+    {
+        stopMode_ = stopMode;
+    }
+
+    AnimationStopMode GetStopMode() const
+    {
+        return stopMode_;
     }
 
     void SetTotalDuration(const int32_t totalDuration);
 
-    void SetIterations(const int32_t iterations)
-    {
-        iterations_ = iterations;
-    }
+    void SetIterations(const int32_t iterations);
+
+    void SetDrawableDescriptorInfo(const RefPtr<DrawableDescriptorInfo>& info);
+
+    void ControllAnimation(int32_t nodeId, bool play);
+
+    RefPtr<ControlledAnimator> GetControlledAnimator(const std::string& id);
+
+    RefPtr<ControlledAnimator> GetControlledAnimator(const int32_t id);
+
+    void RegisterUpdateCallback(int32_t nodeId, const UpdateCallback&& callback) override;
+
+    void UnRegisterUpdateCallback(int32_t nodeId) override;
 
 private:
-    int32_t totalDuration_ = -1;
-    int32_t iterations_ = 1;
-    MediaData rawData_;
-    std::vector<int32_t> durations_;
-    std::vector<RefPtr<PixelMap>> pixelMapList_;
-};
-}; // namesapce OHOS::Ace
+    void FlushUpdateCallbacksByNodeId(int32_t index, int32_t nodeId);
 
+    RefPtr<PixelMap> GetFrameByIndex(int32_t index, int32_t nodeId);
+
+    void CreateParamsFromImageSource(int32_t nodeId);
+
+    void CreateAnimator(int32_t nodeId);
+
+    FillMode ToFillMode() const;
+
+    bool autoPlay_ = true;
+    AnimationStopMode stopMode_ = AnimationStopMode::FIRST_FRAME;
+    int32_t totalDuration_ = -1;
+    uint32_t frameCount_ = 0;
+    int32_t iterations_ = 1;
+    bool isSetDurations_ = false;
+    std::vector<int32_t> userDurations_;
+    std::vector<int32_t> selfDurations_;
+    MediaData rawData_;
+    RefPtr<DrawableDescriptorInfo> info_;
+    std::vector<RefPtr<PixelMap>> pixelMapList_;
+    mutable std::shared_mutex callMutx_;
+    mutable std::mutex loadMutx_;
+    std::unordered_map<int32_t, RefPtr<ControlledAnimator>> animators_;
+    std::unordered_map<int32_t, UpdateCallback> updateCallbacks_;
+    std::unordered_map<int32_t, RefPtr<ImageSource>> imageSources_;
+};
+}; // namespace OHOS::Ace
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_DRAWABLE_ANIMATED_DRAWABLE_DESCRIPTOR_H

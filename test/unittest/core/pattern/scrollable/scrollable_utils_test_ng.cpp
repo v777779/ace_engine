@@ -15,7 +15,7 @@
 
 #include "scrollable_utils_test_ng.h"
 
-#include "test/mock/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
 
 namespace OHOS::Ace::NG {
 void ScrollableUtilsTestNG::DragStart(const RefPtr<FrameNode>& frameNode, Offset startOffset)
@@ -207,5 +207,22 @@ AssertionResult ScrollableUtilsTestNG::TickPosition(float expectOffset)
 AssertionResult ScrollableUtilsTestNG::TickPosition(float velocity, float expectOffset)
 {
     return TickPosition(frameNode_, velocity, expectOffset);
+}
+
+void ScrollableUtilsTestNG::TickToFinish()
+{
+    while (!MockAnimationManager::GetInstance().AllFinished()) {
+        MockAnimationManager::GetInstance().Tick();
+        FlushUITasks();
+    }
+}
+
+void ScrollableUtilsTestNG::AnimateToIndexWithTicks(
+    int32_t index, ScrollAlign align, int32_t times, std::optional<float> extraOffset)
+{
+    MockAnimationManager::GetInstance().Reset();
+    MockAnimationManager::GetInstance().SetTicks(times);
+    ScrollToIndex(index, true, align, extraOffset);
+    TickToFinish();
 }
 } // namespace OHOS::Ace::NG

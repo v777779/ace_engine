@@ -17,6 +17,7 @@
 
 #include "core/components_ng/pattern/swiper_indicator/indicator_common/indicator_event_hub.h"
 #include "core/components_ng/pattern/swiper_indicator/indicator_common/indicator_model_ng.h"
+#include "core/components_ng/pattern/swiper/swiper_change_event.h"
 
 namespace OHOS::Ace::NG {
 
@@ -1034,5 +1035,11 @@ HWTEST_F(IndicatorModelTestNg, IndicatorModelTestNg025, TestSize.Level1)
     indicatorPattern_->OnColorModeChange(static_cast<uint32_t>(ColorMode::DARK));
     EXPECT_EQ(indicatorPaintProperty_->GetColorValue(Color::BLACK), Color::RED);
     EXPECT_EQ(indicatorPattern_->GetIndicatorType(), SwiperIndicatorType::DOT);
+
+    auto pipelineContext = PipelineBase::GetCurrentContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto theme = pipelineContext->GetTheme<SwiperIndicatorTheme>();
+    CHECK_NULL_VOID(theme);
+    EXPECT_EQ(indicatorPaintProperty_->GetSpaceValue(0.0_vp), theme->GetIndicatorDotItemSpace());
 }
 } // namespace OHOS::Ace::NG

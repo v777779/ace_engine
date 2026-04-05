@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -21,6 +21,7 @@
 #include "core/common/recorder/node_data_cache.h"
 #include "frameworks/bridge/card_frontend/form_frontend_delegate_declarative.h"
 #include "frameworks/bridge/declarative_frontend/ng/page_router_manager_factory.h"
+#include "napi/native_node_hybrid_api.h"
 
 namespace OHOS::Ace {
 namespace {
@@ -183,7 +184,8 @@ bool DeclarativeFrontend::Initialize(FrontendType type, const RefPtr<TaskExecuto
 {
     type_ = type;
     taskExecutor_ = taskExecutor;
-    ACE_DCHECK(type_ == FrontendType::DECLARATIVE_JS || type_ == FrontendType::STATIC_HYBRID_DYNAMIC);
+    ACE_DCHECK(type_ == FrontendType::DECLARATIVE_JS || type_ == FrontendType::STATIC_HYBRID_DYNAMIC ||
+               type_ == FrontendType::DYNAMIC_HYBRID_STATIC);
     InitializeFrontendDelegate(taskExecutor);
 
     bool needPostJsTask = true;
@@ -432,12 +434,56 @@ void DeclarativeFrontend::InitializeFrontendDelegate(const RefPtr<TaskExecutor>&
     };
 
     const auto& drawChildrenInspectorCallback = [weakEngine = WeakPtr<Framework::JsEngine>(jsEngine_)](
-                                                    const std::string& componentId) {
+                                                    const std::string& componentId,
+                                                    const std::vector<int32_t>& childIds) {
         auto jsEngine = weakEngine.Upgrade();
         if (!jsEngine) {
             return;
         }
-        jsEngine->DrawChildrenInspectorCallback(componentId);
+        jsEngine->DrawChildrenInspectorCallback(componentId, childIds);
+    };
+
+    const auto& layoutChildrenInspectorCallback = [weakEngine = WeakPtr<Framework::JsEngine>(jsEngine_)](
+                                                      const std::string& componentId) {
+        auto jsEngine = weakEngine.Upgrade();
+        if (!jsEngine) {
+            return;
+        }
+        jsEngine->LayoutChildrenInspectorCallback(componentId);
+    };
+ 
+    auto layoutInspectorUniqueIdCallback = [weakEngine = WeakPtr<Framework::JsEngine>(jsEngine_)](int32_t uniqueId) {
+        auto jsEngine = weakEngine.Upgrade();
+        if (!jsEngine) {
+            return;
+        }
+        jsEngine->LayoutInspectorCallback(uniqueId);
+    };
+ 
+    auto drawInspectorUniqueIdCallback = [weakEngine = WeakPtr<Framework::JsEngine>(jsEngine_)](int32_t uniqueId) {
+        auto jsEngine = weakEngine.Upgrade();
+        if (!jsEngine) {
+            return;
+        }
+        jsEngine->DrawInspectorCallback(uniqueId);
+    };
+ 
+    auto drawChildrenInspectorUniqueIdCallback = [weakEngine = WeakPtr<Framework::JsEngine>(jsEngine_)](
+                                                     int32_t uniqueId) {
+        auto jsEngine = weakEngine.Upgrade();
+        if (!jsEngine) {
+            return;
+        }
+        jsEngine->DrawChildrenInspectorCallback(uniqueId);
+    };
+ 
+    auto layoutChildrenInspectorUniqueIdCallback = [weakEngine = WeakPtr<Framework::JsEngine>(jsEngine_)](
+                                                       int32_t uniqueId) {
+        auto jsEngine = weakEngine.Upgrade();
+        if (!jsEngine) {
+            return;
+        }
+        jsEngine->LayoutChildrenInspectorCallback(uniqueId);
     };
 
     const auto& requestAnimationCallback = [weakEngine = WeakPtr<Framework::JsEngine>(jsEngine_)](
@@ -518,7 +564,9 @@ void DeclarativeFrontend::InitializeFrontendDelegate(const RefPtr<TaskExecutor>&
             setPluginMessageTransferCallback, asyncEventCallback, syncEventCallback, updatePageCallback,
             resetStagingPageCallback, destroyPageCallback, destroyApplicationCallback, updateApplicationStateCallback,
             timerCallback, mediaQueryCallback, layoutInspectorCallback, drawInspectorCallback,
-            drawChildrenInspectorCallback, requestAnimationCallback,
+            drawChildrenInspectorCallback, layoutChildrenInspectorCallback, layoutInspectorUniqueIdCallback,
+            drawInspectorUniqueIdCallback, drawChildrenInspectorUniqueIdCallback,
+            layoutChildrenInspectorUniqueIdCallback, requestAnimationCallback,
             jsCallback, onWindowDisplayModeChangedCallBack, onConfigurationUpdatedCallBack, onSaveAbilityStateCallBack,
             onRestoreAbilityStateCallBack, onNewWantCallBack, onMemoryLevelCallBack, onStartContinuationCallBack,
             onCompleteContinuationCallBack, onRemoteTerminatedCallBack, onSaveDataCallBack, onRestoreDataCallBack,
@@ -528,7 +576,9 @@ void DeclarativeFrontend::InitializeFrontendDelegate(const RefPtr<TaskExecutor>&
             setPluginMessageTransferCallback, asyncEventCallback, syncEventCallback, updatePageCallback,
             resetStagingPageCallback, destroyPageCallback, destroyApplicationCallback, updateApplicationStateCallback,
             timerCallback, mediaQueryCallback, layoutInspectorCallback, drawInspectorCallback,
-            drawChildrenInspectorCallback, requestAnimationCallback,
+            drawChildrenInspectorCallback, layoutChildrenInspectorCallback, layoutInspectorUniqueIdCallback,
+            drawInspectorUniqueIdCallback, drawChildrenInspectorUniqueIdCallback,
+            layoutChildrenInspectorUniqueIdCallback, requestAnimationCallback,
             jsCallback, onWindowDisplayModeChangedCallBack, onConfigurationUpdatedCallBack, onSaveAbilityStateCallBack,
             onRestoreAbilityStateCallBack, onNewWantCallBack, onMemoryLevelCallBack, onStartContinuationCallBack,
             onCompleteContinuationCallBack, onRemoteTerminatedCallBack, onSaveDataCallBack, onRestoreDataCallBack,
@@ -544,6 +594,22 @@ void DeclarativeFrontend::InitializeFrontendDelegate(const RefPtr<TaskExecutor>&
     }
     delegate_->SetGroupJsBridge(jsEngine_->GetGroupJsBridge());
     if (Container::IsCurrentUseNewPipeline()) {
+        auto loadDynamicPageCallback =
+            [weakEngine = WeakPtr<Framework::JsEngine>(jsEngine_)](
+            const std::string& ohmUrl, const std::function<void(const std::string&, int32_t)>& errorCallback) {
+            auto jsEngine = weakEngine.Upgrade();
+            CHECK_NULL_RETURN(jsEngine, false);
+            auto env = reinterpret_cast<napi_env>(jsEngine->GetNativeEngine());
+            CHECK_NULL_RETURN(env, false);
+            napi_value result;
+            napi_status status;
+            if ((status = napi_load_module_with_module_request(env, ohmUrl.c_str(), &result)) != napi_ok) {
+                LOGE("AceRouter failed to load module with ohmUrl:%{public}s, status:%{public}d",
+                    ohmUrl.c_str(), (int32_t)status);
+                return false;
+            }
+            return true;
+        };
         auto loadPageCallback = [weakEngine = WeakPtr<Framework::JsEngine>(jsEngine_)](const std::string& url,
                                     const std::function<void(const std::string&, int32_t)>& errorCallback) {
             auto jsEngine = weakEngine.Upgrade();
@@ -636,6 +702,7 @@ void DeclarativeFrontend::InitializeFrontendDelegate(const RefPtr<TaskExecutor>&
         };
 
         auto pageRouterManager = NG::PageRouterManagerFactory::CreateManager();
+        pageRouterManager->SetLoadDynamicPageCallback(std::move(loadDynamicPageCallback));
         pageRouterManager->SetLoadJsCallback(std::move(loadPageCallback));
         pageRouterManager->SetLoadJsByBufferCallback(std::move(loadPageByBufferCallback));
         pageRouterManager->SetLoadNamedRouterCallback(std::move(loadNamedRouterCallback));
@@ -1158,10 +1225,17 @@ void DeclarativeFrontend::OnDrawCompleted(const std::string& componentId)
     }
 }
 
-void DeclarativeFrontend::OnDrawChildrenCompleted(const std::string& componentId)
+void DeclarativeFrontend::OnDrawChildrenCompleted(const std::string& componentId, const std::vector<int32_t>& childIds)
 {
     if (delegate_) {
-        delegate_->OnDrawChildrenCompleted(componentId);
+        delegate_->OnDrawChildrenCompleted(componentId, childIds);
+    }
+}
+
+void DeclarativeFrontend::OnLayoutChildrenCompleted(const std::string& componentId)
+{
+    if (delegate_) {
+        delegate_->OnLayoutChildrenCompleted(componentId);
     }
 }
 
@@ -1169,6 +1243,58 @@ bool DeclarativeFrontend::IsDrawChildrenCallbackFuncExist(const std::string& com
 {
     if (delegate_) {
         return delegate_->IsDrawChildrenCallbackFuncExist(componentId);
+    }
+    return false;
+}
+
+bool DeclarativeFrontend::IsLayoutChildrenCallbackFuncExist(const std::string& componentId)
+{
+    if (delegate_) {
+        return delegate_->IsLayoutChildrenCallbackFuncExist(componentId);
+    }
+    return false;
+}
+
+void DeclarativeFrontend::OnLayoutCompleted(int32_t uniqueId)
+{
+    if (delegate_) {
+        delegate_->OnLayoutCompleted(uniqueId);
+    }
+}
+
+void DeclarativeFrontend::OnDrawCompleted(int32_t uniqueId)
+{
+    if (delegate_) {
+        delegate_->OnDrawCompleted(uniqueId);
+    }
+}
+
+void DeclarativeFrontend::OnDrawChildrenCompleted(int32_t uniqueId)
+{
+    if (delegate_) {
+        delegate_->OnDrawChildrenCompleted(uniqueId);
+    }
+}
+
+void DeclarativeFrontend::OnLayoutChildrenCompleted(int32_t uniqueId)
+{
+    if (delegate_) {
+        delegate_->OnLayoutChildrenCompleted(uniqueId);
+    }
+}
+
+bool DeclarativeFrontend::IsDrawChildrenCallbackFuncExist(int32_t uniqueId)
+{
+    if (delegate_) {
+        return delegate_->IsDrawChildrenCallbackFuncExist(uniqueId);
+    }
+    return false;
+}
+
+bool DeclarativeFrontend::IsLayoutChildrenCallbackFuncExist(int32_t uniqueId)
+{
+    if (delegate_) {
+        return delegate_->IsLayoutChildrenCallbackFuncExist(uniqueId);
     }
     return false;
 }
@@ -1268,12 +1394,38 @@ void DeclarativeFrontend::NotifyAppStorage(const std::string& key, const std::st
     delegate_->NotifyAppStorage(jsEngine_, key, value);
 }
 
+void DeclarativeFrontend::CallStateMgmtCleanUpIdleTaskFunc(int64_t maxTimeInNs)
+{
+    if (jsEngine_) {
+        jsEngine_->CallStateMgmtCleanUpIdleTaskFunc(maxTimeInNs);
+    }
+}
+
+std::vector<std::optional<std::string>> DeclarativeFrontend::CallGetStateMgmtInfo(const std::vector<int32_t>& nodeIds,
+    const std::string& propertyName, const std::string& jsonPath)
+{
+    if (jsEngine_) {
+        return jsEngine_->CallGetStateMgmtInfo(nodeIds, propertyName, jsonPath);
+    }
+    LOGW("CallGetStateMgmtInfo: jsEngine_ is null, return empty result.");
+    return {};
+}
+
 std::string DeclarativeFrontend::GetPagePathByUrl(const std::string& url) const
 {
     if (!delegate_) {
         return "";
     }
     return delegate_->GetPagePathByUrl(url);
+}
+
+void* DeclarativeFrontend::CreateDynamicPage(
+    int32_t pageId, const std::string& url, const std::string& params, bool recoverable)
+{
+    if (!delegate_) {
+        return nullptr;
+    }
+    return delegate_->CreateDynamicPage(pageId, url, params, recoverable);
 }
 
 void DeclarativeEventHandler::HandleAsyncEvent(const EventMarker& eventMarker)

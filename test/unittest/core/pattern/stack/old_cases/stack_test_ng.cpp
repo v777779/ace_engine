@@ -21,13 +21,14 @@
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/property/calc_length.h"
 #include "core/components_ng/layout/layout_wrapper.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/pattern/stack/stack_pattern.h"
 #include "core/components_ng/pattern/stack/stack_model_ng.h"
 #include "core/components_ng/pattern/stack/stack_layout_algorithm.h"
 #include "core/components_ng/pattern/stack/stack_layout_property.h"
 #include "core/components_v2/inspector/inspector_constants.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -105,7 +106,7 @@ std::pair<RefPtr<FrameNode>, RefPtr<LayoutWrapperNode>> StackTestNg::CreateSmall
  * @tc.desc: Test stack Layout with Alignment
  * @tc.type: FUNC
  */
-HWTEST_F(StackTestNg, StackTestNgTest001, TestSize.Level1)
+HWTEST_F(StackTestNg, StackTestNgTest001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create stack and get frameNode.
@@ -175,7 +176,7 @@ HWTEST_F(StackTestNg, StackTestNgTest001, TestSize.Level1)
  * @tc.desc: Test stack Layout with AlignmentContent
  * @tc.type: FUNC
  */
-HWTEST_F(StackTestNg, StackTestNgTest002, TestSize.Level1)
+HWTEST_F(StackTestNg, StackTestNgTest002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create stack and get frameNode.
@@ -235,7 +236,7 @@ HWTEST_F(StackTestNg, StackTestNgTest002, TestSize.Level1)
  * @tc.desc: Test stack Layout with Alignment and TextDirection is RTL
  * @tc.type: FUNC
  */
-HWTEST_F(StackTestNg, StackTestNgTest003, TestSize.Level1)
+HWTEST_F(StackTestNg, StackTestNgTest003, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. create stack and get frameNode.

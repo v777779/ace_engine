@@ -18,8 +18,8 @@
 #define private public
 #define protected public
 #include "interfaces/inner_api/ace_kit/src/view/frame_node_impl.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/interfaces/ace_kit/mock/mock_ace_kit_pattern.h"
 #include "ui/properties/property.h"
 #include "ui/view/frame_node.h"
@@ -85,21 +85,28 @@ HWTEST_F(PropertyTest, PropertyTest002, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
     auto layoutProperty = frameNodeImpl->GetLayoutProperty();
     ASSERT_TRUE(layoutProperty);
+
     auto propertyChangeFlag = layoutProperty->GetPropertyChangeFlag();
     EXPECT_EQ(propertyChangeFlag, NG::PROPERTY_UPDATE_MEASURE);
+
     auto property = frameNode->GetProperty();
     ASSERT_TRUE(property);
+
     property->UpdateRender();
     EXPECT_EQ(layoutProperty->GetPropertyChangeFlag(), NG::PROPERTY_UPDATE_MEASURE | NG::PROPERTY_UPDATE_RENDER);
+
     auto aceNode = frameNodeImpl->GetAceNodePtr();
     ASSERT_TRUE(aceNode);
+
     auto paintProp = aceNode->GetPaintProperty<NG::Property>();
     ASSERT_TRUE(paintProp);
+
     EXPECT_EQ(paintProp->GetPropertyChangeFlag(), NG::PROPERTY_UPDATE_RENDER);
 }
 

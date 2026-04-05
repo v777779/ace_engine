@@ -25,7 +25,7 @@
 namespace OHOS::Ace::NG {
 
 class ACE_EXPORT DataPanelPaintMethod : public NodePaintMethod {
-    DECLARE_ACE_TYPE(DataPanelPaintMethod, NodePaintMethod)
+    DECLARE_ACE_TYPE(DataPanelPaintMethod, NodePaintMethod);
 public:
     explicit DataPanelPaintMethod(const RefPtr<DataPanelModifier>& dataPanelModifier)
         : dataPanelModifier_(dataPanelModifier)
@@ -37,6 +37,8 @@ public:
 
 private:
     void CreateGradient(const std::pair<Color, Color>& itemParam, Gradient& gradient) const;
+    void UpdateShadow(
+        const RefPtr<DataPanelPaintProperty>& paintProperty, const std::vector<Gradient>& valuesColor) const;
     RefPtr<DataPanelModifier> dataPanelModifier_;
     ACE_DISALLOW_COPY_AND_MOVE(DataPanelPaintMethod);
 };

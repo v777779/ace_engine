@@ -42,7 +42,9 @@ protected:
         const RefPtr<SwiperIndicatorTheme>& swiperIndicatorTheme);
 };
 
-class JSIndicatorController final : public Referenced {
+class JSIndicatorController final : public NG::JSIndicatorControllerBase {
+    DECLARE_ACE_TYPE(JSIndicatorController, NG::JSIndicatorControllerBase);
+
 public:
     JSIndicatorController() = default;
     ~JSIndicatorController() override = default;
@@ -72,12 +74,13 @@ public:
     {
         auto resetFunc = [wp = WeakClaim(this), wpNode = WeakClaim(RawPtr(indicatorNode))]() {
             auto JSController = wp.Upgrade();
-            if (JSController) {
-                auto host = JSController->controller_.Upgrade()->GetIndicatorNode();
-                auto node = wpNode.Upgrade();
-                if (node && node == host) {
-                    JSController->controller_ = nullptr;
-                }
+            CHECK_NULL_VOID(JSController);
+            auto controller = JSController->controller_.Upgrade();
+            CHECK_NULL_VOID(controller);
+            auto host = controller->GetIndicatorNode();
+            auto node = wpNode.Upgrade();
+            if (node && node == host) {
+                JSController->controller_ = nullptr;
             }
         };
         if (controller_.Upgrade()) {

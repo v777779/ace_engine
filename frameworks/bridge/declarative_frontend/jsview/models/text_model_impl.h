@@ -19,7 +19,7 @@
 #include <functional>
 #include <string>
 
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components/text/text_component_v2.h"
 #include "core/components_ng/pattern/text/text_model.h"
 
@@ -48,14 +48,17 @@ public:
     void SetTextAlign(TextAlign value) override;
     void SetTextOverflow(TextOverflow value) override;
     void SetMaxLines(uint32_t value) override;
+    void SetMinLines(uint32_t value) override {};
+    void ResetMinLines() override {};
     void SetTextIndent(const Dimension& value) override;
     void SetLineHeight(const Dimension& value) override;
     void SetLineSpacing(const Dimension& value) override;
-    void SetOptimizeTrailingSpace(bool trim) override;
     void SetIsOnlyBetweenLines(bool isOnlyBetweenLines) override;
     void SetGradientShaderStyle(NG::Gradient& gradient) override;
     void SetColorShaderStyle(const Color& value) override;
     void ResetGradientShaderStyle() override;
+    void SetOptimizeTrailingSpace(bool trim) override;
+    void SetCompressLeadingPunctuation(bool enabled) override;
     void SetTextDecoration(TextDecoration value) override;
     void SetTextDecorationColor(const Color& value) override;
     void SetTextDecorationStyle(TextDecorationStyle value) override;
@@ -69,6 +72,8 @@ public:
     void SetHeightAdaptivePolicy(TextHeightAdaptivePolicy value) override;
     void SetTextDetectEnable(bool value) override;
     void SetTextDetectConfig(const TextDetectConfig& textDetectConfig) override;
+    void SetSelectDetectEnable(bool value) override;
+    void ResetSelectDetectEnable() override;
     void OnSetHeight() override;
     void OnSetWidth() override;
     void OnSetAlign() override;
@@ -76,6 +81,7 @@ public:
     void ClearOnClick() override {};
     void SetRemoteMessage(std::function<void()>&& event) override;
     void SetCopyOption(CopyOptions copyOption) override;
+    void SetOnWillCopy(std::function<bool(const std::u16string&)>&& func) override {};
     void SetOnCopy(std::function<void(const std::u16string&)>&& func) override {};
     void SetEllipsisMode(EllipsisMode modal) override {};
     void SetClipEdge(bool clip) override {};

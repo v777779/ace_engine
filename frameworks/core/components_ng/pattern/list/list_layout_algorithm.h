@@ -23,14 +23,17 @@
 #include "base/memory/referenced.h"
 #include "core/components_ng/layout/layout_algorithm.h"
 #include "core/components_ng/layout/layout_wrapper.h"
+#include "core/components_ng/pattern/list/list_item_group_pattern.h"
 #include "core/components_ng/pattern/list/list_layout_property.h"
 #include "core/components_ng/pattern/list/list_position_map.h"
-#include "core/components_v2/list/list_component.h"
-#include "core/components_v2/list/list_properties.h"
+#include "compatible/components/list_v2/list_component.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 
 namespace OHOS::Ace::NG {
 class PipelineContext;
+class ListPattern;
 class ListPositionMap;
+struct AdjustOffset;
 
 struct ListItemGroupLayoutInfo {
     bool atStart = false;
@@ -61,6 +64,7 @@ struct PredictLayoutItem {
     int32_t index;
     int32_t forwardCacheCount;
     int32_t backwardCacheCount;
+    bool forceCache = true;
 };
 
 struct ListPredictLayoutParamV2 {
@@ -88,8 +92,6 @@ class ACE_EXPORT ListLayoutAlgorithm : public LayoutAlgorithm {
 public:
     using PositionMap = std::map<int32_t, ListItemInfo>;
     static constexpr int32_t LAST_ITEM = -1;
-
-    static constexpr uint32_t INITIAL_RANGE_SECOND = 2;
 
     ListLayoutAlgorithm(int32_t itemStartIndex = 0)
         : itemStartIndex_(itemStartIndex)
@@ -361,9 +363,7 @@ public:
     void Layout(LayoutWrapper* layoutWrapper) override;
     void UpdateOverlay(LayoutWrapper* layoutWrapper);
 
-    bool RequestForward(LayoutWrapper* layoutWrapper, int32_t currentIndex, float currentEndPos, float chainOffset);
     void LayoutForward(LayoutWrapper* layoutWrapper, int32_t startIndex, float startPos);
-    bool RequestBackward(LayoutWrapper* layoutWrapper, int32_t currentIndex, float currentStartPos, float chainOffset);
     void LayoutBackward(LayoutWrapper* layoutWrapper, int32_t endIndex, float endPos);
 
     void BeginLayoutForward(float startPos, LayoutWrapper* layoutWrapper);
@@ -445,29 +445,13 @@ public:
 
     void ResetLayoutItem(LayoutWrapper* layoutWrapper);
 
+    void ResetUnLayoutedItems(LayoutWrapper* layoutWrapper, PositionMap& positionMap);
+
+    void ResetUnLayoutedItem(const RefPtr<LayoutWrapper>& layoutWrapper, ListItemInfo& info);
+
     std::pair<int32_t, float> GetSnapStartIndexAndPos();
 
     std::pair<int32_t, float> GetSnapEndIndexAndPos();
-
-    const std::pair<int32_t, int32_t>& GetItemAdapterRange() const
-    {
-        return range_;
-    }
-
-    void SetTotalItemCount(int32_t count, bool needUpdate = true)
-    {
-        totalItemCount_ = count;
-    }
-
-    void SetItemAdapterFeature(const std::pair<bool, bool>& requestFeature)
-    {
-        requestFeature_ = requestFeature;
-    }
-
-    void SetLazyFeature(bool isLazy)
-    {
-        isLazyFeature_ = isLazy;
-    }
 
     bool GetStackFromEnd() const
     {
@@ -514,6 +498,12 @@ public:
         draggingIndex_ = index;
     }
 
+    void ExpandWithSafeAreaPadding(const RefPtr<LayoutWrapper>& layoutWrapper);
+
+    static int32_t GetListLanesByFillType(PresetFillType fillType, WidthBreakpoint point);
+
+    float GetChildMainSize(const RefPtr<LayoutWrapper>& wrapper, int32_t index);
+
 protected:
     virtual void UpdateListItemConstraint(
         Axis axis, const OptionalSizeF& selfIdealSize, LayoutConstraintF& contentConstraint);
@@ -545,6 +535,9 @@ protected:
     void CheckListItemGroupRecycle(
         LayoutWrapper* layoutWrapper, int32_t index, float referencePos, bool forwardLayout) const;
     void AdjustPostionForListItemGroup(LayoutWrapper* layoutWrapper, Axis axis, int32_t index, bool forwardLayout);
+    void MeasureLazyVGridLayout(const RefPtr<LayoutWrapper>& wrapper, float& referencePos, bool forward);
+    void ApplyLazyVGridAdjustOffset(const RefPtr<LayoutWrapper>& wrapper, float& referencePos, bool forward);
+    AdjustOffset GetAdjustOffset(const RefPtr<LayoutWrapper>& item);
     void SetItemInfo(int32_t index, ListItemInfo&& info)
     {
         itemPosition_[index] = info;
@@ -567,6 +560,9 @@ protected:
     int32_t UpdateDefaultCachedCount(const int32_t oldCachedCount, const int32_t itemCount);
     bool IsListLanesEqual(const RefPtr<LayoutWrapper>& wrapper) const;
     void ReportGetChildError(const std::string& funcName, int32_t index) const;
+    void UpdateNoLayoutedItems();
+
+    AdjustOffset GetLazyVGridAdjustOffset(const RefPtr<LayoutWrapper>& wrapper) const;
 
     Axis axis_ = Axis::VERTICAL;
     int32_t laneIdx4Divider_ = 0;
@@ -585,9 +581,6 @@ protected:
     virtual void FixPredictSnapOffset(const RefPtr<ListLayoutProperty>& listLayoutProperty);
     virtual void FixPredictSnapPos();
     void FixPredictSnapOffsetAlignCenter();
-    bool LayoutCachedALine(LayoutWrapper* layoutWrapper, int32_t index, bool forward, float &currPos, float crossSize);
-    virtual std::list<int32_t> LayoutCachedItem(LayoutWrapper* layoutWrapper, int32_t cacheCount);
-    static void PostIdleTask(RefPtr<FrameNode> frameNode, const ListPredictLayoutParam& param);
 
     void ProcessCacheCount(LayoutWrapper* layoutWrapper, int32_t cacheCount, bool show);
     virtual int32_t LayoutCachedForward(LayoutWrapper* layoutWrapper, int32_t cacheCount,
@@ -604,7 +597,6 @@ protected:
     static void PredictBuildV2(RefPtr<FrameNode> frameNode, int64_t deadline,
         ListMainSizeValues listMainSizeValues, bool show);
 
-    float GetStopOnScreenOffset(ScrollSnapAlign scrollSnapAlign) const;
     void FindPredictSnapIndexInItemPositionsStart(float predictEndPos, int32_t& endIndex, int32_t& currIndex) const;
     void FindPredictSnapIndexInItemPositionsCenter(float predictEndPos, int32_t& endIndex, int32_t& currIndex) const;
     void FindPredictSnapIndexInItemPositionsEnd(float predictEndPos, int32_t& endIndex, int32_t& currIndex) const;
@@ -618,11 +610,8 @@ protected:
     void GetEndIndexInfo(int32_t& index, float& pos, bool& isGroup);
     int32_t GetListItemGroupItemCount(const RefPtr<LayoutWrapper>& wrapper) const;
 
-    RefPtr<LayoutWrapper> GetListItem(LayoutWrapper* layoutWrapper, int32_t index, bool addToRenderTree = true) const
-    {
-        index = !isStackFromEnd_ ? index : totalItemCount_ - index - 1;
-        return layoutWrapper->GetOrCreateChildByIndex(index + itemStartIndex_, addToRenderTree);
-    }
+    RefPtr<LayoutWrapper> GetListItem(
+        LayoutWrapper* layoutWrapper, int32_t index, bool addToRenderTree = true, bool isCache = false) const;
     RefPtr<LayoutWrapper> GetChildByIndex(LayoutWrapper* layoutWrapper, uint32_t index, bool isCache = false) const
     {
         index =  !isStackFromEnd_ ? index : totalItemCount_ - index - 1;
@@ -641,7 +630,7 @@ protected:
 
     virtual void MeasureHeader(LayoutWrapper* layoutWrapper) {}
     virtual void LayoutHeader(LayoutWrapper* layoutWrapper, const OffsetF& paddingOffset, float crossSize) {}
-    virtual void CalcContentOffset(const RefPtr<ListLayoutProperty>& property);
+    virtual void CalcContentOffset(LayoutWrapper* layoutWrapper);
     virtual bool IsScrollSnapAlignCenter(LayoutWrapper* layoutWrapper);
     virtual void FixItemLayoutOffset(LayoutWrapper* layoutWrapper) {}
 
@@ -656,11 +645,12 @@ protected:
     PositionMap itemPosition_;
     PositionMap recycledItemPosition_;
     PositionMap cachedItemPosition_;
+    PositionMap noLayoutedItems_;
     int32_t preStartIndex_ = 0;
-    float currentOffset_ = 0.0f;
-    float adjustOffset_ = 0.0f;
-    float totalOffset_ = 0.0f;
-    float currentDelta_ = 0.0f;
+    double currentOffset_ = 0.0;
+    double adjustOffset_ = 0.0;
+    double totalOffset_ = 0.0;
+    double currentDelta_ = 0.0;
     float startMainPos_ = 0.0f;
     float endMainPos_ = 0.0f;
     std::optional<float> layoutEndMainPos_;
@@ -669,8 +659,6 @@ protected:
     float contentEndOffset_ = 0.0f;
     float spaceWidth_ = 0.0f;
     bool overScrollFeature_ = false;
-    bool canOverScrollStart_ = false;
-    bool canOverScrollEnd_ = false;
     bool isSpringEffect_ = false;
     bool expandSafeArea_ = false;
 
@@ -700,6 +688,16 @@ private:
     void CheckAndMeasureStartItem(
         LayoutWrapper* layoutWrapper, int32_t startIndex, float& startPos, bool isGroup, bool forwardLayout);
 
+    // Helper function for nested lazy loading support (static, no instance state needed)
+    static bool CanSupportNestedLazy(const RefPtr<FrameNode>& childNode, const RefPtr<FrameNode>& listNode);
+
+    static void ProcessPredictBuildLazyVGrid(
+        const RefPtr<LayoutWrapper>& wrapper,
+        int32_t index,
+        const RefPtr<ListPattern>& pattern,
+        const ListPredictLayoutParamV2& param,
+        const ListMainSizeValues& listMainSizeValues,
+        bool show);
     std::pair<int32_t, float> RequestNewItemsForward(LayoutWrapper* layoutWrapper,
         const LayoutConstraintF& layoutConstraint, int32_t startIndex, float startPos, Axis axis);
 
@@ -711,7 +709,10 @@ private:
 
     void FixPredictSnapOffsetAlignStart();
     void FixPredictSnapOffsetAlignEnd();
-    static bool PredictBuildItem(RefPtr<LayoutWrapper> wrapper, const LayoutConstraintF& constraint);
+
+    float GetStopOnScreenOffset(ScrollSnapAlign scrollSnapAlign) const;
+    bool LayoutReachEnd(float currentEndPos, float endMainPos, int32_t currentIndex);
+    bool LayoutReachStart(float currentStartPos, float startMainPos, int32_t currentIndex);
 
     std::optional<int32_t> jumpIndexInGroup_;
     ScrollAlign scrollAlign_ = ScrollAlign::START;
@@ -719,6 +720,8 @@ private:
 
     float prevContentStartOffset_ = 0.0f;
     float prevContentEndOffset_ = 0.0f;
+    bool canOverScrollStart_ = false;
+    bool canOverScrollEnd_ = false;
     bool canOverScroll_ = false;
     bool forwardFeature_ = false;
     bool backwardFeature_ = false;
@@ -727,16 +730,13 @@ private:
     bool measureInNextFrame_ = false;
     bool syncLoad_ = false;
     bool prevMeasureBreak_ = false;
+    int32_t prevItemPosCount_ = 0;
 
     V2::ListItemAlign listItemAlign_ = V2::ListItemAlign::START;
 
     float laneGutter_ = 0.0f;
 
     V2::StickyStyle stickyStyle_ = V2::StickyStyle::NONE;
-
-    std::pair<int32_t, int32_t> range_ = { -1, -1 };
-    std::pair<bool, bool> requestFeature_ = { false, false };
-    bool isLazyFeature_ = false;
 
     float chainInterval_ = 0.0f;
     int32_t draggingIndex_ = -1;

@@ -17,8 +17,8 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_TIME_PICKER_TIME_PICKER_DIALOG_VIEW_H
 
 #include "base/utils/macros.h"
+#include "core/components/button/button_theme.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components/picker/picker_base_component.h"
 #include "core/components_ng/pattern/button/button_layout_property.h"
 #include "core/components_ng/pattern/time_picker/timepicker_row_pattern.h"
 
@@ -115,6 +115,10 @@ private:
     static thread_local Dimension selectedTextStyleFont_;
     static thread_local Dimension normalTextStyleFont_;
     static thread_local Dimension disappearTextStyleFont_;
+    static thread_local Dimension pickerDialogMargin_;
+    static thread_local Dimension pickerTitleHeight_;
+    static thread_local Color buttonColor_;
+    static thread_local bool useButtonFocusArea_;
 };
 } // namespace OHOS::Ace::NG
 

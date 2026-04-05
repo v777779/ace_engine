@@ -16,6 +16,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_WINDOW_PATTERN_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_WINDOW_PATTERN_H
 
+#include <atomic>
 #include "common/rs_vector4.h"
 #include "key_event.h"
 #include "pointer_event.h"
@@ -55,6 +56,7 @@ public:
 
 protected:
     void OnAttachToFrameNode() override;
+    void SetImagePatternSyncLoad(const RefPtr<FrameNode>& window);
 
     void DispatchPointerEvent(const std::shared_ptr<MMI::PointerEvent>& pointerEvent);
     void DispatchKeyEvent(const std::shared_ptr<MMI::KeyEvent>& keyEvent);
@@ -79,7 +81,11 @@ protected:
     void CreateBlankWindow(RefPtr<FrameNode>& window);
     void CreateStartingWindow();
     void CreateSnapshotWindow(std::optional<std::shared_ptr<Media::PixelMap>> snapshot = std::nullopt);
-    void ClearImageCache(const ImageSourceInfo& sourceInfo);
+    void ClearImageCache(const ImageSourceInfo& sourceInfo, Rosen::SnapshotStatus key, bool freeMultiWindow,
+        bool isScaledSnapshot);
+    bool AddPersistentImage(const std::shared_ptr<Rosen::RSSurfaceNode>& surfaceNode,
+        const RefPtr<NG::FrameNode>& host);
+    void DelayAddAppWindowForDmaResume(int32_t pid);
 
     void AddChild(const RefPtr<FrameNode>& host, const RefPtr<FrameNode>& child,
         const std::string& nodeType, int32_t index = DEFAULT_NODE_SLOT);
@@ -99,11 +105,13 @@ protected:
     virtual void OnLayoutFinished() {}
     virtual void OnDrawingCompleted() {}
     virtual void OnRemoveBlank() {}
-    virtual void OnAddSnapshot() {}
+    virtual void OnAddSnapshot(std::function<void()>&& callback = nullptr) {}
     virtual void OnRemoveSnapshot() {}
     virtual void OnAppRemoveStartingWindow() {}
     virtual void OnUpdateSnapshotWindow() {}
     virtual void OnPreLoadStartingWindowFinished() {}
+    virtual void OnRestart() {}
+    virtual void OnRemovePrelaunchStartingWindow() {}
 
     RefPtr<FrameNode> startingWindow_;
     RefPtr<StartingWindowLayoutHelper> startingWindowLayoutHelper_;
@@ -119,6 +127,10 @@ protected:
     const std::string newAppWindowName_ = "NewAppWindow";
     bool attachToFrameNodeFlag_ = false;
     bool isBlankForSnapshot_ = false;
+    bool isScaledSnapshot_ = false;
+    bool syncStartingWindow_ = false;
+    bool dmaReclaimEnabled_ = false;
+    std::atomic_bool isPrelaunch_ = false;
 
     sptr<Rosen::Session> session_;
     int32_t instanceId_ = Container::CurrentId();
@@ -127,14 +139,21 @@ protected:
 
 private:
     void UpdateSnapshotWindowProperty();
-    bool IsSnapshotSizeChanged();
     void UpdateStartingWindowProperty(const Rosen::SessionInfo& sessionInfo,
         Color &color, ImageSourceInfo &sourceInfo);
+    bool IsSnapshotSizeChanged();
+    bool CheckAndHandleRestartApp();
     bool CheckAndAddStartingWindowAboveLocked();
+    bool CheckAndAddStartingWindowForPrelaunch();
     void HideStartingWindow();
+    void AddBackgroundColorDelayed();
     CancelableCallback<void()> interruptStartingTask_;
+    CancelableCallback<void()> addBackgroundColorTask_;
+    CancelableCallback<void()> delayAddAppWindowTask_;
 
     std::shared_ptr<Rosen::ILifecycleListener> lifecycleListener_;
+    bool needAddBackgroundColor_ = true;
+    bool appWindowDelayAdded_ = false;
     friend class LifecycleListener;
     friend class WindowEventProcess;
 

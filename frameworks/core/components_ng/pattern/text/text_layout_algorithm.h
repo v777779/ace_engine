@@ -44,7 +44,7 @@ struct DragSpanPosition {
 };
 
 // TextLayoutAlgorithm acts as the underlying text layout.
-class ACE_EXPORT TextLayoutAlgorithm : public MultipleParagraphLayoutAlgorithm, public TextAdaptFontSizer {
+class ACE_FORCE_EXPORT TextLayoutAlgorithm : public MultipleParagraphLayoutAlgorithm, public TextAdaptFontSizer {
     DECLARE_ACE_TYPE(TextLayoutAlgorithm, BoxLayoutAlgorithm, TextAdaptFontSizer);
 
 public:
@@ -93,6 +93,8 @@ protected:
     std::u16string StringOutBoundProtection(int32_t position, int32_t length, std::u16string wTextForAI);
     bool IsNeedParagraphReLayout() const override;
     double GetIndentMaxWidth(double width) const override;
+    void MeasureWidthLayoutCalPolicy(LayoutWrapper* layoutWrapper) override;
+    void MeasureHeightLayoutCalPolicy(LayoutWrapper* layoutWrapper) override;
 
 private:
     OffsetF GetContentOffset(LayoutWrapper* layoutWrapper) override;
@@ -131,14 +133,17 @@ private:
     std::pair<bool, double> GetSuitableSizeBS(TextStyle& textStyle, const std::u16string& content,
         const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper, double stepSize);
     bool IsAdaptExceedLimit(const SizeF& maxSize) override;
-    bool IsParentSizeNearZero(const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper);
     void CreateOrUpdateTextEffect(const RefPtr<Paragraph>& oldParagraph, const RefPtr<Paragraph>& newParagraph,
         const RefPtr<TextPattern>& textPattern, const std::u16string& content);
+    bool IsParentSizeNearZero(const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper);
     bool IsFixIdealSizeAndNoMaxSize(LayoutWrapper* layoutWrapper, bool isWidth);
     LayoutConstraintF CalcContentConstraint(const LayoutConstraintF& constraint, LayoutWrapper* layoutWrapper);
+    std::optional<float> GetCalcLayoutConstraintLength(LayoutWrapper* layoutWrapper, bool isMax, bool isWidth);
+    void MeasureWithFixAtIdealSize(LayoutWrapper* layoutWrapper);
     RefPtr<PropertyBool> showSelect_;
     std::optional<LayoutConstraintF> cachedCalcContentConstraint_;
     bool isFixIdealSizeAndNoMaxWidth_ = false;
+    bool alwaysReCreateParagraph_ = false;
     ACE_DISALLOW_COPY_AND_MOVE(TextLayoutAlgorithm);
 };
 } // namespace OHOS::Ace::NG

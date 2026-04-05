@@ -42,6 +42,7 @@ protected:
     static void SetOnChange(const JSCallbackInfo& info);
     static void SetOnTabBarClick(const JSCallbackInfo& info);
     static void SetOnUnselected(const JSCallbackInfo& info);
+    static void SetOnContentDidScroll(const JSCallbackInfo& info);
     static void SetOnAnimationStart(const JSCallbackInfo& info);
     static void SetOnAnimationEnd(const JSCallbackInfo& info);
     static void SetOnGestureSwipe(const JSCallbackInfo& info);
@@ -64,6 +65,7 @@ protected:
     static void SetBarModifier(const JSCallbackInfo& info, const JsiRef<JsiValue>& jsValue);
     static void SetCachedMaxCount(const JSCallbackInfo& info);
     static void SetOnSelected(const JSCallbackInfo& info);
+    static void SetNestedScroll(const JSCallbackInfo& info);
 };
 
 } // namespace OHOS::Ace::Framework

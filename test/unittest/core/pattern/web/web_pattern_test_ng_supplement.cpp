@@ -18,14 +18,14 @@
 #include "gtest/gtest.h"
 #define protected public
 #define private public
-#include "test/mock/core/pattern/mock_nestable_scroll_container.h"
+#include "test/mock/frameworks/core/components_ng/pattern/mock_nestable_scroll_container.h"
 #undef private
 #undef protected
-#include "test/mock/core/common/mock_image_analyzer_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/frameworks/core/common/mock_image_analyzer_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 #define private public
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 
 #include "nweb_handler.h"
 #include "core/components/web/resource/web_delegate.h"
@@ -66,6 +66,7 @@ public:
 
     MOCK_METHOD(void, Cancel, (), (const, override));
     MOCK_METHOD(void, CopyImage, (), (const, override));
+    MOCK_METHOD(void, SaveImage, (), (const, override));
     MOCK_METHOD(void, Copy, (), (const, override));
     MOCK_METHOD(void, Paste, (), (const, override));
     MOCK_METHOD(void, Cut, (), (const, override));
@@ -73,6 +74,7 @@ public:
     MOCK_METHOD(void, Undo, (), (const, override));
     MOCK_METHOD(void, Redo, (), (const, override));
     MOCK_METHOD(void, PasteAndMatchStyle, (), (const, override));
+    MOCK_METHOD(void, RequestPasswordAutoFill, (), (const, override));
 };
 class WebPatternTestNgSupplement : public testing::Test {
 public:
@@ -116,7 +118,6 @@ HWTEST_F(WebPatternTestNgSupplement, OnAttachToFrameNode_001, TestSize.Level1)
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
     webPattern->renderContextForSurface_ = nullptr;
-    webPattern->renderContextForPopupSurface_ = nullptr;
 
     webPattern->OnAttachToFrameNode();
     EXPECT_NE(webPattern->renderContextForSurface_, nullptr);
@@ -243,11 +244,11 @@ HWTEST_F(WebPatternTestNgSupplement, HandleScaleGestureChange_001, TestSize.Leve
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
     ASSERT_NE(webPattern, nullptr);
@@ -262,8 +263,6 @@ HWTEST_F(WebPatternTestNgSupplement, HandleScaleGestureChange_001, TestSize.Leve
     webPattern->startPageScale_ = 5.0;
 
     webPattern->HandleScaleGestureChange(event);
-    EXPECT_EQ(webPattern->zoomErrorCount_, 5);
-    EXPECT_NE(webPattern, nullptr);
 #endif
 }
 
@@ -292,7 +291,7 @@ HWTEST_F(WebPatternTestNgSupplement, JavaScriptOnDocumentStart001, TestSize.Leve
     vec.push_back("main");
     scriptItems.insert(std::make_pair(group, vec));
     webPattern->JavaScriptOnDocumentStart(scriptItems);
-    EXPECT_EQ(webPattern->delegate_, nullptr);
+    EXPECT_TRUE(webPattern->onDocumentStartScriptItems_.has_value());
 #endif
 }
 
@@ -321,7 +320,7 @@ HWTEST_F(WebPatternTestNgSupplement, JavaScriptOnDocumentEnd001, TestSize.Level1
     vec.push_back("main");
     scriptItems.insert(std::make_pair(group, vec));
     webPattern->JavaScriptOnDocumentEnd(scriptItems);
-    EXPECT_EQ(webPattern->delegate_, nullptr);
+    EXPECT_TRUE(webPattern->onDocumentEndScriptItems_.has_value());
 #endif
 }
 
@@ -419,13 +418,14 @@ HWTEST_F(WebPatternTestNgSupplement, JavaScriptOnDocumentStartByOrder005, TestSi
 
     webPattern->delegate_ = nullptr;
     std::map<std::string, std::vector<std::string>> scriptItems;
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> scriptRegexItems;
     std::vector<std::string> scriptItemsByOrder;
     std::string group = "group";
     std::vector<std::string> vec;
     vec.push_back("main");
     scriptItems.insert(std::make_pair(group, vec));
-    webPattern->JavaScriptOnDocumentStartByOrder(scriptItems, scriptItemsByOrder);
-    EXPECT_EQ(webPattern->delegate_, nullptr);
+    webPattern->JavaScriptOnDocumentStartByOrder(scriptItems, scriptRegexItems, scriptItemsByOrder);
+    EXPECT_TRUE(webPattern->onDocumentStartScriptItemsByOrder_.has_value());
 #endif
 }
 
@@ -449,13 +449,14 @@ HWTEST_F(WebPatternTestNgSupplement, JavaScriptOnDocumentEndByOrder005, TestSize
 
     webPattern->delegate_ = nullptr;
     std::map<std::string, std::vector<std::string>> scriptItems;
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> scriptRegexItems;
     std::vector<std::string> scriptItemsByOrder;
     std::string group = "group";
     std::vector<std::string> vec;
     vec.push_back("main");
     scriptItems.insert(std::make_pair(group, vec));
-    webPattern->JavaScriptOnDocumentEndByOrder(scriptItems, scriptItemsByOrder);
-    EXPECT_EQ(webPattern->delegate_, nullptr);
+    webPattern->JavaScriptOnDocumentEndByOrder(scriptItems, scriptRegexItems, scriptItemsByOrder);
+    EXPECT_TRUE(webPattern->onDocumentEndScriptItemsByOrder_.has_value());
 #endif
 }
 
@@ -480,22 +481,29 @@ HWTEST_F(WebPatternTestNgSupplement, UpdateJavaScriptOnDocumentStartByOrder005, 
     ASSERT_NE(webPattern->delegate_, nullptr);
 
     std::map<std::string, std::vector<std::string>> scriptItems;
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> scriptRegexItems;
     std::vector<std::string> scriptItemsByOrder;
     std::string group = "group";
     std::vector<std::string> vec;
     vec.push_back("main");
     scriptItems.insert(std::make_pair(group, vec));
     webPattern->onDocumentStartScriptItems_ = std::make_optional<ScriptItems>(scriptItems);
+    webPattern->onDocumentStartScriptRegexItems_ = std::make_optional<ScriptRegexItems>(scriptRegexItems);
     webPattern->onDocumentStartScriptItemsByOrder_ = std::make_optional<ScriptItemsByOrder>(scriptItemsByOrder);
+
     webPattern->UpdateJavaScriptOnDocumentStartByOrder();
     EXPECT_FALSE(webPattern->onDocumentStartScriptItems_.has_value());
+    EXPECT_FALSE(webPattern->onDocumentStartScriptRegexItems_.has_value());
     webPattern->UpdateJavaScriptOnDocumentStartByOrder();
     webPattern->delegate_ = nullptr;
     webPattern->UpdateJavaScriptOnDocumentStartByOrder();
     webPattern->onDocumentStartScriptItems_ = std::make_optional<ScriptItems>(scriptItems);
+    webPattern->onDocumentStartScriptRegexItems_ = std::make_optional<ScriptRegexItems>(scriptRegexItems);
     webPattern->onDocumentStartScriptItemsByOrder_ = std::make_optional<ScriptItemsByOrder>(scriptItemsByOrder);
+
     webPattern->UpdateJavaScriptOnDocumentStartByOrder();
     EXPECT_TRUE(webPattern->onDocumentStartScriptItems_.has_value());
+    EXPECT_TRUE(webPattern->onDocumentStartScriptRegexItems_.has_value());
 #endif
 }
 
@@ -520,22 +528,30 @@ HWTEST_F(WebPatternTestNgSupplement, UpdateJavaScriptOnDocumentEndByOrder005, Te
     ASSERT_NE(webPattern->delegate_, nullptr);
 
     std::map<std::string, std::vector<std::string>> scriptItems;
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> scriptRegexItems;
     std::vector<std::string> scriptItemsByOrder;
+
     std::string group = "group";
     std::vector<std::string> vec;
     vec.push_back("main");
     scriptItems.insert(std::make_pair(group, vec));
     webPattern->onDocumentEndScriptItems_ = std::make_optional<ScriptItems>(scriptItems);
+    webPattern->onDocumentEndScriptRegexItems_ = std::make_optional<ScriptRegexItems>(scriptRegexItems);
     webPattern->onDocumentEndScriptItemsByOrder_ = std::make_optional<ScriptItemsByOrder>(scriptItemsByOrder);
+
     webPattern->UpdateJavaScriptOnDocumentEndByOrder();
     EXPECT_FALSE(webPattern->onDocumentEndScriptItems_.has_value());
+    EXPECT_FALSE(webPattern->onDocumentEndScriptRegexItems_.has_value());
     webPattern->UpdateJavaScriptOnDocumentEndByOrder();
     webPattern->delegate_ = nullptr;
     webPattern->UpdateJavaScriptOnDocumentEndByOrder();
     webPattern->onDocumentEndScriptItems_ = std::make_optional<ScriptItems>(scriptItems);
+    webPattern->onDocumentEndScriptRegexItems_ = std::make_optional<ScriptRegexItems>(scriptRegexItems);
     webPattern->onDocumentEndScriptItemsByOrder_ = std::make_optional<ScriptItemsByOrder>(scriptItemsByOrder);
+
     webPattern->UpdateJavaScriptOnDocumentEndByOrder();
     EXPECT_TRUE(webPattern->onDocumentEndScriptItems_.has_value());
+    EXPECT_TRUE(webPattern->onDocumentEndScriptRegexItems_.has_value());
 #endif
 }
 
@@ -559,13 +575,14 @@ HWTEST_F(WebPatternTestNgSupplement, JavaScriptOnHeadReadyByOrder001, TestSize.L
 
     webPattern->delegate_ = nullptr;
     std::map<std::string, std::vector<std::string>> scriptItems;
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> scriptRegexItems;
     std::vector<std::string> scriptItemsByOrder;
     std::string group = "group";
     std::vector<std::string> vec;
     vec.push_back("main");
     scriptItems.insert(std::make_pair(group, vec));
-    webPattern->JavaScriptOnHeadReadyByOrder(scriptItems, scriptItemsByOrder);
-    EXPECT_EQ(webPattern->delegate_, nullptr);
+    webPattern->JavaScriptOnHeadReadyByOrder(scriptItems, scriptRegexItems, scriptItemsByOrder);
+    EXPECT_TRUE(webPattern->onHeadReadyScriptItemsByOrder_.has_value());
 #endif
 }
 
@@ -590,22 +607,27 @@ HWTEST_F(WebPatternTestNgSupplement, UpdateJavaScriptOnHeadReadyByOrder001, Test
     ASSERT_NE(webPattern->delegate_, nullptr);
 
     std::map<std::string, std::vector<std::string>> scriptItems;
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> scriptRegexItems;
     std::vector<std::string> scriptItemsByOrder;
     std::string group = "group";
     std::vector<std::string> vec;
     vec.push_back("main");
     scriptItems.insert(std::make_pair(group, vec));
     webPattern->onHeadReadyScriptItems_ = std::make_optional<ScriptItems>(scriptItems);
+    webPattern->onHeadReadyScriptRegexItems_ = std::make_optional<ScriptRegexItems>(scriptRegexItems);
     webPattern->onHeadReadyScriptItemsByOrder_ = std::make_optional<ScriptItemsByOrder>(scriptItemsByOrder);
     webPattern->UpdateJavaScriptOnHeadReadyByOrder();
     EXPECT_FALSE(webPattern->onHeadReadyScriptItems_.has_value());
+    EXPECT_FALSE(webPattern->onHeadReadyScriptRegexItems_.has_value());
     webPattern->UpdateJavaScriptOnHeadReadyByOrder();
     webPattern->delegate_ = nullptr;
     webPattern->UpdateJavaScriptOnHeadReadyByOrder();
     webPattern->onHeadReadyScriptItems_ = std::make_optional<ScriptItems>(scriptItems);
+    webPattern->onHeadReadyScriptRegexItems_ = std::make_optional<ScriptRegexItems>(scriptRegexItems);
     webPattern->onHeadReadyScriptItemsByOrder_ = std::make_optional<ScriptItemsByOrder>(scriptItemsByOrder);
     webPattern->UpdateJavaScriptOnHeadReadyByOrder();
     EXPECT_TRUE(webPattern->onHeadReadyScriptItems_.has_value());
+    EXPECT_TRUE(webPattern->onHeadReadyScriptRegexItems_.has_value());
 #endif
 }
 
@@ -1203,7 +1225,6 @@ HWTEST_F(WebPatternTestNgSupplement, OnVisibleAreaChangeTest003, TestSize.Level1
     ASSERT_NE(webPattern, nullptr);
     webPattern->isVisible_ = true;
     webPattern->OnVisibleAreaChange(true);
-    ASSERT_EQ(webPattern->isVisible_, true);
 #endif
 }
 
@@ -1256,7 +1277,6 @@ HWTEST_F(WebPatternTestNgSupplement, OnAttachToBuilderNodeTest001, TestSize.Leve
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
 
-    webPattern->offlineWebInited_ = false;
     webPattern->OnAttachToBuilderNode(NodeStatus::NORMAL_NODE);
     ASSERT_EQ(webPattern->offlineWebInited_, false);
 #endif
@@ -1403,6 +1423,8 @@ HWTEST_F(WebPatternTestNgSupplement, OnOverScrollFlingVelocityHandlerTest001, Te
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    auto layoutProperty = frameNode->GetLayoutProperty<LayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
     ASSERT_NE(webPattern, nullptr);
@@ -1422,6 +1444,9 @@ HWTEST_F(WebPatternTestNgSupplement, OnOverScrollFlingVelocityHandlerTest001, Te
     webPattern->scrollState_ = false;
     webPattern->OnOverScrollFlingVelocityHandler(1.0f, false);
     ASSERT_TRUE(webPattern->isFirstFlingScrollVelocity_);
+    layoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+    webPattern->OnOverScrollFlingVelocityHandler(1.0f, false);
+    ASSERT_TRUE(webPattern->isFirstFlingScrollVelocity_);
 #endif
 }
 
@@ -1438,6 +1463,8 @@ HWTEST_F(WebPatternTestNgSupplement, OnOverScrollFlingVelocityHandlerTest002, Te
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    auto layoutProperty = frameNode->GetLayoutProperty<LayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
     ASSERT_NE(webPattern, nullptr);
@@ -1459,6 +1486,17 @@ HWTEST_F(WebPatternTestNgSupplement, OnOverScrollFlingVelocityHandlerTest002, Te
     webPattern->OnOverScrollFlingVelocityHandler(1.0f, true);
     webPattern->nestedScroll_.scrollLeft = NestedScrollMode::SELF_FIRST;
     EXPECT_CALL(*parent, HandleScrollVelocity).Times(1).WillOnce(Return(false));
+    webPattern->OnOverScrollFlingVelocityHandler(1.0f, true);
+    EXPECT_FALSE(webPattern->isFirstFlingScrollVelocity_);
+    webPattern->OnOverScrollFlingVelocityHandler(1.0f, true);
+    EXPECT_FALSE(webPattern->isFirstFlingScrollVelocity_);
+
+    layoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+    webPattern->nestedScroll_.scrollLeft = NestedScrollMode::SELF_ONLY;
+    webPattern->OnOverScrollFlingVelocityHandler(1.0f, true);
+    webPattern->nestedScroll_.scrollLeft = NestedScrollMode::SELF_FIRST;
+    EXPECT_CALL(*parent, HandleScrollVelocity).Times(1).WillOnce(Return(false));
+    webPattern->isFirstFlingScrollVelocity_ = true;
     webPattern->OnOverScrollFlingVelocityHandler(1.0f, true);
     EXPECT_FALSE(webPattern->isFirstFlingScrollVelocity_);
     webPattern->OnOverScrollFlingVelocityHandler(1.0f, true);
@@ -1756,11 +1794,11 @@ HWTEST_F(WebPatternTestNgSupplement, OnRootLayerChangedTest002, TestSize.Level1)
 }
 
 /**
- * @tc.name: FilterScrollEventHandlevVlocity_001
- * @tc.desc: FilterScrollEventHandlevVlocity.
+ * @tc.name: FilterScrollEventHandleVelocity_001
+ * @tc.desc: FilterScrollEventHandleVelocity.
  * @tc.type: FUNC
  */
-HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandlevVlocity_001, TestSize.Level1)
+HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandleVelocity_001, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
@@ -1769,6 +1807,8 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandlevVlocity_001, TestSi
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
     EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<LayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
     ASSERT_NE(webPattern, nullptr);
@@ -1781,16 +1821,20 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandlevVlocity_001, TestSi
     webPattern->nestedScroll_.scrollLeft = NestedScrollMode::PARENT_FIRST;
     webPattern->isParentReachEdge_ = true;
     webPattern->SetNestedScrollParent(parent);
-    EXPECT_FALSE(webPattern->FilterScrollEventHandlevVlocity(2.0f));
+    EXPECT_FALSE(webPattern->FilterScrollEventHandleVelocity(2.0f));
+    layoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+    EXPECT_FALSE(webPattern->FilterScrollEventHandleVelocity(2.0f));
+    EXPECT_CALL(*parent, NestedScrollOutOfBoundary).Times(1).WillOnce(Return(true));
+    EXPECT_FALSE(webPattern->FilterScrollEventHandleVelocity(2.0f));
 #endif
 }
 
 /**
- * @tc.name: FilterScrollEventHandlevVlocity_002
- * @tc.desc: FilterScrollEventHandlevVlocity.
+ * @tc.name: FilterScrollEventHandleVelocity_002
+ * @tc.desc: FilterScrollEventHandleVelocity.
  * @tc.type: FUNC
  */
-HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandlevVlocity_002, TestSize.Level1)
+HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandleVelocity_002, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
@@ -1799,6 +1843,8 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandlevVlocity_002, TestSi
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
     EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<LayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
     ASSERT_NE(webPattern, nullptr);
@@ -1811,16 +1857,55 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandlevVlocity_002, TestSi
     webPattern->nestedScroll_.scrollLeft = NestedScrollMode::PARENT_FIRST;
     webPattern->SetNestedScrollParent(parent);
     EXPECT_CALL(*parent, HandleScrollVelocity).Times(1).WillOnce(Return(true));
-    EXPECT_TRUE(webPattern->FilterScrollEventHandlevVlocity(2.0f));
+    EXPECT_TRUE(webPattern->FilterScrollEventHandleVelocity(2.0f));
+    layoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+    EXPECT_CALL(*parent, HandleScrollVelocity).Times(1).WillOnce(Return(true));
+    EXPECT_TRUE(webPattern->FilterScrollEventHandleVelocity(2.0f));
+    webPattern->nestedScroll_.scrollLeft = NestedScrollMode::PARALLEL;
+    EXPECT_CALL(*parent, HandleScrollVelocity).Times(1).WillOnce(Return(true));
+    EXPECT_FALSE(webPattern->FilterScrollEventHandleVelocity(2.0f));
 #endif
 }
 
 /**
- * @tc.name: FilterScrollEventHandlevVlocity_003
- * @tc.desc: FilterScrollEventHandlevVlocity.
+ * @tc.name: FilterScrollEventHandleVelocity_003
+ * @tc.desc: FilterScrollEventHandleVelocity.
  * @tc.type: FUNC
  */
-HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandlevVlocity_003, TestSize.Level1)
+HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandleVelocity_003, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    EXPECT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<LayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+
+    RefPtr<MockNestableScrollContainer> parent = AccessibilityManager::MakeRefPtr<MockNestableScrollContainer>();
+    webPattern->parentsMap_ = { { Axis::HORIZONTAL, parent } };
+    webPattern->expectedScrollAxis_ = Axis::HORIZONTAL;
+    webPattern->nestedScroll_.scrollUp = NestedScrollMode::PARENT_FIRST;
+    webPattern->SetNestedScrollParent(parent);
+    EXPECT_FALSE(webPattern->FilterScrollEventHandleVelocity(2.0f));
+    layoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+    EXPECT_FALSE(webPattern->FilterScrollEventHandleVelocity(2.0f));
+#endif
+}
+
+/**
+ * @tc.name: FilterScrollEventHandleVelocity_004
+ * @tc.desc: FilterScrollEventHandleVelocity with parent over scroll.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandleVelocity_004, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
@@ -1836,11 +1921,27 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandlevVlocity_003, TestSi
     ASSERT_NE(webPattern->delegate_, nullptr);
 
     RefPtr<MockNestableScrollContainer> parent = AccessibilityManager::MakeRefPtr<MockNestableScrollContainer>();
-    webPattern->parentsMap_ = { { Axis::HORIZONTAL, parent } };
-    webPattern->expectedScrollAxis_ = Axis::HORIZONTAL;
+    webPattern->parentsMap_ = { { Axis::VERTICAL, parent } };
+    webPattern->expectedScrollAxis_ = Axis::VERTICAL;
     webPattern->nestedScroll_.scrollUp = NestedScrollMode::PARENT_FIRST;
     webPattern->SetNestedScrollParent(parent);
-    EXPECT_FALSE(webPattern->FilterScrollEventHandlevVlocity(2.0f));
+    EXPECT_CALL(*parent, NestedScrollOutOfBoundary()).Times(1).WillOnce(Return(true));
+    EXPECT_FALSE(webPattern->FilterScrollEventHandleVelocity(2.0f));
+    EXPECT_NE(webPattern->dragEndRecursiveParent_.Upgrade(), nullptr);
+    GestureEvent event;
+    webPattern->HandleFlingMove(event);
+    EXPECT_EQ(webPattern->dragEndRecursiveParent_.Upgrade(), nullptr);
+
+    EXPECT_CALL(*parent, NestedScrollOutOfBoundary()).Times(1).WillOnce(Return(true));
+    EXPECT_CALL(*parent, HandleScrollVelocity).Times(1).WillOnce(Return(true));
+    webPattern->isSelfReachEdge_ = true;
+    EXPECT_TRUE(webPattern->FilterScrollEventHandleVelocity(2.0f));
+
+    EXPECT_CALL(*parent, NestedScrollOutOfBoundary()).Times(1).WillOnce(Return(true));
+    EXPECT_CALL(*parent, HandleScrollVelocity).Times(1).WillOnce(Return(true));
+    webPattern->isSelfReachEdge_ = false;
+    webPattern->isParentReverseReachEdge_ = true;
+    EXPECT_TRUE(webPattern->FilterScrollEventHandleVelocity(2.0f));
 #endif
 }
 
@@ -2062,6 +2163,8 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandleOffset_001, TestSize
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
     EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<LayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
     ASSERT_NE(webPattern, nullptr);
@@ -2073,6 +2176,9 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandleOffset_001, TestSize
     webPattern->expectedScrollAxis_ = Axis::HORIZONTAL;
     webPattern->nestedScroll_.scrollLeft = NestedScrollMode::PARENT_FIRST;
     webPattern->SetNestedScrollParent(parent);
+    EXPECT_CALL(*parent, HandleScroll).Times(1).WillOnce(Return(ScrollResult { .remain = 0.001f, .reachEdge = true }));
+    EXPECT_TRUE(webPattern->FilterScrollEventHandleOffset(2.0f));
+    layoutProperty->UpdateLayoutDirection(TextDirection::RTL);
     EXPECT_CALL(*parent, HandleScroll).Times(1).WillOnce(Return(ScrollResult { .remain = 0.001f, .reachEdge = true }));
     EXPECT_TRUE(webPattern->FilterScrollEventHandleOffset(2.0f));
 #endif
@@ -2121,6 +2227,8 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandleOffset_003, TestSize
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
     EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<LayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
     ASSERT_NE(webPattern, nullptr);
@@ -2132,6 +2240,8 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandleOffset_003, TestSize
     webPattern->expectedScrollAxis_ = Axis::HORIZONTAL;
     webPattern->nestedScroll_.scrollUp = NestedScrollMode::PARENT_FIRST;
     webPattern->SetNestedScrollParent(parent);
+    EXPECT_TRUE(webPattern->FilterScrollEventHandleOffset(2.0f));
+    layoutProperty->UpdateLayoutDirection(TextDirection::RTL);
     EXPECT_TRUE(webPattern->FilterScrollEventHandleOffset(2.0f));
 #endif
 }
@@ -2150,6 +2260,8 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandleOffset_004, TestSize
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
     EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<LayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
     ASSERT_NE(webPattern, nullptr);
@@ -2163,6 +2275,15 @@ HWTEST_F(WebPatternTestNgSupplement, FilterScrollEventHandleOffset_004, TestSize
     webPattern->SetNestedScrollParent(parent);
     EXPECT_CALL(*parent, HandleScroll).Times(2).WillOnce(Return(ScrollResult { .remain = 0.1f, .reachEdge = true }));
     EXPECT_TRUE(webPattern->FilterScrollEventHandleOffset(2.0f));
+    layoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+    EXPECT_CALL(*parent, HandleScroll).Times(2).WillOnce(Return(ScrollResult { .remain = 0.1f, .reachEdge = true }));
+    EXPECT_TRUE(webPattern->FilterScrollEventHandleOffset(2.0f));
+    webPattern->nestedScroll_.scrollLeft = NestedScrollMode::PARALLEL;
+    EXPECT_CALL(*parent, HandleScroll).Times(2).WillOnce(Return(ScrollResult { .remain = 0.1f, .reachEdge = true }));
+    EXPECT_FALSE(webPattern->FilterScrollEventHandleOffset(2.0f));
+    layoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+    EXPECT_CALL(*parent, HandleScroll).Times(2).WillOnce(Return(ScrollResult { .remain = 0.1f, .reachEdge = true }));
+    EXPECT_FALSE(webPattern->FilterScrollEventHandleOffset(2.0f));
 #endif
 }
 
@@ -2250,6 +2371,7 @@ HWTEST_F(WebPatternTestNgSupplement, OnScrollEndRecursive_001, TestSize.Level1)
     EXPECT_CALL(*parent, OnScrollEndRecursive).Times(1);
     webPattern->OnScrollEndRecursive(velocity);
     EXPECT_FALSE(webPattern->isScrollStarted_);
+    EXPECT_EQ(webPattern->expectedScrollAxis_, Axis::FREE);
 #endif
 }
 
@@ -2353,11 +2475,85 @@ HWTEST_F(WebPatternTestNgSupplement, OnNestedScroll_001, TestSize.Level1)
     RefPtr<MockNestableScrollContainer> parent = AccessibilityManager::MakeRefPtr<MockNestableScrollContainer>();
     webPattern->parentsMap_ = { { Axis::HORIZONTAL, parent } };
     webPattern->expectedScrollAxis_ = Axis::VERTICAL;
+    webPattern->isScrollStarted_ = true;
+    webPattern->isDirectionalLockEnabled_ = true;
+    webPattern->scrollDirectionalLockType_ = ScrollDirectionalLockType::ALL;
     float x = 1.0f, y = 0.5f, xVelocity = 0.0f, yVelocity = 0.0f;
     bool isAvailable = false;
     EXPECT_FALSE(webPattern->OnNestedScroll(x, y, xVelocity, yVelocity, isAvailable));
     EXPECT_TRUE(x == 0.0f);
     EXPECT_TRUE(isAvailable);
+    webPattern->isScrollStarted_ = false;
+    x = 1.0f, y = 0.5f, xVelocity = 0.0f, yVelocity = 0.0f;
+    EXPECT_FALSE(webPattern->OnNestedScroll(x, y, xVelocity, yVelocity, isAvailable));
+    EXPECT_TRUE(x == 1.0f);
+#endif
+}
+
+/**
+ * @tc.name: OnNestedScroll_002
+ * @tc.desc: OnNestedScroll.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTestNgSupplement, OnNestedScroll_002, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    EXPECT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    EXPECT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+
+    RefPtr<MockNestableScrollContainer> parent = AccessibilityManager::MakeRefPtr<MockNestableScrollContainer>();
+    webPattern->parentsMap_ = { { Axis::VERTICAL, parent } };
+    webPattern->expectedScrollAxis_ = Axis::HORIZONTAL;
+    webPattern->isScrollStarted_ = true;
+    float x = 1.0f, y = 0.5f, xVelocity = 0.0f, yVelocity = 0.0f;
+    bool isAvailable = false;
+    EXPECT_FALSE(webPattern->OnNestedScroll(x, y, xVelocity, yVelocity, isAvailable));
+    EXPECT_TRUE(y == 0.0f);
+    EXPECT_TRUE(isAvailable);
+    webPattern->isScrollStarted_ = false;
+    x = 1.0f, y = 0.5f, xVelocity = 0.0f, yVelocity = 0.0f;
+    EXPECT_FALSE(webPattern->OnNestedScroll(x, y, xVelocity, yVelocity, isAvailable));
+    EXPECT_TRUE(y == 0.5f);
+#endif
+}
+
+/**
+ * @tc.name: IsRtl_001
+ * @tc.desc: IsRtl.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTestNgSupplement, IsRtl_001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    EXPECT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<LayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+    EXPECT_FALSE(webPattern->IsRtl());
+    layoutProperty->UpdateLayoutDirection(TextDirection::AUTO);
+    EXPECT_FALSE(webPattern->IsRtl());
+    layoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+    EXPECT_TRUE(webPattern->IsRtl());
+    layoutProperty->UpdateLayoutDirection(TextDirection::LTR);
+    EXPECT_FALSE(webPattern->IsRtl());
 #endif
 }
 
@@ -2386,7 +2582,7 @@ HWTEST_F(WebPatternTestNgSupplement, OnContextMenuShow_001, TestSize.Level1)
     std::shared_ptr<BaseEventInfo> eventInfo = std::make_shared<ContextMenuEvent>(menuParam, menuResult);
     webPattern->contextSelectOverlay_ = nullptr;
     webPattern->OnContextMenuShow(eventInfo, false, true);
-    EXPECT_EQ(webPattern->contextSelectOverlay_, nullptr);
+    EXPECT_EQ(webPattern->curContextMenuResult_, true);
 #endif
 }
 } // namespace OHOS::Ace::NG

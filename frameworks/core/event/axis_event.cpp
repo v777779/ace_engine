@@ -22,14 +22,51 @@ namespace OHOS::Ace {
 AxisEvent AxisEvent::CreateScaleEvent(float scale) const
 {
     if (NearZero(scale)) {
-        return { id, x, y, screenX, screenY, globalDisplayX, globalDisplayY, verticalAxis, horizontalAxis,
-            pinchAxisScale, rotateAxisAngle, isRotationEvent, action, time, deviceId, sourceType, sourceTool,
-            pointerEvent, pressedCodes, targetDisplayId, originalId, isInjected, scrollStep };
+        return CloneWith(1);
     }
-    return { id, x / scale, y / scale, screenX / scale, screenY / scale, globalDisplayX / scale, globalDisplayY / scale,
-        verticalAxis, horizontalAxis, pinchAxisScale, rotateAxisAngle, isRotationEvent, action, time, deviceId,
-        sourceType, sourceTool, pointerEvent, pressedCodes, targetDisplayId, originalId, isInjected, scrollStep };
+    return CloneWith(scale);
 }
+
+AxisEvent AxisEvent::CloneWith(float scale) const
+    {
+        if (NearEqual(scale, 0.f)) {
+            return {};
+        }
+        AxisEvent axisEvent;
+        axisEvent.id = id;
+        axisEvent.x = x / scale;
+        axisEvent.y = y / scale;
+        axisEvent.screenX = screenX / scale;
+        axisEvent.screenY = screenY / scale;
+        axisEvent.globalDisplayX = globalDisplayX / scale;
+        axisEvent.globalDisplayY = globalDisplayY / scale;
+        axisEvent.verticalAxis = verticalAxis;
+        axisEvent.horizontalAxis = horizontalAxis;
+        axisEvent.pinchAxisScale = pinchAxisScale;
+        axisEvent.rotateAxisAngle = rotateAxisAngle;
+        axisEvent.isRotationEvent = isRotationEvent;
+        axisEvent.action = action;
+        axisEvent.time = time;
+        axisEvent.deviceId = deviceId;
+        axisEvent.sourceType = sourceType;
+        axisEvent.sourceTool = sourceTool;
+        axisEvent.pointerEvent = pointerEvent;
+        axisEvent.touchEventId = touchEventId;
+        axisEvent.pressedCodes = pressedCodes;
+        axisEvent.targetDisplayId = targetDisplayId;
+        axisEvent.originalId = originalId;
+        axisEvent.isInjected = isInjected;
+        axisEvent.scrollStep = scrollStep;
+        axisEvent.axes = axes;
+        axisEvent.passThrough = passThrough;
+        axisEvent.eventHandleId = eventHandleId;
+        axisEvent.isNewReferee = isNewReferee;
+        // Only set postEventNodeId when the event supports passThrough
+        if (passThrough) {
+            axisEvent.postEventNodeId = postEventNodeId;
+        }
+        return axisEvent;
+    }
 
 Offset AxisEvent::GetOffset() const
 {
@@ -128,12 +165,14 @@ AxisInfo::AxisInfo(const AxisEvent& event, const Offset& localLocation, const Ev
 {
     action_ = event.action;
     scrollStep_ = event.scrollStep;
+    axes_ = event.axes;
     verticalAxis_ = static_cast<float>(event.verticalAxis);
     horizontalAxis_ = static_cast<float>(event.horizontalAxis);
     pinchAxisScale_ = static_cast<float>(event.pinchAxisScale);
     rotateAxisAngle_ = static_cast<float>(event.rotateAxisAngle);
     isRotationEvent_ = event.isRotationEvent;
     globalLocation_ = event.GetOffset();
+    pointerEvent_ = event.pointerEvent;
     localLocation_ = localLocation;
     screenLocation_ = Offset();
     SetPressedKeyCodes(event.pressedCodes);
@@ -159,14 +198,9 @@ int32_t AxisInfo::GetScrollStep() const
     return scrollStep_;
 }
 
-void AxisInfo::SetPinchAxisScale(float scale)
+void AxisInfo::SetScrollStep(int32_t scrollStep)
 {
-    pinchAxisScale_ = scale;
-}
-
-float AxisInfo::GetPinchAxisScale() const
-{
-    return pinchAxisScale_;
+    scrollStep_ = scrollStep;
 }
 
 void AxisInfo::SetRotateAxisAngle(float angle)
@@ -230,6 +264,21 @@ const Offset& AxisInfo::GetGlobalDisplayLocation() const
     return globalDisplayLocation_;
 }
 
+bool AxisInfo::HasAxis(AxisType axis)
+{
+    bool ret { false };
+    if ((axis >= AxisType::VERTICAL_AXIS) && (axis <= AxisType::PINCH_AXIS)) {
+        ret = static_cast<bool>(static_cast<uint32_t>(axes_) & (1 << static_cast<uint32_t>(axis)));
+    }
+    return ret;
+}
+
+uint32_t AxisInfo::GetAxes() const
+{
+    return axes_;
+}
+
+
 AxisEvent AxisInfo::ConvertToAxisEvent() const
 {
     AxisEvent axisEvent;
@@ -240,6 +289,7 @@ AxisEvent AxisInfo::ConvertToAxisEvent() const
     axisEvent.globalDisplayX = static_cast<float>(globalDisplayLocation_.GetX());
     axisEvent.globalDisplayY = static_cast<float>(globalDisplayLocation_.GetY());
     axisEvent.scrollStep = scrollStep_;
+    axisEvent.axes = axes_;
     axisEvent.horizontalAxis = horizontalAxis_;
     axisEvent.verticalAxis = verticalAxis_;
     axisEvent.pinchAxisScale = pinchAxisScale_;
@@ -265,6 +315,11 @@ AxisEvent AxisInfo::ConvertToAxisEvent() const
     axisEvent.modifierKeyState = CalculateModifierKeyState(GetPressedKeyCodes());
     axisEvent.targetDisplayId = GetTargetDisplayId();
     return axisEvent;
+}
+
+const std::shared_ptr<const MMI::PointerEvent>& AxisInfo::GetPointerEvent() const
+{
+    return pointerEvent_;
 }
 
 void AxisEventTarget::SetOnAxisCallback(const OnAxisEventFunc& onAxisCallback)
@@ -312,7 +367,22 @@ bool AxisEventTarget::HandleAxisEvent(const AxisEvent& event)
     info.SetGlobalDisplayLocation(Offset(event.globalDisplayX, event.globalDisplayY));
     info.SetSourceTool(event.sourceTool);
     info.SetStopPropagation(true);
+    info.SetEventHandleId(event.eventHandleId);
     onAxisCallback_(info);
+    return info.IsStopPropagation();
+}
+
+void AxisEventTarget::SetOnCoastingAxisCallback(OnCoastingAxisEventFunc&& onCoastingAxisCallback)
+{
+    onCoastingAxisCallback_ = std::move(onCoastingAxisCallback);
+}
+
+bool AxisEventTarget::HandleCoastingAxisEvent(CoastingAxisInfo& info)
+{
+    if (!onCoastingAxisCallback_) {
+        return false;
+    }
+    onCoastingAxisCallback_(info);
     return info.IsStopPropagation();
 }
 

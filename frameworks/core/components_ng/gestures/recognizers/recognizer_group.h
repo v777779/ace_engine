@@ -52,13 +52,14 @@ public:
 
     ~RecognizerGroup() override = default;
 
-    void AddChildren(const std::list<RefPtr<NGGestureRecognizer>>& recognizers);
+    ACE_FORCE_EXPORT void AddChildren(const std::list<RefPtr<NGGestureRecognizer>>& recognizers);
     void RemoveRecognizerInGroup(const RefPtr<NGGestureRecognizer>& recognizer);
 
     void OnFlushTouchEventsBegin() override;
     void OnFlushTouchEventsEnd() override;
     virtual RefereeState CheckStates(size_t touchId);
     void ForceReject();
+    void UpdateGestureReferee(const WeakPtr<GestureReferee>& gestureReferee) override;
 
     void RemainChildOnResetStatus()
     {
@@ -74,14 +75,7 @@ public:
         }
     }
 
-    void AttachFrameNode(const WeakPtr<NG::FrameNode>& node) override
-    {
-        TouchEventTarget::AttachFrameNode(node);
-        auto recognizers = GetGroupRecognizer();
-        for (const auto& recognizer : recognizers) {
-            recognizer->AttachFrameNode(node);
-        }
-    }
+    void AttachFrameNode(const WeakPtr<NG::FrameNode>& node) override;
 
     const std::list<RefPtr<NGGestureRecognizer>>& GetGroupRecognizer();
 
@@ -147,6 +141,8 @@ public:
         disposal_ = GestureDisposal::NONE;
     }
 
+    void ForceCleanRecognizerWithGroup() override;
+
     void CleanRecognizerState() override;
 
     void SetIsPostEventResultRecursively(bool isPostEventResult)
@@ -205,7 +201,7 @@ public:
     virtual void CheckAndSetRecognizerCleanFlag(const RefPtr<NGGestureRecognizer>& recognizer) {}
 
 protected:
-    void OnBeginGestureReferee(int32_t touchId, bool needUpdateChild = false) override;
+    void OnBeginGestureReferee(int32_t touchId, int32_t originalId, bool needUpdateChild = false) override;
     void OnFinishGestureReferee(int32_t touchId, bool isBlocked = false) override;
     void GroupAdjudicate(const RefPtr<NGGestureRecognizer>& recognizer, GestureDisposal disposal);
 
@@ -213,6 +209,7 @@ protected:
     bool CheckAllFailed();
 
     void OnResetStatus() override;
+    std::string GetGestureInfoString() const override;
 
     std::list<RefPtr<NGGestureRecognizer>> recognizers_;
     bool remainChildOnResetStatus_ = false;

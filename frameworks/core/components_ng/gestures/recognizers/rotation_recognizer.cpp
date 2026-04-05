@@ -30,7 +30,6 @@ namespace {
 constexpr int32_t MAX_ROTATION_FINGERS = 5;
 constexpr int32_t DEFAULT_ROTATION_FINGERS = 2;
 constexpr double ONE_CIRCLE = 360.0;
-constexpr double QUARTER_CIRCLE = 90.0;
 constexpr double RANGE_MIN = -180.0;
 constexpr double RANGE_MAX = 180.0;
 
@@ -66,9 +65,10 @@ void RotationRecognizer::OnAccepted()
     if (!touchPoints_.empty()) {
         touchPoint = touchPoints_.begin()->second;
     }
-    bool needPostEvent = isPostEventResult_ || touchPoint.passThrough;
+    auto postEventNodeId =
+        inputEventType_ == InputEventType::AXIS ? lastAxisEvent_.postEventNodeId : touchPoint.postEventNodeId;
     localMatrix_ = NGGestureRecognizer::GetTransformMatrix(
-        GetAttachedNode(), false, needPostEvent, touchPoint.postEventNodeId);
+        GetAttachedNode(), false, isPostEventResult_ || touchPoint.passThrough, postEventNodeId);
     SendCallbackMsg(onActionStart_, GestureCallbackType::START);
     isNeedResetVoluntarily_ = false;
 }
@@ -90,7 +90,7 @@ void RotationRecognizer::HandleTouchDownEvent(const TouchEvent& event)
         firstInputTime_ = event.time;
     }
 
-    if (static_cast<int32_t>(activeFingers_.size()) >= DEFAULT_ROTATION_FINGERS) {
+    if (static_cast<int32_t>(activeFingers_.size()) >= fingers_) {
         return;
     }
     if (fingers_ > MAX_ROTATION_FINGERS) {
@@ -103,8 +103,10 @@ void RotationRecognizer::HandleTouchDownEvent(const TouchEvent& event)
     activeFingers_.emplace_back(event.id);
     touchPoints_[event.id] = event;
 
-    if (static_cast<int32_t>(activeFingers_.size()) >= DEFAULT_ROTATION_FINGERS) {
+    if (static_cast<int32_t>(activeFingers_.size()) >= DEFAULT_ROTATION_FINGERS &&
+        refereeState_ != RefereeState::DETECTING) {
         initialAngle_ = ComputeAngle();
+        currentAngle_ = initialAngle_;
         lastRefereeState_ = refereeState_;
         refereeState_ = RefereeState::DETECTING;
     }
@@ -158,7 +160,7 @@ void RotationRecognizer::HandleTouchUpEvent(const TouchEvent& event)
     }
 
     if (refereeState_ == RefereeState::SUCCEED &&
-        static_cast<int32_t>(activeFingers_.size()) == DEFAULT_ROTATION_FINGERS) {
+        static_cast<int32_t>(activeFingers_.size()) == fingers_) {
         SendCallbackMsg(onActionEnd_, GestureCallbackType::END);
         int64_t overTime = GetSysTimestamp();
         int64_t inputTime = overTime;
@@ -204,52 +206,47 @@ void RotationRecognizer::HandleTouchUpEvent(const AxisEvent& event)
 
 void RotationRecognizer::HandleTouchMoveEvent(const TouchEvent& event)
 {
-    if (!IsActiveFinger(event.id) || currentFingers_ < fingers_) {
+    if (!IsActiveFinger(event.id)) {
         touchPoints_[event.id] = event;
-        lastAngle_ = 0.0;
-        angleSignChanged_ = false;
         return;
     }
     touchPoints_[event.id] = event;
+    lastAngle_ = currentAngle_;
     currentAngle_ = ComputeAngle();
     time_ = event.time;
     if (static_cast<int32_t>(activeFingers_.size()) < DEFAULT_ROTATION_FINGERS) {
         lastAngle_ = 0.0;
-        angleSignChanged_ = false;
+        cumulativeAngle_ = 0.0;
         return;
     }
 
     if (refereeState_ == RefereeState::DETECTING) {
-        auto trueAngle = currentAngle_;
-        if (currentAngle_ * lastAngle_ < 0 && fabs(currentAngle_) > QUARTER_CIRCLE) {
-            angleSignChanged_ = !angleSignChanged_;
+        double trueAngle = currentAngle_ - lastAngle_;
+        if (trueAngle > RANGE_MAX) {
+            trueAngle -= ONE_CIRCLE;
+        } else if (trueAngle < RANGE_MIN) {
+            trueAngle += ONE_CIRCLE;
         }
-        if (angleSignChanged_) {
-            if (initialAngle_ > 0.0) {
-                trueAngle += ONE_CIRCLE;
-            } else {
-                trueAngle -= ONE_CIRCLE;
-            }
-        }
-        lastAngle_ = currentAngle_;
-        double diffAngle = fabs((trueAngle - initialAngle_));
-        if (GreatOrEqual(diffAngle, angle_)) {
+        cumulativeAngle_ += trueAngle;
+        if (GreatOrEqual(fabs(cumulativeAngle_), angle_) && currentFingers_ >= fingers_) {
             lastAngle_ = 0.0;
-            angleSignChanged_ = false;
             resultAngle_ = ChangeValueRange(currentAngle_ - initialAngle_);
-            auto onGestureJudgeBeginResult = TriggerGestureJudgeCallback();
-            if (onGestureJudgeBeginResult == GestureJudgeResult::REJECT) {
-                Adjudicate(AceType::Claim(this), GestureDisposal::REJECT);
+            if (CheckLimitFinger()) {
+                extraInfo_ += " isLFC: " + std::to_string(isLimitFingerCount_);
                 return;
             }
-            if (CheckLimitFinger()) {
+            auto onGestureJudgeBeginResult = TriggerGestureJudgeCallback();
+            if (onGestureJudgeBeginResult == GestureJudgeResult::REJECT) {
+                auto node = GetAttachedNode().Upgrade();
+                TAG_LOGI(AceLogTag::ACE_GESTURE,
+                    "Rotation judge reject, %{public}s", node ? node->GetTag().c_str() : "");
+                Adjudicate(AceType::Claim(this), GestureDisposal::REJECT);
                 return;
             }
             Adjudicate(AceType::Claim(this), GestureDisposal::ACCEPT);
         }
-    } else if (refereeState_ == RefereeState::SUCCEED) {
+    } else if (refereeState_ == RefereeState::SUCCEED && currentFingers_ >= fingers_) {
         lastAngle_ = 0.0;
-        angleSignChanged_ = false;
         resultAngle_ = ChangeValueRange(currentAngle_ - initialAngle_);
         if (static_cast<int32_t>(touchPoints_.size()) > fingers_ && isLimitFingerCount_) {
             return;
@@ -273,6 +270,9 @@ void RotationRecognizer::HandleTouchMoveEvent(const AxisEvent& event)
             resultAngle_ = ChangeValueRange(currentAngle_ - initialAngle_);
             auto onGestureJudgeBeginResult = TriggerGestureJudgeCallback();
             if (onGestureJudgeBeginResult == GestureJudgeResult::REJECT) {
+                auto node = GetAttachedNode().Upgrade();
+                TAG_LOGI(AceLogTag::ACE_GESTURE,
+                    "Rotation judge reject, %{public}s", node ? node->GetTag().c_str() : "");
                 Adjudicate(AceType::Claim(this), GestureDisposal::REJECT);
                 return;
             }
@@ -286,18 +286,18 @@ void RotationRecognizer::HandleTouchMoveEvent(const AxisEvent& event)
 
 void RotationRecognizer::HandleTouchCancelEvent(const TouchEvent& event)
 {
+    extraInfo_ += "cancel received.";
     if (!IsActiveFinger(event.id)) {
         return;
     }
     touchPoints_[event.id] = event;
     if ((refereeState_ != RefereeState::SUCCEED) && (refereeState_ != RefereeState::FAIL)) {
-        extraInfo_ += "receive cancel event.";
         Adjudicate(AceType::Claim(this), GestureDisposal::REJECT);
         return;
     }
 
     if (refereeState_ == RefereeState::SUCCEED &&
-        static_cast<int32_t>(activeFingers_.size()) == DEFAULT_ROTATION_FINGERS) {
+        static_cast<int32_t>(activeFingers_.size()) == fingers_) {
         SendCallbackMsg(onActionCancel_, GestureCallbackType::CANCEL);
         lastRefereeState_ = RefereeState::READY;
         refereeState_ = RefereeState::READY;
@@ -309,6 +309,7 @@ void RotationRecognizer::HandleTouchCancelEvent(const TouchEvent& event)
 
 void RotationRecognizer::HandleTouchCancelEvent(const AxisEvent& event)
 {
+    extraInfo_ += "cancel received.";
     UpdateTouchPointWithAxisEvent(event);
     if ((refereeState_ != RefereeState::SUCCEED) && (refereeState_ != RefereeState::FAIL)) {
         Adjudicate(AceType::Claim(this), GestureDisposal::REJECT);
@@ -355,7 +356,7 @@ void RotationRecognizer::OnResetStatus()
     currentAngle_ = 0.0;
     resultAngle_ = 0.0;
     lastAngle_ = 0.0;
-    angleSignChanged_ = false;
+    cumulativeAngle_ = 0.0;
     localMatrix_.clear();
 }
 
@@ -368,47 +369,58 @@ void RotationRecognizer::SendCallbackMsg(const std::unique_ptr<GestureEventFunc>
     }
     if (callback && *callback) {
         GestureEvent info;
-        info.SetTimeStamp(time_);
-        UpdateFingerListInfo();
-        info.SetFingerList(fingerList_);
-        info.SetAngle(resultAngle_);
-        info.SetDeviceId(deviceId_);
-        info.SetSourceDevice(deviceType_);
-        info.SetTarget(GetEventTarget().value_or(EventTarget()));
-        info.SetGestureTypeName(GestureTypeName::ROTATION_GESTURE);
-        TouchEvent touchPoint = {};
-        if (!touchPoints_.empty()) {
-            touchPoint = touchPoints_.begin()->second;
-        }
-        info.SetForce(touchPoint.force);
-        if (touchPoint.tiltX.has_value()) {
-            info.SetTiltX(touchPoint.tiltX.value());
-        }
-        if (touchPoint.tiltY.has_value()) {
-            info.SetTiltY(touchPoint.tiltY.value());
-        }
-        if (touchPoint.rollAngle.has_value()) {
-            info.SetRollAngle(touchPoint.rollAngle.value());
-        }
-        if (inputEventType_ == InputEventType::AXIS) {
-            info.SetVerticalAxis(lastAxisEvent_.verticalAxis);
-            info.SetHorizontalAxis(lastAxisEvent_.horizontalAxis);
-            info.SetSourceTool(lastAxisEvent_.sourceTool);
-            info.SetPressedKeyCodes(lastAxisEvent_.pressedCodes);
-            info.CopyConvertInfoFrom(lastAxisEvent_.convertInfo);
-        } else {
-            info.SetSourceTool(touchPoint.sourceTool);
-            info.SetPressedKeyCodes(touchPoint.pressedKeyCodes_);
-            info.CopyConvertInfoFrom(touchPoint.convertInfo);
-        }
-        info.SetPointerEvent(lastPointEvent_);
-        info.SetInputEventType(inputEventType_);
+        GetGestureEventInfo(info);
         // callback may be overwritten in its invoke so we copy it first
         auto callbackFunction = *callback;
         HandleGestureAccept(info, type, GestureListenerType::ROTATION);
+        ACE_BENCH_MARK_TRACE("RotationGesture_end");
         callbackFunction(info);
         HandleReports(info, type);
     }
+    if (type == GestureCallbackType::END || type == GestureCallbackType::CANCEL) {
+        localMatrix_.clear();
+    }
+}
+
+void RotationRecognizer::GetGestureEventInfo(GestureEvent& info)
+{
+    info.SetTimeStamp(time_);
+    UpdateFingerListInfo();
+    info.SetFingerList(fingerList_);
+    info.SetAngle(resultAngle_);
+    info.SetDeviceId(deviceId_);
+    info.SetSourceDevice(deviceType_);
+    info.SetTarget(GetEventTarget().value_or(EventTarget()));
+    info.SetGestureTypeName(GestureTypeName::ROTATION_GESTURE);
+    TouchEvent touchPoint = {};
+    if (!touchPoints_.empty()) {
+        touchPoint = touchPoints_.begin()->second;
+    }
+    info.SetForce(touchPoint.force);
+    if (touchPoint.tiltX.has_value()) {
+        info.SetTiltX(touchPoint.tiltX.value());
+    }
+    if (touchPoint.tiltY.has_value()) {
+        info.SetTiltY(touchPoint.tiltY.value());
+    }
+    if (touchPoint.rollAngle.has_value()) {
+        info.SetRollAngle(touchPoint.rollAngle.value());
+    }
+    if (inputEventType_ == InputEventType::AXIS) {
+        info.SetVerticalAxis(lastAxisEvent_.verticalAxis);
+        info.SetHorizontalAxis(lastAxisEvent_.horizontalAxis);
+        info.SetSourceTool(lastAxisEvent_.sourceTool);
+        info.SetPressedKeyCodes(lastAxisEvent_.pressedCodes);
+        info.CopyConvertInfoFrom(lastAxisEvent_.convertInfo);
+        info.SetTargetDisplayId(lastAxisEvent_.targetDisplayId);
+    } else {
+        info.SetSourceTool(touchPoint.sourceTool);
+        info.SetPressedKeyCodes(touchPoint.pressedKeyCodes_);
+        info.CopyConvertInfoFrom(touchPoint.convertInfo);
+        info.SetTargetDisplayId(touchPoint.targetDisplayId);
+    }
+    info.SetPointerEvent(lastPointEvent_);
+    info.SetInputEventType(inputEventType_);
 }
 
 void RotationRecognizer::HandleReports(const GestureEvent& info, GestureCallbackType type)
@@ -465,6 +477,13 @@ GestureJudgeResult RotationRecognizer::TriggerGestureJudgeCallback()
     info->SetRawInputEventType(inputEventType_);
     info->SetRawInputEvent(lastPointEvent_);
     info->SetRawInputDeviceId(deviceId_);
+    if (inputEventType_ == InputEventType::AXIS) {
+        info->SetTargetDisplayId(lastAxisEvent_.targetDisplayId);
+        info->SetPressedKeyCodes(lastAxisEvent_.pressedCodes);
+    } else {
+        info->SetTargetDisplayId(touchPoint.targetDisplayId);
+        info->SetPressedKeyCodes(touchPoint.pressedKeyCodes_);
+    }
     if (gestureRecognizerJudgeFunc) {
         return gestureRecognizerJudgeFunc(info, Claim(this), responseLinkRecognizer_);
     }
@@ -481,7 +500,7 @@ bool RotationRecognizer::ReconcileFrom(const RefPtr<NGGestureRecognizer>& recogn
 
     if (curr->fingers_ != fingers_ || !NearEqual(curr->angle_, angle_) || curr->priorityMask_ != priorityMask_) {
         if (refereeState_ == RefereeState::SUCCEED &&
-            static_cast<int32_t>(activeFingers_.size()) == DEFAULT_ROTATION_FINGERS) {
+            static_cast<int32_t>(activeFingers_.size()) == fingers_) {
             SendCallbackMsg(onActionCancel_, GestureCallbackType::CANCEL);
         }
         ResetStatus();
@@ -508,4 +527,19 @@ RefPtr<GestureSnapshot> RotationRecognizer::Dump() const
     return info;
 }
 
+std::string RotationRecognizer::GetGestureInfoString() const
+{
+    std::string gestureInfoStr = MultiFingersRecognizer::GetGestureInfoString();
+    gestureInfoStr.append(",INAG:");
+    gestureInfoStr.append(std::to_string(initialAngle_));
+    gestureInfoStr.append(",CUAG:");
+    gestureInfoStr.append(std::to_string(currentAngle_));
+    gestureInfoStr.append(",REAG:");
+    gestureInfoStr.append(std::to_string(resultAngle_));
+    gestureInfoStr.append(",LAG:");
+    gestureInfoStr.append(std::to_string(lastAngle_));
+    gestureInfoStr.append(",CULAG:");
+    gestureInfoStr.append(std::to_string(cumulativeAngle_));
+    return gestureInfoStr;
+}
 } // namespace OHOS::Ace::NG

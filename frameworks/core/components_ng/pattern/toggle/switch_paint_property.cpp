@@ -20,16 +20,15 @@
 namespace OHOS::Ace::NG {
 
 void SwitchPaintParagraph::ToJsonValue(
-    std::unique_ptr<JsonValue>& json, const InspectorFilter& filter, const RefPtr<FrameNode> host) const
+    std::unique_ptr<JsonValue>& json, const InspectorFilter& filter, const RefPtr<FrameNode>& host) const
 {
     /* no fixed attr below, just return */
     if (filter.IsFastFilter()) {
         return;
     }
     int32_t themeScopeId = 0;
-    if (host) {
-        themeScopeId = host->GetThemeScopeId();
-    }
+    CHECK_NULL_VOID(host);
+    themeScopeId = host->GetThemeScopeId();
     auto pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto switchTheme = pipeline->GetTheme<SwitchTheme>(themeScopeId);

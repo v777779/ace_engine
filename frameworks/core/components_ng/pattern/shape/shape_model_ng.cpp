@@ -15,13 +15,20 @@
 
 #include "core/components_ng/pattern/shape/shape_model_ng.h"
 
+#include "core/common/resource/resource_parse_utils.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/shape/shape_abstract_model_ng.h"
 #include "core/components_ng/pattern/shape/shape_container_pattern.h"
 
 namespace OHOS::Ace::NG {
-constexpr double FILL_OPACITY_MIN = 0.0f;
-constexpr double FILL_OPACITY_MAX = 1.0f;
+constexpr double FILL_OPACITY_MIN = 0.0;
+constexpr double FILL_OPACITY_MAX = 1.0;
+constexpr double STROKE_MITERLIMIT_DEFAULT = 4.0;
+constexpr int32_t SHAPE_VIEW_BOX_LEFT = 0;
+constexpr int32_t SHAPE_VIEW_BOX_TOP = 1;
+constexpr int32_t SHAPE_VIEW_BOX_WIDTH = 2;
+constexpr int32_t SHAPE_VIEW_BOX_HEIGHT = 3;
+constexpr int32_t SHAPE_VIEW_BOX_SIZE = 4;
 
 void ShapeModelNG::Create()
 {
@@ -55,6 +62,53 @@ void ShapeModelNG::SetViewPort(
     shapeViewBox.SetWidth(dimWidth);
     shapeViewBox.SetHeight(dimHeight);
     ACE_UPDATE_PAINT_PROPERTY(ShapeContainerPaintProperty, ShapeViewBox, shapeViewBox);
+}
+
+void ShapeModelNG::SetViewPort(
+    const std::vector<Dimension>& dimArray, const std::vector<RefPtr<ResourceObject>>& resObjArray)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetViewPort(frameNode, dimArray, resObjArray);
+}
+
+void ShapeModelNG::SetViewPort(FrameNode* frameNode, const std::vector<Dimension>& dimArray,
+    const std::vector<RefPtr<ResourceObject>>& resObjArray)
+{
+    if (!SystemProperties::ConfigChangePerform() || frameNode == nullptr) {
+        return;
+    }
+    auto pattern = frameNode->GetPattern<ShapeContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    auto&& updateFunc = [weak = AceType::WeakClaim(frameNode), dimArray, resObjArray](
+                            const RefPtr<ResourceObject>& resObj) {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        if (dimArray.size() != SHAPE_VIEW_BOX_SIZE || dimArray.size() != resObjArray.size()) {
+            return;
+        }
+        std::vector<Ace::Dimension> result;
+        for (int32_t i = 0; i < SHAPE_VIEW_BOX_SIZE; i++) {
+            if (resObjArray[i]) {
+                Dimension dim;
+                ResourceParseUtils::ConvertFromResObjNG(resObjArray[i], dim);
+                result.emplace_back(dim);
+            } else {
+                result.emplace_back(dimArray[i]);
+            }
+        }
+        ShapeViewBox shapeViewBox;
+        shapeViewBox.SetLeft(result[SHAPE_VIEW_BOX_LEFT]);
+        shapeViewBox.SetTop(result[SHAPE_VIEW_BOX_TOP]);
+        shapeViewBox.SetWidth(result[SHAPE_VIEW_BOX_WIDTH]);
+        shapeViewBox.SetHeight(result[SHAPE_VIEW_BOX_HEIGHT]);
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ShapeContainerPaintProperty, ShapeViewBox, shapeViewBox, frameNode);
+    };
+    ACE_UINODE_TRACE(frameNode);
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>();
+    pattern->AddResObj("ShapeViewPort", resObj, std::move(updateFunc));
 }
 
 void ShapeModelNG::SetStroke(const Color& color)
@@ -196,5 +250,316 @@ void ShapeModelNG::InitBox(FrameNode* frameNode, const RefPtr<PixelMap>& pixMap)
 {
     ImageSourceInfo pixelMapInfo(pixMap);
     ACE_UPDATE_NODE_PAINT_PROPERTY(ShapeContainerPaintProperty, PixelMapInfo, pixelMapInfo, frameNode);
+}
+
+void ShapeModelNG::SetStrokeDashArray(
+    const std::vector<Ace::Dimension>& segments, const std::vector<RefPtr<ResourceObject>>& resObjArray)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetStrokeDashArray(frameNode, segments, resObjArray);
+}
+
+void ShapeModelNG::SetStrokeDashArray(FrameNode* frameNode, const std::vector<Ace::Dimension>& segments,
+    const std::vector<RefPtr<ResourceObject>>& resObjArray)
+{
+    if (!SystemProperties::ConfigChangePerform() || frameNode == nullptr) {
+        return;
+    }
+    auto pattern = frameNode->GetPattern<ShapeContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    auto&& updateFunc = [frameNode, segments, resObjArray](const RefPtr<ResourceObject>& resObj) {
+        if (segments.size() != resObjArray.size()) {
+            return;
+        }
+        std::vector<Ace::Dimension> result;
+        for (size_t i = 0; i < segments.size(); i++) {
+            if (resObjArray[i]) {
+                Dimension dim;
+                if (!ResourceParseUtils::ConvertFromResObjNG(resObjArray[i], dim)) {
+                    result.clear();
+                    break;
+                }
+                result.emplace_back(dim);
+            } else {
+                result.emplace_back(segments[i]);
+            }
+        }
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, StrokeDashArray, result, frameNode);
+    };
+    ACE_UINODE_TRACE(frameNode);
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>();
+    pattern->AddResObj("ShapeStrokeDashArray", resObj, std::move(updateFunc));
+}
+
+void ShapeModelNG::SetStroke(const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetStroke(frameNode, resObj);
+}
+
+void ShapeModelNG::SetFill(const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetFill(frameNode, resObj);
+}
+
+void ShapeModelNG::SetForegroundColor(const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetForegroundColor(frameNode, resObj);
+}
+
+void ShapeModelNG::SetStrokeDashOffset(const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetStrokeDashOffset(frameNode, resObj);
+}
+
+void ShapeModelNG::SetStrokeMiterLimit(const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetStrokeMiterLimit(frameNode, resObj);
+}
+
+void ShapeModelNG::SetStrokeOpacity(const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetStrokeOpacity(frameNode, resObj);
+}
+
+void ShapeModelNG::SetFillOpacity(const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetFillOpacity(frameNode, resObj);
+}
+
+void ShapeModelNG::SetStrokeWidth(const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    SetStrokeWidth(frameNode, resObj);
+}
+
+void ShapeModelNG::SetStroke(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform() || frameNode == nullptr) {
+        return;
+    }
+    auto pattern = frameNode->GetPattern<ShapeContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    auto&& updateFunc = [patternWeak = AceType::WeakClaim(AceType::RawPtr(pattern)),
+                            weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto pattern = patternWeak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        Color value;
+        if (!ResourceParseUtils::ParseResColor(resObj, value)) {
+            ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, Stroke, Color::TRANSPARENT, frameNode);
+            return;
+        }
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, Stroke, value, frameNode);
+        pattern->UpdateProperty();
+    };
+    pattern->AddResObj("ShapeStroke", resObj, std::move(updateFunc));
+}
+
+void ShapeModelNG::SetFill(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform() || frameNode == nullptr) {
+        return;
+    }
+    auto pattern = frameNode->GetPattern<ShapeContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    auto&& updateFunc = [patternWeak = AceType::WeakClaim(AceType::RawPtr(pattern)),
+                            weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto pattern = patternWeak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        Color value = Color::BLACK;
+        if (!ResourceParseUtils::ParseResColor(resObj, value)) {
+            ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, Fill, Color::BLACK, frameNode);
+            ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColor, Color::BLACK, frameNode);
+            ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColorFlag, true, frameNode);
+            return;
+        }
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, Fill, value, frameNode);
+        ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColor, value, frameNode);
+        ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColorFlag, true, frameNode);
+        pattern->UpdateProperty();
+    };
+    pattern->AddResObj("ShapeFill", resObj, std::move(updateFunc));
+}
+
+void ShapeModelNG::SetForegroundColor(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform() || frameNode == nullptr) {
+        return;
+    }
+    auto pattern = frameNode->GetPattern<ShapeContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    auto&& updateFunc = [patternWeak = AceType::WeakClaim(AceType::RawPtr(pattern)),
+                            weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto pattern = patternWeak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        Color value = Color::BLACK;
+        if (!ResourceParseUtils::ParseResColor(resObj, value)) {
+            ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, Fill, Color::BLACK, frameNode);
+            ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColor, Color::BLACK, frameNode);
+            ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColorFlag, true, frameNode);
+            return;
+        }
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, Fill, value, frameNode);
+        ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColor, value, frameNode);
+        ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColorFlag, true, frameNode);
+        pattern->UpdateProperty();
+    };
+    pattern->AddResObj("ShapeForegroundColor", resObj, std::move(updateFunc));
+}
+
+void ShapeModelNG::SetStrokeDashOffset(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform() || frameNode == nullptr) {
+        return;
+    }
+    auto pattern = frameNode->GetPattern<ShapeContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    auto&& updateFunc = [patternWeak = AceType::WeakClaim(AceType::RawPtr(pattern)),
+                            weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto pattern = patternWeak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        CalcDimension value(0.0f);
+        if (!ResourceParseUtils::ParseResDimensionFpNG(resObj, value)) {
+            value.SetValue(0.0f);
+        }
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, StrokeDashOffset, value, frameNode);
+        pattern->UpdateProperty();
+    };
+    pattern->AddResObj("ShapeDashOffset", resObj, std::move(updateFunc));
+}
+
+void ShapeModelNG::SetStrokeMiterLimit(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform() || frameNode == nullptr) {
+        return;
+    }
+    auto pattern = frameNode->GetPattern<ShapeContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    auto&& updateFunc = [patternWeak = AceType::WeakClaim(AceType::RawPtr(pattern)),
+                            weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto pattern = patternWeak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        double value = STROKE_MITERLIMIT_DEFAULT;
+        if (!ResourceParseUtils::ParseResDouble(resObj, value)) {
+            value = STROKE_MITERLIMIT_DEFAULT;
+        }
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, StrokeMiterLimit, value, frameNode);
+        pattern->UpdateProperty();
+    };
+    pattern->AddResObj("ShapeMiterLimit", resObj, std::move(updateFunc));
+}
+
+void ShapeModelNG::SetStrokeOpacity(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform() || frameNode == nullptr) {
+        return;
+    }
+    auto pattern = frameNode->GetPattern<ShapeContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    auto&& updateFunc = [patternWeak = AceType::WeakClaim(AceType::RawPtr(pattern)),
+                            weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto pattern = patternWeak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        double value = 1.0;
+        if (!ResourceParseUtils::ParseResDouble(resObj, value)) {
+            value = 1.0;
+        }
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, StrokeOpacity, std::clamp(value, 0.0, 1.0), frameNode);
+        pattern->UpdateProperty();
+    };
+    pattern->AddResObj("ShapeStrokeOpacity", resObj, std::move(updateFunc));
+}
+
+void ShapeModelNG::SetFillOpacity(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform() || frameNode == nullptr) {
+        return;
+    }
+    auto pattern = frameNode->GetPattern<ShapeContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    auto&& updateFunc = [patternWeak = AceType::WeakClaim(AceType::RawPtr(pattern)),
+                            weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto pattern = patternWeak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        double value = 1.0;
+        if (!ResourceParseUtils::ParseResDouble(resObj, value)) {
+            value = 1.0;
+        }
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, FillOpacity, std::clamp(value, 0.0, 1.0), frameNode);
+        pattern->UpdateProperty();
+    };
+    pattern->AddResObj("ShapeFillOpacity", resObj, std::move(updateFunc));
+}
+
+void ShapeModelNG::SetStrokeWidth(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::ConfigChangePerform() || frameNode == nullptr) {
+        return;
+    }
+    auto pattern = frameNode->GetPattern<ShapeContainerPattern>();
+    CHECK_NULL_VOID(pattern);
+    auto&& updateFunc = [patternWeak = AceType::WeakClaim(AceType::RawPtr(pattern)),
+                            weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto pattern = patternWeak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        CalcDimension value = 1.0_vp;
+        if (!ResourceParseUtils::ParseResDimensionFpNG(resObj, value)) {
+            ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, StrokeWidth, 1.0_vp, frameNode);
+            return;
+        }
+        auto strokeWidth = value.IsNegative() ? 1.0_vp : value;
+        ACE_UPDATE_NODE_PAINT_PROPERTY(ShapePaintProperty, StrokeWidth, strokeWidth, frameNode);
+        pattern->UpdateProperty();
+    };
+    pattern->AddResObj("ShapeStrokeWidth", resObj, std::move(updateFunc));
 }
 } // namespace OHOS::Ace::NG

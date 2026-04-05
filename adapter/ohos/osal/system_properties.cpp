@@ -15,15 +15,18 @@
 
 #include "base/utils/system_properties.h"
 
+#include "base/log/log_wrapper.h"
+#include "base/utils/layout_break_point.h"
+
 #include <regex>
+#include <unistd.h>
 
 #include "display_info.h"
 #include "display_manager.h"
-#include "locale_config.h"
+#include "locale_config.h" // should move to localization.h
 #include "parameter.h"
 #include "parameters.h"
 
-#include "adapter/ohos/entrance/ace_container.h"
 #include "adapter/ohos/osal/window_utils.h"
 #include "core/common/ace_application_info.h"
 
@@ -47,6 +50,8 @@ constexpr char ENABLE_DEBUG_AUTOUI_KEY[] = "persist.ace.debug.autoui.enabled";
 constexpr char ENABLE_DEBUG_BOUNDARY_KEY[] = "persist.ace.debug.boundary.enabled";
 constexpr char ENABLE_DOWNLOAD_BY_NETSTACK_KEY[] = "persist.ace.download.netstack.enabled";
 constexpr char ENABLE_RECYCLE_IMAGE_KEY[] = "persist.ace.recycle.image.enabled";
+constexpr char ENABLE_IMAGE_RELEASE_MANAGE_OBJECT_KEY[] = "persist.ace.image.releasemanageobject.enabled";
+constexpr char ENABLE_IMAGE_AUTO_RESIZE_KEY[] = "persist.ace.image.autoresize.enabled";
 constexpr char ENABLE_DEBUG_OFFSET_LOG_KEY[] = "persist.ace.scrollable.log.enabled";
 constexpr char ANIMATION_SCALE_KEY[] = "persist.sys.arkui.animationscale";
 constexpr char CUSTOM_TITLE_KEY[] = "persist.sys.arkui.customtitle";
@@ -63,6 +68,9 @@ float animationScale_ = DEFAULT_ANIMATION_SCALE;
 constexpr int32_t DEFAULT_DRAG_START_DAMPING_RATIO = 20;
 constexpr int32_t DEFAULT_DRAG_START_PAN_DISTANCE_THRESHOLD_IN_VP = 10;
 constexpr int32_t DEFAULT_FORM_SHARED_IMAGE_CACHE_THRESHOLD = 20;
+constexpr int32_t DEFAULT_VELOCITY_TRACKER_POINT_NUMBER = 20;
+constexpr bool DEFAULT_IS_VELOCITY_WITHIN_TIME_WINDOW = true;
+constexpr bool DEFAULT_IS_VELOCITY_WITHOUT_UP_POINT = true;
 std::shared_mutex mutex_;
 const std::regex FOLD_TYPE_REGEX("^(\\d+)(,\\d+){3,}$");
 #ifdef ENABLE_ROSEN_BACKEND
@@ -72,6 +80,7 @@ constexpr char DISABLE_WINDOW_ANIMATION_PATH[] = "/etc/disable_window_size_anima
 constexpr int32_t CONVERT_ASTC_THRESHOLD = 2;
 constexpr int32_t FOLD_TYPE_TWO = 2;
 constexpr int32_t FOLD_TYPE_FOUR = 4;
+constexpr int32_t FOLD_TYPE_SEVEN = 7;
 constexpr float DEFAULT_SCROLL_COEFFICEIENT = 2.0f;
 
 bool IsOpIncEnabled()
@@ -108,7 +117,12 @@ bool IsDownloadByNetworkDisabled()
 
 bool IsRecycleImageEnabled()
 {
-    return system::GetParameter(ENABLE_RECYCLE_IMAGE_KEY, "true") == "true";
+    return system::GetParameter(ENABLE_RECYCLE_IMAGE_KEY, "false") == "true";
+}
+
+bool IsImageReleaseManageObjectEnabled()
+{
+    return system::GetBoolParameter(ENABLE_IMAGE_RELEASE_MANAGE_OBJECT_KEY, false);
 }
 
 bool IsSvgTraceEnabled()
@@ -156,6 +170,11 @@ bool IsBuildTraceEnabled()
     return (system::GetParameter("persist.ace.trace.build.enabled", "false") == "true");
 }
 
+bool IsDynamicDetectionTraceEnabled()
+{
+    return (system::GetParameter("persist.ace.trace.dynamicdetection.enabled", "false") == "true");
+}
+
 bool IsSyncDebugTraceEnabled()
 {
     return (system::GetParameter("persist.ace.trace.sync.debug.enabled", "false") == "true");
@@ -198,9 +217,6 @@ bool IsCacheNavigationNodeEnable()
 
 bool IsHookModeEnabled()
 {
-#ifdef PREVIEW
-    return false;
-#endif
     const int bufferLen = 128;
     char paramOutBuf[bufferLen] = { 0 };
     constexpr char hook_mode[] = "startup:";
@@ -258,9 +274,19 @@ bool IsDebugEnabled()
     return (system::GetParameter("persist.ace.debug.enabled", "0") == "1");
 }
 
+bool IsEventBenchMarkEnabled()
+{
+    return (system::GetParameter("benchMark.ace.event.enabled", "0") == "1");
+}
+
 bool IsMouseTransformEnable()
 {
     return (system::GetParameter("persist.ace.event.transform.enable", "1") == "1");
+}
+
+bool IsCompatibleInputTransEnabled()
+{
+    return (system::GetParameter("const.arkui.mouseCompatibleConverting", "false") == "true");
 }
 
 float ReadScrollCoefficients()
@@ -300,6 +326,18 @@ bool IsConfigChangePerform()
 bool IsNavigationBlurEnabled()
 {
     return (system::GetParameter("persist.ace.navigation.blur.enabled", "0") == "1");
+}
+
+std::optional<bool> IsArkUIHookEnabled()
+{
+    auto enabledValue = system::GetParameter("persist.ace.arkuihook.enabled", "NA");
+    if (enabledValue == "true") {
+        return true;
+    } else if (enabledValue == "false") {
+        return false;
+    } else {
+        return std::nullopt;
+    }
 }
 
 bool IsGridCacheEnabled()
@@ -386,6 +424,18 @@ bool IsUseMemoryMonitor()
     return (system::GetParameter("persist.ace.memorymonitor.enabled", "0") == "1");
 }
 
+int32_t ReadComponentLoadNumber()
+{
+    return system::GetIntParameter(
+        "persist.ace.componentload.number", 1); // Number of components loaded in 100 milliseconds.
+}
+
+int32_t ReadStopCollectTimeWait()
+{
+    return system::GetIntParameter(
+        "persist.ace.stopCollect.timeWait", 800); // 800 : Stop collecting asynchronous task waiting time.
+}
+
 bool IsExtSurfaceEnabled()
 {
 #ifdef EXT_SURFACE_ENABLE
@@ -414,6 +464,28 @@ bool IsAceCommercialLogEnable()
 {
     return system::GetParameter("const.logsystem.versiontype", "commercial") == "commercial";
 }
+
+int32_t ReadVelocityTrackerPointNumber()
+{
+    return system::GetIntParameter("persist.sys.arkui.velocitytracker.pointnum", DEFAULT_VELOCITY_TRACKER_POINT_NUMBER);
+}
+
+bool ReadIsVelocityWithinTimeWindow()
+{
+    return system::GetBoolParameter(
+        "persist.sys.arkui.velocitytracker.withintimewindow", DEFAULT_IS_VELOCITY_WITHIN_TIME_WINDOW);
+}
+
+bool ReadIsVelocityWithoutUpPoint()
+{
+    return system::GetBoolParameter(
+        "persist.sys.arkui.velocitytracker.withoutuppoint", DEFAULT_IS_VELOCITY_WITHOUT_UP_POINT);
+}
+
+bool IsPrebuildInMultiFrameEnabled()
+{
+    return system::GetBoolParameter("persist.ace.prebuild_in_multi_frame.enabled", false);
+}
 } // namespace
 
 float ReadDragStartDampingRatio()
@@ -427,9 +499,19 @@ float ReadDragStartPanDistanceThreshold()
         DEFAULT_DRAG_START_PAN_DISTANCE_THRESHOLD_IN_VP) * 1.0f;
 }
 
+bool ReadIsOpenYuvDecode()
+{
+    return system::GetBoolParameter("persist.ace.yuv.decode.enabled", false);
+}
+
 uint32_t ReadCanvasDebugMode()
 {
     return system::GetUintParameter("persist.ace.canvas.debug.mode", 0u);
+}
+
+uint32_t ReadSafeRefactorMode()
+{
+    return system::GetUintParameter("persist.ace.safe.refactor.mode", 0u);
 }
 
 bool IsFaultInjectEnabled()
@@ -472,7 +554,13 @@ int32_t ReadDragDropFrameworkStatus()
 
 int32_t ReadTouchAccelarateMode()
 {
-    return system::GetIntParameter("debug.ace.touch.accelarate", 2);
+    return system::GetIntParameter("debug.ace.touch.accelarate", 0);
+}
+
+int32_t ReadPageLoadTimeThreshold()
+{
+    return system::GetIntParameter(
+        "const.arkui.pageload.timethreshold", 1500); // page load max timethreshold is 1500ms.
 }
 
 bool IsAscending(const std::vector<double>& nums)
@@ -617,6 +705,7 @@ bool SystemProperties::imageFrameworkEnable_ = IsImageFrameworkEnabled();
 std::atomic<bool> SystemProperties::traceInputEventEnable_(IsTraceInputEventEnabled() && developerModeOn_);
 std::atomic<bool> SystemProperties::stateManagerEnable_(IsStateManagerEnable());
 bool SystemProperties::buildTraceEnable_ = IsBuildTraceEnabled() && developerModeOn_;
+bool SystemProperties::dynamicDetectionTraceEnable_ = IsDynamicDetectionTraceEnabled();
 bool SystemProperties::cacheNavigationNodeEnable_ = IsCacheNavigationNodeEnable();
 bool SystemProperties::syncDebugTraceEnable_ = IsSyncDebugTraceEnabled();
 bool SystemProperties::measureDebugTraceEnable_ = IsMeasureDebugTraceEnabled();
@@ -648,19 +737,19 @@ std::string SystemProperties::paramDeviceType_ = InitSysDeviceType();
 int32_t SystemProperties::mcc_ = MCC_UNDEFINED;
 int32_t SystemProperties::mnc_ = MNC_UNDEFINED;
 ScreenShape SystemProperties::screenShape_ { ScreenShape::NOT_ROUND };
-LongScreenType SystemProperties::LongScreen_ { LongScreenType::NOT_LONG };
-bool SystemProperties::unZipHap_ = true;
+std::atomic<bool> SystemProperties::unZipHap_(true);
 ACE_WEAK_SYM bool SystemProperties::rosenBackendEnabled_ = IsRosenBackendEnabled();
 ACE_WEAK_SYM bool SystemProperties::isHookModeEnabled_ = IsHookModeEnabled();
 std::atomic<bool> SystemProperties::debugBoundaryEnabled_(IsDebugBoundaryEnabled() && developerModeOn_);
 bool SystemProperties::debugAutoUIEnabled_ = IsDebugAutoUIEnabled();
 bool SystemProperties::downloadByNetworkEnabled_ = IsDownloadByNetworkDisabled();
 bool SystemProperties::recycleImageEnabled_ = IsRecycleImageEnabled();
+bool SystemProperties::imageReleaseManageObjectEnabled_ = IsImageReleaseManageObjectEnabled();
 bool SystemProperties::debugOffsetLogEnabled_ = IsDebugOffsetLogEnabled();
 ACE_WEAK_SYM bool SystemProperties::windowAnimationEnabled_ = IsWindowAnimationEnabled();
 ACE_WEAK_SYM bool SystemProperties::debugEnabled_ = IsDebugEnabled();
-std::string SystemProperties::configDeviceType_ = "";
-ACE_WEAK_SYM bool SystemProperties::transformEnabled_ = IsMouseTransformEnable();
+bool SystemProperties::eventBenchMarkEnabled_ = IsEventBenchMarkEnabled();
+ACE_WEAK_SYM bool SystemProperties::compatibleInputTransEnabled_ = IsCompatibleInputTransEnabled();
 float SystemProperties::scrollCoefficients_ = ReadScrollCoefficients();
 ACE_WEAK_SYM DebugFlags SystemProperties::debugFlags_ = GetDebugFlags();
 ACE_WEAK_SYM bool SystemProperties::containerDeleteFlag_ = IsContainerDeleteFlag();
@@ -679,6 +768,7 @@ bool SystemProperties::enableScrollableItemPool_ = IsEnableScrollableItemPool();
 bool SystemProperties::resourceDecoupling_ = IsResourceDecoupling();
 bool SystemProperties::configChangePerform_ = IsConfigChangePerform();
 bool SystemProperties::navigationBlurEnabled_ = IsNavigationBlurEnabled();
+std::optional<bool> SystemProperties::arkUIHookEnabled_ = IsArkUIHookEnabled();
 bool SystemProperties::gridCacheEnabled_ = IsGridCacheEnabled();
 bool SystemProperties::gridIrregularLayoutEnable_ = IsGridIrregularLayoutEnabled();
 std::pair<float, float> SystemProperties::brightUpPercent_ = GetPercent();
@@ -692,13 +782,16 @@ bool SystemProperties::opincEnabled_ = IsOpIncEnabled();
 float SystemProperties::dragStartDampingRatio_ = ReadDragStartDampingRatio();
 float SystemProperties::dragStartPanDisThreshold_ = ReadDragStartPanDistanceThreshold();
 uint32_t SystemProperties::canvasDebugMode_ = ReadCanvasDebugMode();
+uint32_t SystemProperties::safeRefactorMode_ = ReadSafeRefactorMode();
 float SystemProperties::fontScale_ = 1.0;
 float SystemProperties::fontWeightScale_ = 1.0;
 double SystemProperties::scrollableDistance_ = ReadScrollableDistance();
 bool SystemProperties::taskPriorityAdjustmentEnable_ = IsTaskPriorityAdjustmentEnable();
 int32_t SystemProperties::dragDropFrameworkStatus_ = ReadDragDropFrameworkStatus();
 int32_t SystemProperties::touchAccelarate_ = ReadTouchAccelarateMode();
+int32_t SystemProperties::pageLoadTimethreshold_ = ReadPageLoadTimeThreshold();
 bool SystemProperties::pageTransitionFrzEnabled_ = false;
+bool SystemProperties::forcibleLandscapeEnabled_ = false;
 bool SystemProperties::softPagetransition_ = false;
 bool SystemProperties::formSkeletonBlurEnabled_ = true;
 int32_t SystemProperties::formSharedImageCacheThreshold_ = DEFAULT_FORM_SHARED_IMAGE_CACHE_THRESHOLD;
@@ -706,6 +799,17 @@ WidthLayoutBreakPoint SystemProperties::widthLayoutBreakpoints_ = WidthLayoutBre
 HeightLayoutBreakPoint SystemProperties::heightLayoutBreakpoints_ = HeightLayoutBreakPoint();
 bool SystemProperties::syncLoadEnabled_ = true;
 bool SystemProperties::whiteBlockEnabled_ = false;
+int32_t SystemProperties::previewStatus_ = -1;
+int32_t SystemProperties::velocityTrackerPointNumber_ = ReadVelocityTrackerPointNumber();
+bool SystemProperties::isVelocityWithinTimeWindow_ = ReadIsVelocityWithinTimeWindow();
+bool SystemProperties::isVelocityWithoutUpPoint_ = ReadIsVelocityWithoutUpPoint();
+bool SystemProperties::prebuildInMultiFrameEnabled_ = IsPrebuildInMultiFrameEnabled();
+bool SystemProperties::isOpenYuvDecode_ = false;
+bool SystemProperties::isPCMode_ = false;
+bool SystemProperties::isAutoFillSupport_ = false;
+bool SystemProperties::autoResizeEnabled_ = false;
+
+std::once_flag SystemProperties::getSysPropertiesFlag_;
 
 bool SystemProperties::IsOpIncEnable()
 {
@@ -830,56 +934,81 @@ void SystemProperties::InitDeviceInfo(
     resolution_ = resolution;
     deviceWidth_ = deviceWidth;
     deviceHeight_ = deviceHeight;
-    needAvoidWindow_ = system::GetBoolParameter(PROPERTY_NEED_AVOID_WINDOW, false);
-    debugEnabled_ = IsDebugEnabled();
-    transformEnabled_ = IsMouseTransformEnable();
-    debugFlags_ = GetDebugFlags();
-    layoutDetectEnabled_ = IsLayoutDetectEnabled();
-    multiInstanceEnabled_ = IsMultiInstanceEnabled();
-    svgTraceEnable_ = IsSvgTraceEnabled();
-    layoutTraceEnable_.store(IsLayoutTraceEnabled() && developerModeOn_);
-    attributeSetTraceEnable_.store(IsAttributeSetTraceEnabled() && developerModeOn_);
-    traceInputEventEnable_.store(IsTraceInputEventEnabled() && developerModeOn_);
-    stateManagerEnable_.store(IsStateManagerEnable());
-    buildTraceEnable_ = IsBuildTraceEnabled() && developerModeOn_;
-    syncDebugTraceEnable_ = IsSyncDebugTraceEnabled();
-    measureDebugTraceEnable_ = IsMeasureDebugTraceEnabled();
-    safeAreaDebugTraceEnable_ = IsSafeAreaDebugTraceEnabled();
-    vsyncModeTraceEnable_ = IsVsyncModeDebugTraceEnabled();
-    pixelRoundEnable_ = IsPixelRoundEnabled();
-    accessibilityEnabled_ = IsAccessibilityEnabled();
-    canvasDebugMode_ = ReadCanvasDebugMode();
-    isHookModeEnabled_ = IsHookModeEnabled();
-    debugAutoUIEnabled_ = system::GetParameter(ENABLE_DEBUG_AUTOUI_KEY, "false") == "true";
-    debugOffsetLogEnabled_ = system::GetParameter(ENABLE_DEBUG_OFFSET_LOG_KEY, "false") == "true";
-    downloadByNetworkEnabled_ = system::GetParameter(ENABLE_DOWNLOAD_BY_NETSTACK_KEY, "true") == "true";
-    recycleImageEnabled_ = system::GetParameter(ENABLE_RECYCLE_IMAGE_KEY, "true") == "true";
-    animationScale_ = std::atof(system::GetParameter(ANIMATION_SCALE_KEY, "1").c_str());
-    pageTransitionFrzEnabled_ = system::GetBoolParameter("const.arkui.pagetransitionfreeze", false);
-    softPagetransition_ = system::GetBoolParameter("const.arkui.softPagetransition", false);
-    WatchParameter(ANIMATION_SCALE_KEY, OnAnimationScaleChanged, nullptr);
-    resourceDecoupling_ = IsResourceDecoupling();
-    configChangePerform_ = IsConfigChangePerform();
-    navigationBlurEnabled_ = IsNavigationBlurEnabled();
-    gridCacheEnabled_ = IsGridCacheEnabled();
-    gridIrregularLayoutEnable_ = IsGridIrregularLayoutEnabled();
-    sideBarContainerBlurEnable_ = IsSideBarContainerBlurEnable();
-    acePerformanceMonitorEnable_.store(IsAcePerformanceMonitorEnabled());
-    faultInjectEnabled_  = IsFaultInjectEnabled();
-    windowRectResizeEnabled_ = IsWindowRectResizeEnabled();
-    taskPriorityAdjustmentEnable_ = IsTaskPriorityAdjustmentEnable();
-    formSkeletonBlurEnabled_ = system::GetBoolParameter("const.form.skeleton_view.blur_style_enable", true);
-    formSharedImageCacheThreshold_ =
-        system::GetIntParameter("const.form.shared_image.cache_threshold", DEFAULT_FORM_SHARED_IMAGE_CACHE_THRESHOLD);
-    syncLoadEnabled_ = system::GetBoolParameter("persist.ace.scrollable.syncload.enable", false);
-    whiteBlockEnabled_ = system::GetParameter("persist.resourceschedule.whiteblock", "0") == "1";
     if (isRound_) {
         screenShape_ = ScreenShape::ROUND;
     } else {
         screenShape_ = ScreenShape::NOT_ROUND;
     }
-    InitDeviceTypeBySystemProperty();
-    GetLayoutBreakpoints(widthLayoutBreakpoints_, heightLayoutBreakpoints_);
+}
+
+void SystemProperties::ReadSystemParametersCallOnce()
+{
+    std::call_once(getSysPropertiesFlag_, [] () {
+        developerModeOn_ = IsDeveloperModeOn();
+        debugEnabled_ = IsDebugEnabled();
+        eventBenchMarkEnabled_ = IsEventBenchMarkEnabled();
+        debugFlags_ = GetDebugFlags();
+        multiInstanceEnabled_ = IsMultiInstanceEnabled();
+        layoutDetectEnabled_ = IsLayoutDetectEnabled();
+        svgTraceEnable_ = IsSvgTraceEnabled();
+        buildTraceEnable_ = IsBuildTraceEnabled() && developerModeOn_;
+        dynamicDetectionTraceEnable_ = IsDynamicDetectionTraceEnabled();
+        syncDebugTraceEnable_ = IsSyncDebugTraceEnabled();
+        measureDebugTraceEnable_ = IsMeasureDebugTraceEnabled();
+        vsyncModeTraceEnable_ = IsVsyncModeDebugTraceEnabled();
+        safeAreaDebugTraceEnable_ = IsSafeAreaDebugTraceEnabled();
+        pixelRoundEnable_ = IsPixelRoundEnabled();
+        accessibilityEnabled_ = IsAccessibilityEnabled();
+        canvasDebugMode_ = ReadCanvasDebugMode();
+        safeRefactorMode_ = ReadSafeRefactorMode();
+        isHookModeEnabled_ = IsHookModeEnabled();
+        debugAutoUIEnabled_ = IsDebugAutoUIEnabled();
+        debugOffsetLogEnabled_ = IsDebugOffsetLogEnabled();
+        downloadByNetworkEnabled_ = IsDownloadByNetworkDisabled();
+        recycleImageEnabled_ = IsRecycleImageEnabled();
+        imageReleaseManageObjectEnabled_ = IsImageReleaseManageObjectEnabled();
+        pageTransitionFrzEnabled_ = system::GetBoolParameter("const.arkui.pagetransitionfreeze", false);
+        forcibleLandscapeEnabled_ = system::GetBoolParameter("const.settings.forcible_landscape_enable", false);
+        softPagetransition_ = system::GetBoolParameter("const.arkui.softPagetransition", false);
+        configChangePerform_ = configChangePerform_ || IsConfigChangePerform();
+        navigationBlurEnabled_ = IsNavigationBlurEnabled();
+        acePerformanceMonitorEnable_.store(IsAcePerformanceMonitorEnabled());
+        layoutTraceEnable_.store(IsLayoutTraceEnabled() && developerModeOn_);
+        attributeSetTraceEnable_.store(IsAttributeSetTraceEnabled() && developerModeOn_);
+        traceInputEventEnable_.store(IsTraceInputEventEnabled() && developerModeOn_);
+        stateManagerEnable_.store(IsStateManagerEnable());
+        arkUIHookEnabled_ = IsArkUIHookEnabled();
+        resourceDecoupling_ = IsResourceDecoupling();
+        gridCacheEnabled_ = IsGridCacheEnabled();
+        gridIrregularLayoutEnable_ = IsGridIrregularLayoutEnabled();
+        sideBarContainerBlurEnable_ = IsSideBarContainerBlurEnable();
+        faultInjectEnabled_  = IsFaultInjectEnabled();
+        windowRectResizeEnabled_ = IsWindowRectResizeEnabled();
+        taskPriorityAdjustmentEnable_ = IsTaskPriorityAdjustmentEnable();
+        syncLoadEnabled_ = system::GetBoolParameter("persist.ace.scrollable.syncload.enable", false);
+        whiteBlockEnabled_ = system::GetParameter("persist.resourceschedule.whiteblock", "0") == "1";
+        needAvoidWindow_ = system::GetBoolParameter(PROPERTY_NEED_AVOID_WINDOW, false);
+        compatibleInputTransEnabled_ = IsCompatibleInputTransEnabled();
+        previewStatus_ = system::GetIntParameter<int32_t>("const.arkui.previewStatus", -1);
+        isPCMode_ = system::GetParameter("persist.sceneboard.ispcmode", "false") == "true";
+        isAutoFillSupport_ = system::GetBoolParameter("const.arkui.autoFillSupport", false);
+        autoResizeEnabled_ = system::GetBoolParameter(ENABLE_IMAGE_AUTO_RESIZE_KEY, false);
+        isOpenYuvDecode_ = ReadIsOpenYuvDecode();
+
+        // watch animation scale
+        animationScale_ = std::atof(system::GetParameter(ANIMATION_SCALE_KEY, "1").c_str());
+        WatchParameter(ANIMATION_SCALE_KEY, OnAnimationScaleChanged, nullptr);
+
+        // init layout breakpoints
+        GetLayoutBreakpoints(widthLayoutBreakpoints_, heightLayoutBreakpoints_);
+
+        // init form sys params
+        formSkeletonBlurEnabled_ = system::GetBoolParameter("const.form.skeleton_view.blur_style_enable", true);
+        formSharedImageCacheThreshold_ = system::GetIntParameter(
+            "const.form.shared_image.cache_threshold", DEFAULT_FORM_SHARED_IMAGE_CACHE_THRESHOLD);
+
+        InitDeviceTypeBySystemProperty();
+    });
 }
 
 ACE_WEAK_SYM void SystemProperties::SetDeviceOrientation(int32_t orientation)
@@ -994,6 +1123,18 @@ ACE_WEAK_SYM bool SystemProperties::GetIsUseMemoryMonitor()
     return isUseMemoryMonitor;
 }
 
+ACE_WEAK_SYM int32_t SystemProperties::GetComponentLoadNumber()
+{
+    static int32_t componentLoadNumber = ReadComponentLoadNumber();
+    return componentLoadNumber;
+}
+
+ACE_WEAK_SYM int32_t SystemProperties::GetStopCollectTimeWait()
+{
+    static int32_t stopCollectTimeWait = ReadStopCollectTimeWait();
+    return stopCollectTimeWait;
+}
+
 bool SystemProperties::IsFormAnimationLimited()
 {
     return system::GetBoolParameter("persist.sys.arkui.formAnimationLimit", true);
@@ -1002,6 +1143,11 @@ bool SystemProperties::IsFormAnimationLimited()
 bool SystemProperties::GetResourceDecoupling()
 {
     return resourceDecoupling_;
+}
+
+bool SystemProperties::IsPCMode()
+{
+    return isPCMode_;
 }
 
 bool SystemProperties::ConfigChangePerform()
@@ -1053,6 +1199,11 @@ bool SystemProperties::GetDisplaySyncSkipEnabled()
 bool SystemProperties::GetNavigationBlurEnabled()
 {
     return navigationBlurEnabled_;
+}
+
+std::optional<bool> SystemProperties::GetArkUIHookEnabled()
+{
+    return arkUIHookEnabled_;
 }
 
 bool SystemProperties::GetCacheNavigationNodeEnable()
@@ -1125,14 +1276,6 @@ void SystemProperties::EnableSystemParameterDebugStatemgrCallback(const char* ke
     }
 }
 
-void SystemProperties::EnableSystemParameterDebugBoundaryCallback(const char* key, const char* value, void* context)
-{
-    bool isDebugBoundary = strcmp(value, "true") == 0;
-    SetDebugBoundaryEnabled(isDebugBoundary);
-    auto container = reinterpret_cast<Platform::AceContainer*>(context);
-    CHECK_NULL_VOID(container);
-    container->RenderLayoutBoundary(isDebugBoundary);
-}
 
 void SystemProperties::EnableSystemParameterPerformanceMonitorCallback(const char* key, const char* value,
     void* context)
@@ -1140,25 +1283,6 @@ void SystemProperties::EnableSystemParameterPerformanceMonitorCallback(const cha
     if (strcmp(value, "true") == 0 || strcmp(value, "false") == 0) {
         SetPerformanceMonitorEnabled(strcmp(value, "true") == 0);
     }
-}
-
-void SystemProperties::OnFocusActiveChanged(const char* key, const char* value, void* context)
-{
-    bool focusCanBeActive = true;
-    if (value && strcmp(value, "0") == 0) {
-        focusCanBeActive = false;
-    }
-    if (focusCanBeActive != focusCanBeActive_) {
-        SetFocusCanBeActive(focusCanBeActive);
-        if (!focusCanBeActive) {
-            auto container = reinterpret_cast<Platform::AceContainer*>(context);
-            CHECK_NULL_VOID(container);
-            ContainerScope scope(container->GetInstanceId());
-            container->SetIsFocusActive(focusCanBeActive);
-        }
-        LOGI("focusCanBeActive turns to %{public}d", focusCanBeActive);
-    }
-    return;
 }
 
 float SystemProperties::GetDefaultResolution()
@@ -1218,10 +1342,32 @@ float SystemProperties::GetDragStartPanDistanceThreshold()
     return dragStartPanDisThreshold_;
 }
 
+int32_t SystemProperties::GetVelocityTrackerPointNumber()
+{
+    return velocityTrackerPointNumber_;
+}
+
+bool SystemProperties::IsVelocityWithinTimeWindow()
+{
+    return isVelocityWithinTimeWindow_;
+}
+
+bool SystemProperties::IsVelocityWithoutUpPoint()
+{
+    return isVelocityWithoutUpPoint_;
+}
+
 ACE_WEAK_SYM bool SystemProperties::IsSmallFoldProduct()
 {
     InitFoldScreenTypeBySystemProperty();
     return foldScreenType_ == FoldScreenType::SMALL_FOLDER;
+}
+
+ACE_WEAK_SYM bool SystemProperties::IsPortraitFoldProduct()
+{
+    InitFoldScreenTypeBySystemProperty();
+    return foldScreenType_ == FoldScreenType::SMALL_FOLDER ||
+        foldScreenType_ == FoldScreenType::PORTRAIT_FOLDER;
 }
 
 ACE_WEAK_SYM bool SystemProperties::IsBigFoldProduct()
@@ -1241,7 +1387,7 @@ void SystemProperties::InitFoldScreenTypeBySystemProperty()
         auto index = foldTypeProp.find_first_of(',');
         auto foldScreenTypeStr = foldTypeProp.substr(0, index);
         auto type = StringUtils::StringToInt(foldScreenTypeStr);
-        if (type == FOLD_TYPE_FOUR) {
+        if (type == FOLD_TYPE_FOUR || type == FOLD_TYPE_SEVEN) {
             type = FOLD_TYPE_TWO;
         }
         foldScreenType_ = static_cast<FoldScreenType>(type);
@@ -1256,6 +1402,11 @@ std::string SystemProperties::GetWebDebugRenderMode()
 std::string SystemProperties::GetDebugInspectorId()
 {
     return system::GetParameter("ace.debug.inspectorId", INVALID_PARAM);
+}
+
+bool SystemProperties::GetEventBenchMarkEnabled()
+{
+    return eventBenchMarkEnabled_;
 }
 
 double SystemProperties::GetSrollableVelocityScale()
@@ -1282,12 +1433,23 @@ ACE_WEAK_SYM float SystemProperties::GetScrollCoefficients()
 
 ACE_WEAK_SYM bool SystemProperties::GetTransformEnabled()
 {
-    return transformEnabled_;
+    static bool transformEnabled = IsMouseTransformEnable();
+    return transformEnabled;
+}
+
+ACE_WEAK_SYM bool SystemProperties::GetCompatibleInputTransEnabled()
+{
+    return compatibleInputTransEnabled_;
 }
 
 bool SystemProperties::GetWebDebugMaximizeResizeOptimize()
 {
     return system::GetBoolParameter("web.debug.maximize_resize_optimize", true);
+}
+
+bool SystemProperties::IsAutoFillSupport()
+{
+    return isAutoFillSupport_;
 }
 
 bool SystemProperties::IsNeedResampleTouchPoints()
@@ -1308,6 +1470,11 @@ int32_t SystemProperties::GetDragDropFrameworkStatus()
 int32_t SystemProperties::GetTouchAccelarate()
 {
     return touchAccelarate_;
+}
+
+int32_t SystemProperties::GetPageLoadTimethreshold()
+{
+    return pageLoadTimethreshold_;
 }
 
 bool SystemProperties::IsSuperFoldDisplayDevice()
@@ -1336,6 +1503,12 @@ int32_t SystemProperties::getFormSharedImageCacheThreshold()
     return formSharedImageCacheThreshold_;
 }
 
+bool SystemProperties::IsFormSkeletonRSTransactionEnabled()
+{
+    static bool enabled = system::GetBoolParameter("const.form.skeleton_animation.rs_transaction_enabled", true);
+    return enabled;
+}
+
 bool SystemProperties::IsWhiteBlockEnabled()
 {
     return whiteBlockEnabled_;
@@ -1356,5 +1529,69 @@ int32_t SystemProperties::GetWhiteBlockCacheCountValue()
 {
     auto ret = OHOS::system::GetParameter("persist.resourceschedule.whiteblock.cachedcount", "0");
     return StringUtils::StringToInt(ret);
+}
+
+int32_t SystemProperties::GetPreviewStatus()
+{
+    return previewStatus_;
+}
+
+void SystemProperties::SetDeviceType(DeviceType deviceType)
+{
+    deviceType_ = deviceType;
+}
+
+void SystemProperties::SetDevicePhysicalWidth(int32_t devicePhysicalWidth)
+{
+    devicePhysicalWidth_ = devicePhysicalWidth;
+}
+
+void SystemProperties::SetDevicePhysicalHeight(int32_t devicePhysicalHeight)
+{
+    devicePhysicalHeight_ = devicePhysicalHeight;
+}
+
+void SystemProperties::SetFontWeightScale(const float fontWeightScale)
+{
+    if (fontWeightScale_ != fontWeightScale) {
+        fontWeightScale_ = fontWeightScale;
+    }
+}
+
+void SystemProperties::SetFontScale(const float fontScale)
+{
+    if (fontScale != fontScale_) {
+        fontScale_ = fontScale;
+    }
+}
+
+void SystemProperties::SetResolution(double resolution)
+{
+    resolution_ = resolution;
+}
+
+void SystemProperties::SetDeviceAccess(bool isDeviceAccess)
+{
+    isDeviceAccess_ = isDeviceAccess;
+}
+
+void SystemProperties::SetUnZipHap(bool unZipHap)
+{
+    unZipHap_.store(unZipHap);
+}
+
+void SystemProperties::SetExtSurfaceEnabled(bool extSurfaceEnabled)
+{
+    extSurfaceEnabled_ = extSurfaceEnabled;
+}
+
+void SystemProperties::SetStateManagerEnabled(bool stateManagerEnable)
+{
+    stateManagerEnable_.store(stateManagerEnable);
+}
+
+void SystemProperties::SetFaultInjectEnabled(bool faultInjectEnable)
+{
+    faultInjectEnabled_ = faultInjectEnable;
 }
 } // namespace OHOS::Ace

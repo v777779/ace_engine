@@ -19,32 +19,23 @@
 #include <tuple>
 #include "core/animation/chain_animation.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components_ng/pattern/list/list_accessibility_property.h"
 #include "core/components_ng/pattern/list/list_children_main_size.h"
 #include "core/components_ng/pattern/list/list_content_modifier.h"
-#include "core/components_ng/pattern/list/list_event_hub.h"
-#include "core/components_ng/pattern/list/list_item_pattern.h"
 #include "core/components_ng/pattern/list/list_layout_algorithm.h"
-#include "core/components_ng/pattern/list/list_layout_property.h"
-#include "core/components_ng/pattern/list/list_paint_method.h"
-#include "core/components_ng/pattern/list/list_position_map.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 #include "core/components_ng/pattern/scroll/inner/scroll_bar.h"
 #include "core/components_ng/pattern/scroll_bar/proxy/scroll_bar_proxy.h"
-#include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
-#include "core/components_ng/render/render_context.h"
-#include "core/pipeline_ng/pipeline_context.h"
+#include "core/components_ng/pattern/scrollable/selectable_container_pattern.h"
+#include "core/components_ng/pattern/scrollable/scrollable_paint_property.h"
+#include "core/components/scroll/scroll_controller_base.h"
 
 namespace OHOS::Ace::NG {
 class InspectorFilter;
-
-struct ListItemAdapter {
-    int32_t totalCount = 0;
-    std::pair<int32_t, int32_t> range = { 0, 0 };
-    std::function<void(int32_t start, int32_t end)> requestItemFunc;
-    // which directional item request.
-    std::pair<bool, bool> requestFeature = { false, false };
-    std::function<RefPtr<FrameNode>(int32_t index)> getItemFunc;
-};
+class ListAccessibilityProperty;
+class ListEventHub;
+class ListItemPattern;
+class ListLayoutProperty;
+class ListPositionMap;
 
 struct ListItemGroupPara {
     int32_t lanes = -1;
@@ -62,29 +53,23 @@ struct ListScrollTarget {
     float targetOffset;
 };
 
-class ListPattern : public ScrollablePattern {
-    DECLARE_ACE_TYPE(ListPattern, ScrollablePattern);
+class ACE_FORCE_EXPORT ListPattern : public SelectableContainerPattern {
+    DECLARE_ACE_TYPE(ListPattern, SelectableContainerPattern);
 
 public:
-    ListPattern() : ScrollablePattern(EdgeEffect::SPRING, false) {}
-    ~ListPattern() override = default;
+    ListPattern() : SelectableContainerPattern()
+    {
+        SetEdgeEffect(EdgeEffect::SPRING, false);
+    }
+    ~ListPattern() override;
 
     RefPtr<NodePaintMethod> CreateNodePaintMethod() override;
 
-    RefPtr<LayoutProperty> CreateLayoutProperty() override
-    {
-        return MakeRefPtr<ListLayoutProperty>();
-    }
+    RefPtr<LayoutProperty> CreateLayoutProperty() override;
 
-    RefPtr<EventHub> CreateEventHub() override
-    {
-        return MakeRefPtr<ListEventHub>();
-    }
+    RefPtr<EventHub> CreateEventHub() override;
 
-    RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override
-    {
-        return MakeRefPtr<ListAccessibilityProperty>();
-    }
+    RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override;
 
     bool UsResRegion() override
     {
@@ -98,6 +83,8 @@ public:
     void FromJson(const std::unique_ptr<JsonValue>& json) override;
 
     bool UpdateCurrentOffset(float offset, int32_t source) override;
+
+    void PostAsyncLoadTask();
 
     DisplayMode GetDefaultScrollBarDisplayMode() const override;
 
@@ -189,7 +176,9 @@ public:
         return itemPosition_;
     }
 
-    float GetTotalOffset() const override
+    bool GetDummyItemRect(int32_t index, RectF& rect) const;
+
+    double GetTotalOffset() const override
     {
         return currentOffset_;
     }
@@ -198,10 +187,9 @@ public:
     {
         return contentStartOffset_;
     }
-
-    float GetStartPos() const
+    float GetContentEndOffset() const override
     {
-        return startMainPos_ - currentDelta_;
+        return contentEndOffset_;
     }
 
     RefPtr<ScrollControllerBase> GetPositionController() const
@@ -269,40 +257,10 @@ public:
     }
 
     void SetSwiperItem(WeakPtr<ListItemPattern> swiperItem);
-    WeakPtr<ListItemPattern> GetSwiperItem()
-    {
-        if (!swiperItem_.Upgrade()) {
-            return nullptr;
-        }
-        return swiperItem_;
-    }
-    void SetSwiperItemEnd(WeakPtr<ListItemPattern> swiperItem)
-    {
-        if (swiperItem == swiperItem_) {
-            canReplaceSwiperItem_ = true;
-        }
-    }
-    bool IsCurrentSwiperItem(WeakPtr<ListItemPattern> swiperItem)
-    {
-        if (!swiperItem_.Upgrade()) {
-            return true;
-        }
-        return swiperItem == swiperItem_;
-    }
-    bool CanReplaceSwiperItem()
-    {
-        auto listItemPattern = swiperItem_.Upgrade();
-        if (!listItemPattern) {
-            canReplaceSwiperItem_ = true;
-            return canReplaceSwiperItem_;
-        }
-        auto host = listItemPattern->GetHost();
-        if (!host || !host->IsOnMainTree()) {
-            canReplaceSwiperItem_ = true;
-            return canReplaceSwiperItem_;
-        }
-        return canReplaceSwiperItem_;
-    }
+    WeakPtr<ListItemPattern> GetSwiperItem();
+    void SetSwiperItemEnd(WeakPtr<ListItemPattern> swiperItem);
+    bool IsCurrentSwiperItem(WeakPtr<ListItemPattern> swiperItem);
+    bool CanReplaceSwiperItem();
 
     void SetPredictSnapOffset(float predictSnapOffset)
     {
@@ -344,15 +302,6 @@ public:
 
     int32_t GetItemIndexByPosition(float xOffset, float yOffset);
 
-    void SetPredictLayoutParam(std::optional<ListPredictLayoutParam> param)
-    {
-        predictLayoutParam_ = param;
-    }
-    std::optional<ListPredictLayoutParam> GetPredictLayoutParam() const
-    {
-        return predictLayoutParam_;
-    }
-
     void SetPredictLayoutParamV2(std::optional<ListPredictLayoutParamV2> param)
     {
         predictLayoutParamV2_ = param;
@@ -367,10 +316,12 @@ public:
 
     std::string ProvideRestoreInfo() override;
     void OnRestoreInfo(const std::string& restoreInfo) override;
+    void DumpInfo() override;
     void DumpAdvanceInfo() override;
     void DumpAdvanceInfo(std::unique_ptr<JsonValue>& json) override;
     void GetEventDumpInfo() override;
     void GetEventDumpInfo(std::unique_ptr<JsonValue>& json) override;
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override;
 
     void SetNeedToUpdateListDirectionInCardStyle(bool isNeedToUpdateListDirection)
     {
@@ -384,39 +335,44 @@ public:
 
     std::vector<RefPtr<FrameNode>> GetVisibleSelectedItems() override;
 
-    void SetItemPressed(bool isPressed, int32_t id)
+    void SetItemState(ItemState itemState, int32_t id)
     {
-        if (isPressed) {
-            pressedItem_.emplace(id);
+        auto item = noDividerItems_.find(id);
+        if (item == noDividerItems_.end()) {
+            noDividerItems_[id] = itemState;
         } else {
-            pressedItem_.erase(id);
+            item->second |= itemState;
+        }
+    }
+
+    void ResetItemState(ItemState itemState, int32_t id)
+    {
+        auto item = noDividerItems_.find(id);
+        if (item == noDividerItems_.end()) {
+            return;
+        }
+        item->second &= ~itemState;
+        if (item->second == ITEM_STATE_NORMAL) {
+            noDividerItems_.erase(id);
         }
     }
 
     RefPtr<ListChildrenMainSize> GetOrCreateListChildrenMainSize();
+    void UpdateChildrenMainSizeRoundingMode();
+    void UpdateChildrenMainSizeRoundingModeMultiThread();
     void SetListChildrenMainSize(float defaultSize, const std::vector<float>& mainSize);
+    void SetListChildrenMainSize(RefPtr<ListChildrenMainSize>& childrenSize);
     virtual void OnChildrenSizeChanged(std::tuple<int32_t, int32_t, int32_t> change, ListChangeFlag flag);
     void ResetChildrenSize();
     bool ListChildrenSizeExist()
     {
         return static_cast<bool>(childrenSize_);
     }
-
-    const std::shared_ptr<ListItemAdapter>& GetListItemAdapter()
-    {
-        if (adapter_) {
-            return adapter_;
-        }
-        adapter_ = std::make_shared<ListItemAdapter>();
-        return adapter_;
-    }
-
-    void CheckListItemRange(const std::pair<int32_t, int32_t>& range);
-    void CheckScrollItemRange();
-
     void UpdateChildPosInfo(int32_t index, float delta, float sizeChange);
 
     SizeF GetChildrenExpandedSize() override;
+
+    bool GetIsAllowMouse() const override;
 
     inline int32_t GetItemStartIndex()
     {
@@ -491,11 +447,31 @@ public:
     bool IsOutOfBoundary(bool useCurrentDelta = true) override;
     void OnColorModeChange(uint32_t colorMode) override;
     void UpdateDefaultColor();
+    void HandleFocusParentCheck(const RefPtr<FocusHub>& childFocusHub, const RefPtr<FocusHub>& focusHub);
 
     void SetDraggingIndex(int32_t index)
     {
         draggingIndex_ = index;
     }
+    bool LayoutListForFocus(int32_t nextIndex, std::optional<int32_t> indexInGroup);
+
+    void SetSnapSpeed(ScrollSnapAnimationSpeed speed)
+    {
+        if (scrollable_) {
+            scrollable_->SetListSnapSpeed(speed);
+        }
+        listSnapSpeed_ = speed;
+    }
+
+    ScrollSnapAnimationSpeed GetSnapSpeed() const
+    {
+        if (scrollable_) {
+            return scrollable_->GetListSnapSpeed();
+        }
+        return listSnapSpeed_;
+    }
+
+    int32_t GetFirstIndex() const override;
 
 protected:
     void OnModifyDone() override;
@@ -521,6 +497,7 @@ protected:
     virtual float GetEndOverScrollOffset(float offset, float endMainPos, float startMainPos) const;
     void SetLayoutAlgorithmParams(
         const RefPtr<ListLayoutAlgorithm>& listLayoutAlgorithm, const RefPtr<ListLayoutProperty>& listLayoutProperty);
+    bool GetFadingEdge(RefPtr<ScrollablePaintProperty>& paintProperty);
 
     bool isFadingEdge_ = false;
     int32_t maxListItemIndex_ = 0;
@@ -531,7 +508,7 @@ protected:
     float endMainPos_ = 0.0f;
     float spaceWidth_ = 0.0f;
     float contentMainSize_ = 0.0f;
-    float contentStartOffset_ = 0.0f; // inner padding of list content
+    float contentStartOffset_ = 0.0f;
     float contentEndOffset_ = 0.0f;
 
     float currentDelta_ = 0.0f;
@@ -546,6 +523,7 @@ protected:
     bool isScrollable_ = true;
 
     ListLayoutAlgorithm::PositionMap itemPosition_;
+    ListLayoutAlgorithm::PositionMap cachedItemPosition_;
     RefPtr<ListPositionMap> posMap_;
     RefPtr<ListChildrenMainSize> childrenSize_;
 
@@ -559,7 +537,13 @@ protected:
     bool isStackFromEnd_ = true;
     FocusWrapMode focusWrapMode_ = FocusWrapMode::DEFAULT;
 private:
+    float GetListCrossAxisSize() const;
+    int32_t CalculateLaneNumber(int32_t index, const ListLayoutAlgorithm::PositionMap& itemPosition) const;
+    void CalculateCrossAxisPosition(int32_t lane, float listCrossSize, float& crossPos, float& crossSize) const;
+    void ApplyRtlTransform(float& mainPos, float mainSize) const;
+    RectF GetItemRectWithItemPosition(int32_t index, const std::map<int32_t, ListItemInfo>& itemPosition) const;
     void CheckAndUpdateAnimateTo(float relativeOffset, float prevOffset);
+    void ResetScrollToIndexParams();
     void OnScrollEndCallback() override;
     void FireOnReachStart(const OnReachEvent& onReachStart, const OnReachEvent& onJSFrameNodeReachStart) override;
     void FireOnReachEnd(const OnReachEvent& onReachEnd, const OnReachEvent& onJSFrameNodeReachEnd) override;
@@ -603,7 +587,6 @@ private:
         ScrollAlign align, float& targetPos);
     bool GetListItemGroupAnimatePosWithIndexInGroup(int32_t index, int32_t indexInGroup, float startPos,
         ScrollAlign align, float& targetPos);
-    bool GetFadingEdge(RefPtr<ScrollablePaintProperty>& paintProperty);
 
     // multiSelectable
     void ClearMultiSelect() override;
@@ -613,7 +596,6 @@ private:
         const RectF& selectedZone, const RefPtr<FrameNode>& itemGroupNode, const OffsetF& groupOffset);
 
     // focus
-    bool LayoutListForFocus(int32_t nextIndex, int32_t curIndex);
     bool IsLayout(int32_t index, std::optional<int32_t> indexInGroup, ScrollAlign align);
     int32_t GetNextMoveStepForMultiLanes(int32_t curIndex, FocusStep focuseStep, bool isVertical, int32_t& nextIndex);
     WeakPtr<FocusHub> GetNextFocusNodeInList(FocusStep step, const WeakPtr<FocusHub>& currentFocusNode);
@@ -644,9 +626,6 @@ private:
     float UpdateTotalOffset(const RefPtr<ListLayoutAlgorithm>& listLayoutAlgorithm, bool isJump);
     RefPtr<ListContentModifier> listContentModifier_;
     void CreatePositionInfo(std::unique_ptr<JsonValue>& json);
-    void ReportOnItemListEvent(const std::string& event);
-    void ReportOnItemListScrollEvent(const std::string& event, int32_t startindex, int32_t endindex);
-    int32_t OnInjectionEvent(const std::string& command) override;
     bool ScrollToLastFocusIndex(const KeyEvent& event);
     bool UpdateStartIndex(int32_t index, int32_t indexInGroup = -1);
     bool IsInViewport(int32_t index) const;
@@ -655,12 +634,18 @@ private:
     void ProcessFocusEvent(bool indexChanged);
     void RequestFocusForItem(int32_t index, int32_t indexInGroup);
     RefPtr<FocusHub> GetChildFocusHubInGroup(int32_t indexInList, int32_t indexInListItemGroup) const;
+    void ResetForExtScroll() override;
+    bool LayoutReachEnd(float currentEndPos, float endMainPos, int32_t currentIndex);
+    void CheckValidPredictItem();
+    void ReportOnItemListEvent(const std::string& event);
+    void ReportOnItemListScrollEvent(const std::string& event, int32_t startindex, int32_t endindex);
+    int32_t OnInjectionEvent(const std::string& command) override;
 
     std::optional<int32_t> focusIndex_;
     std::optional<int32_t> focusGroupIndex_;
     float prevStartOffset_ = 0.f;
     float prevEndOffset_ = 0.f;
-    float currentOffset_ = 0.0f;
+    double currentOffset_ = 0.0f;
     bool maintainVisibleContentPosition_ = false;
     std::optional<int32_t> lastSnapTargetIndex_;
 
@@ -677,11 +662,11 @@ private:
     bool paintStateFlag_ = false;
     bool isFramePaintStateValid_ = false;
 
-    ListLayoutAlgorithm::PositionMap cachedItemPosition_;
     float listTotalHeight_ = 0.0f;
 
+    std::unordered_map<int32_t, int32_t> predictItemTimes_;
     std::map<int32_t, int32_t> lanesItemRange_;
-    std::set<int32_t> pressedItem_;
+    std::map<int32_t, uint32_t> noDividerItems_;
     int32_t lanes_ = 1;
     int32_t laneIdx4Divider_ = 0;
     float laneGutter_ = 0.0f;
@@ -700,10 +685,7 @@ private:
 
     bool isScrollEnd_ = false;
     bool needReEstimateOffset_ = false;
-    std::optional<ListPredictLayoutParam> predictLayoutParam_;
     std::optional<ListPredictLayoutParamV2> predictLayoutParamV2_;
-
-    std::shared_ptr<ListItemAdapter> adapter_;
 
     bool isNeedToUpdateListDirection_ = false;
     bool startIndexChanged_ = false;
@@ -717,6 +699,7 @@ private:
     bool prevMeasureBreak_ = false;
     int32_t draggingIndex_ = -1;
     bool heightEstimated_ = false;
+    ScrollSnapAnimationSpeed listSnapSpeed_ = ScrollSnapAnimationSpeed::NORMAL;
 };
 } // namespace OHOS::Ace::NG
 

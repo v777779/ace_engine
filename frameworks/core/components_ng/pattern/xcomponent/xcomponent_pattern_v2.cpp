@@ -19,10 +19,13 @@
 #include "base/utils/multi_thread.h"
 #include "base/utils/utils.h"
 #include "core/accessibility/accessibility_session_adapter.h"
+#include "core/common/statistic_event_reporter.h"
 #include "core/components_ng/pattern/xcomponent/xcomponent_accessibility_child_tree_callback.h"
 #include "core/components_ng/pattern/xcomponent/xcomponent_accessibility_session_adapter.h"
 #include "core/components_ng/pattern/xcomponent/xcomponent_ext_surface_callback_client.h"
 #include "core/components_ng/pattern/xcomponent/xcomponent_inner_surface_controller.h"
+#include "core/components_ng/pattern/xcomponent/xcomponent_surface_config_client.h"
+#include "core/components_ng/pattern/xcomponent/xcomponent_utils.h"
 #ifdef ENABLE_ROSEN_BACKEND
 #include "transaction/rs_transaction.h"
 #include "transaction/rs_transaction_handler.h"
@@ -42,6 +45,20 @@ inline std::string BoolToString(bool value)
 {
     return value ? "true" : "false";
 }
+
+void SendStatisticEvent(RefPtr<FrameNode> frameNode, std::list<StatisticEventType>& types)
+{
+    CHECK_NULL_VOID(!types.empty());
+    CHECK_NULL_VOID(frameNode);
+    auto context = frameNode->GetContextRefPtr();
+    CHECK_NULL_VOID(context);
+    auto statisticEventReporter = context->GetStatisticEventReporter();
+    CHECK_NULL_VOID(statisticEventReporter);
+    for (auto type : types) {
+        statisticEventReporter->SendEvent(type);
+    }
+    types.clear();
+}
 } // namespace
 
 XComponentPatternV2::XComponentPatternV2(XComponentType type, XComponentNodeType nodeType)
@@ -59,6 +76,8 @@ void XComponentPatternV2::SetSurfaceHolder(OH_ArkUI_SurfaceHolder* surfaceHolder
     surfaceHolder_ = surfaceHolder;
     if (surfaceHolder_) {
         surfaceHolder_->nativeWindow_ = reinterpret_cast<OHNativeWindow*>(nativeWindow_);
+        surfaceHolder_->xComponentSurfaceConfigInterface_ =
+            AceType::MakeRefPtr<XComponentSurfaceConfigClient>(AceType::WeakClaim(this));
         hasGotSurfaceHolder_ = true;
     }
 }
@@ -76,6 +95,7 @@ void XComponentPatternV2::OnAttachToFrameNode()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    nodeId_ = std::to_string(host->GetId());
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
 
@@ -85,6 +105,7 @@ void XComponentPatternV2::OnAttachToFrameNode()
     if (FrameReport::GetInstance().GetEnable()) {
         FrameReport::GetInstance().EnableSelfRender();
     }
+    CHECK_EQUAL_VOID(host->IsThreadSafeNode(), true);
     UpdateTransformHint();
 }
 
@@ -97,16 +118,19 @@ void XComponentPatternV2::OnAttachToMainTree()
     }
     auto host = GetHost();
     THREAD_SAFE_NODE_CHECK(host, OnAttachToMainTree, host);
+    SendStatisticEvent(host, statisticEventTypes_);
     isOnTree_ = true;
     if (autoInitialize_) {
         HandleSurfaceCreated();
     }
-    if (needRecoverDisplaySync_ && displaySync_ && !displaySync_->IsOnPipeline()) {
+    CHECK_NULL_VOID(displaySync_);
+    if (needRecoverDisplaySync_  && !displaySync_->IsOnPipeline()) {
         TAG_LOGD(AceLogTag::ACE_XCOMPONENT, "OnAttachToMainTree:recover displaySync: "
             "%{public}s(%{public}" PRIu64 ")", GetId().c_str(), displaySync_->GetId());
         displaySync_->AddToPipelineOnContainer();
         needRecoverDisplaySync_ = false;
     }
+    displaySync_->NotifyXComponentExpectedFrameRate(GetId());
 }
 
 void XComponentPatternV2::BeforeSyncGeometryProperties(const DirtySwapConfig& config)
@@ -133,7 +157,6 @@ void XComponentPatternV2::BeforeSyncGeometryProperties(const DirtySwapConfig& co
     }
     const auto& [offsetChanged, sizeChanged] = UpdateSurfaceRect();
     HandleSurfaceChangeEvent(offsetChanged, sizeChanged, config.frameOffsetChange);
-    AddAfterLayoutTaskForExportTexture();
     host->MarkNeedSyncRenderTree();
 }
 
@@ -220,12 +243,14 @@ void XComponentPatternV2::OnDetachFromMainTree()
     if (autoInitialize_) {
         HandleSurfaceDestroyed();
     }
-    if (displaySync_ && displaySync_->IsOnPipeline()) {
+    CHECK_NULL_VOID(displaySync_);
+    if (displaySync_->IsOnPipeline()) {
         TAG_LOGD(AceLogTag::ACE_XCOMPONENT, "OnDetachFromMainTree:remove displaySync: "
             "%{public}s(%{public}" PRIu64 ")", GetId().c_str(), displaySync_->GetId());
         displaySync_->DelFromPipelineOnContainer();
         needRecoverDisplaySync_ = true;
     }
+    displaySync_->NotifyXComponentExpectedFrameRate(GetId(), 0);
 }
 
 void XComponentPatternV2::OnDetachFromFrameNode(FrameNode* frameNode)
@@ -261,21 +286,23 @@ void XComponentPatternV2::InitSurface()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    FREE_NODE_CHECK(host, InitSurface, host);
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
 
     renderSurface_ = RenderSurface::Create();
     renderSurface_->SetInstanceId(GetHostInstanceId());
     renderSurface_->SetBufferUsage(BUFFER_USAGE_XCOMPONENT);
+    std::string xComponentType = GetType() == XComponentType::SURFACE ? "s" : "t";
+    renderSurface_->SetBufferTypeLeak(BUFFER_USAGE_XCOMPONENT + "-" + xComponentType + "-" + GetId());
     if (type_ == XComponentType::SURFACE) {
-        InitializeRenderContext();
+        InitializeRenderContext(host->IsThreadSafeNode());
         renderSurface_->SetRenderContext(renderContextForSurface_);
         renderContext->AddChild(renderContextForSurface_, 0);
     } else if (type_ == XComponentType::TEXTURE) {
         renderSurface_->SetRenderContext(renderContext);
         renderSurface_->SetIsTexture(true);
         renderContext->OnNodeNameUpdate(GetId());
+        renderSurface_->SetSurfaceBufferOpaque(isOpaque_);
     }
     renderSurface_->InitSurface();
     renderSurface_->UpdateSurfaceConfig();
@@ -285,10 +312,8 @@ void XComponentPatternV2::InitSurface()
     auto width = paintRect_.Width();
     auto height = paintRect_.Height();
     if (!paintRect_.IsEmpty()) {
-        renderSurface_->UpdateSurfaceSizeInUserData(
-            static_cast<uint32_t>(width), static_cast<uint32_t>(height));
-        renderSurface_->SetSurfaceDefaultSize(
-            static_cast<int32_t>(width), static_cast<int32_t>(height));
+        renderSurface_->UpdateSurfaceSizeInUserData(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+        renderSurface_->SetSurfaceDefaultSize(static_cast<int32_t>(width), static_cast<int32_t>(height));
     }
     renderSurface_->RegisterSurface();
     InitNativeWindow(width, height);
@@ -297,16 +322,14 @@ void XComponentPatternV2::InitSurface()
     }
     surfaceId_ = renderSurface_->GetUniqueId();
     if (type_ == XComponentType::SURFACE) {
-        XComponentInnerSurfaceController::RegisterSurfaceRenderContext(
-            surfaceId_, WeakPtr(renderContextForSurface_));
+        XComponentInnerSurfaceController::RegisterNode(surfaceId_, WeakPtr(host));
     }
 }
 
 void XComponentPatternV2::DisposeSurface()
 {
     if (type_ == XComponentType::SURFACE) {
-        XComponentInnerSurfaceController::UnregisterSurfaceRenderContext(
-            surfaceId_);
+        XComponentInnerSurfaceController::UnregisterNode(surfaceId_);
         surfaceId_ = "";
     }
     if (renderSurface_) {
@@ -326,6 +349,7 @@ void XComponentPatternV2::DisposeSurface()
     CHECK_NULL_VOID(renderContextForSurface_);
     renderContext->RemoveChild(renderContextForSurface_);
     renderContextForSurface_ = nullptr;
+    handlingSurfaceRenderContext_ = renderContextForSurface_;
 #ifdef ENABLE_ROSEN_BACKEND
     FlushImplicitTransaction(host);
 #endif
@@ -490,17 +514,25 @@ void XComponentPatternV2::OnRebuildFrame()
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
     CHECK_NULL_VOID(renderContextForSurface_);
+    auto pipeline = host->GetContext();
+    renderContextForSurface_->SetRSUIContext(pipeline);
     renderContext->AddChild(renderContextForSurface_, 0);
 }
 
-void XComponentPatternV2::InitializeRenderContext()
+void XComponentPatternV2::InitializeRenderContext(bool isThreadSafeNode)
 {
     if (renderContextForSurface_) {
         return;
     }
     renderContextForSurface_ = RenderContext::Create();
+    handlingSurfaceRenderContext_ = renderContextForSurface_;
     RenderContext::ContextParam param = { RenderContext::ContextType::HARDWARE_SURFACE, GetId() + "Surface",
         RenderContext::PatternType::XCOM };
+    if (isThreadSafeNode) {
+        TAG_LOGI(AceLogTag::ACE_XCOMPONENT, "Create SurfaceNode[%{public}s] with SkipCheckInMultiInstance",
+            GetId().c_str());
+        param.isSkipCheckInMultiInstance = true;
+    }
     renderContextForSurface_->InitContext(false, param);
     if (!paintRect_.IsEmpty()) {
         renderContextForSurface_->SetBounds(
@@ -511,6 +543,7 @@ void XComponentPatternV2::InitializeRenderContext()
     renderContextForSurface_->SetTransparentLayer(isTransparentLayer_);
     renderContextForSurface_->SetSecurityLayer(isEnableSecure_);
     renderContextForSurface_->SetSurfaceRotation(isSurfaceLock_);
+    renderContextForSurface_->SetSurfaceBufferOpaque(isOpaque_);
     renderContextForSurface_->SetRenderFit(renderFit_);
 }
 
@@ -543,11 +576,12 @@ void XComponentPatternV2::DumpInfo()
     DumpLog::GetInstance().AddDesc(std::string("autoInitialize: ").append(BoolToString(autoInitialize_)));
     DumpLog::GetInstance().AddDesc(std::string("isInitialized: ").append(BoolToString(isInitialized_)));
     DumpLog::GetInstance().AddDesc(
-        std::string("xcomponentNodeType: ").append(XComponentPattern::XComponentNodeTypeToString(nodeType_)));
+        std::string("xcomponentNodeType: ").append(XComponentUtils::XComponentNodeTypeToString(nodeType_)));
     DumpLog::GetInstance().AddDesc(
-        std::string("xcomponentType: ").append(XComponentPattern::XComponentTypeToString(type_)));
+        std::string("xcomponentType: ").append(XComponentUtils::XComponentTypeToString(type_)));
     DumpLog::GetInstance().AddDesc(std::string("surfaceId: ").append(surfaceId_));
     DumpLog::GetInstance().AddDesc(std::string("surfaceRect: ").append(paintRect_.ToString()));
+    DumpLog::GetInstance().AddDesc(std::string("isOpaque: ").append(isOpaque_ ? "true" : "false"));
 }
 
 void XComponentPatternV2::SetExpectedRateRange(int32_t min, int32_t max, int32_t expected)
@@ -559,8 +593,8 @@ void XComponentPatternV2::SetExpectedRateRange(int32_t min, int32_t max, int32_t
     CHECK_NULL_VOID(displaySync_);
     FrameRateRange frameRateRange;
     frameRateRange.Set(min, max, expected);
-    displaySync_->SetExpectedFrameRateRange(frameRateRange);
-    TAG_LOGD(AceLogTag::ACE_XCOMPONENT, "Id: %{public}" PRIu64 " SetExpectedFrameRateRange"
+    displaySync_->NotifyXComponentExpectedFrameRate(GetId(), isOnTree_, frameRateRange);
+    TAG_LOGD(AceLogTag::ACE_XCOMPONENT, "Id: %{public}" PRIu64 " NotifyXComponentExpectedFrameRate"
         "{%{public}d, %{public}d, %{public}d}", displaySync_->GetId(), min, max, expected);
 }
 

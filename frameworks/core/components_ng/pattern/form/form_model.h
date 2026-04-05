@@ -18,6 +18,7 @@
 
 #include <mutex>
 
+#include "core/components/common/layout/constants.h"
 #include "core/components/form/resource/form_request_data.h"
 #include "core/components_ng/pattern/form/form_event_hub.h"
 
@@ -41,6 +42,7 @@ public:
     virtual void SetVisible(VisibleType visible) = 0;
     virtual void SetVisibility(VisibleType visible) = 0;
     virtual void SetObscured(const std::vector<ObscuredReasons>& reasons) = 0;
+    virtual void SetColorMode(int32_t colorMode) = 0;
     virtual int32_t RequestPublishFormWithSnapshot(const AAFwk::Want& want,
         const std::string& formBindingDataStr, int64_t& formId, std::string &errMsg) = 0;
 

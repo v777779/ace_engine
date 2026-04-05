@@ -26,6 +26,7 @@
 #include "base/utils/string_utils.h"
 #include "base/utils/utils.h"
 #include "bridge/common/utils/utils.h"
+#include "core/common/statistic_event_reporter.h"
 #include "core/components_ng/render/drawing.h"
 #ifndef ACE_UNITTEST
 #include "core/components/common/painter/rosen_decoration_painter.h"
@@ -51,6 +52,7 @@ constexpr double MAX_GRAYSCALE = 255.0;
 constexpr double HANGING_PERCENT = 0.8;
 constexpr Dimension DEFAULT_FONT_SIZE = 14.0_px;
 const int32_t PX2REM_NUM = 15;
+const double MINUS_ONE = -1;
 
 #ifndef ACE_UNITTEST
 constexpr int32_t IMAGE_CACHE_COUNT = 50;
@@ -125,6 +127,14 @@ CustomPaintPaintMethod::CustomPaintPaintMethod()
     apiVersion_ = Container::GetCurrentApiTargetVersion();
 }
 
+void CustomPaintPaintMethod::SetAlpha(double alpha)
+{
+    state_.globalState.SetAlpha(alpha);
+    if (NearEqual(alpha, MINUS_ONE)) {
+        SendStatisticEvent(StatisticEventType::CANVAS_GLOBAL_ALPHA_MINUS_ONE);
+    }
+}
+
 bool CustomPaintPaintMethod::CheckFilterProperty(FilterType filterType, const std::string& filterParam)
 {
     switch (filterType) {
@@ -135,16 +145,16 @@ bool CustomPaintPaintMethod::CheckFilterProperty(FilterType filterType, const st
         case FilterType::OPACITY:
         case FilterType::BRIGHTNESS:
         case FilterType::CONTRAST: {
-            std::regex contrastRegexExpression(R"((-?0)|(\d+(\.\d+)?%?)|(^$))");
-            return std::regex_match(filterParam, contrastRegexExpression);
+            static const std::regex contrastRegexExpression(R"((?:-?0)|(?:\d+(?:\.\d+)?%?))");
+            return filterParam.empty() ? true : std::regex_match(filterParam, contrastRegexExpression);
         }
         case FilterType::BLUR: {
-            std::regex blurRegexExpression(R"((-?0)|(\d+(\.\d+)?(px|vp|rem))|(^$))");
-            return std::regex_match(filterParam, blurRegexExpression);
+            static const std::regex blurRegexExpression(R"((?:-?0)|(?:\d+(?:\.\d+)?(?:px|vp|rem)))");
+            return filterParam.empty() ? true : std::regex_match(filterParam, blurRegexExpression);
         }
         case FilterType::HUE_ROTATE: {
-            std::regex hueRotateRegexExpression(R"((-?0)|(-?\d+(\.\d+)?(deg|grad|rad|turn))|(^$))");
-            return std::regex_match(filterParam, hueRotateRegexExpression);
+            static const std::regex hueRotateRegexExpression(R"((?:-?0)|(?:-?\d+(?:\.\d+)?(?:deg|grad|rad|turn)))");
+            return filterParam.empty() ? true : std::regex_match(filterParam, hueRotateRegexExpression);
         }
         default:
             return false;
@@ -446,13 +456,13 @@ void CustomPaintPaintMethod::InitImagePaint(RSPen* pen, RSBrush* brush, RSSampli
 {
     RSFilter filter;
     if (smoothingEnabled_) {
-        if (smoothingQuality_ == "low") {
+        if (smoothingQuality_ == SmoothingQuality::LOW) {
             options = RSSamplingOptions(RSFilterMode::LINEAR, RSMipmapMode::NONE);
             filter.SetFilterQuality(RSFilter::FilterQuality::LOW);
-        } else if (smoothingQuality_ == "medium") {
+        } else if (smoothingQuality_ == SmoothingQuality::MEDIUM) {
             options = RSSamplingOptions(RSFilterMode::LINEAR, RSMipmapMode::LINEAR);
             filter.SetFilterQuality(RSFilter::FilterQuality::MEDIUM);
-        } else if (smoothingQuality_ == "high") {
+        } else if (smoothingQuality_ == SmoothingQuality::HIGH) {
             options = RSSamplingOptions(RSCubicResampler::Mitchell());
             filter.SetFilterQuality(RSFilter::FilterQuality::HIGH);
         }
@@ -1220,6 +1230,7 @@ void CustomPaintPaintMethod::Path2DSetTransform(const PathArgs& args)
 void CustomPaintPaintMethod::Save()
 {
     CHECK_NULL_VOID(rsCanvas_);
+    saveAntiAliasStates_.emplace_back(std::make_pair(antiAlias_, fontAntiAlias_));
     saveStates_.push_back(state_);
     saveColorFilter_.push_back(colorFilter_);
     saveBlurFilter_.push_back(blurFilter_);
@@ -1229,8 +1240,10 @@ void CustomPaintPaintMethod::Save()
 void CustomPaintPaintMethod::Restore()
 {
     CHECK_NULL_VOID(rsCanvas_);
-    if ((rsCanvas_->GetSaveCount() > DEFAULT_SAVE_COUNT) && (!saveStates_.empty()) && (!saveColorFilter_.empty()) &&
-        (!saveBlurFilter_.empty())) {
+    if ((rsCanvas_->GetSaveCount() > DEFAULT_SAVE_COUNT) && (!saveAntiAliasStates_.empty()) && (!saveStates_.empty()) &&
+        (!saveColorFilter_.empty()) && (!saveBlurFilter_.empty())) {
+        std::tie(antiAlias_, fontAntiAlias_) = saveAntiAliasStates_.back();
+        saveAntiAliasStates_.pop_back();
         state_ = saveStates_.back();
         saveStates_.pop_back();
         colorFilter_ = saveColorFilter_.back();
@@ -1947,81 +1960,6 @@ std::optional<double> CustomPaintPaintMethod::CalcTextScale(double maxIntrinsicW
     return scale;
 }
 
-TransformParam CustomPaintPaintMethod::GetTransform() const
-{
-    TransformParam param;
-    param.scaleX = matrix_.Get(static_cast<int>(RSMatrix::Index::SCALE_X));
-    param.scaleY = matrix_.Get(static_cast<int>(RSMatrix::Index::SCALE_Y));
-    param.skewX = matrix_.Get(static_cast<int>(RSMatrix::Index::SKEW_X));
-    param.skewY = matrix_.Get(static_cast<int>(RSMatrix::Index::SKEW_Y));
-    param.translateX = matrix_.Get(static_cast<int>(RSMatrix::Index::TRANS_X));
-    param.translateY = matrix_.Get(static_cast<int>(RSMatrix::Index::TRANS_Y));
-    return param;
-}
-
-void CustomPaintPaintMethod::SaveProperties()
-{
-    matrixStates_.push_back(matrix_);
-    lineDashStates_.push_back(lineDash_);
-}
-
-void CustomPaintPaintMethod::RestoreProperties()
-{
-    if (!matrixStates_.empty()) {
-        matrix_ = matrixStates_.back();
-        matrixStates_.pop_back();
-    }
-    if (!lineDashStates_.empty()) {
-        lineDash_ = lineDashStates_.back();
-        lineDashStates_.pop_back();
-    }
-}
-
-void CustomPaintPaintMethod::ResetTransformMatrix()
-{
-    matrix_.Reset();
-}
-
-void CustomPaintPaintMethod::ResetLineDash()
-{
-    std::vector<double>().swap(lineDash_.lineDash);
-    lineDash_.dashOffset = 0.0;
-}
-
-void CustomPaintPaintMethod::RotateMatrix(double angle)
-{
-    RSMatrix matrix;
-    matrix.Rotate(angle * HALF_CIRCLE_ANGLE / ACE_PI, 0, 0);
-    matrix_.PreConcat(matrix);
-}
-
-void CustomPaintPaintMethod::ScaleMatrix(double sx, double sy)
-{
-    RSMatrix matrix;
-    matrix.SetScale(sx, sy);
-    matrix_.PreConcat(matrix);
-}
-
-void CustomPaintPaintMethod::SetTransformMatrix(const TransformParam& param)
-{
-    matrix_.SetMatrix(
-        param.scaleX, param.skewX, param.translateX, param.skewY, param.scaleY, param.translateY, 0, 0, 1);
-}
-
-void CustomPaintPaintMethod::TransformMatrix(const TransformParam& param)
-{
-    RSMatrix matrix;
-    matrix.SetMatrix(param.scaleX, param.skewY, param.translateX, param.skewX, param.scaleY, param.translateY, 0, 0, 1);
-    matrix_.PreConcat(matrix);
-}
-
-void CustomPaintPaintMethod::TranslateMatrix(double tx, double ty)
-{
-    if (tx || ty) {
-        matrix_.PreTranslate(tx, ty);
-    }
-}
-
 void CustomPaintPaintMethod::SaveLayer()
 {
     CHECK_NULL_VOID(rsCanvas_);
@@ -2040,7 +1978,9 @@ void CustomPaintPaintMethod::RestoreLayer()
 void CustomPaintPaintMethod::ResetStates()
 {
     smoothingEnabled_ = true;
-    smoothingQuality_ = "low";
+    smoothingQuality_ = SmoothingQuality::LOW;
+    fontAntiAlias_.reset();
+    antiAlias_ = settingsAntiAlias_;
     state_.fillState = PaintState();
     state_.strokeState = StrokePaintState();
     state_.globalState = GlobalPaintState();
@@ -2052,9 +1992,8 @@ void CustomPaintPaintMethod::ResetStates()
     imageBrush_ = RSBrush();
     rsPath_.Reset();
     rsPath2d_.Reset();
+    std::vector<std::pair<bool, std::optional<bool>>>().swap(saveAntiAliasStates_);
     std::vector<PaintHolder>().swap(saveStates_);
-    std::vector<RSMatrix>().swap(matrixStates_);
-    std::vector<LineDashParam>().swap(lineDashStates_);
     std::vector<std::shared_ptr<RSColorFilter>>().swap(saveColorFilter_);
     std::vector<std::shared_ptr<RSImageFilter>>().swap(saveBlurFilter_);
     colorMatrix_ = RSColorMatrix();
@@ -2174,10 +2113,8 @@ bool CustomPaintPaintMethod::UpdateFillParagraph(const std::string& text)
 {
 #ifndef ACE_UNITTEST
     RSParagraphStyle style;
-    TextAlign textAlign = state_.fillState.GetTextAlign();
-    style.textAlign = Constants::ConvertTxtTextAlign(textAlign);
+    style.textAlign = Rosen::TextAlign::LEFT;
     style.textDirection = Constants::ConvertTxtTextDirection(state_.fillState.GetOffTextDirection());
-    style.textAlign = GetEffectiveAlign(style.textAlign, style.textDirection);
     auto fontCollection = RosenFontCollection::GetInstance().GetFontCollection();
     CHECK_NULL_RETURN(fontCollection, false);
     std::unique_ptr<RSParagraphBuilder> builder = RSParagraphBuilder::Create(style, fontCollection);
@@ -2204,6 +2141,8 @@ bool CustomPaintPaintMethod::UpdateFillParagraph(const std::string& text)
     } else {
         UpdateFillTxtStyle(txtStyle);
     }
+    txtStyle.fontEdging =
+        fontAntiAlias_.value_or(true) ? Rosen::Drawing::FontEdging::ANTI_ALIAS : Rosen::Drawing::FontEdging::ALIAS;
     builder->PushStyle(txtStyle);
     builder->AppendText(StringUtils::Str8ToStr16(text));
     paragraph_ = builder->CreateTypography();
@@ -2242,10 +2181,8 @@ bool CustomPaintPaintMethod::UpdateStrokeParagraph(const std::string& text)
 {
 #ifndef ACE_UNITTEST
     RSParagraphStyle style;
-    TextAlign textAlign = state_.strokeState.GetTextAlign();
-    style.textAlign = Constants::ConvertTxtTextAlign(textAlign);
+    style.textAlign = Rosen::TextAlign::LEFT;
     style.textDirection = Constants::ConvertTxtTextDirection(state_.fillState.GetOffTextDirection());
-    style.textAlign = GetEffectiveAlign(style.textAlign, style.textDirection);
     auto fontCollection = RosenFontCollection::GetInstance().GetFontCollection();
     CHECK_NULL_RETURN(fontCollection, false);
     std::unique_ptr<RSParagraphBuilder> builder = RSParagraphBuilder::Create(style, fontCollection);
@@ -2260,6 +2197,8 @@ bool CustomPaintPaintMethod::UpdateStrokeParagraph(const std::string& text)
         InitPaintBlend(pen);
     }
     ConvertTxtStyle(state_.strokeState.GetTextStyle(), txtStyle);
+    txtStyle.fontEdging =
+        fontAntiAlias_.value_or(true) ? Rosen::Drawing::FontEdging::ANTI_ALIAS : Rosen::Drawing::FontEdging::ALIAS;
     txtStyle.fontSize = state_.strokeState.GetTextStyle().GetFontSize().Value();
     txtStyle.foregroundPen = pen;
     builder->PushStyle(txtStyle);
@@ -2304,6 +2243,8 @@ void CustomPaintPaintMethod::UpdateStrokeShadowParagraph(
         InitPaintBlend(shadowPen);
     }
     shadowStyle.foregroundPen = shadowPen;
+    shadowStyle.fontEdging =
+        fontAntiAlias_.value_or(true) ? Rosen::Drawing::FontEdging::ANTI_ALIAS : Rosen::Drawing::FontEdging::ALIAS;
     std::unique_ptr<RSParagraphBuilder> shadowBuilder = RSParagraphBuilder::Create(style, fontCollection);
     CHECK_NULL_VOID(shadowBuilder);
     shadowBuilder->PushStyle(shadowStyle);
@@ -2320,5 +2261,17 @@ void CustomPaintPaintMethod::SetTransform(std::shared_ptr<Ace::Pattern> pattern,
     pattern->SetSkewY(transform.skewY);
     pattern->SetTranslateX(transform.translateX);
     pattern->SetTranslateY(transform.translateY);
+}
+
+void CustomPaintPaintMethod::SendStatisticEvent(StatisticEventType type)
+{
+    auto context = context_.Upgrade();
+    if (!context) {
+        context = PipelineBase::GetCurrentContextSafely();
+    }
+    CHECK_NULL_VOID(context);
+    auto statisticEventReporter = context->GetStatisticEventReporter();
+    CHECK_NULL_VOID(statisticEventReporter);
+    statisticEventReporter->SendEvent(type);
 }
 } // namespace OHOS::Ace::NG

@@ -281,7 +281,7 @@ class __RepeatVirtualScroll2Impl<T> {
     private keyGenFunc_?: RepeatKeyGenFunc<T>;
 
     // is key function specified ?
-    private useKeys_: boolean = false;
+    private useKeys_: boolean = true;
 
     // index <-> key bidirectional mapping
     private key4Index_: Map<number, string> = new Map<number, string>();
@@ -356,6 +356,9 @@ class __RepeatVirtualScroll2Impl<T> {
     // they are no longer associated with a data item
     private spareRid_: Set<number> = new Set<number>();
 
+    private implicitAnimationOpen_: boolean = false;
+    private allowAnimation_: boolean = false;
+
     // request container re-layout
     private firstIndexChanged_: number = 0;
 
@@ -418,7 +421,7 @@ class __RepeatVirtualScroll2Impl<T> {
     }
 
     private totalCount(forceRetrieveTotalCount = false): number {
-        // when 'totalCount' is set as an observable', we call updateElement() just to
+        // when 'totalCount' is set as an <observable>, we call updateElement() just to
         // retrieve its actual value - prevent triggering re-render here.
         if (forceRetrieveTotalCount && typeof this.totalCount_ === 'number') {
             this.preventReRender_ = true;
@@ -426,9 +429,11 @@ class __RepeatVirtualScroll2Impl<T> {
             this.preventReRender_ = false;
             return this.totalCount();
         }
-        return (typeof this.totalCount_ === 'function')
-            ? (this.totalCount_() >= 0 ? this.totalCount_() : this.arr_.length)
-            : this.totalCount_ ?? this.arr_.length;
+        if (typeof this.totalCount_ === 'function') {
+            let totalCount = this.totalCount_();
+            return (Number.isInteger(totalCount) && totalCount >= 0) ? totalCount : this.arr_.length;
+        }
+        return this.totalCount_ ?? this.arr_.length;
     }
 
     // initial render
@@ -488,7 +493,7 @@ class __RepeatVirtualScroll2Impl<T> {
             }
 
             if (!this.itemGenFuncs_[RepeatEachFuncTtype]) {
-                throw new Error(`${this.constructor.name}(${this.repeatElmtId_}))` +
+                throw new BusinessError(103802, `${this.constructor.name}(${this.repeatElmtId_}))` +
                     `lacks mandatory '.each' attribute function, i.e. has no default item builder. Application error!`);
             }
 
@@ -522,7 +527,8 @@ class __RepeatVirtualScroll2Impl<T> {
             onRecycleItems: this.onRecycleItems.bind(this),
             onActiveRange: this.onActiveRange.bind(this),
             onMoveFromTo: this.onMoveFromTo.bind(this),
-            onPurge: this.onPurge.bind(this)
+            onPurge: this.onPurge.bind(this),
+            onUpdateDirty:this.onUpdateDirty.bind(this)
         });
 
         // init onMove
@@ -558,12 +564,18 @@ class __RepeatVirtualScroll2Impl<T> {
         return undefined;
     }
 
+    private onUpdateDirty(): void {
+        ObserveV2.getObserve().updateDirty2(true);
+    }
+
     // update Repeat, see overview documentation at the top of this file.
     private reRender(): void {
         stateMgmtConsole.debug(`${this.constructor.name}(${this.repeatElmtId_}) reRender() data array length: `,
             `${this.arr_.length}, totalCount: ${this.totalCount()} - start`);
 
         this.rerenderOngoing_ = true;
+        this.implicitAnimationOpen_ = RepeatVirtualScroll2Native.isImplicitAnimationOpen();
+        this.allowAnimation_ = RepeatVirtualScroll2Native.isAllowAnimation(this.repeatElmtId_);
 
         // update onMove
         // scenario: developers control whether onMove exists or not dynamically. 
@@ -571,6 +583,7 @@ class __RepeatVirtualScroll2Impl<T> {
 
         const activeRangeFrom = this.activeRange_[0];
         const activeRangeTo = this.activeRange_[1];
+        const arrLen = this.onLazyLoadingFunc_ ? this.totalCount() : this.arr_.length;
 
         stateMgmtConsole.debug(`checking range ${activeRangeFrom} - ${activeRangeTo}`);
 
@@ -584,21 +597,24 @@ class __RepeatVirtualScroll2Impl<T> {
         const newL1Rid4Index: Map<number, number> = new Map<number, number>();
 
         // clear keys for new rerender
-        this.key4Index_.clear();
-        this.index4Key_.clear();
-        this.oldDuplicateKeys_.clear();
+        if (this.hasVisibleItemsChanged()) {
+            this.key4Index_.clear();
+            this.index4Key_.clear();
+            this.oldDuplicateKeys_.clear();
+        }
 
         // step 1. move data items to newActiveDataItems that are unchanged
         // (same item / same key, still at same index, same ttype)
         // create createMissingDataItem -type entries for all other new data items.
         if (!this.moveItemsUnchanged(newActiveDataItems, newL1Rid4Index)) {
             this.rerenderOngoing_ = false;
+            this.implicitAnimationOpen_ = false;
             return;
         }
 
         // step 2. move retained data items
-        // these are items with same value / same key in new and old array: 
-        // their index has changed, ttype is unchanged
+        // these are items with same key in new and old array: 
+        // their index has changed, ttype is unchanged. If value is changed, updete it.
         this.moveRetainedItems(newActiveDataItems, newL1Rid4Index);
 
         // step 3. remaining old data items, i.e. data item removed from source array
@@ -613,7 +629,7 @@ class __RepeatVirtualScroll2Impl<T> {
         this.newItemsNeedToRender(newActiveDataItems, newL1Rid4Index);
 
         // render all data changes in one go
-        ObserveV2.getObserve().updateDirty2(true);
+        
 
         this.activeDataItems_ = newActiveDataItems;
 
@@ -623,18 +639,41 @@ class __RepeatVirtualScroll2Impl<T> {
             `\nnewL1Rid4Index: ${JSON.stringify(Array.from(newL1Rid4Index))}`,
             `\nfirst item changed at index ${this.firstIndexChanged_} .`);
 
-        const arrLen = this.onLazyLoadingFunc_ ? this.totalCount() : this.arr_.length;
         if (!isNaN(this.firstIndexChangedInTryFastRelayout_)) {
             this.firstIndexChanged_ = Math.min(this.firstIndexChanged_, this.firstIndexChangedInTryFastRelayout_);
             this.firstIndexChangedInTryFastRelayout_ = Number.NaN;
         }
-        RepeatVirtualScroll2Native.updateL1Rid4Index(
-            this.repeatElmtId_, arrLen, this.totalCount(), this.firstIndexChanged_, Array.from(newL1Rid4Index));
+        RepeatVirtualScroll2Native.updateL1Rid4Index(this.repeatElmtId_, arrLen, this.totalCount(),
+            this.firstIndexChanged_, Array.from(newL1Rid4Index));
 
         this.rerenderOngoing_ = false;
+        this.implicitAnimationOpen_ = false;
 
         stateMgmtConsole.debug(`${this.constructor.name}(${this.repeatElmtId_}) reRender() data array length: `,
             `${this.arr_.length}, totalCount: ${this.totalCount()} - done`);
+    }
+
+    private hasVisibleItemsChanged(): boolean {
+        // has any item or ttype in the active range changed?
+        for (const indexS in this.activeDataItems_) {
+            const activeIndex = parseInt(indexS);
+            if (!(activeIndex in this.arr_)) {
+                return true;
+            }
+
+            const oldItem = this.activeDataItems_[activeIndex].item
+            const oldType = this.activeDataItems_[activeIndex].ttype
+            const newItem = this.arr_[activeIndex];
+            const newType = this.computeTtype(this.arr_[activeIndex], activeIndex, false);
+
+            if (oldItem !== newItem) {
+                return true;
+            }
+            if (oldType !== newType) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private moveItemsUnchanged(
@@ -669,7 +708,8 @@ class __RepeatVirtualScroll2Impl<T> {
             // compare with ttype and data item, or with ttype and key
             if ((ttype === this.activeDataItems_[activeIndex].ttype) &&
                 ((!this.useKeys_ && dataItemAtIndex === this.activeDataItems_[activeIndex].item) ||
-                (this.useKeys_ && key === this.activeDataItems_[activeIndex].key))) {
+                (this.useKeys_ && key === this.activeDataItems_[activeIndex].key &&
+                dataItemAtIndex === this.activeDataItems_[activeIndex].item))) {
                 stateMgmtConsole.debug(
                     `index ${activeIndex} ttype '${ttype}'${this.useKeys_ ? ', key ' + key : ''} `,
                     `and dataItem unchanged.`);
@@ -724,9 +764,10 @@ class __RepeatVirtualScroll2Impl<T> {
                 continue;
             }
 
+            this.firstIndexChanged_ = Math.min(this.firstIndexChanged_, activeIndex);
+
             if (newActiveDataItemAtActiveIndex.state === ActiveDataItem.NoValue) {
                 stateMgmtConsole.debug(`new index ${activeIndex} missing in updated source array.`);
-                this.firstIndexChanged_ = Math.min(this.firstIndexChanged_, activeIndex);
                 continue;
             }
 
@@ -743,6 +784,10 @@ class __RepeatVirtualScroll2Impl<T> {
             }
 
             if (movedDataItem) {
+                const ridMeta = this.meta4Rid_.get(movedDataItem.rid);
+                if (!ridMeta) {
+                    continue;
+                }
                 // data item rendered before, and needed ttype to render has not changed
                 newActiveDataItemAtActiveIndex.rid = movedDataItem.rid;
                 newActiveDataItemAtActiveIndex.state = ActiveDataItem.UINodeExists;
@@ -751,11 +796,12 @@ class __RepeatVirtualScroll2Impl<T> {
                 newL1Rid4Index.set(activeIndex, movedDataItem.rid);
 
                 // index has changed, update it in RepeatItem
-                const ridMeta = this.meta4Rid_.get(movedDataItem.rid);
                 stateMgmtConsole.debug(`new index ${activeIndex} / old index ${movedDataItem.oldIndexStr}: `,
                     `keep in L1: rid ${movedDataItem.rid}, unchanged ttype '${newActiveDataItemAtActiveIndex.ttype}'`);
+                if (newActiveDataItemAtActiveIndex.item !== ridMeta.repeatItem_.item) {
+                    ridMeta.repeatItem_.updateItem(newActiveDataItemAtActiveIndex.item as T);
+                }
                 ridMeta.repeatItem_.updateIndex(activeIndex);
-                this.firstIndexChanged_ = Math.min(this.firstIndexChanged_, activeIndex);
 
                 // the data item is handled, remove it from old active data range
                 // so we do not use it again
@@ -764,7 +810,6 @@ class __RepeatVirtualScroll2Impl<T> {
                 // update is needed for this data item
                 // either because dataItem is new, or new ttype needs to used
                 stateMgmtConsole.debug(`need update for index ${activeIndex}`);
-                this.firstIndexChanged_ = Math.min(this.firstIndexChanged_, activeIndex);
             }
         } // for new data items in active range
     }
@@ -773,9 +818,6 @@ class __RepeatVirtualScroll2Impl<T> {
         for (let oldIndex in this.activeDataItems_) {
             if (this.activeDataItems_[oldIndex].rid) {
                 this.spareRid_.add(this.activeDataItems_[oldIndex].rid);
-                const index = parseInt(oldIndex);
-                this.index4Key_.delete(this.key4Index_.get(index));
-                this.key4Index_.delete(index);
             }
         }
     }
@@ -790,7 +832,10 @@ class __RepeatVirtualScroll2Impl<T> {
                 continue;
             }
 
-            const optRid = this.canUpdate(newActiveDataItemAtActiveIndex.ttype);
+            this.firstIndexChanged_ = Math.min(this.firstIndexChanged_, activeIndex);
+            const key = this.computeKey(newActiveDataItemAtActiveIndex.item as T, activeIndex,
+                /* monitor access already ongoing */ false, newActiveDataItems);
+            const optRid = this.canUpdate(activeIndex, newActiveDataItemAtActiveIndex.ttype, key);
             if (optRid <= 0) {
                 stateMgmtConsole.debug(`active range index ${activeIndex}: no rid found to update`);
                 continue;
@@ -805,8 +850,6 @@ class __RepeatVirtualScroll2Impl<T> {
                 newActiveDataItemAtActiveIndex.state = ActiveDataItem.UINodeExists;
 
                 if (this.useKeys_) {
-                    const key = this.computeKey(newActiveDataItemAtActiveIndex.item as T, activeIndex,
-                        /* monitor access already ongoing */ false, newActiveDataItems);
                     newActiveDataItemAtActiveIndex.key = key;
                     ridMeta.key_ = key;
                 }
@@ -820,8 +863,6 @@ class __RepeatVirtualScroll2Impl<T> {
                 // don't need to call getItem here, already checked that the data item exists
                 ridMeta.repeatItem_.updateItem(newActiveDataItemAtActiveIndex.item as T);
                 ridMeta.repeatItem_.updateIndex(activeIndex);
-
-                this.firstIndexChanged_ = Math.min(this.firstIndexChanged_, activeIndex);
             }
         };
     }
@@ -918,11 +959,13 @@ class __RepeatVirtualScroll2Impl<T> {
      * @param forIndex 
      * @returns 
      */
-    private onGetRid4Index(forIndex: number): [number, number] {
+    private onGetRid4Index(forIndex: number, implicitAnimationOpen: boolean): [number, number] {
         if (forIndex < 0 || forIndex >= this.totalCount()) {
-            throw new Error(`${this.constructor.name}(${this.repeatElmtId_}) onGetRid4Index index ${forIndex}` +
+            stateMgmtConsole.applicationError(`${this.constructor.name}(${this.repeatElmtId_}) onGetRid4Index index ${forIndex}` +
                 `\ndata array length: ${this.arr_.length}, totalCount: ${this.totalCount()}: ` +
                 `Out of range, application error.`);
+            this.activeDataItems_[forIndex] = ActiveDataItem.createMissingDataItem();
+ 	        return [0, /* failed to create or update */ 0];
         }
         const [dataItemExists, dataItem] = this.getItemUnmonitored(forIndex);
         if (!dataItemExists) {
@@ -938,7 +981,7 @@ class __RepeatVirtualScroll2Impl<T> {
             `ttype is '${ttype}' data array length: ${this.arr_.length}, totalCount: ${this.totalCount()} - start`);
 
         // spare UINode / RID available to update?
-        const optRid = this.canUpdateTryMatch(ttype, dataItem, key);
+        const optRid = this.canUpdateTryMatch(forIndex, ttype, dataItem, key, implicitAnimationOpen);
 
         const result: [number, number] = (optRid > 0)
             ? this.updateChild(optRid, ttype, forIndex, key)
@@ -951,12 +994,30 @@ class __RepeatVirtualScroll2Impl<T> {
 
     // return RID of Node that can be updated (matching ttype), 
     // or -1 if none
-    private canUpdate(ttype: string): number {
+    // In animation, reuse need meet the following rules:
+    // 1. When implicit animation is open, the node with same key can not be reused if the node is not on the main tree.
+    // 2. When implicit animation is open, the node with different key can not be reused.
+    // 3. When implicit animation is close, the node with same key can not be reused if the node is not on the main tree
+    //    and the original animation has not finished.
+    // 4. When implicit animation is close, the node with different key can not be reused if the original animation has
+    //    not finished.
+    private canUpdate(index: number, ttype: string, key: string): number {
         if (!this.allowUpdate_) {
             return -1;
         }
         for (const rid of this.spareRid_) {
-            if (this.meta4Rid_.get(rid).ttype_ === ttype) {
+            const ridMeta = this.meta4Rid_.get(rid);
+            if (ridMeta && ridMeta.ttype_ === ttype) {
+                if (this.allowAnimation_ &&
+                    ((this.implicitAnimationOpen_ &&
+                        ((ridMeta.key_ === key && !RepeatVirtualScroll2Native.isChildOnMainTree(this.repeatElmtId_, rid)) || /* rule 1 */
+                        ridMeta.key_ !== key)) || /* rule 2 */
+                    (!this.implicitAnimationOpen_ &&
+                        ((ridMeta.key_ === key && !RepeatVirtualScroll2Native.isChildOnMainTree(this.repeatElmtId_, rid) &&
+                            RepeatVirtualScroll2Native.isChildInAnimation(this.repeatElmtId_, rid)) || /* rule 3 */
+                        (ridMeta.key_ !== key && RepeatVirtualScroll2Native.isChildInAnimation(this.repeatElmtId_, rid)))))) { /* rule 4 */
+                    continue;
+                }
                 stateMgmtConsole.debug(`canUpdate: Found spare rid ${rid} for ttype '${ttype}'`);
                 return rid;
             }
@@ -967,32 +1028,64 @@ class __RepeatVirtualScroll2Impl<T> {
 
     // return RID of Node that can be updated (matching ttype), 
     // or -1 if none
-    private canUpdateTryMatch(ttype: string, dataItem: T, key?: string): number {
+    private canUpdateTryMatch(index: number, ttype: string, dataItem: T, key?: string, implicitAnimationOpen?: boolean): number {
         if (!this.allowUpdate_) {
             return -1;
         }
-        // 1. round: find matching RID, also data item matches
-        for (const rid of this.spareRid_) {
-            const ridMeta = this.meta4Rid_.get(rid);
-            // compare ttype and data item, or ttype and key
-            if (ridMeta && ridMeta.ttype_ === ttype &&
-                ((!this.useKeys_ && ridMeta.repeatItem_?.item === dataItem) ||
-                (this.useKeys_ && ridMeta.key_ === key))) {
-                stateMgmtConsole.debug(
-                    `canUpdateTryMatch: Found spare rid ${rid} for ttype '${ttype}' contentItem matches.`);
-                return rid;
-            }
+        // 1. round: find matching RID, also key matches
+        const ridWithSameKey = this.findRidWithSameKey(index, ttype, dataItem, key, implicitAnimationOpen);
+        if (ridWithSameKey !== -1) {
+            return ridWithSameKey;
+        }
+
+        if (this.allowAnimation_ && implicitAnimationOpen) {
+            return -1; /* rule 2 */
         }
 
         // just find a matching RID
         for (const rid of this.spareRid_) {
-            if (this.meta4Rid_.get(rid).ttype_ === ttype) {
+            const ridMeta = this.meta4Rid_.get(rid);
+            if (ridMeta && ridMeta.ttype_ === ttype) {
+                if (this.allowAnimation_ && RepeatVirtualScroll2Native.isChildInAnimation(this.repeatElmtId_, rid)) {
+                    continue; /* rule 4 */
+                }
                 stateMgmtConsole.debug(`canUpdateTryMatch: Found spare rid ${rid} for ttype '${ttype}'`);
                 return rid;
             }
         }
         stateMgmtConsole.debug(`canUpdateTryMatch: Found NO spare rid for ttype '${ttype}'`);
         return -1;
+    }
+
+    private findRidWithSameKey(index: number, ttype: string, dataItem: T, key?: string, implicitAnimationOpen?: boolean): number {
+        for (const rid of this.spareRid_) {
+            const ridMeta = this.meta4Rid_.get(rid);
+            // compare ttype and data item, or ttype and key
+            if (ridMeta && ridMeta.ttype_ === ttype &&
+                ((!this.useKeys_ && ridMeta.repeatItem_?.item === dataItem) ||
+                (this.useKeys_ && ridMeta.key_ === key))) {
+                if ((this.allowAnimation_ && implicitAnimationOpen && !RepeatVirtualScroll2Native.isChildOnMainTree(this.repeatElmtId_, rid)) || /* rule 1 */
+                    (this.allowAnimation_ && !implicitAnimationOpen && !RepeatVirtualScroll2Native.isChildOnMainTree(this.repeatElmtId_, rid) && /* rule 3 */
+                     RepeatVirtualScroll2Native.isChildInAnimation(this.repeatElmtId_, rid))) {
+                    continue;
+                }
+                stateMgmtConsole.debug(
+                    `canUpdateTryMatch: Found spare rid ${rid} for ttype '${ttype}' contentItem matches.`);
+                return rid;
+            }
+        }
+        return -1;
+    }
+
+    private sortSpareRid(index: number): Array<number> {
+        return Array.from(this.spareRid_).sort((rid1: number, rid2: number) => {
+            const ridMeta1 = this.meta4Rid_.get(rid1);
+            const ridMeta2 = this.meta4Rid_.get(rid2);
+            if (ridMeta1 && ridMeta1.repeatItem_.index && ridMeta2 && ridMeta2.repeatItem_.index) {
+                return Math.abs(index - ridMeta1.repeatItem_.index) - Math.abs(index - ridMeta2.repeatItem_.index);
+            }
+            return 0;
+        });
     }
 
     /**
@@ -1267,10 +1360,10 @@ class __RepeatVirtualScroll2Impl<T> {
             this.activeRangeAdjustedStart_ = nStart;
             this.visibleRangeAdjustedStart_ = vStart;
         } else if (this.activeRange_[0] === nStart && this.activeRange_[1] === nEnd) {
-            if (this.visibleRange_[0] === vStart || this.visibleRange_[1] === vEnd) {
+            if (this.visibleRange_[0] !== vStart || this.visibleRange_[1] !== vEnd) {
                 stateMgmtConsole.debug(`${this.constructor.name}(${this.repeatElmtId_}) onActiveRange`,
-                    `visibleRange_ updated, (vStart: ${nStart}, vEnd: ${nEnd})`);
-                this.activeRange_ = [vStart, vEnd];
+                    `update visibleRange_ (vStart: ${vStart}, vEnd: ${vEnd})`);
+                this.visibleRange_ = [vStart, vEnd];
                 this.visibleRangeAdjustedStart_ = vStart;
             }
             if (!isLoop && !forceUpdate) {
@@ -1282,7 +1375,7 @@ class __RepeatVirtualScroll2Impl<T> {
         }
 
         stateMgmtConsole.debug(`${this.constructor.name}(${this.repeatElmtId_}) onActiveRange`,
-            `(nStart: ${nStart}, nEnd: ${nEnd})`,
+            `(nStart: ${nStart}, nEnd: ${nEnd}), (start: ${vStart}, end: ${vEnd})`,
             `data array length: ${this.arr_.length}, totalCount: ${this.totalCount()} - start`);
 
         // check which of the activeDataItems needs to be removed from L1 & activeDataItems
@@ -1459,7 +1552,7 @@ class __RepeatVirtualScroll2Impl<T> {
         
         if (this.lazyLoadingIndex_ !== -1 && arrChange !== 'set') {
             const msg = `onLazyLoading function executed illegal operation: ${arrChange}!`;
-            throw new Error(`${this.constructor.name}(${this.repeatElmtId_}) ${msg}`);
+            throw new BusinessError(103804,`${this.constructor.name}(${this.repeatElmtId_}) ${msg}`);
         }
 
         stateMgmtConsole.debug(`${this.constructor.name}(${this.repeatElmtId_}) tryFastRelayout for '${arrChange}'`,
@@ -1499,7 +1592,7 @@ class __RepeatVirtualScroll2Impl<T> {
             const changeIndex = args[0] as number;
             if (this.lazyLoadingIndex_ !== -1 && changeIndex !== this.lazyLoadingIndex_) {
                 const msg = `onLazyLoading function illegally set to index: ${changeIndex}`;
-                throw new Error(`${this.constructor.name}(${this.repeatElmtId_}) ${msg}`);
+                throw new BusinessError(103804,`${this.constructor.name}(${this.repeatElmtId_}) ${msg}`);
             }
             return (changeIndex >= 0) && this.tryFastRelayoutForChange(this.arr_.length, changeIndex, 0, 0);
         }
@@ -1607,8 +1700,7 @@ class __RepeatVirtualScroll2Impl<T> {
 
         const arrLen = this.onLazyLoadingFunc_ ? this.totalCount() : this.arr_.length;
         // trigger MarkNeedSyncRenderTree, MarkNeedFrameFlushDirty in CPP side
-        RepeatVirtualScroll2Native.requestContainerReLayout(
-            this.repeatElmtId_, arrLen, this.totalCount(), changeIndex);
+        RepeatVirtualScroll2Native.requestContainerReLayout(this.repeatElmtId_, arrLen, this.totalCount(), changeIndex);
     }
 
     private onPurge(): void {
@@ -1627,7 +1719,11 @@ class __RepeatVirtualScroll2Impl<T> {
         // avoid delete on iterated Set, copy into Array
         const spareRid1 : Array<number> = Array.from(this.spareRid_);
         for (const rid of spareRid1) {
-            const ttype: string = this.meta4Rid_.get(rid).ttype_;
+            const ridMeta = this.meta4Rid_.get(rid);
+            if (!ridMeta) {
+                continue;
+            }
+            const ttype: string = ridMeta.ttype_;
             if (availableCachedCount[ttype] === 0) {
                 // purge rid
                 this.purgeNode(rid);

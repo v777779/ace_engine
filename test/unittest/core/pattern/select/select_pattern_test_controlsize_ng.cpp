@@ -22,10 +22,10 @@
 
 #define protected public
 #define private public
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/common/ace_application_info.h"
 #include "core/components/common/layout/constants.h"
@@ -35,6 +35,7 @@
 #include "core/components/theme/icon_theme.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/layout/layout_wrapper.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/flex/flex_layout_property.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
@@ -1344,47 +1345,5 @@ HWTEST_F(SelectPatternTestControlSizeNg, SetSelectedOptionTextModifier001, TestS
     auto propertySelectd = textSelected->GetLayoutProperty<TextLayoutProperty>();
     EXPECT_EQ(property->GetTextColor(), Color::RED);
     EXPECT_EQ(propertySelectd->GetTextColor(), Color::BLUE);
-}
-
-/**
- * @tc.name: SelectPatternUpdateComponentColorTest001
- * @tc.desc: Test SelectPattern::UpdateComponentColor.
- * @tc.type: FUNC
- */
-HWTEST_F(SelectPatternTestControlSizeNg, SelectPatternUpdateComponentColorTest001, TestSize.Level1)
-{
-    int32_t backupApiVersion = AceApplicationInfo::GetInstance().GetApiTargetVersion();
-    AceApplicationInfo::GetInstance().SetApiTargetVersion(static_cast<int32_t>(PlatformVersion::VERSION_TWELVE));
-
-    /**
-     * @tc.steps: step1. Create select model, select frame node and select pattern.
-     * @tc.expected: Objects are created successfully.
-     */
-    TestProperty testProperty;
-    testProperty.FontSize = std::make_optional(FONT_SIZE_VALUE);
-    testProperty.FontStyle = std::make_optional(ITALIC_FONT_STYLE_VALUE);
-    testProperty.FontWeight = std::make_optional(FONT_WEIGHT_VALUE);
-    testProperty.FontColor = std::make_optional(TEXT_COLOR_VALUE);
-    testProperty.FontFamily = std::make_optional(FONT_FAMILY_VALUE);
-    auto frameNode = CreateSelect(CREATE_VALUE, testProperty);
-    ASSERT_NE(frameNode, nullptr);
-    auto pattern = frameNode->GetPattern<SelectPattern>();
-    ASSERT_NE(pattern, nullptr);
-    auto host = pattern->GetHost();
-    ASSERT_NE(host, nullptr);
-    auto pipelineContext = host->GetContext();
-    ASSERT_NE(pipelineContext, nullptr);
-    auto renderContext = host->GetRenderContext();
-    ASSERT_NE(renderContext, nullptr);
-    pipelineContext->isSystemColorChange_ = true;
-
-    Color testColor = Color::BLUE;
-    /**
-     * @tc.steps: step3. Test UpdateComponentColor with BACKGROUND_COLOR.
-     * @tc.expected: Background color is updated correctly.
-     */
-    pattern->UpdateComponentColor(testColor, SelectColorType::BACKGROUND_COLOR);
-    EXPECT_EQ(renderContext->GetBackgroundColor().value(), testColor);
-    AceApplicationInfo::GetInstance().SetApiTargetVersion(backupApiVersion);
 }
 } // namespace OHOS::Ace::NG

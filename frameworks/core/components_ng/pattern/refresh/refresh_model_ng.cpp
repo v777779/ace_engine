@@ -17,9 +17,9 @@
 
 #include <string>
 
+#include "base/utils/multi_thread.h"
 #include "core/components_ng/pattern/refresh/refresh_pattern.h"
 #include "core/components_ng/pattern/render_node/render_node_pattern.h"
-#include "base/utils/multi_thread.h"
 #include "frameworks/base/geometry/dimension.h"
 #include "frameworks/base/geometry/ng/offset_t.h"
 #include "frameworks/base/i18n/localization.h"
@@ -54,9 +54,9 @@ void RefreshModelNG::Create()
             .backward = NestedScrollMode::SELF_FIRST,
         }));
     }
-    ACE_UPDATE_LAYOUT_PROPERTY(
-        RefreshLayoutProperty, IndicatorOffset, Dimension(DEFAULT_INDICATOR_OFFSET, DimensionUnit::VP));
-    ACE_UPDATE_LAYOUT_PROPERTY(RefreshLayoutProperty, Friction, DEFAULT_FRICTION_RATIO);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+        RefreshLayoutProperty, IndicatorOffset, Dimension(DEFAULT_INDICATOR_OFFSET, DimensionUnit::VP), frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, Friction, DEFAULT_FRICTION_RATIO, frameNode);
 }
 
 RefPtr<FrameNode> RefreshModelNG::CreateFrameNode(int32_t nodeId)
@@ -80,6 +80,11 @@ RefPtr<FrameNode> RefreshModelNG::CreateFrameNode(int32_t nodeId)
 void RefreshModelNG::SetPullToRefresh(bool pullToRefresh)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(RefreshLayoutProperty, PullToRefresh, pullToRefresh);
+}
+
+void RefreshModelNG::SetPullUpToCancelRefresh(bool pullUpToCancelRefresh)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(RefreshLayoutProperty, PullUpToCancelRefresh, pullUpToCancelRefresh);
 }
 
 void RefreshModelNG::SetRefreshOffset(const Dimension& offset)
@@ -238,14 +243,6 @@ void RefreshModelNG::SetCustomBuilder(FrameNode* frameNode, FrameNode* customBui
     pattern->AddCustomBuilderNode(AceType::Claim<UINode>(customBuilder));
 }
 
-void RefreshModelNG::SetCustomBuilder(FrameNode* frameNode, const RefPtr<NG::UINode>& customBuilder)
-{
-    CHECK_NULL_VOID(frameNode);
-    auto pattern = frameNode->GetPattern<RefreshPattern>();
-    CHECK_NULL_VOID(pattern);
-    pattern->AddCustomBuilderNode(customBuilder);
-}
-
 void RefreshModelNG::SetOnStateChange(FrameNode* frameNode, StateChangeEvent&& stateChange)
 {
     CHECK_NULL_VOID(frameNode);
@@ -290,23 +287,19 @@ bool RefreshModelNG::GetRefreshing(FrameNode* frameNode)
     return value;
 }
 
-void RefreshModelNG::SetLoadingText(FrameNode* frameNode, const std::string& loadingText)
+void RefreshModelNG::SetRefreshOffset(FrameNode* frameNode, const Dimension& offset)
 {
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, LoadingText, loadingText, frameNode);
-}
-
-void RefreshModelNG::SetRefreshOffset(FrameNode* frameNode, const std::optional<Dimension>& offset)
-{
-    if (offset) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, RefreshOffset, offset.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, RefreshOffset, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, RefreshOffset, offset, frameNode);
 }
 
 void RefreshModelNG::SetPullToRefresh(FrameNode* frameNode, bool pullToRefresh)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, PullToRefresh, pullToRefresh, frameNode);
+}
+
+void RefreshModelNG::SetPullUpToCancelRefresh(FrameNode* frameNode, bool pullUpToCancelRefresh)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, PullUpToCancelRefresh, pullUpToCancelRefresh, frameNode);
 }
 
 float RefreshModelNG::GetMaxPullDownDistance(FrameNode* frameNode)
@@ -338,9 +331,12 @@ bool RefreshModelNG::GetPullToRefresh(FrameNode* frameNode)
     return value;
 }
 
-void RefreshModelNG::SetIsCustomBuilderExist(FrameNode* frameNode, bool isCustomBuilderExist)
+bool RefreshModelNG::GetPullUpToCancelRefresh(FrameNode* frameNode)
 {
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(RefreshLayoutProperty, IsCustomBuilderExist, isCustomBuilderExist, frameNode);
+    bool value = true;
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(
+        RefreshLayoutProperty, PullUpToCancelRefresh, value, frameNode, value);
+    return value;
 }
 
 void RefreshModelNG::SetChangeEvent(FrameNode* frameNode, RefreshChangeEvent&& changeEvent)
@@ -349,5 +345,13 @@ void RefreshModelNG::SetChangeEvent(FrameNode* frameNode, RefreshChangeEvent&& c
     auto eventHub = frameNode->GetEventHub<RefreshEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetChangeEvent(std::move(changeEvent));
+}
+
+void RefreshModelNG::SetStepOffsetChange(FrameNode* frameNode, OffsetStepChangeEvent&& changeEvent)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<RefreshEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnStepOffsetChange(std::move(changeEvent));
 }
 } // namespace OHOS::Ace::NG

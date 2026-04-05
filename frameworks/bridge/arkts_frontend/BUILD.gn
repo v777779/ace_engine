@@ -18,7 +18,7 @@ import("./link_abc.gni")
 group("arkts_frontend_native_package") {
   deps = [
     ":arkts_frontend",
-    "koala_projects/arkoala-arkts/arkui-ohos/src/ani/native:ace_ani_native_package"
+    "koala_projects/arkoala-arkts/arkui-ohos/src/ani/native:ace_ani_native_package",
   ]
 }
 group("arkoala_ui2abc") {
@@ -40,7 +40,9 @@ link_abc_files("arkoala_abc") {
 
 ohos_prebuilt_etc("arkoala_abc_prebuild") {
   source = "$target_out_dir/arkoala.abc"
-  deps = [ ":arkoala_abc" ]
+  deps = [
+    ":arkoala_abc"
+  ]
   module_install_dir = "framework"
   subsystem_name = ace_engine_subsystem
   part_name = ace_engine_part
@@ -55,7 +57,7 @@ template("arkts_frontend") {
     deps = [
       ":ArkoalaNative_ark",
       "$ace_root/build:libace_compatible",
-      "koala_projects/arkoala-arkts/arkui-ohos/src/ani/native:ani_utils_common"
+      "koala_projects/arkoala-arkts/arkui-ohos/src/ani/native:ani_utils_common",
     ]
 
     sources = [
@@ -92,6 +94,8 @@ template("arkts_frontend_loader") {
       "$ace_root/adapter/ohos/entrance/dynamic_component/arkts_dynamic_renderer_loader.cpp",
       "arkts_frontend_loader.cpp",
     ]
+
+    external_deps = [ "hilog:libhilog" ]
   }
 }
 
@@ -137,7 +141,8 @@ config("arkoala_native_config") {
     "koala_projects/interop/src/cpp/ets",
     "koala_projects/interop/src/cpp/types",
     "koala_projects/interop/src/cpp/ohos",
-    "$ace_root/interfaces/inner_api/ace_kit/include"
+    "$ace_root/interfaces/inner_api/ace_kit/include",
+    "$ace_root/frameworks/core/interfaces/native/generated/interface",
   ]
 }
 
@@ -150,14 +155,15 @@ ohos_shared_library("ArkoalaNative_ark") {
   ]
 
   sources = [
-    "koala_projects/arkoala-arkts/framework/native/src/resource_color_helper.cc",
+    "koala_projects/arkoala-arkts/framework/native/src/DeserializerBase.cc",
+    "koala_projects/arkoala-arkts/framework/native/src/error_helper.cc",
     "koala_projects/arkoala-arkts/framework/native/src/events.cc",
     "koala_projects/arkoala-arkts/framework/native/src/generated/bridge_custom.cc",
     "koala_projects/arkoala-arkts/framework/native/src/generated/bridge_generated.cc",
     "koala_projects/arkoala-arkts/framework/native/src/generated/callback_deserialize_call.cc",
     "koala_projects/arkoala-arkts/framework/native/src/generated/callback_managed_caller.cc",
     "koala_projects/arkoala-arkts/framework/native/src/generated/library.cc",
-    "koala_projects/arkoala-arkts/framework/native/src/DeserializerBase.cc",
+    "koala_projects/arkoala-arkts/framework/native/src/resource_color_helper.cc",
     "koala_projects/arkoala-arkts/framework/native/src/vsync.cc",
   ]
 
@@ -177,7 +183,6 @@ ohos_shared_library("ArkoalaNative_ark") {
     "hilog:libhilog",
     "runtime_core:ani",
   ]
-
 
   if (is_arkui_x) {
     deps += [ "//third_party/bounds_checking_function:libsec_static" ]

@@ -50,8 +50,8 @@ struct FadeoutInfo {
     }
 };
 
-class TextContentModifier : public ContentModifier {
-    DECLARE_ACE_TYPE(TextContentModifier, ContentModifier)
+class ACE_FORCE_EXPORT TextContentModifier : public ContentModifier {
+    DECLARE_ACE_TYPE(TextContentModifier, ContentModifier);
 
 public:
     explicit TextContentModifier(const std::optional<TextStyle>& textStyle, const WeakPtr<Pattern>& pattern = nullptr);
@@ -101,6 +101,8 @@ public:
 
     bool NeedMeasureUpdate(PropertyChangeFlag& flag);
 
+    float AdjustParagraphX(const ParagraphManager::ParagraphInfo& info, const RectF& contentRect);
+
     void SetClip(bool clip);
 
     void SetFontReady(bool value);
@@ -112,11 +114,9 @@ public:
     }
     void TextColorModifier(const Color& value);
     void ContentModifierDump();
-#ifdef ACE_ENABLE_VK
     void SetHybridRenderTypeIfNeeded(DrawingContext& drawingContext, const RefPtr<TextPattern>& textPattern,
         const RefPtr<ParagraphManager>& pManager, RefPtr<FrameNode>& host);
-#endif
-
+    void SetRacePercentFloat(float value);
 protected:
     OffsetF GetPaintOffset() const
     {
@@ -132,6 +132,7 @@ private:
     void SetDefaultFontWeight(const TextStyle& textStyle);
     void SetDefaultTextColor(const TextStyle& textStyle);
     void SetDefaultSymbolColor(const TextStyle& textStyle);
+    void SetSymbolColors(const LinearVector<LinearColor>& value);
     LinearVector<LinearColor> Convert2VectorLinearColor(const std::vector<Color>& colorList);
     void SetDefaultTextShadow(const TextStyle& textStyle);
     void AddShadow(const Shadow& shadow);
@@ -142,13 +143,14 @@ private:
     float GetTextRacePercent();
     TextDirection GetTextRaceDirection() const;
     TextDirection GetTextRaceDirectionByContent() const;
-    void ResetTextRacePercent();
+    void ResetTextRacePercent(bool restart = false);
     bool SetTextRace(const MarqueeOption& option);
     void ResumeTextRace(bool bounce);
-    void SetTextRaceAnimation(const AnimationOption& option);
+    void SetTextRaceAnimation(const AnimationOption& option, float finalPercent);
     void PauseTextRace();
     bool AllowTextRace();
     void DetermineTextRace();
+    std::optional<double> CalcResetPercent();
 
     void ModifyFontSizeInTextStyle(TextStyle& textStyle);
     void ModifyAdaptMinFontSizeInTextStyle(TextStyle& textStyle);
@@ -181,7 +183,12 @@ private:
     bool DrawImage(const RefPtr<FrameNode>& imageNode, RSCanvas& canvas, float x, float y, const RectF& rect);
     void PaintCustomSpan(DrawingContext& drawingContext);
     void DrawTextRacing(DrawingContext& drawingContext, const FadeoutInfo& info, RefPtr<ParagraphManager> pManager);
-    void DrawText(RSCanvas& canvas, RefPtr<ParagraphManager> pManager);
+    void RemoveWhitespaceCharacters(std::u16string& reportParagraph);
+    void ReportFaultEvent(RSCanvas& canvas, const RefPtr<ParagraphManager>& pManager,
+        const RefPtr<TextPattern>& textPattern, const std::u16string& paragraphContent);
+    void DrawText(RSCanvas& canvas, const RefPtr<ParagraphManager>& pManager, const RefPtr<TextPattern>& textPattern);
+    void PaintLeadingMarginSpan(const RefPtr<TextPattern>& textPattern, DrawingContext& drawingContext,
+        const RefPtr<ParagraphManager>& pManager);
     void DrawContent(DrawingContext& drawingContext, const FadeoutInfo& info);
     void DrawActualText(DrawingContext& drawingContext, const RefPtr<TextPattern>& textPattern,
         const RefPtr<ParagraphManager>& pManager, const FadeoutInfo& fadeoutInfo);
@@ -194,6 +201,11 @@ private:
         return marqueeState_ == state;
     }
     bool IsMarqueeVisible() const;
+    void UpdateTextDecorationColorAlpha();
+    void SetTextContentAlingOffsetY(float& paintOffsetY);
+    void ContentChangeReport();
+    bool ColorsDifferExceptHolder(const LinearVector<LinearColor>& colors1, const LinearVector<LinearColor>& colors2);
+    bool HandleDrawCallback(const RefPtr<ParagraphManager>& pManager, const RefPtr<TextPattern>& textPattern);
 
     std::optional<Dimension> fontSize_;
     float lastFontSize_ = 0.0f;
@@ -274,6 +286,7 @@ private:
     int32_t marqueeDuration_ = 0;
     float marqueeGradientPercent_ = 0.0f;
     float marqueeRaceMaxPercent_ = 0.0f;
+    std::optional<float> lastParagraph1StartPosition_ = std::nullopt;
 
     ACE_DISALLOW_COPY_AND_MOVE(TextContentModifier);
 };

@@ -49,6 +49,7 @@ RefPtr<UIExtensionNode> UIExtensionNode::GetOrCreateUIExtensionNode(
         }
     }
     auto pattern = patternCreator ? patternCreator() : AceType::MakeRefPtr<Pattern>();
+    ACE_UINODE_TRACE(nodeId, tag, TypeInfoHelper::TypeName(AceType::RawPtr(pattern)));
     uiExtensionNode = AceType::MakeRefPtr<UIExtensionNode>(tag, nodeId, pattern, false);
     uiExtensionNode->InitializePatternAndContext();
     ElementRegister::GetInstance()->AddUINode(uiExtensionNode);
@@ -64,7 +65,8 @@ HitTestResult UIExtensionNode::TouchTest(const PointF& globalPoint, const PointF
     if (testResult == HitTestResult::OUT_OF_REGION) {
         return HitTestResult::OUT_OF_REGION;
     }
-    if (touchRestrict.touchEvent.type == TouchType::HOVER_ENTER) {
+    if (touchRestrict.touchEvent.type == TouchType::HOVER_ENTER ||
+        touchRestrict.mouseAction == MouseAction::WINDOW_LEAVE) {
         return testResult;
     }
     auto pattern = GetPattern<UIExtensionPattern>();
@@ -74,7 +76,7 @@ HitTestResult UIExtensionNode::TouchTest(const PointF& globalPoint, const PointF
     auto eventManager = context->GetEventManager();
     CHECK_NULL_RETURN(eventManager, testResult);
     auto delegate = AceType::MakeRefPtr<UIExtensionTouchDelegate>(pattern);
-    eventManager->ReplaceTouchDelegate(touchRestrict.touchEvent.id, delegate);
+    eventManager->UpdateTouchDelegate(touchRestrict.touchEvent.id, delegate);
     return testResult;
 }
 } // namespace OHOS::Ace::NG

@@ -19,6 +19,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "core/components/common/layout/common_text_constants.h"
 #if !defined(PREVIEW) && defined(OHOS_PLATFORM)
 #include "core/components_ng/pattern/text/text_layout_property.h"
 #include "interfaces/inner_api/ui_session/ui_session_manager.h"
@@ -27,11 +28,13 @@
 #include "base/geometry/dimension.h"
 #include "base/log/ace_scoring_log.h"
 #include "base/log/ace_trace.h"
+#include "base/utils/string_utils.h"
 #include "base/utils/utils.h"
 #include "bridge/common/utils/utils.h"
 #include "bridge/declarative_frontend/ark_theme/theme_apply/js_theme_utils.h"
 #include "bridge/declarative_frontend/engine/functions/js_click_function.h"
 #include "bridge/declarative_frontend/engine/functions/js_drag_function.h"
+#include "bridge/declarative_frontend/engine/functions/js_event_function.h"
 #include "bridge/declarative_frontend/engine/functions/js_function.h"
 #include "bridge/declarative_frontend/engine/jsi/js_ui_index.h"
 #include "bridge/declarative_frontend/jsview/js_interactable_view.h"
@@ -44,12 +47,10 @@
 #include "bridge/declarative_frontend/style_string/js_span_string.h"
 #include "bridge/declarative_frontend/view_stack_processor.h"
 #include "core/common/container.h"
-#include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/text_style_parser.h"
+#include "core/components_v2/inspector/inspector_composed_component.h"
 #include "core/components_ng/pattern/text/text_model_ng.h"
-#include "core/event/ace_event_handler.h"
 #include "core/pipeline/pipeline_base.h"
-#include "core/text/text_emoji_processor.h"
 
 namespace OHOS::Ace {
 
@@ -77,21 +78,30 @@ TextModel* TextModel::GetInstance()
 namespace OHOS::Ace::Framework {
 namespace {
 
-const std::vector<TextCase> TEXT_CASES = { TextCase::NORMAL, TextCase::LOWERCASE, TextCase::UPPERCASE };
-const std::vector<TextOverflow> TEXT_OVERFLOWS = { TextOverflow::NONE, TextOverflow::CLIP, TextOverflow::ELLIPSIS,
-    TextOverflow::MARQUEE };
-const std::vector<FontStyle> FONT_STYLES = { FontStyle::NORMAL, FontStyle::ITALIC };
-const std::vector<TextAlign> TEXT_ALIGNS = { TextAlign::START, TextAlign::CENTER, TextAlign::END, TextAlign::JUSTIFY,
-    TextAlign::LEFT, TextAlign::RIGHT };
-const std::vector<TextHeightAdaptivePolicy> HEIGHT_ADAPTIVE_POLICY = { TextHeightAdaptivePolicy::MAX_LINES_FIRST,
-    TextHeightAdaptivePolicy::MIN_FONT_SIZE_FIRST, TextHeightAdaptivePolicy::LAYOUT_CONSTRAINT_FIRST };
-const std::vector<LineBreakStrategy> LINE_BREAK_STRATEGY_TYPES = { LineBreakStrategy::GREEDY,
-    LineBreakStrategy::HIGH_QUALITY, LineBreakStrategy::BALANCED };
-const std::vector<EllipsisMode> ELLIPSIS_MODALS = { EllipsisMode::HEAD, EllipsisMode::MIDDLE, EllipsisMode::TAIL };
-const std::vector<TextSelectableMode> TEXT_SELECTABLE_MODE = { TextSelectableMode::SELECTABLE_UNFOCUSABLE,
-    TextSelectableMode::SELECTABLE_FOCUSABLE, TextSelectableMode::UNSELECTABLE };
 constexpr TextDecorationStyle DEFAULT_TEXT_DECORATION_STYLE = TextDecorationStyle::SOLID;
 const int32_t DEFAULT_VARIABLE_FONT_WEIGHT = 400;
+constexpr uint32_t MIN_LINES = 0;
+const int32_t DEFAULT_LINE_HEIGHT = 28;
+
+void ParseFontWeightInfo(const JSRef<JSVal>& fontWeight, std::string& weight,
+    int32_t& variableFontWeight, FontWeight& fontWeightEnum)
+{
+    if (fontWeight->IsNumber()) {
+        JSContainerBase::ParseJsInt32(fontWeight, variableFontWeight);
+        weight = std::to_string(fontWeight->ToNumber<int32_t>());
+        fontWeightEnum = ConvertStrToFontWeight(weight);
+    } else {
+        JSContainerBase::ParseJsString(fontWeight, weight);
+        auto parseResult = ParseFontWeight(weight);
+        fontWeightEnum = parseResult.second;
+        if (parseResult.first) {
+            variableFontWeight = GetFontWeightNumericValue(fontWeightEnum);
+        } else {
+            variableFontWeight = StringUtils::IsNumber(weight) ?
+                StringUtils::StringToInt(weight, DEFAULT_VARIABLE_FONT_WEIGHT) : DEFAULT_VARIABLE_FONT_WEIGHT;
+        }
+    }
+}
 }; // namespace
 
 void JSText::SetWidth(const JSCallbackInfo& info)
@@ -145,29 +155,25 @@ void JSText::GetFontInfo(const JSCallbackInfo& info, Font& font)
     auto fontSize = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::SIZE));
     CalcDimension size;
     RefPtr<ResourceObject> fontSizeResObj;
+    UnRegisterResource("FontSize");
     if (ParseJsDimensionFpNG(fontSize, size, fontSizeResObj, false) && size.IsNonNegative()) {
         font.fontSize = size;
         if (SystemProperties::ConfigChangePerform() && fontSizeResObj) {
             RegisterResource<CalcDimension>("FontSize", fontSizeResObj, size);
-        } else {
-            UnRegisterResource("FontSize");
         }
     }
     std::string weight;
     auto fontWeight = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::WEIGHT));
-    if (!fontWeight->IsNull() && !fontWeight->IsUndefined()) {
+    if (!fontWeight->IsNull()) {
         int32_t variableFontWeight = DEFAULT_VARIABLE_FONT_WEIGHT;
-        ParseJsInt32(fontWeight, variableFontWeight);
+        FontWeight fontWeightEnum = FontWeight::NORMAL;
+        ParseFontWeightInfo(fontWeight, weight, variableFontWeight, fontWeightEnum);
         TextModel::GetInstance()->SetVariableFontWeight(variableFontWeight);
-        if (fontWeight->IsNumber()) {
-            weight = std::to_string(fontWeight->ToNumber<int32_t>());
-        } else {
-            JSContainerBase::ParseJsString(fontWeight, weight);
-        }
-        font.fontWeight = ConvertStrToFontWeight(weight);
+        font.fontWeight = fontWeightEnum;
     }
     auto fontFamily = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::FAMILY));
-    if (!fontFamily->IsNull() && !fontFamily->IsUndefined()) {
+    UnRegisterResource("FontFamily");
+    if (!fontFamily->IsNull()) {
         std::vector<std::string> fontFamilies;
         RefPtr<ResourceObject> fontFamiliesResObj;
         if (JSContainerBase::ParseJsFontFamilies(fontFamily, fontFamilies, fontFamiliesResObj)) {
@@ -175,13 +181,11 @@ void JSText::GetFontInfo(const JSCallbackInfo& info, Font& font)
             if (SystemProperties::ConfigChangePerform() && fontFamiliesResObj) {
                 RegisterResource<std::vector<std::string>>(
                     "FontFamily", fontFamiliesResObj, fontFamilies);
-            } else {
-                UnRegisterResource("FontFamily");
             }
         }
     }
     auto style = paramObject->GetProperty(static_cast<int32_t>(ArkUIIndex::STYLE));
-    if (!style->IsNull() && style->IsNumber()) {
+    if (!style->IsNull() || style->IsNumber()) {
         font.fontStyle = static_cast<FontStyle>(style->ToNumber<int32_t>());
     }
 }
@@ -193,20 +197,21 @@ void JSText::SetFontSize(const JSCallbackInfo& info)
     }
     CalcDimension fontSize;
     RefPtr<ResourceObject> resObj;
-    if (ParseJsDimensionNG(info[0], fontSize, DimensionUnit::FP, resObj, false)) {
-        if (SystemProperties::ConfigChangePerform() && resObj) {
-            RegisterResource<CalcDimension>("FontSize", resObj, fontSize);
-            return;
-        }
-    } else {
+    UnRegisterResource("FontSize");
+    JSRef<JSVal> args = info[0];
+    if (!ParseJsDimensionFpNG(args, fontSize, resObj, false) || fontSize.IsNegative()) {
         auto pipelineContext = PipelineContext::GetCurrentContextSafelyWithCheck();
         CHECK_NULL_VOID(pipelineContext);
         auto theme = pipelineContext->GetTheme<TextTheme>();
         CHECK_NULL_VOID(theme);
         fontSize = theme->GetTextStyle().GetFontSize();
+        TextModel::GetInstance()->SetFontSize(fontSize);
+        return;
     }
-    UnRegisterResource("FontSize");
     TextModel::GetInstance()->SetFontSize(fontSize);
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("FontSize", resObj, fontSize);
+    }
 }
 
 void JSText::SetFontWeight(const JSCallbackInfo& info)
@@ -217,15 +222,24 @@ void JSText::SetFontWeight(const JSCallbackInfo& info)
     JSRef<JSVal> args = info[0];
     std::string fontWeight;
     int32_t variableFontWeight = DEFAULT_VARIABLE_FONT_WEIGHT;
-    ParseJsInt32(args, variableFontWeight);
-    TextModel::GetInstance()->SetVariableFontWeight(variableFontWeight);
-
+    FontWeight fontWeightEnum = FontWeight::NORMAL;
     if (args->IsNumber()) {
+        ParseJsInt32(args, variableFontWeight);
         fontWeight = args->ToString();
+        fontWeightEnum = ConvertStrToFontWeight(fontWeight);
     } else {
         ParseJsString(args, fontWeight);
+        auto parseResult = ParseFontWeight(fontWeight);
+        fontWeightEnum = parseResult.second;
+        if (parseResult.first) {
+            variableFontWeight = GetFontWeightNumericValue(fontWeightEnum);
+        } else {
+            variableFontWeight = StringUtils::IsNumber(fontWeight) ?
+                StringUtils::StringToInt(fontWeight, DEFAULT_VARIABLE_FONT_WEIGHT) : DEFAULT_VARIABLE_FONT_WEIGHT;
+        }
     }
-    TextModel::GetInstance()->SetFontWeight(ConvertStrToFontWeight(fontWeight));
+    TextModel::GetInstance()->SetVariableFontWeight(variableFontWeight);
+    TextModel::GetInstance()->SetFontWeight(fontWeightEnum);
 
     if (info.Length() < 2) { // 2 : two args
         return;
@@ -247,32 +261,30 @@ void JSText::SetMinFontScale(const JSCallbackInfo& info)
 {
     double minFontScale;
     RefPtr<ResourceObject> resourceObject;
+    UnRegisterResource("MinFontScale");
     if (info.Length() < 1 || !ParseJsDouble(info[0], minFontScale, resourceObject)) {
         return;
     }
     auto minFontScaleValue = static_cast<float>(std::clamp(minFontScale, 0.0, 1.0));
     if (SystemProperties::ConfigChangePerform() && resourceObject) {
         RegisterResource<float>("MinFontScale", resourceObject, minFontScaleValue);
-    } else {
-        UnRegisterResource("MinFontScale");
-        TextModel::GetInstance()->SetMinFontScale(minFontScaleValue);
     }
+    TextModel::GetInstance()->SetMinFontScale(minFontScaleValue);
 }
 
 void JSText::SetMaxFontScale(const JSCallbackInfo& info)
 {
     double maxFontScale;
     RefPtr<ResourceObject> resourceObject;
+    UnRegisterResource("MaxFontScale");
     if (info.Length() < 1 || !ParseJsDouble(info[0], maxFontScale, resourceObject)) {
         return;
     }
     auto maxFontScaleValue = static_cast<float>(std::max(maxFontScale, 1.0));
     if (SystemProperties::ConfigChangePerform() && resourceObject) {
         RegisterResource<float>("MaxFontScale", resourceObject, maxFontScaleValue);
-    } else {
-        UnRegisterResource("MaxFontScale");
-        TextModel::GetInstance()->SetMaxFontScale(maxFontScaleValue);
     }
+    TextModel::GetInstance()->SetMaxFontScale(maxFontScaleValue);
 }
 
 void JSText::SetForegroundColor(const JSCallbackInfo& info)
@@ -296,14 +308,16 @@ void JSText::SetTextColor(const JSCallbackInfo& info)
     }
     Color textColor;
     RefPtr<ResourceObject> resourceObject;
-    JSRef<JSVal> args = info[0];
-    if (ParseJsColor(args, textColor, resourceObject)) {
-        if (SystemProperties::ConfigChangePerform() && resourceObject) {
-            RegisterResource<Color>("TextColor", resourceObject, textColor);
-            return;
-        } 
-    }
     UnRegisterResource("TextColor");
+    JSRef<JSVal> args = info[0];
+    if (!ParseJsColorForMaterial(args, textColor, resourceObject)) {
+        TAG_LOGW(AceLogTag::ACE_TEXT, "JSText::SetTextColor ParseJsColor failed!");
+        TextModel::GetInstance()->ResetTextColor();
+        return;
+    }
+    if (SystemProperties::ConfigChangePerform() && resourceObject) {
+        RegisterResource<Color>("TextColor", resourceObject, textColor, true);
+    }
     TextModel::GetInstance()->SetTextColor(textColor);
 }
 
@@ -331,7 +345,7 @@ void JSText::SetTextOverflow(const JSCallbackInfo& info)
             break;
         }
         auto overflow = overflowValue->ToNumber<int32_t>();
-        if(overflowValue->IsUndefined()) {
+        if (overflowValue->IsUndefined()) {
             overflow = 0;
         } else if (overflow < 0 || overflow >= static_cast<int32_t>(TEXT_OVERFLOWS.size())) {
             break;
@@ -361,8 +375,8 @@ void JSText::SetEllipsisMode(const JSCallbackInfo& info)
         return;
     }
     uint32_t index = args->ToNumber<uint32_t>();
-    if (index < ELLIPSIS_MODALS.size()) {
-        TextModel::GetInstance()->SetEllipsisMode(ELLIPSIS_MODALS[index]);
+    if (index < ELLIPSIS_MODES.size()) {
+        TextModel::GetInstance()->SetEllipsisMode(ELLIPSIS_MODES[index]);
     }
 }
 
@@ -406,19 +420,17 @@ void JSText::SetTextCaretColor(const JSCallbackInfo& info)
     }
     Color caretColor;
     RefPtr<ResourceObject> resObj;
-    if (ParseJsColor(info[0], caretColor, resObj)) {
-        if (SystemProperties::ConfigChangePerform() && resObj) {
-            RegisterResource<Color>("TextCaretColor", resObj, caretColor);
-            return;
-        }
-    } else {
+    UnRegisterResource("TextCaretColor");
+    if (!ParseJsColor(info[0], caretColor, resObj)) {
         auto pipelineContext = PipelineContext::GetCurrentContextSafelyWithCheck();
         CHECK_NULL_VOID(pipelineContext);
         auto theme = pipelineContext->GetTheme<TextTheme>();
         CHECK_NULL_VOID(theme);
         caretColor = theme->GetCaretColor();
     }
-    UnRegisterResource("TextCaretColor");
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<Color>("TextCaretColor", resObj, caretColor);
+    }
     TextModel::GetInstance()->SetTextCaretColor(caretColor);
 }
 
@@ -429,17 +441,22 @@ void JSText::SetSelectedBackgroundColor(const JSCallbackInfo& info)
     }
     Color selectedColor;
     RefPtr<ResourceObject> resObj;
-    if (ParseJsColor(info[0], selectedColor, resObj)) {
-        RegisterResource<Color>("SelectedBackgroundColor", resObj, selectedColor);
-        return;
-    } else{
+    UnRegisterResource("SelectedBackgroundColor");
+    if (!ParseJsColor(info[0], selectedColor, resObj)) {
         auto pipelineContext = PipelineContext::GetCurrentContextSafelyWithCheck();
         CHECK_NULL_VOID(pipelineContext);
         auto theme = pipelineContext->GetTheme<TextTheme>();
+        CHECK_NULL_VOID(theme);
+        selectedColor = theme->GetSelectedColor();
+    }
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<Color>("SelectedBackgroundColor", resObj, selectedColor);
+    }
+    // Alpha = 255 means opaque
+    if (selectedColor.GetAlpha() == JSThemeUtils::DEFAULT_ALPHA) {
         // Default setting of 20% opacity
         selectedColor = selectedColor.ChangeOpacity(JSThemeUtils::DEFAULT_OPACITY);
     }
-    UnRegisterResource("SelectedBackgroundColor");
     TextModel::GetInstance()->SetSelectedBackgroundColor(selectedColor);
 }
 
@@ -471,20 +488,36 @@ void JSText::SetMaxLines(const JSCallbackInfo& info)
     TextModel::GetInstance()->SetMaxLines(value);
 }
 
+void JSText::SetMinLines(const JSCallbackInfo& info)
+{
+    auto minLines = MIN_LINES;
+    if (info.Length() == 1) {
+        auto tmpInfo = info[0];
+        if (tmpInfo->IsNumber() && tmpInfo->ToNumber<int32_t>() > 0) {
+            minLines = tmpInfo->ToNumber<uint32_t>();
+        } else {
+            TextModel::GetInstance()->ResetMinLines();
+            return;
+        }
+    }
+    TextModel::GetInstance()->SetMinLines(minLines);
+}
+
 void JSText::SetTextIndent(const JSCallbackInfo& info)
 {
     CalcDimension value;
     RefPtr<ResourceObject> resObj;
     JSRef<JSVal> args = info[0];
-    if (ParseJsDimensionFpNG(args, value, resObj)) {
-        if (SystemProperties::ConfigChangePerform() && resObj) {
-            RegisterResource<CalcDimension>("TextIndent", resObj, value);
-            return;
-        }
-    } else {
-        value.Reset();
-    }
+
     UnRegisterResource("TextIndent");
+    if (!ParseJsDimensionFpNG(args, value, resObj)) {
+        value.Reset();
+        TextModel::GetInstance()->SetTextIndent(value);
+        return;
+    }
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("TextIndent", resObj, value);
+    }
     TextModel::GetInstance()->SetTextIndent(value);
 }
 
@@ -510,6 +543,22 @@ void JSText::SetTextAlign(int32_t value)
     TextModel::GetInstance()->SetTextAlign(TEXT_ALIGNS[value]);
 }
 
+void JSText::SetTextDirection(const JSCallbackInfo& info)
+{
+    JSRef<JSVal> args = info[0];
+    if (!args->IsNumber()) {
+        TextModel::GetInstance()->ResetTextDirection();
+        return;
+    }
+    int32_t index = args->ToNumber<int32_t>();
+    auto isNormalValue = index >= 0 && index < static_cast<int32_t>(TEXT_DIRECTIONS.size());
+    if (!isNormalValue) {
+        TextModel::GetInstance()->ResetTextDirection();
+        return;
+    }
+    TextModel::GetInstance()->SetTextDirection(TEXT_DIRECTIONS[index]);
+}
+
 void JSText::SetAlign(const JSCallbackInfo& info)
 {
     JSViewAbstract::JsAlign(info);
@@ -520,34 +569,108 @@ void JSText::SetAlign(const JSCallbackInfo& info)
     TextModel::GetInstance()->OnSetAlign();
 }
 
+void JSText::SetTextContentAlign(const JSCallbackInfo& info)
+{
+    JSRef<JSVal> args = info[0];
+    if (!args->IsNumber()) {
+        TextModel::GetInstance()->ReSetTextContentAlign();
+        return;
+    }
+    int32_t index = args->ToNumber<int32_t>();
+    auto isNormalValue = index >= 0 && index < TEXT_CONTENT_ALIGNS.size();
+    if (!isNormalValue) {
+        TextModel::GetInstance()->ReSetTextContentAlign();
+        return;
+    }
+    TextModel::GetInstance()->SetTextContentAlign(TEXT_CONTENT_ALIGNS[index]);
+}
+
 void JSText::SetLineHeight(const JSCallbackInfo& info)
 {
     CalcDimension value;
     JSRef<JSVal> args = info[0];
     RefPtr<ResourceObject> resObj;
-    if (ParseJsDimensionFpNG(args, value, resObj) || value.IsNegative()) {
-        if (SystemProperties::ConfigChangePerform() && resObj) {
-            RegisterResource<CalcDimension>("LineHeight", resObj, value);
-            return;
-        }
-    } else {
+
+    UnRegisterResource("LineHeight");
+    if (!ParseJsDimensionFpNG(args, value, resObj)) {
+        value.Reset();
+        TextModel::GetInstance()->SetLineHeight(value);
+        return;
+    }
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("LineHeight", resObj, value);
+    }
+    if (value.IsNegative()) {
         value.Reset();
     }
-    UnRegisterResource("LineHeight");
     TextModel::GetInstance()->SetLineHeight(value);
+}
+
+void JSText::SetLineHeightMultiply(const JSCallbackInfo& info)
+{
+    double value;
+    JSRef<JSVal> args = info[0];
+    RefPtr<ResourceObject> resObj;
+    UnRegisterResource("LineHeightMultiply");
+    if (!ParseJsDouble(args, value, resObj) || LessNotEqual(value, 0.0)) {
+        TextModel::GetInstance()->ResetLineHeightMultiply();
+        return;
+    }
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("LineHeightMultiply", resObj, value);
+    }
+    TextModel::GetInstance()->SetLineHeight(CalcDimension(DEFAULT_LINE_HEIGHT, DimensionUnit::PX));
+    TextModel::GetInstance()->SetLineHeightMultiply(value);
+}
+
+void JSText::SetMinimumLineHeight(const JSCallbackInfo& info)
+{
+    CalcDimension value;
+    JSRef<JSVal> args = info[0];
+    RefPtr<ResourceObject> resObj;
+    UnRegisterResource("MinimumLineHeight");
+    if (!ParseLengthMetricsToDimension(args, value, resObj) || value.IsNegative()) {
+        TextModel::GetInstance()->ResetMinimumLineHeight();
+        return;
+    }
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("MinimumLineHeight", resObj, value);
+    }
+    TextModel::GetInstance()->SetMinimumLineHeight(value);
+}
+
+void JSText::SetMaximumLineHeight(const JSCallbackInfo& info)
+{
+    CalcDimension value;
+    JSRef<JSVal> args = info[0];
+    RefPtr<ResourceObject> resObj;
+    UnRegisterResource("MaximumLineHeight");
+    if (!ParseLengthMetricsToDimension(args, value, resObj) || value.IsNegative()) {
+        TextModel::GetInstance()->ResetMaximumLineHeight();
+        return;
+    }
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("MaximumLineHeight", resObj, value);
+    }
+    TextModel::GetInstance()->SetMaximumLineHeight(value);
 }
 
 void JSText::SetLineSpacing(const JSCallbackInfo& info)
 {
     CalcDimension value;
     JSRef<JSVal> args = info[0];
-    if (!ParseLengthMetricsToPositiveDimension(args, value)) {
+    UnRegisterResource("LineSpacing");
+    RefPtr<ResourceObject> resObj;
+    if (!ParseLengthMetricsToPositiveDimension(args, value, resObj)) {
         value.Reset();
     }
     if (value.IsNegative()) {
         value.Reset();
     }
     TextModel::GetInstance()->SetLineSpacing(value);
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("LineSpacing", resObj, value);
+    }
     if (info.Length() < 2) { // 2 : two args
         TextModel::GetInstance()->SetIsOnlyBetweenLines(false);
         return;
@@ -571,14 +694,12 @@ void JSText::SetFontFamily(const JSCallbackInfo& info)
 {
     std::vector<std::string> fontFamilies;
     RefPtr<ResourceObject> resObj;
-    JSRef<JSVal> args = info[0];
-    if (ParseJsFontFamilies(args, fontFamilies, resObj)) {
-        if (SystemProperties::ConfigChangePerform() && resObj) {
-            RegisterResource<std::vector<std::string>>("FontFamily", resObj, fontFamilies);
-            return;
-        }
-    }
     UnRegisterResource("FontFamily");
+    JSRef<JSVal> args = info[0];
+    ParseJsFontFamilies(args, fontFamilies, resObj);
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<std::vector<std::string>>("FontFamily", resObj, fontFamilies);
+    }
     TextModel::GetInstance()->SetFontFamily(fontFamilies);
 }
 
@@ -594,15 +715,18 @@ void JSText::SetMinFontSize(const JSCallbackInfo& info)
     CalcDimension minFontSize = theme->GetTextStyle().GetAdaptMinFontSize();
     JSRef<JSVal> args = info[0];
     RefPtr<ResourceObject> resObj;
-    if (ParseJsDimensionFpNG(args, minFontSize, resObj, false) || minFontSize.IsNegative()) {
-        if (SystemProperties::ConfigChangePerform() && resObj) {
-            RegisterResource<CalcDimension>("AdaptMinFontSize", resObj, minFontSize);
-            return;
-        }
-    } else {
+    UnRegisterResource("AdaptMinFontSize");
+    if (!ParseJsDimensionFpNG(args, minFontSize, resObj, false)) {
+        minFontSize = theme->GetTextStyle().GetAdaptMinFontSize();
+        TextModel::GetInstance()->SetAdaptMinFontSize(minFontSize);
+        return;
+    }
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("AdaptMinFontSize", resObj, minFontSize);
+    }
+    if (minFontSize.IsNegative()) {
         minFontSize = theme->GetTextStyle().GetAdaptMinFontSize();
     }
-    UnRegisterResource("AdaptMinFontSize");
     TextModel::GetInstance()->SetAdaptMinFontSize(minFontSize);
 }
 
@@ -618,15 +742,18 @@ void JSText::SetMaxFontSize(const JSCallbackInfo& info)
     CalcDimension maxFontSize = theme->GetTextStyle().GetAdaptMaxFontSize();
     JSRef<JSVal> args = info[0];
     RefPtr<ResourceObject> resObj;
-    if (ParseJsDimensionFpNG(args, maxFontSize, resObj, false) || maxFontSize.IsNegative()) {
-        if (SystemProperties::ConfigChangePerform() && resObj) {
-            RegisterResource<CalcDimension>("AdaptMaxFontSize", resObj, maxFontSize);
-            return;
-        }
-    } else {
+    UnRegisterResource("AdaptMaxFontSize");
+    if (!ParseJsDimensionFpNG(args, maxFontSize, resObj, false)) {
+        maxFontSize = theme->GetTextStyle().GetAdaptMaxFontSize();
+        TextModel::GetInstance()->SetAdaptMaxFontSize(maxFontSize);
+        return;
+    }
+    if (maxFontSize.IsNegative()) {
         maxFontSize = theme->GetTextStyle().GetAdaptMaxFontSize();
     }
-    UnRegisterResource("AdaptMaxFontSize");
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("AdaptMaxFontSize", resObj, maxFontSize);
+    }
     TextModel::GetInstance()->SetAdaptMaxFontSize(maxFontSize);
 }
 
@@ -635,19 +762,15 @@ void JSText::SetLetterSpacing(const JSCallbackInfo& info)
     CalcDimension value;
     JSRef<JSVal> args = info[0];
     RefPtr<ResourceObject> resObj;
+    UnRegisterResource("LetterSpacing");
     if (!ParseJsDimensionFpNG(args, value, resObj, false)) {
         value.Reset();
         TextModel::GetInstance()->SetLetterSpacing(value);
         return;
-    } else if (SystemProperties::ConfigChangePerform() && resObj) {
-        RegisterResource<CalcDimension>("LetterSpacing", resObj, value);
-        return;
     }
     if (SystemProperties::ConfigChangePerform() && resObj) {
         RegisterResource<CalcDimension>("LetterSpacing", resObj, value);
-        return;
     }
-    UnRegisterResource("LetterSpacing");
     TextModel::GetInstance()->SetLetterSpacing(value);
 }
 
@@ -667,21 +790,22 @@ void JSText::SetBaselineOffset(const JSCallbackInfo& info)
     CalcDimension value;
     JSRef<JSVal> args = info[0];
     RefPtr<ResourceObject> resObj;
-    if (ParseJsDimensionFpNG(args, value, resObj, false)) {
-        if (SystemProperties::ConfigChangePerform() && resObj) {
-            RegisterResource<CalcDimension>("BaselineOffset", resObj, value);
-            return;
-        }
-    } else {
-        value.Reset();
-    }
     UnRegisterResource("BaselineOffset");
+    if (!ParseJsDimensionFpNG(args, value, resObj, false)) {
+        value.Reset();
+        TextModel::GetInstance()->SetBaselineOffset(value);
+        return;
+    }
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("BaselineOffset", resObj, value);
+    }
     TextModel::GetInstance()->SetBaselineOffset(value);
 }
 
 void JSText::SetDecoration(const JSCallbackInfo& info)
 {
     auto tmpInfo = info[0];
+    UnRegisterResource("TextDecorationColor");
     if (tmpInfo->IsUndefined()) {
         TextModel::GetInstance()->SetTextDecoration(TextDecoration::NONE);
         info.ReturnSelf();
@@ -707,8 +831,7 @@ void JSText::SetDecoration(const JSCallbackInfo& info)
     }
     Color result;
     RefPtr<ResourceObject> resObj;
-    auto ret = ParseJsColor(colorValue, result, resObj);
-    if (!ret) {
+    if (!ParseJsColor(colorValue, result, resObj)) {
         auto theme = GetTheme<TextTheme>();
         CHECK_NULL_VOID(theme);
         if (Container::CurrentColorMode() == ColorMode::DARK) {
@@ -716,6 +839,9 @@ void JSText::SetDecoration(const JSCallbackInfo& info)
         } else {
             result = theme->GetTextStyle().GetTextDecorationColor();
         }
+    }
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<Color>("TextDecorationColor", resObj, result);
     }
     std::optional<TextDecorationStyle> textDecorationStyle = DEFAULT_TEXT_DECORATION_STYLE;
     if (styleValue->IsNumber()) {
@@ -727,12 +853,7 @@ void JSText::SetDecoration(const JSCallbackInfo& info)
     }
     lineThicknessScale = lineThicknessScale < 0 ? 1.0f : lineThicknessScale;
     TextModel::GetInstance()->SetTextDecoration(textDecoration);
-    if (ret && SystemProperties::ConfigChangePerform() && resObj) {
-        RegisterResource<Color>("TextDecorationColor", resObj, result);
-    } else {
-        UnRegisterResource("TextDecorationColor");
-        TextModel::GetInstance()->SetTextDecorationColor(result);
-    }
+    TextModel::GetInstance()->SetTextDecorationColor(result);
     TextModel::GetInstance()->SetTextDecorationStyle(textDecorationStyle.value());
     TextModel::GetInstance()->SetLineThicknessScale(lineThicknessScale);
     info.ReturnSelf();
@@ -768,7 +889,7 @@ void JSText::JsOnClick(const JSCallbackInfo& info)
             auto* clickInfo = TypeInfoHelper::DynamicCast<GestureEvent>(info);
             ACE_SCORING_EVENT("Text.onClick");
             PipelineContext::SetCallBackNode(node);
-            func->Execute(*clickInfo);
+            func->Execute(execCtx.vm_, *clickInfo);
 #if !defined(PREVIEW) && defined(OHOS_PLATFORM)
             std::u16string label = u"";
             auto frameNode = node.Upgrade();
@@ -840,12 +961,12 @@ void JSText::Create(const JSCallbackInfo& info)
     std::u16string data;
     if (info.Length() <= 0) {
         TextModel::GetInstance()->Create(data);
+        UnRegisterResource("Content");
         return;
     }
 
-    JSRef<JSVal> args = info[0];
-    if (args->IsObject() && JSRef<JSObject>::Cast(args)->Unwrap<JSSpanString>()) {
-        auto *spanString = JSRef<JSObject>::Cast(args)->Unwrap<JSSpanString>();
+    if (info[0]->IsObject() && JSRef<JSObject>::Cast(info[0])->Unwrap<JSSpanString>()) {
+        auto *spanString = JSRef<JSObject>::Cast(info[0])->Unwrap<JSSpanString>();
         if (spanString == nullptr) {
             return;
         }
@@ -855,15 +976,15 @@ void JSText::Create(const JSCallbackInfo& info)
         } else {
             TextModel::GetInstance()->Create(data);
         }
+        UnRegisterResource("Content");
     } else {
         RefPtr<ResourceObject> resObj;
         auto ret = ParseJsString(info[0], data, resObj);
         UtfUtils::HandleInvalidUTF16(reinterpret_cast<uint16_t*>(data.data()), data.length(), 0);
         TextModel::GetInstance()->Create(data);
+        UnRegisterResource("Content");
         if (ret && SystemProperties::ConfigChangePerform() && resObj) {
             RegisterResource<std::u16string>("Content", resObj, data);
-        } else {
-            UnRegisterResource("Content");
         }
     }
 
@@ -879,6 +1000,10 @@ void JSText::Create(const JSCallbackInfo& info)
     }
 
     RefPtr<TextControllerBase> controller = TextModel::GetInstance()->GetTextController();
+    if (!controller) {
+        TAG_LOGW(AceLogTag::ACE_TEXT, "JSText::Create controller is null");
+    }
+
     if (jsController) {
         jsController->SetController(controller);
         if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_FIFTEEN)) {
@@ -905,6 +1030,33 @@ void JSText::SetCopyOption(const JSCallbackInfo& info)
     TextModel::GetInstance()->SetCopyOption(copyOptions);
 }
 
+void JSText::SetOnWillCopy(const JSCallbackInfo& info)
+{
+    JSRef<JSVal> args = info[0];
+    CHECK_NULL_VOID(args->IsFunction());
+    auto jsTextFunc = AceType::MakeRefPtr<JsEventFunction<std::u16string, 1>>(
+        JSRef<JSFunc>::Cast(info[0]), CreateSimpleJsOnWillObj);
+    WeakPtr<NG::FrameNode> targetNode = AceType::WeakClaim(NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    auto callback = [execCtx = info.GetExecutionContext(), func = std::move(jsTextFunc), node = targetNode](
+                        const std::u16string& value) -> bool {
+        JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx, true);
+        ACE_SCORING_EVENT("onWillCopy");
+        PipelineContext::SetCallBackNode(node);
+        auto ret = func->ExecuteWithValue(value);
+        if (ret->IsBoolean()) {
+            return ret->ToBoolean();
+        }
+        return true;
+    };
+    TextModel::GetInstance()->SetOnWillCopy(std::move(callback));
+}
+
+JSRef<JSVal> JSText::CreateSimpleJsOnWillObj(const std::u16string& value)
+{
+    JSRef<JSVal> stringValue = JSRef<JSVal>::Make(ToJSValue(value));
+    return stringValue;
+}
+
 void JSText::SetOnCopy(const JSCallbackInfo& info)
 {
     JSRef<JSVal> args = info[0];
@@ -915,6 +1067,10 @@ void JSText::SetOnCopy(const JSCallbackInfo& info)
 
 void JSText::JsOnDragStart(const JSCallbackInfo& info)
 {
+    if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_FIFTEEN)) {
+        JSViewAbstract::JsOnDragStart(info);
+        return;
+    }
     JSRef<JSVal> args = info[0];
     CHECK_NULL_VOID(args->IsFunction());
     RefPtr<JsDragFunction> jsOnDragStartFunc = AceType::MakeRefPtr<JsDragFunction>(JSRef<JSFunc>::Cast(args));
@@ -968,9 +1124,22 @@ void JSText::JsDraggable(const JSCallbackInfo& info)
     ViewAbstractModel::GetInstance()->SetDraggable(tmpInfo->ToBoolean());
 }
 
+void JSText::SetSelectDetectEnable(const JSCallbackInfo& info)
+{
+    if (info[0]->IsNull() || info[0]->IsUndefined()) {
+        TextModel::GetInstance()->ResetSelectDetectEnable();
+        return;
+    }
+    if (info[0]->IsBoolean()) {
+        auto enabled = info[0]->ToBoolean();
+        TextModel::GetInstance()->SetSelectDetectEnable(enabled);
+    }
+}
+
 void JSText::JsEnableDataDetector(const JSCallbackInfo& info)
 {
     if (info.Length() < 1) {
+        LOGI("The argv is wrong, it is supposed to have at least 1 argument");
         return;
     }
     auto tmpInfo = info[0];
@@ -985,6 +1154,7 @@ void JSText::JsEnableDataDetector(const JSCallbackInfo& info)
 void JSText::JsDataDetectorConfig(const JSCallbackInfo& info)
 {
     if (info.Length() < 1) {
+        LOGI("The argv is wrong, it is supposed to have at least 1 argument");
         return;
     }
     JSRef<JSVal> args = info[0];
@@ -1113,12 +1283,25 @@ void JSText::SetEnableHapticFeedback(const JSCallbackInfo& info)
     TextModel::GetInstance()->SetEnableHapticFeedback(state);
 }
 
-void JSText::SetOptimizeTrailingSpace(const JSCallbackInfo& info)
+void JSText::SetCompressLeadingPunctuation(const JSCallbackInfo& info)
 {
     bool state = false;
+
     if (info.Length() > 0 && info[0]->IsBoolean()) {
         state = info[0]->ToBoolean();
     }
+    
+    TextModel::GetInstance()->SetCompressLeadingPunctuation(state);
+}
+
+void JSText::SetOptimizeTrailingSpace(const JSCallbackInfo& info)
+{
+    bool state = false;
+    
+    if (info.Length() > 0 && info[0]->IsBoolean()) {
+        state = info[0]->ToBoolean();
+    }
+
     TextModel::GetInstance()->SetOptimizeTrailingSpace(state);
 }
 
@@ -1129,6 +1312,24 @@ void JSText::SetEnableAutoSpacing(const JSCallbackInfo& info)
         enabled = info[0]->ToBoolean();
     }
     TextModel::GetInstance()->SetEnableAutoSpacing(enabled);
+}
+
+void JSText::SetIncludeFontPadding(const JSCallbackInfo& info)
+{
+    bool enabled = false;
+    if (info.Length() > 0 && info[0]->IsBoolean()) {
+        enabled = info[0]->ToBoolean();
+    }
+    TextModel::GetInstance()->SetIncludeFontPadding(enabled);
+}
+
+void JSText::SetFallbackLineSpacing(const JSCallbackInfo& info)
+{
+    bool enabled = false;
+    if (info.Length() > 0 && info[0]->IsBoolean()) {
+        enabled = info[0]->ToBoolean();
+    }
+    TextModel::GetInstance()->SetFallbackLineSpacing(enabled);
 }
 
 void JSText::SetTextVerticalAlign(const JSCallbackInfo& info)
@@ -1158,16 +1359,30 @@ void JSText::ParseShaderStyle(const JSCallbackInfo& info, NG::Gradient& gradient
         return;
     }
     auto shaderStyleObj = JSRef<JSObject>::Cast(info[0]);
+    UnRegisterResource("ColorShaderStyle");
+    if (shaderStyleObj->HasProperty("options")) {
+        auto optionsValue = shaderStyleObj->GetProperty("options");
+        if (optionsValue->IsObject()) {
+            shaderStyleObj = JSRef<JSObject>::Cast(optionsValue);
+        }
+    }
     if (shaderStyleObj->HasProperty("center") && shaderStyleObj->HasProperty("radius")) {
-        NewJsRadialGradient(info, gradient);
+        NewRadialGradient(shaderStyleObj, gradient);
         TextModel::GetInstance()->SetGradientShaderStyle(gradient);
     } else if (shaderStyleObj->HasProperty("colors")) {
-        NewJsLinearGradient(info, gradient);
+        NewLinearGradient(shaderStyleObj, gradient);
         TextModel::GetInstance()->SetGradientShaderStyle(gradient);
     } else if (shaderStyleObj->HasProperty("color")) {
         Color textColor;
+        RefPtr<ResourceObject> resObj;
         auto infoColor = shaderStyleObj->GetProperty("color");
-        ParseJsColor(infoColor, textColor);
+        if (!ParseJsColor(infoColor, textColor, resObj)) {
+            TextModel::GetInstance()->ResetGradientShaderStyle();
+            return;
+        }
+        if (SystemProperties::ConfigChangePerform() && resObj) {
+            RegisterResource<Color>("ColorShaderStyle", resObj, textColor);
+        }
         TextModel::GetInstance()->SetColorShaderStyle(textColor);
     } else {
         TextModel::GetInstance()->ResetGradientShaderStyle();
@@ -1176,7 +1391,7 @@ void JSText::ParseShaderStyle(const JSCallbackInfo& info, NG::Gradient& gradient
 
 void JSText::SetContentTransition(const JSCallbackInfo& info)
 {
-    if (info.Length() > 0 && !info[0]->IsObject()) {
+    if (info.Length() < 1 || (info.Length() > 0 && !info[0]->IsObject())) {
         TextModel::GetInstance()->ResetContentTransition();
         return;
     }
@@ -1214,8 +1429,8 @@ void JSText::JSBind(BindingTarget globalObj)
     JSClass<JSText>::StaticMethod("maxFontScale", &JSText::SetMaxFontScale, opt);
     JSClass<JSText>::StaticMethod("wordBreak", &JSText::SetWordBreak, opt);
     JSClass<JSText>::StaticMethod("lineBreakStrategy", &JSText::SetLineBreakStrategy, opt);
-    JSClass<JSText>::StaticMethod("ellipsisMode", &JSText::SetEllipsisMode, opt);
     JSClass<JSText>::StaticMethod("selection", &JSText::SetTextSelection, opt);
+    JSClass<JSText>::StaticMethod("ellipsisMode", &JSText::SetEllipsisMode, opt);
     JSClass<JSText>::StaticMethod("textSelectable", &JSText::SetTextSelectableMode, opt);
     JSClass<JSText>::StaticMethod("maxLines", &JSText::SetMaxLines, opt);
     JSClass<JSText>::StaticMethod("textIndent", &JSText::SetTextIndent);
@@ -1223,6 +1438,8 @@ void JSText::JSBind(BindingTarget globalObj)
     JSClass<JSText>::StaticMethod("fontStyle", &JSText::SetFontStyle, opt);
     JSClass<JSText>::StaticMethod("align", &JSText::SetAlign, opt);
     JSClass<JSText>::StaticMethod("textAlign", &JSText::SetTextAlign, opt);
+    JSClass<JSText>::StaticMethod("textDirection", &JSText::SetTextDirection, opt);
+    JSClass<JSText>::StaticMethod("textContentAlign", &JSText::SetTextContentAlign, opt);
     JSClass<JSText>::StaticMethod("lineHeight", &JSText::SetLineHeight, opt);
     JSClass<JSText>::StaticMethod("lineSpacing", &JSText::SetLineSpacing, opt);
     JSClass<JSText>::StaticMethod("fontFamily", &JSText::SetFontFamily, opt);
@@ -1243,27 +1460,27 @@ void JSText::JSBind(BindingTarget globalObj)
     JSClass<JSText>::StaticMethod("remoteMessage", &JSText::JsRemoteMessage);
     JSClass<JSText>::StaticMethod("copyOption", &JSText::SetCopyOption);
     JSClass<JSText>::StaticMethod("onClick", &JSText::JsOnClick);
+    JSClass<JSText>::StaticMethod("onWillCopy", &JSText::SetOnWillCopy);
     JSClass<JSText>::StaticMethod("onCopy", &JSText::SetOnCopy);
+    JSClass<JSText>::StaticMethod("minLines", &JSText::SetMinLines);
     JSClass<JSText>::StaticMethod("onAttach", &JSInteractableView::JsOnAttach);
     JSClass<JSText>::StaticMethod("onAppear", &JSInteractableView::JsOnAppear);
     JSClass<JSText>::StaticMethod("onDetach", &JSInteractableView::JsOnDetach);
     JSClass<JSText>::StaticMethod("onDisAppear", &JSInteractableView::JsOnDisAppear);
-    if (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_FIFTEEN)) {
-        JSClass<JSText>::StaticMethod("onDragStart", &JSText::JsOnDragStart);
-    } else {
-        JSClass<JSText>::StaticMethod("onDragStart", &JSViewAbstract::JsOnDragStart);
-    }
+    JSClass<JSText>::StaticMethod("onDragStart", &JSText::JsOnDragStart);
     JSClass<JSText>::StaticMethod("focusable", &JSText::JsFocusable);
     JSClass<JSText>::StaticMethod("draggable", &JSText::JsDraggable);
     JSClass<JSText>::StaticMethod("enableDataDetector", &JSText::JsEnableDataDetector);
+    JSClass<JSText>::StaticMethod("enableSelectedDataDetector", &JSText::SetSelectDetectEnable);
     JSClass<JSText>::StaticMethod("dataDetectorConfig", &JSText::JsDataDetectorConfig);
     JSClass<JSText>::StaticMethod("bindSelectionMenu", &JSText::BindSelectionMenu);
     JSClass<JSText>::StaticMethod("onTextSelectionChange", &JSText::SetOnTextSelectionChange);
     JSClass<JSText>::StaticMethod("clip", &JSText::JsClip);
-    JSClass<JSText>::StaticMethod("fontFeature", &JSText::SetFontFeature);
     JSClass<JSText>::StaticMethod("foregroundColor", &JSText::SetForegroundColor);
+    JSClass<JSText>::StaticMethod("fontFeature", &JSText::SetFontFeature);
     JSClass<JSText>::StaticMethod("marqueeOptions", &JSText::SetMarqueeOptions);
     JSClass<JSText>::StaticMethod("onMarqueeStateChange", &JSText::SetOnMarqueeStateChange);
+    JSClass<JSText>::StaticMethod("orphanCharOptimization", &JSText::SetOrphanCharOptimization);
     JSClass<JSText>::StaticMethod("editMenuOptions", &JSText::EditMenuOptions);
     JSClass<JSText>::StaticMethod("responseRegion", &JSText::JsResponseRegion);
     JSClass<JSText>::StaticMethod("halfLeading", &JSText::SetHalfLeading);
@@ -1272,6 +1489,13 @@ void JSText::JSBind(BindingTarget globalObj)
     JSClass<JSText>::StaticMethod("enableAutoSpacing", &JSText::SetEnableAutoSpacing);
     JSClass<JSText>::StaticMethod("textVerticalAlign", &JSText::SetTextVerticalAlign);
     JSClass<JSText>::StaticMethod("shaderStyle", &JSText::SetShaderStyle);
+    JSClass<JSText>::StaticMethod("lineHeightMultiple", &JSText::SetLineHeightMultiply);
+    JSClass<JSText>::StaticMethod("maxLineHeight", &JSText::SetMaximumLineHeight);
+    JSClass<JSText>::StaticMethod("minLineHeight", &JSText::SetMinimumLineHeight);
+    JSClass<JSText>::StaticMethod("compressLeadingPunctuation", &JSText::SetCompressLeadingPunctuation);
+    JSClass<JSText>::StaticMethod("includeFontPadding", &JSText::SetIncludeFontPadding);
+    JSClass<JSText>::StaticMethod("fallbackLineSpacing", &JSText::SetFallbackLineSpacing);
+    JSClass<JSText>::StaticMethod("selectedDragPreviewStyle", &JSText::SetSelectedDragPreviewStyle);
     JSClass<JSText>::InheritAndBind<JSContainerBase>(globalObj);
 }
 
@@ -1293,6 +1517,42 @@ void JSTextController::GetLayoutManager(const JSCallbackInfo& args)
     auto layoutInfoInterface = controller->GetLayoutInfoInterface();
     jsLayoutManager->SetLayoutInfoInterface(layoutInfoInterface);
     args.SetReturnValue(obj);
+}
+
+void JSTextController::SetTextSelection(const JSCallbackInfo& info)
+{
+    if (info.Length() < 2) { /* 2:args number */
+        return;
+    }
+    auto controller = controllerWeak_.Upgrade();
+    int32_t selectionStart = 0;
+    int32_t selectionEnd = 0;
+    SelectionOptions options;
+    if (controller) {
+        const auto& start = info[0];
+        const auto& end = info[1];
+        if (start->IsUndefined() || start->IsNull()) {
+            TAG_LOGW(AceLogTag::ACE_TEXT, "SetTextSelection: The selectionStart is NULL");
+        } else if (start->IsNumber()) {
+            selectionStart = start->ToNumber<int32_t>();
+        }
+        if (end->IsUndefined() || end->IsNull()) {
+            TAG_LOGW(AceLogTag::ACE_TEXT, "SetTextSelection: The selectionEnd is NULL");
+        } else if (end->IsNumber()) {
+            selectionEnd = end->ToNumber<int32_t>();
+        }
+        if (info.Length() == 3 && info[2]->IsObject()) { /* 2, 3:args number */
+            JSRef<JSObject> optionsObj = JSRef<JSObject>::Cast(info[2]); /* 2:args number */
+            JSRef<JSVal> menuPolicy = optionsObj->GetProperty("menuPolicy");
+            int32_t tempPolicy = 0;
+            if (!menuPolicy->IsNull() && JSContainerBase::ParseJsInt32(menuPolicy, tempPolicy)) {
+                options.menuPolicy = static_cast<MenuPolicy>(tempPolicy);
+            }
+        }
+        controller->SetTextSelection(selectionStart, selectionEnd, options);
+    } else {
+        TAG_LOGW(AceLogTag::ACE_TEXT, "SetTextSelection: The JSTextController is NULL");
+    }
 }
 
 void JSTextController::SetStyledString(const JSCallbackInfo& info)
@@ -1322,6 +1582,7 @@ void JSTextController::JSBind(BindingTarget globalObj)
 {
     JSClass<JSTextController>::Declare("TextController");
     JSClass<JSTextController>::Method("closeSelectionMenu", &JSTextController::CloseSelectionMenu);
+    JSClass<JSTextController>::CustomMethod("setTextSelection", &JSTextController::SetTextSelection);
     JSClass<JSTextController>::CustomMethod("setStyledString", &JSTextController::SetStyledString);
     JSClass<JSTextController>::CustomMethod("getLayoutManager", &JSTextController::GetLayoutManager);
     JSClass<JSTextController>::Bind(globalObj, JSTextController::Constructor, JSTextController::Destructor);
@@ -1451,8 +1712,7 @@ void JSText::ParseMarqueeParam(const JSRef<JSObject>& paramObject, NG::TextMarqu
 
     auto delay = paramObject->GetProperty("delay");
     if (delay->IsNumber()) {
-        auto delayDouble = delay->ToNumber<double>();
-        auto delayValue = static_cast<int32_t>(delayDouble);
+        auto delayValue = static_cast<int32_t>(delay->ToNumber<double>());
         if (delayValue < 0) {
             delayValue = 0;
         }
@@ -1474,6 +1734,41 @@ void JSText::ParseMarqueeParam(const JSRef<JSObject>& paramObject, NG::TextMarqu
     if (getStartPolicy->IsNumber()) {
         auto startPolicy = static_cast<MarqueeStartPolicy>(getStartPolicy->ToNumber<int32_t>());
         options.UpdateTextMarqueeStartPolicy(startPolicy);
+    }
+
+    auto getUpdatePolicy = paramObject->GetProperty("marqueeUpdatePolicy");
+    if (getUpdatePolicy->IsNumber()) {
+        auto updatePolicy = static_cast<MarqueeUpdatePolicy>(getUpdatePolicy->ToNumber<int32_t>());
+        options.UpdateTextMarqueeUpdatePolicy(updatePolicy);
+    }
+
+    SetMarqueeSpacing(paramObject, options);
+}
+
+void JSText::SetMarqueeSpacing(const JSRef<JSObject>& paramObject, NG::TextMarqueeOptions& options)
+{
+    auto getSpacing = paramObject->GetProperty("spacing");
+    UnRegisterResource("MarqueeSpacing");
+    if (getSpacing->IsNull() || getSpacing->IsUndefined()) {
+        return;
+    }
+    CalcDimension value;
+    RefPtr<ResourceObject> resObj;
+    bool unitIsUndefine = false;
+    if (getSpacing->IsObject()) {
+        auto spaceObj = JSRef<JSObject>::Cast(getSpacing);
+        auto unitObj = spaceObj->GetProperty("unit");
+        unitIsUndefine = unitObj->IsUndefined() || unitObj->IsNull();
+    }
+    if (ParseLengthMetricsToDimension(getSpacing, value, resObj) && !value.IsNegative()
+        && value.Unit() != DimensionUnit::PERCENT) {
+        if (unitIsUndefine) {
+            value.SetUnit(DimensionUnit::VP);
+        }
+        options.UpdateTextMarqueeSpacing(value);
+    }
+    if (SystemProperties::ConfigChangePerform() && resObj) {
+        RegisterResource<CalcDimension>("MarqueeSpacing", resObj, value);
     }
 }
 
@@ -1497,6 +1792,18 @@ void JSText::SetOnMarqueeStateChange(const JSCallbackInfo& info)
     TextModel::GetInstance()->SetOnMarqueeStateChange(std::move(onMarqueeStateChange));
 }
 
+void JSText::SetOrphanCharOptimization(const JSCallbackInfo& info)
+{
+    if (info.Length() < 1) {
+        return;
+    }
+    bool isOrphanChar = false;
+    if (info[0]->IsBoolean()) {
+        isOrphanChar = info[0]->ToBoolean();
+    }
+    TextModel::GetInstance()->SetOrphanCharOptimization(isOrphanChar);
+}
+
 void JSText::EditMenuOptions(const JSCallbackInfo& info)
 {
     NG::OnCreateMenuCallback onCreateMenuCallback;
@@ -1505,5 +1812,30 @@ void JSText::EditMenuOptions(const JSCallbackInfo& info)
     JSViewAbstract::ParseEditMenuOptions(info, onCreateMenuCallback, onMenuItemClick, onPrepareMenuCallback);
     TextModel::GetInstance()->SetSelectionMenuOptions(
         std::move(onCreateMenuCallback), std::move(onMenuItemClick), std::move(onPrepareMenuCallback));
+}
+
+void JSText::SetSelectedDragPreviewStyle(const JSCallbackInfo& info)
+{
+    if (info.Length() < 1) {
+        return;
+    }
+    UnRegisterResource("selectedDragPreviewStyleColor");
+    auto jsonValue = info[0];
+    Color color;
+    if (!jsonValue->IsObject()) {
+        TextModel::GetInstance()->ResetSelectedDragPreviewStyle();
+        return;
+    }
+    auto paramObject = JSRef<JSObject>::Cast(jsonValue);
+    auto param = paramObject->GetProperty("color");
+    RefPtr<ResourceObject> resourceObject;
+    if (param->IsUndefined() || param->IsNull() || !ParseJsColor(param, color, resourceObject)) {
+        TextModel::GetInstance()->ResetSelectedDragPreviewStyle();
+        return;
+    }
+    if (resourceObject && SystemProperties::ConfigChangePerform()) {
+        RegisterResource<Color>("selectedDragPreviewStyleColor", resourceObject, color);
+    }
+    TextModel::GetInstance()->SetSelectedDragPreviewStyle(color);
 }
 } // namespace OHOS::Ace::Framework

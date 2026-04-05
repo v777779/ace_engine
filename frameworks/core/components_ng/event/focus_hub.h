@@ -16,17 +16,21 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_EVENT_FOCUS_HUB_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_EVENT_FOCUS_HUB_H
 
-#include "focus_event_handler.h"
-#include "core/components_ng/base/geometry_node.h"
+#include "base/geometry/ng/rect_t.h"
 #include "core/components_ng/event/focus_box.h"
-#include "core/components_ng/event/touch_event.h"
+#include "core/components_ng/event/focus_event_handler.h"
+#include "core/components_ng/event/focus_type.h"
 #include "core/event/key_event.h"
 #include "core/gestures/gesture_event.h"
+
+#include <optional>
 
 namespace OHOS::Ace::NG {
 
 class FocusView;
 class FocusManager;
+class GeometryNode;
+class TouchEventImpl;
 
 using TabIndexNodeList = std::list<std::pair<int32_t, WeakPtr<FocusHub>>>;
 using OnGetNextFocusNodeFunc = std::function<RefPtr<FocusHub>(FocusReason, FocusIntension)>;
@@ -41,29 +45,6 @@ constexpr auto DEFAULT_FOCUS_IS_GROUP_DEFAULT = false;
 constexpr auto DEFAULT_FOCUS_DEFAULT_FOCUS = false;
 constexpr auto DEFAULT_FOCUS_ARROW_KEY_STEP_OUT = true;
 constexpr auto DEFAULT_FOCUS_TAB_INDEX = 0;
-
-enum class FocusNodeType : int32_t {
-    DEFAULT = 0,
-    GROUP_DEFAULT = 1,
-};
-enum class ScopeType : int32_t {
-    OTHERS = 0,
-    FLEX = 1,
-    PROJECT_AREA = 2,
-};
-enum class FocusStep : int32_t {
-    NONE = 0x0,
-    LEFT = 0x1,
-    UP = 0x2,
-    RIGHT = 0x11,
-    DOWN = 0x12,
-    LEFT_END = 0x3,
-    UP_END = 0x4,
-    RIGHT_END = 0X13,
-    DOWN_END = 0x14,
-    SHIFT_TAB = 0x5,
-    TAB = 0x15,
-};
 enum class RequestFocusResult : int32_t {
     DEFAULT = 0,
     NON_FOCUSABLE = 1,
@@ -96,16 +77,6 @@ enum class SwitchingUpdateReason : int32_t {
 
 using GetNextFocusNodeFunc = std::function<bool(FocusStep, const WeakPtr<FocusHub>&, WeakPtr<FocusHub>&)>;
 
-enum class FocusStyleType : int32_t {
-    NONE = -1,
-    INNER_BORDER = 0,
-    OUTER_BORDER = 1,
-    CUSTOM_BORDER = 2,
-    CUSTOM_REGION = 3,
-    FORCE_BORDER = 4,
-    FORCE_NONE = 5,
-};
-
 enum class FocusDependence : int32_t {
     CHILD = 0,
     SELF = 1,
@@ -119,7 +90,7 @@ enum class FocusPriority : int32_t {
 };
 
 class ACE_EXPORT FocusPaintParam : public virtual AceType {
-    DECLARE_ACE_TYPE(FocusPaintParam, AceType)
+    DECLARE_ACE_TYPE(FocusPaintParam, AceType);
 
 public:
     FocusPaintParam() = default;
@@ -185,7 +156,7 @@ private:
 };
 
 class ACE_EXPORT FocusPattern : public virtual AceType {
-    DECLARE_ACE_TYPE(FocusPattern, AceType)
+    DECLARE_ACE_TYPE(FocusPattern, AceType);
 
 public:
     FocusPattern() = default;
@@ -325,7 +296,7 @@ struct ScopeFocusAlgorithm final {
 };
 
 class ACE_FORCE_EXPORT FocusHub : public virtual FocusEventHandler, public virtual FocusState {
-    DECLARE_ACE_TYPE(FocusHub, FocusEventHandler, FocusState)
+    DECLARE_ACE_TYPE(FocusHub, FocusEventHandler, FocusState);
 public:
     explicit FocusHub(const WeakPtr<EventHub>& eventHub, FocusType type = FocusType::DISABLE, bool focusable = false)
         : FocusState(eventHub, type), FocusEventHandler(), focusable_(focusable)
@@ -454,38 +425,10 @@ public:
         CHECK_NULL_RETURN(focusPaintParamsPtr_, Dimension());
         return focusPaintParamsPtr_->GetFocusPadding();
     }
-    void SetPaintRect(const RoundRect& rect)
-    {
-        if (!focusPaintParamsPtr_) {
-            focusPaintParamsPtr_ = std::make_unique<FocusPaintParam>();
-        }
-        CHECK_NULL_VOID(focusPaintParamsPtr_);
-        focusPaintParamsPtr_->SetPaintRect(rect);
-    }
-    void SetPaintColor(const Color& color)
-    {
-        if (!focusPaintParamsPtr_) {
-            focusPaintParamsPtr_ = std::make_unique<FocusPaintParam>();
-        }
-        CHECK_NULL_VOID(focusPaintParamsPtr_);
-        focusPaintParamsPtr_->SetPaintColor(color);
-    }
-    void SetPaintWidth(const Dimension& width)
-    {
-        if (!focusPaintParamsPtr_) {
-            focusPaintParamsPtr_ = std::make_unique<FocusPaintParam>();
-        }
-        CHECK_NULL_VOID(focusPaintParamsPtr_);
-        focusPaintParamsPtr_->SetPaintWidth(width);
-    }
-    void SetFocusPadding(const Dimension& padding)
-    {
-        if (!focusPaintParamsPtr_) {
-            focusPaintParamsPtr_ = std::make_unique<FocusPaintParam>();
-        }
-        CHECK_NULL_VOID(focusPaintParamsPtr_);
-        focusPaintParamsPtr_->SetFocusPadding(padding);
-    }
+    void SetPaintRect(const RoundRect& rect);
+    void SetPaintColor(const Color& color);
+    void SetPaintWidth(const Dimension& width);
+    void SetFocusPadding(const Dimension& padding);
 
     RefPtr<FocusManager> GetFocusManager() const;
     RefPtr<FocusHub> GetParentFocusHub() const;
@@ -496,6 +439,8 @@ public:
     bool HandleEvent(const NonPointerEvent& event);
     bool HandleFocusTravel(const FocusEvent& event) override;
     bool HandleFocusNavigation(const FocusEvent& event);
+    bool ModalCheckBeforeRequestFocus();
+    bool RequestFocusImmediatelyFromModalUEC(FocusReason reason = FocusReason::DEFAULT);
     bool RequestFocusImmediately(FocusReason reason = FocusReason::DEFAULT);
     void RequestFocus() const;
     void SwitchFocus(const RefPtr<FocusHub>& focusNode, FocusReason focusReason = FocusReason::DEFAULT);
@@ -524,6 +469,7 @@ public:
     bool TriggerFocusScroll();
     int32_t GetFocusingTabNodeIdx(TabIndexNodeList& tabIndexNodes) const;
     bool RequestFocusImmediatelyById(const std::string& id, bool isSyncRequest = false);
+    RefPtr<FocusHub> GetFocusNodeFromSubWindow(const std::string& id);
     RefPtr<FocusView> GetFirstChildFocusView();
 
     bool IsFocusableByTab();
@@ -649,7 +595,7 @@ public:
 
     int32_t GetTabIndex() const
     {
-        return focusCallbackEvents_ ? focusCallbackEvents_->tabIndex_ : DEFAULT_FOCUS_TAB_INDEX;
+        return focusCallbackEvents_ ? focusCallbackEvents_->tabIndex_ : 0;
     }
     void SetTabIndex(int32_t tabIndex)
     {
@@ -767,16 +713,7 @@ public:
         focusDepend_ = focusDepend;
     }
 
-    size_t GetFocusableCount()
-    {
-        size_t count = 0;
-        AllChildFocusHub([&count](const RefPtr<FocusHub>& child) {
-            if (child->IsFocusable()) {
-                count++;
-            }
-        });
-        return count;
-    }
+    size_t GetFocusableCount();
 
     void SetIsFocusActiveWhenFocused(bool value)
     {
@@ -804,6 +741,12 @@ public:
     static inline bool IsFocusStepTab(FocusStep step)
     {
         return (static_cast<uint32_t>(step) & MASK_FOCUS_STEP_TAB) == MASK_FOCUS_STEP_TAB;
+    }
+
+    static inline bool IsHomeOrEndStep(FocusStep step)
+    {
+        return step == FocusStep::UP_END || step == FocusStep::LEFT_END || step == FocusStep::DOWN_END ||
+               step == FocusStep::RIGHT_END;
     }
 
     static inline FocusStep GetRealFocusStepByTab(FocusStep moveStep, bool isRtl = false)
@@ -893,10 +836,15 @@ public:
         FocusState::SetNextFocus(static_cast<int32_t>(key), nextFocus);
     }
 
-    RefPtr<FocusHub> GetHeadOrTailChild(bool isHead);
+    RefPtr<FocusHub> GetHeadOrTailChild(bool isHead, bool isHomeOrEnd = false);
+    RefPtr<FocusHub> FindHeadOrTailDescendantFocus(bool isHead, bool isHomeOrEnd = false);
+
     // multi thread function start
     void RemoveSelfMultiThread(BlurReason reason);
     void RemoveSelfExecuteFunction(BlurReason reason);
+    void SetFocusScopeIdMultiThread(const std::string& focusScopeId, bool isGroup, bool arrowKeyStepOut);
+    void RemoveFocusScopeIdAndPriorityMultiThread();
+    void SetFocusScopePriorityMultiThread(const std::string& focusScopeId, const uint32_t focusPriority);
     // multi thread function end
 
 protected:
@@ -980,11 +928,12 @@ private:
     void DumpFocusScopeTreeInJson(int32_t depth);
 
     bool SkipFocusMoveBeforeRemove();
-    static std::string FocusPriorityToString(FocusPriority src);
 
     bool IsArrowKeyStepOut(FocusStep moveStep);
 
     bool IsLastWeakNodeFocused() const;
+
+    void OnPaintFocusState(bool isFocus);
 
     std::function<void(FocusReason reason)> onFocusInternal_;
     OnBlurFunc onBlurInternal_;
@@ -1023,7 +972,7 @@ private:
 
     std::string focusScopeId_;
     bool isFocusScope_ { false };
-    bool isGroup_ { DEFAULT_FOCUS_IS_GROUP };
+    bool isGroup_ { false };
     FocusPriority focusPriority_ = FocusPriority::AUTO;
     bool arrowKeyStepOut_ { true };
     bool isSwitchByEnter_ { false };

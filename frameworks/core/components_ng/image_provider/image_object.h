@@ -40,7 +40,9 @@ public:
     ImageObject() = delete;
     ImageObject(const ImageSourceInfo& sourceInfo, const SizeF& imageSize, const RefPtr<ImageData>& data)
         : src_(sourceInfo), imageSize_(imageSize), data_(data)
-    {}
+    {
+        imageDataSize_ = data ? data_->GetSize() : 0;
+    }
     ~ImageObject() override = default;
 
     const SizeF& GetImageSize() const;
@@ -57,6 +59,9 @@ public:
     void SetFrameCount(int32_t frameCount);
     void SetOrientation(ImageRotateOrientation orientation);
     void SetUserOrientation(ImageRotateOrientation orientation);
+    void SetImageFileSize(size_t fileSize);
+    size_t GetImageFileSize() const;
+    size_t GetImageDataSize() const;
 
     virtual RefPtr<SvgDomBase> GetSVGDom() const
     {
@@ -80,6 +85,16 @@ public:
         return imageDfxConfig_;
     }
 
+    void SetIsYUVDecode(bool isYUVDecode)
+    {
+        isYUVDecode_ = isYUVDecode;
+    }
+    
+    bool GetIsYUVDecode() const
+    {
+        return isYUVDecode_;
+    }
+
     virtual void MakeCanvasImage(
         const WeakPtr<ImageLoadingContext>& ctxWp, const SizeF& resizeTarget, bool forceResize, bool syncLoad) = 0;
 
@@ -98,8 +113,11 @@ protected:
     mutable std::shared_mutex dataMutex_;
     // no longer needed after making canvas image
     RefPtr<ImageData> data_;
+    size_t fileSize_ = 0; // size of file in bytes
+    size_t imageDataSize_ = 0; // size of image data in bytes
     int32_t frameCount_ = 1;
     ImageDfxConfig imageDfxConfig_;
+    bool isYUVDecode_ = false;
     // Mutex for controlling access to prepareImageData operations.
     // This is a timed mutex to prevent long blocking, allowing a maximum wait time of 1000ms for acquiring the lock.
     std::timed_mutex prepareImageDataMutex_;

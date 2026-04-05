@@ -76,6 +76,14 @@ void WebModelStatic::SetHapPathCallback(FrameNode* frameNode, std::function<void
     webPatternStatic->SetSetHapPathCallback(std::move(hapPathCallback));
 }
 
+void WebModelStatic::SetWebDetachCallback(FrameNode* frameNode, std::function<void(int32_t)>&& webDetachCallback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->SetSetWebDetachCallback(std::move(webDetachCallback));
+}
+
 void WebModelStatic::SetWebSrc(FrameNode* frameNode, const std::optional<std::string>& webSrc)
 {
     CHECK_NULL_VOID(frameNode);
@@ -124,6 +132,15 @@ void WebModelStatic::SetSharedRenderProcessToken(FrameNode* frameNode,
     auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
     CHECK_NULL_VOID(webPatternStatic);
     webPatternStatic->SetSharedRenderProcessToken(sharedRenderProcessToken.value_or(""));
+}
+
+void WebModelStatic::SetEmulateTouchFromMouseEvent(FrameNode* frameNode,
+    const std::optional<bool>& emulateTouchFromMouseEvent)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->SetEmulateTouchFromMouseEvent(emulateTouchFromMouseEvent.value_or(false));
 }
 
 void WebModelStatic::SetWebController(FrameNode* frameNode, const RefPtr<WebController>& webController)
@@ -299,6 +316,22 @@ void WebModelStatic::SetWebMediaAVSessionEnabled(FrameNode *frameNode, const std
     webPatternStatic->UpdateWebMediaAVSessionEnabled(enable.value_or(true));
 }
 
+void WebModelStatic::SetEnableDataDetector(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateEnableDataDetector(isEnabled);
+}
+
+void WebModelStatic::SetDataDetectorConfig(FrameNode* frameNode, const TextDetectConfig& config)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateDataDetectorConfig(config);
+}
+
 void WebModelStatic::JavaScriptOnDocumentStart(FrameNode* frameNode, const ScriptItems& scriptItems)
 {
     CHECK_NULL_VOID(frameNode);
@@ -315,21 +348,51 @@ void WebModelStatic::JavaScriptOnDocumentEnd(FrameNode* frameNode, const ScriptI
     webPatternStatic->JavaScriptOnDocumentEnd(scriptItems);
 }
 
-void WebModelStatic::JavaScriptOnHeadEnd(
-    FrameNode* frameNode, const ScriptItems& scriptItems, const ScriptItemsByOrder& scriptItemsByOrder)
+void WebModelStatic::JavaScriptOnDocumentStartByOrder(FrameNode* frameNode, const ScriptItems& scriptItems,
+    const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder)
 {
     CHECK_NULL_VOID(frameNode);
     auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
     CHECK_NULL_VOID(webPatternStatic);
-    webPatternStatic->JavaScriptOnHeadReadyByOrder(scriptItems, scriptItemsByOrder);
+    webPatternStatic->JavaScriptOnDocumentStartByOrder(scriptItems, scriptRegexItems, scriptItemsByOrder);
 }
 
-void WebModelStatic::SetNativeEmbedOptions(FrameNode *frameNode, bool supportDefaultIntrinsicSize)
+void WebModelStatic::JavaScriptOnDocumentEndByOrder(FrameNode* frameNode, const ScriptItems& scriptItems,
+    const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->JavaScriptOnDocumentEndByOrder(scriptItems, scriptRegexItems, scriptItemsByOrder);
+}
+
+void WebModelStatic::JavaScriptOnHeadEnd(FrameNode* frameNode, const ScriptItems& scriptItems,
+    const ScriptRegexItems& scriptRegexItems, const ScriptItemsByOrder& scriptItemsByOrder)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->JavaScriptOnHeadReadyByOrder(scriptItems, scriptRegexItems, scriptItemsByOrder);
+}
+
+void WebModelStatic::SetNativeEmbedOptions(FrameNode *frameNode,
+                                           bool supportDefaultIntrinsicSize,
+                                           bool supportCssDisplayChange)
 {
     CHECK_NULL_VOID(frameNode);
     auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
     CHECK_NULL_VOID(webPatternStatic);
     webPatternStatic->UpdateIntrinsicSizeEnabled(supportDefaultIntrinsicSize);
+    webPatternStatic->UpdateCssDisplayChangeEnabled(supportCssDisplayChange);
+}
+
+void WebModelStatic::SetBypassVsyncCondition(FrameNode *frameNode,
+                                             const std::optional<WebBypassVsyncCondition>& condition)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateBypassVsyncCondition(condition.value_or(WebBypassVsyncCondition::NONE));
 }
 
 void WebModelStatic::SetMixedMode(FrameNode* frameNode, const std::optional<MixedModeContent>& mixedContentMode)
@@ -433,6 +496,19 @@ void WebModelStatic::SetAudioExclusive(FrameNode* frameNode, const std::optional
         webPatternStatic->UpdateAudioExclusive(audioExclusive.value());
     } else {
         webPatternStatic->ResetAudioExclusive();
+    }
+}
+
+void WebModelStatic::SetAudioSessionType(
+    FrameNode* frameNode, const std::optional<WebAudioSessionType>& audioSessionType)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    if (audioSessionType) {
+        webPatternStatic->UpdateAudioSessionType(audioSessionType.value());
+    } else {
+        webPatternStatic->ResetAudioSessionType();
     }
 }
 
@@ -653,6 +729,24 @@ void WebModelStatic::SetOnPageStart(FrameNode* frameNode, std::function<void(con
     webEventHub->SetOnPageStartedEvent(std::move(uiCallback));
 }
 
+void WebModelStatic::SetOnLoadStarted(FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnLoadStartedEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetOnLoadFinished(FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnLoadFinishedEvent(std::move(uiCallback));
+}
+
 void WebModelStatic::SetOnProgressChange(FrameNode* frameNode,
     std::function<void(const BaseEventInfo* info)>&& callback)
 {
@@ -821,6 +915,55 @@ void WebModelStatic::SetOnFileSelectorShow(
     webEventHub->SetOnFileSelectorShowEvent(std::move(uiCallback));
 }
 
+void WebModelStatic::SetDefaultFileSelectorShow(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) {
+        func(info.get());
+    };
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->SetDefaultFileSelectorShowCallback(std::move(uiCallback));
+}
+
+void WebModelStatic::SetOnDetectedBlankScreen(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto func = callback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo> &info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnDetectedBlankScreenEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetOnFirstScreenPaint(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto func = callback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo> &info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnFirstScreenPaintEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetBlankScreenDetectionConfig(
+    FrameNode* frameNode, const BlankScreenDetectionConfig& detectConfig)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateBlankScreenDetectionConfig(detectConfig);
+}
+
 void WebModelStatic::SetResourceLoadId(FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
 {
     CHECK_NULL_VOID(frameNode);
@@ -883,6 +1026,18 @@ void WebModelStatic::SetOnInterceptRequest(
     webEventHub->SetOnInterceptRequestEvent(std::move(uiCallback));
 }
 
+void WebModelStatic::SetOnOverrideErrorPage(
+    FrameNode* frameNode, std::function<std::string(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) -> std::string {
+        return func(info.get());
+    };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnOverrideErrorPageEvent(std::move(uiCallback));
+}
+
 void WebModelStatic::SetPermissionRequestEventId(
     FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
 {
@@ -891,6 +1046,16 @@ void WebModelStatic::SetPermissionRequestEventId(
     auto webEventHub = frameNode->GetEventHub<WebEventHub>();
     CHECK_NULL_VOID(webEventHub);
     webEventHub->SetOnPermissionRequestEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetPermissionClipboard(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->SetPermissionClipboardCallback(std::move(uiCallback));
 }
 
 void WebModelStatic::SetScreenCaptureRequestEventId(
@@ -981,6 +1146,17 @@ void WebModelStatic::SetOnSslSelectCertRequest(
     webEventHub->SetOnSslSelectCertRequestEvent(std::move(uiCallback));
 }
 
+void WebModelStatic::SetOnVerifyPinRequest(
+    FrameNode* frameNode, std::function<bool(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](
+                          const std::shared_ptr<BaseEventInfo>& info) -> bool { return func(info.get()); };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnVerifyPinRequestEvent(std::move(uiCallback));
+}
+
 void WebModelStatic::SetWindowNewEvent(
     FrameNode* frameNode, std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& callback)
 {
@@ -988,6 +1164,15 @@ void WebModelStatic::SetWindowNewEvent(
     auto webEventHub = frameNode->GetEventHub<WebEventHub>();
     CHECK_NULL_VOID(webEventHub);
     webEventHub->SetOnWindowNewEvent(std::move(callback));
+}
+
+void WebModelStatic::SetWindowNewExtEvent(
+    FrameNode* frameNode, std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnWindowNewExtEvent(std::move(callback));
 }
 
 void WebModelStatic::SetWindowExitEventId(
@@ -1176,6 +1361,47 @@ void WebModelStatic::SetNativeEmbedVisibilityChangeId(
     webEventHub->SetOnNativeEmbedVisibilityChangeEvent(std::move(uiCallback));
 }
 
+void WebModelStatic::SetNativeEmbedObjectParamChangeId(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnNativeEmbedObjectParamChangeEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetForceEnableZoom(FrameNode* frameNode, bool isForceEnableZoom)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateForceEnableZoom(isForceEnableZoom);
+}
+
+void WebModelStatic::SetRotateRenderEffect(FrameNode* frameNode, const std::optional<WebRotateEffect>& effect)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    if (effect) {
+        webPatternStatic->UpdateRotateRenderEffect(effect.value());
+    } else {
+        webPatternStatic->ResetRotateRenderEffect();
+    }
+}
+
+void WebModelStatic::SetEnableScrollDirectionalLock(
+    FrameNode* frameNode, const std::optional<bool>& isEnable, const std::optional<ScrollDirectionalLockType>& type)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->EnableScrollDirectionalLock(
+        isEnable.value_or(false),
+        static_cast<ScrollDirectionalLockType>(type.value_or(ScrollDirectionalLockType::NESTED_SCROLL)));
+}
+
 void WebModelStatic::SetNativeEmbedGestureEventId(
     FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
 {
@@ -1184,6 +1410,16 @@ void WebModelStatic::SetNativeEmbedGestureEventId(
     auto webEventHub = frameNode->GetEventHub<WebEventHub>();
     CHECK_NULL_VOID(webEventHub);
     webEventHub->SetOnNativeEmbedGestureEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetNativeEmbedMouseEventId(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnNativeEmbedMouseEvent(std::move(uiCallback));
 }
 
 void WebModelStatic::SetOnOverrideUrlLoading(
@@ -1196,6 +1432,30 @@ void WebModelStatic::SetOnOverrideUrlLoading(
     auto webEventHub = frameNode->GetEventHub<WebEventHub>();
     CHECK_NULL_VOID(webEventHub);
     webEventHub->SetOnOverrideUrlLoadingEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetOnPdfScrollAtBottom(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) {
+        return func(info.get());
+    };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnPdfScrollAtBottomEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetOnPdfLoadEvent(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) {
+        return func(info.get());
+    };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnPdfLoadEvent(std::move(uiCallback));
 }
 
 void WebModelStatic::SetRenderProcessNotRespondingId(
@@ -1250,6 +1510,52 @@ void WebModelStatic::SetAdsBlockedEventId(
     webEventHub->SetOnAdsBlockedEvent(std::move(uiCallback));
 }
 
+void WebModelStatic::SetBackToTop(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateBackToTop(isEnabled);
+}
+
+void WebModelStatic::SetEnableSelectedDataDetector(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateEnableSelectedDataDetector(isEnabled);
+}
+
+void WebModelStatic::SetOnTextSelectionChange(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto func = callback;
+    auto uiCallback = [func](const std::shared_ptr<BaseEventInfo> &info) {
+        CHECK_NULL_VOID(info);
+        func(info.get());
+    };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnTextSelectionChangeEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetEnableImageAnalyzer(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateEnableImageAnalyzer(isEnabled);
+}
+
+void WebModelStatic::SetEnableAutoFill(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateEnableAutoFill(isEnabled);
+}
+
 void WebModelStatic::NotifyPopupWindowResultStatic(int32_t webId, bool result)
 {
 #if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
@@ -1294,6 +1600,22 @@ void WebModelStatic::SetZoomAccessEnabled(FrameNode* frameNode, bool isZoomAcces
     webPatternStatic->UpdateZoomAccessEnabled(isZoomAccessEnabled);
 }
 
+void WebModelStatic::SetZoomControlAccess(FrameNode* frameNode, bool zoomControlAccess)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateZoomControlAccess(zoomControlAccess);
+}
+
+void WebModelStatic::SetGestureFocusMode(FrameNode* frameNode, const GestureFocusMode& mode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateGestureFocusMode(mode);
+}
+
 void WebModelStatic::SetMultiWindowAccessEnabled(FrameNode* frameNode, bool isMultiWindowAccessEnable)
 {
     CHECK_NULL_VOID(frameNode);
@@ -1308,5 +1630,89 @@ void WebModelStatic::SetAllowWindowOpenMethod(FrameNode* frameNode, bool isAllow
     auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
     CHECK_NULL_VOID(webPatternStatic);
     webPatternStatic->UpdateAllowWindowOpenMethod(isAllowWindowOpenMethod);
+}
+
+void WebModelStatic::SetActivateContentEventId(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnActivateContentEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetSafeBrowsingCheckFinishId(FrameNode* frameNode,
+    std::function<void(const std::shared_ptr<BaseEventInfo>& info)>&& safeBrowsingCheckFinishId)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnSafeBrowsingCheckFinishEvent(std::move(safeBrowsingCheckFinishId));
+}
+
+void WebModelStatic::SetJavaScriptProxy(FrameNode* frameNode, std::function<void()>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->SetJsProxyCallback(std::move(callback));
+}
+
+void WebModelStatic::SetCameraCaptureStateChangedId(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnCameraCaptureStateChangedEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetMicrophoneCaptureStateChangedId(
+    FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto uiCallback = [func = callback](const std::shared_ptr<BaseEventInfo>& info) { func(info.get()); };
+    auto webEventHub = frameNode->GetEventHub<WebEventHub>();
+    CHECK_NULL_VOID(webEventHub);
+    webEventHub->SetOnMicrophoneCaptureStateChangedEvent(std::move(uiCallback));
+}
+
+void WebModelStatic::SetEnableDefaultContextMenu(
+    FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateEnableDefaultContextMenu(isEnabled);
+}
+
+void WebModelStatic::SetEnableDrag(FrameNode* frameNode, bool isEnabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateEnableDrag(isEnabled);
+}
+
+void WebModelStatic::SetAISessionOptions(
+    FrameNode* frameNode, uint32_t type, const AISessionCallback&& onCreateAISession,
+    const AISessionCallback&& onExecuteAIAction, const AISessionCallback&& onDestroyAISession)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->GetAgentEventReporter()->SetAISessionOptions(type, std::move(onCreateAISession),
+        std::move(onExecuteAIAction), std::move(onDestroyAISession));
+}
+
+void WebModelStatic::SetScrollbarLayoutPolicy(
+    FrameNode* frameNode, ScrollbarLayoutPolicy policy)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto webPatternStatic = AceType::DynamicCast<WebPatternStatic>(frameNode->GetPattern());
+    CHECK_NULL_VOID(webPatternStatic);
+    webPatternStatic->UpdateScrollbarLayoutPolicy(policy);
 }
 } // namespace OHOS::Ace::NG

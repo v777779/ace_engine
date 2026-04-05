@@ -17,7 +17,10 @@
 
 #include "base/utils/multi_thread.h"
 #include "core/components_ng/base/view_abstract.h"
+#include "core/components_ng/pattern/grid/grid_event_hub.h"
+#include "core/components_ng/pattern/grid/grid_layout_property.h"
 #include "core/components_ng/pattern/grid/grid_pattern.h"
+#include "core/components_ng/pattern/scroll_bar/proxy/scroll_bar_proxy.h"
 #include "core/components_ng/pattern/scrollable/scrollable_model_ng.h"
 
 namespace OHOS::Ace::NG {
@@ -42,6 +45,7 @@ void GridModelStatic::SetLayoutOptions(FrameNode* frameNode, GridLayoutOptions& 
 
 void GridModelStatic::SetColumnsTemplate(FrameNode* frameNode, const std::optional<std::string>& columnsTemplate)
 {
+    ACE_RESET_NODE_LAYOUT_PROPERTY(GridLayoutProperty, ItemFillPolicy, frameNode);
     if (!columnsTemplate) {
         CHECK_NULL_VOID(frameNode);
         auto layout = frameNode->GetLayoutPropertyPtr<GridLayoutProperty>();
@@ -110,6 +114,14 @@ void GridModelStatic::SetEditable(FrameNode* frameNode, const std::optional<bool
     }
 }
 
+void GridModelStatic::SetEditModeOptions(FrameNode* frameNode, const EditModeOptions& editModeOptions)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<GridPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetEditModeOptions(editModeOptions);
+}
+
 void GridModelStatic::SetMultiSelectable(FrameNode* frameNode, bool multiSelectable)
 {
     auto pattern = frameNode->GetPattern<GridPattern>();
@@ -119,7 +131,7 @@ void GridModelStatic::SetMultiSelectable(FrameNode* frameNode, bool multiSelecta
 
 void GridModelStatic::SetMaxCount(FrameNode* frameNode, const std::optional<int32_t>& maxCount)
 {
-    if (maxCount && maxCount >= 1) {
+    if (maxCount.has_value() && maxCount.value() >= 1) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(GridLayoutProperty, MaxCount, maxCount.value(), frameNode);
     } else {
         CHECK_NULL_VOID(frameNode);
@@ -132,7 +144,7 @@ void GridModelStatic::SetMaxCount(FrameNode* frameNode, const std::optional<int3
 
 void GridModelStatic::SetMinCount(FrameNode* frameNode, const std::optional<int32_t>& minCount)
 {
-    if (minCount && minCount >= 1) {
+    if (minCount.has_value() && minCount.value() >= 1) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(GridLayoutProperty, MinCount, minCount.value(), frameNode);
     } else {
         CHECK_NULL_VOID(frameNode);
@@ -263,6 +275,26 @@ void GridModelStatic::SetAlignItems(FrameNode* frameNode, const std::optional<Gr
         layout->ResetAlignItems();
         layout->OnAlignItemsUpdate(GridItemAlignment::DEFAULT);
     }
+}
+
+void GridModelStatic::SetItemFillPolicy(FrameNode* frameNode, PresetFillType policy)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY(GridLayoutProperty, ColumnsTemplate, frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(GridLayoutProperty, ItemFillPolicy, policy, frameNode);
+}
+
+void GridModelStatic::SetFocusWrapMode(FrameNode* frameNode, const std::optional<FocusWrapMode>& focusWrapMode)
+{
+    if (focusWrapMode) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(GridLayoutProperty, FocusWrapMode, focusWrapMode.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(GridLayoutProperty, FocusWrapMode, frameNode);
+    }
+}
+
+void GridModelStatic::SetSyncLoad(FrameNode* frameNode, bool syncLoad)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(GridLayoutProperty, SyncLoad, syncLoad, frameNode);
 }
 
 void GridModelStatic::SetOnItemDragStart(
@@ -433,7 +465,7 @@ void GridModelStatic::SetOnScrollStop(FrameNode* frameNode, OnScrollStopEvent&& 
 
 void GridModelStatic::SetColumnsGap(FrameNode* frameNode, const std::optional<Dimension>& columnsGap)
 {
-    if (columnsGap && GreatOrEqual(columnsGap.value().Value(), 0.0f)) {
+    if (columnsGap) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(GridLayoutProperty, ColumnsGap, columnsGap.value(), frameNode);
     } else {
         ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(GridLayoutProperty, ColumnsGap, PROPERTY_UPDATE_MEASURE, frameNode);
@@ -442,7 +474,7 @@ void GridModelStatic::SetColumnsGap(FrameNode* frameNode, const std::optional<Di
 
 void GridModelStatic::SetRowsGap(FrameNode* frameNode, const std::optional<Dimension>& rowsGap)
 {
-    if (rowsGap && GreatOrEqual(rowsGap.value().Value(), 0.0f)) {
+    if (rowsGap) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(GridLayoutProperty, RowsGap, rowsGap.value(), frameNode);
     } else {
         ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(GridLayoutProperty, RowsGap, PROPERTY_UPDATE_MEASURE, frameNode);

@@ -16,17 +16,23 @@
 import { ArkWithThemeComponent, WithThemeOptions } from 'arkui/component/withTheme';
 import { int32 } from "@koalaui/common"
 import { ThemeColorMode } from "arkui/component/common"
-import { ArkThemeScopeManager } from 'arkui/theme/ArkThemeScopeManager';
+import { ArkThemeScopeManager, WithThemeScopeItem } from 'arkui/theme/ArkThemeScopeManager';
 import { ArkThemeBase } from 'arkui/theme/ArkThemeBase';
 import { ArkThemeNativeHelper } from 'arkui/theme/ArkThemeNativeHelper';
 
-export function hookWithThemeOptions(receiver: ArkWithThemeComponent, options: WithThemeOptions) {
+export function hookWithThemeOptions(receiver: ArkWithThemeComponent, options: WithThemeOptions | undefined) {
     const elmtId: int32 = receiver.getPeer()?.getId() ?? 0;
-    const colorMode = options.colorMode ?? ThemeColorMode.SYSTEM;
-    const cloneTheme = ArkThemeScopeManager.cloneCustomThemeWithExpand(options.theme);
+    const colorMode = options?.colorMode ?? ThemeColorMode.SYSTEM;
+    const cloneTheme = ArkThemeScopeManager.cloneCustomThemeWithExpand(options?.theme);
     const theme: ArkThemeBase = ArkThemeScopeManager.getInstance().makeTheme(cloneTheme, colorMode);
+    const darkSetStatus: boolean = !!cloneTheme?.darkColors;
     // bind theme to theme scope with elmtId
     theme.bindToScope(elmtId);
+
+    ArkThemeScopeManager.getInstance().themeOptionsStack.push({
+        options: options,
+        themeScopeId: elmtId,
+    } as WithThemeScopeItem);
 
     // prepare on theme scope destroy callback
     const onThemeScopeDestroy = () => {
@@ -34,9 +40,9 @@ export function hookWithThemeOptions(receiver: ArkWithThemeComponent, options: W
     };
 
     // keep for backward compatibility
-    ArkThemeNativeHelper.sendThemeToNative(theme, elmtId);
+    ArkThemeNativeHelper.sendThemeToNative(theme, elmtId, darkSetStatus);
     // new approach to apply theme in native side
-    ArkThemeNativeHelper.createInternal(elmtId, theme.id, cloneTheme, colorMode, onThemeScopeDestroy);
+    ArkThemeNativeHelper.createInternal(elmtId, theme.id, cloneTheme, colorMode, onThemeScopeDestroy, darkSetStatus);
 
     ArkThemeScopeManager.getInstance().onScopeEnter(elmtId, options ?? ({} as WithThemeOptions), theme);
 }

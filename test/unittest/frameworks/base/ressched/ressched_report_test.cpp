@@ -14,10 +14,14 @@
  */
 
 #include "gtest/gtest.h"
+#define private public
+#define protected public
 #include "base/ressched/ressched_report.h"
 #include "core/common/ace_application_info.h"
 #include "core/event/touch_event.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#undef private
+#undef protected
 
 using namespace testing;
 using namespace testing::ext;
@@ -53,6 +57,24 @@ HWTEST_F(ResSchedReportTest, ResSchedReportTest001, TestSize.Level1)
     ReportConfig config;
     config.isReportTid = true;
     config.tid = 98765;
+    ResSchedReport::GetInstance().OnTouchEvent(touchEvent, config);
+    EXPECT_NE(touchEvent.localX, touchEvent.localY);
+}
+
+/**
+ * @tc.name: ResSchedReportTest002
+ * @tc.desc: test touch move
+ * @tc.type: FUNC
+ */
+HWTEST_F(ResSchedReportTest, ResSchedReportTest002, TestSize.Level1)
+{
+    TouchEvent touchEvent;
+    touchEvent.type = TouchType::MOVE;
+    touchEvent.localX = 100.0f;
+    touchEvent.localY = 200.0f;
+    ReportConfig config;
+    config.isReportTid = true;
+    config.tid = 12345;
     ResSchedReport::GetInstance().OnTouchEvent(touchEvent, config);
     EXPECT_NE(touchEvent.localX, touchEvent.localY);
 }

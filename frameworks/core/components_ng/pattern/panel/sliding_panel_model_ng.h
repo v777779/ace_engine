@@ -43,8 +43,6 @@ public:
     void SetBorder(const BorderStyle& borderStyle, const Dimension& borderWidth) override;
     void SetModeChangeEvent(ChangeEvent&& modeChangeEvent) override;
 
-public:
-    static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
     static void SetPanelMode(FrameNode* frameNode, PanelMode mode);
     static void SetPanelMiniHeight(FrameNode* frameNode, const Dimension& miniHeight);
     static void SetPanelHalfHeight(FrameNode* frameNode, const Dimension& halfHeight);
@@ -57,9 +55,6 @@ public:
     static void SetShowCloseIcon(FrameNode* frameNode, bool showCloseIcon);
     static void SetHasDragBar(FrameNode* frameNode, bool hasDragBar);
     static void SetIsShow(FrameNode* frameNode, bool isShow);
-    static void SetOnSizeChange(FrameNode* frameNode, ChangeEvent&& changeEvent);
-    static void SetOnHeightChange(FrameNode* frameNode, HeightChangeEvent&& onHeightChange);
-    static void SetModeChangeEvent(FrameNode* frameNode, ChangeEvent&& modeChangeEvent);
 
 private:
     static RefPtr<SlidingPanelNode> GetOrCreateSlidingPanelNode(

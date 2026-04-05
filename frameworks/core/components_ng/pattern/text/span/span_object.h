@@ -24,13 +24,18 @@
 #include "base/memory/referenced.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/pattern/text/span/tlv_util.h"
-#include "core/components_ng/pattern/text/span_node.h"
 #include "core/components_ng/pattern/text/text_model.h"
 #include "core/components_ng/pattern/text/text_styles.h"
 #include "core/components_ng/pattern/text_field/text_field_model.h"
 #include "core/components_ng/render/paragraph.h"
 
 namespace OHOS::Ace {
+
+namespace NG {
+    struct SpanItem;
+    struct ImageSpanItem;
+    struct CustomSpanItem;
+}
 
 enum class SpanType {
     Font = 0,
@@ -58,13 +63,15 @@ struct SpanParagraphStyle {
     std::optional<NG::LeadingMargin> leadingMargin;
     std::optional<Dimension> textIndent;
     std::optional<Dimension> paragraphSpacing;
+    std::optional<NG::DrawableLeadingMargin> drawableLeadingMargin;
+    std::optional<TextDirection> textDirection;
 
     bool Equal(const SpanParagraphStyle& other) const
     {
         auto flag = align == other.align && textVerticalAlign == other.textVerticalAlign &&
-                    maxLines == other.maxLines && wordBreak == other.wordBreak &&
-                    textOverflow == other.textOverflow && textIndent == other.textIndent &&
-                    paragraphSpacing == other.paragraphSpacing;
+                    maxLines == other.maxLines && wordBreak == other.wordBreak && textOverflow == other.textOverflow &&
+                    textIndent == other.textIndent && paragraphSpacing == other.paragraphSpacing &&
+                    textDirection == other.textDirection;
         if (leadingMargin.has_value() && other.leadingMargin.has_value()) {
             flag &= leadingMargin.value().CheckLeadingMargin(other.leadingMargin.value());
         } else if (!leadingMargin.has_value() && !other.textOverflow.has_value()) {
@@ -111,12 +118,15 @@ public:
     virtual void ApplyToSpanItem(const RefPtr<NG::SpanItem>& spanItem, SpanOperation operation) const = 0;
     virtual std::string ToString() const = 0;
 
-    int32_t GetStartIndex() const;
-    int32_t GetEndIndex() const;
+    ACE_FORCE_EXPORT int32_t GetStartIndex() const;
+    ACE_FORCE_EXPORT int32_t GetEndIndex() const;
     void UpdateStartIndex(int32_t startIndex);
     void UpdateEndIndex(int32_t endIndex);
     int32_t GetLength() const;
     std::optional<std::pair<int32_t, int32_t>> GetIntersectionInterval(std::pair<int32_t, int32_t> interval) const;
+    virtual void ClearSpecialData() {};
+    static void ParseColorWithVersion(
+        const RefPtr<ResourceObject>& resObj, Color& outColor, const RefPtr<NG::FrameNode>& frameNode);
 
 private:
     int32_t start_ = 0;
@@ -129,8 +139,8 @@ class FontSpan : public SpanBase {
 public:
     FontSpan() = default;
     explicit FontSpan(Font font);
-    FontSpan(Font font, int32_t start, int32_t end);
-    Font GetFont() const;
+    ACE_FORCE_EXPORT FontSpan(Font font, int32_t start, int32_t end);
+    ACE_FORCE_EXPORT Font GetFont() const;
     RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
     bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
     SpanType GetSpanType() const override;
@@ -140,6 +150,7 @@ public:
 
 private:
     void AddSpanStyle(const RefPtr<NG::SpanItem>& spanItem) const;
+    void AddColorResourceObj(const RefPtr<NG::SpanItem>& spanItem) const;
     static void RemoveSpanStyle(const RefPtr<NG::SpanItem>& spanItem);
 
     Font font_;
@@ -152,21 +163,23 @@ public:
     DecorationSpan() = default;
     // remove when richEditor ready
     explicit DecorationSpan(const std::vector<TextDecoration>& types, std::optional<Color> color,
-        std::optional<TextDecorationStyle> style, std::optional<TextDecorationOptions> options);
-    DecorationSpan(const std::vector<TextDecoration>& types, std::optional<Color> color,
         std::optional<TextDecorationStyle> style, std::optional<TextDecorationOptions> options,
-        int32_t start, int32_t end);
+        const RefPtr<ResourceObject>& colorResObj);
+    DecorationSpan(const std::vector<TextDecoration>& types, std::optional<Color> color,
+        std::optional<TextDecorationStyle> style, std::optional<TextDecorationOptions> options, int32_t start,
+        int32_t end, const RefPtr<ResourceObject>& colorResObj);
     explicit DecorationSpan(const std::vector<TextDecoration>& types, std::optional<Color> color,
         std::optional<TextDecorationStyle> style, std::optional<float> lineThicknessScale,
-        std::optional<TextDecorationOptions> options);
-    DecorationSpan(const std::vector<TextDecoration>& types, std::optional<Color> color,
+        std::optional<TextDecorationOptions> options, const RefPtr<ResourceObject>& colorResObj);
+    ACE_FORCE_EXPORT DecorationSpan(const std::vector<TextDecoration>& types, std::optional<Color> color,
         std::optional<TextDecorationStyle> style, std::optional<float> lineThicknessScale,
-        std::optional<TextDecorationOptions> options, int32_t start, int32_t end);
+        std::optional<TextDecorationOptions> options, int32_t start, int32_t end,
+        const RefPtr<ResourceObject>& colorResObj);
     TextDecoration GetTextDecorationFirst() const;
-    std::vector<TextDecoration> GetTextDecorationTypes() const;
-    void SetTextDecorationTypes(const std::vector<TextDecoration>& types);
-    void RemoveTextDecorationType(TextDecoration value);
-    void AddTextDecorationType(TextDecoration value);
+    ACE_FORCE_EXPORT std::vector<TextDecoration> GetTextDecorationTypes() const;
+    ACE_FORCE_EXPORT void SetTextDecorationTypes(const std::vector<TextDecoration>& types);
+    ACE_FORCE_EXPORT void RemoveTextDecorationType(TextDecoration value);
+    ACE_FORCE_EXPORT void AddTextDecorationType(TextDecoration value);
     std::optional<Color> GetColor() const;
     std::optional<TextDecorationStyle> GetTextDecorationStyle() const;
     std::optional<float> GetTextDecorationLineThicknessScale() const;
@@ -179,6 +192,7 @@ public:
     std::string ToString() const override;
     void ApplyToSpanItem(const RefPtr<NG::SpanItem>& spanItem, SpanOperation operation) const override;
     std::optional<float> GetLineThicknessScale() const;
+    const RefPtr<ResourceObject>& GetColorResObj() const;
 
 private:
     void AddDecorationStyle(const RefPtr<NG::SpanItem>& spanItem) const;
@@ -189,6 +203,8 @@ private:
     std::optional<TextDecorationStyle> style_;
     std::optional<float> lineThicknessScale_;
     std::optional<TextDecorationOptions> options_;
+
+    RefPtr<ResourceObject> colorResObj_;
 };
 
 class BaselineOffsetSpan : public SpanBase {
@@ -217,7 +233,7 @@ class LetterSpacingSpan : public SpanBase {
 public:
     LetterSpacingSpan() = default;
     explicit LetterSpacingSpan(Dimension letterSpacing);
-    LetterSpacingSpan(Dimension letterSpacing, int32_t start, int32_t end);
+    ACE_FORCE_EXPORT LetterSpacingSpan(Dimension letterSpacing, int32_t start, int32_t end);
     Dimension GetLetterSpacing() const;
     RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
     bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
@@ -265,13 +281,28 @@ private:
     int32_t gestureSpanId_ = -1;
 };
 
+class NapiGestureSpan : public GestureSpan {
+    DECLARE_ACE_TYPE(NapiGestureSpan, GestureSpan);
+
+public:
+    NapiGestureSpan() = default;
+    explicit NapiGestureSpan(GestureStyle gestureInfo) : GestureSpan(gestureInfo) {};
+    NapiGestureSpan(GestureStyle gestureInfo, int32_t start, int32_t end) : GestureSpan(gestureInfo, start, end) {};
+    RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
+    bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
+    void ClearSpecialData() override;
+    void* onNapiClick_ = nullptr;
+    void* onNapiLongPress_ = nullptr;
+    void* onNapiTouch_ = nullptr;
+};
+
 class TextShadowSpan : public SpanBase {
     DECLARE_ACE_TYPE(TextShadowSpan, SpanBase);
 
 public:
     TextShadowSpan() = default;
     explicit TextShadowSpan(std::vector<Shadow> font);
-    TextShadowSpan(std::vector<Shadow> font, int32_t start, int32_t end);
+    ACE_FORCE_EXPORT TextShadowSpan(std::vector<Shadow> font, int32_t start, int32_t end);
     std::vector<Shadow> GetTextShadow() const;
     RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
     bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
@@ -291,7 +322,8 @@ class BackgroundColorSpan : public SpanBase {
 public:
     BackgroundColorSpan() = default;
     explicit BackgroundColorSpan(std::optional<TextBackgroundStyle> textBackgroundStyle_);
-    BackgroundColorSpan(std::optional<TextBackgroundStyle> textBackgroundStyle_, int32_t start, int32_t end);
+    ACE_FORCE_EXPORT BackgroundColorSpan(
+        std::optional<TextBackgroundStyle> textBackgroundStyle_, int32_t start, int32_t end);
     TextBackgroundStyle GetBackgroundColor() const;
     void SetBackgroundColorGroupId(int32_t groupId);
     RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
@@ -329,7 +361,7 @@ class CustomSpan : public SpanBase {
     DECLARE_ACE_TYPE(CustomSpan, SpanBase);
 
 public:
-    CustomSpan();
+    ACE_FORCE_EXPORT CustomSpan();
     explicit CustomSpan(std::optional<std::function<CustomSpanMetrics(CustomSpanMeasureInfo)>> onMeasure,
         std::optional<std::function<void(NG::DrawingContext&, CustomSpanOptions)>> onDraw);
 
@@ -339,8 +371,8 @@ public:
     RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
     bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
     SpanType GetSpanType() const override;
-    void SetOnMeasure(std::function<CustomSpanMetrics(CustomSpanMeasureInfo)> onMeasure);
-    void SetOnDraw(std::function<void(NG::DrawingContext&, CustomSpanOptions)> onDraw);
+    ACE_FORCE_EXPORT void SetOnMeasure(std::function<CustomSpanMetrics(CustomSpanMeasureInfo)> onMeasure);
+    ACE_FORCE_EXPORT void SetOnDraw(std::function<void(NG::DrawingContext&, CustomSpanOptions)> onDraw);
     std::optional<std::function<CustomSpanMetrics(CustomSpanMeasureInfo)>> GetOnMeasure();
     std::optional<std::function<void(NG::DrawingContext&, CustomSpanOptions)>> GetOnDraw();
     std::string ToString() const override;
@@ -353,14 +385,36 @@ private:
     std::optional<std::function<void(NG::DrawingContext&, CustomSpanOptions)>> onDraw_;
 };
 
+class NapiCustomSpan : public CustomSpan {
+    DECLARE_ACE_TYPE(NapiCustomSpan, CustomSpan);
+
+public:
+    NapiCustomSpan();
+    explicit NapiCustomSpan(std::optional<std::function<CustomSpanMetrics(CustomSpanMeasureInfo)>> onMeasure,
+        std::optional<std::function<void(NG::DrawingContext&, CustomSpanOptions)>> onDraw) : CustomSpan(onMeasure,
+            onDraw) {};
+
+    explicit NapiCustomSpan(std::optional<std::function<CustomSpanMetrics(CustomSpanMeasureInfo)>> onMeasure,
+        std::optional<std::function<void(NG::DrawingContext&, CustomSpanOptions)>> onDraw,
+        int32_t start, int32_t end) : CustomSpan(onMeasure, onDraw, start, end) {};
+    RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
+    void ClearSpecialData() override;
+    void* onNapiMeasure_ = nullptr;
+    void* onNapiDraw_ = nullptr;
+};
+
 class ParagraphStyleSpan : public SpanBase {
     DECLARE_ACE_TYPE(ParagraphStyleSpan, SpanBase);
 
 public:
     ParagraphStyleSpan() = default;
     explicit ParagraphStyleSpan(SpanParagraphStyle paragraphStyle);
-    ParagraphStyleSpan(SpanParagraphStyle paragraphStyle, int32_t start, int32_t end);
-    SpanParagraphStyle GetParagraphStyle() const;
+    ACE_FORCE_EXPORT ParagraphStyleSpan(SpanParagraphStyle paragraphStyle, int32_t start, int32_t end);
+    SpanParagraphStyle GetParagraphStyle() const
+    {
+        return paragraphStyle_;
+    }
+    void SetParagraphStyle(const SpanParagraphStyle& paragraphStyle);
     RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
     bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
     SpanType GetSpanType() const override;
@@ -375,13 +429,28 @@ private:
     SpanParagraphStyle paragraphStyle_;
 };
 
+class NapiParagraphStyleSpan : public ParagraphStyleSpan {
+    DECLARE_ACE_TYPE(NapiParagraphStyleSpan, ParagraphStyleSpan);
+public:
+    NapiParagraphStyleSpan() = default;
+    explicit NapiParagraphStyleSpan(SpanParagraphStyle paragraphStyle) : ParagraphStyleSpan(paragraphStyle) {};
+    NapiParagraphStyleSpan(SpanParagraphStyle paragraphStyle, int32_t start, int32_t end) : ParagraphStyleSpan(
+        paragraphStyle, start, end) {};
+    RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
+    bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
+    void ClearSpecialData() override;
+
+    void* onNapiDrawLeadingMargin_ = nullptr;
+    void* onNapiGetLeadingMargin_ = nullptr;
+};
+
 class LineHeightSpan : public SpanBase {
     DECLARE_ACE_TYPE(LineHeightSpan, SpanBase);
 
 public:
     LineHeightSpan() = default;
     explicit LineHeightSpan(Dimension lineHeight);
-    LineHeightSpan(Dimension lineHeight, int32_t start, int32_t end);
+    ACE_FORCE_EXPORT LineHeightSpan(Dimension lineHeight, int32_t start, int32_t end);
     Dimension GetLineHeight() const;
     RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
     bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
@@ -402,7 +471,7 @@ class HalfLeadingSpan : public SpanBase {
 public:
     HalfLeadingSpan() = default;
     explicit HalfLeadingSpan(bool halfLeading);
-    HalfLeadingSpan(bool halfLeading, int32_t start, int32_t end);
+    ACE_FORCE_EXPORT HalfLeadingSpan(bool halfLeading, int32_t start, int32_t end);
     bool GetHalfLeading() const;
     RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
     bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
@@ -423,11 +492,14 @@ class ExtSpan : public SpanBase {
 public:
     ExtSpan() = default;
     ExtSpan(int32_t start, int32_t end);
+    ExtSpan(void* userData, int32_t start, int32_t end);
     RefPtr<SpanBase> GetSubSpan(int32_t start, int32_t end) override;
     bool IsAttributesEqual(const RefPtr<SpanBase>& other) const override;
     SpanType GetSpanType() const override;
     std::string ToString() const override;
     void ApplyToSpanItem(const RefPtr<NG::SpanItem>& spanItem, SpanOperation operation) const override {}
+    void ClearSpecialData() override;
+    void* userData_;
 };
 
 class UrlSpan : public SpanBase {

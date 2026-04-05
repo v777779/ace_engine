@@ -35,14 +35,17 @@
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/select/select_model.h"
 #include "core/components_ng/property/border_property.h"
-#include "core/components_ng/property/menu_property.h"
-#include "core/components_v2/inspector/inspector_constants.h"
 
 constexpr int32_t DEFAULT_CLICK_DISTANCE = 15;
 constexpr uint32_t MAX_SEARCH_DEPTH = 5;
 constexpr double MENU_ANIMATION_MAX_SCALE = 1.0f;
 constexpr double MENU_ANIMATION_MIN_OPACITY = 0.0f;
 constexpr double MENU_ANIMATION_MAX_OPACITY = 1.0f;
+
+namespace OHOS::Ace {
+class SelectTheme;
+}
+
 namespace OHOS::Ace::NG {
 
 struct SelectProperties {
@@ -106,12 +109,17 @@ public:
         return IsMultiMenu();
     }
 
-    bool IsChildColumnLayout() override
+    bool ChildPreMeasureHelperEnabled() override
     {
-        return IsMultiMenu();
+        return true;
     }
 
-    bool IsChildComponentContent() override
+    bool PostponedTaskForIgnoreEnabled() override
+    {
+        return true;
+    }
+
+    bool IsEnabledContentForFixIdeal()
     {
         return IsMultiMenu();
     }
@@ -223,6 +231,8 @@ public:
         return type_ == MenuType::SELECT_OVERLAY_EXTENSION_MENU;
     }
 
+    bool IsSelectOverlayExtensionMenuWithSubMenu() const;
+
     bool IsSelectOverlayCustomMenu() const
     {
         return type_ == MenuType::SELECT_OVERLAY_CUSTOM_MENU;
@@ -304,6 +314,17 @@ public:
         return options_;
     }
 
+    void AddMenuItemNode(const RefPtr<FrameNode>& menuItem)
+    {
+        CHECK_NULL_VOID(menuItem);
+        menuItems_.emplace_back(menuItem);
+    }
+
+    const std::vector<RefPtr<FrameNode>>& GetMenuItems() const
+    {
+        return menuItems_;
+    }
+
     std::vector<RefPtr<FrameNode>>& GetEmbeddedMenuItems()
     {
         return embeddedMenuItems_;
@@ -331,6 +352,8 @@ public:
         needHideAfterTouch_ = needHideAfterTouch;
     }
 
+    void DoCloseSubMenus() const;
+
     void HideMenu(const HideMenuType& reason)
     {
         HideMenu(false, OffsetF(), reason);
@@ -342,7 +365,11 @@ public:
     bool HideStackExpandMenu(const OffsetF& position) const;
 
     void HideStackMenu() const;
-
+    void HideAllEmbeddedMenuItems(bool isNeedAnimation);
+    void SetNeedDivider()
+    {
+        isNeedDivider_ = true;
+    }
     void MountOption(const RefPtr<FrameNode>& option);
 
     void RemoveOption();
@@ -381,8 +408,8 @@ public:
     RefPtr<FrameNode> GetMenuWrapper() const;
     RefPtr<FrameNode> GetFirstInnerMenu() const;
     void DumpInfo() override;
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
     void SetFirstShow()
     {
         isFirstShow_ = true;
@@ -545,13 +572,9 @@ public:
         }
     }
 
-    ShadowStyle GetMenuDefaultShadowStyle()
+    ShadowStyle GetMenuDefaultShadowStyle(PipelineContext* pipeline)
     {
         auto shadowStyle = ShadowStyle::OuterDefaultMD;
-
-        auto host = GetHost();
-        CHECK_NULL_RETURN(host, shadowStyle);
-        auto pipeline = host->GetContextRefPtr();
         CHECK_NULL_RETURN(pipeline, shadowStyle);
         auto menuTheme = pipeline->GetTheme<MenuTheme>();
         CHECK_NULL_RETURN(menuTheme, shadowStyle);
@@ -559,7 +582,7 @@ public:
         return shadowStyle;
     }
 
-    bool GetShadowFromTheme(ShadowStyle shadowStyle, Shadow& shadow);
+    bool GetShadowFromTheme(ShadowStyle shadowStyle, Shadow& shadow, PipelineContext* pipelineContext);
 
     bool UseContentModifier()
     {
@@ -569,8 +592,6 @@ public:
     void FireBuilder();
 
     BorderRadiusProperty CalcIdealBorderRadius(const BorderRadiusProperty& borderRadius, const SizeF& menuSize);
-
-    void OnItemPressed(const RefPtr<UINode>& parent, int32_t index, bool press, bool hover = false);
 
     RefPtr<FrameNode> GetLastSelectedItem()
     {
@@ -585,6 +606,8 @@ public:
     {
         lastPosition_ = lastPosition;
     }
+
+    void OnItemPressed(const RefPtr<UINode>& parent, int32_t index, bool press, bool hover = false);
 
     void UpdateLastPlacement(std::optional<Placement> lastPlacement)
     {
@@ -611,14 +634,6 @@ public:
     bool IsStackSubmenu()
     {
         return isStackSubmenu_;
-    }
-    void SetMenuWindowRect(const Rect& menuWindowRect)
-    {
-        menuWindowRect_ = menuWindowRect;
-    }
-    Rect GetMenuWindowRect() const
-    {
-        return menuWindowRect_;
     }
 
     void SetMenuLayoutParam(const PreviewMenuParam& layoutParam)
@@ -660,9 +675,7 @@ public:
 
     float GetSelectMenuWidthFromTheme() const;
 
-    bool IsSelectOverlayDefaultModeRightClickMenu();
-    void UpdateMenuDividerWithMode(const RefPtr<UINode>& previousNode, const RefPtr<UINode>& currentNode,
-        const RefPtr<MenuLayoutProperty>& property, int32_t& index);
+    bool IsSelectOverlayShowInSubWindow();
     void RemoveLastNodeDivider(const RefPtr<UINode>& lastNode);
     void UpdateMenuItemDivider();
     void UpdateDividerProperty(const RefPtr<FrameNode>& dividerNode, const std::optional<V2::ItemDivider>& divider);
@@ -700,9 +713,9 @@ public:
         originPreviewYForStack_ = tmp;
     }
 
-    void SetDisableMenuBgColorByUser(bool isSetByUser = false)
+    void SetDisableMenuBgColorByUser(bool ret = false)
     {
-        isDisableMenuBgColorByUser_ = isSetByUser;
+        isDisableMenuBgColorByUser_ = ret;
     }
 
     void SetSubMenuDepth(int32_t depth)
@@ -713,6 +726,30 @@ public:
     int32_t GetSubMenuDepth() const
     {
         return subMenuDepth_;
+    }
+
+    void AddBuildDividerTask();
+
+    void SetSubMenuOriginOffset(OffsetF offset)
+    {
+        subMenuOriginOffset_ = offset;
+    }
+
+    OffsetF GetSubMenuOriginOffset() const
+    {
+        return subMenuOriginOffset_;
+    }
+
+    void ApplyScrollBarToScrollNode();
+
+    void SetScrollBar(std::optional<DisplayMode> displayMode)
+    {
+        scrollBar_ = displayMode;
+    }
+
+    std::optional<DisplayMode> GetScrollBar() const
+    {
+        return scrollBar_;
     }
 
 protected:
@@ -727,14 +764,21 @@ protected:
     {
         isNeedDivider_ = false;
     }
-    virtual void InitTheme(const RefPtr<FrameNode>& host);
+    virtual void InitTheme(const RefPtr<FrameNode>& host, const RefPtr<SelectTheme>& theme);
     virtual void UpdateBorderRadius(const RefPtr<FrameNode>& menuNode, const BorderRadiusProperty& borderRadius);
 
 private:
+    void UpdateMenuDividerWithMode(const RefPtr<UINode>& previousNode, const RefPtr<UINode>& currentNode,
+        const RefPtr<MenuLayoutProperty>& property, int32_t& index);
+    void AddGroupHeaderDivider(RefPtr<UINode>& previousNode, const RefPtr<UINode>& currentNode,
+        const RefPtr<MenuLayoutProperty>& property, int32_t& index);
+    void AddGroupFooterDivider(RefPtr<UINode>& previousNode, const RefPtr<UINode>& currentNode,
+        const RefPtr<MenuLayoutProperty>& property, int32_t& index);
     void OnAttachToFrameNode() override;
     int32_t RegisterHalfFoldHover(const RefPtr<FrameNode>& menuNode);
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
     void OnDetachFromMainTree() override;
+    void ResetThemeByInnerMenuCount();
 
     void RegisterOnTouch();
     void OnTouchEvent(const TouchEventInfo& info);
@@ -743,8 +787,6 @@ private:
     // If CustomBuilder is declared with <Menu> and <MenuItem>,
     // reset outer menu container and only apply theme on the inner <Menu> node.
     void ResetTheme(const RefPtr<FrameNode>& host, bool resetForDesktopMenu);
-    void ResetScrollTheme(const RefPtr<FrameNode>& host);
-    void ResetThemeByInnerMenuCount();
     void CopyMenuAttr(const RefPtr<FrameNode>& menuNode) const;
 
     void RegisterOnKeyEvent(const RefPtr<FocusHub>& focusHub);
@@ -780,7 +822,6 @@ private:
     void HandleNextPressed(const RefPtr<UINode>& parent, int32_t index, bool press, bool hover);
     void HandlePrevPressed(const RefPtr<UINode>& parent, int32_t index, bool press);
     void SetMenuBackGroundStyle(const RefPtr<FrameNode>& menuNode, const MenuParam& menuParam);
-    void UpdateMenuBorderAndBackgroundBlur();
 
     RefPtr<FrameNode> BuildContentModifierNode(int index);
     bool IsMenuScrollable() const;
@@ -796,6 +837,9 @@ private:
         AnimationOption& option) const;
     void ShowStackMainMenuDisappearAnimation(const RefPtr<FrameNode>& menuNode,
         const RefPtr<FrameNode>& subMenuNode, AnimationOption& option) const;
+    void OnAttachToMainTree() override;
+    void BuildDivider();
+    RefPtr<FrameNode> GetFirstNodeWithTagInParent(const RefPtr<UINode>& node, const std::string& tag);
 
     RefPtr<ClickEvent> onClick_;
     RefPtr<TouchEventImpl> onTouch_;
@@ -808,8 +852,9 @@ private:
     std::optional<SelectMakeCallback> makeFunc_;
 
     RefPtr<FrameNode> parentMenuItem_;
-    RefPtr<FrameNode> showedSubMenu_;
+    mutable RefPtr<FrameNode> showedSubMenu_;
     std::vector<RefPtr<FrameNode>> options_;
+    std::vector<RefPtr<FrameNode>> menuItems_;
     std::optional<int32_t> foldStatusChangedCallbackId_;
     std::optional<int32_t> halfFoldHoverCallbackId_;
 
@@ -830,9 +875,9 @@ private:
     OffsetF endOffset_;
     OffsetF disappearOffset_;
     OffsetF previewOriginOffset_;
+    OffsetF statusOriginOffset_;
     RectF previewRect_;
     SizeF previewIdealSize_;
-    OffsetF statusOriginOffset_;
 
     WeakPtr<FrameNode> builderNode_;
     bool isWidthModifiedBySelect_ = false;
@@ -844,10 +889,9 @@ private:
     bool expandDisplay_ = false;
     RefPtr<FrameNode> lastSelectedItem_ = nullptr;
     bool isEmbedded_ = false;
-    std::vector<RefPtr<FrameNode>> embeddedMenuItems_;
+    mutable std::vector<RefPtr<FrameNode>> embeddedMenuItems_;
     bool isStackSubmenu_ = false;
     bool isNeedDivider_ = false;
-    Rect menuWindowRect_;
     PreviewMenuParam layoutParam_;
     WeakPtr<UINode> customNode_ = nullptr;
     std::optional<MenuPathParams> pathParams_ = std::nullopt;
@@ -855,10 +899,12 @@ private:
     float originMenuYForStack_ = 0.0f;
     float originPreviewYForStack_ = 0.0f;
     bool isDisableMenuBgColorByUser_ = false;
+    bool buildDividerTaskAdded_ = false;
+    OffsetF subMenuOriginOffset_ = OffsetF();
+    std::optional<DisplayMode> scrollBar_;
 
     // only used for Side sub menu
     int32_t subMenuDepth_ = 0;
-
     ACE_DISALLOW_COPY_AND_MOVE(MenuPattern);
 };
 
@@ -881,7 +927,7 @@ public:
     }
 
 private:
-    void InitTheme(const RefPtr<FrameNode>& host) override;
+    void InitTheme(const RefPtr<FrameNode>& host, const RefPtr<SelectTheme>& theme) override;
     void UpdateBorderRadius(const RefPtr<FrameNode>& menuNode, const BorderRadiusProperty& borderRadius) override;
     uint32_t FindSiblingMenuCount();
     void ApplyDesktopMenuTheme();
@@ -892,7 +938,6 @@ private:
     // Record menu's items and groups at first level,
     // use for group header and footer padding
     std::list<WeakPtr<UINode>> itemsAndGroups_;
-
     ACE_DISALLOW_COPY_AND_MOVE(InnerMenuPattern);
 };
 } // namespace OHOS::Ace::NG

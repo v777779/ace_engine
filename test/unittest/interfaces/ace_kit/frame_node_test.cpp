@@ -14,10 +14,17 @@
  */
 
 #include "gtest/gtest.h"
+
+#define private public
+#define protected public
+
 #include "interfaces/inner_api/ace_kit/src/view/frame_node_impl.h"
 #include "test/unittest/interfaces/ace_kit/mock/mock_ace_kit_pattern.h"
 #include "test/unittest/interfaces/ace_kit/mock/mock_ace_kit_property.h"
+#include "ui/base/geometry/ng/offset_t.h"
+#include "ui/base/geometry/ng/size_t.h"
 #include "ui/properties/dirty_flag.h"
+#include "ui/view/components/stack.h"
 #include "ui/view/frame_node.h"
 #include "ui/view_factory/abstract_view_factory.h"
 
@@ -29,6 +36,19 @@ using namespace testing::ext;
 using namespace OHOS::Ace::Kit;
 namespace OHOS::Ace {
 class FrameNodeTest : public testing::Test {};
+
+class TestAICaller : public AICallerHelper {
+public:
+    TestAICaller() = default;
+    ~TestAICaller() override = default;
+    bool onAIFunctionCaller(const std::string& funcName, const std::string& params) override
+    {
+        if (funcName.compare("Success") == 0) {
+            return true;
+        }
+        return false;
+    }
+};
 
 /**
  * @tc.name: FrameNodeTestTest001
@@ -42,7 +62,6 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest001, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
-
     EXPECT_EQ(frameNode->GetId(), id);
     auto nodeTag = frameNode->GetTag();
     EXPECT_EQ(tag, nodeTag);
@@ -59,10 +78,8 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest002, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, 2, mockPattern);
     EXPECT_NE(frameNode, nullptr);
-
     auto property = frameNode->GetProperty();
     EXPECT_TRUE(property);
-
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
     auto* aceNodePtr = frameNodeImpl->GetAceNodePtr();
@@ -71,7 +88,6 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest002, TestSize.Level1)
     EXPECT_TRUE(aceNode);
     auto pattern = frameNodeImpl->GetPattern();
     EXPECT_TRUE(pattern);
-
     frameNode->Reset();
     EXPECT_FALSE(frameNodeImpl->GetAceNodePtr());
     EXPECT_FALSE(frameNodeImpl->GetAceNode());
@@ -90,13 +106,12 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest003, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
-
     auto aceNode =
         NG::FrameNode::GetOrCreateFrameNode("TEST_ACE_NODE", 3, []() { return AceType::MakeRefPtr<NG::Pattern>(); });
     ASSERT_TRUE(aceNode);
-
     auto popAceNode = frameNodeImpl->MoveOwnershipAndGetAceNode();
     EXPECT_EQ(popAceNode->GetTag(), tag);
     EXPECT_EQ(popAceNode->GetId(), id);
@@ -115,6 +130,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest004, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
@@ -126,6 +142,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest004, TestSize.Level1)
     auto mockPatternChild = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNodeChild = AbstractViewFactory::CreateFrameNode(childTag, childId, mockPatternChild);
     EXPECT_NE(frameNode, nullptr);
+
     frameNode->AddChild(frameNodeChild);
     EXPECT_EQ(frameNode->GetChildren().size(), 1);
 
@@ -145,6 +162,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest005, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
@@ -153,6 +171,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest005, TestSize.Level1)
     auto* aceNode = frameNodeImpl->GetAceNodePtr();
     ASSERT_TRUE(aceNode);
     EXPECT_TRUE(aceNode->IsActive());
+
     auto geometryNode = aceNode->GetGeometryNode();
     auto parentConstraint = geometryNode->GetParentLayoutConstraint();
     EXPECT_TRUE(NearEqual(parentConstraint.value().maxSize.Width(), constraint.maxWidth));
@@ -180,7 +199,6 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest006, TestSize.Level1)
 {
     constexpr char tag[] = "TEST6";
     const int32_t id = 5;
-
     auto aceFrameNode =
         NG::FrameNode::GetOrCreateFrameNode(tag, id, []() { return AceType::MakeRefPtr<NG::Pattern>(); });
     auto frameNode = Kit::FrameNode::GetFrameNode(reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(aceFrameNode)));
@@ -194,23 +212,31 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest006, TestSize.Level1)
  */
 HWTEST_F(FrameNodeTest, FrameNodeTestTest007, TestSize.Level1)
 {
+    /**
+     * @tc.steps1: Initialize child frameNode.
+     */
     constexpr char tag[] = "TEST7";
     const int32_t id = 7;
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
 
+    /**
+     * @tc.steps2: Initialize parent frameNode and check init status.
+     */
     const std::string parentTag = "TEST7_PARENT";
     const int32_t parentId = 8;
     auto mockPatternParent = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNodeParent = AbstractViewFactory::CreateFrameNode(parentTag, parentId, mockPatternParent);
     EXPECT_NE(frameNodeParent, nullptr);
-
     EXPECT_EQ(frameNode->GetParentHandle(), nullptr);
+
+   /**
+     * @tc.steps3: AddChild and check parent frameNode.
+     */
     frameNodeParent->AddChild(frameNode);
     EXPECT_NE(frameNode->GetParentHandle(), nullptr);
 }
-
 
 /**
  * @tc.name: FrameNodeTestTest008
@@ -261,6 +287,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest100, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
@@ -288,6 +315,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest101, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
@@ -315,13 +343,14 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest102, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
     /**
      * @tc.steps2: set function callback, validate result.
      */
-    frameNodeImpl->SetMeasureCallback([](RefPtr<FrameNode> node)->void {});
+    frameNodeImpl->SetMeasureCallback([](RefPtr<FrameNode> node) -> void {});
     auto node = frameNodeImpl->PopAceNode();
     EXPECT_NE(node->measureCallback_, nullptr);
 }
@@ -341,13 +370,14 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest103, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
     /**
      * @tc.steps2: set function callback, validate result.
      */
-    frameNodeImpl->SetOnNodeDestroyCallback([](RefPtr<FrameNode> node)->void {});
+    frameNodeImpl->SetOnNodeDestroyCallback([](RefPtr<FrameNode> node) -> void {});
     auto node = frameNodeImpl->PopAceNode();
     EXPECT_NE(node->destroyCallback_, nullptr);
 }
@@ -373,8 +403,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest104, TestSize.Level1)
     /**
      * @tc.steps2: set function callback, validate result.
      */
-    frameNodeImpl->SetConfigurationUpdateCallback([](
-        const ConfigurationChange& configurationChange)->void {});
+    frameNodeImpl->SetConfigurationUpdateCallback([](const ConfigurationChange& configurationChange) -> void {});
     auto node = frameNodeImpl->PopAceNode();
     EXPECT_NE(node->configurationUpdateCallback_, nullptr);
 }
@@ -394,6 +423,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest105, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
@@ -421,6 +451,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest106, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
@@ -433,8 +464,8 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest106, TestSize.Level1)
     node->OnWindowFocused();
     node->OnWindowUnfocused();
 
-    NG::OnAreaChangedFunc callback = [](const NG::RectF& oldRect,
-        const NG::OffsetF& oldOrigin, const NG::RectF& rect, const NG::OffsetF& origin) {};
+    NG::OnAreaChangedFunc callback = [](const NG::RectF& oldRect, const NG::OffsetF& oldOrigin, const NG::RectF& rect,
+                                         const NG::OffsetF& origin) {};
     node->SetOnAreaChangeCallback(std::move(callback));
     EXPECT_NE(node->lastFrameRect_, nullptr);
     EXPECT_NE(node->lastParentOffsetToWindow_, nullptr);
@@ -455,6 +486,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest107, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
@@ -462,8 +494,8 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest107, TestSize.Level1)
      * @tc.steps2: build a object to SetOnAreaChangeCallback.
      */
     auto node = frameNodeImpl->PopAceNode();
-    NG::OnAreaChangedFunc callback = [](const NG::RectF& oldRect, const NG::OffsetF& oldOrigin,
-        const NG::RectF& rect, const NG::OffsetF& origin) {};
+    NG::OnAreaChangedFunc callback = [](const NG::RectF& oldRect, const NG::OffsetF& oldOrigin, const NG::RectF& rect,
+                                         const NG::OffsetF& origin) {};
     node->lastFrameRect_ = std::make_unique<NG::RectF>();
     node->SetOnAreaChangeCallback(std::move(callback));
     EXPECT_NE(node->lastFrameRect_, nullptr);
@@ -484,6 +516,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest108, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
@@ -511,6 +544,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest109, TestSize.Level1)
     auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
     auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
     EXPECT_NE(frameNode, nullptr);
+
     auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
     ASSERT_TRUE(frameNodeImpl);
 
@@ -520,6 +554,7 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest109, TestSize.Level1)
     auto node = frameNodeImpl->PopAceNode();
     node->MarkModifyDone();
     EXPECT_TRUE(node->isRestoreInfoUsed_);
+
     node->isRestoreInfoUsed_ = true;
     node->MarkModifyDone();
     EXPECT_TRUE(node->isRestoreInfoUsed_);
@@ -717,5 +752,336 @@ HWTEST_F(FrameNodeTest, FrameNodeTestTest114, TestSize.Level1)
      */
     node->ProcessAllVisibleCallback(visibleAreaRatios, callbackInfo, 1, 1);
     EXPECT_EQ(flag, 3);
+}
+
+/**
+ * @tc.name: FrameNodeTestTest114
+ * @tc.desc:
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest115, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: initialize parameters.
+     */
+    constexpr char tag[] = "TEST115";
+    const int32_t id = 115;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    EXPECT_NE(frameNode, nullptr);
+    auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
+    ASSERT_TRUE(frameNodeImpl);
+
+    /**
+     * @tc.steps2: create AI helper
+     */
+    auto myAICaller = std::make_shared<TestAICaller>();
+    /**
+     * @tc.steps3: call ai function without set
+     * @tc.excepted: step3 return 1 means AI helper not setted.
+     */
+    EXPECT_EQ(frameNodeImpl->frameNode_->CallAIFunction("Success", ""), 1);
+    /**
+     * @tc.steps4: set ai helper instance.
+     * @tc.excepted: step4 AI helper not null and setted success.
+     */
+    frameNodeImpl->SetAICallerHelper(myAICaller);
+    EXPECT_EQ(frameNodeImpl->frameNode_->aiCallerHelper_, myAICaller);
+    /**
+     * @tc.steps5: call ai function success after set.
+     * @tc.excepted: step5 ai function called success.
+     */
+    EXPECT_EQ(frameNodeImpl->frameNode_->CallAIFunction("Success", "params1: 1"), 0);
+    /**
+     * @tc.steps6: call invalid function after set.
+     * @tc.excepted: step6 ai function not found and return 2.
+     */
+    EXPECT_EQ(frameNodeImpl->frameNode_->CallAIFunction("OTHERFunction", "params1: 1"), 2);
+}
+
+/**
+ * @tc.name: FrameNodeTestTest116
+ * @tc.desc: test GetParentGlobalOffsetDuringLayout
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest116, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: initialize parameters.
+     */
+    constexpr char tag[] = "TEST116";
+    const int32_t id = 116;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    EXPECT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps2: test GetParentGlobalOffsetDuringLayout.
+     */
+    auto offset = frameNode->GetParentGlobalOffsetDuringLayout();
+    EXPECT_TRUE(NearEqual(offset.GetX(), 0.0f));
+    EXPECT_TRUE(NearEqual(offset.GetY(), 0.0f));
+}
+
+/**
+ * @tc.name: FrameNodeTestTest117
+ * @tc.desc: test ContainerModalTitleHeight
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest117, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: initialize parameters.
+     */
+    constexpr char tag[] = "TEST117";
+    const int32_t id = 117;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    EXPECT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps2: test GetContainerModalTitleHeight.
+     */
+    auto titleHeight = frameNode->GetContainerModalTitleHeight();
+    EXPECT_EQ(titleHeight, 0);
+}
+
+/**
+ * @tc.name: FrameNodeTestTest118
+ * @tc.desc: test ContainerModalButtonsOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest118, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: initialize parameters.
+     */
+    constexpr char tag[] = "TEST118";
+    const int32_t id = 118;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    EXPECT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps2: test ContainerModalButtonsOffset.
+     */
+    auto buttonsOffset = frameNode->GetContainerModalButtonsOffset();
+    EXPECT_TRUE(NearEqual(buttonsOffset.GetX(), 0.0f));
+    EXPECT_TRUE(NearEqual(buttonsOffset.GetY(), 0.0f));
+}
+
+/**
+ * @tc.name: FrameNodeTestTest119
+ * @tc.desc: test ContainerModalButtonsSize
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest119, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: initialize parameters.
+     */
+    constexpr char tag[] = "TEST119";
+    const int32_t id = 119;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    EXPECT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps2: test ContainerModalButtonsSize.
+     */
+    auto buttonsSize = frameNode->GetContainerModalButtonsSize();
+    EXPECT_TRUE(NearEqual(buttonsSize.Width(), 0.0f));
+    EXPECT_TRUE(NearEqual(buttonsSize.Height(), 0.0f));
+}
+
+/**
+ * @tc.name: FrameNodeTestTest120
+ * @tc.desc: test SetOnNodeDestroyCallback
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest120, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: initialize parameters.
+     */
+    constexpr char tag[] = "TEST120";
+    const int32_t id = 120;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    EXPECT_NE(frameNode, nullptr);
+
+    auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
+    ASSERT_TRUE(frameNodeImpl);
+
+    /**
+     * @tc.steps2: set destroy callback, validate result.
+     */
+    frameNodeImpl->SetOnNodeDestroyCallback([](RefPtr<FrameNode> frameNode) -> void {});
+    auto node = frameNodeImpl->PopAceNode();
+    EXPECT_NE(node->destroyCallback_, nullptr);
+}
+
+/**
+ * @tc.name: FrameNodeTestTest121
+ * @tc.desc: test GetLayoutConstraint
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest121, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: initialize parameters.
+     */
+    constexpr char tag[] = "TEST121";
+    const int32_t id = 121;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    EXPECT_NE(frameNode, nullptr);
+
+    auto frameNodeImpl = AceType::DynamicCast<FrameNodeImpl>(frameNode);
+    ASSERT_TRUE(frameNodeImpl);
+
+    LayoutConstraintInfo constraint { .maxWidth = 100.0f, .maxHeight = 100.0f };
+    frameNode->Measure(constraint);
+    auto* aceNode = frameNodeImpl->GetAceNodePtr();
+    ASSERT_TRUE(aceNode);
+    EXPECT_TRUE(aceNode->IsActive());
+
+    /**
+     * @tc.steps2: get layout constraint, validate result.
+     */
+    auto res = frameNodeImpl->GetLayoutConstraint();
+    EXPECT_TRUE(NearEqual(res.maxWidth, 100.0f));
+}
+
+/**
+ * @tc.name: FrameNodeTestTest122
+ * @tc.desc: test create stack
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest122, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: initialize parameters.
+     */
+    constexpr char tag[] = "TEST122";
+    const int32_t id = 122;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    EXPECT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps2: create stack node, validate result.
+     */
+    auto stack = Stack::Create(frameNode);
+    EXPECT_NE(stack, nullptr);
+}
+
+/**
+ * @tc.name: FrameNodeTestTest123
+ * @tc.desc: test GetLocalColorMode
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest123, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: initialize parameters.
+     */
+    constexpr char tag[] = "TEST123";
+    const int32_t id = 123;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    EXPECT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps2: test GetLocalColorMode.
+     */
+    auto colorMode = frameNode->GetLocalColorMode();
+    EXPECT_EQ(colorMode, Ace::Kit::ColorMode::COLOR_MODE_UNDEFINED);
+}
+
+/**
+ * @tc.name: FrameNodeTestTest124
+ * @tc.desc: test GetFrameNode returns wrapper without caching kit node
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest124, TestSize.Level1)
+{
+    auto aceFrameNode =
+        NG::FrameNode::GetOrCreateFrameNode("TEST124", 124, []() { return AceType::MakeRefPtr<NG::Pattern>(); });
+    ASSERT_NE(aceFrameNode, nullptr);
+
+    auto first = Kit::FrameNode::GetFrameNode(reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(aceFrameNode)));
+    auto second = Kit::FrameNode::GetFrameNode(reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(aceFrameNode)));
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+    EXPECT_EQ(first->GetId(), 124);
+    EXPECT_EQ(second->GetId(), 124);
+    EXPECT_EQ(first->GetTag(), "TEST124");
+    EXPECT_EQ(second->GetTag(), "TEST124");
+    EXPECT_EQ(aceFrameNode->GetKitNode(), nullptr);
+}
+
+/**
+ * @tc.name: FrameNodeTestTest125
+ * @tc.desc: test Measure copies optional layout constraint values
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest125, TestSize.Level1)
+{
+    constexpr char tag[] = "TEST125";
+    const int32_t id = 125;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    ASSERT_NE(frameNode, nullptr);
+
+    LayoutConstraintInfo constraint { .minWidth = 30.0f,
+        .minHeight = 40.0f,
+        .maxWidth = 30.0f,
+        .maxHeight = 40.0f,
+        .percentReferWidth = 100.0f,
+        .percentReferHeight = 200.0f,
+        .parentIdealSizeWidth = 50.0f,
+        .parentIdealSizeHeight = 60.0f };
+    frameNode->Measure(constraint);
+
+    auto res = frameNode->GetLayoutConstraint();
+    EXPECT_TRUE(NearEqual(res.minWidth, 30.0f));
+    EXPECT_TRUE(NearEqual(res.minHeight, 40.0f));
+    EXPECT_TRUE(NearEqual(res.maxWidth, 30.0f));
+    EXPECT_TRUE(NearEqual(res.maxHeight, 40.0f));
+    ASSERT_TRUE(res.parentIdealSizeWidth.has_value());
+    ASSERT_TRUE(res.parentIdealSizeHeight.has_value());
+    EXPECT_TRUE(NearEqual(res.parentIdealSizeWidth.value(), 50.0f));
+    EXPECT_TRUE(NearEqual(res.parentIdealSizeHeight.value(), 60.0f));
+}
+
+/**
+ * @tc.name: FrameNodeTestTest126
+ * @tc.desc: test Measure keeps parent ideal size empty when not provided
+ * @tc.type: FUNC
+ */
+HWTEST_F(FrameNodeTest, FrameNodeTestTest126, TestSize.Level1)
+{
+    constexpr char tag[] = "TEST126";
+    const int32_t id = 126;
+    auto mockPattern = AceType::MakeRefPtr<MockAceKitPattern>();
+    auto frameNode = AbstractViewFactory::CreateFrameNode(tag, id, mockPattern);
+    ASSERT_NE(frameNode, nullptr);
+
+    LayoutConstraintInfo constraint { .minWidth = 10.0f,
+        .minHeight = 20.0f,
+        .maxWidth = 30.0f,
+        .maxHeight = 40.0f,
+        .percentReferWidth = 50.0f,
+        .percentReferHeight = 60.0f };
+    frameNode->Measure(constraint);
+
+    auto res = frameNode->GetLayoutConstraint();
+    EXPECT_TRUE(NearEqual(res.minWidth, 10.0f));
+    EXPECT_TRUE(NearEqual(res.minHeight, 20.0f));
+    EXPECT_TRUE(NearEqual(res.maxWidth, 30.0f));
+    EXPECT_TRUE(NearEqual(res.maxHeight, 40.0f));
+    EXPECT_FALSE(res.parentIdealSizeWidth.has_value());
+    EXPECT_FALSE(res.parentIdealSizeHeight.has_value());
 }
 } // namespace OHOS::Ace

@@ -15,12 +15,12 @@
 #include "js_third_provider_interaction_operation.h"
 
 #include "accessibility_system_ability_client.h"
-#include "frameworks/core/components_ng/pattern/web/web_pattern.h"
+#include "frameworks/core/accessibility/hidumper/accessibility_hidumper.h"
 #include "js_third_accessibility_hover_ng.h"
+#include "core/components_ng/property/accessibility_property.h"
 
 using namespace OHOS::Accessibility;
 using namespace OHOS::AccessibilityConfig;
-using namespace std;
 
 namespace OHOS::Ace::Framework {
 constexpr int32_t ACCESSIBILITY_FOCUS_WITHOUT_EVENT = -2100001;
@@ -136,7 +136,7 @@ std::pair<bool, bool> AccessibilityHoverManagerForThirdNG::GetSearchStrategyForT
                 }
             }
         }
-    
+
         auto hitTestMode = nodeInfo.GetHitTestBehavior();
         UpdateSearchStrategyByHitTestModeStr(
             hitTestMode, shouldSearchSelf, shouldSearchChildren);
@@ -252,8 +252,7 @@ void AccessibilityHoverManagerForThirdNG::HandleAccessibilityHoverForThirdInner(
             Accessibility::EventType::TYPE_VIEW_HOVER_EXIT_EVENT);
     }
     if ((currentHoveringId != INVALID_NODE_ID) && (currentHoveringId != lastHoveringId)) {
-        jsThirdProviderOperator->SendAccessibilityAsyncEventForThird(currentHoveringId,
-            Accessibility::EventType::TYPE_VIEW_HOVER_ENTER_EVENT);
+        jsThirdProviderOperator->CheckAndSendHoverEnterByReadableRules(currentHoveringId);
     }
     hoverForThirdState_.nodesHovering = std::move(currentNodesHovering);
     hoverForThirdState_.time = config.time;
@@ -328,7 +327,7 @@ bool AccessibilityHoverManagerForThirdNG::ActThirdAccessibilityFocus(
 
     NG::RectT<int32_t> rectInt { static_cast<int32_t>(left), static_cast<int32_t>(right),
         static_cast<int32_t>(width), static_cast<int32_t>(height) };
-    
+
     renderContext->UpdateAccessibilityFocusRect(rectInt);
     renderContext->UpdateAccessibilityFocus(true, ACCESSIBILITY_FOCUS_WITHOUT_EVENT);
     TAG_LOGD(AceLogTag::ACE_ACCESSIBILITY,
@@ -518,6 +517,11 @@ public:
         const std::list<AccessibilityElementInfo> &treeInfos, const int32_t requestId) override
     {
     }
+
+    void SetFocusMoveSearchWithConditionResult(const std::list<AccessibilityElementInfo> &info,
+        const FocusMoveResult &result, const int32_t requestId) override
+    {
+    }
 };
 
 void DumpHandleAction(
@@ -544,7 +548,7 @@ void DumpHandleAction(
 
     std::map<std::string, std::string> paramsMap;
     jsAccessibilityManagerTemp->ProcessParameters(op, params, paramsMap);
-    
+
     MockDumpOperatorCallBack operatorCallback;
     jsThirdProviderOperator->ExecuteAction(nodeId, op, paramsMap, 0, operatorCallback);
 }

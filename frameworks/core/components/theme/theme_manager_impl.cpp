@@ -20,9 +20,8 @@
 #include "core/components/badge/badge_theme.h"
 #include "core/components/button/button_theme.h"
 #include "core/components/calendar/calendar_theme.h"
-#include "core/components/camera/camera_theme.h"
 #include "core/components/checkable/checkable_theme.h"
-#include "core/components/clock/clock_theme.h"
+#include "compatible/components/clock/clock_theme.h"
 #include "core/components/close_icon/close_icon_theme.h"
 #include "core/components/counter/counter_theme.h"
 #include "core/components/data_panel/data_panel_theme.h"
@@ -39,8 +38,8 @@
 #include "core/components/list/arc_list_theme.h"
 #include "core/components/marquee/marquee_theme.h"
 #include "core/components/navigation_bar/navigation_bar_theme.h"
-#include "core/components/picker/picker_theme.h"
-#include "core/components/piece/piece_theme.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
+#include "frameworks/compatible/components/piece/piece_theme.h"
 #include "core/components/popup/popup_theme.h"
 #include "core/components/progress/progress_theme.h"
 #include "core/components/qrcode/qrcode_theme.h"
@@ -60,14 +59,19 @@
 #include "core/components/theme/app_theme.h"
 #include "core/components/theme/blur_style_theme.h"
 #include "core/components/theme/card_theme.h"
+#include "core/components/theme/corner_mark_theme.h"
 #include "core/components/theme/icon_theme.h"
 #include "core/components/theme/shadow_theme.h"
+#include "core/components/theme/theme_constants_defines.h"
+#include "core/components/theme/ui_material_theme.h"
 #include "core/components/toast/toast_theme.h"
 #include "core/components/toggle/toggle_theme.h"
 #include "core/components/tool_bar/tool_bar_theme.h"
-#include "core/components/video/video_theme.h"
+#include "core/components_ng/pattern/video/video_theme.h"
 #include "core/components_ng/pattern/app_bar/app_bar_theme.h"
 #include "core/components_ng/pattern/container_modal/container_modal_theme.h"
+#include "core/components_ng/pattern/container_picker/container_picker_theme.h"
+#include "core/components_ng/pattern/container_picker/container_picker_theme_wrapper.h"
 #include "core/components_ng/pattern/form/form_theme.h"
 #include "core/components_ng/pattern/gauge/gauge_theme.h"
 #include "core/components_ng/pattern/refresh/refresh_theme_ng.h"
@@ -86,19 +90,22 @@
 #include "core/components_ng/token_theme/token_theme_storage.h"
 #include "core/components_ng/pattern/checkbox/checkbox_theme_wrapper.h"
 #include "core/components_ng/pattern/counter/counter_theme_wrapper.h"
-#include "frameworks/core/components/text_clock/text_clock_theme.h"
-#include "core/components_ng/pattern/text_clock/text_clock_theme_wrapper.h"
 #include "core/components_ng/pattern/progress/progress_theme_wrapper.h"
+#include "core/components_ng/pattern/dialog/dialog_theme_wrapper.h"
 #include "core/components_ng/pattern/divider/divider_theme_wrapper.h"
+#include "core/components_ng/pattern/qrcode/qrcode_theme_wrapper.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_theme_wrapper.h"
 #include "core/components_ng/pattern/search/search_theme_wrapper.h"
 #include "core/components_ng/pattern/slider/slider_theme_wrapper.h"
 #include "core/components_ng/pattern/text/text_theme_wrapper.h"
+#include "core/components_ng/pattern/badge/badge_theme_wrapper.h"
 #include "core/components_ng/pattern/text_field/text_field_theme_wrapper.h"
 #include "core/components_ng/pattern/picker/picker_theme_wrapper.h"
 #include "core/components_ng/pattern/navigation/navigation_bar_theme_wrapper.h"
 #include "core/common/agingadapation/aging_adapation_dialog_theme_wrapper.h"
 #include "core/components_ng/pattern/side_bar/side_bar_theme_wrapper.h"
+#include "core/components/swiper/swiper_indicator_theme.h"
+#include "core/components_ng/pattern/gauge/gauge_theme_wrapper.h"
 
 namespace OHOS::Ace {
 namespace {
@@ -132,7 +139,6 @@ const std::unordered_map<ThemeType, RefPtr<Theme>(*)(const RefPtr<ThemeConstants
     { ArcListItemTheme::TypeId(), &ThemeBuildFunc<ArcListItemTheme::Builder> },
     { ToastTheme::TypeId(), &ThemeBuildFunc<ToastTheme::Builder> },
     { TextTheme::TypeId(), &ThemeBuildFunc<TextTheme::Builder> },
-    { TextClockTheme::TypeId(), &ThemeBuildFunc<TextClockTheme::Builder> },
     { RatingTheme::TypeId(), &ThemeBuildFunc<RatingTheme::Builder> },
     { TextFieldTheme::TypeId(), &ThemeBuildFunc<TextFieldTheme::Builder> },
     { FocusAnimationTheme::TypeId(), &ThemeBuildFunc<FocusAnimationTheme::Builder> },
@@ -150,7 +156,6 @@ const std::unordered_map<ThemeType, RefPtr<Theme>(*)(const RefPtr<ThemeConstants
     { ToolBarTheme::TypeId(), &ThemeBuildFunc<ToolBarTheme::Builder> },
     { CardTheme::TypeId(), &ThemeBuildFunc<CardTheme::Builder> },
     { QrcodeTheme::TypeId(), &ThemeBuildFunc<QrcodeTheme::Builder> },
-    { CameraTheme::TypeId(), &ThemeBuildFunc<CameraTheme::Builder> },
     { HyperlinkTheme::TypeId(), &ThemeBuildFunc<HyperlinkTheme::Builder> },
     { ImageTheme::TypeId(), &ThemeBuildFunc<ImageTheme::Builder> },
     { CounterTheme::TypeId(), &ThemeBuildFunc<CounterTheme::Builder> },
@@ -172,12 +177,15 @@ const std::unordered_map<ThemeType, RefPtr<Theme>(*)(const RefPtr<ThemeConstants
     { NG::SheetTheme::TypeId(), &ThemeBuildFunc<NG::SheetTheme::Builder> },
     { BlurStyleTheme::TypeId(), &ThemeBuildFunc<BlurStyleTheme::Builder> },
     { ShadowTheme::TypeId(), &ThemeBuildFunc<ShadowTheme::Builder> },
+    { UiMaterialTheme::TypeId(), &ThemeBuildFunc<UiMaterialTheme::Builder> },
     { NG::ContainerModalTheme::TypeId(), &ThemeBuildFunc<NG::ContainerModalTheme::Builder> },
     { AgingAdapationDialogTheme::TypeId(), &ThemeBuildFunc<AgingAdapationDialogTheme::Builder> },
     { NG::ScrollableTheme::TypeId(), &ThemeBuildFunc<NG::ScrollableTheme::Builder> },
     { NG::SwiperTheme::TypeId(), &ThemeBuildFunc<NG::SwiperTheme::Builder> },
     { NG::LinearIndicatorTheme::TypeId(), &ThemeBuildFunc<NG::LinearIndicatorTheme::Builder> },
     { NG::RefreshThemeNG::TypeId(), &ThemeBuildFunc<NG::RefreshThemeNG::Builder> },
+    { NG::ContainerPickerTheme::TypeId(), &ThemeBuildFunc<NG::ContainerPickerTheme::Builder> },
+    { NG::CornerMarkTheme::TypeId(), &ThemeBuildFunc<NG::CornerMarkTheme::Builder> },
 };
 
 template<class T>
@@ -192,21 +200,25 @@ const std::unordered_map<ThemeType, RefPtr<TokenThemeWrapper>(*)(const RefPtr<Th
         { SwitchTheme::TypeId(), &ThemeWrapperBuildFunc<NG::SwitchThemeWrapper::WrapperBuilder> },
         { ToggleTheme::TypeId(), &ThemeWrapperBuildFunc<NG::ToggleThemeWrapper::WrapperBuilder> },
         { CounterTheme::TypeId(), &ThemeWrapperBuildFunc<NG::CounterThemeWrapper::WrapperBuilder> },
-        { TextClockTheme::TypeId(), &ThemeWrapperBuildFunc<NG::TextClockThemeWrapper::WrapperBuilder> },
         { DividerTheme::TypeId(), &ThemeWrapperBuildFunc<NG::DividerThemeWrapper::WrapperBuilder> },
+        { DialogTheme::TypeId(), &ThemeWrapperBuildFunc<NG::DialogThemeWrapper::WrapperBuilder> },
         { NG::RichEditorTheme::TypeId(), &ThemeWrapperBuildFunc<NG::RichEditorThemeWrapper::WrapperBuilder> },
         { SearchTheme::TypeId(), &ThemeWrapperBuildFunc<NG::SearchThemeWrapper::WrapperBuilder> },
         { SliderTheme::TypeId(), &ThemeWrapperBuildFunc<NG::SliderThemeWrapper::WrapperBuilder> },
         { TextTheme::TypeId(), &ThemeWrapperBuildFunc<NG::TextThemeWrapper::WrapperBuilder> },
         { TextFieldTheme::TypeId(), &ThemeWrapperBuildFunc<NG::TextFieldThemeWrapper::WrapperBuilder> },
         { PickerTheme::TypeId(), &ThemeWrapperBuildFunc<NG::PickerThemeWrapper::WrapperBuilder> },
+        { NG::ContainerPickerTheme::TypeId(), &ThemeWrapperBuildFunc<NG::ContainerPickerThemeWrapper::WrapperBuilder> },
         { ProgressTheme::TypeId(), &ThemeWrapperBuildFunc<NG::ProgressThemeWrapper::WrapperBuilder> },
+        { QrcodeTheme::TypeId(), &ThemeWrapperBuildFunc<NG::QRCodeThemeWrapper::WrapperBuilder> },
         { SelectTheme::TypeId(), &ThemeWrapperBuildFunc<NG::SelectThemeWrapper::WrapperBuilder> },
         { NavigationBarTheme::TypeId(), &ThemeWrapperBuildFunc<NG::NavigationBarThemeWrapper::WrapperBuilder> },
         { AgingAdapationDialogTheme::TypeId(),
             &ThemeWrapperBuildFunc<NG::AgingAdapationDialogThemeWrapper::WrapperBuilder> },
         { NG::SideBarTheme::TypeId(), &ThemeWrapperBuildFunc<NG::SideBarThemeWrapper::WrapperBuilder> },
-        { TextOverlayTheme::TypeId(), &ThemeWrapperBuildFunc<NG::TextOverlayThemeWrapper::WrapperBuilder> }
+        { BadgeTheme::TypeId(), &ThemeWrapperBuildFunc<NG::BadgeThemeWrapper::WrapperBuilder> },
+        { TextOverlayTheme::TypeId(), &ThemeWrapperBuildFunc<NG::TextOverlayThemeWrapper::WrapperBuilder> },
+        { NG::GaugeTheme::TypeId(), &ThemeWrapperBuildFunc<NG::GaugeThemeWrapper::WrapperBuilder> },
     };
 
 std::unordered_map<ThemeType, Ace::Kit::BuildFunc> THEME_BUILDERS_KIT;
@@ -215,7 +227,11 @@ std::unordered_map<ThemeType, Ace::Kit::BuildThemeWrapperFunc> TOKEN_THEME_WRAPP
 
 ThemeManagerImpl::ThemeManagerImpl()
 {
+#ifdef CROSS_PLATFORM
+    auto resAdapter = ResourceAdapter::CreateV2();
+#else
     auto resAdapter = ResourceAdapter::Create();
+#endif
     themeConstants_ = AceType::MakeRefPtr<ThemeConstants>(resAdapter);
 }
 
@@ -234,6 +250,15 @@ void ThemeManagerImpl::RegisterThemeKit(ThemeType type, Ace::Kit::BuildFunc func
 }
 
 RefPtr<Theme> ThemeManagerImpl::GetTheme(ThemeType type)
+{
+    if (MultiThreadBuildManager::IsThreadSafeNodeScope()) {
+        return GetThemeMultiThread(type);
+    }
+    std::lock_guard<std::recursive_mutex> lock(themeMultiThreadMutex_);
+    return GetThemeNormal(type);
+}
+
+RefPtr<Theme> ThemeManagerImpl::GetThemeNormal(ThemeType type)
 {
     auto findIter = themes_.find(type);
     if (findIter != themes_.end()) {
@@ -264,20 +289,22 @@ RefPtr<Theme> ThemeManagerImpl::GetThemeKit(ThemeType type)
         return nullptr;
     }
 
-    if (auto pipelineContext = NG::PipelineContext::GetCurrentContext(); pipelineContext) {
-        ColorMode localMode = pipelineContext->GetLocalColorMode();
-        ColorMode systemMode = pipelineContext->GetColorMode();
+    if (auto pipeline = NG::PipelineContext::GetCurrentContext(); pipeline) {
+        ColorMode localMode = pipeline->GetLocalColorMode();
+        ColorMode systemMode = pipeline->GetColorMode();
         bool needRestore = false;
         if (localMode != ColorMode::COLOR_MODE_UNDEFINED && localMode != systemMode) {
             // Ordinary themes should work in system color mode. Only theme wrappers support local color mode.
-            ResourceManager::GetInstance().UpdateColorMode(systemMode);
-            pipelineContext->SetLocalColorMode(ColorMode::COLOR_MODE_UNDEFINED);
+            ResourceManager::GetInstance().UpdateColorMode(
+                pipeline->GetBundleName(), pipeline->GetModuleName(), pipeline->GetInstanceId(), systemMode);
+            pipeline->SetLocalColorMode(ColorMode::COLOR_MODE_UNDEFINED);
             needRestore = true;
         }
         auto theme = builderIterKit->second();
         if (needRestore) {
-            pipelineContext->SetLocalColorMode(localMode);
-            ResourceManager::GetInstance().UpdateColorMode(localMode);
+            pipeline->SetLocalColorMode(localMode);
+            ResourceManager::GetInstance().UpdateColorMode(
+                pipeline->GetBundleName(), pipeline->GetModuleName(), pipeline->GetInstanceId(), localMode);
         }
         themes_.emplace(type, theme);
         return theme;
@@ -300,6 +327,15 @@ void ThemeManagerImpl::RegisterCustomThemeKit(ThemeType type, Ace::Kit::BuildThe
 
 RefPtr<Theme> ThemeManagerImpl::GetTheme(ThemeType type, TokenThemeScopeId themeScopeId)
 {
+    if (MultiThreadBuildManager::IsThreadSafeNodeScope()) {
+        return GetThemeMultiThread(type, themeScopeId);
+    }
+    std::lock_guard<std::recursive_mutex> lock(themeMultiThreadMutex_);
+    return GetThemeNormal(type, themeScopeId);
+}
+
+RefPtr<Theme> ThemeManagerImpl::GetThemeNormal(ThemeType type, TokenThemeScopeId themeScopeId)
+{
     auto theme = GetThemeKit(type, themeScopeId);
     CHECK_NULL_RETURN(theme, GetThemeOrigin(type, themeScopeId));
     return theme;
@@ -312,8 +348,8 @@ RefPtr<Theme> ThemeManagerImpl::GetThemeOrigin(ThemeType type, int32_t themeScop
         return GetTheme(type);
     }
 
-    auto pipelineContext = NG::PipelineContext::GetCurrentContext();
-    CHECK_NULL_RETURN(pipelineContext, GetTheme(type));
+    auto pipeline = NG::PipelineContext::GetCurrentContextSafely();
+    CHECK_NULL_RETURN(pipeline, GetTheme(type));
     ColorMode currentMode = GetCurrentColorMode();
     ColorMode themeMode = tokenTheme->GetColorMode();
     auto& themeWrappers = GetThemeWrappers(themeMode == ColorMode::COLOR_MODE_UNDEFINED ? currentMode : themeMode);
@@ -333,15 +369,17 @@ RefPtr<Theme> ThemeManagerImpl::GetThemeOrigin(ThemeType type, int32_t themeScop
     if (themeMode != ColorMode::COLOR_MODE_UNDEFINED && themeMode != currentMode) {
         // Local color mode of the current theme does not match actual color scheme.
         // Current color mode is system. Need to switch to local color mode temporarily.
-        ResourceManager::GetInstance().UpdateColorMode(themeMode);
-        pipelineContext->SetLocalColorMode(themeMode);
+        ResourceManager::GetInstance().UpdateColorMode(
+            pipeline->GetBundleName(), pipeline->GetModuleName(), pipeline->GetInstanceId(), themeMode);
+        pipeline->SetLocalColorMode(themeMode);
         needRestore = true;
     }
     auto wrapper = builderIter->second(themeConstants_);
     if (needRestore) {
         // Switching resource manager back into system color mode
-        pipelineContext->SetLocalColorMode(ColorMode::COLOR_MODE_UNDEFINED);
-        ResourceManager::GetInstance().UpdateColorMode(currentMode);
+        pipeline->SetLocalColorMode(ColorMode::COLOR_MODE_UNDEFINED);
+        ResourceManager::GetInstance().UpdateColorMode(
+            pipeline->GetBundleName(), pipeline->GetModuleName(), pipeline->GetInstanceId(), currentMode);
     }
     wrapper->ApplyTokenTheme(*tokenTheme);
     themeWrappers.emplace(type, wrapper);
@@ -355,8 +393,8 @@ RefPtr<Theme> ThemeManagerImpl::GetThemeKit(ThemeType type, int32_t themeScopeId
         return GetTheme(type);
     }
 
-    auto pipelineContext = NG::PipelineContext::GetCurrentContext();
-    CHECK_NULL_RETURN(pipelineContext, GetTheme(type));
+    auto pipeline = NG::PipelineContext::GetCurrentContextSafely();
+    CHECK_NULL_RETURN(pipeline, GetTheme(type));
     ColorMode currentMode = GetCurrentColorMode();
     ColorMode themeMode = tokenTheme->GetColorMode();
     auto& themeWrappers = GetThemeWrappers(themeMode == ColorMode::COLOR_MODE_UNDEFINED ? currentMode : themeMode);
@@ -376,15 +414,17 @@ RefPtr<Theme> ThemeManagerImpl::GetThemeKit(ThemeType type, int32_t themeScopeId
     if (themeMode != ColorMode::COLOR_MODE_UNDEFINED && themeMode != currentMode) {
         // Local color mode of the current theme does not match actual color scheme.
         // Current color mode is system. Need to switch to local color mode temporarily.
-        ResourceManager::GetInstance().UpdateColorMode(themeMode);
-        pipelineContext->SetLocalColorMode(themeMode);
+        ResourceManager::GetInstance().UpdateColorMode(
+            pipeline->GetBundleName(), pipeline->GetModuleName(), pipeline->GetInstanceId(), themeMode);
+        pipeline->SetLocalColorMode(themeMode);
         needRestore = true;
     }
     auto wrapper = builderIter->second();
     if (needRestore) {
         // Switching resource manager back into system color mode
-        pipelineContext->SetLocalColorMode(ColorMode::COLOR_MODE_UNDEFINED);
-        ResourceManager::GetInstance().UpdateColorMode(currentMode);
+        pipeline->SetLocalColorMode(ColorMode::COLOR_MODE_UNDEFINED);
+        ResourceManager::GetInstance().UpdateColorMode(
+            pipeline->GetBundleName(), pipeline->GetModuleName(), pipeline->GetInstanceId(), currentMode);
     }
     wrapper->ApplyTokenTheme(*tokenTheme);
     themeWrappers.emplace(type, wrapper);
@@ -416,6 +456,16 @@ Color ThemeManagerImpl::GetBackgroundColor() const
 }
 
 void ThemeManagerImpl::LoadResourceThemes()
+{
+    if (MultiThreadBuildManager::IsThreadSafeNodeScope()) {
+        LoadResourceThemesMultiThread();
+        return;
+    }
+    std::lock_guard<std::recursive_mutex> lock(themeMultiThreadMutex_);
+    LoadResourceThemesInner();
+}
+
+void ThemeManagerImpl::LoadResourceThemesInner()
 {
     themes_.clear();
     themeWrappersLight_.clear();

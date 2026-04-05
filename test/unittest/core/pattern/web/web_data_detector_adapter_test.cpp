@@ -19,16 +19,17 @@
 #define protected public
 #include "frameworks/core/pipeline/pipeline_base.h"
 #include "core/components/web/web_property.h"
+#include "core/components_ng/pattern/text/text_model.h"
 #include "core/components_ng/pattern/web/web_data_detector_adapter.h"
 #include "core/components_ng/pattern/web/web_pattern.h"
 #include "core/components/text_overlay/text_overlay_theme.h"
 #include "core/components/web/resource/web_delegate.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
 #include "adapter/ohos/entrance/ace_container.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #undef protected
 #undef private
 
@@ -149,6 +150,35 @@ HWTEST_F(WebDataDetectorAdapterTest, DataDetectorInit_001, TestSize.Level0)
     EXPECT_EQ(adapter->initDataDetectorProxy_, false);
     // no need to clear AI menu
     EXPECT_EQ(adapter->initAIMenu_ , true);
+#endif
+}
+
+/**
+ * @tc.name: DataDetectorInit_002
+ * @tc.desc: Test Init.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebDataDetectorAdapterTest, DataDetectorInit_002, TestSize.Level0)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto adapter = AceType::MakeRefPtr<WebDataDetectorAdapter>(AceType::WeakClaim(AceType::RawPtr(g_webPattern)), 0);
+    adapter->aiSupportStatus_ = AISupportStatus::SUPPORTED;
+    ASSERT_EQ(adapter->resultCache_, nullptr);
+    adapter->Init();
+
+    // resultCache_ clear test
+    adapter->resultCache_ = AceType::MakeRefPtr<WebDataDetectorCache<std::string, DataDetectorResult>>(2);
+    ASSERT_NE(adapter->resultCache_, nullptr);
+
+    adapter->resultCache_->Put("test", DataDetectorResult {});
+    adapter->Init();
+    EXPECT_FALSE(adapter->resultCache_->cacheMap_.empty());
+    EXPECT_FALSE(adapter->resultCache_->accessQueue_.empty());
+
+    adapter->newConfig_.types = "phoneNum";
+    adapter->Init();
+    EXPECT_TRUE(adapter->resultCache_->cacheMap_.empty());
+    EXPECT_TRUE(adapter->resultCache_->accessQueue_.empty());
 #endif
 }
 
@@ -830,6 +860,59 @@ HWTEST_F(WebDataDetectorAdapterTest, UrlDecode_001, TestSize.Level0)
     // Case 10: Long string mixed test
     std::string longInput = "%E4%BD%A0%E5%A5%BD+%E4%B8%96%E7%95%8C";  // URL encoding of "你好 世界"
     EXPECT_EQ(WebDataDetectorAdapter::UrlDecode(longInput), "你好 世界");
+}
+
+/**
+ * @tc.name: ExtraParamsTest_001
+ * @tc.desc: Test extra params.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebDataDetectorAdapterTest, ExtraParamsTest_001, TestSize.Level0)
+{
+    auto adapter = AceType::MakeRefPtr<WebDataDetectorAdapter>(AceType::WeakClaim(AceType::RawPtr(g_webPattern)), 0);
+    std::map<std::string, std::string> res;
+    res = adapter->AttrsToParams(nullptr);
+    EXPECT_TRUE(res.empty());
+    res = adapter->AttrsToParams(JsonUtil::ParseJsonString("test"));
+    EXPECT_TRUE(res.empty());
+    res = adapter->AttrsToParams(JsonUtil::ParseJsonString("{}"));
+    EXPECT_TRUE(res.empty());
+
+    res = adapter->AttrsToParams(JsonUtil::ParseJsonString(R"({"test": "test"})"));
+    EXPECT_TRUE(res.empty());
+
+    adapter->extraParamKeys_ = {"test"};
+    res = adapter->AttrsToParams(JsonUtil::ParseJsonString(R"({"example": "test"})"));
+    EXPECT_TRUE(res.empty());
+    res = adapter->AttrsToParams(JsonUtil::ParseJsonString(R"({"test": "test"})"));
+    EXPECT_FALSE(res.empty());
+}
+
+/**
+ * @tc.name: ExtraParamsTest_002
+ * @tc.desc: Test extra params.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebDataDetectorAdapterTest, ExtraParamsTest_002, TestSize.Level0)
+{
+    std::map<std::string, std::string> res;
+    res = WebDataDetectorAdapter::ParseExtraParams("datetime", nullptr);
+    EXPECT_TRUE(res.empty());
+    res = WebDataDetectorAdapter::ParseExtraParams("datetime", JsonUtil::ParseJsonString(R"([])"));
+    EXPECT_TRUE(res.empty());
+    res = WebDataDetectorAdapter::ParseExtraParams("invalid", JsonUtil::ParseJsonString(R"({})"));
+    EXPECT_TRUE(res.empty());
+
+    // for others
+    res = WebDataDetectorAdapter::ParseExtraParams("phoneNum", JsonUtil::ParseJsonString(R"({})"));
+    EXPECT_TRUE(res.empty());
+
+    // for datetime
+    res = WebDataDetectorAdapter::ParseExtraParams("datetime", JsonUtil::ParseJsonString(R"({})"));
+    EXPECT_TRUE(res.empty());
+    res = WebDataDetectorAdapter::ParseExtraParams(
+        "datetime", JsonUtil::ParseJsonString(R"({"startTimestamp": 123456})"));
+    EXPECT_FALSE(res.empty());
 }
 
 /**

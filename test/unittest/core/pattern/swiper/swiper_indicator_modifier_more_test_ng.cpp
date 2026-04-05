@@ -14,7 +14,7 @@
  */
 
 #include "swiper_test_ng.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "core/components_ng/pattern/swiper/swiper_paint_method.h"
 #include "core/components_ng/pattern/swiper_indicator/dot_indicator/dot_indicator_paint_method.h"
@@ -728,6 +728,37 @@ HWTEST_F(SwiperIndicatorModifierMoreTestNg, PlayLongPointAnimation004, TestSize.
     modifier->longPointLeftAnimEnd_ = true;
     modifier->longPointRightAnimEnd_ = false;
     modifier->userSetSwiperCurve_ = AceType::MakeRefPtr<InterpolatingSpring>(0.1f, 0.1f, 0.1f, 0.1f);
+    auto gestureState = GestureState::GESTURE_STATE_RELEASE_LEFT;
+    modifier->PlayLongPointAnimation(
+        longPointCenterX, gestureState, TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_RIGHT, endVectorBlackPointCenterX);
+    EXPECT_TRUE(gestureState == GestureState::GESTURE_STATE_RELEASE_LEFT);
+}
+
+/**
+ * @tc.name: PlayLongPointAnimation005
+ * @tc.desc: play long point animation
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperIndicatorModifierMoreTestNg, PlayLongPointAnimation005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Default value
+     */
+    CreateSwiper();
+    CreateSwiperItems();
+    CreateSwiperDone();
+    auto totalCount = pattern_->TotalCount();
+    EXPECT_EQ(totalCount, 4);
+    RefPtr<DotIndicatorModifier> modifier = AceType::MakeRefPtr<DotIndicatorModifier>();
+    LinearVector<float> endVectorBlackPointCenterX;
+    for (int32_t i = 0; i < totalCount; ++i) {
+        endVectorBlackPointCenterX.emplace_back(static_cast<float>(i + 1));
+    }
+    std::vector<std::pair<float, float>> longPointCenterX = { { 0.0f, 0.0f } };
+    modifier->longPointLeftAnimEnd_ = true;
+    modifier->longPointRightAnimEnd_ = false;
+    modifier->userSetSwiperCurve_ = AceType::MakeRefPtr<InterpolatingSpring>(-1.0f, 0.1f, 0.1f, 0.1f);
+    modifier->headCurve_ = AceType::MakeRefPtr<InterpolatingSpring>(-1.0f, 0.1f, 0.1f, 0.1f);
     auto gestureState = GestureState::GESTURE_STATE_RELEASE_LEFT;
     modifier->PlayLongPointAnimation(
         longPointCenterX, gestureState, TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_RIGHT, endVectorBlackPointCenterX);

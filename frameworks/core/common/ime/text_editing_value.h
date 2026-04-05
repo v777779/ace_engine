@@ -18,10 +18,11 @@
 
 #include <functional>
 #include <string>
+#include "base/utils/macros.h"
 
 #include "core/common/ime/text_selection.h"
 
-#if defined(IOS_PLATFORM)
+#if defined(CROSS_PLATFORM)
 #include "core/common/ime/text_compose.h"
 #endif
 
@@ -31,7 +32,7 @@ class JsonValue;
 
 using TextManipulation = std::function<void(std::wstring&)>;
 
-struct TextEditingValue {
+struct ACE_FORCE_EXPORT TextEditingValue {
     void ParseFromJson(const JsonValue& json);
     std::string ToJsonString() const;
 
@@ -80,9 +81,11 @@ struct TextEditingValue {
     bool isDelete;
     std::string appendText;
 
-#if defined(IOS_PLATFORM)
+#if defined(CROSS_PLATFORM)
     TextCompose compose;
     bool unmarkText;
+    bool discardedMarkedText;
+    bool stopBackPress;
 #endif
 };
 

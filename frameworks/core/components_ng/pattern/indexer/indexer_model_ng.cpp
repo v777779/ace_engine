@@ -27,7 +27,30 @@ void IndexerModelNG::Create(std::vector<std::string>& arrayValue, int32_t select
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
-    const char* tag = isArc ? V2::ARC_INDEXER_ETS_TAG : V2::INDEXER_ETS_TAG;
+    const char* tag = isArc ? ARC_INDEXER_ETS_TAG : INDEXER_ETS_TAG;
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", tag, nodeId);
+    RefPtr<FrameNode> frameNode = nullptr;
+    if (isArc) {
+        frameNode =
+            FrameNode::GetOrCreateFrameNode(tag, nodeId, []() { return AceType::MakeRefPtr<ArcIndexerPattern>(); });
+    } else {
+        frameNode =
+            FrameNode::GetOrCreateFrameNode(tag, nodeId, []() { return AceType::MakeRefPtr<IndexerPattern>(); });
+    }
+
+    stack->Push(frameNode);
+    if (selected < 0 || selected >= static_cast<int32_t>(arrayValue.size())) {
+        selected = 0;
+    }
+    ACE_UPDATE_LAYOUT_PROPERTY(IndexerLayoutProperty, ArrayValue, arrayValue);
+    ACE_UPDATE_LAYOUT_PROPERTY(IndexerLayoutProperty, Selected, selected);
+}
+
+void IndexerModelNG::CreateStatic(std::vector<std::string>& arrayValue, int32_t selected, bool isArc)
+{
+    auto* stack = ViewStackProcessor::GetInstance();
+    auto nodeId = stack->ClaimNodeId();
+    const char* tag = isArc ? ARC_INDEXER_ETS_TAG : INDEXER_ETS_TAG;
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", tag, nodeId);
     RefPtr<FrameNode> frameNode = nullptr;
     if (isArc) {
@@ -638,7 +661,7 @@ void IndexerModelNG::SetPopupBackgroundColorByUser(bool isByUser)
 
 RefPtr<FrameNode> IndexerModelNG::CreateFrameNode(int32_t nodeId, bool isArc)
 {
-    const char* tag = isArc ? V2::ARC_INDEXER_ETS_TAG : V2::INDEXER_ETS_TAG;
+    const char* tag = isArc ? ARC_INDEXER_ETS_TAG : INDEXER_ETS_TAG;
     RefPtr<FrameNode> frameNode = nullptr;
     if (isArc) {
         frameNode =
@@ -717,9 +740,9 @@ void IndexerModelNG::SetFontWeight(FrameNode* frameNode, const FontWeight weight
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(IndexerLayoutProperty, FontWeight, weight, frameNode);
 }
 
-void IndexerModelNG::SetSelectedFont(FrameNode* frameNode, const std::optional<Dimension>& fontSize,
-    const std::optional<FontWeight>& fontWeight, const std::optional<std::vector<std::string>>& fontFamily,
-    const std::optional<OHOS::Ace::FontStyle>& fontStyle)
+void IndexerModelNG::SetSelectedFont(FrameNode* frameNode, std::optional<Dimension>& fontSize,
+    std::optional<FontWeight>& fontWeight, std::optional<std::vector<std::string>>& fontFamily,
+    std::optional<OHOS::Ace::FontStyle>& fontStyle)
 {
     auto pipelineContext = frameNode->GetContext();
     CHECK_NULL_VOID(pipelineContext);
@@ -734,9 +757,9 @@ void IndexerModelNG::SetSelectedFont(FrameNode* frameNode, const std::optional<D
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(IndexerLayoutProperty, SelectedFont, textStyle, frameNode);
 }
 
-void IndexerModelNG::SetPopupFont(FrameNode* frameNode, const std::optional<Dimension>& fontSize,
-    const std::optional<FontWeight>& fontWeight, const std::optional<std::vector<std::string>>& fontFamily,
-    const std::optional<OHOS::Ace::FontStyle>& fontStyle)
+void IndexerModelNG::SetPopupFont(FrameNode* frameNode, std::optional<Dimension>& fontSize,
+    std::optional<FontWeight>& fontWeight, std::optional<std::vector<std::string>>& fontFamily,
+    std::optional<OHOS::Ace::FontStyle>& fontStyle)
 {
     auto pipelineContext = frameNode->GetContext();
     CHECK_NULL_VOID(pipelineContext);
@@ -751,9 +774,9 @@ void IndexerModelNG::SetPopupFont(FrameNode* frameNode, const std::optional<Dime
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(IndexerLayoutProperty, PopupFont, textStyle, frameNode);
 }
 
-void IndexerModelNG::SetFont(FrameNode* frameNode, const std::optional<Dimension>& fontSize,
-    const std::optional<FontWeight>& fontWeight, const std::optional<std::vector<std::string>>& fontFamily,
-    const std::optional<OHOS::Ace::FontStyle>& fontStyle)
+void IndexerModelNG::SetFont(FrameNode* frameNode, std::optional<Dimension>& fontSize,
+    std::optional<FontWeight>& fontWeight, std::optional<std::vector<std::string>>& fontFamily,
+    std::optional<OHOS::Ace::FontStyle>& fontStyle)
 {
     auto pipelineContext = frameNode->GetContext();
     CHECK_NULL_VOID(pipelineContext);

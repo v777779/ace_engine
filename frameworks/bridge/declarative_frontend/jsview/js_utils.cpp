@@ -89,12 +89,6 @@ RefPtr<PixelMap> CreatePixelMapFromNapiValue(const JSRef<JSVal>& obj, NativeEngi
     return PixelMap::CreatePixelMap(pixmapPtrAddr);
 }
 
-bool GetPixelMapListFromAnimatedDrawable(
-    JSRef<JSVal> obj, std::vector<RefPtr<PixelMap>>& pixelMaps, int32_t& duration, int32_t& iterations)
-{
-    return PixelMap::GetPxielMapListFromAnimatedDrawable(UnwrapNapiValue(obj), pixelMaps, duration, iterations);
-}
-
 RefPtr<PixelMap> GetDrawablePixmap(JSRef<JSVal> obj)
 {
     return PixelMap::GetFromDrawable(UnwrapNapiValue(obj));
@@ -143,20 +137,21 @@ const Rosen::Filter* CreateRSFilterFromNapiValue(JSRef<JSVal> obj)
     return filterPtr;
 }
 
-const Rosen::BrightnessBlender* CreateRSBrightnessBlenderFromNapiValue(JSRef<JSVal> obj)
+const UiMaterial* CreateUiMaterialFromNapiValue(JSRef<JSVal> obj)
 {
-    auto blenderPtr = static_cast<Rosen::BrightnessBlender*>(UnwrapNapiValue(obj));
+    auto uiMaterialPtr = static_cast<UiMaterial*>(UnwrapNapiValue(obj));
+    return uiMaterialPtr;
+}
+
+const Rosen::Blender* CreateRSBlenderFromNapiValue(JSRef<JSVal> obj)
+{
+    auto blenderPtr = static_cast<Rosen::Blender*>(UnwrapNapiValue(obj));
     return blenderPtr;
 }
 
 RefPtr<DrawingColorFilter> CreateDrawingColorFilter(JSRef<JSVal> obj)
 {
     return DrawingColorFilter::CreateDrawingColorFilter(UnwrapNapiValue(obj));
-}
-
-RefPtr<DrawingLattice> CreateDrawingLattice(JSRef<JSVal> obj)
-{
-    return DrawingLattice::CreateDrawingLattice(UnwrapNapiValue(obj));
 }
 
 std::optional<NG::BorderRadiusProperty> HandleDifferentRadius(JsiRef<JSVal> args)
@@ -234,14 +229,14 @@ bool IsDisableEventVersion()
     return Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_ELEVEN);
 }
 
-void ParseTextShadowFromShadowObject(const JSRef<JSVal>& shadowObject, std::vector<Shadow>& shadows)
+void ParseTextShadowFromShadowObject(const JSRef<JSVal>& shadowObject, std::vector<Shadow>& shadows, bool needResObj)
 {
     if (!shadowObject->IsNumber() && !shadowObject->IsObject() && !shadowObject->IsArray()) {
         return;
     }
     if (!shadowObject->IsArray()) {
         Shadow shadow;
-        if (!JSViewAbstract::ParseShadowProps(shadowObject, shadow)) {
+        if (!JSViewAbstract::ParseShadowProps(shadowObject, shadow, false, needResObj)) {
             return;
         }
         shadows.push_back(shadow);
@@ -252,7 +247,7 @@ void ParseTextShadowFromShadowObject(const JSRef<JSVal>& shadowObject, std::vect
     for (size_t i = 0; i < shadowLength; ++i) {
         auto shadowJsVal = params->GetValueAt(i);
         Shadow shadow;
-        if (!JSViewAbstract::ParseShadowProps(shadowJsVal, shadow)) {
+        if (!JSViewAbstract::ParseShadowProps(shadowJsVal, shadow, false, needResObj)) {
             continue;
         }
         shadows.push_back(shadow);

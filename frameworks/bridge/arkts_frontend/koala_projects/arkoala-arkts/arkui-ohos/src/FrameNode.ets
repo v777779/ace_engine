@@ -14,19 +14,15 @@
  */
 
 import { UIContext } from "@ohos/arkui/UIContext"
-import { UIContextImpl } from "arkui/base/UIContextImpl"
+import { UIEventHelper } from 'arkui/component/idlize';
 import { NodePosition, NodeEdges, Size, LengthMetrics, SizeT } from "./Graphics"
-import {
-    Finalizable, toPeerPtr, KPointer, MaterializedBase, nullptr, pointer, NativeThunk
-} from "@koalaui/interop"
+import { Finalizable, toPeerPtr, KPointer, MaterializedBase, nullptr, pointer, NativeThunk,
+    InteropNativeModule, SerializerBase } from "@koalaui/interop"
 import { finalizerRegister, int32 } from "@koalaui/common"
 import { ArkUIAniModule } from "arkui.ani"
 import { RenderNode } from "./RenderNode"
-import {
-    CommonAttribute, ArkCommonMethodPeer, CommonMethod, UIGestureEvent, UICommonEvent, UICommonEventInternal,
-    CustomProperty
-} from './component/common'
-import { InteropNativeModule } from '@koalaui/interop';
+import { CommonAttribute, ArkCommonMethodPeer, CommonMethod, UIGestureEvent, UICommonEvent, UICommonEventInternal,
+    CustomProperty, AnimateParam } from './component/common';
 import { ArkButtonNode } from './typedNode/ArkButtonNode'
 import { ButtonOptions, ButtonAttribute, ArkButtonPeer} from './component/button'
 import { ArkCheckboxNode } from './typedNode/ArkCheckboxNode'
@@ -77,13 +73,13 @@ import { ArkMarqueeNode } from './typedNode/ArkMarqueeNode'
 import { ArkSymbolGlyphNode } from './typedNode/ArkSymbolGlyphNode'
 import { ArkXComponentNode } from "./typedNode/ArkXComponentNode"
 import { ModifierType } from './typedNode/ArkCommonModifier'
-import { ListOptions, ListAttribute, ArkListPeer } from './component/list'
+import { ListOptions, ListAttribute, ArkListPeer, UIListEvent, UIListEventInternal } from './component/list'
 import { ListItemOptions, ListItemAttribute, ArkListItemPeer } from './component/listItem'
 import { ListItemGroupOptions, ListItemGroupAttribute, ArkListItemGroupPeer } from './component/listItemGroup'
-import { Scroller, ScrollAttribute, ArkScrollPeer } from './component/scroll'
-import { GridLayoutOptions, GridAttribute, ArkGridPeer } from './component/grid'
+import { Scroller, ScrollAttribute, ArkScrollPeer, UIScrollEvent, UIScrollEventInternal } from './component/scroll'
+import { GridLayoutOptions, GridAttribute, ArkGridPeer, UIGridEvent, UIGridEventInternal } from './component/grid'
 import { GridItemOptions, GridItemAttribute, ArkGridItemPeer } from './component/gridItem'
-import { WaterFlowOptions, WaterFlowAttribute, ArkWaterFlowPeer } from './component/waterFlow'
+import { WaterFlowOptions, WaterFlowAttribute, ArkWaterFlowPeer, UIWaterFlowEvent, UIWaterFlowEventInternal } from './component/waterFlow'
 import { FlowItemAttribute, ArkFlowItemPeer } from './component/flowItem'
 import { ColumnOptions, ColumnOptionsV2, ColumnAttribute, ArkColumnPeer } from './component/column'
 import { RowOptions, RowOptionsV2, RowAttribute, ArkRowPeer } from './component/row'
@@ -106,31 +102,61 @@ import { DividerAttribute, ArkDividerPeer } from './component/divider'
 import { BlankAttribute, ArkBlankPeer } from './component/blank'
 import { SearchOptions, SearchAttribute, ArkSearchPeer } from './component/search'
 import { SwiperController, SwiperAttribute, ArkSwiperPeer } from './component/swiper'
-import { TextAreaOptions, TextAreaAttribute, ArkTextAreaPeer } from './component/textArea'
-import { TextInputOptions, TextInputAttribute, ArkTextInputPeer } from './component/textInput'
-import { TextOptions, TextAttribute, ArkTextPeer } from './component/text'
+import { TextAreaOptions, TextAreaAttribute, ArkTextAreaPeer, TextAreaController } from './component/textArea'
+import { TextInputOptions, TextInputAttribute, ArkTextInputPeer, TextInputController } from './component/textInput'
+import { TextOptions, TextAttribute, ArkTextPeer, TextController } from './component/text'
 import { MarqueeOptions, MarqueeAttribute, ArkMarqueePeer } from './component/marquee'
 import { SymbolGlyphAttribute, ArkSymbolGlyphPeer } from './component/symbolglyph'
 import { XComponentParameters, XComponentOptions, NativeXComponentParameters, XComponentAttribute, TypedXComponentPeerInternal } from "./component/xcomponent"
-import { XComponentType } from './component/enums'
-import { ComponentContent } from './ComponentContent';
+import { XComponentType, AnimationPropertyType, EventQueryType } from './component/enums'
+import { ComponentContent, ReactiveComponentContent } from './ComponentContent';
 import { DrawContext } from './Graphics';
 import { JSBuilderNode } from "./BuilderNode"
 import { BusinessError } from '#external';
 import { Resource } from 'global.resource';
 import { ElementIdToCustomProperties } from "#handwritten"
 import { ObjectLinkDecoratedVariable } from "./stateManagement/decoratorImpl/decoratorObjectLink"
-import { FrameNodeExtender } from './framework';
+import { FrameNodeExtender, SizeTLengthMetrics, NodeEdgesLengthMetrics } from './framework';
 import { extractors } from "#handwritten";
+import { PeerNode } from './PeerNode';
 import hilog from '@ohos.hilog';
+import { Vector2 } from "./Graphics.ets"
 
 export interface CrossLanguageOptions {
     attributeSetting?: boolean;
+}
+export interface InteractionEventBindingInfo {
+    baseEventRegistered: boolean;
+    nodeEventRegistered: boolean;
+    nativeEventRegistered: boolean;
+    builtInEventRegistered: boolean;
 }
 export interface LayoutConstraint {
     maxSize: Size;
     minSize: Size;
     percentReference: Size;
+}
+
+export class LayoutConstraintImpl implements LayoutConstraint {
+    maxSize: Size;
+    minSize: Size;
+    percentReference: Size;
+    constructor(maxSizeWidth: double, maxSizeHeight: double,
+        minSizeWidth: double, minSizeHeight: double,
+        percentReferenceWidth: double, percentReferenceHeight: double) {
+        this.maxSize = { width: maxSizeWidth, height: maxSizeHeight };
+        this.minSize = { width: minSizeWidth, height: minSizeHeight };
+        this.percentReference = { width: percentReferenceWidth, height: percentReferenceHeight };
+    }
+}
+
+export class NodePositionImpl implements NodePosition{
+    x: double;
+    y: double;
+    constructor(x: double, y: double) {
+        this.x = x;
+        this.y = y;
+    }
 }
 
 export class ArkFrameNodePeer extends ArkCommonMethodPeer {
@@ -144,24 +170,50 @@ export enum ExpandMode {
     EXPAND = 1,
     LAZY_EXPAND = 2,
 }
+export enum UIState {
+    NORMAL = 0,
+    PRESSED = 1 << 0,
+    FOCUSED = 1 << 1,
+    DISABLED = 1 << 2,
+    SELECTED = 1 << 3
+}
+export type UIStatesChangeHandler = (node: FrameNode, currentUIStates: int) => void;
 export class FrameNodeFinalizationRegisterProxy {
     constructor() { }
     public static instance_: FrameNodeFinalizationRegisterProxy = new FrameNodeFinalizationRegisterProxy();
-    public static ElementIdToOwningFrameNode_ = new Map<number, FrameNode>();
-
+    public static ElementIdToOwningFrameNode_ = new containers.ConcurrentHashMap<number, FrameNode>();
 }
 
 export class FrameNodeInternal {
     public static fromPtr(ptr: KPointer): FrameNode {
         const obj: FrameNode = new FrameNode(undefined)
         obj.peer = new Finalizable(ptr, FrameNode.getFinalizer())
+        obj.nodePtr_ = obj.peer?.ptr;
         return obj
     }
 }
 
+export interface FrameNodeOptions {
+    supportMultiThread?: boolean;
+}
+
+const ERROR_CODE_NODE_IS_ADOPTED = 106206;
+const ERROR_CODE_NODE_HAS_PARENT = 106207;
+const ERROR_CODE_NODE_CAN_NOT_BE_ADOPTED = 106208;
+const ERROR_CODE_NODE_CAN_NOT_ADOPT_TO = 106209;
+const ERROR_CODE_NODE_IS_NOT_IN_ADOPTED_CHILDREN = 106210;
+
+const errorMap_: Map<number, string> = new Map<number, string>();
+errorMap_.set(ERROR_CODE_NODE_IS_ADOPTED, "The parameter 'child' is invalid: the node has already been adopted.");
+errorMap_.set(ERROR_CODE_NODE_HAS_PARENT, "The parameter 'child' is invalid: the child already has a parent node.");
+errorMap_.set(ERROR_CODE_NODE_CAN_NOT_BE_ADOPTED, "The parameter 'child' is invalid: the node cannot be adopted.");
+errorMap_.set(ERROR_CODE_NODE_CAN_NOT_ADOPT_TO, 'Current node is invalid: the node cannot adopt children.');
+errorMap_.set(ERROR_CODE_NODE_IS_NOT_IN_ADOPTED_CHILDREN, "The parameter 'child' is invalid: the node is not adopted by the parent node.");
+
 export class FrameNode implements MaterializedBase {
+    private isDisposed_: boolean = false;
     peer?: Finalizable | undefined = undefined
-    uiContext: UIContextImpl | undefined = undefined
+    uiContext: UIContext | undefined = undefined
     renderNode_: RenderNode | undefined = undefined
     instanceId_?: number;
     // the name of "nodePtr_" is used in ace_engine/interfaces/native/node/native_node_ani.cpp.
@@ -171,6 +223,7 @@ export class FrameNode implements MaterializedBase {
     protected _gestureEvent: UIGestureEvent | undefined = undefined;
     public nodeType_?: string | undefined = undefined;
     private nodeAdapterRef_ ?: NodeAdapter;
+    protected _supportMultiThread: boolean = false;
 
     getType(): string {
         return 'CustomFrameNode';
@@ -192,17 +245,28 @@ export class FrameNode implements MaterializedBase {
     get gestureEvent(): UIGestureEvent {
         if (this._gestureEvent === undefined) {
             this._gestureEvent = new UIGestureEvent();
-            const retval = FrameNodeExtender.getFrameNodePtr(this)
-            let peer = new ArkFrameNodePeer(retval, this._nodeId as int32, "FrameNode", 0);
-            // this._gestureEvent!.setPeer(peer);
+            this._gestureEvent!.setPeer(PeerNode.findPeerByNativeId(this._nodeId));
         }
         return this._gestureEvent as UIGestureEvent;
     }
-    constructor(uiContext?: UIContext, type?: string, ptr?: KPointer) {
+    constructor(uiContext: UIContext, options?: FrameNodeOptions) {
+        this(uiContext, options, undefined, undefined);
+    }
+    constructor(uiContext?: UIContext, options?: FrameNodeOptions, type?: string, ptr?: KPointer) {
         if ((uiContext) !== (undefined)) {
-            this.uiContext = uiContext as UIContextImpl;
+            this.uiContext = uiContext as UIContext;
             this.instanceId_ = this.uiContext!.instanceId_;
             this.nodeType_ = type;
+            this._supportMultiThread = options?.supportMultiThread ?? false;
+            if (type === 'InternalBatchFrameNode') {
+                this.renderNode_ = new RenderNode('CustomFrameNode')
+                this.renderNode_!.setFrameNode(new WeakRef<FrameNode>(this))
+                if (ptr) {
+                    this.peer = new Finalizable(ptr, FrameNode.getFinalizer());
+                    this.nodePtr_ = this.peer?.ptr
+                }
+                return;
+            }
             if (type === 'ProxyFrameNode') {
                 if (ptr) {
                     this.peer = new Finalizable(ptr, FrameNode.getFinalizer());
@@ -210,27 +274,27 @@ export class FrameNode implements MaterializedBase {
                 }
                 return;
             }
-            if (this.getType() === 'BuilderRootFrameNode') {
-                this.renderNode_ = new RenderNode(this.getType());
+            if (type === 'BuilderRootFrameNode') {
+                this.renderNode_ = new RenderNode('BuilderRootFrameNode');
                 this.renderNode_!.setFrameNode(new WeakRef<FrameNode>(this));
                 return;
             }
             const instanceId = this.instanceId_!.toInt();
             ArkUIAniModule._Common_Sync_InstanceId(instanceId);
-            if (this.getType() === undefined || this.getType() === "CustomFrameNode") {
+            const isCustomFrameNode = type === undefined || type === 'CustomFrameNode';
+            if (isCustomFrameNode) {
                 this.renderNode_ = new RenderNode('CustomFrameNode')
-                const ctorPtr: KPointer = ptr ? ptr : FrameNodeExtender.constructorFrameNode()
+                const ctorPtr: KPointer = ptr ? ptr : FrameNodeExtender.constructorFrameNode(this._supportMultiThread)
                 this.peer = new Finalizable(ctorPtr, FrameNode.getFinalizer())
                 this.nodePtr_ = this.peer?.ptr
-                ArkUIAniModule._SetCustomCallback(this!.peer!.ptr, this.onMeasureInner, this.onLayoutInner);
-                ArkUIAniModule._SetFrameNodeDrawCallback(this.peer!.ptr, this.onDrawWrapper);
+                ArkUIAniModule._SetCustomCallbackWithCheck(this!.peer!.ptr, this);  
             } else {
-                const retval = ptr ? ptr : FrameNodeExtender.createTypedFrameNode(type as string);
+                const retval = ptr ? ptr : FrameNodeExtender.createTypedFrameNode(type as string, this._supportMultiThread);
                 this.peer = new Finalizable(retval, FrameNode.getFinalizer());
                 this.nodePtr_ = this.peer?.ptr
             }
             this.renderNode_?.setFrameNode(new WeakRef<FrameNode>(this))
-            if (this.renderNode_ && this.getType() === "CustomFrameNode") {
+            if (this.renderNode_ && isCustomFrameNode) {
                 this.renderNode_!.peer = new Finalizable(FrameNodeExtender.getRenderNode(this.peer!.ptr), RenderNode.getFinalizer());
             }
             this._nodeId = FrameNodeExtender.getIdByFrameNode(this.peer!.ptr);
@@ -249,11 +313,33 @@ export class FrameNode implements MaterializedBase {
             const error = Error('The FrameNode is not modifiable.');
             throw new BusinessError(100021, error);
         }
-        const node_casted = node as (FrameNode)
-        FrameNodeExtender.appendChild(this, node_casted)
+        const node_casted = node as (FrameNode);
+        let flag = FrameNodeExtender.appendChild(this, node_casted);
+        if (flag === ERROR_CODE_NODE_IS_ADOPTED) {
+            const error = Error("The parameter 'node' is invalid: the node has already been adopted.");
+            throw new BusinessError(100025, error);
+        }
         return
     }
     public addComponentContent<T = undefined>(content: ComponentContent<T>) {
+        if (content === undefined || content === null || content.getFrameNode() == undefined ||
+            content.getFrameNode() == null || content.getNodePtr() == undefined) {
+            return;
+        }
+        if (!this.isModifiable()) {
+            const error = Error('The FrameNode is not modifiable.');
+            throw new BusinessError(100021, error);
+        }
+        const instanceId = this.instanceId_!.toInt();
+        ArkUIAniModule._Common_Sync_InstanceId(instanceId);
+        let node = content.getNodeWithoutProxy();
+        if (this.peer?.ptr && node) {
+            ArkUIAniModule._AddComponent_ToFrameNode(this.peer!.ptr, node!);
+            content.setAttachedParent(new WeakRef<FrameNode>(this));
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+    }
+    public addComponentContent<T = undefined>(content: ComponentContent<T> | ReactiveComponentContent) {
         if (content === undefined || content === null || content.getFrameNode() == undefined ||
             content.getFrameNode() == null || content.getNodePtr() == undefined) {
             return;
@@ -293,10 +379,15 @@ export class FrameNode implements MaterializedBase {
             const error = Error('The FrameNode is not modifiable.');
             throw new BusinessError(100021, error);
         }
+        let flag: number = 0;
         if (sibling === null || sibling === undefined) {
-            FrameNodeExtender.insertChildAfter(this.peer!.ptr, toPeerPtr(child), nullptr);
+            flag = FrameNodeExtender.insertChildAfter(this.peer!.ptr, toPeerPtr(child), nullptr);
         } else {
-            FrameNodeExtender.insertChildAfter(this.peer!.ptr, toPeerPtr(child), toPeerPtr(sibling!));
+            flag = FrameNodeExtender.insertChildAfter(this.peer!.ptr, toPeerPtr(child), toPeerPtr(sibling!));
+        }
+        if (flag === ERROR_CODE_NODE_IS_ADOPTED) {
+            const error = Error("The parameter 'child' is invalid: the node has already been adopted.");
+            throw new BusinessError(100025, error);
         }
         return
     }
@@ -325,12 +416,14 @@ export class FrameNode implements MaterializedBase {
         return node;
     }
     public getChild(index: int32, expandMode?: ExpandMode | undefined): FrameNode | null {
-        const index_casted = index as (number);
+        if (this.isDisposed()) {
+            return null;
+        }
         let expand_casted: number = 1;
         if (expandMode !== undefined && expandMode !== null) {
             expand_casted = expandMode;
         }
-        const retval = FrameNodeExtender.getChild(this, index_casted, expand_casted);
+        const retval = FrameNodeExtender.getChild(this, index, expand_casted);
         if (retval !== nullptr) {
             let child = extractors.fromFrameNodePtr(retval);
             const nodeId = FrameNodeExtender.getIdByFrameNode(toPeerPtr(child));
@@ -409,83 +502,94 @@ export class FrameNode implements MaterializedBase {
         }
         return null;
     }
-    public getChildrenCount(): int32 {
+    public getChildrenCount(): int {
         return FrameNodeExtender.getChildrenCount(this);
     }
     public dispose(): void {
+        if (this.isDisposed()) {
+            return;
+        }
         if (this.peer?.ptr) {
+            ArkUIAniModule._CheckThreadValid(false, this.peer!.ptr!);
             this.peer?.close();
         }
         this.nodePtr_ = undefined;
-        this.renderNode_?.resetNodePtr();
+        this.renderNode_?.dispose();
+        this.isDisposed_ = true;
+    }
+    public isDisposed(): boolean {
+        return (this.nodePtr_ == undefined);
     }
     public resetNodePtr(): void {
         if (this.peer?.ptr) {
             this.peer?.close();
         }
+        this.nodePtr_ = undefined;
+        this.isDisposed_ = true;
     }
     public getOpacity(): double {
-        return FrameNodeExtender.getOpacity(this);
+        let opacity: double = FrameNodeExtender.getOpacity(this);
+        opacity = opacity > 1.0 ? 1.0 : opacity;
+        opacity = opacity < 0.0 ? 0.0 : opacity;
+        return opacity;
     }
     public getPositionToWindowWithTransform(): NodePosition {
-        // return FrameNodeExtender.getPositionToWindowWithTransform(this);
-        return { x: 0, y: 0 } as NodePosition;
+        return FrameNodeExtender.getPositionToWindowWithTransform(this);
     }
     public getPositionToParent(): NodePosition {
-        // return FrameNodeExtender.getPositionToParent(this)
-        return { x: 0, y: 0 } as NodePosition;
+        return FrameNodeExtender.getPositionToParent(this);
     }
     public getPositionToScreen(): NodePosition {
-        // return FrameNodeExtender.getPositionToScreen(this)
-        return { x: 0, y: 0 } as NodePosition;
+        return FrameNodeExtender.getPositionToScreen(this);
+    }
+    public getGlobalPositionOnDisplay(): NodePosition {
+        return FrameNodeExtender.getGlobalPositionOnDisplay(this);
     }
     public getPositionToWindow(): NodePosition {
-        // return FrameNodeExtender.getPositionToWindow(this)
-        return { x: 0, y: 0 } as NodePosition;
+        return FrameNodeExtender.getPositionToWindow(this);
     }
     public getPositionToParentWithTransform(): NodePosition {
-        // return FrameNodeExtender.getPositionToParentWithTransform(this)
-        return { x: 0, y: 0 } as NodePosition;
+        return FrameNodeExtender.getPositionToParentWithTransform(this);
     }
     public getPositionToScreenWithTransform(): NodePosition {
-        // return FrameNodeExtender.getPositionToScreenWithTransform(this)
-        return { x: 0, y: 0 } as NodePosition;
+        return FrameNodeExtender.getPositionToScreenWithTransform(this);
     }
     public getMeasuredSize(): Size {
         return FrameNodeExtender.getMeasuredSize(this)
     }
     public getLayoutPosition(): NodePosition {
-        // return FrameNodeExtender.getLayoutPosition(this)
-        return { x: 0, y: 0 } as NodePosition;
+        return FrameNodeExtender.getLayoutPosition(this);
     }
-   public getUserConfigBorderWidth(): NodeEdges<LengthMetrics> {
-        // return FrameNodeExtender.getUserConfigBorderWidth()
-        let lengthMetrics: LengthMetrics = new LengthMetrics(0);
-        return { top: lengthMetrics, left: lengthMetrics,
-          bottom: lengthMetrics, right: lengthMetrics };
+    public getUserConfigBorderWidth(): NodeEdges<LengthMetrics> {
+        let borderWidth = FrameNodeExtender.getUserConfigBorderWidth(this);
+        return {
+            top: borderWidth.top, left: borderWidth.left,
+            bottom: borderWidth.bottom, right: borderWidth.right
+        };
     }
     public getUserConfigPadding(): NodeEdges<LengthMetrics> {
-        // return FrameNodeExtender.getUserConfigPadding()
-        let lengthMetrics: LengthMetrics = new LengthMetrics(0);
-        return { top: lengthMetrics, left: lengthMetrics,
-          bottom: lengthMetrics, right: lengthMetrics }
+        let padding = FrameNodeExtender.getUserConfigPadding(this)
+        return {
+            top: padding.top, left: padding.left,
+            bottom: padding.bottom, right: padding.right
+        }
     }
     public getUserConfigMargin(): NodeEdges<LengthMetrics> {
-        // return FrameNodeExtender.getUserConfigMargin()
-        let lengthMetrics: LengthMetrics = new LengthMetrics(0);
-        return { top: lengthMetrics, left: lengthMetrics,
-          bottom: lengthMetrics, right: lengthMetrics }
+        let margin = FrameNodeExtender.getUserConfigMargin(this)
+        return {
+            top: margin.top, left: margin.left,
+            bottom: margin.bottom, right: margin.right
+        }
     }
     public getUserConfigSize(): SizeT<LengthMetrics> {
-        // return FrameNodeExtender.getUserConfigSize()
-        let lengthMetrics: LengthMetrics = new LengthMetrics(0);
-        return { width: lengthMetrics, height: lengthMetrics }
+        let size = FrameNodeExtender.getUserConfigSize(this)
+        return { width: size.width, height: size.height }
     }
     public getId(): string {
         return FrameNodeExtender.getId(this);
     }
-    public getUniqueId(): long {
-        return FrameNodeExtender.getUniqueId(this) as long;
+    public getUniqueId(): int {
+        return FrameNodeExtender.getUniqueId(this);
     }
     public isVisible(): boolean {
         return FrameNodeExtender.isVisible(this);
@@ -499,8 +603,6 @@ export class FrameNode implements MaterializedBase {
     public getInspectorInfo(): Object {
         return FrameNodeExtender.getInspectorInfo(this);
     }
-    public onDraw(context: DrawContext): void {
-    }
     public onDrawWrapper(context: DrawContext): void {
         context.canvas.clipRect({
             left: 0,
@@ -508,25 +610,6 @@ export class FrameNode implements MaterializedBase {
             right: this.uiContext!.vp2px(context.size.width),
             bottom: this.uiContext!.vp2px(context.size.height)
         })
-        this.onDraw(context);
-    }
-    public onMeasureInner(width1: number, height1: number, width2: number, height2: number,
-        width3: number, height3: number): void {
-        const maxSize: Size = { width: width1, height: height1 };
-        const minSize: Size = { width: width2, height: height2 };
-        const percentReference: Size = { width: width3, height: height3 };
-        const constraint: LayoutConstraint = { maxSize: maxSize, minSize: minSize, percentReference: percentReference };
-        this.onMeasure(constraint);
-    }
-    public onMeasure(constraint: LayoutConstraint): void {
-        ArkUIAniModule._OnMeasure_InnerMeasure(this!.peer!.ptr);
-    }
-    public onLayoutInner(x: number, y: number): void {
-        const position: NodePosition = { x: x, y: y };
-        this.onLayout(position);
-    }
-    public onLayout(position: NodePosition): void {
-        ArkUIAniModule._OnLayout_InnerLayout(this!.peer!.ptr);
     }
     public setMeasuredSize(size: Size): void {
         const width = Math.max(size.width, 0);
@@ -536,8 +619,7 @@ export class FrameNode implements MaterializedBase {
         return;
     }
     public setLayoutPosition(position: NodePosition): void {
-        // const position_casted = position as (NodePosition);
-        // FrameNodeExtender.setLayoutPosition_serialize(this, position_casted);
+        FrameNodeExtender.setLayoutPosition(this, position);
         return;
     }
     public measure(constraint: LayoutConstraint): void {
@@ -549,10 +631,9 @@ export class FrameNode implements MaterializedBase {
         return;
     }
     public layout(position: NodePosition): void {
-        const position_casted = position as (NodePosition);
         const instanceId = this.instanceId_!.toInt();
         ArkUIAniModule._Common_Sync_InstanceId(instanceId);
-        // FrameNodeExtender.layout_serialize(this, position_casted);
+        FrameNodeExtender.layout(this, position);
         ArkUIAniModule._Common_Restore_InstanceId();
         return;
     }
@@ -563,19 +644,90 @@ export class FrameNode implements MaterializedBase {
     public invalidate(): void {
         FrameNodeExtender.invalidate(this);
     };
+    public disposeTreeRecursively(): void {
+        let theChildCount = this.getChildrenCount();
+        for (let i = 0;i < theChildCount; i++) {
+            const childI = this.getChild(i);
+            if (childI) {
+                childI.disposeTreeRecursively();
+            }
+        }
+        this.nodePtr_ = undefined;
+    }
     public disposeTree(): void {
+        this.disposeTreeRecursively();
         FrameNodeExtender.disposeTree(this);
+    };
+    public static createFrameNodes(uiContext: UIContext, count: int32): Array<FrameNode> {
+        const frameNodes: FrameNode[] = [];
+        if (count <= 0) {
+            return frameNodes;
+        }
+        ArkUIAniModule._Common_Sync_InstanceId(uiContext.instanceId_);
+        const ptrs = FrameNodeExtender.createFrameNodes(count);
+        ptrs.forEach((ptr: KPointer) => {
+            const frameNode = new FrameNode(uiContext, undefined, 'InternalBatchFrameNode', ptr);
+            frameNodes.push(frameNode);
+        })
+        ArkUIAniModule._SetCustomCallbackWithCheckForFrameNodes(ptrs, frameNodes);
+        const renderNodePtrs = FrameNodeExtender.getRenderNodesByFrameNodes(ptrs);
+        const ids = FrameNodeExtender.getIdsByFrameNodes(ptrs);
+        for (let i = 0; i < frameNodes.length; i++) {
+            frameNodes[i].renderNode_!.peer = new Finalizable(renderNodePtrs[i], RenderNode.getFinalizer());
+            frameNodes[i]._nodeId = ids[i];
+            FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.set(frameNodes[i]._nodeId, frameNodes[i]);
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return frameNodes;
+    }
+    public getFrameNodeById(id: string): FrameNode | null {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_!.toInt());
+        const retval = FrameNodeExtender.getFrameNodeById(this, id);
+        if (retval === nullptr) {
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return null;
+        }
+        let node = FrameNodeUtils.searchNodeInRegisterProxy(retval);
+        if (!node) {
+            node = FrameNodeUtils.createFrameNode(this.uiContext!, retval);
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return node;
+    }
+    public getFrameNodeByUniqueId(id: int32): FrameNode | null {
+        ArkUIAniModule._Common_Sync_InstanceId(this.instanceId_!.toInt());
+        const retval = FrameNodeExtender.getFrameNodeByUniqueId(this, id);
+        if (retval === nullptr) {
+            ArkUIAniModule._Common_Restore_InstanceId();
+            return null;
+        }
+        let node = FrameNodeUtils.searchNodeInRegisterProxy(retval);
+        if (!node) {
+            node = FrameNodeUtils.createFrameNode(this.uiContext!, retval);
+        }
+        ArkUIAniModule._Common_Restore_InstanceId();
+        return node;
+    }
+    public addSupportedUIStates(uiStates: int32, statesChangeHandler: UIStatesChangeHandler, excludeInner?: boolean | undefined): void {
+        let exclude_casted: boolean = false;
+        if (excludeInner !== undefined && excludeInner !== null) {
+            exclude_casted = excludeInner;
+        }
+        FrameNodeExtender.addSupportedUIStates(this, uiStates, statesChangeHandler, exclude_casted);
+    };
+    public removeSupportedUIStates(uiStates: int32): void {
+        FrameNodeExtender.removeSupportedUIStates(this, uiStates);
     };
     public setCrossLanguageOptions(options: CrossLanguageOptions): void {
         let errorMessage: string = 'The FrameNode cannot be set whether to support cross-language common attribute setting.';
         const error = Error(errorMessage);
         if (!this.isModifiable()) {
-            throw new BusinessError(100021, error);
+            throw new BusinessError(100022, error);
         }
         let setting: boolean = options.attributeSetting ? options.attributeSetting! : false;
         let isSupport = FrameNodeExtender.setCrossLanguageOptions(this, setting);
         if (!isSupport) {
-            throw new BusinessError(100021, error);
+            throw new BusinessError(100022, error);
         }
     }
     public getCrossLanguageOptions(): CrossLanguageOptions {
@@ -588,6 +740,64 @@ export class FrameNode implements MaterializedBase {
     public isTransferred(): boolean {
         return false;
     }
+    adoptChild(child: FrameNode): void {
+        if (child === undefined || child === null) {
+            const error = Error("The parameter 'child' is invalid: the child node is undefined or null.");
+            throw new BusinessError(100025, error);
+        }
+        if (this.isDisposed()) {
+            const error = Error('The current node has been disposed.');
+            throw new BusinessError(100026, error);
+        }
+        if (!this.isModifiable()) {
+            const error = Error('The FrameNode is not modifiable.');
+            throw new BusinessError(100021, error);
+        }
+        if (child.getType() === 'ProxyFrameNode' || !this.checkValid(child)) {
+            const error = Error("The parameter 'child' is invalid: the child node is not modifiable.");
+            throw new BusinessError(100025, error);
+        }
+        if (child.isDisposed()) {
+            const error = Error("The parameter 'child' is invalid: the child node has been disposed.");
+            throw new BusinessError(100025, error);
+        }
+        const child_casted = child as (FrameNode);
+        let result = FrameNodeExtender.adoptChild(this, child_casted);
+        let errorInfo = errorMap_.get(result);
+        if (errorInfo !== undefined) {
+            const error = Error(errorInfo);
+            throw new BusinessError(100025, error);
+        }
+    }
+    removeAdoptedChild(child: FrameNode): void {
+    if (child === undefined || child === null) {
+        const error = Error("The parameter 'child' is invalid: the child node is undefined or null.");
+        throw new BusinessError(100025, error);
+    }
+    if (this.isDisposed()) {
+        const error = Error('The current node has been disposed.');
+        throw new BusinessError(100026, error);
+    }
+    if (!this.isModifiable()) {
+        const error = Error('The FrameNode is not modifiable.');
+        throw new BusinessError(100021, error);
+    }
+    if (child.getType() === 'ProxyFrameNode' || !this.checkValid(child)) {
+        const error = Error("The parameter 'child' is invalid: the child node is not modifiable.");
+        throw new BusinessError(100025, error);
+    }
+    if (child.isDisposed()) {
+        const error = Error("The parameter 'child' is invalid: the child node has been disposed.");
+        throw new BusinessError(100025, error);
+    }
+    const child_casted = child as (FrameNode);
+    let result = FrameNodeExtender.removeAdoptedChild(this, child_casted);
+    let errorInfo = errorMap_.get(result);
+    if (errorInfo !== undefined) {
+        const error = Error(errorInfo);
+        throw new BusinessError(100025, error);
+    }
+  }
     private getCommonEvent(): UICommonEvent {
         return FrameNodeExtender.getCommonEvent(this);
     }
@@ -595,11 +805,11 @@ export class FrameNode implements MaterializedBase {
         const node_casted = node as (FrameNode);
         return FrameNodeExtender.getIdByFrameNode(toPeerPtr(node_casted));
     }
-    public moveTo(targetParent: FrameNode, index?: int32): void {
+    public moveTo(targetParent: FrameNode, index?: int): void {
         if (targetParent === undefined || targetParent === null) {
             return;
         }
-        let index_casted: number = -1;
+        let index_casted: int = -1;
         if (index !== undefined && index !== null) {
             index_casted = index;
         }
@@ -609,15 +819,19 @@ export class FrameNode implements MaterializedBase {
             throw new BusinessError(100021, error);
         }
         const targetParent_casted = targetParent as (FrameNode);
-        FrameNodeExtender.moveTo(this, targetParent_casted, index_casted);
+        let result = FrameNodeExtender.moveTo(this, targetParent_casted, index_casted);
+        if (result === ERROR_CODE_NODE_IS_ADOPTED) {
+            const error = Error('The current node has already been adopted.');
+            throw new BusinessError(100027, error);
+        }
         return;
     }
 
-    public getFirstChildIndexWithoutExpand(): int32 {
-        return FrameNodeExtender.getFirstChildIndexWithoutExpand(this) as int32;
+    public getFirstChildIndexWithoutExpand(): int {
+        return FrameNodeExtender.getFirstChildIndexWithoutExpand(this);
     }
-    public getLastChildIndexWithoutExpand(): int32 {
-        return FrameNodeExtender.getLastChildIndexWithoutExpand(this) as int32;
+    public getLastChildIndexWithoutExpand(): int {
+        return FrameNodeExtender.getLastChildIndexWithoutExpand(this);
     }
     public reuse(): void {
         FrameNodeExtender.reuse(this)
@@ -627,14 +841,39 @@ export class FrameNode implements MaterializedBase {
         FrameNodeExtender.recycle(this)
         return
     }
+    public getInteractionEventBindingInfo(eventType: EventQueryType): InteractionEventBindingInfo | undefined {
+        const info = FrameNodeExtender.getInteractionEventBindingInfo(this, eventType);
+        if (!info || (!info.baseEventRegistered && !info.nodeEventRegistered &&
+            !info.nativeEventRegistered && !info.builtInEventRegistered)) {
+            return undefined;
+        }
+        return info;
+    }
+    public createAnimation(property: AnimationPropertyType, startValue: Array<double> | undefined, endValue: Array<double>, param: AnimateParam): boolean {
+        const property_casted = property as (AnimationPropertyType)
+        const startValue_casted = startValue as (Array<double> | undefined)
+        const endValue_casted = endValue as (Array<double>)
+        const param_casted = param as (AnimateParam)
+        return FrameNodeExtender.createAnimation(this, property_casted, startValue_casted, endValue_casted, param_casted);
+    }
+    public cancelAnimations(properties: Array<AnimationPropertyType>): boolean {
+        const properties_casted = properties as (Array<AnimationPropertyType>)
+        return FrameNodeExtender.cancelAnimations(this, properties_casted);
+    }
+    public getNodePropertyValue(property: AnimationPropertyType): Array<double> {
+        const property_casted = property as (AnimationPropertyType)
+        return FrameNodeExtender.getNodePropertyValue(this, property_casted);
+    }
     public getRenderNode(): RenderNode | null {
-        return this.renderNode_ ? this.renderNode_! : null;
+        ArkUIAniModule._CheckThreadValid(true, 0);
+        return (this.renderNode_ && this.renderNode_?.peer?.ptr) ? this.renderNode_! : null;
     }
     public static getFrameNodePtr(node: FrameNode): KPointer {
         const node_casted = node as (FrameNode)
         return FrameNodeExtender.getFrameNodePtr(node_casted)
     }
     get commonAttribute(): CommonMethod {
+        ArkUIAniModule._CheckThreadValid(false, this.peer!.ptr);
         if (this._commonAttribute === undefined) {
             let baseNode = new ArkBaseNode();
             const retval = FrameNodeExtender.getFrameNodePtr(this)
@@ -642,12 +881,16 @@ export class FrameNode implements MaterializedBase {
             baseNode.setPeer(peer);
             this._commonAttribute = baseNode as CommonAttribute;
         }
+        if (this._supportMultiThread) {
+            SerializerBase.setMultithreadMode();
+        }
         return this._commonAttribute!;
     }
     public getNodeType(): string {
         return FrameNodeExtender.getNodeType(this)
     }
     public getCustomProperty(name: string): CustomProperty {
+        ArkUIAniModule._CheckThreadValid(true, 0);
         const name_casted = name as (string);
         const nodeId = this._nodeId;
         if (ElementIdToCustomProperties._elementIdToCustomProperties.has(nodeId)) {
@@ -656,12 +899,119 @@ export class FrameNode implements MaterializedBase {
                 return customProperties.get(name_casted);
             }
         }
-        return ArkUIAniModule._Common_getCustomProperty(this!.peer!.ptr, name_casted);
+        return ArkUIAniModule._Common_getCustomProperty<Any>(this!.peer!.ptr, name_casted);
+    }
+    public convertPosition(position: NodePosition, targetNode: FrameNode): NodePosition {
+        if (targetNode === null) {
+            const error = Error("The parameter 'targetNode' is invalid: it cannot be null. Please pass a non-null FrameNode object.");
+            throw new BusinessError(100025, error);
+        }
+        if (targetNode === undefined) {
+            const error = Error("The parameter 'targetNode' is invalid: it cannot be undefined.");
+            throw new BusinessError(100025, error);
+        }
+        if (position === undefined) {
+            const error = Error("The parameter 'position' is invalid: it cannot be undefined. Provide a valid position object with x and y properties.");
+            throw new BusinessError(100025, error);
+        }
+        if (position === null) {
+            const error = Error("The parameter 'position' is invalid: it cannot be null. Provide a non-null position object.");
+            throw new BusinessError(100025, error);
+        }
+        const instanceId = this.instanceId_!.toInt();
+        let chanels: Array<number> = [];
+        ArkUIAniModule._Common_Sync_InstanceId(instanceId);
+        chanels = FrameNodeExtender.convertPoint(this, targetNode, position);
+        ArkUIAniModule._Common_Restore_InstanceId();
+        if (chanels.length < 3) {
+            const error = new Error("The current FrameNode and the target FrameNode do not have a common ancestor node.");
+            throw new BusinessError(100024, error);
+        }
+        const x = chanels[1];
+        const y = chanels[2];
+        return { x: x, y: y } as NodePosition;
+    }
+    public convertPositionToWindow(positionByLocal: NodePosition): NodePosition {
+        if (positionByLocal === undefined) {
+            const error = Error("The parameter 'positionByLocal' is invalid: it cannot be undefined. Provide a valid position object with x and y properties.");
+            throw new BusinessError(401, error);
+        }
+        if (positionByLocal === null) {
+            const error = Error("The parameter 'positionByLocal' is invalid: it cannot be null. Provide a valid position object with x and y properties.");
+            throw new BusinessError(401, error);
+        }
+        if (this.nodePtr_ === undefined) {
+            const error = Error("The current FrameNode has been disposed.");
+            throw new BusinessError(100026, error);
+        }
+        const instanceId = this.instanceId_!.toInt();
+        let channels: Array<number> = [];
+        ArkUIAniModule._Common_Sync_InstanceId(instanceId);
+        channels = FrameNodeExtender.convertPositionToWindow(this, positionByLocal);
+        ArkUIAniModule._Common_Restore_InstanceId();
+        if (channels.length < 3) {
+            if(channels[0] === 0) {
+                const error = new Error("The parameter has error!");
+                throw new BusinessError(401, error);
+            }
+            if(channels[0] === 2) {
+                const error = new Error("The current FrameNode is not on the main tree.");
+                throw new BusinessError(100028, error);
+            }
+        }
+        const x = channels[1];
+        const y = channels[2];
+        return { x: x, y: y } as NodePosition;
+    }
+    public convertPositionFromWindow(positionByWindow: NodePosition): NodePosition {
+        if (positionByWindow === undefined) {
+            const error = Error("The parameter 'positionByWindow' is invalid: it cannot be undefined. Provide a valid position object with x and y properties.");
+            throw new BusinessError(401, error);
+        }
+        if (positionByWindow === null) {
+            const error = Error("The parameter 'positionByWindow' is invalid: it cannot be null. Provide a valid position object with x and y properties.");
+            throw new BusinessError(401, error);
+        }
+        if (this.nodePtr_ === undefined) {
+            const error = Error("The current FrameNode has been disposed.");
+            throw new BusinessError(100026, error);
+        }
+        const instanceId = this.instanceId_!.toInt();
+        let channels: Array<number> = [];
+        ArkUIAniModule._Common_Sync_InstanceId(instanceId);
+        channels = FrameNodeExtender.convertPositionFromWindow(this, positionByWindow);
+        ArkUIAniModule._Common_Restore_InstanceId();
+        if (channels.length < 3) {
+            if(channels[0] === 0) {
+                const error = new Error("The parameter has error!");
+                throw new BusinessError(401, error);
+            }
+            if(channels[0] === 2) {
+                const error = new Error("The current FrameNode is not on the main tree.");
+                throw new BusinessError(100028, error);
+            }
+        }
+        const x = channels[1];
+        const y = channels[2];
+        return { x: x, y: y } as NodePosition;
+    }
+    public isInRenderState(): boolean {
+        return FrameNodeExtender.isOnRenderTree(this);
+    }
+    public isOnMainTree(): boolean {
+        if (this.nodePtr_ == undefined) {
+            const error = Error("The current FrameNode has been disposed. Code: 100026");
+            throw new BusinessError(100026, error);
+        }
+        return FrameNodeExtender.isOnMainTree(this);
+    }
+      public invalidateAttributes(): void {
+        FrameNodeExtender.applyAttributesFinish(this);
     }
 }
 class ImmutableFrameNode extends FrameNode {
     constructor(uiContext: UIContext, type: string, ptr?: KPointer) {
-        super(uiContext, type, ptr);
+        super(uiContext, undefined, type, ptr);
     }
     isModifiable(): boolean {
         return false;
@@ -689,12 +1039,12 @@ class ImmutableFrameNode extends FrameNode {
 
 export class ProxyFrameNode extends ImmutableFrameNode {
     constructor(uiContext: UIContext, type: string = 'ProxyFrameNode', ptr?: KPointer) {
-        super(uiContext, type, ptr);
+        super(uiContext, 'ProxyFrameNode', ptr);
     }
     getType(): string {
         return 'ProxyFrameNode';
     }
-    moveTo(targetParent: FrameNode, index?: number): void {
+    moveTo(targetParent: FrameNode, index?: int): void {
         const error = Error('The FrameNode is not modifiable.');
         throw new BusinessError(100021, error);
     }
@@ -704,8 +1054,9 @@ export class ProxyFrameNode extends ImmutableFrameNode {
 }
 export class BuilderRootFrameNode<T> extends ImmutableFrameNode {
     private __BuilderNodeOpt: JSBuilderNode<T> | undefined = undefined;
+    private __disposed: boolean = false;
     constructor(uiContext: UIContext, type: string = 'BuilderRootFrameNode', ptr?: KPointer) {
-        super(uiContext, type, ptr);
+        super(uiContext, 'BuilderRootFrameNode', ptr);
         if (!ptr) {
             return;
         }
@@ -728,12 +1079,20 @@ export class BuilderRootFrameNode<T> extends ImmutableFrameNode {
         this._nodeId = -1;
     }
     public disposeNode(): void {
+        if (this.__disposed) {
+            return;
+        }
         super.dispose();
+        this.__disposed = true;
         this.__BuilderNodeOpt = undefined;
         this._nodeId = -1;
     }
     public dispose(): void {
+        if (this.__disposed) {
+            return;
+        }
         super.dispose();
+        this.__disposed = true;
         this.__BuilderNodeOpt?.disposeNode();
         this.__BuilderNodeOpt = undefined;
         this._nodeId = -1;
@@ -787,12 +1146,16 @@ abstract class TypedFrameNode<T extends Object> extends FrameNode {
         return true;
     }
 
-    constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => T) {
-        super(uiContext, type, nullptr);
+    constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => T, options?: FrameNodeOptions) {
+        super(uiContext, options, type, nullptr);
         this.attrCreator_ = attrCreator;
         this.type_ = type;
     }
     getType(): string {
+        return this.type_;
+    }
+    public getNodeType(): string {
+        ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
         return this.type_;
     }
     checkValid(node?: FrameNode): boolean {
@@ -825,8 +1188,12 @@ abstract class TypedFrameNode<T extends Object> extends FrameNode {
         return true;
     }
     get attribute(): T {
+        ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
         if (this.attribute_ === undefined) {
             this.attribute_ = this.attrCreator_(this, ModifierType.FRAME_NODE);
+        }
+        if (this._supportMultiThread) {
+            SerializerBase.setMultithreadMode();
         }
         return this.attribute_!;
     }
@@ -835,40 +1202,44 @@ abstract class TypedFrameNode<T extends Object> extends FrameNode {
 export namespace typeNode {
 
     class ColumnFrameNode extends TypedFrameNode<ArkColumnNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkColumnNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkColumnNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: ColumnOptions | ColumnOptionsV2): ColumnAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkColumnNode = this.attribute as ArkColumnNode;
             return arkColumnNode!.initialize(options);
         }
     }
 
     class RowFrameNode extends TypedFrameNode<ArkRowNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkRowNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkRowNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: RowOptions | RowOptionsV2): RowAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkRowNode = this.attribute as ArkRowNode;
             return arkRowNode!.initialize(options);
         }
     }
 
     class StackFrameNode extends TypedFrameNode<ArkStackNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkStackNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkStackNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: StackOptions): StackAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkStackNode = this.attribute as ArkStackNode;
             return arkStackNode!.initialize(options);
         }
     }
 
     class FlexFrameNode extends TypedFrameNode<ArkFlexNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkFlexNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkFlexNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: FlexOptions): FlexAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkFlexNode = this.attribute as ArkFlexNode;
             return arkFlexNode!.initialize(options);
         }
@@ -915,90 +1286,99 @@ export namespace typeNode {
     }
 
     class RelativeContainerFrameNode extends TypedFrameNode<ArkRelativeContainerNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkRelativeContainerNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkRelativeContainerNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(): RelativeContainerAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkRelativeContainerNode = this.attribute as ArkRelativeContainerNode;
             return arkRelativeContainerNode!.initialize();
         }
     }
 
     class ListFrameNode extends TypedFrameNode<ArkListNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkListNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkListNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: ListOptions): ListAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkListNode = this.attribute as ArkListNode;
             return arkListNode!.initialize(options);
         }
     }
 
     class ListItemFrameNode extends TypedFrameNode<ArkListItemNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkListItemNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkListItemNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: ListItemOptions): ListItemAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkListItemNode = this.attribute as ArkListItemNode;
             return arkListItemNode!.initialize(options);
         }
     }
 
     class ListItemGroupFrameNode extends TypedFrameNode<ArkListItemGroupNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkListItemGroupNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkListItemGroupNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: ListItemGroupOptions): ListItemGroupAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkListItemGroupNode = this.attribute as ArkListItemGroupNode;
             return arkListItemGroupNode!.initialize(options);
         }
     }
 
     class ScrollFrameNode extends TypedFrameNode<ArkScrollNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkScrollNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkScrollNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(scroller: Scroller): ScrollAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkScrollNode = this.attribute as ArkScrollNode;
             return arkScrollNode!.initialize(scroller);
         }
     }
 
     class GridFrameNode extends TypedFrameNode<ArkGridNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkGridNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkGridNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(scroller: Scroller, layoutOptions: GridLayoutOptions): GridAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkGridNode = this.attribute as ArkGridNode;
             return arkGridNode!.initialize(scroller, layoutOptions);
         }
     }
 
     class GridItemFrameNode extends TypedFrameNode<ArkGridItemNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkGridItemNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkGridItemNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: GridItemOptions): GridItemAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkGridItemNode = this.attribute as ArkGridItemNode;
             return arkGridItemNode!.initialize(options);
         }
     }
 
     class WaterFlowFrameNode extends TypedFrameNode<ArkWaterFlowNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkWaterFlowNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkWaterFlowNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: WaterFlowOptions): WaterFlowAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkWaterFlowNode = this.attribute as ArkWaterFlowNode;
             return arkWaterFlowNode!.initialize(options);
         }
     }
 
     class FlowItemFrameNode extends TypedFrameNode<ArkFlowItemNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkFlowItemNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkFlowItemNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(): FlowItemAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkFlowItemNode = this.attribute as ArkFlowItemNode;
             return arkFlowItemNode!.initialize();
         }
@@ -1015,40 +1395,44 @@ export namespace typeNode {
     }
 
     class SwiperFrameNode extends TypedFrameNode<ArkSwiperNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkSwiperNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkSwiperNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(controller?: SwiperController): SwiperAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkSwiperNode = this.attribute as ArkSwiperNode;
             return arkSwiperNode!.initialize(controller);
         }
     }
 
     class TextAreaFrameNode extends TypedFrameNode<ArkTextAreaNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkTextAreaNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkTextAreaNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(value?: TextAreaOptions): TextAreaAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkTextAreaNode = this.attribute as ArkTextAreaNode;
             return arkTextAreaNode!.initialize(value);
         }
     }
 
     class TextInputFrameNode extends TypedFrameNode<ArkTextInputNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkTextInputNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkTextInputNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(value?: TextInputOptions): TextInputAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkTextInputNode = this.attribute as ArkTextInputNode;
             return arkTextInputNode!.initialize(value);
         }
     }
 
     class TextFrameNode extends TypedFrameNode<ArkTextNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkTextNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkTextNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(content?: string | Resource, value?: TextOptions): TextAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkTextNode = this.attribute as ArkTextNode;
             return arkTextNode!.initialize(content, value);
         }
@@ -1075,36 +1459,42 @@ export namespace typeNode {
     }
 
     class XComponentFrameNode extends TypedFrameNode<ArkXComponentNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkXComponentNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkXComponentNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(value: XComponentParameters): XComponentAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkXComponentNode = this.attribute as ArkXComponentNode;
             return arkXComponentNode!.initialize(value);
         }
         initialize(value: XComponentOptions): XComponentAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkXComponentNode = this.attribute as ArkXComponentNode;
             return arkXComponentNode!.initialize(value);
         }
         initialize(value: NativeXComponentParameters): XComponentAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkXComponentNode = this.attribute as ArkXComponentNode;
             return arkXComponentNode!.initialize(value);
         }
     }
 
     class ImageFrameNode extends TypedFrameNode<ArkImageNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkImageNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkImageNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(src: PixelMap | ResourceStr | DrawableDescriptor): ImageAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkImageNode = this.attribute as ArkImageNode;
             return arkImageNode!.initialize(src);
         }
         initialize(src: PixelMap | ResourceStr | DrawableDescriptor | ImageContent): ImageAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkImageNode = this.attribute as ArkImageNode;
             return arkImageNode!.initialize(src);
         }
         initialize(src: PixelMap | ResourceStr | DrawableDescriptor, options: ImageAIOptions): ImageAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkImageNode = this.attribute as ArkImageNode;
             return arkImageNode!.initialize(src, options);
         }
@@ -1135,20 +1525,22 @@ export namespace typeNode {
     }
 
     class ProgressFrameNode extends TypedFrameNode<ArkProgressNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkProgressNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkProgressNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: ProgressOptions): ProgressAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkProgressNode = this.attribute as ArkProgressNode;
             return arkProgressNode!.initialize(options);
         }
     }
 
     class LoadingProgressFrameNode extends TypedFrameNode<ArkLoadingProgressNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkLoadingProgressNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkLoadingProgressNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(): LoadingProgressAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkLoadingProgressNode = this.attribute as ArkLoadingProgressNode;
             return arkLoadingProgressNode!.initialize();
         }
@@ -1176,48 +1568,54 @@ export namespace typeNode {
 
 
     class ButtonFrameNode extends TypedFrameNode<ArkButtonNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkButtonNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkButtonNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(): ButtonAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkButtonNode = this.attribute as ArkButtonNode;
             return arkButtonNode!.initialize();
         }
         initialize(options: ButtonOptions): ButtonAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkButtonNode = this.attribute as ArkButtonNode;
             return arkButtonNode!.initializeWithChild(options);
         }
         initialize(label: ResourceStr, options?: ButtonOptions): ButtonAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkButtonNode = this.attribute as ArkButtonNode;
             return arkButtonNode!.initializeWithLabel(label, options);
         }
     }
 
     class CheckboxFrameNode extends TypedFrameNode<ArkCheckboxNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkCheckboxNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkCheckboxNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: CheckboxOptions): CheckboxAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkCheckboxNode = this.attribute as ArkCheckboxNode;
             return arkCheckboxNode!.initialize(options);
         }
     }
 
     class CheckboxGroupFrameNode extends TypedFrameNode<ArkCheckboxGroupNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkCheckboxGroupNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkCheckboxGroupNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: CheckboxGroupOptions): CheckboxGroupAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkCheckboxGroupNode = this.attribute as ArkCheckboxGroupNode;
             return arkCheckboxGroupNode!.initialize(options);
         }
     }
 
     class RadioFrameNode extends TypedFrameNode<ArkRadioNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkRadioNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkRadioNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: RadioOptions): RadioAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkRadioNode = this.attribute as ArkRadioNode;
             return arkRadioNode!.initialize(options);
         }
@@ -1244,20 +1642,22 @@ export namespace typeNode {
     }
 
     class SliderFrameNode extends TypedFrameNode<ArkSliderNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkSliderNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkSliderNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: SliderOptions): SliderAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkSliderNode = this.attribute as ArkSliderNode;
             return arkSliderNode!.initialize(options);
         }
     }
 
     class ToggleFrameNode extends TypedFrameNode<ArkToggleNode> {
-        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkToggleNode) {
-            super(uiContext, type, attrCreator);
+        constructor(uiContext: UIContext, type: string, attrCreator: (node: FrameNode, type: ModifierType) => ArkToggleNode, options?: FrameNodeOptions) {
+            super(uiContext, type, attrCreator, options);
         }
         initialize(options: ToggleOptions): ToggleAttribute {
+            ArkUIAniModule._CheckThreadValid(false, this!.peer!.ptr);
             let arkToggleNode = this.attribute as ArkToggleNode;
             return arkToggleNode!.initialize(options);
         }
@@ -1272,47 +1672,95 @@ export namespace typeNode {
     }
 
     // @ts-ignore
-    export function createColumnNode(context: UIContext): ColumnFrameNode {
+    export function createColumnNode(context: UIContext, options?: FrameNodeOptions): ColumnFrameNode {
         return new ColumnFrameNode(context, 'Column', (node: FrameNode, type: ModifierType): ArkColumnNode => {
             let arknode = new ArkColumnNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkColumnPeer(retval, node._nodeId!.toInt(), "Column", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createRowNode(context: UIContext): RowFrameNode {
+    export function getColumnAttribute(node: FrameNode): ColumnAttribute | undefined {
+        if (node.getType() !== 'Column') {
+            return undefined
+        }
+        let columnNode = node as ColumnFrameNode
+        if (columnNode !== undefined) {
+            return columnNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function createRowNode(context: UIContext, options?: FrameNodeOptions): RowFrameNode {
         return new RowFrameNode(context, 'Row', (node: FrameNode, type: ModifierType): ArkRowNode => {
             let arknode = new ArkRowNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkRowPeer(retval, node._nodeId!.toInt(), "Row", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createStackNode(context: UIContext): StackFrameNode {
+    export function getRowAttribute(node: FrameNode): RowAttribute | undefined {
+        if (node.getType() !== 'Row') {
+            return undefined
+        }
+        let rowNode = node as RowFrameNode
+        if (rowNode !== undefined) {
+            return rowNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function createStackNode(context: UIContext, options?: FrameNodeOptions): StackFrameNode {
         return new StackFrameNode(context, 'Stack', (node: FrameNode, type: ModifierType): ArkStackNode => {
             let arknode = new ArkStackNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkStackPeer(retval, node._nodeId!.toInt(), "Stack", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createFlexNode(context: UIContext): FlexFrameNode {
+    export function getStackAttribute(node: FrameNode): StackAttribute | undefined {
+        if (node.getType() !== 'Stack') {
+            return undefined
+        }
+        let stackNode = node as StackFrameNode
+        if (stackNode !== undefined) {
+            return stackNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function createFlexNode(context: UIContext, options?: FrameNodeOptions): FlexFrameNode {
         return new FlexFrameNode(context, 'Flex', (node: FrameNode, type: ModifierType): ArkFlexNode => {
             let arknode = new ArkFlexNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkFlexPeer(retval, node._nodeId!.toInt(), "Flex", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
+    }
+
+    // @ts-ignore
+    export function getFlexAttribute(node: FrameNode): FlexAttribute | undefined {
+        if (node.getType() !== 'Flex') {
+            return undefined
+        }
+        let flexNode = node as FlexFrameNode
+        if (flexNode !== undefined) {
+            return flexNode.attribute
+        }
+        return undefined
     }
 
     // @ts-ignore
@@ -1360,102 +1808,310 @@ export namespace typeNode {
     }
 
     // @ts-ignore
-    export function createRelativeContainerNode(context: UIContext): RelativeContainerFrameNode {
+    export function createRelativeContainerNode(context: UIContext, options?: FrameNodeOptions): RelativeContainerFrameNode {
         return new RelativeContainerFrameNode(context, 'RelativeContainer', (node: FrameNode, type: ModifierType): ArkRelativeContainerNode => {
             let arknode = new ArkRelativeContainerNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkRelativeContainerPeer(retval, node._nodeId!.toInt(), "RelativeContainer", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createListNode(context: UIContext): ListFrameNode {
+    export function getRelativeContainerAttribute(node: FrameNode): RelativeContainerAttribute | undefined {
+        if (node.getType() !== 'RelativeContainer') {
+            return undefined
+        }
+        let relativeContainerNode = node as RelativeContainerFrameNode
+        if (relativeContainerNode !== undefined) {
+            return relativeContainerNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function createListNode(context: UIContext, options?: FrameNodeOptions): ListFrameNode {
         return new ListFrameNode(context, 'List', (node: FrameNode, type: ModifierType): ArkListNode => {
             let arknode = new ArkListNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkListPeer(retval, node._nodeId!.toInt(), "List", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createListItemNode(context: UIContext): ListItemFrameNode {
+    export function getListAttribute(node: FrameNode): ListAttribute | undefined {
+        if (node.getType() !== 'List') {
+            return undefined
+        }
+        let listNode = node as ListFrameNode
+        if (listNode !== undefined) {
+            return listNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function getListEvent(node: FrameNode): UIListEvent | undefined {
+        if (node.getNodeType() !== 'List') {
+            return undefined
+        }
+        const ptr = FrameNodeExtender.getFrameNodePtr(node);
+        const event = UIEventHelper.constructListEvent(ptr);
+        if (event !== undefined) {
+            return event
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function bindListController(node: FrameNode, controller: Scroller): void {
+        if (node === null || node === undefined || controller === null || controller === undefined || node.getNodeType() !== 'List') {
+            const error = Error('Parameter error. Possible causes: 1. The component type of the node is incorrect. 2. The node is null or undefined. 3. The controller is null or undefined.');
+            throw new BusinessError(100023, error);
+        }
+        const ptr = FrameNodeExtender.getFrameNodePtr(node);
+        const peer = new ArkListPeer(ptr, node._nodeId!.toInt(), "List", 0);
+        peer.setListOptionsAttribute({scroller: controller})
+        return
+    }
+
+    // @ts-ignore
+    export function createListItemNode(context: UIContext, options?: FrameNodeOptions): ListItemFrameNode {
         return new ListItemFrameNode(context, 'ListItem', (node: FrameNode, type: ModifierType): ArkListItemNode => {
             let arknode = new ArkListItemNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkListItemPeer(retval, node._nodeId!.toInt(), "ListItem", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createListItemGroupNode(context: UIContext): ListItemGroupFrameNode {
+    export function getListItemAttribute(node: FrameNode): ListItemAttribute | undefined {
+        if (node.getType() !== 'ListItem') {
+            return undefined
+        }
+        let listItemNode = node as ListItemFrameNode
+        if (listItemNode !== undefined) {
+            return listItemNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function createListItemGroupNode(context: UIContext, options?: FrameNodeOptions): ListItemGroupFrameNode {
         return new ListItemGroupFrameNode(context, 'ListItemGroup', (node: FrameNode, type: ModifierType): ArkListItemGroupNode => {
             let arknode = new ArkListItemGroupNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkListItemGroupPeer(retval, node._nodeId!.toInt(), "ListItemGroup", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createScrollNode(context: UIContext): ScrollFrameNode {
+    export function getListItemGroupAttribute(node: FrameNode): ListItemGroupAttribute | undefined {
+        if (node.getType() !== 'ListItemGroup') {
+            return undefined
+        }
+        let listItemGroupNode = node as ListItemGroupFrameNode
+        if (listItemGroupNode !== undefined) {
+            return listItemGroupNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function createScrollNode(context: UIContext, options?: FrameNodeOptions): ScrollFrameNode {
         return new ScrollFrameNode(context, 'Scroll', (node: FrameNode, type: ModifierType): ArkScrollNode => {
             let arknode = new ArkScrollNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkScrollPeer(retval, node._nodeId!.toInt(), "Scroll", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createGridNode(context: UIContext): GridFrameNode {
+    export function getScrollAttribute(node: FrameNode): ScrollAttribute | undefined {
+        if (node.getType() !== 'Scroll') {
+            return undefined
+        }
+        let scrollNode = node as ScrollFrameNode
+        if (scrollNode !== undefined) {
+            return scrollNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function getScrollEvent(node: FrameNode): UIScrollEvent | undefined {
+        if (node.getNodeType() !== 'Scroll') {
+            return undefined
+        }
+        const ptr = FrameNodeExtender.getFrameNodePtr(node);
+        const event = UIEventHelper.constructScrollEvent(ptr);
+        if (event !== undefined) {
+            return event
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function bindScrollController(node: FrameNode, controller: Scroller): void {
+        if (node === null || node === undefined || controller === null || controller === undefined || node.getNodeType() !== 'Scroll') {
+            const error = Error('Parameter error. Possible causes: 1. The component type of the node is incorrect. 2. The node is null or undefined. 3. The controller is null or undefined.');
+            throw new BusinessError(100023, error);
+        }
+        const ptr = FrameNodeExtender.getFrameNodePtr(node);
+        const peer = new ArkScrollPeer(ptr, node._nodeId!.toInt(), "Scroll", 0);
+        peer.setScrollOptionsAttribute(controller)
+        return
+    }
+
+    // @ts-ignore
+    export function createGridNode(context: UIContext, options?: FrameNodeOptions): GridFrameNode {
         return new GridFrameNode(context, 'Grid', (node: FrameNode, type: ModifierType): ArkGridNode => {
             let arknode = new ArkGridNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkGridPeer(retval, node._nodeId!.toInt(), "Grid", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createGridItemNode(context: UIContext): GridItemFrameNode {
+    export function getGridAttribute(node: FrameNode): GridAttribute | undefined {
+        if (node.getType() !== 'Grid') {
+            return undefined
+        }
+        let gridNode = node as GridFrameNode
+        if (gridNode !== undefined) {
+            return gridNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function getGridEvent(node: FrameNode): UIGridEvent | undefined {
+        if (node.getNodeType() !== 'Grid') {
+            return undefined
+        }
+        const ptr = FrameNodeExtender.getFrameNodePtr(node);
+        const event = UIEventHelper.constructGridEvent(ptr);
+        if (event !== undefined) {
+            return event
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function bindGridController(node: FrameNode, controller: Scroller): void {
+        if (node === null || node === undefined || controller === null || controller === undefined || node.getNodeType() !== 'Grid') {
+            const error = Error('Parameter error. Possible causes: 1. The component type of the node is incorrect. 2. The node is null or undefined. 3. The controller is null or undefined.');
+            throw new BusinessError(100023, error);
+        }
+        const ptr = FrameNodeExtender.getFrameNodePtr(node);
+        const peer = new ArkGridPeer(ptr, node._nodeId!.toInt(), "Grid", 0);
+        peer.setGridOptionsAttribute(controller, undefined)
+        return
+    }
+
+    // @ts-ignore
+    export function createGridItemNode(context: UIContext, options?: FrameNodeOptions): GridItemFrameNode {
         return new GridItemFrameNode(context, 'GridItem', (node: FrameNode, type: ModifierType): ArkGridItemNode => {
             let arknode = new ArkGridItemNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkGridItemPeer(retval, node._nodeId!.toInt(), "GridItem", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createWaterFlowNode(context: UIContext): WaterFlowFrameNode {
+    export function getGridItemAttribute(node: FrameNode): GridItemAttribute | undefined {
+        if (node.getType() !== 'GridItem') {
+            return undefined
+        }
+        let gridItemNode = node as GridItemFrameNode
+        if (gridItemNode !== undefined) {
+            return gridItemNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function createWaterFlowNode(context: UIContext, options?: FrameNodeOptions): WaterFlowFrameNode {
         return new WaterFlowFrameNode(context, 'WaterFlow', (node: FrameNode, type: ModifierType): ArkWaterFlowNode => {
             let arknode = new ArkWaterFlowNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkWaterFlowPeer(retval, node._nodeId!.toInt(), "WaterFlow", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createFlowItemNode(context: UIContext): FlowItemFrameNode {
+    export function getWaterFlowAttribute(node: FrameNode): WaterFlowAttribute | undefined {
+        if (node.getType() !== 'WaterFlow') {
+            return undefined
+        }
+        let waterFlowNode = node as WaterFlowFrameNode
+        if (waterFlowNode !== undefined) {
+            return waterFlowNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function getWaterFlowEvent(node: FrameNode): UIWaterFlowEvent | undefined {
+        if (node.getNodeType() !== 'WaterFlow') {
+            return undefined
+        }
+        const ptr = FrameNodeExtender.getFrameNodePtr(node);
+        const event = UIEventHelper.constructWaterFlowEvent(ptr);
+        if (event !== undefined) {
+            return event
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function bindWaterFlowController(node: FrameNode, controller: Scroller): void {
+        if (node === null || node === undefined || controller === null || controller === undefined || node.getNodeType() !== 'WaterFlow') {
+            const error = Error('Parameter error. Possible causes: 1. The component type of the node is incorrect. 2. The node is null or undefined. 3. The controller is null or undefined.');
+            throw new BusinessError(100023, error);
+        }
+        const ptr = FrameNodeExtender.getFrameNodePtr(node);
+        const peer = new ArkWaterFlowPeer(ptr, node._nodeId!.toInt(), "WaterFlow", 0);
+        peer.setWaterFlowOptionsAttribute({scroller: controller})
+        return
+    }
+
+    // @ts-ignore
+    export function createFlowItemNode(context: UIContext, options?: FrameNodeOptions): FlowItemFrameNode {
         return new FlowItemFrameNode(context, 'FlowItem', (node: FrameNode, type: ModifierType): ArkFlowItemNode => {
             let arknode = new ArkFlowItemNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkFlowItemPeer(retval, node._nodeId!.toInt(), "FlowItem", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
+    }
+
+    // @ts-ignore
+    function getFlowItemAttribute(node: FrameNode): FlowItemAttribute | undefined {
+        if (node.getType() !== 'FlowItem') {
+            return undefined
+        }
+        let flowItemNode = node as FlowItemFrameNode
+        if (flowItemNode !== undefined) {
+            return flowItemNode.attribute
+        }
+        return undefined
     }
 
     // @ts-ignore
@@ -1463,54 +2119,163 @@ export namespace typeNode {
         return new SearchFrameNode(context, 'Search', (node: FrameNode, type: ModifierType): ArkSearchNode => {
             let arknode = new ArkSearchNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkSearchPeer(retval, node._nodeId as int32, "Search", 0);
+            const peer = new ArkSearchPeer(retval, node._nodeId.toInt(), "Search", 0);
             arknode.setPeer(peer);
             return arknode;
         });
     }
 
     // @ts-ignore
-    function createSwiperNode(context: UIContext): SwiperFrameNode {
+    function createSwiperNode(context: UIContext, options?: FrameNodeOptions): SwiperFrameNode {
         return new SwiperFrameNode(context, 'Swiper', (node: FrameNode, type: ModifierType): ArkSwiperNode => {
             let arknode = new ArkSwiperNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
             const peer = new ArkSwiperPeer(retval, node._nodeId!.toInt(), "Swiper", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    function createTextAreaNode(context: UIContext): TextAreaFrameNode {
+    export function getSwiperAttribute(node: FrameNode): SwiperAttribute | undefined {
+        if (node.getType() !== 'Swiper') {
+            return undefined
+        }
+        let swiperNode = node as SwiperFrameNode
+        if (swiperNode !== undefined) {
+            return swiperNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function bindSwiperController(node: FrameNode, controller: SwiperController): void {
+        if (node === null || node === undefined || controller === null || controller === undefined || node.getType() !== 'Swiper') {
+            const error = Error('Parameter error. Possible causes: 1. The component type of the node is incorrect. 2. The node is null or undefined. 3. The controller is null or undefined.');
+            throw new BusinessError(100023, error);
+        }
+        let swiperNode = node as SwiperFrameNode
+        if (!swiperNode.isModifiable()) {
+            const error = Error('The FrameNode is not modifiable.');
+            throw new BusinessError(100021, error);
+        }
+        swiperNode.initialize(controller)
+        return
+    }
+
+    // @ts-ignore
+    function createTextAreaNode(context: UIContext, options?: FrameNodeOptions): TextAreaFrameNode {
         return new TextAreaFrameNode(context, 'TextArea', (node: FrameNode, type: ModifierType): ArkTextAreaNode => {
             let arknode = new ArkTextAreaNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkTextAreaPeer(retval, node._nodeId as int32, "TextArea", 0);
+            const peer = new ArkTextAreaPeer(retval, node._nodeId.toInt(), "TextArea", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    function createTextInputNode(context: UIContext): TextInputFrameNode {
+    export function getTextAreaAttribute(node: FrameNode): TextAreaAttribute | undefined {
+        if (node.getType() !== 'TextArea') {
+            return undefined
+        }
+        let textAreaNode = node as TextAreaFrameNode
+        if (textAreaNode !== undefined) {
+            return textAreaNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function bindTextAreaController(node: FrameNode, controller: TextAreaController): void {
+        if (node === null || node === undefined || controller === null || controller === undefined || node.getType() !== 'TextArea') {
+            const error = Error('Parameter error. Possible causes: 1. The component type of the node is incorrect. 2. The node is null or undefined. 3. The controller is null or undefined.');
+            throw new BusinessError(100023, error);
+        }
+        let textAreaNode = node as TextAreaFrameNode
+        if (!textAreaNode.isModifiable()) {
+            const error = Error('The FrameNode is not modifiable.');
+            throw new BusinessError(100021, error);
+        }
+        textAreaNode.initialize({controller: controller})
+        return
+    }
+
+    // @ts-ignore
+    function createTextInputNode(context: UIContext, options?: FrameNodeOptions): TextInputFrameNode {
         return new TextInputFrameNode(context, 'TextInput', (node: FrameNode, type: ModifierType): ArkTextInputNode => {
             let arknode = new ArkTextInputNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkTextInputPeer(retval, node._nodeId as int32, "TextInput", 0);
+            const peer = new ArkTextInputPeer(retval, node._nodeId.toInt(), "TextInput", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    function createTextNode(context: UIContext): TextFrameNode {
+    export function getTextInputAttribute(node: FrameNode): TextInputAttribute | undefined {
+        if (node.getType() !== 'TextInput') {
+            return undefined
+        }
+        let textInputNode = node as TextInputFrameNode
+        if (textInputNode !== undefined) {
+            return textInputNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function bindTextInputController(node: FrameNode, controller: TextInputController): void {
+        if (node === null || node === undefined || controller === null || controller === undefined || node.getType() !== 'TextInput') {
+            const error = Error('Parameter error. Possible causes: 1. The component type of the node is incorrect. 2. The node is null or undefined. 3. The controller is null or undefined.');
+            throw new BusinessError(100023, error);
+        }
+        let textInputNode = node as TextInputFrameNode
+        if (!textInputNode.isModifiable()) {
+            const error = Error('The FrameNode is not modifiable.');
+            throw new BusinessError(100021, error);
+        }
+        textInputNode.initialize({controller: controller})
+        return
+    }
+
+    // @ts-ignore
+    function createTextNode(context: UIContext, options?: FrameNodeOptions): TextFrameNode {
         return new TextFrameNode(context, 'Text', (node: FrameNode, type: ModifierType): ArkTextNode => {
             let arknode = new ArkTextNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkTextPeer(retval, node._nodeId as int32, "Text", 0);
+            const peer = new ArkTextPeer(retval, node._nodeId.toInt(), "Text", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
+    }
+
+
+    // @ts-ignore
+    export function getTextAttribute(node: FrameNode): TextAttribute | undefined {
+        if (node.getType() !== 'Text') {
+            return undefined
+        }
+        let textNode = node as TextFrameNode
+        if (textNode !== undefined) {
+            return textNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    export function bindTextController(node: FrameNode, controller: TextController): void {
+        if (node === null || node === undefined || controller === null || controller === undefined || node.getType() !== 'Text') {
+            const error = Error('Parameter error. Possible causes: 1. The component type of the node is incorrect. 2. The node is null or undefined. 3. The controller is null or undefined.');
+            throw new BusinessError(100023, error);
+        }
+        let textNode = node as TextFrameNode
+        if (!textNode.isModifiable()) {
+            const error = Error('The FrameNode is not modifiable.');
+            throw new BusinessError(100021, error);
+        }
+        textNode.initialize(undefined, {controller: controller})
+        return
     }
 
     class ArkMarqueePeerCustom extends ArkMarqueePeer {
@@ -1523,7 +2288,7 @@ export namespace typeNode {
         return new MarqueeFrameNode(context, 'Marquee', (node: FrameNode, type: ModifierType): ArkMarqueeNode => {
             let arknode = new ArkMarqueeNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkMarqueePeerCustom(retval, node._nodeId as int32, "Marquee", 0);
+            const peer = new ArkMarqueePeerCustom(retval, node._nodeId.toInt(), "Marquee", 0);
             arknode.setPeer(peer);
             return arknode;
         });
@@ -1539,60 +2304,144 @@ export namespace typeNode {
         return new SymbolGlyphFrameNode(context, 'SymbolGlyph', (node: FrameNode, type: ModifierType): ArkSymbolGlyphNode => {
             let arknode = new ArkSymbolGlyphNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkSymbolGlyphPeerCustom(retval, node._nodeId as int32, "SymbolGlyph", 0);
+            const peer = new ArkSymbolGlyphPeerCustom(retval, node._nodeId.toInt(), "SymbolGlyph", 0);
             arknode.setPeer(peer);
             return arknode;
         });
     }
 
     // @ts-ignore
-    function createXComponentNodeDefault(context: UIContext): XComponentFrameNode {
+    function getXComponentAttribute(node: FrameNode): XComponentAttribute | undefined {
+        if (node.getType() !== 'XComponent') {
+            return undefined
+        }
+        let xComponentNode = node as XComponentFrameNode
+        if (xComponentNode !== undefined) {
+            return xComponentNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    function createXComponentNodeDefault(context: UIContext, options?: FrameNodeOptions): XComponentFrameNode {
         let xcFrameNode = new XComponentFrameNode(context, 'XComponent', (node: FrameNode, type: ModifierType): ArkXComponentNode => {
             let arknode = new ArkXComponentNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new TypedXComponentPeerInternal(retval, node._nodeId as int32, "XComponent", 0);
+            const peer = new TypedXComponentPeerInternal(retval, node._nodeId.toInt(), "XComponent", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
         xcFrameNode.initialize({ type: XComponentType.SURFACE } as NativeXComponentParameters);
         return xcFrameNode;
     }
 
     // @ts-ignore
-    function createXComponentNodeWithOptions(context: UIContext, options: XComponentOptions): XComponentFrameNode {
+    function createXComponentNodeWithOptions(context: UIContext, value: XComponentOptions, options?: FrameNodeOptions): XComponentFrameNode {
         let xcFrameNode = new XComponentFrameNode(context, 'XComponent', (node: FrameNode, type: ModifierType): ArkXComponentNode => {
             let arknode = new ArkXComponentNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new TypedXComponentPeerInternal(retval, node._nodeId as int32, "XComponent", 0);
+            const peer = new TypedXComponentPeerInternal(retval, node._nodeId.toInt(), "XComponent", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
-        xcFrameNode.initialize(options);
+        }, options);
+        xcFrameNode.initialize(value);
         return xcFrameNode;
     }
 
     // @ts-ignore
-    function createXComponentNodeWithNativeParameters(context: UIContext, parameters: NativeXComponentParameters): XComponentFrameNode {
+    function createXComponentNodeWithNativeParameters(context: UIContext, parameters: NativeXComponentParameters, options?: FrameNodeOptions): XComponentFrameNode {
         let xcFrameNode = new XComponentFrameNode(context, 'XComponent', (node: FrameNode, type: ModifierType): ArkXComponentNode => {
             let arknode = new ArkXComponentNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new TypedXComponentPeerInternal(retval, node._nodeId as int32, "XComponent", 0);
+            const peer = new TypedXComponentPeerInternal(retval, node._nodeId.toInt(), "XComponent", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
         xcFrameNode.initialize(parameters);
         return xcFrameNode;
     }
 
     // @ts-ignore
-    function createImageNode(context: UIContext): ImageFrameNode {
+    function createImageNode(context: UIContext, options?: FrameNodeOptions): ImageFrameNode {
         return new ImageFrameNode(context, 'Image', (node: FrameNode, type: ModifierType): ArkImageNode => {
             let arknode = new ArkImageNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkImagePeer(retval, node._nodeId as int32, 'Image', 0);
+            const peer = new ArkImagePeer(retval, node._nodeId.toInt(), 'Image', 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
+    }
+
+    // @ts-ignore
+    function getImageAttribute(node: FrameNode): ImageAttribute | undefined {
+        if (node.getType() !== 'Image') {
+            return undefined
+        }
+        let imageNode = node as ImageFrameNode
+        if (imageNode !== undefined) {
+            return imageNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    function getRadioAttribute(node: FrameNode): RadioAttribute | undefined {
+        if (node.getType() !== 'Radio') {
+            return undefined
+        }
+        let radioNode = node as RadioFrameNode
+        if (radioNode !== undefined) {
+            return radioNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    function getToggleAttribute(node: FrameNode): ToggleAttribute | undefined {
+        if (node.getType() !== 'Toggle') {
+            return undefined
+        }
+        let toggleNode = node as ToggleFrameNode
+        if (toggleNode !== undefined) {
+            return toggleNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    function getSliderAttribute(node: FrameNode): SliderAttribute | undefined {
+        if (node.getType() !== 'Slider') {
+            return undefined
+        }
+        let sliderNode = node as SliderFrameNode
+        if (sliderNode !== undefined) {
+            return sliderNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    function getButtonAttribute(node: FrameNode): ButtonAttribute | undefined {
+        if (node.getType() !== 'Button') {
+            return undefined
+        }
+        let buttonNode = node as ButtonFrameNode
+        if (buttonNode !== undefined) {
+            return buttonNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    function getCheckboxAttribute(node: FrameNode): CheckboxAttribute | undefined {
+        if (node.getType() !== "Checkbox") {
+            return undefined
+        }
+        let checkboxNode = node as CheckboxFrameNode
+        if (checkboxNode !== undefined) {
+            return checkboxNode.attribute
+        }
+        return undefined
     }
 
     // @ts-ignore
@@ -1600,7 +2449,7 @@ export namespace typeNode {
         return new BadgeFrameNode(context, 'Badge', (node: FrameNode, type: ModifierType): ArkBadgeNode => {
             let arknode = new ArkBadgeNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkBadgePeer(retval, node._nodeId as int32, 'Badge', 0);
+            const peer = new ArkBadgePeer(retval, node._nodeId.toInt(), 'Badge', 0);
             arknode.setPeer(peer);
             return arknode;
         });
@@ -1611,32 +2460,56 @@ export namespace typeNode {
         return new QRCodeFrameNode(context, 'QRCode', (node: FrameNode, type: ModifierType): ArkQRCodeNode => {
             let arknode = new ArkQRCodeNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkQRCodePeer(retval, node._nodeId as int32, 'QRCode', 0);
+            const peer = new ArkQRCodePeer(retval, node._nodeId.toInt(), 'QRCode', 0);
             arknode.setPeer(peer);
             return arknode;
         });
     }
 
     // @ts-ignore
-    function createProgressNode(context: UIContext): ProgressFrameNode {
+    function createProgressNode(context: UIContext, options?: FrameNodeOptions): ProgressFrameNode {
         return new ProgressFrameNode(context, 'Progress', (node: FrameNode, type: ModifierType): ArkProgressNode => {
             let arknode = new ArkProgressNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkProgressPeer(retval, node._nodeId as int32, 'Progress', 0);
+            const peer = new ArkProgressPeer(retval, node._nodeId.toInt(), 'Progress', 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    function createLoadingProgressNode(context: UIContext): LoadingProgressFrameNode {
+    export function getProgressAttribute(node: FrameNode): ProgressAttribute | undefined {
+        if (node.getType() !== 'Progress') {
+            return undefined
+        }
+        let progressNode = node as ProgressFrameNode
+        if (progressNode !== undefined) {
+            return progressNode.attribute
+        }
+        return undefined
+    }
+
+    // @ts-ignore
+    function createLoadingProgressNode(context: UIContext, options?: FrameNodeOptions): LoadingProgressFrameNode {
         return new LoadingProgressFrameNode(context, 'LoadingProgress', (node: FrameNode, type: ModifierType): ArkLoadingProgressNode => {
             let arknode = new ArkLoadingProgressNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkLoadingProgressPeer(retval, node._nodeId as int32, 'LoadingProgress', 0);
+            const peer = new ArkLoadingProgressPeer(retval, node._nodeId.toInt(), 'LoadingProgress', 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
+    }
+
+    // @ts-ignore
+    export function getLoadingProgressAttribute(node: FrameNode): LoadingProgressAttribute | undefined {
+        if (node.getType() !== 'Progress') {
+            return undefined
+        }
+        let loadingProgressNode = node as LoadingProgressFrameNode
+        if (loadingProgressNode !== undefined) {
+            return loadingProgressNode.attribute
+        }
+        return undefined
     }
 
     // @ts-ignore
@@ -1644,7 +2517,7 @@ export namespace typeNode {
         return new TextClockFrameNode(context, 'TextClock', (node: FrameNode, type: ModifierType): ArkTextClockNode => {
             let arknode = new ArkTextClockNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkTextClockPeer(retval, node._nodeId as int32, 'TextClock', 0);
+            const peer = new ArkTextClockPeer(retval, node._nodeId.toInt(), 'TextClock', 0);
             arknode.setPeer(peer);
             return arknode;
         });
@@ -1655,54 +2528,54 @@ export namespace typeNode {
         return new TextTimerFrameNode(context, 'TextTimer', (node: FrameNode, type: ModifierType): ArkTextTimerNode => {
             let arknode = new ArkTextTimerNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkTextTimerPeer(retval, node._nodeId as int32, 'TextTimer', 0);
+            const peer = new ArkTextTimerPeer(retval, node._nodeId.toInt(), 'TextTimer', 0);
             arknode.setPeer(peer);
             return arknode;
         });
     }
 
     // @ts-ignore
-    export function createButtonNode(context: UIContext): ButtonFrameNode {
+    export function createButtonNode(context: UIContext, options?: FrameNodeOptions): ButtonFrameNode {
         return new ButtonFrameNode(context, 'Button', (node: FrameNode, type: ModifierType): ArkButtonNode => {
             let arknode = new ArkButtonNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkButtonPeer(retval, node._nodeId as int32, "Button", 0);
+            const peer = new ArkButtonPeer(retval, node._nodeId.toInt(), "Button", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createCheckboxNode(context: UIContext): CheckboxFrameNode {
+    export function createCheckboxNode(context: UIContext, options?: FrameNodeOptions): CheckboxFrameNode {
         return new CheckboxFrameNode(context, 'Checkbox', (node: FrameNode, type: ModifierType): ArkCheckboxNode => {
             let arknode = new ArkCheckboxNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkCheckboxPeer(retval, node._nodeId as int32, "Checkbox", 0);
+            const peer = new ArkCheckboxPeer(retval, node._nodeId.toInt(), "Checkbox", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createCheckboxGroupNode(context: UIContext): CheckboxGroupFrameNode {
+    export function createCheckboxGroupNode(context: UIContext, options?: FrameNodeOptions): CheckboxGroupFrameNode {
         return new CheckboxGroupFrameNode(context, 'CheckboxGroup', (node: FrameNode, type: ModifierType): ArkCheckboxGroupNode => {
             let arknode = new ArkCheckboxGroupNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkCheckboxGroupPeer(retval, node._nodeId as int32, "CheckboxGroup", 0);
+            const peer = new ArkCheckboxGroupPeer(retval, node._nodeId.toInt(), "CheckboxGroup", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createRadioNode(context: UIContext): RadioFrameNode {
+    export function createRadioNode(context: UIContext, options?: FrameNodeOptions): RadioFrameNode {
         return new RadioFrameNode(context, 'Radio', (node: FrameNode, type: ModifierType): ArkRadioNode => {
             let arknode = new ArkRadioNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkRadioPeer(retval, node._nodeId as int32, "Radio", 0);
+            const peer = new ArkRadioPeer(retval, node._nodeId.toInt(), "Radio", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
@@ -1710,7 +2583,7 @@ export namespace typeNode {
         return new RatingFrameNode(context, 'Rating', (node: FrameNode, type: ModifierType): ArkRatingNode => {
             let arknode = new ArkRatingNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkRatingPeer(retval, node._nodeId as int32, "Rating", 0);
+            const peer = new ArkRatingPeer(retval, node._nodeId.toInt(), "Rating", 0);
             arknode.setPeer(peer);
             return arknode;
         });
@@ -1721,32 +2594,32 @@ export namespace typeNode {
         return new SelectFrameNode(context, 'Select', (node: FrameNode, type: ModifierType): ArkSelectNode => {
             let arknode = new ArkSelectNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkSelectPeer(retval, node._nodeId as int32, "Select", 0);
+            const peer = new ArkSelectPeer(retval, node._nodeId.toInt(), "Select", 0);
             arknode.setPeer(peer);
             return arknode;
         });
     }
 
     // @ts-ignore
-    export function createSliderNode(context: UIContext): SliderFrameNode {
+    export function createSliderNode(context: UIContext, options?: FrameNodeOptions): SliderFrameNode {
         return new SliderFrameNode(context, 'Slider', (node: FrameNode, type: ModifierType): ArkSliderNode => {
             let arknode = new ArkSliderNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkSliderPeer(retval, node._nodeId as int32, "Slider", 0);
+            const peer = new ArkSliderPeer(retval, node._nodeId.toInt(), "Slider", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, options);
     }
 
     // @ts-ignore
-    export function createToggleNode(context: UIContext, options?: ToggleOptions): ToggleFrameNode {
+    export function createToggleNode(context: UIContext, options?: ToggleOptions, frameNodeOptions?: FrameNodeOptions): ToggleFrameNode {
         let toggleNode = new ToggleFrameNode(context, 'Toggle', (node: FrameNode, type: ModifierType): ArkToggleNode => {
             let arknode = new ArkToggleNode();
             const retval = FrameNodeExtender.getFrameNodePtr(node);
-            const peer = new ArkTogglePeer(retval, node._nodeId as int32, "Toggle", 0);
+            const peer = new ArkTogglePeer(retval, node._nodeId.toInt(), "Toggle", 0);
             arknode.setPeer(peer);
             return arknode;
-        });
+        }, frameNodeOptions);
         toggleNode.initialize(options as ToggleOptions);
         return toggleNode;
     }
@@ -1785,12 +2658,13 @@ export class NodeAdapter implements MaterializedBase {
     private attachedNodeRef_?: WeakRef<FrameNode>;
     private count_: int = 0;
     private nodeRefs_: Array<FrameNode> = new Array<FrameNode>();
+    private isDisposed_: boolean = false;
 
-    onDisposeChild(index: number, node: FrameNode) {
+    onDisposeChild(index: int32, node: FrameNode) {
 
     }
 
-    onUpdateChild(index: number, node: FrameNode) {
+    onUpdateChild(index: int32, node: FrameNode) {
 
     }
 
@@ -1814,9 +2688,15 @@ export class NodeAdapter implements MaterializedBase {
         if (this.peer?.ptr) {
             this.peer?.close();
         }
+        this.isDisposed_ = true;
     }
 
-    set totalNodeCount(count: int32) {
+    public isDisposed(): boolean {
+        const ptr = this.peer?.ptr;
+        return this.isDisposed_ && (ptr === undefined || ptr === null || ptr === nullptr)
+    }
+
+    set totalNodeCount(count: int) {
         if (count < 0) {
             return;
         }
@@ -1824,7 +2704,7 @@ export class NodeAdapter implements MaterializedBase {
         this.count_ = count;
     }
 
-    get totalNodeCount(): int {
+    get totalNodeCount() {
         return this.count_;
     }
 
@@ -1859,7 +2739,7 @@ export class NodeAdapter implements MaterializedBase {
         let result = new Array<FrameNode>();
         let nodes = ArkUIAniModule._NodeAdapter_GetAllItems(this.peer!.ptr!);
         if (nodes !== undefined) {
-            nodes.forEach((nodeId: number, index: int32, arr: Array<number>) => {
+            nodes.forEach((nodeId: number, index: int, arr: Array<number>) => {
                 if (FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.has(nodeId)) {
                     let frameNode = FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.get(nodeId);
                     result.push(frameNode!);
@@ -1868,7 +2748,7 @@ export class NodeAdapter implements MaterializedBase {
         }
         return result;
     }
-    onAttachToNodePtr(nodeId: number) {
+    onAttachToNodePtr(nodeId: double) {
         if (FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.has(nodeId)) {
             let frameNode = FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.get(nodeId);
             if (frameNode === undefined) {
@@ -1900,9 +2780,9 @@ export class NodeAdapter implements MaterializedBase {
         }
         this.nodeRefs_.splice(0, this.nodeRefs_.length);
     }
-    onCreateNewNodePtr(index: number): pointer {
+    onCreateNewNodePtr(index: double): pointer {
         if (this.onCreateChild !== undefined) {
-            let frameNode = this.onCreateChild((index as int32));
+            let frameNode = this.onCreateChild(index.toInt());
             if (!this.nodeRefs_.find((node) => {
                 return node === frameNode;
             })) {
@@ -1915,11 +2795,11 @@ export class NodeAdapter implements MaterializedBase {
         return nullptr;
     }
 
-    onDisposeNodePtr(index: number, nodeId: number) {
+    onDisposeNodePtr(index: double, nodeId: double) {
         if (FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.has(nodeId)) {
             let frameNode = FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.get(nodeId);
             if (this.onDisposeChild !== undefined && frameNode !== undefined) {
-                this.onDisposeChild(index, frameNode);
+                this.onDisposeChild((index.toInt()), frameNode);
                 let index2 = this.nodeRefs_.indexOf(frameNode);
                 if (index2 > -1) {
                     this.nodeRefs_.splice(index2, 1);
@@ -1928,11 +2808,11 @@ export class NodeAdapter implements MaterializedBase {
         }
     }
 
-    onUpdateNodePtr(index: number, nodeId: number) {
+    onUpdateNodePtr(index: double, nodeId: double) {
         if (FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.has(nodeId)) {
             let frameNode = FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.get(nodeId);
             if (this.onUpdateChild !== undefined && frameNode !== undefined) {
-                this.onUpdateChild(index, frameNode!);
+                this.onUpdateChild((index.toInt()), frameNode!);
             }
         }
     }

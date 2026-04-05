@@ -19,20 +19,14 @@
 #include <cstdint>
 #include <list>
 
-#include "core/animation/page_transition_common.h"
 #include "core/components_ng/base/frame_node.h"
-#include "core/components_ng/base/group_node.h"
-#include "core/components_ng/pattern/navigation/bar_item_node.h"
 #include "core/components_ng/pattern/navigation/navdestination_node_base.h"
-#include "core/components_ng/pattern/navigation/navigation_declaration.h"
-#include "core/components_ng/pattern/navigation/title_bar_node.h"
-#include "core/components_ng/property/property.h"
 
 namespace OHOS::Ace::NG {
 class InspectorFilter;
 
 class ACE_EXPORT NavBarNode : public NavDestinationNodeBase {
-    DECLARE_ACE_TYPE(NavBarNode, NavDestinationNodeBase)
+    DECLARE_ACE_TYPE(NavBarNode, NavDestinationNodeBase);
 public:
     NavBarNode(const std::string& tag, int32_t nodeId, const RefPtr<Pattern>& pattern)
         : NavDestinationNodeBase(tag, nodeId, pattern) {}
@@ -54,6 +48,8 @@ public:
     void InitSoftTransitionPop();
     bool IsNodeInvisible(const RefPtr<FrameNode>& node) override;
     RefPtr<UINode> GetNavigationNode() override;
+
+    std::string ToDumpString();
 };
 
 } // namespace OHOS::Ace::NG

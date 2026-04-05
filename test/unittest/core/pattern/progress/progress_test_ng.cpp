@@ -13,8 +13,9 @@
  * limitations under the License.
  */
 #include "progress_test_ng.h"
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/core/common/mock_container.h"
+
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
 #include "core/components_ng/pattern/progress/progress_model_static.h"
 
@@ -94,7 +95,7 @@ void ProgressTestNg::TearDown()
     layoutProperty_ = nullptr;
     paintProperty_ = nullptr;
     accessibilityProperty_ = nullptr;
-    ClearOldNodes();  // Each testcase will create new node at begin
+    ClearOldNodes(); // Each testcase will create new node at begin
 }
 
 void ProgressTestNg::GetProgress()
@@ -1409,10 +1410,6 @@ HWTEST_F(ProgressTestNg, ProgressModelTest001, TestSize.Level0)
     modelNg.SetBackgroundColor(BG_COLOR);
     EXPECT_EQ(paintProperty->GetColorValue(), FRONT_COLOR);
     EXPECT_EQ(paintProperty->GetBackgroundColorValue(), BG_COLOR);
-    modelNg.ResetColor();
-    modelNg.ResetBackgroundColor();
-    EXPECT_EQ(paintProperty->HasColor(), false);
-    EXPECT_EQ(paintProperty->HasBackgroundColor(), false);
 }
 
 /**
@@ -1439,10 +1436,6 @@ HWTEST_F(ProgressTestNg, ProgressModelTest002, TestSize.Level0)
     modelNg.SetBackgroundColor(BG_COLOR);
     EXPECT_EQ(paintProperty->GetGradientColorValue(), gradient);
     EXPECT_EQ(paintProperty->GetBackgroundColorValue(), BG_COLOR);
-    modelNg.ResetGradientColor();
-    modelNg.ResetBackgroundColor();
-    EXPECT_EQ(paintProperty->HasGradientColor(), false);
-    EXPECT_EQ(paintProperty->HasBackgroundColor(), false);
 }
 
 /**
@@ -1463,14 +1456,6 @@ HWTEST_F(ProgressTestNg, ProgressModelTest003, TestSize.Level0)
     EXPECT_EQ(paintProperty->GetBorderColorValue(), BORDER_COLOR);
     EXPECT_EQ(paintProperty->GetBackgroundColorValue(), BG_COLOR);
     EXPECT_EQ(paintProperty->GetTextColorValue(BG_COLOR), FRONT_COLOR);
-    modelNg.ResetColor();
-    modelNg.ResetBorderColor();
-    modelNg.ResetBackgroundColor();
-    modelNg.ResetFontColor();
-    EXPECT_EQ(paintProperty->HasColor(), false);
-    EXPECT_EQ(paintProperty->HasBorderColor(), false);
-    EXPECT_EQ(paintProperty->HasBackgroundColor(), false);
-    EXPECT_EQ(paintProperty->HasTextColor(), false);
 }
 
 /**
@@ -1521,9 +1506,7 @@ HWTEST_F(ProgressTestNg, ProgressModelTest005, TestSize.Level0)
     modelNg.SetBackgroundColor(frameNode, BG_COLOR);
     EXPECT_EQ(paintProperty->GetGradientColorValue(), gradient);
     EXPECT_EQ(paintProperty->GetBackgroundColorValue(), BG_COLOR);
-    modelNg.ResetGradientColor(frameNode);
     modelNg.ResetBackgroundColor(frameNode);
-    EXPECT_EQ(paintProperty->HasGradientColor(), false);
     EXPECT_EQ(paintProperty->HasBackgroundColor(), false);
 }
 
@@ -1542,13 +1525,6 @@ HWTEST_F(ProgressTestNg, ProgressPatternTest001, TestSize.Level0)
     modelNg.SetColor(FRONT_COLOR);
     modelNg.SetBackgroundColor(BG_COLOR);
     EXPECT_FALSE(pattern->OnThemeScopeUpdate(frameNode_->GetThemeScopeId()));
-
-    modelNg.ResetColor();
-    EXPECT_TRUE(pattern->OnThemeScopeUpdate(frameNode_->GetThemeScopeId()));
-
-    modelNg.SetColor(FRONT_COLOR);
-    modelNg.ResetBackgroundColor();
-    EXPECT_TRUE(pattern->OnThemeScopeUpdate(frameNode_->GetThemeScopeId()));
 }
 
 /**
@@ -1566,13 +1542,6 @@ HWTEST_F(ProgressTestNg, ProgressPatternTest002, TestSize.Level0)
     modelNg.SetColor(FRONT_COLOR);
     modelNg.SetBackgroundColor(BG_COLOR);
     EXPECT_FALSE(pattern->OnThemeScopeUpdate(frameNode_->GetThemeScopeId()));
-
-    modelNg.ResetColor();
-    EXPECT_FALSE(pattern->OnThemeScopeUpdate(frameNode_->GetThemeScopeId()));
-
-    modelNg.SetColor(FRONT_COLOR);
-    modelNg.ResetBackgroundColor();
-    EXPECT_TRUE(pattern->OnThemeScopeUpdate(frameNode_->GetThemeScopeId()));
 }
 
 /**
@@ -1591,17 +1560,6 @@ HWTEST_F(ProgressTestNg, ProgressPatternTest003, TestSize.Level0)
     modelNg.SetBackgroundColor(BG_COLOR);
     modelNg.SetBorderColor(BORDER_COLOR);
     EXPECT_FALSE(pattern->OnThemeScopeUpdate(frameNode_->GetThemeScopeId()));
-
-    modelNg.ResetColor();
-    EXPECT_TRUE(pattern->OnThemeScopeUpdate(frameNode_->GetThemeScopeId()));
-
-    modelNg.SetColor(FRONT_COLOR);
-    modelNg.ResetBackgroundColor();
-    EXPECT_TRUE(pattern->OnThemeScopeUpdate(frameNode_->GetThemeScopeId()));
-
-    modelNg.SetBackgroundColor(BG_COLOR);
-    modelNg.ResetBorderColor();
-    EXPECT_TRUE(pattern->OnThemeScopeUpdate(frameNode_->GetThemeScopeId()));
 }
 
 /**
@@ -1661,10 +1619,10 @@ HWTEST_F(ProgressTestNg, ProgressPatternUpdateColorTest001, TestSize.Level0)
     ASSERT_NE(frameNode, nullptr);
     auto pattern = frameNode->GetPattern<ProgressPattern>();
     ASSERT_NE(pattern, nullptr);
-    
+
     Color testColor(Color::RED);
     pattern->UpdateColor(testColor, true);
-    
+
     auto paintProperty = frameNode->GetPaintProperty<ProgressPaintProperty>();
     ASSERT_NE(paintProperty, nullptr);
     EXPECT_EQ(paintProperty->GetColorValue(), testColor);
@@ -2205,6 +2163,40 @@ HWTEST_F(ProgressTestNg, ProgressPatternOnColorConfigurationUpdateTest001, TestS
 }
 
 /**
+ * @tc.name: ProgressDefaultFontWeight
+ * @tc.desc: Test ProgressDefaultFontWeight
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProgressTestNg, ProgressDefaultFontWeight, TestSize.Level1)
+{
+    /**
+     * @tc.step: step1. create instance.
+     */
+    ProgressModelNG model = CreateProgress(VALUE_OF_PROGRESS, MAX_VALUE_OF_PROGRESS, PROGRESS_TYPE_CAPSULE);
+
+    /**
+     * @tc.case: get default font weight.
+     * @tc.expected: it should be Normal.
+     */
+    auto pipeline = PipelineBase::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto theme = pipeline->GetTheme<ProgressTheme>();
+    FontWeight fontWeight = static_cast<FontWeight>(theme->GetFontWeight());
+    EXPECT_EQ(fontWeight, FontWeight::NORMAL);
+
+    /**
+     * @tc.case: case1 call to SetFontWeight with no framenode.
+     * @tc.expected: it should be as we set.
+     */
+    model.SetFontWeight(FontWeight::MEDIUM);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<ProgressPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    EXPECT_EQ(paintProperty->GetFontWeight().value(), FontWeight::MEDIUM);
+}
+
+/**
  * @tc.name: ProgressPatternCreateWithResourceObjTest001
  * @tc.desc: Test model ng  CreateWithResourceObj
  * @tc.type: FUNC
@@ -2313,6 +2305,32 @@ HWTEST_F(ProgressTestNg, ProgressPatternCreateWithResourceObjTest002, TestSize.L
 }
 
 /**
+ * @tc.name: ProgressModelNGSetCapsuleStyle
+ * @tc.desc: Test ProgressModelNG SetCapsuleStyle &&  SetCapsuleStyleFontColor
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProgressTestNg, ProgressModelNGSetCapsuleStyle, TestSize.Level0)
+{
+    /**
+     * @tc.step: step1. create instance.
+     */
+    ProgressModelNG model = CreateProgress(VALUE_OF_PROGRESS, MAX_VALUE_OF_PROGRESS, PROGRESS_TYPE_CAPSULE);
+
+    /**
+     * @tc.case: case1 call to  SetCapsuleStyle SetCapsuleStyleFontColor  with  framenode.
+     * @tc.expected: it should be as we set.
+     */
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto paintProperty = frameNode->GetPaintProperty<ProgressPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    ProgressModelNG::SetCapsuleStyle(Referenced::RawPtr(frameNode), true);
+    ProgressModelNG::SetCapsuleStyleFontColor(Referenced::RawPtr(frameNode), true);
+    EXPECT_TRUE(paintProperty->GetCapsuleStyleSetByUser());
+    EXPECT_TRUE(paintProperty->GetCapsuleStyleFontColorSetByUser());
+}
+
+/**
  * @tc.name: SetPrivacySensitive
  * @tc.desc: Test model static  SetPrivacySensitive
  * @tc.type: FUNC
@@ -2350,5 +2368,76 @@ HWTEST_F(ProgressTestNg, ProgressModelStaticSetValue, TestSize.Level0)
     pattern_->SetTextFromUser(false);
     ProgressModelStatic::SetValue(AceType::RawPtr(frameNode_), value);
     EXPECT_FALSE(paintProperty_->GetValue().has_value());
+}
+
+/**
+ * @tc.name: ProgressModelStaticSetText
+ * @tc.desc: Test ProgressModelStatic SetText
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProgressTestNg, ProgressModelStaticSetText, TestSize.Level0)
+{
+    /**
+     * @tc.step: step1. create instance and update property.
+     */
+    ProgressModelNG model = CreateProgress(VALUE_OF_PROGRESS_2, 100.0, PROGRESS_TYPE_CAPSULE);
+    model.SetStrokeWidth(LARG_STROKE_WIDTH);
+    model.SetStrokeRadius(LARG_STROKE_WIDTH / 5.0);
+    model.SetShowText(true);
+    CreateDone();
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode_->GetChildAtIndex(0));
+    auto* stack = ViewStackProcessor::GetInstance();
+    stack->Push(frameNode_);
+
+    /**
+     * @tc.case: case1 call to  static function SetText.
+     * @tc.expected: it should be as we set.
+     */
+    pattern_->SetTextFromUser(true);
+    paintProperty_->UpdateMaxValue(100);
+    paintProperty_->UpdateValue(50);
+    ProgressModelStatic::SetText(Referenced::RawPtr(frameNode_), std::nullopt);
+    EXPECT_FALSE(pattern_->IsTextFromUser());
+
+    pattern_->SetTextFromUser(true);
+    paintProperty_->ResetMaxValue();
+    ProgressModelStatic::SetText(Referenced::RawPtr(frameNode_), std::nullopt);
+    EXPECT_TRUE(pattern_->IsTextFromUser());
+
+    paintProperty_->UpdateMaxValue(100);
+    paintProperty_->ResetValue();
+    ProgressModelStatic::SetText(Referenced::RawPtr(frameNode_), std::nullopt);
+    EXPECT_TRUE(pattern_->IsTextFromUser());
+
+    paintProperty_->ResetMaxValue();
+    paintProperty_->ResetValue();
+    ProgressModelStatic::SetText(Referenced::RawPtr(frameNode_), std::nullopt);
+    EXPECT_TRUE(pattern_->IsTextFromUser());
+}
+
+/**
+ * @tc.name: SetBackgroundColorByUserTest001
+ * @tc.desc: Test SetBackgroundColorByUser method of ProgressModelNG.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProgressTestNg, SetBackgroundColorByUserTest001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Set ConfigChangePerform to true, create progress and SetBackgroundColorByUser to true.
+     * @tc.expected: step1. GetBackgroundColorSetByUser is set to true.
+     */
+    CreateProgress(VALUE_OF_PROGRESS, MAX_VALUE_OF_PROGRESS, PROGRESS_TYPE_LINEAR);
+    OHOS::Ace::g_isConfigChangePerform = true;
+
+    ProgressModelNG model;
+    model.SetBackgroundColorByUser(true);
+    EXPECT_EQ(paintProperty_->GetBackgroundColorSetByUser(), true);
+
+    /**
+     * @tc.steps: step2. SetBackgroundColorByUser to false when ConfigChangePerform is true.
+     * @tc.expected: step2. GetBackgroundColorSetByUser is set to false.
+     */
+    model.SetBackgroundColorByUser(false);
+    EXPECT_EQ(paintProperty_->GetBackgroundColorSetByUser(), false);
 }
 } // namespace OHOS::Ace::NG

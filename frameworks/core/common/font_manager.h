@@ -24,10 +24,8 @@
 #include "core/common/font_change_observer.h"
 #include "core/common/font_loader.h"
 #include "core/components/common/layout/constants.h"
-#include "core/pipeline/pipeline_base.h"
-#ifdef ACE_ENABLE_VK
 #include "core/components_ng/base/frame_node.h"
-#endif
+#include "core/pipeline/pipeline_base.h"
 
 namespace OHOS::Ace {
 
@@ -82,8 +80,12 @@ typedef struct FontConfigJsonInfo {
 } FontConfigJsonInfo;
 
 using ExternalLoadFontPair = std::pair<std::string, std::function<void()>>;
+struct FormLoadFontCallbackInfo {
+    std::function<void()> callback;
+    uint64_t formRuntimeId = 0;
+};
 
-class FontManager : public virtual AceType {
+class ACE_FORCE_EXPORT FontManager : public virtual AceType {
     DECLARE_ACE_TYPE(FontManager, AceType);
 
 public:
@@ -123,9 +125,9 @@ public:
     void AddVariationNodeNG(const WeakPtr<NG::UINode>& node);
     void RemoveVariationNodeNG(const WeakPtr<NG::UINode>& node);
     bool IsDefaultFontChanged();
-    bool IsUseAppCustomFont() const;
+    ACE_FORCE_EXPORT bool IsUseAppCustomFont() const;
     void SetAppCustomFont(const std::string& familyName);
-    const std::string& GetAppCustomFont() const;
+    ACE_FORCE_EXPORT const std::string& GetAppCustomFont() const;
     void AddFontObserver(WeakPtr<FontChangeObserver> node);
     void RemoveFontChangeObserver(WeakPtr<FontChangeObserver> node);
     std::vector<std::string> GetFontNames();
@@ -146,18 +148,20 @@ public:
         startAbilityOnJumpBrowserHandler_ = std::move(listener);
     }
 
-    using OpenLinkOnMapSearchHandler = std::function<void(const std::string& address)>;
-    void SetOpenLinkOnMapSearchHandler(OpenLinkOnMapSearchHandler&& listener)
+    using StartAbilityOnCanlendarHandler = std::function<void(const std::map<std::string, std::string>& params)>;
+    void SetStartAbilityOnCalendar(StartAbilityOnCanlendarHandler&& listener)
     {
-        startOpenLinkOnMapSearchHandler_ = std::move(listener);
+        startAbilityOnCalendarHandler_ = std::move(listener);
     }
 
     void StartAbilityOnJumpBrowser(const std::string& address) const;
     void StartAbilityOnInstallAppInStore(const std::string& appName) const;
-    void OpenLinkOnMapSearch(const std::string& address);
+    void StartAbilityOnCalendar(const std::map<std::string, std::string>& params) const;
 
     void OnPreviewMenuOptionClick(TextDataDetectType type, const std::string& content);
 
+    void UpdateStyleOptimizeFlagInCurrentLanguage();
+    bool GetFallbackLineSpacingStyleOptimizeFlag();
 protected:
     static float fontWeightScale_;
     static bool isDefaultFontChanged_;
@@ -166,7 +170,12 @@ protected:
 private:
     void FontNodeChangeStyleNG();
     void RegisterLoadFontCallbacks();
-    void OnLoadFontChanged(const WeakPtr<PipelineBase>& context, const std::string& fontName);
+    void OnLoadFontChanged(
+        const WeakPtr<PipelineBase>& context, const std::string& fontName, uint64_t runtimeId);
+    void NotifyFontChange(const std::string& fontName, uint64_t runtimeId);
+    void NotifyFormFontChange(const std::string& fontName, uint64_t runtimeId);
+    void RegisterTextEngineLoadCallback(
+        const WeakPtr<NG::UINode>& node, const std::string& familyName, const std::function<void()>& callback);
 
     std::list<RefPtr<FontLoader>> fontLoaders_;
     std::vector<std::string> fontNames_;
@@ -176,17 +185,20 @@ private:
     std::set<WeakPtr<RenderNode>> variationNodes_;
     std::set<WeakPtr<NG::UINode>> variationNodesNG_;
     std::set<WeakPtr<FontChangeObserver>> observers_;
-    std::map<WeakPtr<NG::UINode>, ExternalLoadFontPair> externalLoadCallbacks_;
-    bool hasRegisterLoadFontCallback_ = false;
+    std::map<WeakPtr<NG::UINode>, std::map<std::string, std::function<void()>>> externalLoadCallbacks_;
+    std::map<WeakPtr<NG::UINode>, std::map<std::string, FormLoadFontCallbackInfo>> formLoadCallbacks_;
 
     StartAbilityOnInstallAppInStoreHandler startAbilityOnInstallAppInStoreHandler_;
     StartAbilityOnJumpBrowserHandler startAbilityOnJumpBrowserHandler_;
-    OpenLinkOnMapSearchHandler startOpenLinkOnMapSearchHandler_;
+    StartAbilityOnCanlendarHandler startAbilityOnCalendarHandler_;
 
-#ifdef ACE_ENABLE_VK
     std::mutex hybridRenderNodesMutex_;
     std::set<WeakPtr<NG::UINode>> hybridRenderNodes_;
-#endif
+    std::once_flag load_font_flag_;
+    std::shared_mutex mutable formCallbackLock_;
+    std::shared_mutex mutable externalCallbackLock_;
+
+    bool fallbackLineSpacingStyleOptimizeFlag_ = false;
 };
 
 } // namespace OHOS::Ace

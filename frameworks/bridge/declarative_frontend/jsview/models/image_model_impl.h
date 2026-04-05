@@ -42,7 +42,7 @@ public:
     void SetOnComplete(std::function<void(const LoadImageSuccessEvent& info)>&& callback) override;
     void SetOnError(std::function<void(const LoadImageFailEvent& info)>&& callback) override;
     void SetSvgAnimatorFinishEvent(std::function<void()>&& callback) override;
-    void Create(const ImageInfoConfig& imageInfoConfig, RefPtr<PixelMap>& pixMap) override;
+    void Create(ImageInfoConfig& imageInfoConfig) override;
     void SetImageSourceSize(const std::pair<Dimension, Dimension>& size) override;
     void SetImageFill(const Color& color) override;
     void ResetImageFill() override {};
@@ -75,10 +75,14 @@ public:
     void SetHdrBrightness(float hdrBrightness) override {}
     void SetEnhancedImageQuality(AIImageQuality imageQuality) override {}
     void SetOrientation(ImageRotateOrientation orientation) override {}
-    void CreateAnimation(const std::vector<ImageProperties>& imageList, int32_t duration, int32_t iteration) override {}
     bool GetIsAnimation() override;
     void CreateWithResourceObj(ImageResourceType resourceType, const RefPtr<ResourceObject>& resObject) override {};
     void SetImageFillSetByUser(bool value) override {};
+    void SetSupportSvg2(bool enable) override {};
+    void SetContentTransition(ContentTransitionType contentTransition) override {};
+    void SetAltError(const ImageSourceInfo& src) override{};
+    void SetAltPlaceholder(const ImageSourceInfo& src) override{};
+    void SetAntiAlias(bool antiAlias) override{};
 };
 
 } // namespace OHOS::Ace::Framework

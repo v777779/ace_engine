@@ -18,18 +18,23 @@
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
-void SliderPattern::UpdateValueMultiThread(const RefPtr<FrameNode>& frameNode)
+void SliderPattern::UpdateValueMultiThread(const RefPtr<FrameNode>& frameNode, bool isNotifyRecovery)
 {
-    auto updateTask = [weak = WeakClaim(this)]() {
+    auto isExceptionValueRecovery = CalcSliderValue() && isNotifyRecovery;
+    auto updateTask = [weak = WeakClaim(this), isExceptionValueRecovery]() {
         auto pattern = weak.Upgrade();
         CHECK_NULL_VOID(pattern);
-        pattern->CalcSliderValue();
+        if (isExceptionValueRecovery) {
+            pattern->NotifyExceptionValueRecoveryEvent();
+        }
         pattern->FireBuilder();
     };
     frameNode->PostAfterAttachMainTreeTask(std::move(updateTask));
 }
 
-void SliderPattern::OnAttachToFrameNodeMultiThread() {}
+void SliderPattern::OnAttachToFrameNodeMultiThread()
+{
+}
 
 void SliderPattern::OnAttachToMainTreeMultiThread()
 {
@@ -37,7 +42,9 @@ void SliderPattern::OnAttachToMainTreeMultiThread()
     RegisterVisibleAreaChange();
 }
 
-void SliderPattern::OnDetachFromFrameNodeMultiThread() {}
+void SliderPattern::OnDetachFromFrameNodeMultiThread()
+{
+}
 
 void SliderPattern::OnDetachFromMainTreeMultiThread(const RefPtr<FrameNode>& frameNode)
 {

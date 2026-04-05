@@ -20,6 +20,8 @@
 namespace OHOS::Ace::NG {
 constexpr char TIME_LIMIT_RESOURCE_NAME[] = "form_disable_time_limit";
 constexpr char APP_LOCK_RESOURCE_NAME[] = "ohos_app_has_locked";
+constexpr char DEVELOPER_MODE_TIPS_RESOURCE_NAME[] = "desc_developer_mode_tips";
+constexpr char DUE_CONTROL_RESOURCE_NAME[] = "due_control_form";
 
 void FormSpecialStyle::SetIsForbiddenByParentControl(bool isForbiddenByParentControl)
 {
@@ -29,6 +31,11 @@ void FormSpecialStyle::SetIsForbiddenByParentControl(bool isForbiddenByParentCon
 void FormSpecialStyle::SetIsLockedByAppLock(bool isLockedByAppLock)
 {
     isLockedByAppLock_ = isLockedByAppLock;
+}
+
+void FormSpecialStyle::SetIsShowDeveloperTips(bool isShowDeveloperTips)
+{
+    isShowDeveloperTips_ = isShowDeveloperTips;
 }
 
 bool FormSpecialStyle::IsForbidden() const
@@ -41,6 +48,11 @@ bool FormSpecialStyle::IsLocked() const
     return isLockedByAppLock_;
 }
 
+bool FormSpecialStyle::IsShowDeveloperTips() const
+{
+    return isShowDeveloperTips_;
+}
+
 const char* FormSpecialStyle::GetResource()
 {
     auto formStyleAttribution = GetFormStyleAttribution();
@@ -49,6 +61,13 @@ const char* FormSpecialStyle::GetResource()
     }
     if (formStyleAttribution == FormStyleAttribution::APP_LOCK) {
         return APP_LOCK_RESOURCE_NAME;
+    }
+    if (formStyleAttribution == FormStyleAttribution::DEVELOPER_MODE_TIPS) {
+        return DEVELOPER_MODE_TIPS_RESOURCE_NAME;
+    }
+    if (formStyleAttribution == FormStyleAttribution::DUE_DISABLE ||
+        formStyleAttribution == FormStyleAttribution::DUE_REMOVE) {
+        return DUE_CONTROL_RESOURCE_NAME;
     }
     return nullptr;
 }
@@ -71,11 +90,20 @@ FormOperation FormSpecialStyle::GetOperationToNewFormStyle(const FormSpecialStyl
 
 FormStyleAttribution FormSpecialStyle::GetFormStyleAttribution() const
 {
-    if (isForbiddenByParentControl_) {
+    if (isForbiddenByParentControl_ && !isMultiAppForm_) {
         return FormStyleAttribution::PARENT_CONTROL;
     }
     if (isLockedByAppLock_ && !isMultiAppForm_) {
         return FormStyleAttribution::APP_LOCK;
+    }
+    if (isShowDeveloperTips_ && !isMultiAppForm_) {
+        return FormStyleAttribution::DEVELOPER_MODE_TIPS;
+    }
+    if (isDueDisabled_ && !isMultiAppForm_) {
+        return FormStyleAttribution::DUE_DISABLE;
+    }
+    if (isDueRemoved_ && !isMultiAppForm_) {
+        return FormStyleAttribution::DUE_REMOVE;
     }
     return FormStyleAttribution::NORMAL;
 }
@@ -117,5 +145,25 @@ void FormSpecialStyle::SetIsMultiAppForm(AppExecFwk::FormInfo &formInfo)
 bool FormSpecialStyle::IsMultiAppForm() const
 {
     return isMultiAppForm_;
+}
+
+void FormSpecialStyle::SetIsDisableByDue(bool isDueDisable)
+{
+    isDueDisabled_ = isDueDisable;
+}
+
+bool FormSpecialStyle::IsDueDisabled() const
+{
+    return isDueDisabled_;
+}
+
+void FormSpecialStyle::SetIsRemoveByDue(bool isDueRemove)
+{
+    isDueRemoved_ = isDueRemove;
+}
+
+bool FormSpecialStyle::IsDueRemoved() const
+{
+    return isDueRemoved_;
 }
 } // namespace OHOS::Ace::NG

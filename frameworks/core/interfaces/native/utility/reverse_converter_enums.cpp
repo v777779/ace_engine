@@ -15,11 +15,24 @@
 
 #include <optional>
 
+// SORTED_SECTION
+#include "core/common/ime/text_input_action.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/alignment.h"
 #include "core/components/common/properties/color.h"
+#include "core/components/common/properties/paint_state.h"
 #include "core/components/common/properties/shadow.h"
+#include "core/components/web/web_event.h"
+#include "core/components_ng/pattern/list/list_item_group_pattern.h"
+#include "core/components_ng/pattern/navigation/navigation_declaration.h"
+#include "core/components_ng/pattern/overlay/sheet_presentation_pattern.h"
+#include "core/components_ng/pattern/rich_editor/rich_editor_event_hub.h"
+#include "core/components_ng/pattern/security_component/security_component_common.h"
+#include "core/components_ng/pattern/tabs/tabs_model.h"
+#include "core/components_ng/pattern/text/span/span_object.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 
+#include "ace_engine_types.h"
 #include "arkoala_api_generated.h"
 #include "reverse_converter.h"
 
@@ -63,6 +76,20 @@ void AssignArkValue(Ark_AccessibilityHoverType& dst, const AccessibilityHoverAct
     }
 }
 
+void AssignArkValue(Ark_AutoCapitalizationMode& dst, const AutoCapitalizationMode& src)
+{
+    switch (src) {
+        case AutoCapitalizationMode::NONE: dst = ARK_AUTO_CAPITALIZATION_MODE_NONE; break;
+        case AutoCapitalizationMode::WORDS: dst = ARK_AUTO_CAPITALIZATION_MODE_WORDS; break;
+        case AutoCapitalizationMode::SENTENCES: dst = ARK_AUTO_CAPITALIZATION_MODE_SENTENCES; break;
+        case AutoCapitalizationMode::ALL_CHARACTERS: dst = ARK_AUTO_CAPITALIZATION_MODE_ALL_CHARACTERS; break;
+        default:
+            dst = INVALID_ENUM_VAL<Ark_AutoCapitalizationMode>;
+            LOGE("Unexpected enum value in AutoCapitalizationMode: %{public}d", src);
+            break;
+    }
+}
+
 void AssignArkValue(Ark_DismissReason& dst, const BindSheetDismissReason& src)
 {
     switch (src) {
@@ -70,6 +97,7 @@ void AssignArkValue(Ark_DismissReason& dst, const BindSheetDismissReason& src)
         case BindSheetDismissReason::TOUCH_OUTSIDE: dst = ARK_DISMISS_REASON_TOUCH_OUTSIDE; break;
         case BindSheetDismissReason::CLOSE_BUTTON: dst = ARK_DISMISS_REASON_CLOSE_BUTTON; break;
         case BindSheetDismissReason::SLIDE_DOWN: dst = ARK_DISMISS_REASON_SLIDE_DOWN; break;
+        case BindSheetDismissReason::SLIDE: dst = ARK_DISMISS_REASON_SLIDE; break;
         default: dst = static_cast<Ark_DismissReason>(-1);
             LOGE("Unexpected enum value in BindSheetDismissReason: %{public}d", src); break;
     }
@@ -194,7 +222,7 @@ void AssignArkValue(Ark_EdgeEffect& dst, const EdgeEffect& src)
     }
 }
 
-void AssignArkValue(Ark_EnterKeyType& dst, const TextInputAction& src)
+ACE_FORCE_EXPORT void AssignArkValue(Ark_EnterKeyType& dst, const TextInputAction& src)
 {
     switch (src) {
         case TextInputAction::GO: dst = ARK_ENTER_KEY_TYPE_GO; break;
@@ -210,7 +238,7 @@ void AssignArkValue(Ark_EnterKeyType& dst, const TextInputAction& src)
     }
 }
 
-void AssignArkValue(Ark_FontStyle& dst, const OHOS::Ace::FontStyle& src)
+ACE_FORCE_EXPORT void AssignArkValue(Ark_FontStyle& dst, const OHOS::Ace::FontStyle& src)
 {
     switch (src) {
         case OHOS::Ace::FontStyle::NORMAL: dst = ARK_FONT_STYLE_NORMAL; break;
@@ -250,17 +278,45 @@ void AssignArkValue(Ark_FoldStatus& dst, const FoldStatus& src)
     }
 }
 
-void AssignArkValue(Ark_GestureControl_GestureType &dst, const GestureTypeName &src)
+void AssignArkValue(Ark_GestureControl_GestureType& dst, const GestureTypeName& src)
 {
     switch (src) {
-        case GestureTypeName::TAP_GESTURE: dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_TAP_GESTURE; break;
-        case GestureTypeName::LONG_PRESS_GESTURE: dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_LONG_PRESS_GESTURE; break;
-        case GestureTypeName::PAN_GESTURE: dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_PAN_GESTURE; break;
-        case GestureTypeName::PINCH_GESTURE: dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_PINCH_GESTURE; break;
-        case GestureTypeName::SWIPE_GESTURE: dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_SWIPE_GESTURE; break;
-        case GestureTypeName::ROTATION_GESTURE: dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_ROTATION_GESTURE; break;
-        case GestureTypeName::DRAG: dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_DRAG; break;
-        case GestureTypeName::CLICK: dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_CLICK; break;
+        case GestureTypeName::TAP_GESTURE:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_TAP_GESTURE;
+            break;
+        case GestureTypeName::LONG_PRESS_GESTURE:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_LONG_PRESS_GESTURE;
+            break;
+        case GestureTypeName::PAN_GESTURE:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_PAN_GESTURE;
+            break;
+        case GestureTypeName::PINCH_GESTURE:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_PINCH_GESTURE;
+            break;
+        case GestureTypeName::SWIPE_GESTURE:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_SWIPE_GESTURE;
+            break;
+        case GestureTypeName::ROTATION_GESTURE:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_ROTATION_GESTURE;
+            break;
+        case GestureTypeName::DRAG:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_DRAG;
+            break;
+        case GestureTypeName::CLICK:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_CLICK;
+            break;
+        case GestureTypeName::BOXSELECT:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_BOX_SELECT_GESTURE;
+            break;
+        case GestureTypeName::WEBSCROLL:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_WEB_SCROLL_GESTURE;
+            break;
+        case GestureTypeName::TEXTFIELD_BOXSELECT:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_TEXT_FIELD_SELECT_GESTURE;
+            break;
+        case GestureTypeName::CONTEXT_MENU_HOVER:
+            dst = ARK_GESTURE_CONTROL_GESTURE_TYPE_CONTEXT_MENU_HOVER_GESTURE;
+            break;
         default:
             LOGE("Unexpected enum value in GestureTypeName: %{public}d", src);
             dst = static_cast<Ark_GestureControl_GestureType>(-1);
@@ -369,6 +425,18 @@ void AssignArkValue(Ark_LineBreakStrategy& dst, const LineBreakStrategy& src)
     }
 }
 
+void AssignArkValue(Ark_TextDirection& dst, const TextDirection& src)
+{
+    switch (src) {
+        case TextDirection::LTR: dst = ARK_TEXT_DIRECTION_LTR; break;
+        case TextDirection::RTL: dst = ARK_TEXT_DIRECTION_RTL; break;
+        case TextDirection::INHERIT: dst = ARK_TEXT_DIRECTION_DEFAULT; break;
+        case TextDirection::AUTO: dst = ARK_TEXT_DIRECTION_AUTO; break;
+        default: dst = static_cast<Ark_TextDirection>(-1);
+            LOGE("Unexpected enum value in TextDirection: %{public}d", src);
+    }
+}
+
 void AssignArkValue(Ark_ListItemGroupArea& dst, const ListItemGroupArea& src)
 {
     switch (src) {
@@ -418,6 +486,29 @@ void AssignArkValue(Ark_MessageLevel& dst, const MessageLevel& src)
         default: {
             dst = static_cast<Ark_MessageLevel>(-1);
             LOGE("Unexpected enum value in MessageLevel: %{public}d", src);
+        }
+    }
+}
+
+void AssignArkValue(Ark_ConsoleMessageSource& dst, const ConsoleMessageSource& src)
+{
+    switch (src) {
+        case ConsoleMessageSource::XML: dst = ARK_CONSOLE_MESSAGE_SOURCE_XML; break;
+        case ConsoleMessageSource::JAVASCRIPT: dst = ARK_CONSOLE_MESSAGE_SOURCE_JAVASCRIPT; break;
+        case ConsoleMessageSource::NETWORK: dst = ARK_CONSOLE_MESSAGE_SOURCE_NETWORK; break;
+        case ConsoleMessageSource::CONSOLE_API: dst = ARK_CONSOLE_MESSAGE_SOURCE_CONSOLE_API; break;
+        case ConsoleMessageSource::STORAGE: dst = ARK_CONSOLE_MESSAGE_SOURCE_STORAGE; break;
+        case ConsoleMessageSource::RENDERING: dst = ARK_CONSOLE_MESSAGE_SOURCE_RENDERING; break;
+        case ConsoleMessageSource::SECURITY: dst = ARK_CONSOLE_MESSAGE_SOURCE_SECURITY; break;
+        case ConsoleMessageSource::OTHER: dst = ARK_CONSOLE_MESSAGE_SOURCE_OTHER; break;
+        case ConsoleMessageSource::DEPRECATION: dst = ARK_CONSOLE_MESSAGE_SOURCE_DEPRECATION; break;
+        case ConsoleMessageSource::WORKER: dst = ARK_CONSOLE_MESSAGE_SOURCE_WORKER; break;
+        case ConsoleMessageSource::VIOLATION: dst = ARK_CONSOLE_MESSAGE_SOURCE_VIOLATION; break;
+        case ConsoleMessageSource::INTERVENTION: dst = ARK_CONSOLE_MESSAGE_SOURCE_INTERVENTION; break;
+        case ConsoleMessageSource::RECOMMENDATION: dst = ARK_CONSOLE_MESSAGE_SOURCE_RECOMMENDATION; break;
+        default: {
+            dst = static_cast<Ark_ConsoleMessageSource>(-1);
+            LOGE("Unexpected enum value in ConsoleMessageSource: %{public}d", src);
         }
     }
 }
@@ -510,11 +601,6 @@ void AssignArkValue(Ark_NestedScrollMode& dst, const NestedScrollMode& src)
     }
 }
 
-void AssignArkValue(Ark_NestedScrollOptions& dst, const NestedScrollOptions& src)
-{
-    dst.scrollForward = ArkValue<Ark_NestedScrollMode>(src.forward);
-    dst.scrollBackward = ArkValue<Ark_NestedScrollMode>(src.backward);
-}
 void AssignArkValue(Ark_PanDirection& dst, const PanDirection& src)
 {
     if (src.type >= static_cast<uint32_t>(Ark_PanDirection::ARK_PAN_DIRECTION_NONE) &&
@@ -525,6 +611,7 @@ void AssignArkValue(Ark_PanDirection& dst, const PanDirection& src)
         LOGE("Unexpected enum value in PanDirection: %{public}d", src.type);
     }
 }
+
 void AssignArkValue(Ark_PasteButtonOnClickResult& dst, const SecurityComponentHandleResult& src)
 {
     switch (src) {
@@ -540,6 +627,19 @@ void AssignArkValue(Ark_PasteButtonOnClickResult& dst, const SecurityComponentHa
             break;
     }
 }
+void AssignArkValue(Ark_promptAction_CommonState& dst, const PromptActionCommonState& src){
+    switch (src) {
+        case PromptActionCommonState::UNINITIALIZED: dst = ARK_PROMPT_ACTION_COMMON_STATE_UNINITIALIZED; break;
+        case PromptActionCommonState::INITIALIZED: dst = ARK_PROMPT_ACTION_COMMON_STATE_INITIALIZED; break;
+        case PromptActionCommonState::APPEARING: dst = ARK_PROMPT_ACTION_COMMON_STATE_APPEARING; break;
+        case PromptActionCommonState::APPEARED: dst = ARK_PROMPT_ACTION_COMMON_STATE_APPEARED; break;
+        case PromptActionCommonState::DISAPPEARING: dst = ARK_PROMPT_ACTION_COMMON_STATE_DISAPPEARING; break;
+        case PromptActionCommonState::DISAPPEARED: dst = ARK_PROMPT_ACTION_COMMON_STATE_DISAPPEARED; break;
+        default:
+            dst = INVALID_ENUM_VAL<Ark_promptAction_CommonState>;
+            LOGE("Unexpected enum value in PromptActionCommonState: %{public}d", src);
+    }
+}
 
 void AssignArkValue(Ark_SaveButtonOnClickResult& dst, const SecurityComponentHandleResult& src)
 {
@@ -549,6 +649,9 @@ void AssignArkValue(Ark_SaveButtonOnClickResult& dst, const SecurityComponentHan
             break;
         case SecurityComponentHandleResult::CLICK_GRANT_FAILED:
             dst = ARK_SAVE_BUTTON_ON_CLICK_RESULT_TEMPORARY_AUTHORIZATION_FAILED;
+            break;
+        case SecurityComponentHandleResult::CLICK_GRANT_CANCELED:
+            dst = ARK_SAVE_BUTTON_ON_CLICK_RESULT_CANCELED_BY_USER;
             break;
         default:
             dst = static_cast<Ark_SaveButtonOnClickResult>(-1);
@@ -626,6 +729,8 @@ void AssignArkValue(Ark_SheetType& dst, const SheetType& src)
         case SheetType::SHEET_BOTTOM: dst = ARK_SHEET_TYPE_BOTTOM; break;
         case SheetType::SHEET_CENTER: dst = ARK_SHEET_TYPE_CENTER; break;
         case SheetType::SHEET_POPUP: dst = ARK_SHEET_TYPE_POPUP; break;
+        case SheetType::SHEET_SIDE: dst = ARK_SHEET_TYPE_SIDE; break;
+        case SheetType::SHEET_CONTENT_COVER: dst = ARK_SHEET_TYPE_CONTENT_COVER; break;
         default: dst = static_cast<Ark_SheetType>(-1);
             LOGE("Unexpected enum value in SheetType: %{public}d", src);
     }
@@ -700,17 +805,55 @@ void AssignArkValue(Ark_StyledStringKey& dst, OHOS::Ace::SpanType src)
     }
 }
 
+void AssignArkValue(Ark_SuperscriptStyle& dst, const SuperscriptStyle& src)
+{
+    switch (src) {
+        case SuperscriptStyle::NORMAL: dst = ARK_SUPERSCRIPT_STYLE_NORMAL; break;
+        case SuperscriptStyle::SUPERSCRIPT: dst = ARK_SUPERSCRIPT_STYLE_SUPERSCRIPT; break;
+        case SuperscriptStyle::SUBSCRIPT: dst = ARK_SUPERSCRIPT_STYLE_SUBSCRIPT; break;
+        default: LOGE("Unexpected enum value in SuperscriptStyle: %{public}d", src);
+    }
+}
+
 void AssignArkValue(Ark_TextAlign& dst, const TextAlign& src)
 {
     switch (src) {
-        case TextAlign::LEFT: dst = ARK_TEXT_ALIGN_START; break;
-        case TextAlign::RIGHT: dst = ARK_TEXT_ALIGN_END; break;
+        case TextAlign::LEFT: dst = ARK_TEXT_ALIGN_LEFT; break;
+        case TextAlign::RIGHT: dst = ARK_TEXT_ALIGN_RIGHT; break;
         case TextAlign::CENTER: dst = ARK_TEXT_ALIGN_CENTER; break;
         case TextAlign::JUSTIFY: dst = ARK_TEXT_ALIGN_JUSTIFY; break;
         case TextAlign::START: dst = ARK_TEXT_ALIGN_START; break;
         case TextAlign::END: dst = ARK_TEXT_ALIGN_END; break;
         default:
             dst = static_cast<Ark_TextAlign>(-1);
+            LOGE("Unexpected enum value in TextAlign: %{public}d", src);
+    }
+}
+void AssignArkValue(Ark_TextVerticalAlign& dst, const TextVerticalAlign& src)
+{
+    switch (src) {
+        case TextVerticalAlign::BASELINE: dst = ARK_TEXT_VERTICAL_ALIGN_BASELINE; break;
+        case TextVerticalAlign::BOTTOM: dst = ARK_TEXT_VERTICAL_ALIGN_BOTTOM; break;
+        case TextVerticalAlign::CENTER: dst = ARK_TEXT_VERTICAL_ALIGN_CENTER; break;
+        case TextVerticalAlign::TOP: dst = ARK_TEXT_VERTICAL_ALIGN_TOP; break;
+        default:
+            dst = static_cast<Ark_TextVerticalAlign>(-1);
+            LOGE("Unexpected enum value in TextAlign: %{public}d", src);
+    }
+}
+void AssignArkValue(Ark_TextVerticalAlign& dst, const int32_t& src)
+{
+    const int32_t BASELINE = 0;
+    const int32_t BOTTOM = 1;
+    const int32_t CENTER = 2;
+    const int32_t TOP = 3;
+    switch (src) {
+        case BASELINE: dst = ARK_TEXT_VERTICAL_ALIGN_BASELINE; break;
+        case BOTTOM: dst = ARK_TEXT_VERTICAL_ALIGN_BOTTOM; break;
+        case CENTER: dst = ARK_TEXT_VERTICAL_ALIGN_CENTER; break;
+        case TOP: dst = ARK_TEXT_VERTICAL_ALIGN_TOP; break;
+        default:
+            dst = static_cast<Ark_TextVerticalAlign>(-1);
             LOGE("Unexpected enum value in TextAlign: %{public}d", src);
     }
 }
@@ -727,20 +870,42 @@ void AssignArkValue(Ark_TextOverflow& dst, const TextOverflow& src)
             LOGE("Unexpected enum value in TextOverflow: %{public}d", src);
     }
 }
-void AssignArkValue(Ark_ImageSpanAlignment& dst, const VerticalAlign& src)
+ACE_FORCE_EXPORT void AssignArkValue(Ark_ImageSpanAlignment& dst, const VerticalAlign& src)
 {
     switch (src) {
         case VerticalAlign::TOP: dst = ARK_IMAGE_SPAN_ALIGNMENT_TOP; break;
         case VerticalAlign::CENTER: dst = ARK_IMAGE_SPAN_ALIGNMENT_CENTER; break;
         case VerticalAlign::BOTTOM: dst = ARK_IMAGE_SPAN_ALIGNMENT_BOTTOM; break;
         case VerticalAlign::BASELINE: dst = ARK_IMAGE_SPAN_ALIGNMENT_BASELINE; break;
+        case VerticalAlign::FOLLOW_PARAGRAPH: dst = ARK_IMAGE_SPAN_ALIGNMENT_FOLLOW_PARAGRAPH; break;
         default:
             dst = INVALID_ENUM_VAL<Ark_ImageSpanAlignment>;
             LOGE("Unexpected enum value in Ark_ImageSpanAlignment: %{public}d", static_cast<int>(src));
     }
 }
 
-void AssignArkValue(Ark_ImageFit& dst, const ImageFit& src)
+void AssignArkValue(Ark_TextChangeReason& dst, const TextChangeReason& src)
+{
+    switch (src) {
+        case TextChangeReason::UNKNOWN: dst = ARK_TEXT_CHANGE_REASON_UNKNOWN; break;
+        case TextChangeReason::INPUT: dst = ARK_TEXT_CHANGE_REASON_INPUT; break;
+        case TextChangeReason::PASTE: dst = ARK_TEXT_CHANGE_REASON_PASTE; break;
+        case TextChangeReason::CUT: dst = ARK_TEXT_CHANGE_REASON_CUT; break;
+        case TextChangeReason::DRAG: dst = ARK_TEXT_CHANGE_REASON_DRAG; break;
+        case TextChangeReason::AUTO_FILL: dst = ARK_TEXT_CHANGE_REASON_AUTO_FILL; break;
+        case TextChangeReason::AI_WRITE: dst = ARK_TEXT_CHANGE_REASON_AI_WRITE; break;
+        case TextChangeReason::REDO: dst = ARK_TEXT_CHANGE_REASON_REDO; break;
+        case TextChangeReason::UNDO: dst = ARK_TEXT_CHANGE_REASON_UNDO; break;
+        case TextChangeReason::CONTROLLER: dst = ARK_TEXT_CHANGE_REASON_CONTROLLER; break;
+        case TextChangeReason::ACCESSIBILITY: dst = ARK_TEXT_CHANGE_REASON_ACCESSIBILITY; break;
+        case TextChangeReason::COLLABORATION: dst = ARK_TEXT_CHANGE_REASON_COLLABORATION; break;
+        case TextChangeReason::STYLUS: dst = ARK_TEXT_CHANGE_REASON_STYLUS; break;
+        default:
+            dst = static_cast<Ark_TextChangeReason>(-1);
+            LOGE("Unexpected enum value in TextChangeReason: %{public}d", src);
+    }
+}
+ACE_FORCE_EXPORT void AssignArkValue(Ark_ImageFit& dst, const ImageFit& src)
 {
     switch (src) {
         case ImageFit::CONTAIN: dst = ARK_IMAGE_FIT_CONTAIN; break;
@@ -764,7 +929,7 @@ void AssignArkValue(Ark_ImageFit& dst, const ImageFit& src)
     }
 }
 
-void AssignArkValue(Ark_TextDecorationStyle& dst, const OHOS::Ace::TextDecorationStyle& src)
+ACE_FORCE_EXPORT void AssignArkValue(Ark_TextDecorationStyle& dst, const OHOS::Ace::TextDecorationStyle& src)
 {
     switch (src) {
         case OHOS::Ace::TextDecorationStyle::SOLID: dst = ARK_TEXT_DECORATION_STYLE_SOLID; break;
@@ -779,7 +944,7 @@ void AssignArkValue(Ark_TextDecorationStyle& dst, const OHOS::Ace::TextDecoratio
     }
 }
 
-void AssignArkValue(Ark_TextDecorationType& dst, const OHOS::Ace::TextDecoration& src)
+ACE_FORCE_EXPORT void AssignArkValue(Ark_TextDecorationType& dst, const OHOS::Ace::TextDecoration& src)
 {
     switch (src) {
         case OHOS::Ace::TextDecoration::NONE: dst = ARK_TEXT_DECORATION_TYPE_NONE; break;
@@ -793,7 +958,47 @@ void AssignArkValue(Ark_TextDecorationType& dst, const OHOS::Ace::TextDecoration
     }
 }
 
-void AssignArkValue(Ark_RichEditorDeleteDirection& dst, const RichEditorDeleteDirection& src)
+void AssignArkValue(Ark_arkui_component_enums_Color& dst, const Color& src)
+{
+    if (src == OHOS::Ace::Color::WHITE) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_WHITE;
+    } else if (src == OHOS::Ace::Color::BLACK) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_BLACK;
+    } else if (src == OHOS::Ace::Color::BLUE) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_BLUE;
+    } else if (src == Color(0xffa52a2a)) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_BROWN;
+    } else if (src == OHOS::Ace::Color::GRAY) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_GRAY;
+    } else if (src == OHOS::Ace::Color::GREEN) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_GREEN;
+    } else if (src == Color(0xff808080)) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_GREY;
+    } else if (src == Color(0xffffa500)) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_ORANGE;
+    } else if (src == Color(0xffffc0cb)) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_PINK;
+    } else if (src == OHOS::Ace::Color::RED) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_RED;
+    } else if (src == Color(0xFFFFFF00)) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_YELLOW;
+    } else if (src == OHOS::Ace::Color::TRANSPARENT) {
+        dst = ARK_ARKUI_COMPONENT_ENUMS_COLOR_TRANSPARENT;
+    } else {
+        dst = static_cast<Ark_arkui_component_enums_Color>(-1);
+    }
+}
+void AssignArkValue(Ark_FlipDirection& dst, const TextFlipDirection& src)
+{
+    switch (src) {
+        case TextFlipDirection::DOWN: dst = ARK_FLIP_DIRECTION_DOWN; break;
+        case TextFlipDirection::UP: dst = ARK_FLIP_DIRECTION_UP; break;
+        default: dst = static_cast<Ark_FlipDirection>(-1);
+            LOGE("Unexpected enum value in TextFlipDirection: %{public}d", src);
+            break;
+    }
+}
+ACE_FORCE_EXPORT void AssignArkValue(Ark_RichEditorDeleteDirection& dst, const RichEditorDeleteDirection& src)
 {
     switch (src) {
         case OHOS::Ace::NG::RichEditorDeleteDirection::BACKWARD:
@@ -832,8 +1037,10 @@ void AssignArkValue(Ark_SourceType& dst, const SourceType& src)
         case SourceType::NONE: dst = Ark_SourceType::ARK_SOURCE_TYPE_UNKNOWN; break;
         case SourceType::MOUSE: dst = Ark_SourceType::ARK_SOURCE_TYPE_MOUSE; break;
         case SourceType::TOUCH: dst = Ark_SourceType::ARK_SOURCE_TYPE_TOUCH_SCREEN; break;
-        default: dst = static_cast<Ark_SourceType>(-1);
-            LOGE("Unexpected enum value in SourceType: %{public}d", src);
+        case SourceType::KEYBOARD: dst = Ark_SourceType::ARK_SOURCE_TYPE_KEY; break;
+        case SourceType::JOYSTICK: dst = Ark_SourceType::ARK_SOURCE_TYPE_JOYSTICK; break;
+        default: dst = Ark_SourceType::ARK_SOURCE_TYPE_UNKNOWN;
+            LOGE("Unexpected enum value in SourceType");
     }
 }
 
@@ -1031,6 +1238,18 @@ void AssignArkValue(Ark_LengthMetricsUnit& dst, const OHOS::Ace::CanvasUnit& src
         case OHOS::Ace::CanvasUnit::DEFAULT: dst = ARK_LENGTH_METRICS_UNIT_DEFAULT; break;
         case OHOS::Ace::CanvasUnit::PX: dst = ARK_LENGTH_METRICS_UNIT_PX; break;
         default: dst = static_cast<Ark_LengthMetricsUnit>(-1);
+    }
+}
+
+void AssignArkValue(Ark_NativeEmbedParamStatus& dst, const NativeEmbedParamStatus& src)
+{
+    switch (src) {
+        case NativeEmbedParamStatus::ADD: dst = ARK_NATIVE_EMBED_PARAM_STATUS_ADD; break;
+        case NativeEmbedParamStatus::UPDATE: dst = ARK_NATIVE_EMBED_PARAM_STATUS_UPDATE; break;
+        case NativeEmbedParamStatus::DELETE: dst = ARK_NATIVE_EMBED_PARAM_STATUS_DELETE; break;
+        default:
+            dst = static_cast<Ark_NativeEmbedParamStatus>(-1);
+            LOGE("Unexpected enum value in NativeEmbedParamStatus: %{public}d", src);
     }
 }
 } // namespace OHOS::Ace::NG::Converter

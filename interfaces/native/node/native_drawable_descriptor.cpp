@@ -15,8 +15,6 @@
 
 #include "native_drawable_descriptor.h"
 
-
-
 #include "node_extened.h"
 
 extern "C" {

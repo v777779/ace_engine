@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/progress/progress_model_ng.h"
 #include "core/components_ng/pattern/progress/progress_model_static.h"
 #include "core/interfaces/native/utility/converter.h"
@@ -21,9 +20,11 @@
 #include "arkoala_api_generated.h"
 #include "core/interfaces/native/implementation/frame_node_peer_impl.h"
 #include "core/components/popup/popup_theme.h"
+#include "core/components/select/select_theme.h"
 #include "core/components/theme/shadow_theme.h"
 #include "core/components_ng/base/view_abstract_model_static.h"
 #include "core/interfaces/native/generated/interface/ui_node_api.h"
+#include "core/interfaces/native/implementation/dialog_common.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "frameworks/base/utils/utils.h"
@@ -34,6 +35,7 @@
 using namespace OHOS::Ace::NG::Converter;
 namespace OHOS::Ace::NG {
 constexpr int32_t INVALID_ID = -1;
+constexpr uint32_t MENU_OUTLINE_COLOR = 0x19FFFFFF;
 std::unordered_map<int32_t, std::string> UICONTEXT_ERROR_MAP = {
     { ERROR_CODE_TARGET_ID_NOT_EXIST, "The targetId does not exist." },
     { ERROR_CODE_TARGET_NOT_ON_MAIN_TREE, "The node of targetId is not on the component tree." },
@@ -113,7 +115,7 @@ auto g_bindMenuOptionsParamCallbacks = [](
     if (onAppearValue) {
         auto onAppear = [arkCallback = CallbackHelper(onAppearValue.value()), weakNode]() {
             PipelineContext::SetCallBackNode(weakNode);
-            arkCallback.Invoke();
+            arkCallback.InvokeSync();
         };
         menuParam.onAppear = std::move(onAppear);
     }
@@ -121,7 +123,7 @@ auto g_bindMenuOptionsParamCallbacks = [](
     if (onDisappearValue) {
         auto onDisappear = [arkCallback = CallbackHelper(onDisappearValue.value()), weakNode]() {
             PipelineContext::SetCallBackNode(weakNode);
-            arkCallback.Invoke();
+            arkCallback.InvokeSync();
         };
         menuParam.onDisappear = std::move(onDisappear);
     }
@@ -129,7 +131,7 @@ auto g_bindMenuOptionsParamCallbacks = [](
     if (aboutToAppearValue) {
         auto aboutToAppear = [arkCallback = CallbackHelper(aboutToAppearValue.value()), weakNode]() {
             PipelineContext::SetCallBackNode(weakNode);
-            arkCallback.Invoke();
+            arkCallback.InvokeSync();
         };
         menuParam.aboutToAppear = std::move(aboutToAppear);
     }
@@ -137,9 +139,41 @@ auto g_bindMenuOptionsParamCallbacks = [](
     if (aboutToDisAppearValue) {
         auto aboutToDisappear = [arkCallback = CallbackHelper(aboutToDisAppearValue.value()), weakNode]() {
             PipelineContext::SetCallBackNode(weakNode);
-            arkCallback.Invoke();
+            arkCallback.InvokeSync();
         };
         menuParam.aboutToDisappear = std::move(aboutToDisappear);
+    }
+    auto onDidAppearValue = OptConvert<VoidCallback>(menuOptions.onDidAppear);
+    if (onDidAppearValue) {
+        auto onDidAppear = [arkCallback = CallbackHelper(onDidAppearValue.value()), weakNode]() {
+            PipelineContext::SetCallBackNode(weakNode);
+            arkCallback.InvokeSync();
+        };
+        menuParam.onDidAppear = std::move(onDidAppear);
+    }
+    auto onDidDisappearValue = OptConvert<VoidCallback>(menuOptions.onDidDisappear);
+    if (onDidDisappearValue) {
+        auto onDidDisappear = [arkCallback = CallbackHelper(onDidDisappearValue.value()), weakNode]() {
+            PipelineContext::SetCallBackNode(weakNode);
+            arkCallback.InvokeSync();
+        };
+        menuParam.onDidDisappear = std::move(onDidDisappear);
+    }
+    auto onWillAppearValue = OptConvert<VoidCallback>(menuOptions.onWillAppear);
+    if (onWillAppearValue) {
+        auto onWillAppear = [arkCallback = CallbackHelper(onWillAppearValue.value()), weakNode]() {
+            PipelineContext::SetCallBackNode(weakNode);
+            arkCallback.InvokeSync();
+        };
+        menuParam.onWillAppear = std::move(onWillAppear);
+    }
+    auto onWillDisappearValue = OptConvert<VoidCallback>(menuOptions.onWillDisappear);
+    if (onWillDisappearValue) {
+        auto onWillDisappear = [arkCallback = CallbackHelper(onWillDisappearValue.value()), weakNode]() {
+            PipelineContext::SetCallBackNode(weakNode);
+            arkCallback.InvokeSync();
+        };
+        menuParam.onWillDisappear = std::move(onWillDisappear);
     }
 };
 
@@ -162,6 +196,26 @@ auto g_parseLayoutRegionMargin = [](const auto& menuOptions, MenuParam& menuPara
     menuParam.layoutRegionMargin = layoutRegionMargin;
 };
 
+auto g_parsePreviewAnimationOptions = [](const auto& menuOptions, MenuParam& menuParam) {
+    if (menuOptions.previewAnimationOptions.tag != INTEROP_TAG_UNDEFINED) {
+        auto previewAnimationOptions =
+            Converter::OptConvert<MenuPreviewAnimationOptions>(menuOptions.previewAnimationOptions.value.scale);
+        if (previewAnimationOptions.has_value()) {
+            menuParam.previewAnimationOptions = previewAnimationOptions.value();
+        }
+    }
+};
+
+auto g_setMenuOutlineWidthMultiValued = [](auto& dimen, const auto& dimenOpt) {
+    CHECK_EQUAL_VOID(dimenOpt.has_value(), false);
+    auto dimenValue = dimenOpt.value();
+    CHECK_EQUAL_VOID(dimenValue.IsNonNegative(), false);
+    if (dimenValue.Unit() == DimensionUnit::PERCENT) {
+        dimenValue.Reset();
+    }
+    dimen = dimenValue;
+};
+
 auto g_bindMenuOptionsParam = [](const auto& menuOptions, MenuParam& menuParam) {
     auto offsetVal =
         OptConvert<std::pair<std::optional<Dimension>, std::optional<Dimension>>>(menuOptions.offset);
@@ -177,7 +231,10 @@ auto g_bindMenuOptionsParam = [](const auto& menuOptions, MenuParam& menuParam) 
     auto transitionOpt = OptConvert<RefPtr<NG::ChainedTransitionEffect>>(menuOptions.transition);
     menuParam.transition = transitionOpt.value_or(menuParam.transition);
     menuParam.hasTransitionEffect = transitionOpt.has_value();
-    menuParam.enableArrow = OptConvert<bool>(menuOptions.enableArrow);
+    auto enableArrow = OptConvert<bool>(menuOptions.enableArrow);
+    if (enableArrow.has_value()) {
+        menuParam.enableArrow = enableArrow;
+    }
     menuParam.arrowOffset = OptConvert<CalcDimension>(menuOptions.arrowOffset);
     menuParam.placement = OptConvert<Placement>(menuOptions.placement);
     if (!menuParam.placement.has_value()) {
@@ -203,10 +260,86 @@ auto g_bindMenuOptionsParam = [](const auto& menuOptions, MenuParam& menuParam) 
     g_parseLayoutRegionMargin(menuOptions, menuParam);
     menuParam.hapticFeedbackMode =
         OptConvert<HapticFeedbackMode>(menuOptions.hapticFeedbackMode).value_or(menuParam.hapticFeedbackMode);
-    menuParam.outlineColor = OptConvert<BorderColorProperty>(menuOptions.outlineColor);
-    menuParam.outlineWidth = OptConvert<BorderWidthProperty>(menuOptions.outlineWidth);
+    Converter::VisitUnion(menuOptions.mask,
+        [&menuParam](const Ark_Boolean& mask) {
+            menuParam.maskEnable = OptConvert<bool>(mask);
+        },
+        [&menuParam](const Ark_MenuMaskType& mask) {
+            menuParam.maskEnable = true;
+            if (!menuParam.maskType.has_value()) {
+                menuParam.maskType.emplace();
+            }
+            menuParam.maskType.value().maskColor = OptConvert<Color>(mask.color);
+            menuParam.maskType.value().maskBackGroundBlurStyle = OptConvert<BlurStyle>(mask.backgroundBlurStyle);
+        },
+        []() {});
+    menuParam.modalMode = OptConvert<ModalMode>(menuOptions.modalMode);
+    auto anchorPositionOpt =
+        OptConvert<std::pair<std::optional<Dimension>, std::optional<Dimension>>>(menuOptions.anchorPosition);
+    if (anchorPositionOpt.has_value()) {
+        auto dx = anchorPositionOpt.value().first;
+        auto dy = anchorPositionOpt.value().second;
+        if (dx && dy) {
+            menuParam.anchorPosition = { dx.value().ConvertToPx(), dy.value().ConvertToPx() };
+        }
+        if (menuParam.anchorPosition.has_value()) {
+            if (LessNotEqual(menuParam.anchorPosition->GetX(), 0.0f) &&
+                LessNotEqual(menuParam.anchorPosition->GetY(), 0.0f)) {
+                menuParam.placement = Placement::BOTTOM_LEFT;
+                menuParam.anchorPosition.reset();
+            }
+        }
+    }
+    menuParam.previewScaleMode = OptConvert<PreviewScaleMode>(menuOptions.previewScaleMode);
+    menuParam.availableLayoutAreaMode = OptConvert<AvailableLayoutAreaMode>(menuOptions.availableLayoutArea);
+    BorderColorProperty outlineColor;
+    auto outlineColorOpt = OptConvert<BorderColorProperty>(menuOptions.outlineColor);
+    if (outlineColorOpt.has_value()) {
+        outlineColor = outlineColorOpt.value();
+        if (outlineColor.multiValued) {
+            Color defaultColor = Color::TRANSPARENT;
+            outlineColor.leftColor = outlineColor.leftColor.value_or(defaultColor);
+            outlineColor.rightColor = outlineColor.rightColor.value_or(defaultColor);
+            outlineColor.topColor = outlineColor.topColor.value_or(defaultColor);
+            outlineColor.bottomColor = outlineColor.bottomColor.value_or(defaultColor);
+        }
+    } else {
+        auto defaultColor = Color(MENU_OUTLINE_COLOR);
+        outlineColor.SetColor(defaultColor);
+    }
+    menuParam.outlineColor = outlineColor;
+    BorderWidthProperty outlineWidth;
+    Dimension defaultOutlineWidth = Dimension { -1 };
+    auto outlineWidthOpt = OptConvert<BorderWidthProperty>(menuOptions.outlineWidth);
+    if (outlineWidthOpt.has_value()) {
+        auto outlineWidthValue = outlineWidthOpt.value();
+        if (outlineWidthValue.multiValued) {
+            g_setMenuOutlineWidthMultiValued(outlineWidth.leftDimen, outlineWidthValue.leftDimen);
+            g_setMenuOutlineWidthMultiValued(outlineWidth.rightDimen, outlineWidthValue.rightDimen);
+            g_setMenuOutlineWidthMultiValued(outlineWidth.topDimen, outlineWidthValue.topDimen);
+            g_setMenuOutlineWidthMultiValued(outlineWidth.bottomDimen, outlineWidthValue.bottomDimen);
+        } else {
+            auto borderWidth = outlineWidthValue.topDimen.value_or(defaultOutlineWidth);
+            if (borderWidth.IsNegative() || borderWidth.Unit() == DimensionUnit::PERCENT) {
+                outlineWidth.SetBorderWidth(defaultOutlineWidth);
+            } else {
+                outlineWidth.SetBorderWidth(borderWidth);
+            }
+        }
+    } else {
+        outlineWidth.SetBorderWidth(defaultOutlineWidth);
+    }
+    menuParam.outlineWidth = outlineWidth;
     menuParam.effectOption = OptConvert<EffectOption>(menuOptions.backgroundEffect);
     menuParam.blurStyleOption = OptConvert<BlurStyleOption>(menuOptions.backgroundBlurStyleOptions);
+    menuParam.keyboardAvoidMode = OptConvert<MenuKeyboardAvoidMode>(menuOptions.keyboardAvoidMode);
+    auto convValue = OptConvert<Dimension>(menuOptions.minKeyboardAvoidDistance);
+    Validator::ValidateNonNegative(convValue);
+    menuParam.minKeyboardAvoidDistance = convValue;
+    auto material =
+        OptConvert<UiMaterial*>(menuOptions.systemMaterial).value_or(AceType::RawPtr(menuParam.systemMaterial));
+    menuParam.systemMaterial = material ? material->Copy() : nullptr;
+    g_parsePreviewAnimationOptions(menuOptions, menuParam);
 };
 
 auto g_onWillDismissPopup = [](
@@ -267,7 +400,11 @@ auto g_getPopupDefaultShadow = []() -> ShadowStyle {
 
 void updatePopupCommonParamPart1(const Ark_PopupCommonOptions& src, RefPtr<PopupParam>& popupParam)
 {
-    popupParam->SetPlacement(Converter::OptConvert<Placement>(src.placement).value_or(Placement::BOTTOM));
+    auto placementOpt = OptConvert<Placement>(src.placement);
+    if (placementOpt.has_value()) {
+        popupParam->SetPlacement(placementOpt.value());
+        popupParam->SetHasPlacement(true);
+    }
     auto popupBackgroundColor = Converter::OptConvert<Color>(src.popupColor);
     if (popupBackgroundColor.has_value()) {
         popupParam->SetBackgroundColor(popupBackgroundColor.value());
@@ -316,6 +453,34 @@ void updatePopupCommonParamPart1(const Ark_PopupCommonOptions& src, RefPtr<Popup
     } else if (offsetOpt.has_value()) {
         popupParam->SetArrowOffset(offsetOpt.value());
     }
+    auto avoidTargetOpt = OptConvert<AvoidanceMode>(src.avoidTarget);
+    if (avoidTargetOpt.has_value()) {
+        popupParam->SetAvoidTarget(avoidTargetOpt.value());
+    }
+    auto outlineWidthOpt = Converter::OptConvert<CalcDimension>(src.outlineWidth);
+    Validator::ValidateNonNegative(outlineWidthOpt);
+    Validator::ValidateNonPercent(outlineWidthOpt);
+    if (outlineWidthOpt.has_value()) {
+        popupParam->SetOutlineWidth(outlineWidthOpt.value());
+    }
+    auto borderWidthOpt = Converter::OptConvert<CalcDimension>(src.borderWidth);
+    Validator::ValidateNonNegative(borderWidthOpt);
+    Validator::ValidateNonPercent(borderWidthOpt);
+    if (borderWidthOpt.has_value()) {
+        popupParam->SetInnerBorderWidth(borderWidthOpt.value());
+    }
+    auto outlineLinearGradientOpt = Converter::OptConvert<PopupLinearGradientProperties>(src.outlineLinearGradient);
+    if (outlineLinearGradientOpt.has_value()) {
+        popupParam->SetOutlineLinearGradient(outlineLinearGradientOpt.value());
+    }
+    auto borderLinearGradientOpt = Converter::OptConvert<PopupLinearGradientProperties>(src.borderLinearGradient);
+    if (borderLinearGradientOpt.has_value()) {
+        popupParam->SetInnerBorderLinearGradient(borderLinearGradientOpt.value());
+    }
+    auto material = OptConvert<UiMaterial*>(src.systemMaterial);
+    if (material.has_value()) {
+        popupParam->SetSystemMaterial(material.value()->Copy());
+    }
 }
 
 void updatePopupCommonParamPart2(const Ark_PopupCommonOptions& src, RefPtr<PopupParam>& popupParam)
@@ -330,7 +495,7 @@ void updatePopupCommonParamPart2(const Ark_PopupCommonOptions& src, RefPtr<Popup
         popupParam->SetTargetOffset(popupOffset);
     }
     auto widthOpt = Converter::OptConvert<CalcDimension>(src.width);
-    Validator::ValidateNonNegative(widthOpt);
+    Validator::ValidatePositive(widthOpt);
     if (widthOpt.has_value()) {
         popupParam->SetChildWidth(widthOpt.value());
     }
@@ -354,11 +519,15 @@ void updatePopupCommonParamPart2(const Ark_PopupCommonOptions& src, RefPtr<Popup
     auto shadowOpt = Converter::OptConvert<Shadow>(src.shadow);
     if (shadowOpt.has_value()) {
         popupParam->SetShadow(shadowOpt.value());
+        if (src.shadow.value.selector == 1) {
+            popupParam->SetIsShadowStyle(true);
+        }
     } else {
         auto defaultPopupShadowStyle = g_getPopupDefaultShadow();
         Shadow shadow;
         g_getShadowFromTheme(defaultPopupShadowStyle, shadow);
         popupParam->SetShadow(shadow);
+        popupParam->SetIsShadowStyle(true);
     }
     auto popupBackgroundBlurStyleOpt = Converter::OptConvert<BlurStyle>(src.backgroundBlurStyle);
     if (popupBackgroundBlurStyleOpt.has_value()) {
@@ -384,6 +553,17 @@ void updatePopupCommonParam(const Ark_PopupCommonOptions& src, RefPtr<PopupParam
     CHECK_NULL_VOID(popupParam);
     updatePopupCommonParamPart1(src, popupParam);
     updatePopupCommonParamPart2(src, popupParam);
+}
+
+void initPopupParam(RefPtr<PopupParam>& popupParam)
+{
+    CHECK_NULL_VOID(popupParam);
+    g_setPopupDefaultBlurStyle(popupParam);
+    auto defaultPopupShadowStyle = g_getPopupDefaultShadow();
+    Shadow shadow;
+    g_getShadowFromTheme(defaultPopupShadowStyle, shadow);
+    popupParam->SetShadow(shadow);
+    popupParam->SetIsShadowStyle(true);
 }
 
 } // OHOS::Ace::NG
@@ -422,9 +602,19 @@ void OpenPopupImpl(Ark_VMContext vmContext,
         ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
         return;
     }
+    auto context = frameNode->GetContext();
+    if (!context) {
+        ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
+        return;
+    }
+    ContainerScope scope(context->GetInstanceId());
     auto popupParam = AceType::MakeRefPtr<PopupParam>();
     CHECK_NULL_VOID(popupParam);
-    popupParam = Converter::Convert<RefPtr<PopupParam>>(options->value);
+    if (options && options->tag != INTEROP_TAG_UNDEFINED) {
+        popupParam = Converter::Convert<RefPtr<PopupParam>>(options->value);
+    } else {
+        initPopupParam(popupParam);
+    }
     popupParam->SetIsShow(true);
     popupParam->SetUseCustomComponent(true);
     int targetId = INVALID_ID;
@@ -454,6 +644,12 @@ void UpdatePopupImpl(Ark_VMContext vmContext,
         ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
         return;
     }
+    auto context = frameNode->GetContext();
+    if (!context) {
+        ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
+        return;
+    }
+    ContainerScope scope(context->GetInstanceId());
     auto popupParam = AceType::MakeRefPtr<PopupParam>();
     auto oldParam = AceType::MakeRefPtr<PopupParam>();
     auto result = ViewAbstractModelStatic::GetPopupParam(oldParam, frameNode);
@@ -499,6 +695,12 @@ void ClosePopupImpl(Ark_VMContext vmContext,
         ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
         return;
     }
+    auto context = frameNode->GetContext();
+    if (!context) {
+        ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
+        return;
+    }
+    ContainerScope scope(context->GetInstanceId());
     auto result = ViewAbstractModelStatic::ClosePopup(frameNode);
     if (result == ERROR_CODE_INTERNAL_ERROR) {
         result = ERROR_CODE_NO_ERROR;
@@ -518,6 +720,12 @@ void OpenMenuImpl(Ark_VMContext vmContext,
         ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
         return;
     }
+    auto context = frameNode->GetContext();
+    if (!context) {
+        ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
+        return;
+    }
+    ContainerScope scope(context->GetInstanceId());
     MenuParam menuParam = Converter::Convert<MenuParam>(options->value);
     g_bindMenuOptionsParamCallbacks(options->value, menuParam, AceType::WeakClaim(frameNode.GetRawPtr()));
     auto pipelineContext = frameNode->GetContext();
@@ -556,21 +764,32 @@ void UpdateMenuImpl(Ark_VMContext vmContext,
         ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
         return;
     }
-    MenuParam menuParam;
+    auto context = frameNode->GetContext();
+    if (!context) {
+        ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
+        return;
+    }
+    ContainerScope scope(context->GetInstanceId());
     auto isPartialUpdate = Converter::OptConvert<bool>(*partialUpdate);
     if (!isPartialUpdate.has_value()) {
         ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_PARAM_INVALID);
         return;
     }
+    MenuParam menuParamOpen;
+    auto result = ViewAbstractModelStatic::GetMenuParam(menuParamOpen, frameNode);
+    if (result != ERROR_CODE_NO_ERROR && result != ERROR_CODE_INTERNAL_ERROR) {
+        ReturnPromise(outputArgumentForReturningPromise, result);
+        return;
+    }
+    MenuParam menuParam;
     if (isPartialUpdate.value()) {
-        auto result = ViewAbstractModelStatic::GetMenuParam(menuParam, frameNode);
-        if (result != ERROR_CODE_NO_ERROR && result != ERROR_CODE_INTERNAL_ERROR) {
-            ReturnPromise(outputArgumentForReturningPromise, result);
-            return;
-        }
+        menuParam = menuParamOpen;
     }
     g_bindMenuOptionsParam(*options, menuParam);
-    auto result = ViewAbstractModelStatic::UpdateMenu(menuParam, frameNode);
+    // Updating these parameters is not supported
+    menuParam.isShowInSubWindow = menuParamOpen.isShowInSubWindow;
+    menuParam.previewMode = menuParamOpen.previewMode;
+    result = ViewAbstractModelStatic::UpdateMenu(menuParam, frameNode);
     if (result == ERROR_CODE_INTERNAL_ERROR) {
         result = ERROR_CODE_NO_ERROR;
     }
@@ -587,6 +806,12 @@ void CloseMenuImpl(Ark_VMContext vmContext,
         ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
         return;
     }
+    auto context = frameNode->GetContext();
+    if (!context) {
+        ReturnPromise(outputArgumentForReturningPromise, ERROR_CODE_DIALOG_CONTENT_ERROR);
+        return;
+    }
+    ContainerScope scope(context->GetInstanceId());
     auto result = ViewAbstractModelStatic::CloseMenu(frameNode);
     if (result == ERROR_CODE_INTERNAL_ERROR) {
         result = ERROR_CODE_NO_ERROR;

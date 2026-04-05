@@ -135,6 +135,24 @@ ani_double CanvasModule::GetSystemDensity(ani_env* env, [[maybe_unused]] ani_obj
 ani_object CanvasModule::GetImageData(ani_env* env, [[maybe_unused]] ani_object aniClass, ani_long peerPtr,
     ani_double sx, ani_double sy, ani_double sw, ani_double sh)
 {
+    static ani_ref gUint8ClampedArray = {};
+    static ani_method gUint8ClampedArrayCtor = {};
+    if (!gUint8ClampedArray) {
+        static const char* className = "std.core.Uint8ClampedArray";
+        ani_class cls;
+        if (ANI_OK != env->FindClass(className, &cls) ||
+            ANI_OK != env->GlobalReference_Create(static_cast<ani_ref>(cls), &gUint8ClampedArray)) {
+            return nullptr;
+        }
+    }
+    if (!gUint8ClampedArrayCtor) {
+        arkts::ani_signature::SignatureBuilder signatureBuilder {};
+        signatureBuilder.AddClass("std.core.ArrayBuffer").AddInt();
+        if (ANI_OK != env->Class_FindMethod(static_cast<ani_class>(gUint8ClampedArray), "<ctor>",
+            signatureBuilder.BuildSignatureDescriptor().c_str(), &gUint8ClampedArrayCtor)) {
+            return nullptr;
+        }
+    }
     auto* peer = reinterpret_cast<ArkUICanvasRenderer>(peerPtr);
     CHECK_NULL_RETURN(peer, nullptr);
     const auto* modifier = GetNodeAniModifier();
@@ -156,21 +174,10 @@ ani_object CanvasModule::GetImageData(ani_env* env, [[maybe_unused]] ani_object 
         return nullptr;
     }
     canvasModifier->getImageData(peer, imageData, sx * density, sy * density, sw * density, sh * density);
-    static const char* className = "escompat.Uint8ClampedArray";
-    ani_class cls;
-    if (ANI_OK != env->FindClass(className, &cls)) {
-        return nullptr;
-    }
-    arkts::ani_signature::SignatureBuilder signatureBuilder {};
-    signatureBuilder.AddClass("escompat.Array").AddInt();
-    std::string signatureStr = signatureBuilder.BuildSignatureDescriptor();
-    ani_method ctor;
-    if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", signatureStr.c_str(), &ctor)) {
-        return nullptr;
-    }
     ani_object aniValue;
     ani_int offset = 0;
-    if (ANI_OK != env->Object_New(cls, ctor, &aniValue, arrayBuffer, offset)) {
+    if (ANI_OK != env->Object_New(static_cast<ani_class>(gUint8ClampedArray), gUint8ClampedArrayCtor, &aniValue,
+        arrayBuffer, offset)) {
         return nullptr;
     }
     return aniValue;
@@ -228,7 +235,7 @@ ani_object CanvasModule::GetDrawingCanvas(ani_env* env, [[maybe_unused]] ani_obj
     ani_ref aniRef;
     env->GetUndefined(&aniRef);
     ani_object undefined = static_cast<ani_object>(aniRef);
-    
+
     auto* peer = reinterpret_cast<ArkUIDrawingRenderingContext>(peerPtr);
     CHECK_NULL_RETURN(peer, undefined);
     const auto* modifier = GetNodeAniModifier();
@@ -251,5 +258,28 @@ ani_int CanvasModule::GetCanvasId(ani_env* env, [[maybe_unused]] ani_object aniC
     auto* canvasModifier = modifier->getCanvasAniModifier();
     CHECK_NULL_RETURN(canvasModifier, -1);
     return canvasModifier->getCanvasId(peer);
+}
+
+void CanvasModule::SetAttachCallbackId(
+    ani_env* env, [[maybe_unused]] ani_object aniClass, ani_long peerPtr, ani_int attachCallbackId)
+{
+    auto* peer = reinterpret_cast<ArkUICanvasRenderingContext>(peerPtr);
+    CHECK_NULL_VOID(peer);
+    const auto* modifier = GetNodeAniModifier();
+    CHECK_NULL_VOID(modifier);
+    auto* canvasModifier = modifier->getCanvasAniModifier();
+    CHECK_NULL_VOID(canvasModifier);
+    canvasModifier->setAttachCallbackId(peer, attachCallbackId);
+}
+void CanvasModule::SetDetachCallbackId(
+    ani_env* env, [[maybe_unused]] ani_object aniClass, ani_long peerPtr, ani_int detachCallbackId)
+{
+    auto* peer = reinterpret_cast<ArkUICanvasRenderingContext>(peerPtr);
+    CHECK_NULL_VOID(peer);
+    const auto* modifier = GetNodeAniModifier();
+    CHECK_NULL_VOID(modifier);
+    auto* canvasModifier = modifier->getCanvasAniModifier();
+    CHECK_NULL_VOID(canvasModifier);
+    canvasModifier->setDetachCallbackId(peer, detachCallbackId);
 }
 } // namespace OHOS::Ace::Ani

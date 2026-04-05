@@ -23,6 +23,16 @@
 #include "core/interfaces/native/utility/peer_utils.h"
 #include "arkoala_api_generated.h"
 
+namespace OHOS::Ace::NG::Converter {
+template<>
+SizeF Convert(const Ark_SizeResult& src)
+{
+    auto measureWidth = Converter::Convert<CalcDimension>(src.width);
+    auto measureHeight = Converter::Convert<CalcDimension>(src.height);
+    return { measureWidth.ConvertToPx(), measureHeight.ConvertToPx() };
+}
+} // namespace OHOS::Ace::NG::Converter
+
 namespace OHOS::Ace::NG::GeneratedModifier {
 namespace {
 const std::unique_ptr<NG::PaddingProperty> defaultPadding = std::make_unique<NG::PaddingProperty>();
@@ -51,9 +61,9 @@ Ark_GeometryInfo GenGeometryInfo(const RefPtr<OHOS::Ace::NG::LayoutProperty>& la
             : 0.0f;
     const std::unique_ptr<NG::BorderWidthProperty>& borderWidth = layoutProperty->GetBorderWidthProperty();
     Ark_GeometryInfo selfLayoutInfo;
-    selfLayoutInfo.width = Converter::ArkValue<Ark_Number>((NearEqual(width, 0.0f) && !NearZero(dipScale))
+    selfLayoutInfo.width = Converter::ArkValue<Ark_Float64>((NearEqual(width, 0.0f) && !NearZero(dipScale))
         ? layoutProperty->GetLayoutConstraint()->percentReference.Width() / dipScale : width);
-    selfLayoutInfo.height = Converter::ArkValue<Ark_Number>((NearEqual(height, 0.0f) && !NearZero(dipScale))
+    selfLayoutInfo.height = Converter::ArkValue<Ark_Float64>((NearEqual(height, 0.0f) && !NearZero(dipScale))
         ? layoutProperty->GetLayoutConstraint()->percentReference.Height() / dipScale : height);
     selfLayoutInfo.borderWidth.left = Converter::ArkValue<Opt_Length>(borderWidth
         ? borderWidth->leftDimen->ConvertToVp() : 0.0f);
@@ -122,11 +132,8 @@ void SetSubscribeOnMeasureSizeImpl(Ark_NativePointer node,
         constraint.maxWidth = Converter::ArkValue<Opt_Length>(parentConstraint->maxSize.Width());
         constraint.maxHeight = Converter::ArkValue<Opt_Length>(parentConstraint->maxSize.Height());
         // sizeResult
-        Ark_SizeResult sizeResult = arkCallback.InvokeWithObtainResult<Ark_SizeResult, Callback_SizeResult_Void>(
+        auto frameSize = arkCallback.InvokeWithConvertResult<SizeF, Ark_SizeResult, Callback_SizeResult_Void>(
             selfLayoutInfo, children, constraint);
-        CalcDimension measureWidth = Converter::Convert<CalcDimension>(sizeResult.width);
-        CalcDimension measureHeight = Converter::Convert<CalcDimension>(sizeResult.height);
-        NG::SizeF frameSize = { measureWidth.ConvertToPx(), measureHeight.ConvertToPx() };
         layoutWrapper->GetGeometryNode()->SetFrameSize(frameSize);
     };
     customNode->SetMeasureFunction(std::move(measureSizeFunc));

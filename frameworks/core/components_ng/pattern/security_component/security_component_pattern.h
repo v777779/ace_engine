@@ -51,7 +51,9 @@ static inline RefPtr<FrameNode> GetSecCompChildNode(RefPtr<FrameNode>& parent, c
 
 static inline RefPtr<FrameNode> GetCurSecCompChildNode(const std::string& tag)
 {
-    auto frameNode = AceType::Claim(ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    auto stack = ViewStackProcessor::GetInstance();
+    CHECK_NULL_RETURN(stack, nullptr);
+    auto frameNode = AceType::Claim(stack->GetMainFrameNode());
     CHECK_NULL_RETURN(frameNode, nullptr);
     return GetSecCompChildNode(frameNode, tag);
 }
@@ -104,12 +106,16 @@ protected:
     void OnTouch(const TouchEventInfo& info);
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config) override;
     void OnModifyDone() override;
+    void OnAttachToMainTree() override;
+    void OnAttachToMainTreeMultiThread();
     bool IsFontColorSet();
     void OnColorConfigurationUpdate() override;
     void SetNodeHitTestMode(RefPtr<FrameNode>& node, HitTestMode mode);
     void InitOnClick(RefPtr<FrameNode>& secCompNode, RefPtr<FrameNode>& icon,
         RefPtr<FrameNode>& text, RefPtr<FrameNode>& button);
     void InitAppearCallback(RefPtr<FrameNode>& frameNode);
+    void ToJsonValueBorderRadius(const std::optional<BorderRadiusProperty>& borderRadius,
+    const RefPtr<SecurityComponentTheme>& theme, std::unique_ptr<JsonValue>& borderRadiusJson) const;
     void ToJsonValueIconNode(std::unique_ptr<JsonValue>& json, const RefPtr<FrameNode>& iconNode,
         const InspectorFilter& filter) const;
     void ToJsonValueSymbolIconNode(std::unique_ptr<JsonValue>& json, const RefPtr<FrameNode>& symbolIconNode,
@@ -117,6 +123,8 @@ protected:
     void ToJsonValueTextNode(std::unique_ptr<JsonValue>& json, const RefPtr<FrameNode>& textNode,
         const InspectorFilter& filter) const;
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
+    void ToJsonValuePadding(const RefPtr<SecurityComponentTheme>& theme,
+        const RefPtr<SecurityComponentLayoutProperty>& layoutProperty, std::unique_ptr<JsonValue>& paddingJson) const;
     void ToJsonValueRect(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
     bool IsParentMenu(RefPtr<FrameNode>& secCompNode);
 private:
@@ -131,8 +139,8 @@ private:
     void RegisterSecurityComponentRetry();
     void UnregisterSecurityComponent();
     int32_t ReportSecurityComponentClickEvent(GestureEvent& event, std::string& message);
-    int32_t ReportSecurityComponentClickEvent(const KeyEvent& event);
-    int32_t ReportSecurityComponentClickEvent(const SecCompEnhanceEvent& event);
+    int32_t ReportSecurityComponentClickEvent(const KeyEvent& event, std::string& message);
+    int32_t ReportSecurityComponentClickEvent(const SecCompEnhanceEvent& event, std::string& message);
     void DoTriggerOnclick(int32_t result);
     void DelayReleaseNode(uint64_t index);
     std::function<int32_t(int32_t)> CreateFirstUseDialogCloseFunc(

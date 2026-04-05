@@ -56,14 +56,17 @@ public:
     void SetHoverRect(RefPtr<FrameNode>& stackNode, RectF& rect, float iconSize,
         float hoverRectHeight, bool isFocus);
 
+    void SetHoverRectForTV(RefPtr<FrameNode>& stackNode, RectF& rect, float iconSize,
+        float hoverRectHeight, bool isFocus);
+
+    virtual void OnThemeScopeUpdate(const RefPtr<TextFieldTheme>& theme) {}
+
     virtual float GetHoverIconPadding() const
     {
         return 0.0f;
     }
 
     void SetHotZoneRect(DimensionRect& hotZoneRegion, float iconSize, float hotZoneHeight);
-
-    virtual void OnThemeScopeUpdate(const RefPtr<TextFieldTheme>& theme) {}
 
 protected:
     Alignment GetStackAlignment(const TextDirection& userDirection);
@@ -80,10 +83,7 @@ class PasswordResponseArea : public TextInputResponseArea {
 public:
     PasswordResponseArea(const WeakPtr<Pattern>& hostPattern, bool isObscured)
         : TextInputResponseArea(hostPattern), isObscured_(isObscured) {}
-    ~PasswordResponseArea()
-    {
-        ClearArea();
-    }
+    ~PasswordResponseArea() = default;
 
     void InitResponseArea() override;
 
@@ -115,12 +115,12 @@ public:
 
     void CreateIconRect(RoundRect& paintRect, bool isFocus) override;
 
+    void OnThemeScopeUpdate(const RefPtr<TextFieldTheme>& theme) override;
+
     float GetHoverIconPadding() const override
     {
         return hoverIconPadding_;
     }
-
-    void OnThemeScopeUpdate(const RefPtr<TextFieldTheme>& theme) override;
 
 private:
     void LoadImageSourceInfo();
@@ -148,7 +148,7 @@ private:
     std::optional<ImageSourceInfo> hideIcon_;
     RefPtr<FrameNode> stackNode_;
     WeakPtr<FrameNode> passwordNode_;
-    Color symbolColor_;
+    Color symbolColor_ = Color();
     float passwordHoverSize_ = 0.0f;
     float hoverIconPadding_ = 0.0f;
 };
@@ -159,10 +159,7 @@ class UnitResponseArea : public TextInputResponseArea {
 public:
     UnitResponseArea(const WeakPtr<Pattern>& hostPattern, const RefPtr<NG::UINode>& unitNode)
         : TextInputResponseArea(hostPattern), unitNode_(std::move(unitNode)) {}
-    ~UnitResponseArea()
-    {
-        ClearArea();
-    }
+    ~UnitResponseArea() = default;
 
     void InitResponseArea() override;
 
@@ -214,25 +211,36 @@ public:
 
     void CreateIconRect(RoundRect& paintRect, bool isFocus) override;
 
+    void OnThemeScopeUpdate(const RefPtr<TextFieldTheme>& theme) override;
+
     float GetHoverIconPadding() const override
     {
         return hoverIconPadding_;
     }
 
-    void OnThemeScopeUpdate(const RefPtr<TextFieldTheme>& theme) override;
+protected:
+    virtual void LoadingImageProperty();
+    virtual bool IsShowSymbol() const;
+    virtual void OnCleanNodeClicked();
+    virtual void UpdateNodeProperty(const RefPtr<LayoutProperty>& nodeProp,
+        const RefPtr<TextLayoutProperty>& symbolProperty, const RefPtr<TextFieldTheme>& theme)
+    {}
+    virtual bool IsEnableUserSymbol()
+    {
+        return true;
+    }
+    float cancelHoverSize_ = 0.0f;
+    WeakPtr<FrameNode> symbolNode_;
 
 private:
     bool IsShowClean() const;
-    bool IsShowSymbol() const;
     bool IsSymbolIcon() const;
     void ReplaceNode();
     void UpdateSymbolSource();
     void InitClickEvent(const RefPtr<FrameNode>& frameNode);
     void SetCancelSymbolIconSize();
     CalcDimension GetSymbolDefaultSize();
-    void OnCleanNodeClicked();
     RefPtr<FrameNode> CreateNode();
-    void LoadingImageProperty();
     void LoadingCancelButtonColor();
     void AddIconHotZoneRect();
     ImageSourceInfo CreateImageSourceInfo();
@@ -243,8 +251,76 @@ private:
     std::string moduleName_;
     Color iconColor_;
     bool isShow_ = false;
-    float cancelHoverSize_ = 0.0f;
     float hoverIconPadding_ = 0.0f;
+};
+
+class PlaceholderResponseArea : public TextInputResponseArea {
+    DECLARE_ACE_TYPE(PlaceholderResponseArea, TextInputResponseArea);
+
+public:
+    PlaceholderResponseArea(const WeakPtr<Pattern>& hostPattern) : TextInputResponseArea(hostPattern) {}
+    ~PlaceholderResponseArea() = default;
+    void InitResponseArea() override;
+    void SetStyleString(const RefPtr<SpanString>& value);
+    void PlaceholderMountToParent();
+    void PlaceholderRemoveFromParent();
+    SizeF MeasurePlaceholder(LayoutWrapper* layoutWrapper, int32_t index, const LayoutConstraintF& contentConstraint);
+    SizeF Measure(LayoutWrapper* layoutWrapper, int32_t index) override {return SizeF();}
+    void Layout(LayoutWrapper* layoutWrapper, int32_t index, float& nodeWidth) override;
+    void Layout(LayoutWrapper* layoutWrapper, int32_t index, OffsetF textRectOffset);
+    const RefPtr<FrameNode> GetFrameNode() override;
+
+private:
+    RefPtr<FrameNode> placeholderNode_;
+};
+
+class VoiceNodeResponseArea : public CleanNodeResponseArea {
+    DECLARE_ACE_TYPE(VoiceNodeResponseArea, CleanNodeResponseArea);
+
+public:
+    VoiceNodeResponseArea(const WeakPtr<Pattern>& hostPattern) : CleanNodeResponseArea(hostPattern) {}
+    ~VoiceNodeResponseArea() = default;
+
+    void InitResponseArea() override;
+    void Refresh() override;
+    void Layout(LayoutWrapper* layoutWrapper, int32_t index, float& nodeWidth) override;
+    void CreateIconRect(RoundRect& paintRect, bool isFocus) override;
+    void SetAccessibilityAction();
+    void InitButtonMouseEvent();
+    void UpdateVoiceButton(bool activate);
+    void UpdateVoiceButtonBackgroundStyle(bool activate);
+    float GetVoiceVerticalPadding() const
+    {
+        return micPadding_ * 2.0f;
+    }
+
+    float GetVoiceBgHeight()
+    {
+        RoundRect rect;
+        CreateIconRect(rect, true);
+        return rect.GetRect().Height() + micBgDefaultVerticalGapToParent_;
+    }
+
+protected:
+    void LoadingImageProperty() override {}
+    bool IsShowSymbol() const override
+    {
+        return true;
+    }
+    bool IsEnableUserSymbol() override
+    {
+        return false;
+    }
+    void OnCleanNodeClicked() override;
+    void UpdateNodeProperty(const RefPtr<LayoutProperty>& nodeProp, const RefPtr<TextLayoutProperty>& symbolProperty,
+        const RefPtr<TextFieldTheme>& theme) override;
+    void ParseTheme(const RefPtr<TextLayoutProperty>& symbolProperty, const RefPtr<TextFieldTheme>& theme);
+    float micIconSize_ = 0.0f;
+    float micPadding_ = 0.0f;
+    Color micIconColor_;
+    Color micIconActiveBgColor_;
+    Dimension micBgOffsetToIcon_ = 0.0_vp;
+    float micBgDefaultVerticalGapToParent_ = 0.0f;
 };
 } // namespace OHOS::Ace::NG
 

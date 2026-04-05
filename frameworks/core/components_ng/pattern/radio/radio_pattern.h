@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -20,7 +20,6 @@
 #include "core/components_ng/base/inspector_filter.h"
 #include "core/components_ng/event/event_hub.h"
 #include "core/components_ng/pattern/pattern.h"
-#include "core/components_ng/pattern/overlay/group_manager.h"
 #include "core/components_ng/pattern/radio/radio_accessibility_property.h"
 #include "core/components_ng/pattern/radio/radio_event_hub.h"
 #include "core/components_ng/pattern/radio/radio_layout_algorithm.h"
@@ -29,15 +28,13 @@
 #include "core/components_ng/pattern/radio/radio_paint_property.h"
 
 namespace OHOS::Ace::NG {
+class GroupManager;
+constexpr float DEFAULT_RADIO_IMAGE_SCALE = 0.7F;
+
 class RadioPattern : public Pattern {
     DECLARE_ACE_TYPE(RadioPattern, Pattern);
 
 public:
-    enum class RadioIndicatorType {
-        TICK = 0,
-        DOT,
-        CUSTOM,
-    };
     RadioPattern() = default;
     ~RadioPattern() override = default;
 
@@ -176,6 +173,7 @@ public:
     }
 
     void SetRadioChecked(bool check);
+    void UpdateGroupManager();
     RefPtr<GroupManager> GetGroupManager();
 
     void SetIsUserSetUncheckBorderColor(bool isUserSet)
@@ -195,12 +193,14 @@ public:
         return true;
     }
 
-    bool isEqualWidthAndHeight() override
+    bool IsEnableFix() override
     {
         return true;
     }
+
     void UpdateRadioComponentColor(const Color& color, const RadioColorType radioColorType);
     void OnColorConfigurationUpdate() override;
+    void OnColorModeChange(uint32_t colorMode) override;
     void SetUncheckedBorderColorByJSRadioTheme(bool flag)
     {
         borderColorByJSRadioTheme_ = flag;
@@ -217,6 +217,13 @@ public:
     {
         return indicatorColorByJSRadioTheme_;
     }
+
+    int32_t OnInjectionEvent(const std::string& command) override;
+    bool ReportInitOnChangeEvent(int32_t nodeId, bool isChecked);
+    bool ReportOnChangeEvent(int32_t nodeId, bool isChecked, bool force = false);
+    static bool IsJsonValid(const std::unique_ptr<JsonValue>& json);
+    static bool IsJsonObject(const std::unique_ptr<JsonValue>& json);
+
 private:
     void OnAttachToFrameNode() override;
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
@@ -229,9 +236,7 @@ private:
     void InitTouchEvent();
     void InitMouseEvent();
     void OnClick();
-    CalcSize GetChildContentSize();
-    void InitializeParam(
-        Dimension& defaultWidth, Dimension& defaultHeight, Dimension& horizontalPadding, Dimension& verticalPadding);
+    CalcSize GetChildContentSize(const RefPtr<RadioTheme>& radioTheme);
     void LoadBuilder();
     void SetBuilderState();
     void UpdateIndicatorType();
@@ -264,7 +269,7 @@ private:
     void AddIsFocusActiveUpdateEvent();
     void RemoveIsFocusActiveUpdateEvent();
     void OnIsFocusActiveUpdate(bool isFocusAcitve);
-    ImageSourceInfo GetImageSourceInfoFromTheme(int32_t RadioIndicator);
+    ImageSourceInfo GetImageSourceInfoFromTheme(int32_t RadioIndicator, const RefPtr<RadioTheme>& radioTheme);
     void UpdateInternalResource(ImageSourceInfo& sourceInfo);
     void SetPrePageIdToLastPageId();
     void InitDefaultMargin();
@@ -304,6 +309,7 @@ private:
     bool enabled_ = true;
     bool isUserSetMargin_ = false;
     std::optional<RadioMakeCallback> makeFunc_;
+
     RefPtr<RadioModifier> radioModifier_;
     bool focusEventInitialized_ = false;
     std::function<void(bool)> isFocusActiveUpdateEvent_;

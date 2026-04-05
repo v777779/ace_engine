@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -27,6 +27,7 @@
 #include "bridge/declarative_frontend/jsview/models/grid_model_impl.h"
 #include "core/common/ace_application_info.h"
 #include "core/common/container.h"
+#include "core/components_v2/grid/grid_event.h"
 #include "core/components_ng/base/view_stack_model.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/grid/grid_model_ng.h"
@@ -133,6 +134,66 @@ void ParseGetGridItemSize(const JSCallbackInfo& info, JSRef<JSObject>& obj, Grid
     }
 }
 
+void ParseGetStartIndexByOffset(const JSCallbackInfo& info, JSRef<JSObject>& obj, GridLayoutOptions& option)
+{
+    auto getStartIndexByOffset = obj->GetProperty("onGetStartIndexByOffset");
+    if (getStartIndexByOffset->IsFunction()) {
+        auto onGetStartIndexByOffset = [execCtx = info.GetExecutionContext(),
+                                           func = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(),
+                                               JSRef<JSFunc>::Cast(getStartIndexByOffset))](float offset) {
+            JAVASCRIPT_EXECUTION_SCOPE(execCtx);
+            JSRef<JSVal> jsOffset = JSRef<JSVal>::Make(ToJSValue(Dimension(offset).ConvertToVp()));
+            auto result = func->ExecuteJS(1, &jsOffset);
+
+            int32_t startIndex_ = 0;
+            int32_t startLine_ = 0;
+            Dimension startOffset_;
+            Dimension totalOffset_;
+            if (result->IsObject()) {
+                JSRef<JSObject> obj = JSRef<JSObject>::Cast(result);
+                ConvertFromJSValue(obj->GetProperty("startIndex"), startIndex_);
+                ConvertFromJSValue(obj->GetProperty("startLine"), startLine_);
+                ConvertFromJSValue(obj->GetProperty("startOffset"), startOffset_);
+                ConvertFromJSValue(obj->GetProperty("totalOffset"), totalOffset_);
+            }
+            GridStartLineInfo startLineInfo { startIndex_, startLine_, startOffset_.ConvertToPx(),
+                totalOffset_.ConvertToPx() };
+            return startLineInfo;
+        };
+        option.getStartIndexByOffset = std::move(onGetStartIndexByOffset);
+    }
+}
+
+void ParseGetStartIndexByIndex(const JSCallbackInfo& info, JSRef<JSObject>& obj, GridLayoutOptions& option)
+{
+    auto getStartIndexByIndex = obj->GetProperty("onGetStartIndexByIndex");
+    if (getStartIndexByIndex->IsFunction()) {
+        auto onGetStartIndexByIndex = [execCtx = info.GetExecutionContext(),
+                                          func = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(),
+                                              JSRef<JSFunc>::Cast(getStartIndexByIndex))](int32_t index) {
+            JAVASCRIPT_EXECUTION_SCOPE(execCtx);
+            JSRef<JSVal> itemIndex = JSRef<JSVal>::Make(ToJSValue(index));
+            auto result = func->ExecuteJS(1, &itemIndex);
+
+            int32_t startIndex_ = 0;
+            int32_t startLine_ = 0;
+            Dimension startOffset_;
+            Dimension totalOffset_;
+            if (result->IsObject()) {
+                JSRef<JSObject> obj = JSRef<JSObject>::Cast(result);
+                ConvertFromJSValue(obj->GetProperty("startIndex"), startIndex_);
+                ConvertFromJSValue(obj->GetProperty("startLine"), startLine_);
+                ConvertFromJSValue(obj->GetProperty("startOffset"), startOffset_);
+                ConvertFromJSValue(obj->GetProperty("totalOffset"), totalOffset_);
+            }
+            GridStartLineInfo startLineInfo { startIndex_, startLine_, startOffset_.ConvertToPx(),
+                totalOffset_.ConvertToPx() };
+            return startLineInfo;
+        };
+        option.getStartIndexByIndex = std::move(onGetStartIndexByIndex);
+    }
+}
+
 void ParseGetGridItemRect(const JSCallbackInfo& info, JSRef<JSObject>& obj, GridLayoutOptions& option)
 {
     auto getRectByIndex = obj->GetProperty("onGetRectByIndex");
@@ -186,6 +247,8 @@ void SetGridLayoutOptions(const JSCallbackInfo& info)
 
     ParseGetGridItemSize(info, obj, option);
     ParseGetGridItemRect(info, obj, option);
+    ParseGetStartIndexByOffset(info, obj, option);
+    ParseGetStartIndexByIndex(info, obj, option);
 
     GridModel::GetInstance()->SetLayoutOptions(option);
 }
@@ -256,9 +319,28 @@ void JSGrid::UseProxy(const JSCallbackInfo& args)
 #endif
 }
 
-void JSGrid::SetColumnsTemplate(const std::string& value)
+void JSGrid::SetColumnsTemplate(const JSCallbackInfo& info)
 {
-    GridModel::GetInstance()->SetColumnsTemplate(value);
+    if (info.Length() < 1) {
+        return;
+    }
+    auto jsValue = info[0];
+    if (jsValue->IsObject()) {
+        JSRef<JSObject> jsObj = JSRef<JSObject>::Cast(jsValue);
+        auto fillTypeParam = jsObj->GetProperty("fillType");
+        if (!fillTypeParam->IsNull()) {
+            auto type = JSScrollable::ParsePresetFillType(fillTypeParam);
+            if (type.has_value()) {
+                GridModel::GetInstance()->SetItemFillPolicy(type.value());
+            } else {
+                GridModel::GetInstance()->SetItemFillPolicy(PresetFillType::BREAKPOINT_DEFAULT);
+            }
+        } else {
+            GridModel::GetInstance()->SetItemFillPolicy(PresetFillType::BREAKPOINT_DEFAULT);
+        }
+    } else {
+        GridModel::GetInstance()->SetColumnsTemplate(jsValue->ToString());
+    }
 }
 
 void JSGrid::SetRowsTemplate(const std::string& value)
@@ -272,8 +354,13 @@ void JSGrid::SetColumnsGap(const JSCallbackInfo& info)
         return;
     }
     CalcDimension colGap;
-
-    if (!ParseJsDimensionVp(info[0], colGap) || colGap.Value() < 0) {
+    if (SystemProperties::ConfigChangePerform()) {
+        RefPtr<ResourceObject> resObj;
+        if (!JSViewAbstract::ParseJsDimensionVp(info[0], colGap, resObj) || colGap.Value() < 0) {
+            colGap.SetValue(0.0);
+        }
+        GridModel::GetInstance()->ParseResObjColumnsGap(resObj);
+    } else if (!ParseJsDimensionVp(info[0], colGap) || colGap.Value() < 0) {
         colGap.SetValue(0.0);
     }
 
@@ -286,8 +373,13 @@ void JSGrid::SetRowsGap(const JSCallbackInfo& info)
         return;
     }
     CalcDimension rowGap;
-
-    if (!ParseJsDimensionVp(info[0], rowGap) || rowGap.Value() < 0) {
+    if (SystemProperties::ConfigChangePerform()) {
+        RefPtr<ResourceObject> resObj;
+        if (!JSViewAbstract::ParseJsDimensionVp(info[0], rowGap, resObj) || rowGap.Value() < 0) {
+            rowGap.SetValue(0.0);
+        }
+        GridModel::GetInstance()->ParseResObjRowsGap(resObj);
+    } else if (!ParseJsDimensionVp(info[0], rowGap) || rowGap.Value() < 0) {
         rowGap.SetValue(0.0);
     }
 
@@ -299,6 +391,7 @@ void JSGrid::JsGridHeight(const JSCallbackInfo& info)
     if (info.Length() < 1) {
         return;
     }
+    JSViewAbstract::JsHeight(info);
 
     CalcDimension value;
     if (!ParseJsDimensionVp(info[0], value)) {
@@ -318,6 +411,7 @@ void JSGrid::JsOnScrollBarUpdate(const JSCallbackInfo& info)
     auto onScrollBarUpdate = [execCtx = info.GetExecutionContext(),
                                  func = AceType::MakeRefPtr<JsFunction>(JSRef<JSObject>(),
                                      JSRef<JSFunc>::Cast(info[0]))](int32_t index, const Dimension& offset) {
+        JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx, std::pair<float, float>(0, 0));
         JSRef<JSVal> itemIndex = JSRef<JSVal>::Make(ToJSValue(index));
         JSRef<JSVal> itemOffset = ConvertToJSValue(offset);
         JSRef<JSVal> params[2] = { itemIndex, itemOffset };
@@ -373,6 +467,7 @@ void JSGrid::JSBind(BindingTarget globalObj)
     JSClass<JSGrid>::StaticMethod("onScrollBarUpdate", &JSGrid::JsOnScrollBarUpdate);
     JSClass<JSGrid>::StaticMethod("cachedCount", &JSGrid::SetCachedCount);
     JSClass<JSGrid>::StaticMethod("editMode", &JSGrid::SetEditMode, opt);
+    JSClass<JSGrid>::StaticMethod("editModeOptions", &JSGrid::SetEditModeOptions);
     JSClass<JSGrid>::StaticMethod("multiSelectable", &JSGrid::SetMultiSelectable, opt);
     JSClass<JSGrid>::StaticMethod("maxCount", &JSGrid::SetMaxCount, opt);
     JSClass<JSGrid>::StaticMethod("minCount", &JSGrid::SetMinCount, opt);
@@ -395,6 +490,7 @@ void JSGrid::JSBind(BindingTarget globalObj)
     JSClass<JSGrid>::StaticMethod("focusWrapMode", &JSGrid::SetFocusWrapMode);
     JSClass<JSGrid>::StaticMethod("alignItems", &JSGrid::SetAlignItems);
     JSClass<JSGrid>::StaticMethod("syncLoad", &JSGrid::SetSyncLoad);
+    JSClass<JSGrid>::StaticMethod("supportEmptyBranchInLazyLoading", &JSGrid::SetSupportLazyLoadingEmptyBranch);
 
     JSClass<JSGrid>::StaticMethod("onScroll", &JSGrid::JsOnScroll);
     JSClass<JSGrid>::StaticMethod("onReachStart", &JSGrid::JsOnReachStart);
@@ -415,9 +511,15 @@ void JSGrid::SetScrollBar(const JSCallbackInfo& info)
 
 void JSGrid::SetScrollBarColor(const JSCallbackInfo& info)
 {
-    auto scrollBarColor = JSScrollable::ParseBarColor(info);
-    if (!scrollBarColor.empty()) {
-        GridModel::GetInstance()->SetScrollBarColor(scrollBarColor);
+    Color color;
+    RefPtr<ResourceObject> resObj;
+    if (JSViewAbstract::ParseJsColor(info[0], color, resObj)) {
+        GridModel::GetInstance()->SetScrollBarColor(color);
+    } else {
+        GridModel::GetInstance()->SetScrollBarColor(std::nullopt);
+    }
+    if (SystemProperties::ConfigChangePerform()) {
+        GridModel::GetInstance()->CreateWithResourceObjScrollBarColor(resObj);
     }
 }
 
@@ -455,6 +557,13 @@ void JSGrid::SetEditMode(const JSCallbackInfo& info)
         ParseJsBool(info[0], editMode);
     }
     GridModel::GetInstance()->SetEditable(editMode);
+}
+
+void JSGrid::SetEditModeOptions(const JSCallbackInfo& info)
+{
+    NG::EditModeOptions options;
+    JSScrollable::ParseEditModeOptions(info, options);
+    GridModel::GetInstance()->SetEditModeOptions(options);
 }
 
 void JSGrid::SetMaxCount(const JSCallbackInfo& info)
@@ -622,7 +731,8 @@ void JSGrid::JsOnGridDrop(const JSCallbackInfo& info)
         JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         ACE_SCORING_EVENT("Grid.onItemDrop");
         func->ItemDropExecute(dragInfo, itemIndex, insertIndex, isSuccess);
-        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Grid.onItemDrop");
+        UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Grid.onItemDrop",
+            ComponentEventType::COMPONENT_EVENT_SCROLL);
     };
     GridModel::GetInstance()->SetOnItemDrop(std::move(onItemDrop));
 }
@@ -705,7 +815,7 @@ void JSGrid::SetAlignItems(const JSCallbackInfo& info)
 
 void JSGrid::SetSyncLoad(const JSCallbackInfo& info)
 {
-    bool syncLoad = false;
+    bool syncLoad = true;
     if (info.Length() >= 1) {
         auto value = info[0];
         if (value->IsBoolean()) {
@@ -715,11 +825,29 @@ void JSGrid::SetSyncLoad(const JSCallbackInfo& info)
     GridModel::GetInstance()->SetSyncLoad(syncLoad);
 }
 
+/**
+ * JS API definition: supportEmptyBranchInLazyLoading(supported: boolean | undefined): GridAttribute;
+ * supported: true - enable lazy loading for empty branch, false - disable lazy loading for empty branch
+ * if supported is undefined, disable lazy loading for empty branch
+ */
+void JSGrid::SetSupportLazyLoadingEmptyBranch(const JSCallbackInfo& info)
+{
+    bool enable = false;
+    if (info.Length() == 1) {
+        auto value = info[0];
+        if (value->IsBoolean()) {
+            enable = value->ToBoolean();
+        }
+    }
+    GridModel::GetInstance()->SetSupportLazyLoadingEmptyBranch(enable);
+}
+
 void JSGrid::JsOnScroll(const JSCallbackInfo& args)
 {
     if (args[0]->IsFunction()) {
         auto onScroll = [execCtx = args.GetExecutionContext(), func = JSRef<JSFunc>::Cast(args[0])](
                             const CalcDimension& scrollOffset, const ScrollState& scrollState) {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             auto params = ConvertToJSValues(scrollOffset, scrollState);
             func->Call(JSRef<JSObject>(), params.size(), params.data());
             return;
@@ -746,7 +874,8 @@ void JSGrid::JsOnScrollStop(const JSCallbackInfo& args)
     if (args[0]->IsFunction()) {
         auto onScrollStop = [execCtx = args.GetExecutionContext(), func = JSRef<JSFunc>::Cast(args[0])]() {
             func->Call(JSRef<JSObject>());
-            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Grid.onScrollStop");
+            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Grid.onScrollStop",
+                ComponentEventType::COMPONENT_EVENT_SCROLL);
             return;
         };
         GridModel::GetInstance()->SetOnScrollStop(std::move(onScrollStop));
@@ -807,7 +936,8 @@ void JSGrid::JsOnReachStart(const JSCallbackInfo& args)
     if (args[0]->IsFunction()) {
         auto onReachStart = [execCtx = args.GetExecutionContext(), func = JSRef<JSFunc>::Cast(args[0])]() {
             func->Call(JSRef<JSObject>());
-            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Grid.onReachStart");
+            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Grid.onReachStart",
+                ComponentEventType::COMPONENT_EVENT_SCROLL);
             return;
         };
         GridModel::GetInstance()->SetOnReachStart(std::move(onReachStart));
@@ -820,7 +950,8 @@ void JSGrid::JsOnReachEnd(const JSCallbackInfo& args)
     if (args[0]->IsFunction()) {
         auto onReachEnd = [execCtx = args.GetExecutionContext(), func = JSRef<JSFunc>::Cast(args[0])]() {
             func->Call(JSRef<JSObject>());
-            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Grid.onReachEnd");
+            UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Grid.onReachEnd",
+                ComponentEventType::COMPONENT_EVENT_SCROLL);
             return;
         };
         GridModel::GetInstance()->SetOnReachEnd(std::move(onReachEnd));

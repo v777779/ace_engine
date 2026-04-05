@@ -15,14 +15,35 @@
 
 #include "interfaces/inner_api/ui_session/ui_content_stub.h"
 
-#include "interfaces/inner_api/ui_session/ui_session_manager.h"
+#include "accesstoken_kit.h"
+#include "ipc_skeleton.h"
+
+#include "adapter/ohos/entrance/ui_session/ui_session_manager_ohos.h"
 #include "ui_content_errors.h"
 
-#include "adapter/ohos/entrance/ui_session/include/ui_service_hilog.h"
+#include "adapter/ohos/entrance/ui_session/content_change_config_impl.h"
+#include "adapter/ohos/entrance/ui_session/get_inspector_tree_config_impl.h"
+#include "adapter/ohos/entrance/ui_session/include/ui_session_log.h"
 
 namespace OHOS::Ace {
+bool UiContentStub::IsSACalling() const
+{
+    using namespace Security::AccessToken;
+    const auto tokenId = IPCSkeleton::GetCallingTokenID();
+    const auto flag = AccessTokenKit::GetTokenTypeFlag(tokenId);
+    if (flag == ATokenTypeEnum::TOKEN_NATIVE) {
+        LOGD("SA called, tokenId:%{private}u, flag:%{public}u", tokenId, flag);
+        return true;
+    }
+    LOGW("Not SA called, tokenId:%{private}u, flag:%{public}u", tokenId, flag);
+    return false;
+}
+
 int32_t UiContentStub::OnRemoteRequest(uint32_t code, MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
+    if (!IsSACalling()) {
+        return -1;
+    }
     if (data.ReadInterfaceToken() != GetDescriptor()) {
         LOGW("ui_session InterfaceToken check failed");
         return -1;
@@ -44,12 +65,28 @@ int32_t UiContentStub::OnRemoteRequest(uint32_t code, MessageParcel& data, Messa
             RegisterSearchEventCallbackInner(data, reply, option);
             break;
         }
+        case REGISTER_TEXT_CHANGE_EVENT: {
+            RegisterTextChangeEventCallbackInner(data, reply, option);
+            break;
+        }
         case REGISTER_ROUTER_CHANGE_EVENT: {
             RegisterRouterChangeEventCallbackInner(data, reply, option);
             break;
         }
         case REGISTER_COMPONENT_EVENT: {
             RegisterComponentChangeEventCallbackInner(data, reply, option);
+            break;
+        }
+        case REGISTER_SCROLL_EVENT: {
+            RegisterScrollEventCallbackInner(data, reply, option);
+            break;
+        }
+        case REGISTER_LIFE_CYCLE_EVENT: {
+            RegisterLifeCycleEventCallbackInner(data, reply, option);
+            break;
+        }
+        case REGISTER_SELECT_TEXT_EVENT: {
+            RegisterSelectTextEventCallbackInner(data, reply, option);
             break;
         }
         case SENDCOMMAND_ASYNC_EVENT: {
@@ -68,6 +105,10 @@ int32_t UiContentStub::OnRemoteRequest(uint32_t code, MessageParcel& data, Messa
             UnregisterSearchEventCallbackInner(data, reply, option);
             break;
         }
+        case UNREGISTER_TEXT_CHANGE_EVENT: {
+            UnregisterTextChangeEventCallbackInner(data, reply, option);
+            break;
+        }
         case UNREGISTER_ROUTER_CHANGE_EVENT: {
             UnregisterRouterChangeEventCallbackInner(data, reply, option);
             break;
@@ -78,6 +119,18 @@ int32_t UiContentStub::OnRemoteRequest(uint32_t code, MessageParcel& data, Messa
         }
         case UNREGISTER_WEB_UNFOCUS_EVENT: {
             UnregisterWebUnfocusEventCallbackInner(data, reply, option);
+            break;
+        }
+        case UNREGISTER_SCROLL_EVENT: {
+            UnregisterScrollEventCallbackInner(data, reply, option);
+            break;
+        }
+        case UNREGISTER_LIFE_CYCLE_EVENT: {
+            UnregisterLifeCycleEventCallbackInner(data, reply, option);
+            break;
+        }
+        case UNREGISTER_SELECT_TEXT_EVENT: {
+            UnregisterSelectTextEventCallbackInner(data, reply, option);
             break;
         }
         case RESET_ALL_TEXT: {
@@ -128,6 +181,42 @@ int32_t UiContentStub::OnRemoteRequest(uint32_t code, MessageParcel& data, Messa
             SendCommandKeyCodeInner(data, reply, option);
             break;
         }
+        case EXE_APP_AI_FUNCTION: {
+            ExeAppAIFunctionInner(data, reply, option);
+            break;
+        }
+        case GET_SPECIFIED_CONTENT_OFFSETS: {
+            GetSpecifiedContentOffsetsInner(data, reply, option);
+            break;
+        }
+        case HIGHLIGHT_SPECIFIED_CONTENT: {
+            HighlightSpecifiedContentInner(data, reply, option);
+            break;
+        }
+        case GET_MULTI_IMAGES_BY_ID: {
+            GetMultiImagesByIdInner(data, reply, option);
+            break;
+        }
+        case REGISTER_CONTENT_CHANGE: {
+            RegisterContentChangeCallbackInner(data, reply, option);
+            break;
+        }
+        case UNREGISTER_CONTENT_CHANGE: {
+            UnregisterContentChangeCallbackInner(data, reply, option);
+            break;
+        }
+        case GET_HIT_TEST_NODE_INFO_FOR_TOUCH: {
+            GetHitTestNodeInfoForTouchInner(data, reply, option);
+            break;
+        }
+        case REQUEST_STATE_MGMT_INFO: {
+            GetStateMgmtInfoInner(data, reply, option);
+            break;
+        }
+        case GET_WEBINFO_BY_REQUEST: {
+            GetWebInfoByRequestInner(data, reply, option);
+            break;
+        }
         default: {
             LOGI("ui_session unknown transaction code %{public}d", code);
             return IPCObjectStub::OnRemoteRequest(code, data, reply, option);
@@ -138,7 +227,15 @@ int32_t UiContentStub::OnRemoteRequest(uint32_t code, MessageParcel& data, Messa
 
 int32_t UiContentStub::GetInspectorTreeInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
-    GetInspectorTree(nullptr);
+    GetInspectorTreeConfigImpl* configImplPtr = data.ReadParcelable<GetInspectorTreeConfigImpl>();
+    if (!configImplPtr) {
+        LOGW("GetInspectorTreeInner read GetInspectorTreeConfigImpl failed");
+        return FAILED;
+    }
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
+    UiSessionManager::GetInstance()->SaveProcessId("getInspectorTree", processId);
+    GetInspectorTree(nullptr, configImplPtr->GetConfig());
+    delete configImplPtr;
     return NO_ERROR;
 }
 
@@ -149,9 +246,10 @@ int32_t UiContentStub::ConnectInner(MessageParcel& data, MessageParcel& reply, M
         LOGW("read reportStub object is nullptr,connect failed");
         return FAILED;
     }
-    int32_t processId = data.ReadInt32();
-    UiSessionManager::GetInstance()->SaveReportStub(report, processId);
-    UiSessionManager::GetInstance()->SendBaseInfo(processId);
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
+    UiSessionManagerOhos* uisession = reinterpret_cast<UiSessionManagerOhos*>(UiSessionManager::GetInstance());
+    uisession->SaveReportStub(report, processId);
+    uisession->SendBaseInfo(processId);
     return NO_ERROR;
 }
 
@@ -175,10 +273,18 @@ int32_t UiContentStub::RegisterSearchEventCallbackInner(
     return NO_ERROR;
 }
 
+int32_t UiContentStub::RegisterTextChangeEventCallbackInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    reply.WriteInt32(RegisterTextChangeEventCallback(nullptr));
+    return NO_ERROR;
+}
+
 int32_t UiContentStub::RegisterComponentChangeEventCallbackInner(
     MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
-    reply.WriteInt32(RegisterComponentChangeEventCallback(nullptr));
+    uint32_t mask = data.ReadUint32();
+    reply.WriteInt32(RegisterComponentChangeEventCallback(nullptr, mask));
     return NO_ERROR;
 }
 
@@ -186,6 +292,27 @@ int32_t UiContentStub::RegisterWebUnfocusEventCallbackInner(
     MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
     reply.WriteInt32(RegisterWebUnfocusEventCallback(nullptr));
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::RegisterScrollEventCallbackInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    reply.WriteInt32(RegisterScrollEventCallback(nullptr));
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::RegisterLifeCycleEventCallbackInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    reply.WriteInt32(RegisterLifeCycleEventCallback(nullptr));
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::RegisterSelectTextEventCallbackInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    reply.WriteInt32(RegisterSelectTextEventCallback(nullptr));
     return NO_ERROR;
 }
 
@@ -226,6 +353,14 @@ int32_t UiContentStub::UnregisterSearchEventCallbackInner(
     return NO_ERROR;
 }
 
+int32_t UiContentStub::UnregisterTextChangeEventCallbackInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    reply.WriteInt32(UnregisterTextChangeEventCallback());
+    return NO_ERROR;
+}
+
+
 int32_t UiContentStub::UnregisterRouterChangeEventCallbackInner(
     MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
@@ -247,6 +382,26 @@ int32_t UiContentStub::UnregisterWebUnfocusEventCallbackInner(
     return NO_ERROR;
 }
 
+int32_t UiContentStub::UnregisterScrollEventCallbackInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    reply.WriteInt32(UnregisterScrollEventCallback());
+    return NO_ERROR;
+}
+int32_t UiContentStub::UnregisterLifeCycleEventCallbackInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    reply.WriteInt32(UnregisterLifeCycleEventCallback());
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::UnregisterSelectTextEventCallbackInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    reply.WriteInt32(UnregisterSelectTextEventCallback());
+    return NO_ERROR;
+}
+
 int32_t UiContentStub::ResetTranslateTextAllInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
     reply.WriteInt32(ResetTranslateTextAll());
@@ -262,7 +417,7 @@ int32_t UiContentStub::ResetTranslateTextInner(MessageParcel& data, MessageParce
 
 int32_t UiContentStub::GetWebViewCurrentLanguageInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
-    int32_t processId = data.ReadInt32();
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
     UiSessionManager::GetInstance()->SaveProcessId("translate", processId);
     reply.WriteInt32(GetWebViewCurrentLanguage(nullptr));
     return NO_ERROR;
@@ -278,7 +433,7 @@ int32_t UiContentStub::GetWebViewTranslateTextInner(MessageParcel& data, Message
 int32_t UiContentStub::StartWebViewTranslateInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
     std::string extraData = data.ReadString();
-    int32_t processId = data.ReadInt32();
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
     UiSessionManager::GetInstance()->SaveProcessId("translate", processId);
     reply.WriteInt32(StartWebViewTranslate(extraData, nullptr));
     return NO_ERROR;
@@ -316,15 +471,135 @@ int32_t UiContentStub::GetCurrentPageNameInner(MessageParcel& data, MessageParce
 
 int32_t UiContentStub::GetCurrentImagesShowingInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
-    int32_t processId = data.ReadInt32();
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
     UiSessionManager::GetInstance()->SaveProcessId("pixel", processId);
     reply.WriteInt32(GetCurrentImagesShowing(nullptr));
     return NO_ERROR;
 }
 
+int32_t UiContentStub::GetMultiImagesByIdInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
+    UiSessionManager::GetInstance()->SaveProcessId("getArkUIImages", processId);
+    UiSessionManager::GetInstance()->SaveProcessId("getArkWebImages", processId);
+    std::vector<int32_t> arkUIIds;
+    data.ReadInt32Vector(&arkUIIds);
+    std::map<int32_t, std::vector<int32_t>> arkWebs;
+    size_t mapSize = data.ReadUint64();
+    constexpr int32_t GET_IMAGES_BY_ID_LOOP_UPPERBOUND = 1000;
+    if (mapSize > GET_IMAGES_BY_ID_LOOP_UPPERBOUND) {
+        return PARAM_INVALID;
+    }
+    for (size_t i = 0; i < mapSize; ++i) {
+        int32_t webId = data.ReadInt32();
+        std::vector<int32_t> webImageIds;
+        data.ReadInt32Vector(&webImageIds);
+        arkWebs.emplace(webId, std::move(webImageIds));
+    }
+    reply.WriteInt32(GetImagesById(arkUIIds, nullptr, arkWebs, nullptr));
+    return NO_ERROR;
+}
+
 int32_t UiContentStub::GetVisibleInspectorTreeInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
-    GetVisibleInspectorTree(nullptr);
+    GetInspectorTreeConfigImpl* configImplPtr = data.ReadParcelable<GetInspectorTreeConfigImpl>();
+    if (!configImplPtr) {
+        LOGW("GetVisibleInspectorTreeInner read GetInspectorTreeConfigImpl failed");
+        return FAILED;
+    }
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
+    UiSessionManager::GetInstance()->SaveProcessId("getInspectorTree", processId);
+    GetVisibleInspectorTree(nullptr, configImplPtr->GetConfig());
+    delete configImplPtr;
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::GetHitTestNodeInfoForTouchInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    InteractionParamConfig settedParamConfig = { data.ReadBool() };
+    GetLatestHitTestNodeInfosForTouch(nullptr, settedParamConfig);
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::ExeAppAIFunctionInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    std::string funcName = data.ReadString();
+    std::string params = data.ReadString();
+    reply.WriteInt32(ExeAppAIFunction(funcName, params, nullptr));
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::RegisterContentChangeCallbackInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
+    UiSessionManager::GetInstance()->SaveProcessId("contentChange", processId);
+    ContentChangeConfigImpl* configImplPtr = data.ReadParcelable<ContentChangeConfigImpl>();
+    if (!configImplPtr) {
+        LOGW("RegisterContentChangeCallbackInner read ContentChangeConfig failed");
+        reply.WriteInt32(FAILED);
+        return FAILED;
+    }
+
+    ContentChangeConfig config = configImplPtr->GetConfig();
+    int32_t ret = RegisterContentChangeCallback(config, nullptr);
+    delete configImplPtr;
+
+    reply.WriteInt32(ret);
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::UnregisterContentChangeCallbackInner(
+    MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
+    UiSessionManager::GetInstance()->EraseProcessId("contentChange", processId);
+    reply.WriteInt32(UnregisterContentChangeCallback());
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::GetSpecifiedContentOffsetsInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    int32_t id = data.ReadInt32();
+    std::string content = data.ReadString();
+    reply.WriteInt32(GetSpecifiedContentOffsets(id, content, nullptr));
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::HighlightSpecifiedContentInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    int32_t id = data.ReadInt32();
+    std::string content = data.ReadString();
+    int32_t size = data.ReadInt32();
+    std::string configs = data.ReadString();
+    std::vector<std::string> nodeIds;
+    for (int32_t i = 0; i < size; i++) {
+        nodeIds.push_back(data.ReadString());
+    }
+    reply.WriteInt32(HighlightSpecifiedContent(id, content, nodeIds, configs));
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::GetStateMgmtInfoInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
+    UiSessionManager::GetInstance()->SaveProcessId("GetStateMgmtInfo", processId);
+    std::string componentName = data.ReadString();
+    std::string propertyName = data.ReadString();
+    std::string jsonPath = data.ReadString();
+    bool onlyVisible = data.ReadBool();
+    reply.WriteInt32(GetStateMgmtInfo(componentName, propertyName, jsonPath, nullptr, onlyVisible));
+    return NO_ERROR;
+}
+
+int32_t UiContentStub::GetWebInfoByRequestInner(MessageParcel& data, MessageParcel& reply, MessageOption& option)
+{
+    int32_t processId = IPCSkeleton::GetCallingRealPid();
+    UiSessionManager::GetInstance()->SaveProcessId("GetWebInfoByRequest", processId);
+    int32_t webId = data.ReadInt32();
+    std::string request = data.ReadString();
+    reply.WriteInt32(GetWebInfoByRequest(webId, request, nullptr));
     return NO_ERROR;
 }
 } // namespace OHOS::Ace

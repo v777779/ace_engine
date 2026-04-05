@@ -21,8 +21,11 @@
 namespace OHOS::Ace::NG {
 void MenuPreviewLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
 {
+    CHECK_NULL_VOID(layoutWrapper);
     UpdateLayoutConstraintForPreview(layoutWrapper);
-    auto layoutConstraint = layoutWrapper->GetLayoutProperty()->CreateChildConstraint();
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(layoutProperty);
+    auto layoutConstraint = layoutProperty->CreateChildConstraint();
     for (const auto& child : layoutWrapper->GetAllChildrenWithBuild()) {
         child->Measure(layoutConstraint);
     }
@@ -42,6 +45,7 @@ void MenuPreviewLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     CHECK_NULL_VOID(menuWrapperPattern);
     auto menuNode = menuWrapperPattern->GetMenu();
     CHECK_NULL_VOID(menuNode);
+    ACE_UINODE_TRACE(menuNode);
     auto menuLayoutAlgorithmWrapper = menuNode->GetLayoutAlgorithm();
     CHECK_NULL_VOID(menuLayoutAlgorithmWrapper);
     auto menuLayoutAlgorithm = DynamicCast<MenuLayoutAlgorithm>(menuLayoutAlgorithmWrapper->GetLayoutAlgorithm());
@@ -87,11 +91,12 @@ void MenuPreviewLayoutAlgorithm::UpdateLayoutConstraintForPreview(LayoutWrapper*
     CHECK_NULL_VOID(menuWrapperPattern);
     auto menuNode = menuWrapperPattern->GetMenu();
     CHECK_NULL_VOID(menuNode);
+    ACE_UINODE_TRACE(menuNode);
     auto menuPattern = menuNode->GetPattern<MenuPattern>();
     CHECK_NULL_VOID(menuPattern);
     auto menuParam = menuWrapperPattern->GetMenuParam();
     if (menuParam.isPreviewContainScale) {
-        auto menuWindowRect = menuPattern->GetMenuWindowRect();
+        auto menuWindowRect = menuWrapperPattern->GetMenuWindowRect();
         auto maxWidth = menuWindowRect.Width();
         auto maxHeight = menuWindowRect.Height();
         auto targetSize = menuPattern->GetTargetSize();

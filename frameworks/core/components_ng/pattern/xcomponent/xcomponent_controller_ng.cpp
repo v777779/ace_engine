@@ -52,6 +52,13 @@ extern "C" ACE_FORCE_EXPORT XComponentControllerErrorCode OHOS_ACE_GetRenderFitB
     ));
 }
 
+extern "C" ACE_FORCE_EXPORT XComponentControllerErrorCode OHOS_ACE_GetSurfaceRotationBySurfaceId(
+    const std::string& surfaceId, bool& isSurfaceLock)
+{
+    return static_cast<XComponentControllerErrorCode>(
+        XComponentInnerSurfaceController::GetSurfaceRotationBySurfaceId(surfaceId, isSurfaceLock));
+}
+
 XComponentControllerErrorCode XComponentControllerNG::GetGlobalPosition(float& offsetX, float& offsetY)
 {
     auto pattern = pattern_.Upgrade();
@@ -117,6 +124,8 @@ XComponentControllerErrorCode XComponentControllerNG::ResetExtController(
 void XComponentControllerNG::SetPattern(const RefPtr<XComponentPattern>& pattern)
 {
     pattern_ = pattern;
+    CHECK_NULL_VOID(pattern);
+    pattern->SetSurfaceIsOpaque(isOpaque_);
 }
 
 RefPtr<XComponentPattern> XComponentControllerNG::GetPattern()
@@ -225,5 +234,13 @@ void XComponentControllerNG::UnlockCanvasAndPost(RSCanvas* canvas)
     auto pattern = pattern_.Upgrade();
     CHECK_NULL_VOID(pattern);
     pattern->UnlockCanvasAndPost(canvas);
+}
+
+void XComponentControllerNG::SetSurfaceConfig(bool isOpaque)
+{
+    isOpaque_ = isOpaque;
+    auto pattern = pattern_.Upgrade();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetSurfaceIsOpaque(isOpaque);
 }
 } // namespace OHOS::Ace::NG

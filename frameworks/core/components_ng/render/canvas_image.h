@@ -22,13 +22,19 @@
 #include "base/geometry/matrix4.h"
 #include "base/image/drawing_color_filter.h"
 #include "base/image/drawing_lattice.h"
-#include "base/image/pixel_map.h"
+#include "base/image/image_resizable_slice.h"
 #include "base/memory/ace_type.h"
 #include "base/utils/noncopyable.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/pattern/image/image_dfx.h"
 #include "core/components_ng/render/drawing_forward.h"
+#include "core/image/image_source_info.h"
+
+
+namespace OHOS::Ace {
+    class PixelMap;
+}
 
 namespace OHOS::Ace::NG {
 using BorderRadiusArray = std::array<PointF, 4>;
@@ -65,11 +71,12 @@ struct ImagePaintConfig {
     std::shared_ptr<BorderRadiusArray> borderRadiusXY_ = nullptr;
     RefPtr<DrawingLattice> resizableLattice_ = nullptr;
     Matrix4 imageMatrix_;
+    bool antiAlias_ = false;
 };
 
 // CanvasImage is interface for drawing image.
 class CanvasImage : public virtual AceType {
-    DECLARE_ACE_TYPE(CanvasImage, AceType)
+    DECLARE_ACE_TYPE(CanvasImage, AceType);
 
 public:
     CanvasImage() = default;
@@ -126,6 +133,11 @@ public:
         return imageDfxConfig_;
     }
 
+    inline ImageSourceInfo& GetImageSourceInfo()
+    {
+        return imageSrcInfo_;
+    }
+
     virtual bool IsStatic()
     {
         return true;
@@ -138,9 +150,19 @@ public:
 
     virtual void SetRawCompressData(void* dataPtr, int32_t w, int32_t h) {}
 
+    virtual RefPtr<PixelMap> GetFirstPixelMap()
+    {
+        return nullptr;
+    }
+
     inline void SetImageDfxConfig(const ImageDfxConfig& imageDfxConfig)
     {
         imageDfxConfig_ = imageDfxConfig;
+    }
+
+    inline void SetImageSourceInfo(const ImageSourceInfo& imageSrcInfo)
+    {
+        imageSrcInfo_ = imageSrcInfo;
     }
 
     void SetDrawCompleteCallback(std::function<void(const RenderedImageInfo&)>&& drawCompleteCallback)
@@ -166,6 +188,7 @@ protected:
 private:
     std::unique_ptr<ImagePaintConfig> paintConfig_;
     ImageDfxConfig imageDfxConfig_;
+    ImageSourceInfo imageSrcInfo_;
     // Callback function executed after the graphics rendering is complete.
     std::function<void(const RenderedImageInfo&)> drawCompleteCallback_ = nullptr;
 

@@ -15,6 +15,7 @@
 
 #include "core/components_ng/pattern/navigation/nav_bar_node.h"
 
+#include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/navigation/nav_bar_layout_property.h"
 #include "core/components_ng/pattern/navigation/navigation_pattern.h"
 #include "core/components_ng/pattern/navigation/navigation_title_util.h"
@@ -25,6 +26,7 @@ constexpr float TITLE_OFFSET_PERCENT  = 0.02f;
 RefPtr<NavBarNode> NavBarNode::GetOrCreateNavBarNode(
     const std::string& tag, int32_t nodeId, const std::function<RefPtr<Pattern>(void)>& patternCreator)
 {
+    ACE_UINODE_TRACE(nodeId);
     auto frameNode = GetFrameNode(tag, nodeId);
     CHECK_NULL_RETURN(!frameNode, AceType::DynamicCast<NavBarNode>(frameNode));
     auto pattern = patternCreator ? patternCreator() : MakeRefPtr<Pattern>();
@@ -41,6 +43,7 @@ void NavBarNode::AddChildToGroup(const RefPtr<UINode>& child, int32_t slot)
     auto contentNode = GetContentNode();
     if (!contentNode) {
         auto nodeId = ElementRegister::GetInstance()->MakeUniqueId();
+        ACE_UINODE_TRACE(nodeId);
         contentNode = FrameNode::GetOrCreateFrameNode(
             V2::NAVBAR_CONTENT_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
         SetContentNode(contentNode);
@@ -185,6 +188,14 @@ bool NavBarNode::IsNodeInvisible(const RefPtr<FrameNode>& node)
 {
     auto navigation = DynamicCast<NavigationGroupNode>(node);
     CHECK_NULL_RETURN(navigation, false);
+    auto navPattern = navigation->GetPattern<NavigationPattern>();
+    CHECK_NULL_RETURN(navPattern, false);
+
+    // In force split mode with navBar as home, it's visible
+    if (navPattern->IsForceSplitSuccess() && navPattern->IsNavBarIsHome()) {
+        return false;
+    }
+
     auto lastStandardIndex = navigation->GetLastStandardIndex();
     bool isInvisible = navigation->GetNavigationMode() == NavigationMode::STACK && lastStandardIndex >= 0;
     return isInvisible;
@@ -193,5 +204,19 @@ bool NavBarNode::IsNodeInvisible(const RefPtr<FrameNode>& node)
 RefPtr<UINode> NavBarNode::GetNavigationNode()
 {
     return GetParentFrameNode();
+}
+
+std::string NavBarNode::ToDumpString()
+{
+    std::string dumpString;
+    dumpString.append("| [/]{ NavBar ");
+    dumpString.append("Visible? \"");
+    dumpString.append(IsVisible() ? "Yes" : "No");
+    int32_t count = 0;
+    int32_t depth = 0;
+    GetPageNodeCountAndDepth(&count, &depth);
+    dumpString.append("\", Count: " + std::to_string(count));
+    dumpString.append(", Depth: " + std::to_string(depth) + " }");
+    return dumpString;
 }
 } // namespace OHOS::Ace::NG

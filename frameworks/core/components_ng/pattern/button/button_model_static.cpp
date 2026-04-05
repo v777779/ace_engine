@@ -315,6 +315,12 @@ void ButtonModelStatic::SetLabelStyle(FrameNode* frameNode, const std::optional<
         SetFontFamily(frameNode, std::nullopt);
         SetFontStyle(frameNode, std::nullopt);
     }
+    if (buttonParameters && buttonParameters->textAlign.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+            ButtonLayoutProperty, TextAlign, buttonParameters->textAlign.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(ButtonLayoutProperty, TextAlign, frameNode);
+    }
 }
 
 void ButtonModelStatic::SetSize(
@@ -485,6 +491,16 @@ void ButtonModelStatic::SetTextDefaultStyle(const RefPtr<FrameNode>& textNode, c
     textLayoutProperty->UpdateAdaptFontSizeStep(Dimension(1.0, DimensionUnit::FP));
 }
 
+void ButtonModelStatic::ResetTextAlign(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetFirstChild());
+    CHECK_NULL_VOID(textNode);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_VOID(textLayoutProperty);
+    textLayoutProperty->ResetTextAlign();
+}
+
 void ButtonModelStatic::ResetButtonTextFontSize(FrameNode* frameNode)
 {
     CHECK_NULL_VOID(frameNode);
@@ -522,19 +538,22 @@ void ButtonModelStatic::ResetButtonFontColor(FrameNode* frameNode)
 void ButtonModelStatic::ResetButtonFontSize(FrameNode* frameNode)
 {
     CHECK_NULL_VOID(frameNode);
+    auto layoutProperty = frameNode->GetLayoutProperty<ButtonLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    layoutProperty->ResetFontSize();
+    auto isCreateWithLabel = layoutProperty->GetCreateWithLabelValue(false);
+    if (!isCreateWithLabel) {
+        return;
+    }
     auto pipeline = frameNode->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto buttonTheme = pipeline->GetTheme<ButtonTheme>();
     CHECK_NULL_VOID(buttonTheme);
-    auto layoutProperty = frameNode->GetLayoutProperty<ButtonLayoutProperty>();
-    CHECK_NULL_VOID(layoutProperty);
-    auto textLayoutProperty = frameNode->GetLayoutProperty<TextLayoutProperty>();
-    CHECK_NULL_VOID(textLayoutProperty);
 
     ControlSize controlSize = layoutProperty->GetControlSize().value_or(ControlSize::NORMAL);
     ButtonStyleMode buttonStyle = layoutProperty->GetButtonStyle().value_or(ButtonStyleMode::EMPHASIZE);
     Dimension buttonFontSize = (buttonStyle == ButtonStyleMode::TEXT && controlSize == ControlSize::NORMAL) ?
         buttonTheme->GetTextButtonFontSize() : buttonTheme->GetTextSize(controlSize);
-    textLayoutProperty->UpdateFontSize(buttonFontSize);
+    layoutProperty->UpdateFontSize(buttonFontSize);
 }
 } // namespace OHOS::Ace::NG

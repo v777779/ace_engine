@@ -26,6 +26,10 @@
 #include "core/interfaces/native/utility/validators.h"
 
 namespace OHOS::Ace::NG {
+namespace {
+const std::vector<float> DEFAULT_COLORFILTER_MATRIX = { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f };
+}
 namespace GeneratedModifier {
 const GENERATED_ArkUIColorFilterAccessor* GetColorFilterAccessor();
 } // namespace GeneratedModifier
@@ -35,9 +39,19 @@ template<>
 ImageSpanAttribute Convert(const Ark_ImageAttachmentLayoutStyle& value)
 {
     ImageSpanAttribute imageStyle;
-    imageStyle.marginProp = OptConvert<MarginProperty>(value.margin);
-    imageStyle.paddingProp = OptConvert<MarginProperty>(value.padding);
+    CalcDimension dim;
+    imageStyle.marginProp = OptConvert<MarginProperty>(value.margin).value_or(
+        NG::ConvertToCalcPaddingProperty(dim, dim, dim, dim));
+    imageStyle.paddingProp = OptConvert<MarginProperty>(value.padding).value_or(
+        NG::ConvertToCalcPaddingProperty(dim, dim, dim, dim));
     imageStyle.borderRadius = OptConvert<BorderRadiusProperty>(value.borderRadius);
+    if (!imageStyle.borderRadius) {
+        dim.Reset();
+        NG::BorderRadiusProperty borderRadius;
+        borderRadius.SetRadius(dim);
+        borderRadius.multiValued = false;
+        imageStyle.borderRadius = borderRadius;
+    }
     return imageStyle;
 }
 
@@ -57,8 +71,8 @@ RefPtr<ImageSpan> Convert(const Ark_ImageAttachmentInterface& value)
     }
 #endif
     auto imageStyle = OptConvert<ImageSpanAttribute>(value.layoutStyle).value_or(ImageSpanAttribute());
-    imageStyle.verticalAlign = OptConvert<VerticalAlign>(value.verticalAlign);
-    imageStyle.objectFit = OptConvert<ImageFit>(value.objectFit);
+    imageStyle.verticalAlign = OptConvert<VerticalAlign>(value.verticalAlign).value_or(VerticalAlign::BOTTOM);
+    imageStyle.objectFit = OptConvert<ImageFit>(value.objectFit).value_or(ImageFit::COVER);
     imageStyle.size = OptConvert<ImageSpanSize>(value.size);
     std::optional<Ark_ColorFilterType> colorFilter = GetOpt(value.colorFilter);
     if (colorFilter) {
@@ -76,6 +90,9 @@ RefPtr<ImageSpan> Convert(const Ark_ImageAttachmentInterface& value)
             },
             []() {
             });
+    } else {
+        imageStyle.colorFilterMatrix = DEFAULT_COLORFILTER_MATRIX;
+        imageStyle.drawingColorFilter = std::nullopt;
     }
     imageOptions.imageAttribute = imageStyle;
     return AceType::MakeRefPtr<ImageSpan>(imageOptions);
@@ -92,9 +109,10 @@ RefPtr<ImageSpan> Convert(const Ark_ResourceImageAttachmentOptions& value)
         imageOptions.image = resourceStrOpt->content;
     }
     auto imageStyle = OptConvert<ImageSpanAttribute>(value.layoutStyle).value_or(ImageSpanAttribute());
-    imageStyle.verticalAlign = OptConvert<VerticalAlign>(value.verticalAlign);
-    imageStyle.objectFit = OptConvert<ImageFit>(value.objectFit);
+    imageStyle.verticalAlign = OptConvert<VerticalAlign>(value.verticalAlign).value_or(VerticalAlign::BOTTOM);
+    imageStyle.objectFit = OptConvert<ImageFit>(value.objectFit).value_or(ImageFit::COVER);
     imageStyle.size = OptConvert<ImageSpanSize>(value.size);
+    imageStyle.supportSvg2 = OptConvert<bool>(value.supportSvg2).value_or(false);
     std::optional<Ark_ColorFilterType> colorFilter = GetOpt(value.colorFilter);
     if (colorFilter) {
         Converter::VisitUnion(
@@ -111,19 +129,76 @@ RefPtr<ImageSpan> Convert(const Ark_ResourceImageAttachmentOptions& value)
             },
             []() {
             });
+    } else {
+        imageStyle.colorFilterMatrix = DEFAULT_COLORFILTER_MATRIX;
+        imageStyle.drawingColorFilter = std::nullopt;
     }
     imageOptions.imageAttribute = imageStyle;
     return AceType::MakeRefPtr<ImageSpan>(imageOptions);
 }
 
+Opt_Length OptValueFromOptDimension(const std::optional<Dimension>& src)
+{
+    if (!src.has_value()) {
+        Opt_Length dst;
+        dst.tag = INTEROP_TAG_UNDEFINED;
+        return dst;
+    }
+    return ArkValue<Opt_Length>(src->ConvertToVp());
+}
+
+Ark_BorderRadiuses ArkValueFromOptBorderRadius(const OHOS::Ace::NG::BorderRadiusProperty& src)
+{
+    Ark_BorderRadiuses arkBorder = {
+        .topLeft = OptValueFromOptDimension(src.radiusTopLeft),
+        .topRight = OptValueFromOptDimension(src.radiusTopRight),
+        .bottomLeft = OptValueFromOptDimension(src.radiusBottomLeft),
+        .bottomRight = OptValueFromOptDimension(src.radiusBottomRight),
+    };
+    return arkBorder;
+}
+
+Opt_Length OptValueFromOptCalcLength(const std::optional<CalcLength>& src)
+{
+    if (!src.has_value()) {
+        Opt_Length dst;
+        dst.tag = INTEROP_TAG_UNDEFINED;
+        return dst;
+    }
+    return ArkValue<Opt_Length>(src->GetDimension().ConvertToVp());
+}
+
+Ark_Padding ArkValueFromOptPadding(const OHOS::Ace::NG::PaddingProperty& src)
+{
+    Ark_Padding arkPadding = {
+        .top = OptValueFromOptCalcLength(src.top),
+        .right = OptValueFromOptCalcLength(src.right),
+        .bottom = OptValueFromOptCalcLength(src.bottom),
+        .left = OptValueFromOptCalcLength(src.left),
+    };
+    return arkPadding;
+}
+
 void AssignArkValue(Ark_ImageAttachmentLayoutStyle& dst, const ImageSpanAttribute& src, ConvContext *ctx)
 {
-    Ark_ImageAttachmentLayoutStyle style = {
-        .margin = ArkUnion<Opt_Union_LengthMetrics_Margin, Ark_Padding>(src.marginProp, ctx),
-        .padding = ArkUnion<Opt_Union_LengthMetrics_Padding, Ark_Padding>(src.paddingProp, ctx),
-        .borderRadius = ArkUnion<Opt_Union_LengthMetrics_BorderRadiuses, Ark_BorderRadiuses>(src.borderRadius, ctx),
-    };
-    dst = style;
+    if (src.marginProp) {
+        dst.margin = ArkUnion<Opt_Union_LengthMetrics_Padding, Ark_Padding>(
+            ArkValueFromOptPadding(src.marginProp.value()));
+    } else {
+        dst.margin = ArkUnion<Opt_Union_LengthMetrics_Padding>(Ark_Empty());
+    }
+    if (src.paddingProp) {
+        dst.padding = ArkUnion<Opt_Union_LengthMetrics_Padding, Ark_Padding>(
+            ArkValueFromOptPadding(src.paddingProp.value()));
+    } else {
+        dst.padding = ArkUnion<Opt_Union_LengthMetrics_Padding>(Ark_Empty());
+    }
+    if (src.borderRadius) {
+        dst.borderRadius = ArkUnion<Opt_Union_LengthMetrics_BorderRadiuses, Ark_BorderRadiuses>(
+            ArkValueFromOptBorderRadius(src.borderRadius.value()));
+    } else {
+        dst.borderRadius =  ArkUnion<Opt_Union_LengthMetrics_BorderRadiuses>(Ark_Empty());
+    }
 }
 } // namespace Converter
 } // namespace OHOS::Ace::NG
@@ -161,6 +236,14 @@ Ark_image_PixelMap GetValueImpl(Ark_ImageAttachment peer)
     LOGE("ARKOALA ImageAttachmentAccessor::GetPixelMapImpl PixelMap is not supported on current platform.");
     return nullptr;
 #endif
+}
+Opt_String GetResourceValueImpl(Ark_ImageAttachment peer)
+{
+    auto invalid = Converter::ArkValue<Opt_String>();
+    CHECK_NULL_RETURN(peer && peer->span, invalid);
+    auto image = peer->span->GetImageSpanOptions().image;
+    CHECK_NULL_RETURN(image, invalid);
+    return Converter::ArkValue<Opt_String>(image.value());
 }
 Opt_SizeOptions GetSizeImpl(Ark_ImageAttachment peer)
 {
@@ -206,14 +289,36 @@ Opt_ColorFilterType GetColorFilterImpl(Ark_ImageAttachment peer)
         peer->span->GetImageAttribute()->drawingColorFilter, empty);
     if (peer->span->GetImageAttribute()->colorFilterMatrix) {
         auto& colorFilter = peer->span->GetImageAttribute()->colorFilterMatrix.value();
-        ArkArrayHolder<Array_Float64> colorFilterHolder(colorFilter);
-        auto arrayNumber = ArkValue<Array_Float64>(colorFilterHolder.ArkValue());
+        ArkArrayHolder<Array_F64> colorFilterHolder(colorFilter);
+        auto arrayNumber = ArkValue<Array_F64>(colorFilterHolder.ArkValue());
         auto colorFilterPeer = GeneratedModifier::GetColorFilterAccessor()->construct(&arrayNumber);
         return ArkUnion<Opt_ColorFilterType, Ark_ColorFilter>(colorFilterPeer);
     } else {
         LOGE("Arkoala: ImageAttachmentAccessor.GetColorFilter: DrawinColorFilter doesn't supported");
     }
     return empty;
+}
+Opt_Boolean GetSupportSvg2Impl(Ark_ImageAttachment peer)
+{
+    auto invalid = Converter::ArkValue<Opt_Boolean>();
+    CHECK_NULL_RETURN(peer, invalid);
+    CHECK_NULL_RETURN(peer->span, invalid);
+    CHECK_NULL_RETURN(peer->span->GetImageAttribute(), invalid);
+    bool isSupportSvg2 = peer->span->GetImageAttribute()->supportSvg2;
+    return Converter::ArkValue<Opt_Boolean>(isSupportSvg2);
+}
+Opt_SizeOptions GetSizeInVpImpl(Ark_ImageAttachment peer)
+{
+    auto invalid = Converter::ArkValue<Opt_SizeOptions>();
+    CHECK_NULL_RETURN(peer, invalid);
+    CHECK_NULL_RETURN(peer->span, invalid);
+    CHECK_NULL_RETURN(peer->span->GetImageAttribute(), invalid);
+    CHECK_NULL_RETURN(peer->span->GetImageAttribute()->size, invalid);
+    const auto& srcSize = peer->span->GetImageAttribute()->size.value();
+    Ark_SizeOptions vpSize;
+    vpSize.width = ArkValue<Opt_Length>(PipelineBase::Px2VpWithCurrentDensity(srcSize.width->Value()), Converter::FC);
+    vpSize.height = ArkValue<Opt_Length>(PipelineBase::Px2VpWithCurrentDensity(srcSize.height->Value()), Converter::FC);
+    return Converter::ArkValue<Opt_SizeOptions>(vpSize);
 }
 } // ImageAttachmentAccessor
 const GENERATED_ArkUIImageAttachmentAccessor* GetImageAttachmentAccessor()
@@ -223,11 +328,14 @@ const GENERATED_ArkUIImageAttachmentAccessor* GetImageAttachmentAccessor()
         ImageAttachmentAccessor::ConstructImpl,
         ImageAttachmentAccessor::GetFinalizerImpl,
         ImageAttachmentAccessor::GetValueImpl,
+        ImageAttachmentAccessor::GetResourceValueImpl,
         ImageAttachmentAccessor::GetSizeImpl,
         ImageAttachmentAccessor::GetVerticalAlignImpl,
         ImageAttachmentAccessor::GetObjectFitImpl,
         ImageAttachmentAccessor::GetLayoutStyleImpl,
         ImageAttachmentAccessor::GetColorFilterImpl,
+        ImageAttachmentAccessor::GetSupportSvg2Impl,
+        ImageAttachmentAccessor::GetSizeInVpImpl,
     };
     return &ImageAttachmentAccessorImpl;
 }

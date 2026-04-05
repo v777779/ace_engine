@@ -26,7 +26,7 @@ class SynchedPropertyNestedObjectPU<C extends Object>
 
   private obsObject_: C = undefined;
 
-  private staticWatchFunc?: Object;
+  public staticWatchFunc?: Object;
 
   /**
    * Construct a Property of a su component that links to a variable of parent view that holds an ObservedObject
@@ -41,8 +41,8 @@ class SynchedPropertyNestedObjectPU<C extends Object>
     owningChildView: IPropertySubscriber, propertyName: PropertyInfo) {
     super(owningChildView, propertyName);
     this.createSourceDependency(obsObject);
-    this.setValueInternal(obsObject);
     this.setDecoratorInfo("@ObjectLink");
+    this.setValueInternal(obsObject);
   }
 
   /*
@@ -101,7 +101,7 @@ class SynchedPropertyNestedObjectPU<C extends Object>
     if (renderingElmtId >= 0) {
       if (!isTracked) {
         stateMgmtConsole.applicationError(`${this.debugInfo()}: onOptimisedObjectPropertyRead read NOT TRACKED property '${readPropertyName}' during rendering!`);
-        throw new Error(`Illegal usage of not @Track'ed property '${readPropertyName}' on UI!`);
+        throw new BusinessError(NON_TRACK_PROPERTY_ON_UI, `Illegal usage of not @Track'ed property '${readPropertyName}' on UI!`);
       } else {
         stateMgmtConsole.debug(`${this.debugInfo()}: onOptimisedObjectPropertyRead: ObservedObject property '@Track ${readPropertyName}' read.`);
         if (this.getUnmonitored() === readObservedObject) {
@@ -158,9 +158,9 @@ class SynchedPropertyNestedObjectPU<C extends Object>
           this.staticWatchFunc = InteropExtractorModule.createWatchFunc(callback, this.obsObject_);
         }
       } else {
-        stateMgmtConsole.applicationWarn(`${this.debugInfo()}: set/init (method setValueInternal): assigned value is not
+        stateMgmtConsole.frequentApplicationError(`${this.debugInfoWithoutId()} set/init (method setValueInternal): assigned value is not
           be decorated by @Observed. Value changes will not be observed and UI will not update.`);
-      }
+    }
     }
     return true;
   }

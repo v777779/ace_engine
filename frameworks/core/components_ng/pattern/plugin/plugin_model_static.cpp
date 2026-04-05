@@ -18,6 +18,9 @@
 #ifndef ARKUI_CAPI_UNITTEST
 #include "core/components/plugin/plugin_sub_container.h"
 #include "core/components/plugin/resource/plugin_manager_delegate.h"
+#else
+#include "test/unittest/capi/stubs/mock_plugin_sub_container.h"
+#include "test/unittest/capi/stubs/mock_plugin_manager_delegate.h"
 #endif
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/plugin/plugin_layout_property.h"
@@ -29,6 +32,7 @@ namespace OHOS::Ace::NG {
 RefPtr<FrameNode> PluginModelStatic::CreateFrameNode(int32_t nodeId)
 {
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::PLUGIN_ETS_TAG, nodeId);
+    ACE_UINODE_TRACE(nodeId);
     auto frameNode = PluginNode::GetOrCreatePluginNode(
         V2::PLUGIN_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<PluginPattern>(); });
     return frameNode;

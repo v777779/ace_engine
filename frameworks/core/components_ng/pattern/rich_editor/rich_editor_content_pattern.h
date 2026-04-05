@@ -16,14 +16,18 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_RICH_EDITOR_RICH_EDITOR_CONTENT_PATTERN_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_RICH_EDITOR_RICH_EDITOR_CONTENT_PATTERN_H
 
+#include "core/components_ng/layout/box_layout_algorithm.h"
+#include "core/components_ng/pattern/rich_editor/rich_editor_content_modifier.h"
+#include "core/components_ng/pattern/rich_editor/rich_editor_overlay_modifier.h"
+#include "core/components_ng/pattern/rich_editor/rich_editor_paint_method.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_pattern.h"
 
 
 namespace OHOS::Ace::NG {
 
 class RichEditorContentLayoutAlgorithm : public BoxLayoutAlgorithm {
-
-    void Measure(LayoutWrapper* layoutWrapper) override {
+    void Measure(LayoutWrapper* layoutWrapper) override
+    {
         ACE_SCOPED_TRACE("RichEditorContentLayoutAlgorithm::Measure");
         BoxLayoutAlgorithm::PerformMeasureSelf(layoutWrapper);
         auto contentNode = layoutWrapper->GetHostNode();
@@ -44,7 +48,7 @@ class RichEditorContentLayoutAlgorithm : public BoxLayoutAlgorithm {
         geometryNode->SetFrameSize(parentGeometryNode->GetFrameSize());
     }
 
-    void Layout(LayoutWrapper* layoutWrapper) override 
+    void Layout(LayoutWrapper* layoutWrapper) override
     {
         ACE_SCOPED_TRACE("RichEditorContentLayoutAlgorithm::Layout");
     }
@@ -69,14 +73,14 @@ public:
         CHECK_NULL_RETURN(richEditorPattern, nullptr);
         if (!contentMod_) {
             contentMod_ = MakeRefPtr<RichEditorContentModifier>(richEditorPattern->textStyle_,
-                &(richEditorPattern->paragraphs_),WeakClaim(this));
+                &(richEditorPattern->paragraphs_), WeakClaim(this));
         }
-
+        richEditorPattern->CreateRichEditorOverlayModifier();
         if (richEditorPattern->GetIsCustomFont()) {
             contentMod_->SetIsCustomFont(true);
         }
         return MakeRefPtr<RichEditorPaintMethod>(WeakClaim(this), &(richEditorPattern->paragraphs_),
-            richEditorPattern->baselineOffset_, contentMod_, nullptr);
+            richEditorPattern->baselineOffset_, contentMod_, richEditorPattern->GetOverlayModifier());
     }
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override

@@ -17,10 +17,11 @@
 
 #include "base/log/ace_trace.h"
 #include "core/components/theme/app_theme.h"
-#include "core/components/theme/shadow_theme.h"
 #include "core/components_ng/base/frame_node.h"
+#include "core/components_ng/base/ui_node.h"
 #include "core/components_ng/event/gesture_event_hub.h"
 #include "core/components_ng/event/gesture_info.h"
+#include "core/components_ng/gestures/recognizers/sequenced_recognizer.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_behavior_reporter/drag_drop_behavior_reporter.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_func_wrapper.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_global_controller.h"
@@ -34,44 +35,77 @@ constexpr int32_t PREVIEW_LONG_PRESS_RECOGNIZER = 800;
 constexpr int32_t DEFAULT_DRAG_FINGERS = 1;
 constexpr Dimension DEFAULT_DRAG_DISTANCE = 10.0_vp;
 constexpr PanDirection DEFAULT_DRAG_DIRECTION = { PanDirection::ALL };
+
+GestureEvent PostNotifyPanOnActionStart(const GestureEvent& info)
+{
+    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    CHECK_NULL_RETURN(pipeline, info);
+    auto newInfo = info;
+    auto globalLocation = info.GetGlobalLocation();
+    auto postEventManager = pipeline->GetPostEventManager();
+    CHECK_NULL_RETURN(postEventManager, info);
+    auto node = postEventManager->GetPostTargetNode();
+    CHECK_NULL_RETURN(node, info);
+    auto offset = node->GetOffsetRelativeToWindow();
+    globalLocation.SetX(globalLocation.GetX() + offset.GetX());
+    globalLocation.SetY(globalLocation.GetY() + offset.GetY());
+    newInfo.SetGlobalLocation(globalLocation);
+    auto screenLocation = info.GetScreenLocation();
+    auto screenOffset = DragDropFuncWrapper::GetFrameNodeOffsetToScreen(node);
+    screenLocation.SetX(screenLocation.GetX() + screenOffset.GetX());
+    screenLocation.SetY(screenLocation.GetY() + screenOffset.GetY());
+    newInfo.SetScreenLocation(screenLocation);
+    return newInfo;
+}
 } // namespace
 
 DragDropEventActuator::DragDropEventActuator(const WeakPtr<GestureEventHub>& gestureEventHub)
     : DragEventActuator(gestureEventHub), gestureEventHub_(gestureEventHub)
 {
-    panRecognizer_ =
-        MakeRefPtr<PanRecognizer>(DEFAULT_DRAG_FINGERS, DEFAULT_DRAG_DIRECTION, DEFAULT_DRAG_DISTANCE.ConvertToPx());
-    panRecognizer_->SetIsForDrag(true);
-    panRecognizer_->SetGestureInfo(MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
     auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
     CHECK_NULL_VOID(pipeline);
     auto dragPanDistanceMouse = DRAG_PAN_DISTANCE_MOUSE;
+    auto dragPanDistanceTouch = DEFAULT_DRAG_DISTANCE;
     auto appTheme = pipeline->GetTheme<AppTheme>();
     if (appTheme) {
         dragPanDistanceMouse = appTheme->GetDragPanDistanceMouse();
+        dragPanDistanceTouch = appTheme->GetPanDistanceThresholdForDragDrop();
     }
-    panRecognizer_->SetMouseDistance(dragPanDistanceMouse.ConvertToPx());
-    longPressRecognizer_ =
-        AceType::MakeRefPtr<LongPressRecognizer>(LONG_PRESS_DURATION, DEFAULT_DRAG_FINGERS, false, true);
-    longPressRecognizer_->SetGestureInfo(MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
-    previewLongPressRecognizer_ =
-        AceType::MakeRefPtr<LongPressRecognizer>(PREVIEW_LONG_PRESS_RECOGNIZER, DEFAULT_DRAG_FINGERS, false, true);
-    previewLongPressRecognizer_->SetGestureInfo(
-        MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
-    previewLongPressRecognizer_->SetGestureHub(gestureEventHub_);
     auto frameNode = gestureEventHub.Upgrade()->GetFrameNode();
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     dragDropInitiatingHandler_ = AceType::MakeRefPtr<DragDropInitiatingHandler>(frameNode);
     SetIsNewFwk(true);
 }
 
 void DragDropEventActuator::InitPanAction()
 {
+    auto frameNode = GetFrameNode();
+    ACE_UINODE_TRACE(frameNode);
+    if (panRecognizer_ == nullptr) {
+        panRecognizer_ = MakeRefPtr<PanRecognizer>(
+            DEFAULT_DRAG_FINGERS, DEFAULT_DRAG_DIRECTION, DEFAULT_DRAG_DISTANCE.ConvertToPx());
+        panRecognizer_->SetIsForDrag(true);
+        panRecognizer_->SetGestureInfo(MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
+        auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+        CHECK_NULL_VOID(pipeline);
+        auto dragPanDistanceMouse = DRAG_PAN_DISTANCE_MOUSE;
+        auto appTheme = pipeline->GetTheme<AppTheme>();
+        if (appTheme) {
+            dragPanDistanceMouse = appTheme->GetDragPanDistanceMouse();
+        }
+        panRecognizer_->SetMouseDistance(dragPanDistanceMouse.ConvertToPx());
+    }
     panRecognizer_->SetOnActionStart(
         [weakHandler = WeakPtr<DragDropInitiatingHandler>(dragDropInitiatingHandler_)](GestureEvent& info) {
             auto handler = weakHandler.Upgrade();
             CHECK_NULL_VOID(handler);
-            handler->NotifyPanOnActionStart(info);
+            if (!info.GetPassThrough()) {
+                handler->NotifyPanOnActionStart(info);
+                return;
+            }
+            auto newInfo = PostNotifyPanOnActionStart(info);
+            handler->NotifyPanOnActionStart(newInfo);
         });
     panRecognizer_->SetOnActionUpdate(
         [weakHandler = WeakPtr<DragDropInitiatingHandler>(dragDropInitiatingHandler_)](GestureEvent& info) {
@@ -82,7 +116,11 @@ void DragDropEventActuator::InitPanAction()
     panRecognizer_->SetOnActionEnd(
         [weakHandler = WeakPtr<DragDropInitiatingHandler>(dragDropInitiatingHandler_)](GestureEvent& info) {
             auto handler = weakHandler.Upgrade();
-            CHECK_NULL_VOID(handler);
+            if (!handler) {
+                TAG_LOGW(AceLogTag::ACE_DRAG, "on action end, frameNode has been destroyed, resetting");
+                DragEventActuator::ResetDragStatus();
+                return;
+            }
             handler->NotifyPanOnActionEnd(info);
         });
     panRecognizer_->SetOnActionCancel(
@@ -98,8 +136,28 @@ void DragDropEventActuator::InitPanAction()
     });
 }
 
+RefPtr<FrameNode> DragDropEventActuator::GetFrameNode() const
+{
+    auto gestureHub = gestureEventHub_.Upgrade();
+    CHECK_NULL_RETURN(gestureHub, nullptr);
+    return gestureHub->GetFrameNode();
+}
+
 void DragDropEventActuator::InitLongPressAction()
 {
+    auto frameNode = GetFrameNode();
+    ACE_UINODE_TRACE(frameNode);
+    if (longPressRecognizer_ == nullptr) {
+        longPressRecognizer_ =
+            AceType::MakeRefPtr<LongPressRecognizer>(LONG_PRESS_DURATION, DEFAULT_DRAG_FINGERS, false, true);
+        longPressRecognizer_->SetGestureInfo(
+            MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
+        previewLongPressRecognizer_ =
+            AceType::MakeRefPtr<LongPressRecognizer>(PREVIEW_LONG_PRESS_RECOGNIZER, DEFAULT_DRAG_FINGERS, false, true);
+        previewLongPressRecognizer_->SetGestureInfo(
+            MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
+        previewLongPressRecognizer_->SetGestureHub(gestureEventHub_);
+    }
     longPressRecognizer_->SetOnAction(
         [weakHandler = WeakPtr<DragDropInitiatingHandler>(dragDropInitiatingHandler_)](GestureEvent& info) {
             auto handler = weakHandler.Upgrade();
@@ -183,11 +241,37 @@ void DragDropEventActuator::OnCollectTouchTarget(const OffsetF& coordinateOffset
 
 void DragDropEventActuator::CopyEvent(const RefPtr<DragDropEventActuator>& dragDropEventActuator)
 {
+    if (panRecognizer_ == nullptr) {
+        panRecognizer_ = MakeRefPtr<PanRecognizer>(
+            DEFAULT_DRAG_FINGERS, DEFAULT_DRAG_DIRECTION, DEFAULT_DRAG_DISTANCE.ConvertToPx());
+        panRecognizer_->SetIsForDrag(true);
+        panRecognizer_->SetGestureInfo(MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
+        auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+        CHECK_NULL_VOID(pipeline);
+        auto dragPanDistanceMouse = DRAG_PAN_DISTANCE_MOUSE;
+        auto appTheme = pipeline->GetTheme<AppTheme>();
+        if (appTheme) {
+            dragPanDistanceMouse = appTheme->GetDragPanDistanceMouse();
+        }
+        panRecognizer_->SetMouseDistance(dragPanDistanceMouse.ConvertToPx());
+    }
+
     auto fingers = GetFingers();
     auto direction = GetDirection();
     auto distance = GetDistance();
     panRecognizer_ = MakeRefPtr<PanRecognizer>(fingers, direction, distance);
     panRecognizer_->SetGestureInfo(MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
+    if (longPressRecognizer_ == nullptr) {
+        longPressRecognizer_ =
+            AceType::MakeRefPtr<LongPressRecognizer>(LONG_PRESS_DURATION, DEFAULT_DRAG_FINGERS, false, true);
+        longPressRecognizer_->SetGestureInfo(
+            MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
+        previewLongPressRecognizer_ =
+            AceType::MakeRefPtr<LongPressRecognizer>(PREVIEW_LONG_PRESS_RECOGNIZER, DEFAULT_DRAG_FINGERS, false, true);
+        previewLongPressRecognizer_->SetGestureInfo(
+            MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
+        previewLongPressRecognizer_->SetGestureHub(gestureEventHub_);
+    }
     longPressRecognizer_ = AceType::MakeRefPtr<LongPressRecognizer>(LONG_PRESS_DURATION, fingers, false, false);
     longPressRecognizer_->SetGestureInfo(MakeRefPtr<GestureInfo>(GestureTypeName::DRAG, GestureTypeName::DRAG, true));
     previewLongPressRecognizer_ =

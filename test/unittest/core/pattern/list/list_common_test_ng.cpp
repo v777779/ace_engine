@@ -14,14 +14,18 @@
  */
 
 #include "list_test_ng.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "ui/base/geometry/dimension.h"
 
 #include "core/components/common/properties/shadow_config.h"
 #include "core/components/list/list_theme.h"
 #include "core/components_ng/pattern/button/button_model_ng.h"
 #include "core/components_ng/pattern/arc_list/arc_list_pattern.h"
+#include "core/components_ng/pattern/list/list_height_offset_calculator.h"
+#include "core/components_ng/pattern/list/list_item_drag_manager.h"
+#include "core/components_ng/pattern/list/list_item_pattern.h"
 #include "core/components_ng/syntax/for_each_model_ng.h"
 #include "core/components_ng/syntax/for_each_node.h"
 #include "core/components_ng/syntax/lazy_for_each_model_ng.h"
@@ -29,6 +33,7 @@
 #include "core/components_ng/syntax/lazy_layout_wrapper_builder.h"
 #include "core/components_ng/syntax/repeat_model_ng.h"
 #include "core/components_ng/syntax/repeat_node.h"
+#include "core/components_ng/syntax/repeat_virtual_scroll_2_node.h"
 #include "core/components_ng/syntax/syntax_item.h"
 #include "core/common/resource/resource_parse_utils.h"
 
@@ -373,7 +378,7 @@ int32_t ListCommonTestNg::FindFocusNodeIndexInGroup(
             focusIndex = index;
         }
     }
-    if (groupIndexInList != -1 && focusNode != nullptr) {
+    if (groupIndexInList != -1 && focusNode != nullptr && groupItemNum != 0) {
         focusIndex = focusIndex % groupItemNum;
     }
     return focusIndex;
@@ -459,8 +464,8 @@ void ListCommonTestNg::CreateForEach(
     for (int32_t index = 0; index < itemNumber; index++) {
         newIds.emplace_back(std::to_string(index));
     }
-    std::list<int32_t> removedElmtId;
     forEachModelNG.SetNewIds(std::move(newIds));
+    std::list<int32_t> removedElmtId;
     forEachModelNG.SetRemovedElmtIds(removedElmtId);
     for (int32_t index = 0; index < itemNumber; index++) {
         // key is 0,1,2,3...
@@ -835,7 +840,7 @@ HWTEST_F(ListCommonTestNg, FocusStep007, TestSize.Level1)
 {
     /**
      * @tc.steps: step1. when List has unFocusable item
-     * @tc.expected: The unFocusable item would be skipped.
+     * @tc.expected: The unFocusable item would be skiped.
      */
     CreateList();
     CreateFocusableListItems(4);
@@ -862,7 +867,7 @@ HWTEST_F(ListCommonTestNg, FocusStep008, TestSize.Level1)
     EXPECT_EQ(pattern_->GetTotalOffset(), ITEM_MAIN_SIZE + 1.f);
     EXPECT_TRUE(IsEqualNextFocusNode(FocusStep::UP, 1, 0));
     FlushUITasks();
-    EXPECT_EQ(pattern_->GetTotalOffset(), 0);
+    EXPECT_EQ(pattern_->GetTotalOffset(), ITEM_MAIN_SIZE + 1.f);
 
     /**
      * @tc.steps: step3. GetNextFocusNode func from bottom boundary item
@@ -875,7 +880,7 @@ HWTEST_F(ListCommonTestNg, FocusStep008, TestSize.Level1)
     EXPECT_EQ(pattern_->GetTotalOffset(), 0);
     EXPECT_TRUE(IsEqualNextFocusNode(FocusStep::DOWN, 3, 4));
     FlushUITasks();
-    EXPECT_EQ(pattern_->GetTotalOffset(), 100);
+    EXPECT_EQ(pattern_->GetTotalOffset(), 0);
 }
 
 /**
@@ -1011,7 +1016,6 @@ HWTEST_F(ListCommonTestNg, FocusStep012, TestSize.Level1)
     EXPECT_TRUE(IsEqualNextFocusNodeHOMEEND(FocusStep::UP_END, 1, "headertext0"));
     EXPECT_TRUE(IsEqualNextFocusNodeHOMEEND(FocusStep::DOWN_END, 1, "footerbutton3"));
 }
-
 
 HWTEST_F(ListCommonTestNg, FocusWrapMode001, TestSize.Level1)
 {
@@ -1281,6 +1285,155 @@ HWTEST_F(ListCommonTestNg, FocusWrapMode014, TestSize.Level1)
      * @tc.expected: focus should not move (returns NULL_VALUE) because the fifth item is non-focusable.
      */
     EXPECT_TRUE(IsEqualNextFocusNodeInGroup(FocusStep::LEFT, 5, NULL_VALUE, 0, 8));
+}
+
+/**
+ * @tc.name: ItemFillPolicy001
+ * @tc.desc: Test specify the number of columns on list for different responsive breakpoints
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, ItemFillPolicy001, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetLanes(AceType::RawPtr(frameNode_), 2);
+    CreateListItems(10);
+    CreateDone();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 2), ITEM_MAIN_SIZE);
+
+    /**
+     * @tc.steps: step1. Set ItemFillPolicy to BREAKPOINT_DEFAULT.
+     * @tc.expected: The number of columns should be one.
+     */
+    model.SetItemFillPolicy(AceType::RawPtr(frameNode_), PresetFillType::BREAKPOINT_DEFAULT);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), ITEM_MAIN_SIZE);
+    EXPECT_EQ(GetChildY(frameNode_, 2), ITEM_MAIN_SIZE * 2);
+
+    /**
+     * @tc.steps: step2. Set ItemFillPolicy to BREAKPOINT_SM1MD2LG3.
+     * @tc.expected: The number of columns should be one.
+     */
+    model.SetItemFillPolicy(AceType::RawPtr(frameNode_), PresetFillType::BREAKPOINT_SM1MD2LG3);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), ITEM_MAIN_SIZE);
+    EXPECT_EQ(GetChildY(frameNode_, 2), ITEM_MAIN_SIZE * 2);
+
+    /**
+     * @tc.steps: step3. Set ItemFillPolicy to BREAKPOINT_SM2MD3LG5.
+     * @tc.expected: The number of columns should be two.
+     */
+    model.SetItemFillPolicy(AceType::RawPtr(frameNode_), PresetFillType::BREAKPOINT_SM2MD3LG5);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 2), ITEM_MAIN_SIZE);
+}
+
+/**
+ * @tc.name: ItemFillPolicy002
+ * @tc.desc: Test specify the number of columns on listItemGroup for different responsive breakpoints
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, ItemFillPolicy002, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    CreateListItemGroups(2, V2::ListItemGroupStyle::NONE, 10);
+    model.SetLanes(AceType::RawPtr(frameNode_), 2);
+    CreateDone();
+    RefPtr<FrameNode> groupNode = GetChildFrameNode(frameNode_, 0);
+    EXPECT_EQ(GetChildY(groupNode, 0), GetChildY(groupNode, 1));
+    EXPECT_EQ(GetChildY(groupNode, 2), GetChildY(groupNode, 3));
+
+    /**
+     * @tc.steps: step1. Set ItemFillPolicy to BREAKPOINT_DEFAULT.
+     * @tc.expected: The number of columns should be one.
+     */
+    model.SetItemFillPolicy(AceType::RawPtr(frameNode_), PresetFillType::BREAKPOINT_DEFAULT);
+    FlushUITasks();
+    EXPECT_LT(GetChildY(groupNode, 0), GetChildY(groupNode, 1));
+    EXPECT_LT(GetChildY(groupNode, 2), GetChildY(groupNode, 3));
+
+    /**
+     * @tc.steps: step2. Set ItemFillPolicy to BREAKPOINT_SM1MD2LG3.
+     * @tc.expected: The number of columns should be one.
+     */
+    model.SetItemFillPolicy(AceType::RawPtr(frameNode_), PresetFillType::BREAKPOINT_SM1MD2LG3);
+    FlushUITasks();
+    EXPECT_LT(GetChildY(groupNode, 0), GetChildY(groupNode, 1));
+    EXPECT_LT(GetChildY(groupNode, 2), GetChildY(groupNode, 3));
+
+    /**
+     * @tc.steps: step3. Set ItemFillPolicy to BREAKPOINT_SM2MD3LG5.
+     * @tc.expected: The number of columns should be two.
+     */
+    model.SetItemFillPolicy(AceType::RawPtr(frameNode_), PresetFillType::BREAKPOINT_SM2MD3LG5);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(groupNode, 0), GetChildY(groupNode, 1));
+    EXPECT_EQ(GetChildY(groupNode, 2), GetChildY(groupNode, 3));
+}
+
+/**
+ * @tc.name: ItemFillPolicy003
+ * @tc.desc: Test specify the number of columns on list for different responsive breakpoints and widths
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, ItemFillPolicy003, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetLanes(AceType::RawPtr(frameNode_), 1);
+    CreateListItems(10);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Set ItemFillPolicy to BREAKPOINT_SM1MD2LG3 and set width to 800.
+     * @tc.expected: The number of columns should be one.
+     */
+    model.SetItemFillPolicy(AceType::RawPtr(frameNode_), PresetFillType::BREAKPOINT_SM1MD2LG3);
+    ViewAbstract::SetWidth(AceType::RawPtr(frameNode_), CalcLength(800));
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 2), ITEM_MAIN_SIZE);
+
+    /**
+     * @tc.steps: step2. Set width to 1000.
+     * @tc.expected: The number of columns should be three.
+     */
+    ViewAbstract::SetWidth(AceType::RawPtr(frameNode_), CalcLength(1000));
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 2), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 3), ITEM_MAIN_SIZE);
+
+    /**
+     * @tc.steps: step3. Set ItemFillPolicy to BREAKPOINT_SM2MD3LG5 and set width to 800.
+     * @tc.expected: The number of columns should be three.
+     */
+    model.SetItemFillPolicy(AceType::RawPtr(frameNode_), PresetFillType::BREAKPOINT_SM2MD3LG5);
+    ViewAbstract::SetWidth(AceType::RawPtr(frameNode_), CalcLength(800));
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 2), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 3), ITEM_MAIN_SIZE);
+
+    /**
+     * @tc.steps: step4. Set width to 1000.
+     * @tc.expected: The number of columns should be five.
+     */
+    ViewAbstract::SetWidth(AceType::RawPtr(frameNode_), CalcLength(1000));
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 2), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 3), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 4), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 5), ITEM_MAIN_SIZE);
 }
 
 /**
@@ -2852,6 +3005,152 @@ HWTEST_F(ListCommonTestNg, GetCurrentOffset001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: GetTotalOffset001
+ * @tc.desc: Test GetTotalOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetTotalOffset001, TestSize.Level1)
+{
+    constexpr double contentMainSize = 1000000000.0;
+    constexpr double itemMainSize = 50000000.0;
+    constexpr int32_t totalItemCount = contentMainSize / itemMainSize;
+
+    CreateList();
+    CreateItemWithSize(totalItemCount, SizeT<Dimension>(FILL_LENGTH, Dimension(itemMainSize)));
+    CreateDone();
+
+    ScrollToIndex(totalItemCount - 1, false, ScrollAlign::AUTO);
+
+    double prevOffset = pattern_->GetTotalOffset();
+    float delta = 1.0f;
+    UpdateCurrentOffset(delta);
+    double currentOffset = pattern_->GetTotalOffset();
+    EXPECT_TRUE(IsEqual(currentOffset, prevOffset - delta));
+
+    prevOffset = pattern_->GetTotalOffset();
+    delta = -1.0f;
+    UpdateCurrentOffset(delta);
+    currentOffset = pattern_->GetTotalOffset();
+    EXPECT_TRUE(IsEqual(currentOffset, prevOffset - delta));
+}
+
+/**
+ * @tc.name: EstimateHeight001
+ * @tc.desc: While updating the position of scroll bar, test estimateHeight
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, EstimateHeight001, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    int32_t itemNumber = 1000;
+    float itemMainSize = 100.0f;
+    int32_t lanes = 3;
+    model.SetSpace(Dimension(SPACE));
+    model.SetLanes(lanes);
+    CreateItemsInLazyForEach(itemNumber, itemMainSize);
+
+    CreateDone();
+    auto gtHeight = ((itemNumber + lanes - 1) / lanes - 1) * SPACE + itemMainSize * ((itemNumber + lanes - 1) / lanes);
+
+    ScrollToIndex(900, false, ScrollAlign::START);
+    {
+        auto calculate = ListHeightOffsetCalculator(pattern_->itemPosition_, pattern_->spaceWidth_, pattern_->lanes_,
+            pattern_->GetAxis(), pattern_->itemStartIndex_);
+        calculate.SetPosMap(pattern_->posMap_);
+        calculate.GetEstimateHeightAndOffset(pattern_->GetHost());
+        auto estimatedHeight = calculate.GetEstimateHeight();
+
+        EXPECT_TRUE(IsEqual(estimatedHeight, gtHeight));
+    }
+
+    UpdateCurrentOffset(-157.0f);
+    {
+        auto calculate = ListHeightOffsetCalculator(pattern_->itemPosition_, pattern_->spaceWidth_, pattern_->lanes_,
+            pattern_->GetAxis(), pattern_->itemStartIndex_);
+        calculate.SetPosMap(pattern_->posMap_);
+        calculate.GetEstimateHeightAndOffset(pattern_->GetHost());
+        auto estimatedHeight = calculate.GetEstimateHeight();
+        EXPECT_TRUE(IsEqual(estimatedHeight, gtHeight));
+    }
+}
+
+/**
+ * @tc.name: EstimateHeight002
+ * @tc.desc: While updating the position of scroll bar, test estimateHeight for ItemGroups
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, EstimateHeight002, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetSpace(Dimension(SPACE));
+    int32_t groupNumber = 1000;
+    CreateItemGroupsInLazyForEach(1000);
+    CreateDone();
+    auto gtHeight = (groupNumber - 1) * SPACE + 100.0 * 2 * groupNumber;
+
+    ScrollToIndex(900, false, ScrollAlign::START);
+    {
+        auto calculate = ListHeightOffsetCalculator(pattern_->itemPosition_, pattern_->spaceWidth_, pattern_->lanes_,
+            pattern_->GetAxis(), pattern_->itemStartIndex_);
+        calculate.SetPosMap(pattern_->posMap_);
+        calculate.GetEstimateHeightAndOffset(pattern_->GetHost());
+        auto estimatedHeight = calculate.GetEstimateHeight();
+        EXPECT_TRUE(IsEqual(estimatedHeight, gtHeight));
+    }
+
+    UpdateCurrentOffset(157.0f);
+    {
+        auto calculate = ListHeightOffsetCalculator(pattern_->itemPosition_, pattern_->spaceWidth_, pattern_->lanes_,
+            pattern_->GetAxis(), pattern_->itemStartIndex_);
+        calculate.SetPosMap(pattern_->posMap_);
+        calculate.GetEstimateHeightAndOffset(pattern_->GetHost());
+        auto estimatedHeight = calculate.GetEstimateHeight();
+        EXPECT_TRUE(IsEqual(estimatedHeight, gtHeight));
+    }
+}
+
+/**
+ * @tc.name: EstimateHeight003
+ * @tc.desc: While updating the position of scroll bar, test estimateHeight for multiple lazyforeach
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, EstimateHeight003, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetSpace(Dimension(SPACE));
+    const int32_t itemCount1 = 20;
+    const float itemMainSize1 = 200;
+    const int32_t itemCount2 = 100;
+    const float itemMainSize2 = 200;
+    CreateItemsInLazyForEach(itemCount1, itemMainSize1);
+    ViewStackProcessor::GetInstance()->Pop();
+    ViewStackProcessor::GetInstance()->StopGetAccessRecording();
+    CreateItemsInLazyForEach(itemCount2, itemMainSize2);
+    CreateDone();
+    auto gtHeight = itemCount1 * itemMainSize1 + itemCount2 * itemMainSize2 + SPACE * (itemCount1 + itemCount2 - 1);
+
+    ScrollToIndex(70, false, ScrollAlign::START);
+    {
+        auto calculate = ListHeightOffsetCalculator(pattern_->itemPosition_, pattern_->spaceWidth_, pattern_->lanes_,
+            pattern_->GetAxis(), pattern_->itemStartIndex_);
+        calculate.SetPosMap(pattern_->posMap_);
+        calculate.GetEstimateHeightAndOffset(pattern_->GetHost());
+        auto estimatedHeight = calculate.GetEstimateHeight();
+        EXPECT_TRUE(IsEqual(estimatedHeight, gtHeight));
+    }
+
+    UpdateCurrentOffset(157.0f);
+    {
+        auto calculate = ListHeightOffsetCalculator(pattern_->itemPosition_, pattern_->spaceWidth_, pattern_->lanes_,
+            pattern_->GetAxis(), pattern_->itemStartIndex_);
+        calculate.SetPosMap(pattern_->posMap_);
+        calculate.GetEstimateHeightAndOffset(pattern_->GetHost());
+        auto estimatedHeight = calculate.GetEstimateHeight();
+        EXPECT_TRUE(IsEqual(estimatedHeight, gtHeight));
+    }
+}
+
+/**
  * @tc.name: OnAnimateStop001
  * @tc.desc: Test OnAnimateStop
  * @tc.type: FUNC
@@ -3026,6 +3325,101 @@ HWTEST_F(ListCommonTestNg, SetDigitalCrownSensitivity002, TestSize.Level1)
     EXPECT_EQ(pattern_->GetTotalOffset(), 0);
 }
 #endif
+
+/**
+ * @tc.name: ChainAnimation001
+ * @tc.desc: The SpaceDelta will be cleared before the layout list crosses the boundary.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, ChainAnimation001, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetSpace(Dimension(SPACE));
+    model.SetChainAnimation(true);
+    model.SetChainAnimationOptions({ Dimension(0), Dimension(20), 0, 1, 0, DEFAULT_STIFFNESS, DEFAULT_DAMPING });
+    CreateListItems(5);
+    CreateDone();
+
+    pattern_->chainAnimation_->SetEdgeEffectIntensity(1);
+    pattern_->chainAnimation_->SetDelta(0, 10);
+
+    EXPECT_EQ(pattern_->GetChainDelta(1), -10);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->GetChainDelta(1), 0);
+}
+
+/**
+ * @tc.name: ChainAnimation002
+ * @tc.desc: When the list is layout from the end, The SpaceDelta will be cleared before
+ * the layout list crosses the boundary.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, ChainAnimation002, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetSpace(Dimension(SPACE));
+    model.SetChainAnimation(true);
+    model.SetChainAnimationOptions({ Dimension(0), Dimension(20), 0, 1, 0, DEFAULT_STIFFNESS, DEFAULT_DAMPING });
+    model.SetStackFromEnd(true);
+    CreateListItems(5);
+    CreateDone();
+
+    pattern_->chainAnimation_->SetEdgeEffectIntensity(1);
+    pattern_->chainAnimation_->SetDelta(0, 10);
+
+    EXPECT_EQ(pattern_->GetChainDelta(1), -10);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->GetChainDelta(1), 0);
+}
+
+/**
+ * @tc.name: ChainAnimation003
+ * @tc.desc: When the screen is not full, the SpaceDelta will be cleared before the layout list crosses the boundary.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, ChainAnimation003, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetSpace(Dimension(SPACE));
+    model.SetChainAnimation(true);
+    model.SetChainAnimationOptions({ Dimension(0), Dimension(20), 0, 1, 0, DEFAULT_STIFFNESS, DEFAULT_DAMPING });
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    CreateListItems(2);
+    CreateDone();
+
+    pattern_->chainAnimation_->SetEdgeEffectIntensity(1);
+    pattern_->chainAnimation_->SetDelta(0, 10);
+
+    EXPECT_EQ(pattern_->GetChainDelta(1), -10);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->GetChainDelta(1), 0);
+}
+
+/**
+ * @tc.name: ChainAnimation004
+ * @tc.desc: When the screen is not full and the list is layout from the end, the SpaceDelta will
+ * be cleared before the layout list crosses the boundary.
+ * repeat and itemDragEvents are null.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, ChainAnimation004, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    model.SetSpace(Dimension(SPACE));
+    model.SetChainAnimation(true);
+    model.SetChainAnimationOptions({ Dimension(0), Dimension(20), 0, 1, 0, DEFAULT_STIFFNESS, DEFAULT_DAMPING });
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    model.SetStackFromEnd(true);
+    CreateListItems(2);
+    CreateDone();
+
+    pattern_->chainAnimation_->SetEdgeEffectIntensity(1);
+    pattern_->chainAnimation_->SetDelta(0, 10);
+
+    EXPECT_EQ(pattern_->GetChainDelta(1), -10);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->GetChainDelta(1), 0);
+}
 
 /**
  * @tc.name: ItemDragEventHandler001
@@ -3611,578 +4005,6 @@ HWTEST_F(ListCommonTestNg, RepeatNodeItemDragEventHandler003, TestSize.Level1)
 }
 
 /**
- * @tc.name: ChainAnimation001
- * @tc.desc: The SpaceDelta will be cleared before the layout list crosses the boundary.
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, ChainAnimation001, TestSize.Level1)
-{
-    ListModelNG model = CreateList();
-    model.SetSpace(Dimension(SPACE));
-    model.SetChainAnimation(true);
-    model.SetChainAnimationOptions({ Dimension(0), Dimension(20), 0, 1, 0, DEFAULT_STIFFNESS, DEFAULT_DAMPING });
-    CreateListItems(5);
-    CreateDone();
-
-    pattern_->chainAnimation_->SetEdgeEffectIntensity(1);
-    pattern_->chainAnimation_->SetDelta(0, 10);
-
-    EXPECT_EQ(pattern_->GetChainDelta(1), -10);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->GetChainDelta(1), 0);
-}
-
-/**
- * @tc.name: ChainAnimation002
- * @tc.desc: When the list is layout from the end, The SpaceDelta will be cleared before
- * the layout list crosses the boundary.
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, ChainAnimation002, TestSize.Level1)
-{
-    ListModelNG model = CreateList();
-    model.SetSpace(Dimension(SPACE));
-    model.SetChainAnimation(true);
-    model.SetChainAnimationOptions({ Dimension(0), Dimension(20), 0, 1, 0, DEFAULT_STIFFNESS, DEFAULT_DAMPING });
-    model.SetStackFromEnd(true);
-    CreateListItems(5);
-    CreateDone();
-
-    pattern_->chainAnimation_->SetEdgeEffectIntensity(1);
-    pattern_->chainAnimation_->SetDelta(0, 10);
-
-    EXPECT_EQ(pattern_->GetChainDelta(1), -10);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->GetChainDelta(1), 0);
-}
-
-/**
- * @tc.name: ChainAnimation003
- * @tc.desc: When the screen is not full, the SpaceDelta will be cleared before the layout list crosses the boundary.
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, ChainAnimation003, TestSize.Level1)
-{
-    ListModelNG model = CreateList();
-    model.SetSpace(Dimension(SPACE));
-    model.SetChainAnimation(true);
-    model.SetChainAnimationOptions({ Dimension(0), Dimension(20), 0, 1, 0, DEFAULT_STIFFNESS, DEFAULT_DAMPING });
-    model.SetEdgeEffect(EdgeEffect::SPRING, true);
-    CreateListItems(2);
-    CreateDone();
-
-    pattern_->chainAnimation_->SetEdgeEffectIntensity(1);
-    pattern_->chainAnimation_->SetDelta(0, 10);
-
-    EXPECT_EQ(pattern_->GetChainDelta(1), -10);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->GetChainDelta(1), 0);
-}
-
-/**
- * @tc.name: ChainAnimation004
- * @tc.desc: When the screen is not full and the list is layout from the end, the SpaceDelta will
- * be cleared before the layout list crosses the boundary.
- * repeat and itemDragEvents are null.
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, ChainAnimation004, TestSize.Level1)
-{
-    ListModelNG model = CreateList();
-    model.SetSpace(Dimension(SPACE));
-    model.SetChainAnimation(true);
-    model.SetChainAnimationOptions({ Dimension(0), Dimension(20), 0, 1, 0, DEFAULT_STIFFNESS, DEFAULT_DAMPING });
-    model.SetEdgeEffect(EdgeEffect::SPRING, true);
-    model.SetStackFromEnd(true);
-    CreateListItems(2);
-    CreateDone();
-
-    pattern_->chainAnimation_->SetEdgeEffectIntensity(1);
-    pattern_->chainAnimation_->SetDelta(0, 10);
-
-    EXPECT_EQ(pattern_->GetChainDelta(1), -10);
-    FlushUITasks();
-    EXPECT_EQ(pattern_->GetChainDelta(1), 0);
-}
-
-/**
- * @tc.name: CreateWithResourceObjFriction
- * @tc.desc: Test CreateWithResourceObjFriction in ListModelNG
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, CreateWithResourceObjFriction001, TestSize.Level1)
-{
-    ListModelNG model = CreateList();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    const double DEFAULT_FRICTION = 10000000.0f;
-    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    // remove callback function
-    model.CreateWithResourceObjFriction(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    model.CreateWithResourceObjFriction(resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    pattern_->friction_ = DEFAULT_FRICTION;
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, DEFAULT_FRICTION);
-
-    // remove callback function
-    model.CreateWithResourceObjFriction(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    std::vector<ResourceObjectParams> params;
-    resObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
-
-    // add callback function
-    model.CreateWithResourceObjFriction(resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    pattern_->friction_ = DEFAULT_FRICTION;
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, DEFAULT_FRICTION);
-
-    // remove callback function
-    model.CreateWithResourceObjFriction(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-}
-
-/**
- * @tc.name: CreateWithResourceObjFriction
- * @tc.desc: Test CreateWithResourceObjFriction in ListModelNG
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, CreateWithResourceObjFriction002, TestSize.Level1)
-{
-    ListModelNG model = CreateList();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    const double DEFAULT_FRICTION = 10000000.0f;
-    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    ListModelNG::CreateWithResourceObjFriction(nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    ListModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    ListModelNG::CreateWithResourceObjFriction(nullptr, resObj);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    ListModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-    pattern_->friction_ = DEFAULT_FRICTION;
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, DEFAULT_FRICTION);
-
-    // remove callback function
-    ListModelNG::CreateWithResourceObjFriction(nullptr, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_, nullptr);
-    ListModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    std::vector<ResourceObjectParams> params;
-    resObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
-
-    ListModelNG::CreateWithResourceObjFriction(nullptr, resObj);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    ListModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-    pattern_->friction_ = DEFAULT_FRICTION;
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, DEFAULT_FRICTION);
-
-    // remove callback function
-    ListModelNG::CreateWithResourceObjFriction(nullptr, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_, nullptr);
-    ListModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-}
-
-/**
- * @tc.name: CreateWithResourceObjLaneGutter
- * @tc.desc: Test CreateWithResourceObjLaneGutter in ListModelNG
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneGutter001, TestSize.Level1)
-{
-    ListModelNG model = CreateList();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    const CalcDimension DEFAULT_LANE_GUTTER = 10000000.0_vp;
-    CalcDimension laneGutter;
-    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    // remove callback function
-    model.CreateWithResourceObjLaneGutter(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    model.CreateWithResourceObjLaneGutter(resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    laneGutter.Reset();
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, DEFAULT_LANE_GUTTER, frameNode_);
-    pattern_->resourceMgr_->ReloadResources();
-    ACE_GET_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, laneGutter, frameNode_);
-    EXPECT_NE(laneGutter, DEFAULT_LANE_GUTTER);
-
-    // remove callback function
-    model.CreateWithResourceObjLaneGutter(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    std::vector<ResourceObjectParams> params;
-    resObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
-
-    // add callback function
-    model.CreateWithResourceObjLaneGutter(resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    laneGutter.Reset();
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, DEFAULT_LANE_GUTTER, frameNode_);
-    pattern_->resourceMgr_->ReloadResources();
-    ACE_GET_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, laneGutter, frameNode_);
-    EXPECT_NE(laneGutter, DEFAULT_LANE_GUTTER);
-
-    // remove callback function
-    model.CreateWithResourceObjLaneGutter(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-}
-
-/**
- * @tc.name: CreateWithResourceObjLaneGutter
- * @tc.desc: Test CreateWithResourceObjLaneGutter in ListModelNG
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneGutter002, TestSize.Level1)
-{
-    ResetMockResourceData();
-    ListModelNG model = CreateList();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    const CalcDimension DEFAULT_LANE_GUTTER = 10000000.0_vp;
-    CalcDimension laneGutter;
-    int32_t id = 1;
-    AddMockResourceData(id, -1);
-    std::vector<ResourceObjectParams> params;
-    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>(id,
-        static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
-
-    // add callback function
-    model.CreateWithResourceObjLaneGutter(resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    laneGutter.Reset();
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, DEFAULT_LANE_GUTTER, frameNode_);
-    pattern_->resourceMgr_->ReloadResources();
-    ACE_GET_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, laneGutter, frameNode_);
-    EXPECT_NE(laneGutter, DEFAULT_LANE_GUTTER);
-
-    // remove callback function
-    model.CreateWithResourceObjLaneGutter(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-    ResetMockResourceData();
-}
-
-/**
- * @tc.name: CreateWithResourceObjLaneConstrain
- * @tc.desc: Test CreateWithResourceObjLaneConstrain in ListModelNG
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneConstrain001, TestSize.Level1)
-{
-    g_isConfigChangePerform = true;
-
-    ListModelNG model = CreateList();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    const CalcDimension DEFAULT_LANE_LENGTH = 10000000.0_vp;
-    CalcDimension laneMinLength;
-    CalcDimension laneMaxLength;
-    RefPtr<ResourceObject> resMinObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-    RefPtr<ResourceObject> resMaxObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    // remove callback function
-    model.CreateWithResourceObjLaneConstrain(nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    model.CreateWithResourceObjLaneConstrain(resMinObj, resMaxObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    laneMinLength.Reset();
-    laneMaxLength.Reset();
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMinLength, DEFAULT_LANE_LENGTH, frameNode_);
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMaxLength, DEFAULT_LANE_LENGTH, frameNode_);
-    pattern_->resourceMgr_->ReloadResources();
-    laneMinLength = GetLaneMinLength(AceType::RawPtr(frameNode_));
-    laneMaxLength = GetLaneMaxLength(AceType::RawPtr(frameNode_));
-    EXPECT_NE(laneMinLength, DEFAULT_LANE_LENGTH);
-    EXPECT_NE(laneMaxLength, DEFAULT_LANE_LENGTH);
-
-    // remove callback function
-    model.CreateWithResourceObjLaneConstrain(nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    g_isConfigChangePerform = false;
-}
-
-
-/**
- * @tc.name: CreateWithResourceObjLaneConstrain
- * @tc.desc: Test CreateWithResourceObjLaneConstrain in ListModelNG
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneConstrain002, TestSize.Level1)
-{
-    g_isConfigChangePerform = true;
-
-    ListModelNG model = CreateList();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    const CalcDimension DEFAULT_LANE_LENGTH = 10000000.0_vp;
-    CalcDimension laneMinLength;
-    CalcDimension laneMaxLength;
-    RefPtr<ResourceObject> resMinObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-    RefPtr<ResourceObject> resMaxObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    // remove callback function
-    model.CreateWithResourceObjLaneConstrain(nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    std::vector<ResourceObjectParams> params;
-    resMinObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
-    resMaxObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
-
-    // add callback function
-    model.CreateWithResourceObjLaneConstrain(resMinObj, resMaxObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    laneMinLength.Reset();
-    laneMaxLength.Reset();
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMinLength, DEFAULT_LANE_LENGTH, frameNode_);
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMaxLength, DEFAULT_LANE_LENGTH, frameNode_);
-    pattern_->resourceMgr_->ReloadResources();
-    laneMinLength = GetLaneMinLength(AceType::RawPtr(frameNode_));
-    laneMaxLength = GetLaneMaxLength(AceType::RawPtr(frameNode_));
-    EXPECT_NE(laneMinLength, DEFAULT_LANE_LENGTH);
-    EXPECT_NE(laneMaxLength, DEFAULT_LANE_LENGTH);
-
-    // remove callback function
-    model.CreateWithResourceObjLaneConstrain(nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    g_isConfigChangePerform = false;
-}
-
-/**
- * @tc.name: CreateWithResourceObjLaneConstrain
- * @tc.desc: Test CreateWithResourceObjLaneConstrain in ListModelNG
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneConstrain003, TestSize.Level1)
-{
-    ListModelNG model = CreateList();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    const CalcDimension DEFAULT_LANE_LENGTH = 10000000.0_vp;
-    CalcDimension laneMinLength;
-    CalcDimension laneMaxLength;
-    RefPtr<ResourceObject> resMinObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-    RefPtr<ResourceObject> resMaxObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    // remove callback function
-    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, resMinObj, resMaxObj);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), resMinObj, resMaxObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    laneMinLength.Reset();
-    laneMaxLength.Reset();
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMinLength, DEFAULT_LANE_LENGTH, frameNode_);
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMaxLength, DEFAULT_LANE_LENGTH, frameNode_);
-    pattern_->resourceMgr_->ReloadResources();
-    laneMinLength = GetLaneMinLength(AceType::RawPtr(frameNode_));
-    laneMaxLength = GetLaneMaxLength(AceType::RawPtr(frameNode_));
-    EXPECT_NE(laneMinLength, DEFAULT_LANE_LENGTH);
-    EXPECT_NE(laneMaxLength, DEFAULT_LANE_LENGTH);
-
-    // remove callback function
-    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, nullptr, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_, nullptr);
-    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-}
-
-/**
- * @tc.name: CreateWithResourceObjLaneConstrain
- * @tc.desc: Test CreateWithResourceObjLaneConstrain in ListModelNG
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneConstrain004, TestSize.Level1)
-{
-    ListModelNG model = CreateList();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    const CalcDimension DEFAULT_LANE_LENGTH = 10000000.0_vp;
-    CalcDimension laneMinLength;
-    CalcDimension laneMaxLength;
-    RefPtr<ResourceObject> resMinObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-    RefPtr<ResourceObject> resMaxObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    // remove callback function
-    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, resMinObj, resMaxObj);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    std::vector<ResourceObjectParams> params;
-    resMinObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
-    resMaxObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
-
-    // add callback function
-    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), resMinObj, resMaxObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    laneMinLength.Reset();
-    laneMaxLength.Reset();
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMinLength, DEFAULT_LANE_LENGTH, frameNode_);
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMaxLength, DEFAULT_LANE_LENGTH, frameNode_);
-    pattern_->resourceMgr_->ReloadResources();
-    laneMinLength = GetLaneMinLength(AceType::RawPtr(frameNode_));
-    laneMaxLength = GetLaneMaxLength(AceType::RawPtr(frameNode_));
-    EXPECT_NE(laneMinLength, DEFAULT_LANE_LENGTH);
-    EXPECT_NE(laneMaxLength, DEFAULT_LANE_LENGTH);
-
-    // remove callback function
-    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, nullptr, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_, nullptr);
-    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-}
-
-
-/**
- * @tc.name: ParseResObjDividerStrokeWidth
- * @tc.desc: Test ParseResObjDividerStrokeWidth in ListModelNG
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, ParseResObjDivider001, TestSize.Level1)
-{
-    ListModelNG model = CreateList();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-    const CalcDimension DEFAULT_DIMENSION = 10000000.0_vp;
-    const Color DEFAULT_COLOR = Color::RED;
-
-    ListModelNG::ParseResObjDividerStrokeWidth(nullptr, nullptr);
-    ListModelNG::ParseResObjDividerColor(nullptr, nullptr);
-    ListModelNG::ParseResObjDividerStartMargin(nullptr, nullptr);
-    ListModelNG::ParseResObjDividerEndMargin(nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    ListModelNG::ParseResObjDividerStrokeWidth(AceType::RawPtr(frameNode_), nullptr);
-    ListModelNG::ParseResObjDividerColor(AceType::RawPtr(frameNode_), nullptr);
-    ListModelNG::ParseResObjDividerStartMargin(AceType::RawPtr(frameNode_), nullptr);
-    ListModelNG::ParseResObjDividerEndMargin(AceType::RawPtr(frameNode_), nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    ListModelNG::ParseResObjDividerStrokeWidth(nullptr, resObj);
-    ListModelNG::ParseResObjDividerColor(nullptr, resObj);
-    ListModelNG::ParseResObjDividerStartMargin(nullptr, resObj);
-    ListModelNG::ParseResObjDividerEndMargin(nullptr, resObj);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    ListModelNG::ParseResObjDividerStrokeWidth(AceType::RawPtr(frameNode_), resObj);
-    ListModelNG::ParseResObjDividerColor(AceType::RawPtr(frameNode_), resObj);
-    ListModelNG::ParseResObjDividerStartMargin(AceType::RawPtr(frameNode_), resObj);
-    ListModelNG::ParseResObjDividerEndMargin(AceType::RawPtr(frameNode_), resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    V2::ItemDivider divider = { DEFAULT_DIMENSION, DEFAULT_DIMENSION, DEFAULT_DIMENSION, DEFAULT_COLOR };
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, Divider, divider, frameNode_);
-    pattern_->resourceMgr_->ReloadResources();
-    divider = GetDivider(AceType::RawPtr(frameNode_));
-    EXPECT_NE(divider.strokeWidth, DEFAULT_DIMENSION);
-    EXPECT_NE(divider.startMargin, DEFAULT_DIMENSION);
-    EXPECT_NE(divider.endMargin, DEFAULT_DIMENSION);
-    EXPECT_NE(divider.color, DEFAULT_COLOR);
-}
-
-/**
- * @tc.name: UpdateDefaultColorTest
- * @tc.desc: Test ListPattern UpdateDefaultColor
- * @tc.type: FUNC
- */
-HWTEST_F(ListCommonTestNg, UpdateDefaultColorTest, TestSize.Level1)
-{
-    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
-    RefPtr<FrameNode> hostNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 1, listPattern);
-    auto listTheme = MockPipelineContext::pipeline_->GetTheme<ListTheme>();
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, DividerColorSetByUser, false, hostNode);
-    V2::ItemDivider value;
-    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(ListLayoutProperty, Divider, value, hostNode, value);
-    value.color = Color::RED;
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, Divider, value, hostNode);
-    listPattern->UpdateDefaultColor();
-    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(ListLayoutProperty, Divider, value, hostNode, value);
-    EXPECT_NE(value.color, Color::RED);
-
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, DividerColorSetByUser, true, hostNode);
-    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(ListLayoutProperty, Divider, value, hostNode, value);
-    value.color = Color::RED;
-    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, Divider, value, hostNode);
-    listPattern->UpdateDefaultColor();
-    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(ListLayoutProperty, Divider, value, hostNode, value);
-    EXPECT_EQ(value.color, Color::RED);
-}
-
-/**
  * @tc.name: IsInViewPort001
  * @tc.desc: Test Focus with Scroll
  * @tc.type: FUNC
@@ -4418,7 +4240,7 @@ HWTEST_F(ListCommonTestNg, FireFocus001, TestSize.Level1)
 
     /**
      * @tc.steps: step2. Focus node outside the viewport
-     * @tc.expected: lost focus for this node
+     * @tc.expected: don't lost focus for this node
      */
     pattern_->focusIndex_ = 6;
     pattern_->startIndex_ = 1;
@@ -4427,6 +4249,66 @@ HWTEST_F(ListCommonTestNg, FireFocus001, TestSize.Level1)
     pattern_->FireFocus();
     FlushUITasks();
     focusNode = GetChildFocusHub(frameNode_, 2);
+    EXPECT_TRUE(focusNode->IsCurrentFocus());
+}
+
+HWTEST_F(ListCommonTestNg, FireFocus002, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    CreateFocusableListItems(10);
+    CreateDone();
+
+    // Get ListItemNode
+    auto listItemNode = GetChildFrameNode(frameNode_, 3);
+    auto listItemPattern = listItemNode->GetPattern<ListItemPattern>();
+    
+    // Create RepeatVirtualScroll2Node
+    auto repeatNode = RepeatVirtualScroll2Node::GetOrCreateRepeatNode(
+        ElementRegister::GetInstance()->MakeUniqueId(),
+        10,
+        10,
+        [](int32_t, bool) { return std::make_pair(0, 0); },
+        [](int32_t, int32_t) {},
+        [](int32_t, int32_t, int32_t, int32_t, bool, bool) {},
+        [](int32_t, int32_t) {},
+        []() {},
+        []() {}
+    );
+    
+    // Set parent-child relationships
+    repeatNode->AddChild(listItemNode);
+    frameNode_->AddChild(repeatNode);
+
+    /**
+     * @tc.steps: step1. Focus node inside the viewport
+     * @tc.expected: request focus for this node
+     */
+    RefPtr<FocusHub> focusHub = frameNode_->GetFocusHub();
+    focusHub->currentFocus_ = true;
+
+    int32_t focusNodeIndex = 6;
+    pattern_->focusIndex_ = 3;
+    pattern_->startIndex_ = 1;
+    pattern_->endIndex_ = 4;
+    pattern_->maxListItemIndex_ = 10;
+    pattern_->FireFocus();
+    FlushUITasks();
+    RefPtr<FocusHub> focusNode = GetChildFocusHub(frameNode_, focusNodeIndex);
+    EXPECT_FALSE(focusNode->IsCurrentFocus());
+    focusNode = GetChildFocusHub(frameNode_, 3);
+    EXPECT_TRUE(focusNode->IsCurrentFocus());
+
+    /**
+     * @tc.steps: step2. Focus node outside the viewport
+     * @tc.expected: lost focus for this node
+     */
+    pattern_->focusIndex_ = 6;
+    pattern_->startIndex_ = 1;
+    pattern_->endIndex_ = 4;
+    pattern_->maxListItemIndex_ = 10;
+    pattern_->FireFocus();
+    FlushUITasks();
+    focusNode = GetChildFocusHub(frameNode_, 3);
     EXPECT_FALSE(focusNode->IsCurrentFocus());
 }
 
@@ -4566,11 +4448,626 @@ HWTEST_F(ListCommonTestNg, LostChildFocusToSelf001, TestSize.Level1)
 
     /**
      * @tc.steps: step2. Focus node scroll inside.
+     * @tc.expected: Node not lost focus
+     */
+    pattern_->UpdateCurrentOffset(-ITEM_MAIN_SIZE * 5, SCROLL_FROM_UPDATE);
+    FlushUITasks();
+    EXPECT_TRUE(focusNode->IsCurrentFocus());
+}
+
+/**
+ * @tc.name: LostChildFocusToSelf002
+ * @tc.desc: Test LostChildFocusToSelf
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, LostChildFocusToSelf002, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    auto headerNode = model.CreateFrameNode(0, false);
+    model.SetHeader(headerNode);
+    CreateFocusableListItems(10);
+    CreateDone();
+
+    RefPtr<FocusHub> focusHub = frameNode_->GetFocusHub();
+    focusHub->currentFocus_ = true;
+
+    /**
+     * @tc.steps: step1. Focus node scroll outside.
+     * @tc.expected: Node keep focus.
+     */
+    pattern_->focusIndex_ = 1;
+    pattern_->startIndex_ = 1;
+    pattern_->endIndex_ = 4;
+    pattern_->maxListItemIndex_ = 10;
+    pattern_->FireFocus();
+    FlushUITasks();
+    RefPtr<FocusHub> focusNode = GetChildFocusHub(frameNode_, 1);
+    focusNode = GetChildFocusHub(frameNode_, 1);
+    EXPECT_TRUE(focusNode->IsCurrentFocus());
+
+    pattern_->UpdateCurrentOffset(-ITEM_MAIN_SIZE * 1, SCROLL_FROM_UPDATE);
+    FlushUITasks();
+    EXPECT_TRUE(focusNode->IsCurrentFocus());
+
+    /**
+     * @tc.steps: step2. Focus node scroll inside.
+     * @tc.expected: Node not lost focus
+     */
+    pattern_->UpdateCurrentOffset(-ITEM_MAIN_SIZE * 5, SCROLL_FROM_UPDATE);
+    FlushUITasks();
+    EXPECT_TRUE(focusNode->IsCurrentFocus());
+}
+
+/**
+ * @tc.name: LostChildFocusToSelf003
+ * @tc.desc: Test LostChildFocusToSelf
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, LostChildFocusToSelf003, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    CreateFocusableListItems(10);
+    CreateDone();
+
+    // Get ListItemNode
+    auto listItemNode = GetChildFrameNode(frameNode_, 1);
+    auto listItemPattern = listItemNode->GetPattern<ListItemPattern>();
+    
+    // Create RepeatVirtualScroll2Node
+    auto repeatNode = RepeatVirtualScroll2Node::GetOrCreateRepeatNode(
+        ElementRegister::GetInstance()->MakeUniqueId(),
+        10,
+        10,
+        [](int32_t, bool) { return std::make_pair(0, 0); },
+        [](int32_t, int32_t) {},
+        [](int32_t, int32_t, int32_t, int32_t, bool, bool) {},
+        [](int32_t, int32_t) {},
+        []() {},
+        []() {}
+    );
+    
+    // Set parent-child relationships
+    repeatNode->AddChild(listItemNode);
+    frameNode_->AddChild(repeatNode);
+
+    RefPtr<FocusHub> focusHub = frameNode_->GetFocusHub();
+    focusHub->currentFocus_ = true;
+
+    /**
+     * @tc.steps: step1. Focus node scroll outside.
+     * @tc.expected: Node keep focus.
+     */
+    pattern_->focusIndex_ = 1;
+    pattern_->startIndex_ = 1;
+    pattern_->endIndex_ = 5;
+    pattern_->maxListItemIndex_ = 10;
+    pattern_->FireFocus();
+    FlushUITasks();
+    RefPtr<FocusHub> focusNode = GetChildFocusHub(frameNode_, 1);
+    focusNode = GetChildFocusHub(frameNode_, 1);
+    EXPECT_TRUE(focusNode->IsCurrentFocus());
+
+    pattern_->UpdateCurrentOffset(-ITEM_MAIN_SIZE * 1, SCROLL_FROM_UPDATE);
+    FlushUITasks();
+    EXPECT_TRUE(focusNode->IsCurrentFocus());
+
+    /**
+     * @tc.steps: step2. Focus node scroll inside.
      * @tc.expected: Node lost focus
      */
     pattern_->UpdateCurrentOffset(-ITEM_MAIN_SIZE * 5, SCROLL_FROM_UPDATE);
     FlushUITasks();
     EXPECT_FALSE(focusNode->IsCurrentFocus());
+}
+
+/**
+ * @tc.name: IsListItemGroupByIndex001
+ * @tc.desc: Test IsListItemGroupByIndex
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, IsListItemGroupByIndex001, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    CreateFocusableListItems(10);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Listitem is NOT ListItemGroup.
+     * @tc.expected: function return false.
+     */
+    EXPECT_FALSE(pattern_->IsListItemGroupByIndex(0));
+    /**
+     * @tc.steps: step1. Invaild index.
+     * @tc.expected: function return false.
+     */
+    EXPECT_FALSE(pattern_->IsListItemGroupByIndex(-1));
+}
+
+/**
+ * @tc.name: IsListItemGroupByIndex002
+ * @tc.desc: Test IsListItemGroupByIndex
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, IsListItemGroupByIndex002, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    CreateFocusableListItemGroups(3);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Index for ListItemGroup is valid.
+     * @tc.expected: function return false.
+     */
+    EXPECT_TRUE(pattern_->IsListItemGroupByIndex(0));
+
+    /**
+     * @tc.steps: step1. Index for ListItemGroup is NOT valid.
+     * @tc.expected: function return false.
+     */
+    EXPECT_FALSE(pattern_->IsListItemGroupByIndex(-1));
+    EXPECT_FALSE(pattern_->IsListItemGroupByIndex(5));
+}
+
+/**
+ * @tc.name: CreateWithResourceObjFriction
+ * @tc.desc: Test CreateWithResourceObjFriction in ListModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CreateWithResourceObjFriction001, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
+
+    const double DEFAULT_FRICTION = 10000000.0f;
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+
+    // remove callback function
+    model.CreateWithResourceObjFriction(nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    // add callback function
+    model.CreateWithResourceObjFriction(resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    pattern_->friction_ = DEFAULT_FRICTION;
+    pattern_->resourceMgr_->ReloadResources();
+    EXPECT_NE(pattern_->friction_, DEFAULT_FRICTION);
+
+    // remove callback function
+    model.CreateWithResourceObjFriction(nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    std::vector<ResourceObjectParams> params;
+    resObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
+
+    // add callback function
+    model.CreateWithResourceObjFriction(resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    pattern_->friction_ = DEFAULT_FRICTION;
+    pattern_->resourceMgr_->ReloadResources();
+    EXPECT_NE(pattern_->friction_, DEFAULT_FRICTION);
+
+    // remove callback function
+    model.CreateWithResourceObjFriction(nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+}
+
+/**
+ * @tc.name: CreateWithResourceObjFriction
+ * @tc.desc: Test CreateWithResourceObjFriction in ListModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CreateWithResourceObjFriction002, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
+
+    const double DEFAULT_FRICTION = 10000000.0f;
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+
+    ListModelNG::CreateWithResourceObjFriction(nullptr, nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    ListModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    // add callback function
+    ListModelNG::CreateWithResourceObjFriction(nullptr, resObj);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    ListModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+    pattern_->friction_ = DEFAULT_FRICTION;
+    pattern_->resourceMgr_->ReloadResources();
+    EXPECT_NE(pattern_->friction_, DEFAULT_FRICTION);
+
+    // remove callback function
+    ListModelNG::CreateWithResourceObjFriction(nullptr, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_, nullptr);
+    ListModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    std::vector<ResourceObjectParams> params;
+    resObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
+
+    ListModelNG::CreateWithResourceObjFriction(nullptr, resObj);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    // add callback function
+    ListModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+    pattern_->friction_ = DEFAULT_FRICTION;
+    pattern_->resourceMgr_->ReloadResources();
+    EXPECT_NE(pattern_->friction_, DEFAULT_FRICTION);
+
+    // remove callback function
+    ListModelNG::CreateWithResourceObjFriction(nullptr, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_, nullptr);
+    ListModelNG::CreateWithResourceObjFriction(AceType::RawPtr(frameNode_), nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+}
+
+/**
+ * @tc.name: CreateWithResourceObjLaneGutter
+ * @tc.desc: Test CreateWithResourceObjLaneGutter in ListModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneGutter001, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
+
+    const CalcDimension DEFAULT_LANE_GUTTER = 10000000.0_vp;
+    CalcDimension laneGutter;
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+
+    // remove callback function
+    model.CreateWithResourceObjLaneGutter(nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    // add callback function
+    model.CreateWithResourceObjLaneGutter(resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    laneGutter.Reset();
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, DEFAULT_LANE_GUTTER, frameNode_);
+    pattern_->resourceMgr_->ReloadResources();
+    ACE_GET_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, laneGutter, frameNode_);
+    EXPECT_NE(laneGutter, DEFAULT_LANE_GUTTER);
+
+    // remove callback function
+    model.CreateWithResourceObjLaneGutter(nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    std::vector<ResourceObjectParams> params;
+    resObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
+
+    // add callback function
+    model.CreateWithResourceObjLaneGutter(resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    laneGutter.Reset();
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, DEFAULT_LANE_GUTTER, frameNode_);
+    pattern_->resourceMgr_->ReloadResources();
+    ACE_GET_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, laneGutter, frameNode_);
+    EXPECT_NE(laneGutter, DEFAULT_LANE_GUTTER);
+
+    // remove callback function
+    model.CreateWithResourceObjLaneGutter(nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+}
+
+/**
+ * @tc.name: CreateWithResourceObjLaneGutter
+ * @tc.desc: Test CreateWithResourceObjLaneGutter in ListModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneGutter002, TestSize.Level1)
+{
+    ResetMockResourceData();
+    ListModelNG model = CreateList();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
+
+    const CalcDimension DEFAULT_LANE_GUTTER = 10000000.0_vp;
+    CalcDimension laneGutter;
+    int32_t id = 1;
+    AddMockResourceData(id, -1);
+    std::vector<ResourceObjectParams> params;
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>(id,
+        static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
+
+    // add callback function
+    model.CreateWithResourceObjLaneGutter(resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    laneGutter.Reset();
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, DEFAULT_LANE_GUTTER, frameNode_);
+    pattern_->resourceMgr_->ReloadResources();
+    ACE_GET_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneGutter, laneGutter, frameNode_);
+    EXPECT_NE(laneGutter, DEFAULT_LANE_GUTTER);
+
+    // remove callback function
+    model.CreateWithResourceObjLaneGutter(nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+    ResetMockResourceData();
+}
+
+/**
+ * @tc.name: CreateWithResourceObjLaneConstrain
+ * @tc.desc: Test CreateWithResourceObjLaneConstrain in ListModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneConstrain001, TestSize.Level1)
+{
+    g_isConfigChangePerform = true;
+
+    ListModelNG model = CreateList();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+
+    const CalcDimension DEFAULT_LANE_LENGTH = 10000000.0_vp;
+    CalcDimension laneMinLength;
+    CalcDimension laneMaxLength;
+    RefPtr<ResourceObject> resMinObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    RefPtr<ResourceObject> resMaxObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+
+    // remove callback function
+    model.CreateWithResourceObjLaneConstrain(nullptr, nullptr);
+
+    // add callback function
+    model.CreateWithResourceObjLaneConstrain(resMinObj, resMaxObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    laneMinLength.Reset();
+    laneMaxLength.Reset();
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMinLength, DEFAULT_LANE_LENGTH, frameNode_);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMaxLength, DEFAULT_LANE_LENGTH, frameNode_);
+    pattern_->resourceMgr_->ReloadResources();
+    laneMinLength = GetLaneMinLength(AceType::RawPtr(frameNode_));
+    laneMaxLength = GetLaneMaxLength(AceType::RawPtr(frameNode_));
+    EXPECT_NE(laneMinLength, DEFAULT_LANE_LENGTH);
+    EXPECT_NE(laneMaxLength, DEFAULT_LANE_LENGTH);
+
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: CreateWithResourceObjLaneConstrain
+ * @tc.desc: Test CreateWithResourceObjLaneConstrain in ListModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneConstrain002, TestSize.Level1)
+{
+    g_isConfigChangePerform = true;
+
+    ListModelNG model = CreateList();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+
+    const CalcDimension DEFAULT_LANE_LENGTH = 10000000.0_vp;
+    CalcDimension laneMinLength;
+    CalcDimension laneMaxLength;
+    RefPtr<ResourceObject> resMinObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    RefPtr<ResourceObject> resMaxObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+
+    // remove callback function
+    model.CreateWithResourceObjLaneConstrain(nullptr, nullptr);
+    std::vector<ResourceObjectParams> params;
+    resMinObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
+    resMaxObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
+
+    // add callback function
+    model.CreateWithResourceObjLaneConstrain(resMinObj, resMaxObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    laneMinLength.Reset();
+    laneMaxLength.Reset();
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMinLength, DEFAULT_LANE_LENGTH, frameNode_);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMaxLength, DEFAULT_LANE_LENGTH, frameNode_);
+    pattern_->resourceMgr_->ReloadResources();
+    laneMinLength = GetLaneMinLength(AceType::RawPtr(frameNode_));
+    laneMaxLength = GetLaneMaxLength(AceType::RawPtr(frameNode_));
+    EXPECT_NE(laneMinLength, DEFAULT_LANE_LENGTH);
+    EXPECT_NE(laneMaxLength, DEFAULT_LANE_LENGTH);
+
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: CreateWithResourceObjLaneConstrain
+ * @tc.desc: Test CreateWithResourceObjLaneConstrain in ListModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneConstrain003, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
+
+    const CalcDimension DEFAULT_LANE_LENGTH = 10000000.0_vp;
+    CalcDimension laneMinLength;
+    CalcDimension laneMaxLength;
+    RefPtr<ResourceObject> resMinObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    RefPtr<ResourceObject> resMaxObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+
+    // remove callback function
+    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, nullptr, nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, resMinObj, resMaxObj);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), nullptr, nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    // add callback function
+    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), resMinObj, resMaxObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    laneMinLength.Reset();
+    laneMaxLength.Reset();
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMinLength, DEFAULT_LANE_LENGTH, frameNode_);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMaxLength, DEFAULT_LANE_LENGTH, frameNode_);
+    pattern_->resourceMgr_->ReloadResources();
+    laneMinLength = GetLaneMinLength(AceType::RawPtr(frameNode_));
+    laneMaxLength = GetLaneMaxLength(AceType::RawPtr(frameNode_));
+    EXPECT_NE(laneMinLength, DEFAULT_LANE_LENGTH);
+    EXPECT_NE(laneMaxLength, DEFAULT_LANE_LENGTH);
+
+    // remove callback function
+    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, nullptr, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_, nullptr);
+    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), nullptr, nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+}
+
+/**
+ * @tc.name: CreateWithResourceObjLaneConstrain
+ * @tc.desc: Test CreateWithResourceObjLaneConstrain in ListModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CreateWithResourceObjLaneConstrain004, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
+
+    const CalcDimension DEFAULT_LANE_LENGTH = 10000000.0_vp;
+    CalcDimension laneMinLength;
+    CalcDimension laneMaxLength;
+    RefPtr<ResourceObject> resMinObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    RefPtr<ResourceObject> resMaxObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+
+    // remove callback function
+    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, nullptr, nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, resMinObj, resMaxObj);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), nullptr, nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    std::vector<ResourceObjectParams> params;
+    resMinObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
+    resMaxObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
+
+    // add callback function
+    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), resMinObj, resMaxObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    laneMinLength.Reset();
+    laneMaxLength.Reset();
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMinLength, DEFAULT_LANE_LENGTH, frameNode_);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, LaneMaxLength, DEFAULT_LANE_LENGTH, frameNode_);
+    pattern_->resourceMgr_->ReloadResources();
+    laneMinLength = GetLaneMinLength(AceType::RawPtr(frameNode_));
+    laneMaxLength = GetLaneMaxLength(AceType::RawPtr(frameNode_));
+    EXPECT_NE(laneMinLength, DEFAULT_LANE_LENGTH);
+    EXPECT_NE(laneMaxLength, DEFAULT_LANE_LENGTH);
+
+    // remove callback function
+    ListModelNG::CreateWithResourceObjLaneConstrain(nullptr, nullptr, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_, nullptr);
+    ListModelNG::CreateWithResourceObjLaneConstrain(AceType::RawPtr(frameNode_), nullptr, nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+}
+
+/**
+ * @tc.name: ParseResObjDividerStrokeWidth
+ * @tc.desc: Test ParseResObjDividerStrokeWidth in ListModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, ParseResObjDivider001, TestSize.Level1)
+{
+    ListModelNG model = CreateList();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
+
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+    const CalcDimension DEFAULT_DIMENSION = 10000000.0_vp;
+    const Color DEFAULT_COLOR = Color::RED;
+
+    ListModelNG::ParseResObjDividerStrokeWidth(nullptr, nullptr);
+    ListModelNG::ParseResObjDividerColor(nullptr, nullptr);
+    ListModelNG::ParseResObjDividerStartMargin(nullptr, nullptr);
+    ListModelNG::ParseResObjDividerEndMargin(nullptr, nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    ListModelNG::ParseResObjDividerStrokeWidth(AceType::RawPtr(frameNode_), nullptr);
+    ListModelNG::ParseResObjDividerColor(AceType::RawPtr(frameNode_), nullptr);
+    ListModelNG::ParseResObjDividerStartMargin(AceType::RawPtr(frameNode_), nullptr);
+    ListModelNG::ParseResObjDividerEndMargin(AceType::RawPtr(frameNode_), nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    ListModelNG::ParseResObjDividerStrokeWidth(nullptr, resObj);
+    ListModelNG::ParseResObjDividerColor(nullptr, resObj);
+    ListModelNG::ParseResObjDividerStartMargin(nullptr, resObj);
+    ListModelNG::ParseResObjDividerEndMargin(nullptr, resObj);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    ListModelNG::ParseResObjDividerStrokeWidth(AceType::RawPtr(frameNode_), resObj);
+    ListModelNG::ParseResObjDividerColor(AceType::RawPtr(frameNode_), resObj);
+    ListModelNG::ParseResObjDividerStartMargin(AceType::RawPtr(frameNode_), resObj);
+    ListModelNG::ParseResObjDividerEndMargin(AceType::RawPtr(frameNode_), resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    V2::ItemDivider divider = { DEFAULT_DIMENSION, DEFAULT_DIMENSION, DEFAULT_DIMENSION, DEFAULT_COLOR };
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, Divider, divider, frameNode_);
+    pattern_->resourceMgr_->ReloadResources();
+    divider = GetDivider(AceType::RawPtr(frameNode_));
+    EXPECT_NE(divider.strokeWidth, DEFAULT_DIMENSION);
+    EXPECT_NE(divider.startMargin, DEFAULT_DIMENSION);
+    EXPECT_NE(divider.endMargin, DEFAULT_DIMENSION);
+    EXPECT_NE(divider.color, DEFAULT_COLOR);
+}
+
+/**
+ * @tc.name: UpdateDefaultColorTest
+ * @tc.desc: Test ListPattern UpdateDefaultColor
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, UpdateDefaultColorTest, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    RefPtr<FrameNode> hostNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 1, listPattern);
+    auto listTheme = MockPipelineContext::pipeline_->GetTheme<ListTheme>();
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, DividerColorSetByUser, false, hostNode);
+    V2::ItemDivider value;
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(ListLayoutProperty, Divider, value, hostNode, value);
+    value.color = Color::RED;
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, Divider, value, hostNode);
+    listPattern->UpdateDefaultColor();
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(ListLayoutProperty, Divider, value, hostNode, value);
+    EXPECT_NE(value.color, Color::RED);
+
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, DividerColorSetByUser, true, hostNode);
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(ListLayoutProperty, Divider, value, hostNode, value);
+    value.color = Color::RED;
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, Divider, value, hostNode);
+    listPattern->UpdateDefaultColor();
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(ListLayoutProperty, Divider, value, hostNode, value);
+    EXPECT_EQ(value.color, Color::RED);
 }
 
 void ListCommonTestNg::MapEventInLazyForEachForItemDragEvent(int32_t* actualDragStartIndex, int32_t* actualOnDropIndex,
@@ -4925,5 +5422,376 @@ HWTEST_F(ListCommonTestNg, ParseResObjDividerEndMargin002, TestSize.Level1)
     pattern_->resourceMgr_->ReloadResources();
     divider = ListModelNG::GetDivider(AceType::RawPtr(frameNode_));
     EXPECT_NE(divider.endMargin, 1000.0_vp);
+}
+
+/**
+ * @tc.name: JudgeFocusDependence001
+ * @tc.desc: Test FocusDependence in List
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, JudgeFocusDependence001, TestSize.Level1)
+{
+    CreateList();
+    CreateListItems(TOTAL_ITEM_NUMBER);
+    CreateDone();
+    RefPtr<FocusHub> focusHub = frameNode_->GetFocusHub();
+    pattern_->OnModifyDone();
+    ASSERT_EQ(focusHub->GetFocusDependence(), FocusDependence::CHILD);
+}
+
+/**
+ * @tc.name: CAPIListChildrenMainSizeTest001
+ * @tc.desc: Test CAPI ListChildrenMainSize.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CAPIListChildrenMainSizeTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create List with ListChildrenMainSize
+     */
+    ListModelNG model = CreateList();
+    // Set children main size: 100.0f, 200.0f, 150.0f, 250.0f, 300.0f
+    std::vector<float> sizeArr = { 100.0f, 200.0f, 150.0f, 250.0f, 300.0f };
+    size_t tmpSize = sizeArr.size();
+    const float* srcData = sizeArr.data();
+    float defaultSize = 100.0f;
+    auto childrenSize = AceType::MakeRefPtr<ListChildrenMainSize>(std::move(sizeArr), defaultSize);
+    model.SetListChildrenMainSize(AceType::RawPtr(frameNode_), childrenSize);
+    CreateListItems(5);
+    CreateDone();
+
+    /**
+     * @tc.steps: step2. Check children main size
+     * @tc.expected: sizeArr is empty, childrenSize_ in pattern is set correctly.
+     */
+    EXPECT_TRUE(sizeArr.empty());
+    EXPECT_EQ(pattern_->childrenSize_, childrenSize);
+    EXPECT_EQ(pattern_->childrenSize_->childrenSize_.size(), tmpSize);
+    EXPECT_EQ(pattern_->childrenSize_->defaultSize_, defaultSize);
+    const float* destData = pattern_->childrenSize_->childrenSize_.data();
+    EXPECT_EQ(destData, srcData);
+}
+
+/**
+ * @tc.name: GetDummyItemRect001
+ * @tc.desc: Test ListPattern GetDummyItemRect when supportLazyLoadingEmptyBranch is false
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRect001, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(false);
+
+    RectF rect;
+    auto result = listPattern->GetDummyItemRect(0, rect);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: GetDummyItemRect002
+ * @tc.desc: Test ListPattern GetDummyItemRect when supportLazyLoadingEmptyBranch is true but itemPosition is empty
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRect002, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(true);
+
+    RectF rect;
+    auto result = listPattern->GetDummyItemRect(0, rect);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: GetDummyItemRect003
+ * @tc.desc: Test ListPattern GetDummyItemRect with itemPosition populated
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRect003, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(true);
+
+    listPattern->itemPosition_[0] = { 0, 10.0f, 50.0f, true };
+    listPattern->lanes_ = 1;
+
+    RectF rect;
+    auto result = listPattern->GetDummyItemRect(0, rect);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(rect.GetY(), 10.0f);
+    EXPECT_EQ(rect.Height(), 40.0f);
+}
+
+/**
+ * @tc.name: GetDummyItemRect004
+ * @tc.desc: Test ListPattern GetDummyItemRect with cachedItemPosition populated
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRect004, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(true);
+
+    listPattern->cachedItemPosition_[1] = { 1, 20.0f, 60.0f, true };
+    listPattern->lanes_ = 1;
+
+    RectF rect;
+    auto result = listPattern->GetDummyItemRect(1, rect);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(rect.GetY(), 20.0f);
+    EXPECT_EQ(rect.Height(), 40.0f);
+}
+
+/**
+ * @tc.name: GetDummyItemRect005
+ * @tc.desc: Test ListPattern GetDummyItemRect with multi-lanes
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRect005, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(true);
+
+    listPattern->itemPosition_[0] = { 0, 10.0f, 50.0f, true };
+    listPattern->itemPosition_[1] = { 1, 10.0f, 50.0f, true };
+    listPattern->itemPosition_[2] = { 2, 60.0f, 100.0f, true };
+    listPattern->lanes_ = 2;
+    listPattern->laneGutter_ = 10.0f;
+
+    RectF rect;
+    auto result = listPattern->GetDummyItemRect(2, rect);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(rect.GetY(), 60.0f);
+    EXPECT_EQ(rect.Height(), 40.0f);
+}
+
+/**
+ * @tc.name: GetDummyItemRect006
+ * @tc.desc: Test ListPattern GetDummyItemRect with RTL horizontal list
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRect006, TestSize.Level1)
+{
+    AceApplicationInfo::GetInstance().isRightToLeft_ = true;
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(true);
+    layoutProperty->UpdateListDirection(Axis::HORIZONTAL);
+
+    listPattern->itemPosition_[0] = { 0, 10.0f, 50.0f, true };
+    listPattern->lanes_ = 1;
+    listPattern->axis_ = Axis::HORIZONTAL;
+
+    RectF rect;
+    auto result = listPattern->GetDummyItemRect(0, rect);
+    EXPECT_TRUE(result);
+
+    AceApplicationInfo::GetInstance().isRightToLeft_ = false;
+}
+
+/**
+ * @tc.name: CheckItemExistence002
+ * @tc.desc: Test ListItemDragManager CheckItemExistence when frame node exists
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CheckItemExistence002, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto forEach = AceType::MakeRefPtr<ForEachNode>(0);
+    RefPtr<ListItemDragManager> dragManager = AceType::MakeRefPtr<ListItemDragManager>(listNode, forEach);
+
+    RefPtr<ShallowBuilder> shallowBuilder = AceType::MakeRefPtr<ShallowBuilder>(nullptr);
+    auto itemNode = FrameNode::CreateFrameNode(
+        V2::LIST_ITEM_ETS_TAG, 1, AceType::MakeRefPtr<ListItemPattern>(shallowBuilder));
+    forEach->children_.push_back(itemNode);
+
+    auto result = dragManager->CheckItemExistence(0);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: CheckItemExistence003
+ * @tc.desc: Test ListItemDragManager CheckItemExistence with lazy loading empty branch disabled
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, CheckItemExistence003, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(false);
+
+    auto forEach = AceType::MakeRefPtr<ForEachNode>(0);
+    RefPtr<ListItemDragManager> dragManager = AceType::MakeRefPtr<ListItemDragManager>(listNode, forEach);
+
+    auto result = dragManager->CheckItemExistence(0);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: GetDummyItemRectInDragManager003
+ * @tc.desc: Test ListItemDragManager GetDummyItemRect with null forEach
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRectInDragManager003, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    RefPtr<ForEachBaseNode> forEach = nullptr;
+    RefPtr<ListItemDragManager> dragManager = AceType::MakeRefPtr<ListItemDragManager>(listNode, forEach);
+
+    RectF rect;
+    auto result = dragManager->GetDummyItemRect(0, rect);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: GetDummyItemRect007
+ * @tc.desc: Test ListPattern GetDummyItemRect with vertical multi-lanes
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRect007, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(true);
+
+    listPattern->itemPosition_[0] = { 0, 0.0f, 50.0f, true };
+    listPattern->itemPosition_[1] = { 1, 0.0f, 50.0f, true };
+    listPattern->itemPosition_[2] = { 2, 0.0f, 50.0f, true };
+    listPattern->lanes_ = 3;
+    listPattern->laneGutter_ = 5.0f;
+    listPattern->axis_ = Axis::VERTICAL;
+
+    RectF rect;
+    auto result = listPattern->GetDummyItemRect(1, rect);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: GetDummyItemRect008
+ * @tc.desc: Test ListPattern GetDummyItemRect with horizontal list
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRect008, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(true);
+    layoutProperty->UpdateListDirection(Axis::HORIZONTAL);
+
+    listPattern->itemPosition_[0] = { 0, 10.0f, 60.0f, true };
+    listPattern->lanes_ = 1;
+    listPattern->axis_ = Axis::HORIZONTAL;
+
+    RectF rect;
+    auto result = listPattern->GetDummyItemRect(0, rect);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(rect.GetX(), 10.0f);
+    EXPECT_EQ(rect.Width(), 50.0f);
+}
+
+/**
+ * @tc.name: GetDummyItemRect009
+ * @tc.desc: Test ListPattern GetDummyItemRect with horizontal multi-lanes
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRect009, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(true);
+    layoutProperty->UpdateListDirection(Axis::HORIZONTAL);
+
+    listPattern->itemPosition_[0] = { 0, 10.0f, 60.0f, true };
+    listPattern->itemPosition_[1] = { 1, 10.0f, 60.0f, true };
+    listPattern->itemPosition_[2] = { 2, 70.0f, 120.0f, true };
+    listPattern->lanes_ = 2;
+    listPattern->laneGutter_ = 10.0f;
+    listPattern->axis_ = Axis::HORIZONTAL;
+
+    RectF rect;
+    auto result = listPattern->GetDummyItemRect(2, rect);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(rect.GetX(), 70.0f);
+    EXPECT_EQ(rect.Width(), 50.0f);
+}
+
+/**
+ * @tc.name: GetDummyItemRect010
+ * @tc.desc: Test ListPattern GetDummyItemRect with cached item and itemPosition both populated
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListCommonTestNg, GetDummyItemRect010, TestSize.Level1)
+{
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    auto layoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSupportLazyLoadingEmptyBranch(true);
+
+    listPattern->itemPosition_[0] = { 0, 10.0f, 50.0f, true };
+    listPattern->cachedItemPosition_[1] = { 1, 20.0f, 60.0f, true };
+    listPattern->lanes_ = 1;
+
+    RectF rect0, rect1;
+    auto result0 = listPattern->GetDummyItemRect(0, rect0);
+    auto result1 = listPattern->GetDummyItemRect(1, rect1);
+
+    EXPECT_TRUE(result0);
+    EXPECT_TRUE(result1);
+    EXPECT_EQ(rect0.GetY(), 10.0f);
+    EXPECT_EQ(rect1.GetY(), 20.0f);
 }
 } // namespace OHOS::Ace::NG

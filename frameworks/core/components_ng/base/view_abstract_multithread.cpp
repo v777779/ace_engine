@@ -19,23 +19,49 @@
 #include "core/components_ng/base/view_abstract.h"
 
 #include "core/common/container_scope.h"
+#include "core/common/resource/resource_parse_utils.h"
 #include "core/components_ng/base/frame_node.h"
+#include "core/components_ng/pattern/text/span/span_string.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
+namespace {
+constexpr int32_t DEFAULT_AREA_CHANGE_INTERVAL = 1000;
+}
+
+void BindPopupMultiThread(
+    const RefPtr<PopupParam>& param, const RefPtr<FrameNode>& targetNode, const RefPtr<UINode>& customNode)
+{
+    CHECK_NULL_VOID(targetNode);
+    targetNode->PostAfterAttachMainTreeTask([param, weakTarget = WeakPtr<FrameNode>(targetNode), customNode]() {
+        auto targetNode = weakTarget.Upgrade();
+        CHECK_NULL_VOID(targetNode);
+        ViewAbstract::BindPopup(param, targetNode, customNode);
+    });
+}
+
+void BindTipsMultiThread(
+    const RefPtr<PopupParam>& param, const RefPtr<FrameNode>& targetNode, const RefPtr<SpanString>& spanString)
+{
+    CHECK_NULL_VOID(targetNode);
+    targetNode->PostAfterAttachMainTreeTask([param, weakTarget = WeakPtr<FrameNode>(targetNode), spanString]() {
+        auto targetNode = weakTarget.Upgrade();
+        CHECK_NULL_VOID(targetNode);
+        ViewAbstract::BindTips(param, targetNode, spanString);
+    });
+}
+
 void SetInspectorIdMultiThread(FrameNode* frameNode, const std::string& inspectorId)
 {
     CHECK_NULL_VOID(frameNode);
-    frameNode->PostAfterAttachMainTreeTask([weak = AceType::WeakClaim(frameNode), inspectorId]() {
-        auto frameNode = weak.Upgrade();
-        if (frameNode) {
-            if (frameNode->GetInspectorId().has_value() && frameNode->GetInspectorIdValue() != inspectorId) {
-                ElementRegister::GetInstance()->RemoveFrameNodeByInspectorId(
-                    frameNode->GetInspectorIdValue(), frameNode->GetId());
-            }
-            frameNode->UpdateInspectorId(inspectorId);
+    auto nodeInspectorId = frameNode->GetInspectorId();
+    auto nodeId = frameNode->GetId();
+    frameNode->PostAfterAttachMainTreeTask([nodeInspectorId, nodeId, inspectorId]() {
+        if (nodeInspectorId.has_value() && nodeInspectorId.value() != inspectorId) {
+            ElementRegister::GetInstance()->RemoveFrameNodeByInspectorId(nodeInspectorId.value(), nodeId);
         }
     });
+    frameNode->UpdateInspectorId(inspectorId);
 }
 
 void SetBackgroundBlurStyleMultiThread(FrameNode* frameNode, const BlurStyleOption& bgBlurStyle,
@@ -76,6 +102,23 @@ void SetOnAreaChangedMultiThread(FrameNode* frameNode, std::function<void(const 
         auto pipeline = frameNode->GetContext();
         CHECK_NULL_VOID(pipeline);
         pipeline->AddOnAreaChangeNode(frameNode->GetId());
+    });
+}
+
+void SetOnAreaChangedWithIntervalMultiThread(FrameNode* frameNode, std::function<void(const RectF& oldRect,
+    const OffsetF& oldOrigin, const RectF& rect, const OffsetF& origin)>&& onAreaChanged, int32_t minInterval)
+{
+    CHECK_NULL_VOID(frameNode);
+    if (minInterval < 0) {
+        minInterval = DEFAULT_AREA_CHANGE_INTERVAL;
+    }
+    frameNode->SetOnAreaChangeCallbackWithInterval(std::move(onAreaChanged), static_cast<uint32_t>(minInterval));
+    frameNode->PostAfterAttachMainTreeTask([weak = AceType::WeakClaim(frameNode)]() {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto context = frameNode->GetContextRefPtr();
+        CHECK_NULL_VOID(context);
+        context->AddOnAreaChangeNode(frameNode->GetId());
     });
 }
 
@@ -171,6 +214,66 @@ void SetNeedFocusMultiThread(FrameNode* frameNode, bool value)
             auto instanceId = context->GetInstanceId();
             ContainerScope scope(instanceId);
             focusHub->LostFocusToViewRoot();
+        }
+    });
+}
+
+void SetBackgroundEffectMultiThread(FrameNode* frameNode, const EffectOption& effectOption,
+    const SysOptions& sysOptions)
+{
+    CHECK_NULL_VOID(frameNode);
+    frameNode->PostAfterAttachMainTreeTask([weak = AceType::WeakClaim(frameNode), effectOption,
+        sysOptions]() mutable {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        if (SystemProperties::ConfigChangePerform()) {
+            auto pattern = frameNode->GetPattern();
+            CHECK_NULL_VOID(pattern);
+            RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
+            auto&& updateFunc = [effectOption, sysOptions, weak](const RefPtr<ResourceObject>& resObj) {
+                auto frameNode = weak.Upgrade();
+                CHECK_NULL_VOID(frameNode);
+                EffectOption& effectOptionValue = const_cast<EffectOption&>(effectOption);
+                effectOptionValue.ReloadResources();
+                ViewAbstract::UpdateBackgroundEffect(AceType::RawPtr(frameNode), effectOptionValue, sysOptions);
+            };
+            pattern->AddResObj("backgroundEffect", resObj, std::move(updateFunc));
+        }
+        ViewAbstract::UpdateBackgroundEffect(AceType::RawPtr(frameNode), effectOption, sysOptions);
+    });
+}
+
+void SetClickEffectLevelMultiThread(FrameNode* frameNode, const ClickEffectLevel& level, float scaleValue)
+{
+    CHECK_NULL_VOID(frameNode);
+    frameNode->PostAfterAttachMainTreeTask([weak = AceType::WeakClaim(frameNode), level,
+        scaleValue]() mutable {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        ClickEffectInfo clickEffectInfo;
+        clickEffectInfo.level = level;
+        clickEffectInfo.scaleNumber = scaleValue;
+        ACE_UPDATE_NODE_RENDER_CONTEXT(ClickEffectLevel, clickEffectInfo, frameNode);
+    });
+}
+
+void SetUseEffectMultiThread(FrameNode* frameNode, bool useEffect, EffectType effectType)
+{
+    CHECK_NULL_VOID(frameNode);
+    frameNode->PostAfterAttachMainTreeTask([weak = AceType::WeakClaim(frameNode), useEffect, effectType]() mutable {
+        auto frameNode = weak.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto* pipeline = frameNode->GetContext();
+        CHECK_NULL_VOID(pipeline);
+        if (useEffect && effectType == EffectType::WINDOW_EFFECT) {
+            pipeline->AddWindowActivateChangedCallback(frameNode->GetId());
+        } else {
+            pipeline->RemoveWindowActivateChangedCallback(frameNode->GetId());
+        }
+        const auto& target = frameNode->GetRenderContext();
+        if (target) {
+            target->UpdateUseEffect(useEffect);
+            target->UpdateUseEffectType(effectType);
         }
     });
 }

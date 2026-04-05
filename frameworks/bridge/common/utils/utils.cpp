@@ -242,6 +242,22 @@ void SetBgImgSizeY(BackgroundImageSizeType type, double value, BackgroundImageSi
 #endif
 } // namespace
 
+FlexAlign ConvertStrToFlexAlign(const std::string& flexKey)
+{
+    static const LinearMapNode<FlexAlign> flexMap[] = {
+        { DOM_ALIGN_ITEMS_BASELINE, FlexAlign::BASELINE },
+        { DOM_JUSTIFY_CONTENT_CENTER, FlexAlign::CENTER },
+        { DOM_JUSTIFY_CONTENT_END, FlexAlign::FLEX_END },
+        { DOM_JUSTIFY_CONTENT_START, FlexAlign::FLEX_START },
+        { DOM_JUSTIFY_CONTENT_AROUND, FlexAlign::SPACE_AROUND },
+        { DOM_JUSTIFY_CONTENT_BETWEEN, FlexAlign::SPACE_BETWEEN },
+        { DOM_JUSTIFY_CONTENT_EVENLY, FlexAlign::SPACE_EVENLY },
+        { DOM_ALIGN_ITEMS_STRETCH, FlexAlign::STRETCH },
+    };
+    auto index = BinarySearchFindIndex(flexMap, ArraySize(flexMap), flexKey.c_str());
+    return index < 0 ? FlexAlign::FLEX_START : flexMap[index].value;
+}
+
 RefPtr<Curve> CreateBuiltinCurve(const std::string& aniTimFunc)
 {
     // this map should be sorted by key
@@ -580,6 +596,41 @@ std::optional<RadialSizeType> ParseRadialGradientSize(const std::string& value)
     }
     return std::nullopt;
 }
+
+TextAlign ConvertStrToTextAlign(const std::string& align)
+{
+    static const LinearMapNode<TextAlign> textAlignTable[] = {
+        { DOM_CENTER, TextAlign::CENTER },
+        { DOM_END, TextAlign::END },
+        { DOM_LEFT, TextAlign::LEFT },
+        { DOM_RIGHT, TextAlign::RIGHT },
+        { DOM_START, TextAlign::START },
+    };
+
+    auto index = BinarySearchFindIndex(textAlignTable, ArraySize(textAlignTable), align.c_str());
+    return index < 0 ? TextAlign::CENTER : textAlignTable[index].value;
+}
+
+FontStyle ConvertStrToFontStyle(const std::string& fontStyle)
+{
+    return fontStyle == DOM_TEXT_FONT_STYLE_ITALIC ? FontStyle::ITALIC : FontStyle::NORMAL;
+}
+
+TextDecoration ConvertStrToTextDecoration(const std::string& textDecoration)
+{
+    // this map should be sorted by key.
+    static const LinearMapNode<TextDecoration> textDecorationTable[] = {
+        { DOM_TEXT_DECORATION_INHERIT, TextDecoration::INHERIT },
+        { DOM_TEXT_DECORATION_LINETHROUGH, TextDecoration::LINE_THROUGH },
+        { DOM_TEXT_DECORATION_NONE, TextDecoration::NONE },
+        { DOM_TEXT_DECORATION_OVERLINE, TextDecoration::OVERLINE },
+        { DOM_TEXT_DECORATION_UNDERLINE, TextDecoration::UNDERLINE },
+    };
+
+    auto index = BinarySearchFindIndex(textDecorationTable, ArraySize(textDecorationTable), textDecoration.c_str());
+    return index < 0 ? TextDecoration::NONE : textDecorationTable[index].value;
+}
+
 #ifndef FUZZTEST
 // ObjectPosition
 ImageObjectPosition ParseImageObjectPosition(const std::string& value)

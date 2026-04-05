@@ -22,7 +22,9 @@ namespace OHOS::Ace::NG {
 
 bool ListItemLayoutAlgorithm::IsRTLAndVertical(LayoutWrapper* layoutWrapper) const
 {
-    auto layoutDirection = layoutWrapper->GetLayoutProperty()->GetNonAutoLayoutDirection();
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_RETURN(layoutProperty, false);
+    auto layoutDirection = layoutProperty->GetNonAutoLayoutDirection();
     if (layoutDirection == TextDirection::RTL && axis_ == Axis::VERTICAL) {
         return true;
     } else {
@@ -66,8 +68,10 @@ void ListItemLayoutAlgorithm::CheckAndUpdateCurOffset(LayoutWrapper* layoutWrapp
 
 void ListItemLayoutAlgorithm::MeasureItemChild(LayoutWrapper* layoutWrapper)
 {
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(layoutProperty);
     std::list<RefPtr<LayoutWrapper>> childList;
-    auto layoutConstraint = layoutWrapper->GetLayoutProperty()->CreateChildConstraint();
+    auto layoutConstraint = layoutProperty->CreateChildConstraint();
     auto child = layoutWrapper->GetOrCreateChildByIndex(childNodeIndex_);
     if (child) {
         child->Measure(layoutConstraint);
@@ -90,7 +94,7 @@ void ListItemLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     }
 
     // step 2: measure swipeAction node.
-    if (Positive(curOffset_) && startNodeIndex_ >= 0) {
+    if ((Positive(curOffset_) && startNodeIndex_ >= 0) || CheckMeasureSwipeAction(true)) {
         auto startLayoutConstraint = layoutWrapper->GetLayoutProperty()->CreateChildConstraint();
         if (!NearZero(startNodeSize_) && curOffset_ > startNodeSize_) {
             startLayoutConstraint.maxSize.SetCrossSize(curOffset_, axis_);
@@ -105,7 +109,8 @@ void ListItemLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
             startNodeSize_ = startNode->GetGeometryNode()->GetMarginFrameSize().CrossSize(axis_);
         }
         curOffset_ = NearZero(startNodeSize_) && !hasStartDeleteArea_ ? 0.0f : curOffset_;
-    } else if (Negative(curOffset_) && endNodeIndex_ >= 0) {
+    }
+    if ((Negative(curOffset_) && endNodeIndex_ >= 0) || CheckMeasureSwipeAction(false)) {
         auto endLayoutConstraint = layoutWrapper->GetLayoutProperty()->CreateChildConstraint();
         if (!NearZero(endNodeSize_) && -curOffset_ > endNodeSize_) {
             endLayoutConstraint.maxSize.SetCrossSize(-curOffset_, axis_);
@@ -127,12 +132,14 @@ void ListItemLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
 {
     // update child position.
     auto size = layoutWrapper->GetGeometryNode()->GetFrameSize();
-    const auto& padding = layoutWrapper->GetLayoutProperty()->CreatePaddingAndBorder();
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(layoutProperty);
+    const auto& padding = layoutProperty->CreatePaddingAndBorder();
     MinusPaddingToSize(padding, size);
     auto paddingOffset = padding.Offset();
     auto align = Alignment::CENTER;
-    if (layoutWrapper->GetLayoutProperty()->GetPositionProperty()) {
-        align = layoutWrapper->GetLayoutProperty()->GetPositionProperty()->GetAlignment().value_or(align);
+    if (layoutProperty->GetPositionProperty()) {
+        align = layoutProperty->GetPositionProperty()->GetAlignment().value_or(align);
     }
 
     SetSwipeActionNode(layoutWrapper, size, paddingOffset);
@@ -157,7 +164,7 @@ void ListItemLayoutAlgorithm::SetSwipeActionNode(
     LayoutWrapper* layoutWrapper, const SizeF& size, const OffsetF& paddingOffset)
 {
     // Update child position.
-    if (Positive(curOffset_) && startNodeIndex_ >= 0) {
+    if ((Positive(curOffset_) && startNodeIndex_ >= 0) || CheckMeasureSwipeAction(true)) {
         auto child = layoutWrapper->GetOrCreateChildByIndex(startNodeIndex_);
         CHECK_NULL_VOID(child);
         auto childSize = child->GetGeometryNode()->GetMarginFrameSize();
@@ -167,7 +174,8 @@ void ListItemLayoutAlgorithm::SetSwipeActionNode(
         OffsetF offset = axis_ == Axis::VERTICAL ? OffsetF(crossOffset, mainOffset) : OffsetF(mainOffset, crossOffset);
         child->GetGeometryNode()->SetMarginFrameOffset(paddingOffset + offset);
         child->Layout();
-    } else if (Negative(curOffset_) && endNodeIndex_ >= 0) {
+    }
+    if ((Negative(curOffset_) && endNodeIndex_ >= 0) || CheckMeasureSwipeAction(false)) {
         auto child = layoutWrapper->GetOrCreateChildByIndex(endNodeIndex_);
         CHECK_NULL_VOID(child);
         auto childSize = child->GetGeometryNode()->GetMarginFrameSize();
@@ -178,5 +186,13 @@ void ListItemLayoutAlgorithm::SetSwipeActionNode(
         child->GetGeometryNode()->SetMarginFrameOffset(paddingOffset + offset);
         child->Layout();
     }
+}
+
+bool ListItemLayoutAlgorithm::CheckMeasureSwipeAction(bool isStart)
+{
+    if (!swipeIndex_.has_value()) {
+        return false;
+    }
+    return swipeIndex_.value() == (isStart ? ListItemSwipeIndex::SWIPER_START : ListItemSwipeIndex::SWIPER_END);
 }
 } // namespace OHOS::Ace::NG

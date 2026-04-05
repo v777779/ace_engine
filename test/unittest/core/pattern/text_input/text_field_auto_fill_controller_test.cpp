@@ -41,7 +41,7 @@ HWTEST_F(TextFieldAutoFillControllerTest, StartAutoFillAnimation001, TestSize.Le
     pattern_->autoFillController_ = autoFillController;
 
     /**
-     * @tc.steps: step2. Set the paragraph_ property to null so that the InitAutoFillParagraph method returns false
+     * @tc.steps: step2. Set the paragraph_ property to null so that the InitAutoFillParagraph method returns false.
      */
     pattern_->paragraph_ = nullptr;
 
@@ -568,5 +568,109 @@ HWTEST_F(TextFieldAutoFillControllerTest, PlayAutoFillIconHideAnimation003, Test
     std::function<void()> onFinishCallback = []() {};
     autoFillController->PlayAutoFillIconHideAnimation(onFinishCallback, AutoFillContentLengthMode::EXTRA_LONG);
     ASSERT_EQ(autoFillController->GetAutoFillAnimationStatus(), AutoFillAnimationStatus::INIT);
+}
+
+/**
+ * @tc.name: ResetAutoFillAnimationStatus001
+ * @tc.desc: test testInput text ResetAutoFillAnimationStatus
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldAutoFillControllerTest, ResetAutoFillAnimationStatus001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create frameNode
+     */
+    CreateTextField(DEFAULT_TEXT, "", [](TextFieldModelNG model) {
+        model.SetEnableAutoFill(true);
+        model.SetType(TextInputType::VISIBLE_PASSWORD);
+    });
+    auto autoFillController = AceType::MakeRefPtr<AutoFillController>(AceType::WeakClaim(AceType::RawPtr(pattern_)));
+    pattern_->autoFillController_ = autoFillController;
+    auto layoutProperty = pattern_->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty->GetNonAutoLayoutDirection(), TextDirection::RTL);
+    layoutProperty->layoutDirection_ = TextDirection::RTL;
+    EXPECT_EQ(layoutProperty->GetNonAutoLayoutDirection(), TextDirection::RTL);
+
+    /**
+     * @tc.steps: step2. Init autoFillParagraph_ and autoFillIconNode_
+     */
+    std::u16string content = u"123";
+    autoFillController->InitAutoFillParagraph(content);
+    autoFillController->CreateAutoFillIcon();
+
+    /**
+     * @tc.steps: step3. Call PlayAutoFillTextScrollAnimation
+     */
+    autoFillController->PlayAutoFillTextScrollAnimation();
+    ASSERT_EQ(autoFillController->GetAutoFillAnimationStatus(), AutoFillAnimationStatus::TRANSLATION);
+
+    /**
+     * @tc.steps: step4. Call ResetAutoFillAnimationStatus
+     */
+    autoFillController->ResetAutoFillAnimationStatus();
+    ASSERT_EQ(autoFillController->GetAutoFillAnimationStatus(), AutoFillAnimationStatus::INIT);
+}
+/**
+ * @tc.name: GetTextDirection001
+ * @tc.desc: Test GetTextDirection with explicit LTR text direction
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldAutoFillControllerTest, GetTextDirection001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create frameNode
+     */
+    CreateTextField(DEFAULT_TEXT, "", [](TextFieldModelNG model) {});
+    auto autoFillController = AceType::MakeRefPtr<AutoFillController>(AceType::WeakClaim(AceType::RawPtr(pattern_)));
+    pattern_->autoFillController_ = autoFillController;
+
+    /**
+     * @tc.steps: step2. Get layout property and set explicit LTR text direction
+     */
+    auto layoutProperty = pattern_->GetLayoutProperty<TextFieldLayoutProperty>();
+    layoutProperty->layoutDirection_ = TextDirection::RTL; // Layout is RTL
+    layoutProperty->UpdateTextDirection(TextDirection::LTR);   // But text is explicitly LTR
+
+    /**
+     * @tc.steps: step3. Call GetTextDirection
+     */
+    auto direction = autoFillController->GetTextDirection(layoutProperty);
+
+    /**
+     * @tc.expected: Return explicit text direction (LTR)
+     */
+    EXPECT_EQ(direction, TextDirection::LTR);
+}
+
+/**
+ * @tc.name: GetTextDirection002
+ * @tc.desc: Test GetTextDirection with INHERIT text direction and RTL layout
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldAutoFillControllerTest, GetTextDirection002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create frameNode
+     */
+    CreateTextField(DEFAULT_TEXT, "", [](TextFieldModelNG model) {});
+    auto autoFillController = AceType::MakeRefPtr<AutoFillController>(AceType::WeakClaim(AceType::RawPtr(pattern_)));
+    pattern_->autoFillController_ = autoFillController;
+
+    /**
+     * @tc.steps: step2. Get layout property and set layout direction
+     */
+    auto layoutProperty = pattern_->GetLayoutProperty<TextFieldLayoutProperty>();
+    layoutProperty->layoutDirection_ = TextDirection::RTL;
+    layoutProperty->UpdateTextDirection(TextDirection::INHERIT);
+
+    /**
+     * @tc.steps: step3. Call GetTextDirection
+     */
+    auto direction = autoFillController->GetTextDirection(layoutProperty);
+
+    /**
+     * @tc.expected: Return layout direction (RTL) when text direction is INHERIT
+     */
+    EXPECT_EQ(direction, TextDirection::RTL);
 }
 } // namespace OHOS::Ace::NG

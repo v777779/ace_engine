@@ -23,7 +23,7 @@
 namespace OHOS::Ace::Framework {
 
 class JSRenderingContextBase : public virtual AceType {
-    DECLARE_ACE_TYPE(JSRenderingContextBase, AceType)
+    DECLARE_ACE_TYPE(JSRenderingContextBase, AceType);
 public:
     JSRenderingContextBase() = default;
     virtual ~JSRenderingContextBase() = default;
@@ -32,8 +32,22 @@ public:
     virtual void SetDensity() = 0;
     virtual void SetCanvasPattern(const RefPtr<AceType>& canvas) = 0;
     virtual void SetInstanceId(int32_t id) = 0;
+    virtual int32_t GetInstanceId() = 0;
+
+    bool IsBuiltIn() const
+    {
+        return builtIn_;
+    }
+
+    void SetBuiltIn(bool builtIn)
+    {
+        builtIn_ = builtIn;
+    }
 
     ACE_DISALLOW_COPY_AND_MOVE(JSRenderingContextBase);
+
+private:
+    bool builtIn_ = false;
 };
 
 } // namespace OHOS::Ace::Framework

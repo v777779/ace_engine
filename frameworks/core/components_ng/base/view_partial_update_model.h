@@ -54,6 +54,7 @@ struct NodeInfoPU {
     std::function<void*()> getThisFunc;
     std::function<void()> recycleFunc;
     std::function<void(void*)> reuseFunc;
+    std::function<bool(int32_t)> triggerLifecycleFunc;
 
     bool hasMeasureOrLayout = false;
     bool isStatic = false;
@@ -61,7 +62,7 @@ struct NodeInfoPU {
     bool isCustomAppBar = false;
     int32_t codeRow = -1;
     int32_t codeCol = -1;
-
+    int64_t creatorId = -1;
     std::string jsViewName;
     bool isV2 = false;
     NG::ExtraInfo extraInfo;
@@ -80,6 +81,11 @@ public:
     virtual void FinishUpdate(
         const WeakPtr<AceType>& viewNode, int32_t id, std::function<void(const UpdateTask&)>&& emplaceTaskFunc) = 0;
     virtual bool AllowReusableV2Descendant(const WeakPtr<AceType>& viewNode) = 0;
+    virtual bool RegisterUpdateJSInstanceCallback(
+        const WeakPtr<AceType>& node, std::function<void(int32_t)>&& instanceChangeCallback)
+    {
+        return false;
+    };
 };
 
 } // namespace OHOS::Ace

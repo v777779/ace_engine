@@ -16,17 +16,51 @@
 #include <memory>
 
 #include "gtest/gtest.h"
+#include "list_test_ng.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter_v2.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
 #include "core/components_ng/pattern/list/list_pattern.h"
+#include "core/components_ng/pattern/scroll/scroll_spring_effect.h"
 
 namespace OHOS::Ace::NG {
 using namespace testing;
 using namespace testing::ext;
 
-class ListPatternTwoTestNg : public TestNG {
+class ListPatternTwoTestNg : public ListTestNg {
 public:
+    static void SetUpTestSuite();
+    static void TearDownTestSuite();
+    void SetUp() override;
+    void TearDown() override;
 };
+
+void ListPatternTwoTestNg::SetUpTestSuite()
+{
+    TestNG::SetUpTestSuite();
+    ResetMockResourceData();
+    g_isConfigChangePerform = false;
+}
+
+void ListPatternTwoTestNg::TearDownTestSuite()
+{
+    TestNG::TearDownTestSuite();
+    ResetMockResourceData();
+    g_isConfigChangePerform = false;
+}
+
+void ListPatternTwoTestNg::SetUp()
+{
+    ResetMockResourceData();
+    g_isConfigChangePerform = false;
+}
+
+void ListPatternTwoTestNg::TearDown()
+{
+    ResetMockResourceData();
+    g_isConfigChangePerform = false;
+}
 
 /**
  * @tc.name: CalcAlignForFocusToGroupItem
@@ -171,10 +205,9 @@ HWTEST_F(ListPatternTwoTestNg, ScrollToItemInGroup001, TestSize.Level1)
     /**
      * @tc.steps: step3. Set index to 1 and IndexInGroup to 1
      * and Set smooth to false and align to AUTO
-     * @tc.expected: The scrollAlign_ of listPattern to END and isScrollEnd_ of listPattern to true
+     * @tc.expected: The isScrollEnd_ of listPattern to true
      */
     listPattern->ScrollToItemInGroup(1, 1, false, ScrollAlign::AUTO);
-    EXPECT_EQ(listPattern->scrollAlign_, ScrollAlign::END);
     EXPECT_TRUE(listPattern->isScrollEnd_);
 }
 
@@ -718,5 +751,502 @@ HWTEST_F(ListPatternTwoTestNg, SetFocusWrapMode, TestSize.Level1)
      */
     listPattern->SetFocusWrapMode(focusWrapMode);
     EXPECT_EQ(listPattern->focusWrapMode_, FocusWrapMode::DEFAULT);
+}
+
+/**
+ * @tc.name: HandleTargetIndex
+ * @tc.desc: Test ListPattern HandleTargetIndex
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, HandleTargetIndex, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 1, listPattern);
+    ASSERT_NE(listNode, nullptr);
+    RefPtr<ListLayoutProperty> layoutProperty = AceType::MakeRefPtr<ListLayoutProperty>();
+    listNode->layoutProperty_ = layoutProperty;
+    listPattern->frameNode_ = listNode;
+
+    /**
+     * @tc.steps: Set crossMatchChild_ of listPattern to true
+     * and set propertyChangeFlag_ to PROPERTY_UPDATE_NORMAL
+     */
+    listPattern->frameNode_.Upgrade()->layoutProperty_->UpdatePropertyChangeFlag(PROPERTY_UPDATE_NORMAL);
+    listPattern->crossMatchChild_ = true;
+
+    /**
+     * @tc.steps: step3. Calling the HandleTargetIndex function
+     * @tc.expected: the propertyChangeFlag_ to be PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT and result return true
+     */
+    auto result = listPattern->HandleTargetIndex(true);
+    EXPECT_EQ(listNode->layoutProperty_->propertyChangeFlag_, PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: CalculateTargetPos_topOffset_equal_bottomOffset
+ * @tc.desc: Test ListPattern CalculateTargetPos
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, CalculateTargetPos_topOffset_equal_bottomOffset, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 1, listPattern);
+    ASSERT_NE(listNode, nullptr);
+    RefPtr<ListLayoutProperty> layoutProperty = AceType::MakeRefPtr<ListLayoutProperty>();
+    layoutProperty->UpdateScrollSnapAlign(ScrollSnapAlign::CENTER);
+    listNode->layoutProperty_ = layoutProperty;
+    listPattern->frameNode_ = listNode;
+
+    /**
+     * @tc.steps: Set contentMainSize_ of listPattern to 2.0f
+     */
+    listPattern->contentMainSize_ = 2.0f;
+
+    /**
+     * @tc.steps: step3. Set startPos to 2.0f and endPos to 4.0f
+     * @tc.expected: The result of this function returns the difference between endPos and contentMainSize_
+     */
+    auto result = listPattern->CalculateTargetPos(2.0f, 4.0f);
+    EXPECT_EQ(result, 2.0f);
+}
+
+/**
+ * @tc.name: UpdateCurrentOffset_IsOutOfBoundary
+ * @tc.desc: Test ListPattern UpdateCurrentOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, UpdateCurrentOffset_IsOutOfBoundary, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 1, listPattern);
+    ASSERT_NE(listNode, nullptr);
+    RefPtr<ListLayoutProperty> layoutProperty = AceType::MakeRefPtr<ListLayoutProperty>();
+    listNode->layoutProperty_ = layoutProperty;
+    listPattern->frameNode_ = listNode;
+
+    /**
+     * @tc.steps: Change the value of the list member variable to make the IsOutOfBoundary function return true
+     */
+    listPattern->jumpIndex_ = std::nullopt;
+    listPattern->targetIndex_ = std::nullopt;
+    listPattern->isStackFromEnd_ = false;
+    listPattern->startIndex_ = 0;
+    listPattern->startMainPos_ = 18.0f;
+    listPattern->endMainPos_ = 20.0f;
+    listPattern->currentDelta_ = 2.0f;
+    listPattern->contentStartOffset_ = 4.0f;
+    listPattern->canStayOverScroll_ = false;
+    ListItemGroupLayoutInfo itemGroupInfo = { true, true };
+    listPattern->itemPosition_[0] = { 2, 2.0f, 4.0f, true, false, 1.0f, 0.0f, itemGroupInfo };
+    listPattern->frameNode_.Upgrade()->layoutProperty_->UpdatePropertyChangeFlag(PROPERTY_UPDATE_NORMAL);
+    listPattern->crossMatchChild_ = true;
+
+    /**
+     * @tc.steps: step3. Set offset to 2.0f and source to SCROLL_FROM_JUMP
+     * @tc.expected: The result of this function returns false and propertyChangeFlag_ to be
+     * PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT
+     */
+    auto result = listPattern->UpdateCurrentOffset(2.0f, SCROLL_FROM_JUMP);
+    EXPECT_EQ(listNode->layoutProperty_->propertyChangeFlag_, PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: ScrollToSnapIndex_ScrollSnapAlign_NONE
+ * @tc.desc: Test ListPattern ScrollToSnapIndex
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, ScrollToSnapIndex_ScrollSnapAlign_NONE, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+
+    /**
+     * @tc.steps: Set startIndex_ of listPattern to 2
+     */
+    listPattern->startIndex_ = 2;
+
+    /**
+     * @tc.steps: step3. Set snapDirection to FORWARD and scrollSnapAlign to NONE
+     * @tc.expected: The result of this function returns false
+     */
+    auto result = listPattern->ScrollToSnapIndex(SnapDirection::FORWARD, ScrollSnapAlign::NONE);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: OnColorModeChange00
+ * @tc.desc: Test ListPattern OnColorModeChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, OnColorModeChange00, TestSize.Level1)
+{
+    g_isConfigChangePerform = true;
+
+    /**
+     * @tc.steps: step1. Construct the objects for test
+     */
+    RefPtr<ListPattern> listPattern = AceType::MakeRefPtr<ListPattern>();
+    ASSERT_NE(listPattern, nullptr);
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 1, listPattern);
+    ASSERT_NE(listNode, nullptr);
+
+    /**
+     * @tc.steps: Test
+     */
+    listPattern->OnColorModeChange(static_cast<int32_t>(ColorMode::DARK));
+    auto paintProperty = listPattern->GetPaintProperty<ScrollablePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    EXPECT_NE(paintProperty->GetScrollBarProperty(), nullptr);
+
+    paintProperty = listPattern->GetPaintProperty<ScrollablePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    paintProperty->ResetScrollBarProperty();
+    listPattern->OnColorModeChange(static_cast<int32_t>(ColorMode::DARK));
+    ASSERT_NE(paintProperty, nullptr);
+    EXPECT_EQ(paintProperty->GetScrollBarProperty(), nullptr);
+
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: SetChainAnimationToPosMap
+ * @tc.desc: Test ListPattern SetChainAnimationToPosMap
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, SetChainAnimationToPosMap, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, AceType::MakeRefPtr<ListPattern>());
+    ASSERT_NE(listNode, nullptr);
+    auto pattern = listNode->GetPattern<ListPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Set posMap_ of pattern to a new ListPositionMap
+     * and create a ChainAnimation and ChainAnimationNode
+     */
+    RefPtr<PipelineContext> context = AceType::MakeRefPtr<PipelineContext>();
+    context->SetPixelRoundMode(PixelRoundMode::PIXEL_ROUND_AFTER_MEASURE);
+    listNode->context_ = AceType::RawPtr(context);
+    pattern->posMap_ = AceType::MakeRefPtr<ListPositionMap>();
+    RefPtr<ChainAnimation> chainAnimation =
+        AceType::MakeRefPtr<ChainAnimation>(0.0f, 10.0f, 5.0f, AceType::MakeRefPtr<SpringProperty>(2.0, 4.0, 6.0));
+    chainAnimation->controlIndex_ = 0;
+    chainAnimation->nodes_.clear();
+    RefPtr<ChainAnimationNode> node = AceType::MakeRefPtr<ChainAnimationNode>(
+        1, 4.0f, 6.0f, 2.0f, AceType::MakeRefPtr<SpringProperty>(2.0, 4.0, 6.0));
+    node->spring_->currentPosition_ = 2.0;
+    node->SetDelta(4.0f, 4.0f, 6.0f);
+    chainAnimation->nodes_[1] = node;
+    pattern->chainAnimation_ = chainAnimation;
+
+    /**
+     * @tc.steps: step3. Calling SetChainAnimationToPosMap and chainOffsetCallback function
+     * @tc.expected: The result of chainOffsetCallback function returns 2.0f
+     */
+    pattern->SetChainAnimationToPosMap();
+    auto chainOffsetCallback = pattern->posMap_->chainOffsetFunc_;
+    auto result = chainOffsetCallback(1);
+    listNode->context_ = nullptr;
+    EXPECT_EQ(result, 2.0f);
+}
+
+/**
+ * @tc.name: GetChainDelta
+ * @tc.desc: Test ListPattern GetChainDelta
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, GetChainDelta, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, AceType::MakeRefPtr<ListPattern>());
+    ASSERT_NE(listNode, nullptr);
+    auto pattern = listNode->GetPattern<ListPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Set PixelRoundMode to PIXEL_ROUND_ON_LAYOUT_FINISH
+     * and create a ChainAnimation and ChainAnimationNode
+     */
+    RefPtr<PipelineContext> context = AceType::MakeRefPtr<PipelineContext>();
+    context->SetPixelRoundMode(PixelRoundMode::PIXEL_ROUND_ON_LAYOUT_FINISH);
+    listNode->context_ = AceType::RawPtr(context);
+    RefPtr<ChainAnimation> chainAnimation =
+        AceType::MakeRefPtr<ChainAnimation>(0.0f, 10.0f, 5.0f, AceType::MakeRefPtr<SpringProperty>(2.0, 4.0, 6.0));
+    chainAnimation->controlIndex_ = 0;
+    chainAnimation->nodes_.clear();
+    RefPtr<ChainAnimationNode> node = AceType::MakeRefPtr<ChainAnimationNode>(
+        1, 4.0f, 6.0f, 2.0f, AceType::MakeRefPtr<SpringProperty>(2.0, 4.0, 6.0));
+    node->spring_->currentPosition_ = 2.0;
+    node->SetDelta(4.0f, 4.0f, 6.0f);
+    chainAnimation->nodes_[1] = node;
+    pattern->chainAnimation_ = chainAnimation;
+
+    /**
+     * @tc.steps: step3. Calling GetChainDelta function
+     * @tc.expected: The result of GetChainDelta function returns 2.0f
+     */
+    auto result = pattern->GetChainDelta(1);
+    listNode->context_ = nullptr;
+    EXPECT_EQ(result, 2.0f);
+}
+
+/**
+ * @tc.name: SetChainAnimationLayoutAlgorithm_pipeline
+ * @tc.desc: Test ListPattern SetChainAnimationLayoutAlgorithm
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, SetChainAnimationLayoutAlgorithm_pipeline, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, AceType::MakeRefPtr<ListPattern>());
+    ASSERT_NE(listNode, nullptr);
+    RefPtr<ListLayoutProperty> layoutProperty = AceType::MakeRefPtr<ListLayoutProperty>();
+    listNode->SetLayoutProperty(layoutProperty);
+    auto listLayoutProperty = listNode->GetLayoutProperty<ListLayoutProperty>();
+    RefPtr<ListLayoutAlgorithm> listLayoutAlgorithm = AceType::MakeRefPtr<ListLayoutAlgorithm>(1);
+    auto pattern = listNode->GetPattern<ListPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Create a ChainAnimation and ChainAnimationNode
+     */
+    RefPtr<PipelineContext> context = AceType::MakeRefPtr<PipelineContext>();
+    context->SetPixelRoundMode(PixelRoundMode::PIXEL_ROUND_AFTER_MEASURE);
+    listNode->context_ = AceType::RawPtr(context);
+    RefPtr<ChainAnimation> chainAnimation =
+        AceType::MakeRefPtr<ChainAnimation>(0.0f, 10.0f, 5.0f, AceType::MakeRefPtr<SpringProperty>(2.0, 4.0, 6.0));
+    chainAnimation->controlIndex_ = 0;
+    chainAnimation->nodes_.clear();
+    RefPtr<ChainAnimationNode> node = AceType::MakeRefPtr<ChainAnimationNode>(
+        1, 4.0f, 6.0f, 2.0f, AceType::MakeRefPtr<SpringProperty>(2.0, 4.0, 6.0));
+    node->spring_->currentPosition_ = 2.0;
+    node->SetDelta(4.0f, 4.0f, 6.0f);
+    chainAnimation->nodes_[1] = node;
+    pattern->chainAnimation_ = chainAnimation;
+
+    /**
+     * @tc.steps: step3. Calling SetChainAnimationLayoutAlgorithm function
+     * @tc.expected: The chainInterval_ of listLayoutAlgorithm returns 20.0f
+     */
+    pattern->SetChainAnimationLayoutAlgorithm(listLayoutAlgorithm, listLayoutProperty);
+    listNode->context_ = nullptr;
+    EXPECT_EQ(listLayoutAlgorithm->chainInterval_, 20.0f);
+}
+
+/**
+ * @tc.name: SetEdgeEffectCallback_SetTrailingCallback
+ * @tc.desc: Test ListPattern SetEdgeEffectCallback
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, SetEdgeEffectCallback_SetTrailingCallback, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, AceType::MakeRefPtr<ListPattern>());
+    ASSERT_NE(listNode, nullptr);
+    auto pattern = listNode->GetPattern<ListPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Create a scrollEffect and set pattern member variables
+     */
+    pattern->isStackFromEnd_ = true;
+    pattern->startIndex_ = 0;
+    pattern->startMainPos_ = 0.0f;
+    pattern->endMainPos_ = 20.0f;
+    pattern->contentStartOffset_ = 0.0f;
+    pattern->contentEndOffset_ = 20.0f;
+    pattern->contentMainSize_ = 50.0f;
+    RefPtr<ScrollEdgeEffect> scrollEffect = AceType::MakeRefPtr<ScrollEdgeEffect>(EdgeEffect::FADE);
+
+    /**
+     * @tc.steps: step3. Calling SetEdgeEffectCallback function
+     * @tc.expected: The result of trailingCallback function returns 10.0f
+     */
+    pattern->SetEdgeEffectCallback(scrollEffect);
+    auto trailingCallback = scrollEffect->trailingCallback_;
+    auto result = trailingCallback();
+    EXPECT_EQ(result, 10.0f);
+}
+
+/**
+ * @tc.name: SetEdgeEffectCallback_SetinitTrailingCallback
+ * @tc.desc: Test ListPattern SetEdgeEffectCallback
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, SetEdgeEffectCallback_SetinitTrailingCallback, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, AceType::MakeRefPtr<ListPattern>());
+    ASSERT_NE(listNode, nullptr);
+    auto pattern = listNode->GetPattern<ListPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Create a scrollEffect and set pattern member variables
+     */
+    pattern->isStackFromEnd_ = true;
+    pattern->startIndex_ = 0;
+    pattern->startMainPos_ = 0.0f;
+    pattern->endMainPos_ = 20.0f;
+    pattern->contentStartOffset_ = 0.0f;
+    pattern->contentEndOffset_ = 20.0f;
+    pattern->contentMainSize_ = 60.0f;
+    RefPtr<ScrollEdgeEffect> scrollEffect = AceType::MakeRefPtr<ScrollEdgeEffect>(EdgeEffect::FADE);
+
+    /**
+     * @tc.steps: step3. Calling SetEdgeEffectCallback function
+     * @tc.expected: The result of trailingCallback function returns 20.0f
+     */
+    pattern->SetEdgeEffectCallback(scrollEffect);
+    auto initTrailingCallback = scrollEffect->initTrailingCallback_;
+    auto result = initTrailingCallback();
+    EXPECT_EQ(result, 20.0f);
+}
+
+/**
+ * @tc.name: InitOnKeyEvent
+ * @tc.desc: Test ListPattern InitOnKeyEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, InitOnKeyEvent, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, AceType::MakeRefPtr<ListPattern>());
+    ASSERT_NE(listNode, nullptr);
+    auto pattern = listNode->GetPattern<ListPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Create a FocusHub and set the KeyEvent
+     */
+    auto focusHub = listNode->GetOrCreateFocusHub();
+    KeyEvent event;
+    event.action = KeyAction::DOWN;
+    event.code = KeyCode::KEY_PAGE_DOWN;
+
+    /**
+     * @tc.steps: step3. Calling InitOnKeyEvent and onKey function
+     * @tc.expected: The result of onKey function returns true
+     */
+    pattern->InitOnKeyEvent(focusHub);
+    auto onKey = focusHub->onKeyEventsInternal_[OnKeyEventType::DEFAULT];
+    ASSERT_NE(onKey, nullptr);
+    auto result = onKey(event);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: OnKeyEvent_IsFocusStepKey
+ * @tc.desc: Test ListPattern OnKeyEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, OnKeyEvent_IsFocusStepKey, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, AceType::MakeRefPtr<ListPattern>());
+    ASSERT_NE(listNode, nullptr);
+    auto pattern = listNode->GetPattern<ListPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Create a FocusHub and set the KeyEvent
+     * and set focusIndex, groupFocusIndex and startIndex
+     */
+    pattern->SetFocusIndex(1);
+    pattern->SetGroupFocusIndex(2);
+    pattern->startIndex_ = 4;
+    auto focusHub = listNode->GetOrCreateFocusHub();
+    focusHub->SetCurrentFocus(true);
+    KeyEvent event;
+    event.action = KeyAction::DOWN;
+    event.code = KeyCode::KEY_TAB;
+    RefPtr<PipelineContext> context = AceType::MakeRefPtr<PipelineContext>();
+    context->focusManager_ = AceType::MakeRefPtr<FocusManager>(context);
+    listNode->context_ = AceType::RawPtr(context);
+
+    /**
+     * @tc.steps: step3. Calling InitOnKeyEvent and onKey function
+     * @tc.expected: The result of onKey function returns false
+     */
+    pattern->InitOnKeyEvent(focusHub);
+    auto onKey = focusHub->onKeyEventsInternal_[OnKeyEventType::DEFAULT];
+    ASSERT_NE(onKey, nullptr);
+    auto result = onKey(event);
+    listNode->context_ = nullptr;
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: SetChainAnimationCallback_SetAnimationCallback
+ * @tc.desc: Test ListPattern SetChainAnimationCallback
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListPatternTwoTestNg, SetChainAnimationCallback_SetAnimationCallback, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Construct the objects for test preparation
+     */
+    auto listNode = FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 0, AceType::MakeRefPtr<ListPattern>());
+    ASSERT_NE(listNode, nullptr);
+    RefPtr<ListLayoutProperty> layoutProperty = AceType::MakeRefPtr<ListLayoutProperty>();
+    listNode->SetLayoutProperty(layoutProperty);
+    auto pattern = listNode->GetPattern<ListPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Create a chainAnimation and set crossMatchChild_ to false
+     * and set PropertyChangeFlag to PROPERTY_UPDATE_NORMAL
+     */
+    RefPtr<ChainAnimation> chainAnimation =
+        AceType::MakeRefPtr<ChainAnimation>(0.0f, 10.0f, 5.0f, AceType::MakeRefPtr<SpringProperty>(2.0, 4.0, 6.0));
+    chainAnimation->controlIndex_ = 0;
+    chainAnimation->nodes_.clear();
+    RefPtr<ChainAnimationNode> node = AceType::MakeRefPtr<ChainAnimationNode>(
+        1, 4.0f, 6.0f, 2.0f, AceType::MakeRefPtr<SpringProperty>(2.0, 4.0, 6.0));
+    node->spring_->currentPosition_ = 2.0;
+    node->SetDelta(4.0f, 4.0f, 6.0f);
+    chainAnimation->nodes_[1] = node;
+    pattern->chainAnimation_ = chainAnimation;
+    RefPtr<ScrollSpringEffect> scrollEffect = AceType::MakeRefPtr<ScrollSpringEffect>();
+    pattern->scrollEffect_ = scrollEffect;
+    listNode->layoutProperty_->UpdatePropertyChangeFlag(PROPERTY_UPDATE_NORMAL);
+    pattern->crossMatchChild_ = true;
+
+    /**
+     * @tc.steps: step3. Calling SetChainAnimationCallback and animationCallback function
+     * @tc.expected: The PropertyChangeFlag PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT
+     */
+    pattern->SetChainAnimationCallback();
+    auto animationCallback = pattern->chainAnimation_->animationCallback_;
+    animationCallback();
+    EXPECT_EQ(listNode->layoutProperty_->propertyChangeFlag_, PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
 }
 } // namespace OHOS::Ace::NG

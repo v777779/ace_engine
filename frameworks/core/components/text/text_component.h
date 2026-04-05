@@ -32,7 +32,7 @@
 namespace OHOS::Ace {
 
 // A component can show text.
-class ACE_EXPORT TextComponent : public ComponentGroup {
+class ACE_FORCE_EXPORT TextComponent : public ComponentGroup {
     DECLARE_ACE_TYPE(TextComponent, ComponentGroup);
 
 public:
@@ -47,7 +47,7 @@ public:
     void SetData(const std::string& data);
 
     const TextStyle& GetTextStyle() const;
-    void SetTextStyle(const TextStyle& textStyle);
+    ACE_FORCE_EXPORT void SetTextStyle(const TextStyle& textStyle);
 
     const std::optional<TextAlign>& GetAlignment() const;
     void SetAlignment(const TextAlign& alignment);

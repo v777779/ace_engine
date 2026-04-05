@@ -77,6 +77,7 @@ struct hdrBrightnessDemo04 {
     } else {
       console.info('imageInfo.isHdr: ' + imageInfo.isHdr)
     }
+    imageSource?.release()
   }
 
   build() {
@@ -85,7 +86,7 @@ struct hdrBrightnessDemo04 {
       Text('Modifier #1: Cycling Brightness')
         .fontSize(18).fontWeight(FontWeight.Bold)
 
-      Image($r('app.media.img_1'))
+      Image($r('app.media.startIcon'))
         .width('50%')
         .height('auto')
         .attributeModifier(this.modifier2)
@@ -103,7 +104,7 @@ struct hdrBrightnessDemo04 {
       Text('Modifier #2: Toggle Between Levels')
         .fontSize(18).fontWeight(FontWeight.Bold)
 
-      Image($r('app.media.img_1'))
+      Image($r('app.media.startIcon'))
         .width('60%')
         .height('auto')
         .attributeModifier(this.modifier1)

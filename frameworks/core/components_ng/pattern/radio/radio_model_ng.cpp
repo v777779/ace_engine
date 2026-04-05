@@ -28,9 +28,9 @@ void RadioModelNG::Create(const std::optional<std::string>& value, const std::op
     auto* stack = ViewStackProcessor::GetInstance();
     CHECK_NULL_VOID(stack);
     int32_t nodeId = stack->ClaimNodeId();
-    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::RADIO_ETS_TAG, nodeId);
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", RADIO_ETS_TAG, nodeId);
     auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::RADIO_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<RadioPattern>(); });
+        RADIO_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<RadioPattern>(); });
     ViewStackProcessor::GetInstance()->Push(frameNode);
     auto eventHub = frameNode->GetEventHub<NG::RadioEventHub>();
     CHECK_NULL_VOID(eventHub);
@@ -53,7 +53,7 @@ void RadioModelNG::Create(const std::optional<std::string>& value, const std::op
 
 RefPtr<FrameNode> RadioModelNG::CreateFrameNode(int32_t nodeId)
 {
-    auto frameNode = FrameNode::CreateFrameNode(V2::RADIO_ETS_TAG, nodeId, AceType::MakeRefPtr<RadioPattern>());
+    auto frameNode = FrameNode::CreateFrameNode(RADIO_ETS_TAG, nodeId, AceType::MakeRefPtr<RadioPattern>());
     CHECK_NULL_RETURN(frameNode, nullptr);
     return frameNode;
 }
@@ -65,14 +65,6 @@ void RadioModelNG::SetBuilder(std::function<void()>&& buildFunc)
     auto radioPattern = frameNode->GetPattern<RadioPattern>();
     CHECK_NULL_VOID(radioPattern);
     radioPattern->SetBuilder(std::move(buildFunc));
-}
-
-void RadioModelNG::SetBuilder(FrameNode* frameNode, std::function<void()>&& builder)
-{
-    CHECK_NULL_VOID(frameNode);
-    auto radioPattern = frameNode->GetPattern<RadioPattern>();
-    CHECK_NULL_VOID(radioPattern);
-    radioPattern->SetBuilder(std::move(builder));
 }
 
 void RadioModelNG::SetRadioIndicator(int32_t indicator)
@@ -89,8 +81,7 @@ void RadioModelNG::SetChecked(bool isChecked)
     auto eventHub = frameNode->GetEventHub<RadioEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetCurrentUIState(UI_STATE_SELECTED, isChecked);
-
-    ACE_UPDATE_PAINT_PROPERTY(RadioPaintProperty, RadioCheck, isChecked);
+    ACE_UPDATE_NODE_PAINT_PROPERTY(RadioPaintProperty, RadioCheck, isChecked, frameNode);
 }
 
 void RadioModelNG::SetOnChange(ChangeEvent&& onChange)
@@ -108,14 +99,6 @@ void RadioModelNG::SetOnChange(FrameNode* frameNode, ChangeEvent&& onChange)
     auto eventHub = frameNode->GetEventHub<RadioEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetOnChange(std::move(onChange));
-}
-
-void RadioModelNG::SetOnChangeEvent(FrameNode* frameNode, ChangeEvent&& onChangeEvent)
-{
-    CHECK_NULL_VOID(frameNode);
-    auto eventHub = frameNode->GetEventHub<RadioEventHub>();
-    CHECK_NULL_VOID(eventHub);
-    eventHub->SetOnChangeEvent(std::move(onChangeEvent));
 }
 
 void RadioModelNG::SetWidth(const Dimension& width)
@@ -208,7 +191,6 @@ void RadioModelNG::SetCheckedBackgroundColor(FrameNode* frameNode, const Color& 
     ACE_UPDATE_NODE_PAINT_PROPERTY(RadioPaintProperty, RadioCheckedBackgroundColor, color, frameNode);
 }
 
-
 void RadioModelNG::SetCheckedBackgroundColorSetByUser(FrameNode* frameNode, bool flag)
 {
     ACE_UPDATE_NODE_PAINT_PROPERTY(RadioPaintProperty, RadioCheckedBackgroundColorSetByUser, flag, frameNode);
@@ -280,16 +262,6 @@ void RadioModelNG::SetChangeValue(FrameNode* frameNode, bool value)
     auto pattern = frameNode->GetPattern<RadioPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->SetRadioChecked(value);
-}
-
-void RadioModelNG::SetRadioIndicatorType(FrameNode* frameNode, const std::optional<int32_t>& indicator)
-{
-    CHECK_NULL_VOID(frameNode);
-    if (indicator.has_value()) {
-        ACE_UPDATE_NODE_PAINT_PROPERTY(RadioPaintProperty, RadioIndicator, indicator.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_PAINT_PROPERTY(RadioPaintProperty, RadioIndicator, frameNode);
-    }
 }
 
 bool RadioModelNG::GetChecked(FrameNode* frameNode)
@@ -426,6 +398,7 @@ void RadioModelNG::SetIsUserSetMargin(FrameNode* frameNode, bool isUserSet)
 {
     CHECK_NULL_VOID(frameNode);
     auto pattern = frameNode->GetPattern<RadioPattern>();
+    CHECK_NULL_VOID(pattern);
     pattern->SetIsUserSetMargin(isUserSet);
 }
 
@@ -441,6 +414,67 @@ void RadioModelNG::SetUncheckedBorderColorByJSRadioTheme(bool flag)
 void RadioModelNG::SetIndicatorColorByJSRadioTheme(bool flag)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetIndicatorColorByJSRadioTheme(flag);
+}
+
+void RadioModelNG::CreateRadio(const std::optional<std::string>& value, const std::optional<std::string>& group,
+    const std::optional<int32_t>& indicator)
+{
+    auto* stack = ViewStackProcessor::GetInstance();
+    CHECK_NULL_VOID(stack);
+    int32_t nodeId = stack->ClaimNodeId();
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", RADIO_ETS_TAG, nodeId);
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(RADIO_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<RadioPattern>(); });
+    ViewStackProcessor::GetInstance()->Push(frameNode);
+    auto eventHub = frameNode->GetEventHub<NG::RadioEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    if (value.has_value()) {
+        eventHub->SetValue(value.value());
+    }
+    if (group.has_value()) {
+        eventHub->SetGroup(group.value());
+    }
+    if (indicator.has_value()) {
+        RadioModelNG::SetRadioIndicator(indicator.value());
+    }
+    auto props = frameNode->GetPaintPropertyPtr<RadioPaintProperty>();
+    if (props) {
+        props->ResetRadioCheckedBackgroundColorSetByUser();
+        props->ResetRadioUncheckedBorderColorSetByUser();
+        props->ResetRadioIndicatorColorSetByUser();
+    }
+}
+
+void RadioModelNG::SetBuilderStatic(FrameNode* frameNode, std::function<void()>&& buildFunc)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto radioPattern = frameNode->GetPattern<RadioPattern>();
+    CHECK_NULL_VOID(radioPattern);
+    radioPattern->SetBuilder(std::move(buildFunc));
+}
+
+void RadioModelNG::SetOnChangeEventStatic(FrameNode* frameNode, ChangeEvent&& onChangeEvent)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<RadioEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnChangeEvent(std::move(onChangeEvent));
+}
+
+void RadioModelNG::SetUncheckedBorderColorByJSRadioThemeStatic(FrameNode* frameNode, bool flag)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetUncheckedBorderColorByJSRadioTheme(flag);
+}
+
+void RadioModelNG::SetIndicatorColorByJSRadioThemeStatic(FrameNode* frameNode, bool flag)
+{
     CHECK_NULL_VOID(frameNode);
     auto pattern = frameNode->GetPattern<RadioPattern>();
     CHECK_NULL_VOID(pattern);

@@ -24,6 +24,7 @@
 #include "core/components/common/layout/constants.h"
 #include "core/components/tab_bar/tabs_event.h"
 #include "core/components_ng/base/observer_handler.h"
+#include "core/components_ng/manager/load_complete/load_complete_manager.h"
 #include "core/components_ng/pattern/divider/divider_layout_property.h"
 #include "core/components_ng/pattern/divider/divider_render_property.h"
 #include "core/components_ng/pattern/swiper/swiper_model.h"
@@ -37,8 +38,7 @@
 #include "core/components_ng/property/property.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/pipeline_ng/pipeline_context.h"
-#include "interfaces/inner_api/ui_session/ui_session_manager.h"
-#include "core/components_ng/pattern/tabs/tabs_node.h"
+#include "base/log/ace_checker.h"
 namespace OHOS::Ace::NG {
 namespace {
 constexpr int32_t CHILDREN_MIN_SIZE = 2;
@@ -53,6 +53,47 @@ void TabsPattern::OnAttachToFrameNode()
     // expand to navigation bar by default
     host->GetLayoutProperty()->UpdateSafeAreaExpandOpts(
         { .type = SAFE_AREA_TYPE_SYSTEM, .edges = SAFE_AREA_EDGE_BOTTOM });
+}
+
+void TabsPattern::PerformanceCheckTabChange(
+    RefPtr<OHOS::Ace::NG::TabsPattern> pattern, RefPtr<OHOS::Ace::NG::TabsNode> tabsNode, bool currentIndex)
+{
+    if (!AceChecker::IsPerformanceCheckEnabled()) {
+        return;
+    }
+    int64_t startTime = GetSysTimestamp();
+    auto pipeline = pattern->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    auto stageManager_ = pipeline->GetStageManager();
+    CHECK_NULL_VOID(stageManager_);
+    auto swiperNode_ = AceType::DynamicCast<FrameNode>(tabsNode->GetTabs());
+    CHECK_NULL_VOID(swiperNode_);
+    pipeline->AddAfterLayoutTask([weakStage = WeakPtr<StageManager>(stageManager_),
+                                     weakNode = WeakPtr<FrameNode>(swiperNode_), startTime, currentIndex]() {
+        auto stageManager = weakStage.Upgrade();
+        CHECK_NULL_VOID(stageManager);
+        auto swiperNode = weakNode.Upgrade();
+        CHECK_NULL_VOID(swiperNode);
+        auto currentTabContentNode = AceType::DynamicCast<TabContentNode>(swiperNode->GetChildByIndex(currentIndex));
+        CHECK_NULL_VOID(currentTabContentNode);
+        auto current = AceType::DynamicCast<UINode>(currentTabContentNode);
+        while (current) {
+            if (current->GetTag() == V2::PAGE_ETS_TAG) {
+                break;
+            }
+            current = current->GetParent();
+        }
+        CHECK_NULL_VOID(current);
+        auto routerPage = AceType::DynamicCast<FrameNode>(current);
+        CHECK_NULL_VOID(routerPage);
+        auto pagePattern = routerPage->GetPattern<NG::PagePattern>();
+        CHECK_NULL_VOID(pagePattern);
+        auto pageInfo = pagePattern->GetPageInfo();
+        CHECK_NULL_VOID(pageInfo);
+        auto pagePath = pageInfo->GetFullPath();
+        int64_t endTime = GetSysTimestamp();
+        stageManager->PerformanceCheck(routerPage, endTime - startTime, pagePath);
+    });
 }
 
 void TabsPattern::SetOnChangeEvent(std::function<void(const BaseEventInfo*)>&& event)
@@ -80,6 +121,10 @@ void TabsPattern::SetOnChangeEvent(std::function<void(const BaseEventInfo*)>&& e
         tabsLayoutProperty->UpdateIndex(currentIndex);
         tabBarPattern->OnTabBarIndexChange(currentIndex);
         pattern->FireTabContentStateCallback(preIndex, currentIndex);
+        /* TabChange callback */
+        pattern->FireTabChangeCallback(preIndex, currentIndex);
+        /* TabChange performanceCheck */
+        pattern->PerformanceCheckTabChange(pattern, tabsNode, currentIndex);
 
         /* js callback */
         if (jsEvent && tabsNode->IsOnMainTree()) {
@@ -94,7 +139,6 @@ void TabsPattern::SetOnChangeEvent(std::function<void(const BaseEventInfo*)>&& e
                     jsEvent(&eventInfo);
                 }, true);
         }
-        pattern->ReportComponentChangeEvent(currentIndex);
     });
 
     if (onChangeEvent_) {
@@ -103,6 +147,8 @@ void TabsPattern::SetOnChangeEvent(std::function<void(const BaseEventInfo*)>&& e
         onChangeEvent_ = std::make_shared<ChangeEventWithPreIndex>(changeEvent);
         auto eventHub = swiperNode->GetEventHub<SwiperEventHub>();
         CHECK_NULL_VOID(eventHub);
+        auto tabsId = tabsNode->GetId();
+        eventHub->SetTabsId(tabsId);
         eventHub->AddOnChangeEventWithPreIndex(onChangeEvent_);
     }
 }
@@ -133,6 +179,129 @@ void TabsPattern::FireTabContentStateCallback(int32_t oldIndex, int32_t nextInde
             id, uniqueId);
         UIObserverHandler::GetInstance().NotifyTabContentStateUpdate(nextTabContentInfo);
     }
+}
+
+/**
+ * @brief Fire TabChange event callback.
+ *
+ * This function is responsible for generating TabChange event data and sending it.
+ * The first time must be to send the show state event, and the client will receive
+ * the show state event. Then each subsequent transmission, the client will first
+ * receive a hide state event, followed by a show state event.
+ * It performs the following steps:
+ * 1. Based on the TabContent information corresponding to pretIndex, create TabChange
+ *    event data in hide state, send it out, and keep the sent information.
+ * 2. Based on the TabContent information corresponding to nextIndex, create TabChange
+ *    event data in show state, send it out, and keep the sent information.
+ *
+ * @param preIndex The previous index for TabContent. When sending the first TabChange event,
+ *                 the parameter must be -1.
+ * @param nextIndex The next index for TabContent.
+ */
+void TabsPattern::FireTabChangeCallback(int32_t preIndex, int32_t nextIndex)
+{
+    auto tabsNode = AceType::DynamicCast<TabsNode>(GetHost());
+    CHECK_NULL_VOID(tabsNode);
+    auto swiperNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabs());
+    CHECK_NULL_VOID(swiperNode);
+    std::string id = tabsNode->GetInspectorId().value_or("");
+    int32_t uniqueId = tabsNode->GetId();
+    auto preTabContent = (preIndex < 0) ? nullptr :
+        AceType::DynamicCast<TabContentNode>(swiperNode->GetChildByIndex(static_cast<uint32_t>(preIndex)));
+    // The first event cannot be hide state.
+    if (preTabContent && lastTabChangeInfo_.has_value() && IsValidFireTabChange(lastTabChangeInfo_, preIndex, false)) {
+        std::string preTabContentId = preTabContent->GetInspectorId().value_or("");
+        int32_t preTabContentUniqueId = preTabContent->GetId();
+        TabContentInfo preTabContentInfo(preTabContentId, preTabContentUniqueId, TabContentState::ON_HIDE,
+            preIndex, id, uniqueId);
+        if (lastTabChangeInfo_->lastFocusIndex.has_value()) {
+            preTabContentInfo.lastIndex = lastTabChangeInfo_->lastFocusIndex;
+        }
+        UIObserverHandler::GetInstance().NotifyTabChange(preTabContentInfo);
+        lastTabChangeInfo_->index = preIndex;
+        lastTabChangeInfo_->isShow = false;
+    }
+    auto nextTabContent = (nextIndex < 0) ? nullptr :
+        AceType::DynamicCast<TabContentNode>(swiperNode->GetChildByIndex(static_cast<uint32_t>(nextIndex)));
+    if (nextTabContent && IsValidFireTabChange(lastTabChangeInfo_, nextIndex, true)) {
+        std::string nextTabContentId = nextTabContent->GetInspectorId().value_or("");
+        int32_t nextTabContentUniqueId = nextTabContent->GetId();
+        TabContentInfo nextTabContentInfo(nextTabContentId, nextTabContentUniqueId, TabContentState::ON_SHOW,
+            nextIndex, id, uniqueId);
+        // The first callback to observer, lastIndex has no value
+        if (lastTabChangeInfo_.has_value() && lastTabChangeInfo_->lastFocusIndex.has_value()) {
+            nextTabContentInfo.lastIndex = lastTabChangeInfo_->lastFocusIndex;
+        }
+        UIObserverHandler::GetInstance().NotifyTabChange(nextTabContentInfo);
+        if (!lastTabChangeInfo_.has_value()) {
+            lastTabChangeInfo_ = TabChangeInfo();
+        }
+        lastTabChangeInfo_->index = nextIndex;
+        lastTabChangeInfo_->isShow = true;
+        lastTabChangeInfo_->lastFocusIndex = nextIndex;
+    }
+}
+
+bool TabsPattern::IsValidFireTabChange(const std::optional<TabChangeInfo>& lastTabChangeInfo,
+    int32_t index, bool isShow)
+{
+    if (lastTabChangeInfo.has_value() && lastTabChangeInfo->index == index && lastTabChangeInfo->isShow == isShow) {
+        // TabChange event will not be sent when this event is the same as the last one.
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @brief Check the conditions for sending tabchange.
+ *
+ * This function depend on the logic of the swiper component.
+ *
+ * @param isInit The state representing whether the tabs component is in an initialized state.
+ * @param targetIndex The index representing the desired index to be displayed.
+ * @param currentIndex The index representing the currently displayed index of swiper component.
+ * @param preIndex The index representing the previous displayed index of swiper component.
+ */
+bool TabsPattern::IsNeedFireTabChange(bool isInit,
+    int32_t targetIndex, int32_t currentIndex, int32_t preIndex)
+{
+    if (isInit) {
+        // TabChange event needs to be fired during initialization state.
+        return true;
+    }
+    if (targetIndex != currentIndex || currentIndex != preIndex) {
+        // TabChange event is fired by the swiper When these three variables are not equal.
+        return false;
+    }
+    return true;
+}
+
+void TabsPattern::HandleTabChangeWhenChildrenUpdated(
+    bool isInit, int32_t tabContentNum, int32_t targetIndex)
+{
+    if (tabContentNum <= 0) {
+        // Reset when there is no TabContent.
+        lastTabChangeInfo_.reset();
+        return;
+    }
+    if (lastTabChangeInfo_.has_value()) {
+        // TabChange event can not be fired when TabChange event have been fired.
+        return;
+    }
+    // Only called when tabs initialize or children updated.
+    auto tabsNode = AceType::DynamicCast<TabsNode>(GetHost());
+    CHECK_NULL_VOID(tabsNode);
+    auto swiperNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabs());
+    CHECK_NULL_VOID(swiperNode);
+    auto swiperPattern = swiperNode->GetPattern<SwiperPattern>();
+    CHECK_NULL_VOID(swiperPattern);
+    int32_t currentIndex = swiperPattern->GetCurrentIndex();
+    int32_t preIndex = swiperPattern->GetPreIndex();
+    if (!IsNeedFireTabChange(isInit, targetIndex, currentIndex, preIndex)) {
+        return;
+    }
+    targetIndex = ((targetIndex >= 0) && (targetIndex < tabContentNum)) ? targetIndex : 0;
+    FireTabChangeCallback(-1, targetIndex);
 }
 
 void TabsPattern::RecordChangeEvent(int32_t index)
@@ -217,6 +386,8 @@ void TabsPattern::SetAnimationEndEvent(AnimationEndEvent&& event)
         CHECK_NULL_VOID(swiperNode);
         auto eventHub = swiperNode->GetEventHub<SwiperEventHub>();
         CHECK_NULL_VOID(eventHub);
+        auto tabsId = host->GetId();
+        eventHub->SetTabsId(tabsId);
         animationEndEvent_ = std::make_shared<AnimationEndEvent>(std::move(event));
         eventHub->AddAnimationEndEvent(animationEndEvent_);
     }
@@ -380,27 +551,15 @@ std::string TabsPattern::ProvideRestoreInfo()
 
 void TabsPattern::OnRestoreInfo(const std::string& restoreInfo)
 {
-    auto tabsNode = AceType::DynamicCast<TabsNode>(GetHost());
-    CHECK_NULL_VOID(tabsNode);
-    auto tabBarNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabBar());
-    CHECK_NULL_VOID(tabBarNode);
-    auto tabBarPattern = tabBarNode->GetPattern<TabBarPattern>();
-    CHECK_NULL_VOID(tabBarPattern);
-    auto swiperNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabs());
-    CHECK_NULL_VOID(swiperNode);
-    auto swiperPattern = swiperNode->GetPattern<SwiperPattern>();
-    CHECK_NULL_VOID(swiperPattern);
-    auto swiperLayoutProperty = swiperNode->GetLayoutProperty<SwiperLayoutProperty>();
-    CHECK_NULL_VOID(swiperLayoutProperty);
     auto info = JsonUtil::ParseJsonString(restoreInfo);
     if (!info->IsValid() || !info->IsObject()) {
         return;
     }
     auto jsonIsOn = info->GetValue("Index");
-    swiperLayoutProperty->UpdateIndex(jsonIsOn->GetInt());
-
-    swiperPattern->OnRestoreInfo(restoreInfo);
-    tabBarPattern->OnRestoreInfo(restoreInfo);
+    auto tabsLayoutProperty = GetLayoutProperty<TabsLayoutProperty>();
+    CHECK_NULL_VOID(tabsLayoutProperty);
+    CHECK_NULL_VOID(jsonIsOn);
+    tabsLayoutProperty->UpdateIndexSetByUser(jsonIsOn->GetInt());
 }
 
 void TabsPattern::AddInnerOnGestureRecognizerJudgeBegin(GestureRecognizerJudgeFunc&& gestureRecognizerJudgeFunc)
@@ -623,6 +782,7 @@ void TabsPattern::BeforeCreateLayoutWrapper()
             auto willShowIndex = tabsLayoutProperty->GetIndex().value_or(0);
             swiperPattern->FireSelectedEvent(-1, willShowIndex);
             swiperPattern->FireWillShowEvent(willShowIndex);
+            HandleTabChangeWhenChildrenUpdated(true, swiperNode->TotalChildCount(), willShowIndex);
         }
         isInit_ = false;
     }
@@ -639,6 +799,7 @@ void TabsPattern::BeforeCreateLayoutWrapper()
             index = 0;
         }
         UpdateSelectedState(swiperNode, tabBarPattern, tabsLayoutProperty, index);
+        HandleTabChangeWhenChildrenUpdated(false, tabContentNum, index);
     }
 }
 
@@ -674,6 +835,14 @@ void TabsPattern::UpdateIndex(const RefPtr<FrameNode>& tabsNode, const RefPtr<Fr
             }
         }
         AceAsyncTraceBeginCommercial(0, APP_TABS_NO_ANIMATION_SWITCH);
+        auto host = GetHost();
+        if (host) {
+            auto pipeline = host->GetContextWithCheck();
+            if (pipeline) {
+                std::string url = pipeline->GetCurrentPageName() + ",index-" + std::to_string(index);
+                pipeline->GetLoadCompleteManager()->StartCollect(url);
+            }
+        }
         tabBarPattern->SetMaskAnimationByCreate(true);
         UpdateSelectedState(swiperNode, tabBarPattern, tabsLayoutProperty, index);
     }
@@ -765,6 +934,10 @@ void TabsPattern::UpdateSelectedState(const RefPtr<FrameNode>& swiperNode, const
         auto swiperLayoutProperty = swiperNode->GetLayoutProperty<SwiperLayoutProperty>();
         CHECK_NULL_VOID(swiperLayoutProperty);
         swiperLayoutProperty->UpdateIndex(index);
+        auto prevIndex = tabsLayoutProperty->GetIndex().value_or(0);
+        if (prevIndex != index && index >= 0) {
+            swiperPattern->SetCustomAnimationPrevIndex(prevIndex);
+        }
     }
     tabsLayoutProperty->UpdateIndex(index);
 }
@@ -794,66 +967,72 @@ void TabsPattern::SetOnUnselectedEvent(std::function<void(const BaseEventInfo*)>
     }
 }
 
-void TabsPattern::ReportComponentChangeEvent(int32_t currentIndex)
+void TabsPattern::SetOnContentDidScroll(ContentDidScrollEvent&& onContentDidScroll)
 {
-    if (!UiSessionManager::GetInstance()->IsHasReportObject()) {
-        return;
-    }
+    onContentDidScroll_ = std::make_shared<ContentDidScrollEvent>(onContentDidScroll);
+
+    auto toSwiperCallback = [weakThis = WeakPtr<TabsPattern>(AceType::Claim(this))](
+                                int32_t selectedIndex, int32_t index, float position, float mainAxisLength) mutable {
+        auto tabsPattern = weakThis.Upgrade();
+        CHECK_NULL_VOID(tabsPattern);
+        auto host = tabsPattern->GetHost();
+        CHECK_NULL_VOID(host);
+        auto tabsNode = AceType::DynamicCast<TabsNode>(host);
+        CHECK_NULL_VOID(tabsNode);
+        auto swiperNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabs());
+        CHECK_NULL_VOID(swiperNode);
+        auto swiperPattern = swiperNode->GetPattern<SwiperPattern>();
+        CHECK_NULL_VOID(swiperPattern);
+        auto swiperController = swiperPattern->GetSwiperController();
+        CHECK_NULL_VOID(swiperController);
+        const auto& turnPageRateCallback = swiperController->GetTurnPageRateCallback();
+        if (swiperPattern->IsTranslateAnimationRunning() && turnPageRateCallback) {
+            auto swipingIndexAndRate = swiperPattern->GetIndicatorProgress();
+            if (!NearZero(swipingIndexAndRate.second)) {
+                turnPageRateCallback(swipingIndexAndRate.first, swipingIndexAndRate.second);
+            }
+        }
+        auto event = *tabsPattern->onContentDidScroll_;
+        if (event) {
+            event(selectedIndex, index, position, mainAxisLength);
+        }
+    };
+
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto params = JsonUtil::Create();
-    CHECK_NULL_VOID(params);
-    params->Put("index", currentIndex);
-    auto json = JsonUtil::Create();
-    CHECK_NULL_VOID(json);
-    json->Put("cmd", "onTabBarClick");
-    json->Put("params", params);
-
-    auto result = JsonUtil::Create();
-    CHECK_NULL_VOID(result);
-    auto nodeId = host->GetId();
-    result->Put("nodeId", nodeId);
-    result->Put("event", json);
-    UiSessionManager::GetInstance()->ReportComponentChangeEvent("result", result->ToString());
+    auto tabsNode = AceType::DynamicCast<TabsNode>(host);
+    CHECK_NULL_VOID(tabsNode);
+    auto swiperNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabs());
+    CHECK_NULL_VOID(swiperNode);
+    auto swiperPattern = swiperNode->GetPattern<SwiperPattern>();
+    CHECK_NULL_VOID(swiperPattern);
+    swiperPattern->SetOnContentDidScroll(std::move(toSwiperCallback));
 }
 
-bool TabsPattern::GetTargetIndex(const std::string& command, int32_t& targetIndex)
-{
-    auto json = JsonUtil::ParseJsonString(command);
-    if (!json || !json->IsValid() || !json->IsObject()) {
-        return false;
-    }
-
-    if (json->GetString("cmd") != "changeIndex") {
-        TAG_LOGW(AceLogTag::ACE_TABS, "Invalid command");
-        return false;
-    }
-
-    auto paramJson = json->GetValue("params");
-    if (!paramJson || !paramJson->IsObject()) {
-        return false;
-    }
-
-    targetIndex = paramJson->GetInt("index");
-    return true;
-}
-
-int32_t TabsPattern::OnInjectionEvent(const std::string& command)
+void TabsPattern::OnColorConfigurationUpdate()
 {
     auto host = GetHost();
-    CHECK_NULL_RETURN(host, RET_FAILED);
+    CHECK_NULL_VOID(host);
     auto tabsNode = AceType::DynamicCast<TabsNode>(host);
-    CHECK_NULL_RETURN(tabsNode, RET_FAILED);
-    int32_t targetIndex = 0;
-    if (!GetTargetIndex(command, targetIndex)) {
-        return RET_FAILED;
-    }
+    CHECK_NULL_VOID(tabsNode);
     auto tabBarNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabBar());
-    CHECK_NULL_RETURN(tabBarNode, RET_FAILED);
-    auto tabBarPattern = tabBarNode->GetPattern<TabBarPattern>();
-    CHECK_NULL_RETURN(tabBarPattern, RET_FAILED);
-    tabBarPattern->ChangeIndex(targetIndex);
-    return RET_SUCCESS;
+    CHECK_NULL_VOID(tabBarNode);
+    auto pipeline = host->GetContextWithCheck();
+    CHECK_NULL_VOID(pipeline);
+    auto theme = pipeline->GetTheme<TabTheme>();
+    CHECK_NULL_VOID(theme);
+    auto tabsLayoutProperty = tabsNode->GetLayoutProperty<TabsLayoutProperty>();
+    CHECK_NULL_VOID(tabsLayoutProperty);
+    if (!tabsLayoutProperty->HasDividerColorSetByUser() || !tabsLayoutProperty->GetDividerColorSetByUserValue()) {
+        auto currentDivider = tabsLayoutProperty->GetDivider().value_or(TabsItemDivider());
+        currentDivider.color = theme->GetDividerColor();
+        tabsLayoutProperty->UpdateDivider(currentDivider);
+        auto dividerFrameNode = AceType::DynamicCast<FrameNode>(tabsNode->GetDivider());
+        CHECK_NULL_VOID(dividerFrameNode);
+        auto dividerRenderProperty = dividerFrameNode->GetPaintProperty<DividerRenderProperty>();
+        CHECK_NULL_VOID(dividerRenderProperty);
+        dividerRenderProperty->UpdateDividerColor(currentDivider.color);
+    }
 }
 
 void TabsPattern::OnColorModeChange(uint32_t colorMode)
@@ -873,8 +1052,7 @@ void TabsPattern::OnColorModeChange(uint32_t colorMode)
     auto tabsLayoutProperty = tabsNode->GetLayoutProperty<TabsLayoutProperty>();
     CHECK_NULL_VOID(tabsLayoutProperty);
 
-    if (!tabsLayoutProperty->HasDividerColorSetByUser() ||
-        (tabsLayoutProperty->HasDividerColorSetByUser() && !tabsLayoutProperty->GetDividerColorSetByUserValue())) {
+    if (!tabsLayoutProperty->HasDividerColorSetByUser() || !tabsLayoutProperty->GetDividerColorSetByUserValue()) {
         auto currentDivider = tabsLayoutProperty->GetDivider().value_or(TabsItemDivider());
         currentDivider.color = theme->GetDividerColor();
         auto dividerFrameNode = AceType::DynamicCast<FrameNode>(tabsNode->GetDivider());
@@ -883,14 +1061,79 @@ void TabsPattern::OnColorModeChange(uint32_t colorMode)
         CHECK_NULL_VOID(dividerRenderProperty);
         dividerRenderProperty->UpdateDividerColor(currentDivider.color);
     }
-    auto tabBarRenderContext = tabBarNode->GetRenderContext();
-    CHECK_NULL_VOID(tabBarRenderContext);
-    if (!tabsLayoutProperty->HasBarBackgroundColorSetByUser() ||
-        (tabsLayoutProperty->HasBarBackgroundColorSetByUser() &&
-            !tabsLayoutProperty->GetBarBackgroundColorSetByUserValue())) {
-        Color backgroundColor = Color::BLACK.BlendOpacity(0.0f);
-        tabBarRenderContext->UpdateBackgroundColor(backgroundColor);
-    }
+    UpdateTabBarOverlap(tabsLayoutProperty);
     tabBarNode->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+}
+
+void TabsPattern::UpdateTabBarOverlap(const RefPtr<TabsLayoutProperty>& tabsLayoutProperty)
+{
+    CHECK_NULL_VOID(tabsLayoutProperty);
+    if (!tabsLayoutProperty->HasBarOverlap()) {
+        return;
+    }
+    bool barOverlap = tabsLayoutProperty->GetBarOverlapValue();
+    BlurStyleOption styleOption;
+    if (barOverlap) {
+        styleOption.blurStyle = BlurStyle::COMPONENT_THICK;
+    }
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto tabsNode = AceType::DynamicCast<TabsNode>(host);
+    CHECK_NULL_VOID(tabsNode);
+    auto tabBarNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabBar());
+    CHECK_NULL_VOID(tabBarNode);
+    auto target = tabBarNode->GetRenderContext();
+    if (target) {
+        target->UpdateBackBlurStyle(styleOption);
+    }
+}
+
+bool TabsPattern::GetTargetIndex(const std::string& command, int32_t& targetIndex)
+{
+    auto json = JsonUtil::ParseJsonString(command);
+    if (!json || !json->IsValid() || !json->IsObject()) {
+        return false;
+    }
+    auto cmdValue = json->GetString("cmd");
+    if (cmdValue != "changeIndex") {
+        TAG_LOGW(AceLogTag::ACE_TABS, "Invalid command");
+        return false;
+    }
+
+    auto paramJson = json->GetValue("params");
+    if (!paramJson || !paramJson->IsObject()) {
+        return false;
+    }
+    if (!paramJson->Contains("index") || !paramJson->GetValue("index")->IsString()) {
+        TAG_LOGE(AceLogTag::ACE_TABS, "Invalid or missing index parameter");
+        return false;
+    }
+    auto originIndex = paramJson->GetString("index");
+    targetIndex = StringUtils::StringToInt(originIndex);
+    return true;
+}
+
+int32_t TabsPattern::OnInjectionEvent(const std::string& command)
+{
+    int32_t targetIndex = 0;
+    if (!GetTargetIndex(command, targetIndex)) {
+        return RET_FAILED;
+    }
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, RET_FAILED);
+    auto tabsNode = AceType::DynamicCast<TabsNode>(host);
+    CHECK_NULL_RETURN(tabsNode, RET_FAILED);
+    auto tabBarNode = AceType::DynamicCast<FrameNode>(tabsNode->GetTabBar());
+    CHECK_NULL_RETURN(tabBarNode, RET_FAILED);
+    auto tabBarPattern = tabBarNode->GetPattern<TabBarPattern>();
+    CHECK_NULL_RETURN(tabBarPattern, RET_FAILED);
+    tabBarPattern->ChangeIndex(targetIndex);
+    return RET_SUCCESS;
+}
+ 	 
+void TabsPattern::DumpInfo()
+{
+    DumpLog::GetInstance().AddDesc(std::string("isBindonContentDidScroll: ")
+            .append((onContentDidScroll_ && *onContentDidScroll_) ? "true" : "false"));
 }
 } // namespace OHOS::Ace::NG

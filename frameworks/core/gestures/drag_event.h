@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,6 +15,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_GESTURES_DRAG_EVENT_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_GESTURES_DRAG_EVENT_H
 
+#include <algorithm>
 #include <map>
 #include <string_view>
 
@@ -24,12 +25,12 @@
 #include "core/common/udmf/data_load_params.h"
 #include "core/common/udmf/unified_data.h"
 #include "core/event/ace_events.h"
+#include "core/gestures/drag_constants.h"
 #include "core/gestures/gesture_info.h"
 #include "core/gestures/velocity.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_related_configuration.h"
 
 namespace OHOS::Ace {
-
 constexpr Dimension DEFAULT_DRAG_START_PAN_DISTANCE_THRESHOLD = 10.0_vp;
 constexpr float DEFAULT_DRAG_START_SCALE = 0.2;
 class PasteData : public AceType {
@@ -53,54 +54,8 @@ private:
     std::string plainText_;
 };
 
-enum class DragDropInitiatingStatus : int32_t {
-    IDLE = 0,
-    READY,
-    PRESS,
-    LIFTING,
-    MOVING,
-};
-
-enum class DragSpringLoadingState {
-    BEGIN = 0,
-    UPDATE,
-    END,
-    CANCEL,
-};
-
-enum class DragRet {
-    DRAG_DEFAULT = -1,
-    DRAG_SUCCESS = 0,
-    DRAG_FAIL,
-    DRAG_CANCEL,
-    ENABLE_DROP,
-    DISABLE_DROP,
-};
-
-enum class PreDragStatus {
-    ACTION_DETECTING_STATUS = 0,
-    READY_TO_TRIGGER_DRAG_ACTION,
-    PREVIEW_LIFT_STARTED,
-    PREVIEW_LIFT_FINISHED,
-    PREVIEW_LANDING_STARTED,
-    PREVIEW_LANDING_FINISHED,
-    ACTION_CANCELED_BEFORE_DRAG,
-    PREPARING_FOR_DRAG_DETECTION,
-};
-
-enum class DragStartRequestStatus : int32_t {
-    WAITING = 0,
-    READY
-};
-
-enum class DragBehavior {
-    UNKNOWN = -1,
-    COPY = 0,
-    MOVE = 1,
-};
-
 class ACE_FORCE_EXPORT DragEvent : public AceType {
-    DECLARE_ACE_TYPE(DragEvent, AceType)
+    DECLARE_ACE_TYPE(DragEvent, AceType);
 
 public:
     DragEvent() = default;
@@ -276,6 +231,22 @@ public:
         return dragBehavior_;
     }
 
+    void SetAutoHideComponentUniqueIds(const std::vector<int32_t>& autoHideComponentUniqueIds)
+    {
+        autoHideComponentUniqueIds_.clear();
+        for (auto uniqueId : autoHideComponentUniqueIds) {
+            if (std::find(autoHideComponentUniqueIds_.begin(), autoHideComponentUniqueIds_.end(), uniqueId) ==
+                autoHideComponentUniqueIds_.end()) {
+                autoHideComponentUniqueIds_.emplace_back(uniqueId);
+            }
+        }
+    }
+
+    const std::vector<int32_t>& GetAutoHideComponentUniqueIds() const
+    {
+        return autoHideComponentUniqueIds_;
+    }
+
     void SetUdKey(const std::string& udKey)
     {
         udKey_ = udKey;
@@ -380,22 +351,23 @@ public:
     {
         return requestId_;
     }
-    
-    // only use for ArkTs1.2 begin
-    RefPtr<PixelMap> GetDragDropInfoPixelMap() const;
-    void* GetDragDropInfoCustomNode() const;
-    std::string GetDragDropInfoExtraInfo() const;
-    void SetDragDropInfoPixelMap(RefPtr<PixelMap> pixelMap);
-    void SetDragDropInfoCustomNode(void* customNode);
-    void SetDragDropInfoExtraInfo(std::string& extraInfo);
-    // only use for ArkTs1.2 end
+
+    void SetDisplayId(int32_t displayId)
+    {
+        displayId_ = displayId;
+    }
+
+    int32_t GetDisplayId() const
+    {
+        return displayId_;
+    }
 
     void SetDragSource(const std::string& bundleName)
     {
         bundleName_ = bundleName;
     }
 
-    std::string GetDragSource() const
+    const std::string& GetDragSource() const
     {
         return bundleName_;
     }
@@ -409,16 +381,6 @@ public:
     bool isRemoteDev() const
     {
         return isRemoteDev_;
-    }
-    
-    void SetDisplayId(int32_t displayId)
-    {
-        displayId_ = displayId;
-    }
-
-    int32_t GetDisplayId() const
-    {
-        return displayId_;
     }
 
     void SetNeedDoInternalDropAnimation(bool needDoInternalDropAnimation)
@@ -451,6 +413,15 @@ public:
         return useDataLoadParams_;
     }
 
+    // only use for ArkTs1.2 begin
+    RefPtr<PixelMap> GetDragDropInfoPixelMap() const;
+    void* GetDragDropInfoCustomNode() const;
+    std::string GetDragDropInfoExtraInfo() const;
+    void SetDragDropInfoPixelMap(RefPtr<PixelMap> pixelMap);
+    void SetDragDropInfoCustomNode(void* customNode);
+    void SetDragDropInfoExtraInfo(std::string& extraInfo);
+    // only use for ArkTs1.2 end
+
 private:
     RefPtr<PasteData> pasteData_;
     double screenX_ = 0.0;
@@ -472,6 +443,7 @@ private:
     bool isGetDataSuccess_ = false;
     bool copy_ = true;
     DragBehavior dragBehavior_ = DragBehavior::UNKNOWN;
+    std::vector<int32_t> autoHideComponentUniqueIds_;
     RefPtr<UnifiedData> unifiedData_;
     RefPtr<UnifiedData> dragInfo_;
     Velocity velocity_;
@@ -480,9 +452,9 @@ private:
     std::function<void()> executeDropAnimation_;
     int32_t requestId_ = -1;
     bool isDragEndPending_ = false;
+    int32_t displayId_ = -1;
     std::string bundleName_;
     bool isRemoteDev_ { false };
-    int32_t displayId_ = -1;
     bool needDoInternalDropAnimation_ = false;
     RefPtr<DataLoadParams> dataLoadParams_ = nullptr;
     bool useDataLoadParams_ { false };
@@ -492,7 +464,7 @@ private:
 };
 
 class NotifyDragEvent : public DragEvent {
-    DECLARE_ACE_TYPE(NotifyDragEvent, DragEvent)
+    DECLARE_ACE_TYPE(NotifyDragEvent, DragEvent);
 
 public:
     NotifyDragEvent() = default;
@@ -526,13 +498,24 @@ public:
         y_ = y;
     }
 
+    void SetFrameNode(const WeakPtr<NG::FrameNode>& frameNode)
+    {
+        frameNode_ = frameNode;
+    }
+
+    WeakPtr<NG::FrameNode> GetFrameNode() const
+    {
+        return frameNode_;
+    }
+
 private:
     double x_ = 0.0;
     double y_ = 0.0;
+    WeakPtr<NG::FrameNode> frameNode_;
 };
 
 class DragSpringLoadingContext : public AceType {
-    DECLARE_ACE_TYPE(DragSpringLoadingContext, AceType)
+    DECLARE_ACE_TYPE(DragSpringLoadingContext, AceType);
 public:
     explicit DragSpringLoadingContext() = default;
     ~DragSpringLoadingContext() override = default;

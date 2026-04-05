@@ -17,9 +17,10 @@
 
 #include "bridge/declarative_frontend/jsview/js_list_item.h"
 #include "bridge/declarative_frontend/jsview/js_view_common_def.h"
-#include "bridge/declarative_frontend/jsview/models/list_item_group_model_impl.h"
+#include "bridge/declarative_frontend/jsview/js_list_children_main_size.h"
 #include "bridge/declarative_frontend/view_stack_processor.h"
-#include "core/components_v2/list/list_item_group_component.h"
+#include "core/common/dynamic_module_helper.h"
+#include "compatible/components/list_v2/list_item_group_component.h"
 #include "core/components_ng/pattern/list/list_item_group_model.h"
 #include "core/components_ng/pattern/list/list_item_group_model_ng.h"
 
@@ -39,7 +40,10 @@ ListItemGroupModel* ListItemGroupModel::GetInstance()
             if (Container::IsCurrentUseNewPipeline()) {
                 instance_.reset(new NG::ListItemGroupModelNG());
             } else {
-                instance_.reset(new Framework::ListItemGroupModelImpl());
+                static auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("list-item-group");
+                static ListItemGroupModel* instance =
+                    loader ? reinterpret_cast<ListItemGroupModel*>(loader->CreateModel()) : nullptr;
+                return instance;
             }
 #endif
         }
@@ -51,37 +55,6 @@ ListItemGroupModel* ListItemGroupModel::GetInstance()
 namespace OHOS::Ace::Framework {
 
 namespace {
-bool ParseChange(const JSRef<JSObject>& changeObject, const float defaultSize, int32_t& start,
-    int32_t& deleteCount, std::vector<float>& newChildrenSize)
-{
-    if (!JSViewAbstract::ParseJsInteger<int32_t>(changeObject->GetProperty("start"), start) || start < 0) {
-        return false;
-    }
-    if (!(changeObject->HasProperty("deleteCount"))) {
-        // If only input one parameter, set -1 to deleteCount for deleting elements after index 'start' in the array.
-        deleteCount = -1;
-    } else if (!JSViewAbstract::ParseJsInteger<int32_t>(changeObject->GetProperty("deleteCount"), deleteCount) ||
-        deleteCount < 0) {
-        deleteCount = 0;
-    }
-    auto childrenSizeValue = changeObject->GetProperty("childrenSize");
-    if (childrenSizeValue->IsArray()) {
-        auto childrenSize = JSRef<JSArray>::Cast(childrenSizeValue);
-        auto childrenSizeCount = childrenSize->Length();
-        for (size_t j = 0; j < childrenSizeCount; ++j) {
-            // -1.0: represent default size.
-            double childSize = -1.0;
-            if (!JSViewAbstract::ParseJsDouble(childrenSize->GetValueAt(j), childSize) || Negative(childSize)) {
-                // -1.0f: represent default size.
-                newChildrenSize.emplace_back(-1.0f);
-            } else {
-                newChildrenSize.emplace_back(Dimension(childSize, DimensionUnit::VP).ConvertToPx());
-            }
-        }
-    }
-    return true;
-}
-
 void SyncChildrenSize(const JSRef<JSObject>& childrenSizeObj, RefPtr<NG::ListChildrenMainSize> childrenSize)
 {
     auto sizeArray = childrenSizeObj->GetProperty("sizeArray");
@@ -103,6 +76,74 @@ void SyncChildrenSize(const JSRef<JSObject>& childrenSizeObj, RefPtr<NG::ListChi
     }
     childrenSize->SyncChildrenSizeOver();
 }
+
+void CallSetNativeMainSize(const JSRef<JSObject>& childrenSizeObj,
+    const JSRef<JSObject>& nativeMainSize)
+{
+    auto property = childrenSizeObj->GetProperty("setNativeMainSize");
+    if (property->IsFunction()) {
+        auto setnativeMainSizeFunc = JSRef<JSFunc>::Cast(property);
+        JSRef<JSVal> params[1];
+        params[0] = JSRef<JSVal>::Cast(nativeMainSize);
+        setnativeMainSizeFunc->Call(childrenSizeObj, 1, params);
+    }
+}
+
+void InitNativeMainSize(const JSRef<JSObject>& childrenSizeObj, RefPtr<NG::ListChildrenMainSize> listChildrenMainSize,
+    NG::FrameNode* node = nullptr)
+{
+    auto nativeMainSize = JSClass<JSListChildrenMainSize>::NewInstance();
+    if (nativeMainSize->IsEmpty()) {
+        return;
+    }
+    auto nativeMainSizeObj = JSRef<JSObject>::Cast(nativeMainSize);
+    JSListChildrenMainSize* jsChildrenMainSize = nativeMainSizeObj->Unwrap<JSListChildrenMainSize>();
+    if (jsChildrenMainSize == nullptr) {
+        return;
+    }
+    auto frameNode = AceType::WeakClaim(node ? node : NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    jsChildrenMainSize->SetHost(frameNode);
+
+    auto id = Container::CurrentId();
+    auto onStateCallback = [id, weak = AceType::WeakClaim(AceType::RawPtr(listChildrenMainSize)),
+                               nativeMainSize = AceType::WeakClaim(jsChildrenMainSize)](
+                               size_t start, size_t deleteCount, std::vector<float>&& newChildrenSize) {
+        ContainerScope scope(id);
+        auto jsChildrenMainSize = nativeMainSize.Upgrade();
+        CHECK_NULL_VOID(jsChildrenMainSize);
+        auto frameNode =  jsChildrenMainSize->GetHost();
+        CHECK_NULL_VOID(frameNode);
+        auto context = frameNode->GetContext();
+        CHECK_NULL_VOID(context);
+        context->AddBuildFinishCallBack([start, deleteCount, change = std::move(newChildrenSize), weak]() {
+            auto listChildrenMainSize = weak.Upgrade();
+            CHECK_NULL_VOID(listChildrenMainSize);
+            listChildrenMainSize->ChangeData(start, deleteCount, change);
+        });
+        context->RequestFrame();
+    };
+    jsChildrenMainSize->SetOnStateChangedCallback(onStateCallback);
+
+    auto updateSizeCallback = [id, weak = AceType::WeakClaim(AceType::RawPtr(listChildrenMainSize)),
+                                  nativeMainSize = AceType::WeakClaim(jsChildrenMainSize)](double defaultSize) {
+        ContainerScope scope(id);
+        auto jsChildrenMainSize = nativeMainSize.Upgrade();
+        CHECK_NULL_VOID(jsChildrenMainSize);
+        auto frameNode =  jsChildrenMainSize->GetHost();
+        CHECK_NULL_VOID(frameNode);
+        auto context = frameNode->GetContext();
+        context->AddBuildFinishCallBack([defaultSize, weak]() {
+            auto listChildrenMainSize = weak.Upgrade();
+            CHECK_NULL_VOID(listChildrenMainSize);
+            listChildrenMainSize->UpdateDefaultSize(Dimension(defaultSize, DimensionUnit::VP).ConvertToPx());
+        });
+        context->RequestFrame();
+    };
+    jsChildrenMainSize->SetOnDefaultSizeUpdate(updateSizeCallback);
+
+    CallSetNativeMainSize(childrenSizeObj, nativeMainSize);
+}
+
 } // namespace
 
 void JSListItemGroup::SetChildrenMainSize(const JSCallbackInfo& args)
@@ -113,61 +154,54 @@ void JSListItemGroup::SetChildrenMainSize(const JSCallbackInfo& args)
     SetChildrenMainSize(JSRef<JSObject>::Cast(args[0]));
 }
 
-void JSListItemGroup::SetChildrenMainSize(const JSRef<JSObject>& childrenSizeObj)
+void JSListItemGroup::SetChildrenMainSize(const JSRef<JSObject>& childrenSizeObj, NG::FrameNode* node)
 {
     double defaultSize = 0.0f;
-    if (!ParseJsDouble(childrenSizeObj->GetProperty("defaultMainSize"), defaultSize) || !NonNegative(defaultSize)) {
+    if (!ParseJsDouble(childrenSizeObj->GetProperty("childDefaultSize"), defaultSize) || !NonNegative(defaultSize)) {
         LOGW("JSListItemGroup input parameter defaultSize check failed.");
         return;
     }
-    auto listChildrenMainSize = ListItemGroupModel::GetInstance()->GetOrCreateListChildrenMainSize();
+    auto listChildrenMainSize = ListItemGroupModel::GetInstance()->GetOrCreateListChildrenMainSize(node);
     CHECK_NULL_VOID(listChildrenMainSize);
-    listChildrenMainSize->UpdateDefaultSize(Dimension(defaultSize, DimensionUnit::VP).ConvertToPx());
 
-    if (listChildrenMainSize->NeedSync()) {
-        SyncChildrenSize(childrenSizeObj, listChildrenMainSize);
-    } else {
-        auto changes = childrenSizeObj->GetProperty("changeArray");
-        if (!changes->IsArray()) {
-            return;
-        }
-        auto changeArray = JSRef<JSArray>::Cast(changes);
-        auto length = changeArray->Length();
-        for (size_t i = 0; i < length; ++i) {
-            auto change = changeArray->GetValueAt(i);
-            if (!change->IsObject()) {
-                continue;
-            }
-            auto changeObject = JSRef<JSObject>::Cast(change);
-            int32_t start = 0;
-            int32_t deleteCount = 0;
-            std::vector<float> newChildrenSize;
-            if (!ParseChange(changeObject, defaultSize, start, deleteCount, newChildrenSize)) {
-                SyncChildrenSize(childrenSizeObj, listChildrenMainSize);
-                break;
-            }
-            listChildrenMainSize->ChangeData(start, deleteCount, newChildrenSize);
-        }
-    }
-    auto clearFunc = childrenSizeObj->GetProperty("clearChanges");
-    if (!clearFunc->IsFunction()) {
+    // Used for makeObserved to listen and refresh status.
+    childrenSizeObj->GetProperty("changeFlag");
+    auto property = childrenSizeObj->GetProperty("getNativeMainSize");
+    if (!property->IsFunction()) {
         return;
     }
-    auto func = JSRef<JSFunc>::Cast(clearFunc);
-    JSRef<JSVal>::Cast(func->Call(childrenSizeObj));
+    auto getNativeMainSizeFunc = JSRef<JSFunc>::Cast(property);
+    auto nativeMainSize = getNativeMainSizeFunc->Call(childrenSizeObj);
+    JSListChildrenMainSize* jsChildrenMainSize = nullptr;
+    if (!nativeMainSize->IsEmpty() && nativeMainSize->IsObject()) {
+        auto nativeMainSizeObj = JSRef<JSObject>::Cast(nativeMainSize);
+        jsChildrenMainSize = nativeMainSizeObj->Unwrap<JSListChildrenMainSize>();
+    }
+    auto frameNode = node ? node : NG::ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    if (nativeMainSize->IsEmpty() || !nativeMainSize->IsObject() || listChildrenMainSize->NeedSync() ||
+        (jsChildrenMainSize && !jsChildrenMainSize->IsHostEqual(frameNode))) {
+        InitNativeMainSize(childrenSizeObj, listChildrenMainSize, frameNode);
+        listChildrenMainSize->UpdateDefaultSize(Dimension(defaultSize, DimensionUnit::VP).ConvertToPx());
+        SyncChildrenSize(childrenSizeObj, listChildrenMainSize);
+    }
 }
 
 void JSListItemGroup::Create(const JSCallbackInfo& args)
 {
-    auto listItemGroupStyle = GetListItemGroupStyle(args);
-    ListItemGroupModel::GetInstance()->Create(listItemGroupStyle);
+    V2::ListItemGroupStyle listItemGroupStyle = V2::ListItemGroupStyle::NONE;
     if (args.Length() < 1 || !args[0]->IsObject()) {
+        ListItemGroupModel::GetInstance()->Create(listItemGroupStyle);
         NG::ListItemGroupModelNG::GetInstance()->RemoveHeader();
         NG::ListItemGroupModelNG::GetInstance()->RemoveFooter();
         args.ReturnSelf();
         return;
     }
     JSRef<JSObject> obj = JSRef<JSObject>::Cast(args[0]);
+    auto styleObject = obj->GetProperty("style");
+    if (styleObject->IsNumber()) {
+        listItemGroupStyle = static_cast<V2::ListItemGroupStyle>(styleObject->ToNumber<int32_t>());
+    }
+    ListItemGroupModel::GetInstance()->Create(listItemGroupStyle);
 
     Dimension space;
     if (ConvertFromJSValue(obj->GetProperty("space"), space) && space.IsNonNegative()) {
@@ -225,13 +259,13 @@ void JSListItemGroup::SetDivider(const JSCallbackInfo& args)
         } else {
             setByUser = true;
         }
-        NG::ListItemGroupModelNG::GetInstance()->SetDividerColorByUser(setByUser);
 
         ConvertFromJSValue(obj->GetProperty("startMargin"), divider.startMargin, resObjStartMargin);
 
         ConvertFromJSValue(obj->GetProperty("endMargin"), divider.endMargin, resObjEndMargin);
 
         if (SystemProperties::ConfigChangePerform()) {
+            NG::ListItemGroupModelNG::GetInstance()->SetDividerColorByUser(setByUser);
             NG::ListItemGroupModelNG::GetInstance()->ParseResObjDividerStrokeWidth(resObjStrokeWidth);
             NG::ListItemGroupModelNG::GetInstance()->ParseResObjDividerColor(resObjColor);
             NG::ListItemGroupModelNG::GetInstance()->ParseResObjDividerStartMargin(resObjStartMargin);
@@ -295,19 +329,6 @@ bool JSListItemGroup::SetFooterBuilder(const JSRef<JSObject>& obj)
         return true;
     }
     return false;
-}
-
-V2::ListItemGroupStyle JSListItemGroup::GetListItemGroupStyle(const JSCallbackInfo& args)
-{
-    V2::ListItemGroupStyle listItemGroupStyle = V2::ListItemGroupStyle::NONE;
-    if (args.Length() >= 1 && args[0]->IsObject()) {
-        JSRef<JSObject> obj = JSRef<JSObject>::Cast(args[0]);
-        auto styleObject = obj->GetProperty("style");
-        listItemGroupStyle = styleObject->IsNumber()
-                                 ? static_cast<V2::ListItemGroupStyle>(styleObject->ToNumber<int32_t>())
-                                 : V2::ListItemGroupStyle::NONE;
-    }
-    return listItemGroupStyle;
 }
 
 void JSListItemGroup::JSBind(BindingTarget globalObj)

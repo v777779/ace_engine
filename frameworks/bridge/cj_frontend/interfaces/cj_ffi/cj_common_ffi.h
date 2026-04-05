@@ -400,12 +400,6 @@ struct AtCPackage {
     void (*atCOHOSAceFrameworkLazyForEachFuncsDataChangeListenerUnregister)(int64_t self, int64_t idx) = nullptr;
 };
 
-struct AtCXComponentCallback {
-    void (*atCXComponentControllerOnSurfaceCreated)(int64_t self, int64_t idx) = nullptr;
-    void (*atCXComponentControllerOnSurfaceChanged)(int64_t self, int64_t idx, CJRectResult rect) = nullptr;
-    void (*atCXComponentControllerOnSurfaceDestroyed)(int64_t self, int64_t idx) = nullptr;
-};
-
 struct AtCPackageV2 {
     void (*atCOHOSAceFrameworkRemoteViewOnDidBuild)(int64_t self) = nullptr;
     void (*atCOHOSAceFrameworkRemoteViewAboutToReuse)(int64_t self, const char* params) = nullptr;
@@ -413,8 +407,19 @@ struct AtCPackageV2 {
     void (*atCOHOSAceFrameworkRemoteViewRecycleSelf)(int64_t self, const char* params) = nullptr;
 };
 
+struct AtCXComponentCallback {
+    void (*atCXComponentControllerOnSurfaceCreated)(int64_t self, int64_t idx) = nullptr;
+    void (*atCXComponentControllerOnSurfaceChanged)(int64_t self, int64_t idx, CJRectResult rect) = nullptr;
+    void (*atCXComponentControllerOnSurfaceDestroyed)(int64_t self, int64_t idx) = nullptr;
+};
+
+struct AtCPackageV3 {
+    void (*atCOHOSAceFrameworkCJCleanUpIdleTask)(int64_t maxTimeInMs) = nullptr;
+};
+
 CJ_EXPORT void FfiOHOSAceFrameworkRegisterCJFuncs(AtCPackage cjFuncs);
 CJ_EXPORT void FfiOHOSAceFrameworkRegisterCJFuncsV2(void (*callback)(AtCPackageV2* cjFuncs));
+CJ_EXPORT void FfiOHOSAceFrameworkRegisterCJFuncsV3(void (*callback)(AtCPackageV3* cjFuncs));
 
 CJ_EXPORT void FfiOHOSAceFrameworkRegisterCJXComponentCtrFuncs(AtCXComponentCallback cjCtrFuncs);
 

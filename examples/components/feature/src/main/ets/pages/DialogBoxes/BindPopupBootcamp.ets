@@ -17,6 +17,7 @@ import { Drawer } from 'common/src/main/ets/components/Drawer';
 import { ColorBlock, RadioBlock, SliderBlock, useEnabled } from 'common';
 import { formatDate } from 'common/src/main/ets/utils/timeUtil';
 import { BlockTag } from 'common/src/main/ets/model/BlockTag';
+import { curves } from '@kit.ArkUI';
 
 @Component
 export struct BindPopupBootcamp {
@@ -25,6 +26,10 @@ export struct BindPopupBootcamp {
   @State handlePopup: boolean = false;
   @State enableCompPopupType: boolean = true;
   @State compPopupType: number = 0;
+  @State compPopupAvoidTargetMessage: string = (() => {
+    const baseText = 'This is a popup with AvoidanceMode.AVOID_AROUND_TARGET. ';
+    return Array(40).fill(baseText).join('');
+  })();
   @State enableCompBindPopupArrowOffset: boolean = false;
   @State compBindPopupArrowOffset: number = 0;
   @State enableCompBindPopupShowInSubWindow: boolean = false;
@@ -47,6 +52,8 @@ export struct BindPopupBootcamp {
   @State compBindPopupTargetSpace: number = 0;
   @State enableCompBindPopupPlacement: boolean = false;
   @State compBindPopupPlacement: Placement = Placement.Bottom;
+  @State enableCompBindPopupAvoidTarget: boolean = false;
+  @State compBindPopupAvoidTarget: AvoidanceMode = AvoidanceMode.COVER_TARGET;
   @State enableCompBindPopupOffsetX: boolean = false;
   @State compBindPopupOffsetX: number = 0;
   @State enableCompBindPopupOffsetY: boolean = false;
@@ -125,6 +132,33 @@ export struct BindPopupBootcamp {
   @State compBindPopupTransitionMove: TransitionEdge = TransitionEdge.START;
   @StorageLink('Block') listEventTriggeredTags: Array<BlockTag> = [];
   @State listEventTriggeredTagsTemp: Array<BlockTag> = [];
+  @State enableCompBindPopupOutlineWidth: boolean = false;
+  @State compBindPopupOutlineWidth: number = 0;
+  compBindPopupOutlineWidthDefault: number = 0;
+  @State enableCompBindPopupBorderWidth: boolean = false;
+  @State compBindPopupBorderWidth: number = 0;
+  compBindPopupBorderWidthDefault: number = 0;
+  @State enableCompBindPopupOutlineLinearGradientDirection: boolean = false;
+  @State compBindPopupOutlineLinearGradientDirection: GradientDirection = GradientDirection.Bottom;
+  compBindPopupLinearGradientColorsDefault: ResourceStr = '#00000000';
+  @State enableCompBindPopupOutlineLinearGradientColors1: boolean = false;
+  @State compBindPopupOutlineLinearGradientColors1: ResourceStr = '#ff000000';
+  @State enableCompBindPopupOutlineLinearGradientNumber1: boolean = false;
+  @State compBindPopupOutlineLinearGradientNumber1: number = 0;
+  @State enableCompBindPopupOutlineLinearGradientColors2: boolean = false;
+  @State compBindPopupOutlineLinearGradientColors2: ResourceStr = '#ff000000';
+  @State enableCompBindPopupOutlineLinearGradientNumber2: boolean = false;
+  @State compBindPopupOutlineLinearGradientNumber2: number = 0;
+  @State enableCompBindPopupBorderLinearGradientDirection: boolean = false;
+  @State compBindPopupBorderLinearGradientDirection: GradientDirection = GradientDirection.Bottom;
+  @State enableCompBindPopupBorderLinearGradientColors1: boolean = false;
+  @State compBindPopupBorderLinearGradientColors1: ResourceStr = '#ff000000';
+  @State enableCompBindPopupBorderLinearGradientNumber1: boolean = false;
+  @State compBindPopupBorderLinearGradientNumber1: number = 0;
+  @State enableCompBindPopupBorderLinearGradientColors2: boolean = false;
+  @State compBindPopupBorderLinearGradientColors2: ResourceStr = '#ff000000';
+  @State enableCompBindPopupBorderLinearGradientNumber2: boolean = false;
+  @State compBindPopupBorderLinearGradientNumber2: number = 0;
   scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
@@ -185,7 +219,8 @@ export struct BindPopupBootcamp {
           console.info('Button click');
         })
         .bindPopup(this.handlePopup, {
-          message: this.compPopupType == 0 ? 'This is a popup with button ' : 'This is a popup only Text ',
+          message: this.compPopupType == 0 ? 'This is a popup with button ' : useEnabled(
+            this.enableCompBindPopupAvoidTarget, this.compPopupAvoidTargetMessage, 'This is a popup only Text '),
           arrowOffset: useEnabled(this.enableCompBindPopupArrowOffset, this.compBindPopupArrowOffset) ?
           useEnabled(this.enableCompBindPopupArrowOffset, this.compBindPopupArrowOffset) : null,
           showInSubWindow: useEnabled(this.enableCompBindPopupShowInSubWindow, this.compBindPopupShowInSubWindow),
@@ -205,9 +240,8 @@ export struct BindPopupBootcamp {
             }
           },
           targetSpace: useEnabled(this.enableCompBindPopupTargetSpace, this.compBindPopupTargetSpace),
-          placement:
-          useEnabled(this.enableCompBindPopupPlacement, this.compBindPopupPlacement) ?
-          useEnabled(this.enableCompBindPopupPlacement, this.compBindPopupPlacement) : Placement.Top,
+          placement: useEnabled(this.enableCompBindPopupPlacement, this.compBindPopupPlacement, Placement.Top),
+          avoidTarget: useEnabled(this.enableCompBindPopupAvoidTarget, this.compBindPopupAvoidTarget),
           offset: {
             x: useEnabled(this.enableCompBindPopupOffsetX, this.compBindPopupOffsetX),
             y: useEnabled(this.enableCompBindPopupOffsetY, this.compBindPopupOffsetY),
@@ -294,6 +328,50 @@ export struct BindPopupBootcamp {
               useEnabled(this.enableCompBindPopupTransitionMove, this.compBindPopupTransitionMove)
             )))
         ,
+          outlineWidth: useEnabled(this.enableCompBindPopupOutlineWidth, this.compBindPopupOutlineWidth,
+            this.compBindPopupOutlineWidthDefault),
+          outlineLinearGradient: {
+            direction: useEnabled(this.enableCompBindPopupOutlineLinearGradientDirection,
+              this.compBindPopupOutlineLinearGradientDirection),
+            colors: [
+              [
+                useEnabled(this.enableCompBindPopupOutlineLinearGradientColors1,
+                  this.compBindPopupOutlineLinearGradientColors1,
+                  this.compBindPopupLinearGradientColorsDefault),
+                useEnabled(this.enableCompBindPopupOutlineLinearGradientNumber1,
+                  this.compBindPopupOutlineLinearGradientNumber1)
+              ],
+              [
+                useEnabled(this.enableCompBindPopupOutlineLinearGradientColors2,
+                  this.compBindPopupOutlineLinearGradientColors2,
+                  this.compBindPopupLinearGradientColorsDefault),
+                useEnabled(this.enableCompBindPopupOutlineLinearGradientNumber2,
+                  this.compBindPopupOutlineLinearGradientNumber2)
+              ]
+            ]
+          },
+          borderWidth: useEnabled(this.enableCompBindPopupBorderWidth, this.compBindPopupBorderWidth,
+            this.compBindPopupBorderWidthDefault),
+          borderLinearGradient: {
+            direction: useEnabled(this.enableCompBindPopupBorderLinearGradientDirection,
+              this.compBindPopupBorderLinearGradientDirection),
+            colors: [
+              [
+                useEnabled(this.enableCompBindPopupBorderLinearGradientColors1,
+                  this.compBindPopupBorderLinearGradientColors1,
+                  this.compBindPopupLinearGradientColorsDefault),
+                useEnabled(this.enableCompBindPopupBorderLinearGradientNumber1,
+                  this.compBindPopupBorderLinearGradientNumber1)
+              ],
+              [
+                useEnabled(this.enableCompBindPopupBorderLinearGradientColors2,
+                  this.compBindPopupBorderLinearGradientColors2,
+                  this.compBindPopupLinearGradientColorsDefault),
+                useEnabled(this.enableCompBindPopupBorderLinearGradientNumber2,
+                  this.compBindPopupBorderLinearGradientNumber2)
+              ]
+            ]
+          },
           onStateChange: (e) => {
             console.info('onStateChange', JSON.stringify(e.isVisible))
             this.compEventTriggeredLog('onStateChange触发')
@@ -455,6 +533,18 @@ export struct BindPopupBootcamp {
             { label: 'BottomRight', value: Placement.BottomRight },
             { label: 'RightTop', value: Placement.RightTop },
             { label: 'RightBottom', value: Placement.RightBottom },
+            { label: 'LeftTop', value: Placement.LeftTop },
+            { label: 'LeftBottom', value: Placement.LeftBottom },
+          ]
+        })
+
+        RadioBlock({
+          title: 'popupOptions.avoidTarget',
+          isEnabled: $enableCompBindPopupAvoidTarget,
+          value: $compBindPopupAvoidTarget,
+          dataSource: [
+            { label: 'COVER_TARGET', value: AvoidanceMode.COVER_TARGET },
+            { label: 'AVOID_AROUND_TARGET', value: AvoidanceMode.AVOID_AROUND_TARGET },
           ]
         })
 
@@ -745,6 +835,123 @@ export struct BindPopupBootcamp {
           ]
         })
 
+        SliderBlock({
+          title: 'popupOptions.outlineWidth',
+          isEnabled: $enableCompBindPopupOutlineWidth,
+          value: $compBindPopupOutlineWidth,
+          min: 0,
+          max: 10
+        })
+
+        List({ space: 8 }) {
+          ListItemGroup({
+            header: this.ListItemGroupHeaders('popupOptions.outlineLinearGradient')
+          }) {
+            if (this.selection === 'popupOptions.outlineLinearGradient') {
+              RadioBlock({
+                title: 'popupOptions.outlineLinearGradient.direction',
+                isEnabled: $enableCompBindPopupOutlineLinearGradientDirection,
+                value: $compBindPopupOutlineLinearGradientDirection,
+                dataSource: [
+                  { label: 'Left', value: GradientDirection.Left },
+                  { label: 'Top', value: GradientDirection.Top },
+                  { label: 'Right', value: GradientDirection.Right },
+                  { label: 'Bottom', value: GradientDirection.Bottom },
+                  { label: 'LeftTop', value: GradientDirection.LeftTop },
+                  { label: 'LeftBottom', value: GradientDirection.LeftBottom },
+                  { label: 'RightTop', value: GradientDirection.RightTop },
+                  { label: 'RightBottom', value: GradientDirection.RightBottom },
+                  { label: 'None', value: GradientDirection.None },
+                ]
+              })
+              ColorBlock({
+                title: 'popupOptions.outlineLinearGradient..color1',
+                isEnabled: $enableCompBindPopupOutlineLinearGradientColors1,
+                color: $compBindPopupOutlineLinearGradientColors1
+              })
+              SliderBlock({
+                title: 'popupOptions.outlineLinearGradient.number1',
+                isEnabled: $enableCompBindPopupOutlineLinearGradientNumber1,
+                value: $compBindPopupOutlineLinearGradientNumber1,
+                step: 0.1,
+                min: 0,
+                max: 1,
+              })
+              ColorBlock({
+                title: 'popupOptions.outlineLinearGradient..color2',
+                isEnabled: $enableCompBindPopupOutlineLinearGradientColors2,
+                color: $compBindPopupOutlineLinearGradientColors2
+              })
+              SliderBlock({
+                title: 'popupOptions.outlineLinearGradient.number2',
+                isEnabled: $enableCompBindPopupOutlineLinearGradientNumber2,
+                value: $compBindPopupOutlineLinearGradientNumber2,
+                step: 0.1,
+                min: 0,
+                max: 1,
+              })
+            }
+          }
+        }
+
+        SliderBlock({
+          title: 'popupOptions.borderWidth',
+          isEnabled: $enableCompBindPopupBorderWidth,
+          value: $compBindPopupBorderWidth,
+          min: 0,
+          max: 10
+        })
+
+        List({ space: 8 }) {
+          ListItemGroup({
+            header: this.ListItemGroupHeaders('popupOptions.borderLinearGradient')
+          }) {
+            if (this.selection === 'popupOptions.borderLinearGradient') {
+              RadioBlock({
+                title: 'popupOptions.borderLinearGradient.direction',
+                isEnabled: $enableCompBindPopupBorderLinearGradientDirection,
+                value: $compBindPopupBorderLinearGradientDirection,
+                dataSource: [
+                  { label: 'Left', value: GradientDirection.Left },
+                  { label: 'Top', value: GradientDirection.Top },
+                  { label: 'Right', value: GradientDirection.Right },
+                  { label: 'Bottom', value: GradientDirection.Bottom },
+                  { label: 'LeftTop', value: GradientDirection.LeftTop },
+                  { label: 'LeftBottom', value: GradientDirection.LeftBottom },
+                  { label: 'RightTop', value: GradientDirection.RightTop },
+                  { label: 'RightBottom', value: GradientDirection.RightBottom },
+                  { label: 'None', value: GradientDirection.None },
+                ]
+              })
+              ColorBlock({
+                title: 'popupOptions.borderLinearGradient.color1',
+                isEnabled: $enableCompBindPopupBorderLinearGradientColors1,
+                color: $compBindPopupBorderLinearGradientColors1
+              })
+              SliderBlock({
+                title: 'popupOptions.borderLinearGradient.number1',
+                isEnabled: $enableCompBindPopupBorderLinearGradientNumber1,
+                value: $compBindPopupBorderLinearGradientNumber1,
+                step: 0.1,
+                min: 0,
+                max: 1,
+              })
+              ColorBlock({
+                title: 'popupOptions.borderLinearGradient.color2',
+                isEnabled: $enableCompBindPopupBorderLinearGradientColors2,
+                color: $compBindPopupBorderLinearGradientColors2
+              })
+              SliderBlock({
+                title: 'popupOptions.borderLinearGradient.number2',
+                isEnabled: $enableCompBindPopupBorderLinearGradientNumber2,
+                value: $compBindPopupBorderLinearGradientNumber2,
+                step: 0.1,
+                min: 0,
+                max: 1,
+              })
+            }
+          }
+        }
       }
     }
     .height('52%')
@@ -755,6 +962,42 @@ export struct BindPopupBootcamp {
   Generic() {
 
   }
+
+  @State selection: string | null = null;
+
+  @Builder
+  ListItemGroupHeaders(str: string) {
+    Row() {
+      Text(str)
+        .fontColor($r('sys.color.ohos_id_color_text_primary'))
+        .fontWeight(FontWeight.Medium)
+      Blank()
+      Image($r('sys.media.ohos_ic_public_arrow_right'))
+        .fillColor($r('sys.color.ohos_id_color_fourth'))
+        .height(24)
+        .width(24)
+        .rotate({ angle: this.selection == str ? 90 : 0 })
+        .animation({ curve: curves.interpolatingSpring(0, 1, 228, 30) })
+    }
+    .borderRadius(20)
+    .width('100%')
+    .padding({
+      left: 8,
+      right: 8,
+      top: 18,
+      bottom: 18
+    })
+
+    .onClick(() => {
+      if (this.selection === str) {
+        this.selection = null;
+      } else {
+        this.selection = str;
+        AppStorage.setOrCreate('selection', this.selection)
+      }
+    })
+  }
+
 }
 
 @Preview

@@ -14,6 +14,7 @@
  */
 
 #include "core/components_ng/pattern/hyperlink/hyperlink_model_ng.h"
+#include "ui/base/utils/utils.h"
 
 #include "core/components/hyperlink/hyperlink_theme.h"
 #include "core/components_ng/pattern/hyperlink/hyperlink_pattern.h"
@@ -37,6 +38,25 @@ void HyperlinkModelNG::Create(const std::string& address, const std::string& con
     SetDraggable(draggable);
 }
 
+void HyperlinkModelNG::CreateFrameNode(const std::string& address, const std::string& content)
+{
+    auto* stack = ViewStackProcessor::GetInstance();
+    CHECK_NULL_VOID(stack);
+
+    auto nodeId = stack->ClaimNodeId();
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::HYPERLINK_ETS_TAG, nodeId);
+    auto hyperlinkNode = FrameNode::GetOrCreateFrameNode(
+        V2::HYPERLINK_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<HyperlinkPattern>(); });
+
+    stack->Push(hyperlinkNode);
+    SetTextStyle(hyperlinkNode, content, address);
+
+    auto pipeline = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipeline);
+    auto draggable = pipeline->GetDraggable<HyperlinkTheme>();
+    SetDraggable(hyperlinkNode.GetRawPtr(), draggable);
+}
+
 void HyperlinkModelNG::SetColor(const Color& value)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(HyperlinkLayoutProperty, TextColor, value);
@@ -50,10 +70,14 @@ void HyperlinkModelNG::SetTextStyle(
     CHECK_NULL_VOID(hyperlinkNode);
     auto textLayoutProperty = hyperlinkNode->GetLayoutProperty<HyperlinkLayoutProperty>();
     CHECK_NULL_VOID(textLayoutProperty);
-    auto textStyle = PipelineBase::GetCurrentContext()->GetTheme<TextTheme>()->GetTextStyle();
+    auto pipeline = hyperlinkNode->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    auto textTheme = pipeline->GetTheme<TextTheme>();
+    CHECK_NULL_VOID(textTheme);
+    auto textStyle = textTheme->GetTextStyle();
     textLayoutProperty->UpdateContent(content.empty() ? address : content);
     textLayoutProperty->UpdateAddress(address);
-    auto theme = PipelineContext::GetCurrentContext()->GetTheme<HyperlinkTheme>();
+    auto theme = pipeline->GetTheme<HyperlinkTheme>();
     CHECK_NULL_VOID(theme);
     textLayoutProperty->UpdateTextOverflow(TextOverflow::ELLIPSIS);
     textLayoutProperty->UpdateFontSize(textStyle.GetFontSize());
@@ -100,6 +124,13 @@ void HyperlinkModelNG::SetDraggable(FrameNode* frameNode, bool draggable)
 void HyperlinkModelNG::SetResponseRegion(bool isUserSetResponseRegion)
 {
     auto textPattern = ViewStackProcessor::GetInstance()->GetMainFrameNodePattern<TextPattern>();
+    CHECK_NULL_VOID(textPattern);
+    textPattern->SetIsUserSetResponseRegion(isUserSetResponseRegion);
+}
+
+void HyperlinkModelNG::SetResponseRegion(FrameNode* frameNode, bool isUserSetResponseRegion)
+{
+    auto textPattern = frameNode->GetPattern<TextPattern>();
     CHECK_NULL_VOID(textPattern);
     textPattern->SetIsUserSetResponseRegion(isUserSetResponseRegion);
 }

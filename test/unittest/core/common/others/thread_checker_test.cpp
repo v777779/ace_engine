@@ -17,8 +17,8 @@
 
 #define private public
 #define protected public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
 #include "core/common/thread_checker.h"
 #undef private
@@ -58,5 +58,17 @@ HWTEST_F(ThreadCheckerTest, ThreadCheckerGetThread, TestSize.Level1)
     conainer->SetUseNewPipeline();
     EXPECT_EQ(Container::IsCurrentUseNewPipeline(), true);
     EXPECT_TRUE(CheckThread(TaskExecutor::TaskType::JS));
+}
+
+/**
+ * @tc.name: ThreadCheckerGetThread02
+ * @tc.desc: Test cast to ThreadCheckerTest
+ * @tc.type: FUNC
+ */
+HWTEST_F(ThreadCheckerTest, ThreadCheckerGetThread02, TestSize.Level1)
+{
+    MockContainer::Current()->taskExecutor_ = AceType::MakeRefPtr<MockTaskExecutor>();
+    EXPECT_TRUE(CheckThread(TaskExecutor::TaskType::UI));
+    EXPECT_NE(Container::CurrentIdSafely(), -2);
 }
 } // namespace OHOS::Ace

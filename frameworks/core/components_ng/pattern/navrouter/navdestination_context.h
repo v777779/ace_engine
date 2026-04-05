@@ -24,13 +24,21 @@
 namespace OHOS::Ace::NG {
 class NavigationStack;
 class NavDestinationPattern;
+
+class NavPathInfoScope {};
+
 class NavPathInfo : public virtual AceType {
-    DECLARE_ACE_TYPE(NavPathInfo, AceType)
+    DECLARE_ACE_TYPE(NavPathInfo, AceType);
 public:
     NavPathInfo() = default;
     explicit NavPathInfo(const std::string& name) : name_(name) {}
     NavPathInfo(const std::string& name, bool isEntry) : name_(name), isEntry_(isEntry) {}
     virtual ~NavPathInfo() = default;
+
+    virtual bool IsStatic()
+    {
+        return false;
+    }
 
     void SetName(const std::string& name)
     {
@@ -66,8 +74,15 @@ public:
         isEntry_ = info->GetIsEntry();
     }
 
-    virtual void OpenScope() {}
-    virtual void CloseScope() {}
+    virtual std::shared_ptr<NavPathInfoScope> Scope()
+    {
+        return std::make_shared<NavPathInfoScope>();
+    }
+
+    virtual std::string GetInitParamString() const
+    {
+        return "";
+    }
 
 protected:
     std::string name_;
@@ -75,7 +90,7 @@ protected:
 };
 
 class NavDestinationContext : public virtual AceType {
-    DECLARE_ACE_TYPE(NavDestinationContext, AceType)
+    DECLARE_ACE_TYPE(NavDestinationContext, AceType);
 public:
     NavDestinationContext() = default;
     virtual ~NavDestinationContext() = default;
@@ -160,6 +175,15 @@ public:
         return uniqueId_;
     }
 
+    void SetCurrentSize(const SizeF& size)
+    {
+        curSize_ = size;
+    }
+    const std::optional<SizeF>& GetCurrentSize() const
+    {
+        return curSize_;
+    }
+
     void SetNavDestinationPattern(const WeakPtr<NavDestinationPattern>& pattern);
     RefPtr<NavDestinationPattern> GetNavDestinationPattern() const;
 
@@ -173,6 +197,7 @@ protected:
     WeakPtr<NavigationStack> navigationStack_;
     WeakPtr<NavDestinationPattern> navDestinationPattern_;
     int32_t uniqueId_ = -1;
+    std::optional<SizeF> curSize_;
 };
 } // namespace OHOS::Ace::NG
 

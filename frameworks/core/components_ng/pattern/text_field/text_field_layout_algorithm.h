@@ -21,6 +21,7 @@
 
 #include "base/geometry/ng/offset_t.h"
 #include "base/memory/referenced.h"
+#include "core/components/common/properties/text_style.h"
 #include "core/components/text_field/textfield_theme.h"
 #include "core/components_ng/layout/layout_wrapper.h"
 #include "core/components_ng/pattern/text/text_adapt_font_sizer.h"
@@ -83,7 +84,8 @@ public:
         return inlineMeasureItem_;
     }
 
-    static TextDirection GetTextDirection(const std::u16string& content, TextDirection direction = TextDirection::AUTO);
+    static TextDirection GetTextDirection(const std::u16string& content, TextDirection direction = TextDirection::AUTO,
+        TextDirection textDirection = TextDirection::INHERIT);
 
     static void UpdateTextStyle(const RefPtr<FrameNode>& frameNode,
         const RefPtr<TextFieldLayoutProperty>& layoutProperty, const RefPtr<TextFieldTheme>& theme,
@@ -118,7 +120,9 @@ protected:
     float GetTextFieldDefaultHeight();
 
     void ConstructTextStyles(
-        const RefPtr<FrameNode>& frameNode, TextStyle& textStyle, std::u16string& textContent, bool& showPlaceHolder);
+        LayoutWrapper* layoutWrapper, TextStyle& textStyle, std::u16string& textContent, bool& showPlaceHolder);
+    void ConstructTextStylesAppend(const RefPtr<FrameNode>& frameNode, TextStyle& textStyle,
+        const RefPtr<TextFieldPattern>& pattern, bool showPlaceHolder);
     LayoutConstraintF CalculateContentMaxSizeWithCalculateConstraint(
         const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper);
 
@@ -131,10 +135,14 @@ protected:
         RefPtr<Paragraph>& paragraph, float removeValue = 0.0f);
     SizeF GetConstraintSize(const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper);
     std::optional<SizeF> InlineMeasureContent(const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper);
-    SizeF PlaceHolderMeasureContent(
-        const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper, float imageWidth = 0.0f);
+    SizeF PlaceHolderMeasureContent(const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper);
+    SizeF StyledPlaceHolderMeasureContent(
+        const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper, bool adapter = false);
+    void StyledPlaceHolderCounterNodeMeasure(const LayoutConstraintF& textContentConstraint,
+        LayoutWrapper* layoutWrapper, const RefPtr<TextFieldPattern>& textFieldPattern, SizeF& contentSize);
     SizeF TextInputMeasureContent(
         const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper, float imageWidth);
+    void StyledPlaceholderLayout(LayoutWrapper* layoutWrapper, const RefPtr<TextFieldPattern>& pattern);
     SizeF TextAreaMeasureContent(const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper);
 
     bool AddAdaptFontSizeAndAnimations(TextStyle& textStyle, const RefPtr<TextFieldLayoutProperty>& layoutProperty,
@@ -150,6 +158,8 @@ protected:
 
     LayoutConstraintF CalculateFrameSizeConstraint(
         const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper);
+    bool IsStyledPlaceholder(const RefPtr<TextFieldPattern>& pattern);
+    void UpdateStyledPlaceholderMaxlines(uint32_t maxLines, const RefPtr<TextFieldPattern>& pattern);
 
     RefPtr<Paragraph> paragraph_;
     RefPtr<Paragraph> inlineParagraph_;
@@ -162,6 +172,7 @@ protected:
     bool showPlaceHolder_ = false;
     float preferredHeight_ = 0.0f;
     TextDirection direction_ = TextDirection::AUTO;
+    TextDirection textDirection_ = TextDirection::INHERIT;
 
     float unitWidth_ = 0.0f;
     bool autoWidth_ = false;
@@ -169,8 +180,20 @@ protected:
     Dimension textIndent_ = 0.0_px;
     float indent_ = 0.0f;
     bool isInlineFocus_ = false;
+    bool isPlaceHolderOverSize_ = false;
 
 private:
+    void ConstructStyledPlaceholderStyle(
+        LayoutWrapper* layoutWrapper, const RefPtr<FrameNode>& frameNode, const RefPtr<TextFieldTheme>& theme);
+    void UpdateStyledPlaceholderProperty(LayoutWrapper* layoutWrapper,
+        const RefPtr<TextLayoutProperty>& textLayoutProperty,
+        const RefPtr<TextFieldLayoutProperty>& textFieldLayoutProperty);
+    void UpdateStyledPlaceholderHeightAdaptivePolicy(const RefPtr<TextFieldPattern>& pattern);
+    void PlaceholderRemoveFromParent(const RefPtr<TextFieldPattern>& pattern);
+    void StylePlaceHolderMeasure(LayoutWrapper* layoutWrapper, const LayoutConstraintF& textContentConstraint,
+        SizeF& contentSize);
+    void StylePlaceHolderReMeasure(LayoutWrapper* layoutWrapper, LayoutConstraintF textContentConstraint,
+        float counterNodeHeight, SizeF& contentSize);
     void InlineFocusMeasure(const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper,
         double& safeBoundary, float& contentWidth);
     static void UpdateTextStyleSetTextColor(const RefPtr<FrameNode>& frameNode,
@@ -179,11 +202,11 @@ private:
     static void UpdateTextStyleMore(const RefPtr<FrameNode>& frameNode,
         const RefPtr<TextFieldLayoutProperty>& layoutProperty, TextStyle& textStyle, bool isDisabled);
     static void UpdateTextStyleLineHeight(const RefPtr<FrameNode>& frameNode,
-        const RefPtr<TextFieldLayoutProperty>& layoutPropeerty, TextStyle& textStyle);
+        const RefPtr<TextFieldLayoutProperty>& layoutProperty, TextStyle& textStyle);
     static void UpdateTextStyleFontScale(const RefPtr<TextFieldLayoutProperty>& textFieldLayoutProperty,
         TextStyle& textStyle, const RefPtr<TextFieldPattern>& pattern);
     static void UpdatePlaceholderTextStyleSetTextColor(
-        const RefPtr<TextFieldLayoutProperty>& layoutProperty, const RefPtr<TextFieldTheme>& theme,
+        const RefPtr<TextFieldLayoutProperty>& layoutProperty, const RefPtr<FrameNode>& frameNode,
         TextStyle& textStyle, bool isDisabled, bool isTextColorByUser);
     static void UpdatePlaceholderTextStyleMore(const RefPtr<FrameNode>& frameNode,
         const RefPtr<TextFieldLayoutProperty>& layoutProperty, const RefPtr<TextFieldTheme>& theme,
@@ -194,6 +217,8 @@ private:
     void CalcInlineMeasureItem(LayoutWrapper* layoutWrapper);
     bool IsInlineFocusAdaptExceedLimit(const SizeF& maxSize);
     bool IsInlineFocusAdaptMinExceedLimit(const SizeF& maxSize, uint32_t maxViewLines);
+    void CalcInlineStatusAdvance(LayoutWrapper* layoutWrapper, const LayoutConstraintF& contentConstraint,
+        const RefPtr<TextFieldPattern>& pattern, double safeBoundary, float contentWidth);
     float CalculateContentWidth(const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper,
         float imageWidth);
     float CalculateContentHeight(const LayoutConstraintF& contentConstraint);
@@ -205,6 +230,7 @@ private:
         LayoutWrapper* layoutWrapper, LayoutConstraintF& contentConstraint, SizeF& maxIdealSize);
     double GetMaxIndent(LayoutWrapper* layoutWrapper, double width);
     bool HasCalcMinWidthVersion11OrLarger(LayoutWrapper* layoutWrapper, const LayoutConstraintF& contentConstraint);
+    bool IsHorizontalScrollEnabled(LayoutWrapper* layoutWrapper);
     ACE_DISALLOW_COPY_AND_MOVE(TextFieldLayoutAlgorithm);
 };
 } // namespace OHOS::Ace::NG

@@ -16,6 +16,9 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMMON_LAYOUT_INSPECTOR_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMMON_LAYOUT_INSPECTOR_H
 
+#include <mutex>
+#include <shared_mutex>
+
 #include "core/common/container.h"
 #include "core/components_ng/base/inspector.h"
 #include "core/components_ng/base/frame_node.h"
@@ -33,9 +36,9 @@ typedef std::function<void(bool)> ProfilerStatusCallback;
 typedef std::function<void(FrameNodeInfo)> RsProfilerNodeMountCallback;
 using PixelMapPair = std::pair<uint64_t, std::shared_ptr<Media::PixelMap>>;
 
-class LayoutInspector {
+class ACE_FORCE_EXPORT LayoutInspector {
 public:
-    static void SupportInspector();
+    ACE_FORCE_EXPORT static void SupportInspector();
     static void SetlayoutInspectorStatus(int32_t containerId);
     static void GetInspectorTreeJsonStr(std::string& treeJsonStr, int32_t containerId);
     static void CreateLayoutInfo(int32_t containerId);
@@ -67,6 +70,14 @@ public:
     static void ConnectServerCallback();
     using SetArkUICallback = void (*)(const std::function<void(const char*)>& arkuiCallback);
 
+    //enable node trace
+    static bool GetEnableNodeTrace();
+    static void SetEnableNodeTrace(bool enable);
+
+    //arkui interaction
+    static bool GetInteractionEventStatus();
+    static void TriggerArkUIInteractionEventStatus(const std::string& message);
+
 private:
     static void SendEmpty3DSnapJson();
     static std::vector<PixelMapPair> Filter3DSnapshot(const std::vector<PixelMapPair>& snapinfos);
@@ -84,6 +95,10 @@ private:
     static std::once_flag loadFlag;
     static void* handlerConnectServerSo;
     static SetArkUICallback setArkUICallback;
+    static bool enableNodeTrace_;
+    static bool enableInteractionEventReport_;
+    static std::shared_mutex enableTraceMutex_;
+    static std::shared_mutex interactionEventStatusMutex_;
 };
 } // namespace OHOS::Ace
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMMON_LAYOUT_INSPECTOR_H

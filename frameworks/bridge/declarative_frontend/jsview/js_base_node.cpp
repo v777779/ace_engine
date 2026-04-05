@@ -22,15 +22,16 @@
 #include "jsnapi_expo.h"
 
 #include "base/geometry/dimension.h"
+#include "base/log/ace_trace.h"
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
 #include "base/utils/utils.h"
 #include "bridge/common/utils/engine_helper.h"
-#include "bridge/declarative_frontend/engine/jsi/nativeModule/ui_context_helper.h"
 #include "bridge/declarative_frontend/engine/functions/js_function.h"
 #include "bridge/declarative_frontend/engine/js_converter.h"
 #include "bridge/declarative_frontend/engine/js_ref_ptr.h"
 #include "bridge/declarative_frontend/engine/js_types.h"
+#include "bridge/declarative_frontend/engine/jsi/nativeModule/ui_context_helper.h"
 #include "bridge/declarative_frontend/jsview/js_utils.h"
 #include "bridge/declarative_frontend/jsview/js_view_abstract.h"
 #include "bridge/js_frontend/engine/jsi/js_value.h"
@@ -54,18 +55,28 @@ constexpr int32_t BUILD_PARAM_INDEX_TWO = 2;
 constexpr int32_t BUILD_PARAM_INDEX_THREE = 3;
 constexpr int32_t BUILD_PARAM_INDEX_FOUR = 4;
 constexpr int32_t BUILD_PARAM_INDEX_THIS_OBJ = 5;
+
+bool GetSupportLazyBuild(const JSCallbackInfo& info)
+{
+    if (info.Length() >= BUILD_PARAM_INDEX_FOUR + 1) {
+        auto jsLazyBuildSupported = info[BUILD_PARAM_INDEX_FOUR];
+        if (jsLazyBuildSupported->IsBoolean()) {
+            return jsLazyBuildSupported->ToBoolean();
+        }
+    }
+    return false;
+}
 } // namespace
 
-void JSBaseNode::BuildNode(const JSCallbackInfo& info)
+RefPtr<NG::UINode> JSBaseNode::GetAndExecBuilderFunc(const JSCallbackInfo& info)
 {
     auto builder = info[0];
-    CHECK_NULL_VOID(builder->IsFunction());
     auto buildFunc = AceType::MakeRefPtr<JsFunction>(info.This(), JSRef<JSFunc>::Cast(builder));
-
     auto infoLen = info.Length();
     JSRef<JSVal> param;
-    if (infoLen >= INFO_LENGTH_LIMIT && (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWELVE)
-        || (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_TWELVE) && info[1]->IsObject()))) {
+    if (infoLen >= INFO_LENGTH_LIMIT &&
+        (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWELVE) ||
+            (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_TWELVE) && info[1]->IsObject()))) {
         param = info[1];
     }
 
@@ -81,18 +92,52 @@ void JSBaseNode::BuildNode(const JSCallbackInfo& info)
 
     NG::ScopedViewStackProcessor builderViewStackProcessor;
     lazyBuilderFunc();
-    auto parent = viewNode_ ? viewNode_->GetParent() : nullptr;
     auto newNode = NG::ViewStackProcessor::GetInstance()->Finish();
     realNode_ = newNode;
     if (newNode) {
         newNode->SetBuilderFunc(std::move(lazyBuilderFunc));
     }
+    return newNode;
+}
 
-    if (newNode && (infoLen >= BUILD_PARAM_INDEX_TWO + 1)) {
+RefPtr<NG::UINode> JSBaseNode::GetAndExecMultiArgsBuilderFunc(const JSCallbackInfo& info)
+{
+    auto builder = info[0];
+    auto buildFunc = AceType::MakeRefPtr<JsFunction>(info.This(), JSRef<JSFunc>::Cast(builder));
+    JSRef<JSArray> jsParams = JSRef<JSArray>::Cast(info[1]);
+    auto lazyBuilderFunc = [buildFunc, jsParams, renderType = renderType_]() mutable {
+        NG::ViewStackProcessor::GetInstance()->SetIsBuilderNode(true);
+        NG::ViewStackProcessor::GetInstance()->SetIsExportTexture(renderType == NodeRenderType::RENDER_TYPE_TEXTURE);
+        int length = static_cast<int>(jsParams->Length());
+        std::vector<JSRef<JSVal>> params;
+        for (int i = 0; i < length; i++) {
+            JSRef<JSVal> jsParam = jsParams->GetValueAt(i);
+            params.emplace_back(jsParam);
+        }
+        buildFunc->ExecuteJS(length, params.data());
+    };
+
+    NG::ScopedViewStackProcessor builderViewStackProcessor;
+    lazyBuilderFunc();
+    auto newNode = NG::ViewStackProcessor::GetInstance()->Finish();
+    if (newNode) {
+        newNode->SetBuilderFunc(std::move(lazyBuilderFunc));
+    }
+    realNode_ = newNode;
+    return newNode;
+}
+
+void JSBaseNode::SetUpdateNodeFunc(const JSCallbackInfo& info)
+{
+    auto newNode = realNode_.Upgrade();
+    if (newNode && (info.Length() >= BUILD_PARAM_INDEX_TWO + 1)) {
         auto updateTsNodeBuilder = info[BUILD_PARAM_INDEX_TWO];
+        CHECK_NULL_VOID(updateTsNodeBuilder->IsFunction());
         EcmaVM* vm = info.GetVm();
         auto updateTsFunc = AceType::MakeRefPtr<JsFunction>(info.This(), JSRef<JSFunc>::Cast(updateTsNodeBuilder));
-        auto updateNodeFunc = [updateTsFunc, vm](int32_t instanceId, RefPtr<NG::UINode>& node) mutable {
+        auto updateNodeFunc = [execCtx = info.GetExecutionContext(), updateTsFunc, vm](
+                                  int32_t instanceId, RefPtr<NG::UINode>& node) mutable {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             JSRef<JSVal> param[2];
             param[0] = JSRef<JSVal>::Make(ToJSValue(instanceId));
             param[1] = JSRef<JSVal>::Make(panda::NativePointerRef::New(vm, AceType::RawPtr(node)));
@@ -100,18 +145,13 @@ void JSBaseNode::BuildNode(const JSCallbackInfo& info)
         };
         newNode->SetUpdateNodeFunc(std::move(updateNodeFunc));
     }
-
-    bool isSupportLazyBuild = false;
-    if (infoLen >= BUILD_PARAM_INDEX_FOUR + 1) {
-        auto jsLazyBuildSupported = info[BUILD_PARAM_INDEX_FOUR];
-        if (jsLazyBuildSupported->IsBoolean()) {
-            isSupportLazyBuild = jsLazyBuildSupported->ToBoolean();
-        }
-    }
-
+}
+void JSBaseNode::SetNodeFunc(RefPtr<NG::UINode> newNode, const JSCallbackInfo& info)
+{
+    SetUpdateNodeFunc(info);
+    auto isSupportExportTexture = newNode ? EXPORT_TEXTURE_SUPPORT_TYPES.count(newNode->GetTag()) > 0 : false;
     // If the node is a UINode, amount it to a BuilderProxyNode if needProxy.
     auto flag = AceType::InstanceOf<NG::FrameNode>(newNode);
-    auto isSupportExportTexture = newNode ? EXPORT_TEXTURE_SUPPORT_TYPES.count(newNode->GetTag()) > 0 : false;
     if (!flag && newNode) {
         auto nodeId = ElementRegister::GetInstance()->MakeUniqueId();
         auto proxyNode = NG::FrameNode::GetOrCreateFrameNode(
@@ -121,16 +161,20 @@ void JSBaseNode::BuildNode(const JSCallbackInfo& info)
         proxyNode->AddChild(newNode);
         newNode = proxyNode;
     }
-
-    if (newNode && (infoLen >= BUILD_PARAM_INDEX_THREE + 1)) {
+    if (newNode && (info.Length() >= BUILD_PARAM_INDEX_THREE + 1)) {
         auto updateTsNodeConfig = info[BUILD_PARAM_INDEX_THREE];
+        if (!updateTsNodeConfig->IsFunction()) {
+            return;
+        }
         EcmaVM* vm = info.GetVm();
         auto updateTsConfig = AceType::MakeRefPtr<JsFunction>(info.This(), JSRef<JSFunc>::Cast(updateTsNodeConfig));
-        auto updateNodeConfig = [updateTsConfig, vm]() mutable {
+        auto updateNodeConfig = [execCtx = info.GetExecutionContext(), updateTsConfig, vm]() mutable {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             updateTsConfig->ExecuteJS();
         };
         newNode->SetUpdateNodeConfig(std::move(updateNodeConfig));
     }
+    auto parent = viewNode_ ? viewNode_->GetParent() : nullptr;
     if (parent) {
         if (newNode) {
             parent->ReplaceChild(viewNode_, newNode);
@@ -142,10 +186,14 @@ void JSBaseNode::BuildNode(const JSCallbackInfo& info)
     }
     viewNode_ = newNode ? AceType::DynamicCast<NG::FrameNode>(newNode) : nullptr;
     CHECK_NULL_VOID(viewNode_);
-    ProccessNode(isSupportExportTexture, isSupportLazyBuild);
+    ProccessNode(isSupportExportTexture, GetSupportLazyBuild(info));
     UpdateEnd(info);
-    CHECK_NULL_VOID(viewNode_);
+    GetAndRegisterUpdateInstanceFunc(info);
+}
 
+void JSBaseNode::GetAndRegisterUpdateInstanceFunc(const JSCallbackInfo& info)
+{
+    CHECK_NULL_VOID(viewNode_);
     JSRef<JSObject> thisObj = info[BUILD_PARAM_INDEX_THIS_OBJ];
     auto updateInstance = thisObj->GetProperty("updateInstance");
     if (!updateInstance->IsFunction()) {
@@ -154,7 +202,9 @@ void JSBaseNode::BuildNode(const JSCallbackInfo& info)
     EcmaVM* vm = info.GetVm();
     auto updateInstanceFunc = AceType::MakeRefPtr<JsFunction>(thisObj, JSRef<JSFunc>::Cast(updateInstance));
     CHECK_NULL_VOID(updateInstanceFunc);
-    auto updateJSInstanceCallback = [updateInstanceFunc, vm](int32_t instanceId) {
+    auto updateJSInstanceCallback = [updateInstanceFunc, vm,
+                                     execCtx = info.GetExecutionContext()](int32_t instanceId) {
+        JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
         auto uiContext = NG::UIContextHelper::GetUIContext(vm, instanceId);
         auto jsVal = JSRef<JSVal>::Make(uiContext);
         updateInstanceFunc->ExecuteJS(1, &jsVal);
@@ -162,10 +212,36 @@ void JSBaseNode::BuildNode(const JSCallbackInfo& info)
     viewNode_->RegisterUpdateJSInstanceCallback(updateJSInstanceCallback);
 }
 
+void JSBaseNode::BuildNode(const JSCallbackInfo& info)
+{
+    ACE_REUSE_DETECTION_SCOPED_TRACE("JSBaseNode:BuildNode");
+    auto builder = info[0];
+    CHECK_NULL_VOID(builder->IsFunction());
+    auto newNode = GetAndExecBuilderFunc(info);
+    SetNodeFunc(newNode, info);
+}
+
+void JSBaseNode::BuildReactiveNode(const JSCallbackInfo& info)
+{
+    ACE_REUSE_DETECTION_SCOPED_TRACE("JSBaseNode:BuildReactiveNode");
+    auto builder = info[0];
+    CHECK_NULL_VOID(builder->IsFunction());
+    auto infoLen = info.Length();
+    if (infoLen < INFO_LENGTH_LIMIT) {
+        return;
+    }
+    CHECK_NULL_VOID(info[1]->IsArray());
+    auto newNode = GetAndExecMultiArgsBuilderFunc(info);
+    SetNodeFunc(newNode, info);
+}
+
 void JSBaseNode::ProccessNode(bool isSupportExportTexture, bool isSupportLazyBuild)
 {
     CHECK_NULL_VOID(viewNode_);
+    auto node = realNode_.Upgrade();
+    CHECK_NULL_VOID(node);
     viewNode_->SetIsRootBuilderNode(true);
+    node->SetJsBuilderNodeId(viewNode_->GetId());
     if (isSupportExportTexture) {
         viewNode_->CreateExportTextureInfoIfNeeded();
         auto exportTextureInfo = viewNode_->GetExportTextureInfo();
@@ -183,11 +259,21 @@ void JSBaseNode::Create(const JSCallbackInfo& info)
     if (info.Length() >= 1 && !info[0]->IsFunction()) {
         return;
     }
-    if (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_TWELVE) && info.Length() >= INFO_LENGTH_LIMIT
-        && !(info[1]->IsObject() || info[1]->IsUndefined() || info[1]->IsNull())) {
+    if (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_TWELVE) && info.Length() >= INFO_LENGTH_LIMIT &&
+        !(info[1]->IsObject() || info[1]->IsUndefined() || info[1]->IsNull())) {
         return;
     }
     BuildNode(info);
+    EcmaVM* vm = info.GetVm();
+    info.SetReturnValue(JSRef<JSVal>::Make(panda::NativePointerRef::New(vm, AceType::RawPtr(viewNode_))));
+}
+
+void JSBaseNode::CreateReactive(const JSCallbackInfo& info)
+{
+    if (info.Length() >= 1 && !info[0]->IsFunction()) {
+        return;
+    }
+    BuildReactiveNode(info);
     EcmaVM* vm = info.GetVm();
     info.SetReturnValue(JSRef<JSVal>::Make(panda::NativePointerRef::New(vm, AceType::RawPtr(viewNode_))));
 }
@@ -245,10 +331,89 @@ void JSBaseNode::PostTouchEvent(const JSCallbackInfo& info)
         return;
     }
     TouchEvent touchEvent;
-    if (InitTouchEvent(info, touchEvent, true)) {
-        TAG_LOGW(AceLogTag::ACE_INPUTKEYFLOW, "PostTouchEvent params invalid");
-        info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
-        return;
+    auto obj = JSRef<JSObject>::Cast(info[0]);
+    auto typeJsVal = obj->GetProperty("type");
+    if (typeJsVal->IsNumber()) {
+        touchEvent.type = static_cast<TouchType>(typeJsVal->ToNumber<int32_t>());
+    }
+    auto sourceJsVal = obj->GetProperty("source");
+    if (sourceJsVal->IsNumber()) {
+        touchEvent.sourceType = static_cast<SourceType>((sourceJsVal->ToNumber<int32_t>()));
+    }
+    auto sourceToolJsVal = obj->GetProperty("sourceTool");
+    if (sourceToolJsVal->IsNumber()) {
+        touchEvent.sourceTool = static_cast<SourceTool>((sourceToolJsVal->ToNumber<int32_t>()));
+    }
+    auto pressureJsVal = obj->GetProperty("pressure");
+    if (pressureJsVal->IsNumber()) {
+        touchEvent.force = sourceToolJsVal->ToNumber<float>();
+    }
+    auto timestampJsVal = obj->GetProperty("timestamp");
+    if (timestampJsVal->IsNumber()) {
+        std::chrono::nanoseconds nanoseconds(static_cast<int64_t>(timestampJsVal->ToNumber<double>()));
+        TimeStamp time(nanoseconds);
+        touchEvent.time = time;
+    }
+    auto deviceIdJsVal = obj->GetProperty("deviceId");
+    if (deviceIdJsVal->IsNumber()) {
+        touchEvent.deviceId = deviceIdJsVal->ToNumber<int32_t>();
+    }
+    auto targetDisplayIdJsVal = obj->GetProperty("targetDisplayId");
+    if (targetDisplayIdJsVal->IsNumber()) {
+        touchEvent.targetDisplayId = targetDisplayIdJsVal->ToNumber<int32_t>();
+    }
+    auto touchesJsVal = obj->GetProperty("touches");
+    if (touchesJsVal->IsArray()) {
+        JSRef<JSArray> touchesArray = JSRef<JSArray>::Cast(touchesJsVal);
+        for (auto index = 0; index < static_cast<int32_t>(touchesArray->Length()); index++) {
+            JSRef<JSVal> item = touchesArray->GetValueAt(index);
+            if (!item->IsObject()) {
+                continue;
+            }
+            JSRef<JSObject> itemObj = JSRef<JSObject>::Cast(item);
+            TouchPoint point;
+            point.id = itemObj->GetPropertyValue<int32_t>("id", 0);
+            point.x = itemObj->GetPropertyValue<float>("x", 0.0f);
+            point.y = itemObj->GetPropertyValue<float>("y", 0.0f);
+            point.screenX = itemObj->GetPropertyValue<float>("screenX", 0.0f);
+            point.screenY = itemObj->GetPropertyValue<float>("screenY", 0.0f);
+            point.globalDisplayX = itemObj->GetPropertyValue<double>("globalDisplayX", 0.0);
+            point.globalDisplayY = itemObj->GetPropertyValue<double>("globalDisplayY", 0.0);
+            point.originalId = itemObj->GetPropertyValue<int32_t>("id", 0);
+            touchEvent.pointers.emplace_back(point);
+        }
+    }
+    auto titleXJsVal = obj->GetProperty("tiltX");
+    if (titleXJsVal->IsNumber()) {
+        touchEvent.tiltX = titleXJsVal->ToNumber<float>();
+    }
+    auto titleYJsVal = obj->GetProperty("tiltY");
+    if (titleYJsVal->IsNumber()) {
+        touchEvent.tiltY = titleYJsVal->ToNumber<float>();
+    }
+    auto changedTouchesJsVal = obj->GetProperty("changedTouches");
+    if (changedTouchesJsVal->IsArray()) {
+        JSRef<JSArray> changedTouchesArray = JSRef<JSArray>::Cast(changedTouchesJsVal);
+        if (static_cast<int32_t>(changedTouchesArray->Length()) <= 0) {
+            TAG_LOGW(AceLogTag::ACE_INPUTKEYFLOW, "PostTouchEvent event changedTouchesArray is invalid");
+            info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
+            return;
+        }
+        JSRef<JSVal> item = changedTouchesArray->GetValueAt(0);
+        if (!item->IsObject()) {
+            TAG_LOGW(AceLogTag::ACE_INPUTKEYFLOW, "PostTouchEvent event changedTouchesArray item is not an object");
+            info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
+            return;
+        }
+        JSRef<JSObject> itemObj = JSRef<JSObject>::Cast(item);
+        touchEvent.id = itemObj->GetPropertyValue<int32_t>("id", 0);
+        touchEvent.x = itemObj->GetPropertyValue<float>("x", 0.0f);
+        touchEvent.y = itemObj->GetPropertyValue<float>("y", 0.0f);
+        touchEvent.screenX = itemObj->GetPropertyValue<float>("screenX", 0.0f);
+        touchEvent.screenY = itemObj->GetPropertyValue<float>("screenY", 0.0f);
+        touchEvent.globalDisplayX = itemObj->GetPropertyValue<double>("globalDisplayX", 0.0);
+        touchEvent.globalDisplayY = itemObj->GetPropertyValue<double>("globalDisplayY", 0.0);
+        touchEvent.originalId = itemObj->GetPropertyValue<int32_t>("id", 0);
     }
     auto pipelineContext = NG::PipelineContext::GetCurrentContext();
     if (!pipelineContext) {
@@ -268,7 +433,8 @@ void JSBaseNode::PostTouchEvent(const JSCallbackInfo& info)
 
 void JSBaseNode::PostInputEvent(const JSCallbackInfo& info)
 {
-    if (!realNode_ || info.Length() < 1 || !info[0]->IsObject()) {
+    auto node = realNode_.Upgrade();
+    if (!node || info.Length() < 1 || !info[0]->IsObject()) {
         TAG_LOGW(AceLogTag::ACE_INPUTKEYFLOW, "PostInputEvent params invalid");
         info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
         return;
@@ -299,7 +465,7 @@ void JSBaseNode::PostInputEvent(const JSCallbackInfo& info)
             info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
             return;
         }
-        result = postEventManager->PostTouchEvent(realNode_, std::move(touchEvent));
+        result = postEventManager->PostTouchEvent(node, std::move(touchEvent));
         info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(result)));
         return;
     }
@@ -310,7 +476,7 @@ void JSBaseNode::PostInputEvent(const JSCallbackInfo& info)
             info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
             return;
         }
-        result = postEventManager->PostAxisEvent(realNode_, std::move(axisEvent));
+        result = postEventManager->PostAxisEvent(node, std::move(axisEvent));
         info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(result)));
         return;
     }
@@ -319,8 +485,109 @@ void JSBaseNode::PostInputEvent(const JSCallbackInfo& info)
         info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
         return;
     }
-    result = postEventManager->PostMouseEvent(realNode_, std::move(mouseEvent));
+    result = postEventManager->PostMouseEvent(node, std::move(mouseEvent));
     info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(result)));
+}
+
+int32_t JSBaseNode::GetStrategy(const JSCallbackInfo& info)
+{
+    if (info.Length() <= 1) {
+        return 0;
+    }
+    JSRef<JSVal> arg = info[1];
+    if (arg->IsNull() || arg->IsUndefined() || !arg->IsNumber()) {
+        return 0;
+    }
+    int32_t competitionStrategy = arg->ToNumber<int32_t>();
+    if (competitionStrategy != 0 && competitionStrategy != 1) {
+        return 0;
+    }
+    return competitionStrategy;
+}
+
+void JSBaseNode::PostTouchEventWithStrategy(const JSCallbackInfo& info, const RefPtr<NG::UINode>& node,
+    const RefPtr<NG::PostEventManager>& postEventManager, int32_t competitionStrategy)
+{
+    TouchEvent touchEvent;
+    if (!InitTouchEvent(info, touchEvent, false)) {
+        info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
+        return;
+    }
+    if (!competitionStrategy) {
+        touchEvent.isNewReferee = true;
+    }
+    bool result = postEventManager->PostTouchEventWithStrategy(node, std::move(touchEvent));
+    info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(result)));
+}
+
+void JSBaseNode::PostMouseEventWithStrategy(const JSCallbackInfo& info, const RefPtr<NG::UINode>& node,
+    const RefPtr<NG::PostEventManager>& postEventManager, int32_t competitionStrategy)
+{
+    MouseEvent mouseEvent;
+    if (!InitMouseEvent(info, mouseEvent)) {
+        info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
+        return;
+    }
+    if (!competitionStrategy) {
+        mouseEvent.isNewReferee = true;
+    }
+    bool result = postEventManager->PostMouseEventWithStrategy(node, std::move(mouseEvent));
+    info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(result)));
+}
+
+void JSBaseNode::PostAxisEventWithStrategy(const JSCallbackInfo& info, const RefPtr<NG::UINode>& node,
+    const RefPtr<NG::PostEventManager>& postEventManager, int32_t competitionStrategy)
+{
+    AxisEvent axisEvent;
+    if (!InitAxisEvent(info, axisEvent)) {
+        info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
+        return;
+    }
+    if (!competitionStrategy) {
+        axisEvent.isNewReferee = true;
+    }
+    bool result = postEventManager->PostAxisEventWithStrategy(node, std::move(axisEvent));
+    info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(result)));
+}
+
+void JSBaseNode::PostInputEventWithStrategy(const JSCallbackInfo& info)
+{
+    auto node = realNode_.Upgrade();
+    if (!node || info.Length() < 1 || !info[0]->IsObject()) {
+        TAG_LOGW(AceLogTag::ACE_INPUTKEYFLOW, "PostInputEventWithStrategy params invalid");
+        info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
+        return;
+    }
+    auto pipelineContext = NG::PipelineContext::GetCurrentContext();
+    if (!pipelineContext) {
+        TAG_LOGW(AceLogTag::ACE_INPUTKEYFLOW, "PostInputEventWithStrategy pipelineContext is invalid");
+        info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
+        return;
+    }
+    auto postEventManager = pipelineContext->GetPostEventManager();
+    if (!postEventManager) {
+        TAG_LOGW(AceLogTag::ACE_INPUTKEYFLOW, "PostInputEventWithStrategy postEventManager is invalid");
+        info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
+        return;
+    }
+    auto obj = JSRef<JSObject>::Cast(info[0]);
+    if (obj->IsUndefined() || obj.IsEmpty()) {
+        info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(false)));
+        TAG_LOGW(AceLogTag::ACE_INPUTKEYFLOW, "PostInputEventWithStrategy params is invalid");
+        return;
+    }
+    int32_t competitionStrategy = GetStrategy(info);
+    auto touchesJsVal = obj->GetProperty("touches");
+    if (touchesJsVal->IsArray()) {
+        PostTouchEventWithStrategy(info, node, postEventManager, competitionStrategy);
+        return;
+    }
+    auto scrollStep = obj->GetProperty("scrollStep");
+    if (scrollStep->IsNumber()) {
+        PostAxisEventWithStrategy(info, node, postEventManager, competitionStrategy);
+        return;
+    }
+    PostMouseEventWithStrategy(info, node, postEventManager, competitionStrategy);
 }
 
 bool JSBaseNode::GetTouches(const JSCallbackInfo& info, TouchEvent& touchEvent)
@@ -339,7 +606,9 @@ bool JSBaseNode::GetTouches(const JSCallbackInfo& info, TouchEvent& touchEvent)
         JSRef<JSArray> touchesArray = JSRef<JSArray>::Cast(touchesJsVal);
         for (auto index = 0; index < static_cast<int32_t>(touchesArray->Length()); index++) {
             JSRef<JSVal> item = touchesArray->GetValueAt(index);
-            if (!item->IsObject()) { continue; }
+            if (!item->IsObject()) {
+                continue;
+            }
             JSRef<JSObject> itemObj = JSRef<JSObject>::Cast(item);
             TouchPoint point;
             point.id = itemObj->GetPropertyValue<int32_t>("id", 0);
@@ -373,6 +642,8 @@ bool JSBaseNode::GetTouches(const JSCallbackInfo& info, TouchEvent& touchEvent)
         touchEvent.y = itemObj->GetPropertyValue<float>("y", 0.0f);
         touchEvent.screenX = itemObj->GetPropertyValue<float>("screenX", 0.0f);
         touchEvent.screenY = itemObj->GetPropertyValue<float>("screenY", 0.0f);
+        touchEvent.globalDisplayX = itemObj->GetPropertyValue<double>("globalDisplayX", 0.0);
+        touchEvent.globalDisplayY = itemObj->GetPropertyValue<double>("globalDisplayY", 0.0);
         touchEvent.originalId = itemObj->GetPropertyValue<int32_t>("id", 0);
     }
     return true;
@@ -411,6 +682,8 @@ bool JSBaseNode::GetChangedTouches(const JSCallbackInfo& info, TouchEvent& touch
     touchEvent.originalId = itemObj->GetPropertyValue<int32_t>("id", 0);
     touchEvent.width = itemObj->GetPropertyValue<float>("width", 0);
     touchEvent.height = itemObj->GetPropertyValue<float>("height", 0);
+    touchEvent.globalDisplayX = itemObj->GetPropertyValue<double>("globalDisplayX", 0.0);
+    touchEvent.globalDisplayY = itemObj->GetPropertyValue<double>("globalDisplayY", 0.0);
     auto pressedTimeJsVal = itemObj->GetProperty("pressedTime");
     if (pressedTimeJsVal->IsNumber()) {
         std::chrono::nanoseconds nanoseconds(static_cast<int64_t>(pressedTimeJsVal->ToNumber<double>()));
@@ -452,6 +725,8 @@ bool JSBaseNode::GetInputTouches(const JSCallbackInfo& info, TouchEvent& touchEv
         point.force = itemObj->GetPropertyValue<float>("pressure", 0);
         point.width = itemObj->GetPropertyValue<float>("width", 0);
         point.height = itemObj->GetPropertyValue<float>("height", 0);
+        point.globalDisplayX = itemObj->GetPropertyValue<double>("globalDisplayX", 0.0);
+        point.globalDisplayY = itemObj->GetPropertyValue<double>("globalDisplayY", 0.0);
         point.operatingHand = itemObj->GetPropertyValue<int32_t>("hand", 0);
         auto pressedTimeJsVal = itemObj->GetProperty("pressedTime");
         if (pressedTimeJsVal->IsNumber()) {
@@ -504,6 +779,10 @@ bool JSBaseNode::InitTouchEvent(const JSCallbackInfo& info, TouchEvent& touchEve
     auto targetDisplayIdJsVal = obj->GetProperty("targetDisplayId");
     if (targetDisplayIdJsVal->IsNumber()) {
         touchEvent.targetDisplayId = targetDisplayIdJsVal->ToNumber<int32_t>();
+    }
+    auto eventHandleIdJsVal = obj->GetProperty("eventHandleId");
+    if (eventHandleIdJsVal->IsNumber()) {
+        touchEvent.eventHandleId = eventHandleIdJsVal->ToNumber<int32_t>();
     }
     ParamTouchEvent(info, touchEvent);
     BaseEventInfo* baseEventInfo = obj->Unwrap<BaseEventInfo>();
@@ -587,6 +866,14 @@ bool JSBaseNode::InitMouseEvent(const JSCallbackInfo& info, MouseEvent& mouseEve
     if (yJsVal->IsNumber()) {
         mouseEvent.y = yJsVal->ToNumber<float>();
     }
+    auto globalDisplayXJsVal = obj->GetProperty("globalDisplayX");
+    if (globalDisplayXJsVal->IsNumber()) {
+        mouseEvent.globalDisplayX = globalDisplayXJsVal->ToNumber<double>();
+    }
+    auto globalDisplayYJsVal = obj->GetProperty("globalDisplayY");
+    if (globalDisplayYJsVal->IsNumber()) {
+        mouseEvent.globalDisplayY = globalDisplayYJsVal->ToNumber<double>();
+    }
     auto buttonJsVal = obj->GetProperty("button");
     if (buttonJsVal->IsNumber()) {
         mouseEvent.button = static_cast<MouseButton>(buttonJsVal->ToNumber<int32_t>());
@@ -594,6 +881,10 @@ bool JSBaseNode::InitMouseEvent(const JSCallbackInfo& info, MouseEvent& mouseEve
     auto actionJsVal = obj->GetProperty("action");
     if (actionJsVal->IsNumber()) {
         mouseEvent.action = static_cast<MouseAction>(actionJsVal->ToNumber<int32_t>());
+    }
+    auto eventHandleIdJsVal = obj->GetProperty("eventHandleId");
+    if (eventHandleIdJsVal->IsNumber()) {
+        mouseEvent.eventHandleId = eventHandleIdJsVal->ToNumber<int32_t>();
     }
     if (!ParamMouseEvent(info, mouseEvent)) {
         return false;
@@ -700,9 +991,17 @@ bool JSBaseNode::InitAxisEvent(const JSCallbackInfo& info, AxisEvent& axisEvent)
     if (screenYJsVal->IsNumber()) {
         axisEvent.screenY = screenYJsVal->ToNumber<float>();
     }
+    auto globalDisplayXJsVal = obj->GetProperty("globalDisplayX");
+    if (globalDisplayXJsVal->IsNumber()) {
+        axisEvent.globalDisplayX = globalDisplayXJsVal->ToNumber<double>();
+    }
+    auto globalDisplayYJsVal = obj->GetProperty("globalDisplayY");
+    if (globalDisplayYJsVal->IsNumber()) {
+        axisEvent.globalDisplayY = globalDisplayYJsVal->ToNumber<double>();
+    }
 
     AxisInfo* axisInfo = obj->Unwrap<AxisInfo>();
-    auto pinchAxisScale = obj->GetProperty("pinchAxisScale");
+    auto pinchAxisScale = obj->GetProperty("axisPinch");
     if (pinchAxisScale->IsNumber()) {
         axisEvent.pinchAxisScale = pinchAxisScale->ToNumber<float>();
     } else if (axisInfo) {
@@ -713,6 +1012,10 @@ bool JSBaseNode::InitAxisEvent(const JSCallbackInfo& info, AxisEvent& axisEvent)
         axisEvent.rotateAxisAngle = rotateAxisAngle->ToNumber<float>();
     } else if (axisInfo) {
         axisEvent.rotateAxisAngle = axisInfo->GetRotateAxisAngle();
+    }
+    auto eventHandleIdJsVal = obj->GetProperty("eventHandleId");
+    if (eventHandleIdJsVal->IsNumber()) {
+        axisEvent.eventHandleId = eventHandleIdJsVal->ToNumber<int32_t>();
     }
     if (!ParamAxisEvent(info, axisEvent)) {
         TAG_LOGW(AceLogTag::ACE_INPUTKEYFLOW, "AxisEvent params invalid");
@@ -767,9 +1070,10 @@ void JSBaseNode::UpdateEnd(const JSCallbackInfo& info)
 
 void JSBaseNode::OnReuseWithBindThis(const JSCallbackInfo& info)
 {
-    CHECK_NULL_VOID(realNode_);
+    auto node = realNode_.Upgrade();
+    CHECK_NULL_VOID(node);
     std::queue<RefPtr<NG::UINode>> elements;
-    elements.push(realNode_);
+    elements.push(node);
     void* data = static_cast<void*>(info.GetJsiRuntimeCallInfo());
     while (!elements.empty()) {
         auto currentNode = elements.front();
@@ -790,9 +1094,10 @@ void JSBaseNode::OnReuseWithBindThis(const JSCallbackInfo& info)
 
 void JSBaseNode::OnRecycleWithBindThis(const JSCallbackInfo& info)
 {
-    CHECK_NULL_VOID(realNode_);
+    auto node = realNode_.Upgrade();
+    CHECK_NULL_VOID(node);
     std::queue<RefPtr<NG::UINode>> elements;
-    elements.push(realNode_);
+    elements.push(node);
     while (!elements.empty()) {
         auto currentNode = elements.front();
         elements.pop();
@@ -815,6 +1120,7 @@ void JSBaseNode::JSBind(BindingTarget globalObj)
     JSClass<JSBaseNode>::Declare("__JSBaseNode__");
 
     JSClass<JSBaseNode>::CustomMethod("create", &JSBaseNode::Create);
+    JSClass<JSBaseNode>::CustomMethod("createReactive", &JSBaseNode::CreateReactive);
     JSClass<JSBaseNode>::CustomMethod("finishUpdateFunc", &JSBaseNode::FinishUpdateFunc);
     JSClass<JSBaseNode>::CustomMethod("postTouchEvent", &JSBaseNode::PostTouchEvent);
     JSClass<JSBaseNode>::CustomMethod("disposeNode", &JSBaseNode::Dispose);
@@ -823,6 +1129,7 @@ void JSBaseNode::JSBind(BindingTarget globalObj)
     JSClass<JSBaseNode>::CustomMethod("onReuseWithBindObject", &JSBaseNode::OnReuseWithBindThis);
     JSClass<JSBaseNode>::CustomMethod("onRecycleWithBindObject", &JSBaseNode::OnRecycleWithBindThis);
     JSClass<JSBaseNode>::CustomMethod("postInputEvent", &JSBaseNode::PostInputEvent);
+    JSClass<JSBaseNode>::CustomMethod("postInputEventWithStrategy", &JSBaseNode::PostInputEventWithStrategy);
 
     JSClass<JSBaseNode>::Bind(globalObj, JSBaseNode::ConstructorCallback, JSBaseNode::DestructorCallback);
 }

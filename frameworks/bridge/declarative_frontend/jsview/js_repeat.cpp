@@ -105,6 +105,7 @@ void JSRepeat::OnMove(const JSCallbackInfo& info)
     if (info[0]->IsFunction()) {
         auto context = info.GetExecutionContext();
         auto onMove = [execCtx = context, func = JSRef<JSFunc>::Cast(info[0])](int32_t from, int32_t to) {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             auto params = ConvertToJSValues(from, to);
             func->Call(JSRef<JSObject>(), params.size(), params.data());
         };
@@ -132,6 +133,7 @@ void JSRepeat::JsParseItemDragEventHandler(
     std::function<void(int32_t)> onLongPressCallback;
     if (onLongPress->IsFunction()) {
         onLongPressCallback = [execCtx = context, func = JSRef<JSFunc>::Cast(onLongPress)](int32_t index) {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             auto params = ConvertToJSValues(index);
             func->Call(JSRef<JSObject>(), params.size(), params.data());
         };
@@ -141,6 +143,7 @@ void JSRepeat::JsParseItemDragEventHandler(
     std::function<void(int32_t)> onDragStartCallback;
     if (onDragStart->IsFunction()) {
         onDragStartCallback = [execCtx = context, func = JSRef<JSFunc>::Cast(onDragStart)](int32_t index) {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             auto params = ConvertToJSValues(index);
             func->Call(JSRef<JSObject>(), params.size(), params.data());
         };
@@ -151,6 +154,7 @@ void JSRepeat::JsParseItemDragEventHandler(
     if (onMoveThrough->IsFunction()) {
         onMoveThroughCallback = [execCtx = context, func = JSRef<JSFunc>::Cast(onMoveThrough)](
                                     int32_t from, int32_t to) {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             auto params = ConvertToJSValues(from, to);
             func->Call(JSRef<JSObject>(), params.size(), params.data());
         };
@@ -160,12 +164,45 @@ void JSRepeat::JsParseItemDragEventHandler(
     std::function<void(int32_t)> onDropCallback;
     if (onDrop->IsFunction()) {
         onDropCallback = [execCtx = context, func = JSRef<JSFunc>::Cast(onDrop)](int32_t index) {
+            JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
             auto params = ConvertToJSValues(index);
             func->Call(JSRef<JSObject>(), params.size(), params.data());
         };
     }
     RepeatModel::GetInstance()->SetItemDragHandler(std::move(onLongPressCallback), std::move(onDragStartCallback),
         std::move(onMoveThroughCallback), std::move(onDropCallback));
+}
+
+void JSRepeat::IsAllowAnimation(const JSCallbackInfo& info)
+{
+    auto result = RepeatModel::GetInstance()->IsAllowAnimation();
+    info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(result)));
+}
+
+void JSRepeat::IsImplicitAnimationOpen(const JSCallbackInfo& info)
+{
+    auto result = RepeatModel::GetInstance()->IsImplicitAnimationOpen();
+    info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(result)));
+}
+
+void JSRepeat::IsChildInAnimation(const JSCallbackInfo& info)
+{
+    if ((info.Length() < 1) || !info[0]->IsNumber()) {
+        TAG_LOGE(AceLogTag::ACE_REPEAT, "JSRepeat::IsChildInAnimation - invalid parameter ERROR");
+        return;
+    }
+    auto index = info[0]->ToNumber<uint32_t>();
+    auto result = RepeatModel::GetInstance()->IsChildInAnimation(index);
+    info.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(result)));
+}
+
+void JSRepeat::GetActiveRange(const JSCallbackInfo& info)
+{
+    auto result = RepeatModel::GetInstance()->GetActiveRange();
+    JSRef<JSObject> activeRange = JSRef<JSObject>::New();
+    activeRange->SetProperty("start", result.first);
+    activeRange->SetProperty("end", result.second);
+    info.SetReturnValue(activeRange);
 }
 
 void JSRepeat::JSBind(BindingTarget globalObj)
@@ -178,6 +215,10 @@ void JSRepeat::JSBind(BindingTarget globalObj)
     JSClass<JSRepeat>::StaticMethod("createNewChildFinish", &JSRepeat::CreateNewChildFinish);
     JSClass<JSRepeat>::StaticMethod("afterAddChild", &JSRepeat::AfterAddChild);
     JSClass<JSRepeat>::StaticMethod("onMove", &JSRepeat::OnMove);
+    JSClass<JSRepeat>::StaticMethod("isAllowAnimation", &JSRepeat::IsAllowAnimation);
+    JSClass<JSRepeat>::StaticMethod("isImplicitAnimationOpen", &JSRepeat::IsImplicitAnimationOpen);
+    JSClass<JSRepeat>::StaticMethod("isChildInAnimation", &JSRepeat::IsChildInAnimation);
+    JSClass<JSRepeat>::StaticMethod("getActiveRange", &JSRepeat::GetActiveRange);
     JSClass<JSRepeat>::Bind<>(globalObj);
 }
 

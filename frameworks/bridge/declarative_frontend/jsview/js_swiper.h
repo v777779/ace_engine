@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,6 +18,7 @@
 
 #include "core/components_ng/pattern/swiper/swiper_model.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_container_base.h"
+#include "core/components_ng/pattern/swiper/swiper_change_event.h"
 
 namespace OHOS::Ace::Framework {
 
@@ -77,13 +78,18 @@ protected:
     static void SetPageFlipMode(const JSCallbackInfo& info);
     static void SetOnSelected(const JSCallbackInfo& info);
     static bool ParseLengthMetricsToDimension(const JSRef<JSVal>& jsValue, CalcDimension& result);
+    static bool ParseLengthMetricsToDimension(const JSRef<JSVal>& jsValue, CalcDimension& result,
+        RefPtr<ResourceObject>& resourceObj);
     static void GetAutoPlayOptionsInfo(const JSRef<JSObject>& obj, SwiperAutoPlayOptions& swiperAutoPlayOptions);
     static void SetIndicatorController(const JSCallbackInfo& info);
     static void ResetSwiperNode(const JSCallbackInfo& info);
     static void SetMaintainVisibleContentPosition(const JSCallbackInfo& info);
+    static void SetOnScrollStateChanged(const JSCallbackInfo& info);
 
-    private:
-        static bool ParseSpace(const JSRef<JSVal>& jsValue, CalcDimension& result);
+private:
+    static bool ParseSpace(const JSRef<JSVal>& jsValue, CalcDimension& result);
+    static void ParseDisplayCountObject(const JSRef<JSObject>& object);
+    static void ParseCachedCountOptions(const JSRef<JSObject>& obj);
 };
 
 class JSSwiperController final : public Referenced {
@@ -104,6 +110,10 @@ public:
     void OldPreloadItems(const JSCallbackInfo& args);
     void NewPreloadItems(const JSCallbackInfo& args);
     void PreloadItems(const JSCallbackInfo& args);
+    void StartFakeDrag(const JSCallbackInfo& args);
+    void FakeDragBy(const JSCallbackInfo& args);
+    void StopFakeDrag(const JSCallbackInfo& args);
+    void IsFakeDragging(const JSCallbackInfo& args);
 
     void SetController(const RefPtr<SwiperController>& controller)
     {

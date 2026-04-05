@@ -46,6 +46,8 @@ class ComputedV2 {
 
   public static readonly COMPUTED_PREFIX = '___comp_';
   public static readonly COMPUTED_CACHED_PREFIX = '___comp_cached_';
+  // count of currently running @Computed functions
+  public static runningCount: number = 0;
 
   constructor(target: object, prop: string, func: (...args: any[]) => any) {
     this.target_ = target;
@@ -95,12 +97,17 @@ class ComputedV2 {
     return this.propertyComputeFunc_.name;
   }
 
+  public getComputedId(): number {
+    return this.computedId_;
+  }
+
   // register current watchId while executing compute function
   private observeObjectAccess(): Object | undefined {
     ObserveV2.getObserve().startRecordDependencies(this, this.computedId_);
     let ret;
 
     try {
+        ComputedV2.runningCount++;
         ret = this.propertyComputeFunc_.call(this.target_);
     } catch (e) {
         stateMgmtConsole.applicationError(`@Computed Exception caught for ${this.propertyComputeFunc_.name}`, e.toString());
@@ -108,20 +115,29 @@ class ComputedV2 {
         throw e;
     } finally {
         ObserveV2.getObserve().stopRecordDependencies();
+        ComputedV2.runningCount--;
     }
 
     return ret;
   }
 
-  public static clearComputedFromTarget(target: Object): void {
+  public static getComputedIds(target: Object): number[] {
     let meta: Object;
     if (!target || typeof target !== 'object' ||
         !(meta = target[ObserveV2.COMPUTED_REFS]) || typeof meta !== 'object') {
-      return;
+      return [];
     }
 
-    stateMgmtConsole.debug(`ComputedV2: clearComputedFromTarget: from target ${target.constructor?.name} computedIds to clear ${JSON.stringify(Array.from(Object.values(meta)))}`);
-    Array.from(Object.values(meta)).forEach((computed: ComputedV2) => ObserveV2.getObserve().clearWatch(computed.computedId_));
+    return Array.from(Object.values(meta)).map((computed: ComputedV2) => computed.computedId_);
+  }
+
+  public static clearComputedFromTarget(target: Object): void {
+    const computedIds = ComputedV2.getComputedIds(target);
+    stateMgmtConsole.debug(`ComputedV2: clearComputedFromTarget: from target ${target.constructor?.name} computedIds to clear ${JSON.stringify(computedIds)}`);
+    computedIds.forEach((computedId: number) => {
+      ObserveV2.getObserve().clearWatch(computedId);
+      delete ObserveV2.getObserve().id2Others_[computedId];
+    });
   }
 
    /**

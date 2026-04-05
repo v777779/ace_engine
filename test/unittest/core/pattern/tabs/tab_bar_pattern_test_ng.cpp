@@ -14,7 +14,7 @@
  */
 
 #include "tabs_test_ng.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 
 #include "core/components_ng/pattern/text/text_layout_property.h"
 
@@ -849,8 +849,12 @@ HWTEST_F(TabBarPatternTestNg, TabBarPatternUpdateImageColor002, TestSize.Level1)
     tabBarPattern_->SetIconStyle(iconStyle, 0);
     tabBarPattern_->UpdateImageColor(0);
     EXPECT_NE(tabBarNode_->GetChildAtIndex(0), nullptr);
+    EXPECT_TRUE(tabBarPattern_->GetImageColorOnIndex().has_value());
+    EXPECT_EQ(tabBarPattern_->GetImageColorOnIndex().value_or(-1), 0);
     tabBarPattern_->UpdateImageColor(1);
     EXPECT_NE(tabBarNode_->GetChildAtIndex(1), nullptr);
+    EXPECT_TRUE(tabBarPattern_->GetImageColorOnIndex().has_value());
+    EXPECT_EQ(tabBarPattern_->GetImageColorOnIndex().value_or(-1), 1);
     EXPECT_EQ(tabBarPattern_->indicator_, 0);
     tabBarPattern_->SetMaskAnimationByCreate(false);
     EXPECT_EQ(tabBarPattern_->IsMaskAnimationByCreate(), false);
@@ -1665,6 +1669,29 @@ HWTEST_F(TabBarPatternTestNg, TabBarPatternSetTabBarTranslateAndOpacityTest001, 
 }
 
 /**
+ * @tc.name: SetTabBarTranslate001
+ * @tc.desc: test SetTabBarTranslate
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabBarPatternTestNg, SetTabBarTranslate001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. build tabbar.
+     */
+    TabsModelNG model = CreateTabs(BarPosition::END);
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+
+    /**
+     * @tc.steps: step2.Set translate, test function SetTabBarTranslate.
+     * @tc.expected: userDefinedTranslateY_ is 10.
+     */
+    auto options = TranslateOptions(0.0f, 10.f, 0.0f);
+    tabBarPattern_->SetTabBarTranslate(options, true);
+    EXPECT_EQ(tabBarPattern_->userDefinedTranslateY_, 10.f);
+}
+
+/**
  * @tc.name: StartShowTabBar001
  * @tc.desc: test StartShowTabBar
  * @tc.type: FUNC
@@ -1773,7 +1800,6 @@ HWTEST_F(TabBarPatternTestNg, CancelShowTabBar, TestSize.Level1)
     bool taskExecuted = false;
     tabBarPattern_->showTabBarTask_.Reset([&taskExecuted]() { taskExecuted = true; });
     tabBarPattern_->CancelShowTabBar();
-    // MockAnimationManager::GetInstance().Tick();
     EXPECT_FALSE(tabBarPattern_->showTabBarTask_);
 }
 
@@ -1823,8 +1849,6 @@ HWTEST_F(TabBarPatternTestNg, TabBarPatternStartHideTabBarTest004, TestSize.Leve
      * @tc.expected: Related function runs ok.
      */
     tabBarPattern_->axis_ = Axis::VERTICAL;
-    bool taskExecuted = false;
-    tabBarPattern_->showTabBarTask_.Reset([&taskExecuted]() { taskExecuted = true; });
     tabBarPattern_->StartHideTabBar();
     MockAnimationManager::GetInstance().Tick();
     EXPECT_FALSE(tabBarPattern_->isTabBarHiding_);
@@ -1851,8 +1875,6 @@ HWTEST_F(TabBarPatternTestNg, TabBarPatternStartHideTabBarTest005, TestSize.Leve
      * @tc.expected: Related function runs ok.
      */
     tabBarPattern_->axis_ = Axis::VERTICAL;
-    bool taskExecuted = false;
-    tabBarPattern_->showTabBarTask_.Reset([&taskExecuted]() { taskExecuted = true; });
     tabBarPattern_->StartHideTabBar();
     MockAnimationManager::GetInstance().Tick();
     EXPECT_FALSE(tabBarPattern_->isTabBarHiding_);
@@ -2768,6 +2790,7 @@ HWTEST_F(TabBarPatternTestNg, GetIndicatorStyle, TestSize.Level1)
     IndicatorStyle indicator;
     OffsetF indicatorOffset;
     EXPECT_EQ(tabBarPattern_->IsValidIndex(tabBarPattern_->swiperStartIndex_), true);
+    EXPECT_EQ(tabBarLayoutProperty_->GetIndicatorValue(0), 0);
     tabBarPattern_->GetIndicatorStyle(indicator, indicatorOffset, firstRect);
 
     IndicatorStyle indicatorStyle1;
@@ -2891,5 +2914,24 @@ HWTEST_F(TabBarPatternTestNg, HandleBottomTabBarAnimation, TestSize.Level1)
     tabBarPattern_->indicator_ = 1;
     tabBarPattern_->HandleBottomTabBarAnimation(1);
     EXPECT_NE(tabBarPattern_->tabBarStyles_[1], TabBarStyle::BOTTOMTABBATSTYLE);
+}
+/**
+ * @tc.name: SetOnTabBarItemsChangeEvent
+ * @tc.desc: test SetOnTabBarItemsChangeEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabBarPatternTestNg, SetOnTabBarItemsChangeEvent, TestSize.Level1)
+{
+    TabsModelNG model = CreateTabs();
+    model.SetTabBarMode(TabBarMode::SCROLLABLE);
+    model.SetIsVertical(false);
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+
+    OnTabBarItemsChangeEvent func = [](){};
+    tabBarPattern_->NotifyTabBarItemsChange();
+    tabBarPattern_->SetOnTabBarItemsChangeEvent(std::move(func));
+    tabBarPattern_->NotifyTabBarItemsChange();
+    EXPECT_NE(tabBarPattern_->onTabBarItemsChangeEvent_, nullptr);
 }
 } // namespace OHOS::Ace::NG

@@ -15,9 +15,9 @@
 
 #include "core/components/wrap/render_wrap.h"
 
-#include "core/components/marquee/render_marquee.h"
+#include "compatible/components/marquee/render_marquee.h"
 #include "core/components/progress/render_progress.h"
-#include "core/components/search/render_search.h"
+#include "compatible/components/search/render_search.h"
 #include "core/components/slider/render_slider.h"
 #include "core/components/wrap/wrap_component.h"
 

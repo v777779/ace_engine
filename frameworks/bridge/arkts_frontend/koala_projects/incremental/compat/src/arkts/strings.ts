@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,20 +13,18 @@
  * limitations under the License.
  */
 
-import { int32, uint8 } from "./types"
-import { Array_from_int32 } from "./array"
+import { int32 } from './types'
 
-
-interface SystemTextEncoder {
+export interface SystemTextEncoder {
     encode(input?: string): Uint8Array;
     encodeInto(src: string, dest: Uint8Array): void;
 }
 
-interface WithStreamOption {
+export interface WithStreamOption {
     stream: Boolean | undefined;
 }
 
-interface SystemTextDecoder {
+export interface SystemTextDecoder {
     decode(
         input: ArrayBuffer | null | undefined | Uint8Array,
         options: WithStreamOption | undefined
@@ -177,7 +175,7 @@ export class CustomTextDecoder {
         let codePoints = new Int32Array(cpSize)
         let cpIndex = 0;
         let index = 0
-        let result = ""
+        let result = ''
         while (index < input.length) {
             let elem = input[index].toByte()
             let lead = elem & 0xff
@@ -201,14 +199,23 @@ export class CustomTextDecoder {
             codePoints[cpIndex++] = value
             if (cpIndex == cpSize) {
                 cpIndex = 0
-                //result += String.fromCodePoint(...codePoints)
-                result += String.fromCodePoint(...Array_from_int32(codePoints))
+                result += fromCodePoint(codePoints)
             }
             index += count
         }
         if (cpIndex > 0) {
-            result += String.fromCodePoint(...Array_from_int32(codePoints.slice(0, cpIndex)))
+            result += fromCodePoint(codePoints.slice(0, cpIndex))
         }
         return result
     }
+}
+
+// Improve: this can be a performance disaster
+// just wait for the library to provide the proper functionality.
+function fromCodePoint(data: Int32Array): string {
+    const result: int[] = [];
+    for (let i: int32 = 0; i < data.length; i++) {
+        result[i] = data.at(i)!.toInt()
+    }
+    return String.fromCodePoint(...result);
 }

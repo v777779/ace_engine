@@ -42,7 +42,17 @@ export struct SelectIndex {
     { name: 'SelectLevel11', path: 'SelectLevel11' },
     { name: 'SelectLevel2', path: 'SelectLevel2' },
     { name: 'SelectLevel3', path: 'SelectLevel3' },
-    { name: 'SelectLevel4', path: 'SelectLevel4' }
+    { name: 'SelectLevel4', path: 'SelectLevel4' },
+    { name: 'SelectLevel5', path: 'SelectLevel5' },
+    { name: 'SelectLevel6', path: 'SelectLevel6' },
+    { name: 'SelectLevel7', path: 'SelectLevel7' },
+    { name: 'SelectMenuOutline', path: 'SelectMenuOutline' },
+    { name: 'SelectShowInSubWindow', path: 'SelectShowInSubWindow' },
+    { name: 'SelectShowDefaultSelectedIcon', path: 'SelectShowDefaultSelectedIcon' },
+    { name: 'selectOptionTextModifier', path: 'selectOptionTextModifier' },
+    { name: 'selectSelectedOptionTextModifier', path: 'selectSelectedOptionTextModifier' },
+    { name: 'selectTextModifier', path: 'selectTextModifier' },
+    { name: 'Select组合场景8', path: 'SelectLevel8' }
   ]
 
   build() {

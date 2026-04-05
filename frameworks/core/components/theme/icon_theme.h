@@ -18,13 +18,12 @@
 
 #include "core/components/theme/theme.h"
 #include "core/components/theme/theme_constants.h"
-#include "core/components/theme/theme_constants_defines.h"
 
 namespace OHOS::Ace {
 /**
  * IconTheme defines base icon. using IconTheme::Builder.
  */
-class IconTheme : public virtual Theme {
+class ACE_FORCE_EXPORT IconTheme : public virtual Theme {
     DECLARE_ACE_TYPE(IconTheme, Theme);
 
 public:
@@ -41,7 +40,7 @@ public:
 
     ~IconTheme() override = default;
 
-    std::string GetIconPath(const InternalResource::ResourceId& resourceId) const;
+    ACE_FORCE_EXPORT std::string GetIconPath(const InternalResource::ResourceId& resourceId) const;
 
 protected:
     IconTheme() = default;

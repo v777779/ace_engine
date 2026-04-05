@@ -39,8 +39,9 @@ RefPtr<FrameNode> SideBarContainerModelStatic::CreateFrameNode(int32_t nodeId)
     DEFAULT_SIDE_BAR_WIDTH = 240.0_vp;
     DEFAULT_MIN_SIDE_BAR_WIDTH = 240.0_vp;
     DEFAULT_MIN_CONTENT_WIDTH = 360.0_vp;
+    ACE_UINODE_TRACE(nodeId);
     auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::SIDE_BAR_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<SideBarContainerPattern>(); });
+        SIDE_BAR_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<SideBarContainerPattern>(); });
     CHECK_NULL_RETURN(frameNode, frameNode);
     return frameNode;
 }

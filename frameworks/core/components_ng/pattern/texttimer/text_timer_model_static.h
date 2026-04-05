@@ -25,6 +25,7 @@ class ACE_EXPORT TextTimerModelStatic {
 public:
     static void SetIsCountDown(FrameNode* frameNode, const std::optional<bool>& isCountDown);
     static void SetInputCount(FrameNode* frameNode, const std::optional<double>& count);
+    static void SetStartTime(FrameNode* frameNode, const std::optional<int32_t>& value);
     static void SetFontColor(FrameNode* frameNode, const std::optional<Color>& value);
     static void SetFontSize(FrameNode* frameNode, const std::optional<Dimension>& value);
     static void SetFontStyle(FrameNode* frameNode, const std::optional<Ace::FontStyle>& value);
@@ -32,6 +33,10 @@ public:
     static void SetFontFamily(FrameNode* frameNode, const std::optional<std::vector<std::string>>& value);
     static void SetFormat(FrameNode* frameNode, const std::optional<std::string>& format);
     static void SetTextShadow(FrameNode* frameNode, const std::optional<std::vector<Shadow>>& value);
+    static void SetTextColorByUser(FrameNode* frameNode, bool isSetByUser);
+    static void SetFontSizeByUser(FrameNode* frameNode, bool isSetByUser);
+    static void SetFontWeightByUser(FrameNode* frameNode, bool isSetByUser);
+    static void SetFontFamilyByUser(FrameNode* frameNode, bool isSetByUser);
 };
 } // namespace OHOS::Ace::NG
 

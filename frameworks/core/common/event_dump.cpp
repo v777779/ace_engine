@@ -25,6 +25,7 @@ constexpr int32_t MAX_EVENT_TREE_TOUCH_POINT_CNT = 20;
 constexpr int32_t MAX_EVENT_TREE_AXIS_UPDATE_CNT = 20;
 constexpr int32_t MAX_EVENT_TREE_AXIS_CNT = 20;
 constexpr int32_t MAX_EVENT_TREE_GESTURE_CNT = 100;
+constexpr size_t MAX_HISTORY_TOUCH_INFO_SIZE = 2048;
 } // end of namespace
 
 void FrameNodeSnapshot::Dump(std::list<std::pair<int32_t, std::string>>& dumpList, int32_t depth) const
@@ -45,11 +46,14 @@ void FrameNodeSnapshot::Dump(std::list<std::pair<int32_t, std::string>>& dumpLis
     for (const auto& rect : responseRegionList) {
         oss << rect.ToString().c_str();
     }
+    oss << ", childTouchTestStrategy: " << static_cast<int>(strategy);
 #else
     oss << "responseRegionSize: ";
     for (const auto& rect : responseRegionList) {
         oss << rect.GetSize().ToString().c_str();
     }
+    oss << ", childTouchTestStrategy: " << static_cast<int>(strategy) << ", "
+        << " childTouchResultId: " << id;
 #endif
     dumpList.emplace_back(std::make_pair(depth, oss.str()));
 }
@@ -137,7 +141,6 @@ void AxisSnapshot::Dump(std::list<std::pair<int32_t, std::string>>& dumpList, in
 #endif
     dumpList.emplace_back(std::make_pair(depth, oss.str()));
 }
-
 void EventTreeRecord::AddAxis(const AxisEvent& event)
 {
     if (!eventTreeList.empty() && eventTreeList.back().axis.size() > MAX_EVENT_TREE_AXIS_CNT) {
@@ -175,16 +178,18 @@ void EventTreeRecord::AddAxis(const AxisEvent& event)
 
 void EventTreeRecord::AddTouchPoint(const TouchEvent& event)
 {
-    if (!eventTreeList.empty() && eventTreeList.back().touchPoints.size() > MAX_EVENT_TREE_TOUCH_POINT_CNT) {
-        eventTreeList.pop_back();
-        TAG_LOGW(AceLogTag::ACE_INPUTTRACKING,
-            "EventTreeList last record touchPoint size is over limit! Last record is cleaned.");
-    }
-    if (!eventTreeList.empty() && event.type == Ace::TouchType::DOWN &&
-        eventTreeList.back().downFingerIds_.count(event.id) > 0) {
-        eventTreeList.pop_back();
-        TAG_LOGW(AceLogTag::ACE_INPUTTRACKING,
-            "EventTreeList last record receive DOWN event twice. Last record is cleaned.");
+    if (!eventTreeList.empty()) {
+        if (eventTreeList.back().touchPoints.size() > MAX_EVENT_TREE_TOUCH_POINT_CNT) {
+            eventTreeList.pop_back();
+            TAG_LOGW(AceLogTag::ACE_INPUTTRACKING,
+                "EventTreeList last record touchPoint size is over limit! Last record is cleaned.");
+        }
+        if (!eventTreeList.empty() && event.type == Ace::TouchType::DOWN &&
+            eventTreeList.back().downFingerIds_.count(event.id) > 0) {
+            eventTreeList.pop_back();
+            TAG_LOGW(AceLogTag::ACE_INPUTTRACKING,
+                "EventTreeList last record receive DOWN event twice. Last record is cleaned.");
+        }
     }
     TouchType type = event.type;
     if (type == Ace::TouchType::DOWN) {
@@ -229,6 +234,22 @@ void EventTreeRecord::AddFrameNodeSnapshot(FrameNodeSnapshot&& node)
             return;
         }
         eventTreeList.back().hitTestTree.emplace_back(node);
+    }
+}
+
+void EventTreeRecord::UpdateFrameNodeSnapshot(int32_t nodeId, const TouchTestStrategy& strategy, const std::string& id)
+{
+    if (eventTreeList.empty()) {
+        return;
+    }
+    if (eventTreeList.back().hitTestTree.size() < MAX_FRAME_NODE_CNT) {
+        for (auto& iter : eventTreeList.back().hitTestTree) {
+            if (iter.nodeId == nodeId) {
+                iter.strategy = strategy;
+                iter.id = id;
+                break;
+            }
+        }
     }
 }
 
@@ -352,9 +373,6 @@ void EventTreeRecord::Dump(std::list<std::pair<int32_t, std::string>>& dumpList,
             }
         }
         ++index;
-    }
-    for (auto& item : dumpList) {
-        TAG_LOGI(AceLogTag::ACE_INPUTTRACKING, "EventTreeDumpInfo: %{public}s", item.second.c_str());
     }
 }
 
@@ -512,6 +530,52 @@ void EventTreeRecord::Dump(std::unique_ptr<JsonValue>& json, int32_t depth, int3
         std::string header = "event tree_" + std::to_string(index - startNumber);
         json->Put(header.c_str(), children);
         ++index;
+    }
+}
+
+void EventTouchInfoRecord::AddTouchPoint(const TouchEvent& event, TimeStamp dispatchTime)
+{
+    touchHistory_.emplace_back(EventTouchInfo { .pointerID = event.touchEventId,
+        .creatTime = event.sensorTime,
+        .processTime = event.processTime,
+        .dispatchTime = dispatchTime });
+    if (touchHistory_.size() >= MAX_HISTORY_TOUCH_INFO_SIZE) {
+        dequeMaxCnt_++;
+        touchHistory_.clear();
+        TAG_LOGW(AceLogTag::ACE_INPUTTRACKING, "Touch deque size is over limit! Deque is cleaned.");
+    }
+}
+
+void EventTouchInfoRecord::ClearDumpDeque()
+{
+    dequeMaxCnt_ = 0;
+    touchHistory_.clear();
+}
+
+std::string HighResTimePointToString(TimeStamp tp)
+{
+    auto duration = tp.time_since_epoch();
+    return std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count()) + " ns";
+}
+
+void EventTouchInfoRecord::DumpAndClear(std::list<std::string>& dumpList)
+{
+    std::deque<EventTouchInfo> temp = std::move(touchHistory_);
+    for (const auto& iter : temp) {
+        dumpList.emplace_back(std::to_string(iter.pointerID) + " " + HighResTimePointToString(iter.creatTime) + " " +
+                              HighResTimePointToString(iter.processTime) + " " +
+                              HighResTimePointToString(iter.dispatchTime) + " ");
+    }
+}
+
+void EventTouchInfoRecord::DumpAndClear(std::unique_ptr<JsonValue>& json)
+{
+    std::deque<EventTouchInfo> temp = std::move(touchHistory_);
+    for (const auto& iter : temp) {
+        json->Put(std::to_string(iter.pointerID).c_str(),
+            (HighResTimePointToString(iter.creatTime) + " " + HighResTimePointToString(iter.processTime) + " " +
+                HighResTimePointToString(iter.dispatchTime) + " ")
+                .c_str());
     }
 }
 } // namespace OHOS::Ace::NG

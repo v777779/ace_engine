@@ -25,22 +25,36 @@ namespace OHOS::Ace {
 class ACE_FORCE_EXPORT UIContentServiceProxy : public IRemoteProxy<IUiContentService> {
 public:
     explicit UIContentServiceProxy(const sptr<IRemoteObject>& impl) : IRemoteProxy<IUiContentService>(impl) {};
-    virtual int32_t GetInspectorTree(const std::function<void(std::string, int32_t, bool)>& eventCallback) override;
+    virtual int32_t GetInspectorTree(const std::function<void(std::string, int32_t, bool)>& eventCallback,
+        ParamConfig config = ParamConfig()) override;
     virtual int32_t Connect(const EventCallback& eventCallback) override;
     virtual int32_t RegisterClickEventCallback(const EventCallback& eventCallback) override;
     virtual int32_t RegisterRouterChangeEventCallback(const EventCallback& eventCallback) override;
     virtual int32_t RegisterSearchEventCallback(const EventCallback& eventCallback) override;
-    virtual int32_t RegisterComponentChangeEventCallback(const EventCallback& eventCallback) override;
+    virtual int32_t RegisterTextChangeEventCallback(const EventCallback& eventCallback) override;
+    virtual int32_t RegisterComponentChangeEventCallback(const EventCallback& eventCallback,
+        uint32_t mask = ComponentEventType::COMPONENT_EVENT_ALL) override;
     virtual int32_t RegisterWebUnfocusEventCallback(
         const std::function<void(int64_t accessibilityId, const std::string& data)>& eventCallback) override;
+    virtual int32_t RegisterScrollEventCallback(const EventCallback& eventCallback) override;
+    virtual int32_t RegisterLifeCycleEventCallback(const EventCallback& eventCallback) override;
+    virtual int32_t RegisterSelectTextEventCallback(const EventCallback& eventCallback) override;
+    virtual int32_t GetSpecifiedContentOffsets(int32_t id, const std::string& content,
+        const std::function<void(std::vector<std::pair<float, float>>)>& eventCallback) override;
+    virtual int32_t HighlightSpecifiedContent(int32_t id, const std::string& content,
+        const std::vector<std::string>& nodeIds, const std::string& configs) override;
     virtual int32_t SendCommand(int32_t id, const std::string& command) override;
     virtual int32_t SendCommandAsync(int32_t id, const std::string& command) override;
     virtual int32_t SendCommand(const std::string command) override;
     virtual int32_t UnregisterClickEventCallback() override;
     virtual int32_t UnregisterSearchEventCallback() override;
+    virtual int32_t UnregisterTextChangeEventCallback() override;
     virtual int32_t UnregisterRouterChangeEventCallback() override;
     virtual int32_t UnregisterComponentChangeEventCallback() override;
     virtual int32_t UnregisterWebUnfocusEventCallback() override;
+    virtual int32_t UnregisterScrollEventCallback() override;
+    virtual int32_t UnregisterLifeCycleEventCallback() override;
+    virtual int32_t UnregisterSelectTextEventCallback() override;
     virtual bool IsConnect() override;
     virtual int32_t GetWebViewTranslateText(
         const std::string& data, const std::function<void(int32_t, std::string)>& eventCallback) override;
@@ -57,14 +71,50 @@ public:
     virtual int32_t GetCurrentImagesShowing(
         const std::function<void(std::vector<std::pair<int32_t, std::shared_ptr<Media::PixelMap>>>)>& finishCallback)
         override;
-    virtual int32_t GetVisibleInspectorTree(
-        const std::function<void(std::string, int32_t, bool)>& eventCallback) override;
+    virtual int32_t GetImagesById(
+        const std::vector<int32_t>& arkUIIds,
+        const std::function<void(int32_t, const std::unordered_map<int32_t, std::shared_ptr<Media::PixelMap>>&,
+            MultiImageQueryErrorCode)>& arkUIfinishCallback,
+        const std::map<int32_t, std::vector<int32_t>>& arkWebs,
+        const std::function<void(int32_t, const std::map<int32_t, std::map<int32_t,
+            std::shared_ptr<Media::PixelMap>>>&, MultiImageQueryErrorCode)>& arkWebfinishCallback) override;
+    virtual int32_t GetVisibleInspectorTree(const std::function<void(std::string, int32_t, bool)>& eventCallback,
+        ParamConfig config = ParamConfig()) override;
+    virtual int32_t GetLatestHitTestNodeInfosForTouch(
+        const std::function<void(std::string, int32_t, bool)>& eventCallback,
+        InteractionParamConfig config = InteractionParamConfig()) override;
+    virtual int32_t ExeAppAIFunction(
+        const std::string& funcName, const std::string& params, const std::function<void(uint32_t)>& finishCallback)
+        override;
+    virtual int32_t RegisterContentChangeCallback(const ContentChangeConfig& config,
+        const std::function<void(ChangeType type, const std::string& simpleTree)> callback) override;
+    virtual int32_t UnregisterContentChangeCallback() override;
+    virtual int32_t GetStateMgmtInfo(const std::string& componentName, const std::string& propertyName,
+        const std::string& jsonPath, const std::function<void(std::vector<std::string>)>& eventCallback,
+        bool onlyVisible) override;
+
+    virtual int32_t GetWebInfoByRequest(
+        int32_t webId,
+        const std::string& request,
+        const GetWebInfoByRequestCallback& finishCallback) override;
 
 private:
     static inline BrokerDelegator<UIContentServiceProxy> delegator_;
     sptr<UiReportStub> report_ = nullptr;
-    int32_t processId_;
-    bool isConnected = false;
+    bool isConnected_ = false;
+};
+
+class ACE_FORCE_EXPORT UiContentProxyRecipient : public IRemoteObject::DeathRecipient {
+public:
+    using RemoteDiedHandler = std::function<void()>;
+    explicit UiContentProxyRecipient(RemoteDiedHandler handler) : handler_(std::move(handler)) {}
+
+    ~UiContentProxyRecipient() override = default;
+
+    void OnRemoteDied(const wptr<IRemoteObject>& remote) override;
+
+private:
+    RemoteDiedHandler handler_;
 };
 } // namespace OHOS::Ace
 #endif // FOUNDATION_ACE_INTERFACE_UI_CONTENT_PROXY_H

@@ -14,8 +14,24 @@
  */
 #include "core/pipeline/pipeline_base.h"
 #include "core/components_ng/manager/display_sync/ui_display_sync.h"
+#ifdef ENABLE_ROSEN_BACKEND
+#include "transaction/rs_interfaces.h"
+#endif
 
 namespace OHOS::Ace {
+uint32_t DisplaySyncType2FrameRateType(UIObjectType displaySyncType)
+{
+    static const std::unordered_map<UIObjectType, uint32_t> convertMap = {
+        { UIObjectType::DISPLAYSYNC_OTHERS, OTHER_DISPLAY_SYNC_FRAME_RATE_TYPE },
+        { UIObjectType::DISPLAYSYNC_ANIMATOR, ANIMATOR_DISPLAY_SYNC_FRAME_RATE_TYPE },
+        { UIObjectType::DISPLAYSYNC_XCOMPONENT, XCOMPONENT_FRAME_RATE_TYPE },
+    };
+    if (auto iter = convertMap.find(displaySyncType); iter != convertMap.end()) {
+        return iter->second;
+    }
+    return OTHER_DISPLAY_SYNC_FRAME_RATE_TYPE;
+}
+
 void UIDisplaySync::CheckRate(int32_t vsyncRate, int32_t refreshRateMode)
 {
     SetVsyncRate(vsyncRate);
@@ -324,9 +340,10 @@ UIDisplaySync::UIDisplaySync(UIObjectType uiObjectType)
 {
     TAG_LOGD(AceLogTag::ACE_DISPLAY_SYNC, "Create UIDisplaySync, Type: %{public}d",
         static_cast<int32_t>(uiObjectType_));
+    data_->rateRange_->type_ = DisplaySyncType2FrameRateType(uiObjectType_);
 }
 
-UIDisplaySync::UIDisplaySync() {}
+UIDisplaySync::UIDisplaySync() : UIDisplaySync(UIObjectType::DISPLAYSYNC_OTHERS) {}
 
 UIDisplaySync::~UIDisplaySync() noexcept {}
 
@@ -376,4 +393,47 @@ bool UIDisplaySync::IsCommonDivisor(int32_t expectedRate, int32_t vsyncRate)
     }
     return false;
 }
+
+UIXComponentDisplaySync::~UIXComponentDisplaySync()
+{
+    if (lastFrameRateRange_.has_value()) {
+        // -1 : means destroy
+        NotifyXComponentExpectedFrameRate(lastId_, -1);
+    }
+}
+
+void UIXComponentDisplaySync::NotifyXComponentExpectedFrameRate(const std::string& id)
+{
+    if (lastFrameRateRange_.has_value()) {
+        NotifyXComponentExpectedFrameRate(id, lastFrameRateRange_->preferred_);
+    }
+}
+
+void UIXComponentDisplaySync::NotifyXComponentExpectedFrameRate(const std::string& id, int32_t preferred)
+{
+    lastId_ = id;
+    if (lastFrameRateRange_.has_value()) {
+#ifdef ENABLE_ROSEN_BACKEND
+        Rosen::RSInterfaces::GetInstance().NotifyXComponentExpectedFrameRate(lastId_, preferred);
+#endif
+    }
+}
+
+void UIXComponentDisplaySync::NotifyXComponentExpectedFrameRate(
+    const std::string& id, bool isOnTree, const FrameRateRange& expectedFrameRate)
+{
+    SetExpectedFrameRateRange(expectedFrameRate);
+    TAG_LOGD(AceLogTag::ACE_DISPLAY_SYNC, "Id: %{public}" PRIu64 " SetExpectedFrameRateRange"
+        "{%{public}d, %{public}d, %{public}d}", GetId(),
+        expectedFrameRate.min_, expectedFrameRate.max_, expectedFrameRate.preferred_);
+    if (expectedFrameRate.preferred_ < 0 ||
+        (lastFrameRateRange_.has_value() && lastFrameRateRange_->preferred_ == expectedFrameRate.preferred_)) {
+        return;
+    }
+    lastFrameRateRange_.emplace(expectedFrameRate.min_, expectedFrameRate.max_, expectedFrameRate.preferred_);
+    if (isOnTree) {
+        NotifyXComponentExpectedFrameRate(id);
+    }
+}
+
 } // namespace OHOS::Ace

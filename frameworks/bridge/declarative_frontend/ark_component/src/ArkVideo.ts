@@ -48,9 +48,6 @@ class VideoAutoPlayModifier extends ModifierWithKey<boolean> {
   }
 }
 class VideoControlsModifier extends ModifierWithKey<boolean> {
-  constructor(value: boolean) {
-    super(value);
-  }
   static identity: Symbol = Symbol('videoControls');
   applyPeer(node: KNode, reset: boolean): void {
     if (reset) {
@@ -64,9 +61,6 @@ class VideoControlsModifier extends ModifierWithKey<boolean> {
   }
 }
 class VideoLoopModifier extends ModifierWithKey<boolean> {
-  constructor(value: boolean) {
-    super(value);
-  }
   static identity: Symbol = Symbol('videoLoop');
   applyPeer(node: KNode, reset: boolean): void {
     if (reset) {
@@ -80,9 +74,6 @@ class VideoLoopModifier extends ModifierWithKey<boolean> {
   }
 }
 class VideoMutedModifier extends ModifierWithKey<boolean> {
-  constructor(value: boolean) {
-    super(value);
-  }
   static identity: Symbol = Symbol('videoMuted');
   applyPeer(node: KNode, reset: boolean): void {
     if (reset) {
@@ -128,8 +119,8 @@ class VideoSurfaceBackgroundColorModifier extends ModifierWithKey<ResourceColor>
     return !isBaseOrResourceEqual(this.stageValue, this.value);
   }
 }
-class VideoTransitionModifier extends ModifierWithKey<object> {
-  constructor(value: object) {
+class VideoTransitionModifier extends ModifierWithKey<ArkTransition> {
+  constructor(value: ArkTransition) {
     super(value);
   }
   static identity: Symbol = Symbol('videoTransition');
@@ -137,7 +128,7 @@ class VideoTransitionModifier extends ModifierWithKey<object> {
     if (reset) {
       getUINativeModule().video.resetTransition(node);
     } else {
-      getUINativeModule().video.setTransition(node, this.value);
+      getUINativeModule().video.setTransition(node, this.value.transitionEffect, this.value.callback);
     }
   }
   checkObjectDiff(): boolean {
@@ -372,6 +363,15 @@ class ArkVideoComponent extends ArkComponent implements CommonMethod<VideoAttrib
   enableShortcutKey(value: boolean): VideoAttribute {
     modifierWithKey(this._modifiersWithKeys, VideoEnableShortcutKeyModifier.identity,
       VideoEnableShortcutKeyModifier, value);
+    return this;
+  }
+  transition(value: TransitionOptions | TransitionEffect, callback: (transitionIn: boolean) => void): this {
+    let arkTransition = new ArkTransition();
+    arkTransition.transitionEffect = value;
+    if (typeof callback === 'function') {
+      arkTransition.callback = callback;
+    }
+    modifierWithKey(this._modifiersWithKeys, VideoTransitionModifier.identity, VideoTransitionModifier, arkTransition);
     return this;
   }
   onStart(event: VoidCallback): VideoAttribute {

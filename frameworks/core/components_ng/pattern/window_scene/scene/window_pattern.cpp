@@ -15,6 +15,9 @@
 
 #include "core/components_ng/pattern/window_scene/scene/window_pattern.h"
 
+#include <fcntl.h>
+#include <sys/ioctl.h>
+
 #include "session_manager/include/scene_session_manager.h"
 #include "start_window_option.h"
 #include "ui/rs_surface_node.h"
@@ -27,14 +30,21 @@
 #include "core/components_ng/pattern/window_scene/scene/window_event_process.h"
 #include "core/components_ng/render/adapter/rosen_render_context.h"
 #include "core/components_v2/inspector/inspector_constants.h"
-#ifdef ATOMIC_SERVICE_ATTRIBUTION_ENABLE
-#include "core/components_ng/pattern/window_scene/scene/atomicservice_basic_engine_plugin.h"
-#endif
 
 namespace OHOS::Ace::NG {
 namespace {
+constexpr uint32_t ROTATION_COUNT = 4;
+constexpr uint32_t ROTATION_COUNT_SNAPSHOT = 2;
+constexpr uint32_t ADD_BACKGROUND_COLOR_MS = 50;
 constexpr uint32_t COLOR_BLACK = 0xff000000;
 constexpr uint32_t COLOR_WHITE = 0xffffffff;
+constexpr uint32_t COLOR_TRANSLUCENT_WHITE = 0x66ffffff;
+constexpr uint32_t COLOR_TRANSLUCENT_BLACK = 0x66000000;
+constexpr Dimension SNAPSHOT_RADIUS = 16.0_vp;
+constexpr uint32_t SNAPSHOT_LOAD_COMPLETE = 1;
+constexpr uint32_t STARTING_WINDOW_TIMEOUT_MS = 10000;
+constexpr uint32_t DMA_RECLAIM_TIMEOUT_MS = 500;
+constexpr const char* DMA_DEVICE_FILE = "/dev/dma_reclaim";
 
 #ifdef ATOMIC_SERVICE_ATTRIBUTION_ENABLE
 constexpr uint32_t ASENGINE_ATTRIBUTIONS_COUNT = 3;
@@ -55,13 +65,11 @@ const Rosen::RSAnimationTimingCurve NODE_ANIMATION_TIMING_CURVE =
     Rosen::RSAnimationTimingCurve::CreateCubicCurve(0.40f, 0.08f, 0.60f, 0.92f);
 #endif
 
-constexpr uint32_t COLOR_TRANSLUCENT_WHITE = 0x66ffffff;
-constexpr uint32_t COLOR_TRANSLUCENT_BLACK = 0x66000000;
-constexpr Dimension SNAPSHOT_RADIUS = 16.0_vp;
-constexpr uint32_t SNAPSHOT_LOAD_COMPLETE = 1;
-constexpr uint32_t ROTATION_COUNT = 4;
-constexpr uint32_t ROTATION_COUNT_SNAPSHOT = 2;
-constexpr uint32_t STARTING_WINDOW_TIMEOUT_MS = 10000;
+struct DmaBufIoctlSwPara {
+    pid_t pid = 0;
+    unsigned long ino = 0;
+    unsigned int fd = 0;
+};
 } // namespace
 
 class LifecycleListener : public Rosen::ILifecycleListener {
@@ -125,11 +133,11 @@ public:
         windowPattern->OnRemoveBlank();
     }
 
-    void OnAddSnapshot() override
+    void OnAddSnapshot(std::function<void()>&& callback) override
     {
         auto windowPattern = windowPattern_.Upgrade();
         CHECK_NULL_VOID(windowPattern);
-        windowPattern->OnAddSnapshot();
+        windowPattern->OnAddSnapshot(std::move(callback));
     }
 
     void OnRemoveSnapshot() override
@@ -158,6 +166,20 @@ public:
         auto windowPattern = windowPattern_.Upgrade();
         CHECK_NULL_VOID(windowPattern);
         windowPattern->OnPreLoadStartingWindowFinished();
+    }
+
+    void OnRestart() override
+    {
+        auto windowPattern = windowPattern_.Upgrade();
+        CHECK_NULL_VOID(windowPattern);
+        windowPattern->OnRestart();
+    }
+
+    void OnRemovePrelaunchStartingWindow() override
+    {
+        auto windowPattern = windowPattern_.Upgrade();
+        CHECK_NULL_VOID(windowPattern);
+        windowPattern->OnRemovePrelaunchStartingWindow();
     }
 
 private:
@@ -203,15 +225,16 @@ void WindowPattern::OnAttachToFrameNode()
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto state = session_->GetSessionState();
-    auto key = session_->GetWindowStatus();
     TAG_LOGW(AceLogTag::ACE_WINDOW_SCENE, "OnAttachToFrameNode id: %{public}d, node id: %{public}d, "
-        "name: %{public}s, state: %{public}u, in recents: %{public}d", session_->GetPersistentId(), host->GetId(),
-        session_->GetSessionInfo().bundleName_.c_str(), state, session_->GetShowRecent());
+        "name: %{public}s, state: %{public}u, in recents: %{public}d, appLockControl: %{public}d, "
+        "prelaunch: %{public}d", session_->GetPersistentId(), host->GetId(),
+        session_->GetSessionInfo().bundleName_.c_str(), state, session_->GetShowRecent(),
+        session_->GetAppLockControl(), session_->IsPrelaunch());
+
+    CHECK_EQUAL_VOID(CheckAndAddStartingWindowForPrelaunch(), true);
     if (state == Rosen::SessionState::STATE_DISCONNECT) {
         CHECK_EQUAL_VOID(HasStartingPage(), false);
-        if (session_->GetShowRecent() && session_->GetScenePersistence() &&
-            (session_->GetScenePersistence()->IsSnapshotExisted(key) ||
-            session_->GetScenePersistence()->IsSavingSnapshot(key))) {
+        if (session_->GetShowRecent() && session_->HasPersistentSnapshot()) {
             CreateSnapshotWindow();
             AddChild(host, snapshotWindow_, snapshotWindowName_);
             return;
@@ -221,13 +244,12 @@ void WindowPattern::OnAttachToFrameNode()
         return;
     }
 
+    CHECK_EQUAL_VOID(CheckAndHandleRestartApp(), true);
     CHECK_EQUAL_VOID(CheckAndAddStartingWindowAboveLocked(), true);
 
-    if ((state == Rosen::SessionState::STATE_BACKGROUND || session_->IsAnco()) &&
-        session_->GetScenePersistence() &&
-        session_->GetScenePersistence()->HasSnapshot()) {
-        if (!session_->GetShowRecent()) {
-            AddChild(host, appWindow_, appWindowName_, 0);
+    if (state == Rosen::SessionState::STATE_BACKGROUND && session_->HasPersistentSnapshot()) {
+        if (!session_->GetShowRecent() && !session_->GetAppLockControl()) {
+            DelayAddAppWindowForDmaResume(session_->GetCallingPid());
         }
         CreateSnapshotWindow();
         AddChild(host, snapshotWindow_, snapshotWindowName_);
@@ -241,9 +263,16 @@ void WindowPattern::OnAttachToFrameNode()
         return;
     }
 
+    if (session_->GetAppLockControl()) {
+        CreateSnapshotWindow();
+        AddChild(host, snapshotWindow_, snapshotWindowName_);
+        attachToFrameNodeFlag_ = true;
+        return;
+    }
     AddChild(host, appWindow_, appWindowName_, 0);
     auto surfaceNode = session_->GetSurfaceNode();
     CHECK_NULL_VOID(surfaceNode);
+    CHECK_EQUAL_VOID(AddPersistentImage(surfaceNode, host), true);
     if (!surfaceNode->IsBufferAvailable()) {
         CreateStartingWindow();
         AddChild(host, startingWindow_, startingWindowName_);
@@ -251,6 +280,61 @@ void WindowPattern::OnAttachToFrameNode()
         return;
     }
     attachToFrameNodeFlag_ = true;
+}
+
+bool WindowPattern::CheckAndAddStartingWindowForPrelaunch()
+{
+    CHECK_EQUAL_RETURN(session_->IsPrelaunch(), false, false);
+    auto state = session_->GetSessionState();
+    auto host = GetHost();
+    if (state == Rosen::SessionState::STATE_DISCONNECT) {
+        CHECK_EQUAL_RETURN(HasStartingPage(), false, false);
+        if (session_->GetShowRecent() && session_->HasPersistentSnapshot()) {
+            TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "CheckForPrelaunch disconnect CreateSnapshotWindow");
+            CreateSnapshotWindow();
+            AddChild(host, snapshotWindow_, snapshotWindowName_);
+            isPrelaunch_.store(true, std::memory_order_release);
+            return true;
+        }
+        TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "CheckForPrelaunch disconnect CreateBlankWindow");
+        CreateBlankWindow(startingWindow_);
+        AddChild(host, startingWindow_, startingWindowName_);
+        isPrelaunch_.store(true, std::memory_order_release);
+        return true;
+    }
+
+    if (session_->GetShowRecent()) {
+        TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "CheckForPrelaunch showRecent CreateStartingWindow");
+        CreateStartingWindow();
+        AddChild(host, startingWindow_, startingWindowName_);
+        return true;
+    }
+
+    AddChild(host, appWindow_, appWindowName_, 0);
+    auto surfaceNode = session_->GetSurfaceNode();
+    CHECK_NULL_RETURN(surfaceNode, true);
+    CHECK_EQUAL_RETURN(AddPersistentImage(surfaceNode, host), true, true);
+    if (!surfaceNode->IsBufferAvailable()) {
+        TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "CheckForPrelaunch buffer no available CreateBlankWindow");
+        CreateBlankWindow(startingWindow_);
+        AddChild(host, startingWindow_, startingWindowName_);
+        surfaceNode->SetBufferAvailableCallback(callback_);
+        isPrelaunch_.store(true, std::memory_order_release);
+        return true;
+    }
+    attachToFrameNodeFlag_ = true;
+    return true;
+}
+
+bool WindowPattern::AddPersistentImage(const std::shared_ptr<Rosen::RSSurfaceNode>& surfaceNode,
+    const RefPtr<NG::FrameNode>& host)
+{
+    CHECK_EQUAL_RETURN(session_->IsPersistentImageFit(), false, false);
+    CreateSnapshotWindow();
+    AddChild(host, snapshotWindow_, snapshotWindowName_);
+    surfaceNode->SetIsNotifyUIBufferAvailable(false);
+    surfaceNode->SetBufferAvailableCallback(callback_);
+    return true;
 }
 
 void WindowPattern::CreateBlankWindow(RefPtr<FrameNode>& window)
@@ -278,7 +362,7 @@ void WindowPattern::CreateAppWindow()
     tempWindow->GetLayoutProperty()->UpdateMeasureType(MeasureType::MATCH_PARENT);
     tempWindow->SetHitTestMode(HitTestMode::HTMNONE);
     CHECK_NULL_VOID(session_);
-    auto surfaceNode = session_->GetSurfaceNode();
+    auto surfaceNode = session_->GetSurfaceNode(true);
     if (surfaceNode) {
         auto context = AceType::DynamicCast<NG::RosenRenderContext>(tempWindow->GetRenderContext());
         CHECK_NULL_VOID(context);
@@ -411,14 +495,9 @@ void WindowPattern::CreateASStartingWindow()
     std::string circleIcon = "";
 
 #ifdef ACE_ENGINE_PLUGIN_PATH
-    std::vector<std::string> atomicServiceIconInfo = AtomicServiceBasicEnginePlugin::GetInstance().
-        getParamsFromAtomicServiceBasicEngine(sessionInfo.bundleName_);
-    if (atomicServiceIconInfo.size() >= ASENGINE_ATTRIBUTIONS_COUNT) {
-        appNameInfo = atomicServiceIconInfo[0];
-        circleIcon = atomicServiceIconInfo[CIRCLE_ICON_INDEX];
-        eyelashRingIcon = atomicServiceIconInfo[EYELASHRING_ICON_INDEX];
-    }
-    AtomicServiceBasicEnginePlugin::GetInstance().releaseData();
+    appNameInfo = sessionInfo.atomicServiceInfo_.appNameInfo_;
+    eyelashRingIcon = sessionInfo.atomicServiceInfo_.eyelashRingIcon_;
+    circleIcon = sessionInfo.atomicServiceInfo_.circleIcon_;
 #endif // ACE_ENGINE_PLUGIN_PATH
 
     startingWindow_ = FrameNode::CreateFrameNode(
@@ -461,6 +540,19 @@ void WindowPattern::UpdateStartingWindowProperty(const Rosen::SessionInfo& sessi
     }
 }
 
+bool WindowPattern::CheckAndHandleRestartApp()
+{
+    CHECK_EQUAL_RETURN(session_->GetSessionInfo().isRestartApp_, false, false);
+    CHECK_EQUAL_RETURN(session_->GetSessionInfo().isRestartInSameProcess_, false, false);
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "CheckAndHandleRestartApp id: %{public}d, node id: %{public}d",
+        session_->GetPersistentId(), host->GetId());
+    CreateStartingWindow();
+    AddChild(host, startingWindow_, startingWindowName_);
+    return true;
+}
+
 bool WindowPattern::CheckAndAddStartingWindowAboveLocked()
 {
     CHECK_EQUAL_RETURN(
@@ -477,10 +569,20 @@ bool WindowPattern::CheckAndAddStartingWindowAboveLocked()
     return true;
 }
 
+void WindowPattern::SetImagePatternSyncLoad(const RefPtr<FrameNode>& node)
+{
+    CHECK_NULL_VOID(node);
+    auto imagePattern = node->GetPattern<ImagePattern>();
+    CHECK_NULL_VOID(imagePattern);
+    ACE_SCOPED_TRACE("WindowPattern::SetImagePatternSyncLoad set sync [%d]", syncStartingWindow_);
+    imagePattern->SetSyncLoad(syncStartingWindow_);
+}
+
 void WindowPattern::HideStartingWindow()
 {
     session_->SetHidingStartingWindow(true);
-    TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "hide startWindow: %{public}d", session_->GetPersistentId());
+    session_->SetLeashWindowAlpha(true);
+    TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "HideStartingWindow: %{public}d", session_->GetPersistentId());
 
     ContainerScope scope(instanceId_);
     auto context = PipelineContext::GetCurrentContext();
@@ -495,8 +597,15 @@ void WindowPattern::HideStartingWindow()
         CHECK_NULL_VOID(self->startingWindow_);
         auto session = self->session_;
         CHECK_NULL_VOID(session);
+        auto abilityInfo = session->GetSessionInfoAbilityInfo();
+        bool debugMode = false;
+        if (abilityInfo) {
+            debugMode = abilityInfo->applicationInfo.debug;
+            TAG_LOGE(AceLogTag::ACE_WINDOW_SCENE, "HideStartingWindow time out, debug mode: %{public}d", debugMode);
+        }
+        CHECK_EQUAL_VOID(debugMode, true);
         auto ret = session->Clear();
-        TAG_LOGE(AceLogTag::ACE_WINDOW_SCENE, "Terminate StartingWindow, ret: %{public}d", ret);
+        TAG_LOGE(AceLogTag::ACE_WINDOW_SCENE, "HideStartingWindow terminate session, ret: %{public}d", ret);
     });
     taskExecutor->PostDelayedTask(
         interruptStartingTask_, TaskExecutor::TaskType::UI, STARTING_WINDOW_TIMEOUT_MS, "ArkUICleanStartingWindow");
@@ -527,29 +636,54 @@ void WindowPattern::CreateStartingWindow()
     startingWindowInfo.backgroundColorEarlyVersion_ =
         context->GetColorMode() == ColorMode::DARK ? COLOR_BLACK : COLOR_WHITE;
     Rosen::SceneSessionManager::GetInstance().GetStartupPage(sessionInfo, startingWindowInfo);
-    if (startingWindowInfo.configFileEnabled_) {
+    if (!(sessionInfo.startWindowOption != nullptr && sessionInfo.startWindowOption->hasStartWindow) &&
+        startingWindowInfo.configFileEnabled_) {
         CHECK_NULL_VOID(startingWindowLayoutHelper_);
         lastParentSize_ = { 0.0f, 0.0f };
         startingWindow_ = startingWindowLayoutHelper_->CreateStartingWindowNode(
-            startingWindowInfo, sessionInfo.bundleName_, sessionInfo.moduleName_);
+            startingWindowInfo, sessionInfo.bundleName_, sessionInfo.moduleName_, syncStartingWindow_);
         return;
     }
     startingWindow_ = FrameNode::CreateFrameNode(
         V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ImagePattern>());
+    SetImagePatternSyncLoad(startingWindow_);
     auto imageLayoutProperty = startingWindow_->GetLayoutProperty<ImageLayoutProperty>();
+    CHECK_NULL_VOID(imageLayoutProperty);
     imageLayoutProperty->UpdateMeasureType(MeasureType::MATCH_PARENT);
     startingWindow_->SetHitTestMode(HitTestMode::HTMNONE);
-    auto sourceInfo = ImageSourceInfo(
-        startingWindowInfo.iconPathEarlyVersion_, sessionInfo.bundleName_, sessionInfo.moduleName_);
+    ImageSourceInfo sourceInfo;
+    std::shared_ptr<Media::PixelMap> preloadPixelMap = nullptr;
+    std::pair<std::shared_ptr<uint8_t[]>, size_t> preloadBufferInfo = {nullptr, 0};
+    session_->GetPreloadStartingWindow(preloadPixelMap, preloadBufferInfo);
+    std::string darkMode = Rosen::SceneSessionManager::GetInstance().IsStartWindowDark(sessionInfo) ?
+        Rosen::DARK_MODE : Rosen::LIGHT_MODE;
+    std::string saveStartWindowKey = sessionInfo.bundleName_ + '_' + sessionInfo.moduleName_ + '_' +
+        sessionInfo.abilityName_ + '_' + darkMode;
+    std::string startWindowPersistencePath =
+        Rosen::SceneSessionManager::GetInstance().GetStartWindowPersistencePath(sessionInfo.bundleName_,
+            saveStartWindowKey);
+    if (session_->GetShowRecent() && !startWindowPersistencePath.empty()) {
+        sourceInfo = ImageSourceInfo("file://" + startWindowPersistencePath,
+            sessionInfo.bundleName_, sessionInfo.moduleName_);
+        session_->ResetPreloadStartingWindow();
+        TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "use persistence in recent id:%{public}d", session_->GetPersistentId());
+    } else if (preloadPixelMap != nullptr) {
+        auto pixelMap = PixelMap::CreatePixelMap(&preloadPixelMap);
+        sourceInfo = ImageSourceInfo(pixelMap);
+        session_->ResetPreloadStartingWindow();
+        TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "use preload pixelMap id:%{public}d", session_->GetPersistentId());
+    } else if (preloadBufferInfo.first != nullptr && preloadBufferInfo.second > 0) {
+        sourceInfo = ImageSourceInfo(preloadBufferInfo.first, preloadBufferInfo.second);
+        session_->ResetPreloadStartingWindow();
+        TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "use preload buffer id:%{public}d", session_->GetPersistentId());
+    } else if (!session_->GetPreloadingStartingWindow()) {
+        sourceInfo = ImageSourceInfo(startingWindowInfo.iconPathEarlyVersion_, sessionInfo.bundleName_,
+            sessionInfo.moduleName_);
+        TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "not preloading starting window id:%{public}d",
+            session_->GetPersistentId());
+    }
     auto color = Color(startingWindowInfo.backgroundColorEarlyVersion_);
     UpdateStartingWindowProperty(sessionInfo, color, sourceInfo);
-    auto preLoadPixelMap = Rosen::SceneSessionManager::GetInstance().GetPreLoadStartingWindow(sessionInfo);
-    if (preLoadPixelMap != nullptr) {
-        auto pixelMap = PixelMap::CreatePixelMap(&preLoadPixelMap);
-        sourceInfo = ImageSourceInfo(pixelMap);
-        Rosen::SceneSessionManager::GetInstance().RemovePreLoadStartingWindowFromMap(sessionInfo);
-        TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "use preload pixelMap id:%{public}d", session_->GetPersistentId());
-    }
     imageLayoutProperty->UpdateImageSourceInfo(sourceInfo);
     startingWindow_->GetRenderContext()->UpdateBackgroundColor(color);
     imageLayoutProperty->UpdateImageFit(ImageFit::NONE);
@@ -581,11 +715,8 @@ void WindowPattern::UpdateSnapshotWindowProperty()
     }
     auto imageLayoutProperty = snapshotWindow_->GetLayoutProperty<ImageLayoutProperty>();
     CHECK_NULL_VOID(imageLayoutProperty);
-    int32_t persistentImageFit = 0;
-    auto isPersistentImageFit = Rosen::SceneSessionManager::GetInstance().GetPersistentImageFit(
-        session_->GetPersistentId(), persistentImageFit);
-    auto imageFit = static_cast<ImageFit>(persistentImageFit);
-    if (isPersistentImageFit) {
+    auto imageFit = static_cast<ImageFit>(session_->GetPersistentImageFit());
+    if (session_->IsPersistentImageFit()) {
         // ImageFit type COVER_TOP_LEFT is not support for api interface
         imageLayoutProperty->UpdateImageFit(imageFit == ImageFit::COVER_TOP_LEFT ? ImageFit::MATRIX : imageFit);
     } else {
@@ -604,7 +735,7 @@ bool WindowPattern::IsSnapshotSizeChanged()
     TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "snapshot size changed id:%{public}d, last:%{public}s, cur:%{public}s",
              session_->GetPersistentId(), lastRect.ToString().c_str(), curRect.ToString().c_str());
     if (!session_->GetShowRecent() && !lastRect.IsInvalid() &&
-        NearEqual(lastRect.width_, curRect.width_, 1.0f) && NearEqual(lastRect.height_, curRect.height_, 1.0f)) {
+        (!NearEqual(lastRect.width_, curRect.width_, 1.0f) || !NearEqual(lastRect.height_, curRect.height_, 1.0f))) {
         return true;
     }
     return false;
@@ -618,11 +749,9 @@ void WindowPattern::CreateSnapshotWindow(std::optional<std::shared_ptr<Media::Pi
     ACE_SCOPED_TRACE("CreateSnapshotWindow[id:%d][self:%d]", persistentId, host->GetId());
     session_->SetNeedSnapshot(false);
     isBlankForSnapshot_ = false;
+    isScaledSnapshot_ = false;
 
-    int32_t imageFit = 0;
-    auto isPersistentImageFit = Rosen::SceneSessionManager::GetInstance().GetPersistentImageFit(
-        session_->GetPersistentId(), imageFit);
-    if (IsSnapshotSizeChanged() && isPersistentImageFit == false) {
+    if (IsSnapshotSizeChanged() && !session_->IsPersistentImageFit()) {
         isBlankForSnapshot_ = true;
         CreateBlankWindow(snapshotWindow_);
         return;
@@ -631,43 +760,44 @@ void WindowPattern::CreateSnapshotWindow(std::optional<std::shared_ptr<Media::Pi
     snapshotWindow_ = FrameNode::CreateFrameNode(
         V2::IMAGE_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ImagePattern>());
     auto imageLayoutProperty = snapshotWindow_->GetLayoutProperty<ImageLayoutProperty>();
+    CHECK_NULL_VOID(imageLayoutProperty);
     imageLayoutProperty->UpdateMeasureType(MeasureType::MATCH_PARENT);
     auto imagePaintProperty = snapshotWindow_->GetPaintProperty<ImageRenderProperty>();
     imagePaintProperty->UpdateImageInterpolation(ImageInterpolation::LOW);
     snapshotWindow_->SetHitTestMode(HitTestMode::HTMNONE);
     auto pattern = snapshotWindow_->GetPattern<ImagePattern>();
     CHECK_NULL_VOID(pattern);
+    snapshotWindow_->UpdateInspectorId("Snapshot_" + session_->GetSessionInfo().bundleName_ +
+        "_" + std::to_string(host->GetId()));
 
     if (snapshot) {
         auto pixelMap = PixelMap::CreatePixelMap(&snapshot.value());
         imageLayoutProperty->UpdateImageSourceInfo(ImageSourceInfo(pixelMap));
         pattern->SetSyncLoad(true);
+    } else if (auto preloadSnapshot = session_->GetPreloadSnapshot(); preloadSnapshot != nullptr) {
+        auto pixelMap = PixelMap::CreatePixelMap(&preloadSnapshot);
+        imageLayoutProperty->UpdateImageSourceInfo(ImageSourceInfo(pixelMap));
+        pattern->SetSyncLoad(true);
     } else {
         if ((DeviceConfig::realDeviceType == DeviceType::PHONE) && session_->GetShowRecent()) {
-            auto context = GetContext();
-            CHECK_NULL_VOID(context);
-            auto backgroundColor = context->GetColorMode() == ColorMode::DARK ? COLOR_BLACK : COLOR_WHITE;
-            auto snapshotContext = snapshotWindow_->GetRenderContext();
-            CHECK_NULL_VOID(snapshotContext);
-            snapshotContext->UpdateBackgroundColor(Color(backgroundColor));
+            needAddBackgroundColor_ = true;
+            AddBackgroundColorDelayed();
         }
         ImageSourceInfo sourceInfo;
         auto scenePersistence = session_->GetScenePersistence();
         CHECK_NULL_VOID(scenePersistence);
-        auto key = session_->GetWindowStatus();
-        auto isSavingSnapshot = scenePersistence->IsSavingSnapshot(key);
-        auto hasSnapshot = scenePersistence->HasSnapshot(key);
+        auto key = session_->GetScreenSnapshotStatus();
+        auto freeMultiWindow = session_->freeMultiWindow_.load();
+        auto isSavingSnapshot = scenePersistence->IsSavingSnapshot();
+        auto hasSnapshot = scenePersistence->HasSnapshot(key, freeMultiWindow);
         TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE,
-            "id: %{public}d isSavingSnapshot: %{public}d, hasSnapshot: %{public}d",
-            persistentId, isSavingSnapshot, hasSnapshot);
+            "id: %{public}d isSavingSnapshot: %{public}d, hasSnapshot: %{public}d, key: %{public}d",
+            persistentId, isSavingSnapshot, hasSnapshot, key);
         const bool matchSnapshot = isSavingSnapshot || hasSnapshot;
         ImageRotateOrientation rotate;
         auto lastRotation = session_->GetLastOrientation();
-        auto windowRotation = static_cast<uint32_t>(session_->GetWindowOrientation());
-        if (matchSnapshot) {
-            auto orientation = TransformOrientationForMatchSnapshot(lastRotation, windowRotation);
-            pattern->SetOrientation(orientation);
-        }
+        auto windowRotation = session_->GetWindowSnapshotOrientation();
+        bool needRotate = !freeMultiWindow;
         if (isSavingSnapshot) {
             auto snapshotPixelMap = session_->GetSnapshotPixelMap();
             CHECK_NULL_VOID(snapshotPixelMap);
@@ -677,20 +807,26 @@ void WindowPattern::CreateSnapshotWindow(std::optional<std::shared_ptr<Media::Pi
             snapshotWindow_->GetPattern<ImagePattern>()->SetSyncLoad(true);
             Rosen::SceneSessionManager::GetInstance().VisitSnapshotFromCache(persistentId);
         } else {
-            sourceInfo = ImageSourceInfo("file://" + scenePersistence->GetSnapshotFilePath(key));
+            std::string path = scenePersistence->GetSnapshotFilePath(key, matchSnapshot,
+                freeMultiWindow);
+            if (session_->IsPersistentScaledSnapshotEnabled() && session_->GetShowRecent()) {
+                path = scenePersistence->GetSnapshotScaledFilePath();
+                isScaledSnapshot_ = true;
+            }
+            sourceInfo = ImageSourceInfo("file://" + path);
             auto snapshotRotation =
-                static_cast<uint32_t>(scenePersistence->rotate_[key.first][key.second]);
+                static_cast<uint32_t>(scenePersistence->rotate_[key]);
             TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE,
                 "lastRotation: %{public}d windowRotation: %{public}d, snapshotRotation: %{public}d",
                 lastRotation, windowRotation, snapshotRotation);
-            if (!matchSnapshot) {
+            if (needRotate) {
                 auto orientation = TransformOrientationForDisMatchSnapshot(lastRotation,
                     windowRotation, snapshotRotation);
                 pattern->SetOrientation(orientation);
             }
         }
         imageLayoutProperty->UpdateImageSourceInfo(sourceInfo);
-        ClearImageCache(sourceInfo);
+        ClearImageCache(sourceInfo, key, freeMultiWindow, isScaledSnapshot_);
         auto eventHub = snapshotWindow_->GetEventHub<ImageEventHub>();
         CHECK_NULL_VOID(eventHub);
         eventHub->SetOnError([weakThis = WeakClaim(this)](const LoadImageFailEvent& info) {
@@ -718,13 +854,94 @@ void WindowPattern::CreateSnapshotWindow(std::optional<std::shared_ptr<Media::Pi
             auto context = self->snapshotWindow_->GetRenderContext();
             CHECK_NULL_VOID(context);
             context->UpdateBackgroundColor(Color::TRANSPARENT);
+            self->needAddBackgroundColor_ = false;
             self->snapshotWindow_->MarkNeedRenderOnly();
         });
     }
     UpdateSnapshotWindowProperty();
 }
 
-void WindowPattern::ClearImageCache(const ImageSourceInfo& sourceInfo)
+void WindowPattern::AddBackgroundColorDelayed()
+{
+    if (session_->IsExitSplitOnBackground()) {
+        return;
+    }
+    auto pipelineContext = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto taskExecutor = pipelineContext->GetTaskExecutor();
+    CHECK_NULL_VOID(taskExecutor);
+    addBackgroundColorTask_.Cancel();
+    addBackgroundColorTask_.Reset([weakThis = WeakClaim(this)]() {
+        auto self = weakThis.Upgrade();
+        CHECK_NULL_VOID(self);
+        CHECK_EQUAL_VOID(self->needAddBackgroundColor_, false);
+        ACE_SCOPED_TRACE("WindowScene::AddBackgroundColorTask");
+        TAG_LOGI(AceLogTag::ACE_WINDOW_SCENE, "add background color: %{public}d", self->session_->GetPersistentId());
+        auto context = self->GetContext();
+        CHECK_NULL_VOID(context);
+        auto backgroundColor = context->GetColorMode() == ColorMode::DARK ? COLOR_BLACK : COLOR_WHITE;
+        CHECK_NULL_VOID(self->snapshotWindow_);
+        auto snapshotContext = self->snapshotWindow_->GetRenderContext();
+        CHECK_NULL_VOID(snapshotContext);
+        snapshotContext->UpdateBackgroundColor(Color(backgroundColor));
+    });
+    taskExecutor->PostDelayedTask(
+        addBackgroundColorTask_, TaskExecutor::TaskType::UI, ADD_BACKGROUND_COLOR_MS, __func__);
+}
+
+void WindowPattern::DelayAddAppWindowForDmaResume(int32_t pid)
+{
+    if (!dmaReclaimEnabled_ || session_->IsAnco()) {
+        auto host = GetHost();
+        CHECK_NULL_VOID(host);
+        AddChild(host, appWindow_, appWindowName_, 0);
+        return;
+    }
+    appWindowDelayAdded_ = false;
+    auto addAppUITask = [weakThis = WeakClaim(this)]() {
+        ACE_SCOPED_TRACE("WindowScene::AddAppUITask");
+        auto self = weakThis.Upgrade();
+        CHECK_NULL_VOID(self);
+        CHECK_EQUAL_VOID(self->appWindowDelayAdded_, true);
+        CHECK_NULL_VOID(self->appWindow_);
+        auto host = self->GetHost();
+        CHECK_NULL_VOID(host);
+        self->AddChild(host, self->appWindow_, self->appWindowName_, 0);
+        host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+        self->appWindowDelayAdded_ = true;
+    };
+    auto dmaResumeTask = [containerId = instanceId_, pid, addAppUITask]() {
+        ACE_SCOPED_TRACE("WindowScene::WaitForDmaResume[%d]", pid);
+        auto fd = open(DMA_DEVICE_FILE, O_RDWR | O_CLOEXEC | O_NONBLOCK);
+        if (fd > 0) {
+            DmaBufIoctlSwPara param{.pid = pid};
+            int32_t ret = ioctl(fd, _IOWR('d', 0x05, int), &param);
+            TAG_LOGD(AceLogTag::ACE_WINDOW_SCENE, "swap in dma buf: %{public}d, ret: %{public}d", pid, ret);
+            close(fd);
+        } else {
+            TAG_LOGD(AceLogTag::ACE_WINDOW_SCENE, "failed to open device: %{public}d", pid);
+        }
+        ContainerScope scope(containerId);
+        auto pipelineContext = PipelineContext::GetCurrentContext();
+        CHECK_NULL_VOID(pipelineContext);
+        pipelineContext->PostAsyncEvent(
+            std::move(addAppUITask), "ArkUIWindowSceneAddAppWindowAfterDmaResume", TaskExecutor::TaskType::UI);
+    };
+    ContainerScope scope(instanceId_);
+    auto pipelineContext = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipelineContext);
+    pipelineContext->PostAsyncEvent(
+        std::move(dmaResumeTask), "ArkUIWindowSceneWaitForDmaResume", TaskExecutor::TaskType::BACKGROUND);
+    auto taskExecutor = pipelineContext->GetTaskExecutor();
+    CHECK_NULL_VOID(taskExecutor);
+    delayAddAppWindowTask_.Cancel();
+    delayAddAppWindowTask_.Reset(addAppUITask);
+    taskExecutor->PostDelayedTask(delayAddAppWindowTask_, TaskExecutor::TaskType::UI,
+        DMA_RECLAIM_TIMEOUT_MS, "ArkUIWindowSceneDelayAddAppWindow");
+}
+
+void WindowPattern::ClearImageCache(const ImageSourceInfo& sourceInfo, Rosen::SnapshotStatus key, bool freeMultiWindow,
+    bool isScaledSnapshot)
 {
     auto frameNode = GetHost();
     CHECK_NULL_VOID(frameNode);
@@ -734,7 +951,7 @@ void WindowPattern::ClearImageCache(const ImageSourceInfo& sourceInfo)
     CHECK_NULL_VOID(imageCache);
     imageCache->ClearCacheImgObj(sourceInfo.GetKey());
     if (!Rosen::ScenePersistence::IsAstcEnabled()) {
-        auto snapshotSize = session_->GetScenePersistence()->GetSnapshotSize(session_->GetWindowStatus());
+        auto snapshotSize = session_->GetScenePersistence()->GetSnapshotSize(key, freeMultiWindow, isScaledSnapshot);
         imageCache->ClearCacheImage(
             ImageUtils::GenerateImageKey(sourceInfo, SizeF(snapshotSize.first, snapshotSize.second)));
         imageCache->ClearCacheImage(
@@ -750,7 +967,7 @@ void WindowPattern::DispatchPointerEvent(const std::shared_ptr<MMI::PointerEvent
     session_->TransferPointerEvent(pointerEvent);
     if (pointerEvent->GetPointerAction() >= MMI::PointerEvent::POINTER_ACTION_PULL_DOWN &&
         pointerEvent->GetPointerAction() <= MMI::PointerEvent::POINTER_ACTION_PULL_UP) {
-        auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+        auto pipeline = PipelineContext::GetCurrentContext();
         if (pipeline) {
             auto manager = pipeline->GetDragDropManager();
             CHECK_NULL_VOID(manager);
@@ -823,7 +1040,7 @@ ImageRotateOrientation WindowPattern::TransformOrientationForMatchSnapshot(uint3
     uint32_t windowRotation)
 {
     auto orientation = static_cast<ImageRotateOrientation>(
-        TransformOrientation(lastRotation, windowRotation, ROTATION_COUNT));
+        TransformOrientation(lastRotation, windowRotation, ROTATION_COUNT) + 1);
     if (orientation == ImageRotateOrientation::DOWN) {
         orientation = ImageRotateOrientation::UP;
     }
@@ -834,17 +1051,16 @@ ImageRotateOrientation WindowPattern::TransformOrientationForDisMatchSnapshot(ui
     uint32_t windowRotation, uint32_t snapshotRotation)
 {
     ImageRotateOrientation orientation = ImageRotateOrientation::UP;
-    if (lastRotation != snapshotRotation) {
-        if (TransformOrientation(lastRotation, snapshotRotation, ROTATION_COUNT_SNAPSHOT) != 0) {
-            if (TransformOrientation(lastRotation, windowRotation, ROTATION_COUNT_SNAPSHOT) != 0) {
-                orientation = static_cast<ImageRotateOrientation>(
-                    TransformOrientation(lastRotation, windowRotation, ROTATION_COUNT));
-            } else {
-                orientation = static_cast<ImageRotateOrientation>(
-                    TransformOrientation(windowRotation, snapshotRotation, ROTATION_COUNT));
-            }
-        } else if (windowRotation != snapshotRotation) {
-            orientation = ImageRotateOrientation::DOWN;
+    if (lastRotation == snapshotRotation) {
+        return orientation;
+    }
+    if (TransformOrientation(lastRotation, snapshotRotation, ROTATION_COUNT_SNAPSHOT) != 0) {
+        if (TransformOrientation(lastRotation, windowRotation, ROTATION_COUNT_SNAPSHOT) != 0) {
+            orientation = static_cast<ImageRotateOrientation>(
+                TransformOrientation(lastRotation, windowRotation, ROTATION_COUNT) + 1);
+        } else {
+            orientation = static_cast<ImageRotateOrientation>(
+                TransformOrientation(windowRotation, snapshotRotation, ROTATION_COUNT) + 1);
         }
     }
     return orientation;
@@ -855,6 +1071,6 @@ uint32_t WindowPattern::TransformOrientation(uint32_t lastRotation, uint32_t win
     if (count == 0) {
         return 0;
     }
-    return (lastRotation - windowRotation + ROTATION_COUNT) % count + 1;
+    return (lastRotation - windowRotation + ROTATION_COUNT) % count;
 }
 } // namespace OHOS::Ace::NG

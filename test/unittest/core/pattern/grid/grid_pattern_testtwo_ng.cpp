@@ -17,6 +17,7 @@
 #include "test/unittest/core/pattern/test_ng.h"
 
 #include "core/components_ng/layout/layout_wrapper_node.h"
+#include "core/components_ng/pattern/grid/grid_layout_property.h"
 #include "core/components_ng/pattern/grid/grid_pattern.h"
 #include "core/components_ng/pattern/grid/grid_scroll/grid_scroll_layout_algorithm.h"
 #include "core/components_ng/pattern/grid/grid_scroll/grid_scroll_with_options_layout_algorithm.h"
@@ -173,7 +174,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo001, TestSize.Level1)
     frameNode->layoutProperty_ = gridLayoutProperty;
     gridPattern->frameNode_ = frameNode;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_EQ(DumpLog::GetInstance().description_[37], "GridLayoutOptions:null\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "GridLayoutOptions:null\n");
+    EXPECT_NE(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -195,7 +199,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo002, TestSize.Level1)
     info.scrollAlign_ = ScrollAlign::NONE;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_EQ(DumpLog::GetInstance().description_[70], "ScrollAlign:NONE\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "ScrollAlign:NONE\n");
+    EXPECT_NE(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -217,7 +224,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo003, TestSize.Level1)
     info.scrollAlign_ = ScrollAlign::CENTER;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_EQ(DumpLog::GetInstance().description_[70], "ScrollAlign:CENTER\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "ScrollAlign:CENTER\n");
+    EXPECT_NE(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -239,7 +249,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo004, TestSize.Level1)
     info.scrollAlign_ = ScrollAlign::END;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_EQ(DumpLog::GetInstance().description_[70], "ScrollAlign:END\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "ScrollAlign:END\n");
+    EXPECT_NE(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -261,7 +274,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo005, TestSize.Level1)
     info.scrollAlign_ = ScrollAlign::START;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_EQ(DumpLog::GetInstance().description_[70], "ScrollAlign:START\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "ScrollAlign:START\n");
+    EXPECT_NE(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -282,7 +298,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo006, TestSize.Level1)
     GridLayoutInfo info;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_EQ(DumpLog::GetInstance().description_[70], "ScrollAlign:AUTO\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "ScrollAlign:AUTO\n");
+    EXPECT_NE(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -301,7 +320,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo007, TestSize.Level1)
     frameNode->layoutProperty_ = gridLayoutProperty;
     gridPattern->frameNode_ = frameNode;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_EQ(DumpLog::GetInstance().description_[69], "AlignItems:GridItemAlignment.DEFAULT\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "AlignItems:GridItemAlignment.DEFAULT\n");
+    EXPECT_NE(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -327,7 +349,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo008, TestSize.Level1)
     info.gridMatrix_ = gridMatrix;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_EQ(DumpLog::GetInstance().description_[71], "-----------start print gridMatrix------------\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "-----------start print gridMatrix------------\n");
+    EXPECT_NE(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -353,7 +378,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo009, TestSize.Level1)
     info.lineHeightMap_ = lineHeightMap;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_NE(DumpLog::GetInstance().description_[62], "-----------start print gridMatrix------------\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "-----------start print gridMatrix------------\n");
+    EXPECT_EQ(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -379,7 +407,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo010, TestSize.Level1)
     info.lineHeightMap_ = lineHeightMap;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_EQ(DumpLog::GetInstance().description_[71], "-----------start print lineHeightMap------------\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "-----------start print lineHeightMap------------\n");
+    EXPECT_NE(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -405,7 +436,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo011, TestSize.Level1)
     info.irregularItemsPosition_ = irregularItemsPosition;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_EQ(DumpLog::GetInstance().description_[71], "-----------start print irregularItemsPosition_------------\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "-----------start print irregularItemsPosition_------------\n");
+    EXPECT_NE(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -431,7 +465,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo012, TestSize.Level1)
     info.irregularItemsPosition_ = irregularItemsPosition;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_NE(DumpLog::GetInstance().description_[62], "-----------start print lineHeightMap------------\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "-----------start print lineHeightMap------------\n");
+    EXPECT_EQ(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -459,7 +496,10 @@ HWTEST_F(GridTestNg, DumpAdvanceInfo013, TestSize.Level1)
     info.lineHeightMap_ = lineHeightMap;
     gridPattern->info_ = info;
     gridPattern->DumpAdvanceInfo();
-    EXPECT_NE(DumpLog::GetInstance().description_[64], "-----------start print irregularItemsPosition_------------\n");
+    auto it = std::find(DumpLog::GetInstance().description_.begin(),
+                        DumpLog::GetInstance().description_.end(),
+                        "-----------start print irregularItemsPosition_------------\n");
+    EXPECT_EQ(it, DumpLog::GetInstance().description_.end());
 }
 
 /**
@@ -492,6 +532,23 @@ HWTEST_F(GridTestNg, ToJsonValue002, TestSize.Level1)
     gridPattern->multiSelectable_ = true;
     gridPattern->ToJsonValue(json, filter);
     EXPECT_EQ(json->GetString("multiSelectable"), "true");
+}
+
+/**
+ * @tc.name: ToJsonValueEditModeOptions
+ * @tc.desc: Test GridPattern ToJsonValue
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridTestNg, ToJsonValueEditModeOptions, TestSize.Level1)
+{
+    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
+    auto json = JsonUtil::Create(true);
+    InspectorFilter filter;
+    gridPattern->SetEditModeOptions({.enableGatherSelectedItemsAnimation = true});
+    gridPattern->ToJsonValue(json, filter);
+    auto options = json->GetObject("editModeOptions");
+    EXPECT_NE(options, nullptr);
+    EXPECT_EQ(options->GetString("enableGatherSelectedItemsAnimation"), "true");
 }
 
 /**
@@ -699,7 +756,7 @@ HWTEST_F(GridTestNg, SkipLargeLineHeightLines001, TestSize.Level1)
     gridLayoutInfo.prevOffset_ = 8.0f;
     gridLayoutInfo.lineHeightMap_[0] = 4.0f;
     gridLayoutInfo.lineHeightMap_[1] = 6.0f;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
+    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo);
     ASSERT_NE(layout, nullptr);
     layout->mainGap_ = 0.0f;
     auto result = layout->SkipLargeLineHeightLines(2.0f);
@@ -720,11 +777,11 @@ HWTEST_F(GridTestNg, SkipLargeLineHeightLines002, TestSize.Level1)
     gridLayoutInfo.prevOffset_ = -8.0f;
     gridLayoutInfo.lineHeightMap_[0] = 4.0f;
     gridLayoutInfo.lineHeightMap_[1] = 6.0f;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
+    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo);
     ASSERT_NE(layout, nullptr);
     layout->mainGap_ = 0.0f;
     auto result = layout->SkipLargeLineHeightLines(2.0f);
-    EXPECT_TRUE(result);
+    EXPECT_FALSE(result);
 }
 
 /**
@@ -739,15 +796,15 @@ HWTEST_F(GridTestNg, SkipLargeLineHeightLines003, TestSize.Level1)
     gridLayoutInfo.endMainLineIndex_ = 2;
     gridLayoutInfo.currentOffset_ = -5.0f;
     gridLayoutInfo.prevOffset_ = -8.0f;
-    gridLayoutInfo.lineHeightMap_[0] = 4.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 6.0f;
+    gridLayoutInfo.lineHeightMap_[0] = 3.0f;
+    gridLayoutInfo.lineHeightMap_[1] = 3.0f;
     std::map<int32_t, std::map<int32_t, int32_t>> gridMatrix;
     gridMatrix[0] = { { 1, 2 } };
     gridMatrix[1] = { { 3, 4 } };
     gridMatrix[2] = { { 5, 6 } };
     gridMatrix[3] = { { 7, 8 } };
     gridLayoutInfo.gridMatrix_ = gridMatrix;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
+    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo);
     ASSERT_NE(layout, nullptr);
     layout->mainGap_ = 0.0f;
     auto result = layout->SkipLargeLineHeightLines(2.0f);
@@ -774,11 +831,11 @@ HWTEST_F(GridTestNg, SkipLargeLineHeightLines004, TestSize.Level1)
     gridMatrix[2] = { { 5, 6 } };
     gridMatrix.emplace();
     gridLayoutInfo.gridMatrix_ = gridMatrix;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
+    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo);
     ASSERT_NE(layout, nullptr);
     layout->mainGap_ = 0.0f;
     auto result = layout->SkipLargeLineHeightLines(2.0f);
-    EXPECT_TRUE(result);
+    EXPECT_FALSE(result);
 }
 
 /**
@@ -799,11 +856,11 @@ HWTEST_F(GridTestNg, SkipLargeLineHeightLines005, TestSize.Level1)
     gridMatrix[0] = { { 1, 2 } };
     gridMatrix[1] = { { 3, 4 } };
     gridLayoutInfo.gridMatrix_ = gridMatrix;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
+    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo);
     ASSERT_NE(layout, nullptr);
     layout->mainGap_ = 0.0f;
     auto result = layout->SkipLargeLineHeightLines(2.0f);
-    EXPECT_TRUE(result);
+    EXPECT_FALSE(result);
 }
 
 /**
@@ -816,7 +873,7 @@ HWTEST_F(GridTestNg, GetNextGrid001, TestSize.Level1)
     GridLayoutInfo gridLayoutInfo;
     gridLayoutInfo.startMainLineIndex_ = 0;
     gridLayoutInfo.endMainLineIndex_ = 2;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
+    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo);
     ASSERT_NE(layout, nullptr);
     int32_t curMain = 0;
     int32_t curCross = 0;
@@ -835,917 +892,12 @@ HWTEST_F(GridTestNg, GetNextGrid002, TestSize.Level1)
     GridLayoutInfo gridLayoutInfo;
     gridLayoutInfo.startMainLineIndex_ = 0;
     gridLayoutInfo.endMainLineIndex_ = 2;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
+    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo);
     ASSERT_NE(layout, nullptr);
     int32_t curMain = 0;
     int32_t curCross = 2;
     bool reverse = true;
     auto result = layout->GetNextGrid(curMain, curCross, reverse);
     EXPECT_TRUE(result);
-}
-
-/**
- * @tc.name: SkipRegularLines001
- * @tc.desc: Test GridScrollLayoutAlgorithm SkipRegularLines
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, SkipRegularLines001, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    gridLayoutInfo.lineHeightMap_[2] = 3.0f;
-    gridLayoutInfo.lineHeightMap_[3] = 6.0f;
-    gridLayoutInfo.startIndex_ = 1;
-    gridLayoutInfo.currentOffset_ = 24.0f;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    layout->mainGap_ = -20.0f;
-    layout->crossCount_ = 4;
-    layout->SkipRegularLines(true);
-    EXPECT_EQ(layout->info_.currentOffset_, 24.0f);
-}
-
-/**
- * @tc.name: SkipIrregularLines001
- * @tc.desc: Test GridScrollLayoutAlgorithm SkipIrregularLines
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, SkipIrregularLines001, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    gridLayoutInfo.lineHeightMap_[2] = 3.0f;
-    gridLayoutInfo.lineHeightMap_[3] = 6.0f;
-    gridLayoutInfo.startIndex_ = 1;
-    gridLayoutInfo.currentOffset_ = 24.0f;
-    gridLayoutInfo.prevOffset_ = 30.0f;
-    gridLayoutInfo.gridMatrix_[0] = { { 1, -2 }, { 3, -4 } };
-    gridLayoutInfo.gridMatrix_[1] = { { 5, -6 }, { 7, -8 } };
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    layout->crossCount_ = 4;
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridLayoutProperty> gridLayoutProperty = AceType::MakeRefPtr<GridLayoutProperty>();
-    frameNode->layoutProperty_ = gridLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->SkipIrregularLines(&layoutWrapper, true);
-    EXPECT_EQ(layout->info_.currentOffset_, 24.0f);
-}
-
-/**
- * @tc.name: SkipIrregularLines002
- * @tc.desc: Test GridScrollLayoutAlgorithm SkipIrregularLines
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, SkipIrregularLines002, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    gridLayoutInfo.lineHeightMap_[2] = 3.0f;
-    gridLayoutInfo.lineHeightMap_[3] = 6.0f;
-    gridLayoutInfo.startIndex_ = 1;
-    gridLayoutInfo.currentOffset_ = 24.0f;
-    gridLayoutInfo.prevOffset_ = 30.0f;
-    gridLayoutInfo.gridMatrix_[0] = { { 1, 2 }, { 3, 4 } };
-    gridLayoutInfo.gridMatrix_[1] = { { 5, 6 }, { 7, 8 } };
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    layout->crossCount_ = 4;
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridLayoutProperty> gridLayoutProperty = AceType::MakeRefPtr<GridLayoutProperty>();
-    frameNode->layoutProperty_ = gridLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(-20.0f, -20.0f, -100.0f, -100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->SkipIrregularLines(&layoutWrapper, true);
-    EXPECT_EQ(layout->info_.currentOffset_, layout->info_.prevOffset_);
-}
-
-/**
- * @tc.name: FillNewLineBackward001
- * @tc.desc: Test GridScrollLayoutAlgorithm FillNewLineBackward
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, FillNewLineBackward001, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    gridLayoutInfo.lineHeightMap_[2] = 3.0f;
-    gridLayoutInfo.lineHeightMap_[3] = 6.0f;
-    gridLayoutInfo.startIndex_ = 1;
-    gridLayoutInfo.currentOffset_ = 24.0f;
-    gridLayoutInfo.prevOffset_ = 30.0f;
-    gridLayoutInfo.endIndex_ = 5;
-    gridLayoutInfo.gridMatrix_[0] = { { 1, 2 }, { 3, 4 } };
-    gridLayoutInfo.gridMatrix_[1] = { { 5, 6 }, { 7, 8 } };
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    layout->crossCount_ = 4;
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridLayoutProperty> gridLayoutProperty = AceType::MakeRefPtr<GridLayoutProperty>();
-    frameNode->layoutProperty_ = gridLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    layout->FillNewLineBackward(2.0f, 3.0f, &layoutWrapper, true);
-    EXPECT_EQ(layout->cellAveLength_, -1.0f);
-}
-
-/**
- * @tc.name: MeasureNewChild001
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureNewChild
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureNewChild001, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    gridLayoutInfo.lineHeightMap_[2] = 3.0f;
-    gridLayoutInfo.lineHeightMap_[3] = 6.0f;
-    gridLayoutInfo.startIndex_ = 1;
-    gridLayoutInfo.currentOffset_ = 24.0f;
-    gridLayoutInfo.prevOffset_ = 30.0f;
-    gridLayoutInfo.endIndex_ = 5;
-    gridLayoutInfo.gridMatrix_[0] = { { 1, 2 }, { 3, 4 } };
-    gridLayoutInfo.gridMatrix_[1] = { { 5, 6 }, { 7, 8 } };
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    layout->crossCount_ = 4;
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridLayoutProperty> gridLayoutProperty = AceType::MakeRefPtr<GridLayoutProperty>();
-    frameNode->layoutProperty_ = gridLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridLayoutProperty);
-    layout->currentItemColSpan_ = 5;
-    layout->MeasureNewChild(frameSize, 2, &layoutWrapper, childLayoutWrapper, true);
-    EXPECT_EQ(layout->currentItemColSpan_, 5);
-}
-
-/**
- * @tc.name: MeasureChildPlaced001
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureChildPlaced
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureChildPlaced001, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    gridLayoutInfo.lineHeightMap_[2] = 3.0f;
-    gridLayoutInfo.lineHeightMap_[3] = 6.0f;
-    gridLayoutInfo.startIndex_ = 1;
-    gridLayoutInfo.currentOffset_ = 24.0f;
-    gridLayoutInfo.prevOffset_ = 30.0f;
-    gridLayoutInfo.endIndex_ = 5;
-    gridLayoutInfo.gridMatrix_[0] = { { 1, 2 }, { 3, 4 } };
-    gridLayoutInfo.gridMatrix_[1] = { { 5, 6 }, { 7, 8 } };
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridLayoutProperty> gridLayoutProperty = AceType::MakeRefPtr<GridLayoutProperty>();
-    frameNode->layoutProperty_ = gridLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridLayoutProperty);
-    layout->crossCount_ = 4;
-    layout->currentItemColSpan_ = 5;
-    auto result = layout->MeasureChildPlaced(frameSize, 2, 2, &layoutWrapper, childLayoutWrapper);
-    EXPECT_EQ(result, 0);
-}
-
-/**
- * @tc.name: CheckNeedMeasure001
- * @tc.desc: Test GridScrollLayoutAlgorithm CheckNeedMeasure
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CheckNeedMeasure001, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.clearStretch_ = true;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 4;
-    layout->currentItemColSpan_ = 5;
-    LayoutConstraintF layoutConstraint;
-    auto result = layout->CheckNeedMeasure(childLayoutWrapper, layoutConstraint);
-    EXPECT_TRUE(result);
-}
-
-/**
- * @tc.name: CheckNeedMeasure002
- * @tc.desc: Test GridScrollLayoutAlgorithm CheckNeedMeasure
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CheckNeedMeasure002, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.clearStretch_ = true;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 4;
-    layout->currentItemColSpan_ = 5;
-    LayoutConstraintF layoutConstraint;
-    layout->axis_ = Axis::HORIZONTAL;
-    auto result = layout->CheckNeedMeasure(childLayoutWrapper, layoutConstraint);
-    EXPECT_TRUE(result);
-}
-
-/**
- * @tc.name: CheckGridPlaced001
- * @tc.desc: Test GridScrollLayoutAlgorithm CheckGridPlaced
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CheckGridPlaced001, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    gridLayoutInfo.startMainLineIndex_ = 0;
-    gridLayoutInfo.endMainLineIndex_ = 2;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    layout->crossCount_ = 4;
-    auto result = layout->CheckGridPlaced(2, 2, 3, 2, 5);
-    EXPECT_FALSE(result);
-}
-
-/**
- * @tc.name: ComputeItemCrossPosition001
- * @tc.desc: Test GridScrollLayoutAlgorithm ComputeItemCrossPosition
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, ComputeItemCrossPosition001, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    gridLayoutInfo.startMainLineIndex_ = 0;
-    gridLayoutInfo.endMainLineIndex_ = 2;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    layout->crossCount_ = 4;
-    layout->itemsCrossSize_[0] = 1.0f;
-    layout->itemsCrossSize_[1] = 2.0f;
-    layout->crossPaddingOffset_ = 2.0f;
-    layout->crossGap_ = 2.0f;
-    auto result = layout->ComputeItemCrossPosition(3);
-    EXPECT_EQ(result, 11);
-}
-
-/**
- * @tc.name: MeasureCachedChild001
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureCachedChild
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureCachedChild001, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.clearStretch_ = true;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 4;
-    layout->currentItemColSpan_ = 5;
-    LayoutConstraintF layoutConstraint;
-    auto result = layout->MeasureCachedChild(frameSize, 2, &layoutWrapper, childLayoutWrapper);
-    EXPECT_EQ(result, 1);
-}
-
-/**
- * @tc.name: MeasureCachedChild002
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureCachedChild
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureCachedChild002, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.clearStretch_ = true;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 4;
-    layout->currentItemColSpan_ = 2;
-    layout->currentItemColStart_ = 3;
-    layout->lastCross_ = 4;
-    LayoutConstraintF layoutConstraint;
-    auto result = layout->MeasureCachedChild(frameSize, 2, &layoutWrapper, childLayoutWrapper);
-    EXPECT_EQ(result, -1);
-}
-
-/**
- * @tc.name: MeasureCachedChild003
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureCachedChild
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureCachedChild003, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.clearStretch_ = true;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 4;
-    layout->currentItemColSpan_ = 2;
-    layout->currentItemColStart_ = 3;
-    layout->lastCross_ = 3;
-    LayoutConstraintF layoutConstraint;
-    auto result = layout->MeasureCachedChild(frameSize, 2, &layoutWrapper, childLayoutWrapper);
-    EXPECT_EQ(result, 1);
-}
-
-/**
- * @tc.name: MeasureCachedChild004
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureCachedChild
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureCachedChild004, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 2;
-    layout->currentItemColSpan_ = 2;
-    layout->currentItemColStart_ = 3;
-    layout->lastCross_ = 3;
-    LayoutConstraintF layoutConstraint;
-    auto result = layout->MeasureCachedChild(frameSize, 2, &layoutWrapper, childLayoutWrapper);
-    EXPECT_EQ(result, -1);
-}
-
-/**
- * @tc.name: MeasureCachedChild005
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureCachedChild
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureCachedChild005, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 5;
-    layout->currentItemColSpan_ = 2;
-    layout->currentItemColStart_ = 4;
-    layout->lastCross_ = 3;
-    LayoutConstraintF layoutConstraint;
-    auto result = layout->MeasureCachedChild(frameSize, 2, &layoutWrapper, childLayoutWrapper);
-    EXPECT_EQ(result, 1);
-}
-
-/**
- * @tc.name: MeasureCachedChild006
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureCachedChild
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureCachedChild006, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 5;
-    layout->currentItemColSpan_ = 2;
-    layout->currentItemColStart_ = 4;
-    layout->lastCross_ = 3;
-    LayoutConstraintF layoutConstraint;
-    auto result = layout->MeasureCachedChild(frameSize, 2, &layoutWrapper, childLayoutWrapper);
-    EXPECT_EQ(result, 1);
-}
-
-/**
- * @tc.name: MeasureCachedChild007
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureCachedChild
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureCachedChild007, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 3;
-    layout->currentItemColSpan_ = 2;
-    layout->currentItemColStart_ = 4;
-    layout->lastCross_ = 3;
-    layout->mainCount_ = 2;
-    layout->currentMainLineIndex_ = 3;
-    LayoutConstraintF layoutConstraint;
-    auto result = layout->MeasureCachedChild(frameSize, 2, &layoutWrapper, childLayoutWrapper);
-    EXPECT_EQ(result, -1);
-}
-
-/**
- * @tc.name: MeasureCachedChild008
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureCachedChild
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureCachedChild008, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 2;
-    layout->currentItemColSpan_ = 1;
-    layout->currentItemColStart_ = 3;
-    layout->lastCross_ = 3;
-    layout->mainCount_ = 5;
-    layout->currentMainLineIndex_ = 4;
-    LayoutConstraintF layoutConstraint;
-    auto result = layout->MeasureCachedChild(frameSize, 2, &layoutWrapper, childLayoutWrapper);
-    EXPECT_EQ(result, -1);
-}
-
-/**
- * @tc.name: MeasureCachedChild009
- * @tc.desc: Test GridScrollLayoutAlgorithm MeasureCachedChild
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, MeasureCachedChild009, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.lineHeightMap_[0] = 1.0f;
-    gridLayoutInfo.lineHeightMap_[1] = 2.0f;
-    RefPtr<GridScrollLayoutAlgorithm> layout = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    RefPtr<GridPattern> gridPattern = AceType::MakeRefPtr<GridPattern>();
-    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, gridPattern);
-    ASSERT_NE(frameNode, nullptr);
-    RefPtr<GridItemLayoutProperty> gridItemLayoutProperty = AceType::MakeRefPtr<GridItemLayoutProperty>();
-    gridItemLayoutProperty->needStretch_ = true;
-    frameNode->layoutProperty_ = gridItemLayoutProperty;
-    gridPattern->frameNode_ = frameNode;
-    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
-    EXPECT_NE(geometryNode, nullptr);
-    GeometryProperty geometryProperty;
-    geometryProperty.rect_ = RectF(20.0f, 20.0f, 100.0f, 100.0f);
-    geometryNode->frame_ = geometryProperty;
-    LayoutWrapperNode layoutWrapper(frameNode, geometryNode, gridItemLayoutProperty);
-    frameNode->geometryNode_ = geometryNode;
-    gridPattern->frameNode_ = frameNode;
-    gridPattern->info_ = gridLayoutInfo;
-    layout->moveToEndLineIndex_ = 4;
-    SizeF frameSize(100.0f, 100.0f);
-    RefPtr<LayoutWrapper> childLayoutWrapper =
-        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, gridItemLayoutProperty);
-    layout->crossCount_ = 2;
-    layout->currentItemColSpan_ = 2;
-    layout->currentItemColStart_ = 3;
-    layout->lastCross_ = 3;
-    layout->mainCount_ = 5;
-    layout->currentMainLineIndex_ = 4;
-    layout->currentItemRowSpan_ = 2;
-    LayoutConstraintF layoutConstraint;
-    auto result = layout->MeasureCachedChild(frameSize, 2, &layoutWrapper, childLayoutWrapper);
-    EXPECT_EQ(result, -1);
-}
-
-/**
- * @tc.name: CalculateStartCachedCount001
- * @tc.desc: Test GridScrollWithOptionsLayoutAlgorithm CalculateStartCachedCount
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CalculateStartCachedCount001, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.crossCount_ = 2;
-    gridLayoutInfo.startIndex_ = 1;
-    gridLayoutInfo.startMainLineIndex_ = 4;
-    RefPtr<GridScrollWithOptionsLayoutAlgorithm> layout =
-        AceType::MakeRefPtr<GridScrollWithOptionsLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    GridLayoutOptions options;
-    options.irregularIndexes.insert(3);
-    auto result = layout->CalculateStartCachedCount(options, 2);
-    EXPECT_EQ(result, 4);
-}
-
-/**
- * @tc.name: CalculateStartCachedCount002
- * @tc.desc: Test GridScrollWithOptionsLayoutAlgorithm CalculateStartCachedCount
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CalculateStartCachedCount002, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.crossCount_ = 2;
-    gridLayoutInfo.startIndex_ = 8;
-    gridLayoutInfo.startMainLineIndex_ = 4;
-    RefPtr<GridScrollWithOptionsLayoutAlgorithm> layout =
-        AceType::MakeRefPtr<GridScrollWithOptionsLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    GridLayoutOptions options;
-    options.irregularIndexes.insert(3);
-    options.getSizeByIndex = [](int32_t index) {
-        GridItemSize size;
-        return size;
-    };
-    auto result = layout->CalculateStartCachedCount(options, 2);
-    EXPECT_EQ(result, 4);
-}
-
-/**
- * @tc.name: CalculateStartCachedCount003
- * @tc.desc: Test GridScrollWithOptionsLayoutAlgorithm CalculateStartCachedCount
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CalculateStartCachedCount003, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.crossCount_ = 2;
-    gridLayoutInfo.startIndex_ = 8;
-    gridLayoutInfo.startMainLineIndex_ = 4;
-    RefPtr<GridScrollWithOptionsLayoutAlgorithm> layout =
-        AceType::MakeRefPtr<GridScrollWithOptionsLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    GridLayoutOptions options;
-    options.irregularIndexes = { 7, 8 };
-    auto result = layout->CalculateStartCachedCount(options, 2);
-    EXPECT_EQ(result, 0);
-}
-
-/**
- * @tc.name: CalculateStartCachedCount004
- * @tc.desc: Test GridScrollWithOptionsLayoutAlgorithm CalculateStartCachedCount
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CalculateStartCachedCount004, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.crossCount_ = 2;
-    gridLayoutInfo.startIndex_ = 8;
-    gridLayoutInfo.startMainLineIndex_ = 4;
-    RefPtr<GridScrollWithOptionsLayoutAlgorithm> layout =
-        AceType::MakeRefPtr<GridScrollWithOptionsLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    GridLayoutOptions options;
-    options.irregularIndexes = { 7, 9 };
-    auto result = layout->CalculateStartCachedCount(options, 2);
-    EXPECT_EQ(result, 0);
-}
-
-/**
- * @tc.name: CalculateStartCachedCount005
- * @tc.desc: Test GridScrollWithOptionsLayoutAlgorithm CalculateStartCachedCount
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CalculateStartCachedCount005, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.crossCount_ = 2;
-    gridLayoutInfo.startIndex_ = 8;
-    gridLayoutInfo.startMainLineIndex_ = 4;
-    RefPtr<GridScrollWithOptionsLayoutAlgorithm> layout =
-        AceType::MakeRefPtr<GridScrollWithOptionsLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    GridLayoutOptions options;
-    options.irregularIndexes = { 7, 9 };
-    auto result = layout->CalculateStartCachedCount(options, 2);
-    EXPECT_EQ(result, 0);
-}
-
-/**
- * @tc.name: CalculateStartCachedCount006
- * @tc.desc: Test GridScrollWithOptionsLayoutAlgorithm CalculateStartCachedCount
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CalculateStartCachedCount006, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.crossCount_ = 0;
-    gridLayoutInfo.startIndex_ = 8;
-    gridLayoutInfo.startMainLineIndex_ = 4;
-    RefPtr<GridScrollWithOptionsLayoutAlgorithm> layout =
-        AceType::MakeRefPtr<GridScrollWithOptionsLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    GridLayoutOptions options;
-    options.irregularIndexes = { 7, 9 };
-    auto result = layout->CalculateStartCachedCount(options, 2);
-    EXPECT_EQ(result, 0);
-}
-
-/**
- * @tc.name: CalculateStartCachedCount007
- * @tc.desc: Test GridScrollWithOptionsLayoutAlgorithm CalculateStartCachedCount
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CalculateStartCachedCount007, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.crossCount_ = 0;
-    gridLayoutInfo.startIndex_ = 8;
-    gridLayoutInfo.startMainLineIndex_ = 4;
-    RefPtr<GridScrollWithOptionsLayoutAlgorithm> layout =
-        AceType::MakeRefPtr<GridScrollWithOptionsLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    GridLayoutOptions options;
-    options.irregularIndexes = { 6, 7, 9 };
-    auto result = layout->CalculateStartCachedCount(options, 2);
-    EXPECT_EQ(result, 0);
-}
-
-/**
- * @tc.name: CalculateStartCachedCount008
- * @tc.desc: Test GridScrollWithOptionsLayoutAlgorithm CalculateStartCachedCount
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CalculateStartCachedCount008, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.crossCount_ = 2;
-    gridLayoutInfo.startIndex_ = 8;
-    gridLayoutInfo.startMainLineIndex_ = 4;
-    RefPtr<GridScrollWithOptionsLayoutAlgorithm> layout =
-        AceType::MakeRefPtr<GridScrollWithOptionsLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    GridLayoutOptions options;
-    options.irregularIndexes = { 7, 6 };
-    auto result = layout->CalculateStartCachedCount(options, 2);
-    EXPECT_EQ(result, 4);
-}
-
-/**
- * @tc.name: CalculateStartCachedCount009
- * @tc.desc: Test GridScrollWithOptionsLayoutAlgorithm CalculateStartCachedCount
- * @tc.type: FUNC
- */
-HWTEST_F(GridTestNg, CalculateStartCachedCount009, TestSize.Level1)
-{
-    GridLayoutInfo gridLayoutInfo;
-    gridLayoutInfo.crossCount_ = 2;
-    gridLayoutInfo.startIndex_ = 8;
-    gridLayoutInfo.startMainLineIndex_ = 4;
-    RefPtr<GridScrollWithOptionsLayoutAlgorithm> layout =
-        AceType::MakeRefPtr<GridScrollWithOptionsLayoutAlgorithm>(gridLayoutInfo, 0, 0);
-    ASSERT_NE(layout, nullptr);
-    GridLayoutOptions options;
-    options.irregularIndexes = { 1, 2, 3, 4, 5, 6, 7 };
-    auto result = layout->CalculateStartCachedCount(options, 2);
-    EXPECT_EQ(result, 4);
 }
 } // namespace OHOS::Ace::NG

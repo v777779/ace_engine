@@ -35,7 +35,7 @@ class AxisAnimator : public AceType {
     DECLARE_ACE_TYPE(AxisAnimator, AceType);
 
 public:
-    AxisAnimator() = default;
+    AxisAnimator();
     AxisAnimator(AxisAnimationCallback&& axisAnimationCallback, AxisAnimationStartCallback&& axisAnimationStartCallback,
         AxisAnimationFinishCallback&& axisAnimationFinishCallback)
         : axisAnimationCallback_(std::move(axisAnimationCallback)),
@@ -45,7 +45,7 @@ public:
         CreateAnimator();
     }
 
-    ~AxisAnimator() override = default;
+    ~AxisAnimator() override;
 
     void Initialize(const WeakPtr<PipelineBase>& context);
 
@@ -55,7 +55,7 @@ public:
 
     bool IsRunning();
 
-    RefPtr<AxisScrollMotion> GeAxisScrollMotion() const
+    RefPtr<AxisScrollMotion> GetAxisScrollMotion() const
     {
         return axisScrollMotion_;
     }

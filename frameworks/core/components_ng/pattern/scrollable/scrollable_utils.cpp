@@ -14,7 +14,11 @@
  */
 #include "core/components_ng/pattern/scrollable/scrollable_utils.h"
 
+#include "core/components_ng/syntax/if_else_node.h"
 #include "core/components_ng/syntax/lazy_for_each_node.h"
+#include "core/components_ng/syntax/repeat_virtual_scroll_2_node.h"
+#include "core/components_v2/inspector/inspector_constants.h"
+#include "core/pipeline_ng/pipeline_context.h"
 namespace OHOS::Ace::NG {
 namespace {
 Dimension FOCUS_SCROLL_MARGIN = 5.0_vp;
@@ -103,7 +107,24 @@ void RecycleItemsByIndex(
         node->RecycleItems(start, end);
     }
 }
+struct NodeRange {
+    RefPtr<UINode> node;
+    int32_t start = 0;
+};
 } // namespace
+
+void ScrollableUtils::DisableLazyForEachBuildCache(const RefPtr<UINode>& node)
+{
+    CHECK_NULL_VOID(node);
+    for (const auto& child : node->GetChildren()) {
+        auto lazyNode = AceType::DynamicCast<LazyForEachNode>(child);
+        if (lazyNode) {
+            lazyNode->EnablePreBuild(false);
+        } else if (AceType::InstanceOf<IfElseNode>(child)) {
+            DisableLazyForEachBuildCache(child);
+        }
+    }
+}
 
 float ScrollableUtils::CheckHeightExpansion(const RefPtr<LayoutProperty>& layoutProps, Axis axis)
 {
@@ -168,6 +189,13 @@ float ScrollableUtils::GetMoveOffset(
     auto curGeometry = curFrameNode->GetGeometryNode();
     CHECK_NULL_RETURN(curGeometry, notMove);
     auto curFrameSize = curGeometry->GetFrameSize();
+    TAG_LOGD(AceLogTag::ACE_FOCUS,
+        "Node: %{public}s/%{public}d - %{public}s-%{public}s on focus. Offset to target node: "
+        "%{public}s/%{public}d - %{public}s-%{public}s is (%{public}f,%{public}f).",
+        curFrameNode->GetTag().c_str(), curFrameNode->GetId(), curFrameOffsetToWindow.ToString().c_str(),
+        curFrameSize.ToString().c_str(), parentFrameNode->GetTag().c_str(), parentFrameNode->GetId(),
+        parentFrameOffsetToWindow.ToString().c_str(), parentFrameSize.ToString().c_str(), offsetToTarFrame.GetX(),
+        offsetToTarFrame.GetY());
 
     float diffToTarFrame = param.isVertical ? offsetToTarFrame.GetY() : offsetToTarFrame.GetX();
     if (NearZero(diffToTarFrame)) {
@@ -189,5 +217,48 @@ float ScrollableUtils::GetMoveOffset(
         return (totallyShow ^ start2End) ? endAlignOffset : startAlignOffset;
     }
     return notMove;
+}
+
+bool ScrollableUtils::IsMainThreadBusy(const RefPtr<FrameNode>& frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, false);
+    auto pipelineContext = frameNode->GetContext();
+    CHECK_NULL_RETURN(pipelineContext, false);
+    return pipelineContext->GetIsRequestFrame();
+}
+
+bool ScrollableUtils::IsChildLazy(const RefPtr<FrameNode>& frameNode, int32_t index)
+{
+    CHECK_NULL_RETURN(frameNode, false);
+    std::stack<NodeRange> nodesStack;
+    nodesStack.push({frameNode, 0});
+
+    auto isChildLazyOrRepeat = [](const RefPtr<UINode>& child) -> bool {
+        return AceType::InstanceOf<LazyForEachNode>(child) || AceType::InstanceOf<RepeatVirtualScroll2Node>(child);
+    };
+    auto inRange = [](int32_t start, int32_t end, int32_t val) -> bool { return val >= start && val < end; };
+    while (!nodesStack.empty()) {
+        auto node = nodesStack.top();
+        nodesStack.pop();
+        int32_t start = node.start;
+        int32_t end = start;
+        for (const auto& child : node.node->GetChildren()) {
+            start = end;
+            end = start + child->FrameCount();
+            if (start > index) {
+                break;
+            }
+            if (AceType::InstanceOf<FrameNode>(child)) {
+                continue;
+            }
+            if (inRange(start, end, index)) {
+                if (isChildLazyOrRepeat(child)) {
+                    return true;
+                }
+                nodesStack.push({child, start});
+            }
+        }
+    }
+    return false;
 }
 } // namespace OHOS::Ace::NG

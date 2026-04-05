@@ -26,7 +26,7 @@
 namespace OHOS::Ace::NG {
 // PaintProperty are used to set render properties.
 class DividerRenderProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(DividerRenderProperty, PaintProperty)
+    DECLARE_ACE_TYPE(DividerRenderProperty, PaintProperty);
 public:
     DividerRenderProperty() = default;
     ~DividerRenderProperty() override = default;
@@ -60,9 +60,11 @@ public:
         auto theme = pipelineContext->GetTheme<DividerTheme>(host->GetThemeScopeId());
         CHECK_NULL_VOID(theme);
         json->PutExtAttr("color", propDividerColor_.value_or(theme->GetColor()).ColorToString().c_str(), filter);
-        auto lineCap = propLineCap_.value_or(LineCap::BUTT);
         json->PutExtAttr("lineCap",
-            lineCap == LineCap::BUTT ? "BUTT" : (lineCap == LineCap::ROUND ? "ROUND" : "SQUARE"), filter);
+            propLineCap_.value_or(LineCap::BUTT) == LineCap::BUTT
+                ? "BUTT"
+                : (propLineCap_.value_or(LineCap::BUTT) == LineCap::ROUND ? "ROUND" : "SQUARE"),
+            filter);
     }
 
     void FromJson(const std::unique_ptr<JsonValue>& json) override
@@ -125,7 +127,9 @@ public:
                 return;
             }
         }
-        propDividerColor_ = value;
+        if (!SystemProperties::ConfigChangePerform()) {
+            propDividerColor_ = value;
+        }
         UpdatePropertyChangeFlag(PROPERTY_UPDATE_RENDER);
     }
 

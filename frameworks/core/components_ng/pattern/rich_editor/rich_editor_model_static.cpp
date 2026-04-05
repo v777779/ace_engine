@@ -16,6 +16,7 @@
 #include "core/components_ng/pattern/rich_editor/rich_editor_model_static.h"
 
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/pattern/rich_editor/rich_editor_model_ng.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_pattern.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_theme.h"
 
@@ -118,6 +119,14 @@ void RichEditorModelStatic::SetOnPaste(FrameNode* frameNode, std::function<void(
     eventHub->SetOnPaste(std::move(func));
 }
 
+void RichEditorModelStatic::SetOnWillAttachIME(FrameNode* frameNode, IMEAttachCallback&& func)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<RichEditorEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnWillAttachIME(std::move(func));
+}
+
 void RichEditorModelStatic::SetEnterKeyType(FrameNode* frameNode, const std::optional<TextInputAction>& action)
 {
     if (action) {
@@ -137,14 +146,14 @@ void RichEditorModelStatic::SetSelectedBackgroundColor(FrameNode* frameNode, con
 {
     auto pattern = frameNode->GetPattern<RichEditorPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->SetSelectedBackgroundColor(selectedColor);
+    // pattern->SetSelectedBackgroundColor(selectedColor);
 }
 
 void RichEditorModelStatic::SetCaretColor(FrameNode* frameNode, const std::optional<Color>& color)
 {
     auto pattern = frameNode->GetPattern<RichEditorPattern>();
     CHECK_NULL_VOID(pattern);
-    pattern->SetCaretColor(color);
+    // pattern->SetCaretColor(color);
 }
 
 void RichEditorModelStatic::SetAboutToDelete(
@@ -164,6 +173,25 @@ void RichEditorModelStatic::SetEnableHapticFeedback(FrameNode* frameNode, bool i
     pattern->SetEnableHapticFeedback(isEnabled);
 }
 
+void RichEditorModelStatic::SetCompressLeadingPunctuation(FrameNode* frameNode, const std::optional<bool>& enabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(RichEditorLayoutProperty,
+        CompressLeadingPunctuation, enabled.value_or(false), frameNode);
+    auto pattern = frameNode->GetPattern<RichEditorPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetCompressLeadingPunctuation(enabled.value_or(false));
+}
+
+void RichEditorModelStatic::SetSelectedDragPreviewStyle(FrameNode* frameNode, const std::optional<Color>& color)
+{
+    if (color.has_value()) {
+        RichEditorModelNG::SetSelectedDragPreviewStyle(frameNode, color.value());
+        return;
+    }
+    RichEditorModelNG::ResetSelectedDragPreviewStyle(frameNode);
+}
+
 void RichEditorModelStatic::SetCustomKeyboard(FrameNode* frameNode, std::function<void()>&& func,
     const std::optional<bool>& supportAvoidance)
 {
@@ -173,6 +201,15 @@ void RichEditorModelStatic::SetCustomKeyboard(FrameNode* frameNode, std::functio
         pattern->SetCustomKeyboard(std::move(func));
         pattern->SetCustomKeyboardOption(supportAvoidance.value_or(false));
     }
+}
+void RichEditorModelStatic::SetCustomKeyboardWithNode(
+    FrameNode* frameNode, FrameNode* customKeyboard, const std::optional<bool>& supportAvoidance)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<RichEditorPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetCustomKeyboardWithNode(AceType::Claim<UINode>(customKeyboard));
+    pattern->SetCustomKeyboardOption(supportAvoidance.value_or(false));
 }
 
 void RichEditorModelStatic::BindSelectionMenu(FrameNode* frameNode, TextSpanType& editorType, TextResponseType& type,
@@ -211,5 +248,23 @@ void RichEditorModelStatic::SetMaxLines(FrameNode* frameNode, uint32_t value)
     pattern->SetMaxLinesHeight(FLT_MAX);
     pattern->SetMaxLines(value);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(RichEditorLayoutProperty, MaxLines, value, frameNode);
+}
+
+void RichEditorModelStatic::SetIncludeFontPadding(FrameNode* frameNode, const std::optional<bool>& optValue)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(RichEditorLayoutProperty, IncludeFontPadding, optValue.value_or(false), frameNode);
+    auto pattern = frameNode->GetPattern<RichEditorPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetIncludeFontPadding(optValue.value_or(false));
+}
+
+void RichEditorModelStatic::SetFallbackLineSpacing(FrameNode* frameNode, const std::optional<bool>& optValue)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(RichEditorLayoutProperty, FallbackLineSpacing, optValue.value_or(false), frameNode);
+    auto pattern = frameNode->GetPattern<RichEditorPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetFallbackLineSpacing(optValue.value_or(false));
 }
 } // namespace OHOS::Ace::NG

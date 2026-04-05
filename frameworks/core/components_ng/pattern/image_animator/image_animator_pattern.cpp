@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,10 +15,10 @@
 
 #include "core/components_ng/pattern/image_animator/image_animator_pattern.h"
 
+#include "base/image/controlled_animator.h"
 #include "base/utils/multi_thread.h"
-#include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/components/image/image_theme.h"
-#include "core/components_ng/pattern/image_animator/controlled_animator.h"
+#include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
@@ -42,6 +42,8 @@ ImageAnimatorPattern::ImageAnimatorPattern()
 
 std::vector<PictureInfo> ImageAnimatorPattern::CreatePictureAnimation(int32_t size)
 {
+    auto host = GetHost();
+    ACE_UINODE_TRACE(host);
     auto pictureAnimation = std::vector<PictureInfo>();
 
     if (durationTotal_ > 0) {
@@ -69,6 +71,7 @@ void ImageAnimatorPattern::SetShowingIndex(int32_t index)
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     auto imageFrameNode = AceType::DynamicCast<FrameNode>(host->GetChildren().front());
     CHECK_NULL_VOID(imageFrameNode);
     auto imageLayoutProperty = imageFrameNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -278,18 +281,31 @@ void ImageAnimatorPattern::RunAnimatorByStatus(int32_t index)
         case ControlledAnimator::ControlStatus::PAUSED:
             controlledAnimator_->Pause();
             ResetFormAnimationFlag();
+            ShowIndex(index);
             break;
         case ControlledAnimator::ControlStatus::STOPPED:
             controlledAnimator_->Finish();
             ResetFormAnimationFlag();
+            ShowIndex(index);
             break;
         default:
+            if (isAutoMonitorInvisibleArea_ && !visible_) {
+                return;
+            }
             ResetFormAnimationStartTime();
             if (isFormAnimationEnd_) {
                 ResetFormAnimationFlag();
                 return;
             }
             isReverse_ ? controlledAnimator_->Backward() : controlledAnimator_->Forward();
+    }
+}
+
+void ImageAnimatorPattern::ShowIndex(int32_t index)
+{
+    if (showingIndexByStoppedOrPaused_) {
+        SetShowingIndex(index);
+        showingIndexByStoppedOrPaused_ = false;
     }
 }
 
@@ -321,7 +337,9 @@ void ImageAnimatorPattern::OnModifyDone()
         LOGE("image size is less than 0.");
         return;
     }
-    GenerateCachedImages();
+    if (size > 0) {
+        GenerateCachedImages();
+    }
     auto index = nowImageIndex_;
     if ((status_ == ControlledAnimator::ControlStatus::IDLE || status_ == ControlledAnimator::ControlStatus::STOPPED) &&
         !firstUpdateEvent_) {
@@ -341,6 +359,8 @@ void ImageAnimatorPattern::OnModifyDone()
     if (firstUpdateEvent_) {
         UpdateEventCallback();
         firstUpdateEvent_ = false;
+        showingIndexByStoppedOrPaused_ = status_ == ControlledAnimator::ControlStatus::PAUSED ||
+                                         status_ == ControlledAnimator::ControlStatus::STOPPED;
         auto imageFrameNode = AceType::DynamicCast<FrameNode>(host->GetChildren().front());
         AddImageLoadSuccessEvent(imageFrameNode);
     } else if (isStatic_) {
@@ -375,6 +395,7 @@ void ImageAnimatorPattern::RegisterVisibleAreaChange()
     auto callback = [weak = WeakClaim(this)](bool visible, double ratio) {
         auto self = weak.Upgrade();
         CHECK_NULL_VOID(self);
+        self->SetVisible(visible);
         if (self->CheckIfNeedVisibleAreaChange()) {
             self->OnVisibleAreaChange(visible, ratio);
         }
@@ -393,9 +414,9 @@ void ImageAnimatorPattern::OnVisibleAreaChange(bool visible, double ratio)
         TAG_LOGI(AceLogTag::ACE_IMAGE, "ImageAnimator OnVisibleAreaChange visible:%{public}d", visible);
     }
     if (!visible) {
-        OnInActive();
+        OnInActiveImageAnimator();
     } else {
-        OnActive();
+        OnActiveImageAnimator();
     }
 }
 
@@ -487,6 +508,18 @@ std::string ImageAnimatorPattern::ImagesToString() const
     return imageArray->ToString();
 }
 
+void ImageAnimatorPattern::CheckClearUserDefinedSize(const RefPtr<LayoutProperty>& layoutProperty)
+{
+    auto layoutPolicy = layoutProperty->GetLayoutPolicyProperty();
+    auto isPolicy = layoutPolicy.has_value();
+    if (isPolicy && !layoutPolicy->IsAllNoMatch()) {
+        bool widthPolicy = layoutPolicy->IsWidthMatch() || layoutPolicy->IsWidthFix() || layoutPolicy->IsWidthWrap();
+        bool heightPolicy =
+            layoutPolicy->IsHeightMatch() || layoutPolicy->IsHeightFix() || layoutPolicy->IsHeightWrap();
+        layoutProperty->ClearUserDefinedIdealSize(widthPolicy, heightPolicy);
+    }
+}
+
 void ImageAnimatorPattern::AdaptSelfSize()
 {
     auto host = GetHost();
@@ -523,13 +556,16 @@ void ImageAnimatorPattern::AdaptSelfSize()
     const auto& layoutConstraint = layoutProperty->GetCalcLayoutConstraint();
     if (!layoutConstraint || !layoutConstraint->selfIdealSize) {
         layoutProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(maxWidth), CalcLength(maxHeight)));
+        CheckClearUserDefinedSize(layoutProperty);
         return;
     }
     if (!layoutConstraint->selfIdealSize->Width()) {
         layoutProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(maxWidth), std::nullopt));
+        CheckClearUserDefinedSize(layoutProperty);
         return;
     }
     layoutProperty->UpdateUserDefinedIdealSize(CalcSize(std::nullopt, CalcLength(maxHeight)));
+    CheckClearUserDefinedSize(layoutProperty);
 }
 
 int32_t ImageAnimatorPattern::GetNextIndex(int32_t preIndex)

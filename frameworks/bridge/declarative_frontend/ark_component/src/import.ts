@@ -129,6 +129,7 @@
 /// <reference path="../../../../../../../../out/sdk/ohos-sdk/windows/ets/component/time_picker.d.ts" />
 /// <reference path="../../../../../../../../out/sdk/ohos-sdk/windows/ets/component/toggle.d.ts" />
 /// <reference path="../../../../../../../../out/sdk/ohos-sdk/windows/ets/component/ui_extension_component.d.ts" />
+/// <reference path="../../../../../../../../out/sdk/ohos-sdk/windows/ets/component/ui_picker_component.d.ts" />
 /// <reference path="../../../../../../../../out/sdk/ohos-sdk/windows/ets/component/units.d.ts" />
 /// <reference path="../../../../../../../../out/sdk/ohos-sdk/windows/ets/component/video.d.ts" />
 /// <reference path="../../../../../../../../out/sdk/ohos-sdk/windows/ets/component/water_flow.d.ts" />

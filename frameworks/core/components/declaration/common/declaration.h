@@ -39,7 +39,13 @@ using OnSetAttributeFunc = std::function<void()>;
 using OnSetStyleFinishedFunc = std::function<void()>;
 using CachePseudoClassStyleFunc = std::function<void(std::pair<std::string, std::string>)>;
 
-class ACE_EXPORT Declaration : public virtual AceType {
+#ifdef NG_BUILD
+#define DECLARATION_EXPORT
+#else
+#define DECLARATION_EXPORT ACE_FORCE_EXPORT
+#endif
+
+class DECLARATION_EXPORT Declaration : public virtual AceType {
     DECLARE_ACE_TYPE(Declaration, AceType);
 
 public:
@@ -57,7 +63,7 @@ public:
     virtual void InitializeStyle() {}
     virtual void Clear() {}
 
-    Attribute& GetAttribute(AttributeTag tag) const;
+    ACE_FORCE_EXPORT Attribute& GetAttribute(AttributeTag tag) const;
     Style& GetStyle(StyleTag tag) const;
     Event& GetEvent(EventTag tag) const;
     Method& GetMethod(MethodTag tag) const;

@@ -25,6 +25,8 @@
 #include "core/components/common/layout/constants.h"
 #include "core/components/theme/icon_theme.h"
 #include "core/components_ng/pattern/stack/stack_pattern.h"
+#include "core/components_ng/pattern/text/span/span_string.h"
+#include "core/components_ng/pattern/text/text_layout_property.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/text_field/text_field_pattern.h"
 
@@ -71,7 +73,9 @@ OffsetF TextInputResponseArea::GetChildOffset(SizeF parentSize, RectF contentRec
 {
     auto offset = Alignment::GetAlignPosition(parentSize, childSize, Alignment::CENTER);
     auto textFieldPattern = hostPattern_.Upgrade();
+    CHECK_NULL_RETURN(textFieldPattern, offset);
     auto layoutProperty = textFieldPattern->GetLayoutProperty<TextFieldLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, offset);
     auto isRTL = layoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
     if (isRTL) {
         return OffsetF(nodeWidth, offset.GetY());
@@ -133,8 +137,12 @@ RefPtr<FrameNode> TextInputResponseArea::CreateResponseAreaImageNode(const Image
 void TextInputResponseArea::SetHoverRect(RefPtr<FrameNode>& stackNode, RectF& rect, float iconSize,
     float hoverRectHeight, bool isFocus)
 {
-    auto textFieldPattern = hostPattern_.Upgrade();
+    auto textFieldPattern = DynamicCast<TextFieldPattern>(hostPattern_.Upgrade());
     CHECK_NULL_VOID(textFieldPattern);
+    if (textFieldPattern->IsTV()) {
+        SetHoverRectForTV(stackNode, rect, iconSize, hoverRectHeight, isFocus);
+        return;
+    }
     auto layoutProperty = textFieldPattern->GetLayoutProperty<TextFieldLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
     CHECK_NULL_VOID(stackNode);
@@ -162,6 +170,52 @@ void TextInputResponseArea::SetHoverRect(RefPtr<FrameNode>& stackNode, RectF& re
     }
 }
 
+void TextInputResponseArea::SetHoverRectForTV(RefPtr<FrameNode>& stackNode, RectF& rect, float iconSize,
+    float hoverRectHeight, bool isFocus)
+{
+    auto textFieldPattern = hostPattern_.Upgrade();
+    CHECK_NULL_VOID(textFieldPattern);
+    auto layoutProperty = textFieldPattern->GetLayoutProperty<TextFieldLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    CHECK_NULL_VOID(stackNode);
+    auto stackGeometryNode = stackNode->GetGeometryNode();
+    CHECK_NULL_VOID(stackGeometryNode);
+    auto stackRect = stackGeometryNode->GetFrameRect();
+    auto imageFrameNode = AceType::DynamicCast<FrameNode>(stackNode->GetFirstChild());
+    CHECK_NULL_VOID(imageFrameNode);
+    auto imageGeometryNode = imageFrameNode->GetGeometryNode();
+    CHECK_NULL_VOID(imageGeometryNode);
+    auto imageRect = imageGeometryNode->GetFrameRect();
+    auto host = textFieldPattern->GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    auto themeManager = pipeline->GetThemeManager();
+    CHECK_NULL_VOID(themeManager);
+    auto textFieldTheme = themeManager->GetTheme<TextFieldTheme>();
+    CHECK_NULL_VOID(textFieldTheme);
+    auto iconOffsetPadding = textFieldTheme->GetIconOffsetPadding().Value();
+
+    if (isFocus) {
+        hoverRectHeight = hoverRectHeight - ICON_FOCUS_PADDING.ConvertToPx();
+    }
+
+    auto iconHoverPadding = (hoverRectHeight - iconSize) / HALF_SPACE;
+    auto stackHoverPadding = (hoverRectHeight - stackRect.Height()) / HALF_SPACE;
+    auto isRTL = layoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
+    if (isRTL) {
+        rect = RectF(stackRect.GetX() + stackRect.Width() - imageRect.Width() - iconHoverPadding - iconOffsetPadding,
+            stackRect.GetY() - stackHoverPadding - iconOffsetPadding,
+            hoverRectHeight + DOUBLE_PADDING * iconOffsetPadding,
+            hoverRectHeight + DOUBLE_PADDING * iconOffsetPadding);
+    } else {
+        rect = RectF(stackRect.GetX() - iconHoverPadding - iconOffsetPadding,
+            stackRect.GetY() - stackHoverPadding - iconOffsetPadding,
+            hoverRectHeight + DOUBLE_PADDING * iconOffsetPadding,
+            hoverRectHeight + DOUBLE_PADDING * iconOffsetPadding);
+    }
+}
+
 void TextInputResponseArea::SetHotZoneRect(DimensionRect& hotZoneRegion, float iconSize, float hotZoneHeight)
 {
     auto hotZoneX = - (hotZoneHeight - iconSize) / HALF_SPACE;
@@ -186,6 +240,7 @@ void PasswordResponseArea::InitResponseArea()
     CHECK_NULL_VOID(pattern);
     auto host = pattern->GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     if (!IsShowPasswordIcon()) {
         return;
     }
@@ -215,6 +270,7 @@ RefPtr<FrameNode> PasswordResponseArea::CreateNode()
 
     auto stackNode = FrameNode::CreateFrameNode(
         V2::STACK_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StackPattern>());
+    ACE_UINODE_TRACE(stackNode);
     auto stackLayoutProperty = stackNode->GetLayoutProperty<LayoutProperty>();
     CHECK_NULL_RETURN(stackLayoutProperty, nullptr);
     stackLayoutProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(hotZoneSize), std::nullopt));
@@ -366,6 +422,12 @@ void PasswordResponseArea::Refresh()
         if (stackLayoutProperty && layoutProperty) {
             stackLayoutProperty->UpdateAlignment(GetStackAlignment(layoutProperty->GetLayoutDirection()));
         }
+        if (stackLayoutProperty) {
+            auto iconSize = GetIconSize();
+            auto rightOffset = GetIconRightOffset();
+            auto hotZoneSize = iconSize + rightOffset;
+            stackLayoutProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(hotZoneSize), std::nullopt));
+        }
     }
 
     // update node symbol
@@ -378,6 +440,7 @@ void PasswordResponseArea::Refresh()
     if (!IsShowSymbol() && !IsSymbolIcon()) {
         auto imageLayoutProperty = iconNode->GetLayoutProperty<ImageLayoutProperty>();
         CHECK_NULL_VOID(imageLayoutProperty);
+        CHECK_NULL_VOID(imageLayoutProperty->HasImageSourceInfo());
         auto currentSrc = imageLayoutProperty->GetImageSourceInfoValue().GetSrc();
         LoadImageSourceInfo();
         auto src = isObscured_ ? hideIcon_->GetSrc() : showIcon_->GetSrc();
@@ -406,6 +469,7 @@ void PasswordResponseArea::ReplaceNode()
 {
     auto oldFrameNode = passwordNode_.Upgrade();
     CHECK_NULL_VOID(oldFrameNode);
+    ACE_UINODE_TRACE(oldFrameNode);
 
     if (IsShowSymbol() && SystemProperties::IsNeedSymbol()) {
         auto symbolNode = FrameNode::GetOrCreateFrameNode(V2::SYMBOL_ETS_TAG,
@@ -545,10 +609,8 @@ void PasswordResponseArea::LoadImageSourceInfo()
         auto iconTheme = pipeline->GetTheme<IconTheme>();
         CHECK_NULL_VOID(iconTheme);
         auto textDisableColor = textFieldTheme->GetTextColorDisable();
-        auto hideIconPath = iconTheme->GetIconPath(hideIcon_->GetResourceId());
-        hideIcon_->SetSrc(hideIconPath, textDisableColor);
-        auto showIconPath = iconTheme->GetIconPath(showIcon_->GetResourceId());
-        showIcon_->SetSrc(showIconPath, textDisableColor);
+        hideIcon_->SetFillColor(textDisableColor);
+        showIcon_->SetFillColor(textDisableColor);
         UpdateImageSource();
     }
 }
@@ -556,6 +618,7 @@ void PasswordResponseArea::LoadImageSourceInfo()
 void PasswordResponseArea::AddImageEventOnError()
 {
     auto imageNode = passwordNode_.Upgrade();
+    CHECK_NULL_VOID(imageNode);
     auto eventHub = imageNode->GetEventHub<ImageEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetOnError([ weakNode = WeakClaim(AceType::RawPtr(imageNode)), weakArea = WeakClaim(this) ]
@@ -711,6 +774,7 @@ void UnitResponseArea::InitResponseArea()
     CHECK_NULL_VOID(pattern);
     auto host = pattern->GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     if (!IsShowUnit()) {
         return;
     }
@@ -767,6 +831,7 @@ void CleanNodeResponseArea::InitResponseArea()
     CHECK_NULL_VOID(pattern);
     auto host = pattern->GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     LoadingImageProperty();
     auto cleanNode = CreateNode();
     CHECK_NULL_VOID(cleanNode);
@@ -905,6 +970,7 @@ RefPtr<FrameNode> CleanNodeResponseArea::CreateNode()
 {
     auto stackNode = FrameNode::CreateFrameNode(
         V2::STACK_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<StackPattern>());
+    ACE_UINODE_TRACE(stackNode);
     auto stackLayoutProperty = stackNode->GetLayoutProperty<LayoutProperty>();
     CHECK_NULL_RETURN(stackLayoutProperty, nullptr);
     stackLayoutProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(0.0f), std::nullopt));
@@ -921,6 +987,7 @@ RefPtr<FrameNode> CleanNodeResponseArea::CreateNode()
             ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextPattern>(); });
         CHECK_NULL_RETURN(symbolNode, nullptr);
         cleanNode_ = stackNode;
+        symbolNode_ = symbolNode;
         symbolNode->MountToParent(stackNode);
         InitClickEvent(stackNode);
         SetCancelSymbolIconSize();
@@ -987,11 +1054,7 @@ void CleanNodeResponseArea::UpdateSymbolSource()
     CHECK_NULL_VOID(textFieldPattern);
     auto host = textFieldPattern->GetHost();
     CHECK_NULL_VOID(host);
-    auto pipeline = host->GetContextRefPtr();
-    CHECK_NULL_VOID(pipeline);
-    auto themeManager = pipeline->GetThemeManager();
-    CHECK_NULL_VOID(themeManager);
-    auto textFieldTheme = themeManager->GetTheme<TextFieldTheme>(host->GetThemeScopeId());
+    auto textFieldTheme = textFieldPattern->GetTheme();
     CHECK_NULL_VOID(textFieldTheme);
     auto symbolNode = cleanNode_->GetFirstChild();
     CHECK_NULL_VOID(symbolNode);
@@ -1009,7 +1072,7 @@ void CleanNodeResponseArea::UpdateSymbolSource()
     symbolProperty->UpdateMinFontScale(layoutProperty->GetMinFontScale().value_or(0.0f));
 
     auto iconSymbol = layoutProperty->GetCancelIconSymbol();
-    if (iconSymbol && host->GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_EIGHTEEN)) {
+    if (IsEnableUserSymbol() && iconSymbol && host->GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_EIGHTEEN)) {
         iconSymbol(AccessibilityManager::WeakClaim(AccessibilityManager::RawPtr(symbolFrameNode)));
         // reset symbol effect
         auto symbolEffectOptions = symbolProperty->GetSymbolEffectOptionsValue(SymbolEffectOptions());
@@ -1054,7 +1117,20 @@ void CleanNodeResponseArea::OnCleanNodeClicked()
     textFieldPattern->CleanNodeResponseKeyEvent();
     auto host = textFieldPattern->GetHost();
     CHECK_NULL_VOID(host);
-    host->OnAccessibilityEvent(AccessibilityEventType::REQUEST_FOCUS);
+    auto context = host->GetContext();
+    if (context) {
+        context->AddAfterRenderTask(
+            [weakHost = WeakPtr<FrameNode>(host), weakPattern = WeakPtr<TextFieldPattern>(textFieldPattern)] {
+                auto textFieldPattern = weakPattern.Upgrade();
+                CHECK_NULL_VOID(textFieldPattern);
+                if (textFieldPattern->HasUserAccessibilityText()) {
+                    return;
+                }
+                auto host = weakHost.Upgrade();
+                CHECK_NULL_VOID(host);
+                host->OnAccessibilityEvent(AccessibilityEventType::REQUEST_FOCUS_FOR_ACCESSIBILITY_NOT_INTERRUPT);
+            });
+    }
 }
 
 void CleanNodeResponseArea::UpdateCleanNode(bool isShow)
@@ -1074,7 +1150,7 @@ void CleanNodeResponseArea::UpdateCleanNode(bool isShow)
     if (isShow) {
         auto host = textFieldPattern->GetHost();
         CHECK_NULL_VOID(host);
-        auto pipeline = host->GetContextRefPtr();
+        auto pipeline = host->GetContext();
         CHECK_NULL_VOID(pipeline);
         auto themeManager = pipeline->GetThemeManager();
         CHECK_NULL_VOID(themeManager);
@@ -1095,6 +1171,7 @@ void CleanNodeResponseArea::UpdateCleanNode(bool isShow)
             auto symbolProperty = iconFrameNode->GetLayoutProperty<TextLayoutProperty>();
             CHECK_NULL_VOID(symbolProperty);
             symbolProperty->UpdateFontSize(CalcDimension(iconSize));
+            UpdateNodeProperty(stackLayoutProperty, symbolProperty, textFieldTheme);
         }
         stackLayoutProperty->UpdateVisibility(VisibleType::VISIBLE);
         iconLayoutProperty->UpdateVisibility(VisibleType::VISIBLE);
@@ -1179,6 +1256,7 @@ void CleanNodeResponseArea::ReplaceNode()
     CHECK_NULL_VOID(cleanNode_->GetFirstChild());
     auto oldFrameNode = AceType::DynamicCast<FrameNode>(cleanNode_->GetFirstChild());
     CHECK_NULL_VOID(oldFrameNode);
+    ACE_UINODE_TRACE(oldFrameNode);
 
     if (IsShowSymbol() && SystemProperties::IsNeedSymbol()) {
         auto symbolNode = FrameNode::GetOrCreateFrameNode(V2::SYMBOL_ETS_TAG,
@@ -1290,4 +1368,364 @@ void CleanNodeResponseArea::OnThemeScopeUpdate(const RefPtr<TextFieldTheme>& the
         UpdateSymbolSource();
     }
 }
+
+void PlaceholderResponseArea::InitResponseArea()
+{
+    auto textNode = FrameNode::GetOrCreateFrameNode(V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<TextPattern>(); });
+    CHECK_NULL_VOID(textNode);
+    ACE_UINODE_TRACE(textNode);
+    auto gesture = textNode->GetOrCreateGestureEventHub();
+    CHECK_NULL_VOID(gesture);
+    // 屏蔽子节点所有事件
+    gesture->SetHitTestMode(HitTestMode::HTMNONE);
+    auto renderContext = textNode->GetRenderContext();
+    CHECK_NULL_VOID(renderContext);
+    renderContext->SetClipToFrame(true);
+    placeholderNode_ = textNode;
+}
+
+void PlaceholderResponseArea::PlaceholderMountToParent()
+{
+    CHECK_NULL_VOID(placeholderNode_);
+    auto pattern = hostPattern_.Upgrade();
+    CHECK_NULL_VOID(pattern);
+    auto host = pattern->GetHost();
+    CHECK_NULL_VOID(host);
+    CHECK_NULL_VOID(!placeholderNode_->GetParent());
+    placeholderNode_->MarkModifyDone();
+    placeholderNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+    placeholderNode_->MountToParent(host);
+}
+
+void PlaceholderResponseArea::PlaceholderRemoveFromParent()
+{
+    CHECK_NULL_VOID(placeholderNode_);
+    auto pattern = hostPattern_.Upgrade();
+    CHECK_NULL_VOID(pattern);
+    auto host = pattern->GetHost();
+    CHECK_NULL_VOID(host);
+    host->RemoveChild(placeholderNode_);
+}
+
+void PlaceholderResponseArea::SetStyleString(const RefPtr<SpanString>& value)
+{
+    CHECK_NULL_VOID(placeholderNode_);
+    auto textPattern = placeholderNode_->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(textPattern);
+    textPattern->SetStyledString(value);
+
+    auto textFieldPattern = DynamicCast<TextFieldPattern>(hostPattern_.Upgrade());
+    CHECK_NULL_VOID(textFieldPattern);
+    if (!textFieldPattern->IsTextArea()) {
+        auto textLayoutProperty = textPattern->GetLayoutProperty<TextLayoutProperty>();
+        CHECK_NULL_VOID(textLayoutProperty);
+        textLayoutProperty->UpdateIsTextMaxlinesFirst(true);
+    }
+}
+
+const RefPtr<FrameNode> PlaceholderResponseArea::GetFrameNode()
+{
+    return placeholderNode_;
+}
+
+SizeF PlaceholderResponseArea::MeasurePlaceholder(
+    LayoutWrapper* layoutWrapper, int32_t index, const LayoutConstraintF& contentConstraint)
+{
+    CHECK_NULL_RETURN(layoutWrapper, SizeF());
+    auto childWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
+    CHECK_NULL_RETURN(childWrapper, SizeF());
+    childWrapper->Measure(contentConstraint);
+    auto geometryNode = childWrapper->GetGeometryNode();
+    CHECK_NULL_RETURN(geometryNode, SizeF());
+    return geometryNode->GetFrameSize();
+}
+
+void PlaceholderResponseArea::Layout(LayoutWrapper* layoutWrapper, int32_t index, float& nodeWidth) {}
+
+void PlaceholderResponseArea::Layout(LayoutWrapper* layoutWrapper, int32_t index, OffsetF textRectOffset)
+{
+    CHECK_NULL_VOID(layoutWrapper);
+    auto childWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
+    CHECK_NULL_VOID(childWrapper);
+    auto geometryNode = childWrapper->GetGeometryNode();
+    geometryNode->SetFrameOffset(textRectOffset);
+    childWrapper->Layout();
+}
+
+// VoiceNodeButton begin
+void VoiceNodeResponseArea::InitResponseArea()
+{
+    CleanNodeResponseArea::InitResponseArea();
+    UpdateCleanNode(true);
+    SetAccessibilityAction();
+    InitButtonMouseEvent();
+}
+
+void VoiceNodeResponseArea::Refresh()
+{
+    UpdateCleanNode(true);
+}
+
+void VoiceNodeResponseArea::OnCleanNodeClicked()
+{
+    auto textFieldPattern = DynamicCast<TextFieldPattern>(hostPattern_.Upgrade());
+    CHECK_NULL_VOID(textFieldPattern);
+    textFieldPattern->HandleOnVoiceInput();
+}
+
+void VoiceNodeResponseArea::ParseTheme(
+    const RefPtr<TextLayoutProperty>& symbolProperty, const RefPtr<TextFieldTheme>& theme)
+{
+    micIconColor_ = theme->GetMicIconColor();
+    micIconActiveBgColor_ = theme->GetMicIconActiveBgColor();
+    micIconSize_ = theme->GetMicIconSize().ConvertToPxDistribute(
+        symbolProperty->GetMinFontScale().value_or(0.0f), MAX_FONT_SCALE, true);
+    micPadding_ = theme->GetMicPadding().ConvertToPx();
+    micBgOffsetToIcon_ =
+        Dimension((theme->GetMicSize().Value() - theme->GetMicIconSize().Value()) / HALF_SPACE, DimensionUnit::VP);
+    auto verticalGap = theme->GetContentHeight() + CalcLength(theme->GetPadding().Top()).GetDimension() +
+                       CalcLength(theme->GetPadding().Bottom()).GetDimension() - theme->GetMicSize();
+    micBgDefaultVerticalGapToParent_ = verticalGap.ConvertToPx();
+}
+
+void VoiceNodeResponseArea::UpdateNodeProperty(const RefPtr<LayoutProperty>& nodeProp,
+    const RefPtr<TextLayoutProperty>& symbolProperty, const RefPtr<TextFieldTheme>& theme)
+{
+    CHECK_NULL_VOID(symbolProperty);
+    CHECK_NULL_VOID(theme);
+    ParseTheme(symbolProperty, theme);
+    symbolProperty->UpdateSymbolSourceInfo(SymbolSourceInfo(theme->GetMicSymbolId()));
+    auto pattern = hostPattern_.Upgrade();
+    CHECK_NULL_VOID(pattern);
+    auto textFieldPattern = AceType::DynamicCast<TextFieldPattern>(pattern);
+    CHECK_NULL_VOID(textFieldPattern);
+    if (textFieldPattern->GetVoiceKBShown()) {
+        symbolProperty->UpdateSymbolColorList({ micIconColor_ });
+    } else {
+        symbolProperty->UpdateSymbolColorList({ theme->GetSymbolColor() });
+    }
+    if (textFieldPattern->IsTextArea()) {
+        nodeProp->ClearUserDefinedIdealSize(true, true);
+        PaddingProperty nodePadding;
+        nodePadding.SetEdges(CalcLength(micBgOffsetToIcon_));
+        nodeProp->UpdatePadding(nodePadding);
+        nodeProp->UpdateAlignment(Alignment::CENTER);
+        symbolProperty->UpdateFontSize(theme->GetMicIconSize());
+        symbolProperty->ClearUserDefinedIdealSize(true, true);
+    } else {
+        float rightPadding = (theme->GetMicSize().Value() - theme->GetMicIconSize().Value()) / HALF_SPACE +
+                             theme->GetMicPadding().Value();
+        auto rightOffset = Dimension(rightPadding, DimensionUnit::VP).ConvertToPx();
+        auto host = pattern->GetHost();
+        CHECK_NULL_VOID(host);
+        auto geometryNode = host->GetGeometryNode();
+        CHECK_NULL_VOID(geometryNode);
+        auto frameSize = geometryNode->GetFrameSize();
+        auto iconSize = micIconSize_;
+        if (!NearZero(frameSize.Height())) {
+            iconSize = std::min(iconSize, frameSize.Height());
+        }
+        auto hotZoneSize = NearZero(iconSize) ? 0.0f : iconSize + rightOffset;
+        nodeProp->UpdateUserDefinedIdealSize(CalcSize(CalcLength(hotZoneSize), CalcLength(iconSize)));
+        nodeProp->ClearUserDefinedIdealSize(false, true);
+        symbolProperty->UpdateFontSize(theme->GetMicIconSize());
+        symbolProperty->ClearUserDefinedIdealSize(true, true);
+        symbolProperty->UpdateMaxFontScale(MAX_FONT_SCALE);
+        auto layoutProperty = textFieldPattern->GetLayoutProperty<TextFieldLayoutProperty>();
+        if (layoutProperty) {
+            nodeProp->UpdateAlignment(GetStackAlignment(layoutProperty->GetLayoutDirection()));
+        }
+    }
+}
+
+void VoiceNodeResponseArea::UpdateVoiceButton(bool activate)
+{
+    auto cleanNode = GetFrameNode();
+    CHECK_NULL_VOID(cleanNode);
+    auto symbolNode = cleanNode->GetFirstChild();
+    CHECK_NULL_VOID(symbolNode);
+    auto symbolFrameNode = AceType::DynamicCast<FrameNode>(symbolNode);
+    CHECK_NULL_VOID(symbolFrameNode);
+    auto symbolProperty = symbolFrameNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_VOID(symbolProperty);
+    auto textFieldPattern = DynamicCast<TextFieldPattern>(hostPattern_.Upgrade());
+    CHECK_NULL_VOID(textFieldPattern);
+    auto overlayModifier = textFieldPattern->GetTextFieldOverlayModifier();
+    CHECK_NULL_VOID(overlayModifier);
+    overlayModifier->ClearHoverColorAndRects();
+    if (activate) {
+        RoundRect mouseRect;
+        CreateIconRect(mouseRect, false);
+        float cornerRadius = mouseRect.GetRect().Width() / 2;
+        mouseRect.SetCornerRadius(cornerRadius);
+        std::vector<RoundRect> roundRectVector;
+        roundRectVector.push_back(mouseRect);
+        overlayModifier->SetHoverColorAndRects(roundRectVector, micIconActiveBgColor_.GetValue());
+        symbolProperty->UpdateSymbolColorList({ micIconColor_ });
+    } else {
+        auto textFieldTheme = textFieldPattern->GetTheme();
+        CHECK_NULL_VOID(textFieldTheme);
+        symbolProperty->UpdateSymbolColorList({ textFieldTheme->GetSymbolColor() });
+    }
+
+    symbolFrameNode->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
+    auto host = textFieldPattern->GetHost();
+    CHECK_NULL_VOID(host);
+    host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
+}
+
+void VoiceNodeResponseArea::UpdateVoiceButtonBackgroundStyle(bool activate)
+{
+    auto cleanNode = GetFrameNode();
+    CHECK_NULL_VOID(cleanNode);
+    auto textFieldPattern = DynamicCast<TextFieldPattern>(hostPattern_.Upgrade());
+    CHECK_NULL_VOID(textFieldPattern);
+    auto overlayModifier = textFieldPattern->GetTextFieldOverlayModifier();
+    CHECK_NULL_VOID(overlayModifier);
+    overlayModifier->ClearHoverColorAndRects();
+    if (activate) {
+        RoundRect mouseRect;
+        CreateIconRect(mouseRect, false);
+        float cornerRadius = mouseRect.GetRect().Width() / 2;
+        mouseRect.SetCornerRadius(cornerRadius);
+        std::vector<RoundRect> roundRectVector;
+        roundRectVector.push_back(mouseRect);
+        overlayModifier->SetHoverColorAndRects(roundRectVector, micIconActiveBgColor_.GetValue());
+    }
+}
+
+void VoiceNodeResponseArea::Layout(LayoutWrapper* layoutWrapper, int32_t index, float& nodeWidth)
+{
+    auto pattern = hostPattern_.Upgrade();
+    CHECK_NULL_VOID(pattern);
+    auto textFieldPattern = AceType::DynamicCast<TextFieldPattern>(pattern);
+    CHECK_NULL_VOID(textFieldPattern);
+    if (!textFieldPattern->IsShowVoiceButtonMode()) {
+        return;
+    }
+    if (!textFieldPattern->IsTextArea()) {
+        LayoutChild(layoutWrapper, index, nodeWidth);
+    } else {
+        auto textFieldGeoNode = layoutWrapper->GetGeometryNode();
+        CHECK_NULL_VOID(textFieldGeoNode);
+        auto childWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
+        CHECK_NULL_VOID(childWrapper);
+        auto childGeoNode = childWrapper->GetGeometryNode();
+        CHECK_NULL_VOID(childGeoNode);
+        auto childSize = childGeoNode->GetFrameSize();
+        auto textFieldSize = textFieldGeoNode->GetFrameSize();
+        auto theme = textFieldPattern->GetTheme();
+        Dimension defaultPadding = 4.0_vp;
+        float padding = theme ? theme->GetMicPadding().ConvertToPx() : defaultPadding.ConvertToPx();
+        auto layoutProperty = textFieldPattern->GetLayoutProperty<TextFieldLayoutProperty>();
+        CHECK_NULL_VOID(layoutProperty);
+        auto isRTL = layoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
+        float offsetX = isRTL ? padding : textFieldSize.Width() - childSize.Width() - padding;
+        float offsetY = textFieldSize.Height() - childSize.Height() - padding;
+        auto childOffset = OffsetF(offsetX, offsetY);
+        childGeoNode->SetFrameOffset(childOffset);
+        areaRect_.SetSize(childSize);
+        areaRect_.SetOffset(childOffset);
+        childWrapper->Layout();
+        nodeWidth += childSize.Width();
+    }
+    UpdateVoiceButtonBackgroundStyle(textFieldPattern->GetVoiceKBShown());
+}
+
+void VoiceNodeResponseArea::CreateIconRect(RoundRect& paintRect, bool isFocus)
+{
+    auto hostPattern = hostPattern_.Upgrade();
+    CHECK_NULL_VOID(hostPattern);
+    auto pattern = AceType::DynamicCast<TextFieldPattern>(hostPattern);
+    CHECK_NULL_VOID(pattern);
+    auto node = GetFrameNode();
+    CHECK_NULL_VOID(node);
+    auto nodeGeoNode = node->GetGeometryNode();
+    CHECK_NULL_VOID(nodeGeoNode);
+    auto nodeRect = nodeGeoNode->GetFrameRect();
+    if (pattern->IsTextArea()) {
+        cancelHoverSize_ = nodeRect.Height();
+        paintRect.SetRect(nodeRect);
+    } else {
+        auto layoutProperty = pattern->GetLayoutProperty<TextFieldLayoutProperty>();
+        CHECK_NULL_VOID(layoutProperty);
+        auto iconNode = symbolNode_.Upgrade();
+        CHECK_NULL_VOID(iconNode);
+        auto iconGeoNode = iconNode->GetGeometryNode();
+        CHECK_NULL_VOID(iconGeoNode);
+        auto iconFrameRect = iconGeoNode->GetFrameRect();
+        auto paintSize = iconFrameRect.Height() + micBgOffsetToIcon_.ConvertToPx() * 2.0f;
+        auto offset = micBgOffsetToIcon_.ConvertToPx();
+        auto isRTL = layoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
+        if (isRTL) {
+            nodeRect.SetLeft((nodeRect.Left() + iconFrameRect.Left()) - offset);
+        } else {
+            nodeRect.SetLeft(nodeRect.Left() - offset);
+        }
+        nodeRect.SetTop(nodeRect.Top() - offset);
+        nodeRect.SetWidth(paintSize);
+        nodeRect.SetHeight(paintSize);
+        paintRect.SetRect(nodeRect);
+    }
+}
+
+void VoiceNodeResponseArea::SetAccessibilityAction()
+{
+    auto hostPattern = hostPattern_.Upgrade();
+    CHECK_NULL_VOID(hostPattern);
+    auto pattern = AceType::DynamicCast<TextFieldPattern>(hostPattern);
+    CHECK_NULL_VOID(pattern);
+    auto stackNode = GetFrameNode();
+    CHECK_NULL_VOID(stackNode);
+    auto textAccessibilityProperty = stackNode->GetAccessibilityProperty<AccessibilityProperty>();
+    CHECK_NULL_VOID(textAccessibilityProperty);
+    textAccessibilityProperty->SetAccessibilityLevel("yes");
+    auto textFieldTheme = pattern->GetTheme();
+    CHECK_NULL_VOID(textFieldTheme);
+    textAccessibilityProperty->SetAccessibilityText(textFieldTheme->GetVoiceButton());
+    textAccessibilityProperty->SetAccessibilityCustomRole("button");
+}
+
+void VoiceNodeResponseArea::InitButtonMouseEvent()
+{
+    auto stackNode = GetFrameNode();
+    CHECK_NULL_VOID(stackNode);
+    auto imageTouchHub = stackNode->GetOrCreateGestureEventHub();
+    CHECK_NULL_VOID(imageTouchHub);
+    auto imageInputHub = stackNode->GetOrCreateInputEventHub();
+    CHECK_NULL_VOID(imageInputHub);
+    auto imageHoverTask = [weak = WeakClaim(this)](bool isHover, const HoverInfo& info) {
+        auto responseArea = weak.Upgrade();
+        CHECK_NULL_VOID(responseArea);
+        auto hostPattern = responseArea->hostPattern_.Upgrade();
+        CHECK_NULL_VOID(hostPattern);
+        auto pattern = AceType::DynamicCast<TextFieldPattern>(hostPattern);
+        CHECK_NULL_VOID(pattern);
+        if (pattern) {
+            pattern->OnHover(isHover, info);
+            pattern->HandleButtonMouseEvent(responseArea, isHover);
+        }
+    };
+    imageInputHub->AddOnHoverEvent(MakeRefPtr<InputEvent>(std::move(imageHoverTask)));
+
+    auto imageTouchTask = [weak = WeakClaim(this)](const TouchEventInfo& info) {
+        auto responseArea = weak.Upgrade();
+        CHECK_NULL_VOID(responseArea);
+        auto hostPattern = responseArea->hostPattern_.Upgrade();
+        CHECK_NULL_VOID(hostPattern);
+        auto pattern = AceType::DynamicCast<TextFieldPattern>(hostPattern);
+        CHECK_NULL_VOID(pattern);
+        auto touchType = info.GetTouches().front().GetTouchType();
+        if (touchType == TouchType::DOWN) {
+            pattern->HandleResponseButtonTouchDown(responseArea);
+        }
+        if (touchType == TouchType::UP || touchType == TouchType::CANCEL) {
+            pattern->HandleResponseButtonTouchUp();
+        }
+    };
+
+    imageTouchHub->AddTouchEvent(MakeRefPtr<TouchEventImpl>(std::move(imageTouchTask)));
+}
+// VoiceNodeButton end
 } // namespace OHOS::Ace::NG

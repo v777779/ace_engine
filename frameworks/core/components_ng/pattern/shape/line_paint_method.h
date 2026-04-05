@@ -27,7 +27,7 @@
 
 namespace OHOS::Ace::NG {
 class ACE_EXPORT LinePaintMethod : public ShapePaintMethod {
-    DECLARE_ACE_TYPE(LinePaintMethod, ShapePaintMethod)
+    DECLARE_ACE_TYPE(LinePaintMethod, ShapePaintMethod);
 public:
     LinePaintMethod() = default;
     LinePaintMethod(
@@ -39,7 +39,9 @@ public:
     CanvasDrawFunction GetContentDrawFunction(PaintWrapper* paintWrapper) override
     {
         CHECK_NULL_RETURN(paintWrapper, nullptr);
-        auto linePaintProperty = DynamicCast<LinePaintProperty>(paintWrapper->GetPaintProperty()->Clone());
+        auto paintProperty = paintWrapper->GetPaintProperty();
+        CHECK_NULL_RETURN(paintProperty, nullptr);
+        auto linePaintProperty = DynamicCast<LinePaintProperty>(paintProperty->Clone());
         CHECK_NULL_RETURN(linePaintProperty, nullptr);
 
         if (propertiesFromAncestor_) {
@@ -56,9 +58,7 @@ public:
         auto offset = paintWrapper->GetContentOffset();
         return [linePaintProperty, offset, paintWrapper](RSCanvas& canvas) {
                     LinePainter::DrawLine(canvas, *linePaintProperty, offset);
-                    if (paintWrapper) {
-                        paintWrapper->FlushOverlayModifier();
-                    }
+                    paintWrapper->FlushOverlayModifier();
                 };
     }
 

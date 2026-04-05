@@ -100,8 +100,7 @@ namespace OHOS::Ace::NG {
     void AssignArkValue(Ark_GridRowColumnOption& dst, const int32_t& src)
     {
         auto dimensionValue = Dimension(src);
-        auto arkIntValue = Converter::ArkValue<Ark_Int32>(dimensionValue);
-        auto optValue = Converter::ArkValue<Opt_Int32>(arkIntValue);
+        auto optValue = Converter::ArkValue<Opt_Int32>(dimensionValue);
         dst.xs = optValue;
         dst.sm = optValue;
         dst.md = optValue;
@@ -160,33 +159,31 @@ HWTEST_F(GridRowModifierTest, DISABLED_setGridRowOptionsTestDefaultValues, TestS
     CHECK_NULL_VOID(jsonValue);
     // Gutter test
     std::unique_ptr<JsonValue> resultGutter =
-        GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_GUTTER_NAME);
-    auto resultX =
-        std::stof(GetAttrValue<std::string>(resultGutter, ATTRIBUTE_GUTTER_I_X_NAME));
-    auto resultY =
-        std::stof(GetAttrValue<std::string>(resultGutter, ATTRIBUTE_GUTTER_I_Y_NAME));
-    EXPECT_EQ(resultX, ATTRIBUTE_GUTTER_I_X_DEFAULT_VALUE) << "Default value for attribute 'options.gutter.x'";
-    EXPECT_EQ(resultY, ATTRIBUTE_GUTTER_I_Y_DEFAULT_VALUE) << "Default value for attribute 'options.gutter.y'";
+        GetAttrObject(jsonValue, ATTRIBUTE_GUTTER_NAME);
+    auto resultX = GetAttrValue<double>(resultGutter, ATTRIBUTE_GUTTER_I_X_NAME);
+    auto resultY = GetAttrValue<double>(resultGutter, ATTRIBUTE_GUTTER_I_Y_NAME);
+    EXPECT_THAT(resultX, Eq(ATTRIBUTE_GUTTER_I_X_DEFAULT_VALUE)) << "Default value for attribute 'options.gutter.x'";
+    EXPECT_THAT(resultY, Eq(ATTRIBUTE_GUTTER_I_Y_DEFAULT_VALUE)) << "Default value for attribute 'options.gutter.y'";
     // Columns test
     auto resultColumns = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_COLUMNS_NAME);
-    EXPECT_EQ(resultColumns, ATTRIBUTE_COLUMNS_DEFAULT_VALUE) << "Default value for attribute 'options.columns'";
+    EXPECT_THAT(resultColumns, Eq(ATTRIBUTE_COLUMNS_DEFAULT_VALUE)) << "Default value for attribute 'options.columns'";
     // Breakpoints test
-    auto resultBreakpoints = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_BREAKPOINTS_NAME);
+    auto resultBreakpoints = GetAttrObject(jsonValue, ATTRIBUTE_BREAKPOINTS_NAME);
     auto resultBreakpointsValues =
-        GetAttrValue<std::unique_ptr<JsonValue>>(resultBreakpoints, ATTRIBUTE_BREAKPOINTS_I_VALUE_NAME);
+        GetAttrObject(resultBreakpoints, ATTRIBUTE_BREAKPOINTS_I_VALUE_NAME);
     std::string valStr;
     auto lenArray = resultBreakpointsValues->IsArray() ? resultBreakpointsValues->GetArraySize() : 0;
     for (int32_t idx = 0; idx < lenArray; idx++) {
         valStr = resultBreakpointsValues->GetArrayItem(idx)->GetString();
-        EXPECT_EQ(valStr, ATTRIBUTE_BREAKPOINTS_I_VALUE_DEFAULT_VALUE[idx])
-            << "Default value for attribute 'options.breakpoints.values'";
+        EXPECT_EQ(valStr, ATTRIBUTE_BREAKPOINTS_I_VALUE_DEFAULT_VALUE[idx]) <<
+            "Default value for attribute 'options.breakpoints.values'";
     }
     auto resultStr = GetAttrValue<std::string>(resultBreakpoints, ATTRIBUTE_BREAKPOINTS_I_REFERENCE_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_BREAKPOINTS_I_REFERENCE_DEFAULT_VALUE)
-        << "Default value for attribute 'options.breakpoints.reference'";
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_BREAKPOINTS_I_REFERENCE_DEFAULT_VALUE)) <<
+        "Default value for attribute 'options.breakpoints.reference'";
     // Direction test
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_DIRECTION_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_DIRECTION_DEFAULT_VALUE) << "Default value for attribute 'options.direction'";
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_DIRECTION_DEFAULT_VALUE)) << "Default value for attribute 'options.direction'";
 }
 
 using TupleGutterOptionTest = std::tuple<GutterOptionTest, GutterOption, GutterOptionTest>;
@@ -291,40 +288,38 @@ void checkOptionValue(std::unique_ptr<JsonValue> jsonValue, const GridRowOptions
 {
     // Gutter test
     std::unique_ptr<JsonValue> resultGutter =
-        GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_GUTTER_NAME);
-    auto resultX =
-        std::stof(GetAttrValue<std::string>(resultGutter, ATTRIBUTE_GUTTER_I_X_NAME));
-    auto resultY =
-        std::stof(GetAttrValue<std::string>(resultGutter, ATTRIBUTE_GUTTER_I_Y_NAME));
-    EXPECT_EQ(resultX, expected.gutter.x)
-        << "Input value is: " << value.gutter.x << ", method: setGridRowOptions, attribute: gutter.x";
-    EXPECT_EQ(resultY, expected.gutter.y)
-        << "Input value is: " << value.gutter.y << ", method: setGridRowOptions, attribute: gutter.y";
+        GetAttrObject(jsonValue, ATTRIBUTE_GUTTER_NAME);
+    auto resultX = GetAttrValue<double>(resultGutter, ATTRIBUTE_GUTTER_I_X_NAME);
+    auto resultY = GetAttrValue<double>(resultGutter, ATTRIBUTE_GUTTER_I_Y_NAME);
+    EXPECT_THAT(resultX, Eq(expected.gutter.x)) <<
+        "Input value is: " << value.gutter.x << ", method: setGridRowOptions, attribute: gutter.x";
+    EXPECT_THAT(resultY, Eq(expected.gutter.y)) <<
+        "Input value is: " << value.gutter.y << ", method: setGridRowOptions, attribute: gutter.y";
     // Columns test
     auto columnsResultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_COLUMNS_NAME);
-    EXPECT_EQ(columnsResultStr, expected.columns)
-        << "Input value is: " << value.columns << ", method: setGridRowOptions, attribute: Columns";
+    EXPECT_THAT(columnsResultStr, Eq(expected.columns)) <<
+        "Input value is: " << value.columns << ", method: setGridRowOptions, attribute: Columns";
     // Breakpoints value test
-    auto breakPointsJson = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_BREAKPOINTS_NAME);
+    auto breakPointsJson = GetAttrObject(jsonValue, ATTRIBUTE_BREAKPOINTS_NAME);
     auto breakPointsValueJson =
-        GetAttrValue<std::unique_ptr<JsonValue>>(breakPointsJson, ATTRIBUTE_BREAKPOINTS_I_VALUE_NAME);
+        GetAttrObject(breakPointsJson, ATTRIBUTE_BREAKPOINTS_I_VALUE_NAME);
     std::string valStr;
     auto lenArray = breakPointsValueJson->IsArray() ? breakPointsValueJson->GetArraySize() : 0;
     for (int32_t idx = 0; idx < lenArray; idx++) {
         valStr = breakPointsValueJson->GetArrayItem(idx)->GetString();
-        EXPECT_EQ(valStr, expected.breakpoints.value[idx])
-            << "Input value is: " << value.breakpoints.value[idx]
+        EXPECT_EQ(valStr, expected.breakpoints.value[idx]) <<
+            "Input value is: " << value.breakpoints.value[idx]
             << ", method: setGridRowOptions, attribute: Breakpoints.value";
     }
     // Breakpoints reference test
     auto resultStr = GetAttrValue<std::string>(breakPointsJson, ATTRIBUTE_BREAKPOINTS_I_REFERENCE_NAME);
-    EXPECT_EQ(resultStr, expected.breakpoints.referenceStr)
-        << "Input value is: " << value.breakpoints.referenceStr
+    EXPECT_THAT(resultStr, Eq(expected.breakpoints.referenceStr)) <<
+        "Input value is: " << value.breakpoints.referenceStr
         << ", method: setGridRowOptions, attribute: Breakpoints.reference";
     // direction test
     auto directionResultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_DIRECTION_NAME);
-    EXPECT_EQ(directionResultStr, expected.directionStr)
-        << "Input value is: " << value.directionStr << ", method: setGridRowOptions, attribute: Direction";
+    EXPECT_THAT(directionResultStr, Eq(expected.directionStr)) <<
+        "Input value is: " << value.directionStr << ", method: setGridRowOptions, attribute: Direction";
 }
 
 HWTEST_F(GridRowModifierTest, DISABLED_setGridRowOptionsTestValidValues, TestSize.Level1)
@@ -452,8 +447,8 @@ HWTEST_F(GridRowModifierTest, DISABLED_setAlignItemsTestDefaultValues, TestSize.
      // Without this initializations, GetJsonValue() crashes.
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
     CHECK_NULL_VOID(jsonValue);
-    std::string resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ALIGN_ITEMS_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_ALIGN_ITEMS_DEFAULT_VALUE) << "Default value for attribute 'alignItems'";
+    auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ALIGN_ITEMS_NAME);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_ALIGN_ITEMS_DEFAULT_VALUE)) << "Default value for attribute 'alignItems'";
 }
 
 std::vector<std::tuple<std::string, Ark_ItemAlign, std::string>> testItemAlignValidValues = {
@@ -488,8 +483,8 @@ HWTEST_F(GridRowModifierTest, DISABLED_setAlignItemsTestAlignItemsValidValues, T
         modifier_->setAlignItems(node_, &optInputValueAlignItems);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ALIGN_ITEMS_NAME);
-        EXPECT_EQ(resultStr, expectedStr)
-            << "Input value is: " << input << ", method: setAlignItems, attribute: alignItems";
+        EXPECT_THAT(resultStr, Eq(expectedStr)) <<
+            "Input value is: " << input << ", method: setAlignItems, attribute: alignItems";
     };
 
     for (auto& [input, value, expected] : testItemAlignValidValues) {
@@ -523,8 +518,8 @@ HWTEST_F(GridRowModifierTest, DISABLED_setAlignItemsTestAlignItemsInvalidValues,
         modifier_->setAlignItems(node_, &optInputValueAlignItems);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ALIGN_ITEMS_NAME);
-        EXPECT_EQ(resultStr, expectedStr)
-            << "Input value is: " << input << ", method: setAlignItems, attribute: alignItems";
+        EXPECT_THAT(resultStr, Eq(expectedStr)) <<
+            "Input value is: " << input << ", method: setAlignItems, attribute: alignItems";
     };
     for (auto& [input, value, expected] : testItemAlignInvalidValues) {
         checkValue(input, value, expected);
@@ -554,16 +549,17 @@ HWTEST_F(GridRowModifierTest, DISABLED_setOnBreakpointChangeTest, TestSize.Level
         };
     };
 
-    Callback_String_Void callBackValue = {
+    synthetic_Callback_String_Void callBackValue = {
         .resource = Ark_CallbackResource {
             .resourceId = frameNode->GetId(),
             .hold = nullptr,
             .release = nullptr,
         },
-        .call = onBreakpointChange
+        .call = onBreakpointChange,
+        .callSync = nullptr
     };
 
-    auto optCallBackValue = Converter::ArkValue<Opt_Callback_String_Void>(callBackValue);
+    auto optCallBackValue = Converter::ArkValue<Opt_synthetic_Callback_String_Void>(callBackValue);
     modifier_->setOnBreakpointChange(node_, &optCallBackValue);
 
     EXPECT_FALSE(checkEvent.has_value());

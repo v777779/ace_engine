@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,22 +18,20 @@
 
 #include <optional>
 
-#include "base/memory/referenced.h"
 #include "base/utils/utils.h"
 #include "core/components/button/button_theme.h"
-#include "core/components_ng/event/event_hub.h"
-#include "core/components_ng/event/focus_hub.h"
 #include "core/components_ng/pattern/button/button_event_hub.h"
 #include "core/components_ng/pattern/button/button_layout_algorithm.h"
 #include "core/components_ng/pattern/button/button_layout_property.h"
 #include "core/components_ng/pattern/button/button_model_ng.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/text/text_layout_property.h"
+
 namespace OHOS::Ace::NG {
 struct InspectorConfig;
 class InspectorFilter;
 enum class ComponentButtonType { POPUP, BUTTON, STEPPER, NAVIGATION };
-class ButtonPattern : public Pattern {
+class ACE_FORCE_EXPORT ButtonPattern : public Pattern {
     DECLARE_ACE_TYPE(ButtonPattern, Pattern);
 
 public:
@@ -69,7 +67,6 @@ public:
     void SetClickedColor(const Color& color)
     {
         clickedColor_ = color;
-        isSetClickedColor_ = true;
     }
 
     void SetBlendColor(const std::optional<Color>& blendClickColor, const std::optional<Color>& blendHoverColor)
@@ -226,10 +223,17 @@ public:
 
     std::vector<std::string> StringToVector(const std::string& str, char delimiter = ' ');
 
+    void SetNavigationFocusBlendBgColor(const Color& navigationFocusBgColor);
+
+    void SetNavMenuItemNeedFocus(bool navMenuItemNeedFocus);
+
+    int32_t OnInjectionEvent(const std::string& command) override;
+
+    void ReportButtonClickResult();
+
 protected:
     void OnModifyDone() override;
     void OnAfterModifyDone() override;
-    void OnAttachToFrameNode() override;
     void InitTouchEvent();
     void InitHoverEvent();
     void HandlePressedStyle();
@@ -242,10 +246,12 @@ protected:
     Color GetColorFromType(const RefPtr<ButtonTheme>& theme, const int32_t& type);
     void AnimateTouchAndHover(RefPtr<RenderContext>& renderContext, int32_t typeFrom, int32_t typeTo, int32_t duration,
         const RefPtr<Curve>& curve);
-    Color clickedColor_;
+    std::optional<Color> clickedColor_ = std::nullopt;
 
 private:
     static void UpdateTextLayoutProperty(
+        RefPtr<ButtonLayoutProperty>& layoutProperty, RefPtr<TextLayoutProperty>& textLayoutProperty);
+    static void UpdateTextAlignProperty(
         RefPtr<ButtonLayoutProperty>& layoutProperty, RefPtr<TextLayoutProperty>& textLayoutProperty);
     static void UpdateTextStyle(
         RefPtr<ButtonLayoutProperty>& layoutProperty, RefPtr<TextLayoutProperty>& textLayoutProperty);
@@ -254,11 +260,13 @@ private:
     static void UpdateTextFontScale(
         RefPtr<ButtonLayoutProperty>& layoutProperty, RefPtr<TextLayoutProperty>& textLayoutProperty);
     void OnFontScaleConfigurationUpdate() override;
+    void InitButtonAlphaOffscreen();
+    void OnColorConfigurationUpdateTextColor(const RefPtr<FrameNode>& host, const ButtonStyleMode& buttonStyle,
+        const ButtonRole& buttonRole, const Color& textColor);
     Color backgroundColor_;
     Color focusBorderColor_;
     Color themeBgColor_;
     Color themeTextColor_;
-    bool isSetClickedColor_ = false;
     ComponentButtonType buttonType_ = ComponentButtonType::BUTTON;
     void FireBuilder();
     RefPtr<FrameNode> BuildContentModifierNode();
@@ -274,6 +282,7 @@ private:
     bool isPress_ = false;
     bool isApplyShadow_ = true;
     bool isLayoutUpdate_ = false;
+    bool isInitButtonAlphaOffscreen_ = false;
 
     bool isInHover_ = false;
     Offset localLocation_;
@@ -281,6 +290,8 @@ private:
 
     std::optional<Color> blendClickColor_ = std::nullopt;
     std::optional<Color> blendHoverColor_ = std::nullopt;
+    Color navigationFocusBlendBgColor_;
+    bool navMenuItemNeedFocus_ = false;
 
     bool isTextFadeOut_ = false;
     bool isColorUpdateFlag_ = false;
@@ -309,6 +320,7 @@ private:
     Shadow GetShadowFromTheme(ShadowStyle shadowStyle);
     void HandleFocusActiveStyle();
     void SetButtonScale(RefPtr<RenderContext>& renderContext, RefPtr<ButtonTheme>& buttonTheme);
+    void SetNavBarMenuFocusStyle(RefPtr<RenderContext>& renderContext, bool isFocus);
 };
 } // namespace OHOS::Ace::NG
 

@@ -22,12 +22,12 @@
 
 #include "base/geometry/axis.h"
 #include "core/components/common/properties/color.h"
-#include "core/components_ng/layout/layout_algorithm.h"
+#include "core/components_ng/layout/box_layout_algorithm.h"
 #include "core/components_ng/layout/layout_wrapper.h"
 
 namespace OHOS::Ace::NG {
 
-class ACE_EXPORT QRCodeLayoutAlgorithm : public BoxLayoutAlgorithm {
+class ACE_FORCE_EXPORT QRCodeLayoutAlgorithm : public BoxLayoutAlgorithm {
     DECLARE_ACE_TYPE(QRCodeLayoutAlgorithm, BoxLayoutAlgorithm);
 
 public:
@@ -36,6 +36,8 @@ public:
 
     std::optional<SizeF> MeasureContent(
         const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper) override;
+
+    void Measure(LayoutWrapper* layoutWrapper) override;
 
     float GetQRCodeSize() const
     {

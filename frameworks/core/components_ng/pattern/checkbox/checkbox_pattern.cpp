@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,21 +13,25 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/pattern/checkbox/checkbox_pattern.h"
-#include "interfaces/inner_api/ui_session/ui_session_manager.h"
-#include "base/log/dump_log.h"
-
 #include "base/utils/multi_thread.h"
+#include "core/components_ng/pattern/checkbox/checkbox_pattern.h"
+
+#include "base/log/dump_log.h"
 #include "core/components/checkable/checkable_theme.h"
+#include "core/components_ng/pattern/checkbox/toggle_checkbox_pattern.h"
+#include "core/components_ng/pattern/overlay/group_manager.h"
 #include "core/components_ng/pattern/checkboxgroup/checkboxgroup_paint_property.h"
 #include "core/components_ng/pattern/checkboxgroup/checkboxgroup_pattern.h"
 #include "core/components_ng/pattern/stage/page_event_hub.h"
 #include "core/pipeline_ng/pipeline_context.h"
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 namespace OHOS::Ace::NG {
 namespace {
 const Color ITEM_FILL_COLOR = Color::TRANSPARENT;
 constexpr int32_t DEFAULT_CHECKBOX_ANIMATION_DURATION = 100;
+const char CHECKBOX_ETS_TAG[] = "Toggle";
+const char NAVDESTINATION_CONTENT_ETS_TAG[] = "NavDestinationContent";
 } // namespace
 
 RefPtr<NodePaintMethod> CheckBoxPattern::CreateNodePaintMethod()
@@ -164,12 +168,25 @@ void CheckBoxPattern::UpdateIndicator()
     }
 }
 
+bool CheckBoxPattern::IsArkTSStatic()
+{
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_RETURN(pipeline, false);
+    return pipeline->GetFrontendType() == FrontendType::ARK_TS
+ 	         || pipeline->GetFrontendType() == FrontendType::DYNAMIC_HYBRID_STATIC
+ 	         || pipeline->GetFrontendType() == FrontendType::STATIC_HYBRID_DYNAMIC;
+}
+
 void CheckBoxPattern::OnModifyDone()
 {
     Pattern::OnModifyDone();
     FireBuilder();
     UpdateIndicator();
-    UpdateState();
+    if ((!IsArkTSStatic()) || (!isFirstCreated_)) {
+        UpdateState();
+    }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto pipeline = GetContext();
@@ -179,6 +196,19 @@ void CheckBoxPattern::OnModifyDone()
     hotZoneHorizontalPadding_ = checkBoxTheme->GetHotZoneHorizontalPadding();
     hotZoneVerticalPadding_ = checkBoxTheme->GetHotZoneVerticalPadding();
     InitDefaultMargin();
+    auto callback = [weak = WeakClaim(this)]() {
+        auto checkbox = weak.Upgrade();
+        if (checkbox) {
+            checkbox->InitEvent();
+        }
+    };
+    pipeline->AddBuildFinishCallBack(callback);
+}
+
+void CheckBoxPattern::InitEvent()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
     InitClickEvent();
     InitTouchEvent();
     InitMouseEvent();
@@ -273,6 +303,7 @@ void CheckBoxPattern::MarkIsSelected(bool isSelected)
     auto eventHub = GetEventHub<CheckBoxEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->UpdateChangeEvent(isSelected);
+    ReportToggleChangeEvent(isSelected);
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     if (isSelected) {
@@ -518,7 +549,7 @@ void CheckBoxPattern::UpdateUnSelect()
 
 void CheckBoxPattern::UpdateUIStatus(bool check)
 {
-    TAG_LOGI(AceLogTag::ACE_SELECT_COMPONENT, "checkbox update status %{public}d", check);
+    TAG_LOGD(AceLogTag::ACE_SELECT_COMPONENT, "checkbox update status %{public}d", check);
     uiStatus_ = check ? UIStatus::OFF_TO_ON : UIStatus::ON_TO_OFF;
     auto host = GetHost();
     CHECK_NULL_VOID(host);
@@ -549,9 +580,9 @@ void CheckBoxPattern::UpdateGroupStatus(FrameNode* frameNode)
     pipeline->RemoveVisibleAreaChangeNode(frameNode->GetId());
 }
 
-
 void CheckBoxPattern::OnDetachFromFrameNode(FrameNode* frameNode)
 {
+    CHECK_NULL_VOID(frameNode);
     THREAD_SAFE_NODE_CHECK(frameNode, OnDetachFromFrameNode);
     UpdateGroupStatus(frameNode);
 }
@@ -559,6 +590,7 @@ void CheckBoxPattern::OnDetachFromFrameNode(FrameNode* frameNode)
 void CheckBoxPattern::OnDetachFromMainTree()
 {
     auto host = GetHost();
+    CHECK_NULL_VOID(host);
     THREAD_SAFE_NODE_CHECK(host, OnDetachFromMainTree, host);
 }
 
@@ -644,9 +676,10 @@ void CheckBoxPattern::ChangeSelfStatusAndNotify(const RefPtr<CheckBoxPaintProper
             SetLastSelect(isSelected);
             auto checkboxEventHub = GetEventHub<CheckBoxEventHub>();
             CHECK_NULL_VOID(checkboxEventHub);
-            TAG_LOGI(AceLogTag::ACE_SELECT_COMPONENT, "checkbox node %{public}d update change event %{public}d",
+            TAG_LOGD(AceLogTag::ACE_SELECT_COMPONENT, "checkbox node %{public}d update change event %{public}d",
                 host->GetId(), isSelected);
             checkboxEventHub->UpdateChangeEvent(isSelected);
+            ReportToggleChangeEvent(isSelected);
         }
     }
     StartCustomNodeAnimation(isSelected);
@@ -656,6 +689,8 @@ void CheckBoxPattern::ChangeSelfStatusAndNotify(const RefPtr<CheckBoxPaintProper
 
 void CheckBoxPattern::StartEnterAnimation()
 {
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
     AnimationOption option;
     option.SetCurve(Curves::FAST_OUT_SLOW_IN);
     option.SetDuration(DEFAULT_CHECKBOX_ANIMATION_DURATION);
@@ -676,11 +711,13 @@ void CheckBoxPattern::StartEnterAnimation()
             TAG_LOGI(AceLogTag::ACE_SELECT_COMPONENT, "check enter animation");
             renderContext->UpdateOpacity(1);
         },
-        nullptr);
+        nullptr, nullptr, host->GetContextRefPtr());
 }
 
 void CheckBoxPattern::StartExitAnimation()
 {
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
     AnimationOption option;
     option.SetCurve(Curves::FAST_OUT_SLOW_IN);
     option.SetDuration(DEFAULT_CHECKBOX_ANIMATION_DURATION);
@@ -693,7 +730,7 @@ void CheckBoxPattern::StartExitAnimation()
             TAG_LOGI(AceLogTag::ACE_SELECT_COMPONENT, "check exit animation");
             renderContext->UpdateOpacity(0);
         },
-        nullptr);
+        nullptr, nullptr, host->GetContextRefPtr());
     const auto& eventHub = builderNode_->GetEventHub<EventHub>();
     if (eventHub) {
         eventHub->SetEnabled(false);
@@ -713,7 +750,9 @@ void CheckBoxPattern::LoadBuilder()
         builder_.value()();
         customNode = NG::ViewStackProcessor::GetInstance()->Finish();
         CHECK_NULL_VOID(customNode);
-        builderNode_ = AceType::DynamicCast<FrameNode>(customNode);
+        auto firstFrameNode = customNode->GetFrameChildByIndex(0, false);
+        CHECK_NULL_VOID(firstFrameNode);
+        builderNode_ = AceType::DynamicCast<FrameNode>(firstFrameNode);
         CHECK_NULL_VOID(builderNode_);
         builderNode_->MountToParent(host);
         host->MarkDirtyNode(PROPERTY_UPDATE_BY_CHILD_REQUEST);
@@ -1047,7 +1086,7 @@ RefPtr<FrameNode> CheckBoxPattern::BuildContentModifierNode()
     } else {
         isSelected = false;
     }
-    if (host->GetHostTag() == V2::CHECKBOX_ETS_TAG && toggleMakeFunc_.has_value()) {
+    if (host->GetHostTag() == CHECKBOX_ETS_TAG && toggleMakeFunc_.has_value()) {
         return (toggleMakeFunc_.value())(ToggleConfiguration(enabled, isSelected));
     }
     CheckBoxConfiguration checkBoxConfiguration(name, isSelected, enabled);
@@ -1144,7 +1183,7 @@ void CheckBoxPattern::DumpInfo()
 void CheckBoxPattern::SetPrePageIdToLastPageId()
 {
     if (!Container::IsInSubContainer()) {
-        auto pipelineContext = PipelineContext::GetCurrentContextSafelyWithCheck();
+        auto pipelineContext = PipelineContext::GetCurrentContext();
         CHECK_NULL_VOID(pipelineContext);
         auto stageManager = pipelineContext->GetStageManager();
         CHECK_NULL_VOID(stageManager);
@@ -1160,7 +1199,7 @@ void CheckBoxPattern::UpdateNavIdAndState(const RefPtr<FrameNode>& host)
     CHECK_NULL_VOID(groupManager);
     auto parent = host->GetParent();
     while (parent) {
-        if (parent->GetTag() == V2::NAVDESTINATION_CONTENT_ETS_TAG) {
+        if (parent->GetTag() == NAVDESTINATION_CONTENT_ETS_TAG) {
             currentNavId_ = std::to_string(parent->GetId());
             groupManager->SetLastNavId(currentNavId_);
             UpdateState();
@@ -1179,6 +1218,10 @@ void CheckBoxPattern::OnAttachToMainTree()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    if (IsArkTSStatic()) {
+        UpdateGroupManager();
+        UpdateState();
+    }
     THREAD_SAFE_NODE_CHECK(host, OnAttachToMainTree, host);
     UpdateNavIdAndState(host);
 }
@@ -1195,6 +1238,13 @@ std::string CheckBoxPattern::GetGroupNameWithNavId()
     auto groupManager = GetGroupManager();
     CHECK_NULL_RETURN(groupManager, eventHub->GetGroupName());
     return eventHub->GetGroupName() + groupManager->GetLastNavId();
+}
+
+void CheckBoxPattern::UpdateGroupManager()
+{
+    auto manager = GroupManager::GetGroupManager();
+    CHECK_NULL_VOID(manager.Upgrade());
+    groupManager_ = manager;
 }
 
 RefPtr<GroupManager> CheckBoxPattern::GetGroupManager()
@@ -1219,6 +1269,10 @@ int32_t CheckBoxPattern::ParseCommand(const std::string& command, bool& selectSt
         return RET_FAILED;
     }
 
+    if (!json->Contains("selectStatus") || !json->GetValue("selectStatus")->IsBool()) {
+        return RET_FAILED;
+    }
+
     selectStatus = json->GetBool("selectStatus", selectStatus);
     return RET_SUCCESS;
 }
@@ -1228,22 +1282,20 @@ int32_t CheckBoxPattern::OnInjectionEvent(const std::string& command)
     auto host = GetHost();
     CHECK_NULL_RETURN(host, RET_FAILED);
     auto paintProperty = host->GetPaintProperty<CheckBoxPaintProperty>();
+    CHECK_NULL_RETURN(paintProperty, RET_FAILED);
     bool currentStatus = paintProperty->GetCheckBoxSelectValue(false);
     bool selectStatus = currentStatus;
     auto ret = ParseCommand(command, selectStatus);
     CHECK_EQUAL_RETURN(ret, RET_FAILED, RET_FAILED);
     CHECK_EQUAL_RETURN(currentStatus, selectStatus, RET_SUCCESS);
-    auto pattern = host->GetPattern<CheckBoxPattern>();
-    CHECK_NULL_RETURN(pattern, RET_FAILED);
-    pattern->SetCheckBoxSelect(selectStatus);
+    SetCheckBoxSelect(selectStatus);
     return RET_SUCCESS;
 }
 
 void CheckBoxPattern::ReportChangeEvent(bool selectStatus)
 {
-    if (!UiSessionManager::GetInstance()->IsHasReportObject()) {
-        return;
-    }
+    bool isToggle = AceType::InstanceOf<ToggleCheckBoxPattern>(Claim(this));
+    CHECK_EQUAL_VOID(isToggle, true);
     auto params = JsonUtil::Create();
     CHECK_NULL_VOID(params);
     params->Put("selectStatus", selectStatus);
@@ -1255,7 +1307,27 @@ void CheckBoxPattern::ReportChangeEvent(bool selectStatus)
     CHECK_NULL_VOID(host);
     auto id = host->GetId();
     json->Put("nodeId", id);
-    UiSessionManager::GetInstance()->ReportComponentChangeEvent("result", json->ToString().c_str());
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent("result", json->ToString(),
+        ComponentEventType::COMPONENT_EVENT_SELECT);
+}
+
+void CheckBoxPattern::ReportToggleChangeEvent(bool isOn)
+{
+    bool isToggle = AceType::InstanceOf<ToggleCheckBoxPattern>(Claim(this));
+    CHECK_NE_VOID(isToggle, true);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto nodeId = host->GetId();
+    auto params = JsonUtil::Create();
+    CHECK_NULL_VOID(params);
+    params->Put("nodeId", nodeId);
+    params->Put("isOn", isOn);
+    auto json = JsonUtil::Create();
+    CHECK_NULL_VOID(json);
+    json->Put("event", "onToggleChange");
+    json->Put("params", params);
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent(
+        "result", json->ToString(), ComponentEventType::COMPONENT_EVENT_SELECT);
 }
 
 void CheckBoxPattern::RegisterVisibleAreaChange()

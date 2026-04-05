@@ -48,13 +48,13 @@ struct MediaQueryResult {
     {
         ani_boolean match = false;
         ani_string media = nullptr;
-        static const char *className = "@ohos.mediaquery.mediaquery.Mediaquery";
+        static const char *className = "@ohos.mediaquery.mediaquery.MediaQueryListener";
         ani_class cls;
         if (ANI_OK != env->FindClass(className, &cls)) {
             return;
         }
         ani_method method;
-        if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", nullptr, &method)) {
+        if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", "l:", &method)) {
             return;
         }
         env->Object_New(cls, method, &result, match, media);
@@ -80,7 +80,7 @@ struct MediaQueryResult {
             return;
         }
         ani_method method;
-        if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", nullptr, &method)) {
+        if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", "zC{std.core.String}:", &method)) {
             return;
         }
         ani_size nr_refs = 16;
@@ -302,7 +302,7 @@ public:
     void AniSerializer([[maybe_unused]] ani_env *env, ani_object& result) override
     {
         MediaQueryResult::AniSerializer(env, result);
-        static const char *mediaquery = "@ohos.mediaquery.mediaquery.Mediaquery";
+        static const char *mediaquery = "@ohos.mediaquery.mediaquery.MediaQueryListener";
         ani_class cls2;
         if (ANI_OK != env->FindClass(mediaquery, &cls2)) {
             std::cerr << "Not found '" << mediaquery << "'" << std::endl;
@@ -430,7 +430,7 @@ static ani_object JSMatchMediaSync([[maybe_unused]] ani_env *env, ani_string con
     utf8Buffer[bytes_written] = '\0';
     std::string mediaCondition = std::string(utf8Buffer);
 
-    static const char *className = "@ohos.mediaquery.mediaquery.Mediaquery";
+    static const char *className = "@ohos.mediaquery.mediaquery.MediaQueryListener";
     ani_object mediaquery_obj = {};
     ani_class cls;
     if (ANI_OK != env->FindClass(className, &cls)) {
@@ -438,7 +438,7 @@ static ani_object JSMatchMediaSync([[maybe_unused]] ani_env *env, ani_string con
     }
 
     ani_method ctor;
-    if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", nullptr, &ctor)) {
+    if (ANI_OK != env->Class_FindMethod(cls, "<ctor>", "l:", &ctor)) {
         return mediaquery_obj;
     }
 
@@ -470,7 +470,7 @@ ANI_EXPORT ani_status ANI_Constructor(ani_vm *vm, uint32_t *result)
         return ANI_ERROR;
     }
 
-    static const char *className = "@ohos.mediaquery.mediaquery.Mediaquery";
+    static const char *className = "@ohos.mediaquery.mediaquery.MediaQueryListener";
     ani_class cls;
     if (ANI_OK != env->FindClass(className, &cls)) {
         return ANI_ERROR;

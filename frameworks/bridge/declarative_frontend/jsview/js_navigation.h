@@ -66,6 +66,8 @@ public:
     static void SetSystemBarStyle(const JSCallbackInfo& info);
     static void SetRecoverable(const JSCallbackInfo& info);
     static void SetEnableDragBar(const JSCallbackInfo& info);
+    static void SetEnableVisibilityLifecycleWithContentCover(const JSCallbackInfo& info);
+    static void SetDivider(const JSCallbackInfo& info);
 };
 } // namespace OHOS::Ace::Framework
 

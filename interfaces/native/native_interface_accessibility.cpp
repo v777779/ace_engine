@@ -17,10 +17,12 @@
 
 #include <cmath>
 #include <map>
+#include <string>
 
 #include "base/utils/utils.h"
 #include "frameworks/core/accessibility/native_interface_accessibility_impl.h"
 #include "frameworks/core/accessibility/native_interface_accessibility_provider.h"
+#include "interfaces/native/node/node_model.h"
 #include "native_type.h"
 
 #ifdef __cplusplus
@@ -510,6 +512,49 @@ int32_t OH_ArkUI_FindAccessibilityActionArgumentByKey(
     CHECK_NULL_RETURN(key, ARKUI_ACCESSIBILITY_NATIVE_RESULT_BAD_PARAMETER);
     *value = const_cast<char*>(arguments->FindValueByKey(key));
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL;
+}
+
+int32_t OH_ArkUI_AccessibilityElementInfoSetComponentIdentifier(
+    ArkUI_AccessibilityElementInfo *elementInfo, const char *identifier)
+{
+    CHECK_NULL_RETURN(elementInfo, ARKUI_ACCESSIBILITY_NATIVE_RESULT_BAD_PARAMETER);
+    CHECK_NULL_RETURN(identifier, ARKUI_ACCESSIBILITY_NATIVE_RESULT_BAD_PARAMETER);
+    constexpr size_t MAX_IDENTIFIER_LEN = 1024;
+    size_t len = strnlen(identifier, MAX_IDENTIFIER_LEN + 1);
+    if (len > MAX_IDENTIFIER_LEN) {
+        std::string truncatedIdentifier(identifier, 0, MAX_IDENTIFIER_LEN);
+        elementInfo->SetComponentIdentifier(truncatedIdentifier.c_str());
+    } else {
+        elementInfo->SetComponentIdentifier(identifier);
+    }
+    return ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL;
+}
+
+int32_t OH_ArkUI_NativeModule_GetNativeAccessibilityProvider(
+    ArkUI_NodeHandle* node, ArkUI_AccessibilityProvider** provider)
+{
+    if ((node == nullptr) || (provider == nullptr)) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    ArkUI_NodeHandle nativeNode = *node;
+    *provider = nullptr;
+
+    if (!OHOS::Ace::NodeModel::IsValidArkUINode(nativeNode)) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    if (nativeNode->type != ARKUI_NODE_CUSTOM) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto arkuiProvider = impl->getNodeModifiers()->getFrameNodeModifier()->getAccessibilityProvider(
+        nativeNode->uiNodeHandle);
+    if (arkuiProvider == nullptr) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    *provider = arkuiProvider;
+    return ARKUI_ERROR_CODE_NO_ERROR;
 }
 
 #ifdef __cplusplus

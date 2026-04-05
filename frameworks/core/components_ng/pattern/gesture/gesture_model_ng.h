@@ -40,7 +40,8 @@ public:
 
 class ACE_EXPORT LongPressGestureModelNG : public OHOS::Ace::LongPressGestureModel {
 public:
-    void Create(int32_t fingersNum, bool repeatResult, int32_t durationNum, bool isLimitFingerCount = false) override;
+    void Create(int32_t fingersNum, bool repeatResult, int32_t durationNum, bool isLimitFingerCount = false,
+        double allowableMovementNum = 15.0) override;
 };
 
 class ACE_EXPORT PanGestureModelNG : public OHOS::Ace::PanGestureModel {
@@ -54,7 +55,7 @@ public:
 
 class ACE_EXPORT SwipeGestureModelNG : public OHOS::Ace::SwipeGestureModel {
 public:
-    void Create(int32_t fingersNum, const SwipeDirection& slideDirection, double speedNum,
+    void Create(int32_t fingersNum, const SwipeDirection& slideDirection, const Dimension& speedNum,
         bool isLimitFingerCount = false) override;
 };
 

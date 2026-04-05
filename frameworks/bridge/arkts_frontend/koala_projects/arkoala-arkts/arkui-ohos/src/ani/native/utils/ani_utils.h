@@ -47,7 +47,7 @@
             HILOGE("ani call %{public}s failed: %{public}d, %{public}s", #call, ret,                   \
                 static_cast<size_t>(ret) < std::extent_v<decltype(aniErr)> ? aniErr[ret] : "ANI_???"); \
             if (ret == ANI_PENDING_ERROR) {                                                            \
-                Ani::AniUtils::ClearAniPendingError(env);                                              \
+                OHOS::Ace::Ani::AniUtils::ClearAniPendingError(env);                                   \
             }                                                                                          \
             onFail;                                                                                    \
         }                                                                                              \
@@ -60,6 +60,7 @@ class AniUtils {
 public:
     static ani_object CreateDouble(ani_env *env, double value);
     static ani_object CreateLong(ani_env *env, ani_long value);
+    static ani_object CreateInt32(ani_env *env, int32_t value);
     static bool CheckType(ani_env *env, ani_object obj, const std::string& type);
     static bool GetIntByName(ani_env *env, ani_object param, const char *name, int &value);
     static bool GetBoolOrUndefined(ani_env *env, ani_object param, const char *name);
@@ -68,6 +69,7 @@ public:
     static bool IsNumber(ani_env* env, ani_object obj);
     static bool IsFunction(ani_env* env, ani_object obj);
     static bool IsUndefined(ani_env* env, ani_object obj);
+    static bool IsUndefined(ani_env* env, ani_ref ref);
     static ani_object GetUndefined(ani_env* env);
     static std::optional<ani_string> StdStringToANIString(ani_env *env, std::string str);
     static bool GetStringByName(
@@ -78,6 +80,15 @@ public:
     static bool GetBigIntValue(ani_env* env, ani_object object, int64_t& longValue);
     static bool GetEnumItem(
         [[maybe_unused]] ani_env* env, ani_size index, const char* enumName, ani_enum_item& enumItem);
+    
+    static bool GetBoolParam(ani_env* env, ani_ref ref, bool& result);
+    static bool GetBoolParam(ani_env* env, ani_object object, const char* name, bool& result);
+    static bool IsArrayObject(ani_env* env, ani_object object);
+    static bool IsArrayObject(ani_env* env, ani_ref ref);
+    static bool GetArrayIntParam(ani_env* env, ani_ref ref, std::vector<int32_t>& result);
+    static bool GetArrayIntParam(ani_env* env, ani_object object, const char* name, std::vector<int32_t>& result);
+    static ani_error GetErrorObject(ani_env* env, const std::string& errMsg, int32_t code, const std::string& Tag);
+
     // Get double value from ani_ref.
     // The return value means the parse result. True means success.
     // If the ref is undefined, it will return false.
@@ -98,7 +109,7 @@ public:
     static int32_t CreateAniBoolean(ani_env* env, bool value, ani_object& result);
 
     /**
-     * Get AbcRuntimeLinkder to load application class.
+     * Get AbcRuntimeLinker to load application class.
      */
     static int32_t GetNearestNonBootRuntimeLinker(ani_env*, ani_ref& result);
 
@@ -111,6 +122,11 @@ public:
      * Get ani env from ani vm.
      */
     static ani_env* GetAniEnv(ani_vm* vm);
+
+    /**
+     * Provides a null reference
+     */
+    static ani_ref CreateNull(ani_env* env);
 };
 } // namespace OHOS::Ace::Ani
 

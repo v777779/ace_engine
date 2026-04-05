@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,12 +13,15 @@
  * limitations under the License.
  */
 
-#include "base/utils/utf_helper.h"
 #include "core/components_ng/pattern/button/toggle_button_pattern.h"
 
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
+
+#include "base/utils/utf_helper.h"
+#include "core/components/text/text_theme.h"
 #include "core/components/toggle/toggle_theme.h"
 #include "core/components_ng/pattern/toggle/toggle_model.h"
-#include "core/components/text/text_theme.h"
+#include "core/components_ng/property/position_property.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -28,6 +31,8 @@ constexpr int32_t MOUSE_HOVER_DURATION = 250;
 constexpr int32_t TYPE_TOUCH = 0;
 constexpr int32_t TYPE_HOVER = 1;
 constexpr int32_t TYPE_CANCEL = 2;
+const std::string INJECTION_CMD_FORMAT_ERROR = "Invalid injection command format.";
+const std::string COMPONENT_IN_READONLY = "The component is in read-only state.";
 }
 
 void ToggleButtonPattern::OnAttachToFrameNode()
@@ -49,9 +54,6 @@ void ToggleButtonPattern::InitParameters()
     buttonRadius_ = toggleTheme_->GetButtonRadius();
     textFontSize_ = toggleTheme_->GetTextFontSize();
     textColor_ = toggleTheme_->GetTextColor();
-    auto buttonTheme = context->GetTheme<ButtonTheme>();
-    CHECK_NULL_VOID(buttonTheme);
-    clickedColor_ = buttonTheme->GetClickedColor();
 }
 
 void ToggleButtonPattern::OnModifyDone()
@@ -72,11 +74,11 @@ void ToggleButtonPattern::OnModifyDone()
     auto buttonPaintProperty = GetPaintProperty<ToggleButtonPaintProperty>();
     CHECK_NULL_VOID(buttonPaintProperty);
     if (!isOn_.has_value()) {
-        isOn_ = buttonPaintProperty->GetIsOnValue(false);
+        isOn_ = buttonPaintProperty->GetIsOnValue();
     }
     bool changed = false;
     if (buttonPaintProperty->HasIsOn()) {
-        bool isOn = buttonPaintProperty->GetIsOnValue(false);
+        bool isOn = buttonPaintProperty->GetIsOnValue();
         changed = isOn ^ isOn_.value();
         isOn_ = isOn;
     }
@@ -96,6 +98,7 @@ void ToggleButtonPattern::OnModifyDone()
         auto toggleButtonEventHub = GetEventHub<ToggleButtonEventHub>();
         CHECK_NULL_VOID(toggleButtonEventHub);
         toggleButtonEventHub->UpdateChangeEvent(isOn_.value());
+        ReportChangeEvent(isOn_.value());
     }
     GetIsTextFade();
     FireBuilder();
@@ -219,7 +222,8 @@ void ToggleButtonPattern::HandleBorderAndShadow()
     if (!layoutProperty->GetBorderWidthProperty()) {
         if (!renderContext->HasBorderWidth()) {
             BorderWidthProperty borderWidth;
-            borderWidth.SetBorderWidth(toggleTheme_->GetBorderWidth());
+            borderWidth.SetBorderWidth(paintProperty->GetIsOnValue(false) ?
+                toggleTheme_->GetBorderWidth() : toggleTheme_->GetBorderWidthUnchecked());
             layoutProperty->UpdateBorderWidth(borderWidth);
             renderContext->UpdateBorderWidth(borderWidth);
         }
@@ -299,16 +303,16 @@ void ToggleButtonPattern::SetBlurButtonStyle(RefPtr<FrameNode>& textNode,
 {
     CHECK_NULL_VOID(toggleTheme_);
     CHECK_NULL_VOID(renderContext);
-    if (isCheckedShadow_ && isOn_.value()) {
+    if (isCheckedShadow_ && isOn_.value_or(false)) {
         isCheckedShadow_ = false;
         ShadowStyle shadowStyle = static_cast<ShadowStyle>(toggleTheme_->GetShadowNormal());
         renderContext->UpdateBackShadow(Shadow::CreateShadow(shadowStyle));
     }
-    if (isShadow_ && !isOn_.value()) {
+    if (isShadow_ && !isOn_.value_or(false)) {
         isShadow_ = false;
         renderContext->UpdateBackShadow(Shadow::CreateShadow(ShadowStyle::None));
     }
-    if (isScale_) {
+    if (isScale_ && !isHover_) {
         isScale_ = false;
         renderContext->SetScale(1.0, 1.0);
     }
@@ -419,7 +423,8 @@ void ToggleButtonPattern::SetToggleScale(RefPtr<RenderContext>& renderContext)
     CHECK_NULL_VOID(transform);
     float sacleHoverOrFocus = toggleTheme_->GetScaleHoverOrFocus();
     VectorF scale(sacleHoverOrFocus, sacleHoverOrFocus);
-    if (!transform->HasTransformScale() || transform->GetTransformScaleValue() == scale) {
+    if (!NearEqual(sacleHoverOrFocus, 1.0f) &&
+        (!transform->HasTransformScale() || transform->GetTransformScaleValue() == scale)) {
         isScale_ = true;
         renderContext->SetScale(sacleHoverOrFocus, sacleHoverOrFocus);
     }
@@ -442,6 +447,7 @@ void ToggleButtonPattern::SetAccessibilityAction()
         CHECK_NULL_VOID(pattern);
         pattern->UpdateSelectStatus(false);
     });
+    FireBuilder();
 }
 
 void ToggleButtonPattern::UpdateSelectStatus(bool isSelected)
@@ -454,31 +460,6 @@ void ToggleButtonPattern::UpdateSelectStatus(bool isSelected)
     context->OnMouseSelectUpdate(isSelected, ITEM_FILL_COLOR, ITEM_FILL_COLOR);
 }
 
-void ToggleButtonPattern::UpdateComponentColor(const Color& color, const ToggleColorType toggleColorType)
-{
-    auto host = GetHost();
-    CHECK_NULL_VOID(host);
-    auto pipelineContext = host->GetContext();
-    CHECK_NULL_VOID(pipelineContext);
-    auto paintProperty = GetPaintProperty<ToggleButtonPaintProperty>();
-    CHECK_NULL_VOID(paintProperty);
-
-    if (pipelineContext->IsSystmColorChange()) {
-        switch (toggleColorType) {
-            case ToggleColorType::SELECTED_COLOR:
-                paintProperty->UpdateSelectedColor(color);
-                break;
-            case ToggleColorType::SWITCH_POINT_COLOR:
-                break;
-            case ToggleColorType::UN_SELECTED_COLOR:
-                break;
-        }
-    }
-    if (host->GetRerenderable()) {
-        host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
-    }
-}
-
 void ToggleButtonPattern::MarkIsSelected(bool isSelected)
 {
     if (isOn_ == isSelected) {
@@ -488,6 +469,7 @@ void ToggleButtonPattern::MarkIsSelected(bool isSelected)
     auto eventHub = GetEventHub<ToggleButtonEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->UpdateChangeEvent(isSelected);
+    ReportChangeEvent(isSelected);
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     if (isSelected) {
@@ -553,15 +535,20 @@ void ToggleButtonPattern::OnTouchDown()
         auto renderContext = host->GetRenderContext();
         CHECK_NULL_VOID(renderContext);
         backgroundColor_ = renderContext->GetBackgroundColor().value_or(Color::TRANSPARENT);
-        if (isSetClickedColor_) {
+        if (clickedColor_.has_value()) {
             // for user self-defined
-            renderContext->UpdateBackgroundColor(clickedColor_);
+            renderContext->UpdateBackgroundColor(clickedColor_.value());
             return;
         }
         // for system default
-        auto isNeedToHandleHoverOpacity = false;
+        auto isNeedToHandleHoverOpacity = isHover_;
         AnimateTouchAndHover(renderContext, isNeedToHandleHoverOpacity ? TYPE_HOVER : TYPE_CANCEL, TYPE_TOUCH,
             TOUCH_DURATION, isNeedToHandleHoverOpacity ? Curves::SHARP : Curves::FRICTION);
+    }
+    if (isScale_) {
+        auto renderContext = host->GetRenderContext();
+        CHECK_NULL_VOID(renderContext);
+        renderContext->SetScale(1.0f, 1.0f);
     }
 }
 
@@ -578,17 +565,20 @@ void ToggleButtonPattern::OnTouchUp()
     CHECK_NULL_VOID(buttonEventHub);
     if (buttonEventHub->GetStateEffect()) {
         auto renderContext = host->GetRenderContext();
-        if (isSetClickedColor_) {
+        if (clickedColor_.has_value()) {
             renderContext->UpdateBackgroundColor(backgroundColor_);
             return;
         }
         if (buttonEventHub->IsEnabled()) {
-            auto isNeedToHandleHoverOpacity = false;
+            auto isNeedToHandleHoverOpacity = isHover_;
             AnimateTouchAndHover(renderContext, TYPE_TOUCH, isNeedToHandleHoverOpacity ? TYPE_HOVER : TYPE_CANCEL,
                 TOUCH_DURATION, isNeedToHandleHoverOpacity ? Curves::SHARP : Curves::FRICTION);
         } else {
             AnimateTouchAndHover(renderContext, TYPE_TOUCH, TYPE_CANCEL, TOUCH_DURATION, Curves::FRICTION);
         }
+    }
+    if (isScale_ && isHover_) {
+        HandleHoverEvent(true);
     }
 }
 
@@ -639,8 +629,9 @@ void ToggleButtonPattern::OnClick()
     auto buttonEventHub = GetEventHub<ToggleButtonEventHub>();
     CHECK_NULL_VOID(buttonEventHub);
     buttonEventHub->UpdateChangeEvent(!isLastSelected);
-    host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
+    ReportChangeEvent(!isLastSelected);
     HandleOnOffStyle(!isOn_.value(), isFocus_);
+    host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
 }
 
 void ToggleButtonPattern::HandleOnOffStyle(bool isOnToOff, bool isFocus)
@@ -657,6 +648,22 @@ void ToggleButtonPattern::HandleOnOffStyle(bool isOnToOff, bool isFocus)
         BorderColorProperty color;
         color.SetColor(isOnToOff ? toggleTheme_->GetBorderColorUnchecked() : toggleTheme_->GetBorderColorChecked());
         renderContext->UpdateBorderColor(color);
+    }
+
+    if (NearEqual(toggleTheme_->GetBorderWidth().Value(), toggleTheme_->GetBorderWidthUnchecked().Value())) {
+        return;
+    }
+    BorderWidthProperty currentBorderWidth;
+    currentBorderWidth.SetBorderWidth(
+        isOnToOff ? toggleTheme_->GetBorderWidth() : toggleTheme_->GetBorderWidthUnchecked());
+    if (renderContext->HasBorderWidth() && renderContext->GetBorderWidth() == currentBorderWidth) {
+        BorderWidthProperty targetBorderWidth;
+        targetBorderWidth.SetBorderWidth(
+            isOnToOff ? toggleTheme_->GetBorderWidthUnchecked() : toggleTheme_->GetBorderWidth());
+        auto layoutProperty = GetLayoutProperty<ButtonLayoutProperty>();
+        CHECK_NULL_VOID(layoutProperty);
+        layoutProperty->UpdateBorderWidth(targetBorderWidth);
+        renderContext->UpdateBorderWidth(targetBorderWidth);
     }
 }
 
@@ -753,20 +760,6 @@ void ToggleButtonPattern::OnRestoreInfo(const std::string& restoreInfo)
 void ToggleButtonPattern::OnColorConfigurationUpdate()
 {
     OnModifyDone();
-    if (SystemProperties::ConfigChangePerform()) {
-        auto host = GetHost();
-        CHECK_NULL_VOID(host);
-        auto pipeline = host->GetContext();
-        CHECK_NULL_VOID(pipeline);
-        auto theme = pipeline->GetTheme<ToggleTheme>();
-        CHECK_NULL_VOID(theme);
-        auto pops = host->GetPaintProperty<ToggleButtonPaintProperty>();
-        CHECK_NULL_VOID(pops);
-        if (!pops->GetSelectedColorSetByUserValue(false)) {
-            Color color = theme->GetCheckedColor();
-            pops->UpdateSelectedColor(color);
-        }
-    }
 }
 
 bool ToggleButtonPattern::OnThemeScopeUpdate(int32_t themeScopeId)
@@ -883,5 +876,88 @@ void ToggleButtonPattern::ToTreeJson(std::unique_ptr<JsonValue>& json, const Ins
 {
     Pattern::ToTreeJson(json, config);
     json->Put(TreeKey::CHECKED, isOn_ ? "true" : "false");
+}
+
+bool ToggleButtonPattern::ParseCommand(const std::string& command, bool& isOn)
+{
+    auto jsonObj = JsonUtil::ParseJsonString(command);
+    if (!jsonObj->IsValid() || !jsonObj->IsObject()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return false;
+    }
+    auto cmdObj = jsonObj->GetValue("cmd");
+    if (!cmdObj->IsValid() || !cmdObj->IsString()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return false;
+    }
+    auto cmdType = cmdObj->GetString();
+    if (cmdType != "onToggleChange") {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return false;
+    }
+    auto paramJson = jsonObj->GetValue("params");
+    if (!paramJson->IsValid() || !paramJson->IsObject()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return false;
+    }
+    auto isOnJson = paramJson->GetValue("isOn");
+    if (!isOnJson->IsValid() || !isOnJson->IsBool()) {
+        ReportInjectionResult(false, INJECTION_CMD_FORMAT_ERROR);
+        return false;
+    }
+    isOn = isOnJson->GetBool();
+    return true;
+}
+
+int32_t ToggleButtonPattern::OnInjectionEvent(const std::string& command)
+{
+    bool isOn = false;
+    auto ret = ParseCommand(command, isOn);
+    CHECK_EQUAL_RETURN(ret, false, RET_FAILED);
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, RET_FAILED);
+    auto eventHub = host->GetEventHub<EventHub>();
+    CHECK_NULL_RETURN(eventHub, RET_FAILED);
+    if (!eventHub->IsEnabled()) {
+        ReportInjectionResult(false, COMPONENT_IN_READONLY);
+        return RET_FAILED;
+    }
+    SetButtonPress(isOn);
+    ReportInjectionResult(true, "");
+    return RET_SUCCESS;
+}
+
+void ToggleButtonPattern::ReportChangeEvent(bool isOn)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto nodeId = host->GetId();
+    auto params = JsonUtil::Create();
+    CHECK_NULL_VOID(params);
+    params->Put("nodeId", nodeId);
+    params->Put("isOn", isOn);
+    auto json = JsonUtil::Create();
+    CHECK_NULL_VOID(json);
+    json->Put("event", "onToggleChange");
+    json->Put("params", params);
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent(
+        "result", json->ToString(), ComponentEventType::COMPONENT_EVENT_SELECT);
+}
+
+bool ToggleButtonPattern::ReportInjectionResult(bool isSuccess, const std::string& reason)
+{
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    auto nodeId = host->GetId();
+    CHECK_NULL_RETURN(nodeId, false);
+    auto result = JsonUtil::Create();
+    CHECK_NULL_RETURN(result, false);
+    result->Put("nodeId", nodeId);
+    result->Put("event", "onToggleChange");
+    result->Put("result", isSuccess ? "success" : "failed");
+    result->Put("reason", reason.c_str());
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent(
+        "ToggleResult", result->ToString(), ComponentEventType::COMPONENT_EVENT_SELECT);
+    return true;
 }
 } // namespace OHOS::Ace::NG

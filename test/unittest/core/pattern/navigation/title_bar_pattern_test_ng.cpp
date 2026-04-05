@@ -20,17 +20,24 @@
 
 #include "core/common/agingadapation/aging_adapation_dialog_theme.h"
 #include "core/common/agingadapation/aging_adapation_dialog_util.h"
+#include "core/common/multi_thread_build_manager.h"
 #include "core/components/button/button_theme.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/dialog/dialog_view.h"
+#include "core/components_ng/pattern/menu/menu_pattern.h"
+#include "core/components_ng/pattern/navigation/nav_bar_node.h"
+#include "core/components_ng/pattern/navigation/nav_bar_pattern.h"
+#include "core/components_ng/pattern/navrouter/navdestination_pattern.h"
 #include "core/components_ng/pattern/navigation/navigation_title_util.h"
 #include "core/components_ng/pattern/navigation/title_bar_node.h"
 #include "core/components_ng/pattern/navigation/title_bar_pattern.h"
 #include "core/components_ng/pattern/scroll/scroll_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "core/components_ng/pattern/menu/menu_pattern.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -1614,12 +1621,136 @@ HWTEST_F(TitleBarPatternTestNg, onAttachFrameNode, TestSize.Level1)
     TitleBarPatternTestNg::SetUpTestSuite();
     auto titleBarNode = TitleBarNode::GetOrCreateTitleBarNode(V2::TITLE_BAR_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TitleBarPattern>(); });
-    
+
     auto renderContext = titleBarNode->GetRenderContext();
     ASSERT_NE(renderContext, nullptr);
-    
+
     bool value = renderContext->GetClipEdgeValue(false);
     EXPECT_EQ(value, true);
+}
+
+/**
+ * @tc.name: OnAttachToMainTreeMultiFrameNode
+ * @tc.desc: test OnAttachToFrameNodeMultiThread & OnAttachToMainTreeMultiThread.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TitleBarPatternTestNg, OnAttachToMainTreeMultiFrameNode, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create titleBarNode.
+     */
+    auto titleBarNode = TitleBarNode::GetOrCreateTitleBarNode(V2::TITLE_BAR_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TitleBarPattern>(); });
+    ASSERT_NE(titleBarNode, nullptr);
+    auto titleBarPattern = titleBarNode->GetPattern<TitleBarPattern>();
+    ASSERT_NE(titleBarPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Simulate MutltiThread Enviroment.
+     */
+    auto host = titleBarPattern->GetHost();
+    ASSERT_NE(host, nullptr);
+    host->isThreadSafeNode_ = true;
+    auto context = PipelineContext::GetCurrentContext();
+    ASSERT_NE(context, nullptr);
+    auto size = context->halfFoldHoverChangedCallbackMap_.size();
+
+    /**
+     * @tc.steps: step3. Call OnAttachToFrameNode.
+     * @tc.expected: OnAttachToFrameNodeMultiThread is called, nothing is done.
+     */
+    titleBarPattern->OnAttachToFrameNode(); // call OnAttachToFrameNodeMultiThread
+    EXPECT_EQ(size, context->halfFoldHoverChangedCallbackMap_.size());
+
+    /**
+     * @tc.steps: step4. Call OnAttachToMainTree.
+     * @tc.expected: OnAttachToMainTreeMultiThread is called.
+     */
+    titleBarPattern->OnAttachToMainTree(); // call OnAttachToMainTreeMultiThread
+    EXPECT_EQ(size + 1, context->halfFoldHoverChangedCallbackMap_.size());
+}
+
+/**
+ * @tc.name: OnDetachFromMainTreeMultiThread
+ * @tc.desc: test OnDetachFromFrameNodeMultiThread & OnDetachFromMainTreeMultiThread.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TitleBarPatternTestNg, OnDetachFromMainTreeMultiThread, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create titleBarNode.
+     */
+    auto titleBarNode = FrameNode::CreateFrameNode("BackButton", 33, AceType::MakeRefPtr<TitleBarPattern>());
+    ASSERT_NE(titleBarNode, nullptr);
+    titleBarNode->isThreadSafeNode_ = true;
+    auto titleBarPattern = titleBarNode->GetPattern<TitleBarPattern>();
+    ASSERT_NE(titleBarPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Simulate MutltiThread Enviroment.
+     */
+    auto host = titleBarPattern->GetHost();
+    ASSERT_NE(host, nullptr);
+    host->isThreadSafeNode_ = true;
+    auto context = PipelineContext::GetCurrentContext();
+    ASSERT_NE(context, nullptr);
+    titleBarPattern->OnAttachToMainTree(); // call OnAttachToMainTreeMultiThread
+    auto frameNode = FrameNode::CreateFrameNode("BackButton", 33, AceType::MakeRefPtr<TitleBarPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->isThreadSafeNode_ = true;
+    auto size = context->halfFoldHoverChangedCallbackMap_.size();
+
+    /**
+     * @tc.steps: step3. Call OnDetachFromFrameNode.
+     * @tc.expected: OnDetachFromFrameNodeMultiThread is called, nothing is done.
+     */
+    titleBarPattern->OnDetachFromFrameNode(AceType::RawPtr(frameNode)); // call OnDetachFromMainTreeMultiThread
+    EXPECT_EQ(size, context->halfFoldHoverChangedCallbackMap_.size());
+
+    /**
+     * @tc.steps: step4. Call OnDetachFromMainTree.
+     * @tc.expected: OnDetachFromMainTreeMultiThread is called.
+     */
+    titleBarPattern->OnDetachFromMainTree(); // call OnDetachFromMainTreeMultiThread
+    EXPECT_EQ(size - 1, context->halfFoldHoverChangedCallbackMap_.size());
+}
+
+/**
+ * @tc.name: UpdateBackgroundStyleMultiThread
+ * @tc.desc: test UpdateBackgroundStyleMultiThread.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TitleBarPatternTestNg, UpdateBackgroundStyleMultiThread, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Simulate non-UI thread environment and create a thread-safe select node.
+     */
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
+    bool isUIThread = MultiThreadBuildManager::isUIThread_;
+    MultiThreadBuildManager::isUIThread_ = false;
+
+    /**
+     * @tc.steps: step2. Create frameNode.
+     */
+    auto frameNode = FrameNode::CreateFrameNode("BackButton", 33, AceType::MakeRefPtr<TitleBarPattern>());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->isThreadSafeNode_ = true;
+    auto size = frameNode->afterAttachMainTreeTasks_.size();
+    auto titleBarPattern = frameNode->GetPattern<TitleBarPattern>();
+    ASSERT_NE(titleBarPattern, nullptr);
+
+    /**
+     * @tc.steps: step3. Call UpdateBackgroundStyle.
+     * @tc.expected: afterAttachMainTreeTasks_.size()++.
+     */
+    titleBarPattern->UpdateBackgroundStyle(frameNode); // call UpdateBackgroundStyleMultiThread
+    EXPECT_EQ(frameNode->afterAttachMainTreeTasks_.size(), size + 1);
+
+    /**
+     * @tc.steps: step4. Restore environment.
+     */
+    MultiThreadBuildManager::isUIThread_ = isUIThread;
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(false);
 }
 
 /**
@@ -1734,7 +1865,7 @@ HWTEST_F(TitleBarPatternTestNg, TitleBarLayoutTitle001, TestSize.Level1)
     titleBarNode->SetTitle(mainTitleNode);
     titleBarNode->AddChild(mainTitleNode);
     auto titleProp = mainTitleNode->GetLayoutProperty<TextLayoutProperty>();
-    
+
     auto geo = titleBarNode->GetGeometryNode();
     ASSERT_NE(titleBarNode, nullptr);
     auto layoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(titleBarNode, geo, titleBarLayoutProperty);
@@ -1744,28 +1875,28 @@ HWTEST_F(TitleBarPatternTestNg, TitleBarLayoutTitle001, TestSize.Level1)
         AceType::MakeRefPtr<LayoutWrapperNode>(mainTitleNode, mainTitleNode->GetGeometryNode(), titleProp);
     ASSERT_NE(childWrapper, nullptr);
     layoutWrapper->AppendChild(childWrapper);
-    
+
     auto layoutAlgorithm = AceType::DynamicCast<TitleBarLayoutAlgorithm>(titleBarPattern->CreateLayoutAlgorithm());
     ASSERT_NE(layoutAlgorithm, nullptr);
-    
+
     auto navBar = NavBarNode::GetOrCreateNavBarNode(V2::NAVBAR_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<NavBarPattern>(); });
     ASSERT_NE(navBar, nullptr);
     navBar->propPrevTitleIsCustom_ = true;
     titleBarNode->parent_ = navBar;
-    
+
     AceApplicationInfo::GetInstance().apiVersion_ = static_cast<int32_t>(PlatformVersion::VERSION_THIRTEEN);
     MockPipelineContext::GetCurrent()->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_THIRTEEN));
     layoutAlgorithm->menuOccupiedHeight_ = 100.0f;
     layoutAlgorithm->LayoutTitle(AceType::RawPtr(layoutWrapper), titleBarNode, titleBarLayoutProperty, 100);
-    
+
     /**
      * @tc.steps: step2. check geometryNode frameOffset is correct?
      */
     auto titleGeo = mainTitleNode->GetGeometryNode();
     EXPECT_EQ(layoutAlgorithm->menuOccupiedHeight_, 100.0f);
     EXPECT_EQ(titleGeo->GetMarginFrameOffset().GetY(), layoutAlgorithm->menuOccupiedHeight_);
-    
+
     /**
      * @tc.steps: step3. test Free mode, title offse.
      */
@@ -1774,7 +1905,7 @@ HWTEST_F(TitleBarPatternTestNg, TitleBarLayoutTitle001, TestSize.Level1)
     layoutAlgorithm->LayoutTitle(AceType::RawPtr(layoutWrapper), titleBarNode, titleBarLayoutProperty, 100);
     EXPECT_EQ(layoutAlgorithm->menuOccupiedHeight_, 100.0f);
     EXPECT_EQ(titleGeo->GetMarginFrameOffset().GetY(), layoutAlgorithm->menuOccupiedHeight_);
-    
+
     /**
      * @tc.steps: step4. test apiVersion 9, and FULL mode. offsetY is not menuOccupieHeight_
      */
@@ -1819,7 +1950,7 @@ HWTEST_F(TitleBarPatternTestNg, TitleBarLayoutTitle002, TestSize.Level1)
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
     ASSERT_NE(navDes, nullptr);
     titleBarNode->parent_ = navDes;
-    
+
     auto geo = titleBarNode->GetGeometryNode();
     ASSERT_NE(titleBarNode, nullptr);
     auto layoutWrapper = AceType::MakeRefPtr<LayoutWrapperNode>(titleBarNode, geo, titleBarLayoutProperty);
@@ -1829,28 +1960,83 @@ HWTEST_F(TitleBarPatternTestNg, TitleBarLayoutTitle002, TestSize.Level1)
         AceType::MakeRefPtr<LayoutWrapperNode>(mainTitleNode, mainTitleNode->GetGeometryNode(), titleProp);
     ASSERT_NE(childWrapper, nullptr);
     layoutWrapper->AppendChild(childWrapper);
-    
+
     auto layoutAlgorithm = AceType::DynamicCast<TitleBarLayoutAlgorithm>(titleBarPattern->CreateLayoutAlgorithm());
     ASSERT_NE(layoutAlgorithm, nullptr);
-    
+
     auto navBar = NavBarNode::GetOrCreateNavBarNode(V2::NAVBAR_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<NavBarPattern>(); });
     ASSERT_NE(navBar, nullptr);
     navBar->propPrevTitleIsCustom_ = false;
-    
+
     AceApplicationInfo::GetInstance().apiVersion_ = static_cast<int32_t>(PlatformVersion::VERSION_THIRTEEN);
     MockPipelineContext::GetCurrent()->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_THIRTEEN));
     auto titleGeo = mainTitleNode->GetGeometryNode();
-    
+
     SizeF mSize = SizeF(500, 100);
     titleGeo->SetFrameSize(mSize);
     layoutAlgorithm->menuOccupiedHeight_ = 100.0f;
     layoutAlgorithm->singleLineTitleHeight_ = 200.0f;
     layoutAlgorithm->LayoutTitle(AceType::RawPtr(layoutWrapper), titleBarNode, titleBarLayoutProperty, 0);
-    
+
     /**
      * @tc.steps: step2. check geometryNode frameOffset is Center  (200 - 100) / 2;
      */
     EXPECT_EQ(titleGeo->GetMarginFrameOffset().GetY(), 50);
+}
+
+/**
+ * @tc.name: PrasePaddingEnd001
+ * @tc.desc: Test PrasePaddingEnd
+ * @tc.type: FUNC
+ */
+HWTEST_F(TitleBarPatternTestNg, PrasePaddingEnd001, TestSize.Level1)
+{
+    auto titleBarNode = TitleBarNode::GetOrCreateTitleBarNode(V2::TITLE_BAR_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TitleBarPattern>(); });
+    auto titleBarPattern = titleBarNode->GetPattern<TitleBarPattern>();
+    ASSERT_NE(titleBarPattern, nullptr);
+    auto navDestination = NavDestinationGroupNode::GetOrCreateGroupNode(
+        V2::NAVDESTINATION_VIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
+    titleBarNode->SetParent(navDestination);
+
+    auto layoutAlgorithm = AceType::DynamicCast<TitleBarLayoutAlgorithm>(titleBarPattern->CreateLayoutAlgorithm());
+    ASSERT_NE(layoutAlgorithm, nullptr);
+    float avoidWidth = 100.0f;
+    layoutAlgorithm->paddingRightForMenu_ = 50.0f;
+
+    navDestination->UpdatePrevTitleIsCustom(true);
+    NavigationTitlebarOptions options;
+    options.enableCustomTitlePaddingCheck = false;
+    titleBarPattern->SetTitlebarOptions(options);
+    bool result = layoutAlgorithm->PrasePaddingEnd(titleBarNode, avoidWidth);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(avoidWidth, 100.0f);
+
+    options.enableCustomTitlePaddingCheck = true;
+    titleBarPattern->SetTitlebarOptions(options);
+    result = layoutAlgorithm->PrasePaddingEnd(titleBarNode, avoidWidth);
+    EXPECT_TRUE(result);
+
+    options.brOptions.paddingEnd = CalcDimension(10.0f);
+    titleBarPattern->SetTitlebarOptions(options);
+    layoutAlgorithm->paddingRightForMenu_ = 150.0f;
+    navDestination->UpdatePrevTitleIsCustom(false);
+    result = layoutAlgorithm->PrasePaddingEnd(titleBarNode, avoidWidth);
+    EXPECT_FALSE(result);
+
+    layoutAlgorithm->paddingRightForMenu_ = 50.0f;
+    navDestination->UpdatePrevTitleIsCustom(true);
+    result = layoutAlgorithm->PrasePaddingEnd(titleBarNode, avoidWidth);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(avoidWidth, 50.0f);
+
+    options.enableCustomTitlePaddingCheck = false;
+    titleBarPattern->SetTitlebarOptions(options);
+    float avoidWidth2 = 100.0f;
+    result = layoutAlgorithm->PrasePaddingEnd(titleBarNode, avoidWidth2);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(avoidWidth2, 100.0f);
 }
 } // namespace OHOS::Ace::NG

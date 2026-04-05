@@ -21,10 +21,18 @@
 
 #include "base/memory/ace_type.h"
 #include "base/system_bar/system_bar_style.h"
+#include "core/common/window.h"
 #include "core/components/common/layout/constants.h"
 
 namespace OHOS::Ace {
 class PageViewportConfig;
+
+struct PageViewportConfigParams {
+    std::optional<Orientation> orientation;
+    std::optional<bool> enableStatusBar;
+    std::optional<bool> statusBarAnimation;
+    std::optional<bool> enableNavIndicator;
+};
 
 using WindowCallback = std::function<void(void)>;
 using WindowModeCallback = std::function<WindowMode(void)>;
@@ -38,13 +46,17 @@ using GetFreeMultiWindowModeEnabledStateCallback = std::function<bool(void)>;
 using WindowIsStartMovingCallback = std::function<bool(void)>;
 using WindowCallNativeCallback = std::function<void(const std::string&, const std::string&)>;
 using WindowSetSystemBarEnabledCallback = std::function<bool(SystemBarType, std::optional<bool>, std::optional<bool>)>;
-using GetCurrentViewportConfigCallback = std::function<RefPtr<PageViewportConfig>(void)>;
-using GetTargetViewportConfigCallback = std::function<RefPtr<PageViewportConfig>(std::optional<Orientation>,
-    std::optional<bool>, std::optional<bool>, std::optional<bool>)>;
+using GetPageViewportConfigCallback = std::function<bool(
+    const PageViewportConfigParams& currentParams, RefPtr<PageViewportConfig>& currentConfig,
+    const PageViewportConfigParams& targetParams, RefPtr<PageViewportConfig>& targetConfig)>;
+using IsSetOrientationNeededCallback = std::function<bool(std::optional<Orientation>)>;
 using SetRequestedOrientationCallback = std::function<void(std::optional<Orientation>, bool)>;
 using GetRequestedOrientationCallback = std::function<Orientation(void)>;
 using IsFullScreenWindowCallback = std::function<bool(void)>;
 using IsPcOrPadFreeMultiWindowModeCallback = std::function<bool(void)>;
+using GetHeightBreakpoint = std::function<HeightBreakpoint(void)>;
+using GetWidthBreakpoint = std::function<WidthBreakpoint(void)>;
+using ForceFullScreenChangeCallback = std::function<void(bool)>;
 
 struct DecorButtonStyle {
     int32_t colorMode;
@@ -167,14 +179,14 @@ public:
         windowSetSystemBarEnabledCallback_ = std::move(callback);
     }
 
-    void SetGetCurrentViewportConfigCallback(GetCurrentViewportConfigCallback&& callback)
+    void SetGetPageViewportConfigCallback(GetPageViewportConfigCallback&& callback)
     {
-        getCurrentViewportConfigCallback_ = std::move(callback);
+        getPageViewportConfigCallback_ = std::move(callback);
     }
 
-    void SetGetTargetViewportConfigCallback(GetTargetViewportConfigCallback&& callback)
+    void SetIsSetOrientationNeededCallback(IsSetOrientationNeededCallback&& callback)
     {
-        getTargetViewportConfigCallback_ = std::move(callback);
+        isSetOrientationNeededCallback_ = std::move(callback);
     }
 
     void SetSetRequestedOrientationCallback(SetRequestedOrientationCallback&& callback)
@@ -356,10 +368,17 @@ public:
         return false;
     }
 
-    RefPtr<PageViewportConfig> GetCurrentViewportConfig();
-    RefPtr<PageViewportConfig> GetTargetViewportConfig(
-        std::optional<Orientation> orientation, std::optional<bool> enableStatusBar,
-        std::optional<bool> statusBarAnimation, std::optional<bool> enableNavIndicator);
+    bool GetPageViewportConfig(
+        const PageViewportConfigParams& currentParams, RefPtr<PageViewportConfig>& currentConfig,
+        const PageViewportConfigParams& targetParams, RefPtr<PageViewportConfig>& targetConfig);
+
+    bool IsSetOrientationNeeded(std::optional<Orientation> orientation)
+    {
+        if (isSetOrientationNeededCallback_) {
+            return isSetOrientationNeededCallback_(orientation);
+        }
+        return false;
+    }
 
     void SetRequestedOrientation(std::optional<Orientation> orientation, bool needAnimation = true)
     {
@@ -412,6 +431,44 @@ public:
         }
     }
 
+    void SetHeightBreakpointCallback(GetHeightBreakpoint&& callback)
+    {
+        getHeightBreakpointCallback_ = std::move(callback);
+    }
+
+    void SetWidthBreakpointCallback(GetWidthBreakpoint&& callback)
+    {
+        getWidthBreakpointCallback_ = std::move(callback);
+    }
+
+    HeightBreakpoint GetHeightBreakpointCallback() const
+    {
+        if (getHeightBreakpointCallback_) {
+            return getHeightBreakpointCallback_();
+        }
+        return HeightBreakpoint::HEIGHT_SM;
+    }
+
+    WidthBreakpoint GetWidthBreakpointCallback() const
+    {
+        if (getWidthBreakpointCallback_) {
+            return getWidthBreakpointCallback_();
+        }
+        return WidthBreakpoint::WIDTH_SM;
+    }
+
+    void SetForceFullScreenChangeCallback(ForceFullScreenChangeCallback&& callback)
+    {
+        forceFullScreenChangeCallback_ = std::move(callback);
+    }
+
+    void NotifyForceFullScreenChange(bool isForceFullScreen)
+    {
+        if (forceFullScreenChangeCallback_) {
+            forceFullScreenChangeCallback_(isForceFullScreen);
+        }
+    }
+
 private:
     int32_t appLabelId_ = 0;
     int32_t appIconId_ = 0;
@@ -434,8 +491,8 @@ private:
     GetSystemBarStyleCallback getSystemBarStyleCallback_;
     SetSystemBarStyleCallback setSystemBarStyleCallback_;
     WindowSetSystemBarEnabledCallback windowSetSystemBarEnabledCallback_;
-    GetCurrentViewportConfigCallback getCurrentViewportConfigCallback_;
-    GetTargetViewportConfigCallback getTargetViewportConfigCallback_;
+    GetPageViewportConfigCallback getPageViewportConfigCallback_;
+    IsSetOrientationNeededCallback isSetOrientationNeededCallback_;
     SetRequestedOrientationCallback setRequestedOrientationCallback_;
     GetRequestedOrientationCallback getRequestedOrientationCallback_;
     IsFullScreenWindowCallback isFullScreenWindowCallback_;
@@ -443,6 +500,9 @@ private:
     GetFreeMultiWindowModeEnabledStateCallback getFreeMultiWindowModeEnabledStateCallback_;
     WindowCallNativeCallback callNativeCallback_;
     std::function<void(bool)> useImplicitAnimationCallback_;
+    GetHeightBreakpoint getHeightBreakpointCallback_;
+    GetWidthBreakpoint getWidthBreakpointCallback_;
+    ForceFullScreenChangeCallback forceFullScreenChangeCallback_;
 };
 
 } // namespace OHOS::Ace

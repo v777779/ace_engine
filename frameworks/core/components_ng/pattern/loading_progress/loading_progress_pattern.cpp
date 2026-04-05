@@ -14,7 +14,9 @@
  */
 
 #include "base/log/dump_log.h"
+
 #include "base/utils/multi_thread.h"
+
 #include "core/components/progress/progress_theme.h"
 #include "core/components_ng/pattern/loading_progress/loading_progress_pattern.h"
 
@@ -67,6 +69,8 @@ void LoadingProgressPattern::OnDetachFromMainTree()
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     THREAD_SAFE_NODE_CHECK(host, OnDetachFromMainTree);
+    CHECK_NULL_VOID(loadingProgressModifier_);
+    loadingProgressModifier_->StartRecycle();
 }
 
 void LoadingProgressPattern::OnModifyDone()
@@ -340,7 +344,7 @@ void LoadingProgressPattern::UpdateColor(const Color& color, bool isFirstLoad)
     CHECK_NULL_VOID(pipelineContext);
     auto renderContext = host->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
-    if (isFirstLoad || pipelineContext->IsSystmColorChange()) {
+    if (isFirstLoad || pipelineContext->IsSystemColorChange()) {
         paintProperty->UpdateColor(color);
         renderContext->UpdateForegroundColor(color);
         renderContext->ResetForegroundColorStrategy();

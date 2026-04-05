@@ -13,10 +13,17 @@
  * limitations under the License.
  */
 
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
 #include "text_input_base.h"
+
+#include "core/components/common/properties/text_style.h"
 #include "core/components_ng/pattern/select/select_pattern.h"
+#include "core/components_ng/pattern/text/span/mutable_span_string.h"
 #include "core/components_ng/pattern/text/span/span_string.h"
-#include "test/mock/core/render/mock_paragraph.h"
+#include "core/components_ng/pattern/text/text_layout_algorithm.h"
+#include "core/components_ng/pattern/text/text_layout_property.h"
+#include "core/components_ng/pattern/text/text_pattern.h"
 
 namespace OHOS::Ace::NG {
 
@@ -396,8 +403,14 @@ HWTEST_F(TextFieldPatternTestThree, OnBackPressed001, TestSize.Level0)
     pattern_->SetSelectionFlag(start, end, options);
     EXPECT_EQ(pattern_->isEdit_, true);
 
+    /**
+     * trigger onbackpressed
+     */
     bool ret = pattern_->OnBackPressed();
     pattern_->imeShown_ = true;
+    /**
+     * trigger onbackpressed
+     */
     ret = pattern_->OnBackPressed();
     EXPECT_EQ(ret, true);
 }
@@ -567,6 +580,12 @@ HWTEST_F(TextFieldPatternTestThree, HandleAIWrite003, TestSize.Level0)
 #else
         pattern_->connection_= true;
 #endif
+    /**
+     *
+     *  @tc.steps: step2.
+     *  pattern call camerainput
+     *
+     */
     pattern_->HandleOnCameraInput();
     EXPECT_EQ(pattern_->selectController_->GetFirstHandleInfo().index, 26);
     EXPECT_EQ(pattern_->selectController_->GetSecondHandleInfo().index, 26);
@@ -582,5 +601,239 @@ HWTEST_F(TextFieldPatternTestThree, HandleAIWrite004, TestSize.Level0)
     pattern_->HandleOnCameraInput();
     EXPECT_EQ(pattern_->selectController_->GetFirstHandleInfo().index, 26);
     EXPECT_EQ(pattern_->selectController_->GetSecondHandleInfo().index, 26);
+}
+
+/**
+ * @tc.name: PlaceholderResponseArea001
+ * @tc.desc: test PlaceholderResponseArea PlaceholderResponseArea001 function
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestThree, PlaceholderResponseArea001, TestSize.Level0)
+{
+    CreateTextField(DEFAULT_TEXT);
+    // 创建 PlaceholderResponseArea 实例
+    RefPtr<SpanString> spanString = AceType::MakeRefPtr<SpanString>(u"0123456789");
+    pattern_->SetPlaceholderStyledString(spanString);
+    auto placeholderResponseArea = pattern_->GetPlaceholderResponseArea();
+    ASSERT_NE(placeholderResponseArea, nullptr);
+    
+    // 验证 placeholderNode_ 是否创建成功
+    auto placeholderNode = placeholderResponseArea->GetFrameNode();
+    ASSERT_NE(placeholderNode, nullptr);
+    
+    // 验证节点标签是否正确
+    EXPECT_EQ(placeholderNode->GetTag(), V2::TEXT_ETS_TAG);
+    
+    // 验证手势事件中心是否正确配置
+    auto gesture = placeholderNode->GetOrCreateGestureEventHub();
+    ASSERT_NE(gesture, nullptr);
+    EXPECT_EQ(gesture->GetHitTestMode(), HitTestMode::HTMNONE);
+}
+
+/**
+ * @tc.name: PlaceholderResponseArea002
+ * @tc.desc: test PlaceholderResponseArea PlaceholderResponseArea002 function
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestThree, PlaceholderResponseArea002, TestSize.Level0)
+{
+    CreateTextField(DEFAULT_TEXT);
+    // 创建 PlaceholderResponseArea 实例
+    RefPtr<SpanString> spanString = AceType::MakeRefPtr<SpanString>(u"0123456789");
+    pattern_->SetPlaceholderStyledString(spanString);
+    auto placeholderResponseArea = pattern_->GetPlaceholderResponseArea();
+    ASSERT_NE(placeholderResponseArea, nullptr);
+    
+    // 验证 placeholderNode_ 是否创建成功
+    auto placeholderNode = placeholderResponseArea->GetFrameNode();
+    ASSERT_NE(placeholderNode, nullptr);
+    
+    // 验证节点标签是否正确
+    EXPECT_EQ(placeholderNode->GetTag(), V2::TEXT_ETS_TAG);
+    
+    // 验证手势事件中心是否正确配置
+    auto gesture = placeholderNode->GetOrCreateGestureEventHub();
+    ASSERT_NE(gesture, nullptr);
+    EXPECT_EQ(gesture->GetHitTestMode(), HitTestMode::HTMNONE);
+}
+
+/**
+ * @tc.name: PlaceholderResponseArea003
+ * @tc.desc: test PlaceholderResponseArea PlaceholderResponseArea003 function
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestThree, PlaceholderResponseArea003, TestSize.Level0)
+{
+    CreateTextField(DEFAULT_TEXT);
+    // 创建 PlaceholderResponseArea 实例
+    auto spanString = AceType::MakeRefPtr<MutableSpanString>(u"0123456789");
+    SpanParagraphStyle spanParagraphStyle;
+    spanParagraphStyle.align = TextAlign::END;
+    spanParagraphStyle.maxLines = 4;
+    spanString->AddSpan(AceType::MakeRefPtr<ParagraphStyleSpan>(spanParagraphStyle, 0, 1));
+    spanString->AddSpan(AceType::MakeRefPtr<LineHeightSpan>(Dimension(30), 0, 3));
+    pattern_->SetPlaceholderStyledString(spanString);
+    auto placeholderResponseArea = pattern_->GetPlaceholderResponseArea();
+    ASSERT_NE(placeholderResponseArea, nullptr);
+
+    // 验证 placeholderNode_ 是否创建成功
+    auto placeholderNode = placeholderResponseArea->GetFrameNode();
+    ASSERT_NE(placeholderNode, nullptr);
+
+    auto textInputLayoutAlgorithm = AceType::DynamicCast<TextInputLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    TextStyle textStyle;
+    std::u16string textContent = u"";
+    auto pipeline = PipelineContext::GetCurrentContext();
+    auto theme = AceType::MakeRefPtr<MockThemeManager>();
+    pipeline->SetThemeManager(theme);
+    EXPECT_CALL(*theme, GetTheme(_, _)).WillRepeatedly(Return(AceType::MakeRefPtr<TextFieldTheme>()));
+    // 调用测试方法
+    auto textFieldTheme = pipeline->GetTheme<TextFieldTheme>(frameNode_->GetThemeScopeId());
+    ASSERT_NE(textFieldTheme, nullptr);
+    LayoutWrapperNode textInputLayoutWrapper =
+        LayoutWrapperNode(frameNode_, AceType::MakeRefPtr<GeometryNode>(), layoutProperty_);
+    textInputLayoutAlgorithm->ConstructStyledPlaceholderStyle(&textInputLayoutWrapper, frameNode_, textFieldTheme);
+
+    // 验证单行输入框text自身maxlines优先，且行数为1
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    auto textLayoutProperty = placeholderNode->GetLayoutProperty<TextLayoutProperty>();
+    RefPtr<LayoutWrapperNode> layoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(placeholderNode, geometryNode, textLayoutProperty);
+    auto pattern = placeholderNode->GetPattern<TextPattern>();
+    ASSERT_NE(pattern, nullptr);
+    TextStyle textStyleText;
+    auto textLayoutAlgorithm = AceType::MakeRefPtr<TextLayoutAlgorithm>(
+        pattern->GetSpanItemChildren(), pattern->GetParagraphManager(), true, textStyleText, false);
+    EXPECT_FALSE(textLayoutAlgorithm == nullptr);
+
+    // set theme.
+    pipeline->SetThemeManager(theme);
+    EXPECT_CALL(*theme, GetTheme(_, _)).WillRepeatedly(Return(AceType::MakeRefPtr<TextTheme>()));
+    LayoutConstraintF contentConstraint;
+    textLayoutAlgorithm->MeasureContent(contentConstraint, AccessibilityManager::RawPtr(layoutWrapper));
+    auto textStylePlaceholder = textLayoutAlgorithm->GetTextStyle();
+    EXPECT_TRUE(textLayoutProperty->GetIsTextMaxlinesFirstValue(false));
+    EXPECT_EQ(textStylePlaceholder.GetMaxLines(), 1);
+}
+
+/**
+ * @tc.name: GetTextDirection001
+ * @tc.desc: Test GetTextDirection with INHERIT textDirection_
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestThree, GetTextDirection001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create frameNode and layout algorithm
+     */
+    CreateTextField("", "");
+    auto layoutAlgorithm = AceType::DynamicCast<TextInputLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+
+    /**
+     * @tc.steps: step2. Get layout property and set layout direction
+     */
+    auto layoutProperty = pattern_->GetLayoutProperty<LayoutProperty>();
+    layoutProperty->layoutDirection_ = TextDirection::RTL;
+
+    /**
+     * @tc.steps: step3. Set textDirection_ to INHERIT
+     */
+    layoutAlgorithm->textDirection_ = TextDirection::INHERIT;
+
+    /**
+     * @tc.steps: step4. Call GetTextDirection
+     */
+    auto direction = layoutAlgorithm->GetTextDirection(layoutProperty);
+
+    /**
+     * @tc.expected: Return layout direction (RTL) when textDirection_ is INHERIT
+     */
+    EXPECT_EQ(direction, TextDirection::RTL);
+}
+
+/**
+ * @tc.name: GetTextDirection002
+ * @tc.desc: Test GetTextDirection with AUTO textDirection_ and valid paragraph_
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestThree, GetTextDirection002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create frameNode and layout algorithm
+     */
+    CreateTextField("", "");
+    auto layoutAlgorithm = AceType::DynamicCast<TextInputLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+
+    /**
+     * @tc.steps: step2. Get layout property
+     */
+    auto layoutProperty = pattern_->GetLayoutProperty<LayoutProperty>();
+    layoutProperty->layoutDirection_ = TextDirection::LTR;
+
+    /**
+     * @tc.steps: step3. Set textDirection_ to AUTO
+     */
+    layoutAlgorithm->textDirection_ = TextDirection::AUTO;
+
+    /**
+     * @tc.steps: step4. Create mock paragraph and set RTL direction
+     */
+    auto mockParagraph = MockParagraph::GetOrCreateMockParagraph();
+    ParagraphStyle paragraphStyle;
+    paragraphStyle.direction = TextDirection::RTL;
+
+    EXPECT_CALL(*mockParagraph, GetParagraphStyle()).WillRepeatedly(ReturnRef(paragraphStyle));
+
+    /**
+     * @tc.steps: step5. Set paragraph_ in layout algorithm
+     */
+    layoutAlgorithm->paragraph_ = mockParagraph;
+
+    /**
+     * @tc.steps: step6. Call GetTextDirection
+     */
+    auto direction = layoutAlgorithm->GetTextDirection(layoutProperty);
+
+    /**
+     * @tc.expected: Return paragraph's direction (RTL) when textDirection_ is AUTO
+     */
+    EXPECT_EQ(direction, TextDirection::RTL);
+}
+
+/**
+ * @tc.name: GetTextDirection003
+ * @tc.desc: Test GetTextDirection with LTR layout direction
+ * @tc.type: FUNC
+ * @tc.require: AR000H0F7I
+ */
+HWTEST_F(TextFieldPatternTestThree, GetTextDirection003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create frameNode and layout algorithm
+     */
+    CreateTextField("", "");
+    auto layoutAlgorithm = AceType::DynamicCast<TextInputLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+
+    /**
+     * @tc.steps: step2. Get layout property and set LTR layout direction
+     */
+    auto layoutProperty = pattern_->GetLayoutProperty<LayoutProperty>();
+    layoutProperty->layoutDirection_ = TextDirection::LTR;
+
+    /**
+     * @tc.steps: step3. Set textDirection_ to INHERIT
+     */
+    layoutAlgorithm->textDirection_ = TextDirection::INHERIT;
+
+    /**
+     * @tc.steps: step4. Call GetTextDirection
+     */
+    auto direction = layoutAlgorithm->GetTextDirection(layoutProperty);
+
+    /**
+     * @tc.expected: Return LTR layout direction when textDirection_ is INHERIT
+     */
+    EXPECT_EQ(direction, TextDirection::LTR);
 }
 } // namespace OHOS::Ace::NG

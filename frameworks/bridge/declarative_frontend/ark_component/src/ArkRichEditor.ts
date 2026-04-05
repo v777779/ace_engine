@@ -420,6 +420,37 @@ class RichEditorMaxLinesModifier extends ModifierWithKey<number | undefined> {
   }
 }
 
+class RichEditorSelectedDragPreviewStyleModifier extends ModifierWithKey<ArkSelectedDragPreviewStyle> {
+  constructor(value: ArkSelectedDragPreviewStyle) {
+      super(value);
+  }
+  static identity: Symbol = Symbol('richEditorSelectedDragPreviewStyle');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().richEditor.resetSelectedDragPreviewStyle(node);
+    } else {
+      getUINativeModule().richEditor.setSelectedDragPreviewStyle(node, this.value.color);
+    }
+    }
+  checkObjectDiff(): boolean {
+      return !isBaseOrResourceEqual(this.stageValue.color, this.value.color);
+  }
+}
+
+class RichEditorCustomKeyboardModifier extends ModifierWithKey<ArkCustomKeyboard> {
+  constructor(value: ArkCustomKeyboard) {
+    super(value);
+  }
+  static identity = Symbol('richEditorCustomKeyboard');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().richEditor.resetCustomKeyboard(node);
+    } else {
+      getUINativeModule().richEditor.setCustomKeyboard(node, this.value.value, this.value.supportAvoidance);
+    }
+  }
+}
+
 class RichEditorOnDidIMEInputModifier extends ModifierWithKey<(value: TextRange) => void> {
   constructor(value: (value: TextRange) => void) {
     super(value);
@@ -434,6 +465,20 @@ class RichEditorOnDidIMEInputModifier extends ModifierWithKey<(value: TextRange)
   }
 }
 
+class RichEditorOnWillAttachIMEModifier extends ModifierWithKey<Callback<IMEClient> | undefined> {
+  constructor(value: Callback<IMEClient> | undefined) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('richEditorOnWillAttachIME');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().richEditor.resetOnWillAttachIME(node);
+    } else {
+      getUINativeModule().richEditor.setOnWillAttachIME(node, this.value);
+    }
+  }
+}
+
 class RichEditorEnableHapticFeedbackModifier extends ModifierWithKey<boolean> {
   constructor(value: boolean) {
     super(value);
@@ -444,6 +489,108 @@ class RichEditorEnableHapticFeedbackModifier extends ModifierWithKey<boolean> {
       getUINativeModule().richEditor.resetEnableHapticFeedback(node);
     } else {
       getUINativeModule().richEditor.setEnableHapticFeedback(node, this.value!);
+    }
+  }
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
+class RichEditorEnableAutoSpacingModifier extends ModifierWithKey<Optional<boolean>> {
+  constructor(value: Optional<boolean>) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('richEditorEnableAutoSpacing');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().richEditor.resetEnableAutoSpacing(node);
+    } else {
+      getUINativeModule().richEditor.setEnableAutoSpacing(node, this.value);
+    }
+  }
+}
+
+class RichEditorCompressLeadingPunctuationModifier extends ModifierWithKey<Optional<boolean>> {
+  constructor(value: Optional<boolean>) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('richEditorCompressLeadingPunctuation');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().richEditor.resetCompressLeadingPunctuation(node);
+    } else {
+      getUINativeModule().richEditor.setCompressLeadingPunctuation(node, this.value);
+    }
+  }
+}
+
+class RichEditorUndoStyleModifier extends ModifierWithKey<Optional<UndoStyle>> {
+  constructor(value: Optional<UndoStyle>) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('richEditorUndoStyle');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().richEditor.resetUndoStyle(node);
+    } else {
+      getUINativeModule().richEditor.setUndoStyle(node, this.value);
+    }
+  }
+}
+
+class RichEditorOrphanCharOptimizationModifier extends ModifierWithKey<Optional<boolean>> {
+  constructor(value: Optional<boolean>) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('richEditorOrphanCharOptimization');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().richEditor.resetOrphanCharOptimization(node);
+    } else {
+      getUINativeModule().richEditor.setOrphanCharOptimization(node, this.value);
+    }
+  }
+}
+
+
+class RichEditorIncludeFontPaddingModifier extends ModifierWithKey<Optional<boolean>> {
+  constructor(value: Optional<boolean>) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('richEditorIncludeFontPadding');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().richEditor.resetIncludeFontPadding(node);
+    } else {
+      getUINativeModule().richEditor.setIncludeFontPadding(node, this.value);
+    }
+  }
+}
+
+class RichEditorFallbackLineSpacingModifier extends ModifierWithKey<Optional<boolean>> {
+  constructor(value: Optional<boolean>) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('richEditorFallbackLineSpacing');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().richEditor.resetFallbackLineSpacing(node);
+    } else {
+      getUINativeModule().richEditor.setFallbackLineSpacing(node, this.value);
+    }
+  }
+}
+
+class RichEditorSingleLineModifier extends ModifierWithKey<boolean> {
+  constructor(value: boolean) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('richEditorSingleLine');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().richEditor.resetSingleLine(node);
+    } else {
+      getUINativeModule().richEditor.setSingleLine(node, this.value!);
     }
   }
   checkObjectDiff(): boolean {
@@ -536,10 +683,22 @@ class ArkRichEditorComponent extends ArkComponent implements CommonMethod<RichEd
     return this;
   }
   bindSelectionMenu(spanType: RichEditorSpanType, content: CustomBuilder, responseType: ResponseType, options?: SelectionMenuOptions): RichEditorAttribute {
-    throw new Error('Method not implemented.');
+     throw new BusinessError(100201, 'bindSelectionMenu function not supported in RichEditorModifier class');
   }
-  customKeyboard(value: CustomBuilder): RichEditorAttribute {
-    throw new Error('Method not implemented.');
+  selectedDragPreviewStyle(value: SelectedDragPreviewStyle): this {
+    let arkSelectedDragPreviewStyle = new ArkSelectedDragPreviewStyle();
+    arkSelectedDragPreviewStyle.color = value?.color;
+    modifierWithKey(this._modifiersWithKeys, RichEditorSelectedDragPreviewStyleModifier.identity,
+        RichEditorSelectedDragPreviewStyleModifier, arkSelectedDragPreviewStyle);
+    return this;
+  }
+  customKeyboard(value: ComponentContent, options?: { supportAvoidance?: boolean }): RichEditorAttribute {
+    let arkValue: ArkCustomKeyboard = new ArkCustomKeyboard();
+    arkValue.value = value;
+    arkValue.supportAvoidance = options?.supportAvoidance;
+    modifierWithKey(this._modifiersWithKeys, RichEditorCustomKeyboardModifier.identity,
+      RichEditorCustomKeyboardModifier, arkValue);
+    return this;
   }
   onEditingChange(callback: (value: boolean) => void): RichEditorAttribute {
     modifierWithKey(this._modifiersWithKeys, RichEditorOnEditingChangeModifier.identity, RichEditorOnEditingChangeModifier, callback);
@@ -585,8 +744,40 @@ class ArkRichEditorComponent extends ArkComponent implements CommonMethod<RichEd
     modifierWithKey(this._modifiersWithKeys, RichEditorOnDidIMEInputModifier.identity, RichEditorOnDidIMEInputModifier, callback);
     return this;
   }
+  onWillAttachIME(callback: Callback<IMEClient> | undefined): RichEditorAttribute {
+    modifierWithKey(this._modifiersWithKeys, RichEditorOnWillAttachIMEModifier.identity, RichEditorOnWillAttachIMEModifier, callback);
+    return this;
+  }
   enableHapticFeedback(value: boolean): this {
     modifierWithKey(this._modifiersWithKeys, RichEditorEnableHapticFeedbackModifier.identity, RichEditorEnableHapticFeedbackModifier, value);
+    return this;
+  }
+  enableAutoSpacing(enable: Optional<boolean>): RichEditorAttribute {
+    modifierWithKey(this._modifiersWithKeys, RichEditorEnableAutoSpacingModifier.identity, RichEditorEnableAutoSpacingModifier, enable);
+    return this;
+  }
+  compressLeadingPunctuation(enable: Optional<boolean>): RichEditorAttribute {
+    modifierWithKey(this._modifiersWithKeys, RichEditorCompressLeadingPunctuationModifier.identity, RichEditorCompressLeadingPunctuationModifier, enable);
+    return this;
+  }
+  undoStyle(style: Optional<UndoStyle>): RichEditorAttribute {
+    modifierWithKey(this._modifiersWithKeys, RichEditorUndoStyleModifier.identity, RichEditorUndoStyleModifier, style);
+    return this;
+  }
+  includeFontPadding(enable: Optional<boolean>): RichEditorAttribute {
+    modifierWithKey(this._modifiersWithKeys, RichEditorIncludeFontPaddingModifier.identity, RichEditorIncludeFontPaddingModifier, enable);
+    return this;
+  }
+  fallbackLineSpacing(enable: Optional<boolean>): RichEditorAttribute {
+    modifierWithKey(this._modifiersWithKeys, RichEditorFallbackLineSpacingModifier.identity, RichEditorFallbackLineSpacingModifier, enable);
+    return this;
+  }
+  singleLine(value: boolean): RichEditorAttribute {
+    modifierWithKey(this._modifiersWithKeys, RichEditorSingleLineModifier.identity, RichEditorSingleLineModifier, value);
+    return this;
+  }
+  orphanCharOptimization(enable: Optional<boolean>): RichEditorAttribute {
+    modifierWithKey(this._modifiersWithKeys, RichEditorOrphanCharOptimizationModifier.identity, RichEditorOrphanCharOptimizationModifier, enable);
     return this;
   }
 }

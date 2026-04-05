@@ -310,6 +310,99 @@ struct ParticleAnnulusRegion {
         return str;
     }
 
+    std::pair<CalcDimension, CalcDimension> GetCenter() const
+    {
+        return center_;
+    }
+
+    void SetCenter(const std::pair<CalcDimension, CalcDimension>& center)
+    {
+        center_ = center;
+    }
+
+    void SetCenterX(const CalcDimension& centerX)
+    {
+        center_.first = centerX;
+    }
+
+    void SetCenterY(const CalcDimension& centerY)
+    {
+        center_.second = centerY;
+    }
+
+    CalcDimension GetInnerRadius() const
+    {
+        return innerRadius_;
+    }
+
+    void SetInnerRadius(const CalcDimension& innerRadius)
+    {
+        innerRadius_ = innerRadius;
+    }
+
+    CalcDimension GetOuterRadius() const
+    {
+        return outerRadius_;
+    }
+
+    void SetOuterRadius(const CalcDimension& outerRadius)
+    {
+        outerRadius_ = outerRadius;
+    }
+
+    float GetStartAngle() const
+    {
+        return startAngle_;
+    }
+
+    void SetStartAngle(float startAngle)
+    {
+        startAngle_ = startAngle;
+    }
+
+    float GetEndAngle() const
+    {
+        return endAngle_;
+    }
+
+    void SetEndAngle(float endAngle)
+    {
+        endAngle_ = endAngle;
+    }
+
+    void AddResource(
+        const std::string& key,
+        const RefPtr<ResourceObject>& resObj,
+        std::function<void(const RefPtr<ResourceObject>&, ParticleAnnulusRegion&)>&& updateFunc)
+    {
+        if (resObj == nullptr || !updateFunc) {
+            return;
+        }
+        AnnulusResMap_[key] = { resObj, std::move(updateFunc) };
+    }
+ 
+    void ReloadResources()
+    {
+        for (const auto& [key, resourceUpdater] : AnnulusResMap_) {
+            resourceUpdater.updateFunc(resourceUpdater.obj, *this);
+        }
+    }
+
+    void RemoveResource(const std::string& key)
+    {
+        auto iter = AnnulusResMap_.find(key);
+        if (iter != AnnulusResMap_.end()) {
+            AnnulusResMap_.erase(iter);
+        }
+    }
+
+private:
+    struct ResourceUpdater {
+        RefPtr<ResourceObject> obj;
+        std::function<void(const RefPtr<ResourceObject>&, ParticleAnnulusRegion&)> updateFunc;
+    };
+    std::unordered_map<std::string, ResourceUpdater> AnnulusResMap_;
+
     std::pair<CalcDimension, CalcDimension> center_;
     CalcDimension innerRadius_;
     CalcDimension outerRadius_;
@@ -323,7 +416,7 @@ public:
     {
         return particle_;
     }
-    void SetParticle(Particle& particle)
+    void SetParticle(const Particle& particle)
     {
         particle_ = particle;
     }
@@ -342,12 +435,12 @@ public:
         position_ = point;
     }
 
-    void SetPositionX(Dimension& pointX)
+    void SetPositionX(const Dimension& pointX)
     {
         position_->first = pointX;
     }
 
-    void SetPositionY(Dimension& pointY)
+    void SetPositionY(const Dimension& pointY)
     {
         position_->second = pointY;
     }
@@ -362,12 +455,12 @@ public:
         size_ = size;
     }
 
-    void SetSizeX(Dimension& sizeX)
+    void SetSizeX(const Dimension& sizeX)
     {
         size_->first = sizeX;
     }
 
-    void SetSizeY(Dimension& sizeY)
+    void SetSizeY(const Dimension& sizeY)
     {
         size_->second = sizeY;
     }
@@ -387,7 +480,7 @@ public:
         return shape_;
     }
 
-    void SetAnnulusRegion(ParticleAnnulusRegion& annulusRegion)
+    void SetAnnulusRegion(const ParticleAnnulusRegion& annulusRegion)
     {
         annulusRegion_ = annulusRegion;
     }
@@ -500,7 +593,7 @@ public:
         return animations_;
     }
 
-    void SetNullStr(const std::string noneValue)
+    void SetNullStr(const std::string& noneValue)
     {
         noneValue_ = noneValue;
     }
@@ -826,12 +919,12 @@ public:
         range_ = range;
     }
 
-    void SetRangeFirst(Color& rangeFirst)
+    void SetRangeFirst(const Color& rangeFirst)
     {
         range_.first = rangeFirst;
     }
 
-    void SetRangeSecond(Color& rangeSecond)
+    void SetRangeSecond(const Color& rangeSecond)
     {
         range_.second = rangeSecond;
     }
@@ -912,7 +1005,7 @@ public:
     {
         return speed_;
     }
-    void SetSpeedRange(std::pair<float, float>& speed)
+    void SetSpeedRange(const std::pair<float, float>& speed)
     {
         speed_ = speed;
     }
@@ -920,7 +1013,7 @@ public:
     {
         return angle_;
     }
-    void SetAngleRange(std::pair<float, float>& angle)
+    void SetAngleRange(const std::pair<float, float>& angle)
     {
         angle_ = angle;
     }
@@ -971,7 +1064,7 @@ public:
         return angle_;
     }
 
-    void SetAngle(ParticleFloatPropertyOption& angle)
+    void SetAngle(const ParticleFloatPropertyOption& angle)
     {
         angle_ = angle;
     }
@@ -1002,7 +1095,7 @@ public:
         return emitter_;
     }
 
-    void SetEmitterOption(EmitterOption& emitter)
+    void SetEmitterOption(const EmitterOption& emitter)
     {
         emitter_ = emitter;
     }
@@ -1022,7 +1115,7 @@ public:
         return opacityOption_;
     }
 
-    void SetParticleOpacityOption(ParticleFloatPropertyOption& opacityOption)
+    void SetParticleOpacityOption(const ParticleFloatPropertyOption& opacityOption)
     {
         opacityOption_ = opacityOption;
     }
@@ -1032,7 +1125,7 @@ public:
         return scaleOption_;
     }
 
-    void SetParticleScaleOption(ParticleFloatPropertyOption& scaleOption)
+    void SetParticleScaleOption(const ParticleFloatPropertyOption& scaleOption)
     {
         scaleOption_ = scaleOption;
     }
@@ -1042,7 +1135,7 @@ public:
         return velocityOption_;
     }
 
-    void SetParticleVelocityOption(VelocityProperty& velocityOption)
+    void SetParticleVelocityOption(const VelocityProperty& velocityOption)
     {
         velocityOption_ = velocityOption;
     }
@@ -1052,7 +1145,7 @@ public:
         return accelerationOption_;
     }
 
-    void SetParticleAccelerationOption(AccelerationProperty& accelerationOption)
+    void SetParticleAccelerationOption(const AccelerationProperty& accelerationOption)
     {
         accelerationOption_ = accelerationOption;
     }
@@ -1062,7 +1155,7 @@ public:
         return spinOption_;
     }
 
-    void SetParticleSpinOption(ParticleFloatPropertyOption& spinOption)
+    void SetParticleSpinOption(const ParticleFloatPropertyOption& spinOption)
     {
         spinOption_ = spinOption;
     }

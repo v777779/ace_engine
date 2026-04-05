@@ -24,7 +24,7 @@ namespace OHOS::Ace::NG {
 
 class ACE_FORCE_EXPORT OffscreenCanvasRenderingContext2DModelNG
     : public OHOS::Ace::OffscreenCanvasRenderingContext2DModel {
-    DECLARE_ACE_TYPE(OffscreenCanvasRenderingContext2DModelNG, OffscreenCanvasRenderingContext2DModel)
+    DECLARE_ACE_TYPE(OffscreenCanvasRenderingContext2DModelNG, OffscreenCanvasRenderingContext2DModel);
 
 public:
     OffscreenCanvasRenderingContext2DModelNG() = default;
@@ -34,6 +34,8 @@ public:
     void SetFillText(const PaintState& state, const FillTextInfo& fillTextInfo) override;
     void SetStrokeText(const PaintState& state, const FillTextInfo& fillTextInfo) override;
     void SetAntiAlias(bool anti) override;
+    std::optional<bool> GetAntialiasExt() const override;
+    void SetAntialiasExt(std::optional<bool> isEnabled) override;
     void SetFontWeight(const FontWeight& weight) override;
     void SetFontStyle(const Ace::FontStyle& fontStyle) override;
     void SetFontFamilies(const std::vector<std::string>& families) override;

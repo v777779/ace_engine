@@ -29,6 +29,7 @@
 #include "core/components_ng/pattern/grid/grid_pattern.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
+#include "core/interfaces/native/node/menu_modifier.h"
 #include "core/components_ng/pattern/menu/menu_view.h"
 #include "core/components_ng/pattern/menu/wrapper/menu_wrapper_pattern.h"
 #include "core/components_ng/pattern/navigation/bar_item_event_hub.h"
@@ -46,6 +47,7 @@ namespace OHOS::Ace::NG {
 namespace {
 constexpr Dimension TITLEBAR_VERTICAL_PADDING = 56.0_vp;
 constexpr int32_t TITLEBAR_OPACITY_ANIMATION_DURATION = 120;
+constexpr int32_t DEFAULT_ANIMATION_DURATION = 450;
 const RefPtr<CubicCurve> TITLEBAR_OPACITY_ANIMATION_CURVE = AceType::MakeRefPtr<CubicCurve>(0.4, 0.0, 0.4, 1.0);
 }
 
@@ -74,8 +76,10 @@ bool NavigationTitleUtil::BuildMoreButton(bool isButtonEnabled, const RefPtr<Nav
     if (menuOptions.mbOptions.bgOptions.effectOption.has_value()) {
         menuParam.backgroundEffectOption = menuOptions.mbOptions.bgOptions.effectOption.value();
     }
-    auto barMenuNode = MenuView::Create(
-        std::move(params), menuItemNode->GetId(), menuItemNode->GetTag(), MenuType::NAVIGATION_MENU, menuParam);
+    const auto* menuViewModifier = NG::NodeModifier::GetMenuViewInnerModifier();
+    auto barMenuNode = menuViewModifier ? menuViewModifier->createWithOptionParams(
+        std::move(params), menuItemNode->GetId(), menuItemNode->GetTag(),
+        MenuType::NAVIGATION_MENU, menuParam) : nullptr;
     BuildMoreItemNodeAction(menuItemNode, barItemNode, barMenuNode, menuParam);
     auto iconNode = AceType::DynamicCast<FrameNode>(barItemNode->GetChildren().front());
     InitTitleBarButtonEvent(menuItemNode, iconNode, true);
@@ -104,6 +108,7 @@ RefPtr<FrameNode> NavigationTitleUtil::CreateMenuItems(const int32_t menuNodeId,
     const std::vector<NG::BarItem>& menuItems, const RefPtr<NavDestinationNodeBase>& navDestinationNodeBase,
     bool isButtonEnabled, const std::string& field, const std::string& parentId, bool isCreateLandscapeMenu)
 {
+    ACE_UINODE_TRACE(navDestinationNodeBase);
     auto menuNode = FrameNode::GetOrCreateFrameNode(
         V2::NAVIGATION_MENU_ETS_TAG, menuNodeId, []() { return AceType::MakeRefPtr<LinearLayoutPattern>(false); });
     CHECK_NULL_RETURN(menuNode, nullptr);
@@ -248,6 +253,8 @@ RefPtr<FrameNode> NavigationTitleUtil::CreateMenuItemButton(const RefPtr<Navigat
     buttonPattern->setComponentButtonType(ComponentButtonType::NAVIGATION);
     if (AceApplicationInfo::GetInstance().GreatOrEqualTargetAPIVersion(PlatformVersion::VERSION_TWELVE)) {
         buttonPattern->SetBlendColor(theme->GetBackgroundPressedColor(), theme->GetBackgroundHoverColor());
+        buttonPattern->SetNavMenuItemNeedFocus(SystemProperties::GetDeviceType() == DeviceType::TV);
+        buttonPattern->SetNavigationFocusBlendBgColor(theme->GetNavigationFocusBlendBgColor());
         buttonPattern->SetFocusBorderColor(theme->GetBackgroundFocusOutlineColor());
         buttonPattern->SetFocusBorderWidth(theme->GetBackgroundFocusOutlineWeight());
     } else {
@@ -273,12 +280,19 @@ RefPtr<FrameNode> NavigationTitleUtil::CreateMenuItemButton(const RefPtr<Navigat
         menuItemLayoutProperty->UpdateBorderRadius(BorderRadiusProperty(theme->GetCornerRadius()));
         renderContext->UpdateBackgroundColor(theme->GetCompBackgroundColor());
         PaddingProperty padding;
-        padding.SetEdges(CalcLength(MENU_BUTTON_PADDING));
+        padding.SetEdges(CalcLength(theme->GetMenuButtonPadding()));
         menuItemLayoutProperty->UpdatePadding(padding);
         MarginProperty margin;
         margin.right = CalcLength(theme->GetCompPadding());
         margin.end = CalcLength(theme->GetCompPadding());
         menuItemLayoutProperty->UpdateMargin(margin);
+        BorderWidthProperty borderWidthProperty;
+        borderWidthProperty.SetBorderWidth(theme->GetIconBorderWidth());
+        menuItemLayoutProperty->UpdateBorderWidth(borderWidthProperty);
+        BorderColorProperty borderColorProperty;
+        borderColorProperty.SetColor(theme->GetIconBorderColor());
+        renderContext->UpdateBorderColor(borderColorProperty);
+        focusHub->SetFocusPadding(theme->GetMenuItemFocusPadding());
     } else {
         menuItemLayoutProperty->UpdateUserDefinedIdealSize(
             CalcSize(CalcLength(BACK_BUTTON_SIZE), CalcLength(BACK_BUTTON_SIZE)));
@@ -347,7 +361,7 @@ RefPtr<FrameNode> NavigationTitleUtil::CreateBarItemIconNode(
         return iconNode;
     }
     int32_t nodeId = ElementRegister::GetInstance()->MakeUniqueId();
-    ImageSourceInfo info(barItem.icon.value());
+    ImageSourceInfo info(barItem.icon.value(), barItem.bundleName, barItem.moduleName);
     auto iconNode = FrameNode::CreateFrameNode(V2::IMAGE_ETS_TAG, nodeId, AceType::MakeRefPtr<ImagePattern>());
     auto imageLayoutProperty = iconNode->GetLayoutProperty<ImageLayoutProperty>();
     CHECK_NULL_RETURN(imageLayoutProperty, nullptr);
@@ -628,6 +642,7 @@ void NavigationTitleUtil::CreateOrUpdateMainTitle(const RefPtr<TitleBarNode>& ti
     const NG::NavigationTitleInfo& titleInfo, bool ignoreMainTitle)
 {
     CHECK_NULL_VOID(titleBarNode);
+    ACE_UINODE_TRACE(titleBarNode);
     if (ignoreMainTitle) {
         return;
     }
@@ -664,6 +679,7 @@ void NavigationTitleUtil::CreateOrUpdateSubtitle(const RefPtr<TitleBarNode>& tit
     const NG::NavigationTitleInfo& titleInfo)
 {
     CHECK_NULL_VOID(titleBarNode);
+    ACE_UINODE_TRACE(titleBarNode);
     auto subTitle = AceType::DynamicCast<FrameNode>(titleBarNode->GetSubtitle());
     if (!titleInfo.hasSubTitle) {
         // remove subtitle if any.
@@ -698,6 +714,7 @@ void NavigationTitleUtil::CreateOrUpdateDestinationMainTitle(const RefPtr<TitleB
     const NG::NavigationTitleInfo& titleInfo)
 {
     CHECK_NULL_VOID(titleBarNode);
+    ACE_UINODE_TRACE(titleBarNode);
     auto mainTitle = AceType::DynamicCast<FrameNode>(titleBarNode->GetTitle());
     if (!titleInfo.hasMainTitle) {
         // remove main title if any.
@@ -735,6 +752,7 @@ void NavigationTitleUtil::CreateOrUpdateDestinationSubtitle(const RefPtr<TitleBa
     const NG::NavigationTitleInfo& titleInfo)
 {
     CHECK_NULL_VOID(titleBarNode);
+    ACE_UINODE_TRACE(titleBarNode);
     auto subTitle = AceType::DynamicCast<FrameNode>(titleBarNode->GetSubtitle());
     if (!titleInfo.hasSubTitle) {
         // remove subtitle if any.
@@ -801,7 +819,7 @@ void NavigationTitleUtil::FoldStatusChangedAnimation(const RefPtr<FrameNode>& ho
                 auto renderNodeContext = weakRenderNodeContext.Upgrade();
                 CHECK_NULL_VOID(renderNodeContext);
                 renderNodeContext->UpdateOpacity(1.0f);
-            });
+            }, nullptr /* finishCallback*/, nullptr /* repeatCallback */, host->GetContextRefPtr());
     });
     AnimationUtils::Animate(
         option,
@@ -810,7 +828,7 @@ void NavigationTitleUtil::FoldStatusChangedAnimation(const RefPtr<FrameNode>& ho
             CHECK_NULL_VOID(renderContext);
             renderContext->UpdateOpacity(0.0f);
         },
-        option.GetOnFinishEvent());
+        option.GetOnFinishEvent(), nullptr /* repeatCallback */, titleBar->GetContextRefPtr());
 }
 
 bool NavigationTitleUtil::IsNeedHoverModeAction(const RefPtr<TitleBarNode>& titleBarNode)
@@ -908,5 +926,58 @@ void NavigationTitleUtil::UpdateTitleOrToolBarTranslateYAndOpacity(const RefPtr<
 bool NavigationTitleUtil::IsTitleBarHasOffsetY(const RefPtr<FrameNode>& titleBarNode)
 {
     return titleBarNode && titleBarNode->IsVisible() && !NearZero(CalculateTitlebarOffset(titleBarNode));
+}
+
+bool NavigationTitleUtil::SetTitleAnimationElapsedTime(AnimationOption& option, const RefPtr<FrameNode>& pushEnterNode)
+{
+    auto pushEnterNavDestination = AceType::DynamicCast<NavDestinationGroupNode>(pushEnterNode);
+    CHECK_NULL_RETURN(pushEnterNavDestination, false);
+    if (pushEnterNavDestination->IsTitleConsumedElapsedTime() ||
+        pushEnterNavDestination->GetSystemTransitionType() != NavigationSystemTransitionType::TITLE) {
+        return false;
+    }
+    auto elapsedTime = pushEnterNavDestination->GetTitleAnimationElapsedTime();
+    if (elapsedTime <= 0 || elapsedTime > DEFAULT_ANIMATION_DURATION) {
+        return false;
+    }
+    TAG_LOGI(AceLogTag::ACE_NAVIGATION,
+        "will skip %{public}d ms animation for enter push NavDestination node", elapsedTime);
+    // elapsed time is the TIME to skip
+    option.SetDelay(option.GetDelay() - elapsedTime);
+    return true;
+}
+
+void NavigationTitleUtil::SetBackButtonText(const RefPtr<TitleBarNode>& titleBarNode, const std::string& text,
+                                            const std::string& key, const RefPtr<ResourceObject> resObj)
+{
+    CHECK_NULL_VOID(titleBarNode);
+    auto backButtonNode = AceType::DynamicCast<FrameNode>(titleBarNode->GetBackButton());
+    CHECK_NULL_VOID(backButtonNode);
+    NavigationTitleUtil::SetAccessibility(backButtonNode, text);
+
+    auto updateFunc = [key, weak = AceType::WeakClaim(AceType::RawPtr(titleBarNode))](
+                          const RefPtr<ResourceObject>& resObj) {
+        auto titleBarNode = weak.Upgrade();
+        CHECK_NULL_VOID(titleBarNode);
+        auto backButtonNode = AceType::DynamicCast<FrameNode>(titleBarNode->GetBackButton());
+        CHECK_NULL_VOID(backButtonNode);
+        auto titleBarPattern = titleBarNode->GetPattern<TitleBarPattern>();
+        CHECK_NULL_VOID(titleBarPattern);
+        std::string backButtonAccessibilityText = titleBarPattern->GetResCacheMapByKey(key);
+        if (backButtonAccessibilityText.empty()) {
+            ResourceParseUtils::ParseResString(resObj, backButtonAccessibilityText);
+            titleBarPattern->AddResCache(key, backButtonAccessibilityText);
+        }
+        NavigationTitleUtil::SetAccessibility(backButtonNode, backButtonAccessibilityText);
+        titleBarNode->MarkModifyDone();
+        titleBarNode->MarkDirtyNode();
+    };
+    auto titleBarPattern = titleBarNode->GetPattern<TitleBarPattern>();
+    CHECK_NULL_VOID(titleBarPattern);
+    if (resObj) {
+        titleBarPattern->AddResObj(key, resObj, std::move(updateFunc));
+    } else {
+        titleBarPattern->RemoveResObj(key);
+    }
 }
 } // namespace OHOS::Ace::NG

@@ -18,7 +18,8 @@
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/pattern/button/button_model_static.h"
 #include "core/components_ng/pattern/button/button_request_data.h"
-#include "arkoala_api_generated.h"
+#include "core/components_ng/pattern/text_field/text_field_model.h"
+#include "core/interfaces/native/utility/ace_engine_types.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/converter_union.h"
 #include "core/interfaces/native/utility/validators.h"
@@ -50,18 +51,24 @@ template<>
 ButtonParameters Convert(const Ark_ButtonLabelStyle& src)
 {
     ButtonParameters parameters;
-    parameters.textOverflow = Converter::OptConvert<TextOverflow>(src.overflow);
+    parameters.textOverflow = Converter::OptConvert<TextOverflow>(src.overflow).value_or(TextOverflow::ELLIPSIS);
     auto maxLines = Converter::OptConvert<int32_t>(src.maxLines);
     if (maxLines) {
         maxLines = std::max(maxLines.value(), 1);
     }
     parameters.maxLines = maxLines;
     parameters.heightAdaptivePolicy = Converter::OptConvert<TextHeightAdaptivePolicy>(src.heightAdaptivePolicy);
-    auto minFontSize = Converter::OptConvert<Dimension>(src.minFontSize);
+    std::optional<Dimension> minFontSize = std::nullopt;
+    if (src.minFontSize.tag != INTEROP_TAG_UNDEFINED) {
+        minFontSize = Converter::OptConvertFromArkNumResStr(src.minFontSize.value);
+    }
     Validator::ValidateNonNegative(minFontSize);
     Validator::ValidateNonPercent(minFontSize);
     parameters.minFontSize = minFontSize;
-    auto maxFontSize = Converter::OptConvert<Dimension>(src.maxFontSize);
+    std::optional<Dimension> maxFontSize = std::nullopt;
+    if (src.maxFontSize.tag != INTEROP_TAG_UNDEFINED) {
+        maxFontSize = Converter::OptConvertFromArkNumResStr(src.maxFontSize.value);
+    }
     Validator::ValidateNonNegative(maxFontSize);
     Validator::ValidateNonPercent(maxFontSize);
     parameters.maxFontSize = maxFontSize;
@@ -74,6 +81,7 @@ ButtonParameters Convert(const Ark_ButtonLabelStyle& src)
             parameters.fontFamily = labelFont->fontFamilies;
         }
     }
+    parameters.textAlign = Converter::OptConvert<TextAlign>(src.textAlign);
     return parameters;
 }
 }
@@ -104,8 +112,12 @@ void SetButtonOptions0Impl(Ark_NativePointer node,
         ButtonModelStatic::SetType(frameNode, EnumToInt(buttonOptions.type));
         ButtonModelStatic::SetStateEffect(frameNode, buttonOptions.stateEffect);
         ButtonModelStatic::SetRole(frameNode, buttonOptions.role);
-        ButtonModelStatic::SetControlSize(frameNode, buttonOptions.controlSize);
+        if (buttonOptions.controlSize.has_value()) {
+            ButtonModelStatic::SetControlSize(frameNode, buttonOptions.controlSize);
+        }
         ButtonModelStatic::SetButtonStyle(frameNode, buttonOptions.buttonStyle);
+    } else {
+        ButtonModelStatic::SetType(frameNode, std::nullopt);
     }
     auto labelString = Converter::OptConvert<std::string>(*label);
     if (labelString) {
@@ -124,8 +136,12 @@ void SetButtonOptions1Impl(Ark_NativePointer node,
         ButtonModelStatic::SetType(frameNode, EnumToInt(buttonOptions.type));
         ButtonModelStatic::SetStateEffect(frameNode, buttonOptions.stateEffect);
         ButtonModelStatic::SetRole(frameNode, buttonOptions.role);
-        ButtonModelStatic::SetControlSize(frameNode, buttonOptions.controlSize);
+        if (buttonOptions.controlSize.has_value()) {
+            ButtonModelStatic::SetControlSize(frameNode, buttonOptions.controlSize);
+        }
         ButtonModelStatic::SetButtonStyle(frameNode, buttonOptions.buttonStyle);
+    } else {
+        ButtonModelStatic::SetType(frameNode, std::nullopt);
     }
     ButtonModelStatic::SetCreateWithLabel(frameNode, false);
 }
@@ -180,10 +196,8 @@ void SetFontSizeImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    std::optional<Dimension> fontSize = std::nullopt;
-    if (value->tag != INTEROP_TAG_UNDEFINED) {
-        fontSize = Converter::OptConvertFromArkLength(value->value, DimensionUnit::FP);
-    }
+    Converter::DefaultDimensionUnit du(DimensionUnit::FP);
+    auto fontSize = Converter::OptConvertPtr<Dimension>(value);
     Validator::ValidatePositive(fontSize);
     Validator::ValidateNonPercent(fontSize);
     ButtonModelStatic::SetFontSize(frameNode, fontSize);
@@ -219,6 +233,9 @@ void SetLabelStyleImpl(Ark_NativePointer node,
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     auto parameters = Converter::OptConvertPtr<ButtonParameters>(value);
+    if (!parameters->textAlign.has_value()) {
+        ButtonModelStatic::ResetTextAlign(frameNode);
+    }
     ButtonModelStatic::SetLabelStyle(frameNode, parameters);
 }
 void SetMinFontScaleImpl(Ark_NativePointer node,

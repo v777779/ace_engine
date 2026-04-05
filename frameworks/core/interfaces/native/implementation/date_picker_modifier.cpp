@@ -40,8 +40,9 @@ const auto DEFAULT_SELECTED_TEXT_STYLE = PickerTextStyle { .textColor = Color(0x
     .fontWeight = FontWeight::MEDIUM };
 const bool DEFAULT_SHOW_LUNAR = false;
 const bool DEFAULT_ENABLE_HAPTIC = true;
+const bool DEFAULT_CAN_LOOP = true;
 
-std::optional<PickerDate> ProcessBindableSelected(FrameNode* frameNode, const Opt_Union_Date_Bindable& value)
+std::optional<PickerDate> ProcessBindableSelected(FrameNode* frameNode, const Opt_Union_Date_Bindable_Date& value)
 {
     std::optional<PickerDate> result;
     Converter::VisitUnion(value,
@@ -56,7 +57,16 @@ std::optional<PickerDate> ProcessBindableSelected(FrameNode* frameNode, const Op
                 const auto* eventInfo = TypeInfoHelper::DynamicCast<DatePickerChangeEvent>(event);
                 CHECK_NULL_VOID(eventInfo);
                 auto selectedStr = eventInfo->GetSelectedStr();
-                auto result = Converter::ArkValue<Ark_Date>(selectedStr);
+                std::unique_ptr<JsonValue> argsPtr = JsonUtil::ParseJsonString(selectedStr);
+                CHECK_NULL_VOID(argsPtr);
+                const auto year = argsPtr->GetValue("year")->GetInt();
+                const auto month = argsPtr->GetValue("month")->GetInt() + 1; // 0-11 means 1 to 12 months
+                const auto day = argsPtr->GetValue("day")->GetInt();
+                PickerDateTime dateTime;
+                dateTime.SetDate(PickerDate(year, month, day));
+                dateTime.SetTime(PickerTime::Current());
+
+                auto result = Converter::ArkValue<Ark_Date>(dateTime.ToString(true));
                 PipelineContext::SetCallBackNode(weakNode);
                 arkCallback.Invoke(result);
             };
@@ -72,7 +82,7 @@ namespace DatePickerModifier {
 Ark_NativePointer ConstructImpl(Ark_Int32 id,
                                 Ark_Int32 flags)
 {
-    auto frameNode = DatePickerModelNG::CreateFrameNode(id);
+    auto frameNode = DatePickerModelStatic::CreateFrameNode(id);
     CHECK_NULL_RETURN(frameNode, nullptr);
     frameNode->IncRefCount();
     return AceType::RawPtr(frameNode);
@@ -209,6 +219,14 @@ void SetEnableHapticFeedbackImpl(Ark_NativePointer node,
     auto convValue = Converter::OptConvert<bool>(*value).value_or(DEFAULT_ENABLE_HAPTIC);
     DatePickerModelNG::SetEnableHapticFeedback(frameNode, convValue);
 }
+void SetCanLoopImpl(Ark_NativePointer node,
+                    const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto convValue = Converter::OptConvert<bool>(*value).value_or(DEFAULT_CAN_LOOP);
+    DatePickerModelNG::SetCanLoop(frameNode, convValue);
+}
 } // DatePickerAttributeModifier
 const GENERATED_ArkUIDatePickerModifier* GetDatePickerModifier()
 {
@@ -222,6 +240,7 @@ const GENERATED_ArkUIDatePickerModifier* GetDatePickerModifier()
         DatePickerAttributeModifier::SetOnDateChangeImpl,
         DatePickerAttributeModifier::SetDigitalCrownSensitivityImpl,
         DatePickerAttributeModifier::SetEnableHapticFeedbackImpl,
+        DatePickerAttributeModifier::SetCanLoopImpl,
     };
     return &ArkUIDatePickerModifierImpl;
 }

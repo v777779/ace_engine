@@ -34,6 +34,7 @@
 #include "core/event/key_event.h"
 #include "core/focus/focus_node.h"
 #include "core/pipeline/base/element.h"
+#include "core/pipeline/base/render_component.h"
 
 namespace OHOS::Ace {
 
@@ -110,6 +111,16 @@ public:
         return shared_render_process_token_;
     }
 
+    void SetEmulateTouchFromMouseEvent(bool emulateTouchFromMouseEvent)
+    {
+        emulateTouchFromMouseEvent_ = emulateTouchFromMouseEvent;
+    }
+
+    bool GetEmulateTouchFromMouseEvent() const
+    {
+        return emulateTouchFromMouseEvent_;
+    }
+
     void SetData(const std::string& data)
     {
         CHECK_NULL_VOID(declaration_);
@@ -141,6 +152,28 @@ public:
     const EventMarker& GetPageFinishedEventId() const
     {
         return declaration_->GetPageFinishedEventId();
+    }
+
+    void SetOnLoadStartedEventId(const EventMarker& onLoadStartedEventId)
+    {
+        CHECK_NULL_VOID(declaration_);
+        declaration_->SetOnLoadStartedEventId(onLoadStartedEventId);
+    }
+
+    const EventMarker& GetOnLoadStartedEventId() const
+    {
+        return declaration_->GetOnLoadStartedEventId();
+    }
+
+    void SetOnLoadFinishedEventId(const EventMarker& onLoadFinishedEventId)
+    {
+        CHECK_NULL_VOID(declaration_);
+        declaration_->SetOnLoadFinishedEventId(onLoadFinishedEventId);
+    }
+
+    const EventMarker& GetOnLoadFinishedEventId() const
+    {
+        return declaration_->GetOnLoadFinishedEventId();
     }
 
     using OnProgressChangeImpl = std::function<void(const BaseEventInfo* info)>;
@@ -337,6 +370,27 @@ public:
         if (onWindowNewImpl_) {
             onWindowNewImpl_(info);
         }
+    }
+
+    using OnWindowNewExtImpl = std::function<void(const std::shared_ptr<BaseEventInfo>& info)>;
+    void SetWindowNewExtEvent(OnWindowNewExtImpl&& onWindowNewExtImpl)
+    {
+        if (onWindowNewExtImpl == nullptr) {
+            return;
+        }
+        onWindowNewExtImpl_ = std::move(onWindowNewExtImpl);
+    }
+
+    void OnWindowNewExtEvent(const std::shared_ptr<BaseEventInfo>& info) const
+    {
+        if (onWindowNewExtImpl_) {
+            onWindowNewExtImpl_(info);
+        }
+    }
+
+    bool HasOnWindowNewExtEvent() const
+    {
+        return onWindowNewExtImpl_ != nullptr;
     }
 
     void SetActivateContentEventId(const EventMarker& activateContentEventId)
@@ -1131,6 +1185,17 @@ public:
         return declaration_->GetNativeEmbedGestureEventId();
     }
 
+    void SetNativeEmbedObjectParamChangeId(const EventMarker& embedObjectParamChangeId)
+    {
+        CHECK_NULL_VOID(declaration_);
+        declaration_->SetNativeEmbedObjectParamChangeId(embedObjectParamChangeId);
+    }
+
+    const EventMarker& GetNativeEmbedObjectParamChangeId() const
+    {
+        return declaration_->GetNativeEmbedObjectParamChangeId();
+    }
+
     void SetRenderProcessNotRespondingId(const EventMarker& renderNotRespondingId)
     {
         CHECK_NULL_VOID(declaration_);
@@ -1164,6 +1229,28 @@ public:
         return declaration_->GetViewportFitChangedId();
     }
 
+    void SetCameraCaptureStateChangedId(const EventMarker& cameraCaptureStateChangedId)
+    {
+        CHECK_NULL_VOID(declaration_);
+        declaration_->SetCameraCaptureStateChangedId(cameraCaptureStateChangedId);
+    }
+
+    const EventMarker& GetCameraCaptureStateChangedId() const
+    {
+        return declaration_->GetCameraCaptureStateChangedId();
+    }
+
+    void SetMicrophoneCaptureStateChangedId(const EventMarker& microphoneCaptureStateChangedId)
+    {
+        CHECK_NULL_VOID(declaration_);
+        declaration_->SetMicrophoneCaptureStateChangedId(microphoneCaptureStateChangedId);
+    }
+
+    const EventMarker& GetMicrophoneCaptureStateChangedId() const
+    {
+        return declaration_->GetMicrophoneCaptureStateChangedId();
+    }
+
     void SetAdsBlockedEventId(const EventMarker& adsBlockedEventId)
     {
         CHECK_NULL_VOID(declaration_);
@@ -1183,6 +1270,32 @@ public:
     bool GetOptimizeParserBudgetEnabled() const
     {
         return isParserBudgetOptimized_;
+    }
+
+    bool GetForceEnableZoom() const
+    {
+        return isForceEnableZoom_;
+    }
+
+    void SetForceEnableZoom(bool isEnabled)
+    {
+        isForceEnableZoom_ = isEnabled;
+    }
+
+    using OnVerifyPinRequestImpl = std::function<bool(const BaseEventInfo* info)>;
+    bool OnVerifyPinRequest(const BaseEventInfo* info) const
+    {
+        if (onVerifyPinRequestImpl_) {
+            return onVerifyPinRequestImpl_(info);
+        }
+        return false;
+    }
+    void SetOnVerifyPinRequestImpl(OnVerifyPinRequestImpl && impl)
+    {
+        if (!impl) {
+            return;
+        }
+        onVerifyPinRequestImpl_ = std::move(impl);
     }
 
 private:
@@ -1215,6 +1328,8 @@ private:
     OnOverrideErrorPageImpl onOverrideErrorPageImpl_ = nullptr;
     OnProgressChangeImpl onProgressChangeImpl_ = nullptr;
     OnWindowNewImpl onWindowNewImpl_ = nullptr;
+    OnWindowNewExtImpl onWindowNewExtImpl_ = nullptr;
+    OnVerifyPinRequestImpl onVerifyPinRequestImpl_;
 
     std::string type_;
     bool incognitoMode_ = false;
@@ -1265,7 +1380,9 @@ private:
     CopyOptions CopyOptionMode_ = CopyOptions::Distributed;
     std::tuple<bool, bool> native_video_player_config_{false, false};
     std::string shared_render_process_token_;
+    bool emulateTouchFromMouseEvent_ = false;
     bool isParserBudgetOptimized_ = false;
+    bool isForceEnableZoom_ = true;
 };
 
 } // namespace OHOS::Ace

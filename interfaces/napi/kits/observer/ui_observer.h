@@ -73,6 +73,10 @@ public:
         int32_t uiContextInstanceId, const std::shared_ptr<UIObserverListener>& listener);
     static void UnRegisterDensityCallback(int32_t uiContextInstanceId, napi_value callback);
     static void HandleDensityChange(NG::AbilityContextInfo& info, double density);
+    static void RegisterWinSizeLayoutBreakpointCallback(
+        int32_t uiContextInstanceId, const std::shared_ptr<UIObserverListener>& listener);
+    static void UnRegisterWinSizeLayoutBreakpointCallback(int32_t uiContextInstanceId, napi_value callback);
+    static void HandleWinSizeLayoutBreakpointChange(int32_t instanceId, const WindowSizeBreakpoint& info);
     static void RegisterDrawCallback(int32_t uiContextInstanceId, const std::shared_ptr<UIObserverListener>& listener);
     static void UnRegisterDrawCallback(int32_t uiContextInstanceId, napi_value callback);
     static void RegisterLayoutCallback(
@@ -119,6 +123,13 @@ public:
     static void UnRegisterTabContentStateCallback(const std::string& id, napi_value cb);
     static void HandleTabContentStateChange(const NG::TabContentInfo& tabContentInfo);
 
+    static void RegisterTabChangeCallback(const std::shared_ptr<UIObserverListener>& listener);
+    static void RegisterTabChangeCallback(
+        const std::string& id, const std::shared_ptr<UIObserverListener>& listener);
+    static void UnRegisterTabChangeCallback(napi_value cb);
+    static void UnRegisterTabChangeCallback(const std::string& id, napi_value cb);
+    static void HandleTabChange(const NG::TabContentInfo& tabContentInfo);
+
     static void RegisterBeforePanStartCallback(
         napi_env env, napi_value uiAbilityContext, const std::shared_ptr<UIObserverListener>& listener);
     static void RegisterBeforePanStartCallback(
@@ -146,6 +157,32 @@ public:
     static void HandlePanGestureAccept(NG::AbilityContextInfo& info, const GestureEvent& gestureEventInfo,
         const RefPtr<NG::PanRecognizer>& current, const RefPtr<NG::FrameNode>& frameNode,
         const NG::PanGestureInfo& panGestureInfo);
+    static void RegisterTextChangeEventCallback(const std::shared_ptr<UIObserverListener>& listener);
+    static void RegisterTextChangeEventCallback(
+        const std::string& id, const std::shared_ptr<UIObserverListener>& listener);
+    static void UnRegisterTextChangeEventCallback(napi_value cb);
+    static void UnRegisterTextChangeEventCallback(const std::string& id, napi_value cb);
+    static void HandleTextChangeEvent(const NG::TextChangeEventInfo& info);
+
+    static void RegisterSwiperContentUpdateCallback(const std::shared_ptr<UIObserverListener>& listener);
+    static void RegisterSwiperContentUpdateCallback(
+        const std::string& id, const std::shared_ptr<UIObserverListener>& listener);
+    static void UnRegisterSwiperContentUpdateCallback(napi_value callback = nullptr);
+    static void UnRegisterSwiperContentUpdateCallback(
+        const std::string& id, napi_value callback = nullptr);
+    static void HandleSwiperContentUpdate(const NG::SwiperContentInfo& info);
+    static bool IsSwiperContentObserverEmpty();
+    static void RegisterRouterPageSizeChangeCallback(const std::shared_ptr<UIObserverListener>& listener);
+    static void UnRegisterRouterPageSizeChangeCallback(napi_value callback);
+    static void HandleRouterPageSizeChange(const NG::RouterPageInfoNG& info);
+    static void RegisterNavDestinationSizeChangeCallback(const std::shared_ptr<UIObserverListener>& listener);
+    static void UnRegisterNavDestinationSizeChangeCallback(napi_value callback);
+    static void HandleNavDestinationSizeChange(const NG::NavDestinationInfo& info);
+    static void RegisterNavDestinationSizeChangeByUniqueIdCallback(
+        int32_t uniqueId, const std::shared_ptr<UIObserverListener>& listener);
+    static void UnRegisterNavDestinationSizeChangeByUniqueIdCallback(int32_t uniqueId, napi_value callback);
+    static void HandleNavDestinationSizeChangeByUniqueId(const NG::NavDestinationInfo& info);
+
     using PanGestureListenersPair =
         std::pair<std::unordered_map<napi_ref, std::list<std::shared_ptr<UIObserverListener>>>&,
             std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>>&>;
@@ -164,12 +201,13 @@ private:
     static void HandleUIContextNavDestinationSwitch(const NG::NavDestinationSwitchInfo& switchInfo);
     using NavIdAndListenersMap =
         std::unordered_map<std::optional<std::string>, std::list<std::shared_ptr<UIObserverListener>>>;
-    static void HandleListenersWithEmptyNavigationId(
-        const NavIdAndListenersMap& listenersMap, const NG::NavDestinationSwitchInfo& switchInfo);
-    static void HandleListenersWithSpecifiedNavigationId(
-        const NavIdAndListenersMap& listenersMap, const NG::NavDestinationSwitchInfo& switchInfo);
+    static void HandleListenersWithEmptyNavigationId(const NavIdAndListenersMap& listenersMap,
+        const NG::NavDestinationSwitchInfo& switchInfo, napi_value abilityContext);
+    static void HandleListenersWithSpecifiedNavigationId(const NavIdAndListenersMap& listenersMap,
+        const NG::NavDestinationSwitchInfo& switchInfo, napi_value abilityContext);
     static void GetAbilityInfos(napi_env env, napi_value abilityContext, NG::AbilityContextInfo& info);
     static napi_env GetCurrentNapiEnv();
+    static napi_value GetContextValue();
 
     static std::list<std::shared_ptr<UIObserverListener>> unspecifiedNavigationListeners_;
     static std::unordered_map<std::string, std::list<std::shared_ptr<UIObserverListener>>>
@@ -186,8 +224,9 @@ private:
     static std::unordered_map<napi_ref, NG::AbilityContextInfo> infosForRouterPage_;
     static std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>>
         specifiedDensityListeners_;
-    static std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>> specifiedDrawListeners_;
-    static std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>> specifiedLayoutListeners_;
+    static std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>>
+        specifiedWinSizeLayoutBreakpointListeners_;
+
     static std::unordered_map<napi_ref, std::list<std::shared_ptr<UIObserverListener>>>
         abilityContextWillClickListeners_;
     static std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>>
@@ -199,6 +238,9 @@ private:
     static std::list<std::shared_ptr<UIObserverListener>> tabContentStateListeners_;
     static std::unordered_map<std::string, std::list<std::shared_ptr<UIObserverListener>>>
         specifiedTabContentStateListeners_;
+    static std::list<std::shared_ptr<UIObserverListener>> tabChangeListeners_;
+    static std::unordered_map<std::string, std::list<std::shared_ptr<UIObserverListener>>>
+        specifiedTabChangeListeners_;
     static std::unordered_map<napi_ref, std::list<std::shared_ptr<UIObserverListener>>>
         abilityContextBeforePanStartListeners_;
     static std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>>
@@ -217,6 +259,15 @@ private:
         specifiedAfterPanEndListeners_;
     static std::unordered_map<NG::FrameNode*, std::shared_ptr<NodeRenderListener>>
         specifiedNodeRenderStateListeners_;
+    
+    static std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>> specifiedDrawListeners_;
+    static std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>> specifiedLayoutListeners_;
+    static std::list<std::shared_ptr<UIObserverListener>> textChangeEventListeners_;
+    static std::unordered_map<std::string, std::list<std::shared_ptr<UIObserverListener>>>
+        specifiedTextChangeEventListeners_;
+    static std::list<std::shared_ptr<UIObserverListener>> unspecifiedSwiperContentListeners_;
+    static std::unordered_map<std::string, std::list<std::shared_ptr<UIObserverListener>>>
+        specifiedSwiperContentListeners_;
 
     static std::unordered_map<napi_ref, NavIdAndListenersMap> abilityUIContextNavDesSwitchListeners_;
     static std::unordered_map<int32_t, NavIdAndListenersMap> uiContextNavDesSwitchListeners_;
@@ -228,6 +279,11 @@ private:
     static std::unordered_map<napi_ref, NG::AbilityContextInfo> afterPanStartInfos_;
     static std::unordered_map<napi_ref, NG::AbilityContextInfo> afterPanEndInfos_;
     static std::unordered_map<napi_ref, NG::AbilityContextInfo> PanGestureInfos_;
+
+    static std::list<std::shared_ptr<UIObserverListener>> routerPageSizeChangeListeners_;
+    static std::list<std::shared_ptr<UIObserverListener>> unspecifiedNavDestinationSizeChangeListeners_;
+    static std::unordered_map<int32_t, std::list<std::shared_ptr<UIObserverListener>>>
+        specifiedNavDestinationSizeChangeListeners_;
 };
 } // namespace OHOS::Ace::Napi
 #endif // FOUNDATION_ACE_INTERFACES_OBSERVER_H

@@ -14,10 +14,27 @@
 import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
 
 ace_unittest("canvas_test_ng") {
+  module_name = "DrawingSet-Canvas"
   type = "new"
   sources = [
     "canvas_custom_paint_method_test_ng.cpp",
+    "canvas_custom_paint_method_test_ng_2.cpp",
     "canvas_custom_paint_method_testtwo_ng.cpp",
+    "canvas_render_context_test.cpp",
     "canvas_test_ng.cpp",
   ]
+  defines = [ "ENABLE_ROSEN_BACKEND" ]
+
+  if (!ace_enable_full_test_suite) {
+    sources = []
+    sources = [
+      "canvas_test_min.cpp",
+      "canvas_test_core.cpp",
+    ]
+  } else {
+    sources += [
+      "canvas_test_min.cpp",
+      "canvas_test_core.cpp",
+    ]
+  }
 }

@@ -13,12 +13,13 @@
  * limitations under the License.
  */
 
-import { IMutableKeyedStateMeta, IMutableStateMeta } from '../decorator';
+import { IMutableKeyedStateMeta, IMutableStateMeta, IObservedObject } from '../decorator';
 import { IFactoryInternal } from './iFactoryInternal';
 import { IBackingValue } from './iBackingValue';
 import { DecoratorBackingValue } from './backingValue';
 import { MutableKeyedStateMeta, MutableStateMeta } from './mutableStateMeta';
 import { StateMgmtTool, InterfaceProxyHandler } from '#stateMgmtTool';
+import { InteropDecoratorBackingValue, InteropV2DecoratorBackingValue} from '../interop/interopBackingValue';
 
 export class FactoryInternalImpl implements IFactoryInternal {
     public mkDecoratorValue<T>(info: string, initValue: T): IBackingValue<T> {
@@ -30,7 +31,16 @@ export class FactoryInternalImpl implements IFactoryInternal {
     public mkMutableKeyedStateMeta(info: string): IMutableKeyedStateMeta {
         return new MutableKeyedStateMeta(info);
     }
+    public mkMutableKeyedStateMeta(info: string, observed: IObservedObject): IMutableKeyedStateMeta {
+        return new MutableKeyedStateMeta(info, observed);
+    }
     public mkObservedInterfaceProxy<T extends Object>(x: T): T {
         return StateMgmtTool.createProxy<T>(x);
+    }
+    public mkInteropDecoratorValue<T>(info: string, initValue: T): IBackingValue<T> {
+        return new InteropDecoratorBackingValue<T>(info, initValue);
+    }
+    public mkInteropV2DecoratorValue<T>(info: string, initValue: T): IBackingValue<T> {
+        return new InteropV2DecoratorBackingValue<T>(info, initValue);
     }
 }

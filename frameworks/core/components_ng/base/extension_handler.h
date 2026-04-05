@@ -118,10 +118,7 @@ public:
         return false;
     }
 
-    virtual bool NeedRender() const
-    {
-        return drawModifier_ || needRender_ ;
-    }
+    virtual bool NeedRender() const;
 
     void ResetNeedRender()
     {

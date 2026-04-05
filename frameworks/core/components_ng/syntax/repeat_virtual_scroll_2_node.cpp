@@ -15,14 +15,13 @@
 
 #include "core/components_ng/syntax/repeat_virtual_scroll_2_node.h"
 
-#include <cstdint>
-#include <functional>
-#include <utility>
-
 #include "base/log/ace_trace.h"
 #include "base/log/log_wrapper.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/list/list_item_pattern.h"
+#ifdef ENABLE_ROSEN_BACKEND
+#include "core/components_ng/render/adapter/rosen_render_context.h"
+#endif
 #include "core/pipeline/base/element_register.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
@@ -32,10 +31,11 @@ using CacheItem = RepeatVirtualScroll2Caches::CacheItem;
 
 // REPEAT
 RefPtr<RepeatVirtualScroll2Node> RepeatVirtualScroll2Node::GetOrCreateRepeatNode(int32_t nodeId, uint32_t arrLen,
-    uint32_t totalCount, const std::function<std::pair<RIDType, uint32_t>(IndexType)>& onGetRid4Index,
+    uint32_t totalCount, const std::function<std::pair<RIDType, uint32_t>(IndexType, bool)>& onGetRid4Index,
     const std::function<void(IndexType, IndexType)>& onRecycleItems,
     const std::function<void(int32_t, int32_t, int32_t, int32_t, bool, bool)>& onActiveRange,
-    const std::function<void(IndexType, IndexType)>& onMoveFromTo, const std::function<void()>& onPurge)
+    const std::function<void(IndexType, IndexType)>& onMoveFromTo, const std::function<void()>& onPurge,
+    const std::function<void()>& onUpdateDirty)
 {
     auto node = ElementRegister::GetInstance()->GetSpecificItemById<RepeatVirtualScroll2Node>(nodeId);
     if (node) {
@@ -45,22 +45,25 @@ RefPtr<RepeatVirtualScroll2Node> RepeatVirtualScroll2Node::GetOrCreateRepeatNode
         node->UpdateTotalCount(totalCount);
         return node;
     }
+    ACE_UINODE_TRACE(nodeId);
     node = MakeRefPtr<RepeatVirtualScroll2Node>(
-        nodeId, arrLen, totalCount, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        nodeId, arrLen, totalCount, onGetRid4Index, onRecycleItems, onActiveRange,
+        onMoveFromTo, onPurge, onUpdateDirty);
 
     ElementRegister::GetInstance()->AddUINode(node);
     return node;
 }
 
 RepeatVirtualScroll2Node::RepeatVirtualScroll2Node(int32_t nodeId, uint32_t arrLen, int32_t totalCount,
-    const std::function<std::pair<RIDType, uint32_t>(IndexType)>& onGetRid4Index,
+    const std::function<std::pair<RIDType, uint32_t>(IndexType, bool)>& onGetRid4Index,
     const std::function<void(IndexType, IndexType)>& onRecycleItems,
     const std::function<void(int32_t, int32_t, int32_t, int32_t, bool, bool)>& onActiveRange,
     const std::function<void(IndexType, IndexType)>& onMoveFromTo,
-    const std::function<void()>& onPurge)
+    const std::function<void()>& onPurge,
+    const std::function<void()>& onUpdateDirty)
     : ForEachBaseNode(V2::JS_REPEAT_ETS_TAG, nodeId), arrLen_(arrLen), totalCount_(totalCount), caches_(onGetRid4Index),
       onRecycleItems_(onRecycleItems), onActiveRange_(onActiveRange), onMoveFromTo_(onMoveFromTo),
-      onPurge_(onPurge), postUpdateTaskHasBeenScheduled_(false)
+      onPurge_(onPurge), onUpdateDirty_(onUpdateDirty), postUpdateTaskHasBeenScheduled_(false)
 {}
 
 void RepeatVirtualScroll2Node::UpdateTotalCount(uint32_t totalCount)
@@ -136,7 +139,7 @@ bool RepeatVirtualScroll2Node::CheckNode4IndexInL1(int32_t index, int32_t nStart
             (nStart < 0 && index >= nStart + totalCount) || // cover scenario 3.1
             (nEnd >= totalCount && index <= nEnd - totalCount); // cover scenario 3.3
     }
-    cacheItem->isL1_ = remainInL1;
+    caches_.UpdateIsL1(cacheItem, remainInL1);
     if (!remainInL1) {
         cacheItem->isOnRenderTree_ = false;
     }
@@ -153,27 +156,11 @@ bool RepeatVirtualScroll2Node::CheckNode4IndexInL1(int32_t index, int32_t nStart
  *
  * possible scenarios (only one repeat in scroll container):
  * - scenario 1: List/Swiper-no-Loop
- *   - 1.1 screen: [0 1 2] 3 4 5.., DoSetActiveChildRange params: (0,2,0,2), nStart&nEnd: (0,4)
- *   - 1.2 screen: ..1 2 [3 4 5] 6 7, DoSetActiveChildRange params: (3,5,2,2), nStart&nEnd: (1,7)
- *   - 1.3 screen: ..5 6 [7 8 9], DoSetActiveChildRange params: (7,9,2,0), nStart&nEnd: (5,9)
  * - scenario 2: Grid/WaterFlow
- *   - 2.1 screen: [0 1 2] 3 4 5.., DoSetActiveChildRange params: (0,2,2,2), nStart&nEnd: (0,4)
- *   - 2.2 screen: ..1 2 [3 4 5] 6 7, DoSetActiveChildRange params: (3,5,2,2), nStart&nEnd: (1,7)
- *   - 2.3 screen: ..5 6 [7 8 9], DoSetActiveChildRange params: (7,9,2,2), nStart&nEnd: (5,9)
  * - scenario 3: Swiper-Loop
- *   - 3.1 screen: ..8 9 [0 1 2] 3 4.., DoSetActiveChildRange params: (0,2,2,2), nStart&nEnd: (-2,4)
- *   - 3.2 screen: ..7 8 [9 0 1] 2 3.., DoSetActiveChildRange params: (9,1,2,2), nStart&nEnd: (7,3)
- *   - 3.3 screen: ..5 6 [7 8 9] 0 1.., DoSetActiveChildRange params: (8,2,2,2), nStart&nEnd: (5,11)
- *   - 3.4 screen(overlapped): 2 [3 0] 1, DoSetActiveChildRange params: (3,0,2,2), nStart&nEnd: (2,1)
  *
  * possible scenarios (multiple components in scroll container, X indicates a non-repeat child):
  * - scenario 4: List/Grid/WaterFlow/Swiper-no-Loop
- *   - 4.1 screen: ..[X X 0 1 2] 3 4.., DoSetActiveChildRange params: (-2,3,2,2), nStart&nEnd: (0,4)
- *   - 4.2 screen: ..[X X X] 0 1 2.., DoSetActiveChildRange params: (-5,-1,2,2), nStart&nEnd: (0,1)
- *   - 4.3 screen: ..[X X X] X X 0 1.., DoSetActiveChildRange params: (-5,-3,2,2), nStart&nEnd: (NaN)
- *   - 4.4 screen: ..0 1 [2 3 4 X X].., DoSetActiveChildRange params: (2,6,2,2), nStart&nEnd: (0,4)
- *   - 4.5 screen: ..0 1 [X X X].., DoSetActiveChildRange params: (2,5,2,2), nStart&nEnd: (0,1)
- *   - 4.6 screen: ..0 1 X X [X X X].., DoSetActiveChildRange params: (4,6,2,2), nStart&nEnd: (NaN)
  * - scenario 5: Swiper-Loop. Currently it isn't allowed to be used.
  */
 ActiveRangeType RepeatVirtualScroll2Node::CheckActiveRange(
@@ -232,8 +219,10 @@ ActiveRangeType RepeatVirtualScroll2Node::CheckActiveRange(
     auto* viewStack = NG::ViewStackProcessor::GetInstance();
     viewStack->Push(Referenced::Claim(this));
 
-    ACE_SCOPED_TRACE("Repeat.DoSetActiveChildRange start[%d]-end[%d], cacheStart[%d], cacheEnd[%d]. keep in [%d]-[%d]",
-        start, end, cacheStart, cacheEnd, nStart, nEnd);
+    ACE_SCOPED_TRACE(
+        "Repeat.DoSetActiveChildRange nodeId[%d], start[%d]-end[%d], cacheStart[%d], "
+        "cacheEnd[%d]. keep in [%d]-[%d]",
+        GetId(), start, end, cacheStart, cacheEnd, nStart, nEnd);
 
     // step 2. call TS side
     onActiveRange_(nStart, nEnd, start, end, isLoop_, forceRunDoSetActiveRange_);
@@ -266,7 +255,8 @@ bool RepeatVirtualScroll2Node::RebuildL1(int32_t start, int32_t end, int32_t nSt
                 TAG_LOGD(AceLogTag::ACE_REPEAT,
                     "out of range: index %{public}d -> child nodeId %{public}d: SetActive(false)",
                     index, frameNode->GetId());
-                    frameNode->SetActive(false);
+                AnimationUtils::IsImplicitAnimationOpen() ?
+                    frameNode->NeedSetInActiveAfterTransitionOut(true) : frameNode->SetActive(false);
                 cacheItem->isActive_ = false;
             }
 
@@ -310,7 +300,8 @@ bool RepeatVirtualScroll2Node::ProcessActiveL2Nodes()
         // 2. Repeat.rerender
         auto frameNode = AceType::DynamicCast<FrameNode>(cacheItem->node_->GetFrameChildByIndex(0, true));
         if (frameNode && cacheItem->isActive_) {
-            frameNode->SetActive(false);
+            AnimationUtils::IsImplicitAnimationOpen() ?
+                frameNode->NeedSetInActiveAfterTransitionOut(true) : frameNode->SetActive(false);
             cacheItem->isActive_ = false;
             needSync = true;
             TAG_LOGD(AceLogTag::ACE_REPEAT,
@@ -363,7 +354,7 @@ void RepeatVirtualScroll2Node::DoSetActiveChildRange(
             }
             if (activeItems.find(index + baseIndex) != activeItems.end()) {
                 frameNode->SetActive(true);
-                cacheItem->isL1_ = true;
+                repeatNode->caches_.UpdateIsL1(cacheItem, true, false);
                 cacheItem->isActive_ = true;
                 cacheItem->isOnRenderTree_ = true;
                 return true;
@@ -372,12 +363,12 @@ void RepeatVirtualScroll2Node::DoSetActiveChildRange(
                 cacheItem->isActive_ = false;
             }
             if (cachedItems.find(index + baseIndex) != cachedItems.end()) {
-                cacheItem->isL1_ = true;
+                repeatNode->caches_.UpdateIsL1(cacheItem, true, false);
                 return true;
             }
 
             cacheItem->isOnRenderTree_ = false;
-            cacheItem->isL1_ = false;
+            repeatNode->caches_.UpdateIsL1(cacheItem, false);
             if (cacheItem->node_->OnRemoveFromParent(true)) {
                 repeatNode->RemoveDisappearingChild(cacheItem->node_);
             } else {
@@ -464,8 +455,8 @@ RefPtr<UINode> RepeatVirtualScroll2Node::GetFrameChildByIndex(
         static_cast<int32_t>(GetId()), static_cast<int32_t>(index), static_cast<int32_t>(needBuild),
         static_cast<int32_t>(isCache), static_cast<int32_t>(addToRenderTree));
 
-    ACE_SCOPED_TRACE("Repeat.GetFrameChildByIndex index[%d], needBuild[%d] isCache[%d] addToRenderTree[%d]",
-        static_cast<int32_t>(index), static_cast<int32_t>(needBuild),
+    ACE_SCOPED_TRACE("Repeat.GetFrameChildByIndex nodeId[%d], index[%d], needBuild[%d] isCache[%d] addToRenderTree[%d]",
+        GetId(), static_cast<int32_t>(index), static_cast<int32_t>(needBuild),
         static_cast<int32_t>(isCache), static_cast<int32_t>(addToRenderTree));
 
     if (prevRecycleFrom_ > 0 && prevRecycleFrom_ <= static_cast<IndexType>(index) &&
@@ -584,12 +575,35 @@ const std::list<RefPtr<UINode>>& RepeatVirtualScroll2Node::GetChildren(bool /*no
     // need to order the child.
     if (!caches_.IsMoveFromToExist()) {
         caches_.ForEachL1Node(
-            [&](IndexType index, RIDType rid, const RefPtr<UINode>& node) -> void { children_.emplace_back(node); });
+            [&](IndexType index, RIDType rid, const RefPtr<UINode>& node) -> void {
+                if (node) {
+                    children_.emplace_back(node);
+                }
+            });
     } else {
-        caches_.ForEachL1NodeWithOnMove([&](const RefPtr<UINode>& node) -> void { children_.emplace_back(node); });
+        caches_.ForEachL1NodeWithOnMove([&](const RefPtr<UINode>& node) -> void {
+            if (node) {
+                children_.emplace_back(node);
+            }
+        });
     }
 
     return children_;
+}
+
+const std::list<RefPtr<UINode>>& RepeatVirtualScroll2Node::GetChildrenForInspector(bool needCacheNode) const
+{
+    if (needCacheNode) {
+        childrenWithCache_.clear();
+        caches_.ForEachCacheItem([this](RIDType rid, const CacheItem& cacheItem) {
+            if (cacheItem->node_ != nullptr) {
+                childrenWithCache_.emplace_back(cacheItem->node_);
+            }
+        });
+        return childrenWithCache_;
+    } else {
+        return children_;
+    }
 }
 
 // called by container layout
@@ -613,16 +627,6 @@ void RepeatVirtualScroll2Node::RecycleItems(int32_t from, int32_t to)
         "%{public}d to the reusable items cache",
         static_cast<int32_t>(GetId()), from, to, startIndex_, from - startIndex_, to - startIndex_);
 
-    // swap the ViewStackProcessor instance for secondary and push this node
-    // call sequence is C++ -> TS -> JS
-    // for TS -> JS to find 'this' node, we need to put 'this' to the 2nd
-    // ViewStackProcessor
-    NG::ScopedViewStackProcessor scopedViewStackProcessor;
-    auto* viewStack = NG::ViewStackProcessor::GetInstance();
-    viewStack->Push(Referenced::Claim(this));
-
-    onRecycleItems_(from - startIndex_, to - startIndex_);
-    
     prevRecycleFrom_ = from;
     prevRecycleTo_ = to;
 
@@ -675,9 +679,9 @@ void RepeatVirtualScroll2Node::PostIdleTask()
     CHECK_NULL_VOID(context);
 
     context->AddPredictTask([weak = AceType::WeakClaim(this)](int64_t /*deadline*/, bool /*canUseLongPredictTask*/) {
-        ACE_SCOPED_TRACE("Repeat.IdleTask");
         auto node = weak.Upgrade();
         CHECK_NULL_VOID(node);
+        ACE_SCOPED_TRACE("Repeat.IdleTask, nodeId[%d]", node->GetId());
         node->postUpdateTaskHasBeenScheduled_ = false;
         TAG_LOGD(AceLogTag::ACE_REPEAT, "Repeat(%{public}d).PostIdleTask idle task calls GetChildren",
             static_cast<int32_t>(node->GetId()));
@@ -724,9 +728,10 @@ void RepeatVirtualScroll2Node::OnConfigurationUpdate(const ConfigurationChange& 
 
 void RepeatVirtualScroll2Node::NotifyColorModeChange(uint32_t colorMode)
 {
-    caches_.ForEachCacheItem([colorMode, this](RIDType rid, const CacheItem& cacheItem) {
+    auto rerenderable = GetRerenderable();
+    caches_.ForEachCacheItem([colorMode, rerenderable](RIDType rid, const CacheItem& cacheItem) {
       if (cacheItem->node_ != nullptr) {
-          cacheItem->node_->SetMeasureAnyway(GetRerenderable());
+          cacheItem->node_->SetMeasureAnyway(rerenderable);
           cacheItem->node_->NotifyColorModeChange(colorMode);
       }
     });
@@ -843,5 +848,50 @@ void RepeatVirtualScroll2Node::InitAllChildrenDragManager(bool init)
 RefPtr<FrameNode> RepeatVirtualScroll2Node::GetFrameNode(int32_t index)
 {
     return AceType::DynamicCast<FrameNode>(GetFrameChildByIndex(index, false, false));
+}
+
+void RepeatVirtualScroll2Node::fireOnUpdateDirty()
+{
+    NG::ScopedViewStackProcessor scopedViewStackProcessor;
+    onUpdateDirty_();
+}
+
+bool RepeatVirtualScroll2Node::IsAllowAnimation()
+{
+    return GetParentFrameNode()->GetTag() == V2::LIST_ETS_TAG;
+}
+
+bool RepeatVirtualScroll2Node::IsChildInAnimation(uint32_t rid)
+{
+#ifdef ENABLE_ROSEN_BACKEND
+    std::optional<RefPtr<RepeatVirtualScroll2CacheItem>> optCacheItem = caches_.GetCacheItem4RID(rid);
+    CHECK_NULL_RETURN(optCacheItem.has_value(), false);
+    auto node = optCacheItem.value()->node_->GetFrameChildByIndex(0, false, true);
+    CHECK_NULL_RETURN(node, false);
+    auto renderContext = AceType::DynamicCast<RosenRenderContext>(
+        AceType::DynamicCast<FrameNode>(node)->GetRenderContext());
+    CHECK_NULL_RETURN(renderContext, false);
+    auto rsNode = renderContext->GetRSNode();
+    CHECK_NULL_RETURN(rsNode, false);
+    return rsNode->GetAnimationsCount() > 0;
+#endif
+#ifndef ENABLE_ROSEN_BACKEND
+    return false;
+#endif
+}
+
+bool RepeatVirtualScroll2Node::IsChildOnMainTree(uint32_t rid)
+{
+    std::optional<RefPtr<RepeatVirtualScroll2CacheItem>> optCacheItem = caches_.GetCacheItem4RID(rid);
+    return optCacheItem.has_value() ? optCacheItem.value()->node_->IsOnMainTree() : false;
+}
+
+void RepeatVirtualScroll2Node::DumpInfo()
+{
+    DumpLog::GetInstance().AddDesc("VirtualScroll: true");
+    DumpLog::GetInstance().AddDesc(std::string("Length of source data:")
+                                        .append(std::to_string(arrLen_).c_str()));
+    DumpLog::GetInstance().AddDesc(std::string("totalCount of source data:")
+                                        .append(std::to_string(totalCount_).c_str()));
 }
 } // namespace OHOS::Ace::NG

@@ -18,17 +18,15 @@
 
 #include "base/geometry/ng/size_t.h"
 #include "base/memory/ace_type.h"
-#include "base/memory/referenced.h"
 #include "base/utils/macros.h"
 #include "base/utils/utils.h"
 #include "core/components/common/properties/placement.h"
 #include "core/components_ng/render/node_paint_method.h"
-#include "core/components_v2/list/list_component.h"
 
 // @deprecated
 namespace OHOS::Ace::NG {
 struct MenuParam;
-struct MenuPathParams {
+struct ACE_FORCE_EXPORT MenuPathParams {
     float radiusTopLeftPx = 0.0f;
     float radiusTopRightPx = 0.0f;
     float radiusBottomLeftPx = 0.0f;
@@ -55,7 +53,7 @@ struct ArrowOutlineOffset {
 };
 
 class ACE_EXPORT MenuWrapperPaintMethod : public NodePaintMethod {
-    DECLARE_ACE_TYPE(MenuWrapperPaintMethod, NodePaintMethod)
+    DECLARE_ACE_TYPE(MenuWrapperPaintMethod, NodePaintMethod);
 public:
     MenuWrapperPaintMethod() = default;
     ~MenuWrapperPaintMethod() override = default;

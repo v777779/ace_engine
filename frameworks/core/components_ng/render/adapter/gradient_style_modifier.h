@@ -21,9 +21,7 @@
 #include <vector>
 
 #include "common/rs_vector4.h"
-#if defined(MODIFIER_NG)
 #include "render_service_client/core/modifier_ng/custom/rs_background_style_modifier.h"
-#endif
 
 #include "base/geometry/dimension.h"
 #include "core/components_ng/property/gradient_property.h"
@@ -40,19 +38,19 @@ public:
     ColorAnimatableArithmetic Minus(const ColorAnimatableArithmetic& value) const override;
     ColorAnimatableArithmetic Multiply(const float scale) const override;
     bool IsEqual(const ColorAnimatableArithmetic& value) const override;
-    const std::vector<Color>& GetColors() const
+    const std::vector<LinearColor>& GetColors() const
     {
         return colors_;
     }
 
-    void PaddingColors(size_t size, const Color& defaultColor)
+    void PaddingColors(size_t size, const LinearColor& defaultColor)
     {
         auto color = colors_.size() == 0 ? defaultColor : colors_.back();
         colors_.insert(colors_.end(), size, color);
     }
 
 private:
-    std::vector<Color> colors_;
+    std::vector<LinearColor> colors_;
 };
 
 class ColorStopAnimatableArithmetic : public Rosen::RSAnimatableArithmetic<ColorStopAnimatableArithmetic> {
@@ -78,11 +76,7 @@ private:
     std::vector<Dimension> colorStops_;
 };
 
-#if defined(MODIFIER_NG)
 using RSBackgroundStyleModifier = Rosen::ModifierNG::RSBackgroundStyleModifier;
-#else
-using RSBackgroundStyleModifier = Rosen::RSBackgroundStyleModifier;
-#endif
 
 class [[deprecated]] GradientStyleModifier : public RSBackgroundStyleModifier {
 public:
@@ -110,7 +104,7 @@ private:
     std::shared_ptr<Rosen::RSAnimatableProperty<Rosen::Vector2f>> sizeF_;
     // No animatable
     std::shared_ptr<Rosen::RSProperty<Gradient>> gradient_;
-    ColorSpace colorSpace_;
+    ColorSpace colorSpace_ = ColorSpace::SRGB;
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_RENDER_ADAPTER_GRADIENT_STYLE_MODIFIER_H

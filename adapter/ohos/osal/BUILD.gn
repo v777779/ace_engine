@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024 Huawei Device Co., Ltd.
+# Copyright (c) 2021-2025 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -13,6 +13,7 @@
 
 import("//build/ohos.gni")
 import("//foundation/arkui/ace_engine/ace_config.gni")
+import("//foundation/arkui/ace_engine/adapter/ohos/services/uiservice/uiservicems.gni")
 import("//foundation/arkui/ace_engine/build/ace_ext.gni")
 
 # build static
@@ -59,6 +60,7 @@ template("ace_osal_ohos_source_set") {
       "ai_write_adapter.cpp",
       "anr_thread.cpp",
       "app_bar_helper_impl.cpp",
+      "cpu_boost.cpp",
       "data_detector_adapter.cpp",
       "data_detector_loader.cpp",
       "data_detector_mgr.cpp",
@@ -66,22 +68,26 @@ template("ace_osal_ohos_source_set") {
       "data_url_analyzer_mgr.cpp",
       "display_info_utils.cpp",
       "download_manager_ohos.cpp",
-      "drawable_descriptor_ohos.cpp",
+      "dynamic_module_helper.cpp",
       "event_report.cpp",
       "exception_handler.cpp",
+      "feature_param.cpp",
       "frame_report.cpp",
       "image_analyzer_adapter_impl.cpp",
       "image_analyzer_loader.cpp",
       "image_analyzer_manager.cpp",
       "image_analyzer_mgr.cpp",
       "image_perf_ohos.cpp",
+      "input_compatible_manager.cpp",
       "input_method_manager_ohos.cpp",
       "layout_inspector.cpp",
       "log_wrapper.cpp",
       "modal_ui_extension_impl.cpp",
       "perf_interfaces.cpp",
       "ressched_report.cpp",
+      "screen_lock_manager_ohos.cpp",
       "socperf_client_impl.cpp",
+      "statistic_event_adapter.cpp",
       "stylus_detector_callback.cpp",
       "stylus_detector_default.cpp",
       "stylus_detector_loader.cpp",
@@ -102,7 +108,12 @@ template("ace_osal_ohos_source_set") {
       "websocket_manager.cpp",
       "window_utils.cpp",
     ]
-
+    if (defined(config.enable_standard_input) &&
+        config.enable_standard_input) {
+      sources += [
+      "ime_extra_config_ohos.cpp",
+      ]
+    }
     external_deps += [
       "ability_runtime:app_manager",
       "hicollie:libhicollie",
@@ -141,12 +152,20 @@ template("ace_osal_ohos_source_set") {
           resourceschedule_ffrt_support) {
         sources += [ "long_frame_report_impl.cpp" ]
         external_deps += [ "ffrt:libffrt" ]
+        defines += [ "FFRT_CPUBOOST_EN" ]
+      }
+
+      if (defined(global_parts_info) &&
+          defined(global_parts_info.theme_screenlock_mgr)) {
+          external_deps += [ "screenlock_mgr:screenlock_client" ]
+          defines += [ "ENABLE_SCREEN_LOCK_MANAGER" ]
       }
 
       external_deps += [
         "ability_base:view_data",
         "ability_base:want",
         "ability_runtime:abilitykit_native",
+        "ability_runtime:napi_common",
         "graphic_2d:libframe_analyzer",
         "image_framework:image",
         "input:libmmi-client",
@@ -157,6 +176,17 @@ template("ace_osal_ohos_source_set") {
       if (defined(config.accessibility_support) &&
           config.accessibility_support) {
         sources += [
+          "accessibility/accessibility_hidumper_osal.cpp",
+          "accessibility/element_info/accessibility_element_info_osal.cpp",
+          "accessibility/element_info/accessibility_node_osal.cpp",
+          "accessibility/focus_move/accessibility_focus_accessibility_node_utils.cpp",
+          "accessibility/focus_move/accessibility_focus_frame_node_utils.cpp",
+          "accessibility/focus_move/accessibility_focus_move_osal.cpp",
+          "accessibility/focus_move/accessibility_focus_move_osal_ng.cpp",
+          "accessibility/focus_move/accessibility_focus_move_osal_node.cpp",
+          "accessibility/focus_move/accessibility_focus_move_osal_third.cpp",
+          "accessibility/focus_move/accessibility_focus_strategy.cpp",
+          "accessibility/focus_move/accessibility_focus_third_node_utils.cpp",
           "js_accessibility_manager.cpp",
           "js_third_accessibility_hover_ng.cpp",
           "js_third_provider_interaction_operation.cpp",
@@ -185,7 +215,6 @@ template("ace_osal_ohos_source_set") {
       "device_config.cpp",
       "display_manager_ohos.cpp",
       "drawing_color_filter_ohos.cpp",
-      "drawing_lattice_ohos.cpp",
       "file_uri_helper_ohos.cpp",
       "image_packer_ohos.cpp",
       "image_source_ohos.cpp",
@@ -204,6 +233,7 @@ template("ace_osal_ohos_source_set") {
       "ability_runtime:abilitykit_native",
       "ability_runtime:app_manager",
       "ability_runtime:connect_server_manager",
+      "ability_runtime:napi_common",
       "ability_runtime:wantagent_innerkits",
       "app_file_service:fileuri_native",
       "background_task_mgr:bgtaskmgr_innerkits",
@@ -231,6 +261,15 @@ template("ace_osal_ohos_source_set") {
 
     if (ability_runtime_graphics) {
       external_deps += [ "image_framework:image_native" ]
+    }
+
+    if (is_ohos_standard_system && !use_mingw_win && !use_mac && !use_linux) {
+      if (ace_engine_enable_uiservice_idl) {
+        deps += [
+          "$ace_root/interfaces/inner_api/ui_service_manager:ui_service_mgr",
+          "$ace_root/interfaces/inner_api/ui_service_manager:uiservice_manager_interface_set",
+        ]
+      }
     }
   }
 }

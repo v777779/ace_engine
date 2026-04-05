@@ -21,10 +21,10 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_subwindow.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/subwindow/mock_subwindow.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components/text/text_theme.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
@@ -35,6 +35,7 @@
 #include "core/components_ng/pattern/overlay/sheet_wrapper_pattern.h"
 #include "core/components_ng/pattern/root/root_pattern.h"
 #include "core/components_ng/pattern/scroll/scroll_pattern.h"
+#include "core/components_ng/pattern/sheet/sheet_mask_accessibility_property.h"
 #include "core/components_ng/pattern/sheet/sheet_mask_pattern.h"
 #include "core/components_ng/pattern/stage/page_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
@@ -441,6 +442,252 @@ HWTEST_F(SheetOthersTestNg, CreateDragBarNode004, TestSize.Level1)
     ASSERT_NE(titleColumnNode, nullptr);
     EXPECT_EQ(titleColumnNode->children_.size(), 1);
     EXPECT_EQ(titleColumnNode->children_.front(), titleBuilder);
+    SheetOthersTestNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: IsSingleDetents001
+ * @tc.desc: Branch: if (sheetStyle.detents.size() = 1)
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetOthersTestNg, IsSingleDetents001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set sheetStyle.
+     */
+    SheetOthersTestNg::SetUpTestCase();
+    auto operationColumn = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<LinearLayoutPattern>(true));
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(
+            ElementRegister::GetInstance()->MakeUniqueId(), V2::SHEET_WRAPPER_TAG, std::move(callback)));
+    auto sheetLayoutProperty = sheetNode->GetLayoutProperty<SheetPresentationProperty>();
+    ASSERT_NE(sheetLayoutProperty, nullptr);
+    SheetStyle sheetStyle;
+    sheetStyle.sheetHeight.height = 200.0_vp;
+    sheetStyle.isTitleBuilder = true;
+    sheetStyle.showDragBar = true;
+    sheetLayoutProperty->UpdateSheetStyle(sheetStyle);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    sheetPattern->sheetType_ = SheetType::SHEET_BOTTOM;
+
+    /**
+     * @tc.steps: step2.Set height but not set detents, test function IsSingleDetents.
+     * @tc.expected: true.
+     */
+    auto isSingleDetents = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_EQ(isSingleDetents, true);
+
+    /**
+     * @tc.steps: step3.Set detents [300], test function IsSingleDetents.
+     * @tc.expected: true.
+     */
+    sheetStyle.detents = { SheetHeight({ 300.0_vp }) };
+    isSingleDetents = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_EQ(isSingleDetents, true);
+    SheetOthersTestNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: IsSingleDetents002
+ * @tc.desc: Branch: if (sheetStyle.detents.size() == SHEET_DETENTS_TWO) = true
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetOthersTestNg, IsSingleDetents002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set sheetStyle.
+     */
+    SheetOthersTestNg::SetUpTestCase();
+    auto operationColumn = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<LinearLayoutPattern>(true));
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(
+            ElementRegister::GetInstance()->MakeUniqueId(), V2::SHEET_WRAPPER_TAG, std::move(callback)));
+    auto sheetLayoutProperty = sheetNode->GetLayoutProperty<SheetPresentationProperty>();
+    ASSERT_NE(sheetLayoutProperty, nullptr);
+    SheetStyle sheetStyle;
+    sheetStyle.sheetHeight.height = 200.0_vp;
+    sheetStyle.detents = { SheetHeight({ 300.0_vp }), SheetHeight({ 300.0_vp }) };
+    sheetStyle.isTitleBuilder = true;
+    sheetStyle.showDragBar = true;
+    sheetLayoutProperty->UpdateSheetStyle(sheetStyle);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    sheetPattern->sheetType_ = SheetType::SHEET_BOTTOM;
+
+    /**
+     * @tc.steps: step2.Set detents [300, 300], test function IsSingleDetents.
+     * @tc.expected: true.
+     */
+    auto isSingleDetents = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_EQ(isSingleDetents, true);
+
+    /**
+     * @tc.steps: step3.Set detents [300, 500], test function IsSingleDetents.
+     * @tc.expected: false.
+     */
+    sheetStyle.detents = { SheetHeight({ 300.0_vp }), SheetHeight({ 500.0_vp }) };
+    isSingleDetents = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_EQ(isSingleDetents, false);
+    SheetOthersTestNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: IsSingleDetents003
+ * @tc.desc: Branch: if (sheetStyle.detents.size() == SHEET_DETENTS_THREE) = true
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetOthersTestNg, IsSingleDetents003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set sheetStyle.
+     */
+    SheetOthersTestNg::SetUpTestCase();
+    auto operationColumn = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<LinearLayoutPattern>(true));
+    auto callback = [](const std::string&) {};
+    auto sheetNode = FrameNode::CreateFrameNode(V2::SHEET_PAGE_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<SheetPresentationPattern>(
+            ElementRegister::GetInstance()->MakeUniqueId(), V2::SHEET_WRAPPER_TAG, std::move(callback)));
+    auto sheetLayoutProperty = sheetNode->GetLayoutProperty<SheetPresentationProperty>();
+    ASSERT_NE(sheetLayoutProperty, nullptr);
+    SheetStyle sheetStyle;
+    sheetStyle.sheetHeight.height = 200.0_vp;
+    sheetStyle.detents = { SheetHeight({ 300.0_vp }), SheetHeight({ 500.0_vp }), SheetHeight({ 700.0_vp }) };
+    sheetStyle.isTitleBuilder = true;
+    sheetStyle.showDragBar = true;
+    sheetLayoutProperty->UpdateSheetStyle(sheetStyle);
+    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
+    ASSERT_NE(sheetPattern, nullptr);
+    sheetPattern->sheetType_ = SheetType::SHEET_BOTTOM;
+
+    /**
+     * @tc.steps: step2.Set detents [300, 500, 700], test function IsSingleDetents.
+     * @tc.expected: false.
+     */
+    auto isSingleDetents = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_EQ(isSingleDetents, false);
+
+    /**
+     * @tc.steps: step3.Set detents [300, 500, 700], test function IsSingleDetents.
+     * @tc.expected: false.
+     */
+    sheetStyle.detents = { SheetHeight({ 300.0_vp }), SheetHeight({ 300.0_vp }), SheetHeight({ 500.0_vp }) };
+    isSingleDetents = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_EQ(isSingleDetents, false);
+
+    /**
+     * @tc.steps: step4.Set detents [500, 300, 5500], test function IsSingleDetents.
+     * @tc.expected: false.
+     */
+    sheetStyle.detents = { SheetHeight({ 500.0_vp }), SheetHeight({ 300.0_vp }), SheetHeight({ 500.0_vp }) };
+    isSingleDetents = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_EQ(isSingleDetents, false);
+
+    /**
+     * @tc.steps: step5.Set detents [500, 300, 300], test function IsSingleDetents.
+     * @tc.expected: false.
+     */
+    sheetStyle.detents = { SheetHeight({ 500.0_vp }), SheetHeight({ 300.0_vp }), SheetHeight({ 300.0_vp }) };
+    isSingleDetents = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_EQ(isSingleDetents, false);
+
+    /**
+     * @tc.steps: step6.Set detents [500, 500, 500], test function IsSingleDetents.
+     * @tc.expected: true.
+     */
+    sheetStyle.detents = { SheetHeight({ 500.0_vp }), SheetHeight({ 500.0_vp }), SheetHeight({ 500.0_vp }) };
+    isSingleDetents = SheetView::IsSingleDetents(sheetStyle);
+    EXPECT_EQ(isSingleDetents, true);
+    SheetOthersTestNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: IsSingleDetents004
+ * @tc.desc: Branch: isSingle = true
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetOthersTestNg, IsSingleDetents004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.Set one sheet height.
+     * @tc.expected: true.
+     */
+    SheetOthersTestNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetPattern = AceType::MakeRefPtr<SheetPresentationPattern>(
+        ElementRegister::GetInstance()->MakeUniqueId(), V2::SHEET_WRAPPER_TAG, std::move(callback));
+    SheetStyle sheetStyle;
+    EXPECT_TRUE(sheetPattern->IsSingleDetents(sheetStyle));
+    sheetStyle.sheetHeight.height = 200.0_vp;
+    EXPECT_TRUE(sheetPattern->IsSingleDetents(sheetStyle));
+    sheetStyle.sheetHeight.sheetMode = SheetMode::AUTO;
+    EXPECT_TRUE(sheetPattern->IsSingleDetents(sheetStyle));
+    sheetStyle.detents = {};
+    EXPECT_TRUE(sheetPattern->IsSingleDetents(sheetStyle));
+    /**
+     * @tc.steps: step2.Set one detent, test function IsSingleDetents.
+     * @tc.expected: true.
+     */
+    sheetStyle.detents = { SheetHeight({ 300.0_vp }) };
+    EXPECT_TRUE(sheetPattern->IsSingleDetents(sheetStyle));
+    sheetStyle.detents = { SheetHeight({ 600.0_vp, SheetMode::MEDIUM }) };
+    EXPECT_TRUE(sheetPattern->IsSingleDetents(sheetStyle));
+    sheetStyle.detents = { SheetHeight({ 600.0_vp, SheetMode::AUTO }) };
+    EXPECT_TRUE(sheetPattern->IsSingleDetents(sheetStyle));
+    /**
+     * @tc.steps: step2.Set muti detents, test function IsSingleDetents.
+     * @tc.expected: true.
+     */
+    sheetStyle.detents = { SheetHeight({ 500.0_vp }), SheetHeight({ 500.0_vp }) };
+    sheetPattern->unSortedSheetDentents_ = { 500.0f, 500.0f };
+    EXPECT_TRUE(sheetPattern->IsSingleDetents(sheetStyle));
+    sheetStyle.detents = { SheetHeight({ 500.0_vp }), SheetHeight({ 500.0_vp }), SheetHeight({ 500.0_vp }) };
+    sheetPattern->unSortedSheetDentents_ = { 500.0f, 500.0f, 500.0f };
+    EXPECT_TRUE(sheetPattern->IsSingleDetents(sheetStyle));
+    SheetOthersTestNg::TearDownTestCase();
+}
+
+/**
+ * @tc.name: IsSingleDetents005
+ * @tc.desc: Branch: isSingle = false
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetOthersTestNg, IsSingleDetents005, TestSize.Level1)
+{
+    SheetOthersTestNg::SetUpTestCase();
+    auto callback = [](const std::string&) {};
+    auto sheetPattern = AceType::MakeRefPtr<SheetPresentationPattern>(
+        ElementRegister::GetInstance()->MakeUniqueId(), V2::SHEET_WRAPPER_TAG, std::move(callback));
+    SheetStyle sheetStyle;
+    sheetStyle.detents = { SheetHeight({ 500.0_vp }), SheetHeight({ 600.0_vp }) };
+    sheetPattern->unSortedSheetDentents_ = { 500.0f, 600.0f };
+    EXPECT_FALSE(sheetPattern->IsSingleDetents(sheetStyle));
+    sheetStyle.detents = { SheetHeight({ 500.0_vp }), SheetHeight({ 600.0_vp }), SheetHeight({ 700.0_vp }) };
+    sheetPattern->unSortedSheetDentents_ = { 500.0f, 600.0f, 700.0f };
+    EXPECT_FALSE(sheetPattern->IsSingleDetents(sheetStyle));
+    sheetStyle.detents = { SheetHeight({ 500.0_vp }), SheetHeight({ 600.0_vp, SheetMode::MEDIUM }),
+        SheetHeight({ 1000.0_vp, SheetMode::LARGE }) };
+    sheetPattern->unSortedSheetDentents_ = { 500.0f, 600.0f, 1000.0f };
+    EXPECT_FALSE(sheetPattern->IsSingleDetents(sheetStyle));
+    sheetStyle.detents = { SheetHeight({ 600.0_vp, SheetMode::MEDIUM }), SheetHeight({ 1000.0_vp, SheetMode::LARGE }) };
+    sheetPattern->unSortedSheetDentents_ = { 600.0f, 1000.0f };
+    EXPECT_FALSE(sheetPattern->IsSingleDetents(sheetStyle));
+    /**
+     * @tc.steps: step2.Set ont detent is fit content, test function IsSingleDetents.
+     * @tc.expected: false.
+     */
+    sheetStyle.detents = { SheetHeight({ 600.0_vp, SheetMode::MEDIUM }), SheetHeight({ 600.0_vp, SheetMode::AUTO }) };
+    sheetPattern->unSortedSheetDentents_ = { 600.0f, 600.0f };
+    EXPECT_FALSE(sheetPattern->IsSingleDetents(sheetStyle));
+    sheetStyle.detents = { SheetHeight({ 600.0_vp, SheetMode::MEDIUM }), SheetHeight({ 600.0_vp, SheetMode::AUTO }),
+        SheetHeight({ 600.0_vp }) };
+    sheetPattern->unSortedSheetDentents_ = { 600.0f, 600.0f, 600.0f };
+    EXPECT_FALSE(sheetPattern->IsSingleDetents(sheetStyle));
     SheetOthersTestNg::TearDownTestCase();
 }
 
@@ -912,8 +1159,10 @@ HWTEST_F(SheetOthersTestNg, BuildTitleColumn006, TestSize.Level1)
 HWTEST_F(SheetOthersTestNg, GetOverlayFromPage001, TestSize.Level1)
 {
     SheetOthersTestNg::SetUpTestCase();
-
-    auto overlayManager = SheetManager::GetOverlayFromPage(-1, RootNodeType::PAGE_ETS_TAG);
+    auto target = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
+    auto overlayManager = SheetManager::GetOverlayFromPage(-1, RootNodeType::PAGE_ETS_TAG, target->GetId());
     EXPECT_EQ(overlayManager, nullptr);
     SheetOthersTestNg::TearDownTestCase();
 }
@@ -932,8 +1181,10 @@ HWTEST_F(SheetOthersTestNg, GetOverlayFromPage002, TestSize.Level1)
         AceType::MakeRefPtr<PagePattern>(AceType::MakeRefPtr<PageInfo>()));
     auto sheetPattern = sheetNode->GetPattern<PagePattern>();
     sheetPattern->CreateOverlayManager(true);
-
-    auto overlayManager = SheetManager::GetOverlayFromPage(rootNodeId, RootNodeType::PAGE_ETS_TAG);
+    auto target = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
+    auto overlayManager = SheetManager::GetOverlayFromPage(rootNodeId, RootNodeType::PAGE_ETS_TAG, target->GetId());
     EXPECT_NE(overlayManager, nullptr);
     SheetOthersTestNg::TearDownTestCase();
 }
@@ -953,8 +1204,11 @@ HWTEST_F(SheetOthersTestNg, GetOverlayFromPage003, TestSize.Level1)
         rootNodeId, []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
     auto navDestinationPattern = navDestinationNode->GetPattern<NavDestinationPattern>();
     navDestinationPattern->CreateOverlayManager(true);
-
-    auto overlayManager = SheetManager::GetOverlayFromPage(rootNodeId, RootNodeType::NAVDESTINATION_VIEW_ETS_TAG);
+    auto target = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
+    auto overlayManager =
+        SheetManager::GetOverlayFromPage(rootNodeId, RootNodeType::NAVDESTINATION_VIEW_ETS_TAG, target->GetId());
     EXPECT_NE(overlayManager, nullptr);
     SheetOthersTestNg::TearDownTestCase();
 }
@@ -974,8 +1228,11 @@ HWTEST_F(SheetOthersTestNg, GetOverlayFromPage004, TestSize.Level1)
         AceType::MakeRefPtr<PagePattern>(AceType::MakeRefPtr<PageInfo>()));
     auto windowScenePattern = windowSceneNode->GetPattern<PagePattern>();
     windowScenePattern->CreateOverlayManager(true);
-
-    auto overlayManager = SheetManager::GetOverlayFromPage(rootNodeId, RootNodeType::WINDOW_SCENE_ETS_TAG);
+    auto target = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(),
+        []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
+    auto overlayManager =
+        SheetManager::GetOverlayFromPage(rootNodeId, RootNodeType::WINDOW_SCENE_ETS_TAG, target->GetId());
     EXPECT_EQ(overlayManager, nullptr);
     SheetOthersTestNg::TearDownTestCase();
 }
@@ -1421,6 +1678,41 @@ HWTEST_F(SheetOthersTestNg, SetMaskInteractiveTest002, TestSize.Level1)
 }
 
 /**
+ * @tc.name: IsAccessibilityModal001
+ * @tc.desc: Test IsAccessibilityModal.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SheetOthersTestNg, IsAccessibilityModal001, TestSize.Level1)
+{
+    SheetOthersTestNg::SetUpTestCase();
+
+    auto uniqueId = ElementRegister::GetInstance()->MakeUniqueId();
+    auto targetId = NUM_0;
+    auto targetTag = "";
+
+    auto maskNode = FrameNode::CreateFrameNode("SheetMask", uniqueId,
+        AceType::MakeRefPtr<SheetMaskPattern>(targetId, targetTag));
+    ASSERT_NE(maskNode, nullptr);
+
+    auto accessibilityProperty = maskNode->GetAccessibilityProperty<AccessibilityProperty>();
+    ASSERT_NE(accessibilityProperty, nullptr);
+    auto isModal = accessibilityProperty->IsAccessibilityModal();
+    EXPECT_TRUE(isModal);
+
+    auto maskPattern = maskNode->GetPattern<SheetMaskPattern>();
+    ASSERT_NE(maskPattern, nullptr);
+    maskPattern->SetIsMaskInteractive(false);
+    isModal = accessibilityProperty->IsAccessibilityModal();
+    EXPECT_FALSE(isModal);
+
+    maskPattern->SetIsMaskInteractive(true);
+    isModal = accessibilityProperty->IsAccessibilityModal();
+    EXPECT_TRUE(isModal);
+
+    SheetOthersTestNg::TearDownTestCase();
+}
+
+/**
  * @tc.name: CreateSheetMaskShowInSubwindowTest001
  * @tc.desc: Test CreateSheetMaskShowInSubwindow return null if container is null.
  * @tc.type: FUNC
@@ -1733,7 +2025,7 @@ HWTEST_F(SheetOthersTestNg, OnBindSheet001, TestSize.Level1)
     /**
      * @tc.steps: step2. create builder.
      */
-    auto builderFunc = []() -> RefPtr<UINode> {
+    auto builderFunc = [](int32_t id) -> RefPtr<UINode> {
         auto frameNode =
             FrameNode::GetOrCreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
                 []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });

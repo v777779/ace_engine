@@ -90,8 +90,6 @@ public:
         return textId_.value();
     }
 
-    void OnVisibleChange(bool isVisible) override;
-
     void OnTimeChange() override;
 
     void SetBuilderFunc(TextClockMakeCallback&& makeFunc)
@@ -122,7 +120,10 @@ public:
         return textClockLayoutProperty->GetPrefixHourValue(ZeroPrefixType::AUTO);
     }
 
-    bool OnThemeScopeUpdate(int32_t themeScopeId) override;
+    bool IsEnableMatchParent() override
+    {
+        return true;
+    }
 
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
 
@@ -147,7 +148,7 @@ private:
     void OnDetachFromMainTreeMultiThread();
     void OnLanguageConfigurationUpdate() override;
     void DumpInfo() override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override {}
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override {}
     void OnColorConfigurationUpdate() override;
     void InitTextClockController();
 
@@ -159,8 +160,8 @@ private:
     std::string ParseDateTime(const std::string& dateTimeValue, int32_t week, int32_t month, int32_t hour);
     void RegistVisibleAreaChangeCallback();
     void OnVisibleAreaChange(bool visible);
-    static void UpdateTextLayoutProperty(RefPtr<TextClockLayoutProperty>& layoutProperty,
-        RefPtr<TextLayoutProperty>& textLayoutProperty, const TextStyle& textStyleTheme);
+    static void UpdateTextLayoutProperty(
+        RefPtr<TextClockLayoutProperty>& layoutProperty, RefPtr<TextLayoutProperty>& textLayoutProperty);
     void ParseInputFormat();
     std::vector<std::string> ParseDateTimeValue(const std::string& strDateTimeValue);
     void GetDateTimeIndex(const char& element, TextClockFormatElement& tempFormatElement);
@@ -190,7 +191,6 @@ private:
     std::optional<int32_t> textId_;
     bool isStart_ = true;
     bool is24H_ = SystemProperties::Is24HourClock();
-    bool isSetVisible_ = true;
     bool isInVisibleArea_ = true;
     bool isForm_ = false;
     std::string prevTime_;

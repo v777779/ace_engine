@@ -23,7 +23,7 @@
 #include "core/components_ng/pattern/navigation/navigation_stack.h"
 #include "core/components_ng/pattern/navrouter/navdestination_pattern.h"
 #include "core/components_ng/pattern/navrouter/navdestination_model_ng.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
 namespace OHOS::Ace::NG {
 struct MockReplace {
@@ -32,7 +32,7 @@ struct MockReplace {
 constexpr char UNDEFINED_ID[] = "undefined";
 
 class MockNavPathInfo : public NavPathInfo {
-    DECLARE_ACE_TYPE(MockNavPathInfo, NavPathInfo)
+    DECLARE_ACE_TYPE(MockNavPathInfo, NavPathInfo);
 public:
     MockNavPathInfo() = default;
     explicit MockNavPathInfo(const std::string& name) : NG::NavPathInfo(name) {}
@@ -227,6 +227,8 @@ public:
     void ResetIsForceSetFlag(int32_t index);
     bool CheckIsReplacedDestination(int32_t index, std::string& replacedName, int32_t& replacedIndex);
     void SetRecoveryFromReplaceDestination(int32_t index, bool value);
+
+    MOCK_METHOD2(CreateHomeDestination, bool(const WeakPtr<UINode>& customNode, RefPtr<UINode>& node));
 
     // ============================ operation above is for mock NavPathStack in arkTS ============================
 private:

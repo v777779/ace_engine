@@ -469,6 +469,15 @@ void JsFrontend::InitializeFrontendDelegate(const RefPtr<TaskExecutor>& taskExec
         }
     };
 
+    builder.onCrownEventCallback = [weakEngine = WeakPtr<Framework::JsEngine>(jsEngine_)](
+        const std::string& callbackId, const std::string& args)-> bool {
+        auto jsEngine = weakEngine.Upgrade();
+        if (!jsEngine) {
+            return false;
+        }
+        return jsEngine->OnMonitorForCrownEvents(callbackId, args);
+    };
+
     builder.taskExecutor = taskExecutor;
     delegate_ = AceType::MakeRefPtr<Framework::FrontendDelegateImpl>(builder);
     if (disallowPopLastPage_) {
@@ -735,10 +744,10 @@ void JsFrontend::OnDrawCompleted(const std::string& componentId)
     }
 }
 
-void JsFrontend::OnDrawChildrenCompleted(const std::string& componentId)
+void JsFrontend::OnDrawChildrenCompleted(const std::string& componentId, const std::vector<int32_t>& childIds)
 {
     if (delegate_) {
-        delegate_->OnDrawChildrenCompleted(componentId);
+        delegate_->OnDrawChildrenCompleted(componentId, childIds);
     }
 }
 

@@ -18,6 +18,7 @@
 #include "modifier_test_base.h"
 #include "modifiers_test_utils.h"
 #include "core/components_ng/pattern/blank/blank_model_ng.h"
+#include "core/interfaces/native/implementation/key_event_peer.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
@@ -29,7 +30,7 @@ using namespace testing::ext;
 namespace OHOS::Ace::NG {
 
 namespace {
-static const std::unordered_map<Ark_AccessibilityRoleType, std::string> ACCESSIBILITY_ROLE_MAP {
+const std::unordered_map<Ark_AccessibilityRoleType, std::string> ACCESSIBILITY_ROLE_MAP {
     { ARK_ACCESSIBILITY_ROLE_TYPE_ACTION_SHEET, "actionsheet" },
     { ARK_ACCESSIBILITY_ROLE_TYPE_ALERT_DIALOG, "alertdialog" },
     { ARK_ACCESSIBILITY_ROLE_TYPE_INDEXER_COMPONENT, "alphabetindexer" },
@@ -203,11 +204,11 @@ public:
 };
 
 /*
-* @tc.name: TabStopTestDefaultValues
+* @tc.name: tabStopTestDefaultValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, TabStopTestDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, tabStopTestDefaultValues, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     ASSERT_NE(frameNode, nullptr);
@@ -218,11 +219,11 @@ HWTEST_F(CommonMethodModifierTest19, TabStopTestDefaultValues, TestSize.Level1)
 }
 
 /*
-* @tc.name: TabStopTestValidValues
+* @tc.name: setTabStopTestValidValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, DISABLED_TabStopTestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, setTabStopTestValidValues, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setTabStop, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -231,7 +232,7 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_TabStopTestValidValues, TestSize.L
     ASSERT_NE(focusHub, nullptr);
 
     using TestStep = std::tuple<Opt_Boolean, bool>;
-    static const std::vector<TestStep> testPlan = {
+    const std::vector<TestStep> testPlan = {
         {Converter::ArkValue<Opt_Boolean>(false), false}, {Converter::ArkValue<Opt_Boolean>(true), true}};
 
     for (auto [inputValue, expectedValue]: testPlan) {
@@ -241,11 +242,36 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_TabStopTestValidValues, TestSize.L
 }
 
 /*
-* @tc.name: AccessibilityNextFocusIdTestDefaultValues
+* @tc.name: setTabStopTestInvalidValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, AccessibilityNextFocusIdTestDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, setTabStopTestInvalidValues, TestSize.Level1)
+{
+    ASSERT_NE(modifier_->setTabStop, nullptr);
+    auto frameNode = reinterpret_cast<FrameNode*>(node_);
+    ASSERT_NE(frameNode, nullptr);
+    auto focusHub = frameNode->GetOrCreateFocusHub();
+    ASSERT_NE(focusHub, nullptr);
+
+    using TestStep = std::tuple<Opt_Boolean, bool>;
+    static const std::vector<TestStep> testPlan = {
+        {Converter::ArkValue<Opt_Boolean>(true), true}, // init value
+        {Converter::ArkValue<Opt_Boolean>(Ark_Empty()), false} // empty value
+    };
+
+    for (auto [inputValue, expectedValue]: testPlan) {
+        modifier_->setTabStop(node_, &inputValue);
+        EXPECT_EQ(focusHub->IsTabStop(), expectedValue);
+    }
+}
+
+/*
+* @tc.name: accessibilityNextFocusIdTestDefaultValues
+* @tc.desc:
+* @tc.type: FUNC
+*/
+HWTEST_F(CommonMethodModifierTest19, accessibilityNextFocusIdTestDefaultValues, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     ASSERT_NE(frameNode, nullptr);
@@ -256,11 +282,11 @@ HWTEST_F(CommonMethodModifierTest19, AccessibilityNextFocusIdTestDefaultValues, 
 }
 
 /*
-* @tc.name: AccessibilityNextFocusIdTestValidValues
+* @tc.name: setAccessibilityNextFocusIdTestValidValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityNextFocusIdTestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, DISABLED_setAccessibilityNextFocusIdTestValidValues, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setAccessibilityNextFocusId, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -269,7 +295,7 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityNextFocusIdTestValidV
     ASSERT_NE(accessibilityProperty, nullptr);
 
     using TestStep = std::tuple<Opt_String, std::string>;
-    static const std::vector<TestStep> testPlan = {
+    const std::vector<TestStep> testPlan = {
         {Converter::ArkValue<Opt_String>("id1"), "id1"}, {Converter::ArkValue<Opt_String>("id2"), "id2"}};
 
     for (auto [inputValue, expectedValue]: testPlan) {
@@ -279,11 +305,11 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityNextFocusIdTestValidV
 }
 
 /*
-* @tc.name: AccessibilityDefaultFocusTestDefaultValues
+* @tc.name: accessibilityDefaultFocusTestDefaultValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityDefaultFocusTestDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, DISABLED_accessibilityDefaultFocusTestDefaultValues, TestSize.Level1)
 {
     LOGE("AccessibilityManager::SendFrameNodeToAccessibility(...) is empty body");
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -291,11 +317,11 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityDefaultFocusTestDefau
 }
 
 /*
-* @tc.name: AccessibilityDefaultFocusTestValidValues
+* @tc.name: setAccessibilityDefaultFocusTestValidValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityDefaultFocusTestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, DISABLED_setAccessibilityDefaultFocusTestValidValues, TestSize.Level1)
 {
     LOGE("AccessibilityManager::SendFrameNodeToAccessibility(...) is empty body");
     ASSERT_NE(modifier_->setAccessibilityDefaultFocus, nullptr);
@@ -303,7 +329,7 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityDefaultFocusTestValid
     ASSERT_NE(frameNode, nullptr);
     auto pipeline = frameNode->GetContext();
     ASSERT_NE(pipeline, nullptr);
-    // test/mock/core/pipeline/mock_pipeline_context.cpp
+    // test/mock/frameworks/core/pipeline/mock_pipeline_context.cpp
     auto accessibilityManager = pipeline->GetAccessibilityManager();
     ASSERT_NE(accessibilityManager, nullptr);
 
@@ -312,11 +338,11 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityDefaultFocusTestValid
 }
 
 /*
-* @tc.name: AccessibilityUseSamePageTestDefaultValues
+* @tc.name: accessibilityUseSamePageTestDefaultValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, AccessibilityUseSamePageTestDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, accessibilityUseSamePageTestDefaultValues, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     ASSERT_NE(frameNode, nullptr);
@@ -328,11 +354,11 @@ HWTEST_F(CommonMethodModifierTest19, AccessibilityUseSamePageTestDefaultValues, 
 }
 
 /*
-* @tc.name: AccessibilityUseSamePageTestValidValues
+* @tc.name: setAccessibilityUseSamePageTestValidValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityUseSamePageTestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, DISABLED_setAccessibilityUseSamePageTestValidValues, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setAccessibilityUseSamePage, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -341,7 +367,7 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityUseSamePageTestValidV
     ASSERT_NE(accessibilityProperty, nullptr);
 
     using TestStep = std::tuple<Opt_AccessibilitySamePageMode, std::string>;
-    static const std::vector<TestStep> testPlan = {
+    const std::vector<TestStep> testPlan = {
         {Converter::ArkValue<Opt_AccessibilitySamePageMode>(ARK_ACCESSIBILITY_SAME_PAGE_MODE_FULL_SILENT),
             "FULL_SILENT"},
         {Converter::ArkValue<Opt_AccessibilitySamePageMode>(ARK_ACCESSIBILITY_SAME_PAGE_MODE_SEMI_SILENT),
@@ -355,11 +381,11 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityUseSamePageTestValidV
 }
 
 /*
-* @tc.name: AccessibilityUseSamePageTestInvalidValues
+* @tc.name: setAccessibilityUseSamePageTestInvalidValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, AccessibilityUseSamePageTestInvalidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, setAccessibilityUseSamePageTestInvalidValues, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setAccessibilityUseSamePage, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -375,11 +401,11 @@ HWTEST_F(CommonMethodModifierTest19, AccessibilityUseSamePageTestInvalidValues, 
 }
 
 /*
-* @tc.name: AccessibilityRoleTestDefaultValues
+* @tc.name: accessibilityRoleTestDefaultValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, AccessibilityRoleTestDefaultValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, accessibilityRoleTestDefaultValues, TestSize.Level1)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
     ASSERT_NE(frameNode, nullptr);
@@ -391,11 +417,11 @@ HWTEST_F(CommonMethodModifierTest19, AccessibilityRoleTestDefaultValues, TestSiz
 }
 
 /*
-* @tc.name: AccessibilityRoleTestValidValues
+* @tc.name: setAccessibilityRoleTestValidValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityRoleTestValidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, DISABLED_setAccessibilityRoleTestValidValues, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setAccessibilityRole, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -413,11 +439,11 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityRoleTestValidValues, 
 }
 
 /*
-* @tc.name: AccessibilityRoleTestInvalidValues
+* @tc.name: setAccessibilityRoleTestInvalidValues
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityRoleTestInvalidValues, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, DISABLED_setAccessibilityRoleTestInvalidValues, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setAccessibilityRole, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -434,11 +460,11 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_AccessibilityRoleTestInvalidValues
 }
 
 /*
- * @tc.name: SetOnKeyEventDispatchTest
+ * @tc.name: setOnKeyEventDispatchTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest19, DISABLED_SetOnKeyEventDispatchTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, DISABLED_setOnKeyEventDispatchTest, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setOnKeyEventDispatch, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -486,11 +512,11 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_SetOnKeyEventDispatchTest, TestSiz
 }
 
 /*
-* @tc.name: NextFocusTest
+* @tc.name: setNextFocusTestNextFocus
 * @tc.desc:
 * @tc.type: FUNC
 */
-HWTEST_F(CommonMethodModifierTest19, NextFocusTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, setNextFocusTestNextFocus, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setNextFocus, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -499,7 +525,7 @@ HWTEST_F(CommonMethodModifierTest19, NextFocusTest, TestSize.Level1)
     ASSERT_NE(focusHub, nullptr);
 
     using TestStep = std::pair<SetFocusData, std::map<FocusIntension, std::string>>;
-    static const std::vector<TestStep> testPlan = {
+    const std::vector<TestStep> testPlan = {
         { {"forward", "backward", "up", "down", "left", "right"},
             { {FocusIntension::TAB, "forward"},
                 {FocusIntension::SHIFT_TAB, "backward"},
@@ -545,11 +571,11 @@ HWTEST_F(CommonMethodModifierTest19, NextFocusTest, TestSize.Level1)
 }
 
 /*
- * @tc.name: bindMenusTest
+ * @tc.name: setBindMenu0TestBindMenu0
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest19, DISABLED_bindMenusTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest19, DISABLED_setBindMenu0TestBindMenu0, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setBindMenu0, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -562,10 +588,36 @@ HWTEST_F(CommonMethodModifierTest19, DISABLED_bindMenusTest, TestSize.Level1)
     int callsCount = 0;
     CustomNodeBuilderTestHelper<CommonMethodModifierTest19> builderHelper(this, frameNode);
     const CustomNodeBuilder builder = builderHelper.GetBuilder();
-    auto unionCustomNodeBuilderValue = Converter::ArkUnion<Opt_Union_Array_MenuElement_CustomBuilder,
+    auto unionCustomNodeBuilderValue = Converter::ArkUnion<Opt_Union_Array_MenuElement_CustomNodeBuilder,
         CustomNodeBuilder>(builder);
 
     modifier_->setBindMenu0(node_, &unionCustomNodeBuilderValue, &optOptions);
+    EXPECT_EQ(builderHelper.GetCallsCountAsync(), ++callsCount);
+}
+
+/*
+ * @tc.name: setBindMenu1TestBindMenu1
+ * @tc.desc:
+ * @tc.type: FUNC
+ */
+HWTEST_F(CommonMethodModifierTest19, DISABLED_setBindMenu1TestBindMenu1, TestSize.Level1)
+{
+    ASSERT_NE(modifier_->setBindMenu1, nullptr);
+    auto frameNode = reinterpret_cast<FrameNode*>(node_);
+    ASSERT_NE(frameNode, nullptr);
+
+    Ark_MenuOptions arkOptions;
+    Opt_MenuOptions optOptions;
+    arkOptions.enableArrow = Converter::ArkValue<Opt_Boolean>(true);
+    optOptions = Converter::ArkValue<Opt_MenuOptions>(arkOptions);
+    int callsCount = 0;
+    CustomNodeBuilderTestHelper<CommonMethodModifierTest19> builderHelper(this, frameNode);
+    const CustomNodeBuilder builder = builderHelper.GetBuilder();
+    auto unionCustomNodeBuilderValue =
+        Converter::ArkUnion<Opt_Union_Array_MenuElement_CustomNodeBuilder, CustomNodeBuilder>(builder);
+
+    auto arkShow = Converter::ArkUnion<Opt_Union_Boolean_Bindable, Ark_Boolean>(false);
+    modifier_->setBindMenu1(node_, &arkShow, &unionCustomNodeBuilderValue, &optOptions);
     EXPECT_EQ(builderHelper.GetCallsCountAsync(), ++callsCount);
 }
 

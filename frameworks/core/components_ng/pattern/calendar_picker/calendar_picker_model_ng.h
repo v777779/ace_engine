@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -36,21 +36,18 @@ public:
     void ClearBorder() override;
     void ClearBorderWidth() override;
     void ClearPadding() override;
-    static void InitCalendarPicker(FrameNode* pickerNode, const CalendarSettingData& settingData);
-    static void SetCalendarData(FrameNode* pickerNode, const std::optional<CalendarSettingData>& settingData);
     void SetMarkToday(bool isMarkToday) override;
     void CalendarPickerRemoveResObj(const std::string& key) override;
 
+    static void CreateCalendarPicker(const CalendarSettingData& settingData);
     static RefPtr<FrameNode> CreateNode(int32_t nodeId, const CalendarSettingData& settingData);
     static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
-    static RefPtr<FrameNode> CreateEmptyFrameNode(int32_t nodeId);
     static void SetTextStyle(FrameNode* frameNode, const PickerTextStyle& textStyle);
-    static void SetTextStyle(FrameNode* frameNode, const std::optional<PickerTextStyle>& textStyle);
-    static void SetEdgeAlign(FrameNode* frameNode, const std::optional<CalendarEdgeAlign>& alignType,
-        const std::optional<DimensionOffset>& offset);
+    static void SetEdgeAlign(FrameNode* frameNode, const CalendarEdgeAlign& alignType, const DimensionOffset& offset);
     static void SetPadding(FrameNode* frameNode, const PaddingProperty& padding);
     static void ClearPadding(FrameNode* frameNode);
     static void ClearHeight(FrameNode* frameNode);
+    static void ClearJSHeight(FrameNode* frameNode);
     static void ClearBorderColor(FrameNode* frameNode);
     static void ClearBorderRadius(FrameNode* frameNode);
     static void ClearBorderWidth(FrameNode* frameNode);
@@ -62,7 +59,7 @@ public:
     static RefPtr<FrameNode> CreateCalendarNodeChild(int32_t contentId,
         const CalendarSettingData& settingData, const RefPtr<CalendarTheme>& theme, TextDirection textDirection);
     static RefPtr<FrameNode> CreateButtonFlexChild(int32_t buttonFlexId, const RefPtr<CalendarTheme>& theme);
-    static void CreateDateNode(int32_t contentId, const CalendarSettingData& settingData);
+    static void CreateDateNode(RefPtr<FrameNode>& contentNode, const CalendarSettingData& settingData);
     static RefPtr<FrameNode> CreateDateTextNode(const std::string& textContent);
     static void SetHintRadiusWithNode(FrameNode* frameNode, Dimension& radius);
     static void SetSelectDateWithNode(FrameNode* frameNode, uint32_t year, uint32_t month, uint32_t day);
@@ -91,7 +88,7 @@ public:
 private:
     static void UpdateSelectedDateContent(FrameNode* frameNode, const PickerDate& selectedDate);
     static std::string AddLeadingZeroToYear(uint32_t year);
-    static void ParseNormalTextStyleResObj(const PickerTextStyle& textStyleOpt);
+    static void ParseNormalTextStyleResObj(FrameNode* frameNode, const PickerTextStyle& textStyleOpt);
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_CALENDAR_PICKER_CALENDAR_PICKER_MODEL_NG_H

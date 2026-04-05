@@ -18,59 +18,12 @@
 #include "core/accessibility/accessibility_constants.h"
 #include "core/accessibility/accessibility_session_adapter.h"
 #include "core/components_ng/pattern/pattern.h"
+#include "core/components_ng/property/accessibility_property.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 namespace {
-void GetOffsetToAncestorRevertTransform(const RefPtr<NG::FrameNode>& ancestor, const RefPtr<NG::FrameNode>& endNode,
-    const PointF& pointAncestor, PointF& pointNode)
-{
-    CHECK_NULL_VOID(ancestor);
-    CHECK_NULL_VOID(endNode);
-    auto context = endNode->GetRenderContext();
-    CHECK_NULL_VOID(context);
-    auto rect = context->GetPaintRectWithoutTransform();
-    OffsetF offset = rect.GetOffset();
-    VectorF finalScale {1.0f, 1.0f};
-    auto scale = endNode->GetTransformScale();
-    finalScale.x = scale.x;
-    finalScale.y = scale.y;
-    
-    PointF ancestorLeftTopPoint(offset.GetX(), offset.GetY());
-    context->GetPointTransformRotate(ancestorLeftTopPoint);
-    auto parent = endNode->GetAncestorNodeOfFrame(true);
-    while (parent) {
-        auto parentRenderContext = parent->GetRenderContext();
-        if (parentRenderContext) {
-            offset = parentRenderContext->GetPaintRectWithoutTransform().GetOffset();
-            PointF pointTmp(offset.GetX() + ancestorLeftTopPoint.GetX(), offset.GetY() + ancestorLeftTopPoint.GetY());
-            parentRenderContext->GetPointTransformRotate(pointTmp);
-            ancestorLeftTopPoint.SetX(pointTmp.GetX());
-            ancestorLeftTopPoint.SetY(pointTmp.GetY());
-            auto scale = parent->GetTransformScale();
-            finalScale.x *= scale.x;
-            finalScale.y *= scale.y;
-        }
-
-        if (ancestor && (parent == ancestor)) {
-            break;
-        }
-
-        parent = parent->GetAncestorNodeOfFrame(true);
-    }
-
-    if ((NearEqual(finalScale.x, 1.0f) && NearEqual(finalScale.y, 1.0f)) ||
-        NearZero(finalScale.x) || NearZero(finalScale.y)) {
-        pointNode.SetX(pointAncestor.GetX() - ancestorLeftTopPoint.GetX());
-        pointNode.SetY(pointAncestor.GetY() - ancestorLeftTopPoint.GetY());
-    } else {
-        pointNode.SetX((pointAncestor.GetX() - ancestorLeftTopPoint.GetX()) / finalScale.x);
-        pointNode.SetY((pointAncestor.GetY() - ancestorLeftTopPoint.GetY()) / finalScale.y);
-    }
-    TAG_LOGD(AceLogTag::ACE_ACCESSIBILITY,
-        "GetOffsetToAncestorRevertTransform: offsetX %{public}f offsetY %{public}f scaleX %{public}f scaleY %{public}f",
-        pointNode.GetX(), pointNode.GetY(), finalScale.x, finalScale.y);
-}
+constexpr int32_t INVALID_NODE_ID = -1;
 
 void AddTouchEventAllFingersInfo(const RefPtr<NG::FrameNode>& node, TouchEventInfo& eventInfo, const TouchEvent& event)
 {
@@ -154,6 +107,31 @@ void ConvertTouchEvent2TouchEventInfo(const RefPtr<NG::FrameNode>& node, const T
     eventInfo.SetTarget(eventTarget);
 }
 
+bool NeedChangeToReadableNode(const RefPtr<NG::FrameNode>& curFrameNode, RefPtr<NG::FrameNode>& readableNode)
+{
+    CHECK_NULL_RETURN(curFrameNode, false);
+    auto pipeline = curFrameNode->GetContextRefPtr();
+    CHECK_NULL_RETURN(pipeline, false);
+    auto accessibilityManager = pipeline->GetAccessibilityManager();
+    CHECK_NULL_RETURN(accessibilityManager, false);
+    return accessibilityManager->NeedChangeToReadableNode(curFrameNode, readableNode);
+}
+
+bool CheckAndSendHoverEnterEvent(const RefPtr<NG::FrameNode>& curFrameNode)
+{
+    CHECK_NULL_RETURN(curFrameNode, false);
+    RefPtr<NG::FrameNode> readableNode;
+    auto useChecked = NeedChangeToReadableNode(curFrameNode, readableNode);
+    if (!useChecked) {
+        curFrameNode->OnAccessibilityEvent(AccessibilityEventType::HOVER_ENTER_EVENT);
+        return true;
+    }
+    if (readableNode) {
+        readableNode->OnAccessibilityEvent(AccessibilityEventType::HOVER_ENTER_EVENT);
+    }
+    return true;
+}
+
 bool CheckAndSendHoverEnterByAncestor(const RefPtr<NG::FrameNode>& ancestor)
 {
     CHECK_NULL_RETURN(ancestor, false);
@@ -163,7 +141,7 @@ bool CheckAndSendHoverEnterByAncestor(const RefPtr<NG::FrameNode>& ancestor)
     // need send hover enter when no component hovered to focus outside
     if (pipeline->IsFormRender() || pipeline->IsJsCard() || pipeline->IsJsPlugin()) {
         TAG_LOGD(AceLogTag::ACE_ACCESSIBILITY, "SendHoverEnterByAncestor");
-        ancestor->OnAccessibilityEvent(AccessibilityEventType::HOVER_ENTER_EVENT);
+        CheckAndSendHoverEnterEvent(ancestor);
         return true;
     }
     return false;
@@ -188,6 +166,43 @@ WeakPtr<NG::FrameNode> GetEmbedNodeBySurfaceId(const std::string& surfaceId)
         return ElementRegister::GetInstance()->GetEmbedNodeBySurfaceId(id);
     }
     return nullptr;
+}
+
+bool CheckPointIsInNode(const RefPtr<FrameNode>& root, const RefPtr<FrameNode>& targetNode, const PointF& point)
+{
+    CHECK_NULL_RETURN(root, false);
+    CHECK_NULL_RETURN(targetNode, false);
+    std::vector<RefPtr<NG::FrameNode>> path;
+    RefPtr<NG::FrameNode> curr = targetNode;
+    while (curr != nullptr && curr->GetId() != root->GetId()) {
+        path.push_back(curr);
+        curr = curr->GetAncestorNodeOfFrame(true);
+    }
+    // curr == null means can not find root
+    CHECK_NULL_RETURN(curr, false);
+    path.push_back(root);
+    PointF selfPoint = point;
+    bool hitSelf = false;
+    for (auto nodePtr = path.rbegin(); nodePtr != path.rend(); ++nodePtr) {
+        CHECK_NULL_CONTINUE(*nodePtr);
+        auto renderContext = (*nodePtr)->GetRenderContext();
+        CHECK_NULL_CONTINUE(renderContext);
+        renderContext->GetPointWithRevert(selfPoint);
+        auto rect = AccessibilityProperty::UpdateHoverTestRect(*nodePtr);
+        hitSelf = rect.IsInnerRegion(selfPoint);
+        auto orginRect = renderContext->GetPaintRectWithoutTransform();
+        selfPoint = selfPoint - orginRect.GetOffset();
+    }
+    return hitSelf;
+}
+
+bool IsInSentTransparentNode(const RefPtr<FrameNode>& node, AccessibilityHoverState& hoverState)
+{
+    return node && std::any_of(hoverState.nodeTransparent.begin(), hoverState.nodeTransparent.end(),
+        [accessibilityId = node->GetAccessibilityId()](const auto& sentNodeWeak) {
+            auto sentNode = sentNodeWeak.Upgrade();
+            return sentNode && sentNode->GetAccessibilityId() == accessibilityId;
+        });
 }
 }
 
@@ -236,6 +251,9 @@ void AccessibilityManagerNG::HandleAccessibilityHoverEvent(const RefPtr<FrameNod
         case TouchType::HOVER_EXIT:
             type = AccessibilityHoverEventType::EXIT;
             break;
+        case TouchType::HOVER_CANCEL:
+            type = AccessibilityHoverEventType::CANCEL;
+            break;
         default:
             return;
     }
@@ -277,18 +295,19 @@ void AccessibilityManagerNG::HandleAccessibilityHoverEvent(const RefPtr<FrameNod
     HandleAccessibilityHoverEventInner(root, param, touchEvent);
 }
 
-bool HasTransparentCallback(const RefPtr<NG::FrameNode>& node)
+bool IsHoverTransparentCallbackListEmpty(const RefPtr<NG::FrameNode>& node)
 {
-    CHECK_NULL_RETURN(node, false);
-    auto pipeline = node->GetContext();
-    CHECK_NULL_RETURN(pipeline, false);
+    CHECK_NULL_RETURN(node, true);
+    auto pipeline = node->GetContextRefPtr();
+    CHECK_NULL_RETURN(pipeline, true);
     auto accessibilityManager = pipeline->GetAccessibilityManager();
-    CHECK_NULL_RETURN(accessibilityManager, false);
-    return accessibilityManager->IsInHoverTransparentCallbackList(node);
+    CHECK_NULL_RETURN(accessibilityManager, true);
+    auto containerId = pipeline->GetInstanceId();
+    return accessibilityManager->CheckHoverTransparentCallbackListEmpty(containerId);
 }
 
 bool AccessibilityManagerNG::ExecuteChildNodeHoverTransparentCallback(const RefPtr<FrameNode>& root,
-    const PointF& point, const TouchEvent& event)
+    const PointF& point, const TouchEvent& event, AccessibilityHoverState& hoverState)
 {
     CHECK_NULL_RETURN(root, false);
     auto renderContext = root->GetRenderContext();
@@ -304,7 +323,15 @@ bool AccessibilityManagerNG::ExecuteChildNodeHoverTransparentCallback(const RefP
         auto callback = accessibilityProperty->GetAccessibilityTransparentCallbackFunc();
         if (callback && isInHoverArea) {
             TouchEventInfo eventInfo("touchEvent");
-            ConvertTouchEvent2TouchEventInfo(root, event, eventInfo);
+            // HOVER_CANCEL will send when switch window
+            if (!IsInSentTransparentNode(root, hoverState) && (event.type != TouchType::HOVER_CANCEL)) {
+                TouchEvent enterEvent = event;
+                enterEvent.type = TouchType::HOVER_ENTER;
+                ConvertTouchEvent2TouchEventInfo(root, enterEvent, eventInfo);
+                hoverState.nodeTransparent.emplace_back(root);
+            } else {
+                ConvertTouchEvent2TouchEventInfo(root, event, eventInfo);
+            }
             callback(eventInfo);
         }
     }
@@ -319,7 +346,7 @@ bool AccessibilityManagerNG::ExecuteChildNodeHoverTransparentCallback(const RefP
             auto orginRect = renderContext->GetPaintRectWithoutTransform();
             noOffsetPoint = selfPoint - orginRect.GetOffset();
         }
-        ExecuteChildNodeHoverTransparentCallback(child, noOffsetPoint, event);
+        ExecuteChildNodeHoverTransparentCallback(child, noOffsetPoint, event, hoverState);
     }
     return true;
 }
@@ -327,17 +354,44 @@ bool AccessibilityManagerNG::ExecuteChildNodeHoverTransparentCallback(const RefP
 bool AccessibilityManagerNG::HandleAccessibilityHoverTransparentCallback(bool transformed,
     const RefPtr<FrameNode>& root,
     const HandleTransparentCallbackParam& param,
-    const PointF& point,
-    const TouchEvent& event)
+    const TouchEvent& event,
+    AccessibilityHoverState& hoverState)
 {
-    static constexpr int32_t INVALID_NODE_ID = -1;
-    if (transformed) {
-        return false;
+    CHECK_NE_RETURN(param.lastHoveringId, INVALID_NODE_ID, false);
+    bool needSendExit = false;
+    bool result = false;
+    for (auto& transparentWeak : hoverState.nodeTransparent) {
+        auto transparentNode = transparentWeak.Upgrade();
+        CHECK_NULL_CONTINUE(transparentNode);
+        auto accessibilityProperty = transparentNode->GetAccessibilityProperty<NG::AccessibilityProperty>();
+        CHECK_NULL_CONTINUE(accessibilityProperty);
+        auto callback = accessibilityProperty->GetAccessibilityTransparentCallbackFunc();
+        CHECK_NULL_CONTINUE(callback);
+        
+        if (((param.currentHoveringId != INVALID_NODE_ID)
+            && (param.currentHoveringId != transparentNode->GetId()))
+            || transformed) {
+            needSendExit = true;
+        } else {
+            needSendExit = !CheckPointIsInNode(root, transparentNode, param.point);
+        }
+        if (needSendExit) {
+            TouchEvent exitEvent = event;
+            exitEvent.type = TouchType::HOVER_EXIT;
+            TouchEventInfo eventInfo("touchEvent");
+            ConvertTouchEvent2TouchEventInfo(transparentNode, exitEvent, eventInfo);
+            callback(eventInfo);
+        }
     }
-    if ((param.currentHoveringId == INVALID_NODE_ID) && (param.lastHoveringId == INVALID_NODE_ID)) {
-        return ExecuteChildNodeHoverTransparentCallback(root, point, event);
+
+    if ((!transformed) && (param.currentHoveringId == INVALID_NODE_ID)
+        && !IsHoverTransparentCallbackListEmpty(root)) {
+        result = ExecuteChildNodeHoverTransparentCallback(root, param.point, event, hoverState);
     }
-    return false;
+    if (needSendExit) {
+        hoverState.nodeTransparent.clear();
+    }
+    return result;
 }
 
 HandleHoverRet AccessibilityManagerNG::HandleAccessibilityHoverEventInner(
@@ -353,6 +407,17 @@ HandleHoverRet AccessibilityManagerNG::HandleAccessibilityHoverEventInner(
     static constexpr size_t THROTTLE_INTERVAL_HOVER_EVENT = 10;
     uint64_t duration =
         static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(time - hoverState.time).count());
+
+    if (eventType == AccessibilityHoverEventType::CANCEL) {
+        HandleTransparentCallbackParam callbackParam = {
+            .currentHoveringId = INVALID_NODE_ID,
+            .lastHoveringId = INVALID_NODE_ID,
+            .point = param.point};
+        HandleAccessibilityHoverTransparentCallback(false, root, callbackParam, event, hoverState);
+        hoverStateManager_.ResetHoverState(hoverState);
+        return HandleHoverRet::HOVER_HIT;
+    }
+
     if (!hoverState.idle) {
         if ((!IsEventTypeChangeDirectHandleHover(eventType, hoverState.eventType))
             && (duration < THROTTLE_INTERVAL_HOVER_EVENT)) {
@@ -394,7 +459,6 @@ HandleHoverRet AccessibilityManagerNG::HandleAccessibilityHoverEventInner(
         }
     }
     auto sendHoverEnter = false;
-    static constexpr int32_t INVALID_NODE_ID = -1;
     int32_t lastHoveringId = INVALID_NODE_ID;
     RefPtr<FrameNode> lastHovering = nullptr;
     if (!lastNodesHovering.empty()) {
@@ -415,7 +479,7 @@ HandleHoverRet AccessibilityManagerNG::HandleAccessibilityHoverEventInner(
     }
     if (currentHovering && (currentHoveringId != INVALID_NODE_ID)) {
         if (currentHoveringId != lastHoveringId && (!IgnoreCurrentHoveringNode(currentHovering))) {
-            currentHovering->OnAccessibilityEvent(AccessibilityEventType::HOVER_ENTER_EVENT);
+            CheckAndSendHoverEnterEvent(currentHovering);
             sendHoverEnter = true;
         }
         transformHover = NotifyHoverEventToNodeSession(currentHovering, root, param.point,
@@ -428,8 +492,8 @@ HandleHoverRet AccessibilityManagerNG::HandleAccessibilityHoverEventInner(
     }
 
     if ((sourceType != SourceType::MOUSE) && (!param.ignoreTransparent)) {
-        HandleTransparentCallbackParam callbackParam = {currentHoveringId, lastHoveringId};
-        HandleAccessibilityHoverTransparentCallback(transformHover, root, callbackParam, param.point, event);
+        HandleTransparentCallbackParam callbackParam = {currentHoveringId, lastHoveringId, param.point};
+        HandleAccessibilityHoverTransparentCallback(transformHover, root, callbackParam, event, hoverState);
     }
 
     hoverState.nodesHovering = std::move(currentNodesHovering);
@@ -527,7 +591,24 @@ bool AccessibilityManagerNG::ConvertPointFromAncestorToNode(
     CHECK_NULL_RETURN(ancestor, false);
     CHECK_NULL_RETURN(endNode, false);
     // revert scale from endNode to ancestor
-    GetOffsetToAncestorRevertTransform(ancestor, endNode, pointAncestor, pointNode);
+    std::vector<RefPtr<NG::FrameNode>> path;
+    RefPtr<NG::FrameNode> curr = endNode;
+    while (curr != nullptr && curr->GetId() != ancestor->GetId()) {
+        path.push_back(curr);
+        curr = curr->GetAncestorNodeOfFrame(true);
+    }
+    CHECK_NULL_RETURN(curr, false);
+    if (ancestor->GetTag() == V2::WINDOW_SCENE_ETS_TAG) {
+        path.push_back(ancestor);
+    }
+    pointNode = pointAncestor;
+    for (auto nodePtr = path.rbegin(); nodePtr != path.rend(); ++nodePtr) {
+        auto renderContext = (*nodePtr)->GetRenderContext();
+        CHECK_NULL_CONTINUE(renderContext);
+        renderContext->GetPointWithRevert(pointNode);
+        auto rect = renderContext->GetPaintRectWithoutTransform();
+        pointNode = pointNode - rect.GetOffset();
+    }
     return true;
 }
 
@@ -539,10 +620,14 @@ bool AccessibilityManagerNG::IsEventTypeChangeDirectHandleHover(
         && (eventType == AccessibilityHoverEventType::EXIT)) {
         return true;
     }
+    if ((prevEventType == AccessibilityHoverEventType::ENTER)
+        && (eventType == AccessibilityHoverEventType::EXIT)) {
+        return true;
+    }
     return false;
 }
 
-bool AccessibilityManagerNG::IsHandlePipelineAccessibilityHoverEnter(const RefPtr<NG::FrameNode>& root)
+bool AccessibilityManagerNG::IsHandlePipelineAccessibilityHoverEnter(const RefPtr<NG::FrameNode>& root) const
 {
     auto pipeline = root->GetContext();
     CHECK_NULL_RETURN(pipeline, false);
@@ -597,5 +682,6 @@ void AccessibilityHoverStateManager::ResetHoverState(AccessibilityHoverState& ho
 {
     hoverState.idle = true;
     hoverState.nodesHovering.clear();
+    hoverState.nodeTransparent.clear();
 }
 } // namespace OHOS::Ace::NG

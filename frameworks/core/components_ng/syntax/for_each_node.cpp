@@ -40,6 +40,7 @@ RefPtr<ForEachNode> ForEachNode::GetOrCreateForEachNode(int32_t nodeId)
     if (node) {
         return node;
     }
+    ACE_UINODE_TRACE(nodeId);
     node = MakeRefPtr<ForEachNode>(nodeId);
     ElementRegister::GetInstance()->AddUINode(node);
     return node;
@@ -145,7 +146,8 @@ void ForEachNode::MappingChildWithId(std::unordered_set<std::string>& oldIdsSet,
     std::list<RefPtr<UINode>>& additionalChildComps, std::map<std::string, RefPtr<UINode>>& oldNodeByIdMap)
 {
     int32_t additionalChildIndex = 0;
-    for (const auto& newId : ids_) {
+    std::list<std::string> temp_ids = ids_;
+    for (const auto& newId : temp_ids) {
         auto oldIdIt = oldIdsSet.find(newId);
         if (oldIdIt == oldIdsSet.end()) {
             // found a newly added ID
@@ -178,6 +180,9 @@ void ForEachNode::FlushUpdateAndMarkDirty()
 {
     if (ids_ == tempIds_ && !isThisRepeatNode_) {
         tempIds_.clear();
+        TAG_LOGI(AceLogTag::ACE_FOREACH, "ForEachNode skip mark dirty. Id[%{public}d], Ids.size[%{public}zu]",
+            GetId(), ids_.size());
+        ACE_SCOPED_TRACE("ForEachNode skip mark dirty. Id[%d], Ids.size[%zu]", GetId(), ids_.size());
         return;
     }
     tempIds_.clear();
@@ -360,5 +365,11 @@ void ForEachNode::InitAllChildrenDragManager(bool init)
             pattern->DeInitDragManager();
         }
     }
+}
+
+void ForEachNode::DumpInfo()
+{
+    DumpLog::GetInstance().AddDesc(std::string("length of source data:")
+                                        .append(std::to_string(ids_.size()).c_str()));
 }
 } // namespace OHOS::Ace::NG

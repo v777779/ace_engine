@@ -15,7 +15,7 @@
 
 #include "core/components_ng/pattern/texttimer/text_timer_model_static.h"
 
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/texttimer/text_timer_pattern.h"
@@ -37,13 +37,32 @@ void TextTimerModelStatic::SetInputCount(FrameNode* frameNode, const std::option
     }
 }
 
+void TextTimerModelStatic::SetStartTime(FrameNode* frameNode, const std::optional<int32_t>& value)
+{
+    if (value) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, StartTime, value.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, StartTime, frameNode);
+    }
+}
+
 void TextTimerModelStatic::SetFontColor(FrameNode* frameNode, const std::optional<Color>& value)
 {
+    CHECK_NULL_VOID(frameNode);
     if (value) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextColor, value.value(), frameNode);
         ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColor, value.value(), frameNode);
         ACE_RESET_NODE_RENDER_CONTEXT(RenderContext, ForegroundColorStrategy, frameNode);
         ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColorFlag, true, frameNode);
+        auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
+        CHECK_NULL_VOID(textNode);
+        CHECK_NULL_VOID(textNode->GetTag() == V2::TEXT_ETS_TAG);
+        auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+        CHECK_NULL_VOID(textLayoutProperty);
+        textLayoutProperty->UpdateTextColorByRender(value.value());
+        auto textPattern = textNode->GetPattern<TextPattern>();
+        CHECK_NULL_VOID(textPattern);
+        textPattern->UpdateFontColor(value.value());
     } else {
         ACE_RESET_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextColor, frameNode);
         ACE_RESET_NODE_RENDER_CONTEXT(RenderContext, ForegroundColor, frameNode);
@@ -105,4 +124,33 @@ void TextTimerModelStatic::SetTextShadow(FrameNode* frameNode, const std::option
         ACE_RESET_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextShadow, frameNode);
     }
 }
+
+void TextTimerModelStatic::SetTextColorByUser(FrameNode* frameNode, bool isSetByUser)
+{
+    if (SystemProperties::ConfigChangePerform()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextColorSetByUser, isSetByUser, frameNode);
+    }
+}
+
+void TextTimerModelStatic::SetFontWeightByUser(FrameNode* frameNode, bool isSetByUser)
+{
+    if (SystemProperties::ConfigChangePerform()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextFontWeightSetByUser, isSetByUser, frameNode);
+    }
+}
+
+void TextTimerModelStatic::SetFontFamilyByUser(FrameNode* frameNode, bool isSetByUser)
+{
+    if (SystemProperties::ConfigChangePerform()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextFontFamilySetByUser, isSetByUser, frameNode);
+    }
+}
+
+void TextTimerModelStatic::SetFontSizeByUser(FrameNode* frameNode, bool isSetByUser)
+{
+    if (SystemProperties::ConfigChangePerform()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextFontSizeSetByUser, isSetByUser, frameNode);
+    }
+}
+
 } // namespace OHOS::Ace::NG

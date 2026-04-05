@@ -191,15 +191,18 @@ void RatingModifier::PaintStar(DrawingContext& context)
         // step3.1: calculate the clip area which already occupied by the foreground image.
         canvas.ClipRect(clipRect2, RSClipOp::INTERSECT);
         offsetTemp.SetX(static_cast<float>(offsetTemp.GetX() - singleStarWidth));
-        isFocus_ ? backgroundFocusPainter.DrawImage(canvas, offsetTemp, contentSize) :
+        if (backgroundImageFocusCanvas_ != nullptr && isImageInfoFromTheme_ && isFocus_) {
+            backgroundFocusPainter.DrawImage(canvas, offsetTemp, contentSize);
+        } else {
             secondaryImagePainter.DrawImage(canvas, offsetTemp, contentSize);
+        }
         offsetTemp.SetX(offsetTemp.GetX() + singleStarWidth);
         canvas.Restore();
     }
 
     // step4: draw background image.
     for (int32_t i = 0; i < backgroundImageRepeatNum; i++) {
-        if (i == 0 && foregroundImageRepeatNum == 0 && isFocus_) {
+        if (i == 0 && foregroundImageRepeatNum == 0 && isFocus_ && isNeedFocusStyle_) {
             backgroundFocusPainter.DrawImage(canvas, offsetTemp, contentSize);
             offsetTemp.SetX(static_cast<float>(offsetTemp.GetX() + singleStarWidth));
             continue;

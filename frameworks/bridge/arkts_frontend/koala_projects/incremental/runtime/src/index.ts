@@ -13,7 +13,9 @@
  * limitations under the License.
  */
 
-export { observableProxy, ObservableClass, TrackableProps } from '@koalaui/compat'
+export {
+    observableProxy
+} from '@koalaui/common'
 
 export {
     AnimatedState,
@@ -67,7 +69,10 @@ export {
     transition,
 } from './animation/TimeAnimation'
 
-export { RuntimeProfiler } from './common/RuntimeProfiler'
+export {
+    RuntimeProfiler,
+    RuntimeTracer,
+} from './common/RuntimeProfiler'
 
 export {
     memoBind,
@@ -123,6 +128,9 @@ export {
 } from './memo/testing'
 
 export {
+    Dependent,
+} from './states/Dependency'
+export {
     Disposable,
     disposeContent,
     disposeContentBackward,
@@ -135,6 +143,7 @@ export {
     mutableState,
     scheduleCallback,
     updateStateManager,
+    globalMutableState,
 } from './states/GlobalStateManager'
 export {
     ArrayState,
@@ -144,12 +153,12 @@ export {
     ControlledScope,
     createStateManager,
     Equivalent,
+    IncrementalScopeEx,
     InternalScope,
     MutableState,
     StateManager,
-    StateManagerImpl,
-    StateImpl,
     ValueTracker,
+    GlobalUIStateManager,
 } from './states/State'
 
 export {
@@ -168,4 +177,3 @@ export { PrimeNumbers } from './tree/PrimeNumbers'
 export { ReadonlyTreeNode } from './tree/ReadonlyTreeNode'
 export { TreeNode } from './tree/TreeNode'
 export { TreePath } from './tree/TreePath'
-

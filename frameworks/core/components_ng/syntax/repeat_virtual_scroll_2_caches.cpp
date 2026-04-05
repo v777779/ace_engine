@@ -15,7 +15,6 @@
 
 #include "core/components_ng/syntax/repeat_virtual_scroll_2_caches.h"
 
-#include <cstdint>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -33,11 +32,12 @@ using GetFrameChildResult = RepeatVirtualScroll2Caches::GetFrameChildResult;
 
 RefPtr<RepeatVirtualScroll2CacheItem> RepeatVirtualScroll2CacheItem::MakeCacheItem(RefPtr<UINode>& node, bool isL1)
 {
+    ACE_UINODE_TRACE(node);
     return MakeRefPtr<RepeatVirtualScroll2CacheItem>(node, isL1);
 }
 
 RepeatVirtualScroll2Caches::RepeatVirtualScroll2Caches(
-    const std::function<std::pair<RIDType, uint32_t>(IndexType)>& onGetRid4Index)
+    const std::function<std::pair<RIDType, uint32_t>(IndexType, bool)>& onGetRid4Index)
     : onGetRid4Index_(onGetRid4Index)
 {}
 
@@ -118,7 +118,7 @@ void RepeatVirtualScroll2Caches::DropFromL1ByIndex(IndexType index)
     if (ridOpt.has_value()) {
         const auto cacheIter = cacheItem4Rid_.find(ridOpt.value());
         if (cacheIter != cacheItem4Rid_.end()) {
-            cacheIter->second->isL1_ = false;
+            UpdateIsL1(cacheIter->second, false);
         }
     }
 
@@ -151,8 +151,8 @@ void RepeatVirtualScroll2Caches::UpdateL1Rid4Index(std::map<int32_t, uint32_t> l
     TAG_LOGD(AceLogTag::ACE_REPEAT, "L1Rid4Index: %{public}s", DumpL1Rid4Index().c_str());
 
     ForEachCacheItem([&](RIDType rid, const CacheItem& cacheItem) {
-      cacheItem->isL1_ = (GetL1Index4RID(rid) != std::nullopt);
-      TAG_LOGD(AceLogTag::ACE_REPEAT, "DumpCacheItem: %{public}s", DumpCacheItem(cacheItem).c_str());
+        UpdateIsL1(cacheItem, GetL1Index4RID(rid) != std::nullopt);
+        TAG_LOGD(AceLogTag::ACE_REPEAT, "DumpCacheItem: %{public}s", DumpCacheItem(cacheItem).c_str());
     });
 }
 
@@ -181,7 +181,8 @@ std::optional<IndexType> RepeatVirtualScroll2Caches::GetL1Index4Node(const RefPt
         const RIDType rid = iter.second;
 
         OptCacheItem cacheItemOpt = GetCacheItem4RID(rid);
-        if (cacheItemOpt.has_value() && cacheItemOpt.value()->node_ == frameNode) {
+        if (cacheItemOpt.has_value() && cacheItemOpt.value()->node_ &&
+            cacheItemOpt.value()->node_->GetFrameChildByIndex(0, false) == frameNode) {
             return ConvertFromToIndexRevert(index); // index in index -> RID
         }
     }
@@ -197,7 +198,7 @@ OptCacheItem RepeatVirtualScroll2Caches::CallOnGetRid4Index(IndexType index)
     NG::ScopedViewStackProcessor scopedViewStackProcessor;
     auto* viewStack = NG::ViewStackProcessor::GetInstance();
 
-    const std::pair<RIDType, uint32_t> result = onGetRid4Index_(index);
+    const std::pair<RIDType, uint32_t> result = onGetRid4Index_(index, AnimationUtils::IsImplicitAnimationOpen());
     if (result.second == OnGetRid4IndexResult::CREATED_NEW_NODE) {
         // case: new node was created successfully
         // get it from ViewStackProcessor
@@ -208,57 +209,67 @@ OptCacheItem RepeatVirtualScroll2Caches::CallOnGetRid4Index(IndexType index)
                 "Internal error!", static_cast<int32_t>(index));
             return nullptr;
         }
-
         const RIDType rid = result.first;
-        if (rid < 0) {
-            TAG_LOGE(AceLogTag::ACE_REPEAT, "CallOnGetRid4Index(index %{public}d: Node creation failed. Invalid rid. "
-                "Internal error!", static_cast<int32_t>(index));
-            return std::nullopt;
-        }
-
-        // add to L1 index -> rid
-        l1Rid4Index_[index] = rid;
-
-        // add to cache
-        cacheItem4Rid_[rid] = RepeatVirtualScroll2CacheItem::MakeCacheItem(node4Index, true);
-
-        TAG_LOGD(AceLogTag::ACE_REPEAT, "REPEAT TRACE ABNORMAL (after startup) ...CallOnGetRid4Index"
-            "(index %{public}d -> rid %{public}d) returns CacheItem with newly created node %{public}s .",
-            index, static_cast<int32_t>(rid), DumpCacheItem(cacheItem4Rid_[rid]).c_str());
-
-        return cacheItem4Rid_[rid];
+        return GetNewRid4Index(index, rid, node4Index);
     } // case OnGetRid4IndexResult::CREATED_NEW_NODE)
 
     if (result.second == OnGetRid4IndexResult::UPDATED_NODE) {
         // case: TS updated existing node that's in the cache already
         const RIDType rid = result.first;
-        if (rid < 0) {
-            TAG_LOGE(AceLogTag::ACE_REPEAT, "Node update for index %{public}d failed. Invalid rid. "
-                "Internal error!", static_cast<int32_t>(index));
-            return std::nullopt;
-        }
-        const auto& optCacheItem = GetCacheItem4RID(rid);
-        if (!optCacheItem.has_value() || optCacheItem.value()->node_ == nullptr) {
-            TAG_LOGE(AceLogTag::ACE_REPEAT, "Node update for index %{public}d failed. No node in CacheItem. "
-                "Internal error!", static_cast<int32_t>(index));
-            return std::nullopt;
-        }
-
-        // add to L1 but do not Set Active or add to render tree.
-        l1Rid4Index_[index] = rid;
-        optCacheItem.value()->isL1_ = true;
-
-        TAG_LOGD(AceLogTag::ACE_REPEAT,
-            "CallOnGetRid4Index(index %{public}d -> rid %{public}d): returns CacheItem with updated node "
-            "%{public}s .", index, static_cast<int32_t>(rid), DumpCacheItem(cacheItem4Rid_[rid]).c_str());
-
-        return optCacheItem;
+        return GetUpdatedRid4Index(index, rid);
     } // case OnGetRid4IndexResult::UPDATED_NODE
 
     // TS was not able to deliver UINode
     TAG_LOGE(AceLogTag::ACE_REPEAT, "New node creation failed for index %{public}d. TS unable to create/update node. "
         "Application error!", static_cast<int32_t>(index));
     return std::nullopt;
+}
+
+OptCacheItem RepeatVirtualScroll2Caches::GetNewRid4Index(IndexType index, RIDType rid, RefPtr<UINode>& node4Index)
+{
+    if (rid == 0) {
+        TAG_LOGE(AceLogTag::ACE_REPEAT, "CallOnGetRid4Index(index %{public}d: Node creation failed. Invalid rid. "
+            "Internal error!", static_cast<int32_t>(index));
+        return std::nullopt;
+    }
+    // add to L1 index -> rid
+    l1Rid4Index_[index] = rid;
+    // add to cache
+    cacheItem4Rid_[rid] = RepeatVirtualScroll2CacheItem::MakeCacheItem(node4Index, true);
+    TAG_LOGD(AceLogTag::ACE_REPEAT, "REPEAT TRACE ABNORMAL (after startup) ...CallOnGetRid4Index"
+        "(index %{public}d -> rid %{public}d) returns CacheItem with newly created node %{public}s .",
+        index, static_cast<int32_t>(rid), DumpCacheItem(cacheItem4Rid_[rid]).c_str());
+    ACE_SCOPED_TRACE(
+        "RepeatVirtualScroll:CallOnGetRid4Index CREATED_NEW_NODE [nodeId] %d, [index] %d, [rid] %d, [item] %s",
+        cacheItem4Rid_[rid]->node_->GetId(), index,
+        static_cast<int32_t>(rid), DumpCacheItem(cacheItem4Rid_[rid]).c_str());
+    return cacheItem4Rid_[rid];
+}
+
+OptCacheItem RepeatVirtualScroll2Caches::GetUpdatedRid4Index(IndexType index, RIDType rid)
+{
+    if (rid == 0) {
+        TAG_LOGE(AceLogTag::ACE_REPEAT, "Node update for index %{public}d failed. Invalid rid. "
+            "Internal error!", static_cast<int32_t>(index));
+        return std::nullopt;
+    }
+    const auto& optCacheItem = GetCacheItem4RID(rid);
+    if (!optCacheItem.has_value() || optCacheItem.value()->node_ == nullptr) {
+        TAG_LOGE(AceLogTag::ACE_REPEAT, "Node update for index %{public}d failed. No node in CacheItem. "
+            "Internal error!", static_cast<int32_t>(index));
+        return std::nullopt;
+    }
+    // add to L1 but do not Set Active or add to render tree.
+    l1Rid4Index_[index] = rid;
+    UpdateIsL1(optCacheItem.value(), true);
+    TAG_LOGD(AceLogTag::ACE_REPEAT,
+        "CallOnGetRid4Index(index %{public}d -> rid %{public}d): returns CacheItem with updated node "
+        "%{public}s .", index, static_cast<int32_t>(rid), DumpCacheItem(cacheItem4Rid_[rid]).c_str());
+    ACE_SCOPED_TRACE(
+        "RepeatVirtualScroll:CallOnGetRid4Index UPDATED_NODE [nodeId] %d, [index] %d, [rid] %d, [item] %s",
+        cacheItem4Rid_[rid]->node_->GetId(), index,
+        static_cast<int32_t>(rid), DumpCacheItem(cacheItem4Rid_[rid]).c_str());
+    return optCacheItem;
 }
 
 /**
@@ -290,7 +301,7 @@ OptCacheItem RepeatVirtualScroll2Caches::GetL1CacheItem4Index(IndexType index)
 {
     const auto iter = l1Rid4Index_.find(index);
     if (iter == l1Rid4Index_.end()) {
-        TAG_LOGE(AceLogTag::ACE_REPEAT, "GetL1CacheItem4Index(index: %{public}d) returns nullptr, new index", index);
+        TAG_LOGD(AceLogTag::ACE_REPEAT, "GetL1CacheItem4Index(index: %{public}d) returns nullptr, new index", index);
         return std::nullopt;
     }
 
@@ -323,9 +334,10 @@ bool RepeatVirtualScroll2Caches::RebuildL1(const std::function<bool(int32_t inde
             if (optCacheItem.value()->node_ != nullptr && cbFunc(indexMapped, optCacheItem.value())) {
                 // keep in L1
                 l1Rid4Index_[index] = rid;
-                optCacheItem.value()->isL1_ = true;
+                // don't trigger reuse here
+                UpdateIsL1(optCacheItem.value(), true, false);
             } else {
-                optCacheItem.value()->isL1_ = false;
+                UpdateIsL1(optCacheItem.value(), false);
                 optCacheItem.value()->isActive_ = false;
                 optCacheItem.value()->isOnRenderTree_ = false;
                 modified = true;
@@ -424,6 +436,28 @@ std::string RepeatVirtualScroll2Caches::DumpL1Rid4Index() const
             "\n";
     }
     return result;
+}
+
+void RepeatVirtualScroll2Caches::UpdateIsL1(const CacheItem& cacheItem, bool isL1, bool shouldTriggerRecycleOrReuse)
+{
+    cacheItem->isL1_ = isL1;
+    if (!shouldTriggerRecycleOrReuse) {
+        return;
+    }
+    CHECK_NULL_VOID(cacheItem->node_);
+    auto child = cacheItem->node_->GetFrameChildByIndex(0, false);
+    CHECK_NULL_VOID(child);
+    if (isL1) {
+        if (recycledNodeIds_.erase(child->GetId()) == 0) {
+            return;
+        }
+        child->OnReuse();
+    } else {
+        if (recycledNodeIds_.emplace(child->GetId()).second == false) {
+            return;
+        }
+        child->OnRecycle();
+    }
 }
 
 } // namespace OHOS::Ace::NG

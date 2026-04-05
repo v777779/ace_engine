@@ -24,8 +24,12 @@
 #include "core/common/resource/resource_manager.h"
 #include "core/common/resource/resource_wrapper.h"
 #include "core/common/resource/resource_object.h"
+#include "ui/resource/node_info.h"
 
 namespace OHOS::Ace {
+namespace NG {
+class UINode;
+} // namespace NG
 
 enum class ResourceType : uint32_t {
     COLOR = 10001,
@@ -42,14 +46,22 @@ enum class ResourceType : uint32_t {
     SYMBOL = 40000
 };
 
-class ResourceParseUtils final : public AceType {
+class ACE_FORCE_EXPORT ResourceParseUtils final : public AceType {
     DECLARE_ACE_TYPE(ResourceParseUtils, AceType);
 
 public:
+    static void CompleteResourceObjectFromColor(RefPtr<ResourceObject>& resObj,
+        Color& color, const NG::NodeInfo& nodeInfo);
     static RefPtr<ThemeConstants> GetThemeConstants(const RefPtr<ResourceObject>& resObj);
     static bool ParseResString(const RefPtr<ResourceObject>& resObj, std::string& result);
     static bool ParseResString(const RefPtr<ResourceObject>& resObj, std::u16string& result);
-    static bool ParseResColor(const RefPtr<ResourceObject>& resObj, Color& result);
+    /**
+     * @param adaptMaterial Indicates whether the new material is adapted to special resources for color inversion.
+     * If the value is true, the color resolved from special resources will carry a non-NONE placeholder.
+     */
+    static bool ParseResColor(const RefPtr<ResourceObject>& resObj, Color& result, bool adaptMaterial = false);
+    static bool ParseResColorWithColorMode(const RefPtr<ResourceObject>& resObj, Color& result,
+        const ColorMode& colorMode);
     static bool ParseResourceToDouble(const RefPtr<ResourceObject>& resObj, double& result);
     static bool ParseResInteger(const RefPtr<ResourceObject>& resObj, int32_t& result);
     static bool ParseResInteger(const RefPtr<ResourceObject>& resObj, uint32_t& result);
@@ -78,9 +90,8 @@ public:
 
     static bool IsNumberType(int32_t type)
     {
-        return type == static_cast<int32_t>(ResourceType::FLOAT) ||
-            type == static_cast<int32_t>(ResourceType::PLURAL) ||
-            type == static_cast<int32_t>(ResourceType::INTEGER);
+        return type == static_cast<int32_t>(ResourceObjectParamType::FLOAT) ||
+            type == static_cast<int32_t>(ResourceObjectParamType::INT);
     }
 
     template<typename T>
@@ -107,15 +118,17 @@ public:
         return false;
     }
 
-    static void SetIsReloading(bool isReloading)
+    static void SetNeedReload(bool needReload)
     {
-        isReloading_ = isReloading;
+        needReload_ = needReload;
     }
 
-    static bool IsReloading()
+    static bool NeedReload()
     {
-        return isReloading_;
+        return needReload_;
     }
+
+    static NG::NodeInfo MakeNativeNodeInfo(NG::UINode* uiNode);
 
 private:
     static void InvertColorWithResource(const RefPtr<ResourceObject>& resObj, Color& result,
@@ -124,7 +137,8 @@ private:
         RefPtr<ResourceWrapper>& resourceWrapper, const ColorMode& colorMode);
     static bool ParseResStringObj(const std::vector<ResourceObjectParams>& params,
         RefPtr<ResourceWrapper>& resourceWrapper, std::string& result, int32_t type);
-    static bool isReloading_;
+    // check whether color resource need execute invert color function
+    static bool needReload_;
 };
 }
 #endif

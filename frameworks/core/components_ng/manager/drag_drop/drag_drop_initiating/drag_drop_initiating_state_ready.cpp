@@ -15,14 +15,11 @@
 
 #include "core/components_ng/manager/drag_drop/drag_drop_initiating/drag_drop_initiating_state_ready.h"
 
-#include "base/subwindow/subwindow_manager.h"
-#include "core/common/container.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_behavior_reporter/drag_drop_behavior_reporter.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_func_wrapper.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_initiating/drag_drop_initiating_state_machine.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_manager.h"
 #include "core/components_ng/manager/drag_drop/utils/drag_animation_helper.h"
-#include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/text_drag/text_drag_pattern.h"
 #include "core/gestures/drag_event.h"
 #include "core/pipeline_ng/pipeline_context.h"
@@ -89,11 +86,36 @@ void DragDropInitiatingStateReady::HandleLongPressOnAction(const GestureEvent& i
 void DragDropInitiatingStateReady::HandleTouchEvent(const TouchEvent& touchEvent)
 {
     UpdatePointInfoForFinger(touchEvent);
+    if (touchEvent.type == TouchType::UP) {
+        auto pipelineContext = PipelineContext::GetCurrentContextSafelyWithCheck();
+        CHECK_NULL_VOID(pipelineContext);
+        auto machine = GetStateMachine();
+        CHECK_NULL_VOID(machine);
+        auto params = machine->GetDragDropInitiatingParams();
+        if (params.idleFingerId != touchEvent.id) {
+            return;
+        }
+        auto touchTask = [weakMachine = WeakPtr<DragDropInitiatingStateMachine>(machine)]() {
+            bool isMenuShow = DragDropGlobalController::GetInstance().IsMenuShowing();
+            if (!isMenuShow) {
+                auto machine = weakMachine.Upgrade();
+                CHECK_NULL_VOID(machine);
+                machine->RequestStatusTransition(static_cast<int32_t>(DragDropInitiatingStatus::IDLE));
+            }
+        };
+        pipelineContext->GetTaskExecutor()->PostTask(
+            touchTask, TaskExecutor::TaskType::UI, "DragDropInitiatingStateTouchUp", PriorityType::HIGH);
+    }
 }
 
 void DragDropInitiatingStateReady::HandlePanOnActionEnd(const GestureEvent& info)
 {
     OnActionEnd(info);
+}
+
+void DragDropInitiatingStateReady::HandlePanOnActionCancel(const GestureEvent& info)
+{
+    OnActionCancel(info);
 }
 
 void DragDropInitiatingStateReady::HandlePanOnReject()

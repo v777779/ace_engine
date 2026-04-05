@@ -30,6 +30,8 @@
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/components_ng/pattern/menu/menu_view.h"
+#include "core/components_ng/pattern/menu/bridge/inner_modifier/menu_inner_modifier.h"
+#include "core/components_ng/pattern/menu/bridge/inner_modifier/menu_view_inner_modifier.h"
 #include "core/components_ng/pattern/menu/wrapper/menu_wrapper_pattern.h"
 #include "core/components_ng/pattern/navigation/bar_item_event_hub.h"
 #include "core/components_ng/pattern/navigation/bar_item_pattern.h"
@@ -41,6 +43,7 @@
 #include "core/components_ng/pattern/navigation/tool_bar_node.h"
 #include "core/components_ng/pattern/navigation/tool_bar_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
+#include "core/interfaces/native/node/menu_modifier.h"
 
 namespace OHOS::Ace::NG {
 
@@ -138,7 +141,7 @@ RefPtr<FrameNode> CreateToolbarItemIconNode(const BarItem& barItem)
         return iconNode;
     }
     int32_t nodeId = ElementRegister::GetInstance()->MakeUniqueId();
-    ImageSourceInfo info(barItem.icon.value());
+    ImageSourceInfo info(barItem.icon.value(), barItem.bundleName, barItem.moduleName);
     auto iconNode = FrameNode::CreateFrameNode(V2::IMAGE_ETS_TAG, nodeId, AceType::MakeRefPtr<ImagePattern>());
     auto imageLayoutProperty = iconNode->GetLayoutProperty<ImageLayoutProperty>();
     CHECK_NULL_RETURN(imageLayoutProperty, nullptr);
@@ -195,7 +198,7 @@ void UpdateBarItemPattern(const RefPtr<BarItemNode>& barItemNode, const BarItem&
         if (barItem.activeIconSymbol.has_value() && barItem.activeIconSymbol.value() != nullptr) {
             barItemPattern->SetActiveIconSymbol(barItem.activeIconSymbol.value());
         } else if (barItem.activeIcon.has_value()) {
-            ImageSourceInfo activeIconInfo(barItem.activeIcon.value());
+            ImageSourceInfo activeIconInfo(barItem.activeIcon.value(), barItem.bundleName, barItem.moduleName);
             activeIconInfo.SetFillColor(theme->GetToolbarActiveIconColor());
             barItemPattern->SetActiveIconImageSourceInfo(activeIconInfo);
         }
@@ -468,12 +471,10 @@ void BuildToolbarMoreMenuNodeAction(const RefPtr<BarItemNode>& barItemNode, cons
 
         auto menuNode = AceType::DynamicCast<FrameNode>(menu->GetChildAtIndex(0));
         CHECK_NULL_VOID(menuNode);
-        auto menuLayoutProperty = menuNode->GetLayoutProperty<MenuLayoutProperty>();
-        CHECK_NULL_VOID(menuLayoutProperty);
-        menuLayoutProperty->UpdateTargetSize(imageSize);
-        auto menuPattern = menuNode->GetPattern<MenuPattern>();
-        CHECK_NULL_VOID(menuPattern);
-        menuPattern->SetIsSelectMenu(true);
+        const auto* menuModifier = NG::NodeModifier::GetMenuInnerModifier();
+        CHECK_NULL_VOID(menuModifier);
+        menuModifier->updateTargetSize(menuNode, imageSize);
+        menuModifier->setIsSelectMenu(menuNode, true);
 
         bool isRightToLeft = AceApplicationInfo::GetInstance().IsRightToLeft();
         if (isRightToLeft) {
@@ -501,6 +502,7 @@ void BuildToolbarMoreMenuNodeAction(const RefPtr<BarItemNode>& barItemNode, cons
 bool CreateToolbarItemNodeAndMenuNode(BarItemNodeParam itemNodeParam, std::vector<OptionParam>&& params,
     const FieldProperty& fieldProperty, const RefPtr<FrameNode>& containerNode, BarNode& barNode)
 {
+    ACE_UINODE_TRACE(barNode.nodeBase);
     int32_t barItemNodeId = ElementRegister::GetInstance()->MakeUniqueId();
     auto barItemNode = BarItemNode::GetOrCreateBarItemNode(
         V2::BAR_ITEM_ETS_TAG, barItemNodeId, []() { return AceType::MakeRefPtr<BarItemPattern>(); });
@@ -528,8 +530,9 @@ bool CreateToolbarItemNodeAndMenuNode(BarItemNodeParam itemNodeParam, std::vecto
             menuParam.backgroundEffectOption = toolBarMoreButtonOptions.bgOptions.effectOption.value();
         }
     }
-    auto barMenuNode = MenuView::Create(
-        std::move(params), barItemNodeId, V2::BAR_ITEM_ETS_TAG, MenuType::NAVIGATION_MENU, menuParam);
+    const auto* menuViewModifier = NG::NodeModifier::GetMenuViewInnerModifier();
+    auto barMenuNode = menuViewModifier ? menuViewModifier->createWithOptionParams(
+        std::move(params), barItemNodeId, V2::BAR_ITEM_ETS_TAG, MenuType::NAVIGATION_MENU, menuParam) : nullptr;
     auto toolBarItemNode = CreateToolbarMoreMenuNode(barItemNode);
     CHECK_NULL_RETURN(toolBarItemNode, false);
     BuildToolbarMoreMenuNodeAction(barItemNode, barMenuNode, toolBarItemNode, menuParam);
@@ -583,7 +586,8 @@ bool BuildToolBarItems(const RefPtr<NavToolbarNode>& toolBarNode, const std::vec
     }
     bool hasValidContent = !containerNode->GetChildren().empty();
     toolBarNode->SetHasValidContent(hasValidContent);
-    rowProperty->UpdateVisibility(hasValidContent ? VisibleType::VISIBLE : VisibleType::GONE);
+    bool needHideToolbar = toolBarNode->IsHideToolBar() || !hasValidContent;
+    rowProperty->UpdateVisibility(needHideToolbar ? VisibleType::GONE : VisibleType::VISIBLE);
     if (!needMoreButton) {
         return true;
     }
@@ -618,6 +622,7 @@ void NavigationToolbarUtil::SetToolbarConfiguration(const RefPtr<NavDestinationN
     std::vector<NG::BarItem>&& toolBarItems, bool enabled, const FieldProperty& fieldProperty)
 {
     CHECK_NULL_VOID(nodeBase);
+    ACE_UINODE_TRACE(nodeBase);
     if (nodeBase->GetPrevToolBarIsCustom().value_or(false)) {
         auto toolbarNode = AceType::DynamicCast<NavToolbarNode>(nodeBase->GetPreToolBarNode());
         CHECK_NULL_VOID(toolbarNode);
@@ -734,7 +739,11 @@ void NavigationToolbarUtil::SetToolbarOptions(
     CHECK_NULL_VOID(nodeBase);
     auto pattern = nodeBase->GetPattern();
     CHECK_NULL_VOID(pattern);
-    pattern->AddResObj("navigation.navigationToolbarOptions", resObj, std::move(updateFunc));
+    if (resObj) {
+        pattern->AddResObj("navigation.navigationToolbarOptions", resObj, std::move(updateFunc));
+    } else {
+        pattern->RemoveResObj("navigation.navigationToolbarOptions");
+    }
 }
 
 void NavigationToolbarUtil::SetToolbarMoreButtonOptions(

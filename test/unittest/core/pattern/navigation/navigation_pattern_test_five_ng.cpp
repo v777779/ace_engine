@@ -20,14 +20,15 @@
 #include "mock_navigation_stack.h"
 #define private public
 #define protected public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/mousestyle/mouse_style.h"
 #include "core/common/agingadapation/aging_adapation_dialog_util.h"
 #include "core/components/dialog/dialog_properties.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/custom_frame_node/custom_pattern.h"
 #include "core/components_ng/pattern/dialog/dialog_pattern.h"
 #include "core/components_ng/pattern/dialog/dialog_view.h"
@@ -604,7 +605,7 @@ HWTEST_F(NavigationPatternTestFiveNg, StartTransition001, TestSize.Level1)
     stack->navPathList_.push_back(testPair2);
     pattern->forceSplitSuccess_ = true;
     pattern->forceSplitUseNavBar_ = false;
-    pattern->homeNode_ = WeakPtr(preTop);
+    pattern->forceSplitHomeDest_ = WeakPtr(preTop);
     pattern->prePrimaryNodes_.clear();
     pattern->prePrimaryNodes_.push_back(WeakPtr(preTop));
     pattern->primaryNodes_ = pattern->prePrimaryNodes_;
@@ -647,7 +648,7 @@ HWTEST_F(NavigationPatternTestFiveNg, StartTransition002, TestSize.Level1)
     stack->navPathList_.push_back(testPair2);
     pattern->forceSplitSuccess_ = false;
     pattern->forceSplitUseNavBar_ = false;
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     pattern->prePrimaryNodes_.clear();
     pattern->prePrimaryNodes_.push_back(WeakPtr(preTop));
     pattern->primaryNodes_.clear();
@@ -826,11 +827,11 @@ HWTEST_F(NavigationPatternTestFiveNg, NavigationToolBarManager_003, TestSize.Lev
 }
 
 /**
- * @tc.name: GetFirstNewStandardDestinationIndex001
+ * @tc.name: GetFirstNewDestinationIndex001
  * @tc.desc: Branch: if (preNodeSet.find(uiNode) != preNodeSet.end()) { => true
  * @tc.type: FUNC
  */
-HWTEST_F(NavigationPatternTestFiveNg, GetFirstNewStandardDestinationIndex001, TestSize.Level1)
+HWTEST_F(NavigationPatternTestFiveNg, GetFirstNewDestinationIndex001, TestSize.Level1)
 {
     NavigationPatternTestFiveNg::SetUpTestSuite();
     MockPipelineContextGetTheme();
@@ -852,15 +853,15 @@ HWTEST_F(NavigationPatternTestFiveNg, GetFirstNewStandardDestinationIndex001, Te
     NavPathList curList;
     curList.push_back(testPair);
 
-    EXPECT_EQ(pattern->GetFirstNewStandardDestinationIndex(preList, curList), -1);
+    EXPECT_EQ(pattern->GetFirstNewDestinationIndex(preList, curList), -1);
 }
 
 /**
- * @tc.name: GetFirstNewStandardDestinationIndex002
+ * @tc.name: GetFirstNewDestinationIndex002
  * @tc.desc: Branch: if (preNodeSet.find(uiNode) != preNodeSet.end()) { => false
  * @tc.type: FUNC
  */
-HWTEST_F(NavigationPatternTestFiveNg, GetFirstNewStandardDestinationIndex002, TestSize.Level1)
+HWTEST_F(NavigationPatternTestFiveNg, GetFirstNewDestinationIndex002, TestSize.Level1)
 {
     NavigationPatternTestFiveNg::SetUpTestSuite();
     MockPipelineContextGetTheme();
@@ -881,16 +882,16 @@ HWTEST_F(NavigationPatternTestFiveNg, GetFirstNewStandardDestinationIndex002, Te
     NavPathList curList;
     curList.push_back(testPair);
 
-    EXPECT_EQ(pattern->GetFirstNewStandardDestinationIndex(preList, curList), -1);
+    EXPECT_EQ(pattern->GetFirstNewDestinationIndex(preList, curList), -1);
 }
 
 /**
- * @tc.name: GetFirstNewStandardDestinationIndex003
- * @tc.desc: Branch: if (preNodeSet.find(uiNode) != preNodeSet.end()) { => false
- *                   if (node->GetNavDestinationMode() == NavDestinationMode::STANDARD) { => true
+ * @tc.name: GetFirstNewDestinationIndex003
+ * @tc.desc: Branch: first loop: if (preNodeSet.find(uiNode) != preNodeSet.end()) { => true
+ *                   second loop: if (preNodeSet.find(uiNode) != preNodeSet.end()) { => false
  * @tc.type: FUNC
  */
-HWTEST_F(NavigationPatternTestFiveNg, GetFirstNewStandardDestinationIndex003, TestSize.Level1)
+HWTEST_F(NavigationPatternTestFiveNg, GetFirstNewDestinationIndex003, TestSize.Level1)
 {
     NavigationPatternTestFiveNg::SetUpTestSuite();
     MockPipelineContextGetTheme();
@@ -902,53 +903,28 @@ HWTEST_F(NavigationPatternTestFiveNg, GetFirstNewStandardDestinationIndex003, Te
     ASSERT_NE(navNode, nullptr);
     auto pattern = navNode->GetPattern<NavigationPattern>();
     ASSERT_NE(pattern, nullptr);
-    auto dest = NavDestinationGroupNode::GetOrCreateGroupNode(
+    auto dest1 = NavDestinationGroupNode::GetOrCreateGroupNode(
         V2::NAVDESTINATION_VIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
         []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
-    ASSERT_NE(dest, nullptr);
-    dest->SetNavDestinationMode(NavDestinationMode::STANDARD);
-    std::pair<std::string, RefPtr<UINode>> testPair{"one", dest};
-    NavPathList preList;
-    NavPathList curList;
-    curList.push_back(testPair);
-
-    EXPECT_EQ(pattern->GetFirstNewStandardDestinationIndex(preList, curList), 0);
-}
-
-/**
- * @tc.name: GetFirstNewStandardDestinationIndex004
- * @tc.desc: Branch: if (preNodeSet.find(uiNode) != preNodeSet.end()) { => false
- *                   if (node->GetNavDestinationMode() == NavDestinationMode::STANDARD) { => false
- * @tc.type: FUNC
- */
-HWTEST_F(NavigationPatternTestFiveNg, GetFirstNewStandardDestinationIndex004, TestSize.Level1)
-{
-    NavigationPatternTestFiveNg::SetUpTestSuite();
-    MockPipelineContextGetTheme();
-    NavigationModelNG navigationModel;
-    navigationModel.Create();
-    navigationModel.SetNavigationStack();
-    navigationModel.SetUsrNavigationMode(NavigationMode::SPLIT);
-    auto navNode = AceType::DynamicCast<NavigationGroupNode>(ViewStackProcessor::GetInstance()->GetMainFrameNode());
-    ASSERT_NE(navNode, nullptr);
-    auto pattern = navNode->GetPattern<NavigationPattern>();
-    ASSERT_NE(pattern, nullptr);
-    auto dest = NavDestinationGroupNode::GetOrCreateGroupNode(
+    ASSERT_NE(dest1, nullptr);
+    auto dest2 = NavDestinationGroupNode::GetOrCreateGroupNode(
         V2::NAVDESTINATION_VIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
         []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
-    ASSERT_NE(dest, nullptr);
-    dest->SetNavDestinationMode(NavDestinationMode::DIALOG);
-    std::pair<std::string, RefPtr<UINode>> testPair{"one", dest};
+    ASSERT_NE(dest2, nullptr);
+    std::pair<std::string, RefPtr<UINode>> testPair1{"one", dest1};
+    std::pair<std::string, RefPtr<UINode>> testPair2{"two", dest2};
     NavPathList preList;
+    preList.push_back(testPair1);
     NavPathList curList;
-    curList.push_back(testPair);
+    curList.push_back(testPair1);
+    curList.push_back(testPair2);
 
-    EXPECT_EQ(pattern->GetFirstNewStandardDestinationIndex(preList, curList), -1);
+    EXPECT_EQ(pattern->GetFirstNewDestinationIndex(preList, curList), 1);
 }
 
 /**
  * @tc.name: ClearSecondaryNodesIfNeeded001
- * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_) { => true
+ * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_.has_value() || !homeNodeTouched_.value()) { => true
  * @tc.type: FUNC
  */
 HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded001, TestSize.Level1)
@@ -966,13 +942,17 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded001, TestSize.L
     NavPathList preList;
     pattern->needSyncWithJsStack_ = true;
 
-    pattern->forceSplitSuccess_ = true;
-    pattern->homeNodeTouched_ = false;
+    pattern->forceSplitSuccess_ = false;
     pattern->ClearSecondaryNodesIfNeeded(std::move(preList));
     ASSERT_TRUE(pattern->needSyncWithJsStack_);
 
-    pattern->forceSplitSuccess_ = false;
-    pattern->homeNodeTouched_ = true;
+    pattern->forceSplitSuccess_ = true;
+    pattern->homeNodeTouched_ = std::nullopt;
+    pattern->ClearSecondaryNodesIfNeeded(std::move(preList));
+    ASSERT_TRUE(pattern->needSyncWithJsStack_);
+
+    pattern->forceSplitSuccess_ = true;
+    pattern->homeNodeTouched_ = false;
     pattern->ClearSecondaryNodesIfNeeded(std::move(preList));
     ASSERT_TRUE(pattern->needSyncWithJsStack_);
 
@@ -984,7 +964,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded001, TestSize.L
 
 /**
  * @tc.name: ClearSecondaryNodesIfNeeded002
- * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_) { => false
+ * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_.has_value() || !homeNodeTouched_.value()) { => false
  *                   if (!forceSplitUseNavBar_ && !homeNode) { => true
  * @tc.type: FUNC
  */
@@ -1005,14 +985,14 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded002, TestSize.L
     pattern->forceSplitSuccess_ = true;
     pattern->homeNodeTouched_ = true;
     pattern->forceSplitUseNavBar_ = false;
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     pattern->ClearSecondaryNodesIfNeeded(std::move(preList));
     EXPECT_TRUE(pattern->needSyncWithJsStack_);
 }
 
 /**
  * @tc.name: ClearSecondaryNodesIfNeeded003
- * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_) { => false
+ * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_.has_value() || !homeNodeTouched_.value()) { => false
  *                   if (!forceSplitUseNavBar_ && !homeNode) { => false
  *                   if (curList.empty()) { => true
  * @tc.type: FUNC
@@ -1042,24 +1022,24 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded003, TestSize.L
     ASSERT_NE(dest, nullptr);
 
     pattern->forceSplitUseNavBar_ = true;
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     pattern->ClearSecondaryNodesIfNeeded(std::move(preList));
     ASSERT_TRUE(pattern->needSyncWithJsStack_);
 
     pattern->forceSplitUseNavBar_ = false;
-    pattern->homeNode_ = WeakPtr(dest);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest);
     pattern->ClearSecondaryNodesIfNeeded(std::move(preList));
     ASSERT_TRUE(pattern->needSyncWithJsStack_);
 
     pattern->forceSplitUseNavBar_ = true;
-    pattern->homeNode_ = WeakPtr(dest);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest);
     pattern->ClearSecondaryNodesIfNeeded(std::move(preList));
     ASSERT_TRUE(pattern->needSyncWithJsStack_);
 }
 
 /**
  * @tc.name: ClearSecondaryNodesIfNeeded004
- * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_) { => false
+ * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_.has_value() || !homeNodeTouched_.value()) { => false
  *                   if (!forceSplitUseNavBar_ && !homeNode) { => false
  *                   if (curList.empty()) { => false
  *                   if (it != preList.end()) { => true
@@ -1092,14 +1072,14 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded004, TestSize.L
     stack->navPathList_ = preList;
 
     pattern->forceSplitUseNavBar_ = true;
-    pattern->homeNode_ = WeakPtr(dest);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest);
     pattern->ClearSecondaryNodesIfNeeded(std::move(preList));
     ASSERT_TRUE(pattern->needSyncWithJsStack_);
 }
 
 /**
  * @tc.name: ClearSecondaryNodesIfNeeded005
- * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_) { => false
+ * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_.has_value() || !homeNodeTouched_.value()) { => false
  *                   if (!forceSplitUseNavBar_ && !homeNode) { => false
  *                   if (curList.empty()) { => false
  *                   if (it != preList.end()) { => false
@@ -1152,7 +1132,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded005, TestSize.L
     pattern->forceSplitSuccess_ = true;
     pattern->homeNodeTouched_ = true;
     pattern->forceSplitUseNavBar_ = false;
-    pattern->homeNode_ = WeakPtr(dest1);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest1);
 
     pattern->needSyncWithJsStack_ = true;
     pattern->ClearSecondaryNodesIfNeeded(std::move(preList));
@@ -1161,7 +1141,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded005, TestSize.L
 
 /**
  * @tc.name: ClearSecondaryNodesIfNeeded006
- * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_) { => false
+ * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_.has_value() || !homeNodeTouched_.value()) { => false
  *                   if (!forceSplitUseNavBar_ && !homeNode) { => false
  *                   if (curList.empty()) { => false
  *                   if (it != preList.end()) { => false
@@ -1212,7 +1192,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded006, TestSize.L
     pattern->forceSplitSuccess_ = true;
     pattern->homeNodeTouched_ = true;
     pattern->forceSplitUseNavBar_ = false;
-    pattern->homeNode_ = WeakPtr(dest1);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest1);
     stack->navPathList_.clear();
     stack->navPathList_.push_back(testPair3);
     stack->navPathList_.push_back(testPair4);
@@ -1224,7 +1204,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded006, TestSize.L
     pattern->forceSplitSuccess_ = true;
     pattern->homeNodeTouched_ = true;
     pattern->forceSplitUseNavBar_ = true;
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     stack->navPathList_.clear();
     stack->navPathList_.push_back(testPair3);
     stack->navPathList_.push_back(testPair4);
@@ -1235,7 +1215,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded006, TestSize.L
 
 /**
  * @tc.name: ClearSecondaryNodesIfNeeded007
- * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_) { => false
+ * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_.has_value() || !homeNodeTouched_.value()) { => false
  *                   if (!forceSplitUseNavBar_ && !homeNode) { => false
  *                   if (curList.empty()) { => false
  *                   if (it != preList.end()) { => false
@@ -1281,7 +1261,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded007, TestSize.L
     pattern->forceSplitSuccess_ = true;
     pattern->homeNodeTouched_ = true;
     pattern->forceSplitUseNavBar_ = false;
-    pattern->homeNode_ = WeakPtr(dest1);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest1);
     stack->navPathList_.clear();
     stack->navPathList_.push_back(testPair2);
     stack->navPathList_.push_back(testPair3);
@@ -1292,7 +1272,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded007, TestSize.L
 
 /**
  * @tc.name: ClearSecondaryNodesIfNeeded008
- * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_) { => false
+ * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_.has_value() || !homeNodeTouched_.value()) { => false
  *                   if (!forceSplitUseNavBar_ && !homeNode) { => false
  *                   if (curList.empty()) { => false
  *                   if (it != preList.end()) { => false
@@ -1337,7 +1317,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded008, TestSize.L
     pattern->forceSplitSuccess_ = true;
     pattern->homeNodeTouched_ = true;
     pattern->forceSplitUseNavBar_ = true;
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     stack->navPathList_.clear();
     stack->navPathList_.push_back(testPair3);
     pattern->needSyncWithJsStack_ = true;
@@ -1347,7 +1327,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded008, TestSize.L
 
 /**
  * @tc.name: ClearSecondaryNodesIfNeeded009
- * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_) { => false
+ * @tc.desc: Branch: if (!forceSplitSuccess_ || !homeNodeTouched_.has_value() || !homeNodeTouched_.value()) { => false
  *                   if (!forceSplitUseNavBar_ && !homeNode) { => false
  *                   if (curList.empty()) { => false
  *                   if (it != preList.end()) { => false
@@ -1394,7 +1374,7 @@ HWTEST_F(NavigationPatternTestFiveNg, ClearSecondaryNodesIfNeeded009, TestSize.L
     pattern->forceSplitSuccess_ = true;
     pattern->homeNodeTouched_ = true;
     pattern->forceSplitUseNavBar_ = true;
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     stack->navPathList_ = preList;
     stack->navPathList_.push_back(testPair3);
     pattern->needSyncWithJsStack_ = true;
@@ -1422,14 +1402,15 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded001, TestSize.Lev
 
     auto context = PipelineContext::GetCurrentContext();
     ASSERT_NE(context, nullptr);
-    auto manager = context->GetNavigationManager();
+    auto manager = context->GetForceSplitManager();
     ASSERT_NE(manager, nullptr);
 
+    manager->isRouter_ = false;
     manager->isForceSplitSupported_ = false;
 
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     pattern->RecognizeHomePageIfNeeded();
-    EXPECT_EQ(pattern->homeNode_.Upgrade(), nullptr);
+    EXPECT_EQ(pattern->forceSplitHomeDest_.Upgrade(), nullptr);
 }
 
 /**
@@ -1457,8 +1438,9 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded002, TestSize.Lev
     ASSERT_NE(stack, nullptr);
     auto context = PipelineContext::GetCurrentContext();
     ASSERT_NE(context, nullptr);
-    auto manager = context->GetNavigationManager();
+    auto manager = context->GetForceSplitManager();
     ASSERT_NE(manager, nullptr);
+    manager->isRouter_ = false;
     manager->isForceSplitSupported_ = true;
 
     auto dest = NavDestinationGroupNode::GetOrCreateGroupNode(
@@ -1469,9 +1451,9 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded002, TestSize.Lev
     stack->navPathList_.clear();
     stack->navPathList_.push_back(testPair);
 
-    pattern->homeNode_ = WeakPtr(dest);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest);
     pattern->RecognizeHomePageIfNeeded();
-    EXPECT_EQ(pattern->homeNode_.Upgrade(), dest);
+    EXPECT_EQ(pattern->forceSplitHomeDest_.Upgrade(), dest);
 }
 
 /**
@@ -1498,12 +1480,13 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded003, TestSize.Lev
     stack->navPathList_.clear();
     auto context = PipelineContext::GetCurrentContext();
     ASSERT_NE(context, nullptr);
-    auto manager = context->GetNavigationManager();
+    auto manager = context->GetForceSplitManager();
     ASSERT_NE(manager, nullptr);
+    manager->isRouter_ = false;
     manager->isForceSplitSupported_ = true;
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     pattern->RecognizeHomePageIfNeeded();
-    EXPECT_EQ(pattern->homeNode_.Upgrade(), nullptr);
+    EXPECT_EQ(pattern->forceSplitHomeDest_.Upgrade(), nullptr);
 }
 
 /**
@@ -1511,7 +1494,7 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded003, TestSize.Lev
  * @tc.desc: Branch: if (!IsForceSplitSupported(context)) { => false
  *                   if (homeNode) { => false
  *                   if (homeNode) { => false
- *                   if (ForceSplitUtils::IsNavDestinationHomePage(node)) { => false
+ *                   if (ForceSplitUtils::IsHomePageNavDestination(node)) { => false
  * @tc.type: FUNC
  */
 HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded004, TestSize.Level1)
@@ -1530,8 +1513,9 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded004, TestSize.Lev
     ASSERT_NE(stack, nullptr);
     auto context = PipelineContext::GetCurrentContext();
     ASSERT_NE(context, nullptr);
-    auto manager = context->GetNavigationManager();
+    auto manager = context->GetForceSplitManager();
     ASSERT_NE(manager, nullptr);
+    manager->isRouter_ = false;
     manager->isForceSplitSupported_ = true;
 
     auto dest = NavDestinationGroupNode::GetOrCreateGroupNode(
@@ -1542,9 +1526,9 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded004, TestSize.Lev
     stack->navPathList_.clear();
     stack->navPathList_.push_back(testPair);
 
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     pattern->RecognizeHomePageIfNeeded();
-    EXPECT_EQ(pattern->homeNode_.Upgrade(), nullptr);
+    EXPECT_EQ(pattern->forceSplitHomeDest_.Upgrade(), nullptr);
 }
 
 /**
@@ -1552,7 +1536,7 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded004, TestSize.Lev
  * @tc.desc: Branch: if (!IsForceSplitSupported(context)) { => false
  *                   if (homeNode) { => false
  *                   if (homeNode) { => false
- *                   if (ForceSplitUtils::IsNavDestinationHomePage(node)) { => true
+ *                   if (ForceSplitUtils::IsHomePageNavDestination(node)) { => true
  * @tc.type: FUNC
  */
 HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded005, TestSize.Level1)
@@ -1571,8 +1555,9 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded005, TestSize.Lev
     ASSERT_NE(stack, nullptr);
     auto context = PipelineContext::GetCurrentContext();
     ASSERT_NE(context, nullptr);
-    auto manager = context->GetNavigationManager();
+    auto manager = context->GetForceSplitManager();
     ASSERT_NE(manager, nullptr);
+    manager->isRouter_ = false;
     manager->isForceSplitSupported_ = true;
     manager->homePageName_ = "one";
 
@@ -1588,9 +1573,9 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded005, TestSize.Lev
     stack->navPathList_.clear();
     stack->navPathList_.push_back(testPair);
 
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     pattern->RecognizeHomePageIfNeeded();
-    EXPECT_EQ(pattern->homeNode_.Upgrade(), dest);
+    EXPECT_EQ(pattern->forceSplitHomeDest_.Upgrade(), dest);
 }
 
 /**
@@ -1600,7 +1585,7 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded005, TestSize.Lev
  *                   if (node == homeNode) { => false
  *                   if (!homeNodeExistInCurStack) { => true
  *                   if (homeNode) { => false
- *                   if (ForceSplitUtils::IsNavDestinationHomePage(node)) { => false
+ *                   if (ForceSplitUtils::IsHomePageNavDestination(node)) { => false
  * @tc.type: FUNC
  */
 HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded006, TestSize.Level1)
@@ -1619,8 +1604,9 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded006, TestSize.Lev
     ASSERT_NE(stack, nullptr);
     auto context = PipelineContext::GetCurrentContext();
     ASSERT_NE(context, nullptr);
-    auto manager = context->GetNavigationManager();
+    auto manager = context->GetForceSplitManager();
     ASSERT_NE(manager, nullptr);
+    manager->isRouter_ = false;
     manager->isForceSplitSupported_ = true;
 
     auto dest1 = NavDestinationGroupNode::GetOrCreateGroupNode(
@@ -1633,12 +1619,12 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded006, TestSize.Lev
         []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
     ASSERT_NE(dest2, nullptr);
     std::pair<std::string, RefPtr<UINode>> testPair2{"two", dest2};
-    pattern->homeNode_ = WeakPtr(dest1);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest1);
     stack->navPathList_.clear();
     stack->navPathList_.push_back(testPair2);
 
     pattern->RecognizeHomePageIfNeeded();
-    EXPECT_EQ(pattern->homeNode_.Upgrade(), nullptr);
+    EXPECT_EQ(pattern->forceSplitHomeDest_.Upgrade(), nullptr);
 }
 
 /**
@@ -1648,7 +1634,7 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded006, TestSize.Lev
  *                   if (node == homeNode) { => false
  *                   if (!homeNodeExistInCurStack) { => true
  *                   if (homeNode) { => false
- *                   if (ForceSplitUtils::IsNavDestinationHomePage(node)) { => true
+ *                   if (ForceSplitUtils::IsHomePageNavDestination(node)) { => true
  * @tc.type: FUNC
  */
 HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded007, TestSize.Level1)
@@ -1667,8 +1653,9 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded007, TestSize.Lev
     ASSERT_NE(stack, nullptr);
     auto context = PipelineContext::GetCurrentContext();
     ASSERT_NE(context, nullptr);
-    auto manager = context->GetNavigationManager();
+    auto manager = context->GetForceSplitManager();
     ASSERT_NE(manager, nullptr);
+    manager->isRouter_ = false;
     manager->isForceSplitSupported_ = true;
     manager->homePageName_ = "two";
     auto dest1 = NavDestinationGroupNode::GetOrCreateGroupNode(
@@ -1684,17 +1671,17 @@ HWTEST_F(NavigationPatternTestFiveNg, RecognizeHomePageIfNeeded007, TestSize.Lev
     ASSERT_NE(destPattern2, nullptr);
     destPattern2->SetName("two");
     std::pair<std::string, RefPtr<UINode>> testPair2{"two", dest2};
-    pattern->homeNode_ = WeakPtr(dest1);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest1);
     stack->navPathList_.clear();
     stack->navPathList_.push_back(testPair2);
 
     pattern->RecognizeHomePageIfNeeded();
-    EXPECT_EQ(pattern->homeNode_.Upgrade(), dest2);
+    EXPECT_EQ(pattern->forceSplitHomeDest_.Upgrade(), dest2);
 }
 
 /**
  * @tc.name: CheckIfNeedHideOrShowPrimaryNodes001
- * @tc.desc: Branch: if (!pattern->GetHomeNode()) { => true
+ * @tc.desc: Branch: if (!pattern->GetForceSplitHomeDestination()) { => true
  * @tc.type: FUNC
  */
 HWTEST_F(NavigationPatternTestFiveNg, CheckIfNeedHideOrShowPrimaryNodes001, TestSize.Level1)
@@ -1709,13 +1696,13 @@ HWTEST_F(NavigationPatternTestFiveNg, CheckIfNeedHideOrShowPrimaryNodes001, Test
     ASSERT_NE(navNode, nullptr);
     auto pattern = navNode->GetPattern<NavigationPattern>();
     ASSERT_NE(pattern, nullptr);
-    pattern->homeNode_ = nullptr;
+    pattern->forceSplitHomeDest_ = nullptr;
     EXPECT_FALSE(NavigationPattern::CheckIfNeedHideOrShowPrimaryNodes(pattern, 0));
 }
 
 /**
  * @tc.name: CheckIfNeedHideOrShowPrimaryNodes002
- * @tc.desc: Branch: if (!pattern->GetHomeNode()) { => false
+ * @tc.desc: Branch: if (!pattern->GetForceSplitHomeDestination()) { => false
  *                   if (primaryNodes.empty()) { => true
  * @tc.type: FUNC
  */
@@ -1735,14 +1722,14 @@ HWTEST_F(NavigationPatternTestFiveNg, CheckIfNeedHideOrShowPrimaryNodes002, Test
         V2::NAVDESTINATION_VIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
         []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
     ASSERT_NE(dest1, nullptr);
-    pattern->homeNode_ = WeakPtr(dest1);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest1);
     pattern->primaryNodes_.clear();
     EXPECT_FALSE(NavigationPattern::CheckIfNeedHideOrShowPrimaryNodes(pattern, 0));
 }
 
 /**
  * @tc.name: CheckIfNeedHideOrShowPrimaryNodes003
- * @tc.desc: Branch: if (!pattern->GetHomeNode()) { => false
+ * @tc.desc: Branch: if (!pattern->GetForceSplitHomeDestination()) { => false
  *                   if (primaryNodes.empty()) { => false
  *                   if (homeIndex >= lastStandardIndex) { => true
  * @tc.type: FUNC
@@ -1764,7 +1751,7 @@ HWTEST_F(NavigationPatternTestFiveNg, CheckIfNeedHideOrShowPrimaryNodes003, Test
         []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
     ASSERT_NE(dest1, nullptr);
     dest1->SetIndex(1);
-    pattern->homeNode_ = WeakPtr(dest1);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest1);
     pattern->primaryNodes_.clear();
     pattern->primaryNodes_.push_back(WeakPtr(dest1));
     EXPECT_FALSE(NavigationPattern::CheckIfNeedHideOrShowPrimaryNodes(pattern, 0));
@@ -1772,7 +1759,7 @@ HWTEST_F(NavigationPatternTestFiveNg, CheckIfNeedHideOrShowPrimaryNodes003, Test
 
 /**
  * @tc.name: CheckIfNeedHideOrShowPrimaryNodes004
- * @tc.desc: Branch: if (!pattern->GetHomeNode()) { => false
+ * @tc.desc: Branch: if (!pattern->GetForceSplitHomeDestination()) { => false
  *                   if (primaryNodes.empty()) { => false
  *                   if (homeIndex >= lastStandardIndex) { => false
  * @tc.type: FUNC
@@ -1794,7 +1781,7 @@ HWTEST_F(NavigationPatternTestFiveNg, CheckIfNeedHideOrShowPrimaryNodes004, Test
         []() { return AceType::MakeRefPtr<NavDestinationPattern>(); });
     ASSERT_NE(dest1, nullptr);
     dest1->SetIndex(1);
-    pattern->homeNode_ = WeakPtr(dest1);
+    pattern->forceSplitHomeDest_ = WeakPtr(dest1);
     pattern->primaryNodes_.clear();
     pattern->primaryNodes_.push_back(WeakPtr(dest1));
     EXPECT_TRUE(NavigationPattern::CheckIfNeedHideOrShowPrimaryNodes(pattern, 5));
@@ -1819,7 +1806,7 @@ HWTEST_F(NavigationPatternTestFiveNg, NotifyNavDestinationSwitch001, TestSize.Le
     ASSERT_NE(pattern, nullptr);
     auto context = PipelineContext::GetCurrentContext();
     ASSERT_NE(context, nullptr);
-    auto manager = context->GetNavigationManager();
+    auto manager = context->GetForceSplitManager();
     ASSERT_NE(manager, nullptr);
     auto dest = NavDestinationGroupNode::GetOrCreateGroupNode(
         V2::NAVDESTINATION_VIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
@@ -1843,6 +1830,7 @@ HWTEST_F(NavigationPatternTestFiveNg, NotifyNavDestinationSwitch001, TestSize.Le
             }
         };
 
+    manager->isRouter_ = false;
     manager->isForceSplitSupported_ = false;
     fromState = std::nullopt;
     pattern->NotifyNavDestinationSwitch(destCtx, nullptr, NavigationOperation::PUSH);
@@ -1884,7 +1872,7 @@ HWTEST_F(NavigationPatternTestFiveNg, NotifyNavDestinationSwitch002, TestSize.Le
     ASSERT_NE(pattern, nullptr);
     auto context = PipelineContext::GetCurrentContext();
     ASSERT_NE(context, nullptr);
-    auto manager = context->GetNavigationManager();
+    auto manager = context->GetForceSplitManager();
     ASSERT_NE(manager, nullptr);
     auto dest = NavDestinationGroupNode::GetOrCreateGroupNode(
         V2::NAVDESTINATION_VIEW_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
@@ -1909,6 +1897,7 @@ HWTEST_F(NavigationPatternTestFiveNg, NotifyNavDestinationSwitch002, TestSize.Le
             }
         };
 
+    manager->isRouter_ = false;
     manager->isForceSplitSupported_ = true;
     pattern->forceSplitSuccess_ = true;
     fromState = std::nullopt;
@@ -1917,5 +1906,33 @@ HWTEST_F(NavigationPatternTestFiveNg, NotifyNavDestinationSwitch002, TestSize.Le
     ASSERT_EQ(fromState.value(), NavDestinationState::ON_SHOWN);
 
     UIObserverHandler::GetInstance().navDestinationSwitchHandleFunc_ = backupFunc;
+}
+
+/**
+ * @tc.name: IsHomeDestinationOrNavBarVisible
+ * @tc.desc: Branch: if (navigationMode_ == NavigationMode::STACK)
+ * @tc.type: FUNC
+ */
+HWTEST_F(NavigationPatternTestFiveNg, IsHomeDestinationOrNavBarVisible, TestSize.Level1)
+{
+    NavigationPatternTestFiveNg::SetUpTestSuite();
+    MockPipelineContextGetTheme();
+    NavigationModelNG navigationModel;
+    navigationModel.Create();
+    navigationModel.SetNavigationStack();
+    navigationModel.SetUsrNavigationMode(NavigationMode::SPLIT);
+    auto navNode = AceType::DynamicCast<NavigationGroupNode>(ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    ASSERT_NE(navNode, nullptr);
+    auto pattern = navNode->GetPattern<NavigationPattern>();
+    ASSERT_NE(pattern, nullptr);
+    
+    pattern->navigationMode_ = NavigationMode::STACK;
+    navNode->lastStandardIndex_ = 0;
+    bool ret = pattern->IsHomeDestinationOrNavBarVisible();
+    EXPECT_FALSE(ret);
+    
+    navNode->lastStandardIndex_ = -1;
+    ret = pattern->IsHomeDestinationOrNavBarVisible();
+    EXPECT_TRUE(ret);
 }
 } // namespace OHOS::Ace::NG

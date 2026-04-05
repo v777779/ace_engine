@@ -14,7 +14,7 @@
  */
 
 #include "adapter/ohos/entrance/ace_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 namespace OHOS::Ace::Platform {
 
@@ -127,6 +127,10 @@ bool AceContainer::Dump(const std::vector<std::string>& params, std::vector<std:
     return true;
 }
 
+void AceContainer::DumpSimplifyTreeWithParamConfig(
+    std::shared_ptr<JsonValue>& root, ParamConfig config, bool isInSubWindow)
+{}
+
 void AceContainer::TriggerGarbageCollection() {}
 
 void AceContainer::DumpHeapSnapshot(bool isPrivate) {}
@@ -209,7 +213,8 @@ bool AceContainer::GetCurPointerEventSourceType(int32_t& sourceType)
 
 int32_t AceContainer::RequestAutoFill(const RefPtr<NG::FrameNode>& node, AceAutoFillType autoFillType,
     bool isNewPassWord, bool& isPopup, uint32_t& autoFillSessionId, bool isNative,
-    const std::function<void()>& onFinish, const std::function<void()>& onUIExtNodeBindingCompleted)
+    const std::function<void()>& onFinish, const std::function<void()>& onUIExtNodeBindingCompleted,
+    AceAutoFillTriggerType triggerType)
 {
     return AceAutoFillError::ACE_AUTO_FILL_SUCCESS;
 }
@@ -296,12 +301,21 @@ void AceContainer::GetExtensionConfig(AAFwk::WantParams& want) {}
 
 void AceContainer::DispatchExtensionDataToHostWindow(
     uint32_t code, const AAFwk::Want& data, int32_t persistentId)
-{
-}
+{}
 
-void AceContainer::UpdateColorMode(uint32_t colorMode) {}
+void AceContainer::UpdateColorMode(uint32_t colorMode,
+    const ParsedConfig& parsedConfig, const std::string& configuration) {}
 
 void AceContainer::TriggerModuleSerializer() {}
 
 void AceContainer::SetIsFormRender(bool isFormRender) {}
+
+void AceContainer::LoadCompleteManagerStartCollect(const std::string& url) {}
+
+void AceContainer::LoadCompleteManagerStopCollect() {}
+
+void AceContainer::RegisterTerminateUIExtension(AbilityRuntimeContextCallback&& callback) {}
+
+void AceContainer::TerminateUIExtensionInner() {}
+
 } // namespace OHOS::Ace::NG

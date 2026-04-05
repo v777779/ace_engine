@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,6 +15,7 @@
 
 #include "core/components_ng/pattern/stepper/stepper_item_model_ng.h"
 
+#include "core/components_ng/pattern/stepper/stepper_constants.h"
 #include "core/components_ng/pattern/stepper/stepper_item_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -23,17 +24,10 @@ void StepperItemModelNG::Create()
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
-    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::STEPPER_ITEM_ETS_TAG, nodeId);
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", STEPPER_ITEM_ETS_TAG, nodeId);
     auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::STEPPER_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<StepperItemPattern>(); });
+        STEPPER_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<StepperItemPattern>(); });
     stack->Push(frameNode);
-}
-
-RefPtr<FrameNode> StepperItemModelNG::CreateFrameNode(int32_t nodeId)
-{
-    auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::STEPPER_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<StepperItemPattern>(); });
-    return frameNode;
 }
 
 void StepperItemModelNG::SetPrevLabel(const std::string& leftLabel)
@@ -61,6 +55,16 @@ void StepperItemModelNG::ResetNextLabel()
     ACE_RESET_LAYOUT_PROPERTY(StepperItemLayoutProperty, RightLabel);
 }
 
+void StepperItemModelNG::CreateFrameNode()
+{
+    auto* stack = ViewStackProcessor::GetInstance();
+    auto nodeId = stack->ClaimNodeId();
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", STEPPER_ITEM_ETS_TAG, nodeId);
+    auto frameNode = FrameNode::GetOrCreateFrameNode(
+        STEPPER_ITEM_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<StepperItemPattern>(); });
+    stack->Push(frameNode);
+}
+
 void StepperItemModelNG::SetNextLabel(FrameNode* frameNode, const std::string& rightLabel)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(StepperItemLayoutProperty, RightLabel, rightLabel, frameNode);
@@ -81,25 +85,13 @@ void StepperItemModelNG::ResetPrevLabel(FrameNode* frameNode)
     ACE_RESET_NODE_LAYOUT_PROPERTY(StepperItemLayoutProperty, LeftLabel, frameNode);
 }
 
-void StepperItemModelNG::SetStatus(FrameNode* frameNode, const std::optional<std::string>& labelStatus)
+void StepperItemModelNG::SetStatus(FrameNode* frameNode, const std::string& labelStatus)
 {
-    CHECK_NULL_VOID(frameNode);
-    if (labelStatus.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(StepperItemLayoutProperty, LabelStatus, labelStatus.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(StepperItemLayoutProperty, LabelStatus, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(StepperItemLayoutProperty, LabelStatus, labelStatus, frameNode);
 }
 
 void StepperItemModelNG::ResetStatus(FrameNode* frameNode)
 {
     ACE_RESET_NODE_LAYOUT_PROPERTY(StepperItemLayoutProperty, LabelStatus, frameNode);
 }
-
-const std::map<StepperItemModelNG::ItemState, std::string> StepperItemModelNG::ITEM_STATE = {
-    {StepperItemModelNG::ItemState::NORMAL, "normal"},
-    {StepperItemModelNG::ItemState::DISABLED, "disabled"},
-    {StepperItemModelNG::ItemState::WAITING, "waiting"},
-    {StepperItemModelNG::ItemState::SKIP, "skip"}
-};
 } // namespace OHOS::Ace::NG

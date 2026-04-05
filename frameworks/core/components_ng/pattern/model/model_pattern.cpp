@@ -39,6 +39,7 @@ ModelPattern::ModelPattern(uint32_t key, const ModelViewContext& context) : key_
             }
         });
 }
+
 ModelPattern::ModelPattern(uint32_t key) : key_(key)
 {
 }
@@ -103,6 +104,7 @@ bool ModelPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, 
     auto mainProperty = DynamicCast<ModelPaintProperty>(host->GetPaintProperty<ModelPaintProperty>());
     auto widthScale = mainProperty->GetRenderWidth().value_or(1.0);
     auto heightScale = mainProperty->GetRenderHeight().value_or(1.0);
+    auto backgroundColor = mainProperty->GetBackgroundColor().value_or(0x00000000);
 
     auto contentSize = geometryNode->GetContentSize();
     auto contentOffset = geometryNode->GetContentOffset();
@@ -110,12 +112,12 @@ bool ModelPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, 
     bool measure = (config.skipMeasure || dirty->SkipMeasureContent()) ? false : true;
     float width = contentSize.Width();
     float height = contentSize.Height();
-    float scale = PipelineContext::GetCurrentContextSafelyWithCheck()->GetViewScale();
+    float scale = PipelineContext::GetCurrentContext()->GetViewScale();
     Render3D::WindowChangeInfo windowChangeInfo {
         contentOffset.GetX(), contentOffset.GetY(),
         width, height,
         scale, widthScale, heightScale,
-        config.contentSizeChange, modelAdapter_->GetSurfaceType(), rotation_,
+        config.contentSizeChange, modelAdapter_->GetSurfaceType(), rotation_, backgroundColor
     };
     modelAdapter_->OnDirtyLayoutWrapperSwap(windowChangeInfo);
     host->MarkNeedSyncRenderTree();
@@ -185,8 +187,7 @@ void ModelPattern::MarkDirtyNode(const PropertyChangeFlag flag)
 static std::string TextureImagesToStr(const RefPtr<ModelPaintProperty>& modelPaintProperty)
 {
     std::string ret;
-    if (!modelPaintProperty->HasModelImageTexturePaths() ||
-            modelPaintProperty->GetModelImageTexturePathsValue().empty()) {
+    if (modelPaintProperty->GetModelImageTexturePathsValue().empty()) {
         return ret;
     }
     auto& imageTextures = modelPaintProperty->GetModelImageTexturePaths().value();
@@ -250,7 +251,7 @@ static std::string SurfaceTypeToStr(const RefPtr<ModelAdapterWrapper>& modelAdap
 static std::string SceneResourceToStr(const RefPtr<ModelPaintProperty>& modelPaintProperty)
 {
     std::string ret;
-    if (!modelPaintProperty->HasModelSource() || modelPaintProperty->GetModelSourceValue().empty()) {
+    if (modelPaintProperty->GetModelSourceValue().empty()) {
         return ret;
     }
     ret = modelPaintProperty->GetModelSource().value();
@@ -260,7 +261,7 @@ static std::string SceneResourceToStr(const RefPtr<ModelPaintProperty>& modelPai
 static std::string SceneEnvironmentToStr(const RefPtr<ModelPaintProperty>& modelPaintProperty)
 {
     std::string ret;
-    if (!modelPaintProperty->HasModelBackground() || modelPaintProperty->GetModelBackgroundValue().empty()) {
+    if (modelPaintProperty->GetModelBackgroundValue().empty()) {
         return ret;
     }
     ret = modelPaintProperty->GetModelBackground().value();
@@ -281,7 +282,7 @@ static std::string SceneCustomRenderToStr(const RefPtr<ModelPaintProperty>& mode
 static std::string SceneShaderPathToStr(const RefPtr<ModelPaintProperty>& modelPaintProperty)
 {
     std::string ret;
-    if (!modelPaintProperty->HasShaderPath() || modelPaintProperty->GetShaderPathValue().empty()) {
+    if (modelPaintProperty->GetShaderPathValue().empty()) {
         return ret;
     }
     ret = modelPaintProperty->GetShaderPath().value();

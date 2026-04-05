@@ -13,13 +13,14 @@
  * limitations under the License.
  */
 
-
 #include <cstdlib>
-#include "node_model.h"
-#include "node_extened.h"
 
-#include "base/utils/utils.h"
+#include "node_extened.h"
+#include "node_model.h"
+
 #include "base/error/error_code.h"
+#include "base/log/log_wrapper.h"
+#include "base/utils/utils.h"
 #include "core/common/container_consts.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 
@@ -33,8 +34,8 @@ int32_t OH_ArkUI_NodeUtils_GetLayoutSize(ArkUI_NodeHandle node, ArkUI_IntSize* s
         return OHOS::Ace::ERROR_CODE_PARAM_INVALID;
     }
     const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
-    ArkUI_Int32* tempSize = new ArkUI_Int32[2];
-    impl->getNodeModifiers()->getFrameNodeModifier()->getLayoutSize(node->uiNodeHandle, tempSize);
+    ArkUI_Int32 tempSize[2];
+    impl->getNodeModifiers()->getFrameNodeModifier()->getLayoutSize(node->uiNodeHandle, &tempSize);
     size->width = tempSize[0];
     size->height = tempSize[1];
     return OHOS::Ace::ERROR_CODE_NO_ERROR;
@@ -154,6 +155,9 @@ int32_t OH_ArkUI_RegisterDrawCallbackOnNodeHandle(
         return OHOS::Ace::ERROR_CODE_PARAM_INVALID;
     }
     const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    if (impl == nullptr) {
+        return OHOS::Ace::ERROR_CODE_PARAM_INVALID;
+    }
     impl->getNodeModifiers()->getFrameNodeModifier()->setDrawCompleteEvent(
         node->uiNodeHandle, userData, reinterpret_cast<void*>(onDrawCompleted));
 
@@ -183,7 +187,6 @@ int32_t OH_ArkUI_RegisterLayoutCallbackOnNodeHandle(
 
     return OHOS::Ace::ERROR_CODE_NO_ERROR;
 }
-
 
 int32_t OH_ArkUI_UnregisterLayoutCallbackOnNodeHandle(ArkUI_NodeHandle node)
 {
@@ -435,6 +438,59 @@ int32_t OH_ArkUI_NodeUtils_GetNodeUniqueId(ArkUI_NodeHandle node, int32_t* uniqu
     return ARKUI_ERROR_CODE_NO_ERROR;
 }
 
+int32_t OH_ArkUI_NativeModule_AdoptChild(ArkUI_NodeHandle node, ArkUI_NodeHandle child)
+{
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_NODE_CAN_NOT_ADOPT_TO);
+    if (!OHOS::Ace::NodeModel::CheckIsCNode(node)) {
+        return ARKUI_ERROR_CODE_NODE_CAN_NOT_ADOPT_TO;
+    }
+    CHECK_NULL_RETURN(child, ARKUI_ERROR_CODE_NODE_CAN_NOT_BE_ADOPTED);
+    if (!OHOS::Ace::NodeModel::CheckIsCNode(child)) {
+        return ARKUI_ERROR_CODE_NODE_CAN_NOT_BE_ADOPTED;
+    }
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    auto result =
+        impl->getNodeModifiers()->getNDKRenderNodeModifier()->adoptChild(node->uiNodeHandle, child->uiNodeHandle);
+    return result;
+}
+
+int32_t OH_ArkUI_NativeModule_RemoveAdoptedChild(ArkUI_NodeHandle node, ArkUI_NodeHandle child)
+{
+    CHECK_NULL_RETURN(node && child, OHOS::Ace::ERROR_CODE_NODE_IS_NOT_IN_ADOPTED_CHILDREN);
+    if (!OHOS::Ace::NodeModel::CheckIsCNode(node) || !OHOS::Ace::NodeModel::CheckIsCNode(child)) {
+        return OHOS::Ace::ERROR_CODE_NODE_IS_NOT_IN_ADOPTED_CHILDREN;
+    }
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, OHOS::Ace::ERROR_CODE_CAPI_INIT_ERROR);
+    auto result = impl->getNodeModifiers()->getNDKRenderNodeModifier()
+                    ->removeAdoptedChild(node->uiNodeHandle, child->uiNodeHandle);
+    return result;
+}
+
+int32_t OH_ArkUI_NativeModule_IsInRenderState(ArkUI_NodeHandle node, bool* isOnRenderTree)
+{
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, OHOS::Ace::ERROR_CODE_CAPI_INIT_ERROR);
+    auto result = impl->getNodeModifiers()->getFrameNodeModifier()->isOnRenderTree(node->uiNodeHandle);
+    *isOnRenderTree = static_cast<bool>(result);
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_NodeUtils_MoveTo(ArkUI_NodeHandle node, ArkUI_NodeHandle target_parent, int32_t index)
+{
+    if (node == nullptr || target_parent == nullptr
+        || !OHOS::Ace::NodeModel::CheckIsCNode(node) || !OHOS::Ace::NodeModel::CheckIsCNode(target_parent)) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    int32_t errorCode = impl->getNodeModifiers()->getFrameNodeModifier()->moveNodeTo(node->uiNodeHandle,
+        target_parent->uiNodeHandle, index);
+    return errorCode;
+}
+
 int32_t OH_ArkUI_NodeUtils_SetCrossLanguageOption(ArkUI_NodeHandle node, ArkUI_CrossLanguageOption* option)
 {
     if (node == nullptr || option == nullptr || node->cNode == false) {
@@ -491,17 +547,15 @@ bool OH_ArkUI_CrossLanguageOption_GetAttributeSettingStatus(ArkUI_CrossLanguageO
     return option->attributeSetting;
 }
 
-int32_t OH_ArkUI_NodeUtils_MoveTo(ArkUI_NodeHandle node, ArkUI_NodeHandle target_parent, int32_t index)
+int32_t OH_ArkUI_NativeModule_InvalidateAttributes(ArkUI_NodeHandle node)
 {
-    if (node == nullptr || target_parent == nullptr
-        || !OHOS::Ace::NodeModel::CheckIsCNode(node) || !OHOS::Ace::NodeModel::CheckIsCNode(target_parent)) {
+    if (node == nullptr || !OHOS::Ace::NodeModel::CheckIsCNode(node)) {
         return ARKUI_ERROR_CODE_PARAM_INVALID;
     }
     const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
     CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
-    int32_t errorCode = impl->getNodeModifiers()->getFrameNodeModifier()->moveNodeTo(node->uiNodeHandle,
-        target_parent->uiNodeHandle, index);
-    return errorCode;
+    impl->getNodeModifiers()->getFrameNodeModifier()->applyAttributesFinish(node->uiNodeHandle);
+    return ARKUI_ERROR_CODE_NO_ERROR;
 }
 
 int32_t OH_ArkUI_NodeUtils_GetFirstChildIndexWithoutExpand(ArkUI_NodeHandle node, uint32_t* index)
@@ -553,19 +607,7 @@ int32_t OH_ArkUI_NodeUtils_GetPositionToParent(ArkUI_NodeHandle node, ArkUI_IntO
     impl->getNodeModifiers()->getFrameNodeModifier()->getPositionToParent(node->uiNodeHandle, &tempOffset, false);
     globalOffset->x = tempOffset[0];
     globalOffset->y = tempOffset[1];
-
     return OHOS::Ace::ERROR_CODE_NO_ERROR;
-}
-
-int32_t OH_ArkUI_RunTaskInScope(ArkUI_ContextHandle uiContext, void* userData, void(*callback)(void* userData))
-{
-    CHECK_NULL_RETURN(uiContext, ARKUI_ERROR_CODE_UI_CONTEXT_INVALID);
-    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
-    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
-    CHECK_NULL_RETURN(callback, ARKUI_ERROR_CODE_CALLBACK_INVALID);
-    auto* context = reinterpret_cast<ArkUI_Context*>(uiContext);
-    impl->getNodeModifiers()->getFrameNodeModifier()->runScopedTask(context->id, userData, callback);
-    return ARKUI_ERROR_CODE_NO_ERROR;
 }
 
 ArkUI_ErrorCode OH_ArkUI_AddSupportedUIStates(ArkUI_NodeHandle node, int32_t uiStates,
@@ -590,6 +632,17 @@ ArkUI_ErrorCode OH_ArkUI_RemoveSupportedUIStates(ArkUI_NodeHandle node, int32_t 
     return ARKUI_ERROR_CODE_NO_ERROR;
 }
 
+int32_t OH_ArkUI_RunTaskInScope(ArkUI_ContextHandle uiContext, void* userData, void(*callback)(void* userData))
+{
+    CHECK_NULL_RETURN(uiContext, ARKUI_ERROR_CODE_UI_CONTEXT_INVALID);
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    CHECK_NULL_RETURN(callback, ARKUI_ERROR_CODE_CALLBACK_INVALID);
+    auto* context = reinterpret_cast<ArkUI_Context*>(uiContext);
+    impl->getNodeModifiers()->getFrameNodeModifier()->runScopedTask(context->id, userData, callback);
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
 int32_t OH_ArkUI_SetForceDarkConfig(
     ArkUI_ContextHandle uiContext, bool forceDark, ArkUI_NodeType nodeType, uint32_t (*colorInvertFunc)(uint32_t color))
 {
@@ -603,6 +656,262 @@ int32_t OH_ArkUI_SetForceDarkConfig(
     int32_t errorCode = impl->getNodeModifiers()->getFrameNodeModifier()->setForceDarkConfig(
         instanceId, forceDark, OHOS::Ace::NodeModel::ConvertNodeTypeToTag(nodeType).c_str(), colorInvertFunc);
     return errorCode;
+}
+
+static std::set<uint32_t> NDKCommonEventList = {
+    NODE_ON_CLICK_EVENT,
+    NODE_TOUCH_EVENT,
+    NODE_EVENT_ON_APPEAR,
+    NODE_EVENT_ON_DISAPPEAR,
+    NODE_ON_KEY_EVENT,
+    NODE_ON_FOCUS,
+    NODE_ON_BLUR,
+    NODE_ON_HOVER,
+    NODE_ON_MOUSE,
+    NODE_ON_SIZE_CHANGE,
+};
+
+int32_t OH_ArkUI_NativeModule_RegisterCommonEvent(ArkUI_NodeHandle node, ArkUI_NodeEventType eventType,
+    void* userData, void (*callback)(ArkUI_NodeEvent* event))
+{
+    if (!node || !callback) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    // Check event type.
+    if (NDKCommonEventList.find(eventType) == NDKCommonEventList.end()) {
+        return ARKUI_ERROR_CODE_NODE_UNSUPPORTED_EVENT_TYPE;
+    }
+    if (!OHOS::Ace::NodeModel::MakeCommonEventMap(node, eventType, userData, callback)) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    switch (eventType) {
+        case NODE_ON_CLICK_EVENT:
+            impl->getNodeModifiers()->getCommonModifier()->setCommonOnClick(node->uiNodeHandle, node);
+            break;
+        case NODE_TOUCH_EVENT:
+            impl->getNodeModifiers()->getCommonModifier()->setCommonOnTouch(node->uiNodeHandle, node);
+            break;
+        case NODE_EVENT_ON_APPEAR:
+            impl->getNodeModifiers()->getCommonModifier()->setCommonOnAppear(node->uiNodeHandle, node);
+            break;
+        case NODE_EVENT_ON_DISAPPEAR:
+            impl->getNodeModifiers()->getCommonModifier()->setCommonOnDisappear(node->uiNodeHandle, node);
+            break;
+        case NODE_ON_KEY_EVENT:
+            impl->getNodeModifiers()->getCommonModifier()->setCommonOnKeyEvent(node->uiNodeHandle, node);
+            break;
+        case NODE_ON_FOCUS:
+            impl->getNodeModifiers()->getCommonModifier()->setCommonOnFocus(node->uiNodeHandle, node);
+            break;
+        case NODE_ON_BLUR:
+            impl->getNodeModifiers()->getCommonModifier()->setCommonOnBlur(node->uiNodeHandle, node);
+            break;
+        case NODE_ON_HOVER:
+            impl->getNodeModifiers()->getCommonModifier()->setCommonOnHover(node->uiNodeHandle, node);
+            break;
+        case NODE_ON_MOUSE:
+            impl->getNodeModifiers()->getCommonModifier()->setCommonOnMouse(node->uiNodeHandle, node);
+            break;
+        case NODE_ON_SIZE_CHANGE:
+            impl->getNodeModifiers()->getCommonModifier()->setCommonOnSizeChange(node->uiNodeHandle, node);
+            break;
+        default:
+            break;
+    }
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_NativeModule_UnregisterCommonEvent(ArkUI_NodeHandle node, ArkUI_NodeEventType eventType)
+{
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    // Check event type.
+    if (NDKCommonEventList.find(eventType) == NDKCommonEventList.end()) {
+        return ARKUI_ERROR_CODE_NODE_UNSUPPORTED_EVENT_TYPE;
+    }
+    if (!OHOS::Ace::NodeModel::ClearCommonEventMap(node, eventType)) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    switch (eventType) {
+        case NODE_ON_CLICK_EVENT:
+            impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnClick(node->uiNodeHandle);
+            break;
+        case NODE_TOUCH_EVENT:
+            impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnTouch(node->uiNodeHandle);
+            break;
+        case NODE_EVENT_ON_APPEAR:
+            impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnAppear(node->uiNodeHandle);
+            break;
+        case NODE_EVENT_ON_DISAPPEAR:
+            impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnDisappear(node->uiNodeHandle);
+            break;
+        case NODE_ON_KEY_EVENT:
+            impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnKeyEvent(node->uiNodeHandle);
+            break;
+        case NODE_ON_FOCUS:
+            impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnFocus(node->uiNodeHandle);
+            break;
+        case NODE_ON_BLUR:
+            impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnBlur(node->uiNodeHandle);
+            break;
+        case NODE_ON_HOVER:
+            impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnHover(node->uiNodeHandle);
+            break;
+        case NODE_ON_MOUSE:
+            impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnMouse(node->uiNodeHandle);
+            break;
+        case NODE_ON_SIZE_CHANGE:
+            impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnSizeChange(node->uiNodeHandle);
+            break;
+        default:
+            break;
+    }
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_NativeModule_RegisterCommonVisibleAreaApproximateChangeEvent(ArkUI_NodeHandle node, float* ratios,
+    int32_t size, float expectedUpdateInterval, void* userData, void (*callback)(ArkUI_NodeEvent* event))
+{
+    if (!node || !callback || !ratios || size <= 0) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    if (!OHOS::Ace::NodeModel::MakeCommonEventMap(node, NODE_VISIBLE_AREA_APPROXIMATE_CHANGE_EVENT,
+        userData, callback)) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    ArkUI_Float32 radioList[size];
+    for (int i = 0; i < size; ++i) {
+        if (OHOS::Ace::LessNotEqual(ratios[i], 0.0f)
+            || OHOS::Ace::GreatNotEqual(ratios[i], 1.0f)) {
+            return ARKUI_ERROR_CODE_PARAM_INVALID;
+        }
+        radioList[i] = ratios[i];
+    }
+    impl->getNodeModifiers()->getCommonModifier()->setCommonOnVisibleAreaApproximateChangeEvent(
+        node->uiNodeHandle, node, radioList, size, expectedUpdateInterval);
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_NativeModule_UnregisterCommonVisibleAreaApproximateChangeEvent(ArkUI_NodeHandle node)
+{
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    if (!OHOS::Ace::NodeModel::ClearCommonEventMap(node, NODE_VISIBLE_AREA_APPROXIMATE_CHANGE_EVENT)) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnVisibleAreaApproximateChangeEvent(
+        node->uiNodeHandle);
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_NativeModule_RegisterCommonAreaApproximateChangeEvent(ArkUI_NodeHandle node,
+    float expectedUpdateInterval, void* userData, void (*callback)(ArkUI_NodeEvent* event))
+{
+    if (!node || !callback) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    if (!OHOS::Ace::NodeModel::MakeCommonEventMap(node, NODE_EVENT_ON_AREA_CHANGE, userData, callback)) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    impl->getNodeModifiers()->getCommonModifier()->setCommonOnAreaApproximateChangeEvent(
+        node->uiNodeHandle, node, expectedUpdateInterval);
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_NativeModule_UnregisterCommonAreaApproximateChangeEvent(ArkUI_NodeHandle node)
+{
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    if (!OHOS::Ace::NodeModel::ClearCommonEventMap(node, NODE_EVENT_ON_AREA_CHANGE)) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    impl->getNodeModifiers()->getCommonModifier()->unregisterCommonOnAreaApproximateChangeEvent(node->uiNodeHandle);
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_ContentTransitionEffect* OH_ArkUI_ContentTransitionEffect_Create(int32_t type)
+{
+    ArkUI_ContentTransitionEffect* contentTransitionEffect = new ArkUI_ContentTransitionEffect;
+    contentTransitionEffect->contentTransitionType = type;
+    return contentTransitionEffect;
+}
+
+int32_t OH_ArkUI_NativeModule_AtomicServiceMenuBarSetVisible(ArkUI_ContextHandle uiContext, bool visible)
+{
+    CHECK_NULL_RETURN(uiContext, ARKUI_ERROR_CODE_UI_CONTEXT_INVALID);
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    auto* context = reinterpret_cast<ArkUIContext*>(uiContext);
+    return impl->getNodeModifiers()->getAtomicServiceModifier()->setMenuBarVisible(context, visible);
+}
+
+int32_t OH_ArkUI_NativeModule_ConvertPositionToWindow(
+    ArkUI_NodeHandle targetNode, ArkUI_IntOffset position, ArkUI_IntOffset* windowPosition)
+{
+    CHECK_NULL_RETURN(targetNode, ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(windowPosition, ARKUI_ERROR_CODE_PARAM_INVALID);
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    ArkUI_Float32 tempOffset[2] = { position.x, position.y };
+    ArkUI_Float32 tempPosition[2];
+
+    auto result = impl->getNodeModifiers()->getFrameNodeModifier()->convertPositionToWindow(
+        targetNode->uiNodeHandle, &tempOffset, &tempPosition, false);
+    windowPosition->x = tempPosition[0];
+    windowPosition->y = tempPosition[1];
+    return result;
+}
+
+int32_t OH_ArkUI_NativeModule_ConvertPositionFromWindow(
+    ArkUI_NodeHandle targetNode, ArkUI_IntOffset windowPosition, ArkUI_IntOffset* position)
+{
+    CHECK_NULL_RETURN(targetNode, ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(position, ARKUI_ERROR_CODE_PARAM_INVALID);
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    ArkUI_Float32 tempOffset[2] = { windowPosition.x, windowPosition.y };
+    ArkUI_Float32 tempPosition[2];
+
+    auto result = impl->getNodeModifiers()->getFrameNodeModifier()->convertPositionFromWindow(
+        targetNode->uiNodeHandle, &tempOffset, &tempPosition, false);
+    position->x = tempPosition[0];
+    position->y = tempPosition[1];
+    return result;
+}
+
+int32_t OH_ArkUI_NativeModule_GetPageRootNodeHandleByContext(ArkUI_ContextHandle uiContext, ArkUI_NodeHandle* rootNode)
+{
+    CHECK_NULL_RETURN(rootNode, ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(uiContext, ARKUI_ERROR_CODE_UI_CONTEXT_INVALID);
+    const auto* impl = OHOS::Ace::NodeModel::GetFullImpl();
+    CHECK_NULL_RETURN(impl, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    int32_t instanceId = OHOS::Ace::INSTANCE_ID_UNDEFINED;
+    if (uiContext) {
+        auto* context = reinterpret_cast<ArkUI_Context*>(uiContext);
+        instanceId = context->id;
+    }
+    auto basicAPI = impl->getBasicAPI();
+    CHECK_NULL_RETURN(basicAPI, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    auto invalid = basicAPI->checkUIContextInvalid(instanceId);
+    if (invalid == ARKUI_ERROR_CODE_UI_CONTEXT_INVALID) {
+        return ARKUI_ERROR_CODE_UI_CONTEXT_INVALID;
+    }
+    auto nodeModifier = impl->getNodeModifiers();
+    CHECK_NULL_RETURN(nodeModifier, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    auto framenodeModifier = nodeModifier->getFrameNodeModifier();
+    CHECK_NULL_RETURN(framenodeModifier, ARKUI_ERROR_CODE_CAPI_INIT_ERROR);
+    auto nodePtr = framenodeModifier->getPageRootNode(instanceId);
+    *rootNode = OHOS::Ace::NodeModel::GetArkUINode(nodePtr);
+    return ARKUI_ERROR_CODE_NO_ERROR;
 }
 
 #ifdef __cplusplus

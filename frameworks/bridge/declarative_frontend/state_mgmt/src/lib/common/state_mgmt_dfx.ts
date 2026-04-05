@@ -37,6 +37,14 @@ class stateMgmtDFX {
     };
   }
 
+  public static unwrapRawValue<T>(prop: T | ObservedPropertyAbstractPU<T>): T {
+    if (prop instanceof ObservedPropertyAbstract) {
+      const wrappedValue = prop.getUnmonitored();
+      return ObservedObject.GetRawObject(wrappedValue);
+    }
+    return ObserveV2.IsProxiedObservedV2(prop) ? prop[ObserveV2.SYMBOL_PROXY_GET_TARGET] : prop;
+  }
+
   public static reportStateInfoToProfilerV2(target: object, attrName: string, changeIdSet: Set<number>): void {
     const stateInfo: DumpInfo = new DumpInfo();
     try {
@@ -47,7 +55,7 @@ class stateMgmtDFX {
     }
   }
 
-  private static HandlerStateInfoToProfilerV2(target: object, attrName: string, changeIdSet: Set<number>, stateInfo: DumpInfo) {
+  private static HandlerStateInfoToProfilerV2(target: object, attrName: string, changeIdSet: Set<number>, stateInfo: DumpInfo): void {
     const decoratorInfo: string = ObserveV2.getObserve().getDecoratorInfo(target, attrName);
     let val;
     let id;
@@ -126,20 +134,22 @@ class stateMgmtDFX {
   }
 
   private static dumpV2VariableInfo(view: ViewV2, dumpInfo: DumpInfo): void {
-    const meta = view[ObserveV2.V2_DECO_META];
+    const propertyVariableNames: [string, any][] = view.__getDecoratorPropertyName__V2View__Internal();
     // no decorated variables, return view info directly
-    if (!meta) {
+    if (propertyVariableNames.length === 0) {
       return;
     }
-    Object.getOwnPropertyNames(meta)
-      .filter((varName) => !varName.startsWith(ProviderConsumerUtilV2.ALIAS_PREFIX)) // remove provider & consumer prefix
-      .forEach((varName) => {
-        dumpInfo.observedPropertiesInfo.push(stateMgmtDFX.dumpSingleV2VariableInfo(view, varName));
+    propertyVariableNames
+      .filter((entry) => !entry[0].startsWith(ProviderConsumerUtilV2.ALIAS_PREFIX))
+      .forEach((entry) => {
+        dumpInfo.observedPropertiesInfo.push(stateMgmtDFX.dumpSingleV2VariableInfo(view, entry));
       });
   }
 
-  private static dumpSingleV2VariableInfo<T>(view: ViewV2, varName: string): ObservedPropertyInfo<T> {
-    const decorators: string = ObserveV2.getObserve().getDecoratorInfo(view, varName);
+  private static dumpSingleV2VariableInfo<T>(view: ViewV2, entry: [string, any]): ObservedPropertyInfo<T> {
+    const varName = entry[0];
+    const deco: any = entry[1];
+    const decorators: string = ObserveV2.getObserve().parseDecorator(deco);
     const prop: any = Reflect.get(view, varName);
     let dependentElmIds: Set<number> | undefined = undefined;
     if (view[ObserveV2.SYMBOL_REFS]) {
@@ -149,25 +159,38 @@ class stateMgmtDFX {
     return {
       decorator: decorators, propertyName: varName, id: -1, value: stateMgmtDFX.getRawValue(prop),
       dependentElementIds:
-        { mode: 'V2', trackPropertiesDependencies: [], propertyDependencies: stateMgmtDFX.dumpDepenetElementV2(dependentElmIds) }
+        { mode: 'V2', trackPropertiesDependencies: [],
+          propertyDependencies: stateMgmtDFX.dumpDepenetElementV2(dependentElmIds) as Array<ElementType | string> }
       , syncPeers: []
     };
   }
 
-  private static dumpDepenetElementV2(dependentElmIds: Set<number> | undefined): Array<ElementType | string> {
-    const dumpElementIds: Array<ElementType | string> = [];
+  public static dumpDepenetElementV2(dependentElmIds: Set<number> | undefined,
+    isGetElement: boolean = false): Array<ElementType | string | ElementInfo> {
+    const dumpElementIds: Array<ElementType | string | ElementInfo> = [];
     dependentElmIds?.forEach((elmtId: number) => {
-      if (elmtId < ComputedV2.MIN_COMPUTED_ID) {
-        dumpElementIds.push(ObserveV2.getObserve().getElementInfoById(elmtId));
-      } else if (elmtId < MonitorV2.MIN_WATCH_ID) {
-        dumpElementIds.push(`@Computed ${ObserveV2.getObserve().getComputedInfoById(elmtId)}`);
-      } else if (elmtId < PersistenceV2Impl.MIN_PERSISTENCE_ID) {
-        dumpElementIds.push(`@Monitor ${ObserveV2.getObserve().getMonitorInfoById(elmtId)}`);
-      } else {
-        dumpElementIds.push(`PersistenceV2[${elmtId}]`);
-      }
+      dumpElementIds.push(isGetElement ?
+        { elementId: elmtId, elementName: this.getElementName(elmtId, true) } as ElementInfo :
+        this.getElementName(elmtId, false));
     });
     return dumpElementIds;
+  }
+
+  private static getElementName(elmtId: number, isGetElement: boolean): string {
+    if (elmtId < ComputedV2.MIN_COMPUTED_ID) {
+      return isGetElement ? ObserveV2.getObserve().getElementNameById(elmtId) :
+        ObserveV2.getObserve().getElementInfoById(elmtId) as string;
+    } else if (elmtId < MonitorV2.MIN_MONITOR_ORIG_ID) {
+      return `@Computed ${ObserveV2.getObserve().getComputedInfoById(elmtId)}`;
+    } else if (elmtId < MonitorV2.MIN_MONITOR_WITH_OPTIONS_OR_ASYNC_API_ID) {
+      return `@Monitor ${ObserveV2.getObserve().getMonitorInfoById(elmtId)}`;
+    } else if (elmtId < MonitorV2.MIN_SYNC_MONITOR_OR_SYNC_API_ID) {
+      return ObserveV2.getObserve().getMonitorInfoByIdTagAndFunc(elmtId);
+    } else if (elmtId < PersistenceV2Impl.MIN_PERSISTENCE_ID) {
+      return ObserveV2.getObserve().getMonitorInfoByIdTagAndFunc(elmtId);
+    } else {
+      return isGetElement ? 'PersistenceV2' : `PersistenceV2[${elmtId}]`;
+    }
   }
 
   private static getType(item: RawValue): string {
@@ -309,11 +332,47 @@ function setAceDebugMode(): void {
   stateMgmtDFX.enableDebug = true;
 }
 
+function getStateMgmtInfo(nodeIds: Array<number>, propertyName: string, jsonPath: string): Array<string | undefined> {
+  const startTime = Date.now();
+  const timeoutMs = 2000;
+
+  const result = [];
+  for (const id of nodeIds) {
+    if (Date.now() - startTime > timeoutMs) {
+      break;
+    }
+    let value = undefined;
+    let view = findViewById(id);
+    if (!view) {
+      const rootId = id + 1;
+      const rootView = findViewById(rootId);
+      if (rootView && rootView.__isEntry__Internal()) {
+        view = rootView;
+      }
+    }
+    if (view) {
+      value = view.__getPathValueFromJson__Internal(propertyName, jsonPath);
+    }
+    result.push(value);
+  }
+  return result;
+}
+
+function findViewById(id: number): PUV2ViewBase | undefined {
+  const view = SubscriberManager.Find(id);
+  if (view instanceof ViewPU || view instanceof ViewV2) {
+    return view;
+  }
+  return undefined;
+}
+
 class aceDebugTrace {
-  public static begin(...args: any): void {
+  public static begin(...args: any): boolean {
     if (stateMgmtDFX.enableDebug) {
       aceTrace.begin(...args);
     }
+    // add return value to use stateMgmtDFX.enableDebug && aceDebugTrace.begin to optimize performance
+    return true;
   }
   public static end(): void {
     if (stateMgmtDFX.enableDebug) {

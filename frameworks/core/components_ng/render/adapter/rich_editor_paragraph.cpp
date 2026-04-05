@@ -17,12 +17,12 @@
 
 namespace OHOS::Ace::NG {
 RefPtr<Paragraph> Paragraph::CreateRichEditorParagraph(
-    const ParagraphStyle& paraStyle, const RefPtr<FontCollection>& fontCollection)
+    const ParagraphStyle& paraStyle, const RefPtr<FontCollection>& fontCollection, bool isSingleLineMode)
 {
     auto txtFontCollection = DynamicCast<TxtFontCollection>(fontCollection);
     CHECK_NULL_RETURN(txtFontCollection, nullptr);
     auto sharedFontCollection = txtFontCollection->GetRawFontCollection();
-    return AceType::MakeRefPtr<RichEditorParagraph>(paraStyle, sharedFontCollection);
+    return AceType::MakeRefPtr<RichEditorParagraph>(paraStyle, sharedFontCollection, isSingleLineMode);
 }
 
 Rosen::TextRectHeightStyle RichEditorParagraph::GetHeightStyle(bool needLineHighest)
@@ -37,21 +37,42 @@ void RichEditorParagraph::Layout(float width)
     CHECK_NULL_VOID(paragraph_);
     layoutWidth_ = width;
     height_ = paragraph_->GetHeight();
+    lineCount_ = static_cast<size_t>(std::max(paragraph_->GetLineCount(), 0));
 }
 
 void RichEditorParagraph::ReLayout(float width, const ParagraphStyle& paraStyle,
-    const std::vector<TextStyle>& textStyles)
+    const std::vector<TextStyle>& textStyles, const std::optional<TextStyle>& firstValidTextStyle)
 {
     ACE_SCOPED_TRACE("RichEditorParagraph::ReLayout");
-    TxtParagraph::ReLayout(width, paraStyle, textStyles);
+    TxtParagraph::ReLayout(width, paraStyle, textStyles, firstValidTextStyle);
     CHECK_NULL_VOID(paragraph_);
     layoutWidth_ = width;
     height_ = paragraph_->GetHeight();
+    lineCount_ = static_cast<size_t>(std::max(paragraph_->GetLineCount(), 0));
 }
 
 float RichEditorParagraph::GetHeight()
 {
     return height_;
+}
+
+size_t RichEditorParagraph::GetLineCount()
+{
+    return lineCount_;
+}
+
+void RichEditorParagraph::AddText(const std::u16string& text)
+{
+    if (isSingleLineMode_ && !text.empty() && text.back() == u'\n') {
+        TxtParagraph::AddText(text.substr(0, text.size() - 1) + u" ");
+        return;
+    }
+    TxtParagraph::AddText(text);
+}
+
+bool RichEditorParagraph::IsSingleLineMode()
+{
+    return isSingleLineMode_;
 }
 
 } // namespace OHOS::Ace::NG

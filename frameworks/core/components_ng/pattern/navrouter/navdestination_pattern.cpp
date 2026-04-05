@@ -16,6 +16,7 @@
 #include "core/components_ng/pattern/navrouter/navdestination_pattern.h"
 
 #include "base/log/dump_log.h"
+#include "base/utils/multi_thread.h"
 #include "core/common/agingadapation/aging_adapation_dialog_theme.h"
 #include "core/common/agingadapation/aging_adapation_dialog_util.h"
 #include "core/components/theme/app_theme.h"
@@ -239,7 +240,7 @@ void NavDestinationPattern::UpdateBackgroundColorIfNeeded(RefPtr<NavDestinationG
         renderContext->UpdateBackgroundColor(Color::TRANSPARENT);
         return;
     }
-    auto pipelineContext = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipelineContext = PipelineContext::GetCurrentContext();
     if (!pipelineContext) {
         return;
     }
@@ -382,6 +383,7 @@ void NavDestinationPattern::OnAttachToFrameNode()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    THREAD_SAFE_NODE_CHECK(host, OnAttachToFrameNode);
     NavDestinationPatternBase::InitOnTouchEvent(host);
     if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_ELEVEN)) {
         SafeAreaExpandOpts opts = { .type = SAFE_AREA_TYPE_SYSTEM | SAFE_AREA_TYPE_CUTOUT,
@@ -401,6 +403,7 @@ void NavDestinationPattern::OnAttachToFrameNode()
 void NavDestinationPattern::OnDetachFromFrameNode(FrameNode* frameNode)
 {
     CHECK_NULL_VOID(frameNode);
+    THREAD_SAFE_NODE_CHECK(frameNode, OnDetachFromFrameNode, frameNode);
     auto id = frameNode->GetId();
     auto pipeline = frameNode->GetContext();
     CHECK_NULL_VOID(pipeline);
@@ -464,6 +467,7 @@ void NavDestinationPattern::SetSystemBarStyle(const RefPtr<SystemBarStyle>& styl
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    FREE_NODE_CHECK(host, SetSystemBarStyle, style);
     auto pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto windowManager = pipeline->GetWindowManager();
@@ -505,13 +509,21 @@ void NavDestinationPattern::OnWindowHide()
     stack->SetIsEntryByIndex(index, false);
 }
 
+void NavDestinationPattern::OnAttachToMainTree()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    THREAD_SAFE_NODE_CHECK(host, OnAttachToMainTree);
+}
+
 void NavDestinationPattern::OnDetachFromMainTree()
 {
-    backupStyle_.reset();
-    currStyle_.reset();
     auto host = AceType::DynamicCast<NavDestinationGroupNode>(GetHost());
     CHECK_NULL_VOID(host);
-    if (!host->IsHomeDestination()) {
+    THREAD_SAFE_NODE_CHECK(host, OnDetachFromMainTree);
+    backupStyle_.reset();
+    currStyle_.reset();
+    if (!host->IsHomeDestination() && host->GetNavDestinationType() != NavDestinationType::RELATED) {
         return;
     }
     auto navigationNode = AceType::DynamicCast<NavigationGroupNode>(navigationNode_.Upgrade());
@@ -788,7 +800,8 @@ void NavDestinationPattern::StartHideOrShowBarInner(
         ctx.isBarShowing = true;
     }
     NavigationTitleUtil::UpdateTitleOrToolBarTranslateYAndOpacity(nodeBase, barNode, curTranslate, isTitle);
-    AnimationUtils::Animate(option, propertyCallback, finishCallback);
+    AnimationUtils::Animate(
+        option, propertyCallback, finishCallback, nullptr /* repeatCallback */, nodeBase->GetContextRefPtr());
 }
 
 void NavDestinationPattern::StopHideBarIfNeeded(float curTranslate, bool isTitle)
@@ -810,7 +823,10 @@ void NavDestinationPattern::StopHideBarIfNeeded(float curTranslate, bool isTitle
     AnimationOption option;
     option.SetDuration(0);
     option.SetCurve(Curves::LINEAR);
-    AnimationUtils::Animate(option, propertyCallback);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    AnimationUtils::Animate(
+        option, propertyCallback, nullptr /* finishCallback */, nullptr /* repeatCallback */, host->GetContextRefPtr());
     ctx.isBarHiding = false;
 }
 
@@ -836,7 +852,7 @@ float NavDestinationPattern::OnCoordScrollUpdate(float offset, float currentOffs
     CHECK_NULL_RETURN(navDestinationGroupNode, 0.0f);
     auto navDestinationEventHub = navDestinationGroupNode->GetEventHub<NavDestinationEventHub>();
     CHECK_NULL_RETURN(navDestinationEventHub, 0.0f);
-    navDestinationEventHub->FireOnCoordScrollUpdateAction(currentOffset);
+    navDestinationEventHub->FireOnCoordScrollUpdateAction(offset, currentOffset);
     return 0.0f;
 }
 
@@ -854,7 +870,62 @@ bool NavDestinationPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>
     auto hostNode = AceType::DynamicCast<NavDestinationGroupNode>(GetHost());
     CHECK_NULL_RETURN(hostNode, false);
     hostNode->AdjustRenderContextIfNeeded();
+    // proxy NavDestination don't need notification
+    if (hostNode->GetNavDestinationType() == NavDestinationType::PROXY) {
+        return false;
+    }
+    CHECK_NULL_RETURN(navDestinationContext_, false);
+    auto context = hostNode->GetContext();
+    CHECK_NULL_RETURN(context, false);
+    auto geometry = hostNode->GetGeometryNode();
+    CHECK_NULL_RETURN(geometry, false);
+    auto frameSize = geometry->GetFrameSize();
+    auto widthVp = context->Px2VpWithCurrentDensity(frameSize.Width());
+    auto heightVp = context->Px2VpWithCurrentDensity(frameSize.Height());
+    SizeF curSize(widthVp, heightVp);
+    auto layoutProperty = hostNode->GetLayoutProperty();
+    CHECK_NULL_RETURN(layoutProperty, false);
+    const auto& currentDestSize = navDestinationContext_->GetCurrentSize();
+    if (!currentDestSize.has_value() || currentDestSize.value() != curSize) {
+        navDestinationContext_->SetCurrentSize(curSize);
+        if (layoutProperty->GetVisibilityValue(VisibleType::INVISIBLE) == VisibleType::VISIBLE) {
+            NotifyNavDestinationSizeChange(curSize, ++lastSizeChangeNotifyId_);
+        } else {
+            needNotifySizeChangeWhenVisible_ = true;
+        }
+    }
     return false;
+}
+
+void NavDestinationPattern::NotifyNavDestinationSizeChange(const std::optional<SizeF>& size, int64_t notifyId)
+{
+    auto context = GetContext();
+    CHECK_NULL_VOID(context);
+    auto task = [weakPattern = WeakClaim(this), size, notifyId]() {
+        auto pattern = weakPattern.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        if (notifyId < pattern->lastSizeChangeNotifyId_) {
+            return;
+        }
+        auto eventHub = pattern->GetEventHub<NavDestinationEventHub>();
+        CHECK_NULL_VOID(eventHub);
+        auto state = eventHub->GetState();
+        UIObserverHandler::GetInstance().NotifyNavDestinationSizeChange(WeakPtr(pattern), state, size);
+    };
+    context->AddAfterLayoutTask(std::move(task));
+}
+
+void NavDestinationPattern::OnVisibleChange(bool isVisible)
+{
+    NavDestinationPatternBase::OnVisibleChange(isVisible);
+    if (!isVisible || !needNotifySizeChangeWhenVisible_) {
+        return;
+    }
+    needNotifySizeChangeWhenVisible_ = false;
+    // InVisible -> Visible
+    CHECK_NULL_VOID(navDestinationContext_);
+    auto curSize = navDestinationContext_->GetCurrentSize();
+    NotifyNavDestinationSizeChange(curSize, ++lastSizeChangeNotifyId_);
 }
 
 void NavDestinationPattern::CheckIfOrientationChanged()

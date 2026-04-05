@@ -29,7 +29,7 @@ using namespace testing::ext;
 namespace OHOS::Ace::NG {
 namespace {
     const auto ATTRIBUTE_BACKGROUND_NAME = "background";
-    const auto ATTRIBUTE_BACKGROUND_DEFAULT_VALUE = "";
+    const auto ATTRIBUTE_BACKGROUND_DEFAULT_VALUE = std::nullopt;
 }
 
 struct DoublePair {
@@ -93,16 +93,16 @@ public:
  */
 HWTEST_F(CommonMethodModifierTest10, setBackgroundTestDefaultValues, TestSize.Level1)
 {
-    std::string strResult = GetStringAttribute(node_, ATTRIBUTE_BACKGROUND_NAME);
-    EXPECT_EQ(strResult, ATTRIBUTE_BACKGROUND_DEFAULT_VALUE);
+    auto strResult = GetAttrValue<std::string>(node_, ATTRIBUTE_BACKGROUND_NAME);
+    EXPECT_THAT(strResult, Eq(ATTRIBUTE_BACKGROUND_DEFAULT_VALUE));
 }
 
 /*
- * @tc.name: setBackgroundCustomNodeBuilderTest
+ * @tc.name: setBackgroundTestCustomNodeBuilder
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(CommonMethodModifierTest10, DISABLED_setBackgroundCustomNodeBuilderTest, TestSize.Level1)
+HWTEST_F(CommonMethodModifierTest10, DISABLED_setBackgroundTestCustomNodeBuilder, TestSize.Level1)
 {
     ASSERT_NE(modifier_->setBackground, nullptr);
     auto frameNode = reinterpret_cast<FrameNode*>(node_);
@@ -114,9 +114,18 @@ HWTEST_F(CommonMethodModifierTest10, DISABLED_setBackgroundCustomNodeBuilderTest
     CustomNodeBuilderTestHelper<CommonMethodModifierTest10> builderHelper2(this, frameNode);
     CustomNodeBuilderTestHelper<CommonMethodModifierTest10> builderHelper3(this, frameNode);
 
-    const auto builder1 = Converter::ArkValue<Opt_CustomNodeBuilder>(builderHelper1.GetBuilder());
-    const auto builder2 = Converter::ArkValue<Opt_CustomNodeBuilder>(builderHelper2.GetBuilder());
-    const auto builder3 = Converter::ArkValue<Opt_CustomNodeBuilder>(builderHelper3.GetBuilder());
+    Ark_Union_CustomBuilder_ResourceColor arkUnion1;
+    TypeHelper::WriteToUnion<CustomNodeBuilder>(arkUnion1) = builderHelper1.GetBuilder();
+    const auto builder1 = Converter::ArkValue<Opt_Union_CustomBuilder_ResourceColor>(arkUnion1);
+
+    Ark_Union_CustomBuilder_ResourceColor arkUnion2;
+    TypeHelper::WriteToUnion<CustomNodeBuilder>(arkUnion2) = builderHelper2.GetBuilder();
+    const auto builder2 = Converter::ArkValue<Opt_Union_CustomBuilder_ResourceColor>(arkUnion2);
+
+    Ark_Union_CustomBuilder_ResourceColor arkUnion3;
+    TypeHelper::WriteToUnion<CustomNodeBuilder>(arkUnion3) = builderHelper3.GetBuilder();
+    const auto builder3 = Converter::ArkValue<Opt_Union_CustomBuilder_ResourceColor>(arkUnion3);
+
 
     // Testing builderHelper3
     modifier_->setBackground(node_, &builder3, nullptr);
@@ -146,10 +155,12 @@ HWTEST_F(CommonMethodModifierTest10, DISABLED_setBackgroundTestValidValues, Test
 
     int callsCount(0);
     CustomNodeBuilderTestHelper<CommonMethodModifierTest10> builderHelper(this, frameNode);
-    const auto builder = Converter::ArkValue<Opt_CustomNodeBuilder>(builderHelper.GetBuilder());
+    Ark_Union_CustomBuilder_ResourceColor arkUnion;
+    TypeHelper::WriteToUnion<CustomNodeBuilder>(arkUnion) = builderHelper.GetBuilder();
+    const auto builder = Converter::ArkValue<Opt_Union_CustomBuilder_ResourceColor>(arkUnion);
 
     using OneTestStep = std::tuple<Opt_BackgroundOptions, std::string>;
-    static const std::vector<OneTestStep> testPlan = {
+    const std::vector<OneTestStep> testPlan = {
         {Converter::ArkValue<Opt_BackgroundOptions>(ARK_ALIGNMENT_TOP_START), "TOP_LEFT"},
         {Converter::ArkValue<Opt_BackgroundOptions>(ARK_ALIGNMENT_TOP), "TOP_CENTER"},
         {Converter::ArkValue<Opt_BackgroundOptions>(ARK_ALIGNMENT_TOP_END), "TOP_RIGHT"},

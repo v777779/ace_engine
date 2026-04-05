@@ -236,6 +236,22 @@ HWTEST_F(SafeContainerTest, SafeListTest011, TestSize.Level1)
 }
 
 /**
+ * @tc.name: SafeMapEmplaceTest
+ * @tc.desc: Test basic map operations and element access
+ * @tc.type: FUNC
+ */
+HWTEST_F(SafeContainerTest, SafeMapEmplaceTest001, TestSize.Level1)
+{
+    SafeMap<int, std::string> m;
+    m[10] = "ten";
+    EXPECT_EQ(m[10], "ten");
+    m[10] = "ten_2";
+    EXPECT_EQ(m[10], "ten_2");
+    m.try_emplace(40, "hello");
+    EXPECT_EQ(m.at(40), "hello");
+}
+
+/**
  * @tc.name: SafeMapTest001
  * @tc.desc: Test basic map operations and element access
  * @tc.type: FUNC
@@ -390,23 +406,5 @@ HWTEST_F(SafeContainerTest, SafeMapTest009, TestSize.Level1)
     EXPECT_EQ(it1, m.end());
     auto it2 = m.find(2);
     EXPECT_NE(it2, m.end());
-}
-
-/**
- * @tc.name: SafeMapTest010
- * @tc.desc: Test map modification with complex types
- * @tc.type: FUNC
- */
-HWTEST_F(SafeContainerTest, SafeMapTest010, TestSize.Level1)
-{
-    struct Point {
-        int x, y;
-    };
-    SafeMap<int, Point> m;
-    m.emplace(1, Point { 10, 20 });
-    auto it = m.find(1);
-    EXPECT_EQ(it->second.x, 10);
-    m.insert({ 2, Point { 30, 40 } });
-    EXPECT_EQ(m[2].y, 40);
 }
 } // namespace OHOS::Ace

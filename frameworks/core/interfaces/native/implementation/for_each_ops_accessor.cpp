@@ -15,15 +15,8 @@
 
 #include <cstdint>
 
-#include "arkoala_api_generated.h"
-#include "ui/base/utils/utils.h"
-
-#include "core/components_ng/base/ui_node.h"
-#include "core/components_ng/base/frame_node.h"
-#include "base/utils/utils.h"
 #include "core/interfaces/arkoala/arkoala_api.h"
 #include "core/interfaces/native/utility/callback_helper.h"
-#include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/components_ng/syntax/arkoala_for_each_node.h"
 
@@ -74,7 +67,7 @@ void SyncItemDragEvent(
         std::move(onMoveThroughCallback), std::move(onDropCallback));
 }
 void SyncOnMoveOpsImpl(Ark_NativePointer node,
-                       const Array_NativePointer* additionalChild,
+                       const Array_Pointer* additionalChild,
                        const Opt_OnMoveHandler* onMoveOps,
                        const Opt_ItemDragEventHandler* onMoveDragEventOps)
 {

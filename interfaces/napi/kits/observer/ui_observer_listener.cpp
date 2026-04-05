@@ -26,6 +26,7 @@ constexpr int32_t PARAM_SIZE_ONE = 1;
 constexpr int32_t PARAM_SIZE_TWO = 2;
 constexpr int32_t PARAM_SIZE_THREE = 3;
 constexpr int32_t PARAM_SIZE_SIX = 6;
+constexpr int32_t PARAM_SIZE_SEVEN = 7;
 
 bool CheckKeysPressed(const std::vector<KeyCode>& pressedKeyCodes, std::vector<std::string>& checkKeyCodes)
 {
@@ -88,6 +89,37 @@ bool CheckAndParseStr(napi_env env, napi_value arg, std::string& recv)
 
     recv = message.get();
     return true;
+}
+
+napi_value GetNavDestinationParam(napi_env env, const NG::NavDestinationInfo& info)
+{
+    if (info.interopParam.empty()) {
+        return info.param;
+    }
+    if (!env) {
+        return nullptr;
+    }
+    napi_handle_scope scope = nullptr;
+    auto status = napi_open_handle_scope(env, &scope);
+    if (status != napi_ok) {
+        return nullptr;
+    }
+    napi_value globalValue;
+    napi_get_global(env, &globalValue);
+    napi_value jsonClass;
+    napi_get_named_property(env, globalValue, "JSON", &jsonClass);
+    napi_value parseFunc;
+    napi_get_named_property(env, jsonClass, "parse", &parseFunc);
+    napi_value stringifiedParamNapi = nullptr;
+    napi_create_string_utf8(env, info.interopParam.c_str(), info.interopParam.length(), &stringifiedParamNapi);
+    napi_value interopParam = nullptr;
+    if (napi_call_function(env, jsonClass, parseFunc, 1, &stringifiedParamNapi, &interopParam) != napi_ok) {
+        napi_get_and_clear_last_exception(env, &interopParam);
+        napi_close_handle_scope(env, scope);
+        return nullptr;
+    }
+    napi_close_handle_scope(env, scope);
+    return interopParam;
 }
 
 static GestureEvent* GetBaseEventInfo(
@@ -212,7 +244,7 @@ void UIObserverListener::OnScrollEventStateChange(
     napi_close_handle_scope(env_, scope);
 }
 
-void UIObserverListener::OnRouterPageStateChange(const NG::RouterPageInfoNG& pageInfo)
+void UIObserverListener::OnRouterPageStateChange(const NG::RouterPageInfoNG& pageInfo, napi_value context)
 {
     if (!env_ || !callback_) {
         TAG_LOGW(AceLogTag::ACE_OBSERVER,
@@ -226,26 +258,7 @@ void UIObserverListener::OnRouterPageStateChange(const NG::RouterPageInfoNG& pag
     }
     napi_value callback = nullptr;
     napi_get_reference_value(env_, callback_, &callback);
-    napi_value objValue = nullptr;
-    napi_create_object(env_, &objValue);
-    napi_value napiCtx = pageInfo.context;
-    napi_value napiIndex = nullptr;
-    napi_value napiName = nullptr;
-    napi_value napiPath = nullptr;
-    napi_value napiState = nullptr;
-    napi_value napiPageId = nullptr;
-    napi_create_int32(env_, pageInfo.index, &napiIndex);
-    napi_create_string_utf8(env_, pageInfo.name.c_str(), pageInfo.name.length(), &napiName);
-    napi_create_string_utf8(env_, pageInfo.path.c_str(), pageInfo.path.length(), &napiPath);
-    napi_create_int32(env_, static_cast<int32_t>(pageInfo.state), &napiState);
-    napi_create_string_utf8(env_, pageInfo.pageId.c_str(), pageInfo.pageId.length(), &napiPageId);
-    napi_set_named_property(env_, objValue, "context", napiCtx);
-    napi_set_named_property(env_, objValue, "index", napiIndex);
-    napi_set_named_property(env_, objValue, "name", napiName);
-    napi_set_named_property(env_, objValue, "path", napiPath);
-    napi_set_named_property(env_, objValue, "state", napiState);
-    napi_set_named_property(env_, objValue, "pageId", napiPageId);
-    napi_value argv[] = { objValue };
+    napi_value argv[] = { CreateRouterPageInfoObj(pageInfo, context) };
     napi_call_function(env_, nullptr, callback, 1, argv, nullptr);
     napi_close_handle_scope(env_, scope);
 }
@@ -269,6 +282,33 @@ void UIObserverListener::OnDensityChange(double density)
     napi_value napiDensity = nullptr;
     napi_create_double(env_, density, &napiDensity);
     napi_set_named_property(env_, objValue, "density", napiDensity);
+    napi_value argv[] = { objValue };
+    napi_call_function(env_, nullptr, callback, 1, argv, nullptr);
+    napi_close_handle_scope(env_, scope);
+}
+
+void UIObserverListener::OnWinSizeLayoutBreakpointChange(const WindowSizeBreakpoint info)
+{
+    if (!env_ || !callback_) {
+        TAG_LOGW(AceLogTag::ACE_OBSERVER,
+            "Handle winSizeLayoutBreakpoint change failed, runtime or callback function invalid!");
+        return;
+    }
+    napi_handle_scope scope = nullptr;
+    auto status = napi_open_handle_scope(env_, &scope);
+    if (status != napi_ok) {
+        return;
+    }
+    napi_value callback = nullptr;
+    napi_get_reference_value(env_, callback_, &callback);
+    napi_value objValue = nullptr;
+    napi_create_object(env_, &objValue);
+    napi_value widthValue;
+    napi_create_int32(env_, static_cast<int32_t>(info.widthBreakpoint), &widthValue);
+    napi_set_named_property(env_, objValue, "widthBreakpoint", widthValue);
+    napi_value heightValue;
+    napi_create_int32(env_, static_cast<int32_t>(info.heightBreakpoint), &heightValue);
+    napi_set_named_property(env_, objValue, "heightBreakpoint", heightValue);
     napi_value argv[] = { objValue };
     napi_call_function(env_, nullptr, callback, 1, argv, nullptr);
     napi_close_handle_scope(env_, scope);
@@ -336,7 +376,7 @@ void UIObserverListener::OnDrawOrLayout()
     napi_close_handle_scope(env_, scope);
 }
 
-void UIObserverListener::OnNavDestinationSwitch(const NG::NavDestinationSwitchInfo& switchInfo)
+void UIObserverListener::OnNavDestinationSwitch(const NG::NavDestinationSwitchInfo& switchInfo, napi_value context)
 {
     if (!env_ || !callback_) {
         TAG_LOGW(AceLogTag::ACE_OBSERVER,
@@ -350,12 +390,125 @@ void UIObserverListener::OnNavDestinationSwitch(const NG::NavDestinationSwitchIn
     }
     napi_value callback = nullptr;
     napi_get_reference_value(env_, callback_, &callback);
-    napi_value argv[] = { CreateNavDestinationSwitchInfoObj(switchInfo) };
+    napi_value argv[] = { CreateNavDestinationSwitchInfoObj(switchInfo, context) };
     napi_call_function(env_, nullptr, callback, 1, argv, nullptr);
     napi_close_handle_scope(env_, scope);
 }
 
-napi_value UIObserverListener::CreateNavDestinationSwitchInfoObj(const NG::NavDestinationSwitchInfo& switchInfo)
+void UIObserverListener::OnTextChangeEvent(const NG::TextChangeEventInfo& info)
+{
+    if (!env_ || !callback_) {
+        TAG_LOGW(AceLogTag::ACE_OBSERVER, "Handle text change event failed, runtime or callback function invalid!");
+        return;
+    }
+    napi_handle_scope scope = nullptr;
+    auto status = napi_open_handle_scope(env_, &scope);
+    if (status != napi_ok) {
+        return;
+    }
+    napi_value callback = nullptr;
+    napi_get_reference_value(env_, callback_, &callback);
+    napi_value objValue = nullptr;
+    napi_value id = nullptr;
+    napi_value uniqueId = nullptr;
+    napi_value content = nullptr;
+    napi_create_object(env_, &objValue);
+    napi_create_string_utf8(env_, info.id.c_str(), info.id.length(), &id);
+    napi_create_int32(env_, info.uniqueId, &uniqueId);
+    napi_create_string_utf8(env_, info.content.c_str(), info.content.length(), &content);
+    napi_set_named_property(env_, objValue, "id", id);
+    napi_set_named_property(env_, objValue, "uniqueId", uniqueId);
+    napi_set_named_property(env_, objValue, "content", content);
+    napi_value argv[] = { objValue };
+    napi_call_function(env_, nullptr, callback, 1, argv, nullptr);
+    napi_close_handle_scope(env_, scope);
+}
+
+void UIObserverListener::OnRouterPageSizeChange(const NG::RouterPageInfoNG& info, napi_value context)
+{
+    if (!env_ || !callback_) {
+        TAG_LOGW(
+            AceLogTag::ACE_OBSERVER, "Handle router page size change failed, runtime or callback function invalid!");
+        return;
+    }
+    napi_handle_scope scope = nullptr;
+    auto status = napi_open_handle_scope(env_, &scope);
+    if (status != napi_ok) {
+        return;
+    }
+    napi_value callback = nullptr;
+    napi_get_reference_value(env_, callback_, &callback);
+    napi_value argv[] = { CreateRouterPageInfoObj(info, context) };
+    napi_call_function(env_, nullptr, callback, 1, argv, nullptr);
+    napi_close_handle_scope(env_, scope);
+}
+
+void UIObserverListener::OnNavDestinationSizeChange(const NG::NavDestinationInfo& info)
+{
+    if (!env_ || !callback_) {
+        TAG_LOGW(AceLogTag::ACE_OBSERVER,
+            "Handle NavDestination size change failed, runtime or callback function invalid!");
+        return;
+    }
+    napi_handle_scope scope = nullptr;
+    auto status = napi_open_handle_scope(env_, &scope);
+    if (status != napi_ok) {
+        return;
+    }
+    napi_value callback = nullptr;
+    napi_get_reference_value(env_, callback_, &callback);
+    napi_value argv[] = { CreateNavDestinationInfoObj(info) };
+    napi_call_function(env_, nullptr, callback, 1, argv, nullptr);
+    napi_close_handle_scope(env_, scope);
+}
+
+void UIObserverListener::HandleSwiperContentUpdate(const NG::SwiperContentInfo& info)
+{
+    if (!env_ || !callback_) {
+        TAG_LOGW(AceLogTag::ACE_OBSERVER,
+            "Handle swiper content update failed, runtime or callback function invalid!");
+        return;
+    }
+    napi_handle_scope scope = nullptr;
+    auto status = napi_open_handle_scope(env_, &scope);
+    if (status != napi_ok) {
+        return;
+    }
+    napi_value callback = nullptr;
+    napi_get_reference_value(env_, callback_, &callback);
+    napi_value objValue = nullptr;
+    napi_value id = nullptr;
+    napi_value uniqueId = nullptr;
+    napi_create_object(env_, &objValue);
+    napi_create_string_utf8(env_, info.id.c_str(), info.id.length(), &id);
+    napi_create_int32(env_, info.uniqueId, &uniqueId);
+    // set id and uniqueId
+    napi_set_named_property(env_, objValue, "id", id);
+    napi_set_named_property(env_, objValue, "uniqueId", uniqueId);
+    // set swiperItemInfos
+    napi_value swiperItemInfos = nullptr;
+    napi_create_array(env_, &swiperItemInfos);
+    int32_t index = 0;
+    for (auto eachItemInfo: info.swiperItemInfos) {
+        napi_value swiperItemInfo = nullptr;
+        napi_value uniqueId = nullptr;
+        napi_value itemIndex = nullptr;
+        napi_create_object(env_, &swiperItemInfo);
+        napi_create_int32(env_, eachItemInfo.uniqueId, &uniqueId);
+        napi_create_int32(env_, eachItemInfo.index, &itemIndex);
+        napi_set_named_property(env_, swiperItemInfo, "uniqueId", uniqueId);
+        napi_set_named_property(env_, swiperItemInfo, "index", itemIndex);
+        napi_set_element(env_, swiperItemInfos, index++, swiperItemInfo);
+    }
+    napi_set_named_property(env_, objValue, "swiperItemInfos", swiperItemInfos);
+    // call observer callback in js side
+    napi_value argv[] = { objValue };
+    napi_call_function(env_, nullptr, callback, 1, argv, nullptr);
+    napi_close_handle_scope(env_, scope);
+}
+
+napi_value UIObserverListener::CreateNavDestinationSwitchInfoObj(
+    const NG::NavDestinationSwitchInfo& switchInfo, napi_value context)
 {
     napi_value objValue = nullptr;
     napi_create_object(env_, &objValue);
@@ -373,7 +526,7 @@ napi_value UIObserverListener::CreateNavDestinationSwitchInfoObj(const NG::NavDe
         napi_create_string_utf8(env_, NAV_BAR, NAPI_AUTO_LENGTH, &napiTo);
     }
     napi_create_int32(env_, static_cast<int32_t>(switchInfo.operation), &napiOperation);
-    napi_set_named_property(env_, objValue, "context", switchInfo.context);
+    napi_set_named_property(env_, objValue, "context", context);
     napi_set_named_property(env_, objValue, "from", napiFrom);
     napi_set_named_property(env_, objValue, "to", napiTo);
     napi_set_named_property(env_, objValue, "operation", napiOperation);
@@ -404,6 +557,7 @@ void UIObserverListener::OnWillClick(
     AddGestureEventInfoOne(objValueClickEvent, gestureEventInfo);
     AddGestureEventInfoTwo(objValueClickEvent, gestureEventInfo);
     AddGestureEventInfoThree(objValueClickEvent, gestureEventInfo);
+    AddTapLocationInfo(objValueClickEvent, gestureEventInfo);
     AddClickEventInfoOne(objValueClickEvent, clickInfo);
     AddClickEventInfoTwo(objValueClickEvent, clickInfo);
 
@@ -440,6 +594,7 @@ void UIObserverListener::OnDidClick(
     AddGestureEventInfoOne(objValueClickEvent, gestureEventInfo);
     AddGestureEventInfoTwo(objValueClickEvent, gestureEventInfo);
     AddGestureEventInfoThree(objValueClickEvent, gestureEventInfo);
+    AddTapLocationInfo(objValueClickEvent, gestureEventInfo);
     AddClickEventInfoOne(objValueClickEvent, clickInfo);
     AddClickEventInfoTwo(objValueClickEvent, clickInfo);
 
@@ -520,6 +675,11 @@ void UIObserverListener::OnGestureStateChange(NG::GestureListenerType gestureLis
     AddGestureEventInfoOne(objValueGestureEvent, gestureEventInfo);
     AddGestureEventInfoTwo(objValueGestureEvent, gestureEventInfo);
     AddGestureEventInfoThree(objValueGestureEvent, gestureEventInfo);
+    bool canGetTap = gestureEventInfo.GetGestureTypeName() == GestureTypeName::TAP_GESTURE ||
+                     gestureEventInfo.GetGestureTypeName() == GestureTypeName::CLICK;
+    if (canGetTap) {
+        AddTapLocationInfo(objValueGestureEvent, gestureEventInfo);
+    }
     AddGestureEventInfoFour(objValueGestureEvent, gestureEventInfo);
     AddTargetObject(objValueGestureEvent, gestureEventInfo);
     GestureObserverListener::AddGestureRecognizerInfo(env_, objValueGestureRecognizer, current, gestureListenerType);
@@ -581,6 +741,55 @@ void UIObserverListener::OnTabContentStateChange(const NG::TabContentInfo& tabCo
         param6,
     };
     napi_create_object_with_named_properties(env_, &objValue, PARAM_SIZE_SIX, keys, values);
+    napi_value argv[] = { objValue };
+    napi_call_function(env_, nullptr, callback, 1, argv, nullptr);
+    napi_close_handle_scope(env_, scope);
+}
+
+void UIObserverListener::OnTabChange(const NG::TabContentInfo& tabContentInfo)
+{
+    if (!env_ || !callback_) {
+        TAG_LOGW(AceLogTag::ACE_OBSERVER,
+            "Handle tab change failed, runtime or callback function invalid!");
+        return;
+    }
+    napi_handle_scope scope = nullptr;
+    auto status = napi_open_handle_scope(env_, &scope);
+    if (status != napi_ok) {
+        return;
+    }
+    napi_value callback = nullptr;
+    napi_get_reference_value(env_, callback_, &callback);
+    napi_value objValue = nullptr;
+    napi_value param1 = nullptr;
+    napi_value param2 = nullptr;
+    napi_value param3 = nullptr;
+    napi_value param4 = nullptr;
+    napi_value param5 = nullptr;
+    napi_value param6 = nullptr;
+    napi_value param7 = nullptr;
+    napi_create_string_utf8(env_, tabContentInfo.tabContentId.c_str(), tabContentInfo.tabContentId.length(), &param1);
+    napi_create_int32(env_, tabContentInfo.tabContentUniqueId, &param2);
+    napi_create_int32(env_, static_cast<int32_t>(tabContentInfo.state), &param3);
+    napi_create_int32(env_, tabContentInfo.index, &param4);
+    napi_create_string_utf8(env_, tabContentInfo.id.c_str(), tabContentInfo.id.length(), &param5);
+    napi_create_int32(env_, tabContentInfo.uniqueId, &param6);
+    if (tabContentInfo.lastIndex.has_value()) {
+        napi_create_int32(env_, tabContentInfo.lastIndex.value(), &param7);
+    }
+    const char *keys[] = {
+        "tabContentId", "tabContentUniqueId", "state", "index", "id", "uniqueId", "lastIndex",
+    };
+    const napi_value values[] = {
+        param1, param2, param3, param4, param5, param6, param7,
+    };
+    const int32_t paramSize = tabContentInfo.lastIndex.has_value() ? PARAM_SIZE_SEVEN : PARAM_SIZE_SIX;
+    status = napi_create_object_with_named_properties(env_, &objValue, paramSize, keys, values);
+    if (status != napi_ok) {
+        TAG_LOGW(AceLogTag::ACE_OBSERVER, "Failed to create object with named properties, status: %d", status);
+        napi_close_handle_scope(env_, scope);
+        return;
+    }
     napi_value argv[] = { objValue };
     napi_call_function(env_, nullptr, callback, 1, argv, nullptr);
     napi_close_handle_scope(env_, scope);
@@ -683,12 +892,12 @@ void UIObserverListener::AddGestureEventInfoOne(napi_value objValueEvent, const 
     }
     napi_value napiAngle = GetNamedProperty(env_, objValueEvent, "angle");
     if (GetValueType(env_, napiAngle) != napi_null) {
-        napi_create_double(env_, gestureEventInfo.GetAngle() / scale, &napiAngle);
+        napi_create_double(env_, gestureEventInfo.GetAngle(), &napiAngle);
         napi_set_named_property(env_, objValueEvent, "angle", napiAngle);
     }
     napi_value napiSpeed = GetNamedProperty(env_, objValueEvent, "speed");
     if (GetValueType(env_, napiSpeed) != napi_null) {
-        napi_create_double(env_, gestureEventInfo.GetSpeed() / scale, &napiSpeed);
+        napi_create_double(env_, gestureEventInfo.GetSpeed(), &napiSpeed);
         napi_set_named_property(env_, objValueEvent, "speed", napiSpeed);
     }
     napi_close_handle_scope(env_, scope);
@@ -774,19 +983,21 @@ void UIObserverListener::AddGestureEventInfoThree(napi_value objValueEvent, cons
     }
     napi_value napiAxisHorizontal = nullptr;
     napi_value napiAxisVertical = nullptr;
+    napi_value napiAxisPinch = nullptr;
     napi_value napiDeviceId = nullptr;
     napi_value napiTargetDisplayId = nullptr;
     napi_create_double(env_, gestureEventInfo.GetHorizontalAxis(), &napiAxisHorizontal);
     napi_set_named_property(env_, objValueEvent, "axisHorizontal", napiAxisHorizontal);
     napi_create_double(env_, gestureEventInfo.GetVerticalAxis(), &napiAxisVertical);
     napi_set_named_property(env_, objValueEvent, "axisVertical", napiAxisVertical);
+    napi_create_double(env_, gestureEventInfo.GetPinchAxisScale(), &napiAxisPinch);
+    napi_set_named_property(env_, objValueEvent, "axisPinch", napiAxisPinch);
     napi_create_double(env_, gestureEventInfo.GetDeviceId(), &napiDeviceId);
     napi_set_named_property(env_, objValueEvent, "deviceId", napiDeviceId);
     napi_create_double(env_, gestureEventInfo.GetTargetDisplayId(), &napiTargetDisplayId);
     napi_set_named_property(env_, objValueEvent, "targetDisplayId", napiTargetDisplayId);
-    AddFingerInfosInfo(objValueEvent, gestureEventInfo);
     AddFingerListInfo(objValueEvent, gestureEventInfo);
-    AddTapLocationInfo(objValueEvent, gestureEventInfo);
+    AddFingerInfosInfo(objValueEvent, gestureEventInfo);
     napi_close_handle_scope(env_, scope);
 }
 
@@ -860,13 +1071,12 @@ void UIObserverListener::AddFingerListInfo(napi_value objValueClickEvent, const 
         napi_close_handle_scope(env_, scope);
         return;
     }
-    int32_t index = 0;
     if (fingerList.size() > 0) {
         for (auto finger : fingerList) {
             napi_value napiFinger = nullptr;
             napi_create_object(env_, &napiFinger);
             AddFingerObjectInfo(napiFinger, finger);
-            napi_set_element(env_, napiFingerList, index++, napiFinger);
+            napi_set_element(env_, napiFingerList, finger.fingerId_, napiFinger);
         }
     }
     napi_set_named_property(env_, objValueClickEvent, "fingerList", napiFingerList);
@@ -1098,6 +1308,8 @@ void UIObserverListener::AddTargetObject(napi_value objValueEvent, const BaseEve
 
     napi_value napiArea = nullptr;
     napi_create_object(env_, &napiArea);
+    napi_set_named_property(env_, napiArea, "position", napiOffset);
+    napi_set_named_property(env_, napiArea, "globalPosition", napiGlobalOffset);
     napi_value napiWidth = nullptr;
     napi_create_double(env_, baseEventInfo.GetTarget().area.GetWidth().ConvertToVp(), &napiWidth);
     napi_set_named_property(env_, napiArea, "width", napiWidth);
@@ -1131,7 +1343,7 @@ napi_value UIObserverListener::CreateNavDestinationInfoObj(const NG::NavDestinat
     napi_set_named_property(env_, objValue, "name", napiName);
     napi_set_named_property(env_, objValue, "state", napiState);
     napi_set_named_property(env_, objValue, "index", napiIdx);
-    napi_set_named_property(env_, objValue, "param", info.param);
+    napi_set_named_property(env_, objValue, "param", GetNavDestinationParam(env_, info));
     napi_set_named_property(env_, objValue, "navDestinationId", napiNavDesId);
     if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_FIFTEEN)) {
         napi_value napiMode = nullptr;
@@ -1140,6 +1352,51 @@ napi_value UIObserverListener::CreateNavDestinationInfoObj(const NG::NavDestinat
         napi_create_int32(env_, static_cast<int32_t>(info.uniqueId), &napiUniqueId);
         napi_set_named_property(env_, objValue, "mode", napiMode);
         napi_set_named_property(env_, objValue, "uniqueId", napiUniqueId);
+    }
+    if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWENTY_THREE) && info.size.has_value()) {
+        napi_value napiSize = nullptr;
+        napi_create_object(env_, &napiSize);
+        napi_value width = nullptr;
+        napi_value height = nullptr;
+        napi_create_double(env_, info.size->Width(), &width);
+        napi_create_double(env_, info.size->Height(), &height);
+        napi_set_named_property(env_, napiSize, "width", width);
+        napi_set_named_property(env_, napiSize, "height", height);
+        napi_set_named_property(env_, objValue, "size", napiSize);
+    }
+    return objValue;
+}
+
+napi_value UIObserverListener::CreateRouterPageInfoObj(const NG::RouterPageInfoNG& info, napi_value context)
+{
+    napi_value objValue = nullptr;
+    napi_value index = nullptr;
+    napi_value name = nullptr;
+    napi_value path = nullptr;
+    napi_value state = nullptr;
+    napi_value pageId = nullptr;
+    napi_create_object(env_, &objValue);
+    napi_create_int32(env_, info.index, &index);
+    napi_create_string_utf8(env_, info.name.c_str(), info.name.length(), &name);
+    napi_create_string_utf8(env_, info.path.c_str(), info.path.length(), &path);
+    napi_create_int32(env_, static_cast<int32_t>(info.state), &state);
+    napi_create_string_utf8(env_, info.pageId.c_str(), info.pageId.length(), &pageId);
+    napi_set_named_property(env_, objValue, "context", context);
+    napi_set_named_property(env_, objValue, "index", index);
+    napi_set_named_property(env_, objValue, "name", name);
+    napi_set_named_property(env_, objValue, "path", path);
+    napi_set_named_property(env_, objValue, "state", state);
+    napi_set_named_property(env_, objValue, "pageId", pageId);
+    if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWENTY_THREE) && info.size.has_value()) {
+        napi_value size = nullptr;
+        napi_value width = nullptr;
+        napi_value height = nullptr;
+        napi_create_object(env_, &size);
+        napi_create_double(env_, info.size->Width(), &width);
+        napi_create_double(env_, info.size->Height(), &height);
+        napi_set_named_property(env_, size, "width", width);
+        napi_set_named_property(env_, size, "height", height);
+        napi_set_named_property(env_, objValue, "size", size);
     }
     return objValue;
 }
@@ -1155,10 +1412,10 @@ napi_value UIObserverListener::GetFrameNodeObject(const RefPtr<NG::FrameNode>& f
 {
     CHECK_NULL_RETURN(frameNode, nullptr);
     auto container = Container::Current();
-    CHECK_NULL_RETURN(frameNode, nullptr);
+    CHECK_NULL_RETURN(container, nullptr);
 
     auto frontEnd = container->GetFrontend();
-    CHECK_NULL_RETURN(frameNode, nullptr);
+    CHECK_NULL_RETURN(frontEnd, nullptr);
 
     return frontEnd->GetFrameNodeValueByNodeId(frameNode->GetId());
 }

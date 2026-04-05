@@ -18,6 +18,7 @@
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/navigation/navigation_model_data.h"
 #include "core/components_ng/pattern/navigation/navigation_model_static.h"
+#include "core/components_ng/pattern/navigation/navigation_model_ng.h"
 #include "core/components_ng/pattern/navigation/navigation_pattern.h"
 #include "core/components_ng/pattern/navigation/navigation_transition_proxy.h"
 #include "core/interfaces/native/implementation/nav_path_stack_peer_impl.h"
@@ -35,14 +36,15 @@ constexpr uint32_t SAFE_AREA_EDGE_BOTTOM = 1;
 constexpr uint32_t INVALID_VALUE = 0;
 constexpr uint32_t DEFAULT_NAV_BAR_WIDTH = 240;
 
-std::optional<Dimension> ProcessBindableNavBarWidth(FrameNode* frameNode, const Opt_Union_Length_Bindable* value)
+std::optional<Dimension> ProcessBindableNavBarWidth(
+    FrameNode* frameNode, const Opt_Union_Length_Bindable_Length* value)
 {
     std::optional<Dimension> result;
     Converter::VisitUnionPtr(value,
         [&result](const Ark_Length& src) {
             result = Converter::OptConvert<Dimension>(src);
         },
-        [&result, frameNode](const Ark_Bindable_Arkui_Component_Units_Length& src) {
+        [&result, frameNode](const Ark_Bindable_Length& src) {
             result = Converter::OptConvert<Dimension>(src.value);
             // Need to provide callback
         },
@@ -62,25 +64,59 @@ Ark_NativePointer ConstructImpl(Ark_Int32 id, Ark_Int32 flags)
 } // namespace NavigationModifier
 
 namespace NavigationInterfaceModifier {
-void SetNavigationOptionsImpl(Ark_NativePointer node,
-                              const Opt_NavPathStack* pathInfos)
+void SetNavigationOptions0Impl(Ark_NativePointer node,
+                               const Opt_NavPathStack* pathInfos,
+                               const Opt_NavigationModuleInfo* moduleInfo)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     CHECK_NULL_VOID(pathInfos);
+    NavigationModelStatic::SetUseHomeDestination(frameNode, false);
     auto navigationPattern = frameNode->GetPattern<NavigationPattern>();
     CHECK_NULL_VOID(navigationPattern);
     auto pathStack = pathInfos->value;
     CHECK_NULL_VOID(pathStack);
     auto navigationStack = pathStack->GetNavPathStack();
-    navigationPattern->SetNavigationStack(navigationStack);
-    navigationStack->SetOnStateChangedCallback(nullptr);
+    navigationPattern->SetNavigationStack(navigationStack, false);
+    navigationStack->RegisterOnResultCallback();
+    // update path stack need to sync stack immediately
+    navigationStack->InvokeOnStateChanged();
+}
+void SetNavigationOptions1Impl(Ark_NativePointer node,
+                               const Opt_NavPathStack* pathInfos,
+                               const Opt_HomePathInfo* homeDestination,
+                               const Opt_NavigationModuleInfo* moduleInfo)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(pathInfos);
+    CHECK_NULL_VOID(homeDestination);
+    auto navigationPattern = frameNode->GetPattern<NavigationPattern>();
+    CHECK_NULL_VOID(navigationPattern);
+    auto pathStack = pathInfos->value;
+    CHECK_NULL_VOID(pathStack);
+    auto navigationStack = pathStack->GetNavPathStack();
+    CHECK_NULL_VOID(navigationStack);
+    if (homeDestination->tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        NavigationContext::HomePathInfo homePathInfo;
+        homePathInfo.name = Converter::Convert<std::string>(homeDestination->value.name);
+        homePathInfo.param = Converter::OptConvertPtr<Nav::ExternalData>(
+            &homeDestination->value.param).value_or(Nav::ExternalData{});
+        navigationStack->SetHomePathInfo(std::move(homePathInfo));
+        NavigationModelStatic::SetUseHomeDestination(frameNode, true);
+    } else {
+        NavigationModelStatic::SetUseHomeDestination(frameNode, false);
+    }
+    navigationPattern->SetNavigationStack(navigationStack, false);
+    navigationStack->RegisterOnResultCallback();
+    // update path stack need to sync stack immediately
+    navigationStack->InvokeOnStateChanged();
 }
 } // namespace NavigationInterfaceModifier
 
 namespace NavigationAttributeModifier {
 void SetNavBarWidthImpl(Ark_NativePointer node,
-                        const Opt_Union_Length_Bindable* value)
+                        const Opt_Union_Length_Bindable_Length* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -232,7 +268,7 @@ void SetOnTitleModeChangeImpl(Ark_NativePointer node,
     }
     auto titleChange = [titleCallback = CallbackHelper(*optValue)](NavigationTitleMode titleMode) {
         Ark_NavigationTitleMode mode = static_cast<Ark_NavigationTitleMode>(titleMode);
-        titleCallback.Invoke(mode);
+        titleCallback.InvokeSync(mode);
     };
     auto eventChange = [eventChange = CallbackHelper(*optValue)](const BaseEventInfo* info) {
         auto eventInfo = TypeInfoHelper::DynamicCast<NavigationTitleModeChangeEvent>(info);
@@ -243,14 +279,14 @@ void SetOnTitleModeChangeImpl(Ark_NativePointer node,
         if (eventInfo->IsMiniBar()) {
             titleMode = Ark_NavigationTitleMode::ARK_NAVIGATION_TITLE_MODE_MINI;
         }
-        eventChange.Invoke(titleMode);
+        eventChange.InvokeSync(titleMode);
     };
     auto eventHub = frameNode->GetEventHub<NavigationEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetOnTitleModeChange(eventChange);
 }
 void SetOnNavBarStateChangeImpl(Ark_NativePointer node,
-                                const Opt_Callback_Boolean_Void* value)
+                                const Opt_synthetic_Callback_Boolean_Void* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -263,7 +299,7 @@ void SetOnNavBarStateChangeImpl(Ark_NativePointer node,
     }
     auto stateCallback = [changeCallback = CallbackHelper(*optValue)](bool isVisible) {
         auto visible = Converter::ArkValue<Ark_Boolean>(isVisible);
-        changeCallback.Invoke(visible);
+        changeCallback.InvokeSync(visible);
     };
     eventHub->SetOnNavBarStateChange(stateCallback);
 }
@@ -279,15 +315,11 @@ void SetOnNavigationModeChangeImpl(Ark_NativePointer node,
     }
     auto modeCallback = [changeCallback = CallbackHelper(*optValue)](NavigationMode mode) {
         auto navigationMode = Converter::ArkValue<Ark_NavigationMode>(mode);
-        changeCallback.Invoke(navigationMode);
+        changeCallback.InvokeSync(navigationMode);
     };
     auto eventHub = frameNode->GetEventHub<NavigationEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetOnNavigationModeChange(modeCallback);
-}
-void SetNavDestinationImpl(Ark_NativePointer node,
-                           const Opt_PageMapBuilder* value)
-{
 }
 void SetCustomNavContentTransitionImpl(Ark_NativePointer node,
                                        const Opt_Type_NavigationAttribute_customNavContentTransition* value)
@@ -349,9 +381,17 @@ void SetEnableModeChangeAnimationImpl(Ark_NativePointer node,
     NavigationModelStatic::SetEnableModeChangeAnimation(frameNode,
         Converter::OptConvertPtr<bool>(value).value_or(true));
 }
+void SetEnableVisibilityLifecycleWithContentCoverImpl(Ark_NativePointer node,
+                                                      const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavigationModelStatic::SetEnableVisibilityLifecycleWithContentCover(
+        frameNode, Converter::OptConvertPtr<bool>(value).value_or(false));
+}
 void SetBackButtonIconImpl(Ark_NativePointer node,
-                            const Opt_Union_String_PixelMap_Resource_SymbolGlyphModifier* icon,
-                            const Opt_ResourceStr* accessibilityText)
+                           const Opt_Union_String_image_PixelMap_Resource_SymbolGlyphModifier* icon,
+                           const Opt_ResourceStr* accessibilityText)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -414,7 +454,7 @@ void SetBackButtonIconImpl(Ark_NativePointer node,
         frameNode, iconSymbol, src, imageOption, pixMap, nameList, true, backButtonAccessibilityText);
 }
 void SetTitleImpl(Ark_NativePointer node,
-                  const Opt_Union_ResourceStr_CustomBuilder_NavigationCommonTitle_NavigationCustomTitle* value,
+                  const Opt_Union_ResourceStr_CustomNodeBuilder_NavigationCommonTitle_NavigationCustomTitle* value,
                   const Opt_NavigationTitleOptions* options)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
@@ -513,8 +553,8 @@ void SetHideTitleBar1Impl(Ark_NativePointer node,
     NavigationModelStatic::SetHideTitleBar(frameNode, isHide, isAnimated);
 }
 void SetMenusImpl(Ark_NativePointer node,
-                   const Opt_Union_Array_NavigationMenuItem_CustomBuilder* items,
-                   const Opt_NavigationMenuOptions* options)
+                  const Opt_Union_Array_NavigationMenuItem_CustomNodeBuilder* items,
+                  const Opt_NavigationMenuOptions* options)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -544,7 +584,7 @@ void SetMenusImpl(Ark_NativePointer node,
     NavigationModelStatic::SetMenuOptions(frameNode, std::move(menuOptions));
 }
 void SetToolbarConfigurationImpl(Ark_NativePointer node,
-                                 const Opt_Union_Array_ToolbarItem_CustomBuilder* value,
+                                 const Opt_Union_Array_ToolbarItem_CustomNodeBuilder* value,
                                  const Opt_NavigationToolbarOptions* options)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
@@ -648,13 +688,37 @@ void SetIgnoreLayoutSafeAreaImpl(Ark_NativePointer node,
     }
     NavigationModelStatic::SetIgnoreLayoutSafeArea(frameNode, opts);
 }
+
+void SetDividerImpl(Ark_NativePointer node, const Opt_NavigationDividerStyle* style)
+{
+    CHECK_NULL_VOID(style);
+    auto frameNode = reinterpret_cast<NavigationGroupNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (style->tag == InteropTag::INTEROP_TAG_UNDEFINED) {
+        NavigationModelNG::UpdateDividerVisibility(frameNode, false);
+        return;
+    }
+    NavigationModelNG::UpdateDividerVisibility(frameNode, true);
+    auto color = Converter::OptConvert<Color>(style->value.color);
+    if (color.has_value()) {
+        NavigationModelStatic::UpdateDefineColor(frameNode, true);
+        NavigationModelStatic::UpdateDividerColor(frameNode, color.value_or(Color()));
+    } else {
+        NavigationModelStatic::UpdateDefineColor(frameNode, false);
+    }
+    auto startMargin = Converter::OptConvert<CalcDimension>(style->value.startMargin).value_or(Dimension(0.0f));
+    NavigationModelNG::UpdateDividerStartMargin(frameNode, startMargin, nullptr);
+    auto endMargin = Converter::OptConvert<CalcDimension>(style->value.endMargin).value_or(Dimension(0.0f));
+    NavigationModelNG::UpdateDividerEndMargin(frameNode, endMargin, nullptr);
+}
 } // namespace NavigationAttributeModifier
 
 const GENERATED_ArkUINavigationModifier* GetNavigationModifier()
 {
     static const GENERATED_ArkUINavigationModifier ArkUINavigationModifierImpl {
         NavigationModifier::ConstructImpl,
-        NavigationInterfaceModifier::SetNavigationOptionsImpl,
+        NavigationInterfaceModifier::SetNavigationOptions0Impl,
+        NavigationInterfaceModifier::SetNavigationOptions1Impl,
         NavigationAttributeModifier::SetNavBarWidthImpl,
         NavigationAttributeModifier::SetNavBarPositionImpl,
         NavigationAttributeModifier::SetNavBarWidthRangeImpl,
@@ -673,7 +737,9 @@ const GENERATED_ArkUINavigationModifier* GetNavigationModifier()
         NavigationAttributeModifier::SetSystemBarStyleImpl,
         NavigationAttributeModifier::SetRecoverableImpl,
         NavigationAttributeModifier::SetEnableDragBarImpl,
+        NavigationAttributeModifier::SetDividerImpl,
         NavigationAttributeModifier::SetEnableModeChangeAnimationImpl,
+        NavigationAttributeModifier::SetEnableVisibilityLifecycleWithContentCoverImpl,
         NavigationAttributeModifier::SetBackButtonIconImpl,
         NavigationAttributeModifier::SetTitleImpl,
         NavigationAttributeModifier::SetHideTitleBar1Impl,

@@ -21,8 +21,6 @@ if (is_ohos_standard_system) {
     cflags = []
     if (ace_engine_feature_asbng_path_enable) {
       defines += [ "ATOMIC_SERVICE_ATTRIBUTION_ENABLE" ]
-      cflags +=
-          [ "-DACE_ENGINE_PLUGIN_PATH=\"${ace_engine_feature_asbng_path}\"" ]
     }
   }
 }
@@ -33,6 +31,8 @@ build_component_ng("window_scene") {
     "helper/window_scene_helper.cpp",
     "root/root_scene_model.cpp",
     "scene/input_scene.cpp",
+    "scene/layout_manager_dfx.cpp",
+    "scene/mirror_window_scene.cpp",
     "scene/panel_scene.cpp",
     "scene/system_window_scene.cpp",
     "scene/transform_scene.cpp",
@@ -48,9 +48,6 @@ build_component_ng("window_scene") {
     "screen/screen_pattern.cpp",
   ]
 
-  if (ace_engine_feature_asbng_path_enable) {
-    sources += [ "scene/atomicservice_basic_engine_plugin.cpp" ]
-  }
   external_deps = [
     "hilog:libhilog",
     "hisysevent:libhisysevent",
@@ -60,10 +57,10 @@ build_component_ng("window_scene") {
 
   if (is_ohos_standard_system) {
     configs = [ ":window_scene_config" ]
-
     # The path of libwm should take priority over graphic_2d
     external_deps += [ "window_manager:libwm" ]
     external_deps += [
+      "ability_base:configuration",
       "ability_runtime:app_manager",
       "c_utils:utils",
       "ffrt:libffrt",

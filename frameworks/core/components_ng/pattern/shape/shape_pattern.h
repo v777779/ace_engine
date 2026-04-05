@@ -43,13 +43,20 @@ public:
         return true;
     }
 
+    bool IsEnableFix() override
+    {
+        return true;
+    }
+
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<ShapeLayoutAlgorithm>();
     }
 
     RefPtr<PaintProperty> CreatePaintProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<ShapePaintProperty>();
     }
 

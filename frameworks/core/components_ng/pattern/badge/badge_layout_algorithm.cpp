@@ -192,15 +192,42 @@ static OffsetF GetTextDataOffset(const RefPtr<BadgeLayoutProperty> layoutPropert
     return textOffset;
 }
 
-static OffsetF GetTextOffsetByPosition(const RefPtr<BadgeLayoutProperty> layoutProperty,
-                                       const RefPtr<GeometryNode>&geometryNode)
+static void LayoutIsPositionXy(const RefPtr<BadgeLayoutProperty> layoutProperty,
+                               const RefPtr<GeometryNode>&geometryNode, OffsetF& textOffset)
 {
     auto offset = geometryNode->GetFrameOffset();
     auto badgePositionX = layoutProperty->GetBadgePositionX();
     auto badgePositionY = layoutProperty->GetBadgePositionY();
-    OffsetF textOffset =
+    textOffset =
         OffsetF(offset.GetX() + badgePositionX->ConvertToPx(), offset.GetY() + badgePositionY->ConvertToPx());
-    return textOffset;
+}
+
+static void AdjustTextOffsetForBadge(const RefPtr<BadgeLayoutProperty>& layoutProperty,
+    const RefPtr<GeometryNode>& textGeometryNode, double badgeCircleDiameter, bool textIsSpace, OffsetF& textOffset)
+{
+    CHECK_NULL_VOID(layoutProperty);
+    if (!layoutProperty->GetIsEnableAutoAvoidanceValue(false)) {
+        return;
+    }
+    CHECK_NULL_VOID(textGeometryNode);
+    auto badgePosition = layoutProperty->GetBadgePosition();
+    auto isRtl = layoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
+    auto textWidth = textGeometryNode->GetFrameSize().Width();
+    double offsetX = 0.0;
+    double offsetY = 0.0;
+
+    if ((!isRtl && badgePosition == BadgePosition::RIGHT_TOP) ||
+        (badgePosition == BadgePosition::RIGHT && !isRtl) ||
+        (badgePosition == BadgePosition::LEFT && isRtl)) {
+        offsetX = badgeCircleDiameter - textWidth;
+    }
+
+    if (badgePosition == BadgePosition::RIGHT_TOP && !textIsSpace) {
+        offsetX -= Dimension(2.0_vp).ConvertToPx();
+        offsetY = Dimension(2.0_vp).ConvertToPx();
+    }
+    textOffset.AddX(offsetX);
+    textOffset.AddY(offsetY);
 }
 
 void BadgeLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
@@ -294,6 +321,10 @@ void BadgeLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     auto textRenderContext = textFrameNode->GetRenderContext();
     CHECK_NULL_VOID(textRenderContext);
     textRenderContext->UpdateBorderRadius(radius);
+    BorderRadiusProperty outerBorderRadius;
+    auto outerBorderWidth = layoutProperty->GetBadgeOuterBorderWidthValue(badgeTheme->GetBadgeOuterBorderWidth());
+    outerBorderRadius.SetRadius(Dimension(badgeCircleRadius + outerBorderWidth.ConvertToPx()));
+    textRenderContext->UpdateOuterBorderRadius(outerBorderRadius);
 
     textLayoutProperty->UpdateAlignment(Alignment::CENTER);
 
@@ -301,8 +332,9 @@ void BadgeLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     if (layoutProperty->GetIsPositionXy().has_value() && !layoutProperty->GetIsPositionXy().value()) {
         textOffset = GetTextDataOffset(layoutProperty, badgeCircleDiameter, badgeCircleRadius,
             geometryNode, textData == u" ");
+        AdjustTextOffsetForBadge(layoutProperty, textGeometryNode, badgeCircleDiameter, textData == u" ", textOffset);
     } else {
-        textOffset = GetTextOffsetByPosition(layoutProperty, geometryNode);
+        LayoutIsPositionXy(layoutProperty, geometryNode, textOffset);
     }
     if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TEN)) {
         textGeometryNode->SetMarginFrameOffset(textOffset - geometryNode->GetFrameOffset());
@@ -340,25 +372,42 @@ void BadgeLayoutAlgorithm::PerformMeasureSelf(LayoutWrapper* layoutWrapper)
     const auto& maxSize = layoutConstraint->maxSize;
     const auto& padding = layoutWrapper->GetLayoutProperty()->CreatePaddingAndBorder();
     OptionalSizeF frameSize;
-    do {
-        // Use idea size first if it is valid.
-        frameSize.UpdateSizeWithCheck(layoutConstraint->selfIdealSize);
-        if (frameSize.IsValid()) {
-            break;
-        }
-        // use the last child size.
-        auto host = layoutWrapper->GetHostNode();
-        CHECK_NULL_VOID(host);
-        auto children = host->GetChildren();
-        auto childrenSize = children.size();
-        auto childFrame =
-            layoutWrapper->GetOrCreateChildByIndex(childrenSize - 2)->GetGeometryNode()->GetMarginFrameSize();
-        AddPaddingToSize(padding, childFrame);
-        frameSize.UpdateIllegalSizeWithCheck(childFrame);
-        frameSize.Constrain(minSize, maxSize);
-        frameSize.UpdateIllegalSizeWithCheck(SizeF { 0.0f, 0.0f });
-    } while (false);
 
+    auto layoutProperty = AceType::DynamicCast<LayoutProperty>(layoutWrapper->GetLayoutProperty());
+    CHECK_NULL_VOID(layoutProperty);
+    auto layoutPolicy = layoutProperty->GetLayoutPolicyProperty();
+    frameSize.UpdateSizeWithCheck(layoutConstraint->selfIdealSize);
+    if (frameSize.IsValid()) {
+        layoutWrapper->GetGeometryNode()->SetFrameSize(frameSize.ConvertToSizeT());
+        return;
+    }
+    // use the last child size.
+    auto host = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(host);
+    auto children = host->GetChildren();
+    auto childrenSize = children.size();
+    auto childFrame =
+        layoutWrapper->GetOrCreateChildByIndex(childrenSize - 2)->GetGeometryNode()->GetMarginFrameSize();
+    AddPaddingToSize(padding, childFrame);
+    frameSize.UpdateIllegalSizeWithCheck(childFrame);
+    frameSize.Constrain(minSize, maxSize);
+    frameSize.UpdateIllegalSizeWithCheck(SizeF { 0.0f, 0.0f });
+
+    if (layoutPolicy.has_value()) {
+        if (layoutPolicy->IsWidthMatch()) {
+            frameSize.SetWidth(layoutConstraint->parentIdealSize.Width().value());
+        }
+        if (layoutPolicy->IsWidthFix()) {
+            frameSize.SetWidth(childFrame.Width());
+        }
+        if (layoutPolicy->IsHeightMatch()) {
+            frameSize.SetHeight(layoutConstraint->parentIdealSize.Height().value());
+        }
+        if (layoutPolicy->IsHeightFix()) {
+            frameSize.SetHeight(childFrame.Height());
+        }
+    }
+    
     layoutWrapper->GetGeometryNode()->SetFrameSize(frameSize.ConvertToSizeT());
 }
 

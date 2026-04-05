@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Huawei Device Co., Ltd.
+ * Copyright (C) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef INTERFACES_INNER_API_DRAWABLE_DESCRIPTOR_JS_DRAWABLE_DESCRIPTOR_H_
-#define INTERFACES_INNER_API_DRAWABLE_DESCRIPTOR_JS_DRAWABLE_DESCRIPTOR_H_
+#ifndef INTERFACES_INNER_API_DRAWABLE_DESCRIPTOR_NEW_JS_DRAWABLE_DESCRIPTOR_H
+#define INTERFACES_INNER_API_DRAWABLE_DESCRIPTOR_NEW_JS_DRAWABLE_DESCRIPTOR_H
 
 #include "drawable_descriptor.h"
 #include "napi/native_api.h"
@@ -22,7 +22,9 @@
 
 #include "base/marcos.h"
 
-namespace OHOS::Ace::Napi {
+namespace OHOS {
+namespace Ace {
+namespace Napi {
 class JsDrawableDescriptor {
 public:
     static DRAWABLE_FORCE_EXPORT napi_value Export(napi_env env, napi_value exports);
@@ -31,34 +33,75 @@ public:
         DrawableDescriptor::DrawableType type = DrawableDescriptor::DrawableType::LAYERED);
 
     static DRAWABLE_FORCE_EXPORT constexpr char MODULE_NAME[] = "arkui.drawableDescriptor";
-    static std::shared_ptr<Media::PixelMap> GetPixelMapFromNapi(napi_env env, napi_value napiValue);
-    static std::shared_ptr<Media::PixelMap> GetPixelMapFromDrawableNapi(napi_env env, napi_value napiValue);
 
 private:
+    struct AnimationOptions {
+        int32_t duration = -1;
+        int32_t iterations = 1;
+        bool autoPlay = true;
+        int32_t stopMode = 0;
+        std::vector<int32_t> durations;
+    };
+
     static napi_value InitDrawable(napi_env env);
     static napi_value InitLayeredDrawable(napi_env env);
     static napi_value InitAnimatedDrawable(napi_env env);
     static napi_value InitPixelMapDrawable(napi_env env);
-
-    static napi_value Constructor(napi_env env, napi_callback_info info);
-    static void Destructor(napi_env env, void* nativeObject, void* finalize);
+    static napi_value InitAnimationStopMode(napi_env env, napi_value exports);
+    static void ParseAnimationOptions(napi_env env, napi_value napiOptions, AnimationOptions& options);
+    static napi_value DrawableConstructor(napi_env env, napi_callback_info info);
     static napi_value AnimatedConstructor(napi_env env, napi_callback_info info);
     static napi_value PixelMapConstructor(napi_env env, napi_callback_info info);
     static napi_value LayeredConstructor(napi_env env, napi_callback_info info);
+    static void Destructor(napi_env env, void* nativeObject, void* finalize);
+    static void NewDestructor(napi_env env, void* nativeObject, void* finalize);
 
-    // methods
+    // drawable descriptor and pixel map drawable descriptor methods
     static napi_value GetPixelMap(napi_env env, napi_callback_info info);
-    static napi_value GetLayeredPixelMap(napi_env env, napi_callback_info info);
+    static napi_value CreateLoadResult(napi_env env, int32_t width, int32_t height);
+    static napi_value Load(napi_env env, napi_callback_info info);
+    static void LoadExecute(napi_env env, void* data);
+    static void LoadComplete(napi_env env, napi_status status, void* data);
+    static napi_value LoadSync(napi_env env, napi_callback_info info);
+
+    // animated drawable descriptor methods
+    static napi_value GetAnimationController(napi_env env, napi_callback_info info);
+    static napi_value GetStatus(napi_env env, napi_callback_info info);
+    static napi_value Start(napi_env env, napi_callback_info info);
+    static napi_value Stop(napi_env env, napi_callback_info info);
+    static napi_value Pause(napi_env env, napi_callback_info info);
+    static napi_value Resume(napi_env env, napi_callback_info info);
+
+    // layered drawable descriptor methods
     static napi_value GetForeground(napi_env env, napi_callback_info info);
     static napi_value GetBackground(napi_env env, napi_callback_info info);
     static napi_value GetMask(napi_env env, napi_callback_info info);
-
     static napi_value GetMaskClipPath(napi_env env, napi_callback_info info);
+    static napi_value SetBlendMode(napi_env env, napi_callback_info info);
 
     static thread_local napi_ref baseConstructor_;
     static thread_local napi_ref layeredConstructor_;
     static thread_local napi_ref animatedConstructor_;
     static thread_local napi_ref pixelMapConstructor_;
+
+    static std::vector<napi_property_descriptor> GetBaseDrawableDescriptor(napi_env env);
+    static std::vector<napi_property_descriptor> GetLayeredDrawableDescriptor(napi_env env);
+    static std::vector<napi_property_descriptor> GetAnimatedDrawableDescriptor(napi_env env);
+    static std::vector<napi_property_descriptor> GetPixelMapDrawableDescriptor(napi_env env);
+
+    static napi_value CreateDrawableDescriptorTransfer(napi_env env, napi_callback_info info);
+    static size_t DrawableGetDrawableTypeC(void* drawable);
+    static std::shared_ptr<OHOS::Media::PixelMap> DrawableGetPixelMapC(void* drawable);
+    static std::shared_ptr<OHOS::Media::PixelMap> LayeredGetForegroundC(void* drawable);
+    static std::shared_ptr<OHOS::Media::PixelMap> LayeredGetBackgroundC(void* drawable);
+    static std::shared_ptr<OHOS::Media::PixelMap> LayeredGetMaskC(void* drawable);
+    static std::shared_ptr<OHOS::Media::PixelMap> PixelMapGetPixelMapC(void* drawable);
+    static napi_value CreatDrawable(napi_env env, void* native);
+    static napi_value CreatLayeredDrawable(napi_env env, void* native);
+    static napi_value CreatAnimatedDrawable(napi_env env, void* native);
+    static napi_value CreatPixelMapDrawable(napi_env env, void* native);
 };
-} // namespace OHOS::Ace::Napi
-#endif // INTERFACES_INNER_API_DRAWABLE_DESCRIPTOR_JS_DRAWABLE_DESCRIPTOR_H_
+} // namespace Napi
+} // namespace Ace
+} // namespace OHOS
+#endif // INTERFACES_INNER_API_DRAWABLE_DESCRIPTOR_NEW_JS_DRAWABLE_DESCRIPTOR_H

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -146,8 +146,8 @@ const OH_AnyAPI* GetAnyImpl(int kind, int version, std::string* result) {
         if (impl->version != version) {
             if (result) {
                 char buffer[256];
-                interop_snprintf(buffer, sizeof(buffer), "FATAL: API version mismatch, expected %d got %d",
-                    version, impl->version);
+                InteropPrintToBufferN(buffer, sizeof(buffer), "FATAL: API version mismatch, expected %d got %d",
+                    version, static_cast<int>(impl->version));
                 *result = buffer;
             } else {
                 LOGE("API version mismatch for API %d: expected %d got %d", kind, version, impl->version);

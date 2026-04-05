@@ -18,7 +18,6 @@
 #include <malloc.h>
 
 #include "bridge/cj_frontend/runtime/cj_runtime_delegate.h"
-#include "core/pipeline/pipeline_base.h"
 
 using namespace OHOS::Ace;
 using namespace OHOS::Ace::Framework;
@@ -29,14 +28,19 @@ void FfiOHOSAceFrameworkRegisterCJFuncs(AtCPackage cjFuncs)
     CJRuntimeDelegate::GetInstance()->RegisterCJFuncs(cjFuncs);
 }
 
+void FfiOHOSAceFrameworkRegisterCJXComponentCtrFuncs(AtCXComponentCallback cjCtrFuncs)
+{
+    CJRuntimeDelegate::GetInstance()->RegisterCJXCompCtrFuncs(cjCtrFuncs);
+}
+
 void FfiOHOSAceFrameworkRegisterCJFuncsV2(void (*callback)(AtCPackageV2* cjFuncs))
 {
     CJRuntimeDelegate::GetInstance()->RegisterCJFuncsV2(callback);
 }
 
-void FfiOHOSAceFrameworkRegisterCJXComponentCtrFuncs(AtCXComponentCallback cjCtrFuncs)
+void FfiOHOSAceFrameworkRegisterCJFuncsV3(void (*callback)(AtCPackageV3* cjFuncs))
 {
-    CJRuntimeDelegate::GetInstance()->RegisterCJXCompCtrFuncs(cjCtrFuncs);
+    CJRuntimeDelegate::GetInstance()->RegisterCJFuncsV3(callback);
 }
 
 int64_t FfiGeneralSizeOfPointer()
@@ -112,6 +116,9 @@ void AssambleCJClickInfo(const OHOS::Ace::GestureEvent& event, CJClickInfo& clic
     Offset screenOffset = event.GetScreenLocation();
     Offset globalDisplayOffset = event.GetGlobalDisplayLocation();
     double currtDensity = PipelineBase::GetCurrentDensity();
+    if (NearZero(currtDensity)) {
+        currtDensity = 1.0;
+    }
     clickInfo.x = localOffset.GetX() / currtDensity;
     clickInfo.y = localOffset.GetY() / currtDensity;
     clickInfo.windowX = globalOffset.GetX() / currtDensity;

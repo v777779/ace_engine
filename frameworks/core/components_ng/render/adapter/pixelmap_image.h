@@ -25,7 +25,7 @@
 namespace OHOS::Ace::NG {
 
 class PixelMapImage : public virtual CanvasImage {
-    DECLARE_ACE_TYPE(PixelMapImage, CanvasImage)
+    DECLARE_ACE_TYPE(PixelMapImage, CanvasImage);
 public:
     PixelMapImage() = default;
     explicit PixelMapImage(RefPtr<PixelMap> pixelMap) : pixelMap_(std::move(pixelMap)) {}
@@ -49,7 +49,7 @@ public:
 
     RefPtr<CanvasImage> Clone() override;
 
-    void NotifyDrawCompletion(const std::string& srcInfo, const RefPtr<PixelMap>& pixmap);
+    void NotifyDrawCompletion(const std::string& srcInfo, const RefPtr<PixelMap>& pixmap, const RSRect& dstRect);
     void DrawToRSCanvas(
         RSCanvas& canvas, const RSRect& srcRect, const RSRect& dstRect, const BorderRadiusArray& radiusXY) override;
     void DrawRect(RSCanvas& canvas, const RSRect& srcRect, const RSRect& dstRect) override;

@@ -70,10 +70,17 @@ protected:
 };
 
 using InspectorFunc = std::function<void()>;
+using InspectorFuncWithParameter = std::function<void(std::vector<int32_t>)>;
+using CounterFunc = std::function<bool()>;
 class InspectorEvent : public virtual AceType {
-    DECLARE_ACE_TYPE(InspectorEvent, AceType)
+    DECLARE_ACE_TYPE(InspectorEvent, AceType);
 public:
-    explicit InspectorEvent(InspectorFunc&& callback) : callback_(std::move(callback)) {}
+    explicit InspectorEvent(InspectorFunc&& callback, CounterFunc&& counter)
+        : callback_(std::move(callback)), counter_(std::move(counter))
+    {}
+    InspectorEvent(InspectorFuncWithParameter&& callback, CounterFunc&& counter)
+        : callbackWithParameter_(std::move(callback)), counter_(std::move(counter))
+    {}
     ~InspectorEvent() override = default;
 
     void operator()() const
@@ -83,8 +90,22 @@ public:
         }
     }
 
+    void operator()(std::vector<int32_t> params) const
+    {
+        if (callbackWithParameter_) {
+            callbackWithParameter_(params);
+        }
+    }
+
+    bool HasCallback() const
+    {
+        return !counter_();
+    }
+
 private:
     InspectorFunc callback_;
+    InspectorFuncWithParameter callbackWithParameter_;
+    CounterFunc counter_;
 };
 
 using PageUrlCheckFunc = std::function<void(const std::string&, const std::function<void()>&,
@@ -294,7 +315,7 @@ public:
         }
     }
 
-    void DrawChildrenInspectorCallback(const std::string& componentId)
+    void DrawChildrenInspectorCallback(const std::string& componentId, const std::vector<int32_t>& childIds)
     {
         auto iter = drawChildrenEvents_.find(componentId);
         if (iter != drawChildrenEvents_.end()) {
@@ -302,9 +323,23 @@ public:
                 (*observer)();
             }
         }
+        auto iterWithParameter = drawChildrenWithParameterEvents_.find(componentId);
+        if (iterWithParameter != drawChildrenWithParameterEvents_.end()) {
+            for (auto&& observer : iterWithParameter->second) {
+                (*observer)(childIds);
+            }
+        }
     }
 
+    void LayoutChildrenInspectorCallback(const std::string& componentId);
+    void LayoutInspectorCallback(int32_t uniqueId);
+    void DrawInspectorCallback(int32_t uniqueId);
+    void DrawChildrenInspectorCallback(int32_t uniqueId);
+    void LayoutChildrenInspectorCallback(int32_t uniqueId);
+
     virtual void RequestAnimationCallback(const std::string& callbackId, uint64_t timeStamp) = 0;
+
+    virtual bool OnMonitorForCrownEvents(const std::string& callbackId, const std::string& args) = 0;
 
     virtual void JsCallback(const std::string& callbackId, const std::string& args) = 0;
 
@@ -321,6 +356,11 @@ public:
     virtual void ForceFullGC() {}
 
     virtual void NotifyUIIdle() {}
+
+    virtual void CallStateMgmtCleanUpIdleTaskFunc(int64_t maxTimeInNs) {}
+
+    virtual std::vector<std::optional<std::string>> CallGetStateMgmtInfo(const std::vector<int32_t>& nodeIds,
+        const std::string& propertyName, const std::string& jsonPath) { return {}; }
 
     virtual std::string GetStacktraceMessage()
     {
@@ -478,26 +518,83 @@ public:
         }
     }
 
+    void ACE_EXPORT RegisterLayoutChildrenInspectorCallback(
+        const RefPtr<InspectorEvent>& layoutChildrenEvent, const std::string& componentId);
+    void ACE_EXPORT UnregisterLayoutChildrenInspectorCallback(
+        const RefPtr<InspectorEvent>& layoutChildrenEvent, const std::string& componentId);
+ 
+    void ACE_EXPORT RegisterLayoutInspectorCallback(const RefPtr<InspectorEvent>& layoutEvent, int32_t uniqueId);
+    void ACE_EXPORT UnregisterLayoutInspectorCallback(const RefPtr<InspectorEvent>& layoutEvent, int32_t uniqueId);
+    void ACE_EXPORT RegisterDrawInspectorCallback(const RefPtr<InspectorEvent>& drawEvent, int32_t uniqueId);
+    void ACE_EXPORT UnregisterDrawInspectorCallback(const RefPtr<InspectorEvent>& drawEvent, int32_t uniqueId);
+    void ACE_EXPORT RegisterDrawChildrenInspectorCallback(
+        const RefPtr<InspectorEvent>& drawChildrenEvent, int32_t uniqueId);
+    void ACE_EXPORT UnregisterDrawChildrenInspectorCallback(
+        const RefPtr<InspectorEvent>& drawChildrenEvent, int32_t uniqueId);
+    void ACE_EXPORT RegisterLayoutChildrenInspectorCallback(
+        const RefPtr<InspectorEvent>& layoutChildrenEvent, int32_t uniqueId);
+    void ACE_EXPORT UnregisterLayoutChildrenInspectorCallback(
+        const RefPtr<InspectorEvent>& layoutChildrenEvent, int32_t uniqueId);
+    void ACE_EXPORT RegisterDrawChildrenWithParameterInspectorCallback(
+        const RefPtr<InspectorEvent>& drawChildrenWithParameterEvent, const std::string& componentId);
+    void ACE_EXPORT UnregisterDrawChildrenWithParameterInspectorCallback(
+        const RefPtr<InspectorEvent>& drawChildrenWithParameterEvent, const std::string& componentId);
+
     bool IsLayoutCallBackFuncExist(const std::string& componentId) const
     {
-        if (layoutEvents_.find(componentId) != layoutEvents_.end()) {
-            return true;
+        auto iter = layoutEvents_.find(componentId);
+        if (iter == layoutEvents_.end()) {
+            return false;
+        }
+        for (auto& f : iter->second) {
+            if (f && f->HasCallback()) {
+                return true;
+            }
         }
         return false;
     }
 
     bool IsDrawCallBackFuncExist(const std::string& componentId) const
     {
-        if (drawEvents_.find(componentId) != drawEvents_.end()) {
-            return true;
+        auto iter = drawEvents_.find(componentId);
+        if (iter == drawEvents_.end()) {
+            return false;
+        }
+        for (auto& f : iter->second) {
+            if (f && f->HasCallback()) {
+                return true;
+            }
         }
         return false;
     }
 
     bool IsDrawChildrenCallbackFuncExist(const std::string& componentId) const
     {
-        return drawChildrenEvents_.find(componentId) != drawChildrenEvents_.end();
+        auto iter = drawChildrenEvents_.find(componentId);
+        auto iterWithParameter = drawChildrenWithParameterEvents_.find(componentId);
+        if (iter != drawChildrenEvents_.end()) {
+            for (const auto& f : iter->second) {
+                if (f && f->HasCallback()) {
+                    return true;
+                }
+            }
+        }
+        if (iterWithParameter != drawChildrenWithParameterEvents_.end()) {
+            for (const auto& f : iterWithParameter->second) {
+                if (f && f->HasCallback()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
+
+    bool IsLayoutChildrenCallbackFuncExist(const std::string& componentId);
+ 
+    bool IsLayoutCallBackFuncExist(int32_t uniqueId);
+    bool IsDrawCallBackFuncExist(int32_t uniqueId);
+    bool IsDrawChildrenCallbackFuncExist(int32_t uniqueId);
+    bool IsLayoutChildrenCallbackFuncExist(int32_t uniqueId);
 
     virtual void RunNativeEngineLoop();
 
@@ -564,6 +661,13 @@ protected:
     std::map<std::string, std::set<RefPtr<InspectorEvent>>> layoutEvents_;
     std::map<std::string, std::set<RefPtr<InspectorEvent>>> drawEvents_;
     std::map<std::string, std::set<RefPtr<InspectorEvent>>> drawChildrenEvents_;
+    std::map<std::string, std::set<RefPtr<InspectorEvent>>> drawChildrenWithParameterEvents_;
+    std::map<std::string, std::set<RefPtr<InspectorEvent>>> layoutChildrenEvents_;
+
+    std::map<int32_t, std::set<RefPtr<InspectorEvent>>> uniqueIdLayoutEvents_;
+    std::map<int32_t, std::set<RefPtr<InspectorEvent>>> uniqueIdDrawEvents_;
+    std::map<int32_t, std::set<RefPtr<InspectorEvent>>> uniqueIdDrawChildrenEvents_;
+    std::map<int32_t, std::set<RefPtr<InspectorEvent>>> uniqueIdLayoutChildrenEvents_;
     bool needUpdate_ = false;
     PageUrlCheckFunc pageUrlCheckFunc_;
     JsEngineHybridType hybridType = JsEngineHybridType::NONE;

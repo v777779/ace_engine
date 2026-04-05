@@ -23,6 +23,7 @@
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/grid_container/grid_container_model_ng.h"
 #include "core/components_ng/pattern/grid_container/grid_container_pattern.h"
 #include "core/components_ng/pattern/text/text_layout_property.h"
@@ -96,7 +97,7 @@ private:
  * @tc.desc: Test default properties of grid-container.
  * @tc.type: FUNC
  */
-HWTEST_F(GridContainerTestNg, DefaultProperty001, TestSize.Level1)
+HWTEST_F(GridContainerTestNg, DefaultProperty001, TestSize.Level0)
 {
     GridContainerInfo::Builder builder;
     GridContainerModelNG modelNG;
@@ -120,7 +121,7 @@ HWTEST_F(GridContainerTestNg, DefaultProperty001, TestSize.Level1)
  * @tc.desc: Test GridContainer build width.
  * @tc.type: FUNC
  */
-HWTEST_F(GridContainerTestNg, BuildContainer001, TestSize.Level1)
+HWTEST_F(GridContainerTestNg, BuildContainer001, TestSize.Level0)
 {
     auto layoutWrapper = CreateGridContainerWithChild();
     auto textWrapper = AceType::DynamicCast<LayoutWrapperNode>(layoutWrapper->GetOrCreateChildByIndex(0));

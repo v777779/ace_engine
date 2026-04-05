@@ -30,6 +30,12 @@
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/components_ng/base/view_abstract_model_static.h"
 
+namespace {
+constexpr int32_t ERROR_CODE_NO_ERROR = 0;
+constexpr int32_t ERROR_CODE_NODE_IS_ADOPTED = 106206;
+constexpr int32_t ERROR_CODE_PARAM_INVALID = 401;
+} // namespace
+
 namespace OHOS::Ace::NG::GeneratedModifier {
 namespace {
 constexpr int32_t ARK_UNION_UNDEFINED = 1;
@@ -103,7 +109,6 @@ void SetOpacityImpl(Ark_RenderNode peer,
         LOGW("This renderNode is nullptr when SetOpacity !");
         return;
     }
-    CHECK_NULL_VOID(opacity);
     auto opacityValue = Converter::Convert<float>(opacity);
 
     auto frameNode = peer->GetFrameNode();
@@ -735,35 +740,61 @@ void SetPathClipImpl(Ark_RenderNode peer,
     renderContext->SetClipBoundsWithCommands(pathValue);
     renderContext->RequestNextFrame();
 }
-void AppendChildImpl(Ark_RenderNode peer,
-                     Ark_RenderNode node)
+Ark_Int32 AppendChildImpl(Ark_RenderNode peer,
+                          Ark_RenderNode node)
 {
     if (!peer || !node) {
         LOGW("This renderNode or child is nullptr when appendChild !");
-        return;
+        return ERROR_CODE_PARAM_INVALID;
     }
     auto parent = peer->GetFrameNode();
     auto child = node->GetFrameNode();
     if (parent && child) {
+        if (child->IsAdopted()) {
+            return ERROR_CODE_NODE_IS_ADOPTED;
+        }
         parent->AddChild(child);
         parent->MarkNeedFrameFlushDirty(NG::PROPERTY_UPDATE_MEASURE);
     }
+    return ERROR_CODE_NO_ERROR;
 }
-void InsertChildAfterImpl(Ark_RenderNode peer,
-                          Ark_RenderNode child,
-                          Ark_RenderNode sibling)
+Ark_Int32 InsertChildAfterImpl(Ark_RenderNode peer,
+                               Ark_RenderNode child,
+                               Ark_RenderNode sibling)
 {
     if (!peer || !child) {
         LOGW("This renderNode or child is nullptr when InsertChildAfter !");
-        return;
+        return ERROR_CODE_PARAM_INVALID;
     }
     auto currentNode = peer->GetFrameNode();
     auto childNode = child->GetFrameNode();
+    if (childNode && childNode->IsAdopted()) {
+        return ERROR_CODE_NODE_IS_ADOPTED;
+    }
     auto siblingNode = sibling->GetFrameNode();
     auto index = currentNode->GetChildIndex(siblingNode);
     currentNode->AddChild(childNode, index + 1);
     currentNode->MarkNeedFrameFlushDirty(NG::PROPERTY_UPDATE_MEASURE);
+    return ERROR_CODE_NO_ERROR;
 }
+
+Ark_Int32 InsertChildImpl(Ark_RenderNode peer,
+                          Ark_RenderNode child)
+{
+    if (!peer || !child) {
+        LOGW("This renderNode or child is nullptr when InsertChildAfter !");
+        return ERROR_CODE_PARAM_INVALID;
+    }
+    auto currentNode = peer->GetFrameNode();
+    auto childNode = child->GetFrameNode();
+    if (childNode && childNode->IsAdopted()) {
+        return ERROR_CODE_NODE_IS_ADOPTED;
+    }
+    currentNode->AddChild(childNode, 0);
+    currentNode->MarkNeedFrameFlushDirty(NG::PROPERTY_UPDATE_MEASURE);
+    return ERROR_CODE_NO_ERROR;
+}
+
 void RemoveChildImpl(Ark_RenderNode peer,
                      Ark_RenderNode node)
 {
@@ -845,6 +876,7 @@ const GENERATED_ArkUIRenderNodeExtenderAccessor* GetRenderNodeExtenderAccessor()
         RenderNodeExtenderAccessor::SetPathClipImpl,
         RenderNodeExtenderAccessor::AppendChildImpl,
         RenderNodeExtenderAccessor::InsertChildAfterImpl,
+        RenderNodeExtenderAccessor::InsertChildImpl,
         RenderNodeExtenderAccessor::RemoveChildImpl,
         RenderNodeExtenderAccessor::ClearChildrenImpl,
         RenderNodeExtenderAccessor::InvalidateImpl,

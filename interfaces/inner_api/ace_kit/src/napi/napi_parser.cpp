@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -29,6 +29,7 @@
 #undef ALTERNATE
 #endif
 #endif
+#include "bridge/declarative_frontend/engine/bindings.h"
 #include "bridge/declarative_frontend/jsview/js_scroller.h"
 #include "interfaces/inner_api/ace_kit/src/view/scroller_impl.h"
 
@@ -386,22 +387,21 @@ ResourceStruct CheckResourceStruct(napi_env env, napi_value value)
 
 std::optional<std::string> GetStringFromValueUtf8(napi_env env, napi_value value)
 {
-    static constexpr size_t maxLength = 2048;
     if (GetValueType(env, value) != napi_string) {
         return std::nullopt;
     }
 
     size_t paramLen = 0;
     napi_status status = napi_get_value_string_utf8(env, value, nullptr, 0, &paramLen);
-    if (paramLen == 0 || paramLen > maxLength || status != napi_ok) {
+    if (paramLen == 0 || status != napi_ok) {
         return std::nullopt;
     }
-    char params[maxLength] = { 0 };
-    status = napi_get_value_string_utf8(env, value, params, paramLen + 1, &paramLen);
+    std::unique_ptr<char[]> params = std::make_unique<char[]>(paramLen + 1);
+    status = napi_get_value_string_utf8(env, value, params.get(), paramLen + 1, &paramLen);
     if (status != napi_ok) {
         return std::nullopt;
     }
-    return params;
+    return std::optional<std::string>(params.get());
 }
 
 bool GetNapiString(napi_env env, napi_value value, std::string& retStr, napi_valuetype& valueType)

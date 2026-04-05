@@ -43,8 +43,8 @@ private:
     void FillViewport(float mainSize, LayoutWrapper* layoutWrapper);
     void ModifyCurrentOffsetWhenReachEnd(float mainSize, LayoutWrapper* layoutWrapper);
     float ComputeCrossPosition(int32_t crossIndex) const;
-    void InitialItemsCrossSize(
-        const RefPtr<WaterFlowLayoutProperty>& layoutProperty, const SizeF& frameSize, int32_t childrenCount);
+    void InitialItemsCrossSize(const RefPtr<WaterFlowLayoutProperty>& layoutProperty, const SizeF& frameSize,
+        int32_t childrenCount, double originalWidth);
     int32_t GetChildIndexWithFooter(int32_t index) const
     {
         return index + layoutInfo_->footerIndex_ + 1;
@@ -53,18 +53,32 @@ private:
 
     void SyncPreloadItem(LayoutWrapper* host, int32_t itemIdx) override;
 
+    /**
+     * @brief Handle end-of-content detection and adjust endIndex for zero-height trailing items
+     */
+    void HandleItemEnd(int32_t currentIndex);
+
     std::map<int32_t, float> itemsCrossSize_;
     std::map<int32_t, float> itemsCrossPosition_;
     Axis axis_ = Axis::VERTICAL;
 
     RefPtr<WaterFlowLayoutInfo> layoutInfo_;
 
+    RefPtr<WaterFlowLayoutInfoBase> LayoutInfo() const override {
+        return layoutInfo_;
+    }
+
+    void ReMeasureItems(LayoutWrapper* layoutWrapper);
+
     float mainGap_ = 0.0f;
     float crossGap_ = 0.0f;
     float mainSize_ = 0.0f;
-    float footerMainSize_ = 0.0f;
     float footerMainStartPos_ = 0.0f;
     bool skipMeasure_ = false;
+
+    // Record the index range after measurement completion
+    int32_t measuredStartIndex_ = -1;
+    int32_t measuredEndIndex_ = -1;
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_WATERFLOW_WATER_FLOW_LAYOUT_ALGORITHM_H

@@ -52,6 +52,27 @@ FormModel* FormModel::GetInstance()
 
 namespace OHOS::Ace::Framework {
 
+bool ParseFormId(RequestFormInfo formInfo, JSRef<JSVal> id)
+{
+    if (id->IsString()) {
+        if (!StringUtils::IsNumber(id->ToString())) {
+            TAG_LOGE(AceLogTag::ACE_FORM, "Invalid form id : %{public}s", id->ToString().c_str());
+            return false;
+        }
+        int64_t inputFormId = StringUtils::StringToLongInt(id->ToString().c_str(), -1);
+        if (inputFormId == -1) {
+            TAG_LOGE(
+                AceLogTag::ACE_FORM, "StringToLongInt failed, invalid formId : %{public}s", id->ToString().c_str());
+            return false;
+        }
+        formInfo.id = inputFormId;
+    } else if (id->IsNumber()) {
+        formInfo.id = id->ToNumber<int64_t>();
+    }
+    TAG_LOGI(AceLogTag::ACE_FORM, "JSForm Create, info.id: %{public}" PRId64, formInfo.id);
+    return true;
+}
+
 void JSForm::Create(const JSCallbackInfo& info)
 {
     if (info.Length() == 0 || !info[0]->IsObject()) {
@@ -68,37 +89,29 @@ void JSForm::Create(const JSCallbackInfo& info)
     JSRef<JSVal> wantValue = obj->GetProperty("want");
     JSRef<JSVal> renderingMode = obj->GetProperty("renderingMode");
     JSRef<JSVal> shape = obj->GetProperty("shape");
+    JSRef<JSVal> exemptAppLock = obj->GetProperty("exemptAppLock");
     RequestFormInfo formInfo;
-    if (id->IsString()) {
-        if (!StringUtils::IsNumber(id->ToString())) {
-            TAG_LOGE(AceLogTag::ACE_FORM, "Invalid form id : %{public}s", id->ToString().c_str());
-            return;
-        }
-        int64_t inputFormId = StringUtils::StringToLongInt(id->ToString().c_str(), -1);
-        if (inputFormId == -1) {
-            TAG_LOGE(AceLogTag::ACE_FORM, "StringToLongInt failed : %{public}s", id->ToString().c_str());
-            return;
-        }
-        formInfo.id = inputFormId;
-    } else if (id->IsNumber()) {
-        formInfo.id = id->ToNumber<int64_t>();
+    if (!ParseFormId(formInfo, id)) {
+        return;
     }
-    TAG_LOGI(AceLogTag::ACE_FORM, "JSForm Create, info.id: %{public}" PRId64, formInfo.id);
-    formInfo.cardName = name->ToString();
-    formInfo.bundleName = bundle->ToString();
-    formInfo.abilityName = ability->ToString();
-    formInfo.moduleName = module->ToString();
-    if (!dimension->IsNull() && !dimension->IsEmpty()) {
+    formInfo.cardName = name->IsString() ? name->ToString() : "";
+    formInfo.bundleName = bundle->IsString() ? bundle->ToString() : "";
+    formInfo.abilityName = ability->IsString() ? ability->ToString() : "";
+    formInfo.moduleName = module->IsString() ? module->ToString() : "";
+    if (exemptAppLock->IsBoolean()) {
+        formInfo.exemptAppLock = exemptAppLock->ToBoolean();
+    }
+    if (!dimension->IsNull() && dimension->IsNumber()) {
         formInfo.dimension = dimension->ToNumber<int32_t>();
     }
-    formInfo.temporary = temporary->ToBoolean();
+    formInfo.temporary = temporary->IsBoolean() ? temporary->ToBoolean() : false;
     if (!wantValue->IsNull() && wantValue->IsObject()) {
         formInfo.wantWrap = CreateWantWrapFromNapiValue(wantValue);
     }
-    if (!renderingMode->IsNull() && !renderingMode->IsEmpty()) {
+    if (!renderingMode->IsNull() && renderingMode->IsNumber()) {
         formInfo.renderingMode = renderingMode->ToNumber<int32_t>();
     }
-    if (!shape->IsNull() && !shape->IsEmpty()) {
+    if (!shape->IsNull() && shape->IsNumber()) {
         formInfo.shape = shape->ToNumber<int32_t>();
     }
     FormModel::GetInstance()->Create(formInfo);
@@ -168,6 +181,22 @@ void JSForm::SetModuleName(const JSCallbackInfo& info)
 
     auto moduleName = info[0]->ToString();
     FormModel::GetInstance()->SetModuleName(moduleName);
+}
+
+void JSForm::SetColorMode(const JSCallbackInfo& info)
+{
+    if (info.Length() <= 0 || !info[0]->IsNumber()) {
+        return;
+    }
+ 
+    auto colorMode = info[0]->ToNumber<int32_t>();
+    // -1: MODE_AUTO, 0: MODE_DARK, 1: MODE_LIGHT
+    if (colorMode < -1 || colorMode > 1) {
+        TAG_LOGE(AceLogTag::ACE_FORM, "colorMode error");
+        return;
+    }
+ 
+    FormModel::GetInstance()->SetColorMode(colorMode);
 }
 
 void JSForm::JsOnAcquired(const JSCallbackInfo& info)
@@ -289,6 +318,7 @@ void JSForm::JSBind(BindingTarget globalObj)
     JSClass<JSForm>::StaticMethod("moduleName", &JSForm::SetModuleName, opt);
     JSClass<JSForm>::StaticMethod("clip", &JSViewAbstract::JsClip, opt);
     JSClass<JSForm>::StaticMethod("obscured", &JSForm::JsObscured);
+    JSClass<JSForm>::StaticMethod("colorMode", &JSForm::SetColorMode);
 
     JSClass<JSForm>::StaticMethod("onAcquired", &JSForm::JsOnAcquired);
     JSClass<JSForm>::StaticMethod("onError", &JSForm::JsOnError);

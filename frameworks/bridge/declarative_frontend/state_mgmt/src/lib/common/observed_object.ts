@@ -55,6 +55,7 @@
 
 // define just once to get just one Symbol
 const __IS_OBSERVED_PROXIED = Symbol('_____is_observed_proxied__');
+globalThis.__OBSERVED_OBJECT_NAME = Symbol('_____observed_object_name__');
 
 type Constructor = { new(...args: any[]): any };
 
@@ -63,8 +64,9 @@ function Observed<T extends Constructor>(BaseClass: T): T {
 
   // prevent use of V1 @Track inside V2 @ObservedV2 class
   if (BaseClass.prototype && Reflect.has(BaseClass.prototype, ObserveV2.SYMBOL_REFS)) {
-    const error = `'@Observed class ${BaseClass?.name}': invalid use of V1 @Track decorator inside V2 @ObservedV2 class. Need to fix class definition to use @Track.`;
+    const error = `'@Observed class ${BaseClass?.name}': invalid use of V2 @Trace decorator inside V1 @Observed class. Need to fix class definition to use @Track.`;
     stateMgmtConsole.error(error);
+    // toolchain can check
     throw new Error(error);
   }
 
@@ -80,6 +82,17 @@ function Observed<T extends Constructor>(BaseClass: T): T {
         configurable: false,
         writable: false
       });
+      try {
+        if (this.constructor.name === '') {
+          if (!Reflect.has(this, globalThis.__OBSERVED_OBJECT_NAME)) {
+            Reflect.defineProperty(this, globalThis.__OBSERVED_OBJECT_NAME, {value: BaseClass ? BaseClass.name : 'UnknownClassName', enumerable: false, writable: true});
+          } else {
+            Reflect.set(this, globalThis.__OBSERVED_OBJECT_NAME, BaseClass ? BaseClass.name : 'UnknownClassName');
+          }        
+        }
+      } catch (e) {
+        stateMgmtConsole.warn('Failed to set the value of class name in Observed constructor,', e);
+      }
       if (isProxied) {
         stateMgmtConsole.debug(`   ... new '${BaseClass.name}', is proxied already`);
         return this;
@@ -111,20 +124,30 @@ class SubscribableHandler {
   static readonly RAW_THIS = Symbol('_____raw_this');
   static readonly ENABLE_V2_COMPATIBLE = Symbol('_____enablev2_compatible');
   static readonly MAKE_V1_OBSERVED = Symbol('___makev1_observed__');
+  static readonly OWNING_PROPERTIES = Symbol('___owning_properties__');
 
-  private owningProperties_: Set<number>;
+  private owningProperties_?: Set<number>;
   private readCbFunc_?: PropertyReadCbFunc;
   private obSelf_?: ObservedPropertyAbstractPU<any>;
   protected enableV2Compatible_ : boolean;
 
   constructor(owningProperty: IPropertySubscriber) {
-    this.owningProperties_ = new Set<number>();
-
     if (owningProperty) {
       this.addOwningProperty(owningProperty);
     }
     this.enableV2Compatible_ = false;
     stateMgmtConsole.debug(`SubscribableHandler: constructor done`);
+  }
+
+  getOrCreateOwningProperties(): Set<number> {
+    if (!this.owningProperties_) {
+      this.owningProperties_ = new Set<number>();
+    }
+    return this.owningProperties_;
+  }
+
+  getOwningProperties(): Set<number> | undefined {
+    return this.owningProperties_;
   }
 
   protected isPropertyTracked(obj: Object, property: string): boolean {
@@ -136,7 +159,7 @@ class SubscribableHandler {
   addOwningProperty(subscriber: IPropertySubscriber): void {
     if (subscriber) {
       stateMgmtConsole.debug(`SubscribableHandler: addOwningProperty: subscriber '${subscriber.id__()}'.`);
-      this.owningProperties_.add(subscriber.id__());
+      this.getOrCreateOwningProperties().add(subscriber.id__());
     } else {
       stateMgmtConsole.warn(`SubscribableHandler: addOwningProperty: undefined subscriber.`);
     }
@@ -151,12 +174,12 @@ class SubscribableHandler {
 
   public removeOwningPropertyById(subscriberId: number): void {
     stateMgmtConsole.debug(`SubscribableHandler: removeOwningProperty '${subscriberId}'.`);
-    this.owningProperties_.delete(subscriberId);
+    this.getOwningProperties()?.delete(subscriberId);
   }
 
   protected notifyObjectPropertyHasChanged(propName: string, newValue: any) {
     stateMgmtConsole.debug(`SubscribableHandler: notifyObjectPropertyHasChanged '${propName}'.`);
-    this.owningProperties_.forEach((subscribedId) => {
+    this.getOwningProperties()?.forEach((subscribedId) => {
       const owningProperty: IPropertySubscriber = SubscriberManager.Find(subscribedId);
       if (!owningProperty) {
         stateMgmtConsole.warn(`SubscribableHandler: notifyObjectPropertyHasChanged: unknown subscriber.'${subscribedId}' error!.`);
@@ -181,7 +204,7 @@ class SubscribableHandler {
 
   protected notifyTrackedObjectPropertyHasChanged(propName: string): void {
     stateMgmtConsole.debug(`SubscribableHandler: notifyTrackedObjectPropertyHasChanged '@Track ${propName}'.`);
-    this.owningProperties_.forEach((subscribedId) => {
+    this.getOwningProperties()?.forEach((subscribedId) => {
       const owningProperty: IPropertySubscriber = SubscriberManager.Find(subscribedId);
       if (owningProperty && 'onTrackedObjectPropertyHasChangedPU' in owningProperty) {
         // PU code path with observed object property change tracking optimization
@@ -206,7 +229,9 @@ class SubscribableHandler {
           case ObservedObject.__OBSERVED_OBJECT_RAW_OBJECT:
             return target;
           case SubscribableHandler.COUNT_SUBSCRIBERS:
-            return this.owningProperties_.size;
+            return this.getOwningProperties() ? this.getOwningProperties()!.size : 0;
+          case SubscribableHandler.OWNING_PROPERTIES:
+            return this.getOwningProperties();
           case ObserveV2.SYMBOL_REFS:
           case ObserveV2.V2_DECO_META:
           case ObserveV2.SYMBOL_MAKE_OBSERVED:
@@ -216,6 +241,9 @@ class SubscribableHandler {
             return undefined;
           case SubscribableHandler.ENABLE_V2_COMPATIBLE:
             return this.enableV2Compatible_;
+          case globalThis.__OBSERVED_OBJECT_NAME:
+            // return class name
+            return Reflect.get(this, globalThis.__OBSERVED_OBJECT_NAME);
           default:
             break;
         }
@@ -234,7 +262,7 @@ class SubscribableHandler {
 
           // do same as V2 proxy, call to autoProxyObject:
           // Array, Set, Map length functions fireChange(object, OB_LENGTH)
-          if (typeof result === "object" && (Array.isArray(result) || result instanceof Set || result instanceof Map)) {
+          if (typeof result === 'object' && (Array.isArray(result) || result instanceof Set || result instanceof Map)) {
             ObserveV2.getObserve().addRefV2Compatibility(result, ObserveV2.OB_LENGTH);
           }
         }
@@ -248,12 +276,23 @@ class SubscribableHandler {
 
           // do same as V2 proxy, call to autoProxyObject:
           // Array, Set, Map length functions fireChange(object, OB_LENGTH)
-          if (typeof result === "object" && (Array.isArray(result) || result instanceof Set || result instanceof Map)) {
+          if (typeof result === 'object' && (Array.isArray(result) || result instanceof Set || result instanceof Map)) {
             ObserveV2.getObserve().addRefV2Compatibility(result, ObserveV2.OB_LENGTH);
           }
         }
       }
       return result;
+  }
+
+  public setClassNameToTarget(target: Object, newValue: any): void {
+    try {
+      const observedObjectName = Reflect.get(target, globalThis.__OBSERVED_OBJECT_NAME);
+      if (observedObjectName !== undefined && observedObjectName !== newValue) {
+        Reflect.set(target, globalThis.__OBSERVED_OBJECT_NAME, newValue);
+      }
+    } catch (e) {
+      stateMgmtConsole.warn('Failed to set the value of class name in SubscribableHandler set,', e);
+    }
   }
 
   public set(target: Object, property: PropertyKey, newValue: any): boolean {
@@ -282,6 +321,11 @@ class SubscribableHandler {
           return true;
         case ObserveV2.SYMBOL_PROXY_GET_TARGET:
           // Do nothing, just return
+          return true;
+        case globalThis.__OBSERVED_OBJECT_NAME:
+          // set value of class name
+          Reflect.set(this, globalThis.__OBSERVED_OBJECT_NAME, newValue);
+          this.setClassNameToTarget(target, newValue);
           return true;
         default:
           break;
@@ -397,6 +441,13 @@ class SubscribableMapSetHandler extends SubscribableHandler {
       }
       if (key === SubscribableHandler.ENABLE_V2_COMPATIBLE) {
         return this.enableV2Compatible_;
+      }
+      if (key === SubscribableHandler.OWNING_PROPERTIES) {
+        return this.getOwningProperties();
+      }
+      if (key === globalThis.__OBSERVED_OBJECT_NAME) {
+        // return class name
+        return Reflect.get(this, globalThis.__OBSERVED_OBJECT_NAME);
       }
       return target[key];
     }
@@ -522,7 +573,7 @@ class SubscribableMapSetHandler extends SubscribableHandler {
           
           // do same as V2 proxy, call to autoProxyObject:
           // Array, Set, Map length functions fireChange(object, OB_LENGTH)
-          if (typeof item === "object" && (Array.isArray(item) || item instanceof Set || item instanceof Map)) {
+          if (typeof item === 'object' && (Array.isArray(item) || item instanceof Set || item instanceof Map)) {
             ObserveV2.getObserve().addRefV2Compatibility(item, ObserveV2.OB_LENGTH);
           }
           return item;
@@ -537,6 +588,7 @@ class SubscribableMapSetHandler extends SubscribableHandler {
           } else if (target.get(prop) !== val) {
             target.set(prop, val);
             ObserveV2.getObserve().fireChange(conditionalTarget, prop);
+            ObserveV2.getObserve().fireChange(conditionalTarget, SetMapProxyHandler.OB_MAP_SET_MONITOR_ANY_PROPERTY);
           }
           ObserveV2.getObserve().fireChange(conditionalTarget, SetMapProxyHandler.OB_MAP_SET_ANY_PROPERTY);
           
@@ -676,6 +728,13 @@ class SubscribableArrayHandler extends SubscribableHandler {
       if (key === SubscribableHandler.ENABLE_V2_COMPATIBLE) {
         return this.enableV2Compatible_;
       }
+      if (key === SubscribableHandler.OWNING_PROPERTIES) {
+        return this.getOwningProperties();
+      }
+      if (key === globalThis.__OBSERVED_OBJECT_NAME) {
+        // return class name
+        return Reflect.get(this, globalThis.__OBSERVED_OBJECT_NAME);
+      }
       return target[key];
     }
 
@@ -693,7 +752,7 @@ class SubscribableArrayHandler extends SubscribableHandler {
 
       // do same as V2 proxy, call to autoProxyObject:
       // Array, Set, Map length functions fireChange(object, OB_LENGTH)
-      if (typeof ret === "object" && (Array.isArray(ret) || ret instanceof Set || ret instanceof Map)) {
+      if (typeof ret === 'object' && (Array.isArray(ret) || ret instanceof Set || ret instanceof Map)) {
         ObserveV2.getObserve().addRefV2Compatibility(ret, ObserveV2.OB_LENGTH);
       }
 
@@ -865,6 +924,13 @@ class ObservedObject<T extends Object> extends ExtendableProxy {
     else {
       proxiedObject = new ObservedObject(rawObject, new SubscribableHandler(owningProperty), owningProperty);
     }
+    try {
+      const rawObjectName = rawObject.constructor?.name;
+      proxiedObject[globalThis.__OBSERVED_OBJECT_NAME] = rawObjectName === '' ? Reflect.get(rawObject, globalThis.__OBSERVED_OBJECT_NAME)
+        : (rawObjectName ?? 'UnknownClassName');
+    } catch (e) {
+      stateMgmtConsole.warn('Failed to set the value of class name in createNewInternal,', e);
+    }
     return proxiedObject as T;
   }
 
@@ -988,7 +1054,7 @@ class ObservedObject<T extends Object> extends ExtendableProxy {
     if (!rawObj || typeof rawObj !== 'object') {
       return;
     }
-    stateMgmtConsole.debug(`enableV2CompatibleInternal object of class '${obj?.constructor?.name}'`)
+    stateMgmtConsole.debug(`enableV2CompatibleInternal object of class '${obj?.constructor?.name}'`);
     // Mark the object as visited to prevent circular references in future calls
     visitedObjects.add(obj);
 
@@ -1008,7 +1074,7 @@ class ObservedObject<T extends Object> extends ExtendableProxy {
 
   // return is given object V1 proxies and V2 compatibility has been enabled on it
   public static isEnableV2CompatibleInternal(obj: Object): boolean {
-    return ObservedObject.IsObservedObject(obj) && (obj[SubscribableHandler.ENABLE_V2_COMPATIBLE] == true);
+    return ObservedObject.IsObservedObject(obj) && (obj[SubscribableHandler.ENABLE_V2_COMPATIBLE] === true);
   }
 
 
@@ -1053,7 +1119,7 @@ class ObservedObject<T extends Object> extends ExtendableProxy {
 
   // return is given object V1 proxies
   public static isMakeV1Observed(obj: Object): boolean {
-    return (obj[SubscribableHandler.MAKE_V1_OBSERVED] == true);
+    return (obj[SubscribableHandler.MAKE_V1_OBSERVED] === true);
   }
 
   /**

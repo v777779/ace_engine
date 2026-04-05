@@ -16,15 +16,15 @@
 #include <string>
 
 #include "gtest/gtest.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/rosen/testing_rect.h"
-#include "frameworks/core/components_ng/svg/svg_ulils.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_rect.h"
+#include "frameworks/core/components_ng/svg/svg_utils.h"
 
 #define private public
 #define protected public
 
 #include "core/components_ng/svg/svg_dom.h"
-#include "core/components_ng/svg/svg_ulils.h"
+#include "core/components_ng/svg/svg_utils.h"
 
 using namespace testing;
 using namespace testing::ext;

@@ -16,12 +16,15 @@
 #include "core/components_ng/pattern/navrouter/navdestination_group_node.h"
 
 #include "core/common/force_split/force_split_utils.h"
+#include "core/components_ng/manager/content_change_manager/content_change_manager.h"
+#include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/navigation/navigation_pattern.h"
 #include "core/components_ng/pattern/navigation/navigation_title_util.h"
 #include "core/components_ng/pattern/navigation/navigation_transition_proxy.h"
 #include "core/components_ng/pattern/navrouter/navdestination_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_v2/inspector/inspector_constants.h"
+#include "core/components_ng/pattern/navigation/navdestination_pattern_base.h"
 
 namespace OHOS::Ace::NG {
 constexpr double HALF = 0.5;
@@ -31,6 +34,7 @@ constexpr int32_t OPACITY_TITLE_IN_DELAY = 33;
 constexpr int32_t OPACITY_TITLE_DURATION = 150;
 constexpr int32_t OPACITY_BACKBUTTON_IN_DELAY = 150;
 constexpr int32_t OPACITY_BACKBUTTON_IN_DURATION = 200;
+constexpr int32_t OPACITY_BACKBUTTON_DURATION_IN_SKIP_CASE = 150;
 constexpr int32_t OPACITY_BACKBUTTON_OUT_DURATION = 67;
 constexpr int32_t MAX_RENDER_GROUP_TEXT_NODE_COUNT = 50;
 constexpr float MAX_RENDER_GROUP_TEXT_NODE_HEIGHT = 150.0f;
@@ -93,6 +97,7 @@ NavDestinationGroupNode::~NavDestinationGroupNode()
 RefPtr<NavDestinationGroupNode> NavDestinationGroupNode::GetOrCreateGroupNode(
     const std::string& tag, int32_t nodeId, const std::function<RefPtr<Pattern>(void)>& patternCreator)
 {
+    ACE_UINODE_TRACE(nodeId);
     auto frameNode = GetFrameNode(tag, nodeId);
     CHECK_NULL_RETURN(!frameNode, AceType::DynamicCast<NavDestinationGroupNode>(frameNode));
     auto pattern = patternCreator ? patternCreator() : MakeRefPtr<Pattern>();
@@ -159,6 +164,7 @@ void NavDestinationGroupNode::AddChildToGroup(const RefPtr<UINode>& child, int32
     auto contentNode = GetContentNode();
     if (!contentNode) {
         auto nodeId = ElementRegister::GetInstance()->MakeUniqueId();
+        ACE_UINODE_TRACE(nodeId);
         ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::NAVDESTINATION_CONTENT_ETS_TAG, nodeId);
         contentNode = FrameNode::GetOrCreateFrameNode(V2::NAVDESTINATION_CONTENT_ETS_TAG, nodeId,
             []() { return AceType::MakeRefPtr<LinearLayoutPattern>(true); });
@@ -259,10 +265,16 @@ void NavDestinationGroupNode::ToJsonValue(std::unique_ptr<JsonValue>& json, cons
         json->PutExtAttr("title", title.c_str(), filter);
         json->PutExtAttr("subtitle", subtitle.c_str(), filter);
     }
+    auto navBarPattern = GetPattern<NavDestinationPatternBase>();
+    if (navBarPattern) {
+        auto menuOptionsJson = JsonUtil::Create(true);
+        auto moreButtonOptions = navBarPattern->GetMenuOptions();
+        moreButtonOptions.ToJsonValue(menuOptionsJson, filter);
+        json->PutExtAttr("menuOptions", menuOptionsJson, filter);
+    }
     json->PutExtAttr("mode", mode_ == NavDestinationMode::DIALOG
         ? "NavDestinationMode::DIALOG"
         : "NavDestinationMode::STANDARD", filter);
-    json->PutExtAttr("recoverable", recoverable_ ? "true" : "false", filter);
     json->PutExtAttr("systemTransition", TransitionTypeToString(systemTransitionType_), filter);
 }
 
@@ -636,13 +648,16 @@ std::shared_ptr<AnimationUtils::Animation> NavDestinationGroupNode::TitleOpacity
     opacityOption.SetDuration(OPACITY_TITLE_DURATION);
     if (isTransitionIn) {
         opacityOption.SetDelay(OPACITY_TITLE_IN_DELAY);
+        if (IsNeedHandleElapsedTime()) {
+            opacityOption.SetDelay(0);
+        }
         titleRenderContext->SetOpacity(0.0f);
         return AnimationUtils::StartAnimation(opacityOption,
             [weakRender = WeakPtr<RenderContext>(titleRenderContext)]() {
             auto renderContext = weakRender.Upgrade();
             CHECK_NULL_VOID(renderContext);
             renderContext->SetOpacity(1.0f);
-        });
+        }, nullptr /* finishCallback*/, nullptr /* repeatCallback */, GetContextRefPtr());
     }
     // recover after transition animation.
     opacityOption.SetDelay(OPACITY_TITLE_OUT_DELAY);
@@ -652,7 +667,7 @@ std::shared_ptr<AnimationUtils::Animation> NavDestinationGroupNode::TitleOpacity
         auto renderContext = weakRender.Upgrade();
         CHECK_NULL_VOID(renderContext);
         renderContext->SetOpacity(0.0f);
-    });
+    }, nullptr /* finishCallback*/, nullptr /* repeatCallback */, GetContextRefPtr());
 }
 
 std::shared_ptr<AnimationUtils::Animation> NavDestinationGroupNode::BackButtonAnimation(bool isTransitionIn)
@@ -674,13 +689,18 @@ std::shared_ptr<AnimationUtils::Animation> NavDestinationGroupNode::BackButtonAn
     if (isTransitionIn) {
         transitionOption.SetDelay(OPACITY_BACKBUTTON_IN_DELAY);
         transitionOption.SetDuration(OPACITY_BACKBUTTON_IN_DURATION);
+        if (IsNeedHandleElapsedTime()) {
+            transitionOption.SetDelay(0);
+            transitionOption.SetDuration(OPACITY_BACKBUTTON_DURATION_IN_SKIP_CASE);
+            isTitleConsumedElapsedTime_ = true;
+        }
         backButtonNodeContext->SetOpacity(0.0f);
         return AnimationUtils::StartAnimation(transitionOption,
             [weakRender = WeakPtr<RenderContext>(backButtonNodeContext)]() {
             auto renderContext = weakRender.Upgrade();
             CHECK_NULL_VOID(renderContext);
             renderContext->SetOpacity(1.0f);
-        });
+        }, nullptr /* finishCallback*/, nullptr /* repeatCallback */, GetContextRefPtr());
     }
     transitionOption.SetDuration(OPACITY_BACKBUTTON_OUT_DURATION);
     backButtonNodeContext->SetOpacity(1.0f);
@@ -689,7 +709,7 @@ std::shared_ptr<AnimationUtils::Animation> NavDestinationGroupNode::BackButtonAn
         auto renderContext = weakRender.Upgrade();
         CHECK_NULL_VOID(renderContext);
         renderContext->SetOpacity(0.0f);
-    });
+    }, nullptr /* finishCallback*/, nullptr /* repeatCallback */, GetContextRefPtr());
 }
 
 void NavDestinationGroupNode::UpdateTextNodeListAsRenderGroup(
@@ -699,7 +719,7 @@ void NavDestinationGroupNode::UpdateTextNodeListAsRenderGroup(
         CollectTextNodeAsRenderGroup(isPopPage);
     } else {
         CHECK_NULL_VOID(proxy);
-        auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+        auto pipeline = PipelineContext::GetCurrentContext();
         CHECK_NULL_VOID(pipeline);
         pipeline->AddAfterLayoutTask([weakNavDestiniation = WeakClaim(this),
             weakProxy = WeakPtr<NavigationTransitionProxy>(proxy)] () {
@@ -783,7 +803,7 @@ void NavDestinationGroupNode::ReleaseTextNodeList()
     textNodeList_.clear();
 }
 
-void NavDestinationGroupNode::CleanContent(bool cleanDirectly, bool allowTransition)
+void NavDestinationGroupNode::CleanContent(bool cleanDirectly, bool allowTransition, bool needSkipClean)
 {
     // cacheNode is cached for pip info, and is no need to clean when clean content node
     if (IsCacheNode()) {
@@ -795,7 +815,7 @@ void NavDestinationGroupNode::CleanContent(bool cleanDirectly, bool allowTransit
     if (shallowBuilder) {
         shallowBuilder->MarkIsExecuteDeepRenderDone(false);
     }
-    if (GetContentNode()) {
+    if (!needSkipClean && GetContentNode()) {
         GetContentNode()->Clean(cleanDirectly, allowTransition);
     }
 }
@@ -804,13 +824,16 @@ bool NavDestinationGroupNode::IsNodeInvisible(const RefPtr<FrameNode>& node)
 {
     auto navigation = DynamicCast<NavigationGroupNode>(node);
     CHECK_NULL_RETURN(navigation, false);
+    auto navPattern = navigation->GetPattern<NavigationPattern>();
+    CHECK_NULL_RETURN(navPattern, false);
+    if (destType_ == NavDestinationType::HOME && navPattern->IsForceSplitSuccess()) {
+        return false;
+    }
     int32_t lastStandardIndex = navigation->GetLastStandardIndex();
     bool isInvisible = index_ < lastStandardIndex;
     if (!isHomeDestination_) {
         return isInvisible;
     }
-    auto navPattern = navigation->GetPattern<NavigationPattern>();
-    CHECK_NULL_RETURN(navPattern, isInvisible);
     auto mode = navPattern->GetNavigationMode();
     if (mode == NavigationMode::STACK) {
         return isInvisible;
@@ -831,8 +854,11 @@ std::string NavDestinationGroupNode::ToDumpString()
         case NavDestinationType::HOME:
             navDestinationType = "HOME";
             break;
-        case NavDestinationType::PLACE_HOLDER:
-            navDestinationType = "PLACE_HOLDER";
+        case NavDestinationType::PROXY:
+            navDestinationType = "PROXY";
+            break;
+        case NavDestinationType::RELATED:
+            navDestinationType = "RELATED";
             break;
         default:
             navDestinationType = "INVALID";
@@ -850,7 +876,13 @@ std::string NavDestinationGroupNode::ToDumpString()
     dumpString.append(navDestinationPattern->GetIsOnShow() ? "TRUE" : "FALSE");
     dumpString.append("\", navDestinationType: \"");
     dumpString.append(navDestinationType);
-    dumpString.append("\" }");
+    dumpString.append("\", Visible? \"");
+    dumpString.append(IsVisible() ? "Yes" : "No");
+    int32_t count = 0;
+    int32_t depth = 0;
+    GetPageNodeCountAndDepth(&count, &depth);
+    dumpString.append("\", Count: " + std::to_string(count));
+    dumpString.append(", Depth: " + std::to_string(depth) + " }");
     return dumpString;
 }
 
@@ -888,7 +920,7 @@ int32_t NavDestinationGroupNode::DoSystemFadeTransition(bool isEnter)
     }
     animationId_ = MakeUniqueAnimationId();
     SetIsOnAnimation(true);
-    auto option = BuildAnimationOption(Curves::SHARP, BuildTransitionFinishCallback(),
+    auto option = BuildAnimationOption(Curves::SHARP, BuildTransitionFinishCallback(isEnter),
         isEnter ? SYSTEM_ENTER_FADE_TRANSITION_DURATION : SYSTEM_EXIT_FADE_TRANSITION_DURATION,
         isEnter ? SYSTEM_ENTER_FADE_TRANSITION_DELAY : SYSTEM_EXIT_FADE_TRANSITION_DELAY);
     OnStartOneTransitionAnimation();
@@ -908,28 +940,29 @@ int32_t NavDestinationGroupNode::DoSystemSlideTransition(NavigationOperation ope
         // translate animation
         bool isRight = (systemTransitionType_ & NavigationSystemTransitionType::SLIDE_RIGHT)
             != NavigationSystemTransitionType::NONE;
-        std::function<void()> translateEvent = [weak = WeakClaim(this), isEnter, isRight]() {
+        std::function<void()> translateEvent = [weak = WeakClaim(this), isEnter, isRight, operation]() {
             auto navDestination = weak.Upgrade();
             CHECK_NULL_VOID(navDestination);
             auto renderContext = navDestination->GetRenderContext();
             CHECK_NULL_VOID(renderContext);
-            auto frameSize = navDestination->GetGeometryNode()->GetFrameSize();
-            auto translate = navDestination->CalcTranslateForSlideTransition(frameSize, isRight, isEnter, true);
+            auto paintRect = renderContext->GetPaintRectWithoutTransform().GetSize();
+            auto translate = navDestination->CalcTranslateForSlideTransition(paintRect, isRight, isEnter, true);
             renderContext->UpdateTranslateInXY(translate);
         };
         RefPtr<Curve> curve = isRight ? MakeRefPtr<InterpolatingSpring>(0.0f, 1.0f, 342.0f, 37.0f)
             : MakeRefPtr<InterpolatingSpring>(0.0f, 1.0f, 328.0f, 36.0f);
-        auto option = BuildAnimationOption(curve, BuildTransitionFinishCallback());
+        auto option = BuildAnimationOption(curve, BuildTransitionFinishCallback(isEnter));
         auto renderContext = GetRenderContext();
-        auto frameSize = GetGeometryNode()->GetFrameSize();
-        auto translate = CalcTranslateForSlideTransition(frameSize, isRight, isEnter, false);
+        auto paintRect = renderContext->GetPaintRectWithoutTransform().GetSize();
+        auto translate = CalcTranslateForSlideTransition(paintRect, isRight, isEnter, false);
         renderContext->UpdateTranslateInXY(translate);
         OnStartOneTransitionAnimation();
-        AnimationUtils::Animate(option, translateEvent, option.GetOnFinishEvent());
+        AnimationUtils::Animate(
+            option, translateEvent, option.GetOnFinishEvent(), nullptr /* repeatCallback */, GetContextRefPtr());
     } else {
         // mask animation
         auto option = BuildAnimationOption(
-            Curves::FRICTION, BuildTransitionFinishCallback(), SYSTEM_SLIDE_TRANSITION_MASK_DURATION);
+            Curves::FRICTION, BuildTransitionFinishCallback(isEnter), SYSTEM_SLIDE_TRANSITION_MASK_DURATION);
         auto beginColor = isEnter ? SLIDE_ANIMATION_MASK_COLOR : Color::TRANSPARENT;
         auto endColor = !isEnter ? SLIDE_ANIMATION_MASK_COLOR : Color::TRANSPARENT;
         OnStartOneTransitionAnimation();
@@ -956,14 +989,14 @@ int32_t NavDestinationGroupNode::DoSystemEnterExplodeTransition(NavigationOperat
             BuildAnimationOption(Curves::FRICTION, BuildEmptyFinishCallback(), SYSTEM_EXPLODE_TRANSITION_MASK_DURATION),
             SLIDE_ANIMATION_MASK_COLOR, Color::TRANSPARENT);
         // opacity animation
-        auto option = BuildAnimationOption(Curves::SHARP, BuildTransitionFinishCallback(),
+        auto option = BuildAnimationOption(Curves::SHARP, BuildTransitionFinishCallback(true),
             SYSTEM_ENTER_POP_EXPLODE_OPACITY_DURATION, SYSTEM_ENTER_POP_EXPLODE_OPACITY_DELAY);
         OnStartOneTransitionAnimation();
         renderContext->OpacityAnimation(option, 0.0f, 1.0f);
         return animationId_;
     }
     // opacity animation
-    auto option = BuildAnimationOption(Curves::SHARP, BuildTransitionFinishCallback(),
+    auto option = BuildAnimationOption(Curves::SHARP, BuildTransitionFinishCallback(true),
         SYSTEM_ENTER_PUSH_EXPLODE_OPACITY_DURATION, SYSTEM_ENTER_PUSH_EXPLODE_OPACITY_DELAY);
     OnStartOneTransitionAnimation();
     renderContext->OpacityAnimation(option, 0.0f, 1.0f);
@@ -1024,7 +1057,8 @@ void NavDestinationGroupNode::DoMaskAnimation(const AnimationOption& option, Col
 
     // initial property
     renderContext->SetActualForegroundColor(begin);
-    AnimationUtils::Animate(option, maskEvent, option.GetOnFinishEvent());
+    AnimationUtils::Animate(
+        option, maskEvent, option.GetOnFinishEvent(), nullptr /* repeatCallback */, GetContextRefPtr());
 }
 
 int32_t NavDestinationGroupNode::DoCustomTransition(NavigationOperation operation, bool isEnter)
@@ -1100,7 +1134,7 @@ void NavDestinationGroupNode::StartCustomTransitionAnimation(NavDestinationTrans
     std::function<void()> finish;
     // only do remove or set visibility in longest custom transition animation's finish callback.
     if (transition.duration + transition.delay == longestAnimationDuration) {
-        finish = BuildTransitionFinishCallback(false, std::move(transition.onTransitionEnd));
+        finish = BuildTransitionFinishCallback(isEnter, false, std::move(transition.onTransitionEnd));
     } else {
         finish = [onTransitionEnd = std::move(transition.onTransitionEnd), weak = WeakClaim(this)]() {
             auto node = weak.Upgrade();
@@ -1112,7 +1146,7 @@ void NavDestinationGroupNode::StartCustomTransitionAnimation(NavDestinationTrans
         };
     }
     OnStartOneTransitionAnimation();
-    AnimationUtils::Animate(option, event, finish);
+    AnimationUtils::Animate(option, event, finish, nullptr /* repeatCallback */, GetContextRefPtr());
     auto pattern = GetPattern<NavDestinationPattern>();
     CHECK_NULL_VOID(pattern);
     TAG_LOGI(AceLogTag::ACE_NAVIGATION,
@@ -1130,10 +1164,10 @@ int32_t NavDestinationGroupNode::MakeUniqueAnimationId()
 }
 
 std::function<void()> NavDestinationGroupNode::BuildTransitionFinishCallback(
-    bool isSystemTransition, std::function<void()>&& extraOption)
+    bool needReport, bool isSystemTransition, std::function<void()>&& extraOption)
 {
     std::function<void()> finish = [extraOption = std::move(extraOption), weak = WeakClaim(this),
-        animationId = animationId_, isSystemTransition]() {
+        animationId = animationId_, isSystemTransition, needReport]() {
             auto navDestination = weak.Upgrade();
             CHECK_NULL_VOID(navDestination);
             auto destinationPattern = navDestination->GetPattern<NavDestinationPattern>();
@@ -1176,6 +1210,9 @@ std::function<void()> NavDestinationGroupNode::BuildTransitionFinishCallback(
                 navDestination->SetJSViewActive(false);
             }
             navDestination->SetIsOnAnimation(false);
+            if (needReport) {
+                navDestination->ContentChangeReport();
+            }
         };
     auto finisWrapper = [onFinish = std::move(finish), weak = WeakClaim(this)]() {
         auto node = weak.Upgrade();
@@ -1226,7 +1263,7 @@ RefPtr<UINode> NavDestinationGroupNode::GetNavigationNode()
 
 NavDestinationMode NavDestinationGroupNode::GetNavDestinationMode() const
 {
-    if (destType_ == NavDestinationType::PLACE_HOLDER) {
+    if (destType_ == NavDestinationType::PROXY) {
         auto primaryNode = primaryNode_.Upgrade();
         CHECK_NULL_RETURN(primaryNode, mode_);
         return primaryNode->GetNavDestinationMode();
@@ -1234,39 +1271,37 @@ NavDestinationMode NavDestinationGroupNode::GetNavDestinationMode() const
     return mode_;
 }
 
-RefPtr<NavDestinationGroupNode> NavDestinationGroupNode::GetOrCreatePlaceHolder()
+RefPtr<NavDestinationGroupNode> NavDestinationGroupNode::GetOrCreateProxyNode()
 {
-    if (placeHolderNode_) {
-        return placeHolderNode_;
+    if (proxyNode_) {
+        return proxyNode_;
     }
 
-    auto context = GetContextRefPtr();
-    CHECK_NULL_RETURN(context, nullptr);
-    auto phNode = ForceSplitUtils::CreatePlaceHolderNavDestination(context);
-    CHECK_NULL_RETURN(phNode, nullptr);
-    phNode->SetPrimaryNode(WeakClaim(this));
-    auto phPattern = phNode->GetPattern<NavDestinationPattern>();
-    CHECK_NULL_RETURN(phPattern, nullptr);
-    phPattern->SetIndex(index_);
-    placeHolderNode_ = phNode;
-    return placeHolderNode_;
+    auto proxyNode = ForceSplitUtils::CreateNavDestinationProxyNode();
+    CHECK_NULL_RETURN(proxyNode, nullptr);
+    proxyNode->SetPrimaryNode(WeakClaim(this));
+    auto proxyPattern = proxyNode->GetPattern<NavDestinationPattern>();
+    CHECK_NULL_RETURN(proxyPattern, nullptr);
+    proxyPattern->SetIndex(index_);
+    proxyNode_ = proxyNode;
+    return proxyNode_;
 }
 
 void NavDestinationGroupNode::SetIndex(int32_t index, bool updatePrimary)
 {
     index_ = index;
-    if (destType_ == NavDestinationType::PLACE_HOLDER && updatePrimary) {
+    if (destType_ == NavDestinationType::PROXY && updatePrimary) {
         auto primaryNode = primaryNode_.Upgrade();
         CHECK_NULL_VOID(primaryNode);
         primaryNode->SetIndex(index, false);
-    } else if (placeHolderNode_) {
-        placeHolderNode_->SetIndex(index, false);
+    } else if (proxyNode_) {
+        proxyNode_->SetIndex(index, false);
     }
 }
 
 void NavDestinationGroupNode::SetCanReused(bool canReused)
 {
-    if (destType_ == NavDestinationType::PLACE_HOLDER) {
+    if (destType_ == NavDestinationType::PROXY) {
         auto primaryNode = primaryNode_.Upgrade();
         if (primaryNode) {
             primaryNode->SetCanReused(canReused);
@@ -1277,12 +1312,21 @@ void NavDestinationGroupNode::SetCanReused(bool canReused)
 
 bool NavDestinationGroupNode::GetCanReused() const
 {
-    if (destType_ == NavDestinationType::PLACE_HOLDER) {
+    if (destType_ == NavDestinationType::PROXY) {
         auto primaryNode = primaryNode_.Upgrade();
         if (primaryNode) {
             return primaryNode->GetCanReused();
         }
     }
     return canReused_;
+}
+
+void NavDestinationGroupNode::ContentChangeReport()
+{
+    auto context = GetContext();
+    CHECK_NULL_VOID(context);
+    auto mgr = context->GetContentChangeManager();
+    CHECK_NULL_VOID(mgr);
+    mgr->OnPageTransitionEnd(WeakClaim(this).Upgrade());
 }
 } // namespace OHOS::Ace::NG

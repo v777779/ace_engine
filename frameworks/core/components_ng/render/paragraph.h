@@ -19,6 +19,7 @@
 #include "base/geometry/ng/size_t.h"
 #include "base/image/pixel_map.h"
 #include "base/memory/ace_type.h"
+#include "core/common/ime/text_range.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/alignment.h"
 #include "core/components/common/properties/text_layout_info.h"
@@ -94,6 +95,33 @@ struct LineMetrics {
     int32_t endIndex = 0;
 };
 
+struct LeadingMarginSpanOptions {
+    double x = 0.0f;
+    TextDirection direction = TextDirection::LTR;
+    double top = 0.0f;
+    double baseline = 0.0f;
+    double bottom = 0.0f;
+    size_t start = 0;
+    size_t end = 0;
+    bool first = false;
+};
+
+struct DrawableLeadingMargin {
+    std::function<void(NG::DrawingContext&, NG::LeadingMarginSpanOptions)> onDraw_;
+    std::function<CalcDimension()> getLeadingMarginFunc_;
+    LeadingMarginSize size;
+
+    bool operator==(const DrawableLeadingMargin& other) const
+    {
+        return size == other.size;
+    }
+
+    bool IsValid()
+    {
+        return size.Width().IsValid() || size.Height().IsValid();
+    }
+};
+
 struct LeadingMargin {
     LeadingMarginSize size;
     RefPtr<PixelMap> pixmap;
@@ -141,7 +169,8 @@ enum TextHeightBehavior {
 
 struct ParagraphStyle {
     TextDirection direction = TextDirection::AUTO;
-    TextAlign align = TextAlign::LEFT;
+    // 注意是否有不兼容变更
+    TextAlign align = TextAlign::START;
     TextVerticalAlign verticalAlign = TextVerticalAlign::BASELINE;
     uint32_t maxLines = UINT32_MAX;
     std::string fontLocale;
@@ -150,6 +179,7 @@ struct ParagraphStyle {
     LineBreakStrategy lineBreakStrategy = LineBreakStrategy::GREEDY;
     TextOverflow textOverflow = TextOverflow::CLIP;
     std::optional<LeadingMargin> leadingMargin;
+    std::optional<DrawableLeadingMargin> drawableLeadingMargin;
     double fontSize = 14.0;
     Dimension lineHeight;
     Dimension indent;
@@ -158,20 +188,28 @@ struct ParagraphStyle {
     Dimension paragraphSpacing;
     bool isEndAddParagraphSpacing = false;
     int32_t textStyleUid = 0;
-    bool optimizeTrailingSpace = false;
     bool isOnlyBetweenLines = false;
     bool isFirstParagraphLineSpacing = true;
+    bool optimizeTrailingSpace = false;
     bool enableAutoSpacing = false;
+    bool orphanCharOptimization = false;
+    bool compressLeadingPunctuation = false;
+    bool includeFontPadding = false;
+    bool fallbackLineSpacing = false;
 
     bool operator==(const ParagraphStyle others) const
     {
         return direction == others.direction && align == others.align && verticalAlign == others.verticalAlign &&
                maxLines == others.maxLines && fontLocale == others.fontLocale && wordBreak == others.wordBreak &&
                ellipsisMode == others.ellipsisMode && textOverflow == others.textOverflow &&
-               leadingMargin == others.leadingMargin && fontSize == others.fontSize &&
+               leadingMargin == others.leadingMargin &&
+               drawableLeadingMargin == others.drawableLeadingMargin && fontSize == others.fontSize &&
                halfLeading == others.halfLeading && indent == others.indent &&
                paragraphSpacing == others.paragraphSpacing && isOnlyBetweenLines == others.isOnlyBetweenLines &&
-               enableAutoSpacing == others.enableAutoSpacing;
+               enableAutoSpacing == others.enableAutoSpacing &&
+               orphanCharOptimization == others.orphanCharOptimization &&
+               compressLeadingPunctuation == others.compressLeadingPunctuation &&
+               includeFontPadding == others.includeFontPadding && fallbackLineSpacing == others.fallbackLineSpacing;
     }
 
     bool operator!=(const ParagraphStyle others) const
@@ -196,11 +234,19 @@ struct ParagraphStyle {
         result += ", fontSize: ";
         result += std::to_string(fontSize);
         result += ", indent: ";
-        result += indent.ToString();
         result += ", paragraphSpacing: ";
         result += paragraphSpacing.ToString();
+        result += indent.ToString();
         result += ", enableAutoSpacing: ";
         result += enableAutoSpacing;
+        result += ", orphanCharOptimization: ";
+        result += orphanCharOptimization;
+        result += ", compressLeadingPunctuation: ";
+        result += compressLeadingPunctuation;
+        result += ", includeFontPadding: ";
+        result += includeFontPadding;
+        result += ", fallbackLineSpacing: ";
+        result += fallbackLineSpacing;
         return result;
     }
 };
@@ -243,12 +289,13 @@ struct PositionWithAffinity {
 
 // Paragraph is interface for drawing text and text paragraph.
 class Paragraph : public virtual AceType {
-    DECLARE_ACE_TYPE(NG::Paragraph, AceType)
+    DECLARE_ACE_TYPE(NG::Paragraph, AceType);
 
 public:
-    static RefPtr<Paragraph> Create(const ParagraphStyle& paraStyle, const RefPtr<FontCollection>& fontCollection);
-    static RefPtr<Paragraph> CreateRichEditorParagraph(
+    ACE_FORCE_EXPORT static RefPtr<Paragraph> Create(
         const ParagraphStyle& paraStyle, const RefPtr<FontCollection>& fontCollection);
+    ACE_FORCE_EXPORT static RefPtr<Paragraph> CreateRichEditorParagraph(
+        const ParagraphStyle& paraStyle, const RefPtr<FontCollection>& fontCollection, bool isSingleLineMode);
 
     static RefPtr<Paragraph> Create(void* paragraph);
     // whether the paragraph has been build
@@ -267,6 +314,11 @@ public:
     virtual void Layout(float width) = 0;
     // interfaces for reLayout
     virtual void ReLayout(float width, const ParagraphStyle& paraStyle, const std::vector<TextStyle>& textStyles) = 0;
+    virtual void ReLayout(float width, const ParagraphStyle& paraStyle, const std::vector<TextStyle>& textStyles,
+        const std::optional<TextStyle>& firstValidTextStyle)
+    {
+        ReLayout(width, paraStyle, textStyles);
+    }
     virtual void ReLayoutForeground(const TextStyle& textStyle) = 0;
     virtual float GetHeight() = 0;
     virtual float GetTextWidth() = 0;
@@ -284,6 +336,21 @@ public:
         PositionWithAffinity finalResult(0, TextAffinity::UPSTREAM);
         return finalResult;
     }
+    virtual PositionWithAffinity GetCharacterPositionAtCoordinate(const Offset& offset)
+    {
+        PositionWithAffinity finalResult(0, TextAffinity::UPSTREAM);
+        return finalResult;
+    }
+    virtual std::pair<TextRange, TextRange> GetGlyphRangeForCharacterRange(int32_t start, int32_t end)
+    {
+        std::pair<TextRange, TextRange> ranges;
+        return ranges;
+    }
+    virtual std::pair<TextRange, TextRange> GetCharacterRangeForGlyphRange(int32_t start, int32_t end)
+    {
+        std::pair<TextRange, TextRange> ranges;
+        return ranges;
+    }
     virtual void GetRectsForRange(int32_t start, int32_t end, std::vector<RectF>& selectedRects) = 0;
     virtual std::pair<size_t, size_t> GetEllipsisTextRange() = 0;
     virtual void GetTightRectsForRange(int32_t start, int32_t end, std::vector<RectF>& selectedRects) = 0;
@@ -295,6 +362,7 @@ public:
         int32_t extent, CaretMetricsF& caretCaretMetric, TextAffinity textAffinity, bool needLineHighest = true) = 0;
     virtual bool CalcCaretMetricsByPosition(int32_t extent, CaretMetricsF& caretCaretMetric,
         const OffsetF& lastTouchOffset, TextAffinity& textAffinity) = 0;
+    virtual bool HandleCaretWhenEmpty(CaretMetricsF& result, bool needLineHighest) = 0;
     virtual void SetIndents(const std::vector<float>& indents) = 0;
     virtual bool GetWordBoundary(int32_t offset, int32_t& start, int32_t& end) = 0;
     virtual std::u16string GetParagraphText() = 0;
@@ -306,7 +374,6 @@ public:
 #ifndef USE_ROSEN_DRAWING
     virtual void Paint(SkCanvas* skCanvas, float x, float y) = 0;
 #endif
-    virtual void SetParagraphId(uint32_t id) = 0;
     virtual LineMetrics GetLineMetricsByRectF(RectF& rect) = 0;
     virtual TextLineMetrics GetLineMetrics(size_t lineNumber) = 0;
     virtual RectF GetPaintRegion(float x, float y) = 0;
@@ -319,6 +386,26 @@ public:
     {
         return false;
     };
+    virtual bool DidExceedMaxLinesInner()
+    {
+        return false;
+    }
+    virtual std::string GetDumpInfo()
+    {
+        return "";
+    }
+    virtual bool IsSingleLineMode()
+    {
+        return false;
+    }
+    virtual std::optional<void*> GetRawParagraph()
+    {
+        return std::nullopt;
+    }
+    virtual int32_t GetPlaceholderCnt() const
+    {
+        return 0;
+    }
 };
 } // namespace OHOS::Ace::NG
 

@@ -19,7 +19,9 @@
 #include "pixel_map_impl.h"
 #endif
 #include "cj_lambda.h"
+#include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/pattern/image/image_model_ng.h"
+#include "core/components/image/image_theme.h"
 
 using namespace OHOS::Ace::Framework;
 using namespace OHOS::Ace;
@@ -64,8 +66,7 @@ void FfiOHOSAceFrameworkImageCreateWithUrl(const char* url)
     imageInfoConfig.moduleName = "";
     imageInfoConfig.isUriPureNumber = false;
     imageInfoConfig.isImageSpan = false;
-    RefPtr<PixelMap> pixMap = nullptr;
-    ImageModel::GetInstance()->Create(imageInfoConfig, pixMap);
+    ImageModel::GetInstance()->Create(imageInfoConfig);
 }
 
 void FfiOHOSAceFrameworkImageCreateWithPixelMap(int64_t id)
@@ -82,11 +83,12 @@ void FfiOHOSAceFrameworkImageCreateWithPixelMap(int64_t id)
     RefPtr<PixelMap> pixelMapRef = PixelMap::CreatePixelMap(&pixelMap);
     ImageInfoConfig imageInfoConfig;
     imageInfoConfig.src = nullptr;
+    imageInfoConfig.pixelMap = pixelMapRef;
     imageInfoConfig.bundleName = "";
     imageInfoConfig.moduleName = "";
     imageInfoConfig.isUriPureNumber = false;
     imageInfoConfig.isImageSpan = false;
-    ImageModel::GetInstance()->Create(imageInfoConfig, pixelMapRef);
+    ImageModel::GetInstance()->Create(imageInfoConfig);
 #endif
 }
 
@@ -182,6 +184,21 @@ void FfiOHOSAceFrameworkImageSetSyncLoad(bool syncLoad)
 void FfiOHOSAceFrameworkImageSetImageFill(uint32_t color)
 {
     ImageModel::GetInstance()->SetImageFill(Color(color));
+}
+
+void FfiOHOSAceFrameworkImageResetImageFill()
+{
+    if (ImageModel::GetInstance()->GetIsAnimation()) {
+        return;
+    }
+    auto pipelineContext = PipelineBase::GetCurrentContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto theme = pipelineContext->GetTheme<ImageTheme>();
+    CHECK_NULL_VOID(theme);
+    Color color = theme->GetFillColor();
+    ImageModel::GetInstance()->SetImageFill(color);
+    // Fix the svg collision bug with the foreground color placeholder 0x00000001.
+    ViewAbstractModel::GetInstance()->SetForegroundColor(Color::FOREGROUND);
 }
 
 void FfiOHOSAceFrameworkImageSetAutoResize(bool autoResize)

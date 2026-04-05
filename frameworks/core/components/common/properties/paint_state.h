@@ -124,6 +124,10 @@ struct TextMetrics {
     double ideographicBaseline = 0;
 };
 
+struct RenderingContextOptions {
+    bool antialias = false;
+};
+
 enum class ContextType {
     RENDER_2D,
     RENDER_3D,
@@ -274,7 +278,7 @@ public:
         pattern_ = pattern;
     }
 
-    std::weak_ptr<Ace::Pattern> GetPatternNG() const
+    std::shared_ptr<Ace::Pattern> GetPatternNG() const
     {
         return patternNG_;
     }
@@ -282,16 +286,13 @@ public:
     Ace::Pattern GetPatternValue() const
     {
         Pattern pattern;
-        if (!patternNG_.expired()) {
-            auto value = patternNG_.lock();
-            if (value) {
-                pattern = *value;
-            }
+        if (patternNG_) {
+            pattern = *patternNG_;
         }
         return pattern;
     }
 
-    void SetPatternNG(const std::weak_ptr<Ace::Pattern>& pattern)
+    void SetPatternNG(const std::shared_ptr<Ace::Pattern>& pattern)
     {
         paintStyle_ = PaintStyle::ImagePattern;
         patternNG_ = pattern;
@@ -321,7 +322,7 @@ protected:
     int32_t id_ = 0;
     PaintStyle paintStyle_ = PaintStyle::Color;
     Pattern pattern_;
-    std::weak_ptr<Ace::Pattern> patternNG_;
+    std::shared_ptr<Ace::Pattern> patternNG_;
 };
 
 class StrokePaintState : public PaintState {

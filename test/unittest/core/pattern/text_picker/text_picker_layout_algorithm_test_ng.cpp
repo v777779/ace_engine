@@ -16,16 +16,19 @@
 #include "gtest/gtest.h"
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_default.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_default.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components/theme/icon_theme.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components/button/button_theme.h"
 #include "core/components/dialog/dialog_theme.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/text_picker/textpicker_layout_algorithm.h"
+#include "core/components_ng/pattern/text_picker/textpicker_pattern.h"
+#include "core/components_ng/pattern/text_picker/textpicker_model_ng.h"
 
 #undef private
 #undef protected
@@ -34,6 +37,13 @@ using namespace testing;
 using namespace testing::ext;
 
 namespace OHOS::Ace::NG {
+namespace {
+    constexpr float USER_IDEAL_SIZE_0 = 0.0f;
+    constexpr float USER_IDEAL_SIZE_400 = 400.0f;
+    constexpr uint32_t SELECTED_INDEX_1 = 1;
+    constexpr float USER_IDEAL_SIZE_100 = 100.0f;
+    constexpr float USER_IDEAL_SIZE_80 = 80.0f;
+}
 
 class TextPickerLayoutAlgorithmTest : public testing::Test {
 public:
@@ -42,11 +52,14 @@ public:
     void SetUp() override;
     void TearDown() override;
     RefPtr<Theme> GetThemeByType(ThemeType type);
+    void CreateSingleTextPicker();
 
     RefPtr<IconTheme> iconThem_;
     RefPtr<DialogTheme> dialogTheme_;
     RefPtr<PickerTheme> pickerThem_;
     RefPtr<ButtonTheme> buttonTheme_;
+
+    RefPtr<FrameNode> frameNode_;
 };
 
 class TestNode : public UINode {
@@ -116,6 +129,21 @@ RefPtr<Theme> TextPickerLayoutAlgorithmTest::GetThemeByType(ThemeType type)
     } else {
         return nullptr;
     }
+}
+
+void TextPickerLayoutAlgorithmTest::CreateSingleTextPicker()
+{
+    auto theme = MockPipelineContext::GetCurrent()->GetTheme<PickerTheme>();
+    TextPickerModelNG::GetInstance()->Create(theme, TEXT);
+    std::vector<NG::RangeContent> range = { { "", "Text1" }, { "", "Text2" }, { "", "Text3" } };
+    TextPickerModelNG::GetInstance()->SetRange(range);
+    TextPickerModelNG::GetInstance()->SetSelected(SELECTED_INDEX_1);
+    RefPtr<UINode> element = ViewStackProcessor::GetInstance()->Finish();
+    ASSERT_NE(element, nullptr);
+    EXPECT_EQ(element->GetTag(), V2::TEXT_PICKER_ETS_TAG);
+    frameNode_ = AceType::DynamicCast<FrameNode>(element);
+    ASSERT_NE(frameNode_, nullptr);
+    frameNode_->MarkModifyDone();
 }
 
 /**
@@ -354,4 +382,336 @@ HWTEST_F(TextPickerLayoutAlgorithmTest, ReCalcItemHeightScale005, TestSize.Level
     res = textPickerLayoutAlgorithm.ReCalcItemHeightScale(userSetHeight, isDividerSpacing);
     EXPECT_EQ(res, expectValue);
 }
+
+/**
+ * @tc.name: BeforeCreateLayoutWrapper001
+ * @tc.desc: Test BeforeCreateLayoutWrapper when layoutPolicy is WRAP_CONTENT.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPickerLayoutAlgorithmTest, BeforeCreateLayoutWrapper001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create TextPicker.
+     */
+    CreateSingleTextPicker();
+    auto pickerPattern = frameNode_->GetPattern<TextPickerPattern>();
+    ASSERT_NE(pickerPattern, nullptr);
+    pickerPattern->OnModifyDone();
+    auto layoutAlgorithm = pickerPattern->CreateLayoutAlgorithm();
+
+    /**
+     * @tc.steps: step2. Set a specified size for the TextPicker.
+     */
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    RefPtr<LayoutWrapperNode> layoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    ASSERT_NE(layoutWrapper, nullptr);
+    layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(layoutAlgorithm));
+
+    auto pickerProperty = frameNode_->GetLayoutProperty<TextPickerLayoutProperty>();
+    ASSERT_NE(pickerProperty, nullptr);
+    pickerProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(USER_IDEAL_SIZE_400),
+        CalcLength(USER_IDEAL_SIZE_400)));
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    EXPECT_TRUE(layoutProperty->calcLayoutConstraint_->selfIdealSize.has_value());
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Width().value(), CalcLength(USER_IDEAL_SIZE_400));
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Height().value(), CalcLength(USER_IDEAL_SIZE_400));
+
+    /**
+     * @tc.steps: step3. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::WRAP_CONTENT.
+     */
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::WRAP_CONTENT;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::WRAP_CONTENT;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+
+    /**
+     * @tc.steps: step4. Call BeforeCreateLayoutWrapper function.
+     * @tc.expected: The width and height of the TextPicker will be set to 0.
+     */
+    pickerPattern->BeforeCreateLayoutWrapper();
+    EXPECT_TRUE(layoutProperty->calcLayoutConstraint_->selfIdealSize.has_value());
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Width().value(), CalcLength(USER_IDEAL_SIZE_0));
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Height().value(), CalcLength(USER_IDEAL_SIZE_0));
+}
+
+/**
+ * @tc.name: BeforeCreateLayoutWrapper002
+ * @tc.desc: Test BeforeCreateLayoutWrapper when layoutPolicy is FIX_AT_IDEAL_SIZE.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPickerLayoutAlgorithmTest, BeforeCreateLayoutWrapper002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create TextPicker.
+     */
+    CreateSingleTextPicker();
+    auto pickerPattern = frameNode_->GetPattern<TextPickerPattern>();
+    ASSERT_NE(pickerPattern, nullptr);
+    pickerPattern->OnModifyDone();
+    auto layoutAlgorithm = pickerPattern->CreateLayoutAlgorithm();
+
+    /**
+     * @tc.steps: step2. Set a specified size for the TextPicker.
+     */
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    RefPtr<LayoutWrapperNode> layoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    ASSERT_NE(layoutWrapper, nullptr);
+    layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(layoutAlgorithm));
+
+    auto pickerProperty = frameNode_->GetLayoutProperty<TextPickerLayoutProperty>();
+    ASSERT_NE(pickerProperty, nullptr);
+    pickerProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(USER_IDEAL_SIZE_400),
+        CalcLength(USER_IDEAL_SIZE_400)));
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    EXPECT_TRUE(layoutProperty->calcLayoutConstraint_->selfIdealSize.has_value());
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Width().value(), CalcLength(USER_IDEAL_SIZE_400));
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Height().value(), CalcLength(USER_IDEAL_SIZE_400));
+
+    /**
+     * @tc.steps: step3. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::FIX_AT_IDEAL_SIZE.
+     */
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::FIX_AT_IDEAL_SIZE;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::FIX_AT_IDEAL_SIZE;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+
+    /**
+     * @tc.steps: step4. Call BeforeCreateLayoutWrapper function.
+     * @tc.expected: The width and height of the TextPicker will be set to 0.
+     */
+    pickerPattern->BeforeCreateLayoutWrapper();
+    EXPECT_TRUE(layoutProperty->calcLayoutConstraint_->selfIdealSize.has_value());
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Width().value(), CalcLength(USER_IDEAL_SIZE_0));
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Height().value(), CalcLength(USER_IDEAL_SIZE_0));
+}
+
+/**
+ * @tc.name: BeforeCreateLayoutWrapper003
+ * @tc.desc: Test BeforeCreateLayoutWrapper when layoutPolicy is MATCH_PARENT.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPickerLayoutAlgorithmTest, BeforeCreateLayoutWrapper003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create TextPicker.
+     */
+    CreateSingleTextPicker();
+    auto pickerPattern = frameNode_->GetPattern<TextPickerPattern>();
+    ASSERT_NE(pickerPattern, nullptr);
+    pickerPattern->OnModifyDone();
+    auto layoutAlgorithm = pickerPattern->CreateLayoutAlgorithm();
+
+    /**
+     * @tc.steps: step2. Set a specified size for the TextPicker.
+     */
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    RefPtr<LayoutWrapperNode> layoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    ASSERT_NE(layoutWrapper, nullptr);
+    layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(layoutAlgorithm));
+
+    auto pickerProperty = frameNode_->GetLayoutProperty<TextPickerLayoutProperty>();
+    ASSERT_NE(pickerProperty, nullptr);
+    pickerProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(USER_IDEAL_SIZE_400),
+        CalcLength(USER_IDEAL_SIZE_400)));
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    EXPECT_TRUE(layoutProperty->calcLayoutConstraint_->selfIdealSize.has_value());
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Width().value(), CalcLength(USER_IDEAL_SIZE_400));
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Height().value(), CalcLength(USER_IDEAL_SIZE_400));
+
+    /**
+     * @tc.steps: step3. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::MATCH_PARENT.
+     */
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+
+    /**
+     * @tc.steps: step4. Call BeforeCreateLayoutWrapper function.
+     * @tc.expected: The width and height of the TextPicker will not be changed.
+     */
+    pickerPattern->BeforeCreateLayoutWrapper();
+    EXPECT_TRUE(layoutProperty->calcLayoutConstraint_->selfIdealSize.has_value());
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Width().value(), CalcLength(USER_IDEAL_SIZE_400));
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Height().value(), CalcLength(USER_IDEAL_SIZE_400));
+}
+
+/**
+ * @tc.name: BeforeCreateLayoutWrapper004
+ * @tc.desc: Test BeforeCreateLayoutWrapper when layoutPolicy is NO_MATCH.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPickerLayoutAlgorithmTest, BeforeCreateLayoutWrapper004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create TextPicker.
+     */
+    CreateSingleTextPicker();
+    auto pickerPattern = frameNode_->GetPattern<TextPickerPattern>();
+    ASSERT_NE(pickerPattern, nullptr);
+    pickerPattern->OnModifyDone();
+    auto layoutAlgorithm = pickerPattern->CreateLayoutAlgorithm();
+
+    /**
+     * @tc.steps: step2. Set a specified size for the TextPicker.
+     */
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    RefPtr<LayoutWrapperNode> layoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    ASSERT_NE(layoutWrapper, nullptr);
+    layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(layoutAlgorithm));
+
+    auto pickerProperty = frameNode_->GetLayoutProperty<TextPickerLayoutProperty>();
+    ASSERT_NE(pickerProperty, nullptr);
+    pickerProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(USER_IDEAL_SIZE_400),
+        CalcLength(USER_IDEAL_SIZE_400)));
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    EXPECT_TRUE(layoutProperty->calcLayoutConstraint_->selfIdealSize.has_value());
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Width().value(), CalcLength(USER_IDEAL_SIZE_400));
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Height().value(), CalcLength(USER_IDEAL_SIZE_400));
+
+    /**
+     * @tc.steps: step3. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::NO_MATCH.
+     */
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::NO_MATCH;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::NO_MATCH;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+
+    /**
+     * @tc.steps: step4. Call BeforeCreateLayoutWrapper function.
+     * @tc.expected: The width and height of the TextPicker will not be changed.
+     */
+    pickerPattern->BeforeCreateLayoutWrapper();
+    EXPECT_TRUE(layoutProperty->calcLayoutConstraint_->selfIdealSize.has_value());
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Width().value(), CalcLength(USER_IDEAL_SIZE_400));
+    EXPECT_EQ(layoutProperty->calcLayoutConstraint_->selfIdealSize->Height().value(), CalcLength(USER_IDEAL_SIZE_400));
+}
+
+/**
+ * @tc.name: CheckAndUpdateColumnSizeWithMatch
+ * @tc.desc: Test CheckAndUpdateColumnSize when layoutPolicy is MATCH_PARENT.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPickerLayoutAlgorithmTest, CheckAndUpdateColumnSizeWithMatch, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create TextPicker.
+     */
+    CreateSingleTextPicker();
+    auto pickerPattern = frameNode_->GetPattern<TextPickerPattern>();
+    ASSERT_NE(pickerPattern, nullptr);
+    pickerPattern->OnModifyDone();
+
+    /**
+     * @tc.steps: step2. Set a specified size for the parentIdealSize.
+     */
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    RefPtr<LayoutWrapperNode> layoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto layoutAlgorithm = pickerPattern->CreateLayoutAlgorithm();
+    layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(layoutAlgorithm));
+
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    LayoutConstraintF constraint;
+    constraint.UpdateParentIdealSizeWithCheck({USER_IDEAL_SIZE_400, USER_IDEAL_SIZE_400});
+    layoutProperty->UpdateLayoutConstraint(constraint);
+
+    /**
+     * @tc.steps: step3. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::MATCH_PARENT.
+     */
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+
+    /**
+     * @tc.steps: step4. Call CheckAndUpdateColumnSize function.
+     * @tc.expected: The width of the TextPicker will be set to USER_IDEAL_SIZE_400.
+     */
+    auto columnNodes = pickerPattern->GetColumnNodes();
+    ASSERT_GT(columnNodes.size(), 0);
+    SizeF size = SizeF(USER_IDEAL_SIZE_100, USER_IDEAL_SIZE_100);
+    pickerPattern->CheckAndUpdateColumnSize(size, columnNodes[0], false);
+    EXPECT_EQ(size.Width(), USER_IDEAL_SIZE_400);
+    EXPECT_EQ(size.Height(), USER_IDEAL_SIZE_100);
+}
+
+/**
+ * @tc.name: CheckAndUpdateColumnSizeWithNoMatch
+ * @tc.desc: Test CheckAndUpdateColumnSize when layoutPolicy is NO_MATCH.
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextPickerLayoutAlgorithmTest, CheckAndUpdateColumnSizeWithNoMatch, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create TextPicker.
+     */
+    CreateSingleTextPicker();
+    auto pickerPattern = frameNode_->GetPattern<TextPickerPattern>();
+    ASSERT_NE(pickerPattern, nullptr);
+    pickerPattern->OnModifyDone();
+
+    /**
+     * @tc.steps: step2. Set a specified size for the parentIdealSize.
+     */
+    RefPtr<GeometryNode> geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    ASSERT_NE(geometryNode, nullptr);
+    RefPtr<LayoutWrapperNode> layoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    ASSERT_NE(layoutWrapper, nullptr);
+    auto layoutAlgorithm = pickerPattern->CreateLayoutAlgorithm();
+    layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(layoutAlgorithm));
+
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    LayoutConstraintF constraint;
+    constraint.UpdateParentIdealSizeWithCheck({USER_IDEAL_SIZE_400, USER_IDEAL_SIZE_400});
+    layoutProperty->UpdateLayoutConstraint(constraint);
+
+    /**
+     * @tc.steps: step3. Set a size for the stack node of the TextPicker.
+     */
+    auto stackNode = AceType::DynamicCast<FrameNode>(frameNode_->GetFirstChild());
+    ASSERT_NE(stackNode, nullptr);
+    auto stackLayoutProperty = stackNode->GetLayoutProperty();
+    ASSERT_NE(stackLayoutProperty, nullptr);
+    LayoutConstraintF stackConstraint;
+    stackConstraint.UpdateParentIdealSizeWithCheck({USER_IDEAL_SIZE_80, USER_IDEAL_SIZE_80});
+    stackLayoutProperty->UpdateLayoutConstraint(stackConstraint);
+
+    /**
+     * @tc.steps: step4. Set widthLayoutPolicy_ and heightLayoutPolicy_ to LayoutCalPolicy::NO_MATCH.
+     */
+    LayoutPolicyProperty layoutPolicyProperty;
+    layoutPolicyProperty.widthLayoutPolicy_ = LayoutCalPolicy::NO_MATCH;
+    layoutPolicyProperty.heightLayoutPolicy_ = LayoutCalPolicy::NO_MATCH;
+    layoutProperty->layoutPolicy_ = layoutPolicyProperty;
+
+    /**
+     * @tc.steps: step5. Call CheckAndUpdateColumnSize function.
+     * @tc.expected: The width and height of the TextPicker will be changed.
+     */
+    auto columnNodes = pickerPattern->GetColumnNodes();
+    ASSERT_GT(columnNodes.size(), 0);
+    SizeF size = SizeF(USER_IDEAL_SIZE_100, USER_IDEAL_SIZE_100);
+    pickerPattern->CheckAndUpdateColumnSize(size, columnNodes[0], false);
+    EXPECT_EQ(size.Width(), USER_IDEAL_SIZE_80);
+    EXPECT_EQ(size.Height(), USER_IDEAL_SIZE_80);
+}
+
 } // namespace OHOS::Ace::NG

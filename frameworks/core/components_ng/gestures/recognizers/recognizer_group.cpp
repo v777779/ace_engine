@@ -20,18 +20,29 @@
 
 namespace OHOS::Ace::NG {
 
-void RecognizerGroup::OnBeginGestureReferee(int32_t touchId, bool needUpdateChild)
+void RecognizerGroup::OnBeginGestureReferee(int32_t touchId, int32_t originalId, bool needUpdateChild)
 {
-    MultiFingersRecognizer::OnBeginGestureReferee(touchId);
+    MultiFingersRecognizer::OnBeginGestureReferee(touchId, originalId);
     if (!needUpdateChild) {
         return;
     }
     for (const auto& child : recognizers_) {
         if (child) {
-            child->BeginReferee(touchId, needUpdateChild);
+            child->BeginReferee(touchId, originalId, needUpdateChild);
         }
     }
 }
+
+void RecognizerGroup::UpdateGestureReferee(const WeakPtr<GestureReferee>& gestureReferee)
+{
+    for (const auto& child : recognizers_) {
+        if (child) {
+            child->UpdateGestureReferee(gestureReferee);
+        }
+    }
+    referee_ = gestureReferee;
+}
+
 
 RefPtr<Gesture> RecognizerGroup::CreateGestureFromRecognizer() const
 {
@@ -57,6 +68,15 @@ void RecognizerGroup::OnFinishGestureReferee(int32_t touchId, bool isBlocked)
         }
     }
     MultiFingersRecognizer::OnFinishGestureReferee(touchId, isBlocked);
+}
+
+void RecognizerGroup::AttachFrameNode(const WeakPtr<NG::FrameNode>& node)
+{
+    TouchEventTarget::AttachFrameNode(node);
+    auto recognizers = GetGroupRecognizer();
+    for (const auto& recognizer : recognizers) {
+        recognizer->AttachFrameNode(node);
+    }
 }
 
 const std::list<RefPtr<NGGestureRecognizer>>& RecognizerGroup::GetGroupRecognizer()
@@ -239,6 +259,29 @@ void RecognizerGroup::AddHittedRecognizerType(
     }
 }
 
+void RecognizerGroup::ForceCleanRecognizerWithGroup()
+{
+    if (!remainChildOnResetStatus_) {
+        for (const auto& child : recognizers_) {
+            if (child) {
+                child->ForceCleanRecognizerWithGroup();
+                child->SetGestureGroup(nullptr);
+                child->ResetEventImportGestureGroup();
+            }
+        }
+        touchPoints_.clear();
+        fingersId_.clear();
+        fingerList_.clear();
+        activeFingers_.clear();
+        currentFingers_ = 0;
+        refereeState_ = RefereeState::READY;
+        disposal_ = GestureDisposal::NONE;
+        recognizers_.clear();
+    } else {
+        ForceCleanRecognizer();
+    }
+}
+
 void RecognizerGroup::CleanRecognizerState()
 {
     for (const auto& child : recognizers_) {
@@ -266,5 +309,13 @@ bool RecognizerGroup::IsReady()
         }
     }
     return true;
+}
+
+std::string RecognizerGroup::GetGestureInfoString() const
+{
+    std::string gestureInfoStr = MultiFingersRecognizer::GetGestureInfoString();
+    gestureInfoStr.append(",RCRS:");
+    gestureInfoStr.append(std::to_string(remainChildOnResetStatus_));
+    return gestureInfoStr;
 }
 } // namespace OHOS::Ace::NG

@@ -23,6 +23,9 @@ import {
     IProviderDecoratedVariable,
     IStateMgmtFactory,
     IVariableOwner,
+    ConsumeOptions,
+    IObservedObject,
+    MakeMonitorOptions
 } from '../decorator';
 import {
     IStateDecoratedVariable,
@@ -39,6 +42,8 @@ import {
     IMonitor,
     IMonitorDecoratedVariable,
     IComputedDecoratedVariable,
+    IEnvDecoratedVariable,
+    EnvOptions
 } from '../decorator';
 import { IMutableStateMeta } from '../decorator';
 import { MutableStateMeta } from './mutableStateMeta';
@@ -63,10 +68,22 @@ import { ConsumerDecoratedVariable } from '../decoratorImpl/decoratorConsumer';
 import { ComputedDecoratedVariable } from '../decoratorImpl/decoratorComputed';
 import { MonitorFunctionDecorator } from '../decoratorImpl/decoratorMonitor';
 import { uiUtils } from './uiUtilsImpl';
+import { FactoryInternal } from './iFactoryInternal';
+import { EnvDecoratedVariable } from '../decoratorImpl/decoratorEnv';
+import { ObservedObjectRegistry } from '../tools/stateMgmtDFX';
 
 export class __StateMgmtFactoryImpl implements IStateMgmtFactory {
     public makeMutableStateMeta(): IMutableStateMeta {
-        return new MutableStateMeta('');
+        return FactoryInternal.mkMutableStateMeta('');
+    }
+    public makeMutableStateMeta(observedObject: IObservedObject | undefined, propertyName: string): IMutableStateMeta {
+        const meta = FactoryInternal.mkMutableStateMeta(propertyName) as MutableStateMeta;
+        if (observedObject) {
+            const info = ObservedObjectRegistry.getOrRegister(observedObject!);
+            info.setType(propertyName);
+            info.registerMutableStateMeta(meta);
+        }
+        return meta;
     }
     public makeSubscribedWatches(): ISubscribedWatches {
         return new SubscribedWatches();
@@ -163,7 +180,7 @@ export class __StateMgmtFactoryImpl implements IStateMgmtFactory {
                 watchFunc
             ) as ILinkDecoratedVariable<T>;
         }
-        if (source instanceof IPropRefDecoratedVariable) {
+        if (StateMgmtTool.isPropRefDecoratedVariable(source)) {
             return this.makeLinkOnPropRef(
                 owningView,
                 varName,
@@ -473,6 +490,16 @@ export class __StateMgmtFactoryImpl implements IStateMgmtFactory {
         return new ConsumeDecoratedVariable<T>(owningView, varName, provideAlias, watchFunc);
     }
 
+    makeConsume<T>(
+        owningView: IVariableOwner,
+        varName: string,
+        provideAlias: string,
+        watchFunc?: WatchFuncType,
+        consumeOptions?: ConsumeOptions<T>
+    ): IConsumeDecoratedVariable<T> {
+        return new ConsumeDecoratedVariable<T>(owningView, varName, provideAlias, watchFunc, consumeOptions);
+    }
+
     makeStorageLink<T>(
         owningView: IVariableOwner,
         propertyNameInAppStorage: string,
@@ -502,7 +529,7 @@ export class __StateMgmtFactoryImpl implements IStateMgmtFactory {
         defaultValue: T,
         watchFunc?: WatchFuncType
     ): ILocalStorageLinkDecoratedVariable<T> {
-        const result: ILocalStorageLinkDecoratedVariable<T> | undefined = owningView.getLocalStorage().__makeStorageLink<T>(
+        const result: ILocalStorageLinkDecoratedVariable<T> | undefined = owningView.__getLocalStorage__Internal().__makeStorageLink<T>(
             owningView,
             propertyNameInAppStorage,
             varName,
@@ -547,7 +574,7 @@ export class __StateMgmtFactoryImpl implements IStateMgmtFactory {
         initValue: T,
         watchFunc?: WatchFuncType
     ): ILocalStoragePropRefDecoratedVariable<T> {
-        const ref = owningView.getLocalStorage().setAndRef<T>(propName, uiUtils.makeV1Observed(initValue));
+        const ref = owningView.__getLocalStorage__Internal().setAndRef<T>(propName, uiUtils.makeV1Observed(initValue));
         if (ref === undefined) {
             throw new TypeError(`@LocalStoragePropRef('${propName}') ${varName} makeLocalStoragePropRef`);
         }
@@ -571,5 +598,33 @@ export class __StateMgmtFactoryImpl implements IStateMgmtFactory {
         owningView?: IVariableOwner
     ): IMonitorDecoratedVariable {
         return new MonitorFunctionDecorator(pathLambda, monitorFunction, owningView);
+    }
+
+    makeMonitor(
+        pathInfos: Array<IMonitorPathInfo>,
+        monitorCallback: (m: IMonitor) => void,
+        options?: MakeMonitorOptions
+    ): IMonitorDecoratedVariable {
+        return new MonitorFunctionDecorator(
+            pathInfos,
+            monitorCallback,
+            options?.owner,
+            undefined,
+            options?.functionName
+        );
+    }
+
+    makeEnv<T>(
+        owningView: IVariableOwner,
+        envValue: string,
+        varName: string,
+        envOptions?: EnvOptions<T>
+    ): IEnvDecoratedVariable<T> {
+        return new EnvDecoratedVariable<T>(
+            owningView,
+            envValue,
+            varName,
+            envOptions
+        ) as IEnvDecoratedVariable<T>;
     }
 }

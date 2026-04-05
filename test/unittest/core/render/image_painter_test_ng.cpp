@@ -18,8 +18,8 @@
 #include "base/utils/utils.h"
 #define protected public
 #define private public
-#include "test/mock/core/render/mock_canvas_image.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_canvas_image.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "base/geometry/ng/point_t.h"
 #include "core/components/common/properties/paint_state.h"
@@ -1048,5 +1048,36 @@ HWTEST_F(ImagePainterTestNg, ImagePainterTestNg_ApplyImageAlignmentFit18, TestSi
     auto itImageFit5 = imagePainter.ALIMENT_OPERATIONS.find(ImageFit::BOTTOM_END);
     EXPECT_NE(itImageFit5, imagePainter.ALIMENT_OPERATIONS.end());
     EXPECT_EQ(itImageFit5->second(AceApplicationInfo::GetInstance().isRightToLeft_), Alignment::BOTTOM_LEFT);
+}
+
+/**
+ * @tc.name: ImagePainterTestNg_CalculateBgWidth14
+ * @tc.desc: Test cast to CalculateBgWidth
+ * @tc.type: FUNC
+ */
+HWTEST_F(ImagePainterTestNg, ImagePainterTestNg_CalculateBgImageSize14, TestSize.Level1)
+{
+    NG::SizeF boxPaintSize_ { 2, 2 };
+    NG::SizeF srcSize { 1, 1 };
+    BackgroundImagePosition backgroundImagePosition(
+        BackgroundImagePositionType::PX, 1, BackgroundImagePositionType::PX, 1);
+    backgroundImagePosition.SetPercentX(AnimatableDimension(100.0, DimensionUnit::PERCENT));
+    backgroundImagePosition.SetPercentY(AnimatableDimension(100.0, DimensionUnit::PERCENT));
+    backgroundImagePosition.SetIsAlign(true);
+    backgroundImagePosition.SetIsOffsetBaseOnAlignmentNeeded(true);
+    std::optional<BackgroundImagePosition> bgImgPositionOpt = backgroundImagePosition;
+    AceApplicationInfo::GetInstance().isRightToLeft_ = false;
+    auto sizeRet = NG::ImagePainter::CalculateBgImagePosition(boxPaintSize_, srcSize, bgImgPositionOpt);
+    EXPECT_EQ(sizeRet.GetX(), 2);
+    EXPECT_EQ(sizeRet.GetY(), 2);
+    AceApplicationInfo::GetInstance().isRightToLeft_ = true;
+    auto sizeRet2 = NG::ImagePainter::CalculateBgImagePosition(boxPaintSize_, srcSize, bgImgPositionOpt);
+    EXPECT_EQ(sizeRet2.GetX(), -1);
+    EXPECT_EQ(sizeRet2.GetY(), 2);
+    backgroundImagePosition.SetDirectionType(DirectionType::LTR);
+    std::optional<BackgroundImagePosition> bgImgPositionOpt2 = backgroundImagePosition;
+    auto sizeRet3 = NG::ImagePainter::CalculateBgImagePosition(boxPaintSize_, srcSize, bgImgPositionOpt2);
+    EXPECT_EQ(sizeRet3.GetX(), 2);
+    EXPECT_EQ(sizeRet3.GetY(), 2);
 }
 } // namespace OHOS::Ace

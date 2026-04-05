@@ -18,11 +18,6 @@
 #include "core/components_ng/render/drawing_prop_convertor.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
-#ifdef ACE_ENABLE_VK
-#include "render_service_base/include/platform/common/rs_system_properties.h"
-#include "2d_graphics/include/recording/draw_cmd_list.h"
-#endif
-
 namespace OHOS::Ace::NG {
 
 namespace {
@@ -155,13 +150,6 @@ void ImagePainter::DrawImage(RSCanvas& canvas, const OffsetF& offset, const Size
     if (drawObscuration) {
         DrawObscuration(canvas, offset, contentSize);
     } else if (config.isSvg_) {
-#ifdef ACE_ENABLE_VK
-    RSRecordingCanvas* recordingCanvas = static_cast<RSRecordingCanvas*>(&canvas);
-    if (recordingCanvas != nullptr && recordingCanvas->GetDrawCmdList() != nullptr &&
-            Rosen::RSSystemProperties::GetHybridRenderSwitch(Rosen::ComponentEnableSwitch::SVG) != 0) {
-            recordingCanvas->GetDrawCmdList()->SetHybridRenderType(RSHybridRenderType::SVG);
-        }
-#endif
         DrawSVGImage(canvas, offset, contentSize);
     } else {
         DrawStaticImage(canvas, offset, contentSize);
@@ -350,10 +338,25 @@ OffsetF ImagePainter::CalculateBgImagePosition(const SizeF& boxPaintSize_, const
     }
 
     if (bgImgPosition.IsAlign()) {
-        offset.SetX(
-            bgImgPosition.GetSizeValueX() * (boxPaintSize_.Width() - imageRenderSize_.Width()) / PERCENT_TRANSLATE);
-        offset.SetY(
-            bgImgPosition.GetSizeValueY() * (boxPaintSize_.Height() - imageRenderSize_.Height()) / PERCENT_TRANSLATE);
+        if (bgImgPosition.GetIsOffsetBaseOnAlignmentNeeded()) {
+            offset.AddX(bgImgPosition.GetPercentValueX() * (boxPaintSize_.Width() - imageRenderSize_.Width()) /
+                        PERCENT_TRANSLATE);
+            offset.AddY(bgImgPosition.GetPercentValueY() * (boxPaintSize_.Height() - imageRenderSize_.Height()) /
+                        PERCENT_TRANSLATE);
+        } else {
+            offset.SetX(
+                bgImgPosition.GetSizeValueX() * (boxPaintSize_.Width() - imageRenderSize_.Width()) / PERCENT_TRANSLATE);
+            offset.SetY(bgImgPosition.GetSizeValueY() * (boxPaintSize_.Height() - imageRenderSize_.Height()) /
+                        PERCENT_TRANSLATE);
+        }
+    }
+
+    bool isRtl = AceApplicationInfo::GetInstance().IsRightToLeft();
+    if (bgImgPosition.GetDirectionType() != DirectionType::AUTO) {
+        isRtl = (bgImgPosition.GetDirectionType() == DirectionType::RTL);
+    }
+    if (isRtl) {
+        offset.SetX(boxPaintSize_.Width() - offset.GetX() - imageRenderSize_.Width());
     }
     return offset;
 }

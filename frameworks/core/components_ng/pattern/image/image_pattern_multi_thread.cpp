@@ -29,15 +29,9 @@ void ImagePattern::OnAttachToMainTreeMultiThread()
     auto pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     imagePaintMethod_ = MakeRefPtr<ImagePaintMethod>(nullptr);
-    if (GetIsAnimation()) {
-        renderCtx->SetClipToFrame(true);
-    } else {
-        renderCtx->SetClipToBounds(false);
-        renderCtx->SetUsingContentRectForRenderFrame(true);
-
-        pipeline->AddNodesToNotifyMemoryLevel(host->GetId());
-        pipeline->AddWindowStateChangedCallback(host->GetId());
-    }
+    renderCtx->SetClipToBounds(false);
+    renderCtx->SetUsingContentRectForRenderFrame(true);
+    pipeline->AddWindowStateChangedCallback(host->GetId());
     auto textTheme = pipeline->GetTheme<TextTheme>();
     CHECK_NULL_VOID(textTheme);
     selectedColor_ = textTheme->GetSelectedColor();
@@ -62,6 +56,28 @@ void ImagePattern::OnDetachFromMainTreeMultiThread()
     auto pipeline = AceType::DynamicCast<PipelineContext>(PipelineBase::GetCurrentContextSafelyWithCheck());
     CHECK_NULL_VOID(pipeline);
     pipeline->RemoveWindowStateChangedCallback(id);
-    pipeline->RemoveNodesToNotifyMemoryLevel(id);
+}
+
+void ImagePattern::RegisterVisibleAreaChangeMultiThread(bool isCalcClip)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    host->PostAfterAttachMainTreeTask([weak = WeakClaim(this), isCalcClip]() {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        auto pipeline = pattern->GetContext();
+        // register to onVisibleAreaChange
+        CHECK_NULL_VOID(pipeline);
+        auto callback = [weak](bool visible, double ratio) {
+            auto self = weak.Upgrade();
+            CHECK_NULL_VOID(self);
+            self->OnVisibleAreaChange(visible, ratio);
+        };
+        auto host = pattern->GetHost();
+        CHECK_NULL_VOID(host);
+        // add visibleAreaChangeNode(inner callback)
+        std::vector<double> ratioList = { 0.0 };
+        pipeline->AddVisibleAreaChangeNode(host, ratioList, callback, false, isCalcClip);
+    });
 }
 } // namespace OHOS::Ace::NG

@@ -15,13 +15,13 @@
 
 #include "swiper_test_ng.h"
 
-#include "core/components/swiper/swiper_component.h"
+#include "core/components_ng/pattern/swiper/swiper_change_event.h"
 #include "core/components_ng/pattern/swiper_indicator/indicator_common/indicator_event_hub.h"
 #include "core/components_ng/pattern/swiper_indicator/indicator_common/indicator_model_ng.h"
 #include "core/components_ng/pattern/swiper_indicator/indicator_common/indicator_pattern.h"
 #include "core/common/resource/resource_parse_utils.h"
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/core/common/mock_resource_adapter_v2.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter_v2.h"
 
 namespace OHOS::Ace::NG {
 
@@ -1746,6 +1746,33 @@ HWTEST_F(SwiperModelTestNg, SwiperModelTestNg036, TestSize.Level1)
 }
 
 /**
+ * @tc.name: SwiperModelTestNg037
+ * @tc.desc: indicator Model NG.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperModelTestNg, SwiperModelTestNg037, TestSize.Level1)
+{
+    auto restFunc = []() {};
+    CreateWithItem([restFunc](SwiperModelNG swiperModel) {
+        swiperModel.SetBindIndicator(true);
+        swiperModel.SetJSIndicatorController(restFunc);
+        swiperModel.ResetJSIndicatorController();
+    });
+
+    IndicatorModelNG model;
+    model.Create();
+    RefPtr<UINode> element = ViewStackProcessor::GetInstance()->Finish();
+    indicatorNode_ = AceType::DynamicCast<FrameNode>(element);
+    EXPECT_NE(indicatorNode_, nullptr);
+    auto indicatorPattern = indicatorNode_->GetPattern<IndicatorPattern>();
+    EXPECT_NE(indicatorPattern, nullptr);
+    indicatorController_ = indicatorPattern->GetIndicatorController();
+    EXPECT_NE(indicatorController_, nullptr);
+    indicatorController_->SetSwiperNode(frameNode_);
+    FlushUITasks(indicatorNode_);
+}
+
+/**
  * @tc.name: OnKeyEvent001
  * @tc.desc: OnKeyEvent
  * @tc.type: FUNC
@@ -2570,5 +2597,22 @@ HWTEST_F(SwiperModelTestNg, ProcessBackgroundSizeWithResourceObjTest001, TestSiz
     CreateSwiperDone();
     g_isConfigChangePerform = false;
     ResetMockResourceData();
+}
+
+/**
+ * @tc.name: SetSwiperFinishAnimation001
+ * @tc.desc: Test SwiperModelTestNg::SetSwiperFinishAnimation
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperModelTestNg, SetSwiperFinishAnimation001, TestSize.Level1)
+{
+    SwiperModelNG model = CreateSwiper();
+    CreateSwiperItems();
+    SwiperParameters swiperParameters;
+    pattern_->SetSwiperParameters(swiperParameters);
+    pattern_->translateAnimationIsRunning_ = true;
+
+    model.SetSwiperFinishAnimation(Referenced::RawPtr(frameNode_));
+    EXPECT_FALSE(pattern_->translateAnimationIsRunning_);
 }
 } // namespace OHOS::Ace::NG

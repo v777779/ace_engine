@@ -14,16 +14,11 @@
  */
 
 #include "core/components_ng/syntax/arkoala_condition_scope.h"
+#include "core/components_ng/layout/layout_property.h"
 
 namespace OHOS::Ace::NG {
 
-namespace {
-
-constexpr char CONDITION_SCOPE_TAG[] = "ConditionScope";
-
-}
-
-ConditionScopeNode::ConditionScopeNode(int32_t nodeId) : UINode(CONDITION_SCOPE_TAG, nodeId) {}
+ConditionScopeNode::ConditionScopeNode(int32_t nodeId) : UINode(V2::JS_IF_ELSE_ETS_TAG, nodeId) {}
 
 void ConditionScopeNode::AddChild(
     const RefPtr<UINode>& child, int32_t slot, bool silently, bool addDefaultTransition, bool addModalUiextension)
@@ -32,6 +27,17 @@ void ConditionScopeNode::AddChild(
     UINode::AddChild(child, slot, silently, addDefaultTransition, addModalUiextension);
     // for geometryTransition, let all reused children call UpdateGeometryTransition.
     LayoutProperty::UpdateAllGeometryTransition(child);
+}
+
+void ConditionScopeNode::FlushUpdateAndMarkDirty()
+{
+    auto parent = GetParent();
+    int64_t accessibilityId = GetAccessibilityId();
+    if (parent) {
+        parent->NotifyChange(0, 0, accessibilityId, NotificationType::START_CHANGE_POSITION);
+    }
+    // mark parent dirty to flush measure.
+    MarkNeedFrameFlushDirty(PROPERTY_UPDATE_BY_CHILD_REQUEST);
 }
 
 } // namespace OHOS::Ace::NG

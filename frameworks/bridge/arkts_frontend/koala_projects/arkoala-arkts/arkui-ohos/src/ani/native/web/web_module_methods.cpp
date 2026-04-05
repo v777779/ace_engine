@@ -62,6 +62,107 @@ static void GetCommonFunc(ani_vm* vm, ani_ref savePtr,
     webviewControllerPeer->releaseRefFunc = std::move(releaseRefFunc);
 }
 
+static bool GetObjectFromPtr(ani_env* env, const char* classDesc, ani_object* obj, void* args)
+{
+    ani_class cls;
+    if (env->FindClass(classDesc, &cls) != ANI_OK) {
+        HILOGE("FindClass fail: %{public}s", classDesc);
+        return false;
+    }
+    ani_method ctor;
+    if (env->Class_FindMethod(cls, "<ctor>", "l:", &ctor) != ANI_OK) {
+        HILOGE("Class_FindMethod fail, <ctor> in %{public}s", classDesc);
+        return false;
+    }
+    if (env->Object_New(cls, ctor, obj, args) != ANI_OK) {
+        HILOGE("Object_New fail: %{public}s", classDesc);
+        return false;
+    }
+    return true;
+}
+
+static void DefaultOnShowFileSelector(ani_vm* vm, void* paramPeer, void* resultPeer, std::function<void(void*)> release)
+{
+    HILOGI("Call defaultOnShowFileSelector start");
+    ani_env* env = GetAniEnv(vm);
+    if (!env) {
+        HILOGE("DefaultOnShowFileSelector callback env is nullptr");
+        release(paramPeer);
+        release(resultPeer);
+        return;
+    }
+    ani_object paramObj;
+    if (!GetObjectFromPtr(env, "arkui.component.web.FileSelectorParam", &paramObj, paramPeer)) {
+        release(paramPeer);
+        release(resultPeer);
+        return;
+    }
+    ani_object resultObj;
+    if (!GetObjectFromPtr(env, "arkui.component.web.FileSelectorResult", &resultObj, resultPeer)) {
+        release(resultPeer);
+        return;
+    }
+    ani_class cls;
+    if (env->FindClass("@ohos.web.fileSelector.SelectorDialog", &cls) != ANI_OK) {
+        HILOGE("FindClass fail: SelectorDialog");
+        return;
+    }
+    ani_method method;
+    if (env->Class_FindMethod(cls, "<ctor>", ":", &method) != ANI_OK) {
+        HILOGE("Class_FindMethod fail, <ctor> in SelectorDialog");
+        return;
+    }
+    ani_object obj;
+    if (env->Object_New(cls, method, &obj) != ANI_OK) {
+        HILOGE("Object_New fail: SelectorDialog");
+        return;
+    }
+    if (env->Class_FindMethod(cls, "defaultOnShowFileSelector",
+                              "C{arkui.component.web.FileSelectorParam}C{arkui.component.web.FileSelectorResult}:",
+                              &method) != ANI_OK) {
+        HILOGE("Class_FindMethod fail, defaultOnShowFileSelector");
+        return;
+    }
+    if (env->Object_CallMethod_Void(obj, method, paramObj, resultObj) != ANI_OK) {
+        HILOGE("Call defaultOnShowFileSelector fail");
+        return;
+    }
+    HILOGI("Call defaultOnShowFileSelector done");
+}
+
+static void DefaultPermissionClipboard(ani_vm* vm, void* peer, std::function<void()> release)
+{
+    HILOGI("Call defaultPermissionClipboard start");
+    ani_env* env = GetAniEnv(vm);
+    if (!env) {
+        HILOGE("DefaultPermissionClipboard callback env is nullptr");
+        release();
+        return;
+    }
+    ani_object obj;
+    if (!GetObjectFromPtr(env, "arkui.component.web.PermissionRequest", &obj, peer)) {
+        release();
+        return;
+    }
+    ani_class cls;
+    if (env->FindClass("@ohos.web.permissionRequest.PermissionClipboard", &cls) != ANI_OK) {
+        HILOGE("FindClass fail: PermissionClipboard");
+        return;
+    }
+    ani_static_method method;
+    if (env->Class_FindStaticMethod(cls, "defaultPermissionClipboard",
+                                    "C{arkui.component.web.PermissionRequest}:",
+                                    &method) != ANI_OK) {
+        HILOGE("Class_FindStaticMethod fail, defaultPermissionClipboard");
+        return;
+    }
+    if (env->Class_CallStaticMethod_Void(cls, method, obj) != ANI_OK) {
+        HILOGE("Call defaultPermissionClipboard fail");
+        return;
+    }
+    HILOGI("Call defaultPermissionClipboard done");
+}
+
 static void GetWebOptionsFunc(ani_vm* vm, ani_ref savePtr,
     WebviewControllerPeer* webviewControllerPeer)
 {
@@ -84,10 +185,29 @@ static void GetWebOptionsFunc(ani_vm* vm, ani_ref savePtr,
                 reinterpret_cast<ani_object>(object), "_setHapPath", "C{std.core.String}:", aniHapPath) != ANI_OK) {
             HILOGE("setHapPathFunc callback to call _setHapPath failed");
         }
+    };
+    auto setWebDetachFunc = [vm, object = savePtr](int32_t nwebId) {
+        ani_env* envTemp = GetAniEnv(vm);
+        if (!envTemp) {
+            return;
+        }
+        if (envTemp->Object_CallMethodByName_Void(
+            reinterpret_cast<ani_object>(object), "setWebDetach", "i:", static_cast<ani_int>(nwebId)) != ANI_OK) {
+            HILOGE("SetWebDetach callback to call setWebDetach failed");
+        }
         envTemp->GlobalReference_Delete(object);
+    };
+    auto defaultOnShowFileSelectorFunc = [vm](void* paramPeer, void* resultPeer, std::function<void(void*)> release) {
+        DefaultOnShowFileSelector(vm, paramPeer, resultPeer, std::move(release));
+    };
+    auto defaultPermissionClipboardFunc = [vm](void* peer, std::function<void()> release) {
+        DefaultPermissionClipboard(vm, peer, std::move(release));
     };
     webviewControllerPeer->setWebIdFunc = std::move(setWebIdFunc);
     webviewControllerPeer->setHapPathFunc = std::move(setHapPathFunc);
+    webviewControllerPeer->setWebDetachFunc = std::move(setWebDetachFunc);
+    webviewControllerPeer->defaultOnShowFileSelectorFunc = std::move(defaultOnShowFileSelectorFunc);
+    webviewControllerPeer->defaultPermissionClipboardFunc = std::move(defaultPermissionClipboardFunc);
 }
 
 static void GetWebviewControllerHandlerFunc(ani_vm* vm, ani_ref savePtr,
@@ -141,6 +261,119 @@ ani_object ExtractorsFromWebviewWebviewControllerPtr(ani_env* env, [[maybe_unuse
     HILOGD("ExtractorsFromWebviewWebviewControllerPtr entry");
     ani_ref resultRef = nullptr;
     return static_cast<ani_object>(resultRef);
+}
+
+static ani_status FindJavaScriptProxyPropertyAndGetGlobalRef(
+    ani_env* env, ani_object object, const char* propertyName, ani_ref* globalRef)
+{
+    ani_ref tempRef = nullptr;
+    ani_status status = env->Object_GetPropertyByName_Ref(object, propertyName, &tempRef);
+    if (status != ANI_OK) {
+        HILOGE("Find JavaScriptProxy property: %{public}s failed, errno: %{public}d", propertyName, status);
+        return status;
+    }
+    status = env->GlobalReference_Create(tempRef, globalRef);
+    if (status != ANI_OK) {
+        HILOGE("Create global reference failed, errno: %{public}d", status);
+        return status;
+    }
+    return ANI_OK;
+}
+
+static void DestroyJavaScriptProxyPropertyRef(ani_env* env, JavaScriptProxyProperyRef& propertyRef)
+{
+    env->GlobalReference_Delete(propertyRef.objectRef);
+    env->GlobalReference_Delete(propertyRef.nameRef);
+    env->GlobalReference_Delete(propertyRef.methodListRef);
+    env->GlobalReference_Delete(propertyRef.controllerRef);
+    env->GlobalReference_Delete(propertyRef.asyncMethodListRef);
+    env->GlobalReference_Delete(propertyRef.permissionRef);
+}
+
+static int32_t GetJavaScriptProxyProperty(ani_env* env, ani_object object, JavaScriptProxyProperyRef& properyRef)
+{
+    if (FindJavaScriptProxyPropertyAndGetGlobalRef(env, object, "jsObject", &properyRef.objectRef) != ANI_OK) {
+        return -1;
+    }
+    if (FindJavaScriptProxyPropertyAndGetGlobalRef(env, object, "name", &properyRef.nameRef) != ANI_OK) {
+        DestroyJavaScriptProxyPropertyRef(env, properyRef);
+        return -1;
+    }
+    if (FindJavaScriptProxyPropertyAndGetGlobalRef(env, object, "methodList", &properyRef.methodListRef) != ANI_OK) {
+        DestroyJavaScriptProxyPropertyRef(env, properyRef);
+        return -1;
+    }
+    if (FindJavaScriptProxyPropertyAndGetGlobalRef(env, object, "controller", &properyRef.controllerRef) != ANI_OK) {
+        DestroyJavaScriptProxyPropertyRef(env, properyRef);
+        return -1;
+    }
+    if (FindJavaScriptProxyPropertyAndGetGlobalRef(env, object, "asyncMethodList", &properyRef.asyncMethodListRef) !=
+        ANI_OK) {
+        DestroyJavaScriptProxyPropertyRef(env, properyRef);
+        return -1;
+    }
+    if (FindJavaScriptProxyPropertyAndGetGlobalRef(env, object, "permission", &properyRef.permissionRef) != ANI_OK) {
+        DestroyJavaScriptProxyPropertyRef(env, properyRef);
+        return -1;
+    }
+    return 0;
+}
+
+static void GetJavaScriptProxyFunc(ani_env* env, ani_vm* vm, ani_object object, ani_long node)
+{
+    const auto* modifier = GetNodeAniModifier();
+
+    if (!modifier || !modifier->getWebAniModifier() || !env || !object) {
+        return;
+    }
+
+    JavaScriptProxyProperyRef properyRef = { 0 };
+    if (GetJavaScriptProxyProperty(env, object, properyRef) != 0) {
+        return;
+    }
+
+    auto jsProxyCallback = [vm, controller = properyRef.controllerRef, jsObject = properyRef.objectRef,
+                               name = properyRef.nameRef, methodList = properyRef.methodListRef,
+                               asyncMethodList = properyRef.asyncMethodListRef,
+                               permission = properyRef.permissionRef]() {
+        ani_env* envTemp = GetAniEnv(vm);
+        if (!envTemp) {
+            HILOGE("jsProxyCallback callback envTemp is nullptr");
+            return;
+        }
+        if (envTemp->Object_CallMethodByName_Void(reinterpret_cast<ani_object>(controller),
+                                                  "jsProxy",
+                                                  nullptr,
+                                                  reinterpret_cast<ani_object>(jsObject),
+                                                  reinterpret_cast<ani_string>(name),
+                                                  reinterpret_cast<ani_array>(methodList),
+                                                  reinterpret_cast<ani_array>(asyncMethodList),
+                                                  reinterpret_cast<ani_string>(permission)) != ANI_OK) {
+            HILOGE("jsProxyCallback callback to call innerJavaScriptProxy failed");
+        }
+        envTemp->GlobalReference_Delete(jsObject);
+        envTemp->GlobalReference_Delete(name);
+        envTemp->GlobalReference_Delete(methodList);
+        envTemp->GlobalReference_Delete(controller);
+        envTemp->GlobalReference_Delete(asyncMethodList);
+        envTemp->GlobalReference_Delete(permission);
+    };
+
+    modifier->getWebAniModifier()->setJavaScriptProxyController(
+        reinterpret_cast<void*>(node), std::move(jsProxyCallback));
+}
+
+void SetJavaScriptProxyController(ani_env* env, ani_class aniClass, ani_long node, ani_object object)
+{
+    HILOGD("SetJavaScriptProxyController entry");
+    ani_vm* vm = nullptr;
+
+    if (env->GetVM(&vm) != ANI_OK) {
+        HILOGE("SetJavaScriptProxyController get global object failed");
+        return;
+    }
+
+    GetJavaScriptProxyFunc(env, vm, object, node);
 }
 
 ani_boolean TransferScreenCaptureHandlerToStatic(ani_env* env, ani_class aniClass, ani_long node, ani_object input)

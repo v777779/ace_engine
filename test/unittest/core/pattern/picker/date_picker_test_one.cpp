@@ -16,11 +16,11 @@
 
 #include "gtest/gtest.h"
 #include "test/unittest/core/pattern/test_ng.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_default.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_default.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "core/components/theme/icon_theme.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
@@ -942,7 +942,7 @@ HWTEST_F(DatePickerTestOne, UpdateCheckboxPaintProperty, TestSize.Level1)
     checkboxData.unselectedColor = Color::BLUE;
     checkboxData.strokeColor = Color::BLUE;
     DatePickerDialogView::UpdateCheckboxPaintProperty(
-        checkboxPaintProps, true, checkboxData);
+        AceType::RawPtr(checkbox), true, checkboxData);
     EXPECT_EQ(Color::BLUE, checkboxPaintProps->GetCheckBoxSelectedColor());
     EXPECT_EQ(Color::BLUE, checkboxPaintProps->GetCheckBoxUnSelectedColor());
     EXPECT_EQ(Color::BLUE, checkboxPaintProps->GetCheckBoxCheckMarkColor());
@@ -1077,6 +1077,18 @@ HWTEST_F(DatePickerTestOne, CreateLunarSwitchTextNode001, TestSize.Level1)
 {
     auto textNode = DatePickerDialogView::CreateLunarSwitchTextNode();
     EXPECT_NE(textNode, nullptr);
+
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    EXPECT_NE(textLayoutProperty, nullptr);
+    EXPECT_EQ(textLayoutProperty->GetMaxLines().value(), 1);
+
+    auto pipeline = PipelineBase::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto pickerTheme = pipeline->GetTheme<PickerTheme>();
+    ASSERT_NE(pickerTheme, nullptr);
+    ASSERT_TRUE(textLayoutProperty->HasAdaptMaxFontSize());
+    EXPECT_EQ(textLayoutProperty->GetAdaptMaxFontSizeValue(Dimension()),
+        DatePickerDialogView::ConvertFontScaleValue(pickerTheme->GetLunarSwitchTextSize()));
 }
 
 /**

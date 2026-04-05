@@ -17,6 +17,7 @@
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/grid/grid_model_ng.h"
 #include "core/components_ng/pattern/grid/grid_model_static.h"
+#include "core/components_ng/pattern/scrollable/selectable_container_pattern.h"
 #include "core/components_ng/pattern/scrollable/scrollable_model_static.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
@@ -34,7 +35,7 @@ inline void AssignCast(std::optional<GridItemSize>& dst, const Ark_GridLayoutOpt
 }
 
 template<>
-inline void AssignCast(std::optional<std::set<int32_t>>& dst, const Array_Int32& src)
+inline void AssignCast(std::optional<std::set<int32_t>>& dst, const Array_I32& src)
 {
     auto length = static_cast<int32_t>(src.length);
     std::set<int32_t> indexesSet;
@@ -85,6 +86,14 @@ inline void AssignTo(std::optional<ScrollFrameResult>& dst, const Ark_OnScrollFr
     ScrollFrameResult ret;
     ret.offset = Converter::Convert<Dimension>(from.offsetRemain);
     dst = ret;
+}
+
+template<>
+std::pair<std::optional<float>, std::optional<float>> Convert(const Ark_ComputedBarAttribute& src)
+{
+    auto totalOffset = Convert<Dimension>(src.totalOffset).ConvertToPx();
+    auto totalLength = Convert<Dimension>(src.totalLength).ConvertToPx();
+    return {totalOffset, totalLength};
 }
 } // namespace OHOS::Ace::NG::Converter
 
@@ -159,16 +168,29 @@ void SetGridOptionsImpl(Ark_NativePointer node,
 } // GridInterfaceModifier
 namespace GridAttributeModifier {
 void SetColumnsTemplateImpl(Ark_NativePointer node,
-                            const Opt_String* value)
+                            const Opt_Union_String_ItemFillPolicy* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    auto convValue = Converter::OptConvertPtr<std::string>(value);
-    if (!convValue) {
-        GridModelStatic::SetColumnsTemplate(frameNode, std::nullopt);
-        return;
-    }
-    GridModelStatic::SetColumnsTemplate(frameNode, *convValue);
+    Converter::VisitUnionPtr(
+        value,
+        [frameNode](const Ark_String& value0) {
+            auto convValue = Converter::OptConvert<std::string>(value0);
+            if (!convValue) {
+                GridModelStatic::SetColumnsTemplate(frameNode, std::nullopt);
+                return;
+            }
+            GridModelStatic::SetColumnsTemplate(frameNode, *convValue);
+        },
+        [frameNode](const Ark_ItemFillPolicy& value1) {
+            auto result = Converter::OptConvert<PresetFillType>(value1).value_or(PresetFillType::BREAKPOINT_DEFAULT);
+            if (static_cast<int32_t>(result) < static_cast<int32_t>(PresetFillType::BREAKPOINT_DEFAULT) ||
+                static_cast<int32_t>(result) > static_cast<int32_t>(PresetFillType::BREAKPOINT_SM2MD3LG5)) {
+                result = PresetFillType::BREAKPOINT_DEFAULT;
+            }
+            GridModelStatic::SetItemFillPolicy(frameNode, result);
+        },
+        [frameNode]() { GridModelStatic::SetColumnsTemplate(frameNode, std::nullopt); });
 }
 void SetRowsTemplateImpl(Ark_NativePointer node,
                          const Opt_String* value)
@@ -188,7 +210,9 @@ void SetColumnsGapImpl(Ark_NativePointer node,
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     auto convValue = Converter::OptConvertPtr<Dimension>(value);
-    Validator::ValidateNonNegative(convValue);
+    if (convValue && convValue->Value() < 0.0f) {
+        convValue = Dimension(0.0f, convValue->Unit());
+    }
     GridModelStatic::SetColumnsGap(frameNode, convValue);
 }
 void SetRowsGapImpl(Ark_NativePointer node,
@@ -197,7 +221,9 @@ void SetRowsGapImpl(Ark_NativePointer node,
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     auto convValue = Converter::OptConvertPtr<Dimension>(value);
-    Validator::ValidateNonNegative(convValue);
+    if (convValue && convValue->Value() < 0.0f) {
+        convValue = Dimension(0.0f, convValue->Unit());
+    }
     GridModelStatic::SetRowsGap(frameNode, convValue);
 }
 void SetScrollBarWidthImpl(Ark_NativePointer node,
@@ -211,7 +237,7 @@ void SetScrollBarWidthImpl(Ark_NativePointer node,
     ScrollableModelStatic::SetScrollBarWidth(frameNode, convValue);
 }
 void SetScrollBarColorImpl(Ark_NativePointer node,
-                           const Opt_Union_Color_I32_String* value)
+                           const Opt_Union_arkui_component_enums_Color_I32_String_Resource* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -242,11 +268,8 @@ void SetOnScrollBarUpdateImpl(Ark_NativePointer node,
         [callback = CallbackHelper(*optValue)](int32_t index, const Dimension& offset) -> ResType {
         auto arkIndex = ArkValue<Ark_Int32>(index);
         auto arkOffset = ArkValue<Ark_Float64>(offset);
-        auto arkResult = callback.InvokeWithObtainResult<Ark_ComputedBarAttribute, Callback_ComputedBarAttribute_Void>(
+        return callback.InvokeWithConvertResult<ResType, Ark_ComputedBarAttribute, Callback_ComputedBarAttribute_Void>(
             arkIndex, arkOffset);
-        auto totalOffset = Convert<Dimension>(arkResult.totalOffset).ConvertToPx();
-        auto totalLength = Convert<Dimension>(arkResult.totalLength).ConvertToPx();
-        return ResType(totalOffset, totalLength);
     };
     GridModelStatic::SetOnScrollBarUpdate(frameNode, std::move(onScrollBarUpdate));
 }
@@ -358,6 +381,14 @@ void SetSupportAnimationImpl(Ark_NativePointer node,
     }
     GridModelStatic::SetSupportAnimation(frameNode, *convValue);
 }
+void SetSupportEmptyBranchInLazyLoadingImpl(Ark_NativePointer node,
+                                            const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto enabled = Converter::OptConvertPtr<bool>(value).value_or(false);
+    GridModelNG::SetSupportLazyLoadingEmptyBranch(frameNode, enabled);
+}
 void SetOnItemDragStartImpl(Ark_NativePointer node,
                             const Opt_OnItemDragStartCallback* value)
 {
@@ -373,7 +404,7 @@ void SetOnItemDragStartImpl(Ark_NativePointer node,
         auto arkDragInfo = Converter::ArkValue<Ark_ItemDragInfo>(dragInfo);
         auto arkItemIndex = Converter::ArkValue<Ark_Int32>(itemIndex);
         auto builderOpt = callback.InvokeWithOptConvertResult<CustomNodeBuilder, Opt_CustomNodeBuilder,
-            Callback_Opt_CustomBuilder_Void>(arkDragInfo, arkItemIndex);
+            Callback_Opt_CustomNodeBuilder_Void>(arkDragInfo, arkItemIndex);
         if (builderOpt.has_value()) {
             auto uiNode = CallbackHelper(builderOpt.value()).BuildSync(node);
             ViewStackProcessor::GetInstance()->Push(uiNode);
@@ -502,6 +533,50 @@ void SetAlignItemsImpl(Ark_NativePointer node,
     CHECK_NULL_VOID(frameNode);
     GridModelStatic::SetAlignItems(frameNode, Converter::OptConvertPtr<GridItemAlignment>(value));
 }
+void SetEditModeOptionsImpl(Ark_NativePointer node,
+                            const Ark_EditModeOptions* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    EditModeOptions options;
+    if (value) {
+        auto enableGatherSelectedItemsAnimation =
+            Converter::OptConvert<bool>(value->enableGatherSelectedItemsAnimation);
+        options.enableGatherSelectedItemsAnimation = enableGatherSelectedItemsAnimation.value_or(false);
+
+        auto onGetPreviewBadge = Converter::OptConvert<::OnGetPreviewBadgeCallback>(value->onGetPreviewBadge);
+        if (onGetPreviewBadge) {
+            auto modelCallback = [callback = CallbackHelper(*onGetPreviewBadge)]() -> PreviewBadge {
+                auto resultOpt = callback.InvokeWithOptConvertResult<PreviewBadge, Ark_Union_Boolean_I32,
+                    Callback_Union_Boolean_I32_Void>();
+                return resultOpt.value_or(PreviewBadge());
+            };
+            options.getPreviewBadge = modelCallback;
+        }
+    }
+    GridModelStatic::SetEditModeOptions(frameNode, options);
+}
+void SetFocusWrapModeImpl(Ark_NativePointer node,
+                          const Opt_FocusWrapMode* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto convValue = Converter::OptConvertPtr<FocusWrapMode>(value);
+    auto focusWrapMode = static_cast<int32_t>(convValue.value_or(FocusWrapMode::DEFAULT));
+    if (focusWrapMode < static_cast<int32_t>(FocusWrapMode::DEFAULT) ||
+        focusWrapMode > static_cast<int32_t>(FocusWrapMode::WRAP_WITH_ARROW)) {
+        focusWrapMode = static_cast<int32_t>(FocusWrapMode::DEFAULT);
+    }
+    GridModelStatic::SetFocusWrapMode(frameNode, static_cast<FocusWrapMode>(focusWrapMode));
+}
+void SetSyncLoadImpl(Ark_NativePointer node,
+                     const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto convValue = Converter::OptConvertPtr<bool>(value);
+    GridModelStatic::SetSyncLoad(frameNode, convValue.value_or(true));
+}
 void SetOnScrollFrameBeginImpl(Ark_NativePointer node,
                                const Opt_OnScrollFrameBeginCallback* value)
 {
@@ -629,6 +704,7 @@ const GENERATED_ArkUIGridModifier* GetGridModifier()
         GridAttributeModifier::SetCellLengthImpl,
         GridAttributeModifier::SetLayoutDirectionImpl,
         GridAttributeModifier::SetSupportAnimationImpl,
+        GridAttributeModifier::SetSupportEmptyBranchInLazyLoadingImpl,
         GridAttributeModifier::SetOnItemDragStartImpl,
         GridAttributeModifier::SetOnItemDragEnterImpl,
         GridAttributeModifier::SetOnItemDragMoveImpl,
@@ -638,6 +714,9 @@ const GENERATED_ArkUIGridModifier* GetGridModifier()
         GridAttributeModifier::SetEnableScrollInteractionImpl,
         GridAttributeModifier::SetFrictionImpl,
         GridAttributeModifier::SetAlignItemsImpl,
+        GridAttributeModifier::SetEditModeOptionsImpl,
+        GridAttributeModifier::SetFocusWrapModeImpl,
+        GridAttributeModifier::SetSyncLoadImpl,
         GridAttributeModifier::SetOnScrollFrameBeginImpl,
         GridAttributeModifier::SetOnWillScrollImpl,
         GridAttributeModifier::SetOnDidScrollImpl,

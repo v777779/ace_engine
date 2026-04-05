@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,8 +18,6 @@
 
 #include <cstdint>
 
-#include "core/components/rating/rating_theme.h"
-#include "core/components/theme/icon_theme.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/rating/rating_accessibility_property.h"
 #include "core/components_ng/pattern/rating/rating_event_hub.h"
@@ -30,9 +28,16 @@
 #include "core/components_ng/pattern/rating/rating_render_property.h"
 #include "core/components_ng/render/canvas_image.h"
 #include "core/pipeline_ng/pipeline_context.h"
-#include "core/components/theme/app_theme.h"
+
+namespace OHOS::Ace {
+class RatingTheme;
+class IconTheme;
+} // namespace OHOS::Ace
 
 namespace OHOS::Ace::NG {
+const double DEFAULT_RATING_STEP_SIZE_VALUE = 0.5;
+const int32_t DEFAULT_RATING_STAR_NUM_VALUE = 5;
+const double DEFAULT_RATING_SCORE_VALUE = 0.0;
 class InspectorFilter;
 
 
@@ -85,7 +90,6 @@ public:
     {
         if (makeFunc == nullptr) {
             makeFunc_ = std::nullopt;
-            contentModifierNode_ = nullptr;
             OnModifyDone();
             return;
         }
@@ -116,18 +120,26 @@ public:
         return true;
     }
 
-private:
-    void OnAttachToFrameNode() override;
-    void UpdateRatingScore(double ratingScore);
-    void MarkDirtyNode(const PropertyChangeFlag& flag);
-    void OnModifyDone() override;
-    void ConstrainsRatingScore(const RefPtr<RatingLayoutProperty>& layoutProperty);
+    bool IsEnableFix() override
+    {
+        return true;
+    }
+
     void LoadForeground(const RefPtr<RatingLayoutProperty>& layoutProperty, const RefPtr<RatingTheme>& ratingTheme,
         const RefPtr<IconTheme>& iconTheme);
     void LoadSecondary(const RefPtr<RatingLayoutProperty>& layoutProperty, const RefPtr<RatingTheme>& ratingTheme,
         const RefPtr<IconTheme>& iconTheme);
     void LoadBackground(const RefPtr<RatingLayoutProperty>& layoutProperty, const RefPtr<RatingTheme>& ratingTheme,
         const RefPtr<IconTheme>& iconTheme);
+    int32_t OnInjectionEvent(const std::string& command) override;
+
+private:
+    void OnAttachToFrameNode() override;
+    void UpdateRatingScore(double ratingScore);
+    void MarkDirtyNode(const PropertyChangeFlag& flag);
+    void OnModifyDone() override;
+    void InitEvent();
+    void ConstrainsRatingScore(const RefPtr<RatingLayoutProperty>& layoutProperty);
     void LoadFocusBackground(const RefPtr<RatingLayoutProperty>& layoutProperty, const RefPtr<RatingTheme>& ratingTheme,
         const RefPtr<IconTheme>& iconTheme);
     void UpdatePaintConfig();
@@ -138,6 +150,7 @@ private:
     void CheckImageInfoHasChangedOrNot(
         int32_t imageFlag, const ImageSourceInfo& sourceInfo, const std::string& lifeCycleTag);
     float GetFocusRectRadius(const RefPtr<RatingLayoutProperty>& property, float& focusSpace);
+    void OnColorModeChange(uint32_t colorMode) override;
 
     // Init pan recognizer to update render when drag updates, fire change event when drag ends.
     void InitPanEvent(const RefPtr<GestureEventHub>& gestureHub);
@@ -176,6 +189,10 @@ private:
     void FireBuilder();
     RefPtr<FrameNode> BuildContentModifierNode();
     bool IsRatingImageReady(uint32_t imageStateCode);
+    void ReportChangeEvent(const std::string& index);
+    bool ReportInjectionResult(bool isSuccess, const std::string& reason);
+    double AdjustedRatingScore(double value);
+    int32_t HandleRatingChangeInjection(const std::unique_ptr<JsonValue>& commandObj);
 
     std::optional<RatingMakeCallback> makeFunc_;
     RefPtr<FrameNode> contentModifierNode_;
@@ -215,9 +232,9 @@ private:
     double lastRatingScore_ = 0.0;
     RatingModifier::RatingAnimationType state_;
     float singleStarWidth_ = .0f;
-    int32_t themeStarNum_ = OHOS::Ace::DEFAULT_RATING_STAR_NUM;
-    double themeStepSize_ = OHOS::Ace::DEFAULT_RATING_STEP_SIZE;
-    double themeRatingScore_ = OHOS::Ace::DEFAULT_RATING_SCORE;
+    int32_t themeStarNum_ = DEFAULT_RATING_STAR_NUM_VALUE;
+    double themeStepSize_ = DEFAULT_RATING_STEP_SIZE_VALUE;
+    double themeRatingScore_ = DEFAULT_RATING_SCORE_VALUE;
     Dimension themeBorderWidth_ = 0.0_vp;
 
     bool isForegroundImageInfoFromTheme_ = false;

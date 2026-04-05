@@ -25,6 +25,7 @@ void RowModelNG::Create(const std::optional<Dimension>& space, AlignDeclaration*
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
+    ACE_UINODE_TRACE(nodeId);
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::ROW_ETS_TAG, nodeId);
     auto frameNode = FrameNode::GetOrCreateFrameNode(
         V2::ROW_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<LinearLayoutPattern>(false); });
@@ -34,6 +35,8 @@ void RowModelNG::Create(const std::optional<Dimension>& space, AlignDeclaration*
     CHECK_NULL_VOID(space);
     if (GreatOrEqual(space->Value(), 0.0)) {
         ACE_UPDATE_LAYOUT_PROPERTY(LinearLayoutProperty, Space, space.value());
+    } else {
+        LOGE("Row: the space value is illegal due to space is less than zero");
     }
 }
 
@@ -41,6 +44,7 @@ void RowModelNG::Create(const RefPtr<ResourceObject>& spaceResObj, AlignDeclarat
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
+    ACE_UINODE_TRACE(nodeId);
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::ROW_ETS_TAG, nodeId);
     auto frameNode = FrameNode::GetOrCreateFrameNode(
         V2::ROW_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<LinearLayoutPattern>(false); });
@@ -80,18 +84,18 @@ void RowModelNG::Create(const RefPtr<ResourceObject>& spaceResObj, AlignDeclarat
 
 void RowModelNG::SetSpace(FrameNode* frameNode, const std::optional<Dimension>& space)
 {
-    CHECK_NULL_VOID(frameNode);
     CHECK_NULL_VOID(space);
     if (GreatOrEqual(space->Value(), 0.0)) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, Space, space.value(), frameNode);
     } else {
-        LOGE("Column: the space value is illegal due to space is less than zero");
+        LOGE("Row: the space value is illegal due to space is less than zero");
     }
 }
 
 void RowModelNG::SetSpace(FrameNode* frameNode, const RefPtr<ResourceObject>& spaceResObj)
 {
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto pattern = frameNode->GetPattern<LinearLayoutPattern>();
     CHECK_NULL_VOID(pattern);
     auto&& updateFunc = [weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
@@ -119,7 +123,7 @@ void RowModelNG::SetSpace(FrameNode* frameNode, const RefPtr<ResourceObject>& sp
     if (GreatOrEqual(value.Value(), 0.0)) {
         ACE_UPDATE_LAYOUT_PROPERTY(LinearLayoutProperty, Space, value);
     } else {
-        LOGE("Column: the space value is illegal due to space is less than zero");
+        LOGE("Row: the space value is illegal due to space is less than zero");
     }
 }
 
@@ -160,34 +164,21 @@ void RowModelNG::SetIsReverse(bool isReverse)
     ACE_UPDATE_LAYOUT_PROPERTY(FlexLayoutProperty, IsReverse, isReverse);
 }
 
-void RowModelNG::SetIsReverse(FrameNode* frameNode, const std::optional<bool> isReverse)
+void RowModelNG::SetIsReverse(FrameNode* frameNode, bool isReverse)
 {
-    CHECK_NULL_VOID(frameNode);
-    if (isReverse.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(FlexLayoutProperty, IsReverse, isReverse.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(FlexLayoutProperty, IsReverse, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(FlexLayoutProperty, IsReverse, isReverse, frameNode);
 }
 
-void RowModelNG::SetJustifyContent(FrameNode* frameNode, const std::optional<FlexAlign>& flexAlign)
+void RowModelNG::SetJustifyContent(FrameNode* frameNode, FlexAlign flexAlign)
 {
     CHECK_NULL_VOID(frameNode);
-    if (flexAlign.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, MainAxisAlign, flexAlign.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, MainAxisAlign, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, MainAxisAlign, flexAlign, frameNode);
 }
 
-void RowModelNG::SetAlignItems(FrameNode* frameNode, const std::optional<FlexAlign>& flexAlign)
+void RowModelNG::SetAlignItems(FrameNode* frameNode, FlexAlign flexAlign)
 {
     CHECK_NULL_VOID(frameNode);
-    if (flexAlign.has_value()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, CrossAxisAlign, flexAlign.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, CrossAxisAlign, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(LinearLayoutProperty, CrossAxisAlign, flexAlign, frameNode);
 }
 
 FlexAlign RowModelNG::GetJustifyContent(FrameNode* frameNode)
@@ -202,5 +193,21 @@ FlexAlign RowModelNG::GetAlignItems(FrameNode* frameNode)
     FlexAlign value = FlexAlign::CENTER;
     ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(LinearLayoutProperty, CrossAxisAlign, value, frameNode, value);
     return value;
+}
+
+double RowModelNG::GetSpace(FrameNode* frameNode)
+{
+    auto space = CalcDimension(0.0, DimensionUnit::VP);
+    CHECK_NULL_RETURN(frameNode, space.Value());
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(LinearLayoutProperty, Space, space, frameNode, space);
+    return space.Value();
+}
+
+bool RowModelNG::GetIsReverse(FrameNode* frameNode)
+{
+    bool isReverse = false;
+    CHECK_NULL_RETURN(frameNode, isReverse);
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(FlexLayoutProperty, IsReverse, isReverse, frameNode, isReverse);
+    return isReverse;
 }
 } // namespace OHOS::Ace::NG

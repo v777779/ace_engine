@@ -14,8 +14,9 @@
  */
 
 #include "swiper_test_ng.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
+#include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/swiper_indicator/dot_indicator/dot_indicator_paint_property.h"
 #include "core/components_ng/pattern/swiper_indicator/indicator_common/swiper_indicator_pattern.h"
 #include "core/components_ng/pattern/text/text_model_ng.h"
@@ -1679,5 +1680,435 @@ HWTEST_F(SwiperLayoutTestNg, LayoutPolicyTest005, TestSize.Level1)
     auto offsetInner = geometryNodeInner->GetFrameOffset();
     EXPECT_EQ(sizeInner, SizeF(150.0f, 200.0f));
     EXPECT_EQ(offsetInner, OffsetF(0.0f, 0.0f));
+}
+
+/**
+ * @tc.name: LayoutPolicyTest006
+ * @tc.desc: test the measure result when setting wrapContent and parent has constraint.
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperLayoutTestNg, LayoutPolicyTest006, TestSize.Level1)
+{
+/**
+     * @tc.steps: step1. Create default swiper
+     */
+    RefPtr<FrameNode> swiperInner;
+    RefPtr<FrameNode> swiperOutter;
+    RefPtr<FrameNode> swiper;
+    swiperOutter = CreateSwiper([this, &swiper, &swiperInner](SwiperModelNG model) {
+        ViewAbstract::SetWidth(CalcLength(200.0f));
+        ViewAbstract::SetHeight(CalcLength(200.0f));
+        swiper = CreateSwiper([this, &swiperInner](SwiperModelNG model) {
+            ViewAbstractModelNG model1;
+            model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::WRAP_CONTENT, true);
+            model1.UpdateLayoutPolicyProperty(LayoutCalPolicy::WRAP_CONTENT, false);
+            swiperInner = CreateSwiper([this](SwiperModelNG model) {
+                ViewAbstract::SetWidth(CalcLength(300.0f));
+                ViewAbstract::SetHeight(CalcLength(400.0f));
+            });
+        });
+    });
+    ASSERT_NE(swiperOutter, nullptr);
+    CreateLayoutTask(swiperOutter);
+
+    // Expect swiperOutter's width is 200, height is 200 and offset is [0.0, 0.0].
+    auto geometryNodeOutter = swiperOutter->GetGeometryNode();
+    ASSERT_NE(geometryNodeOutter, nullptr);
+    auto sizeOutter = geometryNodeOutter->GetFrameSize();
+    auto offsetOutter = geometryNodeOutter->GetFrameOffset();
+    EXPECT_EQ(sizeOutter, SizeF(200.0f, 200.0f));
+    EXPECT_EQ(offsetOutter, OffsetF(0.0f, 0.0f));
+
+    // Expect swiper's width is 150, height is 200 and offset is [25.0, 0.0].
+    auto geometryNode = swiper->GetGeometryNode();
+    ASSERT_NE(geometryNode, nullptr);
+    auto size = geometryNode->GetFrameSize();
+    auto offset = geometryNode->GetFrameOffset();
+    EXPECT_EQ(size, SizeF(200.0f, 200.0f));
+    EXPECT_EQ(offset, OffsetF(0.0f, 0.0f));
+
+    // Expect swiperInner's width is 300, height is 400 and offset is [-75.0, -100.0].
+    auto geometryNodeInner = swiperInner->GetGeometryNode();
+    ASSERT_NE(geometryNodeInner, nullptr);
+    auto sizeInner = geometryNodeInner->GetFrameSize();
+    auto offsetInner = geometryNodeInner->GetFrameOffset();
+    EXPECT_EQ(sizeInner, SizeF(200.0f, 200.0f));
+    EXPECT_EQ(offsetInner, OffsetF(0.0f, 0.0f));
+}
+
+/**
+ * @tc.name: SwiperLayoutMeasure001
+ * @tc.desc: Test meassureswiper when:
+ *           isMeasureOneMoreItem_ & Positive(prevMargin_) & Positive(ignoreBlankOffset_) = 000
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperLayoutTestNg, SwiperLayoutMeasure001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default swiper
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(1);
+    CreateSwiperItems();
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. contentMainSize need to be transmitted back to the pattern
+     */
+    auto swiperLayoutAlgorithm = AceType::DynamicCast<SwiperLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper = LayoutWrapperNode(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    layoutWrapper.SetLayoutAlgorithm(AceType::MakeRefPtr<LayoutAlgorithmWrapper>(swiperLayoutAlgorithm));
+
+    LayoutConstraintF layoutConstraint;
+    float sizeTmp = 720.f;
+    layoutConstraint.selfIdealSize = OptionalSizeF(sizeTmp, sizeTmp);
+    layoutConstraint.maxSize = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.percentReference = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.parentIdealSize.SetSize(SizeF(sizeTmp, sizeTmp));
+
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraint);
+    layoutWrapper.GetLayoutProperty()->UpdateContentConstraint();
+
+    swiperLayoutAlgorithm->mainSizeIsMeasured_ = false;
+    swiperLayoutAlgorithm->isLoop_ = false;
+    swiperLayoutAlgorithm->hasCachedCapture_ = false;
+    swiperLayoutAlgorithm->jumpIndex_ = std::nullopt;
+
+    swiperLayoutAlgorithm->isMeasureOneMoreItem_ = false;
+    swiperLayoutAlgorithm->prevMargin_ = 0.0f;
+    swiperLayoutAlgorithm->ignoreBlankOffset_ = 0.0f;
+
+    swiperLayoutAlgorithm->targetIndex_ = 0;
+    swiperLayoutAlgorithm->MeasureSwiper(&layoutWrapper, layoutConstraint);
+    EXPECT_EQ(swiperLayoutAlgorithm->targetIndex_, 0);
+}
+
+/**
+ * @tc.name: SwiperLayoutMeasure002
+ * @tc.desc: Test meassureswiper when:
+ *           isMeasureOneMoreItem_ & Positive(prevMargin_) & Positive(ignoreBlankOffset_) = 001
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperLayoutTestNg, SwiperLayoutMeasure002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default swiper
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(1);
+    CreateSwiperItems();
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. contentMainSize need to be transmitted back to the pattern
+     */
+    auto swiperLayoutAlgorithm = AceType::DynamicCast<SwiperLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper = LayoutWrapperNode(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    layoutWrapper.SetLayoutAlgorithm(AceType::MakeRefPtr<LayoutAlgorithmWrapper>(swiperLayoutAlgorithm));
+
+    LayoutConstraintF layoutConstraint;
+    float sizeTmp = 720.f;
+    layoutConstraint.selfIdealSize = OptionalSizeF(sizeTmp, sizeTmp);
+    layoutConstraint.maxSize = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.percentReference = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.parentIdealSize.SetSize(SizeF(sizeTmp, sizeTmp));
+
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraint);
+    layoutWrapper.GetLayoutProperty()->UpdateContentConstraint();
+
+    swiperLayoutAlgorithm->mainSizeIsMeasured_ = false;
+    swiperLayoutAlgorithm->isLoop_ = false;
+    swiperLayoutAlgorithm->hasCachedCapture_ = false;
+    swiperLayoutAlgorithm->jumpIndex_ = std::nullopt;
+
+    swiperLayoutAlgorithm->isMeasureOneMoreItem_ = false;
+    swiperLayoutAlgorithm->prevMargin_ = 0.0f;
+    swiperLayoutAlgorithm->ignoreBlankOffset_ = 10.0f;
+
+    swiperLayoutAlgorithm->targetIndex_ = 0;
+    swiperLayoutAlgorithm->MeasureSwiper(&layoutWrapper, layoutConstraint);
+    EXPECT_EQ(swiperLayoutAlgorithm->targetIndex_, 0);
+}
+
+/**
+ * @tc.name: SwiperLayoutMeasure003
+ * @tc.desc: Test meassureswiper when:
+ *           isMeasureOneMoreItem_ & Positive(prevMargin_) & Positive(ignoreBlankOffset_) = 010
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperLayoutTestNg, SwiperLayoutMeasure003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default swiper
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(1);
+    CreateSwiperItems();
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. contentMainSize need to be transmitted back to the pattern
+     */
+    auto swiperLayoutAlgorithm = AceType::DynamicCast<SwiperLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper = LayoutWrapperNode(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    layoutWrapper.SetLayoutAlgorithm(AceType::MakeRefPtr<LayoutAlgorithmWrapper>(swiperLayoutAlgorithm));
+
+    LayoutConstraintF layoutConstraint;
+    float sizeTmp = 720.f;
+    layoutConstraint.selfIdealSize = OptionalSizeF(sizeTmp, sizeTmp);
+    layoutConstraint.maxSize = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.percentReference = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.parentIdealSize.SetSize(SizeF(sizeTmp, sizeTmp));
+
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraint);
+    layoutWrapper.GetLayoutProperty()->UpdateContentConstraint();
+
+    swiperLayoutAlgorithm->mainSizeIsMeasured_ = false;
+    swiperLayoutAlgorithm->isLoop_ = false;
+    swiperLayoutAlgorithm->hasCachedCapture_ = false;
+    swiperLayoutAlgorithm->jumpIndex_ = std::nullopt;
+
+    swiperLayoutAlgorithm->isMeasureOneMoreItem_ = false;
+    swiperLayoutAlgorithm->prevMargin_ = 10.0f;
+    swiperLayoutAlgorithm->ignoreBlankOffset_ = 0.0f;
+
+    swiperLayoutAlgorithm->targetIndex_ = 0;
+    swiperLayoutAlgorithm->MeasureSwiper(&layoutWrapper, layoutConstraint);
+    EXPECT_EQ(swiperLayoutAlgorithm->targetIndex_, 0);
+}
+
+/**
+ * @tc.name: SwiperLayoutMeasure004
+ * @tc.desc: Test meassureswiper when:
+ *           isMeasureOneMoreItem_ & Positive(prevMargin_) & Positive(ignoreBlankOffset_) = 011
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperLayoutTestNg, SwiperLayoutMeasure004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default swiper
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(1);
+    CreateSwiperItems();
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. contentMainSize need to be transmitted back to the pattern
+     */
+    auto swiperLayoutAlgorithm = AceType::DynamicCast<SwiperLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper = LayoutWrapperNode(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    layoutWrapper.SetLayoutAlgorithm(AceType::MakeRefPtr<LayoutAlgorithmWrapper>(swiperLayoutAlgorithm));
+
+    LayoutConstraintF layoutConstraint;
+    float sizeTmp = 720.f;
+    layoutConstraint.selfIdealSize = OptionalSizeF(sizeTmp, sizeTmp);
+    layoutConstraint.maxSize = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.percentReference = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.parentIdealSize.SetSize(SizeF(sizeTmp, sizeTmp));
+
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraint);
+    layoutWrapper.GetLayoutProperty()->UpdateContentConstraint();
+
+    swiperLayoutAlgorithm->mainSizeIsMeasured_ = false;
+    swiperLayoutAlgorithm->isLoop_ = false;
+    swiperLayoutAlgorithm->hasCachedCapture_ = false;
+    swiperLayoutAlgorithm->jumpIndex_ = std::nullopt;
+
+    swiperLayoutAlgorithm->isMeasureOneMoreItem_ = false;
+    swiperLayoutAlgorithm->prevMargin_ = 10.0f;
+    swiperLayoutAlgorithm->ignoreBlankOffset_ = 10.0f;
+
+    swiperLayoutAlgorithm->targetIndex_ = 0;
+    swiperLayoutAlgorithm->MeasureSwiper(&layoutWrapper, layoutConstraint);
+    EXPECT_EQ(swiperLayoutAlgorithm->targetIndex_, 0);
+}
+
+/**
+ * @tc.name: SwiperLayoutMeasure005
+ * @tc.desc: Test meassureswiper when:
+ *           isMeasureOneMoreItem_ & Positive(prevMargin_) & Positive(ignoreBlankOffset_) = 100
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperLayoutTestNg, SwiperLayoutMeasure005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default swiper
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(1);
+    CreateSwiperItems();
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. contentMainSize need to be transmitted back to the pattern
+     */
+    auto swiperLayoutAlgorithm = AceType::DynamicCast<SwiperLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper = LayoutWrapperNode(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    layoutWrapper.SetLayoutAlgorithm(AceType::MakeRefPtr<LayoutAlgorithmWrapper>(swiperLayoutAlgorithm));
+
+    LayoutConstraintF layoutConstraint;
+    float sizeTmp = 720.f;
+    layoutConstraint.selfIdealSize = OptionalSizeF(sizeTmp, sizeTmp);
+    layoutConstraint.maxSize = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.percentReference = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.parentIdealSize.SetSize(SizeF(sizeTmp, sizeTmp));
+
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraint);
+    layoutWrapper.GetLayoutProperty()->UpdateContentConstraint();
+
+    swiperLayoutAlgorithm->mainSizeIsMeasured_ = false;
+    swiperLayoutAlgorithm->isLoop_ = false;
+    swiperLayoutAlgorithm->hasCachedCapture_ = false;
+    swiperLayoutAlgorithm->jumpIndex_ = std::nullopt;
+
+    swiperLayoutAlgorithm->isMeasureOneMoreItem_ = true;
+    swiperLayoutAlgorithm->prevMargin_ = 0.0f;
+    swiperLayoutAlgorithm->ignoreBlankOffset_ = 0.0f;
+
+    swiperLayoutAlgorithm->targetIndex_ = 0;
+    swiperLayoutAlgorithm->MeasureSwiper(&layoutWrapper, layoutConstraint);
+    EXPECT_EQ(swiperLayoutAlgorithm->targetIndex_, 0);
+}
+
+/**
+ * @tc.name: SwiperLayoutMeasure006
+ * @tc.desc: Test meassureswiper when:
+ *           isMeasureOneMoreItem_ & Positive(prevMargin_) & Positive(ignoreBlankOffset_) = 101
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperLayoutTestNg, SwiperLayoutMeasure006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default swiper
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(1);
+    CreateSwiperItems();
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. contentMainSize need to be transmitted back to the pattern
+     */
+    auto swiperLayoutAlgorithm = AceType::DynamicCast<SwiperLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper = LayoutWrapperNode(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    layoutWrapper.SetLayoutAlgorithm(AceType::MakeRefPtr<LayoutAlgorithmWrapper>(swiperLayoutAlgorithm));
+
+    LayoutConstraintF layoutConstraint;
+    float sizeTmp = 720.f;
+    layoutConstraint.selfIdealSize = OptionalSizeF(sizeTmp, sizeTmp);
+    layoutConstraint.maxSize = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.percentReference = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.parentIdealSize.SetSize(SizeF(sizeTmp, sizeTmp));
+
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraint);
+    layoutWrapper.GetLayoutProperty()->UpdateContentConstraint();
+
+    swiperLayoutAlgorithm->mainSizeIsMeasured_ = false;
+    swiperLayoutAlgorithm->isLoop_ = false;
+    swiperLayoutAlgorithm->hasCachedCapture_ = false;
+    swiperLayoutAlgorithm->jumpIndex_ = std::nullopt;
+
+    swiperLayoutAlgorithm->isMeasureOneMoreItem_ = true;
+    swiperLayoutAlgorithm->prevMargin_ = 0.0f;
+    swiperLayoutAlgorithm->ignoreBlankOffset_ = 10.0f;
+
+    swiperLayoutAlgorithm->targetIndex_ = 0;
+    swiperLayoutAlgorithm->MeasureSwiper(&layoutWrapper, layoutConstraint);
+    EXPECT_EQ(swiperLayoutAlgorithm->targetIndex_, 0);
+}
+
+/**
+ * @tc.name: SwiperLayoutMeasure007
+ * @tc.desc: Test meassureswiper when:
+ *           isMeasureOneMoreItem_ & Positive(prevMargin_) & Positive(ignoreBlankOffset_) = 110
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperLayoutTestNg, SwiperLayoutMeasure007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default swiper
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(1);
+    CreateSwiperItems();
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. contentMainSize need to be transmitted back to the pattern
+     */
+    auto swiperLayoutAlgorithm = AceType::DynamicCast<SwiperLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper = LayoutWrapperNode(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    layoutWrapper.SetLayoutAlgorithm(AceType::MakeRefPtr<LayoutAlgorithmWrapper>(swiperLayoutAlgorithm));
+
+    LayoutConstraintF layoutConstraint;
+    float sizeTmp = 720.f;
+    layoutConstraint.selfIdealSize = OptionalSizeF(sizeTmp, sizeTmp);
+    layoutConstraint.maxSize = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.percentReference = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.parentIdealSize.SetSize(SizeF(sizeTmp, sizeTmp));
+
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraint);
+    layoutWrapper.GetLayoutProperty()->UpdateContentConstraint();
+
+    swiperLayoutAlgorithm->mainSizeIsMeasured_ = false;
+    swiperLayoutAlgorithm->isLoop_ = false;
+    swiperLayoutAlgorithm->hasCachedCapture_ = false;
+    swiperLayoutAlgorithm->jumpIndex_ = std::nullopt;
+
+    swiperLayoutAlgorithm->isMeasureOneMoreItem_ = true;
+    swiperLayoutAlgorithm->prevMargin_ = 10.0f;
+    swiperLayoutAlgorithm->ignoreBlankOffset_ = 0.0f;
+
+    swiperLayoutAlgorithm->targetIndex_ = 0;
+    swiperLayoutAlgorithm->MeasureSwiper(&layoutWrapper, layoutConstraint);
+    EXPECT_EQ(swiperLayoutAlgorithm->targetIndex_, 0);
+}
+
+/**
+ * @tc.name: SwiperLayoutMeasure008
+ * @tc.desc: Test meassureswiper when:
+ *           isMeasureOneMoreItem_ & Positive(prevMargin_) & Positive(ignoreBlankOffset_) = 111
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperLayoutTestNg, SwiperLayoutMeasure008, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create default swiper
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(1);
+    CreateSwiperItems();
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. contentMainSize need to be transmitted back to the pattern
+     */
+    auto swiperLayoutAlgorithm = AceType::DynamicCast<SwiperLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    auto geometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper = LayoutWrapperNode(frameNode_, geometryNode, frameNode_->GetLayoutProperty());
+    layoutWrapper.SetLayoutAlgorithm(AceType::MakeRefPtr<LayoutAlgorithmWrapper>(swiperLayoutAlgorithm));
+
+    LayoutConstraintF layoutConstraint;
+    float sizeTmp = 720.f;
+    layoutConstraint.selfIdealSize = OptionalSizeF(sizeTmp, sizeTmp);
+    layoutConstraint.maxSize = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.percentReference = SizeF(sizeTmp, sizeTmp);
+    layoutConstraint.parentIdealSize.SetSize(SizeF(sizeTmp, sizeTmp));
+
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraint);
+    layoutWrapper.GetLayoutProperty()->UpdateContentConstraint();
+
+    swiperLayoutAlgorithm->mainSizeIsMeasured_ = false;
+    swiperLayoutAlgorithm->isLoop_ = false;
+    swiperLayoutAlgorithm->hasCachedCapture_ = false;
+    swiperLayoutAlgorithm->jumpIndex_ = std::nullopt;
+
+    swiperLayoutAlgorithm->isMeasureOneMoreItem_ = true;
+    swiperLayoutAlgorithm->prevMargin_ = 10.0f;
+    swiperLayoutAlgorithm->ignoreBlankOffset_ = 10.0f;
+
+    swiperLayoutAlgorithm->targetIndex_ = 0;
+    swiperLayoutAlgorithm->MeasureSwiper(&layoutWrapper, layoutConstraint);
+    EXPECT_EQ(swiperLayoutAlgorithm->targetIndex_, 0);
 }
 } // namespace OHOS::Ace::NG

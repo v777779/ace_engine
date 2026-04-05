@@ -37,12 +37,19 @@ public:
     ShapeContainerPattern() = default;
     ~ShapeContainerPattern() override = default;
 
+    void UpdateProperty();
+
     bool IsEnableMatchParent() override
     {
         return true;
     }
 
     bool IsEnableChildrenMatchParent() override
+    {
+        return true;
+    }
+
+    bool IsEnableFix() override
     {
         return true;
     }

@@ -1,13 +1,13 @@
 /*
  * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the 'License');
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an 'AS IS' BASIS,
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -1823,17 +1823,24 @@ export class Filter extends ViewPU {
     refreshFloatFilterBarText() {
         this.floatFilterBarText = '';
         this.floatFilterBarAccessibilityText = '';
-        if (this.selectedFilters) {
-            const b24 = this.selectedFilters?.filter(d24 => d24?.value).map((c24) => {
-                if (typeof c24.value !== 'string') {
-                    return getContext()?.resourceManager?.getStringSync(c24.value?.id);
-                }
-                else {
-                    return c24.value;
-                }
-            });
-            this.floatFilterBarText = b24.join('/');
-            this.floatFilterBarAccessibilityText = b24.join(' ');
+        try {
+            if (this.selectedFilters) {
+                const b24 = this.selectedFilters?.filter(d24 => d24?.value).map((c24) => {
+                    if (typeof c24.value !== 'string') {
+                        return getContext()?.resourceManager?.getStringSync(c24.value?.id);
+                    }
+                    else {
+                        return c24.value;
+                    }
+                });
+                this.floatFilterBarText = b24.join('/');
+                this.floatFilterBarAccessibilityText = b24.join(' ');
+            }
+        }
+        catch (x23) {
+            let y23 = x23?.code;
+            let z23 = x23?.message;
+            hilog.error(0x3900, 'Ace', `Filter selectedValueFilters error, code: ${y23}, message: ${z23}`);
         }
     }
     getFloatAccessibilityText(s23, t23) {

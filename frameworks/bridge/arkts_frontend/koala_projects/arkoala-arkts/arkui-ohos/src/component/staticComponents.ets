@@ -27,6 +27,11 @@ import { ArkUIAniModule, ArkUIAniCustomNodeModule } from "arkui.ani"
 import { int32, int64, float32 } from "@koalaui/common"
 import { nullptr, KPointer, KInt, KBoolean, KStringPtr, runtimeType, RuntimeType, MaterializedBase, toPeerPtr, wrapCallback, NativeBuffer } from "@koalaui/interop"
 import { IExtendableComponent } from './extendableComponent';
+import { destroyUiDetachedRoot } from 'arkui/ArkUIEntry';
+import { UIContext } from '@ohos/arkui/UIContext';
+import { ArkUINativeModule } from '#components';
+import { FreeRootNode } from '../CallbackTransformer';
+import { CustomNodeBuilder } from '#generated';
 
 export class ArkRootPeer extends PeerNode {
     protected constructor(peerPtr: KPointer, id: int32, name: string = "", flags: int32 = 0) {
@@ -54,8 +59,14 @@ export class ArkComponentRootPeer extends PeerNode {
 }
 export class ArkCustomComponentRootPeer extends PeerNode {
     private component?: IExtendableComponent;
+    private childPeerPtr: KPointer = nullptr;
+    private buildFunc?: () => Long;
+    private envFunc?: (instanceId: int32) => void;
+    private customNodeBuilder: CustomNodeBuilder | undefined = undefined;
+    private freezeRoot: Set<FreeRootNode>;
     protected constructor(peerPtr: KPointer, id: int32, name: string = "", flags: int32 = 0) {
         super(peerPtr, id, name, flags, RootPeerType)
+        this.freezeRoot = new Set<FreeRootNode>();
     }
     setComponent(component: IExtendableComponent) {
         this.component = component;
@@ -64,6 +75,27 @@ export class ArkCustomComponentRootPeer extends PeerNode {
     getComponent(): IExtendableComponent | undefined {
         return this.component;
     }
+    freezeMyRoot(): void {
+        this.freezeRoot.forEach((root: FreeRootNode) => {
+            root.freezeSelf();
+        });
+    }
+    unfreezeMyRoot(): void {
+        this.freezeRoot.forEach((root: FreeRootNode) => {
+            root.unfreezeSelf();
+        });
+    }
+    addFreezeRoot(freezeRoot: FreeRootNode): void {
+        this.freezeRoot.add(freezeRoot);
+    }
+    deleteFreezeRoot(freezeRoot: FreeRootNode): void {
+        this.freezeRoot.delete(freezeRoot);
+    }
+    recompute(): void {
+        this.freezeRoot.forEach((root: FreeRootNode) => {
+            root.compute();
+        });
+    }
     public static create(component: ArkCustomComponent, flags: int32 = 0): ArkCustomComponentRootPeer {
         const peerId  = PeerNode.nextId();
         if (component.isCustomLayout) {
@@ -71,7 +103,7 @@ export class ArkCustomComponentRootPeer extends PeerNode {
             if (!_peerPtr) {
                 throw new Error("create CustomComponent fail"); 
             }
-            const _peer  = new ArkCustomComponentRootPeer(_peerPtr, peerId, "CustomComponent", flags);
+            const _peer  = new ArkCustomComponentRootPeer(_peerPtr, peerId, component.getName(), flags);
             component.setPeer(_peer);
             _peer.setComponent(component as IExtendableComponent);
             return _peer;
@@ -80,15 +112,53 @@ export class ArkCustomComponentRootPeer extends PeerNode {
             if (!_peerPtr) {
                 throw new Error("create CustomComponent fail"); 
             }
-            const _peer  = new ArkCustomComponentRootPeer(_peerPtr, peerId, "CustomComponent", flags);
+            const _peer  = new ArkCustomComponentRootPeer(_peerPtr, peerId, component.getName(), flags);
             component.setPeer(_peer);
             _peer.setComponent(component as IExtendableComponent);
             return _peer;
          }
     }
     dispose() {
+        if (this.childPeerPtr !== nullptr) {
+            destroyUiDetachedRoot(this.childPeerPtr, (this.component!.getUIContext() as UIContext).getInstanceId());
+            this.childPeerPtr = nullptr;
+        }
         this.component?.__removeChildWhenDispose__IExtendableComponent_Internal();
+        this.freezeRoot.clear();
+        this.component = undefined;
+        this.buildFunc = undefined;
+        this.customNodeBuilder = undefined;
         super.dispose();
+    }
+
+    setCustomNodeBuilder(func: CustomNodeBuilder): void {
+        this.customNodeBuilder = func;
+    }
+
+    callCustomNodeBuilder(ptr: KPointer): KPointer {
+        return this.customNodeBuilder!(ptr);
+    }
+
+    setBuildFunction(buildFunc: () => Long): void {
+        this.buildFunc = buildFunc;
+        ArkUIAniCustomNodeModule._CustomNode_SetBuildFunction(this.peer.ptr, buildFunc);
+    }
+
+    setChildPeerPtr(childPeerPtr: KPointer): void {
+        this.childPeerPtr = childPeerPtr;
+        if (this.component instanceof ArkCustomComponent && (this.component as ArkCustomComponent).isCustomLayout) {
+            ArkUIAniCustomNodeModule._CustomNode_AddChild(this.peer.ptr, childPeerPtr);
+        }
+    }
+
+    getChildPeerPtr(): KPointer {
+        return this.childPeerPtr;
+    }
+
+    getEnvInstanceId(envFunc: (instanceId: int32) => void): void {
+        this.envFunc = envFunc;
+        ArkUIAniCustomNodeModule._CustomNode_EnvFunction(this.peer.ptr, envFunc);
+        return;
     }
 }
 export interface Root {

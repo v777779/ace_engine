@@ -45,7 +45,7 @@ float MeasureTitleBar(LayoutWrapper* layoutWrapper, const RefPtr<NavBarNode>& ho
      */
     auto translateState = navBarLayoutProperty->GetTitleBarTranslateStateValue(BarTranslateState::NONE);
     if ((translateState == BarTranslateState::NONE && navBarLayoutProperty->GetHideTitleBarValue(false)) ||
-        titleBarNode->GetChildren().empty()) {
+        titleBarNode->IsChildEmpty()) {
         constraint.selfIdealSize = OptionalSizeF(0.0f, 0.0f);
         titleBarWrapper->Measure(constraint);
         return 0.0f;
@@ -111,7 +111,7 @@ SizeF MeasureContentChild(LayoutWrapper* layoutWrapper, const RefPtr<NavBarNode>
     const RefPtr<NavBarLayoutProperty>& navBarLayoutProperty, const SizeF& navigationSize, float titleBarHeight,
     float toolBarHeight, float toolBarDividerHeight)
 {
-    auto contentNode = hostNode->GetContentNode();
+    auto contentNode = AceType::DynamicCast<FrameNode>(hostNode->GetContentNode());
     CHECK_NULL_RETURN(contentNode, SizeF());
     auto index = hostNode->GetChildIndexById(contentNode->GetId());
     auto contentWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
@@ -123,6 +123,18 @@ SizeF MeasureContentChild(LayoutWrapper* layoutWrapper, const RefPtr<NavBarNode>
     if (constraint.selfIdealSize.Height().has_value()) {
         auto currentHeight = constraint.selfIdealSize.Height().value();
         constraint.selfIdealSize.SetHeight(currentHeight);
+    }
+    auto contentLayoutProperty = contentNode->GetLayoutProperty();
+    if (contentLayoutProperty->IsIgnoreOptsValid()) {
+        IgnoreLayoutSafeAreaOpts& opts = *(contentLayoutProperty->GetIgnoreLayoutSafeAreaOpts());
+        auto navBarLayoutPropety = AceType::DynamicCast<NavDestinationLayoutProperty>(hostNode->GetLayoutProperty());
+        auto isVerticalCanExtend =
+            NavigationLayoutUtil::CheckVerticalExtend(navBarLayoutPropety, hostNode, opts);
+        bool isHorizontalExtend =
+            (opts.edges & LAYOUT_SAFE_AREA_EDGE_HORIZONTAL) && (opts.type & LAYOUT_SAFE_AREA_TYPE_SYSTEM);
+        if (isVerticalCanExtend.first || isVerticalCanExtend.second || isHorizontalExtend) {
+            return contentSize;
+        }
     }
     contentWrapper->Measure(constraint);
     return contentWrapper->GetGeometryNode()->GetFrameSize();
@@ -263,8 +275,8 @@ void NavBarLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     size.SetWidth(contentChildSize.Width());
     layoutWrapper->GetGeometryNode()->SetFrameSize(size);
 
-    MeasureAdaptiveLayoutChildren(
-        layoutWrapper, size, transferedTitleBarHeight, transferedToolBarHeight + transferedToolBarDividerHeight);
+    MeasureAdaptiveLayoutChildren(layoutWrapper, contentChildSize, transferedTitleBarHeight,
+        transferedToolBarHeight + transferedToolBarDividerHeight);
 }
 
 void NavBarLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
@@ -274,9 +286,6 @@ void NavBarLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     auto navBarLayoutProperty = AceType::DynamicCast<NavBarLayoutProperty>(layoutWrapper->GetLayoutProperty());
     CHECK_NULL_VOID(navBarLayoutProperty);
 
-    if (!hostNode->GetIgnoreLayoutProcess() && GetNeedPostponeForIgnore()) {
-        return;
-    }
     float decorBarHeight = 0.0f;
     auto navigationNode = AceType::DynamicCast<NavigationGroupNode>(hostNode->GetNavigationNode());
     if (navigationNode) {
@@ -318,26 +327,17 @@ void NavBarLayoutAlgorithm::MeasureAdaptiveLayoutChildren(
     if (!isVerticalCanExtend.first && !isVerticalCanExtend.second && !isHorizontalExtend) {
         return;
     }
-    SetNeedPostponeForIgnore();
-    
-    ExpandEdges sae = hostNode->GetAccumulatedSafeAreaExpand(true, opts);
-    if (!isVerticalCanExtend.first) {
-        realSize.MinusHeight(titleBarHeight);
-        realSize.MinusHeight(sae.top.value_or(0.0f));
-    }
-    if (!isVerticalCanExtend.second) {
-        realSize.MinusHeight(toolBarHeight);
-        realSize.MinusHeight(sae.bottom.value_or(0.0f));
-    }
 
     auto childConstraint = navBarLayoutProperty->CreateChildConstraint();
     childConstraint.selfIdealSize.SetSize(realSize);
     contentNode->GetGeometryNode()->SetParentLayoutConstraint(childConstraint);
     IgnoreLayoutSafeAreaBundle bundle;
     bundle.second = hostNode;
-    bundle.first.emplace_back(AceType::DynamicCast<FrameNode>(hostNode->GetContentNode()));
+    bundle.first.emplace_back(contentNode);
     auto context = hostNode->GetContextWithCheck();
     CHECK_NULL_VOID(context);
+    hostNode->SetDelaySelfLayoutForIgnore();
+    contentNode->SetDelaySelfLayoutForIgnore();
     context->AddIgnoreLayoutSafeAreaBundle(std::move(bundle));
 }
 } // namespace OHOS::Ace::NG

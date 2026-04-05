@@ -97,12 +97,13 @@ bool OnJsCommonDialog(
     const std::string &url,
     const std::string &message,
     const std::string &value = "",
-    RefPtr<TaskExecutor> task = nullptr)
+    RefPtr<TaskExecutor> task = nullptr,
+    bool isReload = false)
 {
     CHECK_NULL_RETURN(task, false);
     bool jsResult = false;
     auto param = std::make_shared<WebDialogEvent>(url, message, value, dialogEventType,
-        AceType::MakeRefPtr<ResultOhos>(result));
+        AceType::MakeRefPtr<ResultOhos>(result), isReload);
     task->PostSyncTask(
         [&webClientImpl, dialogEventType, &param, &jsResult] {
             if (webClientImpl == nullptr) {
@@ -138,6 +139,63 @@ void FindListenerImpl::OnFindResultReceived(
     delegate->OnSearchResultReceive(activeMatchOrdinal, numberOfMatches, isDoneCounting);
 }
 
+void WebAgentClientImpl::ReportEventJson(const std::string& json)
+{
+    TAG_LOGD(AceLogTag::ACE_WEB, "ReportEventJson: %{public}s", json.c_str());
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->ReportEventJson(json);
+}
+
+void WebAgentClientImpl::OnCreateAISession(AISessionType type, const std::string& id, const std::string& params,
+    std::shared_ptr<NWeb::NWebStringVectorValueCallback> callback)
+{
+    TAG_LOGD(AceLogTag::ACE_WEB, "OnCreateAISession: type: %{public}d, id: %{public}s", type, id.c_str());
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    const auto wrappedCallback = [id, callback = std::move(callback)](uint32_t state, const std::string& content) {
+        if (state == RUNNING) {
+            TAG_LOGE(AceLogTag::ACE_WEB, "OnCreateAISession running: id: %{public}s, content: %{public}s",
+                id.c_str(), content.c_str());
+            return;
+        }
+        if (state == FAILURE) {
+            TAG_LOGE(AceLogTag::ACE_WEB, "OnCreateAISession failed: id: %{public}s, content: %{public}s",
+                id.c_str(), content.c_str());
+        }
+        callback->OnReceiveValue({ std::to_string(state), content });
+    };
+    delegate->OnCreateAISession(type, id, params, std::move(wrappedCallback));
+}
+
+void WebAgentClientImpl::OnExecuteAIAction(AISessionType type, const std::string& id, const std::string& params,
+    std::shared_ptr<NWeb::NWebStringVectorValueCallback> callback)
+{
+    TAG_LOGD(AceLogTag::ACE_WEB, "OnExecuteAIAction: type: %{public}d, id: %{public}s", type, id.c_str());
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    const auto wrappedCallback = [id, callback = std::move(callback)](uint32_t state, const std::string& content) {
+        if (state == FAILURE) {
+            TAG_LOGE(AceLogTag::ACE_WEB, "OnExecuteAIAction failed: id: %{public}s, content: %{public}s",
+                id.c_str(), content.c_str());
+        }
+        callback->OnReceiveValue({ std::to_string(state), content });
+    };
+    delegate->OnExecuteAIAction(type, id, params, std::move(wrappedCallback));
+}
+
+void WebAgentClientImpl::OnDestroyAISession(AISessionType type, const std::string& id)
+{
+    TAG_LOGD(AceLogTag::ACE_WEB, "OnDestroyAISession: type: %{public}d, id: %{public}s", type, id.c_str());
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnDestroyAISession(type, id);
+}
+
 std::string SpanstringConvertHtmlImpl::SpanstringConvertHtml(const std::vector<uint8_t> &content)
 {
     ContainerScope scope(instanceId_);
@@ -146,6 +204,16 @@ std::string SpanstringConvertHtmlImpl::SpanstringConvertHtml(const std::vector<u
         return "";
     }
     return delegate->SpanstringConvertHtml(content);
+}
+
+bool VaultPlainTextImpl::ProcessAutoFillOnPaste()
+{
+    ContainerScope scope(instanceId_);
+    auto delegate = webDelegate_.Upgrade();
+    if (!delegate) {
+        return false;
+    }
+    return delegate->ProcessAutoFillOnPaste();
 }
 
 void WebClientImpl::OnPageLoadEnd(int httpStatusCode, const std::string& url)
@@ -691,6 +759,14 @@ void WebClientImpl::OnScreenCaptureRequest(std::shared_ptr<NWeb::NWebScreenCaptu
     delegate->OnScreenCaptureRequest(request);
 }
 
+void WebClientImpl::OnContextMenuDismissed()
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnContextMenuDismissed();
+}
+
 bool WebClientImpl::RunContextMenu(
     std::shared_ptr<NWeb::NWebContextMenuParams> params,
     std::shared_ptr<NWeb::NWebContextMenuCallback> callback)
@@ -700,7 +776,7 @@ bool WebClientImpl::RunContextMenu(
     ContainerScope scope(delegate->GetInstanceId());
     bool jsResult = false;
     auto param = std::make_shared<ContextMenuEvent>(AceType::MakeRefPtr<ContextMenuParamOhos>(params),
-        AceType::MakeRefPtr<ContextMenuResultOhos>(callback));
+        AceType::MakeRefPtr<ContextMenuResultOhos>(callback, webDelegate_));
     auto task = delegate->GetTaskExecutor();
     if (task == nullptr) {
         return false;
@@ -831,6 +907,14 @@ void WebClientImpl::OnWindowNewByJS(
     delegate->OnWindowNew(targetUrl, isAlert, isUserTrigger, handler);
 }
 
+void WebClientImpl::OnWindowNewExtByJS(std::shared_ptr<NWeb::NWebWindowNewEventInfo> dataInfo)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnWindowNewExt(dataInfo);
+}
+
 void WebClientImpl::OnActivateContentByJS()
 {
     auto delegate = webDelegate_.Upgrade();
@@ -956,7 +1040,12 @@ void WebClientImpl::OnLargestContentfulPaint(
     auto delegate = webDelegate_.Upgrade();
     CHECK_NULL_VOID(delegate);
     CHECK_NULL_VOID(details);
-    ContainerScope scope(delegate->GetInstanceId());
+    auto instanceId = delegate->GetInstanceId();
+    if (instanceId == INSTANCE_ID_UNDEFINED) {
+        TAG_LOGE(AceLogTag::ACE_WEB, "instanceId is undefined! instanceId=%{public}d", instanceId);
+        return;
+    }
+    ContainerScope scope(instanceId);
     delegate->OnLargestContentfulPaint(details);
 }
 
@@ -1046,6 +1135,14 @@ void WebClientImpl::EnableSecurityLayer(bool isNeedSecurityLayer)
     delegate->EnableSecurityLayer(isNeedSecurityLayer);
 }
 
+void WebClientImpl::UpdateTextFieldStatus(bool isShowKeyboard, bool isAttachIME)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->UpdateTextFieldStatus(isShowKeyboard, isAttachIME);
+}
+
 void WebClientImpl::OnNativeEmbedLifecycleChange(std::shared_ptr<NWeb::NWebNativeEmbedDataInfo> dataInfo)
 {
     auto delegate = webDelegate_.Upgrade();
@@ -1059,6 +1156,22 @@ void WebClientImpl::OnNativeEmbedGestureEvent(std::shared_ptr<NWeb::NWebNativeEm
     CHECK_NULL_VOID(delegate);
     ContainerScope scope(delegate->GetInstanceId());
     delegate->OnNativeEmbedGestureEvent(event);
+}
+
+void WebClientImpl::OnNativeEmbedMouseEvent(std::shared_ptr<NWeb::NWebNativeEmbedMouseEvent> event)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnNativeEmbedMouseEvent(event);
+}
+
+void WebClientImpl::OnNativeEmbedObjectParamChange(std::shared_ptr<NWeb::NWebNativeEmbedParamDataInfo> paramDataInfo)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnNativeEmbedObjectParamChange(paramDataInfo);
 }
 
 void WebClientImpl::OnRootLayerChanged(int width, int height)
@@ -1294,6 +1407,15 @@ void WebClientImpl::KeyboardReDispatch(
     delegate->KeyboardReDispatch(event, isUsed);
 }
 
+void WebClientImpl::OnTakeFocus(
+    std::shared_ptr<OHOS::NWeb::NWebKeyEvent> event)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnTakeFocus(event);
+}
+
 void WebClientImpl::OnCursorUpdate(double x, double y, double width, double height)
 {
     auto delegate = webDelegate_.Upgrade();
@@ -1394,6 +1516,22 @@ bool WebClientImpl::OnNestedScroll(float& x, float& y, float& xVelocity, float& 
     return delegate->OnNestedScroll(x, y, xVelocity, yVelocity, isAvailable);
 }
 
+void WebClientImpl::OnLoadStarted(const std::string& url)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnLoadStarted(url);
+}
+
+void WebClientImpl::OnLoadFinished(const std::string& url)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnLoadFinished(url);
+}
+
 void WebClientImpl::OnPip(int status, int delegate_id, int child_id,
     int frame_routing_id, int width, int height)
 {
@@ -1405,21 +1543,20 @@ void WebClientImpl::OnPip(int status, int delegate_id, int child_id,
 }
 
 bool WebClientImpl::OnAllSslErrorRequestByJSV2(std::shared_ptr<NWeb::NWebJSAllSslErrorResult> result,
-    OHOS::NWeb::SslError error,
-    const std::string& url,
-    const std::string& originalUrl,
-    const std::string& referrer,
-    bool isFatalError,
-    bool isMainFrame,
-    const std::vector<std::string>& certChainData)
+    std::shared_ptr<NWeb::NWebAllSslErrorInfo> nwebAllSslError)
 {
+    if (nwebAllSslError == nullptr) {
+        return false;
+    }
     auto delegate = webDelegate_.Upgrade();
     CHECK_NULL_RETURN(delegate, false);
     ContainerScope scope(delegate->GetInstanceId());
 
     bool jsResult = false;
     auto param = std::make_shared<WebAllSslErrorEvent>(AceType::MakeRefPtr<AllSslErrorResultOhos>(result),
-        static_cast<int32_t>(error), url, originalUrl, referrer, isFatalError, isMainFrame, certChainData);
+        static_cast<int32_t>(nwebAllSslError->GetError()), nwebAllSslError->GetUrl(),
+        nwebAllSslError->GetOriginalUrl(), nwebAllSslError->GetReferrer(), nwebAllSslError->GetIsFatalError(),
+        nwebAllSslError->GetIsMainFrame(), nwebAllSslError->GetCertChainData());
     auto task = delegate->GetTaskExecutor();
     if (task == nullptr) {
         return false;
@@ -1478,5 +1615,194 @@ void WebClientImpl::OnRemoveBlanklessFrame(int delayTime)
     auto delegate = webDelegate_.Upgrade();
     CHECK_NULL_VOID(delegate);
     delegate->RemoveSnapshotFrameNode(delayTime);
+}
+
+bool WebClientImpl::OnBeforeUnloadByJSV2(
+    const std::string& url, const std::string& message, bool isReload, std::shared_ptr<NWeb::NWebJSDialogResult> result)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_RETURN(delegate, false);
+    ContainerScope scope(delegate->GetInstanceId());
+    return OnJsCommonDialog(this, DialogEventType::DIALOG_EVENT_BEFORE_UNLOAD, result, url, message, "",
+        delegate->GetTaskExecutor(), isReload);
+}
+
+void WebClientImpl::OnPdfScrollAtBottom(const std::string& url)
+{
+    TAG_LOGI(AceLogTag::ACE_WEB,
+        "WebClientImpl::OnPdfScrollAtBottom, url: %{public}s", url.c_str());
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnPdfScrollAtBottom(url);
+}
+
+void WebClientImpl::OnPdfLoadEvent(int32_t result, const std::string& url)
+{
+    TAG_LOGI(AceLogTag::ACE_WEB,
+        "WebClientImpl::OnPdfLoadEvent, result: %{public}d, url: %{public}s", result, url.c_str());
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnPdfLoadEvent(result, url);
+}
+
+void WebClientImpl::OnInsertBlanklessFrameWithSize(const std::string& pathToFrame, uint32_t width, uint32_t height)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    // pass directly without any judgment, CreateSnapshotFrameNode will check the parameter
+    delegate->CreateSnapshotFrameNode(pathToFrame, width, height);
+}
+
+void WebClientImpl::OnExtensionDisconnect(int32_t connectId)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnExtensionDisconnect(connectId);
+}
+
+std::string WebClientImpl::OnWebNativeMessage(std::shared_ptr<OHOS::NWeb::NWebRuntimeConnectInfo> info,
+    std::shared_ptr<OHOS::NWeb::NWebNativeMessageCallback> callback)
+{
+    auto delegate = webDelegate_.Upgrade();
+    if (!delegate) {
+        return "";
+    }
+
+    ContainerScope scope(delegate->GetInstanceId());
+    return delegate->OnWebNativeMessage(info, callback);
+}
+
+void WebClientImpl::SetImeShow(bool visible)
+{
+    TAG_LOGI(AceLogTag::ACE_WEB,
+        "WebClientImpl::SetImeShow, visible: %{public}d", visible);
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    delegate->SetImeShow(visible);
+}
+
+bool WebClientImpl::IsShowHandle()
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_RETURN(delegate, false);
+    return delegate->IsShowHandle();
+}
+
+void WebClientImpl::OnSafeBrowsingCheckFinish(int threat_type)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnSafeBrowsingCheckFinish(threat_type);
+}
+
+void WebClientImpl::OnRefreshAccessedHistoryV2(const std::string& url, bool isReload, bool isMainFrame)
+{
+    auto delegate = webDelegate_.Upgrade();
+    if (!delegate) {
+        return;
+    }
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnRefreshAccessedHistory(url, isReload, isMainFrame);
+}
+
+void WebClientImpl::OnTextSelectionChange(const std::string& selectionText)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnTextSelectionChange(selectionText);
+}
+
+void WebClientImpl::OnDetectedBlankScreen(
+    const std::string& url, int32_t blankScreenReason, int32_t detectedContentfulNodesCount)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnDetectedBlankScreen(url, blankScreenReason, detectedContentfulNodesCount);
+}
+
+void WebClientImpl::OnFirstScreenPaint(
+    const std::string& url, int64_t navigationStartTime, int64_t firstScreenPaintTime)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnFirstScreenPaint(url, navigationStartTime, firstScreenPaintTime);
+}
+
+bool WebClientImpl::IsQuickMenuShow()
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_RETURN(delegate, false);
+    return delegate->IsQuickMenuShow();
+}
+
+void WebClientImpl::OnRemoveBlanklessFrameWithAnimation(int delayTime)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    delegate->RemoveSnapshotFrameNode(delayTime, true);
+}
+
+bool WebClientImpl::OnVerifyPinRequestByJS(
+    std::shared_ptr<NWeb::NWebJSVerifyPinResult> result, const std::string& identity)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_RETURN(delegate, false);
+    ContainerScope scope(delegate->GetInstanceId());
+ 
+    bool jsResult = false;
+    auto param = std::make_shared<WebVerifyPinEvent>(AceType::MakeRefPtr<VerifyPinResultOhos>(result), identity);
+    auto task = delegate->GetTaskExecutor();
+    CHECK_NULL_RETURN(task, false);
+ 
+    task->PostSyncTask(
+        [webClient = this, &param, &jsResult] {
+            if (!webClient) {
+                return;
+            }
+            auto delegate = webClient->webDelegate_.Upgrade();
+            if (delegate) {
+                jsResult = delegate->OnVerifyPinRequest(param);
+            }
+        }, OHOS::Ace::TaskExecutor::TaskType::JS, "ArkUIWebClientVerifyPinRequest");
+    return jsResult;
+}
+
+void WebClientImpl::OnClippedSelectionBoundsChanged(int x, int y, int width, int height)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnClippedSelectionBoundsChanged(x, y, width, height);
+}
+
+void WebClientImpl::OnCameraCaptureStateChanged(int originalState, int newState)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnCameraCaptureStateChanged(originalState, newState);
+}
+
+void WebClientImpl::OnMicrophoneCaptureStateChanged(int originalState, int newState)
+{
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    ContainerScope scope(delegate->GetInstanceId());
+    delegate->OnMicrophoneCaptureStateChanged(originalState, newState);
+}
+
+void WebClientImpl::OnMediaCastEnter()
+{
+    TAG_LOGI(AceLogTag::ACE_WEB, "WebClientImpl::OnMediaCastEnter");
+    auto delegate = webDelegate_.Upgrade();
+    CHECK_NULL_VOID(delegate);
+    delegate->OnMediaCastEnter();
 }
 } // namespace OHOS::Ace

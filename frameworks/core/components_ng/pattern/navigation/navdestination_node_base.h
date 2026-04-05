@@ -31,7 +31,7 @@
 
 namespace OHOS::Ace::NG {
 class NavDestinationNodeBase : public GroupNode {
-    DECLARE_ACE_TYPE(NavDestinationNodeBase, GroupNode)
+    DECLARE_ACE_TYPE(NavDestinationNodeBase, GroupNode);
 public:
     NavDestinationNodeBase(const std::string& tag, int32_t nodeId, const RefPtr<Pattern>& pattern)
         : GroupNode(tag, nodeId, pattern) {}
@@ -199,6 +199,7 @@ public:
     bool CustomizeExpandSafeArea();
     void Measure(const std::optional<LayoutConstraintF>& parentConstraint) override;
     void Layout() override;
+    void SetNodeFreeze(bool isFreeze) override;
 
     void SetOrientation(const std::optional<Orientation>& ori)
     {
@@ -333,6 +334,10 @@ public:
     {
         return isHomeDestination_;
     }
+    void SetIsUserSetFreeze(bool isSet)
+    {
+        isUserSetFreeze_ = isSet;
+    }
 
 protected:
     RectF CalcFullClipRectForTransition(const SizeF& frameSize);
@@ -346,7 +351,7 @@ protected:
     // Dialog
     TranslateOptions CalcContentTranslateForDialog(const SizeF& frameSize);
     // slide
-    OffsetF CalcTranslateForSlideTransition(const SizeF& frameSize, bool isRight, bool isEnter, bool isEnd);
+    OffsetF CalcTranslateForSlideTransition(const SizeF& paintRect, bool isRight, bool isEnter, bool isEnd);
 
     OffsetF GetParentGlobalOffsetWithSafeArea(bool checkBoundary = false, bool checkPosition = false) const override;
 
@@ -380,6 +385,7 @@ protected:
     std::optional<bool> navigationIndicatorConfig_;
     std::optional<bool> preNavigationIndicatorConfig_;
     bool isSizeMatchNavigation_ = true;
+    bool isUserSetFreeze_ = false;
     NavDestinationType destType_ = NavDestinationType::DETAIL;
 };
 } // namespace OHOS::Ace::NG

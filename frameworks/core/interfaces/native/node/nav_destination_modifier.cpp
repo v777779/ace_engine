@@ -15,6 +15,7 @@
 #include "core/interfaces/native/node/nav_destination_modifier.h"
 
 #include "core/components_ng/pattern/navrouter/navdestination_model_ng.h"
+#include "core/components_ng/pattern/navrouter/navdestination_pattern.h"
 
 namespace OHOS::Ace::NG {
 constexpr int32_t DEFAULT_SAFE_AREA_TYPE = 0b1;
@@ -59,6 +60,39 @@ void ResetNavDestinationHideBackButton(ArkUINodeHandle node)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     NavDestinationModelNG::SetHideBackButton(frameNode, false);
+}
+
+void SetNavDestinationBackgroundColor(ArkUINodeHandle node, uint32_t color, void* bgColorRawPtr)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto* bgColor = reinterpret_cast<ResourceObject*>(bgColorRawPtr);
+    auto backgroundColorResObj = AceType::Claim(bgColor);
+    NavDestinationModelNG::SetBackgroundColor(frameNode, Color(color), true, backgroundColorResObj);
+}
+
+void ResetNavDestinationBackgroundColor(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    Color backgroundColor;
+    NavDestinationModelNG::SetBackgroundColor(frameNode, backgroundColor, false, nullptr);
+}
+
+void SetNavDestinationBackgroundColorWithColorSpace(
+    ArkUINodeHandle node, ArkUI_Uint32 color, ArkUI_Int32 colorSpace, void* bgColorRawPtr)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto* bgColor = reinterpret_cast<ResourceObject*>(bgColorRawPtr);
+    auto backgroundColorResObj = AceType::Claim(bgColor);
+    Color backgroundColor { color };
+    if (ColorSpace::DISPLAY_P3 == colorSpace) {
+        backgroundColor.SetColorSpace(ColorSpace::DISPLAY_P3);
+    } else {
+        backgroundColor.SetColorSpace(ColorSpace::SRGB);
+    }
+    NavDestinationModelNG::SetBackgroundColor(frameNode, backgroundColor, true, backgroundColorResObj);
 }
 
 void SetNavDestinationMode(ArkUINodeHandle node, int32_t value)
@@ -171,6 +205,9 @@ void UpdateNavDestinationTitlebarOptions(FrameNode* frameNode, ArkUINavigationTi
         if (options.enableHoverMode.isSet) {
             finalOptions.enableHoverMode = options.enableHoverMode.value;
         }
+        if (options.enableCustomTitlePaddingCheck.isSet) {
+            finalOptions.enableCustomTitlePaddingCheck = options.enableCustomTitlePaddingCheck.value;
+        }
         auto localFinalOptions = finalOptions;
         auto frameNode = wekNode.Upgrade();
         CHECK_NULL_VOID(frameNode);
@@ -181,6 +218,35 @@ void UpdateNavDestinationTitlebarOptions(FrameNode* frameNode, ArkUINavigationTi
     auto pattern = frameNode->GetPattern();
     CHECK_NULL_VOID(pattern);
     pattern->AddResObj("navDestination.titlebarOptions", resObj, std::move(updateFunc));
+}
+
+void SetNavigationTitlebarOptions(NG::NavigationTitlebarOptions& finalOptions, ArkUINavigationTitlebarOptions& options)
+{
+    if (options.colorValue.isSet) {
+        finalOptions.bgOptions.color = Color(options.colorValue.value);
+    }
+    if (options.blurStyle.isSet) {
+        BlurStyleOption blurStyleOption;
+        blurStyleOption.blurStyle = static_cast<BlurStyle>(options.blurStyle.value);
+        finalOptions.bgOptions.blurStyleOption = blurStyleOption;
+    }
+    if (options.barStyle.isSet) {
+        finalOptions.brOptions.barStyle = static_cast<NG::BarStyle>(options.barStyle.value);
+    }
+    if (options.paddingStart.isSet) {
+        finalOptions.brOptions.paddingStart = CalcDimension(static_cast<double>(options.paddingStart.dimension.value),
+            static_cast<DimensionUnit>(options.paddingStart.dimension.units));
+    }
+    if (options.paddingEnd.isSet) {
+        finalOptions.brOptions.paddingEnd = CalcDimension(static_cast<double>(options.paddingEnd.dimension.value),
+            static_cast<DimensionUnit>(options.paddingEnd.dimension.units));
+    }
+    if (options.enableHoverMode.isSet) {
+        finalOptions.enableHoverMode = options.enableHoverMode.value;
+    }
+    if (options.enableCustomTitlePaddingCheck.isSet) {
+        finalOptions.enableCustomTitlePaddingCheck = options.enableCustomTitlePaddingCheck.value;
+    }
 }
 
 void SetTitle(ArkUINodeHandle node, ArkUINavigationTitleInfo titleInfo, ArkUINavigationTitlebarOptions options,
@@ -208,28 +274,7 @@ void SetTitle(ArkUINodeHandle node, ArkUINavigationTitleInfo titleInfo, ArkUINav
         NavDestinationModelNG::ParseCommonTitle(frameNode, ngTitleInfo);
     }
     NG::NavigationTitlebarOptions finalOptions;
-    if (options.colorValue.isSet) {
-        finalOptions.bgOptions.color = Color(options.colorValue.value);
-    }
-    if (options.blurStyle.isSet) {
-        BlurStyleOption blurStyleOption;
-        blurStyleOption.blurStyle = static_cast<BlurStyle>(options.blurStyle.value);
-        finalOptions.bgOptions.blurStyleOption = blurStyleOption;
-    }
-    if (options.barStyle.isSet) {
-        finalOptions.brOptions.barStyle = static_cast<NG::BarStyle>(options.barStyle.value);
-    }
-    if (options.paddingStart.isSet) {
-        finalOptions.brOptions.paddingStart = CalcDimension(static_cast<double>(options.paddingStart.dimension.value),
-            static_cast<DimensionUnit>(options.paddingStart.dimension.units));
-    }
-    if (options.paddingEnd.isSet) {
-        finalOptions.brOptions.paddingEnd = CalcDimension(static_cast<double>(options.paddingEnd.dimension.value),
-            static_cast<DimensionUnit>(options.paddingEnd.dimension.units));
-    }
-    if (options.enableHoverMode.isSet) {
-        finalOptions.enableHoverMode = options.enableHoverMode.value;
-    }
+    SetNavigationTitlebarOptions(finalOptions, options);
     NavDestinationModelNG::SetTitlebarOptions(frameNode, std::move(finalOptions));
     if (SystemProperties::ConfigChangePerform()) {
         UpdateNavDestinationTitlebarOptions(frameNode, options);
@@ -252,13 +297,28 @@ void ResetTitle(ArkUINodeHandle node)
     NavDestinationModelNG::SetTitlebarOptions(frameNode, std::move(options));
 }
 
+void UpdateNavDestSymbolAndAction(const RefPtr<FrameNode>& frameNode, std::vector<NG::BarItem>& menuItems)
+{
+    auto navDestinationGroupNode = AceType::DynamicCast<NavDestinationGroupNode>(frameNode);
+    CHECK_NULL_VOID(navDestinationGroupNode);
+    auto navDestinationPattern = navDestinationGroupNode->GetPattern<NavDestinationPattern>();
+    CHECK_NULL_VOID(navDestinationPattern);
+    auto titleBarMenuItems = navDestinationPattern->GetTitleBarMenuItems();
+    for (size_t i = 0; i < menuItems.size() && i < titleBarMenuItems.size(); i++) {
+        menuItems[i].action = titleBarMenuItems[i].action;
+        if (titleBarMenuItems[i].iconSymbol.has_value()) {
+            menuItems[i].iconSymbol = titleBarMenuItems[i].iconSymbol.value();
+        }
+    }
+}
+
 void UpdateNavDestinationMenuItem(FrameNode* frameNode, ArkUIBarItem* items, ArkUI_Uint32 length)
 {
     CHECK_NULL_VOID(frameNode);
     RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
-    auto&& updateFunc = [wekNode = AceType::WeakClaim(frameNode),
-                            items = std::vector<ArkUIBarItem>(items, items + length)](
-                            const RefPtr<ResourceObject>& resObj) mutable {
+    auto updateFunc = [wekNode = AceType::WeakClaim(frameNode),
+                          items = std::vector<ArkUIBarItem>(items, items + length)](
+                          const RefPtr<ResourceObject>& resObj) mutable {
         for (uint32_t i = 0; i < items.size(); i++) {
             items[i].ReloadResources();
         }
@@ -284,9 +344,10 @@ void UpdateNavDestinationMenuItem(FrameNode* frameNode, ArkUIBarItem* items, Ark
                 items[i].icon.value = nullptr;
             }
         }
-        auto localMenuItems = menuItems;
         auto frameNode = wekNode.Upgrade();
         CHECK_NULL_VOID(frameNode);
+        UpdateNavDestSymbolAndAction(frameNode, menuItems);
+        auto localMenuItems = menuItems;
         NavDestinationModelNG::SetMenuItems(AceType::RawPtr(frameNode), std::move(localMenuItems));
         frameNode->MarkModifyDone();
         frameNode->MarkDirtyNode();
@@ -421,8 +482,15 @@ void SetNavDestinationTitlebarOptions(ArkUINodeHandle node, ArkUINavigationTitle
     if (opts.barStyle.isSet) {
         finalOptions.brOptions.barStyle = static_cast<NG::BarStyle>(opts.barStyle.value);
     }
+    if (opts.paddingEnd.isSet) {
+        finalOptions.brOptions.paddingEnd = CalcDimension(static_cast<double>(opts.paddingEnd.dimension.value),
+            static_cast<DimensionUnit>(opts.paddingEnd.dimension.units));
+    }
     if (opts.enableHoverMode.isSet) {
         finalOptions.enableHoverMode = opts.enableHoverMode.value;
+    }
+    if (opts.enableCustomTitlePaddingCheck.isSet) {
+        finalOptions.enableCustomTitlePaddingCheck = opts.enableCustomTitlePaddingCheck.value;
     }
     NavDestinationModelNG::SetTitlebarOptions(frameNode, std::move(finalOptions));
 }
@@ -434,24 +502,42 @@ void SetNavDestinationOnCoordScrollStartAction(
     CHECK_NULL_VOID(frameNode);
     auto onCoordScrollStartActionCallBack = [node = AceType::WeakClaim(frameNode), onCoordScrollStartAction]() {
         auto frameNode = node.Upgrade();
+        CHECK_NULL_VOID(frameNode);
         auto nodeHandle = reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(frameNode));
+        CHECK_NULL_VOID(onCoordScrollStartAction);
         onCoordScrollStartAction(nodeHandle);
     };
     NavDestinationModelNG::SetOnCoordScrollStartAction(frameNode, std::move(onCoordScrollStartActionCallBack));
 }
 
+void ResetNavDestinationOnCoordScrollStartAction(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::SetOnCoordScrollStartAction(frameNode, nullptr);
+}
+
 void SetNavDestinationOnCoordScrollUpdateAction(ArkUINodeHandle node,
-    void (*onCoordScrollUpdateAction)(ArkUINodeHandle node, ArkUI_Float32 currentOffset))
+    void (*onCoordScrollUpdateAction)(ArkUINodeHandle node, ArkUI_Float32 offset, ArkUI_Float32 currentOffset))
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     auto onCoordScrollUpdateActionCallBack =
-        [node = AceType::WeakClaim(frameNode), onCoordScrollUpdateAction](float currentOffset)->void {
+        [node = AceType::WeakClaim(frameNode), onCoordScrollUpdateAction](float offset, float currentOffset)->void {
             auto frameNode = node.Upgrade();
+            CHECK_NULL_VOID(frameNode);
             auto nodeHandle = reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(frameNode));
-                onCoordScrollUpdateAction(nodeHandle, currentOffset);
+            CHECK_NULL_VOID(onCoordScrollUpdateAction);
+            onCoordScrollUpdateAction(nodeHandle, offset, currentOffset);
         };
     NavDestinationModelNG::SetOnCoordScrollUpdateAction(frameNode, std::move(onCoordScrollUpdateActionCallBack));
+}
+
+void ResetNavDestinationOnCoordScrollUpdateAction(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::SetOnCoordScrollUpdateAction(frameNode, nullptr);
 }
 
 void SetNavDestinationOnCoordScrollEndAction(ArkUINodeHandle node, void (*onCoordScrollEndAction)(ArkUINodeHandle node))
@@ -460,10 +546,19 @@ void SetNavDestinationOnCoordScrollEndAction(ArkUINodeHandle node, void (*onCoor
     CHECK_NULL_VOID(frameNode);
     auto onCoordScrollEndActionCallBack = [node = AceType::WeakClaim(frameNode), onCoordScrollEndAction]() {
         auto frameNode = node.Upgrade();
+        CHECK_NULL_VOID(frameNode);
         auto nodeHandle = reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(frameNode));
+        CHECK_NULL_VOID(onCoordScrollEndAction);
         onCoordScrollEndAction(nodeHandle);
     };
     NavDestinationModelNG::SetOnCoordScrollEndAction(frameNode, std::move(onCoordScrollEndActionCallBack));
+}
+
+void ResetNavDestinationOnCoordScrollEndAction(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::SetOnCoordScrollEndAction(frameNode, nullptr);
 }
 
 void SetNavDestinationSystemBarStyle(ArkUINodeHandle node, ArkUI_Uint32 value)
@@ -557,7 +652,7 @@ void SetNavDestinationOnShown(ArkUINodeHandle node, void* callback)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     if (callback) {
-        auto onShown = reinterpret_cast<std::function<void()>*>(callback);
+        auto onShown = reinterpret_cast<std::function<void(int32_t)>*>(callback);
         NavDestinationModelNG::SetOnShown(frameNode, std::move(*onShown));
     } else {
         NavDestinationModelNG::SetOnShown(frameNode, nullptr);
@@ -576,7 +671,7 @@ void SetNavDestinationOnHidden(ArkUINodeHandle node, void* callback)
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     if (callback) {
-        auto onHidden = reinterpret_cast<std::function<void()>*>(callback);
+        auto onHidden = reinterpret_cast<std::function<void(int32_t)>*>(callback);
         NavDestinationModelNG::SetOnHidden(frameNode, std::move(*onHidden));
     } else {
         NavDestinationModelNG::SetOnHidden(frameNode, nullptr);
@@ -659,6 +754,44 @@ void SetNavDestinationOnWillDisappear(ArkUINodeHandle node, void* callback)
     }
 }
 
+void ResetNavDestinationOnActive(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::SetOnActive(frameNode, nullptr);
+}
+
+void SetNavDestinationOnActive(ArkUINodeHandle node, void* callback)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (callback) {
+        auto onActive = reinterpret_cast<std::function<void(int32_t)>*>(callback);
+        NavDestinationModelNG::SetOnActive(frameNode, std::move(*onActive));
+    } else {
+        NavDestinationModelNG::SetOnActive(frameNode, nullptr);
+    }
+}
+
+void ResetNavDestinationOnInactive(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::SetOnInactive(frameNode, nullptr);
+}
+
+void SetNavDestinationOnInactive(ArkUINodeHandle node, void* callback)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (callback) {
+        auto onInactive = reinterpret_cast<std::function<void(int32_t)>*>(callback);
+        NavDestinationModelNG::SetOnInactive(frameNode, std::move(*onInactive));
+    } else {
+        NavDestinationModelNG::SetOnInactive(frameNode, nullptr);
+    }
+}
+
 void ResetNavDestinationOnWillDisappear(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -703,6 +836,20 @@ void ResetNavDestinationOnReady(ArkUINodeHandle node)
     NavDestinationModelNG::SetOnReady(frameNode, nullptr);
 }
 
+void SetNavDestinationIsCustomTitleBarSize(ArkUINodeHandle node, ArkUI_Bool isCustom)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::SetIsCustomTitleBarSize(frameNode, isCustom);
+}
+
+void ResetNavDestinationIsCustomTitleBarSize(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::SetIsCustomTitleBarSize(frameNode, false);
+}
+
 void SetNavDestinationBeforeCreateLayoutWrapperCallBack(
     ArkUINodeHandle node, void (*beforeCreateLayoutWrapper)(ArkUINodeHandle node))
 {
@@ -715,6 +862,109 @@ void SetNavDestinationBeforeCreateLayoutWrapperCallBack(
     };
     NavDestinationModelNG::SetBeforeCreateLayoutWrapperCallBack(
         frameNode, std::move(beforeCreateLayoutWrapperCallBack));
+}
+
+void SetTitleAnimationElapsedTime(ArkUINodeHandle node, ArkUI_Int32 elapsedTime)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::SetTitleAnimationElapsedTime(frameNode, static_cast<int32_t>(elapsedTime));
+}
+
+void SetNavDestinationOnResult(ArkUINodeHandle node, void* callback)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (callback) {
+        auto onResult = reinterpret_cast<std::function<void(const RefPtr<NavPathInfo>&)>*>(callback);
+        NavDestinationModelNG::SetOnPop(frameNode, std::move(*onResult));
+    } else {
+        NavDestinationModelNG::SetOnPop(frameNode, nullptr);
+    }
+}
+
+void ResetNavDestinationOnResult(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::SetOnPop(frameNode, nullptr);
+}
+
+void SetNavDestinationOnNewParam(ArkUINodeHandle node, void* callback)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    if (callback) {
+        auto onNewParam = reinterpret_cast<std::function<void(napi_value)>*>(callback);
+        NavDestinationModelNG::SetOnNewParam(frameNode, std::move(*onNewParam));
+    } else {
+        NavDestinationModelNG::SetOnNewParam(frameNode, nullptr);
+    }
+}
+
+void ResetNavDestinationOnNewParam(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::SetOnNewParam(frameNode, nullptr);
+}
+
+void SetBindToScrollable(ArkUINodeHandle node, void* callback)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto bindFunc = reinterpret_cast<std::function<
+        void(const RefPtr<NG::NavDestinationScrollableProcessor>& processor)>*>(callback);
+    CHECK_NULL_VOID(bindFunc);
+    NavDestinationModelNG::UpdateBindingWithScrollable(frameNode, std::move(*bindFunc));
+}
+
+void ResetBindToScrollable(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto unbindFunc = [](const RefPtr<NG::NavDestinationScrollableProcessor>& processor) {
+        CHECK_NULL_VOID(processor);
+        processor->UnbindScrollable();
+    };
+    NavDestinationModelNG::UpdateBindingWithScrollable(frameNode, std::move(unbindFunc));
+}
+
+void SetBindToNestedScrollable(ArkUINodeHandle node, void* callback)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto bindFunc = reinterpret_cast<std::function<
+        void(const RefPtr<NG::NavDestinationScrollableProcessor>& processor)>*>(callback);
+    CHECK_NULL_VOID(bindFunc);
+    NavDestinationModelNG::UpdateBindingWithScrollable(frameNode, std::move(*bindFunc));
+}
+
+void ResetBindToNestedScrollable(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto unbindFunc = [](const RefPtr<NG::NavDestinationScrollableProcessor>& processor) {
+        CHECK_NULL_VOID(processor);
+        processor->UnbindNestedScrollable();
+    };
+    NavDestinationModelNG::UpdateBindingWithScrollable(frameNode, std::move(unbindFunc));
+}
+
+void SetNavDestinationBackButtonText(ArkUINodeHandle node, ArkUI_CharPtr text, ArkUI_VoidPtr textResource)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto resource = AceType::Claim(reinterpret_cast<ResourceObject*>(textResource));
+    NavDestinationModelNG::SetBackButtonTextResource(frameNode, text, resource);
+}
+
+void ResetNavDestinationBackButtonText(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    NavDestinationModelNG::ResetResObj(frameNode, NavDestinationPatternType::TITLE_BAR,
+        "navDestination.backButtonIcon.accessibilityText");
 }
 namespace NodeModifier {
 const ArkUINavDestinationModifier* GetNavDestinationModifier()
@@ -731,6 +981,9 @@ const ArkUINavDestinationModifier* GetNavDestinationModifier()
         .resetNavDestinationMode = ResetNavDestinationMode,
         .setIgnoreLayoutSafeArea = SetIgnoreLayoutSafeArea,
         .resetIgnoreLayoutSafeArea = ResetIgnoreLayoutSafeArea,
+        .setNavDestinationBackgroundColor = SetNavDestinationBackgroundColor,
+        .resetNavDestinationBackgroundColor = ResetNavDestinationBackgroundColor,
+        .setNavDestinationBackgroundColorWithColorSpace = SetNavDestinationBackgroundColorWithColorSpace,
         .setTitle = SetTitle,
         .resetTitle = ResetTitle,
         .setMenus = SetMenus,
@@ -746,8 +999,11 @@ const ArkUINavDestinationModifier* GetNavDestinationModifier()
         .setNavDestinationTitleHeight = SetNavDestinationTitleHeight,
         .setNavDestinationTitlebarOptions = SetNavDestinationTitlebarOptions,
         .setNavDestinationOnCoordScrollStartAction = SetNavDestinationOnCoordScrollStartAction,
+        .resetNavDestinationOnCoordScrollStartAction = ResetNavDestinationOnCoordScrollStartAction,
         .setNavDestinationOnCoordScrollUpdateAction = SetNavDestinationOnCoordScrollUpdateAction,
+        .resetNavDestinationOnCoordScrollUpdateAction = ResetNavDestinationOnCoordScrollUpdateAction,
         .setNavDestinationOnCoordScrollEndAction = SetNavDestinationOnCoordScrollEndAction,
+        .resetNavDestinationOnCoordScrollEndAction = ResetNavDestinationOnCoordScrollEndAction,
         .setNavDestinationSystemBarStyle = SetNavDestinationSystemBarStyle,
         .resetNavDestinationSystemBarStyle = ResetNavDestinationSystemBarStyle,
         .setCustomBackButtonNode = SetCustomBackButtonNode,
@@ -773,7 +1029,24 @@ const ArkUINavDestinationModifier* GetNavDestinationModifier()
         .resetNavDestinationOnBackPressed = ResetNavDestinationOnBackPressed,
         .setNavDestinationOnReady = SetNavDestinationOnReady,
         .resetNavDestinationOnReady = ResetNavDestinationOnReady,
+        .setNavDestinationIsCustomTitleBarSize = SetNavDestinationIsCustomTitleBarSize,
+        .resetNavDestinationIsCustomTitleBarSize = ResetNavDestinationIsCustomTitleBarSize,
         .setNavDestinationBeforeCreateLayoutWrapperCallBack = SetNavDestinationBeforeCreateLayoutWrapperCallBack,
+        .setTitleAnimationElapsedTime = SetTitleAnimationElapsedTime,
+        .setNavDestinationOnActive = SetNavDestinationOnActive,
+        .resetNavDestinationOnActive = ResetNavDestinationOnActive,
+        .setNavDestinationOnInactive = SetNavDestinationOnInactive,
+        .resetNavDestinationOnInactive = ResetNavDestinationOnInactive,
+        .setNavDestinationOnResult = SetNavDestinationOnResult,
+        .resetNavDestinationOnResult = ResetNavDestinationOnResult,
+        .setNavDestinationOnNewParam = SetNavDestinationOnNewParam,
+        .resetNavDestinationOnNewParam = ResetNavDestinationOnNewParam,
+        .setBindToScrollable = SetBindToScrollable,
+        .resetBindToScrollable = ResetBindToScrollable,
+        .setBindToNestedScrollable = SetBindToNestedScrollable,
+        .resetBindToNestedScrollable = ResetBindToNestedScrollable,
+        .setNavDestinationBackButtonText = SetNavDestinationBackButtonText,
+        .resetNavDestinationBackButtonText = ResetNavDestinationBackButtonText,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
 
@@ -802,6 +1075,7 @@ const CJUINavDestinationModifier* GetCJUINavDestinationModifier()
         .resetEnableStatusBar = ResetEnableStatusBar,
         .setEnableNavigationIndicator = SetEnableNavigationIndicator,
         .resetEnableNavigationIndicator = ResetEnableNavigationIndicator,
+        .setNavDestinationBackgroundColorWithColorSpace = SetNavDestinationBackgroundColorWithColorSpace,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
 

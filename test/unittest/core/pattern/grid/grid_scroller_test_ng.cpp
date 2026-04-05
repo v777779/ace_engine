@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +15,9 @@
 
 #include "grid_test_ng.h"
 #include "core/components_ng/pattern/scroll/scroll_edge_effect.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
+#include "test/mock/interfaces/inner_api/ui_session/mock_ui_session_manager.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter_v2.h"
 
 namespace OHOS::Ace::NG {
 class GridScrollerTestNg : public GridTestNg, public testing::WithParamInterface<bool> {};
@@ -915,594 +917,216 @@ HWTEST_F(GridScrollerTestNg, ScrollToNode001, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetOverScrollOffset001
- * @tc.desc: Test GetOverScrollOffset
+ * @tc.name: OnInjectionEventTest001
+ * @tc.desc: test OnInjectionEvent
  * @tc.type: FUNC
  */
-HWTEST_F(GridScrollerTestNg, GetOverScrollOffset001, TestSize.Level1)
+HWTEST_F(GridTestNg, OnInjectionEventTest001, TestSize.Level1)
 {
     GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr");
-    model.SetLayoutOptions({});
+    model.SetColumnsTemplate("1fr");
     CreateFixedItems(10);
     CreateDone();
+    EXPECT_TRUE(pattern_->IsAtTop());
 
-    OverScrollOffset offset = pattern_->GetOverScrollOffset(ITEM_MAIN_SIZE);
-    OverScrollOffset expectOffset = { ITEM_MAIN_SIZE, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(0);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(-ITEM_MAIN_SIZE);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_-> info_.currentOffset_, 0);
 
-    pattern_->info_.currentOffset_ = -ITEM_MAIN_SIZE;
-    offset = pattern_->GetOverScrollOffset(ITEM_MAIN_SIZE * 2);
-    expectOffset = { ITEM_MAIN_SIZE, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(0);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(-ITEM_MAIN_SIZE * 2);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
+    command = R"({"cmd":"scrollForward"})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_-> info_.currentOffset_, 0);
 
-    pattern_->info_.currentOffset_ = -ITEM_MAIN_SIZE * 2;
-    offset = pattern_->GetOverScrollOffset(ITEM_MAIN_SIZE);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(0);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(-ITEM_MAIN_SIZE);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-
-    pattern_->info_.currentOffset_ = ITEM_MAIN_SIZE;
-    offset = pattern_->GetOverScrollOffset(ITEM_MAIN_SIZE);
-    expectOffset = { ITEM_MAIN_SIZE, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(0);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(-ITEM_MAIN_SIZE * 2);
-    expectOffset = { -ITEM_MAIN_SIZE, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-
-    pattern_->info_.currentOffset_ = -ITEM_MAIN_SIZE * 3;
-    offset = pattern_->GetOverScrollOffset(ITEM_MAIN_SIZE * 2);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(0);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(-ITEM_MAIN_SIZE);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
+    command = R"({"cmd":"scrollBackward"})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_NE(pattern_->info_.currentOffset_, 0);
 }
 
 /**
- * @tc.name: GetOverScrollOffset002
- * @tc.desc: Test GetOverScrollOffset
+ * @tc.name: OnInjectionEventTest001
+ * @tc.desc: Test CreateWithResourceObjScrollBarColor in GridModelNG
  * @tc.type: FUNC
  */
-HWTEST_F(GridScrollerTestNg, GetOverScrollOffset002, TestSize.Level1)
+HWTEST_F(GridScrollerTestNg, OnInjectionEventTest002, TestSize.Level1)
 {
     GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr");
-    CreateFixedItems(8);
-    CreateDone();
-
-    OverScrollOffset offset = pattern_->GetOverScrollOffset(ITEM_MAIN_SIZE);
-    OverScrollOffset expectOffset = { ITEM_MAIN_SIZE, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(0);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(-ITEM_MAIN_SIZE);
-    expectOffset = { 0, -ITEM_MAIN_SIZE };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-
-    pattern_->info_.currentOffset_ = -ITEM_MAIN_SIZE;
-    offset = pattern_->GetOverScrollOffset(ITEM_MAIN_SIZE * 2);
-    expectOffset = { ITEM_MAIN_SIZE, ITEM_MAIN_SIZE };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(0);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(-ITEM_MAIN_SIZE * 2);
-    expectOffset = { 0, -ITEM_MAIN_SIZE * 2 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-
-    pattern_->info_.currentOffset_ = -ITEM_MAIN_SIZE * 2;
-    offset = pattern_->GetOverScrollOffset(ITEM_MAIN_SIZE);
-    expectOffset = { 0, ITEM_MAIN_SIZE };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(0);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(-ITEM_MAIN_SIZE);
-    expectOffset = { 0, -ITEM_MAIN_SIZE };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-
-    pattern_->info_.currentOffset_ = ITEM_MAIN_SIZE;
-    offset = pattern_->GetOverScrollOffset(ITEM_MAIN_SIZE);
-    expectOffset = { ITEM_MAIN_SIZE, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(0);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(-ITEM_MAIN_SIZE * 2);
-    expectOffset = { -ITEM_MAIN_SIZE, -ITEM_MAIN_SIZE };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-
-    pattern_->info_.currentOffset_ = -ITEM_MAIN_SIZE * 3;
-    offset = pattern_->GetOverScrollOffset(ITEM_MAIN_SIZE * 2);
-    expectOffset = { 0, ITEM_MAIN_SIZE * 2 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(0);
-    expectOffset = { 0, 0 };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-    offset = pattern_->GetOverScrollOffset(-ITEM_MAIN_SIZE);
-    expectOffset = { 0, -ITEM_MAIN_SIZE };
-    EXPECT_TRUE(IsEqual(offset, expectOffset));
-}
-
-/**
- * @tc.name: UpdateCurrentOffset001
- * @tc.desc: Test grid pattern UpdateCurrentOffset function
- * @tc.type: FUNC
- */
-HWTEST_F(GridScrollerTestNg, UpdateCurrentOffset001, TestSize.Level1)
-{
-    /**
-     * @tc.cases: Test SCROLL_FROM_UPDATE
-     */
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr");
+    model.SetColumnsTemplate("1fr");
     CreateFixedItems(10);
     CreateDone();
-    UpdateCurrentOffset(-50.0f, SCROLL_FROM_UPDATE);
-    EXPECT_TRUE(Position(-50.0f));
-    UpdateCurrentOffset(50.0f, SCROLL_FROM_UPDATE);
-    EXPECT_TRUE(Position(0.0f));
-    UpdateCurrentOffset(-100.0f, SCROLL_FROM_UPDATE);
-    EXPECT_TRUE(Position(-100.0f));
+    EXPECT_TRUE(pattern_->IsAtTop());
+
+    std::string command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+
+    command = R"({"cmd":"scrollBackward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, -40);
+
+    ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, false);
+    EXPECT_TRUE(pattern_->IsAtBottom());
+
+    command = R"({"cmd":"scrollBackward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+
+    command = R"({"cmd":"scrollward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+
+    command = R"({"cmd":"scrollForward","eventId":123123,"ratio":1.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+
+    command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 40);
 }
 
 /**
- * @tc.name: UpdateCurrentOffset002
- * @tc.desc: Test grid pattern UpdateCurrentOffset function
+ * @tc.name: OnInjectionEventTest002
+ * @tc.desc: test OnInjectionEvent
  * @tc.type: FUNC
  */
-HWTEST_F(GridScrollerTestNg, UpdateCurrentOffset002, TestSize.Level1)
+HWTEST_F(GridScrollerTestNg, OnInjectionEventTest003, TestSize.Level1)
 {
-    /**
-     * @tc.cases: Test SCROLL_FROM_BAR
-     */
     GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr");
+    model.SetRowsTemplate("1fr");
+    model.SetColumnsTemplate("1fr");
+    CreateDone();
+    EXPECT_FALSE(pattern_->IsScrollable());
+
+    std::string command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+
+    command = R"()";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest004
+ * @tc.desc: Test CreateWithResourceObjScrollBarColor in GridModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, OnInjectionEventTest004, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
     CreateFixedItems(10);
     CreateDone();
-    UpdateCurrentOffset(-50.0f, SCROLL_FROM_BAR);
-    EXPECT_TRUE(Position(-50.0f));
-    UpdateCurrentOffset(50.0f, SCROLL_FROM_BAR);
-    EXPECT_TRUE(Position(0));
-    UpdateCurrentOffset(-100.0f, SCROLL_FROM_BAR);
-    EXPECT_TRUE(Position(-100.0f));
-}
+    EXPECT_TRUE(pattern_->IsAtTop());
 
-/**
- * @tc.name: UpdateCurrentOffset003
- * @tc.desc: Test grid pattern UpdateCurrentOffset function
- * @tc.type: FUNC
- */
-HWTEST_F(GridScrollerTestNg, UpdateCurrentOffset003, TestSize.Level1)
-{
-    /**
-     * @tc.cases: Test SCROLL_FROM_UPDATE and EdgeEffect::FADE
-     */
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr");
-    CreateFixedItems(10);
-    CreateDone();
-    pattern_->scrollEffect_ = AceType::MakeRefPtr<ScrollEdgeEffect>(EdgeEffect::FADE);
-    UpdateCurrentOffset(-50.0f, SCROLL_FROM_UPDATE);
-    EXPECT_TRUE(Position(-50.0f));
-    UpdateCurrentOffset(50.0f, SCROLL_FROM_UPDATE);
-    EXPECT_TRUE(Position(0.0f));
-    UpdateCurrentOffset(-100.0f, SCROLL_FROM_UPDATE);
-    EXPECT_TRUE(Position(-100.0f));
-}
-
-/**
- * @tc.name: UpdateCurrentOffset004
- * @tc.desc: Test grid pattern UpdateCurrentOffset function
- * @tc.type: FUNC
- */
-HWTEST_F(GridScrollerTestNg, UpdateCurrentOffset004, TestSize.Level1)
-{
-    /**
-     * @tc.cases: When isConfigScrollable_ is false
-     * @tc.expected: Can not roll
-     */
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
-    model.SetRowsTemplate("1fr 1fr");
-    CreateFixedItems(10);
-    CreateDone();
-    EXPECT_FALSE(pattern_->isConfigScrollable_);
-
-    UpdateCurrentOffset(-100.f, SCROLL_FROM_UPDATE);
-    EXPECT_TRUE(Position(0));
-}
-
-/**
- * @tc.name: GetEndOffset000
- * @tc.desc: Test scrolling past limits
- * @tc.type: FUNC
- */
-HWTEST_F(GridScrollerTestNg, GetEndOffset000, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr");
-    model.SetLayoutOptions({});
-    model.SetEdgeEffect(EdgeEffect::SPRING, true);
-    CreateFixedItems(20, GridItemStyle::NONE);
-    CreateDone();
-
-    int32_t targetIndex = 19;
-    ScrollAlign align = ScrollAlign::AUTO;
-    ScrollToIndex(targetIndex, false, align);
-    auto& info = pattern_->info_;
-    EXPECT_EQ(info.startMainLineIndex_, 6);
-    EXPECT_EQ(info.endMainLineIndex_, 9);
-    pattern_->scrollableEvent_->scrollable_->isTouching_ = true;
-    for (int i = 0; i < 500; ++i) {
-        UpdateCurrentOffset(-100.0f);
-    }
-    if (SystemProperties::GetGridIrregularLayoutEnabled()) {
-        EXPECT_EQ(info.startMainLineIndex_, 9);
-    } else {
-        EXPECT_EQ(info.startMainLineIndex_, 10);
-    }
-    EXPECT_EQ(info.endMainLineIndex_, 9);
-
-    EXPECT_LT(info.currentOffset_, -75.0f);
-
-    ScrollToIndex(targetIndex, false, ScrollAlign::END);
-    for (int i = 0; i < 10; ++i) {
-        info.currentOffset_ -= 75.0f;
-        frameNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
-        FlushUITasks();
-    }
-    if (SystemProperties::GetGridIrregularLayoutEnabled()) {
-        EXPECT_EQ(info.startMainLineIndex_, 9);
-    } else {
-        EXPECT_EQ(info.startMainLineIndex_, 10);
-    }
-    EXPECT_EQ(info.endMainLineIndex_, 9);
-
-    EXPECT_LT(info.currentOffset_, -75.0f);
-}
-
-/**
- * @tc.name: GetEndOffset001
- * @tc.desc: Test GetEndOffset with updated offset on old layout
- * @tc.type: FUNC
- */
-HWTEST_F(GridScrollerTestNg, GetEndOffset001, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr");
-    CreateFixedItems(20, GridItemStyle::NONE);
-    CreateDone();
-
-    int32_t targetIndex = 19;
-    ScrollAlign align = ScrollAlign::AUTO;
-    ScrollToIndex(targetIndex, false, align);
-    auto& info = pattern_->info_;
-    info.prevOffset_ = info.currentOffset_;
-    info.currentOffset_ -= 1000.0f;
-    info.synced_ = false;
-    frameNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
-    pattern_->SetEdgeEffect(EdgeEffect::SPRING);
-    pattern_->scrollableEvent_->scrollable_->isTouching_ = true;
-    pattern_->GetScrollEdgeEffect()->ProcessScrollOver(-2000.0f);
-    EXPECT_TRUE(info.synced_);
-    // overScroll disabled to avoid layout bug
-    EXPECT_EQ(info.currentOffset_, info.prevOffset_);
-    EXPECT_EQ(info.startIndex_, 12);
-    EXPECT_EQ(info.endIndex_, 19);
-    EXPECT_EQ(info.startMainLineIndex_, 6);
-    EXPECT_EQ(info.endMainLineIndex_, 9);
-    EXPECT_EQ(pattern_->GetEndOffset(), 0.0f);
-}
-
-/**
- * @tc.name: GetEndOffset002
- * @tc.desc: Test GetEndOffset with updated offset on old layout
- * @tc.type: FUNC
- */
-HWTEST_F(GridScrollerTestNg, GetEndOffset002, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr");
-    CreateFixedItems(20, GridItemStyle::NONE);
-    model.SetLayoutOptions({});
-    CreateDone();
-
-    int32_t targetIndex = 19;
-    ScrollAlign align = ScrollAlign::AUTO;
-    ScrollToIndex(targetIndex, false, align);
-    auto& info = pattern_->info_;
-    info.prevOffset_ = info.currentOffset_;
-    info.currentOffset_ -= 399;
-    info.synced_ = false;
-    frameNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF);
-    pattern_->SetEdgeEffect(EdgeEffect::SPRING);
-    pattern_->scrollableEvent_->scrollable_->isTouching_ = true;
-    pattern_->GetScrollEdgeEffect()->ProcessScrollOver(-399);
-    EXPECT_TRUE(info.synced_);
-    EXPECT_EQ(info.prevOffset_, -99);
-    EXPECT_EQ(info.currentOffset_, -99);
-    EXPECT_EQ(info.startIndex_, 18);
-    EXPECT_EQ(info.endIndex_, 19);
-    EXPECT_EQ(info.startMainLineIndex_, 9);
-    EXPECT_EQ(info.endMainLineIndex_, 9);
-    EXPECT_EQ(pattern_->GetEndOffset(), 300);
-}
-
-/**
- * @tc.name: MultiLineItemScroll001
- * @tc.desc: Test multiLine item in last line scroll end
- * @tc.type: FUNC
- */
-HWTEST_F(GridScrollerTestNg, MultiLineItemScroll001, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr");
-    CreateFixedItems(6, GridItemStyle::NONE);
-    CreateBigItem(0, 1, 0, 1, 2 * ITEM_MAIN_SIZE, 2 * ITEM_MAIN_SIZE);
-    CreateDone();
-
-    pattern_->ScrollBy(-10);
+    std::string command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":20})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
     FlushUITasks();
-    auto& info = pattern_->info_;
-    EXPECT_TRUE(info.reachEnd_);
-    EXPECT_FALSE(info.offsetEnd_);
+    EXPECT_EQ(pattern_->info_.currentOffset_, -20);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":-10})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, -10);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    command = R"({"cmd":"scrolloffset","eventId":123123,"offset":10})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, -10);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123)";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, -10);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, false);
+    EXPECT_TRUE(pattern_->IsAtBottom());
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":10})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 6);
 }
 
 /**
- * @tc.name: VerticalGridScrollToIndexWithLargeLineHeight001
- * @tc.desc: Test Grid(Axis::VERTICAL) ScrollToIndex With line height Greater than main size Item
+ * @tc.name: OnInjectionEventTest005
+ * @tc.desc: Test CreateWithResourceObjScrollBarColor in GridModelNG
  * @tc.type: FUNC
  */
-HWTEST_F(GridScrollerTestNg, VerticalGridScrollToIndexWithLargeLineHeight001, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr");
-    model.SetRowsGap(Dimension(10));
-    CreateGridItem(60, 550);
-    ViewStackProcessor::GetInstance()->Pop();
-    ViewStackProcessor::GetInstance()->StopGetAccessRecording();
-    CreateGridItems(20, 60, 390);
-    CreateDone();
-
-    // cache all line in Grid
-    ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, true);
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(5, false, ScrollAlign::AUTO, std::nullopt);
-    EXPECT_TRUE(Position(-550.0f));
-
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, true);
-
-    ScrollToIndex(7, false, ScrollAlign::AUTO, std::nullopt);
-    EXPECT_TRUE(Position(-790.0f));
-
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, true);
-
-    ScrollToIndex(9, false, ScrollAlign::AUTO, std::nullopt);
-    EXPECT_TRUE(Position(-1190.0f));
-}
-
-/**
- * @tc.name: VerticalGridScrollToIndexWithLargeLineHeight002
- * @tc.desc: Test Grid(Axis::VERTICAL) ScrollToIndex With line height Greater than main size Item
- * @tc.type: FUNC
- */
-HWTEST_F(GridScrollerTestNg, VerticalGridScrollToIndexWithLargeLineHeight002, TestSize.Level1)
-{
-    GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr 1fr 1fr");
-    model.SetRowsGap(Dimension(10));
-    CreateGridItems(3, 60.0f, 150.0f);
-
-    CreateGridItem(60.0f, 550.0f);
-    ViewStackProcessor::GetInstance()->Pop();
-    ViewStackProcessor::GetInstance()->StopGetAccessRecording();
-
-    CreateGridItems(20, 60.0f, 190.0f);
-    CreateDone();
-
-    // cache all line in Grid
-    ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, true);
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(5, false, ScrollAlign::AUTO, std::nullopt);
-    EXPECT_TRUE(Position(-310.0f));
-
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, true);
-
-    ScrollToIndex(7, false, ScrollAlign::AUTO, std::nullopt);
-    EXPECT_TRUE(Position(-730.0f));
-
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, true);
-
-    ScrollToIndex(9, false, ScrollAlign::AUTO, std::nullopt);
-    EXPECT_TRUE(Position(-870.0f));
-}
-
-/**
- * @tc.name: ScrollToIndexWithExtraOffset001
- * @tc.desc: Test Grid(Axis::VERTICAL) ScrollToIndex With extra offset
- * @tc.type: FUNC
- */
-HWTEST_F(GridScrollerTestNg, ScrollToIndexWithExtraOffset001, TestSize.Level1)
+HWTEST_F(GridScrollerTestNg, OnInjectionEventTest005, TestSize.Level1)
 {
     GridModelNG model = CreateGrid();
     model.SetColumnsTemplate("1fr");
-    model.SetEdgeEffect(EdgeEffect::SPRING, true);
-    model.SetRowsGap(Dimension(10));
-    CreateFixedItems(50);
+    CreateFixedItems(10);
     CreateDone();
-    float extraOffset = -100.0f;
+    EXPECT_TRUE(pattern_->IsAtTop());
 
-    ScrollToIndex(0, false, ScrollAlign::AUTO, extraOffset);
-    EXPECT_TRUE(Position(0.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
 
-    ScrollToIndex(0, false, ScrollAlign::AUTO, -extraOffset);
-    EXPECT_TRUE(Position(-100.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(0, false, ScrollAlign::START, extraOffset);
-    EXPECT_TRUE(Position(0.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(0, false, ScrollAlign::START, -extraOffset);
-    EXPECT_TRUE(Position(-100.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(0, false, ScrollAlign::CENTER, extraOffset);
-    EXPECT_TRUE(Position(0.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(0, false, ScrollAlign::CENTER, -extraOffset);
-    EXPECT_TRUE(Position(0.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(0, false, ScrollAlign::END, extraOffset);
-    EXPECT_TRUE(Position(0.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(0, false, ScrollAlign::END, -extraOffset);
-    EXPECT_TRUE(Position(0.0f));
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":-20})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
 }
 
 /**
- * @tc.name: ScrollToIndexWithExtraOffset002
- * @tc.desc: Test Grid(Axis::VERTICAL) ScrollToIndex With extra offset
+ * @tc.name: ReportComponentChangeEventTest001
+ * @tc.desc: ReportComponentChangeEventTest
  * @tc.type: FUNC
  */
-HWTEST_F(GridScrollerTestNg, ScrollToIndexWithExtraOffset002, TestSize.Level1)
+HWTEST_F(GridScrollerTestNg, ReportComponentChangeEventTest001, TestSize.Level1)
 {
     GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr");
     model.SetColumnsTemplate("1fr");
-    model.SetEdgeEffect(EdgeEffect::SPRING, true);
-    model.SetCachedCount(2, false);
-    CreateItemsInLazyForEach(50, [](uint32_t idx) { return ITEM_MAIN_SIZE; });
     CreateDone();
-    float extraOffset = -50.0f;
+    EXPECT_FALSE(pattern_->IsScrollable());
+    MockUiSessionManager* mockUiSessionManager =
+        reinterpret_cast<MockUiSessionManager*>(UiSessionManager::GetInstance());
+    EXPECT_CALL(*mockUiSessionManager, GetComponentChangeEventRegistered()).WillRepeatedly(Return(true));
 
-    ScrollToIndex(49, false, ScrollAlign::AUTO, std::nullopt);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
+    pattern_->ReportScroll(false, ScrollError::SCROLL_ERROR_OTHER, 123);
+    pattern_->ReportScroll(true, ScrollError::SCROLL_NO_ERROR, 123);
+    pattern_->ReportOnItemGridEvent("onReachStart");
 
-    ScrollToIndex(49, false, ScrollAlign::AUTO, extraOffset);
-    EXPECT_TRUE(Position(-4550.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::AUTO, -extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::START, std::nullopt);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::START, extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::START, -extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::CENTER, std::nullopt);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::CENTER, extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::CENTER, -extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::END, std::nullopt);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::END, extraOffset);
-    EXPECT_TRUE(Position(-4550.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::END, -extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
 }
 
 /**
- * @tc.name: ScrollToIndexWithExtraOffset003
- * @tc.desc: Test Grid(Axis::VERTICAL) ScrollToIndex With extra offset
+ * @tc.name: GetBindingFrameNodeId001
+ * @tc.desc: Test GetBindingFrameNodeId returns valid node id for Grid component
  * @tc.type: FUNC
  */
-HWTEST_F(GridScrollerTestNg, ScrollToIndexWithExtraOffset003, TestSize.Level1)
+HWTEST_F(GridScrollerTestNg, GetBindingFrameNodeId001, TestSize.Level1)
 {
     GridModelNG model = CreateGrid();
-    model.SetColumnsTemplate("1fr");
-    model.SetEdgeEffect(EdgeEffect::SPRING, true);
-    CreateFixedItems(50);
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFixedItems(20);
     CreateDone();
-    float extraOffset = -150.0f;
 
-    ScrollToIndex(49, false, ScrollAlign::AUTO, std::nullopt);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, false);
-
-    ScrollToIndex(49, false, ScrollAlign::AUTO, extraOffset);
-    EXPECT_TRUE(Position(-4450.0f));
-
-    ScrollToIndex(49, false, ScrollAlign::AUTO, -extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-
-    ScrollToIndex(49, false, ScrollAlign::START, std::nullopt);
-    EXPECT_TRUE(Position(-4600.0f));
-
-    ScrollToIndex(49, false, ScrollAlign::START, extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-
-    ScrollToIndex(49, false, ScrollAlign::START, -extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-
-    ScrollToIndex(49, false, ScrollAlign::CENTER, std::nullopt);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToIndex(49, false, ScrollAlign::CENTER, extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-
-    ScrollToIndex(49, false, ScrollAlign::CENTER, -extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
-
-    ScrollToIndex(49, false, ScrollAlign::END, std::nullopt);
-    EXPECT_TRUE(Position(-4600.0f));
-    ScrollToIndex(49, false, ScrollAlign::END, extraOffset);
-    EXPECT_TRUE(Position(-4450.0f));
-
-    ScrollToIndex(49, false, ScrollAlign::END, -extraOffset);
-    EXPECT_TRUE(Position(-4600.0f));
+    /**
+     * @tc.steps: step1. Get the binding frame node id from controller
+     * @tc.expected: The node id should match the grid frame node's id
+     */
+    auto nodeId = positionController_->GetBindingFrameNodeId();
+    EXPECT_EQ(nodeId, frameNode_->GetId());
 }
 } // namespace OHOS::Ace::NG

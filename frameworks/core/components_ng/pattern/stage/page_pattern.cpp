@@ -14,14 +14,18 @@
  */
 
 #include "core/components_ng/pattern/stage/page_pattern.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 
 #include "base/log/jank_frame_report.h"
 #include "base/perfmonitor/perf_constants.h"
 #include "base/perfmonitor/perf_monitor.h"
 #include "core/components_ng/base/observer_handler.h"
+#include "core/components_ng/manager/load_complete/load_complete_manager.h"
+#include "core/components_ng/manager/content_change_manager/content_change_manager.h"
 #include "core/components_ng/pattern/container_modal/container_modal_pattern.h"
 #include "bridge/common/utils/engine_helper.h"
 #include "bridge/declarative_frontend/ng/entry_page_info.h"
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 namespace OHOS::Ace::NG {
 
@@ -61,7 +65,7 @@ void PagePattern::OnAttachToFrameNode()
     CHECK_NULL_VOID(host);
     MeasureType measureType = MeasureType::MATCH_PARENT;
     auto container = Container::Current();
-    if (container && container->IsDynamicRender()) {
+    if (container && container->GetUIContentType() == UIContentType::ISOLATED_COMPONENT) {
         measureType = MeasureType::MATCH_CONTENT;
     }
     host->GetLayoutProperty()->UpdateMeasureType(measureType);
@@ -81,7 +85,51 @@ bool PagePattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& wrapper,
             firstBuildCallback_ = nullptr;
         }
     }
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    auto layoutProperty = host->GetLayoutProperty();
+    CHECK_NULL_RETURN(layoutProperty, false);
+    auto context = host->GetContext();
+    CHECK_NULL_RETURN(context, false);
+    auto geometry = host->GetGeometryNode();
+    CHECK_NULL_RETURN(geometry, false);
+    auto frameSize = geometry->GetFrameSize();
+    auto widthVp = context->Px2VpWithCurrentDensity(frameSize.Width());
+    auto heightVp = context->Px2VpWithCurrentDensity(frameSize.Height());
+    SizeF curSize(widthVp, heightVp);
+    if (!currentPageSize_.has_value() || currentPageSize_.value() != curSize) {
+        currentPageSize_ = curSize;
+        if (layoutProperty->GetVisibilityValue(VisibleType::INVISIBLE) == VisibleType::VISIBLE) {
+            NotifyRouterPageSizeChange();
+        } else {
+            needNotifySizeChangeWhenVisible_ = true;
+        }
+    }
     return false;
+}
+
+void PagePattern::NotifyRouterPageSizeChange()
+{
+    auto context = GetContext();
+    CHECK_NULL_VOID(context);
+    auto task = [weakPattern = WeakClaim(this)]() {
+        auto pattern = weakPattern.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        UIObserverHandler::GetInstance().NotifyRouterPageSizeChange(
+            pattern->GetPageInfo(), pattern->state_, pattern->currentPageSize_);
+    };
+    context->AddAfterLayoutTask(std::move(task));
+}
+
+void PagePattern::OnVisibleChange(bool isVisible)
+{
+    ContentRootPattern::OnVisibleChange(isVisible);
+    if (!isVisible || !needNotifySizeChangeWhenVisible_) {
+        return;
+    }
+    needNotifySizeChangeWhenVisible_ = false;
+    // InVisible -> Visible
+    NotifyRouterPageSizeChange();
 }
 
 void PagePattern::BeforeSyncGeometryProperties(const DirtySwapConfig& config)
@@ -104,6 +152,7 @@ void PagePattern::TriggerPageTransition(const std::function<void()>& onFinish, P
     if (pageTransitionFunc_) {
         pageTransitionFunc_();
     }
+    FirePageTransitionStart();
     pageTransitionFinish_ = std::make_shared<std::function<void()>>(onFinish);
     auto wrappedOnFinish = [weak = WeakClaim(this), sharedFinish = pageTransitionFinish_, type]() {
         auto pattern = weak.Upgrade();
@@ -111,6 +160,13 @@ void PagePattern::TriggerPageTransition(const std::function<void()>& onFinish, P
         if (type == PageTransitionType::ENTER_PUSH || type == PageTransitionType::ENTER_POP) {
             ACE_SCOPED_TRACE_COMMERCIAL("Router Page Transition End");
             PerfMonitor::GetPerfMonitor()->End(PerfConstants::ABILITY_OR_PAGE_SWITCH, true);
+            auto pipeline = pattern->GetContext();
+            if (pipeline) {
+                pipeline->GetLoadCompleteManager()->StopCollect();
+                auto mgr = pipeline->GetContentChangeManager();
+                CHECK_NULL_VOID(mgr);
+                mgr->OnPageTransitionEnd(pattern->GetHost());
+            }
         }
         auto host = pattern->GetHost();
         CHECK_NULL_VOID(host);
@@ -182,7 +238,7 @@ void PagePattern::ProcessShowState()
     host->GetLayoutProperty()->UpdateVisibility(VisibleType::VISIBLE);
     auto parent = host->GetAncestorNodeOfFrame(false);
     CHECK_NULL_VOID(parent);
-    auto context = NG::PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = NG::PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
     auto manager = context->GetSafeAreaManager();
     if (manager) {
@@ -213,9 +269,26 @@ void PagePattern::OnAttachToMainTree()
     if (delegate) {
         index = delegate->GetCurrentPageIndex();
         GetPageInfo()->SetPageIndex(index);
+    } else {
+        SetPageIndexForStatic();
     }
     state_ = RouterPageState::ABOUT_TO_APPEAR;
-    UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_);
+    UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_, currentPageSize_);
+}
+
+void PagePattern::SetPageIndexForStatic()
+{
+    auto container = Container::CurrentSafelyWithCheck();
+    CHECK_NULL_VOID(container);
+    auto delegate = container->GetFrontend();
+    CHECK_NULL_VOID(delegate);
+    if (delegate->GetType() != FrontendType::ARK_TS) {
+        return;
+    }
+    int32_t index = delegate->GetCurrentPageIndex();
+    auto pageInfo = GetPageInfo();
+    CHECK_NULL_VOID(pageInfo);
+    pageInfo->SetPageIndex(index);
 }
 
 void PagePattern::OnDetachFromMainTree()
@@ -227,7 +300,7 @@ void PagePattern::OnDetachFromMainTree()
     }
 #endif
     state_ = RouterPageState::ABOUT_TO_DISAPPEAR;
-    UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_);
+    UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_, currentPageSize_);
 }
 
 void PagePattern::OnDetachFromFrameNode(FrameNode* frameNode)
@@ -241,17 +314,24 @@ void PagePattern::OnDetachFromFrameNode(FrameNode* frameNode)
 
 void PagePattern::OnWindowSizeChanged(int32_t /*width*/, int32_t /*height*/, WindowSizeChangeReason type)
 {
-    if (type == WindowSizeChangeReason::RESIZE) {
+    if (type != WindowSizeChangeReason::ROTATION) {
         return;
     }
     if (!isPageInTransition_) {
         return;
     }
-    auto page = GetHost();
-    CHECK_NULL_VOID(page);
-    auto renderContext = page->GetRenderContext();
-    CHECK_NULL_VOID(renderContext);
-    renderContext->RemoveClipWithRRect();
+    if (isCustomTransition_) {
+        return;
+    }
+    auto hostNode = AceType::DynamicCast<FrameNode>(GetHost());
+    CHECK_NULL_VOID(hostNode);
+    auto pipelineContext = hostNode->GetContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto stageManager = pipelineContext->GetStageManager();
+    CHECK_NULL_VOID(stageManager);
+    stageManager->AbortAnimation();
+    FirePageTransitionFinish();
+    TAG_LOGI(AceLogTag::ACE_ROUTER, "window rotation, stop page animation");
 }
 
 void PagePattern::OnShow(bool isFromWindow)
@@ -259,7 +339,7 @@ void PagePattern::OnShow(bool isFromWindow)
     // Do not invoke onPageShow unless the initialRender function has been executed.
     CHECK_NULL_VOID(isRenderDone_);
     CHECK_NULL_VOID(!isOnShow_);
-    auto context = NG::PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = NG::PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
     auto container = Container::Current();
     if (!container || !container->WindowIsShow()) {
@@ -268,7 +348,7 @@ void PagePattern::OnShow(bool isFromWindow)
     }
     NotifyPerfMonitorPageMsg(pageInfo_->GetFullPath(), container->GetBundleName());
     if (pageInfo_) {
-        context->FirePageChanged(pageInfo_->GetPageId(), true);
+        context->FirePageChanged(pageInfo_->GetPageId(), true, isFromWindow);
         NotifyNavigationLifecycle(true, isFromWindow);
     }
     UpdatePageParam();
@@ -276,11 +356,11 @@ void PagePattern::OnShow(bool isFromWindow)
 #if defined(ENABLE_SPLIT_MODE)
     if (needFireObserver_) {
         state_ = RouterPageState::ON_PAGE_SHOW;
-        UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_);
+        UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_, currentPageSize_);
     }
 #else
     state_ = RouterPageState::ON_PAGE_SHOW;
-    UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_);
+    UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_, currentPageSize_);
 #endif
     JankFrameReport::GetInstance().StartRecord(pageInfo_->GetFullPath());
     auto pageUrlChecker = container->GetPageUrlChecker();
@@ -313,6 +393,7 @@ void PagePattern::RecordPageEvent(bool isShow)
         }
         Recorder::EventRecorder::Get().OnPageShow(
             pageInfo_->GetPageUrl(), param, pageInfo_->GetRouteName().value_or(""));
+        UiSessionManager::GetInstance()->OnRouterChange(pageInfo_->GetFullPath(), "onPageShow");
     } else {
         int64_t duration = 0;
         if (entryPageInfo && entryPageInfo->GetShowTime() > 0) {
@@ -320,6 +401,7 @@ void PagePattern::RecordPageEvent(bool isShow)
         }
         Recorder::EventRecorder::Get().OnPageHide(
             pageInfo_->GetPageUrl(), duration, pageInfo_->GetRouteName().value_or(""));
+        UiSessionManager::GetInstance()->OnRouterChange(pageInfo_->GetFullPath(), "onPageHide");
     }
 }
 
@@ -327,13 +409,13 @@ void PagePattern::OnHide(bool isFromWindow)
 {
     CHECK_NULL_VOID(isOnShow_);
     JankFrameReport::GetInstance().FlushRecord();
-    auto context = NG::PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = NG::PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     if (pageInfo_) {
         NotifyNavigationLifecycle(false, isFromWindow);
-        context->FirePageChanged(pageInfo_->GetPageId(), false);
+        context->FirePageChanged(pageInfo_->GetPageId(), false, isFromWindow);
     }
     host->SetJSViewActive(false);
     isOnShow_ = false;
@@ -341,11 +423,11 @@ void PagePattern::OnHide(bool isFromWindow)
 #if defined(ENABLE_SPLIT_MODE)
     if (needFireObserver_) {
         state_ = RouterPageState::ON_PAGE_HIDE;
-        UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_);
+        UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_, currentPageSize_);
     }
 #else
     state_ = RouterPageState::ON_PAGE_HIDE;
-    UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_);
+    UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_, currentPageSize_);
 #endif
     auto container = Container::Current();
     if (container) {
@@ -381,16 +463,14 @@ bool PagePattern::OnBackPressed()
 #if defined(ENABLE_SPLIT_MODE)
     if (needFireObserver_) {
         state_ = RouterPageState::ON_BACK_PRESS;
-        UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_);
+        UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_, currentPageSize_);
     }
 #else
     state_ = RouterPageState::ON_BACK_PRESS;
-    UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_);
+    UIObserverHandler::GetInstance().NotifyRouterPageStateChange(GetPageInfo(), state_, currentPageSize_);
 #endif
     if (onBackPressed_) {
-        bool result = onBackPressed_();
-        CheckIsNeedForceExitWindow(result);
-        return result;
+        return onBackPressed_();
     }
     return false;
 }
@@ -401,35 +481,6 @@ void PagePattern::BuildSharedTransitionMap()
     CHECK_NULL_VOID(host);
     sharedTransitionMap_.clear();
     IterativeAddToSharedMap(host, sharedTransitionMap_);
-}
-
-void PagePattern::CheckIsNeedForceExitWindow(bool result)
-{
-    auto host = GetHost();
-    CHECK_NULL_VOID(host);
-    auto context = host->GetContext();
-    CHECK_NULL_VOID(context);
-    if (!context->GetInstallationFree() || !result) {
-        // if is not atommic service and result is false, don't process.
-        return;
-    }
-    auto stageManager = context->GetStageManager();
-    CHECK_NULL_VOID(stageManager);
-    int32_t pageSize =
-        stageManager->GetStageNode() ? static_cast<int32_t>(stageManager->GetStageNode()->GetChildren().size()) : 0;
-    if (pageSize != 1) {
-        return;
-    }
-    auto container = Container::Current();
-    CHECK_NULL_VOID(container);
-    if (container->IsUIExtensionWindow()) {
-        container->TerminateUIExtension();
-    } else {
-        auto windowManager = context->GetWindowManager();
-        CHECK_NULL_VOID(windowManager);
-        windowManager->WindowPerformBack();
-    }
-    TAG_LOGI(AceLogTag::ACE_ROUTER, "page onbackpress intercepted, exit window.");
 }
 
 void PagePattern::ReloadPage()
@@ -474,7 +525,7 @@ void PagePattern::AddJsAnimator(const std::string& animatorId, const RefPtr<Fram
     CHECK_NULL_VOID(animatorInfo);
     auto animator = animatorInfo->GetAnimator();
     CHECK_NULL_VOID(animator);
-    animator->AttachScheduler(PipelineContext::GetCurrentContextSafelyWithCheck());
+    animator->AttachScheduler(PipelineContext::GetCurrentContext());
     jsAnimatorMap_[animatorId] = animatorInfo;
 }
 
@@ -496,6 +547,18 @@ void PagePattern::SetFirstBuildCallback(std::function<void()>&& buildCallback)
     }
 }
 
+void PagePattern::FirePageTransitionStart()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    pipeline->SetTHPNotifyState(ThpNotifyState::ROUTER_TRANSITION);
+    auto mgr = pipeline->GetContentChangeManager();
+    CHECK_NULL_VOID(mgr);
+    mgr->OnTransitionAdded(host->GetId());
+}
+
 void PagePattern::FirePageTransitionFinish()
 {
     if (pageTransitionFinish_) {
@@ -505,6 +568,15 @@ void PagePattern::FirePageTransitionFinish()
             onFinish();
         }
     }
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContext();
+    CHECK_NULL_VOID(pipeline);
+    pipeline->SetTHPNotifyState(ThpNotifyState::DEFAULT);
+    pipeline->PostTaskResponseRegion(DEFAULT_DELAY_THP);
+    auto mgr = pipeline->GetContentChangeManager();
+    CHECK_NULL_VOID(mgr);
+    mgr->OnTransitionRemoved(host->GetId());
 }
 
 void PagePattern::StopPageTransition()
@@ -525,18 +597,16 @@ void PagePattern::StopPageTransition()
 
 void PagePattern::BeforeCreateLayoutWrapper()
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     // SafeArea already applied to AppBar (AtomicServicePattern)
     if (pipeline->GetInstallationFree()) {
-        auto host = GetHost();
-        CHECK_NULL_VOID(host);
         ACE_SCOPED_TRACE("[%s][self:%d] SafeArea already applied to AppBar", host->GetTag().c_str(), host->GetId());
         return;
     }
     ContentRootPattern::BeforeCreateLayoutWrapper();
-    auto host = GetHost();
-    CHECK_NULL_VOID(host);
     auto&& insets = host->GetLayoutProperty()->GetSafeAreaInsets();
     CHECK_NULL_VOID(insets);
     auto manager = pipeline->GetSafeAreaManager();
@@ -545,7 +615,9 @@ void PagePattern::BeforeCreateLayoutWrapper()
 
 bool PagePattern::AvoidKeyboard() const
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    auto pipeline = host->GetContext();
     CHECK_NULL_RETURN(pipeline, false);
     auto safeAreaManager = pipeline->GetSafeAreaManager();
     CHECK_NULL_RETURN(safeAreaManager, false);
@@ -556,7 +628,7 @@ bool PagePattern::RemoveOverlay()
 {
     CHECK_NULL_RETURN(overlayManager_, false);
     if (overlayManager_->IsCurrentNodeProcessRemoveOverlay(GetHost(), false)) {
-        auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+        auto pipeline = PipelineContext::GetCurrentContext();
         CHECK_NULL_RETURN(pipeline, false);
         auto taskExecutor = pipeline->GetTaskExecutor();
         CHECK_NULL_RETURN(taskExecutor, false);
@@ -627,7 +699,7 @@ RefPtr<PageTransitionEffect> PagePattern::GetDefaultPageTransition(PageTransitio
     auto resultEffect = AceType::MakeRefPtr<PageTransitionEffect>(type, PageTransitionOption());
     resultEffect->SetScaleEffect(ScaleOptions(1.0f, 1.0f, 1.0f, 0.5_pct, 0.5_pct));
     TranslateOptions translate;
-    auto pipelineContext = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipelineContext = PipelineContext::GetCurrentContext();
     CHECK_NULL_RETURN(pipelineContext, nullptr);
     auto safeAreaInsets = pipelineContext->GetSafeAreaWithoutProcess();
     auto statusHeight = static_cast<float>(safeAreaInsets.top_.Length());
@@ -785,7 +857,7 @@ RefPtr<PageTransitionEffect> PagePattern::GetPageTransitionEffect(const RefPtr<P
         transition->GetScaleEffect().value_or(ScaleOptions(1.0f, 1.0f, 1.0f, 0.5_pct, 0.5_pct)));
     TranslateOptions translate;
     auto rect = renderContext->GetPaintRectWithoutTransform();
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_RETURN(context, nullptr);
     auto safeAreaInsets = context->GetSafeAreaWithoutProcess();
     auto statusHeight = static_cast<float>(safeAreaInsets.top_.Length());
@@ -855,6 +927,14 @@ void PagePattern::ResetPageTransitionEffect()
 
 void PagePattern::RemoveJsChildImmediately(const RefPtr<FrameNode>& page, PageTransitionType transactionType)
 {
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto context = host->GetContext();
+    CHECK_NULL_VOID(context);
+    if (!context->IsCustomNodeDeleteInTransition()) {
+        return;
+    }
+
     if (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_EIGHTEEN)) {
         return;
     }
@@ -904,21 +984,22 @@ void PagePattern::FinishOutPage(const int32_t animationId, PageTransitionType ty
     if (outPage->IsInDestroying()) {
         outPage->SetDestroying(false, false);
     }
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
+    auto stageManager = context->GetStageManager();
+    CHECK_NULL_VOID(stageManager);
     if (type == PageTransitionType::EXIT_POP || isNeedRemove_) {
         auto stageNode = outPage->GetParent();
         CHECK_NULL_VOID(stageNode);
         stageNode->RemoveChild(outPage);
         stageNode->RebuildRenderContextTree();
+        stageManager->SetStageInTrasition(false);
         context->RequestFrame();
         return;
     }
     isPageInTransition_ = false;
     ProcessHideState();
     context->MarkNeedFlushMouseEvent();
-    auto stageManager = context->GetStageManager();
-    CHECK_NULL_VOID(stageManager);
     stageManager->SetStageInTrasition(false);
     ResetPageTransitionEffect();
 }
@@ -942,7 +1023,7 @@ void PagePattern::FinishInPage(const int32_t animationId, PageTransitionType typ
     if (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_EIGHTEEN)) {
         FocusViewShow();
     }
-    auto context = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto context = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(context);
     context->MarkNeedFlushMouseEvent();
     ResetPageTransitionEffect();
@@ -973,6 +1054,7 @@ void PagePattern::TriggerDefaultTransition(const std::function<void()>& onFinish
     CHECK_NULL_VOID(pipelineContext);
     auto stageManager = pipelineContext->GetStageManager();
     CHECK_NULL_VOID(stageManager);
+    isCustomTransition_ = onFinish ? false : true;
     if (transitionIn) {
         InitTransitionIn(effect, type);
         auto animation = AnimationUtils::StartAnimation(option, [weakPattern = WeakClaim(this), effect, type]() {
@@ -1105,6 +1187,16 @@ ScopeFocusAlgorithm PagePattern::GetScopeFocusAlgorithm()
         return nextFocusNode.Upgrade() != currFocusNode.Upgrade();
     };
     return focusAlgorithm;
+}
+
+void PagePattern::ContentChangeByDetaching(PipelineContext* pipeline)
+{
+    CHECK_NULL_VOID(pipeline);
+    auto mgr = pipeline->GetContentChangeManager();
+    CHECK_NULL_VOID(mgr);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    mgr->OnTransitionRemoved(host->GetId());
 }
 
 } // namespace OHOS::Ace::NG

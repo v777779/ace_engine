@@ -32,6 +32,10 @@
 #endif
 #include "core/pipeline_ng/pipeline_context.h"
 
+namespace OHOS::Ace {
+enum class StatisticEventType;
+} // namespace OHOS::Ace
+
 namespace OHOS::Ace::NG {
 
 const int32_t DEFAULT_SAVE_COUNT = 1;
@@ -50,21 +54,22 @@ enum class FilterType {
     HUE_ROTATE
 };
 
+enum class SmoothingQuality : int8_t {
+    LOW = 0,
+    MEDIUM,
+    HIGH
+};
+
 struct FilterProperty {
     FilterType filterType_;
     std::string filterParam_;
 };
 
 class CustomPaintPaintMethod : public NodePaintMethod {
-    DECLARE_ACE_TYPE(CustomPaintPaintMethod, NodePaintMethod)
+    DECLARE_ACE_TYPE(CustomPaintPaintMethod, NodePaintMethod);
 public:
     CustomPaintPaintMethod();
     ~CustomPaintPaintMethod() override = default;
-
-    RefPtr<Modifier> GetContentModifier(PaintWrapper* paintWrapper) override
-    {
-        return contentModifier_;
-    }
 
     void SetFillRuleForPath(const CanvasFillRule& rule);
     void SetFillRuleForPath2D(const CanvasFillRule& rule);
@@ -96,7 +101,6 @@ public:
     void Scale(double x, double y);
     void Rotate(double angle);
     void SetTransform(const TransformParam& param);
-    virtual TransformParam GetTransform() const;
     void ResetTransform();
     void Transform(const TransformParam& param);
     void Translate(double x, double y);
@@ -107,6 +111,13 @@ public:
     void SetAntiAlias(bool isEnabled)
     {
         antiAlias_ = isEnabled;
+        settingsAntiAlias_ = isEnabled;
+    }
+
+    void SetAntialiasExt(std::optional<bool> isEnabled)
+    {
+        antiAlias_ = isEnabled.value_or(settingsAntiAlias_);
+        fontAntiAlias_ = isEnabled;
     }
 
     void SetFillColor(const Color& color)
@@ -120,7 +131,7 @@ public:
         state_.fillState.SetPattern(pattern);
     }
 
-    void SetFillPatternNG(const std::weak_ptr<Ace::Pattern>& pattern)
+    void SetFillPatternNG(const std::shared_ptr<Ace::Pattern>& pattern)
     {
         state_.fillState.SetPatternNG(pattern);
     }
@@ -130,10 +141,7 @@ public:
         state_.fillState.SetGradient(gradient);
     }
 
-    void SetAlpha(double alpha)
-    {
-        state_.globalState.SetAlpha(alpha);
-    }
+    void SetAlpha(double alpha);
 
     void SetCompositeType(CompositeOperation operation)
     {
@@ -151,7 +159,7 @@ public:
         state_.strokeState.SetColor(color);
     }
 
-    void SetStrokePatternNG(const std::weak_ptr<Ace::Pattern>& pattern)
+    void SetStrokePatternNG(const std::shared_ptr<Ace::Pattern>& pattern)
     {
         state_.strokeState.SetPatternNG(pattern);
     }
@@ -189,16 +197,6 @@ public:
     void SetMiterLimit(double limit)
     {
         state_.strokeState.SetMiterLimit(limit);
-    }
-
-    virtual LineDashParam GetLineDash() const
-    {
-        return lineDash_;
-    }
-
-    void SetLineDashParam(const std::vector<double>& segments)
-    {
-        lineDash_.lineDash = segments;
     }
 
     void SetLineDash(const std::vector<double>& segments)
@@ -245,7 +243,13 @@ public:
 
     void SetSmoothingQuality(const std::string& quality)
     {
-        smoothingQuality_ = quality;
+        if (quality == "low") {
+            smoothingQuality_ = SmoothingQuality::LOW;
+        } else if (quality == "medium") {
+            smoothingQuality_ = SmoothingQuality::MEDIUM;
+        } else if (quality == "high") {
+            smoothingQuality_ =  SmoothingQuality::HIGH;
+        }
     }
 
     void SetFontSize(const Dimension& size)
@@ -278,15 +282,6 @@ public:
         state_.strokeState.SetFontFamilies(fontFamilies);
     }
 
-    void SaveProperties();
-    void RestoreProperties();
-    void ResetTransformMatrix();
-    void ResetLineDash();
-    void RotateMatrix(double angle);
-    void ScaleMatrix(double x, double y);
-    void SetTransformMatrix(const TransformParam& param);
-    void TransformMatrix(const TransformParam& param);
-    void TranslateMatrix(double tx, double ty);
     void DrawSvgImage(RefPtr<SvgDomBase> svgDom, const Ace::CanvasImage& canvasImage, const ImageFit& imageFit);
     void DrawImage(const Ace::CanvasImage& canvasImage, double width, double height);
     void FillText(const std::string& text, double x, double y, std::optional<double> maxWidth);
@@ -377,59 +372,51 @@ protected:
     void ResetStates();
     virtual TextDirection GetSystemDirection() = 0;
     void DrawImageInternal(const Ace::CanvasImage& canvasImage, const std::shared_ptr<RSImage>& image);
+    void SendStatisticEvent(StatisticEventType type);
 
     // PaintHolder includes fillState, strokeState, globalState and shadow for save
     PaintHolder state_;
-    std::vector<PaintHolder> saveStates_;
-    LineDashParam lineDash_;
-    RSMatrix matrix_;
-    std::vector<RSMatrix> matrixStates_;
-    std::vector<LineDashParam> lineDashStates_;
+    RSBrush imageBrush_;
+    RSColorMatrix colorMatrix_;
 
-    bool smoothingEnabled_ = true;
-    std::string smoothingQuality_ = "low";
-    bool antiAlias_ = false;
-    std::unique_ptr<RSParagraph> paragraph_;
-    std::unique_ptr<RSParagraph> shadowParagraph_;
-
-    WeakPtr<PipelineBase> context_;
-
-    bool isPathChanged_ = true;
-    bool isPath2dChanged_ = true;
     RSPath rsPath_;
     RSPath rsPath2d_;
-    RSBrush imageBrush_;
+    std::vector<std::pair<bool, std::optional<bool>>> saveAntiAliasStates_;
+    std::vector<PaintHolder> saveStates_;
+    std::vector<std::shared_ptr<RSColorFilter>> saveColorFilter_;
+    std::vector<std::shared_ptr<RSImageFilter>> saveBlurFilter_;
+
     RSSamplingOptions sampleOptions_;
+
+    WeakPtr<PipelineBase> context_;
+    std::shared_ptr<RSColorFilter> colorFilter_ = RSColorFilter::CreateMatrixColorFilter(colorMatrix_);
+    std::shared_ptr<RSImageFilter> blurFilter_ = RSImageFilter::CreateBlurImageFilter(0, 0, RSTileMode::DECAL, nullptr);
     std::shared_ptr<RSCanvas> rsCanvas_;
 
-    Ace::CanvasImage canvasImage_;
-    std::unique_ptr<Shadow> imageShadow_;
-    RSColorMatrix colorMatrix_;
+    std::unique_ptr<RSParagraph> paragraph_;
+    std::unique_ptr<RSParagraph> shadowParagraph_;
+    RefPtr<ImageCache> imageCache_;
+    SizeF lastLayoutSize_;
     double density_ = 1.0;
 
-#ifndef ACE_UNITTEST
-    sk_sp<SkSVGDOM> skiaDom_ = nullptr;
-    ImageSourceInfo currentSource_;
-    ImageSourceInfo loadingSource_;
-#endif
-
-    RefPtr<CanvasModifier> contentModifier_;
-
-    SizeF lastLayoutSize_;
-    RefPtr<ImageCache> imageCache_;
+    const float defaultOpacity = 1.0f;
+    int32_t apiVersion_ = 0;
+    SmoothingQuality smoothingQuality_ = SmoothingQuality::LOW;
     enum DrawImageType {
         THREE_PARAMS,
         FIVE_PARAMS,
         NINE_PARAMS,
     };
+
+    bool smoothingEnabled_ = true;
+    bool antiAlias_ = false;
+    bool settingsAntiAlias_ = false;
+    std::optional<bool> fontAntiAlias_;
+    bool isPathChanged_ = true;
+    bool isPath2dChanged_ = true;
+
     static const LinearMapNode<void (*)(std::shared_ptr<RSImage>&, std::shared_ptr<RSShaderEffect>&, RSMatrix&)>
         staticPattern[];
-    const float defaultOpacity = 1.0f;
-    std::shared_ptr<RSColorFilter> colorFilter_ = RSColorFilter::CreateMatrixColorFilter(colorMatrix_);
-    std::shared_ptr<RSImageFilter> blurFilter_ = RSImageFilter::CreateBlurImageFilter(0, 0, RSTileMode::DECAL, nullptr);
-    std::vector<std::shared_ptr<RSColorFilter>> saveColorFilter_;
-    std::vector<std::shared_ptr<RSImageFilter>> saveBlurFilter_;
-    int32_t apiVersion_ = 0;
 };
 } // namespace OHOS::Ace::NG
 

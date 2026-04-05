@@ -21,6 +21,7 @@
 #include "core/common/window_animation_config.h"
 #include "core/components_ng/event/gesture_event_hub.h"
 #include "core/components_ng/layout/layout_algorithm.h"
+#include "core/components_ng/property/measure_property.h"
 #include "core/components_ng/pattern/overlay/sheet_style.h"
 #include "core/components_ng/pattern/scrollable/scrollable.h"
 
@@ -36,6 +37,7 @@ public:
     SheetObject(SheetType sheetType) : sheetType_(sheetType) {}
     virtual BorderWidthProperty PostProcessBorderWidth(const BorderWidthProperty& borderWidth);
     virtual void DirtyLayoutProcess(const RefPtr<LayoutAlgorithmWrapper>& layoutAlgorithmWrapper);
+    virtual void SetSheetAnimationOption(AnimationOption& option) const;
     virtual RefPtr<InterpolatingSpring> GetSheetTransitionCurve(float dragVelocity) const;
     virtual std::function<void()> GetSheetTransitionFinishEvent(bool isTransitionIn);
     virtual std::function<void()> GetSheetAnimationEvent(bool isTransitionIn, float offset);
@@ -52,7 +54,7 @@ public:
     virtual void HandleDragEnd(float dragVelocity);
     virtual void ModifyFireSheetTransition(float dragVelocity);
     virtual void CreatePropertyCallback();
-    virtual void BeforeCreateLayoutWrapper() {};
+    virtual void BeforeCreateLayoutWrapper();
     virtual SheetKeyboardAvoidMode GetAvoidKeyboardModeByDefault() const;
     virtual void AvoidKeyboardInDirtyLayoutProcess();
     virtual void AvoidKeyboard(bool forceAvoid);
@@ -61,8 +63,25 @@ public:
         NestedState state, float velocity = 0.f);
     virtual void OnScrollStartRecursive(float position, float dragVelocity = 0.0f);
     virtual void OnScrollEndRecursive (const std::optional<float>& velocity);
+    virtual void OnScrollDragEndRecursive();
     virtual bool HandleScrollVelocity(float velocity);
+    virtual void InitScrollProps();
     ScrollResult HandleScrollWithSheet(float scrollOffset);
+
+    virtual uint32_t GetPanDirection() const
+    {
+        return PanDirection::VERTICAL;
+    }
+
+    virtual bool CheckIfNeedSetOuterBorderProp() const
+    {
+        return sheetType_ != SheetType::SHEET_POPUP;
+    }
+
+    virtual bool CheckIfNeedShadowByDefault() const
+    {
+        return true;
+    }
 
     void BindPattern(const WeakPtr<SheetPresentationPattern>& pattern)
     {
@@ -104,10 +123,38 @@ public:
         sheetHeight_ = other->sheetHeight_;
     }
 
-    virtual uint32_t GetPanDirection()
+    float GetSideSheetWidth() const
     {
-        return PanDirection::VERTICAL;
+        return sheetWidth_;
     }
+
+    float GetSideSheetMaxWidth() const
+    {
+        return sheetMaxWidth_;
+    }
+
+    float GetMinimizeSheetWidth() const
+    {
+        return sheetWidth_;
+    }
+
+    float GetMinimizeSheetMaxWidth() const
+    {
+        return sheetMaxWidth_;
+    }
+
+    virtual bool CheckIfUpdateObject(SheetType newType)
+    {
+        return (newType == SheetType::SHEET_SIDE) || (newType == SheetType::SHEET_CONTENT_COVER) ||
+            (newType == SheetType::SHEET_MINIMIZE);
+    }
+
+    virtual bool IsSheetObjectBase() const
+    {
+        return true;
+    }
+
+    virtual void FireHeightDidChange();
 
     void SetCurrentOffset(float value)
     {
@@ -124,6 +171,7 @@ protected:
     // not need copy. Data that is not unique to the side style
     bool isSheetNeedScroll_ = false; // true if Sheet is ready to receive scroll offset.
     bool isSheetPosChanged_ = false; // UpdateTransformTranslate end
+    float dragVelocity_ = 0.0f;
 };
 } // namespace OHOS::Ace::NG
 

@@ -13,7 +13,14 @@
  * limitations under the License.
  */
 
+#include "core/components_ng/base/ui_node.h"
+#include "core/components_ng/layout/layout_wrapper.h"
+#include "core/components_ng/pattern/list/list_item_group_pattern.h"
 #include "core/components_ng/pattern/list/list_position_map.h"
+#include "core/components_ng/syntax/lazy_for_each_node.h"
+#include "core/components_ng/syntax/repeat_virtual_scroll_2_node.h"
+#include "core/components_ng/syntax/repeat_virtual_scroll_node.h"
+#include "core/components_v2/inspector/inspector_constants.h"
 
 namespace OHOS::Ace::NG {
 void ListPositionMap::UpdatePosRange(int32_t startIndex, int32_t endIndex,
@@ -54,7 +61,7 @@ ListPosMapUpdate ListPositionMap::CheckPosMapUpdateRule()
     return flag;
 }
 
-void ListPositionMap::UpdatePosMapStart(float delta, float& listCurrentPos, float space,
+void ListPositionMap::UpdatePosMapStart(float delta, double& listCurrentPos, float space,
     int32_t startIndex, float startPos, bool groupAtStart)
 {
     auto it = posMap_.find(startIndex);
@@ -134,7 +141,10 @@ std::optional<bool> ListPositionMap::GetLazyForEachChildIsGroup(RefPtr<UINode> n
         while (child != children.end() && !((*child)->GetFrameChildByIndex(0, false))) {
             child++;
         }
-        auto frameNode = AceType::DynamicCast<FrameNode>((*child)->GetFrameChildByIndex(0, false));
+        RefPtr<FrameNode> frameNode;
+        if (child != children.end()) {
+            frameNode = AceType::DynamicCast<FrameNode>((*child)->GetFrameChildByIndex(0, false));
+        }
         if (frameNode) {
             isGroup = frameNode->GetHostTag() == V2::LIST_ITEM_GROUP_ETS_TAG;
         }
@@ -360,6 +370,34 @@ std::pair<int32_t, float> ListPositionMap::GetEndIndexAndPos() const
     }
     const auto& end = posMap_.rbegin();
     return { end->first, end->second.mainPos + end->second.mainSize };
+}
+
+int32_t ListPositionMap::GetEntryAtOrBeforeIndex(int32_t index) const
+{
+    if (posMap_.empty()) {
+        return -1;
+    }
+    auto it = posMap_.lower_bound(index);
+    if (it != posMap_.end() && it->first == index) {
+        return it->first;
+    }
+    if (it == posMap_.begin()) {
+        return -1;
+    }
+    --it;
+    return it->first;
+}
+
+int32_t ListPositionMap::GetEntryAtOrAfterIndex(int32_t index) const
+{
+    if (posMap_.empty()) {
+        return -1;
+    }
+    auto it = posMap_.lower_bound(index);
+    if (it == posMap_.end()) {
+        return -1;
+    }
+    return it->first;
 }
 
 void ListPositionMap::OptimizeBeforeMeasure(int32_t& beginIndex, float& beginPos,

@@ -14,9 +14,7 @@
  */
 
 #include <cstdint>
-#include "core/components_ng/base/frame_node.h"
 #include "core/interfaces/native/utility/accessor_utils.h"
-#include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/implementation/key_event_peer.h"
@@ -42,6 +40,13 @@ Ark_NativePointer GetFinalizerImpl()
 {
     return reinterpret_cast<void *>(&DestroyPeerImpl);
 }
+void StopPropagationImpl(Ark_KeyEvent peer)
+{
+    CHECK_NULL_VOID(peer);
+    KeyEventInfo* info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    info->SetStopPropagation(true);
+}
 Ark_KeyType GetTypeImpl(Ark_KeyEvent peer)
 {
     const auto errValue = static_cast<Ark_KeyType>(-1);
@@ -53,7 +58,10 @@ Ark_KeyType GetTypeImpl(Ark_KeyEvent peer)
 void SetTypeImpl(Ark_KeyEvent peer,
                  Ark_KeyType type)
 {
-    LOGW("ARKOALA KeyEventAccessor::SetTypeImpl doesn't have sense.");
+    CHECK_NULL_VOID(peer);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    info->SetKeyType(static_cast<KeyAction>(type));
 }
 Ark_Int32 GetKeyCodeImpl(Ark_KeyEvent peer)
 {
@@ -63,10 +71,12 @@ Ark_Int32 GetKeyCodeImpl(Ark_KeyEvent peer)
     const auto keyCode = info->GetKeyCode();
     return Converter::ArkValue<Ark_Int32>(static_cast<int32_t>(keyCode));
 }
-void SetKeyCodeImpl(Ark_KeyEvent peer,
-                    const Ark_Int32* keyCode)
+void SetKeyCodeImpl(Ark_KeyEvent peer, Ark_Int32 keyCode)
 {
-    LOGW("ARKOALA KeyEventAccessor::SetKeyCodeImpl doesn't have sense.");
+    CHECK_NULL_VOID(peer);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    info->SetKeyCode(static_cast<KeyCode>(keyCode));
 }
 Ark_String GetKeyTextImpl(Ark_KeyEvent peer)
 {
@@ -79,7 +89,11 @@ Ark_String GetKeyTextImpl(Ark_KeyEvent peer)
 void SetKeyTextImpl(Ark_KeyEvent peer,
                     const Ark_String* keyText)
 {
-    LOGW("ARKOALA KeyEventAccessor::SetKeyTextImpl doesn't have sense.");
+    CHECK_NULL_VOID(peer);
+    CHECK_NULL_VOID(keyText);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    info->SetKeyText(Converter::Convert<std::string>(*keyText));
 }
 Ark_KeySource GetKeySourceImpl(Ark_KeyEvent peer)
 {
@@ -92,19 +106,20 @@ Ark_KeySource GetKeySourceImpl(Ark_KeyEvent peer)
 void SetKeySourceImpl(Ark_KeyEvent peer,
                       Ark_KeySource keySource)
 {
-    LOGW("ARKOALA KeyEventAccessor::SetKeySourceImpl doesn't have sense.");
+    CHECK_NULL_VOID(peer);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    info->SetKeySource(static_cast<SourceType>(keySource));
 }
 Ark_Int32 GetDeviceIdImpl(Ark_KeyEvent peer)
 {
     auto id = GetBaseEventAccessor()->getDeviceId(peer);
     return Converter::GetOpt(id).value_or(Converter::ArkValue<Ark_Int32>(-1));
 }
-void SetDeviceIdImpl(Ark_KeyEvent peer,
-                     const Ark_Int32* deviceId)
+void SetDeviceIdImpl(Ark_KeyEvent peer, Ark_Int32 deviceId)
 {
     CHECK_NULL_VOID(peer && peer->GetBaseInfo());
-    CHECK_NULL_VOID(deviceId);
-    peer->GetBaseInfo()->SetDeviceId(Converter::Convert<int>(*deviceId));
+    peer->GetBaseInfo()->SetDeviceId(Converter::Convert<int>(deviceId));
 }
 Ark_Int32 GetMetaKeyImpl(Ark_KeyEvent peer)
 {
@@ -114,39 +129,21 @@ Ark_Int32 GetMetaKeyImpl(Ark_KeyEvent peer)
     const auto metaKey = info->GetMetaKey();
     return Converter::ArkValue<Ark_Int32>(metaKey);
 }
-void SetMetaKeyImpl(Ark_KeyEvent peer,
-                    const Ark_Int32* metaKey)
+void SetMetaKeyImpl(Ark_KeyEvent peer, Ark_Int32 metaKey)
 {
     CHECK_NULL_VOID(peer);
-    CHECK_NULL_VOID(metaKey);
     const auto info = peer->GetEventInfo();
     CHECK_NULL_VOID(info);
-    const auto convMetaKey = Converter::Convert<int32_t>(*metaKey);
+    const auto convMetaKey = Converter::Convert<int32_t>(metaKey);
     info->SetMetaKey(convMetaKey);
 }
 Ark_Int64 GetTimestampImpl(Ark_KeyEvent peer)
 {
     return GetBaseEventAccessor()->getTimestamp(peer);
 }
-void SetTimestampImpl(Ark_KeyEvent peer,
-                      const Ark_Int64* timestamp)
+void SetTimestampImpl(Ark_KeyEvent peer, Ark_Int64 timestamp)
 {
     GetBaseEventAccessor()->setTimestamp(peer, timestamp);
-}
-Callback_Void GetStopPropagationImpl(Ark_KeyEvent peer)
-{
-    CHECK_NULL_RETURN(peer, {});
-    auto callback = CallbackKeeper::DefineReverseCallback<Callback_Void>([peer]() {
-        KeyEventInfo* info = peer->GetEventInfo();
-        CHECK_NULL_VOID(info);
-        info->SetStopPropagation(true);
-    });
-    return callback;
-}
-void SetStopPropagationImpl(Ark_KeyEvent peer,
-                            const Callback_Void* stopPropagation)
-{
-    LOGW("ARKOALA KeyEventAccessor::SetStopPropagation doesn't have sense.");
 }
 Ark_IntentionCode GetIntentionCodeImpl(Ark_KeyEvent peer)
 {
@@ -159,23 +156,10 @@ Ark_IntentionCode GetIntentionCodeImpl(Ark_KeyEvent peer)
 void SetIntentionCodeImpl(Ark_KeyEvent peer,
                           Ark_IntentionCode intentionCode)
 {
-    LOGW("ARKOALA KeyEventAccessor::SetIntentionCodeImpl doesn't have sense.");
-}
-Opt_ModifierKeyStateGetter GetGetModifierKeyStateImpl(Ark_KeyEvent peer)
-{
-    const auto invalid = Converter::ArkValue<Opt_ModifierKeyStateGetter>(Ark_Empty());
-    CHECK_NULL_RETURN(peer, invalid);
-    auto info = peer->GetBaseInfo();
-    CHECK_NULL_RETURN(info, invalid);
-    auto getter = CallbackKeeper::RegisterReverseCallback<ModifierKeyStateGetter,
-            std::function<void(const Array_String, const Callback_Boolean_Void)>>([info]
-            (const Array_String keys, const Callback_Boolean_Void continuation) {
-        auto eventKeys = info->GetPressedKeyCodes();
-        auto keysStr = Converter::Convert<std::vector<std::string>>(keys);
-        Ark_Boolean arkResult = Converter::ArkValue<Ark_Boolean>(AccessorUtils::CheckKeysPressed(keysStr, eventKeys));
-        CallbackHelper(continuation).InvokeSync(arkResult);
-    });
-    return Converter::ArkValue<Opt_ModifierKeyStateGetter, ModifierKeyStateGetter>(getter);
+    CHECK_NULL_VOID(peer);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    info->SetKeyIntention(static_cast<KeyIntention>(intentionCode));
 }
 void SetGetModifierKeyStateImpl(Ark_KeyEvent peer,
                                 const Opt_ModifierKeyStateGetter* getModifierKeyState)
@@ -194,7 +178,74 @@ Opt_Int64 GetUnicodeImpl(Ark_KeyEvent peer)
 void SetUnicodeImpl(Ark_KeyEvent peer,
                     const Opt_Int64* unicode)
 {
-    LOGW("ARKOALA KeyEventAccessor::SetUnicodeImpl doesn't have sense.");
+    CHECK_NULL_VOID(peer);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    if (unicode != nullptr && unicode->tag != INTEROP_TAG_UNDEFINED) {
+        info->SetUnicode(static_cast<uint32_t>(unicode->value));
+    }
+}
+Opt_Boolean GetIsNumLockOnImpl(Ark_KeyEvent peer)
+{
+    auto invalid = Converter::ArkValue<Opt_Boolean>();
+    CHECK_NULL_RETURN(peer, invalid);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_RETURN(info, invalid);
+    const auto isNumLockOn = info->GetNumLock();
+    return Converter::ArkValue<Opt_Boolean>(isNumLockOn);
+}
+
+void SetIsNumLockOnImpl(Ark_KeyEvent peer,
+                        const Opt_Boolean* isNumLockOn)
+{
+    CHECK_NULL_VOID(peer);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    if (isNumLockOn != nullptr && isNumLockOn->tag != INTEROP_TAG_UNDEFINED) {
+        info->SetNumLock(isNumLockOn->value);
+    }
+}
+
+Opt_Boolean GetIsCapsLockOnImpl(Ark_KeyEvent peer)
+{
+    auto invalid = Converter::ArkValue<Opt_Boolean>();
+    CHECK_NULL_RETURN(peer, invalid);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_RETURN(info, invalid);
+    const auto isCapsLockOn = info->GetCapsLock();
+    return Converter::ArkValue<Opt_Boolean>(isCapsLockOn);
+}
+
+void SetIsCapsLockOnImpl(Ark_KeyEvent peer,
+                         const Opt_Boolean* isCapsLockOn)
+{
+    CHECK_NULL_VOID(peer);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    if (isCapsLockOn != nullptr && isCapsLockOn->tag != INTEROP_TAG_UNDEFINED) {
+        info->SetCapsLock(isCapsLockOn->value);
+    }
+}
+
+Opt_Boolean GetIsScrollLockOnImpl(Ark_KeyEvent peer)
+{
+    auto invalid = Converter::ArkValue<Opt_Boolean>();
+    CHECK_NULL_RETURN(peer, invalid);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_RETURN(info, invalid);
+    const auto isScrollLockOn = info->GetScrollLock();
+    return Converter::ArkValue<Opt_Boolean>(isScrollLockOn);
+}
+
+void SetIsScrollLockOnImpl(Ark_KeyEvent peer,
+                           const Opt_Boolean* isScrollLockOn)
+{
+    CHECK_NULL_VOID(peer);
+    const auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    if (isScrollLockOn != nullptr && isScrollLockOn->tag != INTEROP_TAG_UNDEFINED) {
+        info->SetScrollLock(isScrollLockOn->value);
+    }
 }
 } // KeyEventAccessor
 const GENERATED_ArkUIKeyEventAccessor* GetKeyEventAccessor()
@@ -203,6 +254,7 @@ const GENERATED_ArkUIKeyEventAccessor* GetKeyEventAccessor()
         KeyEventAccessor::DestroyPeerImpl,
         KeyEventAccessor::ConstructImpl,
         KeyEventAccessor::GetFinalizerImpl,
+        KeyEventAccessor::StopPropagationImpl,
         KeyEventAccessor::GetTypeImpl,
         KeyEventAccessor::SetTypeImpl,
         KeyEventAccessor::GetKeyCodeImpl,
@@ -217,14 +269,17 @@ const GENERATED_ArkUIKeyEventAccessor* GetKeyEventAccessor()
         KeyEventAccessor::SetMetaKeyImpl,
         KeyEventAccessor::GetTimestampImpl,
         KeyEventAccessor::SetTimestampImpl,
-        KeyEventAccessor::GetStopPropagationImpl,
-        KeyEventAccessor::SetStopPropagationImpl,
         KeyEventAccessor::GetIntentionCodeImpl,
         KeyEventAccessor::SetIntentionCodeImpl,
-        KeyEventAccessor::GetGetModifierKeyStateImpl,
         KeyEventAccessor::SetGetModifierKeyStateImpl,
         KeyEventAccessor::GetUnicodeImpl,
         KeyEventAccessor::SetUnicodeImpl,
+        KeyEventAccessor::GetIsNumLockOnImpl,
+        KeyEventAccessor::SetIsNumLockOnImpl,
+        KeyEventAccessor::GetIsCapsLockOnImpl,
+        KeyEventAccessor::SetIsCapsLockOnImpl,
+        KeyEventAccessor::GetIsScrollLockOnImpl,
+        KeyEventAccessor::SetIsScrollLockOnImpl,
     };
     return &KeyEventAccessorImpl;
 }

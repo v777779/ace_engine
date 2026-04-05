@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,12 +17,11 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_TIME_PICKER_TIME_PICKER_COLUMN_PATTERN_H
 
 #include <utility>
+#include "ui/base/macros.h"
 
 #include "adapter/ohos/entrance/picker/picker_haptic_interface.h"
 #include "base/i18n/localization.h"
 #include "core/components/common/properties/color.h"
-#include "core/components/picker/picker_base_component.h"
-#include "core/components/picker/picker_date_component.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/picker_utils/picker_column_pattern.h"
@@ -35,7 +34,7 @@
 
 namespace OHOS::Ace::NG {
 
-class TimePickerColumnPattern : public PickerColumnPattern {
+class ACE_FORCE_EXPORT TimePickerColumnPattern : public PickerColumnPattern {
     DECLARE_ACE_TYPE(TimePickerColumnPattern, PickerColumnPattern);
 
 public:
@@ -80,11 +79,14 @@ public:
     }
 
     uint32_t GetOptionCount() const override;
+    uint32_t GetActualOptionCount() const override;
 
     void SetShowCount(const uint32_t showCount)
     {
         showCount_ = showCount;
-        GetHost()->MarkModifyDone();
+        auto host = GetHost();
+        CHECK_NULL_VOID(host);
+        host->MarkModifyDone();
     }
 
     FocusPattern GetFocusPattern() const override
@@ -137,10 +139,7 @@ public:
         enterSelectedAreaEventCallback_ = value;
     }
 
-    const Color& GetButtonHoverColor() const override
-    {
-        return hoverColor_;
-    }
+    const Color& GetButtonHoverColor() const override;
 
     const Color& GetButtonBgColor() const override
     {
@@ -153,6 +152,10 @@ public:
     }
 
     std::string GetCurrentOption() const override;
+    
+    void UpdateColumnButtonFocusState(bool haveFocus, bool needMarkDirty);
+
+    bool GetCanLoopFromLayoutPropertyWithStartEnd() const override;
 
 private:
     void OnModifyDone() override;
@@ -164,22 +167,37 @@ private:
         const RefPtr<TimePickerLayoutProperty>& timePickerLayoutProperty);
 
     void InitOnKeyEvent(const RefPtr<FocusHub>& focusHub);
+    void InitSelectorButtonProperties(const RefPtr<PickerTheme>& pickerTheme);
+    void UpdateSelectorButtonProps(bool haveFocus, bool needMarkDirty);
     bool OnKeyEvent(const KeyEvent& event);
     bool HandleDirectionKey(KeyCode code);
     void UpdateSelectedTextColor(const RefPtr<PickerTheme>& pickerTheme) override;
     void GetAnimationColor(uint32_t index, uint32_t showCount, Color& color, bool selectedMark = false);
     void UpdateAnimationColor(const RefPtr<PickerTheme>& pickerTheme);
 #ifdef SUPPORT_DIGITAL_CROWN
-    void HandleCrownMoveEvent(const CrownEvent& event) override;
+    void HandleCrownMoveEvent(const CrownEvent& event);
 #endif
     void TextPropertiesLinearAnimation(const RefPtr<TextLayoutProperty>& textLayoutProperty, uint32_t index,
         uint32_t showCount, bool isDown, double scale) override;
     void InitTextFontFamily() override;
     void HandleEnterSelectedArea(double scrollDelta, float shiftDistance, PickerScrollDirection dir) override;
+    void UpdateDisappearTextProperties(const RefPtr<PickerTheme>& pickerTheme,
+        const RefPtr<TextLayoutProperty>& textLayoutProperty,
+        const RefPtr<PickerLayoutProperty>& pickerLayoutProperty) override;
+    void UpdateCandidateTextProperties(const RefPtr<PickerTheme>& pickerTheme,
+        const RefPtr<TextLayoutProperty>& textLayoutProperty,
+        const RefPtr<PickerLayoutProperty>& pickerLayoutProperty) override;
+    void UpdateSelectedTextProperties(const RefPtr<PickerTheme>& pickerTheme,
+        const RefPtr<TextLayoutProperty>& textLayoutProperty,
+        const RefPtr<PickerLayoutProperty>& pickerLayoutProperty) override;
+    void UpdateTextAreaPadding(
+        const RefPtr<PickerTheme>& pickerTheme, const RefPtr<TextLayoutProperty>& textLayoutProperty);
+    void UpdateOptionProperties(uint32_t showCount, const RefPtr<PickerTheme>& theme);
 
     Color pressColor_;
     Color hoverColor_;
     Color buttonBgColor_ = Color::TRANSPARENT;
+    Color buttonFocusBgColor_ = Color::TRANSPARENT;
     bool hour24_ = SystemProperties::Is24HourClock();
     // column options number
     std::map<WeakPtr<FrameNode>, uint32_t> optionsTotalCount_;
@@ -196,6 +214,15 @@ private:
     bool hasUserDefinedNormalFontFamily_ = false;
     bool hasUserDefinedSelectedFontFamily_ = false;
     bool isTossReadyToStop_ = false;
+    Color buttonDefaultBgColor_ = Color::TRANSPARENT;
+    Color buttonDefaultBorderColor_ = Color::TRANSPARENT;
+    Color buttonFocusBorderColor_ = Color::TRANSPARENT;
+    Color selectorTextFocusColor_ = Color::WHITE;
+    Dimension buttonDefaultBorderWidth_ = 0.0_vp;
+    Dimension buttonFocusBorderWidth_ = 0.0_vp;
+    bool isFirstTimeUpdateButtonProps_ = true;
+    bool useButtonFocusArea_ = false;
+    bool isFocusColumn_ = false;
     ACE_DISALLOW_COPY_AND_MOVE(TimePickerColumnPattern);
     friend class PickerColumnPatternCircleUtils<TimePickerColumnPattern>;
 };

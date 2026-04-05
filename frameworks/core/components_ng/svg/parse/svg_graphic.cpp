@@ -16,6 +16,7 @@
 #include "core/components_ng/svg/parse/svg_graphic.h"
 
 #include "core/common/container.h"
+#include "core/components_ng/render/drawing_prop_convertor.h"
 #include "core/components_ng/svg/parse/svg_linear_gradient.h"
 #include "core/components_ng/svg/parse/svg_pattern.h"
 #include "core/components_ng/svg/parse/svg_radial_gradient.h"
@@ -242,7 +243,9 @@ void SvgGraphic::UpdateFillGradient(const Size& viewPort)
 bool SvgGraphic::GradientHasColors()
 {
     auto& gradient = attributes_.fillState.GetGradient();
-    CHECK_NULL_RETURN(gradient, false);
+    if (!gradient.has_value()) {
+        return false;
+    }
     auto gradientColors = gradient->GetColors();
     if (gradientColors.empty()) {
         LOGW("SvgGraphic::GradientHasColors gradient doesn't has color");
@@ -283,7 +286,18 @@ void SvgGraphic::SetBrushColor(RSBrush& brush, bool useFillColor)
         brush.SetColor(attributes_.fillState.GetColor().BlendOpacity(curOpacity).GetValue());
         return;
     }
-    brush.SetColor(imageComponentColor->BlendOpacity(curOpacity).GetValue());
+    if (imageComponentColor->IsPlaceholder()) {
+        auto opacityFillColor = imageComponentColor->BlendOpacity(curOpacity);
+        opacityFillColor.SetPlaceholder(imageComponentColor->GetPlaceholder());
+        brush.SetColor(ToRSColor(opacityFillColor));
+    } else if (imageComponentColor->GetColorSpace() == ColorSpace::DISPLAY_P3) {
+        auto p3Color = imageComponentColor->BlendOpacity(curOpacity);
+        brush.SetColor({ p3Color.GetRed() / 255.0, p3Color.GetGreen() / 255.0, p3Color.GetBlue() / 255.0,
+                       p3Color.GetAlpha() / 255.0 },
+            RSColorSpace::CreateRGB(RSCMSTransferFuncType::SRGB, RSCMSMatrixType::DCIP3));
+    } else {
+        brush.SetColor(imageComponentColor->BlendOpacity(curOpacity).GetValue());
+    }
 }
 
 RsLinearGradient SvgGraphic::ConvertToRsLinearGradient(const SvgLinearGradientInfo& linearGradientInfo)
@@ -332,13 +346,12 @@ bool SvgGraphic::UpdateFillStyle(const std::optional<Color>& color, bool antiAli
         }
         return SetGradientStyle(curOpacity);
     } else {
-        Color fillColor;
-        if (Container::LessThanAPITargetVersion(PlatformVersion::VERSION_EIGHTEEN)) {
-            fillColor = (color) ? *color : fillState_.GetColor();
-        } else {
-            fillColor = (color && !fillState_.IsFillNone()) ? *color : fillState_.GetColor();
-        }
-        if (fillColor.GetColorSpace() == ColorSpace::DISPLAY_P3) {
+        auto fillColor = (color) ? *color : fillState_.GetColor();
+        if (fillColor.IsPlaceholder()) {
+            auto opacityFillColor = fillColor.BlendOpacity(curOpacity);
+            opacityFillColor.SetPlaceholder(fillColor.GetPlaceholder());
+            fillBrush_.SetColor(ToRSColor(opacityFillColor));
+        } else if (fillColor.GetColorSpace() == ColorSpace::DISPLAY_P3) {
             auto p3Color = fillColor.BlendOpacity(curOpacity);
             fillBrush_.SetColor({ p3Color.GetRed() / 255.0, p3Color.GetGreen() / 255.0, p3Color.GetBlue() / 255.0,
                                     p3Color.GetAlpha() / 255.0 },
@@ -400,6 +413,9 @@ RSMatrix SvgGraphic::GetLocalMatrix(SvgLengthScaleUnit gradientUnits,
         auto bounds = svgCoordinateSystemContext.GetContainerRect();
         RSMatrix m;
         RSMatrix t;
+        if (!GreatNotEqual(bounds.Width(), 0.0) || !GreatNotEqual(bounds.Height(), 0.0)) {
+            return RSMatrix();
+        }
         m.SetScale(bounds.Width(), bounds.Height());
         t.Translate(bounds.Left(), bounds.Top());
         t.PreConcat(m);
@@ -860,18 +876,4 @@ std::optional<Color> SvgGraphic::GetFillColor()
     return svgContext->GetFillColor();
 }
 
-void SvgGraphic::ApplyTransform(RSRecordingPath& path)
-{
-    auto matrix = RSMatrix();
-    if (attributes_.transformVec.size() == 1) {
-        if (attributes_.transformVec[0].funcType == "translate") {
-            auto ret = NGSvgTransform::CreateTranslate(attributes_.transformVec[0].paramVec, matrix);
-            if (ret) {
-                LOGD("SvgGraphic::ApplyTransform calling translate");
-                path.Transform(matrix);
-            }
-        }
-        return;
-    }
-}
 } // namespace OHOS::Ace::NG

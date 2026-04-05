@@ -22,6 +22,8 @@
 #include <algorithm>
 #include <regex>
 
+#include <algorithm>
+
 namespace OHOS::Ace {
 
 static const std::string ENTRY_PREFIX = "/src/main/ets/";
@@ -41,6 +43,7 @@ ani_object EntryLoader::GetPageEntryObj()
         const auto moduleName = container->GetModuleName();
         entryPointName.reserve(moduleName.size() + ENTRY_PREFIX.size() + url_.size() + ENTRY_SUFFIX.size());
         entryPointName.append(moduleName).append(ENTRY_PREFIX).append(url_).append(ENTRY_SUFFIX);
+        std::replace(entryPointName.begin(), entryPointName.end(), '/', '.');
     } else {
         std::regex regex(ENTRY_PREFIX_REGEX);
         std::smatch prefixMatch;
@@ -131,7 +134,7 @@ EntryLoader::EntryLoader(ani_env* env, const std::string& abcModulePath): env_(e
 
     ani_method ctor;
     ANI_CALL(env, Class_FindMethod(
-        cls, "<ctor>", "C{std.core.RuntimeLinker}C{escompat.Array}:", &ctor), return);
+        cls, "<ctor>", "C{std.core.RuntimeLinker}C{std.core.Array}:", &ctor), return);
 
     ANI_CALL(env, Object_New(cls, ctor, &runtimeLinkerObj_, undefined, refArray), return);
 
@@ -157,7 +160,7 @@ EntryLoader::EntryLoader(ani_env* env, const std::vector<uint8_t>& abcContent): 
 
     ani_method ctor;
     ANI_CALL(env, Class_FindMethod(
-        cls, "<ctor>", "C{std.core.RuntimeLinker}C{escompat.Array}:", &ctor), return);
+        cls, "<ctor>", "C{std.core.RuntimeLinker}C{std.core.Array}:", &ctor), return);
 
     ANI_CALL(env, Object_New(cls, ctor, &runtimeLinkerObj_, undefined, refArray), return);
 

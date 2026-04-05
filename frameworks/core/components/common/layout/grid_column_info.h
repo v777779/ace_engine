@@ -23,12 +23,12 @@ namespace OHOS::Ace {
 
 constexpr uint32_t DEFAULT_GRID_COLUMN_SPAN = 0;
 
-class GridColumnInfo : public GridLayoutInfo {
+class ACE_FORCE_EXPORT GridColumnInfo : public GridLayoutInfo {
     DECLARE_ACE_TYPE(GridColumnInfo, GridLayoutInfo);
 
 public:
     class Builder : public AceType {
-        DECLARE_ACE_TYPE(Builder, AceType)
+        DECLARE_ACE_TYPE(Builder, AceType);
     public:
         Builder()
         {
@@ -100,8 +100,8 @@ public:
 
     ~GridColumnInfo() override = default;
     double GetWidth() const;
-    double GetWidth(uint32_t columns) const;
-    double GetMaxWidth() const;
+    ACE_FORCE_EXPORT double GetWidth(uint32_t columns) const;
+    ACE_FORCE_EXPORT double GetMaxWidth() const;
     Dimension GetOffset() const;
     const RefPtr<GridContainerInfo>& GetParent() const
     {

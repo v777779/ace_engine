@@ -103,6 +103,7 @@ HWTEST_F(TapGestureTestNg, TapGestureTest002, TestSize.Level1)
     auto onActionStart = [](GestureEvent& info) { return true; };
     tapGesture.SetOnActionId(onActionStart);
     auto tapRecognizer = AceType::DynamicCast<ClickRecognizer>(tapGesture.CreateRecognizer());
+
     EXPECT_NE(tapRecognizer, nullptr);
     EXPECT_EQ(tapRecognizer->GetPriority(), GesturePriority::Low);
     EXPECT_EQ(tapRecognizer->GetPriorityMask(), GestureMask::Normal);
@@ -153,8 +154,8 @@ HWTEST_F(TapGestureTestNg, GestureTest001, TestSize.Level1)
     fingersNum = DEFAULT_SLIDE_FINGER;
     double speedNum = DEFAULT_SLIDE_SPEED;
     SwipeDirection slideDirection;
-    swipeGestureModelNG.Create(fingersNum, slideDirection, speedNum);
+    swipeGestureModelNG.Create(fingersNum, slideDirection, Dimension(speedNum, DimensionUnit::PX));
     auto swipeGestureNG = AceType::DynamicCast<NG::SwipeGesture>(gestureProcessor->TopGestureNG());
-    EXPECT_EQ(swipeGestureNG->speed_, speedNum);
+    EXPECT_EQ(swipeGestureNG->speed_, Dimension(speedNum, DimensionUnit::PX));
 }
 } // namespace OHOS::Ace::NG

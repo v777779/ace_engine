@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -12,6 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include "base/log/dump_log.h"
 
 #include "core/components_ng/pattern/list/list_layout_property.h"
 
@@ -28,17 +30,73 @@ V2::ItemDivider ItemDividerFromJson(const std::unique_ptr<JsonValue>& json)
 }
 } // namespace
 
+void ListLayoutProperty::SetListItemFillPolicy(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
+{
+    if (propItemFillPolicy_.has_value()) {
+        if (propItemFillPolicy_.value() == PresetFillType::BREAKPOINT_SM1MD2LG3) {
+            json->PutExtAttr("itemFillPolicy", "PresetFillType::BREAKPOINT_SM1MD2LG3", filter);
+        } else if (propItemFillPolicy_.value() == PresetFillType::BREAKPOINT_SM2MD3LG5) {
+            json->PutExtAttr("itemFillPolicy", "PresetFillType::BREAKPOINT_SM2MD3LG5", filter);
+        } else {
+            json->PutExtAttr("itemFillPolicy", "PresetFillType::BREAKPOINT_DEFAULT", filter);
+        }
+    }
+}
+
+void ListLayoutProperty::DumpInfo()
+{
+    auto listItemAlign = propListItemAlign_.value_or(V2::ListItemAlign::START);
+    DumpLog::GetInstance().AddDesc("alignListItem:" + std::to_string(static_cast<int32_t>(listItemAlign)));
+    if (propDivider_.has_value()) {
+        auto& div = propDivider_.value();
+        DumpLog::GetInstance().AddDesc("divider.strokeWidth:" + div.strokeWidth.ToString());
+        DumpLog::GetInstance().AddDesc("divider.startMargin:" + div.startMargin.ToString());
+        DumpLog::GetInstance().AddDesc("divider.endMargin:" + div.endMargin.ToString());
+        DumpLog::GetInstance().AddDesc("divider.color:" + div.color.ColorToString());
+    } else {
+        DumpLog::GetInstance().AddDesc("divider: None");
+    }
+    auto stickyStyle = propStickyStyle_.value_or(V2::StickyStyle::NONE);
+    DumpLog::GetInstance().AddDesc(
+        "sticky:" + std::to_string(static_cast<uint32_t>(stickyStyle)));
+    auto scrollSnapAlign = propScrollSnapAlign_.value_or(ScrollSnapAlign::NONE);
+    DumpLog::GetInstance().AddDesc(
+        "scrollSnapAlign:" + std::to_string(static_cast<int32_t>(scrollSnapAlign)));
+    propSyncLoad_.value_or(false) ? DumpLog::GetInstance().AddDesc("syncLoad:true")
+                                 : DumpLog::GetInstance().AddDesc("syncLoad:false");
+}
+
+void ListLayoutProperty::DumpInfo(std::unique_ptr<JsonValue>& json)
+{
+    auto listItemAlign = propListItemAlign_.value_or(V2::ListItemAlign::START);
+    json->Put("alignListItem", std::to_string(static_cast<int32_t>(listItemAlign)).c_str());
+    if (propDivider_.has_value()) {
+        auto& div = propDivider_.value();
+        std::unique_ptr<JsonValue> dividerJson = JsonUtil::Create(true);
+        dividerJson->Put("strokeWidth", div.strokeWidth.ToString().c_str());
+        dividerJson->Put("startMargin", div.startMargin.ToString().c_str());
+        dividerJson->Put("endMargin", div.endMargin.ToString().c_str());
+        dividerJson->Put("color", div.color.ColorToString().c_str());
+        json->Put("divider", dividerJson);
+    } else {
+        json->Put("divider", "None");
+    }
+    auto stickyStyle = propStickyStyle_.value_or(V2::StickyStyle::NONE);
+    json->Put("sticky", std::to_string(static_cast<uint32_t>(stickyStyle)).c_str());
+    auto scrollSnapAlign = propScrollSnapAlign_.value_or(ScrollSnapAlign::NONE);
+    json->Put("scrollSnapAlign", std::to_string(static_cast<int32_t>(scrollSnapAlign)).c_str());
+    json->Put("syncLoad", propSyncLoad_.value_or(false));
+}
+
 void ListLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
 {
-    LayoutProperty::ToJsonValue(json, filter);
+    ScrollableLayoutProperty::ToJsonValue(json, filter);
     /* no fixed attr below, just return */
     if (filter.IsFastFilter()) {
         ScrollSnapPropToJsonValue(json, filter);
         return;
     }
     json->PutExtAttr("space", propSpace_.value_or(Dimension(0, DimensionUnit::VP)).ToString().c_str(), filter);
-    json->PutExtAttr("contentStartOffset", std::to_string(propContentStartOffset_.value_or(0)).c_str(), filter);
-    json->PutExtAttr("contentEndOffset", std::to_string(propContentEndOffset_.value_or(0)).c_str(), filter);
     json->PutExtAttr("initialIndex", std::to_string(propInitialIndex_.value_or(0)).c_str(), filter);
     json->PutExtAttr("listDirection", propListDirection_.value_or(Axis::VERTICAL) == Axis::VERTICAL
                                    ? "Axis.Vertical" : "Axis.Horizontal", filter);
@@ -57,6 +115,7 @@ void ListLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, const Ins
         propLaneMinLength_.value_or(Dimension(0, DimensionUnit::VP)).ToString().c_str(), filter);
     json->PutExtAttr("laneMaxLength",
         propLaneMaxLength_.value_or(Dimension(0, DimensionUnit::VP)).ToString().c_str(), filter);
+    SetListItemFillPolicy(json, filter);
     json->PutExtAttr("laneGutter",
         propLaneGutter_.value_or(Dimension(0, DimensionUnit::VP)).ToString().c_str(), filter);
     if (propListItemAlign_.value_or(V2::ListItemAlign::START) == V2::ListItemAlign::START) {
@@ -112,24 +171,53 @@ void ListLayoutProperty::FromJson(const std::unique_ptr<JsonValue>& json)
     LayoutProperty::FromJson(json);
 }
 
-void ListLayoutProperty::UpdateLayoutProperty(const ListLayoutProperty* layoutProperty)
+void ListLayoutProperty::Clone(RefPtr<LayoutProperty> layoutProperty) const
 {
-    CHECK_NULL_VOID(layoutProperty);
-    propSpace_ = layoutProperty->CloneSpace();
-    propInitialIndex_ = layoutProperty->CloneInitialIndex();
-    propListDirection_ = layoutProperty->CloneListDirection();
-    propDivider_ = layoutProperty->CloneDivider();
-    propLanes_ = layoutProperty->CloneLanes();
-    propLaneMinLength_ = layoutProperty->CloneLaneMinLength();
-    propLaneMaxLength_ = layoutProperty->CloneLaneMaxLength();
-    propLaneGutter_ = layoutProperty->CloneLaneGutter();
-    propListItemAlign_ = layoutProperty->CloneListItemAlign();
-    propCachedCount_ = layoutProperty->CloneCachedCount();
-    propStickyStyle_ = layoutProperty->CloneStickyStyle();
-    propContentStartOffset_ = layoutProperty->CloneContentStartOffset();
-    propContentEndOffset_ = layoutProperty->CloneContentEndOffset();
-    propScrollSnapAlign_ = layoutProperty->CloneScrollSnapAlign();
-    propEditMode_ = layoutProperty->CloneEditMode();
-    propScrollEnabled_ = layoutProperty->CloneScrollEnabled();
+    auto value = DynamicCast<ListLayoutProperty>(layoutProperty);
+    ScrollableLayoutProperty::Clone(value);
+    value->LayoutProperty::UpdateLayoutProperty(DynamicCast<LayoutProperty>(this));
+    value->propSpace_ = CloneSpace();
+    value->propInitialIndex_ = CloneInitialIndex();
+    value->propListDirection_ = CloneListDirection();
+    value->propDivider_ = CloneDivider();
+    value->propLanes_ = CloneLanes();
+    value->propLaneMinLength_ = CloneLaneMinLength();
+    value->propLaneMaxLength_ = CloneLaneMaxLength();
+    value->propLaneGutter_ = CloneLaneGutter();
+    value->propListItemAlign_ = CloneListItemAlign();
+    value->propCachedCount_ = CloneCachedCount();
+    value->propShowCachedItems_ = CloneShowCachedItems();
+    value->propStickyStyle_ = CloneStickyStyle();
+    value->propScrollSnapAlign_ = CloneScrollSnapAlign();
+    value->propEditMode_ = CloneEditMode();
+    value->propScrollEnabled_ = CloneScrollEnabled();
+    value->propStackFromEnd_ = CloneStackFromEnd();
+    value->propSyncLoad_ = CloneSyncLoad();
+    value->propCacheRange_ = CloneCacheRange();
+    value->propItemFillPolicy_ = CloneItemFillPolicy();
 }
+
+void ListLayoutProperty::Reset()
+{
+    ScrollableLayoutProperty::Reset();
+    ResetSpace();
+    ResetInitialIndex();
+    ResetListDirection();
+    ResetDivider();
+    ResetLanes();
+    ResetLaneMinLength();
+    ResetLaneMaxLength();
+    ResetLaneGutter();
+    ResetListItemAlign();
+    ResetCachedCount();
+    ResetShowCachedItems();
+    ResetStickyStyle();
+    ResetScrollSnapAlign();
+    ResetEditMode();
+    ResetScrollEnabled();
+    ResetStackFromEnd();
+    ResetSyncLoad();
+    ResetCacheRange();
+    ResetItemFillPolicy();
 }
+} // namespace OHOS::Ace::NG

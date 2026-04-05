@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,6 +15,10 @@
 
 #include "scroller_peer_impl.h"
 #include "arkoala_api_generated.h"
+#include "core/common/container_scope.h"
+#include "core/interfaces/native/implementation/frame_node_peer_impl.h"
+#include "core/interfaces/native/utility/converter.h"
+#include "core/pipeline/base/element_register.h"
 
 namespace OHOS::Ace::NG::GeneratedModifier {
 namespace ScrollerAccessor {
@@ -34,47 +38,60 @@ Ark_NativePointer GetFinalizerImpl()
 {
     return reinterpret_cast<void *>(&DestroyPeerImpl);
 }
-void ScrollToImpl(Ark_Scroller peer,
+void ScrollToImpl(Ark_VMContext vmContext,
+                  Ark_Scroller peer,
                   const Ark_ScrollOptions* options)
 {
     CHECK_NULL_VOID(peer);
-    peer->TriggerScrollTo(options);
+    peer->TriggerScrollTo(vmContext, options);
 }
-void ScrollEdgeImpl(Ark_Scroller peer,
+void ScrollEdgeImpl(Ark_VMContext vmContext,
+                    Ark_Scroller peer,
                     Ark_Edge value,
                     const Opt_ScrollEdgeOptions* options)
 {
     CHECK_NULL_VOID(peer);
-    peer->TriggerScrollEdge(value, options);
+    peer->TriggerScrollEdge(vmContext, value, options);
 }
-void FlingImpl(Ark_Scroller peer,
+void FlingImpl(Ark_VMContext vmContext,
+               Ark_Scroller peer,
                Ark_Float64 velocity)
 {
     CHECK_NULL_VOID(peer);
-    peer->TriggerFling(velocity);
+    peer->TriggerFling(vmContext, velocity);
 }
-void ScrollPageImpl(Ark_Scroller peer,
+void ScrollPageImpl(Ark_VMContext vmContext,
+                    Ark_Scroller peer,
                     const Ark_ScrollPageOptions* value)
 {
     CHECK_NULL_VOID(peer);
-    peer->TriggerScrollPage0(value);
+    peer->TriggerScrollPage0(vmContext, value);
 }
-Opt_OffsetResult CurrentOffsetImpl(Ark_Scroller peer)
+Opt_OffsetResult CurrentOffsetImpl(Ark_VMContext vmContext,
+                                   Ark_Scroller peer)
 {
     auto invalid = Converter::ArkValue<Opt_OffsetResult>();
     CHECK_NULL_RETURN(peer, invalid);
-    return peer->TriggerCurrentOffset();
+    return peer->TriggerCurrentOffset(vmContext);
 }
-void ScrollToIndexImpl(Ark_Scroller peer,
+Opt_OffsetResult OffsetImpl(Ark_Scroller peer)
+{
+    auto invalid = Converter::ArkValue<Opt_OffsetResult>();
+    CHECK_NULL_RETURN(peer, invalid);
+    return peer->TriggerOffset();
+}
+void ScrollToIndexImpl(Ark_VMContext vmContext,
+                       Ark_Scroller peer,
                        Ark_Int32 value,
                        const Opt_Boolean* smooth,
                        const Opt_ScrollAlign* align,
                        const Opt_ScrollToIndexOptions* options)
 {
     CHECK_NULL_VOID(peer);
-    peer->TriggerScrollToIndex(value, smooth, align, options);
+    peer->TriggerScrollToIndex(vmContext, value, smooth, align, options);
 }
-void ScrollByImpl(Ark_Scroller peer,
+void ScrollByImpl(Ark_VMContext vmContext,
+                  Ark_Scroller peer,
                   const Ark_Length* dx,
                   const Ark_Length* dy)
 {
@@ -83,27 +100,52 @@ void ScrollByImpl(Ark_Scroller peer,
     CHECK_NULL_VOID(dy);
     auto xOffset = Converter::OptConvert<Dimension>(*dx).value_or(Dimension());
     auto yOffset = Converter::OptConvert<Dimension>(*dy).value_or(Dimension());
-    peer->TriggerScrollBy(xOffset, yOffset);
+    peer->TriggerScrollBy(vmContext, xOffset, yOffset);
 }
-Ark_Boolean IsAtEndImpl(Ark_Scroller peer)
+Ark_Boolean IsAtEndImpl(Ark_VMContext vmContext,
+                        Ark_Scroller peer)
 {
     CHECK_NULL_RETURN(peer, false); // need to fix default value
-    return peer->TriggerIsAtEnd();
+    return peer->TriggerIsAtEnd(vmContext);
 }
-Ark_RectResult GetItemRectImpl(Ark_Scroller peer,
+Ark_RectResult GetItemRectImpl(Ark_VMContext vmContext,
+                               Ark_Scroller peer,
                                Ark_Int32 index)
 {
     CHECK_NULL_RETURN(peer, {}); // need to fix default value
-    return peer->TriggerGetItemRect(index);
+    return peer->TriggerGetItemRect(vmContext, index);
 }
-Ark_Int32 GetItemIndexImpl(Ark_Scroller peer,
+Ark_Int32 GetItemIndexImpl(Ark_VMContext vmContext,
+                           Ark_Scroller peer,
                            Ark_Float64 x,
                            Ark_Float64 y)
 {
     const auto errValue = Converter::ArkValue<Ark_Float64>(-1);
     CHECK_NULL_RETURN(peer, errValue); // need to fix default value
-    auto res = peer->TriggerGetItemIndex(x, y);
+    auto res = peer->TriggerGetItemIndex(vmContext, x, y);
     return Converter::ArkValue<Ark_Int32>(res);
+}
+Ark_SizeResult ContentSizeImpl(Ark_VMContext vmContext,
+                               Ark_Scroller peer)
+{
+    CHECK_NULL_RETURN(peer, {}); // need to fix default value
+    return peer->TriggerContentSize(vmContext);
+}
+Opt_FrameNode GetFrameNodeImpl(Ark_Scroller peer)
+{
+    auto invalid = Converter::ArkValue<Opt_FrameNode>();
+    CHECK_NULL_RETURN(peer, invalid);
+    auto scrollController = peer->GetController().Upgrade();
+    CHECK_NULL_RETURN(scrollController, invalid);
+
+    ContainerScope scope(peer->GetInstanceId());
+    auto nodeId = scrollController->GetBindingFrameNodeId();
+    CHECK_NULL_RETURN(nodeId >= 0, invalid);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ElementRegister::GetInstance()->GetUINodeById(nodeId));
+    CHECK_NULL_RETURN(frameNode, invalid);
+
+    auto arkFrameNode = static_cast<Ark_FrameNode>(FrameNodePeer::Create(frameNode));
+    return Converter::ArkValue<Opt_FrameNode>(arkFrameNode);
 }
 } // ScrollerAccessor
 const GENERATED_ArkUIScrollerAccessor* GetScrollerAccessor()
@@ -117,11 +159,14 @@ const GENERATED_ArkUIScrollerAccessor* GetScrollerAccessor()
         ScrollerAccessor::FlingImpl,
         ScrollerAccessor::ScrollPageImpl,
         ScrollerAccessor::CurrentOffsetImpl,
+        ScrollerAccessor::OffsetImpl,
         ScrollerAccessor::ScrollToIndexImpl,
         ScrollerAccessor::ScrollByImpl,
         ScrollerAccessor::IsAtEndImpl,
         ScrollerAccessor::GetItemRectImpl,
         ScrollerAccessor::GetItemIndexImpl,
+        ScrollerAccessor::ContentSizeImpl,
+        ScrollerAccessor::GetFrameNodeImpl,
     };
     return &ScrollerAccessorImpl;
 }

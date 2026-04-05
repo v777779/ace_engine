@@ -16,7 +16,6 @@
 #include "gmock/gmock.h"
 
 #include "accessor_test_base.h"
-#include "node_api.h"
 #include "core/interfaces/native/implementation/text_controller_peer_impl.h"
 #include "core/components_ng/pattern/text/span/span_string.h"
 #include "core/interfaces/native/utility/converter.h"
@@ -113,7 +112,7 @@ HWTEST_F(TextControllerAccessorTest, closeSelectionMenuTest, TestSize.Level1)
 HWTEST_F(TextControllerAccessorTest, setStyledStringTest, TestSize.Level1)
 {
     const std::string expectedStrValue = "String value";
-    auto value = Converter::ArkUnion<Ark_Union_String_ImageAttachment_CustomSpan, Ark_String>(expectedStrValue);
+    auto value = Converter::ArkUnion<Ark_Union_String_ImageAttachment_CustomSpanWrapper, Ark_String>(expectedStrValue);
     auto styles = Converter::ArkValue<Opt_Array_StyleOptions>();
 
     auto styledStringAccessor = GeneratedModifier::GetStyledStringAccessor();
@@ -135,13 +134,17 @@ HWTEST_F(TextControllerAccessorTest, getLayoutManagerTest, TestSize.Level1)
     const size_t expectedLineCount = 143;
     g_layoutInfo->SetLineCount(expectedLineCount);
 
-    Ark_NativePointer manager = accessor_->getLayoutManager(peer_); // Create LayoutManager peer
+    Opt_LayoutManager managerOpt = accessor_->getLayoutManager(peer_); // Create LayoutManager peer
+    auto managerArk = Converter::GetOpt(managerOpt);
+    ASSERT_TRUE(managerArk.has_value());
+    auto manager = managerArk.value();
     ASSERT_NE(manager, nullptr);
 
     auto layoutManagerAccessor = GeneratedModifier::GetLayoutManagerAccessor();
     ASSERT_NE(layoutManagerAccessor, nullptr);
     auto layoutManagerPeer = reinterpret_cast<LayoutManagerPeer*>(manager);
-    EXPECT_EQ(Converter::Convert<int32_t>(layoutManagerAccessor->getLineCount(layoutManagerPeer)), expectedLineCount);
+    EXPECT_EQ(
+        Converter::OptConvert<int32_t>(layoutManagerAccessor->getLineCount(layoutManagerPeer)), expectedLineCount);
     layoutManagerAccessor->destroyPeer(layoutManagerPeer); // Destroy LayoutManager peer
 }
 

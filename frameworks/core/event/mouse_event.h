@@ -17,13 +17,12 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_EVENT_MOUSE_EVENT_H
 
 #include <vector>
-#include "base/geometry/ng/offset_t.h"
 #include "base/geometry/offset.h"
 #include "base/mousestyle/mouse_style.h"
 #include "base/memory/ace_type.h"
 #include "core/event/key_event.h"
 #include "core/event/touch_event.h"
-#include "core/pipeline_ng/ui_task_scheduler.h"
+#include "core/event/mouse_constants.h"
 
 namespace OHOS::MMI {
 class PointerEvent;
@@ -35,58 +34,12 @@ class MouseInfo;
 constexpr int32_t MOUSE_PRESS_LEFT = 1;
 static const int32_t MOUSE_BASE_ID = 1000;
 
+// Forward declaration for FrameNode
+namespace NG {
+class FrameNode;
+}
+
 using OnMouseEventFunc = std::function<void(MouseInfo& info)>;
-
-enum class MouseAction : int32_t {
-    NONE = 0,
-    PRESS = 1,
-    RELEASE = 2,
-    MOVE = 3,
-    WINDOW_ENTER = 4,
-    WINDOW_LEAVE = 5,
-    HOVER,
-    HOVER_ENTER,
-    HOVER_MOVE,
-    HOVER_EXIT,
-    PULL_DOWN,
-    PULL_MOVE,
-    PULL_UP,
-    CANCEL
-};
-
-enum class AccessibilityHoverAction : int32_t {
-    UNKNOWN = -1,
-    HOVER_ENTER,
-    HOVER_MOVE,
-    HOVER_EXIT,
-    HOVER_CANCEL
-};
-
-enum class MouseState : int32_t {
-    NONE = 0,
-    HOVER = 1,
-};
-
-enum class MouseButton : int32_t {
-    NONE_BUTTON = 0,
-    LEFT_BUTTON = 1,
-    RIGHT_BUTTON = 2,
-    MIDDLE_BUTTON = 4,
-    BACK_BUTTON = 8,
-    FORWARD_BUTTON = 16,
-    SIDE_BUTTON = 32,
-    EXTRA_BUTTON = 64,
-    TASK_BUTTON = 128,
-};
-
-enum class HoverEffectType : int32_t {
-    NONE,
-    OPACITY,
-    SCALE,
-    BOARD,
-    AUTO,
-    UNKNOWN,
-};
 
 struct MouseEvent final : public PointerEvent {
     int32_t id = 0;
@@ -118,6 +71,11 @@ struct MouseEvent final : public PointerEvent {
     bool isInjected = false;
     bool isPrivacyMode = false;
     bool isMockWindowTransFlag = false;
+    TimeStamp pressedTime;
+    bool isRightButtonEventFromDoulbeTap = false;
+    bool isFalsifyCancel = false;
+    int32_t eventHandleId = 0;
+    bool isNewReferee = false;
 
     int32_t GetEventIdentity() const
     {
@@ -164,118 +122,19 @@ struct MouseEvent final : public PointerEvent {
         return targetDisplayId;
     }
 
-    MouseEvent CloneWith(float scale) const
-    {
-        if (NearEqual(scale, 0.f)) {
-            return {};
-        }
-        MouseEvent mouseEvent;
-        mouseEvent.id = id;
-        mouseEvent.x = x / scale;
-        mouseEvent.y = y / scale;
-        mouseEvent.z = z / scale;
-        mouseEvent.deltaX = deltaX / scale;
-        mouseEvent.deltaY = deltaY /  scale;
-        mouseEvent.deltaZ = deltaZ / scale;
-        mouseEvent.scrollX = scrollX /  scale;
-        mouseEvent.scrollY = scrollY /  scale;
-        mouseEvent.scrollZ = scrollZ / scale;
-        mouseEvent.screenX = screenX / scale;
-        mouseEvent.screenY = screenY / scale;
-        mouseEvent.globalDisplayX = globalDisplayX / scale;
-        mouseEvent.globalDisplayY = globalDisplayY / scale;
-        mouseEvent.action = action;
-        mouseEvent.pullAction = pullAction;
-        mouseEvent.button = button;
-        mouseEvent.pressedButtons = pressedButtons;
-        mouseEvent.time = time;
-        mouseEvent.deviceId = deviceId;
-        mouseEvent.targetDisplayId = targetDisplayId;
-        mouseEvent.sourceType = sourceType;
-        mouseEvent.sourceTool = sourceTool;
-        mouseEvent.pointerEvent = pointerEvent;
-        mouseEvent.originalId = originalId;
-        mouseEvent.pressedKeyCodes_ = pressedKeyCodes_;
-        mouseEvent.isInjected = isInjected;
-        mouseEvent.isPrivacyMode = isPrivacyMode;
-        mouseEvent.mockFlushEvent = mockFlushEvent;
-        mouseEvent.rawDeltaX = rawDeltaX;
-        mouseEvent.rawDeltaY = rawDeltaY;
-        mouseEvent.pressedButtonsArray = pressedButtonsArray;
-        mouseEvent.passThrough = passThrough;
-        // Only set postEventNodeId when the event supports passThrough
-        if (passThrough) {
-            mouseEvent.postEventNodeId = postEventNodeId;
-        }
-        return mouseEvent;
-    }
-
-    MouseEvent CreateScaleEvent(float scale) const
-    {
-        if (NearZero(scale)) {
-            return CloneWith(1);
-        }
-        return CloneWith(scale);
-    }
-
-    TouchEvent CreateTouchPoint() const
-    {
-        TouchType type = TouchType::UNKNOWN;
-        if (action == MouseAction::PRESS) {
-            type = TouchType::DOWN;
-        } else if (action == MouseAction::RELEASE) {
-            type = TouchType::UP;
-        } else if (action == MouseAction::MOVE) {
-            type = TouchType::MOVE;
-        } else if (action == MouseAction::CANCEL) {
-            type = TouchType::CANCEL;
-        } else {
-            type = TouchType::UNKNOWN;
-        }
-        int32_t pointId = id;
-        if (sourceType == SourceType::MOUSE) {
-            pointId = GetPointerId(pointId);
-        }
-        auto pointOriginalId = sourceType == SourceType::MOUSE ? GetId() : originalId;
-        TouchPoint point { .id = pointId,
-            .x = x,
-            .y = y,
-            .screenX = screenX,
-            .screenY = screenY,
-            .globalDisplayX = globalDisplayX,
-            .globalDisplayY = globalDisplayY,
-            .downTime = time,
-            .size = 0.0,
-            .isPressed = (type == TouchType::DOWN),
-            .originalId = pointOriginalId };
-        TouchEvent event;
-        event.SetId(pointId)
-            .SetX(x).SetY(y).SetScreenX(screenX).SetScreenY(screenY)
-            .SetGlobalDisplayX(globalDisplayX).SetGlobalDisplayY(globalDisplayY)
-            .SetType(type)
-            .SetTime(time)
-            .SetSize(0.0)
-            .SetDeviceId(deviceId)
-            .SetTargetDisplayId(targetDisplayId)
-            .SetSourceType(sourceType)
-            .SetSourceTool(sourceTool)
-            .SetPointerEvent(pointerEvent)
-            .SetTouchEventId(touchEventId)
-            .SetOriginalId(pointOriginalId)
-            .SetIsInjected(isInjected);
-        event.isPrivacyMode = isPrivacyMode;
-        event.pointers.emplace_back(std::move(point));
-        event.pressedKeyCodes_ = pressedKeyCodes_;
-        event.passThrough = passThrough;
-        // Only set postEventNodeId when the event supports passThrough
-        if (passThrough) {
-            event.postEventNodeId = postEventNodeId;
-        }
-        return event;
-    }
-
+    MouseEvent CloneWith(float scale) const;
+    MouseEvent CreateScaleEvent(float scale) const;
+    TouchEvent CreateTouchPoint() const;
     MouseEvent operator-(const Offset& offset) const;
     std::shared_ptr<MMI::PointerEvent> GetMouseEventPointerEvent() const;
+};
+
+struct MouseHistoricalPoint {
+    Offset localLocation;
+    Offset screenLocation;
+    Offset globalLocation;
+    Offset globalDisplayLocation;
+    TimeStamp time;
 };
 
 class MouseInfo : public BaseEventInfo {
@@ -370,7 +229,7 @@ public:
     {
         rawDeltaX_ = rawDeltaX;
     }
-    float GetRawDeltaX()
+    float GetRawDeltaX() const
     {
         return rawDeltaX_;
     }
@@ -379,11 +238,11 @@ public:
     {
         rawDeltaY_ = rawDeltaY;
     }
-    float GetRawDeltaY()
+    float GetRawDeltaY() const
     {
         return rawDeltaY_;
     }
-    
+
     void SetPressedButtons(const std::vector<MouseButton>& pressedButtonsArray)
     {
         pressedButtonsArray_ = pressedButtonsArray;
@@ -391,6 +250,27 @@ public:
     std::vector<MouseButton> GetPressedButtons()
     {
         return pressedButtonsArray_;
+    }
+
+    void AddHistoryLocationInfo(MouseHistoricalPoint&& point)
+    {
+        history_.emplace_back(std::move(point));
+    }
+
+    const std::list<MouseHistoricalPoint>& GetHistory() const
+    {
+        return history_;
+    }
+
+    MouseEvent ConvertToMouseEvent() const;
+    void SetIsRightButtonEventFromDoulbeTap(bool isRightButtonEventFromDoulbeTap)
+    {
+        isRightButtonEventFromDoulbeTap_ = isRightButtonEventFromDoulbeTap;
+    }
+
+    bool GetIsRightButtonEventFromDoulbeTap() const
+    {
+        return isRightButtonEventFromDoulbeTap_;
     }
 
 private:
@@ -409,6 +289,8 @@ private:
     float rawDeltaX_ = 0.0f;
     float rawDeltaY_ = 0.0f;
     std::vector<MouseButton> pressedButtonsArray_;
+    std::list<MouseHistoricalPoint> history_;
+    bool isRightButtonEventFromDoulbeTap_ = false;
 };
 
 using HoverEffectFunc = std::function<void(bool)>;
@@ -594,6 +476,7 @@ public:
     }
 
 private:
+    MouseHistoricalPoint CreateMouseHistoricalPoint(const MouseEvent& event, bool needPostEvent) const;
     OnMouseEventFunc onMouseCallback_;
 };
 
@@ -697,14 +580,8 @@ public:
     HoverEffectTarget(const std::string& nodeName, int32_t nodeId) : TouchEventTarget(nodeName, nodeId) {}
     ~HoverEffectTarget() override = default;
 
-    void SetHoverNode(const WeakPtr<NG::FrameNode>& node)
-    {
-        hoverNode_ = node;
-    }
-    WeakPtr<NG::FrameNode> GetHoverNode() const
-    {
-        return hoverNode_;
-    }
+    void SetHoverNode(const WeakPtr<NG::FrameNode>& node);
+    WeakPtr<NG::FrameNode> GetHoverNode() const;
 
     bool DispatchEvent(const TouchEvent& point) override
     {
@@ -718,6 +595,35 @@ public:
 
 private:
     WeakPtr<NG::FrameNode> hoverNode_;
+};
+
+class ACE_EXPORT MouseEventResult : public AceType {
+    DECLARE_ACE_TYPE(MouseEventResult, AceType);
+
+public:
+    MouseEventResult() = default;
+    ~MouseEventResult() = default;
+
+    virtual void SetMouseEventResult(bool result, bool stopPropagation) = 0;
+};
+
+class NativeEmbeadMouseInfo : public BaseEventInfo {
+    DECLARE_RELATIONSHIP_OF_CLASSES(NativeEmbeadMouseInfo, BaseEventInfo);
+
+public:
+    NativeEmbeadMouseInfo(
+        const std::string& embedId, const MouseInfo& mouseInfo, const RefPtr<MouseEventResult>& result)
+        : BaseEventInfo("NativeEmbeadMouseInfo"), embedId_(embedId), mouseEvent_(mouseInfo), result_(result)
+    {}
+    ~NativeEmbeadMouseInfo() override = default;
+    const std::string& GetEmbedId() const;
+    const MouseInfo& GetMouseEventInfo() const;
+    const RefPtr<MouseEventResult>& GetResult() const;
+
+private:
+    std::string embedId_;
+    MouseInfo mouseEvent_;
+    RefPtr<MouseEventResult> result_;
 };
 
 using MouseTestResult = std::list<RefPtr<MouseEventTarget>>;

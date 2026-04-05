@@ -67,7 +67,7 @@ void DividerModelNG::DividerColor(const RefPtr<ResourceObject>& resObj)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
-
+    ACE_UINODE_TRACE(frameNode);
     auto dividerPattern = frameNode->GetPattern<DividerPattern>();
     CHECK_NULL_VOID(dividerPattern);
     auto&& updateFunc = [weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
@@ -101,30 +101,20 @@ void DividerModelNG::LineCap(const Ace::LineCap& value)
     ACE_UPDATE_PAINT_PROPERTY(DividerRenderProperty, LineCap, value);
 }
 
-void DividerModelNG::StrokeWidth(FrameNode* frameNode, std::optional<Dimension> valueOpt)
+void DividerModelNG::StrokeWidth(FrameNode* frameNode, const Dimension& value)
 {
-    if (valueOpt) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(DividerLayoutProperty, StrokeWidth, valueOpt.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(DividerLayoutProperty, StrokeWidth, frameNode);
-    }
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(DividerLayoutProperty, StrokeWidth, value, frameNode);
 }
 
-void DividerModelNG::LineCap(FrameNode* frameNode, const std::optional<enum LineCap> valueOpt)
+void DividerModelNG::LineCap(FrameNode* frameNode, const Ace::LineCap& value)
 {
-    if (valueOpt) {
-        ACE_UPDATE_NODE_PAINT_PROPERTY(DividerRenderProperty, LineCap, valueOpt.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_PAINT_PROPERTY(DividerRenderProperty, LineCap, frameNode);
-    }
+    ACE_UPDATE_NODE_PAINT_PROPERTY(DividerRenderProperty, LineCap, value, frameNode);
 }
 
 void DividerModelNG::SetDividerColor(FrameNode* frameNode, std::optional<Color> colorOpt, bool isSetByTheme)
 {
     if (colorOpt) {
         ACE_UPDATE_NODE_PAINT_PROPERTY(DividerRenderProperty, DividerColor, colorOpt.value(), frameNode);
-    } else {
-        ACE_RESET_NODE_PAINT_PROPERTY(DividerRenderProperty, DividerColor, frameNode);
     }
     if (SystemProperties::ConfigChangePerform()) {
         ACE_UPDATE_NODE_PAINT_PROPERTY(DividerRenderProperty, DividerColorSetByUser, isSetByTheme, frameNode);
@@ -134,6 +124,7 @@ void DividerModelNG::SetDividerColor(FrameNode* frameNode, std::optional<Color> 
 void DividerModelNG::SetDividerColor(FrameNode* frameNode, const RefPtr<ResourceObject>& resObj, bool isSetByTheme)
 {
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto dividerPattern = frameNode->GetPattern<DividerPattern>();
     CHECK_NULL_VOID(dividerPattern);
     auto&& updateFunc = [weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
@@ -179,5 +170,13 @@ void DividerModelNG::ResetDividerColor()
         ACE_UPDATE_PAINT_PROPERTY(DividerRenderProperty, DividerColorSetByUser, false);
     }
     ACE_RESET_PAINT_PROPERTY_WITH_FLAG(DividerRenderProperty, DividerColor, PROPERTY_UPDATE_RENDER);
+}
+
+void DividerModelNG::ResetDividerColor(FrameNode* frameNode)
+{
+    if (SystemProperties::ConfigChangePerform()) {
+        ACE_UPDATE_NODE_PAINT_PROPERTY(DividerRenderProperty, DividerColorSetByUser, false, frameNode);
+    }
+    ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(DividerRenderProperty, DividerColor, PROPERTY_UPDATE_RENDER, frameNode);
 }
 } // namespace OHOS::Ace::NG

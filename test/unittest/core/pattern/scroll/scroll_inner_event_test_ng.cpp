@@ -15,10 +15,10 @@
 
 #include "mock_task_executor.h"
 #include "scroll_test_ng.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "core/components/scroll/scroll_bar_theme.h"
 
@@ -36,8 +36,6 @@ const float HORIZONTAL_RATIO = WIDTH / CONTENT_MAIN_SIZE;
 
 class ScrollInnerEventTestNg : public ScrollTestNg {
 private:
-    void MouseOnScroll(MouseButton mouseButton, MouseAction mouseAction, Offset localLocation);
-    void TouchOnScroll(TouchType touchType);
     void HoverOnScrollBar(bool isHover);
     void TouchOnScrollBar(TouchType touchType, SourceType sourceType, Offset localLocation);
     void MouseOnScrollBar(MouseButton mouseButton, MouseAction mouseAction, Offset localLocation);
@@ -47,26 +45,6 @@ private:
     void DragScrollBarAction(Offset startOffset, float dragDelta, float velocity = 0);
     void CollectTouchTarget(Point point);
 };
-
-void ScrollInnerEventTestNg::MouseOnScroll(MouseButton mouseButton, MouseAction mouseAction, Offset localLocation)
-{
-    auto mouseEvent = pattern_->mouseEvent_->GetOnMouseEventFunc();
-    MouseInfo mouseInfo;
-    mouseInfo.SetButton(mouseButton);
-    mouseInfo.SetAction(mouseAction);
-    mouseInfo.SetLocalLocation(localLocation);
-    mouseEvent(mouseInfo);
-}
-
-void ScrollInnerEventTestNg::TouchOnScroll(TouchType touchType)
-{
-    TouchLocationInfo locationInfo(1);
-    locationInfo.SetTouchType(touchType);
-    TouchEventInfo eventInfo("touch");
-    eventInfo.AddTouchLocationInfo(std::move(locationInfo));
-    auto touchEvent = pattern_->touchEvent_->GetTouchEventCallback();
-    touchEvent(eventInfo);
-}
 
 void ScrollInnerEventTestNg::HoverOnScrollBar(bool isHover)
 {
@@ -159,193 +137,7 @@ void ScrollInnerEventTestNg::CollectTouchTarget(Point point)
     ResponseLinkResult responseLinkResult;
     auto scrollableActuator = frameNode_->GetOrCreateGestureEventHub()->scrollableActuator_;
     scrollableActuator->CollectTouchTarget(coordinateOffset, touchRestrict, getEventTargetImpl, result, localPoint,
-        frameNode, targetComponent, responseLinkResult);
-}
-
-/**
- * @tc.name: HandleClick001
- * @tc.desc: Test click action, move mouse in activeBar and click, than move out
- * @tc.type: FUNC
- */
-HWTEST_F(ScrollInnerEventTestNg, HandleClick001, TestSize.Level1)
-{
-    CreateScroll();
-    CreateContent();
-    CreateScrollDone();
-
-    /**
-     * @tc.steps: step1. Mouse is out of scrollBar
-     */
-    MouseOnScroll(MouseButton::NONE_BUTTON, MouseAction::MOVE, OUT_SCROLLBAR_OFFSET);
-    EXPECT_EQ(pattern_->locationInfo_, OUT_SCROLLBAR_OFFSET);
-
-    /**
-     * @tc.steps: step2. Move mouse in activeBar
-     * @tc.expected: PlayScrollBarGrowAnimation
-     */
-    MouseOnScrollBar(MouseButton::NONE_BUTTON, MouseAction::HOVER, IN_ACTIVE_BAR_OFFSET);
-    EXPECT_TRUE(scrollBar_->IsHover());
-    EXPECT_EQ(scrollBar_->GetHoverAnimationType(), HoverAnimationType::GROW);
-    MouseOnScroll(MouseButton::NONE_BUTTON, MouseAction::HOVER, IN_ACTIVE_BAR_OFFSET);
-    EXPECT_EQ(pattern_->locationInfo_, IN_ACTIVE_BAR_OFFSET);
-    HoverOnScrollBar(true);
-
-    /**
-     * @tc.steps: step3. Press in activeBar
-     */
-    MouseOnScrollBar(MouseButton::LEFT_BUTTON, MouseAction::PRESS, IN_ACTIVE_BAR_OFFSET);
-    EXPECT_TRUE(scrollBar_->isMousePressed_);
-    MouseOnScroll(MouseButton::LEFT_BUTTON, MouseAction::PRESS, IN_ACTIVE_BAR_OFFSET);
-    EXPECT_TRUE(pattern_->isMousePressed_);
-
-    /**
-     * @tc.steps: step4. Trigger HandleClickEvent
-     * @tc.expected: Not trigger ScrollPage because in the activeBar
-     */
-    MockAnimationManager::GetInstance().SetTicks(1);
-    pattern_->HandleClickEvent();
-    EXPECT_TRUE(TickPosition(0));
-
-    /**
-     * @tc.steps: step5. Release in activeBar
-     */
-    MouseOnScrollBar(MouseButton::LEFT_BUTTON, MouseAction::RELEASE, IN_ACTIVE_BAR_OFFSET);
-    EXPECT_FALSE(scrollBar_->isMousePressed_);
-    MouseOnScroll(MouseButton::LEFT_BUTTON, MouseAction::RELEASE, IN_ACTIVE_BAR_OFFSET);
-    EXPECT_FALSE(pattern_->isMousePressed_);
-    HoverOnScrollBar(true);
-
-    /**
-     * @tc.steps: step6. Move mouse out of activeBar
-     * @tc.expected: PlayScrollBarShrinkAnimation
-     */
-    MouseOnScrollBar(MouseButton::LEFT_BUTTON, MouseAction::MOVE, OUT_SCROLLBAR_OFFSET);
-    EXPECT_FALSE(scrollBar_->IsHover());
-    EXPECT_EQ(scrollBar_->GetHoverAnimationType(), HoverAnimationType::SHRINK);
-    MouseOnScroll(MouseButton::LEFT_BUTTON, MouseAction::MOVE, OUT_SCROLLBAR_OFFSET);
-    EXPECT_EQ(pattern_->locationInfo_, OUT_SCROLLBAR_OFFSET);
-    HoverOnScrollBar(false);
-}
-
-/**
- * @tc.name: HandleClick002
- * @tc.desc: Test click action, click below/above the activeBar
- * @tc.type: FUNC
- */
-HWTEST_F(ScrollInnerEventTestNg, HandleClick002, TestSize.Level1)
-{
-    CreateScroll();
-    CreateContent();
-    CreateScrollDone();
-
-    /**
-     * @tc.steps: step1. Press below activeBar, trigger HandleClickEvent
-     * @tc.expected: Scroll page down
-     */
-    MouseOnScrollBar(MouseButton::LEFT_BUTTON, MouseAction::PRESS, BELOW_ACTIVE_BAR_OFFSET);
-    MouseOnScroll(MouseButton::LEFT_BUTTON, MouseAction::PRESS, BELOW_ACTIVE_BAR_OFFSET);
-    MockAnimationManager::GetInstance().SetTicks(TICK);
-    pattern_->HandleClickEvent();
-    EXPECT_TRUE(TickPosition(-HEIGHT / TICK));
-    EXPECT_TRUE(TickPosition(-HEIGHT));
-
-    /**
-     * @tc.steps: step2. Press above activeBar, trigger HandleClickEvent
-     * @tc.expected: Scroll page up
-     */
-    const Offset aboveActiveBarPoint = Offset(238.f, 0);
-    MouseOnScrollBar(MouseButton::LEFT_BUTTON, MouseAction::PRESS, aboveActiveBarPoint);
-    MouseOnScroll(MouseButton::LEFT_BUTTON, MouseAction::PRESS, aboveActiveBarPoint);
-    pattern_->HandleClickEvent();
-    EXPECT_TRUE(TickPosition(-HEIGHT / TICK));
-    EXPECT_TRUE(TickPosition(0));
-}
-
-/**
- * @tc.name: HandleClick003
- * @tc.desc: Test click action, click not on the scrollBar
- * @tc.type: FUNC
- */
-HWTEST_F(ScrollInnerEventTestNg, HandleClick003, TestSize.Level1)
-{
-    CreateScroll();
-    CreateContent();
-    CreateScrollDone();
-
-    /**
-     * @tc.steps: step1. Press not in scrollBar
-     * @tc.expected: Not scroll
-     */
-    MouseOnScroll(MouseButton::LEFT_BUTTON, MouseAction::PRESS, OUT_SCROLLBAR_OFFSET);
-    MockAnimationManager::GetInstance().SetTicks(1);
-    pattern_->HandleClickEvent();
-    EXPECT_TRUE(TickPosition(0));
-}
-
-/**
- * @tc.name: HandleLongPress001
- * @tc.desc: Test HandleLongPress action, move touch in activeBar and long press
- * @tc.type: FUNC
- */
-HWTEST_F(ScrollInnerEventTestNg, HandleLongPress001, TestSize.Level1)
-{
-    CreateScroll();
-    CreateContent();
-    CreateScrollDone();
-
-    /**
-     * @tc.steps: step1. LongPress in scrollBar
-     * @tc.expected: Not trigger ScrollPage because in the activeBar
-     */
-    MouseOnScrollBar(MouseButton::LEFT_BUTTON, MouseAction::PRESS, IN_ACTIVE_BAR_OFFSET);
-    MouseOnScroll(MouseButton::LEFT_BUTTON, MouseAction::PRESS, IN_ACTIVE_BAR_OFFSET);
-    MockAnimationManager::GetInstance().SetTicks(1);
-    scrollBar_->HandleLongPress(true);
-    EXPECT_TRUE(TickPosition(0));
-}
-
-/**
- * @tc.name: HandleLongPress002
- * @tc.desc: Test HandleLongPress action, long press below/above the activeBar
- * @tc.type: FUNC
- */
-HWTEST_F(ScrollInnerEventTestNg, HandleLongPress002, TestSize.Level1)
-{
-    auto mockTaskExecutor = AceType::MakeRefPtr<MockScrollTaskExecutor>();
-    MockPipelineContext::GetCurrentContext()->taskExecutor_ = mockTaskExecutor;
-    ScrollModelNG model = CreateScroll();
-    model.SetDisplayMode(static_cast<int>(DisplayMode::ON));
-    CreateContent(2000.f);
-    CreateScrollDone();
-
-    /**
-     * @tc.steps: step1. Press below activeBar, longPress in scrollBar
-     * @tc.expected: Trigger Scroll page down until the scrollBar scroll to mouse position
-     */
-    const Offset belowActiveBarPoint = Offset(238.f, 200.f);
-    MouseOnScrollBar(MouseButton::LEFT_BUTTON, MouseAction::PRESS, belowActiveBarPoint);
-    MouseOnScroll(MouseButton::LEFT_BUTTON, MouseAction::PRESS, belowActiveBarPoint);
-    MockAnimationManager::GetInstance().SetTicks(1);
-    scrollBar_->HandleLongPress(true);
-    EXPECT_TRUE(TickPosition(-HEIGHT));
-    mockTaskExecutor->RunDelayTask();
-    EXPECT_TRUE(TickPosition(-HEIGHT * 2));
-    mockTaskExecutor->RunDelayTask();
-    EXPECT_TRUE(TickPosition(-HEIGHT * 2));
-
-    /**
-     * @tc.steps: step2. Press above activeBar, longPress in scrollBar
-     * @tc.expected: Trigger Scroll page up until the scrollBar scroll to mouse position
-     */
-    const Offset aboveActiveBarPoint = Offset(238.f, 0);
-    MouseOnScrollBar(MouseButton::LEFT_BUTTON, MouseAction::PRESS, aboveActiveBarPoint);
-    MouseOnScroll(MouseButton::LEFT_BUTTON, MouseAction::PRESS, aboveActiveBarPoint);
-    scrollBar_->HandleLongPress(true);
-    EXPECT_TRUE(TickPosition(-HEIGHT * 1));
-    mockTaskExecutor->RunDelayTask();
-    EXPECT_TRUE(TickPosition(0));
-    mockTaskExecutor->RunDelayTask();
-    EXPECT_TRUE(TickPosition(0));
+        frameNode, targetComponent, responseLinkResult, 1);
 }
 
 /**
@@ -365,8 +157,6 @@ HWTEST_F(ScrollInnerEventTestNg, TouchEvent001, TestSize.Level1)
      * @tc.steps: step1. Touch down in activeBar
      * @tc.expected: PlayScrollBarGrowAnimation
      */
-    TouchOnScroll(TouchType::DOWN);
-    EXPECT_TRUE(scrollable_->isTouching_);
     TouchOnScrollBar(TouchType::DOWN, SourceType::TOUCH, IN_ACTIVE_BAR_OFFSET);
     EXPECT_TRUE(scrollBar_->IsPressed());
     EXPECT_NE(scrollBar_->fingerId_, -1);
@@ -398,8 +188,6 @@ HWTEST_F(ScrollInnerEventTestNg, TouchEvent001, TestSize.Level1)
      * @tc.steps: step4. Touch up
      * @tc.expected: PlayScrollBarShrinkAnimation
      */
-    TouchOnScroll(TouchType::UP);
-    EXPECT_FALSE(scrollable_->isTouching_);
     TouchOnScrollBar(TouchType::UP, SourceType::TOUCH, IN_ACTIVE_BAR_OFFSET);
     EXPECT_FALSE(scrollBar_->IsPressed());
     EXPECT_EQ(scrollBar_->fingerId_, -1);
@@ -442,6 +230,45 @@ HWTEST_F(ScrollInnerEventTestNg, TouchEvent002, TestSize.Level1)
     EXPECT_EQ(scrollBar_->GetActiveRect().Width(), DEFAULT_INACTIVE_WIDTH);
     mockTaskExecutor->RunDelayTask();
     EXPECT_EQ(scrollBar_->GetOpacityAnimationType(), OpacityAnimationType::DISAPPEAR);
+}
+
+/**
+ * @tc.name: ScrollBarAnimationVibrationParam001
+ * @tc.desc: Test ScrollBar grow/shrink animation with vibration switch parameter.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollInnerEventTestNg, ScrollBarAnimationVibrationParam001, TestSize.Level1)
+{
+    CreateScroll();
+    CreateContent();
+    CreateScrollDone();
+
+    /**
+     * @tc.steps: step1. Trigger grow animation with vibration disabled.
+     * @tc.expected: ScrollBar enters GROW state and width is active width.
+     */
+    scrollBar_->PlayScrollBarGrowAnimation(false);
+    EXPECT_EQ(scrollBar_->GetHoverAnimationType(), HoverAnimationType::GROW);
+    EXPECT_EQ(scrollBar_->GetActiveRect().Width(), DEFAULT_ACTIVE_WIDTH);
+
+    /**
+     * @tc.steps: step2. Trigger shrink animation with vibration disabled.
+     * @tc.expected: ScrollBar enters SHRINK state and width is inactive width.
+     */
+    scrollBar_->PlayScrollBarShrinkAnimation(false);
+    EXPECT_EQ(scrollBar_->GetHoverAnimationType(), HoverAnimationType::SHRINK);
+    EXPECT_EQ(scrollBar_->GetActiveRect().Width(), DEFAULT_INACTIVE_WIDTH);
+
+    /**
+     * @tc.steps: step3. Trigger grow/shrink animation with vibration enabled and default parameter.
+     * @tc.expected: ScrollBar states and widths are updated correctly.
+     */
+    scrollBar_->PlayScrollBarGrowAnimation(true);
+    EXPECT_EQ(scrollBar_->GetHoverAnimationType(), HoverAnimationType::GROW);
+    EXPECT_EQ(scrollBar_->GetActiveRect().Width(), DEFAULT_ACTIVE_WIDTH);
+    scrollBar_->PlayScrollBarShrinkAnimation();
+    EXPECT_EQ(scrollBar_->GetHoverAnimationType(), HoverAnimationType::SHRINK);
+    EXPECT_EQ(scrollBar_->GetActiveRect().Width(), DEFAULT_INACTIVE_WIDTH);
 }
 
 /**
@@ -746,45 +573,332 @@ HWTEST_F(ScrollInnerEventTestNg, HandleDragScrollBar007, TestSize.Level1)
 }
 
 /**
- * @tc.name: RegisterEventByClick001
- * @tc.desc: Test Register Event By Click(CollectTouchTarget)
+ * @tc.name: HandleDragScrollBar008
+ * @tc.desc: Test OverDrag ScrollBar
  * @tc.type: FUNC
  */
-HWTEST_F(ScrollInnerEventTestNg, RegisterEventByClick001, TestSize.Level1)
+HWTEST_F(ScrollInnerEventTestNg, HandleDragScrollBar008, TestSize.Level1)
 {
     ScrollModelNG model = CreateScroll();
-    model.SetDisplayMode(static_cast<int>(DisplayMode::ON));
-    model.SetScrollBarWidth(Dimension(HEIGHT + 1.f)); // will be default
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
     CreateContent();
     CreateScrollDone();
-    EXPECT_TRUE(IsEqual(scrollBar_->activeRect_, Rect(236, 0, 4, 160)));
-
-    int32_t nodeId = 123456;
-    frameNode_->UpdateRecycleElmtId(nodeId);
-    EXPECT_EQ(frameNode_->GetId(), nodeId);
 
     /**
-     * @tc.steps: step1. Click activeBar
-     * @tc.expected: Trigger BarCollectTouchTarget
+     * @tc.steps: step1. Drag scrollBar
+     * @tc.expected: Scroll with drag
      */
-    CollectTouchTarget(IN_ACTIVE_BAR_POINT);
-    EXPECT_EQ(scrollBar_->panRecognizer_->nodeId_, nodeId);
+    float dragDelta = 10;
+    DragScrollBarAction(IN_ACTIVE_BAR_OFFSET, dragDelta);
+    float expectOffset = -dragDelta / VERTICAL_RATIO;
+    EXPECT_TRUE(Position(expectOffset));
 
     /**
-     * @tc.steps: step2. Click scrollBar
-     * @tc.expected: Trigger BarCollectLongPressTarget,CollectScrollableTouchTarget
+     * @tc.steps: step2. Drag scrollBar back to top
+     * @tc.expected: Scroll with drag back to top
      */
-    CollectTouchTarget(BELOW_ACTIVE_BAR_POINT);
-    EXPECT_EQ(scrollBar_->longPressRecognizer_->nodeId_, nodeId);
-    EXPECT_EQ(scrollable_->panRecognizerNG_->nodeId_, nodeId);
+    DragScrollBarAction(IN_ACTIVE_BAR_OFFSET, -dragDelta);
+    EXPECT_TRUE(Position(0));
 
     /**
-     * @tc.steps: step3. Click out of scrollBar
-     * @tc.expected: Trigger CollectScrollableTouchTarget
+     * @tc.steps: step3. OverDrag ScrollBar
+     * @tc.expected: OverDrag
      */
-    scrollable_->panRecognizerNG_->SetNodeId(0);
-    CollectTouchTarget(OUT_SCROLLBAR_POINT);
-    EXPECT_EQ(scrollable_->panRecognizerNG_->nodeId_, nodeId);
+    DragScrollBarAction(IN_ACTIVE_BAR_OFFSET, -dragDelta);
+    EXPECT_TRUE(Position(dragDelta));
+}
+
+/**
+ * @tc.name: HandleDragScrollBar009
+ * @tc.desc: Test drag scrollBar with mouse
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollInnerEventTestNg, HandleDragScrollBar009, TestSize.Level1)
+{
+    ScrollModelNG model = CreateScroll();
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    CreateContent();
+    CreateScrollDone();
+
+    /**
+     * @tc.steps: step1. Start drag scrollBar with mouse
+     * @tc.expected: Scroll with drag
+     */
+    float dragDelta = 10;
+    GestureEvent info;
+    info.SetInputEventType(InputEventType::MOUSE_BUTTON);
+    scrollBar_->HandleDragStart(info);
+
+    /**
+     * @tc.steps: step2. Drag scrollBar
+     * @tc.expected: Scroll with drag
+     */
+    info.SetMainDelta(dragDelta);
+    scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+    float expectOffset = -dragDelta / VERTICAL_RATIO;
+    EXPECT_TRUE(Position(expectOffset));
+
+    /**
+     * @tc.steps: step3. Drag scrollBar back to top
+     * @tc.expected: Scroll with drag back to top
+     */
+    info.SetMainDelta(-dragDelta);
+    scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+    EXPECT_TRUE(Position(0));
+
+    /**
+     * @tc.steps: step4. OverDrag ScrollBar
+     * @tc.expected: Can not OverDrag, still at top
+     */
+    info.SetMainDelta(-dragDelta);
+    scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+    EXPECT_TRUE(Position(0));
+    scrollBar_->HandleDragEnd(info);
+}
+
+class MockScrollSpringEffect : public ScrollEdgeEffect {
+public:
+    MockScrollSpringEffect() : ScrollEdgeEffect(EdgeEffect::SPRING) {}
+    MOCK_METHOD(void, ProcessScrollOver, (double), (override));
+};
+
+/**
+ * @tc.name: HandleDragScrollBar010
+ * @tc.desc: Test throwing and sliding downwards across the boundary
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollInnerEventTestNg, HandleDragScrollBar010, TestSize.Level1)
+{
+    ScrollModelNG model = CreateScroll();
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    CreateContent();
+    CreateScrollDone();
+
+    auto mockScrollSpringEffect = AceType::MakeRefPtr<MockScrollSpringEffect>();
+    pattern_->scrollEffect_ = mockScrollSpringEffect;
+    EXPECT_CALL(*mockScrollSpringEffect, ProcessScrollOver(_)).Times(1);
+
+    float dragDelta = 200;
+    uint64_t TIME_1 = 1000 * 1000 * 1;
+    uint64_t TIME_2 = 1000 * 1000 * 2 + 1;
+    GestureEvent info;
+    info.SetInputEventType(InputEventType::TOUCH_SCREEN);
+    scrollBar_->HandleDragStart(info);
+
+    info.SetMainDelta(dragDelta);
+    scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+    float expectOffset = -dragDelta / VERTICAL_RATIO;
+    EXPECT_TRUE(Position(expectOffset));
+
+    MockPipelineContext::GetCurrentContext()->SetVsyncTime(TIME_1);
+    info.SetMainVelocity(10000.f);
+    MockAnimationManager::GetInstance().SetTicks(TICK);
+    scrollBar_->HandleDragEnd(info);
+
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    MockPipelineContext::GetCurrentContext()->SetVsyncTime(TIME_2);
+
+    scrollBar_->frictionMotion_->NotifyListener(3000.f);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+}
+
+/**
+ * @tc.name: HandleDragScrollBar011
+ * @tc.desc: Test throwing and sliding downwards across the boundary with mouse
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollInnerEventTestNg, HandleDragScrollBar011, TestSize.Level1)
+{
+    ScrollModelNG model = CreateScroll();
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    CreateContent();
+    CreateScrollDone();
+
+    auto mockScrollSpringEffect = AceType::MakeRefPtr<MockScrollSpringEffect>();
+    pattern_->scrollEffect_ = mockScrollSpringEffect;
+    EXPECT_CALL(*mockScrollSpringEffect, ProcessScrollOver(_)).Times(0);
+
+    float dragDelta = 200;
+    uint64_t TIME_1 = 1000 * 1000 * 1;
+    uint64_t TIME_2 = 1000 * 1000 * 2 + 1;
+    GestureEvent info;
+    info.SetInputEventType(InputEventType::MOUSE_BUTTON);
+    scrollBar_->HandleDragStart(info);
+
+    info.SetMainDelta(dragDelta);
+    scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+    float expectOffset = -dragDelta / VERTICAL_RATIO;
+    EXPECT_TRUE(Position(expectOffset));
+
+    MockPipelineContext::GetCurrentContext()->SetVsyncTime(TIME_1);
+    info.SetMainVelocity(10000.f);
+    MockAnimationManager::GetInstance().SetTicks(TICK);
+    scrollBar_->HandleDragEnd(info);
+
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    MockPipelineContext::GetCurrentContext()->SetVsyncTime(TIME_2);
+
+    scrollBar_->frictionMotion_->NotifyListener(3000.f);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+}
+
+/**
+ * @tc.name: HandleDragScrollBar012
+ * @tc.desc: Test throwing snap downwards across the boundary without SetReachBarEdgeOverScroll callback
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollInnerEventTestNg, HandleDragScrollBar012, TestSize.Level1)
+{
+    ScrollModelNG model = CreateScroll();
+    float intervalSize = 100;
+    std::vector<Dimension> snapPaginations = {};
+    std::pair<bool, bool> enableSnapToSide = { true, true };
+    model.SetScrollSnap(ScrollSnapAlign::START, Dimension(intervalSize), snapPaginations, enableSnapToSide);
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    CreateContent();
+    CreateScrollDone();
+
+    auto mockScrollSpringEffect = AceType::MakeRefPtr<MockScrollSpringEffect>();
+    pattern_->scrollEffect_ = mockScrollSpringEffect;
+    EXPECT_CALL(*mockScrollSpringEffect, ProcessScrollOver(_)).Times(0);
+
+    float dragDelta = 200;
+    uint64_t TIME_1 = 1000 * 1000 * 1;
+    uint64_t TIME_2 = 1000 * 1000 * 2 + 1;
+
+    scrollBar_->SetReachBarEdgeOverScroll(nullptr);
+
+    GestureEvent info;
+    info.SetInputEventType(InputEventType::TOUCH_SCREEN);
+    scrollBar_->HandleDragStart(info);
+
+    info.SetMainDelta(dragDelta);
+    scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+    float expectOffset = -dragDelta / VERTICAL_RATIO;
+    EXPECT_TRUE(Position(expectOffset));
+
+    MockPipelineContext::GetCurrentContext()->SetVsyncTime(TIME_1);
+    info.SetMainVelocity(10000.f);
+    MockAnimationManager::GetInstance().SetTicks(TICK);
+    scrollBar_->HandleDragEnd(info);
+
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    MockPipelineContext::GetCurrentContext()->SetVsyncTime(TIME_2);
+
+    scrollBar_->HandleDragEnd(info);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+}
+
+/**
+ * @tc.name: HandleDragScrollBar013
+ * @tc.desc: Test overDrag by scrollbar trigger scroll event.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollInnerEventTestNg, HandleDragScrollBar013, TestSize.Level1)
+{
+    bool isStart = false;
+    bool isStop = false;
+    OnScrollStartEvent startEvent = [&isStart]() { isStart = true; };
+    OnScrollStopEvent stopEvent = [&isStop]() { isStop = true; };
+    ScrollModelNG model = CreateScroll();
+    model.SetOnScrollStart(std::move(startEvent));
+    model.SetOnScrollStop(std::move(stopEvent));
+    CreateContent();
+    CreateScrollDone();
+    
+    float dragDelta = 100;
+    DragScrollBarAction(IN_ACTIVE_BAR_OFFSET, -dragDelta);
+    EXPECT_TRUE(Position(0));
+    EXPECT_TRUE(isStart);
+    EXPECT_TRUE(isStop);
+}
+
+/**
+ * @tc.name: HandleDragScrollBar014
+ * @tc.desc: Test sliding the scrollBar downwards so that it does not reach the bottom
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollInnerEventTestNg, HandleDragScrollBar014, TestSize.Level1)
+{
+    ScrollModelNG model = CreateScroll();
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    CreateContent();
+    CreateScrollDone();
+
+    auto mockScrollSpringEffect = AceType::MakeRefPtr<MockScrollSpringEffect>();
+    pattern_->scrollEffect_ = mockScrollSpringEffect;
+    EXPECT_CALL(*mockScrollSpringEffect, ProcessScrollOver(_)).Times(0);
+
+    float dragDelta = 100;
+    uint64_t TIME_1 = 1000 * 1000 * 1;
+    uint64_t TIME_2 = 1000 * 1000 * 2 + 1;
+    GestureEvent info;
+    info.SetInputEventType(InputEventType::TOUCH_SCREEN);
+    scrollBar_->HandleDragStart(info);
+
+    info.SetMainDelta(dragDelta);
+    scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+    float expectOffset = -dragDelta / VERTICAL_RATIO;
+    EXPECT_TRUE(Position(expectOffset));
+
+    MockPipelineContext::GetCurrentContext()->SetVsyncTime(TIME_1);
+    info.SetMainVelocity(100.f);
+    MockAnimationManager::GetInstance().SetTicks(TICK);
+    scrollBar_->HandleDragEnd(info);
+
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    MockPipelineContext::GetCurrentContext()->SetVsyncTime(TIME_2);
+
+    scrollBar_->frictionMotion_->NotifyListener(100.f);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+}
+
+/**
+ * @tc.name: HandleDragScrollBar015
+ * @tc.desc: Test overDrag by scrollbar with mouse trigger scroll event.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScrollInnerEventTestNg, HandleDragScrollBar015, TestSize.Level1)
+{
+    bool isStart = false;
+    bool isStop = false;
+    OnScrollStartEvent startEvent = [&isStart]() { isStart = true; };
+    OnScrollStopEvent stopEvent = [&isStop]() { isStop = true; };
+    ScrollModelNG model = CreateScroll();
+    model.SetOnScrollStart(std::move(startEvent));
+    model.SetOnScrollStop(std::move(stopEvent));
+    CreateContent();
+    CreateScrollDone();
+
+    float dragDelta = 100;
+    GestureEvent info;
+    info.SetInputEventType(InputEventType::MOUSE_BUTTON);
+    scrollBar_->HandleDragStart(info);
+
+    info.SetMainDelta(-dragDelta);
+    scrollBar_->HandleDragUpdate(info);
+    FlushUITasks();
+    EXPECT_TRUE(Position(0));
+    scrollBar_->HandleDragEnd(info);
+    FlushUITasks();
+
+    EXPECT_TRUE(isStart);
+    EXPECT_TRUE(isStop);
 }
 
 /**

@@ -26,6 +26,10 @@
 #include "base/memory/referenced.h"
 #include "core/components/web/web_property.h"
 
+namespace OHOS::Ace {
+struct TextDetectConfig;
+}
+
 namespace OHOS::Ace::NG {
 
 struct NodeData {
@@ -38,6 +42,7 @@ struct EntityMatch {
     size_t end; // u16
     std::string entityType;
     std::string clean;
+    std::map<std::string, std::string> params;
 };
 
 struct WebDataDetectorConfig {
@@ -46,6 +51,12 @@ struct WebDataDetectorConfig {
     std::string types;
     std::string color;
     std::string textDecorationStyle;
+};
+
+struct WebSelectDataDetectorConfig {
+    bool enable;
+    bool useDDtypes;
+    std::string types;
 };
 
 struct AIMenuInfo {
@@ -113,6 +124,13 @@ public:
         }
     }
 
+    void Clear()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        cacheMap_.clear();
+        accessQueue_.clear();
+    }
+
 private:
     struct CacheNode {
         ValueType value;
@@ -142,6 +160,11 @@ public:
         return config_.enable;
     }
 
+    bool GetSelectDataDetectorEnable()
+    {
+        return selectConfig_.enable;
+    }
+
     bool GetDataDetectorEnablePrewiew()
     {
         return config_.enablePreview;
@@ -149,6 +172,10 @@ public:
 
     void SetDataDetectorEnable(bool enable);
     void SetDataDetectorConfig(const TextDetectConfig& config);
+    void SetSelectDataDetectorEnable(bool enable);
+    void SetSelectedDataDetectorConfig(const TextDetectConfig& config, bool fromInner = false);
+    std::string GetSelectDataDetectorTypes();
+    void InitSelectDataDetector();
     void Init();
     void InitJSProxy();
     void ReleaseJSProxy();
@@ -164,6 +191,10 @@ public:
     std::string GetResultJsonString(const std::string& requestId);
     void SendResultToJS(const std::string& resultStr);
 
+    std::map<std::string, std::string> AttrsToParams(const std::unique_ptr<JsonValue>& jsonValue);
+    
+    static std::map<std::string, std::string> ParseExtraParams(
+        const std::string& detectType, const std::unique_ptr<JsonValue>& item);
     static int32_t MatchInOffsets(EntityMatch& match, const std::vector<std::pair<size_t, size_t> >& detectOffsets);
 
     void ProcessClick(const std::string& jsonStr);
@@ -191,9 +222,12 @@ public:
     std::function<void()> GetPreviewMenuOptionCallback(TextDataDetectType type, const std::string& content);
     RefPtr<FrameNode> GetPreviewMenuNode(const AIMenuInfo& info);
 
-    void SetPreviewMenuAttr(TextDataDetectType type = TextDataDetectType::INVALID, const std::string& content = "");
+    void SetPreviewMenuAttr(TextDataDetectType type = TextDataDetectType::INVALID, const std::string& content = "",
+        const std::map<std::string, std::string>& params = {});
 
     static TextDataDetectType ConvertTypeFromString(const std::string& type);
+
+    static std::string FilterAndMapTypes(const std::string& types);
 
     void CloseAIMenu();
     void CloseOtherMenu();
@@ -212,6 +246,7 @@ private:
     // properties
     WebDataDetectorConfig config_ { false, false, "", "", "" };
     WebDataDetectorConfig newConfig_ { false, false, "", "", "" };
+    WebSelectDataDetectorConfig selectConfig_ { true, true, "" };
     bool hasInit_ = false;
 
     bool initDataDetectorProxy_ = false;
@@ -219,6 +254,8 @@ private:
     // preview menu
     TextDataDetectType previewMenuType_ = TextDataDetectType::INVALID;
     std::string previewMenuContent_ = "";
+    std::map<std::string, std::string> previewMenuExtraParams_;
+    std::unordered_set<std::string> extraParamKeys_;
 
     // cache
     RefPtr<WebDataDetectorCache<std::string, DataDetectorResult>> resultCache_ = nullptr;

@@ -45,7 +45,7 @@ public:
     void SetTitlebarOptions(NavigationTitlebarOptions&& opt) override;
     void SetCustomTitle(const RefPtr<AceType>& customNode) override;
     void SetTitleHeight(const Dimension& height, bool isValid = true) override;
-    void SetTitleHeight(const RefPtr<ResourceObject>& resObj) override;
+    void SetTitleHeight(const Dimension& height, const RefPtr<ResourceObject>& resObj) override;
     void SetTitleMode(NG::NavigationTitleMode mode) override;
     void SetSubtitle(const std::string& subtitle) override;
     void SetEnableModeChangeAnimation(bool isEnable) override;
@@ -132,18 +132,11 @@ public:
         const std::string& src, const ImageOption& imageOption, RefPtr<PixelMap>& pixMap);
     static void SetBackButtonIcon(FrameNode* frameNode, const std::function<void(WeakPtr<NG::FrameNode>)>& symbolApply,
         const ImageOption& imageOption, RefPtr<PixelMap>& pixMap, const RefPtr<ResourceObject>& backButtonIconResObj);
-    static void SetNavBarPosition(FrameNode* frameNode, const std::optional<NG::NavBarPosition>& mode);
-    static void SetUsrNavigationMode(FrameNode* frameNode, const std::optional<NavigationMode>& mode);
-    static void SetBackButtonIcon(FrameNode* frameNode, const std::function<void(WeakPtr<NG::FrameNode>)>& symbolApply,
-        const ImageSourceInfo& imageSourceInfo, const ImageOption& imageOption, RefPtr<PixelMap>& pixMap);
     static void SetHideNavBar(FrameNode* frameNode, bool hideNavBar);
     static void SetHideTitleBar(FrameNode* frameNode, bool hideTitleBar, bool animated);
     static void SetSubtitle(FrameNode* frameNode, const std::string& subtitle);
     static void SetHideBackButton(FrameNode* frameNode, bool hideBackButton);
     static void SetTitleMode(FrameNode* frameNode, NG::NavigationTitleMode mode);
-    static void SetOnNavBarStateChange(FrameNode* frameNode, std::function<void(bool)>&& onNavBarStateChange);
-    static void SetOnNavigationModeChange(FrameNode* frameNode,
-        std::function<void(NG::NavigationMode)>&& onModeChange);
     static void SetRecoverable(FrameNode* frameNode, bool recoverable);
     static void SetEnableDragBar(FrameNode* frameNode, bool enableDragBar);
     static void SetEnableToolBarAdaptation(FrameNode* frameNode, bool enable);
@@ -164,28 +157,58 @@ public:
     static void SetMenuItemAction(FrameNode* frameNode, std::function<void()>&& action, uint32_t index);
     static void SetMenuItemSymbol(FrameNode* frameNode,
         std::function<void(WeakPtr<NG::FrameNode>)>&& symbol, uint32_t index);
-    static void SetOnTitleModeChange(FrameNode* frameNode,
-        std::function<void(NG::NavigationTitleMode)>&& onTitleModeChange,
-        std::function<void(const BaseEventInfo* baseInfo)>&& eventInfo);
     static void SetCustomTitle(FrameNode* frameNode, const RefPtr<AceType>& customNode);
     static RefPtr<FrameNode> GetCustomTitle(FrameNode* frameNode);
     static void SetTitleHeight(FrameNode* frameNode, const Dimension& height, bool isValid = true);
     static void SetOnCoordScrollStartAction(FrameNode* frameNode, std::function<void()>&& onCoordScrollStart);
-    static void SetOnCoordScrollUpdateAction(FrameNode* frameNode, std::function<void(float)>&& onCoordScrollUpdate);
+    static void SetOnCoordScrollUpdateAction(
+        FrameNode* frameNode, std::function<void(float, float)>&& onCoordScrollUpdate);
     static void SetOnCoordScrollEndAction(FrameNode* frameNode, std::function<void()>&& onCoordScrollEnd);
     static void SetSystemBarStyle(FrameNode* frameNode, const RefPtr<SystemBarStyle>& style);
     static bool IsDoubleBindBlock(const RefPtr<NavigationPattern>& navigationPattern);
+    static void SetOnNavigationModeChange(FrameNode* frameNode, std::function<void(NG::NavigationMode)>&& onModeChange);
+    static void SetOnTitleModeChange(FrameNode* frameNode,
+        std::function<void(NG::NavigationTitleMode)>&& onTitleModeChange,
+        std::function<void(const BaseEventInfo* baseInfo)>&& eventInfo);
     static void SetIsCustomAnimation(FrameNode* frameNode, bool isCustom);
     static void SetToolBarItems(FrameNode* frameNode, std::vector<NG::BarItem>&& toolBarItems);
     static RefPtr<NG::NavigationStack> GetNavigationStack(FrameNode* frameNode);
-    static CalcDimension ParseTitleHeight(const RefPtr<ResourceObject>& resObj);
+    static void SetOnNavBarStateChange(FrameNode* frameNode, std::function<void(bool)>&& onNavBarStateChange);
+    static CalcDimension ParseTitleHeight(
+        const RefPtr<NG::TitleBarNode>& titleBarNode, const RefPtr<ResourceObject>& resObj);
     static void ResetResObj(FrameNode* frameNode, NavigationPatternType type, const std::string& key);
+    static void SetIsCustomTitleBarSize(FrameNode* frameNode, bool isCustom);
     static void SetBeforeCreateLayoutWrapperCallBack(
         FrameNode* frameNode, std::function<void()>&& beforeCreateLayoutWrapper);
     virtual bool UseHomeDestination() const override;
     virtual void SetHomePathInfoWithCallback(
         std::function<void(const RefPtr<NavigationStack>&)>&& setHomePathInfoCallback) override;
-    static void SetSubTitle(FrameNode* frameNode, const std::string& subTitle);
+    void SetEnableVisibilityLifecycleWithContentCover(bool isEnable) override;
+    static void SetEnableVisibilityLifecycleWithContentCover(FrameNode* frameNode, bool isEnable);
+    static void SetBackButtonTitleResource(FrameNode* frameNode, std::string text,
+        const RefPtr<ResourceObject>& resObj);
+    void UpdateDividerColor(const Color& color, const RefPtr<ResourceObject>& res) override;
+
+    void UpdateDividerStartMargin(const CalcDimension& start, const RefPtr<ResourceObject>& res) override;
+
+    void UpdateDividerEndMargin(const CalcDimension& end, const RefPtr<ResourceObject>& res) override;
+
+    void UpdateDividerVisibility(bool isShow) override;
+
+    void UpdateDefineColor(bool isDefined) override;
+
+    static void UpdateDividerVisibility(FrameNode* frameNode, bool isShow);
+
+    static void UpdateDividerColor(FrameNode* frameNode, const Color& color,
+        const RefPtr<ResourceObject>& colorRes);
+
+    static void UpdateDividerStartMargin(FrameNode* frameNode, const CalcDimension& start,
+        const RefPtr<ResourceObject>& startRes);
+
+    static void UpdateDividerEndMargin(FrameNode* frameNode, const CalcDimension& end,
+        const RefPtr<ResourceObject>& endRes);
+
+    static void ResetDividerStyle(FrameNode* frameNode);
 
 private:
     bool CreatePrimaryContentIfNeeded(const RefPtr<NavigationGroupNode>& navigationGroupNode);
@@ -198,6 +221,8 @@ private:
     static bool CreateBackButtonNode(RefPtr<FrameNode>& backButtonNode);
     static bool UpdateBackButtonProperty(const RefPtr<FrameNode>& backButtonNode);
     void SetToolbarNavigationMode(NavigationMode mode); // Only used for the toolbar in 'container_modal' component
+    static Color GetDividerNodeColor(const RefPtr<NavigationGroupNode>& navigationGroupNode,
+        RefPtr<FrameNode> dividerNode);
     static bool navBarWidthDoubleBind_;
 };
 } // namespace OHOS::Ace::NG

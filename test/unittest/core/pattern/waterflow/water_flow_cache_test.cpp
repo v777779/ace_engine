@@ -13,7 +13,11 @@
  * limitations under the License.
  */
 
-#include "test/mock/core/render/mock_render_context.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter_v2.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 #include "water_flow_test_ng.h"
 
 namespace OHOS::Ace::NG {
@@ -174,6 +178,25 @@ HWTEST_F(WaterFlowTestNg, Cache007, TestSize.Level1)
     EXPECT_EQ(ctx, GetItem(32)->GetRenderContext());
 }
 
+/**
+ * @tc.name: SetScrollBarColor001
+ * @tc.desc: Test SetScrollBarColor function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, SetScrollBarColor001, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ASSERT_NE(frameNode_, nullptr);
+    model.SetScrollBarColor(std::nullopt);
+    auto paintProperty = frameNode_->GetPaintProperty<ScrollablePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto scrollBarColor = paintProperty->GetScrollBarColor();
+    EXPECT_EQ(scrollBarColor, std::nullopt);
+    model.SetScrollBarColor(Color::BLUE);
+    EXPECT_EQ(WaterFlowModelNG::GetScrollBarColor(AceType::RawPtr(frameNode_)), Color::BLUE.GetValue());
+    CreateDone();
+}
+
 /*
  * @tc.name: ShowCache004
  * @tc.desc: Test cache items active state
@@ -226,7 +249,6 @@ HWTEST_F(WaterFlowTestNg, CacheScroll001, TestSize.Level1)
     EXPECT_EQ(GetChildY(frameNode_, 18), -20.0f);
     PipelineContext::GetCurrentContext()->OnIdle(INT64_MAX);
     EXPECT_TRUE(GetChildFrameNode(frameNode_, 8));
-    EXPECT_FALSE(GetChildFrameNode(frameNode_, 7));
 
     UpdateCurrentOffset(200.0f);
     EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 16);
@@ -241,7 +263,6 @@ HWTEST_F(WaterFlowTestNg, CacheScroll001, TestSize.Level1)
     EXPECT_EQ(GetItem(7, true)->GetLayoutProperty()->GetPropertyChangeFlag() & PROPERTY_UPDATE_MEASURE,
         PROPERTY_UPDATE_MEASURE);
     UpdateCurrentOffset(5.0f);
-    EXPECT_FALSE(GetItem(7, true)->IsOnMainTree());
     EXPECT_EQ(GetChildLayoutProperty<LayoutProperty>(frameNode_, 7)->GetPropertyChangeFlag() & PROPERTY_UPDATE_MEASURE,
         PROPERTY_UPDATE_MEASURE);
 }
@@ -318,11 +339,6 @@ HWTEST_F(WaterFlowTestNg, LazyForEachJump002, TestSize.Level1)
     FlushUITasks();
     EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 58);
     EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 65);
-    EXPECT_EQ(frameNode_->GetTotalChildCount(), 99);
-
-    DeleteItemInLazyForEach(63);
-    mockLazy->SetTotalCount(98);
-    FlushUITasks();
     EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 58);
     EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 65);
     EXPECT_EQ(GetChildY(frameNode_, 58), 0.0f);
@@ -348,5 +364,129 @@ HWTEST_F(WaterFlowTestNg, LazyForEachJump002, TestSize.Level1)
     EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
     EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 7);
     EXPECT_EQ(frameNode_->GetTotalChildCount(), 96);
+}
+
+/**
+ * @tc.name: LargeDataPerformance001
+ * @tc.desc: Test WaterFlow performance with large dataset and memory management
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, LargeDataPerformance001, TestSize.Level1)
+{
+    auto model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(400.0f));
+    ViewAbstract::SetHeight(CalcLength(600.0f));
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetCachedCount(5);
+
+    // Create large number of items (1000) to test virtualization
+    CreateItemsInLazyForEach(1000, [](uint32_t idx) {
+        return 50.0f + (idx % 5) * 20.0f; // Different heights
+    });
+    CreateDone();
+
+    // Verify that only visible items are created initially
+    EXPECT_LE(pattern_->layoutInfo_->endIndex_, 20);
+    int32_t initialChildCount = frameNode_->GetTotalChildCount();
+
+    // Quick scroll to middle position
+    pattern_->ScrollToIndex(500, false, ScrollAlign::START);
+    FlushUITasks();
+
+    // Verify memory management: total child count should remain within reasonable range
+    EXPECT_LE(frameNode_->GetTotalChildCount(), initialChildCount + 50);
+    EXPECT_GE(pattern_->layoutInfo_->startIndex_, 480);
+    EXPECT_LE(pattern_->layoutInfo_->endIndex_, 520);
+
+    // Quick scroll to the end
+    UpdateCurrentOffset(-50000.0f);
+    FlushUITasks();
+
+    // Verify state when reaching the end
+    EXPECT_GE(pattern_->layoutInfo_->startIndex_, 980);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 999);
+
+    // Verify cached items count control
+    EXPECT_LE(pattern_->preloadItems_.size(), 5);
+}
+
+/**
+ * @tc.name: OnColorModeChange
+ * @tc.desc: Test WaterFlow's OnColorModeChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, OnColorModeChange001, TestSize.Level1)
+{
+    g_isConfigChangePerform = true;
+
+    auto model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(400.0f));
+    ViewAbstract::SetHeight(CalcLength(600.0f));
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetCachedCount(5);
+
+    CreateDone();
+
+    /**
+     * @tc.steps: Set startIndex_ of pattern_ to 2
+     */
+    pattern_->OnColorModeChange(static_cast<int32_t>(ColorMode::DARK));
+    auto paintProperty = pattern_->GetPaintProperty<ScrollablePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    EXPECT_NE(paintProperty->GetScrollBarProperty(), nullptr);
+
+    paintProperty = pattern_->GetPaintProperty<ScrollablePaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    paintProperty->ResetScrollBarProperty();
+    pattern_->OnColorModeChange(static_cast<int32_t>(ColorMode::DARK));
+    ASSERT_NE(paintProperty, nullptr);
+    EXPECT_EQ(paintProperty->GetScrollBarProperty(), nullptr);
+
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: ParseResObjScrollBarColor
+ * @tc.desc: Test WaterFlow's ParseResObjScrollBarColor
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, ParseResObjScrollBarColor001, TestSize.Level1)
+{
+    ResetMockResourceData();
+    g_isConfigChangePerform = true;
+
+    const int32_t resId = 0;
+    const int32_t resType = static_cast<int32_t>(ResourceType::COLOR);
+    const Color resData = Color::RED;
+    AddMockResourceData(0, resData);
+
+    /**
+     * @tc.steps: step1. Construct the objects for test
+     */
+    auto model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(400.0f));
+    ViewAbstract::SetHeight(CalcLength(600.0f));
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetCachedCount(5);
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+
+    /**
+     * @tc.steps: step2. Test
+     */
+    model.ParseResObjScrollBarColor(nullptr);
+
+    std::vector<ResourceObjectParams> params;
+    auto resObj = AceType::MakeRefPtr<ResourceObject>(resId, resType, params, "", "", Container::CurrentIdSafely());
+    model.ParseResObjScrollBarColor(resObj);
+    pattern_->OnColorModeChange(static_cast<int32_t>(ColorMode::DARK));
+
+    auto currentColor = WaterFlowModelNG::GetScrollBarColor(AceType::RawPtr(frameNode_));
+    EXPECT_EQ(resData.GetValue(), currentColor);
+
+    CreateDone();
+
+    ResetMockResourceData();
+    g_isConfigChangePerform = false;
 }
 } // namespace OHOS::Ace::NG

@@ -23,11 +23,12 @@
 #define private public
 #include "core/components_ng/pattern/text_drag/text_drag_overlay_modifier.h"
 #undef private
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/memory/ace_type.h"
 #include "core/components/common/properties/color.h"
+#include "core/components_ng/pattern/container_modal/container_modal_pattern.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/text_drag/text_drag_pattern.h"
 #include "core/components_ng/render/canvas_image.h"
@@ -204,7 +205,7 @@ void TextDragTestNg::SetMockParagraphExpectCallParas(MockParagraphExpectCallPara
  * @tc.desc: Test TextDragPattern::CreateDragNode.
  * @tc.type: FUNC
  */
-HWTEST_F(TextDragTestNg, TextDragCreateNodeTestNg001, TestSize.Level1)
+HWTEST_F(TextDragTestNg, TextDragCreateNodeTestNg001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. init Text with dragNode, EXPECT_CALL mockparagraph GetRectsForRange
@@ -563,5 +564,389 @@ HWTEST_F(TextDragTestNg, TextDragPatternGenerateBackgroundPoints005, TestSize.Le
     EXPECT_EQ(points[0].y, 5);
     EXPECT_EQ(points[2].x, 305);
     EXPECT_EQ(points[2].y, 5);
+}
+
+/**
+ * @tc.name: TextDragPatternCalculateOverlayOffset001
+ * @tc.desc: test CalculateOverlayOffset pattern not is ContainerModalPattern
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, TextDragPatternCalculateOverlayOffset001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create textDragPattern and rootNode, containerModalNode
+     */
+    TextDragPattern textDragPattern;
+    auto dragNode =
+        FrameNode::GetOrCreateFrameNode(V2::TEXTDRAG_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), nullptr);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    auto rootNode = pipeline->rootNode_;
+    ASSERT_NE(rootNode, nullptr);
+    auto rootGeometryNode = rootNode->GetGeometryNode();
+    ASSERT_NE(rootGeometryNode, nullptr);
+    rootGeometryNode->SetFrameOffset(OffsetF(10.f, 10.f));
+
+    /**
+     * @tc.steps2: call CalculateOverlayOffset when pipeline->windowModal_ = WindowModal::NORMAL.
+     * @tc.expected: offset is OffsetF(20.f, 20.f).
+     */
+    OffsetF offset(30.f, 30.f);
+    textDragPattern.CalculateOverlayOffset(dragNode, offset, nullptr);
+    EXPECT_EQ(offset, OffsetF(20.f, 20.f));
+
+    /**
+     * @tc.steps3: call CalculateOverlayOffset when pipeline->windowModal_ = WindowModal::CONTAINER_MODAL.
+     * @tc.expected: containerModalPattern is nullptr, offset is OffsetF(10.f, 10.f).
+     */
+    pipeline->windowModal_ = WindowModal::CONTAINER_MODAL;
+    textDragPattern.CalculateOverlayOffset(dragNode, offset, nullptr);
+    EXPECT_EQ(offset, OffsetF(10.f, 10.f));
+    pipeline->windowModal_ = WindowModal::NORMAL;
+}
+
+/**
+ * @tc.name: TextDragPatternCalculateOverlayOffset002
+ * @tc.desc: test CalculateOverlayOffset when pattern is ContainerModalPattern
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, TextDragPatternCalculateOverlayOffset002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create textDragPattern and rootNode
+     */
+    TextDragPattern textDragPattern;
+    auto dragNode =
+        FrameNode::GetOrCreateFrameNode(V2::TEXTDRAG_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), nullptr);
+    auto pipeline = PipelineContext::GetCurrentContext();
+    ASSERT_NE(pipeline, nullptr);
+    pipeline->windowModal_ = WindowModal::CONTAINER_MODAL;
+    auto rootNode = pipeline->rootNode_;
+    ASSERT_NE(rootNode, nullptr);
+    auto rootGeometryNode = rootNode->GetGeometryNode();
+    ASSERT_NE(rootGeometryNode, nullptr);
+    rootGeometryNode->SetFrameOffset(OffsetF(10.f, 10.f));
+    auto containerModalNode = FrameNode::CreateFrameNode(
+        "ContainerModal", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<ContainerModalPattern>());
+    rootNode->AddChild(containerModalNode, 0);
+    auto containerNodeGeometryNode = containerModalNode->GetGeometryNode();
+    ASSERT_NE(containerNodeGeometryNode, nullptr);
+    containerNodeGeometryNode->SetFrameOffset(OffsetF(20.f, 20.f));
+
+    /**
+     * @tc.steps2: call CalculateOverlayOffset when hostNode is nullptr.
+     * @tc.expected: offset is OffsetF(20.f, 20.f).
+     */
+    OffsetF offset(30.f, 30.f);
+    textDragPattern.CalculateOverlayOffset(dragNode, offset, nullptr);
+    EXPECT_EQ(offset, OffsetF(20.f, 20.f));
+
+    /**
+     * @tc.steps3: call CalculateOverlayOffset when hostNode parent is toolbarItem.
+     * @tc.expected: offset is OffsetF(0.f, 0.f).
+     */
+    auto hostNode =
+        FrameNode::GetOrCreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), nullptr);
+    auto toolbarItem = FrameNode::GetOrCreateFrameNode(
+        V2::TOOLBARITEM_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), nullptr);
+    toolbarItem->AddChild(hostNode);
+    textDragPattern.CalculateOverlayOffset(dragNode, offset, hostNode);
+    EXPECT_EQ(offset, OffsetF(0.f, 0.f));
+    pipeline->windowModal_ = WindowModal::NORMAL;
+    rootNode->RemoveChild(containerModalNode);
+}
+
+/**
+ * @tc.name: TextDragPatternGetFirstBoxRect001
+ * @tc.desc: Test TextDragPattern::GetFirstBoxRect with empty boxes
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, TextDragPatternGetFirstBoxRect001, TestSize.Level1)
+{
+    std::vector<RectF> boxes;
+    RectF contentRect(0.0f, 0.0f, 100.0f, 200.0f);
+    float textStartY = 0.0f;
+
+    auto result = TextDragPattern::GetFirstBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_TRUE(result.IsEmpty());
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetFirstBoxRect002
+ * @tc.desc: Test TextDragPattern::GetFirstBoxRect with first box in visible area
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetFirstBoxRect002, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 30.0f),
+        RectF(30.0f, 40.0f, 40.0f, 50.0f),
+        RectF(50.0f, 60.0f, 60.0f, 70.0f)
+    };
+    RectF contentRect(0.0f, 0.0f, 100.0f, 200.0f);
+    float textStartY = 0.0f;
+
+    auto result = TextDragPattern::GetFirstBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[0]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetFirstBoxRect003
+ * @tc.desc: Test TextDragPattern::GetFirstBoxRect with first box outside visible area
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetFirstBoxRect003, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 10.0f),  // Bottom = 20
+        RectF(30.0f, 30.0f, 40.0f, 40.0f),  // Bottom = 70
+        RectF(50.0f, 50.0f, 60.0f, 60.0f)   // Bottom = 110
+    };
+    RectF contentRect(0.0f, 25.0f, 100.0f, 200.0f);  // Top = 25
+    float textStartY = 0.0f;
+
+    auto result = TextDragPattern::GetFirstBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[1]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetFirstBoxRect004
+ * @tc.desc: Test TextDragPattern::GetFirstBoxRect with textStartY offset
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetFirstBoxRect004, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 20.0f),
+        RectF(30.0f, 30.0f, 40.0f, 40.0f)
+    };
+    RectF contentRect(0.0f, 0.0f, 100.0f, 200.0f);
+    float textStartY = 10.0f;
+
+    auto result = TextDragPattern::GetFirstBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[0]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetFirstBoxRect005
+ * @tc.desc: Test TextDragPattern::GetFirstBoxRect with third box as first visible
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetFirstBoxRect005, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 10.0f),  // Bottom = 20
+        RectF(30.0f, 20.0f, 40.0f, 10.0f),  // Bottom = 30
+        RectF(50.0f, 30.0f, 60.0f, 40.0f)   // Bottom = 70
+    };
+    RectF contentRect(0.0f, 25.0f, 100.0f, 200.0f);  // Top = 25
+    float textStartY = 0.0f;
+
+    auto result = TextDragPattern::GetFirstBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[1]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetFirstBoxRect006
+ * @tc.desc: Test TextDragPattern::GetFirstBoxRect with single box at exact boundary
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetFirstBoxRect006, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 30.0f)
+    };
+    RectF contentRect(0.0f, 30.0f, 100.0f, 200.0f);
+    float textStartY = 0.0f;
+
+    auto result = TextDragPattern::GetFirstBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[0]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetLastBoxRect001
+ * @tc.desc: Test TextDragPattern::GetLastBoxRect with empty boxes
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetLastBoxRect001, TestSize.Level1)
+{
+    std::vector<RectF> boxes;
+    RectF contentRect(0.0f, 0.0f, 100.0f, 200.0f);
+    float textStartY = 0.0f;
+
+    auto result = TextDragPattern::GetLastBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_TRUE(result.IsEmpty());
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetLastBoxRect002
+ * @tc.desc: Test TextDragPattern::GetLastBoxRect with all boxes in visible area
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetLastBoxRect002, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 30.0f),
+        RectF(30.0f, 40.0f, 40.0f, 50.0f),
+        RectF(50.0f, 60.0f, 60.0f, 70.0f)
+    };
+    RectF contentRect(0.0f, 0.0f, 100.0f, 200.0f);
+    float textStartY = 0.0f;
+    SystemProperties::SetDevicePhysicalHeight(1000);
+
+    auto result = TextDragPattern::GetLastBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[2]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetLastBoxRect003
+ * @tc.desc: Test TextDragPattern::GetLastBoxRect with box at contentRect bottom
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetLastBoxRect003, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 30.0f),  // Bottom = 40
+        RectF(30.0f, 40.0f, 40.0f, 50.0f),  // Bottom = 90
+        RectF(50.0f, 60.0f, 60.0f, 70.0f)   // Bottom = 130
+    };
+    RectF contentRect(0.0f, 0.0f, 100.0f, 70.0f);  // Bottom = 70
+    float textStartY = 0.0f;
+    SystemProperties::SetDevicePhysicalHeight(1000);
+
+    auto result = TextDragPattern::GetLastBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[1]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetLastBoxRect004
+ * @tc.desc: Test TextDragPattern::GetLastBoxRect with box exceeding contentRect bottom
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetLastBoxRect004, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 30.0f),
+        RectF(30.0f, 40.0f, 40.0f, 50.0f),
+        RectF(50.0f, 60.0f, 60.0f, 80.0f)
+    };
+    RectF contentRect(0.0f, 0.0f, 100.0f, 70.0f);
+    float textStartY = 0.0f;
+    SystemProperties::SetDevicePhysicalHeight(1000);
+
+    auto result = TextDragPattern::GetLastBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[1]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetLastBoxRect005
+ * @tc.desc: Test TextDragPattern::GetLastBoxRect with box exceeding device height
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetLastBoxRect005, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 30.0f),
+        RectF(30.0f, 40.0f, 40.0f, 50.0f),
+        RectF(50.0f, 60.0f, 60.0f, 95.0f)
+    };
+    RectF contentRect(0.0f, 0.0f, 100.0f, 100.0f);
+    float textStartY = 0.0f;
+    SystemProperties::SetDevicePhysicalHeight(90);
+
+    auto result = TextDragPattern::GetLastBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[1]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetLastBoxRect006
+ * @tc.desc: Test TextDragPattern::GetLastBoxRect with single box
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetLastBoxRect006, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 30.0f)
+    };
+    RectF contentRect(0.0f, 0.0f, 100.0f, 200.0f);
+    float textStartY = 0.0f;
+    SystemProperties::SetDevicePhysicalHeight(1000);
+
+    auto result = TextDragPattern::GetLastBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[0]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetLastBoxRect007
+ * @tc.desc: Test TextDragPattern::GetLastBoxRect with multiple boxes on same line
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetLastBoxRect007, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 20.0f),
+        RectF(30.0f, 10.0f, 40.0f, 20.0f),
+        RectF(50.0f, 10.0f, 60.0f, 20.0f)
+    };
+    RectF contentRect(0.0f, 0.0f, 100.0f, 200.0f);
+    float textStartY = 0.0f;
+    SystemProperties::SetDevicePhysicalHeight(1000);
+
+    auto result = TextDragPattern::GetLastBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[2]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetLastBoxRect008
+ * @tc.desc: Test TextDragPattern::GetLastBoxRect with textStartY offset
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetLastBoxRect008, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 20.0f),
+        RectF(30.0f, 30.0f, 40.0f, 40.0f),
+        RectF(50.0f, 50.0f, 60.0f, 60.0f)
+    };
+    RectF contentRect(0.0f, 0.0f, 100.0f, 200.0f);
+    float textStartY = 50.0f;
+    SystemProperties::SetDevicePhysicalHeight(1000);
+
+    auto result = TextDragPattern::GetLastBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_EQ(result, boxes[2]);
+}
+
+/**
+ * @tc.name: TextDragPatternTextDragPattern::GetLastBoxRect009
+ * @tc.desc: Test TextDragPattern::GetLastBoxRect with all boxes exceeding contentRect bottom
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextDragTestNg, GetLastBoxRect009, TestSize.Level1)
+{
+    std::vector<RectF> boxes = {
+        RectF(10.0f, 10.0f, 20.0f, 15.0f),
+        RectF(30.0f, 20.0f, 40.0f, 25.0f)
+    };
+    RectF contentRect(0.0f, 0.0f, 100.0f, 10.0f);
+    float textStartY = 0.0f;
+    SystemProperties::SetDevicePhysicalHeight(1000);
+
+    auto result = TextDragPattern::GetLastBoxRect(boxes, contentRect, textStartY);
+
+    EXPECT_TRUE(result.IsEmpty());
 }
 } // namespace OHOS::Ace::NG

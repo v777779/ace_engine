@@ -22,7 +22,7 @@
 
 namespace OHOS::Ace::Framework {
 class JsDragFunction : public JsFunction {
-    DECLARE_ACE_TYPE(JsDragFunction, JsFunction)
+    DECLARE_ACE_TYPE(JsDragFunction, JsFunction);
 
 public:
     explicit JsDragFunction(const JSRef<JSFunc>& jsFunction) : JsFunction(JSRef<JSObject>(), jsFunction) {}
@@ -54,13 +54,13 @@ public:
     void GetJsPasteData(const JSCallbackInfo& args);
     void GetScreenX(const JSCallbackInfo& args);
     void GetScreenY(const JSCallbackInfo& args);
+    void GetDragSource(const JSCallbackInfo& args);
+    void IsRemote(const JSCallbackInfo& args);
     void GetGlobalDisplayX(const JSCallbackInfo& args);
     void GetGlobalDisplayY(const JSCallbackInfo& args);
     void GetDisplayId(const JSCallbackInfo& args);
     void GetX(const JSCallbackInfo& args);
     void GetY(const JSCallbackInfo& args);
-    void GetDragSource(const JSCallbackInfo& args);
-    void IsRemote(const JSCallbackInfo& args);
     void GetDescription(const JSCallbackInfo& args);
     void SetDescription(const JSCallbackInfo& args);
     void GetVelocityX(const JSCallbackInfo& args);
@@ -80,6 +80,8 @@ public:
     void GetDragInfo(const JSCallbackInfo& args);
     void SetDragBehavior(const JSCallbackInfo& args);
     void GetDragBehavior(const JSCallbackInfo& args);
+    void SetAutoHideComponentUniqueIds(const JSCallbackInfo& args);
+    void GetAutoHideComponentUniqueIds(const JSCallbackInfo& args);
     void SetDragEvent(const RefPtr<DragEvent>& dragEvent)
     {
         dragEvent_ = dragEvent;
@@ -90,11 +92,13 @@ public:
         return dragEvent_;
     }
     void StartDataLoading(const JSCallbackInfo& args);
+
     void EnableInternalDropAnimation(const JSCallbackInfo& args);
     void SetDataLoadParams(const JSCallbackInfo& args);
     // use for ArkTs1.2
     int64_t GetDragEventPointer();
     static JSRef<JSObject> CreateDragEvent(void* dragEventPtr);
+
 private:
     static void Constructor(const JSCallbackInfo& args);
     static void Destructor(JsDragEvent* dragEvent);
@@ -121,7 +125,8 @@ public:
     {
         return context_->GetDragSpringLoadingConfiguration();
     }
-    void SetDragSpringLoadingConfiguration(const RefPtr<NG::DragSpringLoadingConfiguration>& dragSpringLoadingConfiguration)
+    void SetDragSpringLoadingConfiguration(
+        const RefPtr<NG::DragSpringLoadingConfiguration>& dragSpringLoadingConfiguration)
     {
         context_->SetDragSpringLoadingConfiguration(dragSpringLoadingConfiguration);
     }

@@ -19,23 +19,25 @@ class BuilderNodeFinalizationRegisterProxy {
       if (heldValue.name === 'BuilderRootFrameNode') {
         const builderNode = BuilderNodeFinalizationRegisterProxy.ElementIdToOwningBuilderNode_.get(heldValue.idOfNode);
         BuilderNodeFinalizationRegisterProxy.ElementIdToOwningBuilderNode_.delete(heldValue.idOfNode);
-        builderNode.dispose();
+        builderNode?.deref()?.dispose();
       }
     });
   }
-  public static register(target: BuilderNode, heldValue: RegisterParams) {
+  public static register(target: BuilderNodeCommonBase, heldValue: RegisterParams): void {
     BuilderNodeFinalizationRegisterProxy.instance_.finalizationRegistry_.register(target, heldValue);
   }
 
   public static instance_: BuilderNodeFinalizationRegisterProxy = new BuilderNodeFinalizationRegisterProxy();
-  public static ElementIdToOwningBuilderNode_ = new Map<Symbol, JSBuilderNode>();
+  public static ElementIdToOwningBuilderNode_ = new Map<Symbol, WeakRef<JSBuilderNode>>();
   private finalizationRegistry_: FinalizationRegistry;
 }
 
 class FrameNodeFinalizationRegisterProxy {
   constructor() {
     this.finalizationRegistry_ = new FinalizationRegistry((heldValue: number) => {
-      FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.delete(heldValue);
+      if (!FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.get(heldValue)?.deref()) {
+        FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.delete(heldValue);
+      }
       FrameNodeFinalizationRegisterProxy.rootFrameNodeIdToBuilderNode_.delete(heldValue);
     });
   }
@@ -55,14 +57,17 @@ class NodeControllerRegisterProxy {
   public static __NodeControllerMap__ = new Map<number, NodeController>();
 }
 
-globalThis.__AddToNodeControllerMap__ = function __AddToNodeControllerMap__(containerId: number,nodeController:NodeController ) {
+globalThis.__AddToNodeControllerMap__ = function __AddToNodeControllerMap__(containerId: number, nodeController: NodeController): void {
   NodeControllerRegisterProxy.__NodeControllerMap__.set(containerId, nodeController);
-}
+};
 
-globalThis.__RemoveFromNodeControllerMap__ = function __RemoveFromNodeControllerMap__(containerId: number) {
-  let nodeController: NodeController = NodeControllerRegisterProxy.__NodeControllerMap__.get(containerId);
-  nodeController._nodeContainerId.__rootNodeOfNodeController__ = undefined;
-  NodeControllerRegisterProxy.__NodeControllerMap__.delete(containerId);
+globalThis.__RemoveFromNodeControllerMap__ = function __RemoveFromNodeControllerMap__(containerId: number): void {
+  let nodeController = NodeControllerRegisterProxy.__NodeControllerMap__.get(containerId);
+  if (nodeController) {
+    nodeController._nodeContainerId.__rootNodeOfNodeController__ = undefined;
+    nodeController._nodeContainerId._value = -1;
+    NodeControllerRegisterProxy.__NodeControllerMap__.delete(containerId);
+  }
 }
 
 globalThis.__viewPuStack__ = new Array<ViewPU>();
@@ -76,4 +81,4 @@ globalThis.__CheckIsInBuilderNode__ = function __CheckIsInBuilderNode__(parent: 
     globalThis.__viewPuStack__?.push(_BuilderNodeView);
   }
   return (_BuilderNodeView !== undefined && _BuilderNodeView === parent) ? true : false;
-}
+};

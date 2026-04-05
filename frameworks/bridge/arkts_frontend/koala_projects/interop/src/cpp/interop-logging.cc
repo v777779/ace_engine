@@ -53,11 +53,11 @@ void appendGroupedLog(int index, const char* str) {
 
 const char* getGroupedLog(int index) {
     if (index < static_cast<int>(groupedLogs.size())) {
-        const char* result = groupedLogs[index]->log.c_str();
-        return result;
+        return groupedLogs[index]->log.c_str();
     }
     return "";
 }
+
 
 int needGroupedLog(int index) {
     if (index < static_cast<int>(groupedLogs.size())) {
@@ -84,8 +84,8 @@ extern "C" [[noreturn]] void InteropLogFatal(const char* format, ...) {
     va_list args;
     va_start(args, format);
     char buffer[4096];
-    interop_vsnprintf(buffer, sizeof(buffer) - 1, format, args);
-    LOGE("FATAL: %s", buffer);
+    InteropPrintVlistToBufferN(buffer, sizeof(buffer) - 1, format, args);
+    LOGE("FATAL: %{public}s", buffer);
     va_end(args);
     abort();
 }

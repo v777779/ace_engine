@@ -19,6 +19,7 @@
 #include <functional>
 
 #include "base/geometry/dimension.h"
+#include "base/thread/cancelable_callback.h"
 #include "base/utils/system_properties.h"
 #include "core/animation/animator.h"
 #include "core/animation/friction_motion.h"
@@ -39,23 +40,6 @@
 #endif
 
 namespace OHOS::Ace::NG {
-enum class NestedState {
-    GESTURE = 0,
-    CHILD_SCROLL,
-    CHILD_OVER_SCROLL,
-    CHILD_CHECK_OVER_SCROLL,
-};
-
-struct OverScrollOffset {
-    double start;
-    double end;
-};
-
-struct ScrollResult {
-    double remain;
-    bool reachEdge;
-};
-
 struct SlidInfo {
     double gestureVelocity {0.0};
     double velocityScale {0.0};
@@ -66,7 +50,7 @@ struct SlidInfo {
 };
 
 using ScrollEventCallback = std::function<void()>;
-using OutBoundaryCallback = std::function<bool()>;
+using OutBoundaryCallback = std::function<bool(bool useCurrentDelta)>;
 using ScrollOverCallback = std::function<void(double velocity)>;
 using WatchFixCallback = std::function<double(double final, double current)>;
 using ScrollBeginCallback = std::function<ScrollInfo(Dimension, Dimension)>;
@@ -84,6 +68,10 @@ using RemainVelocityCallback = std::function<bool(float)>;
 using GetSnapTypeCallback = std::function<SnapType()>;
 using FixScrollParamCallback = std::function<void(float mainPos, float& correctVelocity, float& finalPos)>;
 using OnWillStopDraggingCallback = std::function<void(float velocity)>;
+using OnWillStartDraggingCallback = std::function<void()>;
+using OnDidStopDraggingCallback = std::function<void(bool isWillStartAnimate)>;
+using OnWillStartFlingCallback = std::function<void()>;
+using OnDidStopFlingCallback = std::function<void()>;
 
 class FrameNode;
 class PipelineContext;
@@ -166,6 +154,13 @@ public:
         }
     }
 
+    void SetIsAllowMouse(const bool isAllowMouse)
+    {
+        if (panRecognizerNG_) {
+            panRecognizerNG_->SetIsAllowMouse(isAllowMouse);
+        }
+    }
+
     void SetScrollEndCallback(const ScrollEventCallback& scrollEndCallback)
     {
         scrollEndCallback_ = scrollEndCallback;
@@ -201,9 +196,11 @@ public:
     void HandleTouchUp();
     void HandleTouchCancel();
     void HandleDragStart(const GestureEvent& info);
+    void HandleExtDragUpdate();
     void HandleDragUpdate(const GestureEvent& info);
     void HandleDragEnd(const GestureEvent& info, bool isFromPanEnd = false);
     void HandleScrollEnd(const std::optional<float>& velocity);
+    void HandleExtScroll();
     bool HandleOverScroll(double velocity);
     ScrollResult HandleScroll(double offset, int32_t source, NestedState state);
     void ProcessAxisUpdateEvent(float mainDelta, bool fromScrollBar = false);
@@ -232,7 +229,7 @@ public:
         return canStayOverScroll_;
     }
 
-    void ProcessScrollMotionStop();
+    void ProcessScrollMotionStop(int32_t source);
 
     bool DispatchEvent(const TouchEvent& point) override
     {
@@ -305,6 +302,52 @@ public:
         onWillStopDraggingCallback_ = onWillStopDraggingCallback;
     }
 
+    const OnWillStartDraggingCallback& GetOnWillStartDraggingCallback() const
+    {
+        return onWillStartDraggingCallback_;
+    }
+
+    void SetOnWillStartDraggingCallback(const OnWillStartDraggingCallback& onWillStartDraggingCallback)
+    {
+        onWillStartDraggingCallback_ = onWillStartDraggingCallback;
+    }
+
+    const OnDidStopDraggingCallback& GetOnDidStopDraggingCallback() const
+    {
+        return onDidStopDraggingCallback_;
+    }
+
+    void SetOnDidStopDraggingCallback(const OnDidStopDraggingCallback& onDidStopDraggingCallback)
+    {
+        onDidStopDraggingCallback_ = onDidStopDraggingCallback;
+    }
+
+    const OnWillStartFlingCallback& GetOnWillStartFlingCallback() const
+    {
+        return onWillStartFlingCallback_;
+    }
+
+    void SetOnWillStartFlingCallback(const OnWillStartFlingCallback& onWillStartFlingCallback)
+    {
+        onWillStartFlingCallback_ = onWillStartFlingCallback;
+    }
+
+    const OnDidStopFlingCallback& GetOnDidStopFlingCallback() const
+    {
+        return onDidStopFlingCallback_;
+    }
+
+    void SetOnDidStopFlingCallback(const OnDidStopFlingCallback& onDidStopFlingCallback)
+    {
+        onDidStopFlingCallback_ = onDidStopFlingCallback;
+    }
+
+    void HandleScrollBarOnDidStopDragging(bool isWillFling);
+
+    void HandleScrollBarOnWillStartFling();
+
+    void HandleScrollBarOnDidStopFling();
+
     void SetWatchFixCallback(const WatchFixCallback& watchFixCallback)
     {
         watchFixCallback_ = watchFixCallback;
@@ -345,7 +388,7 @@ public:
 
     bool IsSnapStopped() const;
 
-    void StopScrollable();
+    ACE_FORCE_EXPORT void StopScrollable();
 
     bool Available() const
     {
@@ -411,7 +454,11 @@ public:
     {
         overScrollCallback_ = std::move(func);
     }
-    void StartScrollAnimation(float mainPosition, float velocity, bool isScrollFromTouchPad = false);
+    void SetHandleExtScrollCallback(std::function<void(void)>&& func)
+    {
+        handleExtScrollCallback_ = std::move(func);
+    }
+    bool StartScrollAnimation(float mainPosition, float velocity, bool isScrollFromTouchPad = false);
     void SetOnScrollStartRec(std::function<void(float)>&& func)
     {
         onScrollStartRec_ = std::move(func);
@@ -461,7 +508,8 @@ public:
         needScrollSnapToSideCallback_ = std::move(needScrollSnapToSideCallback);
     }
 
-    void StartScrollSnapAnimation(float scrollSnapDelta, float scrollSnapVelocity, bool fromScrollBar);
+    void StartScrollSnapAnimation(
+        float scrollSnapDelta, float scrollSnapVelocity, bool fromScrollBar, int32_t source = SCROLL_FROM_NONE);
 
     void StopSnapController()
     {
@@ -505,6 +553,11 @@ public:
         return isDragging_;
     }
 
+    void SetIsScrollBarDragging(bool isScrollBarDragging)
+    {
+        isScrollBarDragging_ = isScrollBarDragging;
+    }
+
     void SetDragFRCSceneCallback(DragFRCSceneCallback&& dragFRCSceneCallback)
     {
         dragFRCSceneCallback_ = std::move(dragFRCSceneCallback);
@@ -522,6 +575,13 @@ public:
 
     void SetMaxFlingVelocity(double max);
 
+    void SetMaxFlingVelocityMultiThread(double max);
+
+    void SetMaxFlingVelocityValue(double max)
+    {
+        maxFlingVelocity_ = max;
+    }
+
     double GetMaxFlingVelocity() const
     {
         return maxFlingVelocity_;
@@ -536,6 +596,7 @@ public:
     void StopSpringAnimation(bool reachFinalPosition = false);
     void StopSnapAnimation();
     void StopAxisAnimation();
+    void CheckStopFlingInTouchUp();
 
     void AttachAnimatableProperty(const RefPtr<NodeAnimatablePropertyFloat>& property);
     RefPtr<NodeAnimatablePropertyFloat> GetFrictionProperty();
@@ -591,10 +652,44 @@ public:
         snapDirection_ = SnapDirection::NONE;
     }
 
+    void SetIsUserFling(bool isUserFling)
+    {
+        isUserFling_ = isUserFling;
+    }
+
+    bool GetIsUserFling() const
+    {
+        return isUserFling_;
+    }
+
+    void SetIsDragOuterScrollBarStopAnimation(bool isDragOuterScrollBarStopAnimation)
+    {
+        isDragOuterScrollBarStopAnimation_ = isDragOuterScrollBarStopAnimation;
+    }
+
+    /**
+     * @brief Checks if the scroll event is caused by a mouse wheel.
+     */
+    static inline bool IsMouseWheelScroll(const GestureEvent& info)
+    {
+        return info.GetInputEventType() == InputEventType::AXIS && info.GetSourceTool() != SourceTool::TOUCHPAD;
+    }
+
+    void SetListSnapSpeed(ScrollSnapAnimationSpeed speed)
+    {
+        listSnapSpeed_ = speed;
+    }
+
+    ScrollSnapAnimationSpeed GetListSnapSpeed() const
+    {
+        return listSnapSpeed_;
+    }
+
 private:
     void InitPanRecognizerNG();
     void SetOnActionStart();
     void SetOnActionUpdate();
+    void SetOnActionExtUpdate();
     void SetOnActionEnd();
     void SetOnActionCancel();
     void SetPanEndCallback();
@@ -612,7 +707,6 @@ private:
     void MarkNeedFlushAnimationStartTime();
     float GetFrictionVelocityByFinalPosition(
         float final, float position, float signum, float friction, float threshold = DEFAULT_MULTIPLIER);
-    void InitFriction(double friction);
     void CalcOverScrollVelocity();
     double CalcNextStep(double position, double mainDelta);
 
@@ -626,14 +720,6 @@ private:
     void UpdateCrownVelocity(const TimeStamp& timeStamp, double mainDelta, bool end);
     void StartVibrateFeedback();
 #endif
-
-    /**
-     * @brief Checks if the scroll event is caused by a mouse wheel.
-     *
-     * @param info The GestureEvent containing the scroll event information.
-     * @return true if the scroll event is caused by a mouse wheel, false otherwise.
-     */
-    static inline bool IsMouseWheelScroll(const GestureEvent& info);
 
     ScrollPositionCallback callback_;
     ScrollEventCallback scrollEndCallback_;
@@ -650,6 +736,10 @@ private:
     ContinuousSlidingCallback continuousSlidingCallback_;
     GetSnapTypeCallback getSnapTypeCallback_;
     OnWillStopDraggingCallback onWillStopDraggingCallback_;
+    OnWillStartDraggingCallback onWillStartDraggingCallback_;
+    OnDidStopDraggingCallback onDidStopDraggingCallback_;
+    OnWillStartFlingCallback onWillStartFlingCallback_;
+    OnDidStopFlingCallback onDidStopFlingCallback_;
     Axis axis_ = Axis::VERTICAL;
     // used for ng structure.
     RefPtr<NG::PanRecognizer> panRecognizerNG_;
@@ -663,11 +753,17 @@ private:
     bool moved_ = false;
     bool isTouching_ = false;
     bool isDragging_ = false;
+    bool isScrollBarDragging_ = false;
     bool available_ = true;
     bool needCenterFix_ = false;
     bool isDragUpdateStop_ = false;
     bool isFadingAway_ = false;
     bool isCrownDragging_ = false;
+    bool isWillFling_ = false;
+    bool isNeedFireDidStopFling_ = false;
+    bool isTouchStopAnimation_ = false;
+    bool isDragOuterScrollBarStopAnimation_ = false;
+    bool isUserFling_ = false;
     // The accessibilityId of UINode
     int32_t nodeId_ = 0;
     // The tag of UINode
@@ -696,6 +792,8 @@ private:
     std::function<void(const std::optional<float>&)> onScrollEndRec_;
     // ScrollablePattern::RemainVelocityToChild
     RemainVelocityCallback remainVelocityCallback_;
+    // ScrollablePattern::HandleExtScroll
+    std::function<void(void)> handleExtScrollCallback_;
 
     EdgeEffect edgeEffect_ = EdgeEffect::NONE;
     bool canOverScroll_ = true;
@@ -706,6 +804,7 @@ private:
     StartSnapAnimationCallback startSnapAnimationCallback_;
     NeedScrollSnapToSideCallback needScrollSnapToSideCallback_;
     std::list<GestureEventFunc> panActionEndEvents_;
+    GestureEventFunc actionEnd_;
 
     DragFRCSceneCallback dragFRCSceneCallback_;
     FixScrollParamCallback fixScrollParamCallback_;
@@ -718,6 +817,7 @@ private:
     float initVelocity_ = 0.0f;
     float frictionVelocity_ = 0.0f;
     double lastMainDelta_ = 0.0;
+    double prevRemainDelta_ = 0.0;
 
     RefPtr<NodeAnimatablePropertyFloat> springOffsetProperty_;
     bool skipRestartSpring_ = false; // set to true when need to skip repeated spring animation
@@ -733,6 +833,7 @@ private:
 
     RefPtr<NodeAnimatablePropertyFloat> snapOffsetProperty_;
     bool snapAnimationFromScrollBar_ = false;
+    int32_t snapAnimationSource_ = 0;
     float snapVelocity_ = 0.0f;
     float endPos_ = 0.0;
     bool nestedScrolling_ = false;
@@ -740,6 +841,7 @@ private:
     SnapDirection snapDirection_ = SnapDirection::NONE;
     bool isSlow_ = false;
     std::optional<float> nextStep_;
+    ScrollSnapAnimationSpeed listSnapSpeed_ = ScrollSnapAnimationSpeed::NORMAL;
 
     RefPtr<AxisAnimator> axisAnimator_;
 #ifdef SUPPORT_DIGITAL_CROWN

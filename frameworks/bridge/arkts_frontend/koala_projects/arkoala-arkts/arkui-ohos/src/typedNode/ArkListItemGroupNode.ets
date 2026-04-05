@@ -13,9 +13,17 @@
  * limitations under the License.
  */
 
-import { ArkBaseNode } from "./ArkBaseNode";
-import { ListItemGroupAttribute, ArkListItemGroupPeer, ListItemGroupOptions, ListDividerOptions,
-    ChildrenMainSize, AttributeModifier, CommonMethod } from "../framework";
+import { ArkBaseNode } from './ArkBaseNode';
+import {
+  ListItemGroupAttribute,
+  ArkListItemGroupPeer,
+  ListItemGroupOptions,
+  ListDividerOptions,
+  ChildrenMainSize,
+  AttributeModifier,
+  CommonMethod
+} from '../framework';
+import { hookListItemGroupChildrenMainSizeImpl } from '#handwritten'
 export class ArkListItemGroupNode extends ArkBaseNode implements ListItemGroupAttribute {
     constructParam(...param: Object[]): this {
         if (param.length > 1) {
@@ -39,7 +47,7 @@ export class ArkListItemGroupNode extends ArkBaseNode implements ListItemGroupAt
         return this
     }
     allowChildTypes(): string[] {
-        return ["ListItem"];
+        return ['ListItem'];
     }
     divider(value: ListDividerOptions | undefined): this {
         const value_casted = value as (ListDividerOptions | undefined)
@@ -48,12 +56,18 @@ export class ArkListItemGroupNode extends ArkBaseNode implements ListItemGroupAt
         return this
     }
     childrenMainSize(value: ChildrenMainSize | undefined): this {
-        const value_casted = value as (ChildrenMainSize | undefined)
-        this.getPeer()?.setChildrenMainSizeAttribute(value_casted);
-        this.markDirty()
+        if (this.getPeer()) {
+            const value_casted = value as (ChildrenMainSize | undefined)
+            hookListItemGroupChildrenMainSizeImpl(this.getPeer()!, value_casted)
+            this.markDirty()
+        }
         return this
     }
-    attributeModifier(value: AttributeModifier<ListItemGroupAttribute> | AttributeModifier<CommonMethod> | undefined): this {
-        throw new Error("Unimplemented method attributeModifier")
+    attributeModifier(
+        value: AttributeModifier<ListItemGroupAttribute> |
+        AttributeModifier<CommonMethod> |
+        undefined
+    ): this {
+        throw new Error('Unimplemented method attributeModifier')
     }
 }

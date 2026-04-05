@@ -31,20 +31,27 @@ public:
     static void SetOnCut(FrameNode* frameNode, std::function<void(NG::TextCommonEvent&)>&& func);
     static void SetOnCopy(FrameNode* frameNode, std::function<void(NG::TextCommonEvent&)>&& func);
     static void SetOnPaste(FrameNode* frameNode, std::function<void(NG::TextCommonEvent&)>&& func);
+    static void SetOnWillAttachIME(FrameNode* frameNode, IMEAttachCallback&& func);
     static void SetEnterKeyType(FrameNode* frameNode, const std::optional<TextInputAction>& action);
     static void SetSelectedBackgroundColor(FrameNode* frameNode, const std::optional<Color>& selectedColor);
     static void SetCaretColor(FrameNode* frameNode, const std::optional<Color>& color);
     static void SetAboutToDelete(FrameNode* frameNode, std::function<bool(const RichEditorDeleteValue&)>&& func);
     static void SetEnableHapticFeedback(FrameNode* frameNode, bool isEnabled);
+    static void SetCompressLeadingPunctuation(FrameNode* frameNode, const std::optional<bool>& valueOpt);
     static void SetCustomKeyboard(FrameNode* frameNode, std::function<void()>&& func,
         const std::optional<bool>& supportAvoidance);
+    static void SetSelectedDragPreviewStyle(FrameNode* frameNode, const std::optional<Color>& value);
+    static void SetCustomKeyboardWithNode(
+        FrameNode* frameNode, FrameNode* customKeyboard, const std::optional<bool>& supportAvoidance);
     static void BindSelectionMenu(FrameNode* frameNode, TextSpanType& editorType, TextResponseType& type,
         std::function<void()>& buildFunc, SelectMenuParam& menuParam);
-    static void SetMaxLength(FrameNode* frameNode, std::optional<int32_t> value);
     static void SetMaxLines(FrameNode* frameNode, uint32_t value);
+    static void SetMaxLength(FrameNode* frameNode, std::optional<int32_t> value);
     void SetDraggable(bool draggable);
     static void SetSelectionMenuOptions(FrameNode* frameNode, const OnCreateMenuCallback&& onCreateMenuCallback,
         const OnMenuItemClickCallback&& onMenuItemClick);
+    static void SetIncludeFontPadding(FrameNode* frameNode, const std::optional<bool>& optValue);
+    static void SetFallbackLineSpacing(FrameNode* frameNode, const std::optional<bool>& optValue);
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_RICH_EDITOR_RICH_EDITOR_STATIC_H

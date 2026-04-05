@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -31,8 +31,7 @@ public:
     void SetOnNext(IndexCallbackEvent&& eventOnNext) override;
     void SetOnPrevious(IndexCallbackEvent&& eventOnPrevious) override;
     void SetOnChangeEvent(IndexChangeEvent&& onChangeEvent) override;
-    static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
-    static void SetIndex(FrameNode* frameNode, const std::optional<int32_t>& index);
+    static void CreateFrameNode(uint32_t index);
     static void SetOnFinish(FrameNode* frameNode, RoutineCallbackEvent&& eventOnFinish);
     static void SetOnSkip(FrameNode* frameNode, RoutineCallbackEvent&& eventOnSkip);
     static void SetOnChange(FrameNode* frameNode, IndexCallbackEvent&& eventOnChange);

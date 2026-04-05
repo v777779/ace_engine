@@ -16,6 +16,7 @@
 #include "core/components_ng/pattern/text_field/text_component_decorator.h"
 
 #include "core/components_ng/pattern/text/text_layout_property.h"
+#include "frameworks/base/utils/multi_thread.h"
 #include "frameworks/base/utils/utils.h"
 #include "frameworks/core/components_ng/pattern/text_field/text_field_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
@@ -26,6 +27,7 @@ namespace {
 
 constexpr int32_t DEFAULT_MODE = -1;
 constexpr int32_t SHOW_COUNTER_PERCENT = 100;
+constexpr int32_t CONSTANT_TWO_FOR_CENTER = 2;
 const std::string INSPECTOR_PREFIX = "__SearchField__";
 const std::string ERRORNODE_PREFIX = "ErrorNodeField__";
 
@@ -46,11 +48,30 @@ void TextComponentDecorator::BuildDecorator()
 {
     auto decoratedNode = decoratedNode_.Upgrade();
     CHECK_NULL_VOID(decoratedNode);
+    FREE_NODE_CHECK(decoratedNode, BuildDecorator);
     auto textNode = FrameNode::GetOrCreateFrameNode(V2::TEXT_ETS_TAG,
         ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextPattern>(); });
     textNode_ = textNode;
     CHECK_NULL_VOID(textNode);
     textNode->MountToParent(decoratedNode);
+}
+
+void TextComponentDecorator::BuildDecoratorMultiThread()
+{
+    auto decoratedNode = decoratedNode_.Upgrade();
+    CHECK_NULL_VOID(decoratedNode);
+    decoratedNode->PostAfterAttachMainTreeTask([weakThis = WeakClaim(this)]() {
+        auto decorator = weakThis.Upgrade();
+        CHECK_NULL_VOID(decorator);
+        auto decoratedNode = decorator->decoratedNode_.Upgrade();
+        CHECK_NULL_VOID(decoratedNode);
+        auto textNode = FrameNode::GetOrCreateFrameNode(V2::TEXT_ETS_TAG,
+            ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextPattern>(); });
+        ACE_UINODE_TRACE(textNode);
+        decorator->textNode_ = textNode;
+        CHECK_NULL_VOID(textNode);
+        textNode->MountToParent(decoratedNode);
+    });
 }
 
 void TextComponentDecorator::CleanDecorator()
@@ -121,12 +142,36 @@ void CounterDecorator::UpdateTextFieldMargin()
             textFieldLayoutProperty->UpdateMargin(margin);
         } else {
             auto currentBottomMargin = currentMargin->bottom->GetDimension();
+            UpdateBottomMargin(currentMargin, currentBottomMargin);
             if (LessNotEqual(currentBottomMargin.ConvertToPx(), newBottomMargin.ConvertToPx())) {
                 currentMargin->bottom = CalcLength(newBottomMargin);
             }
             textFieldLayoutProperty->UpdateMargin(*currentMargin);
         }
     }
+    auto textNode = textNode_.Upgrade();
+    CHECK_NULL_VOID(textNode);
+    auto accessibilityProperty = textNode->GetAccessibilityProperty<AccessibilityProperty>();
+    CHECK_NULL_VOID(accessibilityProperty);
+    accessibilityProperty->SetAccessibilityLevel("yes");
+}
+
+void CounterDecorator::UpdateBottomMargin(const std::unique_ptr<MarginProperty>& marginProp, Dimension& bottom)
+{
+    auto decoratedNode = decoratedNode_.Upgrade();
+    CHECK_NULL_VOID(decoratedNode);
+    auto paintProperty = decoratedNode->GetPaintProperty<TextFieldPaintProperty>();
+    CHECK_NULL_VOID(paintProperty);
+    if (!paintProperty->HasMarginByUser()) {
+        return;
+    }
+    auto userMargin = paintProperty->GetMarginByUserValue();
+    if (!userMargin.bottom.has_value() || userMargin.bottom->GetDimension().Unit() != DimensionUnit::LPX ||
+        LessNotEqual(userMargin.bottom->GetDimension().ConvertToPx(), bottom.ConvertToPx())) {
+        return;
+    }
+    marginProp->bottom = userMargin.bottom;
+    bottom = userMargin.bottom->GetDimension();
 }
 
 float CounterDecorator::MeasureTextNodeHeight()
@@ -172,15 +217,20 @@ void CounterDecorator::UpdateCounterContentAndStyle(uint32_t textLength, uint32_
     CHECK_NULL_VOID(context);
     auto textFieldLayoutProperty = decoratedNode->GetLayoutProperty<TextFieldLayoutProperty>();
     CHECK_NULL_VOID(textFieldLayoutProperty);
+    auto accessibilityProperty = textNode->GetAccessibilityProperty<AccessibilityProperty>();
+    CHECK_NULL_VOID(accessibilityProperty);
     std::string counterText;
     if (isVisible) {
-        counterText = std::to_string(textLength) + "/" + std::to_string(maxLength);
+        counterText = theme->GetCounterFormatString(textLength, maxLength);
+        accessibilityProperty->SetAccessibilityText(GetAccessibilityText(textLength, maxLength));
+    } else {
+        accessibilityProperty->SetAccessibilityText("");
     }
-    TextStyle countTextStyle = (textFieldPattern->GetShowCounterStyleValue() && textFieldPattern->HasFocus()) ?
+    TextStyle countTextStyle = (textFieldPattern->GetShowCounterStyleValue() && textFieldPattern->HasFocus())?
                                 theme->GetOverCountTextStyle() :
                                 theme->GetCountTextStyle();
+    ProcessCounterColor(decoratedNode, countTextStyle);
     counterNodeLayoutProperty->UpdateContent(counterText);
-    
     if (textFieldLayoutProperty->HasMaxFontScale()) {
         auto maxFontScale = textFieldLayoutProperty->GetMaxFontScale().value();
         counterNodeLayoutProperty->UpdateMaxFontScale(maxFontScale);
@@ -195,6 +245,60 @@ void CounterDecorator::UpdateCounterContentAndStyle(uint32_t textLength, uint32_
     counterNodeLayoutProperty->UpdateTextAlign(GetCounterNodeAlignment());
     counterNodeLayoutProperty->UpdateMaxLines(theme->GetCounterTextMaxline());
     context->UpdateForegroundColor(countTextStyle.GetTextColor());
+}
+
+void CounterDecorator::ProcessCounterColor(RefPtr<FrameNode>& decoratedNode, TextStyle& countTextStyle)
+{
+    auto textFieldPattern = decoratedNode->GetPattern<TextFieldPattern>();
+    CHECK_NULL_VOID(textFieldPattern);
+    auto textFieldLayoutProperty = decoratedNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    CHECK_NULL_VOID(textFieldLayoutProperty);
+    if (textFieldPattern->GetShowCounterStyleValue() && textFieldPattern->HasFocus()) {
+        if (textFieldLayoutProperty->HasCounterTextOverflowColor()) {
+            countTextStyle.SetTextColor(textFieldLayoutProperty->GetCounterTextOverflowColor());
+        }
+    } else {
+        if (textFieldLayoutProperty->HasCounterTextColor()) {
+            countTextStyle.SetTextColor(textFieldLayoutProperty->GetCounterTextColor());
+        }
+    }
+}
+
+std::string CounterDecorator::GetAccessibilityText(uint32_t textLength, uint32_t maxLength)
+{
+    std::string result = "";
+    auto textNode = textNode_.Upgrade();
+    CHECK_NULL_RETURN(textNode, result);
+    auto pipelineContext = textNode->GetContext();
+    CHECK_NULL_RETURN(pipelineContext, result);
+    auto themeManager = pipelineContext->GetThemeManager();
+    CHECK_NULL_RETURN(themeManager, result);
+    auto themeConstants = themeManager->GetThemeConstants();
+    CHECK_NULL_RETURN(themeConstants, result);
+
+    std::string textLengthStr = std::to_string(textLength);
+    std::string maxLengthStr = std::to_string(maxLength);
+    std::string toFindStr = "%d";
+
+    auto firstStr = themeConstants->GetPluralStringByName("sys.plurals.textfield_counter_content_part_one", textLength);
+    if (firstStr.empty()) {
+        return result;
+    }
+    size_t posFirst = firstStr.find(toFindStr);
+    if (posFirst != std::string::npos) {
+        firstStr.replace(posFirst, toFindStr.length(), textLengthStr);
+    }
+
+    auto secondStr = themeConstants->GetPluralStringByName("sys.plurals.textfield_counter_content_part_two", maxLength);
+    if (secondStr.empty()) {
+        return result;
+    }
+    size_t posSecond = secondStr.find(toFindStr);
+    if (posSecond != std::string::npos) {
+        secondStr.replace(posSecond, toFindStr.length(), maxLengthStr);
+    }
+    result = firstStr + " " + secondStr;
+    return result;
 }
 
 TextAlign CounterDecorator::GetCounterNodeAlignment()
@@ -310,13 +414,13 @@ void CounterDecorator::HandleNonTextArea()
     CHECK_NULL_VOID(pipeline);
     auto theme = textFieldPattern->GetTheme();
     CHECK_NULL_VOID(theme);
+    auto decoratedGeometryNode = decoratedNode->GetGeometryNode();
+    CHECK_NULL_VOID(decoratedGeometryNode);
 
     bool isRTL = decoratedNodeProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
-    RectF frameRect = decoratedNode->GetGeometryNode()->GetFrameRect();
-    RectF contentRect = decoratedNode->GetGeometryNode()->GetContentRect();
+    RectF frameRect = decoratedGeometryNode->GetFrameRect();
+    RectF contentRect = decoratedGeometryNode->GetContentRect();
     float countX = contentRect.GetX();
-    auto responseArea = textFieldPattern->GetResponseArea();
-    auto cleanNodeResponseArea = textFieldPattern->GetCleanNodeResponseArea();
     auto updateCountXWithArea = [&countX, isRTL](const std::vector<RefPtr<TextInputResponseArea>>& areas) {
         for (auto area : areas) {
             if (!area) {
@@ -334,7 +438,7 @@ void CounterDecorator::HandleNonTextArea()
         countX = isRTL ? countX - textFieldPattern->GetPaddingLeft() :
                          countX + textFieldPattern->GetPaddingRight();
     }
-    updateCountXWithArea({responseArea, cleanNodeResponseArea});
+    updateCountXWithArea(textFieldPattern->GetAllResponseArea());
     auto curFontScale = pipeline->GetFontScale();
     auto countY = (NearEqual(curFontScale, 1.0f)) ? (frameRect.Height() + textGeometryNode->GetFrameRect().Height()) :
         (frameRect.Bottom() - frameRect.Top() + theme->GetCounterTextMarginOffset().ConvertToPx());
@@ -510,6 +614,8 @@ float ErrorDecorator::MeasureDecorator(float contentWidth, const std::u16string&
     CHECK_NULL_RETURN(textLayoutProperty, 0.0);
     RectF textFieldFrameRect = decoratedNode->GetGeometryNode()->GetFrameRect();
     auto errorValue = textFieldPattern->GetErrorTextString();
+    auto theme = textFieldPattern->GetTheme();
+    CHECK_NULL_RETURN(theme, 0.0);
     if (textFieldPattern->IsShowError() && !textFieldPattern->IsDisabled() && !errorValue.empty()) {
         float padding = 0.0f;
         if (textFieldLayoutProperty && textFieldLayoutProperty->GetPaddingProperty()) {
@@ -526,6 +632,9 @@ float ErrorDecorator::MeasureDecorator(float contentWidth, const std::u16string&
             auto counterDecorator = textFieldPattern->GetCounterDecorator();
             if (counterDecorator) {
                 layoutWidth -= counterDecorator->GetContentWidth(); // subtract counter length
+            }
+            if (theme->GetErrorTextAlign() == TextAlign::CENTER) {
+                layoutWidth -= counterDecorator->GetContentWidth();
             }
         }
         LayoutConstraintF invisibleConstraint;
@@ -591,8 +700,8 @@ void ErrorDecorator::LayoutDecorator()
         auto textFieldContentRect = textFieldGeometryNode->GetContentRect();
         offSetX += textFieldContentRect.Width() - textFrameWidth;
     }
-    if (theme->GetErrorTextCenter()) {
-        offSetX = (textFieldGeometryNode->GetFrameRect().Width() - textFrameWidth) / 2;
+    if (theme->GetErrorTextAlign() == TextAlign::CENTER) {
+        offSetX = (textFieldGeometryNode->GetFrameRect().Width() - textFrameWidth) / CONSTANT_TWO_FOR_CENTER;
     }
     textGeometryNode->SetFrameOffset(OffsetF(offSetX, textFrameRect.Bottom() - textFrameRect.Top() + errorMargin));
     textNode->Layout();

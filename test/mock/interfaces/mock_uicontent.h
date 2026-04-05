@@ -67,6 +67,9 @@ public:
     MOCK_METHOD1(SetIgnoreViewSafeArea, void(bool ignoreViewSafeArea));
     MOCK_METHOD0(GetBackgroundColor, uint32_t());
     MOCK_METHOD1(SetBackgroundColor, void(uint32_t color));
+    MOCK_METHOD1(SetFormBackgroundColor, void(const std::string& color));
+    MOCK_METHOD1(SetFormRenderingMode, void(int8_t renderMode));
+    MOCK_METHOD1(SetFormEnableBlurBackground, void(bool enableBlurBackground));
     MOCK_METHOD2(SetWindowContainerColor, void(uint32_t activeColor, uint32_t inactiveColor));
     MOCK_METHOD2(DumpInfo, void(const std::vector<std::string>& params, std::vector<std::string>& info));
     MOCK_METHOD1(SetNextFrameLayoutCallback, void(std::function<void()>&& callback));
@@ -81,6 +84,7 @@ public:
         UpdateFormSharedImage, void(const std::map<std::string, sptr<OHOS::AppExecFwk::FormAshmem>>& imageDataMap));
     MOCK_METHOD1(SetFormWidth, void(const float width));
     MOCK_METHOD1(SetFormHeight, void(const float height));
+    MOCK_METHOD3(SetFormViewScale, void(float width, float height, float formViewScale));
     MOCK_METHOD0(GetFormWidth, float());
     MOCK_METHOD0(GetFormHeight, float());
     MOCK_METHOD4(OnFormSurfaceChange, void(float width, float height, OHOS::Rosen::WindowSizeChangeReason reason,
@@ -95,6 +99,7 @@ public:
     MOCK_METHOD3(CreateModalUIExtension, int32_t(const AAFwk::Want& want,
         const ModalUIExtensionCallbacks& callbacks, const ModalUIExtensionConfig& config));
     MOCK_METHOD1(CloseModalUIExtension, void(int32_t sessionId));
+    MOCK_METHOD1(SetFrameMetricsCallBack, void(std::function<void(FrameMetrics info)>&& callback));
     MOCK_METHOD1(SetParentToken, void(sptr<IRemoteObject> token));
     MOCK_METHOD0(GetParentToken, sptr<IRemoteObject>());
 
@@ -112,7 +117,6 @@ public:
     MOCK_METHOD0(IsUIExtensionSubWindow, bool());
     MOCK_METHOD0(IsUIExtensionAbilityProcess, bool());
     MOCK_METHOD0(IsUIExtensionAbilityHost, bool());
-    MOCK_METHOD3(SetForceSplitEnable, void(bool isForceSplit, const std::string& homePage, bool isRouter));
 
 #ifndef PREVIEW
     MOCK_METHOD4(
@@ -137,6 +141,7 @@ public:
     MOCK_METHOD1(SetContentNodeGrayScale, void(float grayscale));
     MOCK_METHOD1(EnableContainerModalGesture, void(bool isEnable));
     MOCK_METHOD1(UpdateConfigurationSyncForAll, void(const std::shared_ptr<OHOS::AppExecFwk::Configuration>& config));
+    MOCK_METHOD1(SetXComponentDisplayConstraintEnabled, void(bool isEnable));
 };
 } // namespace Ace
 } // namespace OHOS

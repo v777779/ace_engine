@@ -14,6 +14,7 @@
  */
 
 #include "adapter/ohos/entrance/dynamic_component/dynamic_component_renderer_impl.h"
+#include "core/components_ng/pattern/ui_extension/dynamic_component/dynamic_param.h"
 
 namespace OHOS::Ace::NG {
 
@@ -21,6 +22,14 @@ RefPtr<DynamicComponentRenderer> DynamicComponentRendererImpl::DynamicComponentR
     const RefPtr<FrameNode>& host, void* runtime, const IsolatedInfo& isolatedInfo)
 {
     return AceType::MakeRefPtr<DynamicComponentRendererImpl>(host, runtime, isolatedInfo);
+}
+
+RefPtr<DynamicComponentRenderer> DynamicComponentRenderer::Create(
+    const RefPtr<FrameNode>& host, const DynamicParam& dynamicParam)
+{
+    IsolatedInfo info;
+    void* runtime = nullptr;
+    return AceType::MakeRefPtr<DynamicComponentRendererImpl>(host, runtime, info);
 }
 
 DynamicComponentRendererImpl::DynamicComponentRendererImpl(
@@ -44,7 +53,10 @@ void DynamicComponentRendererImpl::UpdateViewportConfig(const SizeF& size, float
 void DynamicComponentRendererImpl::TransferPointerEvent(
     const std::shared_ptr<MMI::PointerEvent>& pointerEvent) {}
 
-bool DynamicComponentRendererImpl::TransferKeyEvent(const KeyEvent& event) { return true; }
+bool DynamicComponentRendererImpl::TransferKeyEvent(const KeyEvent& event)
+{
+    return true;
+}
 
 void DynamicComponentRendererImpl::SetUIContentType(UIContentType uIContentType) {}
 
@@ -80,8 +92,8 @@ void DynamicComponentRendererImpl::SearchElementInfoByAccessibilityId(int64_t el
 void DynamicComponentRendererImpl::SearchElementInfosByText(int64_t elementId, const std::string& text,
     int64_t baseParent, std::list<Accessibility::AccessibilityElementInfo>& output) {}
 
-void DynamicComponentRendererImpl::FindFocusedElementInfo(int64_t elementId, int32_t focusType,
-    int64_t baseParent, Accessibility::AccessibilityElementInfo& output) {}
+void DynamicComponentRendererImpl::FindFocusedElementInfo(int64_t elementId, int32_t focusType, int64_t baseParent,
+    Accessibility::AccessibilityElementInfo& output) {}
 
 void DynamicComponentRendererImpl::FocusMoveSearch(int64_t elementId, int32_t direction, int64_t baseParent,
     Accessibility::AccessibilityElementInfo& output) {}
@@ -92,7 +104,8 @@ bool DynamicComponentRendererImpl::NotifyExecuteAction(int64_t elementId,
     return true;
 }
 
-void DynamicComponentRendererImpl::TransferAccessibilityHoverEvent(float pointX, float pointY, int32_t sourceType,
+void DynamicComponentRendererImpl::TransferAccessibilityHoverEvent(
+    float pointX, float pointY, int32_t sourceType,
     int32_t eventType, int64_t timeMs) {}
 
 void DynamicComponentRendererImpl::InitializeDynamicAccessibility() {}
@@ -113,10 +126,7 @@ bool DynamicComponentRendererImpl::GetBackgroundTransparent() const
     return true;
 }
 
-bool DynamicComponentRendererImpl::CheckWorkerMaxConstraint(void *worker)
-{
-    return true;
-}
+bool DynamicComponentRendererImpl::CheckWorkerMaxConstraint(void *worker) { return true; }
 
 void DynamicComponentRendererImpl::OnDestroyContent() {}
 

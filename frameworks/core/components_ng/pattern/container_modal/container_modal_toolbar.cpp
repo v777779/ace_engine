@@ -38,6 +38,8 @@
 #include "core/components_ng/pattern/side_bar/side_bar_container_pattern.h"
 #include "core/components_ng/pattern/stack/stack_layout_property.h"
 #include "core/components_ng/pattern/toolbaritem/toolbaritem_pattern.h"
+#include "core/common/dynamic_module_helper.h"
+#include "core/interfaces/arkoala/arkoala_api.h"
 
 namespace OHOS::Ace::NG {
 
@@ -65,14 +67,14 @@ void ContainerModalToolBar::InitToolBarManager()
 void ContainerModalToolBar::SetOnChangeCallback()
 {
     CHECK_NULL_VOID(toolbarManager_);
-    if (!hasSetOnchangeCallback_) {
+    if (!hasSetOnChangeCallback_) {
         std::function<void()> func = [weak = WeakClaim(this)]() {
             auto pattern = weak.Upgrade();
             CHECK_NULL_VOID(pattern);
             pattern->OnToolBarLayoutChange();
         };
         toolbarManager_->SetToolBarChangeCallback(std::move(func));
-        hasSetOnchangeCallback_ = true;
+        hasSetOnChangeCallback_ = true;
     }
     if (!isFloating_ && !hasSetUpdateSideTitleBgColor_) {
         std::function<void(const Color&, const Color&, const BlurStyle&)> func =
@@ -132,10 +134,12 @@ void ContainerModalToolBar::SetToolbarBuilder(const RefPtr<FrameNode>& parent, s
     CHECK_NULL_VOID(pattern);
     auto pipeline = pattern->GetContext();
     CHECK_NULL_VOID(pipeline);
-    pipeline->AddAfterRenderTask([weak = WeakClaim(this)]() {
+    pipeline->AddAfterRenderTask([weak = WeakClaim(this), frame = WeakClaim(RawPtr(parent))]() {
         auto toolbar = weak.Upgrade();
         CHECK_NULL_VOID(toolbar);
-        if (toolbar->GetNavOrSideBarNodes()) {
+        auto node = frame.Upgrade();
+        CHECK_NULL_VOID(node);
+        if (toolbar->GetNavOrSideBarNodes(node)) {
             if (!(toolbar->HasNavOrSideBarNodes())) {
                 toolbar->SetHasNavOrSideBarNodes(true);
                 toolbar->ToInitNavOrSideBarNode();
@@ -143,13 +147,13 @@ void ContainerModalToolBar::SetToolbarBuilder(const RefPtr<FrameNode>& parent, s
         } else {
             return;
         }
-        toolbar->ParsePlacementType();
+        toolbar->ParsePlacementType(node);
     });
 }
 
-void ContainerModalToolBar::ParsePlacementType()
+void ContainerModalToolBar::ParsePlacementType(const RefPtr<FrameNode>& node)
 {
-    if (!GetNavOrSideBarNodes() || !HasNavOrSideBarNodes()) {
+    if (!GetNavOrSideBarNodes(node) || !HasNavOrSideBarNodes()) {
         return;
     }
 
@@ -165,6 +169,7 @@ void ContainerModalToolBar::ParsePlacementType()
         }
     }
     if (hasItem) {
+        AdjustTitleNodeWidth();
         AddToolbarItemToContainer();
         OnToolBarLayoutChange();
     }
@@ -567,7 +572,7 @@ void ContainerModalToolBar::AddRightNavDestRow()
 
 void ContainerModalToolBar::RemoveToolbarRowContainers()
 {
-    auto RemoveIfEmpty = [](RefPtr<FrameNode>& container, const RefPtr<FrameNode>& parent) {
+    auto RemoveIfEmpty = [this](RefPtr<FrameNode>& container, const RefPtr<FrameNode>& parent) {
         if (container && container->GetChildren().empty()) {
             if (parent) {
                 parent->RemoveChild(container);
@@ -754,7 +759,7 @@ void ContainerModalToolBar::UpdateToolbarShow(bool isTitleShow, bool customTitle
     if (!isTitleShow || customTitleSettedShow) {
         UpdateTitleLayout();
     } else if (!customTitleSettedShow) {
-        pattern->SetControlButtonsRowHeight(CONTAINER_TITLE_HEIGHT);
+        pattern->SetControlButtonsRowHeight();
     }
 }
 
@@ -762,25 +767,29 @@ void ContainerModalToolBar::AdjustContainerModalTitleHeight()
 {
     auto pattern = pattern_.Upgrade();
     CHECK_NULL_VOID(pattern);
+    if (!hasNavOrSideBarNodes_) {
+        return;
+    }
 
     if (itemsOnTree_.empty()) {
-        pattern->titleHeight_ = CONTAINER_TITLE_HEIGHT;
-        pattern->SetContainerModalTitleHeight(CONTAINER_TITLE_HEIGHT.ConvertToPx());
+        pattern->toolBarTitleHeight_ = CONTAINER_TITLE_HEIGHT;
+        pattern->SetToolbarTitleHeight();
         ResetExpandStackNode();
+        hasNavOrSideBarNodes_ = false;
         return;
     }
 
     auto rowHeight = toolbarItemMaxHeight_ + ROW_TOTAL_MARGIN;
     if (NearEqual(toolbarItemMaxHeight_, 0.0f)) {
-        pattern->titleHeight_ = CONTAINER_TITLE_HEIGHT;
+        pattern->toolBarTitleHeight_ = CONTAINER_TITLE_HEIGHT;
     } else if (LessOrEqual(rowHeight, TITLE_ITEM_HEIGT_S)) {
-        pattern->titleHeight_ = Dimension(TITLE_ITEM_HEIGT_S, DimensionUnit::VP);
+        pattern->toolBarTitleHeight_ = Dimension(TITLE_ITEM_HEIGT_S, DimensionUnit::VP);
     } else if (GreatNotEqual(rowHeight, TITLE_ITEM_HEIGT_S) && LessOrEqual(rowHeight, TITLE_ITEM_HEIGT_M)) {
-        pattern->titleHeight_ = Dimension(TITLE_ITEM_HEIGT_M, DimensionUnit::VP);
+        pattern->toolBarTitleHeight_ = Dimension(TITLE_ITEM_HEIGT_M, DimensionUnit::VP);
     } else if (GreatNotEqual(rowHeight, TITLE_ITEM_HEIGT_M)) {
-        pattern->titleHeight_ = Dimension(TITLE_ITEM_HEIGT_L, DimensionUnit::VP);
+        pattern->toolBarTitleHeight_ = Dimension(TITLE_ITEM_HEIGT_L, DimensionUnit::VP);
     }
-    pattern->SetContainerModalTitleHeight(pattern->titleHeight_.ConvertToPx());
+    pattern->SetToolbarTitleHeight();
     UpdateTargetNodesBarMargin();
 }
 
@@ -830,24 +839,31 @@ std::string ContainerModalToolBar::GetTagFromNode(RefPtr<UINode> node)
  * @note The method uses a queue to perform breadth-first traversal and ensures that
  *       the search stops as soon as the required nodes are identified.
  */
-bool ContainerModalToolBar::GetNavOrSideBarNodes()
+bool ContainerModalToolBar::GetNavOrSideBarNodes(const RefPtr<FrameNode>& node)
 {
     auto pattern = pattern_.Upgrade();
     CHECK_NULL_RETURN(pattern, false);
-    auto contentNode = pattern->GetContentNode();
-    CHECK_NULL_RETURN(contentNode, false);
-    auto stage = contentNode->GetFirstChild();
+    auto stage = pattern->GetContentNode();
     CHECK_NULL_RETURN(stage, false);
-    auto page = stage->GetFirstChild();
+    auto page = GetCurrentPageNode(node);
     CHECK_NULL_RETURN(page, false);
-    auto custom = page->GetFirstChild();
-    CHECK_NULL_RETURN(custom, false);
-    auto customNode = AceType::DynamicCast<FrameNode>(custom);
-    CHECK_NULL_RETURN(customNode, false);
-    auto customGeometryNode = customNode->GetGeometryNode();
-    CHECK_NULL_RETURN(customGeometryNode, false);
-    auto pageWidth = customGeometryNode->GetFrameSize().Width();
-    return GetNavOrSideBarNodesParseChildren(page, pageWidth);
+    auto stageGeometryNode = stage->GetGeometryNode();
+    CHECK_NULL_RETURN(stageGeometryNode, false);
+    auto width = stageGeometryNode->GetFrameSize().Width();
+    return GetNavOrSideBarNodesParseChildren(page, width);
+}
+
+RefPtr<UINode> ContainerModalToolBar::GetCurrentPageNode(const RefPtr<UINode>& node)
+{
+    auto tempNode = node;
+    while (tempNode) {
+        auto parent = tempNode->GetParent();
+        if (tempNode->GetTag() == V2::PAGE_ETS_TAG && parent && parent->GetTag() == V2::STAGE_ETS_TAG) {
+            return tempNode;
+        }
+        tempNode = parent;
+    }
+    return nullptr;
 }
 
 bool ContainerModalToolBar::GetNavOrSideBarNodesParseChildren(const RefPtr<UINode>& page, float pageWidth)
@@ -952,14 +968,27 @@ bool ContainerModalToolBar::IsTragetNavigationNodeParse(const RefPtr<FrameNode>&
     return false;
 }
 
+const ArkUISideBarContainerModifier* GetSideBarContainerModel()
+{
+    static const ArkUISideBarContainerModifier* arkUISideBarContainerModifier = nullptr;
+    if (arkUISideBarContainerModifier == nullptr) {
+        auto* module = DynamicModuleHelper::GetInstance().GetDynamicModule("Sidebar");
+        if (module) {
+            arkUISideBarContainerModifier =
+                reinterpret_cast<const ArkUISideBarContainerModifier*>(module->GetDynamicModifier());
+        }
+    }
+    return arkUISideBarContainerModifier;
+}
+
 void ContainerModalToolBar::ToInitNavOrSideBarNode()
 {
     auto sideBarNode = sideBarNode_.Upgrade();
     if (sideBarNode) {
-        auto sideBarPattern = AceType::DynamicCast<NG::SideBarContainerPattern>(sideBarNode->GetPattern());
-        if (sideBarPattern) {
-            sideBarPattern->InitToolBarManager();
-            sideBarNode->MarkModifyDone();
+        auto arkUISideBarContainerModifier = GetSideBarContainerModel();
+        if (arkUISideBarContainerModifier) {
+            arkUISideBarContainerModifier->setSideBarToolBarManager(
+                reinterpret_cast<ArkUINodeHandle>(AceType::RawPtr(sideBarNode)));
         }
     }
     auto navigationNode = navigationNode_.Upgrade();
@@ -974,7 +1003,9 @@ void ContainerModalToolBar::ToInitNavOrSideBarNode()
     std::function<void()> getTypeOfItem = [weak = WeakClaim(this)]() {
         auto pattern = weak.Upgrade();
         CHECK_NULL_VOID(pattern);
-        pattern->ParsePlacementType();
+        auto node = pattern->navigationNode_.Upgrade();
+        CHECK_NULL_VOID(node);
+        pattern->ParsePlacementType(node);
     };
     toolbarManager_->SetModifyDoneCallback(std::move(getTypeOfItem));
 }

@@ -19,7 +19,6 @@
 #include "core/components/common/properties/color.h"
 #include "core/components/theme/theme.h"
 #include "core/components/theme/theme_constants.h"
-#include "core/components/theme/theme_constants_defines.h"
 
 namespace OHOS::Ace {
 
@@ -38,7 +37,7 @@ public:
             if (!themeConstants) {
                 return theme;
             }
-            theme->bgColor_ = themeConstants->GetColor(THEME_SEMI_MODAL_BACKGROUND_COLOR);
+            theme->bgColor_ = Color(0xfff7f7f7);
             ParsePattern(themeConstants, theme);
             return theme;
         }

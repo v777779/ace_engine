@@ -33,16 +33,17 @@ public:
     bool SetCaretOffset(int32_t caretPosition) override;
     void SetTypingStyle(std::optional<struct UpdateSpanStyle> typingStyle, std::optional<TextStyle> textStyle) override;
     void SetTypingParagraphStyle(std::optional<struct UpdateParagraphStyle> typingParagraphStyle) override;
+    void SetPlaceholderStyledString(const RefPtr<SpanStringBase>& value) override;
     std::optional<struct UpdateSpanStyle> GetTypingStyle() override;
     void CloseSelectionMenu() override;
     bool IsEditing() override;
     void StopEditing() override;
+    void DeleteBackward() override;
     void SetSelection(int32_t selectionStart, int32_t selectionEnd,
         const std::optional<SelectionOptions>& options = std::nullopt, bool isForward = false) override;
     WeakPtr<LayoutInfoInterface> GetLayoutInfoInterface() override;
     const PreviewTextInfo GetPreviewTextInfo() const override;
-    ColorMode GetColorMode() override;
-    RefPtr<NG::RichEditorTheme> GetTheme() override;
+
 protected:
     WeakPtr<RichEditorPattern> pattern_;
 };

@@ -13,9 +13,19 @@
  * limitations under the License.
  */
 
+#include "core/components_ng/base/ui_node.h"
+#include "core/components_ng/pattern/list/list_item_group_pattern.h"
+#include "core/components_ng/pattern/list/list_item_pattern.h"
+#include "core/components_ng/pattern/list/list_position_map.h"
 #include "core/components_ng/pattern/list/list_height_offset_calculator.h"
-
+#include "core/components_ng/property/measure_utils.h"
+#include "core/components_ng/syntax/lazy_for_each_node.h"
+#include "core/components_ng/syntax/repeat_virtual_scroll_2_node.h"
+#include "core/components_ng/syntax/repeat_virtual_scroll_node.h"
+#include "core/components_v2/inspector/inspector_constants.h"
+#ifdef ACE_STATIC
 #include "core/components_ng/syntax/arkoala_lazy_node.h"
+#endif
 
 namespace OHOS::Ace::NG {
 ListHeightOffsetCalculator::ListHeightOffsetCalculator(const ListLayoutAlgorithm::PositionMap& itemPosition,
@@ -33,6 +43,7 @@ ListHeightOffsetCalculator::ListHeightOffsetCalculator(const ListLayoutAlgorithm
                 groupHeaderHeight_ = pos.second.groupInfo.value().headerSize;
                 groupFooterHeight_ = pos.second.groupInfo.value().footerSize;
                 groupSpaceWidth_ = pos.second.groupInfo.value().spaceWidth;
+                hasGroup_ = true;
                 lanes = 1;
                 break;
             }
@@ -134,26 +145,78 @@ void ListHeightOffsetCalculator::CalculatePosMapNode()
 
 int32_t ListHeightOffsetCalculator::GetPosMapStartIndex()
 {
-    if (!posMap_) {
-        return -1;
-    }
-    return posMap_->GetStartIndexAndPos().first;
+    return posMap_ ? posMap_->GetStartIndexAndPos().first : -1;
 }
 
 int32_t ListHeightOffsetCalculator::GetPosMapEndIndex()
 {
-    if (!posMap_) {
-        return -1;
+    return posMap_ ? posMap_->GetEndIndexAndPos().first : -1;
+}
+
+bool ListHeightOffsetCalculator::CalcRangeLeftHalf(int start, int end)
+{
+    auto prevHeight = estimateHeight_;
+    ListPositionInfo posMapStart = posMap_ ? posMap_->GetPositionInfo(start) : ListPositionInfo { -1.0f, -1.0f };
+    ListPositionInfo posMapEnd = posMap_ ? posMap_->GetPositionInfo(end) : ListPositionInfo { -1.0f, -1.0f };
+    if (posMapStart.mainPos < 0.0f || posMapEnd.mainPos < 0.0f || posMapStart.mainSize < 0.0f ||
+        posMapEnd.mainSize < 0.0f || posMapStart.isGroup || posMapEnd.isGroup) {
+        return false;
     }
-    return posMap_->GetEndIndexAndPos().first;
+    estimateHeight_ +=
+        posMapEnd.mainPos - posMapStart.mainPos + posMapEnd.mainSize + (start == 0 ? 0.0f : spaceWidth_);
+    auto rowCount = posMapStart.isGroup ? (end - start + 1) : (end - start + 1) / lanes_;
+    auto totalSpaceWidth = (start == 0 ? spaceWidth_ * (rowCount - 1) : spaceWidth_ * rowCount);
+    totalItemHeight_ += posMapStart.isGroup ? (estimateHeight_ - prevHeight - totalSpaceWidth)
+                                            : (estimateHeight_ - prevHeight - totalSpaceWidth) * lanes_;
+    totalItemCount_ += end - start + 1;
+    currentIndex_ = end + 1;
+    return true;
+}
+
+bool ListHeightOffsetCalculator::CalcRangeRightHalf(int start, int end)
+{
+    ListPositionInfo posMapStart = posMap_ ? posMap_->GetPositionInfo(start) : ListPositionInfo { -1.0f, -1.0f };
+    ListPositionInfo posMapEnd = posMap_ ? posMap_->GetPositionInfo(end) : ListPositionInfo { -1.0f, -1.0f };
+    if (posMapStart.isGroup || posMapEnd.isGroup) {
+        return false;
+    }
+    if (Negative(posMapStart.mainSize)) {
+        if (NonNegative(posMapEnd.mainSize)) {
+            end = posMap_->GetEntryAtOrAfterIndex(start) - 1;
+        }
+        if (start > end) {
+            return false;
+        }
+        auto rowCount = GetLines(lanes_, end - start + 1);
+        estimateHeight_ += (GetAverageItemHeight() + spaceWidth_) * rowCount;
+        currentIndex_ = end + 1;
+    } else {
+        if (Negative(posMapEnd.mainSize)) {
+            end = posMap_->GetEntryAtOrBeforeIndex(end);
+            posMapEnd = posMap_->GetPositionInfo(end);
+        }
+        if (Negative(posMapEnd.mainSize)) {
+            return false;
+        }
+        auto prevHeight = estimateHeight_;
+        estimateHeight_ +=
+            posMapEnd.mainPos - posMapStart.mainPos + posMapEnd.mainSize + (start == 0 ? 0.0f : spaceWidth_);
+        auto rowCount = posMapStart.isGroup ? (end - start + 1) : (end - start + 1) / lanes_;
+        auto totalSpaceWidth = (start == 0 ? spaceWidth_ * (rowCount - 1) : spaceWidth_ * rowCount);
+        totalItemHeight_ += posMapStart.isGroup ? (estimateHeight_ - prevHeight - totalSpaceWidth)
+                                                : (estimateHeight_ - prevHeight - totalSpaceWidth) * lanes_;
+        totalItemCount_ += end - start + 1;
+        currentIndex_ = end + 1;
+    }
+    return true;
 }
 
 void ListHeightOffsetCalculator::CalculateLazyForEachNodeWithPosMap(RefPtr<UINode> node)
 {
-    auto repeat2 = AceType::DynamicCast<RepeatVirtualScroll2Node>(node);
+    auto repeatV2 = AceType::DynamicCast<RepeatVirtualScroll2Node>(node);
     int32_t count = 0;
-    if (repeat2) {
-        auto totalCount = repeat2->GetTotalCount();
+    if (repeatV2) {
+        auto totalCount = repeatV2->GetTotalCount();
         count = (totalCount <= INT_MAX) ? static_cast<int32_t>(totalCount) : INT_MAX;
     } else {
         count = node->FrameCount();
@@ -164,10 +227,18 @@ void ListHeightOffsetCalculator::CalculateLazyForEachNodeWithPosMap(RefPtr<UINod
     int32_t lazyStartIndex = currentIndex_;
     int32_t lazyEndIndex = currentIndex_ + count;
     bool hasGroup = false;
+
     while (currentIndex_ < lazyEndIndex) {
         if (currentIndex_ < startIndex_) {
-            CalculatePosMapNode();
+            int32_t jumpTarget = (startIndex_ - 1 < lazyEndIndex) ? startIndex_ - 1 : lazyEndIndex - 1;
+            if (hasGroup_ || !CalcRangeLeftHalf(currentIndex_, jumpTarget)) {
+                CalculatePosMapNode();
+            }
         } else if (currentIndex_ <= endIndex_) {
+            if (!hasGroup_) {
+                CalculatePosMapNode();
+                continue;
+            }
             auto child = node->GetFrameChildByIndex(currentIndex_ - lazyStartIndex, false);
             auto frameNode = AceType::DynamicCast<FrameNode>(child);
             if (!frameNode) {
@@ -181,8 +252,11 @@ void ListHeightOffsetCalculator::CalculateLazyForEachNodeWithPosMap(RefPtr<UINod
                 totalItemCount_++;
                 hasGroup = true;
             }
-        } else if (currentIndex_ < GetPosMapEndIndex()) {
-            CalculatePosMapNode();
+        } else if (currentIndex_ <= GetPosMapEndIndex()) {
+            int32_t jumpTarget = (GetPosMapEndIndex() < lazyEndIndex) ? GetPosMapEndIndex() : lazyEndIndex - 1;
+            if (hasGroup_ || !CalcRangeRightHalf(currentIndex_, jumpTarget)) {
+                CalculatePosMapNode();
+            }
         } else if (currentIndex_ < lazyEndIndex) {
             int32_t lanes = hasGroup ? 1 : lanes_;
             int32_t remain = lazyEndIndex - currentIndex_;
@@ -206,8 +280,11 @@ void ListHeightOffsetCalculator::CalculateUINode(RefPtr<UINode> node, bool check
             auto frameNode = AceType::DynamicCast<FrameNode>(child);
             CalculateFrameNode(frameNode);
         } else if (AceType::InstanceOf<LazyForEachNode>(child) || AceType::InstanceOf<RepeatVirtualScrollNode>(child) ||
-                   AceType::InstanceOf<RepeatVirtualScroll2Node>(child) ||
-                   AceType::InstanceOf<ArkoalaLazyNode>(child)) {
+                   AceType::InstanceOf<RepeatVirtualScroll2Node>(child)
+#ifdef ACE_STATIC
+                   || AceType::InstanceOf<ArkoalaLazyNode>(child)
+#endif
+        ) {
             auto posMapStart = GetPosMapStartIndex();
             if (posMapStart >= 0 && posMapStart <= currentIndex_ && !syncPosMap_) {
                 CalculateLazyForEachNodeWithPosMap(child);

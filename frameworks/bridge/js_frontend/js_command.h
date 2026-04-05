@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -22,18 +22,18 @@
 #include "base/memory/referenced.h"
 #include "base/utils/macros.h"
 #include "core/accessibility/accessibility_manager.h"
+#include "core/components_ng/pattern/image/image_properties.h"
 #include "core/pipeline/pipeline_context.h"
-#include "frameworks/bridge/common/dom/dom_badge.h"
-#include "frameworks/bridge/common/dom/dom_canvas.h"
-#include "frameworks/bridge/common/dom/dom_chart.h"
-#include "frameworks/bridge/common/dom/dom_clock.h"
+#include "compatible/components/chart/dom_chart.h"
+#include "frameworks/compatible/components/clock/dom_clock.h"
+#include "frameworks/bridge/common/dom/dom_configs.h"
 #include "frameworks/bridge/common/dom/dom_document.h"
-#include "frameworks/bridge/common/dom/dom_image_animator.h"
-#include "frameworks/bridge/common/dom/dom_input.h"
+#include "frameworks/compatible/components/input/dom_input.h"
 #include "frameworks/bridge/common/dom/dom_proxy.h"
-#include "frameworks/bridge/common/dom/dom_stepper.h"
-#include "frameworks/bridge/common/dom/dom_stepper_item.h"
+#include "frameworks/compatible/components/stepper/dom_stepper.h"
+#include "frameworks/compatible/components/stepper/dom_stepper_item.h"
 #include "frameworks/bridge/common/dom/dom_xcomponent.h"
+#include "frameworks/compatible/components/canvas/custom_paint_component.h"
 
 namespace OHOS::Ace::Framework {
 
@@ -42,7 +42,7 @@ class JsAcePage;
 // Basic class of command from JS framework
 class ACE_EXPORT JsCommand : public Referenced {
 public:
-    JsCommand() : Referenced(false) {}
+    JsCommand() : Referenced() {}
     ~JsCommand() override = default;
 
     virtual void Execute(const RefPtr<JsAcePage>& page) const = 0;
@@ -263,8 +263,8 @@ private:
 
 class ACE_EXPORT  JsCommandAppendElement final : public JsCommandDomElementCreator {
 public:
-JsCommandAppendElement(const std::string& tagName, NodeId nodeId, NodeId parentNodeId)
-    : JsCommandDomElementCreator(tagName, nodeId), parentNodeId_(parentNodeId)
+    JsCommandAppendElement(const std::string& tagName, NodeId nodeId, NodeId parentNodeId)
+        : JsCommandDomElementCreator(tagName, nodeId), parentNodeId_(parentNodeId)
     {}
     ~JsCommandAppendElement() override = default;
 
@@ -320,19 +320,6 @@ private:
     std::string param_;
 };
 
-class ACE_EXPORT JsCommandContextOperation final : public JsCommand {
-public:
-    JsCommandContextOperation(NodeId nodeId, std::function<void(const RefPtr<CanvasTaskPool>&)> task)
-        : nodeId_(nodeId), task_(std::move(task))
-    {}
-    ~JsCommandContextOperation() final = default;
-    void Execute(const RefPtr<JsAcePage>& page) const final;
-
-private:
-    NodeId nodeId_ = -1;
-    std::function<void(const RefPtr<CanvasTaskPool>&)> task_;
-};
-
 class ACE_EXPORT JsCommandXComponentOperation final : public JsCommand {
 public:
     JsCommandXComponentOperation(NodeId nodeId, std::function<void(const RefPtr<XComponentTaskPool>&)> task)
@@ -347,7 +334,7 @@ private:
 };
 
 class ACE_EXPORT AnimationBridgeTask : public AceType {
-    DECLARE_ACE_TYPE(AnimationBridgeTask, AceType)
+    DECLARE_ACE_TYPE(AnimationBridgeTask, AceType);
 
 public:
     AnimationBridgeTask() = default;
@@ -368,7 +355,7 @@ private:
 };
 
 class ACE_EXPORT AnimatorBridgeTask : public AceType {
-    DECLARE_ACE_TYPE(AnimatorBridgeTask, AceType)
+    DECLARE_ACE_TYPE(AnimatorBridgeTask, AceType);
 
 public:
     AnimatorBridgeTask() = default;

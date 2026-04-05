@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 
 #include "gtest/gtest.h"
@@ -25,10 +26,11 @@
 #include "native_node.h"
 #include "native_type.h"
 #include "node_model.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "securec.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -134,6 +136,7 @@ HWTEST_F(DragAndDropTest, DragAndDropTest002, TestSize.Level1)
     OH_ArkUI_DragAction_UnregisterStatusListener(dragAction);
     EXPECT_EQ(OH_ArkUI_StartDrag(dragAction), ARKUI_ERROR_CODE_NO_ERROR);
     OH_ArkUI_DragAction_Dispose(dragAction);
+    delete uiContext;
 }
 
 /**
@@ -173,6 +176,8 @@ HWTEST_F(DragAndDropTest, DragAndDropTest004, TestSize.Level1)
     EXPECT_EQ(nodeAPI->registerNodeEvent(textNode, NODE_ON_DRAG_LEAVE, 4, nullptr), ARKUI_ERROR_CODE_NO_ERROR);
     EXPECT_EQ(nodeAPI->registerNodeEvent(areaNode, NODE_ON_DROP, 5, nullptr), ARKUI_ERROR_CODE_NO_ERROR);
     EXPECT_EQ(nodeAPI->registerNodeEvent(textNode, NODE_ON_DRAG_END, 6, nullptr), ARKUI_ERROR_CODE_NO_ERROR);
+    delete textNode;
+    delete areaNode;
 }
 
 /**
@@ -235,18 +240,19 @@ HWTEST_F(DragAndDropTest, DragAndDropTest006, TestSize.Level1)
     ArkUIDragEvent dragEvent;
     auto* drag_Event = reinterpret_cast<ArkUI_DragEvent*>(&dragEvent);
     auto ret1 = OH_ArkUI_DragEvent_DisableDefaultDropAnimation(drag_Event, true);
+    EXPECT_EQ(ret1, ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_EQ(dragEvent.useCustomDropAnimation, true);
+    auto ret2 = OH_ArkUI_DragEvent_DisableDefaultDropAnimation(drag_Event, false);
+    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_EQ(dragEvent.useCustomDropAnimation, false);
 
     /**
      * @tc.steps: step2.set DragEvent is nullptr, related function is called.
      */
-    auto ret2 = OH_ArkUI_DragEvent_DisableDefaultDropAnimation(nullptr, false);
-
-    /**
-     * @tc.expected: Return expected results.
-     */
-    EXPECT_EQ(ret1, ARKUI_ERROR_CODE_NO_ERROR);
-    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
-    EXPECT_EQ(dragEvent.useCustomDropAnimation, true);
+    auto ret3 = OH_ArkUI_DragEvent_DisableDefaultDropAnimation(nullptr, false);
+    EXPECT_EQ(ret3, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret4 = OH_ArkUI_DragEvent_DisableDefaultDropAnimation(nullptr, false);
+    EXPECT_EQ(ret4, ARKUI_ERROR_CODE_PARAM_INVALID);
 }
 
 /**
@@ -261,17 +267,19 @@ HWTEST_F(DragAndDropTest, DragAndDropTest007, TestSize.Level1)
      */
     auto textNode = new ArkUI_Node({ ARKUI_NODE_TEXT, nullptr, true });
     auto ret1 = OH_ArkUI_SetNodeDraggable(textNode, true);
+    EXPECT_EQ(ret1, ARKUI_ERROR_CODE_NO_ERROR);
+
+    auto ret2 = OH_ArkUI_SetNodeDraggable(textNode, false);
+    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_NO_ERROR);
 
     /**
      * @tc.steps: step2.set DragEvent is nullptr, related function is called.
      */
-    auto ret2 = OH_ArkUI_SetNodeDraggable(nullptr, false);
-
-    /**
-     * @tc.expected: Return expected results.
-     */
-    EXPECT_EQ(ret1, ARKUI_ERROR_CODE_NO_ERROR);
-    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret3 = OH_ArkUI_SetNodeDraggable(nullptr, true);
+    EXPECT_EQ(ret3, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret4 = OH_ArkUI_SetNodeDraggable(nullptr, false);
+    EXPECT_EQ(ret4, ARKUI_ERROR_CODE_PARAM_INVALID);
+    delete textNode;
 }
 
 /**
@@ -316,14 +324,22 @@ HWTEST_F(DragAndDropTest, DragAndDropTest009, TestSize.Level1)
     EXPECT_TRUE(option->isScaleEnabled);
     EXPECT_FALSE(option->isDefaultShadowEnabled);
     EXPECT_FALSE(option->isDefaultRadiusEnabled);
+    auto ret2 = OH_ArkUI_DragPreviewOption_SetScaleMode(
+        dragPreviewOption, ArkUI_DragPreviewScaleMode::ARKUI_DRAG_PREVIEW_SCALE_DISABLED);
+    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_FALSE(option->isScaleEnabled);
 
     /**
      * @tc.steps: step2.set preview option with nullptr.
      * @tc.expected: Return expected results.
      */
-    auto ret2 =
+    auto ret3 =
         OH_ArkUI_DragPreviewOption_SetScaleMode(nullptr, ArkUI_DragPreviewScaleMode::ARKUI_DRAG_PREVIEW_SCALE_AUTO);
-    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    EXPECT_EQ(ret3, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret4 =
+        OH_ArkUI_DragPreviewOption_SetScaleMode(nullptr, ArkUI_DragPreviewScaleMode::ARKUI_DRAG_PREVIEW_SCALE_DISABLED);
+    EXPECT_EQ(ret4, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragPreviewOption_Dispose(dragPreviewOption);
 }
 
 /**
@@ -342,13 +358,19 @@ HWTEST_F(DragAndDropTest, DragAndDropTest010, TestSize.Level1)
     EXPECT_EQ(ret1, ARKUI_ERROR_CODE_NO_ERROR);
     auto* option = reinterpret_cast<ArkUIDragPreViewAndInteractionOptions*>(dragPreviewOption);
     EXPECT_TRUE(option->isDefaultShadowEnabled);
+    auto ret2 = OH_ArkUI_DragPreviewOption_SetDefaultShadowEnabled(dragPreviewOption, false);
+    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_FALSE(option->isDefaultShadowEnabled);
 
     /**
      * @tc.steps: step2.set preview option with nullptr.
      * @tc.expected: Return expected results.
      */
-    auto ret2 = OH_ArkUI_DragPreviewOption_SetDefaultShadowEnabled(nullptr, true);
-    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret3 = OH_ArkUI_DragPreviewOption_SetDefaultShadowEnabled(nullptr, true);
+    EXPECT_EQ(ret3, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret4 = OH_ArkUI_DragPreviewOption_SetDefaultShadowEnabled(nullptr, false);
+    EXPECT_EQ(ret4, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragPreviewOption_Dispose(dragPreviewOption);
 }
 
 /**
@@ -368,12 +390,19 @@ HWTEST_F(DragAndDropTest, DragAndDropTest011, TestSize.Level1)
     auto* option = reinterpret_cast<ArkUIDragPreViewAndInteractionOptions*>(dragPreviewOption);
     EXPECT_TRUE(option->isDefaultRadiusEnabled);
 
+    auto ret2 = OH_ArkUI_DragPreviewOption_SetDefaultRadiusEnabled(dragPreviewOption, false);
+    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_FALSE(option->isDefaultRadiusEnabled);
+
     /**
      * @tc.steps: step2.set preview option with nullptr.
      * @tc.expected: Return expected results.
      */
-    auto ret2 = OH_ArkUI_DragPreviewOption_SetDefaultRadiusEnabled(nullptr, true);
-    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret3 = OH_ArkUI_DragPreviewOption_SetDefaultRadiusEnabled(nullptr, true);
+    EXPECT_EQ(ret3, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret4 = OH_ArkUI_DragPreviewOption_SetDefaultRadiusEnabled(nullptr, false);
+    EXPECT_EQ(ret4, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragPreviewOption_Dispose(dragPreviewOption);
 }
 
 /**
@@ -394,12 +423,20 @@ HWTEST_F(DragAndDropTest, DragAndDropTest012, TestSize.Level1)
     EXPECT_FALSE(option->isNumberBadgeEnabled);
     EXPECT_TRUE(option->isShowBadge);
 
+    auto ret2 = OH_ArkUI_DragPreviewOption_SetNumberBadgeEnabled(dragPreviewOption, false);
+    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_FALSE(option->isNumberBadgeEnabled);
+    EXPECT_FALSE(option->isShowBadge);
+
     /**
      * @tc.steps: step2.set preview option with nullptr.
      * @tc.expected: Return expected results.
      */
-    auto ret2 = OH_ArkUI_DragPreviewOption_SetNumberBadgeEnabled(nullptr, true);
-    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret3 = OH_ArkUI_DragPreviewOption_SetNumberBadgeEnabled(nullptr, true);
+    EXPECT_EQ(ret3, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret4 = OH_ArkUI_DragPreviewOption_SetNumberBadgeEnabled(nullptr, false);
+    EXPECT_EQ(ret4, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragPreviewOption_Dispose(dragPreviewOption);
 }
 
 /**
@@ -426,6 +463,7 @@ HWTEST_F(DragAndDropTest, DragAndDropTest013, TestSize.Level1)
      */
     auto ret2 = OH_ArkUI_DragPreviewOption_SetBadgeNumber(nullptr, true);
     EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragPreviewOption_Dispose(dragPreviewOption);
 }
 
 /**
@@ -444,13 +482,19 @@ HWTEST_F(DragAndDropTest, DragAndDropTest014, TestSize.Level1)
     EXPECT_EQ(ret1, ARKUI_ERROR_CODE_NO_ERROR);
     auto* option = reinterpret_cast<ArkUIDragPreViewAndInteractionOptions*>(dragPreviewOption);
     EXPECT_TRUE(option->defaultAnimationBeforeLifting);
+    auto ret2 = OH_ArkUI_DragPreviewOption_SetDefaultAnimationBeforeLiftingEnabled(dragPreviewOption, false);
+    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_FALSE(option->defaultAnimationBeforeLifting);
 
     /**
      * @tc.steps: step2.set preview option with nullptr.
      * @tc.expected: Return expected results.
      */
-    auto ret2 = OH_ArkUI_DragPreviewOption_SetDefaultAnimationBeforeLiftingEnabled(nullptr, true);
-    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret3 = OH_ArkUI_DragPreviewOption_SetDefaultAnimationBeforeLiftingEnabled(nullptr, true);
+    EXPECT_EQ(ret3, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret4 = OH_ArkUI_DragPreviewOption_SetDefaultAnimationBeforeLiftingEnabled(nullptr, false);
+    EXPECT_EQ(ret4, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragPreviewOption_Dispose(dragPreviewOption);
 }
 
 /**
@@ -473,6 +517,7 @@ HWTEST_F(DragAndDropTest, DragAndDropTest015, TestSize.Level1)
     EXPECT_TRUE(option->isScaleEnabled);
     EXPECT_FALSE(option->isDefaultShadowEnabled);
     EXPECT_FALSE(option->isDefaultRadiusEnabled);
+    OH_ArkUI_DragPreviewOption_Dispose(dragPreviewOption);
 }
 
 /**
@@ -492,8 +537,18 @@ HWTEST_F(DragAndDropTest, DragAndDropTest016, TestSize.Level1)
     OH_ArkUI_DragPreviewOption_SetScaleMode(
         dragPreviewOption, ArkUI_DragPreviewScaleMode::ARKUI_DRAG_PREVIEW_SCALE_AUTO);
     auto textNode = new ArkUI_Node({ ARKUI_NODE_TEXT, nullptr, true });
-    auto ret1 = OH_ArkUI_SetNodeDragPreviewOption(textNode, dragPreviewOption);
-    EXPECT_EQ(ret1, ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_EQ(OH_ArkUI_SetNodeDragPreviewOption(textNode, dragPreviewOption), ARKUI_ERROR_CODE_NO_ERROR);
+    OH_ArkUI_DragPreviewOption_SetScaleMode(
+    dragPreviewOption, ArkUI_DragPreviewScaleMode::ARKUI_DRAG_PREVIEW_SCALE_DISABLED);
+    EXPECT_EQ(OH_ArkUI_SetNodeDragPreviewOption(textNode, dragPreviewOption), ARKUI_ERROR_CODE_NO_ERROR);
+    OH_ArkUI_DragPreviewOption_SetDefaultShadowEnabled(dragPreviewOption, true);
+    EXPECT_EQ(OH_ArkUI_SetNodeDragPreviewOption(textNode, dragPreviewOption), ARKUI_ERROR_CODE_NO_ERROR);
+    OH_ArkUI_DragPreviewOption_SetDefaultShadowEnabled(dragPreviewOption, false);
+    EXPECT_EQ(OH_ArkUI_SetNodeDragPreviewOption(textNode, dragPreviewOption), ARKUI_ERROR_CODE_NO_ERROR);
+    OH_ArkUI_DragPreviewOption_SetDefaultRadiusEnabled(dragPreviewOption, true);
+    EXPECT_EQ(OH_ArkUI_SetNodeDragPreviewOption(textNode, dragPreviewOption), ARKUI_ERROR_CODE_NO_ERROR);
+    OH_ArkUI_DragPreviewOption_SetDefaultRadiusEnabled(dragPreviewOption, false);
+    EXPECT_EQ(OH_ArkUI_SetNodeDragPreviewOption(textNode, dragPreviewOption), ARKUI_ERROR_CODE_NO_ERROR);
 
     /**
      * @tc.steps: step2.set preview option with nullptr.
@@ -501,6 +556,8 @@ HWTEST_F(DragAndDropTest, DragAndDropTest016, TestSize.Level1)
      */
     auto ret2 = OH_ArkUI_SetNodeDragPreviewOption(nullptr, dragPreviewOption);
     EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragPreviewOption_Dispose(dragPreviewOption);
+    delete textNode;
 }
 
 /**
@@ -725,16 +782,47 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0023, TestSize.Level1)
 HWTEST_F(DragAndDropTest, DragAndDropTest0024, TestSize.Level1)
 {
     /**
-     * @tc.steps: step1.create DragEvent is nullptr, related function is called.
-     */
-    int32_t length = 2;
-    int32_t maxStrLen = 128;
-    auto ret2 = OH_ArkUI_DragEvent_GetDataTypes(nullptr, nullptr, length, maxStrLen);
-
-    /**
+     * @tc.steps: step1.create DragEvent and set null parameters.
      * @tc.expected: Return expected results.
      */
+    ArkUIDragEvent dragEvent;
+    dragEvent.dataTypesCount = 5;
+    dragEvent.dataTypesMaxStrLength = 128;
+    auto* drag_Event = reinterpret_cast<ArkUI_DragEvent*>(&dragEvent);
+    
+    auto ret1 = OH_ArkUI_DragEvent_GetDataTypes(nullptr, nullptr, 1, 128);
+    auto ret2 = OH_ArkUI_DragEvent_GetDataTypes(drag_Event, nullptr, 1, 128);
+    EXPECT_EQ(ret1, ARKUI_ERROR_CODE_PARAM_INVALID);
     EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+
+    /**
+     * @tc.steps: step1.create DragEvent and set BufferSizeError parameters.
+     * @tc.expected: Return expected results.
+     */
+    char stringArray[10][128];
+    char *types1[128];
+    for (int i = 0; i < 10; i++) {
+        types1[i] = stringArray[i];
+    }
+    auto ret3 = OH_ArkUI_DragEvent_GetDataTypes(drag_Event, types1, 1, 128);
+    auto ret4 = OH_ArkUI_DragEvent_GetDataTypes(drag_Event, types1, 6, 127);
+    EXPECT_EQ(ret3, ARKUI_ERROR_CODE_BUFFER_SIZE_ERROR);
+    EXPECT_EQ(ret4, ARKUI_ERROR_CODE_BUFFER_SIZE_ERROR);
+
+    /**
+     * @tc.steps: step1.create DragEvent and set no error parameters.
+     * @tc.expected: Return expected results.
+     */
+    const char *dataTypes[128];
+    for (int i = 0; i < 10; i++) {
+        dataTypes[i] = stringArray[i];
+    }
+    dragEvent.dataTypes = dataTypes;
+    dragEvent.dataTypes[0] = strdup("text/plain");
+    dragEvent.dataTypes[1] = strdup("image/png");
+    drag_Event = reinterpret_cast<ArkUI_DragEvent*>(&dragEvent);
+    auto ret5 = OH_ArkUI_DragEvent_GetDataTypes(drag_Event, types1, 6, 128);
+    EXPECT_EQ(ret5, ARKUI_ERROR_CODE_NO_ERROR);
 }
 
 /**
@@ -805,6 +893,8 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0027, TestSize.Level1)
      */
     EXPECT_EQ(ret1, ARKUI_ERROR_CODE_PARAM_INVALID);
     EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragAction_Dispose(dragAction);
+    delete uiContext;
 }
 
 /**
@@ -834,6 +924,9 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0028, TestSize.Level1)
      */
     EXPECT_EQ(ret1, ARKUI_ERROR_CODE_NO_ERROR);
     EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragPreviewOption_Dispose(previewOptions);
+    OH_ArkUI_DragAction_Dispose(dragAction);
+    delete uiContext;
 }
 
 /**
@@ -889,13 +982,20 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0031, TestSize.Level1)
 {
     /**
      * @tc.steps: step1.set ArkUI_NodeHandle is null, related function is called.
-     */
-    auto ret1 = OH_ArkUI_SetNodeDragPreview(nullptr, nullptr);
-
-    /**
      * @tc.expected: Return expected results.
      */
-    EXPECT_EQ(ret1, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto ret = OH_ArkUI_SetNodeDragPreview(nullptr, nullptr);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
+
+    /**
+     * @tc.steps: step1.set ArkUI_NodeHandle is not null, related function is called.
+     * @tc.expected: Return expected results.
+     */
+    ArkUI_NativeNodeAPI_1 *nodeAPI = nullptr;
+    OH_ArkUI_GetModuleInterface(ARKUI_NATIVE_NODE, ArkUI_NativeNodeAPI_1, nodeAPI);
+    auto dragNode = nodeAPI->createNode(ARKUI_NODE_COLUMN);
+    ret = OH_ArkUI_SetNodeDragPreview(dragNode, nullptr);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_NO_ERROR);
 }
 
 /**
@@ -978,6 +1078,7 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0034, TestSize.Level1)
      */
     EXPECT_EQ(ret1, ARKUI_ERROR_CODE_PARAM_INVALID);
     EXPECT_EQ(ret2, ARKUI_ERROR_CODE_NO_ERROR);
+    delete uiContext;
 }
 
 /**
@@ -1204,11 +1305,15 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0043, TestSize.Level1)
     auto* drag_Event = reinterpret_cast<ArkUI_DragEvent*>(&dragEvent);
     int32_t displayId = -1;
     auto ret1 = OH_ArkUI_DragEvent_GetDisplayId(drag_Event, &displayId);
+    auto ret2 = OH_ArkUI_DragEvent_GetDisplayId(nullptr, &displayId);
+    auto ret3 = OH_ArkUI_DragEvent_GetDisplayId(drag_Event, nullptr);
     /**
      * @tc.expected: Return expected results.
      */
     EXPECT_EQ(ret1, ARKUI_ERROR_CODE_NO_ERROR);
     EXPECT_EQ(displayId, DISPLAYID);
+    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    EXPECT_EQ(ret3, ARKUI_ERROR_CODE_PARAM_INVALID);
 }
 
 /**
@@ -1225,7 +1330,8 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0044, TestSize.Level1)
     int32_t lengthError = 10;
     ArkUIDragEvent dragEvent;
     char dragEventBundleName[] = "com.example.tdd";
-    dragEvent.bundleName = dragEventBundleName;
+    int32_t err = strcpy_s(dragEvent.bundleName, sizeof(dragEvent.bundleName), dragEventBundleName);
+    ASSERT_EQ(err, 0);
     auto* drag_Event = reinterpret_cast<ArkUI_DragEvent*>(&dragEvent);
 
     /**
@@ -1335,6 +1441,7 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0046, TestSize.Level1)
     auto* dragActions = reinterpret_cast<ArkUIDragAction*>(dragAction);
     ASSERT_NE(dragAction, nullptr);
     EXPECT_EQ(dragActions->useDataLoadParams, true);
+    OH_ArkUI_DragAction_Dispose(dragAction);
 }
 
 /**
@@ -1480,6 +1587,7 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0050, TestSize.Level1)
      */
     ret = OH_ArkUI_DragEvent_GetUdmfData(drag_Event, data);
     EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_UdmfData_Destroy(data);
 }
 
 /**
@@ -1523,6 +1631,7 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0051, TestSize.Level1)
      */
     ret = OH_ArkUI_DragAction_SetPixelMaps(dragAction, pixelmapArray, size);
     EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragAction_Dispose(dragAction);
 }
 
 /**
@@ -1553,8 +1662,11 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0052, TestSize.Level1)
     /**
      * @tc.steps: step2.set params not null, related function is called.
      */
-    ret = OH_ArkUI_DragAction_SetData(dragAction, nullptr);
-    EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
+    ret = OH_ArkUI_DragAction_SetData(dragAction, data);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_NO_ERROR);
+    OH_ArkUI_DragAction_Dispose(dragAction);
+    OH_UdmfData_Destroy(data);
+    delete uiContext;
 }
 
 /**
@@ -1569,9 +1681,10 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0053, TestSize.Level1)
      */
     char key[] = "key_string1";
     OH_UdmfGetDataParams* options = OH_UdmfGetDataParams_Create();
-    unsigned int keyLen = 11;
+    unsigned int keyLen = 513;
     ArkUIDragEvent dragEvent;
     dragEvent.key = "key_string";
+    dragEvent.isSuitGetData = false;
     auto* drag_Event = reinterpret_cast<ArkUI_DragEvent*>(&dragEvent);
     ASSERT_NE(drag_Event, nullptr);
 
@@ -1595,6 +1708,12 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0053, TestSize.Level1)
      */
     ret = OH_ArkUI_DragEvent_StartDataLoading(drag_Event, options, key, keyLen);
     EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
+    dragEvent.isSuitGetData = true;
+    drag_Event = reinterpret_cast<ArkUI_DragEvent*>(&dragEvent);
+    ASSERT_NE(drag_Event, nullptr);
+    ret = OH_ArkUI_DragEvent_StartDataLoading(drag_Event, options, key, keyLen);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_UdmfGetDataParams_Destroy(options);
 }
 
 /**
@@ -1618,6 +1737,8 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0054, TestSize.Level1)
      */
     int32_t ret = OH_ArkUI_DragEvent_RequestDragEndPending(drag_Event, nullptr);
     EXPECT_EQ(ret, ARKUI_ERROR_CODE_DRAG_DROP_OPERATION_NOT_ALLOWED);
+    ret = OH_ArkUI_DragEvent_RequestDragEndPending(nullptr, nullptr);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
 
     /**
      * @tc.steps: step2.set params not null, related function is called.
@@ -1701,5 +1822,313 @@ HWTEST_F(DragAndDropTest, DragAndDropTest0057, TestSize.Level1)
      */
     ret = OH_ArkUI_EnableDropDisallowedBadge(uiContext, requestIdentify);
     EXPECT_EQ(ret, ARKUI_ERROR_CODE_NO_ERROR);
+    delete uiContext;
+}
+
+/**
+ * @tc.name: DragAndDropTest0058
+ * @tc.desc: Test OH_ArkUI_DragEvent_SetData.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragAndDropTest, DragAndDropTest0058, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.create and set property.
+     */
+    ArkUIDragEvent dragEvent;
+    OH_UdmfData* data = OH_UdmfData_Create();
+    ASSERT_NE(data, nullptr);
+    dragEvent.unifiedData = data;
+    auto* drag_Event = reinterpret_cast<ArkUI_DragEvent*>(&dragEvent);
+
+    auto ret1 = OH_ArkUI_DragEvent_SetData(nullptr, data);
+    auto ret2 = OH_ArkUI_DragEvent_SetData(drag_Event, nullptr);
+    auto ret3 = OH_ArkUI_DragEvent_SetData(drag_Event, data);
+    /**
+     * @tc.expected: Return expected results.
+     */
+    EXPECT_EQ(ret1, ARKUI_ERROR_CODE_PARAM_INVALID);
+    EXPECT_EQ(ret2, ARKUI_ERROR_CODE_PARAM_INVALID);
+    EXPECT_EQ(ret3, ARKUI_ERROR_CODE_NO_ERROR);
+    OH_UdmfData_Destroy(data);
+}
+
+/**
+ * @tc.name: DragAndDropTest0059
+ * @tc.desc: Test OH_ArkUI_NotifySuggestedDropOperation.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragAndDropTest, DragAndDropTest0059, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.create DragEvent, related function is called.
+     */
+    int32_t requestIdentify = 1;
+    ArkUI_DropOperation operation = ARKUI_DROP_OPERATION_COPY;
+
+    /**
+     * @tc.steps: step2.set params null.
+     */
+    int32_t ret = OH_ArkUI_NotifySuggestedDropOperation(0, operation);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_DRAG_DROP_OPERATION_NOT_ALLOWED);
+
+    /**
+     * @tc.steps: step2.set params not null, related function is called.
+     */
+    ret = OH_ArkUI_NotifySuggestedDropOperation(requestIdentify, operation);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_DRAG_DROP_OPERATION_NOT_ALLOWED);
+}
+
+/**
+ * @tc.name: DragAndDropTest0060
+ * @tc.desc: Test OH_ArkUI_NotifyDisableDefaultDropAnimation.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragAndDropTest, DragAndDropTest0060, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.create DragEvent, related function is called.
+     */
+    int32_t requestIdentify = 1;
+    bool disable = false;
+
+    /**
+     * @tc.steps: step2.set params null.
+     */
+    int32_t ret = OH_ArkUI_NotifyDisableDefaultDropAnimation(0, disable);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_DRAG_DROP_OPERATION_NOT_ALLOWED);
+
+    /**
+     * @tc.steps: step2.set params not null, related function is called.
+     */
+    ret = OH_ArkUI_NotifyDisableDefaultDropAnimation(requestIdentify, disable);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_DRAG_DROP_OPERATION_NOT_ALLOWED);
+}
+
+/**
+ * @tc.name: DragAndDropTest0061
+ * @tc.desc: Test OH_ArkUI_DragAction_SetPixelMaps with size < 0.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragAndDropTest, DragAndDropTest0061, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.create dragAction.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto rootNode = nodeAPI->createNode(ARKUI_NODE_STACK);
+    auto rootFrameNode = reinterpret_cast<ArkUI_Node*>(rootNode);
+    ASSERT_NE(rootFrameNode, nullptr);
+    auto frameNode = reinterpret_cast<NG::FrameNode*>(rootFrameNode->uiNodeHandle);
+    ASSERT_NE(frameNode, nullptr);
+    auto context = NG::MockPipelineContext::GetCurrent();
+    frameNode->context_ = AceType::RawPtr(context);
+    auto* dragAction = OH_ArkUI_CreateDragActionWithNode(rootNode);
+    ASSERT_NE(dragAction, nullptr);
+    OH_PixelmapNative* pixelmapArray[2];
+
+    /**
+     * @tc.steps: step2.set size < 0, related function is called.
+     */
+    int32_t ret = OH_ArkUI_DragAction_SetPixelMaps(dragAction, pixelmapArray, -1);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragAction_Dispose(dragAction);
+}
+
+/**
+ * @tc.name: DragAndDropTest0062
+ * @tc.desc: Test OH_ArkUI_DragAction_SetPixelMaps with null element in array.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragAndDropTest, DragAndDropTest0062, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.create dragAction.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto rootNode = nodeAPI->createNode(ARKUI_NODE_STACK);
+    auto rootFrameNode = reinterpret_cast<ArkUI_Node*>(rootNode);
+    ASSERT_NE(rootFrameNode, nullptr);
+    auto frameNode = reinterpret_cast<NG::FrameNode*>(rootFrameNode->uiNodeHandle);
+    ASSERT_NE(frameNode, nullptr);
+    auto context = NG::MockPipelineContext::GetCurrent();
+    frameNode->context_ = AceType::RawPtr(context);
+    auto* dragAction = OH_ArkUI_CreateDragActionWithNode(rootNode);
+    ASSERT_NE(dragAction, nullptr);
+    OH_PixelmapNative* pixelmapArray[3];
+    pixelmapArray[0] = nullptr;
+    pixelmapArray[1] = nullptr;
+    pixelmapArray[2] = nullptr;
+    int32_t size = 3;
+
+    /**
+     * @tc.steps: step2.set pixelmapArray with all null elements, related function is called.
+     */
+    int32_t ret = OH_ArkUI_DragAction_SetPixelMaps(dragAction, pixelmapArray, size);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragAction_Dispose(dragAction);
+}
+
+/**
+ * @tc.name: DragAndDropTest0063
+ * @tc.desc: Test OH_ArkUI_DragAction_SetPixelMaps with partial null elements in array.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragAndDropTest, DragAndDropTest0063, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.create dragAction.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto rootNode = nodeAPI->createNode(ARKUI_NODE_STACK);
+    auto rootFrameNode = reinterpret_cast<ArkUI_Node*>(rootNode);
+    ASSERT_NE(rootFrameNode, nullptr);
+    auto frameNode = reinterpret_cast<NG::FrameNode*>(rootFrameNode->uiNodeHandle);
+    ASSERT_NE(frameNode, nullptr);
+    auto context = NG::MockPipelineContext::GetCurrent();
+    frameNode->context_ = AceType::RawPtr(context);
+    auto* dragAction = OH_ArkUI_CreateDragActionWithNode(rootNode);
+    ASSERT_NE(dragAction, nullptr);
+    OH_PixelmapNative* pixelmapArray[3];
+    pixelmapArray[0] = nullptr;
+    pixelmapArray[1] = nullptr;
+    pixelmapArray[2] = nullptr;
+    int32_t size = 2;
+
+    /**
+     * @tc.steps: step2.set pixelmapArray with partial null elements (count < size), related function is called.
+     */
+    int32_t ret = OH_ArkUI_DragAction_SetPixelMaps(dragAction, pixelmapArray, size);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragAction_Dispose(dragAction);
+}
+
+/**
+ * @tc.name: DragAndDropTest0064
+ * @tc.desc: Test OH_ArkUI_DragAction_SetPixelMaps reset pixelmaps.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragAndDropTest, DragAndDropTest0064, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.create dragAction.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto rootNode = nodeAPI->createNode(ARKUI_NODE_STACK);
+    auto rootFrameNode = reinterpret_cast<ArkUI_Node*>(rootNode);
+    ASSERT_NE(rootFrameNode, nullptr);
+    auto frameNode = reinterpret_cast<NG::FrameNode*>(rootFrameNode->uiNodeHandle);
+    ASSERT_NE(frameNode, nullptr);
+    auto context = NG::MockPipelineContext::GetCurrent();
+    frameNode->context_ = AceType::RawPtr(context);
+    auto* dragAction = OH_ArkUI_CreateDragActionWithNode(rootNode);
+    ASSERT_NE(dragAction, nullptr);
+    OH_PixelmapNative* pixelmapArray[2];
+    pixelmapArray[0] = nullptr;
+    pixelmapArray[1] = nullptr;
+    int32_t size = 2;
+
+    /**
+     * @tc.steps: step2.set pixelmaps first time.
+     */
+    int32_t ret = OH_ArkUI_DragAction_SetPixelMaps(dragAction, pixelmapArray, 0);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_NO_ERROR);
+
+    /**
+     * @tc.steps: step3.reset pixelmaps (should free old array and allocate new one).
+     */
+    ret = OH_ArkUI_DragAction_SetPixelMaps(dragAction, pixelmapArray, size);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DragAction_Dispose(dragAction);
+}
+
+/**
+ * @tc.name: DragAndDropTest0065
+ * @tc.desc: Test OH_ArkUI_DragAction_Dispose with nullptr.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragAndDropTest, DragAndDropTest0065, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.set dragAction is nullptr.
+     */
+    ArkUI_DragAction* dragAction = nullptr;
+    OH_ArkUI_DragAction_Dispose(dragAction);
+    ASSERT_EQ(dragAction, nullptr);
+}
+
+/**
+ * @tc.name: DragAndDropTest0066
+ * @tc.desc: Test OH_ArkUI_DragAction_Dispose with null pixelmapNativeList.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragAndDropTest, DragAndDropTest0066, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.create dragAction without setting pixelmaps.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto rootNode = nodeAPI->createNode(ARKUI_NODE_STACK);
+    auto rootFrameNode = reinterpret_cast<ArkUI_Node*>(rootNode);
+    ASSERT_NE(rootFrameNode, nullptr);
+    auto frameNode = reinterpret_cast<NG::FrameNode*>(rootFrameNode->uiNodeHandle);
+    ASSERT_NE(frameNode, nullptr);
+    auto context = NG::MockPipelineContext::GetCurrent();
+    frameNode->context_ = AceType::RawPtr(context);
+    auto* dragAction = OH_ArkUI_CreateDragActionWithNode(rootNode);
+    ASSERT_NE(dragAction, nullptr);
+    auto* internalDragAction = reinterpret_cast<ArkUIDragAction*>(dragAction);
+    
+    /**
+     * @tc.steps: step2.verify pixelmapNativeList is null.
+     */
+    EXPECT_EQ(internalDragAction->pixelmapNativeList, nullptr);
+
+    /**
+     * @tc.steps: step3.dispose dragAction (should not free pixelmapNativeList, only delete dragAction).
+     */
+    OH_ArkUI_DragAction_Dispose(dragAction);
+}
+
+/**
+ * @tc.name: DragAndDropTest0067
+ * @tc.desc: Test OH_ArkUI_DragAction_Dispose with valid pixelmapNativeList.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragAndDropTest, DragAndDropTest0067, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1.create dragAction and set pixelmaps.
+     */
+    auto nodeAPI = reinterpret_cast<ArkUI_NativeNodeAPI_1*>(
+        OH_ArkUI_QueryModuleInterfaceByName(ARKUI_NATIVE_NODE, "ArkUI_NativeNodeAPI_1"));
+    auto rootNode = nodeAPI->createNode(ARKUI_NODE_STACK);
+    auto rootFrameNode = reinterpret_cast<ArkUI_Node*>(rootNode);
+    ASSERT_NE(rootFrameNode, nullptr);
+    auto frameNode = reinterpret_cast<NG::FrameNode*>(rootFrameNode->uiNodeHandle);
+    ASSERT_NE(frameNode, nullptr);
+    auto context = NG::MockPipelineContext::GetCurrent();
+    frameNode->context_ = AceType::RawPtr(context);
+    auto* dragAction = OH_ArkUI_CreateDragActionWithNode(rootNode);
+    ASSERT_NE(dragAction, nullptr);
+    OH_PixelmapNative* pixelmapArray[2];
+    pixelmapArray[0] = nullptr;
+    pixelmapArray[1] = nullptr;
+
+    /**
+     * @tc.steps: step2.set pixelmaps with size 0 (allocates array but elements are null).
+     */
+    int32_t ret = OH_ArkUI_DragAction_SetPixelMaps(dragAction, pixelmapArray, 0);
+    EXPECT_EQ(ret, ARKUI_ERROR_CODE_NO_ERROR);
+    
+    /**
+     * @tc.steps: step3.dispose dragAction (should free pixelmapNativeList and delete dragAction).
+     */
+    OH_ArkUI_DragAction_Dispose(dragAction);
 }
 } // namespace OHOS::Ace

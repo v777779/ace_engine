@@ -16,7 +16,6 @@
 #include "gmock/gmock.h"
 
 #include "accessor_test_base.h"
-#include "node_api.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 
@@ -103,26 +102,26 @@ public:
 };
 
 /**
- * @tc.name: getLineCountTest01
+ * @tc.name: getLineCountTestVariant01
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(LayoutManagerAccessorTest, getLineCountTest01, TestSize.Level1)
+HWTEST_F(LayoutManagerAccessorTest, getLineCountTestVariant01, TestSize.Level1)
 {
     ASSERT_NE(accessor_, nullptr);
     ASSERT_NE(peer_, nullptr);
-    auto value = Converter::Convert<int32_t>(accessor_->getLineCount(peer_));
+    auto value = Converter::OptConvert<int32_t>(accessor_->getLineCount(peer_));
     ASSERT_EQ(value, 0);
-    value = Converter::Convert<int32_t>(accessor_->getLineCount(nullptr));
-    ASSERT_EQ(value, 0);
+    value = Converter::OptConvert<int32_t>(accessor_->getLineCount(nullptr));
+    ASSERT_EQ(value, std::nullopt);
 }
 
 /**
- * @tc.name: GetGlyphPositionAtCoordinate01
+ * @tc.name: getGlyphPositionAtCoordinateTestVariant01
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(LayoutManagerAccessorTest, GetGlyphPositionAtCoordinate01, TestSize.Level1)
+HWTEST_F(LayoutManagerAccessorTest, getGlyphPositionAtCoordinateTestVariant01, TestSize.Level1)
 {
     ASSERT_NE(accessor_->getGlyphPositionAtCoordinate, nullptr);
 
@@ -135,11 +134,12 @@ HWTEST_F(LayoutManagerAccessorTest, GetGlyphPositionAtCoordinate01, TestSize.Lev
     ON_CALL(*handlerKeeper_, GetGlyphPositionAtCoordinate(_, _)).WillByDefault(Return(targetError));
     EXPECT_CALL(*handlerKeeper_, GetGlyphPositionAtCoordinate(EXPECTED_X, EXPECTED_Y)).WillOnce(Return(target));
 
-    Ark_PositionWithAffinity result = accessor_->getGlyphPositionAtCoordinate(peer_, actualX, actualY);
+    Opt_PositionWithAffinity glyphPositionAtCoordinateOpt =
+        accessor_->getGlyphPositionAtCoordinate(peer_, actualX, actualY);
+    auto glyphPositionAtCoordinateArk = Converter::GetOpt(glyphPositionAtCoordinateOpt);
+    ASSERT_TRUE(glyphPositionAtCoordinateArk.has_value());
+    auto result = glyphPositionAtCoordinateArk.value();
     PositionWithAffinity position = Converter::Convert<PositionWithAffinity>(result);
     EXPECT_EQ(position.position_, target.position_);
-#ifdef WRONG_SDK
-    EXPECT_EQ(position.affinity_, target.affinity_);
-#endif
 }
 } // namespace OHOS::Ace::NG

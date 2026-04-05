@@ -22,6 +22,13 @@
 #include "bridge/common/utils/engine_helper.h"
 
 namespace OHOS::Ace::Napi {
+
+// Type tag for napi_wrap_s/napi_unwrap_s type safety
+constexpr napi_type_tag MEDIA_QUERY_LISTENER_TYPE_TAG = {
+    .lower = 0x7D4E9F3C8B5A2E6D,
+    .upper = 0x3E8B5C9F7A2D6E1F,
+};
+
 namespace {
 constexpr size_t STR_BUFFER_SIZE = 1024;
 constexpr int32_t TWO_ARGS = 2;
@@ -93,7 +100,10 @@ public:
         struct Leave {
             ~Leave()
             {
-                if (delayDeleteEnv_) {
+                if (!delayDeleteCallbacks_) {
+                    TAG_LOGE(AceLogTag::ACE_MEDIA_QUERY, "Null pointer exceptions in Leave.");
+                }
+                if (delayDeleteEnv_ && delayDeleteCallbacks_) {
                     for (auto& cbRef : *delayDeleteCallbacks_) {
                         napi_delete_reference(delayDeleteEnv_, cbRef);
                     }
@@ -131,7 +141,10 @@ public:
             }
 
             for (const auto& cbRef : copyCallbacks) {
-                if (delayDeleteCallbacks_->find(cbRef) != delayDeleteCallbacks_->end()) {
+                if (!delayDeleteCallbacks_) {
+                    TAG_LOGE(AceLogTag::ACE_MEDIA_QUERY, "Null pointer exceptions in TriggerAllCallbacks.");
+                }
+                if (delayDeleteCallbacks_ && delayDeleteCallbacks_->find(cbRef) != delayDeleteCallbacks_->end()) {
                     continue;
                 }
                 napi_handle_scope scope = nullptr;
@@ -156,7 +169,7 @@ public:
                 napi_close_handle_scope(listener->env_, scope);
             }
         }
-        TAG_LOGI(AceLogTag::ACE_MEDIA_QUERY, "trigger: %{public}s", mediaInfo.c_str());
+        TAG_LOGD(AceLogTag::ACE_MEDIA_QUERY, "trigger: %{public}s", mediaInfo.c_str());
     }
 
     static napi_value On(napi_env env, napi_callback_info info)
@@ -164,34 +177,40 @@ public:
         napi_handle_scope scope = nullptr;
         napi_open_handle_scope(env, &scope);
         if (scope == nullptr) {
+            TAG_LOGE(AceLogTag::ACE_MEDIA_QUERY, "on: Failed to open handle scope");
             return nullptr;
         }
         napi_value thisVar = nullptr;
         napi_value cb = nullptr;
         size_t argc = ParseArgs(env, info, thisVar, cb);
         if (!(argc == TWO_ARGS && thisVar != nullptr && cb != nullptr)) {
+            TAG_LOGE(AceLogTag::ACE_MEDIA_QUERY, "on: Invalid arguments");
             napi_close_handle_scope(env, scope);
             return nullptr;
         }
         MediaQueryListener* listener = GetListener(env, thisVar);
         if (!listener) {
+            TAG_LOGE(AceLogTag::ACE_MEDIA_QUERY, "on: Failed to get MediaQueryListener");
             napi_close_handle_scope(env, scope);
             return nullptr;
         }
         auto jsEngine = listener->GetJsEngine();
         if (!jsEngine) {
+            TAG_LOGE(AceLogTag::ACE_MEDIA_QUERY, "on: Failed to get jsEngine");
+            napi_close_handle_scope(env, scope);
             return nullptr;
         }
         jsEngine->RegisterMediaUpdateCallback(NapiCallback);
         auto iter = listener->FindCbList(cb);
         if (iter != listener->cbList_.end()) {
+            TAG_LOGE(AceLogTag::ACE_MEDIA_QUERY, "on: Callback has already registered in listener cbList");
             napi_close_handle_scope(env, scope);
             return nullptr;
         }
         napi_ref ref = nullptr;
         napi_create_reference(env, cb, 1, &ref);
         listener->cbList_.emplace_back(ref);
-        TAG_LOGI(AceLogTag::ACE_MEDIA_QUERY, "on:%{public}s num=%{public}d", listener->media_.c_str(),
+        TAG_LOGW(AceLogTag::ACE_MEDIA_QUERY, "on:%{public}s num=%{public}d", listener->media_.c_str(),
             static_cast<int>(listener->cbList_.size()));
         napi_close_handle_scope(env, scope);
 
@@ -209,6 +228,7 @@ public:
         size_t argc = ParseArgs(env, info, thisVar, cb);
         MediaQueryListener* listener = GetListener(env, thisVar);
         if (!listener) {
+            TAG_LOGE(AceLogTag::ACE_MEDIA_QUERY, "off: Failed to get MediaQueryListener");
             return nullptr;
         }
         if (argc == 1) {
@@ -234,9 +254,11 @@ public:
                     napi_delete_reference(listener->env_, *iter);
                 }
                 listener->cbList_.erase(iter);
+            } else {
+                TAG_LOGE(AceLogTag::ACE_MEDIA_QUERY, "off: Callback not found in listener cbList");
             }
         }
-        TAG_LOGI(AceLogTag::ACE_MEDIA_QUERY, "off:%{public}s num=%{public}d", listener->media_.c_str(),
+        TAG_LOGW(AceLogTag::ACE_MEDIA_QUERY, "off:%{public}s num=%{public}d", listener->media_.c_str(),
             static_cast<int>(listener->cbList_.size()));
         return nullptr;
     }
@@ -256,7 +278,7 @@ public:
     {
         MediaQueryResult::NapiSerializer(env, result);
 
-        napi_wrap(
+        napi_wrap_s(
             env, result, this,
             [](napi_env env, void* data, void* hint) {
                 MediaQueryListener* listener = static_cast<MediaQueryListener*>(data);
@@ -266,7 +288,7 @@ public:
                     delete listener;
                 }
             },
-            nullptr, nullptr);
+            nullptr, &MEDIA_QUERY_LISTENER_TYPE_TAG, nullptr);
 
         /* insert callback functions */
         const char* funName = "on";
@@ -331,7 +353,7 @@ private:
     static MediaQueryListener* GetListener(napi_env env, napi_value thisVar)
     {
         MediaQueryListener* listener = nullptr;
-        napi_unwrap(env, thisVar, (void**)&listener);
+        napi_unwrap_s(env, thisVar, &MEDIA_QUERY_LISTENER_TYPE_TAG, (void**)&listener);
         CHECK_NULL_RETURN(listener, nullptr);
         listener->Initialize(env, thisVar);
         return listener;
@@ -378,15 +400,15 @@ private:
     napi_env env_ = nullptr;
     std::list<napi_ref> cbList_;
     int32_t instanceId_ = DEFAULT_INSTANCE_ID;
-    static std::set<std::unique_ptr<MediaQueryListener>>* delayDeleteListenerSets_;
-    static napi_env delayDeleteEnv_;
-    static std::set<napi_ref>* delayDeleteCallbacks_;
+    thread_local static std::set<std::unique_ptr<MediaQueryListener>>* delayDeleteListenerSets_;
+    thread_local static napi_env delayDeleteEnv_;
+    thread_local static std::set<napi_ref>* delayDeleteCallbacks_;
     static std::map<WeakPtr<JsEngine>, std::set<MediaQueryListener*>> listenerSets_;
     static std::mutex mutex_;
 };
-std::set<std::unique_ptr<MediaQueryListener>>* MediaQueryListener::delayDeleteListenerSets_;
-napi_env MediaQueryListener::delayDeleteEnv_ = nullptr;
-std::set<napi_ref>* MediaQueryListener::delayDeleteCallbacks_;
+thread_local std::set<std::unique_ptr<MediaQueryListener>>* MediaQueryListener::delayDeleteListenerSets_;
+thread_local napi_env MediaQueryListener::delayDeleteEnv_ = nullptr;
+thread_local std::set<napi_ref>* MediaQueryListener::delayDeleteCallbacks_;
 std::map<WeakPtr<JsEngine>, std::set<MediaQueryListener*>> MediaQueryListener::listenerSets_;
 std::mutex MediaQueryListener::mutex_;
 

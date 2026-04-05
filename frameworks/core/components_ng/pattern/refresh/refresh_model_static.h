@@ -28,7 +28,9 @@ public:
     static void SetIsCustomBuilderExist(FrameNode* frameNode, bool isCustomBuilderExist);
     static void SetRefreshOffset(FrameNode* frameNode, const std::optional<Dimension>& offset);
     static void SetPullToRefresh(FrameNode* frameNode, const std::optional<bool>& isPullToRefresh);
+    static void SetPullUpToCancelRefresh(FrameNode* frameNode, const std::optional<bool>& isPullUpToCancelRefresh);
     static void SetPullDownRatio(FrameNode* frameNode, const std::optional<float>& pullDownRatio);
+    static void SetMaxPullDownDistance(FrameNode* frameNode, const std::optional<float>& maxDistance);
     static void SetOnStateChange(FrameNode* frameNode, StateChangeEvent&& stateChange);
     static void SetOnOffsetChange(FrameNode* frameNode, OffsetChangeEvent&& dragOffset);
     static void ResetOnOffsetChange(FrameNode* frameNode);

@@ -14,6 +14,10 @@
  */
 #include "securec.h"
 #include "drag_controller_module.h"
+
+#include <algorithm>
+
+#include <memory>
 #include "drag_and_drop/native_drag_drop_global.h"
 #include "load.h"
 #include "log/log.h"
@@ -25,13 +29,61 @@
 
 #include "core/common/ace_engine.h"
 #include "core/interfaces/native/implementation/drag_event_peer.h"
+#include "core/interfaces/native/implementation/drag_springloadingcontext_peer.h"
 
 namespace OHOS::Ace::Ani {
 namespace {
 constexpr int32_t PARAMETER_NUM = 2;
 constexpr int32_t TWO_ARGS = 2;
 constexpr int32_t MAX_ESCAPE_NUM = 1;
+constexpr char AUTO_HIDE_COMPONENT_UNIQUE_IDS[] = "autoHideComponentUniqueIds";
+
+void AddAutoHideComponentUniqueId(std::vector<int32_t>& uniqueIds, int32_t uniqueId)
+{
+    if (std::find(uniqueIds.begin(), uniqueIds.end(), uniqueId) == uniqueIds.end()) {
+        uniqueIds.emplace_back(uniqueId);
+    }
 }
+
+bool ParseAutoHideComponentUniqueIds(ani_env* env, ArkUIDragControllerAsync& asyncCtx, ani_object dragInfo)
+{
+    CHECK_NULL_RETURN(env, false);
+    CHECK_NULL_RETURN(dragInfo, false);
+    ani_ref autoHideComponentUniqueIdsAni = nullptr;
+    if (ANI_OK != env->Object_GetPropertyByName_Ref(
+        dragInfo, AUTO_HIDE_COMPONENT_UNIQUE_IDS, &autoHideComponentUniqueIdsAni)) {
+        return true;
+    }
+    if (AniUtils::IsUndefined(env, autoHideComponentUniqueIdsAni)) {
+        return true;
+    }
+
+    if (AniUtils::IsArrayObject(env, autoHideComponentUniqueIdsAni)) {
+        std::vector<int32_t> uniqueIds;
+        if (!AniUtils::GetArrayIntParam(env, autoHideComponentUniqueIdsAni, uniqueIds)) {
+            return false;
+        }
+        for (auto uniqueId : uniqueIds) {
+            AddAutoHideComponentUniqueId(asyncCtx.autoHideComponentUniqueIds, uniqueId);
+        }
+        return true;
+    }
+
+    int32_t uniqueId = 0;
+    if (!AniUtils::GetOptionalInt(env, autoHideComponentUniqueIdsAni, uniqueId)) {
+        return false;
+    }
+    AddAutoHideComponentUniqueId(asyncCtx.autoHideComponentUniqueIds, uniqueId);
+    return true;
+}
+}
+
+class DragAction;
+
+class JSDragAction {
+public:
+    std::shared_ptr<DragAction> dragAction = nullptr;
+};
 
 class DragAction {
 public:
@@ -49,6 +101,7 @@ public:
 
     void OnANICallback(ani_ref resultRef)
     {
+        CHECK_NULL_VOID(env_);
         std::vector<ani_ref> cbList;
         for (auto& cbRef : cbList_) {
             ani_wref cbWref;
@@ -60,7 +113,7 @@ public:
                 cbList.emplace_back(ref);
             }
         }
-        HILOGI("AceDrag, OnANICallback start cbList.size() = %{public}u.", cbList.size());
+        HILOGI("AceDrag, OnANICallback start cbList.size() = %{public}zu.", cbList.size());
         for (auto& callbackRef : cbList) {
             ani_ref fnReturnVal;
             env_->FunctionalObject_Call(static_cast<ani_fn_object>(callbackRef), 1, &resultRef, &fnReturnVal);
@@ -102,7 +155,7 @@ public:
             env->DestroyLocalScope();
             return;
         }
-        DragAction* dragAction = reinterpret_cast<DragAction*>(dragActionPtr);
+        auto dragAction = ConvertDragAction(dragActionPtr);
         if (!dragAction) {
             AniUtils::AniThrow(env, "convert drag action failed.", ERROR_CODE_PARAM_INVALID);
             HILOGE("AceDrag, convert drag action failed.");
@@ -134,7 +187,7 @@ public:
         if (ANI_OK != env->CreateLocalScope(SPECIFIED_CAPACITY)) {
             return;
         }
-        DragAction* dragAction = reinterpret_cast<DragAction*>(dragActionPtr);
+        auto dragAction = ConvertDragAction(dragActionPtr);
         if (!dragAction) {
             HILOGE("AceDrag, convert drag action failed.");
             AniUtils::AniThrow(env, "convert drag action failed.", ERROR_CODE_PARAM_INVALID);
@@ -174,7 +227,7 @@ public:
             return nullptr;
         }
         ani_ref escapedObj;
-        DragAction* dragAction = reinterpret_cast<DragAction*>(dragActionPtr);
+        auto dragAction = ConvertDragAction(dragActionPtr);
         if (!dragAction) {
             AniUtils::AniThrow(env, "convert drag action failed.", ERROR_CODE_PARAM_INVALID);
             HILOGE("AceDrag, convert drag action failed.");
@@ -229,15 +282,12 @@ private:
         return TWO_ARGS;
     }
 
-    static DragAction* ConvertDragAction(ani_env* env, ani_object object)
+    static std::shared_ptr<DragAction> ConvertDragAction(ani_long ptr)
     {
-        CHECK_NULL_RETURN(env, nullptr);
-        ani_long serializer;
-        ani_status status = ANI_OK;
-        if ((status = env->Object_GetFieldByName_Long(object, "dragAction", &serializer)) != ANI_OK) {
-            return nullptr;
-        }
-        return reinterpret_cast<DragAction*>(serializer);
+        CHECK_NULL_RETURN(ptr, nullptr);
+        JSDragAction* jsDragAction = reinterpret_cast<JSDragAction*>(ptr);
+        CHECK_NULL_RETURN(jsDragAction, nullptr);
+        return jsDragAction->dragAction;
     }
 
     void StartDragInternal(ArkUIDragControllerAsync& asyncCtx)
@@ -345,10 +395,45 @@ void TriggerJsCallback(std::shared_ptr<ArkUIDragControllerAsync> asyncCtx, ani_r
         }
     }
     HILOGI("AceDrag, TriggerJsCallback end.");
-    delete[] asyncCtx->extraParams;
-    asyncCtx->extraParams = nullptr;
     asyncCtx->deferred = nullptr;
     asyncCtx->hasHandle = false;
+}
+
+void DestroyBuilderNode(ani_env* env, ani_object destroyCallback)
+{
+    if (!env || !destroyCallback) {
+        return;
+    }
+    std::vector<ani_ref> resultRef;
+    ani_ref fnReturnVal;
+    ani_status status = ANI_OK;
+    if ((status = env->FunctionalObject_Call(static_cast<ani_fn_object>(destroyCallback),
+        resultRef.size(), resultRef.data(), &fnReturnVal)) != ANI_OK) {
+        HILOGE("AceDrag FunctionalObject_Call Failed! status = %{public}d", status);
+    };
+    env->GlobalReference_Delete(destroyCallback);
+}
+
+std::function<void()> CreateDestroyCallBack(ani_env* env, ani_object destroyCallbackObj)
+{
+    if (!env || !destroyCallbackObj) {
+        return nullptr;
+    }
+    ani_ref objectGRef;
+    env->GlobalReference_Create(reinterpret_cast<ani_ref>(destroyCallbackObj), &objectGRef);
+    ani_object destroyCallbackRef = reinterpret_cast<ani_object>(objectGRef);
+    ani_vm* vm = nullptr;
+    env->GetVM(&vm);
+    auto destroyCallback = [vm, destroyCallbackRef]() {
+        CHECK_NULL_VOID(vm);
+        ani_env* env = nullptr;
+        if (ANI_OK != vm->GetEnv(ANI_VERSION_1, &env)) {
+            return;
+        }
+        CHECK_NULL_VOID(env);
+        DestroyBuilderNode(env, destroyCallbackRef);
+    };
+    return destroyCallback;
 }
 
 ani_object GetDragAndDropInfo(
@@ -428,7 +513,7 @@ void CallBackJsFunction(std::shared_ptr<ArkUIDragControllerAsync> asyncCtx, cons
     ani_object dragEventObj = CreateDragEventObject(asyncCtx->env, dragNotifyMsg);
     ani_string extraParamsObj;
     if ((status = asyncCtx->env->String_NewUTF8(
-        asyncCtx->extraParams, strlen(asyncCtx->extraParams), &extraParamsObj)) != ANI_OK) {
+        asyncCtx->extraParams.c_str(), asyncCtx->extraParams.size(), &extraParamsObj)) != ANI_OK) {
         HILOGE("AceDrag, covert extraParams to ani object failed. status = %{public}d", status);
         asyncCtx->env->DestroyLocalScope();
         return;
@@ -458,10 +543,9 @@ bool ParseDragItemInfoParam(ani_env* env, ArkUIDragControllerAsync& asyncCtx, an
     }
     if (AniUtils::IsClassObject(env, extraInfoAni, "std.core.String")) {
         std::string extraParamsStr = AniUtils::ANIStringToStdString(env, static_cast<ani_string>(extraInfoAni));
-        std::string extraInfoLimited = extraParamsStr.size() > EXTRA_INFO_MAX_LENGTH
+        asyncCtx.extraParams = extraParamsStr.size() > EXTRA_INFO_MAX_LENGTH
                                     ? extraParamsStr.substr(0, EXTRA_INFO_MAX_LENGTH)
                                     : extraParamsStr;
-        asyncCtx.extraParams = extraInfoLimited.c_str();
     }
     if (AniUtils::IsUndefined(env, static_cast<ani_object>(pixelMapAni))) {
         HILOGI("AceDrag, failed to parse pixelMap from the first argument");
@@ -566,8 +650,8 @@ bool CheckAndParseFirstParams(ani_env* env, ArkUIDragControllerAsync& asyncCtx, 
         asyncCtx.customBuilderNode = builderNode;
         return true;
     }
-    if (AniUtils::IsClassObject(env, dragItemInfo, "escompat.Array") ||
-        AniUtils::IsClassObject(env, builderNodeArray, "escompat.Array")) {
+    if (AniUtils::IsClassObject(env, dragItemInfo, "std.core.Array") ||
+        AniUtils::IsClassObject(env, builderNodeArray, "std.core.Array")) {
         asyncCtx.isArray = true;
         HILOGI("AceDrag, drag controller is multi object drag.");
         return ParseDragItemListInfoParam(env, asyncCtx, dragItemInfo, builderNodeArray);
@@ -628,88 +712,122 @@ std::optional<Dimension> ConvertDimensionType(ani_env* env, ani_ref touchPoint)
     return std::nullopt;
 }
 
+struct DragInfoPropertyRefs {
+    ani_int pointerId = 0;
+    ani_ref extraParams = nullptr;
+    ani_ref data = nullptr;
+    ani_ref dataLoadParams = nullptr;
+    ani_ref touchPoint = nullptr;
+    ani_ref previewOptions = nullptr;
+};
+
+bool ParseDragInfoPropertyRefs(ani_env* env, ani_object dragInfo, DragInfoPropertyRefs& propertyRefs)
+{
+    if (ANI_OK != env->Object_GetPropertyByName_Int(dragInfo, "pointerId", &propertyRefs.pointerId)) {
+        HILOGE("AceDrag, get pointerId failed.");
+        return false;
+    }
+    if (ANI_OK != env->Object_GetPropertyByName_Ref(dragInfo, "extraParams", &propertyRefs.extraParams)) {
+        HILOGE("AceDrag, get extraParams failed.");
+        return false;
+    }
+    if (ANI_OK != env->Object_GetPropertyByName_Ref(dragInfo, "data", &propertyRefs.data)) {
+        HILOGE("AceDrag, get data failed.");
+        return false;
+    }
+    if (ANI_OK != env->Object_GetPropertyByName_Ref(dragInfo, "dataLoadParams", &propertyRefs.dataLoadParams)) {
+        HILOGE("AceDrag, get dataLoadParams failed.");
+        return false;
+    }
+    if (ANI_OK != env->Object_GetPropertyByName_Ref(dragInfo, "touchPoint", &propertyRefs.touchPoint)) {
+        HILOGE("AceDrag, get touchPoint failed.");
+        return false;
+    }
+    if (ANI_OK != env->Object_GetPropertyByName_Ref(dragInfo, "previewOptions", &propertyRefs.previewOptions)) {
+        HILOGE("AceDrag, get previewOptions failed.");
+        return false;
+    }
+    return true;
+}
+
+void ParseDragExtraParams(ani_env* env, ani_ref extraParams, ArkUIDragControllerAsync& asyncCtx)
+{
+    if (!AniUtils::IsClassObject(env, extraParams, "std.core.String")) {
+        return;
+    }
+    std::string extraParamsStr = AniUtils::ANIStringToStdString(env, static_cast<ani_string>(extraParams));
+    asyncCtx.extraParams = extraParamsStr.size() > EXTRA_INFO_MAX_LENGTH
+                               ? extraParamsStr.substr(0, EXTRA_INFO_MAX_LENGTH)
+                               : extraParamsStr;
+}
+
+void ParseDragDataAndDataLoadParams(
+    ani_env* env, ani_ref data, ani_ref dataLoadParams, ArkUIDragControllerAsync& asyncCtx)
+{
+    if (!AniUtils::IsUndefined(env, static_cast<ani_object>(data))) {
+        auto dataValue = OHOS::UDMF::AniConverter::UnwrapUnifiedData(env, static_cast<ani_object>(data));
+        if (dataValue) {
+            asyncCtx.unifiedData = SharedPointerWrapper(dataValue);
+        }
+    }
+    if (!AniUtils::IsUndefined(env, static_cast<ani_object>(dataLoadParams))) {
+        auto dataLoadParamsValue =
+            OHOS::UDMF::AniConverter::UnwrapDataLoadParams(env, static_cast<ani_object>(dataLoadParams));
+        asyncCtx.dataLoadParams =
+            SharedPointerWrapper(std::make_shared<OHOS::UDMF::DataLoadParams>(dataLoadParamsValue));
+        asyncCtx.unifiedData = SharedPointerWrapper(nullptr);
+    }
+}
+
+bool ParseDragTouchPoint(ani_env* env, ani_ref touchPoint, ArkUIDragControllerAsync& asyncCtx)
+{
+    if (AniUtils::IsUndefined(env, static_cast<ani_object>(touchPoint))) {
+        asyncCtx.touchPoint = SharedPointerWrapper(nullptr);
+        return true;
+    }
+    ani_ref pointXAni = nullptr;
+    ani_ref pointYAni = nullptr;
+    if (ANI_OK != env->Object_GetPropertyByName_Ref(static_cast<ani_object>(touchPoint), "x", &pointXAni)) {
+        HILOGE("AceDrag, get touchPoint x value failed.");
+        return false;
+    }
+    if (ANI_OK != env->Object_GetPropertyByName_Ref(static_cast<ani_object>(touchPoint), "y", &pointYAni)) {
+        HILOGE("AceDrag, get touchPoint y value failed.");
+        return false;
+    }
+
+    std::optional<Dimension> dx = ConvertDimensionType(env, pointXAni);
+    std::optional<Dimension> dy = ConvertDimensionType(env, pointYAni);
+    if (dx.has_value() && dy.has_value()) {
+        auto dimensionPtr = std::make_shared<DimensionOffset>(dx.value(), dy.value());
+        asyncCtx.touchPoint = SharedPointerWrapper(dimensionPtr);
+    }
+    return true;
+}
+
 bool CheckAndParseSecondParams(ani_env* env, ArkUIDragControllerAsync& asyncCtx, ani_object dragInfo)
 {
     if (AniUtils::IsUndefined(env, dragInfo)) {
         return false;
     }
-    ani_int pointerIdAni;
-    ani_ref extraParamsAni;
-    ani_ref dataAni;
-    ani_ref touchPointAni;
-    ani_ref previewOptionsAni;
-    if (ANI_OK != env->Object_GetPropertyByName_Int(dragInfo, "pointerId", &pointerIdAni)) {
-        HILOGE("AceDrag, get pointerId failed.");
-        return false;
-    }
-    if (ANI_OK != env->Object_GetPropertyByName_Ref(dragInfo, "extraParams", &extraParamsAni)) {
-        HILOGE("AceDrag, get extraParams failed.");
-        return false;
-    }
-    if (ANI_OK != env->Object_GetPropertyByName_Ref(dragInfo, "data", &dataAni)) {
-        HILOGE("AceDrag, get data failed.");
-        return false;
-    }
-    if (ANI_OK != env->Object_GetPropertyByName_Ref(dragInfo, "touchPoint", &touchPointAni)) {
-        HILOGE("AceDrag, get touchPoint failed.");
-        return false;
-    }
-    if (ANI_OK != env->Object_GetPropertyByName_Ref(dragInfo, "previewOptions", &previewOptionsAni)) {
-        HILOGE("AceDrag, get previewOptions failed.");
+    DragInfoPropertyRefs propertyRefs;
+    if (!ParseDragInfoPropertyRefs(env, dragInfo, propertyRefs)) {
         return false;
     }
 
-    asyncCtx.dragPointerEvent.pointerId = static_cast<int32_t>(pointerIdAni);
+    if (!ParseAutoHideComponentUniqueIds(env, asyncCtx, dragInfo)) {
+        HILOGE("AceDrag, parse autoHideComponentUniqueIds failed.");
+        return false;
+    }
+
+    asyncCtx.dragPointerEvent.pointerId = static_cast<int32_t>(propertyRefs.pointerId);
     HILOGI("AceDrag, pointerId = %{public}d", asyncCtx.dragPointerEvent.pointerId);
-    char* extraParamsCStr = nullptr;
-    if (AniUtils::IsClassObject(env, extraParamsAni, "std.core.String")) {
-        std::string extraParamsStr = AniUtils::ANIStringToStdString(env, static_cast<ani_string>(extraParamsAni));
-        std::string extraInfoLimited = extraParamsStr.size() > EXTRA_INFO_MAX_LENGTH
-                                    ? extraParamsStr.substr(0, EXTRA_INFO_MAX_LENGTH)
-                                    : extraParamsStr;
-        uint32_t extraParamsLen = extraParamsStr.size() > EXTRA_INFO_MAX_LENGTH ?
-            EXTRA_INFO_MAX_LENGTH : extraParamsStr.size();
-        extraParamsCStr = new char[extraParamsLen + 1];
-        auto errCode = strcpy_s(extraParamsCStr, extraParamsLen + 1, extraInfoLimited.c_str());
-        if (errCode != 0) {
-            HILOGE("AceDrag, get extraParams failed.");
-            delete[] extraParamsCStr;
-            extraParamsCStr = nullptr;
-            return false;
-        }
-        asyncCtx.extraParams = extraParamsCStr;
+    ParseDragExtraParams(env, propertyRefs.extraParams, asyncCtx);
+    ParseDragDataAndDataLoadParams(env, propertyRefs.data, propertyRefs.dataLoadParams, asyncCtx);
+    if (!ParseDragTouchPoint(env, propertyRefs.touchPoint, asyncCtx)) {
+        return false;
     }
-    if (!AniUtils::IsUndefined(env, static_cast<ani_object>(dataAni))) {
-        auto dataValue = OHOS::UDMF::AniConverter::UnwrapUnifiedData(env, static_cast<ani_object>(dataAni));
-        if (dataValue) {
-            asyncCtx.unifiedData = SharedPointerWrapper(dataValue);
-        }
-    }
-
-    std::shared_ptr<DimensionOffset> dimensionPtr = nullptr;
-    if (!AniUtils::IsUndefined(env, static_cast<ani_object>(touchPointAni))) {
-        ani_ref pointXAni = nullptr;
-        ani_ref pointYAni = nullptr;
-        if (ANI_OK != env->Object_GetPropertyByName_Ref(static_cast<ani_object>(touchPointAni), "x", &pointXAni)) {
-            HILOGE("AceDrag, get touchPoint x value failed.");
-            return false;
-        }
-        if (ANI_OK != env->Object_GetPropertyByName_Ref(static_cast<ani_object>(touchPointAni), "y", &pointYAni)) {
-            HILOGE("AceDrag, get touchPoint y value failed.");
-            return false;
-        }
-
-        std::optional<Dimension> dx = ConvertDimensionType(env, pointXAni);
-        std::optional<Dimension> dy = ConvertDimensionType(env, pointYAni);
-        if (dx.has_value() && dy.has_value()) {
-            dimensionPtr = std::make_shared<DimensionOffset>(dx.value(), dy.value());
-            asyncCtx.touchPoint = SharedPointerWrapper(dimensionPtr);
-        }
-    } else {
-        asyncCtx.touchPoint = SharedPointerWrapper(nullptr);
-    }
-    
-    if (!ParsePreviewOptions(env, asyncCtx, static_cast<ani_object>(previewOptionsAni))) {
+    if (!ParsePreviewOptions(env, asyncCtx, static_cast<ani_object>(propertyRefs.previewOptions))) {
         HILOGE("AceDrag, parse previewOptions failed.");
         return false;
     }
@@ -771,9 +889,10 @@ ani_object ANIExecuteDragWithCallback(ani_env* env, [[maybe_unused]] ani_object 
     }
     dragAsyncContext.env = env;
     auto jsCallback =
-        [=](std::shared_ptr<ArkUIDragControllerAsync> asyncCtx, const ArkUIDragNotifyMessage& dragNotifyMsg,
+        [](std::shared_ptr<ArkUIDragControllerAsync> asyncCtx, const ArkUIDragNotifyMessage& dragNotifyMsg,
             const ArkUIDragStatus dragStatus) { CallBackJsFunction(asyncCtx, dragNotifyMsg, dragStatus); };
     dragAsyncContext.callBackJsFunction = jsCallback;
+    dragAsyncContext.destroyJsFunction = CreateDestroyCallBack(env, destroyCallbackObj);
 
     const auto* modifier = GetNodeAniModifier();
     if (!modifier || !modifier->getDragControllerAniModifier()) {
@@ -821,9 +940,10 @@ ani_object ANICreateDragAction([[maybe_unused]] ani_env* env, [[maybe_unused]] a
     }
     dragAsyncContext.env = env;
     auto jsCallback =
-        [=](std::shared_ptr<ArkUIDragControllerAsync> asyncCtx, const ArkUIDragNotifyMessage& dragNotifyMsg,
+        [](std::shared_ptr<ArkUIDragControllerAsync> asyncCtx, const ArkUIDragNotifyMessage& dragNotifyMsg,
             const ArkUIDragStatus dragStatus) { CallBackJsFunction(asyncCtx, dragNotifyMsg, dragStatus); };
     dragAsyncContext.callBackJsFunction = jsCallback;
+    dragAsyncContext.destroyJsFunction = CreateDestroyCallBack(env, destroyCallbackObj);
     const auto* modifier = GetNodeAniModifier();
     if (!modifier || !modifier->getDragControllerAniModifier()) {
         return dragActionObj;
@@ -835,11 +955,14 @@ ani_object ANICreateDragAction([[maybe_unused]] ani_env* env, [[maybe_unused]] a
         env->DestroyEscapeLocalScope(dragActionObj, &escapedObj);
         return dragActionObj;
     }
-    DragAction* dragAction = new DragAction(dragAsyncContext);
+    auto dragAction = std::make_shared<DragAction>(dragAsyncContext);
     CHECK_NULL_RETURN(dragAction, nullptr);
+    JSDragAction* jsDragAction = new JSDragAction();
+    CHECK_NULL_RETURN(jsDragAction, nullptr);
+    jsDragAction->dragAction = dragAction;
     dragAsyncContext.dragAction = dragAction;
     dragAction->SetAsyncCtx(dragAsyncContext);
-    dragAction->AniSerializer(env, dragActionObj, reinterpret_cast<ani_long>(dragAction));
+    dragAction->AniSerializer(env, dragActionObj, reinterpret_cast<ani_long>(jsDragAction));
     env->DestroyEscapeLocalScope(dragActionObj, &escapedObj);
     return dragActionObj;
 }
@@ -872,16 +995,19 @@ ani_object ANIGetDragPreview([[maybe_unused]] ani_env* env, [[maybe_unused]] ani
     DragPreview* dragPreview = new DragPreview();
     CHECK_NULL_RETURN(dragPreview, nullptr);
     ani_object dragPreviewObj = {};
-    dragPreview->AniSerializer(env, dragPreviewObj);
+    auto ret = dragPreview->AniSerializer(env, dragPreviewObj);
     env->DestroyEscapeLocalScope(dragPreviewObj, &escapedObj);
+    if (!ret) {
+        delete dragPreview;
+        return nullptr;
+    }
     return dragPreviewObj;
 }
 
 void ANIDragPreviewSetForegroundColor([[maybe_unused]] ani_env* env, [[maybe_unused]] ani_object aniClass,
-    ani_long thisArray, ani_double thisLength, ani_long dragPreviewPtr)
+    ani_long colorValue, ani_double thisLength, ani_long dragPreviewPtr)
 {
-    Ark_ResourceColor resourceColor = GetResourceColor(thisArray, thisLength);
-    DragPreview::SetForegroundColor(env, aniClass, resourceColor, dragPreviewPtr);
+    DragPreview::SetForegroundColor(env, aniClass, colorValue, dragPreviewPtr);
 }
 
 void ANIDragPreviewAnimate([[maybe_unused]] ani_env* env, [[maybe_unused]] ani_object aniClass, ani_object options,
@@ -908,6 +1034,10 @@ void ANIDragActionCancelDataLoading(
         return;
     }
     auto keyStr = AniUtils::ANIStringToStdString(env, key);
+    if (keyStr.empty()) {
+        AniUtils::AniThrow(env, "Invalid input parameter.", ERROR_CODE_PARAM_INVALID);
+        return;
+    }
     modifier->getDragControllerAniModifier()->aniDragActionCancelDataLoading(keyStr.c_str());
 }
 
@@ -925,12 +1055,22 @@ void ANIDragActionNotifyDragStartReques(
     modifier->getDragControllerAniModifier()->aniDragActionNotifyDragStartReques(static_cast<int>(requestStatus));
 }
 
+void ANIDragActionEnableDropDisallowedBadge(
+    [[maybe_unused]] ani_env* env, [[maybe_unused]] ani_object aniClass, bool enabled)
+{
+    const auto* modifier = GetNodeAniModifier();
+    if (!modifier || !modifier->getDragControllerAniModifier()) {
+        return;
+    }
+    modifier->getDragControllerAniModifier()->aniDragActionEnableDropDisallowedBadge(enabled);
+}
+
 void ANICleanDragAction([[maybe_unused]] ani_env* env, [[maybe_unused]] ani_object aniClass, ani_long dragActionPtr)
 {
     if (dragActionPtr == 0) {
         return;
     }
-    DragAction* ptr = reinterpret_cast<DragAction *>(dragActionPtr);
+    JSDragAction* ptr = reinterpret_cast<JSDragAction *>(dragActionPtr);
     delete ptr;
     ptr = nullptr;
 }
@@ -943,5 +1083,203 @@ void ANICleanDragPreview([[maybe_unused]] ani_env* env, [[maybe_unused]] ani_obj
     DragPreview* ptr = reinterpret_cast<DragPreview *>(dragPreviewPtr);
     delete ptr;
     ptr = nullptr;
+}
+
+void ANICleanSpringLoadingContext([[maybe_unused]] ani_env* env, [[maybe_unused]] ani_object aniClass,
+    ani_long springLoadingContextPtr)
+{
+    if (springLoadingContextPtr == 0) {
+        return;
+    }
+    dragController_SpringLoadingContextPeer* ptr =
+        reinterpret_cast<dragController_SpringLoadingContextPeer *>(springLoadingContextPtr);
+    delete ptr;
+    ptr = nullptr;
+}
+
+ani_object ExtractorFromPtrToDragSpringLoadingContext(ani_env* env, [[maybe_unused]] ani_object object, ani_long pointer)
+{
+    ani_object springLoadingContextObj = {};
+    CHECK_NULL_RETURN(env, springLoadingContextObj);
+    CHECK_NULL_RETURN(pointer, springLoadingContextObj);
+    ani_status status = ANI_OK;
+    ani_class cls;
+    auto fullClassName = std::string("@ohos.arkui.dragController.dragController.SpringLoadingContext");
+    if ((status = env->FindClass(fullClassName.c_str(), &cls)) != ANI_OK) {
+        HILOGE("AceDrag, find SpringLoadingContext calss fail. status = %{public}d", status);
+        return springLoadingContextObj;
+    }
+    ani_method method;
+    if ((status = env->Class_FindMethod(cls, "<ctor>", "l:", &method)) != ANI_OK) {
+        HILOGE("AceDrag, find constructor method failed. status = %{public}d", status);
+        return springLoadingContextObj;
+    }
+    if ((status = env->Object_New(cls, method, &springLoadingContextObj, pointer)) != ANI_OK) {
+        HILOGE("AceDrag, create SpringLoadingContext object failed. status = %{public}d", status);
+        return {};
+    }
+    return springLoadingContextObj;
+}
+
+ani_enum_item SpringLoadingContextGetState(ani_env* env, [[maybe_unused]] ani_object object, ani_long pointer)
+{
+    const auto* modifier = GetNodeAniModifier();
+    if (!modifier || !modifier->getDragControllerAniModifier()) {
+        return {};
+    }
+    int32_t state = modifier->getDragControllerAniModifier()->aniSpringLoadingContextGetState(pointer);
+    ani_enum enumType;
+    ani_enum_item enumItem;
+    ani_status status = ANI_OK;
+    if ((status = env->FindEnum("@ohos.arkui.dragController.dragController.DragSpringLoadingState", &enumType))
+        != ANI_OK) {
+        HILOGE("DragSpringLoadingState FindEnum failed, status:%{public}d", status);
+        return {};
+    }
+    if ((status = env->Enum_GetEnumItemByIndex(enumType, static_cast<ani_size>(state), &enumItem)) != ANI_OK) {
+        HILOGE("DragSpringLoadingState GetEnumItem failed, status:%{public}d, state:%{public}d", status, state);
+        return {};
+    }
+    return enumItem;
+}
+
+ani_int SpringLoadingContextGetCurrentNotifySequence(ani_env* env, [[maybe_unused]] ani_object object, ani_long pointer)
+{
+    const auto* modifier = GetNodeAniModifier();
+    if (!modifier || !modifier->getDragControllerAniModifier()) {
+        return {};
+    }
+    int32_t sequence =
+        modifier->getDragControllerAniModifier()->aniSpringLoadingContextGetCurrentNotifySequence(pointer);
+    return static_cast<ani_int>(sequence);
+}
+
+ani_object SpringLoadingContextGetDragInfos(ani_env* env, [[maybe_unused]] ani_object object, ani_long pointer)
+{
+    const auto* modifier = GetNodeAniModifier();
+    if (!env || !modifier || !modifier->getDragControllerAniModifier()) {
+        return {};
+    }
+    ArkUIDragInfos info;
+    info.summary = SharedPointerWrapper(std::make_shared<OHOS::UDMF::Summary>());
+    modifier->getDragControllerAniModifier()->aniSpringLoadingContextGetDragInfos(pointer, info);
+    ani_object dragInfosObj = {};
+    CHECK_NULL_RETURN(pointer, dragInfosObj);
+    ani_status status = ANI_OK;
+    ani_class cls;
+    auto fullClassName = std::string("@ohos.arkui.dragController.dragController.SpringLoadingDragInfosInner");
+    if ((status = env->FindClass(fullClassName.c_str(), &cls)) != ANI_OK) {
+        HILOGE("AceDrag, find SpringLoadingDragInfos calss fail. status = %{public}d", status);
+        return dragInfosObj;
+    }
+    ani_method method;
+    if ((status = env->Class_FindMethod(cls, "<ctor>",
+        "C{@ohos.data.unifiedDataChannel.unifiedDataChannel.Summary}C{std.core.String}:", &method)) != ANI_OK) {
+        HILOGE("AceDrag, find SpringLoadingDragInfos constructor method failed. status = %{public}d", status);
+        return dragInfosObj;
+    }
+    ani_object summary_obj = {};
+    ani_string extraInfo_obj = {};
+    auto retValue = AniUtils::StdStringToANIString(env, info.extraInfo);
+    if (retValue.has_value()) {
+        extraInfo_obj = retValue.value();
+    }
+    auto summaryPtr = info.summary.GetSharedPtr();
+    if (summaryPtr) {
+        std::shared_ptr<OHOS::UDMF::Summary> summary =
+            std::static_pointer_cast<OHOS::UDMF::Summary>(summaryPtr);
+        summary_obj = OHOS::UDMF::AniConverter::WrapSummary(env, summary);
+    }
+    if ((status = env->Object_New(cls, method, &dragInfosObj, summary_obj, extraInfo_obj)) != ANI_OK) {
+        HILOGE("AceDrag, create SpringLoadingDragInfos object failed. status = %{public}d", status);
+        return {};
+    }
+    return dragInfosObj;
+}
+
+ani_object SpringLoadingContextGetCurrentConfig(ani_env* env, [[maybe_unused]] ani_object object, ani_long pointer)
+{
+    const auto* modifier = GetNodeAniModifier();
+    if (!env || !modifier || !modifier->getDragControllerAniModifier()) {
+        return {};
+    }
+    auto config = modifier->getDragControllerAniModifier()->aniSpringLoadingContextGetCurrentConfig(pointer);
+    ani_object obj = {};
+    CHECK_NULL_RETURN(pointer, obj);
+    ani_status status = ANI_OK;
+    ani_class cls;
+    auto fullClassName = std::string("@ohos.arkui.dragController.dragController.DragSpringLoadingConfigurationInner");
+    if ((status = env->FindClass(fullClassName.c_str(), &cls)) != ANI_OK) {
+        HILOGE("AceDrag, find DragSpringLoadingConfiguration calss fail. status = %{public}d", status);
+        return obj;
+    }
+    ani_method method;
+    if ((status = env->Class_FindMethod(cls, "<ctor>", "iiii:", &method)) != ANI_OK) {
+        HILOGE("AceDrag, find DragSpringLoadingConfiguration constructor method failed. status = %{public}d", status);
+        return obj;
+    }
+    ani_int stillTimeLimit = static_cast<ani_int>(config.stillTimeLimit);
+    ani_int updateInterval = static_cast<ani_int>(config.updateInterval);
+    ani_int updateNotifyCount = static_cast<ani_int>(config.updateNotifyCount);
+    ani_int updateToFinishInterval = static_cast<ani_int>(config.updateToFinishInterval);
+    if ((status = env->Object_New(cls, method, &obj, stillTimeLimit, updateInterval, updateNotifyCount,
+        updateToFinishInterval)) != ANI_OK) {
+        HILOGE("AceDrag, create DragSpringLoadingConfiguration object failed. status = %{public}d", status);
+        return {};
+    }
+    return obj;
+}
+
+void SpringLoadingContextAbort(ani_env* env, [[maybe_unused]] ani_object object, ani_long pointer)
+{
+    const auto* modifier = GetNodeAniModifier();
+    if (!modifier || !modifier->getDragControllerAniModifier()) {
+        return;
+    }
+    modifier->getDragControllerAniModifier()->aniSpringLoadingContextAbort(pointer);
+}
+
+bool GetPropertyIntByName(ani_env *env, ani_object config, const char *name, int &value)
+{
+    CHECK_NULL_RETURN(env, false);
+    ani_ref res {};
+    ani_status status = env->Object_GetPropertyByName_Ref(config, name, &res);
+    if (status != ANI_OK) {
+        return false;
+    }
+    ani_object obj = static_cast<ani_object>(res);
+    if (AniUtils::IsUndefined(env, obj)) {
+        return false;
+    }
+    ani_int value_obj = 0;
+    if (ANI_OK != env->Object_CallMethodByName_Int(obj, "unboxed", ":i", &value_obj)) {
+        return false;
+    }
+    value = static_cast<int>(value_obj);
+    return true;
+}
+
+void SpringLoadingContextUpdateConfiguration(ani_env* env, [[maybe_unused]] ani_object object,
+    ani_long pointer, ani_object config)
+{
+    const auto* modifier = GetNodeAniModifier();
+    if (!env || !modifier || !modifier->getDragControllerAniModifier()) {
+        return;
+    }
+    ArkUIDragSpringLoadingConfiguration configValue;
+    int value;
+    if (GetPropertyIntByName(env, config, "stillTimeLimit", value)) {
+        configValue.stillTimeLimit = value;
+    }
+    if (GetPropertyIntByName(env, config, "updateInterval", value)) {
+        configValue.updateInterval = value;
+    }
+    if (GetPropertyIntByName(env, config, "updateNotifyCount", value)) {
+        configValue.updateNotifyCount = value;
+    }
+    if (GetPropertyIntByName(env, config, "updateToFinishInterval", value)) {
+        configValue.updateToFinishInterval = value;
+    }
+    modifier->getDragControllerAniModifier()->aniSpringLoadingContextUpdateConfiguration(pointer, configValue);
 }
 } // namespace OHOS::Ace::Ani

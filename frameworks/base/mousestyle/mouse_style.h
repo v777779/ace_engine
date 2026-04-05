@@ -68,16 +68,24 @@ enum class MouseFormat : int32_t {
     CURSOR_CIRCLE = 41,
     LOADING = 42,
     RUNNING = 43,
-    CURSOR_NONE = 46,
-    CONTEXT_MENU = 47,
-    ALIAS = 48,
+    MIDDLE_BTN_EAST_WEST = 44,
+    RUNNING_LEFT = 45,
+    RUNNING_RIGHT = 46,
+    AECH_DEVELOPER_DEFINED_ICON = 47,
+    SCREENRECORDER_CURSOR = 48,
+    LASER_CURSOR = 49,
+    LASER_CURSOR_DOT = 50,
+    LASER_CURSOR_DOT_RED = 51,
+    CURSOR_NONE = 1001,
+    CONTEXT_MENU = 1002,
+    ALIAS = 1003,
 };
 
 class ACE_EXPORT MouseStyle : public AceType {
-    DECLARE_ACE_TYPE(MouseStyle, AceType)
+    DECLARE_ACE_TYPE(MouseStyle, AceType);
 
 public:
-    static RefPtr<MouseStyle> CreateMouseStyle();
+    ACE_FORCE_EXPORT static RefPtr<MouseStyle> CreateMouseStyle();
 
     virtual bool SetPointerStyle(int32_t windowId, MouseFormat pointerStyle) const = 0;
     virtual int32_t GetPointerStyle(int32_t windowId, int32_t& pointerStyle) const = 0;
@@ -97,19 +105,18 @@ enum class MouseStyleChangeReason {
 };
 
 struct MouseStyleChangeLog {
-    int32_t windowId; // the id of window which change mouseStyle
-    int32_t changeNodeId; // the id of node which change mouseStyle
-    MouseFormat beforeMouseStyle; // before this change, the mouseFormat of mouseStyle
-    MouseFormat afterMouseStyle; // after this change, the mouseFormat of mouseStyle
-    MouseStyleChangeReason reason; // the reason of this mouseStyle change
+    int32_t windowId;
+    int32_t changeNodeId;
+    MouseFormat beforeMouseStyle;
+    MouseFormat afterMouseStyle;
+    MouseStyleChangeReason reason;
 };
 
 class ACE_EXPORT MouseStyleManager : public AceType {
-    DECLARE_ACE_TYPE(MouseStyleManager, AceType)
+    DECLARE_ACE_TYPE(MouseStyleManager, AceType);
 
 public:
     MouseStyleManager() = default;
-
     bool SetMouseFormat(int32_t windowId, int32_t nodeId, MouseFormat mouseFormat,
         bool isByPass, MouseStyleChangeReason reason);
     
@@ -142,7 +149,6 @@ public:
         mouseStyleNodeId_.reset();
         return true;
     }
-
     void SetUserSetCursor(bool userSetCursor)
     {
         userSetCursor_ = userSetCursor;

@@ -38,11 +38,12 @@ struct Index {
       // 成功获取到图片信息，打印HDR状态
       console.info(TAG, 'imageInfo.isHdr:' + imageInfo.isHdr);
     }
+    imageSource?.release()
   }
 
   build() {
     Column() {
-      Image($r('app.media.img_1')).width('50%')
+      Image($r('app.media.startIcon')).width('50%')
         .height('auto')
         .margin({top:160})
         .hdrBrightness(this.bright) // 设置图片的HDR亮度，值由bright状态控制

@@ -16,6 +16,7 @@
 #include "core/components_ng/syntax/lazy_for_each_node.h"
 
 #include "core/components_ng/pattern/list/list_item_pattern.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/syntax/lazy_layout_wrapper_builder.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/pipeline/base/element_register.h"
@@ -34,17 +35,42 @@ RefPtr<LazyForEachNode> LazyForEachNode::GetOrCreateLazyForEachNode(
         }
         return node;
     }
+    ACE_UINODE_TRACE(nodeId);
     node = MakeRefPtr<LazyForEachNode>(nodeId, forEachBuilder);
     ElementRegister::GetInstance()->AddUINode(node);
     node->RegisterBuilderListener();
     return node;
 }
 
+void LazyForEachNode::OnDelete()
+{
+    if (builder_ && isRegisterListener_) {
+        builder_->UnregisterDataChangeListener(this);
+        isRegisterListener_ = false;
+    }
+
+    UINode::OnDelete();
+}
+
+LazyForEachNode::~LazyForEachNode()
+{
+    CHECK_NULL_VOID(builder_);
+    if (isRegisterListener_) {
+        builder_->UnregisterDataChangeListener(this);
+        isRegisterListener_ = false;
+    }
+    builder_->ClearAllOffscreenNode();
+}
+
 RefPtr<LazyForEachNode> LazyForEachNode::CreateLazyForEachNode(
     int32_t nodeId, const RefPtr<LazyForEachBuilder>& forEachBuilder)
 {
+    ACE_UINODE_TRACE(nodeId);
     auto node = MakeRefPtr<LazyForEachNode>(nodeId, forEachBuilder);
     ElementRegister::GetInstance()->AddUINode(node);
+    if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWENTY_SIX)) {
+        node->RegisterBuilderListener();
+    }
     return node;
 }
 
@@ -82,7 +108,7 @@ void LazyForEachNode::BuildAllChildren()
     }
 }
 
-void LazyForEachNode::PostIdleTask()
+void LazyForEachNode::PostIdleTask(uint32_t taskSource)
 {
     if (needPredict_) {
         return;
@@ -90,35 +116,40 @@ void LazyForEachNode::PostIdleTask()
     needPredict_ = true;
     auto context = GetContext();
     CHECK_NULL_VOID(context);
-    context->AddPredictTask([weak = AceType::WeakClaim(this)](int64_t deadline, bool canUseLongPredictTask) {
-        ACE_SCOPED_TRACE("LazyForEach predict");
+    ACE_SCOPED_TRACE("LazyForEach PostIdleTask parentId[%d] taskSource[%d]", GetParentId(), taskSource);
+    context->AddPredictTask([weak = AceType::WeakClaim(this), taskSource]
+        (int64_t deadline, bool canUseLongPredictTask) {
         auto node = weak.Upgrade();
         CHECK_NULL_VOID(node);
+        ACE_SCOPED_TRACE("LazyForEach predict parentId[%d] taskSource[%d]", node->GetParentId(), taskSource);
         node->needPredict_ = false;
         auto canRunLongPredictTask = node->requestLongPredict_ && canUseLongPredictTask;
         if (node->builder_) {
             node->GetChildren();
             auto preBuildResult = node->builder_->PreBuild(deadline, node->itemConstraint_, canRunLongPredictTask);
             if (!preBuildResult) {
-                node->PostIdleTask();
+                node->PostIdleTask(LazyForEachIdleTaskSource::POST_IDLE_TASK);
             } else {
                 node->requestLongPredict_ = true;
                 node->itemConstraint_.reset();
             }
+            ACE_SCOPED_TRACE("LazyForEach predict finish: %s", node->builder_->DumpHashKey().c_str());
         }
     });
 }
 
 void LazyForEachNode::OnDataReloaded()
 {
-    ACE_SCOPED_TRACE("LazyForEach OnDataReloaded");
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    ACE_SCOPED_TRACE("LazyForEach OnDataReloaded parendId[%d]", GetParentId());
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     if (builder_) {
         builder_->SetUseNewInterface(false);
         builder_->OnDataReloaded();
         if (FrameCount() == 0) {
-            PostIdleTask();
+            PostIdleTask(LazyForEachIdleTaskSource::ON_DATA_RELOADED);
         }
     }
     NotifyChangeWithCount(0, 0, NotificationType::START_CHANGE_POSITION);
@@ -132,14 +163,16 @@ void LazyForEachNode::OnDataReloaded()
 
 void LazyForEachNode::OnDataAdded(size_t index)
 {
-    ACE_SCOPED_TRACE("LazyForEach OnDataAdded");
+    ACE_SCOPED_TRACE("LazyForEach OnDataAdded parentId[%d]", GetParentId());
     auto insertIndex = static_cast<int32_t>(index);
     if (builder_) {
         builder_->SetUseNewInterface(false);
         builder_->OnDataAdded(index);
     }
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     NotifyChangeWithCount(insertIndex, 1, NotificationType::START_AND_END_CHANGE_POSITION);
     MarkNeedSyncRenderTree(true);
     MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
@@ -147,14 +180,16 @@ void LazyForEachNode::OnDataAdded(size_t index)
 
 void LazyForEachNode::OnDataBulkAdded(size_t index, size_t count)
 {
-    ACE_SCOPED_TRACE("LazyForEach OnDataBulkAdded");
+    ACE_SCOPED_TRACE("LazyForEach OnDataBulkAdded parentId[%d]", GetParentId());
     auto insertIndex = static_cast<int32_t>(index);
     if (builder_) {
         builder_->SetUseNewInterface(false);
         builder_->OnDataBulkAdded(index, count);
     }
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     NotifyChangeWithCount(insertIndex, static_cast<int32_t>(count), NotificationType::START_AND_END_CHANGE_POSITION);
     MarkNeedSyncRenderTree(true);
     MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
@@ -162,12 +197,11 @@ void LazyForEachNode::OnDataBulkAdded(size_t index, size_t count)
 
 void LazyForEachNode::OnDataDeleted(size_t index)
 {
-    ACE_SCOPED_TRACE("LazyForEach OnDataDeleted");
+    ACE_SCOPED_TRACE("LazyForEach OnDataDeleted parentId[%d]", GetParentId());
     auto deletedIndex = static_cast<int32_t>(index);
     if (builder_) {
         builder_->SetUseNewInterface(false);
         auto node = builder_->OnDataDeleted(index);
-
         if (node) {
             if (!node->OnRemoveFromParent(true)) {
                 AddDisappearingChild(node);
@@ -176,9 +210,19 @@ void LazyForEachNode::OnDataDeleted(size_t index)
             }
             builder_->ProcessOffscreenNode(node, true);
         }
+        auto pipeline = GetContext();
+        if (pipeline && !pipeline->GetOnShow()) {
+            pipeline->AddAfterLayoutTask(
+                [node = std::move(node)]() mutable {
+                    node = nullptr;
+                }
+            );
+        }
     }
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     NotifyChangeWithCount(deletedIndex, -1, NotificationType::START_AND_END_CHANGE_POSITION);
     MarkNeedSyncRenderTree(true);
     MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
@@ -186,7 +230,7 @@ void LazyForEachNode::OnDataDeleted(size_t index)
 
 void LazyForEachNode::OnDataBulkDeleted(size_t index, size_t count)
 {
-    ACE_SCOPED_TRACE("LazyForEach OnDataBulkDeleted");
+    ACE_SCOPED_TRACE("LazyForEach OnDataBulkDeleted parentId[%d]", GetParentId());
     auto deletedIndex = static_cast<int32_t>(index);
     if (builder_) {
         builder_->SetUseNewInterface(false);
@@ -205,8 +249,10 @@ void LazyForEachNode::OnDataBulkDeleted(size_t index, size_t count)
         }
         builder_->clearDeletedNodes();
     }
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     NotifyChangeWithCount(deletedIndex, -static_cast<int32_t>(count), NotificationType::START_AND_END_CHANGE_POSITION);
     MarkNeedSyncRenderTree(true);
     MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
@@ -219,8 +265,10 @@ void LazyForEachNode::OnDataChanged(size_t index)
         builder_->SetUseNewInterface(false);
         builder_->OnDataChanged(index);
     }
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     NotifyChangeWithCount(changedIndex, 0, NotificationType::START_AND_END_CHANGE_POSITION);
     MarkNeedSyncRenderTree(true);
     MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
@@ -228,7 +276,7 @@ void LazyForEachNode::OnDataChanged(size_t index)
 
 void LazyForEachNode::OnDataBulkChanged(size_t index, size_t count)
 {
-    ACE_SCOPED_TRACE("LazyForEach OnDataBulkChanged");
+    ACE_SCOPED_TRACE("LazyForEach OnDataBulkChanged parentId[%d]", GetParentId());
     auto changedIndex = static_cast<int32_t>(index);
     if (builder_) {
         builder_->SetUseNewInterface(false);
@@ -247,8 +295,10 @@ void LazyForEachNode::OnDataBulkChanged(size_t index, size_t count)
         }
         builder_->clearDeletedNodes();
     }
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     NotifyChangeWithCount(changedIndex, 0, NotificationType::START_CHANGE_POSITION);
     NotifyChangeWithCount(changedIndex + static_cast<int32_t>(count) - 1, 0, NotificationType::END_CHANGE_POSITION);
     MarkNeedSyncRenderTree(true);
@@ -261,8 +311,10 @@ void LazyForEachNode::OnDataMoveToNewPlace(size_t from, size_t to)
         builder_->SetUseNewInterface(false);
         builder_->OnDataMoveToNewPlace(from, to);
     }
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     NotifyChangeWithCount(static_cast<int32_t>(std::min(from, to)), 0, NotificationType::START_CHANGE_POSITION);
     NotifyChangeWithCount(static_cast<int32_t>(std::max(from, to)), 0, NotificationType::END_CHANGE_POSITION);
     MarkNeedSyncRenderTree(true);
@@ -275,8 +327,10 @@ void LazyForEachNode::OnDataMoved(size_t from, size_t to)
         builder_->SetUseNewInterface(false);
         builder_->OnDataMoved(from, to);
     }
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     NotifyChangeWithCount(static_cast<int32_t>(std::min(from, to)), 0, NotificationType::START_CHANGE_POSITION);
     NotifyChangeWithCount(static_cast<int32_t>(std::max(from, to)), 0, NotificationType::END_CHANGE_POSITION);
     MarkNeedSyncRenderTree(true);
@@ -285,7 +339,7 @@ void LazyForEachNode::OnDataMoved(size_t from, size_t to)
 
 void LazyForEachNode::OnDatasetChange(const std::list<V2::Operation>& DataOperations)
 {
-    ACE_SCOPED_TRACE("LazyForEach OnDatasetChange");
+    ACE_SCOPED_TRACE("LazyForEach OnDatasetChange parentId[%d]", GetParentId());
     int32_t initialChangedIndex = 0;
     if (builder_) {
         builder_->SetUseNewInterface(true);
@@ -307,8 +361,7 @@ void LazyForEachNode::OnDatasetChange(const std::list<V2::Operation>& DataOperat
         }
         builder_->clearDeletedNodes();
         auto pipeline = GetContext();
-        bool isShow = pipeline ? pipeline->GetOnShow() : true;
-        if (pipeline && !isShow) {
+        if (pipeline && !pipeline->GetOnShow()) {
             pipeline->AddAfterLayoutTask(
                 [nodes = std::move(nodeList)]() mutable {
                     nodes.clear();
@@ -316,8 +369,10 @@ void LazyForEachNode::OnDatasetChange(const std::list<V2::Operation>& DataOperat
             );
         }
     }
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     NotifyChangeWithCount(initialChangedIndex, 0, NotificationType::START_CHANGE_POSITION);
     ParseOperations(DataOperations);
     MarkNeedSyncRenderTree(true);
@@ -333,8 +388,9 @@ void LazyForEachNode::MarkNeedSyncRenderTree(bool needRebuild)
 
 RefPtr<UINode> LazyForEachNode::GetFrameChildByIndex(uint32_t index, bool needBuild, bool isCache, bool addToRenderTree)
 {
-    ACE_SYNTAX_SCOPED_TRACE("LazyForEach.GetFrameChildByIndex index[%d] needBuild[%d] isCache[%d] addToRenderTree[%d]",
-        static_cast<int32_t>(index), static_cast<int32_t>(needBuild),
+    ACE_SYNTAX_SCOPED_TRACE(
+        "LazyForEach.GetFrameChildByIndex parentId[%d] index[%d] needBuild[%d] isCache[%d] addToRenderTree[%d]",
+        GetParentId(), static_cast<int32_t>(index), static_cast<int32_t>(needBuild),
         static_cast<int32_t>(isCache), static_cast<int32_t>(addToRenderTree));
     if (index >= static_cast<uint32_t>(FrameCount())) {
         return nullptr;
@@ -347,17 +403,15 @@ RefPtr<UINode> LazyForEachNode::GetFrameChildByIndex(uint32_t index, bool needBu
     if (isCache) {
         child.second->SetParent(WeakClaim(this));
         child.second->SetJSViewActive(false, true);
-        return child.second->GetFrameChildByIndex(0, needBuild);
-    }
-    if (addToRenderTree) {
-        child.second->SetActive(true);
-        auto frameNode = AceType::DynamicCast<FrameNode>(child.second->GetFrameChildByIndex(0, true));
-        if (frameNode && !frameNode->IsActive()) {
-            frameNode->SetActive(true);
-        }
+        auto childNode = child.second->GetFrameChildByIndex(0, needBuild);
+        builder_->ProcessOffscreenNode(childNode, false);
+        return childNode;
     }
     if (isActive_) {
         child.second->SetJSViewActive(true, true);
+    }
+    if (addToRenderTree) {
+        child.second->SetActive(true);
     }
     if (child.second->GetDepth() != GetDepth() + 1) {
         child.second->SetDepth(GetDepth() + 1);
@@ -369,7 +423,7 @@ RefPtr<UINode> LazyForEachNode::GetFrameChildByIndex(uint32_t index, bool needBu
     if (IsOnMainTree()) {
         child.second->AttachToMainTree(false, GetContext());
     }
-    PostIdleTask();
+    PostIdleTask(LazyForEachIdleTaskSource::GET_FRAME_CHILD);
     auto childNode = child.second->GetFrameChildByIndex(0, needBuild);
     if (onMoveEvent_) {
         InitDragManager(AceType::DynamicCast<FrameNode>(childNode));
@@ -403,7 +457,7 @@ void LazyForEachNode::RecycleItems(int32_t from, int32_t to)
             builder_->RecordOutOfBoundaryNodes(index - startIndex_);
         }
     }
-    PostIdleTask();
+    PostIdleTask(LazyForEachIdleTaskSource::RECYCLE_ITEMS);
 }
 
 void LazyForEachNode::DoRemoveChildInRenderTree(uint32_t index, bool isAll)
@@ -416,7 +470,7 @@ void LazyForEachNode::DoRemoveChildInRenderTree(uint32_t index, bool isAll)
     if (isAll) {
         builder_->RemoveAllChild();
         MarkNeedSyncRenderTree();
-        PostIdleTask();
+        PostIdleTask(LazyForEachIdleTaskSource::REMOVE_CHILD_IN_RENDER_TREE);
     }
 }
 
@@ -431,12 +485,15 @@ void LazyForEachNode::DoSetActiveChildRange(
         end += cacheEnd;
         builder_->SetShowCached(cacheStart, cacheEnd);
     }
+    ACE_SYNTAX_SCOPED_TRACE("LazyForEach active range start[%d], end[%d], cacheStart[%d], cacheEnd[%d], showCache[%d]",
+        start, end, cacheStart, cacheEnd, static_cast<int32_t>(showCache));
     if (builder_->SetActiveChildRange(start, end)) {
         tempChildren_.clear();
         tempChildren_.swap(children_);
         MarkNeedSyncRenderTree();
-        PostIdleTask();
+        PostIdleTask(LazyForEachIdleTaskSource::SET_ACTIVE_RANGE);
     }
+    builder_->ReorganizeOffscreenNode();
 }
 
 const std::list<RefPtr<UINode>>& LazyForEachNode::GetChildren(bool notDetach) const
@@ -470,7 +527,8 @@ void LazyForEachNode::UpdateChildrenFreezeState(bool isFreeze, bool isForceUpdat
 
 void LazyForEachNode::LoadChildren(bool notDetach) const
 {
-    ACE_SYNTAX_SCOPED_TRACE("LazyForEach.LoadChildren notDetach[%d]", static_cast<int32_t>(notDetach));
+    ACE_SYNTAX_SCOPED_TRACE("LazyForEach.LoadChildren parentId[%d] notDetach[%d]",
+        GetParentId(), static_cast<int32_t>(notDetach));
     std::list<std::pair<std::string, RefPtr<UINode>>> childList;
     const auto& items = builder_->GetItems(childList);
 
@@ -492,9 +550,19 @@ void LazyForEachNode::LoadChildren(bool notDetach) const
     }
 }
 
-const std::list<RefPtr<UINode>>& LazyForEachNode::GetChildrenForInspector() const
+const std::list<RefPtr<UINode>>& LazyForEachNode::GetChildrenForInspector(bool needCacheNode) const
 {
-    return children_;
+    if (needCacheNode) {
+        std::vector<UINode*> childList;
+        builder_->GetAllItems(childList);
+        childrenWithCache_.clear();
+        for (const auto& uiNode : childList) {
+            childrenWithCache_.emplace_back(Claim(uiNode));
+        }
+        return childrenWithCache_;
+    } else {
+        return children_;
+    }
 }
 
 void LazyForEachNode::OnConfigurationUpdate(const ConfigurationChange& configurationChange)
@@ -538,8 +606,10 @@ void LazyForEachNode::MoveData(int32_t from, int32_t to)
         builder_->OnDataMoveToNewPlace(from, to);
         builder_->UpdateMoveFromTo(from, to);
     }
-    tempChildren_.clear();
-    tempChildren_.swap(children_);
+    if (!children_.empty()) {
+        tempChildren_.clear();
+        tempChildren_.swap(children_);
+    }
     MarkNeedSyncRenderTree(true);
     MarkNeedFrameFlushDirty(PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
 }
@@ -656,6 +726,20 @@ void LazyForEachNode::ParseOperations(const std::list<V2::Operation>& dataOperat
                 }
                 break;
         }
+    }
+}
+
+void LazyForEachNode::EnablePreBuild(bool enable)
+{
+    if (builder_) {
+        builder_->EnablePreBuild(enable);
+    }
+}
+
+void LazyForEachNode::DumpInfo()
+{
+    if (builder_) {
+        builder_->DumpInfo();
     }
 }
 } // namespace OHOS::Ace::NG

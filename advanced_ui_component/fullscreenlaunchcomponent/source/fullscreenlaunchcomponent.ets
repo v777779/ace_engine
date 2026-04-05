@@ -15,7 +15,7 @@
 import hilog from '@ohos.hilog';
 import abilityManager from '@ohos.app.ability.abilityManager';
 import common from '@ohos.app.ability.common';
-import { ErrorCallback, Callback, BusinessError } from '@ohos.base';
+import { ErrorCallback, Callback, BusinessError, RecordData } from '@ohos.base';
 import AtomicServiceOptions from '@ohos.app.ability.AtomicServiceOptions';
 import commonEventManager from '@ohos.commonEventManager';
 import { bundleManager } from '@kit.AbilityKit';
@@ -181,7 +181,6 @@ export struct FullScreenLaunchComponent {
       })
       .height('100%')
       .width('100%')
-      .backgroundColor($r(`sys.color.background_primary`))
       .onError(
         err => {
           if (this.onError != undefined) {

@@ -130,7 +130,7 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset003, TestSize.Level1)
     RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -138,8 +138,9 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset003, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -178,7 +179,7 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset004, TestSize.Level1)
     RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -186,8 +187,9 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset004, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -226,7 +228,7 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset005, TestSize.Level1)
     RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -234,8 +236,9 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset005, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -274,7 +277,7 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset006, TestSize.Level1)
     RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -282,8 +285,9 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset006, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -323,7 +327,7 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset007, TestSize.Level1)
     RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -331,8 +335,9 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset007, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -371,7 +376,7 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset008, TestSize.Level1)
     RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -379,8 +384,9 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset008, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -420,7 +426,7 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset009, TestSize.Level1)
     RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -428,8 +434,9 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset009, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -469,7 +476,7 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset010, TestSize.Level1)
     RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -477,8 +484,9 @@ HWTEST_F(SwiperPatternTestNg, CalcWillScrollOffset010, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -1060,7 +1068,7 @@ HWTEST_F(SwiperPatternTestNg, FindLazyForEachNode001, TestSize.Level1)
 HWTEST_F(SwiperPatternTestNg, FindLazyForEachNode002, TestSize.Level1)
 {
     RefPtr<SwiperPattern> swiperPattern = AceType::MakeRefPtr<SwiperPattern>();
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -1068,8 +1076,9 @@ HWTEST_F(SwiperPatternTestNg, FindLazyForEachNode002, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     auto result = swiperPattern->FindLazyForEachNode(node, true);
     EXPECT_EQ(result.value(), AceType::DynamicCast<RepeatVirtualScroll2Node>(node));
@@ -1113,7 +1122,7 @@ HWTEST_F(SwiperPatternTestNg, FindForEachNode001, TestSize.Level1)
 HWTEST_F(SwiperPatternTestNg, FindForEachNode002, TestSize.Level1)
 {
     RefPtr<SwiperPattern> swiperPattern = AceType::MakeRefPtr<SwiperPattern>();
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -1121,8 +1130,9 @@ HWTEST_F(SwiperPatternTestNg, FindForEachNode002, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     auto result = swiperPattern->FindForEachNode(node, true);
     EXPECT_EQ(result.value(), AceType::DynamicCast<RepeatVirtualScroll2Node>(node));
@@ -1150,7 +1160,7 @@ HWTEST_F(SwiperPatternTestNg, FindForEachNode003, TestSize.Level1)
 HWTEST_F(SwiperPatternTestNg, FindForEachNode004, TestSize.Level1)
 {
     RefPtr<SwiperPattern> swiperPattern = AceType::MakeRefPtr<SwiperPattern>();
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -1158,8 +1168,9 @@ HWTEST_F(SwiperPatternTestNg, FindForEachNode004, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
@@ -1195,7 +1206,7 @@ HWTEST_F(SwiperPatternTestNg, HasRepeatTotalCountDifference001, TestSize.Level1)
     RefPtr<SwiperPattern> swiperPattern = AceType::MakeRefPtr<SwiperPattern>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -1203,8 +1214,9 @@ HWTEST_F(SwiperPatternTestNg, HasRepeatTotalCountDifference001, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -1344,7 +1356,7 @@ HWTEST_F(SwiperPatternTestNg, AutoLinearIsOutOfBoundary001, TestSize.Level1)
     RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -1352,8 +1364,9 @@ HWTEST_F(SwiperPatternTestNg, AutoLinearIsOutOfBoundary001, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -1437,7 +1450,7 @@ HWTEST_F(SwiperPatternTestNg, GetDistanceToEdge001, TestSize.Level1)
     RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
     auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
     ASSERT_NE(frameNode, nullptr);
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index = [](int32_t index) {
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index = [](int32_t index, bool inAnimation) {
         return std::make_pair(2, 0);
     };
     std::function<void(IndexType, IndexType)> onRecycleItems = [](int32_t start, int32_t end) {};
@@ -1445,8 +1458,9 @@ HWTEST_F(SwiperPatternTestNg, GetDistanceToEdge001, TestSize.Level1)
         [](int32_t start, int32_t end, int32_t vStart, int32_t vEnd, bool isCache, bool forceUpdate) {};
     std::function<void(IndexType, IndexType)> onMoveFromTo = [](int32_t start, int32_t end) {};
     std::function<void()> onPurge = []() {};
+    std::function<void()> onUpdateDirty = []() {};
     RefPtr<RepeatVirtualScroll2Node> node = AceType::MakeRefPtr<RepeatVirtualScroll2Node>(
-        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge);
+        2, 2, 5, onGetRid4Index, onRecycleItems, onActiveRange, onMoveFromTo, onPurge, onUpdateDirty);
     ASSERT_NE(node, nullptr);
     frameNode->children_.clear();
     frameNode->children_.emplace_back(node);
@@ -1669,6 +1683,178 @@ HWTEST_F(SwiperPatternTestNg, FocusMoveOnKey006, TestSize.Level1)
 }
 
 /**
+ * @tc.name: FocusMoveOnKey007
+ * @tc.desc: Test SwiperPattern OnKeyEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, FocusMoveOnKey007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper with displayCount 3, nextMargin 50vp, non-loop mode and 10 items
+     * @tc.expected: Swiper is created successfully with 4 visible items
+     */
+    SwiperModelNG model = CreateSwiper();
+    SwiperModelNG::SetDisplayCount(AceType::RawPtr(frameNode_), 3);
+    SwiperModelNG::SetNextMargin(AceType::RawPtr(frameNode_), 50.0_vp, true);
+    SwiperModelNG::SetLoop(AceType::RawPtr(frameNode_), false);
+    CreateSwiperItems(5);
+    CreateSwiperDone();
+    EXPECT_EQ(pattern_->itemPosition_.size(), 4);
+    EXPECT_EQ(pattern_->currentFocusIndex_, 0);
+    EXPECT_EQ(pattern_->currentIndex_, 0);
+    EXPECT_FALSE(SwiperModelNG::GetLoop(AceType::RawPtr(frameNode_)));
+    /**
+     * @tc.steps: step2. Press right key multiple times to move focus
+     * @tc.expected: currentFocusIndex_ changes from 0 to 3, currentIndex_ remains 0
+     */
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_RIGHT, KeyAction::DOWN)));
+    EXPECT_EQ(pattern_->currentFocusIndex_, 1);
+    EXPECT_EQ(pattern_->currentIndex_, 0);
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_RIGHT, KeyAction::DOWN)));
+    EXPECT_EQ(pattern_->currentFocusIndex_, 2);
+    EXPECT_EQ(pattern_->currentIndex_, 0);
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_RIGHT, KeyAction::DOWN)));
+    EXPECT_EQ(pattern_->currentFocusIndex_, 3);
+    EXPECT_EQ(pattern_->currentIndex_, 0);
+    /**
+     * @tc.steps: step3. Continue pressing right key
+     * @tc.expected: currentFocusIndex_ changes from 3 to 4, currentIndex_ changes from 0 to 1
+     */
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_RIGHT, KeyAction::DOWN)));
+    EXPECT_EQ(pattern_->currentFocusIndex_, 4);
+    EXPECT_EQ(pattern_->currentIndex_, 1);
+}
+
+/**
+ * @tc.name: FocusMoveOnKey008
+ * @tc.desc: Test SwiperPattern OnKeyEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, FocusMoveOnKey008, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper with displayCount 4, swipeByGroup and 10 items.
+     */
+    SwiperModelNG model = CreateSwiper();
+    SwiperModelNG::SetDisplayCount(AceType::RawPtr(frameNode_), 3);
+    SwiperModelNG::SetLoop(AceType::RawPtr(frameNode_), false);
+    SwiperModelNG::SetPreviousMargin(AceType::RawPtr(frameNode_), 50.0_vp, true);
+    CreateSwiperItems(10);
+    CreateSwiperDone();
+    EXPECT_EQ(pattern_->itemPosition_.size(), 4);
+    EXPECT_EQ(pattern_->currentFocusIndex_, 0);
+    EXPECT_EQ(pattern_->currentIndex_, 0);
+    EXPECT_FALSE(SwiperModelNG::GetLoop(AceType::RawPtr(frameNode_)));
+    /**
+     * @tc.steps: step2. Make the second child not enabled and press right key.
+     * @tc.expected: currentIndex_ is not changed, currentFocusIndex_ change from 0 to 2.
+     */
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_RIGHT, KeyAction::DOWN)));
+    EXPECT_EQ(pattern_->currentFocusIndex_, 1);
+    EXPECT_EQ(pattern_->currentIndex_, 0);
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_RIGHT, KeyAction::DOWN)));
+    EXPECT_EQ(pattern_->currentFocusIndex_, 2);
+    EXPECT_EQ(pattern_->currentIndex_, 0);
+    /**
+     * @tc.steps: step3. Continue pressing right key
+     * @tc.expected: currentFocusIndex_ is not changed, currentIndex_ change from 0 to 1.
+     */
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_RIGHT, KeyAction::DOWN)));
+    EXPECT_EQ(pattern_->currentFocusIndex_, 3);
+    EXPECT_EQ(pattern_->currentIndex_, 0);
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_RIGHT, KeyAction::DOWN)));
+    pattern_->HandleFocusInternal();
+    EXPECT_EQ(pattern_->currentFocusIndex_, 3);
+    EXPECT_EQ(pattern_->currentIndex_, 1);
+}
+
+/**
+ * @tc.name: FocusMoveOnKey009
+ * @tc.desc: Test SwiperPattern OnKeyEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, FocusMoveOnKey009, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper with displayCount 3, nextMargin 50vp, non-loop mode and 10 items
+     * @tc.expected: Swiper is created successfully
+     */
+    SwiperModelNG model = CreateSwiper();
+    SwiperModelNG::SetDisplayCount(AceType::RawPtr(frameNode_), 3);
+    SwiperModelNG::SetNextMargin(AceType::RawPtr(frameNode_), 50.0_vp, true);
+    SwiperModelNG::SetLoop(AceType::RawPtr(frameNode_), false);
+    CreateSwiperItems(10);
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. Change to last page (index 9)
+     * @tc.expected: currentFocusIndex_ is 7, currentIndex_ is 7
+     */
+    ChangeIndex(9);
+    EXPECT_EQ(pattern_->itemPosition_.size(), 4);
+    EXPECT_EQ(pattern_->currentFocusIndex_, 7);
+    EXPECT_EQ(pattern_->currentIndex_, 7);
+    EXPECT_FALSE(SwiperModelNG::GetLoop(AceType::RawPtr(frameNode_)));
+    /**
+     * @tc.steps: step3. Press left key to move focus backward
+     * @tc.expected: currentFocusIndex_ changes from 7 to 6, currentIndex_ remains 7
+     */
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_LEFT, KeyAction::DOWN)));
+    EXPECT_EQ(pattern_->currentFocusIndex_, 6);
+    EXPECT_EQ(pattern_->currentIndex_, 7);
+    /**
+     * @tc.steps: step4. Press left key again and handle focus
+     * @tc.expected: After handling focus, currentFocusIndex_ remains 6, currentIndex_ changes to 6
+     */
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_LEFT, KeyAction::DOWN)));
+    pattern_->HandleFocusInternal();
+    EXPECT_EQ(pattern_->currentFocusIndex_, 6);
+    EXPECT_EQ(pattern_->currentIndex_, 6);
+}
+
+/**
+ * @tc.name: FocusMoveOnKey0010
+ * @tc.desc: Test SwiperPattern OnKeyEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, FocusMoveOnKey0010, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper with displayCount 3, previousMargin 50vp, non-loop mode and 10 items
+     * @tc.expected: Swiper is created successfully
+     */
+    SwiperModelNG model = CreateSwiper();
+    SwiperModelNG::SetDisplayCount(AceType::RawPtr(frameNode_), 3);
+    SwiperModelNG::SetLoop(AceType::RawPtr(frameNode_), false);
+    // SwiperModelNG::SetNextMargin(AceType::RawPtr(frameNode_), 50.0_vp, true);
+    SwiperModelNG::SetPreviousMargin(AceType::RawPtr(frameNode_), 50.0_vp, true);
+    CreateSwiperItems(10);
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. Change to last page (index 9)
+     * @tc.expected: currentFocusIndex_ is 7, currentIndex_ is 7
+     */
+    ChangeIndex(9);
+    EXPECT_EQ(pattern_->itemPosition_.size(), 4);
+    EXPECT_EQ(pattern_->currentFocusIndex_, 7);
+    EXPECT_EQ(pattern_->currentIndex_, 7);
+    EXPECT_FALSE(SwiperModelNG::GetLoop(AceType::RawPtr(frameNode_)));
+    /**
+     * @tc.steps: step3. Press left key to move focus backward
+     * @tc.expected: currentFocusIndex_ changes from 7 to 6, currentIndex_ remains 7
+     */
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_LEFT, KeyAction::DOWN)));
+    EXPECT_EQ(pattern_->currentFocusIndex_, 6);
+    EXPECT_EQ(pattern_->currentIndex_, 7);
+    /**
+     * @tc.steps: step4. Press left key again to trigger page change
+     * @tc.expected: currentFocusIndex_ changes to 5, currentIndex_ changes from 7 to 6
+     */
+    EXPECT_TRUE(pattern_->OnKeyEvent(KeyEvent(KeyCode::KEY_DPAD_LEFT, KeyAction::DOWN)));
+    EXPECT_EQ(pattern_->currentFocusIndex_, 5);
+    EXPECT_EQ(pattern_->currentIndex_, 6);
+}
+
+/**
  * @tc.name: HandleTouchBottomLoop001
  * @tc.desc: Test SwiperPattern HandleTouchBottomLoop
  * @tc.type: FUNC
@@ -1722,5 +1908,563 @@ HWTEST_F(SwiperPatternTestNg, HandleTouchBottomLoopOnRTL001, TestSize.Level1)
     pattern_->gestureState_ = GestureState::GESTURE_STATE_RELEASE_LEFT;
     pattern_->HandleTouchBottomLoopOnRTL();
     EXPECT_EQ(pattern_->touchBottomType_, TouchBottomTypeLoop::TOUCH_BOTTOM_TYPE_LOOP_LEFT);
+}
+
+/**
+ * @tc.name: SwipeToWithoutAnimation001
+ * @tc.desc: Test SwipeToWithoutAnimation
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, SwipeToWithoutAnimation001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper, jumpIndexByUser_ is nullopt.
+     * @tc.expected: jumpIndexByUser_ is nullopt.
+     */
+    SwiperModelNG model = CreateSwiper();
+    CreateSwiperItems();
+    CreateSwiperDone();
+    EXPECT_EQ(pattern_->jumpIndexByUser_, std::nullopt);
+
+    /**
+     * @tc.steps: step2. The call to the SwipeToWithoutAnimation interface is triggered but not
+                  by the user using the changindex interface.
+     * @tc.expected: jumpIndexByUser_ is not changed.
+     */
+    pattern_->SwipeToWithoutAnimation(1);
+    EXPECT_EQ(pattern_->jumpIndexByUser_, std::nullopt);
+
+    /**
+     * @tc.steps: step3. The call to the SwipeToWithoutAnimation interface is triggered
+                  by the user using the changindex interface.
+     * @tc.expected: jumpIndexByUser_ is changed.
+     */
+    pattern_->SwipeToWithoutAnimation(1, 1);
+    EXPECT_EQ(pattern_->jumpIndexByUser_, 1);
+
+    /**
+     * @tc.steps: step4. After executing the BeforeCreateLayoutWrapper interface, the jumpindex will be reset.
+     * @tc.expected: jumpIndexByUser_ is nullopt.
+     */
+    pattern_->BeforeCreateLayoutWrapper();
+    EXPECT_EQ(pattern_->jumpIndexByUser_, std::nullopt);
+}
+
+/**
+ * @tc.name: SetSwiperEventCallback001
+ * @tc.desc: Branch: if (swiperPattern->isTouchDown_) { => true
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, SetSwiperEventCallback001, TestSize.Level1)
+{
+    CreateSwiper();
+    CreateSwiperItems();
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step1. Touch down on indicatorNode_
+     * @tc.expected: Animation still running
+     */
+    pattern_->SetSwiperEventCallback(true);
+    pattern_->HandleTouchEvent(CreateTouchEventInfo(TouchType::DOWN, Offset(SWIPER_WIDTH / 2, SWIPER_HEIGHT)));
+    EXPECT_TRUE(pattern_->isTouchDown_);
+
+    /**
+     * @tc.steps: step2. Touch up
+     * @tc.expected: Animation still running
+     */
+    ASSERT_NE(pattern_->swiperController_, nullptr);
+    const auto& removeSwiperEventCallback = pattern_->swiperController_->GetRemoveSwiperEventCallback();
+    if (removeSwiperEventCallback) {
+        EXPECT_TRUE(pattern_->isTouchDown_);
+        removeSwiperEventCallback();
+        EXPECT_FALSE(pattern_->isTouchDown_);
+    }
+}
+
+/**
+ * @tc.name: OnFontScaleConfigurationUpdate001
+ * @tc.desc: Test SwiperPattern OnFontScaleConfigurationUpdate
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, OnFontScaleConfigurationUpdate001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper, mainSizeIsMeasured_ is false after first layout.
+     */
+    SwiperModelNG model = CreateSwiper();
+    CreateSwiperItems();
+    CreateSwiperDone();
+    EXPECT_EQ(pattern_->mainSizeIsMeasured_, true);
+
+    /**
+     * @tc.steps: step2. mainSizeIsMeasured_ needs to be changed to false after OnFontScaleConfigurationUpdate called.
+     */
+    pattern_->OnFontScaleConfigurationUpdate();
+    auto pipelineContext = pattern_->GetContext();
+    CHECK_NULL_VOID(pipelineContext);
+    pipelineContext->OnFlushReloadFinish();
+    EXPECT_EQ(pattern_->mainSizeIsMeasured_, false);
+}
+
+/**
+ * @tc.name: UpdateDefaultColor001
+ * @tc.desc: Text UpdateDefaultColor
+ */
+HWTEST_F(SwiperPatternTestNg, UpdateDefaultColor001, TestSize.Level1)
+{
+    SwiperParameters swiperParameters;
+    SwiperModelNG model = CreateSwiper();
+    CreateSwiperItems();
+    CreateSwiperDone();
+    model.SetIndicatorType(AceType::RawPtr(frameNode_), SwiperIndicatorType::DOT);
+
+    pattern_->swiperParameters_ = nullptr;
+    pattern_->OnColorModeChange(static_cast<uint32_t>(ColorMode::DARK));
+
+    swiperParameters.colorVal = Color::RED;
+    swiperParameters.selectedColorVal = Color::RED;
+    pattern_->SetSwiperParameters(swiperParameters);
+    pattern_->OnColorModeChange(static_cast<uint32_t>(ColorMode::DARK));
+    EXPECT_NE(pattern_->swiperParameters_->colorVal, Color::RED);
+    EXPECT_NE(pattern_->swiperParameters_->selectedColorVal, Color::RED);
+
+    swiperParameters.parametersByUser.insert("colorVal");
+    swiperParameters.parametersByUser.insert("selectedColorVal");
+    swiperParameters.colorVal = Color::RED;
+    swiperParameters.selectedColorVal = Color::RED;
+    pattern_->SetSwiperParameters(swiperParameters);
+    pattern_->OnColorModeChange(static_cast<uint32_t>(ColorMode::DARK));
+    EXPECT_EQ(pattern_->swiperParameters_->colorVal.value(), Color::RED);
+    EXPECT_EQ(pattern_->swiperParameters_->selectedColorVal.value(), Color::RED);
+}
+
+/**
+ * @tc.name: AccumulatingTerminateHelper001
+ * @tc.desc: Test SwiperPattern AccumulatingTerminateHelper
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, AccumulatingTerminateHelper001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper.
+     */
+    RefPtr<SwiperPattern> swiperPattern = AceType::MakeRefPtr<SwiperPattern>();
+    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. test AccumulatingTerminateHelper, when "IsScrollableAxisInsensitive" is true.
+     */
+    frameNode->isScrollableAxis_ = true;
+    ExpandEdges padding {0, 5, 10, 15};
+    RectF rect {};
+    auto result = swiperPattern->AccumulatingTerminateHelper(rect, padding);
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @tc.name: AccumulatingTerminateHelper002
+ * @tc.desc: Test SwiperPattern AccumulatingTerminateHelper
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, AccumulatingTerminateHelper002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper.
+     */
+    RefPtr<SwiperPattern> swiperPattern = AceType::MakeRefPtr<SwiperPattern>();
+    auto frameNode = FrameNode::CreateFrameNode(V2::SWIPER_ETS_TAG, 2, swiperPattern);
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. test AccumulatingTerminateHelper, when "IsScrollableAxisInsensitive" is false.
+     */
+    frameNode->isScrollableAxis_ = false;
+    ExpandEdges padding {15, 10, 5, 0};
+    RectF rect {};
+    auto result = swiperPattern->AccumulatingTerminateHelper(rect, padding);
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @tc.name: PropertyPrefMonitor001
+ * @tc.desc: Test PropertyPrefMonitor
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, PropertyPrefMonitor001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper, isAutoPlayAnimationRunning_ is false.
+     * @tc.expected: isAutoPlayAnimationRunning_ is false.
+     */
+    SwiperModelNG model = CreateSwiper();
+    CreateSwiperItems();
+    CreateSwiperDone();
+    EXPECT_FALSE(pattern_->isAutoPlayAnimationRunning_);
+    /**
+     * @tc.steps: step2. check isBeginPerf is true, isInAutoPlay_ is true, hasTabsAncestor_ is true.
+     * @tc.expected: isAutoPlayAnimationRunning_ is false.
+     */
+    pattern_->isInAutoPlay_ = true;
+    pattern_->hasTabsAncestor_ = true;
+    pattern_->PropertyPrefMonitor(true);
+    EXPECT_FALSE(pattern_->isAutoPlayAnimationRunning_);
+    /**
+     * @tc.steps: step3. check isBeginPerf is true, isInAutoPlay_ is true, hasTabsAncestor_ is false.
+     * @tc.expected: isAutoPlayAnimationRunning_ is true.
+     */
+    pattern_->hasTabsAncestor_ = false;
+    pattern_->PropertyPrefMonitor(true);
+    EXPECT_TRUE(pattern_->isAutoPlayAnimationRunning_);
+    /**
+     * @tc.steps: step4. check isBeginPerf is true, isInAutoPlay_ is false, hasTabsAncestor_ is false.
+     * @tc.expected: isAutoPlayAnimationRunning_ is false.
+     */
+    pattern_->hasTabsAncestor_ = false;
+    pattern_->isInAutoPlay_ = false;
+    pattern_->isAutoPlayAnimationRunning_ = false;
+    pattern_->PropertyPrefMonitor(true);
+    EXPECT_FALSE(pattern_->isAutoPlayAnimationRunning_);
+    /**
+     * @tc.steps: step5. check isBeginPerf is false, isAutoPlayAnimationRunning_ is true, hasTabsAncestor_ is true.
+     * @tc.expected: isInAutoPlay_ is false.
+     */
+    pattern_->hasTabsAncestor_ = true;
+    pattern_->PropertyPrefMonitor(false);
+    EXPECT_FALSE(pattern_->isInAutoPlay_);
+    /**
+     * @tc.steps: step6. check isBeginPerf is false, isAutoPlayAnimationRunning_ is true, hasTabsAncestor_ is false.
+     * @tc.expected: isAutoPlayAnimationRunning_ is false.
+     */
+    pattern_->hasTabsAncestor_ = false;
+    pattern_->isAutoPlayAnimationRunning_ = true;
+    pattern_->PropertyPrefMonitor(false);
+    EXPECT_FALSE(pattern_->isAutoPlayAnimationRunning_);
+    /**
+     * @tc.steps: step7. check isBeginPerf is false, isAutoPlayAnimationRunning_ is false, hasTabsAncestor_ is false.
+     * @tc.expected: isAutoPlayAnimationRunning_ is false.
+     */
+    pattern_->isAutoPlayAnimationRunning_ = false;
+    pattern_->PropertyPrefMonitor(false);
+    EXPECT_FALSE(pattern_->isAutoPlayAnimationRunning_);
+}
+
+/**
+ * @tc.name: PropertyPrefMonitor002
+ * @tc.desc: Test PropertyPrefMonitor
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, PropertyPrefMonitor002, TestSize.Level1)
+{
+    SwiperModelNG model = CreateSwiper();
+    CreateSwiperItems();
+    CreateSwiperDone();
+    EXPECT_FALSE(pattern_->isAutoPlayAnimationRunning_);
+
+    pattern_->isInAutoPlay_ = true;
+    pattern_->PropertyPrefMonitor(false);
+    EXPECT_FALSE(pattern_->isInAutoPlay_);
+    EXPECT_FALSE(pattern_->isAutoPlayAnimationRunning_);
+
+    pattern_->isInAutoPlay_ = false;
+    pattern_->PropertyPrefMonitor(false);
+    EXPECT_FALSE(pattern_->isInAutoPlay_);
+    EXPECT_FALSE(pattern_->isAutoPlayAnimationRunning_);
+
+    pattern_->isInAutoPlay_ = false;
+    pattern_->isAutoPlayAnimationRunning_ =true;
+    pattern_->PropertyPrefMonitor(false);
+    EXPECT_FALSE(pattern_->isInAutoPlay_);
+    EXPECT_FALSE(pattern_->isAutoPlayAnimationRunning_);
+ 
+    pattern_->isInAutoPlay_ = true;
+    pattern_->hasTabsAncestor_ = false;
+    pattern_->isAutoPlayAnimationRunning_ =false;
+    pattern_->PropertyPrefMonitor(true);
+    EXPECT_TRUE(pattern_->isInAutoPlay_);
+    EXPECT_TRUE(pattern_->isAutoPlayAnimationRunning_);
+
+    pattern_->isInAutoPlay_ = false;
+    pattern_->PropertyPrefMonitor(false);
+    EXPECT_FALSE(pattern_->isInAutoPlay_);
+    EXPECT_FALSE(pattern_->isAutoPlayAnimationRunning_);
+}
+
+/**
+ * @tc.name: FillType001
+ * @tc.desc: Test FillType
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, FillType001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper.
+     * @tc.expected: set fillType is 0.
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetFillType(0);
+    CreateSwiperItems();
+    CreateSwiperDone();
+    auto layoutProperty = frameNode_->GetLayoutProperty<SwiperLayoutProperty>();
+    EXPECT_EQ(SwiperModelNG::GetFillType(AceType::RawPtr(frameNode_)), 0);
+    /**
+     * @tc.steps: step2. Create swiper.
+     * @tc.expected: check all contentWidth with fillType is 0.
+     */
+    pattern_->CalculateDisplayCount();
+    EXPECT_EQ(SwiperModelNG::GetDisplayCount(AceType::RawPtr(frameNode_)), 1);
+    SwiperUtils::CheckBreakPointDisplayCount(layoutProperty, 100);
+    EXPECT_EQ(SwiperModelNG::GetDisplayCount(AceType::RawPtr(frameNode_)), 1);
+    SwiperUtils::CheckBreakPointDisplayCount(layoutProperty, 700);
+    EXPECT_EQ(SwiperModelNG::GetDisplayCount(AceType::RawPtr(frameNode_)), 2);
+    SwiperUtils::CheckBreakPointDisplayCount(layoutProperty, 900);
+    EXPECT_EQ(SwiperModelNG::GetDisplayCount(AceType::RawPtr(frameNode_)), 3);
+    /**
+     * @tc.steps: step3. Create swiper.
+     * @tc.expected: check all contentWidth with fillType is 2.
+     */
+    SwiperModelNG::SetFillType(AceType::RawPtr(frameNode_), 2);
+    EXPECT_EQ(SwiperModelNG::GetFillType(AceType::RawPtr(frameNode_)), 2);
+    pattern_->CalculateDisplayCount();
+    EXPECT_EQ(SwiperModelNG::GetDisplayCount(AceType::RawPtr(frameNode_)), 2);
+    SwiperUtils::CheckBreakPointDisplayCount(layoutProperty, 100);
+    EXPECT_EQ(SwiperModelNG::GetDisplayCount(AceType::RawPtr(frameNode_)), 2);
+    SwiperUtils::CheckBreakPointDisplayCount(layoutProperty, 700);
+    EXPECT_EQ(SwiperModelNG::GetDisplayCount(AceType::RawPtr(frameNode_)), 3);
+    SwiperUtils::CheckBreakPointDisplayCount(layoutProperty, 900);
+    EXPECT_EQ(SwiperModelNG::GetDisplayCount(AceType::RawPtr(frameNode_)), 5);
+    /**
+     * @tc.steps: step4. Create swiper.
+     * @tc.expected: check fillType value out of range.
+     */
+    model.SetFillType(-1);
+    SwiperModelNG::SetFillType(AceType::RawPtr(frameNode_), -1);
+    RefPtr<SwiperLayoutProperty> swiperLayoutProperty = AceType::MakeRefPtr<SwiperLayoutProperty>();
+    swiperLayoutProperty->propFillType_ = -1;
+    frameNode_->layoutProperty_ = swiperLayoutProperty;
+    SwiperUtils::CheckBreakPointDisplayCount(layoutProperty, 100);
+    EXPECT_EQ(SwiperModelNG::GetDisplayCount(AceType::RawPtr(frameNode_)), 1);
+
+    swiperLayoutProperty->propFillType_ = 3;
+    frameNode_->layoutProperty_ = swiperLayoutProperty;
+    SwiperUtils::CheckBreakPointDisplayCount(layoutProperty, 100);
+    EXPECT_EQ(SwiperModelNG::GetDisplayCount(AceType::RawPtr(frameNode_)), 1);
+}
+
+/**
+ * @tc.name: FillType002
+ * @tc.desc: Test FillType
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, FillType002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper.
+     * @tc.expected: check the effect of padding.
+     */
+    SwiperModelNG model = CreateSwiper();
+    CreateSwiperItems();
+    CreateSwiperDone();
+    auto layoutProperty = frameNode_->GetLayoutProperty<SwiperLayoutProperty>();
+    PaddingProperty padding { CalcLength(10, DimensionUnit::VP), CalcLength(10, DimensionUnit::VP),
+        CalcLength(0, DimensionUnit::VP), CalcLength(0, DimensionUnit::VP) };
+    layoutProperty->padding_ = std::make_unique<PaddingProperty>(padding);
+    // 840 is LG, contenWidth + padding = 820 + 10 + 10.
+    EXPECT_EQ(SwiperUtils::GetWidthBreakpoint(layoutProperty, 820), WidthBreakpoint::WIDTH_LG);
+}
+
+/**
+ * @tc.name: FillType003
+ * @tc.desc: Test FillType
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, FillType003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper.
+     * @tc.expected: check the effect of padding.
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDirection(Axis::VERTICAL);
+    CreateSwiperItems();
+    CreateSwiperDone();
+    auto layoutProperty = frameNode_->GetLayoutProperty<SwiperLayoutProperty>();
+    PaddingProperty padding { CalcLength(0, DimensionUnit::VP), CalcLength(0, DimensionUnit::VP),
+        CalcLength(10, DimensionUnit::VP), CalcLength(10, DimensionUnit::VP) };
+    layoutProperty->padding_ = std::make_unique<PaddingProperty>(padding);
+    // 840 is LG, contenWidth + padding = 820 + 10 + 10.
+    EXPECT_EQ(SwiperUtils::GetWidthBreakpoint(layoutProperty, 820), WidthBreakpoint::WIDTH_LG);
+}
+
+/**
+ * @tc.name: JSIndicatorControllerBase001
+ * @tc.desc: Test FillType
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, JSIndicatorControllerBase001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create swiper.
+     * @tc.expected: check the indicatorController type.
+     */
+    RefPtr<SwiperPattern> swiperPattern = AceType::MakeRefPtr<SwiperPattern>();
+    auto controller = AceType::MakeRefPtr<JSIndicatorControllerBase>();
+    swiperPattern->SetIndicatorController(controller);
+    EXPECT_EQ(AceType::TypeName(swiperPattern->indicatorController_.Upgrade()), "JSIndicatorControllerBase");
+}
+
+/**
+ * @tc.:name HandleTargetIndex001
+ * @tc.desc: test function UpdateAnimationProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, HandleTargetIndex001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Swiper with SetMinSize and reset displayCount to make IsStretch(props) false.
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(1);
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. Set animation running flags and same targetIndex.
+     * @tc.expected: The if condition is not met because IsStretch is false. Animation should be played.
+     */
+    pattern_->propertyAnimationIsRunning_ = true;
+    pattern_->targetIndex_ = 1;
+    pattern_->runningTargetIndex_ = 2;
+    pattern_->itemPosition_[1] = { .startPos = 100.0f };
+
+    pattern_->HandleTargetIndex(nullptr, nullptr);
+    EXPECT_EQ(pattern_->targetIndex_, pattern_->runningTargetIndex_);
+
+    pattern_->propertyAnimationIsRunning_ = false;
+    pattern_->targetIndex_ = 1;
+    pattern_->runningTargetIndex_ = 2;
+
+    pattern_->HandleTargetIndex(nullptr, nullptr);
+    EXPECT_EQ(pattern_->targetIndex_, pattern_->runningTargetIndex_);
+
+    pattern_->propertyAnimationIsRunning_ = true;
+    pattern_->targetIndex_ = 1;
+    pattern_->runningTargetIndex_ = 1;
+
+    pattern_->HandleTargetIndex(nullptr, nullptr);
+    EXPECT_EQ(pattern_->targetIndex_, pattern_->runningTargetIndex_);
+
+    pattern_->propertyAnimationIsRunning_ = false;
+    pattern_->targetIndex_ = 1;
+    pattern_->runningTargetIndex_ = 1;
+
+    pattern_->HandleTargetIndex(nullptr, nullptr);
+    /**
+     * @tc.steps: step3. Verify that a new animation is played.
+     * @tc.expected: The runningTargetIndex should be updated to the new targetIndex.
+     */
+    EXPECT_EQ(pattern_->targetIndex_, pattern_->runningTargetIndex_);
+}
+
+/**
+ * @tc.name: HandleTargetIndex002
+ * @tc.desc: test function UpdateAnimationProperty
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, HandleTargetIndex002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Swiper with SetMinSize and reset displayCount to make IsStretch(props) false.
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayMode(SwiperDisplayMode::AUTO_LINEAR);
+    CreateItemWithSize(200.f, SWIPER_HEIGHT);
+    CreateItemWithSize(300.f, SWIPER_HEIGHT);
+    CreateItemWithSize(400.f, SWIPER_HEIGHT);
+    CreateItemWithSize(500.f, SWIPER_HEIGHT);
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. Set animation running flags and same targetIndex.
+     * @tc.expected: The if condition is not met because IsStretch is false. Animation should be played.
+     */
+    pattern_->propertyAnimationIsRunning_ = true;
+    pattern_->targetIndex_ = 1;
+    pattern_->runningTargetIndex_ = 2;
+    pattern_->itemPosition_[1] = { .startPos = 100.0f };
+
+    pattern_->HandleTargetIndex(nullptr, nullptr);
+    EXPECT_EQ(pattern_->targetIndex_, pattern_->runningTargetIndex_);
+
+    pattern_->propertyAnimationIsRunning_ = false;
+    pattern_->targetIndex_ = 1;
+    pattern_->runningTargetIndex_ = 2;
+
+    pattern_->HandleTargetIndex(nullptr, nullptr);
+    EXPECT_EQ(pattern_->targetIndex_, pattern_->runningTargetIndex_);
+
+    pattern_->propertyAnimationIsRunning_ = true;
+    pattern_->targetIndex_ = 1;
+    pattern_->runningTargetIndex_ = 1;
+
+    pattern_->HandleTargetIndex(nullptr, nullptr);
+    EXPECT_EQ(pattern_->targetIndex_, pattern_->runningTargetIndex_);
+
+    pattern_->propertyAnimationIsRunning_ = false;
+    pattern_->targetIndex_ = 1;
+    pattern_->runningTargetIndex_ = 1;
+
+    pattern_->HandleTargetIndex(nullptr, nullptr);
+    /**
+     * @tc.steps: step3. Verify that a new animation is played.
+     * @tc.expected: The runningTargetIndex should be updated to the new targetIndex.
+     */
+    EXPECT_EQ(pattern_->targetIndex_, pattern_->runningTargetIndex_);
+}
+
+/**
+ * @tc.name: GetKeyFrameNodeWhenContentChange001
+ * @tc.desc: test GetKeyFrameNodeWhenContentChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, GetKeyFrameNodeWhenContentChange001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init Swiper node.
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(2);
+    CreateSwiperItems(6);
+    CreateSwiperDone();
+
+    ASSERT_EQ(pattern_->currentIndex_, 0);
+    std::list<RefPtr<FrameNode>> keyChildren = pattern_->GetKeyFrameNodeWhenContentChanged();
+    ASSERT_EQ(keyChildren.size(), 2);
+    auto host = pattern_->GetHost();
+    ASSERT_NE(host, nullptr);
+    auto children = host->GetChildren();
+    ASSERT_EQ(children.size(), 7);
+    EXPECT_EQ(keyChildren.front(), children.front());
+}
+
+/**
+ * @tc.name: CachedCountIndependent001
+ * @tc.desc: test CachedCountIndependent
+ * @tc.type: FUNC
+ */
+HWTEST_F(SwiperPatternTestNg, CachedCountIndependent001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init Swiper node.
+     */
+    SwiperModelNG model = CreateSwiper();
+    model.SetDisplayCount(2);
+    model.SetSwipeByGroup(true);
+    CreateSwiperItems(6);
+    CreateSwiperDone();
+    /**
+     * @tc.steps: step2. Calculate cachedcount with independent attribute.
+     * @tc.expected: If independent is true, cachedCount is 1. If independent is false, cachedCount is 2.
+     */
+    EXPECT_EQ(pattern_->GetCachedCount(), 2);
+    pattern_->independent_ = true;
+    EXPECT_EQ(pattern_->GetCachedCount(), 1);
 }
 } // namespace OHOS::Ace::NG

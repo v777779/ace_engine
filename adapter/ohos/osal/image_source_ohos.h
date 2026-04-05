@@ -25,7 +25,8 @@
 
 namespace OHOS::Ace {
 class ImageSourceOhos : public ImageSource {
-    DECLARE_ACE_TYPE(ImageSourceOhos, ImageSource)
+    DECLARE_ACE_TYPE(ImageSourceOhos, ImageSource);
+
 public:
     explicit ImageSourceOhos(std::unique_ptr<Media::ImageSource>&& source) : imageSource_(std::move(source)) {}
 
@@ -43,7 +44,11 @@ public:
     RefPtr<PixelMap> CreatePixelMap(const DecodeOptions& options) override;
     Size GetImageSize() override;
     uint32_t GetFrameCount() override;
+    int32_t GetLoopCount() override;
+    std::vector<int32_t> GetDelayTime() override;
     std::string GetEncodedFormat() override;
+    bool IsHeifWithoutAlpha() override;
+    ImageRotateOrientation GetImageOrientation() override;
 
 private:
     std::unique_ptr<Media::ImageSource> imageSource_;

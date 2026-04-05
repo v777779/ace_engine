@@ -15,9 +15,13 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_BASE_IMAGE_ACE_IMAGE_DEFINES_H
 #define FOUNDATION_ACE_FRAMEWORKS_BASE_IMAGE_ACE_IMAGE_DEFINES_H
 
+#include <memory>
 #include <string>
 
 namespace OHOS {
+namespace Request {
+class CppDownloadInfo;
+};
 namespace Ace {
 enum class ImageType {
     BASE = 0,
@@ -25,6 +29,11 @@ enum class ImageType {
     PIXELMAP_DRAWABLE,
     LAYERED_DRAWABLE,
     ANIMATED_DRAWABLE,
+};
+
+enum class ImageInnerErrorCode : uint32_t {
+    SK_DATA_CREATE_ERROR = 100001,
+    SK_CODEC_CREATE_ERROR = 100002,
 };
 
 enum class ImageErrorCode : int32_t {
@@ -57,6 +66,7 @@ enum class ImageErrorCode : int32_t {
 struct ImageErrorInfo {
     ImageErrorCode errorCode = ImageErrorCode::DEFAULT;
     std::string errorMessage = "";
+    std::shared_ptr<OHOS::Request::CppDownloadInfo> downloadInfo = nullptr;
 };
 }
 } // namespace OHOS

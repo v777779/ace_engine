@@ -24,12 +24,14 @@
 #include "core/components_ng/pattern/overlay/sheet_manager.h"
 #include "core/components_ng/pattern/stage/page_pattern.h"
 
+namespace OHOS::Ace {
+SINGLETON_INSTANCE_IMPL(NG::DialogManagerStatic);
+}
+
 namespace OHOS::Ace::NG {
 namespace {
 constexpr int32_t CALLBACK_ERRORCODE_CANCEL = 1;
 constexpr int32_t CALLBACK_DATACODE_ZERO = 0;
-constexpr int32_t TOAST_TIME_MAX = 10000;    // ms
-constexpr int32_t TOAST_TIME_DEFAULT = 1500; // ms
 } // namespace
 
 DialogManagerStatic::DialogManagerStatic() = default;
@@ -151,15 +153,12 @@ void DialogManagerStatic::ShowToastStatic(const NG::ToastInfo& toastInfo, std::f
     if (containerId < 0) {
         currentId = Container::CurrentId();
     }
-    NG::ToastInfo updatedToastInfo = toastInfo;
-    updatedToastInfo.duration = std::clamp(toastInfo.duration, TOAST_TIME_DEFAULT, TOAST_TIME_MAX);
-    updatedToastInfo.isRightToLeft = AceApplicationInfo::GetInstance().IsRightToLeft();
-    auto task = [updatedToastInfo, callbackParam = std::move(callback), currentId](
+    auto task = [toastInfo, callbackParam = std::move(callback), currentId](
         const RefPtr<NG::OverlayManager>& overlayManager) {
         CHECK_NULL_VOID(overlayManager);
         ContainerScope scope(currentId);
         overlayManager->ShowToast(
-            updatedToastInfo, std::move(const_cast<std::function<void(int32_t)>&&>(callbackParam)));
+            toastInfo, std::move(const_cast<std::function<void(int32_t)>&&>(callbackParam)));
     };
     MainWindowOverlayStatic(std::move(task), "ArkUIOverlayShowToast", nullptr, currentId);
 }
@@ -219,6 +218,7 @@ void DialogManagerStatic::ShowDialogStatic(DialogProperties& dialogProps,
 
         auto dialog = SubwindowManager::GetInstance()->ShowDialogNG(dialogProps, nullptr);
         CHECK_NULL_VOID(dialog);
+        ACE_UINODE_TRACE(dialog);
         if (dialogProps.isModal && !container->IsUIExtensionWindow()) {
             DialogProperties maskProps = {
                 .autoCancel = dialogProps.autoCancel,
@@ -276,6 +276,7 @@ void DialogManagerStatic::ShowActionMenuStatic(DialogProperties& dialogProps,
 
         RefPtr<NG::FrameNode> dialog = SubwindowManager::GetInstance()->ShowDialogNG(dialogProps, nullptr);
         CHECK_NULL_VOID(dialog);
+        ACE_UINODE_TRACE(dialog);
         if (dialogProps.isModal && !container->IsUIExtensionWindow()) {
             DialogProperties maskProps = {
                 .autoCancel = dialogProps.autoCancel,
@@ -359,6 +360,7 @@ void DialogManagerStatic::CloseCustomDialogStatic(const int32_t dialogId, const 
         SubwindowManager::GetInstance()->CloseCustomDialogNG(dialogId);
     };
     auto dialogNode = FrameNode::GetFrameNodeOnly(V2::DIALOG_ETS_TAG, dialogId);
+    ACE_UINODE_TRACE(dialogNode);
     auto currentOverlay = GetEmbeddedOverlayWithNode(dialogNode);
     MainWindowOverlayStatic(std::move(task), "ArkUIOverlayCloseCustomDialog", currentOverlay, currentId);
 }

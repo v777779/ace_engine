@@ -28,10 +28,17 @@ import { ArkColorsImpl } from './ArkColorsImpl';
 import { ArkCustomComponent } from 'arkui/ArkCustomComponent';
 import { ArkThemeWhiteList } from './ArkThemeWhiteList';
 import { ArkCommonMethodComponent } from 'arkui/component/common';
-import { GlobalStateManager, StateManagerImpl } from "@koalaui/runtime";
+import { GlobalStateManager, IncrementalNode, ComputableState } from "@koalaui/runtime";
 import { findPeerNode } from "arkui/PeerNode";
 import { KPointer } from '@koalaui/interop';
 import { ThemeOps } from 'arkui/component/idlize';
+import { UIContext } from "@ohos/arkui/UIContext"
+import { UIContextUtil } from 'arkui/base/UIContextUtil';
+
+export interface WithThemeScopeItem {
+    options: WithThemeOptions | undefined,
+    themeScopeId: int32
+}
 
 export class ArkThemeScopeManager {
     private static instance: ArkThemeScopeManager | undefined = undefined;
@@ -90,6 +97,71 @@ export class ArkThemeScopeManager {
     private colorModeStack: Array<ThemeColorMode> = new Array<ThemeColorMode>();
 
     private themeOptionsMap: Map<int32, WithThemeOptions> = new Map<int32, WithThemeOptions>();
+
+    public themeOptionsStack: Array<WithThemeScopeItem> = new Array<WithThemeScopeItem>();
+
+    public interopWithThemeId = -1;
+
+    public currentThemeOptions(): WithThemeScopeItem | undefined {
+        if (this.themeOptionsStack.length === 0) {
+            return undefined;
+        }
+        const len = this.themeOptionsStack.length;
+        return this.themeOptionsStack[len - 1];
+    }
+
+    /**
+     * Map to register themeScopeId and ArkCustomComponent array
+     */ 
+    private themeScopeComponentMap: Map<int32, Array<ArkCustomComponent>> = new Map<int32, Array<ArkCustomComponent>>();
+
+    /**
+     * Register a single ArkCustomComponent to the array mapped by the current themeScopeId.
+     *
+     * @param component ArkCustomComponent instance
+     */
+    public registerThemeScopeComponent(component: ArkCustomComponent): void {
+        const currentThemeOptions = this.currentThemeOptions();
+        if (!currentThemeOptions) {
+            return;
+        }
+        const themeScopeId = currentThemeOptions.themeScopeId as int32;
+        component.setThemeScopeId(themeScopeId);
+        let components = this.themeScopeComponentMap.get(themeScopeId);
+        if (!components) {
+            components = [];
+        }
+        components.push(component);
+        this.themeScopeComponentMap.set(themeScopeId, components);
+    }
+
+    /**
+     * Retrieves the theme instance associated with the given themeScopeId.
+     *
+     * @param themeScopeId The unique identifier of the theme scope to query.
+     * @returns The theme instance for the given themeScopeId, or the default/system theme if not found.
+     */
+    public getThemeByScopeId(themeScopeId: int32): ArkThemeBase {
+        const scope = this.themeScopes?.find((item) => item.getWithThemeId() === themeScopeId);
+        if (scope) {
+            return scope.getTheme();
+        }
+        return this.defaultTheme ?? ArkThemeScopeManager.systemTheme;
+    }
+
+    /**
+     * Returns the final theme instance to be applied for the given owner component.
+     *
+     * @param ownerComponent The ArkCustomComponent whose theme should be determined.
+     * @returns The ArkThemeBase instance to be used for the component.
+     */
+    public getFinalTheme(ownerComponent: ArkCustomComponent): ArkThemeBase {
+        const themeScopeId = ownerComponent.getThemeScopeId();
+        if (themeScopeId === undefined) {
+            return this.defaultTheme ?? ArkThemeScopeManager.systemTheme;
+        }
+        return this.getThemeByScopeId(themeScopeId);
+    }
 
     /**
      * Obtain System Colors
@@ -239,7 +311,7 @@ export class ArkThemeScopeManager {
      * @param withThemeOptions WithTheme container`s options
      */
     onScopeEnter(withThemeId: number, withThemeOptions: WithThemeOptions, theme: ArkThemeBase) {
-        this.themeOptionsMap.set(withThemeId as int32, withThemeOptions);
+        this.themeOptionsMap.set(withThemeId.toInt(), withThemeOptions);
         // save theme scope id on scope enter
         this.lastThemeScopeId = withThemeId;
         if (this.handledIsFirstRender === true) {
@@ -334,7 +406,7 @@ export class ArkThemeScopeManager {
         });
     }
 
-    setDefaultTheme(customTheme: CustomTheme) {
+    setDefaultTheme(customTheme: CustomTheme | undefined) {
         // unbind previous default theme from 0 theme scope
         this.defaultTheme?.unbindFromScope(0);
         this.defaultTheme = ArkThemeScopeManager.systemTheme;
@@ -344,7 +416,8 @@ export class ArkThemeScopeManager {
         this.defaultTheme?.bindToScope(0);
 
         // keep for backward compatibility
-        ArkThemeNativeHelper.sendThemeToNative(this.defaultTheme!, 0); // 0 means default Theme scope id
+        const darkSetStatus: boolean = !!cloneTheme?.darkColors;
+        ArkThemeNativeHelper.sendThemeToNative(this.defaultTheme!, 0, darkSetStatus); // 0 means default Theme scope id
         // new approach to apply theme in native side
         ArkThemeNativeHelper.setDefaultTheme(cloneTheme);
 
@@ -450,8 +523,8 @@ export class ArkThemeScopeManager {
         scope.componentsInScope()?.forEach((item) => this.notifyScopeThemeChanged(item, theme, scope.isColorModeChanged()));
 
         if (scope.isColorModeChanged()) {
-            const stateManager = GlobalStateManager.instance as StateManagerImpl;
-            const memoScope = stateManager.current?.parent;
+            const stateManager = GlobalStateManager.instance;
+            const memoScope = stateManager.currentScope?.parent;
             memoScope?.forceCompleteRerender();
         }
     }
@@ -475,11 +548,25 @@ export class ArkThemeScopeManager {
                 }
             }
         }
+        const currentThemeOptions = this.currentThemeOptions();
+        if (!currentThemeOptions) {
+            return;
+        }
+        const themeScopeId = currentThemeOptions.themeScopeId as int32;
+        const components = this.themeScopeComponentMap.get(themeScopeId);
+        if (!components) {
+            return;
+        }
+        for (const component of components) {
+            if (component) {
+                component.onWillApplyTheme(themeWillApply);
+            }
+        }
     }
 
     public applyParentThemeScopeId(component: ArkCommonMethodComponent): void {
-        const stateManager = GlobalStateManager.instance as StateManagerImpl;
-        const scope = stateManager.current;
+        const stateManager = GlobalStateManager.instance;
+        const scope = stateManager.currentScope;
         const parentRef = scope?.parent?.nodeRef;
         const parentPeer = parentRef ? findPeerNode(parentRef) : undefined;
         if (parentPeer && parentPeer.peer && component.getPeer()) {
@@ -511,6 +598,71 @@ export class ArkThemeScopeManager {
         const themeScopeId =  stateManager.stateBy<int32>("themeScopeId")?.value;
         if (themeScopeId) {
             ThemeOps.applyThemeScopeIdToNode(ptr, themeScopeId as int32);
+        }
+    }
+
+    public applyWithThemeForCompatibleComponent(view: ESValue):void {
+        const currentThemeOptions = this.currentThemeOptions();
+        if (!currentThemeOptions) {
+            const uiContext = UIContextUtil.getOrCreateCurrentUIContext() as UIContext;
+            if (uiContext.isUpdateConfiguration()) {
+                view.invokeMethod('forceCompleteRerender', true);
+            }
+            return;
+        }
+        const global = ESValue.getGlobal();
+        const themeScopeMgr = global.getProperty('themeScopeMgr');
+        themeScopeMgr.setProperty('handledIsFirstRender', true);
+
+        const viewStackProcessor = global.getProperty('ViewStackProcessor');
+
+        viewStackProcessor.invokeMethod('StartGetAccessRecordingFor', currentThemeOptions?.themeScopeId ? currentThemeOptions!.themeScopeId : 0);
+        
+        const withTheme = global.getProperty('WithTheme');
+        const withThemeCreate = withTheme.getProperty('create');
+
+        const dynamicValue = ESValue.instantiateEmptyObject();
+        dynamicValue.setProperty('colorMode', currentThemeOptions?.options?.colorMode ? currentThemeOptions!.options!.colorMode : 0);
+        withThemeCreate.invoke(dynamicValue);
+
+        viewStackProcessor.invokeMethod('StopGetAccessRecording');
+
+        view.invokeMethod('forceCompleteRerender', true);
+    }
+
+    public popWithThemeForCompatibleComponent():void {
+        const currentThemeOptions = this.currentThemeOptions();
+        if (!currentThemeOptions) {
+            return;
+        }
+        const global = ESValue.getGlobal();
+        const withTheme = global.getProperty('WithTheme');
+        withTheme.invokeMethod('pop');
+    }
+
+    public applyColorModeFromThemeScope(): void {
+        const global = ESValue.getGlobal();
+        const themeScopeMgr = global.getProperty('themeScopeMgr');
+        const handledColorMode = themeScopeMgr.getProperty('handledColorMode');
+        if (handledColorMode.isNull() || handledColorMode.isUndefined()) {
+            return;
+        }
+        const colorModeValue = handledColorMode.toNumber().toInt();
+        let colorMode = ThemeColorMode.SYSTEM;
+        if (colorModeValue === 0) {
+            colorMode = ThemeColorMode.SYSTEM;
+        } else if (colorModeValue === 1) {
+            colorMode = ThemeColorMode.LIGHT;
+        } else if (colorModeValue === 2) {
+            colorMode = ThemeColorMode.DARK;
+        }
+        this.updateColorMode(colorMode);
+    }
+
+    public executeReload(node: ComputableState<IncrementalNode>): void {
+        const uiContext = UIContextUtil.getOrCreateCurrentUIContext() as UIContext;
+        if (uiContext.isUpdateConfiguration()) {
+            node.forceCompleteRerender();
         }
     }
 }

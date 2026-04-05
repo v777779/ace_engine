@@ -14,7 +14,7 @@
  */
 
 #include "flex_base_test_ng.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 void FlexBaseTestNG::SetUpTestSuite()
@@ -28,7 +28,7 @@ void FlexBaseTestNG::TearDownTestSuite()
     TestNG::TearDownTestSuite();
 }
 
-void FlexBaseTestNG::SetUp() 
+void FlexBaseTestNG::SetUp()
 {
     ViewStackProcessor::GetInstance()->ClearStack();
 }
@@ -39,6 +39,18 @@ RefPtr<FrameNode> FlexBaseTestNG::CreateFlexRow(const std::function<void(FlexMod
 {
     FlexModelNG model;
     model.CreateFlexRow();
+    if (callback) {
+        callback(model);
+    }
+    RefPtr<UINode> element = ViewStackProcessor::GetInstance()->GetMainElementNode();
+    ViewStackProcessor::GetInstance()->PopContainer();
+    return AceType::DynamicCast<FrameNode>(element);
+}
+
+RefPtr<FrameNode> FlexBaseTestNG::CreateFlexWrapRow(const std::function<void(FlexModelNG)>& callback)
+{
+    FlexModelNG model;
+    model.CreateWrap();
     if (callback) {
         callback(model);
     }

@@ -23,6 +23,15 @@
 #include "core/components_ng/pattern/grid_row/grid_row_model_ng_static.h"
 
 namespace OHOS::Ace::NG {
+namespace {
+constexpr size_t MAX_NUMBER_BREAKPOINT = 6;
+constexpr size_t XS = 0;
+constexpr size_t SM = 1;
+constexpr size_t MD = 2;
+constexpr size_t LG = 3;
+constexpr size_t XL = 4;
+constexpr size_t XXL = 5;
+}
     struct GridRowSizeOption {
         std::optional<Dimension> xs;
         std::optional<Dimension> sm;
@@ -107,21 +116,21 @@ namespace OHOS::Ace::NG::Converter {
         auto toValue {V2::Gutter(dimDefault)};
         if (x.has_value()) {
             auto valueX = x.value();
-            toValue.xXs = valueX.xs.has_value() ? valueX.xs.value() : dimDefault;
-            toValue.xSm = valueX.sm.has_value() ? valueX.sm.value() : toValue.xXs;
-            toValue.xMd = valueX.md.has_value() ? valueX.md.value() : toValue.xSm;
-            toValue.xLg = valueX.lg.has_value() ? valueX.lg.value() : toValue.xMd;
-            toValue.xXl = valueX.xl.has_value() ? valueX.xl.value() : toValue.xLg;
-            toValue.xXXl = valueX.xxl.has_value() ? valueX.xxl.value() : toValue.xXl;
+            toValue.xXs = valueX.xs.value_or(dimDefault);
+            toValue.xSm = valueX.sm.value_or(toValue.xXs);
+            toValue.xMd = valueX.md.value_or(toValue.xSm);
+            toValue.xLg = valueX.lg.value_or(toValue.xMd);
+            toValue.xXl = valueX.xl.value_or(toValue.xLg);
+            toValue.xXXl = valueX.xxl.value_or(toValue.xXl);
         }
         if (y.has_value()) {
             auto valueY = y.value();
-            toValue.yXs = valueY.xs.has_value() ? valueY.xs.value() : dimDefault;
-            toValue.ySm = valueY.sm.has_value() ? valueY.sm.value() : toValue.yXs;
-            toValue.yMd = valueY.md.has_value() ? valueY.md.value() : toValue.ySm;
-            toValue.yLg = valueY.lg.has_value() ? valueY.lg.value() : toValue.yMd;
-            toValue.yXl = valueY.xl.has_value() ? valueY.xl.value() : toValue.yLg;
-            toValue.yXXl = valueY.xxl.has_value() ? valueY.xxl.value() : toValue.yXl;
+            toValue.yXs = valueY.xs.value_or(dimDefault);
+            toValue.ySm = valueY.sm.value_or(toValue.yXs);
+            toValue.yMd = valueY.md.value_or(toValue.ySm);
+            toValue.yLg = valueY.lg.value_or(toValue.yMd);
+            toValue.yXl = valueY.xl.value_or(toValue.yLg);
+            toValue.yXXl = valueY.xxl.value_or(toValue.yXl);
         }
         return toValue;
     }
@@ -158,7 +167,7 @@ namespace OHOS::Ace::NG::Converter {
         if (optReference.has_value()) {
             toValue.reference = optReference.value();
         }
-        if (!optBreakpoints.has_value()) {
+        if (!optBreakpoints.has_value() || optBreakpoints->size() > MAX_NUMBER_BREAKPOINT - 1) {
             return toValue;
         }
         toValue.breakpoints.clear();
@@ -175,22 +184,42 @@ namespace OHOS::Ace::NG::Converter {
     }
     template<>
     V2::GridContainerSize Convert(const Ark_Int32& value);
+
+    void InheritGridColumns(V2::GridContainerSize& gridContainerSize,
+        std::optional<int32_t> (&containerSizeArray)[MAX_NUMBER_BREAKPOINT])
+    {
+        for (size_t i = 0; i < MAX_NUMBER_BREAKPOINT; ++i) {
+            if (containerSizeArray[i].has_value()) {
+                containerSizeArray[0] = containerSizeArray[i].value();
+                break;
+            }
+        }
+        CHECK_NULL_VOID(containerSizeArray[0].has_value());
+        for (size_t i = 1; i < MAX_NUMBER_BREAKPOINT; ++i) {
+            if (!containerSizeArray[i].has_value()) {
+                containerSizeArray[i] = containerSizeArray[i - 1].value();
+            }
+        }
+        gridContainerSize.xs = containerSizeArray[XS].value();
+        gridContainerSize.sm = containerSizeArray[SM].value();
+        gridContainerSize.md = containerSizeArray[MD].value();
+        gridContainerSize.lg = containerSizeArray[LG].value();
+        gridContainerSize.xl = containerSizeArray[XL].value();
+        gridContainerSize.xxl = containerSizeArray[XXL].value();
+    }
+
     template<>
     V2::GridContainerSize Convert(const Ark_GridRowColumnOption& value)
     {
         V2::GridContainerSize toValue;
-        auto optVal = Converter::OptConvert<int32_t>(value.xs);
-        toValue.xs = optVal.has_value() ? optVal.value() : V2::DEFAULT_COLUMN_NUMBER;
-        optVal = Converter::OptConvert<int32_t>(value.sm);
-        toValue.sm = optVal.has_value() ? optVal.value() : V2::DEFAULT_COLUMN_NUMBER;
-        optVal = Converter::OptConvert<int32_t>(value.md);
-        toValue.md = optVal.has_value() ? optVal.value() : V2::DEFAULT_COLUMN_NUMBER;
-        optVal = Converter::OptConvert<int32_t>(value.lg);
-        toValue.lg = optVal.has_value() ? optVal.value() : V2::DEFAULT_COLUMN_NUMBER;
-        optVal = Converter::OptConvert<int32_t>(value.xl);
-        toValue.xl = optVal.has_value() ? optVal.value() : V2::DEFAULT_COLUMN_NUMBER;
-        optVal = Converter::OptConvert<int32_t>(value.xxl);
-        toValue.xxl = optVal.has_value() ? optVal.value() : V2::DEFAULT_COLUMN_NUMBER;
+        std::optional<int32_t> containerSizeArray[MAX_NUMBER_BREAKPOINT];
+        containerSizeArray[XS] = Converter::OptConvert<int32_t>(value.xs);
+        containerSizeArray[SM] = Converter::OptConvert<int32_t>(value.sm);
+        containerSizeArray[MD] = Converter::OptConvert<int32_t>(value.md);
+        containerSizeArray[LG] = Converter::OptConvert<int32_t>(value.lg);
+        containerSizeArray[XL] = Converter::OptConvert<int32_t>(value.xl);
+        containerSizeArray[XXL] = Converter::OptConvert<int32_t>(value.xxl);
+        InheritGridColumns(toValue, containerSizeArray);
         return toValue;
     }
 } // Converter
@@ -236,7 +265,6 @@ void SetGridRowOptionsImpl(Ark_NativePointer node,
         auto arkOptions = convValue.value();
 
         auto optGutter = Converter::OptConvert<V2::Gutter>(arkOptions.gutter);
-        Validator::ValidateNonNegative(optGutter);
         auto gutter = optGutter.has_value() ? AceType::MakeRefPtr<V2::Gutter>(optGutter.value()) : nullGutter;
         GridRowModelNG::SetGutter(frameNode, gutter);
 
@@ -246,6 +274,7 @@ void SetGridRowOptionsImpl(Ark_NativePointer node,
         auto optBreakPoints = Converter::OptConvert<V2::BreakPoints>(arkOptions.breakpoints);
         auto breakpoints = optBreakPoints.has_value()
             ? AceType::MakeRefPtr<V2::BreakPoints>(optBreakPoints.value()) : nullBreakPoints;
+        breakpoints->userDefine = optBreakPoints.has_value();
         GridRowModelNG::SetBreakpoints(frameNode, breakpoints);
 
         auto optColumns = Converter::OptConvert<V2::GridContainerSize>(arkOptions.columns);
@@ -263,7 +292,7 @@ void SetGridRowOptionsImpl(Ark_NativePointer node,
 } // GridRowInterfaceModifier
 namespace GridRowAttributeModifier {
 void SetOnBreakpointChangeImpl(Ark_NativePointer node,
-                               const Opt_Callback_String_Void* value)
+                               const Opt_synthetic_Callback_String_Void* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);

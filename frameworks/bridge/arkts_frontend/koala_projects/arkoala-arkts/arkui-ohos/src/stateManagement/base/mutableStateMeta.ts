@@ -15,12 +15,14 @@
 
 import { int32 } from '@koalaui/common';
 import { ArkUIAniModule } from 'arkui.ani';
-import { IMutableStateMeta, IMutableKeyedStateMeta } from '../decorator';
-import { MutableState, StateImpl } from '@koalaui/runtime';
+import { IMutableStateMeta, IMutableKeyedStateMeta, IObservedObject } from '../decorator';
+import { Dependent, MutableState, GlobalStateManager, IncrementalNode } from '@koalaui/runtime';
 import { ObserveSingleton } from './observeSingleton';
 import { RenderIdType } from '../decorator';
-import { StateMgmtTool } from '#stateMgmtTool';
 import { StateUpdateLoop } from './stateUpdateLoop';
+import { StateTracker } from '../tests/lib/stateTracker';
+import { ObservedObjectRegistry, StateMgmtDFX } from '../tools/stateMgmtDFX';
+import { ElementInfo } from '../utils';
 
 class MutableStateMetaBase {
     public readonly info_: string;
@@ -41,6 +43,33 @@ export interface ITrackedDecoratorRef {
     weakThis: WeakRef<ITrackedDecoratorRef>;
     reverseBindings: Set<WeakRef<IBindingSource>>;
     clearReverseBindings(): void;
+    getDFXInfo(): ElementInfo;
+}
+
+// TrackedMutableStateMeta class used by unit test framework only
+export class TrackedMutableStateMeta extends MutableStateMeta {
+    constructor(info: string, metaDependency?: MutableState<int32>) {
+        super(info, metaDependency);
+    }
+
+    public addRef(): void {
+        if (
+            ObserveSingleton.instance.renderingComponent === ObserveSingleton.RenderingMonitor ||
+            ObserveSingleton.instance.renderingComponent === ObserveSingleton.RenderingComputed ||
+            ObserveSingleton.instance.renderingComponent === ObserveSingleton.RenderingPersistentStorage
+        ) {
+        } else {
+            StateTracker.increaseRefCnt();
+        }
+        super.addRef();
+    }
+
+    public fireChange(): void {
+        if (this.shouldFireChange()) {
+            StateTracker.increaseFireChangeCnt();
+        }
+        super.fireChange();
+    }
 }
 
 /**
@@ -56,20 +85,30 @@ export class MutableStateMeta extends MutableStateMetaBase implements IMutableSt
     private bindingRefs_: Set<WeakRef<ITrackedDecoratorRef>>;
     weakThis: WeakRef<IBindingSource>;
     metaValue: int32;
+    enableDynamicCompatible: boolean = false;
+    dynamicAddRefFunc?: () => void;
+    dynamicFireChangeFunc?: () => void;
     private hasFired: boolean;
 
     constructor(info: string, metaDependency?: MutableState<int32>) {
         super(info);
-        this.__metaDependency = metaDependency ?? StateMgmtTool.getGlobalStateManager().mutableState<int32>(0, true);
+        this.__metaDependency = metaDependency ?? GlobalStateManager.instance.mutableState<int32>(0, true);
         this.bindingRefs_ = new Set<WeakRef<ITrackedDecoratorRef>>();
         this.weakThis = new WeakRef<IBindingSource>(this);
         this.metaValue = 0;
         this.hasFired = false;
     }
 
+    public registerDynamicHookFunc(addRef: () => void, fireChange: () => void) {
+        this.enableDynamicCompatible = true;
+        this.dynamicAddRefFunc = addRef;
+        this.dynamicFireChangeFunc = fireChange;
+    }
+
     public addRef(): void {
         const renderingComponent = ObserveSingleton.instance.renderingComponent;
-        if (renderingComponent <= ObserveSingleton.RenderingComponent) {
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`MutableStateMeta addRef ${renderingComponent} ${ObserveSingleton.instance.renderingId}`);
+        if (renderingComponent <= ObserveSingleton.RenderingComponent && !this.enableDynamicCompatible) {
             return;
         }
         // >= RenderingMonitor means Monitor/Computed/PersistentStorage
@@ -84,9 +123,13 @@ export class MutableStateMeta extends MutableStateMetaBase implements IMutableSt
         if (this.hasFired) {
             this.hasFired = false;
         }
+        if (this.enableDynamicCompatible) {
+            this.dynamicAddRefFunc?.();
+        }
     }
 
     public fireChange(): void {
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`MutableStateMeta fireChange ${this.hasFired} ${this.shouldFireChange()} ${StateUpdateLoop.canRequestFrame}`);
         if (ObserveSingleton.instance.renderingComponent === ObserveSingleton.RenderingComputed) {
             throw new Error('Attempt to modify state variables from @Computed function');
         }
@@ -108,6 +151,9 @@ export class MutableStateMeta extends MutableStateMetaBase implements IMutableSt
                 StateUpdateLoop.canRequestFrame = false;
             }
         }
+        if (this.enableDynamicCompatible) {
+            this.dynamicFireChangeFunc?.();
+        }
     }
 
     public changeMutableState(): void {
@@ -119,16 +165,45 @@ export class MutableStateMeta extends MutableStateMetaBase implements IMutableSt
     }
 
     shouldFireChange(): boolean {
-        const dependency = (this.__metaDependency as StateImpl<int32>).dependencies;
-        return !!(dependency && !dependency.empty);
+        const dependency = this.__metaDependency as Object as Dependent;
+        return dependency.hasDependencies();
+    }
+    getDependentNodeInfo(): Set<IncrementalNode> | undefined {
+        return this.__metaDependency.getDependentInfo();
+    }
+    getMonitorAndComputedInfo(elementInfo: Array<ElementInfo>): Array<ElementInfo> {
+        if (this.bindingRefs_.size > 0) {
+            this.bindingRefs_.forEach((listener: WeakRef<ITrackedDecoratorRef>) => {
+                let trackedObject = listener.deref();
+                if (trackedObject) {
+                    elementInfo.push(trackedObject.getDFXInfo());
+                }
+            });
+        }
+        return elementInfo;
     }
 }
 
 export class MutableKeyedStateMeta extends MutableStateMetaBase implements IMutableKeyedStateMeta {
     protected readonly __metaDependencies = new Map<string, MutableStateMeta>();
-
+    private observed: IObservedObject | undefined = undefined;
     constructor(info: string = '') {
         super(info);
+    }
+    constructor(info: string, observed: IObservedObject) {
+        super(info);
+        this.observed = observed;
+        const observedObject = this.observed as IObservedObject;
+        const observedInfo = ObservedObjectRegistry.getOrRegister(observedObject!);
+        let resolvedKey: string = ''
+        if (info.startsWith('__metaBuiltInV1_')) {
+            resolvedKey = '__metaBuiltInV1Key_';
+        } else if (info.startsWith('__metaBuiltInV2_')) {
+            resolvedKey = '__metaBuiltInV2Key_';
+        } else if (info.startsWith('__metaBuiltInMakeObserved_')) {
+            resolvedKey = '__metaMakeObservedKey_';
+        }
+        observedInfo.setType(resolvedKey);
     }
 
     public addRef(key: string): void {
@@ -137,8 +212,13 @@ export class MutableKeyedStateMeta extends MutableStateMetaBase implements IMuta
             // incremental engine does not allow create mutableState while building tree
             metaDependency = new MutableStateMeta(
                 key,
-                StateMgmtTool.getGlobalStateManager().mutableState<int32>(0, true)
+                GlobalStateManager.instance.mutableState<int32>(0, true)
             );
+            if (this.observed) {
+                const observedObject = this.observed as IObservedObject;
+                const info = ObservedObjectRegistry.getOrRegister(observedObject!); // type has been set in ctor
+                info.registerMutableStateMeta(metaDependency);
+            }
             this.__metaDependencies.set(key, metaDependency);
         }
         metaDependency.addRef();

@@ -21,8 +21,9 @@
 #include "base/geometry/dimension.h"
 #include "core/common/resource/resource_parse_utils.h"
 #include "core/components/common/properties/color.h"
-#include "core/components/common/properties/text_style.h"
-#include "core/components_v2/list/list_properties.h"
+#include "core/components/common/properties/text_enums.h"
+#include "core/components_ng/pattern/symbol/constants.h"
+#include "core/components_ng/pattern/list/list_properties.h"
 #include "core/interfaces/native/generated/interface/arkoala_api_generated.h"
 
 namespace OHOS::Ace::NG {
@@ -44,11 +45,10 @@ struct RadioStyle {
     std::optional<Color> indicatorColor;
 };
 
-typedef std::tuple<
-    std::optional<Dimension>,
-    std::optional<FontWeight>
-    // here it can be expanded by Family and Style data
-> FontMetaData;
+struct FontMetaData {
+    std::optional<Dimension> size;
+    std::optional<FontWeight> weight;
+};
 
 struct CaretStyle {
     std::optional<Dimension> width;
@@ -94,6 +94,22 @@ enum class MessageLevel {
     LOG = 5
 };
 
+enum class ConsoleMessageSource {
+    XML = 0,
+    JAVASCRIPT = 1,
+    NETWORK = 2,
+    CONSOLE_API = 3,
+    STORAGE = 4,
+    RENDERING = 5,
+    SECURITY = 6,
+    OTHER = 7,
+    DEPRECATION = 8,
+    WORKER = 9,
+    VIOLATION = 10,
+    INTERVENTION = 11,
+    RECOMMENDATION = 12
+};
+
 enum class RenderExitReason {
     ABNORMAL_TERMINATION = 0,
     WAS_KILLED = 1,
@@ -114,6 +130,8 @@ enum class ThreatType {
     FRAUD = 1,
     RISK = 2,
     WARNING = 3,
+    NONE = 4,
+    UNPROCESSED = 5
 };
 
 enum class RenderingStrategy {
@@ -131,9 +149,6 @@ struct Header {
         return (headerKey == other.headerKey && headerValue == other.headerValue);
     }
 };
-
-using PickerSelectedType = std::variant<uint32_t, std::vector<uint32_t>>;
-using PickerValueType = std::variant<std::string, std::vector<std::string>>;
 
 struct LightSource {
     std::optional<CalcDimension> x;

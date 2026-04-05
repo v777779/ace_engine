@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "base/geometry/dimension.h"
+#include "base/log/log_wrapper.h"
 #include "base/memory/ace_type.h"
 #include "base/utils/utils.h"
 #include "core/components_ng/property/measure_property.h"
@@ -46,11 +47,16 @@ constexpr float DEFAULT_SIZE = -1.0f;
 }
 
 class ListChildrenMainSize : public virtual AceType {
-    DECLARE_ACE_TYPE(ListChildrenMainSize, AceType)
+    DECLARE_ACE_TYPE(ListChildrenMainSize, AceType);
 public:
     ListChildrenMainSize() = default;
+
     ListChildrenMainSize(const std::vector<float>& mainSize, float defaulatMainSize)
         : childrenSize_(mainSize), defaultSize_(defaulatMainSize) {};
+
+    ListChildrenMainSize(std::vector<float>&& mainSize, float defaulatMainSize)
+        : childrenSize_(std::move(mainSize)), defaultSize_(defaulatMainSize) {};
+
     ~ListChildrenMainSize() override = default;
 
     void SetOnDataChange(std::function<void(std::tuple<int32_t, int32_t, int32_t>, ListChangeFlag)>&& func)
@@ -80,7 +86,8 @@ public:
             auto deleteStartPos = childrenSize_.begin() + start + cursor;
             auto deleteEndPos = deleteStartPos;
             int32_t needDeleteSpan = deleteCount - newChildrenSizeSize;
-            while (deleteEndPos != childrenSize_.end() && needDeleteSpan--) {
+            while (deleteEndPos != childrenSize_.end() && needDeleteSpan > 0) {
+                needDeleteSpan--;
                 deleteEndPos++;
             }
             childrenSize_.erase(deleteStartPos, deleteEndPos);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,13 +19,10 @@
 #include <optional>
 
 #include "core/components/common/properties/color.h"
-#include "core/components_ng/event/event_hub.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/button/toggle_button_accessibility_property.h"
 #include "core/components_ng/pattern/button/toggle_button_event_hub.h"
 #include "core/components_ng/pattern/button/toggle_button_paint_property.h"
-#include "core/components_ng/pattern/toggle/toggle_model_ng.h"
-#include "core/components/toggle/toggle_theme.h"
 
 namespace OHOS::Ace::NG {
 class ToggleButtonPattern : public ButtonPattern {
@@ -85,7 +82,7 @@ public:
     void SetButtonPress(bool value);
     void ToTreeJson(std::unique_ptr<JsonValue>& json, const InspectorConfig& config) const override;
     bool OnThemeScopeUpdate(int32_t themeScopeId) override;
-    void UpdateComponentColor(const Color& color, const ToggleColorType toggleColorType);
+    int32_t OnInjectionEvent(const std::string& command) override;
 
 private:
     void OnAttachToFrameNode() override;
@@ -123,6 +120,9 @@ private:
     void HandleHoverEvent(bool isHover);
     void InitEvent();
     void SetToggleScale(RefPtr<RenderContext>& renderContext);
+    bool ParseCommand(const std::string& command, bool& isOn);
+    void ReportChangeEvent(bool isOn);
+    bool ReportInjectionResult(bool isSuccess, const std::string& reason);
 
     RefPtr<FrameNode> BuildContentModifierNode();
     std::function<void(bool)> isFocusActiveUpdateEvent_;
@@ -149,7 +149,6 @@ private:
     bool isbgColorFocus_ = false;
     bool isFocus_ = false;
     bool isPress_ = false;
-    bool isSetClickedColor_ = false;
     bool IsNeedToHandleHoverOpacity();
     bool isTextFadeOut_ = false;
     bool isHover_ = false;

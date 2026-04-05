@@ -136,7 +136,7 @@ public:
     using GetFrameChildResult = std::pair<uint32_t, CacheItem>;
 
 public:
-    RepeatVirtualScroll2Caches(const std::function<std::pair<RIDType, uint32_t>(IndexType)>& onGetRid4Index);
+    RepeatVirtualScroll2Caches(const std::function<std::pair<RIDType, uint32_t>(IndexType, bool)>& onGetRid4Index);
 
     /**
      * Return a FrameNode child for give index
@@ -206,6 +206,8 @@ public:
     // Repeat.rerender
     void UpdateL1Rid4Index(std::map<int32_t, uint32_t> l1Rd4Index);
 
+    void UpdateIsL1(const CacheItem& cacheItem, bool isL1, bool shouldTriggerRecycleOrReuse = true);
+
     /**
      * for debug purposes, use wisely, performance is slow!
      */
@@ -267,6 +269,12 @@ public:
         return moveFromTo_.has_value();
     }
 
+    /**
+     * return CacheItem for RID, if it exists
+     * do not check any CacheItem flags
+     */
+    OptCacheItem GetCacheItem4RID(RIDType rid) const;
+
 private:
     /**
      * TS make new node or update from L1
@@ -274,12 +282,8 @@ private:
      * CacheItem has node, isL1=True
      */
     OptCacheItem CallOnGetRid4Index(IndexType index);
-
-    /**
-     * return CacheItem for RID, if it exists
-     * do not check any CacheItem flags
-     */
-    OptCacheItem GetCacheItem4RID(RIDType rid) const;
+    OptCacheItem GetNewRid4Index(IndexType index, RIDType rid, RefPtr<UINode>& node4Index);
+    OptCacheItem GetUpdatedRid4Index(IndexType index, RIDType rid);
 
     /**
      * if L1 includes RID for index, return it
@@ -299,7 +303,7 @@ private:
     std::map<RIDType, CacheItem> cacheItem4Rid_;
 
     // TS callback function for given index, provides RID
-    std::function<std::pair<RIDType, uint32_t>(IndexType)> onGetRid4Index_;
+    std::function<std::pair<RIDType, uint32_t>(IndexType, bool)> onGetRid4Index_;
 
     // TS function to inform new active range from ... to
     std::function<void(IndexType, IndexType)> onSetActiveRange_;
@@ -309,6 +313,9 @@ private:
 
     // record (from, to), only valid during dragging item.
     std::optional<std::pair<IndexType, IndexType>> moveFromTo_;
+
+    // for tracking reused/recycled nodes
+    std::unordered_set<int32_t> recycledNodeIds_;
 }; // class NodeCache
 
 } // namespace OHOS::Ace::NG

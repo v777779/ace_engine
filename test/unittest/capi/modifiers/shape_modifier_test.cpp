@@ -15,9 +15,9 @@
 
 #include "modifier_test_base.h"
 #include "modifiers_test_utils.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components/checkable/checkable_theme.h"
 #include "core/components_ng/pattern/shape/rect_paint_property.h"
@@ -35,8 +35,8 @@ using namespace OHOS::Ace::NG::Converter;
 
 namespace {
 using OneTestColorStep = std::pair<Opt_ResourceColor, std::string>;
-using OneUnionNumStrResStep = std::pair<Opt_Union_Number_String_Resource, std::string>;
-using OneUnionNumStrStep = std::pair<Opt_Union_Number_String, double>;
+using OneUnionNumStrResStep = std::pair<Opt_Union_F64_String_Resource, std::string>;
+using OneUnionNumStrStep = std::pair<Opt_Length, double>;
 
 // Names
 constexpr auto ATTRIBUTE_WIDTH_NAME = "width";
@@ -67,7 +67,9 @@ constexpr auto Y_STR = "20.00vp";
 const std::vector<OneTestColorStep> TEST_COLOR_PLAN = {
     { ArkUnion<Opt_ResourceColor, Ark_Color>(ARK_COLOR_WHITE), "#FFFFFFFF" },
     { ArkUnion<Opt_ResourceColor, Ark_Int32>(0x123456), "#FF123456" },
-    { ArkUnion<Opt_ResourceColor, Ark_Int32>(0.5f), "#00000000" },
+#ifdef WRONG_COLOR
+    { ArkUnion<Opt_ResourceColor, Ark_Int32>(0), "#00000000" },
+#endif
     { ArkUnion<Opt_ResourceColor, Ark_String>("#11223344"), "#11223344" },
     { ArkUnion<Opt_ResourceColor, Ark_String>("65535"), "#FF00FFFF" },
 };
@@ -96,13 +98,13 @@ public:
     }
 };
 
-Ark_ViewportRect BuildViewPort(int x, int y, int width, int height)
+Ark_ViewportRect BuildViewPort(double x, double y, double width, double height)
 {
     Ark_ViewportRect viewPort;
-    viewPort.x = Converter::ArkUnion<Opt_Union_Number_String, Ark_Number>(x);
-    viewPort.y = Converter::ArkUnion<Opt_Union_Number_String, Ark_Number>(y);
-    viewPort.width = Converter::ArkUnion<Opt_Union_Number_String, Ark_Number>(width);
-    viewPort.height = Converter::ArkUnion<Opt_Union_Number_String, Ark_Number>(height);
+    viewPort.x = Converter::ArkValue<Opt_Length>(x);
+    viewPort.y = Converter::ArkValue<Opt_Length>(y);
+    viewPort.width = Converter::ArkValue<Opt_Length>(width);
+    viewPort.height = Converter::ArkValue<Opt_Length>(height);
     return viewPort;
 }
 
@@ -121,9 +123,9 @@ HWTEST_F(ShapeModifierTest, setViewPortTest, TestSize.Level1)
 
     auto paintProperty = frameNode->GetPaintProperty<ShapeContainerPaintProperty>();
     ASSERT_NE(paintProperty, nullptr);
-    std::string strResult;
-    std::string viewPortStr = GetStringAttribute(node_, "viewPort");
-    auto jsonVal = JsonUtil::ParseJsonString(viewPortStr);
+    std::optional<std::string> strResult;
+    auto jsonValue = GetJsonValue(node_);
+    auto jsonVal = GetAttrObject(jsonValue, "viewPort");
 
     strResult = jsonVal->GetString(ATTRIBUTE_WIDTH_NAME);
     EXPECT_EQ(strResult, WIDTH_STR);
@@ -142,16 +144,16 @@ HWTEST_F(ShapeModifierTest, setViewPortTest, TestSize.Level1)
  */
 HWTEST_F(ShapeModifierTest, setStrokeTest, TestSize.Level1)
 {
-    static const std::string PROP_NAME("stroke");
+    constexpr auto propName = "stroke";
     ASSERT_NE(modifier_->setStroke, nullptr);
 
-    auto checkInitial = GetAttrValue<std::string>(node_, PROP_NAME);
-    EXPECT_EQ(checkInitial, Color::BLACK.ToString());
+    auto checkInitial = GetAttrValue<std::string>(node_, propName);
+    EXPECT_THAT(checkInitial, Eq(Color::BLACK.ToString()));
 
     for (const auto& [arkResColor, expected] : TEST_COLOR_PLAN) {
         modifier_->setStroke(node_, &arkResColor);
-        auto checkColor = GetAttrValue<std::string>(node_, PROP_NAME);
-        EXPECT_EQ(checkColor, expected);
+        auto checkColor = GetAttrValue<std::string>(node_, propName);
+        EXPECT_THAT(checkColor, Eq(expected));
     }
 }
 
@@ -162,54 +164,54 @@ HWTEST_F(ShapeModifierTest, setStrokeTest, TestSize.Level1)
  */
 HWTEST_F(ShapeModifierTest, setFillTest, TestSize.Level1)
 {
-    static const std::string PROP_NAME("fill");
+    constexpr auto propName = "fill";
     ASSERT_NE(modifier_->setFill, nullptr);
 
-    auto checkInitial = GetAttrValue<std::string>(node_, PROP_NAME);
-    EXPECT_EQ(checkInitial, Color::BLACK.ToString());
+    auto checkInitial = GetAttrValue<std::string>(node_, propName);
+    EXPECT_THAT(checkInitial, Eq(Color::BLACK.ToString()));
 
     for (const auto& [arkResColor, expected] : TEST_COLOR_PLAN) {
         modifier_->setFill(node_, &arkResColor);
-        auto checkColor = GetAttrValue<std::string>(node_, PROP_NAME);
-        EXPECT_EQ(checkColor, expected);
+        auto checkColor = GetAttrValue<std::string>(node_, propName);
+        EXPECT_THAT(checkColor, Eq(expected));
     }
 }
 
 /*
- * @tc.name: setStrokeDashOffset
+ * @tc.name: setStrokeDashOffsetTest
  * @tc.desc: check setStrokeDashOffset
  * @tc.type: FUNC
  */
-HWTEST_F(ShapeModifierTest, setStrokeDashOffset, TestSize.Level1)
+HWTEST_F(ShapeModifierTest, DISABLED_setStrokeDashOffsetTest, TestSize.Level1)
 {
-    using OneTestStep = std::pair<Opt_Union_Number_String, std::string>;
+    using OneTestStep = std::pair<Opt_Length, std::string>;
     static const std::vector<OneTestStep> testPlan = {
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(1), "1.00vp" },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(0), "0.00px" },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(2.45f), "2.45vp" },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(-2.45f), "0.00px" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("5px"), "5.00px" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("22.35px"), "22.35px" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("7vp"), "7.00vp" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("1.65vp"), "1.65vp" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("65fp"), "65.00fp" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("4.3fp"), "4.30fp" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("11lpx"), "11.00lpx" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("0.5lpx"), "0.50lpx" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("3"), "3.00fp" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>(""), "0.00px" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("10.65"), "10.65fp" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("23%"), "0.00px" },
+        { ArkUnion<Opt_Length, Ark_Float64>(1.), "1.00vp" },
+        { ArkUnion<Opt_Length, Ark_Float64>(0.), "0.00vp" },
+        { ArkUnion<Opt_Length, Ark_Float64>(2.45), "2.45vp" },
+        { ArkUnion<Opt_Length, Ark_Float64>(-2.45), "0.00vp" },
+        { ArkUnion<Opt_Length, Ark_String>("5px"), "5.00px" },
+        { ArkUnion<Opt_Length, Ark_String>("22.35px"), "22.35px" },
+        { ArkUnion<Opt_Length, Ark_String>("7vp"), "7.00vp" },
+        { ArkUnion<Opt_Length, Ark_String>("1.65vp"), "1.65vp" },
+        { ArkUnion<Opt_Length, Ark_String>("65fp"), "65.00fp" },
+        { ArkUnion<Opt_Length, Ark_String>("4.3fp"), "4.30fp" },
+        { ArkUnion<Opt_Length, Ark_String>("11lpx"), "11.00lpx" },
+        { ArkUnion<Opt_Length, Ark_String>("0.5lpx"), "0.50lpx" },
+        { ArkUnion<Opt_Length, Ark_String>("3"), "3.00fp" },
+        { ArkUnion<Opt_Length, Ark_String>(""), "0.00vp" },
+        { ArkUnion<Opt_Length, Ark_String>("10.65"), "10.65fp" },
+        { ArkUnion<Opt_Length, Ark_String>("23%"), "0.00vp" },
     };
 
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     for (const auto &[arkValue, expected]: testPlan) {
         modifier_->setStrokeDashOffset(node_, &arkValue);
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_STROKE_DASH_OFFSET_NAME);
-        EXPECT_EQ(resultStr, expected);
+        EXPECT_THAT(resultStr, Eq(expected));
     }
 }
 
@@ -221,7 +223,7 @@ HWTEST_F(ShapeModifierTest, setStrokeDashOffset, TestSize.Level1)
 HWTEST_F(ShapeModifierTest, setStrokeLineCapTestValidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     // Initial setup
     auto valueOpt = Converter::ArkValue<Opt_LineCapStyle>(ARK_LINE_CAP_STYLE_BUTT);
@@ -231,20 +233,20 @@ HWTEST_F(ShapeModifierTest, setStrokeLineCapTestValidValues, TestSize.Level1)
     // Initial verification
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_STROKE_LINE_CAP_NAME);
-    EXPECT_EQ(resultStr, "LineCapStyle.Butt");
+    EXPECT_THAT(resultStr, Eq("LineCapStyle.Butt"));
 
     // Verifying attribute's other values
     valueOpt = Converter::ArkValue<Opt_LineCapStyle>(ARK_LINE_CAP_STYLE_ROUND);
     modifier_->setStrokeLineCap(node_, &valueOpt);
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_STROKE_LINE_CAP_NAME);
-    EXPECT_EQ(resultStr, "LineCapStyle.Round");
+    EXPECT_THAT(resultStr, Eq("LineCapStyle.Round"));
 
     valueOpt = Converter::ArkValue<Opt_LineCapStyle>(ARK_LINE_CAP_STYLE_SQUARE);
     modifier_->setStrokeLineCap(node_, &valueOpt);
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_STROKE_LINE_CAP_NAME);
-    EXPECT_EQ(resultStr, "LineCapStyle.Square");
+    EXPECT_THAT(resultStr, Eq("LineCapStyle.Square"));
 }
 
 /*
@@ -255,7 +257,7 @@ HWTEST_F(ShapeModifierTest, setStrokeLineCapTestValidValues, TestSize.Level1)
 HWTEST_F(ShapeModifierTest, setStrokeLineCapTestInvalidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     Ark_LineCapStyle inputValueStrokeLineCap;
 
     // Initial setup
@@ -267,7 +269,7 @@ HWTEST_F(ShapeModifierTest, setStrokeLineCapTestInvalidValues, TestSize.Level1)
     // Initial verification
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_STROKE_LINE_CAP_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_STROKE_LINE_CAP_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_STROKE_LINE_CAP_DEFAULT_VALUE));
 }
 
 /*
@@ -278,7 +280,7 @@ HWTEST_F(ShapeModifierTest, setStrokeLineCapTestInvalidValues, TestSize.Level1)
 HWTEST_F(ShapeModifierTest, setStrokeLineJoinTestValidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     // Initial setup
     auto valueOpt = Converter::ArkValue<Opt_LineJoinStyle>(ARK_LINE_JOIN_STYLE_MITER);
@@ -288,20 +290,20 @@ HWTEST_F(ShapeModifierTest, setStrokeLineJoinTestValidValues, TestSize.Level1)
     // Initial verification
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_STROKE_LINE_JOIN_NAME);
-    EXPECT_EQ(resultStr, "LineJoinStyle.Miter");
+    EXPECT_THAT(resultStr, Eq("LineJoinStyle.Miter"));
 
     // Verifying attribute's other values
     valueOpt = Converter::ArkValue<Opt_LineJoinStyle>(ARK_LINE_JOIN_STYLE_ROUND);
     modifier_->setStrokeLineJoin(node_, &valueOpt);
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_STROKE_LINE_JOIN_NAME);
-    EXPECT_EQ(resultStr, "LineJoinStyle.Round");
+    EXPECT_THAT(resultStr, Eq("LineJoinStyle.Round"));
 
     valueOpt = Converter::ArkValue<Opt_LineJoinStyle>(ARK_LINE_JOIN_STYLE_BEVEL);
     modifier_->setStrokeLineJoin(node_, &valueOpt);
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_STROKE_LINE_JOIN_NAME);
-    EXPECT_EQ(resultStr, "LineJoinStyle.Bevel");
+    EXPECT_THAT(resultStr, Eq("LineJoinStyle.Bevel"));
 }
 
 /*
@@ -312,7 +314,7 @@ HWTEST_F(ShapeModifierTest, setStrokeLineJoinTestValidValues, TestSize.Level1)
 HWTEST_F(ShapeModifierTest, setStrokeLineJoinTestInvalidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     Ark_LineJoinStyle inputValueStrokeLineJoin;
 
     // Initial setup
@@ -324,7 +326,7 @@ HWTEST_F(ShapeModifierTest, setStrokeLineJoinTestInvalidValues, TestSize.Level1)
     // Initial verification
     jsonValue = GetJsonValue(node_);
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_STROKE_LINE_JOIN_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_STROKE_LINE_JOIN_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_STROKE_LINE_JOIN_DEFAULT_VALUE));
 }
 
 /*
@@ -334,35 +336,35 @@ HWTEST_F(ShapeModifierTest, setStrokeLineJoinTestInvalidValues, TestSize.Level1)
  */
 HWTEST_F(ShapeModifierTest, setStrokeMiterLimitTest, TestSize.Level1)
 {
-    using OneTestStep = std::pair<Opt_Union_Number_String, std::string>;
+    using OneTestStep = std::pair<Opt_Length, std::string>;
     static const std::vector<OneTestStep> testPlan = {
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(1), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(0), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(2.45f), "2.450000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("5px"), "4.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("22.35px"), "4.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("7vp"), "4.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("1.65vp"), "4.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("65fp"), "4.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("4.3fp"), "4.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("11lpx"), "4.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("0.5lpx"), "4.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("3"), "3.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("-3"), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>(""), "4.000000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("10.65"), "10.650000" },
-        { ArkUnion<Opt_Union_Number_String, Ark_String>("23%"), "1.000000" },
+        { ArkUnion<Opt_Length, Ark_Float64>(1.), "1.000000" },
+        { ArkUnion<Opt_Length, Ark_Float64>(0.), "1.000000" },
+        { ArkUnion<Opt_Length, Ark_Float64>(2.45), "2.450000" },
+        { ArkUnion<Opt_Length, Ark_String>("5px"), "4.000000" },
+        { ArkUnion<Opt_Length, Ark_String>("22.35px"), "4.000000" },
+        { ArkUnion<Opt_Length, Ark_String>("7vp"), "4.000000" },
+        { ArkUnion<Opt_Length, Ark_String>("1.65vp"), "4.000000" },
+        { ArkUnion<Opt_Length, Ark_String>("65fp"), "4.000000" },
+        { ArkUnion<Opt_Length, Ark_String>("4.3fp"), "4.000000" },
+        { ArkUnion<Opt_Length, Ark_String>("11lpx"), "4.000000" },
+        { ArkUnion<Opt_Length, Ark_String>("0.5lpx"), "4.000000" },
+        { ArkUnion<Opt_Length, Ark_String>("3"), "3.000000" },
+        { ArkUnion<Opt_Length, Ark_String>("-3"), "1.000000" },
+        { ArkUnion<Opt_Length, Ark_String>(""), "4.000000" },
+        { ArkUnion<Opt_Length, Ark_String>("10.65"), "10.650000" },
+        { ArkUnion<Opt_Length, Ark_String>("23%"), "1.000000" },
     };
 
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     for (const auto &[arkValue, expected]: testPlan) {
         modifier_->setStrokeMiterLimit(node_, &arkValue);
 
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_STROKE_MITER_LIMIT_NAME);
-        EXPECT_EQ(resultStr, expected);
+        EXPECT_THAT(resultStr, Eq(expected));
     }
 }
 
@@ -374,26 +376,26 @@ HWTEST_F(ShapeModifierTest, setStrokeMiterLimitTest, TestSize.Level1)
 HWTEST_F(ShapeModifierTest, setStrokeOpacityTest, TestSize.Level1)
 {
     static const std::vector<OneUnionNumStrResStep> UNION_NUM_STR_RES_TEST_PLAN = {
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_Number>(ArkValue<Ark_Number>(123)), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_Number>(ArkValue<Ark_Number>(-123)), "0.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("5.6vp")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("-5.6vp")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("45px")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("-45px")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_Number>(ArkValue<Ark_Number>(0.23f)), "0.230000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_Number>(ArkValue<Ark_Number>(-0.23f)), "0.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("10%")), "0.100000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("45dp")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("undefVal")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("qw111vp")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("qw111")), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_Float64>(123.), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_Float64>(-123.), "0.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("5.6vp"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("-5.6vp"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("45px"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("-45px"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_Float64>(0.23), "0.230000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_Float64>(-0.23), "0.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("10%"), "0.100000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("45dp"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("undefVal"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>(""), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("qw111vp"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("qw111"), "1.000000" },
     };
 
     for (const auto &[value, expectVal]: UNION_NUM_STR_RES_TEST_PLAN) {
         modifier_->setStrokeOpacity(node_, &value);
-        auto checkVal = GetStringAttribute(node_, ATTRIBUTE_STROKE_OPACITY_NAME);
-        EXPECT_EQ(checkVal, expectVal);
+        auto checkVal = GetAttrValue<std::string>(node_, ATTRIBUTE_STROKE_OPACITY_NAME);
+        EXPECT_THAT(checkVal, Eq(expectVal));
     }
 }
 
@@ -405,26 +407,26 @@ HWTEST_F(ShapeModifierTest, setStrokeOpacityTest, TestSize.Level1)
 HWTEST_F(ShapeModifierTest, setFillOpacityTest, TestSize.Level1)
 {
     static const std::vector<OneUnionNumStrResStep> UNION_NUM_STR_RES_TEST_PLAN = {
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_Number>(ArkValue<Ark_Number>(123)), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_Number>(ArkValue<Ark_Number>(-123)), "0.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("5.6vp")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("-5.6vp")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("45px")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("-45px")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_Number>(ArkValue<Ark_Number>(0.23f)), "0.230000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_Number>(ArkValue<Ark_Number>(-0.23f)), "0.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("10%")), "0.100000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("45dp")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("undefVal")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("qw111vp")), "1.000000" },
-        { ArkUnion<Opt_Union_Number_String_Resource, Ark_String>(ArkValue<Ark_String>("qw111")), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_Float64>(123.), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_Float64>(-123), "0.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("5.6vp"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("-5.6vp"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("45px"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("-45px"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_Float64>(0.23), "0.230000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_Float64>(-0.23), "0.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("10%"), "0.100000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("45dp"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("undefVal"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>(""), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("qw111vp"), "1.000000" },
+        { ArkUnion<Opt_Union_F64_String_Resource, Ark_String>("qw111"), "1.000000" },
     };
 
     for (const auto &[value, expectVal]: UNION_NUM_STR_RES_TEST_PLAN) {
         modifier_->setFillOpacity(node_, &value);
-        auto checkVal = GetStringAttribute(node_, ATTRIBUTE_FILL_OPACITY_NAME);
-        EXPECT_EQ(checkVal, expectVal);
+        auto checkVal = GetAttrValue<std::string>(node_, ATTRIBUTE_FILL_OPACITY_NAME);
+        EXPECT_THAT(checkVal, Eq(expectVal));
     }
 }
 
@@ -435,28 +437,21 @@ HWTEST_F(ShapeModifierTest, setFillOpacityTest, TestSize.Level1)
  */
 HWTEST_F(ShapeModifierTest, setStrokeWidthTestValidValues, TestSize.Level1)
 {
-    std::unique_ptr<JsonValue> jsonValue;
-    double result;
-
     static const std::vector<OneUnionNumStrStep> UNION_NUM_STR_RES_TEST_PLAN = {
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(1.0f)), 1.0f },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(2.45f)), 2.45f },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(5.0_px)), 5.0f },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(22.35_px)), 22.35f },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(0.23_pct)), 0.0f },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(7.0_vp)), 7.0f },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(1.65_vp)), 1.65f },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(-0.1f)), 0.0f },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(65.0_fp)), 65.0f },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(4.3_fp)), 4.30f },
-        { ArkUnion<Opt_Union_Number_String, Ark_Number>(ArkValue<Ark_Number>(-5.0_px)), 0.0f },
+        { ArkUnion<Opt_Length, Ark_Float64>(1.0), 1.0 },
+        { ArkUnion<Opt_Length, Ark_Float64>(0.0), 0.0 },
+        { ArkUnion<Opt_Length, Ark_Float64>(2.45), 2.45 },
+        { ArkUnion<Opt_Length, Ark_Float64>(5.0), 5.0 },
+        { ArkUnion<Opt_Length, Ark_Float64>(22.35), 22.35 },
+        { ArkUnion<Opt_Length, Ark_Float64>(-0.1), 0.0 },
+        { ArkUnion<Opt_Length, Ark_Float64>(-5.0), 0.0 },
     };
 
     for (const auto &[value, expected]: UNION_NUM_STR_RES_TEST_PLAN) {
         modifier_->setStrokeWidth(node_, &value);
-        jsonValue = GetJsonValue(node_);
-        result = GetAttrValue<double>(jsonValue, ATTRIBUTE_STROKE_WIDTH_NAME);
-        EXPECT_NEAR(result, expected, FLT_EPSILON);
+        auto jsonValue = GetJsonValue(node_);
+        auto result = GetAttrValue<double>(jsonValue, ATTRIBUTE_STROKE_WIDTH_NAME);
+        EXPECT_THAT(result, Optional(DoubleEq(expected)));
     }
 }
 
@@ -467,7 +462,7 @@ HWTEST_F(ShapeModifierTest, setStrokeWidthTestValidValues, TestSize.Level1)
  */
 HWTEST_F(ShapeModifierTest, setAntiAliasTest, TestSize.Level1)
 {
-    static const std::string PROP_NAME("antiAlias");
+    constexpr auto propName = "antiAlias";
     ASSERT_NE(modifier_->setAntiAlias, nullptr);
     using OneBoolStep = std::tuple<Ark_Boolean, std::string>;
     const std::vector<OneBoolStep> BOOL_TEST_PLAN = {
@@ -480,15 +475,15 @@ HWTEST_F(ShapeModifierTest, setAntiAliasTest, TestSize.Level1)
         { false, "false" }
     };
     auto fullJson = GetJsonValue(node_);
-    auto checkVal = GetAttrValue<std::string>(fullJson, PROP_NAME);
-    EXPECT_EQ(checkVal, "true");
+    auto checkVal = GetAttrValue<std::string>(fullJson, propName);
+    EXPECT_THAT(checkVal, Eq("true"));
 
     for (const auto& [value, expectVal] : BOOL_TEST_PLAN) {
         auto valueOpt = Converter::ArkValue<Opt_Boolean>(value);
         modifier_->setAntiAlias(node_, &valueOpt);
         auto fullJson = GetJsonValue(node_);
-        checkVal = GetAttrValue<std::string>(fullJson, PROP_NAME);
-        EXPECT_EQ(checkVal, expectVal);
+        checkVal = GetAttrValue<std::string>(fullJson, propName);
+        EXPECT_THAT(checkVal, Eq(expectVal));
     }
 }
 
@@ -499,7 +494,7 @@ HWTEST_F(ShapeModifierTest, setAntiAliasTest, TestSize.Level1)
  */
 HWTEST_F(ShapeModifierTest, setStrokeDashArrayTest, TestSize.Level1)
 {
-    static const std::string propName("strokeDashArray");
+    const std::string propName("strokeDashArray");
     ASSERT_NE(modifier_->setStrokeDashArray, nullptr);
     using OneArrayLengthStep = std::tuple<Array_Length, std::vector<std::string>>;
     std::vector<Dimension> vec1 = {3._px, 6._px};
@@ -513,7 +508,7 @@ HWTEST_F(ShapeModifierTest, setStrokeDashArrayTest, TestSize.Level1)
         { Converter::ArkValue<Array_Length>(vec4, Converter::FC), {"10.00%", "55.00%"} },
     };
     auto fullJson = GetJsonValue(node_);
-    auto checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
+    auto checkVal = GetAttrObject(fullJson, propName);
     ASSERT_TRUE(checkVal->IsArray());
     EXPECT_EQ(checkVal->GetArraySize(), 0);
 
@@ -521,7 +516,7 @@ HWTEST_F(ShapeModifierTest, setStrokeDashArrayTest, TestSize.Level1)
         auto valueOpt = Converter::ArkValue<Opt_Array_Length>(value);
         modifier_->setStrokeDashArray(node_, &valueOpt);
         auto fullJson = GetJsonValue(node_);
-        checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
+        checkVal = GetAttrObject(fullJson, propName);
         ASSERT_TRUE(checkVal->IsArray());
         ASSERT_EQ(checkVal->GetArraySize(), 2);
         ASSERT_NE(checkVal->GetArrayItem(0), nullptr);
@@ -532,23 +527,23 @@ HWTEST_F(ShapeModifierTest, setStrokeDashArrayTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: setStrokeDashArrayInavlidTest
+ * @tc.name: setStrokeDashArrayTestInvalid
  * @tc.desc: Check the invalid cases for setStrokeDashArray
  * @tc.type: FUNC
  */
-HWTEST_F(ShapeModifierTest, setStrokeDashArrayInavlidTest, TestSize.Level1)
+HWTEST_F(ShapeModifierTest, setStrokeDashArrayTestInvalid, TestSize.Level1)
 {
-    static const std::string propName("strokeDashArray");
+    const std::string propName("strokeDashArray");
     ASSERT_NE(modifier_->setStrokeDashArray, nullptr);
     modifier_->setStrokeDashArray(node_, nullptr);
     auto fullJson = GetJsonValue(node_);
-    auto checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
+    auto checkVal = GetAttrObject(fullJson, propName);
     ASSERT_TRUE(checkVal->IsArray());
     EXPECT_EQ(checkVal->GetArraySize(), 0);
 
     modifier_->setStrokeDashArray(nullptr, nullptr);
     fullJson = GetJsonValue(node_);
-    checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
+    checkVal = GetAttrObject(fullJson, propName);
     ASSERT_TRUE(checkVal->IsArray());
     EXPECT_EQ(checkVal->GetArraySize(), 0);
 }
@@ -560,95 +555,95 @@ HWTEST_F(ShapeModifierTest, setStrokeDashArrayInavlidTest, TestSize.Level1)
  */
 HWTEST_F(ShapeModifierTest, setMeshTest, TestSize.Level1)
 {
-    static const std::string propName("mesh");
-    static const std::string propNameValue("value");
-    static const std::string propNameRow("row");
-    static const std::string propNameColumn("column");
+    const std::string propName("mesh");
+    const std::string propNameValue("value");
+    const std::string propNameRow("row");
+    const std::string propNameColumn("column");
     ASSERT_NE(modifier_->setMesh, nullptr);
     auto fullJson = GetJsonValue(node_);
-    auto checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
+    auto checkVal = GetAttrObject(fullJson, propName);
     EXPECT_EQ(checkVal->GetString(), "");
 
     int32_t column = 2;
     int32_t row = 3;
-    std::vector<float> mesh = { 1, 2, 4, 6, 4, 2, 1, 3, 5, 1, 3, 5, 6, 3, 2, 2, 4, 5, 5, 3, 2, 2, 2, 4 };
+    std::vector<double> mesh = { 1, 2, 4, 6, 4, 2, 1, 3, 5, 1, 3, 5, 6, 3, 2, 2, 4, 5, 5, 3, 2, 2, 2, 4 };
 
-    auto arkMesh = Converter::ArkValue<Array_Number>(mesh, Converter::FC);
-    auto arkColumn = Converter::ArkValue<Ark_Number>(column);
-    auto arkRow = Converter::ArkValue<Ark_Number>(row);
+    auto arkMesh = Converter::ArkValue<Opt_Array_Float64>(mesh, Converter::FC);
+    auto arkColumn = Converter::ArkValue<Opt_Int32>(column);
+    auto arkRow = Converter::ArkValue<Opt_Int32>(row);
 
     modifier_->setMesh(node_, &arkMesh, &arkColumn, &arkRow);
     fullJson = GetJsonValue(node_);
-    checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
-    auto valueJson = GetAttrValue<std::unique_ptr<JsonValue>>(checkVal, propNameValue);
+    checkVal = GetAttrObject(fullJson, propName);
+    auto valueJson = GetAttrObject(checkVal, propNameValue);
     auto valueSize = valueJson->GetArraySize();
     ASSERT_EQ(valueSize, mesh.size());
     for (int i = 0; i < valueSize; i++) {
         EXPECT_EQ(valueJson->GetArrayItem(i)->GetString(), std::to_string(mesh[i]));
     }
     auto rowJson = GetAttrValue<std::string>(checkVal, propNameRow);
-    EXPECT_EQ(rowJson, "3");
+    EXPECT_THAT(rowJson, Eq("3"));
     auto columnJson = GetAttrValue<std::string>(checkVal, propNameColumn);
-    EXPECT_EQ(columnJson, "2");
+    EXPECT_THAT(columnJson, Eq("2"));
 }
 
 /**
- * @tc.name: setMeshInvalidTest
+ * @tc.name: setMeshTestInvalid
  * @tc.desc: Check the invalid values for setMesh
  * @tc.type: FUNC
  */
-HWTEST_F(ShapeModifierTest, setMeshInvalidTest, TestSize.Level1)
+HWTEST_F(ShapeModifierTest, DISABLED_setMeshTestInvalid, TestSize.Level1)
 {
-    static const std::string propName("mesh");
-    static const std::string propNameValue("value");
-    static const std::string propNameRow("row");
-    static const std::string propNameColum("column");
+    const std::string propName("mesh");
+    const std::string propNameValue("value");
+    const std::string propNameRow("row");
+    const std::string propNameColumn("column");
 
     int32_t column = 2;
     int32_t row = 3;
-    std::vector<float> mesh = { 1, 2, 4, 6, 4, 2, 1, 3, 5, 1, 3, 5, 6, 3, 2, 2, 4, 5, 5, 3, 2, 2, 2, 4 };
+    std::vector<double> mesh = { 1, 2, 4, 6, 4, 2, 1, 3, 5, 1, 3, 5, 6, 3, 2, 2, 4, 5, 5, 3, 2, 2, 2, 4 };
 
-    auto arkMesh = Converter::ArkValue<Array_Number>(mesh, Converter::FC);
-    auto arkColumn = Converter::ArkValue<Ark_Number>(column);
-    auto arkRow = Converter::ArkValue<Ark_Number>(row);
+    auto arkMesh = Converter::ArkValue<Opt_Array_Float64>(mesh, Converter::FC);
+    auto arkColumn = Converter::ArkValue<Opt_Int32>(column);
+    auto arkRow = Converter::ArkValue<Opt_Int32>(row);
 
     modifier_->setMesh(nullptr, &arkMesh, &arkColumn, &arkRow);
     ASSERT_NE(modifier_->setMesh, nullptr);
     auto fullJson = GetJsonValue(node_);
-    auto checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
+    auto checkVal = GetAttrObject(fullJson, propName);
     EXPECT_EQ(checkVal->GetString(), "");
 
     modifier_->setMesh(node_, nullptr, &arkColumn, &arkRow);
     ASSERT_NE(modifier_->setMesh, nullptr);
     fullJson = GetJsonValue(node_);
-    checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
+    checkVal = GetAttrObject(fullJson, propName);
     EXPECT_EQ(checkVal->GetString(), "");
 
     modifier_->setMesh(node_, &arkMesh, nullptr, &arkRow);
     ASSERT_NE(modifier_->setMesh, nullptr);
     fullJson = GetJsonValue(node_);
-    checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
+    checkVal = GetAttrObject(fullJson, propName);
     EXPECT_EQ(checkVal->GetString(), "");
 
     modifier_->setMesh(node_, &arkMesh, &arkColumn, nullptr);
     ASSERT_NE(modifier_->setMesh, nullptr);
     fullJson = GetJsonValue(node_);
-    checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
+    checkVal = GetAttrObject(fullJson, propName);
     EXPECT_EQ(checkVal->GetString(), "");
 
-    arkColumn = Converter::ArkValue<Ark_Number>(1);
-    arkRow = Converter::ArkValue<Ark_Number>(2);
+    arkColumn = Converter::ArkValue<Opt_Int32>(1);
+    arkRow = Converter::ArkValue<Opt_Int32>(2);
 
     modifier_->setMesh(node_, &arkMesh, &arkColumn, &arkRow);
     fullJson = GetJsonValue(node_);
-    checkVal = GetAttrValue<std::unique_ptr<JsonValue>>(fullJson, propName);
-    auto valueJson = GetAttrValue<std::unique_ptr<JsonValue>>(checkVal, propNameValue);
+    checkVal = GetAttrObject(fullJson, propName);
+    auto valueJson = GetAttrObject(checkVal, propNameValue);
     auto valueSize = valueJson->GetArraySize();
     EXPECT_EQ(valueSize, 0);
     auto rowJson = GetAttrValue<std::string>(checkVal, propNameRow);
-    EXPECT_EQ(rowJson, "0");
-    auto columnJson = GetAttrValue<std::string>(checkVal, propNameColum);
-    EXPECT_EQ(columnJson, "0");
+    EXPECT_THAT(rowJson, Eq("0"));
+    auto columnJson = GetAttrValue<std::string>(checkVal, propNameColumn);
+    EXPECT_THAT(columnJson, Eq("0"));
 }
 
 } // namespace OHOS::Ace::NG

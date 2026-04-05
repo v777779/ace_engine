@@ -52,16 +52,19 @@ template("ace_core_interfaces_native") {
 
     # add common source file needed by all product platform here
     sources = []
-    sources += rebased_common_sources
+    if (!is_arkui_x) {
+      sources += rebased_common_sources
+    }
     if (defined(config.web_components_support) &&
         config.web_components_support && !is_arkui_x) {
       defines += [ "WEB_SUPPORTED" ]
       external_deps += [
         "ability_runtime:app_context",
         "webview:libnweb",
+        "webview:libarkweb_utils",
       ]
     }
-    if (include_generated_sources) {
+    if (include_generated_sources && !is_arkui_x) {
       sources += rebased_generated_sources
       defines += [ "INCLUDE_GENERATED_SOURCES" ]
     }

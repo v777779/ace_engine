@@ -21,7 +21,7 @@
 #define protected public
 #define private public
 
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/geometry/ng/size_t.h"
 #include "core/components_ng/base/frame_node.h"
@@ -29,6 +29,7 @@
 #include "core/components_ng/layout/box_layout_algorithm.h"
 #include "core/components_ng/layout/layout_wrapper.h"
 #include "core/components_ng/layout/layout_wrapper_builder.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/property/measure_property.h"
 #include "core/components_ng/property/measure_utils.h"
@@ -98,7 +99,7 @@ public:
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Measure001, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Measure001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -156,7 +157,7 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Measure001, TestSi
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Measure002, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Measure002, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -209,7 +210,7 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Measure002, TestSi
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Layout003, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Layout003, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -269,7 +270,7 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Layout003, TestSiz
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Layout004, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Layout004, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -334,7 +335,7 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_Layout004, TestSiz
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_MeasureContent005, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_MeasureContent005, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -392,7 +393,7 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_MeasureContent005,
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformLayout006, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformLayout006, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -457,7 +458,7 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformLayout006, 
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelfWithChildList007, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelfWithChildList007, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -510,7 +511,7 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelf
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelfWithChildList008, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelfWithChildList008, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -570,7 +571,7 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelf
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelfWithChildList009, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelfWithChildList009, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -619,7 +620,7 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelf
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelfWithChildList010, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelfWithChildList010, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -667,7 +668,7 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelf
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_MeasureContent011, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_MeasureContent011, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
@@ -750,17 +751,14 @@ HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_MeasureContent011,
  * @tc.desc: Set one index value into BoxLayoutAlgorithmTestOld and get it.
  * @tc.type: FUNC
  */
-HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelfWithChildList012, TestSize.Level1)
+HWTEST_F(BoxLayoutAlgorithmTestOld, BoxLayoutAlgorithmTestOld_PerformMeasureSelfWithChildList012, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. creat a layoutwrapper and SetLayoutAlgorithm for it.
      */
-    auto layoutWrapper = CreatlayoutWrapper();
-
-    auto rowFrameNode = FrameNode::CreateFrameNode("test", 0, AceType::MakeRefPtr<LinearLayoutPattern>(false));
-    auto rowLayoutPattern = rowFrameNode->GetPattern<LinearLayoutPattern>();
-    auto rowLayoutAlgorithm = rowLayoutPattern->CreateLayoutAlgorithm();
-    layoutWrapper->SetLayoutAlgorithm(AccessibilityManager::MakeRefPtr<LayoutAlgorithmWrapper>(rowLayoutAlgorithm));
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::STACK_ETS_TAG, 0, []() { return AceType::MakeRefPtr<Pattern>(); });
+    RefPtr<LayoutWrapper> layoutWrapper = frameNode->CreateLayoutWrapper(true, true);
 
     /**
      * @tc.steps: step2. layout parameter initialization.

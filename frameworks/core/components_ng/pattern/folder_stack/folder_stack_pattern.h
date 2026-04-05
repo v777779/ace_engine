@@ -17,6 +17,7 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_FOLDER_STACK_FOLDER_STACK_PATTERN_H
 
 #include "base/thread/cancelable_callback.h"
+#include "base/utils/multi_thread.h"
 #include "core/common/display_info.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/pattern/folder_stack/folder_stack_event_hub.h"
@@ -92,16 +93,7 @@ public:
 
     void DumpInfo() override;
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override;
-    bool GetNeedCallBack()
-    {
-        return needCallBack_;
-    }
-
-    void SetNeedCallBack(bool needCallBack)
-    {
-        needCallBack_ = needCallBack;
-    }
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override;
 
     bool IsInHoverMode() const
     {
@@ -128,6 +120,12 @@ private:
     void OnDetachFromFrameNode(FrameNode* node) override;
     void RegisterFoldStatusListener();
     void OnAttachToFrameNode() override;
+    void OnAttachToMainTree() override;
+    void OnDetachFromMainTree() override;
+    void OnAttachToFrameNodeMultiThread();
+    void OnDetachFromFrameNodeMultiThread(FrameNode* node);
+    void OnAttachToMainTreeMultiThread();
+    void OnDetachFromMainTreeMultiThread();
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, bool skipMeasure, bool skipLayout) override;
     void StartOffsetEnteringAnimation();
     RefPtr<RenderContext> GetRenderContext();
@@ -137,6 +135,7 @@ private:
     void RestoreScreenState();
     void SetAutoRotate();
     void UpdateChildAlignment();
+    bool IsSupportHoverState(const RefPtr<DisplayInfo>& displayInfo);
     std::optional<int32_t> foldStatusChangedCallbackId_;
     bool isScreenRotationLocked_ = false;
     Orientation lastOrientation_ = Orientation::UNSPECIFIED;
@@ -144,7 +143,6 @@ private:
     bool isAppearCallback_ = false;
     RefPtr<DisplayInfo> displayInfo_;
     bool hasInHoverMode_ = false;
-    bool needCallBack_ = false;
     FoldStatus currentFoldStatus_ = FoldStatus::UNKNOWN;
     FoldStatus lastFoldStatus_ = FoldStatus::UNKNOWN;
     CancelableCallback<void()> foldStatusDelayTask_;

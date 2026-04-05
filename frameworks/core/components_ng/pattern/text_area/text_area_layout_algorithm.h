@@ -37,6 +37,15 @@ protected:
 private:
     void CalcMeasureContentWithMinLines(
         std::optional<SizeF>& size, LayoutWrapper* layoutWrapper, const LayoutConstraintF& contentConstraint);
+    void StyledPlaceHolderConstraintWithMinLines(
+        LayoutWrapper* layoutWrapper, const RefPtr<TextFieldPattern>& pattern, float& contentHeight);
+    bool ShouldReMeasurePlaceholder(const RefPtr<TextFieldPattern>& pattern) const;
+    std::optional<SizeF> ReMeasureContentForPlaceholder(const LayoutConstraintF& contentConstraint,
+        LayoutWrapper* layoutWrapper, TextStyle& textStyle, LayoutConstraintF& textFieldContentConstraint);
+    LayoutConstraintF BuildLayoutConstraintWithoutResponseArea(
+        const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper);
+
+    void LayoutCounterAndVoiceButton(LayoutWrapper* layoutWrapper);
 };
 } // namespace OHOS::Ace::NG
 

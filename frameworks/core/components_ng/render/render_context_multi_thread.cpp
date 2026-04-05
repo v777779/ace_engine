@@ -18,20 +18,18 @@
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
-void RenderContext::RequestNextFrameMultiThread() const
+void RenderContext::RequestNextFrameMultiThread(bool isOffScreenNode) const
 {
-    if (requestFrame_) {
-        requestFrame_();
-        auto node = GetHost();
-        CHECK_NULL_VOID(node);
-        auto eventHub = node->GetEventHub<NG::EventHub>();
-        if (node->GetInspectorId().has_value() || (eventHub && eventHub->HasNDKDrawCompletedCallback())) {
-            node->PostAfterAttachMainTreeTask([weak = WeakPtr<FrameNode>(node)]() {
-                auto pipeline = AceType::DynamicCast<PipelineContext>(PipelineBase::GetCurrentContext());
-                CHECK_NULL_VOID(pipeline);
-                pipeline->SetNeedRenderNode(weak);
-            });
-        }
+    if (!requestFrame_) {
+        return;
     }
+    auto node = GetHost();
+    CHECK_NULL_VOID(node);
+    auto requestFrame = requestFrame_;
+    node->PostAfterAttachMainTreeTask([requestFrame, isOffScreenNode]() {
+        if (requestFrame) {
+            requestFrame(isOffScreenNode);
+        }
+    });
 }
 } // namespace OHOS::Ace::NG

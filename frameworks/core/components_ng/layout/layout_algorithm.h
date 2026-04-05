@@ -20,6 +20,7 @@
 
 #include "ui/view/layout/layout_algorithm.h"
 
+#include "base/geometry/ng/rect_t.h"
 #include "base/memory/ace_type.h"
 #include "base/thread/cancelable_callback.h"
 #include "base/utils/macros.h"
@@ -33,7 +34,23 @@ class LayoutAlgorithm;
 
 namespace OHOS::Ace::NG {
 class LayoutWrapper;
+struct OverflowCollectResult {
+    bool overflowDisabled = false;
+    std::optional<RectF> totalChildFrameRect;
+};
+class OverflowCollector {
+public:
+    explicit OverflowCollector(bool earlyBreakWhenDisabled) : earlyBreakWhenDisabled_(earlyBreakWhenDisabled) {}
 
+    void AccumulateFromWrapper(const RefPtr<LayoutWrapper>& child);
+
+    const OverflowCollectResult& Result() const {return overflowCollectResult_;}
+    bool Stopped() const {return stop_;}
+private:
+    bool earlyBreakWhenDisabled_ = false;
+    bool stop_ = false;
+    OverflowCollectResult overflowCollectResult_;
+};
 class ACE_EXPORT LayoutAlgorithm : public virtual AceType {
     DECLARE_ACE_TYPE(LayoutAlgorithm, AceType);
 
@@ -45,7 +62,12 @@ public:
     {
         OnReset();
     }
+    bool ShouldDoOverflowWork();
+    static OverflowCollectResult CollectOverflowFromFrameNode(
+        FrameNode* hostNode, bool earlyBreakWhenDisabled);
 
+    void SetHeightPercentSensitive(LayoutWrapper *layoutWrapper, bool value = true);
+    void SetWidthPercentSensitive(LayoutWrapper *layoutWrapper, bool value = true);
     virtual std::optional<SizeF> MeasureContent(
         const LayoutConstraintF& /*contentConstraint*/, LayoutWrapper* /*layoutWrapper*/)
     {
@@ -95,11 +117,15 @@ public:
     {
         return postponeForIgnore_;
     }
+    void HandleContentOverflow(LayoutWrapper* layoutWrapper);
+    void HandleStackContentOverflow(LayoutWrapper* layoutWrapper);
+    bool IsContentOverflow(LayoutWrapper* layoutWrapper, OverflowCollector& collector);
 
 protected:
     virtual void OnReset() {}
     bool hasMeasured_ = false;
     bool postponeForIgnore_ = false;
+    bool isOverflowWarningEnabled_ = true;
 
     ACE_DISALLOW_COPY_AND_MOVE(LayoutAlgorithm);
 };

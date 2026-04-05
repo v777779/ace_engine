@@ -48,8 +48,7 @@ public:
     static TapGestureModel* GetInstance();
     virtual ~TapGestureModel() = default;
 
-    virtual void Create(int32_t countNum, int32_t fingersNum, double distanceThreshold,
-        bool isLimitFingerCount = false) = 0;
+    virtual void Create(int32_t countNum, int32_t fingersNum, double distanceThreshold, bool isLimitFingerCount) = 0;
 
 private:
     static std::unique_ptr<TapGestureModel> instance_;
@@ -61,8 +60,8 @@ public:
     static LongPressGestureModel* GetInstance();
     virtual ~LongPressGestureModel() = default;
 
-    virtual void Create(int32_t fingersNum, bool repeatResult, int32_t durationNum,
-        bool isLimitFingerCount = false) = 0;
+    virtual void Create(int32_t fingersNum, bool repeatResult, int32_t durationNum, bool isLimitFingerCount,
+        double allowableMovementNum) = 0;
 
 private:
     static std::unique_ptr<LongPressGestureModel> instance_;
@@ -90,9 +89,8 @@ public:
     static SwipeGestureModel* GetInstance();
     virtual ~SwipeGestureModel() = default;
 
-    virtual void Create(
-        int32_t fingersNum, const SwipeDirection& slideDirection, double speedNum,
-        bool isLimitFingerCount = false) = 0;
+    virtual void Create(int32_t fingersNum, const SwipeDirection& slideDirection,
+        const Dimension& speedNum, bool isLimitFingerCount) = 0;
 
 private:
     static std::unique_ptr<SwipeGestureModel> instance_;
@@ -104,7 +102,7 @@ public:
     static PinchGestureModel* GetInstance();
     virtual ~PinchGestureModel() = default;
 
-    virtual void Create(int32_t fingersNum, double distanceNum, bool isLimitFingerCount = false) = 0;
+    virtual void Create(int32_t fingersNum, double distanceNum, bool isLimitFingerCount) = 0;
 
 private:
     static std::unique_ptr<PinchGestureModel> instance_;
@@ -116,7 +114,7 @@ public:
     static RotationGestureModel* GetInstance();
     virtual ~RotationGestureModel() = default;
 
-    virtual void Create(int32_t fingersNum, double angleNum, bool isLimitFingerCount = false) = 0;
+    virtual void Create(int32_t fingersNum, double angleNum, bool isLimitFingerCount) = 0;
 
 private:
     static std::unique_ptr<RotationGestureModel> instance_;

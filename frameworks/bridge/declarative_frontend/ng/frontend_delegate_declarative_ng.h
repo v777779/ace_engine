@@ -102,7 +102,7 @@ public:
     void OnMediaQueryUpdate(bool isSynchronous = false) override;
     void OnLayoutCompleted(const std::string& componentId);
     void OnDrawCompleted(const std::string& componentId);
-    void OnDrawChildrenCompleted(const std::string& componentId);
+    void OnDrawChildrenCompleted(const std::string& componentId, const std::vector<int32_t>& childIds);
     bool IsDrawChildrenCallbackFuncExist(const std::string& componentId);
     void FireExternalEvent(const std::string& eventId, const std::string& componentId, uint32_t nodeId, bool isDestroy);
 
@@ -133,6 +133,7 @@ public:
         return nullptr;
     }
     size_t GetComponentsCount() override;
+    std::string GetInitParams() override;
     std::string GetParams() override;
     void NavigatePage(uint8_t type, const PageTarget& target, const std::string& params);
 
@@ -249,9 +250,11 @@ public:
     std::pair<int32_t, std::shared_ptr<Media::PixelMap>> GetSyncSnapshotByUniqueId(int32_t uniqueId,
         const NG::SnapshotOptions& options) override;
 
-    void GetSnapshotWithRange(const NG::NodeIdentity startID, const NG::NodeIdentity endID, const bool isStartRect,
+    void GetSnapshotWithRange(const NG::NodeIdentity& startID, const NG::NodeIdentity& endID, const bool isStartRect,
         std::function<void(std::shared_ptr<Media::PixelMap>, int32_t, std::function<void()>)>&& callback,
         const NG::SnapshotOptions& options) override;
+
+    NG::SnapshotSizeLimitation GetSizeLimitation() override;
 
     void CreateSnapshotFromComponent(const RefPtr<NG::UINode>& nodeWk,
         std::function<void(std::shared_ptr<Media::PixelMap>, int32_t, std::function<void()>)>&& callback,
@@ -271,6 +274,11 @@ public:
     void RequestAnimationFrame(const std::string& callbackId) override {}
 
     void CancelAnimationFrame(const std::string& callbackId) override {}
+
+    void SetMonitorForCrownEvents(const std::string& callbackId) override {}
+
+    void ClearMonitorForCrownEvents() override {}
+
     SingleTaskExecutor GetAnimationJsTask() override;
 
     SingleTaskExecutor GetUiTask() override;

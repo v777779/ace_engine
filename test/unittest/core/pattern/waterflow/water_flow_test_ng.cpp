@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,33 +15,36 @@
 
 #ifndef TEST_SEGMENTED_WATER_FLOW
 #define protected public
-#include "test/mock/base/mock_system_properties.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
 #undef protected
 #endif
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #define protected public
 #define private public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "core/components_ng/pattern/scroll/scroll_edge_effect.h"
 #include "water_flow_test_ng.h"
 
 #include "core/components/scroll/scroll_controller_base.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/button_model_ng.h"
 #include "core/components_ng/pattern/linear_layout/row_model_ng.h"
 #include "core/components_ng/pattern/refresh/refresh_theme_ng.h"
+#include "core/components_ng/pattern/scrollable/scrollable_theme.h"
 #include "core/components_ng/syntax/lazy_for_each_model_ng.h"
 #include "core/components_ng/syntax/lazy_for_each_node.h"
 #include "core/components_ng/syntax/lazy_layout_wrapper_builder.h"
 #include "core/components_ng/syntax/repeat_virtual_scroll_model_ng.h"
 #include "core/components_ng/syntax/syntax_item.h"
 #include "core/common/resource/resource_parse_utils.h"
-#include "test/mock/core/common/mock_resource_adapter_v2.h"
-#include "test/mock/base/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter_v2.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
 #undef private
 #undef protected
-#include "test/mock/core/animation/mock_animation_manager.h"
+#include "test/mock/interfaces/inner_api/ui_session/mock_ui_session_manager.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
 
 namespace OHOS::Ace::NG {
 
@@ -61,6 +64,10 @@ void WaterFlowTestNg::SetUpTestSuite()
     auto refreshThemeConstants = CreateThemeConstants(THEME_PATTERN_REFRESH);
     auto refreshTheme = RefreshThemeNG::Builder().Build(refreshThemeConstants);
     EXPECT_CALL(*themeManager, GetTheme(RefreshThemeNG::TypeId())).WillRepeatedly(Return(refreshTheme));
+    auto scrollbarThemeConstants = CreateThemeConstants(THEME_PATTERN_SCROLL_BAR);
+    auto scrollBarTheme = ScrollBarTheme::Builder().Build(scrollbarThemeConstants);
+    scrollBarTheme->foregroundColor_ = Color::RED;
+    EXPECT_CALL(*themeManager, GetTheme(ScrollBarTheme::TypeId())).WillRepeatedly(Return(scrollBarTheme));
     MockAnimationManager::Enable(true);
     auto container = Container::Current();
     ASSERT_TRUE(container);
@@ -190,6 +197,11 @@ std::pair<std::string, RefPtr<NG::UINode>> WaterFlowMockLazy::OnGetChildByIndex(
     ViewAbstract::SetWidth(CalcLength(CalcLength(FILL_LENGTH)));
     ViewAbstract::SetHeight(CalcLength(getHeight_(index)));
     auto node = ViewStackProcessor::GetInstance()->Finish();
+    node->nodeId_ = index;
+    auto frameNode = AceType::DynamicCast<FrameNode>(node);
+    frameNode->measureCallback_ = [](RefPtr<Kit::FrameNode>& node) {
+        NG::MockPipelineContext::GetCurrent()->DecResponseTime();
+    };
     return { std::to_string(index), node };
 }
 
@@ -1694,31 +1706,6 @@ HWTEST_F(WaterFlowTestNg, WaterFlowAccessibilityTest001, TestSize.Level1)
 }
 
 /**
- * @tc.name: WaterFlowAccessibilityTest002
- * @tc.desc: Test Accessibility func
- * @tc.type: FUNC
- */
-HWTEST_F(WaterFlowTestNg, WaterFlowAccessibilityTest002, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. Run Accessibility func.
-     * @tc.expected: Will trigger ScrollPage func
-     */
-    WaterFlowModelNG model = CreateWaterFlow();
-    model.SetColumnsTemplate("1fr 1fr");
-    CreateWaterFlowItems(TOTAL_LINE_NUMBER * 2);
-    CreateDone();
-    accessibilityProperty_->ActActionScrollForward();
-    MockAnimationManager::GetInstance().Tick();
-    FlushUITasks();
-    EXPECT_TRUE(Position(-WATER_FLOW_HEIGHT));
-    accessibilityProperty_->ActActionScrollBackward();
-    MockAnimationManager::GetInstance().Tick();
-    FlushUITasks();
-    EXPECT_TRUE(Position(0));
-}
-
-/**
  * @tc.name: ScrollPage001
  * @tc.desc: Test ScrollPage func
  * @tc.type: FUNC
@@ -2226,113 +2213,6 @@ HWTEST_F(WaterFlowTestNg, Delete001, TestSize.Level1)
 }
 
 /**
- * @tc.name: CreateWithResourceObjFriction
- * @tc.desc: Test CreateWithResourceObjFriction in WaterFlowTestNg
- * @tc.type: FUNC
- */
-HWTEST_F(WaterFlowTestNg, CreateWithResourceObjFriction001, TestSize.Level1)
-{
-    WaterFlowModelNG model = CreateWaterFlow();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    const double defaultiction = 10000000.0f;
-    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    // remove callback function
-    model.ParseResObjFriction(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    model.ParseResObjFriction(resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    pattern_->friction_ = defaultiction;
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, defaultiction);
-
-    // remove callback function
-    model.ParseResObjFriction(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    std::vector<ResourceObjectParams> params;
-    resObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
-
-    // add callback function
-    model.ParseResObjFriction(resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-
-    pattern_->friction_ = defaultiction;
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, defaultiction);
-
-    // remove callback function
-    model.ParseResObjFriction(nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-}
-
-/**
- * @tc.name: CreateWithResourceObjFriction
- * @tc.desc: Test CreateWithResourceObjFriction in WaterFlowTestNg
- * @tc.type: FUNC
- */
-HWTEST_F(WaterFlowTestNg, CreateWithResourceObjFriction002, TestSize.Level1)
-{
-    WaterFlowModelNG model = CreateWaterFlow();
-    ASSERT_NE(frameNode_, nullptr);
-    ASSERT_NE(pattern_, nullptr);
-    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
-
-    const double defaultiction = 10000000.0f;
-    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
-
-    WaterFlowModelNG::ParseResObjFriction(nullptr, nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    WaterFlowModelNG::ParseResObjFriction(AceType::RawPtr(frameNode_), nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    WaterFlowModelNG::ParseResObjFriction(nullptr, resObj);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    WaterFlowModelNG::ParseResObjFriction(AceType::RawPtr(frameNode_), resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-    pattern_->friction_ = defaultiction;
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, defaultiction);
-
-    // remove callback function
-    WaterFlowModelNG::ParseResObjFriction(nullptr, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_, nullptr);
-    WaterFlowModelNG::ParseResObjFriction(AceType::RawPtr(frameNode_), nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    std::vector<ResourceObjectParams> params;
-    resObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
-
-    WaterFlowModelNG::ParseResObjFriction(nullptr, resObj);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-
-    // add callback function
-    WaterFlowModelNG::ParseResObjFriction(AceType::RawPtr(frameNode_), resObj);
-    ASSERT_NE(pattern_->resourceMgr_, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
-    pattern_->friction_ = defaultiction;
-    pattern_->resourceMgr_->ReloadResources();
-    EXPECT_NE(pattern_->friction_, defaultiction);
-
-    // remove callback function
-    WaterFlowModelNG::ParseResObjFriction(nullptr, nullptr);
-    EXPECT_NE(pattern_->resourceMgr_, nullptr);
-    WaterFlowModelNG::ParseResObjFriction(AceType::RawPtr(frameNode_), nullptr);
-    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
-}
-/**
  * @tc.name: ScrollBarMarginColumnReverseTest001
  * @tc.desc: Test scrollBar margin behavior comparison between normal and reverse modes
  * @tc.type: FUNC
@@ -2631,5 +2511,531 @@ HWTEST_F(WaterFlowTestNg, ScrollBarMarginRowReverseTest003, TestSize.Level1) {
     EXPECT_GE(rect.Left(), 15.0f);
     EXPECT_LE(rect.Right(), viewSize.Width() - 15.0f);
     EXPECT_GT(rect.Width(), 0.0f);
+}
+
+/**
+ * @tc.name: CreateWithResourceObjFriction
+ * @tc.desc: Test CreateWithResourceObjFriction in WaterFlowTestNg
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, CreateWithResourceObjFriction001, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
+
+    const double defaultiction = 10000000.0f;
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+
+    // remove callback function
+    model.ParseResObjFriction(nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    // add callback function
+    model.ParseResObjFriction(resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    pattern_->friction_ = defaultiction;
+    pattern_->resourceMgr_->ReloadResources();
+    EXPECT_NE(pattern_->friction_, defaultiction);
+
+    // remove callback function
+    model.ParseResObjFriction(nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    std::vector<ResourceObjectParams> params;
+    resObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
+
+    // add callback function
+    model.ParseResObjFriction(resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+
+    pattern_->friction_ = defaultiction;
+    pattern_->resourceMgr_->ReloadResources();
+    EXPECT_NE(pattern_->friction_, defaultiction);
+
+    // remove callback function
+    model.ParseResObjFriction(nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+}
+
+/**
+ * @tc.name: CreateWithResourceObjFriction
+ * @tc.desc: Test CreateWithResourceObjFriction in WaterFlowTestNg
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, CreateWithResourceObjFriction002, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    ASSERT_EQ(pattern_->resourceMgr_, nullptr);
+
+    const double defaultiction = 10000000.0f;
+    RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", 0);
+
+    WaterFlowModelNG::ParseResObjFriction(nullptr, nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    WaterFlowModelNG::ParseResObjFriction(AceType::RawPtr(frameNode_), nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    // add callback function
+    WaterFlowModelNG::ParseResObjFriction(nullptr, resObj);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    WaterFlowModelNG::ParseResObjFriction(AceType::RawPtr(frameNode_), resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+    pattern_->friction_ = defaultiction;
+    pattern_->resourceMgr_->ReloadResources();
+    EXPECT_NE(pattern_->friction_, defaultiction);
+
+    // remove callback function
+    WaterFlowModelNG::ParseResObjFriction(nullptr, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_, nullptr);
+    WaterFlowModelNG::ParseResObjFriction(AceType::RawPtr(frameNode_), nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    std::vector<ResourceObjectParams> params;
+    resObj = AceType::MakeRefPtr<ResourceObject>(0, static_cast<int32_t>(ResourceType::INTEGER), params, "", "", 0);
+
+    WaterFlowModelNG::ParseResObjFriction(nullptr, resObj);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+
+    // add callback function
+    WaterFlowModelNG::ParseResObjFriction(AceType::RawPtr(frameNode_), resObj);
+    ASSERT_NE(pattern_->resourceMgr_, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_->resMap_.size(), 0);
+    pattern_->friction_ = defaultiction;
+    pattern_->resourceMgr_->ReloadResources();
+    EXPECT_NE(pattern_->friction_, defaultiction);
+
+    // remove callback function
+    WaterFlowModelNG::ParseResObjFriction(nullptr, nullptr);
+    EXPECT_NE(pattern_->resourceMgr_, nullptr);
+    WaterFlowModelNG::ParseResObjFriction(AceType::RawPtr(frameNode_), nullptr);
+    EXPECT_EQ(pattern_->resourceMgr_, nullptr);
+}
+
+/**
+ * @tc.name: SetEnableScrollWithMouse001
+ * @tc.desc: Test SetEnableScrollWithMouse
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, SetEnableScrollWithMouse001, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateWaterFlowItems(4);
+    pattern_->SetIsAllowMouse(true);
+    CreateDone();
+    EXPECT_TRUE(pattern_->GetIsAllowMouse());
+    auto scrollable = pattern_->GetScrollableEvent()->GetScrollable();
+    EXPECT_TRUE(scrollable->panRecognizerNG_->isAllowMouse_);
+}
+
+/**
+ * @tc.name: ItemFillPolicyTestWithWidth500
+ * @tc.desc: Test specify the number of columnsTemplate on waterFlow for width 500 in different responsive breakpoints
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, ItemFillPolicyTest001, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(500));
+    CreateWaterFlowItems(15);
+    CreateDone();
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), ITEM_MAIN_SIZE);
+    /**
+     * @tc.steps: step1. Set ItemFillPolicy to BREAKPOINT_SM2MD3LG5.
+     * @tc.expected: The number of columns should be two.
+     */
+    model.SetItemFillPolicy((AceType::RawPtr(frameNode_)), PresetFillType::BREAKPOINT_SM2MD3LG5);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 2), ITEM_MAIN_SIZE);
+    EXPECT_EQ(GetChildY(frameNode_, 4), ITEM_MAIN_SIZE * 2);
+    /**
+     * @tc.steps: step2. Set ItemFillPolicy to BREAKPOINT_SM1MD2LG3.
+     * @tc.expected: The number of columns should be one.
+     */
+    model.SetItemFillPolicy((AceType::RawPtr(frameNode_)), PresetFillType::BREAKPOINT_SM1MD2LG3);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0.0f);
+    EXPECT_EQ(GetChildY(frameNode_, 1), ITEM_MAIN_SIZE);
+    EXPECT_LT(GetChildY(frameNode_, 1), GetChildY(frameNode_, 2));
+    /**
+     * @tc.steps: step2. Set ItemFillPolicy to BREAKPOINT_DEFAULT.
+     * @tc.expected: The number of columns should be two.
+     */
+    model.SetItemFillPolicy((AceType::RawPtr(frameNode_)), PresetFillType::BREAKPOINT_DEFAULT);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 2), ITEM_MAIN_SIZE);
+    EXPECT_EQ(GetChildY(frameNode_, 4), ITEM_MAIN_SIZE * 2);
+}
+
+/**
+ * @tc.name: ItemFillPolicyTestWithWidth800
+ * @tc.desc: Test specify the number of columnsTemplate on waterFlow for width 800 in different responsive breakpoints
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, ItemFillPolicyTest002, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(800));
+    CreateWaterFlowItems(15);
+    CreateDone();
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), ITEM_MAIN_SIZE);
+    /**
+     * @tc.steps: step1. Set ItemFillPolicy to BREAKPOINT_SM2MD3LG5.
+     * @tc.expected: The number of columns should be three.
+     */
+    model.SetItemFillPolicy((AceType::RawPtr(frameNode_)), PresetFillType::BREAKPOINT_SM2MD3LG5);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 2), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 3), ITEM_MAIN_SIZE);
+    /**
+     * @tc.steps: step1. Set ItemFillPolicy to BREAKPOINT_SM1MD2LG3.
+     * @tc.expected: The number of columns should be two.
+     */
+    model.SetItemFillPolicy((AceType::RawPtr(frameNode_)), PresetFillType::BREAKPOINT_SM1MD2LG3);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0.0f);
+    EXPECT_EQ(GetChildY(frameNode_, 1), 0.0f);
+    EXPECT_EQ(GetChildY(frameNode_, 2), ITEM_MAIN_SIZE);
+    /**
+     * @tc.steps: step1. Set ItemFillPolicy to BREAKPOINT_DEFAULT.
+     * @tc.expected: The number of columns should be three.
+     */
+    model.SetItemFillPolicy((AceType::RawPtr(frameNode_)), PresetFillType::BREAKPOINT_DEFAULT);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 2), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 3), ITEM_MAIN_SIZE);
+}
+
+/**
+ * @tc.name: ItemFillPolicyTestWithWidth1200
+ * @tc.desc: Test specify the number of columnsTemplate on waterFlow for width 1200 in different responsive breakpoints
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, ItemFillPolicyTest003, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(1200));
+    CreateWaterFlowItems(15);
+    CreateDone();
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 1), ITEM_MAIN_SIZE);
+    /**
+     * @tc.steps: step1. Set ItemFillPolicy to BREAKPOINT_SM2MD3LG5.
+     * @tc.expected: The number of columns should be five.
+     */
+    model.SetItemFillPolicy((AceType::RawPtr(frameNode_)), PresetFillType::BREAKPOINT_SM2MD3LG5);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 4), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 5), ITEM_MAIN_SIZE);
+    /**
+     * @tc.steps: step1. Set ItemFillPolicy to BREAKPOINT_SM1MD2LG3.
+     * @tc.expected: The number of columns should be three.
+     */
+    model.SetItemFillPolicy((AceType::RawPtr(frameNode_)), PresetFillType::BREAKPOINT_SM1MD2LG3);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0.0f);
+    EXPECT_EQ(GetChildY(frameNode_, 2), 0.0f);
+    EXPECT_EQ(GetChildY(frameNode_, 3), ITEM_MAIN_SIZE);
+    /**
+     * @tc.steps: step1. Set ItemFillPolicy to BREAKPOINT_DEFAULT.
+     * @tc.expected: The number of columns should be five.
+     */
+    model.SetItemFillPolicy((AceType::RawPtr(frameNode_)), PresetFillType::BREAKPOINT_DEFAULT);
+    FlushUITasks();
+    EXPECT_EQ(GetChildY(frameNode_, 0), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 4), 0);
+    EXPECT_EQ(GetChildY(frameNode_, 5), ITEM_MAIN_SIZE);
+}
+
+/**
+ * @tc.name: WaterFlowResetItemFillPolicy
+ * @tc.desc: Test ResetItemFillPolicy in WaterFlowTestNg
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, WaterFlowResetItemFillPolicy, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    model.SetItemFillPolicy((AceType::RawPtr(frameNode_)), PresetFillType::BREAKPOINT_SM2MD3LG5);
+    CreateDone();
+    FlushUITasks();
+    EXPECT_EQ(model.GetItemFillPolicy(AceType::RawPtr(frameNode_)), 2);
+    model.ResetItemFillPolicy(AceType::RawPtr(frameNode_));
+    FlushUITasks();
+    EXPECT_EQ(model.GetItemFillPolicy(AceType::RawPtr(frameNode_)), -1);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest001
+ * @tc.desc: Test water flow pattern func
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, OnInjectionEventTest001, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(WATER_FLOW_WIDTH));
+    ViewAbstract::SetHeight(CalcLength(600.f));
+    model.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 30; ++i) {
+        CreateItemWithHeight(60.0f);
+    }
+    CreateDone();
+
+    EXPECT_TRUE(pattern_->IsScrollable());
+    EXPECT_TRUE(pattern_->IsAtTop());
+    EXPECT_FALSE(pattern_->IsAtBottom());
+
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 19);
+
+    command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 19);
+
+    command = R"({"cmd":"scrollBackward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 2);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 21);
+
+    command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 19);
+
+    UpdateCurrentOffset(-600);
+    FlushUITasks();
+    EXPECT_TRUE(pattern_->IsAtBottom());
+    EXPECT_FALSE(pattern_->IsAtTop());
+
+    command = R"({"cmd":"scrollBackward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 10);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 29);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest002
+ * @tc.desc: Test water flow pattern func
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, OnInjectionEventTest002, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(WATER_FLOW_WIDTH));
+    ViewAbstract::SetHeight(CalcLength(600.f));
+    model.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 4; ++i) {
+        CreateItemWithHeight(60.0f);
+    }
+    CreateDone();
+    EXPECT_FALSE(pattern_->IsScrollable());
+
+    std::string command = R"({"cmd":"scrollBackward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 3);
+
+    command = R"({"cmd":"scrollward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 3);
+
+    command = R"({"cmd":"scrollForward","eventId":123123,"ratio":1.1})";
+    pattern_->OnInjectionEvent(command);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 3);
+}
+
+/**
+ * @tc.name: ReportComponentChangeEventTest001
+ * @tc.desc: ReportComponentChangeEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, ReportComponentChangeEventTest001, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(WATER_FLOW_WIDTH));
+    ViewAbstract::SetHeight(CalcLength(600.f));
+    model.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 4; ++i) {
+        CreateItemWithHeight(60.0f);
+    }
+    CreateDone();
+    MockUiSessionManager* mockUiSessionManager =
+        reinterpret_cast<MockUiSessionManager*>(UiSessionManager::GetInstance());
+    EXPECT_CALL(*mockUiSessionManager, GetComponentChangeEventRegistered()).WillRepeatedly(Return(true));
+
+    pattern_->ReportScroll(false, ScrollError::SCROLL_ERROR_OTHER, 123);
+    pattern_->ReportScroll(true, ScrollError::SCROLL_NO_ERROR, 123);
+    pattern_->ReportOnItemWaterFlowEvent("onReachStart");
+    pattern_->ReportOnItemWaterFlowScrollEvent("onScrollIndex", 0, 0);
+
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 3);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest003
+ * @tc.desc: Test water flow pattern func
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, OnInjectionEventTest003, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(WATER_FLOW_WIDTH));
+    ViewAbstract::SetHeight(CalcLength(600.f));
+    model.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 30; ++i) {
+        CreateItemWithHeight(60.0f);
+    }
+    CreateDone();
+
+    std::string command = R"({"cmd":"scrollBackward"})";
+    pattern_->OnInjectionEvent(command);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 10);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 29);
+
+    command = R"({"cmd":"scrollForward"})";
+    pattern_->OnInjectionEvent(command);
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 19);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest004
+ * @tc.desc: Test water flow pattern func
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, OnInjectionEventTest004, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(WATER_FLOW_WIDTH));
+    ViewAbstract::SetHeight(CalcLength(600.f));
+    model.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 30; ++i) {
+        CreateItemWithHeight(60.0f);
+    }
+    CreateDone();
+
+    EXPECT_TRUE(pattern_->IsScrollable());
+    EXPECT_TRUE(pattern_->IsAtTop());
+    EXPECT_FALSE(pattern_->IsAtBottom());
+
+    std::string command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":60})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 2);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 21);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 2);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":-60})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 19);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    command = R"({"cmd":"scrolloffset","eventId":123123,"offset":-60})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 19);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123)";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 19);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest005
+ * @tc.desc: Test water flow pattern func
+ * @tc.type: FUNC
+ */
+HWTEST_F(WaterFlowTestNg, OnInjectionEventTest005, TestSize.Level1)
+{
+    WaterFlowModelNG model = CreateWaterFlow();
+    ViewAbstract::SetWidth(CalcLength(WATER_FLOW_WIDTH));
+    ViewAbstract::SetHeight(CalcLength(600.f));
+    model.SetColumnsTemplate("1fr 1fr");
+    for (int i = 0; i < 30; ++i) {
+        CreateItemWithHeight(60.0f);
+    }
+    CreateDone();
+
+    EXPECT_TRUE(pattern_->IsScrollable());
+    EXPECT_TRUE(pattern_->IsAtTop());
+    EXPECT_FALSE(pattern_->IsAtBottom());
+
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 19);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":-60})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 0);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 19);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    UpdateCurrentOffset(-600);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_TRUE(pattern_->IsAtBottom());
+    EXPECT_FALSE(pattern_->IsAtTop());
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":60})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->layoutInfo_->startIndex_, 10);
+    EXPECT_EQ(pattern_->layoutInfo_->endIndex_, 29);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 10);
 }
 } // namespace OHOS::Ace::NG

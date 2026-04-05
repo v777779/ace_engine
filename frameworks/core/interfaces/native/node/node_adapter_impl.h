@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -29,9 +29,13 @@
 #include "core/interfaces/arkoala/arkoala_api.h"
 #include "core/interfaces/cjui/cjui_api.h"
 
+namespace OHOS::Ace::V2 {
+class DataChangeListener;
+}
+
 namespace OHOS::Ace::NG {
 class NativeLazyForEachBuilder : public LazyForEachBuilder {
-    DECLARE_ACE_TYPE(NativeLazyForEachBuilder, LazyForEachBuilder)
+    DECLARE_ACE_TYPE(NativeLazyForEachBuilder, LazyForEachBuilder);
 public:
     // used in ArkTS side.
     void ReleaseChildGroupById(const std::string& id) override {}
@@ -40,11 +44,13 @@ public:
 
     void UnregisterDataChangeListener(V2::DataChangeListener* listener) override;
 
+    void RegisterDataChangeListenerHandler() override;
+
     void SetNodeTotalCount(ArkUI_Uint32 nodeCount)
     {
         totalCount_ = nodeCount;
     }
-
+   
     ArkUI_Uint32 GetNodeTotalCount() const
     {
         return totalCount_;
@@ -201,7 +207,7 @@ public:
         disposeChildFunc_ = func;
     }
 
-    void SetOnUpdateChild(std::function<void(ArkUINodeHandle, int32_t)>&& func)
+    void SetOnUpdateChind(std::function<void(ArkUINodeHandle, int32_t)>&& func)
     {
         updateChildFunc_ = func;
     }
@@ -233,7 +239,7 @@ private:
 } // namespace OHOS::Ace::NG
 
 namespace OHOS::Ace::NodeAdapter {
-const ArkUINodeAdapterAPI* GetNodeAdapterAPI();
+ACE_FORCE_EXPORT const ArkUINodeAdapterAPI* GetNodeAdapterAPI();
 const CJUINodeAdapterAPI* GetCJUINodeAdapterAPI();
 } // namespace OHOS::Ace::NodeAdapter
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_INTERFACES_NATIVE_NODE_NODE_ADAPTER_IMPL_H

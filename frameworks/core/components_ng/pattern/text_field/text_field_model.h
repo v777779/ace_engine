@@ -30,7 +30,7 @@
 #include "core/common/ime/text_input_type.h"
 #include "core/components/box/drag_drop_event.h"
 #include "core/components/common/properties/color.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/base/view_abstract_model_ng.h"
 #include "core/components_ng/pattern/rich_editor/selection_info.h"
 #include "core/components_ng/pattern/text/text_menu_extension.h"
@@ -48,16 +48,22 @@ struct Font {
     std::optional<Color> fontColor;
     std::optional<std::vector<std::string>> fontFamiliesNG;
     std::optional<bool> enableVariableFontWeight;
+    std::optional<bool> enableDeviceFontWeightCategory;
+    std::optional<uint32_t> variableFontWeight;
     std::optional<Dimension> strokeWidth;
     std::optional<Color> strokeColor;
     std::optional<SuperscriptStyle> superscript;
+
+    RefPtr<ResourceObject> fontColorResObj;
+    RefPtr<ResourceObject> strokeColorResObj;
 
     bool IsEqual(const Font& other) const
     {
         bool flag = fontWeight == other.fontWeight && fontSize == other.fontSize && fontStyle == other.fontStyle &&
                     fontColor == other.fontColor && enableVariableFontWeight == other.enableVariableFontWeight &&
                     strokeWidth == other.strokeWidth && strokeColor == other.strokeColor &&
-                    superscript == other.superscript;
+                    superscript == other.superscript && variableFontWeight == other.variableFontWeight &&
+                    enableDeviceFontWeightCategory == other.enableDeviceFontWeightCategory;
         if (!flag) {
             return false;
         }
@@ -125,6 +131,21 @@ struct Font {
     {
         return superscript;
     }
+
+    std::optional<bool> GetEnableVariableFontWeight() const
+    {
+        return enableVariableFontWeight;
+    }
+
+    std::optional<bool> GetEnableDeviceFontWeightCategory() const
+    {
+        return enableDeviceFontWeightCategory;
+    }
+
+    std::optional<uint32_t> GetVariableFontWeight() const
+    {
+        return variableFontWeight;
+    }
 };
 
 struct CaretStyle {
@@ -177,6 +198,13 @@ enum class PreviewTextStyle {
     UNDERLINE,
 };
 
+class SpanStringBase;
+
+struct TextScrollOptions {
+    std::optional<int32_t> start;
+    std::optional<int32_t> end;
+};
+
 class ACE_EXPORT TextFieldControllerBase : public AceType {
     DECLARE_ACE_TYPE(TextFieldControllerBase, AceType);
 
@@ -208,6 +236,7 @@ public:
     {
         return {};
     }
+    virtual void ScrollToVisible(const TextScrollOptions& options) {};
     virtual void StopEditing() {}
 
     virtual int32_t AddText(std::u16string text, int32_t offset) { return 0; }
@@ -274,6 +303,9 @@ public:
         return true;
     }
 
+    virtual void SetPlaceholderStyledString(const RefPtr<SpanStringBase>& value) {};
+    virtual void DeleteBackward() {};
+
 protected:
     std::function<void(const int32_t)> setCaretPosition_;
     std::function<Rect(void)> getTextContentRect_;
@@ -295,6 +327,8 @@ public:
     virtual void RequestKeyboardOnFocus(bool needToRequest) = 0;
     virtual void SetWidthAuto(bool isAuto) {}
     virtual void SetType(TextInputType value) = 0;
+    virtual void SetSelectDetectEnable(bool value) = 0;
+    virtual void ResetSelectDetectEnable() = 0;
     virtual void SetContentType(const NG::TextContentType& value) = 0;
     virtual void SetPlaceholderColor(const Color& value) = 0;
     virtual void ResetPlaceholderColor() = 0;
@@ -317,11 +351,10 @@ public:
     virtual void SetWordBreak(Ace::WordBreak value) {};
     virtual void SetFontStyle(FontStyle value) = 0;
     virtual void SetFontFamily(const std::vector<std::string>& value) = 0;
-    virtual void SetMinFontScale(const float value) = 0;
-    virtual void SetMaxFontScale(const float value) = 0;
-
     virtual void SetInputFilter(const std::string& value,
         const std::function<void(const std::u16string&)>&& func) = 0;
+    virtual void SetMinFontScale(const float value) = 0;
+    virtual void SetMaxFontScale(const float value) = 0;
     virtual void SetInputStyle(InputStyle value) = 0;
     virtual void SetShowPasswordIcon(bool value) = 0;
     virtual void SetOnEditChanged(std::function<void(bool)>&& func) = 0;
@@ -331,7 +364,9 @@ public:
     virtual void SetOnTextSelectionChange(std::function<void(int32_t, int32_t)>&& func) = 0;
     virtual void SetOnSecurityStateChange(std::function<void(bool)>&& func) = 0;
     virtual void SetOnContentScroll(std::function<void(float, float)>&& func) = 0;
+    virtual void SetOnWillCopy(std::function<bool(const std::u16string&)>&& func) = 0;
     virtual void SetOnCopy(std::function<void(const std::u16string&)>&& func) = 0;
+    virtual void SetOnWillCut(std::function<bool(const std::u16string&)>&& func) = 0;
     virtual void SetOnCut(std::function<void(const std::u16string&)>&& func) = 0;
     virtual void SetOnPaste(std::function<void(const std::u16string&)>&& func) = 0;
     virtual void SetOnPasteWithEvent(std::function<void(const std::u16string&, NG::TextCommonEvent&)>&& func) = 0;
@@ -339,6 +374,10 @@ public:
     virtual void ResetMaxLength() = 0;
     virtual void SetForegroundColor(const Color& value) = 0;
     virtual void SetBackgroundColor(const Color& color, bool tmp) = 0;
+    virtual void SetCounterTextColor(const Color& value) {};
+    virtual void SetCounterTextOverflowColor(const Color& value) {};
+    virtual void ResetCounterTextColor() {};
+    virtual void ResetCounterTextOverflowColor() {};
     virtual void ResetBackgroundColor() = 0;
     virtual void SetHeight(const Dimension& value) = 0;
     virtual void SetPadding(
@@ -374,6 +413,7 @@ public:
     virtual void SetFocusableAndFocusNode() {};
     virtual void SetSelectionMenuHidden(bool contextMenuHidden) = 0;
     virtual void SetCustomKeyboard(const std::function<void()>&& buildFunc, bool supportAvoidance = false) = 0;
+    virtual void SetCustomKeyboardWithNode(NG::FrameNode* customKeyboard, bool supportAvoidance = false) {};
     virtual void SetPasswordRules(const std::string& passwordRules) = 0;
     virtual void SetEnableAutoFill(bool enableAutoFill) = 0;
     virtual void SetEnableAutoFillAnimation(bool enableAutoFillAnimation) = 0;
@@ -387,12 +427,14 @@ public:
     virtual void SetCancelButtonSymbol(bool isShowSymbol) = 0;
     virtual void SetCancelSymbolIcon(const std::function<void(WeakPtr<NG::FrameNode>)>& iconSymbol) = 0;
     virtual void SetIsShowCancelButton(bool isShowCancelButton) = 0;
+    virtual void SetIsShowVoiceButton(bool isShowButton) {};
 
     virtual void SetSelectAllValue(bool isSetSelectAllValue) = 0;
     virtual void SetFontFeature(const std::list<std::pair<std::string, int32_t>>& value) = 0;
     virtual void SetLetterSpacing(const Dimension& value) {};
     virtual void SetLineHeight(const Dimension& value) {};
     virtual void SetHalfLeading(bool value) {};
+    virtual void SetHorizontalScrolling(bool value) {};
     virtual void SetLineSpacing(const Dimension& value) {};
     virtual void SetIsOnlyBetweenLines(bool isOnlyBetweenLines) {};
     virtual void SetAdaptMinFontSize(const Dimension& value) {};
@@ -418,7 +460,18 @@ public:
     virtual void SetStrokeColor(const Color& value) {};
     virtual void ResetStrokeColor() {};
     virtual void SetEnableAutoSpacing(bool enabled) = 0;
-    virtual void SetOnWillAttachIME(std::function<void(const IMEClient&)>&& func) = 0;
+    virtual void SetOrphanCharOptimization(bool isOrphanChar) {};
+    virtual void SetCompressLeadingPunctuation(bool enabled) = 0;
+    virtual void SetOnWillAttachIME(IMEAttachCallback&& func) = 0;
+    virtual void SetTextAreaScrollBarColor(const Color& value) {};
+    virtual void ResetTextAreaScrollBarColor() {};
+    virtual void SetTextDirection(TextDirection value) {}
+    virtual void ResetTextDirection() {}
+    virtual void SetIncludeFontPadding(bool enabled) {};
+    virtual void SetFallbackLineSpacing(bool enabled) {};
+    virtual void SetSelectedDragPreviewStyle(const Color& value) {};
+    virtual void ResetSelectedDragPreviewStyle() {};
+    virtual void SetUserAccessibilityText() {};
 
 private:
     static std::unique_ptr<TextFieldModel> instance_;

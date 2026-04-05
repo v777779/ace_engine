@@ -18,7 +18,6 @@
 #include "base/memory/ace_type.h"
 #include "base/utils/utils.h"
 #include "bridge/declarative_frontend/engine/functions/js_should_built_in_recognizer_parallel_with_function.h"
-#include "bridge/declarative_frontend/engine/functions/js_gesture_judge_function.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components_ng/gestures/base_gesture_event.h"
 #include "frameworks/bridge/declarative_frontend/engine/functions/js_common_utils.h"
@@ -26,7 +25,7 @@
 namespace OHOS::Ace::Framework {
 
 bool JsTouchTestDoneFunction::Execute(
-    const std::shared_ptr<BaseGestureEvent>& info, const std::list<RefPtr<NG::NGGestureRecognizer>>& others)
+    const std::shared_ptr<BaseGestureEvent>& info, const std::list<WeakPtr<NG::NGGestureRecognizer>>& others)
 {
     CHECK_NULL_RETURN(info, false);
     auto obj = CreateGestureEventObject(info);
@@ -36,7 +35,10 @@ bool JsTouchTestDoneFunction::Execute(
     JSRef<JSArray> othersArr = JSRef<JSArray>::New();
     uint32_t othersIdx = 0;
     for (const auto& item : others) {
-        auto othersObj = JsShouldBuiltInRecognizerParallelWithFunction::CreateRecognizerObject(item);
+        if (item.Invalid()) {
+            continue;
+        }
+        auto othersObj = JsShouldBuiltInRecognizerParallelWithFunction::CreateRecognizerObject(item.Upgrade());
         othersArr->SetValueAt(othersIdx++, othersObj);
     }
     params[1] = othersArr;

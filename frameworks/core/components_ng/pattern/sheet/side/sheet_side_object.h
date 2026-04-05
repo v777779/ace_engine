@@ -54,20 +54,43 @@ public:
     }
     void OnScrollStartRecursive(float position, float dragVelocity = 0.0f) override {};
     void OnScrollEndRecursive(const std::optional<float>& velocity) override {};
+    void OnScrollDragEndRecursive() override {};
     bool HandleScrollVelocity(float velocity) override
     {
         return false;
     }
 
-    virtual uint32_t GetPanDirection() override
+    uint32_t GetPanDirection() const override
     {
         return PanDirection::HORIZONTAL;
+    }
+
+    bool CheckIfNeedSetOuterBorderProp() const override
+    {
+        return false;
+    }
+
+    bool CheckIfNeedShadowByDefault() const override
+    {
+        return false;
     }
 
     float GetResizeDecreasedHeight() const
     {
         return resizeDecreasedHeight_;
     }
+
+    bool CheckIfUpdateObject(SheetType newType) override
+    {
+        return newType != SheetType::SHEET_SIDE;
+    }
+
+    bool IsSheetObjectBase() const override
+    {
+        return false;
+    }
+
+    void FireHeightDidChange() override;
 
 private:
     void UpdateSidePosition();

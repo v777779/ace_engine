@@ -36,6 +36,8 @@
 
 namespace OHOS::Ace::Framework {
 namespace {
+constexpr size_t SINGLE_AUTO_HIDE_COMPONENT_SIZE = 1;
+
 void NapiThrow(const RefPtr<Framework::JsEngine>& engine, int32_t errCode, const std::string& message)
 {
     NativeEngine* nativeEngine = engine->GetNativeEngine();
@@ -48,6 +50,45 @@ void NapiThrow(const RefPtr<Framework::JsEngine>& engine, int32_t errCode, const
     napi_value error = nullptr;
     napi_create_error(env, code, msg, &error);
     napi_throw(env, error);
+}
+
+bool ParseAutoHideComponentUniqueId(const JSRef<JSVal>& value, std::vector<int32_t>& uniqueIds)
+{
+    if (!value->IsNumber()) {
+        return false;
+    }
+    uniqueIds.emplace_back(value->ToNumber<int32_t>());
+    return true;
+}
+
+std::vector<int32_t> ParseAutoHideComponentUniqueIds(const JSRef<JSVal>& value)
+{
+    std::vector<int32_t> uniqueIds;
+    if (ParseAutoHideComponentUniqueId(value, uniqueIds) || !value->IsArray()) {
+        return uniqueIds;
+    }
+    auto jsArray = JSRef<JSArray>::Cast(value);
+    for (size_t index = 0; index < jsArray->Length(); ++index) {
+        ParseAutoHideComponentUniqueId(jsArray->GetValueAt(index), uniqueIds);
+    }
+    return uniqueIds;
+}
+
+void SetAutoHideComponentUniqueIdResult(const std::vector<int32_t>& uniqueIds, const JSCallbackInfo& args)
+{
+    if (uniqueIds.empty()) {
+        args.SetReturnValue(JSVal::Undefined());
+        return;
+    }
+    if (uniqueIds.size() == SINGLE_AUTO_HIDE_COMPONENT_SIZE) {
+        args.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(uniqueIds.front())));
+        return;
+    }
+    JSRef<JSArray> uniqueIdArray = JSRef<JSArray>::New();
+    for (size_t index = 0; index < uniqueIds.size(); ++index) {
+        uniqueIdArray->SetValueAt(index, JSRef<JSVal>::Make(ToJSValue(uniqueIds[index])));
+    }
+    args.SetReturnValue(uniqueIdArray);
 }
 
 } // namespace
@@ -131,6 +172,8 @@ void JsDragEvent::JSBind(BindingTarget globalObj)
     JSClass<JsDragEvent>::CustomMethod("setDragInfo", &JsDragEvent::SetDragInfo);
     JSClass<JsDragEvent>::CustomMethod("getDragInfo", &JsDragEvent::GetDragInfo);
     JSClass<JsDragEvent>::CustomProperty("dragBehavior", &JsDragEvent::GetDragBehavior, &JsDragEvent::SetDragBehavior);
+    JSClass<JsDragEvent>::CustomProperty("autoHideComponentUniqueIds", &JsDragEvent::GetAutoHideComponentUniqueIds,
+        &JsDragEvent::SetAutoHideComponentUniqueIds);
     JSClass<JsDragEvent>::CustomMethod("getVelocityX", &JsDragEvent::GetVelocityX);
     JSClass<JsDragEvent>::CustomMethod("getVelocityY", &JsDragEvent::GetVelocityY);
     JSClass<JsDragEvent>::CustomMethod("getVelocity", &JsDragEvent::GetVelocity);
@@ -280,7 +323,7 @@ void JsDragEvent::StartDataLoading(const JSCallbackInfo& args)
     std::string udKey = dragEvent_->GetUdKey();
     if (udKey.empty()) {
         args.SetReturnValue(JSVal::Undefined());
-        NapiThrow(engine, ERROR_CODE_DRAG_DATA_NOT_ONDROP, "Operation no allowed for current pharse.");
+        NapiThrow(engine, ERROR_CODE_DRAG_DATA_NOT_ONDROP, "Operation not allowed for current phase.");
         return;
     }
     NativeEngine* nativeEngine = engine->GetNativeEngine();
@@ -308,7 +351,7 @@ void JsDragEvent::EnableInternalDropAnimation(const JSCallbackInfo& args)
     CHECK_NULL_VOID(engine);
 
     if (!NG::DragDropGlobalController::GetInstance().IsOnOnDropPhase()) {
-        NapiThrow(engine, ERROR_CODE_DRAG_DATA_NOT_ONDROP, "Operation no allowed for current pharse.");
+        NapiThrow(engine, ERROR_CODE_DRAG_DATA_NOT_ONDROP, "Operation not allowed for current phase.");
         return;
     }
     if (!args[0]->IsString()) {
@@ -485,6 +528,22 @@ void JsDragEvent::GetDragBehavior(const JSCallbackInfo& args)
     args.SetReturnValue(dragBehaviorRef);
 }
 
+void JsDragEvent::SetAutoHideComponentUniqueIds(const JSCallbackInfo& args)
+{
+    CHECK_NULL_VOID(dragEvent_);
+    auto uniqueIds = ParseAutoHideComponentUniqueIds(args[0]);
+    dragEvent_->SetAutoHideComponentUniqueIds(uniqueIds);
+    TAG_LOGI(AceLogTag::ACE_DRAG,
+        "Configure autoHideComponentUniqueIds, input size %{public}zu, normalized size %{public}zu",
+        uniqueIds.size(), dragEvent_->GetAutoHideComponentUniqueIds().size());
+}
+
+void JsDragEvent::GetAutoHideComponentUniqueIds(const JSCallbackInfo& args)
+{
+    CHECK_NULL_VOID(dragEvent_);
+    SetAutoHideComponentUniqueIdResult(dragEvent_->GetAutoHideComponentUniqueIds(), args);
+}
+
 void JsDragEvent::GetVelocityX(const JSCallbackInfo& args)
 {
     auto jsValue = JSVal(ToJSValue(PipelineBase::Px2VpWithCurrentDensity(dragEvent_->GetVelocity().GetVelocityX())));
@@ -616,7 +675,7 @@ void JsDragSpringLoadingContext::GetDragInfos(const JSCallbackInfo& args)
     auto jsValue = JsConverter::ConvertNapiValueToJsVal(nativeValue);
     dragInfosObj->SetPropertyObject("dataSummary", jsValue);
     dragInfosObj->SetProperty<std::string>("extraInfos", context_->GetExtraInfos());
-    JSRef<JSVal> dragInfosRef = JSRef<JSObject>::Cast(dragInfosObj);
+    JSRef<JSVal> dragInfosRef = dragInfosObj;
     args.SetReturnValue(dragInfosRef);
 }
 
@@ -635,7 +694,7 @@ void JsDragSpringLoadingContext::GetCurrentConfig(const JSCallbackInfo& args)
     curConfigObj->SetProperty<int32_t>("updateInterval", config->updateInterval);
     curConfigObj->SetProperty<int32_t>("updateNotifyCount", config->updateNotifyCount);
     curConfigObj->SetProperty<int32_t>("updateToFinishInterval", config->updateToFinishInterval);
-    JSRef<JSVal> curConfigRef = JSRef<JSObject>::Cast(curConfigObj);
+    JSRef<JSVal> curConfigRef = curConfigObj;
     args.SetReturnValue(curConfigRef);
 }
 
@@ -656,18 +715,25 @@ void JsDragSpringLoadingContext::UpdateConfiguration(const JSCallbackInfo& args)
         return;
     }
     CHECK_NULL_VOID(context_);
+
+    auto validateAndSet = [](double value, int32_t defaultValue) -> int32_t {
+        return (std::isnan(value) || value < 0 || value > INT32_MAX) ? defaultValue : static_cast<int32_t>(value);
+    };
+
     auto config = MakeRefPtr<NG::DragSpringLoadingConfiguration>();
     JSRef<JSObject> jsObj = JSRef<JSObject>::Cast(args[0]);
-    int32_t stillTimeLimit = jsObj->GetPropertyValue<int32_t>("stillTimeLimit", NG::DEFAULT_STILL_TIME_LIMIT);
-    int32_t updateInterval = jsObj->GetPropertyValue<int32_t>("updateInterval", NG::DEFAULT_UPDATE_INTERVAL);
-    int32_t updateNotifyCount = jsObj->GetPropertyValue<int32_t>("updateNotifyCount", NG::DEFAULT_UPDATE_NOTIFY_COUNT);
-    int32_t updateToFinishInterval =
-        jsObj->GetPropertyValue<int32_t>("updateToFinishInterval", NG::DEFAULT_UPDATE_TO_FINISH_INTERVAL);
-    config->stillTimeLimit = (stillTimeLimit >= 0) ? stillTimeLimit : NG::DEFAULT_STILL_TIME_LIMIT;
-    config->updateInterval = (updateInterval >= 0) ? updateInterval : NG::DEFAULT_UPDATE_INTERVAL;
-    config->updateNotifyCount = (updateNotifyCount >= 0) ? updateNotifyCount : NG::DEFAULT_UPDATE_NOTIFY_COUNT;
+
+    config->stillTimeLimit = validateAndSet(
+        jsObj->GetPropertyValue<double>("stillTimeLimit", NG::DEFAULT_STILL_TIME_LIMIT), NG::DEFAULT_STILL_TIME_LIMIT);
+    config->updateInterval = validateAndSet(
+        jsObj->GetPropertyValue<double>("updateInterval", NG::DEFAULT_UPDATE_INTERVAL), NG::DEFAULT_UPDATE_INTERVAL);
+    config->updateNotifyCount =
+        validateAndSet(jsObj->GetPropertyValue<double>("updateNotifyCount", NG::DEFAULT_UPDATE_NOTIFY_COUNT),
+            NG::DEFAULT_UPDATE_NOTIFY_COUNT);
     config->updateToFinishInterval =
-        (updateToFinishInterval >= 0) ? updateToFinishInterval : NG::DEFAULT_UPDATE_TO_FINISH_INTERVAL;
+        validateAndSet(jsObj->GetPropertyValue<double>("updateToFinishInterval", NG::DEFAULT_UPDATE_TO_FINISH_INTERVAL),
+            NG::DEFAULT_UPDATE_TO_FINISH_INTERVAL);
+
     context_->SetDragSpringLoadingConfiguration(std::move(config));
 }
 
@@ -715,7 +781,7 @@ JSRef<JSVal> JsDragFunction::Execute(const RefPtr<DragEvent>& info)
 
 JSRef<JSVal> JsDragFunction::DragSpringLoadingExecute(const RefPtr<DragSpringLoadingContext>& info)
 {
-    JSRef<JSVal> springLoadingContext = JSRef<JSObject>::Cast(CreateSpringLoadingContext(info));
+    JSRef<JSVal> springLoadingContext = CreateSpringLoadingContext(info);
     JSRef<JSVal> params[] = { springLoadingContext };
     return JsFunction::ExecuteJS(1, params);
 }

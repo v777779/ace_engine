@@ -46,9 +46,9 @@ public:
     }
 
 private:
-    void Init(const SizeF& frameSize);
+    void Init(const SizeF& frameSize, double originalWidth);
     /* init WaterFlow without Sections */
-    void SingleInit(const SizeF& frameSize);
+    void SingleInit(const SizeF& frameSize, double originalWidth);
     /**
      * @brief check if any items have changed and require a re-layout
      *
@@ -206,6 +206,10 @@ private:
 
     RefPtr<WaterFlowLayoutInfoSW> info_;
     RefPtr<WaterFlowSections> sections_;
+
+    RefPtr<WaterFlowLayoutInfoBase> LayoutInfo() const override {
+        return info_;
+    }
 
     int32_t itemCnt_ = 0; // total number of FlowItems (excluding footer)
     float mainLen_ = 0.0f;

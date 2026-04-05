@@ -24,6 +24,8 @@ import { WatchFunc } from './decoratorWatch';
 import { FactoryInternal } from '../base/iFactoryInternal';
 import { StateUpdateLoop } from '../base/stateUpdateLoop';
 import { uiUtils } from '../base/uiUtilsImpl';
+import { CompatibleStateChangeCallback, getObservedObject, isDynamicObject } from '../../component/interop';
+import { StateMgmtDFX, ObservedObjectRegistry } from '../tools/stateMgmtDFX';
 
 export class PropRefDecoratedVariable<T> extends DecoratedV1VariableBase<T> implements IPropRefDecoratedVariable<T> {
     sourceValue: T;
@@ -32,40 +34,81 @@ export class PropRefDecoratedVariable<T> extends DecoratedV1VariableBase<T> impl
     isForceRender: boolean = false;
     constructor(owningView: IVariableOwner, varName: string, initValue: T, watchFunc?: WatchFuncType) {
         super('@PropRef', owningView, varName, watchFunc);
+        this.checkValueIsNotFunction(initValue);
         this.sourceValue = initValue;
-        this.localValue = FactoryInternal.mkDecoratorValue<T>(varName, initValue);
+        if (isDynamicObject(initValue)) {
+            initValue = getObservedObject(initValue);
+            this.localValue = FactoryInternal.mkInteropDecoratorValue(varName, initValue);
+        } else {
+            this.localValue = FactoryInternal.mkDecoratorValue(varName, initValue);
+        }
         this.registerWatchForObservedObjectChanges(initValue);
         this.needForceUpdateFunc = new WatchFunc(() => {
             this.isForceRender = true;
         });
         this.registerCallbackForPropertyChange(initValue);
+
+        // Register the relationship between this PropRef variable and the observed object it uses
+        this.registerToObservedObject(initValue);
     }
 
     get(): T {
-        const value = this.localValue.get(this.shouldAddRef());
-        ObserveSingleton.instance.setV1RenderId(value as NullableObject);
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`PropRef ${this.getTraceInfo()}`);
+        const shouldAddRef = this.shouldAddRef();
+        const value = this.localValue.get(shouldAddRef);
+        if (shouldAddRef) {
+            ObserveSingleton.instance.setV1RenderId(value as NullableObject);
+            uiUtils.builtinContainersAddRefAnyKey(value);
+            this.selfTrack();
+            ObservedObjectRegistry.get(StateMgmtDFX.getObservedObjectFromValue(value))?.addV1InnerRef();
+        }
         return value;
     }
 
     set(newValue: T): void {
         const oldValue = this.localValue.get(false);
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`PropRef ${oldValue === newValue} ${this.setTraceInfo()}`);
         if (oldValue === newValue) {
             return;
         }
-        const value = uiUtils.makeV1Observed(newValue);
+        this.checkValueIsNotFunction(newValue);
+        let value: T;
+        if (isDynamicObject(newValue)) {
+            value = getObservedObject(newValue);
+            this.localValue.setNoCheck(value);
+        } else {
+            value = uiUtils.makeV1Observed(newValue);
+            this.localValue.setNoCheck(value);
+        }
         this.unregisterWatchFromObservedObjectChanges(oldValue);
-        this.registerWatchForObservedObjectChanges(value);
-        this.localValue.setNoCheck(value);
+        this.registerWatchForObservedObjectChanges(this.localValue.get(false));
+
+        // Update ObservedObjectRegistry registration
+        this.updateObservedObjectRegistration(oldValue, value);
+
+        if (this.setProxyValue) {
+            this.setProxyValue!(value);
+        }
         this.execWatchFuncs();
     }
 
     update(newValue: T): void {
         const sourceValue = this.sourceValue;
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`PropRef ${sourceValue === newValue} ${this.updateTraceInfo()}`);
         if (sourceValue !== newValue || this.isForceRender) {
             this.isForceRender = false;
-            const value = uiUtils.makeV1Observed(newValue);
+            let value = newValue;
+            if (isDynamicObject(newValue)) {
+                value = getObservedObject(newValue);
+            } else {
+                value = uiUtils.makeV1Observed(newValue);
+            }
             this.unregisterWatchFromObservedObjectChanges(sourceValue);
             this.registerWatchForObservedObjectChanges(value);
+
+            // Update ObservedObjectRegistry registration
+            this.updateObservedObjectRegistration(sourceValue, value);
+
             this.sourceValue = value;
             if (sourceValue !== newValue) {
                 this.unregisterCallbackForPropertyChange(sourceValue);
@@ -109,5 +152,30 @@ export class PropRefDecoratedVariable<T> extends DecoratedV1VariableBase<T> impl
                 this.needForceUpdateFunc.unregisterMeFrom(iSubscribedWatches);
             }
         }
+    }
+
+    private proxy?: ESValue;
+
+    public getProxy(): ESValue | undefined {
+        return this.proxy;
+    }
+
+    public setProxy(proxy: ESValue): void {
+        this.proxy = proxy;
+    }
+
+    public setProxyValue?: CompatibleStateChangeCallback<T>;
+
+    public fireChange(): void {
+        this.localValue.fireChange();
+    }
+
+    public aboutToBeDeletedInternal(): void {
+        // Unregister from the observed object before deletion
+        const currentValue = this.localValue.get(false);
+        this.unregisterFromObservedObject(currentValue);
+
+        // Call parent's cleanup
+        super.aboutToBeDeletedInternal();
     }
 }

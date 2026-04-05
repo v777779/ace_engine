@@ -18,14 +18,14 @@
 
 #include "ui/base/referenced.h"
 
-#include "core/components_ng/base/frame_node.h"
-#include "core/components_ng/pattern/flex/flex_layout_property.h"
-#include "core/components_ng/pattern/image/image_layout_property.h"
-#include "core/components_ng/pattern/text/text_layout_property.h"
-#include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/property/menu_property.h"
 
 namespace OHOS::Ace::NG {
+class FrameNode;
+class ImageLayoutProperty;
+class TextLayoutProperty;
+class TextPattern;
+
 using AIPreviewMenuErrorCallback =
     std::function<void(int32_t code, const std::string& name, const std::string& message)>;
 class PreviewMenuController : public virtual AceType {
@@ -35,37 +35,45 @@ public:
     PreviewMenuController(const WeakPtr<TextPattern>& pattern);
     virtual ~PreviewMenuController() = default;
     void BindContextMenu(const RefPtr<FrameNode>& targetNode, bool isShow = true);
-    void ClosePreviewMenu()
-    {
-        isShow_ = false;
-    }
+    void ClosePreviewMenu();
+    bool IsPreviewMenuShow();
 
-    bool IsPreviewMenuShow()
-    {
-        return isShow_;
-    }
-
-    static void CreatePreviewMenu(
-        TextDataDetectType type, const std::string& content, std::function<void()> disappearCallback);
+    static void CreatePreviewMenu(TextDataDetectType type, const std::string& content,
+        std::function<void()> disappearCallback = nullptr, std::map<std::string, std::string> AIparams = {},
+        std::function<void()> aiSpanClickCallabck = nullptr);
 
 private:
     void CreateAIEntityMenu();
     static void CreateContactErrorNode(
         const RefPtr<FrameNode>& previewNode, const std::string& content, std::function<void()>&& disappearCallback);
+    static void CreateURLAndAddressNode(const RefPtr<FrameNode>& previewNode, const std::string& content,
+        TextDataDetectType type, std::function<void()>&& aiSpanClickCallabck);
+    static void CreateURLAndAddressContentNode(const RefPtr<FrameNode>& previewNode,
+        const RefPtr<FrameNode>& contentNode, const std::string& content, TextDataDetectType type);
     static void CreateLinkingErrorNode(
         const RefPtr<FrameNode>& previewNode, TextDataDetectType type, std::function<void()>&& disappearCallback);
     static RefPtr<FrameNode> CreateLinkingPreviewNode();
-    static RefPtr<FrameNode> CreateContactPreviewNode();
-    static void UpdateNonLinkNodeProperty(const RefPtr<ImageLayoutProperty>& imageLayoutProperty,
-        const RefPtr<TextLayoutProperty>& textLayoutProperty, const std::string& content);
+    static RefPtr<FrameNode> CreateContactAndAddressPreviewNode(TextDataDetectType type);
+    static void UpdateImageAndTitleNodeProperty(const RefPtr<ImageLayoutProperty>& imageLayoutProperty,
+        const RefPtr<TextLayoutProperty>& textLayoutProperty, TextDataDetectType type, const std::string& content);
     static void UpdateLinkNodeProperty(const RefPtr<TextLayoutProperty>& textLayoutProperty, TextDataDetectType type);
     static RefPtr<FrameNode> CreatePreview(TextDataDetectType type);
     static void MountErrorNode(const RefPtr<FrameNode>& previewNode, TextDataDetectType type,
-        const std::string& content, std::function<void()> disappearCallback);
+        const std::string& content, std::function<void()> disappearCallback, std::function<void()> aiSpanClickCallabck);
+    static void MountUIExtensionNode(const RefPtr<FrameNode>& previewNode, const std::string& content,
+        std::function<void()>&& disappearCallback, TextDataDetectType type,
+        const std::map<std::string, std::string>& AIparams);
+    static void CreateWantParams(
+        TextDataDetectType type, const std::string& content, std::map<std::string, std::string>& AIparams);
     static AIPreviewMenuErrorCallback GetErrorCallback(const RefPtr<FrameNode>& previewNode, TextDataDetectType type,
         const std::string& content, std::function<void()>&& disappearCallback);
     std::function<void()> GetDisappearCallback();
     static std::function<void()> GetLinkingCallback(const std::string& appName);
+    static void CreateWantConfig(TextDataDetectType type, std::string& bundleName, std::string& abilityName,
+        std::map<std::string, std::string>& params, const std::map<std::string, std::string>& AIparams);
+    static void PreviewNodeClickCallback(TextDataDetectType type, const RefPtr<FrameNode>& previewNode,
+        const std::map<std::string, std::string>& AIparams, std::function<void()>&& disappearCallback);
+    static Dimension GetPreviewMaxHeight(const RefPtr<FrameNode>& frameNode);
 
     MenuParam menuParam_;
     std::function<void()> menuBuilder_ = nullptr;

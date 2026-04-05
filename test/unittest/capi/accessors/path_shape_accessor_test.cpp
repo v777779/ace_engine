@@ -16,13 +16,12 @@
 #include "gmock/gmock.h"
 #include "accessor_test_base.h"
 #include "accessor_test_utils.h"
-#include "node_api.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/utility/validators.h"
 #include "core/interfaces/native/implementation/path_shape_peer.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_theme_style.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_theme_style.h"
 
 
 namespace OHOS::Ace::NG {
@@ -51,18 +50,18 @@ public:
 };
 
 /**
- * @tc.name: OffsetTest
+ * @tc.name: offsetTest
  * @tc.desc:
  * @tc.type: FUNC
 */
-HWTEST_F(PathShapeAccessorTest, OffsetTest, TestSize.Level1)
+HWTEST_F(PathShapeAccessorTest, offsetTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->offset, nullptr);
     ASSERT_NE(peer_, nullptr);
     ASSERT_NE(peer_->shape, nullptr);
 
     using OffsetTestStep = std::pair<int32_t, int32_t>;
-    static const std::vector<OffsetTestStep> OFFSET_TEST_PLAN = {{2, 4}, {6, 8}, {10, 12}};
+    const std::vector<OffsetTestStep> OFFSET_TEST_PLAN = {{2, 4}, {6, 8}, {10, 12}};
     Opt_Length optX, optY;
     Ark_Position arkOffset{};
     DimensionOffset peerOffset;
@@ -81,18 +80,18 @@ HWTEST_F(PathShapeAccessorTest, OffsetTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: PositionTest
+ * @tc.name: positionTest
  * @tc.desc:
  * @tc.type: FUNC
 */
-HWTEST_F(PathShapeAccessorTest, PositionTest, TestSize.Level1)
+HWTEST_F(PathShapeAccessorTest, positionTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->position, nullptr);
     ASSERT_NE(peer_, nullptr);
     ASSERT_NE(peer_->shape, nullptr);
 
     using OffsetTestStep = std::pair<int32_t, int32_t>;
-    static const std::vector<OffsetTestStep> POSITION_TEST_PLAN = {{2, 4}, {6, 8}, {10, 12}};
+    const std::vector<OffsetTestStep> POSITION_TEST_PLAN = {{2, 4}, {6, 8}, {10, 12}};
     Opt_Length optX, optY;
     Ark_Position arkPosition{};
     DimensionOffset peerPosition;
@@ -122,7 +121,7 @@ HWTEST_F(PathShapeAccessorTest, fillTest, TestSize.Level1)
     ASSERT_NE(peer_->shape, nullptr);
 
     using FillTestStep = std::pair<Ark_ResourceColor, Color>;
-    static const std::vector<FillTestStep> FILL_TEST_PLAN = {
+    const std::vector<FillTestStep> FILL_TEST_PLAN = {
         // Ark_Color
         {Converter::ArkUnion<Ark_ResourceColor, Ark_Color>(Ark_Color::ARK_COLOR_RED),
             Converter::OptConvert<Color>(Ark_Color::ARK_COLOR_RED).value_or(Color())},
@@ -152,11 +151,11 @@ HWTEST_F(PathShapeAccessorTest, fillTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: fillFromResourceTest
+ * @tc.name: fillTestFromResource
  * @tc.desc: Color from Resource
  * @tc.type: FUNC
  */
-HWTEST_F(PathShapeAccessorTest, fillFromResourceTest, TestSize.Level1)
+HWTEST_F(PathShapeAccessorTest, fillTestFromResource, TestSize.Level1)
 {
     ASSERT_NE(accessor_->fill, nullptr);
     ASSERT_NE(peer_, nullptr);
@@ -186,7 +185,7 @@ HWTEST_F(PathShapeAccessorTest, commandsTest, TestSize.Level1)
     ASSERT_NE(peer_->shape, nullptr);
 
     using CommandsTestStep = std::pair<Ark_String, std::string>;
-    static const std::vector<CommandsTestStep> COMMANDS_TEST_PLAN = {
+    const std::vector<CommandsTestStep> COMMANDS_TEST_PLAN = {
         {Converter::ArkValue<Ark_String>("command1"), "command1"},
         {Converter::ArkValue<Ark_String>("command1, command2"), "command1, command2"},
     };

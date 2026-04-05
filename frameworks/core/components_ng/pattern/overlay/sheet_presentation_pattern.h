@@ -33,6 +33,8 @@
 #include "core/components_ng/pattern/overlay/sheet_presentation_property.h"
 #include "core/components_ng/pattern/overlay/sheet_style.h"
 #include "core/components_ng/pattern/scrollable/nestable_scroll_container.h"
+#include "core/components_ng/pattern/sheet/content_cover/sheet_content_cover_layout_algorithm.h"
+#include "core/components_ng/pattern/sheet/content_cover/sheet_content_cover_object.h"
 #include "core/components_ng/pattern/sheet/sheet_object.h"
 #include "core/components_ng/pattern/sheet/side/sheet_presentation_side_layout_algorithm.h"
 #include "core/components_ng/pattern/sheet/side/sheet_side_object.h"
@@ -46,6 +48,12 @@ enum class BindSheetDismissReason {
     CLOSE_BUTTON,
     SLIDE_DOWN,
     SLIDE,
+};
+enum class SheetMiniDefaultShowPosition {
+    LeftTop = 0,
+    RightTop,
+    LeftBottom,
+    RightBottom,
 };
 class ACE_EXPORT SheetPresentationPattern : public LinearLayoutPattern,
                                             public PopupBasePattern,
@@ -78,22 +86,21 @@ public:
         overlayManager_ = overlayManager;
     }
 
+    WeakPtr<OverlayManager> GetOverlay()
+    {
+        return overlayManager_;
+    }
+
     bool IsAtomicNode() const override
     {
         return false;
     }
 
-    RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
-    {
-        auto sheetType = GetSheetType();
-        if (sheetType == SheetType::SHEET_SIDE) {
-            return MakeRefPtr<SheetPresentationSideLayoutAlgorithm>();
-        }
-        return MakeRefPtr<SheetPresentationLayoutAlgorithm>(sheetType, sheetPopupInfo_);
-    }
+    RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override;
 
     RefPtr<LayoutProperty> CreateLayoutProperty() override
     {
+        ACE_UINODE_TRACE(GetHost());
         return MakeRefPtr<SheetPresentationProperty>();
     }
 
@@ -294,7 +301,7 @@ public:
 
     void InitialLayoutProps();
     void UpdateDragBarStatus();
-
+    bool IsSingleDetents(const NG::SheetStyle& sheetStyle);
     bool IsScrollable() const;
     void AvoidAiBar();
 
@@ -339,8 +346,6 @@ public:
 
     void SheetInteractiveDismiss(BindSheetDismissReason dismissReason, float dragVelocity = 0.0f);
 
-    void SetSheetAnimationOption(AnimationOption& option) const;
-
     void SetSheetBorderWidth(bool isPartialUpdate = false);
 
     void SetCurrentOffset(float currentOffset)
@@ -355,7 +360,7 @@ public:
 
     void SetCurrentHeight(float currentHeight)
     {
-        if (height_ != currentHeight) {
+        if (height_ != currentHeight || typeChanged_) {
             height_ = currentHeight;
             ChangeScrollHeight(height_);
         }
@@ -380,13 +385,6 @@ public:
             bottomOffsetX_ = 0;
             bottomOffsetY_ = 0;
         }
-    }
-
-    void SetCurrentHeightToOverlay(float height)
-    {
-        auto overlayManager = GetOverlayManager();
-        CHECK_NULL_VOID(overlayManager);
-        overlayManager->SetSheetHeight(height);
     }
 
     void ChangeScrollHeight(float height);
@@ -468,6 +466,7 @@ public:
     }
 
     SheetType GetSheetType() const;
+    bool IsBreakpointMatch();
     bool IsPhoneInLandScape();
     bool IsShowCloseIcon();
     void InitSheetMode();
@@ -704,6 +703,11 @@ public:
         property_ = property;
     }
 
+    float GetPreDidHeight() const
+    {
+        return preDidHeight_;
+    }
+
     void SetPreDidHeight(float height)
     {
         preDidHeight_ = height;
@@ -801,6 +805,9 @@ public:
     void UpdateMaskBackgroundColorRender();
 
     void UpdateTitleTextColor();
+    void UpdateSheetCloseIcon();
+    void UpdateSheetBackgroundColor();
+    void UpdateSheetBackgroundBlurStyle();
 
     Color GetMaskBackgroundColor() const
     {
@@ -916,7 +923,7 @@ public:
     // If has dispute about version isolation, suggest use the following. And it does not support SHEET_BOTTOM_OFFSET
     bool IsSheetBottom() const
     {
-        auto sheetType = GetSheetType();
+        auto sheetType = sheetType_;
         return !(sheetType == SheetType::SHEET_CENTER || sheetType == SheetType::SHEET_POPUP ||
                  sheetType == SheetType::SHEET_BOTTOM_OFFSET);
     }
@@ -931,6 +938,7 @@ public:
     void OnScrollStartRecursive(
         WeakPtr<NestableScrollContainer> child, float position, float dragVelocity = 0.0f) override;
     void OnScrollEndRecursive (const std::optional<float>& velocity) override;
+    void OnScrollDragEndRecursive() override;
     bool HandleScrollVelocity(float velocity, const RefPtr<NestableScrollContainer>& child = nullptr) override;
     ScrollResult HandleScrollWithSheet(float scrollOffset);
     Shadow GetShadowFromTheme(ShadowStyle shadowStyle);
@@ -946,9 +954,10 @@ public:
     bool UpdateAccessibilityDetents(float height);
     void CalculateSheetRadius(BorderRadiusProperty& sheetRadius);
     void InitSheetObject();
-    void UpdateSheetObject(SheetType type);
+    void UpdateSheetObject(SheetType newType);
     void ResetLayoutInfo();
     void ResetScrollUserDefinedIdealSize(const RefPtr<SheetObject>& oldObject, const RefPtr<SheetObject>& newObject);
+    void ResetPopupScrollUserDefinedIdealSize(SheetType newType);
     void UpdateSheetPopupInfo(const SheetPopupInfo& sheetPopupInfo)
     {
         if (!NearEqual(sheetPopupInfo_.sheetOffsetY, sheetPopupInfo.sheetOffsetY)) {
@@ -1011,6 +1020,12 @@ public:
         auto scrollNode = scrolNode_.Upgrade();
         return scrollNode;
     }
+
+    const SheetEffectEdge& GetSheetEffectEdge() const
+    {
+        return sheetEffectEdge_;
+    }
+
     void SetBottomStyleHotAreaInSubwindow();
 
     bool IsNotBottomStyleInSubwindow() const
@@ -1022,6 +1037,18 @@ public:
     void SendMessagesAfterFirstTransitionIn(bool isFirstTransition);
     void SendMessagesBeforeTransitionOut();
     void SendMessagesAfterTransitionOut(FrameNode* sheetNode);
+
+    void SetSheetMiniDefaultShowPosition(SheetMiniDefaultShowPosition position)
+    {
+        sheetMiniShowPosition_ = position;
+    }
+
+    SheetMiniDefaultShowPosition GetSheetMiniDefaultShowPosition()
+    {
+        return sheetMiniShowPosition_;
+    }
+    std::optional<Dimension> GetSheetMiniDeviceMarginWidth();
+    std::optional<Dimension> GetSheetMiniDeviceMarginHeight();
 
     RefPtr<SheetObject> GetSheetObject() const
     {
@@ -1057,7 +1084,6 @@ public:
     void RecoverScrollOrResizeAvoidStatus();
     bool IsNeedChangeScrollHeight(float height);
     bool IsResizeWhenAvoidKeyboard();
-    void InitScrollProps();
     uint32_t GetCurrentBroadcastDetentsIndex();
     void HandleFollowAccessibilityEvent(float currHeight);
     void ComputeDetentsPos(float currentSheetHeight, float& upHeight, float& downHeight, uint32_t& detentsLowerPos,
@@ -1067,10 +1093,67 @@ public:
     void HandleDragEndAccessibilityEvent();
     void DismissTransition(bool isTransitionIn, float dragVelocity = 0.0f);
 
+    // Create Dark Light Resource Method.
+    void UpdateSheetParamResource(const RefPtr<FrameNode>& sheetNode, NG::SheetStyle& sheetStyle);
+    void RemoveSheetResourceByMaterial(const RefPtr<FrameNode>& sheetNode, NG::SheetStyle& sheetStyle);
+    void RegisterWidthRes(const RefPtr<FrameNode>& sheetNode, RefPtr<ResourceObject>& resObj);
+    void RegisterHeightRes(const RefPtr<FrameNode>& sheetNode, RefPtr<ResourceObject>& sheetHeightResObj);
+    void UpdateSheetDetents(const RefPtr<ResourceObject>& resObj,
+        const WeakPtr<FrameNode>& sheetNodeWK, const WeakPtr<OverlayManager>& overlayWk);
+    void RegisterDetentsRes(const RefPtr<FrameNode>& sheetNode,
+        std::vector<RefPtr<ResourceObject>>& sheetHeightResObj);
+    void RegisterBgColorRes(const RefPtr<FrameNode>& sheetNode, RefPtr<ResourceObject>& colorResObj);
+    void UpdateBgColor(const RefPtr<ResourceObject>& resObj, const WeakPtr<FrameNode>& sheetNodeWK);
+    void RegisterTitleRes(const RefPtr<FrameNode>& sheetNode, RefPtr<ResourceObject>& mainTitleResObj);
+    void RegisterDetentSelectionRes(const RefPtr<FrameNode>& sheetNode, RefPtr<ResourceObject>& resObj);
+    void RegisterShowCloseRes(const RefPtr<FrameNode>& sheetNode, RefPtr<ResourceObject>& resObj);
+    void RegisterRadiusRes(const RefPtr<FrameNode>& sheetNode);
+    void RegisterShadowRes(const RefPtr<FrameNode>& sheetNode);
+    void UpdateBorderWidth(const RefPtr<FrameNode>& sheetNodeWK);
+    void UpdateBorderColor(const RefPtr<FrameNode>& sheetNodeWK);
+    void RegisterBorderWidthOrColorRes(const RefPtr<FrameNode>& sheetNode);
+    void HandleMultiDetentKeyboardAvoid();
+    void SetSheetHeightForTranslate(float height)
+    {
+        sheetHeightForTranslate_ = height;
+    }
+
+    float GetSheetHeightForTranslate() const
+    {
+        return sheetHeightForTranslate_;
+    }
+
+    void SetNeedDoubleAvoidAfterLayout(bool needDoubleAvoidAfterLayout)
+    {
+        needDoubleAvoidAfterLayout_ = needDoubleAvoidAfterLayout;
+    }
+
+    bool GetNeedDoubleAvoidAfterLayout() const
+    {
+        return needDoubleAvoidAfterLayout_;
+    }
+
+    void SetEnableDragControl(bool enable)
+    {
+        enableDragControl_ = enable;
+    }
+
+    bool GetEnableDragControl() const
+    {
+        return enableDragControl_;
+    }
+
+    int32_t OnInjectionEvent(const std::string& command) override;
+
 protected:
     void OnDetachFromFrameNode(FrameNode* sheetNode) override;
 
 private:
+    enum class SheetCmdType { CMD_UNKNOWN, CMD_SLIDE, CMD_CLOSE };
+    int32_t ParseCommand(const std::string& command, SheetCmdType& cmdType);
+    void HandleBindSheetEvent(SheetCmdType& cmdType);
+    void ReportCloseSheetResult(std::string result, std::string reason, std::string event);
+    void OnAttachToMainTree() override;
     void OnModifyDone() override;
     void OnAttachToFrameNode() override;
     void OnColorConfigurationUpdate() override;
@@ -1087,6 +1170,7 @@ private:
     float GetCloseIconPosX(const SizeF& sheetSize, const RefPtr<SheetTheme>& sheetTheme);
     void UpdateSheetTitle();
     void UpdateFontScaleStatus();
+    void InitSheetObjectDragEvent(RefPtr<SheetObject> sheetObject);
 
     bool PostTask(const TaskExecutor::Task& task, const std::string& name);
     void CheckSheetHeightChange();
@@ -1116,6 +1200,7 @@ private:
     float GetBottomSafeArea();
     void StopModifySheetTransition();
     void AvoidKeyboardBySheetMode(bool forceAvoid = false);
+    bool IsDoubleAvoid(bool forceAvoid);
     void DecreaseScrollHeightInSheet(float decreaseHeight);
     void UpdateSheetWhenSheetTypeChanged();
     void RecoverAvoidKeyboardStatus();
@@ -1129,7 +1214,9 @@ private:
     std::string DrawClipPathTop(const SizeF&, const BorderRadiusProperty&);
     std::string DrawClipPathLeft(const SizeF&, const BorderRadiusProperty&);
     std::string DrawClipPathRight(const SizeF&, const BorderRadiusProperty&);
-    
+
+    SheetType GetSheetTypeFromSheetManager() const;
+
     uint32_t broadcastPreDetentsIndex_ = 0;
     SheetAccessibilityDetents sheetDetents_ = SheetAccessibilityDetents::HIGH;
 
@@ -1187,7 +1274,7 @@ private:
     bool isDirectionUp_ = true;
     bool topSafeAreaChanged_ = false;
     bool typeChanged_ = false;
-    bool isOnAppearing_ = false;
+    bool isOnAppearing_ = true;
     bool isOnDisappearing_ = false;
     ScrollSizeMode scrollSizeMode_ = ScrollSizeMode::FOLLOW_DETENT;
     SheetEffectEdge sheetEffectEdge_ = SheetEffectEdge::ALL;
@@ -1205,6 +1292,8 @@ private:
     std::vector<float> sheetDetentHeight_;
     std::vector<float> unSortedSheetDentents_;
     std::vector<Rect> currentFoldCreaseRegion_;
+
+    SheetMiniDefaultShowPosition sheetMiniShowPosition_ = SheetMiniDefaultShowPosition::RightTop;
 
     std::shared_ptr<AnimationUtils::Animation> animation_;
     std::optional<int32_t> foldDisplayModeChangedCallbackId_;
@@ -1239,6 +1328,9 @@ private:
     WeakPtr<FrameNode> titleBuilderNode_;
     RefPtr<SheetObject> sheetObject_;
     WeakPtr<FrameNode> dragBarNode_;
+    float sheetHeightForTranslate_ { 0.0 };
+    bool enableDragControl_ = true;
+    bool needDoubleAvoidAfterLayout_ = false;
 };
 } // namespace OHOS::Ace::NG
 

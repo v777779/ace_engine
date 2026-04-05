@@ -30,8 +30,9 @@ class VariableUtilV2 {
      * @param newValue - update to new value
      */
     public static initParam<Z>(target: object, attrName: string, newValue: Z): void {
-      const meta = target[ObserveV2.V2_DECO_META]?.[attrName];
-      VariableUtilV2.checkInvalidUsage(meta, attrName);
+      if (InteropConfigureStateMgmt.needsInterop() && newValue && typeof newValue === 'object' && isStaticProxy(newValue)) {
+        newValue = InteropExtractorModule.getV2InteropObservedObject(newValue, target, attrName, '__paramStaticWatch_');
+      }
       const storeProp = ObserveV2.OB_PREFIX + attrName;
       stateMgmtConsole.propertyAccess(`initParam '@Param ${attrName}' - setting backing store`);
       target[storeProp] = newValue;
@@ -48,9 +49,11 @@ class VariableUtilV2 {
     public static updateParam<Z>(target: object, attrName: string, newValue: Z): void {
       // prevent update for @param @once
       const meta = target[ObserveV2.V2_DECO_META]?.[attrName];
-      VariableUtilV2.checkInvalidUsage(meta, attrName);
 
       const storeProp = ObserveV2.OB_PREFIX + attrName;
+      if (InteropConfigureStateMgmt.needsInterop() && newValue && typeof newValue === 'object' && isStaticProxy(newValue)) {
+        newValue = InteropExtractorModule.getV2InteropObservedObject(newValue, target, attrName, '__paramStaticWatch_');
+      }
       // @Observed class and @Track attrName
       if (newValue === target[storeProp]) {
         stateMgmtConsole.propertyAccess(`updateParm '@Param ${attrName}' unchanged. Doing nothing.`);
@@ -70,6 +73,7 @@ class VariableUtilV2 {
       if (!meta || meta.deco !== '@Param') {
         const error = `Use initParam/updateParm/resetParam(${attrName}) only to init/update/reset @Param. Internal error!`;
         stateMgmtConsole.error(error);
+        // toolchain can check
         throw new Error(error);
       }
     }
@@ -127,7 +131,15 @@ class VariableUtilV2 {
     public static findProvider(view: ViewV2, aliasName: string): [ViewV2, string] | undefined {
       let checkView : IView | undefined = view?.getParent();
       const searchingPrefixedAliasName = ProviderConsumerUtilV2.metaAliasKey(aliasName, '@Provider');
+      const PARENT_VIEW_BUILD_NODE = '__parentViewBuildNode__';
       stateMgmtConsole.debug(`findProvider: Try to connect ${view.debugInfo__()} '@Consumer ${aliasName}' to @Provider counterpart....`);
+      const parentViewBuildnode = view[PARENT_VIEW_BUILD_NODE];
+      if ((!checkView) && parentViewBuildnode !== undefined) {
+        const buildNodeProvider = ProviderConsumerUtilV2.findProviderInBuildNode(parentViewBuildnode, aliasName);
+        if (buildNodeProvider) {
+          return buildNodeProvider;
+        }
+      }
 
       while (checkView) {
         const meta = checkView.constructor?.prototype[ObserveV2.V2_DECO_META];
@@ -140,12 +152,84 @@ class VariableUtilV2 {
             return [checkView, providedVarName];
           }
         }
+
+        if (checkView instanceof ViewV2 && '__parentViewBuildNode__' in checkView && (checkView as any).__parentViewBuildNode__) {
+          const buildNodeProvider = ProviderConsumerUtilV2.findProviderInBuildNode((checkView as any).__parentViewBuildNode__, aliasName);
+          if (buildNodeProvider) {
+            return buildNodeProvider;
+          }
+        }
+
+        if (InteropConfigureStateMgmt.needsInterop() && checkView instanceof ViewInterop) {
+          return checkView.findProvideV2(aliasName);
+        }
+
         checkView = checkView.getParent();
       }; // while
-      stateMgmtConsole.warn(`findProvider: ${view.debugInfo__()} @Consumer('${aliasName}'), no matching @Provider found amongst ancestor @ComponentV2's!`);
+      if (stateMgmtDFX.enableDebug) {
+        // this log costs a lot of time, should not print while it is in valid situation
+        stateMgmtConsole.warn(`findProvider: ${view.debugInfo__()} @Consumer('${aliasName}'), no matching @Provider found amongst ancestor @ComponentV2's!`);
+      }
       return undefined;
     }
 
+    private static findProviderInBuildNode(buildNode: ViewBuildNodeBase, aliasName: string): [ViewV2, string] | undefined {
+      let currentNode: any = buildNode;
+  
+      while (currentNode) {
+        if (currentNode instanceof ViewV2) {
+          const Provider : [ViewV2, string] | undefined = ProviderConsumerUtilV2.findProviderBuildNodeView(currentNode, aliasName)
+          if (Provider) {
+            return Provider;
+          } else {
+            currentNode = currentNode.getParent();
+            continue;
+          }
+        }
+
+        const parent: ViewBuildNodeBase | undefined = ProviderConsumerUtilV2.findBuildNodeParent(currentNode);
+        if (parent) {
+          currentNode = parent;
+        } else {
+          break;
+        }
+      }
+
+      return undefined;
+    }
+
+    private static findProviderBuildNodeView(currentNode: ViewV2, aliasName: string): [ViewV2, string] | undefined {
+      const PROVIDER_PREFIX = '@Provider';
+      const searchingPrefixedAliasName = ProviderConsumerUtilV2.metaAliasKey(aliasName, PROVIDER_PREFIX);
+      const meta = currentNode.constructor?.prototype[ObserveV2.V2_DECO_META];
+      if (meta && meta[searchingPrefixedAliasName]) {
+        const aliasMeta = meta[searchingPrefixedAliasName];
+        const providedVarName: string | undefined = (aliasMeta && aliasMeta.deco === PROVIDER_PREFIX) ? aliasMeta.varName : undefined;
+        if (providedVarName) {
+          stateMgmtConsole.debug(`success findProviderInBuildNode: Found @Provider('${aliasName}') in ViewV2: ${currentNode.debugInfo__()}, varName = ${providedVarName}`);
+          return [currentNode, providedVarName];
+        }
+      } 
+      else if (!(currentNode as any).__parentViewBuildNode__) {
+        return undefined
+      }
+    }
+
+    private static findBuildNodeParent(currentNode: ViewBuildNodeBase): ViewBuildNodeBase | undefined {
+      const parentRef = (currentNode as any).__parentViewOfBuildNode;
+      const PARENT_VIEW_BUILD_NODE = '__parentViewBuildNode__';
+      const parentViewBuildnode = currentNode[PARENT_VIEW_BUILD_NODE];
+      if (parentRef && typeof parentRef.deref === 'function') {
+        return parentRef.deref();
+      }
+
+      if (parentViewBuildnode !== undefined) {
+        return parentViewBuildnode;
+      } else {
+        return undefined
+      }
+    }
+  
    /**
    * Connects a consumer property of a view (`consumeView`) to a provider property of another view (`provideView`).
    * This function establishes a link between the consumer and provider, allowing the consumer to access and update
@@ -170,7 +254,7 @@ class VariableUtilV2 {
           if (!view) {
             const error = `${this.debugInfo__()}: get() on @Consumer ${consumeVarName}: providing @ComponentV2 with @Provider ${provideViewName} no longer exists. Application error.`;
             stateMgmtConsole.error(error);
-            throw new Error(error);
+            throw new BusinessError(MISSING_PROVIDE_DEFAULT_VALUE_FOR_CONSUME_CONSUMER, error);
           }
           return view[provideVarName];
         },
@@ -181,7 +265,7 @@ class VariableUtilV2 {
           if (!view) {
             const error = `${this.debugInfo__()}: set() on @Consumer ${consumeVarName}: providing @ComponentV2 with @Provider ${provideViewName} no longer exists. Application error.`;
             stateMgmtConsole.error(error);
-            throw new Error(error);
+            throw new BusinessError(MISSING_PROVIDE_DEFAULT_VALUE_FOR_CONSUME_CONSUMER, error);
           }
 
           if (val !== view[provideVarName]) {
@@ -216,7 +300,8 @@ class VariableUtilV2 {
             ObserveV2.getObserve().fireChange(this, consumeVarName);
           }
         },
-        enumerable: true
+        enumerable: true,
+        configurable: true
       });
       return consumeView[storeProp];
     }
@@ -245,14 +330,15 @@ function observedV2Internal<T extends ConstructorV2>(BaseClass: T): T {
 
   // prevent @Track inside @ObservedV2 class
   if (BaseClass.prototype && Reflect.has(BaseClass.prototype, TrackedObject.___IS_TRACKED_OPTIMISED)) {
-    const error = `'@Observed class ${BaseClass?.name}': invalid use of V1 @Track decorator inside V2 @ObservedV2 class. Need to fix class definition to use @Track.`;
+    const error = `'@ObservedV2 class ${BaseClass?.name}': invalid use of V1 @Track decorator inside V2 @ObservedV2 class. Need to fix class definition to use @Trace.`;
     stateMgmtConsole.applicationError(error);
+    // toolchain can check
     throw new Error(error);
   }
 
   if (BaseClass.prototype && !Reflect.has(BaseClass.prototype, ObserveV2.V2_DECO_META)) {
     // not an error, suspicious of developer oversight
-    stateMgmtConsole.warn(`'@Observed class ${BaseClass?.name}': no @Track property inside. Is this intended? Check our application.`);
+    stateMgmtConsole.debug(`'@ObservedV2 class ${BaseClass?.name}': no @Trace property inside. Is this intended? Check our application.`);
   }
 
   // Use ID_REFS only if number of observed attrs is significant
@@ -268,6 +354,7 @@ function observedV2Internal<T extends ConstructorV2>(BaseClass: T): T {
       }
       AsyncAddComputedV2.addComputed(this, BaseClass.name);
       AsyncAddMonitorV2.addMonitor(this, BaseClass.name);
+      WeakRefPool.asyncRegisterToFinalizationRegistry(this);
     }
   };
   Object.defineProperty(observedClass, 'name', { value: BaseClass.name });

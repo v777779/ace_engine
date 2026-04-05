@@ -21,17 +21,20 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_foldable_window.h"
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_interaction_interface.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/window/mock_foldable_window.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_interaction_interface.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
+#include "core/common/ace_engine.h"
 #include "core/components/common/properties/shadow_config.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/overlay/sheet_drag_bar_pattern.h"
 #include "core/components_ng/pattern/overlay/sheet_presentation_pattern.h"
+#include "frameworks/base/subwindow/subwindow_manager.h"
 #include "core/components_ng/pattern/overlay/sheet_view.h"
 #include "core/components_ng/pattern/overlay/sheet_wrapper_pattern.h"
 #include "core/components_ng/pattern/root/root_pattern.h"
@@ -118,44 +121,10 @@ void SheetPresentationTestSevenNg::SetSheetType(RefPtr<SheetPresentationPattern>
  * @tc.desc: Branch:   if (sheetType_ != sheetType)
  *                     if (sheetType_ == SheetType::SHEET_POPUP)
  *           Condition: sheetType_ != sheetType = true
- *                      step2：sheetType_ == SheetType::SHEET_POPUP  = false
- * @tc.type: FUNC
- */
-HWTEST_F(SheetPresentationTestSevenNg, UpdateSheetWhenSheetTypeChanged001, TestSize.Level1)
-{
-    /**
-     * @tc.steps: step1. create sheet page.
-     */
-    SheetPresentationTestSevenNg::SetUpTestCase();
-    auto callback = [](const std::string&) {};
-    auto sheetNode = FrameNode::CreateFrameNode("Sheet", 1,
-        AceType::MakeRefPtr<SheetPresentationPattern>(101, "SheetPresentation", std::move(callback)));
-    ASSERT_NE(sheetNode, nullptr);
-    auto sheetPattern = sheetNode->GetPattern<SheetPresentationPattern>();
-    ASSERT_NE(sheetPattern, nullptr);
-    
-    /**
-     * @tc.steps: step2. sheetType_ = sheetType, test UpdateSheetWhenSheetTypeChanged.
-     */
-    SheetPresentationTestSevenNg::SetSheetType(sheetPattern, SheetType::SHEET_SIDE);
-    sheetPattern->sheetType_ = SheetType::SHEET_CENTER;
-    sheetPattern->typeChanged_ = false;
-    sheetPattern->UpdateSheetWhenSheetTypeChanged();
-    EXPECT_EQ(sheetPattern->GetSheetType(), SheetType::SHEET_SIDE);
-    EXPECT_EQ(sheetPattern->sheetType_, SheetType::SHEET_SIDE);
-    EXPECT_EQ(sheetPattern->typeChanged_, true);
-    SheetPresentationTestSevenNg::TearDownTestCase();
-}
-
-/**
- * @tc.name: UpdateSheetWhenSheetTypeChanged002
- * @tc.desc: Branch:   if (sheetType_ != sheetType)
- *                     if (sheetType_ == SheetType::SHEET_POPUP)
- *           Condition: sheetType_ != sheetType = true
  *                      step2：sheetType_ == SheetType::SHEET_POPUP  = true
  * @tc.type: FUNC
  */
-HWTEST_F(SheetPresentationTestSevenNg, UpdateSheetWhenSheetTypeChanged002, TestSize.Level1)
+HWTEST_F(SheetPresentationTestSevenNg, UpdateSheetWhenSheetTypeChanged001, TestSize.Level1)
 {
     /**
      * @tc.steps: step1. create sheet page.
@@ -171,6 +140,10 @@ HWTEST_F(SheetPresentationTestSevenNg, UpdateSheetWhenSheetTypeChanged002, TestS
     /**
      * @tc.steps: step2. sheetType_ != sheetType, test UpdateSheetWhenSheetTypeChanged.
      */
+    SheetStyle sheetStyle;
+    auto sheetLayoutProperty = sheetNode->GetLayoutProperty<SheetPresentationProperty>();
+    ASSERT_NE(sheetLayoutProperty, nullptr);
+    sheetLayoutProperty->UpdateSheetStyle(sheetStyle);
     sheetPattern->typeChanged_ = false;
     sheetPattern->sheetType_ = SheetType::SHEET_POPUP;
     sheetPattern->UpdateSheetWhenSheetTypeChanged();
@@ -409,9 +382,7 @@ HWTEST_F(SheetPresentationTestSevenNg, GetArrowOffsetByPlacement003, TestSize.Le
     /**
      * @tc.steps: step2. init sheetPopupInfo_
      */
-    auto container = Container::Current();
-    ASSERT_NE(container, nullptr);
-    container->SetApiTargetVersion(static_cast<int32_t>(PlatformVersion::VERSION_TWENTY));
+    sheetNode->apiVersion_ = static_cast<int32_t>(PlatformVersion::VERSION_TWENTY);
 
     /**
      * @tc.steps: step3. set sheetPopupInfo_ and showArrow_
@@ -500,7 +471,7 @@ HWTEST_F(SheetPresentationTestSevenNg, GetArrowOffsetByPlacement004, TestSize.Le
      */
     auto container = Container::Current();
     ASSERT_NE(container, nullptr);
-    container->SetApiTargetVersion(static_cast<int32_t>(PlatformVersion::VERSION_TWENTY));
+    sheetNode->apiVersion_ = static_cast<int32_t>(PlatformVersion::VERSION_TWENTY);
 
     /**
      * @tc.steps: step3. set sheetPopupInfo_ and showArrow_
@@ -1631,8 +1602,8 @@ HWTEST_F(SheetPresentationTestSevenNg, UpdatePopupInfoAndRemeasure001, TestSize.
     /**
      * @tc.steps: step4. test UpdatePopupInfoAndRemeasure.
      */
-    sheetLayoutAlgorithm->UpdatePopupInfoAndRemeasure(Referenced::RawPtr(layoutWrapper),
-        sheetPopupInfo, sheetWidth, sheetHeight);
+    sheetLayoutAlgorithm->UpdatePopupInfoAndRemeasure(
+        Referenced::RawPtr(layoutWrapper), sheetPopupInfo, sheetWidth, sheetHeight);
     EXPECT_EQ(sheetLayoutAlgorithm->GetSheetOffsetX(), 0.0f);
     EXPECT_EQ(sheetLayoutAlgorithm->GetSheetOffsetY(), 0.0f);
     EXPECT_EQ(sheetLayoutAlgorithm->sheetWidth_, 0.0f);
@@ -1694,8 +1665,8 @@ HWTEST_F(SheetPresentationTestSevenNg, UpdatePopupInfoAndRemeasure002, TestSize.
     /**
      * @tc.steps: step6. test UpdatePopupInfoAndRemeasure.
      */
-    sheetLayoutAlgorithm->UpdatePopupInfoAndRemeasure(Referenced::RawPtr(layoutWrapper),
-        sheetPopupInfo, sheetWidth, sheetHeight);
+    sheetLayoutAlgorithm->UpdatePopupInfoAndRemeasure(
+        Referenced::RawPtr(layoutWrapper), sheetPopupInfo, sheetWidth, sheetHeight);
     EXPECT_EQ(sheetLayoutAlgorithm->GetSheetOffsetX(), 7.0f);
     EXPECT_EQ(sheetLayoutAlgorithm->GetSheetOffsetY(), 8.0f);
     EXPECT_EQ(sheetLayoutAlgorithm->sheetWidth_, 0.0f);
@@ -1703,4 +1674,4 @@ HWTEST_F(SheetPresentationTestSevenNg, UpdatePopupInfoAndRemeasure002, TestSize.
 
     SheetPresentationTestSevenNg::TearDownTestCase();
 }
-}
+} // namespace OHOS::Ace::NG

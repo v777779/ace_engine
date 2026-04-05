@@ -122,6 +122,8 @@ void ReturnPromise(const JSCallbackInfo& info, int32_t errCode)
 
 static std::atomic<int32_t> gestureStyleStoreIndex_;
 static std::atomic<int32_t> spanStringStoreIndex_;
+static std::atomic<int32_t> customSpanStoreIndex_;
+const std::string CUSTOM_STORE_KEY = "STYLED_STRING_CUSTOM_STORE_";
 };
 
 const std::unordered_set<SpanType> types = { SpanType::Font, SpanType::Gesture, SpanType::BaselineOffset,
@@ -327,7 +329,12 @@ JSRef<JSObject> JSSpanString::CreateJsParagraphStyleSpan(const RefPtr<SpanBase>&
     CHECK_NULL_RETURN(span, JSRef<JSObject>::New());
     JSRef<JSObject> obj = JSClass<JSParagraphStyleSpan>::NewInstance();
     auto paragraphSpan = Referenced::Claim(obj->Unwrap<JSParagraphStyleSpan>());
-    paragraphSpan->SetParagraphStyleSpan(span);
+    paragraphSpan->SetParagraphStyle(span->GetParagraphStyle());
+
+    auto jsSpan = AceType::DynamicCast<JSParagraphStyleSpan>(spanObject);
+    if (jsSpan) {
+        paragraphSpan->SetJsLeadingMarginSpanObject(jsSpan->GetJsLeadingMarginSpanObject());
+    }
     return obj;
 }
 
@@ -487,9 +494,9 @@ RefPtr<SpanBase> JSSpanString::ParseJsParagraphStyleSpan(int32_t start, int32_t 
 {
     auto* base = obj->Unwrap<AceType>();
     auto* paragraphStyleSpan = AceType::DynamicCast<JSParagraphStyleSpan>(base);
-    if (paragraphStyleSpan && paragraphStyleSpan->GetParagraphStyleSpan()) {
-        return AceType::MakeRefPtr<ParagraphStyleSpan>(
-            paragraphStyleSpan->GetParagraphStyleSpan()->GetParagraphStyle(), start, start + length);
+    if (paragraphStyleSpan) {
+        return AceType::MakeRefPtr<JSParagraphStyleSpan>(paragraphStyleSpan->GetJsLeadingMarginSpanObject(),
+            paragraphStyleSpan->GetParagraphStyle(), start, start + length);
     }
     return nullptr;
 }
@@ -504,8 +511,8 @@ RefPtr<SpanBase> JSSpanString::ParseJsDecorationSpan(int32_t start, int32_t leng
             decorationSpan->GetDecorationSpan()->GetColor(),
             decorationSpan->GetDecorationSpan()->GetTextDecorationStyle(),
             decorationSpan->GetDecorationSpan()->GetLineThicknessScale(),
-            decorationSpan->GetDecorationSpan()->GetTextDecorationOptions(),
-            start, start + length);
+            decorationSpan->GetDecorationSpan()->GetTextDecorationOptions(), start, start + length,
+            decorationSpan->GetDecorationSpan()->GetColorResObj());
     }
     return nullptr;
 }
@@ -613,6 +620,13 @@ RefPtr<SpanBase> JSSpanString::ParseJsCustomSpan(int32_t start, int32_t length, 
     if (!typeObj->IsString() || typeObj->ToString() != "CustomSpan") {
         return nullptr;
     }
+
+    // store custom spanobj in spanstring
+    auto thisObj = args.This();
+    auto newIndex = customSpanStoreIndex_.fetch_add(1);
+    std::string key = CUSTOM_STORE_KEY + std::to_string(newIndex);
+    thisObj->SetPropertyObject(key.c_str(), styleStringValue);
+
     auto spanBase = AceType::MakeRefPtr<JSCustomSpan>(JSRef<JSObject>(styleStringValue), args);
     spanBase->UpdateStartIndex(start);
     spanBase->UpdateEndIndex(start + length);
@@ -731,6 +745,11 @@ ImageSpanOptions JSSpanString::ParseJsImageAttachment(const JSRef<JSObject>& inf
 
 RefPtr<CustomSpan> JSSpanString::ParseJsCustomSpan(const JSCallbackInfo& args)
 {
+    // store custom spanobj in spanstring
+    auto thisObj = args.This();
+    auto newIndex = customSpanStoreIndex_.fetch_add(1);
+    std::string key = CUSTOM_STORE_KEY + std::to_string(newIndex);
+    thisObj->SetPropertyObject(key.c_str(), args[0]);
     return AceType::MakeRefPtr<JSCustomSpan>(args[0], args);
 }
 
@@ -759,7 +778,7 @@ void JSSpanString::FromHtml(const JSCallbackInfo& info)
     napi_value result = nullptr;
     napi_create_promise(asyncContext->env, &asyncContext->deferred, &result);
     taskExecutor->PostTask(
-        [htmlStr = arg, asyncContext]() mutable {
+        [htmlStr = arg, asyncContext, execCtx = info.GetExecutionContext()]() mutable {
             ContainerScope scope(asyncContext->instanceId);
             // FromHtml may cost much time because of pixelmap.
             // Therefore this function should be called in Background thread.
@@ -767,7 +786,8 @@ void JSSpanString::FromHtml(const JSCallbackInfo& info)
             auto container = AceEngine::Get().GetContainer(asyncContext->instanceId);
             CHECK_NULL_VOID(container);
             auto taskExecutor = container->GetTaskExecutor();
-            taskExecutor->PostTask([styledString, asyncContext]() mutable {
+            taskExecutor->PostTask([styledString, asyncContext, execCtx]() mutable {
+                    JAVASCRIPT_EXECUTION_SCOPE_WITH_CHECK(execCtx);
                     ContainerScope scope(asyncContext->instanceId);
                     if (!styledString) {
                         ProcessPromiseCallback(asyncContext, ERROR_CODE_FROM_HTML_CONVERT_ERROR);
@@ -781,7 +801,7 @@ void JSSpanString::FromHtml(const JSCallbackInfo& info)
                     jsSpanString->SetController(styledString);
                     auto spanStrNapi = JsConverter::ConvertJsValToNapiValue(obj);
                     ProcessPromiseCallback(asyncContext, ERROR_CODE_NO_ERROR, spanStrNapi);
-                }, TaskExecutor::TaskType::UI, "FromHtmlReturnPromise", PriorityType::VIP);
+                }, TaskExecutor::TaskType::UI, "FromHtmlReturnPromise", PriorityType::IMMEDIATE);
         }, TaskExecutor::TaskType::BACKGROUND, "FromHtml", PriorityType::IMMEDIATE);
     auto jsPromise = JsConverter::ConvertNapiValueToJsVal(result);
     CHECK_NULL_VOID(jsPromise->IsObject());
@@ -958,12 +978,12 @@ void JSSpanString::Unmarshalling(const JSCallbackInfo& info)
     }
     auto engine = EngineHelper::GetCurrentEngineSafely();
     if (!engine) {
-        free(asyncContext);
+        delete(asyncContext);
         return;
     }
     NativeEngine* nativeEngine = engine->GetNativeEngine();
     if (!nativeEngine) {
-        free(asyncContext);
+        delete(asyncContext);
         return;
     }
     asyncContext->env = reinterpret_cast<napi_env>(nativeEngine);

@@ -20,10 +20,11 @@
 #define protected public
 #define private public
 
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/image_animator/image_animator_model_ng.h"
 #include "core/components_ng/pattern/image_animator/image_animator_pattern.h"
@@ -1133,7 +1134,8 @@ HWTEST_F(ImageAnimatorTestNg, ImageAnimatorTest017, TestSize.Level1)
     CHECK_NULL_VOID(imageNode);
     frameNode->AddChild(imageNode);
     frameNode->tag_ = V2::IMAGE_ANIMATOR_ETS_TAG;
-    ElementRegister::GetInstance()->itemMap_[nodeId] = frameNode;
+    ElementRegister::GetInstance()->RemoveItemSilently(nodeId);
+    ElementRegister::GetInstance()->AddReferenced(nodeId, frameNode);
     imageAnimatorModelNG.Create();
     EXPECT_FALSE(frameNode->GetChildren().empty());
 }
@@ -1191,6 +1193,7 @@ HWTEST_F(ImageAnimatorTestNg, ImageAnimatorTest019, TestSize.Level1)
      */
     CreateImageAnimator(1);
     EXPECT_EQ(imageAnimatorPattern->images_.size(), 1);
+    imageAnimatorPattern->GenerateCachedImages();
     imageAnimatorPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, config);
 
     /**
@@ -2697,6 +2700,41 @@ HWTEST_F(ImageAnimatorTestNg, ControlledAnimatorTest_012, TestSize.Level1)
     animator.Forward();
     EXPECT_TRUE(finished);
     EXPECT_EQ(flagNumber, 2);
+}
+
+/**
+ * @tc.name: ImageAnimatorPatternSetVisibleTest001
+ * @tc.desc: Verify SetVisible Functionality in ImageAnimatorPattern.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ImageAnimatorTestNg, ImageAnimatorPatternSetVisibleTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create ImageAnimator.
+     */
+
+    ImageAnimatorModelNG ImageAnimatorModelNG;
+    ImageAnimatorModelNG.Create();
+
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    EXPECT_EQ(frameNode->GetTag(), V2::IMAGE_ANIMATOR_ETS_TAG);
+    RefPtr<ImageAnimatorPattern> imageAnimatorPattern =
+        AceType::DynamicCast<OHOS::Ace::NG::ImageAnimatorPattern>(frameNode->GetPattern());
+    ASSERT_NE(imageAnimatorPattern, nullptr);
+
+    /**
+     * @tc.steps: step2. set visible to false.
+     * @tc.expected: step2. check whether isVisible is false.
+     */
+    imageAnimatorPattern->SetVisible(false);
+    EXPECT_FALSE(imageAnimatorPattern->visible_);
+    /**
+     * @tc.steps: step3. set visible to true.
+     * @tc.expected: step3. check whether isVisible is true.
+     */
+    imageAnimatorPattern->SetVisible(true);
+    EXPECT_TRUE(imageAnimatorPattern->visible_);
 }
 
 /**

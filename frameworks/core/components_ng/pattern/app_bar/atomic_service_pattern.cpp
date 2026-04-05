@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "core/components_ng/pattern/app_bar/atomic_service_pattern.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 #include <string>
 
 #include "core/components_ng/pattern/button/button_pattern.h"
@@ -20,10 +21,13 @@
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/image/image_render_property.h"
 #include "core/components_ng/base/inspector.h"
-
+#include "core/components_ng/pattern/app_bar/app_bar_view.h"
 namespace OHOS::Ace::NG {
 constexpr int32_t ATOMIC_SERVICE_MIN_SIZE = 2;
 constexpr int32_t FIRST_OVERLAY_INDEX = 1;
+
+std::atomic<int32_t> g_nextListenerId = 1;
+
 std::function<void(RefPtr<FrameNode> host, std::optional<bool> settedColorMode)>
     AtomicServicePattern::beforeCreateLayoutBuilder_ = nullptr;
 
@@ -167,6 +171,27 @@ void AtomicServicePattern::AppBgColorCallBack()
     customAppBar->FireCustomCallback(ARKUI_APP_BG_COLOR, pipeline->GetAppBgColor().ColorToString());
 }
 
+void AtomicServicePattern::SetMenuBarVisibleCallBack(bool visible)
+{
+    auto customAppBar = GetJSAppBarContainer();
+    CHECK_NULL_VOID(customAppBar);
+    customAppBar->FireCustomCallback(ARKUI_MENU_BAR_VISIBLE, visible);
+}
+
+void AtomicServicePattern::ExtensionHostParamsCallBack()
+{
+    auto atom = GetHost();
+    CHECK_NULL_VOID(atom);
+    auto pipeline = atom->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    auto container = Container::GetContainer(pipeline->GetInstanceId());
+    CHECK_NULL_VOID(container);
+    auto params = container->GetExtensionHostParams();
+    auto customAppBar = GetJSAppBarContainer();
+    CHECK_NULL_VOID(customAppBar);
+    customAppBar->FireCustomCallback(ARKUI_EXTENSION_HOST_PARAMS, params);
+}
+
 void AtomicServicePattern::UpdateLayoutMargin()
 {
     auto pipeline = PipelineContext::GetCurrentContext();
@@ -224,12 +249,13 @@ void AtomicServicePattern::OnColorConfigurationUpdate()
 void AtomicServicePattern::OnLanguageConfigurationUpdate()
 {
     AppInfoCallBack();
+    CHECK_NULL_VOID(customAppBarNodeNode_);
+    customAppBarNodeNode_->FireReloadFunction(true);
 }
 
 RefPtr<CustomAppBarNode> AtomicServicePattern::GetJSAppBarContainer()
 {
-    auto customAppBarNode = NG::ViewStackProcessor::GetInstance()->GetCustomAppBarNode();
-    return AceType::DynamicCast<CustomAppBarNode>(customAppBarNode);
+    return customAppBarNodeNode_;
 }
 
 RefPtr<FrameNode> AtomicServicePattern::GetStageNodeWrapper()
@@ -460,5 +486,74 @@ void AtomicServicePattern::UpdateIconLayout(RefPtr<AppBarTheme>& theme, RefPtr<F
 
     icon->MarkModifyDone();
     icon->MarkDirtyNode();
+}
+
+bool AtomicServicePattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config)
+{
+    auto atom = GetHost();
+    CHECK_NULL_RETURN(atom, false);
+    auto pipeline = atom->GetContextRefPtr();
+    CHECK_NULL_RETURN(pipeline, false);
+    pipeline->AddAfterLayoutTask([weak = WeakClaim(this)]() {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        pattern->CallRectChange();
+    });
+    return false;
+}
+
+int32_t AtomicServicePattern::AddRectChangeListener(std::function<void(const RectF& rect)>&& listener)
+{
+    auto id = g_nextListenerId.fetch_add(1);
+    rectChangeListeners_.emplace(id, listener);
+    return id;
+}
+
+void AtomicServicePattern::RemoveRectChangeListener(int32_t id)
+{
+    auto it = rectChangeListeners_.find(id);
+    if (it != rectChangeListeners_.end()) {
+        rectChangeListeners_.erase(it);
+    }
+}
+
+void AtomicServicePattern::NotifyRectChange(const RectF& rect)
+{
+    for (auto& pair : rectChangeListeners_) {
+        if (pair.second) {
+            pair.second(rect);
+        }
+    }
+}
+
+void AtomicServicePattern::CallRectChange()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipeline = host->GetContextRefPtr();
+    CHECK_NULL_VOID(pipeline);
+    auto container = Container::GetContainer(pipeline->GetInstanceId());
+    CHECK_NULL_VOID(container);
+    auto appbar = container->GetAppBar();
+    CHECK_NULL_VOID(appbar);
+    auto rect = appbar->GetAppBarRect();
+    if (!rect.has_value()) {
+        TAG_LOGW(AceLogTag::ACE_APPBAR, "Get rect of app bar failed, app bar is hidden");
+        return;
+    }
+    if (appBarRect_.has_value() && appBarRect_.value() == rect.value()) {
+        TAG_LOGD(AceLogTag::ACE_APPBAR, "App bar rect is not changed, no need to notify");
+        return;
+    }
+    NotifyRectChange(rect.value());
+    appBarRect_ = rect;
+}
+
+void AtomicServicePattern::FireAbilityCloseEvent()
+{
+    TAG_LOGI(AceLogTag::ACE_APPBAR, "Pattern FireAbilityCloseEvent");
+    auto customAppBar = GetJSAppBarContainer();
+    CHECK_NULL_VOID(customAppBar);
+    customAppBar->FireCustomCallback(ARKUI_ABILITY_CLOSE_EVENT, true);
 }
 } // namespace OHOS::Ace::NG

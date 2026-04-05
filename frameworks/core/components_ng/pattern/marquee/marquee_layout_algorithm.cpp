@@ -14,10 +14,13 @@
  */
 
 #include "core/components_ng/pattern/marquee/marquee_layout_algorithm.h"
+
 #include "base/utils/utils.h"
 #include "core/components_ng/pattern/marquee/marquee_layout_property.h"
 #include "core/components_ng/pattern/marquee/marquee_pattern.h"
 #include "core/components_ng/pattern/text/text_base.h"
+#include "core/components_ng/property/measure_utils.h"
+#include "core/components_ng/property/position_property.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -30,15 +33,7 @@ void MarqueeLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     const auto& maxSize = layoutConstraint->maxSize;
     const auto& padding = layoutWrapper->GetLayoutProperty()->CreatePaddingAndBorder();
     auto child = layoutWrapper->GetAllChildrenWithBuild().front();
-    LayoutConstraintF textLayoutConstraint;
-    textLayoutConstraint.UpdateMaxSizeWithCheck(SizeF(Infinity<float>(), maxSize.Height()));
-    auto heightLayoutPolicy = TextBase::GetLayoutCalPolicy(layoutWrapper, false);
-    // use marquee constrain size as text child max constrain size
-    if (layoutConstraint->selfIdealSize.Height().has_value()) {
-        textLayoutConstraint.selfIdealSize.SetHeight(layoutConstraint->selfIdealSize.Height().value());
-    } else if (heightLayoutPolicy == LayoutCalPolicy::MATCH_PARENT) {
-        textLayoutConstraint.selfIdealSize.SetHeight(maxSize.Height());
-    }
+    auto textLayoutConstraint = CreateTextLayoutConstraint(layoutWrapper, maxSize);
     // measure text, and add marquee padding to text child
     PaddingProperty textPadding;
     textPadding.left = CalcLength(padding.left.value());
@@ -52,6 +47,18 @@ void MarqueeLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
         textLayoutConstraint.selfIdealSize.SetHeight(adaptiveSize.Height().value());
         child->Measure(textLayoutConstraint);
     }
+
+    if (layoutWrapper->GetAllChildrenWithBuild().size() > 1) {
+        auto secondChild = layoutWrapper->GetAllChildrenWithBuild().back();
+        secondChild->GetLayoutProperty()->UpdatePadding(textPadding);
+        secondChild->Measure(textLayoutConstraint);
+        adaptiveSize = GetMeasureAdaptiveHeight(layoutWrapper, secondChild);
+        if (adaptiveSize.Height().has_value()) {
+            textLayoutConstraint.selfIdealSize.SetHeight(adaptiveSize.Height().value());
+            secondChild->Measure(textLayoutConstraint);
+        }
+    }
+
     // measure marquee self, and update marquee padding to zero
     layoutWrapper->GetGeometryNode()->UpdatePaddingWithBorder({ 0.0, 0.0, 0.0, 0.0 });
     OptionalSizeF frameSize;
@@ -70,6 +77,25 @@ void MarqueeLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
         break;
     } while (false);
     layoutWrapper->GetGeometryNode()->SetFrameSize(frameSize.ConvertToSizeT());
+}
+
+LayoutConstraintF MarqueeLayoutAlgorithm::CreateTextLayoutConstraint(LayoutWrapper* layoutWrapper, const SizeF& maxSize)
+{
+    LayoutConstraintF textLayoutConstraint;
+    textLayoutConstraint.UpdateMaxSizeWithCheck(SizeF(Infinity<float>(), maxSize.Height()));
+    auto heightLayoutPolicy = TextBase::GetLayoutCalPolicy(layoutWrapper, false);
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_RETURN(layoutProperty, textLayoutConstraint);
+    const auto& layoutConstraint = layoutProperty->GetLayoutConstraint();
+    CHECK_NULL_RETURN(layoutConstraint, textLayoutConstraint);
+    // use marquee constrain size as text child max constrain size
+    if (layoutConstraint->selfIdealSize.Height().has_value()) {
+        textLayoutConstraint.selfIdealSize.SetHeight(layoutConstraint->selfIdealSize.Height().value());
+    } else if (heightLayoutPolicy == LayoutCalPolicy::MATCH_PARENT &&
+               layoutConstraint->parentIdealSize.Height().has_value()) {
+        textLayoutConstraint.selfIdealSize.SetHeight(layoutConstraint->parentIdealSize.Height().value());
+    }
+    return textLayoutConstraint;
 }
 
 void MarqueeLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
@@ -103,6 +129,12 @@ void MarqueeLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     translate.SetY(0.0f);
     textGeoNode->SetMarginFrameOffset(translate);
     child->Layout();
+    CHECK_NULL_VOID(layoutWrapper->GetAllChildrenWithBuild().size() > 1);
+    auto secondChild = layoutWrapper->GetAllChildrenWithBuild().back();
+    auto secondTextGeoNode = secondChild->GetGeometryNode();
+    CHECK_NULL_VOID(secondTextGeoNode);
+    secondTextGeoNode->SetMarginFrameOffset(translate);
+    secondChild->Layout();
 }
 
 void MarqueeLayoutAlgorithm::MeasureWithLayoutPolicy(
@@ -148,14 +180,19 @@ void MarqueeLayoutAlgorithm::HandleWidthConstraint(
             break;
         case LayoutCalPolicy::FIX_AT_IDEAL_SIZE: {
             context.optionalSize.SetWidth(childDimensionSize);
-            const auto& calcLayoutConstraint = context.layoutProperty->GetCalcLayoutConstraint();
-            if (calcLayoutConstraint && !calcLayoutConstraint->maxSize->Width().has_value()) {
-                context.layoutConstraint.maxSize.SetWidth(Infinity<float>());
+            OptionalSizeF frameIdealSize;
+            frameIdealSize.SetWidth(Infinity<float>());
+            frameIdealSize = UpdateOptionSizeByCalcLayoutConstraint(frameIdealSize,
+                context.layoutProperty->GetCalcLayoutConstraint(), context.layoutConstraint.percentReference);
+            if (frameIdealSize.Width().has_value()) {
+                context.layoutConstraint.maxSize.SetWidth(frameIdealSize.Width().value());
             }
             break;
         }
         case LayoutCalPolicy::MATCH_PARENT:
-            context.optionalSize.SetWidth(context.layoutConstraint.parentIdealSize.Width());
+            if (context.layoutConstraint.parentIdealSize.Width().has_value()) {
+                context.optionalSize.SetWidth(context.layoutConstraint.parentIdealSize.Width().value());
+            }
             break;
         default:
             break;
@@ -175,14 +212,19 @@ void MarqueeLayoutAlgorithm::HandleHeightConstraint(
             break;
         case LayoutCalPolicy::FIX_AT_IDEAL_SIZE: {
             context.optionalSize.SetHeight(childDimensionSize);
-            const auto& calcLayoutConstraint = context.layoutProperty->GetCalcLayoutConstraint();
-            if (calcLayoutConstraint && !calcLayoutConstraint->maxSize->Height().has_value()) {
-                context.layoutConstraint.maxSize.SetHeight(Infinity<float>());
+            OptionalSizeF frameIdealSize;
+            frameIdealSize.SetHeight(Infinity<float>());
+            frameIdealSize = UpdateOptionSizeByCalcLayoutConstraint(frameIdealSize,
+                context.layoutProperty->GetCalcLayoutConstraint(), context.layoutConstraint.percentReference);
+            if (frameIdealSize.Height().has_value()) {
+                context.layoutConstraint.maxSize.SetHeight(frameIdealSize.Height().value());
             }
             break;
         }
         case LayoutCalPolicy::MATCH_PARENT:
-            context.optionalSize.SetHeight(context.layoutConstraint.parentIdealSize.Height());
+            if (context.layoutConstraint.parentIdealSize.Height().has_value()) {
+                context.optionalSize.SetHeight(context.layoutConstraint.parentIdealSize.Height().value());
+            }
             break;
         default:
             break;

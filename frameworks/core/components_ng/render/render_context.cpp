@@ -16,6 +16,8 @@
 #include "core/components_ng/render/render_context.h"
 
 #include "base/utils/multi_thread.h"
+#include "core/components/common/layout/layout_constants_string_utils.h"
+#include "core/components/common/properties/ui_material.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
@@ -36,34 +38,30 @@ std::string UseEffectTypeToString(EffectType effectType)
     return UseEffectTypeStyles[static_cast<int>(effectType)];
 }
 
+std::string MaterialTypeToString(int32_t type)
+{
+    static const std::string MaterialTypeStyles[] = { "MaterialType.NONE", "MaterialType.SEMI_TRANSPARENT" };
+    if (type >= static_cast<int32_t>(MaterialType::NONE) &&
+        type <= static_cast<int32_t>(MaterialType::SEMI_TRANSPARENT)) {
+        return MaterialTypeStyles[type];
+    }
+    return MaterialTypeStyles[0];
+}
+
 } // namespace
 
-void RenderContext::SetRequestFrame(const std::function<void()>& requestFrame)
+void RenderContext::SetRequestFrame(const std::function<void(bool)>& requestFrame)
 {
     requestFrame_ = requestFrame;
 }
 
-void RenderContext::RequestNextFrame() const
+void RenderContext::RequestNextFrame(bool isOffScreenNode) const
 {
     auto node = GetHost();
     // This function has a mirror function (XxxMultiThread) and needs to be modified synchronously.
-    FREE_NODE_CHECK(node, RequestNextFrame);
+    FREE_NODE_CHECK(node, RequestNextFrame, isOffScreenNode);
     if (requestFrame_) {
-        requestFrame_();
-        CHECK_NULL_VOID(node);
-        auto eventHub = node->GetEventHub<NG::EventHub>();
-        if (node->GetInspectorId().has_value() || (eventHub && eventHub->HasNDKDrawCompletedCallback())) {
-            auto pipeline = AceType::DynamicCast<PipelineContext>(PipelineBase::GetCurrentContext());
-            CHECK_NULL_VOID(pipeline);
-            pipeline->SetNeedRenderNode(WeakPtr<FrameNode>(node));
-        }
-        if (node->IsObservedByDrawChildren()) {
-            auto pipeline = AceType::DynamicCast<PipelineContext>(PipelineBase::GetCurrentContext());
-            CHECK_NULL_VOID(pipeline);
-
-            auto frameNode = AceType::DynamicCast<FrameNode>(node->GetObserverParentForDrawChildren());
-            pipeline->SetNeedRenderForDrawChildrenNode(WeakPtr<FrameNode>(frameNode));
-        }
+        requestFrame_(isOffScreenNode);
     }
 }
 
@@ -175,6 +173,23 @@ void RenderContext::ToJsonValue(std::unique_ptr<JsonValue>& json, const Inspecto
     json->PutExtAttr("useEffect", propUseEffect_.value_or(false) ? "true" : "false", filter);
     json->PutExtAttr("useEffectType",
         UseEffectTypeToString(propUseEffectType_.value_or(EffectType::DEFAULT)).c_str(), filter);
+    json->PutExtAttr("renderStrategy",
+        StringUtils::ToString(GetRenderStrategyValue(RenderStrategy::FAST)).c_str(), filter);
+    if (GetExcludeFromRenderGroup().has_value()) {
+        json->PutExtAttr("excludeFromRenderGroup", GetExcludeFromRenderGroupValue() ? "true" : "false", filter);
+    }
+    ToJsonValuePart1(json, filter);
+}
+
+void RenderContext::ToJsonValuePart1(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
+{
+    if (uiMaterial_) {
+        auto optJsonValue = JsonUtil::Create(true);
+        optJsonValue->Put("type", MaterialTypeToString(uiMaterial_->GetType()).c_str());
+        auto materialJsonValue = JsonUtil::Create(true);
+        materialJsonValue->Put("material", optJsonValue);
+        json->PutExtAttr("systemMaterial", materialJsonValue, filter);
+    }
 }
 
 void RenderContext::ObscuredToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
@@ -209,5 +224,15 @@ void RenderContext::FromJson(const std::unique_ptr<JsonValue>& json)
     } else {
         LOGE("UITree |ERROR| invalid clip=%{public}s", clip.c_str());
     }
+}
+
+void RenderContext::SetSystemMaterial(const RefPtr<UiMaterial>& material)
+{
+    uiMaterial_ = material;
+}
+
+RefPtr<UiMaterial> RenderContext::GetSystemMaterial() const
+{
+    return uiMaterial_;
 }
 } // namespace OHOS::Ace::NG

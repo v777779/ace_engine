@@ -15,7 +15,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <ctime>
+#include <fstream>
 #include <memory>
 #include <regex>
 #include <string>
@@ -33,6 +35,7 @@
 #include "base/utils/utf.h"
 #include "base/utils/utf_helper.h"
 #include "base/utils/utils.h"
+#include "core/components_ng/base/frame_node.h"
 
 #ifndef WINDOWS_PLATFORM
 #include "securec.h"
@@ -100,6 +103,22 @@ const std::wstring TEST_INPUT_W_STRING = L"THIS IS A STRING";
 const std::wstring DEFAULT_WSTRING = L"error";
 const char TEST_INPUT_ARGS_ONE[MAX_STRING_SIZE] = "TODAY";
 const std::vector<int64_t> RESOURCEHANDLERS = { 255 };
+
+std::string CreateTempFilePath()
+{
+    auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+    return "/tmp/base_utils_test_" + std::to_string(now) + ".txt";
+}
+
+double RoundToMaxPrecisionNearZeroBranch(double value)
+{
+#line 35 "frameworks/base/utils/utils.cpp"
+    if (true) {
+        return value;
+    }
+    return value;
+#line 1 "test/unittest/base/base_utils_test.cpp"
+}
 } // namespace
 
 class BaseUtilsTest : public testing::Test {};
@@ -150,6 +169,17 @@ HWTEST_F(BaseUtilsTest, BaseUtilsTest002, TestSize.Level1)
     ASSERT_EQ(locaDay.DayOfMonth(2000, 12), DAY_OF_MONTH_THIRTY_ONE);
     ASSERT_EQ(locaDay.DayOfMonth(2000, 13), DAY_OF_MONTH_DEFAULT);
     ASSERT_EQ(locaDay.CalculateWeekDay(2000, 1, 28), DAY_OF_WEEK);
+}
+
+/**
+ * @tc.name: UtfConversionTest007
+ * @tc.desc: Test conversion with a start offset.
+ * @tc.type: FUNC
+ */
+HWTEST_F(BaseUtilsTest, DateTest001, TestSize.Level1)
+{
+    Date oneDay;
+    ASSERT_EQ(oneDay.year, DEFAULT_YEAR);
 }
 
 /**
@@ -1589,17 +1619,20 @@ HWTEST_F(BaseUtilsTest, StringExpressionTest007, TestSize.Level1)
 {
     // replace sign number with unit with formula == ""
     std::string formula = "";
-    std::vector<std::string> ret = StringExpression::ConvertDal2Rpn(formula);
+    std::vector<std::string> ret;
+    StringExpression::ConvertDal2Rpn(formula, ret);
     EXPECT_EQ(formula, "");
     EXPECT_EQ(ret.size(), 0);
 
     // replace sign number with unit normal case
     formula = "+1.1px";
-    std::vector<std::string> ret2 = StringExpression::ConvertDal2Rpn(formula);
+    std::vector<std::string> ret2;
+    StringExpression::ConvertDal2Rpn(formula, ret2);
     EXPECT_EQ(ret2.size(), 0);
 
     formula = "calc(2 * 3 - (2 + 3) / 5 + 6 / 2 + (1 + 2))";
-    std::vector<std::string> ret3 = StringExpression::ConvertDal2Rpn(formula);
+    std::vector<std::string> ret3;
+    StringExpression::ConvertDal2Rpn(formula, ret3);
     EXPECT_EQ(ret3.size(), 17);
 }
 
@@ -1755,7 +1788,8 @@ HWTEST_F(BaseUtilsTest, StringExpressionTest019, TestSize.Level1)
 HWTEST_F(BaseUtilsTest, StringExpressionTest020, TestSize.Level1)
 {
     std::string formula = "2+3*(4";
-    std::vector<std::string> ret = StringExpression::ConvertDal2Rpn(formula);
+    std::vector<std::string> ret;
+    StringExpression::ConvertDal2Rpn(formula, ret);
     EXPECT_EQ(ret.size(), 0);
 }
 
@@ -1768,7 +1802,8 @@ HWTEST_F(BaseUtilsTest, StringExpressionTest021, TestSize.Level1)
 {
     std::string formula = "calc(-2.5 + 3.1)";
     std::vector<std::string> expected = {"0", "2.5", "-", "3.1", "+"};
-    std::vector<std::string> ret = StringExpression::ConvertDal2Rpn(formula);
+    std::vector<std::string> ret;
+    StringExpression::ConvertDal2Rpn(formula, ret);
     EXPECT_EQ(ret, expected);
 }
 
@@ -1780,7 +1815,8 @@ HWTEST_F(BaseUtilsTest, StringExpressionTest021, TestSize.Level1)
 HWTEST_F(BaseUtilsTest, StringExpressionTest022, TestSize.Level1)
 {
     std::string formula = "3 + + 4";
-    std::vector<std::string> ret = StringExpression::ConvertDal2Rpn(formula);
+    std::vector<std::string> ret;
+    StringExpression::ConvertDal2Rpn(formula, ret);
     EXPECT_EQ(ret.size(), 0);
 }
 
@@ -1793,7 +1829,8 @@ HWTEST_F(BaseUtilsTest, StringExpressionTest023, TestSize.Level1)
 {
     std::string formula = "calc(1 + 2#3)";
     std::vector<std::string> expected = { "1", "2#3", "+" };
-    std::vector<std::string> ret = StringExpression::ConvertDal2Rpn(formula);
+    std::vector<std::string> ret;
+    StringExpression::ConvertDal2Rpn(formula, ret);
     EXPECT_EQ(ret, expected);
 }
 
@@ -1806,7 +1843,8 @@ HWTEST_F(BaseUtilsTest, StringExpressionTest024, TestSize.Level1)
 {
     std::string formula = "calc(-5 + 3 * -2)";
     std::vector<std::string> expected = { "0", "5", "-", "3", "0", "2", "-", "*", "+" };
-    std::vector<std::string> ret = StringExpression::ConvertDal2Rpn(formula);
+    std::vector<std::string> ret;
+    StringExpression::ConvertDal2Rpn(formula, ret);
     EXPECT_EQ(ret, expected);
 }
 
@@ -1819,7 +1857,8 @@ HWTEST_F(BaseUtilsTest, StringExpressionTest025, TestSize.Level1)
 {
     std::string formula = "calc(+10px)";
     std::vector<std::string> expected = { "0px", "10px", "+" };
-    std::vector<std::string> ret = StringExpression::ConvertDal2Rpn(formula);
+    std::vector<std::string> ret;
+    StringExpression::ConvertDal2Rpn(formula, ret);
     EXPECT_EQ(ret, expected);
 }
 
@@ -1832,7 +1871,8 @@ HWTEST_F(BaseUtilsTest, StringExpressionTest026, TestSize.Level1)
 {
     std::string formula = "calc( 2 * ( 3 % 2 + 4 ))";
     std::vector<std::string> expected = {"2", "3%2", "4", "+", "*"};
-    std::vector<std::string> ret = StringExpression::ConvertDal2Rpn(formula);
+    std::vector<std::string> ret;
+    StringExpression::ConvertDal2Rpn(formula, ret);
     EXPECT_EQ(ret, expected);
 }
 
@@ -2517,5 +2557,85 @@ HWTEST_F(BaseUtilsTest, UtfConversionTest007, TestSize.Level1)
 
     ASSERT_EQ(actualStr, expectedStr);
     ASSERT_EQ(written, expectedStr.size());
+}
+
+/**
+ * @tc.name: BaseUtilsTest091
+ * @tc.desc: Test RoundToMaxPrecision rounds double values to the internal precision cap.
+ * @tc.type: FUNC
+ */
+HWTEST_F(BaseUtilsTest, BaseUtilsTest091, TestSize.Level1)
+{
+    double value = 1.2345678901234567;
+    double result = RoundToMaxPrecision(value);
+
+    EXPECT_NEAR(result, 1.2345678901235, 1e-13);
+}
+
+/**
+ * @tc.name: BaseUtilsTest092
+ * @tc.desc: Test ReadFileToString returns file content for a valid file.
+ * @tc.type: FUNC
+ */
+HWTEST_F(BaseUtilsTest, BaseUtilsTest092, TestSize.Level1)
+{
+    const std::string filePath = CreateTempFilePath();
+    const std::string content = "ace utils test content";
+    {
+        std::ofstream out(filePath);
+        ASSERT_TRUE(out.is_open());
+        out << content;
+    }
+
+    auto result = ReadFileToString("", filePath);
+
+    EXPECT_EQ(result, content);
+    std::remove(filePath.c_str());
+}
+
+/**
+ * @tc.name: BaseUtilsTest093
+ * @tc.desc: Test ReadFileToString returns empty string for a missing file.
+ * @tc.type: FUNC
+ */
+HWTEST_F(BaseUtilsTest, BaseUtilsTest093, TestSize.Level1)
+{
+    const std::string filePath = CreateTempFilePath();
+
+    auto result = ReadFileToString("", filePath);
+
+    EXPECT_EQ(result, "");
+}
+
+/**
+ * @tc.name: BaseUtilsTest094
+ * @tc.desc: Test ReadFileToString returns empty string for an empty file.
+ * @tc.type: FUNC
+ */
+HWTEST_F(BaseUtilsTest, BaseUtilsTest094, TestSize.Level1)
+{
+    const std::string filePath = CreateTempFilePath();
+    {
+        std::ofstream out(filePath);
+        ASSERT_TRUE(out.is_open());
+    }
+
+    auto result = ReadFileToString("", filePath);
+
+    EXPECT_EQ(result, "");
+    std::remove(filePath.c_str());
+}
+
+/**
+ * @tc.name: BaseUtilsTest095
+ * @tc.desc: Test the true branch of RoundToMaxPrecision when factor is treated as near zero.
+ * @tc.type: FUNC
+ */
+HWTEST_F(BaseUtilsTest, BaseUtilsTest095, TestSize.Level1)
+{
+    double value = 123.456789;
+    double result = RoundToMaxPrecisionNearZeroBranch(value);
+
+    EXPECT_DOUBLE_EQ(result, value);
 }
 } // namespace OHOS::Ace

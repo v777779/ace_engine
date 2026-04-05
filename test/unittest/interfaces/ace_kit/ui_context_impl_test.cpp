@@ -18,13 +18,18 @@
 #define private public
 #include "interfaces/inner_api/ace_kit/src/view/ui_context_impl.h"
 #undef private
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/interfaces/ipc_single/iremote_object.h"
 #include "ui/base/ace_type.h"
 
 #include "base/memory/ace_type.h"
 #include "core/common/ace_application_info.h"
 #include "core/components_ng/event/gesture_event_hub.h"
 #include "core/pipeline_ng/pipeline_context.h"
+
+#include <thread>
+#include <chrono>
 
 using namespace testing;
 using namespace testing::ext;
@@ -294,6 +299,56 @@ HWTEST_F(UIContextImplTest, RequestFrameTest002, TestSize.Level1)
 }
 
 /**
+ * @tc.name: RunScopeUIDelayedTask001
+ * @tc.desc: Test adding a delayed task to the UI task list
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, RunScopeUIDelayedTask001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize a flag to track task execution status and set param varibles for call
+     */
+    const std::string taskName = "taskName";
+    uint32_t delayTime = 1U;
+
+    /**
+     * @tc.steps: step2. Add a delayed task to the UI task list (name="taskName", delayTime=1500ms)
+     */
+    uiContext_->RunScopeUIDelayedTask([&]() {}, taskName, delayTime);
+    
+    /**
+     * @tc.expected: step2. Task should be added without errors or crashes
+     */
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    SUCCEED();
+}
+
+/**
+ * @tc.name: RunScopeUIDelayedTask002
+ * @tc.desc: Test excute a delayed UI task
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, RunScopeUIDelayedTask002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize a flag to track task execution status and set param varibles for call
+     */
+    const std::string taskName = "taskName";
+
+    /**
+     * @tc.steps: step2. Add a delayed task to the UI task list (name="taskName", delayTime=1500ms)
+     *              Then check immediately flag should be not modified.
+     */
+    uiContext_->RunScopeUIDelayedTask([&]() { }, taskName, 1U);
+
+    /**
+     * @tc.expected: step3. Wait for moment until task executed then check the flag, should be modified at final.
+     */
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    SUCCEED();
+}
+
+/**
  * @tc.name: AddAfterLayoutTaskTest001
  * @tc.desc: Test adding a layout task to the implicit animation task list
  * @tc.type: FUNC
@@ -390,4 +445,288 @@ HWTEST_F(UIContextImplTest, UnregisterArkUIObjectLifecycleCallback001, TestSize.
     EXPECT_FALSE(taskExecuted);
 }
 
+/**
+ * @tc.name: GetTokenTest
+ * @tc.desc: Test get token to the normal task list
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, GetTokenTest, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Get token from uiContext
+     */
+    auto token = uiContext_->GetToken();
+
+    ASSERT_EQ(token, nullptr);
+    /**
+     * @tc.expected: step2. Task should be added without errors or crashes
+     */
+    SUCCEED();
+}
+
+/**
+ * @tc.name: GetDisplayInfo
+ * @tc.desc: Test get displayInfo to the normal task list
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, GetDisplayInfo, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Get container
+     */
+    auto container = MockContainer::Current();
+    RefPtr<DisplayInfo> displayInfo = AceType::MakeRefPtr<DisplayInfo>();
+    ASSERT_NE(displayInfo, nullptr);
+    /**
+     * @tc.steps: step2. set displayInfo
+     */
+    container->SetDisplayInfo(displayInfo);
+    /**
+     * @tc.steps: step3. Get displayInfo from uiContext
+     */
+    auto getDisplayInfo = uiContext_->GetDisplayInfo();
+    /**
+     * @tc.steps: step4. displayInfo must not nullptr
+     */
+    EXPECT_NE(getDisplayInfo, nullptr);
+    /**
+     * @tc.steps: step5. set displayInfo nullptr
+     */
+    container->SetDisplayInfo(nullptr);
+    /**
+     * @tc.steps: step6. Get displayInfo from uiContext
+     */
+    getDisplayInfo = uiContext_->GetDisplayInfo();
+    /**
+     * @tc.steps: step7. displayInfo must nullptr
+     */
+    EXPECT_EQ(getDisplayInfo, nullptr);
+    /**
+     * @tc.expected: step8. Task should be added without errors or crashes
+     */
+    SUCCEED();
+}
+
+/**
+ * @tc.name: GetWindowMode
+ * @tc.desc: Test get windowMode to the normal task list
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, GetWindowMode, TestSize.Level1)
+{
+    ASSERT_NE(uiContext_->context_, nullptr);
+    auto windowManager = uiContext_->context_->GetWindowManager();
+    ASSERT_NE(windowManager, nullptr);
+    /**
+     * @tc.steps: step1. Set windowMode WINDOW_MODE_FLOATING value
+     */
+    windowManager->SetWindowGetModeCallBack([]() {
+        return WindowMode::WINDOW_MODE_FLOATING;
+    });
+    /**
+     * @tc.steps: step2. Get windowMode from uiContext
+     */
+    auto windowMode = uiContext_->GetWindowMode();
+    /**
+     * @tc.steps: step3. windowMode must be WINDOW_MODE_FLOATING
+     */
+    EXPECT_EQ(windowMode, WindowMode::WINDOW_MODE_FLOATING);
+    /**
+     * @tc.steps: step4. Set windowMode WINDOW_MODE_UNDEFINED value
+     */
+    windowManager->SetWindowGetModeCallBack([]() {
+        return WindowMode::WINDOW_MODE_UNDEFINED;
+    });
+    /**
+     * @tc.steps: step5. Get windowMode from uiContext
+     */
+    windowMode = uiContext_->GetWindowMode();
+    /**
+     * @tc.steps: step6. windowMode must be WINDOW_MODE_UNDEFINED
+     */
+    EXPECT_EQ(windowMode, WindowMode::WINDOW_MODE_UNDEFINED);
+    /**
+     * @tc.expected: step7. Task should be added without errors or crashes
+     */
+    SUCCEED();
+}
+
+/**
+ * @tc.name: GetIsMidScene
+ * @tc.desc: Test get windowMode to the normal task list
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, GetIsMidScene, TestSize.Level1)
+{
+    ASSERT_NE(uiContext_->context_, nullptr);
+    auto windowManager = uiContext_->context_->GetWindowManager();
+    ASSERT_NE(windowManager, nullptr);
+    /**
+     * @tc.steps: step1. Set isMidscene false value
+     */
+    windowManager->SetWindowGetIsMidSceneCallBack([](bool& isMidScene) {
+        isMidScene = false;
+        return 0;
+    });
+    /**
+     * @tc.steps: step2. Get isMidscene from uiContext
+     */
+    auto isMidScene = uiContext_->GetIsMidScene();
+    /**
+     * @tc.steps: step4. isMidscene must be false
+     */
+    EXPECT_FALSE(isMidScene);
+    /**
+     * @tc.steps: step5. Set isMidscene true value
+     */
+    windowManager->SetWindowGetIsMidSceneCallBack([](bool& isMidScene) {
+        isMidScene = true;
+        return 0;
+    });
+    /**
+     * @tc.steps: step6. Get isMidscene from uiContext
+     */
+    isMidScene = uiContext_->GetIsMidScene();
+    /**
+     * @tc.steps: step7. isMidscene must be true
+     */
+    EXPECT_TRUE(isMidScene);
+    /**
+     * @tc.expected: step8. Task should be added without errors or crashes
+     */
+    SUCCEED();
+}
+
+/**
+ * @tc.name: GetIsMidScene
+ * @tc.desc: Test get windowMode to the normal task list
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, IsAccessibilityEnabled, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Set accessibilityEnabled false value
+     */
+    OHOS::Ace::AceApplicationInfo::GetInstance().SetAccessibilityEnabled(false);
+    /**
+     * @tc.steps: step2. Get isAccessibilityEnabled from uiContext
+     */
+    auto isAccessibilityEnabled = uiContext_->IsAccessibilityEnabled();
+    /**
+     * @tc.steps: step3. isAccessibilityEnabled must be false
+     */
+    EXPECT_FALSE(isAccessibilityEnabled);
+    /**
+     * @tc.steps: step4. Set accessibilityEnable true value
+     */
+    OHOS::Ace::AceApplicationInfo::GetInstance().SetAccessibilityEnabled(true);
+    /**
+     * @tc.steps: step5. Get isAccessibilityEnabled from uiContext
+     */
+    isAccessibilityEnabled = uiContext_->IsAccessibilityEnabled();
+    /**
+     * @tc.steps: step6. Set accessibilityEnabled true value
+     */
+    EXPECT_TRUE(isAccessibilityEnabled);
+    /**
+     * @tc.expected: step7. Task should be added without errors or crashes
+     */
+    SUCCEED();
+}
+
+
+/**
+ * @tc.name: SurfaceChangedCallback
+ * @tc.desc: Test surfaceChangedCallback to the normal task list
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, SurfaceChangedCallback, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize a flag to track task execution status
+     */
+    bool taskExecuted = false;
+     /**
+     * @tc.steps: step2. Add a task to the normal task list
+     */
+    int32_t id = uiContext_->RegisterSurfaceChangedCallback([&taskExecuted](int32_t, int32_t, int32_t, int32_t,
+        WindowSizeChangeReason) {
+        taskExecuted = true;
+    });
+    uiContext_->UnregisterSurfaceChangedCallback(id);
+    ASSERT_NE(uiContext_->context_, nullptr);
+    /**
+     * @tc.expected: step3. Task should be added without errors or crashes
+     */
+    EXPECT_FALSE(taskExecuted);
+    SUCCEED();
+}
+
+/**
+ * @tc.name: FoldStatusChangedCallback
+ * @tc.desc: Test foldStatusChangedCallback to the normal task list
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, FoldStatusChangedCallback, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize a flag to track task execution status
+     */
+    bool taskExecuted = false;
+     /**
+     * @tc.steps: step2. Add a task to the normal task list
+     */
+    int32_t id = uiContext_->RegisterFoldStatusChangedCallback([&taskExecuted](FoldStatus) {
+        taskExecuted = true;
+    });
+    uiContext_->UnRegisterFoldStatusChangedCallback(id);
+    ASSERT_NE(uiContext_->context_, nullptr);
+    uiContext_->context_->OnFoldStatusChange(FoldStatus::UNKNOWN);
+    /**
+     * @tc.expected: step3. Task should be added without errors or crashes
+     */
+    EXPECT_FALSE(taskExecuted);
+    SUCCEED();
+}
+
+/**
+ * @tc.name: RotationEndCallback
+ * @tc.desc: Test RotationEndCallback to the normal task list
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, RotationEndCallback, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize a flag to track task execution status
+     */
+    bool taskExecuted = false;
+     /**
+     * @tc.steps: step2. Add a task to the normal task list
+     */
+    int32_t id = uiContext_->RegisterRotationEndCallback([&taskExecuted]() {
+        taskExecuted = true;
+    });
+    uiContext_->UnregisterRotationEndCallback(id);
+    ASSERT_NE(uiContext_->context_, nullptr);
+    /**
+     * @tc.expected: step3. Task should be added without errors or crashes
+     */
+    EXPECT_FALSE(taskExecuted);
+    SUCCEED();
+}
+
+/**
+ * @tc.name: AddWindowSizeChangeCallbackTest001
+ * @tc.desc: Test AddWindowSizeChangeCallback
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIContextImplTest, AddWindowSizeChangeCallbackTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Call AddWindowSizeChangeCallback on valid context
+     * @tc.expected: step1. Should complete without errors
+     */
+    uiContext_->AddWindowSizeChangeCallback(1);
+    SUCCEED();
+}
 } // namespace OHOS::Ace::Kit

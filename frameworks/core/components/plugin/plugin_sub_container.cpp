@@ -63,6 +63,7 @@ void PluginSubContainer::Initialize(const std::string& codeLanguage)
     if (!container) {
         return;
     }
+
     if (codeLanguage == OHOS::AppExecFwk::Constants::ARKTS_MODE_STATIC) {
         if (outSidePipelineContext->GetFrontendType() != FrontendType::ARK_TS) {
             TAG_LOGE(AceLogTag::ACE_PLUGIN_COMPONENT,
@@ -127,6 +128,7 @@ void PluginSubContainer::Destroy()
     if (frameNode) {
         frameNode->RemoveChild(pageNode_.Upgrade());
     }
+
     ResourceManager::GetInstance().RemoveResourceAdapter("", "", instanceId_);
     if (frontend_) {
         frontend_->Destroy();

@@ -42,11 +42,11 @@ static constexpr bool TEST_DEFAULT_ENABLED = true;
 static constexpr bool TEST_DEFAULT_ENABLED_LOADING = true;
 
 /**
- * @tc.name: LoadingProgressContentModifierHelperAccessor
+ * @tc.name: contentModifierLoadingProgressTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(LoadingProgressContentModifierHelperAccessor, LoadingProgressContentModifierHelperTest, TestSize.Level1)
+HWTEST_F(LoadingProgressContentModifierHelperAccessor, contentModifierLoadingProgressTest, TestSize.Level1)
 {
     ASSERT_NE(accessor_->contentModifierLoadingProgress, nullptr);
 
@@ -65,13 +65,7 @@ HWTEST_F(LoadingProgressContentModifierHelperAccessor, LoadingProgressContentMod
     };
     static std::optional<CheckEvent> checkEvent = std::nullopt;
 
-    Ark_Object obj = {
-        .resource = Ark_CallbackResource {
-            .resourceId = TEST_OBJ_ID,
-            .hold = [](InteropInt32){},
-            .release = [](InteropInt32){},
-        }
-    };
+    auto obj = Converter::ArkCreate<Ark_Object>(TEST_OBJ_ID);
 
     auto modifierCallback = [](const Ark_Int32 resourceId,
         const Ark_NativePointer parentNode,

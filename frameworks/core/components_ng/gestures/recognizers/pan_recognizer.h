@@ -21,6 +21,8 @@
 #include "core/components_ng/event/drag_event.h"
 #include "core/components_ng/gestures/pan_gesture.h"
 #include "core/components_ng/gestures/recognizers/multi_fingers_recognizer.h"
+#include "core/gestures/velocity.h"
+#include "core/gestures/velocity_tracker.h"
 
 namespace OHOS::Ace::NG {
 enum class PanGestureState : int32_t;
@@ -106,6 +108,18 @@ public:
         return panGestureOption_;
     }
 
+    void SetAngle(double angle)
+    {
+        angle_ = angle;
+    }
+
+    double GetAngle() const
+    {
+        return angle_;
+    }
+
+protected:
+    std::string GetGestureInfoString() const override;
 private:
     class PanVelocity {
     public:
@@ -115,6 +129,7 @@ private:
         void Reset(int32_t id);
         void ResetAll();
         void SetDirection(int32_t directionType);
+        Axis GetDirection();
         const std::map<int32_t, VelocityTracker>& GetVelocityMap() const
         {
             return trackerMap_;
@@ -156,12 +171,14 @@ private:
     void HandleCallbackReports(const GestureEvent& info, GestureCallbackType type, PanGestureState panGestureState);
     void HandleReports(const GestureEvent& info, GestureCallbackType type) override;
     GestureJudgeResult TriggerGestureJudgeCallback();
+    void UpdateGestureEventInfo(std::shared_ptr<PanGestureEvent>& info);
     void ChangeFingers(int32_t fingers);
     void ChangeDirection(const PanDirection& direction);
     void ChangeDistance(double distance);
     double GetMainAxisDelta();
     RefPtr<DragEventActuator> GetDragEventActuator();
     bool HandlePanAccept();
+    bool HandlePanExtAccept();
     void GetGestureEventHalfInfo(GestureEvent* info);
     GestureEvent GetGestureEventInfo();
     void ResetDistanceMap();
@@ -210,6 +227,7 @@ private:
     // this callback will be triggered when pan end, but the enable state is false
     std::unique_ptr<GestureEventFunc> panEndOnDisableState_;
     int32_t lastAction_ = 0;
+    double angle_ = 45.0;
 };
 
 } // namespace OHOS::Ace::NG

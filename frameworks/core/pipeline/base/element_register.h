@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -47,8 +47,9 @@ public:
     static constexpr ElementIdType UndefinedElementId = static_cast<ElementIdType>(-1);
 
     ACE_FORCE_EXPORT static ElementRegister* GetInstance();
-    RefPtr<Element> GetElementById(ElementIdType elementId);
+    ACE_FORCE_EXPORT RefPtr<Element> GetElementById(ElementIdType elementId);
     RefPtr<V2::ElementProxy> GetElementProxyById(ElementIdType elementId);
+    void IterateElements(const std::function<bool(ElementIdType, const RefPtr<AceType>&)>& visitor) const;
 
     ACE_FORCE_EXPORT RefPtr<AceType> GetNodeById(ElementIdType elementId);
     /**
@@ -66,6 +67,7 @@ public:
     bool AddElement(const RefPtr<Element>& element);
 
     ACE_FORCE_EXPORT RefPtr<NG::UINode> GetUINodeById(ElementIdType elementId);
+    ACE_FORCE_EXPORT std::vector<RefPtr<NG::UINode>> GetUINodesFromItemMap(const std::vector<std::int32_t>& keys);
     NG::FrameNode* GetFrameNodePtrById(ElementIdType elementId);
 
     ACE_FORCE_EXPORT bool AddUINode(const RefPtr<NG::UINode>& node);
@@ -93,7 +95,7 @@ public:
      */
     ACE_FORCE_EXPORT bool RemoveItemSilently(ElementIdType elementId);
 
-    void MoveRemovedItems(RemovedElementsType& removedItems);
+    ACE_FORCE_EXPORT void MoveRemovedItems(RemovedElementsType& removedItems);
 
     /**
      * does a complete reset
@@ -120,40 +122,14 @@ public:
     void AddPendingRemoveNode(const RefPtr<NG::UINode>& node);
     void ClearPendingRemoveNodes();
 
-    void RegisterJSCleanUpIdleTaskFunc(const std::function<void(int64_t)>& jsCallback) {
-        jsCleanUpIdleTaskCallback_ = std::move(jsCallback);
-    }
+    uint32_t GetNodeNum() const;
 
-    void CallJSCleanUpIdleTaskFunc(int64_t maxTimeInNs) {
-        if (jsCleanUpIdleTaskCallback_) {
-            ACE_SCOPED_TRACE_COMMERCIAL("OnIdle CallJSCleanUpIdleTaskFunc:%" PRId64 "", maxTimeInNs);
-            jsCleanUpIdleTaskCallback_(maxTimeInNs);
-        }
-    }
+    ElementIdType GetLatestElementId() const;
 
-    void RegisterJSUpdateDirty2ForAnimateTo(const std::function<void(void)>& jsCallback) {
-        jsUpdateDirty2ForAnimateTo_ = std::move(jsCallback);
-    }
+    ACE_FORCE_EXPORT RefPtr<NG::FrameNode> GetAttachedFrameNodeById(
+        const std::string& key, bool willGetAll = false, int32_t instanceId = -1);
 
-    void CallJSUpdateDirty2ForAnimateTo() {
-        if (jsUpdateDirty2ForAnimateTo_) {
-            jsUpdateDirty2ForAnimateTo_();
-        }
-    }
-
-    uint32_t GetNodeNum() const
-    {
-        return itemMap_.size();
-    }
-
-    ElementIdType GetLastestElementId() const
-    {
-        return lastestElementId_;
-    }
-
-    RefPtr<NG::FrameNode> GetAttachedFrameNodeById(const std::string& key, bool willGetAll = false);
-
-    void AddFrameNodeByInspectorId(const std::string& key, const WeakPtr<NG::FrameNode>& node);
+    void AddFrameNodeByInspectorId(const std::string& key, const WeakPtr<NG::FrameNode>& node, int32_t nodeId);
 
     void RemoveFrameNodeByInspectorId(const std::string& key, int32_t nodeId);
 
@@ -172,38 +148,7 @@ private:
     ElementRegister() = default;
 
     bool AddReferenced(ElementIdType elmtId, const WeakPtr<AceType>& referenced);
-
-    //  Singleton instance
-    static thread_local ElementRegister* instance_;
-    static std::mutex mutex_;
-
-    // ElementID assigned during initial render
-    // first to Component, then synced to Element
-    static std::atomic<ElementIdType> nextUniqueElementId_;
-
-    ElementIdType lastestElementId_ = 0;
-
-    // Map for created elements
-    std::unordered_map<ElementIdType, WeakPtr<AceType>> itemMap_;
-
-    // Map for inspectorId
-    std::unordered_map<std::string, std::list<WeakPtr<NG::FrameNode>>> inspectorIdMap_;
-
-    RemovedElementsType removedItems_;
-
-    std::unordered_map<std::string, RefPtr<NG::GeometryTransition>> geometryTransitionMap_;
-
-    std::list<RefPtr<NG::UINode>> pendingRemoveNodes_;
-
-    std::function<void(int64_t)> jsCleanUpIdleTaskCallback_;
-
-    std::function<void(void)> jsUpdateDirty2ForAnimateTo_;
-
     ACE_DISALLOW_COPY_AND_MOVE(ElementRegister);
-
-    std::unordered_map<uint64_t, WeakPtr<NG::FrameNode>> surfaceIdEmbedNodeMap_;
-
-    std::unordered_map<NG::FrameNode*, uint64_t> embedNodeSurfaceIdMap_;
 };
 } // namespace OHOS::Ace
 #endif

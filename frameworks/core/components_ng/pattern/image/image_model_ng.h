@@ -16,7 +16,7 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_IMAGE_IMAGE_MODEL_NG_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_IMAGE_IMAGE_MODEL_NG_H
 
-#include "core/components/declaration/image/image_animator_declaration.h"
+#include "core/components/common/layout/constants.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/image/image_model.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
@@ -27,11 +27,9 @@ namespace OHOS::Ace::NG {
 
 class ACE_EXPORT ImageModelNG : public OHOS::Ace::ImageModel {
 public:
-    void Create(const RefPtr<AceDrawableDescriptor>& drawable) override;
-    void Create(const ImageInfoConfig& imageInfoConfig, RefPtr<PixelMap>& pixMap) override;
+    void Create(ImageInfoConfig& imageInfoConfig) override;
     void CreateWithResourceObj(ImageResourceType resourceType, const RefPtr<ResourceObject>& resObject) override;
     void ResetImage() override;
-    void CreateAnimation(const std::vector<ImageProperties>& imageList, int32_t duration, int32_t iteration) override;
     bool GetIsAnimation() override;
     void SetAlt(const ImageSourceInfo& src) override;
     void SetBorder(const Border& border) override;
@@ -80,33 +78,36 @@ public:
     void SetResizableLattice(const RefPtr<DrawingLattice>& lattice) override;
     void ResetResizableLattice() override;
     void SetImageFillSetByUser(bool value) override;
-    static void SetDraggableForFrameNode(RefPtr<FrameNode> frameNode, bool isImageSpan = false);
+    void SetSupportSvg2(bool enable) override;
+    void SetContentTransition(ContentTransitionType contentTransition) override;
+    void SetAltError(const ImageSourceInfo& src) override;
+    void SetAltPlaceholder(const ImageSourceInfo& src) override;
+    void SetAntiAlias(bool antiAlias) override;
     static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId, const std::string& src, RefPtr<PixelMap>& pixMap,
         const std::string& bundleName, const std::string& moduleName, bool isUriPureNumber = false);
-    static void InitImage(FrameNode* frameNode, const std::string& src);
+    static void InitImage(FrameNode* frameNode, std::string& src);
     static void ResetImage(FrameNode* frameNode);
     static void SetInitialSrc(FrameNode* frameNode, const std::string& src, const std::string& bundleName,
         const std::string& moduleName, bool isUriPureNumber = false);
     static void SetInitialPixelMap(FrameNode* frameNode, RefPtr<PixelMap>& pixMap);
-    static void SetSmoothEdge(FrameNode* frameNode, const std::optional<float>& value);
-    static void SetCopyOption(FrameNode* frameNode, const std::optional<CopyOptions>& copyOption);
+    static void SetSmoothEdge(FrameNode* frameNode, float value);
+    static void SetCopyOption(FrameNode* frameNode, CopyOptions copyOption);
     static void SetAutoResize(FrameNode* frameNode, bool autoResize);
     static void ResetAutoResize(FrameNode* frameNode);
-    static void SetImageRepeat(FrameNode* frameNode, const std::optional<ImageRepeat>& imageRepeat);
-    static void SetImageRenderMode(FrameNode* frameNode, const std::optional<ImageRenderMode>& imageRenderMode);
+    static void SetImageRepeat(FrameNode* frameNode, ImageRepeat imageRepeat);
+    static void SetImageRenderMode(FrameNode* frameNode, ImageRenderMode imageRenderMode);
     static void SetOrientation(FrameNode* frameNode, ImageRotateOrientation orientation);
     static void SetSyncMode(FrameNode* frameNode, bool syncMode);
     static void SetImageMatrix(FrameNode* frameNode, const Matrix4& value);
     static void SetImageFit(FrameNode* frameNode, ImageFit value);
-    static void SetImageFit(FrameNode* frameNode, std::optional<ImageFit> value);
     static void SetDrawingColorFilter(FrameNode* frameNode, RefPtr<DrawingColorFilter>& colorFilter);
     static void SetFitOriginSize(FrameNode* framNode, bool value);
-    static void SetImageSourceSize(FrameNode* frameNode, const std::optional<std::pair<Dimension, Dimension>>& size);
+    static void SetImageSourceSize(FrameNode* frameNode, const std::pair<Dimension, Dimension>& size);
     static void SetMatchTextDirection(FrameNode* frameNode, bool value);
-    static void SetImageFill(FrameNode* frameNode, const std::optional<Color>& color);
+    static void SetImageFill(FrameNode* frameNode, const Color& color);
     static void ResetImageFill(FrameNode* frameNode);
-    static void SetAlt(FrameNode* frameNode, const std::optional<ImageSourceInfo>& src);
-    static void SetImageInterpolation(FrameNode* frameNode, const std::optional<ImageInterpolation>& interpolation);
+    static void SetAlt(FrameNode* frameNode, const ImageSourceInfo& src);
+    static void SetImageInterpolation(FrameNode* frameNode, ImageInterpolation interpolation);
     static void ResetImageInterpolation(FrameNode* frameNode);
     static void SetColorFilterMatrix(FrameNode* frameNode, const std::vector<float>& matrix);
     static void SetDraggable(FrameNode* frameNode, bool draggable);
@@ -125,6 +126,14 @@ public:
         FrameNode* frameNode, std::function<void(const uint32_t& dlNow, const uint32_t& dlTotal)>&& callback);
     static ImageSourceInfo GetSrc(FrameNode* frameNode);
     static ImageFit GetObjectFit(FrameNode* frameNode);
+    static ImageRotateOrientation GetOrientation(FrameNode* frameNode);
+    static std::pair<CalcDimension, CalcDimension> GetImageSourceSize(FrameNode* frameNode);
+    static float GetHdrBrightness(FrameNode* frameNode);
+    static DynamicRangeMode GetDynamicRangeMode(FrameNode* frameNode);
+    static bool GetEnableAnalyzer(FrameNode* frameNode);
+    static CopyOptions GetCopyOption(FrameNode* frameNode);
+    static bool GetMatchTextDirection(FrameNode* frameNode);
+    static Matrix4 GetImageMatrix(FrameNode* frameNode);
     static ImageInterpolation GetInterpolation(FrameNode* frameNode);
     static ImageRepeat GetObjectRepeat(FrameNode* frameNode);
     static std::vector<float> GetColorFilter(FrameNode* frameNode);
@@ -137,14 +146,13 @@ public:
     static void SetResizableLattice(FrameNode* frameNode, const RefPtr<DrawingLattice>& lattice);
     static void ResetResizableLattice(FrameNode* frameNode);
     static ImageResizableSlice GetResizableSlice(FrameNode* frameNode);
-    // static void SetDynamicRangeMode(FrameNode* frameNode, DynamicRangeMode dynamicRangeMode);
+    static void SetDynamicRangeMode(FrameNode* frameNode, DynamicRangeMode dynamicRangeMode);
     static void SetHdrBrightness(FrameNode* frameNode, float hdrBrightness);
-    static void SetDynamicRangeMode(FrameNode* frameNode, const std::optional<DynamicRangeMode>& dynamicRangeMode);
     static void SetEnhancedImageQuality(FrameNode* frameNode, AIImageQuality imageQuality);
     static bool GetFitOriginalSize(FrameNode* frameNode);
     static uint32_t GetFillColor(FrameNode* frameNode);
     static void SetPixelMap(FrameNode* frameNode, void* drawableDescriptor);
-    static void SetPixelMapArray(FrameNode* frameNode, void* animatedDrawableDescriptor);
+    static void SetDrawableDescriptor(FrameNode* frameNode, void* newDrawableDescriptor);
     static void SetResource(FrameNode* frameNode, void* resource);
     static void EnableAnalyzer(FrameNode* frameNode, bool isEnableAnalyzer);
     static void SetImageAnalyzerConfig(FrameNode* frameNode, void* config);
@@ -155,6 +163,23 @@ public:
     static void SetAltResource(FrameNode* frameNode, void* resource);
     static void CreateWithResourceObj(
         FrameNode* frameNode, ImageResourceType resourceType, const RefPtr<ResourceObject>& resObject);
+    static void SetSupportSvg2(FrameNode* frameNode, bool enable);
+    static void ResetSupportSvg2(FrameNode* frameNode);
+    static bool GetSupportSvg2(FrameNode* frameNode);
+    static void SetContentTransition(FrameNode* frameNode, ContentTransitionType contentTransition);
+    static ContentTransitionType GetContentTransition(FrameNode* frameNode);
+    static void SetAltError(FrameNode* frameNode, const ImageSourceInfo& src);
+    static void SetAltErrorPixelMap(FrameNode* frameNode, void* pixelMap);
+    static void SetAltErrorResource(FrameNode* frameNode, void* resource);
+    static void ResetImageAltError(FrameNode* frameNode);
+    static ImageSourceInfo GetAltError(FrameNode* frameNode);
+    static void SetAltPlaceholder(FrameNode* frameNode, const ImageSourceInfo& src);
+    static void SetAltPlaceholderPixelMap(FrameNode* frameNode, void* pixelMap);
+    static void SetAltPlaceholderResource(FrameNode* frameNode, void* resource);
+    static ImageSourceInfo GetAltPlaceholder(FrameNode* frameNode);
+    static void SetAntiAlias(FrameNode* frameNode, bool antiAlias);
+    static bool GetAntiAlias(FrameNode* frameNode);
+    static void SetImageFillSetByUser(FrameNode* frameNode, bool value);
 
 private:
     ImagePattern* GetImagePattern();

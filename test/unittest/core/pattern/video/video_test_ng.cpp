@@ -26,11 +26,11 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_media_player.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/render/mock_render_surface.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_media_player.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_surface.h"
 
 #include "base/geometry/ng/size_t.h"
 #include "base/json/json_util.h"
@@ -38,11 +38,12 @@
 #include "base/resource/internal_resource.h"
 #include "core/common/ai/image_analyzer_mgr.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components/video/video_theme.h"
-#include "core/components/video/video_utils.h"
+#include "core/components_ng/pattern/video/video_theme.h"
+#include "core/components_ng/pattern/video/video_utils.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/layout/layout_algorithm.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/image/image_layout_property.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_property.h"
 #include "core/components_ng/pattern/root/root_pattern.h"
@@ -128,7 +129,7 @@ constexpr uint32_t CURRENT_TIME = 100;
 constexpr int32_t SLIDER_INDEX = 2;
 constexpr int32_t VIDEO_NODE_ID_1 = 1;
 constexpr int32_t VIDEO_NODE_ID_2 = 2;
-TestProperty testProperty;
+TestProperty g_testProperty;
 } // namespace
 
 class VideoTestNg : public testing::Test {
@@ -144,13 +145,13 @@ protected:
 
 void VideoTestNg::SetUpTestSuite()
 {
-    testProperty.progressRate = VIDEO_PROGRESS_RATE;
-    testProperty.showFirstFrame = SHOW_FIRST_FRAME;
-    testProperty.muted = MUTED_VALUE;
-    testProperty.autoPlay = AUTO_PLAY;
-    testProperty.controls = CONTROL_VALUE;
-    testProperty.loop = LOOP_VALUE;
-    testProperty.objectFit = VIDEO_IMAGE_FIT;
+    g_testProperty.progressRate = VIDEO_PROGRESS_RATE;
+    g_testProperty.showFirstFrame = SHOW_FIRST_FRAME;
+    g_testProperty.muted = MUTED_VALUE;
+    g_testProperty.autoPlay = AUTO_PLAY;
+    g_testProperty.controls = CONTROL_VALUE;
+    g_testProperty.loop = LOOP_VALUE;
+    g_testProperty.objectFit = VIDEO_IMAGE_FIT;
     MockPipelineContext::SetUp();
     auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
     MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
@@ -226,7 +227,7 @@ HWTEST_F(VideoTestNg, VideoPropertyTest001, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     EXPECT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
 }
@@ -246,7 +247,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest006, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     auto pattern = frameNode->GetPattern<VideoPattern>();
@@ -273,7 +274,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest007, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     auto pattern = frameNode->GetPattern<VideoPattern>();
@@ -300,7 +301,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest008, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     auto pattern = frameNode->GetPattern<VideoPattern>();
@@ -426,7 +427,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest009, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     auto pattern = frameNode->GetPattern<VideoPattern>();
@@ -484,7 +485,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest010, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     auto pattern = frameNode->GetPattern<VideoPattern>();
@@ -580,7 +581,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest011, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     auto pattern = frameNode->GetPattern<VideoPattern>();
@@ -640,7 +641,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest012, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     auto pattern = frameNode->GetPattern<VideoPattern>();
@@ -694,6 +695,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest012, TestSize.Level1)
     pattern->Stop();
     EXPECT_EQ(static_cast<int32_t>(pattern->currentPos_), 0);
     EXPECT_TRUE(pattern->isStop_);
+    EXPECT_FALSE(pattern->isSeeking_);
 
     /**
      * @tc.steps: step3. Call Stop when the mediaplayer is valid.
@@ -706,11 +708,13 @@ HWTEST_F(VideoTestNg, VideoPatternTest012, TestSize.Level1)
     pattern->Stop();
     EXPECT_EQ(static_cast<int32_t>(pattern->currentPos_), 0);
     EXPECT_TRUE(pattern->isStop_);
+    EXPECT_FALSE(pattern->isSeeking_);
 
     EXPECT_CALL(*(AceType::DynamicCast<MockMediaPlayer>(pattern->mediaPlayer_)), Stop()).WillOnce(Return(0));
     EXPECT_EQ(static_cast<int32_t>(pattern->currentPos_), 0);
     pattern->Stop(); // case2: media player is valid & currentPos = currentPos_ = 0
     EXPECT_TRUE(pattern->isStop_);
+    EXPECT_FALSE(pattern->isSeeking_);
 
     EXPECT_CALL(*(AceType::DynamicCast<MockMediaPlayer>(pattern->mediaPlayer_)), Stop())
         .Times(2)
@@ -724,6 +728,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest012, TestSize.Level1)
     EXPECT_EQ(static_cast<int32_t>(pattern->currentPos_), 1);
     EXPECT_EQ(updateCheck, "");
     EXPECT_TRUE(pattern->isStop_);
+    EXPECT_FALSE(pattern->isSeeking_);
     updateCheck.clear();
     pattern->currentPos_ = 1;
     pattern->Stop(); // case4: media player is valid & currentPos != currentPos_ & duration_ = 0 &
@@ -731,6 +736,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest012, TestSize.Level1)
     EXPECT_EQ(static_cast<int32_t>(pattern->currentPos_), 1);
     EXPECT_EQ(updateCheck, "");
     EXPECT_TRUE(pattern->isStop_);
+    EXPECT_FALSE(pattern->isSeeking_);
 }
 
 /**
@@ -745,8 +751,8 @@ HWTEST_F(VideoTestNg, VideoPatternTest013, TestSize.Level1)
      * @tc.expected: step1. Create Video successfully
      */
     auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
-    testProperty.videoController = videoController;
-    auto frameNode = CreateVideoNode(testProperty);
+    g_testProperty.videoController = videoController;
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     auto pattern = frameNode->GetPattern<VideoPattern>();
@@ -804,7 +810,7 @@ HWTEST_F(VideoTestNg, VideoPatternTest014, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     auto pattern = frameNode->GetPattern<VideoPattern>();
@@ -833,7 +839,7 @@ HWTEST_F(VideoTestNg, VideoFocusTest001, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     EXPECT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     frameNode->GetOrCreateFocusHub()->currentFocus_ = true;
@@ -853,7 +859,7 @@ HWTEST_F(VideoTestNg, VideoFocusTest002, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     EXPECT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     frameNode->GetOrCreateFocusHub()->currentFocus_ = true;
@@ -937,7 +943,7 @@ HWTEST_F(VideoTestNg, VideoAccessibilityPropertyTest001, TestSize.Level1)
  */
 HWTEST_F(VideoTestNg, VideoAccessibilityPropertyTest002, TestSize.Level1)
 {
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_NE(frameNode, nullptr);
     auto videoAccessibilitProperty = frameNode->GetAccessibilityProperty<VideoAccessibilityProperty>();
     ASSERT_NE(videoAccessibilitProperty, nullptr);
@@ -984,8 +990,8 @@ HWTEST_F(VideoTestNg, VideoPatternTest016, TestSize.Level1)
      * @tc.expected: step1. Create Video successfully
      */
     auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
-    testProperty.videoController = videoController;
-    auto frameNode = CreateVideoNode(testProperty);
+    g_testProperty.videoController = videoController;
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
     auto pattern = frameNode->GetPattern<VideoPattern>();
@@ -1265,7 +1271,7 @@ HWTEST_F(VideoTestNg, CallVideoPatternOnWindowHide, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     auto pattern = frameNode->GetPattern<VideoPattern>();
     ASSERT_TRUE(pattern);
@@ -1291,7 +1297,7 @@ HWTEST_F(VideoTestNg, CallVideoPatternToJsonValue, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     auto pattern = frameNode->GetPattern<VideoPattern>();
     ASSERT_TRUE(pattern);
@@ -1328,7 +1334,7 @@ HWTEST_F(VideoTestNg, CallVideoPatternOnStartRenderFrameCb, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: step1. Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     auto pattern = frameNode->GetPattern<VideoPattern>();
     ASSERT_TRUE(pattern);
@@ -1353,7 +1359,7 @@ HWTEST_F(VideoTestNg, CallVideoPatternMoveByStepFunc, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     auto pattern = frameNode->GetPattern<VideoPattern>();
     ASSERT_TRUE(pattern);
@@ -1382,7 +1388,7 @@ HWTEST_F(VideoTestNg, CallVideoPatternAdjustVolumeFunc, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: Create Video successfully
      */
-    auto frameNode = CreateVideoNode(testProperty);
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     auto pattern = frameNode->GetPattern<VideoPattern>();
     ASSERT_TRUE(pattern);
@@ -1412,8 +1418,8 @@ HWTEST_F(VideoTestNg, CallVideoPatternSetVideoControllerFunc, TestSize.Level1)
      * @tc.steps: step1. Create Video
      * @tc.expected: Create Video successfully
      */
-    testProperty.videoController = nullptr;
-    auto frameNode = CreateVideoNode(testProperty);
+    g_testProperty.videoController = nullptr;
+    auto frameNode = CreateVideoNode(g_testProperty);
     ASSERT_TRUE(frameNode);
     auto pattern = frameNode->GetPattern<VideoPattern>();
     ASSERT_TRUE(pattern);
@@ -1433,6 +1439,42 @@ HWTEST_F(VideoTestNg, CallVideoPatternSetVideoControllerFunc, TestSize.Level1)
     auto videoControllerUpdate = AceType::MakeRefPtr<VideoControllerV2>();
     pattern->SetVideoController(videoControllerUpdate);
     EXPECT_NE(pattern->GetVideoController(), videoControllerUpdate);
+}
+
+/**
+ * @tc.name: Test VideoFullScreenPattern SetVideoController.
+ * @tc.desc: Test VideoFullScreenPattern SetVideoController() func.
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestNg, CallVideoFullScreenPatternSetVideoControllerFunc, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create Video frame node.
+     * @tc.expected: create Video frame node successfully.
+     */
+    g_testProperty.videoController = nullptr;
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. get VideoFullScreenPattern.
+     * @tc.expected: get VideoFullScreenPattern successfully.
+     */
+    pattern->FullScreen();
+    auto fullScreenNode = pattern->GetFullScreenNode();
+    ASSERT_TRUE(fullScreenNode);
+    auto fullScreenPattern = AceType::DynamicCast<VideoFullScreenPattern>(fullScreenNode->GetPattern());
+    ASSERT_TRUE(fullScreenPattern);
+
+    /**
+     * @tc.steps: step3. call SetVideoController for VideoFullScreenPattern.
+     * @tc.expected: js controller is not registered.
+     */
+    auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
+    fullScreenPattern->SetVideoController(videoController);
+    EXPECT_EQ(videoController->controllers_.size(), 0);
 }
 
 /**
@@ -1467,5 +1509,189 @@ HWTEST_F(VideoTestNg, CallVideoStaticPatternToJsonValue, TestSize.Level1)
     EXPECT_EQ(json->GetValue("loop")->GetString().c_str(), JSON_VALUE_FALSE);
     EXPECT_EQ(json->GetValue("controls")->GetString().c_str(), JSON_VALUE_TRUE);
     EXPECT_EQ(json->GetValue("objectFit")->GetString().c_str(), JSON_VALUE_COVER);
+}
+
+/**
+ * @tc.name: VideoModelNGUpdateControllerBarTest001
+ * @tc.desc: Test UpdateControllerBar with normal video node
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestNg, VideoModelNGUpdateControllerBarTest001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     * @tc.expected: step1. Create Video successfully
+     */
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. Call SetControls(bool controls) with true
+     * @tc.expected: step2. UpdateControllerBar is called successfully
+     */
+    VideoModelNG().SetControls(true);
+    auto videoLayoutProperty = pattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(videoLayoutProperty);
+    EXPECT_TRUE(videoLayoutProperty->GetControlsValue(true));
+
+    /**
+     * @tc.steps: step3. Call SetControls(bool controls) with false
+     * @tc.expected: step3. UpdateControllerBar is called successfully
+     */
+    VideoModelNG().SetControls(false);
+    videoLayoutProperty = pattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(videoLayoutProperty);
+    EXPECT_FALSE(videoLayoutProperty->GetControlsValue(false));
+}
+
+/**
+ * @tc.name: VideoModelNGUpdateControllerBarTest002
+ * @tc.desc: Test UpdateControllerBar with full screen video node
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestNg, VideoModelNGUpdateControllerBarTest002, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     * @tc.expected: step1. Create Video successfully
+     */
+    auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
+    g_testProperty.videoController = videoController;
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. Enter full screen mode
+     * @tc.expected: step2. Full screen node is created
+     */
+    pattern->FullScreen();
+    auto fullScreenNode = pattern->GetFullScreenNode();
+    ASSERT_TRUE(fullScreenNode);
+    auto fullScreenPattern = AceType::DynamicCast<VideoPattern>(fullScreenNode->GetPattern());
+    ASSERT_TRUE(fullScreenPattern);
+
+    /**
+     * @tc.steps: step3. Call SetControls(bool controls) with true in full screen mode
+     * @tc.expected: step3. UpdateControllerBar updates both normal and full screen nodes
+     */
+    VideoModelNG().SetControls(true);
+    auto videoLayoutProperty = pattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(videoLayoutProperty);
+    EXPECT_TRUE(videoLayoutProperty->GetControlsValue(true));
+
+    auto fullScreenLayoutProperty = fullScreenPattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(fullScreenLayoutProperty);
+    EXPECT_TRUE(fullScreenLayoutProperty->GetControlsValue(true));
+
+    /**
+     * @tc.steps: step4. Call SetControls(bool controls) with false in full screen mode
+     * @tc.expected: step4. UpdateControllerBar updates both normal and full screen nodes
+     */
+    VideoModelNG().SetControls(false);
+    videoLayoutProperty = pattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(videoLayoutProperty);
+    EXPECT_FALSE(videoLayoutProperty->GetControlsValue(false));
+
+    fullScreenLayoutProperty = fullScreenPattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(fullScreenLayoutProperty);
+    EXPECT_FALSE(fullScreenLayoutProperty->GetControlsValue(false));
+}
+
+/**
+ * @tc.name: VideoModelNGUpdateControllerBarTest003
+ * @tc.desc: Test SetControls(FrameNode* frameNode, bool controls)
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestNg, VideoModelNGUpdateControllerBarTest003, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     * @tc.expected: step1. Create Video successfully
+     */
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. Call SetControls(FrameNode* frameNode, bool controls) with true
+     * @tc.expected: step2. UpdateControllerBar is called successfully
+     */
+    VideoModelNG::SetControls(frameNode.GetRawPtr(), true);
+    auto videoLayoutProperty = pattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(videoLayoutProperty);
+    EXPECT_TRUE(videoLayoutProperty->GetControlsValue(true));
+
+    /**
+     * @tc.steps: step3. Call SetControls(FrameNode* frameNode, bool controls) with false
+     * @tc.expected: step3. UpdateControllerBar is called successfully
+     */
+    VideoModelNG::SetControls(frameNode.GetRawPtr(), false);
+    videoLayoutProperty = pattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(videoLayoutProperty);
+    EXPECT_FALSE(videoLayoutProperty->GetControlsValue(false));
+}
+
+/**
+ * @tc.name: VideoModelNGUpdateControllerBarTest004
+ * @tc.desc: Test SetControls(FrameNode* frameNode, bool controls) with full screen node
+ * @tc.type: FUNC
+ */
+HWTEST_F(VideoTestNg, VideoModelNGUpdateControllerBarTest004, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create Video node
+     * @tc.expected: step1. Create Video successfully
+     */
+    auto videoController = AceType::MakeRefPtr<VideoControllerV2>();
+    g_testProperty.videoController = videoController;
+    auto frameNode = CreateVideoNode(g_testProperty);
+    ASSERT_TRUE(frameNode);
+    EXPECT_EQ(frameNode->GetTag(), V2::VIDEO_ETS_TAG);
+    auto pattern = frameNode->GetPattern<VideoPattern>();
+    ASSERT_TRUE(pattern);
+
+    /**
+     * @tc.steps: step2. Enter full screen mode
+     * @tc.expected: step2. Full screen node is created
+     */
+    pattern->FullScreen();
+    auto fullScreenNode = pattern->GetFullScreenNode();
+    ASSERT_TRUE(fullScreenNode);
+    auto fullScreenPattern = AceType::DynamicCast<VideoPattern>(fullScreenNode->GetPattern());
+    ASSERT_TRUE(fullScreenPattern);
+
+    /**
+     * @tc.steps: step3. Call SetControls(FrameNode* frameNode, bool controls) with true on full screen node
+     * @tc.expected: step3. UpdateControllerBar updates both normal and full screen nodes
+     */
+    VideoModelNG::SetControls(frameNode.GetRawPtr(), true);
+    auto videoLayoutProperty = pattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(videoLayoutProperty);
+    EXPECT_TRUE(videoLayoutProperty->GetControlsValue(true));
+
+    auto fullScreenLayoutProperty = fullScreenPattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(fullScreenLayoutProperty);
+    EXPECT_TRUE(fullScreenLayoutProperty->GetControlsValue(true));
+
+    /**
+     * @tc.steps: step4. Call SetControls(FrameNode* frameNode, bool controls) with false on full screen node
+     * @tc.expected: step4. UpdateControllerBar updates both normal and full screen nodes
+     */
+    VideoModelNG::SetControls(frameNode.GetRawPtr(), false);
+    videoLayoutProperty = pattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(videoLayoutProperty);
+    EXPECT_FALSE(videoLayoutProperty->GetControlsValue(false));
+
+    fullScreenLayoutProperty = fullScreenPattern->GetLayoutProperty<VideoLayoutProperty>();
+    ASSERT_TRUE(fullScreenLayoutProperty);
+    EXPECT_FALSE(fullScreenLayoutProperty->GetControlsValue(false));
 }
 } // namespace OHOS::Ace::NG

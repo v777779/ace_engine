@@ -25,13 +25,13 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_canvas_image.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_canvas_image.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "base/geometry/dimension.h"
 #include "base/geometry/ng/size_t.h"
@@ -55,6 +55,8 @@
 #include "core/components_ng/pattern/image/image_model_static.h"
 #include "core/components_ng/pattern/image/image_paint_method.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
+#include "core/components_ng/pattern/image/image_layout_algorithm.h"
+#include "core/components_ng/manager/select_overlay/select_overlay_manager.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/event/mouse_event.h"
 #include "core/image/image_source_info.h"
@@ -117,6 +119,10 @@ constexpr Dimension IMAGE_TOP = 0.0_vp;
 constexpr Dimension IMAGE_LEFT = 0.0_vp;
 const std::vector<float> COLOR_FILTER_NULL;
 const std::string tagName = "TestNode";
+const std::string URL_LENGTH_EQUAL_35 = "https://example.com/api/v1/resource";
+const std::string URL_LENGTH_LESS_THAN_30 = "https://example.com";
+const std::string RESULT_FOR_URL_LENGTH_EQUAL_35 = "https://example*****ap*/v*/r*so*rc*";
+const std::string RESULT_FOR_URL_LENGTH_LESS_THAN_30 = "ht*ps*//*xa*pl*.c*m";
 
 class ImageBases : public testing::Test {
 public:
@@ -129,7 +135,6 @@ public:
     static RefPtr<FrameNode> CreateSyncImageNode();
     static RefPtr<FrameNode> CreateSyncWebImageNode();
     static RefPtr<PixelMap> CreatePixelMap(const std::string& src);
-    static RefPtr<FrameNode> CreatePixelMapAnimator(int32_t number = 1);
 };
 
 template <class LayoutPropertyCls = ImageLayoutProperty,

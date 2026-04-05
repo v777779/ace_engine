@@ -17,9 +17,16 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_MENU_PROPERTY_H
 
 #include "base/geometry/dimension.h"
+#include "core/components/common/properties/decoration.h"
 #include "core/components/common/properties/placement.h"
 #include "core/components_ng/event/gesture_event_hub.h"
+#include "core/components_ng/property/border_property.h"
+#include "core/components_ng/property/measure_property.h"
 #include "core/components_ng/property/transition_property.h"
+
+namespace OHOS::Ace {
+class UiMaterial;
+}
 
 namespace OHOS::Ace::NG {
 
@@ -42,6 +49,18 @@ enum class MenuType {
     SELECT_OVERLAY_RIGHT_CLICK_MENU, // menu type used for select overlay menu triggered by right-click
 };
 
+enum class MenuLifeCycleEvent {
+    ABOUT_TO_APPEAR,
+    ON_WILL_APPEAR,
+    ON_APPEAR,
+    ON_DID_APPEAR,
+
+    ABOUT_TO_DISAPPEAR,
+    ON_WILL_DISAPPEAR,
+    ON_DISAPPEAR,
+    ON_DID_DISAPPEAR,
+};
+
 enum class ContextMenuRegisterType : char {
     NORMAL_TYPE = 0,
     CUSTOM_TYPE = 1,
@@ -62,7 +81,12 @@ enum class AvailableLayoutAreaMode {
     SAFE_AREA = 0,
 };
 
-struct MenuParam {
+enum class MenuKeyboardAvoidMode {
+    NONE = 0,
+    TRANSLATE_AND_RESIZE = 1,
+};
+
+struct ACE_FORCE_EXPORT MenuParam {
     std::string title;
     OffsetF positionOffset;
     bool setShow = false;
@@ -107,6 +131,20 @@ struct MenuParam {
     bool disappearScaleToTarget = false;
     std::optional<NG::BorderWidthProperty> outlineWidth;
     std::optional<NG::BorderColorProperty> outlineColor;
+    std::optional<bool> maskEnable;
+    std::optional<MenuMaskType> maskType;
+    std::optional<OffsetF> anchorPosition;
+    std::optional<ModalMode> modalMode;
+    std::optional<PreviewScaleMode> previewScaleMode;
+    std::optional<AvailableLayoutAreaMode> availableLayoutAreaMode;
+    std::optional<MenuKeyboardAvoidMode> keyboardAvoidMode;
+    std::optional<Dimension> minKeyboardAvoidDistance;
+    RefPtr<UiMaterial> systemMaterial;
+    std::optional<DisplayMode> scrollBar;
+    std::optional<Dimension> maxHeight;
+    bool isDarkMode = false;
+    bool isWithTheme = false;
+    bool reuse = true;
     struct resourceUpdater {
         RefPtr<ResourceObject> resObj;
         std::function<void(const RefPtr<ResourceObject>&, MenuParam&)> updateFunc;
@@ -122,6 +160,14 @@ struct MenuParam {
         resMap_[key] = { resObj, std::move(updateFunc) };
     }
 
+    void AddResourceNoUpdate(const std::string& key, const RefPtr<ResourceObject>& resObj)
+    {
+        if (resObj == nullptr) {
+            return;
+        }
+        resMap_[key] = { resObj, std::move(nullptr) };
+    }
+
     const RefPtr<ResourceObject> GetResource(const std::string& key) const
     {
         auto iter = resMap_.find(key);
@@ -129,6 +175,11 @@ struct MenuParam {
             return iter->second.resObj;
         }
         return nullptr;
+    }
+
+    void RemoveResource(const std::string& key)
+    {
+        resMap_.erase(key);
     }
 
     bool HasResources() const
@@ -142,13 +193,6 @@ struct MenuParam {
             resourceUpdater.updateFunc(resourceUpdater.resObj, *this);
         }
     }
-    std::optional<bool> maskEnable;
-    std::optional<MenuMaskType> maskType;
-    std::optional<ModalMode> modalMode;
-    std::optional<PreviewScaleMode> previewScaleMode;
-    std::optional<AvailableLayoutAreaMode> availableLayoutAreaMode;
-    OffsetF anchorPosition;
-    bool isAnchorPosition = false;
 };
 
 } // namespace OHOS::Ace::NG

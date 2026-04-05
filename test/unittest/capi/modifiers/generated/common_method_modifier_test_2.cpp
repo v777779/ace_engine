@@ -39,9 +39,9 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setMarkAnchorTestMarkAnchorPositionY
         WriteToUnion<Ark_Position>(WriteTo(inputValueMarkAnchor)).y = value;
         modifier_->setMarkAnchor(node_, &inputValueMarkAnchor);
         auto jsonValue = GetJsonValue(node_);
-        auto resultMarkAnchor = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_MARK_ANCHOR_NAME);
+        auto resultMarkAnchor = GetAttrObject(jsonValue, ATTRIBUTE_MARK_ANCHOR_NAME);
         auto resultStr = GetAttrValue<std::string>(resultMarkAnchor, ATTRIBUTE_MARK_ANCHOR_I_Y_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_MARK_ANCHOR_I_Y_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_MARK_ANCHOR_I_Y_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setMarkAnchor, attribute: markAnchor.Position.y";
     };
 
@@ -58,7 +58,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setMarkAnchorTestMarkAnchorPositionY
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setOffsetTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -68,37 +68,37 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setOffsetTestPlaceholder, TestSize.L
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setEnabledTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 void valueCheckResult(std::unique_ptr<JsonValue>& resultStart, std::unique_ptr<JsonValue>& resultEnd,
-                      std::unique_ptr<JsonValue>& resultMiddle, std::unique_ptr<JsonValue>& resultTop,
-                      std::unique_ptr<JsonValue>& resultBottom, std::unique_ptr<JsonValue>& resultCenter,
-                      std::unique_ptr<JsonValue> resultBias)
+    std::unique_ptr<JsonValue>& resultMiddle, std::unique_ptr<JsonValue>& resultTop,
+    std::unique_ptr<JsonValue>& resultBottom, std::unique_ptr<JsonValue>& resultCenter,
+    std::unique_ptr<JsonValue> resultBias)
 {
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     auto valueCheck = [&resultStr](std::unique_ptr<JsonValue>& jsonValue, const std::string& attrName,
-        const std::string& expectedStr, const std::string& errMsg,) {
+                          const std::string& expectedStr, const std::string& errMsg) {
         resultStr = GetAttrValue<std::string>(jsonValue, attrName);
-        EXPECT_EQ(resultStr, expectedStr) << errMsg;
+        EXPECT_THAT(resultStr, Optional(expectedStr)) << errMsg;
     };
     valueCheck(resultStart, ATTRIBUTE_ALIGN_RULES_I_START_I_ANCHOR_NAME,
         ATTRIBUTE_ALIGN_RULES_I_START_I_ANCHOR_DEFAULT_VALUE, "Default value for attribute 'alignRules.start.anchor'");
     valueCheck(resultStart, ATTRIBUTE_ALIGN_RULES_I_START_I_ALIGN_NAME,
         ATTRIBUTE_ALIGN_RULES_I_START_I_ALIGN_DEFAULT_VALUE, "Default value for attribute 'alignRules.start.align'");
-    valueCheck(resultEnd, ATTRIBUTE_ALIGN_RULES_I_END_I_ANCHOR_NAME,
-        ATTRIBUTE_ALIGN_RULES_I_END_I_ANCHOR_DEFAULT_VALUE, "Default value for attribute 'alignRules.end.anchor'");
-    valueCheck(resultEnd, ATTRIBUTE_ALIGN_RULES_I_END_I_ALIGN_NAME,
-        ATTRIBUTE_ALIGN_RULES_I_END_I_ALIGN_DEFAULT_VALUE, "Default value for attribute 'alignRules.end.align'");
+    valueCheck(resultEnd, ATTRIBUTE_ALIGN_RULES_I_END_I_ANCHOR_NAME, ATTRIBUTE_ALIGN_RULES_I_END_I_ANCHOR_DEFAULT_VALUE,
+        "Default value for attribute 'alignRules.end.anchor'");
+    valueCheck(resultEnd, ATTRIBUTE_ALIGN_RULES_I_END_I_ALIGN_NAME, ATTRIBUTE_ALIGN_RULES_I_END_I_ALIGN_DEFAULT_VALUE,
+        "Default value for attribute 'alignRules.end.align'");
     valueCheck(resultMiddle, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_I_ANCHOR_NAME,
         ATTRIBUTE_ALIGN_RULES_I_MIDDLE_I_ANCHOR_DEFAULT_VALUE,
         "Default value for attribute 'alignRules.middle.anchor'");
     valueCheck(resultMiddle, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_I_ALIGN_NAME,
         ATTRIBUTE_ALIGN_RULES_I_MIDDLE_I_ALIGN_DEFAULT_VALUE, "Default value for attribute 'alignRules.middle.align'");
-    valueCheck(resultTop, ATTRIBUTE_ALIGN_RULES_I_TOP_I_ANCHOR_NAME,
-        ATTRIBUTE_ALIGN_RULES_I_TOP_I_ANCHOR_DEFAULT_VALUE, "Default value for attribute 'alignRules.top.anchor'");
-    valueCheck(resultTop, ATTRIBUTE_ALIGN_RULES_I_TOP_I_ALIGN_NAME,
-        ATTRIBUTE_ALIGN_RULES_I_TOP_I_ALIGN_DEFAULT_VALUE, "Default value for attribute 'alignRules.top.align'");
+    valueCheck(resultTop, ATTRIBUTE_ALIGN_RULES_I_TOP_I_ANCHOR_NAME, ATTRIBUTE_ALIGN_RULES_I_TOP_I_ANCHOR_DEFAULT_VALUE,
+        "Default value for attribute 'alignRules.top.anchor'");
+    valueCheck(resultTop, ATTRIBUTE_ALIGN_RULES_I_TOP_I_ALIGN_NAME, ATTRIBUTE_ALIGN_RULES_I_TOP_I_ALIGN_DEFAULT_VALUE,
+        "Default value for attribute 'alignRules.top.align'");
     valueCheck(resultBottom, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_I_ANCHOR_NAME,
         ATTRIBUTE_ALIGN_RULES_I_BOTTOM_I_ANCHOR_DEFAULT_VALUE,
         "Default value for attribute 'alignRules.bottom.anchor'");
@@ -125,22 +125,14 @@ void valueCheckResult(std::unique_ptr<JsonValue>& resultStart, std::unique_ptr<J
 HWTEST_P(CommonMethodModifierTest, setAlignRules1TestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::unique_ptr<JsonValue> resultAlignRules =
-        GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-    std::unique_ptr<JsonValue> resultStart =
-        GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_START_NAME);
-    std::unique_ptr<JsonValue> resultEnd =
-        GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_END_NAME);
-    std::unique_ptr<JsonValue> resultMiddle =
-        GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_NAME);
-    std::unique_ptr<JsonValue> resultTop =
-        GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_TOP_NAME);
-    std::unique_ptr<JsonValue> resultBottom =
-        GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_NAME);
-    std::unique_ptr<JsonValue> resultCenter =
-        GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_CENTER_NAME);
-    std::unique_ptr<JsonValue> resultBias =
-        GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BIAS_NAME);
+    std::unique_ptr<JsonValue> resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+    std::unique_ptr<JsonValue> resultStart = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_START_NAME);
+    std::unique_ptr<JsonValue> resultEnd = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_END_NAME);
+    std::unique_ptr<JsonValue> resultMiddle = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_NAME);
+    std::unique_ptr<JsonValue> resultTop = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_TOP_NAME);
+    std::unique_ptr<JsonValue> resultBottom = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_NAME);
+    std::unique_ptr<JsonValue> resultCenter = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_CENTER_NAME);
+    std::unique_ptr<JsonValue> resultBias = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BIAS_NAME);
     valueCheckResult(resultStart, resultEnd, resultMiddle, resultTop, resultBottom, resultCenter, resultBias);
 }
 
@@ -183,11 +175,10 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAlignRules1TestAlignRulesStartAnc
         WriteTo(WriteTo(inputValueAlignRules).start).anchor = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultStart =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_START_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultStart = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_START_NAME);
         auto resultStr = GetAttrValue<std::string>(resultStart, ATTRIBUTE_ALIGN_RULES_I_START_I_ANCHOR_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.start.anchor";
     };
 
@@ -235,11 +226,10 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAlignRules1TestAlignRulesStartAli
         WriteTo(WriteTo(inputValueAlignRules).start).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultStart =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_START_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultStart = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_START_NAME);
         auto resultStr = GetAttrValue<std::string>(resultStart, ATTRIBUTE_ALIGN_RULES_I_START_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.start.align";
     };
 
@@ -287,11 +277,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesStartAlignInvalid
         WriteTo(WriteTo(inputValueAlignRules).start).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultStart =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_START_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultStart = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_START_NAME);
         auto resultStr = GetAttrValue<std::string>(resultStart, ATTRIBUTE_ALIGN_RULES_I_START_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_ALIGN_RULES_I_START_I_ALIGN_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_ALIGN_RULES_I_START_I_ALIGN_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.start.align";
     };
 
@@ -339,10 +328,10 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAlignRules1TestAlignRulesEndAncho
         WriteTo(WriteTo(inputValueAlignRules).end).anchor = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultEnd = GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_END_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultEnd = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_END_NAME);
         auto resultStr = GetAttrValue<std::string>(resultEnd, ATTRIBUTE_ALIGN_RULES_I_END_I_ANCHOR_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.end.anchor";
     };
 
@@ -390,10 +379,10 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAlignRules1TestAlignRulesEndAlign
         WriteTo(WriteTo(inputValueAlignRules).end).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultEnd = GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_END_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultEnd = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_END_NAME);
         auto resultStr = GetAttrValue<std::string>(resultEnd, ATTRIBUTE_ALIGN_RULES_I_END_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.end.align";
     };
 
@@ -441,10 +430,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesEndAlignInvalidVa
         WriteTo(WriteTo(inputValueAlignRules).end).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultEnd = GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_END_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultEnd = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_END_NAME);
         auto resultStr = GetAttrValue<std::string>(resultEnd, ATTRIBUTE_ALIGN_RULES_I_END_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_ALIGN_RULES_I_END_I_ALIGN_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_ALIGN_RULES_I_END_I_ALIGN_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.end.align";
     };
 
@@ -492,11 +481,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesMiddleAnchorValid
         WriteTo(WriteTo(inputValueAlignRules).middle).anchor = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultMiddle =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultMiddle = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_NAME);
         auto resultStr = GetAttrValue<std::string>(resultMiddle, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_I_ANCHOR_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.middle.anchor";
     };
 
@@ -544,11 +532,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesMiddleAlignValidV
         WriteTo(WriteTo(inputValueAlignRules).middle).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultMiddle =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultMiddle = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_NAME);
         auto resultStr = GetAttrValue<std::string>(resultMiddle, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.middle.align";
     };
 
@@ -596,11 +583,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesMiddleAlignInvali
         WriteTo(WriteTo(inputValueAlignRules).middle).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultMiddle =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultMiddle = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_NAME);
         auto resultStr = GetAttrValue<std::string>(resultMiddle, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_ALIGN_RULES_I_MIDDLE_I_ALIGN_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_ALIGN_RULES_I_MIDDLE_I_ALIGN_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.middle.align";
     };
 
@@ -648,10 +634,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesTopAnchorValidVal
         WriteTo(WriteTo(inputValueAlignRules).top).anchor = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultTop = GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_TOP_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultTop = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_TOP_NAME);
         auto resultStr = GetAttrValue<std::string>(resultTop, ATTRIBUTE_ALIGN_RULES_I_TOP_I_ANCHOR_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.top.anchor";
     };
 
@@ -699,10 +685,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesTopAlignValidValu
         WriteTo(WriteTo(inputValueAlignRules).top).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultTop = GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_TOP_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultTop = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_TOP_NAME);
         auto resultStr = GetAttrValue<std::string>(resultTop, ATTRIBUTE_ALIGN_RULES_I_TOP_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.top.align";
     };
 
@@ -750,10 +736,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesTopAlignInvalidVa
         WriteTo(WriteTo(inputValueAlignRules).top).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultTop = GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_TOP_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultTop = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_TOP_NAME);
         auto resultStr = GetAttrValue<std::string>(resultTop, ATTRIBUTE_ALIGN_RULES_I_TOP_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_ALIGN_RULES_I_TOP_I_ALIGN_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_ALIGN_RULES_I_TOP_I_ALIGN_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.top.align";
     };
 
@@ -801,11 +787,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesBottomAnchorValid
         WriteTo(WriteTo(inputValueAlignRules).bottom).anchor = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultBottom =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultBottom = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_NAME);
         auto resultStr = GetAttrValue<std::string>(resultBottom, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_I_ANCHOR_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.bottom.anchor";
     };
 
@@ -853,11 +838,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesBottomAlignValidV
         WriteTo(WriteTo(inputValueAlignRules).bottom).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultBottom =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultBottom = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_NAME);
         auto resultStr = GetAttrValue<std::string>(resultBottom, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.bottom.align";
     };
 
@@ -905,11 +889,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesBottomAlignInvali
         WriteTo(WriteTo(inputValueAlignRules).bottom).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultBottom =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultBottom = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_NAME);
         auto resultStr = GetAttrValue<std::string>(resultBottom, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_ALIGN_RULES_I_BOTTOM_I_ALIGN_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_ALIGN_RULES_I_BOTTOM_I_ALIGN_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.bottom.align";
     };
 
@@ -957,11 +940,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesCenterAnchorValid
         WriteTo(WriteTo(inputValueAlignRules).center).anchor = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultCenter =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_CENTER_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultCenter = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_CENTER_NAME);
         auto resultStr = GetAttrValue<std::string>(resultCenter, ATTRIBUTE_ALIGN_RULES_I_CENTER_I_ANCHOR_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.center.anchor";
     };
 
@@ -1009,11 +991,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesCenterAlignValidV
         WriteTo(WriteTo(inputValueAlignRules).center).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultCenter =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_CENTER_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultCenter = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_CENTER_NAME);
         auto resultStr = GetAttrValue<std::string>(resultCenter, ATTRIBUTE_ALIGN_RULES_I_CENTER_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.center.align";
     };
 
@@ -1061,11 +1042,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesCenterAlignInvali
         WriteTo(WriteTo(inputValueAlignRules).center).align = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultCenter =
-            GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_CENTER_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultCenter = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_CENTER_NAME);
         auto resultStr = GetAttrValue<std::string>(resultCenter, ATTRIBUTE_ALIGN_RULES_I_CENTER_I_ALIGN_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_ALIGN_RULES_I_CENTER_I_ALIGN_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_ALIGN_RULES_I_CENTER_I_ALIGN_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.center.align";
     };
 
@@ -1113,10 +1093,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesBiasHorizontalVal
         WriteTo(WriteTo(inputValueAlignRules).bias).horizontal = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultBias = GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BIAS_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultBias = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BIAS_NAME);
         auto resultStr = GetAttrValue<std::string>(resultBias, ATTRIBUTE_ALIGN_RULES_I_BIAS_I_HORIZONTAL_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.bias.horizontal";
     };
 
@@ -1164,10 +1144,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesBiasHorizontalInv
         WriteTo(WriteTo(inputValueAlignRules).bias).horizontal = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultBias = GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BIAS_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultBias = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BIAS_NAME);
         auto resultStr = GetAttrValue<std::string>(resultBias, ATTRIBUTE_ALIGN_RULES_I_BIAS_I_HORIZONTAL_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_ALIGN_RULES_I_BIAS_I_HORIZONTAL_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_ALIGN_RULES_I_BIAS_I_HORIZONTAL_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.bias.horizontal";
     };
 
@@ -1214,10 +1194,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesBiasVerticalValid
         WriteTo(WriteTo(inputValueAlignRules).bias).vertical = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultBias = GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BIAS_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultBias = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BIAS_NAME);
         auto resultStr = GetAttrValue<std::string>(resultBias, ATTRIBUTE_ALIGN_RULES_I_BIAS_I_VERTICAL_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.bias.vertical";
     };
 
@@ -1265,10 +1245,10 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesBiasVerticalInval
         WriteTo(WriteTo(inputValueAlignRules).bias).vertical = value;
         modifier_->setAlignRules1(node_, &inputValueAlignRules);
         auto jsonValue = GetJsonValue(node_);
-        auto resultAlignRules = GetAttrValue<std::unique_ptr<JsonValue>>(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
-        auto resultBias = GetAttrValue<std::unique_ptr<JsonValue>>(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BIAS_NAME);
+        auto resultAlignRules = GetAttrObject(jsonValue, ATTRIBUTE_ALIGN_RULES_NAME);
+        auto resultBias = GetAttrObject(resultAlignRules, ATTRIBUTE_ALIGN_RULES_I_BIAS_NAME);
         auto resultStr = GetAttrValue<std::string>(resultBias, ATTRIBUTE_ALIGN_RULES_I_BIAS_I_VERTICAL_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_ALIGN_RULES_I_BIAS_I_VERTICAL_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_ALIGN_RULES_I_BIAS_I_VERTICAL_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setAlignRules1, attribute: alignRules.bias.vertical";
     };
 
@@ -1283,7 +1263,7 @@ HWTEST_P(CommonMethodModifierTest, setAlignRules1TestAlignRulesBiasVerticalInval
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAspectRatioTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1293,7 +1273,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAspectRatioTestPlaceholder, TestS
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setClickEffectTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1303,7 +1283,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setClickEffectTestPlaceholder, TestS
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAllowDropTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1313,7 +1293,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAllowDropTestPlaceholder, TestSiz
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setDraggableTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1323,7 +1303,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setDraggableTestPlaceholder, TestSiz
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setDragPreview0TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1333,7 +1313,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setDragPreview0TestPlaceholder, Test
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setLinearGradientTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1343,7 +1323,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setLinearGradientTestPlaceholder, Te
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setSweepGradientTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1353,7 +1333,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setSweepGradientTestPlaceholder, Tes
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setRadialGradientTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1363,7 +1343,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setRadialGradientTestPlaceholder, Te
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setMotionPathTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1373,7 +1353,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setMotionPathTestPlaceholder, TestSi
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setShadowTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1383,7 +1363,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setShadowTestPlaceholder, TestSize.L
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setClipTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1393,7 +1373,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setClipTestPlaceholder, TestSize.Lev
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setClipShapeTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1403,7 +1383,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setClipShapeTestPlaceholder, TestSiz
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setMaskTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1413,7 +1393,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setMaskTestPlaceholder, TestSize.Lev
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setMaskShapeTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1423,7 +1403,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setMaskShapeTestPlaceholder, TestSiz
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setKeyTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1433,7 +1413,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setKeyTestPlaceholder, TestSize.Leve
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setIdTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1443,7 +1423,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setIdTestPlaceholder, TestSize.Level
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setGeometryTransition0TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1453,7 +1433,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setGeometryTransition0TestPlaceholde
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setRestoreIdTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1463,7 +1443,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setRestoreIdTestPlaceholder, TestSiz
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setSphericalEffectTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1473,7 +1453,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setSphericalEffectTestPlaceholder, T
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setLightUpEffectTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1483,7 +1463,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setLightUpEffectTestPlaceholder, Tes
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setPixelStretchEffectTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1493,7 +1473,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setPixelStretchEffectTestPlaceholder
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityGroup0TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1503,7 +1483,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityGroup0TestPlaceholde
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityText0TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1513,7 +1493,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityText0TestPlaceholder
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityNextFocusIdTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1523,7 +1503,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityNextFocusIdTestPlace
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityDefaultFocusTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1533,7 +1513,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityDefaultFocusTestPlac
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityUseSamePageTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1543,7 +1523,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityUseSamePageTestPlace
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityScrollTriggerableTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1553,7 +1533,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityScrollTriggerableTes
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityText1TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1563,7 +1543,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityText1TestPlaceholder
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityRoleTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1573,7 +1553,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityRoleTestPlaceholder,
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityTextHintTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1583,7 +1563,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityTextHintTestPlacehol
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityDescription0TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1593,7 +1573,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityDescription0TestPlac
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityDescription1TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1603,7 +1583,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityDescription1TestPlac
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityLevelTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1613,7 +1593,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityLevelTestPlaceholder
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityCheckedTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1623,7 +1603,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityCheckedTestPlacehold
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilitySelectedTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1633,7 +1613,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilitySelectedTestPlacehol
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setObscuredTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1643,7 +1623,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setObscuredTestPlaceholder, TestSize
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setReuseIdTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1654,10 +1634,10 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setReuseIdTestPlaceholder, TestSize.
 HWTEST_P(CommonMethodModifierTest, setRenderFitTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_RENDER_FIT_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_RENDER_FIT_DEFAULT_VALUE) << "Default value for attribute 'renderFit'";
+    EXPECT_THAT(resultStr, Optional(ATTRIBUTE_RENDER_FIT_DEFAULT_VALUE)) << "Default value for attribute 'renderFit'";
 }
 
 /*
@@ -1680,7 +1660,7 @@ HWTEST_P(CommonMethodModifierTest, setRenderFitTestRenderFitValidValues, TestSiz
         modifier_->setRenderFit(node_, &inputValueRenderFit);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_RENDER_FIT_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setRenderFit, attribute: renderFit";
     };
 
@@ -1709,7 +1689,7 @@ HWTEST_P(CommonMethodModifierTest, setRenderFitTestRenderFitInvalidValues, TestS
         modifier_->setRenderFit(node_, &inputValueRenderFit);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_RENDER_FIT_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_RENDER_FIT_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_RENDER_FIT_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setRenderFit, attribute: renderFit";
     };
 
@@ -1725,7 +1705,7 @@ HWTEST_P(CommonMethodModifierTest, setRenderFitTestRenderFitInvalidValues, TestS
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBackgroundBrightnessTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1735,7 +1715,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBackgroundBrightnessTestPlacehold
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setMonopolizeEventsTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1745,7 +1725,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setMonopolizeEventsTestPlaceholder, 
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityFocusDrawLevelTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1755,7 +1735,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityFocusDrawLevelTestPl
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setCustomPropertyTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1765,7 +1745,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setCustomPropertyTestPlaceholder, Te
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setExpandSafeAreaTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1775,7 +1755,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setExpandSafeAreaTestPlaceholder, Te
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBackgroundImage0TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1785,7 +1765,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBackgroundImage0TestPlaceholder, 
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBackgroundImage1TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1795,7 +1775,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBackgroundImage1TestPlaceholder, 
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBackgroundBlurStyleTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1805,7 +1785,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBackgroundBlurStyleTestPlaceholde
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBackgroundEffect1TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1815,7 +1795,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBackgroundEffect1TestPlaceholder,
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setForegroundBlurStyleTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1825,7 +1805,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setForegroundBlurStyleTestPlaceholde
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setFocusScopeIdTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1836,13 +1816,14 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setFocusScopeIdTestPlaceholder, Test
 HWTEST_P(CommonMethodModifierTest, setFocusScopePriorityTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_FOCUS_SCOPE_ID_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_FOCUS_SCOPE_ID_DEFAULT_VALUE) << "Default value for attribute 'focusScopeId'";
+    EXPECT_THAT(resultStr, Optional(ATTRIBUTE_FOCUS_SCOPE_ID_DEFAULT_VALUE)) <<
+        "Default value for attribute 'focusScopeId'";
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_FOCUS_SCOPE_PRIORITY_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_FOCUS_SCOPE_PRIORITY_DEFAULT_VALUE) <<
+    EXPECT_THAT(resultStr, Optional(ATTRIBUTE_FOCUS_SCOPE_PRIORITY_DEFAULT_VALUE)) <<
         "Default value for attribute 'focusScopePriority'";
 }
 
@@ -1870,7 +1851,7 @@ HWTEST_P(CommonMethodModifierTest, setFocusScopePriorityTestFocusScopeIdValidVal
         modifier_->setFocusScopePriority(node_, &inputValueFocusScopeId, &inputValueFocusScopePriority);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_FOCUS_SCOPE_ID_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setFocusScopePriority, attribute: focusScopeId";
     };
 
@@ -1904,7 +1885,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setFocusScopePriorityTestFocusScopeI
         modifier_->setFocusScopePriority(node_, &inputValueFocusScopeId, &inputValueFocusScopePriority);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_FOCUS_SCOPE_ID_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_FOCUS_SCOPE_ID_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_FOCUS_SCOPE_ID_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setFocusScopePriority, attribute: focusScopeId";
     };
 
@@ -1936,7 +1917,7 @@ HWTEST_P(CommonMethodModifierTest, setFocusScopePriorityTestFocusScopePriorityVa
         modifier_->setFocusScopePriority(node_, &inputValueFocusScopeId, &inputValueFocusScopePriority);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_FOCUS_SCOPE_PRIORITY_NAME);
-        EXPECT_EQ(resultStr, expectedStr) <<
+        EXPECT_THAT(resultStr, Optional(expectedStr)) <<
             "Input value is: " << input << ", method: setFocusScopePriority, attribute: focusScopePriority";
     };
 
@@ -1970,7 +1951,7 @@ HWTEST_P(CommonMethodModifierTest, setFocusScopePriorityTestFocusScopePriorityIn
         modifier_->setFocusScopePriority(node_, &inputValueFocusScopeId, &inputValueFocusScopePriority);
         auto jsonValue = GetJsonValue(node_);
         auto resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_FOCUS_SCOPE_PRIORITY_NAME);
-        EXPECT_EQ(resultStr, ATTRIBUTE_FOCUS_SCOPE_PRIORITY_DEFAULT_VALUE) <<
+        EXPECT_THAT(resultStr, Optional(ATTRIBUTE_FOCUS_SCOPE_PRIORITY_DEFAULT_VALUE)) <<
             "Input value is: " << input << ", method: setFocusScopePriority, attribute: focusScopePriority";
     };
 
@@ -1986,7 +1967,7 @@ HWTEST_P(CommonMethodModifierTest, setFocusScopePriorityTestFocusScopePriorityIn
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setTransition1TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -1996,7 +1977,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setTransition1TestPlaceholder, TestS
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setGestureTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2006,7 +1987,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setGestureTestPlaceholder, TestSize.
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setPriorityGestureTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2016,7 +1997,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setPriorityGestureTestPlaceholder, T
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setParallelGestureTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2026,7 +2007,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setParallelGestureTestPlaceholder, T
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBlurTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2036,7 +2017,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBlurTestPlaceholder, TestSize.Lev
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setLinearGradientBlurTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2046,7 +2027,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setLinearGradientBlurTestPlaceholder
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setUseEffect1TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2056,7 +2037,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setUseEffect1TestPlaceholder, TestSi
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBackdropBlurTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2066,7 +2047,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBackdropBlurTestPlaceholder, Test
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setSharedTransitionTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2076,7 +2057,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setSharedTransitionTestPlaceholder, 
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setChainModeTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2086,7 +2067,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setChainModeTestPlaceholder, TestSiz
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setDragPreview1TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2096,7 +2077,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setDragPreview1TestPlaceholder, Test
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setDragPreviewOptionsTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2106,7 +2087,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setDragPreviewOptionsTestPlaceholder
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setOverlayTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2116,7 +2097,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setOverlayTestPlaceholder, TestSize.
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBlendModeTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2126,7 +2107,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBlendModeTestPlaceholder, TestSiz
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAdvancedBlendModeTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2136,7 +2117,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setAdvancedBlendModeTestPlaceholder,
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setGeometryTransition1TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2146,7 +2127,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setGeometryTransition1TestPlaceholde
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBindTipsTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2156,7 +2137,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBindTipsTestPlaceholder, TestSize
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBindPopupTestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2166,7 +2147,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBindPopupTestPlaceholder, TestSiz
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBindMenu0TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2176,7 +2157,7 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBindMenu0TestPlaceholder, TestSiz
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setBindMenu1TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 
 /*
@@ -2186,6 +2167,6 @@ HWTEST_P(CommonMethodModifierTest, DISABLED_setBindMenu1TestPlaceholder, TestSiz
  */
 HWTEST_P(CommonMethodModifierTest, DISABLED_setAccessibilityGroup1TestPlaceholder, TestSize.Level1)
 {
-    // This is placeholder to have disabled test
+    FAIL() << "This is placeholder to have disabled test";
 }
 } // namespace OHOS::Ace::NG

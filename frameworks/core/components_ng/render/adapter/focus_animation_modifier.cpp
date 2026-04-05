@@ -196,7 +196,12 @@ void FocusAnimationModifier::StartFocusAnimation()
     option.SetCurve(curve);
     option.SetIteration(-1);
     focusAnimation_ = AnimationUtils::StartAnimation(
-        option, [&]() { focusProcessFloat_->Set(360.0f); }, [&]() {}, [&]() { isRise_ = !isRise_; });
+        option, [&]() { focusProcessFloat_->Set(360.0f); }, nullptr,
+        [weak = WeakClaim(this)]() {
+            auto animationModifier = weak.Upgrade();
+            CHECK_NULL_VOID(animationModifier);
+            animationModifier->isRise_ = !animationModifier->isRise_;
+        });
 }
 
 void FocusAnimationModifier::StopFocusAnimation()
@@ -341,10 +346,10 @@ float FocusAnimationModifier::GetIncludeAngleOfVector(float x0, float y0, float 
     float yb = y2 - y0;
     float d1 = std::sqrt(std::pow(xa, 2) + std::pow(ya, 2));
     float d2 = std::sqrt(std::pow(xb, 2) + std::pow(yb, 2));
-    float res = (xa * xb + ya * yb) / (d1 * d2);
-    if (d1 * d2 == 0) {
+    if ((d1 * d2) == 0) {
         return 0.0f;
     }
+    float res = (xa * xb + ya * yb) / (d1 * d2);
     float angle = std::acos(res);
     return y2 < y0 ? 360.0f - angle / ACE_PI * 180.0f : angle / ACE_PI * 180.0f;
 }

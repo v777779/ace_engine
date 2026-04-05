@@ -15,12 +15,41 @@ import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
 
 ace_unittest("flex_test_ng") {
   type = "new"
+  module_name = "Layout-Flex"
   sources = [
     "flex_base_test_ng.cpp",
-    "flex_new_test_ng.cpp",
+    "flex_new_test_ng_first_part.cpp",
+    "flex_new_test_ng_second_part.cpp",
+    "flex_new_test_ng_third_part.cpp",
     "old_cases/flex_test_ng.cpp",
     "old_cases/flex_testthree_ng.cpp",
-    "old_cases/flex_testtwo_ng.cpp",
+    "old_cases/flex_testtwo_ng_first_part.cpp",
+    "old_cases/flex_testtwo_ng_second_part.cpp",
     "old_cases/flex_wrap_layout_algorithm_test.cpp",
+  ]
+
+  if (!ace_enable_full_test_suite) {
+    sources = []
+    sources = [ "flex_test_core.cpp" ]
+  } else {
+    sources += [ "flex_test_core.cpp" ]
+  }
+}
+
+ace_unittest("flex_overflow_test_ng") {
+  type = "new"
+  module_name = "Layout-Flex"
+  sources = [
+    "flex_base_test_ng.cpp",
+    "flex_overflow_test_ng.cpp",
+  ]
+}
+
+ace_unittest("wrap_overflow_test_ng") {
+  type = "new"
+  module_name = "Layout-Flex"
+  sources = [
+    "flex_base_test_ng.cpp",
+    "wrap_overflow_test_ng.cpp",
   ]
 }

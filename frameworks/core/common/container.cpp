@@ -16,6 +16,7 @@
 #include "core/common/container.h"
 
 #include <dirent.h>
+#include "iremote_object.h"
 
 #include "base/utils/utils.h"
 #include "base/subwindow/subwindow_manager.h"
@@ -41,22 +42,7 @@ NG::SafeAreaInsets Container::GetKeyboardSafeArea()
 
 int32_t Container::SafelyId()
 {
-    uint32_t containerCount = ContainerScope::ContainerCount();
-    if (containerCount == 0) {
-        return INSTANCE_ID_UNDEFINED;
-    }
-    if (containerCount == 1) {
-        return ContainerScope::SingletonId();
-    }
-    int32_t currentId = ContainerScope::RecentActiveId();
-    if (currentId >= 0) {
-        return currentId;
-    }
-    currentId = ContainerScope::RecentForegroundId();
-    if (currentId >= 0) {
-        return currentId;
-    }
-    return ContainerScope::DefaultId();
+    return ContainerScope::SafelyId();
 }
 
 int32_t Container::CurrentIdSafely()
@@ -70,7 +56,7 @@ int32_t Container::CurrentIdSafely()
 
 RefPtr<Container> Container::Current()
 {
-    return AceEngine::Get().GetContainer(Container::CurrentIdSafely());
+    return AceEngine::Get().GetContainer(ContainerScope::CurrentId());
 }
 
 RefPtr<Container> Container::CurrentSafely()
@@ -187,6 +173,13 @@ ColorMode Container::CurrentColorMode()
     return curContainer->GetColorMode();
 }
 
+std::string Container::CurrentBundleName()
+{
+    auto curContainer = CurrentSafely();
+    CHECK_NULL_RETURN(curContainer, "");
+    return curContainer->GetBundleName();
+}
+
 bool Container::UpdateState(const Frontend::State& state)
 {
     std::lock_guard<std::mutex> lock(stateMutex_);
@@ -248,6 +241,29 @@ bool Container::IsFoldable()
 FoldStatus Container::GetCurrentFoldStatus()
 {
     return displayManager_->GetCurrentFoldStatus();
+}
+
+DisplaySourceMode Container::GetDisplaySourceMode()
+{
+    return displayManager_->GetDisplaySourceMode();
+}
+
+bool Container::IsNeedModifySize(const RefPtr<Container>& subContainer)
+{
+    auto foldStatus = subContainer ? subContainer->GetCurrentFoldStatus() : GetCurrentFoldStatus();
+    auto sourceMode = subContainer ? subContainer->GetDisplaySourceMode() : GetDisplaySourceMode();
+    LOGD("FoldStatus: %{public}d, sourceMode: %{public}d", foldStatus, sourceMode);
+    if (foldStatus == FoldStatus::EXPAND || sourceMode == DisplaySourceMode::EXTEND) {
+        return false;
+    }
+
+    auto isCrossWindow = IsCrossAxisWindow();
+    auto isSceneBoard = IsSceneBoardWindow();
+    LOGD("isCrossWindow: %{public}d, isSceneBoard: %{public}d", isCrossWindow, isSceneBoard);
+    if (isCrossWindow || isSceneBoard) {
+        return true;
+    }
+    return false;
 }
 
 std::vector<Rect> Container::GetCurrentFoldCreaseRegion()
@@ -411,5 +427,16 @@ bool Container::GreatOrEqualAPIVersionWithCheck(PlatformVersion version)
 {
     return PipelineBase::GetCurrentContextSafelyWithCheck() &&
            PipelineBase::GetCurrentContextSafelyWithCheck()->GetMinPlatformVersion() >= static_cast<int32_t>(version);
+}
+
+sptr<IRemoteObject> Container::GetToken()
+{
+    return nullptr;
+}
+
+bool Container::IsCurrentUseNewPipeline()
+{
+    auto container = Current();
+    return container ? container->useNewPipeline_ : AceForwardCompatibility::IsUseNG();
 }
 } // namespace OHOS::Ace

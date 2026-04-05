@@ -14,7 +14,7 @@
  */
 
 #include "tabs_test_ng.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 
 #include "base/error/error_code.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
@@ -941,7 +941,7 @@ HWTEST_F(TabsEventTestNg, TabBarPatternHandleTouchEvent001, TestSize.Level1)
     tabBarPattern_->visibleItemPosition_[0] = { -1.0f, 1.0f };
     tabBarPattern_->visibleItemPosition_[1] = { 1.0f, 2.0f };
     tabBarPattern_->HandleTouchEvent(TouchType::DOWN, 0);
-    EXPECT_EQ(tabBarNode_->TotalChildCount(), 3);
+    EXPECT_EQ(tabBarNode_->TotalChildCount(), 4);
 }
 
 /**
@@ -963,7 +963,7 @@ HWTEST_F(TabsEventTestNg, TabBarPatternHandleTouchEvent002, TestSize.Level1)
     tabBarPattern_->visibleItemPosition_[0] = { -1.0f, 1.0f };
     tabBarPattern_->visibleItemPosition_[1] = { 1.0f, 2.0f };
     tabBarPattern_->HandleTouchEvent(TouchType::DOWN, 0);
-    EXPECT_EQ(tabBarNode_->TotalChildCount(), 3);
+    EXPECT_EQ(tabBarNode_->TotalChildCount(), 4);
 }
 
 /**
@@ -1320,6 +1320,259 @@ HWTEST_F(TabsEventTestNg, ObserverTestNg001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: ObserverTestNg002
+ * @tc.desc: Test the operation of Observer
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsEventTestNg, ObserverTestNg002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: steps1. Init tabContent state update callback the swipe to 1
+     * @tc.expected: steps1. Check state value.
+     */
+    auto func = [](const TabContentInfo& info) {
+        EXPECT_EQ(info.index, 0);
+        EXPECT_EQ(info.state, TabContentState::ON_SHOW);
+    };
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(func);
+
+    TabsModelNG model = CreateTabs();
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+
+    auto func2 = [](const TabContentInfo& info) {
+        if (info.index == 0) {
+            EXPECT_EQ(info.state, TabContentState::ON_HIDE);
+        } else if (info.index == 1) {
+            EXPECT_EQ(info.state, TabContentState::ON_SHOW);
+        }
+    };
+
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(func2);
+    ChangeIndex(1);
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(nullptr);
+}
+
+/**
+ * @tc.name: ObserverTestNg003
+ * @tc.desc: Test the operation of Observer
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsEventTestNg, ObserverTestNg003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: steps1. Init tabContent index to 1
+     * @tc.expected: steps1. Check state value.
+     */
+    auto func = [](const TabContentInfo& info) {
+        EXPECT_EQ(info.index, 1);
+        EXPECT_EQ(info.state, TabContentState::ON_SHOW);
+    };
+    auto funcForAni = [](const TabContentInfo& info) {
+        EXPECT_EQ(info.index, 1);
+        EXPECT_EQ(info.state, TabContentState::ON_SHOW);
+    };
+
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(func);
+    UIObserverHandler::GetInstance().SetHandleTabChangeFuncForAni(funcForAni);
+
+    TabsModelNG model = CreateTabs(BarPosition::START, 1);
+
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(nullptr);
+    UIObserverHandler::GetInstance().SetHandleTabChangeFuncForAni(nullptr);
+}
+
+/**
+ * @tc.name: IsValidFireTabChangeTest001
+ * @tc.desc: Test the IsValidFireTabChange of TabsPattern
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsEventTestNg, IsValidFireTabChangeTest001, TestSize.Level1)
+{
+    std::optional<TabsPattern::TabChangeInfo> lastTabChangeInfo;
+    EXPECT_TRUE(TabsPattern::IsValidFireTabChange(lastTabChangeInfo, -1, false));
+    EXPECT_TRUE(TabsPattern::IsValidFireTabChange(lastTabChangeInfo, 0, false));
+    EXPECT_TRUE(TabsPattern::IsValidFireTabChange(lastTabChangeInfo, 0, true));
+
+    lastTabChangeInfo = TabsPattern::TabChangeInfo();
+    lastTabChangeInfo->index = 0;
+    lastTabChangeInfo->isShow = false;
+    EXPECT_TRUE(TabsPattern::IsValidFireTabChange(lastTabChangeInfo, -1, false));
+    EXPECT_FALSE(TabsPattern::IsValidFireTabChange(lastTabChangeInfo, 0, false));
+    EXPECT_TRUE(TabsPattern::IsValidFireTabChange(lastTabChangeInfo, 0, true));
+}
+
+/**
+ * @tc.name: IsNeedFireTabChangeTest001
+ * @tc.desc: Test the IsNeedFireTabChange of TabsPattern
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsEventTestNg, IsNeedFireTabChangeTest001, TestSize.Level1)
+{
+    EXPECT_TRUE(TabsPattern::IsNeedFireTabChange(true, 0, 0, 0));
+    EXPECT_TRUE(TabsPattern::IsNeedFireTabChange(false, 0, 0, 0));
+    EXPECT_FALSE(TabsPattern::IsNeedFireTabChange(false, 1, 0, 0));
+    EXPECT_FALSE(TabsPattern::IsNeedFireTabChange(false, 0, 1, 0));
+    EXPECT_FALSE(TabsPattern::IsNeedFireTabChange(false, 0, 0, 1));
+    EXPECT_FALSE(TabsPattern::IsNeedFireTabChange(false, 1, 0, 1));
+    EXPECT_TRUE(TabsPattern::IsNeedFireTabChange(false, 1, 1, 1));
+}
+
+/**
+ * @tc.name: HandleTabChangeWhenChildrenUpdatedTest001
+ * @tc.desc: Test HandleTabChangeWhenChildrenUpdated of TabsPattern
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsEventTestNg, HandleTabChangeWhenChildrenUpdatedTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: steps1. Init tabContent
+     * @tc.expected: steps1. Check state value.
+     */
+    TabsModelNG model = CreateTabs();
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+    ASSERT_NE(pattern_, nullptr);
+    pattern_->lastTabChangeInfo_.reset();
+
+    auto func = [](const TabContentInfo& info) {
+        EXPECT_TRUE(false);
+    };
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(func);
+    pattern_->HandleTabChangeWhenChildrenUpdated(false, TABCONTENT_NUMBER, 1);
+
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(nullptr);
+}
+
+/**
+ * @tc.name: HandleTabChangeWhenChildrenUpdatedTest002
+ * @tc.desc: Test HandleTabChangeWhenChildrenUpdated of TabsPattern
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsEventTestNg, HandleTabChangeWhenChildrenUpdatedTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: steps1. Init tabContent
+     * @tc.expected: steps1. Check state value.
+     */
+    TabsModelNG model = CreateTabs();
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+    ASSERT_NE(pattern_, nullptr);
+
+    auto func = [](const TabContentInfo& info) {
+        EXPECT_EQ(info.index, 0);
+        EXPECT_EQ(info.state, TabContentState::ON_SHOW);
+    };
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(func);
+
+    pattern_->HandleTabChangeWhenChildrenUpdated(true, 0, 0);
+    pattern_->HandleTabChangeWhenChildrenUpdated(true, TABCONTENT_NUMBER, 0);
+
+    auto func2 = [](const TabContentInfo& info) {
+        EXPECT_EQ(info.index, 1);
+        EXPECT_EQ(info.state, TabContentState::ON_SHOW);
+    };
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(func2);
+    pattern_->HandleTabChangeWhenChildrenUpdated(false, TABCONTENT_NUMBER, 1);
+
+    TabContentInfo info("", 0, TabContentState::ON_SHOW, 1, "", 0);
+    UIObserverHandler::GetInstance().NotifyTabChange(info);
+
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(nullptr);
+}
+
+/**
+ * @tc.name: FireTabChangeCallbackTest001
+ * @tc.desc: Test FireTabChangeCallback of TabsPattern
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsEventTestNg, FireTabChangeCallbackTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: steps1. Init tabContent
+     * @tc.expected: steps1. Check state value.
+     */
+    TabsModelNG model = CreateTabs();
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+    ASSERT_NE(pattern_, nullptr);
+
+    pattern_->lastTabChangeInfo_.reset();
+    auto cannotCallback = [](const TabContentInfo& info) {
+        EXPECT_TRUE(false);
+    };
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(cannotCallback);
+    pattern_->FireTabChangeCallback(-1, -1);
+    pattern_->FireTabChangeCallback(0, -1);
+
+    auto canCallback = [](const TabContentInfo& info) {
+        EXPECT_TRUE(true);
+    };
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(canCallback);
+    pattern_->FireTabChangeCallback(0, 0);
+    pattern_->FireTabChangeCallback(0, 1);
+    pattern_->FireTabChangeCallback(0, 2);
+    pattern_->lastTabChangeInfo_.reset();
+
+    auto func = [](const TabContentInfo& info) {
+        if (info.index == 0) {
+            EXPECT_EQ(info.state, TabContentState::ON_HIDE);
+        } else {
+            EXPECT_EQ(info.state, TabContentState::ON_SHOW);
+        }
+    };
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(func);
+
+    pattern_->lastTabChangeInfo_ = TabsPattern::TabChangeInfo();
+    pattern_->lastTabChangeInfo_->index = 0;
+    pattern_->lastTabChangeInfo_->isShow = true;
+    pattern_->FireTabChangeCallback(0, 1);
+
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(nullptr);
+}
+
+/**
+ * @tc.name: FireTabChangeCallbackTest002
+ * @tc.desc: Test FireTabChangeCallback of TabsPattern
+ * @tc.type: FUNC
+ */
+HWTEST_F(TabsEventTestNg, FireTabChangeCallbackTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: steps1. Init tabContent
+     * @tc.expected: steps1. Check state value.
+     */
+    TabsModelNG model = CreateTabs();
+    CreateTabContents(TABCONTENT_NUMBER);
+    CreateTabsDone(model);
+    ASSERT_NE(pattern_, nullptr);
+
+    pattern_->lastTabChangeInfo_.reset();
+    auto canCallback = [](const TabContentInfo& info) {
+        EXPECT_TRUE(true);
+    };
+    auto cannotCallback = [](const TabContentInfo& info) {
+        EXPECT_TRUE(false);
+    };
+
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(canCallback);
+    pattern_->FireTabChangeCallback(-1, 0); // 0 show
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(cannotCallback);
+    pattern_->FireTabChangeCallback(-1, 0); // 0 show again
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(nullptr);
+
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(canCallback);
+    pattern_->FireTabChangeCallback(0, -1); // 0 hide
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(cannotCallback);
+    pattern_->FireTabChangeCallback(0, -1); // 0 hide again
+    UIObserverHandler::GetInstance().SetHandleTabChangeFunc(nullptr);
+}
+
+/**
  * @tc.name: OnAppearAndOnDisappearTest001
  * @tc.desc: test OnAppear and OnDisappear
  * @tc.type: FUNC
@@ -1459,4 +1712,5 @@ HWTEST_F(TabsEventTestNg, SetOnSelectedEvent001, TestSize.Level1)
     ChangeIndex(3);
     EXPECT_EQ(currentIndex, 3);
 }
+
 } // namespace OHOS::Ace::NG

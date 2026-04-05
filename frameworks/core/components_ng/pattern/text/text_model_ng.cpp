@@ -18,7 +18,7 @@
 #include "base/geometry/dimension.h"
 #include "base/utils/utf_helper.h"
 #include "core/components/common/properties/alignment.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_stack_processor.h"
@@ -29,8 +29,10 @@
 
 namespace OHOS::Ace::NG {
 
+constexpr uint32_t DEFAULT_MIN_LINES = 0;
 constexpr int32_t DEFAULT_ALPHA = 255;
 constexpr float DEFAULT_OPACITY = 0.2;
+constexpr float DEFAULT_LINE_THICKNESS_SCALE = 1.0f;
 
 void TextModelNG::Create(const std::u16string& content)
 {
@@ -40,6 +42,7 @@ void TextModelNG::Create(const std::u16string& content)
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::TEXT_ETS_TAG, nodeId);
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::TEXT_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<TextPattern>(); });
+    ACE_UINODE_TRACE(frameNode);
     stack->Push(frameNode);
 
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, Content, content);
@@ -86,15 +89,15 @@ RefPtr<FrameNode> TextModelNG::CreateFrameNode(int32_t nodeId, const std::u16str
 {
     auto frameNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, nodeId, AceType::MakeRefPtr<TextPattern>());
     CHECK_NULL_RETURN(frameNode, nullptr);
+    ACE_UINODE_TRACE(frameNode);
     auto layout = frameNode->GetLayoutProperty<TextLayoutProperty>();
     auto isFirstBuild = frameNode->IsFirstBuilding();
     if (layout) {
-        ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d][isFirstBuild:%d]", V2::TEXT_ETS_TAG, nodeId, isFirstBuild);
         layout->UpdateContent(content);
     }
     // set draggable for framenode
     if (isFirstBuild) {
-        auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+        auto pipeline = frameNode->GetContext();
         CHECK_NULL_RETURN(pipeline, nullptr);
         auto draggable = pipeline->GetDraggable<TextTheme>();
         frameNode->SetDraggable(draggable);
@@ -206,8 +209,10 @@ void TextModelNG::ResetTextColor(FrameNode* frameNode)
 void TextModelNG::SetTextShadow(const std::vector<Shadow>& value)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, TextShadow, value);
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto pattern = frameNode->GetPattern();
     CHECK_NULL_VOID(pattern);
     RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
@@ -315,6 +320,49 @@ void TextModelNG::SetTextAlign(FrameNode* frameNode, Ace::TextAlign value)
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextAlign, value, frameNode);
 }
 
+void TextModelNG::SetTextDirection(TextDirection value)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, TextDirection, value);
+}
+
+void TextModelNG::ResetTextDirection()
+{
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, TextDirection, PROPERTY_UPDATE_MEASURE_SELF);
+}
+
+void TextModelNG::SetTextDirection(FrameNode* frameNode, TextDirection value)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextDirection, value, frameNode);
+}
+
+void TextModelNG::ResetTextDirection(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+        TextLayoutProperty, TextDirection, PROPERTY_UPDATE_MEASURE_SELF, frameNode);
+}
+
+TextDirection TextModelNG::GetTextDirection(FrameNode* frameNode)
+{
+    TextDirection value = TextDirection::INHERIT;
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(TextLayoutProperty, TextDirection, value, frameNode, value);
+    return value;
+}
+
+void TextModelNG::SetTextContentAlign(Ace::TextContentAlign value)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, TextContentAlign, value);
+}
+
+void TextModelNG::SetTextContentAlign(FrameNode* frameNode, Ace::TextContentAlign value)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextContentAlign, value, frameNode);
+}
+
+void TextModelNG::ReSetTextContentAlign()
+{
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, TextContentAlign, PROPERTY_UPDATE_LAYOUT);
+}
+
 void TextModelNG::SetTextOverflow(Ace::TextOverflow value)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, TextOverflow, value);
@@ -330,6 +378,16 @@ void TextModelNG::SetMaxLines(uint32_t value)
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, MaxLines, value);
 }
 
+void TextModelNG::SetMinLines(uint32_t value)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, MinLines, value);
+}
+
+void TextModelNG::ResetMinLines()
+{
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, MinLines, PROPERTY_UPDATE_MEASURE);
+}
+
 void TextModelNG::SetTextIndent(const Dimension& value)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, TextIndent, value);
@@ -343,6 +401,67 @@ void TextModelNG::SetLineHeight(const Dimension& value)
 void TextModelNG::SetLineHeight(FrameNode* frameNode, const Dimension& value)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, LineHeight, value, frameNode);
+}
+
+void TextModelNG::ResetLineHeightMultiply()
+{
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, LineHeightMultiply, PROPERTY_UPDATE_MEASURE);
+}
+
+void TextModelNG::SetLineHeightMultiply(double value)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, LineHeightMultiply, value);
+}
+
+void TextModelNG::ResetLineHeightMultiply(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, LineHeightMultiply, PROPERTY_UPDATE_MEASURE,
+        frameNode);
+}
+
+void TextModelNG::SetLineHeightMultiply(FrameNode* frameNode, double value)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, LineHeightMultiply, value, frameNode);
+}
+
+void TextModelNG::ResetMinimumLineHeight()
+{
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, MinimumLineHeight, PROPERTY_UPDATE_MEASURE);
+}
+
+void TextModelNG::SetMinimumLineHeight(const Dimension& value)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, MinimumLineHeight, value);
+}
+
+void TextModelNG::ResetMinimumLineHeight(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, MinimumLineHeight, PROPERTY_UPDATE_MEASURE, frameNode);
+}
+
+void TextModelNG::SetMinimumLineHeight(FrameNode* frameNode, const Dimension& value)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, MinimumLineHeight, value, frameNode);
+}
+
+void TextModelNG::ResetMaximumLineHeight()
+{
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, MaximumLineHeight, PROPERTY_UPDATE_MEASURE);
+}
+
+void TextModelNG::SetMaximumLineHeight(const Dimension& value)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, MaximumLineHeight, value);
+}
+
+void TextModelNG::ResetMaximumLineHeight(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, MaximumLineHeight, PROPERTY_UPDATE_MEASURE, frameNode);
+}
+
+void TextModelNG::SetMaximumLineHeight(FrameNode* frameNode, const Dimension& value)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, MaximumLineHeight, value, frameNode);
 }
 
 void TextModelNG::SetLineSpacing(const Dimension& value)
@@ -458,9 +577,11 @@ void TextModelNG::SetTextDetectConfig(const TextDetectConfig& textDetectConfig)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto textPattern = frameNode->GetPattern<TextPattern>();
     CHECK_NULL_VOID(textPattern);
     textPattern->SetTextDetectConfig(textDetectConfig);
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
     RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
     auto&& updateFunc = [textDetectConfig, weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
         auto frameNode = weak.Upgrade();
@@ -470,8 +591,22 @@ void TextModelNG::SetTextDetectConfig(const TextDetectConfig& textDetectConfig)
         auto textPattern = frameNode->GetPattern<TextPattern>();
         CHECK_NULL_VOID(textPattern);
         TextDetectConfig& textDetectConfigValue = const_cast<TextDetectConfig&>(textDetectConfig);
+        if (!textDetectConfigValue.entityColorFlag) {
+            auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+            CHECK_NULL_VOID(pipeline);
+            auto hyperlinkTheme = pipeline->GetTheme<HyperlinkTheme>();
+            CHECK_NULL_VOID(hyperlinkTheme);
+            textDetectConfigValue.entityColor = hyperlinkTheme->GetTextColor();
+        }
+        if (!textDetectConfigValue.entityDecorationColorFlag) {
+            auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+            CHECK_NULL_VOID(pipeline);
+            auto hyperlinkTheme = pipeline->GetTheme<HyperlinkTheme>();
+            CHECK_NULL_VOID(hyperlinkTheme);
+            textDetectConfigValue.entityDecorationColor = hyperlinkTheme->GetTextColor();
+        }
         textDetectConfigValue.ReloadResources();
-        textPattern->SetTextDetectConfig(textDetectConfig);
+        textPattern->SetTextDetectConfig(textDetectConfigValue);
     };
     textPattern->AddResObj("dataDetectorConfig", resObj, std::move(updateFunc));
 }
@@ -503,6 +638,13 @@ void TextModelNG::SetRemoteMessage(std::function<void()>&& event) {}
 void TextModelNG::SetCopyOption(CopyOptions copyOption)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, CopyOption, copyOption);
+}
+
+void TextModelNG::SetOnWillCopy(std::function<bool(const std::u16string&)>&& func)
+{
+    auto eventHub = ViewStackProcessor::GetInstance()->GetMainFrameNodeEventHub<TextEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnWillCopy(std::move(func));
 }
 
 void TextModelNG::SetOnCopy(std::function<void(const std::u16string&)>&& func)
@@ -579,6 +721,16 @@ void TextModelNG::SetMaxLines(FrameNode* frameNode, uint32_t value)
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, MaxLines, value, frameNode);
 }
 
+void TextModelNG::SetMinLines(FrameNode* frameNode, uint32_t value)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, MinLines, value, frameNode);
+}
+
+void TextModelNG::ResetMinLines(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, MinLines, PROPERTY_UPDATE_MEASURE, frameNode);
+}
+
 void TextModelNG::SetAdaptMinFontSize(FrameNode* frameNode, const Dimension& value)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, AdaptMinFontSize, value, frameNode);
@@ -612,6 +764,8 @@ void TextModelNG::SetCopyOption(FrameNode* frameNode, CopyOptions copyOption)
 void TextModelNG::SetTextShadow(FrameNode* frameNode, const std::vector<Shadow>& value)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextShadow, value, frameNode);
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
+    ACE_UINODE_TRACE(frameNode);
     auto pattern = frameNode->GetPattern();
     CHECK_NULL_VOID(pattern);
     auto index = 0;
@@ -698,6 +852,26 @@ void TextModelNG::SetEllipsisMode(FrameNode* frameNode, Ace::EllipsisMode value)
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, EllipsisMode, value, frameNode);
 }
 
+void TextModelNG::SetTextTextSelection(FrameNode* frameNode,
+    int32_t startIndex, int32_t endIndex, MenuPolicy menuItem)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(textPattern);
+    SelectionOptions options;
+    options.menuPolicy = menuItem;
+    textPattern->SetSelectionFlag(startIndex, endIndex, options);
+}
+
+TextSelectionOptions TextModelNG::GetTextSelectionOptions(FrameNode* frameNode)
+{
+    TextSelectionOptions textSelectionOptions;
+    CHECK_NULL_RETURN(frameNode, textSelectionOptions);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_RETURN(textPattern, textSelectionOptions);
+    return textPattern->GetTextSelectionOptions();
+}
+
 void TextModelNG::SetTextDetectEnable(FrameNode* frameNode, bool value)
 {
     auto textPattern = frameNode->GetPattern<TextPattern>();
@@ -714,6 +888,65 @@ void TextModelNG::BindSelectionMenu(TextSpanType& spanType, TextResponseType& re
     if (pattern) {
         pattern->BindSelectionMenu(spanType, responseType, buildFunc, menuParam);
     }
+}
+
+void TextModelNG::BindSelectionMenu(FrameNode* frameNode, TextSpanType& spanType, TextResponseType& responseType,
+    std::function<void()>& buildFunc, SelectMenuParam& menuParam)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->BindSelectionMenu(spanType, responseType, buildFunc, menuParam);
+}
+
+void TextModelNG::ResetBindSelectionMenu(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->ClearSelectionMenu();
+}
+
+void TextModelNG::SetSelectDetectEnable(bool value)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetSelectDetectEnable(value);
+}
+
+void TextModelNG::SetSelectDetectEnable(FrameNode* frameNode, bool value)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetSelectDetectEnable(value);
+}
+
+bool TextModelNG::GetSelectDetectEnable(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, false);
+    auto pattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_RETURN(pattern, false);
+    return pattern->GetSelectDetectEnable();
+}
+
+void TextModelNG::ResetSelectDetectEnable()
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->ResetSelectDetectEnable();
+}
+
+void TextModelNG::ResetSelectDetectEnable(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->ResetSelectDetectEnable();
 }
 
 void TextModelNG::SetOnTextSelectionChange(std::function<void(int32_t, int32_t)>&& func)
@@ -734,8 +967,8 @@ void TextModelNG::SetClipEdge(bool clip)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, ClipEdge, clip, frameNode);
     frameNode->GetRenderContext()->SetClipToFrame(clip);
-    frameNode->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
 }
 
 void TextModelNG::SetFontFeature(const FONT_FEATURES_LIST& value)
@@ -748,6 +981,11 @@ void TextModelNG::SetFontFeature(FrameNode* frameNode, const FONT_FEATURES_LIST&
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, FontFeature, value, frameNode);
 }
 
+void TextModelNG::ResetFontFeature(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, FontFeature, PROPERTY_UPDATE_MEASURE, frameNode);
+}
+
 void TextModelNG::SetMarqueeOptions(const TextMarqueeOptions& options)
 {
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
@@ -755,51 +993,26 @@ void TextModelNG::SetMarqueeOptions(const TextMarqueeOptions& options)
     SetMarqueeOptions(frameNode, options);
 }
 
+#define UPDATE_OR_RESET_MARQUEE_PROPERTY(Property) \
+    if (options.Has##Property()) { \
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY( \
+            TextLayoutProperty, Property, options.Get##Property##Value(), frameNode); \
+    } else { \
+        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, Property, frameNode); \
+    }
+
 void TextModelNG::SetMarqueeOptions(FrameNode* frameNode, const TextMarqueeOptions& options)
 {
     CHECK_NULL_VOID(frameNode);
-    if (options.HasTextMarqueeStart()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
-            TextLayoutProperty, TextMarqueeStart, options.GetTextMarqueeStartValue(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextMarqueeStart, frameNode);
-    }
-    if (options.HasTextMarqueeStep()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
-            TextLayoutProperty, TextMarqueeStep, options.GetTextMarqueeStepValue(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextMarqueeStep, frameNode);
-    }
-    if (options.HasTextMarqueeLoop()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
-            TextLayoutProperty, TextMarqueeLoop, options.GetTextMarqueeLoopValue(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextMarqueeLoop, frameNode);
-    }
-    if (options.HasTextMarqueeDirection()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
-            TextLayoutProperty, TextMarqueeDirection, options.GetTextMarqueeDirectionValue(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextMarqueeDirection, frameNode);
-    }
-    if (options.HasTextMarqueeDelay()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
-            TextLayoutProperty, TextMarqueeDelay, options.GetTextMarqueeDelayValue(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextMarqueeDelay, frameNode);
-    }
-    if (options.HasTextMarqueeFadeout()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
-            TextLayoutProperty, TextMarqueeFadeout, options.GetTextMarqueeFadeoutValue(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextMarqueeFadeout, frameNode);
-    }
-    if (options.HasTextMarqueeStartPolicy()) {
-        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
-            TextLayoutProperty, TextMarqueeStartPolicy, options.GetTextMarqueeStartPolicyValue(), frameNode);
-    } else {
-        ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextMarqueeStartPolicy, frameNode);
-    }
+    UPDATE_OR_RESET_MARQUEE_PROPERTY(TextMarqueeStart);
+    UPDATE_OR_RESET_MARQUEE_PROPERTY(TextMarqueeStep);
+    UPDATE_OR_RESET_MARQUEE_PROPERTY(TextMarqueeLoop);
+    UPDATE_OR_RESET_MARQUEE_PROPERTY(TextMarqueeDirection);
+    UPDATE_OR_RESET_MARQUEE_PROPERTY(TextMarqueeDelay);
+    UPDATE_OR_RESET_MARQUEE_PROPERTY(TextMarqueeFadeout);
+    UPDATE_OR_RESET_MARQUEE_PROPERTY(TextMarqueeStartPolicy);
+    UPDATE_OR_RESET_MARQUEE_PROPERTY(TextMarqueeUpdatePolicy);
+    UPDATE_OR_RESET_MARQUEE_PROPERTY(TextMarqueeSpacing);
 }
 
 void TextModelNG::SetOnMarqueeStateChange(std::function<void(int32_t)>&& func)
@@ -815,6 +1028,14 @@ void TextModelNG::SetOnMarqueeStateChange(FrameNode* frameNode, std::function<vo
     auto eventHub = frameNode->GetEventHub<TextEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetOnMarqueeStateChange(std::move(func));
+}
+
+void TextModelNG::ResetOnMarqueeStateChange(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<TextEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnMarqueeStateChange(nullptr);
 }
 
 TextMarqueeOptions TextModelNG::GetMarqueeOptions(FrameNode* frameNode)
@@ -845,6 +1066,12 @@ TextMarqueeOptions TextModelNG::GetMarqueeOptions(FrameNode* frameNode)
     if (layoutProperty->HasTextMarqueeStartPolicy()) {
         options.UpdateTextMarqueeStartPolicy(layoutProperty->GetTextMarqueeStartPolicy().value());
     }
+    if (layoutProperty->HasTextMarqueeUpdatePolicy()) {
+        options.UpdateTextMarqueeUpdatePolicy(layoutProperty->GetTextMarqueeUpdatePolicy().value());
+    }
+    if (layoutProperty->HasTextMarqueeSpacing()) {
+        options.UpdateTextMarqueeSpacing(layoutProperty->GetTextMarqueeSpacing().value());
+    }
 
     return options;
 }
@@ -864,6 +1091,35 @@ float TextModelNG::GetLineHeight(FrameNode* frameNode)
     CHECK_NULL_RETURN(layoutProperty, 0.0f);
     Dimension defaultLineHeight(0);
     auto value = layoutProperty->GetLineHeight().value_or(defaultLineHeight);
+    return static_cast<float>(value.Value());
+}
+
+double TextModelNG::GetTextLineHeightMultiply(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, 0.0);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, 0.0);
+    auto value = layoutProperty->GetLineHeightMultiply().value_or(0.0);
+    return value;
+}
+
+float TextModelNG::GetTextMaximumLineHeight(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, 0.0f);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, 0.0f);
+    Dimension defaultLineHeight(0);
+    auto value = layoutProperty->GetMaximumLineHeight().value_or(defaultLineHeight);
+    return static_cast<float>(value.Value());
+}
+
+float TextModelNG::GetTextMinimumLineHeight(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, 0.0f);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, 0.0f);
+    Dimension defaultLineHeight(0);
+    auto value = layoutProperty->GetMinimumLineHeight().value_or(defaultLineHeight);
     return static_cast<float>(value.Value());
 }
 
@@ -901,6 +1157,14 @@ TextDecorationStyle TextModelNG::GetTextDecorationStyle(FrameNode* frameNode)
     return layoutProperty->GetTextDecorationStyle().value_or(TextDecorationStyle::SOLID);
 }
 
+float TextModelNG::GetLineThicknessScale(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, DEFAULT_LINE_THICKNESS_SCALE);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, DEFAULT_LINE_THICKNESS_SCALE);
+    return layoutProperty->GetLineThicknessScale().value_or(DEFAULT_LINE_THICKNESS_SCALE);
+}
+
 TextCase TextModelNG::GetTextCase(FrameNode* frameNode)
 {
     CHECK_NULL_RETURN(frameNode, TextCase::NORMAL);
@@ -929,6 +1193,15 @@ uint32_t TextModelNG::GetMaxLines(FrameNode* frameNode)
     return textLineStyle->GetMaxLines().value_or(defaultMaxLines);
 }
 
+uint32_t TextModelNG::GetMinLines(FrameNode* frameNode)
+{
+    uint32_t defaultMinLines = DEFAULT_MIN_LINES;
+    CHECK_NULL_RETURN(frameNode, defaultMinLines);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, defaultMinLines);
+    return layoutProperty->GetMinLines().value_or(defaultMinLines);
+}
+
 TextAlign TextModelNG::GetTextAlign(FrameNode* frameNode)
 {
     CHECK_NULL_RETURN(frameNode, OHOS::Ace::TextAlign::START);
@@ -937,6 +1210,14 @@ TextAlign TextModelNG::GetTextAlign(FrameNode* frameNode)
     auto& textLineStyle = layoutProperty->GetTextLineStyle();
     CHECK_NULL_RETURN(textLineStyle, OHOS::Ace::TextAlign::START);
     return textLineStyle->GetTextAlign().value_or(TextAlign::START);
+}
+
+TextContentAlign TextModelNG::GetTextContentAlign(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, OHOS::Ace::TextContentAlign::CENTER);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, OHOS::Ace::TextContentAlign::CENTER);
+    return layoutProperty->GetTextContentAlign().value_or(TextContentAlign::CENTER);
 }
 
 TextOverflow TextModelNG::GetTextOverflow(FrameNode* frameNode)
@@ -1094,6 +1375,12 @@ void TextModelNG::SetTextDetectConfig(FrameNode* frameNode, const std::string& v
     textPattern->SetTextDetectTypes(value);
 }
 
+void TextModelNG::ResetTextDetectConfig(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    TextModelNG::SetTextDetectConfig(frameNode, "");
+}
+
 void TextModelNG::SetOnClick(FrameNode* frameNode, GestureEventFunc&& click)
 {
     CHECK_NULL_VOID(frameNode);
@@ -1241,10 +1528,11 @@ void TextModelNG::SetTextSelection(FrameNode* frameNode, int32_t startIndex, int
 void TextModelNG::SetTextDetectConfig(FrameNode* frameNode, const TextDetectConfig& textDetectConfig)
 {
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto textPattern = frameNode->GetPattern<TextPattern>();
     CHECK_NULL_VOID(textPattern);
     textPattern->SetTextDetectConfig(textDetectConfig);
-
+    CHECK_NULL_VOID(SystemProperties::ConfigChangePerform());
     RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
     auto key = "textDetectorConfig";
     auto&& updateFunc = [textDetectConfig, weak = AceType::WeakClaim(frameNode)]
@@ -1260,6 +1548,14 @@ void TextModelNG::SetTextDetectConfig(FrameNode* frameNode, const TextDetectConf
     textPattern->AddResObj(key, resObj, std::move(updateFunc));
 }
 
+void TextModelNG::SetOnWillCopy(FrameNode* frameNode, std::function<bool(const std::u16string&)>&& func)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<TextEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnWillCopy(std::move(func));
+}
+
 void TextModelNG::SetOnCopy(FrameNode* frameNode, std::function<void(const std::u16string&)>&& func)
 {
     CHECK_NULL_VOID(frameNode);
@@ -1268,12 +1564,28 @@ void TextModelNG::SetOnCopy(FrameNode* frameNode, std::function<void(const std::
     eventHub->SetOnCopy(std::move(func));
 }
 
+void TextModelNG::ResetOnCopy(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<TextEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnCopy(nullptr);
+}
+
 void TextModelNG::SetOnTextSelectionChange(FrameNode* frameNode, std::function<void(int32_t, int32_t)>&& func)
 {
     CHECK_NULL_VOID(frameNode);
     auto eventHub = frameNode->GetEventHub<TextEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetOnSelectionChange(std::move(func));
+}
+
+void TextModelNG::ResetOnTextSelectionChange(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<TextEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnSelectionChange(nullptr);
 }
 
 void TextModelNG::SetSelectionMenuOptions(const NG::OnCreateMenuCallback&& onCreateMenuCallback,
@@ -1389,6 +1701,57 @@ size_t TextModelNG::GetLineCount(FrameNode* frameNode)
     return textPattern->GetLineCount();
 }
 
+std::vector<ParagraphManager::TextBox> TextModelNG::GetRectsForRange(
+    FrameNode* frameNode, int32_t start, int32_t end, RectHeightStyle heightStyle, RectWidthStyle widthStyle)
+{
+    CHECK_NULL_RETURN(frameNode, {});
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_RETURN(textPattern, {});
+    return textPattern->GetRectsForRange(start, end, heightStyle, widthStyle);
+}
+
+PositionWithAffinity TextModelNG::GetGlyphPositionAtCoordinate(FrameNode* frameNode, double dx, double dy)
+{
+    CHECK_NULL_RETURN(frameNode, PositionWithAffinity(0, TextAffinity::UPSTREAM));
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_RETURN(textPattern, PositionWithAffinity(0, TextAffinity::UPSTREAM));
+    return textPattern->GetGlyphPositionAtCoordinate(dx, dy);
+}
+
+PositionWithAffinity TextModelNG::GetCharacterPositionAtCoordinate(FrameNode* frameNode, double dx, double dy)
+{
+    CHECK_NULL_RETURN(frameNode, PositionWithAffinity(0, TextAffinity::UPSTREAM));
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_RETURN(textPattern, PositionWithAffinity(0, TextAffinity::UPSTREAM));
+    return textPattern->GetCharacterPositionAtCoordinate(dx, dy);
+}
+
+std::pair<TextRange, TextRange> TextModelNG::GetGlyphRangeForCharacterRange(
+    FrameNode* frameNode, int32_t start, int32_t end)
+{
+    CHECK_NULL_RETURN(frameNode, (std::pair<TextRange, TextRange>()));
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_RETURN(textPattern, (std::pair<TextRange, TextRange>()));
+    return textPattern->GetGlyphRangeForCharacterRange(start, end);
+}
+
+std::pair<TextRange, TextRange> TextModelNG::GetCharacterRangeForGlyphRange(
+    FrameNode* frameNode, int32_t start, int32_t end)
+{
+    CHECK_NULL_RETURN(frameNode, (std::pair<TextRange, TextRange>()));
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_RETURN(textPattern, (std::pair<TextRange, TextRange>()));
+    return textPattern->GetCharacterRangeForGlyphRange(start, end);
+}
+
+TextLineMetrics TextModelNG::GetLineMetrics(FrameNode* frameNode, int32_t lineNumber)
+{
+    CHECK_NULL_RETURN(frameNode, TextLineMetrics());
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_RETURN(textPattern, TextLineMetrics());
+    return textPattern->GetLineMetrics(lineNumber);
+}
+
 void TextModelNG::SetOptimizeTrailingSpace(bool trim)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, OptimizeTrailingSpace, trim);
@@ -1402,8 +1765,49 @@ void TextModelNG::SetOptimizeTrailingSpace(FrameNode* frameNode, bool trim)
 
 bool TextModelNG::GetOptimizeTrailingSpace(FrameNode* frameNode)
 {
+    CHECK_NULL_RETURN(frameNode, false);
     bool value = false;
     ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(TextLayoutProperty, OptimizeTrailingSpace, value, frameNode, value);
+    return value;
+}
+
+void TextModelNG::SetOrphanCharOptimization(bool isOrphanChar)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, OrphanCharOptimization, isOrphanChar);
+}
+
+void TextModelNG::SetOrphanCharOptimization(FrameNode* frameNode, bool isOrphanChar)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, OrphanCharOptimization, isOrphanChar, frameNode);
+}
+
+bool TextModelNG::GetOrphanCharOptimization(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, false);
+    bool value = false;
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(TextLayoutProperty, OrphanCharOptimization,
+        value, frameNode, value);
+    return value;
+}
+
+void TextModelNG::SetCompressLeadingPunctuation(bool enabled)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, CompressLeadingPunctuation, enabled);
+}
+
+void TextModelNG::SetCompressLeadingPunctuation(FrameNode* frameNode, bool enabled)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, CompressLeadingPunctuation, enabled, frameNode);
+}
+
+bool TextModelNG::GetCompressLeadingPunctuation(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, false);
+    bool value = false;
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(TextLayoutProperty, CompressLeadingPunctuation, value, frameNode,
+        value);
     return value;
 }
 
@@ -1426,10 +1830,61 @@ bool TextModelNG::GetEnableAutoSpacing(FrameNode* frameNode)
     return value;
 }
 
+void TextModelNG::SetIncludeFontPadding(bool enabled)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, IncludeFontPadding, enabled);
+}
+
+void TextModelNG::SetIncludeFontPadding(FrameNode* frameNode, bool enabled)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, IncludeFontPadding, enabled, frameNode);
+}
+
+bool TextModelNG::GetIncludeFontPadding(FrameNode* frameNode)
+{
+    bool value = false;
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(TextLayoutProperty, IncludeFontPadding, value, frameNode, value);
+    return value;
+}
+
+void TextModelNG::SetFallbackLineSpacing(bool enabled)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, FallbackLineSpacing, enabled);
+}
+
+void TextModelNG::SetFallbackLineSpacing(FrameNode* frameNode, bool enabled)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, FallbackLineSpacing, enabled, frameNode);
+}
+
+bool TextModelNG::GetFallbackLineSpacing(FrameNode* frameNode)
+{
+    bool value = false;
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(TextLayoutProperty, FallbackLineSpacing, value, frameNode, value);
+    return value;
+}
+
 void TextModelNG::SetGradientShaderStyle(NG::Gradient& gradient)
 {
-    ACE_RESET_LAYOUT_PROPERTY(TextLayoutProperty, ColorShaderStyle);
-    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, GradientShaderStyle, gradient);
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto textPattern = frameNode->GetPattern<TextPattern>();
+        CHECK_NULL_VOID(textPattern);
+        RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
+        auto&& updateFunc = [gradient, weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+            auto frameNode = weak.Upgrade();
+            CHECK_NULL_VOID(frameNode);
+            Gradient& gradientValue = const_cast<Gradient &>(gradient);
+            gradientValue.ReloadResources();
+            ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, ColorShaderStyle, frameNode);
+            ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, GradientShaderStyle, gradientValue, frameNode);
+        };
+        textPattern->AddResObj("TextGradient.gradient", resObj, std::move(updateFunc));
+    }
+    ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, ColorShaderStyle, frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, GradientShaderStyle, gradient, frameNode);
 }
 
 void TextModelNG::SetColorShaderStyle(const Color& value)
@@ -1452,6 +1907,21 @@ void TextModelNG::ResetGradientShaderStyle()
 void TextModelNG::SetGradientStyle(FrameNode* frameNode, NG::Gradient& gradient)
 {
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
+    if (SystemProperties::ConfigChangePerform()) {
+        auto textPattern = frameNode->GetPattern<TextPattern>();
+        CHECK_NULL_VOID(textPattern);
+        RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>("", "", -1);
+        auto&& updateFunc = [gradient, weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
+            auto frameNode = weak.Upgrade();
+            CHECK_NULL_VOID(frameNode);
+            Gradient& gradientValue = const_cast<Gradient &>(gradient);
+            gradientValue.ReloadResources();
+            ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, ColorShaderStyle, frameNode);
+            ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, GradientShaderStyle, gradientValue, frameNode);
+        };
+        textPattern->AddResObj("TextGradient.gradient", resObj, std::move(updateFunc));
+    }
     ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, ColorShaderStyle, frameNode);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, GradientShaderStyle, gradient, frameNode);
 }
@@ -1461,6 +1931,16 @@ void TextModelNG::SetColorShaderStyle(FrameNode* frameNode, const Color& value)
     CHECK_NULL_VOID(frameNode);
     ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, GradientShaderStyle, frameNode);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, ColorShaderStyle, value, frameNode);
+}
+
+Color TextModelNG::GetColorShaderStyle(FrameNode* frameNode)
+{
+    auto themeScopeId = frameNode ? frameNode->GetThemeScopeId() : 0;
+    auto defaultColor = GetDefaultColor(themeScopeId);
+    CHECK_NULL_RETURN(frameNode, defaultColor);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_RETURN(layoutProperty, defaultColor);
+    return layoutProperty->GetColorShaderStyle().value_or(defaultColor);
 }
 
 NG::Gradient TextModelNG::GetGradientStyle(FrameNode* frameNode)
@@ -1518,5 +1998,70 @@ void TextModelNG::ResetContentTransition(FrameNode* frameNode)
         TextLayoutProperty, TextEffectStrategy, PROPERTY_UPDATE_MEASURE_SELF, frameNode);
     ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextFlipDirection, frameNode);
     ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, TextFlipEnableBlur, frameNode);
+}
+
+void TextModelNG::ReSetTextContentAlign(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+        TextLayoutProperty, TextContentAlign, PROPERTY_UPDATE_LAYOUT, frameNode);
+}
+
+void TextModelNG::SetSelectedDragPreviewStyle(const Color& value)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextLayoutProperty, SelectedDragPreviewStyle, value);
+}
+
+void TextModelNG::ResetSelectedDragPreviewStyle()
+{
+    ACE_RESET_LAYOUT_PROPERTY_WITH_FLAG(TextLayoutProperty, SelectedDragPreviewStyle, PROPERTY_UPDATE_MEASURE);
+}
+
+Color TextModelNG::GetSelectedDragPreviewStyle(FrameNode* frameNode)
+{
+    Color value;
+    ACE_GET_NODE_LAYOUT_PROPERTY_WITH_DEFAULT_VALUE(
+        TextLayoutProperty, SelectedDragPreviewStyle, value, frameNode, value);
+    return value;
+}
+
+void TextModelNG::SetSelectedDragPreviewStyle(FrameNode* frameNode, const Color& value)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, SelectedDragPreviewStyle, value, frameNode);
+}
+
+void TextModelNG::ResetSelectedDragPreviewStyle(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY(TextLayoutProperty, SelectedDragPreviewStyle, frameNode);
+}
+
+void TextModelNG::SetExternalDrawCallback(
+    FrameNode* frameNode, std::function<bool(const ExternalDrawCallbackInfo&)>&& callback)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    if (textPattern) {
+        textPattern->SetExternalDrawCallback(std::move(callback));
+    }
+}
+
+std::optional<void*> TextModelNG::GetInnerParagraph(FrameNode* frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, std::nullopt);
+    auto textPattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_RETURN(textPattern, std::nullopt);
+    return textPattern->GetDrawParagraph();
+}
+
+void TextModelNG::SetStyledString(FrameNode* frameNode, SpanString* value)
+{
+    CHECK_NULL_VOID(frameNode && value);
+    auto pattern = frameNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(pattern);
+    value->SetFramNode(pattern->GetHost());
+    auto mutableSpanString = AceType::MakeRefPtr<MutableSpanString>(u"");
+    auto length = value->GetLength();
+    auto target = value->GetSubSpanString(0, length);
+    mutableSpanString->AppendSpanString(target);
+    pattern->SetStyledString(mutableSpanString, true, true);
 }
 } // namespace OHOS::Ace::NG

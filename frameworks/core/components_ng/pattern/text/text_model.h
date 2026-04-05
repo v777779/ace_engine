@@ -19,14 +19,13 @@
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 
 #include "base/geometry/dimension.h"
+#include "base/json/json_util.h"
 #include "base/memory/ace_type.h"
 #include "base/utils/macros.h"
-#include "base/utils/noncopyable.h"
-#include "core/components/box/drag_drop_event.h"
+#include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/color.h"
 #include "core/common/resource/resource_object.h"
 #include "core/common/resource/resource_parse_utils.h"
@@ -40,6 +39,24 @@
 #include "core/components_ng/pattern/text_field/text_selector.h"
 
 namespace OHOS::Ace {
+const std::vector<std::string> TEXT_DETECT_TYPES = { "phoneNum", "url", "email", "location", "datetime" };
+const std::vector<TextDataDetectType> TEXT_DETECT_ALL_TYPES_VECTOR = { TextDataDetectType::PHONE_NUMBER,
+    TextDataDetectType::URL, TextDataDetectType::EMAIL, TextDataDetectType::ADDRESS, TextDataDetectType::DATE_TIME };
+const std::unordered_map<std::string, TextDataDetectType> TEXT_DETECT_MAP_REVERSE = {
+    { "phoneNum", TextDataDetectType::PHONE_NUMBER }, { "url", TextDataDetectType::URL },
+    { "email", TextDataDetectType::EMAIL }, { "location", TextDataDetectType::ADDRESS },
+    { "datetime", TextDataDetectType::DATE_TIME }
+};
+const std::unordered_map<TextDataDetectType, std::string> TEXT_DETECT_MAP = {
+    { TextDataDetectType::PHONE_NUMBER, "phoneNum" }, { TextDataDetectType::URL, "url" },
+    { TextDataDetectType::EMAIL, "email" }, { TextDataDetectType::ADDRESS, "location" },
+    { TextDataDetectType::DATE_TIME, "datetime" }
+};
+struct TextSelectionOptions {
+    int32_t start = 0;
+    int32_t end = 0;
+    MenuPolicy menuPolicy = MenuPolicy::DEFAULT;
+};
 struct TextDetectConfig {
     std::string types;
     std::function<void(const std::string&)> onResult;
@@ -48,6 +65,8 @@ struct TextDetectConfig {
     Color entityDecorationColor;
     TextDecorationStyle entityDecorationStyle = TextDecorationStyle::SOLID;
     bool enablePreviewMenu = false;
+    bool entityColorFlag = false;
+    bool entityDecorationColorFlag = false;
 
     TextDetectConfig()
     {
@@ -70,6 +89,7 @@ struct TextDetectConfig {
         decorationJson->Put("color", entityDecorationColor.ToString().c_str());
         decorationJson->Put("style", static_cast<int64_t>(entityDecorationStyle));
         jsonValue->Put("decoration", decorationJson);
+        jsonValue->Put("enablePreviewMenu", enablePreviewMenu ? "true" : "false");
         return jsonValue->ToString();
     }
 
@@ -96,6 +116,7 @@ struct TextDetectConfig {
                 Color colorValue;
                 ResourceParseUtils::ParseResColor(resObj, colorValue);
                 textDetectConfig.entityColor = colorValue;
+                textDetectConfig.entityDecorationColor = colorValue;
             };
             textDetectConfig.AddResource("textDetectConfig.Color", resObj, std::move(updateFunc));
         }
@@ -121,6 +142,16 @@ struct TextDetectConfig {
     std::unordered_map<std::string, ResourceUpdater> detectConfigResMap_;
 };
 
+// support new material.
+struct ExternalDrawCallbackInfo {
+    float paintX = 0.0f;
+    float paintY = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    bool isFontChanged = false;
+    float fontSize = 0.0f;
+};
+
 class ACE_EXPORT SpanStringBase : public AceType {
     DECLARE_ACE_TYPE(SpanStringBase, AceType);
 };
@@ -129,6 +160,8 @@ class ACE_EXPORT TextControllerBase : public AceType {
 
 public:
     virtual void CloseSelectionMenu() = 0;
+    virtual void SetTextSelection(
+        int32_t selectionStart, int32_t selectionEnd, const SelectionOptions options) = 0;
     virtual void SetStyledString(const RefPtr<SpanStringBase>& value, bool closeSelectOverlay) = 0;
     virtual WeakPtr<NG::LayoutInfoInterface> GetLayoutInfoInterface() = 0;
 };
@@ -158,6 +191,8 @@ public:
     virtual void SetTextAlign(TextAlign value) = 0;
     virtual void SetTextOverflow(TextOverflow value) = 0;
     virtual void SetMaxLines(uint32_t value) = 0;
+    virtual void SetMinLines(uint32_t value) = 0;
+    virtual void ResetMinLines() = 0;
     virtual void SetTextIndent(const Dimension& value) = 0;
     virtual void SetLineHeight(const Dimension& value) = 0;
     virtual void SetLineSpacing(const Dimension& value) = 0;
@@ -170,6 +205,8 @@ public:
     virtual void SetLetterSpacing(const Dimension& value) = 0;
     virtual void SetAdaptMinFontSize(const Dimension& value) = 0;
     virtual void SetAdaptMaxFontSize(const Dimension& value) = 0;
+    virtual void SetSelectDetectEnable(bool value) = 0;
+    virtual void ResetSelectDetectEnable() = 0;
     virtual void SetHeightAdaptivePolicy(TextHeightAdaptivePolicy value) = 0;
     virtual void SetContentTransition(TextEffectStrategy value, TextFlipDirection direction, bool enableBlur) {};
     virtual void ResetContentTransition() {};
@@ -178,10 +215,13 @@ public:
     virtual void OnSetWidth() {};
     virtual void OnSetHeight() {};
     virtual void OnSetAlign() {};
+    virtual void SetTextContentAlign(TextContentAlign value) {};
+    virtual void ReSetTextContentAlign() {};
     virtual void SetOnClick(std::function<void(BaseEventInfo* info)>&& click, double distanceThreshold) = 0;
     virtual void ClearOnClick() = 0;
     virtual void SetRemoteMessage(std::function<void()>&& click) = 0;
     virtual void SetCopyOption(CopyOptions copyOption) = 0;
+    virtual void SetOnWillCopy(std::function<bool(const std::u16string&)>&& func) = 0;
     virtual void SetOnCopy(std::function<void(const std::u16string&)>&& func) = 0;
     virtual void SetEllipsisMode(EllipsisMode modal) = 0;
 
@@ -207,13 +247,27 @@ public:
     virtual void SetResponseRegion(bool isUserSetResponseRegion) {};
     virtual void SetHalfLeading(bool halfLeading) = 0;
     virtual void SetEnableHapticFeedback(bool state) = 0;
-    virtual void SetOptimizeTrailingSpace(bool trim) = 0;
     virtual void SetEnableAutoSpacing(bool enabled) = 0;
     virtual void SetLineThicknessScale(float value) = 0;
+    virtual void SetOptimizeTrailingSpace(bool trim) = 0;
+    virtual void SetOrphanCharOptimization(bool isOrphanChar) {};
+    virtual void SetCompressLeadingPunctuation(bool enabled) = 0;
     virtual void SetGradientShaderStyle(NG::Gradient& gradient) = 0;
     virtual void SetColorShaderStyle(const Color& value) = 0;
-    virtual void SetTextVerticalAlign(TextVerticalAlign verticalAlign) = 0;
     virtual void ResetGradientShaderStyle() = 0;
+    virtual void SetTextVerticalAlign(TextVerticalAlign verticalAlign) = 0;
+    virtual void ResetLineHeightMultiply() {};
+    virtual void ResetMinimumLineHeight() {};
+    virtual void ResetMaximumLineHeight() {};
+    virtual void SetLineHeightMultiply(double value) {};
+    virtual void SetMinimumLineHeight(const Dimension& value) {};
+    virtual void SetMaximumLineHeight(const Dimension& value) {};
+    virtual void SetTextDirection(TextDirection value) {}
+    virtual void ResetTextDirection() {}
+    virtual void SetIncludeFontPadding(bool enabled) {};
+    virtual void SetFallbackLineSpacing(bool enabled) {};
+    virtual void SetSelectedDragPreviewStyle(const Color& value) {};
+    virtual void ResetSelectedDragPreviewStyle() {};
 
 private:
     static std::unique_ptr<TextModel> instance_;

@@ -96,7 +96,7 @@ inline std::string ConvertOverflowToString(Overflow overflow)
     return result;
 }
 
-inline std::string ConvertBoolToString(bool flag)
+inline ACE_FORCE_EXPORT std::string ConvertBoolToString(bool flag)
 {
     return flag ? "true" : "false";
 }
@@ -437,6 +437,18 @@ inline TextAlign ConvertWrapStringToTextAlign(const std::string& str)
     return TextAlign::START;
 }
 
+inline std::string ConvertWrapTextContentAlignToString(TextContentAlign textContentAlign)
+{
+    static const LinearEnumMapNode<TextContentAlign, std::string> textContentAlignTable[] = {
+        { TextContentAlign::TOP, "TextContentAlign.TOP" },
+        { TextContentAlign::CENTER, "TextContentAlign.CENTER" },
+        { TextContentAlign::BOTTOM, "TextContentAlign.BOTTOM" },
+    };
+
+    auto index = BinarySearchFindIndex(textContentAlignTable, ArraySize(textContentAlignTable), textContentAlign);
+    return index < 0 ? "TextContentAlign.CENTER" : textContentAlignTable[index].value;
+}
+
 inline std::string ConvertWrapTextVerticalAlignToString(TextVerticalAlign textVerticalAlign)
 {
     static const LinearEnumMapNode<TextVerticalAlign, std::string> textVerticalAlignTable[] = {
@@ -511,7 +523,17 @@ inline MarqueeStartPolicy ConvertWrapStringToMarqueeStartPolicy(const std::strin
     return uMap.count(str) ? uMap.at(str) : MarqueeStartPolicy::DEFAULT;
 }
 
-inline std::string ConvertWrapFontStyleToStirng(FontStyle fontStyle)
+inline MarqueeUpdatePolicy ConvertWrapStringToMarqueeUpdatePolicy(const std::string& str)
+{
+    static const std::unordered_map<std::string, MarqueeUpdatePolicy> uMap {
+        { "MarqueeUpdatePolicy.DEFAULT", MarqueeUpdatePolicy::DEFAULT },
+        { "MarqueeUpdatePolicy.PRESERVE_POSITION", MarqueeUpdatePolicy::PRESERVE_POSITION },
+    };
+
+    return uMap.count(str) ? uMap.at(str) : MarqueeUpdatePolicy::DEFAULT;
+}
+
+inline ACE_FORCE_EXPORT std::string ConvertWrapFontStyleToStirng(FontStyle fontStyle)
 {
     static const LinearEnumMapNode<FontStyle, std::string> fontStyleTable[] = {
         { FontStyle::NORMAL, "FontStyle.Normal" },
@@ -527,7 +549,7 @@ inline FontWeight ConvertFontWeight(FontWeight fontWeight)
     return FONT_WEIGHT_CONVERT_MAP[static_cast<int>(fontWeight)];
 }
 
-inline std::string ConvertWrapFontWeightToStirng(FontWeight fontWeight)
+inline ACE_FORCE_EXPORT std::string ConvertWrapFontWeightToStirng(FontWeight fontWeight)
 {
     static const LinearEnumMapNode<FontWeight, std::string> fontWeightTable[] = {
         { FontWeight::W100, "100" },
@@ -591,6 +613,19 @@ inline std::string ConvertWrapCopyOptionToString(CopyOptions copyOptions)
     return index < 0 ? "CopyOptions::None" : copyOptionsTable[index].value;
 }
 
+inline std::string ConvertEllipsisModeToString(EllipsisMode value)
+{
+    static const LinearEnumMapNode<EllipsisMode, std::string> modalTable[] = {
+        { EllipsisMode::HEAD, "EllipsisMode.START" },
+        { EllipsisMode::MIDDLE, "EllipsisMode.CENTER" },
+        { EllipsisMode::TAIL, "EllipsisMode.END" },
+        { EllipsisMode::MULTILINE_HEAD, "EllipsisMode.MULTILINE_START" },
+        { EllipsisMode::MULTILINE_MIDDLE, "EllipsisMode.MULTILINE_CENTER" },
+    };
+    auto index = BinarySearchFindIndex(modalTable, ArraySize(modalTable), value);
+    return index < 0 ? "EllipsisMode.END" : modalTable[index].value;
+}
+
 inline std::string ConvertWrapWordBreakToString(WordBreak wordBreak)
 {
     static const LinearEnumMapNode<WordBreak, std::string> wordBreakTable[] = {
@@ -615,17 +650,6 @@ inline std::string ConvertTextDirectionToString(TextDirection direction)
 
     auto index = BinarySearchFindIndex(textDirectionTable, ArraySize(textDirectionTable), direction);
     return index < 0 ? "AUTO" : textDirectionTable[index].value;
-}
-
-inline std::string ConvertEllipsisModeToString(EllipsisMode value)
-{
-    static const LinearEnumMapNode<EllipsisMode, std::string> modalTable[] = {
-        { EllipsisMode::HEAD, "EllipsisMode.START" },
-        { EllipsisMode::MIDDLE, "EllipsisMode.CENTER" },
-        { EllipsisMode::TAIL, "EllipsisMode.END" },
-    };
-    auto index = BinarySearchFindIndex(modalTable, ArraySize(modalTable), value);
-    return index < 0 ? "EllipsisMode.END" : modalTable[index].value;
 }
 
 inline std::string ConvertWrapLineBreakStrategyToString(LineBreakStrategy lineBreakStrategy)
@@ -683,7 +707,7 @@ inline std::string ConvertSideToString(AlignDeclaration::Edge edge)
     }
 }
 
-inline std::string ConvertFontFamily(const std::vector<std::string>& fontFamily)
+inline ACE_FORCE_EXPORT std::string ConvertFontFamily(const std::vector<std::string>& fontFamily)
 {
     CHECK_NULL_RETURN(!fontFamily.empty(), "");
     std::string result;
@@ -695,7 +719,7 @@ inline std::string ConvertFontFamily(const std::vector<std::string>& fontFamily)
     return result;
 }
 
-std::string GetTextStyleInJson(const TextStyle& textStyle);
+ACE_FORCE_EXPORT std::string GetTextStyleInJson(const TextStyle& textStyle);
 
 inline std::string ConvertWrapTextHeightAdaptivePolicyToString(TextHeightAdaptivePolicy heightAdaptivePolicy)
 {

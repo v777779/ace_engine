@@ -21,7 +21,6 @@
 #include "base/memory/referenced.h"
 #include "core/components/common/properties/paint_state.h"
 #include "core/components_ng/image_provider/svg_dom_base.h"
-#include "core/components_ng/pattern/canvas/canvas_event_hub.h"
 #include "core/components_ng/pattern/canvas/canvas_layout_algorithm.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/pipeline_ng/pipeline_context.h"
@@ -31,8 +30,9 @@ class ImageAnalyzerManager;
 }
 
 namespace OHOS::Ace::NG {
+using ReadyEvent = std::function<void()>;
+using ReadyEventNew = std::function<void(bool, CanvasUnit)>;
 class CanvasPaintMethod;
-class OffscreenCanvasPattern;
 class CanvasModifier;
 // CanvasPattern is the base class for custom paint render node to perform paint canvas.
 class ACE_FORCE_EXPORT CanvasPattern : public Pattern {
@@ -50,6 +50,11 @@ public:
         return true;
     }
 
+    bool IsEnableFix() override
+    {
+        return true;
+    }
+
     int32_t GetId() const
     {
         auto host = GetHost();
@@ -58,7 +63,7 @@ public:
     }
 
     void AttachRenderContext();
-    void DetachRenderContext();
+    void DetachRenderContext(bool forceDetach = false);
     void OnAttachToMainTree() override;
 
     std::optional<RenderContext::ContextParam> GetContextParam() const override
@@ -72,11 +77,6 @@ public:
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override
     {
         return MakeRefPtr<CanvasLayoutAlgorithm>();
-    }
-
-    RefPtr<EventHub> CreateEventHub() override
-    {
-        return MakeRefPtr<CanvasEventHub>();
     }
 
     void SetCanvasSize(std::optional<SizeF> canvasSize)
@@ -94,7 +94,25 @@ public:
         return isAttached_;
     }
 
+    void SetOnReady(ReadyEvent&& readyEvent)
+    {
+        readyEvent_ = std::move(readyEvent);
+    }
+
+    void SetOnReady(ReadyEventNew&& readyEvent)
+    {
+        readyEventNew_ = std::move(readyEvent);
+    }
+
+    void ResetOnReady()
+    {
+        readyEvent_ = nullptr;
+        readyEventNew_ = nullptr;
+    }
+
     void SetAntiAlias(bool isEnabled);
+    std::optional<bool> GetAntialiasExt() const;
+    void SetAntialiasExt(std::optional<bool> isEnabled);
 
     void FillRect(const Rect& rect);
     void StrokeRect(const Rect& rect);
@@ -139,7 +157,7 @@ public:
     void UpdateFillRuleForPath2D(const CanvasFillRule rule);
     double GetWidth();
     double GetHeight();
-    void SetRSCanvasCallback(std::function<void(RSCanvas*, double, double)>& callback);
+    void SetRSCanvasCallback(std::function<void(std::shared_ptr<RSCanvas>, double, double)>& callback);
     void SetInvalidate();
 
     LineDashParam GetLineDash() const;
@@ -169,7 +187,7 @@ public:
     void UpdateShadowOffsetY(double offsetY);
     void UpdateTextAlign(TextAlign align);
     void UpdateTextBaseline(TextBaseline baseline);
-    void UpdateStrokePattern(const std::weak_ptr<Ace::Pattern>& pattern);
+    void UpdateStrokePattern(const std::shared_ptr<Ace::Pattern>& pattern);
     void UpdateStrokeColor(const Color& color);
     void UpdateFontWeight(FontWeight weight);
     void UpdateFontStyle(FontStyle style);
@@ -178,7 +196,7 @@ public:
     void UpdateLetterSpacing(const Dimension& letterSpacing);
     void UpdateLineJoin(LineJoinStyle join);
     void SetFillGradient(const std::shared_ptr<Ace::Gradient>& gradient);
-    void UpdateFillPattern(const std::weak_ptr<Ace::Pattern>& pattern);
+    void UpdateFillPattern(const std::shared_ptr<Ace::Pattern>& pattern);
     void UpdateShadowColor(const Color& color);
     void SetStrokeGradient(const std::shared_ptr<Ace::Gradient>& gradient);
     void SetTextDirection(TextDirection direction);
@@ -197,13 +215,27 @@ public:
     void Reset();
     void DumpInfo() override;
     void DumpInfo(std::unique_ptr<JsonValue>& json) override;
-    void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) override;
-    void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override;
+
+    void SetUpdateContextCallback(std::function<void(CanvasUnit)>&& updateContextCB);
+    void UpdateUnit(CanvasUnit unit);
+    CanvasUnit GetUnit() const
+    {
+        return unit_;
+    }
+    void SetImmediateRender(bool immediateRender);
+    void SetRSCanvasForDrawingContext();
+
+    void SetPatternInstanceId(int32_t id);
+    int32_t GetPatternInstanceId() const
+    {
+        return patternInstanceId_;
+    }
 
 private:
+    void OnVisibleChange(bool isVisible) override;
     void OnAttachToFrameNode() override;
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
-    void OnDetachFromMainTree() override;
     void FireOnContext2DAttach();
     void FireOnContext2DDetach();
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config) override;
@@ -216,19 +248,36 @@ private:
     void OnLanguageConfigurationUpdate() override;
     void OnModifyDone() override;
     void UpdateTextDefaultDirection();
+    void FireReadyEvent() const;
+    void OnVisibleAreaChange(bool isVisible, double ratio);
+    void RegisterVisibleAreaChange();
+    void UnregisterVisibleAreaChange();
+    std::string GetDumpInfo();
+    void GetSimplifyDumpInfo(std::unique_ptr<JsonValue>& json);
 
     std::function<void()> onContext2DAttach_;
     std::function<void()> onContext2DDetach_;
-    RefPtr<CanvasPaintMethod> paintMethod_;
+    ReadyEvent readyEvent_; // need to remove when static api is ok
+    ReadyEventNew readyEventNew_;
     std::optional<SizeF> canvasSize_;
     SizeF dirtyPixelGridRoundSize_ = { -1, -1 };
     SizeF lastDirtyPixelGridRoundSize_ = { -1, -1 };
     DirtySwapConfig recordConfig_;
     std::shared_ptr<ImageAnalyzerManager> imageAnalyzerManager_;
     bool isEnableAnalyzer_ = false;
-    TextDirection currentSetTextDirection_ = TextDirection::INHERIT;
     RefPtr<CanvasModifier> contentModifier_;
     bool isAttached_ = false;
+    int32_t id_ = -1;
+
+    RefPtr<CanvasPaintMethod> paintMethod_;
+    TextDirection currentSetTextDirection_ = TextDirection::INHERIT;
+
+    std::function<void(CanvasUnit)> updateContextCB_;
+    CanvasUnit unit_ = CanvasUnit::DEFAULT;
+    std::optional<bool> immediateRender_ = std::nullopt;
+    bool hasRegisteredVisibleAreaChange_ = false;
+
+    int32_t patternInstanceId_ = INSTANCE_ID_UNDEFINED;
     ACE_DISALLOW_COPY_AND_MOVE(CanvasPattern);
 };
 } // namespace OHOS::Ace::NG

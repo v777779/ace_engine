@@ -18,13 +18,14 @@
 #define private public
 #define protected public
 
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/rosen/testing_bitmap.h"
-#include "test/mock/core/rosen/testing_canvas.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_bitmap.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas.h"
 
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/model/model_adapter_wrapper.h"
 #include "core/components_ng/pattern/model/model_layout_algorithm.h"
 #include "core/components_ng/pattern/model/model_light.h"
@@ -59,6 +60,11 @@ class TestSceneAdapter : public Render3D::ISceneAdapter {
     std::shared_ptr<Render3D::TextureLayer> CreateTextureLayer()
     {
         return std::make_shared<Render3D::TextureLayer>(key_++);
+    }
+
+    void OnWindowChange(float renderWidth, float renderHeight) override
+    {
+        return;
     }
     void OnWindowChange(const Render3D::WindowChangeInfo& windowChangeInfo)
     {
@@ -103,7 +109,7 @@ void ModelTestNg::TearDownTestSuite()
  * @tc.desc: Test Without Setting Property
  * @tc.type: FUNC
  */
-HWTEST_F(ModelTestNg, ModelViewNgTest001, TestSize.Level1)
+HWTEST_F(ModelTestNg, ModelViewNgTest001, TestSize.Level0)
 {
     auto pipeline = PipelineContext::GetCurrentContext();
     ASSERT_NE(pipeline, nullptr);
@@ -498,5 +504,164 @@ HWTEST_F(ModelTestNg, ModelViewNgTest007, TestSize.Level1)
     ModelViewNG::SetModelViewContext(frameNode.GetRawPtr(), { "bundleName", "moduleName", surfaceType, nullptr });
     ASSERT_EQ(modelPattern->modelAdapter_, oldAdapter);
 }
-} // namespace OHOS::Ace::NG
 
+/**
+ * @tc.name: ModelViewNgTest008
+ * @tc.desc: dynamic path, test SetBackgroundColor
+ * @tc.type: FUNC
+ */
+HWTEST_F(ModelTestNg, ModelViewNgTest008, TestSize.Level1)
+{
+    // Get FrameNode
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    // Get ModelPaintProperty
+    auto modelPaintProperty = frameNode->GetPaintProperty<ModelPaintProperty>();
+    ASSERT_NE(modelPaintProperty, nullptr);
+    // Get ModelPattern
+    auto modelPattern = frameNode->GetPattern<ModelPattern>();
+    ASSERT_NE(modelPattern, nullptr);
+    // Get Adapter
+    auto modelAdapter = modelPattern->modelAdapter_;
+    ASSERT_NE(modelAdapter, nullptr);
+
+    uint32_t argb = 0xff0000ff; // opaque blue
+    modelViewNG.SetBackgroundColor(argb);
+    ASSERT_EQ(modelPaintProperty->GetBackgroundColorValue(), argb);
+    modelAdapter->UpdateBackgroundColor(modelPaintProperty);
+}
+
+/**
+ * @tc.name: ModelViewNgTest009
+ * @tc.desc: static path, test SetBackgroundColor
+ * @tc.type: FUNC
+ */
+HWTEST_F(ModelTestNg, ModelViewNgTest009, TestSize.Level1)
+{
+    // Create FrameNode in static way
+    auto frameNode = ModelViewNG::CreateFrameNode(testKey++);
+    ASSERT_NE(frameNode, nullptr);
+    // Get ModelPaintProperty
+    auto modelPaintProperty = frameNode->GetPaintProperty<ModelPaintProperty>();
+    ASSERT_NE(modelPaintProperty, nullptr);
+
+    uint32_t argb = 0xff0000ff; // opaque blue
+    ModelViewNG::SetBackgroundColor(frameNode.GetRawPtr(), argb);
+    ASSERT_EQ(modelPaintProperty->GetBackgroundColorValue(), argb);
+}
+
+/**
+ * @tc.name: ModelViewNgTest010
+ * @tc.desc: static path, test SetRenderHeight
+ * @tc.type: FUNC
+ */
+HWTEST_F(ModelTestNg, ModelViewNgTest010, TestSize.Level1)
+{
+    // Create FrameNode in static way
+    auto frameNode = ModelViewNG::CreateFrameNode(testKey++);
+    ASSERT_NE(frameNode, nullptr);
+    // Get ModelPaintProperty
+    auto modelPaintProperty = frameNode->GetPaintProperty<ModelPaintProperty>();
+    ASSERT_NE(modelPaintProperty, nullptr);
+
+    // SetRenderHeight
+    // Case 1: set with nullptr
+    ModelViewNG::SetRenderHeight(frameNode.GetRawPtr(), std::nullopt);
+    ASSERT_EQ(modelPaintProperty->GetRenderHeightValue(), 1.0f);
+
+    Dimension dimension(100.0f);
+    ModelViewNG::SetRenderHeight(frameNode.GetRawPtr(), dimension);
+    ASSERT_EQ(modelPaintProperty->GetRenderHeightValue(), 100.0f);
+}
+
+/**
+ * @tc.name: ModelViewNgTest011
+ * @tc.desc: static path, test SetRenderWidth
+ * @tc.type: FUNC
+ */
+HWTEST_F(ModelTestNg, ModelViewNgTest011, TestSize.Level1)
+{
+    // Create FrameNode in static way
+    auto frameNode = ModelViewNG::CreateFrameNode(testKey++);
+    ASSERT_NE(frameNode, nullptr);
+    // Get ModelPaintProperty
+    auto modelPaintProperty = frameNode->GetPaintProperty<ModelPaintProperty>();
+    ASSERT_NE(modelPaintProperty, nullptr);
+
+    // SetRenderHeight
+    // Case 1: set with nullptr
+    ModelViewNG::SetRenderWidth(frameNode.GetRawPtr(), std::nullopt);
+    ASSERT_EQ(modelPaintProperty->GetRenderWidthValue(), 1.0f);
+
+    Dimension dimension(100.0f);
+    ModelViewNG::SetRenderWidth(frameNode.GetRawPtr(), dimension);
+    ASSERT_EQ(modelPaintProperty->GetRenderWidthValue(), 100.0f);
+}
+
+/**
+ * @tc.name: ModelViewNgTest012
+ * @tc.desc: static path, test AddShaderImageTexture
+ * @tc.type: FUNC
+ */
+HWTEST_F(ModelTestNg, ModelViewNgTest012, TestSize.Level1)
+{
+    // Create FrameNode in static way
+    auto frameNode = ModelViewNG::CreateFrameNode(testKey++);
+    ASSERT_NE(frameNode, nullptr);
+    // Get ModelPaintProperty
+    auto modelPaintProperty = frameNode->GetPaintProperty<ModelPaintProperty>();
+    ASSERT_NE(modelPaintProperty, nullptr);
+
+    ModelViewNG::AddShaderImageTexture(frameNode.GetRawPtr(), testPath);
+    ASSERT_EQ(modelPaintProperty->GetModelImageTexturePathsValue().back(), testPath);
+    ModelViewNG::AddShaderImageTexture(frameNode.GetRawPtr(), testPath);
+}
+
+/**
+ * @tc.name: ModelViewNgTest013
+ * @tc.desc: static path, test AddCustomRender
+ * @tc.type: FUNC
+ */
+HWTEST_F(ModelTestNg, ModelViewNgTest013, TestSize.Level1)
+{
+    // Create FrameNode in static way
+    auto frameNode = ModelViewNG::CreateFrameNode(testKey++);
+    ASSERT_NE(frameNode, nullptr);
+    // Get ModelPaintProperty
+    auto modelPaintProperty = frameNode->GetPaintProperty<ModelPaintProperty>();
+    ASSERT_NE(modelPaintProperty, nullptr);
+
+    ModelViewNG::AddCustomRender(frameNode.GetRawPtr(), nullptr);
+
+    auto desc = std::make_shared<Render3D::CustomRenderDescriptor>("/data/local", true);
+    ModelViewNG::AddCustomRender(frameNode.GetRawPtr(), desc);
+    EXPECT_EQ(modelPaintProperty->GetModelCustomRenderValue(), desc);
+    ModelViewNG::AddCustomRender(frameNode.GetRawPtr(), desc);
+}
+
+/**
+ * @tc.name: ModelViewNgTest014
+ * @tc.desc: static path, test UpdateRenderSize
+ * @tc.type: FUNC
+ */
+HWTEST_F(ModelTestNg, ModelViewNgTest014, TestSize.Level1)
+{
+    // Create FrameNode in static way
+    auto frameNode = ModelViewNG::CreateFrameNode(testKey++);
+    ASSERT_NE(frameNode, nullptr);
+    // Get ModelPaintProperty
+    auto modelPaintProperty = frameNode->GetPaintProperty<ModelPaintProperty>();
+    ASSERT_NE(modelPaintProperty, nullptr);
+
+    // Get ModelPattern
+    auto modelPattern = frameNode->GetPattern<ModelPattern>();
+    ASSERT_NE(modelPattern, nullptr);
+
+    ModelViewNG::SetRenderHeight(frameNode.GetRawPtr(), std::nullopt);
+    ASSERT_EQ(modelPaintProperty->GetRenderHeightValue(), 1.0f);
+
+    Dimension dimension(100.0f);
+    ModelViewNG::SetRenderHeight(frameNode.GetRawPtr(), dimension);
+    ASSERT_EQ(modelPaintProperty->GetRenderHeightValue(), 100.0f);
+}
+} // namespace OHOS::Ace::NG

@@ -19,6 +19,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <refbase.h>
 #include <string>
 #include <unordered_set>
@@ -57,7 +58,7 @@ enum class WindowSizeChangeReason : uint32_t;
 enum class WindowMode : uint32_t;
 enum class MaximizeMode : uint32_t;
 class RSNode;
-class RSCanvasNode;
+class RSWindowKeyFrameNode;
 class RSSurfaceNode;
 class RSTransaction;
 class Transform;
@@ -101,6 +102,7 @@ class IRemoteObject;
 
 namespace OHOS::Ace {
 struct AccessibilityParentRectInfo;
+struct NavigateChangeInfo;
 } // namespace OHOS::Ace
 
 namespace OHOS::Ace::Platform {
@@ -132,7 +134,9 @@ public:
     static UIContent* GetUIContent(int32_t instanceId);
     static std::string GetCurrentUIStackInfo();
     static std::unique_ptr<UIContent> CreateWithAniEnv(OHOS::AbilityRuntime::Context* context, ani_env* env);
-
+    static int32_t GetUIContentWindowID(int32_t instanceId);
+    static bool SetXComponentCompensationAngle(const std::string& configStr);
+    static const std::string& GetXComponentCompensationAngle();
     virtual ~UIContent() = default;
 
     // UI content life-cycles
@@ -248,6 +252,7 @@ public:
 
     virtual void SetFormWidth(const float width) = 0;
     virtual void SetFormHeight(const float height) = 0;
+    virtual void SetFormViewScale(float width, float height, float formViewScale) {}
     virtual float GetFormWidth() = 0;
     virtual float GetFormHeight() = 0;
     virtual void ReloadForm(const std::string& url) {};
@@ -329,6 +334,14 @@ public:
      * @param token ability token.
      */
     virtual void SetParentToken(sptr<IRemoteObject> token);
+
+    /**
+     * @description: Must be called by the main thread, otherwise there may be multi-threaded issues and undefined
+     * behavior.
+     * @return Return key information for each frame.
+     */
+    virtual void SetFrameMetricsCallBack(
+        std::function<void(FrameMetrics info)>&& callback) {}
 
     /**
      * @description: Get parent ability token.
@@ -505,7 +518,10 @@ public:
 
     virtual void SetStatusBarItemColor(uint32_t color) {};
 
-    virtual void SetForceSplitEnable(bool isForceSplit, const std::string& homePage, bool isRouter = true) {};
+    virtual void SetForceSplitEnable(bool isForceSplit, bool needUpdateViewport = false) {}
+
+    virtual void SetForceSplitConfig(const std::optional<SystemForceSplitConfig>& systemConfig,
+                                     const std::optional<AppForceSplitConfig>& appConfig) {}
 
     virtual void EnableContainerModalGesture(bool isEnable) {};
 
@@ -560,7 +576,8 @@ public:
 
     virtual void SetTopWindowBoundaryByID(const std::string& stringId) {};
 
-    virtual bool SendUIExtProprty(uint32_t code, const AAFwk::Want& data, uint8_t subSystemId)
+    virtual bool SendUIExtProprty(uint32_t code, const AAFwk::Want& data,
+        uint8_t subSystemId, const UIExtOptions& options = UIExtOptions())
     {
         return false;
     }
@@ -574,10 +591,10 @@ public:
     virtual void EnableContainerModalCustomGesture(bool enable) {};
 
     virtual void AddKeyFrameAnimateEndCallback(const std::function<void()> &callback) {};
-    virtual void AddKeyFrameCanvasNodeCallback(const std::function<
-        void(std::shared_ptr<Rosen::RSCanvasNode>& canvasNode,
+    virtual void AddKeyFrameNodeCallback(const std::function<
+        void(std::shared_ptr<Rosen::RSWindowKeyFrameNode>& keyFrameNode,
             std::shared_ptr<OHOS::Rosen::RSTransaction>& rsTransaction)>& callback) {};
-    virtual void LinkKeyFrameCanvasNode(std::shared_ptr<OHOS::Rosen::RSCanvasNode>&) {};
+    virtual void LinkKeyFrameNode() {};
 
     // intent framework
     virtual void SetIntentParam(const std::string& intentInfoSerialized,
@@ -588,6 +605,11 @@ public:
         return "";
     }
     virtual void RestoreNavDestinationInfo(const std::string& navDestinationInfo, bool isColdStart) {}
+    virtual int32_t RegisterNavigateChangeCallback(const std::function<void(const NavigateChangeInfo& from,
+        const NavigateChangeInfo& to)>&& callback)
+    {
+        return -1;
+    }
     virtual UIContentErrorCode InitializeWithAniStorage(
         OHOS::Rosen::Window* window, const std::string& url, ani_object storage)
     {
@@ -617,6 +639,29 @@ public:
     {
         return UIContentErrorCode::NO_ERRORS;
     }
+
+    virtual UIContentErrorCode InitializeByNameWithAniStorage(
+        OHOS::Rosen::Window* window, const std::string& name, ani_object storage, uint32_t focusWindowId)
+    {
+        return UIContentErrorCode::NO_ERRORS;
+    }
+
+    virtual void SetXComponentDisplayConstraintEnabled(bool isEnable) {};
+
+    // get PointerEvent ptr from ts
+    virtual const std::shared_ptr<const OHOS::MMI::PointerEvent> GetPointerEventFromAxisEvent(napi_value event)
+    {
+        return nullptr;
+    }
+    virtual const std::shared_ptr<const OHOS::MMI::PointerEvent> GetPointerEventFromTouchEvent(napi_value event)
+    {
+        return nullptr;
+    }
+
+private:
+    static std::atomic<bool> successFlag_;
+    static std::mutex mtx_;
+    static std::string angleConfigJson_;
 };
 
 } // namespace OHOS::Ace

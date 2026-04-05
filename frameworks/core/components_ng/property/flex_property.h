@@ -33,10 +33,6 @@ using ChainWeightPair = std::pair<std::optional<float>, std::optional<float>>; /
 using GuidelineItem = std::vector<GuidelineInfo>;
 using BarrierItem = std::vector<BarrierInfo>;
 
-namespace {
-constexpr float DEFAULT_BIAS = 0.5f;
-}
-
 class FlexItemProperty {
 public:
     FlexItemProperty() = default;

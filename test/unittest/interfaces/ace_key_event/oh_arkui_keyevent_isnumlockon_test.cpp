@@ -43,7 +43,7 @@ HWTEST_F(KeyEventTest, KeyEvent_IsNumLockOn003, TestSize.Level0)
             .inputType = ARKUI_UIINPUTEVENT_TYPE_KEY,
             .eventTypeId = C_KEY_EVENT_ID,
             .inputEvent = &keyEvent,
-            .isCloned = false,
+            .isCreatedByUser = false,
             .apiVersion = 0,
         };
         bool resultState = !val;
@@ -54,4 +54,16 @@ HWTEST_F(KeyEventTest, KeyEvent_IsNumLockOn003, TestSize.Level0)
     }
 }
 
+HWTEST_F(KeyEventTest, KeyEvent_IsNumLockOn004, TestSize.Level0)
+{
+    ArkUI_UIInputEvent event = {
+        .inputType = ARKUI_UIINPUTEVENT_TYPE_KEY,
+        .eventTypeId = AXIS_EVENT_ID,
+        .inputEvent = nullptr,
+        .isCreatedByUser = false,
+        .apiVersion = 0,
+    };
+    bool state = false;
+    EXPECT_EQ(OH_ArkUI_KeyEvent_IsNumLockOn(&event, &state), ARKUI_ERROR_CODE_PARAM_INVALID);
+}
 } // namespace OHOS::Ace

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2021-2023 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -21,16 +21,15 @@
 #include "base/geometry/offset.h"
 #include "base/image/pixel_map.h"
 #include "base/memory/ace_type.h"
-#include "base/memory/referenced.h"
 #include "core/common/resource/resource_object.h"
 #include "core/components/common/properties/color.h"
 #include "core/components/common/properties/text_style.h"
 #include "core/event/ace_events.h"
 #include "core/event/axis_event.h"
-
 namespace OHOS::Ace::NG {
 struct SpanItem;
 }
+
 namespace OHOS::Ace {
 namespace {
 Color DEFAULT_SYMBOL_COLOR = Color::BLACK;
@@ -110,7 +109,6 @@ struct SymbolSpanStyle {
             && lineSpacing == rhs.lineSpacing
             && symbolColor == rhs.symbolColor
             && fontFeature == rhs.fontFeature
-            && fontFeature == rhs.fontFeature
             && fontWeight == rhs.fontWeight
             && renderingStrategy == rhs.renderingStrategy
             && effectStrategy == rhs.effectStrategy;
@@ -132,6 +130,7 @@ struct TextStyleResult {
     bool optimizeTrailingSpace = false;
     std::optional<Dimension> paragraphSpacing;
     std::optional<int32_t> textVerticalAlign;
+    std::optional<int32_t> textDirection;
     int32_t fontStyle = 0;
     int32_t fontWeight = 0;
     FONT_FEATURES_LIST fontFeature;
@@ -140,13 +139,17 @@ struct TextStyleResult {
     std::vector<TextDecoration> decorationTypes;
     std::string decorationColor;
     int32_t decorationStyle = 0;
-    int32_t textAlign = 0;
     int32_t wordBreak = static_cast<int32_t>(WordBreak::BREAK_WORD);
     int32_t lineBreakStrategy = static_cast<int32_t>(LineBreakStrategy::GREEDY);
+    int32_t textAlign = 0;
     std::string leadingMarginSize[2] = { "0.00px", "0.00px" };
     std::vector<Shadow> textShadows;
     std::optional<TextBackgroundStyle> textBackgroundStyle;
     float lineThicknessScale = 1.0f;
+    bool orphanCharOptimization = false;
+    bool compressLeadingPunctuation = false;
+    double strokeWidth = 0.0;
+    std::string strokeColor;
 };
 
 struct ImageStyleResult {
@@ -252,6 +255,7 @@ struct ParagraphInfo {
     // unit of paragraphSpacing is fp
     std::optional<double> paragraphSpacing;
     std::optional<int32_t> textVerticalAlign;
+    std::optional<int32_t> textDirection;
 
     std::pair<int32_t, int32_t> range;
 };

@@ -21,6 +21,8 @@
 #include "base/log/log_wrapper.h"
 #include "base/log/dump_log.h"
 #include "core/components_ng/pattern/ui_extension/platform_utils.h"
+#include "core/components_ng/pattern/ui_extension/ui_extension_manager.h"
+#include "core/components_ng/property/accessibility_property.h"
 #include "core/components_ng/render/animation_utils.h"
 #include "core/pipeline_ng/pipeline_context.h"
 #include "display_manager.h"
@@ -195,9 +197,10 @@ void DynamicPattern::InitializeRender(void* runtime)
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
+    ACE_UINODE_TRACE(host);
     dynamicDumpInfo_.createLimitedWorkerTime = GetCurrentTimestamp();
 #if !defined(PREVIEW)
-    DCResultCode code = CheckConstraint();
+    auto code = CheckConstraint();
     if (code != DCResultCode::DC_NO_ERRORS) {
         HandleErrorCallback(code);
         PLATFORM_LOGE("CheckConstraint failed, code: %{public}d.", code);
@@ -380,6 +383,10 @@ void DynamicPattern::OnAttachContext(PipelineContext *context)
         UnRegisterPipelineEvent(instanceId_);
         RegisterPipelineEvent(newInstanceId);
         instanceId_ = newInstanceId;
+    }
+    auto container = Platform::AceContainer::GetContainer(instanceId_);
+    if (container && (!container->IsSceneBoardWindow())) {
+        this->SetAllowCrossProcessNesting(false);
     }
     AddToPageEventController();
 }
@@ -690,7 +697,7 @@ void DynamicPattern::ResetAccessibilityChildTreeCallback()
 {
     CHECK_NULL_VOID(accessibilityChildTreeCallback_);
     ContainerScope scope(instanceId_);
-    auto ngPipeline = NG::PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto ngPipeline = NG::PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(ngPipeline);
     auto frontend = ngPipeline->GetFrontend();
     CHECK_NULL_VOID(frontend);
@@ -739,6 +746,9 @@ bool DynamicPattern::HandleTouchEvent(
     const std::shared_ptr<MMI::PointerEvent>& pointerEvent)
 {
     CHECK_NULL_RETURN(pointerEvent, false);
+    if (pointerEvent->GetSourceType() == OHOS::MMI::PointerEvent::SOURCE_TYPE_MOUSE) {
+        return false;
+    }
     auto originAction = pointerEvent->GetPointerAction();
     if (originAction == OHOS::MMI::PointerEvent::POINTER_ACTION_PULL_MOVE ||
         originAction == OHOS::MMI::PointerEvent::POINTER_ACTION_PULL_UP) {

@@ -21,7 +21,6 @@
 #include "core/components_ng/manager/drag_drop/drag_drop_initiating/drag_drop_initiating_state_machine.h"
 #include "core/components_ng/manager/drag_drop/drag_drop_manager.h"
 #include "core/components_ng/manager/drag_drop/utils/drag_animation_helper.h"
-#include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/text_drag/text_drag_pattern.h"
@@ -139,6 +138,10 @@ void DragDropInitiatingStateLifting::HandlePanOnActionEnd(const GestureEvent& in
 
 void DragDropInitiatingStateLifting::HandleReStartDrag(const GestureEvent& info)
 {
+    if (info.GetInputEventType() == InputEventType::AXIS) {
+        TAG_LOGE(AceLogTag::ACE_DRAG, "Trigger drag pan event by axis");
+        return;
+    }
     if (info.GetOriginUIInputEventType() == UIInputEventType::AXIS) {
         TAG_LOGE(AceLogTag::ACE_DRAG, "Trigger drag pan event by touch transformed from axis");
         return;
@@ -215,10 +218,6 @@ bool DragDropInitiatingStateLifting::CheckDoShowPreview(const RefPtr<FrameNode>&
         TAG_LOGI(AceLogTag::ACE_DRAG, "Not need to show drag preview because of bind context menu");
         return false;
     }
-    if (!frameNode->GetDragPreviewOption().isDragPreviewEnabled) {
-        TAG_LOGI(AceLogTag::ACE_DRAG, "Not need to show drag preview because disable drag preview");
-        return false;
-    }
     return true;
 }
 
@@ -235,6 +234,8 @@ void DragDropInitiatingStateLifting::SetScaleAnimation(int32_t fingerId)
     auto motion = AceType::MakeRefPtr<ResponsiveSpringMotion>(SPRING_RESPONSE, SPRING_DAMPING_FRACTION, 0);
     auto imageContext = imageNode->GetRenderContext();
     CHECK_NULL_VOID(imageContext);
+    auto context = imageNode->GetContextRefPtr();
+    CHECK_NULL_VOID(context);
     AnimationOption option;
     option.SetDuration(PIXELMAP_ANIMATION_TIME);
     option.SetCurve(motion);
@@ -254,7 +255,7 @@ void DragDropInitiatingStateLifting::SetScaleAnimation(int32_t fingerId)
         [imageContext]() {
             imageContext->UpdateTransformScale({ PIXELMAP_DRAG_SCALE_MULTIPLE, PIXELMAP_DRAG_SCALE_MULTIPLE });
         },
-        option.GetOnFinishEvent());
+        option.GetOnFinishEvent(), nullptr, context);
 }
 
 void DragDropInitiatingStateLifting::SetPixelMap()
@@ -315,6 +316,8 @@ void DragDropInitiatingStateLifting::ShowPixelMapAnimation(
 
     auto machine = GetStateMachine();
     CHECK_NULL_VOID(machine);
+    auto context = imageNode->GetContextRefPtr();
+    CHECK_NULL_VOID(context);
     auto params = machine->GetDragDropInitiatingParams();
     frameNode->SetOptionsAfterApplied(params.optionsAfterApplied);
     DragAnimationHelper::SetImageNodeInitAttr(frameNode, imageNode);
@@ -340,7 +343,7 @@ void DragDropInitiatingStateLifting::ShowPixelMapAnimation(
             }
             DragDropFuncWrapper::ApplyNewestOptionExecutedFromModifierToNode(frameNode, imageNode);
         },
-        option.GetOnFinishEvent());
+        option.GetOnFinishEvent(), nullptr, context);
 }
 
 void DragDropInitiatingStateLifting::SetGatherAnimation(const RefPtr<PipelineBase>& context)
@@ -455,8 +458,8 @@ void DragDropInitiatingStateLifting::Init(int32_t currentState)
     auto dragPreviewOption = frameNode->GetDragPreviewOption();
     if (!dragPreviewOption.isLiftingDisabled) {
         SetPixelMap();
-        SetGatherAnimation(pipeline);
         SetScaleAnimation(params.idleFingerId);
+        SetGatherAnimation(pipeline);
     }
     SetEventColumn();
     pipeline->FlushSyncGeometryNodeTasks();
@@ -497,7 +500,7 @@ void OHOS::Ace::NG::DragDropInitiatingStateLifting::SetTextAnimation()
         columnRenderContext->UpdatePosition(OffsetT<Dimension>(Dimension(0.0f), Dimension(0.0f)));
     }
     // mount to rootNode
-    manager->MountPixelMapToRootNode(columnNode);
+    manager->MountPixelMapToRootNode(columnNode, false, frameNode);
     auto textDragPattern = dragNode->GetPattern<TextDragPattern>();
     CHECK_NULL_VOID(textDragPattern);
     auto modifier = textDragPattern->GetOverlayModifier();

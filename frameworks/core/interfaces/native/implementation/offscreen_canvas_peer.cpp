@@ -29,18 +29,18 @@ void OffscreenCanvasPeer::SetOptions(const double cw, const double ch)
     offscreenCanvasPattern = OHOS::Ace::AceType::MakeRefPtr<OHOS::Ace::NG::OffscreenCanvasPattern>(
         static_cast<int32_t>(fWidth), static_cast<int32_t>(fHeight));
 }
-ImageBitmapPeer* OffscreenCanvasPeer::TransferToImageBitmap(ImageBitmapPeer* bitmap)
+ImageBitmapPeer* OffscreenCanvasPeer::TransferToImageBitmap()
 {
-    CHECK_NULL_RETURN(offscreenCanvasPattern, nullptr);
-    CHECK_NULL_RETURN(offscreenCanvasContext, nullptr);
-    CHECK_NULL_RETURN(bitmap, nullptr);
+    auto bitmap = OHOS::Ace::NG::PeerUtils::CreatePeer<ImageBitmapPeer>();
+    CHECK_NULL_RETURN(offscreenCanvasPattern, bitmap);
+    CHECK_NULL_RETURN(offscreenCanvasContext, bitmap);
     OHOS::Ace::ContainerScope scope(OHOS::Ace::Container::CurrentIdSafely());
     auto pixelMap = offscreenCanvasPattern->TransferToImageBitmap();
     ImageBitmapPeer::LoadImageConstructor(bitmap, pixelMap);
 #ifndef PIXEL_MAP_SUPPORTED
     auto imageData = offscreenCanvasPattern->GetImageData(0, 0, width, height);
     if (imageData == nullptr) {
-        return nullptr;
+        return bitmap;
     }
     bitmap->SetImageData(std::make_shared<OHOS::Ace::ImageData>(*imageData));
 #endif
@@ -130,7 +130,7 @@ double OffscreenCanvasPeer::OnGetWidth(double errValue)
         return errValue;
     }
     fWidth /= density;
-    return fWidth / density;
+    return fWidth;
 }
 void OffscreenCanvasPeer::OnSetWidth(double value)
 {

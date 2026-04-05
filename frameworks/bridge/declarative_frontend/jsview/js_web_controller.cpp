@@ -278,6 +278,7 @@ JSWebController::JSWebController()
 std::shared_ptr<WebJSValue> JSWebController::GetJavaScriptResult(const std::string& objectName,
     const std::string& objectMethod, const std::vector<std::shared_ptr<WebJSValue>>& args)
 {
+    ContainerScope scope(instanceId_);
     std::vector<JSRef<JSVal>> argv = {};
     std::shared_ptr<WebJSValue> jsResult = std::make_shared<WebJSValue>(WebJSValue::Type::NONE);
     auto iter = objectorMap_.find(objectName);
@@ -534,7 +535,6 @@ void JSWebController::JSBind(BindingTarget globalObj)
     JSClass<JSWebController>::CustomMethod("clearMatches", &JSWebController::ClearMatches);
     JSClass<JSWebController>::CustomMethod("searchNext", &JSWebController::SearchNext);
     JSClass<JSWebController>::CustomMethod("getUrl", &JSWebController::GetUrl);
-    JSClass<JSWebController>::CustomMethod("getProgress", &JSWebController::GetProgress);
     JSClass<JSWebController>::Bind(globalObj, JSWebController::Constructor, JSWebController::Destructor);
     JSWebCookie::JSBind(globalObj);
     JSHitTestValue::JSBind(globalObj);
@@ -893,14 +893,6 @@ void JSWebController::ZoomOut(const JSCallbackInfo& args)
     }
 }
 
-void JSWebController::GetProgress(const JSCallbackInfo& args)
-{
-    if (webController_) {
-        int result = webController_->GetProgress();
-        args.SetReturnValue(JSRef<JSVal>::Make(ToJSValue(result)));
-    }
-}
-
 void JSWebController::GetPageHeight(const JSCallbackInfo& args)
 {
     ContainerScope scope(instanceId_);
@@ -946,6 +938,7 @@ void JSWebController::SetJavascriptCallBackImpl()
     WebController::JavaScriptCallBackImpl callback = [weak = WeakClaim(this)](const std::string& objectName,
                                                          const std::string& objectMethod,
                                                          const std::vector<std::shared_ptr<WebJSValue>>& args) {
+        JAVASCRIPT_EXECUTION_SCOPE_STATIC;
         auto jsWebController = weak.Upgrade();
         if (jsWebController == nullptr) {
             return std::make_shared<WebJSValue>(WebJSValue::Type::NONE);

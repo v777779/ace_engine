@@ -24,6 +24,11 @@ using CacheItem = RepeatVirtualScroll2Caches::CacheItem;
 using OptCacheItem = RepeatVirtualScroll2Caches::OptCacheItem;
 using GetFrameChildResult = RepeatVirtualScroll2Caches::GetFrameChildResult;
 
+/**
+ * @tc.name: CreateNode001
+ * @tc.desc: Test creation of FrameNode
+ * @tc.type: FUNC
+ */
 RefPtr<FrameNode> RepeatVirtual2TestNg::CreateNode(const std::string& tag)
 {
     auto pattern = AceType::MakeRefPtr<Pattern>();
@@ -33,7 +38,7 @@ RefPtr<FrameNode> RepeatVirtual2TestNg::CreateNode(const std::string& tag)
     return frameNode;
 }
 
-RefPtr<RepeatVirtualScroll2Node> RepeatVirtual2TestNg::CreateRepeatVirtualNode(uint32_t totalCount)
+RefPtr<RepeatVirtualScroll2Node> RepeatVirtual2TestNg::CreateRepeatVirtualNode(uint32_t arrLen, uint32_t totalCount)
 {
     l1Rid4Index_ = {
         {0, 1},
@@ -43,7 +48,7 @@ RefPtr<RepeatVirtualScroll2Node> RepeatVirtual2TestNg::CreateRepeatVirtualNode(u
         {4, 5},
         {5, 6}
     };
-    onGetRid4Index_ = [&](IndexType index) -> std::pair<RIDType, uint32_t> {
+    onGetRid4Index_ = [&](IndexType index, bool inAnimation) -> std::pair<RIDType, uint32_t> {
         auto it = l1Rid4Index_.find(0);
         if (it != l1Rid4Index_.end()) {
             return {index, 2};
@@ -63,10 +68,19 @@ RefPtr<RepeatVirtualScroll2Node> RepeatVirtual2TestNg::CreateRepeatVirtualNode(u
     onPurge_ = []() -> void {
         return;
     };
+    onUpdateDirty_ = []() -> void {
+        return;
+    };
     return RepeatVirtualScroll2Node::GetOrCreateRepeatNode(
-        GetElmtId(), totalCount, totalCount, onGetRid4Index_, onRecycleItems_, onActiveRange_, onMoveFromTo_, onPurge_);
+        GetElmtId(), arrLen, totalCount, onGetRid4Index_, onRecycleItems_, onActiveRange_,
+        onMoveFromTo_, onPurge_, onUpdateDirty_);
 }
 
+/**
+ * @tc.name: CreateListItemNode
+ * @tc.desc: Test creation of ListItemNode
+ * @tc.type: FUNC
+ */
 RefPtr<FrameNode> RepeatVirtual2TestNg::CreateListItemNode()
 {
     auto tag = "TEXT_ETS_TAG";
@@ -90,6 +104,25 @@ RefPtr<FrameNode> RepeatVirtual2TestNg::CreateListItemNode()
     return listItemFrameNode;
 }
 
+class MockFrameNode : public FrameNode {
+    DECLARE_ACE_TYPE(MockFrameNode, FrameNode);
+
+public:
+    MockFrameNode(const std::string& tag, int32_t nodeId, const RefPtr<Pattern>& pattern)
+        : FrameNode(tag, nodeId, pattern)
+    {}
+
+    ~MockFrameNode() override = default;
+
+    bool IsAtomicNode() const override
+    {
+        return true;
+    }
+
+    MOCK_METHOD(void, OnRecycle, (), (override));
+    MOCK_METHOD(void, OnReuse, (), (override));
+};
+
 /**
  * @tc.name: CreateRepeat001
  * @tc.desc: Test creation of GetOrCreateRepeatNode
@@ -104,7 +137,8 @@ HWTEST_F(RepeatVirtual2TestNg, CreateRepeat001, TestSize.Level1)
      * @tc.expected: Object is not nullptr.
      */
     auto repeatNode = RepeatVirtualScroll2Node::GetOrCreateRepeatNode(
-        nodeId, 10, 10, onGetRid4Index_, onRecycleItems_, onActiveRange_, onMoveFromTo_, onPurge_);
+        nodeId, 10, 10, onGetRid4Index_, onRecycleItems_, onActiveRange_,
+        onMoveFromTo_, onPurge_, onUpdateDirty_);
 
     EXPECT_NE(repeatNode, nullptr);
 }
@@ -116,7 +150,7 @@ HWTEST_F(RepeatVirtual2TestNg, CreateRepeat001, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, FrameCount001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
 
     /**
      * @tc.steps: step2. Get frame count
@@ -145,7 +179,7 @@ HWTEST_F(RepeatVirtual2TestNg, GetChildren001, TestSize.Level1)
      * @tc.steps: step1. Test node.GetChildren when repeat is empty
      * @tc.expected: children size shoule be 0
      */
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
     auto children = repeatNode->GetChildren();
     EXPECT_EQ(children.size(), 0);
 
@@ -162,6 +196,30 @@ HWTEST_F(RepeatVirtual2TestNg, GetChildren001, TestSize.Level1)
     repeatNode->children_ = { uiNode };
     children = repeatNode->GetChildren();
     EXPECT_EQ(children.size(), 1);
+}
+
+/**
+ * @tc.name: GetChildren002
+ * @tc.desc: Test node.GetChildren
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, GetChildren002, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    repeatNode->caches_.l1Rid4Index_ = {
+        {0, 1}, {1, 2}, {2, 3}, {3, 4}
+    };
+    RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2003, AceType::MakeRefPtr<Pattern>());
+    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    CacheItem cacheItem2 = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    cacheItem2->node_ = nullptr;
+    repeatNode->caches_.cacheItem4Rid_ = {
+        { 1, cacheItem }, { 2, cacheItem }, { 3, cacheItem }, { 4, cacheItem2 }
+    };
+    EXPECT_EQ(repeatNode->GetChildren().size(), 3);
+    repeatNode->caches_.moveFromTo_ = {0, 1};
+    repeatNode->children_.clear();
+    EXPECT_EQ(repeatNode->GetChildren().size(), 3);
 }
 
 /**
@@ -195,7 +253,7 @@ HWTEST_F(RepeatVirtual2TestNg, GetFrameChild001, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, RemoveNode001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
     repeatNode->caches_.l1Rid4Index_ = {
         {0, 1}, {1, 2}, {2, 3}, {3, 4}
     };
@@ -222,7 +280,7 @@ HWTEST_F(RepeatVirtual2TestNg, RemoveNode001, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, CheckActiveRange001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
     ActiveRangeType activeRange;
 
     /**
@@ -257,7 +315,7 @@ HWTEST_F(RepeatVirtual2TestNg, CheckActiveRange001, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, CheckActiveRange002, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
     ActiveRangeType activeRange;
 
     /**
@@ -292,7 +350,7 @@ HWTEST_F(RepeatVirtual2TestNg, CheckActiveRange002, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, CheckActiveRange003, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
     repeatNode->SetIsLoop(true);
     ActiveRangeType activeRange;
 
@@ -324,7 +382,7 @@ HWTEST_F(RepeatVirtual2TestNg, CheckActiveRange003, TestSize.Level1)
      * @tc.steps: step4. check active range for: 2 [3 0] 1
      * @tc.expected: active range is {3,2} (overlapped)
      */
-    auto repeatNode2 = CreateRepeatVirtualNode(4);
+    auto repeatNode2 = CreateRepeatVirtualNode(4, 4);
     repeatNode2->SetIsLoop(true);
     activeRange = repeatNode2->CheckActiveRange(3, 0, 2, 2);
     std::pair<IndexType, IndexType> expect_result4(3, 2);
@@ -334,7 +392,7 @@ HWTEST_F(RepeatVirtual2TestNg, CheckActiveRange003, TestSize.Level1)
      * @tc.steps: step5. check active range for: [0 1] 2 3..
      * @tc.expected: active range is {-2,3}
      */
-    auto repeatNode3 = CreateRepeatVirtualNode(10);
+    auto repeatNode3 = CreateRepeatVirtualNode(10, 10);
     repeatNode3->SetIsLoop(true);
     activeRange = repeatNode3->CheckActiveRange(0, 1, 2, 2);
     std::pair<IndexType, IndexType> expect_result5(-2, 3);
@@ -349,7 +407,7 @@ HWTEST_F(RepeatVirtual2TestNg, CheckActiveRange003, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, CheckActiveRange004, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
     ActiveRangeType activeRange;
 
     /**
@@ -408,7 +466,7 @@ HWTEST_F(RepeatVirtual2TestNg, CheckActiveRange004, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, CheckNodeInL1001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
     RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2009, AceType::MakeRefPtr<Pattern>());
     CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
     bool remainInL1;
@@ -442,7 +500,7 @@ HWTEST_F(RepeatVirtual2TestNg, CheckNodeInL1001, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, SetActiveRange001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
 
     /**
      * @tc.steps: step1. check normal active range
@@ -480,7 +538,7 @@ HWTEST_F(RepeatVirtual2TestNg, SetActiveRange001, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, GetL1Nodes001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
     RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2011, AceType::MakeRefPtr<Pattern>());
     CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
     repeatNode->caches_.l1Rid4Index_ = {
@@ -499,13 +557,38 @@ HWTEST_F(RepeatVirtual2TestNg, GetL1Nodes001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: GetL1Nodes002
+ * @tc.desc: Test caches.GetL1Index4Node
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, GetL1Nodes002, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    RefPtr<UINode> uiNode = CreateTestUINode(GetElmtId());
+    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    repeatNode->caches_.l1Rid4Index_ = {
+        {0, 1}
+    };
+    repeatNode->caches_.cacheItem4Rid_ = {
+        {1, cacheItem}
+    };
+
+    /**
+     * @tc.steps: step1.
+     * @tc.expected: GetL1Index4Node return null
+     */
+    std::optional<IndexType> result = repeatNode->caches_.GetL1Index4Node(AceType::DynamicCast<FrameNode>(uiNode));
+    EXPECT_EQ(result.has_value(), false);
+}
+
+/**
  * @tc.name: GetAllNodes001
  * @tc.desc: Test caches.GetCacheItem4RID
  * @tc.type: FUNC
  */
 HWTEST_F(RepeatVirtual2TestNg, GetAllNodes001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
     RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2012, AceType::MakeRefPtr<Pattern>());
     CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
 
@@ -530,7 +613,7 @@ HWTEST_F(RepeatVirtual2TestNg, GetAllNodes001, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, GetRID4Index001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
     RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2013, AceType::MakeRefPtr<Pattern>());
     CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
 
@@ -549,13 +632,64 @@ HWTEST_F(RepeatVirtual2TestNg, GetRID4Index001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: CallOnGetRid4Index001
+ * @tc.desc: Test caches.CallOnGetRid4Index
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, CallOnGetRid4Index001, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+
+    repeatNode->caches_.onGetRid4Index_ = [](IndexType index, bool inAnimation)->std::pair<RIDType, uint32_t> {
+        return {1, OnGetRid4IndexResult::CREATED_NEW_NODE}; };
+    auto item0 = repeatNode->caches_.CallOnGetRid4Index(0).value();
+    EXPECT_EQ(item0, nullptr);
+
+    repeatNode->caches_.onGetRid4Index_ = [&](IndexType index, bool inAnimation)->std::pair<RIDType, uint32_t> {
+        CreateListItemNode(); return {1, OnGetRid4IndexResult::CREATED_NEW_NODE}; };
+    auto item1 = repeatNode->caches_.CallOnGetRid4Index(0).value();
+    EXPECT_EQ(item1->node_->GetId(), 10002);
+
+    repeatNode->caches_.onGetRid4Index_ = [&](IndexType index, bool inAnimation)->std::pair<RIDType, uint32_t> {
+        CreateListItemNode(); return {0, OnGetRid4IndexResult::CREATED_NEW_NODE}; };
+    auto item2 = repeatNode->caches_.CallOnGetRid4Index(0);
+    EXPECT_EQ(item2, std::nullopt);
+
+    repeatNode->caches_.onGetRid4Index_ = [](IndexType index, bool inAnimation)->std::pair<RIDType, uint32_t> {
+        return {1, OnGetRid4IndexResult::UPDATED_NODE}; };
+    auto item3 = repeatNode->caches_.CallOnGetRid4Index(0).value();
+    EXPECT_EQ(item3->node_->GetId(), 10002);
+
+    repeatNode->caches_.onGetRid4Index_ = [](IndexType index, bool inAnimation)->std::pair<RIDType, uint32_t> {
+        return {2, OnGetRid4IndexResult::UPDATED_NODE}; };
+    auto item4 = repeatNode->caches_.CallOnGetRid4Index(0);
+    EXPECT_EQ(item4, std::nullopt);
+
+    repeatNode->caches_.onGetRid4Index_ = [](IndexType index, bool inAnimation)->std::pair<RIDType, uint32_t> {
+        return {1, OnGetRid4IndexResult::UPDATED_NODE}; };
+    repeatNode->caches_.GetCacheItem4RID(1).value()->node_ = nullptr;
+    auto item5 = repeatNode->caches_.CallOnGetRid4Index(0);
+    EXPECT_EQ(item5, std::nullopt);
+
+    repeatNode->caches_.onGetRid4Index_ = [](IndexType index, bool inAnimation)->std::pair<RIDType, uint32_t> {
+        return {0, OnGetRid4IndexResult::UPDATED_NODE}; };
+    auto item6 = repeatNode->caches_.CallOnGetRid4Index(0);
+    EXPECT_EQ(item6, std::nullopt);
+
+    repeatNode->caches_.onGetRid4Index_ = [](IndexType index, bool inAnimation)->std::pair<RIDType, uint32_t> {
+        return {1, OnGetRid4IndexResult::NO_NODE}; };
+    auto item7 = repeatNode->caches_.CallOnGetRid4Index(0);
+    EXPECT_EQ(item7, std::nullopt);
+}
+
+/**
  * @tc.name: ConvertFromToIndex001
  * @tc.desc: Test caches.ConvertFromToIndex
  * @tc.type: FUNC
  */
 HWTEST_F(RepeatVirtual2TestNg, ConvertFromToIndex001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(6);
+    auto repeatNode = CreateRepeatVirtualNode(6, 6);
     repeatNode->MoveData(0, 1);
     repeatNode->MoveData(1, 2);
     repeatNode->MoveData(2, 3);
@@ -607,7 +741,7 @@ HWTEST_F(RepeatVirtual2TestNg, ConvertFromToIndex001, TestSize.Level1)
  */
 HWTEST_F(RepeatVirtual2TestNg, ConvertFromToIndex002, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(6);
+    auto repeatNode = CreateRepeatVirtualNode(6, 6);
     repeatNode->MoveData(0, 1);
     repeatNode->MoveData(1, 2);
     repeatNode->MoveData(2, 3);
@@ -653,13 +787,73 @@ HWTEST_F(RepeatVirtual2TestNg, ConvertFromToIndex002, TestSize.Level1)
 }
 
 /**
+ * @tc.name: RecycleItems001
+ * @tc.desc: Test node.RecycleItems
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, RecycleItems001, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    repeatNode->RecycleItems(0, 5);
+    EXPECT_EQ(repeatNode->prevRecycleFrom_, 0);
+    EXPECT_EQ(repeatNode->prevRecycleTo_, 5);
+    repeatNode->RecycleItems(5, 0);
+    EXPECT_EQ(repeatNode->prevRecycleFrom_, 0);
+    EXPECT_EQ(repeatNode->prevRecycleTo_, 5);
+}
+
+/**
+ * @tc.name: NotifyColorModeChange001
+ * @tc.desc: Test caches.NotifyColorModeChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, NotifyColorModeChange001, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    repeatNode->caches_.l1Rid4Index_ = {
+        {0, 1}, {1, 2}, {2, 3}, {3, 4}
+    };
+    RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2016, AceType::MakeRefPtr<Pattern>());
+    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    repeatNode->caches_.cacheItem4Rid_ = {
+        { 1, cacheItem }, { 2, cacheItem }, { 3, cacheItem }, { 4, cacheItem }
+    };
+    repeatNode->NotifyColorModeChange(1);
+    EXPECT_TRUE(cacheItem->node_->measureAnyWay_);
+}
+
+/**
+ * @tc.name: NotifyColorModeChange002
+ * @tc.desc: Test caches.NotifyColorModeChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, NotifyColorModeChange002, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    repeatNode->caches_.l1Rid4Index_ = {
+        {0, 1}
+    };
+    RefPtr<UINode> uiNode = AceType::MakeRefPtr<CustomNode>(2016, "node");
+    RefPtr<UINode> childNode = AceType::MakeRefPtr<CustomNode>(2016, "childNode");
+    uiNode->children_ = { childNode };
+    uiNode->SetDarkMode(true);
+    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    repeatNode->caches_.cacheItem4Rid_ = {
+        { 1, cacheItem }
+    };
+    EXPECT_FALSE(childNode->CheckIsDarkMode());
+    repeatNode->NotifyColorModeChange(1);
+    EXPECT_TRUE(childNode->CheckIsDarkMode());
+}
+
+/**
  * @tc.name: UpdateFrameChildIndexRecord001
  * @tc.desc: Test node.updateFrameChildIndexRecord
  * @tc.type: FUNC
  */
 HWTEST_F(RepeatVirtual2TestNg, UpdateFrameChildIndexRecord001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(6);
+    auto repeatNode = CreateRepeatVirtualNode(6, 6);
     repeatNode->minFrameChildIndex_ = 0;
     repeatNode->maxFrameChildIndex_ = 0;
     repeatNode->needRecordFirstFrameChild_ = true;
@@ -684,22 +878,267 @@ HWTEST_F(RepeatVirtual2TestNg, UpdateFrameChildIndexRecord001, TestSize.Level1)
 }
 
 /**
- * @tc.name: NotifyColorModeChange001
- * @tc.desc: Test caches.NotifyColorModeChange
+ * @tc.name: UpdateIsL1001
+ * @tc.desc: Test caches.UpdateIsL1
  * @tc.type: FUNC
  */
-HWTEST_F(RepeatVirtual2TestNg, NotifyColorModeChange001, TestSize.Level1)
+HWTEST_F(RepeatVirtual2TestNg, UpdateIsL1001, TestSize.Level1)
 {
-    auto repeatNode = CreateRepeatVirtualNode(10);
-    repeatNode->caches_.l1Rid4Index_ = {
-        {0, 1}, {1, 2}, {2, 3}, {3, 4}
-    };
-    RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2016, AceType::MakeRefPtr<Pattern>());
-    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
-    repeatNode->caches_.cacheItem4Rid_ = {
-        { 1, cacheItem }, { 2, cacheItem }, { 3, cacheItem }, { 4, cacheItem }
-    };
-    repeatNode->NotifyColorModeChange(1);
-    EXPECT_EQ(repeatNode->GetChildren().size(), 4);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    RefPtr<UINode> mockNode = AceType::MakeRefPtr<MockFrameNode>("node", 2017, AceType::MakeRefPtr<Pattern>());
+    CacheItem cacheItem0 = RepeatVirtualScroll2CacheItem::MakeCacheItem(mockNode, true);
+    CacheItem cacheItem1 = RepeatVirtualScroll2CacheItem::MakeCacheItem(mockNode, true);
+    /**
+     * @tc.steps: step1. update cacheItem0 to non-L1 when node_ is nullptr
+     * @tc.expected: isL1_ is false, recycledNodeIds_ size is 0
+     */
+    cacheItem0->node_ = nullptr;
+    repeatNode->caches_.UpdateIsL1(cacheItem0, false);
+    EXPECT_EQ(cacheItem0->isL1_, false);
+    EXPECT_EQ(repeatNode->caches_.recycledNodeIds_.size(), 0);
+    /**
+     * @tc.steps: step2. update cacheItem1 to non-L1 when node_ is valid
+     * @tc.expected: isL1_ is false, recycledNodeIds_ size is 1
+     */
+    EXPECT_CALL(*(AceType::DynamicCast<MockFrameNode>(cacheItem1->node_)), OnRecycle())
+        .Times(1); // expect OnRecycle called once
+    repeatNode->caches_.UpdateIsL1(cacheItem1, false);
+    EXPECT_EQ(cacheItem1->isL1_, false);
+    EXPECT_EQ(repeatNode->caches_.recycledNodeIds_.size(), 1);
+    /**
+     * @tc.steps: step3. update cacheItem0 to L1
+     * @tc.expected: isL1_ is true, recycledNodeIds_ size is 1
+     */
+    repeatNode->caches_.UpdateIsL1(cacheItem0, true);
+    EXPECT_EQ(cacheItem0->isL1_, true);
+    EXPECT_EQ(repeatNode->caches_.recycledNodeIds_.size(), 1);
+    /**
+     * @tc.steps: step4. update cacheItem1 to L1
+     * @tc.expected: isL1_ is true, recycledNodeIds_ size is 0
+     */
+    EXPECT_CALL(*(AceType::DynamicCast<MockFrameNode>(cacheItem1->node_)), OnReuse())
+        .Times(1); // expect OnReuse called once
+    repeatNode->caches_.UpdateIsL1(cacheItem1, true);
+    EXPECT_EQ(cacheItem1->isL1_, true);
+    EXPECT_EQ(repeatNode->caches_.recycledNodeIds_.size(), 0);
+    /**
+     * @tc.steps: step5. update cacheItem1 to non-L1 again
+     * @tc.expected: isL1_ is false, recycledNodeIds_ size is 1
+     */
+    repeatNode->caches_.UpdateIsL1(cacheItem1, false, false);
+    EXPECT_EQ(cacheItem1->isL1_, false);
+    EXPECT_EQ(repeatNode->caches_.recycledNodeIds_.size(), 0);
 }
+
+/**
+ * @tc.name: UpdateL1Rid4Index001
+ * @tc.desc: Test caches.UpdateL1Rid4Index
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, UpdateL1Rid4Index001, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    RefPtr<UINode> uiNode0 = AceType::MakeRefPtr<FrameNode>("node", 2018, AceType::MakeRefPtr<Pattern>());
+    RefPtr<UINode> uiNode1 = AceType::MakeRefPtr<FrameNode>("node", 2019, AceType::MakeRefPtr<Pattern>());
+    RefPtr<UINode> uiNode2 = AceType::MakeRefPtr<FrameNode>("node", 2020, AceType::MakeRefPtr<Pattern>());
+    CacheItem cacheItem0 = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode0, true);
+    CacheItem cacheItem1 = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode1, true);
+    CacheItem cacheItem2 = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode2, false);
+    repeatNode->caches_.cacheItem4Rid_ = {
+        { 1, cacheItem0 }, { 2, cacheItem1 }, { 3, cacheItem2 }
+    };
+    repeatNode->caches_.UpdateL1Rid4Index({ { 1, 2 }, { 2, 3 } });
+    EXPECT_EQ(cacheItem0->isL1_, false);
+    EXPECT_EQ(cacheItem1->isL1_, true);
+    EXPECT_EQ(cacheItem2->isL1_, true);
+}
+
+/**
+ * @tc.name: GetFrameChildByIndexImpl001
+ * @tc.desc: Test node.GetFrameChildByIndexImpl
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, GetFrameChildByIndexImpl001, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2021, AceType::MakeRefPtr<Pattern>());
+    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    repeatNode->caches_.cacheItem4Rid_ = { { 1, cacheItem } };
+    repeatNode->caches_.l1Rid4Index_ = { { 0, 1} };
+    repeatNode->onMainTree_ = true;
+    repeatNode->AddDisappearingChild(uiNode);
+    EXPECT_EQ(repeatNode->disappearingChildren_.size(), 1);
+    repeatNode->GetFrameChildByIndexImpl(0, true, true, false);
+    EXPECT_EQ(repeatNode->disappearingChildren_.size(), 0);
+}
+
+/**
+ * @tc.name: IsAllowAnimation001
+ * @tc.desc: Test node.IsAllowAnimation
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, IsAllowAnimation001, TestSize.Level1)
+{
+    auto listNode = CreateNode(V2::LIST_ETS_TAG);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    
+    listNode->AddChild(repeatNode);
+    EXPECT_EQ(repeatNode->IsAllowAnimation(), true);
+}
+
+/**
+ * @tc.name: IsAllowAnimation002
+ * @tc.desc: Test node.IsAllowAnimation
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, IsAllowAnimation002, TestSize.Level1)
+{
+    auto gridNode = CreateNode(V2::GRID_ETS_TAG);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    
+    gridNode->AddChild(repeatNode);
+    EXPECT_EQ(repeatNode->IsAllowAnimation(), false);
+}
+
+/**
+ * @tc.name: IsChildInAnimation001
+ * @tc.desc: Test node.IsChildInAnimation
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, IsChildInAnimation001, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    EXPECT_EQ(repeatNode->IsChildInAnimation(0), false);
+}
+
+/**
+ * @tc.name: IsChildOnMainTree001
+ * @tc.desc: Test node.IsChildOnMainTree
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, IsChildOnMainTree001, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2022, AceType::MakeRefPtr<Pattern>());
+    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    repeatNode->caches_.cacheItem4Rid_ = { { 1, cacheItem } };
+    repeatNode->caches_.l1Rid4Index_ = { { 0, 1} };
+    uiNode->onMainTree_ = true;
+    EXPECT_EQ(repeatNode->IsChildOnMainTree(1), true);
+    uiNode->onMainTree_ = false;
+    EXPECT_EQ(repeatNode->IsChildOnMainTree(1), false);
+    EXPECT_EQ(repeatNode->IsChildOnMainTree(2), false);
+}
+
+/**
+ * @tc.name: ModelIsAllowAnimation001
+ * @tc.desc: Test model.IsAllowAnimation
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, ModelIsAllowAnimation001, TestSize.Level1)
+{
+    auto listNode = CreateNode(V2::LIST_ETS_TAG);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    auto repeatId = elmtId_;
+    listNode->AddChild(repeatNode);
+    RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2023, AceType::MakeRefPtr<Pattern>());
+    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    repeatNode->caches_.cacheItem4Rid_ = { { 1, cacheItem } };
+    repeatNode->caches_.l1Rid4Index_ = { { 0, 1} };
+    uiNode->onMainTree_ = true;
+
+    RepeatVirtualScroll2ModelNG repeatModel;
+    EXPECT_EQ(repeatModel.IsAllowAnimation(repeatId), true);
+    EXPECT_EQ(repeatModel.IsAllowAnimation(0), false);
+
+    ViewStackProcessor::GetInstance()->Push(repeatNode);
+    EXPECT_EQ(repeatModel.IsAllowAnimation(0), true);
+    ViewStackProcessor::GetInstance()->Finish();
+}
+
+/**
+ * @tc.name: ModelIsAllowAnimation002
+ * @tc.desc: Test model.IsAllowAnimation
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, ModelIsAllowAnimation002, TestSize.Level1)
+{
+    auto gridNode = CreateNode(V2::GRID_ETS_TAG);
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    auto repeatId = elmtId_;
+    gridNode->AddChild(repeatNode);
+    RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2024, AceType::MakeRefPtr<Pattern>());
+    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    repeatNode->caches_.cacheItem4Rid_ = { { 1, cacheItem } };
+    repeatNode->caches_.l1Rid4Index_ = { { 0, 1} };
+    uiNode->onMainTree_ = true;
+
+    RepeatVirtualScroll2ModelNG repeatModel;
+    EXPECT_EQ(repeatModel.IsAllowAnimation(repeatId), false);
+    EXPECT_EQ(repeatModel.IsAllowAnimation(0), false);
+
+    ViewStackProcessor::GetInstance()->Push(repeatNode);
+    EXPECT_EQ(repeatModel.IsAllowAnimation(0), false);
+    ViewStackProcessor::GetInstance()->Finish();
+}
+
+/**
+ * @tc.name: ModelIsImplicitAnimationOpen001
+ * @tc.desc: Test model.IsImplicitAnimationOpen
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, ModelIsImplicitAnimationOpen001, TestSize.Level1)
+{
+    RepeatVirtualScroll2ModelNG repeatModel;
+    EXPECT_EQ(repeatModel.IsImplicitAnimationOpen(), AnimationUtils::IsImplicitAnimationOpen());
+}
+
+/**
+ * @tc.name: ModelIsChildInAnimation001
+ * @tc.desc: Test model.IsChildInAnimation
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, ModelIsChildInAnimation001, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    auto repeatId = elmtId_;
+    RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2025, AceType::MakeRefPtr<Pattern>());
+    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    repeatNode->caches_.cacheItem4Rid_ = { { 1, cacheItem } };
+    repeatNode->caches_.l1Rid4Index_ = { { 0, 1} };
+    uiNode->onMainTree_ = true;
+
+    RepeatVirtualScroll2ModelNG repeatModel;
+    EXPECT_EQ(repeatModel.IsChildInAnimation(repeatId, 1), false);
+    EXPECT_EQ(repeatModel.IsChildInAnimation(0, 1), false);
+
+    ViewStackProcessor::GetInstance()->Push(repeatNode);
+    EXPECT_EQ(repeatModel.IsChildInAnimation(0, 1), false);
+    ViewStackProcessor::GetInstance()->Finish();
+}
+
+/**
+ * @tc.name: ModelIsChildOnMainTree001
+ * @tc.desc: Test model.IsChildOnMainTree
+ * @tc.type: FUNC
+ */
+HWTEST_F(RepeatVirtual2TestNg, ModelIsChildOnMainTree001, TestSize.Level1)
+{
+    auto repeatNode = CreateRepeatVirtualNode(10, 10);
+    auto repeatId = elmtId_;
+    RefPtr<UINode> uiNode = AceType::MakeRefPtr<FrameNode>("node", 2026, AceType::MakeRefPtr<Pattern>());
+    CacheItem cacheItem = RepeatVirtualScroll2CacheItem::MakeCacheItem(uiNode, true);
+    repeatNode->caches_.cacheItem4Rid_ = { { 1, cacheItem } };
+    repeatNode->caches_.l1Rid4Index_ = { { 0, 1} };
+    uiNode->onMainTree_ = true;
+
+    RepeatVirtualScroll2ModelNG repeatModel;
+    EXPECT_EQ(repeatModel.IsChildOnMainTree(repeatId, 1), true);
+    EXPECT_EQ(repeatModel.IsChildOnMainTree(0, 1), false);
+
+    ViewStackProcessor::GetInstance()->Push(repeatNode);
+    EXPECT_EQ(repeatModel.IsChildOnMainTree(0, 1), true);
+    ViewStackProcessor::GetInstance()->Finish();
+}
+
 } // namespace OHOS::Ace::NG

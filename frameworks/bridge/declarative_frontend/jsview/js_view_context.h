@@ -27,8 +27,10 @@ public:
     static void JSAnimateTo(const JSCallbackInfo& info);
     static void JSAnimateToImmediately(const JSCallbackInfo& info);
     static void JSKeyframeAnimateTo(const JSCallbackInfo& info);
-    static const AnimationOption CreateAnimation(const JSRef<JSObject>& animationArgs, bool isForm = false);
-    static RefPtr<Curve> ParseCurve(const JSRef<JSVal>& curveArgs, bool exceptSpring = false);
+    static const AnimationOption CreateAnimation(
+        const JSExecutionContext& executionContext, const JSRef<JSObject>& animationArgs, bool isForm = false);
+    static RefPtr<Curve> ParseCurve(
+        const JSExecutionContext& executionContext, const JSRef<JSVal>& curveArgs, bool exceptSpring = false);
     static void SetDynamicDimming(const JSCallbackInfo& info);
     static void JSOpenBindSheet(const JSCallbackInfo& info);
     static void JSUpdateBindSheet(const JSCallbackInfo& info);
@@ -43,6 +45,10 @@ public:
     static void GetMaxFontScale(const JSCallbackInfo& info);
     static void SetEnableSwipeBack(const JSCallbackInfo& info);
     static void JSSetKeyboardAppearanceConfig(const JSCallbackInfo& info);
+    static void JSSetImageCacheCount(const JSCallbackInfo& info);
+    static void JSSetImageRawDataCacheSize(const JSCallbackInfo& info);
+    static void JSSetCustomKeyboardContinueFeature(const JSCallbackInfo& info);
+    static void JSIsEasySplit(const JSCallbackInfo& info);
 private:
     static void AnimateToInner(const JSCallbackInfo& info, bool immediately);
 };

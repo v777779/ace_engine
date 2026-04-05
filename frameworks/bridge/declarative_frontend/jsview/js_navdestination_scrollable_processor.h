@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -20,13 +20,14 @@
 #include <optional>
 #include <map>
 
+#include "bridge/declarative_frontend/engine/bindings.h"
 #include "bridge/declarative_frontend/jsview/js_scroller.h"
 #include "core/components_ng/pattern/navrouter/navdestination_pattern.h"
 #include "core/components_ng/pattern/navrouter/navdestination_scrollable_processor.h"
 
 namespace OHOS::Ace::Framework {
 class JSNavDestinationScrollableProcessor : public NG::NavDestinationScrollableProcessor {
-    DECLARE_ACE_TYPE(JSNavDestinationScrollableProcessor, NG::NavDestinationScrollableProcessor)
+    DECLARE_ACE_TYPE(JSNavDestinationScrollableProcessor, NG::NavDestinationScrollableProcessor);
 public:
     JSNavDestinationScrollableProcessor() = default;
     ~JSNavDestinationScrollableProcessor() = default;
@@ -42,8 +43,10 @@ public:
     }
     void UnbindAllScrollers() override;
 
-    void BindToScrollable(const JSCallbackInfo& info);
-    void BindToNestedScrollable(const JSCallbackInfo& info);
+    void UnbindScrollable() override;
+    void BindToScrollable(const JSRef<JSVal>& param);
+    void UnbindNestedScrollable() override;
+    void BindToNestedScrollable(const JSRef<JSVal>& param);
 
     void HandleOnTouchEvent(WeakPtr<JSScroller> jsScrollerWeak, const TouchEventInfo& info);
     void HandleOnReachEvent(WeakPtr<JSScroller> jsScrollerWeak, bool isTopEvent);

@@ -18,10 +18,41 @@
 #include "ui/base/utils/utils.h"
 #include "ui/view/draw/node_paint_method.h"
 
+#include "core/components_ng/base/extension_handler.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/render/node_paint_method.h"
 
 namespace OHOS::Ace::NG {
+namespace {
+void UpdatePaintAccessibilityFocus(const RefPtr<RenderContext>& renderContext)
+{
+    if (!AceApplicationInfo::GetInstance().IsAccessibilityScreenReadEnabled()) {
+        return;
+    }
+    CHECK_NULL_VOID(renderContext);
+    if (renderContext->GetAccessibilityFocus().value_or(false)) {
+        renderContext->PaintAccessibilityFocus();
+        return;
+    }
+    auto host = renderContext->GetHost();
+    CHECK_NULL_VOID(host);
+    CHECK_EQUAL_VOID(host->IsAccessibilityVirtualNode(), false);
+    auto refUiNode = host->GetVirtualNodeParent().Upgrade();
+    CHECK_NULL_VOID(refUiNode);
+    auto parentVirtualNode = AceType::DynamicCast<FrameNode>(refUiNode);
+    CHECK_NULL_VOID(parentVirtualNode);
+    auto parentRenderContext = parentVirtualNode->GetRenderContext();
+    CHECK_NULL_VOID(parentRenderContext);
+    CHECK_EQUAL_VOID(parentRenderContext->GetAccessibilityFocus().value_or(false), false);
+    parentRenderContext->PaintAccessibilityFocus();
+}
+} // namespace
+
+PaintWrapper::PaintWrapper(WeakPtr<RenderContext> renderContext, RefPtr<GeometryNode> geometryNode,
+    RefPtr<PaintProperty> paintProperty)
+    : renderContext_(std::move(renderContext)), geometryNode_(std::move(geometryNode)),
+      paintProperty_(std::move(paintProperty)), extensionHandler_(nullptr)
+{}
 
 PaintWrapper::PaintWrapper(WeakPtr<RenderContext> renderContext, RefPtr<GeometryNode> geometryNode,
     RefPtr<PaintProperty> paintProperty, RefPtr<ExtensionHandler> handler)
@@ -177,10 +208,7 @@ void PaintWrapper::FlushRender()
             renderContext->FlushOverlayDrawFunction(std::move(overlayDraw));
         }
     }
-
-    if (renderContext->GetAccessibilityFocus().value_or(false)) {
-        renderContext->PaintAccessibilityFocus();
-    }
+    UpdatePaintAccessibilityFocus(renderContext);
 
     renderContext->StopRecordingIfNeeded();
 }

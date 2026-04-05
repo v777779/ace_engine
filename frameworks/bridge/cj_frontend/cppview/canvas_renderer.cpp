@@ -222,7 +222,7 @@ void NativeCanvasRenderer::SetShadowOffsetX(const double offsetX)
 
 void NativeCanvasRenderer::SetShadowOffsetY(const double offsetY)
 {
-    renderingContext2DModel_->SetShadowOffsetX(offsetY * GetDensity());
+    renderingContext2DModel_->SetShadowOffsetY(offsetY * GetDensity());
 }
 
 void NativeCanvasRenderer::SetImageSmoothingEnabled(const bool enabled)
@@ -308,6 +308,9 @@ Metrics NativeCanvasRenderer::MeasureText(const std::string& text)
 
     double density = Positive(GetDensity()) ? GetDensity() : 1;
     TextMetrics textMetrics = renderingContext2DModel_->GetMeasureTextMetrics(paintState_, text);
+    if (NearZero(density)) {
+        density = 1.0;
+    }
     double width = textMetrics.width / density;
     double height = textMetrics.height / density;
     double actualBoundingBoxLeft = textMetrics.actualBoundingBoxLeft / density;

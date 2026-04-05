@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,6 +15,7 @@
 
 #include "bridge/declarative_frontend/jsview/js_water_flow_sections.h"
 
+#include "bridge/declarative_frontend/jsview/js_water_flow_sections_binding.h"
 #include "bridge/declarative_frontend/jsview/js_view_abstract.h"
 #include "core/components_ng/pattern/waterflow/water_flow_sections.h"
 
@@ -112,7 +113,7 @@ void ParseGaps(const JSRef<JSObject>& obj, NG::WaterFlowSections::Section& secti
 }
 } // namespace
 
-bool JSWaterFlowSections::ParseSectionOptions(
+bool JSWaterFlowSectionsBinding::ParseSectionOptions(
     const JSCallbackInfo& args, const JSRef<JSVal>& jsValue, NG::WaterFlowSections::Section& section)
 {
     if (!jsValue->IsObject()) {
@@ -154,6 +155,7 @@ bool JSWaterFlowSections::ParseSectionOptions(
     auto onGetItemMainSizeByIndex = [execCtx = args.GetExecutionContext(),
                                         func = AceType::MakeRefPtr<JsFunction>(
                                             JSRef<JSObject>(), JSRef<JSFunc>::Cast(getSizeByIndex))](int32_t index) {
+        JAVASCRIPT_EXECUTION_SCOPE(execCtx);
         JSRef<JSVal> itemIndex = JSRef<JSVal>::Make(ToJSValue(index));
         auto result = func->ExecuteJS(1, &itemIndex);
         if (!result->IsNumber()) {
@@ -164,5 +166,112 @@ bool JSWaterFlowSections::ParseSectionOptions(
     };
     section.onGetItemMainSizeByIndex = std::move(onGetItemMainSizeByIndex);
     return true;
+}
+
+void JSWaterFlowSectionsBinding::JSBind(BindingTarget globalObj)
+{
+    JSClass<JSWaterFlowSections>::Declare("NativeWaterFlowSection");
+    JSClass<JSWaterFlowSections>::CustomMethod("onSectionChanged", &JSWaterFlowSectionsBinding::OnSectionChanged);
+    JSClass<JSWaterFlowSections>::Bind(
+        globalObj, &JSWaterFlowSectionsBinding::Constructor, &JSWaterFlowSectionsBinding::Destructor);
+}
+
+void JSWaterFlowSectionsBinding::SetNativeWaterFlowSection(JSRef<JSObject> jsSection, JSRef<JSObject> nativeSection)
+{
+    if (jsSection->IsEmpty() || nativeSection->IsEmpty()) {
+        return;
+    }
+    auto property = jsSection->GetProperty("setNativeSection");
+    if (!property->IsFunction()) {
+        return;
+    }
+    auto setNativeSectionFunc = JSRef<JSFunc>::Cast(property);
+    JSRef<JSVal> params[1];
+    params[0] = JSRef<JSVal>::Cast(nativeSection);
+    setNativeSectionFunc->Call(jsSection, 1, params);
+}
+
+void JSWaterFlowSectionsBinding::Constructor(const JSCallbackInfo& info)
+{
+    auto section = Referenced::MakeRefPtr<JSWaterFlowSections>();
+    section->IncRefCount();
+    info.SetReturnValue(Referenced::RawPtr(section));
+}
+
+void JSWaterFlowSectionsBinding::Destructor(JSWaterFlowSections* section)
+{
+    if (section != nullptr) {
+        section->DecRefCount();
+    }
+}
+
+void JSWaterFlowSectionsBinding::OnSectionChanged(const JSCallbackInfo& info)
+{
+    JSWaterFlowSections* jsWaterFlowSections = info.This()->Unwrap<JSWaterFlowSections>();
+    auto infoThis = info.This()->GetHandle();
+    if (infoThis.ToLocal()->IsProxy(infoThis.GetEcmaVM())) {
+        panda::Local<panda::ProxyRef> thisProxiedObj = static_cast<panda::Local<panda::ProxyRef>>(infoThis.ToLocal());
+        jsWaterFlowSections = static_cast<JSWaterFlowSections*>(
+            panda::Local<panda::ObjectRef>(thisProxiedObj->GetTarget(infoThis.GetEcmaVM()))
+                ->GetNativePointerField(infoThis.GetEcmaVM(), 0));
+    }
+    if (jsWaterFlowSections == nullptr) {
+        return;
+    }
+    if (!info[0]->IsObject()) {
+        return;
+    }
+    auto changeObject = JSRef<JSObject>::Cast(info[0]);
+    auto sectionValue = changeObject->GetProperty("sections");
+    if (!sectionValue->IsArray()) {
+        return;
+    }
+    auto sectionArray = JSRef<JSArray>::Cast(sectionValue);
+    auto sectionsCount = sectionArray->Length();
+    std::vector<NG::WaterFlowSections::Section> newSections;
+    for (size_t j = 0; j < sectionsCount; ++j) {
+        NG::WaterFlowSections::Section section;
+        auto newSection = sectionArray->GetValueAt(j);
+        if (JSWaterFlowSectionsBinding::ParseSectionOptions(info, newSection, section)) {
+            newSections.emplace_back(section);
+        }
+    }
+
+    auto allSectionsValue = changeObject->GetProperty("allSections");
+    if (!allSectionsValue->IsArray()) {
+        return;
+    }
+    auto allSectionArray = JSRef<JSArray>::Cast(allSectionsValue);
+    auto allSectionsCount = allSectionArray->Length();
+    std::vector<NG::WaterFlowSections::Section> allSections;
+    for (size_t j = 0; j < allSectionsCount; ++j) {
+        NG::WaterFlowSections::Section section;
+        auto newSection = allSectionArray->GetValueAt(j);
+        if (JSWaterFlowSectionsBinding::ParseSectionOptions(info, newSection, section)) {
+            allSections.emplace_back(section);
+        }
+    }
+
+    auto start = changeObject->GetProperty("start");
+    auto deleteCount = changeObject->GetProperty("deleteCount");
+    if (!start->IsNumber() || !deleteCount->IsNumber()) {
+        return;
+    }
+    auto& callbacks = jsWaterFlowSections->callbacks_;
+    for (auto it = callbacks.begin(); it != callbacks.end();) {
+        if (!it->first.Upgrade()) {
+            it = callbacks.erase(it);
+        } else {
+            if (it->second) {
+                it->second(start->ToNumber<int32_t>(), deleteCount->ToNumber<int32_t>(), newSections, allSections);
+            }
+            ++it;
+        }
+    }
+}
+
+panda::Local<panda::ObjectRef> JSWaterFlowSections::NewInstance()
+{
+    return JSClass<JSWaterFlowSections>::NewInstance()->GetLocalHandle();
 }
 } // namespace OHOS::Ace::Framework

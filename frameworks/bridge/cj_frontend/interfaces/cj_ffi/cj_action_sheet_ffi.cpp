@@ -55,10 +55,15 @@ std::function<void(const GestureEvent& event)> FormatGuestureEventFunction(void 
 uint32_t ColorAlphaAdapt(uint32_t origin)
 {
     uint32_t result = origin;
-    if ((origin >> COLOR_ALPHA_OFFSET) == 0) {
-        result = origin | COLOR_ALPHA_VALUE;
+    // After Api22, alpha is handled on the cangjie.
+    if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        return result;
+    } else {
+        if ((origin >> COLOR_ALPHA_OFFSET) == 0) {
+            result = origin | COLOR_ALPHA_VALUE;
+        }
+        return result;
     }
-    return result;
 }
 
 void ParseTitleAndMessage(DialogProperties& properties, NativeActionSheetOptions& options)
@@ -156,7 +161,7 @@ void ParseDialogAlignment(DialogProperties& properties, NativeOptionInt32& optio
         return;
     }
     auto alignment = options.value;
-    if (alignment >= 0 && alignment <= static_cast<int32_t>(DIALOG_ALIGNMENT.size())) {
+    if (alignment >= 0 && alignment < static_cast<int32_t>(DIALOG_ALIGNMENT.size())) {
         properties.alignment = DIALOG_ALIGNMENT[alignment];
     }
     if (alignment == static_cast<int32_t>(DialogAlignment::TOP) ||
@@ -324,7 +329,7 @@ void FfiOHOSAceFrameworkActionSheetShowWithShadowStyle(NativeActionSheetOptions 
         auto container = Container::Current();
         auto pipelineContext = container->GetPipelineContext();
         auto shadowTheme = pipelineContext->GetTheme<ShadowTheme>();
-        if (!shadowTheme) {
+        if (shadowTheme) {
             shadow = shadowTheme->GetShadow(style, colorMode);
         }
     }

@@ -18,9 +18,9 @@
 #define private public
 #define protected public
 #include "adapter/ohos/entrance/ace_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 #include "frameworks/core/components_ng/pattern/ui_extension/dynamic_component/dynamic_component_manager.h"
 
 using namespace testing;
@@ -78,7 +78,8 @@ HWTEST_F(DynamicPatternManagerTestNg, DynamicPatternManagerTestNg001, TestSize.L
     auto geometryNode = stageNode->GetGeometryNode();
     EXPECT_NE(geometryNode, nullptr);
     EXPECT_FALSE(geometryNode->GetMarginFrameSize().IsPositive());
-    auto frameNodeRef = FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
+    auto frameNodeRef =
+        FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
     ASSERT_NE(frameNodeRef, nullptr);
     FrameNode* frameNode = &(*frameNodeRef);
     DynamicComponentManager::TriggerOnAreaChangeCallback(frameNode, 1);
@@ -93,7 +94,8 @@ HWTEST_F(DynamicPatternManagerTestNg, DynamicPatternManagerTestNg001, TestSize.L
     ASSERT_FALSE(eventHub->HasOnAreaChanged());
     DynamicComponentManager::TriggerOnAreaChangeCallback(frameNode, 1);
 
-    auto func = [](const RectF& oldRect, const OffsetF& oldOrigin, const RectF& rect, const OffsetF& origin) {};
+    auto func =
+        [](const RectF& oldRect, const OffsetF& oldOrigin, const RectF& rect, const OffsetF& origin) {};
     eventHub->SetOnAreaChanged(std::move(func));
     ASSERT_TRUE(eventHub->HasOnAreaChanged());
     DynamicComponentManager::TriggerOnAreaChangeCallback(frameNode, 1);
@@ -109,7 +111,8 @@ HWTEST_F(DynamicPatternManagerTestNg, DynamicPatternManagerTestNg002, TestSize.L
     /**
      * @tc.steps: step1. test method TriggerOnAreaChangeCallback
      */
-    auto frameNodeRef = FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
+    auto frameNodeRef =
+        FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
     ASSERT_NE(frameNodeRef, nullptr);
     FrameNode* frameNode = &(*frameNodeRef);
     DynamicComponentManager::TriggerOnAreaChangeCallback(frameNode, 1);
@@ -124,7 +127,8 @@ HWTEST_F(DynamicPatternManagerTestNg, DynamicPatternManagerTestNg002, TestSize.L
     OffsetF offsetF(2.0, 3.0);
     OffsetF offsetF2(2.0, 3.0);
     frameNode->lastFrameRect_ = std::make_unique<RectF>();
-    frameNode->lastParentOffsetToWindow_ = std::make_unique<OffsetF>(OffsetF(50.0f, 50.0f));
+    frameNode->lastParentOffsetToWindow_ =
+        std::make_unique<OffsetF>(OffsetF(50.0f, 50.0f));
     frameNode->lastHostParentOffsetToWindow_ = std::make_shared<OffsetF>();
     DynamicComponentManager::HandleDynamicRenderOnAreaChange(frameNode, rectF, offsetF, offsetF2);
 
@@ -167,8 +171,7 @@ HWTEST_F(DynamicPatternManagerTestNg, DynamicPatternManagerTestNg003, TestSize.L
     EXPECT_FALSE(geometryNode->GetMarginFrameSize().IsPositive());
     auto eventHub = frameNode->GetEventHub<EventHub>();
     ASSERT_NE(eventHub, nullptr);
-    auto func =
-        [](const RectF& oldRect, const OffsetF& oldOrigin, const RectF& rect, const OffsetF& origin) {};
+    auto func = [](const RectF& oldRect, const OffsetF& oldOrigin, const RectF& rect, const OffsetF& origin) {};
     eventHub->SetOnAreaChanged(std::move(func));
     ASSERT_TRUE(eventHub->HasOnAreaChanged());
     frameNode->lastHostParentOffsetToWindow_ = std::make_shared<OffsetF>();

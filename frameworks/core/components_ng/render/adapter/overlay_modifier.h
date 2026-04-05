@@ -21,17 +21,14 @@
 
 #include "modifier/rs_animatable_arithmetic.h"
 #include "render_service_client/core/modifier/rs_property.h"
-#if defined(MODIFIER_NG)
 #include "render_service_client/core/modifier_ng/overlay/rs_overlay_style_modifier.h"
-#else
-#include "render_service_client/core/modifier/rs_extended_modifier.h"
-#endif
 
 #include "base/geometry/ng/offset_t.h"
 #include "base/i18n/localization.h"
 #include "base/memory/referenced.h"
 #include "core/common/font_manager.h"
 #include "core/components/common/properties/alignment.h"
+#include "core/components/common/properties/text_style.h"
 #include "core/components_ng/property/overlay_property.h"
 #include "core/components_ng/render/drawing.h"
 #include "core/components_ng/render/drawing_prop_convertor.h"
@@ -60,13 +57,8 @@ private:
     OverlayOptions overlay_;
 };
 
-#if defined(MODIFIER_NG)
 using RSOverlayStyleModifier = Rosen::ModifierNG::RSOverlayStyleModifier;
 using RSDrawingContext = Rosen::ModifierNG::RSDrawingContext;
-#else
-using RSOverlayStyleModifier = Rosen::RSOverlayStyleModifier;
-using RSDrawingContext = Rosen::RSDrawingContext;
-#endif
 
 class OverlayTextModifier : public RSOverlayStyleModifier {
 public:
@@ -149,6 +141,13 @@ public:
         return overlayOffset;
     }
 
+    OffsetF GetOverlayOffsetWithDirection(const SizeF& parentSize, const SizeF& childSize)
+    {
+        CHECK_NULL_RETURN(property_, OffsetF());
+        auto overlayOptions = property_->Get().GetOverlayOptions();
+        return GetTextPosition(parentSize, childSize, overlayOptions);
+    }
+
     bool IsCustomFont()
     {
         auto pipelineContext = PipelineBase::GetCurrentContext();
@@ -158,13 +157,24 @@ public:
         return fontManager->IsDefaultFontChanged();
     }
 
+    void UpdateText()
+    {
+        UpdateToRender();
+    }
+
 private:
     static OffsetF GetTextPosition(const SizeF& parentSize, const SizeF& childSize, OverlayOptions& overlay)
     {
-        const double dx = overlay.x.ConvertToPx();
-        const double dy = overlay.y.ConvertToPx();
+        double dx = overlay.x.ConvertToPx();
+        double dy = overlay.y.ConvertToPx();
         const Alignment align = overlay.align;
-        OffsetF const offset = Alignment::GetAlignPosition(parentSize, childSize, align);
+        auto direction = overlay.direction;
+        direction = direction != TextDirection::AUTO ? direction : (AceApplicationInfo::GetInstance().IsRightToLeft() ?
+            TextDirection::RTL : TextDirection::LTR);
+        if (direction == TextDirection::RTL) {
+            dx = -dx;
+        }
+        OffsetF const offset = Alignment::GetAlignPositionWithDirection(parentSize, childSize, align, direction);
         const float fx = static_cast<float>(dx) + offset.GetX();
         const float fy = static_cast<float>(dy) + offset.GetY();
         return { fx, fy };

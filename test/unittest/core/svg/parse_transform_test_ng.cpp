@@ -20,33 +20,33 @@
 #define private public
 #define protected public
 
+#include "compatible/components/svg/svg_animate_declaration.h"
+#include "compatible/components/svg/svg_circle_declaration.h"
+#include "compatible/components/svg/svg_declaration.h"
+#include "compatible/components/svg/svg_ellipse_declaration.h"
+#include "compatible/components/svg/svg_fe_blend_declaration.h"
+#include "compatible/components/svg/svg_fe_colormatrix_declaration.h"
+#include "compatible/components/svg/svg_fe_composite_declaration.h"
+#include "compatible/components/svg/svg_fe_declaration.h"
+#include "compatible/components/svg/svg_fe_flood_declaration.h"
+#include "compatible/components/svg/svg_fe_gaussianblur_declaration.h"
+#include "compatible/components/svg/svg_filter_declaration.h"
+#include "compatible/components/svg/svg_gradient_declaration.h"
+#include "compatible/components/svg/svg_image_declaration.h"
+#include "compatible/components/svg/svg_line_declaration.h"
+#include "compatible/components/svg/svg_mask_declaration.h"
+#include "compatible/components/svg/svg_path_declaration.h"
+#include "compatible/components/svg/svg_pattern_declaration.h"
+#include "compatible/components/svg/svg_polygon_declaration.h"
+#include "compatible/components/svg/svg_rect_declaration.h"
+#include "compatible/components/svg/svg_stop_declaration.h"
 #include "include/core/SkStream.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "base/memory/ace_type.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/color.h"
-#include "core/components/declaration/svg/svg_animate_declaration.h"
-#include "core/components/declaration/svg/svg_circle_declaration.h"
-#include "core/components/declaration/svg/svg_declaration.h"
-#include "core/components/declaration/svg/svg_ellipse_declaration.h"
-#include "core/components/declaration/svg/svg_fe_blend_declaration.h"
-#include "core/components/declaration/svg/svg_fe_colormatrix_declaration.h"
-#include "core/components/declaration/svg/svg_fe_composite_declaration.h"
-#include "core/components/declaration/svg/svg_fe_declaration.h"
-#include "core/components/declaration/svg/svg_fe_flood_declaration.h"
-#include "core/components/declaration/svg/svg_fe_gaussianblur_declaration.h"
-#include "core/components/declaration/svg/svg_filter_declaration.h"
-#include "core/components/declaration/svg/svg_gradient_declaration.h"
-#include "core/components/declaration/svg/svg_image_declaration.h"
-#include "core/components/declaration/svg/svg_line_declaration.h"
-#include "core/components/declaration/svg/svg_mask_declaration.h"
-#include "core/components/declaration/svg/svg_path_declaration.h"
-#include "core/components/declaration/svg/svg_pattern_declaration.h"
-#include "core/components/declaration/svg/svg_polygon_declaration.h"
-#include "core/components/declaration/svg/svg_rect_declaration.h"
-#include "core/components/declaration/svg/svg_stop_declaration.h"
 #include "core/components_ng/render/drawing.h"
 #include "core/components_ng/svg/parse/svg_animation.h"
 #include "core/components_ng/svg/parse/svg_circle.h"
@@ -624,7 +624,11 @@ HWTEST_F(SvgTransformTestNg, ApplyTransformTest001, TestSize.Level1)
     auto rule = svgNode->BuildContentScaleRule(context, OHOS::Ace::NG::SvgLengthScaleUnit::USER_SPACE_ON_USE);
     EXPECT_EQ(rule.GetLengthScaleUnit(), OHOS::Ace::NG::SvgLengthScaleUnit::USER_SPACE_ON_USE);
     Testing::TestingPath rSPath;
+    RSRoundRect roundRect = RSRoundRect(RSRect(0.0, 0.0, 1.0, 1.0), 0.0, 0.0);
+    rSPath.AddRoundRect(roundRect);
     svgNode->ApplyTransform(rSPath, rule);
+    auto bounds = rSPath.GetBounds();
+    EXPECT_FLOAT_EQ(bounds.GetLeft(), 0.0);
 }
 
 /**
@@ -641,11 +645,15 @@ HWTEST_F(SvgTransformTestNg, ApplyTransformTest002, TestSize.Level1)
     auto rule = svgNode->BuildContentScaleRule(context, OHOS::Ace::NG::SvgLengthScaleUnit::USER_SPACE_ON_USE);
     EXPECT_EQ(rule.GetLengthScaleUnit(), OHOS::Ace::NG::SvgLengthScaleUnit::USER_SPACE_ON_USE);
     Testing::TestingPath rSPath;
+    RSRoundRect roundRect = RSRoundRect(RSRect(0.0, 0.0, 1.0, 1.0), 0.0, 0.0);
+    rSPath.AddRoundRect(roundRect);
     std::vector<std::string> paramVec;
     paramVec.push_back("100");
     NG::TransformInfo transformInfo { "translate", paramVec };
     svgNode->attributes_.transformVec.push_back(transformInfo);
     svgNode->ApplyTransform(rSPath, rule);
+    auto bounds = rSPath.GetBounds();
+    EXPECT_FLOAT_EQ(bounds.GetLeft(), 0.0);
 }
 
 /**
@@ -1463,11 +1471,11 @@ HWTEST_F(SvgTransformTestNg, SvgNodeTest001, TestSize.Level1)
  */
 HWTEST_F(SvgTransformTestNg, SvgNodeTest002, TestSize.Level1)
 {
-    int32_t settingApiVersion = static_cast<int32_t>(PlatformVersion::VERSION_EIGHTEEN);
-    int32_t backupApiVersion = MockContainer::Current()->GetApiTargetVersion();
-    MockContainer::Current()->SetApiTargetVersion(settingApiVersion);
     auto svgNode = AceType::MakeRefPtr<SvgNode>();
     EXPECT_NE(svgNode, nullptr);
+    auto svgContext = AceType::MakeRefPtr<SvgContext>();
+    svgContext->SetUsrConfigVersion(SVG_FEATURE_SUPPORT_TWO);
+    svgNode->SetContext(svgContext);
     svgNode->SetAttr("clipPathUnits", "objectBoundingBox");
     EXPECT_EQ(svgNode->attributes_.clipState.GetClipPathUnits(), SvgLengthScaleUnit::OBJECT_BOUNDING_BOX);
     svgNode->SetAttr("clipPathUnits", "objectBoundingBox222");
@@ -1476,7 +1484,6 @@ HWTEST_F(SvgTransformTestNg, SvgNodeTest002, TestSize.Level1)
     svgNode->SetAttr("stroke", "aliceblue");
     svgNode->SetAttr("stroke", "none");
     EXPECT_EQ(svgNode->attributes_.strokeState.GetHref(), "url(https://www.baidu.com)");
-    MockContainer::Current()->SetApiTargetVersion(backupApiVersion);
 }
 
 /**

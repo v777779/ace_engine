@@ -15,7 +15,8 @@
 
 #include "arkoala_api_generated.h"
 
-#include "core/components_ng/base/frame_node.h"
+#include "bridge/common/utils/utils.h"
+#include "core/components_ng/pattern/refresh/refresh_layout_property.h"
 #include "core/components_ng/pattern/refresh/refresh_model_static.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
@@ -24,7 +25,7 @@
 
 namespace OHOS::Ace::NG {
 namespace Converter {
-void AssignArkValue(Ark_RefreshStatus& dst, const RefreshStatus& src)
+void AssignArkValue(Ark_RefreshStatus& dst, const RefreshStatus& src, ConvContext *ctx)
 {
     switch (src) {
         case RefreshStatus::INACTIVE:
@@ -49,7 +50,7 @@ void AssignArkValue(Ark_RefreshStatus& dst, const RefreshStatus& src)
 }
 } // namespace Converter
 namespace {
-std::optional<bool> ProcessBindableRefreshing(FrameNode* frameNode, const Ark_Union_Boolean_Bindable& value)
+std::optional<bool> ProcessBindableRefreshing(FrameNode* frameNode, const Ark_Union_Boolean_Bindable_Boolean& value)
 {
     std::optional<bool> result;
     Converter::VisitUnion(value,
@@ -135,7 +136,7 @@ void SetOnStateChangeImpl(Ark_NativePointer node,
     RefreshModelStatic::SetOnStateChange(frameNode, std::move(onStateChange));
 }
 void SetOnRefreshingImpl(Ark_NativePointer node,
-                         const Opt_Callback_Void* value)
+                         const Opt_synthetic_Callback_Void* value)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
@@ -163,8 +164,15 @@ void SetPullToRefreshImpl(Ark_NativePointer node,
     auto convValue = Converter::OptConvertPtr<bool>(value);
     RefreshModelStatic::SetPullToRefresh(frameNode, convValue);
 }
+void setPullUpToCancelRefreshImpl(Ark_NativePointer node, const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto convValue = Converter::OptConvertPtr<bool>(value);
+    RefreshModelStatic::SetPullUpToCancelRefresh(frameNode, convValue);
+}
 void SetOnOffsetChangeImpl(Ark_NativePointer node,
-                           const Opt_Callback_F64_Void* value)
+                           const Opt_arkui_component_common_Callback_F64_Void* value)
 {
     auto frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
@@ -189,6 +197,17 @@ void SetPullDownRatioImpl(Ark_NativePointer node,
     Validator::ClampByRange(convValue, PULLDOWNRATIO_MIN, PULLDOWNRATIO_MAX);
     RefreshModelStatic::SetPullDownRatio(frameNode, convValue);
 }
+void SetMaxPullDownDistanceImpl(Ark_NativePointer node,
+                                const Opt_Float64* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto convValue = Converter::OptConvertPtr<float>(value);
+    if (convValue.has_value()) {
+        convValue = std::max(convValue.value(), 0.0f);
+    }
+    RefreshModelStatic::SetMaxPullDownDistance(frameNode, convValue);
+}
 } // RefreshAttributeModifier
 const GENERATED_ArkUIRefreshModifier* GetRefreshModifier()
 {
@@ -199,8 +218,10 @@ const GENERATED_ArkUIRefreshModifier* GetRefreshModifier()
         RefreshAttributeModifier::SetOnRefreshingImpl,
         RefreshAttributeModifier::SetRefreshOffsetImpl,
         RefreshAttributeModifier::SetPullToRefreshImpl,
+        RefreshAttributeModifier::setPullUpToCancelRefreshImpl,
         RefreshAttributeModifier::SetOnOffsetChangeImpl,
         RefreshAttributeModifier::SetPullDownRatioImpl,
+        RefreshAttributeModifier::SetMaxPullDownDistanceImpl,
     };
     return &ArkUIRefreshModifierImpl;
 }

@@ -16,15 +16,26 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_WATERFLOW_WATER_FLOW_MODEL_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_WATERFLOW_WATER_FLOW_MODEL_H
 
+#include <functional>
+#include <memory>
 #include <mutex>
+#include <optional>
+#include <string>
 
 #include "core/common/resource/resource_object.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components/scroll/scroll_controller_base.h"
-#include "core/components/scroll_bar/scroll_proxy.h"
 #include "core/components_ng/pattern/scrollable/scrollable_properties.h"
-#include "core/components_ng/pattern/waterflow/layout/water_flow_layout_algorithm_base.h"
-#include "core/components_ng/pattern/waterflow/water_flow_sections.h"
+#include "core/components_ng/pattern/waterflow/layout/water_flow_layout_mode.h"
+
+namespace OHOS::Ace {
+class ScrollControllerBase;
+class ScrollProxy;
+}
+
+namespace OHOS::Ace::NG {
+class UINode;
+class WaterFlowSections;
+}
 
 namespace OHOS::Ace {
 class WaterFlowModel {
@@ -48,6 +59,7 @@ public:
     virtual void SetItemMinHeight(const Dimension& minHeight) = 0;
     virtual void SetItemMaxWidth(const Dimension& maxWidth) = 0;
     virtual void SetItemMaxHeight(const Dimension& maxHeight) = 0;
+    virtual void SetItemFillPolicy(PresetFillType policy) = 0;
 
     virtual void SetColumnsGap(const Dimension& value) = 0;
     virtual void SetRowsGap(const Dimension& value) = 0;
@@ -82,6 +94,7 @@ public:
     }
     virtual void SetScrollBarMode(DisplayMode value) = 0;
     virtual void SetScrollBarColor(const std::string& value) = 0;
+    virtual void SetScrollBarColor(const std::optional<Color>& scrollBarColor) {};
     virtual void SetScrollBarWidth(const std::string& value) = 0;
     virtual RefPtr<NG::WaterFlowSections> GetOrCreateWaterFlowSections()
     {
@@ -90,9 +103,16 @@ public:
 
     virtual void ResetSections() {}
     virtual void ParseResObjFriction(const RefPtr<ResourceObject>& resObj) {};
+    virtual void ParseResObjRowsGap(const RefPtr<ResourceObject>& resObj) {};
+    virtual void ParseResObjColumnsGap(const RefPtr<ResourceObject>& resObj) {};
+    virtual void ParseResObjItemMinWidth(const RefPtr<ResourceObject>& resObj) {};
+    virtual void ParseResObjItemMinHeight(const RefPtr<ResourceObject>& resObj) {};
+    virtual void ParseResObjItemMaxWidth(const RefPtr<ResourceObject>& resObj) {};
+    virtual void ParseResObjItemMaxHeight(const RefPtr<ResourceObject>& resObj) {};
 
     virtual void SetSyncLoad(bool syncLoad) {}
-
+    virtual void ParseResObjScrollBarColor(const RefPtr<ResourceObject>& resObj) {};
+    virtual void SetSupportLazyLoadingEmptyBranch(bool enable) {};
 private:
     static std::unique_ptr<WaterFlowModel> instance_;
     static std::mutex mutex_;

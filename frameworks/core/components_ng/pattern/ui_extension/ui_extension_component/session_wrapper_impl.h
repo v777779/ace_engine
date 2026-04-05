@@ -42,7 +42,7 @@ public:
     bool IsSessionValid() override;
     int32_t GetSessionId() const override;
     const std::shared_ptr<AAFwk::Want> GetWant() override;
-    void UpdateInstanceId(int32_t instanceId);
+    void UpdateInstanceId(int32_t instanceId) override;
 
     // Synchronous interface for event notify
     bool NotifyFocusEventSync(bool isFocus) override;
@@ -111,7 +111,8 @@ public:
 
     void NotifyHostWindowMode(int32_t mode) override;
     void ReDispatchWantParams() override;
-
+    void UpdateConfigParamByContainerHandler(AAFwk::WantParams& configParam);
+    bool RefreshOccupiedAreaChangeInfo();
 private:
     int32_t GetFrameNodeId() const;
     void InitAllCallback();
@@ -140,6 +141,7 @@ private:
         uint32_t customId, const AAFwk::Want& data, std::optional<AAFwk::Want>& reply);
     void DispatchExtensionDataToHostWindow(uint32_t customId, const AAFwk::Want& data);
     void UpdateWantPtr(std::shared_ptr<AAFwk::Want>& wantPtr);
+    void UpdateMenuBarWantPtr(std::shared_ptr<AAFwk::Want>& wantPtr, AAFwk::WantParams& wantParam);
 
     WeakPtr<UIExtensionPattern> hostPattern_;
     RefPtr<TaskExecutor> taskExecutor_;
@@ -160,6 +162,7 @@ private:
     std::weak_ptr<Rosen::RSTransaction> transaction_;
     std::shared_ptr<AAFwk::Want> customWant_;
     OHOS::Rosen::SubSystemId subSystemId_ = OHOS::Rosen::SubSystemId::ARKUI_UIEXT;
+    sptr<Rosen::OccupiedAreaChangeInfo> occupiedAreaChangeInfo_;
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_UI_EXTENSION_UEC_SESSION_WRAPPER_IMPL_H

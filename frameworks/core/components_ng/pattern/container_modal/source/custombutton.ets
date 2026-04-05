@@ -39,6 +39,7 @@ const EVENT_NAME_COLOR_MODE_LOCKED: string = 'arkui_color_mode_locked'
 const EVENT_NAME_BUTTON_RIGHT_OFFSET_CHANGE: string = 'arkui_button_right_offset_change'
 const EVENT_NAME_BUTTON_ICON_SIZE_CHANGE: string = 'arkui_button_icon_size_change'
 const EVENT_NAME_BUTTON_BACKGROUND_CORNER_RADIUS_CHANGE: string = 'arkui_button_background_corner_radius_change'
+const EVENT_NAME_BUTTON_MENU_DEFAULT_RADIUS: string = 'arkui_button_menu_default_radius'
 
 const PC_TITLE_BAR_MAXIMIZE: string = 'pc_title_bar_maximize'
 const PC_TITLE_BAR_MINIMIZE: string = 'pc_title_bar_minimize'
@@ -232,6 +233,7 @@ struct custombutton {
   @State buttonIconSize: number = 20;
   // button background corner radius 4-8vp
   @State buttonBackgroundCornerRadius: number = 4;
+  @State buttonMenuRadius: number = 20;
 
   isFocused: boolean = true;
   isDark: boolean = false;
@@ -287,7 +289,13 @@ struct custombutton {
         this.setButtonIconSize(param);
     } else if (eventName === EVENT_NAME_BUTTON_BACKGROUND_CORNER_RADIUS_CHANGE) {
         this.setButtonBackgroundCornerRadius(param);
+    }else if (eventName === EVENT_NAME_BUTTON_MENU_DEFAULT_RADIUS) {
+        this.setButtonMenuRadius(param);
     }
+  }
+
+  setButtonMenuRadius(radius: string) {
+    this.buttonMenuRadius = parseInt(radius);
   }
 
   // set the spacing between buttons
@@ -421,7 +429,10 @@ struct custombutton {
   }
 
   setMenuWidth(width: string) {
-    this.menuWidth = (80 + parseInt(width)) + 'vp'
+    let widthNumber = (80 + parseInt(width)) + 'vp'
+    if (widthNumber > this.menuWidth) {
+      this.menuWidth = widthNumber
+    }
   }
 
 
@@ -502,7 +513,7 @@ struct custombutton {
           .maxLines(1)
           .margin({ top: MENU_TITLE_MARGIN_V, bottom: MENU_TITLE_MARGIN_V, right: MENU_MARGIN_H })
       }
-      .borderRadius('4vp')
+      .borderRadius(this.buttonMenuRadius + 'vp')
       .width('100%')
       .backgroundColor(this.leftSplitBackgroundColor)
       .margin({
@@ -540,7 +551,7 @@ struct custombutton {
           .maxLines(1)
           .margin({ top: MENU_TITLE_MARGIN_V, bottom: MENU_TITLE_MARGIN_V, right: MENU_MARGIN_H })
       }
-      .borderRadius('4vp')
+      .borderRadius(this.buttonMenuRadius + 'vp')
       .width('100%')
       .backgroundColor(this.rightSplitBackgroundColor)
       .margin({
@@ -610,13 +621,14 @@ struct custombutton {
           height: TITLE_BUTTON_RESPONSE_REGION_HEIGHT
         })
         .visibility(this.maximizeVisibility)
-        .bindMenu(this.isShowMenu, this.MenuBuilder, {
+        .bindContextMenu(this.isShowMenu, this.MenuBuilder, {
           placement: Placement.BottomRight, aboutToDisappear: () => {
             this.isShowMenu = false;
             this.cancelMenuDisappearTimer();
           }
         })
         .gesture(GestureGroup(GestureMode.Exclusive, LongPressGesture({ repeat: false }).onAction(() => {
+          this.menuWidth = '224vp'
           this.onMenuWidthChange()
           this.isShowMenu = !this.hideSplit
           this.menuDisappearTimer(MENU_AUTO_DISAPPEAR_TIME)
@@ -736,6 +748,7 @@ struct custombutton {
         })
       }.id('containerModalButtonRowId')
       .height('100%')
+      .visibility(this.rowVisibility)
       .padding({ left: BUTTON_ELEMENT_MARGIN_HORIZONTAL, right: this.buttonRightOffset + 'vp' })
       .onSizeChange((oldValue: SizeOptions, newValue: SizeOptions) => {
         this.onAreaChangeEvent(oldValue, newValue)

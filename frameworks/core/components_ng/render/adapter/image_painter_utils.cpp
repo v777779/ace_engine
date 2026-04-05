@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "image_painter_utils.h"
+#include <iterator>
 
 namespace {
 // The [GRAY_COLOR_MATRIX] is of dimension [4 x 5], which transforms a RGB source color (R, G, B, A) to the
@@ -30,6 +31,7 @@ const float GRAY_COLOR_MATRIX[20] = { 0.30f, 0.59f, 0.11f, 0, 0, // red
     0.30f, 0.59f, 0.11f, 0, 0,                                   // green
     0.30f, 0.59f, 0.11f, 0, 0,                                   // blue
     0, 0, 0, 1.0f, 0 };                                          // alpha transparency
+const size_t BORDER_RADIUS_COUNT = 4;
 } // namespace
 
 namespace OHOS::Ace::NG {
@@ -53,7 +55,8 @@ std::unique_ptr<RSPoint[]> ImagePainterUtils::ToRSRadius(const BorderRadiusArray
     return radii;
 }
 
-void ImagePainterUtils::AddFilter(RSBrush& brush, RSSamplingOptions& options, const ImagePaintConfig& config)
+void ImagePainterUtils::AddFilter(
+    RSBrush& brush, RSSamplingOptions& options, const ImagePaintConfig& config, bool isHdr)
 {
     switch (config.imageInterpolation_) {
         case ImageInterpolation::LOW: {
@@ -77,7 +80,8 @@ void ImagePainterUtils::AddFilter(RSBrush& brush, RSSamplingOptions& options, co
     if (config.colorFilter_.colorFilterMatrix_) {
         RSColorMatrix colorMatrix;
         colorMatrix.SetArray(config.colorFilter_.colorFilterMatrix_->data());
-        filter.SetColorFilter(RSRecordingColorFilter::CreateMatrixColorFilter(colorMatrix));
+        filter.SetColorFilter(RSRecordingColorFilter::CreateMatrixColorFilter(
+            colorMatrix, isHdr ? RSClamp::NO_CLAMP : RSClamp::YES_CLAMP));
     } else if (config.colorFilter_.colorFilterDrawing_) {
         auto colorFilterSptrAddr = static_cast<std::shared_ptr<RSColorFilter>*>(
             config.colorFilter_.colorFilterDrawing_->GetDrawingColorFilterSptrAddr());
@@ -87,7 +91,8 @@ void ImagePainterUtils::AddFilter(RSBrush& brush, RSSamplingOptions& options, co
     } else if (ImageRenderMode::TEMPLATE == config.renderMode_) {
         RSColorMatrix colorMatrix;
         colorMatrix.SetArray(GRAY_COLOR_MATRIX);
-        filter.SetColorFilter(RSRecordingColorFilter::CreateMatrixColorFilter(colorMatrix));
+        filter.SetColorFilter(RSRecordingColorFilter::CreateMatrixColorFilter(
+            colorMatrix, isHdr ? RSClamp::NO_CLAMP : RSClamp::YES_CLAMP));
     }
     brush.SetFilter(filter);
 }
@@ -102,5 +107,29 @@ void ImagePainterUtils::ClipRRect(RSCanvas& canvas, const RSRect& dstRect, const
     radius[3] = RSPoint(radiusXY[2].GetX(), radiusXY[2].GetY());
     RSRoundRect rRect(dstRect, radius);
     canvas.ClipRoundRect(rRect, RSClipOp::INTERSECT, true);
+}
+
+void ImagePainterUtils::ClipAdaptiveRRect(
+    RSRecordingCanvas& canvas, std::unique_ptr<RSPoint[]>& radii, bool antiAlias, RSPoint* outRadius)
+{
+    std::vector<RSPoint> radius;
+    bool setBorderRadius = false;
+    for (size_t ii = 0; ii < BORDER_RADIUS_COUNT; ii++) {
+        RSPoint point(radii[ii].GetX(), radii[ii].GetY());
+        radius.emplace_back(point);
+        if (!NearZero(radii[ii].GetX()) || !NearZero(radii[ii].GetY())) {
+            setBorderRadius = true;
+        }
+    }
+    if (antiAlias && !setBorderRadius) {
+        canvas.ClipRect(
+            RSRect(0.0f, 0.0f, canvas.GetWidth(), canvas.GetHeight()),
+            RSClipOp::INTERSECT, true);
+    } else {
+        canvas.ClipAdaptiveRoundRect(radius);
+    }
+    for (size_t i = 0; i < BORDER_RADIUS_COUNT; i++) {
+        outRadius[i] = radius[i];
+    }
 }
 } // namespace OHOS::Ace::NG

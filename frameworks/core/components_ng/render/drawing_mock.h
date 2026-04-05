@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,46 +16,46 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_RENDER_DRAWING_MOCK_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_RENDER_DRAWING_MOCK_H
 
-#include "test/mock/core/rosen/testing_image_blur_type.h"
-#include "test/mock/core/rosen/testing_bitmap.h"
-#include "test/mock/core/rosen/testing_brush.h"
-#include "test/mock/core/rosen/testing_camera.h"
-#include "test/mock/core/rosen/testing_canvas.h"
-#include "test/mock/core/rosen/testing_canvas_utils.h"
-#include "test/mock/core/rosen/testing_color.h"
-#include "test/mock/core/rosen/testing_color_filter.h"
-#include "test/mock/core/rosen/testing_color_matrix.h"
-#include "test/mock/core/rosen/testing_color_space.h"
-#include "test/mock/core/rosen/testing_data.h"
-#include "test/mock/core/rosen/testing_draw_cmd_list.h"
-#include "test/mock/core/rosen/testing_filter.h"
-#include "test/mock/core/rosen/testing_font.h"
-#include "test/mock/core/rosen/testing_font_collection.h"
-#include "test/mock/core/rosen/testing_image.h"
-#include "test/mock/core/rosen/testing_image_filter.h"
-#include "test/mock/core/rosen/testing_image_info.h"
-#include "test/mock/core/rosen/testing_mask_filter.h"
-#include "test/mock/core/rosen/testing_path.h"
-#include "test/mock/core/rosen/testing_path_effect.h"
-#include "test/mock/core/rosen/testing_pen.h"
-#include "test/mock/core/rosen/testing_picture.h"
-#include "test/mock/core/rosen/testing_point.h"
-#include "test/mock/core/rosen/testing_point3.h"
-#include "test/mock/core/rosen/testing_recording_canvas.h"
-#include "test/mock/core/rosen/testing_recording_path_effect.h"
-#include "test/mock/core/rosen/testing_sampling_options.h"
-#include "test/mock/core/rosen/testing_save_layer_ops.h"
-#include "test/mock/core/rosen/testing_scalar.h"
-#include "test/mock/core/rosen/testing_shader_effect.h"
-#include "test/mock/core/rosen/testing_shadowflags.h"
-#include "test/mock/core/rosen/testing_surface.h"
-#include "test/mock/core/rosen/testing_text_blob.h"
-#include "test/mock/core/rosen/testing_text_style.h"
-#include "test/mock/core/rosen/testing_typeface.h"
-#include "test/mock/core/rosen/testing_typography.h"
-#include "test/mock/core/rosen/testing_typography_create.h"
-#include "test/mock/core/rosen/testing_typography_style.h"
-#include "test/mock/core/rosen/testing_picture_recorder.h"
+#include "test/mock/frameworks/core/rosen/testing_image_blur_type.h"
+#include "test/mock/frameworks/core/rosen/testing_bitmap.h"
+#include "test/mock/frameworks/core/rosen/testing_brush.h"
+#include "test/mock/frameworks/core/rosen/testing_camera.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_canvas_utils.h"
+#include "test/mock/frameworks/core/rosen/testing_color.h"
+#include "test/mock/frameworks/core/rosen/testing_color_filter.h"
+#include "test/mock/frameworks/core/rosen/testing_color_matrix.h"
+#include "test/mock/frameworks/core/rosen/testing_color_space.h"
+#include "test/mock/frameworks/core/rosen/testing_data.h"
+#include "test/mock/frameworks/core/rosen/testing_draw_cmd_list.h"
+#include "test/mock/frameworks/core/rosen/testing_filter.h"
+#include "test/mock/frameworks/core/rosen/testing_font.h"
+#include "test/mock/frameworks/core/rosen/testing_font_collection.h"
+#include "test/mock/frameworks/core/rosen/testing_image.h"
+#include "test/mock/frameworks/core/rosen/testing_image_filter.h"
+#include "test/mock/frameworks/core/rosen/testing_image_info.h"
+#include "test/mock/frameworks/core/rosen/testing_mask_filter.h"
+#include "test/mock/frameworks/core/rosen/testing_path.h"
+#include "test/mock/frameworks/core/rosen/testing_path_effect.h"
+#include "test/mock/frameworks/core/rosen/testing_pen.h"
+#include "test/mock/frameworks/core/rosen/testing_picture.h"
+#include "test/mock/frameworks/core/rosen/testing_point.h"
+#include "test/mock/frameworks/core/rosen/testing_point3.h"
+#include "test/mock/frameworks/core/rosen/testing_recording_canvas.h"
+#include "test/mock/frameworks/core/rosen/testing_recording_path_effect.h"
+#include "test/mock/frameworks/core/rosen/testing_sampling_options.h"
+#include "test/mock/frameworks/core/rosen/testing_save_layer_ops.h"
+#include "test/mock/frameworks/core/rosen/testing_scalar.h"
+#include "test/mock/frameworks/core/rosen/testing_shader_effect.h"
+#include "test/mock/frameworks/core/rosen/testing_shadowflags.h"
+#include "test/mock/frameworks/core/rosen/testing_surface.h"
+#include "test/mock/frameworks/core/rosen/testing_text_blob.h"
+#include "test/mock/frameworks/core/rosen/testing_text_style.h"
+#include "test/mock/frameworks/core/rosen/testing_typeface.h"
+#include "test/mock/frameworks/core/rosen/testing_typography.h"
+#include "test/mock/frameworks/core/rosen/testing_typography_create.h"
+#include "test/mock/frameworks/core/rosen/testing_typography_style.h"
+#include "test/mock/frameworks/core/rosen/testing_picture_recorder.h"
 
 namespace OHOS::Ace {
 namespace RSDrawing = Testing;
@@ -72,6 +72,7 @@ using RSPathDirection = Testing::TestingPathDirection;
 using RSPathEffect = Testing::TestingPathEffect;
 using RSFilter = Testing::TestingFilter;
 using RSColor = Testing::TestingColor;
+using RSColorPlaceholder = Testing::TestingColorPlaceholder;
 using RSMaskFilter = Testing::TestingMaskFilter;
 using RSImageFilter = Testing::TestingImageFilter;
 using RSBlurType = Testing::BlurType;
@@ -140,5 +141,6 @@ using RSTextRect = Testing::TestingTypographyProperties::TextRect;
 using RSColor4f = Testing::TestingColor4f;
 using RSCMSTransferFuncType = Testing::TestingCMSTransferFuncType;
 using RSCMSMatrixType = Testing::TestingCMSMatrixType;
+using RSClamp = Testing::TestingClamp;
 } // namespace OHOS::Ace
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_RENDER_DRAWING_MOCK_H

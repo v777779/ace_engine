@@ -20,16 +20,19 @@
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/select/select_model_ng.h"
 #include "core/components_ng/pattern/select/select_model_static.h"
+#include "core/components_ng/pattern/text_field/text_field_model.h"
 #include "core/interfaces/native/implementation/symbol_glyph_modifier_peer.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/utility/validators.h"
+#include "core/interfaces/native/implementation/dialog_common.h"
 #include "core/interfaces/native/implementation/text_modifier_peer.h"
 #include "core/interfaces/native/implementation/symbol_glyph_modifier_peer.h"
 
 namespace OHOS::Ace::NG {
-
+constexpr uint32_t MENU_OUTLINE_COLOR = 0x19FFFFFF;
+constexpr Dimension DEFAULT_OUTLINE_WIDTH = Dimension { -1 };
 namespace Converter {
 struct SelectDividerStyle {
     SelectDivider selectDivider;
@@ -165,22 +168,60 @@ SelectDividerStyle Convert(const Ark_DividerStyleOptions& src)
     };
 }
 
+void SetMenuOutlineWidthMultiValued(std::optional<Dimension>& dst, std::optional<Dimension>& dimensionOpt)
+{
+    CHECK_EQUAL_VOID(dimensionOpt.has_value(), false);
+    Validator::ValidateNonNegative(dimensionOpt);
+    Validator::ValidateNonPercent(dimensionOpt);
+    dst = dimensionOpt;
+}
+
 template<>
 MenuParam Convert(const Ark_MenuOutlineOptions& src)
 {
     MenuParam dst;
-    dst.outlineWidth = OptConvert<BorderWidthProperty>(src.width);
-    Validator::ValidateNonPercent(dst.outlineWidth->topDimen);
-    Validator::ValidateNonPercent(dst.outlineWidth->rightDimen);
-    Validator::ValidateNonPercent(dst.outlineWidth->bottomDimen);
-    Validator::ValidateNonPercent(dst.outlineWidth->leftDimen);
-    dst.outlineColor = OptConvert<BorderColorProperty>(src.color);
+    BorderWidthProperty outlineWidth;
+    auto outlineWidthOpt = OptConvert<BorderWidthProperty>(src.width);
+    if (outlineWidthOpt.has_value()) {
+        auto outlineWidthValue = outlineWidthOpt.value();
+        if (outlineWidthValue.multiValued) {
+            SetMenuOutlineWidthMultiValued(outlineWidth.leftDimen, outlineWidthValue.leftDimen);
+            SetMenuOutlineWidthMultiValued(outlineWidth.rightDimen, outlineWidthValue.rightDimen);
+            SetMenuOutlineWidthMultiValued(outlineWidth.topDimen, outlineWidthValue.topDimen);
+            SetMenuOutlineWidthMultiValued(outlineWidth.bottomDimen, outlineWidthValue.bottomDimen);
+        } else {
+            auto borderWidth = outlineWidthValue.topDimen.value_or(DEFAULT_OUTLINE_WIDTH);
+            auto validBorderWidth = (borderWidth.IsNegative() || borderWidth.Unit() == DimensionUnit::PERCENT)
+                                        ? DEFAULT_OUTLINE_WIDTH
+                                        : borderWidth;
+            outlineWidth.SetBorderWidth(validBorderWidth);
+        }
+    } else {
+        outlineWidth.SetBorderWidth(DEFAULT_OUTLINE_WIDTH);
+    }
+    dst.outlineWidth = outlineWidth;
+
+    BorderColorProperty outlineColor;
+    auto outlineColorOpt = OptConvert<BorderColorProperty>(src.color);
+    if (outlineColorOpt.has_value()) {
+        outlineColor = outlineColorOpt.value();
+        if (outlineColor.multiValued) {
+            Color defaultColor = Color::TRANSPARENT;
+            outlineColor.leftColor = outlineColor.leftColor.value_or(defaultColor);
+            outlineColor.rightColor = outlineColor.rightColor.value_or(defaultColor);
+            outlineColor.topColor = outlineColor.topColor.value_or(defaultColor);
+            outlineColor.bottomColor = outlineColor.bottomColor.value_or(defaultColor);
+        }
+    } else {
+        outlineColor.SetColor(Color(MENU_OUTLINE_COLOR));
+    }
+    dst.outlineColor = outlineColor;
     return dst;
 }
 } // namespace Converter
 namespace {
 std::optional<std::string> ProcessBindableValue(FrameNode* frameNode,
-    const Opt_Union_ResourceStr_Bindable_Bindable* value)
+    const Opt_Union_ResourceStr_Bindable_String_Bindable_Resource* value)
 {
     std::optional<std::string> result;
     Converter::VisitUnionPtr(value,
@@ -196,14 +237,14 @@ std::optional<std::string> ProcessBindableValue(FrameNode* frameNode,
             };
             SelectModelStatic::SetValueChangeEvent(frameNode, std::move(onEvent));
         },
-        [](const Ark_Bindable_Global_Resource_Resource& src) {
+        [](const Ark_Bindable_Resource& src) {
             // Invalid case, should be deleted from SDK
         },
         [] {});
     return result;
 }
 std::optional<int32_t> ProcessBindableSelected(FrameNode* frameNode,
-    const Opt_Union_I32_Resource_Bindable_Bindable* value)
+    const Opt_Union_I32_Resource_Bindable_I32_Bindable_Resource* value)
 {
     std::optional<int32_t> result;
     Converter::VisitUnionPtr(value,
@@ -222,7 +263,7 @@ std::optional<int32_t> ProcessBindableSelected(FrameNode* frameNode,
             };
             SelectModelStatic::SetSelectChangeEvent(frameNode, std::move(onEvent));
         },
-        [](const Ark_Bindable_Global_Resource_Resource& src) {
+        [](const Ark_Bindable_Resource& src) {
             // Invalid case, should be deleted from SDK
         },
         [] {});
@@ -234,9 +275,9 @@ std::optional<int32_t> ProcessBindableSelected(FrameNode* frameNode,
 namespace OHOS::Ace::NG::GeneratedModifier {
 namespace SelectAttributeModifier {
     void Selected1Impl(Ark_NativePointer node, const Opt_Union_I32_Resource* value);
-    void Font1Impl(Ark_NativePointer node, const Opt_Font* value);
-    void SelectedOptionFont1Impl(Ark_NativePointer node, const Opt_Font* value);
-    void OptionFont1Impl(Ark_NativePointer node, const Opt_Font* value);
+    void Font1Impl(Ark_NativePointer node, const Opt_arkui_component_units_Font* value);
+    void SelectedOptionFont1Impl(Ark_NativePointer node, const Opt_arkui_component_units_Font* value);
+    void OptionFont1Impl(Ark_NativePointer node, const Opt_arkui_component_units_Font* value);
     void Space1Impl(Ark_NativePointer node, const Opt_Length* value);
     void OptionWidth1Impl(Ark_NativePointer node,
         const Opt_Union_Dimension_OptionWidthMode* value);
@@ -266,7 +307,7 @@ void SetSelectOptionsImpl(Ark_NativePointer node,
 } // SelectInterfaceModifier
 namespace SelectAttributeModifier {
 void SetSelectedImpl(Ark_NativePointer node,
-                     const Opt_Union_I32_Resource_Bindable_Bindable* value)
+                     const Opt_Union_I32_Resource_Bindable_I32_Bindable_Resource* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -277,7 +318,7 @@ void SetSelectedImpl(Ark_NativePointer node,
     SelectModelStatic::SetSelected(frameNode, convVal);
 }
 void SetValueImpl(Ark_NativePointer node,
-                  const Opt_Union_ResourceStr_Bindable_Bindable* value)
+                  const Opt_Union_ResourceStr_Bindable_String_Bindable_Resource* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -285,7 +326,7 @@ void SetValueImpl(Ark_NativePointer node,
     SelectModelStatic::SetValue(frameNode, optValue);
 }
 void SetFontImpl(Ark_NativePointer node,
-                 const Opt_Font* value)
+                 const Opt_arkui_component_units_Font* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -317,7 +358,7 @@ void SetSelectedOptionBgColorImpl(Ark_NativePointer node,
     SelectModelStatic::SetSelectedOptionBgColor(frameNode, Converter::OptConvertPtr<Color>(value));
 }
 void SetSelectedOptionFontImpl(Ark_NativePointer node,
-                               const Opt_Font* value)
+                               const Opt_arkui_component_units_Font* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -350,7 +391,7 @@ void SetOptionBgColorImpl(Ark_NativePointer node,
     SelectModelStatic::SetOptionBgColor(frameNode, Converter::OptConvertPtr<Color>(value));
 }
 void SetOptionFontImpl(Ark_NativePointer node,
-                       const Opt_Font* value)
+                       const Opt_arkui_component_units_Font* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -420,7 +461,7 @@ void SetOptionWidthImpl(Ark_NativePointer node,
     }
     Converter::VisitUnion(arkUnion.value(),
         [frameNode](const Ark_Dimension& value) {
-            auto width = Converter::OptConvertFromArkNumStrRes<Ark_Dimension, Ark_Number>(value);
+            auto width = Converter::OptConvert<Dimension>(value);
             Validator::ValidateNonNegative(width);
             Validator::ValidateNonPercent(width);
             SelectModelNG::SetHasOptionWidth(frameNode, true);
@@ -439,10 +480,7 @@ void SetOptionHeightImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    std::optional<Dimension> convValue = std::nullopt;
-    if (value->tag != INTEROP_TAG_UNDEFINED) {
-        convValue = Converter::OptConvertFromArkNumStrRes<Ark_Dimension, Ark_Number>(value->value);
-    }
+    auto convValue = Converter::OptConvertPtr<Dimension>(value);
     Validator::ValidatePositive(convValue);
     Validator::ValidateNonPercent(convValue);
     SelectModelStatic::SetOptionHeight(frameNode, convValue);
@@ -474,43 +512,6 @@ void SetControlSizeImpl(Ark_NativePointer node,
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     SelectModelStatic::SetControlSize(frameNode, Converter::OptConvertPtr<ControlSize>(value));
-}
-void SetDividerImpl(Ark_NativePointer node,
-                    const Opt_DividerOptions* value)
-{
-    auto frameNode = reinterpret_cast<FrameNode *>(node);
-    CHECK_NULL_VOID(frameNode);
-    CHECK_NULL_VOID(value);
-    auto divider = SelectModelStatic::GetDefaultDivider(frameNode);
-    if (value->tag == INTEROP_TAG_UNDEFINED) {
-        SelectModelStatic::SetDivider(frameNode, divider);
-        return;
-    }
-    auto dividerOptions = value->value;
-    auto strokeWidthOpt = Converter::OptConvert<Dimension>(dividerOptions.strokeWidth);
-    Validator::ValidateNonNegative(strokeWidthOpt);
-    Validator::ValidateNonPercent(strokeWidthOpt);
-    if (strokeWidthOpt.has_value()) {
-        divider.strokeWidth = strokeWidthOpt.value();
-    }
-    auto colorOpt = Converter::OptConvert<Color>(dividerOptions.color);
-    if (colorOpt.has_value()) {
-        divider.color = colorOpt.value();
-    }
-    auto startMarginOpt = Converter::OptConvert<Dimension>(dividerOptions.startMargin);
-    Validator::ValidateNonNegative(startMarginOpt);
-    Validator::ValidateNonPercent(startMarginOpt);
-    if (startMarginOpt.has_value()) {
-        divider.startMargin = startMarginOpt.value();
-    }
-    auto endMarginOpt = Converter::OptConvert<Dimension>(dividerOptions.endMargin);
-    Validator::ValidateNonNegative(endMarginOpt);
-    Validator::ValidateNonPercent(endMarginOpt);
-    if (endMarginOpt.has_value()) {
-        divider.endMargin = endMarginOpt.value();
-    }
-    std::optional<SelectDivider> dividerOpt = divider;
-    SelectModelStatic::SetDivider(frameNode, dividerOpt);
 }
 void SetTextModifierImpl(Ark_NativePointer node,
                          const Opt_TextModifier* value)
@@ -584,14 +585,50 @@ void SetMenuOutlineImpl(Ark_NativePointer node,
     CHECK_NULL_VOID(frameNode);
     CHECK_NULL_VOID(value);
     auto optConvert = Converter::OptConvertPtr<MenuParam>(value);
+    if (!optConvert.has_value()) {
+        optConvert = NG::MenuParam();
+        SelectModelStatic::SetDefaultMenuParam(frameNode, optConvert.value());
+    }
+    optConvert->placement = Placement::BOTTOM_LEFT;
     SelectModelStatic::SetMenuOutline(frameNode, optConvert);
 }
-void SetBackgroundColorImpl(Ark_NativePointer node,
-                            const Opt_ResourceColor* value)
+void SetShowInSubWindowImpl(Ark_NativePointer node, const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto optConvert = Converter::OptConvertPtr<bool>(value);
+    SelectModelStatic::SetShowInSubWindow(frameNode, optConvert);
+}
+void SetShowDefaultSelectedIconImpl(Ark_NativePointer node, const Opt_Boolean* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto optConvert = Converter::OptConvertPtr<bool>(value);
+    SelectModelStatic::SetShowDefaultSelectedIcon(frameNode, optConvert);
+}
+void SetKeyboardAvoidModeImpl(Ark_NativePointer node,
+                              const Opt_MenuKeyboardAvoidMode* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    SelectModelStatic::SetBackgroundColor(frameNode, Converter::OptConvertPtr<Color>(value));
+    auto convValue = Converter::OptConvertPtr<MenuKeyboardAvoidMode>(value);
+    SelectModelNG::SetKeyboardAvoidMode(frameNode, convValue);
+}
+void SetMinKeyboardAvoidDistanceImpl(Ark_NativePointer node, const Opt_LengthMetrics* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto convValue = Converter::OptConvertPtr<Dimension>(value);
+    Validator::ValidateNonNegative(convValue);
+    SelectModelNG::SetMinKeyboardAvoidDistance(frameNode, convValue);
+}
+void SetMenuSystemMaterialImpl(Ark_NativePointer node,
+                               const Opt_uiMaterial_Material* value)
+{
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    auto ptrOpt = Converter::OptConvertPtr<UiMaterial*>(value).value_or(nullptr);
+    SelectModelNG::SetMenuSystemMaterial(frameNode, ptrOpt ? ptrOpt->Copy() : nullptr);
 }
 void SetMenuAlignImpl(Ark_NativePointer node,
                       const Opt_MenuAlignType* alignType,
@@ -634,7 +671,6 @@ const GENERATED_ArkUISelectModifier* GetSelectModifier()
         SelectAttributeModifier::SetMenuBackgroundColorImpl,
         SelectAttributeModifier::SetMenuBackgroundBlurStyleImpl,
         SelectAttributeModifier::SetControlSizeImpl,
-        SelectAttributeModifier::SetDividerImpl,
         SelectAttributeModifier::SetTextModifierImpl,
         SelectAttributeModifier::SetArrowModifierImpl,
         SelectAttributeModifier::SetOptionTextModifierImpl,
@@ -642,7 +678,11 @@ const GENERATED_ArkUISelectModifier* GetSelectModifier()
         SelectAttributeModifier::SetDividerStyleImpl,
         SelectAttributeModifier::SetAvoidanceImpl,
         SelectAttributeModifier::SetMenuOutlineImpl,
-        SelectAttributeModifier::SetBackgroundColorImpl,
+        SelectAttributeModifier::SetShowInSubWindowImpl,
+        SelectAttributeModifier::SetShowDefaultSelectedIconImpl,
+        SelectAttributeModifier::SetKeyboardAvoidModeImpl,
+        SelectAttributeModifier::SetMinKeyboardAvoidDistanceImpl,
+        SelectAttributeModifier::SetMenuSystemMaterialImpl,
         SelectAttributeModifier::SetMenuAlignImpl,
     };
     return &ArkUISelectModifierImpl;

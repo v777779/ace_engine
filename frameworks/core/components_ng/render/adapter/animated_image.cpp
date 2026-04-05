@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,9 +17,10 @@
 
 #include "drawing/engine_adapter/skia_adapter/skia_data.h"
 #include "drawing/engine_adapter/skia_adapter/skia_image_info.h"
+#include "include/codec/SkCodec.h"
+#include "include/core/SkImage.h"
 
 #include "core/components_ng/image_provider/drawing_image_data.h"
-
 #include "core/components_ng/image_provider/image_utils.h"
 #include "core/image/image_cache.h"
 #include "core/pipeline_ng/pipeline_context.h"
@@ -71,6 +72,9 @@ AnimatedImage::~AnimatedImage() = default;
 
 void AnimatedImage::PostPlayTask(uint32_t idx, int iteration)
 {
+    if (duration_.empty()) {
+        return;
+    }
     if (idx == static_cast<uint32_t>(duration_.size())) {
         iteration--;
         idx = 0;
@@ -94,13 +98,10 @@ void AnimatedImage::PostPlayTask(uint32_t idx, int iteration)
 std::vector<int> AnimatedImage::GenerateDuration(const std::unique_ptr<SkCodec>& codec)
 {
     std::vector<int> duration;
-    auto info = codec->getFrameInfo();
-    for (int32_t i = 0; i < codec->getFrameCount(); ++i) {
-        if (info[i].fDuration <= 0) {
-            duration.push_back(STANDARD_FRAME_DURATION);
-        } else {
-            duration.push_back(info[i].fDuration);
-        }
+    const auto frameInfos = codec->getFrameInfo();
+    for (const auto& frameInfo : frameInfos) {
+        const int frameDuration = frameInfo.fDuration > 0 ? frameInfo.fDuration : STANDARD_FRAME_DURATION;
+        duration.push_back(frameDuration);
     }
     return duration;
 }
@@ -207,6 +208,12 @@ std::shared_ptr<RSImage> AnimatedRSImage::GetImage() const
     return currentFrame_;
 }
 
+AnimatedRSImage::AnimatedRSImage(std::unique_ptr<SkCodec> codec, std::string url)
+    : AnimatedImage(codec, std::move(url)), codec_(std::move(codec))
+{}
+
+AnimatedRSImage::~AnimatedRSImage() = default;
+
 void AnimatedRSImage::DecodeImpl(uint32_t idx)
 {
     SkImageInfo imageInfo = codec_->getInfo();
@@ -280,6 +287,8 @@ AnimatedPixmap::AnimatedPixmap(
     // 0.7 is the balance point.
 }
 
+AnimatedPixmap::~AnimatedPixmap() = default;
+
 RefPtr<PixelMap> AnimatedPixmap::GetPixelMap() const
 {
     std::scoped_lock<std::mutex> lock(frameMtx_);
@@ -329,5 +338,12 @@ void AnimatedPixmap::UseCachedFrame(RefPtr<CanvasImage>&& image)
 {
     std::scoped_lock<std::mutex> lock(frameMtx_);
     currentFrame_ = DynamicCast<PixelMapImage>(image)->GetPixelMap();
+}
+
+RefPtr<PixelMap> AnimatedPixmap::GetFirstPixelMap()
+{
+    std::scoped_lock<std::mutex> lock(decodeMtx_);
+    DecodeImpl(0);
+    return currentFrame_;
 }
 } // namespace OHOS::Ace::NG

@@ -15,6 +15,7 @@
 
 #include "core/components_ng/render/adapter/form_render_window.h"
 
+#include "base/log/ace_performance_monitor.h"
 #include "base/log/frame_report.h"
 #include "core/common/container.h"
 #ifdef ENABLE_ROSEN_BACKEND
@@ -26,6 +27,7 @@
 namespace {
 #ifdef ENABLE_ROSEN_BACKEND
 constexpr float ONE_SECOND_IN_NANO = 1000000000.0f;
+static std::atomic<int32_t> vsyncCounter = 0;
 
 float GetDisplayRefreshRate()
 {
@@ -46,14 +48,19 @@ FormRenderWindow::FormRenderWindow(RefPtr<TaskExecutor> taskExecutor, int32_t id
 #ifdef ENABLE_ROSEN_BACKEND
     ContainerScope scope(id);
     auto container = Container::Current();
+    if (container != nullptr) {
+        uiContentType_ = container->GetUIContentType();
+    }
     if (receiver_ == nullptr) {
         auto& rsClient = Rosen::RSInterfaces::GetInstance();
         frameRateLinker_ = Rosen::RSFrameRateLinker::Create();
         receiver_ = rsClient.CreateVSyncReceiver("Form", frameRateLinker_ != nullptr ? frameRateLinker_->GetId() : 0);
         if (receiver_ == nullptr) {
-            LOGE("Form Create VSync receiver failed.");
+            LOGE("Form create vsync receiver failed, total counter:%{public}d",
+                vsyncCounter.load(std::memory_order_relaxed));
             return;
         }
+        LOGI("VSync created, total counter:%{public}d", ++vsyncCounter);
         receiver_->Init();
     }
 
@@ -102,7 +109,21 @@ void FormRenderWindow::RequestFrame()
 {
 #ifdef ENABLE_ROSEN_BACKEND
     if (receiver_ != nullptr) {
+        if (uiContentType_ == UIContentType::DYNAMIC_COMPONENT) {
+            CHECK_NULL_VOID(!isRequestVsync_);
+            isRequestVsync_ = true;
+        }
         receiver_->RequestNextVSync(frameCallback_);
+    }
+#endif
+}
+
+void FormRenderWindow::RecordFrameTime(uint64_t timeStamp, const std::string& name)
+{
+#ifdef ENABLE_ROSEN_BACKEND
+    if (uiContentType_ == UIContentType::DYNAMIC_COMPONENT) {
+        CHECK_NULL_VOID(rsUIDirector_);
+        rsUIDirector_->SetTimeStamp(timeStamp, name);
     }
 #endif
 }
@@ -113,10 +134,15 @@ void FormRenderWindow::Destroy()
 #ifdef ENABLE_ROSEN_BACKEND
     frameCallback_.userData_ = nullptr;
     frameCallback_.callback_ = nullptr;
+    rsSurfaceNode_ = nullptr;
     if (rsUIDirector_) {
         rsUIDirector_->Destroy();
         rsUIDirector_.reset();
     }
+    if (receiver_) {
+        LOGI("VSync destroyed, remained counter:%{public}d", --vsyncCounter);
+    }
+    receiver_.reset();
     callbacks_.clear();
 #endif
 }
@@ -199,7 +225,9 @@ void FormRenderWindow::FlushFrameRate(int32_t rate, int32_t animatorExpectedFram
     decltype(frameRateData_) frameRateData{rate, animatorExpectedFrameRate, rateType};
     if (frameRateData_ != frameRateData) {
         frameRateData_ = frameRateData;
-        frameRateLinker_->UpdateFrameRateRange({0, RANGE_MAX_REFRESHRATE, rate, rateType}, animatorExpectedFrameRate);
+        auto rsUIContext = rsUIDirector_ ? rsUIDirector_->GetRSUIContext() : nullptr;
+        frameRateLinker_->UpdateFrameRateRange({0, RANGE_MAX_REFRESHRATE, rate, rateType},
+            animatorExpectedFrameRate, rsUIContext);
     }
 #endif
 }
@@ -208,12 +236,15 @@ void FormRenderWindow::InitOnVsyncCallback()
 {
 #ifdef ENABLE_ROSEN_BACKEND
     int64_t refreshPeriod = static_cast<int64_t>(ONE_SECOND_IN_NANO / GetDisplayRefreshRate());
-    onVsyncCallback_ = [weakTask = taskExecutor_, id = id_, refreshPeriod](
+    onVsyncCallback_ = [weakTask = taskExecutor_, id = id_, refreshPeriod, uiContentType = uiContentType_](
                            int64_t timeStampNanos, int64_t frameCount, void* data) {
         auto taskExecutor = weakTask.Upgrade();
         CHECK_NULL_VOID(taskExecutor);
-        auto onVsync = [id, timeStampNanos, frameCount, refreshPeriod] {
+        auto onVsync = [id, timeStampNanos, frameCount, refreshPeriod, uiContentType] {
             int64_t ts = GetSysTimestamp();
+            if (uiContentType == UIContentType::DYNAMIC_COMPONENT) {
+                ArkUIPerfMonitor::GetInstance().StartPerf();
+            }
             ContainerScope scope(id);
             // use container to get window can make sure the window is valid
             auto container = Container::Current();
@@ -224,19 +255,20 @@ void FormRenderWindow::InitOnVsyncCallback()
                 isReportFrameEvent = containerHandler->GetHostConfig().isReportFrameEvent;
             }
             if (isReportFrameEvent) {
-                FrameReport::GetInstance().ReportSchedEvent(
-                    FrameSchedEvent::UI_SCB_WORKER_BEGIN, {});
+                FrameReport::GetInstance().ReportSchedEvent(FrameSchedEvent::UI_SCB_WORKER_BEGIN, {});
             }
             auto window = container->GetWindow();
             CHECK_NULL_VOID(window);
             window->OnVsync(static_cast<uint64_t>(timeStampNanos), static_cast<uint64_t>(frameCount));
+            if (uiContentType == UIContentType::DYNAMIC_COMPONENT) {
+                ArkUIPerfMonitor::GetInstance().FinishPerf();
+            }
             auto pipeline = container->GetPipelineContext();
             if (pipeline) {
                 pipeline->OnIdle(std::min(ts, timeStampNanos) + refreshPeriod);
             }
             if (isReportFrameEvent) {
-                FrameReport::GetInstance().ReportSchedEvent(
-                    FrameSchedEvent::UI_SCB_WORKER_END, {});
+                FrameReport::GetInstance().ReportSchedEvent(FrameSchedEvent::UI_SCB_WORKER_END, {});
             }
         };
 
@@ -252,6 +284,15 @@ void FormRenderWindow::InitOnVsyncCallback()
 
     frameCallback_.userData_ = nullptr;
     frameCallback_.callbackWithId_ = onVsyncCallback_;
+#endif
+}
+
+void FormRenderWindow::SetUiDvsyncSwitch(bool dvsyncSwitch)
+{
+#if defined(__OHOS__) && defined(ENABLE_ROSEN_BACKEND)
+    if (receiver_ && (uiContentType_ == UIContentType::DYNAMIC_COMPONENT)) {
+        receiver_->SetUiDvsyncSwitch(dvsyncSwitch);
+    }
 #endif
 }
 

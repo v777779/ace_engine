@@ -24,8 +24,8 @@
 
 #define protected public
 #define private public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/utils/utils.h"
 #include "core/common/ace_application_info.h"
@@ -41,9 +41,8 @@
 #include "core/pipeline_ng/pipeline_context.h"
 #include "base/json/json_util.h"
 #include "core/components_ng/pattern/custom/custom_node.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/render/mock_render_context.h"
-#include "test/mock/core/render/mock_rosen_render_context.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -152,8 +151,6 @@ HWTEST_F(InspectorTestNg, InspectorTestNg001, TestSize.Level1)
 
     auto nodePtr3 = Inspector::GetFrameNodeByKey("");
     ASSERT_NE(nodePtr3, nullptr);
-
-    context1->rootNode_ = nullptr;
 }
 
 /**
@@ -194,8 +191,6 @@ HWTEST_F(InspectorTestNg, InspectorTestNg002, TestSize.Level1)
      * @tc.expected: expect nodePtr2 not null
      */
     auto test3 = Inspector::GetInspectorNodeByKey("");
-
-    context1->rootNode_ = nullptr;
 }
 
 /**
@@ -277,8 +272,6 @@ HWTEST_F(InspectorTestNg, InspectorTestNg004, TestSize.Level1)
     EXPECT_EQ(test3, true);
     test3 = Inspector::SendEventByKey("", 31, "params");
     EXPECT_EQ(test3, true);
-
-    context->rootNode_ = nullptr;
 }
 
 /**
@@ -415,7 +408,6 @@ HWTEST_F(InspectorTestNg, InspectorTestNg007, TestSize.Level1)
     auto test = Inspector::GetInspector(false);
     auto str = "{\"$type\":\"root\",\"width\":\"720.000000\",\"height\":\"1280.000000\",\"$resolution\":\"1.000000\"}";
     EXPECT_EQ(test, str);
-
     context1->stageManager_ = nullptr;
 }
 
@@ -530,33 +522,6 @@ HWTEST_F(InspectorTestNg, InspectorTestNg011, TestSize.Level1)
 }
 
 /**
- * @tc.name: InspectorTestNg012
- * @tc.desc: Test the operation of GetSimplifiedInspector
- * @tc.type: FUNC
- */
-HWTEST_F(InspectorTestNg, InspectorTestNg012, TestSize.Level1)
-{
-    auto id = ElementRegister::GetInstance()->MakeUniqueId();
-    RefPtr<FrameNode> ONE = FrameNode::CreateFrameNode("one", id, AceType::MakeRefPtr<Pattern>(), true);
-    auto context = PipelineContext::GetCurrentContext();
-    ASSERT_NE(context, nullptr);
-    context->stageManager_ = AceType::MakeRefPtr<StageManager>(ONE);
-    int32_t containerId = 1;
-    TreeParams params { false };
-    auto inspector = std::make_shared<SimplifiedInspector>(containerId, params);
-    auto collector = std::make_shared<Recorder::InspectorTreeCollector>(
-        [](const std::shared_ptr<std::string> result) {
-            ASSERT_NE(result, nullptr);
-            EXPECT_NE(result->c_str(), "");
-        },
-        false);
-    inspector->GetInspectorAsync(collector);
-    auto result = inspector->GetInspector();
-    EXPECT_NE(result, "");
-    context->stageManager_ = nullptr;
-}
-
-/**
  * @tc.name: InspectorTestNg013
  * @tc.desc: Test the function of InspectorFilter
  * @tc.type: FUNC
@@ -663,7 +628,7 @@ HWTEST_F(InspectorTestNg, InspectorTestNg017, TestSize.Level1)
     rootNode->AddChild(frameNode);
     auto searchedNode = Inspector::GetFrameNodeByKey(inspectorId);
     EXPECT_EQ(frameNode, searchedNode);
-    
+
     // tc.steps:    add offScreencreenNode to off screencreen node with inspector id text1
     // tc.expected: expect the function GetFrameNodeByKey get the offScreencreenNode
     auto offScreencreenNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG,
@@ -672,12 +637,12 @@ HWTEST_F(InspectorTestNg, InspectorTestNg017, TestSize.Level1)
     Inspector::AddOffscreenNode(offScreencreenNode);
     searchedNode = Inspector::GetFrameNodeByKey(inspectorId);
     EXPECT_EQ(offScreencreenNode, searchedNode);
-    
+
     // tc.steps:    execute GetFrameNodeByKey when skipoffscreenNodes set true
     // tc.expected: expect the function GetFrameNodeByKey get the frameNode
     searchedNode = Inspector::GetFrameNodeByKey(inspectorId, false, true);
     EXPECT_EQ(frameNode, searchedNode);
-    
+
     // tc.steps:    execute GetFrameNodeByKey when remove offScreencreenNode
     // tc.expected: expect the function GetFrameNodeByKey get the frameNode
     Inspector::RemoveOffscreenNode(offScreencreenNode);
@@ -707,20 +672,20 @@ HWTEST_F(InspectorTestNg, InspectorTestNg018, TestSize.Level1)
     std::string searchedNodeStr = Inspector::GetInspectorNodeByKey(inspectorId);
     auto searchedNode = JsonUtil::ParseJsonString(searchedNodeStr);
     EXPECT_TRUE(searchedNode->IsValid());
-    
+
     std::string nodeType = searchedNode->GetString(INSPECTOR_TYPE);
     EXPECT_EQ(nodeType, TEXT_NODE_TYPE);
-    
+
     int32_t nodeId = searchedNode->GetInt(INSPECTOR_ID);
     EXPECT_EQ(textNodeId, nodeId);
-    
+
     std::string debugLine = searchedNode->GetString(INSPECTOR_DEBUGLINE);
     EXPECT_EQ(debugLine, "");
-    
+
     auto attrJson = searchedNode->GetObject(INSPECTOR_ATTRS);
     std::string accessibilityTextAttr = attrJson->GetString("accessibilityText");
     EXPECT_EQ(accessibilityTextAttr, "");
-    
+
     auto accessibilityProperty = frameNode->GetAccessibilityProperty<AccessibilityProperty>();
     accessibilityProperty->SetAccessibilityText(TEST_TEXT);
     searchedNodeStr = Inspector::GetInspectorNodeByKey(inspectorId);
@@ -808,20 +773,22 @@ HWTEST_F(InspectorTestNg, InspectorTestNg021, TestSize.Level1)
  */
 HWTEST_F(InspectorTestNg, AddOffscreenNode_001, TestSize.Level1)
 {
-    int32_t num = Inspector::offscreenNodes.size();
+    auto context = PipelineContext::GetCurrentContext();
+    ASSERT_NE(context, nullptr);
+    auto offscreenNodesMgr = context->GetInspectorOffscreenNodesMgr();
+    ASSERT_NE(offscreenNodesMgr, nullptr);
+    int32_t num = offscreenNodesMgr->GetOffscreenNodesSize();
     RefPtr<FrameNode> one = nullptr;
     Inspector::AddOffscreenNode(one);
-    EXPECT_EQ(Inspector::offscreenNodes.size(), num);
+    EXPECT_EQ(offscreenNodesMgr->GetOffscreenNodesSize(), num);
 
     auto id = ElementRegister::GetInstance()->MakeUniqueId();
     one = FrameNode::CreateFrameNode("one", id, AceType::MakeRefPtr<Pattern>(), true);
-    auto context = PipelineContext::GetCurrentContext();
-    ASSERT_NE(context, nullptr);
 
     context->stageManager_ = AceType::MakeRefPtr<StageManager>(one);
-    num = Inspector::offscreenNodes.size();
+    num = offscreenNodesMgr->GetOffscreenNodesSize();
     Inspector::AddOffscreenNode(one);
-    EXPECT_EQ(Inspector::offscreenNodes.size(), num + 1);
+    EXPECT_EQ(offscreenNodesMgr->GetOffscreenNodesSize(), num + 1);
     context->stageManager_ = nullptr;
 }
 
@@ -832,21 +799,23 @@ HWTEST_F(InspectorTestNg, AddOffscreenNode_001, TestSize.Level1)
  */
 HWTEST_F(InspectorTestNg, RemoveOffscreenNode_001, TestSize.Level1)
 {
-    int32_t num = Inspector::offscreenNodes.size();
+    auto context = PipelineContext::GetCurrentContext();
+    ASSERT_NE(context, nullptr);
+    auto offscreenNodesMgr = context->GetInspectorOffscreenNodesMgr();
+    ASSERT_NE(offscreenNodesMgr, nullptr);
+    int32_t num = offscreenNodesMgr->GetOffscreenNodesSize();
     RefPtr<FrameNode> one = nullptr;
     Inspector::RemoveOffscreenNode(one);
-    EXPECT_EQ(Inspector::offscreenNodes.size(), num);
+    EXPECT_EQ(offscreenNodesMgr->GetOffscreenNodesSize(), num);
 
     auto id = ElementRegister::GetInstance()->MakeUniqueId();
     one = FrameNode::CreateFrameNode("one", id, AceType::MakeRefPtr<Pattern>(), true);
-    auto context = PipelineContext::GetCurrentContext();
-    ASSERT_NE(context, nullptr);
     context->stageManager_ = AceType::MakeRefPtr<StageManager>(one);
     Inspector::AddOffscreenNode(one);
-    num = Inspector::offscreenNodes.size();
+    num = offscreenNodesMgr->GetOffscreenNodesSize();
 
     Inspector::RemoveOffscreenNode(one);
-    EXPECT_EQ(Inspector::offscreenNodes.size(), num - 1);
+    EXPECT_EQ(offscreenNodesMgr->GetOffscreenNodesSize(), num - 1);
     context->stageManager_ = nullptr;
 }
 
@@ -861,9 +830,11 @@ HWTEST_F(InspectorTestNg, GetOffScreenTreeNodes_001, TestSize.Level1)
     RefPtr<FrameNode> one = FrameNode::CreateFrameNode("one", id, AceType::MakeRefPtr<Pattern>(), true);
     auto context = PipelineContext::GetCurrentContext();
     ASSERT_NE(context, nullptr);
+    auto offscreenNodesMgr = context->GetInspectorOffscreenNodesMgr();
+    ASSERT_NE(offscreenNodesMgr, nullptr);
     context->stageManager_ = AceType::MakeRefPtr<StageManager>(one);
     Inspector::AddOffscreenNode(one);
-    int32_t num = Inspector::offscreenNodes.size();
+    int32_t num = offscreenNodesMgr->GetOffscreenNodesSize();
     NG::InspectorTreeMap offNodes;
     Inspector::GetOffScreenTreeNodes(offNodes);
     EXPECT_EQ(offNodes.size(), num);
@@ -1556,7 +1527,7 @@ HWTEST_F(InspectorTestNg, InspectorFilterTest001, TestSize.Level1)
     auto filter = std::make_unique<InspectorFilter>();
     EXPECT_TRUE(filter->FilterEmpty());
 }
- 
+
 /**
 * @tc.name: InspectorFilterTest002
 * @tc.desc: Test the operation of FilterEmptyInitially
@@ -1602,7 +1573,7 @@ HWTEST_F(InspectorTestNg, InspectorFilterTest005, TestSize.Level1)
     auto filter = std::make_unique<InspectorFilter>();
     filter->AddFilterAttr("id");
     filter->AddFilterAttr("content");
-    
+
     EXPECT_TRUE(filter->CheckFixedAttr(FIXED_ATTR_ID));
     EXPECT_TRUE(filter->CheckFixedAttr(FIXED_ATTR_CONTENT));
     EXPECT_FALSE(filter->CheckFixedAttr(FIXED_ATTR_SRC));
@@ -1617,7 +1588,7 @@ HWTEST_F(InspectorTestNg, InspectorFilterTest006, TestSize.Level1)
 {
     auto filter = std::make_unique<InspectorFilter>();
     filter->AddFilterAttr("custom_attr");
-    
+
     EXPECT_TRUE(filter->CheckExtAttr("custom_attr"));
     EXPECT_FALSE(filter->CheckExtAttr("other_attr"));
 }
@@ -1631,7 +1602,7 @@ HWTEST_F(InspectorTestNg, InspectorFilterTest007, TestSize.Level1)
 {
     auto filter = std::make_unique<InspectorFilter>();
     filter->AddFilterAttr("id");
-    
+
     EXPECT_TRUE(filter->CheckFilterAttr(FIXED_ATTR_ID, nullptr));
     EXPECT_FALSE(filter->CheckFilterAttr(FIXED_ATTR_CONTENT, nullptr));
 }
@@ -1645,7 +1616,7 @@ HWTEST_F(InspectorTestNg, InspectorFilterTest008, TestSize.Level1)
 {
     auto filter = std::make_unique<InspectorFilter>();
     filter->AddFilterAttr("custom_attr");
-    
+
     EXPECT_TRUE(filter->CheckFilterAttr(FIXED_ATTR_ID, "custom_attr"));
     EXPECT_FALSE(filter->CheckFilterAttr(FIXED_ATTR_ID, "other_attr"));
 }
@@ -1660,7 +1631,7 @@ HWTEST_F(InspectorTestNg, InspectorFilterTest009, TestSize.Level1)
     auto filter = std::make_unique<InspectorFilter>();
     filter->AddFilterAttr("id");
     filter->AddFilterAttr("content");
-   
+
    EXPECT_TRUE(filter->IsFastFilter());
 }
 
@@ -1673,7 +1644,7 @@ HWTEST_F(InspectorTestNg, InspectorFilterTest010, TestSize.Level1)
 {
     auto filter = std::make_unique<InspectorFilter>();
     filter->AddFilterAttr("custom_attr");
-   
+
     EXPECT_FALSE(filter->IsFastFilter());
 }
 
@@ -1687,7 +1658,7 @@ HWTEST_F(InspectorTestNg, InspectorFilterTest011, TestSize.Level1)
     auto filter = std::make_unique<InspectorFilter>();
     std::string id = "test_id";
     filter->SetFilterID(id);
-   
+
     EXPECT_EQ(id, filter->GetFilterID());
 }
 
@@ -1702,86 +1673,6 @@ HWTEST_F(InspectorTestNg, InspectorFilterTest012, TestSize.Level1)
     size_t depth = 5;
     filter->SetFilterDepth(depth);
     EXPECT_EQ(depth, filter-> GetFilterDepth());
-}
-
-/**
-* @tc.name: SimplifiedInspectorTest001
-* @tc.desc: Test the operation of FilterEmptyInitially
-* @tc.type: FUNC
-*/
-HWTEST_F(InspectorTestNg, SimplifiedInspectorTest001, TestSize.Level1)
-{
-    auto id = ElementRegister::GetInstance()->MakeUniqueId();
-    RefPtr<FrameNode> stageNode = FrameNode::CreateFrameNode("one", id, AceType::MakeRefPtr<Pattern>(), true);
-    auto context = PipelineContext::GetCurrentContext();
-    ASSERT_NE(context, nullptr);
-    context->taskExecutor_ = AceType::MakeRefPtr<MockTaskExecutor>();
-    context->stageManager_ = AceType::MakeRefPtr<StageManager>(stageNode);
-    auto pageId = ElementRegister::GetInstance()->MakeUniqueId();
-    const RefPtr<FrameNode> pageA = FrameNode::CreateFrameNode("PageA", pageId,
-        AceType::MakeRefPtr<PagePattern>(AceType::MakeRefPtr<PageInfo>(10, "page/Index", "page/Index")));
-    stageNode->AddChild(pageA);
-    int32_t containerId = 100;
-    TreeParams params { false };
-    auto inspector = std::make_shared<SimplifiedInspector>(containerId, params);
-    auto collector = std::make_shared<Recorder::InspectorTreeCollector>(
-        [](const std::shared_ptr<std::string> result) {
-            ASSERT_NE(result, nullptr);
-            auto inspectorJson = JsonUtil::ParseJsonString(*result);
-            EXPECT_EQ(inspectorJson->GetValue("pageUrl")->GetString(), "page/Index");
-            // EXPECT_EQ(*result, "{\"$type\":\"root\",\"width\":\"720.000000\",\"height\":\"1280.000000\",\"$resolution\":\"0.000000\",\"pageUrl\":\"page/Index\",\"navDstName\":\"\",\"$childrenCount\":1}");
-        },
-        false);
-    inspector->GetInspectorBackgroundAsync(collector);
-    auto result = collector->GetJson()->ToString();
-    EXPECT_EQ(result, "{}");
-    context->stageManager_ = nullptr;
-}
-
-/**
-* @tc.name: SimplifiedInspectorTest002
-* @tc.desc: Test the operation of FilterEmptyInitially
-* @tc.type: FUNC
-*/
-HWTEST_F(InspectorTestNg, SimplifiedInspectorTest002, TestSize.Level1)
-{
-    auto id = ElementRegister::GetInstance()->MakeUniqueId();
-    RefPtr<FrameNode> stageNode = FrameNode::CreateFrameNode("one", id, AceType::MakeRefPtr<Pattern>(), true);
-    auto context = PipelineContext::GetCurrentContext();
-    ASSERT_NE(context, nullptr);
-    context->taskExecutor_ = AceType::MakeRefPtr<MockTaskExecutor>();
-    context->stageManager_ = AceType::MakeRefPtr<StageManager>(stageNode);
-    int32_t containerId = 100;
-    TreeParams params { false };
-    auto inspector = std::make_shared<SimplifiedInspector>(containerId, params);
-    auto collector = std::make_shared<Recorder::InspectorTreeCollector>(
-        [](const std::shared_ptr<std::string> result) {}, false);
-    inspector->GetInspectorBackgroundAsync(collector);
-    auto result = collector->GetJson()->ToString();
-    EXPECT_EQ(result, "{}");
-}
-
-/**
-* @tc.name: SimplifiedInspectorTest003
-* @tc.desc: Test the operation of FilterEmptyInitially
-* @tc.type: FUNC
-*/
-HWTEST_F(InspectorTestNg, SimplifiedInspectorTest003, TestSize.Level1)
-{
-    auto id = ElementRegister::GetInstance()->MakeUniqueId();
-    RefPtr<FrameNode> stageNode = FrameNode::CreateFrameNode("one", id, AceType::MakeRefPtr<Pattern>(), true);
-    auto context = PipelineContext::GetCurrentContext();
-    ASSERT_NE(context, nullptr);
-    context->taskExecutor_ = AceType::MakeRefPtr<MockTaskExecutor>();
-    context->stageManager_ = AceType::MakeRefPtr<StageManager>(stageNode);
-    int32_t containerId = 100;
-    TreeParams params { true };
-    auto inspector = std::make_shared<SimplifiedInspector>(containerId, params);
-    auto collector = std::make_shared<Recorder::InspectorTreeCollector>(
-        [](const std::shared_ptr<std::string> result) {}, false);
-    inspector->GetInspectorBackgroundAsync(collector);
-    EXPECT_TRUE(inspector->isBackground_);
-    EXPECT_TRUE(inspector->isAsync_);
 }
 
 bool HasInternalIds(const std::unique_ptr<JsonValue>& children)
@@ -1812,7 +1703,8 @@ HWTEST_F(InspectorTestNg, InspectorTestNg027, TestSize.Level1)
     ASSERT_NE(context, nullptr);
 
     auto id = ElementRegister::GetInstance()->MakeUniqueId();
-    RefPtr<FrameNode> stageNode = FrameNode::CreateFrameNode("sageNode", id, AceType::MakeRefPtr<Pattern>(), true);
+    RefPtr<FrameNode> stageNode = FrameNode::CreateFrameNode(
+        "sageNode", id, AceType::MakeRefPtr<Pattern>(), true);
     context->stageManager_ = AceType::MakeRefPtr<StageManager>(stageNode);
     stageNode->children_.clear();
 
@@ -1821,7 +1713,7 @@ HWTEST_F(InspectorTestNg, InspectorTestNg027, TestSize.Level1)
         AceType::MakeRefPtr<PagePattern>(AceType::MakeRefPtr<PageInfo>()));
     stageNode->AddChild(pageA);
     auto id3 = ElementRegister::GetInstance()->MakeUniqueId();
-    
+
     auto button = FrameNode::CreateFrameNode("button", id3, AceType::MakeRefPtr<Pattern>(), true);
     pageA->AddChild(button);
 
@@ -1833,7 +1725,7 @@ HWTEST_F(InspectorTestNg, InspectorTestNg027, TestSize.Level1)
     std::string tree = Inspector::GetInspector();
     auto jsonRoot  = JsonUtil::ParseJsonString(tree);
     ASSERT_NE(jsonRoot, nullptr);
-    
+
     auto children = jsonRoot->GetValue("$children");
     ASSERT_TRUE(children->IsArray());
     auto hasInternalIds = HasInternalIds(children);
@@ -1843,10 +1735,147 @@ HWTEST_F(InspectorTestNg, InspectorTestNg027, TestSize.Level1)
     tree = Inspector::GetInspector();
     jsonRoot  = JsonUtil::ParseJsonString(tree);
     ASSERT_NE(jsonRoot, nullptr);
-    
+
     children = jsonRoot->GetValue("$children");
     ASSERT_TRUE(children->IsArray());
     hasInternalIds = HasInternalIds(children);
     ASSERT_TRUE(hasInternalIds);
+}
+
+/**
+ * @tc.name: InspectorTestNg028
+ * @tc.desc: Test GetInspectorOfNode when nullptr
+ * @tc.type: FUNC
+ */
+HWTEST_F(InspectorTestNg, InspectorTestNg028, TestSize.Level1)
+{
+    auto resultFrameNode = Inspector::GetInspectorOfNode(nullptr);
+    std::string emptyString = "";
+    EXPECT_NE(resultFrameNode, emptyString);
+}
+
+/**
+ * @tc.name: GetOverlayNode_001
+ * @tc.desc: Test the operation of GetOverlayNode in stage  overlay
+ * column
+ *    |--stage
+ *       |--PageA
+ *         |--frameNode
+ *    |--overlay
+ * @tc.type: FUNC
+ */
+HWTEST_F(InspectorTestNg, GetOverlayNode_001, TestSize.Level1)
+{
+    // tc.steps: step1. build tree
+    auto context1 = PipelineContext::GetCurrentContext();
+    ASSERT_NE(context1, nullptr);
+    auto id0 = ElementRegister::GetInstance()->MakeUniqueId();
+    RefPtr<FrameNode> columnNode = FrameNode::CreateFrameNode("Column", id0, AceType::MakeRefPtr<Pattern>(), false);
+
+    auto id = ElementRegister::GetInstance()->MakeUniqueId();
+    RefPtr<FrameNode> stageNode = FrameNode::CreateFrameNode("stage", id, AceType::MakeRefPtr<Pattern>(), false);
+    context1->stageManager_ = AceType::MakeRefPtr<StageManager>(stageNode);
+    stageNode->children_.clear();
+    columnNode->AddChild(stageNode);
+
+    auto overlayNode = FrameNode::CreateFrameNode(
+        "overlayNode", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>(), false);
+    columnNode->AddChild(overlayNode);
+    auto testNode = FrameNode::CreateFrameNode(
+        "testNode", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>(), false);
+    overlayNode->AddChild(testNode);
+
+    // tc.steps: step2 GetOverlayNode in containermodal
+    auto id2 = ElementRegister::GetInstance()->MakeUniqueId();
+    const RefPtr<FrameNode> pageA = FrameNode::CreateFrameNode("PageA", id2,
+        AceType::MakeRefPtr<PagePattern>(AceType::MakeRefPtr<PageInfo>()));
+    stageNode->AddChild(pageA);
+
+    auto frameNode = FrameNode::CreateFrameNode(
+        "frameNode0", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>(), false);
+    pageA->AddChild(frameNode);
+    NG::InspectorTreeMap treesInfos;
+    Inspector::GetInspectorTree(treesInfos);
+    auto it = treesInfos.find(testNode->GetId());
+    EXPECT_TRUE(it != treesInfos.end());
+
+    context1->stageManager_ = nullptr;
+}
+
+/**
+ * @tc.name: GetOverlayNode_001
+ * @tc.desc: Test the operation of GetOverlayNode in containermodal  overlay
+ * column
+ *    |--ContainerModal
+ *       |--stage
+ *          |--PageA
+ *             |--frameNode
+ *    |--overlay
+ * @tc.type: FUNC
+ */
+HWTEST_F(InspectorTestNg, GetOverlayNode_002, TestSize.Level1)
+{
+    // tc.steps: step1. build tree
+    auto context1 = PipelineContext::GetCurrentContext();
+    ASSERT_NE(context1, nullptr);
+
+    auto columnNode = FrameNode::CreateFrameNode(
+        "Column", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>(), false);
+
+    auto id0 = ElementRegister::GetInstance()->MakeUniqueId();
+    RefPtr<FrameNode> contianerNode
+        = FrameNode::CreateFrameNode(V2::CONTAINER_MODAL_ETS_TAG, id0, AceType::MakeRefPtr<Pattern>(), false);
+    columnNode->AddChild(contianerNode);
+
+    auto id = ElementRegister::GetInstance()->MakeUniqueId();
+    RefPtr<FrameNode> stageNode = FrameNode::CreateFrameNode("stage", id, AceType::MakeRefPtr<Pattern>(), false);
+    context1->stageManager_ = AceType::MakeRefPtr<StageManager>(stageNode);
+    stageNode->children_.clear();
+    contianerNode->AddChild(stageNode);
+
+    auto overlayNode = FrameNode::CreateFrameNode(
+        "overlayNode", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>(), false);
+    columnNode->AddChild(overlayNode);
+
+    auto testNode = FrameNode::CreateFrameNode(
+        "testNode", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>(), false);
+    overlayNode->AddChild(testNode);
+
+    // tc.steps: step2 GetOverlayNode in containermodal
+    auto id2 = ElementRegister::GetInstance()->MakeUniqueId();
+    const RefPtr<FrameNode> pageA = FrameNode::CreateFrameNode("PageA", id2,
+        AceType::MakeRefPtr<PagePattern>(AceType::MakeRefPtr<PageInfo>()));
+    stageNode->AddChild(pageA);
+
+    auto frameNode = FrameNode::CreateFrameNode(
+        "frameNode0", ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<Pattern>(), false);
+    pageA->AddChild(frameNode);
+
+    NG::InspectorTreeMap treesInfos;
+    Inspector::GetInspectorTree(treesInfos);
+
+    auto it = treesInfos.find(testNode->GetId());
+    EXPECT_TRUE(it != treesInfos.end());
+
+    context1->stageManager_ = nullptr;
+}
+
+/**
+ * @tc.name: GetElementRegisterNodes_001
+ * @tc.desc: Test the operation of GetElementRegisterNodes
+ * @tc.type: FUNC
+ */
+HWTEST_F(InspectorTestNg, GetElementRegisterNodes_001, TestSize.Level1)
+{
+    auto id1 = ElementRegister::GetInstance()->MakeUniqueId();
+    RefPtr<FrameNode> ONE = FrameNode::CreateFrameNode("one", id1, AceType::MakeRefPtr<Pattern>(), true);
+    auto id2 = ElementRegister::GetInstance()->MakeUniqueId();
+    const RefPtr<FrameNode> TWO = FrameNode::CreateFrameNode("two", id2, AceType::MakeRefPtr<Pattern>());
+    NG::InspectorTreeMap treesInfos;
+    Inspector::GetElementRegisterNodes(treesInfos);
+    auto it = treesInfos.find(id1);
+    EXPECT_TRUE(it != treesInfos.end());
+    it = treesInfos.find(id2);
+    EXPECT_TRUE(it != treesInfos.end());
 }
 } // namespace OHOS::Ace::NG

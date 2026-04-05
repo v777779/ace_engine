@@ -150,6 +150,64 @@ bool AvoidInfoManager::GetContainerModalButtonsRect(RectF& containerModal, RectF
     return false;
 }
 
+void ExcludeBorderFromRect(const RefPtr<FrameNode>& uecNode, OffsetF& offset, RectF& rect)
+{
+    CHECK_NULL_VOID(uecNode);
+    auto property = uecNode->GetLayoutProperty();
+    CHECK_NULL_VOID(property);
+    auto& borderProperty = property->GetBorderWidthProperty();
+    CHECK_NULL_VOID(borderProperty);
+    float top = borderProperty->topDimen.value_or(Dimension()).GetNativeValue(DimensionUnit::PX);
+    float left = borderProperty->leftDimen.value_or(Dimension()).GetNativeValue(DimensionUnit::PX);
+    float bottom = borderProperty->bottomDimen.value_or(Dimension()).GetNativeValue(DimensionUnit::PX);
+    float right = borderProperty->rightDimen.value_or(Dimension()).GetNativeValue(DimensionUnit::PX);
+    offset += OffsetF(left, top);
+    rect.SetWidth(std::max(0.0f, rect.Width() - left - right));
+    rect.SetHeight(std::max(0.0f, rect.Height() - top - bottom));
+}
+
+void ExcludePaddingFromRect(const RefPtr<FrameNode>& uecNode, OffsetF& offset, RectF& rect)
+{
+    CHECK_NULL_VOID(uecNode);
+    auto property = uecNode->GetLayoutProperty();
+    CHECK_NULL_VOID(property);
+    auto& paddingProperty = property->GetPaddingProperty();
+    CHECK_NULL_VOID(paddingProperty);
+    float top = paddingProperty->top.value_or(CalcLength()).GetDimension().GetNativeValue(DimensionUnit::PX);
+    float left = paddingProperty->left.value_or(CalcLength()).GetDimension().GetNativeValue(DimensionUnit::PX);
+    float bottom = paddingProperty->bottom.value_or(CalcLength()).GetDimension().GetNativeValue(DimensionUnit::PX);
+    float right = paddingProperty->right.value_or(CalcLength()).GetDimension().GetNativeValue(DimensionUnit::PX);
+    offset += OffsetF(left, top);
+    rect.SetWidth(std::max(0.0f, rect.Width() - left - right));
+    rect.SetHeight(std::max(0.0f, rect.Height() - top - bottom));
+}
+
+void AvoidInfoManager::GetNewAvoidInfoForUEC(const RefPtr<FrameNode>& uecNode, ContainerModalAvoidInfo& info)
+{
+    CHECK_NULL_VOID(uecNode);
+    auto context = uecNode->GetContext();
+    CHECK_NULL_VOID(context);
+    auto globalOffset = uecNode->GetPaintRectOffsetNG();
+    auto uecGeometryNode = uecNode->GetGeometryNode();
+    CHECK_NULL_VOID(uecGeometryNode);
+    auto uecRect = uecGeometryNode->GetFrameRect();
+    ExcludeBorderFromRect(uecNode, globalOffset, uecRect);
+    ExcludePaddingFromRect(uecNode, globalOffset, uecRect);
+    uecRect.SetOffset(globalOffset);
+    if (avoidInfoForUEC_.titleHeight <= 0) {
+        TAG_LOGD(AceLogTag::ACE_NAVIGATION, "failed to get titleHeight");
+        return;
+    }
+    if (!uecRect.IsIntersectWith(avoidInfoForUEC_.controlBottonsRect)) {
+        TAG_LOGD(AceLogTag::ACE_NAVIGATION, "UEC isn't intersect with control button");
+        return;
+    }
+    info.needAvoid = true;
+    info.titleHeight = avoidInfoForUEC_.titleHeight;
+    info.controlBottonsRect = uecRect.IntersectRectT(avoidInfoForUEC_.controlBottonsRect);
+    info.controlBottonsRect -= globalOffset;
+}
+
 bool AvoidInfoManager::NeedAvoidContainerModal()
 {
     auto container = Container::GetContainer(instanceId_);
@@ -194,29 +252,37 @@ void AvoidInfoManager::GetContainerModalAvoidInfoForUEC(const RefPtr<FrameNode>&
     auto context = uecNode->GetContext();
     CHECK_NULL_VOID(context);
     if (context->GetContainerCustomTitleVisible() || !context->GetContainerControlButtonVisible()) {
+        TAG_LOGD(AceLogTag::ACE_NAVIGATION, "uec don't need avoid control button");
         return;
     }
-    auto offsetRelativeToWindow = uecNode->GetOffsetRelativeToWindow();
+    auto globalOffset = uecNode->GetPaintRectOffsetNG();
     auto uecGeometryNode = uecNode->GetGeometryNode();
     CHECK_NULL_VOID(uecGeometryNode);
     auto uecRect = uecGeometryNode->GetFrameRect();
-    uecRect.SetOffset(offsetRelativeToWindow);
+    ExcludeBorderFromRect(uecNode, globalOffset, uecRect);
+    ExcludePaddingFromRect(uecNode, globalOffset, uecRect);
+    uecRect.SetOffset(globalOffset);
+    TAG_LOGD(AceLogTag::ACE_NAVIGATION, "uec rect: %{public}s", uecRect.ToString().c_str());
     RectF buttonsRect;
     RectF containerModal;
     if (!context->GetContainerModalButtonsRect(containerModal, buttonsRect)) {
+        TAG_LOGD(AceLogTag::ACE_NAVIGATION, "failed to get buttonRect");
         return;
     }
+    TAG_LOGD(AceLogTag::ACE_NAVIGATION, "control button rect: %{public}s", buttonsRect.ToString().c_str());
     auto height = context->GetContainerModalTitleHeight();
     if (height <= 0) {
+        TAG_LOGD(AceLogTag::ACE_NAVIGATION, "failed to get titleHeight");
         return;
     }
     if (!uecRect.IsIntersectWith(buttonsRect)) {
+        TAG_LOGD(AceLogTag::ACE_NAVIGATION, "UEC isn't intersect with control button");
         return;
     }
     info.needAvoid = true;
     info.titleHeight = height;
     info.controlBottonsRect = uecRect.IntersectRectT(buttonsRect);
-    info.controlBottonsRect -= offsetRelativeToWindow;
+    info.controlBottonsRect -= globalOffset;
 }
 
 bool AvoidInfoManager::CheckIfNeedNotifyAvoidInfoChange(

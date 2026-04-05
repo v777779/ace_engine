@@ -15,17 +15,19 @@
 #include <utility>
 
 #include "core/components_ng/base/frame_node.h"
+#include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/utility/validators.h"
 #include "canvas_rendering_context2d_peer_impl.h"
+#include "drawing_rendering_context_peer_impl.h"
 #include "frame_node_peer_impl.h"
 #include "ui_context_accessor_peer.h"
 #include "arkoala_api_generated.h"
 
 namespace OHOS::Ace::NG::GeneratedModifier {
 namespace CanvasRenderingContext2DAccessor {
-const Ark_Number ARK_ERROR_VALUE = OHOS::Ace::NG::Converter::ArkValue<Ark_Number>(-1);
+const Ark_Float64 ARK_ERROR_VALUE = OHOS::Ace::NG::Converter::ArkValue<Ark_Float64>(-1);
 
 void DestroyPeerImpl(Ark_CanvasRenderingContext2D peer)
 {
@@ -53,7 +55,7 @@ Ark_NativePointer GetFinalizerImpl()
 }
 Ark_String ToDataURLImpl(Ark_CanvasRenderingContext2D peer,
                          const Opt_String* type,
-                         const Opt_Number* quality)
+                         const Opt_Float64* quality)
 {
     CHECK_NULL_RETURN(peer, {});
     auto optType = Converter::OptConvertPtr<std::string>(type);
@@ -67,8 +69,6 @@ void StartImageAnalyzerImpl(Ark_VMContext vmContext,
                             const Ark_ImageAnalyzerConfig* config,
                             const Callback_Opt_Array_String_Void* outputArgumentForReturningPromise)
 {
-    CHECK_NULL_VOID(peer);
-    peer->StartImageAnalyzer(vmContext, asyncWorker, config, outputArgumentForReturningPromise);
 }
 void StopImageAnalyzerImpl(Ark_CanvasRenderingContext2D peer)
 {
@@ -80,59 +80,83 @@ void OnAttachImpl(Ark_CanvasRenderingContext2D peer,
 {
     CHECK_NULL_VOID(peer);
     CHECK_NULL_VOID(callback_);
-    auto arkCallback = CallbackHelper(*callback_);
-    peer->On(std::move(arkCallback), CanvasRenderingContext2DPeer::CanvasCallbackType::ON_ATTACH);
+    auto func = [arkCallback = CallbackHelper(*callback_)]() {
+        arkCallback.InvokeSync();
+    };
+    peer->On(std::move(func), CanvasRenderingContext2DPeer::CanvasCallbackType::ON_ATTACH);
 }
 void OffAttachImpl(Ark_CanvasRenderingContext2D peer,
                    const Opt_VoidCallback* callback_)
 {
     CHECK_NULL_VOID(peer);
     auto optCallback = Converter::GetOptPtr(callback_);
-    auto arkCallback = optCallback ? CallbackHelper(*optCallback) : CallbackHelper<VoidCallback>();
-    peer->Off(std::move(arkCallback), CanvasRenderingContext2DPeerImpl::CanvasCallbackType::ON_ATTACH);
+    if (optCallback) {
+        auto func = [arkCallback = CallbackHelper(*optCallback)]() {
+            arkCallback.InvokeSync();
+        };
+        peer->Off(std::move(func), CanvasRenderingContext2DPeerImpl::CanvasCallbackType::ON_ATTACH);
+    } else {
+        peer->Off(nullptr, CanvasRenderingContext2DPeerImpl::CanvasCallbackType::ON_ATTACH);
+    }
 }
 void OnDetachImpl(Ark_CanvasRenderingContext2D peer,
                   const VoidCallback* callback_)
 {
     CHECK_NULL_VOID(peer);
     CHECK_NULL_VOID(callback_);
-    auto arkCallback = CallbackHelper(*callback_);
-    peer->On(std::move(arkCallback), CanvasRenderingContext2DPeer::CanvasCallbackType::ON_DETACH);
+    auto func = [arkCallback = CallbackHelper(*callback_)]() {
+        arkCallback.InvokeSync();
+    };
+    peer->On(std::move(func), CanvasRenderingContext2DPeer::CanvasCallbackType::ON_DETACH);
 }
 void OffDetachImpl(Ark_CanvasRenderingContext2D peer,
                    const Opt_VoidCallback* callback_)
 {
     CHECK_NULL_VOID(peer);
     auto optCallback = Converter::GetOptPtr(callback_);
-    auto arkCallback = optCallback ? CallbackHelper(*optCallback) : CallbackHelper<VoidCallback>();
-    peer->Off(std::move(arkCallback), CanvasRenderingContext2DPeer::CanvasCallbackType::ON_DETACH);
+    if (optCallback) {
+        auto func = [arkCallback = CallbackHelper(*optCallback)]() {
+            arkCallback.InvokeSync();
+        };
+        peer->Off(std::move(func), CanvasRenderingContext2DPeerImpl::CanvasCallbackType::ON_DETACH);
+    } else {
+        peer->Off(nullptr, CanvasRenderingContext2DPeerImpl::CanvasCallbackType::ON_DETACH);
+    }
 }
-Ark_Number GetHeightImpl(Ark_CanvasRenderingContext2D peer)
+Ark_CanvasRenderingContext2D GetContext2DFromDrawingContextImpl(
+    Ark_DrawingRenderingContext drawingContext, const Opt_RenderingContextOptions* options)
+{
+    CHECK_NULL_RETURN(drawingContext, {});
+    auto drawContextImpl = reinterpret_cast<DrawingRenderingContextPeerImpl*>(drawingContext);
+    CHECK_NULL_RETURN(drawContextImpl, {});
+    auto contextPeer = drawContextImpl->GetOrCreateContext2D();
+    CHECK_NULL_RETURN(contextPeer, {});
+    auto optRenderingContextOptions = Converter::OptConvertPtr<Ark_RenderingContextOptions>(options);
+    RenderingContextOptions renderingContextOptions;
+    if (optRenderingContextOptions.has_value()) {
+        renderingContextOptions = Converter::Convert<OHOS::Ace::RenderingContextOptions>(*optRenderingContextOptions);
+    }
+    auto contextPeerImpl = reinterpret_cast<CanvasRenderingContext2DPeerImpl*>(contextPeer);
+    CHECK_NULL_RETURN(contextPeerImpl, {});
+    contextPeerImpl->SetRenderingContextOptions(renderingContextOptions);
+    return contextPeer;
+}
+Ark_Float64 GetHeightImpl(Ark_CanvasRenderingContext2D peer)
 {
     CHECK_NULL_RETURN(peer, ARK_ERROR_VALUE);
-    return Converter::ArkValue<Ark_Number>(peer->GetHeight());
+    return Converter::ArkValue<Ark_Float64>(peer->GetHeight());
 }
-void SetHeightImpl(Ark_CanvasRenderingContext2D peer,
-                   const Ark_Number* height)
-{
-}
-Ark_Number GetWidthImpl(Ark_CanvasRenderingContext2D peer)
+Ark_Float64 GetWidthImpl(Ark_CanvasRenderingContext2D peer)
 {
     CHECK_NULL_RETURN(peer, ARK_ERROR_VALUE);
-    return Converter::ArkValue<Ark_Number>(peer->GetWidth());
+    return Converter::ArkValue<Ark_Float64>(peer->GetWidth());
 }
-void SetWidthImpl(Ark_CanvasRenderingContext2D peer,
-                  const Ark_Number* width)
-{
-}
+#ifdef WRONG_GEN_v140
 Ark_FrameNode GetCanvasImpl(Ark_CanvasRenderingContext2D peer)
 {
     return FrameNodePeer::Create(static_cast<Ark_UIContext>(nullptr));
 }
-void SetCanvasImpl(Ark_CanvasRenderingContext2D peer,
-                   Ark_FrameNode canvas)
-{
-}
+#endif // WRONG_GEN_v140
 } // CanvasRenderingContext2DAccessor
 const GENERATED_ArkUICanvasRenderingContext2DAccessor* GetCanvasRenderingContext2DAccessor()
 {
@@ -147,12 +171,9 @@ const GENERATED_ArkUICanvasRenderingContext2DAccessor* GetCanvasRenderingContext
         CanvasRenderingContext2DAccessor::OffAttachImpl,
         CanvasRenderingContext2DAccessor::OnDetachImpl,
         CanvasRenderingContext2DAccessor::OffDetachImpl,
+        CanvasRenderingContext2DAccessor::GetContext2DFromDrawingContextImpl,
         CanvasRenderingContext2DAccessor::GetHeightImpl,
-        CanvasRenderingContext2DAccessor::SetHeightImpl,
         CanvasRenderingContext2DAccessor::GetWidthImpl,
-        CanvasRenderingContext2DAccessor::SetWidthImpl,
-        CanvasRenderingContext2DAccessor::GetCanvasImpl,
-        CanvasRenderingContext2DAccessor::SetCanvasImpl,
     };
     return &CanvasRenderingContext2DAccessorImpl;
 }

@@ -21,8 +21,8 @@
 #include "base/geometry/ng/offset_t.h"
 #include "base/geometry/ng/size_t.h"
 #include "base/memory/referenced.h"
-#include "core/common/autofill/auto_fill_trigger_state_holder.h"
 #include "core/components/common/properties/popup_param.h"
+#include "core/common/autofill/auto_fill_trigger_state_holder.h"
 #include "core/components/popup/popup_theme.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/event/focus_hub.h"
@@ -50,7 +50,6 @@ enum class DismissReason {
     TOUCH_OUTSIDE,
     CLOSE_BUTTON,
 };
-
 class BubblePattern : public PopupBasePattern, public FocusView, public AutoFillTriggerStateHolder {
     DECLARE_ACE_TYPE(BubblePattern, PopupBasePattern, FocusView, AutoFillTriggerStateHolder);
 
@@ -78,6 +77,7 @@ public:
         bubbleMethod->SetArrowHeight(arrowHeight_);
         bubbleMethod->SetBorder(border_);
         bubbleMethod->SetArrowBuildPlacement(arrowBuildPlacement_);
+        bubbleMethod->SetIsUserSetMaterial(isUserSetMaterial_);
         auto host = GetHost();
         CHECK_NULL_RETURN(host, bubbleMethod);
         auto pipeline = host->GetContext();
@@ -180,6 +180,8 @@ public:
     void UpdateArrowHeight(const CalcDimension& dimension);
     void UpdateWidth(const CalcDimension& dimension);
     void UpdateRadius(const CalcDimension& dimension);
+    void UpdateShadow();
+    void UpdateBubbleGradient(const uint32_t index, const Color& result, bool isOutlineGradient);
 
     void SetMessageColor(bool isSetMessageColor)
     {
@@ -389,6 +391,41 @@ public:
         mouseOffset_ = offset;
     }
 
+    void SetIsTipsAppearing(bool isTipsAppearing)
+    {
+        IsTipsAppearing_ = isTipsAppearing;
+    }
+
+    bool IsTipsAppearing() const
+    {
+        return IsTipsAppearing_;
+    }
+
+    void SetIsShadowStyle(bool isShadowStyle)
+    {
+        isShadowStyle_ = isShadowStyle;
+    }
+
+    bool IsShadowStyle()
+    {
+        return isShadowStyle_;
+    }
+
+    void SetShadow(const std::optional<Shadow>& shadow)
+    {
+        shadow_ = shadow;
+    }
+
+    void SetIsUserSetMaterial(bool isUserSetMaterial)
+    {
+        isUserSetMaterial_ = isUserSetMaterial;
+    }
+
+    bool IsUserSetMaterial() const
+    {
+        return isUserSetMaterial_;
+    }
+
 protected:
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
 
@@ -405,6 +442,12 @@ protected:
 private:
     void OnModifyDone() override;
     void OnAttachToFrameNode() override;
+    void OnDetachFromFrameNodeMultiThread(FrameNode* frameNode);
+    void OnDetachFromFrameNodeImpl(FrameNode* frameNode);
+    void OnAttachToMainTree() override;
+    void OnAttachToMainTreeMultiThread();
+    void OnDetachFromMainTree() override;
+    void OnDetachFromMainTreeMultiThread();
     bool OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, bool skipMeasure, bool skipLayout) override;
 
     RefPtr<FrameNode> GetButtonRowNode();
@@ -428,6 +471,7 @@ private:
     void StartAlphaEnteringAnimation(std::function<void()> finish);
     void StartOffsetExitingAnimation();
     void StartAlphaExitingAnimation(std::function<void()> finish);
+    void UpdateStyleOption(BlurStyle blurStyle, bool needUpdateShadow);
 
     int32_t targetNodeId_ = -1;
     std::string targetTag_;
@@ -465,6 +509,7 @@ private:
     TransitionStatus transitionStatus_ = TransitionStatus::INVISIABLE;
 
     bool delayShow_ = false;
+    bool isUserSetMaterial_ = false;
     std::function<void()> finish_;
 
     std::optional<OffsetF> targetOffset_;
@@ -474,6 +519,9 @@ private:
     bool isCustomPopup_ = false;
     bool isTips_ = false;
     RefPtr<FrameNode> messageNode_;
+    bool IsTipsAppearing_ = false;
+    bool isShadowStyle_ = false;
+    std::optional<Shadow> shadow_;
 
     std::string clipPath_;
     RefPtr<FrameNode> clipFrameNode_;

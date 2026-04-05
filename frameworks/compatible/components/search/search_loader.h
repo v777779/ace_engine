@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef FOUNDATION_ACE_FRAMEWORKS_COMPATIBLE_COMPONENTS_SEARCH_LOADER
-#define FOUNDATION_ACE_FRAMEWORKS_COMPATIBLE_COMPONENTS_SEARCH_LOADER
+#ifndef FOUNDATION_ACE_FRAMEWORKS_COMPATIBLE_COMPONENTS_SEARCH_SEARCH_LOADER
+#define FOUNDATION_ACE_FRAMEWORKS_COMPATIBLE_COMPONENTS_SEARCH_SEARCH_LOADER
 
 #include "compatible/components/component_loader.h"
 
@@ -28,9 +28,9 @@ public:
     RefPtr<Framework::DOMNode> CreateDomNode(int32_t nodeId, const std::string& nodeName) override;
     void* CreateModel() override;
     RefPtr<V2::InspectorComposedElement> CreateInspectorElement(const std::string& id) override;
-    RefPtr<Declaration> CreateDeclaration() override;
+    void UpdateDomConfig(const RefPtr<Framework::DOMNode>& node, void* config) override;
 };
 
 } // namespace OHOS::Ace
 
-#endif // FOUNDATION_ACE_FRAMEWORKS_COMPATIBLE_COMPONENTS_SEARCH_LOADER
+#endif // FOUNDATION_ACE_FRAMEWORKS_COMPATIBLE_COMPONENTS_SEARCH_SEARCH_LOADER

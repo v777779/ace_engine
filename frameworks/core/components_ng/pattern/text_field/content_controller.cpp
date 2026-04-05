@@ -389,20 +389,21 @@ bool ContentController::FilterWithDecimal(std::u16string& result)
 
 bool ContentController::FilterWithEvent(const std::u16string& filter, std::u16string& result)
 {
+    auto pattern = pattern_.Upgrade();
+    CHECK_NULL_RETURN(pattern, false);
+    auto textField = DynamicCast<TextFieldPattern>(pattern);
+    CHECK_NULL_RETURN(textField, false);
+    auto host = textField->GetHost();
+    if (host) {
+        ACE_UINODE_TRACE(host);
+    }
+    
     auto errorValue = FilterWithRegex(filter, result);
     if (!errorValue.empty()) {
-        auto pattern = pattern_.Upgrade();
-        CHECK_NULL_RETURN(pattern, false);
-        auto textField = DynamicCast<TextFieldPattern>(pattern);
-        CHECK_NULL_RETURN(textField, false);
-        auto host = textField->GetHost();
         CHECK_NULL_RETURN(host, false);
         auto eventHub = host->GetEventHub<TextFieldEventHub>();
         CHECK_NULL_RETURN(eventHub, false);
         eventHub->FireOnInputFilterError(errorValue);
-        auto textFieldAccessibilityProperty = host->GetAccessibilityProperty<TextFieldAccessibilityProperty>();
-        CHECK_NULL_RETURN(textFieldAccessibilityProperty, false);
-        textFieldAccessibilityProperty->SetErrorText(UtfUtils::Str16DebugToStr8(errorValue));
     }
     return !errorValue.empty();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -24,7 +24,6 @@
 #include "base/utils/macros.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/scroll_bar.h"
-#include "core/components/declaration/swiper/swiper_declaration.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/swiper/swiper_model.h"
 
@@ -55,13 +54,14 @@ public:
     void SetItemSpace(const Dimension& itemSpace) override;
     void SetCachedCount(int32_t cachedCount) override;
     void SetCachedIsShown(bool isShown) override;
+    void SetCachedIndependent(bool independent) override;
     void SetOnChange(std::function<void(const BaseEventInfo* info)>&& onChange) override;
     void SetOnUnselected(std::function<void(const BaseEventInfo* info)>&& onUnselected) override;
     void SetOnAnimationStart(AnimationStartEvent&& onAnimationStart) override;
     void SetOnAnimationEnd(AnimationEndEvent&& onAnimationEnd) override;
     void SetOnGestureSwipe(GestureSwipeEvent&& gestureSwipe) override;
-    void SetIndicatorController(Framework::JSIndicatorController* controller) override;
-    Framework::JSIndicatorController* GetIndicatorController() override;
+    void SetIndicatorController(RefPtr<NG::JSIndicatorControllerBase> controller) override;
+    RefPtr<NG::JSIndicatorControllerBase> GetIndicatorController() override;
 
     void SetRemoteMessageEventId(RemoteCallback&& remoteCallback) override;
     void SetOnClick(
@@ -86,14 +86,20 @@ public:
     void SetDisableTransitionAnimation(bool isDisable) override;
     void SetOnContentDidScroll(ContentDidScrollEvent&& onContentDidScroll) override;
     void SetOnContentWillScroll(ContentWillScrollEvent&& onContentWillScroll) override;
+    void SetOnScrollStateChanged(
+        std::function<void(const BaseEventInfo* info)>&& onScrollStateChanged) override;
     void SetBindIndicator(bool bind) override;
     void SetJSIndicatorController(std::function<void()> resetFunc) override;
+    void ResetJSIndicatorController() override;
     void SetPageFlipMode(int32_t pageFlipMode) override;
     void SetDigitalCrownSensitivity(int32_t sensitivity) override;
     void SetOnSelected(std::function<void(const BaseEventInfo* info)>&& onSelected) override;
     void SetMaintainVisibleContentPosition(bool value) override;
     void ProcessNextMarginWithResourceObj(const RefPtr<ResourceObject>& resObj) override;
     void ProcessPreviousMarginWithResourceObj(const RefPtr<ResourceObject>& resObj) override;
+    void SetFillType(int32_t fillType) override;
+    void ResetFillType() override;
+    void ResetDisplayCountWithObject() override;
     static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
     static void SetIndicatorInteractive(FrameNode* frameNode, bool interactive);
     static void SetNextMargin(FrameNode* frameNode, const Dimension& nextMargin, bool ignoreBlankn = false);
@@ -105,12 +111,15 @@ public:
     static int32_t GetCachedCount(FrameNode* frameNode);
     static void SetCachedIsShown(FrameNode* frameNode, bool isShown);
     static bool GetCachedIsShown(FrameNode* frameNode);
+    static void SetCachedCountIndependent(FrameNode* frameNode, bool independent);
+    static bool GetCachedCountIndependent(FrameNode* frameNode);
     static void SetAutoPlay(FrameNode* frameNode, bool autoPlay);
     static void SetLoop(FrameNode* frameNode, bool loop);
     static void SetDirection(FrameNode* frameNode, Axis axis);
     static void SetDisableSwipe(FrameNode* frameNode, bool disableSwipe);
     static void SetItemSpace(FrameNode* frameNode, const Dimension& itemSpace);
     static void SetDisplayMode(FrameNode* frameNode, SwiperDisplayMode displayMode);
+    static void ResetDisplayMode(FrameNode* frameNode);
     static void SetEdgeEffect(FrameNode* frameNode, EdgeEffect EdgeEffect);
     static void SetMinSize(FrameNode* frameNode, const Dimension& minSize);
     static void SetDisplayCount(FrameNode* frameNode, int32_t displayCount);
@@ -162,6 +171,8 @@ public:
     static RefPtr<SwiperController> GetSwiperController(FrameNode* frameNode);
     static void SetOnContentDidScroll(FrameNode* frameNode, ContentDidScrollEvent&& onContentDidScroll);
     static void SetOnContentWillScroll(FrameNode* frameNode, ContentWillScrollEvent&& onContentWillScroll);
+    static void SetOnScrollStateChanged(
+        FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& onScrollStateChanged);
     static void SetCustomContentTransition(FrameNode* frameNode, SwiperContentAnimatedTransition& transition);
     static void SetOnSelected(FrameNode* frameNode, std::function<void(const BaseEventInfo* info)>&& onSelected);
     static RefPtr<SwiperController> GetOrCreateSwiperController(FrameNode* frameNode);
@@ -177,6 +188,7 @@ public:
     static std::shared_ptr<SwiperDigitalParameters> GetDigitIndicator(FrameNode* frameNode);
     static void SetMaintainVisibleContentPosition(FrameNode* frameNode, bool value);
     static bool GetMaintainVisibleContentPosition(FrameNode* frameNode);
+    static void SetSwiperFinishAnimation(FrameNode* frameNode);
     static void ProcessDotPositionWithResourceObj(FrameNode* frameNode, const std::string& name,
         const RefPtr<ResourceObject>& resObj);
     static void ProcessDotSizeWithResourceObj(FrameNode* frameNode, const std::string& name,
@@ -198,6 +210,18 @@ public:
     static void CreateDigitWithResourceObj(FrameNode*  frameNode,
         const SwiperDigitalParameters& swiperDigitalParameters);
     static void CreateArrowWithResourceObj(const SwiperArrowParameters& swiperArrowParameters);
+    static void CreateArrowWithResourceObj(const SwiperArrowParameters& swiperArrowParameters,
+        FrameNode* frameNode);
+    static void SetFillType(FrameNode* frameNode, int32_t options);
+    static int32_t GetFillType(FrameNode* frameNode);
+    static void ResetFillType(FrameNode* frameNode);
+    static void ResetDisplayCountWithObject(FrameNode* frameNode);
+    static bool CallSwiperStartFakeDrag(FrameNode* frameNode);
+    static bool CallSwiperFakeDragBy(FrameNode* frameNode, float offset);
+    static bool CallSwiperStopFakeDrag(FrameNode* frameNode);
+    static bool CallSwiperIsFakeDragging(FrameNode* frameNode);
+    static void CallSwiperShowPrevious(FrameNode* frameNode);
+    static void CallSwiperShowNext(FrameNode* frameNode);
 };
 
 } // namespace OHOS::Ace::NG

@@ -54,7 +54,8 @@ RangeInfo GridLayoutRangeSolver::FindRangeOnJump(int32_t jumpIdx, int32_t jumpLi
         case ScrollAlign::START: {
             auto [startRow, startIdx] = CheckMultiRow(jumpLineIdx);
             float offset = -info_->GetHeightInRange(startRow, jumpLineIdx, mainGap);
-            auto [endLineIdx, endIdx] = SolveForwardForEndIdx(mainGap, mainSize, jumpLineIdx);
+            auto [endLineIdx, endIdx] =
+                SolveForwardForEndIdx(mainGap, mainSize - info_->contentStartOffset_, jumpLineIdx);
             return { startRow, startIdx, offset, endLineIdx, endIdx };
         }
         case ScrollAlign::CENTER: {
@@ -72,7 +73,12 @@ RangeInfo GridLayoutRangeSolver::FindRangeOnJump(int32_t jumpIdx, int32_t jumpLi
                 TAG_LOGW(AceLogTag::ACE_GRID, "line height at %{public}d not prepared during jump", jumpLineIdx);
                 return {};
             }
-            auto res = SolveBackward(mainGap, mainSize - it->second, jumpLineIdx);
+            Result res;
+            if (jumpLineIdx == info_->lineHeightMap_.rbegin()->first) {
+                res = SolveBackward(mainGap, mainSize - it->second - info_->contentEndOffset_, jumpLineIdx);
+            } else {
+                res = SolveBackward(mainGap, mainSize - it->second, jumpLineIdx);
+            }
             return { res.row, res.idx, res.pos, jumpLineIdx, info_->FindEndIdx(jumpLineIdx).itemIdx };
         }
         default:
@@ -136,50 +142,62 @@ Result GridLayoutRangeSolver::SolveBackward(float mainGap, float targetLen, int3
     return { startLine, startItem, newOffset };
 }
 
+namespace {
+int32_t FindItemStartRow(const GridLayoutInfo& info, int32_t startRow, int32_t colIdx)
+{
+    int32_t r = startRow;
+    while (r > 0) {
+        auto rowIt = info.gridMatrix_.find(r);
+        if (rowIt == info.gridMatrix_.end() || rowIt->second.empty()) {
+            break;
+        }
+        auto colIt = rowIt->second.find(colIdx);
+        if (colIt == rowIt->second.end() || colIt->second >= 0) {
+            break;
+        }
+        --r;
+    }
+    return r;
+}
+}
+
 std::pair<int32_t, int32_t> GridLayoutRangeSolver::CheckMultiRow(const int32_t idx)
 {
-    // check multi-row item that occupies Row [idx]
-    auto it = info_->gridMatrix_.find(idx);
-    if (it == info_->gridMatrix_.end()) {
+    auto rowIt = info_->gridMatrix_.find(idx);
+    if (rowIt == info_->gridMatrix_.end() || rowIt->second.empty()) {
         return { -1, -1 };
     }
 
-    const auto& row = it->second;
-    if (row.empty()) {
-        return { -1, -1 };
-    }
+    const auto& row = rowIt->second;
     int32_t startLine = idx;
     int32_t startItem = row.begin()->second;
+
     for (int32_t c = 0; c < info_->crossCount_; ++c) {
-        auto it = row.find(c);
-        if (it == row.end()) {
+        auto colIt = row.find(c);
+        if (colIt == row.end()) {
             continue;
         }
 
-        int32_t r = idx;
-        if (it->second == 0) {
-            // Item 0 always start at [0, 0]
+        if (colIt->second == 0) {
             return { 0, 0 };
         }
-        if (it->second < 0) {
-            // traverse upwards to find the first row occupied by this item
-            while (r > 0 && info_->gridMatrix_.at(r).at(c) < 0) {
-                --r;
-            }
-            if (r < startLine) {
-                startLine = r;
-                startItem = -it->second;
+
+        if (colIt->second < 0) {
+            int32_t firstRow = FindItemStartRow(*info_, idx, c);
+            if (firstRow < startLine) {
+                startLine = firstRow;
+                startItem = -colIt->second;
             }
         }
 
-        // skip the columns occupied by this item
-        const int32_t itemIdx = std::abs(it->second);
+        const int32_t itemIdx = std::abs(colIt->second);
         if (opts_->irregularIndexes.find(itemIdx) != opts_->irregularIndexes.end()) {
             if (opts_->getSizeByIndex) {
                 auto size = opts_->getSizeByIndex(itemIdx);
+                size.columns = std::max(1, size.columns);
+                size.rows = std::max(1, size.rows);
                 c += (info_->axis_ == Axis::VERTICAL ? size.columns : size.rows) - 1;
             } else {
-                // no getSizeByIndex implies itemWidth == crossCount
                 break;
             }
         }

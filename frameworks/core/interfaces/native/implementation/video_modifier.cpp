@@ -15,9 +15,11 @@
 
 #include "base/utils/string_utils.h"
 #include "core/common/container.h"
+#include "core/components/common/layout/constants.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/video/video_model_ng.h"
 #include "core/components_ng/pattern/video/video_model_static.h"
+#include "core/interfaces/native/implementation/content_transition_effect_peer_impl.h"
 #include "core/interfaces/native/implementation/video_controller_peer_impl.h"
 #include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
@@ -34,6 +36,7 @@ struct VideoOptions {
     ImageSourceInfo previewSourceInfo;
     RefPtr<VideoControllerV2> videoController;
     bool showFirstFrame;
+    ContentTransitionType contentTransitionType;
 };
 } // OHOS::Ace::NG
 
@@ -47,6 +50,11 @@ void AssignCast(std::optional<float>& dst, const Ark_PlaybackSpeed& src)
         case ARK_PLAYBACK_SPEED_SPEED_FORWARD_1_75_X: dst = 1.75f; break;
         case ARK_PLAYBACK_SPEED_SPEED_FORWARD_2_00_X: dst = 2.0f; break;
         case ARK_PLAYBACK_SPEED_SPEED_FORWARD_1_00_X: dst = 1.0f; break;
+        case ARK_PLAYBACK_SPEED_SPEED_FORWARD_0_50_X: dst = 0.5f; break;
+        case ARK_PLAYBACK_SPEED_SPEED_FORWARD_1_50_X: dst = 1.5f; break;
+        case ARK_PLAYBACK_SPEED_SPEED_FORWARD_3_00_X: dst = 3.0f; break;
+        case ARK_PLAYBACK_SPEED_SPEED_FORWARD_0_25_X: dst = 0.25f; break;
+        case ARK_PLAYBACK_SPEED_SPEED_FORWARD_0_125_X: dst = 0.125f; break;
         default: LOGE("Unexpected enum value in Ark_PlaybackSpeed: %{public}d", src);
     }
 }
@@ -84,9 +92,17 @@ VideoOptions Convert(const Ark_VideoOptions& src)
     // posterOptions
     options.showFirstFrame = false;
     auto optPosterOptions = src.posterOptions;
-    if (optPosterOptions.tag != InteropTag::INTEROP_TAG_UNDEFINED &&
-        optPosterOptions.value.showFirstFrame.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
-        options.showFirstFrame = Converter::Convert<bool>(optPosterOptions.value.showFirstFrame.value);
+    if (optPosterOptions.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+        if (optPosterOptions.value.showFirstFrame.tag != InteropTag::INTEROP_TAG_UNDEFINED) {
+            options.showFirstFrame = Converter::Convert<bool>(optPosterOptions.value.showFirstFrame.value);
+        }
+        auto optValue = Converter::GetOptPtr(&optPosterOptions.value.contentTransitionEffect);
+        if (optValue.has_value()) {
+            auto* peer = optValue.value();
+            if (peer) {
+                options.contentTransitionType = peer->type_;
+            }
+        }
     }
     return options;
 }
@@ -115,10 +131,10 @@ void SetVideoOptionsImpl(Ark_NativePointer node,
     VideoModelStatic::SetProgressRate(frameNode, options.currentProgressRate);
     VideoModelStatic::SetPosterSourceInfo(frameNode, options.previewSourceInfo);
     VideoModelStatic::SetShowFirstFrame(frameNode, options.showFirstFrame);
+    VideoModelStatic::SetContentTransition(frameNode, options.contentTransitionType);
     if (options.videoController) {
         VideoModelStatic::SetVideoController(frameNode, options.videoController);
     }
-    LOGE("ARKOALA VideoInterface::SetVideoOptionsImpl -> imageAIOptions is not supported.");
 }
 } // VideoInterfaceModifier
 namespace VideoAttributeModifier {
@@ -188,6 +204,9 @@ void SetOnStartImpl(Ark_NativePointer node,
         return;
     }
     auto onStart = [arkCallback = CallbackHelper(*optValue)](const std::string& param) {
+#ifndef ACE_UNITTEST
+        CHECK_NULL_VOID(CallbackHelper<VoidCallback>::GetVMContext());
+#endif
         arkCallback.InvokeSync();
     };
     VideoModelStatic::SetOnStart(frameNode, onStart);
@@ -203,6 +222,9 @@ void SetOnPauseImpl(Ark_NativePointer node,
         return;
     }
     auto onPause = [arkCallback = CallbackHelper(*optValue)](const std::string& param) {
+#ifndef ACE_UNITTEST
+        CHECK_NULL_VOID(CallbackHelper<VoidCallback>::GetVMContext());
+#endif
         arkCallback.InvokeSync();
     };
     VideoModelStatic::SetOnPause(frameNode, onPause);
@@ -218,6 +240,9 @@ void SetOnFinishImpl(Ark_NativePointer node,
         return;
     }
     auto onFinish = [arkCallback = CallbackHelper(*optValue)](const std::string& param) {
+#ifndef ACE_UNITTEST
+        CHECK_NULL_VOID(CallbackHelper<VoidCallback>::GetVMContext());
+#endif
         arkCallback.InvokeSync();
     };
     VideoModelStatic::SetOnFinish(frameNode, onFinish);
@@ -233,6 +258,9 @@ void SetOnFullscreenChangeImpl(Ark_NativePointer node,
         return;
     }
     auto onFullscreenChange = [arkCallback = CallbackHelper(*optValue)](const std::string& param) {
+#ifndef ACE_UNITTEST
+        CHECK_NULL_VOID(CallbackHelper<Callback_FullscreenInfo_Void>::GetVMContext());
+#endif
         auto data = JsonUtil::ParseJsonString(param);
         CHECK_NULL_VOID(data);
         auto fullscreen = data->GetValue("fullscreen")->GetBool();
@@ -254,6 +282,9 @@ void SetOnPreparedImpl(Ark_NativePointer node,
         return;
     }
     auto onPrepared = [arkCallback = CallbackHelper(*optValue)](const std::string& param) {
+#ifndef ACE_UNITTEST
+        CHECK_NULL_VOID(CallbackHelper<Callback_PreparedInfo_Void>::GetVMContext());
+#endif
         auto data = JsonUtil::ParseJsonString(param);
         CHECK_NULL_VOID(data);
         auto duration = data->GetValue("duration")->GetDouble();
@@ -275,6 +306,9 @@ void SetOnSeekingImpl(Ark_NativePointer node,
         return;
     }
     auto onSeeking = [arkCallback = CallbackHelper(*optValue)](const std::string& param) {
+#ifndef ACE_UNITTEST
+        CHECK_NULL_VOID(CallbackHelper<Callback_PlaybackInfo_Void>::GetVMContext());
+#endif
         auto data = JsonUtil::ParseJsonString(param);
         auto time = data->GetValue("time")->GetDouble();
         Ark_PlaybackInfo event = {
@@ -295,6 +329,9 @@ void SetOnSeekedImpl(Ark_NativePointer node,
         return;
     }
     auto onSeeked = [arkCallback = CallbackHelper(*optValue)](const std::string& param) {
+#ifndef ACE_UNITTEST
+        CHECK_NULL_VOID(CallbackHelper<Callback_PlaybackInfo_Void>::GetVMContext());
+#endif
         auto data = JsonUtil::ParseJsonString(param);
         auto time = data->GetValue("time")->GetDouble();
         Ark_PlaybackInfo event = {
@@ -315,6 +352,9 @@ void SetOnUpdateImpl(Ark_NativePointer node,
         return;
     }
     auto onUpdate = [arkCallback = CallbackHelper(*optValue)](const std::string& param) {
+#ifndef ACE_UNITTEST
+        CHECK_NULL_VOID(CallbackHelper<Callback_PlaybackInfo_Void>::GetVMContext());
+#endif
         auto data = JsonUtil::ParseJsonString(param);
         auto time = data->GetValue("time")->GetDouble();
         Ark_PlaybackInfo event = {
@@ -325,7 +365,7 @@ void SetOnUpdateImpl(Ark_NativePointer node,
     VideoModelStatic::SetOnUpdate(frameNode, onUpdate);
 }
 void SetOnErrorImpl(Ark_NativePointer node,
-                    const Opt_Callback_Void* value)
+                    const Opt_Union_VoidCallback_ErrorCallback_BusinessErrorInterface_Void* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
@@ -334,10 +374,20 @@ void SetOnErrorImpl(Ark_NativePointer node,
         VideoModelStatic::SetOnError(frameNode, nullptr);
         return;
     }
-    auto onError = [arkCallback = CallbackHelper(*optValue)](const std::string& param) {
-        arkCallback.InvokeSync();
-    };
-    VideoModelStatic::SetOnError(frameNode, onError);
+    Converter::VisitUnion(optValue.value(),
+        [frameNode](const VoidCallback& src) {
+                auto onError = [arkCallback = CallbackHelper(src)](const std::string& param) {
+#ifndef ACE_UNITTEST
+                CHECK_NULL_VOID(CallbackHelper<VoidCallback>::GetVMContext());
+#endif // ACE_UNITTEST
+                arkCallback.InvokeSync();
+            };
+            VideoModelStatic::SetOnError(frameNode, onError);
+        },
+        [](const ErrorCallback_BusinessErrorInterface_Void& src) {
+            LOGI("VideoAttributeModifier::SetOnErrorImpl is not implemented for ErrorCallback");
+        },
+        [] {});
 }
 void SetOnStopImpl(Ark_NativePointer node,
                    const Opt_VoidCallback* value)
@@ -350,6 +400,9 @@ void SetOnStopImpl(Ark_NativePointer node,
         return;
     }
     auto onStop = [arkCallback = CallbackHelper(*optValue)](const std::string& param) {
+#ifndef ACE_UNITTEST
+        CHECK_NULL_VOID(CallbackHelper<VoidCallback>::GetVMContext());
+#endif
         arkCallback.InvokeSync();
     };
     VideoModelStatic::SetOnStop(frameNode, onStop);
@@ -371,16 +424,19 @@ void SetAnalyzerConfigImpl(Ark_NativePointer node,
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
-    LOGE("ARKOALA VideoInterface::AnalyzerConfigImpl -> method is not implemented.");
+    CHECK_NULL_VOID(value);
+    auto optValue = Converter::GetOptPtr(value);
+    CHECK_NULL_VOID(optValue);
+    VideoModelNG::SetImageAnalyzerConfig(frameNode, reinterpret_cast<void*>(optValue->types.array));
 }
 void SetSurfaceBackgroundColorImpl(Ark_NativePointer node,
-                                   const Opt_ColorMetrics* value)
+                                   const Opt_ColorMetricsExt* value)
 {
     auto frameNode = reinterpret_cast<FrameNode *>(node);
     CHECK_NULL_VOID(frameNode);
     auto colorValue = Converter::OptConvertPtr<Color>(value);
     auto color = colorValue.value_or(Color::BLACK);
-    VideoModelNG::SetSurfaceBackgroundColor(frameNode, (color == Color::BLACK ? color : Color::TRANSPARENT));
+    VideoModelNG::SetSurfaceBackgroundColor(frameNode, (color == Color::TRANSPARENT ? color : Color::BLACK));
 }
 void SetEnableShortcutKeyImpl(Ark_NativePointer node,
                               const Opt_Boolean* value)

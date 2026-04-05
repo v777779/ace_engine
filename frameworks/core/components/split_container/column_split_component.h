@@ -23,8 +23,8 @@
 
 namespace OHOS::Ace {
 
-class ACE_EXPORT ColumnSplitComponent : public SplitContainerComponent {
-    DECLARE_ACE_TYPE(ColumnSplitComponent, SplitContainerComponent)
+class ACE_FORCE_EXPORT ColumnSplitComponent : public SplitContainerComponent {
+    DECLARE_ACE_TYPE(ColumnSplitComponent, SplitContainerComponent);
 
 public:
     explicit ColumnSplitComponent(const std::list<RefPtr<Component>>& children)

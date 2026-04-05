@@ -177,13 +177,33 @@ class ArkSelectComponent extends ArkComponent implements SelectAttribute {
     modifierWithKey(this._modifiersWithKeys, SelectDirectionModifier.identity, SelectDirectionModifier, value);
     return this;
   }
-  menuOutline(outline: MenuOutlineOptions): this {
-    modifierWithKey(
-      this._modifiersWithKeys, MenuOutlineModifier.identity, MenuOutlineModifier, outline);
-  }
   avoidance(mode: AvoidanceMode): this {
     modifierWithKey(
       this._modifiersWithKeys, AvoidanceModifier.identity, AvoidanceModifier, mode);
+    return this;
+  }
+  backgroundColor(value: ResourceColor): this {
+    modifierWithKey(this._modifiersWithKeys, SelectBackgroundColorModifier.identity, SelectBackgroundColorModifier, value);
+    return this;
+  }
+  menuOutline(outline: MenuOutlineOptions): this {
+    modifierWithKey(
+      this._modifiersWithKeys, MenuOutlineModifier.identity, MenuOutlineModifier, outline);
+    return this;
+  }
+  keyboardAvoidMode(mode: Optional<MenuKeyboardAvoidMode>): this {
+    modifierWithKey(
+      this._modifiersWithKeys, MenuKeyboardAvoidModeModifier.identity, MenuKeyboardAvoidModeModifier, mode);
+    return this;
+  }
+  minKeyboardAvoidDistance(distance: Optional<LengthMetrics>): this {
+    modifierWithKey(
+      this._modifiersWithKeys, MinKeyboardAvoidDistanceModifier.identity, MinKeyboardAvoidDistanceModifier, distance);
+    return this;
+  }
+  menuSystemMaterial(menuSystemMaterial: SystemUiMaterial): this {
+    modifierWithKey(
+      this._modifiersWithKeys, MenuSystemMaterialModifier.identity, MenuSystemMaterialModifier, menuSystemMaterial);
     return this;
   }
 }
@@ -693,6 +713,41 @@ class SelectDirectionModifier extends ModifierWithKey<number> {
   }
 }
 
+class AvoidanceModifier extends ModifierWithKey<AvoidanceMode> {
+  constructor(value: AvoidanceMode) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('selectAvoidance');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().select.resetAvoidance(node);
+    } else {
+      getUINativeModule().select.setAvoidance(node, this.value);
+    }
+  }
+  checkObjectDiff(): boolean {
+    return this.stageValue !== this.value;
+  }
+}
+
+class SelectBackgroundColorModifier extends ModifierWithKey<ResourceColor> {
+  constructor(value: ResourceColor) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('selectBackgroundColor');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset) {
+      getUINativeModule().select.resetBackgroundColor(node);
+    } else {
+      getUINativeModule().select.setBackgroundColor(node, this.value);
+    }
+  }
+
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
 class MenuOutlineModifier extends ModifierWithKey<MenuOutlineOptions> {
   constructor(value: MenuOutlineOptions) {
     super(value);
@@ -747,20 +802,56 @@ class MenuOutlineModifier extends ModifierWithKey<MenuOutlineOptions> {
   }
 }
 
-class AvoidanceModifier extends ModifierWithKey<AvoidanceMode> {
-  constructor(value: AvoidanceMode) {
+class MenuKeyboardAvoidModeModifier extends ModifierWithKey<Optional<MenuKeyboardAvoidMode>> {
+  constructor(value: Optional<MenuKeyboardAvoidMode>) {
     super(value);
   }
-  static identity: Symbol = Symbol('selectAvoidance');
+  static identity: Symbol = Symbol('menuKeyboardAvoidMode');
   applyPeer(node: KNode, reset: boolean): void {
     if (reset) {
-      getUINativeModule().select.resetAvoidance(node);
+      getUINativeModule().select.resetMenuKeyboardAvoidMode(node);
     } else {
-      getUINativeModule().select.setAvoidance(node, this.value);
+      getUINativeModule().select.setMenuKeyboardAvoidMode(node, this.value);
     }
   }
   checkObjectDiff(): boolean {
     return this.stageValue !== this.value;
+  }
+}
+
+class MinKeyboardAvoidDistanceModifier extends ModifierWithKey<Optional<LengthMetrics>> {
+  constructor(value: Optional<LengthMetrics>) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('minKeyboardAvoidDistance');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset || !this.value) {
+      getUINativeModule().select.resetMinKeyboardAvoidDistance(node);
+    } else {
+      getUINativeModule().select.setMinKeyboardAvoidDistance(node, this.value);
+    }
+  }
+
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
+  }
+}
+
+class MenuSystemMaterialModifier extends ModifierWithKey<Optional<SystemUiMaterial>> {
+  constructor(value: Optional<SystemUiMaterial>) {
+    super(value);
+  }
+  static identity: Symbol = Symbol('menuSystemMaterial');
+  applyPeer(node: KNode, reset: boolean): void {
+    if (reset || !this.value) {
+      getUINativeModule().select.resetMenuSystemMaterial(node);
+    } else {
+      getUINativeModule().select.setMenuSystemMaterial(node, this.value);
+    }
+  }
+
+  checkObjectDiff(): boolean {
+    return !isBaseOrResourceEqual(this.stageValue, this.value);
   }
 }
 

@@ -14,6 +14,7 @@
  */
 
 #include "core/common/ime/text_input_client.h"
+#include "core/components_ng/manager/safe_area/safe_area_manager.h"
 
 #include "core/pipeline_ng/pipeline_context.h"
 
@@ -25,6 +26,9 @@ using tic = TextInputClient; // give it a shorter name to maintain a good code l
 // Here declares function keys which can be handled by TextInputClient.
 std::map<KeyComb, std::function<bool(TextInputClient*)>> TextInputClient::functionKeys_ = {
     { KeyComb(KeyCode::KEY_ESCAPE), &tic::HandleOnEscape },
+#ifdef ANDROID_PLATFORM
+    { KeyComb(KeyCode::KEY_BACK), &tic::HandleOnKeyBack },
+#endif
     { KeyComb(KeyCode::KEY_TAB), [](tic* c) -> bool { return c->HandleOnTab(false); } },
     { KeyComb(KeyCode::KEY_TAB, KEY_SHIFT), [](tic* c) -> bool { return c->HandleOnTab(true); } },
 };
@@ -195,6 +199,10 @@ bool TextInputClient::HandleKeyEvent(const KeyEvent& keyEvent)
     }
     auto iterKeyboardShortCuts = keyboardShortCuts_.find(KeyComb(keyEvent.code, modKeyFlags));
     if (iterKeyboardShortCuts != keyboardShortCuts_.end()) {
+        auto isShortCutBlocked = IsShortCutBlocked();
+        TAG_LOGD(AceLogTag::ACE_KEYBOARD, "find a keyboard shortcut, key code: %{public}d, modKeyFlags: %{public}d, "
+            "isBlocked: %{public}d", static_cast<int32_t>(keyEvent.code), modKeyFlags, isShortCutBlocked);
+        CHECK_EQUAL_RETURN(isShortCutBlocked, true, true);
         if (KeyComb(keyEvent.code, modKeyFlags) == KeyComb(KeyCode::KEY_DPAD_UP, KEY_SHIFT) ||
             KeyComb(keyEvent.code, modKeyFlags) == KeyComb(KeyCode::KEY_DPAD_DOWN, KEY_SHIFT)) {
             this->RecordOriginCaretPosition();

@@ -28,7 +28,7 @@
 #define private public
 #define protected public
 
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 
 #include "base/memory/ace_type.h"
 #include "core/components/progress/progress_theme.h"
@@ -47,9 +47,9 @@
 #include "core/components_ng/render/render_context.h"
 #include "core/components_ng/token_theme/token_theme_storage.h"
 #include "core/interfaces/arkoala/arkoala_api.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
 namespace OHOS::Ace::NG {
@@ -86,6 +86,7 @@ constexpr float LARG_PROGRESS_COMPONENT_HEIGHT = 2000.0f;
 constexpr float PROGRESS_STROKE_WIDTH = 10.0f;
 constexpr float PROGRESS_LARGE_STROKE_WIDTH = 200.0f;
 constexpr float PROGRESS_MODIFIER_VALUE = 100.0f;
+constexpr float PROGRESS_MODIFIER_VALUE2 = 10.0f;
 constexpr float PROGRESS_MODIFIER_LARGE_VALUE = 200.0f;
 constexpr float PROGRESS_MODIFIER_MAX_VALUE = 10000.0f;
 constexpr float CONTEXT_WIDTH = 100.0f;

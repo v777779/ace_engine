@@ -41,7 +41,7 @@ void FolderStackLayoutAlgorithm::Layout(LayoutWrapper* layoutWrapper)
     }
     if (!isIntoFolderStack_) {
         auto childLayoutProperty = AceType::DynamicCast<StackLayoutProperty>(layoutWrapper->GetLayoutProperty());
-        if (childLayoutProperty->GetPositionProperty()) {
+        if (childLayoutProperty && childLayoutProperty->GetPositionProperty()) {
             childLayoutProperty->GetPositionProperty()->UpdateAlignment(align);
         }
         StackLayoutAlgorithm::Layout(layoutWrapper);
@@ -56,8 +56,10 @@ void FolderStackLayoutAlgorithm::LayoutHoverStack(LayoutWrapper* layoutWrapper,
 {
     auto folderStackGeometryNode = layoutWrapper->GetGeometryNode();
     auto size = folderStackGeometryNode->GetFrameSize();
-    const auto& padding = layoutWrapper->GetLayoutProperty()->CreatePaddingAndBorder();
-    auto layoutDirection = layoutWrapper->GetLayoutProperty()->GetLayoutDirection();
+    const auto& layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(layoutProperty);
+    const auto& padding = layoutProperty->CreatePaddingAndBorder();
+    auto layoutDirection = layoutProperty->GetLayoutDirection();
     if (layoutDirection == TextDirection::AUTO) {
         layoutDirection = AceApplicationInfo::GetInstance().IsRightToLeft() ? TextDirection::RTL : TextDirection::LTR;
     }
@@ -92,7 +94,9 @@ void FolderStackLayoutAlgorithm::LayoutControlPartsStack(LayoutWrapper* layoutWr
     const RefPtr<FolderStackGroupNode>& hostNode, const RefPtr<FolderStackLayoutProperty>& folderStackLayoutProperty)
 {
     auto folderStackGeometryNode = layoutWrapper->GetGeometryNode();
-    auto layoutDirection = layoutWrapper->GetLayoutProperty()->GetLayoutDirection();
+    const auto& layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(layoutProperty);
+    auto layoutDirection = layoutProperty->GetLayoutDirection();
     if (layoutDirection == TextDirection::AUTO) {
         layoutDirection = AceApplicationInfo::GetInstance().IsRightToLeft() ? TextDirection::RTL : TextDirection::LTR;
     }
@@ -107,6 +111,7 @@ void FolderStackLayoutAlgorithm::LayoutControlPartsStack(LayoutWrapper* layoutWr
     auto geometryNode = controlPartsStackWrapper->GetGeometryNode();
     auto controlPartsStackRect = GetControlPartsStackRect();
     geometryNode->SetMarginFrameOffset(controlPartsStackRect);
+    
     controlPartsStackWrapper->Layout();
 }
 
@@ -115,8 +120,6 @@ void FolderStackLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     CHECK_NULL_VOID(layoutWrapper);
     auto hostNode = AceType::DynamicCast<FolderStackGroupNode>(layoutWrapper->GetHostNode());
     CHECK_NULL_VOID(hostNode);
-    auto pattern = layoutWrapper->GetHostNode()->GetPattern<FolderStackPattern>();
-    CHECK_NULL_VOID(pattern);
     const auto& layoutProperty = DynamicCast<FolderStackLayoutProperty>(layoutWrapper->GetLayoutProperty());
     CHECK_NULL_VOID(layoutProperty);
     const auto& layoutConstraint = layoutProperty->GetLayoutConstraint();
@@ -130,19 +133,7 @@ void FolderStackLayoutAlgorithm::Measure(LayoutWrapper* layoutWrapper)
     OnHoverStatusChange(layoutWrapper);
     if (!isIntoFolderStack_) {
         MeasureByStack(hostNode, layoutWrapper);
-        pattern->SetNeedCallBack(false);
         return;
-    }
-    if (!pattern->GetNeedCallBack()) {
-        pattern->SetNeedCallBack(true);
-        auto displayInfo = pattern->GetDisplayInfo();
-        if (displayInfo) {
-            FolderEventInfo event(displayInfo->GetFoldStatus());
-            auto eventHub = layoutWrapper->GetHostNode()->GetEventHub<FolderStackEventHub>();
-            if (eventHub) {
-                eventHub->OnFolderStateChange(event);
-            }
-        }
     }
     RangeCalculation(hostNode, layoutProperty, size);
     MeasureHoverStack(layoutWrapper, hostNode, layoutProperty, size);
@@ -174,13 +165,17 @@ void FolderStackLayoutAlgorithm::MeasureControlPartsStack(LayoutWrapper* layoutW
     CHECK_NULL_VOID(controlPartsWrapper);
     auto constraint = foldStackLayoutProperty->CreateChildConstraint();
     constraint.selfIdealSize = OptionalSizeF(size.Width(), preControlPartsStackHeight_);
-    const auto& padding = layoutWrapper->GetLayoutProperty()->CreatePaddingAndBorder();
+    const auto& layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(layoutProperty);
+    const auto& padding = layoutProperty->CreatePaddingAndBorder();
     PaddingProperty controlPartsPadding;
     controlPartsPadding.left = CalcLength(padding.left.value_or(0));
     controlPartsPadding.right = CalcLength(padding.right.value_or(0));
     controlPartsPadding.top = CalcLength(padding.top.value_or(0));
     controlPartsPadding.bottom = CalcLength(padding.bottom.value_or(0));
-    controlPartsWrapper->GetLayoutProperty()->UpdatePadding(controlPartsPadding);
+    const auto& controlPartsLayoutProperty = controlPartsWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(controlPartsLayoutProperty);
+    controlPartsLayoutProperty->UpdatePadding(controlPartsPadding);
     controlPartsWrapper->Measure(constraint);
 }
 
@@ -205,6 +200,7 @@ void FolderStackLayoutAlgorithm::RangeCalculation(const RefPtr<FolderStackGroupN
         creaseY = static_cast<int32_t>(foldCrease.Bottom() - foldCrease.Height());
         creaseHeight = static_cast<int32_t>(foldCrease.Height());
     }
+
     preHoverStackHeight_ = static_cast<float>(creaseY - length);
     preControlPartsStackHeight_ = static_cast<float>(size.Height() - creaseHeight - preHoverStackHeight_);
     controlPartsStackRect_ = OffsetF(0.0f, creaseY - length + creaseHeight);
@@ -217,7 +213,9 @@ bool FolderStackLayoutAlgorithm::IsFullWindow(
     CHECK_NULL_RETURN(host, false);
     auto parent = AceType::DynamicCast<FrameNode>(host->GetParent());
     CHECK_NULL_RETURN(parent, false);
-    auto padding = parent->GetLayoutProperty()->CreatePaddingAndBorder();
+    const auto& parentLayoutProperty = parent->GetLayoutProperty();
+    CHECK_NULL_RETURN(parentLayoutProperty, false);
+    auto padding = parentLayoutProperty->CreatePaddingAndBorder();
     auto pipeline = host->GetContext();
     CHECK_NULL_RETURN(pipeline, false);
     auto windowManager = pipeline->GetWindowManager();
@@ -226,12 +224,48 @@ bool FolderStackLayoutAlgorithm::IsFullWindow(
     auto windowMode = windowManager->GetWindowMode();
     auto realWidth = frameSize.Width() + padding.Width();
     auto realHeight = frameSize.Height() + padding.Height();
-    if (!NearEqual(realWidth, pipeline->GetRootWidth() - safeArea.left_.Length() - safeArea.right_.Length()) ||
-        !NearEqual(realHeight, pipeline->GetRootHeight() - safeArea.top_.Length() - safeArea.bottom_.Length()) ||
+    auto rootWidth = pipeline->GetRootWidth();
+    auto rootHeight = pipeline->GetRootHeight();
+    SizeF fullScreen = { rootWidth - safeArea.left_.Length() - safeArea.right_.Length(),
+        rootHeight - safeArea.top_.Length() - safeArea.bottom_.Length() };
+    if (CheckExpandConstraintFullScreen(
+        foldStackLayoutProperty, realWidth, realHeight, safeArea, windowMode, fullScreen)) {
+        return true;
+    }
+    if (!NearEqual(realWidth, rootWidth - safeArea.left_.Length() - safeArea.right_.Length()) ||
+        !NearEqual(realHeight, rootHeight - safeArea.top_.Length() - safeArea.bottom_.Length()) ||
         windowMode != WindowMode::WINDOW_MODE_FULLSCREEN) {
         return false;
     }
     return true;
+}
+
+bool FolderStackLayoutAlgorithm::CheckExpandConstraintFullScreen(
+    const RefPtr<FolderStackLayoutProperty>& foldStackLayoutProperty, const float& realWidth, const float& realHeight,
+    const SafeAreaInsets& safeArea, WindowMode windowMode, SizeF fullScreen)
+{
+    CHECK_NULL_RETURN(foldStackLayoutProperty, false);
+    if (!foldStackLayoutProperty->IsExpandConstraintNeeded()) {
+        return false;
+    }
+    const auto& ignoreOpts = foldStackLayoutProperty->GenIgnoreOpts();
+    if (ignoreOpts.edges & NG::LAYOUT_SAFE_AREA_EDGE_TOP) {
+        fullScreen.AddHeight(safeArea.top_.Length());
+    }
+    if (ignoreOpts.edges & NG::LAYOUT_SAFE_AREA_EDGE_START) {
+        fullScreen.AddWidth(safeArea.left_.Length());
+    }
+    if (ignoreOpts.edges & NG::LAYOUT_SAFE_AREA_EDGE_BOTTOM) {
+        fullScreen.AddHeight(safeArea.bottom_.Length());
+    }
+    if (ignoreOpts.edges & NG::LAYOUT_SAFE_AREA_EDGE_END) {
+        fullScreen.AddWidth(safeArea.right_.Length());
+    }
+    if (NearEqual(realWidth, fullScreen.Width()) && NearEqual(realHeight, fullScreen.Height()) &&
+        windowMode == WindowMode::WINDOW_MODE_FULLSCREEN) {
+        return true;
+    }
+    return false;
 }
 
 void FolderStackLayoutAlgorithm::AdjustNodeTree(const RefPtr<FolderStackGroupNode>& hostNode)
@@ -275,7 +309,10 @@ NG::OffsetF FolderStackLayoutAlgorithm::CalculateStackAlignment(
 bool FolderStackLayoutAlgorithm::IsIntoFolderStack(
     SizeF& frameSize, const RefPtr<FolderStackLayoutProperty>& foldStackLayoutProperty, LayoutWrapper* layoutWrapper)
 {
-    auto pattern = layoutWrapper->GetHostNode()->GetPattern<FolderStackPattern>();
+    CHECK_NULL_RETURN(layoutWrapper, false);
+    auto host = layoutWrapper->GetHostNode();
+    CHECK_NULL_RETURN(host, false);
+    auto pattern = host->GetPattern<FolderStackPattern>();
     CHECK_NULL_RETURN(pattern, false);
     CHECK_NULL_RETURN(!pattern->HasFoldStatusDelayTask(), false);
     auto displayInfo = pattern->GetDisplayInfo();
@@ -287,26 +324,31 @@ bool FolderStackLayoutAlgorithm::IsIntoFolderStack(
     CHECK_NULL_RETURN(displayInfo, false);
     bool isFullWindow = IsFullWindow(frameSize, foldStackLayoutProperty, layoutWrapper);
     bool isFoldable = OHOS::Ace::SystemProperties::IsBigFoldProduct();
+    bool isPortraitFoldable = OHOS::Ace::SystemProperties::IsPortraitFoldProduct();
     auto foldStatus = displayInfo->GetFoldStatus();
     auto rotation = displayInfo->GetRotation();
     auto isLandscape = rotation == Rotation::ROTATION_90 || rotation == Rotation::ROTATION_270;
+    auto isPortrait = rotation == Rotation::ROTATION_0 || rotation == Rotation::ROTATION_180;
     TAG_LOGI(AceLogTag::ACE_FOLDER_STACK,
         "folderStack state isFullWindow:%{public}d, isFoldable:%{public}d, "
         "foldStatus:%{public}d, isLandscape:%{public}d",
         isFullWindow, isFoldable, foldStatus, isLandscape);
-    return isFullWindow && isFoldable && foldStatus == FoldStatus::HALF_FOLD && isLandscape;
+    return isFullWindow && foldStatus == FoldStatus::HALF_FOLD &&
+        ((isLandscape && isFoldable) || (isPortrait && isPortraitFoldable));
 }
 
 void FolderStackLayoutAlgorithm::OnHoverStatusChange(LayoutWrapper* layoutWrapper)
 {
-    auto pattern = layoutWrapper->GetHostNode()->GetPattern<FolderStackPattern>();
+    CHECK_NULL_VOID(layoutWrapper);
+    auto host = layoutWrapper->GetHostNode();
+    CHECK_NULL_VOID(host);
+    auto pattern = host->GetPattern<FolderStackPattern>();
     CHECK_NULL_VOID(pattern);
-    if (isIntoFolderStack_ == pattern->IsInHoverMode() || !OHOS::Ace::SystemProperties::IsBigFoldProduct()) {
+    if (isIntoFolderStack_ == pattern->IsInHoverMode() ||
+        (!OHOS::Ace::SystemProperties::IsBigFoldProduct() && !OHOS::Ace::SystemProperties::IsPortraitFoldProduct())) {
         return;
     }
     auto eventHub = layoutWrapper->GetHostNode()->GetEventHub<FolderStackEventHub>();
-    auto host = layoutWrapper->GetHostNode();
-    CHECK_NULL_VOID(host);
     auto pipeline = host->GetContext();
     CHECK_NULL_VOID(pipeline);
     auto windowManager = pipeline->GetWindowManager();
@@ -344,7 +386,9 @@ void FolderStackLayoutAlgorithm::MeasureByStack(
     auto index = hostNode->GetChildIndexById(controlPartsStackNode->GetId());
     auto controlPartsWrapper = layoutWrapper->GetOrCreateChildByIndex(index);
     CHECK_NULL_VOID(controlPartsWrapper);
-    controlPartsWrapper->GetLayoutProperty()->UpdatePadding(padding);
+    const auto& controlPartsLayoutProperty = controlPartsWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(controlPartsLayoutProperty);
+    controlPartsLayoutProperty->UpdatePadding(padding);
     MatchParentWhenChildrenMatch(layoutWrapper, controlPartsWrapper);
     StackLayoutAlgorithm::Measure(layoutWrapper);
     auto hoverNode = hostNode->GetHoverNode();
@@ -356,16 +400,25 @@ void FolderStackLayoutAlgorithm::MeasureByStack(
     geometryNode->SetFrameSize(controlPartsWrapper->GetGeometryNode()->GetFrameSize());
 }
 
-
 void FolderStackLayoutAlgorithm::MatchParentWhenChildrenMatch(
     LayoutWrapper* layoutWrapper, const RefPtr<LayoutWrapper>& controlPartsLayoutWrapper)
 {
+    CHECK_NULL_VOID(controlPartsLayoutWrapper);
+    const auto& controlPartsLayoutProperty = controlPartsLayoutWrapper->GetLayoutProperty();
+    CHECK_NULL_VOID(controlPartsLayoutProperty);
+    controlPartsLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::NO_MATCH, true);
+    controlPartsLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::NO_MATCH, false);
     for (auto&& child : controlPartsLayoutWrapper->GetAllChildrenWithBuild()) {
         auto childLayoutProperty = child->GetLayoutProperty();
         CHECK_NULL_CONTINUE(childLayoutProperty);
         auto layoutPolicy = childLayoutProperty->GetLayoutPolicyProperty();
         if (layoutPolicy.has_value() && layoutPolicy->IsMatch()) {
-            controlPartsLayoutWrapper->GetLayoutProperty()->UpdateMeasureType(MeasureType::MATCH_PARENT);
+            if (layoutPolicy->IsWidthMatch()) {
+                controlPartsLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, true);
+            }
+            if (layoutPolicy->IsHeightMatch()) {
+                controlPartsLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::MATCH_PARENT, false);
+            }
         }
     }
 }

@@ -40,8 +40,8 @@ Flow B:
      it may make the first viewpu aboutToBeDeleted execution time longer than before, but for rest viewpu may be faster.
      It's function equals with purgeDeletedElmtIdsRecursively, so it is not necessary to execute purgeDeletedElmtIds for all its child recursively.
 
-2. some time later or when idle: PipelineContext::OnIdle will CallJSCleanUpIdleTaskFunc to do the clean up for the removed elements which have not unregisted
-   from the stateMgmt side.
+2. some time later or when idle: PipelineContext::OnIdle will CallStateMgmtCleanUpIdleTaskFunc to do the clean up for the removed elements
+   which have not unregisted from the stateMgmt side.
 */
 
 type RemovedElementInfo = { elmtId : number, tag : string };
@@ -56,7 +56,6 @@ function uiNodeCleanUpIdleTask(maxTimeInMs: number): void {
 
 class UINodeRegisterProxy {
     public static readonly notRecordingDependencies : number = -1;
-    public static readonly monitorIllegalV1V2StateAccess : number = -2;
 
     public static obtainDeletedElmtIds(): void {
         stateMgmtConsole.debug(`UINodeRegisterProxy. static obtainDeletedElmtIds:`);
@@ -134,6 +133,23 @@ class UINodeRegisterProxy {
         if (viewWeakRef) {
             const view = viewWeakRef.deref();
             if (view && ((view instanceof ViewPU || view instanceof ViewV2))) {
+                return view;
+            }
+        }
+        stateMgmtConsole.warn(`fail to get view for elmtIds ${elmtId}`);
+        return undefined;
+    }
+
+    /**
+     * Retrieves the ViewBuildNodeBase instance that owns the element identified by the given elmtId
+     * @param elmtId - Unique ID of the element
+     * @returns The owning ViewBuildNodeBase or undefined if not found
+     */
+    public static GetViewBuildNodeBase(elmtId: number): ViewBuildNodeBase | undefined {
+        const viewWeakRef = this.ElementIdToOwningViewPU_.get(elmtId);
+        if (viewWeakRef && 'deref' in viewWeakRef) {
+            const view = viewWeakRef.deref();
+            if (view) {
                 return view;
             }
         }

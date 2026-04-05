@@ -16,7 +16,8 @@
 #include "core/components_ng/pattern/grid/grid_layout_property.h"
 
 #include "core/components_ng/pattern/grid/grid_pattern.h"
-
+#include "core/components_ng/pattern/grid/grid_utils.h"
+#include "frameworks/core/components_ng/property/templates_parser.h"
 namespace OHOS::Ace::NG {
 
 void GridLayoutProperty::ResetGridLayoutInfoAndMeasure() const
@@ -26,6 +27,7 @@ void GridLayoutProperty::ResetGridLayoutInfoAndMeasure() const
     auto pattern = host->GetPattern<GridPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->ResetGridLayoutInfo();
+    pattern->ClearPreloadItemList();
     if (host->GetParent()) {
         host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
     }
@@ -40,9 +42,25 @@ void GridLayoutProperty::ResetPositionFlags() const
     pattern->ResetPositionFlags();
 }
 
+std::string GridLayoutProperty::GetItemFillPolicyString() const
+{
+    auto mode = propItemFillPolicy_.value_or(PresetFillType::BREAKPOINT_DEFAULT);
+    switch (mode) {
+        case PresetFillType::BREAKPOINT_DEFAULT:
+            return "PresetFillType.BREAKPOINT_DEFAULT";
+        case PresetFillType::BREAKPOINT_SM1MD2LG3:
+            return "PresetFillType.BREAKPOINT_SM1MD2LG3";
+        case PresetFillType::BREAKPOINT_SM2MD3LG5:
+            return "PresetFillType.BREAKPOINT_SM2MD3LG5";
+        default:
+            break;
+    }
+    return "PresetFillType.BREAKPOINT_DEFAULT";
+}
+
 void GridLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
 {
-    LayoutProperty::ToJsonValue(json, filter);
+    ScrollableLayoutProperty::ToJsonValue(json, filter);
     /* no fixed attr below, just return */
     if (filter.IsFastFilter()) {
         return;
@@ -60,24 +78,13 @@ void GridLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, const Ins
     json->PutExtAttr("cellLength", propCellLength_.value_or(0), filter);
     json->PutExtAttr("enableScrollInteraction", propScrollEnabled_.value_or(true), filter);
     json->PutExtAttr("gridLayoutOptions", propLayoutOptions_.has_value() ? "true" : "false", filter);
-    auto regularSizeArray = JsonUtil::CreateArray();
-    auto irregularIndexesArray = JsonUtil::CreateArray();
-    auto layoutOptions = GetLayoutOptions();
-    if (layoutOptions) {
-        auto regularSize = layoutOptions.value().regularSize;
-        regularSizeArray->Put("", regularSize.rows);
-        regularSizeArray->Put("", regularSize.columns);
-
-        auto irregularIndexes = layoutOptions.value().irregularIndexes;
-        for (auto item : irregularIndexes) {
-            irregularIndexesArray->Put("", item);
-        }
-    }
-    json->PutExtAttr("regularSize", regularSizeArray, filter);
-    json->PutExtAttr("irregularIndexes", irregularIndexesArray, filter);
     json->PutExtAttr("alignItems", GetAlignItems().value_or(GridItemAlignment::DEFAULT) ==
         GridItemAlignment::DEFAULT ? "GridItemAlignment.Default" : "GridItemAlignment.Stretch", filter);
-    json->PutExtAttr("syncLoad", propSyncLoad_.value_or(false), filter);
+    json->PutExtAttr("syncLoad", propSyncLoad_.value_or(true), filter);
+    if (!propItemFillPolicy_.has_value()) {
+        return;
+    }
+    json->PutExtAttr("itemFillPolicy", GetItemFillPolicyString().c_str(), filter);
 }
 
 std::string GridLayoutProperty::GetGridDirectionStr() const
@@ -134,6 +141,12 @@ void GridLayoutProperty::UpdateIrregularFlag(const GridLayoutOptions& layoutOpti
     CHECK_NULL_VOID(host);
     auto pattern = host->GetPattern<GridPattern>();
     CHECK_NULL_VOID(pattern);
+    if (layoutOptions.getStartIndexByIndex && layoutOptions.getStartIndexByOffset) {
+        pattern->SetUserDefined(true);
+        return;
+    } else {
+        pattern->SetUserDefined(false);
+    }
     pattern->SetIrregular(false);
     CHECK_NULL_VOID(layoutOptions.getSizeByIndex);
 
@@ -151,5 +164,29 @@ void GridLayoutProperty::OnLayoutOptionsUpdate(const GridLayoutOptions& layoutOp
 {
     UpdateIrregularFlag(layoutOptions);
     ResetGridLayoutInfoAndMeasure();
+}
+
+void GridLayoutProperty::OnContentStartOffsetUpdate(float /* contentStartOffset */) const
+{
+    ResetPositionFlags();
+}
+
+void GridLayoutProperty::OnContentEndOffsetUpdate(float /* contentEndOffset */) const
+{
+    ResetPositionFlags();
+}
+
+std::optional<std::string> GridLayoutProperty::GetFinalColumnsTemplate(double width)
+{
+    auto itemFillPolicy = GetItemFillPolicy();
+    if (itemFillPolicy.has_value()) {
+        const auto& contentConstraintOps = GetContentLayoutConstraint();
+        CHECK_NULL_RETURN(contentConstraintOps, std::nullopt);
+        auto contentConstraint = contentConstraintOps.value();
+        auto density = contentConstraint.scaleProperty.vpScale;
+        return BuildItemFillPolicyColumns(itemFillPolicy.value(), width, density);
+    } else {
+        return GetColumnsTemplate();
+    }
 }
 } // namespace OHOS::Ace::NG

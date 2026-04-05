@@ -22,13 +22,15 @@
 
 #include "base/memory/referenced.h"
 #include "base/utils/noncopyable.h"
-#include "core/components/video/media_player_callback.h"
 #include "core/components_ng/render/adapter/rosen_render_surface.h"
 #include "core/components_ng/render/media_player.h"
 
+namespace OHOS::Ace {
+struct MediaPlayerCallback;
+}
 namespace OHOS::Ace::NG {
 class RosenMediaPlayer : public MediaPlayer {
-    DECLARE_ACE_TYPE(RosenMediaPlayer, NG::MediaPlayer)
+    DECLARE_ACE_TYPE(RosenMediaPlayer, NG::MediaPlayer);
 public:
     RosenMediaPlayer() = default;
     ~RosenMediaPlayer() override;
@@ -62,6 +64,9 @@ public:
     int32_t SetPlayRangeWithMode(int64_t startTime, int64_t endTime, OHOS::Ace::SeekMode mode) override;
     int32_t SetPlayRangeUsWithMode(int64_t startTime, int64_t endTime, SeekMode mode) override;
     int32_t SetParameter(const std::string& key, int64_t value) override;
+    int32_t EnableCameraPostprocessing() override;
+    int32_t SetCameraPostprocessing(bool isOpen) override;
+    int32_t GetGlobalInfo(std::shared_ptr<OHOS::Media::Meta> &globalInfo) override;
 
 private:
     // Interim programme

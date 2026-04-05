@@ -16,12 +16,12 @@
 #include "rich_editor_drag_test_ng.h"
 
 #include "gtest/gtest.h"
-#include "test/mock/base/mock_pixel_map.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_canvas_image.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/frameworks/base/image/mock_pixel_map.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_canvas_image.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/render/adapter/pixelmap_image.h"
@@ -140,7 +140,7 @@ void RichEditorDragTestNG::ClearSpan()
  * @tc.desc: Test FolderStackTestNG properties & ToJsonValue.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, RichEditorDragTestNG001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, RichEditorDragTestNG001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. Init FolderStack node with Aniamtion/AutoHalfFold props false, itemId not null.
@@ -154,7 +154,7 @@ HWTEST_F(RichEditorDragTestNG, RichEditorDragTestNG001, TestSize.Level1)
  * @tc.desc: Test onDraw.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG001, TestSize.Level0)
 {
     auto richEditorNode = FrameNode::GetOrCreateFrameNode(
         V2::RICH_EDITOR_ETS_TAG, 1, []() { return AceType::MakeRefPtr<RichEditorPattern>(); });
@@ -185,7 +185,6 @@ HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG001, TestSize.
     dragOverlayModifier->onDraw(context);
     dragOverlayModifier->type_ = DragAnimType::FLOATING;
     dragOverlayModifier->onDraw(context);
-    EXPECT_EQ(dragOverlayModifier->type_, DragAnimType::FLOATING);
 
     auto firstHandle = AceType::MakeRefPtr<PropertyRectF>(RectF(10.0f, 10.0f, 10.0f, 10.0f));
     auto secondHandle = AceType::MakeRefPtr<PropertyRectF>(RectF(10.0f, 10.0f, 10.0f, 10.0f));
@@ -214,7 +213,7 @@ HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG001, TestSize.
  * @tc.desc: Test onDraw.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG002, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG002, TestSize.Level0)
 {
     auto richEditorNode = FrameNode::GetOrCreateFrameNode(
         V2::RICH_EDITOR_ETS_TAG, 1, []() { return AceType::MakeRefPtr<RichEditorPattern>(); });
@@ -249,7 +248,7 @@ HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG002, TestSize.
  * @tc.desc: Test PaintFrameNode.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG003, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG003, TestSize.Level0)
 {
     auto richEditorNode = FrameNode::GetOrCreateFrameNode(
         V2::RICH_EDITOR_ETS_TAG, 1, []() { return AceType::MakeRefPtr<RichEditorPattern>(); });
@@ -310,7 +309,7 @@ HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG003, TestSize.
  * @tc.desc: Test StartFloatingAnimate.
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG004, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG004, TestSize.Level0)
 {
     auto richEditorNode = FrameNode::GetOrCreateFrameNode(
         V2::RICH_EDITOR_ETS_TAG, 1, []() { return AceType::MakeRefPtr<RichEditorPattern>(); });
@@ -343,7 +342,7 @@ HWTEST_F(RichEditorDragTestNG, RichEditorDragOverlayModifierTestNG004, TestSize.
  * @tc.desc: test CreateDragNode
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, CreateDragNode001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, CreateDragNode001, TestSize.Level0)
 {
     auto richEditorNode = FrameNode::GetOrCreateFrameNode(
         V2::RICH_EDITOR_ETS_TAG, 1, []() { return AceType::MakeRefPtr<RichEditorPattern>(); });
@@ -376,7 +375,7 @@ HWTEST_F(RichEditorDragTestNG, CreateDragNode001, TestSize.Level1)
  * @tc.desc: test CreateDragNode
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, CreateDragNode002, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, CreateDragNode002, TestSize.Level0)
 {
     auto hostNode =
         FrameNode::GetOrCreateFrameNode(V2::TEXT_ETS_TAG, 1, []() { return AceType::MakeRefPtr<TextPattern>(); });
@@ -422,7 +421,7 @@ HWTEST_F(RichEditorDragTestNG, CreateDragNode002, TestSize.Level1)
  * @tc.desc: test CreateDragNode
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, CreateDragNode003, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, CreateDragNode003, TestSize.Level0)
 {
     auto hostNode =
         FrameNode::GetOrCreateFrameNode(V2::TEXT_ETS_TAG, 1, []() { return AceType::MakeRefPtr<TextPattern>(); });
@@ -468,7 +467,7 @@ HWTEST_F(RichEditorDragTestNG, CreateDragNode003, TestSize.Level1)
  * @tc.desc: test CreateDragNode
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, CreateDragNode004, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, CreateDragNode004, TestSize.Level0)
 {
     auto hostNode = FrameNode::GetOrCreateFrameNode(V2::RICH_EDITOR_ETS_TAG, 1,
         []() { return AceType::MakeRefPtr<RichEditorPattern>(); });
@@ -515,11 +514,63 @@ HWTEST_F(RichEditorDragTestNG, CreateDragNode004, TestSize.Level1)
 }
 
 /**
+ * @tc.name: CreateDragNode005
+ * @tc.desc: test CreateDragNode
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDragTestNG, CreateDragNode005, TestSize.Level0)
+{
+    auto hostNode = FrameNode::GetOrCreateFrameNode(V2::RICH_EDITOR_ETS_TAG, 1,
+        []() { return AceType::MakeRefPtr<RichEditorPattern>(); });
+    ASSERT_NE(hostNode, nullptr);
+    auto richPattern = hostNode->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richPattern, nullptr);
+    std::list<RefPtr<FrameNode>> imageChildren;
+    auto* stack = ViewStackProcessor::GetInstance();
+    auto nodeId = stack->ClaimNodeId();
+    auto imageNode = FrameNode::GetOrCreateFrameNode(
+        V2::IMAGE_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<ImagePattern>(); });
+    auto imageNode1 = FrameNode::GetOrCreateFrameNode(
+        V2::IMAGE_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<ImagePattern>(); });
+    imageChildren.push_back(imageNode);
+    imageChildren.push_back(imageNode1);
+    richPattern->placeholderIndex_ = { 1, 2, 3 };
+    richPattern->rectsForPlaceholders_ = { RectF(0.0f, 0.0f, 100.0f, 100.0f), RectF(20.0f, 20.0f, 200.0f, 200.0f),
+        RectF(0.0f, 0.0f, 50.0f, 50.0f) };
+    richPattern->textSelector_.baseOffset = 0;
+    richPattern->textSelector_.destinationOffset = 10;
+    ParagraphManager::ParagraphInfo paragraphInfo;
+    ParagraphManager::ParagraphInfo paragraphInfo1;
+    RefPtr<MockParagraph> mockParagraph = AceType::MakeRefPtr<MockParagraph>();
+    EXPECT_CALL(*mockParagraph, GetRectsForRange(_, _, _))
+        .WillRepeatedly(Invoke([](int32_t start, int32_t end, std::vector<RectF>& selectedRects) {
+            selectedRects.emplace_back(RectF(10, 10, 250, 250));
+        }));
+    const OHOS::Ace::NG::ParagraphStyle expectedStyle;
+    EXPECT_CALL(*mockParagraph, GetParagraphStyle()).WillRepeatedly(ReturnRef(expectedStyle));
+    paragraphInfo.paragraph = mockParagraph;
+    paragraphInfo1.paragraph = mockParagraph;
+    paragraphInfo.start = 0;
+    paragraphInfo.end = 10;
+    paragraphInfo1.end = 10;
+    richPattern->paragraphs_.paragraphs_.emplace_back(paragraphInfo);
+    richPattern->paragraphs_.paragraphs_.emplace_back(paragraphInfo1);
+    TextDragInfo info;
+    info.isDragShadowNeeded = true;
+    info.dragBackgroundColor = Color::RED;
+    auto dragNode = RichEditorDragPattern::CreateDragNode(hostNode, imageChildren, info);
+    ASSERT_NE(dragNode, nullptr);
+    auto richEditorDragPattern = dragNode->GetPattern<RichEditorDragPattern>();
+    EXPECT_TRUE(richEditorDragPattern->info_->dragBackgroundColor.has_value());
+    EXPECT_TRUE(richEditorDragPattern->info_->isDragShadowNeeded);
+}
+
+/**
  * @tc.name: InitDragShadow001
  * @tc.desc: test InitDragShadow
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, InitDragShadow001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, InitDragShadow001, TestSize.Level0)
 {
     auto hostNode = FrameNode::GetOrCreateFrameNode(V2::RICH_EDITOR_ETS_TAG, 1,
         []() { return AceType::MakeRefPtr<RichEditorPattern>(); });
@@ -533,11 +584,97 @@ HWTEST_F(RichEditorDragTestNG, InitDragShadow001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: CreateDragNodeIsFilled001
+ * @tc.desc: test CreateDragNode isFilled when drag background color is not explicitly configured.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDragTestNG, CreateDragNodeIsFilled001, TestSize.Level0)
+{
+    CreateRichEditor([](RichEditorModelNG model) { model.SetTextDetectEnable(true); });
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    pattern_->textSelector_.baseOffset = 0;
+    pattern_->textSelector_.destinationOffset = 10;
+    pattern_->paragraphs_.paragraphs_.clear();
+
+    ParagraphManager::ParagraphInfo paragraphInfo;
+    ParagraphManager::ParagraphInfo paragraphInfo1;
+    RefPtr<MockParagraph> mockParagraph = AceType::MakeRefPtr<MockParagraph>();
+    EXPECT_CALL(*mockParagraph, GetRectsForRange(_, _, _))
+        .WillRepeatedly(Invoke([](int32_t start, int32_t end, std::vector<RectF>& selectedRects) {
+            selectedRects.emplace_back(RectF(10, 10, 250, 250));
+        }));
+    const OHOS::Ace::NG::ParagraphStyle expectedStyle;
+    EXPECT_CALL(*mockParagraph, GetParagraphStyle()).WillRepeatedly(ReturnRef(expectedStyle));
+    paragraphInfo.paragraph = mockParagraph;
+    paragraphInfo1.paragraph = mockParagraph;
+    paragraphInfo.start = 0;
+    paragraphInfo.end = 10;
+    paragraphInfo1.end = 10;
+    pattern_->paragraphs_.paragraphs_.emplace_back(paragraphInfo);
+    pattern_->paragraphs_.paragraphs_.emplace_back(paragraphInfo1);
+
+    auto layoutProperty = pattern_->GetLayoutProperty<RichEditorLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->ResetSelectedDragPreviewStyle();
+    ASSERT_FALSE(layoutProperty->HasSelectedDragPreviewStyle());
+
+    pattern_->CreateDragNode();
+    ASSERT_NE(pattern_->dragNode_, nullptr);
+    auto option = frameNode_->GetDragPreviewOption();
+    EXPECT_TRUE(option.options.shadow.has_value());
+    EXPECT_TRUE(option.options.isFilled);
+}
+
+/**
+ * @tc.name: CreateDragNodeIsFilled002
+ * @tc.desc: test CreateDragNode isFilled when drag background color is explicitly configured.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorDragTestNG, CreateDragNodeIsFilled002, TestSize.Level0)
+{
+    CreateRichEditor([](RichEditorModelNG model) { model.SetTextDetectEnable(true); });
+    ASSERT_NE(frameNode_, nullptr);
+    ASSERT_NE(pattern_, nullptr);
+    pattern_->textSelector_.baseOffset = 0;
+    pattern_->textSelector_.destinationOffset = 10;
+    pattern_->paragraphs_.paragraphs_.clear();
+
+    ParagraphManager::ParagraphInfo paragraphInfo;
+    ParagraphManager::ParagraphInfo paragraphInfo1;
+    RefPtr<MockParagraph> mockParagraph = AceType::MakeRefPtr<MockParagraph>();
+    EXPECT_CALL(*mockParagraph, GetRectsForRange(_, _, _))
+        .WillRepeatedly(Invoke([](int32_t start, int32_t end, std::vector<RectF>& selectedRects) {
+            selectedRects.emplace_back(RectF(10, 10, 250, 250));
+        }));
+    const OHOS::Ace::NG::ParagraphStyle expectedStyle;
+    EXPECT_CALL(*mockParagraph, GetParagraphStyle()).WillRepeatedly(ReturnRef(expectedStyle));
+    paragraphInfo.paragraph = mockParagraph;
+    paragraphInfo1.paragraph = mockParagraph;
+    paragraphInfo.start = 0;
+    paragraphInfo.end = 10;
+    paragraphInfo1.end = 10;
+    pattern_->paragraphs_.paragraphs_.emplace_back(paragraphInfo);
+    pattern_->paragraphs_.paragraphs_.emplace_back(paragraphInfo1);
+
+    auto layoutProperty = pattern_->GetLayoutProperty<RichEditorLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateSelectedDragPreviewStyle(Color::RED);
+    ASSERT_TRUE(layoutProperty->HasSelectedDragPreviewStyle());
+
+    pattern_->CreateDragNode();
+    ASSERT_NE(pattern_->dragNode_, nullptr);
+    auto option = frameNode_->GetDragPreviewOption();
+    EXPECT_TRUE(option.options.shadow.has_value());
+    EXPECT_FALSE(option.options.isFilled);
+}
+
+/**
  * @tc.name: GetMaxSelectedWidth001
  * @tc.desc: test GetMaxSelectedWidth
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, GetMaxSelectedWidth001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, GetMaxSelectedWidth001, TestSize.Level0)
 {
     auto hostNode = FrameNode::GetOrCreateFrameNode(V2::RICH_EDITOR_ETS_TAG, 1,
         []() { return AceType::MakeRefPtr<RichEditorPattern>(); });
@@ -553,7 +690,7 @@ HWTEST_F(RichEditorDragTestNG, GetMaxSelectedWidth001, TestSize.Level1)
  * @tc.desc: test dragstart
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorDragTestNG, RichEditorDragStart001, TestSize.Level1)
+HWTEST_F(RichEditorDragTestNG, RichEditorDragStart001, TestSize.Level0)
 {
     auto hostNode = FrameNode::GetOrCreateFrameNode(V2::RICH_EDITOR_ETS_TAG, 1,
         []() { return AceType::MakeRefPtr<RichEditorPattern>(); });

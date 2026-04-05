@@ -18,6 +18,7 @@
 
 #include "test/unittest/core/pattern/test_ng.h"
 
+#include "core/components_ng/pattern/scrollable/scrollable_paint_property.h"
 #include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
 
 namespace OHOS::Ace::NG {
@@ -28,6 +29,8 @@ constexpr float CONTENT_MAIN_SIZE = 1000.0f;
 constexpr float VERTICAL_SCROLLABLE_DISTANCE = CONTENT_MAIN_SIZE - HEIGHT;
 constexpr float HORIZONTAL_SCROLLABLE_DISTANCE = CONTENT_MAIN_SIZE - WIDTH;
 constexpr int32_t TICK = 2;
+constexpr float CONTENT_START_OFFSET = 20.f;
+constexpr float CONTENT_END_OFFSET = 30.f;
 
 class ScrollableUtilsTestNG : public TestNG {
 protected:
@@ -40,6 +43,8 @@ protected:
 
     // scrollable controller
     void ScrollToIndex(int32_t index, bool smooth, ScrollAlign align, std::optional<float> extraOffset = std::nullopt);
+    void AnimateToIndexWithTicks(
+        int32_t index, ScrollAlign align, int32_t times = 5, std::optional<float> extraOffset = std::nullopt);
     bool AnimateTo(
         const Dimension& position, float duration, const RefPtr<Curve>& curve, bool smooth, bool canOverScroll = false);
     Offset GetCurrentOffset() const;
@@ -64,6 +69,7 @@ protected:
     virtual AssertionResult Position(float expectOffset);
     AssertionResult TickPosition(float expectOffset);
     AssertionResult TickPosition(float velocity, float expectOffset);
+    void TickToFinish();
 
 private:
     RefPtr<FrameNode> frameNode_;

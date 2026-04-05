@@ -15,8 +15,6 @@
 
 #include "arkoala_api_generated.h"
 
-#include "core/components_ng/base/frame_node.h"
-#include "core/interfaces/native/utility/callback_helper.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/interfaces/native/implementation/mouse_event_peer.h"
@@ -52,6 +50,10 @@ namespace OHOS::Ace::NG::Converter {
 
 namespace OHOS::Ace::NG::GeneratedModifier {
 namespace MouseEventAccessor {
+namespace {
+    const Opt_Float64 INVALID_OPT_FLOAT64 = Converter::ArkValue<Opt_Float64>();
+    const float DEFAULT_VALUE = 0.0;
+} // namespace
 void DestroyPeerImpl(Ark_MouseEvent peer)
 {
     PeerUtils::DestroyPeer(peer);
@@ -63,6 +65,22 @@ Ark_MouseEvent ConstructImpl()
 Ark_NativePointer GetFinalizerImpl()
 {
     return reinterpret_cast<void *>(&DestroyPeerImpl);
+}
+void StopPropagationImpl(Ark_MouseEvent peer)
+{
+    CHECK_NULL_VOID(peer);
+    MouseInfo* info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    info->SetStopPropagation(true);
+}
+Opt_Array_MouseHistoricalPoint GetHistoricalPointsImpl(Ark_MouseEvent peer)
+{
+    CHECK_NULL_RETURN(peer, {});
+    auto info = peer->GetEventInfo();
+    CHECK_NULL_RETURN(info, {});
+    std::list<MouseHistoricalPoint> history;
+    history = info->GetHistory();
+    return Converter::ArkValue<Opt_Array_MouseHistoricalPoint>(history, Converter::FC);
 }
 Ark_MouseButton GetButtonImpl(Ark_MouseEvent peer)
 {
@@ -114,16 +132,14 @@ Ark_Float64 GetDisplayXImpl(Ark_MouseEvent peer)
     const auto value = PipelineBase::Px2VpWithCurrentDensity(screenLocation.GetX());
     return Converter::ArkValue<Ark_Float64>(value);
 }
-void SetDisplayXImpl(Ark_MouseEvent peer,
-                     const Ark_Float64* displayX)
+void SetDisplayXImpl(Ark_MouseEvent peer, Ark_Float64 displayX)
 {
     CHECK_NULL_VOID(peer);
-    CHECK_NULL_VOID(displayX);
     auto info = peer->GetEventInfo();
     CHECK_NULL_VOID(info);
     auto screenLocation = info->GetScreenLocation();
     const auto animation = screenLocation.GetXAnimationOption();
-    auto value = Converter::Convert<float>(*displayX);
+    auto value = Converter::Convert<double>(displayX);
     auto xConvert = PipelineBase::Vp2PxWithCurrentDensity(value);
     screenLocation.SetX(xConvert, animation);
     info->SetScreenLocation(screenLocation);
@@ -138,16 +154,14 @@ Ark_Float64 GetDisplayYImpl(Ark_MouseEvent peer)
     const auto value = PipelineBase::Px2VpWithCurrentDensity(screenLocation.GetY());
     return Converter::ArkValue<Ark_Float64>(value);
 }
-void SetDisplayYImpl(Ark_MouseEvent peer,
-                     const Ark_Float64* displayY)
+void SetDisplayYImpl(Ark_MouseEvent peer, Ark_Float64 displayY)
 {
     CHECK_NULL_VOID(peer);
-    CHECK_NULL_VOID(displayY);
     auto info = peer->GetEventInfo();
     CHECK_NULL_VOID(info);
     auto screenLocation = info->GetScreenLocation();
     const auto animation = screenLocation.GetYAnimationOption();
-    auto value = Converter::Convert<float>(*displayY);
+    auto value = Converter::Convert<double>(displayY);
     auto yConvert = PipelineBase::Vp2PxWithCurrentDensity(value);
     screenLocation.SetY(yConvert, animation);
     info->SetScreenLocation(screenLocation);
@@ -162,16 +176,14 @@ Ark_Float64 GetWindowXImpl(Ark_MouseEvent peer)
     const auto value = PipelineBase::Px2VpWithCurrentDensity(globalLocation.GetX());
     return Converter::ArkValue<Ark_Float64>(value);
 }
-void SetWindowXImpl(Ark_MouseEvent peer,
-                    const Ark_Float64* windowX)
+void SetWindowXImpl(Ark_MouseEvent peer, Ark_Float64 windowX)
 {
     CHECK_NULL_VOID(peer);
-    CHECK_NULL_VOID(windowX);
     auto info = peer->GetEventInfo();
     CHECK_NULL_VOID(info);
     auto globalLocation = info->GetGlobalLocation();
     const auto animation = globalLocation.GetXAnimationOption();
-    auto value = Converter::Convert<float>(*windowX);
+    auto value = Converter::Convert<double>(windowX);
     auto xConvert = PipelineBase::Vp2PxWithCurrentDensity(value);
     globalLocation.SetX(xConvert, animation);
     info->SetGlobalLocation(globalLocation);
@@ -186,16 +198,14 @@ Ark_Float64 GetWindowYImpl(Ark_MouseEvent peer)
     const auto value = PipelineBase::Px2VpWithCurrentDensity(globalLocation.GetY());
     return Converter::ArkValue<Ark_Float64>(value);
 }
-void SetWindowYImpl(Ark_MouseEvent peer,
-                    const Ark_Float64* windowY)
+void SetWindowYImpl(Ark_MouseEvent peer, Ark_Float64 windowY)
 {
     CHECK_NULL_VOID(peer);
-    CHECK_NULL_VOID(windowY);
     auto info = peer->GetEventInfo();
     CHECK_NULL_VOID(info);
     auto globalLocation = info->GetGlobalLocation();
     const auto animation = globalLocation.GetYAnimationOption();
-    auto value = Converter::Convert<float>(*windowY);
+    auto value = Converter::Convert<double>(windowY);
     auto yConvert = PipelineBase::Vp2PxWithCurrentDensity(value);
     globalLocation.SetY(yConvert, animation);
     info->SetGlobalLocation(globalLocation);
@@ -210,16 +220,14 @@ Ark_Float64 GetXImpl(Ark_MouseEvent peer)
     const auto value = PipelineBase::Px2VpWithCurrentDensity(localLocation.GetX());
     return Converter::ArkValue<Ark_Float64>(value);
 }
-void SetXImpl(Ark_MouseEvent peer,
-              const Ark_Float64* x)
+void SetXImpl(Ark_MouseEvent peer, Ark_Float64 x)
 {
     CHECK_NULL_VOID(peer);
-    CHECK_NULL_VOID(x);
     auto info = peer->GetEventInfo();
     CHECK_NULL_VOID(info);
     auto localLocation = info->GetLocalLocation();
     const auto animation = localLocation.GetXAnimationOption();
-    auto value = Converter::Convert<float>(*x);
+    auto value = Converter::Convert<double>(x);
     auto xConvert = PipelineBase::Vp2PxWithCurrentDensity(value);
     localLocation.SetX(xConvert, animation);
     info->SetLocalLocation(localLocation);
@@ -234,37 +242,17 @@ Ark_Float64 GetYImpl(Ark_MouseEvent peer)
     const auto value = PipelineBase::Px2VpWithCurrentDensity(localLocation.GetY());
     return Converter::ArkValue<Ark_Float64>(value);
 }
-void SetYImpl(Ark_MouseEvent peer,
-              const Ark_Float64* y)
+void SetYImpl(Ark_MouseEvent peer, Ark_Float64 y)
 {
     CHECK_NULL_VOID(peer);
-    CHECK_NULL_VOID(y);
     auto info = peer->GetEventInfo();
     CHECK_NULL_VOID(info);
     auto localLocation = info->GetLocalLocation();
     const auto animation = localLocation.GetYAnimationOption();
-    auto value = Converter::Convert<float>(*y);
+    auto value = Converter::Convert<double>(y);
     auto yConvert = PipelineBase::Vp2PxWithCurrentDensity(value);
     localLocation.SetY(yConvert, animation);
     info->SetLocalLocation(localLocation);
-}
-Callback_Void GetStopPropagationImpl(Ark_MouseEvent peer)
-{
-    CHECK_NULL_RETURN(peer, {});
-    auto callback = CallbackKeeper::DefineReverseCallback<Callback_Void>([peer]() {
-        MouseInfo* info = peer->GetEventInfo();
-        CHECK_NULL_VOID(info);
-        info->SetStopPropagation(true);
-    });
-    return callback;
-}
-void SetStopPropagationImpl(Ark_MouseEvent peer,
-                            const Callback_Void* stopPropagation)
-{
-    CHECK_NULL_VOID(peer);
-    auto info = peer->GetEventInfo();
-    CHECK_NULL_VOID(info);
-    LOGE("Arkoala method MouseEventAccessor.SetStopPropagation doesn't have sense. Not implemented...");
 }
 Opt_Float64 GetRawDeltaXImpl(Ark_MouseEvent peer)
 {
@@ -272,7 +260,7 @@ Opt_Float64 GetRawDeltaXImpl(Ark_MouseEvent peer)
     CHECK_NULL_RETURN(peer, errValue);
     auto info = peer->GetEventInfo();
     CHECK_NULL_RETURN(info, errValue);
-    return Converter::ArkValue<Opt_Float64>(PipelineBase::Px2VpWithCurrentDensity(info->GetRawDeltaX()));
+    return Converter::ArkValue<Opt_Float64>(info->GetRawDeltaX());
 }
 void SetRawDeltaXImpl(Ark_MouseEvent peer,
                       const Opt_Float64* rawDeltaX)
@@ -292,7 +280,7 @@ Opt_Float64 GetRawDeltaYImpl(Ark_MouseEvent peer)
     CHECK_NULL_RETURN(peer, errValue);
     auto info = peer->GetEventInfo();
     CHECK_NULL_RETURN(info, errValue);
-    return Converter::ArkValue<Opt_Float64>(PipelineBase::Px2VpWithCurrentDensity(info->GetRawDeltaY()));
+    return Converter::ArkValue<Opt_Float64>(info->GetRawDeltaY());
 }
 void SetRawDeltaYImpl(Ark_MouseEvent peer,
                       const Opt_Float64* rawDeltaY)
@@ -303,7 +291,7 @@ void SetRawDeltaYImpl(Ark_MouseEvent peer,
     CHECK_NULL_VOID(info);
     auto valueY = Converter::OptConvertPtr<float>(rawDeltaY);
     if (valueY) {
-        info->SetRawDeltaX(valueY.value());
+        info->SetRawDeltaY(valueY.value());
     }
 }
 Opt_Array_MouseButton GetPressedButtonsImpl(Ark_MouseEvent peer)
@@ -333,6 +321,50 @@ void SetPressedButtonsImpl(Ark_MouseEvent peer,
         info->SetPressedButtons(buttons);
     }
 }
+Opt_Float64 GetGlobalDisplayXImpl(Ark_MouseEvent peer)
+{
+    CHECK_NULL_RETURN(peer, INVALID_OPT_FLOAT64);
+    auto info = peer->GetEventInfo();
+    CHECK_NULL_RETURN(info, INVALID_OPT_FLOAT64);
+    const auto& globalDisplayLocation = info->GetGlobalDisplayLocation();
+    const auto value = PipelineBase::Px2VpWithCurrentDensity(globalDisplayLocation.GetX());
+    return Converter::ArkValue<Opt_Float64>(value);
+}
+void SetGlobalDisplayXImpl(Ark_MouseEvent peer,
+                           const Opt_Float64* globalDisplayX)
+{
+    CHECK_NULL_VOID(peer);
+    auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    auto globalDisplayLocation = info->GetGlobalDisplayLocation();
+    const auto animation = globalDisplayLocation.GetXAnimationOption();
+    auto value = Converter::OptConvertPtr<double>(globalDisplayX);
+    auto xConvert = PipelineBase::Vp2PxWithCurrentDensity(value.value_or(DEFAULT_VALUE));
+    globalDisplayLocation.SetX(xConvert, animation);
+    info->SetGlobalDisplayLocation(globalDisplayLocation);
+}
+Opt_Float64 GetGlobalDisplayYImpl(Ark_MouseEvent peer)
+{
+    CHECK_NULL_RETURN(peer, INVALID_OPT_FLOAT64);
+    auto info = peer->GetEventInfo();
+    CHECK_NULL_RETURN(info, INVALID_OPT_FLOAT64);
+    const auto& globalDisplayLocation = info->GetGlobalDisplayLocation();
+    const auto value = PipelineBase::Px2VpWithCurrentDensity(globalDisplayLocation.GetY());
+    return Converter::ArkValue<Opt_Float64>(value);
+}
+void SetGlobalDisplayYImpl(Ark_MouseEvent peer,
+                           const Opt_Float64* globalDisplayY)
+{
+    CHECK_NULL_VOID(peer);
+    auto info = peer->GetEventInfo();
+    CHECK_NULL_VOID(info);
+    auto globalDisplayLocation = info->GetGlobalDisplayLocation();
+    const auto animation = globalDisplayLocation.GetYAnimationOption();
+    auto value = Converter::OptConvertPtr<double>(globalDisplayY);
+    auto yConvert = PipelineBase::Vp2PxWithCurrentDensity(value.value_or(DEFAULT_VALUE));
+    globalDisplayLocation.SetY(yConvert, animation);
+    info->SetGlobalDisplayLocation(globalDisplayLocation);
+}
 } // MouseEventAccessor
 const GENERATED_ArkUIMouseEventAccessor* GetMouseEventAccessor()
 {
@@ -340,6 +372,8 @@ const GENERATED_ArkUIMouseEventAccessor* GetMouseEventAccessor()
         MouseEventAccessor::DestroyPeerImpl,
         MouseEventAccessor::ConstructImpl,
         MouseEventAccessor::GetFinalizerImpl,
+        MouseEventAccessor::StopPropagationImpl,
+        MouseEventAccessor::GetHistoricalPointsImpl,
         MouseEventAccessor::GetButtonImpl,
         MouseEventAccessor::SetButtonImpl,
         MouseEventAccessor::GetActionImpl,
@@ -356,14 +390,16 @@ const GENERATED_ArkUIMouseEventAccessor* GetMouseEventAccessor()
         MouseEventAccessor::SetXImpl,
         MouseEventAccessor::GetYImpl,
         MouseEventAccessor::SetYImpl,
-        MouseEventAccessor::GetStopPropagationImpl,
-        MouseEventAccessor::SetStopPropagationImpl,
         MouseEventAccessor::GetRawDeltaXImpl,
         MouseEventAccessor::SetRawDeltaXImpl,
         MouseEventAccessor::GetRawDeltaYImpl,
         MouseEventAccessor::SetRawDeltaYImpl,
         MouseEventAccessor::GetPressedButtonsImpl,
         MouseEventAccessor::SetPressedButtonsImpl,
+        MouseEventAccessor::GetGlobalDisplayXImpl,
+        MouseEventAccessor::SetGlobalDisplayXImpl,
+        MouseEventAccessor::GetGlobalDisplayYImpl,
+        MouseEventAccessor::SetGlobalDisplayYImpl,
     };
     return &MouseEventAccessorImpl;
 }

@@ -14,12 +14,12 @@
  */
 
 #include "test/unittest/core/pattern/rich_editor/rich_editor_common_test_ng.h"
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_clipboard.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/base/mock_task_executor.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_clipboard.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_theme.h"
 
 using namespace testing;
@@ -86,7 +86,7 @@ RefPtr<RichEditorPattern> RichEditorTouchTestNg::GetRichEditorPattern()
  * @tc.desc: test HandleTouchMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchMove001, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchMove001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables.
@@ -139,7 +139,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchMove001, TestSize.Level1)
  * @tc.desc: test HandleTouchMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchMove002, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchMove002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -164,7 +164,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchMove002, TestSize.Level1)
  * @tc.desc: test HandleTouchMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchMove003, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchMove003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -188,7 +188,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchMove003, TestSize.Level1)
  * @tc.desc: test HandleTouchUp
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchUp001, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchUp001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables.
@@ -209,7 +209,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchUp001, TestSize.Level1)
  * @tc.desc: test HandleTouchUp
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchUp002, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchUp002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -217,6 +217,12 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchUp002, TestSize.Level1)
     richEditorPattern->moveCaretState_.isMoveCaret = true;
     richEditorPattern->HandleTouchUp();
     EXPECT_FALSE(richEditorPattern->isCursorAlwaysDisplayed_);
+    ASSERT_NE(richEditorPattern->selectOverlay_, nullptr);
+    ASSERT_NE(richEditorPattern->magnifierController_, nullptr);
+    richEditorPattern->selectOverlay_->isHandleMoving_ = false;
+    richEditorPattern->magnifierController_->isShowMagnifier_ = false;
+    richEditorPattern->HandleTouchUp();
+    EXPECT_FALSE(richEditorPattern->magnifierController_->GetShowMagnifier());
 }
 
 /**
@@ -224,7 +230,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchUp002, TestSize.Level1)
  * @tc.desc: test HandleTouchUp
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchUp003, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchUp003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -241,7 +247,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchUp003, TestSize.Level1)
  * @tc.desc: test HandleTouchUp
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchUp004, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchUp004, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -262,7 +268,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchUp004, TestSize.Level1)
  * @tc.desc: test HandleTouchEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent001, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent001, TestSize.Level0)
 {
     auto richEditorPattern = GetRichEditorPattern();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -282,7 +288,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent001, TestSize.Level1)
  * @tc.desc: test HandleTouchEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent002, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent002, TestSize.Level0)
 {
     auto richEditorPattern = GetRichEditorPattern();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -302,7 +308,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent002, TestSize.Level1)
  * @tc.desc: test HandleTouchEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent003, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent003, TestSize.Level0)
 {
     auto richEditorPattern = GetRichEditorPattern();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -322,7 +328,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent003, TestSize.Level1)
  * @tc.desc: test HandleTouchEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent004, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent004, TestSize.Level0)
 {
     auto richEditorPattern = GetRichEditorPattern();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -342,7 +348,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent004, TestSize.Level1)
  * @tc.desc: test HandleTouchEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent005, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent005, TestSize.Level0)
 {
     auto richEditorPattern = GetRichEditorPattern();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -362,7 +368,7 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent005, TestSize.Level1)
  * @tc.desc: test HandleTouchEvent
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent006, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent006, TestSize.Level0)
 {
     auto richEditorPattern = GetRichEditorPattern();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -379,11 +385,89 @@ HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent006, TestSize.Level1)
 }
 
 /**
+ * @tc.name: HandleTouchEvent007
+ * @tc.desc: test HandleTouchEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent007, TestSize.Level0)
+{
+    auto richEditorPattern = GetRichEditorPattern();
+    ASSERT_NE(richEditorPattern, nullptr);
+    TouchEventInfo touchEventInfo("");
+    TouchLocationInfo touchLocationInfo(0);
+    touchLocationInfo.touchType_ = TouchType::MOVE;
+    touchLocationInfo.localLocation_ = Offset(0.0f, 0.0f);
+    touchEventInfo.AddTouchLocationInfo(std::move(touchLocationInfo));
+    touchEventInfo.AddChangedTouchLocationInfo(std::move(touchLocationInfo));
+    richEditorPattern->hasUrlSpan_ = true;
+    richEditorPattern->HandleTouchEvent(touchEventInfo);
+    EXPECT_EQ(richEditorPattern->moveCaretState_.touchDownOffset, touchLocationInfo.localLocation_);
+}
+
+/**
+ * @tc.name: HandleTouchEvent008
+ * @tc.desc: test HandleTouchEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent008, TestSize.Level0)
+{
+    auto richEditorPattern = GetRichEditorPattern();
+    ASSERT_NE(richEditorPattern, nullptr);
+    TouchEventInfo touchEventInfo("");
+    TouchLocationInfo touchLocationInfo(0);
+    touchLocationInfo.touchType_ = TouchType::CANCEL;
+    touchLocationInfo.localLocation_ = Offset(0.0f, 0.0f);
+    touchEventInfo.AddTouchLocationInfo(std::move(touchLocationInfo));
+    touchEventInfo.AddChangedTouchLocationInfo(std::move(touchLocationInfo));
+    richEditorPattern->hasUrlSpan_ = true;
+    richEditorPattern->HandleTouchEvent(touchEventInfo);
+    EXPECT_EQ(richEditorPattern->moveCaretState_.touchDownOffset, touchLocationInfo.localLocation_);
+}
+/**
+ * @tc.name: HandleTouchEvent009
+ * @tc.desc: test HandleTouchEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent009, TestSize.Level0)
+{
+    auto richEditorPattern = GetRichEditorPattern();
+    ASSERT_NE(richEditorPattern, nullptr);
+    TouchEventInfo touchEventInfo("");
+    TouchLocationInfo touchLocationInfo(0);
+    touchLocationInfo.touchType_ = TouchType::DOWN;
+    touchLocationInfo.localLocation_ = Offset(0.0f, 0.0f);
+    touchEventInfo.AddTouchLocationInfo(std::move(touchLocationInfo));
+    touchEventInfo.AddChangedTouchLocationInfo(std::move(touchLocationInfo));
+    richEditorPattern->hasUrlSpan_ = false;
+    richEditorPattern->HandleTouchEvent(touchEventInfo);
+    EXPECT_EQ(richEditorPattern->moveCaretState_.touchDownOffset, touchLocationInfo.localLocation_);
+}
+/**
+ * @tc.name: HandleTouchEvent010
+ * @tc.desc: test HandleTouchEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorTouchTestNg, HandleTouchEvent010, TestSize.Level0)
+{
+    auto richEditorPattern = GetRichEditorPattern();
+    ASSERT_NE(richEditorPattern, nullptr);
+    TouchEventInfo touchEventInfo("");
+    TouchLocationInfo touchLocationInfo(0);
+    touchLocationInfo.touchType_ = TouchType::UP;
+    touchLocationInfo.localLocation_ = Offset(0.0f, 0.0f);
+    touchEventInfo.AddTouchLocationInfo(std::move(touchLocationInfo));
+    touchEventInfo.AddChangedTouchLocationInfo(std::move(touchLocationInfo));
+    richEditorPattern->hasUrlSpan_ = false;
+    richEditorPattern->HandleTouchEvent(touchEventInfo);
+    EXPECT_EQ(richEditorPattern->moveCaretState_.touchDownOffset, touchLocationInfo.localLocation_);
+}
+
+/**
  * @tc.name: UpdateSelectionByTouchMove001
  * @tc.desc: test UpdateSelectionByTouchMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove001, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -399,7 +483,7 @@ HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove001, TestSize.Level1)
  * @tc.desc: test UpdateSelectionByTouchMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove002, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -420,7 +504,7 @@ HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove002, TestSize.Level1)
  * @tc.desc: test UpdateSelectionByTouchMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove003, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove003, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -439,7 +523,7 @@ HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove003, TestSize.Level1)
  * @tc.desc: test UpdateSelectionByTouchMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove004, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove004, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -458,7 +542,7 @@ HWTEST_F(RichEditorTouchTestNg, UpdateSelectionByTouchMove004, TestSize.Level1)
  * @tc.desc: test UpdateCaretByTouchMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, UpdateCaretByTouchMove001, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, UpdateCaretByTouchMove001, TestSize.Level0)
 {
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
     ASSERT_NE(richEditorPattern, nullptr);
@@ -468,6 +552,32 @@ HWTEST_F(RichEditorTouchTestNg, UpdateCaretByTouchMove001, TestSize.Level1)
     richEditorPattern->magnifierController_ = nullptr;
     richEditorPattern->UpdateCaretByTouchMove(offset);
     EXPECT_FALSE(exist);
+    richEditorPattern->magnifierController_ = AceType::MakeRefPtr<MagnifierController>(richEditorPattern);
+    ASSERT_NE(richEditorPattern->magnifierController_, nullptr);
+    EXPECT_FALSE(richEditorPattern->magnifierController_->GetShowMagnifier());
+    richEditorPattern->UpdateCaretByTouchMove(offset);
+    EXPECT_EQ(richEditorPattern->magnifierAnimation_, nullptr);
+    richEditorPattern->magnifierController_->SetColorModeChange(true);
+    EXPECT_TRUE(richEditorPattern->magnifierController_->IsColorModeChange());
+    richEditorPattern->UpdateCaretByTouchMove(offset);
+    EXPECT_EQ(richEditorPattern->magnifierAnimation_, nullptr);
+}
+
+/**
+ * @tc.name: UpdateCaretByTouchMove002
+ * @tc.desc: Test UpdateCaretByTouchMove with valid moveCaretState
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorTouchTestNg, UpdateCaretByTouchMove002, TestSize.Level0)
+{
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    Offset offset(1, 1);
+    richEditorPattern->moveCaretState_.isMoveCaret = true;
+    richEditorPattern->ShowSelectOverlay(
+        richEditorPattern->textSelector_.firstHandle, richEditorPattern->textSelector_.secondHandle, false);
+    richEditorPattern->UpdateCaretByTouchMove(offset);
+    EXPECT_FALSE(richEditorPattern->SelectOverlayIsOn());
 }
 
 /**
@@ -475,7 +585,7 @@ HWTEST_F(RichEditorTouchTestNg, UpdateCaretByTouchMove001, TestSize.Level1)
  * @tc.desc: test OnOverlayTouchDown
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, OnOverlayTouchDown001, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, OnOverlayTouchDown001, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -490,7 +600,7 @@ HWTEST_F(RichEditorTouchTestNg, OnOverlayTouchDown001, TestSize.Level1)
  * @tc.desc: test OnOverlayTouchDown
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, OnOverlayTouchDown002, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, OnOverlayTouchDown002, TestSize.Level0)
 {
     ASSERT_NE(richEditorNode_, nullptr);
     auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
@@ -507,7 +617,7 @@ HWTEST_F(RichEditorTouchTestNg, OnOverlayTouchDown002, TestSize.Level1)
  * @tc.desc: test IsTouchInFrameArea
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, IsTouchInFrameArea001, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, IsTouchInFrameArea001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. init and call function.
@@ -525,7 +635,7 @@ HWTEST_F(RichEditorTouchTestNg, IsTouchInFrameArea001, TestSize.Level1)
  * @tc.desc: test UpdateSelectionByTouchMove
  * @tc.type: FUNC
  */
-HWTEST_F(RichEditorTouchTestNg, TestRichEditorUpdateSelectionByTouchMove001, TestSize.Level1)
+HWTEST_F(RichEditorTouchTestNg, TestRichEditorUpdateSelectionByTouchMove001, TestSize.Level0)
 {
     /**
      * @tc.steps: step1. declare and init variables and call function.
@@ -538,9 +648,62 @@ HWTEST_F(RichEditorTouchTestNg, TestRichEditorUpdateSelectionByTouchMove001, Tes
     EXPECT_NE(richEditorPattern->overlayMod_, nullptr);
     auto richOffset = Offset(40, 30);
     richEditorPattern->UpdateSelectionByTouchMove(richOffset);
-    auto host = richEditorPattern->GetHost();
+    auto host = richEditorPattern->GetContentHost();
     ASSERT_NE(host, nullptr);
     ASSERT_NE((host->layoutProperty_->propertyChangeFlag_) & PROPERTY_UPDATE_RENDER, 0);
+}
+
+/**
+ * @tc.name: TestTestTouchedFingerCount
+ * @tc.desc: test TestTouchedFingerCount
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorTouchTestNg, TestTouchedFingerCount, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. declare and init variables and call function.
+     */
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+    auto& touchedFingers = richEditorPattern->touchedFingers_;
+    TouchLocationInfo touchLocationInfo(0);
+    richEditorPattern->HandleTouchDown(touchLocationInfo);
+    EXPECT_EQ(touchedFingers.size(), 0);
+    richEditorPattern->HandleTouchUp();
+    EXPECT_EQ(touchedFingers.size(), 0);
+}
+
+/**
+ * @tc.name: HandleUserTouchEvent001
+ * @tc.desc: test HandleUserTouchEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(RichEditorTouchTestNg, HandleUserTouchEvent001, TestSize.Level0)
+{
+    ASSERT_NE(richEditorNode_, nullptr);
+    auto richEditorPattern = richEditorNode_->GetPattern<RichEditorPattern>();
+    ASSERT_NE(richEditorPattern, nullptr);
+
+    AddSpan(EXCEPT_VALUE);
+    ASSERT_FALSE(richEditorPattern->spans_.empty());
+    auto firstSpanItem = richEditorPattern->spans_.front();
+    ASSERT_NE(firstSpanItem, nullptr);
+    bool isTouchTrigger = false;
+    firstSpanItem->onTouch = [&isTouchTrigger](TouchEventInfo& info) { isTouchTrigger = true; };
+    auto paragraph = MockParagraph::GetOrCreateMockParagraph();
+    ASSERT_NE(paragraph, nullptr);
+    richEditorPattern->paragraphs_.AddParagraph({ .paragraph = paragraph, .start = 0, .end = 10 });
+    std::vector<RectF> rects { RectF(0, 0, 5, 5) };
+    EXPECT_CALL(*paragraph, GetRectsForRange(_, _, _)).WillRepeatedly(SetArgReferee<THIRD_PARAM>(rects));
+    EXPECT_CALL(*paragraph, GetHeight).WillRepeatedly(Return(50));
+    TouchEventInfo info = TouchEventInfo("default");
+    TouchLocationInfo locationInfo = TouchLocationInfo(0);
+    locationInfo.SetLocalLocation(Offset(3, 3));
+    info.AddTouchLocationInfo(std::move(locationInfo));
+    richEditorPattern->contentRect_ = RectF(0, 0, 20.0, 20.0);
+    richEditorPattern->HandleUserTouchEvent(info);
+    EXPECT_TRUE(isTouchTrigger);
 }
 
 }

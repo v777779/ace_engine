@@ -45,6 +45,10 @@
 #include "core/image/image_source_info.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
+namespace OHOS::Rosen {
+    class BrightnessBlender;
+}
+
 namespace OHOS::Ace::NG {
 class ACE_FORCE_EXPORT ViewAbstractModelStatic {
 public:
@@ -57,6 +61,11 @@ public:
         } else {
             ViewAbstract::SetWidth(frameNode, NG::CalcLength(width));
         }
+    }
+
+    static void UpdateLayoutPolicyProperty(FrameNode* frameNode, const LayoutCalPolicy layoutPolicy, bool isWidth)
+    {
+        ViewAbstract::UpdateLayoutPolicyProperty(frameNode, layoutPolicy, isWidth);
     }
 
     static void SetHeight(FrameNode* frameNode, const CalcDimension& height)
@@ -105,6 +114,11 @@ public:
     static void BindMenuTouch(FrameNode* targetNode, const RefPtr<GestureEventHub>& gestrueHub);
 
     static RefPtr<PipelineContext> GetSheetContext(NG::SheetStyle& sheetStyle);
+    static bool CreatePropertyAnimation(FrameNode* frameNode, AnimationPropertyType property,
+        const std::vector<float>& startValue, const std::vector<float>& endValue, const AnimationOption& option);
+    static bool CancelPropertyAnimations(
+        FrameNode* frameNode, const std::vector<AnimationPropertyType>& properties);
+    static std::vector<float> GetRenderNodePropertyValue(FrameNode* frameNode, AnimationPropertyType property);
     static void DismissSheetStatic();
     static void DismissContentCoverStatic();
     static void SheetSpringBackStatic();
@@ -129,10 +143,11 @@ public:
         ViewAbstract::SetChainWeight(frameNode, value);
     }
 
-    static void BindPopup(FrameNode* targetNode, const RefPtr<PopupParam>& param, const RefPtr<AceType>& customNode)
+    static void BindPopup(const RefPtr<FrameNode>& targetNode,
+        const RefPtr<PopupParam>& param, const RefPtr<AceType>& customNode)
     {
         CHECK_NULL_VOID(targetNode);
-        ViewAbstract::BindPopup(param, AceType::Claim(targetNode), AceType::DynamicCast<UINode>(customNode));
+        ViewAbstract::BindPopup(param, targetNode, AceType::DynamicCast<UINode>(customNode));
     }
 
     static void BindTips(FrameNode* targetNode, const RefPtr<PopupParam>& param, const RefPtr<SpanString>& spanString)
@@ -189,11 +204,12 @@ public:
     static void BindMenuGesture(FrameNode* frameNode,
         std::vector<NG::OptionParam>&& params, std::function<void()>&& buildFunc, const MenuParam& menuParam);
     static void BindContextMenuStatic(const RefPtr<FrameNode>& targetNode, ResponseType type,
-        std::function<void()>&& buildFunc, const NG::MenuParam& menuParam, std::function<void()>&& previewBuildFunc);
-    static void BindDragWithContextMenuParamsStatic(FrameNode* targetNode, const NG::MenuParam& menuParam);
+        std::function<void()>&& buildFunc, NG::MenuParam& menuParam, std::function<void()>&& previewBuildFunc);
+    static void BindDragWithContextMenuParamsStatic(const RefPtr<FrameNode>& targetNode,
+        const NG::MenuParam& menuParam);
 
     static void BindContentCover(FrameNode* targetNode, bool isShow,
-        std::function<void(const std::string&)>&& callback, std::function<RefPtr<UINode>()>&& buildFunc,
+        std::function<void(const std::string&)>&& callback, std::function<void()>&& buildFunc,
         NG::ModalStyle& modalStyle, std::function<void()>&& onAppear, std::function<void()>&& onDisappear,
         std::function<void()>&& onWillAppear, std::function<void()>&& onWillDisappear,
         const NG::ContentCoverParam& contentCoverParam);
@@ -232,10 +248,10 @@ public:
     static void SetGeometryTransition(FrameNode* frameNode, const std::string& id,
         bool followWithoutTransition, bool doRegisterSharedTransition);
 
-    static void SetFrontBlur(FrameNode* frameNode, const std::optional<float>& radius,
+    static void SetFrontBlur(FrameNode* frameNode, const std::optional<double>& radius,
         const std::optional<BlurOption>& blurOption, const std::optional<SysOptions>& sysOptions)
     {
-        Dimension radiusPX(radius.value_or(0.0f), DimensionUnit::PX);
+        Dimension radiusPX(radius.value_or(0.0), DimensionUnit::PX);
         ViewAbstract::SetFrontBlur(frameNode, radiusPX, blurOption.value_or(BlurOption()),
             sysOptions.value_or(DEFAULT_SYS_OPTIONS));
     }
@@ -253,6 +269,7 @@ public:
 
     static void BindBackground(FrameNode* frameNode,
         std::function<RefPtr<UINode>()>&& buildFunc, const std::optional<Alignment>& align);
+    static void ResetBackground(FrameNode* frameNode);
     static void SetFlexGrow(FrameNode* frameNode, float value);
     static void SetFlexShrink(FrameNode* frameNode, float value);
     static void ResetFlexShrink(FrameNode* frameNode);
@@ -263,20 +280,24 @@ public:
     static void ResetAspectRatio(FrameNode* frameNode);
     static void SetLayoutWeight(FrameNode* frameNode, float value);
     static void SetAlignSelf(FrameNode* frameNode, FlexAlign value);
+    static void SetLayoutGravity(FrameNode* frameNode, Alignment value);
     static void SetLayoutDirection(FrameNode* frameNode, TextDirection value);
     static void SetBorderStyle(FrameNode *frameNode, const BorderStyleProperty& value);
     static void SetBorderWidth(FrameNode *frameNode, const BorderWidthProperty& value);
     static void SetBorderColor(FrameNode *frameNode, const BorderColorProperty& value);
     static void SetBorderRadius(FrameNode *frameNode, const BorderRadiusProperty& value);
+    static void SetRenderStrategy(FrameNode* frameNode, const RenderStrategy& type);
     static void SetBorderImage(FrameNode* frameNode, const RefPtr<BorderImage>& boderImage, uint8_t bitset);
     static void SetBorderImageSource(FrameNode* frameNode, const std::string& imageSrc, const std::string& bundleName,
         const std::string& moduleName);
     static void SetDashGap(FrameNode *frameNode, const BorderWidthProperty& value);
     static void SetDashWidth(FrameNode *frameNode, const BorderWidthProperty& value);
     static void SetAlign(FrameNode* frameNode, Alignment alignment);
+    static void SetAlign(FrameNode* frameNode, std::string localizedAlignment);
     static void SetPosition(FrameNode* frameNode, const OffsetT<Dimension>& value);
     static void SetPositionEdges(FrameNode* frameNode, const EdgesParam& value);
     static void SetPositionLocalizedEdges(FrameNode* frameNode, bool needLocalized);
+    static void SetTransform3DMatrix(FrameNode* frameNode, const Matrix4& matrix);
     static void SetMarkAnchorStart(FrameNode* frameNode, const std::optional<Dimension>& markAnchorStart);
     static void MarkAnchor(FrameNode* frameNode, const std::optional<OffsetT<Dimension>>& value);
     static void ResetMarkAnchorStart(FrameNode* frameNode);
@@ -284,6 +305,7 @@ public:
     static void SetOffsetEdges(FrameNode* frameNode, const EdgesParam& value);
     static void SetOffsetLocalizedEdges(FrameNode* frameNode, bool needLocalized);
     static void UpdateSafeAreaExpandOpts(FrameNode* frameNode, const SafeAreaExpandOpts& opts);
+    static void UpdateIgnoreLayoutSafeAreaOpts(FrameNode* frameNode, const IgnoreLayoutSafeAreaOpts& opts);
     static void SetAlignRules(FrameNode* frameNode,
         const std::optional<std::map<AlignDirection, AlignRule>>& alignRules);
     static void SetBias(FrameNode* frameNode, const std::optional<BiasPair>& biasPair);
@@ -298,6 +320,7 @@ public:
     static void SetBackgroundColor(FrameNode *frameNode, const std::optional<Color>& color);
     static void SetPivot(FrameNode* frameNode, const std::optional<DimensionOffset>& optValue);
     static void SetRotate(FrameNode* frameNode, const std::vector<std::optional<float>>& value);
+    static void SetRotateAngle(FrameNode* frameNode, const std::vector<std::optional<float>>& value);
     static void SetBackdropBlur(FrameNode* frameNode, const std::optional<Dimension>& radius,
         const std::optional<BlurOption> &blurOption, const SysOptions& sysOptions = SysOptions());
     static void SetClipEdge(FrameNode* frameNode, std::optional<bool> isClip);
@@ -310,6 +333,7 @@ public:
         const std::optional<ForegroundColorStrategy>& strategy);
     static void SetForegroundEffect(FrameNode* frameNode, const std::optional<float>& radius);
     static void SetBlendMode(FrameNode* frameNode, const std::optional<BlendMode>& blendMode);
+    static void SetBlender(FrameNode* frameNode, const OHOS::Rosen::Blender* blender);
     static void SetFocusBoxStyle(FrameNode* frameNode, const std::optional<NG::FocusBoxStyle>& style);
     static void SetFocusScopeId(FrameNode* frameNode, const std::optional<std::string>& focusScopeId,
         const std::optional<bool>& isGroup, const std::optional<bool>& arrowKeyStepOut);
@@ -352,10 +376,12 @@ public:
     static constexpr SysOptions DEFAULT_SYS_OPTIONS = {
         .disableSystemAdaptation = false
     };
+    static void SetToolbarBuilder(FrameNode* frameNode, std::function<void()>&& buildFunc);
     static void SetSystemBarEffect(FrameNode* frameNode, bool systemBarEffect);
 
 private:
-    static bool CheckMenuIsShow(const MenuParam& menuParam, int32_t targetId, const RefPtr<FrameNode>& targetNode);
+    static bool CheckMenuIsShow(
+        const MenuParam& menuParam, int32_t targetId, const RefPtr<FrameNode>& targetNode,  bool isBuildFuncNull);
     static void RegisterContextMenuKeyEvent(
         const RefPtr<FrameNode>& targetNode, std::function<void()>& buildFunc, const MenuParam& menuParam);
     static void CreateCustomMenuWithPreview(FrameNode* targetNode,
@@ -371,6 +397,10 @@ void SetBackgroundEffectMultiThread(FrameNode* frameNode,
 void SetTranslateMultiThread(FrameNode* frameNode, const NG::TranslateOptions& value);
 void SetGeometryTransitionMultiThread(FrameNode* frameNode, const std::string& id,
     bool followWithoutTransition, bool doRegisterSharedTransition);
+void BindMenuMultiThread(FrameNode* frameNode, std::vector<NG::OptionParam>&& params, std::function<void()>&& buildFunc,
+    const MenuParam& menuParam);
+void BindContextMenuStaticMultiThread(const RefPtr<FrameNode>& targetNode, ResponseType type,
+    std::function<void()>&& buildFunc, NG::MenuParam& menuParam, std::function<void()>&& previewBuildFunc);
 // multi thread function end
 } // namespace OHOS::Ace::NG
 

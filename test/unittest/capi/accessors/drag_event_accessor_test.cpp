@@ -19,7 +19,6 @@
 
 #include "accessor_test_base.h"
 #include "accessor_test_fixtures.h"
-#include "node_api.h"
 #include "base/memory/ace_type.h"
 #include "core/components_ng/gestures/recognizers/gesture_recognizer.h"
 #include "core/interfaces/native/implementation/drag_event_peer.h"
@@ -38,13 +37,13 @@ using namespace testing::ext;
 using namespace AccessorTestFixtures;
 
 namespace Converter {
-    void AssignArkValue(Ark_unifiedDataChannel_UnifiedData& arkData, const RefPtr<UnifiedData>& data)
-    {
-        auto peer = PeerUtils::CreatePeer<unifiedDataChannel_UnifiedDataPeer>();
-        peer->unifiedData = data;
-        arkData = peer;
-    }
+void AssignArkValue(Ark_unifiedDataChannel_UnifiedData& arkData, const RefPtr<UnifiedData>& data, ConvContext *ctx)
+{
+    auto peer = PeerUtils::CreatePeer<unifiedDataChannel_UnifiedDataPeer>();
+    peer->unifiedData = data;
+    arkData = peer;
 }
+} // namespace Converter
 
 namespace {
     using namespace Converter;
@@ -93,11 +92,11 @@ public:
 };
 
 /**
- * @tc.name: GetWindowXTest
+ * @tc.name: getWindowXTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetWindowXTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getWindowXTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureNumberFloatAnythingValidValues) {
         dragEvent_->SetX(value);
@@ -108,11 +107,11 @@ HWTEST_F(DragEventAccessorTest, GetWindowXTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetWindowYTest
+ * @tc.name: getWindowYTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetWindowYTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getWindowYTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureNumberFloatAnythingValidValues) {
         dragEvent_->SetY(value);
@@ -123,11 +122,11 @@ HWTEST_F(DragEventAccessorTest, GetWindowYTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: SetResultTest
+ * @tc.name: setResultTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, DISABLED_SetResultTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, DISABLED_setResultTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureEnumDragResultValues) {
         accessor_->setResult(peer_, value);
@@ -137,11 +136,11 @@ HWTEST_F(DragEventAccessorTest, DISABLED_SetResultTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: SetResultTest
+ * @tc.name: getResultTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetResultTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getResultTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureEnumArkDragResultValues) {
         dragEvent_->SetResult(value);
@@ -151,11 +150,11 @@ HWTEST_F(DragEventAccessorTest, GetResultTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: SetResultTest
+ * @tc.name: getPreviewRectTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetPreviewRectTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getPreviewRectTest, TestSize.Level1)
 {
     float x = 5.f;
     float y = 8.f;
@@ -179,13 +178,13 @@ HWTEST_F(DragEventAccessorTest, GetPreviewRectTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: SetDataTest
+ * @tc.name: setDataTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, SetDataTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, setDataTest, TestSize.Level1)
 {
-    auto unifiedData = AceType::MakeRefPtr<UnifiedDataMock>();
+    RefPtr<UnifiedData> unifiedData = AceType::MakeRefPtr<UnifiedDataMock>();
     auto arkUnifiedData = ArkValue<Ark_unifiedDataChannel_UnifiedData>(unifiedData);
     accessor_->setData(peer_, arkUnifiedData);
     ASSERT_NE(dragEvent_->GetData(), nullptr);
@@ -194,41 +193,43 @@ HWTEST_F(DragEventAccessorTest, SetDataTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetDataTest
+ * @tc.name: getDataTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetDataTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getDataTest, TestSize.Level1)
 {
-    auto unifiedData = AceType::MakeRefPtr<UnifiedDataMock>();
+    RefPtr<UnifiedData> unifiedData = AceType::MakeRefPtr<UnifiedDataMock>();
     auto arkUnifiedData = ArkValue<Ark_unifiedDataChannel_UnifiedData>(unifiedData);
     accessor_->setData(peer_, arkUnifiedData);
-    auto getData = accessor_->getData(peer_);
-    ASSERT_NE(getData, nullptr);
-    auto dataPeer = getData;
+    auto getDataOpt = accessor_->getData(peer_);
+    auto getData = Converter::GetOpt(getDataOpt);
+    ASSERT_NE(getData, std::nullopt);
+    auto dataPeer = getData.value();
+    ASSERT_NE(dataPeer, nullptr);
     ASSERT_NE(dataPeer->unifiedData, nullptr);
     EXPECT_EQ(dataPeer->unifiedData->GetSize(), COUNTER_NUMBER_TEN_HANDLE) <<
         "Input value is: " << COUNTER_NUMBER_TEN_HANDLE << ", method: getData";
 }
 
 /**
- * @tc.name: GetDataInvalidTest
+ * @tc.name: getDataTestInvalid
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetDataInvalidTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getDataTestInvalid, TestSize.Level1)
 {
-    auto dataPeer = accessor_->getData(nullptr);
-    ASSERT_NE(dataPeer, nullptr);
-    ASSERT_EQ(dataPeer->unifiedData, nullptr);
+    auto dataPeerOpt = accessor_->getData(nullptr);
+    auto dataPeer = Converter::GetOpt(dataPeerOpt);
+    ASSERT_EQ(dataPeer, std::nullopt);
 }
 
 /**
- * @tc.name: GetUseCustomDropAnimationTest
+ * @tc.name: getUseCustomDropAnimationTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetUseCustomDropAnimationTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getUseCustomDropAnimationTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureBooleanValues) {
         dragEvent_->UseCustomAnimation(expected);
@@ -239,11 +240,11 @@ HWTEST_F(DragEventAccessorTest, GetUseCustomDropAnimationTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: SetUseCustomDropAnimationTest
+ * @tc.name: setUseCustomDropAnimationTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, SetUseCustomDropAnimationTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, setUseCustomDropAnimationTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureBooleanValues) {
         accessor_->setUseCustomDropAnimation(peer_, value);
@@ -253,11 +254,11 @@ HWTEST_F(DragEventAccessorTest, SetUseCustomDropAnimationTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetDisplayXTest
+ * @tc.name: getDisplayXTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetDisplayXTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getDisplayXTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureNumberFloatAnythingValidValues) {
         dragEvent_->SetScreenX(value);
@@ -268,11 +269,11 @@ HWTEST_F(DragEventAccessorTest, GetDisplayXTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetDisplayYTest
+ * @tc.name: getDisplayYTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetDisplayYTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getDisplayYTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureNumberFloatAnythingValidValues) {
         dragEvent_->SetScreenY(value);
@@ -283,11 +284,11 @@ HWTEST_F(DragEventAccessorTest, GetDisplayYTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetVelocityXTest
+ * @tc.name: getVelocityXTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetVelocityXTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getVelocityXTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureNumberFloatAnythingValidValues) {
         auto offset = Offset(value, 0.0);
@@ -303,11 +304,11 @@ HWTEST_F(DragEventAccessorTest, GetVelocityXTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetVelocityYTest
+ * @tc.name: getVelocityYTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetVelocityYTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getVelocityYTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureNumberFloatAnythingValidValues) {
         auto offset = Offset(0.0, value);
@@ -323,11 +324,11 @@ HWTEST_F(DragEventAccessorTest, GetVelocityYTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetVelocityTest
+ * @tc.name: getVelocityTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetVelocityTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getVelocityTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureVelocityValues) {
         auto offset = Offset(value, value);
@@ -340,11 +341,11 @@ HWTEST_F(DragEventAccessorTest, GetVelocityTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: SetDragBehaviorTest
+ * @tc.name: setDragBehaviorTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, SetDragBehaviorTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, setDragBehaviorTest, TestSize.Level1)
 {
     EXPECT_EQ(OHOS::Ace::DragBehavior::UNKNOWN, dragEvent_->GetDragBehavior());
     for (auto& [input, value, expected] : testFixtureEnumDragBehaviorValues) {
@@ -355,11 +356,11 @@ HWTEST_F(DragEventAccessorTest, SetDragBehaviorTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: SetDragBehaviorTest
+ * @tc.name: getDragBehaviorTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetDragBehaviorTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, getDragBehaviorTest, TestSize.Level1)
 {
     for (auto& [input, value, expected] : testFixtureEnumArkDragBehaviorValues) {
         dragEvent_->SetDragBehavior(value);
@@ -369,12 +370,14 @@ HWTEST_F(DragEventAccessorTest, GetDragBehaviorTest, TestSize.Level1)
 }
 
 /**
- * @tc.name: GetModifierKeyStateTest
+ * @tc.name: getGetModifierKeyStateTest
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, GetModifierKeyStateTest, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, DISABLED_getGetModifierKeyStateTest, TestSize.Level1)
 {
+#ifdef WRONG_GEN_v140
+    // DISABLED_TEST: in gen140 DragEventAccessor has no getGetModifierKeyState, only setGetModifierKeyState
     const std::vector<std::tuple<std::vector<std::string>, std::vector<KeyCode>, bool>> TEST_PLAN = {
         { {"ctrl"}, {KeyCode::KEY_CTRL_LEFT}, true },
         { {"ctrl"}, {KeyCode::KEY_CTRL_RIGHT}, true },
@@ -401,31 +404,36 @@ HWTEST_F(DragEventAccessorTest, GetModifierKeyStateTest, TestSize.Level1)
         bool result = getResult(stringArrayValues);
         EXPECT_EQ(Converter::Convert<bool>(result), expected);
     }
-}
-
-/**
- * @tc.name: GetSummaryTestDefault
- * @tc.desc:
- * @tc.type: FUNC
- */
-HWTEST_F(DragEventAccessorTest, DISABLED_GetSummaryTestDefault, TestSize.Level1)
-{
-#ifdef WRONG_GEN
-    ASSERT_NE(accessor_->getSummary, nullptr);
-    auto check = accessor_->getSummary(peer_);
-    EXPECT_EQ(check.summary.size, 0);
-    EXPECT_EQ(check.summary.keys, nullptr);
-    EXPECT_EQ(check.summary.values, nullptr);
-    EXPECT_EQ(check.totalSize, 0);
 #endif
 }
 
 /**
- * @tc.name: GetSummaryTestValid
+ * @tc.name: getSummaryTestDefault
  * @tc.desc:
  * @tc.type: FUNC
  */
-HWTEST_F(DragEventAccessorTest, DISABLED_GetSummaryTestValid, TestSize.Level1)
+HWTEST_F(DragEventAccessorTest, DISABLED_getSummaryTestDefault, TestSize.Level1)
+{
+#ifdef WRONG_GEN
+    ASSERT_NE(accessor_->getSummary, nullptr);
+    auto checkOpt = accessor_->getSummary(peer_);
+    auto check = Converter::GetOpt(checkOpt).value();
+    ASSERT_NE(check, std::nullopt);
+    auto checkValue = check.value();
+    ASSERT_NE(checkValue, nullptr);
+    EXPECT_EQ(checkValue.summary.size, 0);
+    EXPECT_EQ(checkValue.summary.keys, nullptr);
+    EXPECT_EQ(checkValue.summary.values, nullptr);
+    EXPECT_EQ(checkValue.totalSize, 0);
+#endif
+}
+
+/**
+ * @tc.name: getSummaryTestValid
+ * @tc.desc:
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragEventAccessorTest, DISABLED_getSummaryTestValid, TestSize.Level1)
 {
 #ifdef WRONG_GEN
     std::map<std::string, int64_t> expectedMap = {
@@ -437,10 +445,14 @@ HWTEST_F(DragEventAccessorTest, DISABLED_GetSummaryTestValid, TestSize.Level1)
     peer_->dragInfo->SetSummary(expectedMap);
 
     ASSERT_NE(accessor_->getSummary, nullptr);
-    auto check = accessor_->getSummary(peer_);
-    EXPECT_EQ(check.summary.size, expectedMap.size());
-    ASSERT_NE(check.summary.keys, nullptr);
-    ASSERT_NE(check.summary.values, nullptr);
+    auto checkOpt = accessor_->getSummary(peer_);
+    auto check = Converter::GetOpt(checkOpt);
+    ASSERT_NE(check, std::nullopt);
+    auto checkValue = check.value();
+    ASSERT_NE(checkValue, nullptr);
+    EXPECT_EQ(checkValue.summary.size, expectedMap.size());
+    EXPECT_EQ(checkValue.summary.keys, nullptr);
+    EXPECT_EQ(checkValue.summary.values, nullptr);
 
     int64_t expectedTotal = 0;
     int idx = 0;

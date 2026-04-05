@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "test/unittest/core/gestures/gestures_common_test_ng.h"
+#include "core/components_ng/pattern/select_overlay/select_overlay_node.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -323,5 +324,70 @@ HWTEST_F(RecognizerGroupTestNg, RecognizerGroupTest012, TestSize.Level1)
     recognizerTest->recognizers_.push_back(Ngg);
     auto result = recognizerTest->IsReady();
     EXPECT_EQ(result, false);
+}
+
+/**
+ * @tc.name: RecognizerGroupTest013
+ * @tc.desc: Test ForceCleanRecognizerWithGroup
+ * @tc.type: FUNC
+ */
+HWTEST_F(RecognizerGroupTestNg, RecognizerGroupTest013, TestSize.Level1)
+{
+    /**
+     * @tc.step1: Create gestureGroup.
+     * @tc.expected: GestureGroup is not nullptr.
+     */
+    std::vector<RefPtr<NGGestureRecognizer>> longPressRecognizers;
+    auto longPressRecognizer = AceType::MakeRefPtr<LongPressRecognizer>(false, true);
+    longPressRecognizers.push_back(AceType::DynamicCast<NGGestureRecognizer>(longPressRecognizer));
+    ExclusiveRecognizer excluRecognizer(longPressRecognizers);
+    auto recognizerTest = AceType::DynamicCast<RecognizerGroup>(&excluRecognizer);
+    recognizerTest->refereeState_ = RefereeState::DETECTING;
+    PanDirection panDirection;
+    panDirection.type = PanDirection::VERTICAL;
+    auto panRecognizer = AceType::MakeRefPtr<PanRecognizer>(1, panDirection, 0);
+    std::vector<RefPtr<NGGestureRecognizer>> recognizers { panRecognizer };
+    auto testRecognizer = AceType::MakeRefPtr<SequencedRecognizer>(recognizers);
+    auto gestureRecognizer = AceType::DynamicCast<NG::NGGestureRecognizer>(testRecognizer);
+    recognizerTest->recognizers_.push_back(gestureRecognizer);
+    recognizerTest->recognizers_.push_back(nullptr);
+    recognizerTest->RemainChildOnResetStatus();
+    /**
+     * @tc.step2: Call ForceCleanRecognizerWithGroup.
+     * @tc.expected: RecognizerTest->recognizers_.empty() is false.
+     */
+    recognizerTest->ForceCleanRecognizerWithGroup();
+    EXPECT_EQ(recognizerTest->recognizers_.empty(), false);
+
+    /**
+     * @tc.step3: Call ForceCleanRecognizerWithGroup.
+     * @tc.expected: RecognizerTest->recognizers_.empty() is true.
+     */
+    recognizerTest->remainChildOnResetStatus_ = false;
+    recognizerTest->ForceCleanRecognizerWithGroup();
+    EXPECT_EQ(recognizerTest->recognizers_.empty(), true);
+}
+
+/**
+ * @tc.name: GetGestureInfoString001
+ * @tc.desc: Test RecognizerGroup function: GetGestureInfoString
+ * @tc.type: FUNC
+ */
+HWTEST_F(RecognizerGroupTestNg, GetGestureInfoString001, TestSize.Level1)
+{
+    /**
+     * @tc.step1: Create gestureGroup.
+     * @tc.expected: GestureGroup is not nullptr.
+     */
+    std::vector<RefPtr<NGGestureRecognizer>> longPressRecognizers;
+    auto longPressRecognizer = AceType::MakeRefPtr<LongPressRecognizer>(false, true);
+    longPressRecognizers.push_back(AceType::DynamicCast<NGGestureRecognizer>(longPressRecognizer));
+    ExclusiveRecognizer excluRecognizer(longPressRecognizers);
+    auto recognizerTest = AceType::DynamicCast<RecognizerGroup>(&excluRecognizer);
+
+    recognizerTest->remainChildOnResetStatus_ = true;
+
+    std::string result = recognizerTest->GetGestureInfoString();
+    EXPECT_THAT(result, HasSubstr("RCRS:1"));
 }
 }; // namespace OHOS::Ace::NG

@@ -45,7 +45,7 @@ struct NavPathInfoUINode {
 };
 
 class JSRouteInfo : public NG::RouteInfo {
-    DECLARE_ACE_TYPE(JSRouteInfo, NG::RouteInfo)
+    DECLARE_ACE_TYPE(JSRouteInfo, NG::RouteInfo);
 public:
     JSRouteInfo() = default;
     ~JSRouteInfo() override = default;
@@ -60,8 +60,22 @@ protected:
     JSRef<JSVal> param_;
 };
 
+class JSNavigationStackExtend : public NG::NavigationStackExtend {
+    DECLARE_ACE_TYPE(JSNavigationStackExtend, NG::NavigationStackExtend);
+public:
+    JSNavigationStackExtend(napi_value navPathStackExtendObj);
+    ~JSNavigationStackExtend() override = default;
+
+    std::string GetSerializedParamByIndex(int32_t index) override;
+    napi_value GetNavPathStackExtendObj() override;
+
+    static RefPtr<JSNavigationStackExtend> GetOrCreateNavigationStackExtend(const RefPtr<NG::NavigationStack>& stack);
+private:
+    napi_ref navPathStackExtendObjRef_ = nullptr;
+};
+
 class JSNavigationStack : public NG::NavigationStack {
-    DECLARE_ACE_TYPE(JSNavigationStack, NG::NavigationStack)
+    DECLARE_ACE_TYPE(JSNavigationStack, NG::NavigationStack);
 public:
     JSNavigationStack() = default;
     ~JSNavigationStack() override = default;
@@ -88,7 +102,7 @@ public:
     void PushName(const std::string& name, const JSRef<JSVal>& param);
     void RemoveName(const std::string& name) override;
     void RemoveIndex(int32_t index) override;
-    void RemoveInvalidPage(int32_t index);
+    void RemoveInvalidPage(int32_t index, const std::string& name);
     void Clear() override;
     int32_t GetReplaceValue() const override;
     void UpdateReplaceValue(int32_t isReplace) const override;
@@ -109,6 +123,8 @@ public:
     std::vector<std::string> DumpStackInfo() const override;
     void FireNavigationInterception(bool isBefore, const RefPtr<NG::NavDestinationContext>& from,
         const RefPtr<NG::NavDestinationContext>& to, NG::NavigationOperation operation, bool isAnimated) override;
+    void FireNavigationInterceptionBeforeLifeCycle(const RefPtr<NavigationStack>& navigationStack,
+        const RefPtr<NG::NavDestinationContext>& from, const int32_t index, bool isAnimated) override;
     void FireNavigationModeChange(NG::NavigationMode mode) override;
     JSRef<JSVal> GetParamByIndex(int32_t index) const;
     int32_t GetJsIndexFromNativeIndex(int32_t index) override;
@@ -145,6 +161,14 @@ public:
         homePathInfo_ = std::move(pathInfo);
     }
     bool CreateHomeDestination(const WeakPtr<NG::UINode>& customNode, RefPtr<NG::UINode>& node) override;
+
+    bool CreateRelatedDestination(
+        const std::string& name, const WeakPtr<NG::UINode>& customNode, RefPtr<NG::UINode>& node) override;
+
+    bool IsStaticStack() override
+    {
+        return false;
+    }
 
 protected:
     JSRef<JSObject> dataSourceObj_;
@@ -189,6 +213,9 @@ private:
     bool ExecutePopCallbackInStack(const JSRef<JSVal>& param);
     bool ExecutePopCallback(const RefPtr<NG::UINode>& uiNode, uint64_t navDestinationId, const JSRef<JSVal>& param);
     void ExecutePopCallbackForHomeNavDestination(const JSRef<JSVal>& param);
+    void UpdatePreTopInfo() override;
+    bool IsPushOperation();
+    bool CreateEmptyRelatedPage(RefPtr<NG::UINode>& targetNode, RefPtr<NG::NavDestinationGroupNode>& destNode);
 
 private:
     JSRef<JSObject> thisObj_;

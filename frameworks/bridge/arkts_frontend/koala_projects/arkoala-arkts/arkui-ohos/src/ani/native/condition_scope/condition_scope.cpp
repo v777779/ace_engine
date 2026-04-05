@@ -16,8 +16,6 @@
 #include "condition_scope.h"
 #include "load.h"
 
-#include <memory>
-
 namespace OHOS::Ace::Ani {
 
 ani_long ConstructConditionScope(ani_env* env, [[maybe_unused]] ani_object aniClass, ani_int id)
@@ -29,6 +27,17 @@ ani_long ConstructConditionScope(ani_env* env, [[maybe_unused]] ani_object aniCl
 
     // ani_object obj from ts is supposed to be processed here
     return modifier->getArkUIAniConditionScopeModifier()->constructConditionScope(id);
+}
+
+void ConditionScopeMarkDirty(ani_env* env, [[maybe_unused]] ani_object aniClass, ani_long ptr)
+{
+    const auto* modifier = GetNodeAniModifier();
+    if (!modifier) {
+        return;
+    }
+
+    // ani_object obj from ts is supposed to be processed here
+    return modifier->getArkUIAniConditionScopeModifier()->markDirty(ptr);
 }
 
 } // namespace OHOS::Ace::Ani

@@ -19,6 +19,9 @@
 #include <string>
 #include <utility>
 
+#include "interfaces/inner_api/ace/constants.h"
+
+#include "base/log/log_wrapper.h"
 #include "base/memory/ace_type.h"
 #include "base/utils/macros.h"
 #include "base/utils/resource_configuration.h"
@@ -26,7 +29,6 @@
 #include "core/common/js_message_dispatcher.h"
 #include "core/common/router_recover_record.h"
 #include "core/event/ace_event_handler.h"
-#include "interfaces/inner_api/ace/constants.h"
 
 using FrontendDialogCallback = std::function<void(const std::string& event, const std::string& param)>;
 
@@ -90,7 +92,7 @@ enum class FrontendType {
 struct PageTarget;
 
 
-// for Arkts1.2
+// for Arkts static
 struct PageRouterOptions {
     std::string url;
     std::string params;
@@ -100,6 +102,13 @@ struct PageRouterOptions {
     bool isNamedRouterMode = false;
 };
 
+typedef struct RouterStateInfo {
+    int32_t index = -1;
+    std::string name;
+    std::string path;
+    std::string params;
+} StateInfo;
+
 class ACE_FORCE_EXPORT Frontend : public AceType {
     DECLARE_ACE_TYPE(Frontend, AceType);
 
@@ -107,6 +116,7 @@ public:
     Frontend() = default;
     ~Frontend() override;
 
+    int32_t instanceId_ = -1;
     enum State : uint8_t { ON_CREATE = 0, ON_DESTROY, ON_SHOW, ON_HIDE, ON_ACTIVE, ON_INACTIVE, UNDEFINE };
     static std::string stateToString(int state);
 
@@ -119,6 +129,7 @@ public:
 
     virtual void AttachPipelineContext(const RefPtr<PipelineBase>& context) = 0;
     virtual void AttachSubPipelineContext(const RefPtr<PipelineBase>& context) {};
+
     virtual void SetAssetManager(const RefPtr<AssetManager>& assetManager) = 0;
 
     virtual void AddPage(const RefPtr<AcePage>& page) = 0;
@@ -185,31 +196,22 @@ public:
 
     virtual void PushPage(const std::string& url, const std::string& params) = 0;
 
-    // For ArkTS1.2
-    virtual void PushExtender(const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode)
-    {
-        return;
-    }
-    virtual void PushNamedRouteExtender(const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode)
-    {
-        return;
-    }
-    virtual void ReplaceExtender(const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode)
-    {
-        return;
-    }
-    virtual void ReplaceNamedRouteExtender(const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode)
-    {
-        return;
-    }
-    virtual void RunPageExtender(const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode)
-    {
-        return;
-    }
-    virtual void BackExtender(const std::string& url, const std::string& params) {};
-    virtual void ClearExtender() {};
-    virtual void ShowAlertBeforeBackPageExtender(const std::string& url) {};
-    virtual void HideAlertBeforeBackPageExtender() {};
+    // For ArkTS static
+    virtual void PushExtender(
+        const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode) {}
+    virtual void PushNamedRouteExtender(
+        const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode) {}
+    virtual void ReplaceExtender(
+        const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode) {}
+    virtual void ReplaceNamedRouteExtender(
+        const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode) {}
+    virtual void RunPageExtender(
+        const PageRouterOptions& options, std::function<void()>&& finishCallback, void* jsNode) {}
+    virtual void BackExtender(const std::string& url, const std::string& params) {}
+    virtual void BackToIndexExtender(int32_t index, const std::string& params) {}
+    virtual void ClearExtender() {}
+    virtual void ShowAlertBeforeBackPageExtender(const std::string& url) {}
+    virtual void HideAlertBeforeBackPageExtender() {}
 
     // Gets front-end event handler to handle ace event.
     virtual RefPtr<AceEventHandler> GetEventHandler() = 0;
@@ -319,9 +321,29 @@ public:
 
     virtual void OnLayoutCompleted(const std::string& componentId) = 0;
     virtual void OnDrawCompleted(const std::string& componentId) = 0;
-    virtual void OnDrawChildrenCompleted(const std::string& componentId) = 0;
-    virtual bool IsDrawChildrenCallbackFuncExist(const std::string& componentId) = 0;
+    virtual void OnDrawChildrenCompleted(const std::string& componentId, const std::vector<int32_t>& childIds) = 0;
+    virtual void OnLayoutChildrenCompleted(const std::string& componentId) {};
+    virtual bool IsDrawChildrenCallbackFuncExist(const std::string& componentId)
+    {
+        return false;
+    };
+    virtual bool IsLayoutChildrenCallbackFuncExist(const std::string& componentId)
+    {
+        return false;
+    };
 
+    virtual void OnLayoutCompleted(int32_t uniqueId) {};
+    virtual void OnDrawCompleted(int32_t uniqueId) {};
+    virtual void OnDrawChildrenCompleted(int32_t uniqueId) {};
+    virtual void OnLayoutChildrenCompleted(int32_t uniqueId) {};
+    virtual bool IsDrawChildrenCallbackFuncExist(int32_t uniqueId)
+    {
+        return false;
+    };
+    virtual bool IsLayoutChildrenCallbackFuncExist(int32_t uniqueId)
+    {
+        return false;
+    };
     virtual void TriggerGarbageCollection() {}
 
     virtual void DumpHeapSnapshot(bool isPrivate) {}
@@ -393,6 +415,11 @@ public:
     // flush frontend for HotReload feature in NG
     virtual void HotReload() {}
 
+    virtual void CallStateMgmtCleanUpIdleTaskFunc(int64_t maxTimeInNs) {}
+
+    virtual std::vector<std::optional<std::string>> CallGetStateMgmtInfo(const std::vector<int32_t>& nodeIds,
+        const std::string& propertyName, const std::string& jsonPath) { return {}; }
+
     State GetState() const
     {
         return state_;
@@ -428,7 +455,7 @@ public:
 
     virtual void SetHostContext(int32_t instanceId, ani_ref* context) {}
 
-    virtual ani_ref* GetHostContext(int32_t instanceId)
+    virtual ani_ref* GetHostContext()
     {
         return nullptr;
     }
@@ -445,9 +472,82 @@ public:
 
     virtual void OpenStateMgmtInterop() {}
 
-    // For arkts 1.2
-    virtual void NotifyArkoalaConfigurationChange() {}
+    // For arkts static
+    virtual void NotifyArkoalaConfigurationChange(bool isNeedUpdate) {}
     virtual void InitXBarProxy() {}
+
+    // Create ArkTS dynamic page in ArkTS static
+    virtual void* CreateDynamicPage(int32_t pageId, const std::string& url, const std::string& params, bool recoverable)
+    {
+        return nullptr;
+    }
+    // ArkTS static create ArkTS dynamic page
+    virtual void* CreateDynamicExtender(const std::string& url, bool recoverable)
+    {
+        return nullptr;
+    }
+    // ArkTS static push ArkTS dynamic
+    virtual void PushDynamicExtender(
+        const PageRouterOptions& options, std::function<void()>&& finishCallback, void* pageNode) {};
+    // ArkTS static replace ArkTS dynamic
+    virtual void ReplaceDynamicExtender(
+        const PageRouterOptions& options, std::function<void()>&& finishCallback, void* pageNode) {};
+
+    // push from ArkTS dynamic
+    virtual void PushFromDynamicExtender(const std::string& url, const std::string& params, bool recoverable,
+        const std::function<void(const std::string&, int32_t)>& callback, uint32_t routerMode) {}
+    // replace from ArkTS dynamic
+    virtual void ReplaceFromDynamicExtender(const std::string& url, const std::string& params, bool recoverable,
+        const std::function<void(const std::string&, int32_t)>& callback, uint32_t routerMode) {}
+    // back from ArkTS dynamic
+    virtual void BackFromDynamicExtender(const std::string& url, const std::string& params) {}
+    // clear from ArkTS dynamic
+    virtual void ClearFromDynamicExtender() {}
+    // getLength from ArkTS dynamic
+    virtual int32_t GetLengthFromDynamicExtender()
+    {
+        return 0;
+    }
+    // getStackSize from ArkTS dynamic
+    virtual int32_t GetStackSizeFromDynamicExtender()
+    {
+        return 0;
+    }
+    // getParams from ArkTS dynamic
+    virtual std::string GetParamsFromDynamicExtender()
+    {
+        return "";
+    }
+    // getStateByUrl from ArkTS dynamic
+    virtual bool GetStateByUrlFromDynamicExtender(const std::string& url, std::vector<RouterStateInfo>& stateArray)
+    {
+        return false;
+    }
+    // getStateByIndex from ArkTS dynamic
+    virtual bool GetStateByIndexFromDynamicExtender(int32_t index, RouterStateInfo& state)
+    {
+        return false;
+    }
+    // getState from ArkTS dynamic
+    virtual bool GetStateFromDynamicExtender(RouterStateInfo& state)
+    {
+        return false;
+    }
+    // from pageIndex when ArkTS static push ArkTS dynamic
+    virtual int32_t GetCurrentPageIndex() const
+    {
+        return -1;
+    }
+
+    void SetSubFrontend(const WeakPtr<Frontend>& subFrontend)
+    {
+        subFrontend_ = subFrontend;
+    }
+    bool IsUseSubFrontendManagerNeeded() const
+    {
+        return isUseSubFrontendManagerNeeded_;
+    }
+
 protected:
     virtual bool MaybeRelease() override;
     FrontendType type_ = FrontendType::JS;
@@ -458,6 +558,8 @@ protected:
     mutable std::recursive_mutex mutex_;
     mutable std::mutex destructMutex_;
     std::unordered_map<int32_t, void*> storageMap_;
+    WeakPtr<Frontend> subFrontend_;
+    bool isUseSubFrontendManagerNeeded_ = false;
 };
 
 } // namespace OHOS::Ace

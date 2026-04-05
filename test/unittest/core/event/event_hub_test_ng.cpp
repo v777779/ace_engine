@@ -17,7 +17,7 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/geometry/ng/offset_t.h"
 #include "base/memory/ace_type.h"
@@ -39,6 +39,7 @@ const std::string DRAG_LEAVE_EVENT_TYPE = "drag leave";
 const std::string DRAG_MOVE_EVENT_TYPE = "drag move";
 const std::string DRAG_DROP_EVENT_TYPE = "drag drop";
 const std::string DRAG_END_EVENT_TYPE = "drag end";
+const std::string DRAG_SPRING_LOADING_EVENT_TYPE = "drag spring loading";
 
 const float OLD_X_VALUE = 10.9f;
 const float OLD_Y_VALUE = 11.0f;
@@ -211,7 +212,6 @@ HWTEST_F(EventHubTestNg, EventHubPropertyTest003, TestSize.Level1)
      */
     eventHub->SetOnAppear([]() {});
     eventHub->FireOnAppear();
-
     eventHub->SetOnDisappear([]() {});
     eventHub->FireOnDisappear();
 }
@@ -246,6 +246,8 @@ HWTEST_F(EventHubTestNg, EventHubDragEventsTest004, TestSize.Level1)
     EXPECT_NE(eventHub->GetOnDragStart(), nullptr);
     eventHub->GetOnDragStart()(dragEvent, DRAG_STARR_EVENT_TYPE);
     EXPECT_EQ(dragEventType, DRAG_STARR_EVENT_TYPE);
+    eventHub->ClearCustomerOnDragStart();
+    EXPECT_FALSE(eventHub->HasOnDragStart());
 
     /**
      * @tc.steps: step3. Set EventHub OnDragEnter event and fire it.
@@ -256,6 +258,7 @@ HWTEST_F(EventHubTestNg, EventHubDragEventsTest004, TestSize.Level1)
     auto onDragEnter = OnDragFunc;
     eventHub->SetOnDragEnter(onDragEnter);
     eventHub->FireOnDragEnter(dragEvent, DRAG_ENTER_EVENT_TYPE);
+    EXPECT_TRUE(eventHub->HasOnDragEnter());
     EXPECT_EQ(dragEventType, DRAG_ENTER_EVENT_TYPE);
 
     /**
@@ -265,6 +268,7 @@ HWTEST_F(EventHubTestNg, EventHubDragEventsTest004, TestSize.Level1)
     auto onDragLeave = OnDragFunc;
     eventHub->SetOnDragLeave(onDragLeave);
     eventHub->FireOnDragLeave(dragEvent, DRAG_LEAVE_EVENT_TYPE);
+    EXPECT_TRUE(eventHub->HasOnDragLeave());
     EXPECT_EQ(dragEventType, DRAG_LEAVE_EVENT_TYPE);
 
     /**
@@ -274,6 +278,7 @@ HWTEST_F(EventHubTestNg, EventHubDragEventsTest004, TestSize.Level1)
     auto onDragMove = OnDragFunc;
     eventHub->SetOnDragMove(onDragMove);
     eventHub->FireOnDragMove(dragEvent, DRAG_MOVE_EVENT_TYPE);
+    EXPECT_TRUE(eventHub->HasOnDragMove());
     EXPECT_EQ(dragEventType, DRAG_MOVE_EVENT_TYPE);
 
     /**
@@ -282,7 +287,7 @@ HWTEST_F(EventHubTestNg, EventHubDragEventsTest004, TestSize.Level1)
      */
     auto onDragDrop = OnDragFunc;
     eventHub->SetOnDrop(onDragDrop);
-    eventHub->FireOnDragMove(dragEvent, DRAG_DROP_EVENT_TYPE);
+    eventHub->FireOnDrop(dragEvent, DRAG_DROP_EVENT_TYPE);
     EXPECT_TRUE(eventHub->HasOnDrop());
     EXPECT_EQ(dragEventType, DRAG_DROP_EVENT_TYPE);
 }
@@ -348,6 +353,8 @@ HWTEST_F(EventHubTestNg, EventHubDragEventsTest006, TestSize.Level1)
     eventHub->SetCustomerOnDragFunc(DragFuncType::DRAG_ENTER, onDragEnter);
     eventHub->FireCustomerOnDragFunc(DragFuncType::DRAG_ENTER, dragEvent, DRAG_ENTER_EVENT_TYPE);
     EXPECT_EQ(dragEventType, DRAG_ENTER_EVENT_TYPE);
+    eventHub->ClearCustomerOnDragEnter();
+    EXPECT_FALSE(eventHub->HasCustomerOnDragEnter());
 
     /**
      * @tc.steps: step3. Set EventHub Customer OnDragLeave event and fire it.
@@ -357,6 +364,8 @@ HWTEST_F(EventHubTestNg, EventHubDragEventsTest006, TestSize.Level1)
     eventHub->SetCustomerOnDragFunc(DragFuncType::DRAG_LEAVE, onDragLeave);
     eventHub->FireCustomerOnDragFunc(DragFuncType::DRAG_LEAVE, dragEvent, DRAG_LEAVE_EVENT_TYPE);
     EXPECT_EQ(dragEventType, DRAG_LEAVE_EVENT_TYPE);
+    eventHub->ClearCustomerOnDragLeave();
+    EXPECT_FALSE(eventHub->HasCustomerOnDragLeave());
 
     /**
      * @tc.steps: step4. Set EventHub Customer OnDragMove event and fire it.
@@ -366,9 +375,11 @@ HWTEST_F(EventHubTestNg, EventHubDragEventsTest006, TestSize.Level1)
     eventHub->SetCustomerOnDragFunc(DragFuncType::DRAG_MOVE, onDragMove);
     eventHub->FireCustomerOnDragFunc(DragFuncType::DRAG_MOVE, dragEvent, DRAG_MOVE_EVENT_TYPE);
     EXPECT_EQ(dragEventType, DRAG_MOVE_EVENT_TYPE);
+    eventHub->ClearCustomerOnDragMove();
+    EXPECT_FALSE(eventHub->HasCustomerOnDragMove());
 
     /**
-     * @tc.steps: step6. Set EventHub Customer OnDrop event and fire it.
+     * @tc.steps: step5. Set EventHub Customer OnDrop event and fire it.
      * @tc.expected: OnDrop is invoked and the temp values are assigned with correct values.
      */
     auto onDragDrop = OnDragFunc;
@@ -376,9 +387,11 @@ HWTEST_F(EventHubTestNg, EventHubDragEventsTest006, TestSize.Level1)
     eventHub->FireCustomerOnDragFunc(DragFuncType::DRAG_DROP, dragEvent, DRAG_DROP_EVENT_TYPE);
     EXPECT_TRUE(eventHub->HasCustomerOnDrop());
     EXPECT_EQ(dragEventType, DRAG_DROP_EVENT_TYPE);
+    eventHub->ClearCustomerOnDragFunc();
+    EXPECT_FALSE(eventHub->HasCustomerOnDrop());
 
     /**
-     * @tc.steps: step7. Set EventHub Customer OnDragEnd event and fire it.
+     * @tc.steps: step6. Set EventHub Customer OnDragEnd event and fire it.
      * @tc.expected: OnDragEnd is invoked and the temp values are assigned with correct values.
      */
     auto OnDragEnd = [&dragEventType](const RefPtr<OHOS::Ace::DragEvent>& /* dragEvent */) {
@@ -387,6 +400,49 @@ HWTEST_F(EventHubTestNg, EventHubDragEventsTest006, TestSize.Level1)
     eventHub->SetCustomerOnDragFunc(DragFuncType::DRAG_END, OnDragEnd);
     eventHub->FireCustomerOnDragFunc(DragFuncType::DRAG_END, dragEvent);
     EXPECT_EQ(dragEventType, DRAG_END_EVENT_TYPE);
+    eventHub->ClearCustomerOnDragEnd();
+    EXPECT_FALSE(eventHub->HasCustomerOnDragEnd());
+}
+
+/**
+ * @tc.name: EventHubDragEventsTest007
+ * @tc.desc: Create EventHub and set/get/fire/clear drag related functions.
+ * @tc.type: FUNC
+ */
+HWTEST_F(EventHubTestNg, EventHubDragEventsTest007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create EventHub.
+     * @tc.expected: eventHub is not null.
+     */
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    EXPECT_NE(eventHub, nullptr);
+
+    /**
+     * @tc.steps: step2. Set EventHub Customer OnDragSpringLoading event and fire it.
+     * @tc.expected: OnDragSpringLoading is invoked and the temp values are assigned with correct values.
+     */
+    auto dragEvent = AceType::MakeRefPtr<OHOS::Ace::DragSpringLoadingContext>();
+    std::string dragEventType;
+    auto onDragSpringLoading = [&dragEventType](const RefPtr<OHOS::Ace::DragSpringLoadingContext>&) {
+        dragEventType = DRAG_SPRING_LOADING_EVENT_TYPE;
+    };
+    eventHub->SetCustomerOnDragSpringLoading(onDragSpringLoading);
+    auto onDragSpringLoadingFire = eventHub->GetCustomerOnDragSpringLoading();
+    onDragSpringLoadingFire(dragEvent);
+    EXPECT_EQ(dragEventType, DRAG_SPRING_LOADING_EVENT_TYPE);
+    eventHub->ClearCustomerOnDragSpringLoading();
+    EXPECT_FALSE(eventHub->HasCustomerOnDragSpringLoading());
+
+    /**
+     * @tc.steps: step3. Set EventHub Customer OnDragSpringLoading event and clear it.
+     * @tc.expected: OnPreDrag is cleared.
+     */
+    auto onPreDragFunc = [](OHOS::Ace::PreDragStatus) {};
+    eventHub->SetOnPreDrag(onPreDragFunc);
+    EXPECT_NE(eventHub->GetOnPreDrag(), nullptr);
+    eventHub->ClearOnPreDrag();
+    EXPECT_EQ(eventHub->GetOnPreDrag(), nullptr);
 }
 
 /**
@@ -657,7 +713,7 @@ HWTEST_F(EventHubTestNg, EventHubTest002, TestSize.Level1)
      * @tc.expected: eventHub->customerOnDragEnd_ is false.
      */
     eventHub->SetCustomerOnDragFunc(DragFuncType(10), onDragFunc);
-    EXPECT_FALSE(eventHub->customerOnDragEnd_);
+    EXPECT_FALSE(eventHub->GetCustomerOnDragEndFunc());
 }
 
 /**
@@ -693,7 +749,7 @@ HWTEST_F(EventHubTestNg, EventHubTest003, TestSize.Level1)
      * @tc.expected: eventHub->customerOnDragEnter_ is false.
      */
     eventHub->SetCustomerOnDragFunc(DragFuncType(10), onDragFunc);
-    EXPECT_FALSE(eventHub->customerOnDragEnter_);
+    EXPECT_FALSE(eventHub->GetCustomerOnDragFunc(DragFuncType::DRAG_ENTER));
 }
 
 /**
@@ -803,7 +859,7 @@ HWTEST_F(EventHubTestNg, EventHubFrameNodeTest001, TestSize.Level1)
      * @tc.expected: flag is equal 1.
      */
     std::function<void()> flagFunc = []() { ++flag; };
-    eventHub->SetJSFrameNodeOnDisappear(std::move(flagFunc));
+    eventHub->SetFrameNodeCommonOnDisappear(std::move(flagFunc));
     EXPECT_NE(eventHub->onJSFrameNodeDisappear_, nullptr);
     eventHub->ClearJSFrameNodeOnDisappear();
     EXPECT_EQ(eventHub->onJSFrameNodeDisappear_, nullptr);
@@ -836,7 +892,7 @@ HWTEST_F(EventHubTestNg, EventHubFrameNodeTest002, TestSize.Level1)
      * @tc.expected:onJSFrameNodeAppear_ is nullptr.
      */
     std::function<void()> flagFunc = []() { ++flag; };
-    eventHub->SetJSFrameNodeOnAppear(std::move(flagFunc));
+    eventHub->SetFrameNodeCommonOnAppear(std::move(flagFunc));
     EXPECT_NE(eventHub->onJSFrameNodeAppear_, nullptr);
     eventHub->ClearJSFrameNodeOnAppear();
     EXPECT_EQ(eventHub->onJSFrameNodeAppear_, nullptr);
@@ -870,9 +926,17 @@ HWTEST_F(EventHubTestNg, EventHubFrameNodeTest003, TestSize.Level1)
      * @tc.expected: onJSFrameNodeAppear_ is not nullptr.
      */
     std::function<void()> flagFunc = []() { ++flag; };
-    eventHub->SetJSFrameNodeOnAppear(std::move(flagFunc));
+    eventHub->SetFrameNodeCommonOnAppear(std::move(flagFunc));
     eventHub->FireOnAppear();
     EXPECT_NE(eventHub->onJSFrameNodeAppear_, nullptr);
+
+    /**
+     * @tc.steps: step4. Call FireOnAppear with onAppear_  is and onJSFrameNodeAppear_ are both not nullptr.
+     * @tc.expected: onAppear_ is nullptr.
+     */
+    eventHub->SetOnAppear(std::move(flagFunc));
+    eventHub->FireOnAppear();
+    EXPECT_NE(eventHub->onAppear_, nullptr);
 }
 
 /**
@@ -955,6 +1019,82 @@ HWTEST_F(EventHubTestNg, EventHubFrameNodeTest005, TestSize.Level1)
     eventHub->SetVisibleAreaRatiosAndCallback(callbackInfo, ratios, true);
     EXPECT_EQ(flag, 0);
     EXPECT_EQ(eventHub->HasImmediatelyVisibleCallback(), true);
+}
+
+/**
+ * @tc.name: EventHubFrameNodeTest006
+ * @tc.desc: test set event about visibleAreaChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(EventHubTestNg, EventHubFrameNodeTest006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create EventHub.
+     * @tc.expected: eventHub is not null.
+     */
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    EXPECT_NE(eventHub, nullptr);
+
+    /**
+     * @tc.steps: step2. set userVisibleAreaRatios, userVisibleAreaCallback.
+     * @tc.expected: HasVisibleAreaCallback is equal to true.
+     */
+    VisibleCallbackInfo callbackInfo;
+    const std::function<void(bool, double)>&& jsCallback = [](bool isVisible, double radio) { flag++; };
+    callbackInfo.callback = jsCallback;
+    std::vector<double> ratios = { 0, 1.0 };
+    flag = 0;
+    eventHub->SetVisibleAreaRatiosAndCallback(callbackInfo, ratios, true);
+    EXPECT_EQ(flag, 0);
+    EXPECT_EQ(eventHub->HasVisibleAreaCallback(true), true);
+    EXPECT_EQ(eventHub->GetVisibleAreaRatios(true), ratios);
+    EXPECT_NE(eventHub->GetVisibleAreaCallback(true).callback, nullptr);
+
+    /**
+     * @tc.steps: step3. clear userVisibleAreaRatios, userVisibleAreaCallback_.
+     * @tc.expected: userVisibleAreaRatios is empty, callback in userVisibleAreaCallback is nullptr.
+     */
+    eventHub->CleanVisibleAreaCallback(true, false);
+    EXPECT_EQ(eventHub->GetVisibleAreaRatios(true).empty(), true);
+    EXPECT_EQ(eventHub->GetVisibleAreaCallback(true).callback, nullptr);
+}
+
+/**
+ * @tc.name: EventHubFrameNodeTest007
+ * @tc.desc: test set event about visibleAreaChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(EventHubTestNg, EventHubFrameNodeTest007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create EventHub.
+     * @tc.expected: eventHub is not null.
+     */
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    EXPECT_NE(eventHub, nullptr);
+
+    /**
+     * @tc.steps: step2. set innerVisibleAreaRatios, innerVisibleAreaCallback.
+     * @tc.expected: HasVisibleAreaCallback is equal to true.
+     */
+    VisibleCallbackInfo callbackInfo;
+    const std::function<void(bool, double)>&& jsCallback = [](bool isVisible, double radio) { flag++; };
+    callbackInfo.callback = jsCallback;
+    std::vector<double> ratios = { 0, 1.0 };
+    flag = 0;
+    eventHub->SetVisibleAreaRatiosAndCallback(callbackInfo, ratios, false);
+    EXPECT_EQ(flag, 0);
+    EXPECT_EQ(eventHub->HasVisibleAreaCallback(false), true);
+    EXPECT_EQ(eventHub->GetVisibleAreaRatios(false), ratios);
+    EXPECT_NE(eventHub->GetVisibleAreaCallback(false).callback, nullptr);
+
+    /**
+     * @tc.steps: step3. clear innerVisibleAreaRatios, innerVisibleAreaCallback_.
+     * @tc.expected: innerVisibleAreaRatios is empty, callback in innerVisibleAreaCallback is nullptr.
+     */
+    eventHub->CleanVisibleAreaCallback(false, false);
+    EXPECT_EQ(eventHub->GetVisibleAreaRatios(false).empty(), true);
+    EXPECT_EQ(eventHub->GetVisibleAreaCallback(false).callback, nullptr);
 }
 
 /**
@@ -1137,7 +1277,7 @@ HWTEST_F(EventHubTestNg, EventHubTest012, TestSize.Level1)
     OnSizeChangedFunc onSizeChanged = [&flags](const RectF& oldRect, const RectF& Rect) { flags = !flags; };
     RectF tempOldRect;
     RectF tempNewRect;
-    eventHub->SetJSFrameNodeOnSizeChangeCallback(std::move(onSizeChanged));
+    eventHub->SetFrameNodeCommonOnSizeChangeCallback(std::move(onSizeChanged));
     eventHub->FireJSFrameNodeOnSizeChanged(tempOldRect, tempNewRect);
     EXPECT_NE(eventHub->GetOrCreateGestureEventHub(), nullptr);
 }
@@ -1178,7 +1318,7 @@ HWTEST_F(EventHubTestNg, EventHubTest015, TestSize.Level1)
     auto eventHub = AceType::MakeRefPtr<EventHub>();
     bool flags = false;
     OnSizeChangedFunc onSizeChanged = [&flags](const RectF& oldRect, const RectF& Rect) { flags = !flags; };
-    eventHub->SetJSFrameNodeOnSizeChangeCallback(std::move(onSizeChanged));
+    eventHub->SetFrameNodeCommonOnSizeChangeCallback(std::move(onSizeChanged));
     eventHub->ClearJSFrameNodeOnSizeChange();
     EXPECT_NE(eventHub->GetOrCreateGestureEventHub(), nullptr);
 }
@@ -1257,74 +1397,6 @@ HWTEST_F(EventHubTestNg, EventHubTest020, TestSize.Level1)
     eventHub->FireOnDragLeave(dragEvent, DRAG_ENTER_EVENT_TYPE);
     eventHub->FireOnDragMove(dragEvent, DRAG_ENTER_EVENT_TYPE);
     eventHub->FireOnDrop(dragEvent, DRAG_ENTER_EVENT_TYPE);
-    EXPECT_NE(eventHub->GetOrCreateGestureEventHub(), nullptr);
-}
-
-/**
- * @tc.name: EventHubTest021
- * @tc.desc: FireOnWillBind
- * @tc.type: FUNC
- */
-HWTEST_F(EventHubTestNg, EventHubTest021, TestSize.Level1)
-{
-    auto eventHub = AceType::MakeRefPtr<EventHub>();
-    auto frameNode = NG::ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    CHECK_NULL_VOID(frameNode);
-    auto nodeContainerId = frameNode->GetId();
-    std::function<void(int32_t)> onWillBindCallback = [](int32_t) {};
-    eventHub->SetOnWillBind(std::move(onWillBindCallback));
-    eventHub->FireOnWillBind(nodeContainerId);
-    EXPECT_NE(eventHub->GetOrCreateGestureEventHub(), nullptr);
-}
-
-/**
- * @tc.name: EventHubTest022
- * @tc.desc: FireOnWillUnbind
- * @tc.type: FUNC
- */
-HWTEST_F(EventHubTestNg, EventHubTest022, TestSize.Level1)
-{
-    auto eventHub = AceType::MakeRefPtr<EventHub>();
-    auto frameNode = NG::ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    CHECK_NULL_VOID(frameNode);
-    auto nodeContainerId = frameNode->GetId();
-    std::function<void(int32_t)> onWillUnbindCallback = [](int32_t) {};
-    eventHub->SetOnWillUnbind(std::move(onWillUnbindCallback));
-    eventHub->FireOnWillUnbind(nodeContainerId);
-    EXPECT_NE(eventHub->GetOrCreateGestureEventHub(), nullptr);
-}
-
-/**
- * @tc.name: EventHubTest023
- * @tc.desc: FireOnBind
- * @tc.type: FUNC
- */
-HWTEST_F(EventHubTestNg, EventHubTest023, TestSize.Level1)
-{
-    auto eventHub = AceType::MakeRefPtr<EventHub>();
-    auto frameNode = NG::ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    CHECK_NULL_VOID(frameNode);
-    auto nodeContainerId = frameNode->GetId();
-    std::function<void(int32_t)> onBindCallback = [](int32_t) {};
-    eventHub->SetOnBind(std::move(onBindCallback));
-    eventHub->FireOnBind(nodeContainerId);
-    EXPECT_NE(eventHub->GetOrCreateGestureEventHub(), nullptr);
-}
-
-/**
- * @tc.name: EventHubTest024
- * @tc.desc: FireOnUnbind
- * @tc.type: FUNC
- */
-HWTEST_F(EventHubTestNg, EventHubTest024, TestSize.Level1)
-{
-    auto eventHub = AceType::MakeRefPtr<EventHub>();
-    auto frameNode = NG::ViewStackProcessor::GetInstance()->GetMainFrameNode();
-    CHECK_NULL_VOID(frameNode);
-    auto nodeContainerId = frameNode->GetId();
-    std::function<void(int32_t)> onUnbindCallback = [](int32_t) {};
-    eventHub->SetOnUnbind(std::move(onUnbindCallback));
-    eventHub->FireOnUnbind(nodeContainerId);
     EXPECT_NE(eventHub->GetOrCreateGestureEventHub(), nullptr);
 }
 
@@ -1480,5 +1552,67 @@ HWTEST_F(EventHubTestNg, EventHubTest029, TestSize.Level1)
     EXPECT_EQ(expectedValue, eventHub->stateStyleMgr_->userSubscribersExcludeConfigs_);
     eventHub->RemoveSupportedUIState(UI_STATE_PRESSED, false);
     EXPECT_EQ(EXCLUDE_INNER_FLAG_NONE, eventHub->stateStyleMgr_->userSubscribersExcludeConfigs_);
+}
+
+/**
+ * @tc.name: EventHubTest030
+ * @tc.desc: FireDrawCompletedNDKCallback
+ * @tc.type: FUNC
+ */
+HWTEST_F(EventHubTestNg, EventHubTest030, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create EventHub.
+     * @tc.expected: eventHub is not null.
+     */
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    auto context = MockPipelineContext::GetCurrent();
+    eventHub->OnAttachContext(AceType::RawPtr(context));
+    bool callbackTrggered = false;
+    for (int32_t index = 0 ; index < 20; index++) {
+        auto callback = [&callbackTrggered]() {
+            callbackTrggered = true;
+        };
+        eventHub->SetNDKDrawCompletedCallback(std::move(callback));
+        std::thread t([context, eventHub]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            eventHub->FireDrawCompletedNDKCallback(AceType::RawPtr(context));
+        });
+        eventHub->SetNDKDrawCompletedCallback(nullptr);
+        t.join();
+        EXPECT_FALSE(callbackTrggered);
+    }
+}
+
+/**
+ * @tc.name: EventHubTest031
+ * @tc.desc: FireLayoutNDKCallback
+ * @tc.type: FUNC
+ */
+HWTEST_F(EventHubTestNg, EventHubTest031, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create EventHub.
+     * @tc.expected: eventHub is not null.
+     */
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    auto context = MockPipelineContext::GetCurrent();
+    eventHub->OnAttachContext(AceType::RawPtr(context));
+    bool callbackTrggered = false;
+    for (int32_t index = 0 ; index < 20; index++) {
+        auto callback = [&callbackTrggered]() {
+            callbackTrggered = true;
+        };
+        eventHub->SetNDKLayoutCallback(std::move(callback));
+        std::thread t([context, eventHub]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            eventHub->FireLayoutNDKCallback(AceType::RawPtr(context));
+        });
+        eventHub->SetNDKLayoutCallback(nullptr);
+        t.join();
+        EXPECT_FALSE(callbackTrggered);
+    }
 }
 } // namespace OHOS::Ace::NG

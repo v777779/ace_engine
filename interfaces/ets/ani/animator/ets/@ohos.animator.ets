@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,6 +15,7 @@
 
 import { ExpectedFrameRateRange } from './arkui.component.common'
 import { FillMode, PlayMode } from './arkui.component.enums'
+export { FillMode, PlayMode } from './arkui.component.enums'
 
 export class SimpleAnimatorOptions {
 
@@ -37,7 +38,7 @@ export class SimpleAnimatorOptions {
   public native iterations(iterations: int): SimpleAnimatorOptions;
 }
 
-interface AnimatorOptions {
+export interface AnimatorOptions {
     duration: int;
     easing: string;
     delay: int;
@@ -99,7 +100,7 @@ class AnimatorResultInner implements AnimatorResult {
         let animatorRet = input as AnimatorResultInner;
         if (animatorRet) {
             let addr = animatorRet.animatorResult;
-            let module = ESValue.load("@ohos.animator");
+            let module = ESValue.load("@ohos.animator").getProperty('default');
             let initFunc = module.getProperty("__createTransfer__")
             if (initFunc) {
                 let animatorRet = initFunc.invoke(ESObject.wrap(addr));

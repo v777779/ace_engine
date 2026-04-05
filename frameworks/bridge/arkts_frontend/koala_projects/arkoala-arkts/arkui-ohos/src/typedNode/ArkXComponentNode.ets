@@ -28,10 +28,7 @@ export class ArkXComponentNode extends ArkBaseNode implements XComponentAttribut
     }
     initializeXComponentParameter(value: XComponentParameters): this {
         const peer = this.getPeer();
-        if (peer === undefined) {
-            return this;
-        }
-        peer.setXComponentOptionsAttribute(value);
+        peer?.setXComponentOptionsAttribute(value);
         return this;
     }
     initializeXComponentOptions(value: XComponentOptions): this {
@@ -50,10 +47,7 @@ export class ArkXComponentNode extends ArkBaseNode implements XComponentAttribut
     }
     initializeNativeXComponentParameters(value: NativeXComponentParameters): this {
         const peer = this.getPeer();
-        if (peer === undefined) {
-            return this;
-        }
-        peer.setXComponentOptionsAttribute(value);
+        peer?.setXComponentOptionsAttribute(value);
         return this;
     }
     overload initialize { initializeXComponentParameter, initializeXComponentOptions, initializeNativeXComponentParameters }
@@ -73,8 +67,12 @@ export class ArkXComponentNode extends ArkBaseNode implements XComponentAttribut
         this.getPeer()?.setEnableSecureAttribute(value);
         return this;
     }
+    enableTransparentLayer(value: boolean | undefined): this {
+        this.getPeer()?.setEnableTransparentLayerAttribute(value);
+        return this;
+    }
     hdrBrightness(value: number | undefined): this {
-        this.getPeer()?.setHdrBrightnessAttribute(value);
+        this.getPeer()?.setHdrBrightness0Attribute(value);
         return this;
     }
 }

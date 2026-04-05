@@ -15,9 +15,10 @@
 
 #include "core/components_ng/pattern/texttimer/text_timer_model_ng.h"
 
+#include "base/utils/multi_thread.h"
 #include "bridge/common/utils/utils.h"
 #include "core/common/resource/resource_parse_utils.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_ng/pattern/texttimer/text_timer_pattern.h"
@@ -30,6 +31,7 @@ RefPtr<TextTimerController> TextTimerModelNG::Create()
     ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::TEXTTIMER_ETS_TAG, nodeId);
     auto textTimerNode = FrameNode::GetOrCreateFrameNode(
         V2::TEXTTIMER_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<TextTimerPattern>(); });
+    ACE_UINODE_TRACE(textTimerNode);
 
     auto textTimerPattern = textTimerNode->GetPattern<TextTimerPattern>();
     if (textTimerNode->GetChildren().empty()) {
@@ -67,6 +69,11 @@ void TextTimerModelNG::SetInputCount(double count)
     ACE_UPDATE_LAYOUT_PROPERTY(TextTimerLayoutProperty, InputCount, count);
 }
 
+void TextTimerModelNG::SetStartTime(int32_t value)
+{
+    ACE_UPDATE_LAYOUT_PROPERTY(TextTimerLayoutProperty, StartTime, value);
+}
+
 void TextTimerModelNG::SetFontSize(const Dimension& value)
 {
     ACE_UPDATE_LAYOUT_PROPERTY(TextTimerLayoutProperty, FontSize, value);
@@ -74,11 +81,22 @@ void TextTimerModelNG::SetFontSize(const Dimension& value)
 
 void TextTimerModelNG::SetTextColor(const Color& value)
 {
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
     ACE_UPDATE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextColor, value);
     ACE_UPDATE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextColorSetByUser, true);
     ACE_UPDATE_RENDER_CONTEXT(ForegroundColor, value);
     ACE_RESET_RENDER_CONTEXT(RenderContext, ForegroundColorStrategy);
     ACE_UPDATE_RENDER_CONTEXT(ForegroundColorFlag, true);
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
+    CHECK_NULL_VOID(textNode);
+    CHECK_NULL_VOID(textNode->GetTag() == V2::TEXT_ETS_TAG);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_VOID(textLayoutProperty);
+    textLayoutProperty->UpdateTextColorByRender(value);
+    auto textPattern = textNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(textPattern);
+    textPattern->UpdateFontColor(value);
 }
 
 void TextTimerModelNG::SetTextColorByUser(bool isSetByUser)
@@ -93,10 +111,16 @@ void TextTimerModelNG::SetTextColorByUser(FrameNode* frameNode, bool isSetByUser
 
 void TextTimerModelNG::SetTextShadow(const std::vector<Shadow>& value)
 {
+    std::string key = "textTimer.shadow";
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     auto pattern = frameNode->GetPattern<TextTimerPattern>();
     CHECK_NULL_VOID(pattern);
+    pattern->RemoveResObj(key);
+    if (value.empty()) {
+        return;
+    }
     RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>();
     auto&& updateFunc = [value, weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
         auto frameNode = weak.Upgrade();
@@ -111,8 +135,7 @@ void TextTimerModelNG::SetTextShadow(const std::vector<Shadow>& value)
     };
     ACE_UPDATE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextShadow, value);
     if (SystemProperties::ConfigChangePerform()) {
-        updateFunc(resObj);
-        pattern->AddResObj("textTimer.shadow", resObj, std::move(updateFunc));
+        pattern->AddResObj(key, resObj, std::move(updateFunc));
     }
 }
 
@@ -143,9 +166,24 @@ void TextTimerModelNG::SetOnTimer(std::function<void(int64_t, int64_t)> && onCha
 void TextTimerModelNG::SetOnTimer(FrameNode* frameNode, std::function<void(int64_t, int64_t)>&& onChange)
 {
     CHECK_NULL_VOID(frameNode);
+    FREE_NODE_CHECK(frameNode, SetOnTimer, frameNode,
+        std::move(onChange));  // call SetOnTimerMultiThread() by multi thread
     auto eventHub = frameNode->GetEventHub<TextTimerEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetOnTimer(std::move(onChange));
+}
+
+void TextTimerModelNG::SetOnTimerMultiThread(FrameNode* frameNode, std::function<void(int64_t, int64_t)>&& onChange)
+{
+    CHECK_NULL_VOID(frameNode);
+    frameNode->PostAfterAttachMainTreeTask([weakPtr = AceType::WeakClaim(frameNode),
+        onChange = std::move(onChange)]() mutable {
+        auto frameNode = weakPtr.Upgrade();
+        CHECK_NULL_VOID(frameNode);
+        auto eventHub = frameNode->GetEventHub<TextTimerEventHub>();
+        CHECK_NULL_VOID(eventHub);
+        eventHub->SetOnTimer(std::move(onChange));
+    });
 }
 
 RefPtr<FrameNode> TextTimerModelNG::CreateFrameNode(int32_t nodeId)
@@ -153,6 +191,7 @@ RefPtr<FrameNode> TextTimerModelNG::CreateFrameNode(int32_t nodeId)
     auto textTimerNode =
         FrameNode::CreateFrameNode(V2::TEXTTIMER_ETS_TAG, nodeId, AceType::MakeRefPtr<TextTimerPattern>());
     CHECK_NULL_RETURN(textTimerNode, nullptr);
+    ACE_UINODE_TRACE(textTimerNode);
     auto textTimerPattern = textTimerNode->GetPattern<TextTimerPattern>();
     CHECK_NULL_RETURN(textTimerPattern, nullptr);
     if (textTimerNode->GetChildren().empty()) {
@@ -184,13 +223,28 @@ void TextTimerModelNG::SetInputCount(FrameNode* frameNode, double count)
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, InputCount, count, frameNode);
 }
 
+void TextTimerModelNG::SetStartTime(FrameNode* frameNode, int32_t value)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, StartTime, value, frameNode);
+}
+
 void TextTimerModelNG::SetFontColor(FrameNode* frameNode, const Color& value)
 {
+    CHECK_NULL_VOID(frameNode);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextColor, value, frameNode);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextColorSetByUser, true, frameNode);
     ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColor, value, frameNode);
     ACE_RESET_NODE_RENDER_CONTEXT(RenderContext, ForegroundColorStrategy, frameNode);
     ACE_UPDATE_NODE_RENDER_CONTEXT(ForegroundColorFlag, true, frameNode);
+    auto textNode = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
+    CHECK_NULL_VOID(textNode);
+    CHECK_NULL_VOID(textNode->GetTag() == V2::TEXT_ETS_TAG);
+    auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
+    CHECK_NULL_VOID(textLayoutProperty);
+    textLayoutProperty->UpdateTextColorByRender(value);
+    auto textPattern = textNode->GetPattern<TextPattern>();
+    CHECK_NULL_VOID(textPattern);
+    textPattern->UpdateFontColor(value);
 }
 
 void TextTimerModelNG::SetFontSize(FrameNode* frameNode, const Dimension& value)
@@ -221,7 +275,12 @@ void TextTimerModelNG::SetFormat(FrameNode* frameNode, const std::string& format
 void TextTimerModelNG::SetTextShadow(FrameNode* frameNode, const std::vector<Shadow>& value)
 {
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     RefPtr<ResourceObject> resObj = AceType::MakeRefPtr<ResourceObject>();
+    auto pattern = frameNode->GetPattern<TextTimerPattern>();
+    CHECK_NULL_VOID(pattern);
+    std::string key = "textTimer.shadow";
+    pattern->RemoveResObj(key);
     auto&& updateFunc = [value, weak = AceType::WeakClaim(frameNode)](const RefPtr<ResourceObject>& resObj) {
         auto frameNode = weak.Upgrade();
         if (!frameNode) {
@@ -235,10 +294,7 @@ void TextTimerModelNG::SetTextShadow(FrameNode* frameNode, const std::vector<Sha
     };
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextTimerLayoutProperty, TextShadow, value, frameNode);
     if (SystemProperties::ConfigChangePerform()) {
-        auto pattern = frameNode->GetPattern<TextTimerPattern>();
-        CHECK_NULL_VOID(pattern);
-        updateFunc(resObj);
-        pattern->AddResObj("textTimer.shadow", resObj, std::move(updateFunc));
+        pattern->AddResObj(key, resObj, std::move(updateFunc));
     }
 }
 
@@ -273,7 +329,10 @@ void TextTimerModelNG::HandleTextColor(FrameNode* frameNode, const RefPtr<Resour
     CHECK_NULL_VOID(pattern);
     pattern->RemoveResObj(key);
     CHECK_NULL_VOID(resObj);
-    auto&& updateFunc = [pattern, key](const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+    auto&& updateFunc = [weak = AceType::WeakClaim(AceType::RawPtr(pattern)), key](
+                            const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
         Color result;
         if (!ResourceParseUtils::ParseResColor(resObj, result)) {
             auto pipeline = PipelineBase::GetCurrentContext();
@@ -294,10 +353,13 @@ void TextTimerModelNG::HandleFontWeight(FrameNode* frameNode, const RefPtr<Resou
     CHECK_NULL_VOID(pattern);
     pattern->RemoveResObj(key);
     CHECK_NULL_VOID(resObj);
-    auto&& updateFunc = [pattern, key](const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+    auto&& updateFunc = [weak = AceType::WeakClaim(AceType::RawPtr(pattern)), key](
+                            const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
         std::string fontWeightStr;
         ResourceParseUtils::ParseResString(resObj, fontWeightStr);
-        pattern->UpdateFontWeight(ConvertStrToFontWeight(fontWeightStr), isFirstLoad);
+        pattern->UpdateFontWeight(Framework::ConvertStrToFontWeight(fontWeightStr), isFirstLoad);
     };
     pattern->AddResObj(key, resObj, std::move(updateFunc));
 }
@@ -309,7 +371,10 @@ void TextTimerModelNG::HandleFontSize(FrameNode* frameNode, const RefPtr<Resourc
     CHECK_NULL_VOID(pattern);
     pattern->RemoveResObj(key);
     CHECK_NULL_VOID(resObj);
-    auto&& updateFunc = [pattern, key](const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+    auto&& updateFunc = [weak = AceType::WeakClaim(AceType::RawPtr(pattern)), key](
+                            const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
         CalcDimension fontSize;
         if (!ResourceParseUtils::ParseResDimensionFp(resObj, fontSize) || fontSize.IsNegative() ||
             fontSize.Unit() == DimensionUnit::PERCENT) {
@@ -332,7 +397,10 @@ void TextTimerModelNG::HandleFontFamily(FrameNode* frameNode, const RefPtr<Resou
     CHECK_NULL_VOID(pattern);
     pattern->RemoveResObj(key);
     CHECK_NULL_VOID(resObj);
-    auto&& updateFunc = [pattern, key](const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+    auto&& updateFunc = [weak = AceType::WeakClaim(AceType::RawPtr(pattern)), key](
+                            const RefPtr<ResourceObject>& resObj, bool isFirstLoad = false) {
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
         std::vector<std::string> fontFamilies;
         if (!ResourceParseUtils::ParseResFontFamilies(resObj, fontFamilies)) {
             return;

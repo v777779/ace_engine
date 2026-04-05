@@ -32,7 +32,7 @@ public:
     OffscreenCanvasPattern(int32_t width, int32_t height);
     ~OffscreenCanvasPattern() override = default;
 
-    virtual void FillRect(const Rect& rect);
+    void FillRect(const Rect& rect);
     void StrokeRect(const Rect& rect);
     void ClearRect(const Rect& rect);
     void Fill();
@@ -65,9 +65,11 @@ public:
     void PutImageData(const Ace::ImageData& imageData);
 
     void SetAntiAlias(bool isEnabled);
+    std::optional<bool> GetAntialiasExt() const;
+    void SetAntialiasExt(std::optional<bool> isEnabled);
     void SetFillRuleForPath(const CanvasFillRule rule);
     void SetFillRuleForPath2D(const CanvasFillRule rule);
-    void SetFillPattern(const std::weak_ptr<Ace::Pattern>& pattern);
+    void SetFillPattern(const std::shared_ptr<Ace::Pattern>& pattern);
     void SetFillGradient(const Ace::Gradient& gradient);
     void SetAlpha(double alpha);
     void SetCompositeType(CompositeOperation operation);
@@ -84,7 +86,7 @@ public:
     void SetSmoothingQuality(const std::string& quality);
     void SetLineDashOffset(double offset);
     void SetShadowColor(const Color& color);
-    void SetStrokePattern(const std::weak_ptr<Ace::Pattern>& pattern);
+    void SetStrokePattern(const std::shared_ptr<Ace::Pattern>& pattern);
     void SetStrokeGradient(const Ace::Gradient& gradient);
     void SetStrokeColor(const Color& color);
     void SetFontWeight(FontWeight weight);

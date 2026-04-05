@@ -13,6 +13,15 @@
  * limitations under the License.
  */
 #include "gtest/gtest.h"
+
+#define protected public
+#define private public
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "core/components_ng/base/frame_node.h"
+#undef private
+#undef protected
+
 #include "core/components_ng/base/extension_handler.h"
 #include "core/pipeline_ng/pipeline_context.h"
 #include "core/components_ng/pattern/navigation/navigation_group_node.h"
@@ -24,7 +33,32 @@ using namespace testing::ext;
 namespace OHOS::Ace::NG {
 
 class ExtensionHandlerTestNg : public testing::Test {
+public:
+    static void SetUpTestSuite()
+    {
+        MockPipelineContext::SetUp();
+        MockContainer::SetUp();
+        MockContainer::Current()->pipelineContext_ = MockPipelineContext::GetCurrentContext();
+    }
+
+    static void TearDownTestSuite()
+    {
+        MockPipelineContext::TearDown();
+        MockContainer::TearDown();
+    }
 };
+
+namespace {
+RefPtr<FrameNode> CreateRenderTestFrameNode(const std::string& tag, int32_t nodeId)
+{
+    auto frameNode = FrameNode::CreateFrameNode(tag, nodeId, AceType::MakeRefPtr<Pattern>());
+    auto pipeline = MockPipelineContext::GetCurrent();
+    frameNode->context_ = AceType::RawPtr(pipeline);
+    frameNode->isLayoutDirtyMarked_ = false;
+    frameNode->isRenderDirtyMarked_ = false;
+    return frameNode;
+}
+} // namespace
 
 /**
  * @tc.name: ExtensionHandlerTest001
@@ -138,5 +172,1132 @@ HWTEST_F(ExtensionHandlerTestNg, ExtensionHandlerTest006, TestSize.Level1)
     test.SetDrawModifier(drawModifier);
     test.ForegroundDraw(context);
     EXPECT_TRUE(isFunc);
+}
+
+/**
+ * @tc.name: ExtensionHandlerTest007
+ * @tc.desc: OverlayDraw
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, ExtensionHandlerTest007, TestSize.Level1)
+{
+    class ExtensionHandler test;
+    RSCanvas canvas;
+    float width = 0;
+    float height = 0;
+    DrawingContext context { canvas, width, height };
+    bool isFunc = false;
+    RefPtr<NG::DrawModifier> drawModifier = AceType::MakeRefPtr<NG::DrawModifier>();
+    drawModifier->drawOverlayFunc = [&isFunc](NG::DrawingContext& drawingContext) { isFunc = true; };
+    test.SetDrawModifier(drawModifier);
+    test.OverlayDraw(context);
+    EXPECT_TRUE(isFunc);
+}
+
+/**
+ * @tc.name: Create001
+ * @tc.desc: Test Create with normal layout constraint values.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, Create001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize layout constraint with regular values.
+     */
+    LayoutConstraintF layoutConstraintF;
+    layoutConstraintF.maxSize.SetWidth(100.5f);
+    layoutConstraintF.maxSize.SetHeight(200.7f);
+    layoutConstraintF.minSize.SetWidth(50.3f);
+    layoutConstraintF.minSize.SetHeight(100.2f);
+    layoutConstraintF.percentReference.SetWidth(300.0f);
+    layoutConstraintF.percentReference.SetHeight(400.0f);
+
+    /**
+     * @tc.steps: step2. Call the Create method.
+     * @tc.expected: expect All values are correctly floored and assigned.
+     */
+    auto result = ExtensionLayoutConstraint::Create(layoutConstraintF);
+
+    EXPECT_EQ(result.maxWidth, 100);
+    EXPECT_EQ(result.minWidth, 50);
+    EXPECT_EQ(result.maxHeight, 200);
+    EXPECT_EQ(result.minHeight, 100);
+    EXPECT_EQ(result.parentIdealWidth, 300);
+    EXPECT_EQ(result.parentIdealHeight, 400);
+}
+
+/**
+ * @tc.name: Create002
+ * @tc.desc: Test Create with self ideal size width has value.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, Create002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize layout constraint with self ideal width specified.
+     */
+    LayoutConstraintF layoutConstraintF;
+    layoutConstraintF.maxSize.SetWidth(100.5f);
+    layoutConstraintF.maxSize.SetHeight(200.7f);
+    layoutConstraintF.minSize.SetWidth(50.3f);
+    layoutConstraintF.minSize.SetHeight(100.2f);
+    layoutConstraintF.percentReference.SetWidth(300.0f);
+    layoutConstraintF.percentReference.SetHeight(400.0f);
+    layoutConstraintF.selfIdealSize.SetWidth(80.6f);
+
+    /**
+     * @tc.steps: step2. Call the Create method.
+     * @tc.expected: expect When self ideal width is set, both min and max width should equal to it.
+     */
+    auto result = ExtensionLayoutConstraint::Create(layoutConstraintF);
+
+    EXPECT_EQ(result.maxWidth, 80);
+    EXPECT_EQ(result.minWidth, 80);
+    EXPECT_EQ(result.maxHeight, 200);
+    EXPECT_EQ(result.minHeight, 100);
+    EXPECT_EQ(result.parentIdealWidth, 300);
+    EXPECT_EQ(result.parentIdealHeight, 400);
+}
+
+/**
+ * @tc.name: Create003
+ * @tc.desc: Test Create with self ideal size height has value.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, Create003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize layout constraint with self ideal height specified.
+     */
+    LayoutConstraintF layoutConstraintF;
+    layoutConstraintF.maxSize.SetWidth(100.5f);
+    layoutConstraintF.maxSize.SetHeight(200.7f);
+    layoutConstraintF.minSize.SetWidth(50.3f);
+    layoutConstraintF.minSize.SetHeight(100.2f);
+    layoutConstraintF.percentReference.SetWidth(300.0f);
+    layoutConstraintF.percentReference.SetHeight(400.0f);
+    layoutConstraintF.selfIdealSize.SetHeight(150.9f);
+
+    /**
+     * @tc.steps: step2. Call the Create method.
+     * @tc.expected: expect When self ideal height is set, both min and max height should equal to it.
+     */
+    auto result = ExtensionLayoutConstraint::Create(layoutConstraintF);
+
+    EXPECT_EQ(result.maxWidth, 100);
+    EXPECT_EQ(result.minWidth, 50);
+    EXPECT_EQ(result.maxHeight, 150);
+    EXPECT_EQ(result.minHeight, 150);
+    EXPECT_EQ(result.parentIdealWidth, 300);
+    EXPECT_EQ(result.parentIdealHeight, 400);
+}
+
+/**
+ * @tc.name: Create004
+ * @tc.desc: Test Create with both self ideal size width and height have values.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, Create004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize layout constraint with both self ideal width and height specified.
+     */
+    LayoutConstraintF layoutConstraintF;
+    layoutConstraintF.maxSize.SetWidth(100.5f);
+    layoutConstraintF.maxSize.SetHeight(200.7f);
+    layoutConstraintF.minSize.SetWidth(50.3f);
+    layoutConstraintF.minSize.SetHeight(100.2f);
+    layoutConstraintF.percentReference.SetWidth(300.0f);
+    layoutConstraintF.percentReference.SetHeight(400.0f);
+    layoutConstraintF.selfIdealSize.SetWidth(80.6f);
+    layoutConstraintF.selfIdealSize.SetHeight(150.9f);
+
+    /**
+     * @tc.steps: step2. Call the Create method.
+     * @tc.expected: expect When both self ideal sizes are set, both min and max should equal to them respectively.
+     */
+    auto result = ExtensionLayoutConstraint::Create(layoutConstraintF);
+
+    EXPECT_EQ(result.maxWidth, 80);
+    EXPECT_EQ(result.minWidth, 80);
+    EXPECT_EQ(result.maxHeight, 150);
+    EXPECT_EQ(result.minHeight, 150);
+    EXPECT_EQ(result.parentIdealWidth, 300);
+    EXPECT_EQ(result.parentIdealHeight, 400);
+}
+
+/**
+ * @tc.name: Create005
+ * @tc.desc: Test Create explicitly covers the branch where self ideal width has value.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, Create005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize layout constraint and explicitly set self ideal width.
+     */
+    LayoutConstraintF layoutConstraintF;
+    layoutConstraintF.maxSize.SetWidth(180.9f);
+    layoutConstraintF.maxSize.SetHeight(260.4f);
+    layoutConstraintF.minSize.SetWidth(40.2f);
+    layoutConstraintF.minSize.SetHeight(90.8f);
+    layoutConstraintF.percentReference.SetWidth(500.0f);
+    layoutConstraintF.percentReference.SetHeight(600.0f);
+    layoutConstraintF.selfIdealSize.SetWidth(120.7f);
+    ASSERT_TRUE(layoutConstraintF.selfIdealSize.Width().has_value());
+    ASSERT_FALSE(layoutConstraintF.selfIdealSize.Height().has_value());
+
+    /**
+     * @tc.steps: step2. Call the Create method.
+     * @tc.expected: expect self ideal width overrides both min and max width only.
+     */
+    auto result = ExtensionLayoutConstraint::Create(layoutConstraintF);
+
+    EXPECT_EQ(result.maxWidth, 120);
+    EXPECT_EQ(result.minWidth, 120);
+    EXPECT_EQ(result.maxHeight, 260);
+    EXPECT_EQ(result.minHeight, 90);
+    EXPECT_EQ(result.parentIdealWidth, 500);
+    EXPECT_EQ(result.parentIdealHeight, 600);
+}
+
+/**
+ * @tc.name: Create006
+ * @tc.desc: Test Create explicitly covers the branch where self ideal height has value.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, Create006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize layout constraint and explicitly set self ideal height.
+     */
+    LayoutConstraintF layoutConstraintF;
+    layoutConstraintF.maxSize.SetWidth(210.8f);
+    layoutConstraintF.maxSize.SetHeight(320.9f);
+    layoutConstraintF.minSize.SetWidth(60.4f);
+    layoutConstraintF.minSize.SetHeight(110.6f);
+    layoutConstraintF.percentReference.SetWidth(700.0f);
+    layoutConstraintF.percentReference.SetHeight(800.0f);
+    layoutConstraintF.selfIdealSize.SetHeight(170.5f);
+    ASSERT_FALSE(layoutConstraintF.selfIdealSize.Width().has_value());
+    ASSERT_TRUE(layoutConstraintF.selfIdealSize.Height().has_value());
+
+    /**
+     * @tc.steps: step2. Call the Create method.
+     * @tc.expected: expect self ideal height overrides both min and max height only.
+     */
+    auto result = ExtensionLayoutConstraint::Create(layoutConstraintF);
+
+    EXPECT_EQ(result.maxWidth, 210);
+    EXPECT_EQ(result.minWidth, 60);
+    EXPECT_EQ(result.maxHeight, 170);
+    EXPECT_EQ(result.minHeight, 170);
+    EXPECT_EQ(result.parentIdealWidth, 700);
+    EXPECT_EQ(result.parentIdealHeight, 800);
+}
+
+/**
+ * @tc.name: Draw001
+ * @tc.desc: Test Draw method which calls OnDraw internally.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, Draw001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and DrawModifier with all functions.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::SetDrawModifier;
+        using ExtensionHandler::SetInnerDrawImpl;
+        using ExtensionHandler::NeedRender;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto drawModifier = AceType::MakeRefPtr<DrawModifier>();
+    bool behindCalled = false;
+    bool contentCalled = false;
+    bool frontCalled = false;
+    bool innerDrawCalled = false;
+
+    drawModifier->drawBehindFunc = [&behindCalled](DrawingContext& context) { behindCalled = true; };
+    drawModifier->drawContentFunc = [&contentCalled](DrawingContext& context) { contentCalled = true; };
+    drawModifier->drawFrontFunc = [&frontCalled](DrawingContext& context) { frontCalled = true; };
+
+    extensionHandler->SetDrawModifier(drawModifier);
+    extensionHandler->SetInnerDrawImpl([&innerDrawCalled](DrawingContext& context) { innerDrawCalled = true; });
+
+    /**
+     * @tc.steps: step2. Call Draw method which will call OnDraw internally.
+     * @tc.expected: expect All draw modifier functions are called, but innerDraw is not.
+     */
+    RSCanvas rsCanvas;
+    DrawingContext context { rsCanvas, 100, 100 };
+
+    extensionHandler->Draw(context);
+
+    EXPECT_TRUE(behindCalled);
+    EXPECT_TRUE(contentCalled);
+    EXPECT_FALSE(innerDrawCalled);
+    EXPECT_TRUE(frontCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: OnDraw002
+ * @tc.desc: Test OnDraw without drawContentFunc, should call InnerDraw.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OnDraw002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and DrawModifier without drawContentFunc.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::SetDrawModifier;
+        using ExtensionHandler::SetInnerDrawImpl;
+        using ExtensionHandler::NeedRender;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<ExtensionHandler>();
+    auto drawModifier = AceType::MakeRefPtr<DrawModifier>();
+    bool behindCalled = false;
+    bool frontCalled = false;
+    bool innerDrawCalled = false;
+
+    drawModifier->drawBehindFunc = [&behindCalled](DrawingContext& context) { behindCalled = true; };
+    drawModifier->drawFrontFunc = [&frontCalled](DrawingContext& context) { frontCalled = true; };
+
+    extensionHandler->SetDrawModifier(drawModifier);
+    extensionHandler->SetInnerDrawImpl([&innerDrawCalled](DrawingContext& context) { innerDrawCalled = true; });
+
+    /**
+     * @tc.steps: step2. Call OnDraw method.
+     * @tc.expected: expect drawBehind and drawFront are called, and innerDraw is also called.
+     */
+    RSCanvas rsCanvas;
+    DrawingContext context { rsCanvas, 100, 100 };
+    extensionHandler->Draw(context);
+
+    EXPECT_TRUE(behindCalled);
+    EXPECT_TRUE(frontCalled);
+    EXPECT_TRUE(innerDrawCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: OnDraw003
+ * @tc.desc: Test OnDraw with only drawFrontFunc.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OnDraw003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and DrawModifier with only drawFrontFunc.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::SetDrawModifier;
+        using ExtensionHandler::SetInnerDrawImpl;
+        using ExtensionHandler::NeedRender;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<ExtensionHandler>();
+    auto drawModifier = AceType::MakeRefPtr<DrawModifier>();
+    bool frontCalled = false;
+    bool innerDrawCalled = false;
+
+    drawModifier->drawFrontFunc = [&frontCalled](DrawingContext& context) { frontCalled = true; };
+
+    extensionHandler->SetDrawModifier(drawModifier);
+    extensionHandler->SetInnerDrawImpl([&innerDrawCalled](DrawingContext& context) { innerDrawCalled = true; });
+
+    /**
+     * @tc.steps: step2. Call OnDraw method.
+     * @tc.expected: expect Only drawFront and innerDraw are called.
+     */
+    RSCanvas rsCanvas;
+    DrawingContext context { rsCanvas, 100, 100 };
+    extensionHandler->Draw(context);
+
+    EXPECT_TRUE(frontCalled);
+    EXPECT_TRUE(innerDrawCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: OnDraw004
+ * @tc.desc: Test OnDraw without any draw modifiers.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OnDraw004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler without DrawModifier.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::SetDrawModifier;
+        using ExtensionHandler::SetInnerDrawImpl;
+        using ExtensionHandler::NeedRender;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<ExtensionHandler>();
+    bool innerDrawCalled = false;
+
+    extensionHandler->SetInnerDrawImpl([&innerDrawCalled](DrawingContext& context) { innerDrawCalled = true; });
+
+    /**
+     * @tc.steps: step2. Call OnDraw method.
+     * @tc.expected: expect Only innerDraw is called.
+     */
+    RSCanvas rsCanvas;
+    DrawingContext context { rsCanvas, 100, 100 };
+    extensionHandler->Draw(context);
+
+    EXPECT_TRUE(innerDrawCalled);
+    EXPECT_FALSE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: OnDraw005
+ * @tc.desc: Test OnDraw directly with all draw modifier functions set.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OnDraw005, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and DrawModifier with all draw functions.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::OnDraw;
+        using ExtensionHandler::SetDrawModifier;
+        using ExtensionHandler::SetInnerDrawImpl;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto drawModifier = AceType::MakeRefPtr<DrawModifier>();
+    bool behindCalled = false;
+    bool contentCalled = false;
+    bool frontCalled = false;
+    bool innerDrawCalled = false;
+
+    drawModifier->drawBehindFunc = [&behindCalled](DrawingContext& context) { behindCalled = true; };
+    drawModifier->drawContentFunc = [&contentCalled](DrawingContext& context) { contentCalled = true; };
+    drawModifier->drawFrontFunc = [&frontCalled](DrawingContext& context) { frontCalled = true; };
+    extensionHandler->SetDrawModifier(drawModifier);
+    extensionHandler->SetInnerDrawImpl([&innerDrawCalled](DrawingContext& context) { innerDrawCalled = true; });
+
+    /**
+     * @tc.steps: step2. Call OnDraw directly.
+     * @tc.expected: expect all draw modifier functions are called and InnerDraw is not called.
+     */
+    RSCanvas rsCanvas;
+    DrawingContext context { rsCanvas, 100, 100 };
+    extensionHandler->OnDraw(context);
+
+    EXPECT_TRUE(behindCalled);
+    EXPECT_TRUE(contentCalled);
+    EXPECT_TRUE(frontCalled);
+    EXPECT_FALSE(innerDrawCalled);
+}
+
+/**
+ * @tc.name: OnDraw006
+ * @tc.desc: Test OnDraw directly falls back to InnerDraw when drawContentFunc is not set.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OnDraw006, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and DrawModifier without drawContentFunc.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::OnDraw;
+        using ExtensionHandler::SetDrawModifier;
+        using ExtensionHandler::SetInnerDrawImpl;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto drawModifier = AceType::MakeRefPtr<DrawModifier>();
+    bool behindCalled = false;
+    bool frontCalled = false;
+    bool innerDrawCalled = false;
+
+    drawModifier->drawBehindFunc = [&behindCalled](DrawingContext& context) { behindCalled = true; };
+    drawModifier->drawFrontFunc = [&frontCalled](DrawingContext& context) { frontCalled = true; };
+    extensionHandler->SetDrawModifier(drawModifier);
+    extensionHandler->SetInnerDrawImpl([&innerDrawCalled](DrawingContext& context) { innerDrawCalled = true; });
+
+    /**
+     * @tc.steps: step2. Call OnDraw directly.
+     * @tc.expected: expect drawBehind and drawFront are called, and InnerDraw handles content drawing.
+     */
+    RSCanvas rsCanvas;
+    DrawingContext context { rsCanvas, 100, 100 };
+    extensionHandler->OnDraw(context);
+
+    EXPECT_TRUE(behindCalled);
+    EXPECT_TRUE(frontCalled);
+    EXPECT_TRUE(innerDrawCalled);
+}
+
+/**
+ * @tc.name: OnForegroundDraw001
+ * @tc.desc: Test OnForegroundDraw with drawForegroundFunc set.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OnForegroundDraw001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and DrawModifier with drawForegroundFunc.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::OnForegroundDraw;
+        using ExtensionHandler::SetDrawModifier;
+        using ExtensionHandler::SetInnerForegroundDrawImpl;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto drawModifier = AceType::MakeRefPtr<DrawModifier>();
+    bool foregroundCalled = false;
+    bool innerForegroundCalled = false;
+
+    drawModifier->drawForegroundFunc = [&foregroundCalled](DrawingContext& context) { foregroundCalled = true; };
+    extensionHandler->SetDrawModifier(drawModifier);
+    extensionHandler->SetInnerForegroundDrawImpl(
+        [&innerForegroundCalled](DrawingContext& context) { innerForegroundCalled = true; });
+
+    /**
+     * @tc.steps: step2. Call OnForegroundDraw directly.
+     * @tc.expected: expect drawForegroundFunc is called and InnerForegroundDraw is not called.
+     */
+    RSCanvas rsCanvas;
+    DrawingContext context { rsCanvas, 100, 100 };
+    extensionHandler->OnForegroundDraw(context);
+
+    EXPECT_TRUE(foregroundCalled);
+    EXPECT_FALSE(innerForegroundCalled);
+}
+
+/**
+ * @tc.name: OnForegroundDraw002
+ * @tc.desc: Test OnForegroundDraw falls back to InnerForegroundDraw when drawForegroundFunc is not set.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OnForegroundDraw002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and DrawModifier without drawForegroundFunc.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::OnForegroundDraw;
+        using ExtensionHandler::SetDrawModifier;
+        using ExtensionHandler::SetInnerForegroundDrawImpl;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto drawModifier = AceType::MakeRefPtr<DrawModifier>();
+    bool innerForegroundCalled = false;
+
+    extensionHandler->SetDrawModifier(drawModifier);
+    extensionHandler->SetInnerForegroundDrawImpl(
+        [&innerForegroundCalled](DrawingContext& context) { innerForegroundCalled = true; });
+
+    /**
+     * @tc.steps: step2. Call OnForegroundDraw directly.
+     * @tc.expected: expect InnerForegroundDraw is called when drawForegroundFunc is empty.
+     */
+    RSCanvas rsCanvas;
+    DrawingContext context { rsCanvas, 100, 100 };
+    extensionHandler->OnForegroundDraw(context);
+
+    EXPECT_TRUE(innerForegroundCalled);
+}
+
+/**
+ * @tc.name: InvalidateRender001
+ * @tc.desc: Test InvalidateRender with invalidateRender_ function set.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, InvalidateRender001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and set invalidateRender_ function.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::SetInvalidateRenderImpl;
+        using ExtensionHandler::NeedRender;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    bool invalidateRenderCalled = false;
+
+    extensionHandler->SetInvalidateRenderImpl([&invalidateRenderCalled]() {
+        invalidateRenderCalled = true;
+    });
+
+    /**
+     * @tc.steps: step2. Call InvalidateRender method.
+     * @tc.expected: expect invalidateRender_ function is called and needRender_ is set to true.
+     */
+    extensionHandler->InvalidateRender();
+
+    EXPECT_TRUE(invalidateRenderCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: InvalidateRender002
+ * @tc.desc: Test InvalidateRender without invalidateRender_ function but with node_.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, InvalidateRender002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and attach a mock frame node.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::AttachFrameNode;
+        using ExtensionHandler::NeedRender;
+    };
+
+    class MockFrameNode : public FrameNode {
+    public:
+        MockFrameNode() : FrameNode("Mock", -1, AceType::MakeRefPtr<Pattern>()) {}
+        bool markNeedRenderOnlyCalled = false;
+
+        void MarkNeedRenderOnly() {
+            markNeedRenderOnlyCalled = true;
+        }
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto mockNode = AceType::MakeRefPtr<MockFrameNode>();
+
+    FrameNode* rawPtr = static_cast<FrameNode*>(mockNode.GetRawPtr());
+    extensionHandler->AttachFrameNode(rawPtr);
+
+    /**
+     * @tc.steps: step2. Call InvalidateRender method.
+     * @tc.expected: expect node_->MarkNeedRenderOnly() is called and needRender_ is set to true.
+     */
+    extensionHandler->InvalidateRender();
+
+    EXPECT_FALSE(mockNode->markNeedRenderOnlyCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: InvalidateRender003
+ * @tc.desc: Test InvalidateRender without invalidateRender_ function and without node_.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, InvalidateRender003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler without setting invalidateRender_ or node_.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::NeedRender;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+
+    /**
+     * @tc.steps: step2. Call InvalidateRender method.
+     * @tc.expected: expect needRender_ is set to true but no function is called.
+     */
+    extensionHandler->InvalidateRender();
+
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: InvalidateRender004
+ * @tc.desc: Test InvalidateRender with both invalidateRender_ function and node_.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, InvalidateRender004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and set both invalidateRender_ function and node_.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::SetInvalidateRenderImpl;
+        using ExtensionHandler::AttachFrameNode;
+        using ExtensionHandler::NeedRender;
+    };
+
+    class MockFrameNode : public FrameNode {
+    public:
+        MockFrameNode() : FrameNode("Mock", -1, AceType::MakeRefPtr<Pattern>()) {}
+        bool markNeedRenderOnlyCalled = false;
+
+        void MarkNeedRenderOnly() {
+            markNeedRenderOnlyCalled = true;
+        }
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto mockNode = AceType::MakeRefPtr<MockFrameNode>();
+    bool invalidateRenderCalled = false;
+
+    extensionHandler->SetInvalidateRenderImpl([&invalidateRenderCalled]() {
+        invalidateRenderCalled = true;
+    });
+
+    FrameNode* rawPtr = static_cast<FrameNode*>(mockNode.GetRawPtr());
+    extensionHandler->AttachFrameNode(rawPtr);
+
+    /**
+     * @tc.steps: step2. Call InvalidateRender method.
+     * @tc.expected: expect invalidateRender_ function is called but node_->MarkNeedRenderOnly() is not called.
+     */
+    extensionHandler->InvalidateRender();
+
+    EXPECT_TRUE(invalidateRenderCalled);
+    EXPECT_FALSE(mockNode->markNeedRenderOnlyCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: InvalidateRender005
+ * @tc.desc: Test InvalidateRender gives priority to invalidateRender_ over node_ and updates needRender_ from false.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, InvalidateRender005, TestSize.Level1)
+{
+    auto extensionHandler = AceType::MakeRefPtr<ExtensionHandler>();
+    auto frameNode = CreateRenderTestFrameNode("invalidate_render_priority", 2001);
+    bool invalidateRenderCalled = false;
+
+    extensionHandler->AttachFrameNode(AceType::RawPtr(frameNode));
+    extensionHandler->SetInvalidateRenderImpl([&invalidateRenderCalled]() { invalidateRenderCalled = true; });
+    extensionHandler->ResetNeedRender();
+    ASSERT_FALSE(extensionHandler->NeedRender());
+    ASSERT_FALSE(frameNode->isRenderDirtyMarked_);
+
+    extensionHandler->InvalidateRender();
+
+    EXPECT_TRUE(invalidateRenderCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+    EXPECT_FALSE(frameNode->isRenderDirtyMarked_);
+}
+
+/**
+ * @tc.name: InvalidateRender006
+ * @tc.desc: Test InvalidateRender marks attached frame node dirty when invalidateRender_ is not set.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, InvalidateRender006, TestSize.Level1)
+{
+    auto extensionHandler = AceType::MakeRefPtr<ExtensionHandler>();
+    auto frameNode = CreateRenderTestFrameNode("invalidate_render_node", 2002);
+
+    extensionHandler->AttachFrameNode(AceType::RawPtr(frameNode));
+    extensionHandler->ResetNeedRender();
+    ASSERT_FALSE(extensionHandler->NeedRender());
+    ASSERT_FALSE(frameNode->isRenderDirtyMarked_);
+
+    extensionHandler->InvalidateRender();
+
+    EXPECT_TRUE(extensionHandler->NeedRender());
+    EXPECT_TRUE(frameNode->isRenderDirtyMarked_);
+}
+
+/**
+ * @tc.name: OverlayRender001
+ * @tc.desc: Test OverlayRender with overlayRender_ function set.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OverlayRender001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and set overlayRender_ function.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::SetOverlayRenderImpl;
+        using ExtensionHandler::NeedRender;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    bool overlayRenderCalled = false;
+
+    extensionHandler->SetOverlayRenderImpl([&overlayRenderCalled]() {
+        overlayRenderCalled = true;
+    });
+
+    /**
+     * @tc.steps: step2. Call OverlayRender method.
+     * @tc.expected: expect overlayRender_ function is called and needRender_ is set to true.
+     */
+    extensionHandler->OverlayRender();
+
+    EXPECT_TRUE(overlayRenderCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: OverlayRender002
+ * @tc.desc: Test OverlayRender without overlayRender_ function but with node_.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OverlayRender002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and attach a mock frame node.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::AttachFrameNode;
+        using ExtensionHandler::NeedRender;
+    };
+
+    class MockFrameNode : public FrameNode {
+    public:
+        MockFrameNode() : FrameNode("Mock", -1, AceType::MakeRefPtr<Pattern>()) {}
+        bool markNeedRenderOnlyCalled = false;
+
+        void MarkNeedRenderOnly() {
+            markNeedRenderOnlyCalled = true;
+        }
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto mockNode = AceType::MakeRefPtr<MockFrameNode>();
+
+    extensionHandler->AttachFrameNode(static_cast<FrameNode*>(mockNode.GetRawPtr()));
+
+    /**
+     * @tc.steps: step2. Call OverlayRender method.
+     * @tc.expected: expect node_->MarkNeedRenderOnly() is called and needRender_ is set to true.
+     */
+    extensionHandler->OverlayRender();
+
+    EXPECT_FALSE(mockNode->markNeedRenderOnlyCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: OverlayRender003
+ * @tc.desc: Test OverlayRender without overlayRender_ function and without node_.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OverlayRender003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler without setting overlayRender_ or node_.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::NeedRender;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+
+    /**
+     * @tc.steps: step2. Call OverlayRender method.
+     * @tc.expected: expect needRender_ is set to true but no function is called.
+     */
+    extensionHandler->OverlayRender();
+
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: OverlayRender004
+ * @tc.desc: Test OverlayRender with both overlayRender_ function and node_.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OverlayRender004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and set both overlayRender_ function and node_.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::SetOverlayRenderImpl;
+        using ExtensionHandler::AttachFrameNode;
+        using ExtensionHandler::NeedRender;
+    };
+
+    class MockFrameNode : public FrameNode {
+    public:
+        MockFrameNode() : FrameNode("Mock", -1, AceType::MakeRefPtr<Pattern>()) {}
+        bool markNeedRenderOnlyCalled = false;
+
+        void MarkNeedRenderOnly() {
+            markNeedRenderOnlyCalled = true;
+        }
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto mockNode = AceType::MakeRefPtr<MockFrameNode>();
+    bool overlayRenderCalled = false;
+
+    extensionHandler->SetOverlayRenderImpl([&overlayRenderCalled]() {
+        overlayRenderCalled = true;
+    });
+
+    extensionHandler->AttachFrameNode(static_cast<FrameNode*>(mockNode.GetRawPtr()));
+
+    /**
+     * @tc.steps: step2. Call OverlayRender method.
+     * @tc.expected: expect overlayRender_ function is called but node_->MarkNeedRenderOnly() is not called.
+     */
+    extensionHandler->OverlayRender();
+
+    EXPECT_TRUE(overlayRenderCalled);
+    EXPECT_FALSE(mockNode->markNeedRenderOnlyCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: OverlayRender005
+ * @tc.desc: Test OverlayRender gives priority to overlayRender_ over node_ and updates needRender_ from false.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OverlayRender005, TestSize.Level1)
+{
+    auto extensionHandler = AceType::MakeRefPtr<ExtensionHandler>();
+    auto frameNode = CreateRenderTestFrameNode("overlay_render_priority", 2003);
+    bool overlayRenderCalled = false;
+
+    extensionHandler->AttachFrameNode(AceType::RawPtr(frameNode));
+    extensionHandler->SetOverlayRenderImpl([&overlayRenderCalled]() { overlayRenderCalled = true; });
+    extensionHandler->ResetNeedRender();
+    ASSERT_FALSE(extensionHandler->NeedRender());
+    ASSERT_FALSE(frameNode->isRenderDirtyMarked_);
+
+    extensionHandler->OverlayRender();
+
+    EXPECT_TRUE(overlayRenderCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+    EXPECT_FALSE(frameNode->isRenderDirtyMarked_);
+}
+
+/**
+ * @tc.name: OverlayRender006
+ * @tc.desc: Test OverlayRender marks attached frame node dirty when overlayRender_ is not set.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, OverlayRender006, TestSize.Level1)
+{
+    auto extensionHandler = AceType::MakeRefPtr<ExtensionHandler>();
+    auto frameNode = CreateRenderTestFrameNode("overlay_render_node", 2004);
+
+    extensionHandler->AttachFrameNode(AceType::RawPtr(frameNode));
+    extensionHandler->ResetNeedRender();
+    ASSERT_FALSE(extensionHandler->NeedRender());
+    ASSERT_FALSE(frameNode->isRenderDirtyMarked_);
+
+    extensionHandler->OverlayRender();
+
+    EXPECT_TRUE(extensionHandler->NeedRender());
+    EXPECT_TRUE(frameNode->isRenderDirtyMarked_);
+}
+
+/**
+ * @tc.name: ForegroundRender001
+ * @tc.desc: Test ForegroundRender with foreGroundRender_ function set.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, ForegroundRender001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and set foreGroundRender_ function.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::SetForeGroundRenderImpl;
+        using ExtensionHandler::NeedRender;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    bool foreGroundRenderCalled = false;
+
+    extensionHandler->SetForeGroundRenderImpl([&foreGroundRenderCalled]() {
+        foreGroundRenderCalled = true;
+    });
+
+    /**
+     * @tc.steps: step2. Call ForegroundRender method.
+     * @tc.expected: expect foreGroundRender_ function is called and needRender_ is set to true.
+     */
+    extensionHandler->ForegroundRender();
+
+    EXPECT_TRUE(foreGroundRenderCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: ForegroundRender002
+ * @tc.desc: Test ForegroundRender without foreGroundRender_ function but with node_.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, ForegroundRender002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and attach a mock frame node.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::AttachFrameNode;
+        using ExtensionHandler::NeedRender;
+    };
+
+    class MockFrameNode : public FrameNode {
+    public:
+        MockFrameNode() : FrameNode("Mock", -1, AceType::MakeRefPtr<Pattern>()) {}
+        bool markNeedRenderOnlyCalled = false;
+
+        void MarkNeedRenderOnly() {
+            markNeedRenderOnlyCalled = true;
+        }
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto mockNode = AceType::MakeRefPtr<MockFrameNode>();
+
+    extensionHandler->AttachFrameNode(static_cast<FrameNode*>(mockNode.GetRawPtr()));
+
+    /**
+     * @tc.steps: step2. Call ForegroundRender method.
+     * @tc.expected: expect node_->MarkNeedRenderOnly() is called and needRender_ is set to true.
+     */
+    extensionHandler->ForegroundRender();
+
+    EXPECT_FALSE(mockNode->markNeedRenderOnlyCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: ForegroundRender003
+ * @tc.desc: Test ForegroundRender without foreGroundRender_ function and without node_.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, ForegroundRender003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler without setting foreGroundRender_ or node_.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::NeedRender;
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+
+    /**
+     * @tc.steps: step2. Call ForegroundRender method.
+     * @tc.expected: expect needRender_ is set to true but no function is called.
+     */
+    extensionHandler->ForegroundRender();
+
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: ForegroundRender004
+ * @tc.desc: Test ForegroundRender with both foreGroundRender_ function and node_.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, ForegroundRender004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create ExtensionHandler and set both foreGroundRender_ function and node_.
+     */
+    class TestExtensionHandler : public ExtensionHandler {
+    public:
+        using ExtensionHandler::SetForeGroundRenderImpl;
+        using ExtensionHandler::AttachFrameNode;
+        using ExtensionHandler::NeedRender;
+    };
+
+    class MockFrameNode : public FrameNode {
+    public:
+        MockFrameNode() : FrameNode("Mock", -1, AceType::MakeRefPtr<Pattern>()) {}
+        bool markNeedRenderOnlyCalled = false;
+
+        void MarkNeedRenderOnly() {
+            markNeedRenderOnlyCalled = true;
+        }
+    };
+
+    auto extensionHandler = AceType::MakeRefPtr<TestExtensionHandler>();
+    auto mockNode = AceType::MakeRefPtr<MockFrameNode>();
+    bool foreGroundRenderCalled = false;
+
+    extensionHandler->SetForeGroundRenderImpl([&foreGroundRenderCalled]() {
+        foreGroundRenderCalled = true;
+    });
+
+    extensionHandler->AttachFrameNode(static_cast<FrameNode*>(mockNode.GetRawPtr()));
+
+    /**
+     * @tc.steps: step2. Call ForegroundRender method.
+     * @tc.expected: expect foreGroundRender_ function is called but node_->MarkNeedRenderOnly() is not called.
+     */
+    extensionHandler->ForegroundRender();
+
+    EXPECT_TRUE(foreGroundRenderCalled);
+    EXPECT_FALSE(mockNode->markNeedRenderOnlyCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+}
+
+/**
+ * @tc.name: ForegroundRender005
+ * @tc.desc: Test ForegroundRender gives priority to foreGroundRender_ over node_ and updates needRender_ from false.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, ForegroundRender005, TestSize.Level1)
+{
+    auto extensionHandler = AceType::MakeRefPtr<ExtensionHandler>();
+    auto frameNode = CreateRenderTestFrameNode("foreground_render_priority", 2005);
+    bool foreGroundRenderCalled = false;
+
+    extensionHandler->AttachFrameNode(AceType::RawPtr(frameNode));
+    extensionHandler->SetForeGroundRenderImpl([&foreGroundRenderCalled]() { foreGroundRenderCalled = true; });
+    extensionHandler->ResetNeedRender();
+    ASSERT_FALSE(extensionHandler->NeedRender());
+    ASSERT_FALSE(frameNode->isRenderDirtyMarked_);
+
+    extensionHandler->ForegroundRender();
+
+    EXPECT_TRUE(foreGroundRenderCalled);
+    EXPECT_TRUE(extensionHandler->NeedRender());
+    EXPECT_FALSE(frameNode->isRenderDirtyMarked_);
+}
+
+/**
+ * @tc.name: ForegroundRender006
+ * @tc.desc: Test ForegroundRender marks attached frame node dirty when foreGroundRender_ is not set.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ExtensionHandlerTestNg, ForegroundRender006, TestSize.Level1)
+{
+    auto extensionHandler = AceType::MakeRefPtr<ExtensionHandler>();
+    auto frameNode = CreateRenderTestFrameNode("foreground_render_node", 2006);
+
+    extensionHandler->AttachFrameNode(AceType::RawPtr(frameNode));
+    extensionHandler->ResetNeedRender();
+    ASSERT_FALSE(extensionHandler->NeedRender());
+    ASSERT_FALSE(frameNode->isRenderDirtyMarked_);
+
+    extensionHandler->ForegroundRender();
+
+    EXPECT_TRUE(extensionHandler->NeedRender());
+    EXPECT_TRUE(frameNode->isRenderDirtyMarked_);
 }
 }

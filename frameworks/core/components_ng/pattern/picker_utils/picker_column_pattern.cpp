@@ -301,11 +301,13 @@ void PickerColumnPattern::PlayPressAnimation(const Color& pressColor)
     option.SetDuration(PRESS_ANIMATION_DURATION);
     option.SetCurve(Curves::SHARP);
     option.SetFillMode(FillMode::FORWARDS);
+    auto host = GetHost();
+    auto context = host? host->GetContextRefPtr(): nullptr;
     AnimationUtils::Animate(option, [weak = AceType::WeakClaim(this), pressColor]() {
         auto picker = weak.Upgrade();
         CHECK_NULL_VOID(picker);
         picker->SetButtonBackgroundColor(pressColor);
-    });
+    }, nullptr, nullptr, context);
 }
 
 void PickerColumnPattern::PlayHoverAnimation(const Color& color)
@@ -314,11 +316,13 @@ void PickerColumnPattern::PlayHoverAnimation(const Color& color)
     option.SetDuration(HOVER_ANIMATION_DURATION);
     option.SetCurve(Curves::FRICTION);
     option.SetFillMode(FillMode::FORWARDS);
+    auto host = GetHost();
+    auto context = host? host->GetContextRefPtr(): nullptr;
     AnimationUtils::Animate(option, [weak = AceType::WeakClaim(this), color]() {
         auto picker = weak.Upgrade();
         CHECK_NULL_VOID(picker);
         picker->SetButtonBackgroundColor(color);
-    });
+    }, nullptr, nullptr, context);
 }
 
 bool PickerColumnPattern::OnDirtyLayoutWrapperSwap(const RefPtr<LayoutWrapper>& dirty, const DirtySwapConfig& config)
@@ -394,6 +398,11 @@ bool PickerColumnPattern::InnerHandleScroll(bool isDown, bool isUpatePropertiesO
     auto totalOptionCount = pattern->GetOptionCount();
     CHECK_NULL_RETURN(totalOptionCount, false);
 
+    if (!GetCanLoopFromLayoutPropertyWithStartEnd() && ((isDown && currentIndex_ == totalOptionCount - 1) ||
+        (!isDown && currentIndex_ == 0))) {
+        return false;
+    }
+
     uint32_t currentIndex = GetCurrentIndex();
     if (isDown) {
         currentIndex = (totalOptionCount + currentIndex + 1) % totalOptionCount; // index add one
@@ -456,43 +465,52 @@ void PickerColumnPattern::InitPanEvent(const RefPtr<GestureEventHub>& gestureHub
 void PickerColumnPattern::HandleDragStart(const GestureEvent& event)
 {
     SetSelectedMark();
-    CHECK_NULL_VOID(GetHost());
-    CHECK_NULL_VOID(GetToss());
-    auto toss = GetToss(); // todo
-    auto offsetY = event.GetGlobalPoint().GetY();
-    toss->SetStart(offsetY);
-    yLast_ = offsetY;
-    pressed_ = true;
+    // Cache host and toss once to avoid repeated lookups in hotpath
     auto frameNode = GetHost();
     CHECK_NULL_VOID(frameNode);
-    frameNode->AddFRCSceneInfo(PICKER_DRAG_SCENE, event.GetMainVelocity(), SceneStatus::START);
+    auto toss = GetToss();
+    CHECK_NULL_VOID(toss);
+
+    const double rawY = event.GetLocalLocation().GetY();
+    toss->SetStart(rawY);
+    yLast_ = rawY;
+    pressed_ = true;
+    const double mainVelocity = event.GetMainVelocity();
+    frameNode->AddFRCSceneInfo(PICKER_DRAG_SCENE, mainVelocity, SceneStatus::START);
 }
 
 void PickerColumnPattern::HandleDragMove(const GestureEvent& event)
 {
-    if (event.GetInputEventType() == InputEventType::AXIS && event.GetSourceTool() == SourceTool::MOUSE &&
-        CanMove(LessNotEqual(event.GetDelta().GetY(), 0.0))) {
-        InnerHandleScroll(LessNotEqual(event.GetDelta().GetY(), 0.0), true);
+    if (event.GetInputEventType() == InputEventType::AXIS && event.GetSourceTool() == SourceTool::MOUSE) {
+        stopHaptic_ = true;
+        InnerHandleScroll(LessNotEqual(event.GetDelta().GetY(), 0.0f), true);
         return;
     }
     animationBreak_ = false;
-    CHECK_NULL_VOID(pressed_);
-    CHECK_NULL_VOID(GetHost());
-    CHECK_NULL_VOID(GetToss());
+    if (!pressed_) {
+        return;
+    }
+
+    // Cache frequently used objects/values to avoid repeated calls
+    auto frameNode = GetHost();
+    CHECK_NULL_VOID(frameNode);
     auto toss = GetToss();
-    auto offsetY =
-        event.GetGlobalPoint().GetY() + (event.GetInputEventType() == InputEventType::AXIS ? event.GetOffsetY() : 0.0);
-    if (NearEqual(offsetY, yLast_, 1.0)) { // if changing less than 1.0, no need to handle
+    CHECK_NULL_VOID(toss);
+
+    const bool isAxis = (event.GetInputEventType() == InputEventType::AXIS);
+    const double rawY = event.GetLocalLocation().GetY();
+    const double offsetY = rawY + (isAxis ? event.GetOffsetY() : 0.0f);
+    if (NearEqual(offsetY, yLast_, 1.0f)) { // if changing less than 1.0, no need to handle
         if (hapticController_) {
             hapticController_->Stop();
         }
         return;
     }
+
     toss->SetEnd(offsetY);
     UpdateColumnChildPosition(offsetY);
-    auto frameNode = GetHost();
-    CHECK_NULL_VOID(frameNode);
-    frameNode->AddFRCSceneInfo(PICKER_DRAG_SCENE, event.GetMainVelocity(), SceneStatus::RUNNING);
+    const double mainVelocity = event.GetMainVelocity();
+    frameNode->AddFRCSceneInfo(PICKER_DRAG_SCENE, mainVelocity, SceneStatus::RUNNING);
 }
 
 void PickerColumnPattern::HandleDragEnd()
@@ -566,11 +584,13 @@ void PickerColumnPattern::CreateAnimation(double from, double to)
     option.SetCurve(Curves::FAST_OUT_SLOW_IN);
     option.SetDuration(CLICK_ANIMATION_DURATION);
     scrollProperty_->Set(from);
+    auto host = GetHost();
+    auto context = host? host->GetContextRefPtr(): nullptr;
     AnimationUtils::Animate(option, [weak = AceType::WeakClaim(this), to]() {
         auto column = weak.Upgrade();
         CHECK_NULL_VOID(column);
         column->scrollProperty_->Set(to);
-    });
+    }, nullptr, nullptr, context);
 }
 
 void PickerColumnPattern::ScrollOption(double delta, bool isJump)
@@ -688,7 +708,8 @@ void PickerColumnPattern::SetOptionShiftDistance()
     uint32_t itemCounts = 0;
     CHECK_EQUAL_VOID(GetOptionItemCount(itemCounts), false);
     bool isLanscape = IsLanscape(itemCounts);
-    for (uint32_t i = 0; i < itemCounts; i++) {
+    uint32_t counts = itemCounts > optionProperties_.size() ? optionProperties_.size() : itemCounts;
+    for (uint32_t i = 0; i < counts; i++) {
         PickerOptionProperty& prop = optionProperties_[i];
         if (isLanscape) {
             prop.prevDistance = GetShiftDistanceForLandscape(i, PickerScrollDirection::UP);
@@ -1030,6 +1051,9 @@ void PickerColumnPattern::AddHotZoneRectToText()
     CHECK_NULL_VOID(host);
     auto childSize = static_cast<int32_t>(host->GetChildren().size());
     auto midSize = childSize / MIDDLE_CHILD_INDEX;
+    if (static_cast<int32_t>(optionProperties_.size()) <= midSize || midSize <= 0) {
+        return;
+    }
     auto middleChildHeight = optionProperties_[midSize].height;
     auto otherChildHeight = optionProperties_[midSize - 1].height;
     for (int32_t i = 0; i < childSize; i++) {
@@ -1087,7 +1111,7 @@ bool PickerColumnPattern::NotLoopOptions() const
     auto showOptionCount = GetShowCount();
     auto pattern = host->GetPattern<PickerColumnPattern>();
     CHECK_NULL_RETURN(pattern, false);
-    uint32_t totalOptionCount = pattern->GetOptionCount();
+    uint32_t totalOptionCount = pattern->GetActualOptionCount();
     return totalOptionCount <= showOptionCount / HALF_NUMBER + 1; // the critical value of loop condition.
 }
 
@@ -1106,7 +1130,6 @@ void PickerColumnPattern::AddAnimationTextProperties(
                 optionProperties_[currentIndex].fontheight = optionProperties_[currentIndex].height;
             }
         }
-        SetOptionShiftDistance();
         properties.fontSize = Dimension(textLayoutProperty->GetFontSize().value().ConvertToPx());
     }
     if (textLayoutProperty->HasTextColor()) {

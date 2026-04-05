@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2023 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,9 +23,7 @@
 
 #include "base/image/pixel_map.h"
 #include "base/memory/ace_type.h"
-#include "base/utils/device_config.h"
 #include "core/common/ime/text_input_action.h"
-#include "core/common/resource/resource_object.h"
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/text_style.h"
 #include "core/components_ng/base/view_abstract_model.h"
@@ -84,6 +82,8 @@ struct UpdateSpanStyle {
         updateFontFeature.reset();
         updateTextBackgroundStyle.reset();
         updateUrlAddress.reset();
+        updateStrokeWidth.reset();
+        updateStrokeColor.reset();
 
         updateLineHeight.reset();
         updateHalfLeading.reset();
@@ -95,7 +95,10 @@ struct UpdateSpanStyle {
         updateImageFit.reset();
         marginProp.reset();
         borderRadius.reset();
+        useThemeFontColor = true;
+        useThemeDecorationColor = true;
         isInitDecoration = false;
+        strokeColorFollowFontColor = false;
 
         updateSymbolColor.reset();
         updateSymbolFontSize.reset();
@@ -116,6 +119,8 @@ struct UpdateSpanStyle {
     std::optional<std::vector<Shadow>> updateTextShadows = std::nullopt;
     std::optional<NG::FONT_FEATURES_LIST> updateFontFeature = std::nullopt;
     std::optional<TextBackgroundStyle> updateTextBackgroundStyle = std::nullopt;
+    std::optional<CalcDimension> updateStrokeWidth = std::nullopt;
+    std::optional<Color> updateStrokeColor = std::nullopt;
     std::optional<std::u16string> updateUrlAddress = std::nullopt;
 
     std::optional<CalcDimension> updateLineHeight = std::nullopt;
@@ -126,37 +131,54 @@ struct UpdateSpanStyle {
     std::optional<CalcDimension> updateImageHeight = std::nullopt;
     std::optional<VerticalAlign> updateImageVerticalAlign = std::nullopt;
     std::optional<ImageFit> updateImageFit = std::nullopt;
+
     std::optional<OHOS::Ace::NG::MarginProperty> marginProp = std::nullopt;
     std::optional<OHOS::Ace::NG::BorderRadiusProperty> borderRadius = std::nullopt;
     bool useThemeFontColor = true;
     bool useThemeDecorationColor = true;
     bool isInitDecoration = false;
-    
+    bool strokeColorFollowFontColor = false;
+
     std::optional<std::vector<Color>> updateSymbolColor = std::nullopt;
     std::optional<CalcDimension> updateSymbolFontSize = std::nullopt;
     std::optional<FontWeight> updateSymbolFontWeight = std::nullopt;
     std::optional<uint32_t> updateSymbolRenderingStrategy = std::nullopt;
     std::optional<uint32_t> updateSymbolEffectStrategy = std::nullopt;
 
-    void UpdateColorByResourceId()
+    struct resourceUpdater {
+        RefPtr<ResourceObject> resObj;
+        std::function<void(const RefPtr<ResourceObject>&, struct UpdateSpanStyle&)> updateFunc;
+    };
+    std::unordered_map<std::string, resourceUpdater> resMap_;
+
+    void AddResource(
+        const std::string& key,
+        const RefPtr<ResourceObject>& resObj,
+        std::function<void(const RefPtr<ResourceObject>&, struct UpdateSpanStyle&)>&& updateFunc)
     {
-        if (updateTextColor) {
-            updateTextColor->UpdateColorByResourceId();
+        CHECK_NULL_VOID(resObj && updateFunc);
+        resMap_[key] = { resObj, std::move(updateFunc) };
+    }
+
+    void ReloadResources()
+    {
+        for (const auto& [key, resourceUpdater] : resMap_) {
+            resourceUpdater.updateFunc(resourceUpdater.resObj, *this);
         }
-        if (updateTextDecorationColor) {
-            updateTextDecorationColor->UpdateColorByResourceId();
-        }
-        if (updateTextShadows) {
+        if (updateTextShadows.has_value()) {
             auto& shadows = updateTextShadows.value();
-            std::for_each(shadows.begin(), shadows.end(), [](Shadow& sd) { sd.UpdateColorByResourceId(); });
+            std::for_each(shadows.begin(), shadows.end(), [](Shadow& sd) { sd.ReloadResources(); });
         }
-        if (updateSymbolColor) {
-            auto& colors = updateSymbolColor.value();
-            std::for_each(colors.begin(), colors.end(), [](Color& cl) { cl.UpdateColorByResourceId(); });
+        if (updateTextBackgroundStyle.has_value()) {
+            updateTextBackgroundStyle->ReloadResources();
         }
-        if (updateTextBackgroundStyle) {
-            updateTextBackgroundStyle->UpdateColorByResourceId();
-        }
+    }
+
+    const RefPtr<ResourceObject>& GetResource(const std::string& key) const
+    {
+        static const RefPtr<ResourceObject> invalidResObj = nullptr;
+        auto iter = resMap_.find(key);
+        return iter == resMap_.end() ? invalidResObj : iter->second.resObj;
     }
 
     std::string ToString() const
@@ -180,6 +202,7 @@ struct UpdateSpanStyle {
         JSON_STRING_PUT_OPTIONAL_STRINGABLE(jsonValue, borderRadius);
         JSON_STRING_PUT_BOOL(jsonValue, useThemeFontColor);
         JSON_STRING_PUT_BOOL(jsonValue, useThemeDecorationColor);
+        JSON_STRING_PUT_BOOL(jsonValue, strokeColorFollowFontColor);
         return jsonValue->ToString();
     }
 };
@@ -193,6 +216,7 @@ struct UpdateParagraphStyle {
         lineBreakStrategy.reset();
         paragraphSpacing.reset();
         textVerticalAlign.reset();
+        textDirection.reset();
     }
     std::optional<TextAlign> textAlign;
     std::optional<NG::LeadingMargin> leadingMargin;
@@ -200,6 +224,7 @@ struct UpdateParagraphStyle {
     std::optional<LineBreakStrategy> lineBreakStrategy;
     std::optional<Dimension> paragraphSpacing;
     std::optional<TextVerticalAlign> textVerticalAlign;
+    std::optional<TextDirection> textDirection;
 
     std::string ToString() const
     {
@@ -210,6 +235,7 @@ struct UpdateParagraphStyle {
         JSON_STRING_PUT_OPTIONAL_INT(jsonValue, lineBreakStrategy);
         JSON_STRING_PUT_OPTIONAL_STRINGABLE(jsonValue, paragraphSpacing);
         JSON_STRING_PUT_OPTIONAL_INT(jsonValue, textVerticalAlign);
+        JSON_STRING_PUT_OPTIONAL_INT(jsonValue, textDirection);
         return jsonValue->ToString();
     }
 };
@@ -237,6 +263,7 @@ struct TextSpanOptions : SpanOptionBase {
     UserGestureOptions userGestureOption;
     bool useThemeFontColor = true;
     bool useThemeDecorationColor = true;
+    bool strokeColorFollowFontColor = false;
 
     std::string ToString() const
     {
@@ -247,6 +274,7 @@ struct TextSpanOptions : SpanOptionBase {
         JSON_STRING_PUT_OPTIONAL_STRINGABLE(jsonValue, paraStyle);
         JSON_STRING_PUT_BOOL(jsonValue, useThemeFontColor);
         JSON_STRING_PUT_BOOL(jsonValue, useThemeDecorationColor);
+        JSON_STRING_PUT_BOOL(jsonValue, strokeColorFollowFontColor);
         return jsonValue->ToString();
     }
 };
@@ -319,16 +347,16 @@ public:
     virtual void SetTypingStyle(std::optional<struct UpdateSpanStyle> typingStyle,
         std::optional<TextStyle> textStyle) = 0;
     virtual void SetTypingParagraphStyle(std::optional<struct UpdateParagraphStyle> typingParagraphStyle) = 0;
+    virtual void SetPlaceholderStyledString(const RefPtr<SpanStringBase>& value) = 0;
     virtual std::optional<struct UpdateSpanStyle> GetTypingStyle() = 0;
     virtual void CloseSelectionMenu() = 0;
     virtual bool IsEditing() = 0;
     virtual void StopEditing() = 0;
+    virtual void DeleteBackward() = 0;
     virtual void SetSelection(int32_t selectionStart, int32_t selectionEnd,
         const std::optional<SelectionOptions>& options = std::nullopt, bool isForward = false) = 0;
     virtual WeakPtr<NG::LayoutInfoInterface> GetLayoutInfoInterface() = 0;
     virtual const PreviewTextInfo GetPreviewTextInfo() const = 0;
-    virtual ColorMode GetColorMode() = 0;
-    virtual RefPtr<NG::RichEditorTheme> GetTheme() = 0;
 };
 
 class ACE_EXPORT RichEditorControllerBase : virtual public RichEditorBaseControllerBase {
@@ -377,6 +405,7 @@ public:
     virtual void SetAboutToDelete(std::function<bool(const NG::RichEditorDeleteValue&)>&& func) = 0;
     virtual void SetOnDeleteComplete(std::function<void()>&& func) = 0;
     virtual void SetCustomKeyboard(std::function<void()>&& func, bool supportAvoidance = false) = 0;
+    virtual void SetCustomKeyboardWithNode(NG::FrameNode* customKeyboard, bool supportAvoidance = false) {};
     virtual void SetCopyOption(CopyOptions& copyOptions) = 0;
     virtual void BindSelectionMenu(NG::TextSpanType& editorType, NG::TextResponseType& responseType,
         std::function<void()>& buildFunc, NG::SelectMenuParam& menuParam) = 0;
@@ -384,6 +413,10 @@ public:
     virtual void SetPlaceholder(PlaceholderOptions& options) = 0;
     virtual void SetTextDetectEnable(bool value) = 0;
     virtual void SetSupportPreviewText(bool value) = 0;
+    virtual void SetSelectDetectEnable(const bool value) = 0;
+    virtual void ResetSelectDetectEnable() = 0;
+    virtual void SetSelectDetectConfig(std::vector<TextDataDetectType>& types) = 0;
+    virtual void ResetSelectDetectConfig() = 0;
     virtual void SetTextDetectConfig(const TextDetectConfig& textDetectConfig) = 0;
     virtual void SetSelectedBackgroundColor(const Color& selectedColor) = 0;
     virtual void SetCaretColor(const Color& color) = 0;
@@ -394,7 +427,7 @@ public:
     virtual void SetOnDidChange(std::function<void(const NG::RichEditorChangeValue&)>&& func) = 0;
     virtual void SetOnCut(std::function<void(NG::TextCommonEvent&)>&& func) = 0;
     virtual void SetOnCopy(std::function<void(NG::TextCommonEvent&)>&& func) = 0;
-    virtual void SetOnShare(std::function<void(NG::TextCommonEvent&)>&& func) = 0;
+    virtual void SetOnWillAttachIME(IMEAttachCallback&& func) {};
     virtual void SetSelectionMenuOptions(const NG::OnCreateMenuCallback&& onCreateMenuCallback,
         const NG::OnMenuItemClickCallback&& onMenuItemClick,
         const NG::OnPrepareMenuCallback&& onPrepareMenuCallback) {}
@@ -407,9 +440,18 @@ public:
     virtual void ResetMaxLength() {}
     virtual void SetMaxLines(uint32_t value) {};
     virtual void SetEnableAutoSpacing(bool enabled) {};
+    virtual void SetOrphanCharOptimization(bool enabled) {};
+    virtual void SetCompressLeadingPunctuation(bool enabled) {};
     virtual void SetStopBackPress(bool isStopBackPress) {};
     virtual void SetKeyboardAppearance(KeyboardAppearance value) {};
     virtual void SetSupportStyledUndo(bool enabled) {};
+    virtual void SetScrollBarColor(std::optional<Color> value) {};
+    virtual void SetIncludeFontPadding(bool enabled) {};
+    virtual void SetFallbackLineSpacing(bool enabled) {};
+    virtual void SetSingleLine(bool enabled) {};
+    virtual void ResetSingleLine() {};
+    virtual void SetSelectedDragPreviewStyle(const Color& value) {};
+    virtual void ResetSelectedDragPreviewStyle() {};
 
 private:
     static std::unique_ptr<RichEditorModel> instance_;

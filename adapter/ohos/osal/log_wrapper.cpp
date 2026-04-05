@@ -19,6 +19,7 @@
 #include <dlfcn.h>
 #endif
 #include <mutex>
+#include <sstream>
 
 #ifdef ACE_INSTANCE_LOG
 #include "core/common/container_scope.h"
@@ -125,9 +126,10 @@ const std::unordered_map<AceLogTag, const char*> g_DOMAIN_CONTENTS_MAP = {
     { AceLogTag::ACE_APPBAR, "AceAppBar" },
     { AceLogTag::ACE_SELECT_OVERLAY, "AceSelectOverlay" },
     { AceLogTag::ACE_CLIPBOARD, "AceClipBoard" },
+    { AceLogTag::ACE_VISUAL_EFFECT, "AceVisualEffect" },
     { AceLogTag::ACE_SECURITY_COMPONENT, "AceSecurityComponent" },
-    { AceLogTag::ACE_LAYOUT_INSPECTOR, "AceLayoutInspector" },
     { AceLogTag::ACE_MEDIA_QUERY, "AceMediaQuery" },
+    { AceLogTag::ACE_LAYOUT_INSPECTOR, "AceLayoutInspector" },
     { AceLogTag::ACE_LAYOUT, "AceLayout" },
     { AceLogTag::ACE_STYLUS, "AceStylus" },
     { AceLogTag::ACE_BADGE, "AceBadge" },
@@ -135,6 +137,8 @@ const std::unordered_map<AceLogTag, const char*> g_DOMAIN_CONTENTS_MAP = {
     { AceLogTag::ACE_PROGRESS, "ACE_PROGRESS" },
     { AceLogTag::ACE_DRAWABLE_DESCRIPTOR, "AceDrawableDescriptor" },
     { AceLogTag::ACE_LAZY_GRID, "AceLazyGrid" },
+    { AceLogTag::ACE_CONTAINER_PICKER, "AceContainerPicker" },
+    { AceLogTag::ACE_COLOR_SAMPLER, "AceColorSampler" },
 };
 // initial static member object
 LogLevel LogWrapper::level_ = LogLevel::DEBUG;
@@ -177,5 +181,46 @@ bool LogBacktrace(size_t maxFrameNums)
     LOGI("Backtrace: skipFrameNum=%{public}zu maxFrameNums=%{public}zu\n%{public}s",
         skipFrameNum, maxFrameNums, pfnGetTrace(skipFrameNum, maxFrameNums));
     return true;
+}
+
+static uintptr_t SetCrashObj(const char* msg)
+{
+    static uintptr_t (*pfnSetCrashObj)(uint8_t, uintptr_t);
+#ifdef _GNU_SOURCE
+    if (!pfnSetCrashObj) {
+        pfnSetCrashObj = (decltype(pfnSetCrashObj))dlsym(RTLD_DEFAULT, "DFX_SetCrashObj");
+    }
+#endif
+    if (!pfnSetCrashObj) {
+        return 0;
+    }
+    return pfnSetCrashObj(0, reinterpret_cast<uintptr_t>(msg));
+}
+
+static void ResetCrashObj(uintptr_t crashObj)
+{
+    static void (*pfnResetCrashObj)(uintptr_t);
+#ifdef _GNU_SOURCE
+    if (!pfnResetCrashObj) {
+        pfnResetCrashObj = (decltype(pfnResetCrashObj))dlsym(RTLD_DEFAULT, "DFX_ResetCrashObj");
+    }
+#endif
+    if (!pfnResetCrashObj) {
+        return;
+    }
+    pfnResetCrashObj(crashObj);
+}
+
+CallbackLogger::CallbackLogger(const std::string& funcName, uintptr_t callback)
+{
+    std::ostringstream oss;
+    oss << "[" << funcName << "] crash occured on callback: " << std::showbase << std::hex << callback;
+    msg_ = oss.str();
+    lastObjAddr_ = SetCrashObj(msg_.c_str());
+}
+
+CallbackLogger::~CallbackLogger()
+{
+    ResetCrashObj(lastObjAddr_);
 }
 } // namespace OHOS::Ace

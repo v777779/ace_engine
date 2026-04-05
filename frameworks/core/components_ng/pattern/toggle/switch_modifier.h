@@ -48,9 +48,10 @@ public:
         PaintSwitch(canvas, offset_->Get(), size_->Get());
     }
 
-    void UpdateAnimatableProperty()
+    void UpdateAnimatableProperty(const RefPtr<FrameNode>& host)
     {
-        SetSwitchBoardColor();
+        CHECK_NULL_VOID(host);
+        SetSwitchBoardColor(host);
         if (!actualSize_.IsPositive()) {
             return;
         }
@@ -69,13 +70,16 @@ public:
             AnimationUtils::Animate(colorOption, [&]() {
                 animatableBoardColor_->Set(isSelect_->Get() ?
                     LinearColor(userActiveColor_) : LinearColor(inactiveColor_));
-            });
+            }, nullptr, nullptr, host->GetContextRefPtr());
+        } else {
+            animatableBoardColor_->Set(isSelect_->Get() ? LinearColor(userActiveColor_) : LinearColor(inactiveColor_));
         }
         AnimationOption pointOption = AnimationOption();
         pointOption.SetDuration(pointAnimationDuration_);
         pointOption.SetCurve(Curves::FAST_OUT_SLOW_IN);
         float newPointOffset = 0.0f;
         if (!isDragEvent_) {
+            FixPointOffset();
             if (isRtl) {
                 newPointOffset = offsetIsRtl;
             } else {
@@ -90,42 +94,46 @@ public:
                     actualSize_.Width() - actualTrackRadius_);
             }
         }
-        AnimationUtils::Animate(pointOption, [&]() { pointOffset_->Set(newPointOffset); });
+        AnimationUtils::Animate(
+            pointOption, [&]() { pointOffset_->Set(newPointOffset); }, nullptr, nullptr, host->GetContextRefPtr());
     }
 
-    void SetSwitchBoardColor()
+    void SetSwitchBoardColor(const RefPtr<FrameNode>& host)
     {
         switch (touchHoverType_) {
             case TouchHoverAnimationType::HOVER:
-                SetBoardColor(LinearColor(hoverColor_), hoverDuration_, Curves::FRICTION);
+                SetBoardColor(LinearColor(hoverColor_), hoverDuration_, Curves::FRICTION, host);
                 break;
             case TouchHoverAnimationType::PRESS_TO_HOVER:
-                SetBoardColor(LinearColor(hoverColor_), hoverToTouchDuration_, Curves::SHARP);
+                SetBoardColor(LinearColor(hoverColor_), hoverToTouchDuration_, Curves::SHARP, host);
                 break;
             case TouchHoverAnimationType::NONE:
-                SetBoardColor(LinearColor(hoverColor_.BlendOpacity(0)), hoverDuration_, Curves::FRICTION);
+                SetBoardColor(LinearColor(hoverColor_.BlendOpacity(0)), hoverDuration_, Curves::FRICTION, host);
                 break;
             case TouchHoverAnimationType::HOVER_TO_PRESS:
-                SetBoardColor(LinearColor(clickEffectColor_), hoverToTouchDuration_, Curves::SHARP);
+                SetBoardColor(LinearColor(clickEffectColor_), hoverToTouchDuration_, Curves::SHARP, host);
                 break;
             case TouchHoverAnimationType::PRESS:
-                SetBoardColor(LinearColor(clickEffectColor_), hoverDuration_, Curves::FRICTION);
+                SetBoardColor(LinearColor(clickEffectColor_), hoverDuration_, Curves::FRICTION, host);
                 break;
             case TouchHoverAnimationType::FOCUS:
-                SetBoardColor(LinearColor(focusColor_), hoverDuration_, Curves::FRICTION);
+                SetBoardColor(LinearColor(focusColor_), hoverDuration_, Curves::FRICTION, host);
                 break;
             default:
                 break;
         }
     }
 
-    void SetBoardColor(LinearColor color, int32_t duratuion, const RefPtr<CubicCurve>& curve)
+    void SetBoardColor(
+        LinearColor color, int32_t duration, const RefPtr<CubicCurve>& curve, const RefPtr<FrameNode>& host)
     {
+        CHECK_NULL_VOID(host);
         if (animateTouchHoverColor_) {
             AnimationOption option = AnimationOption();
-            option.SetDuration(duratuion);
+            option.SetDuration(duration);
             option.SetCurve(curve);
-            AnimationUtils::Animate(option, [&]() { animateTouchHoverColor_->Set(color); });
+            AnimationUtils::Animate(
+                option, [&]() { animateTouchHoverColor_->Set(color); }, nullptr, nullptr, host->GetContextRefPtr());
         }
     }
 
@@ -215,6 +223,9 @@ public:
 
     void SetSize(SizeF& size)
     {
+        if (actualSize_ != size) {
+            isSizeChange_ = true;
+        }
         actualSize_ = size;
         if (size_) {
             size_->Set(size);
@@ -294,6 +305,7 @@ public:
     }
 
 private:
+    void FixPointOffset();
     float actualWidth_ = 0.0f;
     float actualHeight_ = 0.0f;
     float pointRadius_ = 0.0f;
@@ -320,6 +332,8 @@ private:
     bool isFirstCreated_ = true;
     bool showHoverEffect_ = true;
     bool isFocusOrBlur_ = false;
+    bool isSizeChange_ = false;
+    bool isSelectChange_ = false;
     float actualTrackRadius_ = 0.0f;
 
     OffsetF hotZoneOffset_;

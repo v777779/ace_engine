@@ -20,6 +20,7 @@
 
 #include "base/memory/ace_type.h"
 #include "base/utils/utils.h"
+#include "bridge/declarative_frontend/engine/js_converter.h"
 #include "bridge/declarative_frontend/jsview/canvas/js_rendering_context.h"
 #include "bridge/declarative_frontend/jsview/js_view_common_def.h"
 #include "core/common/container.h"
@@ -50,15 +51,14 @@ void* GetNapiCallbackInfoAndThis(napi_env env, napi_callback_info info)
 
 void* DetachImageBitmap(napi_env env, void* value, void* hint)
 {
+    // DetachImageBitmap IncRefCount for AttachImageBitmap
+    auto* wrapper = (JSRenderImage*)value;
+    wrapper->IncRefCount();
     return value;
 }
 
 napi_value AttachImageBitmap(napi_env env, void* value, void*)
 {
-    if (value == nullptr) {
-        LOGW("Invalid parameter.");
-        return nullptr;
-    }
     auto* wrapper = (JSRenderImage*)value;
     if (wrapper == nullptr) {
         LOGW("Invalid context.");
@@ -79,7 +79,6 @@ napi_value AttachImageBitmap(napi_env env, void* value, void*)
 
     napi_coerce_to_native_binding_object(env, imageBitmap, DetachImageBitmap, AttachImageBitmap, value, nullptr);
     napi_wrap_with_size(env, imageBitmap, value, JSRenderImage::Finalizer, nullptr, nullptr, wrapper->GetBindingSize());
-    wrapper->IncRefCount();
     return imageBitmap;
 }
 
@@ -105,7 +104,7 @@ napi_value JSRenderImage::Constructor(napi_env env, napi_callback_info info)
     if (argc <= 0) {
         napi_coerce_to_native_binding_object(
             env, thisVar, DetachImageBitmap, AttachImageBitmap, AceType::RawPtr(wrapper), nullptr);
-        napi_wrap(env, thisVar, AceType::RawPtr(wrapper), Finalizer, nullptr, nullptr);
+        napi_wrap_s(env, thisVar, AceType::RawPtr(wrapper), Finalizer, nullptr, &JS_RENDER_IMAGE_TYPE_TAG, nullptr);
         wrapper->IncRefCount();
         return thisVar;
     }
@@ -128,11 +127,22 @@ napi_value JSRenderImage::Constructor(napi_env env, napi_callback_info info)
         }
         wrapper->LoadImage(textString);
     } else {
+        auto jsValue = JsConverter::ConvertNapiValueToJsVal(argv[0]);
+        std::string src;
+        std::string bundleName;
+        std::string moduleName;
+        int32_t resId = 0;
+        bool srcValid = !jsValue.IsEmpty() &&
+            JSViewAbstract::ParseJsMediaWithBundleName(jsValue, src, bundleName, moduleName, resId);
+        if (srcValid) {
+            wrapper->LoadImage(src, bundleName, moduleName);
+        } else {
 #ifdef PIXEL_MAP_SUPPORTED
-        auto pixelMap = GetPixelMap(env, argv[0]);
-        CHECK_NULL_RETURN(pixelMap, nullptr);
-        wrapper->LoadImage(pixelMap);
+            auto pixelMap = GetPixelMap(env, argv[0]);
+            CHECK_NULL_RETURN(pixelMap, nullptr);
+            wrapper->LoadImage(pixelMap);
 #endif
+        }
     }
     napi_coerce_to_native_binding_object(
         env, thisVar, DetachImageBitmap, AttachImageBitmap, AceType::RawPtr(wrapper), nullptr);
@@ -314,6 +324,14 @@ void JSRenderImage::LoadImage(const std::string& src)
 {
     src_ = src;
     auto sourceInfo = ImageSourceInfo(src);
+    sourceInfo_ = sourceInfo;
+    LoadImage(sourceInfo);
+}
+
+void JSRenderImage::LoadImage(const std::string& src, const std::string& bundleName, const std::string& moduleName)
+{
+    src_ = src;
+    auto sourceInfo = ImageSourceInfo(src, bundleName, moduleName);
     sourceInfo_ = sourceInfo;
     LoadImage(sourceInfo);
 }

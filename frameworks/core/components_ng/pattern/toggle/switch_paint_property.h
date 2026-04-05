@@ -20,7 +20,6 @@
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/base/inspector_filter.h"
 #include "core/components_ng/pattern/toggle/toggle_model.h"
-#include "core/components_ng/property/property.h"
 #include "core/components_ng/render/paint_property.h"
 #include "core/pipeline_ng/pipeline_context.h"
 namespace OHOS::Ace::NG {
@@ -37,7 +36,7 @@ struct SwitchPaintParagraph {
     ACE_DEFINE_PROPERTY_GROUP_ITEM(UnselectedColorSetByUser, bool);
 
     void ToJsonValue(
-        std::unique_ptr<JsonValue>& json, const InspectorFilter& filter, const RefPtr<FrameNode> host) const;
+        std::unique_ptr<JsonValue>& json, const InspectorFilter& filter, const RefPtr<FrameNode>& host) const;
 };
 
 struct SwitchAnimationStyle {
@@ -47,7 +46,7 @@ struct SwitchAnimationStyle {
 
 // PaintProperty are used to set paint properties.
 class SwitchPaintProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(SwitchPaintProperty, PaintProperty)
+    DECLARE_ACE_TYPE(SwitchPaintProperty, PaintProperty);
 public:
     SwitchPaintProperty() = default;
     ~SwitchPaintProperty() override = default;

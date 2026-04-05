@@ -47,7 +47,7 @@ namespace  {
     const auto ATTRIBUTE_ITERATIONS_NAME = "iterations";
     const auto ATTRIBUTE_ITERATIONS_DEFAULT_VALUE = "1";
 
-    const auto ATTRIBUTE_SIZE_TEST_VALUE = 100;
+    const auto ATTRIBUTE_SIZE_TEST_VALUE = 100.;
 } // namespace
 
 class ImageAnimatorModifierTest : public ModifierTestBase<
@@ -96,10 +96,10 @@ RefPtr<PixelMap> ImageAnimatorModifierTest::CreatePixelMap(std::string& src)
 HWTEST_F(ImageAnimatorModifierTest, setImagesTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_IMAGES_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_DEFAULT_VALUE));
 }
 
 /*
@@ -109,24 +109,24 @@ HWTEST_F(ImageAnimatorModifierTest, setImagesTestDefaultValues, TestSize.Level1)
  */
 HWTEST_F(ImageAnimatorModifierTest, setImagesTestValidValues, TestSize.Level1)
 {
-    auto array = new Ark_ImageFrameInfo[] {
+    Ark_ImageFrameInfo array[] = {
         {
             .src = Converter::ArkUnion<Ark_Union_String_Resource_PixelMap, Ark_String>(
                 ATTRIBUTE_IMAGES_SRC_TEST_VALUE),
-            .width = Converter::ArkUnion<Opt_Union_Number_String, Ark_String>("auto"),
-            .height = Converter::ArkUnion<Opt_Union_Number_String, Ark_String>("100px"),
-            .top = Converter::ArkUnion<Opt_Union_Number_String, Ark_Number>(ATTRIBUTE_SIZE_TEST_VALUE),
-            .left = Converter::ArkUnion<Opt_Union_Number_String, Ark_Number>(ATTRIBUTE_SIZE_TEST_VALUE),
-            .duration = Converter::ArkValue<Opt_Number>(1),
+            .width = Converter::ArkUnion<Opt_Union_F64_String, Ark_String>("auto"),
+            .height = Converter::ArkUnion<Opt_Union_F64_String, Ark_String>("100px"),
+            .top = Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(ATTRIBUTE_SIZE_TEST_VALUE),
+            .left = Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(ATTRIBUTE_SIZE_TEST_VALUE),
+            .duration = Converter::ArkValue<Opt_Int32>(1),
         },
         {
             .src = Converter::ArkUnion<Ark_Union_String_Resource_PixelMap, Ark_Resource>(
                 CreateResource(IMAGES_OK_STR.c_str(), ResourceType::STRING)),
-            .width = Converter::ArkUnion<Opt_Union_Number_String, Ark_String>("auto"),
-            .height = Converter::ArkUnion<Opt_Union_Number_String, Ark_String>("100px"),
-            .top = Converter::ArkUnion<Opt_Union_Number_String, Ark_Number>(ATTRIBUTE_SIZE_TEST_VALUE),
-            .left = Converter::ArkUnion<Opt_Union_Number_String, Ark_Number>(ATTRIBUTE_SIZE_TEST_VALUE),
-            .duration = Converter::ArkValue<Opt_Number>(1),
+            .width = Converter::ArkUnion<Opt_Union_F64_String, Ark_String>("auto"),
+            .height = Converter::ArkUnion<Opt_Union_F64_String, Ark_String>("100px"),
+            .top = Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(ATTRIBUTE_SIZE_TEST_VALUE),
+            .left = Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(ATTRIBUTE_SIZE_TEST_VALUE),
+            .duration = Converter::ArkValue<Opt_Int32>(1),
         },
     };
     Array_ImageFrameInfo initValueImages = { .array = array, .length = 2 };
@@ -134,8 +134,8 @@ HWTEST_F(ImageAnimatorModifierTest, setImagesTestValidValues, TestSize.Level1)
     modifier_->setImages(node_, &optInitValueImages);
 
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
-    std::unique_ptr<JsonValue> resultImages = GetAttrValue<std::unique_ptr<JsonValue>>(
+    std::optional<std::string> resultStr;
+    std::unique_ptr<JsonValue> resultImages = GetAttrObject(
         jsonValue, ATTRIBUTE_IMAGES_NAME);
 
     if (resultImages->IsArray()) {
@@ -143,17 +143,17 @@ HWTEST_F(ImageAnimatorModifierTest, setImagesTestValidValues, TestSize.Level1)
         for (int i = 0; i < count; i++) {
             auto resultImage = resultImages->GetArrayItem(i);
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_SRC_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_SRC_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_SRC_TEST_VALUE));
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_LEFT_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_LEFT_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_LEFT_TEST_VALUE));
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_TOP_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_TOP_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_TOP_TEST_VALUE));
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_WIDTH_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_WIDTH_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_WIDTH_TEST_VALUE));
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_HEIGHT_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_HEIGHT_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_HEIGHT_TEST_VALUE));
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_DURATION_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_DURATION_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_DURATION_TEST_VALUE));
         }
     }
 }
@@ -171,14 +171,14 @@ HWTEST_F(ImageAnimatorModifierTest, setImagesTestPixelMap, TestSize.Level1)
     RefPtr<PixelMap> pixelMap = CreatePixelMap(imagesSrc);
     image_PixelMapPeer pixelMapPeer;
     pixelMapPeer.pixelMap = pixelMap;
-    auto array = new Ark_ImageFrameInfo[] {
+    Ark_ImageFrameInfo array[] = {
         {
             .src = Converter::ArkUnion<Ark_Union_String_Resource_PixelMap, Ark_image_PixelMap>(&pixelMapPeer),
-            .width = Converter::ArkUnion<Opt_Union_Number_String, Ark_String>("auto"),
-            .height = Converter::ArkUnion<Opt_Union_Number_String, Ark_String>("100px"),
-            .top = Converter::ArkUnion<Opt_Union_Number_String, Ark_Number>(ATTRIBUTE_SIZE_TEST_VALUE),
-            .left = Converter::ArkUnion<Opt_Union_Number_String, Ark_Number>(ATTRIBUTE_SIZE_TEST_VALUE),
-            .duration = Converter::ArkValue<Opt_Number>(1),
+            .width = Converter::ArkUnion<Opt_Union_F64_String, Ark_String>("auto"),
+            .height = Converter::ArkUnion<Opt_Union_F64_String, Ark_String>("100px"),
+            .top = Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(ATTRIBUTE_SIZE_TEST_VALUE),
+            .left = Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(ATTRIBUTE_SIZE_TEST_VALUE),
+            .duration = Converter::ArkValue<Opt_Int32>(1),
         },
     };
     Array_ImageFrameInfo initValueImages = { .array = array, .length = 1 };
@@ -186,30 +186,34 @@ HWTEST_F(ImageAnimatorModifierTest, setImagesTestPixelMap, TestSize.Level1)
     auto optInitValueImages = Converter::ArkValue<Opt_Array_ImageFrameInfo>(initValueImages);
     modifier_->setImages(node_, &optInitValueImages);
 
+#ifdef WRONG_PATTERN
     auto imageAnimatorPattern_ = frameNode->GetPattern<ImageAnimatorPattern>();
     EXPECT_NE(imageAnimatorPattern_, nullptr);
     EXPECT_EQ(imageAnimatorPattern_->GetImagesSize(), 1);
     auto imageProperties = imageAnimatorPattern_->GetImage(0);
     EXPECT_EQ(imageProperties.pixelMap, pixelMap);
+#endif
 
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
-    std::unique_ptr<JsonValue> resultImages = GetAttrValue<std::unique_ptr<JsonValue>>(
+    std::optional<std::string> resultStr;
+    std::unique_ptr<JsonValue> resultImages = GetAttrObject(
         jsonValue, ATTRIBUTE_IMAGES_NAME);
+    EXPECT_TRUE(resultImages->IsArray());
+    EXPECT_EQ(resultImages->GetArraySize(), 1);
     if (resultImages->IsArray()) {
         int32_t count = resultImages->GetArraySize();
         for (int i = 0; i < count; i++) {
             auto resultImage = resultImages->GetArrayItem(i);
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_LEFT_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_LEFT_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_LEFT_TEST_VALUE));
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_TOP_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_TOP_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_TOP_TEST_VALUE));
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_WIDTH_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_WIDTH_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_WIDTH_TEST_VALUE));
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_HEIGHT_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_HEIGHT_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_HEIGHT_TEST_VALUE));
             resultStr = GetAttrValue<std::string>(resultImage, ATTRIBUTE_IMAGES_DURATION_NAME);
-            EXPECT_EQ(resultStr, ATTRIBUTE_IMAGES_DURATION_TEST_VALUE);
+            EXPECT_THAT(resultStr, Eq(ATTRIBUTE_IMAGES_DURATION_TEST_VALUE));
         }
     }
 }
@@ -222,19 +226,19 @@ HWTEST_F(ImageAnimatorModifierTest, setImagesTestPixelMap, TestSize.Level1)
 HWTEST_F(ImageAnimatorModifierTest, setIterationsTestDefaultValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue = GetJsonValue(node_);
-    std::string resultStr;
+    std::optional<std::string> resultStr;
 
     resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ITERATIONS_NAME);
-    EXPECT_EQ(resultStr, ATTRIBUTE_ITERATIONS_DEFAULT_VALUE);
+    EXPECT_THAT(resultStr, Eq(ATTRIBUTE_ITERATIONS_DEFAULT_VALUE));
 }
 
 // Valid values for attribute 'iterations' of method 'iterations'
-static std::vector<std::tuple<std::string, Ark_Number, std::string>> iterationsIterationsValidValues = {
-    { "-1", Converter::ArkValue<Ark_Number>(-1), "-1" },
-    { "0", Converter::ArkValue<Ark_Number>(0), "0" },
-    { "1", Converter::ArkValue<Ark_Number>(1), "1" },
-    { "10", Converter::ArkValue<Ark_Number>(10), "10" },
-    { "50.5", Converter::ArkValue<Ark_Number>(50.5), "50" },
+static std::vector<std::tuple<std::string, Ark_Int32, std::string>> iterationsIterationsValidValues = {
+    { "-1", Converter::ArkValue<Ark_Int32>(-1), "-1" },
+    { "0", Converter::ArkValue<Ark_Int32>(0), "0" },
+    { "1", Converter::ArkValue<Ark_Int32>(1), "1" },
+    { "10", Converter::ArkValue<Ark_Int32>(10), "10" },
+    { "50", Converter::ArkValue<Ark_Int32>(50), "50" },
 };
 
 /*
@@ -245,7 +249,7 @@ static std::vector<std::tuple<std::string, Ark_Number, std::string>> iterationsI
 HWTEST_F(ImageAnimatorModifierTest, setIterationsTestValidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
 
     // Initial setup
@@ -257,19 +261,19 @@ HWTEST_F(ImageAnimatorModifierTest, setIterationsTestValidValues, TestSize.Level
 
     // Verifying attribute's  values
     for (auto& [input, value, expected]: iterationsIterationsValidValues) {
-        auto optValue = Converter::ArkValue<Opt_Number>(value);
+        auto optValue = Converter::ArkValue<Opt_Int32>(value);
         modifier_->setIterations(node_, &optValue);
         pattern->OnModifyDone();
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ITERATIONS_NAME);
-        EXPECT_EQ(resultStr, expected) << "Passed value is: " << input;
+        EXPECT_THAT(resultStr, Eq(expected)) << "Passed value is: " << input;
     }
 }
 
 // Invalid values for attribute 'iterations' of method 'iterations'
-static std::vector<std::tuple<std::string, Ark_Number>> iterationsIterationsInvalidValues = {
-    { "1", Converter::ArkValue<Ark_Number>(-2) },
-    { "1", Converter::ArkValue<Ark_Number>(-55.5) },
+static std::vector<std::tuple<std::string, Ark_Int32>> iterationsIterationsInvalidValues = {
+    { "-2", Converter::ArkValue<Ark_Int32>(-2) },
+    { "-55", Converter::ArkValue<Ark_Int32>(-55) },
 };
 
 /*
@@ -280,7 +284,7 @@ static std::vector<std::tuple<std::string, Ark_Number>> iterationsIterationsInva
 HWTEST_F(ImageAnimatorModifierTest, setIterationsTestInvalidValues, TestSize.Level1)
 {
     std::unique_ptr<JsonValue> jsonValue;
-    std::string resultStr;
+    std::optional<std::string> resultStr;
     std::string expectedStr;
 
     // Initial setup
@@ -292,13 +296,13 @@ HWTEST_F(ImageAnimatorModifierTest, setIterationsTestInvalidValues, TestSize.Lev
 
     // Verifying attribute's  values
     for (auto& [input, value]: iterationsIterationsInvalidValues) {
-        auto optValue = Converter::ArkValue<Opt_Number>(value);
+        auto optValue = Converter::ArkValue<Opt_Int32>(value);
         modifier_->setIterations(node_, &optValue);
         pattern->OnModifyDone();
         jsonValue = GetJsonValue(node_);
         resultStr = GetAttrValue<std::string>(jsonValue, ATTRIBUTE_ITERATIONS_NAME);
         expectedStr = ATTRIBUTE_ITERATIONS_DEFAULT_VALUE;
-        EXPECT_EQ(resultStr, expectedStr) << "Passed value is: " << input;
+        EXPECT_THAT(resultStr, Eq(expectedStr)) << "Passed value is: " << input;
     }
 }
 

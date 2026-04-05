@@ -333,6 +333,16 @@ bool GetImmersiveMode(ani_env* env, ani_object object, OHOS::Ace::ImmersiveMode&
     return true;
 }
 
+bool GetSystemMaterial(ani_env* env, ani_object object, OHOS::Ace::RefPtr<OHOS::Ace::UiMaterial>& result)
+{
+    int64_t ptrValue;
+    if (!GetInt64Param(env, object, "systemMaterial", ptrValue)) {
+        return false;
+    }
+    result = OHOS::Ace::AceType::Claim(reinterpret_cast<OHOS::Ace::UiMaterial*>(ptrValue));
+    return true;
+}
+
 void UpdateDialogAlignment(OHOS::Ace::DialogAlignment& alignment)
 {
     bool isRtl = OHOS::Ace::AceApplicationInfo::GetInstance().IsRightToLeft();
@@ -451,6 +461,7 @@ bool GetShowDialogOptionsInternal(ani_env* env, ani_object object, OHOS::Ace::Di
     if (!dialogProps.isShowInSubWindow) {
         GetDoubleParamOpt(env, object, "levelOrder", dialogProps.levelOrder);
     }
+    GetSystemMaterial(env, object, dialogProps.systemMaterial);
     return true;
 }
 
@@ -465,7 +476,7 @@ ani_ref CreateShowDialogSuccessResponse(ani_env* env, int32_t index)
     }
 
     ani_method ctorMethod;
-    status = env->Class_FindMethod(responseCls, "<ctor>", nullptr, &ctorMethod);
+    status = env->Class_FindMethod(responseCls, "<ctor>", ":", &ctorMethod);
     if (status != ANI_OK) {
         TAG_LOGE(OHOS::Ace::AceLogTag::ACE_DIALOG, "[ANI] Class_FindMethod <ctor> fail. status: %{public}d", status);
         return nullptr;
@@ -692,6 +703,24 @@ bool GetActionMenuOptions(ani_env* env, ani_object object, OHOS::Ace::DialogProp
     dialogProps.dialogLevelUniqueId = -1;
     GetInt32Param(env, object, "levelUniqueId", dialogProps.dialogLevelUniqueId);
     GetImmersiveMode(env, object, dialogProps.dialogImmersiveMode);
+    GetFunctionParam(env, object, "onDidAppear", dialogProps.onDidAppear);
+    GetFunctionParam(env, object, "onDidDisappear", dialogProps.onDidDisappear);
+    GetFunctionParam(env, object, "onWillAppear", dialogProps.onWillAppear);
+    GetFunctionParam(env, object, "onWillDisappear", dialogProps.onWillDisappear);
+    return true;
+}
+
+bool GetActionMenuOptionsInternal(ani_env* env, ani_object object, OHOS::Ace::DialogProperties& dialogProps)
+{
+    if (IsUndefinedObject(env, object)) {
+        return false;
+    }
+
+    if (!IsClassObject(env, object, "@ohos.promptAction.promptAction.ActionMenuOptionsInternal")) {
+        return false;
+    }
+
+    GetSystemMaterial(env, object, dialogProps.systemMaterial);
     return true;
 }
 
@@ -706,7 +735,7 @@ ani_ref CreateActionMenuSuccessResponse(ani_env* env, int32_t index)
     }
 
     ani_method ctorMethod;
-    status = env->Class_FindMethod(responseCls, "<ctor>", nullptr, &ctorMethod);
+    status = env->Class_FindMethod(responseCls, "<ctor>", ":", &ctorMethod);
     if (status != ANI_OK) {
         TAG_LOGE(OHOS::Ace::AceLogTag::ACE_DIALOG, "[ANI] Class_FindMethod fail. status: %{public}d", status);
         return nullptr;
@@ -875,6 +904,13 @@ bool GetOnWillDismiss(ani_env* env, ani_object object,
         return false;
     }
 
+    ani_vm* vm = nullptr;
+    status = env->GetVM(&vm);
+    if (status != ANI_OK || vm == nullptr) {
+        TAG_LOGE(OHOS::Ace::AceLogTag::ACE_DIALOG, "[ANI] GetVM fail. status: %{public}d", status);
+        return false;
+    }
+
     ani_ref globalRef;
     status = env->GlobalReference_Create(resultRef, &globalRef);
     if (status != ANI_OK) {
@@ -882,10 +918,17 @@ bool GetOnWillDismiss(ani_env* env, ani_object object,
         return false;
     }
 
-    result = [env, globalRef](const int32_t reason, const int32_t instanceId) {
+    result = [vm, globalRef](const int32_t reason, const int32_t instanceId) {
         TAG_LOGD(OHOS::Ace::AceLogTag::ACE_DIALOG,
             "Dissmiss dialog enter. reason: %{public}d, instanceId: %{public}d", reason, instanceId);
         if (!globalRef) {
+            return;
+        }
+
+        ani_env* env = nullptr;
+        ani_status status = vm->GetEnv(ANI_VERSION_1, &env);
+        if (status != ANI_OK || env == nullptr) {
+            TAG_LOGE(OHOS::Ace::AceLogTag::ACE_DIALOG, "[ANI] GetEnv fail. status: %{public}d", status);
             return;
         }
 
@@ -893,15 +936,9 @@ bool GetOnWillDismiss(ani_env* env, ani_object object,
         ani_ref actionRef = static_cast<ani_ref>(dismissDialogAction);
         ani_fn_object func = static_cast<ani_fn_object>(globalRef);
         ani_ref fnReturnVal {};
-        ani_status status = env->FunctionalObject_Call(func, 1, &actionRef, &fnReturnVal);
+        status = env->FunctionalObject_Call(func, 1, &actionRef, &fnReturnVal);
         if (status != ANI_OK) {
             TAG_LOGW(OHOS::Ace::AceLogTag::ACE_DIALOG, "[ANI] FunctionalObject_Call fail. status: %{public}d", status);
-        }
-
-        status = env->GlobalReference_Delete(globalRef);
-        if (status != ANI_OK) {
-            TAG_LOGW(OHOS::Ace::AceLogTag::ACE_DIALOG,
-                "[ANI] GlobalReference_Delete fail. status: %{public}d", status);
         }
     };
     return true;
@@ -1024,6 +1061,7 @@ bool GetDialogOptionsInternal(ani_env* env, ani_object object, OHOS::Ace::Dialog
     if (!dialogProps.isShowInSubWindow) {
         GetDoubleParamOpt(env, object, "levelOrder", dialogProps.levelOrder);
     }
+    GetSystemMaterial(env, object, dialogProps.systemMaterial);
     return true;
 }
 
@@ -1169,7 +1207,7 @@ bool GetCustomBuilderWithId(ani_env* env, ani_object object,
 
         ani_object builderObj = static_cast<ani_object>(fnReturnVal);
         ani_long builder;
-        status = env->Object_CallMethodByName_Long(builderObj, "toLong", nullptr, &builder);
+        status = env->Object_CallMethodByName_Long(builderObj, "toLong", ":l", &builder);
         if (status != ANI_OK) {
             TAG_LOGE(OHOS::Ace::AceLogTag::ACE_DIALOG, "[ANI] CallMethodByName_Long fail. status: %{public}d", status);
             return;

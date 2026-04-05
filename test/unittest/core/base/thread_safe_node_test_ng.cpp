@@ -17,7 +17,7 @@
 #define protected public
 #define private public
 
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/common/multi_thread_build_manager.h"
 #include "core/components_ng/base/frame_node.h"
@@ -313,6 +313,9 @@ HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg009, TestSize.Level1)
     /**
      * @tc.steps: step1. create thread safe uinode
      */
+    auto attachedNode =
+        FrameNode::CreateFrameNode("attachedNode", 2, AceType::MakeRefPtr<Pattern>(), true);
+    attachedNode->setIsCNode(true);
     MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
     auto frameNode =
         FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
@@ -322,10 +325,9 @@ HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg009, TestSize.Level1)
      * @tc.steps: step2. thread safe uinode AttachToMainTree and DetachFromMainTree
      * @tc.expected: attach and detach success
      */
-    PipelineContext* pipeline = frameNode->GetContextWithCheck();
-    frameNode->AttachToMainTree(false, pipeline);
+    attachedNode->AddChild(frameNode);
     EXPECT_EQ(frameNode->isFree_, false);
-    frameNode->DetachFromMainTree(false, false);
+    attachedNode->RemoveChild(frameNode);
     EXPECT_EQ(frameNode->isFree_, true);
 }
 
@@ -339,6 +341,9 @@ HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg010, TestSize.Level1)
     /**
      * @tc.steps: step1. create thread safe uinode
      */
+    auto attachedNode =
+        FrameNode::CreateFrameNode("attachedNode", 2, AceType::MakeRefPtr<Pattern>(), true);
+    attachedNode->setIsCNode(true);
     MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
     auto frameNode =
         FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
@@ -348,11 +353,10 @@ HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg010, TestSize.Level1)
      * @tc.steps: step2. thread safe uinode AttachToMainTree and DetachFromMainTree
      * @tc.expected: attach and detach success
      */
-    PipelineContext* pipeline = frameNode->GetContextWithCheck();
-    frameNode->AttachToMainTree(false, pipeline);
+    frameNode->AddChild(attachedNode);
     EXPECT_EQ(frameNode->isFree_, false);
-    frameNode->DetachFromMainTree(false, true);
-    EXPECT_EQ(frameNode->isFree_, true);
+    frameNode->RemoveChild(attachedNode);
+    EXPECT_EQ(frameNode->isFree_, false);
 }
 
 /**
@@ -365,6 +369,9 @@ HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg011, TestSize.Level1)
     /**
      * @tc.steps: step1. create thread safe uinode tree
      */
+    auto attachedNode =
+        FrameNode::CreateFrameNode("attachedNode", 3, AceType::MakeRefPtr<Pattern>(), true);
+    attachedNode->setIsCNode(true);
     MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
     auto frameNode =
         FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
@@ -377,11 +384,10 @@ HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg011, TestSize.Level1)
      * @tc.steps: step2. thread safe uinode tree AttachToMainTree and DetachFromMainTree
      * @tc.expected: attach and detach success
      */
-    PipelineContext* pipeline = frameNode->GetContextWithCheck();
-    frameNode->AttachToMainTree(false, pipeline);
-    EXPECT_EQ(frameNode->isFree_, false);
-    frameNode->DetachFromMainTree(false, true);
-    EXPECT_EQ(frameNode->isFree_, true);
+    attachedNode->AddChild(frameNode);
+    EXPECT_EQ(child->isFree_, false);
+    attachedNode->RemoveChild(frameNode);
+    EXPECT_EQ(child->isFree_, true);
 }
 
 /**
@@ -394,25 +400,30 @@ HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg012, TestSize.Level1)
     /**
      * @tc.steps: step1. create thread safe uinode
      */
+    auto attachedNode =
+        FrameNode::CreateFrameNode("attachedNode", 3, AceType::MakeRefPtr<Pattern>(), true);
+    attachedNode->setIsCNode(true);
     MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
     auto frameNode =
         FrameNode::CreateFrameNode("main", 1, AceType::MakeRefPtr<Pattern>(), true);
     MultiThreadBuildManager::SetIsThreadSafeNodeScope(false);
+    EXPECT_EQ(frameNode->isFree_, true);
     /**
      * @tc.steps: step2. create not thread safe uinode tree
      */
     auto child =
         FrameNode::CreateFrameNode("main", 2, AceType::MakeRefPtr<Pattern>(), true);
+    child->setIsCNode(true);
     frameNode->AddChild(child);
+    EXPECT_EQ(frameNode->isFree_, false);
     /**
      * @tc.steps: step3. not thread safe uinode tree AttachToMainTree and DetachFromMainTree
      * @tc.expected: attach and detach success
      */
-    PipelineContext* pipeline = frameNode->GetContextWithCheck();
-    frameNode->AttachToMainTree(false, pipeline);
+    attachedNode->AddChild(frameNode);
     EXPECT_EQ(frameNode->isFree_, false);
-    frameNode->DetachFromMainTree(false, true);
-    EXPECT_EQ(frameNode->isFree_, true);
+    attachedNode->RemoveChild(frameNode);
+    EXPECT_EQ(frameNode->isFree_, false);
 }
 
 /**
@@ -479,8 +490,7 @@ HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg015, TestSize.Level1)
      * @tc.steps: step2. thread safe uinode CheckThreadSafeNodeTree
      * @tc.expected: CheckThreadSafeNodeTree success
      */
-    EXPECT_EQ(frameNode->CheckThreadSafeNodeTree(true), true);
-    EXPECT_EQ(frameNode->CheckThreadSafeNodeTree(false), true);
+    EXPECT_EQ(frameNode->CheckThreadSafeNodeTree(), true);
 }
 
 /**
@@ -499,7 +509,102 @@ HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg016, TestSize.Level1)
      * @tc.steps: step2. thread unsafe uinode CheckThreadSafeNodeTree
      * @tc.expected: CheckThreadSafeNodeTree success
      */
-    EXPECT_EQ(frameNode->CheckThreadSafeNodeTree(true), false);
-    EXPECT_EQ(frameNode->CheckThreadSafeNodeTree(false), false);
+    EXPECT_EQ(frameNode->CheckThreadSafeNodeTree(), true);
+
+    frameNode->setIsCNode(true);
+    EXPECT_EQ(frameNode->CheckThreadSafeNodeTree(), true);
+    frameNode->setIsCNode(false);
+
+    frameNode->SetIsArkTsFrameNode(true);
+    EXPECT_EQ(frameNode->CheckThreadSafeNodeTree(), true);
+    frameNode->SetIsArkTsFrameNode(false);
+
+    frameNode->SetIsRootBuilderNode(true);
+    EXPECT_EQ(frameNode->CheckThreadSafeNodeTree(), true);
+    frameNode->SetIsRootBuilderNode(false);
+}
+
+/**
+ * @tc.name: ThreadSafeNodeTestNg017
+ * @tc.desc: Test MultiThreadBuildManager::CheckTag and SetIsParallelizeUI.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg017, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create thread safe uinode
+     * @tc.expected: create success
+     */
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
+    MultiThreadBuildManager::SetIsParallelizeUI(true);
+    auto frameNode =
+        FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>(), true);
+    auto frameNode2 =
+        FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>(), true);
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(false);
+    EXPECT_EQ(MultiThreadBuildManager::isParallelizeUI_, true);
+}
+
+/**
+ * @tc.name: ThreadSafeNodeTestNg018
+ * @tc.desc: Test MultiThreadBuildManager::CheckTag and SetIsParallelizeUI.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg018, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create thread safe uinode
+     * @tc.expected: create success
+     */
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
+    MultiThreadBuildManager::SetIsParallelizeUI(true);
+    auto frameNode =
+        FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>(), true);
+    auto frameNode2 =
+        FrameNode::CreateFrameNode(V2::ROW_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>(), true);
+    EXPECT_EQ(MultiThreadBuildManager::IsParallelScope(), true);
+}
+
+/**
+ * @tc.name: ThreadSafeNodeTestNg019
+ * @tc.desc: Test MultiThreadBuildManager::CheckTag not Crash.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg019, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create thread safe uinode
+     * @tc.expected: create success
+     */
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
+    MultiThreadBuildManager::SetIsParallelizeUI(true);
+    // MultiThreadBuildManager::CheckTag()
+    auto frameNode =
+        FrameNode::CreateFrameNode(V2::DATE_PICKER_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>(), true);
+    // MultiThreadBuildManager::CheckTag()
+    auto frameNode2 =
+        FrameNode::CreateFrameNode(V2::LIST_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>(), true);
+    EXPECT_EQ(MultiThreadBuildManager::IsParallelScope(), true);
+}
+
+/**
+ * @tc.name: ThreadSafeNodeTestNg019
+ * @tc.desc: Test MultiThreadBuildManager::IsThreadSafeNodeScope.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ThreadSafeNodeTestNg, ThreadSafeNodeTestNg020, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. set IsThreadSafeNodeScope = true
+     * @tc.expected: set success
+     */
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(true);
+    EXPECT_EQ(MultiThreadBuildManager::IsThreadSafeNodeScope(), true);
+    /**
+     * @tc.steps: step2. set IsThreadSafeNodeScope = false
+     * @tc.expected: set success
+     */
+    MultiThreadBuildManager::SetIsThreadSafeNodeScope(false);
+    EXPECT_EQ(MultiThreadBuildManager::IsThreadSafeNodeScope(), false);
 }
 } // namespace OHOS::Ace::NG

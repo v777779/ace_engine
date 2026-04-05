@@ -21,6 +21,7 @@
 #include "core/components_ng/base/view_abstract_model.h"
 #include "core/components_ng/base/view_stack_model.h"
 #include "core/components_ng/pattern/qrcode/qrcode_model.h"
+#include "core/components_ng/pattern/qrcode/qrcode_model_ng.h"
 
 namespace OHOS::Ace::Framework {
 class JSQRCodeTheme {
@@ -28,18 +29,18 @@ public:
     static void ApplyTheme()
     {
         auto themeColors = JSThemeUtils::GetThemeColors();
-        if (!themeColors) {
+        if (!themeColors || Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWENTY_SIX)) {
             return;
         }
 
         // normal
+        auto* stack = NG::ViewStackProcessor::GetInstance();
+        CHECK_NULL_VOID(stack);
+        auto frameNode = AceType::DynamicCast<NG::FrameNode>(stack->GetMainFrameNode());
+        CHECK_NULL_VOID(frameNode);
         ViewStackModel::GetInstance()->SetVisualState(VisualState::NORMAL);
-        QRCodeModel::GetInstance()->SetQRCodeColor(themeColors->CompForegroundPrimary());
-        QRCodeModel::GetInstance()->SetQRBackgroundColor(themeColors->BackgroundPrimary());
-
-        // focused
-        ViewStackModel::GetInstance()->SetVisualState(VisualState::FOCUSED);
-        ViewAbstractModel::GetInstance()->SetOuterBorderColor(themeColors->InteractiveFocus());
+        NG::QRCodeModelNG::SetQRCodeColor(frameNode, themeColors->CompForegroundPrimary());
+        NG::QRCodeModelNG::SetQRBackgroundColor(frameNode, themeColors->BackgroundPrimary());
 
         // clear state
         ViewStackModel::GetInstance()->ClearVisualState();
@@ -47,6 +48,7 @@ public:
 
     static bool ObtainQRCodeColor(Color &qrcodeColor)
     {
+        CHECK_NULL_RETURN(Container::LessThanAPITargetVersion(PlatformVersion::VERSION_TWENTY_SIX), true);
         auto themeColors = JSThemeUtils::GetThemeColors();
         if (!themeColors) {
             return false;
@@ -57,6 +59,7 @@ public:
 
     static bool ObtainBackgroundColor(Color &bgColor)
     {
+        CHECK_NULL_RETURN(Container::LessThanAPITargetVersion(PlatformVersion::VERSION_TWENTY_SIX), true);
         auto themeColors = JSThemeUtils::GetThemeColors();
         if (!themeColors) {
             return false;

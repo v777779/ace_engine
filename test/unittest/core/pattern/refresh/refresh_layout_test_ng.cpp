@@ -13,9 +13,10 @@
  * limitations under the License.
  */
 
+#include "gtest/gtest.h"
 #include "refresh_test_ng.h"
-#include "test/mock/core/animation/mock_animation_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "core/components_ng/pattern/loading_progress/loading_progress_paint_property.h"
 
@@ -265,6 +266,8 @@ HWTEST_F(RefreshLayoutTestNg, GetTargetOffset001, TestSize.Level1)
     pattern_->HandleDragEnd(0.f);
     EXPECT_FLOAT_EQ(pattern_->GetTargetOffset(), TRIGGER_REFRESH_DISTANCE);
     EXPECT_FALSE(pattern_->isHigherVersion_);
+    auto algorithm = AceType::DynamicCast<RefreshLayoutAlgorithm>(pattern_->CreateLayoutAlgorithm());
+    EXPECT_FALSE(algorithm->isHighVersion_);
 }
 
 /**
@@ -444,13 +447,76 @@ HWTEST_F(RefreshLayoutTestNg, OnColorConfigurationUpdate001, TestSize.Level1)
     EXPECT_NE(pattern_->loadingTextNode_, nullptr);
     EXPECT_TRUE(pattern_->isHigherVersion_);
     EXPECT_TRUE(pattern_->hasLoadingText_);
-    
+
     pattern_->OnColorConfigurationUpdate();
     auto progressPaintProperty = pattern_->progressChild_->GetPaintProperty<LoadingProgressPaintProperty>();
     EXPECT_EQ(progressPaintProperty->GetColorValue(Color::WHITE), Color::BLACK);
     auto textLayoutProperty = pattern_->loadingTextNode_->GetLayoutProperty<TextLayoutProperty>();
     EXPECT_EQ(textLayoutProperty->GetFontSizeValue(0.0_vp), 14.0_fp);
     EXPECT_EQ(textLayoutProperty->GetTextColorValue(Color::WHITE), Color::BLACK);
+}
+
+/**
+ * @tc.name: SetMaxPullDownDistance001
+ * @tc.desc: Test does not set SetMaxPullDownDistance.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RefreshLayoutTestNg, SetMaxPullDownDistance001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Refresh ModelNG
+     */
+    MockPipelineContext::pipeline_->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_TWELVE));
+    RefreshModelNG model = CreateRefresh();
+    CreateDone();
+    /**
+     * @tc.steps: step2. Test MaxPullDownDistance is Infinity
+     * @tc.expected: The GetMaxPullDownDistance method returns infinity
+     */
+    float value = std::numeric_limits<float>::infinity();
+    EXPECT_EQ(pattern_->GetMaxPullDownDistance(), value);
+}
+
+/**
+ * @tc.name: SetMaxPullDownDistance002
+ * @tc.desc: Test set SetMaxPullDownDistance, obtain data from GetMaxPullDownDistance method.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RefreshLayoutTestNg, SetMaxPullDownDistance002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Refresh ModelNG and set 100.0f
+     */
+    MockPipelineContext::pipeline_->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_TWELVE));
+    RefreshModelNG model = CreateRefresh();
+    model.SetMaxPullDownDistance(100.0f);
+    CreateDone();
+    /**
+     * @tc.steps: step2. Test MaxPullDownDistance is 100.0f
+     * @tc.expected: The GetMaxPullDownDistance method returns 100.0f
+     */
+    EXPECT_EQ(pattern_->GetMaxPullDownDistance(), 100.0f);
+}
+
+/**
+ * @tc.name: SetMaxPullDownDistance003
+ * @tc.desc: Test set SetMaxPullDownDistance, obtain data from layoutProperty.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RefreshLayoutTestNg, SetMaxPullDownDistance003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create Refresh ModelNG and set 200.0f
+     */
+    MockPipelineContext::pipeline_->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_TWELVE));
+    RefreshModelNG model = CreateRefresh();
+    model.SetMaxPullDownDistance(200.0f);
+    CreateDone();
+    /**
+     * @tc.steps: step2. Test layoutProperty maxpulldowndistance is 200.0f
+     * @tc.expected: The layoutProperty maxpulldowndistance property returns 200.0f
+     */
+    EXPECT_EQ(layoutProperty_->GetMaxPullDownDistance().value(), 200.0f);
 }
 
 /**
@@ -536,5 +602,285 @@ HWTEST_F(RefreshLayoutTestNg, BeginAndEndTrailingTrace001, TestSize.Level1)
     EXPECT_TRUE(pattern_->hasBeginTrailingTrace_);
     pattern_->EndTrailingTrace();
     EXPECT_FALSE(pattern_->hasBeginTrailingTrace_);
+}
+
+/**
+ * @tc.name: ResetAnimation001
+ * @tc.desc: Test ResetAnimation
+ * @tc.type: FUNC
+ */
+HWTEST_F(RefreshLayoutTestNg, ResetAnimation001, TestSize.Level1)
+{
+    RefreshModelNG model = CreateRefresh();
+    CreateDone();
+    EXPECT_TRUE(pattern_->isHigherVersion_);
+
+    pattern_->scrollOffset_ = 100.0f;
+    pattern_->ResetAnimation();
+    EXPECT_EQ(pattern_->animation_, nullptr);
+    EXPECT_EQ(pattern_->offsetProperty_->Get(), 100.0f);
+    pattern_->QuickStartFresh();
+    MockAnimationManager::GetInstance().Tick();
+    EXPECT_NE(pattern_->animation_, nullptr);
+    pattern_->ResetAnimation();
+    EXPECT_EQ(pattern_->offsetProperty_->Get(), pattern_->refreshOffset_.ConvertToPx());
+}
+
+/**
+ * @tc.name: TestInitChildNode001
+ * @tc.desc: Test InitChildNode
+ * @tc.type: FUNC
+ */
+HWTEST_F(RefreshLayoutTestNg, InitChildNode001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create with loadingText
+     * @tc.expected: loadingText node exists.
+     */
+    RefreshModelNG model = CreateRefresh();
+    model.SetLoadingText("loadingText");
+    CreateDone();
+    EXPECT_TRUE(pattern_->isHigherVersion_);
+    EXPECT_NE(pattern_->progressChild_, nullptr);
+    EXPECT_NE(pattern_->loadingTextNode_, nullptr);
+
+    /**
+     * @tc.steps: step2. refresh don't set accessibilityLevel
+     * @tc.expected: progress node and loadingText node don't have accessibilityLevel.
+     */
+    auto refreshAccessibilityProperty = frameNode_->GetAccessibilityProperty<NG::RefreshAccessibilityProperty>();
+    EXPECT_NE(refreshAccessibilityProperty, nullptr);
+    EXPECT_FALSE(refreshAccessibilityProperty->HasAccessibilityLevel());
+    auto progressAccessibilityProperty = pattern_->progressChild_->GetAccessibilityProperty<AccessibilityProperty>();
+    EXPECT_NE(progressAccessibilityProperty, nullptr);
+    EXPECT_FALSE(progressAccessibilityProperty->accessibilityLevel_.has_value());
+    auto textAccessibilityProperty = pattern_->loadingTextNode_->GetAccessibilityProperty<AccessibilityProperty>();
+    EXPECT_NE(textAccessibilityProperty, nullptr);
+    EXPECT_FALSE(textAccessibilityProperty->accessibilityLevel_.has_value());
+
+    /**
+     * @tc.steps: step3. refresh sets accessibilityLevel
+     * @tc.expected: progress node and loadingText node have accessibilityLevel.
+     */
+    refreshAccessibilityProperty->SetAccessibilityLevel("no");
+    EXPECT_TRUE(refreshAccessibilityProperty->HasAccessibilityLevel());
+    EXPECT_EQ(refreshAccessibilityProperty->accessibilityLevel_.value(), "no");
+    pattern_->InitChildNode(frameNode_);
+    EXPECT_TRUE(progressAccessibilityProperty->accessibilityLevel_.has_value());
+    EXPECT_EQ(progressAccessibilityProperty->accessibilityLevel_.value(), "no");
+    EXPECT_TRUE(textAccessibilityProperty->accessibilityLevel_.has_value());
+    EXPECT_EQ(textAccessibilityProperty->accessibilityLevel_.value(), "no");
+}
+
+/**
+ * @tc.name: LayoutWithRefreshStatusTrue001
+ * @tc.desc: Test Layout algorithm with isRefreshing=true and positive customBuilderHeight
+ *           Verify content child position calculation: distance + customBuilderHeight
+ * @tc.type: FUNC
+ */
+HWTEST_F(RefreshLayoutTestNg, LayoutWithRefreshStatusTrue001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create refresh with custom builder (low version)
+     */
+    MockPipelineContext::pipeline_->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_TEN));
+    auto builder = CreateCustomNode();
+    RefreshModelNG model = CreateRefresh();
+    model.SetCustomBuilder(builder);
+    model.SetIsCustomBuilderExist(true);
+
+    /**
+     * @tc.steps: step2. Add a content child node (text node) to Refresh
+     * @tc.expected: Refresh will have 2 children: custom builder (index 0) + content (index 1)
+     */
+    CreateText();
+
+    CreateDone();
+
+    /**
+     * @tc.steps: step2. Use low version layout algorithm (custom builder with content child positioning)
+     */
+    pattern_->isHigherVersion_ = false;
+
+    /**
+     * @tc.steps: step3. Set isRefreshing to true
+     */
+    auto layoutProperty = frameNode_->GetLayoutProperty<RefreshLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateIsRefreshing(true);
+
+    /**
+     * @tc.steps: step4. Measure and Layout
+     */
+    FlushUITasks();
+
+    /**
+     * @tc.steps: step5. Verify content child position (index 1) with refreshing=true
+     * @tc.expected: Content child Y position = distance + customBuilderHeight (when height > 0)
+     *              Note: custom builder is at index 0, content child is at index 1
+     */
+    const auto& children = frameNode_->GetChildren();
+    ASSERT_GE(children.size(), 2UL)
+        << "Test setup failed: expected at least 2 children (custom builder + content), got " << children.size();
+
+    // Get content child (index 1), not custom builder (index 0)
+    auto it = children.begin();
+    std::advance(it, 1);
+    auto contentChild = AceType::DynamicCast<FrameNode>(*it);
+    ASSERT_NE(contentChild, nullptr);
+
+    auto childGeometryNode = contentChild->GetGeometryNode();
+    ASSERT_NE(childGeometryNode, nullptr);
+
+    auto childOffset = childGeometryNode->GetMarginFrameOffset();
+
+    /**
+     * @tc.expected: Y position = TRIGGER_REFRESH_DISTANCE (64.0) + CUSTOM_NODE_HEIGHT (10.0) = 74.0
+     */
+    EXPECT_FLOAT_EQ(childOffset.GetY(), TRIGGER_REFRESH_DISTANCE + CUSTOM_NODE_HEIGHT);
+}
+
+/**
+ * @tc.name: LayoutWithRefreshStatusFalse001
+ * @tc.desc: Test Layout algorithm with isRefreshing=false
+ *           Verify content child uses scrollOffset for positioning
+ * @tc.type: FUNC
+ */
+HWTEST_F(RefreshLayoutTestNg, LayoutWithRefreshStatusFalse001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create refresh with custom builder (low version)
+     */
+    MockPipelineContext::pipeline_->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_TEN));
+    auto builder = CreateCustomNode();
+    RefreshModelNG model = CreateRefresh();
+    model.SetCustomBuilder(builder);
+    model.SetIsCustomBuilderExist(true);
+
+    /**
+     * @tc.steps: step2. Add a content child node (text node) to Refresh
+     * @tc.expected: Refresh will have 2 children: custom builder (index 0) + content (index 1)
+     */
+    CreateText();
+
+    CreateDone();
+
+    /**
+     * @tc.steps: step2. Use low version layout algorithm (custom builder with content child positioning)
+     */
+    pattern_->isHigherVersion_ = false;
+
+    /**
+     * @tc.steps: step3. Set isRefreshing to false and set scrollOffset
+     */
+    auto layoutProperty = frameNode_->GetLayoutProperty<RefreshLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateIsRefreshing(false);
+
+    pattern_->scrollOffset_ = 80.0f; // Test scroll offset value
+
+    /**
+     * @tc.steps: step4. Measure and Layout
+     */
+    FlushUITasks();
+
+    /**
+     * @tc.steps: step5. Verify content child position (index 1) with refreshing=false
+     * @tc.expected: Content child Y position should be scrollOffset_
+     *              Note: custom builder is at index 0, content child is at index 1
+     */
+    const auto& children = frameNode_->GetChildren();
+    ASSERT_GE(children.size(), 2UL)
+        << "Test setup failed: expected at least 2 children (custom builder + content), got " << children.size();
+
+    // Get content child (index 1), not custom builder (index 0)
+    auto it = children.begin();
+    std::advance(it, 1);
+    auto contentChild = AceType::DynamicCast<FrameNode>(*it);
+    ASSERT_NE(contentChild, nullptr);
+
+    auto childGeometryNode = contentChild->GetGeometryNode();
+    ASSERT_NE(childGeometryNode, nullptr);
+
+    auto childOffset = childGeometryNode->GetMarginFrameOffset();
+
+    /**
+     * @tc.expected: Y position should equal scrollOffset_ (80.0f)
+     */
+    EXPECT_FLOAT_EQ(childOffset.GetY(), 80.0f);
+}
+
+/**
+ * @tc.name: LayoutWithCustomBuilderHeightZero001
+ * @tc.desc: Test Layout algorithm with isRefreshing=true but customBuilderHeight <= 0
+ *           Verify content child position is 0 when custom builder height is non-positive
+ * @tc.type: FUNC
+ */
+HWTEST_F(RefreshLayoutTestNg, LayoutWithCustomBuilderHeightZero001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create refresh with custom builder (low version)
+     * @tc.expected: Set zero height to custom builder
+     */
+    MockPipelineContext::pipeline_->SetMinPlatformVersion(static_cast<int32_t>(PlatformVersion::VERSION_TEN));
+    auto builder = CreateCustomNode();
+    // Set zero height to custom builder
+    auto builderLayoutProperty = builder->GetLayoutProperty();
+    ASSERT_NE(builderLayoutProperty, nullptr);
+    builderLayoutProperty->UpdateUserDefinedIdealSize(CalcSize(CalcLength(CUSTOM_NODE_WIDTH), CalcLength(0.0f)));
+
+    RefreshModelNG model = CreateRefresh();
+    model.SetCustomBuilder(builder);
+    model.SetIsCustomBuilderExist(true);
+
+    /**
+     * @tc.steps: step2. Add a content child node (text node) to Refresh
+     * @tc.expected: Refresh will have 2 children: custom builder (index 0) + content (index 1)
+     */
+    CreateText();
+
+    CreateDone();
+
+    /**
+     * @tc.steps: step2. Use low version layout algorithm (custom builder with content child positioning)
+     */
+    pattern_->isHigherVersion_ = false;
+
+    /**
+     * @tc.steps: step3. Set isRefreshing to true
+     */
+    auto layoutProperty = frameNode_->GetLayoutProperty<RefreshLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateIsRefreshing(true);
+
+    /**
+     * @tc.steps: step4. Measure and Layout
+     */
+    FlushUITasks();
+
+    /**
+     * @tc.steps: step5. Verify content child position (index 1) with zero height builder
+     * @tc.expected: When customBuilderHeight <= 0, refreshingPosition = 0
+     *              Note: custom builder is at index 0, content child is at index 1
+     */
+    const auto& children = frameNode_->GetChildren();
+    ASSERT_GE(children.size(), 2UL)
+        << "Test setup failed: expected at least 2 children (custom builder + content), got " << children.size();
+
+    // Get content child (index 1), not custom builder (index 0)
+    auto it = children.begin();
+    std::advance(it, 1);
+    auto contentChild = AceType::DynamicCast<FrameNode>(*it);
+    ASSERT_NE(contentChild, nullptr);
+
+    auto childGeometryNode = contentChild->GetGeometryNode();
+    ASSERT_NE(childGeometryNode, nullptr);
+
+    auto childOffset = childGeometryNode->GetMarginFrameOffset();
+
+    /**
+     * @tc.expected: Y position should be 0 when customBuilderHeight <= 0
+     */
+    EXPECT_FLOAT_EQ(childOffset.GetY(), 0.0f);
 }
 } // namespace OHOS::Ace::NG

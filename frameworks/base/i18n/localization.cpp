@@ -13,8 +13,11 @@
  * limitations under the License.
  */
 
+#include <shared_mutex>
 #include "base/i18n/localization.h"
 
+#include "base/log/log_wrapper.h"
+#include "base/utils/linear_map.h"
 #include "chnsecal.h"
 #if !defined(IOS_PLATFORM) && !defined(ANDROID_PLATFORM)
 #include "lunar_calendar.h"
@@ -34,6 +37,8 @@
 namespace OHOS::Ace {
 
 using namespace icu;
+
+constexpr int32_t INVALID_PRECISION = -1;
 
 struct LocaleProxy final {
     LocaleProxy(const char* language, const char* countryOrRegion, const char* variant, const char* keywordsAndValues)
@@ -168,11 +173,13 @@ void GetLocalJsonObject(InternalResource::ResourceId id, std::string language, s
     }
 }
 
-} // namespace
-
 // for entry.json
 static std::unique_ptr<JsonValue> g_indexJsonEntry = nullptr;
 static std::unique_ptr<JsonValue> g_indexJsonError = nullptr;
+static std::mutex g_indexJsonEntryMutex;
+static std::mutex g_indexJsonErrorMutex;
+
+} // namespace
 
 Localization::~Localization() = default;
 
@@ -200,10 +207,10 @@ void Localization::SetLocaleImpl(const std::string& language, const std::string&
     if (!script.empty()) {
         languageTag_.append("-").append(script);
     }
+    fontLocale_ = languageTag_;
     if (!countryOrRegion.empty()) {
         languageTag_.append("-").append(countryOrRegion);
     }
-    fontLocale_ = languageTag_;
     // Simple chinese
     if (languageTag_ == "zh-Hans-CN") {
         languageTag_ = "zh-CN";
@@ -218,8 +225,8 @@ void Localization::SetLocaleImpl(const std::string& language, const std::string&
         selectLanguage_ = "b+sr+Latn";
     }
 
-    LOGI("SetLocale language tag: %{public}s, select language: %{public}s", languageTag_.c_str(),
-        selectLanguage_.c_str());
+    LOGI("SetLocale language tag: %{public}s, font locale: %{public}s, select language: %{public}s",
+        languageTag_.c_str(), fontLocale_.c_str(), selectLanguage_.c_str());
     if (!isPromiseUsed_) {
         promise_.set_value(true);
         isPromiseUsed_ = true;
@@ -810,7 +817,10 @@ std::string Localization::GetEntryLetters(const std::string& lettersIndex)
     if (iter != LANGUAGE_CODE_MAP.end()) {
         language = iter->second;
     }
-    GetLocalJsonObject(InternalResource::ResourceId::ENTRY_JSON, language, g_indexJsonEntry, localJsonEntry);
+    {
+        std::lock_guard<std::mutex> lock(g_indexJsonEntryMutex);
+        GetLocalJsonObject(InternalResource::ResourceId::ENTRY_JSON, language, g_indexJsonEntry, localJsonEntry);
+    }
     if (localJsonEntry == nullptr) {
         LOGW("read JsonObject fail. language: %{public}s.", selectLanguage_.c_str());
         return "";
@@ -847,7 +857,10 @@ std::string Localization::GetErrorDescription(const std::string& errorIndex)
     if (iter != LANGUAGE_CODE_MAP.end()) {
         language = iter->second;
     }
-    GetLocalJsonObject(InternalResource::ResourceId::ERRORINFO_JSON, language, g_indexJsonError, localJsonError);
+    {
+        std::lock_guard<std::mutex> lock(g_indexJsonErrorMutex);
+        GetLocalJsonObject(InternalResource::ResourceId::ERRORINFO_JSON, language, g_indexJsonError, localJsonError);
+    }
     if (localJsonError == nullptr) {
         LOGW("read JsonObject fail. language: %{public}s.", selectLanguage_.c_str());
         return "";
@@ -1019,6 +1032,63 @@ void Localization::ParseLocaleTag(
     language = locale.getLanguage();
     script = locale.getScript();
     region = locale.getCountry();
+}
+
+bool Localization::ConvertToDouble(const std::string& str, double& outValue)
+{
+    char* end = nullptr;
+    errno = 0;
+    double value = std::strtod(str.c_str(), &end);
+    if (!IsValidValue(end, str)) {
+        return false;
+    }
+    outValue = value;
+    return true;
+}
+
+bool Localization::IsValidValue(const char* end, const std::string& str)
+{
+    if (!end) {
+        return false;
+    }
+    if (end == str.c_str() || errno == ERANGE || *end != '\0') {
+        return false;
+    }
+    return true;
+}
+
+bool Localization::LocalizeNumber(const std::string &inputNum, std::string &outputNum, const int32_t precision)
+{
+    WaitingForInit();
+    outputNum = inputNum;
+    if (!locale_) {
+        return false;
+    }
+
+    icu::number::LocalizedNumberFormatter numberFormat = icu::number::NumberFormatter::withLocale(locale_->instance);
+    numberFormat = numberFormat.grouping(UNumberGroupingStrategy::UNUM_GROUPING_OFF);
+    numberFormat = numberFormat.roundingMode(UNUM_ROUND_HALFUP);
+
+    if (precision != INVALID_PRECISION) {
+        numberFormat = numberFormat.precision(icu::number::Precision::fixedFraction(precision));
+    }
+
+    double num = 0.0;
+    if (!Localization::ConvertToDouble(inputNum, num)) {
+        LOGW("Failed to convert string to double: %{private}s", inputNum.c_str());
+        return false;
+    }
+
+    UErrorCode status = U_ZERO_ERROR;
+    UnicodeString formattedNum = numberFormat.formatDouble(num, status).toString(status);
+    if (U_FAILURE(status)) {
+        LOGW("LocalizeNumber formatDouble failed, status = %{public}d", status);
+        return false;
+    }
+
+    outputNum.clear();
+    UnicodeString2String(formattedNum, outputNum);
+    return true;
 }
 
 } // namespace OHOS::Ace

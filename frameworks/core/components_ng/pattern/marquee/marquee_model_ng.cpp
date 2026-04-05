@@ -25,12 +25,12 @@ void MarqueeModelNG::Create()
 {
     auto* stack = ViewStackProcessor::GetInstance();
     auto nodeId = stack->ClaimNodeId();
-    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", V2::MARQUEE_ETS_TAG, nodeId);
+    ACE_LAYOUT_SCOPED_TRACE("Create[%s][self:%d]", MARQUEE_ETS_TAG, nodeId);
     auto frameNode = FrameNode::GetOrCreateFrameNode(
-        V2::MARQUEE_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<MarqueePattern>(); });
+        MARQUEE_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<MarqueePattern>(); });
     if (frameNode->GetChildren().empty()) {
         auto textNode = FrameNode::CreateFrameNode(
-            V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+            TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
         auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
         textLayoutProperty->UpdateMaxLines(1);
         frameNode->AddChild(textNode);
@@ -174,24 +174,47 @@ void MarqueeModelNG::SetOnFinish(std::function<void()>&& onChange)
     eventHub->SetOnFinish(std::move(onChange));
 }
 
+void MarqueeModelNG::SetOnStop(std::function<void()>&& onChange)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<MarqueeEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnStop(std::move(onChange));
+}
+
 RefPtr<FrameNode> MarqueeModelNG::CreateFrameNode(int32_t nodeId)
 {
-    auto frameNode = FrameNode::CreateFrameNode(V2::MARQUEE_ETS_TAG, nodeId, AceType::MakeRefPtr<MarqueePattern>());
+    auto frameNode = FrameNode::CreateFrameNode(MARQUEE_ETS_TAG, nodeId, AceType::MakeRefPtr<MarqueePattern>());
     CHECK_NULL_RETURN(frameNode, nullptr);
     if (frameNode->GetChildren().empty()) {
         auto textNode = FrameNode::CreateFrameNode(
-            V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+            TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
         CHECK_NULL_RETURN(textNode, nullptr);
         auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
         CHECK_NULL_RETURN(textLayoutProperty, nullptr);
         textLayoutProperty->UpdateMaxLines(TEXT_MAX_LINES);
         frameNode->AddChild(textNode);
+
+        auto secondChild = FrameNode::CreateFrameNode(
+            V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(), AceType::MakeRefPtr<TextPattern>());
+        CHECK_NULL_RETURN(secondChild, nullptr);
+        auto secondLayoutProperty = secondChild->GetLayoutProperty<TextLayoutProperty>();
+        CHECK_NULL_RETURN(secondLayoutProperty, nullptr);
+        secondLayoutProperty->UpdateMaxLines(1);
+        frameNode->AddChild(secondChild);
     } else {
         auto textChild = AceType::DynamicCast<FrameNode>(frameNode->GetChildren().front());
         CHECK_NULL_RETURN(textChild, nullptr);
         auto textLayoutProperty = textChild->GetLayoutProperty<TextLayoutProperty>();
         CHECK_NULL_RETURN(textLayoutProperty, nullptr);
         textLayoutProperty->UpdateMaxLines(TEXT_MAX_LINES);
+
+        auto secondChild = AceType::DynamicCast<FrameNode>(frameNode->GetLastChild());
+        CHECK_NULL_RETURN(secondChild, nullptr);
+        auto secondLayoutProperty = secondChild->GetLayoutProperty<TextLayoutProperty>();
+        CHECK_NULL_RETURN(secondLayoutProperty, nullptr);
+        secondLayoutProperty->UpdateMaxLines(1);
     }
     return frameNode;
 }
@@ -203,6 +226,15 @@ void MarqueeModelNG::SetAllowScale(FrameNode* frameNode, const bool allowScale)
     auto textChild = AceType::DynamicCast<FrameNode>(frameNode->GetChildren().front());
     CHECK_NULL_VOID(textChild);
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(TextLayoutProperty, AllowScale, allowScale, textChild);
+}
+
+void MarqueeModelNG::ResetAllowScale(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(MarqueeLayoutProperty, AllowScale, PROPERTY_UPDATE_MEASURE, frameNode);
+    auto textChild = AceType::DynamicCast<FrameNode>(frameNode->GetChildren().front());
+    CHECK_NULL_VOID(textChild);
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(MarqueeLayoutProperty, AllowScale, PROPERTY_UPDATE_MEASURE, textChild);
 }
 
 void MarqueeModelNG::SetFontWeight(FrameNode* frameNode, const std::optional<FontWeight>& fontWeight)
@@ -271,6 +303,14 @@ void MarqueeModelNG::SetOnStart(FrameNode* frameNode, std::function<void()>&& on
     eventHub->SetOnStart(std::move(onChange));
 }
 
+void MarqueeModelNG::ResetOnStart(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<MarqueeEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnStart(nullptr);
+}
+
 void MarqueeModelNG::SetOnBounce(FrameNode* frameNode, std::function<void()>&& onChange)
 {
     CHECK_NULL_VOID(frameNode);
@@ -279,12 +319,44 @@ void MarqueeModelNG::SetOnBounce(FrameNode* frameNode, std::function<void()>&& o
     eventHub->SetOnBounce(std::move(onChange));
 }
 
+void MarqueeModelNG::ResetOnBounce(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<MarqueeEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnBounce(nullptr);
+}
+
 void MarqueeModelNG::SetOnFinish(FrameNode* frameNode, std::function<void()>&& onChange)
 {
     CHECK_NULL_VOID(frameNode);
     auto eventHub = frameNode->GetEventHub<MarqueeEventHub>();
     CHECK_NULL_VOID(eventHub);
     eventHub->SetOnFinish(std::move(onChange));
+}
+
+void MarqueeModelNG::ResetOnFinish(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<MarqueeEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnFinish(nullptr);
+}
+
+void MarqueeModelNG::SetOnStop(FrameNode* frameNode, std::function<void()>&& onChange)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<MarqueeEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnStop(std::move(onChange));
+}
+
+void MarqueeModelNG::ResetOnStop(FrameNode* frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto eventHub = frameNode->GetEventHub<MarqueeEventHub>();
+    CHECK_NULL_VOID(eventHub);
+    eventHub->SetOnStop(nullptr);
 }
 
 void MarqueeModelNG::SetMarqueeFrameRateRange(
@@ -355,4 +427,54 @@ void MarqueeModelNG::ResetDirection(FrameNode* frameNode)
 {
     ACE_RESET_NODE_PAINT_PROPERTY_WITH_FLAG(MarqueePaintProperty, Direction, PROPERTY_UPDATE_RENDER, frameNode);
 }
+
+void MarqueeModelNG::SetMarqueeSpacing(const std::optional<CalcDimension>& spacing)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    SetMarqueeSpacing(frameNode, spacing);
+}
+
+void MarqueeModelNG::SetMarqueeSpacing(FrameNode* frameNode, const std::optional<CalcDimension>& spacing)
+{
+    CHECK_NULL_VOID(frameNode);
+    if (spacing.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+            MarqueeLayoutProperty, MarqueeSpacing, spacing.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            MarqueeLayoutProperty, MarqueeSpacing, PROPERTY_UPDATE_MEASURE, frameNode);
+    }
+}
+
+void MarqueeModelNG::ResetMarqueeSpacing(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(MarqueeLayoutProperty, MarqueeSpacing, PROPERTY_UPDATE_MEASURE, frameNode);
+}
+
+void MarqueeModelNG::SetMarqueeDelay(const std::optional<int32_t>& delay)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    CHECK_NULL_VOID(frameNode);
+    SetMarqueeDelay(frameNode, delay);
+}
+
+void MarqueeModelNG::SetMarqueeDelay(FrameNode* frameNode, const std::optional<int32_t>& delay)
+{
+    CHECK_NULL_VOID(frameNode);
+    if (delay.has_value()) {
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(
+            MarqueeLayoutProperty, MarqueeDelay, delay.value(), frameNode);
+    } else {
+        ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+            MarqueeLayoutProperty, MarqueeDelay, PROPERTY_UPDATE_MEASURE, frameNode);
+    }
+}
+
+void MarqueeModelNG::ResetMarqueeDelay(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(
+        MarqueeLayoutProperty, MarqueeDelay, PROPERTY_UPDATE_MEASURE, frameNode);
+}
+
 } // namespace OHOS::Ace::NG

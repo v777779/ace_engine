@@ -17,6 +17,8 @@
 
 #include "base/i18n/localization.h"
 #include "core/components_ng/base/frame_node.h"
+#include "core/components_ng/pattern/button/button_layout_property.h"
+#include "core/components_ng/pattern/button/button_pattern.h"
 #include "core/components_ng/pattern/divider/divider_layout_property.h"
 #include "core/components_ng/pattern/divider/divider_pattern.h"
 #include "core/components_ng/pattern/divider/divider_render_property.h"
@@ -46,6 +48,7 @@ namespace {
 RefPtr<FrameNode> CreateBarItemTextNode(const std::string& text)
 {
     int32_t nodeId = ElementRegister::GetInstance()->MakeUniqueId();
+    ACE_UINODE_TRACE(nodeId);
     auto textNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, nodeId, AceType::MakeRefPtr<TextPattern>());
     CHECK_NULL_RETURN(textNode, nullptr);
     auto textLayoutProperty = textNode->GetLayoutProperty<TextLayoutProperty>();
@@ -57,10 +60,10 @@ RefPtr<FrameNode> CreateBarItemTextNode(const std::string& text)
     return textNode;
 }
 
-RefPtr<FrameNode> CreateBarItemIconNode(const std::string& src)
+RefPtr<FrameNode> CreateBarItemIconNode(const BarItem& barItem)
 {
     int32_t nodeId = ElementRegister::GetInstance()->MakeUniqueId();
-    ImageSourceInfo info(src);
+    ImageSourceInfo info(barItem.icon.value_or(""), barItem.bundleName, barItem.moduleName);
     auto iconNode = FrameNode::CreateFrameNode(V2::IMAGE_ETS_TAG, nodeId, AceType::MakeRefPtr<ImagePattern>());
     CHECK_NULL_RETURN(iconNode, nullptr);
     auto imageLayoutProperty = iconNode->GetLayoutProperty<ImageLayoutProperty>();
@@ -94,7 +97,7 @@ void UpdateBarItemNodeWithItem(const RefPtr<BarItemNode>& barItemNode, const Bar
         barItemNode->AddChild(textNode);
     }
     if (barItem.icon.has_value() && !barItem.icon.value().empty()) {
-        auto iconNode = CreateBarItemIconNode(barItem.icon.value());
+        auto iconNode = CreateBarItemIconNode(barItem);
         barItemNode->SetIconNode(iconNode);
         barItemNode->AddChild(iconNode);
     }
@@ -155,7 +158,7 @@ void UpdateOldBarItems(const RefPtr<UINode>& oldBarContainer, const std::vector<
                     imageLayoutProperty->UpdateImageSourceInfo(ImageSourceInfo(newBarItem.icon.value()));
                     iconNode->MarkModifyDone();
                 } else {
-                    auto iconNode = CreateBarItemIconNode(newBarItem.icon.value());
+                    auto iconNode = CreateBarItemIconNode(newBarItem);
                     oldBarItem->SetIconNode(iconNode);
                     oldBarItem->AddChild(iconNode);
                     oldBarItem->MarkModifyDone();
@@ -259,6 +262,7 @@ bool NavigationModelStatic::navBarWidthDoubleBind_ = false;
 
 RefPtr<FrameNode> NavigationModelStatic::CreateFrameNode(int32_t nodeId)
 {
+    ACE_UINODE_TRACE(nodeId);
     auto navigationGroupNode = NavigationRegister::GetInstance()->GetOrCreateGroupNode(
         V2::NAVIGATION_VIEW_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<NavigationPattern>(); });
     // navBar node
@@ -351,6 +355,25 @@ RefPtr<FrameNode> NavigationModelStatic::CreateFrameNode(int32_t nodeId)
     }
 
     return navigationGroupNode;
+}
+
+void NavigationModelStatic::SetUseHomeDestination(FrameNode* frameNode, bool useHomeDestination)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto navigationGroupNode = AceType::DynamicCast<NavigationGroupNode>(frameNode);
+    CHECK_NULL_VOID(navigationGroupNode);
+    auto useHomeDest = navigationGroupNode->GetUseHomeDestination();
+    if (useHomeDest.has_value()) {
+        return;
+    }
+    navigationGroupNode->SetUseHomeDestinatoin(useHomeDestination);
+    if (!useHomeDestination) {
+        return;
+    }
+    auto navBar = navigationGroupNode->GetNavBarNode();
+    CHECK_NULL_VOID(navBar);
+    navigationGroupNode->RemoveChild(navBar);
+    navigationGroupNode->SetNavBarNode(nullptr);
 }
 
 void NavigationModelStatic::SetNavBarWidth(FrameNode* frameNode, const Dimension& value)
@@ -544,6 +567,7 @@ void NavigationModelStatic::SetTitleMode(FrameNode* frameNode, NG::NavigationTit
     CHECK_NULL_VOID(navigationGroupNode);
     auto navBarNode = AceType::DynamicCast<NavBarNode>(navigationGroupNode->GetNavBarNode());
     CHECK_NULL_VOID(navBarNode);
+    ACE_UINODE_TRACE(navBarNode);
     auto navBarLayoutProperty = navBarNode->GetLayoutProperty<NavBarLayoutProperty>();
     CHECK_NULL_VOID(navBarLayoutProperty);
     auto titleBarNode = AceType::DynamicCast<TitleBarNode>(navBarNode->GetTitleBarNode());
@@ -659,6 +683,7 @@ void NavigationModelStatic::SetToolBarItems(FrameNode* frameNode, std::vector<NG
     CHECK_NULL_VOID(navigationGroupNode);
     auto navBarNode = AceType::DynamicCast<NavBarNode>(navigationGroupNode->GetNavBarNode());
     CHECK_NULL_VOID(navBarNode);
+    ACE_UINODE_TRACE(navBarNode);
     if (navBarNode->GetPrevToolBarIsCustom().value_or(false)) {
         navBarNode->UpdateToolBarNodeOperation(ChildNodeOperation::REPLACE);
     } else {
@@ -840,7 +865,7 @@ bool NavigationModelStatic::UpdateBackButtonProperty(const RefPtr<FrameNode>& ba
         backButtonWidth = theme->GetIconBackgroundWidth();
         backButtonHeight = theme->GetIconBackgroundHeight();
         backButtonRadiusSize = theme->GetCornerRadius();
-        backButtonPadding = MENU_BUTTON_PADDING;
+        backButtonPadding = theme->GetMenuButtonPadding();
         backButtonColor = theme->GetCompBackgroundColor();
     }
     backButtonLayoutProperty->UpdateUserDefinedIdealSize(
@@ -934,6 +959,7 @@ void NavigationModelStatic::SetCustomToolBar(FrameNode* frameNode, const RefPtr<
     CHECK_NULL_VOID(navigationGroupNode);
     auto navBarNode = AceType::DynamicCast<NavBarNode>(navigationGroupNode->GetNavBarNode());
     NavigationToolbarUtil::SetCustomToolBar(navBarNode, customNode);
+    navBarNode->MarkModifyDone();
 }
 
 void NavigationModelStatic::SetTitleHeight(FrameNode* frameNode, const Dimension& height, bool isValid)
@@ -983,6 +1009,15 @@ void NavigationModelStatic::SetEnableModeChangeAnimation(FrameNode* frameNode, b
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(NavigationLayoutProperty, EnableModeChangeAnimation, isEnable, navigationGroupNode);
 }
 
+void NavigationModelStatic::SetEnableVisibilityLifecycleWithContentCover(FrameNode* frameNode, bool isEnable)
+{
+    auto navigation = AceType::DynamicCast<NavigationGroupNode>(frameNode);
+    CHECK_NULL_VOID(navigation);
+    auto pattern = navigation->GetPattern<NavigationPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetEnableVisibilityLifecycleWithContentCover(isEnable);
+}
+
 void NavigationModelStatic::SetRecoverable(FrameNode* frameNode, const std::optional<bool>& recoverable)
 {
     auto navigationGroupNode = AceType::DynamicCast<NavigationGroupNode>(frameNode);
@@ -993,5 +1028,47 @@ void NavigationModelStatic::SetRecoverable(FrameNode* frameNode, const std::opti
 void NavigationModelStatic::SetEnableToolBarAdaptation(FrameNode* frameNode, bool enable)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(NavigationLayoutProperty, EnableToolBarAdaptation, enable, frameNode);
+}
+
+void NavigationModelStatic::UpdateDefineColor(FrameNode* frameNode, bool isDefined)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(NavigationLayoutProperty, DefinedDividerColor, isDefined, frameNode);
+}
+
+void NavigationModelStatic::UpdateDividerColor(FrameNode* frameNode, const Color& color)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(NavigationLayoutProperty, DividerColor, color, frameNode);
+}
+
+void NavigationModelStatic::SetSplitPlaceholder(FrameNode* frameNode, const RefPtr<UINode>& splitPlaceholder)
+{
+    CHECK_NULL_VOID(splitPlaceholder);
+    CHECK_NULL_VOID(frameNode);
+    auto navigationGroupNode = AceType::DynamicCast<NavigationGroupNode>(frameNode);
+    CHECK_NULL_VOID(navigationGroupNode);
+    if (!navigationGroupNode->GetPlaceholderContentNode()) {
+        int32_t placeholderContentNodeId = ElementRegister::GetInstance()->MakeUniqueId();
+        auto placeholderContentNode = FrameNode::GetOrCreateFrameNode(V2::SPLIT_PLACEHOLDER_CONTENT_ETS_TAG,
+            placeholderContentNodeId, []() { return AceType::MakeRefPtr<Pattern>(); });
+        placeholderContentNode->GetLayoutProperty()->UpdateAlignment(Alignment::TOP_LEFT);
+        SafeAreaExpandOpts opts = { .type = SAFE_AREA_TYPE_SYSTEM | SAFE_AREA_TYPE_CUTOUT,
+            .edges = SAFE_AREA_EDGE_ALL };
+        placeholderContentNode->GetLayoutProperty()->UpdateSafeAreaExpandOpts(opts);
+        const auto& eventHub = placeholderContentNode->GetEventHub<EventHub>();
+        if (eventHub) {
+            eventHub->SetEnabled(false);
+        }
+        auto focusHub = placeholderContentNode->GetOrCreateFocusHub();
+        if (focusHub) {
+            focusHub->SetFocusable(false);
+        }
+        auto renderContext = placeholderContentNode->GetRenderContext();
+        CHECK_NULL_VOID(renderContext);
+        renderContext->SetClipToBounds(true);
+        renderContext->UpdateZIndex(-1);
+        navigationGroupNode->AddChild(placeholderContentNode);
+        navigationGroupNode->SetPlaceholderContentNode(placeholderContentNode);
+    }
+    navigationGroupNode->SetStaticSplitPlaceholder(splitPlaceholder);
 }
 } // namespace OHOS::Ace::NG

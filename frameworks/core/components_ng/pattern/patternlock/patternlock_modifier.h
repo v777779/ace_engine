@@ -24,6 +24,7 @@
 #include "base/memory/referenced.h"
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/base/modifier.h"
+#include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/patternlock/patternlock_challenge.h"
 #include "core/components_ng/pattern/progress/progress_date.h"
 #include "core/components_ng/property/property.h"
@@ -32,6 +33,7 @@
 #include "core/components_ng/render/paint_wrapper.h"
 
 namespace OHOS::Ace::NG {
+constexpr const char PATTERN_LOCK_ETS_TAG[] = "PatternLock";
 class PatternLockCell {
 public:
     PatternLockCell(int32_t column, int32_t row);
@@ -59,7 +61,7 @@ class PatternLockModifier : public ContentModifier {
     DECLARE_ACE_TYPE(PatternLockModifier, ContentModifier);
 
 public:
-    PatternLockModifier();
+    PatternLockModifier(const WeakPtr<Pattern>& pattern);
 
     ~PatternLockModifier() override = default;
     void onDraw(DrawingContext& context) override;
@@ -164,6 +166,7 @@ private:
     std::vector<RefPtr<AnimatablePropertyFloat>> lightRingRadius_;
     std::vector<RefPtr<AnimatablePropertyFloat>> lightRingAlphaF_;
     std::vector<PatternLockCell> choosePoint_;
+    WeakPtr<Pattern> pattern_;
 
     float scaleActiveCircleRadius_ = 1.0f;
     float scaleBackgroundCircleRadius_ = 1.0f;

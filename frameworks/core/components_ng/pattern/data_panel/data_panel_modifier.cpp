@@ -18,6 +18,7 @@
 #include "core/components_ng/pattern/data_panel/data_panel_paint_property.h"
 #include "core/components_ng/render/drawing_prop_convertor.h"
 #include "core/pipeline/base/constants.h"
+#include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 namespace {
@@ -32,7 +33,7 @@ constexpr uint32_t SHADOW_ALPHA = 0.4 * 255;
 constexpr float ZERO_CORNER_RADIUS = 0.0f;
 } // namespace
 
-DataPanelModifier::DataPanelModifier()
+DataPanelModifier::DataPanelModifier(const WeakPtr<Pattern>& pattern) : pattern_(pattern)
 {
     auto pipelineContext = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipelineContext);
@@ -46,15 +47,19 @@ DataPanelModifier::DataPanelModifier()
         values_.emplace_back(value);
     }
     max_ = AceType::MakeRefPtr<AnimatablePropertyFloat>(DEFAULT_MAX_VALUE);
+    count_ = AceType::MakeRefPtr<AnimatablePropertyFloat>(DEFAULT_VALUE_COUNT);
     trackBackgroundColor_ = AceType::MakeRefPtr<AnimatablePropertyColor>(LinearColor(theme->GetBackgroundColor()));
     strokeWidth_ = AceType::MakeRefPtr<AnimatablePropertyFloat>(theme->GetThickness().ConvertToPx());
     isEffect_ = AceType::MakeRefPtr<PropertyBool>(true);
     useContentModifier_ = AceType::MakeRefPtr<PropertyBool>(false);
+    updateDataPanel_ = AceType::MakeRefPtr<PropertyBool>(false);
     AttachProperty(date_);
     AttachProperty(max_);
+    AttachProperty(count_);
     AttachProperty(trackBackgroundColor_);
     AttachProperty(strokeWidth_);
     AttachProperty(isEffect_);
+    AttachProperty(updateDataPanel_);
 
     shadowRadiusFloat_ = AceType::MakeRefPtr<AnimatablePropertyFloat>(theme->GetTrackShadowRadius().ConvertToPx());
     shadowOffsetXFloat_ = AceType::MakeRefPtr<AnimatablePropertyFloat>(theme->GetTrackShadowOffsetX().ConvertToPx());
@@ -100,6 +105,9 @@ void DataPanelModifier::UpdateDate()
 {
     if (isEffect_->Get()) {
         // When the date update, the animation will repeat once.
+        auto pattern = pattern_.Upgrade();
+        auto host = pattern ? pattern->GetHost() : nullptr;
+        ACE_UINODE_TRACE(host);
         date_->Set(ANIMATION_START);
         AnimationOption option = AnimationOption();
         RefPtr<Curve> curve = AceType::MakeRefPtr<SpringCurve>(
@@ -108,24 +116,26 @@ void DataPanelModifier::UpdateDate()
         option.SetDelay(ANIMATION_DELAY);
         option.SetCurve(curve);
         option.SetIteration(ANIMATION_TIMES);
-        AnimationUtils::Animate(option, [&]() { date_->Set(ANIMATION_END); });
+        auto context = host? host->GetContextRefPtr(): nullptr;
+        AnimationUtils::Animate(option, [&]() { date_->Set(ANIMATION_END); }, nullptr, nullptr, context);
     } else {
         date_->Set(ANIMATION_END);
     }
+    updateDataPanel_->Set(!updateDataPanel_->Get());
 }
 
 void DataPanelModifier::PaintCircle(DrawingContext& context, OffsetF offset) const
 {
     RSCanvas& canvas = context.canvas;
     canvas.Save();
-    canvas.Translate(offset.GetX(), offset.GetY());
 
     auto defaultThickness = strokeWidth_->Get();
     ArcData arcData;
-    Offset center = Offset(context.width * PERCENT_HALF, context.height * PERCENT_HALF);
+    Offset center = Offset(contentSize_.Width() * PERCENT_HALF + offset.GetX(),
+        contentSize_.Height() * PERCENT_HALF + offset.GetY());
     arcData.center = center;
     // Here radius will minus defaultThickness, when there will be new api to set padding, use the new padding.
-    arcData.radius = std::min(context.width, context.height) * PERCENT_HALF - defaultThickness;
+    arcData.radius = std::min(contentSize_.Width(), contentSize_.Height()) * PERCENT_HALF - defaultThickness;
     if (defaultThickness >= arcData.radius) {
         arcData.thickness = arcData.radius * DIAMETER_TO_THICKNESS_RATIO;
     } else {
@@ -143,10 +153,17 @@ void DataPanelModifier::PaintCircle(DrawingContext& context, OffsetF offset) con
 
     arcData.totalDrawAngle = (arcData.totalAllValue * date_->Get()) / arcData.maxValue * WHOLE_CIRCLE;
     arcData.totalDrawAngle = std::min(arcData.totalDrawAngle, WHOLE_CIRCLE);
-    Offset shadowCenter = Offset(context.width * PERCENT_HALF + shadowOffsetXFloat_->Get(),
-        context.height * PERCENT_HALF + shadowOffsetYFloat_->Get());
 
     // paint shadows
+    PaintCircleShadow(canvas, arcData);
+    arcData.center = center;
+    PaintCircleProgress(canvas, arcData);
+}
+
+void DataPanelModifier::PaintCircleShadow(RSCanvas& canvas, ArcData& arcData) const
+{
+    Offset shadowCenter = Offset(arcData.center.GetX() + shadowOffsetXFloat_->Get(),
+        arcData.center.GetY() + shadowOffsetYFloat_->Get());
     if ((isShadowVisible_ && (isHasShadowValue_ || isEffect_->Get()))) {
         for (size_t i = 0; i < shadowColorsLastLength_; ++i) {
             if (NearZero(values_[i]->Get())) {
@@ -181,7 +198,10 @@ void DataPanelModifier::PaintCircle(DrawingContext& context, OffsetF offset) con
     arcData.lastAngle = 0.0f;
     arcData.totalValue = 0.0f;
     canvas.Restore();
+}
 
+void DataPanelModifier::PaintCircleProgress(RSCanvas& canvas, ArcData& arcData) const
+{
     for (size_t i = 0; i < valuesLastLength_; ++i) {
         if (NearZero(values_[i]->Get())) {
             continue;
@@ -196,7 +216,6 @@ void DataPanelModifier::PaintCircle(DrawingContext& context, OffsetF offset) con
         arcData.drawAngle = arcData.progressValue / arcData.maxValue * WHOLE_CIRCLE;
         arcData.drawAngle = arcData.lastAngle + std::max(arcData.drawAngle - arcData.lastAngle, MIN_CIRCLE);
         arcData.drawAngle = std::min(arcData.drawAngle, WHOLE_CIRCLE);
-
         arcData.gradientPointBase = totalValuePre / arcData.totalValue;
 
 #ifndef USE_ROSEN_DRAWING
@@ -206,7 +225,6 @@ void DataPanelModifier::PaintCircle(DrawingContext& context, OffsetF offset) con
         RSRecordingPath path;
         RSRecordingPath endPath;
 #endif
-        arcData.center = center;
         GetPaintPath(arcData, path, endPath);
         PaintProgress(canvas, arcData, path, endPath, false);
         arcData.lastAngle = arcData.drawAngle;

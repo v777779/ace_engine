@@ -25,9 +25,10 @@ using StateChangeEvent = std::function<void(const int32_t)>;
 using RefreshChangeEvent = std::function<void(const std::string)>;
 using RefreshingEvent = std::function<void()>;
 using OffsetChangeEvent = std::function<void(const float)>;
+using OffsetStepChangeEvent = std::function<void(const float, const bool)>;
 
 class RefreshEventHub : public EventHub {
-    DECLARE_ACE_TYPE(RefreshEventHub, EventHub)
+    DECLARE_ACE_TYPE(RefreshEventHub, EventHub);
 
 public:
     RefreshEventHub() = default;
@@ -73,6 +74,11 @@ public:
         offsetChange_ = std::move(dragOffset);
     }
 
+    void SetOnStepOffsetChange(OffsetStepChangeEvent&& changeEvent)
+    {
+        stepOffsetChange_ = std::move(changeEvent);
+    }
+
     void ResetOnOffsetChange()
     {
         offsetChange_ = nullptr;
@@ -85,11 +91,19 @@ public:
         }
     }
 
+    void FireOnStepOffsetChange(const float value, const bool isDrag) const
+    {
+        if (stepOffsetChange_) {
+            stepOffsetChange_(value, isDrag);
+        }
+    }
+
 private:
     StateChangeEvent stateChange_;
     RefreshingEvent refreshing_;
     OffsetChangeEvent offsetChange_;
     RefreshChangeEvent changeEvent_;
+    OffsetStepChangeEvent stepOffsetChange_;
     ACE_DISALLOW_COPY_AND_MOVE(RefreshEventHub);
 };
 } // namespace OHOS::Ace::NG

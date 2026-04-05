@@ -15,5 +15,16 @@ import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
 
 ace_unittest("blank_test_ng") {
   type = "new"
-  sources = [ "blank_test_ng.cpp" ]
+  module_name = "Layout-Blank"
+  sources = [
+    "blank_new_test_ng.cpp",
+    "blank_test_ng.cpp",
+  ]
+
+  if (!ace_enable_full_test_suite) {
+    sources = []
+    sources = [ "blank_test_core.cpp" ]
+  } else {
+    sources += [ "blank_test_core.cpp" ]
+  }
 }

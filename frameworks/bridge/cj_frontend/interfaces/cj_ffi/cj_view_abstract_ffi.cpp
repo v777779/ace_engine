@@ -24,8 +24,10 @@
 #include "bridge/common/utils/utils.h"
 #include "core/components_ng/base/view_abstract_model_ng.h"
 #include "core/components_ng/base/view_stack_model.h"
+#include "core/components_ng/base/view_stack_processor.h"
 #include "pixel_map_impl.h"
 #include "core/components/common/properties/border_image.h"
+#include "core/common/color_inverter.h"
 
 using namespace OHOS::Ace;
 using namespace OHOS::FFI;
@@ -53,10 +55,15 @@ constexpr float DEFAULT_SCALE_MIDDLE_OR_HEAVY = 0.95f;
 uint32_t ColorAlphaAdapt(uint32_t origin)
 {
     uint32_t result = origin;
-    if ((origin >> COLOR_ALPHA_OFFSET) == 0) {
-        result = origin | COLOR_ALPHA_VALUE;
+    // After Api22, alpha is handled on the cangjie.
+    if (Container::GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        return result;
+    } else {
+        if ((origin >> COLOR_ALPHA_OFFSET) == 0) {
+            result = origin | COLOR_ALPHA_VALUE;
+        }
+        return result;
     }
-    return result;
 }
 const std::vector<BorderStyle> BORDER_STYLES = { BorderStyle::SOLID, BorderStyle::DASHED, BorderStyle::DOTTED };
 const std::vector<ImageRepeat> IMAGES_REPEATS = { ImageRepeat::NO_REPEAT, ImageRepeat::REPEAT_X, ImageRepeat::REPEAT_Y,
@@ -560,6 +567,12 @@ void FfiOHOSAceFrameworkViewAbstractSetBorderWidthWithCJEdge(CJEdge params)
     ViewAbstractModel::GetInstance()->SetBorderWidth(leftDimen, rightDimen, topDimen, bottomDimen);
 }
 
+void FfiOHOSAceFrameworkViewAbstractResetBorderWidth()
+{
+    CalcDimension value = {};
+    ViewAbstractModel::GetInstance()->SetBorderWidth(value);
+}
+
 void FfiOHOSAceFrameworkViewAbstractSetBorderColor(uint32_t color)
 {
     ViewAbstractModel::GetInstance()->SetBorderColor(Color(color));
@@ -883,6 +896,12 @@ void FfiOHOSAceFrameworkViewAbstractTransitionWithBack(int64_t id, void (*onFini
     ViewAbstractModel::GetInstance()->SetChainedTransition(chainedEffect, std::move(finishCallback));
 }
 
+void FfiOHOSAceFrameworkViewAbstractResetTransition()
+{
+    ViewAbstractModel::GetInstance()->CleanTransition();
+    ViewAbstractModel::GetInstance()->SetChainedTransition(nullptr, nullptr);
+}
+
 void FfiOHOSAceFrameworkViewAbstractSetTransform(int64_t id)
 {
     auto nativeMatrix = FFIData::GetData<NativeMatrix>(id);
@@ -1007,6 +1026,11 @@ void FfiOHOSAceFrameworkViewAbstractSetAspectRatio(double value)
     ViewAbstractModel::GetInstance()->SetAspectRatio(static_cast<float>(value));
 }
 
+void FfiOHOSAceFrameworkViewAbstractResetAspectRatio()
+{
+    ViewAbstractModel::GetInstance()->ResetAspectRatio();
+}
+
 void FfiOHOSAceFrameworkViewAbstractSetDisplayPriority(int32_t value)
 {
     ViewAbstractModel::GetInstance()->SetDisplayIndex(value);
@@ -1124,12 +1148,19 @@ void FfiOHOSAceFrameworkViewAbstractSetShadow(double radius, uint32_t color, dou
 {
     Dimension dOffsetX(offsetX, DimensionUnit::VP);
     Dimension dOffsetY(offsetY, DimensionUnit::VP);
-    if (LessOrEqual(radius, 0.0)) {
-        LOGE("Shadow Parse radius failed, radius = %{public}lf", radius);
-        return;
+    double radiusVal = radius;
+    if (Container::GreatOrEqualAPIVersion(PlatformVersion::VERSION_TWENTY_TWO)) {
+        if (LessNotEqual(radius, 0.0)) {
+            radiusVal = 0.0;
+        }
+    } else {
+        if (LessOrEqual(radius, 0.0)) {
+            LOGE("Shadow Parse radius failed, radius = %{public}lf", radius);
+            return;
+        }
     }
     std::vector<Shadow> shadows(1);
-    shadows.begin()->SetBlurRadius(radius);
+    shadows.begin()->SetBlurRadius(radiusVal);
     shadows.begin()->SetOffsetX(dOffsetX.Value());
     shadows.begin()->SetOffsetY(dOffsetY.Value());
     shadows.begin()->SetColor(Color(color));
@@ -1392,6 +1423,13 @@ void FfiOHOSAceFrameworkViewAbstractSetFlexBasis(double value, int32_t unit)
     ViewAbstractModel::GetInstance()->SetFlexBasis(radius);
 }
 
+void FfiOHOSAceFrameworkViewAbstractResetFlexBasis()
+{
+    CalcDimension value;
+    value.SetUnit(DimensionUnit::AUTO);
+    ViewAbstractModel::GetInstance()->SetFlexBasis(value);
+}
+
 void FfiOHOSAceFrameworkViewAbstractSetFlexGrow(double value)
 {
     ViewAbstractModel::GetInstance()->SetFlexGrow(static_cast<float>(value));
@@ -1400,6 +1438,11 @@ void FfiOHOSAceFrameworkViewAbstractSetFlexGrow(double value)
 void FfiOHOSAceFrameworkViewAbstractSetFlexShrink(double value)
 {
     ViewAbstractModel::GetInstance()->SetFlexShrink(static_cast<float>(value));
+}
+
+void FfiOHOSAceFrameworkViewAbstractResetFlexShrink()
+{
+    ViewAbstractModel::GetInstance()->ResetFlexShrink();
 }
 
 void FfiOHOSAceFrameworkViewAbstractSetAlignSelf(int32_t alignValue)
@@ -1682,7 +1725,7 @@ void FfiOHOSAceFrameworkViewAbstractSetMotionPath(CJMotionPathOptions options)
             from = 0.0;
         }
         if (to > 1.0 || to < 0.0) {
-            from = 1.0;
+            to = 1.0;
         } else if (to < from) {
             to = from;
         }
@@ -2362,6 +2405,22 @@ void FfiOHOSAceFrameworkViewAbstractRadialGradient(RadialGradientParam radialGra
     ViewAbstractModel::GetInstance()->SetRadialGradient(newGradient);
 }
 
+void FfiOHOSAceFrameworkViewAbstractResetRadialGradient(RadialGradientParam radialGradientParam,
+    bool needResetCenter, bool needResetRadius)
+{
+    NG::Gradient newGradient;
+    NewCjRadialGradient(radialGradientParam, newGradient);
+    if (needResetCenter) {
+        newGradient.GetRadialGradient()->radialCenterX.reset();
+        newGradient.GetRadialGradient()->radialCenterY.reset();
+    }
+    if (needResetRadius) {
+        newGradient.GetRadialGradient()->radialVerticalSize.reset();
+        newGradient.GetRadialGradient()->radialHorizontalSize.reset();
+    }
+    ViewAbstractModel::GetInstance()->SetRadialGradient(newGradient);
+}
+
 void FfiOHOSAceFrameworkViewAbstractRenderFit(int32_t fitMode)
 {
     if (!OHOS::Ace::Framework::Utils::CheckParamsValid(fitMode, RENDERFITS.size())) {
@@ -3002,11 +3061,22 @@ ExternalString FFIGetResourceMedia(NativeResourceObject obj)
 
 uint32_t FFIGetResourceSymbolId(NativeResourceObject obj)
 {
-    uint32_t symbolId;
+    uint32_t symbolId = 0;
     if (!ViewAbstract::ParseCjSymbolId(obj, symbolId)) {
         LOGE("Parse symbol id failed.");
     }
     return symbolId;
+}
+
+ExternalString FFIGetResourceColorString(NativeResourceObject obj)
+{
+    Color color;
+    if (!ViewAbstract::ParseCjColor(obj, color)) {
+        LOGE("Parse color failed.");
+        return ::Utils::MallocCString("");
+    }
+    std::string result = color.ToString();
+    return ::Utils::MallocCString(result);
 }
 
 uint32_t FFIGetResourceColor(NativeResourceObject obj)
@@ -3032,9 +3102,10 @@ RetDimension FFIGetResourceDimension(NativeResourceObject obj)
 
 double FFIGetResourceDouble(NativeResourceObject obj)
 {
-    double result;
+    double result = 0.0;
     if (!ViewAbstract::ParseCjDouble(obj, result)) {
         LOGE("Parse double failed.");
+        return 0.0;
     }
     return result;
 }
@@ -3396,5 +3467,68 @@ RefPtr<PixelMap> ParseDragPreviewPixelMap(int64_t pixelMapId)
     }
 
     return pixMapOhos;
+}
+
+bool CheckDarkResource(const RefPtr<ResourceObject>& resObj)
+{
+    if (!SystemProperties::GetResourceDecoupling() || !resObj) {
+        return false;
+    }
+    auto resourceAdapter = ResourceManager::GetInstance().GetOrCreateResourceAdapter(resObj);
+    CHECK_NULL_RETURN(resourceAdapter, false);
+
+    int32_t resId = resObj->GetId();
+    bool hasDarkRes = false;
+    auto params = resObj->GetParams();
+    if (resId == -1 && !params.empty() && params.back().value.has_value()) {
+        hasDarkRes = resourceAdapter->ExistDarkResByName(params.back().value.value(),
+            std::to_string(resObj->GetType()));
+    } else {
+        hasDarkRes = resourceAdapter->ExistDarkResById(std::to_string(resId));
+    }
+    return hasDarkRes;
+}
+
+void CompleteResourceObjectFromColor(RefPtr<ResourceObject>& resObj, Color& color, bool state)
+{
+    if (!state || !SystemProperties::ConfigChangePerform()) {
+        return;
+    }
+
+    auto node = OHOS::Ace::NG::ViewStackProcessor::GetInstance()->GetMainElementNode();
+    CHECK_NULL_VOID(node);
+
+    auto instanceId = Container::CurrentIdSafely();
+    auto nodeTag = node->GetTag();
+    auto invertFunc = ColorInverter::GetInstance().GetInvertFunc(instanceId, nodeTag);
+    CHECK_NULL_VOID(invertFunc);
+
+    auto localColorMode = node->GetLocalColorMode();
+    if (localColorMode == ColorMode::LIGHT) {
+        resObj = nullptr;
+        return;
+    }
+    bool hasDarkRes = CheckDarkResource(resObj);
+    if (localColorMode == ColorMode::DARK) {
+        if (!hasDarkRes) {
+            color = Color(invertFunc(color.GetValue()));
+        }
+        resObj = nullptr;
+        return;
+    }
+    auto colorMode = Container::CurrentColorMode();
+    Color curColor = color;
+    if ((colorMode == ColorMode::DARK) && !hasDarkRes) {
+        color = Color(invertFunc(color.GetValue()));
+    }
+    if (!resObj) {
+        resObj = AceType::MakeRefPtr<ResourceObject>();
+        resObj->SetIsResource(false);
+        resObj->SetInstanceId(instanceId);
+    }
+    resObj->SetNodeTag(nodeTag);
+    resObj->SetColorMode(colorMode);
+    resObj->SetHasDarkRes(hasDarkRes);
+    resObj->SetColor(curColor);
 }
 } // namespace OHOS::Ace

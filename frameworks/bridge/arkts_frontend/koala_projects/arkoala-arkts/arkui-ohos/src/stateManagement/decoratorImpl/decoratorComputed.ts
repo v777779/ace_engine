@@ -15,14 +15,16 @@
 import { ObserveSingleton } from '../base/observeSingleton';
 import { IBindingSource, ITrackedDecoratorRef } from '../base/mutableStateMeta';
 import { StateMgmtConsole } from '../tools/stateMgmtDFX';
-import { RenderIdType, IMutableStateMeta, IComputedDecoratedVariable, IVariableOwner } from '../decorator';
+import { RenderIdType, IMutableStateMeta, IComputedDecoratedVariable, IVariableOwner, IDecoratorBaseRegistry } from '../decorator';
 import { FactoryInternal } from '../base/iFactoryInternal';
+import { ElementInfo } from '../utils';
 
 export interface IComputedDecoratorRef extends ITrackedDecoratorRef {
     fireChange(): void;
+    isFreeze(): boolean;
 }
 
-export class ComputedDecoratedVariable<T> implements IComputedDecoratedVariable<T> {
+export class ComputedDecoratedVariable<T> implements IComputedDecoratedVariable<T>, IDecoratorBaseRegistry {
     public static readonly MIN_COMPUTED_ID: RenderIdType = 0x10000000;
     public static nextComputedId_: RenderIdType = ComputedDecoratedVariable.MIN_COMPUTED_ID;
     public readonly decorator: string;
@@ -43,6 +45,11 @@ export class ComputedDecoratedVariable<T> implements IComputedDecoratedVariable<
         this.decorator = '@Computed';
         ObserveSingleton.instance.addToTrackedRegistry(this, this.reverseBindings);
     }
+
+    isFreeze(): boolean {
+        return !!(this.owningComponent_ && !this.owningComponent_!.__isViewActive__Internal());
+    }
+
     fireChange(): void {
         const newValue: T = this.runFunctionAndObserve();
         if (this.cachedValue_ !== newValue) {
@@ -72,6 +79,12 @@ export class ComputedDecoratedVariable<T> implements IComputedDecoratedVariable<
 
     setOwner(owningView: IVariableOwner) {
         this.owningComponent_ = owningView;
+        this.registerToOwningView();
+    }
+
+    resetOnReuse(): void {
+        ObserveSingleton.instance.clearDelayedComputedWhenReuse();
+        this.fireChange();
     }
 
     private shouldAddRef(): boolean {
@@ -95,5 +108,16 @@ export class ComputedDecoratedVariable<T> implements IComputedDecoratedVariable<
             ObserveSingleton.instance.renderingComponentRef = renderingComponentRefBefore;
         }
         return newValue;
+    }
+
+    public registerToOwningView(): void {
+        this.owningComponent_?.__registerStateVariables__Internal(this);
+    }
+
+    public getDFXInfo(): ElementInfo {
+        return {
+            elementName: `@Computed get ${this.varName}`,
+            elementId: this.id
+        };
     }
 }

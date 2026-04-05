@@ -15,10 +15,9 @@
 
 #include "core/components_ng/pattern/search/search_text_field.h"
 
-#include "interfaces/inner_api/ui_session/ui_session_manager.h"
-
 #include "core/components/search/search_theme.h"
 #include "core/components_ng/pattern/search/search_event_hub.h"
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 namespace OHOS::Ace::NG {
 
@@ -37,6 +36,10 @@ RefPtr<FocusHub> SearchTextFieldPattern::GetFocusHub() const
 
 void SearchTextFieldPattern::PerformAction(TextInputAction action, bool forceCloseKeyboard)
 {
+    if (!HasFocus()) {
+        TAG_LOGW(AceLogTag::ACE_TEXT_FIELD, "Not Trigger OnSubmit because field blur");
+        return;
+    }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
     auto parentFrameNode = AceType::DynamicCast<FrameNode>(host->GetParent());
@@ -45,7 +48,8 @@ void SearchTextFieldPattern::PerformAction(TextInputAction action, bool forceClo
     // Enter key type callback
     TextFieldCommonEvent event;
     eventHub->FireOnSubmit(GetTextUtf16Value(), event);
-    UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Search.onSubmit");
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent("event", "Search.onSubmit",
+        ComponentEventType::COMPONENT_EVENT_TEXT_INPUT);
     TAG_LOGI(
         AceLogTag::ACE_TEXT_FIELD, "nodeId:[%{public}d] Search reportComponentChangeEvent onSubmit", host->GetId());
     // If the developer wants to keep editing, editing will not stop
@@ -64,7 +68,10 @@ void SearchTextFieldPattern::InitDragEvent()
 {
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    host->SetDraggable(true);
+    auto parentFrameNode = AceType::DynamicCast<FrameNode>(host->GetParent());
+    CHECK_NULL_VOID(parentFrameNode);
+    auto draggable = parentFrameNode->IsDraggable() || !parentFrameNode->IsCustomerSet();
+    host->SetDraggable(draggable);
     TextFieldPattern::InitDragEvent();
 }
 
@@ -111,6 +118,7 @@ void SearchTextFieldPattern::ProcessSelection()
         UpdateSelection(std::clamp(selectController_->GetStartIndex(), 0, textWidth),
             std::clamp(selectController_->GetEndIndex(), 0, textWidth));
         SetIsSingleHandle(!IsSelected());
+        selectOverlay_->UpdateHandleColor();
         if (isTextChangedAtCreation_ && textWidth == 0) {
             CloseSelectOverlay();
             StartTwinkling();
@@ -154,7 +162,7 @@ int32_t SearchTextFieldPattern::GetRequestKeyboardId()
     return searchHost->GetId();
 }
 
-float SearchTextFieldPattern::FontSizeConvertToPx(const Dimension& fontSize)
+float SearchTextFieldPattern::FontSizeConvertToPx(const Dimension &fontSize)
 {
     auto host = GetHost();
     CHECK_NULL_RETURN(host, fontSize.ConvertToPx());
@@ -203,4 +211,4 @@ IMEClient SearchTextFieldPattern::GetIMEClientInfo()
     clientInfo.nodeId = parentFrameNode->GetId();
     return clientInfo;
 }
-} // namespace OHOS::Ace::NG
+}  // namespace OHOS::Ace::NG

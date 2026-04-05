@@ -22,8 +22,7 @@
 #include "base/memory/referenced.h"
 #include "base/utils/utils.h"
 #include "core/components/common/properties/color.h"
-#include "core/components/common/properties/text_style.h"
-#include "core/components/select/select_theme.h"
+#include "core/components/common/properties/text_enums.h"
 #include "core/components/theme/icon_theme.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/event/event_hub.h"
@@ -36,10 +35,17 @@
 #include "core/components_ng/pattern/select/select_paint_property.h"
 #include "core/components_ng/pattern/text/text_layout_property.h"
 #include "core/components_ng/pattern/select/select_model_ng.h"
+#include "core/components_ng/pattern/menu/menu_theme.h"
 
 namespace OHOS::Ace::NG {
 class InspectorFilter;
-class MenuItemPattern;
+}
+
+namespace OHOS::Ace {
+class SelectTheme;
+} // namespace OHOS::Ace
+
+namespace OHOS::Ace::NG {
 
 class SelectPattern : public Pattern {
     DECLARE_ACE_TYPE(SelectPattern, Pattern);
@@ -49,6 +55,11 @@ public:
     ~SelectPattern() override = default;
 
     bool IsEnableMatchParent() override
+    {
+        return true;
+    }
+
+    bool IsEnableFix() override
     {
         return true;
     }
@@ -121,15 +132,21 @@ public:
 
     // set properties of text node
     void SetValue(const std::string& value);
+    void SetValueImpl(const std::string& value);
     void SetFontSize(const Dimension& value);
     void SetItalicFontStyle(const Ace::FontStyle& value);
+    void SetItalicFontStyleImpl(const Ace::FontStyle& value);
     void SetFontWeight(const FontWeight& value);
+    void SetFontWeightImpl(const FontWeight& value);
     void SetFontFamily(const std::vector<std::string>& value);
+    void SetFontFamilyImpl(const std::vector<std::string>& value);
     void SetFontColor(const Color& color);
+    void SetFontColorImpl(const Color& color);
 
     // set props of option nodes
     void SetOptionBgColor(const Color& color);
     void SetOptionFontSize(const Dimension& value);
+    void SetOptionFontSizeImpl(const Dimension& value);
     void SetOptionItalicFontStyle(const Ace::FontStyle& value);
     void SetOptionFontWeight(const FontWeight& value);
     void SetOptionFontFamily(const std::vector<std::string>& value);
@@ -146,22 +163,18 @@ public:
     // set props of menu background
     void SetMenuBackgroundColor(const Color& color);
     void SetMenuBackgroundBlurStyle(const BlurStyleOption& blurStyle);
-
+    bool IsValidIndex(int32_t index);
+    void GetSelectedValue(int32_t index, std::string& value);
+    void ShowOptions(int32_t index);
+    bool ParseCommand(const std::string& command, int32_t& targetIndex, std::string& targetValue);
+    int32_t OnInjectionEvent(const std::string& command) override;
+    bool FindOptionIndexByValue(const std::string& value, int32_t& index);
+    void ReportInjectResult(const std::string& event, bool success, const std::string& reason = "");
+    bool ReportOnSelectEvent(int32_t index, const std::string& value);
     // Get functions for unit tests
     const std::vector<RefPtr<FrameNode>>& GetOptions();
 
-    FocusPattern GetFocusPattern() const override
-    {
-        FocusPattern focusPattern = { FocusType::NODE, true, FocusStyleType::INNER_BORDER };
-        auto pipelineContext = PipelineBase::GetCurrentContext();
-        CHECK_NULL_RETURN(pipelineContext, focusPattern);
-        auto selectTheme = pipelineContext->GetTheme<SelectTheme>();
-        CHECK_NULL_RETURN(selectTheme, focusPattern);
-        auto focusStyleType =
-            static_cast<FocusStyleType>(static_cast<int32_t>(selectTheme->GetSelectFocusStyleType_()));
-        focusPattern.SetStyleType(focusStyleType);
-        return focusPattern;
-    }
+    FocusPattern GetFocusPattern() const override;
 
     // update selected option props
     void UpdateSelectedProps(int32_t index);
@@ -191,6 +204,16 @@ public:
         return isHover_;
     }
 
+    void SetMenuSystemMaterial(RefPtr<UiMaterial> menuSystemMaterial)
+    {
+        menuSystemMaterial_ = menuSystemMaterial;
+    }
+
+    RefPtr<UiMaterial> GetMenuSystemMaterial() const
+    {
+        return menuSystemMaterial_;
+    }
+
     void SetShowInSubWindow(bool isShowInSubWindow);
     void ResetShowInSubWindow();
     void SetShowDefaultSelectedIcon(bool show);
@@ -208,20 +231,21 @@ public:
     void OnRestoreInfo(const std::string& restoreInfo) override;
     void OnColorConfigurationUpdate() override;
     void OnLanguageConfigurationUpdate() override;
-    void ShowSelectMenu();
-    void ShowSelectMenuInSubWindow();
 
     Dimension GetFontSize();
     void SetOptionWidth(const Dimension& value);
     void SetOptionHeight(const Dimension& value);
     void SetOptionWidthFitTrigger(bool isFitTrigger);
+    void ShowSelectMenu();
+    void ShowSelectMenuInSubWindow();
     void SetHasOptionWidth(bool hasOptionWidth);
     void SetControlSize(const ControlSize& controlSize);
     void SetDivider(const SelectDivider& divider);
     void SetDividerMode(const std::optional<DividerMode>& mode);
     ControlSize GetControlSize();
     void SetLayoutDirection(TextDirection value);
-    Dimension GetSelectLeftRightMargin() const;
+    Dimension GetSelectLeftMargin(ControlSize controlSize) const;
+    Dimension GetSelectRightMargin(ControlSize controlSize) const;
     bool OnThemeScopeUpdate(int32_t themeScopeId) override;
     RefPtr<PaintProperty> CreatePaintProperty() override
     {
@@ -232,28 +256,35 @@ public:
         return MakeRefPtr<SelectLayoutProperty>();
     }
     void ResetFontColor();
-    void SetMenuOutline(const MenuParam& menuParam);
+    void DumpInfo() override;
     void SetTextModifierApply(const std::function<void(WeakPtr<NG::FrameNode>)>& textApply);
     void SetArrowModifierApply(const std::function<void(WeakPtr<NG::FrameNode>)>& arrowApply);
+    void SetArrowColor(const Color& color);
     void SetOptionTextModifier(const std::function<void(WeakPtr<NG::FrameNode>)>& optionApply);
     void SetSelectedOptionTextModifier(const std::function<void(WeakPtr<NG::FrameNode>)>& optionSelectedApply);
     std::function<void(WeakPtr<NG::FrameNode>)>& GetTextModifier();
     std::function<void(WeakPtr<NG::FrameNode>)>& GetArrowModifier();
     void ResetOptionToInitProps(
-        const RefPtr<MenuItemPattern>& optionPattern, const RefPtr<MenuItemPattern>& selectingOptionPattern = nullptr);
-    void ResetSelectedOptionToInitProps(const RefPtr<MenuItemPattern>& optionPattern);
-    void UpdateOptionCustomProperties(const RefPtr<MenuItemPattern>& optionPattern);
-    void UpdateSelectedOptionCustomProperties(const RefPtr<MenuItemPattern>& optionPattern);
-    void ResetLastSelectedOptionFlags(const RefPtr<MenuItemPattern>& optionPattern);
-    void UpdateOptionFontFromPattern(const RefPtr<MenuItemPattern>& optionPattern);
-    void UpdateSelectedOptionFontFromPattern(const RefPtr<MenuItemPattern>& optionPattern);
-    void DumpInfo() override;
-
+        const RefPtr<NG::FrameNode>& optionNode, const RefPtr<NG::FrameNode>& selectingOptionNode = nullptr);
+    void ResetSelectedOptionToInitProps(const RefPtr<NG::FrameNode>& optionNode);
+    void UpdateOptionCustomProperties(const RefPtr<NG::FrameNode>& optionNode);
+    void UpdateSelectedOptionCustomProperties(const RefPtr<NG::FrameNode>& optionNode);
+    void ResetLastSelectedOptionFlags(const RefPtr<NG::FrameNode>& optionNode);
+    void ACE_FORCE_EXPORT UpdateOptionFontFromPattern(const RefPtr<NG::FrameNode>& optionNode);
+    void ACE_FORCE_EXPORT UpdateSelectedOptionFontFromPattern(const RefPtr<NG::FrameNode>& optionNode);
+    void SetMenuOutline(const MenuParam& menuParam);
     void UpdateComponentColor(const Color& color, const SelectColorType selectColorType);
-    void SetColorByUser(const RefPtr<FrameNode>& host);
+    void SetColorByUser(const RefPtr<FrameNode>& host, const RefPtr<SelectTheme>& theme);
     void UpdateMenuOption(int32_t index, const std::string& value, const SelectOptionType optionType);
-    void SetModifierByUser(const RefPtr<FrameNode>& frameNode, const RefPtr<SelectPaintProperty>& props,
-        const RefPtr<SelectLayoutProperty>& layoutProps);
+    void SetMenuBackgroundColorByUser(const Color& color, const RefPtr<SelectPaintProperty>& props);
+    void SetModifierByUser(const RefPtr<SelectTheme>& theme, const RefPtr<SelectPaintProperty>& props);
+    void SetOptionBgColorByUser(const Color& color, const RefPtr<SelectPaintProperty>& props);
+    void SetSpinnerColorByUser(const RefPtr<SelectTheme>& theme, const RefPtr<SelectPaintProperty>& props);
+    void SetOptionFontColorByUser(const RefPtr<SelectTheme>& theme, const RefPtr<SelectPaintProperty>& props);
+    SelectDivider GetDivider() const;
+    std::optional<DividerMode> GetDividerMode() const;
+    void RestoreDividerToDefault(const RefPtr<SelectTheme>& theme, const RefPtr<SelectPaintProperty>& props);
+    void SetSelectedOptionFontColorByUser(const RefPtr<SelectTheme>& theme, const RefPtr<SelectPaintProperty>& props);
 
 private:
     void OnAttachToFrameNode() override;
@@ -268,7 +299,28 @@ private:
     void InitFocusEvent();
     void AddIsFocusActiveUpdateEvent();
     void RemoveIsFocusActiveUpdateEvent();
-    void UpdateMenuScrollColorConfiguration(const RefPtr<FrameNode>& menuNode);
+    void UpdateMenuChildColorConfiguration(
+        const RefPtr<FrameNode>& menuNode, const ConfigurationChange& configurationChange);
+    void SetArrowModifierByUser(const RefPtr<SelectTheme>& theme, const RefPtr<SelectPaintProperty>& props);
+    void SetSelectedOptionBgColorByUser(const RefPtr<SelectTheme>& theme, const RefPtr<SelectPaintProperty>& props,
+        const RefPtr<SelectLayoutProperty>& layoutProps);
+
+    // multi-thread
+    void OnAttachToMainTree() override;
+    void OnAttachToFrameNodeMultiThread();
+    void OnAttachToMainTreeMultiThread();
+    void ResetParamsMultiThread();
+    void ResetOptionPropsMultiThread();
+    void SetFontSizeMultiThread(const Dimension& value);
+    void SetFontColorMultiThread(const Color& color);
+    void SetFontWeightMultiThread(const FontWeight& value);
+    void SetOptionFontSizeMultiThread(const Dimension& value);
+    void SetFontFamilyMultiThread(const std::vector<std::string>& value);
+    void SetItalicFontStyleMultiThread(const Ace::FontStyle& value);
+    void ResetFontColorMultiThread();
+    void SetValueMultiThread(const std::string& value);
+    void ConfigMenuParam();
+
     bool HasRowNode() const
     {
         return rowId_.has_value();
@@ -334,10 +386,11 @@ private:
     void InitSpinner(const RefPtr<FrameNode>& spinner, const RefPtr<SelectTheme>& selectTheme);
     void ResetParams();
     void UpdateOptionsWidth(float selectWidth);
+    void OnDpiConfigurationUpdate() override;
     void UpdateTargetSize();
     bool GetShadowFromTheme(ShadowStyle shadowStyle, Shadow& shadow);
     void ShowScrollBar();
-
+    void UpdateMenuBorderStyle(const RefPtr<FrameNode>& menu);
     std::vector<RefPtr<FrameNode>> options_;
     RefPtr<FrameNode> menuWrapper_ = nullptr;
     RefPtr<FrameNode> text_ = nullptr;
@@ -360,13 +413,17 @@ private:
     OptionFont optionFont_;
     std::optional<Color> optionBgColor_;
     std::optional<Color> fontColor_;
+    RefPtr<UiMaterial> menuSystemMaterial_ = nullptr;
 
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override;
+    void ToJsonSelectedOptionFontAndColor(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
     void ToJsonArrowAndText(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
     void ToJsonOptionAlign(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
     void ToJsonMenuBackgroundStyle(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
     void ToJsonDivider(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
+    void ToJsonDividerMode(std::unique_ptr<JsonValue>& json) const;
     void ToJsonOptionMaxlines(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
+    void ToJsonMenuAvoidKeyboard(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
     // XTS inspector helper functions
     std::string InspectorGetOptions() const;
     std::string InspectorGetSelectedFont() const;
@@ -393,8 +450,66 @@ private:
     std::function<void(WeakPtr<NG::FrameNode>)> textApply_ = nullptr;
     std::function<void(WeakPtr<NG::FrameNode>)> textOptionApply_ = nullptr;
     std::function<void(WeakPtr<NG::FrameNode>)> textSelectOptionApply_ = nullptr;
+    std::optional<Color> menuBackgroundColor_;
+    SelectDivider divider_;
+    std::optional<DividerMode> dividerMode_;
 };
 
+class SelectJsonUtil {
+public:
+    std::optional<int32_t> index;
+    std::optional<std::string> value;
+
+    SelectJsonUtil() : index(std::nullopt), value(std::nullopt) {}
+
+    static std::shared_ptr<InspectorJsonValue> ToJson(const SelectJsonUtil& util)
+    {
+        auto params = InspectorJsonUtil::CreateObject();
+        CHECK_NULL_RETURN(params, nullptr);
+        params->Put("index", util.index.has_value() ? util.index.value() : -1);
+        params->Put("value", util.value.has_value() ? util.value.value().c_str() : "");
+        auto result = InspectorJsonUtil::Create();
+        CHECK_NULL_RETURN(result, nullptr);
+        result->Put("cmd", "onSelect");
+        result->Put("params", params);
+        return result;
+    };
+    
+    static std::shared_ptr<InspectorJsonValue> BuildInjectResult(
+        int32_t nodeId, const std::string& event, bool success, const std::string& reason = "")
+    {
+        auto root = InspectorJsonUtil::CreateObject();
+        CHECK_NULL_RETURN(root, nullptr);
+        
+        auto selectResult = InspectorJsonUtil::CreateObject();
+        CHECK_NULL_RETURN(selectResult, nullptr);
+        
+        selectResult->Put("nodeId", nodeId);
+        selectResult->Put("event", event.c_str());
+        selectResult->Put("result", success ? "success" : "failure");
+        selectResult->Put("reason", reason.c_str());
+        
+        root->Put("SelectResult", selectResult);
+        return root;
+    }
+
+    static SelectJsonUtil FromJson(const std::unique_ptr<JsonValue>& json)
+    {
+        SelectJsonUtil util;
+        if (json && json->IsValid() && json->GetString("cmd") == "onSelect") {
+            auto child = json->GetValue("params");
+            if (child && child->IsObject()) {
+                if (child->Contains("index")) {
+                    util.index = child->GetInt("index", -1);
+                }
+                if (child->Contains("value")) {
+                    util.value = child->GetString("value");
+                }
+            }
+        }
+        return util;
+    }
+};
 } // namespace OHOS::Ace::NG
 
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_SELECT_SELECT_PATTERN_H

@@ -63,6 +63,7 @@ enum class PageRouterExcepType {
     UPDATE_PAGE_ERR,
     LOAD_PAGE_ERR,
     REPLACE_PAGE_ERR,
+    PAGE_LOAD_TIMEOUT,
 };
 
 // EXCEPTION_COMPONENT
@@ -78,6 +79,13 @@ enum class ComponentExcepType {
     LIST_ITEM_ERR,
     MARQUEE_ERR,
     NAVIGATION_BAR_ERR,
+    FILE_IMAGE_LOADER_ERR,
+};
+
+// EXCEPTION_COMPONENT
+enum class ComponentExcepTypeNG {
+    RELATIVE_CONTAINER_LOOP_ERR = 0,
+    TEXT_DRAW_CMD_LIST_ERR,
 };
 
 // EXCEPTION_API_CHANNEL
@@ -152,14 +160,17 @@ enum class ScrollableErrorType {
     GET_CHILD_FAILED = 0,
     INTERNAL_ERROR,
     GESTURE_MISMATCH,
-    CONTROLLER_NOT_BIND,
     STOP_ANIMATION_TIMEOUT,
+    PRELOAD_ERROR,
+    START_SPRING_MOTION_ERROR,
+    CHILDREN_COUNT_DISMATCH,
 };
 
 struct EventInfo {
     std::string eventType;
     int32_t errorType = 0;
     std::string pageUrl;
+    std::vector<std::string> pageLoadCost;
 };
 
 struct DragInfo {
@@ -188,6 +199,23 @@ struct RichEditorInfo {
     int32_t spanIndex = -1;
 };
 
+enum class GeneralInteractionErrorType {
+    DOWN_EVENT_ERROR = 0,
+    UP_OR_CANCEL_EVENT_ERROR,
+    INJECT_DOWN_EVENT_ERROR,
+    FOCUS_VIEW_STACK_EMPTY_ERROR,
+    FOCUS_VIEW_STACK_TOP_UNFOCUSABLE_ERROR,
+    OVERLAY_ERROR,
+    POST_EVENT_ERROR
+};
+
+struct GeneralInteractionErrorInfo {
+    GeneralInteractionErrorType errorType;
+    int32_t touchEventId = -1;
+    int32_t fingerId = -1;
+    std::string tag = "";
+};
+
 struct FRCSceneFpsInfo {
     int64_t duration_120 = 0;
     int64_t duration_90 = 0;
@@ -206,6 +234,9 @@ public:
     static void SendAppStartException(AppStartExcepType type);
     static void SendPageRouterException(PageRouterExcepType type, const std::string& pageUrl = "");
     static void SendComponentException(ComponentExcepType type);
+    static void SendComponentExceptionNG(
+        ComponentExcepTypeNG type, int32_t nodeType = 0, int32_t nodeId = 0, const std::string& message = "");
+    static void ReportPageLoadTimeout(const EventInfo& eventInfo);
     static void SendAPIChannelException(APIChannelExcepType type);
     static void SendRenderException(RenderExcepType type);
     static void SendJsException(JsExcepType type);
@@ -239,6 +270,8 @@ public:
         const std::string& abilityName, const std::string& moduleName, int32_t dimension);
     static void ReportUiExtensionTransparentEvent(const std::string& pageUrl, const std::string& bundleName,
         const std::string& moduleName);
+    static void ReportMainWindowTransparentEvent(const std::string& pageUrl, const std::string& bundleName,
+            const std::string& moduleName);
     static void ReportDragInfo(const DragInfo& dragInfo);
     static void ReportRichEditorInfo(const RichEditorInfo& richEditorInfo);
     static void ReportScrollableErrorEvent(
@@ -250,10 +283,13 @@ public:
     static void SendDiffFrameRatesDuring(const std::string& scene, const FRCSceneFpsInfo& curFRCSceneFpsInfo_);
     static void FrameRateDurationsStatistics(int32_t expectedRate, const std::string& scene, NG::SceneStatus status);
     static void AddFrameRateDuration(int32_t frameRate, int64_t duration);
+    static void ReportGeneralInteractionError(const GeneralInteractionErrorInfo& generalEventErrorInfo);
 
     static void StartFormModifyTimeoutReportTimer(int64_t formId, const std::string &bundleName,
         const std::string &formName);
     static void StopFormModifyTimeoutReportTimer(int64_t formId);
+    static void ReportWebBlanklessSnapshotTouchEvent(uint64_t startTime, const std::string& touchInfo,
+        uint64_t endTime);
 private:
     static void SendEventInner(const EventInfo& eventInfo);
     static FRCSceneFpsInfo curFRCSceneFpsInfo_;

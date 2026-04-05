@@ -18,7 +18,15 @@
 
 #include "core/components_ng/pattern/marquee/marquee_model.h"
 
+namespace OHOS::Ace {
+class FrameRateRange;
+template<class T>
+class RefPtr;
+}
+
 namespace OHOS::Ace::NG {
+const char MARQUEE_ETS_TAG[] = "Marquee";
+const char TEXT_ETS_TAG[] = "Text";
 class ACE_EXPORT MarqueeModelNG : public OHOS::Ace::MarqueeModel {
 public:
     void Create() override;
@@ -36,9 +44,13 @@ public:
     void SetOnStart(std::function<void()>&& onChange) override;
     void SetOnBounce(std::function<void()>&& onChange) override;
     void SetOnFinish(std::function<void()>&& onChange) override;
+    void SetOnStop(std::function<void()>&& onChange) override;
+    void SetMarqueeSpacing(const std::optional<CalcDimension>& spacing) override;
+    void SetMarqueeDelay(const std::optional<int32_t>& delay) override;
 
     static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
     static void SetAllowScale(FrameNode* frameNode, const bool allowScale);
+    static void ResetAllowScale(FrameNode* frameNode);
     static void SetFontWeight(FrameNode* frameNode, const std::optional<FontWeight>& fontWeight);
     static void SetFontFamily(FrameNode* frameNode, const std::optional<std::vector<std::string>>& fontFamilies);
     static void SetFontSize(FrameNode* frameNode, const std::optional<Dimension>& fontSize);
@@ -46,8 +58,13 @@ public:
     static void SetMarqueeUpdateStrategy(FrameNode* frameNode,
         const std::optional<MarqueeUpdateStrategy>& marqueeUpdateStrategy);
     static void SetOnStart(FrameNode* frameNode, std::function<void()>&& onChange);
+    static void ResetOnStart(FrameNode* frameNode);
     static void SetOnBounce(FrameNode* frameNode, std::function<void()>&& onChange);
+    static void ResetOnBounce(FrameNode* frameNode);
     static void SetOnFinish(FrameNode* frameNode, std::function<void()>&& onChange);
+    static void ResetOnFinish(FrameNode* frameNode);
+    static void SetOnStop(FrameNode* frameNode, std::function<void()>&& onChange);
+    static void ResetOnStop(FrameNode* frameNode);
     static void SetMarqueeFrameRateRange(
         FrameNode* frameNode, const RefPtr<FrameRateRange>& rateRange, MarqueeDynamicSyncSceneType type);
     static void SetValue(FrameNode* frameNode, const std::optional<std::string>& value);
@@ -60,6 +77,10 @@ public:
     static void ResetLoop(FrameNode* frameNode);
     static void SetDirection(FrameNode* frameNode, const std::optional<MarqueeDirection>& direction);
     static void ResetDirection(FrameNode* frameNode);
+    static void SetMarqueeSpacing(FrameNode* frameNode, const std::optional<CalcDimension>& spacing);
+    static void ResetMarqueeSpacing(FrameNode* frameNode);
+    static void SetMarqueeDelay(FrameNode* frameNode, const std::optional<int32_t>& delay);
+    static void ResetMarqueeDelay(FrameNode* frameNode);
 };
 } // namespace OHOS::Ace::NG
 

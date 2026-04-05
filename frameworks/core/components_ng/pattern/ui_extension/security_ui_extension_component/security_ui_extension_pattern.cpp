@@ -24,6 +24,7 @@
 #include "ui/rs_surface_node.h"
 
 #include "adapter/ohos/entrance/ace_container.h"
+#include "adapter/ohos/entrance/rs_adapter.h"
 #include "adapter/ohos/entrance/ace_extra_input_data.h"
 #include "adapter/ohos/entrance/mmi_event_convertor.h"
 #include "adapter/ohos/osal/want_wrap_ohos.h"
@@ -39,9 +40,12 @@
 #include "core/components_ng/pattern/ui_extension/session_wrapper_factory.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_component/modal_ui_extension_proxy_impl.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_component/session_wrapper_impl.h"
+#include "core/components_ng/pattern/ui_extension/ui_extension_manager.h"
+#include "core/components_ng/pattern/ui_extension/preview_ui_extension_component/preview_session_wrapper_impl.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_component/ui_extension_proxy.h"
 #include "core/components_ng/pattern/ui_extension/ui_extension_layout_algorithm.h"
 #include "core/components_ng/pattern/window_scene/scene/window_pattern.h"
+#include "core/components_ng/property/accessibility_property.h"
 #include "core/components_ng/render/adapter/rosen_render_context.h"
 #include "core/components_ng/render/adapter/rosen_window.h"
 #include "core/event/ace_events.h"
@@ -64,7 +68,7 @@ constexpr char UI_EXTENSION_TYPE_KEY[] = "ability.want.params.uiExtensionType";
 SecurityUIExtensionPattern::SecurityUIExtensionPattern()
     : PlatformPattern::PlatformPattern(AceLogTag::ACE_SECURITYUIEXTENSION, 0)
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto uiExtensionManager = pipeline->GetUIExtensionManager();
     CHECK_NULL_VOID(uiExtensionManager);
@@ -84,7 +88,7 @@ void SecurityUIExtensionPattern::UnregisterResources()
 {
     PLATFORM_LOGI("UnregisterResources.");
     ContainerScope scope(instanceId_);
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto uiExtensionManager = pipeline->GetUIExtensionManager();
     CHECK_NULL_VOID(uiExtensionManager);
@@ -188,6 +192,49 @@ bool SecurityUIExtensionPattern::CheckConstraint()
 #endif
 }
 
+void SecurityUIExtensionPattern::AfterMountToParent()
+{
+    hasMountToParent_ = true;
+    if (needReNotifyForeground_ && hasAttachContext_) {
+        needReNotifyForeground_ = false;
+        NotifyForeground();
+    }
+}
+
+void SecurityUIExtensionPattern::OnAttachContext(PipelineContext *context)
+{
+    CHECK_NULL_VOID(context);
+    hasAttachContext_ = true;
+    auto newInstanceId = context->GetInstanceId();
+    if (newInstanceId != instanceId_) {
+        instanceId_ = newInstanceId;
+        UpdateSessionInstanceId(newInstanceId);
+    }
+    if (needReNotifyForeground_ && hasMountToParent_) {
+        needReNotifyForeground_ = false;
+        NotifyForeground();
+    }
+
+    if (context->GetFrontendType() == FrontendType::ARK_TS) {
+        auto wantWrap = GetWantWrap();
+        CHECK_NULL_VOID(wantWrap);
+        PLATFORM_LOGI("OnAttachContext updateWant, newInstanceId");
+        Initialize();
+        UpdateWant(wantWrap);
+        SetWantWrap(nullptr);
+    }
+}
+
+void SecurityUIExtensionPattern::UpdateSessionInstanceId(int32_t instanceId)
+{
+    if (sessionWrapper_ == nullptr) {
+        PLATFORM_LOGW("securitySessionWrapperImpl is nullptr");
+        return;
+    }
+
+    sessionWrapper_->UpdateInstanceId(instanceId);
+}
+
 void SecurityUIExtensionPattern::UpdateWant(const AAFwk::Want& want)
 {
     uiExtensionType_ = want.GetStringParam(UI_EXTENSION_TYPE_KEY);
@@ -195,15 +242,13 @@ void SecurityUIExtensionPattern::UpdateWant(const AAFwk::Want& want)
         PLATFORM_LOGE("Check constraint failed.");
         return;
     }
-
-    CHECK_NULL_VOID(sessionWrapper_);
     PLATFORM_LOGI("The current state is '%{public}s' when UpdateWant.", ToString(state_));
+    CHECK_NULL_VOID(sessionWrapper_);
     bool isBackground = state_ == AbilityState::BACKGROUND;
     // Prohibit rebuilding the session unless the Want is updated.
     if (sessionWrapper_->IsSessionValid()) {
         auto sessionWant = sessionWrapper_->GetWant();
         if (sessionWant == nullptr) {
-            PLATFORM_LOGW("The sessionWrapper want is nulllptr.");
             return;
         }
         if (sessionWant->IsEquals(want)) {
@@ -219,13 +264,20 @@ void SecurityUIExtensionPattern::UpdateWant(const AAFwk::Want& want)
         // reset callback, in order to register childtree call back again when onConnect to new ability
         ResetAccessibilityChildTreeCallback();
     }
-
     MountPlaceholderNode();
     SessionConfig config;
-    config.uiExtensionUsage = UIExtensionUsage::CONSTRAINED_EMBEDDED;
+    if (sessionType_ == SessionType::PREVIEW_UI_EXTENSION_ABILITY) {
+        config.uiExtensionUsage = UIExtensionUsage::PREVIEW_EMBEDDED;
+    } else {
+        config.uiExtensionUsage = UIExtensionUsage::CONSTRAINED_EMBEDDED;
+    }
     sessionWrapper_->CreateSession(want, config);
     if (isBackground) {
         PLATFORM_LOGW("Unable to StartUiextensionAbility while in the background.");
+        return;
+    }
+    if (sessionType_ == SessionType::PREVIEW_UI_EXTENSION_ABILITY && !(hasAttachContext_ && hasMountToParent_)) {
+        needReNotifyForeground_ = true;
         return;
     }
     NotifyForeground();
@@ -284,6 +336,10 @@ void SecurityUIExtensionPattern::OnConnect()
         return;
     }
     context->SetRSNode(surfaceNode);
+    if (SystemProperties::GetMultiInstanceEnabled()) {
+        auto rsUIContext = RsAdapter::GetRSUIContext(host->GetContextRefPtr());
+        surfaceNode->SetRSUIContext(rsUIContext);
+    }
     RemovePlaceholderNode();
     host->AddChild(contentNode_, 0);
     host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
@@ -315,6 +371,7 @@ void SecurityUIExtensionPattern::InitBusinessDataHandleCallback()
 void SecurityUIExtensionPattern::OnExtensionEvent(UIExtCallbackEventId eventId)
 {
     CHECK_RUN_ON(UI);
+    ACE_SCOPED_TRACE("OnExtensionEvent[%u]", eventId);
     ContainerScope scope(instanceId_);
     switch (eventId) {
         case UIExtCallbackEventId::ON_AREA_CHANGED:
@@ -524,7 +581,7 @@ bool SecurityUIExtensionPattern::HandleKeyEvent(const KeyEvent& event)
 
 void SecurityUIExtensionPattern::HandleFocusEvent()
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     if (pipeline->GetIsFocusActive()) {
         DispatchFocusActiveEvent(true);
@@ -555,7 +612,7 @@ void SecurityUIExtensionPattern::HandleBlurEvent()
 {
     DispatchFocusActiveEvent(false);
     DispatchFocusState(false);
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto uiExtensionManager = pipeline->GetUIExtensionManager();
     CHECK_NULL_VOID(uiExtensionManager);
@@ -708,12 +765,15 @@ bool SecurityUIExtensionPattern::GetDensityDpi()
     return densityDpi_;
 }
 
-void SecurityUIExtensionPattern::OnVisibleChangeInner(bool visible)
+void SecurityUIExtensionPattern::OnVisibleChange(bool visible)
 {
     PLATFORM_LOGI("The component is changing from '%{public}s' to '%{public}s'.",
         isVisible_ ? "visible" : "invisible", visible ? "visible" : "invisible");
     isVisible_ = visible;
     if (visible) {
+        if (needReNotifyForeground_) {
+            return;
+        }
         NotifyForeground();
     } else {
         NotifyBackground();
@@ -738,12 +798,12 @@ void SecurityUIExtensionPattern::OnMountToParentDone()
 
 void SecurityUIExtensionPattern::RegisterVisibleAreaChange()
 {
-    auto pipeline = PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto callback = [weak = WeakClaim(this)](bool visible, double ratio) {
         auto uiExtension = weak.Upgrade();
         CHECK_NULL_VOID(uiExtension);
-        uiExtension->OnVisibleChangeInner(visible);
+        uiExtension->OnVisibleChange(visible);
     };
     auto host = GetHost();
     CHECK_NULL_VOID(host);
@@ -855,6 +915,21 @@ const char* SecurityUIExtensionPattern::ToString(AbilityState state)
     }
 }
 
+void SecurityUIExtensionPattern::Initialize()
+{
+    if (hasInitialized_) {
+        return;
+    }
+    SessionCreateParam sessionCreateParam;
+    sessionCreateParam.hostPattern = WeakClaim(this);
+    sessionCreateParam.instanceId = instanceId_;
+    sessionCreateParam.isTransferringCaller = isTransferringCaller_;
+    sessionWrapper_ =
+        SessionWrapperFactory::CreateSessionWrapper(SessionType::SECURITY_UI_EXTENSION_ABILITY, sessionCreateParam);
+    accessibilitySessionAdapter_ = AceType::MakeRefPtr<AccessibilitySessionAdapterUIExtension>(sessionWrapper_);
+    hasInitialized_ = true;
+}
+
 void SecurityUIExtensionPattern::InitializeAccessibility()
 {
     if (accessibilityChildTreeCallback_ != nullptr) {
@@ -931,7 +1006,7 @@ void SecurityUIExtensionPattern::ResetAccessibilityChildTreeCallback()
 {
     CHECK_NULL_VOID(accessibilityChildTreeCallback_);
     ContainerScope scope(instanceId_);
-    auto ngPipeline = NG::PipelineContext::GetCurrentContextSafelyWithCheck();
+    auto ngPipeline = NG::PipelineContext::GetCurrentContext();
     CHECK_NULL_VOID(ngPipeline);
     auto frontend = ngPipeline->GetFrontend();
     CHECK_NULL_VOID(frontend);
@@ -1044,7 +1119,7 @@ bool SecurityUIExtensionPattern::IsAncestorNodeTransformChange(FrameNodeChangeIn
 
 void SecurityUIExtensionPattern::OnFrameNodeChanged(FrameNodeChangeInfoFlag flag)
 {
-    if (!(IsAncestorNodeTransformChange(flag) || IsAncestorNodeTransformChange(flag))) {
+    if (!(IsAncestorNodeTransformChange(flag) || IsAncestorNodeGeometryChange(flag))) {
         return;
     }
     TransferAccessibilityRectInfo();
@@ -1095,10 +1170,10 @@ void SecurityUIExtensionPattern::TransferAccessibilityRectInfo(bool isForce)
     SendBusinessData(UIContentBusinessCode::TRANSFORM_PARAM, data, BusinessDataSendType::ASYNC);
 }
 
-void SecurityUIExtensionPattern::UpdateWMSUIExtProperty(
-    UIContentBusinessCode code, const AAFwk::Want& data, RSSubsystemId subSystemId)
+void SecurityUIExtensionPattern::UpdateWMSUIExtProperty(UIContentBusinessCode code, const AAFwk::Want& data,
+    RSSubsystemId subSystemId, const UIExtOptions& options)
 {
-    if (state_ != AbilityState::FOREGROUND) {
+    if (state_ != AbilityState::FOREGROUND && !options.isSendBackground) {
         UIEXT_LOGI("SecUEC UpdateWMSUIExtProperty state=%{public}s.", ToString(state_));
         return;
     }

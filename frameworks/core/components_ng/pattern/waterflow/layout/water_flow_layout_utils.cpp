@@ -15,10 +15,19 @@
 #include "frameworks/core/components_ng/pattern/waterflow/layout/water_flow_layout_utils.h"
 
 #include "core/components_ng/pattern/waterflow/water_flow_item_layout_property.h"
+#include "core/components_ng/pattern/waterflow/water_flow_item_model_ng.h"
 #include "core/components_ng/property/measure_utils.h"
 namespace OHOS::Ace::NG {
 namespace {
 const std::string UNIT_AUTO = "auto";
+namespace {
+RefPtr<LayoutWrapper> CreateDummyFlowItem()
+{
+    auto wrapper = WaterFlowItemModelNG::CreateFrameNode(ElementRegister::GetInstance()->MakeUniqueId());
+    wrapper->GetLayoutProperty()->UpdateUserDefinedIdealSize(CalcSize(CalcLength(0), CalcLength(0)));
+    return wrapper;
+}
+} // namespace
 }
 std::string WaterFlowLayoutUtils::PreParseArgs(const std::string& args)
 {
@@ -72,8 +81,19 @@ LayoutConstraintF WaterFlowLayoutUtils::CreateChildConstraint(
         params.axis == Axis::VERTICAL ? SizeF(params.crossSize, itemMainSize) : SizeF(itemMainSize, params.crossSize);
 
     itemConstraint.maxSize = itemIdealSize;
-    itemConstraint.maxSize.SetMainSize(Infinity<float>(), params.axis);
+    itemConstraint.maxSize.SetMainSize(LayoutInfinity<float>(), params.axis);
     itemConstraint.percentReference = itemIdealSize;
+
+    if (child) {
+        auto childLayoutProperty = child->GetLayoutProperty();
+        if (childLayoutProperty) {
+            auto layoutPolicy = childLayoutProperty->GetLayoutPolicyProperty();
+            if (layoutPolicy.has_value() && ((params.axis == Axis::VERTICAL && layoutPolicy->IsWidthMatch()) ||
+                                                (params.axis == Axis::HORIZONTAL && layoutPolicy->IsHeightMatch()))) {
+                itemConstraint.parentIdealSize = OptionalSizeF(itemIdealSize);
+            }
+        }
+    }
 
     CHECK_NULL_RETURN(props->HasItemLayoutConstraint() && !params.haveUserDefSize, itemConstraint);
 
@@ -132,7 +152,7 @@ LayoutConstraintF WaterFlowLayoutUtils::CreateChildConstraint(const ConstraintPa
     return itemConstraint;
 }
 
-std::pair<SizeF, bool> WaterFlowLayoutUtils::PreMeasureSelf(LayoutWrapper* wrapper, Axis axis)
+std::tuple<SizeF, bool, double> WaterFlowLayoutUtils::PreMeasureSelf(LayoutWrapper* wrapper, Axis axis)
 {
     const auto& props = wrapper->GetLayoutProperty();
     auto size = CreateIdealSize(props->GetLayoutConstraint().value(), axis, props->GetMeasureType(), true);
@@ -148,16 +168,17 @@ std::pair<SizeF, bool> WaterFlowLayoutUtils::PreMeasureSelf(LayoutWrapper* wrapp
             props->GetLayoutConstraint().value(), widthLayoutPolicy, heightLayoutPolicy, axis);
         size.UpdateIllegalSizeWithCheck(layoutPolicySize.ConvertToSizeT());
         if (isMainFix) {
-            size.SetMainSize(Infinity<float>(), axis);
+            size.SetMainSize(LayoutInfinity<float>(), axis);
         }
     }
     auto matchChildren = GreaterOrEqualToInfinity(GetMainAxisSize(size, axis)) || isMainWrap;
     if (!matchChildren) {
         wrapper->GetGeometryNode()->SetFrameSize(size);
     }
+    double originalWidth = size.Width();
     MinusPaddingToSize(props->CreatePaddingAndBorder(), size);
     wrapper->GetGeometryNode()->SetContentSize(size);
-    return { size, matchChildren };
+    return { size, matchChildren, originalWidth };
 }
 
 float WaterFlowLayoutUtils::MeasureFooter(LayoutWrapper* wrapper, Axis axis)
@@ -169,7 +190,9 @@ float WaterFlowLayoutUtils::MeasureFooter(LayoutWrapper* wrapper, Axis axis)
     footer->GetLayoutProperty()->UpdateMeasureType(MeasureType::MATCH_CONTENT);
     footer->Measure(footerConstraint);
     auto itemSize = footer->GetGeometryNode()->GetMarginFrameSize();
-    return GetMainAxisSize(itemSize, axis);
+    auto footerSize = GetMainAxisSize(itemSize, axis);
+
+    return std::max(footerSize, 0.0f);
 }
 
 float WaterFlowLayoutUtils::GetUserDefHeight(const RefPtr<WaterFlowSections>& sections, int32_t seg, int32_t idx)
@@ -221,5 +244,19 @@ AdjustOffset WaterFlowLayoutUtils::GetAdjustOffset(const RefPtr<LayoutWrapper>& 
         child = child->GetFirstChild();
     } while (child);
     return pos;
+}
+
+RefPtr<LayoutWrapper> WaterFlowLayoutUtils::GetWaterFlowItem(
+    LayoutWrapper* layoutWrapper, int32_t index, bool addToRenderTree, bool isCache)
+{
+    const auto& layoutProperty = AceType::DynamicCast<WaterFlowLayoutProperty>(layoutWrapper->GetLayoutProperty());
+    if (layoutProperty->GetSupportLazyLoadingEmptyBranch().value_or(false)) {
+        auto wrapper = layoutWrapper->GetOrCreateChildByIndex(index, addToRenderTree, isCache);
+        if (!wrapper) {
+            wrapper = CreateDummyFlowItem();
+        }
+        return wrapper;
+    }
+    return layoutWrapper->GetOrCreateChildByIndex(index, addToRenderTree, isCache);
 }
 } // namespace OHOS::Ace::NG

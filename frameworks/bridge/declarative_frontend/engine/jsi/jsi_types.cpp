@@ -385,6 +385,15 @@ void JsiObject::SetPropertyObject(const char* prop, JsiRef<JsiValue> value) cons
     GetHandle()->Set(vm, stringRef, value.Get().GetLocalHandle());
 }
 
+bool JsiObject::HasGetter(int32_t propertyIndex) const
+{
+    auto vm = GetEcmaVM();
+    auto stringRef = panda::ExternalStringCache::GetCachedString(vm, propertyIndex);
+    panda::PropertyAttribute propertyAttribute;
+    GetHandle()->GetOwnProperty(vm, stringRef, propertyAttribute);
+    return propertyAttribute.HasGetter();
+}
+
 // -----------------------
 // Implementation of JsiFunction
 // -----------------------
@@ -397,20 +406,15 @@ JsiFunction::JsiFunction(const EcmaVM *vm, panda::Local<panda::FunctionRef> val)
 
 JsiRef<JsiValue> JsiFunction::Call(JsiRef<JsiValue> thisVal, int argc, JsiRef<JsiValue> argv[]) const
 {
-    int32_t id = -1;
-    if (SystemProperties::GetAcePerformanceMonitorEnabled()) {
-        id = Container::CurrentId();
-    }
-    JS_CALLBACK_DURATION(id);
+    JS_CALLBACK_DURATION();
     auto vm = GetEcmaVM();
     panda::JsiFastNativeScope fastNativeScope(vm);
     LocalScope scope(vm);
     panda::TryCatch trycatch(vm);
-    std::string funcName;
+    bool traceEnabled = false;
     if (SystemProperties::GetDebugEnabled()) {
-        funcName = GetHandle()->GetName(vm)->ToString(vm);
+        traceEnabled = AceTraceBeginWithArgs("ExecuteJS[%s]", GetHandle()->GetName(vm)->ToString(vm).c_str());
     }
-    ACE_SCOPED_TRACE("ExecuteJS[%s]", funcName.c_str());
     std::vector<panda::Local<panda::JSValueRef>> arguments;
     for (int i = 0; i < argc; ++i) {
         arguments.emplace_back(argv[i].Get().GetLocalHandle());
@@ -424,6 +428,9 @@ JsiRef<JsiValue> JsiFunction::Call(JsiRef<JsiValue> thisVal, int argc, JsiRef<Js
             trycatch.HasCaught());
         runtime->HandleUncaughtException(trycatch);
         result = JSValueRef::Undefined(vm);
+    }
+    if (traceEnabled) {
+        AceTraceEnd();
     }
     return JsiRef<JsiValue>::Make(result);
 }

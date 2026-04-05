@@ -20,7 +20,6 @@
 #include "core/components/common/properties/color.h"
 #include "core/components/theme/theme.h"
 #include "core/components/theme/theme_constants.h"
-#include "core/components/theme/theme_constants_defines.h"
 #include "core/components/theme/theme_manager.h"
 
 namespace OHOS::Ace {
@@ -32,7 +31,7 @@ public:
     class Builder {
     public:
         Builder() = default;
-        ~Builder() = default;
+        virtual ~Builder() = default;
 
         RefPtr<BadgeTheme> Build(const RefPtr<ThemeConstants>& themeConstants) const
         {
@@ -44,7 +43,7 @@ public:
             return theme;
         }
 
-    private:
+    protected:
         void ParsePattern(const RefPtr<ThemeConstants>& themeConstants, const RefPtr<BadgeTheme>& theme) const
         {
             RefPtr<ThemeStyle> pattern = themeConstants->GetPatternByName(THEME_PATTERN_BADGE);
@@ -64,6 +63,8 @@ public:
             theme->badgeTextColor_ = pattern->GetAttr<Color>(PATTERN_TEXT_COLOR, Color::BLACK);
             theme->badgeBorderColor_ = pattern->GetAttr<Color>(BADGE_BORDER_COLOR, Color::BLACK);
             theme->badgeBorderWidth_ = pattern->GetAttr<Dimension>(BADGE_BORDER_WIDTH, 0.0_vp);
+            theme->badgeOuterBorderColor_ = pattern->GetAttr<Color>(BADGE_OUTER_BORDER_COLOR, Color::WHITE);
+            theme->badgeOuterBorderWidth_ = pattern->GetAttr<Dimension>(BADGE_OUTER_BORDER_WIDTH, 0.0_vp);
             theme->littleBadgeSize_ = pattern->GetAttr<Dimension>(LITTLE_BADGE_SIZE, 6.0_vp);
             theme->numericalBadgePadding_ = pattern->GetAttr<Dimension>(NUMERICAL_BADGE_PADDING_SIZE, 6.0_vp);
         }
@@ -116,6 +117,11 @@ public:
         return badgeBorderColor_;
     }
 
+    const Color& GetBadgeOuterBorderColor() const
+    {
+        return badgeOuterBorderColor_;
+    }
+
     const Dimension& GetBadgeFontSize() const
     {
         return badgeFontSize_;
@@ -161,13 +167,19 @@ public:
         return badgeBorderWidth_;
     }
 
+    const Dimension& GetBadgeOuterBorderWidth()
+    {
+        return badgeOuterBorderWidth_;
+    }
+
 protected:
     BadgeTheme() = default;
-
-private:
     Color badgeColor_;
     Color badgeTextColor_;
     Color badgeBorderColor_;
+
+private:
+    Color badgeOuterBorderColor_;
     int64_t messageCount_;
     BadgePosition badgePosition_ = BadgePosition::RIGHT_TOP;
     Dimension badgePositionX_ = 0.0_vp;
@@ -177,6 +189,7 @@ private:
     Dimension badgeFontSize_;
     Dimension badgeAgeFontSize_;
     Dimension badgeBorderWidth_;
+    Dimension badgeOuterBorderWidth_;
     Dimension badgeSize_ = 16.0_vp;
     Dimension badgeAgeSize_;
     Dimension badgeAgeAddPadding_;

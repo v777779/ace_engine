@@ -20,7 +20,23 @@
 using namespace testing;
 using namespace testing::ext;
 namespace OHOS::Ace::NG {
-class GridLayoutInfoTest : public testing::Test {};
+class GridLayoutInfoTest : public testing::Test {
+public:
+    void InitLayoutInfoForBoundaryCheck(GridLayoutInfo& info);
+};
+
+void GridLayoutInfoTest::InitLayoutInfoForBoundaryCheck(GridLayoutInfo& info)
+{
+    info.reachStart_ = false;
+    info.currentOffset_ = 0.0f;
+    info.contentStartOffset_ = 0.0f;
+    info.totalHeightOfItemsInView_ = 0.0f;
+    info.contentEndOffset_ = 0.0f;
+    info.endIndex_ = 0;
+    info.childrenCount_ = 0;
+    info.lastMainSize_ = 0.0f;
+    info.contentEndPadding_ = 0.0f;
+}
 
 /**
  * @tc.name: GridLayoutInfo::GetContentHeight001
@@ -893,6 +909,30 @@ HWTEST_F(GridLayoutInfoTest, SkipStartIndexByOffset004, TestSize.Level1)
     EXPECT_EQ(info.GetContentOffset(option, 0), 2000);
 }
 
+HWTEST_F(GridLayoutInfoTest, SkipStartIndexByOffsetWithEmptyCacheAndWithoutLastSize, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {};
+    info.lineHeightMap_ = {};
+    info.crossCount_ = 2;
+    info.childrenCount_ = 30;
+
+    GridLayoutOptions option;
+    option.regularSize.rows = 1;
+    option.regularSize.columns = 1;
+    option.irregularIndexes = { 0, 19 };
+
+    info.currentOffset_ = -200.f;
+    info.prevOffset_ = -0.f;
+    info.currentHeight_ = 100.f;
+    info.startIndex_ = 10;
+
+    info.SkipStartIndexByOffset(option, 0.f);
+
+    EXPECT_EQ(info.startIndex_, 29);
+    EXPECT_EQ(info.currentOffset_, -20.f);
+}
+
 HWTEST_F(GridLayoutInfoTest, CheckGridMatrix001, TestSize.Level1)
 {
     GridLayoutInfo info;
@@ -1125,4 +1165,1225 @@ HWTEST_F(GridLayoutInfoTest, AllConditionsMet_ReturnsTrue, TestSize.Level1) {
     info.childrenCount_ = 6;
     EXPECT_TRUE(info.IsAllItemsMeasured());
 }
+
+/**
+ * @tc.name: GridLayoutInfo::UpdateEndIndexWhenLastLineHeightIsZero
+ * @tc.desc: test UpdateEndIndex when last line height is zero
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, UpdateEndIndexWhenLastLineHeightIsZero, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_[0] = { { 0, 0 } };
+    info.gridMatrix_[1] = { { 0, 1 } };
+    info.gridMatrix_[2] = { { 0, 2 } };
+    info.endMainLineIndex_ = 2;
+    info.lineHeightMap_ = { { 0, 100.0f }, { 1, 100.0f }, { 2, 0.0f } };
+    info.UpdateEndIndex(0.0f, 200.0f, 0.0f);
+    EXPECT_EQ(info.endMainLineIndex_, 2);
+    EXPECT_EQ(info.endIndex_, 2);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::IsOutOfEndWithContentOffset
+ * @tc.desc: test IsOutOfEnd with contentOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, IsOutOfEndWithContentOffset, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.currentOffset_ = 0;
+    info.reachStart_ = false;
+    info.totalHeightOfItemsInView_ = 100;
+    info.contentStartOffset_ = 20;
+    info.contentEndOffset_ = 30;
+    info.lastMainSize_ = 120;
+    EXPECT_FALSE(info.IsOutOfEnd(0, false));
+}
+
+/**
+ * @tc.name: GridLayoutInfo::IsOutOfEndTest
+ * @tc.desc: test IsOutOfEnd
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, IsOutOfEndTest, TestSize.Level1)
+{
+    // init gridLayoutInfo
+    GridLayoutInfo info;
+    InitLayoutInfoForBoundaryCheck(info);
+    const float mainGap = 5.0f;
+    // is at or out of start
+    info.reachStart_ = true;
+    info.currentOffset_ = 5.0f;
+    info.contentStartOffset_ = 5.0f;
+    EXPECT_FALSE(info.IsOutOfEnd(mainGap, false));
+
+    // end index(5) is not the last index(9)
+    InitLayoutInfoForBoundaryCheck(info);
+    info.childrenCount_ = 10;
+    info.endIndex_ = 5;
+    EXPECT_FALSE(info.IsOutOfEnd(mainGap, false));
+
+    // endPos = 100+50+10=160 < 170-0-0.01? 160>169.99 -> out of end
+    InitLayoutInfoForBoundaryCheck(info);
+    info.endIndex_ = 9;
+    info.childrenCount_ = 10;
+    info.currentOffset_ = 100.0f;
+    info.totalHeightOfItemsInView_ = 50.0f;
+    info.contentEndOffset_ = 10.0f;
+    info.lastMainSize_ = 170.0f;
+    info.contentEndPadding_ = 0.0f;
+    EXPECT_TRUE(info.IsOutOfEnd(mainGap, false));
+
+    // endPos=160 > 160.01-0-0.01? 160 = 160 -> not out of end
+    InitLayoutInfoForBoundaryCheck(info);
+    info.endIndex_ = 9;
+    info.childrenCount_ = 10;
+    info.currentOffset_ = 100.0f;
+    info.totalHeightOfItemsInView_ = 50.0f;
+    info.contentEndOffset_ = 10.0f;
+    info.lastMainSize_ = 160.01f;
+    info.contentEndPadding_ = 0.0f;
+    EXPECT_FALSE(info.IsOutOfEnd(mainGap, false));
+}
+
+/**
+ * @tc.name: GridLayoutInfo::IsOutOfEndTest
+ * @tc.desc: test IsOutOfEnd
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, IsOutOfEndTest002, TestSize.Level1)
+{
+    // init gridLayoutInfo
+    GridLayoutInfo info;
+    InitLayoutInfoForBoundaryCheck(info);
+    const float mainGap = 5.0f;
+
+    // 测试5: 边界情况，endPos恰好等于临界值（考虑精度）
+    info.endIndex_ = 9;
+    info.childrenCount_ = 10;
+    info.currentOffset_ = 100.0f;
+    info.totalHeightOfItemsInView_ = 50.0f;
+    info.contentEndOffset_ = 10.0f;
+    info.lastMainSize_ = 160.0f; // endPos=160, 比较160 < (160-0-0.01)=159.99 -> false
+    info.contentEndPadding_ = 0.0f;
+    EXPECT_FALSE(info.IsOutOfEnd(mainGap, false));
+
+    // 测试6: 测试contentEndPadding的影响
+    InitLayoutInfoForBoundaryCheck(info);
+    info.endIndex_ = 9;
+    info.childrenCount_ = 10;
+    info.currentOffset_ = 100.0f;
+    info.totalHeightOfItemsInView_ = 50.0f;
+    info.contentEndOffset_ = 10.0f;
+    info.lastMainSize_ = 170.0f;
+    info.contentEndPadding_ = 10.0f; // 临界值变为170-10=160
+
+    // endPos=160 < 160-0.01? 160<159.99 -> false
+    EXPECT_FALSE(info.IsOutOfEnd(mainGap, false));
+
+    info.lastMainSize_ = 159.98f;                  // 160 < (159.98-10-0.01)=149.97? 160>149.97 -> 不满足条件
+    EXPECT_FALSE(info.IsOutOfEnd(mainGap, false)); // 注意：此时endPos未超出，返回false
+
+    // 测试7: 负偏移量情况
+    InitLayoutInfoForBoundaryCheck(info);
+    info.endIndex_ = 9;
+    info.childrenCount_ = 10;
+    info.currentOffset_ = -50.0f;
+    info.totalHeightOfItemsInView_ = 100.0f;
+    info.contentEndOffset_ = 20.0f;
+    info.lastMainSize_ = 80.0f; // endPos=-50+100+20=70 < 80-0-0.01=79.99 -> true
+    info.contentEndPadding_ = 0.0f;
+    EXPECT_TRUE(info.IsOutOfEnd(mainGap, false));
+}
+
+/**
+ * @tc.name: GridLayoutInfo::SwapItems001
+ * @tc.desc: Test SwapItems sets currentMovingItemPosition_ when it is INITIAL_VALUE (-1)
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, SwapItems001, TestSize.Level1)
+{
+    constexpr int32_t INITIAL_CURRENT_MOVING_POSITION = -1;
+    constexpr int32_t TEST_ITEM_INDEX = 3;
+    constexpr int32_t TEST_INSERT_INDEX = 5;
+    constexpr int32_t EXPECT_POS_INDEX = 5;
+    constexpr int32_t TEST_CROSS_COUNT = 2;
+    constexpr int32_t TEST_START_INDEX = 0;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 0;
+
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+        { 3, { { 0, 6 }, { 1, 7 } } },
+    };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentMovingItemPosition_ = INITIAL_CURRENT_MOVING_POSITION;
+
+    info.SwapItems(TEST_ITEM_INDEX, TEST_INSERT_INDEX);
+
+    EXPECT_EQ(info.currentMovingItemPosition_, EXPECT_POS_INDEX);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::SwapItems002
+ * @tc.desc: Test SwapItems when dragging from another grid (itemIndex == -1) and currentMovingItemPosition_ == -1
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, SwapItems002, TestSize.Level1)
+{
+    constexpr int32_t INITIAL_CURRENT_MOVING_POSITION = -1;
+    constexpr int32_t DRAG_FROM_ANOTHER_GRID_ITEM_INDEX = -1;
+    constexpr int32_t TEST_INSERT_POSITION = 2;
+    constexpr int32_t TEST_CHILDREN_COUNT = 8;
+    constexpr int32_t TEST_CROSS_COUNT = 2;
+    constexpr int32_t TEST_START_INDEX = 0;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 0;
+
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+        { 3, { { 0, 6 }, { 1, 7 } } },
+    };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentMovingItemPosition_ = INITIAL_CURRENT_MOVING_POSITION;
+    info.childrenCount_ = TEST_CHILDREN_COUNT;
+
+    info.SwapItems(DRAG_FROM_ANOTHER_GRID_ITEM_INDEX, TEST_INSERT_POSITION);
+
+    EXPECT_EQ(info.currentMovingItemPosition_, TEST_INSERT_POSITION);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::SwapItems003
+ * @tc.desc: Test SwapItems when dragging from another grid (itemIndex == -1) but currentMovingItemPosition_ != -1
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, SwapItems003, TestSize.Level1)
+{
+    constexpr int32_t EXISTING_CURRENT_MOVING_POSITION = 3;
+    constexpr int32_t DRAG_FROM_ANOTHER_GRID_ITEM_INDEX = -1;
+    constexpr int32_t TEST_INSERT_POSITION = 1;
+    constexpr int32_t TEST_CROSS_COUNT = 2;
+    constexpr int32_t TEST_START_INDEX = 0;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 0;
+
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+    };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentMovingItemPosition_ = EXISTING_CURRENT_MOVING_POSITION;
+
+    info.SwapItems(DRAG_FROM_ANOTHER_GRID_ITEM_INDEX, TEST_INSERT_POSITION);
+
+    EXPECT_EQ(info.currentMovingItemPosition_, TEST_INSERT_POSITION);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::SwapItems004
+ * @tc.desc: Test SwapItems moves items backward when currentMovingItemPosition_ > insertPosition
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, SwapItems004, TestSize.Level1)
+{
+    constexpr int32_t CURRENT_MOVING_POSITION = 5;
+    constexpr int32_t TEST_ITEM_INDEX = 5;
+    constexpr int32_t TEST_INSERT_INDEX = 2;
+    constexpr int32_t EXPECTED_INSERT_POSITION = 2;
+    constexpr int32_t TEST_CROSS_COUNT = 2;
+    constexpr int32_t TEST_START_INDEX = 0;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 0;
+
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+        { 3, { { 0, 6 }, { 1, 7 } } },
+    };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentMovingItemPosition_ = CURRENT_MOVING_POSITION;
+
+    info.SwapItems(TEST_ITEM_INDEX, TEST_INSERT_INDEX);
+
+    EXPECT_EQ(info.currentMovingItemPosition_, EXPECTED_INSERT_POSITION);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::SwapItems005
+ * @tc.desc: Test SwapItems moves items forward when insertPosition > currentMovingItemPosition_
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, SwapItems005, TestSize.Level1)
+{
+    constexpr int32_t CURRENT_MOVING_POSITION = 2;
+    constexpr int32_t TEST_ITEM_INDEX = 2;
+    constexpr int32_t TEST_INSERT_INDEX = 5;
+    constexpr int32_t EXPECTED_INSERT_POSITION = 5;
+    constexpr int32_t TEST_CROSS_COUNT = 2;
+    constexpr int32_t TEST_START_INDEX = 0;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 0;
+
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+        { 3, { { 0, 6 }, { 1, 7 } } },
+    };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentMovingItemPosition_ = CURRENT_MOVING_POSITION;
+
+    info.SwapItems(TEST_ITEM_INDEX, TEST_INSERT_INDEX);
+
+    EXPECT_EQ(info.currentMovingItemPosition_, EXPECTED_INSERT_POSITION);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::SwapItems006
+ * @tc.desc: Test SwapItems when insertPosition equals currentMovingItemPosition_ (no movement expected)
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, SwapItems006, TestSize.Level1)
+{
+    constexpr int32_t CURRENT_MOVING_POSITION = 3;
+    constexpr int32_t TEST_ITEM_INDEX = 3;
+    constexpr int32_t TEST_INSERT_INDEX = 3;
+    constexpr int32_t EXPECTED_POSITION_UNCHANGED = 3;
+    constexpr int32_t TEST_CROSS_COUNT = 2;
+    constexpr int32_t TEST_START_INDEX = 0;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 0;
+
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+    };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentMovingItemPosition_ = CURRENT_MOVING_POSITION;
+
+    info.SwapItems(TEST_ITEM_INDEX, TEST_INSERT_INDEX);
+
+    EXPECT_EQ(info.currentMovingItemPosition_, EXPECTED_POSITION_UNCHANGED);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::SwapItems007
+ * @tc.desc: Test SwapItems with positionItemIndexMap - verify GetPositionByItemIndex is called
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, SwapItems007, TestSize.Level1)
+{
+    constexpr int32_t CURRENT_MOVING_POSITION = 2;
+    constexpr int32_t TEST_ITEM_INDEX = 2;
+    constexpr int32_t TEST_INSERT_INDEX = 4;
+    constexpr int32_t MAPPED_POSITION = 3;
+    constexpr int32_t EXPECTED_FINAL_POSITION = 4;
+    constexpr int32_t TEST_CROSS_COUNT = 2;
+    constexpr int32_t TEST_START_INDEX = 0;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 0;
+
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+    };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentMovingItemPosition_ = CURRENT_MOVING_POSITION;
+    info.positionItemIndexMap_[TEST_INSERT_INDEX] = MAPPED_POSITION;
+
+    info.SwapItems(TEST_ITEM_INDEX, TEST_INSERT_INDEX);
+
+    EXPECT_EQ(info.currentMovingItemPosition_, EXPECTED_FINAL_POSITION);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::SwapItems008
+ * @tc.desc: Test SwapItems with crossCount_ == 0 returns early without any operation
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, SwapItems008, TestSize.Level1)
+{
+    constexpr int32_t CURRENT_MOVING_POSITION = 2;
+    constexpr int32_t TEST_ITEM_INDEX = 2;
+    constexpr int32_t TEST_INSERT_INDEX = 5;
+    constexpr int32_t ZERO_CROSS_COUNT = 0;
+    constexpr int32_t TEST_START_INDEX = 0;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 0;
+
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+    };
+    info.crossCount_ = ZERO_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentMovingItemPosition_ = CURRENT_MOVING_POSITION;
+
+    info.SwapItems(TEST_ITEM_INDEX, TEST_INSERT_INDEX);
+
+    EXPECT_EQ(info.currentMovingItemPosition_, CURRENT_MOVING_POSITION);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::SwapItems009
+ * @tc.desc: Test SwapItems preserves currentMovingItemPosition_ when it is already set (not -1)
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, SwapItems009, TestSize.Level1)
+{
+    constexpr int32_t EXISTING_CURRENT_MOVING_POSITION = 4;
+    constexpr int32_t NEW_ITEM_INDEX = 7;
+    constexpr int32_t TEST_INSERT_INDEX = 2;
+    constexpr int32_t EXPECT_TEST_INSERT_INDEX = 2;
+    constexpr int32_t TEST_CROSS_COUNT = 2;
+    constexpr int32_t TEST_START_INDEX = 0;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 0;
+
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+    };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentMovingItemPosition_ = EXISTING_CURRENT_MOVING_POSITION;
+
+    info.SwapItems(NEW_ITEM_INDEX, TEST_INSERT_INDEX);
+
+    EXPECT_EQ(info.currentMovingItemPosition_, EXPECT_TEST_INSERT_INDEX);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset003
+ * @tc.desc: Test GetContentOffset returns 0.0f when gridMatrix is empty
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset003, TestSize.Level1)
+{
+    constexpr float testMainGap = 5.0f;
+    constexpr float expectedZeroOffset = 0.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 0, 100.0f } };
+    info.gridMatrix_ = {}; // Empty gridMatrix results in itemCount == 0
+    info.hasBigItem_ = true;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedZeroOffset);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset004
+ * @tc.desc: Test GetContentOffset with hasBigItem and itemCount == childrenCount calls GetStartLineOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset004, TestSize.Level1)
+{
+    constexpr float testMainGap = 5.0f;
+    constexpr int32_t TEST_CHILDREN_COUNT = 5;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 1;
+    constexpr float testCurrentOffset = -5.0f;
+    constexpr float LINE_HEIGHT_0 = 100.0f;
+    constexpr float LINE_HEIGHT_1 = 100.0f;
+    constexpr float expectedOffset = 110.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 0, LINE_HEIGHT_0 }, { 1, LINE_HEIGHT_1 } };
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 }, { 2, 2 } } },
+        { 1, { { 0, 3 }, { 1, 4 } } },
+    };
+    info.childrenCount_ = TEST_CHILDREN_COUNT;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentOffset_ = testCurrentOffset;
+    info.hasBigItem_ = true;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedOffset);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset005
+ * @tc.desc: Test GetContentOffset with hasBigItem, first line is 0,
+ *           and itemCount >= startIndex calls GetStartLineOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset005, TestSize.Level1)
+{
+    constexpr float testMainGap = 5.0f;
+    constexpr int32_t TEST_CHILDREN_COUNT = 10;
+    constexpr int32_t TEST_START_INDEX = 3;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 1;
+    constexpr float testCurrentOffset = -5.0f;
+    constexpr float LINE_HEIGHT_0 = 100.0f;
+    constexpr float LINE_HEIGHT_1 = 100.0f;
+    constexpr float expectedOffset = 110.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 0, LINE_HEIGHT_0 }, { 1, LINE_HEIGHT_1 } };
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 }, { 2, 2 } } },
+        { 1, { { 0, 3 }, { 1, 4 } } },
+    };
+    info.childrenCount_ = TEST_CHILDREN_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentOffset_ = testCurrentOffset;
+    info.hasBigItem_ = true;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedOffset);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset006
+ * @tc.desc: Test GetContentOffset with hasBigItem uses estimation path when conditions don't match GetStartLineOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset006, TestSize.Level1)
+{
+    constexpr float testMainGap = 5.0f;
+    constexpr int32_t TEST_CHILDREN_COUNT = 20;
+    constexpr int32_t TEST_START_INDEX = 10;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 2;
+    constexpr float testCurrentOffset = 0.0f;
+    constexpr float LINE_HEIGHT_2 = 100.0f;
+    constexpr float LINE_HEIGHT_3 = 100.0f;
+    constexpr float LINE_HEIGHT_4 = 100.0f;
+    constexpr float expectedOffset = 350.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 2, LINE_HEIGHT_2 }, { 3, LINE_HEIGHT_3 }, { 4, LINE_HEIGHT_4 } };
+    info.gridMatrix_ = {
+        { 2, { { 0, 5 }, { 1, 6 }, { 2, 7 } } },
+        { 3, { { 0, 8 }, { 1, 9 }, { 2, 10 } } },
+        { 4, { { 0, 11 }, { 1, 12 }, { 2, 13 } } },
+    };
+    info.childrenCount_ = TEST_CHILDREN_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentOffset_ = testCurrentOffset;
+    info.hasBigItem_ = true;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedOffset);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset007
+ * @tc.desc: Test GetContentOffset with crossCount == 0 returns 0.0f through GetCurrentOffsetOfRegularGrid path
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset007, TestSize.Level1)
+{
+    constexpr float testMainGap = 5.0f;
+    constexpr int32_t ZERO_CROSS_COUNT = 0;
+    constexpr int32_t TEST_START_INDEX = 5;
+    constexpr float expectedZeroOffset = 0.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 0, 100.0f }, { 1, 100.0f } };
+    info.crossCount_ = ZERO_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.hasBigItem_ = false;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedZeroOffset);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset008
+ * @tc.desc: Test GetContentOffset with negative currentOffset in regular grid path
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset008, TestSize.Level1)
+{
+    constexpr float testMainGap = 1.0f;
+    constexpr int32_t TEST_CROSS_COUNT = 3;
+    constexpr int32_t TEST_START_INDEX = 6;
+    constexpr float negativeCurrentOffset = -50.0f;
+    constexpr float LINE_HEIGHT_0 = 100.0f;
+    constexpr float LINE_HEIGHT_1 = 100.0f;
+    constexpr float expectedOffset = 252.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 0, LINE_HEIGHT_0 }, { 1, LINE_HEIGHT_1 } };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.currentOffset_ = negativeCurrentOffset;
+    info.hasBigItem_ = false;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedOffset);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset009
+ * @tc.desc: Test GetContentOffset estimation path with currentOffset subtracted from result
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset009, TestSize.Level1)
+{
+    constexpr float testMainGap = 5.0f;
+    constexpr int32_t TEST_CHILDREN_COUNT = 20;
+    constexpr int32_t TEST_START_INDEX = 8;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 3;
+    constexpr float negativeCurrentOffset = -100.0f;
+    constexpr float LINE_HEIGHT_3 = 100.0f;
+    constexpr float LINE_HEIGHT_4 = 100.0f;
+    constexpr float LINE_HEIGHT_5 = 100.0f;
+    constexpr float expectedOffset = 380.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 3, LINE_HEIGHT_3 }, { 4, LINE_HEIGHT_4 }, { 5, LINE_HEIGHT_5 } };
+    info.gridMatrix_ = {
+        { 3, { { 0, 5 }, { 1, 6 }, { 2, 7 } } },
+        { 4, { { 0, 8 }, { 1, 9 }, { 2, 10 } } },
+        { 5, { { 0, 11 }, { 1, 12 }, { 2, 13 } } },
+    };
+    info.childrenCount_ = TEST_CHILDREN_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentOffset_ = negativeCurrentOffset;
+    info.hasBigItem_ = true;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedOffset);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset010
+ * @tc.desc: Test GetContentOffset regular grid with missing line heights uses default height
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset010, TestSize.Level1)
+{
+    constexpr float testMainGap = 5.0f;
+    constexpr int32_t TEST_CROSS_COUNT = 2;
+    constexpr int32_t TEST_START_INDEX = 6;
+    constexpr float testCurrentOffset = -10.0f;
+    constexpr float LINE_HEIGHT_0 = 100.0f;
+    constexpr float LINE_HEIGHT_1 = 100.0f;
+    constexpr float expectedOffset = 325.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 0, LINE_HEIGHT_0 }, { 2, LINE_HEIGHT_1 } };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.currentOffset_ = testCurrentOffset;
+    info.hasBigItem_ = false;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedOffset);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset011
+ * @tc.desc: Test GetContentOffset with first line not zero and itemCount less than childrenCount
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset011, TestSize.Level1)
+{
+    constexpr float testMainGap = 5.0f;
+    constexpr int32_t TEST_CHILDREN_COUNT = 15;
+    constexpr int32_t TEST_START_INDEX = 5;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 5;
+    constexpr float testCurrentOffset = 0.0f;
+    constexpr float LINE_HEIGHT_5 = 100.0f;
+    constexpr float LINE_HEIGHT_6 = 100.0f;
+    constexpr float expectedOffset = 175.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 5, LINE_HEIGHT_5 }, { 6, LINE_HEIGHT_6 } };
+    info.gridMatrix_ = {
+        { 5, { { 0, 5 }, { 1, 6 }, { 2, 7 } } },
+        { 6, { { 0, 8 }, { 1, 9 }, { 2, 10 } } },
+    };
+    info.childrenCount_ = TEST_CHILDREN_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentOffset_ = testCurrentOffset;
+    info.hasBigItem_ = true;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedOffset);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset012
+ * @tc.desc: Test GetContentOffset with startIndex at zero returns zero in estimation path
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset012, TestSize.Level1)
+{
+    constexpr float testMainGap = 5.0f;
+    constexpr int32_t TEST_CHILDREN_COUNT = 20;
+    constexpr int32_t ZERO_START_INDEX = 0;
+    constexpr int32_t TEST_START_MAIN_LINE_INDEX = 3;
+    constexpr float positiveCurrentOffset = 50.0f;
+    constexpr float LINE_HEIGHT_3 = 100.0f;
+    constexpr float LINE_HEIGHT_4 = 100.0f;
+    constexpr float LINE_HEIGHT_5 = 100.0f;
+    constexpr float expectedOffset = -50.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 3, LINE_HEIGHT_3 }, { 4, LINE_HEIGHT_4 }, { 5, LINE_HEIGHT_5 } };
+    info.gridMatrix_ = {
+        { 3, { { 0, 5 }, { 1, 6 }, { 2, 7 } } },
+        { 4, { { 0, 8 }, { 1, 9 }, { 2, 10 } } },
+        { 5, { { 0, 11 }, { 1, 12 }, { 2, 13 } } },
+    };
+    info.childrenCount_ = TEST_CHILDREN_COUNT;
+    info.startIndex_ = ZERO_START_INDEX;
+    info.startMainLineIndex_ = TEST_START_MAIN_LINE_INDEX;
+    info.currentOffset_ = positiveCurrentOffset;
+    info.hasBigItem_ = true;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedOffset);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffset013
+ * @tc.desc: Test GetContentOffset regular grid with single line returns correct offset
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffset013, TestSize.Level1)
+{
+    constexpr float testMainGap = 5.0f;
+    constexpr int32_t TEST_CROSS_COUNT = 3;
+    constexpr int32_t TEST_START_INDEX = 0;
+    constexpr float testCurrentOffset = 0.0f;
+    constexpr float LINE_HEIGHT_0 = 100.0f;
+    constexpr float expectedOffset = 0.0f;
+
+    GridLayoutInfo info;
+    info.lineHeightMap_ = { { 0, LINE_HEIGHT_0 } };
+    info.crossCount_ = TEST_CROSS_COUNT;
+    info.startIndex_ = TEST_START_INDEX;
+    info.currentOffset_ = testCurrentOffset;
+    info.hasBigItem_ = false;
+
+    float result = info.GetContentOffset(testMainGap);
+
+    EXPECT_FLOAT_EQ(result, expectedOffset);
+}
+
+/**
+ * @tc.name: FindItemInRange002
+ * @tc.desc: Test FindItemInRange with target at startMainLineIndex_ boundary
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange002, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+    };
+    info.startMainLineIndex_ = 1;
+    info.endMainLineIndex_ = 2;
+
+    auto res = info.FindItemInRange(2);
+    EXPECT_EQ(res.first, 1);
+    EXPECT_EQ(res.second, 0);
+
+    res = info.FindItemInRange(4);
+    EXPECT_EQ(res.first, 2);
+    EXPECT_EQ(res.second, 0);
+}
+
+/**
+ * @tc.name: FindItemInRange003
+ * @tc.desc: Test FindItemInRange with target outside the range
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange003, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+        { 3, { { 0, 6 }, { 1, 7 } } },
+    };
+    info.startMainLineIndex_ = 1;
+    info.endMainLineIndex_ = 2;
+
+    auto res = info.FindItemInRange(0);
+    EXPECT_EQ(res.first, -1);
+    EXPECT_EQ(res.second, -1);
+
+    res = info.FindItemInRange(6);
+    EXPECT_EQ(res.first, -1);
+    EXPECT_EQ(res.second, -1);
+}
+
+/**
+ * @tc.name: FindItemInRange004
+ * @tc.desc: Test FindItemInRange with single line range
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange004, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 }, { 2, 2 } } },
+        { 1, { { 0, 3 }, { 1, 4 }, { 2, 5 } } },
+    };
+    info.startMainLineIndex_ = 0;
+    info.endMainLineIndex_ = 0;
+
+    auto res = info.FindItemInRange(1);
+    EXPECT_EQ(res.first, 0);
+    EXPECT_EQ(res.second, 1);
+
+    res = info.FindItemInRange(3);
+    EXPECT_EQ(res.first, -1);
+    EXPECT_EQ(res.second, -1);
+}
+
+/**
+ * @tc.name: FindItemInRange005
+ * @tc.desc: Test FindItemInRange with target at endMainLineIndex_ (upper_bound exclusive)
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange005, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 } } },
+        { 1, { { 0, 1 } } },
+        { 2, { { 0, 2 } } },
+        { 3, { { 0, 3 } } },
+    };
+    info.startMainLineIndex_ = 0;
+    info.endMainLineIndex_ = 2;
+
+    auto res = info.FindItemInRange(2);
+    EXPECT_EQ(res.first, 2);
+    EXPECT_EQ(res.second, 0);
+
+    res = info.FindItemInRange(3);
+    EXPECT_EQ(res.first, -1);
+    EXPECT_EQ(res.second, -1);
+}
+
+/**
+ * @tc.name: FindItemInRange006
+ * @tc.desc: Test FindItemInRange with duplicate item values in range
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange006, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 0 }, { 2, 1 } } },
+        { 1, { { 0, 0 }, { 1, 2 } } },
+        { 2, { { 0, 3 }, { 1, 0 } } },
+    };
+    info.startMainLineIndex_ = 0;
+    info.endMainLineIndex_ = 2;
+
+    auto res = info.FindItemInRange(0);
+    EXPECT_EQ(res.first, 0);
+    EXPECT_EQ(res.second, 0);
+
+    res = info.FindItemInRange(2);
+    EXPECT_EQ(res.first, 1);
+    EXPECT_EQ(res.second, 1);
+}
+
+/**
+ * @tc.name: FindItemInRange007
+ * @tc.desc: Test FindItemInRange with negative target index
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange007, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+    };
+    info.startMainLineIndex_ = 0;
+    info.endMainLineIndex_ = 1;
+
+    auto res = info.FindItemInRange(-1);
+    EXPECT_EQ(res.first, -1);
+    EXPECT_EQ(res.second, -1);
+
+    res = info.FindItemInRange(-100);
+    EXPECT_EQ(res.first, -1);
+    EXPECT_EQ(res.second, -1);
+}
+
+/**
+ * @tc.name: FindItemInRange008
+ * @tc.desc: Test FindItemInRange with gap in gridMatrix line indices
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange008, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 2, { { 0, 2 }, { 1, 3 } } },
+        { 4, { { 0, 4 }, { 1, 5 } } },
+    };
+    info.startMainLineIndex_ = 0;
+    info.endMainLineIndex_ = 4;
+
+    auto res = info.FindItemInRange(2);
+    EXPECT_EQ(res.first, 2);
+    EXPECT_EQ(res.second, 0);
+
+    res = info.FindItemInRange(4);
+    EXPECT_EQ(res.first, 4);
+    EXPECT_EQ(res.second, 0);
+}
+
+/**
+ * @tc.name: FindItemInRange009
+ * @tc.desc: Test FindItemInRange with only negative values in cells
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange009, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, -1 }, { 1, -2 }, { 2, -3 } } },
+        { 1, { { 0, -4 }, { 1, -5 } } },
+    };
+    info.startMainLineIndex_ = 0;
+    info.endMainLineIndex_ = 1;
+
+    auto res = info.FindItemInRange(-1);
+    EXPECT_EQ(res.first, 0);
+    EXPECT_EQ(res.second, 0);
+
+    res = info.FindItemInRange(-5);
+    EXPECT_EQ(res.first, 1);
+    EXPECT_EQ(res.second, 1);
+
+    res = info.FindItemInRange(0);
+    EXPECT_EQ(res.first, -1);
+    EXPECT_EQ(res.second, -1);
+}
+
+/**
+ * @tc.name: FindItemInRange010
+ * @tc.desc: Test FindItemInRange with zero as target value
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange010, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 0 }, { 1, 2 } } },
+        { 2, { { 0, 3 }, { 1, 4 } } },
+    };
+    info.startMainLineIndex_ = 0;
+    info.endMainLineIndex_ = 2;
+
+    auto res = info.FindItemInRange(0);
+    EXPECT_EQ(res.first, 0);
+    EXPECT_EQ(res.second, 0);
+}
+
+/**
+ * @tc.name: FindItemInRange011
+ * @tc.desc: Test FindItemInRange when startMainLineIndex_ equals endMainLineIndex_
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange011, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 1 } } },
+        { 1, { { 0, 2 }, { 1, 3 } } },
+        { 2, { { 0, 4 }, { 1, 5 } } },
+    };
+    info.startMainLineIndex_ = 1;
+    info.endMainLineIndex_ = 1;
+
+    auto res = info.FindItemInRange(2);
+    EXPECT_EQ(res.first, 1);
+    EXPECT_EQ(res.second, 0);
+
+    res = info.FindItemInRange(0);
+    EXPECT_EQ(res.first, -1);
+    EXPECT_EQ(res.second, -1);
+
+    res = info.FindItemInRange(4);
+    EXPECT_EQ(res.first, -1);
+    EXPECT_EQ(res.second, -1);
+}
+
+/**
+ * @tc.name: FindItemInRange012
+ * @tc.desc: Test FindItemInRange with large index values
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, FindItemInRange012, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 100, { { 0, 1000 }, { 1, 1001 } } },
+        { 200, { { 0, 2000 }, { 1, 2001 } } },
+    };
+    info.startMainLineIndex_ = 100;
+    info.endMainLineIndex_ = 200;
+
+    auto res = info.FindItemInRange(1000);
+    EXPECT_EQ(res.first, 100);
+    EXPECT_EQ(res.second, 0);
+
+    res = info.FindItemInRange(2001);
+    EXPECT_EQ(res.first, 200);
+    EXPECT_EQ(res.second, 1);
+
+    res = info.FindItemInRange(999);
+    EXPECT_EQ(res.first, -1);
+    EXPECT_EQ(res.second, -1);
+}
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffsetUseAccumulatedLineHeights001
+ * @tc.desc: Test GetContentOffset uses accumulated line heights when startMainLineIndex_ = 0
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffsetUseAccumulatedLineHeights001, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 0 } } },
+        { 1, { { 0, 1 } } },
+        { 2, { { 0, 2 }, { 1, 2 } } },
+        { 3, { { 0, 3 } } },
+    };
+    info.lineHeightMap_ = { { 0, 50.0f }, { 1, 100.0f }, { 2, 50.0f }, { 3, 200.0f } };
+    info.startMainLineIndex_ = 0;
+    info.startIndex_ = 1;
+    info.currentOffset_ = -10.0f;
+    info.crossCount_ = 2;
+    info.childrenCount_ = 4;
+
+    GridLayoutOptions option {
+        .irregularIndexes = { 0, 2 },
+    };
+
+    float result = info.GetContentOffset(option, 5.0f);
+    EXPECT_GT(result, 0.0f);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffsetUseAccumulatedLineHeights002
+ * @tc.desc: Test GetContentOffset uses accumulated line heights when startMainLineIndex_ >= MAX_CUMULATIVE_LINES
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffsetUseAccumulatedLineHeights002, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 0 } } },
+        { 1, { { 0, 1 } } },
+        { 2, { { 0, 2 }, { 1, 2 } } },
+        { 3, { { 0, 3 } } },
+    };
+    info.lineHeightMap_ = { { 0, 50.0f }, { 1, 100.0f }, { 2, 50.0f }, { 3, 200.0f } };
+    info.startMainLineIndex_ = 100;
+    info.startIndex_ = 1;
+    info.currentOffset_ = -10.0f;
+    info.crossCount_ = 2;
+    info.childrenCount_ = 4;
+
+    GridLayoutOptions option {
+        .irregularIndexes = { 0, 2 },
+    };
+
+    float result = info.GetContentOffset(option, 5.0f);
+    EXPECT_GT(result, 0.0f);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffsetUseAccumulatedLineHeights003
+ * @tc.desc: Test GetContentOffset uses accumulated line heights when gridMatrix_ is empty
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffsetUseAccumulatedLineHeights003, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_.clear();
+    info.lineHeightMap_ = { { 0, 100.0f }, { 1, 100.0f } };
+    info.startMainLineIndex_ = 1;
+    info.startIndex_ = 1;
+    info.currentOffset_ = -10.0f;
+    info.crossCount_ = 2;
+    info.childrenCount_ = 4;
+
+    GridLayoutOptions option {
+        .irregularIndexes = { 0, 2 },
+    };
+
+    float result = info.GetContentOffset(option, 5.0f);
+    EXPECT_GT(result, 0.0f);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffsetUseAccumulatedLineHeights004
+ * @tc.desc: Test GetContentOffset uses accumulated line heights when first line key != 0
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffsetUseAccumulatedLineHeights004, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 1, { { 0, 0 }, { 1, 0 } } },
+        { 2, { { 0, 1 } } },
+        { 3, { { 0, 2 }, { 1, 2 } } },
+        { 4, { { 0, 3 } } },
+    };
+    info.lineHeightMap_ = { { 1, 50.0f }, { 2, 100.0f }, { 3, 50.0f }, { 4, 200.0f } };
+    info.startMainLineIndex_ = 1;
+    info.startIndex_ = 1;
+    info.currentOffset_ = -10.0f;
+    info.crossCount_ = 2;
+    info.childrenCount_ = 4;
+
+    GridLayoutOptions option {
+        .irregularIndexes = { 0, 2 },
+    };
+
+    float result = info.GetContentOffset(option, 5.0f);
+    EXPECT_GT(result, 0.0f);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffsetUseAccumulatedLineHeights005
+ * @tc.desc: Test GetContentOffset uses accumulated line heights when first line is empty
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffsetUseAccumulatedLineHeights005, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { } },
+        { 1, { { 0, 1 } } },
+        { 2, { { 0, 2 }, { 1, 2 } } },
+        { 3, { { 0, 3 } } },
+    };
+    info.lineHeightMap_ = { { 0, 50.0f }, { 1, 100.0f }, { 2, 50.0f }, { 3, 200.0f } };
+    info.startMainLineIndex_ = 1;
+    info.startIndex_ = 1;
+    info.currentOffset_ = -10.0f;
+    info.crossCount_ = 2;
+    info.childrenCount_ = 4;
+
+    GridLayoutOptions option {
+        .irregularIndexes = { 0, 2 },
+    };
+
+    float result = info.GetContentOffset(option, 5.0f);
+    EXPECT_GT(result, 0.0f);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffsetUseAccumulatedLineHeights006
+ * @tc.desc: Test GetContentOffset uses accumulated line heights when first item is not 0
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffsetUseAccumulatedLineHeights006, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 1 }, { 1, 1 } } },
+        { 1, { { 0, 2 } } },
+        { 2, { { 0, 3 }, { 1, 3 } } },
+        { 3, { { 0, 4 } } },
+    };
+    info.lineHeightMap_ = { { 0, 50.0f }, { 1, 100.0f }, { 2, 50.0f }, { 3, 200.0f } };
+    info.startMainLineIndex_ = 1;
+    info.startIndex_ = 2;
+    info.currentOffset_ = -10.0f;
+    info.crossCount_ = 2;
+    info.childrenCount_ = 5;
+
+    GridLayoutOptions option {
+        .irregularIndexes = { 1, 3 },
+    };
+
+    float result = info.GetContentOffset(option, 5.0f);
+    EXPECT_GT(result, 0.0f);
+}
+
+/**
+ * @tc.name: GridLayoutInfo::GetContentOffsetUseAccumulatedLineHeights007
+ * @tc.desc: Test GetContentOffset uses accumulated line heights when all conditions met
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridLayoutInfoTest, GetContentOffsetUseAccumulatedLineHeights007, TestSize.Level1)
+{
+    GridLayoutInfo info;
+    info.gridMatrix_ = {
+        { 0, { { 0, 0 }, { 1, 0 } } },
+        { 1, { { 0, 1 } } },
+        { 2, { { 0, 2 }, { 1, 2 } } },
+        { 3, { { 0, 3 } } },
+    };
+    info.lineHeightMap_ = { { 0, 50.0f }, { 1, 100.0f }, { 2, 50.0f }, { 3, 200.0f } };
+    info.startMainLineIndex_ = 3;
+    info.startIndex_ = 3;
+    info.currentOffset_ = -10.0f;
+    info.crossCount_ = 2;
+    info.childrenCount_ = 4;
+
+    GridLayoutOptions option {
+        .irregularIndexes = { 0, 2 },
+    };
+
+    float mainGap = 5.0f;
+    float expectedResult = 50.0f + mainGap + 100.0f + mainGap + 50.0f + mainGap - info.currentOffset_;
+    float result = info.GetContentOffset(option, mainGap);
+    EXPECT_FLOAT_EQ(result, expectedResult);
+}
+
 } // namespace OHOS::Ace::NG

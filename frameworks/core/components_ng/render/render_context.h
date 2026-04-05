@@ -51,11 +51,13 @@ class DrawCmdList;
 class VisualEffect;
 class Filter;
 enum class Gravity;
-class BrightnessBlender;
+class Blender;
+class RSNGShapeBase;
 } // namespace OHOS::Rosen
 
 namespace OHOS::Ace {
 struct SharedTransitionOption;
+class UiMaterial;
 }
 
 namespace OHOS::Ace::Kit {
@@ -94,21 +96,17 @@ using TransitionFinishCallback = std::function<void(bool)>;
 
 inline constexpr int32_t ZINDEX_DEFAULT_VALUE = 0;
 
-namespace {
-    NG::Vector5F DEFAULT_ROTATE_VEC = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-}
-
 // RenderContext is used for render node to paint.
 class ACE_FORCE_EXPORT RenderContext : public virtual AceType {
-    DECLARE_ACE_TYPE(NG::RenderContext, AceType)
+    DECLARE_ACE_TYPE(NG::RenderContext, AceType);
 
 public:
     ~RenderContext() override = default;
 
     static RefPtr<RenderContext> Create();
 
-    void SetRequestFrame(const std::function<void()>& requestFrame);
-    void RequestNextFrame() const;
+    void SetRequestFrame(const std::function<void(bool)>& requestFrame);
+    void RequestNextFrame(bool isOffScreenNode = false) const;
 
     virtual void SetHostNode(const WeakPtr<FrameNode>& host);
     RefPtr<FrameNode> GetHost() const;
@@ -188,6 +186,8 @@ public:
         EXTERNAL,
         INCREMENTAL_CANVAS,
         HARDWARE_SURFACE,
+        COMPOSITE_COMPONENT,
+        UNION,
 #ifdef RENDER_EXTRACT_SUPPORTED
         HARDWARE_TEXTURE,
 #endif
@@ -205,11 +205,13 @@ public:
         ContextType type;
         std::optional<std::string> surfaceName;
         PatternType patternType = PatternType::DEFAULT;
+        bool isSkipCheckInMultiInstance = false;
     };
 
-    virtual void InitContext(bool isRoot, const std::optional<ContextParam>& param) {}
+    virtual void InitContext(bool isRoot, const std::optional<ContextParam>& param, FrameNode* host = nullptr) {}
 
-    virtual void InitContext(bool isRoot, const std::optional<ContextParam>& param, bool isLayoutNode) {}
+    virtual void InitContext(bool isRoot, const std::optional<ContextParam>& param, bool isLayoutNode,
+        FrameNode* host = nullptr) {}
 
     virtual void SetSurfaceChangedCallBack(
         const std::function<void(float, float, float, float)>& callback) {}
@@ -251,6 +253,7 @@ public:
     virtual void ClearFocusState() {}
 
     virtual void CreateBackgroundPixelMap(const RefPtr<FrameNode>& value) {}
+    virtual uint32_t GetCurrentBackgroundTaskId() const { return 0; }
 
     virtual void UpdateBorderWidthF(const BorderWidthPropertyF& value) {}
 
@@ -307,9 +310,11 @@ public:
     virtual void SetContentRectToFrame(RectF rect) {}
     virtual void SetSecurityLayer(bool isSecure) {}
     virtual void SetHDRBrightness(float hdrBrightness) {}
+    virtual void SetHDRBrightness(float hdrBrightness, uint32_t type) {}
     virtual void SetImageHDRBrightness(float hdrBrightness) {}
     virtual void SetImageHDRPresent(bool hdrPresent) {}
     virtual void SetTransparentLayer(bool isTransparentLayer) {}
+    virtual void SetSurfaceBufferOpaque(bool isOpaque) {}
     virtual void SetScreenId(uint64_t screenId) {}
     virtual void SetAlwaysSnapshot(bool enable) {}
     virtual void UpdateBackBlurRadius(const Dimension& radius) {}
@@ -352,7 +357,13 @@ public:
     virtual void UpdateBackgroundFilter(const OHOS::Rosen::Filter* backgroundFilter) {}
     virtual void UpdateForegroundFilter(const OHOS::Rosen::Filter* foregroundFilter) {}
     virtual void UpdateCompositingFilter(const OHOS::Rosen::Filter* compositingFilter) {}
-    virtual void UpdateBrightnessBlender(const OHOS::Rosen::BrightnessBlender* brightnessBlender) {}
+    virtual void UpdateUiMaterialFilter(const OHOS::Rosen::Filter* materialFilter) {}
+    virtual void UpdateBlender(const OHOS::Rosen::Blender* blender) {}
+    virtual void SetSDFShape(const std::shared_ptr<OHOS::Rosen::RSNGShapeBase>& shape) {}
+    virtual void SetShadowPath(const std::string path) {}
+    virtual void ResetShadowPath() {}
+    void SetSystemMaterial(const RefPtr<UiMaterial>& material);
+    RefPtr<UiMaterial> GetSystemMaterial() const;
 
     virtual void OpacityAnimation(const AnimationOption& option, double begin, double end) {}
     virtual void ScaleAnimation(const AnimationOption& option, double begin, double end) {}
@@ -371,7 +382,15 @@ public:
     virtual void SetShadowElevation(float elevation) {}
     virtual void SetShadowRadius(float radius) {}
     virtual void SetScale(float scaleX, float scaleY) {}
+    virtual void SetScrollScale(float scale) {}
+    virtual void ResetScrollScale() {}
     virtual void SetBackgroundColor(uint32_t colorValue) {}
+    // Bind a dynamic color picker to this node so the render service can periodically sample
+    // its rendered pixels and resolve a concrete color for the given placeholder. Strategy
+    // controls the sampling algorithm (e.g. dominant, average, contrast). Interval (ms) hints
+    // the desired sampling period; 0 uses a backend default. Rebinding replaces previous values.
+    // Passing ColorPlaceholder::NONE clears any existing binding.
+    virtual void BindColorPicker(ColorPlaceholder placeholder, ColorPickStrategy strategy, uint32_t interval) {}
     virtual void SetRenderPivot(float pivotX, float pivotY) {}
     virtual void SetFrame(float positionX, float positionY, float width, float height) {}
     virtual void SetOpacity(float opacity) {}
@@ -460,16 +479,16 @@ public:
 
     virtual void ClearDrawCommands() {}
 
+    virtual void RemoveOverlayModifier(const RefPtr<OverlayModifier>& modifier) {}
     virtual void RemoveContentModifier(const RefPtr<ContentModifier>& ContentModifier) {}
 
     virtual void DumpInfo() {}
     virtual void DumpInfo(std::unique_ptr<JsonValue>& json) {}
-    virtual void DumpSimplifyInfo(std::unique_ptr<JsonValue>& json) {}
+    virtual void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) {}
     virtual void DumpAdvanceInfo() {}
     virtual void DumpAdvanceInfo(std::unique_ptr<JsonValue>& json) {}
 
     void ObscuredToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
-    void TransitionToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
 
     void SetSharedTransitionOptions(const std::shared_ptr<SharedTransitionOption>& option);
     const std::shared_ptr<SharedTransitionOption>& GetSharedTransitionOption() const;
@@ -517,7 +536,7 @@ public:
 
     virtual void DetachNodeAnimatableProperty(const RefPtr<NodeAnimatablePropertyBase>& modifier) {};
 
-    virtual void PaintAccessibilityFocus() {};
+    virtual void PaintAccessibilityFocus(bool isRectUpdate = false) {};
 
     virtual void UpdateAccessibilityRoundRect() {};
 
@@ -536,6 +555,7 @@ public:
     virtual void OnZIndexUpdate(int32_t value) {}
 
     virtual void OnBackgroundColorUpdate(const Color& value) {}
+    virtual void OnPreBackgroundColorUpdate(const Color& value) {}
     virtual void OnOpacityUpdate(double opacity) {}
     virtual void OnDynamicRangeModeUpdate(DynamicRangeMode dynamicRangeMode) {}
     virtual void SetColorGamut(uint32_t colorGamut) {}
@@ -545,6 +565,8 @@ public:
     virtual void OnLightUpEffectUpdate(double radio) {}
     virtual void OnClickEffectLevelUpdate(const ClickEffectInfo& info) {}
     virtual void OnRenderGroupUpdate(bool isRenderGroup) {}
+    virtual void UpdateAdaptiveGroup(bool isRenderGroup, bool useAdaptiveFilter) {}
+    virtual void OnExcludeFromRenderGroupUpdate(bool exclude) {}
     virtual void UpdateRenderGroup(bool isRenderGroup, bool isForced, bool includeProperty) {}
     virtual void OnSuggestedRenderGroupUpdate(bool isRenderGroup) {}
     virtual void OnDynamicDimDegreeUpdate(const float degree) {}
@@ -610,8 +632,10 @@ public:
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(BdImage, BorderSourceFromImage, bool);
 
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(BackgroundColor, Color);
+    ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(PreBackgroundColor, Color);
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(Opacity, double);
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(RenderGroup, bool);
+    ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(ExcludeFromRenderGroup, bool);
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(NodeName, std::string);
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(SuggestedRenderGroup, bool);
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(ForegroundColor, Color);
@@ -626,7 +650,6 @@ public:
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(CustomBackground, CustomBackgroundColor, Color);
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(CustomBackground, IsTransitionBackground, bool);
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(CustomBackground, BuilderBackgroundFlag, bool);
-    ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(CustomBackground, BackgroundIgnoresLayoutSafeAreaEdges, uint32_t);
 
     // Graphics
     ACE_DEFINE_PROPERTY_GROUP(Graphics, GraphicsProperty);
@@ -649,6 +672,8 @@ public:
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(Graphics, BackBlendMode, BlendMode);
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(Graphics, BackBlendApplyType, BlendApplyType);
 
+    ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(PreBackShadow, Shadow);
+
     // BorderRadius.
     ACE_DEFINE_PROPERTY_GROUP(Border, BorderProperty);
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(Border, BorderRadius, BorderRadiusProperty);
@@ -657,6 +682,9 @@ public:
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(Border, BorderStyle, BorderStyleProperty);
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(Border, DashGap, BorderWidthProperty);
     ACE_DEFINE_PROPERTY_FUNC_WITH_GROUP(Border, DashWidth, BorderWidthProperty);
+
+    ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(PreBorderWidth, BorderWidthProperty);
+    ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(PreBorderColor, BorderColorProperty);
 
     // Outer Border
     ACE_DEFINE_PROPERTY_GROUP(OuterBorder, OuterBorderProperty);
@@ -721,6 +749,9 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(UseEffect, bool);
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(UseEffectType, EffectType);
 
+    // useUnionEffect
+    ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(UseUnionEffect, bool);
+
     // useShadowBatching
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(UseShadowBatching, bool);
 
@@ -732,6 +763,9 @@ public:
 
     // renderFit
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(RenderFit, RenderFit);
+
+    // renderStrategy
+    ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(RenderStrategy, RenderStrategy);
 
     // AttractionEffect
     ACE_DEFINE_PROPERTY_ITEM_FUNC_WITHOUT_GROUP(AttractionEffect, AttractionEffect);
@@ -793,6 +827,8 @@ public:
 
     virtual void SetRenderFit(RenderFit renderFit) {}
 
+    virtual void OnRenderStrategyUpdate(RenderStrategy renderStrategy) {}
+
     virtual OffsetF GetBaseTransalteInXY() const
     {
         return OffsetF{0.0f, 0.0f};
@@ -817,6 +853,9 @@ public:
     }
 
     virtual void SetDrawNode() {}
+    virtual void SetUnionSpacing(float spacing) {}
+
+    static void SetNeedCallbackNodeChange(bool needCallback);
 
     virtual void UpdateOcclusionCullingStatus(bool enable) {}
 
@@ -833,6 +872,19 @@ public:
 
     virtual void RemoveFromTree() {}
 
+    virtual bool IsOnRenderTree() {return false;}
+
+    virtual void SetNeedUseCmdlistDrawRegion(bool needUseCmdlistDrawRegion) {}
+
+    virtual void UpdateCustomBackground() {}
+
+    virtual void UpdateOverlayText() {}
+
+    void SetIsFree(bool isFree)
+    {
+        isFree_ = isFree;
+    }
+
 protected:
     RenderContext() = default;
     std::shared_ptr<SharedTransitionOption> sharedTransitionOption_;
@@ -842,6 +894,7 @@ protected:
     bool isNeedRebuildRSTree_ = true;
     bool handleChildBounds_ = false;
     bool isNeedAnimate_ = true;
+    bool isFree_ = false;
 
     virtual void OnBackgroundImageUpdate(const ImageSourceInfo& imageSourceInfo) {}
     virtual void OnBackgroundImageRepeatUpdate(const ImageRepeat& imageRepeat) {}
@@ -859,7 +912,6 @@ protected:
     virtual void OnCustomBackgroundColorUpdate(const Color& color) {}
     virtual void OnIsTransitionBackgroundUpdate(bool isTransitionBackground) {}
     virtual void OnBuilderBackgroundFlagUpdate(bool isBuilderBackground) {}
-    virtual void OnBackgroundIgnoresLayoutSafeAreaEdgesUpdate(uint32_t edges) {}
 
     virtual void OnBorderImageUpdate(const RefPtr<BorderImage>& borderImage) {}
     virtual void OnBorderImageSourceUpdate(const ImageSourceInfo& borderImageSourceInfo) {}
@@ -871,8 +923,10 @@ protected:
     virtual void OnBorderSourceFromImageUpdate(bool sourceFromImage) {}
 
     virtual void OnBorderWidthUpdate(const BorderWidthProperty& value) {}
+    virtual void OnPreBorderWidthUpdate(const BorderWidthProperty& value) {}
     virtual void OnBorderRadiusUpdate(const BorderRadiusProperty& value) {}
     virtual void OnBorderColorUpdate(const BorderColorProperty& value) {}
+    virtual void OnPreBorderColorUpdate(const BorderColorProperty& value) {}
     virtual void OnBorderStyleUpdate(const BorderStyleProperty& value) {}
     virtual void OnDashGapUpdate(const BorderWidthProperty& value) {}
     virtual void OnDashWidthUpdate(const BorderWidthProperty& value) {}
@@ -923,6 +977,7 @@ protected:
     virtual void OnBgDynamicBrightnessOptionUpdate(const std::optional<BrightnessOption>& brightnessOption) {}
     virtual void OnFgDynamicBrightnessOptionUpdate(const std::optional<BrightnessOption>& brightnessOption) {}
     virtual void OnBackShadowUpdate(const Shadow& shadow) {}
+    virtual void OnPreBackShadowUpdate(const Shadow& shadow) {}
     virtual void OnBackBlendModeUpdate(BlendMode blendMode) {}
     virtual void OnBackBlendApplyTypeUpdate(BlendApplyType blendApplyType) {}
 
@@ -930,6 +985,7 @@ protected:
     virtual void OnMotionPathUpdate(const MotionPathOption& motionPath) {}
     virtual void OnUseEffectUpdate(bool useEffect) {}
     virtual void OnUseEffectTypeUpdate(EffectType effectType) {}
+    virtual void OnUseUnionEffectUpdate(bool useUnion) {}
     virtual bool GetStatusByEffectTypeAndWindow() { return false; }
     virtual void OnUseShadowBatchingUpdate(bool useShadowBatching) {}
     virtual void OnFreezeUpdate(bool isFreezed) {}
@@ -937,12 +993,14 @@ protected:
     virtual void OnAttractionEffectUpdate(const AttractionEffect& effect) {}
 
 private:
-    void RequestNextFrameMultiThread() const;
+    void RequestNextFrameMultiThread(bool isOffScreenNode) const;
+    void ToJsonValuePart1(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const;
     friend class ViewAbstract;
     friend class ViewAbstractModelStatic;
-    std::function<void()> requestFrame_;
+    std::function<void(bool)> requestFrame_;
     WeakPtr<FrameNode> host_;
     RefPtr<OneCenterTransitionOptionType> oneCenterTransition_;
+    RefPtr<UiMaterial> uiMaterial_;
     ACE_DISALLOW_COPY_AND_MOVE(RenderContext);
 };
 } // namespace OHOS::Ace::NG

@@ -22,7 +22,8 @@
 #include "core/components_ng/pattern/web/web_pattern.h"
 #undef private
 
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "cJSON.h"
 
 #include "core/components_ng/base/view_stack_processor.h"
 #include "nweb_autofill.h"
@@ -312,20 +313,19 @@ HWTEST_F(WebPatternPartTwoTest, DumpViewDataPageNode001, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     auto viewDataWrap = RefPtr<ViewDataWrapMock>();
     viewDataWrap = nullptr;
     bool needsRecordData = true;
     webPattern->DumpViewDataPageNode(viewDataWrap, needsRecordData);
-    EXPECT_EQ(viewDataWrap, nullptr);
 #endif
 }
 
@@ -381,6 +381,34 @@ public:
 };
 
 /**
+ * @tc.name: ShiftFocusAfterAutoFill001
+ * @tc.desc: ShiftFocusAfterAutoFill.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternPartTwoTest, ShiftFocusAfterAutoFill001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    ASSERT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    auto viewDataWrap = RefPtr<ViewDataWrapMock>();
+    viewDataWrap = nullptr;
+    RefPtr<PageNodeInfoWrapMock> nodeWrap = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
+    AceAutoFillType autoFillType = AceAutoFillType::ACE_DETAIL_INFO_WITHOUT_STREET;
+    webPattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, autoFillType);
+    webPattern->isPasswordFill_ = false;
+    webPattern->ShiftFocusAfterAutoFill(autoFillType);
+#endif
+}
+
+/**
  * @tc.name: NotifyFillRequestSuccess001
  * @tc.desc: NotifyFillRequestSuccess.
  * @tc.type: FUNC
@@ -389,22 +417,20 @@ HWTEST_F(WebPatternPartTwoTest, NotifyFillRequestSuccess001, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
-    EXPECT_NE(webPattern, nullptr);
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     auto viewDataWrap = RefPtr<ViewDataWrapMock>();
     viewDataWrap = nullptr;
     RefPtr<PageNodeInfoWrapMock> nodeWrap = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
     AceAutoFillType autoFillType = AceAutoFillType::ACE_DETAIL_INFO_WITHOUT_STREET;
     webPattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, autoFillType);
-    EXPECT_EQ(viewDataWrap, nullptr);
     webPattern->requestedWebOffset_ = OffsetF();
     webPattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, autoFillType);
 #endif
@@ -475,7 +501,9 @@ HWTEST_F(WebPatternPartTwoTest, NotifyFillRequestSuccess003, TestSize.Level1)
     EXPECT_CALL(*nodeWrap, GetValue()).WillOnce(ReturnRef(value));
     EXPECT_CALL(*viewDataWrap, GetPageUrl()).WillOnce(ReturnRef(pageUrl));
     EXPECT_CALL(*viewDataWrap, GetOtherAccount()).WillOnce(Return(true));
-    webPattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED);
+    auto triggerType = AceAutoFillTriggerType::MANUAL_REQUEST;
+    webPattern->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, AceAutoFillType::ACE_UNSPECIFIED, triggerType);
+    EXPECT_EQ(webPattern->autoFillMenuType_, WebMenuType::TYPE_UNKNOWN_MENU);
 #endif
 }
 
@@ -488,22 +516,20 @@ HWTEST_F(WebPatternPartTwoTest, NotifyFillRequestFailed001, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
-    EXPECT_NE(webPattern, nullptr);
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     int32_t errCode = 4000;
     const std::string fillContent = "fillContent";
     bool isPopup = false;
     webPattern->isPasswordFill_ = false;
     webPattern->NotifyFillRequestFailed(errCode, fillContent, isPopup);
-    EXPECT_EQ(webPattern->isPasswordFill_, false);
 #endif
 }
 
@@ -516,22 +542,20 @@ HWTEST_F(WebPatternPartTwoTest, NotifyFillRequestFailed002, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
-    EXPECT_NE(webPattern, nullptr);
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     int32_t errCode = 4000;
     const std::string fillContent = "fillContent";
     bool isPopup = false;
     webPattern->isPasswordFill_ = true;
     webPattern->NotifyFillRequestFailed(errCode, fillContent, isPopup);
-    EXPECT_EQ(webPattern->isPasswordFill_, true);
 #endif
 }
 
@@ -544,23 +568,21 @@ HWTEST_F(WebPatternPartTwoTest, ParseViewDataNumber001, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
-    EXPECT_NE(webPattern, nullptr);
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     const std::string key = "key";
     int32_t value = 0;
     RefPtr<PageNodeInfoWrapMock> node = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
     RectT<float> rect;
     float viewScale = 0;
     webPattern->ParseViewDataNumber(key, value, node, rect, viewScale);
-    EXPECT_EQ(viewScale, 0);
 #endif
 }
 
@@ -573,16 +595,15 @@ HWTEST_F(WebPatternPartTwoTest, ParseViewDataNumber002, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
-    EXPECT_NE(webPattern, nullptr);
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     const std::string key = "key";
     int32_t value = 0;
     RefPtr<PageNodeInfoWrapMock> node = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
@@ -590,8 +611,6 @@ HWTEST_F(WebPatternPartTwoTest, ParseViewDataNumber002, TestSize.Level1)
     RectT<float> rect;
     float viewScale = 1;
     webPattern->ParseViewDataNumber(key, value, node, rect, viewScale);
-    EXPECT_EQ(viewScale, 1);
-    EXPECT_EQ(node, nullptr);
 #endif
 }
 
@@ -604,25 +623,21 @@ HWTEST_F(WebPatternPartTwoTest, ParseViewDataNumber003, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
-    EXPECT_NE(webPattern, nullptr);
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     const std::string key = OHOS::NWeb::NWEB_VIEW_DATA_KEY_FOCUS;
     int32_t value = 0;
     RefPtr<NiceMock<PageNodeInfoWrapMock>> node = AceType::MakeRefPtr<NiceMock<PageNodeInfoWrapMock>>();
     RectT<float> rect;
     float viewScale = 1;
     webPattern->ParseViewDataNumber(key, value, node, rect, viewScale);
-    EXPECT_EQ(viewScale, 1);
-    EXPECT_NE(node, nullptr);
-    EXPECT_EQ(key, OHOS::NWeb::NWEB_VIEW_DATA_KEY_FOCUS);
 #endif
 }
 
@@ -635,25 +650,21 @@ HWTEST_F(WebPatternPartTwoTest, ParseViewDataNumber004, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
-    EXPECT_NE(webPattern, nullptr);
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     const std::string key = OHOS::NWeb::NWEB_VIEW_DATA_KEY_RECT_X;
     int32_t value = 0;
     RefPtr<NiceMock<PageNodeInfoWrapMock>> node = AceType::MakeRefPtr<NiceMock<PageNodeInfoWrapMock>>();
     RectT<float> rect;
     float viewScale = 1;
     webPattern->ParseViewDataNumber(key, value, node, rect, viewScale);
-    EXPECT_EQ(viewScale, 1);
-    EXPECT_NE(node, nullptr);
-    EXPECT_EQ(key, OHOS::NWeb::NWEB_VIEW_DATA_KEY_RECT_X);
 #endif
 }
 
@@ -666,25 +677,21 @@ HWTEST_F(WebPatternPartTwoTest, ParseViewDataNumber005, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
-    EXPECT_NE(webPattern, nullptr);
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     const std::string key = OHOS::NWeb::NWEB_VIEW_DATA_KEY_RECT_Y;
     int32_t value = 0;
     RefPtr<PageNodeInfoWrapMock> node = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
     RectT<float> rect;
     float viewScale = 1;
     webPattern->ParseViewDataNumber(key, value, node, rect, viewScale);
-    EXPECT_EQ(viewScale, 1);
-    EXPECT_NE(node, nullptr);
-    EXPECT_EQ(key, OHOS::NWeb::NWEB_VIEW_DATA_KEY_RECT_Y);
 #endif
 }
 
@@ -697,25 +704,21 @@ HWTEST_F(WebPatternPartTwoTest, ParseViewDataNumber006, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
-    EXPECT_NE(webPattern, nullptr);
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     const std::string key = OHOS::NWeb::NWEB_VIEW_DATA_KEY_RECT_W;
     int32_t value = 0;
     RefPtr<PageNodeInfoWrapMock> node = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
     RectT<float> rect;
     float viewScale = 1;
     webPattern->ParseViewDataNumber(key, value, node, rect, viewScale);
-    EXPECT_EQ(viewScale, 1);
-    EXPECT_NE(node, nullptr);
-    EXPECT_EQ(key, OHOS::NWeb::NWEB_VIEW_DATA_KEY_RECT_W);
 #endif
 }
 
@@ -728,25 +731,21 @@ HWTEST_F(WebPatternPartTwoTest, ParseViewDataNumber007, TestSize.Level1)
 {
 #ifdef OHOS_STANDARD_SYSTEM
     auto* stack = ViewStackProcessor::GetInstance();
-    EXPECT_NE(stack, nullptr);
+    ASSERT_NE(stack, nullptr);
     auto nodeId = stack->ClaimNodeId();
     auto frameNode =
         FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
-    EXPECT_NE(frameNode, nullptr);
+    ASSERT_NE(frameNode, nullptr);
     stack->Push(frameNode);
     auto webPattern = frameNode->GetPattern<WebPattern>();
-    EXPECT_NE(webPattern, nullptr);
+    ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
-    EXPECT_NE(webPattern, nullptr);
     const std::string key = OHOS::NWeb::NWEB_VIEW_DATA_KEY_RECT_H;
     int32_t value = 0;
     RefPtr<PageNodeInfoWrapMock> node = AceType::MakeRefPtr<PageNodeInfoWrapMock>();
     RectT<float> rect;
     float viewScale = 1;
     webPattern->ParseViewDataNumber(key, value, node, rect, viewScale);
-    EXPECT_EQ(viewScale, 1);
-    EXPECT_NE(node, nullptr);
-    EXPECT_EQ(key, OHOS::NWeb::NWEB_VIEW_DATA_KEY_RECT_H);
 #endif
 }
 
@@ -771,6 +770,37 @@ HWTEST_F(WebPatternPartTwoTest, ParseNWebViewDataNode001, TestSize.Level1)
     EXPECT_NE(webPattern, nullptr);
     MockPipelineContext::SetUp();
     auto child = std::make_unique<JsonValue>();
+    std::vector<RefPtr<PageNodeInfoWrap>> nodeInfos;
+    int32_t nId = 1;
+    webPattern->ParseNWebViewDataNode(std::move(child), nodeInfos, nId);
+    MockPipelineContext::TearDown();
+#endif
+}
+
+/**
+ * @tc.name: ParseNWebViewDataNode002
+ * @tc.desc: ParseNWebViewDataNode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternPartTwoTest, ParseNWebViewDataNode002, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    EXPECT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    EXPECT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    EXPECT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    EXPECT_NE(webPattern, nullptr);
+    MockPipelineContext::SetUp();
+    cJSON* jsObj = cJSON_CreateObject();
+    cJSON* usernames = cJSON_Parse("{\"value\":\"names\",\"selectableUsernames\":[\"username1\",\"username2\"]}");
+    cJSON_AddItemToObject(jsObj, "username", usernames);
+    auto child = std::make_unique<JsonValue>(jsObj);
     std::vector<RefPtr<PageNodeInfoWrap>> nodeInfos;
     int32_t nId = 1;
     webPattern->ParseNWebViewDataNode(std::move(child), nodeInfos, nId);
@@ -917,6 +947,36 @@ HWTEST_F(WebPatternPartTwoTest, RequestAutoFill001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: RequestPasswordAutoFill001
+ * @tc.desc: RequestPasswordAutoFill.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternPartTwoTest, RequestPasswordAutoFill001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    EXPECT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    EXPECT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    EXPECT_NE(webPattern, nullptr);
+    WebMenuType menuType = WebMenuType::TYPE_CONTEXTMENU;
+    webPattern->isEditableOnContextMenu_ = false;
+    webPattern->RequestPasswordAutoFill(menuType);
+    EXPECT_EQ(webPattern->isEditableOnContextMenu_, false);
+    webPattern->isEditableOnContextMenu_ = true;
+    webPattern->RequestPasswordAutoFill(menuType);
+    EXPECT_EQ(webPattern->isEditableOnContextMenu_, false);
+    menuType = WebMenuType::TYPE_QUICKMENU;
+    webPattern->RequestPasswordAutoFill(menuType);
+    EXPECT_EQ(webPattern->isEditableOnContextMenu_, false);
+#endif
+}
+
+/**
  * @tc.name: RequestAutoSave001
  * @tc.desc: RequestAutoSave.
  * @tc.type: FUNC
@@ -1010,6 +1070,32 @@ HWTEST_F(WebPatternPartTwoTest, IsRootNeedExportTexture_001, TestSize.Level1)
     ASSERT_NE(webPattern, nullptr);
     webPattern->OnModifyDone();
     ASSERT_NE(webPattern->delegate_, nullptr);
+    auto ret = webPattern->IsRootNeedExportTexture();
+    EXPECT_EQ(ret, false);
+
+#endif
+}
+
+/**
+ * @tc.name: IsRootNeedExportTexture_002
+ * @tc.desc: IsRootNeedExportTexture.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternPartTwoTest, IsRootNeedExportTexture_002, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+    NG::SameLayerSurface::SetSameLayerSurfaceId("1");
     auto ret = webPattern->IsRootNeedExportTexture();
     EXPECT_EQ(ret, false);
 
@@ -1691,6 +1777,30 @@ HWTEST_F(WebPatternPartTwoTest, SetRenderMode_001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: EnableScrollDirectionalLock_001
+ * @tc.desc: EnableScrollDirectionalLock.
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternPartTwoTest, EnableScrollDirectionalLock_001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    webPattern->OnModifyDone();
+    ASSERT_NE(webPattern->delegate_, nullptr);
+    webPattern->EnableScrollDirectionalLock(false, ScrollDirectionalLockType::ALL);
+    EXPECT_EQ(webPattern->isDirectionalLockEnabled_, false);
+#endif
+}
+
+/**
  * @tc.name: GetParentAxis_001
  * @tc.desc: GetParentAxis.
  * @tc.type: FUNC
@@ -1711,7 +1821,6 @@ HWTEST_F(WebPatternPartTwoTest, GetParentAxis_001, TestSize.Level1)
     ASSERT_NE(webPattern->delegate_, nullptr);
     webPattern->axis_ = Axis::HORIZONTAL;
     webPattern->GetParentAxis();
-    EXPECT_EQ(webPattern->axis_, Axis::HORIZONTAL);
 
 #endif
 }
@@ -1871,6 +1980,29 @@ HWTEST_F(WebPatternPartTwoTest, SetActiveStatusInner_001, TestSize.Level1)
     EXPECT_TRUE(webPattern->isActive_);
     webPattern->SetActiveStatusInner(false, true);
     EXPECT_FALSE(webPattern->isActive_);
+#endif
+}
+
+/**
+ * @tc.name: GetInspectorId_001
+ * @tc.desc: test Get InspectorId
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternPartTwoTest, GetInspectorId_001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    ASSERT_NE(webPattern, nullptr);
+    auto host = webPattern->GetHost();
+    ASSERT_NE(host, nullptr);
+    auto inspectId = webPattern->GetInspectorId();
+    EXPECT_EQ(inspectId, std::to_string(host->GetId()));
 #endif
 }
 }

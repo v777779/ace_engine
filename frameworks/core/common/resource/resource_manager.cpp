@@ -30,20 +30,27 @@ ResourceManager& ResourceManager::GetInstance()
     return instance;
 }
 
-RefPtr<ResourceAdapter> ResourceManager::GetOrCreateResourceAdapter(const RefPtr<ResourceObject>& resourceObject,
-    bool fromTheme)
+RefPtr<ResourceAdapter> ResourceManager::GetOrCreateResourceAdapter(const RefPtr<ResourceObject>& resourceObject)
 {
+    CHECK_NULL_RETURN(resourceObject, nullptr);
     int32_t instanceId = resourceObject->GetInstanceId();
     std::string bundleName = resourceObject->GetBundleName();
     std::string moduleName = resourceObject->GetModuleName();
 
     auto resourceAdapter = GetResourceAdapter(bundleName, moduleName, instanceId);
+#ifdef CROSS_PLATFORM
     if (resourceAdapter == nullptr) {
-        resourceAdapter = ResourceAdapter::CreateNewResourceAdapter(bundleName, moduleName, fromTheme);
+        std::string fullModuleName = bundleName + "." + moduleName;
+        resourceAdapter = GetResourceAdapter(bundleName, fullModuleName, instanceId);
+    }
+#endif
+    if (resourceAdapter == nullptr) {
+        int32_t actualInstanceId = instanceId;
+        resourceAdapter = ResourceAdapter::CreateNewResourceAdapter(bundleName, moduleName, actualInstanceId);
         if (!resourceAdapter) {
             return GetResourceAdapter(DEFAULT_BUNDLE_NAME, DEFAULT_MODULE_NAME, instanceId);
         }
-        AddResourceAdapter(bundleName, moduleName, instanceId, resourceAdapter);
+        AddResourceAdapter(bundleName, moduleName, actualInstanceId, resourceAdapter);
     }
     return resourceAdapter;
 }
@@ -54,6 +61,40 @@ void ResourceManager::RegisterMainResourceAdapter(const std::string& bundleName,
     std::unique_lock<std::shared_mutex> lock(mutex_);
     auto key = MakeCacheKey(bundleName, moduleName, instanceId);
     resourceAdapters_.emplace(key, resAdapter);
+}
+
+void ResourceManager::UpdateResourceConfig(const std::string& /*bundleName*/, const std::string& /*moduleName*/,
+    int32_t instanceId, const ResourceConfiguration& config, bool themeFlag)
+{
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::string compareId = std::to_string(instanceId);
+    for (auto iter = resourceAdapters_.begin(); iter != resourceAdapters_.end(); ++iter) {
+        if (GetCacheKeyInstanceId(iter->first) == compareId) {
+            iter->second->UpdateConfig(config, themeFlag);
+        }
+    }
+    for (auto iter = cacheList_.begin(); iter != cacheList_.end(); ++iter) {
+        if (GetCacheKeyInstanceId(iter->cacheKey) == compareId) {
+            iter->cacheObj->UpdateConfig(config, themeFlag);
+        }
+    }
+}
+
+void ResourceManager::UpdateColorMode(
+    const std::string& /*bundleName*/, const std::string& /*moduleName*/, int32_t instanceId, ColorMode colorMode)
+{
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::string compareId = std::to_string(instanceId);
+    for (auto iter = resourceAdapters_.begin(); iter != resourceAdapters_.end(); ++iter) {
+        if (GetCacheKeyInstanceId(iter->first) == compareId) {
+            iter->second->UpdateColorMode(colorMode);
+        }
+    }
+    for (auto iter = cacheList_.begin(); iter != cacheList_.end(); ++iter) {
+        if (GetCacheKeyInstanceId(iter->cacheKey) == compareId) {
+            iter->cacheObj->UpdateColorMode(colorMode);
+        }
+    }
 }
 
 void ResourceManager::DumpResLoadError()

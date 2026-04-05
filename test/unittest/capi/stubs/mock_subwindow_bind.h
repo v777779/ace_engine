@@ -21,7 +21,7 @@
 #include "modifiers_test_utils.h"
 
 #include "base/subwindow/subwindow_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/capi/stubs/mock_subwindow_bind.h"
 
 namespace OHOS::Ace::NG {
@@ -81,6 +81,8 @@ public:
     MOCK_METHOD0(GetOverlayManager, const RefPtr<NG::OverlayManager>());
     MOCK_METHOD0(RequestFocus, void());
     MOCK_METHOD0(IsFocused, bool());
+    MOCK_METHOD1(SetReceiveDragEventEnabled, bool(bool enabled));
+    MOCK_METHOD0(GetIsReceiveDragEventEnabled, bool());
     MOCK_METHOD2(OpenCustomDialog, void(const PromptDialogAttr& dialogAttr, std::function<void(int32_t)>&& callback));
     MOCK_METHOD1(CloseCustomDialog, void(const int32_t dialogId));
     MOCK_METHOD2(CloseCustomDialog, void(const WeakPtr<NG::UINode>& node, std::function<void(int32_t)>&& callback));
@@ -108,15 +110,27 @@ public:
     MOCK_METHOD4(ShowMenuNG, void(const RefPtr<NG::FrameNode> customNode, const NG::MenuParam& menuParam,
                                  const RefPtr<NG::FrameNode>& targetNode, const NG::OffsetF& offset));
     void ShowBindSheetNG(bool isShow, std::function<void(const std::string&)>&& callback,
-        std::function<RefPtr<NG::UINode>()>&& buildNodeFunc, std::function<RefPtr<NG::UINode>()>&& buildtitleNodeFunc,
+        std::function<RefPtr<NG::UINode>(int32_t)>&& buildNodeFunc,
+        std::function<RefPtr<NG::UINode>()>&& buildtitleNodeFunc, NG::SheetStyle& sheetStyle,
+        std::function<void()>&& onAppear, std::function<void()>&& onDisappear, std::function<void()>&& shouldDismiss,
+        std::function<void(const int32_t)>&& onWillDismiss, std::function<void()>&& onWillAppear,
+        std::function<void()>&& onWillDisappear, std::function<void(const float)>&& onHeightDidChange,
+        std::function<void(const float)>&& onDetentsDidChange, std::function<void(const float)>&& onWidthDidChange,
+        std::function<void(const float)>&& onTypeDidChange, std::function<void()>&& sheetSpringBack,
+        const RefPtr<NG::FrameNode>& targetNode) override {}
+    int32_t ShowBindSheetByUIContext(
+        const RefPtr<NG::FrameNode>& sheetContentNode, std::function<void()>&& buildtitleNodeFunc,
         NG::SheetStyle& sheetStyle, std::function<void()>&& onAppear, std::function<void()>&& onDisappear,
         std::function<void()>&& shouldDismiss, std::function<void(const int32_t)>&& onWillDismiss,
         std::function<void()>&& onWillAppear, std::function<void()>&& onWillDisappear,
-        std::function<void(const float)>&& onHeightDidChange, std::function<void(const float)>&& onDetentsDidChange,
-        std::function<void(const float)>&& onWidthDidChange, std::function<void(const float)>&& onTypeDidChange,
-        std::function<void()>&& sheetSpringBack, const RefPtr<NG::FrameNode>& targetNode) override
+        std::function<void(const float)>&& onHeightDidChange,
+        std::function<void(const float)>&& onDetentsDidChange,
+        std::function<void(const float)>&& onWidthDidChange,
+        std::function<void(const float)>&& onTypeDidChange,
+        std::function<void()>&& sheetSpringBack,
+        int32_t targetId) override
     {
-        return;
+        return 0;
     }
     void ShowMenuNG(std::function<void()>&& buildFunc, std::function<void()>&& previewBuildFunc,
         const NG::MenuParam& menuParam, const RefPtr<NG::FrameNode>& targetNode, const NG::OffsetF& offset) override
@@ -161,6 +175,9 @@ public:
     MOCK_METHOD(void, RemoveFollowParentWindowLayoutNode, (int32_t nodeId));
     MOCK_METHOD(void, SetNodeId, (int32_t nodeId));
     MOCK_METHOD(int32_t, GetNodeId, (), (const));
+    MOCK_METHOD(int32_t, UpdateBindSheetByUIContext, (const RefPtr<NG::FrameNode> &, const NG::SheetStyle &, bool));
+    MOCK_METHOD(int32_t, CloseBindSheetByUIContext, (const RefPtr<NG::FrameNode> &));
+    MOCK_METHOD(void, SetWindowAnchorInfo, (const NG::OffsetF&, SubwindowType, int32_t));
 };
 } // namespace OHOS::Ace::NG
 

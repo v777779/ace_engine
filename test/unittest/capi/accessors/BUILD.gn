@@ -14,8 +14,12 @@
 import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
 
 ace_unittest("capi_all_accessors_test") {
+  module_name = "C-API-Main"
   type = "new"
-  module_output = "capi"
+  include_dirs = [
+    ".",
+    "..",
+  ]
   sources = [
     # place here your UT source code
     #"accessibility_hover_event_accessor_test.cpp",
@@ -27,7 +31,7 @@ ace_unittest("capi_all_accessors_test") {
     #"base_gesture_event_accessor_test.cpp",
     "baseline_offset_style_accessor_test.cpp",
     "bounce_symbol_effect_accessor_test.cpp",
-    # "button_content_modifier_accessor_test.cpp",
+    "button_content_modifier_accessor_test.cpp",
     # "calendar_accessor_test.cpp",
     "calendar_picker_dialog_accessor_test.cpp",
     #"canvas_gradient_accessor_test.cpp",
@@ -69,24 +73,24 @@ ace_unittest("capi_all_accessors_test") {
     "image_analyzer_controller_accessor_test.cpp",
     "image_attachment_accessor_test.cpp",
     "image_bitmap_accessor_test.cpp",
-    "image_data_accessor_test.cpp",
     "indicator_component_controller_accessor_test.cpp",
     #"key_event_accessor_test.cpp",
     "layout_manager_accessor_test.cpp",
     "letter_spacing_style_accessor_test.cpp",
     "line_height_style_accessor_test.cpp",
     "linear_gradient_accessor_test.cpp",
-    #"list_scroller_accessor_test.cpp",
+    "list_scroller_accessor_test.cpp",
     # "loadingprogress_content_modifier_accessor_test.cpp",
     "long_press_gesture_event_accessor_test.cpp",
     "long_press_recognizer_accessor_test.cpp",
     #"matrix2d_accessor_test.cpp",
-    "menu_item_content_modifier_accessor_test.cpp",
+    #"menu_item_content_modifier_accessor_test.cpp",
     "measurable_accessor_test.cpp",
     #"mouse_event_accessor_test.cpp",
     "mutable_styled_string_accessor_test.cpp",
     "nav_destination_context_accessor_test.cpp",
     "navigation_transition_proxy_accessor_test.cpp",
+    "node_container_ops_accessor_test.cpp",
     #"pan_gesture_event_accessor_test.cpp",
     #"pan_gesture_options_accessor_test.cpp",
     "pan_recognizer_accessor_test.cpp",
@@ -120,6 +124,7 @@ ace_unittest("capi_all_accessors_test") {
     # "shape_mask_accessor_test.cpp",
     # "slider_content_modifier_accessor_test.cpp",
     #"ssl_error_handler_accessor_test.cpp",
+    "state_styles_ops_accessor_test.cpp",
     "styled_string_accessor_test.cpp",
     "submit_event_accessor_test.cpp",
     #"swipe_gesture_event_accessor_test.cpp",
@@ -150,6 +155,7 @@ ace_unittest("capi_all_accessors_test") {
     #"touch_event_accessor_test.cpp",
     "transition_effect_accessor_test.cpp",
     #"ui_common_event_accessor_test.cpp",
+    "ui_context_atomic_service_bar_accessor_test.cpp",
     "url_style_accessor_test.cpp",
     #"video_controller_accessor_test.cpp",
     #"water_flow_section_accessor_test.cpp",

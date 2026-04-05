@@ -43,6 +43,11 @@ struct LaterAvoidInfo {
     int32_t orientation = -1;
 };
 
+enum class CustomKeyboardContinueFeature {
+    ENABLED = 0,
+    DISABLED = 1,
+};
+
 using FillContentMap = std::unordered_map<std::string, std::variant<std::string, bool, int32_t>>;
 
 class ACE_EXPORT TextFieldManagerNG : public ManagerInterface {
@@ -53,6 +58,7 @@ public:
     ~TextFieldManagerNG() override;
 
     void SetClickPosition(const Offset& position) override;
+
     const Offset& GetClickPosition() override
     {
         return position_;
@@ -67,21 +73,26 @@ public:
         optionalPosition_ = std::nullopt;
     }
 
-    RectF GetFocusedNodeCaretRect();
+    ACE_FORCE_EXPORT RectF GetFocusedNodeCaretRect();
     
-    void TriggerAvoidOnCaretChange();
+    ACE_FORCE_EXPORT void TriggerAvoidOnCaretChange();
 
     void AvoidKeyboardInSheet(const RefPtr<FrameNode>& textField);
 
     void MovePage(int32_t pageId, const Offset& rootRect, double offsetHeight) override {}
     void RemovePageId(int32_t pageId) override {}
 
+    void SetPreNode(WeakPtr<FrameNode>& preNode)
+    {
+        preNode_ = preNode;
+    }
+
     WeakPtr<Pattern>& GetOnFocusTextField()
     {
         return onFocusTextField_;
     }
 
-    void SetOnFocusTextField(const WeakPtr<Pattern>& onFocusTextField);
+    ACE_FORCE_EXPORT void SetOnFocusTextField(const WeakPtr<Pattern>& onFocusTextField);
 
     void GetOnFocusTextFieldInfo(const WeakPtr<Pattern>& onFocusTextField);
 
@@ -90,16 +101,16 @@ public:
         return isScrollableChild_;
     }
 
-    bool ScrollTextFieldToSafeArea();
+    ACE_FORCE_EXPORT bool ScrollTextFieldToSafeArea();
 
     void ClearOnFocusTextField();
 
-    void ClearOnFocusTextField(int32_t id);
+    ACE_FORCE_EXPORT void ClearOnFocusTextField(int32_t id);
 
     bool ResetSlidingPanelParentHeight();
 
     bool UpdatePanelForVirtualKeyboard(double offsetY, double fullHeight);
-    void SetHeight(float height);
+    ACE_FORCE_EXPORT void SetHeight(float height);
 
     float GetHeight() const
     {
@@ -148,11 +159,6 @@ public:
         prevHasTextFieldPattern_ = onFocusTextField_.Upgrade();
     }
 
-    bool HasKeyboard() const override
-    {
-        return imeShow_ || uiExtensionImeShow_;
-    }
-
     void AvoidKeyBoardInNavigation();
 
     void SetNavContentAvoidKeyboardOffset(const RefPtr<FrameNode>& navNode, float avoidKeyboardOffset);
@@ -196,6 +202,8 @@ public:
     int32_t GetOnFocusTextFieldId() {
         return onFocusTextFieldId_;
     }
+
+    void TriggerCaretInfoUpdateOnScaleChange();
 
     bool GetLaterAvoid() const
     {
@@ -249,12 +257,25 @@ public:
     {
         return clickPositionOffset_;
     }
+    
+    void AddAvoidKeyboardCallback(int32_t id, bool isCustomKeyboard, const std::function<void()>&& callback);
+
+    void RemoveAvoidKeyboardCallback(int32_t id)
+    {
+        avoidCustomKeyboardCallbacks_.erase(id);
+        avoidSystemKeyboardCallbacks_.erase(id);
+    }
+
+    void OnAfterAvoidKeyboard(bool isCustomKeyboard);
 
     RefPtr<FrameNode> FindScrollableOfFocusedTextField(const RefPtr<FrameNode>& textField);
     void AddTextFieldInfo(const TextFieldInfo& textFieldInfo);
     void RemoveTextFieldInfo(const int32_t& autoFillContainerNodeId, const int32_t& nodeId);
     void UpdateTextFieldInfo(const TextFieldInfo& textFieldInfo);
     bool HasAutoFillPasswordNodeInContainer(const int32_t& autoFillContainerNodeId, const int32_t& nodeId);
+    ACE_FORCE_EXPORT bool NeedCloseKeyboard();
+    ACE_FORCE_EXPORT void ProcessCustomKeyboard(bool matched, int32_t nodeId);
+    void CloseTextCustomKeyboard(int32_t nodeId, bool isUIExtension);
 
     int32_t GetFocusFieldOrientation() const
     {
@@ -276,16 +297,6 @@ public:
         return isImeAttached_;
     }
 
-    void AddAvoidKeyboardCallback(int32_t id, bool isCustomKeyboard, const std::function<void()>&& callback);
-
-    void RemoveAvoidKeyboardCallback(int32_t id)
-    {
-        avoidCustomKeyboardCallbacks_.erase(id);
-        avoidSystemKeyboardCallbacks_.erase(id);
-    }
-
-    void OnAfterAvoidKeyboard(bool isCustomKeyboard);
-
     int32_t GetContextTriggerAvoidTaskOrientation() const
     {
         return contextTriggerAvoidTaskOrientation_;
@@ -299,6 +310,67 @@ public:
     bool ParseFillContentJsonValue(const std::unique_ptr<JsonValue>& jsonObject);
     FillContentMap GetFillContentMap(int32_t id);
     void RemoveFillContentMap(int32_t id);
+
+    void SetLastAvoidOrientation(int32_t lastAvoidOrientation)
+    {
+        lastAvoidOrientation_ = lastAvoidOrientation;
+    }
+
+    std::optional<int32_t> GetLastAvoidOrientation() const
+    {
+        return lastAvoidOrientation_;
+    }
+
+    void SetLastRootHeight(double lastRootHeight)
+    {
+        lastRootHeight_ = lastRootHeight;
+    }
+
+    std::optional<double> GetLastRootHeight() const
+    {
+        return lastRootHeight_;
+    }
+
+    int32_t GetAttachInputId() const
+    {
+        return attachInputId_;
+    }
+
+    void SetAttachInputId(int32_t attachInputId)
+    {
+        attachInputId_ = attachInputId;
+    }
+
+    void SetCustomKeyboardId(int32_t id)
+    {
+        currentCustomId_ = id;
+    }
+
+    int32_t GetCustomKeyboardId()
+    {
+        return currentCustomId_;
+    }
+
+    bool CheckInRichEditor()
+    {
+        auto pattern = onFocusTextField_.Upgrade();
+        CHECK_NULL_RETURN(pattern, false);
+        auto host = pattern->GetHost();
+        CHECK_NULL_RETURN(host, false);
+        return host->GetTag() == V2::RICH_EDITOR_ETS_TAG;
+    }
+    void SetIsAskCeliaSupported(bool isAskCeliaSupported);
+    std::optional<bool> IsAskCeliaSupported();
+
+    bool GetCustomKeyboardContinueFeature() const
+    {
+        return continueFeature_;
+    }
+
+    void SetCustomKeyboardContinueFeature(bool continueFeature)
+    {
+        continueFeature_ = continueFeature;
+    }
 
 private:
     bool ScrollToSafeAreaHelper(const SafeAreaInsets::Inset& bottomInset, bool isShowKeyboard);
@@ -334,10 +406,17 @@ private:
     LaterAvoidInfo laterAvoidInfo_;
     bool isScrollableChild_ = false;
     bool isImeAttached_ = false;
+    bool continueFeature_ = false;
     std::unordered_map<int32_t, std::function<void()>> avoidSystemKeyboardCallbacks_;
     std::unordered_map<int32_t, std::function<void()>> avoidCustomKeyboardCallbacks_;
     float lastKeyboardOffset_ = 0.0f;
     std::unordered_map<int32_t, FillContentMap> textFieldFillContentMaps_;
+    int32_t currentCustomId_ = -1;
+    WeakPtr<FrameNode> preNode_;
+    int32_t attachInputId_ = -1;
+    std::optional<int32_t> lastAvoidOrientation_ = -1;
+    std::optional<double> lastRootHeight_;
+    std::optional<bool> isAskCeliaSupported_;
 };
 
 } // namespace OHOS::Ace::NG

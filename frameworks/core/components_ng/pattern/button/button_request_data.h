@@ -20,7 +20,6 @@
 
 #include "base/geometry/dimension.h"
 #include "core/components/common/layout/constants.h"
-#include "core/components/common/properties/color.h"
 
 namespace OHOS::Ace {
 struct CreateWithPara {
@@ -44,6 +43,7 @@ struct ButtonParameters {
     std::optional<Ace::FontWeight> fontWeight;
     std::optional<std::vector<std::string>> fontFamily;
     std::optional<Ace::FontStyle> fontStyle;
+    std::optional<Ace::TextAlign> textAlign;
 };
 } // namespace OHOS::Ace
 

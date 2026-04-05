@@ -25,6 +25,50 @@
 
 namespace OHOS::Ace::NG::GeneratedModifier {
 namespace TextStyleAccessor {
+namespace {
+void ProcessFontConfigs(Font& font, const Opt_FontConfigs* fontConfigs, const RefPtr<TextTheme>& theme)
+{
+    auto configs = Converter::GetOptPtr(fontConfigs);
+    if (configs && configs->fontWeightConfigs.tag != INTEROP_TAG_UNDEFINED) {
+        const auto& weightConfigs = configs->fontWeightConfigs.value;
+        if (weightConfigs.enableVariableFontWeight.tag != INTEROP_TAG_UNDEFINED) {
+            font.enableVariableFontWeight =
+                Converter::OptConvert<bool>(weightConfigs.enableVariableFontWeight);
+        } else {
+            font.enableVariableFontWeight =
+                theme->GetTextStyle().GetEnableVariableFontWeight();
+        }
+        if (weightConfigs.enableDeviceFontWeightCategory.tag != INTEROP_TAG_UNDEFINED) {
+            font.enableDeviceFontWeightCategory =
+                Converter::OptConvert<bool>(weightConfigs.enableDeviceFontWeightCategory);
+        } else {
+            font.enableDeviceFontWeightCategory =
+                theme->GetTextStyle().GetEnableDeviceFontWeightCategory();
+        }
+    } else {
+        font.enableVariableFontWeight = theme->GetTextStyle().GetEnableVariableFontWeight();
+        font.enableDeviceFontWeightCategory =
+            theme->GetTextStyle().GetEnableDeviceFontWeightCategory();
+    }
+}
+void ProcessFontWeight(Font& font, const Opt_Union_I32_FontWeight_String* fontWeight,
+    const RefPtr<TextTheme>& theme)
+{
+    Converter::FontWeightInt defaultWeight = {};
+    auto convertedWeightInt = Converter::OptConvertPtr<Converter::FontWeightInt>(fontWeight).value_or(defaultWeight);
+    if (convertedWeightInt.fixed.has_value()) {
+        font.fontWeight = convertedWeightInt.fixed.value();
+    } else {
+        font.fontWeight = theme->GetTextStyle().GetFontWeight();
+    }
+    if (convertedWeightInt.variable.has_value()) {
+        font.variableFontWeight = convertedWeightInt.variable.value();
+    } else {
+        font.variableFontWeight = theme->GetTextStyle().GetVariableFontWeight();
+    }
+}
+} // anonymous namespace
+
 void DestroyPeerImpl(Ark_TextStyle peer)
 {
     PeerUtils::DestroyPeer(peer);
@@ -44,15 +88,15 @@ Ark_TextStyle ConstructImpl(const Opt_TextStyleInterface* value)
         if (!font.fontColor) {
             font.fontColor = theme->GetTextStyle().GetTextColor();
         }
-        font.fontSize = Converter::OptConvert<Dimension>(options->fontSize);
-        Validator::ValidateNonNegative(font.fontSize);
-        if (!font.fontSize) {
-            font.fontSize = theme->GetTextStyle().GetFontSize();
+        if (auto optFontSize = Converter::GetOpt(options->fontSize); optFontSize) {
+            font.fontSize = Converter::Convert<Dimension>(optFontSize.value());
+            Validator::ValidateNonNegative(font.fontSize);
+            Validator::ValidateNonPercent(font.fontSize);
+            if (!font.fontSize) {
+                font.fontSize = theme->GetTextStyle().GetFontSize();
+            }
         }
-        font.fontWeight = Converter::OptConvert<FontWeight>(options->fontWeight);
-        if (!font.fontWeight) {
-            font.fontWeight = theme->GetTextStyle().GetFontWeight();
-        }
+        ProcessFontWeight(font, &options->fontWeight, theme);
         std::vector<std::string> fontFamilies;
         auto fontFamily = Converter::OptConvert<std::string>(options->fontFamily);
         if (fontFamily) {
@@ -61,7 +105,20 @@ Ark_TextStyle ConstructImpl(const Opt_TextStyleInterface* value)
             fontFamilies = theme->GetTextStyle().GetFontFamilies();
         }
         font.fontFamiliesNG = fontFamilies;
-        font.fontStyle = Converter::OptConvert<Ace::FontStyle>(options->fontStyle).value_or(Ace::FontStyle::NORMAL);
+        font.fontStyle = Converter::OptConvert<Ace::FontStyle>(options->fontStyle);
+        font.superscript = Converter::OptConvert<SuperscriptStyle>(options->superscript);
+        if (!font.superscript) {
+            font.superscript = SuperscriptStyle::NORMAL;
+        }
+        font.strokeWidth = Converter::OptConvert<Dimension>(options->strokeWidth);
+        if (!font.strokeWidth) {
+            font.strokeWidth = CalcDimension();
+        }
+        font.strokeColor = Converter::OptConvert<Color>(options->strokeColor);
+        if (!font.strokeColor) {
+            font.strokeColor = font.fontColor;
+        }
+        ProcessFontConfigs(font, &options->fontConfigs, theme);
     }
     peer->span = Referenced::MakeRefPtr<FontSpan>(font);
 
@@ -115,6 +172,54 @@ Opt_FontStyle GetFontStyleImpl(Ark_TextStyle peer)
     CHECK_NULL_RETURN(peer->span, invalidValue);
     return Converter::ArkValue<Opt_FontStyle>(peer->span->GetFont().fontStyle);
 }
+Opt_FontConfigs GetFontConfigsImpl(Ark_TextStyle peer)
+{
+    auto invalidValue = Converter::ArkValue<Opt_FontConfigs>();
+    CHECK_NULL_RETURN(peer, invalidValue);
+    CHECK_NULL_RETURN(peer->span, invalidValue);
+    const auto& font = peer->span->GetFont();
+    auto enableVariableFontWeight = font.GetEnableVariableFontWeight();
+    auto enableDeviceFontWeightCategory = font.GetEnableDeviceFontWeightCategory();
+    if (enableVariableFontWeight.has_value() || enableDeviceFontWeightCategory.has_value()) {
+        Ark_FontConfigs result = {};
+        Ark_FontWeightConfigs weightConfigs;
+        if (enableVariableFontWeight.has_value()) {
+            weightConfigs.enableVariableFontWeight =
+                Converter::ArkValue<Opt_Boolean>(enableVariableFontWeight.value());
+        }
+        if (enableDeviceFontWeightCategory.has_value()) {
+            weightConfigs.enableDeviceFontWeightCategory =
+                Converter::ArkValue<Opt_Boolean>(enableDeviceFontWeightCategory.value());
+        }
+        result.fontWeightConfigs = Converter::ArkValue<Opt_FontWeightConfigs>(weightConfigs);
+        return Converter::ArkValue<Opt_FontConfigs>(result);
+    }
+    return invalidValue;
+}
+Opt_SuperscriptStyle GetSuperscriptImpl(Ark_TextStyle peer)
+{
+    auto invalidValue = Converter::ArkValue<Opt_SuperscriptStyle>();
+    CHECK_NULL_RETURN(peer, invalidValue);
+    CHECK_NULL_RETURN(peer->span, invalidValue);
+    return Converter::ArkValue<Opt_SuperscriptStyle>(peer->span->GetFont().superscript);
+}
+Opt_Float64 GetStrokeWidthImpl(Ark_TextStyle peer)
+{
+    auto invalidValue = Converter::ArkValue<Opt_Float64>();
+    CHECK_NULL_RETURN(peer, invalidValue);
+    CHECK_NULL_RETURN(peer->span, invalidValue);
+    std::optional<Dimension> strokeWidth = peer->span->GetFont().strokeWidth;
+    CHECK_NULL_RETURN(strokeWidth.has_value(), invalidValue);
+    return Converter::ArkValue<Opt_Float64>(strokeWidth.value().ConvertToVp());
+}
+Opt_ResourceColor GetStrokeColorImpl(Ark_TextStyle peer)
+{
+    auto invalidValue = Converter::ArkValue<Opt_ResourceColor>();
+    CHECK_NULL_RETURN(peer, invalidValue);
+    CHECK_NULL_RETURN(peer->span, invalidValue);
+    auto color = peer->span->GetFont().strokeColor;
+    return Converter::ArkUnion<Opt_ResourceColor, Ark_String>(color, Converter::FC);
+}
 } // TextStyleAccessor
 const GENERATED_ArkUITextStyleAccessor* GetTextStyleAccessor()
 {
@@ -127,6 +232,10 @@ const GENERATED_ArkUITextStyleAccessor* GetTextStyleAccessor()
         TextStyleAccessor::GetFontSizeImpl,
         TextStyleAccessor::GetFontWeightImpl,
         TextStyleAccessor::GetFontStyleImpl,
+        TextStyleAccessor::GetFontConfigsImpl,
+        TextStyleAccessor::GetSuperscriptImpl,
+        TextStyleAccessor::GetStrokeWidthImpl,
+        TextStyleAccessor::GetStrokeColorImpl,
     };
     return &TextStyleAccessorImpl;
 }

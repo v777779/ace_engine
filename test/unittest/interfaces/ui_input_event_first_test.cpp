@@ -20,6 +20,7 @@
 #include "ui_input_event.h"
 #include "frameworks/core/event/ace_events.h"
 #include "frameworks/core/event/axis_event.h"
+#include "frameworks/core/event/crown_event.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -28,6 +29,11 @@ namespace {
 constexpr int32_t ARKUI_EVENT_NULL = -1;
 constexpr int32_t ARKUI_EVENT_ACTION = 1;
 constexpr int32_t ARKUI_MOUSE_ACTION = 0;
+constexpr float ARKUI_TEST_NODE_Y = 5.0f;
+constexpr uint32_t NUM1 = 1;
+constexpr uint32_t NUM0 = 0;
+constexpr double DOUBLE0 = 0.0;
+constexpr double DOUBLE1 = 1.0;
 } // namespace
 class UIInputEventTest : public testing::Test {
 public:
@@ -586,11 +592,12 @@ HWTEST_F(UIInputEventTest, PointerEventGetYByIndex002, TestSize.Level1)
     event->inputEvent = static_cast<void*>(touchEvent.get());
     touchEvent->touchPointSize = 3;
     uint32_t pointerIndex = 1;
-    ArkUITouchPoint touchPoint;
-    touchEvent->touchPointes = &touchPoint;
+    ArkUITouchPoint touchPoint[3];
+    touchPoint[1].nodeY = ARKUI_TEST_NODE_Y;
+    touchEvent->touchPointes = touchPoint;
 
-    auto sourceType = OH_ArkUI_PointerEvent_GetYByIndex(event.get(), pointerIndex);
-    EXPECT_NE(sourceType, UI_INPUT_EVENT_SOURCE_TYPE_UNKNOWN);
+    auto nodeY = OH_ArkUI_PointerEvent_GetYByIndex(event.get(), pointerIndex);
+    EXPECT_DOUBLE_EQ(nodeY, ARKUI_TEST_NODE_Y);
     EXPECT_EQ(OH_ArkUI_UIInputEvent_GetLatestStatus(), ARKUI_ERROR_CODE_NO_ERROR);
 }
 
@@ -1349,11 +1356,12 @@ HWTEST_F(UIInputEventTest, PointerEventGetDisplayYByIndex002, TestSize.Level1)
     event->inputEvent = static_cast<void*>(touchEvent.get());
     touchEvent->touchPointSize = 3;
     uint32_t pointerIndex = 1;
-    ArkUITouchPoint touchPoint;
-    touchEvent->touchPointes = &touchPoint;
+    ArkUITouchPoint touchPoint[3];
+    touchPoint[1].screenY = ARKUI_TEST_NODE_Y;
+    touchEvent->touchPointes = touchPoint;
 
-    auto sourceType = OH_ArkUI_PointerEvent_GetDisplayYByIndex(event.get(), pointerIndex);
-    EXPECT_NE(sourceType, UI_INPUT_EVENT_SOURCE_TYPE_UNKNOWN);
+    auto screenY = OH_ArkUI_PointerEvent_GetDisplayYByIndex(event.get(), pointerIndex);
+    EXPECT_DOUBLE_EQ(screenY, ARKUI_TEST_NODE_Y);
     EXPECT_EQ(OH_ArkUI_UIInputEvent_GetLatestStatus(), ARKUI_ERROR_CODE_NO_ERROR);
 }
 
@@ -1478,24 +1486,62 @@ HWTEST_F(UIInputEventTest, PointerEventGetDisplayYByIndex007, TestSize.Level1)
 }
 
 /**
- * @tc.name:PointerEventGetDisplayYByIndex008
- * @tc.desc: Test the UIInputEvent property functions in focus axis event case.
+ * @tc.name: CrownEventTest001
+ * @tc.desc: Test CrownEventTest001
  * @tc.type: FUNC
  */
-HWTEST_F(UIInputEventTest, PointerEventGetDisplayYByIndex008, TestSize.Level1)
+HWTEST_F(UIInputEventTest, CrownEventTest001, TestSize.Level1)
 {
-    /**
-     * @tc.steps: step1.create ArkUI_NodeEvent, related function is called.
-     */
-    auto event = std::make_unique<ArkUI_UIInputEvent>();
-    EXPECT_NE(event, nullptr);
-    event->eventTypeId = C_AXIS_EVENT_ID;
+    ArkUI_UIInputEvent event;
+    event.inputType = ARKUI_UIINPUTEVENT_TYPE_DIGITAL_CROWN;
+    event.eventTypeId = C_DIGITAL_CROWN_ID;
+    auto crownEvent = std::make_unique<ArkUICrownEvent>();
+    crownEvent->timeStamp = NUM1;
+    crownEvent->action = ArkUI_CrownAction::UPDATE;
+    crownEvent->angularVelocity = DOUBLE1;
+    crownEvent->degree = DOUBLE1;
+    ASSERT_NE(crownEvent, nullptr);
+    event.inputEvent = static_cast<void*>(crownEvent.get());
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetEventTime(&event), NUM1);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetAngularVelocity(&event), DOUBLE1);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetDegree(&event), DOUBLE1);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_SetStopPropagation(&event, true), ARKUI_ERROR_CODE_NO_ERROR);
 
-    uint32_t pointerIndex = 0;
-    auto axisEvent = std::make_unique<ArkUIAxisEvent>();
-    event->inputEvent = static_cast<void*>(axisEvent.get());
-    auto sourceType = OH_ArkUI_PointerEvent_GetDisplayYByIndex(event.get(), pointerIndex);
-    EXPECT_EQ(sourceType, UI_INPUT_EVENT_SOURCE_TYPE_UNKNOWN);
-    EXPECT_EQ(OH_ArkUI_UIInputEvent_GetLatestStatus(), ARKUI_ERROR_CODE_NO_ERROR);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetAction(&event), ArkUI_CrownEvent_Action::ARKUI_CROWNEVENT_ACTION_UPDATE);
+    crownEvent->action = ArkUI_CrownAction::END;
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetAction(&event), ArkUI_CrownEvent_Action::ARKUI_CROWNEVENT_ACTION_END);
+    crownEvent->action = ArkUI_CrownAction::UNKNOWN;
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetAction(&event), ArkUI_CrownEvent_Action::ARKUI_CROWNEVENT_ACTION_UNKNOWN);
+
+    event.eventTypeId = C_CHILD_TOUCH_TEST_ID;
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetEventTime(&event), NUM0);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetAngularVelocity(&event), DOUBLE0);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetDegree(&event), DOUBLE0);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_SetStopPropagation(&event, true), ARKUI_ERROR_INPUT_EVENT_TYPE_NOT_SUPPORT);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetAction(&event), ArkUI_CrownEvent_Action::ARKUI_CROWNEVENT_ACTION_UNKNOWN);
+
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetEventTime(nullptr), NUM0);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetAngularVelocity(nullptr), DOUBLE0);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetDegree(nullptr), DOUBLE0);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_SetStopPropagation(nullptr, true), ARKUI_ERROR_CODE_PARAM_INVALID);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetAction(nullptr), ArkUI_CrownEvent_Action::ARKUI_CROWNEVENT_ACTION_UNKNOWN);
+}
+
+/**
+ * @tc.name: CrownEventTest002
+ * @tc.desc: Test CrownEventTest002
+ * @tc.type: FUNC
+ */
+HWTEST_F(UIInputEventTest, CrownEventTest002, TestSize.Level1)
+{
+    ArkUI_UIInputEvent event;
+    event.inputType = ARKUI_UIINPUTEVENT_TYPE_DIGITAL_CROWN;
+    event.eventTypeId = C_DIGITAL_CROWN_ID;
+    event.inputEvent = nullptr;
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetEventTime(&event), NUM0);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetAngularVelocity(&event), DOUBLE0);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetDegree(&event), DOUBLE0);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_SetStopPropagation(&event, true), ARKUI_ERROR_CODE_PARAM_INVALID);
+    EXPECT_EQ(OH_ArkUI_DigitalCrownEvent_GetAction(&event), ArkUI_CrownEvent_Action::ARKUI_CROWNEVENT_ACTION_UNKNOWN);
 }
 } // namespace OHOS::Ace

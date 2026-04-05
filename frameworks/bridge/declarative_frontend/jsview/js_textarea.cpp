@@ -23,6 +23,7 @@
 #include "frameworks/bridge/declarative_frontend/jsview/js_container_base.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_interactable_view.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_text_editable_controller.h"
+#include "frameworks/bridge/declarative_frontend/jsview/js_text_editable_controller_binding.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_textfield.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_view_abstract.h"
 #include "frameworks/bridge/declarative_frontend/jsview/js_view_common_def.h"
@@ -32,8 +33,8 @@ namespace OHOS::Ace::Framework {
 namespace {
 constexpr uint32_t MAX_LINES = 3;
 constexpr uint32_t MIN_LINES = 1;
-constexpr uint32_t MAXLINESMODE_CLIP = 0;
-constexpr uint32_t MAXLINESMODE_SCROLL = 1;
+constexpr uint32_t MAX_LINES_MODE_CLIP = 0;
+constexpr uint32_t MAX_LINES_MODE_SCROLL = 1;
 constexpr uint32_t TWO_ARGS = 2;
 }
 
@@ -46,6 +47,8 @@ void JSTextArea::JSBind(BindingTarget globalObj)
     JSClass<JSTextArea>::StaticMethod("placeholderFont", &JSTextField::SetPlaceholderFont);
     JSClass<JSTextArea>::StaticMethod("backgroundColor", &JSTextField::SetBackgroundColor);
     JSClass<JSTextArea>::StaticMethod("textAlign", &JSTextField::SetTextAlign);
+    JSClass<JSTextArea>::StaticMethod("textDirection", &JSTextField::SetTextDirection);
+    JSClass<JSTextArea>::StaticMethod("enableSelectedDataDetector", &JSTextField::SetSelectDetectEnable);
     JSClass<JSTextArea>::StaticMethod("caretColor", &JSTextField::SetCaretColor);
     JSClass<JSTextArea>::StaticMethod("height", &JSTextField::JsHeight);
     JSClass<JSTextArea>::StaticMethod("width", &JSTextField::JsWidth);
@@ -75,7 +78,9 @@ void JSTextArea::JSBind(BindingTarget globalObj)
     JSClass<JSTextArea>::StaticMethod("onChange", &JSTextField::SetOnChange);
     JSClass<JSTextArea>::StaticMethod("onTextSelectionChange", &JSTextField::SetOnTextSelectionChange);
     JSClass<JSTextArea>::StaticMethod("onContentScroll", &JSTextField::SetOnContentScroll);
+    JSClass<JSTextArea>::StaticMethod("onWillCopy", &JSTextField::SetOnWillCopy);
     JSClass<JSTextArea>::StaticMethod("onCopy", &JSTextField::SetOnCopy);
+    JSClass<JSTextArea>::StaticMethod("onWillCut", &JSTextField::SetOnWillCut);
     JSClass<JSTextArea>::StaticMethod("onCut", &JSTextField::SetOnCut);
     JSClass<JSTextArea>::StaticMethod("onPaste", &JSTextField::SetOnPaste);
     JSClass<JSTextArea>::StaticMethod("onClick", &JSTextField::SetOnClick);
@@ -105,6 +110,7 @@ void JSTextArea::JSBind(BindingTarget globalObj)
     JSClass<JSTextArea>::StaticMethod("letterSpacing", &JSTextField::SetLetterSpacing);
     JSClass<JSTextArea>::StaticMethod("lineHeight", &JSTextField::SetLineHeight);
     JSClass<JSTextArea>::StaticMethod("halfLeading", &JSTextField::SetHalfLeading);
+    JSClass<JSTextArea>::StaticMethod("horizontalScrolling", &JSTextArea::SetHorizontalScrolling);
     JSClass<JSTextArea>::StaticMethod("lineSpacing", &JSTextField::SetLineSpacing);
     JSClass<JSTextArea>::StaticMethod("wordBreak", &JSTextField::SetWordBreak);
     JSClass<JSTextArea>::StaticMethod("contentType", &JSTextField::SetContentType);
@@ -127,6 +133,14 @@ void JSTextArea::JSBind(BindingTarget globalObj)
     JSClass<JSTextArea>::StaticMethod("strokeWidth", &JSTextField::SetStrokeWidth);
     JSClass<JSTextArea>::StaticMethod("strokeColor", &JSTextField::SetStrokeColor);
     JSClass<JSTextArea>::StaticMethod("enableAutoSpacing", &JSTextField::SetEnableAutoSpacing);
+    JSClass<JSTextArea>::StaticMethod("scrollBarColor", &JSTextField::SetScrollBarColor);
+    JSClass<JSTextArea>::StaticMethod("onWillAttachIME", &JSTextField::SetOnWillAttachIME);
+    JSClass<JSTextArea>::StaticMethod("orphanCharOptimization", &JSTextField::SetOrphanCharOptimization);
+    JSClass<JSTextArea>::StaticMethod("compressLeadingPunctuation", &JSTextField::SetCompressLeadingPunctuation);
+    JSClass<JSTextArea>::StaticMethod("includeFontPadding", &JSTextField::SetIncludeFontPadding);
+    JSClass<JSTextArea>::StaticMethod("fallbackLineSpacing", &JSTextField::SetFallbackLineSpacing);
+    JSClass<JSTextArea>::StaticMethod("selectedDragPreviewStyle", &JSTextField::SetSelectedDragPreviewStyle);
+    JSClass<JSTextArea>::StaticMethod("voiceButton", &JSTextField::SetVoiceButton);
     JSClass<JSTextArea>::InheritAndBind<JSViewAbstract>(globalObj);
 }
 
@@ -147,12 +161,12 @@ void JSTextArea::SetMaxLines(const JSCallbackInfo& info)
     TextFieldModel::GetInstance()->SetNormalMaxViewLines(normalMaxViewLines);
     TextFieldModel::GetInstance()->SetMaxViewLines(inlineMaxViewLines);
 
-    auto overflow = MAXLINESMODE_CLIP;
+    auto overflow = MAX_LINES_MODE_CLIP;
     if (info.Length() == TWO_ARGS && info[1]->IsObject()) {
         auto paramObject = JSRef<JSObject>::Cast(info[1]);
         auto overflowMode = paramObject->GetProperty("overflowMode");
         auto modeValue = overflowMode->IsNumber() ? overflowMode->ToNumber<int32_t>() : -1;
-        if (modeValue >= 0 && (modeValue == MAXLINESMODE_CLIP || modeValue == MAXLINESMODE_SCROLL)) {
+        if (modeValue >= 0 && (modeValue == MAX_LINES_MODE_CLIP || modeValue == MAX_LINES_MODE_SCROLL)) {
             overflow = static_cast<uint32_t>(modeValue);
         }
     }
@@ -171,9 +185,19 @@ void JSTextArea::SetMinLines(const JSCallbackInfo& info)
     TextFieldModel::GetInstance()->SetMinLines(minLines);
 }
 
+void JSTextArea::SetHorizontalScrolling(const JSCallbackInfo& info)
+{
+    bool isHorizontalScrolling = false;
+    if (info.Length() >= 1) {
+        auto jsValue = info[0];
+        isHorizontalScrolling = jsValue->IsBoolean() ? jsValue->ToBoolean() : false;
+    }
+    TextFieldModel::GetInstance()->SetHorizontalScrolling(isHorizontalScrolling);
+}
+
 void JSTextAreaController::JSBind(BindingTarget globalObj)
 {
     JSClass<JSTextEditableController>::Declare("TextAreaController");
-    JSTextEditableController::JSBind(globalObj);
+    JSTextEditableControllerBinding::JSBind(globalObj);
 }
 } // namespace OHOS::Ace::Framework

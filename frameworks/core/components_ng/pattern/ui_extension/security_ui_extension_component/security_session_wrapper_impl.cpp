@@ -137,6 +137,7 @@ SecuritySessionWrapperImpl::SecuritySessionWrapperImpl(
     : hostPattern_(hostPattern), instanceId_(instanceId), isTransferringCaller_(isTransferringCaller),
       sessionType_(sessionType)
 {
+    patternInstanceId_ = instanceId;
     auto pattern = hostPattern.Upgrade();
     platformId_ = pattern ? pattern->GetUiExtensionId() : 0;
     taskExecutor_ = Container::CurrentTaskExecutor();
@@ -437,6 +438,18 @@ const std::shared_ptr<AAFwk::Want> SecuritySessionWrapperImpl::GetWant()
 {
     return session_ ? customWant_ : nullptr;
 }
+
+void SecuritySessionWrapperImpl::UpdateInstanceId(int32_t instanceId)
+{
+    if (patternInstanceId_ == instanceId) {
+        PLATFORM_LOGW("patternInstanceId(%{public}d) has not changed when UpdateInstanceId.", instanceId);
+        return;
+    }
+
+    PLATFORM_LOGI("Update patternInstanceId %{public}d to %{public}d.", patternInstanceId_, instanceId);
+    patternInstanceId_ = instanceId;
+    PLATFORM_LOGI("Update instanceId success.");
+}
 /******************************* End: About session ***************************************/
 
 /******************************* Begin: Synchronous interface for event notify ************/
@@ -538,7 +551,7 @@ void SecuritySessionWrapperImpl::NotifyForeground()
 {
     ContainerScope scope(instanceId_);
     CHECK_NULL_VOID(session_);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto hostWindowId = pipeline->GetFocusWindowId();
     auto wantPtr = session_->EditSessionInfo().want;
@@ -698,7 +711,7 @@ void SecuritySessionWrapperImpl::NotifyDisplayArea(const RectF& displayArea)
 {
     CHECK_NULL_VOID(session_);
     ContainerScope scope(instanceId_);
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+    auto pipeline = PipelineBase::GetCurrentContext();
     CHECK_NULL_VOID(pipeline);
     auto curWindow = pipeline->GetCurrentWindowRect();
     displayArea_ = displayArea + OffsetF(curWindow.Left(), curWindow.Top());
@@ -716,8 +729,10 @@ void SecuritySessionWrapperImpl::NotifyDisplayArea(const RectF& displayArea)
     if (window) {
         rsUIDirector = window->GetRSUIDirector();
     }
+    bool isNeedSyncTransaction = reason == Rosen::SizeChangeReason::ROTATION ||
+        reason == Rosen::SizeChangeReason::SNAPSHOT_ROTATION;
     if (!rsUIDirector) {
-        if (reason == Rosen::SizeChangeReason::ROTATION) {
+        if (isNeedSyncTransaction) {
             if (auto temp = transaction_.lock()) {
                 transaction = temp;
                 transaction_.reset();
@@ -733,7 +748,7 @@ void SecuritySessionWrapperImpl::NotifyDisplayArea(const RectF& displayArea)
             reason, "NotifyDisplayArea", transaction);
     } else {
         auto rsUIContext = rsUIDirector->GetRSUIContext();
-        if (reason == Rosen::SizeChangeReason::ROTATION) {
+        if (isNeedSyncTransaction) {
             if (auto temp = transaction_.lock()) {
                 transaction = temp;
                 transaction_.reset();
@@ -764,7 +779,8 @@ void SecuritySessionWrapperImpl::NotifySizeChangeReason(
     CHECK_NULL_VOID(session_);
     auto reason = static_cast<Rosen::SizeChangeReason>(type);
     session_->UpdateSizeChangeReason(reason);
-    if (rsTransaction && (type == WindowSizeChangeReason::ROTATION)) {
+    if (rsTransaction && (type == WindowSizeChangeReason::ROTATION ||
+        type == WindowSizeChangeReason::SNAPSHOT_ROTATION)) {
         transaction_ = rsTransaction;
     }
 }
@@ -787,7 +803,7 @@ bool SecuritySessionWrapperImpl::NotifyOccupiedAreaChangeInfo(
     int32_t keyboardHeight = static_cast<int32_t>(info->rect_.height_);
     if (keyboardHeight > 0) {
         ContainerScope scope(instanceId_);
-        auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
+        auto pipeline = PipelineBase::GetCurrentContext();
         CHECK_NULL_RETURN(pipeline, false);
         auto curWindow = pipeline->GetCurrentWindowRect();
         int32_t spaceWindow = std::max(curWindow.Bottom() - displayArea_.Bottom(), .0);
@@ -878,6 +894,11 @@ int32_t SecuritySessionWrapperImpl::GetInstanceIdFromHost() const
     return instanceId;
 }
 
+int32_t SecuritySessionWrapperImpl::GetPatternInstanceId() const
+{
+    return patternInstanceId_;
+}
+
 bool SecuritySessionWrapperImpl::SendBusinessData(
     UIContentBusinessCode code, const  AAFwk::Want& data, BusinessDataSendType type, RSSubsystemId subSystemId)
 {
@@ -910,7 +931,7 @@ void SecuritySessionWrapperImpl::DispatchExtensionDataToHostWindow(uint32_t cust
 {
     int32_t callSessionId = GetSessionId();
     CHECK_NULL_VOID(taskExecutor_);
-    auto instanceId = GetInstanceIdFromHost();
+    auto instanceId = GetPatternInstanceId();
     taskExecutor_->PostTask(
         [instanceId, weak = hostPattern_, customId, data, callSessionId]() {
             ContainerScope scope(instanceId);
@@ -935,7 +956,7 @@ void SecuritySessionWrapperImpl::PostBusinessDataConsumeAsync(uint32_t customId,
     PLATFORM_LOGI("PostBusinessDataConsumeAsync, businessCode=%{public}u.", customId);
     int32_t callSessionId = GetSessionId();
     CHECK_NULL_VOID(taskExecutor_);
-    auto instanceId = GetInstanceIdFromHost();
+    auto instanceId = GetPatternInstanceId();
     taskExecutor_->PostTask(
         [instanceId, weak = hostPattern_, customId, data, callSessionId]() {
             ContainerScope scope(instanceId);
@@ -957,7 +978,7 @@ void SecuritySessionWrapperImpl::PostBusinessDataConsumeSyncReply(
     PLATFORM_LOGI("PostBusinessDataConsumeSyncReply, businessCode=%{public}u.", customId);
     int32_t callSessionId = GetSessionId();
     CHECK_NULL_VOID(taskExecutor_);
-    auto instanceId = GetInstanceIdFromHost();
+    auto instanceId = GetPatternInstanceId();
     taskExecutor_->PostSyncTask(
         [instanceId, weak = hostPattern_, customId, data, &reply, callSessionId]() {
             ContainerScope scope(instanceId);
@@ -985,7 +1006,7 @@ bool SecuritySessionWrapperImpl::RegisterDataConsumer()
         (Rosen::SubSystemId id, uint32_t customId, AAFwk::Want&& data, std::optional<AAFwk::Want>& reply) ->int32_t {
         auto sessionWrapper = wrapperWeak.Upgrade();
         CHECK_NULL_RETURN(sessionWrapper, false);
-        auto instanceId = sessionWrapper->GetInstanceIdFromHost();
+        auto instanceId = sessionWrapper->GetPatternInstanceId();
         ContainerScope scope(instanceId);
         if (id != subSystemId) {
             return false;

@@ -59,7 +59,7 @@ public:
         return uiExtensionType_;
     }
 
-    void Initialize(const NG::UIExtensionConfig& config);
+    virtual void Initialize(const NG::UIExtensionConfig& config);
     void UnregisterResources();
     void UpdateWant(const RefPtr<OHOS::Ace::WantWrap>& wantWrap);
     void UpdateWant(const AAFwk::Want& want);
@@ -82,13 +82,15 @@ public:
     void OnUeaAccessibilityEventAsync();
     void OnExtensionDetachToDisplay();
 
+    void OnAttachContext(PipelineContext *context) override;
+    void AfterMountToParent() override;
     void OnSyncGeometryNode(const DirtySwapConfig& config) override;
     void OnWindowShow() override;
     void OnWindowHide() override;
     void OnAttachToFrameNode() override;
     void OnDetachFromFrameNode(FrameNode* frameNode) override;
     void OnModifyDone() override;
-    void OnVisibleChangeInner(bool visible);
+    void OnVisibleChange(bool visible) override;
     void OnMountToParentDone() override;
     void OnLanguageConfigurationUpdate() override;
     void OnColorConfigurationUpdate() override;
@@ -138,7 +140,8 @@ public:
         UIContentBusinessCode code, BusinessDataUECConsumeReplyCallback callback);
     void TransferAccessibilityRectInfo(bool isForce = false);
     void OnFrameNodeChanged(FrameNodeChangeInfoFlag flag) override;
-    void UpdateWMSUIExtProperty(UIContentBusinessCode code, const AAFwk::Want& data, RSSubsystemId subSystemId);
+    void UpdateWMSUIExtProperty(UIContentBusinessCode code, const AAFwk::Want& data,
+        RSSubsystemId subSystemId, const UIExtOptions& options = UIExtOptions());
 
     bool GetIsTransferringCaller()
     {
@@ -158,7 +161,9 @@ public:
     }
 
 protected:
-    void InitializeAccessibility();
+    void UpdateSessionInstanceId(int32_t instanceId);
+    void Initialize();
+    void InitializeAccessibility() override;
     bool HandleKeyEvent(const KeyEvent& event) override;
     void HandleFocusEvent() override;
     void HandleBlurEvent() override;
@@ -193,6 +198,12 @@ protected:
     bool isVisible_ = true;
     bool isShowPlaceholder_ = false;
     bool densityDpi_ = false;
+
+    // StartUIExtension should after mountToParent
+    bool hasMountToParent_ = false;
+    bool hasAttachContext_ = false;
+    bool needReNotifyForeground_ = false;
+    bool hasInitialized_ = false;
 
     bool isTransferringCaller_ = false;
     bool isWindowModeFollowHost_ = false;

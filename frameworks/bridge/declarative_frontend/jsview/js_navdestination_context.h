@@ -27,8 +27,15 @@
 #include "core/components_ng/pattern/navrouter/navdestination_context.h"
 
 namespace OHOS::Ace::Framework {
+class JSNavPathInfoScope : public NG::NavPathInfoScope {
+public:
+    JSNavPathInfoScope(const EcmaVM* vm);
+private:
+    std::shared_ptr<LocalScope> scope_ = nullptr;
+};
+
 class JSNavPathInfo : public NG::NavPathInfo {
-    DECLARE_ACE_TYPE(JSNavPathInfo, NG::NavPathInfo)
+    DECLARE_ACE_TYPE(JSNavPathInfo, NG::NavPathInfo);
 public:
     JSNavPathInfo() = default;
     JSNavPathInfo(const std::string& name, JSRef<JSVal> param) : NG::NavPathInfo(name), param_(param) {}
@@ -68,16 +75,27 @@ public:
         return navDestinationPopCallback_;
     }
 
+    void SetInitParam(const JSRef<JSVal>& initParam)
+    {
+        initParam_ = initParam;
+    }
+
+    JSRef<JSVal> GetInitParam() const
+    {
+        return initParam_;
+    }
+
     void UpdateNavPathInfo(const RefPtr<NG::NavPathInfo>& info) override;
 
-    virtual void OpenScope() override;
-    virtual void CloseScope() override;
+    virtual std::shared_ptr<NG::NavPathInfoScope> Scope() override;
+
+    std::string GetInitParamString() const override;
 
 private:
     JSRef<JSVal> param_;
     JSRef<JSVal> onPop_;
+    JSRef<JSVal> initParam_;
     JSRef<JSFunc> navDestinationPopCallback_;
-    LocalScope* scope_ = nullptr;
 };
 
 class JSNavDestinationContext : public Referenced {
@@ -100,6 +118,10 @@ public:
     void SetNavDestinationId(const JSCallbackInfo& info);
 
     void GetNavDestinationId(const JSCallbackInfo& info);
+
+    void SetNavDestinationMode(const JSCallbackInfo& info);
+
+    void GetNavDestinationMode(const JSCallbackInfo& info);
 
     void SetNavDestinationContext(const RefPtr<NG::NavDestinationContext> context)
     {

@@ -15,11 +15,11 @@
 
 #include "gtest/gtest.h"
 #include "gtest/internal/gtest-internal.h"
-#include "test/mock/base/mock_system_properties.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/rosen/mock_canvas.h"
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
 #include "test/unittest/core/pattern/test_ng.h"
 
 #include "base/geometry/ng/offset_t.h"
@@ -28,6 +28,7 @@
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/data_panel/data_panel_model_ng.h"
+#include "core/components_ng/pattern/data_panel/data_panel_model_static.h"
 #include "core/components_ng/pattern/data_panel/data_panel_modifier.h"
 #include "core/components_ng/pattern/data_panel/data_panel_paint_property.h"
 #include "core/components_ng/pattern/data_panel/data_panel_pattern.h"
@@ -65,7 +66,8 @@ public:
 };
 
 class DataPanelTheme : public Theme {
-    DECLARE_ACE_TYPE(DataPanelTheme, Theme)
+    DECLARE_ACE_TYPE(DataPanelTheme, Theme);
+
 public:
     DataPanelTheme()
     {
@@ -104,23 +106,23 @@ HWTEST_F(DataPanelTestNg, DataPanelPatternTest001, TestSize.Level1)
     dataPanel.Create(VALUES, MAX, TYPE_LINE);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
-    
+
     /**
      * @tc.steps: step2. get pattern and test UpdateTrackBackground
      */
     auto pattern = frameNode->GetPattern<DataPanelPattern>();
     ASSERT_NE(pattern, nullptr);
-    
+
     Color testColor = Color::RED;
     pattern->UpdateTrackBackground(testColor, true); // isFirstLoad = true
-    
+
     /**
      * @tc.expected: step3. property updated and node marked dirty when rerenderable
      */
     auto paintProperty = frameNode->GetPaintProperty<DataPanelPaintProperty>();
     ASSERT_NE(paintProperty, nullptr);
     EXPECT_EQ(paintProperty->GetTrackBackground(), testColor);
-    
+
     // Test with isFirstLoad = false
     Color testColor2 = Color::BLUE;
     pattern->UpdateTrackBackground(testColor2, false);
@@ -141,23 +143,23 @@ HWTEST_F(DataPanelTestNg, DataPanelPatternTest002, TestSize.Level1)
     dataPanel.Create(VALUES, MAX, TYPE_LINE);
     auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
     ASSERT_NE(frameNode, nullptr);
-    
+
     /**
      * @tc.steps: step2. get pattern and test UpdateStrokeWidth
      */
     auto pattern = frameNode->GetPattern<DataPanelPattern>();
     ASSERT_NE(pattern, nullptr);
-    
+
     CalcDimension strokeWidth(VALUE);
     pattern->UpdateStrokeWidth(strokeWidth, true); // isFirstLoad = true
-    
+
     /**
      * @tc.expected: step3. property updated and node marked dirty when rerenderable
      */
     auto paintProperty = frameNode->GetPaintProperty<DataPanelPaintProperty>();
     ASSERT_NE(paintProperty, nullptr);
     EXPECT_EQ(paintProperty->GetStrokeWidth(), strokeWidth);
-    
+
     // Test with isFirstLoad = false
     CalcDimension strokeWidth2(VALUE);
     pattern->UpdateStrokeWidth(strokeWidth2, false);
@@ -247,5 +249,138 @@ HWTEST_F(DataPanelTestNg, DataPanelPatternTest003, TestSize.Level1)
     dataPanelPaintProperty->UpdateStrokeWidthSetByUser(false);
     pattern->OnColorConfigurationUpdate();
     ASSERT_EQ(dataPanelPaintProperty->GetStrokeWidthValue(), strokeWidth);
+}
+
+/**
+ * @tc.name: DataPanelPatternTest060
+ * @tc.desc: Test LayoutPolicy
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelPatternTest060, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create data panel and get frameNode
+     */
+    DataPanelModelNG dataPanel;
+    dataPanel.Create(VALUES, MAX, TYPE_LINE);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. get pattern and test UpdateTrackBackground
+     */
+    auto pattern = frameNode->GetPattern<DataPanelPattern>();
+    EXPECT_TRUE(pattern->IsEnableMatchParent());
+    EXPECT_TRUE(pattern->IsEnableFix());
+}
+
+/**
+ * @tc.name: DataPanelSetValuesTest001
+ * @tc.desc: Test DataPanel Modifier SetValues
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelSetValuesTest001, TestSize.Level0)
+{
+    /**
+     * case 1:sum of value = max ,max > 0
+     * values ={10.0f,10.0f} max = 20.0f
+     */
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto dataPanelTheme = AceType::MakeRefPtr<DataPanelTheme>();
+    dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
+        { Color::WHITE, Color::BLACK } };
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataPanelTheme));
+    DataPanelModifier dataPanelModifier(nullptr);
+    dataPanelModifier.SetMax(20.0f);
+    std::vector<double> VALUES = { 10.0f, 10.0f };
+    dataPanelModifier.SetValues(VALUES);
+    EXPECT_EQ(dataPanelModifier.GetValuesCount(), 2.0f);
+}
+
+/**
+ * @tc.name: DataPanelSetValuesTest002
+ * @tc.desc: Test DataPanel Modifier SetValues
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelSetValuesTest002, TestSize.Level0)
+{
+    /**
+     * case 1:sum of value = max ,max > 0
+     * values ={10.0f,10.0f} max = 20.0f
+     */
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto dataPanelTheme = AceType::MakeRefPtr<DataPanelTheme>();
+    dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
+        { Color::WHITE, Color::BLACK } };
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataPanelTheme));
+    DataPanelModifier dataPanelModifier(nullptr);
+    dataPanelModifier.SetMax(20.0f);
+    EXPECT_EQ(dataPanelModifier.GetValuesCount(), 0.0f);
+}
+
+/**
+ * @tc.name: DataPanelSetValuesTest003
+ * @tc.desc: Test DataPanel Modifier SetValues
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelSetValuesTest003, TestSize.Level0)
+{
+    /**
+     * case 1:sum of value = max ,max > 0
+     * values ={10.0f,10.0f} max = 20.0f
+     */
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto dataPanelTheme = AceType::MakeRefPtr<DataPanelTheme>();
+    dataPanelTheme->color = { { Color::WHITE, Color::BLACK }, { Color::WHITE, Color::BLACK },
+        { Color::WHITE, Color::BLACK } };
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillOnce(Return(dataPanelTheme));
+    DataPanelModifier dataPanelModifier(nullptr);
+    dataPanelModifier.SetMax(20.0f);
+    std::vector<double> VALUES = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f };
+    dataPanelModifier.SetValues(VALUES);
+    EXPECT_EQ(dataPanelModifier.GetValuesCount(), 9.0f);
+}
+
+/**
+ * @tc.name: DataPanelLayoutStaticTest001
+ * @tc.desc: Test DataPanel Static Create
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelTestNg, DataPanelStaticTest001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. create datapnel and get frameNode.
+     */
+    auto* stack = ViewStackProcessor::GetInstance();
+    auto nodeId = stack->ClaimNodeId();
+    DataPanelModelStatic dataPanel;
+    auto frameNode = dataPanel.CreateFrameNode(nodeId);
+    EXPECT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. create frameNode to get layout properties and paint properties.
+     * @tc.expected: step2. related function is called.
+     */
+    auto layoutProperty = frameNode->GetLayoutProperty();
+    EXPECT_NE(layoutProperty, nullptr);
+    auto dataPanelPaintProperty = frameNode->GetPaintProperty<DataPanelPaintProperty>();
+    EXPECT_NE(dataPanelPaintProperty, nullptr);
+
+    /**
+     * @tc.steps: step3. get value from dataPanelPaintProperty.
+     * @tc.expected: step3. the value is the same with setting.
+     */
+    dataPanel.SetMax(frameNode.GetRawPtr(), MAX);
+    dataPanel.SetValues(frameNode.GetRawPtr(), VALUES);
+    dataPanel.SetType(frameNode.GetRawPtr(), TYPE_CYCLE);
+    EXPECT_TRUE(dataPanelPaintProperty->HasMax());
+    EXPECT_TRUE(dataPanelPaintProperty->HasValues());
+    EXPECT_TRUE(dataPanelPaintProperty->HasDataPanelType());
+    EXPECT_EQ(dataPanelPaintProperty->GetMaxValue(), MAX);
+    EXPECT_EQ(dataPanelPaintProperty->GetValuesValue(), VALUES);
+    EXPECT_EQ(dataPanelPaintProperty->GetDataPanelTypeValue(), TYPE_CYCLE);
 }
 } // namespace OHOS::Ace::NG

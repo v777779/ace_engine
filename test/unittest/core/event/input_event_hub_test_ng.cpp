@@ -23,7 +23,7 @@
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/event/mouse_event.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -268,7 +268,7 @@ HWTEST_F(InputEventHubTestNg, InputEventHubProcessMouseTest005, TestSize.Level1)
      */
     const OnMouseEventFunc onMouse = [](MouseInfo& info) {};
     OnMouseEventFunc onMouse1 = onMouse;
-    inputEventHub->SetJSFrameNodeOnMouseEvent(std::move(onMouse1));
+    inputEventHub->SetFrameNodeCommonOnMouseEvent(std::move(onMouse1));
     EXPECT_FALSE(inputEventHub->ProcessMouseTestHit(COORDINATE_OFFSET, mouseResult));
 
     /**
@@ -337,6 +337,113 @@ HWTEST_F(InputEventHubTestNg, InputEventHubProcessMouseTest005, TestSize.Level1)
     inputEventHub->hoverEventActuator_->userCallback_ = nullptr;
     EXPECT_FALSE(inputEventHub->hoverEventActuator_->hoverEventTarget_->HandleHoverEvent(HOVER_VALUE));
     inputEventHub->mouseEventActuator_->mouseEventTarget_->HandleMouseEvent(mouseEvent);
+}
+
+/**
+ * @tc.name: HandleMouseEvent
+ * @tc.desc: HandleMouseEvent WithTwoTap Event
+ * @tc.type: FUNC
+ */
+HWTEST_F(InputEventHubTestNg, HandleMouseEvent001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create InputEventHub.
+     */
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::TEXT_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    eventHub->AttachHost(frameNode);
+    auto inputEventHub = AceType::MakeRefPtr<InputEventHub>(AceType::WeakClaim(AceType::RawPtr(eventHub)));
+    EXPECT_NE(inputEventHub, nullptr);
+
+    /**
+     * @tc.steps: step2. Invoke ProcessMouseTestHit when eventHub is nullptr.
+     * @tc.expected: ProcessMouseTestHit return false.
+     */
+    TouchTestResult mouseResult;
+    auto inputEventHub2 = AceType::MakeRefPtr<InputEventHub>(nullptr);
+    EXPECT_FALSE(inputEventHub2->ProcessMouseTestHit(COORDINATE_OFFSET, mouseResult));
+
+    /**
+     * @tc.steps: step3. Initialize mouseEventActuator_ and mouseEventActuator_, their inputEvents_ is empty and
+     * userCallback_ is nullptr and userJSFrameNodeCallback_ is nullptr too.
+     * @tc.expected: OnCollectMouseEvent will return directly, and ProcessMouseTestHit return false.
+     */
+    inputEventHub->mouseEventActuator_ =
+        AceType::MakeRefPtr<InputEventActuator>(AceType::WeakClaim(AceType::RawPtr(inputEventHub)));
+    inputEventHub->hoverEffectActuator_ =
+        AceType::MakeRefPtr<InputEventActuator>(AceType::WeakClaim(AceType::RawPtr(inputEventHub)));
+    EXPECT_FALSE(inputEventHub->ProcessMouseTestHit(COORDINATE_OFFSET, mouseResult));
+
+    /**
+     * @tc.steps: step4. Create mouse event and initialize userJSFrameNodeCallback_ .
+     * @tc.expected: userJSFrameNodeCallback_ will be initialized and ProcessMouseTestHit return false.
+     */
+    const OnMouseEventFunc onMouse = [](MouseInfo& info) {};
+    OnMouseEventFunc onMouse1 = onMouse;
+    inputEventHub->SetFrameNodeCommonOnMouseEvent(std::move(onMouse1));
+    EXPECT_FALSE(inputEventHub->ProcessMouseTestHit(COORDINATE_OFFSET, mouseResult));
+
+    /**
+     * @tc.steps: step5. Invoke ProcessMouseTestHit when hoverNode is nullptr and the hover effect is UNKNOWN or not.
+     * @tc.expected: OnCollectMouseEvent will return directly, and ProcessMouseTestHit return false.
+     */
+    EXPECT_FALSE(inputEventHub->ProcessMouseTestHit(COORDINATE_OFFSET, mouseResult));
+    inputEventHub->SetHoverEffect(HOVER_EFFECT_TYPE);
+    EXPECT_FALSE(inputEventHub->ProcessMouseTestHit(COORDINATE_OFFSET, mouseResult));
+
+    /**
+     * @tc.steps: step6. Set MouseEvent and mouseEventActuator_ and userCallback_ will be initialized.
+     */
+    OnMouseEventFunc onMouse2 = onMouse;
+    inputEventHub->SetMouseEvent(std::move(onMouse2));
+    EXPECT_NE(inputEventHub->mouseEventActuator_->userCallback_, nullptr);
+
+    /**
+     * @tc.steps: step7. Set HoverEvent and hoverEventActuator_ and userCallback_ will be initialized.
+     */
+    const OnHoverFunc onHover = [](bool, HoverInfo) {};
+    OnHoverFunc onHover1 = onHover;
+    inputEventHub->SetHoverEvent(std::move(onHover1));
+    EXPECT_NE(inputEventHub->hoverEventActuator_->userCallback_, nullptr);
+
+    /**
+     * @tc.steps: step8. Add OnMouseEvent and inputEvents_ will not be empty.
+     */
+    OnMouseEventFunc onMouse3 = onMouse;
+    auto inputEvent = AceType::MakeRefPtr<InputEvent>(std::move(onMouse3));
+    inputEventHub->AddOnMouseEvent(inputEvent);
+    inputEventHub->AddOnMouseEvent(nullptr);
+    EXPECT_EQ(inputEventHub->mouseEventActuator_->inputEvents_.size(), INPUT_EVENTS_SIZE_2);
+
+    /**
+     * @tc.steps: step9. Set HoverEvent and inputEvents_ will not be empty.
+     */
+    OnHoverFunc onHover2 = onHover;
+    auto onHoverEvent = AceType::MakeRefPtr<InputEvent>(std::move(onHover2));
+    inputEventHub->AddOnHoverEvent(onHoverEvent);
+    inputEventHub->AddOnHoverEvent(nullptr);
+    EXPECT_EQ(inputEventHub->hoverEventActuator_->inputEvents_.size(), INPUT_EVENTS_SIZE_2);
+
+    /**
+     * @tc.steps: step10. Invoke ProcessMouseTestHit when inputEvents_ is not empty and userCallback_ has already been
+     * initialized.
+     * @tc.expected: ProcessMouseTestHit return false, mouse and hover result size has been increased one.
+     */
+    EXPECT_FALSE(inputEventHub->ProcessMouseTestHit(COORDINATE_OFFSET, mouseResult));
+    EXPECT_EQ(inputEventHub->mouseEventActuator_->mouseEventTarget_->GetCoordinateOffset(),
+        Offset(COORDINATE_OFFSET.GetX(), COORDINATE_OFFSET.GetY()));
+    EXPECT_EQ(inputEventHub->hoverEventActuator_->hoverEventTarget_->GetCoordinateOffset(),
+        Offset(COORDINATE_OFFSET.GetX(), COORDINATE_OFFSET.GetY()));
+    EXPECT_EQ(inputEventHub->hoverEffectActuator_->hoverEffectTarget_->GetCoordinateOffset(),
+        Offset(COORDINATE_OFFSET.GetX(), COORDINATE_OFFSET.GetY()));
+    EXPECT_EQ(mouseResult.size(), MOUSE_RESULT_SIZE);
+
+    MouseEvent mouseEvent;
+    mouseEvent.isRightButtonEventFromDoulbeTap = true;
+    inputEventHub->mouseEventActuator_->mouseEventTarget_->HandleMouseEvent(mouseEvent);
+    MouseInfo mouseInfo;
+    mouseInfo.SetIsRightButtonEventFromDoulbeTap(true);
+    EXPECT_EQ(mouseInfo.GetIsRightButtonEventFromDoulbeTap(), true);
 }
 
 /**
@@ -659,5 +766,183 @@ HWTEST_F(InputEventHubTestNg, InputEventHubGetHoverEffectStr001, TestSize.Level1
     }
     inputEventHub->hoverEffectType_ = HoverEffectType::OPACITY;
     EXPECT_EQ(inputEventHub->GetHoverEffectStr(), "HoverEffect.Auto");
+}
+
+/**
+ * @tc.name: RemoveAllTipsMouseEvents001
+ * @tc.desc: test RemoveAllTipsMouseEvents
+ * @tc.type: FUNC
+ */
+HWTEST_F(InputEventHubTestNg, RemoveAllTipsMouseEvents001, TestSize.Level1)
+{
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::TEXT_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    eventHub->AttachHost(frameNode);
+
+    auto inputEventHub = AceType::MakeRefPtr<InputEventHub>(AceType::WeakClaim(AceType::RawPtr(eventHub)));
+    EXPECT_NE(inputEventHub, nullptr);
+    inputEventHub->RemoveAllTipsMouseEvents();
+    inputEventHub->mouseEventActuator_ =
+        AceType::MakeRefPtr<InputEventActuator>(AceType::WeakClaim(AceType::RawPtr(inputEventHub)));
+    auto mouseTask1 = [](MouseInfo& info) {};
+    auto mouseTask2 = [](MouseInfo& info) {};
+    auto mouseEvent1 = AceType::MakeRefPtr<InputEvent>(std::move(mouseTask1));
+    auto mouseEvent2 = AceType::MakeRefPtr<InputEvent>(std::move(mouseTask2));
+    mouseEvent1->SetIstips(true);
+    mouseEvent1->SetTipsFollowCursor(true);
+    mouseEvent2->SetIstips(true);
+    mouseEvent2->SetTipsFollowCursor(true);
+    inputEventHub->AddOnMouseEvent(mouseEvent1);
+    inputEventHub->AddOnMouseEvent(mouseEvent2);
+    ASSERT_NE(inputEventHub->mouseEventActuator_, nullptr);
+    EXPECT_EQ(inputEventHub->mouseEventActuator_->inputEvents_.size(), INPUT_EVENTS_SIZE_2);
+    inputEventHub->RemoveAllTipsMouseEvents();
+    EXPECT_EQ(inputEventHub->mouseEventActuator_->inputEvents_.size(), 0);
+}
+
+/**
+ * @tc.name: RemoveAllTipsHoverEvents001
+ * @tc.desc: test RemoveAllTipsHoverEvents
+ * @tc.type: FUNC
+ */
+HWTEST_F(InputEventHubTestNg, RemoveAllTipsHoverEvents001, TestSize.Level1)
+{
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::TEXT_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    eventHub->AttachHost(frameNode);
+
+    auto inputEventHub = AceType::MakeRefPtr<InputEventHub>(AceType::WeakClaim(AceType::RawPtr(eventHub)));
+    EXPECT_NE(inputEventHub, nullptr);
+    inputEventHub->RemoveAllTipsHoverEvents();
+    inputEventHub->hoverEventActuator_ =
+        AceType::MakeRefPtr<InputEventActuator>(AceType::WeakClaim(AceType::RawPtr(inputEventHub)));
+    auto hoverTask1 = [](bool isHover) {};
+    auto hoverTask2 = [](bool isHover) {};
+    auto hoverEvent1 = AceType::MakeRefPtr<InputEvent>(std::move(hoverTask1));
+    auto hoverEvent2 = AceType::MakeRefPtr<InputEvent>(std::move(hoverTask2));
+    hoverEvent1->SetIstips(true);
+    hoverEvent2->SetIstips(true);
+    inputEventHub->AddOnHoverEvent(hoverEvent1);
+    inputEventHub->AddOnHoverEvent(hoverEvent2);
+    ASSERT_NE(inputEventHub->hoverEventActuator_, nullptr);
+    EXPECT_EQ(inputEventHub->hoverEventActuator_->inputEvents_.size(), INPUT_EVENTS_SIZE_2);
+    inputEventHub->RemoveAllTipsHoverEvents();
+    EXPECT_EQ(inputEventHub->hoverEventActuator_->inputEvents_.size(), 0);
+}
+
+/**
+ * @tc.name: HandleHoverEventTest001
+ * @tc.desc: Create InputEventHub and HoverEventTarget HandleHoverEvent functions.
+ * @tc.type: FUNC
+ */
+HWTEST_F(InputEventHubTestNg, HandleHoverEventTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create FrameNode and eventHub.
+     */
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::TEXT_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    eventHub->AttachHost(frameNode);
+
+    auto hoverEventTarget = AceType::MakeRefPtr<HoverEventTarget>(frameNode->GetTag(), frameNode->GetId());
+    Offset actualGlobalLocation;
+    Offset actualDisplayLocation;
+    Offset actualGlobalDisplayLocation;
+    const OnHoverFunc onHoverCallback =
+        [&actualGlobalLocation, &actualDisplayLocation, &actualGlobalDisplayLocation](bool isHover, HoverInfo& info) {
+            actualGlobalLocation = info.GetGlobalLocation();
+            actualDisplayLocation = info.GetScreenLocation();
+            actualGlobalDisplayLocation = info.GetGlobalDisplayLocation();
+        };
+    hoverEventTarget->SetCallback(onHoverCallback);
+
+    MouseEvent mouseEvent;
+    const Offset expectedOffset(1, 1);
+    mouseEvent.x = expectedOffset.GetX();
+    mouseEvent.y = expectedOffset.GetY();
+    mouseEvent.screenX = expectedOffset.GetX();
+    mouseEvent.screenY = expectedOffset.GetY();
+    mouseEvent.globalDisplayX = expectedOffset.GetX();
+    mouseEvent.globalDisplayY = expectedOffset.GetY();
+
+    /**
+     * @tc.steps: step1. Test HandleHoverEvent Func.
+     * @tc.expected: Get location same as expectedOffset.
+     */
+    hoverEventTarget->HandleHoverEvent(false, mouseEvent);
+    EXPECT_EQ(actualGlobalLocation, expectedOffset);
+    EXPECT_EQ(actualDisplayLocation, expectedOffset);
+    EXPECT_EQ(actualGlobalDisplayLocation, expectedOffset);
+}
+
+
+/**
+ * @tc.name: InputEventHubProcessAxisTestHitTest001
+ * @tc.desc: Create InputEventHub and invoke ProcessAxisTestHit functions.
+ * @tc.type: FUNC
+ */
+HWTEST_F(InputEventHubTestNg, InputEventHubProcessAxisTestHitTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create InputEventHub.
+     */
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::TEXT_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    eventHub->AttachHost(frameNode);
+    auto inputEventHub = AceType::MakeRefPtr<InputEventHub>(AceType::WeakClaim(AceType::RawPtr(eventHub)));
+    EXPECT_NE(inputEventHub, nullptr);
+
+    /**
+     * @tc.steps: step3. Initialize coastingAxisEventActuator_ and its inputEvents_ is empty and userCallback_ is
+     * nullptr.
+     * @tc.expected: OnCollectAxisEvent will return directly, and ProcessAxisTestHit return false.
+     */
+    AxisTestResult result;
+    auto inputEventHub2 = AceType::MakeRefPtr<InputEventHub>(nullptr);
+    EXPECT_FALSE(inputEventHub2->ProcessAxisTestHit(COORDINATE_OFFSET, result, true));
+    inputEventHub->coastingAxisEventActuator_ =
+        AceType::MakeRefPtr<InputEventActuator>(AceType::WeakClaim(AceType::RawPtr(inputEventHub)));
+    EXPECT_FALSE(inputEventHub2->ProcessAxisTestHit(COORDINATE_OFFSET, result, true));
+
+    /**
+     * @tc.steps: step4. Initialize userCallback_.
+     */
+    OnCoastingAxisEventFunc onCoastingAxis = [](CoastingAxisInfo& info) {};
+    auto onCoastingAxisEvent = AceType::MakeRefPtr<InputEvent>(std::move(onCoastingAxis));
+    inputEventHub->coastingAxisEventActuator_->userCallback_ = onCoastingAxisEvent;
+
+    /**
+     * @tc.steps: step5. Invoke ProcessAxisTestHit when inputEvents_ is not empty and userCallback_ has already been
+     * initialized.
+     * @tc.expected: ProcessAxisTestHit return false, axis result size has been increased one.
+     */
+    EXPECT_FALSE(inputEventHub->ProcessAxisTestHit(COORDINATE_OFFSET, result, true));
+    EXPECT_EQ(result.size(), AXIS_RESULT_SIZE);
+
+    EXPECT_FALSE(inputEventHub->ProcessAxisTestHit(COORDINATE_OFFSET, result, false));
+    EXPECT_EQ(result.size(), AXIS_RESULT_SIZE);
+}
+
+/**
+ * @tc.name: InputEventHubBindContextMenuTest055
+ * @tc.desc: Create InputEventHub and invoke BindContextMenu functions.
+ * @tc.type: FUNC
+ */
+HWTEST_F(InputEventHubTestNg, InputEventHubBindContextMenuTest055, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create InputEventHub.
+     */
+    auto eventHub = AceType::MakeRefPtr<EventHub>();
+    auto frameNode = AceType::MakeRefPtr<FrameNode>(V2::TEXT_ETS_TAG, -1, AceType::MakeRefPtr<Pattern>());
+    eventHub->AttachHost(frameNode);
+    auto inputEventHub = AceType::MakeRefPtr<InputEventHub>(AceType::WeakClaim(AceType::RawPtr(eventHub)));
+    EXPECT_NE(inputEventHub, nullptr);
+
+    auto inputEventActuator =
+        AceType::MakeRefPtr<InputEventActuator>(AceType::WeakClaim(AceType::RawPtr(inputEventHub)));
+    AxisTestResult result;
+    inputEventActuator->OnCollectCoastingAxisEvent(result);
+    EXPECT_EQ(result.size(), 0);
 }
 } // namespace OHOS::Ace::NG

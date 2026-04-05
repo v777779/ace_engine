@@ -16,7 +16,6 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_RICH_EDITOR_RICH_EDITOR_CONTROLLER_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_RICH_EDITOR_RICH_EDITOR_CONTROLLER_H
 
-#include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_model.h"
 #include "core/components_ng/pattern/rich_editor/rich_editor_base_controller.h"
 
@@ -40,7 +39,6 @@ public:
     void UpdateParagraphStyle(int32_t start, int32_t end, const struct UpdateParagraphStyle& style) override;
     RefPtr<SpanStringBase> ToStyledString(int32_t start, int32_t end) override;
     SelectionInfo FromStyledString(RefPtr<SpanStringBase> value) override;
-    WeakPtr<RichEditorPattern> GetPattern() const;
 
 private:
     struct UpdateSpanStyle updateSpanStyle_;

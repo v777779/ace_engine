@@ -58,6 +58,25 @@ ani_object AniUtils::CreateLong(ani_env *env, ani_long value)
     return longObj;
 }
 
+ani_object AniUtils::CreateInt32(ani_env *env, int32_t value)
+{
+    CHECK_NULL_RETURN(env, nullptr);
+    static const char *className = "std.core.Int";
+    ani_class int_cls;
+    if (ANI_OK != env->FindClass(className, &int_cls)) {
+        return nullptr;
+    }
+    ani_method intCtor;
+    if (ANI_OK != env->Class_FindMethod(int_cls, "<ctor>", "i:", &intCtor)) {
+        return nullptr;
+    }
+    ani_object intObj;
+    if (ANI_OK != env->Object_New(int_cls, intCtor, &intObj, value)) {
+        return nullptr;
+    }
+    return intObj;
+}
+
 bool AniUtils::CheckType(ani_env *env, ani_object obj, const std::string& type)
 {
     CHECK_NULL_RETURN(env, false);
@@ -189,6 +208,14 @@ bool AniUtils::IsUndefined(ani_env* env, ani_object obj)
     return isUndefined;
 }
 
+bool AniUtils::IsUndefined(ani_env* env, ani_ref ref)
+{
+    CHECK_NULL_RETURN(env, true);
+    ani_boolean isUndefined = false;
+    ANI_CALL(env, Reference_IsUndefined(ref, &isUndefined), return true);
+    return isUndefined;
+}
+
 ani_object AniUtils::GetUndefined(ani_env* env)
 {
     CHECK_NULL_RETURN(env, nullptr);
@@ -209,7 +236,8 @@ std::optional<ani_string> AniUtils::StdStringToANIString(ani_env *env, std::stri
     return result_string;
 }
 
-ani_object WrapBusinessError(ani_env* env, const char *msg, ani_int code)
+// Do not use this function directly to create a BusinessError object.
+static ani_object WrapBusinessError(ani_env* env, const char *msg)
 {
     ani_class cls {};
     ani_method method {};
@@ -229,16 +257,15 @@ ani_object WrapBusinessError(ani_env* env, const char *msg, ani_int code)
         return nullptr;
     }
 
-    if ((status = env->FindClass("escompat.Error", &cls)) != ANI_OK) {
+    if ((status = env->FindClass("std.core.Error", &cls)) != ANI_OK) {
         return nullptr;
     }
 
-    if ((status = env->Class_FindMethod(cls, "<ctor>", "C{std.core.String}C{escompat.ErrorOptions}:", &method)) !=
+    if ((status = env->Class_FindMethod(cls, "<ctor>", "C{std.core.String}C{std.core.ErrorOptions}:", &method)) !=
         ANI_OK) {
         return nullptr;
     }
-    ani_double dCode(code);
-    if ((status = env->Object_New(cls, method, &obj, dCode, aniMsg, undefRef)) != ANI_OK) {
+    if ((status = env->Object_New(cls, method, &obj, aniMsg, undefRef)) != ANI_OK) {
         return nullptr;
     }
     
@@ -249,14 +276,14 @@ ani_ref AniUtils::CreateBusinessError(ani_env* env, const char *msg, ani_int cod
 {
     ani_class cls;
     ani_status status = ANI_OK;
-    if ((status = env->FindClass("C{@ohos.base.BusinessError}", &cls)) != ANI_OK) {
+    if ((status = env->FindClass("@ohos.base.BusinessError", &cls)) != ANI_OK) {
         return nullptr;
     }
     ani_method ctor;
-    if ((status = env->Class_FindMethod(cls, "<ctor>", "iC{escompat.Error}:", &ctor)) != ANI_OK) {
+    if ((status = env->Class_FindMethod(cls, "<ctor>", "iC{std.core.Error}:", &ctor)) != ANI_OK) {
         return nullptr;
     }
-    ani_object error = WrapBusinessError(env, msg, code);
+    ani_object error = WrapBusinessError(env, msg);
     if (error == nullptr) {
         return nullptr;
     }
@@ -426,6 +453,132 @@ int32_t AniUtils::CreateAniBoolean(ani_env* env, bool value, ani_object& result)
     return static_cast<int32_t>(state);
 }
 
+bool AniUtils::IsArrayObject(ani_env* env, ani_object object)
+{
+    return IsClassObject(env, object, "std.core.Array");
+}
+
+bool AniUtils::IsArrayObject(ani_env* env, ani_ref ref)
+{
+    ani_object object = static_cast<ani_object>(ref);
+    return IsArrayObject(env, object);
+}
+
+bool AniUtils::GetArrayIntParam(ani_env* env, ani_ref ref, std::vector<int32_t>& result)
+{
+    if (IsUndefined(env, ref) || !IsArrayObject(env, ref)) {
+        return false;
+    }
+
+    ani_size length;
+    ani_array arrayObj = static_cast<ani_array>(ref);
+    ani_status status = env->Array_GetLength(arrayObj, &length);
+    if (status != ANI_OK) {
+        return false;
+    }
+    for (size_t i = 0; i < length; i++) {
+        ani_ref itemRef;
+        status = env->Object_CallMethodByName_Ref(
+            static_cast<ani_object>(arrayObj), "$_get", "i:Y", &itemRef, (ani_int)i);
+        if (status != ANI_OK) {
+            return false;
+        }
+
+        ani_object itemObj = static_cast<ani_object>(itemRef);
+        if (!IsClassObject(env, itemObj, "std.core.Int")) {
+            return false;
+        }
+
+        ani_int itemValue;
+        status = env->Object_CallMethodByName_Int(itemObj, "toInt", ":i", &itemValue);
+        if (status != ANI_OK) {
+            return false;
+        }
+        result.push_back(static_cast<int32_t>(itemValue));
+    }
+    return true;
+}
+
+bool AniUtils::GetArrayIntParam(ani_env* env, ani_object object, const char* name, std::vector<int32_t>& result)
+{
+    ani_ref resultRef;
+    ani_status status = env->Object_GetPropertyByName_Ref(object, name, &resultRef);
+    if (status != ANI_OK) {
+        return false;
+    }
+    return GetArrayIntParam(env, resultRef, result);
+}
+
+bool AniUtils::GetBoolParam(ani_env* env, ani_ref ref, bool& result)
+{
+    if (IsUndefined(env, ref)) {
+        return false;
+    }
+
+    ani_object object = static_cast<ani_object>(ref);
+    if (!IsClassObject(env, object, "std.core.Boolean")) {
+        return false;
+    }
+
+    ani_boolean resultValue;
+    ani_status status = env->Object_CallMethodByName_Boolean(object, "toBoolean", nullptr, &resultValue);
+    if (status != ANI_OK) {
+        return false;
+    }
+    result = static_cast<bool>(resultValue);
+    return true;
+}
+
+bool AniUtils::GetBoolParam(ani_env* env, ani_object object, const char* name, bool& result)
+{
+    ani_ref resultRef;
+    ani_status status = env->Object_GetPropertyByName_Ref(object, name, &resultRef);
+    if (status != ANI_OK) {
+        return false;
+    }
+    return GetBoolParam(env, resultRef, result);
+}
+
+ani_error AniUtils::GetErrorObject(ani_env* env, const std::string& errMsg, int32_t code, const std::string& Tag)
+{
+    CHECK_NULL_RETURN(env, nullptr);
+    ani_class errClass;
+    ani_status status = env->FindClass("@ohos.base.BusinessError", &errClass);
+    if (status != ANI_OK) {
+        HILOGE("%{public}s find class failed. status: %{public}d", Tag.c_str(), status);
+        return nullptr;
+    }
+    ani_method ctor;
+    status = env->Class_FindMethod(errClass, "<ctor>", ":", &ctor);
+    if (status != ANI_OK) {
+        HILOGE("%{public}s cannot find constructor for class. status: %{public}d", Tag.c_str(), status);
+        return nullptr;
+    }
+    ani_string errMessage;
+    status = env->String_NewUTF8(errMsg.c_str(), errMsg.size(), &errMessage);
+    if (status != ANI_OK) {
+        HILOGE("%{public}s convert string to ani string failed. status: %{public}d", Tag.c_str(), status);
+        return nullptr;
+    }
+    ani_object errObj;
+    status = env->Object_New(errClass, ctor, &errObj);
+    if (status != ANI_OK) {
+        HILOGE("%{public}s cannot create ani error object. status: %{public}d", Tag.c_str(), status);
+        return nullptr;
+    }
+    status = env->Object_SetPropertyByName_Int(errObj, "code", static_cast<ani_int>(code));
+    if (status != ANI_OK) {
+        HILOGE("%{public}s set error code failed. status: %{public}d", Tag.c_str(), status);
+        return nullptr;
+    }
+    status = env->Object_SetPropertyByName_Ref(errObj, "message", errMessage);
+    if (status != ANI_OK) {
+        HILOGE("%{public}s set error message failed. status: %{public}d", Tag.c_str(), status);
+        return nullptr;
+    }
+    return static_cast<ani_error>(errObj);
+}
+
 int32_t AniUtils::GetNearestNonBootRuntimeLinker(ani_env* env, ani_ref& result)
 {
     ani_module stdCoreModule;
@@ -482,5 +635,15 @@ ani_env* AniUtils::GetAniEnv(ani_vm* vm)
         return nullptr;
     }
     return env;
+}
+
+ani_ref AniUtils::CreateNull(ani_env* env)
+{
+    CHECK_NULL_RETURN(env, nullptr);
+    ani_ref nullObj;
+    if (ANI_OK != env->GetNull(&nullObj)) {
+        return nullptr;
+    }
+    return nullObj;
 }
 }

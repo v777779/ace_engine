@@ -13,17 +13,22 @@
  * limitations under the License.
  */
 
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/render/mock_paragraph.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
 #include "test/unittest/core/pattern/test_ng.h"
+#include "test/unittest/core/pattern/text/text_base.h"
 
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/text_field/text_field_layout_algorithm.h"
 #include "core/components_ng/pattern/text_field/text_field_model_ng.h"
+#include "core/components_ng/pattern/text_field/text_field_model_static.h"
+#include "core/components_ng/pattern/text/text_model_static.h"
 #include "core/components_ng/pattern/text_field/text_field_pattern.h"
+#include "core/components_ng/pattern/text/image_span_view_static.h"
+#include "core/components_ng/pattern/image/image_pattern.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -32,9 +37,9 @@ namespace OHOS::Ace::NG {
 namespace {
 constexpr double ICON_SIZE = 24;
 constexpr double ICON_HOT_ZONE_SIZE = 40;
-constexpr double FONT_SIZE = 16;
 constexpr int32_t DEFAULT_NODE_ID = 1;
 constexpr int32_t MIN_PLATFORM_VERSION = 10;
+constexpr int32_t MAX_LENGTH = 100;
 const std::string WORLD_TEXT = "world";
 const std::string TEXTCASE_TEXT = "textcase";
 const std::u16string TEXTCASE_TEXT_U16 = u"textcase";
@@ -48,6 +53,7 @@ const Dimension DEFAULT_INDENT_SIZE3 = Dimension(7, DimensionUnit::VP);
 const Dimension DEFAULT_INDENT_SIZE4 = Dimension(8, DimensionUnit::VP);
 const Dimension DEFAULT_INDENT_SIZE5 = Dimension(9, DimensionUnit::VP);
 const Dimension DEFAULT_INDENT_SIZE6 = Dimension(10, DimensionUnit::VP);
+const CaretStyle DEFAULT_CARET_STYLE = { Dimension(3, DimensionUnit::VP) };
 const float PADDING_FIVE = 5.0f;
 const Color COLOR_DEFAULT = Color::RED;
 const Color STROKE_COLOR_VALUE_0 = Color::FromRGB(255, 100, 100);
@@ -789,6 +795,10 @@ HWTEST_F(TextInputAreaTest, testFieldModelNg003, TestSize.Level1)
      */
     auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
     EXPECT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<TextFieldPattern>();
+    EXPECT_NE(pattern, nullptr);
+    NG::FrameNode* contentNode = NG::ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(contentNode, nullptr);
     auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
     EXPECT_NE(layoutProperty, nullptr);
     PasswordIcon passwordIcon;
@@ -798,6 +808,14 @@ HWTEST_F(TextInputAreaTest, testFieldModelNg003, TestSize.Level1)
     textFieldModelNG.SetPasswordIcon(passwordIcon);
     std::function<void()> buildFunc;
     textFieldModelNG.SetCustomKeyboard(std::move(buildFunc), true);
+
+    textFieldModelNG.SetCustomKeyboard(frameNode, []() {}, true);
+    EXPECT_NE(pattern->customKeyboardBuilder_, nullptr);
+    textFieldModelNG.SetCustomKeyboardWithNode(contentNode, true);
+    EXPECT_NE(pattern->customKeyboard_, nullptr);
+    contentNode = nullptr;
+    textFieldModelNG.SetCustomKeyboardWithNode(frameNode, contentNode, true);
+    EXPECT_EQ(pattern->customKeyboard_, nullptr);
 }
 
 /**
@@ -1001,6 +1019,243 @@ HWTEST_F(TextInputAreaTest, testFieldModelNg009, TestSize.Level1)
 }
 
 /**
+ * @tc.name: testFieldModelNg010
+ * @tc.desc: test testInput ModelNg
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelNg010, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize text area.
+     */
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+
+    /**
+     * @tc.step: step2. Set Action
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    textFieldModelNG.SetTextAlign(TextAlign::RIGHT);
+
+    /**
+     * @tc.steps: step3. SetWidth.
+     */
+    TextFieldModelNG::SetWidth(frameNode, "auto");
+    TextFieldModelNG::SetWidth(frameNode, "not auto");
+
+    /**
+     * @tc.steps: step4. SetMaxLength.
+     */
+    TextFieldModelNG::SetMaxLength(frameNode, 0);
+    TextFieldModelNG::SetMaxLength(frameNode, MAX_LENGTH);
+    TextFieldModelNG::ResetPlaceholderColor(frameNode);
+    TextFieldModelStatic::SetPlaceholderColor(frameNode, std::make_optional(Color::GRAY));
+    TextFieldModelNG::ResetPlaceholderColor(frameNode);
+}
+
+/**
+ * @tc.name: testFieldModelNg011
+ * @tc.desc: test testInput ModelNg
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelNg011, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize text area.
+     */
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+
+    /**
+     * @tc.step: step2. Set Action
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    auto textPaintProperty = frameNode->GetPaintProperty<TextFieldPaintProperty>();
+    EXPECT_NE(textPaintProperty, nullptr);
+    textFieldModelNG.SetTextAlign(TextAlign::RIGHT);
+
+    /**
+     * @tc.steps: step3. SetShowCounter.
+     */
+    TextFieldModelNG::SetMaxLength(frameNode, MAX_LENGTH);
+    TextFieldModelNG::SetShowCounter(frameNode, true);
+    TextFieldModelNG::SetShowCounter(frameNode, false);
+    layoutProperty->ResetMaxLength();
+    TextFieldModelNG::SetShowCounter(frameNode, true);
+    TextFieldModelNG::SetShowCounter(frameNode, false);
+    layoutProperty->UpdateTextInputType(TextInputType::NUMBER_PASSWORD);
+    TextFieldModelNG::SetShowCounter(frameNode, true);
+    TextFieldModelNG::SetShowCounter(frameNode, false);
+    textPaintProperty->UpdateInputStyle(InputStyle::INLINE);
+    layoutProperty->UpdateTextInputType(TextInputType::TEXT);
+    TextFieldModelNG::SetShowCounter(frameNode, true);
+    TextFieldModelNG::SetShowCounter(frameNode, false);
+}
+
+/**
+ * @tc.name: SetMaxLength010
+ * @tc.desc: test SetMaxLength
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, SetMaxLength010, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Initialize text area.
+     */
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<TextFieldPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.step: step2. Set MaxLength
+     */
+    uint32_t maxLines = { 3 };
+    textFieldModelNG.SetMaxLength(frameNode, maxLines);
+
+    /**
+     * @tc.steps: step3. Check MaxLength.
+     */
+    EXPECT_EQ(pattern->GetMaxLength(), 3);
+}
+
+HWTEST_F(TextInputAreaTest, testSetCounterTextColor02, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize text field model and create a frame node.
+     */
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(u"Default Text", u"");
+
+    /**
+     * @tc.steps: step2. Get the main frame node and layout property.
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+
+    /**
+     * @tc.steps: step3. Set the counter text color and verify it.
+     */
+    TextFieldModelNG::SetCounterTextColor(frameNode, Color::RED);
+    EXPECT_EQ(layoutProperty->GetCounterTextColor(), Color::RED);
+    TextFieldModelNG::SetCounterTextOverflowColor(frameNode, Color::BLACK);
+    EXPECT_EQ(layoutProperty->GetCounterTextOverflowColor(), Color::BLACK);
+}
+HWTEST_F(TextInputAreaTest, testResetCounterTextColor02, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize text field model and create a frame node.
+     */
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(u"Default Text", u"");
+
+    /**
+     * @tc.steps: step2. Get the main frame node and layout property.
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+
+    /**
+     * @tc.steps: step3. Set the counter text color and verify it.
+     */
+    TextFieldModelNG::SetCounterTextColor(frameNode, Color::RED);
+    EXPECT_EQ(layoutProperty->GetCounterTextColor(), Color::RED);
+    TextFieldModelNG::SetCounterTextOverflowColor(frameNode, Color::BLACK);
+    EXPECT_EQ(layoutProperty->GetCounterTextOverflowColor(), Color::BLACK);
+    /**
+     * @tc.steps: step4. Reset the counter text color and verify it.
+     */
+    TextFieldModelNG::ResetCounterTextColor(frameNode);
+    TextFieldModelNG::ResetCounterTextOverflowColor(frameNode);
+    EXPECT_NE(layoutProperty->GetCounterTextColor(), Color::RED);
+    EXPECT_NE(layoutProperty->GetCounterTextOverflowColor(), Color::BLACK);
+}
+
+/**
+ * @tc.name: testFieldModelNg012
+ * @tc.desc: test testInput ModelNg
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelNg012, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize text area.
+     */
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+
+    /**
+     * @tc.step: step2. Set Type
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    TextInputType textInputType = TextInputType::ONE_TIME_CODE;
+    TextFieldModelNG::SetType(frameNode, textInputType);
+
+    /**
+     * @tc.steps: step3. Get.
+     */
+    auto type = TextFieldModelNG::GetJSInputType(frameNode);
+    EXPECT_EQ(type, static_cast<int32_t>(TextInputType::JS_ONE_TIME_CODE));
+}
+
+/**
+ * @tc.name: testFieldModelNg013
+ * @tc.desc: test testInput ModelNg
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelNg013, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Initialize text area.
+     */
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+
+    /**
+     * @tc.step: step2. Set Action
+     */
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    EXPECT_EQ(textFieldModelNG.GetBarState(frameNode), DisplayMode::AUTO);
+    textFieldModelNG.SetBarState(frameNode, DisplayMode::ON);
+    EXPECT_EQ(textFieldModelNG.GetBarState(frameNode), DisplayMode::ON);
+}
+
+/**
+ * @tc.name: testFieldModelNg014
+ * @tc.desc: test textInput ModelNg one time code number type
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelNg014, TestSize.Level1)
+{
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    TextFieldModelNG::SetType(frameNode, TextInputType::ONE_TIME_CODE_NUMBER);
+
+    auto type = TextFieldModelNG::GetJSInputType(frameNode);
+    EXPECT_EQ(type, static_cast<int32_t>(TextInputType::ONE_TIME_CODE_NUMBER));
+}
+
+/**
  * @tc.name: accessibilityProperty001
  * @tc.desc: test testInput accessibilityProperty
  * @tc.type: FUNC
@@ -1079,7 +1334,7 @@ HWTEST_F(TextInputAreaTest, accessibilityProperty002, TestSize.Level1)
 
 /**
  * @tc.name: testStroke001
- * @tc.desc: test textInput and textArea of  the stroke
+ * @tc.desc: test textInput and textArea of the stroke
  * @tc.type: FUNC
  */
 HWTEST_F(TextInputAreaTest, testStroke001, TestSize.Level1)
@@ -1093,6 +1348,7 @@ HWTEST_F(TextInputAreaTest, testStroke001, TestSize.Level1)
 
     textFieldModelNG.SetStrokeWidth(Dimension(2.0));
     textFieldModelNG.SetStrokeColor(STORKE_COLOR_VALUE_1);
+
     EXPECT_EQ(layoutProperty->GetStrokeWidth(), Dimension(2.0));
     EXPECT_EQ(layoutProperty->GetStrokeColor(), STORKE_COLOR_VALUE_1);
 
@@ -1100,4 +1356,997 @@ HWTEST_F(TextInputAreaTest, testStroke001, TestSize.Level1)
     EXPECT_EQ(layoutProperty->GetStrokeColor().has_value(), false);
 }
 
+/**
+ * @tc.name: testFieldModelStatic001
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic001, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetLineSpacing(frameNode, std::make_optional(2.0_fp));
+    EXPECT_EQ(layoutProperty->GetLineSpacing().value(), 2.0_fp);
+
+    TextFieldModelStatic::SetLineSpacing(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetLineSpacing().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic002
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic002, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetAdaptMinFontSize(frameNode, std::make_optional(1.0_fp));
+    EXPECT_EQ(layoutProperty->GetAdaptMinFontSize().value(), 1.0_fp);
+
+    TextFieldModelStatic::SetAdaptMinFontSize(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetAdaptMinFontSize().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic003
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic003, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetAdaptMaxFontSize(frameNode, std::make_optional(2.0_fp));
+    EXPECT_EQ(layoutProperty->GetAdaptMaxFontSize().value(), 2.0_fp);
+
+    TextFieldModelStatic::SetAdaptMaxFontSize(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetAdaptMaxFontSize().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic004
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic004, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetHeightAdaptivePolicy(
+        frameNode, std::make_optional(TextHeightAdaptivePolicy::MIN_FONT_SIZE_FIRST));
+    EXPECT_EQ(layoutProperty->GetHeightAdaptivePolicy().value(), TextHeightAdaptivePolicy::MIN_FONT_SIZE_FIRST);
+
+    TextFieldModelStatic::SetHeightAdaptivePolicy(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetHeightAdaptivePolicy().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic005
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic005, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetTextOverflow(frameNode, std::make_optional(TextOverflow::CLIP));
+    EXPECT_EQ(layoutProperty->GetTextOverflow().value(), TextOverflow::CLIP);
+
+    TextFieldModelStatic::SetTextOverflow(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetTextOverflow().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic006
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic006, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetTextIndent(frameNode, std::make_optional(TEXT_INDENT));
+    EXPECT_EQ(layoutProperty->GetTextIndent().value(), TEXT_INDENT);
+
+    TextFieldModelStatic::SetTextIndent(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetTextIndent().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic007
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic007, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetFontFamily(frameNode, std::make_optional(FONT_FAMILY_VALUE));
+    EXPECT_EQ(layoutProperty->GetFontFamily().value(), FONT_FAMILY_VALUE);
+
+    TextFieldModelStatic::SetFontFamily(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetFontFamily().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic008
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic008, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetCopyOption(frameNode, std::make_optional(CopyOptions::Distributed));
+    EXPECT_EQ(layoutProperty->GetCopyOptions().value(), CopyOptions::Distributed);
+
+    TextFieldModelStatic::SetCopyOption(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetCopyOptions().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic009
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic009, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetLetterSpacing(frameNode, std::make_optional(LETTER_SPACING));
+    EXPECT_EQ(layoutProperty->GetLetterSpacing().value(), LETTER_SPACING);
+
+    TextFieldModelStatic::SetLetterSpacing(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetLetterSpacing().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic010
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic010, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetWordBreak(frameNode, std::make_optional(WordBreak::BREAK_ALL));
+    EXPECT_EQ(layoutProperty->GetWordBreak().value(), WordBreak::BREAK_ALL);
+
+    TextFieldModelStatic::SetWordBreak(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetWordBreak().has_value());
+}
+
+
+/**
+ * @tc.name: testFieldModelStatic011
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic011, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetLineBreakStrategy(frameNode, std::make_optional(LineBreakStrategy::BALANCED));
+    EXPECT_EQ(layoutProperty->GetLineBreakStrategy().value(), LineBreakStrategy::BALANCED);
+
+    TextFieldModelStatic::SetLineBreakStrategy(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetLineBreakStrategy().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic012
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic012, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto textPaintProperty = frameNode->GetPaintProperty<TextFieldPaintProperty>();
+    EXPECT_NE(textPaintProperty, nullptr);
+    TextFieldModelStatic::SetInputStyle(frameNode, std::make_optional(InputStyle::DEFAULT));
+    frameNode->MarkModifyDone();
+    EXPECT_EQ(textPaintProperty->GetInputStyle().value(), InputStyle::DEFAULT);
+
+    TextFieldModelStatic::SetInputStyle(frameNode, std::nullopt);
+    EXPECT_FALSE(textPaintProperty->GetInputStyle().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic013
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic013, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetBarState(frameNode, std::make_optional(DisplayMode::ON));
+    frameNode->MarkModifyDone();
+    EXPECT_EQ(layoutProperty->GetDisplayMode().value(), DisplayMode::ON);
+
+    TextFieldModelStatic::SetBarState(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetDisplayMode().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic014
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic014, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetTextFieldPlaceHolder(frameNode, std::make_optional(u"placeholder"));
+    EXPECT_EQ(layoutProperty->GetPlaceholder().value(), u"placeholder");
+
+    TextFieldModelStatic::SetTextFieldPlaceHolder(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetPlaceholder().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic015
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic015, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetMaxViewLines(frameNode, std::make_optional(5));
+    EXPECT_EQ(layoutProperty->GetMaxViewLines().value(), 5);
+}
+
+/**
+ * @tc.name: testFieldModelStatic016
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic016, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetNormalMaxViewLines(frameNode, std::make_optional(10));
+    EXPECT_EQ(layoutProperty->GetNormalMaxViewLines().value(), 10);
+}
+
+/**
+ * @tc.name: testFieldModelStatic017
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic017, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateTextInputType(TextInputType::UNSPECIFIED);
+    TextFieldModelStatic::SetType(frameNode, std::make_optional(TextInputType::UNSPECIFIED));
+    EXPECT_EQ(layoutProperty->GetTextInputType().value(), TextInputType::UNSPECIFIED);
+
+    TextFieldModelStatic::SetType(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetTextInputType().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic018
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic018, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetContentType(frameNode, std::make_optional(TextContentType::USER_NAME));
+    EXPECT_EQ(layoutProperty->GetTextContentType().value(), TextContentType::USER_NAME);
+
+    TextFieldModelStatic::SetContentType(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetTextContentType().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic019
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic019, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    Font font;
+    font.fontSize = Dimension(2);
+    TextFieldModelStatic::SetPlaceholderFont(frameNode, std::make_optional(font));
+    EXPECT_EQ(layoutProperty->GetPlaceholderFontSizeValue(Dimension(0)), Dimension(2));
+
+    TextFieldModelStatic::SetPlaceholderFont(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetPlaceholderFontSize().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic020
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic020, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetShowPassword(frameNode, std::make_optional(false));
+    EXPECT_EQ(layoutProperty->GetShowPasswordText().value(), false);
+
+    TextFieldModelStatic::SetShowPassword(frameNode, std::nullopt);
+    EXPECT_EQ(layoutProperty->GetShowPasswordText().value(), false);
+}
+
+/**
+ * @tc.name: testFieldModelStatic021
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic021, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetTextAlign(frameNode, std::make_optional(TextAlign::RIGHT));
+    EXPECT_EQ(layoutProperty->GetTextAlign().value(), TextAlign::RIGHT);
+
+    TextFieldModelStatic::SetTextAlign(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetTextAlign().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic022
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic022, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetTextColor(frameNode, std::make_optional(Color::BLACK));
+    EXPECT_EQ(layoutProperty->GetTextColor().value(), Color::BLACK);
+
+    TextFieldModelStatic::SetTextColor(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetTextColor().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic023
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic023, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetFontStyle(frameNode, std::make_optional(Ace::FontStyle::NORMAL));
+    EXPECT_EQ(layoutProperty->GetItalicFontStyle().value(), Ace::FontStyle::NORMAL);
+
+    TextFieldModelStatic::SetFontStyle(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetItalicFontStyle().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic024
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic024, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetFontSize(frameNode, std::make_optional(Dimension(20)));
+    EXPECT_EQ(layoutProperty->GetFontSize().value(), Dimension(20));
+
+    TextFieldModelStatic::SetFontSize(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetFontSize().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic025
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic025, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto textPaintProperty = frameNode->GetPaintProperty<TextFieldPaintProperty>();
+    EXPECT_NE(textPaintProperty, nullptr);
+    TextFieldModelStatic::SetCaretStyle(frameNode, std::make_optional(DEFAULT_CARET_STYLE));
+    EXPECT_EQ(textPaintProperty->GetCursorWidth().value(), DEFAULT_CARET_STYLE.caretWidth.value());
+
+    TextFieldModelStatic::SetCaretStyle(frameNode, std::nullopt);
+    EXPECT_FALSE(textPaintProperty->GetCursorWidth().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic026
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic026, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetPlaceholderColor(frameNode, std::make_optional(Color::GRAY));
+    EXPECT_EQ(layoutProperty->GetPlaceholderTextColor().value(), Color::GRAY);
+
+    TextFieldModelStatic::SetPlaceholderColor(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetPlaceholderTextColor().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic027
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic027, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetFontWeight(frameNode, std::make_optional(FontWeight::W500));
+    EXPECT_EQ(layoutProperty->GetFontWeight().value(), FontWeight::W500);
+
+    TextFieldModelStatic::SetFontWeight(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetFontWeight().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic028
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic028, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetPasswordRules(frameNode, std::make_optional("passwordRules"));
+    EXPECT_EQ(layoutProperty->GetPasswordRules().value(), "passwordRules");
+
+    TextFieldModelStatic::SetPasswordRules(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetPasswordRules().has_value());
+
+    auto textFieldPattern = frameNode->GetPattern<TextFieldPattern>();
+
+    NG::OnCreateMenuCallback onCreate = [](const std::vector<NG::MenuItemParam>&) -> std::vector<MenuOptionsParam> {
+        std::vector<NG::MenuOptionsParam> menuParams;
+        return menuParams;
+    };
+    NG::OnMenuItemClickCallback onMenuItemClick = [](const NG::MenuItemParam&) -> bool { return false; };
+    TextFieldModelStatic::SetSelectionMenuOptions(frameNode, std::move(onCreate), std::move(onMenuItemClick), nullptr);
+    EXPECT_NE(textFieldPattern->selectOverlay_->onCreateMenuCallback_, nullptr);
+    EXPECT_NE(textFieldPattern->selectOverlay_->onMenuItemClick_, nullptr);
+}
+
+/**
+ * @tc.name: testFieldModelStatic029
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic029, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetShowError(frameNode, std::make_optional(u"error"), true);
+    EXPECT_EQ(layoutProperty->GetShowErrorText().value(), true);
+
+    TextFieldModelStatic::SetShowError(frameNode, std::nullopt, false);
+    EXPECT_FALSE(layoutProperty->GetShowErrorText().has_value());
+
+    std::function<RefPtr<UINode>()> nullfunc;
+    auto builder = []() -> RefPtr<UINode> {
+        RefPtr<UINode> uiNode;
+        return uiNode;
+    };
+    TextFieldModelStatic::SetShowUnit(frameNode, std::move(nullfunc));
+    TextFieldModelStatic::SetShowUnit(frameNode, std::move(builder));
+
+    RefPtr<TextFieldPattern> pattern = frameNode->GetPattern<TextFieldPattern>();
+    TextFieldModelStatic::GetController(frameNode, std::make_optional(u"placeholder"), std::make_optional(u"value"));
+    EXPECT_TRUE(layoutProperty->GetPlaceholder().has_value());
+    EXPECT_EQ(pattern->isTextChangedAtCreation_, true);
+}
+
+/**
+ * @tc.name: testFieldModelStatic030
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic030, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetCounterType(frameNode, std::make_optional(10));
+    EXPECT_EQ(layoutProperty->GetSetCounter().value(), 10);
+
+    TextFieldModelStatic::SetCounterType(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetSetCounter().has_value());
+
+    TextFieldModelStatic::SetShowCounterBorder(frameNode, std::make_optional(true));
+    EXPECT_EQ(layoutProperty->GetShowHighlightBorder().value(), true);
+    TextFieldModelStatic::SetShowCounterBorder(frameNode, std::nullopt);
+    EXPECT_EQ(layoutProperty->GetShowHighlightBorder().value(), true);
+}
+
+/**
+ * @tc.name: testFieldModelStatic031
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic031, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetCancelIconSize(frameNode, std::make_optional(Dimension(24, DimensionUnit::PX)));
+    EXPECT_EQ(layoutProperty->GetIconSize().value(), Dimension(24));
+
+    TextFieldModelStatic::SetCancelIconSize(frameNode, std::nullopt);
+    EXPECT_TRUE(layoutProperty->GetIconSize().has_value());
+
+    TextFieldModelStatic::SetSelectAllValue(frameNode, std::make_optional(true));
+    EXPECT_EQ(layoutProperty->GetSelectAllValue().value(), true);
+    TextFieldModelStatic::SetSelectAllValue(frameNode, std::nullopt);
+    EXPECT_EQ(layoutProperty->GetSelectAllValue().value(), false);
+}
+
+/**
+ * @tc.name: testFieldModelStatic032
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic032, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    std::string bundleName = "com.example.test";
+    std::string moduleName = "entry";
+    TextFieldModelStatic::SetCanacelIconSrc(frameNode, "src", bundleName, moduleName);
+    EXPECT_EQ(layoutProperty->GetIconSrc().value(), "src");
+
+    TextFieldModelStatic::SetShowUnderline(frameNode, std::make_optional(true));
+    EXPECT_EQ(layoutProperty->GetShowUnderline().value(), true);
+    TextFieldModelStatic::SetShowUnderline(frameNode, std::nullopt);
+    EXPECT_EQ(layoutProperty->GetShowUnderline().value(), false);
+
+    TextFieldModelStatic::SetShowPasswordIcon(frameNode, std::make_optional(false));
+    EXPECT_EQ(layoutProperty->GetShowPasswordIcon().value(), false);
+    TextFieldModelStatic::SetShowPasswordIcon(frameNode, std::nullopt);
+    EXPECT_EQ(layoutProperty->GetShowPasswordIcon().value(), true);
+}
+
+/**
+ * @tc.name: testFieldModelStatic033
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic033, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetCancelIconColor(frameNode, std::make_optional(Color::GRAY));
+    EXPECT_EQ(layoutProperty->GetIconColor().value(), Color::GRAY);
+
+    TextFieldModelStatic::SetCancelIconColor(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetIconColor().has_value());
+
+    std::optional<float> minFontScale = 1.f;
+    TextFieldModelStatic::SetMinFontScale(frameNode, minFontScale);
+    EXPECT_EQ(layoutProperty->GetMinFontScale().value(), minFontScale);
+    TextFieldModelStatic::SetMinFontScale(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetMinFontScale().has_value());
+
+    std::optional<float> maxFontScale = 40.f;
+    TextFieldModelStatic::SetMaxFontScale(frameNode, maxFontScale);
+    EXPECT_EQ(layoutProperty->GetMaxFontScale().value(), maxFontScale);
+    TextFieldModelStatic::SetMaxFontScale(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetMaxFontScale().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic034
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic034, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetTextDecoration(frameNode, std::make_optional(TextDecoration::UNDERLINE));
+    EXPECT_EQ(layoutProperty->GetTextDecorationFirst(), TextDecoration::UNDERLINE);
+
+    TextFieldModelStatic::SetTextDecoration(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetTextDecoration().has_value());
+
+    TextFieldModelStatic::SetEllipsisMode(frameNode, std::make_optional(EllipsisMode::MIDDLE));
+    EXPECT_EQ(layoutProperty->GetEllipsisMode().value(), EllipsisMode::MIDDLE);
+    TextFieldModelStatic::SetEllipsisMode(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetEllipsisMode().has_value());
+
+    TextFieldModelStatic::SetHalfLeading(frameNode, std::make_optional(false));
+    EXPECT_EQ(layoutProperty->GetHalfLeading().value(), false);
+    TextFieldModelStatic::SetHalfLeading(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetHalfLeading().has_value());
+}
+
+/**
+ * @tc.name: testFieldModelStatic035
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic035, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetTextDecorationColor(frameNode, std::make_optional(Color::BLUE));
+    EXPECT_EQ(layoutProperty->GetTextDecorationColor().value(), Color::BLUE);
+
+    TextFieldModelStatic::SetTextDecorationColor(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetTextDecorationColor().has_value());
+
+    TextFieldModelStatic::SetEnableHapticFeedback(frameNode, std::make_optional(false));
+    RefPtr<TextFieldPattern> textFieldPattern = frameNode->GetPattern<TextFieldPattern>();
+    EXPECT_EQ(textFieldPattern->GetEnableHapticFeedback(), false);
+    TextFieldModelStatic::SetEnableHapticFeedback(frameNode, std::nullopt);
+    EXPECT_EQ(textFieldPattern->GetEnableHapticFeedback(), true);
+
+    TextFieldModelStatic::SetEnableAutoFill(frameNode, std::make_optional(false));
+    EXPECT_EQ(layoutProperty->GetEnableAutoFill(), false);
+    TextFieldModelStatic::SetEnableAutoFill(frameNode, std::nullopt);
+    EXPECT_EQ(layoutProperty->GetEnableAutoFill(), true);
+}
+
+/**
+ * @tc.name: testFieldModelStatic036
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic036, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetTextDecorationStyle(frameNode, std::make_optional(TextDecorationStyle::DOTTED));
+    EXPECT_EQ(layoutProperty->GetTextDecorationStyle().value(), TextDecorationStyle::DOTTED);
+
+    TextFieldModelStatic::SetTextDecorationStyle(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetTextDecorationStyle().has_value());
+
+    TextFieldModelStatic::SetSelectionMenuHidden(frameNode, std::make_optional(true));
+    EXPECT_EQ(layoutProperty->GetSelectionMenuHidden(), true);
+    TextFieldModelStatic::SetSelectionMenuHidden(frameNode, std::nullopt);
+    EXPECT_EQ(layoutProperty->GetSelectionMenuHidden(), false);
+
+    TextFieldModelStatic::SetEnablePreviewText(frameNode, std::make_optional(false));
+    RefPtr<TextFieldPattern> textFieldPattern = frameNode->GetPattern<TextFieldPattern>();
+    EXPECT_EQ(textFieldPattern->GetSupportPreviewText(), false);
+    TextFieldModelStatic::SetEnablePreviewText(frameNode, std::nullopt);
+    EXPECT_EQ(textFieldPattern->GetSupportPreviewText(), true);
+}
+
+/**
+ * @tc.name: testFieldModelStatic037
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic037, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetLineHeight(frameNode, std::make_optional(Dimension(10)));
+    EXPECT_EQ(layoutProperty->GetLineHeight().value(), Dimension(10));
+
+    TextFieldModelStatic::SetLineHeight(frameNode, std::nullopt);
+    EXPECT_FALSE(layoutProperty->GetLineHeight().has_value());
+
+    TextFieldModelStatic::SetStopBackPress(frameNode, std::make_optional(false));
+    EXPECT_EQ(layoutProperty->GetStopBackPress().value(), false);
+
+    TextFieldModelStatic::SetStopBackPress(frameNode, std::nullopt);
+    EXPECT_EQ(layoutProperty->GetStopBackPress().value(), true);
+
+    PasswordIcon passwordIcon;
+    TextFieldModelStatic::SetPasswordIcon(frameNode, std::make_optional(passwordIcon));
+    passwordIcon.showResult = HELLO_TEXT;
+    passwordIcon.hideResult = HELLO_TEXT;
+    TextFieldModelStatic::SetPasswordIcon(frameNode, std::make_optional(passwordIcon));
+
+    TextFieldModelStatic::RequestKeyboardOnFocus(frameNode, std::make_optional(false));
+    RefPtr<TextFieldPattern> textFieldPattern = frameNode->GetPattern<TextFieldPattern>();
+    EXPECT_EQ(textFieldPattern->NeedToRequestKeyboardOnFocus(), false);
+    TextFieldModelStatic::RequestKeyboardOnFocus(frameNode, std::nullopt);
+    EXPECT_EQ(textFieldPattern->NeedToRequestKeyboardOnFocus(), true);
+}
+
+/**
+ * @tc.name: testFieldModelStatic055
+ * @tc.desc: test testInput ModelStatic
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, testFieldModelStatic038, TestSize.Level1)
+{
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    TextFieldModelStatic::SetShowError(frameNode, std::make_optional(u"error"), true);
+    EXPECT_EQ(layoutProperty->GetShowErrorText().value(), true);
+    TextFieldModelStatic::SetShowError(frameNode, std::nullopt, false);
+    EXPECT_FALSE(layoutProperty->GetShowErrorText().has_value());
+}
+
+/**
+ * @tc.name: SetCapitalizationMode001
+ * @tc.desc: test search set CapitalizationMode default value
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, SetCapitalizationMode001, TestSize.Level1)
+{
+    TextFieldModelNG textFieldModelNG;
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<TextFieldPattern>();
+    EXPECT_NE(pattern, nullptr);
+
+    textFieldModelNG.SetCapitalizationMode(AutoCapitalizationMode::NONE);
+    EXPECT_EQ(AutoCapitalizationMode::NONE, pattern->GetAutoCapitalizationMode());
+
+    textFieldModelNG.SetAutoCapitalizationMode(frameNode, AutoCapitalizationMode::WORDS);
+    EXPECT_EQ(AutoCapitalizationMode::WORDS, pattern->GetAutoCapitalizationMode());
+}
+
+/**
+ * @tc.name: TextInputAreaDeleteBackwardModelNG001
+ * @tc.desc: test ModelNG DeleteBackward
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, TextInputAreaDeleteBackwardModelNG001, TestSize.Level1)
+{
+    CreateTextField("挖矿时间到!⛏️", "", [](TextFieldModelNG model) {});
+    GetFocus();
+
+    TextFieldModelNG::DeleteBackward(frameNode_.GetRawPtr());
+    FlushLayoutTask(frameNode_);
+    EXPECT_EQ(pattern_->GetTextValue(), "挖矿时间到!");
+}
+
+/**
+ * @tc.name: TextInputAreaDeleteBackwardModelNG002
+ * @tc.desc: test ModelNG DeleteBackward
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, TextInputAreaDeleteBackwardModelNG002, TestSize.Level1)
+{
+    CreateTextField("挖矿时间到!⛏️", "", [](TextFieldModelNG model) {});
+    GetFocus();
+
+    EXPECT_NE(pattern_, nullptr);
+    TextFieldModelNG::DeleteBackward(frameNode_.GetRawPtr());
+    FlushLayoutTask(frameNode_);
+    EXPECT_NE(pattern_, nullptr);
+}
+
+/**
+ * @tc.name: TextInputAreaDeleteBackwardModelNG003
+ * @tc.desc: test ModelNG DeleteBackward
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, TextInputAreaDeleteBackwardModelNG003, TestSize.Level1)
+{
+    CreateTextField("DeleteBackward预上屏测试", "", [](TextFieldModelNG model) {});
+    GetFocus();
+
+    TextFieldModelNG::DeleteBackward(frameNode_.GetRawPtr());
+    FlushLayoutTask(frameNode_);
+    
+    EXPECT_FALSE(pattern_->IsPreviewTextInputting());
+}
+
+/**
+ * @tc.name: SetCompressLeadingPunctuation001
+ * @tc.desc: test TextInputArea set CompressLeadingPunctuation value
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, SetCompressLeadingPunctuation001, TestSize.Level1)
+{
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    textFieldModelNG.SetCompressLeadingPunctuation(true);
+    EXPECT_EQ(layoutProperty->GetCompressLeadingPunctuation(), true);
+    layoutProperty->UpdateCompressLeadingPunctuation(false);
+    EXPECT_EQ(layoutProperty->GetCompressLeadingPunctuation(), false);
+}
+
+/**
+ * @tc.name: SetCompressLeadingPunctuation002
+ * @tc.desc: test TextInputArea FrameNode set CompressLeadingPunctuation value
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, SetCompressLeadingPunctuation002, TestSize.Level1)
+{
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    EXPECT_NE(frameNode, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<TextFieldLayoutProperty>();
+    EXPECT_NE(layoutProperty, nullptr);
+    textFieldModelNG.SetCompressLeadingPunctuation(frameNode, true);
+    EXPECT_EQ(layoutProperty->GetCompressLeadingPunctuation(), true);
+    layoutProperty->UpdateCompressLeadingPunctuation(false);
+    EXPECT_EQ(layoutProperty->GetCompressLeadingPunctuation(), false);
+}
+
+/**
+ * @tc.name: GetTextOverflow001
+ * @tc.desc: Test GetTextOverflow by frameNode..
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, GetTextOverflow001, TestSize.Level1)
+{
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    textFieldModelNG.SetTextOverflow(frameNode, TextOverflow::MARQUEE);
+    TextOverflow result = textFieldModelNG.GetTextOverflow(frameNode);
+    EXPECT_EQ(result, TextOverflow::MARQUEE);
+}
+
+/**
+ * @tc.name: GetTextOverflow002
+ * @tc.desc: Test GetTextOverflow by frameNode..
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, GetTextOverflow002, TestSize.Level1)
+{
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextInput(DEFAULT_TEXT_U16, u"");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    textFieldModelNG.SetTextOverflow(frameNode, TextOverflow::MARQUEE);
+    TextOverflow result = textFieldModelNG.GetTextOverflow(frameNode);
+    EXPECT_EQ(result, TextOverflow::MARQUEE);
+}
+
+/**
+ * @tc.name: GetTextOverflow003
+ * @tc.desc: Test GetTextOverflow by frameNode..
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, GetTextOverflow003, TestSize.Level1)
+{
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextInput(DEFAULT_TEXT_U16, u"");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    TextOverflow result = textFieldModelNG.GetTextOverflow(frameNode);
+    EXPECT_EQ(result, TextOverflow::NONE);
+}
+
+/**
+ * @tc.name: GetTextOverflow004
+ * @tc.desc: Test GetTextOverflow by frameNode..
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, GetTextOverflow004, TestSize.Level1)
+{
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    TextOverflow result = textFieldModelNG.GetTextOverflow(frameNode);
+    EXPECT_EQ(result, TextOverflow::CLIP);
+}
+
+/**
+ * @tc.name: GetEllipsisMode001
+ * @tc.desc: Test GetEllipsisMode by frameNode..
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, GetEllipsisMode001, TestSize.Level1)
+{
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextArea(DEFAULT_TEXT_U16, u"");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    textFieldModelNG.SetEllipsisMode(frameNode, EllipsisMode::HEAD);
+    EllipsisMode result = textFieldModelNG.GetEllipsisMode(frameNode);
+    EXPECT_EQ(result, EllipsisMode::HEAD);
+}
+
+/**
+ * @tc.name: GetEllipsisMode002
+ * @tc.desc: Test GetEllipsisMode by frameNode..
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextInputAreaTest, GetEllipsisMode002, TestSize.Level1)
+{
+    TextFieldModelNG textFieldModelNG;
+    textFieldModelNG.CreateTextInput(DEFAULT_TEXT_U16, u"");
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+
+    textFieldModelNG.SetEllipsisMode(frameNode, EllipsisMode::HEAD);
+    EllipsisMode result = textFieldModelNG.GetEllipsisMode(frameNode);
+    EXPECT_EQ(result, EllipsisMode::HEAD);
+}
 } // namespace OHOS::Ace::NG

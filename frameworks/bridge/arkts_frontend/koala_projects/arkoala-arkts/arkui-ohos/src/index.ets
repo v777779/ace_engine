@@ -19,8 +19,15 @@ export {
   CustomStyles,
   GestureModifier,
   UIGestureEvent,
-  DrawModifier
+  DrawModifier,
+  LayoutSafeAreaType,
+  TouchResult,
+  TouchTestInfo,
+  LayoutSafeAreaEdge,
+  ResponseRegion
 } from "./component/common";
+export * from "./component/gesture";
+export * from "./component/customComponentLifecycle";
 export {
   LifeCycle,
   ExtendableComponent,
@@ -34,6 +41,10 @@ export {
   BaseCustomComponent,
   CustomComponent,
   CustomComponentV2,
+  CustomComponentLifecycleState,
+  CustomComponentLifecycleObserver,
+  CustomComponentLifecycle,
+  LifeCycleEvent,
 } from "./component/customComponent";
 
 export { AttributeUpdater } from "./AttributeUpdater";
@@ -41,3 +52,14 @@ export { LocalStorage } from "./stateManagement"
 
 export * from "./extractors";
 export * from "./hooks"
+
+export {
+  ArkUIExtensionComponentPeerBase
+} from "./component/uiExtensionComponent"
+export * from "./component/initializers"
+export * from "./component/securityUIExtensionComponent"
+export * from "./component/common"
+export * from "./component/canvas"
+export * from "./component/waterFlow"
+export * from "./component/embeddedComponent"
+export * from "./component/nodeContainer"

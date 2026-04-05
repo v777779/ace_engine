@@ -16,12 +16,13 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_THEME_THEME_MANAGER_IMPL_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_THEME_THEME_MANAGER_IMPL_H
 
+#include "core/common/multi_thread_build_manager.h"
 #include "core/components/theme/resource_adapter.h"
 #include "core/components/theme/theme_manager.h"
 #include "core/components_ng/token_theme/token_theme_wrapper.h"
 
 namespace OHOS::Ace {
-class ACE_EXPORT ThemeManagerImpl : public ThemeManager {
+class ACE_FORCE_EXPORT ThemeManagerImpl : public ThemeManager {
     DECLARE_ACE_TYPE(ThemeManagerImpl, ThemeManager);
 
 public:
@@ -98,6 +99,10 @@ public:
      */
     RefPtr<Theme> GetTheme(ThemeType type) override;
 
+    RefPtr<Theme> GetThemeNormal(ThemeType type);
+
+    RefPtr<Theme> GetThemeMultiThread(ThemeType type);
+
     template<typename T>
     RefPtr<T> GetTheme()
     {
@@ -110,6 +115,10 @@ public:
      */
     RefPtr<Theme> GetTheme(ThemeType type, int32_t themeScopeId) override;
 
+    RefPtr<Theme> GetThemeNormal(ThemeType type, int32_t themeScopeId);
+
+    RefPtr<Theme> GetThemeMultiThread(ThemeType type, int32_t themeScopeId);
+
     template<typename T>
     RefPtr<T> GetTheme(int32_t themeScopeId)
     {
@@ -117,6 +126,10 @@ public:
     }
 
     void LoadResourceThemes() override;
+
+    void LoadResourceThemesInner();
+
+    void LoadResourceThemesMultiThread();
 
     uint32_t GetResourceLimitKeys() const override
     {
@@ -148,6 +161,8 @@ private:
 
     ThemeWrappers& GetThemeWrappers(ColorMode mode);
     ColorMode GetCurrentColorMode() const;
+
+    std::recursive_mutex themeMultiThreadMutex_;
 };
 } // namespace OHOS::Ace
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_THEME_THEME_MANAGER_H

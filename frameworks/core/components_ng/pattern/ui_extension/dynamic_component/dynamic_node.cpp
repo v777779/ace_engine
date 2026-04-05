@@ -53,15 +53,16 @@ RefPtr<DynamicNode> DynamicNode::GetOrCreateDynamicNode(
     }
 
     auto pattern = patternCreator ? patternCreator() : AceType::MakeRefPtr<Pattern>();
+    ACE_UINODE_TRACE(nodeId, tag, TypeInfoHelper::TypeName(AceType::RawPtr(pattern)));
     dynamicNode = AceType::MakeRefPtr<DynamicNode>(tag, nodeId, pattern, false);
     dynamicNode->InitializePatternAndContext();
     ElementRegister::GetInstance()->AddUINode(dynamicNode);
     return dynamicNode;
 }
 
-void DynamicNode::DumpTree(int32_t depth, bool hasJson)
+void DynamicNode::DumpTree(int32_t depth, bool hasJson, const std::string& desc)
 {
-    UINode::DumpTree(depth, hasJson);
+    UINode::DumpTree(depth, hasJson, desc);
     auto pattern = GetPattern<DynamicPattern>();
     CHECK_NULL_VOID(pattern);
     pattern->DumpDynamicRenderer(depth + DC_DEPTH, hasJson);
@@ -77,6 +78,11 @@ HitTestResult DynamicNode::TouchTest(const PointF& globalPoint, const PointF& pa
         return HitTestResult::OUT_OF_REGION;
     }
 
+    if (touchRestrict.hitTestType == SourceType::MOUSE ||
+        touchRestrict.touchEvent.sourceType == SourceType::MOUSE) {
+        return testResult;
+    }
+
     auto pattern = GetPattern<DynamicPattern>();
     CHECK_NULL_RETURN(pattern, testResult);
     auto context = GetContext();
@@ -84,7 +90,7 @@ HitTestResult DynamicNode::TouchTest(const PointF& globalPoint, const PointF& pa
     auto eventManager = context->GetEventManager();
     CHECK_NULL_RETURN(eventManager, testResult);
     auto delegate = AceType::MakeRefPtr<DynamicTouchDelegate>(pattern);
-    eventManager->ReplaceTouchDelegate(touchRestrict.touchEvent.id, delegate);
+    eventManager->UpdateTouchDelegate(touchRestrict.touchEvent.id, delegate);
     return testResult;
 }
 } // namespace OHOS::Ace::NG

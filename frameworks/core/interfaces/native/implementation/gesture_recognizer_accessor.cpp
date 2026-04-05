@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "core/components_ng/base/frame_node.h"
 #include "core/interfaces/native/utility/converter.h"
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
@@ -134,6 +133,13 @@ Ark_Boolean IsFingerCountLimitImpl(Ark_GestureRecognizer peer)
     CHECK_NULL_RETURN(recognizer, {});
     return Converter::ArkValue<Ark_Boolean>(recognizer->GetLimitFingerCount());
 }
+void PreventBeginImpl(Ark_GestureRecognizer peer)
+{
+    CHECK_NULL_VOID(peer);
+    auto recognizer = peer->GetRecognizer().Upgrade();
+    CHECK_NULL_VOID(recognizer);
+    recognizer->SetPreventBegin(true);
+}
 } // GestureRecognizerAccessor
 const GENERATED_ArkUIGestureRecognizerAccessor* GetGestureRecognizerAccessor()
 {
@@ -151,6 +157,7 @@ const GENERATED_ArkUIGestureRecognizerAccessor* GetGestureRecognizerAccessor()
         GestureRecognizerAccessor::IsValidImpl,
         GestureRecognizerAccessor::GetFingerCountImpl,
         GestureRecognizerAccessor::IsFingerCountLimitImpl,
+        GestureRecognizerAccessor::PreventBeginImpl,
     };
     return &GestureRecognizerAccessorImpl;
 }

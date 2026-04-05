@@ -17,19 +17,21 @@
 #include "gtest/internal/gtest-internal.h"
 
 #define private public
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+
 #include "base/geometry/ng/offset_t.h"
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/base/modifier.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/layout/layout_wrapper_node.h"
 #include "core/components_ng/pattern/data_panel/data_panel_model_ng.h"
 #include "core/components_ng/pattern/data_panel/data_panel_modifier.h"
 #include "core/components_ng/pattern/data_panel/data_panel_paint_property.h"
 #include "core/components_ng/pattern/data_panel/data_panel_pattern.h"
-#include "test/mock/core/rosen/mock_canvas.h"
-#include "test/mock/core/common/mock_theme_manager.h"
 #include "core/pipeline/base/constants.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -43,10 +45,10 @@ const std::vector<double> VALUES = { 1.0, 2.0, 3.0, 4.0 };
 const std::vector<double> LONG_VALUES = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0 };
 const std::vector<double> FULL_VALUES = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0 };
 const std::vector<double> SINGLE_VALUES = { 1.0 };
-const std::vector<double> VALUES_20 = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
-    13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0};
-const std::vector<double> BIG_VALUES = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
-    13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0};
+const std::vector<double> VALUES_20 = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
+    16.0, 17.0, 18.0, 19.0, 20.0 };
+const std::vector<double> BIG_VALUES = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
+    15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0 };
 constexpr size_t TYPE_CYCLE = 0;
 constexpr size_t TYPE_LINE = 1;
 constexpr float MAX_WIDTH = 400.0f;
@@ -73,7 +75,8 @@ public:
 };
 
 class DataPanelTheme : public Theme {
-    DECLARE_ACE_TYPE(DataPanelTheme, Theme)
+    DECLARE_ACE_TYPE(DataPanelTheme, Theme);
+
 public:
     DataPanelTheme()
     {
@@ -1747,7 +1750,6 @@ HWTEST_F(DataPanelContentModifierTestNg, DataPanelPaintPropertyTest011, TestSize
     EXPECT_TRUE(forth_case);
 }
 
-
 /**
  * @tc.name: DataPanelTest012
  * @tc.desc: Test DataPanel PaintMethod SetTrackBackground when type is line.
@@ -1963,5 +1965,39 @@ HWTEST_F(DataPanelContentModifierTestNg, DataPanelPaintPropertyTest016, TestSize
     auto dataPanelPaintProperty4 = frameNode4->GetPaintProperty<DataPanelPaintProperty>();
     ASSERT_NE(dataPanelPaintProperty4, nullptr);
     EXPECT_EQ(dataPanelPaintProperty4->GetShadowOptionValue(), shadowOption4);
+}
+
+/**
+ * @tc.name: DataPanelPatternMultiThreadTest001
+ * @tc.desc: SetBuilderFuncMultiThread and get value
+ * @tc.type: FUNC
+ */
+HWTEST_F(DataPanelContentModifierTestNg, DataPanelPatternMultiThreadTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Init DataPanel node
+     */
+    DataPanelModelNG dataPanelModelNG;
+    dataPanelModelNG.Create(VALUES, MAX_DEFAULT, TYPE_CYCLE);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<DataPanelPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Make builderFunc.
+     */
+    auto node = [](DataPanelConfiguration config) -> RefPtr<FrameNode> {
+        EXPECT_EQ(VALUES, config.values_);
+        EXPECT_EQ(MAX_DEFAULT, config.maxValue_);
+        return nullptr;
+    };
+
+    /**
+     * @tc.steps: step3. Set parameters to pattern builderFunc
+     */
+    pattern->SetBuilderFuncMultiThread();
+    pattern->SetBuilderFunc(node);
+    pattern->SetBuilderFuncMultiThread();
 }
 } // namespace OHOS::Ace::NG

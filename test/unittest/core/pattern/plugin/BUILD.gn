@@ -18,9 +18,7 @@ ohos_unittest("plugin_component_test") {
   module_out_path = pattern_test_output_path
   testonly = true
 
-  include_dirs = [
-    "$ace_root/interfaces/inner_api/ace_kit/include",
-  ]
+  include_dirs = [ "$ace_root/interfaces/inner_api/ace_kit/include" ]
 
   deps = [
     "$ace_root/interfaces/inner_api/ui_service_manager:ui_service_mgr",
@@ -83,12 +81,15 @@ if (defined(enable_plugin_pattern_test_ng)) {
       "$ace_root/frameworks/core/components_ng/base/geometry_node.cpp",
       "$ace_root/frameworks/core/components_ng/base/modifier.cpp",
       "$ace_root/frameworks/core/components_ng/base/ui_node.cpp",
+      "$ace_root/frameworks/core/components_ng/base/ui_node_gc.cpp",
+      "$ace_root/frameworks/core/components_ng/base/ui_node_multi_thread.cpp",
       "$ace_root/frameworks/core/components_ng/base/view_stack_processor.cpp",
       "$ace_root/frameworks/core/components_ng/event/click_event.cpp",
       "$ace_root/frameworks/core/components_ng/event/drag_event.cpp",
       "$ace_root/frameworks/core/components_ng/event/event_hub.cpp",
       "$ace_root/frameworks/core/components_ng/event/focus_event_handler.cpp",
       "$ace_root/frameworks/core/components_ng/event/focus_hub.cpp",
+      "$ace_root/frameworks/core/components_ng/event/focus_hub_multithread.cpp",
       "$ace_root/frameworks/core/components_ng/event/gesture_event_hub.cpp",
       "$ace_root/frameworks/core/components_ng/event/gesture_event_hub_drag.cpp",
       "$ace_root/frameworks/core/components_ng/event/input_event.cpp",
@@ -141,21 +142,23 @@ if (defined(enable_plugin_pattern_test_ng)) {
       "$ace_root/frameworks/core/pipeline/base/constants.cpp",
       "$ace_root/frameworks/core/pipeline/base/element_register_multi_thread.cpp",
       "$ace_root/frameworks/core/pipeline_ng/ui_task_scheduler.cpp",
-      "$ace_root/test/mock/base/mock_frame_report.cpp",
-      "$ace_root/test/mock/base/mock_frame_trace_adapter.cpp",
-      "$ace_root/test/mock/base/mock_lifecycle_checkable.cpp",
-      "$ace_root/test/mock/base/mock_localization.cpp",
-      "$ace_root/test/mock/base/mock_ressched_report.cpp",
-      "$ace_root/test/mock/base/mock_socperf_client_impl.cpp",
-      "$ace_root/test/mock/base/mock_system_properties.cpp",
-      "$ace_root/test/mock/core/common/mock_ace_application_info.cpp",
-      "$ace_root/test/mock/core/common/mock_font_manager_ng.cpp",
-      "$ace_root/test/mock/core/pipeline/mock_element_register.cpp",
-      "$ace_root/test/mock/core/pipeline/mock_pipeline_context.cpp",
-      "$ace_root/test/mock/core/render/mock_animation_utils.cpp",
-      "$ace_root/test/mock/core/render/mock_modifier_adapter.cpp",
-      "$ace_root/test/mock/core/render/mock_render_context_creator.cpp",
-      "$ace_root/test/mock/core/render/mock_render_surface_creator.cpp",
+      "$ace_root/test/mock/adapter/ohos/osal/mock_feature_param.cpp",
+      "$ace_root/test/mock/adapter/ohos/osal/mock_frame_report.cpp",
+      "$ace_root/test/mock/frameworks/base/thread/mock_frame_trace_adapter.cpp",
+      "$ace_root/test/mock/frameworks/base/utils/mock_lifecycle_checkable.cpp",
+      "$ace_root/test/mock/frameworks/base/i18n/mock_localization.cpp",
+      "$ace_root/test/mock/frameworks/base/ressched/mock_ressched_click_optimizer.cpp",
+      "$ace_root/test/mock/frameworks/base/ressched/mock_ressched_report.cpp",
+      "$ace_root/test/mock/frameworks/base/ressched/mock_ressched_touch_optimizer.cpp",
+      "$ace_root/test/mock/adapter/ohos/osal/mock_socperf_client_impl.cpp",
+      "$ace_root/test/mock/adapter/ohos/osal/mock_system_properties.cpp",
+      "$ace_root/test/mock/frameworks/core/common/mock_ace_application_info.cpp",
+      "$ace_root/test/mock/frameworks/core/common/mock_font_manager.cpp",
+      "$ace_root/test/mock/frameworks/core/pipeline/mock_element_register.cpp",
+      "$ace_root/test/mock/frameworks/core/pipeline/mock_pipeline_context.cpp",
+      "$ace_root/test/mock/frameworks/core/components_ng/render/mock_animation_utils.cpp",
+      "$ace_root/test/mock/frameworks/core/components_ng/render/mock_modifier_adapter.cpp",
+      "$ace_root/test/mock/frameworks/core/components_ng/render/mock_render_surface_creator.cpp",
       "$ace_root/test/unittest/core/pattern/plugin/mock/mock_plugin_component_manager.cpp",
       "$ace_root/test/unittest/core/pattern/plugin/mock/mock_plugin_frontend.cpp",
       "$ace_root/test/unittest/core/pattern/plugin/mock/mock_plugin_frontend_delegate.cpp",
@@ -164,11 +167,14 @@ if (defined(enable_plugin_pattern_test_ng)) {
       "plugin_pattern_test_ng.cpp",
     ]
 
+    if (ace_engine_feature_enable_static_instructive_code) {
+      source += [ "$ace_root/frameworks/core/components_ng/base/interop/view_stack_processor_interop.cpp" ]
+    }
+
     deps = [
       "$ability_runtime_inner_api_path/ability_manager:ability_manager",
       "$ability_runtime_services_path/abilitymgr:abilityms",
       "$ace_root/frameworks/base:ace_memory_monitor_ohos",
-      "$ace_root/frameworks/core/components/theme:build_theme_code",
       "$ace_root/interfaces/inner_api/ui_service_manager:ui_service_mgr",
       "$ace_root/test/unittest:ace_engine_unittest_flutter_deps",
       "$ace_root/test/unittest:ace_unittest_log",
@@ -190,11 +196,6 @@ if (defined(enable_plugin_pattern_test_ng)) {
       "window_manager:screen_session_manager_client",
       "zlib:shared_libz",
     ]
-
-    if (defined(ffrt_support) && ffrt_support) {
-      defines = [ "FFRT_SUPPORT" ]
-      external_deps += [ "ffrt:libffrt" ]
-    }
 
     if (ace_use_rosen_drawing) {
       external_deps += [ "graphic_2d:2d_graphics" ]

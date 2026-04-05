@@ -18,36 +18,15 @@
 #include "base/utils/utils.h"
 #include "core/components_ng/pattern/text_field/auto_fill_controller.h"
 #include "core/components_ng/pattern/text_field/text_field_pattern.h"
+#include "core/components_ng/render/drawing.h"
 #include "core/pipeline_ng/pipeline_context.h"
 
 namespace OHOS::Ace::NG {
 namespace {
-const FontWeight FONT_WEIGHT_CONVERT_MAP[] = {
-    FontWeight::W100,
-    FontWeight::W200,
-    FontWeight::W300,
-    FontWeight::W400,
-    FontWeight::W500,
-    FontWeight::W600,
-    FontWeight::W700,
-    FontWeight::W800,
-    FontWeight::W900,
-    FontWeight::W700,
-    FontWeight::W400,
-    FontWeight::W900,
-    FontWeight::W100,
-    FontWeight::W500,
-    FontWeight::W400,
-};
 constexpr float ROUND_VALUE = 0.5f;
-constexpr Dimension DEFAULT_FADEOUT_VP = 16.0_vp;
+constexpr Dimension DEFAULT_FADEOUT_VP = 32.0_vp;
 constexpr double MAX_TEXTFADEOUT_PERCENT = 0.5;
 constexpr double MIN_TEXTFADEOUT_DELTA = 1.0;
-
-inline FontWeight ConvertFontWeight(FontWeight fontWeight)
-{
-    return FONT_WEIGHT_CONVERT_MAP[static_cast<int>(fontWeight)];
-}
 } // namespace
 
 TextFieldContentModifier::TextFieldContentModifier(const WeakPtr<OHOS::Ace::NG::Pattern>& pattern) : pattern_(pattern)
@@ -62,7 +41,7 @@ void TextFieldContentModifier::onDraw(DrawingContext& context)
     CHECK_NULL_VOID(textFieldPattern);
     auto paragraph = textFieldPattern->GetParagraph();
     CHECK_NULL_VOID(paragraph);
-    auto autofillController = textFieldPattern->GetAutoFillController();
+    auto autofillController = textFieldPattern->GetOrCreateAutoFillController();
     CHECK_NULL_VOID(autofillController);
     auto autoFillAnimationStatus = autofillController->GetAutoFillAnimationStatus();
     if (autoFillAnimationStatus != AutoFillAnimationStatus::INIT) {
@@ -278,7 +257,9 @@ void TextFieldContentModifier::ModifyTextStyle(TextStyle& textStyle)
         textStyle.SetFontWeight(static_cast<FontWeight>(std::floor(fontWeightFloat_->Get() + 0.5f)));
     }
     if (textColor_.has_value() && animatableTextColor_) {
-        textStyle.SetTextColor(Color(animatableTextColor_->Get().GetValue()));
+        Color color(animatableTextColor_->Get().GetValue());
+        color.SetPlaceholder(textColor_->GetPlaceholder());
+        textStyle.SetTextColor(color);
     }
     ModifyDecorationInTextStyle(textStyle);
 }
@@ -640,8 +621,8 @@ void TextFieldContentModifier::DrawTextFadeout(DrawingContext& context)
     paragraph->Paint(canvas, textRectX, contentOffset.GetY());
     canvas.Restore();
 
-    auto textWidth = paragraph->GetTextWidth();
     auto textIndent = std::max(textFieldPattern->GetTextParagraphIndent(), 0.0f);
+    auto textWidth = paragraph->GetTextWidth();
     if (GreatNotEqual(textWidth + textIndent, contentRect.Width())) {
         leftFadeOn = LessNotEqual(textRectX + MIN_TEXTFADEOUT_DELTA, contentRectX);
         rigthFadeOn = GreatNotEqual((textRectX + textWidth + textIndent - MIN_TEXTFADEOUT_DELTA), contentRect.Right());
@@ -734,7 +715,7 @@ void TextFieldContentModifier::DoAutoFillDraw(DrawingContext& context)
     auto& canvas = context.canvas;
     auto textFieldPattern = DynamicCast<TextFieldPattern>(pattern_.Upgrade());
     CHECK_NULL_VOID(textFieldPattern);
-    auto autoFillController = textFieldPattern->GetAutoFillController();
+    auto autoFillController = textFieldPattern->GetOrCreateAutoFillController();
     CHECK_NULL_VOID(autoFillController);
     auto paragraph = autoFillController->GetAutoFillParagraph();
     CHECK_NULL_VOID(paragraph);
@@ -755,7 +736,7 @@ void TextFieldContentModifier::DoAutoFillDraw(DrawingContext& context)
     paragraph->UpdateColor(defaultCharIndex, length, autoFillEmphasizeCharTextColor_);
 
     auto emphasizeTranslationOffset = autoFillTranslationOffset_->Get();
-    auto isRTL = layoutProperty->GetNonAutoLayoutDirection() == TextDirection::RTL;
+    auto isRTL = autoFillController->GetTextDirection(layoutProperty) == TextDirection::RTL;
     canvas.Save();
     auto textShowWidth = std::abs(emphasizeTranslationOffset);
     auto clipRectX0 = contentRect.GetX();

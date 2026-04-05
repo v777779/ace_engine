@@ -14,6 +14,7 @@
  */
 #include "node_toggle_modifier.h"
 
+#include "core/common/resource/resource_parse_utils.h"
 #include "core/components/checkable/checkable_theme.h"
 #include "core/components_ng/base/view_abstract.h"
 #include "core/components_ng/pattern/toggle/toggle_model_ng.h"
@@ -65,14 +66,20 @@ void SetToggleSelectedColor(ArkUINodeHandle node, ArkUI_Uint32 selectedColor)
 void SetToggleSelectedColorPtr(ArkUINodeHandle node, ArkUI_Uint32 selectedColor, void* colorRawPtr)
 {
     CHECK_NULL_VOID(node);
-    SetToggleSelectedColor(node, selectedColor);
+    Color result = Color(selectedColor);
     if (SystemProperties::ConfigChangePerform()) {
         auto* frameNode = reinterpret_cast<FrameNode*>(node);
         CHECK_NULL_VOID(frameNode);
-        auto* color = reinterpret_cast<ResourceObject*>(colorRawPtr);
-        auto colorResObj = AceType::Claim(color);
-        ToggleModelNG::CreateWithResourceObj(frameNode, ToggleColorType::SELECTED_COLOR, colorResObj);
+        RefPtr<ResourceObject> resObj;
+        if (!colorRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
+        }
+        ToggleModelNG::CreateWithResourceObj(frameNode, ToggleColorType::SELECTED_COLOR, resObj);
     }
+    SetToggleSelectedColor(node, result.GetValue());
 }
 
 void ResetToggleSelectedColor(ArkUINodeHandle node)
@@ -97,14 +104,20 @@ void SetToggleSwitchPointColor(ArkUINodeHandle node, ArkUI_Uint32 switchPointCol
 void SetToggleSwitchPointColorPtr(ArkUINodeHandle node, ArkUI_Uint32 switchPointColor, void* colorRawPtr)
 {
     CHECK_NULL_VOID(node);
-    SetToggleSwitchPointColor(node, switchPointColor);
+    Color result = Color(switchPointColor);
     if (SystemProperties::ConfigChangePerform()) {
         auto* frameNode = reinterpret_cast<FrameNode*>(node);
         CHECK_NULL_VOID(frameNode);
-        auto* color = reinterpret_cast<ResourceObject*>(colorRawPtr);
-        auto colorResObj = AceType::Claim(color);
-        ToggleModelNG::CreateWithResourceObj(frameNode, ToggleColorType::SWITCH_POINT_COLOR, colorResObj);
+        RefPtr<ResourceObject> resObj;
+        if (!colorRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
+        }
+        ToggleModelNG::CreateWithResourceObj(frameNode, ToggleColorType::SWITCH_POINT_COLOR, resObj);
     }
+    SetToggleSwitchPointColor(node, result.GetValue());
 }
 
 void ResetToggleSwitchPointColor(ArkUINodeHandle node)
@@ -341,14 +354,20 @@ void SetToggleUnselectedColor(ArkUINodeHandle node, ArkUI_Uint32 unselectedColor
 void SetToggleUnselectedColorPtr(ArkUINodeHandle node, ArkUI_Uint32 unselectedColor, void* colorRawPtr)
 {
     CHECK_NULL_VOID(node);
-    SetToggleUnselectedColor(node, unselectedColor);
+    Color result = Color(unselectedColor);
     if (SystemProperties::ConfigChangePerform()) {
         auto* frameNode = reinterpret_cast<FrameNode*>(node);
         CHECK_NULL_VOID(frameNode);
-        auto* color = reinterpret_cast<ResourceObject*>(colorRawPtr);
-        auto colorResObj = AceType::Claim(color);
-        ToggleModelNG::CreateWithResourceObj(frameNode, ToggleColorType::UN_SELECTED_COLOR, colorResObj);
+        RefPtr<ResourceObject> resObj;
+        if (!colorRawPtr) {
+            ResourceParseUtils::CompleteResourceObjectFromColor(
+                resObj, result, ResourceParseUtils::MakeNativeNodeInfo(frameNode));
+        } else {
+            resObj = AceType::Claim(reinterpret_cast<ResourceObject*>(colorRawPtr));
+        }
+        ToggleModelNG::CreateWithResourceObj(frameNode, ToggleColorType::UN_SELECTED_COLOR, resObj);
     }
+    SetToggleUnselectedColor(node, result.GetValue());
 }
 
 void ResetToggleUnselectedColor(ArkUINodeHandle node)
@@ -439,6 +458,13 @@ void SetToggleState(ArkUINodeHandle node, ArkUI_Bool isOn)
     ToggleModelNG::SetToggleState(frameNode, static_cast<bool>(isOn));
 }
 
+ArkUI_Bool GetToggleState(ArkUINodeHandle node)
+{
+    auto* frameNode = reinterpret_cast<FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, false);
+    return ToggleModelNG::GetToggleState(frameNode);
+}
+
 void SetToggleOnChange(ArkUINodeHandle node, void* callback)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
@@ -458,50 +484,11 @@ void ResetToggleOnChange(ArkUINodeHandle node)
     ToggleModelNG::OnChange(frameNode, nullptr);
 }
 
-void SetToggleMargin(ArkUINodeHandle node, const struct ArkUISizeType* top, const struct ArkUISizeType* right,
-    const struct ArkUISizeType* bottom, const struct ArkUISizeType* left)
-{
-    auto* frameNode = reinterpret_cast<FrameNode*>(node);
-    CHECK_NULL_VOID(frameNode);
-    CalcLength topDimen;
-    CalcLength rightDimen;
-    CalcLength bottomDimen;
-    CalcLength leftDimen;
-    if (top->string != nullptr) {
-        topDimen = CalcLength(top->string);
-    } else {
-        topDimen = CalcLength(top->value, static_cast<DimensionUnit>(top->unit));
-    }
-    if (right->string != nullptr) {
-        rightDimen = CalcLength(right->string);
-    } else {
-        rightDimen = CalcLength(right->value, static_cast<DimensionUnit>(right->unit));
-    }
-    if (bottom->string != nullptr) {
-        bottomDimen = CalcLength(bottom->string);
-    } else {
-        bottomDimen = CalcLength(bottom->value, static_cast<DimensionUnit>(bottom->unit));
-    }
-    if (left->string != nullptr) {
-        leftDimen = CalcLength(left->string);
-    } else {
-        leftDimen = CalcLength(left->value, static_cast<DimensionUnit>(left->unit));
-    }
-    NG::PaddingProperty paddings;
-    paddings.top = std::optional<CalcLength>(topDimen);
-    paddings.bottom = std::optional<CalcLength>(bottomDimen);
-    paddings.left = std::optional<CalcLength>(leftDimen);
-    paddings.right = std::optional<CalcLength>(rightDimen);
-    ToggleModelNG::SetIsUserSetMargin(frameNode, true);
-    ViewAbstract::SetMargin(frameNode, paddings);
-}
-
-void ResetToggleMargin(ArkUINodeHandle node)
+void SetIsUserSetMargin(ArkUINodeHandle node)
 {
     auto* frameNode = reinterpret_cast<FrameNode*>(node);
     CHECK_NULL_VOID(frameNode);
     ToggleModelNG::SetIsUserSetMargin(frameNode, true);
-    ViewAbstract::SetMargin(frameNode, NG::CalcLength(0.0));
 }
 } // namespace
 namespace NodeModifier {
@@ -539,13 +526,13 @@ const ArkUIToggleModifier* GetToggleModifier()
         .setToggleState = SetToggleState,
         .setToggleOnChange = SetToggleOnChange,
         .resetToggleOnChange = ResetToggleOnChange,
+        .setIsUserSetMargin = SetIsUserSetMargin,
         .setToggleSelectedColorPtr = SetToggleSelectedColorPtr,
         .setToggleSwitchPointColorPtr = SetToggleSwitchPointColorPtr,
         .setTogglePointRadiusPtr = SetTogglePointRadiusPtr,
         .setToggleUnselectedColorPtr = SetToggleUnselectedColorPtr,
         .setToggleTrackBorderRadiusPtr = SetToggleTrackBorderRadiusPtr,
-        .setToggleMargin = SetToggleMargin,
-        .resetToggleMargin = ResetToggleMargin,
+        .getToggleState = GetToggleState,
     };
     CHECK_INITIALIZED_FIELDS_END(modifier, 0, 0, 0); // don't move this line
 

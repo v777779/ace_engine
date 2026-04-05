@@ -931,12 +931,15 @@ HWTEST_F(DragEventTestNg, DragEventActuatorMountGatherNodeTest008, TestSize.Leve
     ASSERT_NE(gestureEventHub, nullptr);
     auto dragEventActuator = AceType::MakeRefPtr<DragEventActuator>(
         AceType::WeakClaim(AceType::RawPtr(gestureEventHub)), DRAG_DIRECTION, FINGERS_NUMBER, DISTANCE);
-    framenode->previewOption_.defaultAnimationBeforeLifting = true;
+    auto dragPreviewOption = framenode->GetDragPreviewOption();
+    dragPreviewOption.defaultAnimationBeforeLifting = true;
+    framenode->SetDragPreviewOptions(dragPreviewOption);
     ASSERT_NE(dragEventActuator, nullptr);
     DragAnimationHelper::SetImageNodeInitAttr(framenode, framenode1);
     framenode->layoutProperty_ = nullptr;
     DragAnimationHelper::SetImageNodeInitAttr(framenode, framenode1);
-    EXPECT_EQ(framenode->previewOption_.defaultAnimationBeforeLifting, true);
+    dragPreviewOption = framenode->GetDragPreviewOption();
+    EXPECT_EQ(dragPreviewOption.defaultAnimationBeforeLifting, true);
 }
 
 /**
@@ -1710,7 +1713,9 @@ HWTEST_F(DragEventTestNg, DragEventActuatorMountGatherNodeTest026, TestSize.Leve
     ASSERT_NE(gestureEventHub, nullptr);
     auto dragEventActuator = AceType::MakeRefPtr<DragEventActuator>(
         AceType::WeakClaim(AceType::RawPtr(gestureEventHub)), DRAG_DIRECTION, FINGERS_NUMBER, DISTANCE);
-    framenode->previewOption_.defaultAnimationBeforeLifting = true;
+    auto dragPreviewOption = framenode->GetDragPreviewOption();
+    dragPreviewOption.defaultAnimationBeforeLifting = true;
+    framenode->SetDragPreviewOptions(dragPreviewOption);
     ASSERT_NE(dragEventActuator, nullptr);
     auto mockRenderContext = AceType::MakeRefPtr<MockRenderContext>();
     mockRenderContext->UpdateOpacity(1.1f);
@@ -1812,7 +1817,7 @@ HWTEST_F(DragEventTestNg, DragEventActuatorMountGatherNodeTest028, TestSize.Leve
     auto eventHubp = parentNode->GetEventHub<EventHub>();
     ASSERT_NE(eventHubp, nullptr);
     auto func = [](const RefPtr<OHOS::Ace::DragEvent>&, const std::string&) { return DragDropInfo(); };
-    eventHubp->onDragStart_ = func;
+    eventHubp->SetOnDragStart(std::move(func));
     dragEventActuator->IsBelongToMultiItemNode(frameNode);
     auto childNode = FrameNode::CreateFrameNode(V2::GRID_ITEM_ETS_TAG, 1, AceType::MakeRefPtr<Pattern>(), false);
     ASSERT_NE(childNode, nullptr);
@@ -1917,5 +1922,24 @@ HWTEST_F(DragEventTestNg, DragEventActuatorMountGatherNodeTest030, TestSize.Leve
     framenode->SetDragPreviewOptions(previewOptions);
     dragEventActuator->PrepareShadowParametersForDragData(framenode, arkExtraInfoJson, scale);
     EXPECT_EQ(previewOptions.options.opacity, 0.0f);
+}
+
+/**
+ * @tc.name: DragEventAutoHideComponentUniqueIds001
+ * @tc.desc: Test autoHideComponentUniqueIds normalization.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DragEventTestNg, DragEventAutoHideComponentUniqueIds001, TestSize.Level1)
+{
+    auto dragEvent = AceType::MakeRefPtr<OHOS::Ace::DragEvent>();
+    ASSERT_NE(dragEvent, nullptr);
+
+    const std::vector<int32_t> inputUniqueIds = { 1, 2, 1, 3, 2 };
+    const std::vector<int32_t> expectedUniqueIds = { 1, 2, 3 };
+    dragEvent->SetAutoHideComponentUniqueIds(inputUniqueIds);
+    EXPECT_EQ(dragEvent->GetAutoHideComponentUniqueIds(), expectedUniqueIds);
+
+    dragEvent->SetAutoHideComponentUniqueIds({});
+    EXPECT_TRUE(dragEvent->GetAutoHideComponentUniqueIds().empty());
 }
 }

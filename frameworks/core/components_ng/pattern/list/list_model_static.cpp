@@ -16,6 +16,7 @@
 #include "core/components_ng/pattern/list/list_model_static.h"
 
 #include "base/utils/multi_thread.h"
+#include "core/components/list/list_theme.h"
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/list/list_layout_property.h"
 #include "core/components_ng/pattern/list/list_pattern.h"
@@ -80,8 +81,8 @@ void ListModelStatic::SetListScrollBar(FrameNode* frameNode, const std::optional
     CHECK_NULL_VOID(frameNode);
     int32_t displayNumber;
 
-    if (!barState.has_value() || (barState.has_value() &&
-        (barState.value() < 0 || barState.value() >= static_cast<int32_t>(DISPLAY_MODE.size())))) {
+    if (!barState.has_value() ||
+        (barState.value() < 0 || barState.value() >= static_cast<int32_t>(DISPLAY_MODE.size()))) {
         displayNumber = static_cast<int32_t>(DisplayMode::AUTO);
     } else {
         displayNumber = barState.value();
@@ -90,13 +91,35 @@ void ListModelStatic::SetListScrollBar(FrameNode* frameNode, const std::optional
     ScrollableModelNG::SetScrollBarMode(frameNode, displayNumber);
 }
 
-void ListModelStatic::SetDivider(FrameNode* frameNode, const std::optional<V2::ItemDivider>& divider)
+void ListModelStatic::SetDivider(
+    FrameNode* frameNode, const std::optional<V2::ItemDivider>& divider, bool needGetThemeColor)
 {
     if (divider.has_value()) {
+        FREE_NODE_CHECK(frameNode, SetDivider, frameNode, divider, needGetThemeColor);
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, Divider, divider.value(), frameNode);
     } else {
         ACE_RESET_NODE_LAYOUT_PROPERTY(ListLayoutProperty, Divider, frameNode);
     }
+}
+
+void ListModelStatic::SetDividerMultiThread(
+    FrameNode* frameNode, const std::optional<V2::ItemDivider>& divider, bool needGetThemeColor)
+{
+    CHECK_NULL_VOID(frameNode);
+    frameNode->PostAfterAttachMainTreeTask([
+        weak = AceType::WeakClaim(frameNode), divider, needGetThemeColor]() {
+        auto node = weak.Upgrade();
+        CHECK_NULL_VOID(node);
+        V2::ItemDivider dividerValue = divider.value();
+        if (needGetThemeColor) {
+            auto context = node->GetContext();
+            CHECK_NULL_VOID(context);
+            auto listTheme = context->GetTheme<ListTheme>();
+            auto themeColor = listTheme ? listTheme->GetDividerColor() : Color::TRANSPARENT;
+            dividerValue.color = themeColor;
+        }
+        ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, Divider, dividerValue, node);
+    });
 }
 
 void ListModelStatic::SetSticky(FrameNode* frameNode, const std::optional<int32_t>& stickyStyle)
@@ -143,9 +166,17 @@ RefPtr<ScrollProxy> ListModelStatic::GetOrCreateScrollBarProxy(FrameNode* frameN
     return scrollBarProxy;
 }
 
+void ListModelStatic::SetScrollBarProxy(FrameNode* frameNode, const RefPtr<ScrollProxy> proxy)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ListPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetScrollBarProxy(AceType::DynamicCast<ScrollBarProxy>(proxy));
+}
+
 void ListModelStatic::SetInitialIndex(FrameNode* frameNode, const std::optional<int32_t>& initialIndex)
 {
-    if (initialIndex.has_value()) {
+    if (initialIndex.has_value() && initialIndex.value() >= 0) {
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, InitialIndex, initialIndex.value(), frameNode);
     } else {
         ACE_RESET_NODE_LAYOUT_PROPERTY(ListLayoutProperty, InitialIndex, frameNode);
@@ -165,6 +196,7 @@ void ListModelStatic::SetCachedCount(FrameNode* frameNode, const std::optional<i
 void ListModelStatic::SetCachedCount(
         FrameNode* frameNode, const std::optional<int32_t>& count, const std::optional<bool>& show)
 {
+    ACE_RESET_NODE_LAYOUT_PROPERTY(ListLayoutProperty, CacheRange, frameNode);
     if (count.has_value()) {
         int32_t value = count.value() < 0 ? 1 : count.value();
         ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, CachedCount, value, frameNode);
@@ -176,6 +208,43 @@ void ListModelStatic::SetCachedCount(
     } else {
         ACE_RESET_NODE_LAYOUT_PROPERTY(ListLayoutProperty, ShowCachedItems, frameNode);
     }
+}
+
+void ListModelStatic::SetCacheRange(FrameNode* frameNode, NG::CacheRange cacheRange, bool show)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, CacheRange, cacheRange, frameNode);
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, ShowCachedItems, show, frameNode);
+}
+
+void ListModelStatic::SetItemFillPolicy(FrameNode* frameNode, PresetFillType fillType)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, ItemFillPolicy, fillType, frameNode);
+}
+
+void ListModelStatic::ResetItemFillPolicy(FrameNode* frameNode)
+{
+    ACE_RESET_NODE_LAYOUT_PROPERTY_WITH_FLAG(ListLayoutProperty, ItemFillPolicy, PROPERTY_UPDATE_MEASURE, frameNode);
+}
+
+void ListModelStatic::SetFocusWrapMode(FrameNode* frameNode, FocusWrapMode focusWrapMode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ListPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetFocusWrapMode(focusWrapMode);
+}
+
+void ListModelStatic::SetSyncLoad(FrameNode* frameNode, bool enabled)
+{
+    ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, SyncLoad, enabled, frameNode);
+}
+
+void ListModelStatic::SetScrollSnapAnimationSpeed(FrameNode* frameNode, ScrollSnapAnimationSpeed speed)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ListPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetSnapSpeed(speed);
 }
 
 void ListModelStatic::SetListNestedScroll(FrameNode* frameNode, const std::optional<NestedScrollMode>& forward,
@@ -528,6 +597,14 @@ void ListModelStatic::SetLaneMaxLength(FrameNode* frameNode, const Dimension& la
 void ListModelStatic::SetEditMode(FrameNode* frameNode, bool editMode)
 {
     ACE_UPDATE_NODE_LAYOUT_PROPERTY(ListLayoutProperty, EditMode, editMode, frameNode);
+}
+
+void ListModelStatic::SetEditModeOptions(FrameNode* frameNode, const EditModeOptions& editModeOptions)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto pattern = frameNode->GetPattern<ListPattern>();
+    CHECK_NULL_VOID(pattern);
+    pattern->SetEditModeOptions(editModeOptions);
 }
 
 void ListModelStatic::SetMultiSelectable(FrameNode* frameNode, const std::optional<bool>& selectable)

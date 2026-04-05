@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,20 +16,24 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_WATERFLOW_WATER_FLOW_PATTERN_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_WATERFLOW_WATER_FLOW_PATTERN_H
 
+#include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/scrollable/scrollable_pattern.h"
 #include "core/components_ng/pattern/waterflow/layout/water_flow_layout_algorithm_base.h"
 #include "core/components_ng/pattern/waterflow/layout/water_flow_layout_info_base.h"
-#include "core/components_ng/pattern/waterflow/water_flow_accessibility_property.h"
 #include "core/components_ng/pattern/waterflow/water_flow_content_modifier.h"
-#include "core/components_ng/pattern/waterflow/water_flow_event_hub.h"
-#include "core/components_ng/pattern/waterflow/water_flow_layout_property.h"
-#include "core/components_ng/pattern/waterflow/water_flow_sections.h"
 
 namespace OHOS::Ace::NG {
+class WaterFlowAccessibilityProperty;
+class WaterFlowEventHub;
+class WaterFlowLayoutProperty;
+class WaterFlowSections;
+
 class ACE_EXPORT WaterFlowPattern : public ScrollablePattern {
     DECLARE_ACE_TYPE(WaterFlowPattern, ScrollablePattern);
 
 public:
+    ~WaterFlowPattern() override;
+
     bool UpdateCurrentOffset(float delta, int32_t source) override;
     bool IsScrollable() const override;
     bool IsAtTop() const override;
@@ -54,20 +58,11 @@ public:
 
     RefPtr<LayoutAlgorithm> CreateLayoutAlgorithm() override;
 
-    RefPtr<LayoutProperty> CreateLayoutProperty() override
-    {
-        return MakeRefPtr<WaterFlowLayoutProperty>();
-    }
+    RefPtr<LayoutProperty> CreateLayoutProperty() override;
 
-    RefPtr<EventHub> CreateEventHub() override
-    {
-        return MakeRefPtr<WaterFlowEventHub>();
-    }
+    RefPtr<EventHub> CreateEventHub() override;
 
-    RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override
-    {
-        return MakeRefPtr<WaterFlowAccessibilityProperty>();
-    }
+    RefPtr<AccessibilityProperty> CreateAccessibilityProperty() override;
 
     RefPtr<ScrollableController> GetPositionController() const
     {
@@ -106,7 +101,7 @@ public:
 
     int32_t GetChildrenCount() const;
 
-    float GetTotalOffset() const override
+    double GetTotalOffset() const override
     {
         return -layoutInfo_->Offset();
     }
@@ -163,9 +158,11 @@ public:
      */
     void OnSectionChanged(int32_t start);
 
+    void DumpInfo() override;
     void DumpAdvanceInfo() override;
     void GetEventDumpInfo() override;
     void GetEventDumpInfo(std::unique_ptr<JsonValue>& json) override;
+    void DumpSimplifyInfo(std::shared_ptr<JsonValue>& json) override;
 
     void SetPreloadList(std::list<int32_t>&& preload)
     {
@@ -229,6 +226,18 @@ public:
         layoutInfo_->InvalidatedOffset();
     }
 
+    void OnColorModeChange(uint32_t colorMode) override;
+
+    float GetContentStartOffset() const override
+    {
+        return layoutInfo_->contentStartOffset_;
+    }
+    float GetContentEndOffset() const override
+    {
+        return layoutInfo_->contentEndOffset_;
+    }
+
+    int32_t GetFirstIndex() const override;
 private:
     DisplayMode GetDefaultScrollBarDisplayMode() const override
     {
@@ -242,6 +251,7 @@ private:
     void TriggerPostLayoutEvents();
 
     void SetEdgeEffectCallback(const RefPtr<ScrollEdgeEffect>& scrollEffect) override;
+    double GetTopEdgeEffectPos() const;
     SizeF GetContentSize() const;
     void MarkDirtyNodeSelf();
     void OnScrollEndCallback() override;
@@ -251,6 +261,10 @@ private:
     void FireOnReachEnd(const OnReachEvent& onReachEnd, const OnReachEvent& onJSFrameNodeReachEnd) override;
     void FireOnScrollIndex(bool indexChanged, const ScrollIndexFunc& onScrollIndex);
     void DumpInfoAddSections();
+    void ReportOnItemWaterFlowEvent(const std::string& event);
+    void ReportOnItemWaterFlowScrollEvent(const std::string& event, int32_t startindex, int32_t endindex);
+    int32_t OnInjectionEvent(const std::string& command) override;
+    void PostAsyncLoadTask();
 
     /**
      * @param step FocusStep
@@ -259,11 +273,19 @@ private:
      */
     WeakPtr<FocusHub> GetNextFocusNode(FocusStep step, const WeakPtr<FocusHub>& currentFocusNode);
 
+    /**
+     * @brief Check if current position is at a section boundary
+     * @return true if at section start, false otherwise
+     */
+    bool IsAtSectionBoundary() const;
+
+    void ScrollToFocusItem(int32_t itemIdx);
+
     std::optional<int32_t> targetIndex_;
     RefPtr<WaterFlowLayoutInfoBase> layoutInfo_ = WaterFlowLayoutInfoBase::Create(LayoutMode::TOP_DOWN);
     RefPtr<WaterFlowSections> sections_;
 
-    float prevOffset_ = 0.0f;
+    double prevOffset_ = 0.0;
     SizeF lastSize_;
     std::pair<int32_t, int32_t> itemRange_ = { -1, -1 };
     WeakPtr<UINode> footer_;

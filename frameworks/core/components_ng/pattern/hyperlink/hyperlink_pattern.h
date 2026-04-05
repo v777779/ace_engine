@@ -50,11 +50,20 @@ public:
     }
 
     void UpdatePropertyImpl(const std::string& key, RefPtr<PropertyValueBase> value) override;
+    int32_t OnInjectionEvent(const std::string& command) override;
 
 private:
     void LinkToAddress();
     void OnAttachToFrameNode() override;
     void OnDetachFromFrameNode(FrameNode* node) override;
+    void OnAttachToMainTree() override;
+    void OnDetachFromMainTree() override;
+
+    void OnAttachToFrameNodeMultiThread();
+    void OnAttachToMainTreeMultiThread();
+    void OnDetachFromMainTreeMultiThread();
+    void OnDetachFromFrameNodeMultiThread(FrameNode* frameNode);
+
     void OnModifyDone() override;
 
     void InitClickEvent(const RefPtr<GestureEventHub>& gestureHub) override;

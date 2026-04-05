@@ -13,7 +13,7 @@
  * limitations under the License.
  *
  */
-/// <reference path="./arkts_util.d.ts" />
+/// <reference path="./module_map.d.ts" />
 class Utils {
     private static currentAppApiVersion: number = -1;
     private static arkTsUtil: ArkTsUtil | undefined = undefined;
@@ -40,5 +40,9 @@ class Utils {
             Utils.arkTsUtil = requireInternal('util');
         }
         return Utils.arkTsUtil;
+    }
+
+    public static isNull(obj: any): boolean {
+      return obj === null || obj === undefined;
     }
 }

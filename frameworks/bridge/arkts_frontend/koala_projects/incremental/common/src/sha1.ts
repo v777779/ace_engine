@@ -13,14 +13,14 @@
  * limitations under the License.
  */
 
-import { CustomTextDecoder } from "@koalaui/compat"
-import { int32 } from "@koalaui/compat"
+import { CustomTextDecoder } from '@koalaui/compat'
+import { int32 } from '@koalaui/compat'
 
 const K = [
     (0x5a827999 | 0) as int32,
     (0x6ed9eba1 | 0) as int32,
-    (0x8f1bbcdc | 0) as int32,
-    (0xca62c1d6 | 0) as int32,
+    (-0x70e44324 | 0) as int32,
+    (-0x359d3e2a | 0) as int32,
 ]
 
 const inputBytes = 64
@@ -38,10 +38,10 @@ export function createSha1(): SHA1Hash {
 
 export class SHA1Hash {
     private A = (0x67452301 | 0) as int32
-    private B = (0xefcdab89 | 0) as int32
-    private C = (0x98badcfe | 0) as int32
+    private B = (-0x10325477 | 0) as int32
+    private C = (-0x67452302 | 0) as int32
     private D = (0x10325476 | 0) as int32
-    private E = (0xc3d2e1f0 | 0) as int32
+    private E = (-0x3c2d1e10 | 0) as int32
     private readonly _byte: Uint8Array
     private readonly _word: Int32Array
     private _size = 0
@@ -68,8 +68,8 @@ export class SHA1Hash {
     }
 
     update(data: Int32Array | Float32Array | Uint32Array | Uint8Array): SHA1Hash {
-        if (data == null) {
-            throw new TypeError("SHA1Hash expected non-null data: ")
+        if (data === null) {
+            throw new TypeError('SHA1Hash expected non-null data: ')
         }
 
         let byteOffset: int32 = 0
@@ -102,7 +102,7 @@ export class SHA1Hash {
         let offset: int32 = 0
 
         // longer than 1 block
-        if ((blocks != 0) && !(byteOffset & 3) && !(this._size % inputBytes)) {
+        if ((blocks !== 0) && !(byteOffset & 3) && !(this._size % inputBytes)) {
             const block = new Int32Array(buffer!, byteOffset, blocks * inputWords)
             while (blocks--) {
                 this._int32(block, offset >> 2)
@@ -112,13 +112,13 @@ export class SHA1Hash {
         }
 
         // data: TypedArray | DataView
-        if ((BYTES_PER_ELEMENT != 1) && buffer != undefined) {
+        if ((BYTES_PER_ELEMENT !== 1) && buffer !== undefined) {
             const rest = new Uint8Array(buffer, byteOffset + offset, length - offset)
             return this._uint8(rest)
         }
 
         // no more bytes
-        if (offset == length) return this
+        if (offset === length) return this
 
         return this._uint8(new Uint8Array(buffer!), offset)
     }
@@ -206,16 +206,16 @@ export class SHA1Hash {
         offset = ((offset ??  0) | 0) as int32
 
         while (i < inputWords) {
-            W[i++] = swap32(data[offset!++] as int32)
+            W[i++] = swap32(data[offset!++].toInt())
         }
 
         for (i = inputWords; i < workWords; i++) {
-            W[i] = rotate1((W[i - 3] as int32) ^ (W[i - 8] as int32) ^ (W[i - 14] as int32) ^ (W[i - 16] as int32))
+            W[i] = rotate1((W[i - 3].toInt()) ^ (W[i - 8].toInt()) ^ (W[i - 14].toInt()) ^ (W[i - 16].toInt()))
         }
 
         for (i = 0; i < workWords; i++) {
             const S = (i / 20) | 0
-            const T = ((rotate5(A) + ft(S, B, C, D) + E + W[i] + K[S]) as int32) | 0
+            const T = ((rotate5(A) + ft(S, B, C, D) + E + W[i] + K[S]).toInt()) | 0
             E = D
             D = C
             C = rotate30(B)
@@ -259,14 +259,14 @@ export class SHA1Hash {
 
         // input size
         const bits64: int32 = this._size * 8
-        const low32: int32 = ((bits64 & 0xffffffff) as int32 >>> 0) as int32
-        const high32: int32 = ((bits64 - low32) as int32 / 0x100000000) as int32
+        const low32: int32 = ((bits64 & 0xffffffff) >>> 0).toInt()
+        const high32: int32 = ((bits64 - low32) / 0x100000000).toInt()
         if (high32) _word[highIndex] = swap32(high32) as int32
         if (low32) _word[lowIndex] = swap32(low32) as int32
 
         this._int32(_word)
 
-        return (encoding === "hex") ? this._hex() : this._bin()
+        return (encoding === 'hex') ? this._hex() : this._bin()
     }
 
     private _hex(): string {
@@ -303,10 +303,10 @@ type NN = (num: int32) => int32
 
 const W = new Int32Array(workWords)
 
-let sharedBuffer: ArrayBuffer
+let sharedBuffer: ArrayBuffer = new ArrayBuffer(allocTotal)
 let sharedOffset: int32 = 0
 
-const swapLE: NN = ((c:int32):int32 => (((c << 24) & 0xff000000) | ((c << 8) & 0xff0000) | ((c >> 8) & 0xff00) | ((c >> 24) & 0xff)))
+const swapLE: NN = ((c:int32):int32 => ((((c << 24) & 0xff000000) | ((c << 8) & 0xff0000) | ((c >> 8) & 0xff00) | ((c >> 24) & 0xff)).toInt()))
 const swapBE: NN = ((c:int32):int32 => c)
 const swap32: NN = isBE() ? swapBE : swapLE
 const rotate1: NN = (num: int32): int32 => (num << 1) | (num >>> 31)
@@ -317,13 +317,13 @@ function isBE(): boolean {
     let a16 = new Uint16Array(1)
     a16[0] = 0xFEFF
     let a8 = new Uint8Array(a16.buffer)
-    return a8[0] == 0xFE // BOM
+    return a8[0] === 0xFE // BOM
 }
 
 
 function ft(s: int32, b: int32, c: int32, d: int32) {
-    if (s == 0) return (b & c) | ((~b) & d)
-    if (s == 2) return (b & c) | (b & d) | (c & d)
+    if (s === 0) return (b & c) | ((~b) & d)
+    if (s === 2) return (b & c) | (b & d) | (c & d)
     return b ^ c ^ d
 }
 

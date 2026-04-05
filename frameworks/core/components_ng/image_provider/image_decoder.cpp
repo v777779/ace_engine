@@ -20,19 +20,41 @@
 #include "include/codec/SkCodec.h"
 #include "include/core/SkGraphics.h"
 
-#include "base/image/image_source.h"
 #include "base/image/pixel_map.h"
 #include "base/log/ace_trace.h"
 #include "core/components_ng/image_provider/drawing_image_data.h"
 #include "core/components_ng/image_provider/image_utils.h"
-#include "core/components_ng/render/adapter/pixelmap_image.h"
 #include "core/components_ng/render/adapter/drawing_image.h"
+#include "core/components_ng/render/adapter/pixelmap_image.h"
 #include "core/image/image_compressor.h"
 #include "core/image/image_loader.h"
 
 namespace OHOS::Ace::NG {
 std::shared_mutex ImageDecoder::pixelMapMtx_;
 std::unordered_map<std::string, WeakPtr<PixelMap>> ImageDecoder::weakPixelMapCache_;
+
+namespace {
+constexpr int32_t INT_ZERO = 0;
+constexpr int32_t DEFAULT_DMA_SIZE = 512;
+constexpr char IMAGE_JPEG_MIME[] = "image/jpeg";
+constexpr char IMAGE_HEIC_MIME[] = "image/heic";
+constexpr char IMAGE_HEIF_MIME[] = "image/heif";
+constexpr char XMAGE_MODE[] = "HwMnoteXmageMode";
+constexpr char DEFAULT_XMAGE_MODE[] = "default_exif_value";
+
+bool IsSupportDma(const RefPtr<ImageSource>& imageSource, int32_t width, int32_t height)
+{
+    std::pair<int32_t, int32_t> sourceSize = imageSource->GetImageSize();
+    if (width > INT_ZERO && height > INT_ZERO) {
+        if (width >= DEFAULT_DMA_SIZE && height >= DEFAULT_DMA_SIZE) {
+            return true;
+        }
+    } else if (sourceSize.first >= DEFAULT_DMA_SIZE && sourceSize.second >= DEFAULT_DMA_SIZE) {
+        return true;
+    }
+    return false;
+}
+} // namespace
 
 WeakPtr<PixelMap> ImageDecoder::GetFromPixelMapCache(const ImageSourceInfo& imageSourceInfo, const SizeF& size)
 {
@@ -145,8 +167,8 @@ RefPtr<CanvasImage> ImageDecoder::MakePixmapImage(
     std::string isTrimMemRebuild = "False";
     if (imageDfxConfig.GetIsTrimMemRecycle()) {
         isTrimMemRebuild = "True";
-        TAG_LOGI(AceLogTag::ACE_IMAGE, "CreateImagePixelMapRebuild, %{private}s-%{public}s.",
-            src.c_str(), imageDfxConfig.ToStringWithoutSrc().c_str());
+        TAG_LOGI(AceLogTag::ACE_IMAGE, "CreateImagePixelMapRebuild, %{private}s-%{public}s.", src.c_str(),
+            imageDfxConfig.ToStringWithoutSrc().c_str());
     }
     ACE_SCOPED_TRACE("CreateImagePixelMap %s, sourceSize: [ %d, %d ], targetSize: [ %d, %d ],"
                      "[%d-%d-%d], isTrimMemRebuild: [%s]",
@@ -157,6 +179,8 @@ RefPtr<CanvasImage> ImageDecoder::MakePixmapImage(
 
     PixelMapConfig pixelMapConfig = { imageDecoderConfig.imageQuality_, imageDecoderConfig.isHdrDecoderNeed_,
         imageDecoderConfig.photoDecodeFormat_ };
+    // Handle special decode format cases for jepg and heic/heif
+    HandleDecodeFormat(obj, source, pixelMapConfig, width, height);
     auto pixmap = source->CreatePixelMap({ width, height }, mediaErrorCode, pixelMapConfig);
     if (!pixmap) {
         TAG_LOGE(AceLogTag::ACE_IMAGE, "PixelMap Create Fail, %{private}s-%{public}s.", src.c_str(),
@@ -185,6 +209,35 @@ void ImageDecoder::SwapDecodeSize(const RefPtr<ImageObject>& obj, int32_t& width
     }
 }
 
+void ImageDecoder::HandleDecodeFormat(
+    const RefPtr<ImageObject>& obj, const RefPtr<ImageSource>& imageSource, PixelMapConfig& config,
+    int32_t width, int32_t height)
+{
+    if (!obj->GetIsYUVDecode()) {
+        return;
+    }
+    auto xmageMode = imageSource->GetProperty(XMAGE_MODE);
+    if (xmageMode != DEFAULT_XMAGE_MODE) {
+        return;
+    }
+    auto mimeType = imageSource->GetEncodedFormat();
+    if (mimeType == IMAGE_JPEG_MIME) {
+        config.desiredDecodeFormat = PixelFormat::NV21;
+        if (IsSupportDma(imageSource, width, height)) {
+            config.allocatorType = AllocatorType::DMA_ALLOC;
+        }
+        return;
+    } else if (mimeType == IMAGE_HEIC_MIME || mimeType == IMAGE_HEIF_MIME) {
+        if (imageSource->IsHeifWithoutAlpha()) {
+            config.desiredDecodeFormat = PixelFormat::NV21;
+            if (IsSupportDma(imageSource, width, height)) {
+                config.allocatorType = AllocatorType::DMA_ALLOC;
+            }
+            return;
+        }
+    }
+}
+
 std::shared_ptr<RSImage> ImageDecoder::ForceResizeImage(const std::shared_ptr<RSImage>& image, const RSImageInfo& info)
 {
     ACE_FUNCTION_TRACE();
@@ -205,9 +258,8 @@ std::shared_ptr<RSImage> ImageDecoder::ResizeDrawingImage(
     const RefPtr<ImageObject>& obj, std::shared_ptr<RSData> data, const ImageDecoderConfig& imageDecoderConfig)
 {
     CHECK_NULL_RETURN(data, nullptr);
-    RSDataWrapper* wrapper = new RSDataWrapper{data};
-    auto skData =
-        SkData::MakeWithProc(data->GetData(), data->GetSize(), RSDataWrapperReleaseProc, wrapper);
+    RSDataWrapper* wrapper = new RSDataWrapper { data };
+    auto skData = SkData::MakeWithProc(data->GetData(), data->GetSize(), RSDataWrapperReleaseProc, wrapper);
     auto encodedImage = std::make_shared<RSImage>();
     if (!encodedImage->MakeFromEncoded(data)) {
         return nullptr;

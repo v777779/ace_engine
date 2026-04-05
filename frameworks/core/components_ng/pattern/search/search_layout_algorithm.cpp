@@ -35,6 +35,7 @@ constexpr float AGING_MIN_SCALE = 1.75f;
 constexpr float MAX_FONT_SCALE = 2.0f;
 constexpr int TWO = 2;
 constexpr Dimension DEFAULT_DIVIDER_HEIGHT = 12.0_vp;
+const char SYMBOL_ETS_TAG[] = "SymbolGlyph";
 } // namespace
 
 bool SearchLayoutAlgorithm::IsFixedHeightMode(LayoutWrapper* layoutWrapper)
@@ -100,7 +101,7 @@ void SearchLayoutAlgorithm::CancelImageMeasure(LayoutWrapper* layoutWrapper)
         layoutProperty->GetCancelButtonUDSizeValue().ConvertToPxDistribute(
             minFontScale_, maxFontScale_) : defaultImageHeight,
         searchHeight_));
-    if (cancelImageWrapper->GetHostTag() == V2::SYMBOL_ETS_TAG) {
+    if (cancelImageWrapper->GetHostTag() == SYMBOL_ETS_TAG) {
         imageHeight = CalcSymbolIconHeight(layoutWrapper, CANCEL_IMAGE_INDEX, defaultImageHeight);
     }
     CalcSize imageCalcSize;
@@ -165,6 +166,7 @@ void SearchLayoutAlgorithm::TextFieldMeasure(LayoutWrapper* layoutWrapper)
 
     UpdateFontFeature(layoutWrapper);
     auto constraint = layoutProperty->GetLayoutConstraint();
+    CHECK_NULL_VOID(constraint);
     auto searchWidthMax = CalcSearchWidth(constraint.value(), layoutWrapper);
 
     auto textFieldWidth = CalculateTextFieldWidth(layoutWrapper, searchWidthMax, searchTheme);
@@ -172,9 +174,9 @@ void SearchLayoutAlgorithm::TextFieldMeasure(LayoutWrapper* layoutWrapper)
     auto childLayoutConstraint = layoutProperty->CreateChildConstraint();
     auto widthPolicy = TextBase::GetLayoutCalPolicy(layoutWrapper, true);
     if (widthPolicy == LayoutCalPolicy::WRAP_CONTENT || widthPolicy == LayoutCalPolicy::FIX_AT_IDEAL_SIZE) {
-        textFieldLayoutProperty->UpdateLayoutPolicyProperty(widthPolicy, true);
-        childLayoutConstraint.maxSize.SetWidth(textFieldWidth);
-        childLayoutConstraint.minSize.SetWidth(GetSearchFieldMinWidth(layoutWrapper));
+        textFieldLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::WRAP_CONTENT, true);
+        childLayoutConstraint.maxSize.SetWidth(GetTextFieldMaxWidth(layoutWrapper, widthPolicy, textFieldWidth));
+        childLayoutConstraint.minSize.SetWidth(GetTextFieldMinWidth(layoutWrapper, searchTheme));
     } else {
         textFieldLayoutProperty->UpdateLayoutPolicyProperty(LayoutCalPolicy::NO_MATCH, true);
         childLayoutConstraint.selfIdealSize.SetWidth(textFieldWidth);
@@ -207,6 +209,7 @@ float SearchLayoutAlgorithm::CalculateTextFieldWidth(
     }
 
     auto searchWrapper = layoutWrapper->GetOrCreateChildByIndex(BUTTON_INDEX);
+    CHECK_NULL_RETURN(searchWrapper, 0.0f);
     auto searchButtonNode = searchWrapper->GetHostNode();
     auto searchButtonEvent = searchButtonNode->GetEventHub<ButtonEventHub>();
     auto searchButtonLayoutProperty = searchButtonNode->GetLayoutProperty<ButtonLayoutProperty>();
@@ -219,7 +222,7 @@ float SearchLayoutAlgorithm::CalculateTextFieldWidth(
 
     auto style = layoutProperty->GetCancelButtonStyle().value_or(CancelButtonStyle::INPUT);
     if (style != CancelButtonStyle::INVISIBLE) {
-        textFieldWidth = textFieldWidth - cancelButtonWidth;
+        textFieldWidth = textFieldWidth - cancelButtonWidth - searchTheme->GetRightPaddingWithButton().ConvertToPx();
     }
     if (style == CancelButtonStyle::INVISIBLE && !searchButtonEvent->IsEnabled()) {
         // right padding without cancel button and search button
@@ -303,7 +306,7 @@ void SearchLayoutAlgorithm::ImageMeasure(LayoutWrapper* layoutWrapper)
     auto imageHeight = static_cast<float>(std::min(layoutProperty->HasSearchIconUDSize() ?
         layoutProperty->GetSearchIconUDSizeValue().ConvertToPx() : defaultImageHeight,
         searchHeight_));
-    if (imageWrapper->GetHostTag() == V2::SYMBOL_ETS_TAG) {
+    if (imageWrapper->GetHostTag() == SYMBOL_ETS_TAG) {
         imageHeight = CalcSymbolIconHeight(layoutWrapper, IMAGE_INDEX, defaultImageHeight);
     }
     CalcSize imageCalcSize;
@@ -373,6 +376,7 @@ void SearchLayoutAlgorithm::SearchButtonMeasure(LayoutWrapper* layoutWrapper)
     buttonLayoutProperty->UpdatePixelRound(pixelRound);
 
     // compute searchButton width
+    CHECK_NULL_VOID(layoutProperty->GetLayoutConstraint());
     auto searchWidthMax = CalcSearchWidth(layoutProperty->GetLayoutConstraint().value(), layoutWrapper);
     double searchButtonWidth = searchWidthMax * MAX_SEARCH_BUTTON_RATE;
     double curSearchButtonWidth = buttonGeometryNode->GetFrameSize().Width();
@@ -439,7 +443,10 @@ double SearchLayoutAlgorithm::CalcSearchAdaptHeight(LayoutWrapper* layoutWrapper
     CHECK_NULL_RETURN(searchButtonEvent, true);
     auto searchButtonHeight = searchButtonSizeMeasure_.Height() + 2 *
         searchTheme->GetSearchButtonSpace().ConvertToPxDistribute(minFontScale_, maxFontScale_);
-    searchButtonHeight = (!searchButtonEvent->IsEnabled()) ? 0.0f : searchButtonHeight;
+    auto searchButtonLayoutProperty = buttonNode->GetLayoutProperty<ButtonLayoutProperty>();
+    CHECK_NULL_RETURN(searchButtonLayoutProperty, true);
+    auto needToDisable = searchButtonLayoutProperty->GetAutoDisable().value_or(false);
+    searchButtonHeight = (!searchButtonEvent->IsEnabled() && !needToDisable) ? 0.0f : searchButtonHeight;
     // search icon height
     auto searchIconFrameHight = searchIconSizeMeasure_.Height();
     auto searchIconHeight = layoutProperty->GetSearchIconUDSizeValue(
@@ -472,6 +479,7 @@ void SearchLayoutAlgorithm::SelfMeasure(LayoutWrapper* layoutWrapper)
     auto layoutProperty = AceType::DynamicCast<SearchLayoutProperty>(layoutWrapper->GetLayoutProperty());
     CHECK_NULL_VOID(layoutProperty);
     auto constraint = layoutProperty->GetLayoutConstraint();
+    CHECK_NULL_VOID(constraint);
     auto searchHeight = CalcSearchHeight(constraint.value(), layoutWrapper);
     UpdateClipBounds(layoutWrapper, searchHeight);
     // update search height
@@ -496,6 +504,10 @@ void SearchLayoutAlgorithm::SelfMeasure(LayoutWrapper* layoutWrapper)
 double SearchLayoutAlgorithm::CalcSearchWidth(
     const LayoutConstraintF& contentConstraint, LayoutWrapper* layoutWrapper)
 {
+    auto fixIdealMaxWidth = GetSearchFixAtIdealMaxWidth(layoutWrapper);
+    if (fixIdealMaxWidth) {
+        return fixIdealMaxWidth.value();
+    }
     auto searchConstraint = contentConstraint;
     auto maxWidth = TextBase::GetConstraintMaxLength(layoutWrapper, contentConstraint, true);
     auto idealWidth = contentConstraint.selfIdealSize.Width().value_or(maxWidth);
@@ -518,9 +530,10 @@ double SearchLayoutAlgorithm::CalcSearchWidth(
 
     const auto& calcLayoutConstraint = layoutWrapper->GetLayoutProperty()->GetCalcLayoutConstraint();
     CHECK_NULL_RETURN(calcLayoutConstraint, searchWidth);
-    auto hasMinSize = calcLayoutConstraint->minSize->Width().has_value();
-    auto hasMaxSize = calcLayoutConstraint->maxSize->Width().has_value();
-    auto hasWidth = calcLayoutConstraint->selfIdealSize->Width().has_value();
+    auto hasMinSize = calcLayoutConstraint->minSize.has_value() && calcLayoutConstraint->minSize->Width().has_value();
+    auto hasMaxSize = calcLayoutConstraint->maxSize.has_value() && calcLayoutConstraint->maxSize->Width().has_value();
+    auto hasWidth =
+        calcLayoutConstraint->selfIdealSize.has_value() && calcLayoutConstraint->selfIdealSize->Width().has_value();
     if (hasMinSize && ((hasMaxSize && searchConstraint.minSize.Width() >= searchConstraint.maxSize.Width())
         || (!hasMaxSize && !hasWidth))) {
         return searchConstraint.minSize.Width();
@@ -551,14 +564,14 @@ double SearchLayoutAlgorithm::CalcSearchHeight(
     auto searchHeight =
         (constraint.selfIdealSize.Height().has_value()) ? constraint.selfIdealSize.Height().value() : themeHeight;
     auto layoutPolicy = TextBase::GetLayoutCalPolicy(layoutWrapper, false);
-    if (layoutPolicy == LayoutCalPolicy::MATCH_PARENT) {
-        searchHeight = constraint.parentIdealSize.Height().value_or(0.0f);
-    }
+    auto shouldMatchParent =
+        layoutPolicy == LayoutCalPolicy::MATCH_PARENT && constraint.parentIdealSize.Height().has_value();
+    searchHeight = shouldMatchParent ? constraint.parentIdealSize.Height().value() : searchHeight;
     auto padding = layoutProperty->CreatePaddingAndBorder();
     auto verticalPadding = padding.top.value_or(0.0f) + padding.bottom.value_or(0.0f);
     searchHeight = std::max(verticalPadding, static_cast<float>(searchHeight));
     auto searchHeightAdapt = searchHeight;
-    if (!IsFixedHeightMode(layoutWrapper) && layoutPolicy != LayoutCalPolicy::MATCH_PARENT) {
+    if (!IsFixedHeightMode(layoutWrapper) && !shouldMatchParent) {
         searchHeightAdapt = std::max(searchHeightAdapt, CalcSearchAdaptHeight(layoutWrapper));
         renderContext->SetClipToBounds(false);
     } else {
@@ -574,7 +587,7 @@ double SearchLayoutAlgorithm::CalcSearchHeight(
     auto hasHeight = calcLayoutConstraint->selfIdealSize.has_value() &&
         calcLayoutConstraint->selfIdealSize->Height().has_value();
     if (hasMinSize && ((hasMaxSize && constraint.minSize.Height() >= constraint.maxSize.Height())
-        || (!hasMaxSize && !hasHeight && layoutPolicy != LayoutCalPolicy::MATCH_PARENT))) {
+        || (!hasMaxSize && !hasHeight && !shouldMatchParent))) {
         return constraint.minSize.Height();
     }
     if (hasMinSize) {
@@ -1013,5 +1026,33 @@ float SearchLayoutAlgorithm::GetSearchFieldMinWidth(LayoutWrapper* layoutWrapper
     auto textFieldPattern = textFieldNode->GetPattern<TextFieldPattern>();
     CHECK_NULL_RETURN(textFieldPattern, 0.0f);
     return textFieldPattern->GetCaretRect().Width();
+}
+
+std::optional<float> SearchLayoutAlgorithm::GetSearchFixAtIdealMaxWidth(LayoutWrapper* layoutWrapper)
+{
+    auto widthPolicy = TextBase::GetLayoutCalPolicy(layoutWrapper, true);
+    if (widthPolicy != LayoutCalPolicy::FIX_AT_IDEAL_SIZE) {
+        return std::nullopt;
+    }
+    return TextBase::GetCalcLayoutConstraintLength(layoutWrapper, true, true);
+}
+
+float SearchLayoutAlgorithm::GetTextFieldMinWidth(LayoutWrapper* layoutWrapper, const RefPtr<SearchTheme>& searchTheme)
+{
+    auto minCalcWidth = TextBase::GetCalcLayoutConstraintLength(layoutWrapper, false, true);
+    if (minCalcWidth.has_value()) {
+        return CalculateTextFieldWidth(layoutWrapper, minCalcWidth.value(), searchTheme);
+    }
+    return GetSearchFieldMinWidth(layoutWrapper);
+}
+
+float SearchLayoutAlgorithm::GetTextFieldMaxWidth(
+    LayoutWrapper* layoutWrapper, LayoutCalPolicy layoutPolicy, float maxWidth)
+{
+    auto maxCalcWidth = TextBase::GetCalcLayoutConstraintLength(layoutWrapper, true, true);
+    if (layoutPolicy == LayoutCalPolicy::FIX_AT_IDEAL_SIZE && !maxCalcWidth.has_value()) {
+        return std::numeric_limits<double>::infinity();
+    }
+    return maxWidth;
 }
 } // namespace OHOS::Ace::NG

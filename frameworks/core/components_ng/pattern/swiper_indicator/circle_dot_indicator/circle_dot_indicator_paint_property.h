@@ -19,7 +19,8 @@
 #include "core/components/common/layout/constants.h"
 #include "core/components/common/properties/color.h"
 #include "core/components_ng/render/paint_property.h"
-#include "core/components/declaration/swiper/swiper_declaration.h"
+#include "core/components_ng/pattern/swiper/swiper_constants.h"
+#include "core/components/common/properties/swiper_indicator.h"
 
 namespace OHOS::Ace::NG {
 struct CircleDotIndicatorStyle {
@@ -30,7 +31,7 @@ struct CircleDotIndicatorStyle {
     ACE_DEFINE_PROPERTY_GROUP_ITEM(MaskColor, Gradient);
 };
 class CircleDotIndicatorPaintProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(CircleDotIndicatorPaintProperty, PaintProperty)
+    DECLARE_ACE_TYPE(CircleDotIndicatorPaintProperty, PaintProperty);
 
 public:
     CircleDotIndicatorPaintProperty() = default;

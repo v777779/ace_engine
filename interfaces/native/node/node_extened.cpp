@@ -14,10 +14,10 @@
  */
 #include "node_extened.h"
 
-
 #include "node_model.h"
 
 #include "base/error/error_code.h"
+#include "base/log/log_wrapper.h"
 #include "core/components_ng/base/ui_node.h"
 
 namespace OHOS::Ace::NodeModel {
@@ -302,7 +302,7 @@ int32_t GetLayoutConstraint(ArkUI_NodeHandle node, ArkUI_LayoutConstraint* layou
 
 ArkUI_IntSize GetMeasuredSize(ArkUI_NodeHandle node)
 {
-    ArkUI_IntSize size;
+    ArkUI_IntSize size = {0, 0};
     if (node == nullptr) {
         return size;
     }

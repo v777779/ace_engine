@@ -15,9 +15,12 @@
 
 #include "core/components_ng/pattern/badge/badge_pattern.h"
 
+#include "base/log/dump_log.h"
 #include "core/components/badge/badge_theme.h"
+#include "core/components/common/layout/grid_container_info.h"
 #include "core/components_ng/pattern/text/text_pattern.h"
 #include "core/components_v2/inspector/utils.h"
+#include "interfaces/inner_api/ui_session/ui_session_manager.h"
 
 namespace OHOS::Ace::NG {
 
@@ -26,13 +29,21 @@ void BadgePattern::OnModifyDone()
     Pattern::OnModifyDone();
     auto frameNode = GetHost();
     CHECK_NULL_VOID(frameNode);
+    ACE_UINODE_TRACE(frameNode);
     if (frameNode->GetChildren().empty()) {
         return;
     }
 
+    auto needCreateText = false;
     auto lastFrameNode = AceType::DynamicCast<FrameNode>(frameNode->GetChildren().back());
-    CHECK_NULL_VOID(lastFrameNode);
-    if (lastFrameNode->GetId() != textNodeId_) {
+    if (lastFrameNode) {
+        needCreateText = lastFrameNode->GetId() != textNodeId_;
+    } else {
+        auto lastUINode = AceType::DynamicCast<UINode>(frameNode->GetChildren().back());
+        CHECK_NULL_VOID(lastUINode);
+        needCreateText = true;
+    }
+    if (needCreateText) {
         textNodeId_ = ElementRegister::GetInstance()->MakeUniqueId();
         lastFrameNode = FrameNode::GetOrCreateFrameNode(
             V2::TEXT_ETS_TAG, textNodeId_, []() { return AceType::MakeRefPtr<TextPattern>(); });
@@ -48,7 +59,9 @@ void BadgePattern::OnModifyDone()
     auto badgeValue = layoutProperty->GetBadgeValue();
     bool badgeVisible = false;
     if (badgeCount.has_value()) {
+        int32_t count;
         if (badgeCount.value() > 0) {
+            count = badgeCount.value();
             const int32_t maxCountNum = 99;
             auto badgeMaxCount = layoutProperty->GetBadgeMaxCount().value_or(maxCountNum);
             auto maxCount = badgeMaxCount;
@@ -60,7 +73,12 @@ void BadgePattern::OnModifyDone()
             TAG_LOGD(AceLogTag::ACE_BADGE, "BadgeContent: %{public}s", content.c_str());
             badgeVisible = true;
         } else {
+            count = 0;
             textLayoutProperty->ResetContent();
+        }
+        if (count_ != count) {
+            count_ = count;
+            ReportComponentChangeEvent("onCountChange");
         }
     }
 
@@ -75,16 +93,20 @@ void BadgePattern::OnModifyDone()
             textLayoutProperty->UpdateContent(u" ");
         }
         badgeVisible = true;
+        if (value_ != badgeValue.value()) {
+            value_ = badgeValue.value();
+            ReportComponentChangeEvent("onValueChange");
+        }
     }
     auto circleSize = layoutProperty->GetBadgeCircleSize();
-    auto pipeline = PipelineBase::GetCurrentContextSafelyWithCheck();
-    CHECK_NULL_VOID(pipeline);
-    auto badgeTheme = pipeline->GetTheme<BadgeTheme>();
+    auto badgeTheme = frameNode->GetTheme<BadgeTheme>(true);
     CHECK_NULL_VOID(badgeTheme);
     Dimension width = layoutProperty->GetBadgeBorderWidthValue(badgeTheme->GetBadgeBorderWidth());
+    Dimension outerWidth = layoutProperty->GetBadgeOuterBorderWidthValue(badgeTheme->GetBadgeOuterBorderWidth());
     if (LessOrEqual(circleSize->ConvertToPx(), 0)) {
         badgeVisible = true;
         width.Reset();
+        outerWidth.Reset();
     }
     auto badgeTextColor = layoutProperty->GetBadgeTextColor();
     textLayoutProperty->UpdateTextColor(badgeTextColor.value_or(badgeTheme->GetBadgeTextColor()));
@@ -100,26 +122,81 @@ void BadgePattern::OnModifyDone()
     BorderWidthProperty borderWidth;
     borderWidth.SetBorderWidth(width);
     textLayoutProperty->UpdateBorderWidth(borderWidth);
+
     auto badgeColor = layoutProperty->GetBadgeColorValue(badgeTheme->GetBadgeColor());
     auto textRenderContext = lastFrameNode->GetRenderContext();
     CHECK_NULL_VOID(textRenderContext);
     textRenderContext->SetVisible(badgeVisible);
     textRenderContext->UpdateBackgroundColor(badgeColor);
+    BorderWidthProperty outerBorderWidth;
+    outerBorderWidth.SetBorderWidth(outerWidth);
+    textLayoutProperty->UpdateOuterBorderWidth(outerBorderWidth);
+    textRenderContext->UpdateOuterBorderWidth(outerBorderWidth);
 
     Color color = layoutProperty->GetBadgeBorderColorValue(badgeTheme->GetBadgeBorderColor());
     BorderColorProperty borderColor;
     borderColor.SetColor(color);
     textRenderContext->UpdateBorderColor(borderColor);
+
+    BorderColorProperty outerBorderColor;
+    Color outColor = layoutProperty->GetBadgeOuterBorderColorValue(badgeTheme->GetBadgeOuterBorderColor());
+    outerBorderColor.SetColor(outColor);
+    textRenderContext->UpdateOuterBorderColor(outerBorderColor);
     lastFrameNode->MarkModifyDone();
+}
+
+void BadgePattern::BorderDumpInfo()
+{
+    auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    auto badgeBorderColor = layoutProperty->GetBadgeBorderColor();
+    auto badgeBorderWidth = layoutProperty->GetBadgeBorderWidth();
+    auto badgeOuterBorderColor = layoutProperty->GetBadgeOuterBorderColor();
+    auto badgeOuterBorderWidth = layoutProperty->GetBadgeOuterBorderWidth();
+
+    if (badgeBorderColor.has_value()) {
+        DumpLog::GetInstance().AddDesc(std::string("badgeBorderColor: ").append(badgeBorderColor.value().ToString()));
+    }
+    if (badgeBorderWidth.has_value()) {
+        DumpLog::GetInstance().AddDesc(std::string("badgeBorderWidth: ").append(badgeBorderWidth.value().ToString()));
+    }
+    if (badgeOuterBorderColor.has_value()) {
+        DumpLog::GetInstance().AddDesc(
+            std::string("badgeOuterBorderColor: ").append(badgeOuterBorderColor.value().ToString()));
+    }
+    if (badgeOuterBorderWidth.has_value()) {
+        DumpLog::GetInstance().AddDesc(
+            std::string("badgeOuterBorderWidth: ").append(badgeOuterBorderWidth.value().ToString()));
+    }
+}
+
+void BadgePattern::BorderDumpInfo(std::unique_ptr<JsonValue>& json)
+{
+    auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    auto badgeBorderColor = layoutProperty->GetBadgeBorderColor();
+    auto badgeBorderWidth = layoutProperty->GetBadgeBorderWidth();
+    auto badgeOuterBorderColor = layoutProperty->GetBadgeOuterBorderColor();
+    auto badgeOuterBorderWidth = layoutProperty->GetBadgeOuterBorderWidth();
+
+    if (badgeBorderColor.has_value()) {
+        json->Put("badgeBorderColor", badgeBorderColor.value().ToString().c_str());
+    }
+    if (badgeBorderWidth.has_value()) {
+        json->Put("badgeBorderWidth", badgeBorderWidth.value().ToString().c_str());
+    }
+    if (badgeOuterBorderColor.has_value()) {
+        json->Put("badgeOuterBorderColor", badgeOuterBorderColor.value().ToString().c_str());
+    }
+    if (badgeOuterBorderWidth.has_value()) {
+        json->Put("badgeOuterBorderWidth", badgeOuterBorderWidth.value().ToString().c_str());
+    }
 }
 
 void BadgePattern::DumpInfo()
 {
-    auto pipeline = PipelineBase::GetCurrentContextSafely();
-    CHECK_NULL_VOID(pipeline);
-    auto badgeTheme = pipeline->GetTheme<BadgeTheme>();
-    CHECK_NULL_VOID(badgeTheme);
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
     auto badgeCount = layoutProperty->GetBadgeCount();
     auto badgeValue = layoutProperty->GetBadgeValue();
     auto circleSize = layoutProperty->GetBadgeCircleSize();
@@ -128,8 +205,6 @@ void BadgePattern::DumpInfo()
     auto badgePosition = layoutProperty->GetBadgePosition();
     auto badgeColor = layoutProperty->GetBadgeColor();
     auto badgeFontWeight = layoutProperty->GetBadgeFontWeight();
-    auto badgeBorderColor = layoutProperty->GetBadgeBorderColor();
-    auto badgeBorderWidth = layoutProperty->GetBadgeBorderWidth();
     if (badgeCount.has_value()) {
         const int32_t maxCountNum = 99;
         auto badgeMaxCount = layoutProperty->GetBadgeMaxCount().value_or(maxCountNum);
@@ -163,32 +238,21 @@ void BadgePattern::DumpInfo()
         DumpLog::GetInstance().AddDesc(
             std::string("badgeFontWeight: ").append(V2::ConvertWrapFontWeightToStirng(badgeFontWeight.value())));
     }
-    if (badgeBorderColor.has_value()) {
-        DumpLog::GetInstance().AddDesc(std::string("badgeBorderColor: ").append(badgeBorderColor.value().ToString()));
-    }
-    if (badgeBorderWidth.has_value()) {
-        DumpLog::GetInstance().AddDesc(std::string("badgeBorderWidth: ").append(badgeBorderWidth.value().ToString()));
-    }
+    BorderDumpInfo();
 }
 
 void BadgePattern::DumpInfo(std::unique_ptr<JsonValue>& json)
 {
-    auto pipeline = PipelineBase::GetCurrentContextSafely();
-    CHECK_NULL_VOID(pipeline);
-    auto badgeTheme = pipeline->GetTheme<BadgeTheme>();
-    CHECK_NULL_VOID(badgeTheme);
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
     auto badgeCount = layoutProperty->GetBadgeCount();
     auto badgeValue = layoutProperty->GetBadgeValue();
     auto circleSize = layoutProperty->GetBadgeCircleSize();
     auto badgeTextColor = layoutProperty->GetBadgeTextColor();
     auto badgeFontSize = layoutProperty->GetBadgeFontSize();
-    auto badgePosition = layoutProperty->GetBadgePositionString(
-        layoutProperty->GetBadgePositionValue(badgeTheme->GetBadgePosition()));
+    auto badgePosition = layoutProperty->GetBadgePosition();
     auto badgeColor = layoutProperty->GetBadgeColor();
     auto badgeFontWeight = layoutProperty->GetBadgeFontWeight();
-    auto badgeBorderColor = layoutProperty->GetBadgeBorderColor();
-    auto badgeBorderWidth = layoutProperty->GetBadgeBorderWidth();
     if (badgeCount.has_value()) {
         const int32_t maxCountNum = 99;
         auto badgeMaxCount = layoutProperty->GetBadgeMaxCount().value_or(maxCountNum);
@@ -202,17 +266,29 @@ void BadgePattern::DumpInfo(std::unique_ptr<JsonValue>& json)
             json->Put("badgeValue", badgeValue.value().c_str());
         }
     }
-    json->Put("badgePosition", badgePosition.c_str());
-    json->Put("badgeTextColor", badgeTextColor.value().ToString().c_str());
-    json->Put("circleSize", std::to_string(circleSize->ConvertToPx()).c_str());
-    json->Put("badgeFontSize", badgeFontSize.value().ToString().c_str());
-    json->Put("badgeColor", badgeColor.value().ToString().c_str());
-    json->Put("badgeFontWeight", V2::ConvertWrapFontWeightToStirng(badgeFontWeight.value()).c_str());
-    json->Put("badgeBorderColor", badgeBorderColor.value().ToString().c_str());
-    json->Put("badgeBorderWidth", badgeBorderWidth.value().ToString().c_str());
+    if (badgePosition.has_value()) {
+        auto badgePositionString = layoutProperty->GetBadgePositionString(badgePosition.value());
+        json->Put("badgePosition", badgePositionString.c_str());
+    }
+    if (badgeTextColor.has_value()) {
+        json->Put("badgeTextColor", badgeTextColor.value().ToString().c_str());
+    }
+    if (circleSize.has_value()) {
+        json->Put("circleSize", std::to_string(circleSize->ConvertToPx()).c_str());
+    }
+    if (badgeFontSize.has_value()) {
+        json->Put("badgeFontSize", badgeFontSize.value().ToString().c_str());
+    }
+    if (badgeColor.has_value()) {
+        json->Put("badgeColor", badgeColor.value().ToString().c_str());
+    }
+    if (badgeFontWeight.has_value()) {
+        json->Put("badgeFontWeight", V2::ConvertWrapFontWeightToStirng(badgeFontWeight.value()).c_str());
+    }
+    BorderDumpInfo(json);
 }
 
-void BadgePattern::DumpSimplifyInfo(std::unique_ptr<JsonValue>& json)
+void BadgePattern::DumpSimplifyInfo(std::shared_ptr<JsonValue>& json)
 {
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
@@ -245,6 +321,18 @@ void BadgePattern::DumpSimplifyInfo(std::unique_ptr<JsonValue>& json)
     }
 }
 
+void BadgePattern::ReportComponentChangeEvent(const std::string& event)
+{
+#if !defined(PREVIEW) && !defined(ACE_UNITTEST) && defined(OHOS_PLATFORM)
+    auto frameNode = GetHost();
+    CHECK_NULL_VOID(frameNode);
+    auto value = InspectorJsonUtil::Create();
+    value->Put("Badge", event.data());
+    UiSessionManager::GetInstance()->ReportComponentChangeEvent(frameNode->GetId(), "event", value,
+        ComponentEventType::COMPONENT_EVENT_SELECT);
+#endif
+}
+
 void BadgePattern::UpdateBadgeValue(const std::string& badgeValue, bool isFirstLoad)
 {
     auto host = GetHost();
@@ -253,7 +341,7 @@ void BadgePattern::UpdateBadgeValue(const std::string& badgeValue, bool isFirstL
     CHECK_NULL_VOID(pipelineContext);
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         layoutProperty->UpdateBadgeValue(badgeValue);
     }
 }
@@ -266,7 +354,7 @@ void BadgePattern::UpdateColor(const Color& color, bool isFirstLoad)
     CHECK_NULL_VOID(pipelineContext);
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         layoutProperty->UpdateBadgeTextColor(color);
     }
 }
@@ -279,7 +367,7 @@ void BadgePattern::UpdateBadgeColor(const Color& badgeColor, bool isFirstLoad)
     CHECK_NULL_VOID(pipelineContext);
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         layoutProperty->UpdateBadgeColor(badgeColor);
     }
 }
@@ -292,8 +380,21 @@ void BadgePattern::UpdateBorderColor(const Color& borderColor, bool isFirstLoad)
     CHECK_NULL_VOID(pipelineContext);
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         layoutProperty->UpdateBadgeBorderColor(borderColor);
+    }
+}
+
+void BadgePattern::UpdateOuterBorderColor(const Color& outerBorderColor, bool isFirstLoad)
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipelineContext = host->GetContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
+        layoutProperty->UpdateBadgeOuterBorderColor(outerBorderColor);
     }
 }
 
@@ -305,7 +406,7 @@ void BadgePattern::UpdateFontWeight(FontWeight fontWeight, bool isFirstLoad)
     CHECK_NULL_VOID(pipelineContext);
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         layoutProperty->UpdateBadgeFontWeight(fontWeight);
     }
     if (host->GetRerenderable()) {
@@ -321,7 +422,7 @@ void BadgePattern::UpdateFontSize(const CalcDimension& fontSize, bool isDefaultF
     CHECK_NULL_VOID(pipelineContext);
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         layoutProperty->UpdateBadgeFontSize(fontSize);
         auto originFontSizeFlag = layoutProperty->GetFontSizeIsDefault();
         auto originBadgeSize = layoutProperty->GetBadgeSizeIsDefault();
@@ -340,7 +441,7 @@ void BadgePattern::UpdateBadgeCircleSize(
     CHECK_NULL_VOID(pipelineContext);
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         auto originFontSizeFlag = layoutProperty->GetFontSizeIsDefault();
         auto originBadgeSize = layoutProperty->GetBadgeSizeIsDefault();
         layoutProperty->UpdateBadgeCircleSize(badgeCircleSize);
@@ -371,7 +472,7 @@ void BadgePattern::UpdateBadgePositionX(const CalcDimension& positionX, bool isF
     CHECK_NULL_VOID(host);
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         layoutProperty->UpdateBadgePositionX(positionX);
     }
 }
@@ -384,7 +485,7 @@ void BadgePattern::UpdateBadgePositionY(const CalcDimension& positionY, bool isF
     CHECK_NULL_VOID(host);
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         layoutProperty->UpdateBadgePositionY(positionY);
     }
 }
@@ -397,8 +498,21 @@ void BadgePattern::UpdateBorderWidth(const CalcDimension& borderWidth, bool isFi
     CHECK_NULL_VOID(host);
     auto pipelineContext = host->GetContext();
     CHECK_NULL_VOID(pipelineContext);
-    if (pipelineContext->IsSystmColorChange() || isFirstLoad) {
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
         layoutProperty->UpdateBadgeBorderWidth(borderWidth);
+    }
+}
+
+void BadgePattern::UpdateOuterBorderWidth(const CalcDimension& outerBorderWidth, bool isFirstLoad)
+{
+    auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
+    CHECK_NULL_VOID(layoutProperty);
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto pipelineContext = host->GetContext();
+    CHECK_NULL_VOID(pipelineContext);
+    if (pipelineContext->IsSystemColorChange() || isFirstLoad) {
+        layoutProperty->UpdateBadgeOuterBorderWidth(outerBorderWidth);
     }
 }
 
@@ -409,9 +523,7 @@ void BadgePattern::OnColorConfigurationUpdate()
     }
     auto host = GetHost();
     CHECK_NULL_VOID(host);
-    auto pipeline = host->GetContext();
-    CHECK_NULL_VOID(pipeline);
-    auto badgeTheme = pipeline->GetTheme<BadgeTheme>();
+    auto badgeTheme = host->GetTheme<BadgeTheme>(true);
     CHECK_NULL_VOID(badgeTheme);
     auto layoutProperty = GetLayoutProperty<BadgeLayoutProperty>();
     CHECK_NULL_VOID(layoutProperty);
@@ -422,11 +534,17 @@ void BadgePattern::OnColorConfigurationUpdate()
         UpdateBadgePositionY(badgeTheme->GetBadgePositionY());
     }
     if (!layoutProperty->GetBadgeFontSizeByuser().value_or(false)) {
-        UpdateFontSize(badgeTheme->GetBadgeFontSize(), true);
+        auto badgeFontSize = layoutProperty->GetBadgeFontSize();
+        if (badgeFontSize.has_value() && badgeFontSize.value() != UNDEFINED_DIMENSION) {
+            UpdateFontSize(badgeTheme->GetBadgeFontSize(), true);
+        }
     }
 
     if (!layoutProperty->GetBadgeCircleSizeByuser().value_or(false)) {
         UpdateBadgeCircleSize(badgeTheme->GetBadgeCircleSize(), true);
+    }
+    if (!layoutProperty->GetBadgeOuterBorderColorByuser().value_or(false)) {
+        UpdateOuterBorderColor(badgeTheme->GetBadgeOuterBorderColor());
     }
     if (!layoutProperty->GetBadgeBorderColorByuser().value_or(false)) {
         UpdateBorderColor(badgeTheme->GetBadgeBorderColor());
@@ -434,11 +552,25 @@ void BadgePattern::OnColorConfigurationUpdate()
     if (!layoutProperty->GetBadgeBorderWidthByuser().value_or(false)) {
         UpdateBorderWidth(badgeTheme->GetBadgeBorderWidth());
     }
+    if (!layoutProperty->GetBadgeOuterBorderWidthByuser().value_or(false)) {
+        UpdateOuterBorderWidth(badgeTheme->GetBadgeOuterBorderWidth());
+    }
     if (!layoutProperty->GetBadgeTextColorByuser().value_or(false)) {
         UpdateColor(badgeTheme->GetBadgeTextColor());
     }
     if (!layoutProperty->GetBadgeColorByuser().value_or(false)) {
         UpdateBadgeColor(badgeTheme->GetBadgeColor());
     }
+}
+
+bool BadgePattern::OnThemeScopeUpdate(int32_t themeScopeId)
+{
+    auto host = GetHost();
+    CHECK_NULL_RETURN(host, false);
+    if (!host->GreatOrEqualAPITargetVersion(PlatformVersion::VERSION_TWENTY_SIX)) {
+        return false;
+    }
+    host->MarkDirtyNode(PROPERTY_UPDATE_RENDER);
+    return true;
 }
 } // namespace OHOS::Ace::NG

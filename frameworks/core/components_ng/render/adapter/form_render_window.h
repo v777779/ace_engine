@@ -30,6 +30,7 @@
 #include "base/utils/noncopyable.h"
 #include "core/common/window.h"
 #include "core/pipeline/pipeline_context.h"
+#include "interfaces/inner_api/ace/constants.h"
 
 namespace OHOS::Ace {
 class ACE_EXPORT FormRenderWindow : public Window {
@@ -41,6 +42,7 @@ public:
 
     void RequestFrame() override;
     void Destroy() override;
+    void SetUiDvsyncSwitch(bool dvsyncSwitch) override;
     void SetRootRenderNode(const RefPtr<RenderNode>& root) override {}
     void SetRootFrameNode(const RefPtr<NG::FrameNode>& root) override;
     void FlushFrameRate(int32_t rate, int32_t animatorExpectedFrameRate, int32_t rateType) override;
@@ -106,10 +108,12 @@ public:
     void Lock() override;
     void Unlock() override;
     int64_t GetVSyncPeriod() const override;
+    void RecordFrameTime(uint64_t timeStamp, const std::string& name) override;
 
 private:
     WeakPtr<TaskExecutor> taskExecutor_ = nullptr;
     int32_t id_ = 0;
+    UIContentType uiContentType_ = UIContentType::UNDEFINED;
 #ifdef ENABLE_ROSEN_BACKEND
     void InitOnVsyncCallback();
     static std::recursive_mutex globalMutex_;

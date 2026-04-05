@@ -19,7 +19,7 @@
 
 #define private public
 #define protected public
-#include "test/mock/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
 
 #include "core/components/web/resource/web_delegate.h"
 #include "core/components_ng/base/frame_node.h"
@@ -28,8 +28,10 @@
 #undef protected
 #undef private
 
-#include "test/mock/core/common/mock_udmf.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/mousestyle/mock_mouse_style.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "ui/properties/ui_material.h"
 
 #include "core/components_v2/inspector/inspector_constants.h"
 #include "core/pipeline_ng/pipeline_context.h"
@@ -75,6 +77,7 @@ public:
     MOCK_METHOD(void*, GetPixelManager, (), (const, override));
     MOCK_METHOD(void*, GetRawPixelMapPtr, (), (const, override));
     MOCK_METHOD(std::string, GetId, (), (override));
+    MOCK_METHOD(uint32_t, GetUniqueId, (), (override));
     MOCK_METHOD(std::string, GetModifyId, (), (override));
     MOCK_METHOD(std::shared_ptr<Media::PixelMap>, GetPixelMapSharedPtr, (), (override));
     MOCK_METHOD(void*, GetWritablePixels, (), (const, override));
@@ -366,6 +369,13 @@ public:
     {
         // Do nothing or implement actual behavior
     }
+
+    DragOperationsMask GetAllowedDragOperation() const override
+    {
+        return DragOperationsMask::DRAG_ALLOW_EVERY;
+    }
+
+    void SetAllowedDragOperation(DragOperationsMask allowed_op) override {}
 };
 
 class MockTaskExecutorTest : public Ace::TaskExecutor {
@@ -374,7 +384,8 @@ public:
     MockTaskExecutorTest(bool delayRun) : delayRun_(delayRun) {}
 
     bool OnPostTask(Task&& task, TaskType type, uint32_t delayTime, const std::string& name,
-        Ace::PriorityType priorityType = Ace::PriorityType::LOW) const override
+        Ace::PriorityType priorityType = Ace::PriorityType::LOW,
+        Ace::VsyncBarrierOption barrierOption = Ace::VsyncBarrierOption::NO_BARRIER) const override
     {
         CHECK_NULL_RETURN(task, false);
         if (delayRun_) {
@@ -469,7 +480,7 @@ HWTEST_F(WebPatternTestHandle, HandleOnDragEnter, TestSize.Level1)
     auto gestureHub = AceType::MakeRefPtr<OHOS::Ace::DragEvent>();
     webPattern->delegate_ = nullptr;
     webPattern->HandleOnDragEnter(gestureHub);
-    EXPECT_EQ(webPattern->delegate_, nullptr);
+    EXPECT_FALSE(webPattern->isDragStartFromWeb_);
 #endif
 }
 
@@ -572,6 +583,9 @@ HWTEST_F(WebPatternTestHandle, HandleOnDragDrop001, TestSize.Level1)
     EXPECT_NE(host, nullptr);
     auto aceData = AceType::MakeRefPtr<OHOS::Ace::UnifiedDataMock>();
     gestureHub->SetData(nullptr);
+    auto mouseStyle = MouseStyle::CreateMouseStyle();
+    auto mockMouseStyle = AceType::DynamicCast<MockMouseStyle>(mouseStyle);
+    EXPECT_CALL(*mockMouseStyle, SetPointerStyle(::testing::_, ::testing::_)).WillOnce(Return(true));
     webPattern->HandleOnDragDrop(gestureHub);
     EXPECT_GE(aceData->GetSize(), 1);
 #endif
@@ -603,6 +617,9 @@ HWTEST_F(WebPatternTestHandle, HandleOnDragDrop002, TestSize.Level1)
     EXPECT_NE(host, nullptr);
     auto aceData = AceType::MakeRefPtr<OHOS::Ace::UnifiedDataMockRe>();
     gestureHub->SetData(aceData);
+    auto mouseStyle = MouseStyle::CreateMouseStyle();
+    auto mockMouseStyle = AceType::DynamicCast<MockMouseStyle>(mouseStyle);
+    EXPECT_CALL(*mockMouseStyle, SetPointerStyle(::testing::_, ::testing::_)).WillOnce(Return(true));
     webPattern->HandleOnDragDrop(gestureHub);
     EXPECT_LT(aceData->GetSize(), 1);
 #endif
@@ -650,6 +667,9 @@ HWTEST_F(WebPatternTestHandle, HandleOnDragDrop003, TestSize.Level1)
             [](const RefPtr<UnifiedData>& aceData, std::string&, std::string&) { EXPECT_NE(aceData, nullptr); }));
     EXPECT_CALL(*mockUdmfClient, GetFileUriEntry(AceType::DynamicCast<UnifiedData>(aceData), _))
         .WillOnce(Return(false));
+    auto mouseStyle = MouseStyle::CreateMouseStyle();
+    auto mockMouseStyle = AceType::DynamicCast<MockMouseStyle>(mouseStyle);
+    EXPECT_CALL(*mockMouseStyle, SetPointerStyle(::testing::_, ::testing::_)).WillOnce(Return(true));
     webPattern->HandleOnDragDrop(gestureHub);
 #endif
 }
@@ -695,6 +715,9 @@ HWTEST_F(WebPatternTestHandle, HandleOnDragDrop004, TestSize.Level1)
             [](const RefPtr<UnifiedData>& aceData, std::string&, std::string&) { EXPECT_NE(aceData, nullptr); }));
     EXPECT_CALL(*mockUdmfClient, GetFileUriEntry(AceType::DynamicCast<UnifiedData>(aceData), _))
         .WillOnce(Return(false));
+    auto mouseStyle = MouseStyle::CreateMouseStyle();
+    auto mockMouseStyle = AceType::DynamicCast<MockMouseStyle>(mouseStyle);
+    EXPECT_CALL(*mockMouseStyle, SetPointerStyle(::testing::_, ::testing::_)).WillOnce(Return(true));
     webPattern->HandleOnDragDrop(gestureHub);
 #endif
 }
@@ -745,6 +768,9 @@ HWTEST_F(WebPatternTestHandle, HandleOnDragDrop005, TestSize.Level1)
             [](const RefPtr<UnifiedData>& aceData, std::string&, std::string&) { EXPECT_NE(aceData, nullptr); }));
     EXPECT_CALL(*mockUdmfClient, GetFileUriEntry(AceType::DynamicCast<UnifiedData>(aceData), _))
         .WillOnce(Return(false));
+    auto mouseStyle = MouseStyle::CreateMouseStyle();
+    auto mockMouseStyle = AceType::DynamicCast<MockMouseStyle>(mouseStyle);
+    EXPECT_CALL(*mockMouseStyle, SetPointerStyle(::testing::_, ::testing::_)).WillOnce(Return(true));
     webPattern->HandleOnDragDrop(gestureHub);
 #endif
 }
@@ -795,6 +821,9 @@ HWTEST_F(WebPatternTestHandle, HandleOnDragDrop006, TestSize.Level1)
             [](const RefPtr<UnifiedData>& aceData, std::string&, std::string&) { EXPECT_NE(aceData, nullptr); }));
     EXPECT_CALL(*mockUdmfClient, GetFileUriEntry(AceType::DynamicCast<UnifiedData>(aceData), _))
         .WillOnce(Return(false));
+    auto mouseStyle = MouseStyle::CreateMouseStyle();
+    auto mockMouseStyle = AceType::DynamicCast<MockMouseStyle>(mouseStyle);
+    EXPECT_CALL(*mockMouseStyle, SetPointerStyle(::testing::_, ::testing::_)).WillOnce(Return(true));
     webPattern->HandleOnDragDrop(gestureHub);
 #endif
 }
@@ -840,6 +869,9 @@ HWTEST_F(WebPatternTestHandle, HandleOnDragDrop007, TestSize.Level1)
             [](const RefPtr<UnifiedData>& aceData, std::string&, std::string&) { EXPECT_NE(aceData, nullptr); }));
     EXPECT_CALL(*mockUdmfClient, GetFileUriEntry(AceType::DynamicCast<UnifiedData>(aceData), _))
         .WillOnce(Return(false));
+    auto mouseStyle = MouseStyle::CreateMouseStyle();
+    auto mockMouseStyle = AceType::DynamicCast<MockMouseStyle>(mouseStyle);
+    EXPECT_CALL(*mockMouseStyle, SetPointerStyle(::testing::_, ::testing::_)).WillOnce(Return(true));
     webPattern->HandleOnDragDrop(gestureHub);
 #endif
 }
@@ -1033,6 +1065,35 @@ HWTEST_F(WebPatternTestHandle, HandleBlurEvent003, TestSize.Level1)
 }
 
 /**
+ * @tc.name: HandleBlurEvent004
+ * @tc.desc: HandleBlurEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTestHandle, HandleBlurEvent004, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    EXPECT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    EXPECT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    webPattern->OnModifyDone();
+    EXPECT_NE(webPattern->delegate_, nullptr);
+    webPattern->isDragStartFromWeb_ = false;
+    webPattern->selectPopupMenuShowing_ = false;
+    webPattern->isMenuShownFromWeb_ = true;
+    webPattern->HandleBlurEvent(BlurReason::VIEW_SWITCH);
+    EXPECT_EQ(webPattern->delegate_->blurReason_, OHOS::NWeb::BlurReason::FOCUS_SWITCH);
+    webPattern->isMenuShownFromWeb_ = false;
+    webPattern->HandleBlurEvent(BlurReason::VIEW_SWITCH);
+    EXPECT_EQ(webPattern->delegate_->blurReason_, OHOS::NWeb::BlurReason::VIEW_SWITCH);
+#endif
+}
+
+/**
  * @tc.name: KeyboardReDispatch001
  * @tc.desc: KeyboardReDispatch
  * @tc.type: FUNC
@@ -1199,6 +1260,34 @@ HWTEST_F(WebPatternTestHandle, KeyboardReDispatch005, TestSize.Level1)
     }
     webPattern->KeyboardReDispatch(event, isUsed);
     EXPECT_EQ(webPattern->webKeyEvent_.front().deviceId, 0);
+#endif
+}
+
+/**
+ * @tc.name: OnTakeFocus001
+ * @tc.desc: OnTakeFocus
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTestHandle, OnTakeFocus001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    EXPECT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    EXPECT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    webPattern->OnModifyDone();
+    EXPECT_NE(webPattern->delegate_, nullptr);
+
+    auto event = std::make_shared<OHOS::NWeb::MockNWebKeyEventBe>();
+    EXPECT_NE(event, nullptr);
+    MockContainer::Current()->taskExecutor_ = AceType::MakeRefPtr<NWeb::MockTaskExecutorTest>();
+    MockContainer::Current()->pipelineContext_ = MockPipelineContext::GetCurrentContext();
+    MockContainer::Current()->pipelineContext_->taskExecutor_ = MockContainer::Current()->taskExecutor_;
+    webPattern->OnTakeFocus(event);
 #endif
 }
 
@@ -1495,6 +1584,29 @@ HWTEST_F(WebPatternTestHandle, OnDirtyLayoutWrapperSwap008, TestSize.Level1)
     webPattern->isUrlLoaded_ = true;
     webPattern->OnDirtyLayoutWrapperSwap(dirty, config);
     EXPECT_FALSE(webPattern->isKeyboardInSafeArea_);
+#endif
+}
+
+/**
+ * @tc.name: SetImeShow001
+ * @tc.desc: SetImeShow
+ * @tc.type: FUNC
+ */
+HWTEST_F(WebPatternTestHandle, SetImeShow001, TestSize.Level1)
+{
+#ifdef OHOS_STANDARD_SYSTEM
+    auto* stack = ViewStackProcessor::GetInstance();
+    EXPECT_NE(stack, nullptr);
+    auto nodeId = stack->ClaimNodeId();
+    auto frameNode =
+        FrameNode::GetOrCreateFrameNode(V2::WEB_ETS_TAG, nodeId, []() { return AceType::MakeRefPtr<WebPattern>(); });
+    EXPECT_NE(frameNode, nullptr);
+    stack->Push(frameNode);
+    auto webPattern = frameNode->GetPattern<WebPattern>();
+    webPattern->OnModifyDone();
+    EXPECT_NE(webPattern->delegate_, nullptr);
+
+    webPattern->SetImeShow(true);
 #endif
 }
 } // namespace OHOS::Ace::NG

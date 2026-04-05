@@ -71,13 +71,12 @@ void FrameNode::MarkNeedRenderMultiThread(bool isRenderBoundary)
     }
 }
 
-void FrameNode::OnMountToParentDoneMultiThread()
+void FrameNode::OnInspectorIdUpdateMultiThread(const std::string& id)
 {
-    PostAfterAttachMainTreeTask([weak = WeakClaim(this)]() {
-        auto frameNode = weak.Upgrade();
-        CHECK_NULL_VOID(frameNode);
-        CHECK_NULL_VOID(frameNode->GetPattern());
-        frameNode->GetPattern()->OnMountToParentDone();
+    PostAfterAttachMainTreeTask([weak = WeakClaim(this), id]() {
+        auto host = weak.Upgrade();
+        CHECK_NULL_VOID(host);
+        host->OnInspectorIdUpdate(id);
     });
 }
 } // namespace OHOS::Ace::NG

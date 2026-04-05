@@ -30,7 +30,8 @@
 #include "core/components_ng/pattern/pattern.h"
 
 namespace OHOS::Ace::NG {
-
+const char COLUMN_SPLIT_ETS_TAG[] = "ColumnSplit";
+const char ROW_SPLIT_ETS_TAG[] = "RowSplit";
 class LinearSplitPattern : public Pattern {
     DECLARE_ACE_TYPE(LinearSplitPattern, Pattern);
 
@@ -87,7 +88,6 @@ private:
     float GetMinPosFromIndex(std::size_t index);
     float GetMaxPosFromIndex(std::size_t index);
     void UpdateDragFRCSceneInfo(const GestureEvent& info, SceneStatus sceneStatus);
-    bool CheckChildrenConstrains();
 
     std::vector<OffsetF> childrenOffset_;
     float splitLength_ = 0.0f;

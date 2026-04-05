@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,12 +15,12 @@
 
 import { ResourceColor } from 'arkui/component/units';
 import { Color } from 'arkui/component/enums';
-import { BrandColors, ArkThemeResource, CustomColorsInner } from 'arkui/theme';
+import { BrandColors, ArkThemeResource } from 'arkui/theme';
 import { Resource } from 'global.resource';
 import { ArkUIAniModule } from 'arkui.ani';
 import { Colors, CustomColors } from '@ohos/arkui/theme';
 import { _r } from 'arkui/component/resources';
-import { int32 } from '@koalaui/common';
+import { int32 } from "@koalaui/common"
 
 export class ArkColorsImpl implements Colors {
     brand: ResourceColor = _r(125830976, 10001, '', '');
@@ -214,24 +214,187 @@ export class ArkColorsImpl implements Colors {
         if (src.interactiveClick !== undefined) dst.interactiveClick = src.interactiveClick!;
     }
 
+
+    static assignCustom(dst: CustomColors, src: CustomColors): void {
+        if (src.brand !== undefined) {
+            dst.brand = src.brand!;
+        }
+        if (src.warning !== undefined) {
+            dst.warning = src.warning!;
+        }
+        if (src.alert !== undefined) {
+            dst.alert = src.alert!;
+        }
+        if (src.confirm !== undefined) {
+            dst.confirm = src.confirm!;
+        }
+
+        if (src.fontPrimary !== undefined) {
+            dst.fontPrimary = src.fontPrimary!;
+        }
+        if (src.fontSecondary !== undefined) {
+            dst.fontSecondary = src.fontSecondary!;
+        }
+        if (src.fontTertiary !== undefined) {
+            dst.fontTertiary = src.fontTertiary!;
+        }
+        if (src.fontFourth !== undefined) {
+            dst.fontFourth = src.fontFourth!;
+        }
+        if (src.fontEmphasize !== undefined) {
+            dst.fontEmphasize = src.fontEmphasize!;
+        }
+
+        if (src.fontOnPrimary !== undefined) {
+            dst.fontOnPrimary = src.fontOnPrimary!;
+        }
+        if (src.fontOnSecondary !== undefined) {
+            dst.fontOnSecondary = src.fontOnSecondary!;
+        }
+        if (src.fontOnTertiary !== undefined) {
+            dst.fontOnTertiary = src.fontOnTertiary!;
+        }
+        if (src.fontOnFourth !== undefined) {
+            dst.fontOnFourth = src.fontOnFourth!;
+        }
+
+        if (src.iconPrimary !== undefined) {
+            dst.iconPrimary = src.iconPrimary!;
+        }
+        if (src.iconSecondary !== undefined) {
+            dst.iconSecondary = src.iconSecondary!;
+        }
+        if (src.iconTertiary !== undefined) {
+            dst.iconTertiary = src.iconTertiary!;
+        }
+        if (src.iconFourth !== undefined) {
+            dst.iconFourth = src.iconFourth!;
+        }
+        if (src.iconEmphasize !== undefined) {
+            dst.iconEmphasize = src.iconEmphasize!;
+        }
+        if (src.iconSubEmphasize !== undefined) {
+            dst.iconSubEmphasize = src.iconSubEmphasize!;
+        }
+
+        if (src.iconOnPrimary !== undefined) {
+            dst.iconOnPrimary = src.iconOnPrimary!;
+        }
+        if (src.iconOnSecondary !== undefined) {
+            dst.iconOnSecondary = src.iconOnSecondary!;
+        }
+        if (src.iconOnTertiary !== undefined) {
+            dst.iconOnTertiary = src.iconOnTertiary!;
+        }
+        if (src.iconOnFourth !== undefined) {
+            dst.iconOnFourth = src.iconOnFourth!;
+        }
+
+        if (src.backgroundPrimary !== undefined) {
+            dst.backgroundPrimary = src.backgroundPrimary!;
+        }
+        if (src.backgroundSecondary !== undefined) {
+            dst.backgroundSecondary = src.backgroundSecondary!;
+        }
+        if (src.backgroundTertiary !== undefined) {
+            dst.backgroundTertiary = src.backgroundTertiary!;
+        }
+        if (src.backgroundFourth !== undefined) {
+            dst.backgroundFourth = src.backgroundFourth!;
+        }
+        if (src.backgroundEmphasize !== undefined) {
+            dst.backgroundEmphasize = src.backgroundEmphasize!;
+        }
+
+        if (src.compForegroundPrimary !== undefined) {
+            dst.compForegroundPrimary = src.compForegroundPrimary!;
+        }
+        if (src.compBackgroundPrimary !== undefined) {
+            dst.compBackgroundPrimary = src.compBackgroundPrimary!;
+        }
+        if (src.compBackgroundPrimaryTran !== undefined) {
+            dst.compBackgroundPrimaryTran = src.compBackgroundPrimaryTran!;
+        }
+        if (src.compBackgroundPrimaryContrary !== undefined) {
+            dst.compBackgroundPrimaryContrary = src.compBackgroundPrimaryContrary!;
+        }
+        if (src.compBackgroundGray !== undefined) {
+            dst.compBackgroundGray = src.compBackgroundGray!;
+        }
+        if (src.compBackgroundSecondary !== undefined) {
+            dst.compBackgroundSecondary = src.compBackgroundSecondary!;
+        }
+        if (src.compBackgroundTertiary !== undefined) {
+            dst.compBackgroundTertiary = src.compBackgroundTertiary!;
+        }
+        if (src.compBackgroundEmphasize !== undefined) {
+            dst.compBackgroundEmphasize = src.compBackgroundEmphasize!;
+        }
+        if (src.compBackgroundNeutral !== undefined) {
+            dst.compBackgroundNeutral = src.compBackgroundNeutral!;
+        }
+        if (src.compEmphasizeSecondary !== undefined) {
+            dst.compEmphasizeSecondary = src.compEmphasizeSecondary!;
+        }
+        if (src.compEmphasizeTertiary !== undefined) {
+            dst.compEmphasizeTertiary = src.compEmphasizeTertiary!;
+        }
+        if (src.compDivider !== undefined) {
+            dst.compDivider = src.compDivider!;
+        }
+        if (src.compCommonContrary !== undefined) {
+            dst.compCommonContrary = src.compCommonContrary!;
+        }
+        if (src.compBackgroundFocus !== undefined) {
+            dst.compBackgroundFocus = src.compBackgroundFocus!;
+        }
+        if (src.compFocusedPrimary !== undefined) {
+            dst.compFocusedPrimary = src.compFocusedPrimary!;
+        }
+        if (src.compFocusedSecondary !== undefined) {
+            dst.compFocusedSecondary = src.compFocusedSecondary!;
+        }
+        if (src.compFocusedTertiary !== undefined) {
+            dst.compFocusedTertiary = src.compFocusedTertiary!;
+        }
+
+        if (src.interactiveHover !== undefined) {
+            dst.interactiveHover = src.interactiveHover!;
+        }
+        if (src.interactivePressed !== undefined) {
+            dst.interactivePressed = src.interactivePressed!;
+        }
+        if (src.interactiveFocus !== undefined) {
+            dst.interactiveFocus = src.interactiveFocus!;
+        }
+        if (src.interactiveActive !== undefined) {
+            dst.interactiveActive = src.interactiveActive!;
+        }
+        if (src.interactiveSelect !== undefined) {
+            dst.interactiveSelect = src.interactiveSelect!;
+        }
+        if (src.interactiveClick !== undefined) {
+            dst.interactiveClick = src.interactiveClick!;
+        }
+    }
+
     static expandByBrandColor(colors: CustomColors) {
-        let colorsInner = new CustomColorsInner(colors);
         if (colors!.brand) {
             const brandColors: BrandColors = ArkColorsImpl.makeBrandColors(colors.brand);
-            colorsInner.fontEmphasize = colors.fontEmphasize ?? brandColors.primary!;
+            colors.fontEmphasize = colors.fontEmphasize ?? brandColors.primary!;
 
-            colorsInner.iconEmphasize = colors.iconEmphasize ?? brandColors.primary!;
-            colorsInner.iconSubEmphasize = colors.iconSubEmphasize ?? brandColors.tertiary!;
+            colors.iconEmphasize = colors.iconEmphasize ?? brandColors.primary!;
+            colors.iconSubEmphasize = colors.iconSubEmphasize ?? brandColors.tertiary!;
 
-            colorsInner.backgroundEmphasize = colors.backgroundEmphasize ?? brandColors.primary!;
+            colors.backgroundEmphasize = colors.backgroundEmphasize ?? brandColors.primary!;
 
-            colorsInner.compBackgroundEmphasize = colors.compBackgroundEmphasize ?? brandColors.primary!;
+            colors.compBackgroundEmphasize = colors.compBackgroundEmphasize ?? brandColors.primary!;
 
-            colorsInner.compEmphasizeSecondary = colors.compEmphasizeSecondary ?? brandColors.fourth!;
-            colorsInner.compEmphasizeTertiary = colors.compEmphasizeTertiary ?? brandColors.fifth!;
+            colors.compEmphasizeSecondary = colors.compEmphasizeSecondary ?? brandColors.fourth!;
+            colors.compEmphasizeTertiary = colors.compEmphasizeTertiary ?? brandColors.fifth!;
 
-            colorsInner.interactiveFocus = colors.interactiveFocus ?? brandColors.primary!;
-            colorsInner.interactiveActive = colors.interactiveActive ?? brandColors.primary!;
+            colors.interactiveFocus = colors.interactiveFocus ?? brandColors.primary!;
+            colors.interactiveActive = colors.interactiveActive ?? brandColors.primary!;
         }
     }
 
@@ -246,12 +409,12 @@ export class ArkColorsImpl implements Colors {
         };
         if (brandColor) {
             if (brandColor instanceof Color) {
-                result.primary = brandColor as string;
-                result.secondary = brandColor as string;
-                result.tertiary = brandColor as string;
-                result.fourth = brandColor as string;
-                result.fifth = brandColor as string;
-                result.sixth = brandColor as string;
+                result.primary = ArkColorsImpl.convertColorEnumToValue(brandColor) as string;
+                result.secondary = ArkColorsImpl.convertColorEnumToValue(brandColor) as string;
+                result.tertiary = ArkColorsImpl.convertColorEnumToValue(brandColor) as string;
+                result.fourth = ArkColorsImpl.convertColorEnumToValue(brandColor) as string;
+                result.fifth = ArkColorsImpl.convertColorEnumToValue(brandColor) as string;
+                result.sixth = ArkColorsImpl.convertColorEnumToValue(brandColor) as string;
             } else if (brandColor instanceof Resource) {
                 result.primary = brandColor as Resource;
                 result.secondary = ArkColorsImpl.makeResourceWithOpacity(brandColor as Resource, 0.6) as Resource;
@@ -260,14 +423,19 @@ export class ArkColorsImpl implements Colors {
                 result.fifth = ArkColorsImpl.makeResourceWithOpacity(brandColor as Resource, 0.1) as Resource;
                 result.sixth = ArkColorsImpl.makeResourceWithOpacity(brandColor as Resource, 0.05) as Resource;
             } else {
-                const brandColorValue = brandColor as number | string;
-                const argbColor = ArkUIAniModule._GetColorValue(brandColorValue);
+                const brandColorValue = brandColor;
+                let argbColor = (0xff000000).toInt();
+                if (brandColorValue instanceof int32) {
+                    argbColor = brandColorValue.toInt();
+                } else if (brandColorValue instanceof string) {
+                    argbColor = ArkUIAniModule._GetStringColorValue(brandColorValue).toInt();
+                }
                 result.primary = argbColor;
-                result.secondary = ArkColorsImpl.blendOpacity(argbColor, 0.6) as int32;
-                result.tertiary = ArkColorsImpl.blendOpacity(argbColor, 0.4) as int32;
-                result.fourth = ArkColorsImpl.blendOpacity(argbColor, 0.2) as int32;
-                result.fifth = ArkColorsImpl.blendOpacity(argbColor, 0.1) as int32;
-                result.sixth = ArkColorsImpl.blendOpacity(argbColor, 0.05) as int32;
+                result.secondary = ArkColorsImpl.blendOpacity(argbColor, 0.6).toInt();
+                result.tertiary = ArkColorsImpl.blendOpacity(argbColor, 0.4).toInt();
+                result.fourth = ArkColorsImpl.blendOpacity(argbColor, 0.2).toInt();
+                result.fifth = ArkColorsImpl.blendOpacity(argbColor, 0.1).toInt();
+                result.sixth = ArkColorsImpl.blendOpacity(argbColor, 0.05).toInt();
             }
         }
         return result;
@@ -295,5 +463,36 @@ export class ArkColorsImpl implements Colors {
 
     static checkIsColor(value: ResourceColor): boolean {
         return value instanceof Color;
+    }
+
+    static convertColorEnumToValue(color: Color): string {
+        switch (color) {
+            case Color.White:
+                return '#ffffffff';
+            case Color.Black:
+                return '#ff000000';
+            case Color.Blue:
+                return '#ff0000ff';
+            case Color.Brown:
+                return '#ffa52a2a';
+            case Color.Gray:
+                return '#ff808080';
+            case Color.Green:
+                return '#ff008000';
+            case Color.Grey:
+                return '#ff808080';
+            case Color.Orange:
+                return '#ffffa500';
+            case Color.Pink:
+                return '#ffffc0cb';
+            case Color.Red:
+                return '#ffff0000';
+            case Color.Yellow:
+                return '#ffffff00';
+            case Color.Transparent:
+                return '#00000000';
+        }
+        // Do not match the color, return the default.
+        return '#ff000000';
     }
 }

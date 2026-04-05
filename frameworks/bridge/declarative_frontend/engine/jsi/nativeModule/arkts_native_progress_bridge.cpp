@@ -56,7 +56,6 @@ constexpr double DEFAULT_SCALE_WIDTH = 2;
 constexpr double DEFAULT_STROKE_RADIUS = 0;
 constexpr int32_t DEFAULT_SCALE_COUNT = 120;
 constexpr Color DEFAULT_BORDER_COLOR = Color(0x33006cde);
-constexpr Color DEFAULT_FONT_COLOR = Color(0xff182431);
 constexpr double DEFAULT_CAPSULE_FONT_SIZE = 12;
 constexpr NG::ProgressStatus DEFAULT_PROGRESS_STATUS = NG::ProgressStatus::PROGRESSING;
 constexpr DimensionUnit DEFAULT_CAPSULE_FONT_UNIT = DimensionUnit::FP;
@@ -367,11 +366,15 @@ void ParseFontColor(
     const NodeInfo& nodeInfo)
 {
     Local<JSValueRef> fontColorArg = runtimeCallInfo->GetCallArgRef(index);
-    Color fontColor = DEFAULT_FONT_COLOR;
+    auto theme = ArkTSUtils::GetTheme<ProgressTheme>();
+    Color fontColor = theme->GetTextColor();
 
     RefPtr<ResourceObject> colorResObj;
     if (fontColorArg->IsNull() || !ArkTSUtils::ParseJsColorAlpha(vm, fontColorArg, fontColor, colorResObj, nodeInfo)) {
-        fontColor = DEFAULT_FONT_COLOR;
+        fontColor = theme->GetTextColor();
+        progressStyle.fontColorSetByUser = false;
+    } else {
+        progressStyle.fontColorSetByUser = true;
     }
     if (colorResObj) {
         progressStyle.styleResource.fontColorRawPtr = AceType::RawPtr(colorResObj);
@@ -580,13 +583,14 @@ ArkUINativeModuleValue ProgressBridge::SetProgressStyle(ArkUIRuntimeCallInfo* ru
     for (uint32_t i = 0; i < fontFamilies.size(); i++) {
         families[i] = fontFamilies[i].c_str();
     }
+    auto progressTheme = ArkTSUtils::GetTheme<ProgressTheme>();
 
     ArkUIProgressStyle progressStyle = { DEFAULT_STROKE_WIDTH, static_cast<int8_t>(DimensionUnit::VP),
         DEFAULT_BORDER_WIDTH, static_cast<int8_t>(DimensionUnit::VP), DEFAULT_SCALE_COUNT,
         static_cast<uint8_t>(DEFAULT_PROGRESS_STATUS), DEFAULT_SCALE_WIDTH, static_cast<int8_t>(DimensionUnit::VP),
         DEFAULT_STROKE_RADIUS, static_cast<int8_t>(DimensionUnit::PERCENT), true,
         static_cast<ArkUI_Uint32>(DEFAULT_BORDER_COLOR.GetValue()), nullptr,
-        static_cast<ArkUI_Uint32>(DEFAULT_FONT_COLOR.GetValue()), false, false, false,
+        static_cast<ArkUI_Uint32>(progressTheme->GetTextColor().GetValue()), false, false, false, false,
         { DEFAULT_CAPSULE_FONT_SIZE, static_cast<int8_t>(DEFAULT_CAPSULE_FONT_UNIT),
             static_cast<uint8_t>(theme->GetTextStyle().GetFontWeight()),
             static_cast<uint8_t>(theme->GetTextStyle().GetFontStyle()), families.get(), fontFamilies.size() } };
@@ -672,6 +676,7 @@ ArkUINativeModuleValue ProgressBridge::SetContentModifierBuilder(ArkUIRuntimeCal
     panda::CopyableGlobal<panda::ObjectRef> obj(vm, secondArg);
     ProgressModelNG::SetBuilderFunc(frameNode, [vm, frameNode, obj = std::move(obj),
         containerId = Container::CurrentId()](ProgressConfiguration config) -> RefPtr<FrameNode> {
+        LocalScope pandaScope(vm);
         ContainerScope scope(containerId);
         auto context = ArkTSUtils::GetContext(vm);
         CHECK_EQUAL_RETURN(context->IsUndefined(), true, nullptr);
@@ -683,7 +688,6 @@ ArkUINativeModuleValue ProgressBridge::SetContentModifierBuilder(ArkUIRuntimeCal
         progress->SetNativePointerFieldCount(vm, 1);
         progress->SetNativePointerField(vm, 0, static_cast<void*>(frameNode));
         panda::Local<panda::JSValueRef> params[ARG_SECOND] = { context, progress };
-        LocalScope pandaScope(vm);
         panda::TryCatch trycatch(vm);
         auto jsObject = obj.ToLocal();
         auto makeFunc = jsObject->Get(vm, panda::StringRef::NewFromUtf8(vm, "makeContentModifierNode"));

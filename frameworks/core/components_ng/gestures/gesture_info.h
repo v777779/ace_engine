@@ -26,11 +26,13 @@
 #include "core/gestures/gesture_event.h"
 #include "core/gestures/gesture_info.h"
 #include "core/gestures/gesture_type.h"
-#include "core/gestures/velocity.h"
-#include "core/gestures/velocity_tracker.h"
 #include "core/components/common/properties/blur_style_option.h"
 #include "core/components/common/properties/shadow.h"
+#include "ui/properties/ui_material.h"
 
+namespace OHOS::Ace {
+class UiMaterial;
+}
 namespace OHOS::Ace::NG {
 
 class NGGestureRecognizer;
@@ -79,6 +81,7 @@ struct OptionsAfterApplied {
     bool isFilled = true;
     std::optional<BorderRadiusProperty> borderRadius;
     BlurBackGroundInfo blurbgEffect;
+    RefPtr<UiMaterial> material = nullptr;
 };
 
 struct DragPreviewOption {
@@ -88,7 +91,6 @@ struct DragPreviewOption {
     bool isNumber = false;
     bool isDefaultShadowEnabled = false;
     bool isDefaultRadiusEnabled = false;
-    bool isDragPreviewEnabled = true;
     bool isDefaultDragItemGrayEffectEnabled = false;
     bool enableEdgeAutoScroll = true;
     bool enableHapticFeedback = false;
@@ -100,7 +102,7 @@ struct DragPreviewOption {
         int32_t badgeNumber;
         bool isShowBadge = true;
     };
-    std::optional<int32_t> GetCustomerBadgeNumber()
+    std::optional<int32_t> GetCustomerBadgeNumber() const
     {
         if (isNumber) {
             return badgeNumber > 1 ? badgeNumber : 1;

@@ -17,6 +17,7 @@
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_LIST_LIST_ITEM_MODEL_STATIC_H
 
 #include "base/utils/macros.h"
+#include "core/components/list/list_item_theme.h"
 #include "core/components_ng/base/frame_node.h"
 #include "core/components_ng/pattern/list/list_item_event_hub.h"
 #include "core/components_ng/pattern/list/list_item_model.h"
@@ -39,9 +40,13 @@ public:
     static void SetDeleteArea(FrameNode* frameNode, UINode* footerNode, OnDeleteEvent&& onDelete,
         OnEnterDeleteAreaEvent&& onEnterDeleteArea, OnExitDeleteAreaEvent&& onExitDeleteArea,
         OnStateChangedEvent&& onStateChangeEvent, const std::optional<Dimension>& length, bool isStartArea);
+    static RefPtr<ListItemTheme> GetListItemTheme(FrameNode* frameNode);
     static void SetSwiperAction(FrameNode* frameNode, std::function<void()>&& startAction,
         std::function<void()>&& endAction, OnOffsetChangeFunc&& onOffsetChangeFunc,
         const std::optional<V2::SwipeEdgeEffect>& edgeEffect);
+    static void SetAutoScale(FrameNode* frameNode, const std::optional<bool>& autoScale);
+    static void ExpandSwipeAction(const NG::FrameNode* listItem, ListItemSwipeActionDirection direction);
+    static void CollapseSwipeAction(const NG::FrameNode* listItem);
 };
 } // namespace OHOS::Ace::NG
 #endif // FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_LIST_LIST_ITEM_MODEL_STATIC_H

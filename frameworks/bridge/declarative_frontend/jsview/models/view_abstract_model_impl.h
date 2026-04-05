@@ -24,11 +24,12 @@
 
 namespace OHOS::Ace {
 class SpanString;
+class CalcDimensionRect;
 }
 
 namespace OHOS::Ace::Framework {
 
-class ViewAbstractModelImpl : public ViewAbstractModel {
+class ACE_FORCE_EXPORT ViewAbstractModelImpl : public ViewAbstractModel {
 public:
     ~ViewAbstractModelImpl() override = default;
 
@@ -156,6 +157,7 @@ public:
     void SetMotionPath(const MotionPathOption& option) override;
     void SetRenderGroup(bool isRenderGroup) override {}
     void SetRenderFit(RenderFit renderFit) override {}
+    void SetRenderStrategy(RenderStrategy renderStrategy) override {}
 
     void SetFlexBasis(const Dimension& value) override;
     void SetAlignSelf(FlexAlign value) override;
@@ -197,6 +199,7 @@ public:
     void SetFreeze(bool) override {}
 
     void SetClickEffectLevel(const ClickEffectLevel& level, float scaleValue) override {}
+    void SetEnableClickSoundEffect(bool enabled) override {}
     void SetOnClick(GestureEventFunc&& tapEventFunc, ClickEventFunc&& clickEventFunc,
         double distanceThreshold) override;
     void SetOnClick(GestureEventFunc&& tapEventFunc, ClickEventFunc&& clickEventFunc,
@@ -228,6 +231,8 @@ public:
     void SetOnRemoteMessage(RemoteCallback&& onRemoteCallback) override;
     void SetOnFocusMove(std::function<void(int32_t)>&& onFocusMoveCallback) override;
     void SetOnFocus(OnFocusFunc&& onFocusCallback) override;
+    void SetOnNeedSoftkeyboard(OnNeedSoftkeyboardFunc&& onNeedSoftkeyboardCallback) override {};
+    void ResetOnNeedSoftkeyboard() override {};
     void SetOnBlur(OnBlurFunc&& onBlurCallback) override;
     void SetOnFocusAxisEvent(OnFocusAxisEventFunc&& onFocusAxisCallback) override {}
     void SetDraggable(bool draggable) override {}
@@ -236,22 +241,25 @@ public:
     void SetOnPreDrag(NG::OnPreDragFunc&& onPreDrag) override;
     void SetOnDragEnd(OnNewDragFunc&& onDragEnd) override;
     void SetOnDragEnter(NG::OnDragDropFunc&& onDragEnter) override;
-    void SetOnDragSpringLoading(NG::OnDrapDropSpringLoadingFunc&& onDragSpringLoading) override;
+    void SetOnDragSpringLoading(NG::OnDragDropSpringLoadingFunc&& onDragSpringLoading) override;
     void SetOnDragSpringLoadingConfiguration(
         const RefPtr<NG::DragSpringLoadingConfiguration>& dragSpringLoadingConfiguration) override;
     void SetOnDragLeave(NG::OnDragDropFunc&& onDragLeave) override;
     void SetOnDragMove(NG::OnDragDropFunc&& onDragMove) override;
     void SetOnDrop(NG::OnDragDropFunc&& onDrop) override;
-    void SetOnVisibleChange(
-        std::function<void(bool, double)>&& onVisibleChange, const std::vector<double>& ratios) override;
+    void SetOnVisibleChange(std::function<void(bool, double)>&& onVisibleChange, const std::vector<double>& ratios,
+        bool measureFromViewport = false) override;
     void SetOnVisibleAreaApproximateChange(const std::function<void(bool, double)>&& onVisibleChange,
-        const std::vector<double>& ratioList, int32_t expectedUpdateInterval) override {};
+        const std::vector<double>& ratioList, int32_t expectedUpdateInterval, bool measureFromViewport) override {};
     void SetOnAreaChanged(
         std::function<void(const Rect& oldRect, const Offset& oldOrigin, const Rect& rect, const Offset& origin)>&&
-            onAreaChanged) override;
+            onAreaChanged, int32_t minInterval = 0) override;
     void SetOnSizeChanged(
         std::function<void(const NG::RectF& oldRect, const NG::RectF& rect)>&& onSizeChanged) override {};
 
+    void SetResponseRegionList(
+        const std::unordered_map<NG::ResponseRegionSupportedTool, std::vector<CalcDimensionRect>>& responseRegionMap)
+        override {};
     void SetResponseRegion(const std::vector<DimensionRect>& responseRegion) override;
     void SetEnabled(bool enabled) override;
     void SetTouchable(bool touchable) override;
@@ -297,9 +305,11 @@ public:
 
     void BindBackground(std::function<void()>&& buildFunc, const Alignment& align) override;
     void SetBackground(std::function<void()>&& buildFunc) override {};
+    void SetBackgroundWithResourceObj(
+        std::function<void()>&& buildFunc, const RefPtr<ResourceObject>& resObj) override {};
     void SetBackgroundAlign(const Alignment& align) override {};
     void SetCustomBackgroundColor(const Color& color) override {};
-    void SetCustomBackgroundColorWithResourceObj(const RefPtr<ResourceObject>& resObj) override {};
+    void SetCustomBackgroundColorWithResourceObj(const Color& color, const RefPtr<ResourceObject>& resObj) override {};
     void SetBackgroundIgnoresLayoutSafeAreaEdges(const uint32_t edges) override {};
     void SetIsTransitionBackground(bool val) override {};
     void SetIsBuilderBackground(bool val) override {};
@@ -327,8 +337,11 @@ public:
     void BindMenu(std::vector<NG::OptionParam>&& params, std::function<void()>&& buildFunc,
         const NG::MenuParam& menuParam) override;
 
-    void BindContextMenu(ResponseType type, std::function<void()>& buildFunc, const NG::MenuParam& menuParam,
+    void BindContextMenu(ResponseType type, std::function<void()>& buildFunc, NG::MenuParam& menuParam,
         std::function<void()>& previewBuildFunc) override;
+
+    void BindContextMenu(std::function<void(MenuBindingType)>& buildFuncWithType, NG::MenuParam& menuParam,
+        std::function<void()>& previewBuildFunc) override {};
 
     int32_t OpenMenu(NG::MenuParam& menuParam, const RefPtr<NG::UINode>& customNode, const int32_t& targetId) override
     {
@@ -355,7 +368,8 @@ public:
         std::function<void()>&& onWillDisappear, std::function<void(const float)>&& onHeightDidChange,
         std::function<void(const float)>&& onDetentsDidChange,
         std::function<void(const float)>&& onWidthDidChange,
-        std::function<void(const float)>&& onTypeDidChange, std::function<void()>&& sheetSpringBack) override
+        std::function<void(const float)>&& onTypeDidChange,
+        std::function<void()>&& sheetSpringBack) override
     {}
     void DismissSheet() override {}
     void DismissContentCover() override {}
@@ -370,6 +384,9 @@ public:
     void SetAccessibilitySelected(bool selected, bool resetValue) override;
     void SetAccessibilityChecked(bool checked, bool resetValue) override;
     void SetAccessibilityTextPreferred(bool accessibilityTextPreferred) override;
+    void SetAccessibilityGroupOptions(NG::AccessibilityGroupOptions groupOptions) override;
+    void SetAccessibilityActionOptions(NG::AccessibilityActionOptions actionOptions) override;
+    void ResetAccessibilityActionOptions() override;
     void SetAccessibilityNextFocusId(const std::string& nextFocusId) override;
     void SetAccessibilityRole(const std::string& role, bool resetValue) override;
     void SetOnAccessibilityFocus(NG::OnAccessibilityFocusCallbackImpl&& onAccessibilityFocusCallbackImpl) override;
@@ -381,6 +398,7 @@ public:
     void SetAccessibilityUseSamePage(const std::string& pageMode) override;
     void SetAccessibilityScrollTriggerable(bool triggerable, bool resetValue) override;
     void SetAccessibilityFocusDrawLevel(int32_t drawLevel) override;
+    void SetAccessibilityStateDescription(const std::string& stateDescription) override;
 
     void SetProgressMask(const RefPtr<NG::ProgressMaskProperty>& progress) override {}
     void SetForegroundColor(const Color& color) override {}
@@ -419,8 +437,8 @@ public:
     void SetMarkAnchorStart(Dimension& markAnchorStart) override {};
     void ResetMarkAnchorStart() override {};
     void SetOffsetLocalizedEdges(bool needLocalized) override {};
-    void CreateWithResourceObj(const RefPtr<NG::FrameNode>& frameNode, const RefPtr<ResourceObject>& resourceObj,
-        const PopupType& type) override {};
+    void CreateWithResourceObj(const RefPtr<NG::FrameNode>& frameNode,
+        const RefPtr<ResourceObject>& resourceObj, const PopupType& type) override {};
     void CreateWithResourceObj(
         const RefPtr<NG::FrameNode>& frameNode, const RefPtr<ResourceObject>& resourceObj) override {};
     void CreateWithResourceObj(const RefPtr<NG::FrameNode>& frameNode,

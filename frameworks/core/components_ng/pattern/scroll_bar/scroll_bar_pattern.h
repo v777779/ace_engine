@@ -20,6 +20,8 @@
 #include "base/utils/utils.h"
 #include "core/common/container.h"
 #include "core/components/common/layout/constants.h"
+#include "core/components_ng/gestures/recognizers/click_recognizer.h"
+#include "core/components_ng/gestures/recognizers/long_press_recognizer.h"
 #include "core/components_ng/pattern/pattern.h"
 #include "core/components_ng/pattern/scroll/inner/scroll_bar.h"
 #include "core/components_ng/pattern/scroll/scroll_event_hub.h"
@@ -196,20 +198,6 @@ public:
         return dragEndPosition_ - dragStartPosition_;
     }
 
-    void InitClickEvent();
-    void HandleClickEvent();
-    void InitLongPressEvent();
-    void HandleLongPress(bool smooth);
-    void InitMouseEvent();
-    bool IsInScrollBar();
-    void ScheduleCaretLongPress();
-    void StartLongPressEventTimer();
-    void OnCollectClickTarget(const OffsetF& coordinateOffset, const GetEventTargetImpl& getEventTargetImpl,
-        TouchTestResult& result, const RefPtr<FrameNode>& frameNode, const RefPtr<TargetComponent>& targetComponent,
-        ResponseLinkResult& responseLinkResult);
-    void OnCollectLongPressTarget(const OffsetF& coordinateOffset, const GetEventTargetImpl& getEventTargetImpl,
-        TouchTestResult& result, const RefPtr<FrameNode>& frameNode, const RefPtr<TargetComponent>& targetComponent,
-        ResponseLinkResult& responseLinkResult);
     void SetScrollBar(DisplayMode displayMode);
     void UpdateScrollBarOffset(int32_t scrollSource);
     void HandleScrollBarOutBoundary(float scrollBarOutBoundaryExtent);
@@ -299,7 +287,20 @@ public:
         }
         return false;
     }
-
+    void InitClickEvent();
+    void HandleClickEvent();
+    void InitLongPressEvent();
+    void HandleLongPress(bool smooth);
+    void InitMouseEvent();
+    bool IsInScrollBar();
+    void ScheduleCaretLongPress();
+    void StartLongPressEventTimer();
+    void OnCollectClickTarget(const OffsetF& coordinateOffset, const GetEventTargetImpl& getEventTargetImpl,
+        TouchTestResult& result, const RefPtr<FrameNode>& frameNode, const RefPtr<TargetComponent>& targetComponent,
+        ResponseLinkResult& responseLinkResult);
+    void OnCollectLongPressTarget(const OffsetF& coordinateOffset, const GetEventTargetImpl& getEventTargetImpl,
+        TouchTestResult& result, const RefPtr<FrameNode>& frameNode, const RefPtr<TargetComponent>& targetComponent,
+        ResponseLinkResult& responseLinkResult);
     void AddScrollBarLayoutInfo();
 
     void GetAxisDumpInfo();
@@ -325,6 +326,7 @@ public:
     }
 
     void OnColorConfigurationUpdate() override;
+    void OnColorModeChange(uint32_t colorMode) override;
 
     RefPtr<ScrollBarProxy> GetScrollBarProxy()
     {
@@ -348,6 +350,8 @@ public:
         return scrollBar_;
     }
 
+    PositionMode GetPositionMode();
+
     RefPtr<ScrollBarOverlayModifier> GetScrollBarOverlayModifier() const
     {
         return scrollBarOverlayModifier_;
@@ -365,14 +369,13 @@ public:
 
     virtual void SetBarCollectClickAndLongPressTargetCallback();
 
-    void OnModifyDone() override;
-
-    PositionMode GetPositionMode();
-
     void SetScrollBarOverlayModifier(RefPtr<ScrollBarOverlayModifier>& scrollBarOverlayModifier)
     {
         scrollBarOverlayModifier_ = scrollBarOverlayModifier;
     }
+
+    void OnModifyDone() override;
+    bool Idle();
 
 private:
     bool ScrollPositionCallback(double offset, int32_t source, bool isMouseWheelScroll = false);
@@ -390,8 +393,13 @@ private:
     void HandleDragStart(const GestureEvent& info);
     void HandleDragUpdate(const GestureEvent& info);
     void HandleDragEnd(const GestureEvent& info);
+    void ProcessScrollOverDrag();
     void ProcessFrictionMotion(double value);
     void ProcessFrictionMotionStop();
+    void CalcFlingVelocity(float offset);
+    void RegisterScrollBarOverDragEventTask();
+    bool DragEndOverScroll();
+    bool CanOverScrollWithDelta(double delta) const;
 
     RefPtr<ScrollBarProxy> scrollBarProxy_;
     RefPtr<ScrollableEvent> scrollableEvent_;
@@ -402,18 +410,17 @@ private:
     float scrollableDistance_ = 0.0f;
     float controlDistance_ = 0.0f;
     bool  controlDistanceChanged_ = false;
+    float scrollableNodeOffset_ = 0.0f;
     bool hasChild_ = false;
     bool preFrameChildState_ = false;
-    float scrollableNodeOffset_  = 0.0f;
     float friction_ = BAR_FRICTION;
     float frictionPosition_ = 0.0;
     float dragStartPosition_ = 0.0f;
     float dragEndPosition_ = 0.0f;
 
+    float childOffset_ = 0.0f;  // main size of child
     RefPtr<ScrollBarOverlayModifier> scrollBarOverlayModifier_;
     RefPtr<ScrollBar> scrollBar_;
-
-    float childOffset_ = 0.0f;  // main size of child
     RefPtr<PanRecognizer> panRecognizer_;
     RefPtr<FrictionMotion> frictionMotion_;
     RefPtr<Animator> frictionController_;
@@ -422,6 +429,10 @@ private:
     uint8_t opacity_ = UINT8_MAX;
     CancelableCallback<void()> disapplearDelayTask_;
     std::shared_ptr<AnimationUtils::Animation> disappearAnimation_;
+    bool isReverse_ = false;
+
+    // dump info
+    std::list<OuterScrollBarLayoutInfo> outerScrollBarLayoutInfos_;
     bool isMousePressed_ = false;
     bool isScrolling_ = false;
     RefPtr<ClickRecognizer> clickRecognizer_;
@@ -431,11 +442,12 @@ private:
     //Determine whether the current scroll direction is scrolling upwards or downwards
     bool scrollingUp_ = false;
     bool scrollingDown_ = false;
-    bool isReverse_ = false;
-
-    // dump info
-    std::list<OuterScrollBarLayoutInfo> outerScrollBarLayoutInfos_;
     bool enableNestedSorll_ = false;
+    // over drag
+    uint64_t lastVsyncTime_ = 0;
+    float scrollBarFlingVelocity_ = 0.0f;
+    bool firstAtEdge_ = true;
+    bool isTouchScreen_ = false;
 };
 
 } // namespace OHOS::Ace::NG

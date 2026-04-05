@@ -52,10 +52,7 @@ public:
         return false;
     }
 
-    FocusPattern GetFocusPattern() const override
-    {
-        return { FocusType::SCOPE, true };
-    }
+    FocusPattern GetFocusPattern() const override;
 
     void SetDrawCallback(std::function<void(DrawingContext& context)>&& drawCallback)
     {
@@ -76,6 +73,10 @@ public:
         CHECK_NULL_RETURN(host, nullptr);
         auto paintProperty = host->GetPaintProperty<RenderNodePaintProperty>();
         paintProperty->SetHost(host);
+        auto context = host->GetRenderContext();
+        if (context != nullptr) {
+            context->SetNeedUseCmdlistDrawRegion(true);
+        }
 
         if (!renderNodeModifier_) {
             renderNodeModifier_ = AceType::MakeRefPtr<RenderNodeModifier>(drawCallback_);

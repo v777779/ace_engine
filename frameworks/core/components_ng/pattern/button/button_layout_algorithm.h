@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,8 +16,6 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_BUTTON_BUTTON_LAYOUT_ALGORITHM_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERN_BUTTON_BUTTON_LAYOUT_ALGORITHM_H
 
-#include "base/memory/referenced.h"
-#include "core/components_ng/base/ui_node.h"
 #include "core/components_ng/layout/box_layout_algorithm.h"
 #include "core/components_ng/layout/layout_wrapper.h"
 #include "core/components_ng/pattern/button/button_layout_property.h"
@@ -49,6 +47,8 @@ private:
     static float GetDefaultHeight(LayoutWrapper* layoutWrapper);
     static float GetDefaultBorderRadius(LayoutWrapper* layoutWrapper);
     bool ProcessLayoutPolicyIsNotNoMatch(std::optional<NG::LayoutPolicyProperty> layoutPolicy);
+    void LayoutPolicyIsFixAtIdelSize(std::optional<NG::LayoutPolicyProperty> layoutPolicy, const float& topPadding,
+        const float& bottomPadding, SizeF& frameSize);
     SizeF childSize_;
 
     ACE_DISALLOW_COPY_AND_MOVE(ButtonLayoutAlgorithm);

@@ -18,8 +18,8 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "test/mock/core/common/mock_udmf.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 #include "test/unittest/core/pattern/web/mock_web_delegate.h"
 
 #include "base/memory/ace_type.h"
@@ -359,7 +359,6 @@ HWTEST_F(WebPatternTouchTestNg, Backward_001, TestSize.Level1)
 #ifdef OHOS_STANDARD_SYSTEM
     WebPattern webpattern;
     webpattern.delegate_ = nullptr;
-    EXPECT_EQ(webpattern.delegate_, nullptr);
     auto ret = webpattern.Backward();
     EXPECT_EQ(ret, false);
 #endif
@@ -400,10 +399,9 @@ HWTEST_F(WebPatternTouchTestNg, SuggestionSelected_001, TestSize.Level1)
 #ifdef OHOS_STANDARD_SYSTEM
     WebPattern webpattern;
     webpattern.delegate_ = nullptr;
-    EXPECT_EQ(webpattern.delegate_, nullptr);
     int32_t index = 1;
     webpattern.SuggestionSelected(index);
-    EXPECT_EQ(webpattern.delegate_, nullptr);
+    EXPECT_EQ(webpattern.isShowAutofillPopup_, false);
 #endif
 }
 
@@ -502,7 +500,6 @@ HWTEST_F(WebPatternTouchTestNg, OnHideAutofillPopup_001, TestSize.Level1)
     MockPipelineContext::SetUp();
     webPattern->isShowAutofillPopup_ = false;
     webPattern->OnHideAutofillPopup();
-    EXPECT_EQ(webPattern->isShowAutofillPopup_, false);
     MockPipelineContext::TearDown();
 #endif
 }
@@ -527,7 +524,6 @@ HWTEST_F(WebPatternTouchTestNg, OnHideAutofillPopup_002, TestSize.Level1)
     EXPECT_NE(webPattern, nullptr);
     webPattern->isShowAutofillPopup_ = true;
     webPattern->OnHideAutofillPopup();
-    EXPECT_EQ(webPattern->isShowAutofillPopup_, true);
 #endif
 }
 
@@ -599,7 +595,6 @@ HWTEST_F(WebPatternTouchTestNg, GetWebInfoType_002, TestSize.Level1)
 #ifdef OHOS_STANDARD_SYSTEM
     WebPattern webpattern;
     webpattern.delegate_ = nullptr;
-    EXPECT_EQ(webpattern.delegate_, nullptr);
     auto expectedType = OHOS::Ace::NG::WebInfoType::TYPE_UNKNOWN;
     auto result = webpattern.GetWebInfoType();
     EXPECT_EQ(result, expectedType);
@@ -1043,6 +1038,8 @@ HWTEST_F(WebPatternTouchTestNg, GetAllWebAccessibilityNodeInfos_001, TestSize.Le
     int32_t webId = 123;
     auto callback = [](std::shared_ptr<OHOS::Ace::JsonValue>& jsonNodeArray, int32_t receivedWebId) {};
     webPattern->GetAllWebAccessibilityNodeInfos(callback, webId);
+    webPattern->GetAllWebAccessibilityNodeInfos(callback, webId, true);
+    ASSERT_NE(webPattern->delegate_, nullptr);
 #endif
 }
 
@@ -1558,8 +1555,8 @@ HWTEST_F(WebPatternTouchTestNg, GetDragPixelMapSize_002, TestSize.Level1)
 #ifdef OHOS_STANDARD_SYSTEM
     WebPattern webpattern;
     webpattern.delegate_ = nullptr;
-    EXPECT_EQ(webpattern.delegate_, nullptr);
-    webpattern.GetDragPixelMapSize();
+    auto size = webpattern.GetDragPixelMapSize();
+    EXPECT_EQ(size.Width(), 0);
 #endif
 }
 

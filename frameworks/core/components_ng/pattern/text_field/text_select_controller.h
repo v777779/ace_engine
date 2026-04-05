@@ -24,6 +24,7 @@
 #include "base/memory/ace_type.h"
 #include "base/memory/referenced.h"
 #include "core/components_ng/pattern/pattern.h"
+#include "core/components_ng/pattern/select_overlay/select_overlay_property.h"
 #include "core/components_ng/pattern/text_field/content_controller.h"
 #include "core/components_ng/pattern/text_field/text_field_layout_property.h"
 #include "core/components_ng/pattern/text_field/text_selector.h"
@@ -224,6 +225,8 @@ public:
     static int32_t GetGraphemeClusterLength(const std::u16string& text, int32_t extend, bool checkPrev = false);
     void CalculateHandleOffset();
     std::vector<RectF> GetSelectedRects() const;
+    std::vector<RectF> GetSelectedRects(int32_t start, int32_t end) const;
+    RectF GetCaretRectByIndex(int32_t index, TextAffinity textAffinity);
     RectF CalculateEmptyValueCaretRect(float width = 0.0f);
     std::string ToString() const;
     bool IsTouchAtLineEnd(const Offset& localOffset) const;
@@ -254,6 +257,8 @@ private:
     const TimeStamp& GetLastClickTime() const;
     void UpdateCaretOriginalRect(const OffsetF& offset);
     void SetCaretRectAtEmptyValue();
+    void ProcessTextAlignment(RectF& rect, const RefPtr<TextFieldLayoutProperty>& layoutProperty);
+    NG::SizeF GetAlignParentSize() const;
 
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(FirstIndex, int32_t, PROPERTY_UPDATE_RENDER);
     ACE_DEFINE_PROPERTY_ITEM_WITHOUT_GROUP(SecondIndex, int32_t, PROPERTY_UPDATE_RENDER);

@@ -21,10 +21,10 @@
 
 #define private public
 #define protected public
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
 
 #include "base/error/error_code.h"
 #include "base/memory/ace_type.h"
@@ -40,8 +40,8 @@
 #include "core/components/dialog/dialog_properties.h"
 #include "core/components/dialog/dialog_theme.h"
 #include "core/components/drag_bar/drag_bar_theme.h"
-#include "core/components/picker/picker_data.h"
-#include "core/components/picker/picker_theme.h"
+#include "core/components_ng/pattern/picker/picker_data.h"
+#include "core/components_ng/pattern/picker/picker_theme.h"
 #include "core/components/select/select_theme.h"
 #include "core/components/toast/toast_theme.h"
 #include "core/components_ng/base/view_abstract.h"
@@ -52,6 +52,7 @@
 #include "core/components_ng/pattern/dialog/dialog_event_hub.h"
 #include "core/components_ng/pattern/dialog/dialog_pattern.h"
 #include "core/components_ng/pattern/linear_layout/linear_layout_pattern.h"
+#include "core/components_ng/pattern/menu/menu_manager.h"
 #include "core/components_ng/pattern/menu/menu_pattern.h"
 #include "core/components_ng/pattern/menu/menu_theme.h"
 #include "core/components_ng/pattern/menu/menu_view.h"
@@ -586,14 +587,17 @@ HWTEST_F(OverlayManagerExtendTestNg, OverlayManagerExtendTest013, TestSize.Level
     auto overlayNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
     auto overlayManager = AceType::MakeRefPtr<OverlayManager>(overlayNode);
     auto dragPreviewNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 2, AceType::MakeRefPtr<RootPattern>());
+    overlayManager->CheckMenuManager();
+    auto menuManager = AceType::DynamicCast<MenuManager>(overlayManager->menuManager_);
+    ASSERT_NE(menuManager, nullptr);
     overlayManager->ContextMenuSwitchDragPreviewAnimation(dragPreviewNode, DRAG_PREVIEW_OFFSET);
-    EXPECT_TRUE(overlayManager->menuMap_.empty());
+    EXPECT_TRUE(menuManager->menuMap_.empty());
     /**
      * @tc.steps: step1+. create overlayManager->menuMap_ and call ContextMenuSwitchDragPreviewAnimation.
      */
     auto menuNodeFst =
         FrameNode::CreateFrameNode(V2::MENU_ETS_TAG, 3, AceType::MakeRefPtr<MenuPattern>(1, TEXT_TAG, MenuType::MENU));
-    overlayManager->menuMap_.emplace(1, AceType::RawPtr(menuNodeFst));
+    menuManager->menuMap_.emplace(1, AceType::RawPtr(menuNodeFst));
     overlayManager->ContextMenuSwitchDragPreviewAnimation(dragPreviewNode, DRAG_PREVIEW_OFFSET);
     /**
      * @tc.steps: step2. set overlayNode's child node and one of children is menuWrapper.
@@ -604,7 +608,7 @@ HWTEST_F(OverlayManagerExtendTestNg, OverlayManagerExtendTest013, TestSize.Level
     otherNode->MountToParent(overlayNode);
     wrapperNode->MountToParent(overlayNode);
     overlayManager->ContextMenuSwitchDragPreviewAnimation(dragPreviewNode, DRAG_PREVIEW_OFFSET);
-    EXPECT_FALSE(overlayManager->menuMap_.empty());
+    EXPECT_FALSE(menuManager->menuMap_.empty());
     EXPECT_EQ(overlayNode->GetLastChild()->GetTag(), V2::MENU_WRAPPER_ETS_TAG);
 }
 /**
@@ -1129,5 +1133,60 @@ HWTEST_F(OverlayManagerExtendTestNg, GetDragPixelMapBadgeNodeTest002, TestSize.L
     overlayManager->dragPixmapColumnNodeWeak_ = columnNode;
     auto result = overlayManager->GetDragPixelMapBadgeNode();
     EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @tc.name: GetPixelMapBadgeNodeTest001
+ * @tc.desc: Test GetPixelMapBadgeNode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerExtendTestNg, GetPixelMapBadgeNodeTest001, TestSize.Level1)
+{
+    auto pipelineContext = MockPipelineContext::GetCurrentContext();
+    ASSERT_NE(pipelineContext, nullptr);
+    auto overlayManager = pipelineContext->GetOverlayManager();
+    ASSERT_NE(overlayManager, nullptr);
+    auto rootNode = FrameNode::CreateFrameNode(V2::TEXT_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<LinearLayoutPattern>(true));
+    ASSERT_NE(rootNode, nullptr);
+    auto columnNode = FrameNode::CreateFrameNode(V2::COLUMN_ETS_TAG, ElementRegister::GetInstance()->MakeUniqueId(),
+        AceType::MakeRefPtr<LinearLayoutPattern>(true));
+    ASSERT_NE(columnNode, nullptr);
+    columnNode->children_.push_front(rootNode);
+    overlayManager->dragPixmapColumnNodeWeak_ = columnNode;
+    auto result = overlayManager->GetPixelMapBadgeNode();
+    EXPECT_NE(result, nullptr);
+}
+
+/**
+ * @tc.name: UpdatePopupCustomNode001
+ * @tc.desc: Test OverlayManager::UpdatePopupCustomNode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(OverlayManagerExtendTestNg, UpdatePopupCustomNode001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create root node and overlayManager and call RemovePixelMapAnimation.
+     */
+    auto overlayNode = FrameNode::CreateFrameNode(V2::ROOT_ETS_TAG, 1, AceType::MakeRefPtr<RootPattern>());
+    auto overlayManager = AceType::MakeRefPtr<OverlayManager>(overlayNode);
+    overlayManager->UpdatePopupCustomNode();
+    EXPECT_EQ(overlayManager->popupMap_.size(), 0);
+    /**
+     * @tc.steps: step2. create dialogMap_  and call ReloadBuilderNodeConfig.
+     */
+
+    auto targetNode = FrameNode::GetOrCreateFrameNode(V2::BUTTON_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<ButtonPattern>(); });
+    auto targetId = targetNode->GetId();
+    auto targetTag = targetNode->GetTag();
+    auto popupNode =
+        FrameNode::CreateFrameNode(V2::POPUP_ETS_TAG, 1, AceType::MakeRefPtr<BubblePattern>(targetId, targetTag));
+    
+    NG::PopupInfo PopupInfo1;
+    PopupInfo1.popupNode = popupNode;
+    overlayManager->popupMap_.emplace(targetId, PopupInfo1);
+    overlayManager->UpdatePopupCustomNode();
+    EXPECT_EQ(overlayManager->popupMap_.size(), 1);
 }
 }

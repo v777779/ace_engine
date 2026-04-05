@@ -14,10 +14,13 @@
  */
 
 #include "core/common/ai/image_analyzer_manager.h"
+#include "napi/native_api.h"
+#include "napi/native_node_api.h"
 
 #include "core/common/ai/image_analyzer_adapter.h"
 #include "core/common/ai/image_analyzer_mgr.h"
 #include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/event/focus_hub.h"
 #include "core/components_ng/pattern/image/image_pattern.h"
 #include "core/components_ng/pattern/video/video_layout_property.h"
 
@@ -47,16 +50,23 @@ void ImageAnalyzerManager::CreateAnalyzerOverlay(const RefPtr<OHOS::Ace::PixelMa
     if (holder_ == ImageAnalyzerHolder::VIDEO_CUSTOM) {
         analyzerUIConfig_.pixelMapWidth = pixelMap->GetWidth();
         analyzerUIConfig_.pixelMapHeight = pixelMap->GetHeight();
-        analyzerUIConfig_.overlayOffset = offset;
+        analyzerUIConfig_.overlayOffset = { offset.GetX(), offset.GetY() };
     }
 
     RefPtr<NG::UINode> customNode;
     {
+        napi_handle_scope scope = nullptr;
+        napi_env env = reinterpret_cast<napi_env>(imageAnalyzerAdapter_->GetNapiEnv());
+        auto status = napi_open_handle_scope(env, &scope);
+        if (status != napi_ok || scope == nullptr) {
+            return;
+        }
         NG::ScopedViewStackProcessor builderViewStackProcessor;
         auto analyzerConfig = imageAnalyzerAdapter_->GetImageAnalyzerConfig();
         ImageAnalyzerMgr::GetInstance().BuildNodeFunc(
             pixelmapNapiVal, analyzerConfig, &analyzerUIConfig_, &overlayData_);
         customNode = NG::ViewStackProcessor::GetInstance()->Finish();
+        napi_close_handle_scope(env, scope);
     }
     auto overlayNode = AceType::DynamicCast<NG::FrameNode>(customNode);
     CHECK_NULL_VOID(overlayNode);
@@ -97,11 +107,18 @@ void ImageAnalyzerManager::CreateMovingPhotoAnalyzerOverlay(const RefPtr<OHOS::A
 
     RefPtr<NG::UINode> customNode;
     {
+        napi_handle_scope scope = nullptr;
+        napi_env env = reinterpret_cast<napi_env>(imageAnalyzerAdapter_->GetNapiEnv());
+        auto status = napi_open_handle_scope(env, &scope);
+        if (status != napi_ok || scope == nullptr) {
+            return;
+        }
         NG::ScopedViewStackProcessor builderViewStackProcessor;
         auto analyzerConfig = imageAnalyzerAdapter_->GetImageAnalyzerConfig();
         ImageAnalyzerMgr::GetInstance().BuildNodeFunc(info.uri, pixelmapNapiVal,
             info.frameTimestamp, analyzerConfig, &analyzerUIConfig_, &overlayData_);
         customNode = NG::ViewStackProcessor::GetInstance()->Finish();
+        napi_close_handle_scope(env, scope);
     }
     auto overlayNode = AceType::DynamicCast<NG::FrameNode>(customNode);
     CHECK_NULL_VOID(overlayNode);
@@ -144,7 +161,7 @@ void ImageAnalyzerManager::UpdateAnalyzerOverlay(const RefPtr<OHOS::Ace::PixelMa
     if (holder_ == ImageAnalyzerHolder::VIDEO_CUSTOM) {
         analyzerUIConfig_.pixelMapWidth = pixelMap->GetWidth();
         analyzerUIConfig_.pixelMapHeight = pixelMap->GetHeight();
-        analyzerUIConfig_.overlayOffset = offset;
+        analyzerUIConfig_.overlayOffset = { offset.GetX(), offset.GetY() };
     }
 
     if (holder_ != ImageAnalyzerHolder::IMAGE) {
@@ -156,9 +173,16 @@ void ImageAnalyzerManager::UpdateAnalyzerOverlay(const RefPtr<OHOS::Ace::PixelMa
     auto pixelmapNapiVal = imageAnalyzerAdapter_->ConvertPixmapNapi(pixelMap);
     auto overlayNode = node->GetOverlayNode();
     CHECK_NULL_VOID(overlayNode);
+    napi_handle_scope scope = nullptr;
+    napi_env env = reinterpret_cast<napi_env>(imageAnalyzerAdapter_->GetNapiEnv());
+    auto status = napi_open_handle_scope(env, &scope);
+    if (status != napi_ok || scope == nullptr) {
+        return;
+    }
     auto analyzerConfig = imageAnalyzerAdapter_->GetImageAnalyzerConfig();
     ImageAnalyzerMgr::GetInstance().UpdateImage(&overlayData_, pixelmapNapiVal, analyzerConfig, &analyzerUIConfig_);
     overlayNode->MarkDirtyNode(NG::PROPERTY_UPDATE_MEASURE_SELF);
+    napi_close_handle_scope(env, scope);
 }
 
 void ImageAnalyzerManager::UpdateMovingPhotoAnalyzerOverlay(const RefPtr<OHOS::Ace::PixelMap>& pixelMap,
@@ -189,10 +213,17 @@ void ImageAnalyzerManager::UpdateMovingPhotoAnalyzerOverlay(const RefPtr<OHOS::A
     auto pixelmapNapiVal = imageAnalyzerAdapter_->ConvertPixmapNapi(pixelMap);
     auto overlayNode = node->GetOverlayNode();
     CHECK_NULL_VOID(overlayNode);
+    napi_handle_scope scope = nullptr;
+    napi_env env = reinterpret_cast<napi_env>(imageAnalyzerAdapter_->GetNapiEnv());
+    auto status = napi_open_handle_scope(env, &scope);
+    if (status != napi_ok || scope == nullptr) {
+        return;
+    }
     auto analyzerConfig = imageAnalyzerAdapter_->GetImageAnalyzerConfig();
     ImageAnalyzerMgr::GetInstance().UpdateImage(&overlayData_, info.uri, pixelmapNapiVal,
         info.frameTimestamp, analyzerConfig, &analyzerUIConfig_);
     overlayNode->MarkDirtyNode(NG::PROPERTY_UPDATE_MEASURE_SELF);
+    napi_close_handle_scope(env, scope);
 }
 
 void ImageAnalyzerManager::DestroyAnalyzerOverlay()
@@ -292,8 +323,8 @@ void ImageAnalyzerManager::UpdateAnalyzerUIConfig(const RefPtr<NG::GeometryNode>
     if (holder_ == ImageAnalyzerHolder::IMAGE) {
         auto props = DynamicCast<NG::ImageLayoutProperty>(layoutProps);
         CHECK_NULL_VOID(props);
-        if (analyzerUIConfig_.imageFit != props->GetImageFit().value_or(ImageFit::COVER)) {
-            analyzerUIConfig_.imageFit = props->GetImageFit().value_or(ImageFit::COVER);
+        if (analyzerUIConfig_.imageFit != static_cast<int32_t>(props->GetImageFit().value_or(ImageFit::COVER))) {
+            analyzerUIConfig_.imageFit = static_cast<int32_t>(props->GetImageFit().value_or(ImageFit::COVER));
             isUIConfigUpdate = true;
         }
     }
@@ -321,8 +352,8 @@ void ImageAnalyzerManager::UpdateAnalyzerUIConfig(const RefPtr<NG::GeometryNode>
     auto renderContext = node->GetRenderContext();
     CHECK_NULL_VOID(renderContext);
     auto transformMat = renderContext->GetTransformMatrixValue(Matrix4::CreateIdentity());
-    if (!(analyzerUIConfig_.transformMat == transformMat)) {
-        analyzerUIConfig_.transformMat = transformMat;
+    if (!(transformMat == analyzerUIConfig_.transformMat)) {
+        transformMat.CopyMatrix(analyzerUIConfig_.transformMat);
         isUIConfigUpdate = true;
     }
 
@@ -339,14 +370,15 @@ bool ImageAnalyzerManager::UpdateVideoConfig(const PixelMapInfo& info)
     auto layoutProps = node->GetLayoutProperty();
     CHECK_NULL_RETURN(layoutProps, false);
     auto videoProps = DynamicCast<NG::VideoLayoutProperty>(layoutProps);
-    if (analyzerUIConfig_.imageFit != videoProps->GetObjectFitValue(ImageFit::COVER)) {
-        analyzerUIConfig_.imageFit = videoProps->GetObjectFitValue(ImageFit::COVER);
+    if (analyzerUIConfig_.imageFit != static_cast<int32_t>(videoProps->GetObjectFitValue(ImageFit::COVER))) {
+        analyzerUIConfig_.imageFit = static_cast<int32_t>(videoProps->GetObjectFitValue(ImageFit::COVER));
         shouldUpdateFit = true;
     }
 
     bool shouldUpdateSize = analyzerUIConfig_.contentWidth != info.width ||
                             analyzerUIConfig_.contentHeight != info.height ||
-                            analyzerUIConfig_.overlayOffset != info.overlayOffset;
+                            analyzerUIConfig_.overlayOffset.GetX() != info.overlayOffset.GetX() ||
+                            analyzerUIConfig_.overlayOffset.GetY() != info.overlayOffset.GetY();
     if (shouldUpdateSize) {
         analyzerUIConfig_.UpdateFromInfo(info);
     }
@@ -361,20 +393,34 @@ void ImageAnalyzerManager::SetImageAnalyzerConfig(void* config)
         return;
     }
     imageAnalyzerAdapter_->SetImageAnalyzerConfig(config);
+    napi_handle_scope scope = nullptr;
+    napi_env env = reinterpret_cast<napi_env>(imageAnalyzerAdapter_->GetNapiEnv());
+    auto status = napi_open_handle_scope(env, &scope);
+    if (status != napi_ok || scope == nullptr) {
+        return;
+    }
     auto analyzerConfig = imageAnalyzerAdapter_->GetImageAnalyzerConfig();
     if (isAnalyzerOverlayBuild_) {
         ImageAnalyzerMgr::GetInstance().UpdateConfig(&overlayData_, analyzerConfig);
     }
+    napi_close_handle_scope(env, scope);
 }
 
 void ImageAnalyzerManager::SetImageAIOptions(void* options)
 {
     CHECK_NULL_VOID(imageAnalyzerAdapter_);
+    napi_handle_scope scope = nullptr;
+    napi_env env = reinterpret_cast<napi_env>(imageAnalyzerAdapter_->GetNapiEnv());
+    auto status = napi_open_handle_scope(env, &scope);
+    if (status != napi_ok || scope == nullptr) {
+        return;
+    }
     imageAnalyzerAdapter_->SetImageAnalyzerConfig(options, true);
     auto analyzerConfig = imageAnalyzerAdapter_->GetImageAnalyzerConfig();
     if (isAnalyzerOverlayBuild_) {
         ImageAnalyzerMgr::GetInstance().UpdateConfig(&overlayData_, analyzerConfig);
     }
+    napi_close_handle_scope(env, scope);
 }
 
 void ImageAnalyzerManager::SetImageAnalyzerCallback(OnAnalyzedCallback& callback)
@@ -398,7 +444,7 @@ void ImageAnalyzerManager::UpdatePressOverlay(const RefPtr<OHOS::Ace::PixelMap>&
         analyzerUIConfig_.touchInfo.touchPoint.x = 1.0 * pointX / rectWidth * pixelMap->GetWidth();
         analyzerUIConfig_.touchInfo.touchPoint.y = 1.0 * pointY / rectHeight * pixelMap->GetHeight();
     }
-    analyzerUIConfig_.touchInfo.touchType = TouchType::DOWN;
+    analyzerUIConfig_.touchInfo.touchType = static_cast<size_t>(TouchType::DOWN);
     analyzerUIConfig_.selectedStatus = Status::SELECTED;
     analyzerUIConfig_.menuStatus = Status::MENU_SHOW;
     if (!analyzerUIConfig_.onTextSelected) {
@@ -419,7 +465,7 @@ void ImageAnalyzerManager::UpdateOverlayTouchInfo(int touchPointX, int touchPoin
 {
     analyzerUIConfig_.touchInfo.touchPoint.x = touchPointX - analyzerUIConfig_.overlayOffset.GetX();
     analyzerUIConfig_.touchInfo.touchPoint.y = touchPointY - analyzerUIConfig_.overlayOffset.GetY();
-    analyzerUIConfig_.touchInfo.touchType = touchType;
+    analyzerUIConfig_.touchInfo.touchType = static_cast<size_t>(touchType);
     ImageAnalyzerMgr::GetInstance().UpdatePressOverlay(&overlayData_, &analyzerUIConfig_);
 }
 

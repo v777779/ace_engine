@@ -385,10 +385,6 @@ void WebPattern::JavaScriptOnDocumentEnd(const ScriptItems&)
 {
 }
 
-void WebPattern::JavaScriptOnHeadReadyByOrder(const ScriptItems&, const ScriptItemsByOrder&)
-{
-}
-
 void WebPattern::SetWebController(const RefPtr<WebController>& webController)
 {
     webController_ = webController;
@@ -397,6 +393,15 @@ void WebPattern::SetWebController(const RefPtr<WebController>& webController)
 RefPtr<WebController> WebPattern::GetWebController() const
 {
     return webController_;
+}
+
+RefPtr<WebAgentEventReporter> WebPattern::GetAgentEventReporter()
+{
+    if (!webAgentEventReporter_) {
+        TAG_LOGI(AceLogTag::ACE_WEB, "WebPattern::GetAgentEventReporter, create new agent report instance");
+        webAgentEventReporter_ = AceType::MakeRefPtr<WebAgentEventReporter>(WeakClaim(this));
+    }
+    return webAgentEventReporter_;
 }
 
 void WebPattern::SetOnControllerAttachedCallback(OnControllerAttachedCallback&& callback)

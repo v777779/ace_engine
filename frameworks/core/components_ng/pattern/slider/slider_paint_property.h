@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -26,7 +26,7 @@
 namespace OHOS::Ace::NG {
 // PaintProperty are used to set render properties.
 class SliderPaintProperty : public PaintProperty {
-    DECLARE_ACE_TYPE(SliderPaintProperty, PaintProperty)
+    DECLARE_ACE_TYPE(SliderPaintProperty, PaintProperty);
 public:
     SliderPaintProperty() = default;
     ~SliderPaintProperty() override = default;
@@ -52,7 +52,7 @@ public:
         Gradient colors;
         if (HasTrackBackgroundColor()) {
             colors = GetTrackBackgroundColor().value();
-            if (GetTrackBackgroundIsResourceColor()) {
+            if (GetTrackBackgroundIsResourceColorValue(false)) {
                 return colors.GetColors()[0].GetLinearColor().ToColor().ColorToString();
             }
             return GradientToJson(colors);
@@ -81,7 +81,7 @@ public:
 
     std::string InteractionModeToJson() const
     {
-        static const std::array<std::string, 3> SLIDER_INTERACTION_MODE_TO_STRING = {
+        const std::array<std::string, 3> SLIDER_INTERACTION_MODE_TO_STRING = {
             "SliderInteraction.SLIDE_AND_CLICK",
             "SliderInteraction.SLIDE_ONLY",
             "SliderInteraction.SLIDE_AND_CLICK_UP",
@@ -96,7 +96,7 @@ public:
 
     std::string BlockTypeToJson() const
     {
-        static const std::array<std::string, 3> SLIDER_BLOCK_TYPE_TO_STRING = {
+        const std::array<std::string, 3> SLIDER_BLOCK_TYPE_TO_STRING = {
             "BlockStyleType.DEFAULT",
             "BlockStyleType.IMAGE",
             "BlockStyleType.SHAPE",
@@ -127,6 +127,21 @@ public:
         return GetSelectColor().value_or(theme->GetTrackSelectedColor()).ColorToString();
     }
 
+    std::string ToJsonLinearGradientBlockColor() const
+    {
+        auto host = GetHost();
+        CHECK_NULL_RETURN(host, "");
+        auto pipeline = host->GetContext();
+        CHECK_NULL_RETURN(pipeline, "");
+        auto theme = pipeline->GetTheme<SliderTheme>(host->GetThemeScopeId());
+        CHECK_NULL_RETURN(theme, "");
+        if (HasBlockGradientColor()) {
+            Gradient colors = GetBlockGradientColor().value();
+            return GradientToJson(colors);
+        }
+        return GetBlockColor().value_or(theme->GetBlockColor()).ColorToString();
+    }
+
     void ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const override
     {
         PaintProperty::ToJsonValue(json, filter);
@@ -151,17 +166,10 @@ public:
         jsonConstructor->Put("reverse", GetReverse().value_or(false) ? "true" : "false");
         jsonConstructor->Put("direction",
             (GetDirection().value_or(Axis::HORIZONTAL)) == Axis::VERTICAL ? "Axis.Vertical" : "Axis.Horizontal");
-        static const std::array<std::string, 4> SLIDER_MODE_TO_STRING = {
-            "SliderStyle.OutSet",
-            "SliderStyle.InSet",
-            "SliderStyle.NONE",
-            "SliderStyle.Capsule",
-        };
-        jsonConstructor->Put("style", SLIDER_MODE_TO_STRING.at(static_cast<int32_t>
-            (GetSliderMode().value_or(SliderModel::SliderMode::OUTSET))) .c_str());
         json->PutExtAttr("constructor", jsonConstructor, filter);
         json->PutExtAttr("blockColor",
             GetBlockColor().value_or(theme->GetBlockColor()).ColorToString().c_str(), filter);
+        json->PutExtAttr("linerGradientBlockColor", ToJsonLinearGradientBlockColor().c_str(), filter);
         json->PutExtAttr("trackColor", ToJsonTrackBackgroundColor().c_str(), filter);
         json->PutExtAttr("selectedColor", ToJsonSelectColor().c_str(), filter);
         json->PutExtAttr("showSteps", GetShowSteps().value_or(false) ? "true" : "false", filter);
@@ -204,6 +212,14 @@ public:
                 .c_str(),
             filter);
 #endif
+        auto sliderShowStepOptions = GetSliderShowStepOptions();
+        if ((sliderShowStepOptions.has_value()) && (!sliderShowStepOptions.value().empty())) {
+            auto stepOptions = JsonUtil::Create(true);
+            for (auto option : sliderShowStepOptions.value()) {
+                stepOptions->Put(std::to_string(option.first).c_str(), option.second.c_str());
+            }
+            json->PutExtAttr("sliderShowStepOptions", stepOptions, filter);
+        }
     }
 
     void ToTreeJson(std::unique_ptr<JsonValue>& json, const InspectorConfig& config) const override
@@ -245,6 +261,7 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(SliderPaintStyle, Direction, Axis, PROPERTY_UPDATE_RENDER)
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(SliderPaintStyle, BlockColor, Color, PROPERTY_UPDATE_RENDER)
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(SliderPaintStyle, BlockColorSetByUser, bool, PROPERTY_UPDATE_RENDER)
+    ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(SliderPaintStyle, BlockGradientColor, Gradient, PROPERTY_UPDATE_RENDER)
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(SliderPaintStyle, TrackBackgroundColor, Gradient, PROPERTY_UPDATE_RENDER)
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(SliderPaintStyle, TrackBackgroundColorSetByUser, bool, PROPERTY_UPDATE_RENDER)
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(SliderPaintStyle, TrackBackgroundIsResourceColor, bool, PROPERTY_UPDATE_RENDER)
@@ -277,6 +294,8 @@ public:
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(
         SliderPaintStyle, DigitalCrownSensitivity, CrownSensitivity, PROPERTY_UPDATE_RENDER)
 #endif
+    ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(
+        SliderPaintStyle, SliderShowStepOptions, SliderModel::SliderShowStepOptions, PROPERTY_UPDATE_RENDER)
     ACE_DEFINE_PROPERTY_GROUP(SliderTipStyle, SliderTipStyle)
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(SliderTipStyle, ShowTips, bool, PROPERTY_UPDATE_RENDER)
     ACE_DEFINE_PROPERTY_ITEM_WITH_GROUP(SliderTipStyle, Padding, Dimension, PROPERTY_UPDATE_RENDER)

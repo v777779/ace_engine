@@ -42,6 +42,7 @@ public:
     static void SetHeightAdaptivePolicy(FrameNode* frameNode, const std::optional<TextHeightAdaptivePolicy>& valueOpt);
     static void SetInputStyle(FrameNode* frameNode, const std::optional<InputStyle>& valueOpt);
     static void SetPasswordRules(FrameNode* frameNode, const std::optional<std::string>& passwordRules);
+    static void SetFontFeature(FrameNode* frameNode, const std::optional<FONT_FEATURES_LIST>& optValue);
     static void SetBarState(FrameNode* frameNode, const std::optional<OHOS::Ace::DisplayMode>& valueOpt);
     static void SetPasswordIcon(FrameNode* frameNode, const std::optional<PasswordIcon>& passwordIcon);
     static void SetSelectedBackgroundColor(FrameNode* frameNode, const std::optional<Color>& colorOpt);
@@ -52,6 +53,8 @@ public:
     static void SetCopyOption(FrameNode* frameNode, const std::optional<CopyOptions>& copyOptionOpt);
     static void SetShowPassword(FrameNode* frameNode, const std::optional<bool>& valueOpt);
     static void SetTextAlign(FrameNode* frameNode, const std::optional<TextAlign>& valueOpt);
+    static void SetTextDirection(FrameNode* frameNode, const std::optional<TextDirection>& valueOpt);
+    static void SetHorizontalScrolling(FrameNode* frameNode, const std::optional<bool>& valueOpt);
     static void SetTextColor(FrameNode* frameNode, const std::optional<Color>& colorOpt);
     static void SetCaretPosition(FrameNode* frameNode, const std::optional<int32_t>& optValue);
     static void SetFontStyle(FrameNode* frameNode, const std::optional<Ace::FontStyle>& valueOpt);
@@ -80,6 +83,7 @@ public:
     static void SetCancelIconColor(FrameNode* frameNode, const std::optional<Color>& iconColor);
     static void SetBackgroundColor(FrameNode* frameNode, const std::optional<Color>& color);
     static void SetShowCounterBorder(FrameNode* frameNode, const std::optional<bool>& value);
+    static void SetShowCounter(FrameNode* frameNode, const std::optional<bool>& optValue);
     static void SetWordBreak(FrameNode* frameNode, const std::optional<Ace::WordBreak>& valueOpt);
     static void SetLineBreakStrategy(FrameNode* frameNode, const std::optional<LineBreakStrategy>& valueOpt);
     static void SetOnSecurityStateChange(FrameNode* frameNode, std::function<void(bool)>&& func);
@@ -97,17 +101,35 @@ public:
     static void SetMaxFontScale(FrameNode* frameNode, const std::optional<float>& optValue);
     static void SetHalfLeading(FrameNode* frameNode, const std::optional<bool>& valueOpt);
     static void SetSelectionMenuOptions(FrameNode* frameNode, const NG::OnCreateMenuCallback&& onCreateMenuCallback,
-        const NG::OnMenuItemClickCallback&& onMenuItemClick);
+        const NG::OnMenuItemClickCallback&& onMenuItemClick, const NG::OnPrepareMenuCallback&& onPrepareMenuCallback);
     static void SetShowPasswordIcon(FrameNode* frameNode, const std::optional<bool>& value);
     static void SetShowUnderline(FrameNode* frameNode, const std::optional<bool>& showUnderLine);
     static void SetSelectAllValue(FrameNode* frameNode, const std::optional<bool>& isSelectAllValue);
     static void SetDefaultCancelIcon(FrameNode* frameNode);
-
+    static void SetCompressLeadingPunctuation(FrameNode* frameNode, const std::optional<bool>& valueOpt);
+    static void SetOrphanCharOptimization(FrameNode* frameNode, const std::optional<bool>& valueOpt);
     static void SetWidthAuto(FrameNode* frameNode, bool val);
     static void SetPadding(FrameNode* frameNode, const NG::PaddingProperty& newPadding, bool tmp);
     static void SetMargin(FrameNode* frameNode);
     static void SetBackBorder(FrameNode* frameNode);
     static void SetCustomKeyboard(FrameNode* frameNode, const std::function<void()>&& buildFunc, bool supportAvoidance);
+    static void SetIncludeFontPadding(FrameNode* frameNode, const std::optional<bool>& optValue);
+    static void SetFallbackLineSpacing(FrameNode* frameNode, const std::optional<bool>& optValue);
+    static void SetSelectedDragPreviewStyle(FrameNode* frameNode, const std::optional<Color>& value);
+    static void SetEnableAutoFillAnimation(FrameNode* frameNode, const std::optional<bool>& optValue);
+    static void SetStrokeColor(FrameNode* frameNode, const std::optional<Color>& optValue);
+    static void SetEnableAutoSpacing(FrameNode* frameNode, const std::optional<bool>& optValue);
+    static void SetStrokeWidth(FrameNode* frameNode, const std::optional<Dimension>& optValue);
+    static void SetMinLines(FrameNode* frameNode, const std::optional<uint32_t>& valueOpt);
+    static void SetOverflowMode(FrameNode* frameNode, const std::optional<OverflowMode>& valueOpt);
+    static void SetSelectDetectEnable(FrameNode* frameNode, const std::optional<bool>& valueOpt);
+    static void SetScrollBarColor(FrameNode* frameNode, const std::optional<Color>& valueOpt);
+    static void SetIsOnlyBetweenLines(FrameNode* frameNode, const std::optional<bool>& isOnlyBetweenLines);
+    static void SetMaxLinesMode(FrameNode* frameNode, const std::optional<OverflowMode>& maxLinesMode);
+    static void SetCustomKeyboardWithNode(
+ 	    FrameNode* frameNode, FrameNode* customKeyboard, const std::optional<bool>& supportAvoidance);
+    static void SetCounterTextColor(FrameNode* frameNode, const std::optional<Color>& value);
+    static void SetCounterTextOverflowColor(FrameNode* frameNode, const std::optional<Color>& value);
 private:
 
 };

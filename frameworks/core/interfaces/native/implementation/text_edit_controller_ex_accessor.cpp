@@ -18,6 +18,10 @@
 #include "core/interfaces/native/utility/reverse_converter.h"
 #include "arkoala_api_generated.h"
 
+namespace OHOS::Ace::NG::Converter {
+void AssignArkValue(Ark_PreviewText& dst, const PreviewTextInfo& src, ConvContext *ctx);
+} // namespace OHOS::Ace::NG::Converter
+
 namespace OHOS::Ace::NG::GeneratedModifier {
 namespace TextEditControllerExAccessor {
 void DestroyPeerImpl(Ark_TextEditControllerEx peer)
@@ -33,33 +37,33 @@ Ark_NativePointer GetFinalizerImpl()
 {
     return reinterpret_cast<void *>(&DestroyPeerImpl);
 }
-Ark_Boolean IsEditingImpl(Ark_TextEditControllerEx peer)
+Opt_Boolean IsEditingImpl(Ark_TextEditControllerEx peer)
 {
-    CHECK_NULL_RETURN(peer, Converter::ArkValue<Ark_Boolean>(false));
-    return Converter::ArkValue<Ark_Boolean>(peer->IsEditing());
+    CHECK_NULL_RETURN(peer, Converter::ArkValue<Opt_Boolean>(Ark_Empty()));
+    return Converter::ArkValue<Opt_Boolean>(peer->IsEditing());
 }
 void StopEditingImpl(Ark_TextEditControllerEx peer)
 {
     CHECK_NULL_VOID(peer);
     peer->StopEditing();
 }
-Ark_Boolean SetCaretOffsetImpl(Ark_TextEditControllerEx peer,
-                               const Ark_Number* offset)
+Opt_Boolean SetCaretOffsetImpl(Ark_TextEditControllerEx peer,
+                               Ark_Int32 offset)
 {
-    CHECK_NULL_RETURN(peer && offset, Converter::ArkValue<Ark_Boolean>(false));
-    auto offsetConv = Converter::Convert<int32_t>(*offset);
-    return Converter::ArkValue<Ark_Boolean>(peer->SetCaretOffset(offsetConv));
+    CHECK_NULL_RETURN(peer, Converter::ArkValue<Opt_Boolean>(Ark_Empty()));
+    auto offsetConv = Converter::Convert<int32_t>(offset);
+    return Converter::ArkValue<Opt_Boolean>(peer->SetCaretOffset(offsetConv));
 }
-Ark_Number GetCaretOffsetImpl(Ark_TextEditControllerEx peer)
+Opt_Int32 GetCaretOffsetImpl(Ark_TextEditControllerEx peer)
 {
-    CHECK_NULL_RETURN(peer, Converter::ArkValue<Ark_Number>(0));
-    return Converter::ArkValue<Ark_Number>(peer->GetCaretOffset());
+    CHECK_NULL_RETURN(peer, Converter::ArkValue<Opt_Int32>(Ark_Empty()));
+    return Converter::ArkValue<Opt_Int32>(peer->GetCaretOffset());
 }
-Ark_PreviewText GetPreviewTextImpl(Ark_TextEditControllerEx peer)
+Opt_PreviewText GetPreviewTextImpl(Ark_TextEditControllerEx peer)
 {
-    CHECK_NULL_RETURN(peer, {});
+    CHECK_NULL_RETURN(peer, Converter::ArkValue<Opt_PreviewText>(Ark_Empty()));
     auto result = peer->GetPreviewText();
-    return Converter::ArkValue<Ark_PreviewText>(result, Converter::FC);
+    return Converter::ArkValue<Opt_PreviewText>(result, Converter::FC);
 }
 } // TextEditControllerExAccessor
 const GENERATED_ArkUITextEditControllerExAccessor* GetTextEditControllerExAccessor()

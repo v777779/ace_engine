@@ -17,6 +17,7 @@
 #include "core/components_ng/base/view_stack_processor.h"
 #include "core/components_ng/pattern/common_view/common_view_model_ng.h"
 #include "core/components_ng/pattern/common_view/common_view_pattern.h"
+#include "core/components_ng/property/position_property.h"
 #include "core/components_v2/inspector/inspector_constants.h"
 
 using namespace testing;
@@ -46,4 +47,19 @@ HWTEST_F(CommonViewTestNg, CommonViewTest001, TestSize.Level1)
     EXPECT_EQ(blankNode->IsAtomicNode(), false);
 }
 
+/**
+ * @tc.name: CommonViewTest002
+ * @tc.desc:
+ * @tc.type: FUNC
+ */
+HWTEST_F(CommonViewTestNg, CommonViewTest002, TestSize.Level1)
+{
+    auto frameNode = CommonViewModelNG::CreateFrameNode(ElementRegister::GetInstance()->MakeUniqueId());
+    EXPECT_FALSE(frameNode == nullptr);
+    frameNode->GetLayoutProperty()->UpdateAlignment(Alignment::TOP_LEFT);
+    auto layoutProperty = frameNode->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    auto alignment = layoutProperty->GetPositionProperty()->GetAlignment();
+    ASSERT_EQ(alignment, Alignment::TOP_LEFT);
+}
 } // namespace OHOS::Ace::NG

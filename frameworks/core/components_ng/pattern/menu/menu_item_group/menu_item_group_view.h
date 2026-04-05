@@ -16,27 +16,36 @@
 #ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_MENU_MENU_ITEM_GROUP_MENU_ITEM_GROUP_VIEW_H
 #define FOUNDATION_ACE_FRAMEWORKS_CORE_COMPONENTS_NG_PATTERNS_MENU_MENU_ITEM_GROUP_MENU_ITEM_GROUP_VIEW_H
 
-#include <functional>
-#include <optional>
 #include <string>
 
 #include "core/components_ng/base/frame_node.h"
-
 namespace OHOS::Ace::NG {
 enum class MenuItemGroupStringType {
     HEADER,
     FOOTER
 };
-class ACE_FORCE_EXPORT MenuItemGroupView {
+class ACE_FORCE_EXPORT MenuItemGroupView{
 public:
+    virtual void CreateCJ();
+    virtual void SetHeaderCJ(const RefPtr<UINode>& header);
+    virtual void SetHeaderCJ(const std::string& headerStr);
+    virtual void SetFooterCJ(const RefPtr<UINode>& footer);
+    virtual void SetFooterCJ(const std::string& footerStr);
     // createMenuItem with custom
     static void Create();
+    static void Create(const RefPtr<UINode>& groupNode);
+    static RefPtr<FrameNode> CreateFrameNode(int32_t nodeId);
     static void SetHeader(const RefPtr<UINode>& header);
     static void SetHeader(const std::string& headerStr);
+    static void SetHeader(FrameNode* frameNode, const RefPtr<UINode>& header);
+    static void SetHeader(FrameNode* frameNode, const std::string& headerStr);
     static void SetFooter(const RefPtr<UINode>& footer);
     static void SetFooter(const std::string& footerStr);
+    static void SetFooter(FrameNode* frameNode, const RefPtr<UINode>& footer);
+    static void SetFooter(FrameNode* frameNode, const std::string& footerStr);
+    static void CreateWithStringResourceObj(const RefPtr<ResourceObject>& resObj, MenuItemGroupStringType type);
     static void CreateWithStringResourceObj(
-        const RefPtr<ResourceObject>& resObj, MenuItemGroupStringType type);
+        FrameNode* frameNode, const RefPtr<ResourceObject>& resObj, MenuItemGroupStringType type);
     static const std::string StringTypeToString(const MenuItemGroupStringType type);
 };
 } // namespace OHOS::Ace::NG

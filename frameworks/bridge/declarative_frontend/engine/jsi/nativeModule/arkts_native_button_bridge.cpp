@@ -17,7 +17,8 @@
 #include <string>
 
 #include "base/geometry/dimension.h"
-#include "core/components/common/properties/text_style.h"
+#include "core/components/common/layout/common_text_constants.h"
+#include "core/components/common/properties/text_enums.h"
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_utils.h"
 #include "bridge/declarative_frontend/engine/jsi/nativeModule/arkts_native_common_bridge.h"
 #include "core/components_ng/base/frame_node.h"
@@ -52,6 +53,7 @@ constexpr int32_t FONT_SIZE_ARG_6 = 6;
 constexpr int32_t FONT_WEIGHT_ARG_7 = 7;
 constexpr int32_t FONT_STYLE_ARG_8 = 8;
 constexpr int32_t FONT_FAMILY_ARG_9 = 9;
+constexpr int32_t TEXT_ALIGN_ARG_10 = 10;
 const char* BUTTON_NODEPTR_OF_UINODE = "nodePtr_";
 panda::Local<panda::JSValueRef> JsButtonClickCallback(panda::JsiRuntimeCallInfo* runtimeCallInfo)
 {
@@ -223,11 +225,12 @@ ArkUINativeModuleValue ButtonBridge::SetFontColor(ArkUIRuntimeCallInfo* runtimeC
     Color color;
     RefPtr<ResourceObject> colorResObj;
     auto nodeInfo = ArkTSUtils::MakeNativeNodeInfo(nativeNode);
-    if (!ArkTSUtils::ParseJsColorAlpha(vm, secondArg, color, colorResObj, nodeInfo)) {
+    if (!ArkTSUtils::ParseJsColorAlphaForMaterial(vm, secondArg, color, colorResObj, nodeInfo)) {
         GetArkUINodeModifiers()->getButtonModifier()->resetButtonFontColor(nativeNode);
     } else {
         auto colorRawPtr = AceType::RawPtr(colorResObj);
-        GetArkUINodeModifiers()->getButtonModifier()->setButtonFontColorPtr(nativeNode, color.GetValue(), colorRawPtr);
+        GetArkUINodeModifiers()->getButtonModifier()->setButtonFontColorUseColorPtr(
+            nativeNode, reinterpret_cast<ArkUI_InnerColor*>(&color), colorRawPtr);
     }
     return panda::JSValueRef::Undefined(vm);
 }
@@ -436,6 +439,16 @@ void ButtonBridge::PutButtonValuesParameters(
         }
     }
     PushValuesVector(fontStyleOptional, valuesVector);
+
+    std::optional<int32_t> textAlignOptional = std::nullopt;
+    Local<JSValueRef> textAlignArg = runtimeCallInfo->GetCallArgRef(TEXT_ALIGN_ARG_10);
+    if (!textAlignArg->IsNull() && textAlignArg->IsNumber()) {
+        auto textAlign = textAlignArg->Int32Value(vm);
+        if (textAlign >= 0 && textAlign < static_cast<int32_t>(TEXT_ALIGNS.size())) {
+            textAlignOptional = textAlign;
+        }
+    }
+    PushValuesVector(textAlignOptional, valuesVector);
 }
 
 void ButtonBridge::PushDimensionVector(const std::optional<Dimension>& valueDim, std::vector<ArkUI_Float32>& dimensions)
@@ -775,6 +788,7 @@ ArkUINativeModuleValue ButtonBridge::SetContentModifierBuilder(ArkUIRuntimeCallI
     ButtonModelNG::SetBuilderFunc(frameNode, [vm, frameNode, obj = std::move(obj), containerId](
             ButtonConfiguration config) -> RefPtr<FrameNode> {
             ContainerScope scope(containerId);
+            LocalScope pandaScope(vm);
             auto context = ArkTSUtils::GetContext(vm);
             const char* keyOfButton[] = { "label", "pressed", "enabled", "triggerClick" };
             Local<JSValueRef> valuesOfButton[] = { panda::StringRef::NewFromUtf8(vm, config.label_.c_str()),
@@ -785,7 +799,6 @@ ArkUINativeModuleValue ButtonBridge::SetContentModifierBuilder(ArkUIRuntimeCallI
             button->SetNativePointerFieldCount(vm, 1);
             button->SetNativePointerField(vm, 0, static_cast<void*>(frameNode));
             panda::Local<panda::JSValueRef> params[CALL_ARG_2] = { context, button };
-            LocalScope pandaScope(vm);
             panda::TryCatch trycatch(vm);
             auto jsObject = obj.ToLocal();
             auto makeFunc = jsObject->Get(vm, panda::StringRef::NewFromUtf8(vm, "makeContentModifierNode"));

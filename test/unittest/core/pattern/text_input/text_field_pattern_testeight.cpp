@@ -15,15 +15,15 @@
 
 #include "text_input_base.h"
 
-#include "test/mock/core/render/mock_paragraph.h"
-#include "test/mock/core/common/mock_container.h"
-#include "test/mock/core/common/mock_udmf.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_paragraph.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_udmf.h"
 #include "core/common/task_executor_impl.h"
-#include "test/mock/core/common/mock_font_manager.h"
-#include "test/mock/base/mock_task_executor.h"
-#include "test/mock/core/pipeline/mock_pipeline_context.h"
-#include "test/mock/core/common/mock_theme_manager.h"
-#include "test/mock/core/common/mock_font_manager.h"
+#include "test/mock/frameworks/core/common/mock_font_manager.h"
+#include "test/mock/frameworks/base/thread/mock_task_executor.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/common/mock_font_manager.h"
  
 #include "core/text/text_emoji_processor.h"
 #include "base/i18n/localization.h"
@@ -56,6 +56,7 @@ class MockTextInputConnection : public TextInputConnection {
             const TextEditingValue& value, int32_t instanceId, bool needFireChangeEvent),
             (override));
         MOCK_METHOD(void, Close, (int32_t instanceId), (override));
+        MOCK_METHOD(void, FinishComposing, (int32_t instanceId), (override));
     };
     
  
@@ -104,6 +105,137 @@ HWTEST_F(TextFieldPatternTestEight, CalculateBoundsRect001, TestSize.Level0)
     auto geometryNode = host->GetGeometryNode();
     geometryNode->SetFrameOffset(offset);
     pattern_->CalculateBoundsRect();
+}
+
+/**
+ * @tc.name: OnInjectionEventTest001
+ * @tc.desc: Test TextFieldPattern OnInjectionEventTest
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestEight, OnInjectionEventTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create TextField node
+     */
+    CreateTextField();
+    auto textFieldNode = FrameNode::GetOrCreateFrameNode(V2::TEXTINPUT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextFieldPattern>(); });
+    ASSERT_NE(textFieldNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Get SearchPattern
+     */
+    auto pattern = textFieldNode->GetPattern<TextFieldPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step3. Test OnInjectionEvent with commands
+     * @tc.expected: OnInjectionEvent return RET_FAILED or RET_SUCCESS accordingly
+     */
+    std::string command = R"()";
+    auto ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_FAILED);
+    command = R"({)";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_FAILED);
+    command = R"({"cmd":"setSearchText"})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_FAILED);
+    command = R"({"cmd":"addText", "params":{"value":""}})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+    command = R"({"cmd":"addText", "params":{"value":"test"}})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+    command = R"({"cmd":"deleteText", "params":{}})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+    command = R"({"cmd":"setText", "params":{"value":"test"}})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+    command = R"({"cmd":"addText", "params":{"value":"test", "offset":3}})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+    command = R"({"cmd":"deleteText", "params":{"start":2, "end":3}})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+    command = R"({"cmd":"deleteText", "params":{"start":-1, "end":3}})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+    command = R"({"cmd":"deleteText", "params":{"start":2, "end":-1}})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest002
+ * @tc.desc: Test TextFieldPattern OnInjectionEventTest
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestEight, OnInjectionEventTest002, TestSize.Level1)
+{
+    CreateTextField();
+    auto textFieldNode = FrameNode::GetOrCreateFrameNode(V2::TEXTINPUT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextFieldPattern>(); });
+    ASSERT_NE(textFieldNode, nullptr);
+    RefPtr<TextFieldPattern> pattern = textFieldNode->GetPattern<TextFieldPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step3. Test OnInjectionEvent with commands
+     * @tc.expected: OnInjectionEvent return RET_FAILED or RET_SUCCESS accordingly
+     */
+    std::string command = R"()";
+    auto ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_FAILED);
+
+    command = R"({)";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_FAILED);
+
+    command = R"({"cmd":"addText", "params":{"value":"test123465789"}})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"selectText"})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_FAILED);
+
+    command = R"({"cmd":"selectText", "selectionStart":2, "selectionEnd":3})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"selectText", "selectionStart":2, "selectionEnd":-1})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"selectText", "selectionStart":4, "selectionEnd":1})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"copy"})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"selectText", "selectionStart":1, "selectionEnd":4})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"cut"})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"clear"})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"requestKeyboard"})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
+
+    command = R"({"cmd":"setCaretPosition", "position":1})";
+    ret = pattern->OnInjectionEvent(command);
+    EXPECT_EQ(ret, RET_SUCCESS);
 }
 
 /**
@@ -421,6 +553,24 @@ HWTEST_F(TextFieldPatternTestEight, ClearTextContent001, TestSize.Level0)
 }
 
 /**
+ * @tc.name: ClearTextContent002
+ * @tc.desc: test ClearTextContent
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestEight, ClearTextContent002, TestSize.Level0)
+{
+    CreateTextField();
+
+    pattern_->ClearTextContent();
+    EXPECT_TRUE(pattern_->contentController_->IsEmpty());
+
+    std::u16string value = u"n";
+    pattern_->contentController_->SetTextValue(value);
+    pattern_->ClearTextContent();
+    EXPECT_FALSE(pattern_->showCountBorderStyle_);
+}
+
+/**
  * @tc.name: HandleButtonMouseEvent001
  * @tc.desc: test HandleButtonMouseEvent
  * @tc.type: FUNC
@@ -519,10 +669,10 @@ HWTEST_F(TextFieldPatternTestEight, HandleOnEscape001, TestSize.Level0)
     GetFocus();
 
     auto ret = pattern_->HandleOnEscape();
-    EXPECT_FALSE(ret);
+    EXPECT_TRUE(ret);
     pattern_->hasPreviewText_ = true;
     ret = pattern_->HandleOnEscape();
-    EXPECT_FALSE(ret);
+    EXPECT_TRUE(ret);
 }
 
 /**
@@ -784,6 +934,18 @@ HWTEST_F(TextFieldPatternTestEight, CreateTextDragInfo001, TestSize.Level0)
     manager1->shareOverlayInfo_->secondHandle.isShow = false;
     info = pattern_->CreateTextDragInfo();
     EXPECT_EQ(info.maxSelectedWidth, 0);
+
+    manager1->shareOverlayInfo_->firstHandle.isShow = false;
+    manager1->shareOverlayInfo_->secondHandle.isShow = true;
+    info = pattern_->CreateTextDragInfo();
+    EXPECT_TRUE(info.isFirstHandleAnimation);
+    EXPECT_FALSE(info.isSecondHandleAnimation);
+
+    manager1->shareOverlayInfo_->firstHandle.isShow = true;
+    manager1->shareOverlayInfo_->secondHandle.isShow = false;
+    info = pattern_->CreateTextDragInfo();
+    EXPECT_FALSE(info.isFirstHandleAnimation);
+    EXPECT_TRUE(info.isSecondHandleAnimation);
 }
 
 /**
@@ -1185,10 +1347,13 @@ HWTEST_F(TextFieldPatternTestEight, HandleLeftMouseReleaseEvent001, TestSize.Lev
     MouseInfo info;
     pattern_->blockPress_ = false;
     pattern_->showKeyBoardOnFocus_ = true;
-    pattern_->showKeyBoardOnFocus_ = true;
     auto host = pattern_->GetHost();
+    EXPECT_NE(host, nullptr);
+
+    // get textfield focus
     auto focusHub = host->GetOrCreateFocusHub();
     focusHub->currentFocus_ = true;
+
     pattern_->customKeyboard_ = nullptr;
     pattern_->customKeyboardBuilder_ = nullptr;
     auto client = AceType::MakeRefPtr<MockTextInputClient>();
@@ -1196,6 +1361,8 @@ HWTEST_F(TextFieldPatternTestEight, HandleLeftMouseReleaseEvent001, TestSize.Lev
     pattern_->connection_ = AceType::MakeRefPtr<MockTextInputConnection>(client, taskExecutor);
     pattern_->imeShown_ = true;
     pattern_->HandleLeftMouseReleaseEvent(info);
+
+    // call mouse release requestkeyboard
     EXPECT_TRUE(pattern_->RequestKeyboardNotByFocusSwitch(RequestKeyboardReason::MOUSE_RELEASE));
 }
 
@@ -1734,7 +1901,7 @@ HWTEST_F(TextFieldPatternTestEight, NotifyFillRequestSuccess001, TestSize.Level0
         return false;
     };
     eventHub->onWillChangeEvent_ = func;
-    pattern_->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, autoFillType);
+    pattern_->NotifyFillRequestSuccess(viewDataWrap, nodeWrap, autoFillType, AceAutoFillTriggerType::AUTO_REQUEST);
     ChangeValueInfo info;
     EXPECT_FALSE(eventHub->FireOnWillChangeEvent(info));
 }
@@ -1755,7 +1922,7 @@ HWTEST_F(TextFieldPatternTestEight, IsReachedBoundary001, TestSize.Level0)
     auto layoutProperty = tmpHost->GetLayoutProperty<TextFieldLayoutProperty>();
     layoutProperty->UpdateMaxLines(3);
     float offset = 0.1f;
-    pattern_->IsReachedBoundary(offset);
+    pattern_->IsReachedBoundary(offset, Axis::HORIZONTAL);
     EXPECT_TRUE(layoutProperty->HasMaxLines());
 }
 
@@ -1776,6 +1943,32 @@ HWTEST_F(TextFieldPatternTestEight, OnAttachToFrameNode001, TestSize.Level0)
     pipeline->fontManager_ = AceType::MakeRefPtr<MockFontManager>();
     pattern_->OnAttachToFrameNode();
     EXPECT_NE(pipeline->GetFontManager(), nullptr);
+}
+
+/**
+ * @tc.name: InitTheme001
+ * @tc.desc: test InitTheme
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestEight, InitTheme001, TestSize.Level0)
+{
+    CreateTextField(DEFAULT_TEXT, "", [](TextFieldModelNG model) { model.SetType(TextInputType::VISIBLE_PASSWORD); });
+
+    auto frameNode = pattern_->GetHost();
+    auto pipeline = frameNode->GetContext();
+    pipeline->fontManager_ = AceType::MakeRefPtr<MockFontManager>();
+
+    int32_t lastPlatformVersion = PipelineBase::GetCurrentContext()->GetMinPlatformVersion();
+    MockContainer::Current()->SetApiTargetVersion(static_cast<int32_t>(PlatformVersion::VERSION_NINE));
+    MockPipelineContext::GetCurrentContext()->SetMinPlatformVersion(
+        static_cast<int32_t>(PlatformVersion::VERSION_NINE));
+
+    pattern_->InitTheme();
+    pattern_->InitTheme();
+    auto theme = pattern_->GetTheme();
+    EXPECT_NE(theme, nullptr);
+    EXPECT_NE(pattern_->needToRequestKeyboardOnFocus_, pattern_->independentControlKeyboard_);
+    PipelineBase::GetCurrentContext()->SetMinPlatformVersion(lastPlatformVersion);
 }
 
 /**
@@ -1803,6 +1996,32 @@ HWTEST_F(TextFieldPatternTestEight, ProcessCancelButton001, TestSize.Level0)
 }
 
 /**
+ * @tc.name: ProcessVoiceButton
+ * @tc.desc: test ProcessVoiceButton
+ * @tc.type: FUNC
+ */
+HWTEST_F(TextFieldPatternTestEight, ProcessVoiceButton, TestSize.Level0)
+{
+    CreateTextField(DEFAULT_TEXT, "", [](TextFieldModelNG model) { model.SetType(TextInputType::VISIBLE_PASSWORD); });
+    GetFocus();
+
+    auto tmpHost = pattern_->GetHost();
+    ASSERT_NE(tmpHost, nullptr);
+    auto layoutProperty = tmpHost->GetLayoutProperty<TextFieldLayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->UpdateMaxLines(10);
+    layoutProperty->UpdateIsShowVoiceButton(true);
+    pattern_->ProcessVoiceButton();
+    EXPECT_EQ(pattern_->voiceResponseArea_, nullptr);
+
+    // get voice button text
+    auto textFieldTheme = pattern_->GetTheme();
+    CHECK_NULL_VOID(textFieldTheme);
+    auto voiceButtonText = textFieldTheme->GetVoiceButton();
+    EXPECT_TRUE(voiceButtonText.empty());
+}
+
+/**
  * @tc.name: ProcessResponseArea001
  * @tc.desc: test ProcessResponseArea
  * @tc.type: FUNC
@@ -1826,6 +2045,16 @@ HWTEST_F(TextFieldPatternTestEight, ProcessResponseArea001, TestSize.Level0)
     layoutProperty->UpdateShowPasswordIcon(false);
     pattern_->ProcessResponseArea();
     EXPECT_FALSE(pattern_->IsShowPasswordIcon());
+
+    auto textFieldNode = FrameNode::GetOrCreateFrameNode(V2::TEXTINPUT_ETS_TAG,
+        ElementRegister::GetInstance()->MakeUniqueId(), []() { return AceType::MakeRefPtr<TextFieldPattern>(); });
+    pattern_->responseArea_->ClearArea();
+    auto unitResponseArea =
+        AceType::MakeRefPtr<UnitResponseArea>(AceType::WeakClaim(AceType::RawPtr(pattern_)), textFieldNode);
+    unitResponseArea->areaRect_ = RectF(0.0f, 0.0f, 100.0f, 100.0f);
+    pattern_->responseArea_ = unitResponseArea;
+    pattern_->ProcessResponseArea();
+    EXPECT_EQ(unitResponseArea->areaRect_, RectF(0.0f, 0.0f, 0.0f, 0.0f));
 }
 
 /**
@@ -1864,7 +2093,9 @@ HWTEST_F(TextFieldPatternTestEight, ScrollToSafeArea001, TestSize.Level0)
     GetFocus();
 
     auto host = pattern_->GetHost();
+    ASSERT_NE(host, nullptr);
     auto pipeline = host->GetContext();
+    ASSERT_NE(pipeline, nullptr);
     pipeline->safeAreaManager_->keyboardAvoidMode_ = KeyBoardAvoidMode::OFFSET_WITH_CARET;
     pattern_->ScrollToSafeArea();
     EXPECT_TRUE(pipeline->UsingCaretAvoidMode());
